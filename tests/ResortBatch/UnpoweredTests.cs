@@ -1,25 +1,10 @@
-// UnpoweredTests — Phase D (docs/research/art/assets-2026-10/code-round-4/round-4-contract.md §7.2, rules group, with
-// round-4-contract-skeptic.md MUST-1): Richard's re-ruling, DECISIONS 171 — an unpowered lift of every type carries no
-// guests and does nothing for the resort, but still pays its full upkeep. The simulation half was already the code
-// (contract §0.1); these rows pin it per lift type t ∈ SkiCatalog.Lifts (fixedGrip, detachable, gondola, tram), power ON
-// (Powered), OFF (NoPower) and Unknown, through the pure rules the systems call. Where-tags `unpowered/…`.
-//   UP-1  served: LiftServedRule.Assign, one lift of type t (its ServeRule, ServeRadiusM, TopMarginM) and one run top inside
-//         its reach (50 m off the line, 10 m off the top station): ON → served (index 0, count 1); OFF → unserved (−1, 0);
-//         Unknown → served; Lift.Serves == Carries(Complete, Power, false).
-//   UP-2  attraction: SkiResortScore.Compute, one area, one A-frame, one rated blue run (Served from UP-1), one LiftInput{
-//         Complete, IsPowered(p), TypeIndex t}, backcountry 40: OFF → LiftsCounted 0, LiftsUnpowered 1, LiftsValue 0, the
-//         run's ServedFactor 0.4, RunsCapacity = 0.4 × ON's, Attraction < ON's; backcountry 0 → RunsCounted 0, SummerMode.
-//   UP-3  summit: SummitServed false with the only lift OFF, true ON and Unknown.
-//   UP-4  upkeep (MUST-1, DECISIONS 171 sub-ruling "an unpowered lift still costs its maintenance"): SkiMoneyRules
-//         .LiftUpkeepBillingOf has no power input — Full when the area has a counted run (OFF at backcountry 40: the area still
-//         counts its run at the backcountry share), so the rate is LiftFullRate of type t's own numbers bit for bit, not 25 %;
-//         = LiftBillingOf(complete, true, areaOpen) for all four inputs; the kept reductions: Unfinished, and NoOpenRun when
-//         the area counts no run (OFF at backcountry 0 → 25 %); LiftOperating(true, false) stays false (the Operating count).
-//   UP-5  tickets: TicketGateOf(40, 1, true, RunsCounted of UP-2): ON → Open; OFF at backcountry 40 → Open (as built:
-//         backcountry guests still buy a ticket, Richard's default for round-4 Q3); OFF at backcountry 0 → NothingOpen.
-//   UP-6  ski day: AreaStateOf with UP-2's RunsCounted: OFF at backcountry 0 → NoOpenRun, ON → not NoOpenRun;
-//         Capacity(RunsCapacity, 10 lodges, powder 0) is runs-limited and scales by 0.4 OFF; ClosingEdgeOf(hill seen open,
-//         …, runsCounted 0) == 1 (PullNoRun: on-site claims are pulled).
+// Unpowered lifts: an unpowered lift of every type carries no guests and does nothing for the resort, but still
+// pays its full upkeep. Per lift type in SkiCatalog.Lifts, power ON, OFF and Unknown, through the pure rules the
+// systems call (tags `unpowered/...`):
+//   UP-1 served (LiftServedRule.Assign)      UP-2 attraction (SkiResortScore.Compute)   UP-3 summit served
+//   UP-4 upkeep (LiftUpkeepBillingOf has no power input; OFF keeps the full rate while the area counts a run;
+//        reductions only for Unfinished and NoOpenRun)
+//   UP-5 tickets (TicketGateOf)              UP-6 ski day (AreaStateOf, Capacity, ClosingEdgeOf)
 
 using System;
 using System.Collections.Generic;
@@ -56,8 +41,8 @@ namespace ResortBatch
 
         private static bool Near(double a, double b, double relEps) => Math.Abs(a - b) <= relEps * Math.Max(1.0, Math.Abs(b));
 
-        /// <summary>One lift of type <paramref name="def"/>: a straight line (0,0) → (0,1000) xz, top station tip y 100 at
-        /// (0,1000), the type's serve rule and numbers.</summary>
+        /// <summary>One lift of type <paramref name="def"/>: a straight line (0,0) to (0,1000) xz, top station tip y 100 at
+        /// (0,1000), with the type's serve rule and numbers.</summary>
         private static LiftServedRule.Lift LiftOf(LiftTypeDef def, LiftPower power)
         {
             return new LiftServedRule.Lift
@@ -79,7 +64,7 @@ namespace ResortBatch
         private static Outcome Area(LiftTypeDef def, LiftPower power, int backcountry)
         {
             var o = new Outcome();
-            // UP-1's assignment decides the run's Served flag (the attraction system's own path, SkiResortAttractivenessSystem).
+            // UP-1's assignment decides the run's Served flag (the attraction system's own path)
             var lifts = new List<LiftServedRule.Lift> { LiftOf(def, power) };
             var chords = new List<LiftServedRule.Chord> { new LiftServedRule.Chord { A = new float2(0f, 0f), B = new float2(0f, LineLengthM) } };
             var tops = new List<float3> { new float3(50f, 90f, 990f) };
@@ -169,7 +154,7 @@ namespace ResortBatch
                    "SummitServed (" + p + ")");
             }
 
-            // UP-4 upkeep, per type (MUST-1)
+            // UP-4 upkeep, per type
             string w4 = w + " UP-4";
             bool openOff40 = SkiMoneyRules.LiftAreaRunOpen(true, true, false, off40.Result.RunsCounted);
             bool openOff0 = SkiMoneyRules.LiftAreaRunOpen(true, true, false, off0.Result.RunsCounted);
@@ -207,8 +192,7 @@ namespace ResortBatch
                "ClosingEdgeOf(hill seen open, runsCounted 0) = PullNoRun");
         }
 
-        /// <summary>UP-4's table: LiftUpkeepBillingOf == LiftBillingOf(complete, powered: true, areaOpen) for every input, and
-        /// it never returns NoPower.</summary>
+        /// <summary>LiftUpkeepBillingOf == LiftBillingOf(complete, powered: true, areaOpen) for every input, and never NoPower.</summary>
         private static void Up4UpkeepTable()
         {
             const string W = "unpowered/UP-4 table";

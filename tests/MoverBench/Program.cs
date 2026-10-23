@@ -1,24 +1,16 @@
-// MoverBench — headless benchmark of the chair mover's math at release scale (R-3 of
-// docs/research/lifts/lift-architecture-review-2026-10-22.md; report docs/research/lifts/lift-scale-2026-10-22.md, DECISIONS 369).
-// Run (from the ModularSkiResort root; needs the game installed, CSII_MANAGEDPATH set by the modding toolchain):
+// Headless benchmark of the chair mover's math at release scale (report: docs/research/lifts/lift-scale-2026-10-22.md).
+// Run from the repo root (needs the game installed, CSII_MANAGEDPATH set):
 //   dotnet run --project tests/MoverBench/MoverBench.csproj -c Release
 // Prints INFO / BENCH lines, `FAIL  where: msg` lines and one SUMMARY line; Environment.ExitCode = failures.
 //
-// WHAT IT BUILDS: a synthetic 20-lift resort through the REAL LiftLoopCache.Build (PathNode chaining, terminal classification,
-// pairing, bullwheel arcs): 6 fixed-grip x 1.0 km + 2 x 0.6 km (60 m spans, 8 m spacing), 8 detachables x 1.2 km (90 m spans,
-// 22.5 m), 4 gondolas x 2.0 km (200 m spans, 40 m), scattered over 6 x 6 km, 35 % grade, sagging spans. About 3,000 carriers.
-//
-// WHAT IT MEASURES (one thread, .NET 8 JIT — NOT Burst, NOT the game's Mono; the in-game numbers come from the dev tab):
-//   B-1 CORRECTNESS: LiftLoopSampler.Sample over the flat arrays == LiftLoopCache.Sample bit for bit, and Pose == MoveChair's
-//       pose, for every chair at three clocks (the Burst job's kernel is this code; Burst may contract float ops differently).
-//   B-2 BEFORE: the managed per-chair math of the pre-R-3 pass (Sample on the List<Segment> + grip + GetNodeRotation + the 1 mm
-//       test + a Transform store), every chair every pass: p50 / p95 / max ms over 600 passes. The game added 5 EntityManager
-//       calls per chair on top (the field cost, 0.85 us/chair, is in the report).
-//   B-3 AFTER, kernel only: the flat-array kernel (what MoveChairsJob runs per chair), every chair, one thread; then the same
-//       spread over worker threads (Parallel.For, batch 64 — the shape of IJobParallelFor; wall time).
-//   B-4 PACE: four camera scenarios (close-up at a base station, mid zoom, overview, a 600-pass flyover) at 60 fps 1x and 3x:
-//       loops near / far, chairs written per pass, bounds Updated tags per second before (one global cadence at the fastest
-//       loop's speed, every rider) and after (per loop, own speed, 2 m near / 2 m x stride far).
+// Builds a synthetic 20-lift resort (about 3,000 carriers over 6 x 6 km) through the real LiftLoopCache.Build.
+// Single thread on the .NET 8 JIT, not Burst or the game's Mono; in-game numbers come from the dev tab.
+//   B-1 correctness: LiftLoopSampler.Sample on the flat arrays == LiftLoopCache.Sample bit for bit, and Pose ==
+//       MoveChair's pose, for every chair at three clocks (Burst may contract float ops differently)
+//   B-2 before: managed per-chair math of the old pass, every chair every pass (p50 / p95 / max over 600 passes)
+//   B-3 after: the flat kernel MoveChairsJob runs per chair, one thread, then spread over workers (Parallel.For, batch 64)
+//   B-4 pace: four camera scenarios at 60 fps 1x and 3x: loops near / far, chairs written per pass, bounds Updated tags
+//       per second with one global cadence (before) versus per loop at its own speed (after)
 
 using System;
 using System.Collections.Generic;
@@ -65,7 +57,7 @@ namespace MoverBench
             List<LiftLoopCache.Loop> loops = BuildResort(rng, out int unclosed);
             Check(loops.Count == 20 && unclosed == 0, "bench/build", $"{loops.Count} loops closed, {unclosed} unclosed chains (want 20 / 0)");
 
-            // Chairs (even grid, as the rebuild's entity-index grid) and the flat arrays (as EnsureMoverArrays).
+            // Chairs on an even grid (as the rebuild's entity-index grid) and the flat arrays (as EnsureMoverArrays)
             var chairs = new List<Chair>();
             var flat = new List<FlatSegment>();
             var segFirst = new int[loops.Count];
@@ -115,7 +107,6 @@ namespace MoverBench
             return cond;
         }
 
-        // ── the resort ──────────────────────────────────────────────────────────────────────────────────────────────────────
         private static LiftTypeDef TypeById(string id)
         {
             for (int i = 0; i < SkiCatalog.Lifts.Count; i++)
@@ -213,7 +204,6 @@ namespace MoverBench
             return loops;
         }
 
-        // ── B-1 ─────────────────────────────────────────────────────────────────────────────────────────────────────────────
         private static void B1Correctness(List<LiftLoopCache.Loop> loops, Chair[] chairs, ArraySegments segs, int[] segFirst)
         {
             int badSample = 0, badPose = 0, compared = 0;
@@ -229,7 +219,7 @@ namespace MoverBench
                     compared++;
                     if (!BitEq(p0, p1) || !BitEq(t0, t1))
                         badSample++;
-                    // MoveChair's pose (pre-R-3 managed) vs LiftLoopSampler.Pose.
+                    // MoveChair's old managed pose vs LiftLoopSampler.Pose
                     var before = new Transform(new float3(1f, 2f, 3f), quaternion.identity);
                     var after = before;
                     float3 pos = p0;
@@ -253,7 +243,6 @@ namespace MoverBench
 
         private static bool BitEq(float4 a, float4 b) => BitEq(a.xyz, b.xyz) && BitConverter.SingleToInt32Bits(a.w) == BitConverter.SingleToInt32Bits(b.w);
 
-        // ── B-2 / B-3 ───────────────────────────────────────────────────────────────────────────────────────────────────────
         private const int Passes = 600, Warmup = 200;
 
         private static void B2B3Timing(List<LiftLoopCache.Loop> loops, Chair[] chairs, ArraySegments segs, int[] segFirst)
@@ -264,7 +253,7 @@ namespace MoverBench
             var samples = new float[Passes];
             double dt = 1.0 / 60.0;
 
-            // B-2: before — the managed per-chair path (minus EntityManager).
+            // B-2: the old managed per-chair path (minus EntityManager)
             double timeS = 5000.0;
             for (int pass = -Warmup; pass < Passes; pass++)
             {
@@ -290,7 +279,7 @@ namespace MoverBench
             }
             Report("B-2 before (managed per-chair math, List<Segment>, all chairs every pass)", samples, chairs.Length);
 
-            // B-3: after — the flat kernel, one thread.
+            // B-3: the flat kernel, one thread
             for (int pass = -Warmup; pass < Passes; pass++)
             {
                 timeS += dt;
@@ -302,7 +291,7 @@ namespace MoverBench
             }
             Report("B-3 after (flat kernel = MoveChairsJob.Execute's math, one thread, JIT)", samples, chairs.Length);
 
-            // B-3b: the same kernel over worker threads, batch 64 (the IJobParallelFor shape; wall time).
+            // B-3b: the same kernel over worker threads, batch 64 (the IJobParallelFor shape; wall time)
             int workers = Math.Max(1, Environment.ProcessorCount - 1);
             var opts = new ParallelOptions { MaxDegreeOfParallelism = workers };
             int batches = (chairs.Length + 63) / 64;
@@ -348,7 +337,6 @@ namespace MoverBench
                 what, p50, p95, max, chairs, p50 * 1000.0 / chairs));
         }
 
-        // ── B-4 ─────────────────────────────────────────────────────────────────────────────────────────────────────────────
         private static void B4Pace(List<LiftLoopCache.Loop> loops, Chair[] chairs, float3[] boxMin, float3[] boxMax)
         {
             var perLoop = new int[loops.Count];

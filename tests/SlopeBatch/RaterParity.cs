@@ -1,32 +1,21 @@
-// RaterParity — SlopeBatch section for Round U2 (docs/research/hub-u2-spec.md §3.5 "Gate", §3.8):
-// the Plan → Fill → Classify path moved out of SkiRunDrawFeedbackSystem into the pure SkiRunRater,
-// and "the drawing feedback's behaviour and numbers must not change". Proven here, in the test
-// runtime (CoreCLR; Mono bit equality is unverified, as for the classifier itself):
+// Proves the Plan -> Fill -> Classify path extracted into the pure SkiRunRater behaves exactly like the original in
+// SkiRunDrawFeedbackSystem. Runs in the test runtime (CoreCLR; Mono bit equality is unverified, as for the classifier itself).
 //
-//   (1) CAPTURES — every *.skislope in tests/SlopeBatch/captures:
-//       * SkiRunRater.Rate (stepCurrent = the captured multiple, the feedback system's hysteresis
-//         input) returns the captured m and a result BIT-IDENTICAL (Snapshot.Diff: every float of
-//         the result, crux, zones, CellBand, CellGrade, Mask, Need, segments) to TODAY'S DIRECT
-//         CALLS (Plan → DiagonalRule → fill from the capture → Classify, ReplayCapture) and to the
-//         OLD PATH (verbatim copies of the pre-extraction ShoelaceArea / Recompute middle /
+//   (1) Captures - every *.skislope in tests/SlopeBatch/captures:
+//       * SkiRunRater.Rate (stepCurrent = the captured multiple, the feedback system's hysteresis input) returns the captured m
+//         and a result bit-identical (Snapshot.Diff) to the direct calls (Plan -> DiagonalRule -> fill -> Classify,
+//         ReplayCapture) and to the old path (verbatim copies of the pre-extraction ShoelaceArea / Recompute middle /
 //         FillHeights below);
-//       * a second Rate with the first grid as reuse source copies EVERY Need height (sampled 0)
-//         and gives the same result (the feedback system's reuse path);
-//       * at m = 1, stepCurrent 0 and 1 give the same m and the same result (§3.8); the
-//         deterministic m (stepCurrent 0, the hub catalog's choice) is printed for every capture.
-//   (2) SYNTHETIC — shapes on the analytic test terrain (rects at 7 angles, the R2 scenarios, a
-//       polyline, the disconnected dumbbell, rings that need m = 2 and 3), stepCurrent 0..3:
-//       Rate == old path == direct (Plan + Fill + Classify), and FillHeights == the old body with a
-//       reuse source whose lattice is offset (a moved vertex), counts included; a reuse source with
-//       another Step is refused.
-//   (3) STATUS MAPPING — TooFewPoints / TooLarge never classify (the result is left untouched, as
-//       the feedback system never called Classify after a failed Plan), NaN heights → NoTerrain.
+//       * a second Rate with the first grid as reuse source copies every Need height (sampled 0) and gives the same result;
+//       * at m = 1, stepCurrent 0 and 1 give the same m and result; the deterministic m (stepCurrent 0, the hub catalog's
+//         choice) is printed for every capture.
+//   (2) Synthetic - shapes on the analytic test terrain (rects at 7 angles, a polyline, a disconnected dumbbell, rings that need
+//       m = 2 and 3), stepCurrent 0..3: Rate == old path == direct, and FillHeights == the old body with a reuse source whose
+//       lattice is offset (a moved vertex), counts included; a reuse source with another Step is refused.
+//   (3) Status mapping - TooFewPoints / TooLarge never classify (the result is left untouched), NaN heights give NoTerrain.
 //
-// The section runs with the rating fingerprint and the minimax oracle OFF (it compares paths; the
-// PostCheck'd classifications elsewhere already carry the oracle), so the printed fingerprint stays
-// comparable with earlier runs.
-//
-// Created 2026-10-03 (Round U2, implementer I-1).
+// The section runs with the rating fingerprint and the minimax oracle off (it compares paths; the PostCheck'd classifications
+// elsewhere carry the oracle), so the printed fingerprint stays comparable across runs.
 
 using System;
 using System.Collections.Generic;
@@ -37,8 +26,7 @@ using Unity.Mathematics;
 
 namespace SlopeBatch
 {
-    /// <summary>IHeightSampler over the analytic test terrain (TerrainUtils.SampleHeightInternal
-    /// shape, Terrain.Sample).</summary>
+    /// <summary>IHeightSampler over the analytic test terrain (TerrainUtils.SampleHeightInternal shape, Terrain.Sample).</summary>
     internal struct TerrainSampler : IHeightSampler
     {
         public Terrain T;
@@ -49,9 +37,8 @@ namespace SlopeBatch
         }
     }
 
-    /// <summary>IHeightSampler over a capture's Need heights: the world point is mapped back to its
-    /// world lattice index (round((w - origin) / step)) and looked up; a miss returns NaN and is
-    /// counted.</summary>
+    /// <summary>IHeightSampler over a capture's Need heights: the world point is mapped back to its lattice index
+    /// (round((w - origin) / step)) and looked up; a miss returns NaN and is counted.</summary>
     internal struct CaptureSampler : IHeightSampler
     {
         public Capture Cap;
@@ -102,10 +89,9 @@ namespace SlopeBatch
                 s_RaterCompares));
         }
 
-        // ------------------------------------------------------------------ old path (verbatim)
+        // ---- old path (verbatim)
 
-        /// <summary>VERBATIM copy of SkiRunDrawFeedbackSystem.ShoelaceArea before the U2 extraction
-        /// (build F71E109E, SkiRunDrawFeedbackSystem.cs:2231-2239).</summary>
+        /// <summary>Verbatim copy of SkiRunDrawFeedbackSystem.ShoelaceArea from before the extraction.</summary>
         private static double OldShoelaceArea(float3[] p, int n)
         {
             if (n < 3)
@@ -116,9 +102,8 @@ namespace SlopeBatch
             return Math.Abs(s) * 0.5;
         }
 
-        /// <summary>VERBATIM copy of SkiRunDrawFeedbackSystem.FillHeights before the U2 extraction
-        /// (build F71E109E, :1367-1464); the only edits: TerrainUtils.SampleHeight(ref hd, p) →
-        /// sample(p), and the counts are returned instead of published.</summary>
+        /// <summary>Verbatim copy of SkiRunDrawFeedbackSystem.FillHeights from before the extraction; the only edits:
+        /// TerrainUtils.SampleHeight(ref hd, p) became sample(p), and the counts are returned instead of published.</summary>
         private static void OldFillHeights(Func<float3, float> sample, SlopeGrid g, SlopeGrid src, out int reusedOut, out int sampledOut)
         {
             int nx = g.Nx, nz = g.Nz, n = nx * nz;
@@ -210,10 +195,9 @@ namespace SlopeBatch
             sampledOut = sampled;
         }
 
-        /// <summary>VERBATIM copy of the middle of SkiRunDrawFeedbackSystem.Recompute before the
-        /// U2 extraction (build F71E109E, :1216-1264): area → StepMultiple (clamped) → step →
-        /// DiagonalRule → Plan → [plan ok] reuse guard → FillHeights → Classify. callerAllowsReuse
-        /// = the feedback system's own clauses (!forceFull, verified age).</summary>
+        /// <summary>Verbatim copy of the middle of SkiRunDrawFeedbackSystem.Recompute from before the extraction: area -> StepMultiple
+        /// (clamped) -> step -> DiagonalRule -> Plan -> [plan ok] reuse guard -> FillHeights -> Classify. callerAllowsReuse = the
+        /// feedback system's own clauses (!forceFull, verified age).</summary>
         private static SlopeStatus OldRate(Func<float3, float> sample, float3[] nodes, int nodeCount, double2 origin, float texel, int stepCurrent,
             SlopeGrid target, SlopeGrid source, bool callerAllowsReuse, SlopeResult result, out int mOut, out bool reuseOut, out int reused, out int sampled)
         {
@@ -241,7 +225,7 @@ namespace SlopeBatch
             return status;
         }
 
-        // ------------------------------------------------------------------ (1) captures
+        // ---- (1) captures
 
         private static void RaterCaptureParity()
         {
@@ -262,7 +246,7 @@ namespace SlopeBatch
                 if (!Check(TryLoadCapture(file, out Capture cap, out string err), w, "parse: " + err))
                     continue;
 
-                // Today's direct calls (ReplayCapture: Plan → DiagonalRule → fill → Classify).
+                // Direct calls: ReplayCapture (Plan -> DiagonalRule -> fill -> Classify)
                 SlopeGrid gd = new SlopeGrid();
                 SlopeResult rd = new SlopeResult();
                 SlopeStatus sd = ReplayCapture(cap, gd, rd, out int missing, out SlopeStatus planD, w + " direct");
@@ -344,7 +328,7 @@ namespace SlopeBatch
             return s.Sample(world);
         }
 
-        // ------------------------------------------------------------------ (2) synthetic
+        // ---- (2) synthetic
 
         private static void RaterSyntheticParity()
         {
@@ -367,9 +351,9 @@ namespace SlopeBatch
             double2[] dumb = Dumbbell(-2000.0, 1500.0);
             shapes.Add(Shape("dumbbell (disconnected)", dumb, Terrain.For((x, z) => 1000.0 - 0.15 * x, dumb, 60)));
             Frame fm = Frame.Make(300.0, 400.0, 17);
-            double2[] big2 = Rect(2500, 200, fm);     // 500,000 m² → m = 2 at stepCurrent 0
+            double2[] big2 = Rect(2500, 200, fm);     // 500,000 m2: m = 2 at stepCurrent 0
             shapes.Add(Shape("rect 2500x200 (m=2)", big2, Terrain.For(Mountain(), big2, 60)));
-            double2[] big3 = Rect(3000, 300, fm);     // 900,000 m² → m = 3
+            double2[] big3 = Rect(3000, 300, fm);     // 900,000 m2: m = 3
             shapes.Add(Shape("rect 3000x300 (m=3)", big3, Terrain.For(Mountain(), big3, 60)));
 
             foreach (var sh in shapes)
@@ -456,7 +440,7 @@ namespace SlopeBatch
             return new KeyValuePair<string, KeyValuePair<double2[], Terrain>>(name, new KeyValuePair<double2[], Terrain>(ring, t));
         }
 
-        // ------------------------------------------------------------------ (3) status mapping
+        // ---- (3) status mapping
 
         private static void RaterStatusMapping()
         {

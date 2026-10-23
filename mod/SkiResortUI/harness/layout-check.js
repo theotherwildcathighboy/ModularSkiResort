@@ -1,24 +1,23 @@
 /*
- * harness/layout-check.js - "never a scrollbar" measured in the harness (MIT, 2026-10-20, T114;
- * docs/research/ui/hub-round-t114-2026-10-20.md). Loaded by harness/index.html; nothing here ships.
+ * harness/layout-check.js - "never a scrollbar" measured in the harness. Loaded by harness/index.html; nothing here ships.
  *
  * URL parameters (read once the bundle is mounted):
- *   ?layout=1                 run the whole check and write its JSON into <pre id="layout-result"> (tools/test-hub-layout.js
- *                             reads it with a headless browser's --dump-dom); also window.SkiLayout.run() from the console.
+ *   ?layout=1   run the whole check and write its JSON into <pre id="layout-result"> (tools/test-hub-layout.js reads it
+ *               with a headless browser's --dump-dom); also window.SkiLayout.run() from the console.
  *   ?scenario=<name>&view=<0-5>&fs=<text scale>&tab=<lifts|runs|buildings>&fold=<n>&areas=1&problems=1&page=<n>
- *                             set up one state for a screenshot (tools/test-hub-layout.js --shots).
- * Scale: the game's rem rule (html font-size from the window height, harness "as the game"), and the game's text scale the way
- * the game sets it (index.js applyTextScale: --fontScale = s AND --fontScaleChange = s - 1; the font sizes use both).
+ *               set up one state for a screenshot (tools/test-hub-layout.js --shots).
+ * Scale: the game's rem rule (html font-size from the window height) and its text scale (index.js applyTextScale:
+ * --fontScale = s and --fontScaleChange = s - 1; the font sizes use both).
  *
- * What the check asserts, per scenario x text scale x view x fold state (every fold of a view opened in turn, accordion) x build tab:
- *   - over = content scrollHeight - clientHeight <= 1 px (the vanilla Scrollable shows its bar at scrollHeight - 1 > offsetHeight,
- *     installed index.js@638418), also with the ski-area list and the +N popover open;
- *   - the header is one row (its height under 2 x its row) and the name never pushes the buttons out (header scrollWidth fits);
- *   - Runs / Lifts views (T131, 2026-10-20, DECISIONS 350): the ONE exception. Their list (class listAll) draws every row, no pager,
- *     and the content may scroll there; the check asserts no pager row is drawn in them and records their overflow as "scrolls";
+ * Asserted per scenario x text scale x view x fold state (each fold opened in turn) x build tab:
+ *   - over = content scrollHeight - clientHeight <= 1 px (the vanilla Scrollable shows its bar at scrollHeight - 1 >
+ *     offsetHeight, index.js@638418), also with the ski-area list and the +N popover open;
+ *   - the header is one row and the name never pushes the buttons out;
+ *   - Runs / Lifts views are the one exception: their list (class listAll) draws every row with no pager and may
+ *     scroll; the check asserts no pager row is drawn and records their overflow as "scrolls";
  *   - Buildings tab: one tile per sent building id, no lodge chip; Lifts tile "built / drawn".
- * The harness chrome is not the game's (harness/README.md): the panel frame here is a stand-in, so the check also reports the slack
- * (rem left) of each case; the report keeps a margin rule (MIN_SLACK_REM) for the title bar / padding difference.
+ * The harness panel frame is a stand-in for the game's, so the report also gives each case's slack (rem left);
+ * MIN_SLACK_REM is a margin rule for the title bar / padding difference.
  */
 (function () {
   "use strict";
@@ -85,14 +84,14 @@
     const nViews = tiles().length;
     const fail = (what, m) => out.fails.push(Object.assign({ scenario: name, fs, what }, m || {}));
     const rec = (view, state, m) => {
-      // T131: a Runs / Lifts view (its full list carries listAll) may scroll; it must list every row (no pager row).
+      // A Runs / Lifts view (its full list carries listAll) may scroll; it must list every row (no pager row).
       const scrolls = !!q(cls("listAll"), panel());
       out.cases.push(Object.assign({ scenario: name, fs, view, state, scrolls }, m));
       if (scrolls && q(cls("pagerRow"), panel())) fail(`pager drawn on a full-list view: view ${view} ${state}`, m);
       if (!scrolls && (!m || m.overPx > 1 || m.slackRem < MIN_SLACK_REM)) fail(`overflow: view ${view} ${state}`, m);
       if (m && !m.headerFits) fail(`header overflows: view ${view} ${state}`, m);
     };
-    // Every page of the shown state (the view pager, or a list pager on Runs / Lifts) must fit; returns the pager text of page 1.
+    // Every page of the shown state must fit; returns the pager text of page 1.
     const allPages = async (v, state) => {
       rec(v, state, measure());
       const pt = pagerText();
@@ -130,7 +129,7 @@
     if (nameBtn) { nameBtn.click(); await settle(); rec(0, "area list open", measure()); nameBtn.click(); await settle(); }
     const more = q(cls("problemMoreButton"));
     if (more) { more.click(); await settle(); rec(0, "problems popover open", measure()); more.click(); await settle(); }
-    // Build tabs: the footer must not change the content's fit (fixed height), and the Buildings tab draws every building tile.
+    // Build tabs: the footer must not change the content's fit, and the Buildings tab draws every building tile.
     for (const b of buildTabs()) {
       b.click(); await settle();
       rec(0, `build tab ${b.textContent.trim()}`, measure());
@@ -143,7 +142,7 @@
       out.buildings.push({ scenario: name, fs, tiles: tilesN, lodgeChips: chips, caption: qa(cls("groupCaption")).map((e) => e.textContent.trim()).filter(Boolean).join(" | ") });
       if (chips !== 0) fail("Buildings tab still has picker chips", { chips });
     }
-    // Contract 12: the Lifts tab carries the lift generator toggle (its family row keeps its height: the build-tab cases above).
+    // The Lifts tab carries the lift generator toggle
     const lTab = buildTabs().find((b) => /^Lifts/.test(b.textContent.trim()));
     if (lTab) {
       lTab.click(); await settle();
@@ -187,7 +186,7 @@
     if (p.get("page")) { for (let i = 1; i < Number(p.get("page")); i++) { const r = q(cls("pagerRow")); if (r) { qa("button", r).pop().click(); await settle(); } } }
     if (p.get("areas")) { const b = q(cls("areaName")); if (b) { b.click(); await settle(); } }
     if (p.get("problems")) { const b = q(cls("problemMoreButton")); if (b) { b.click(); await settle(); } }
-    if (p.get("free")) {   // the BEFORE shots: let the panel grow to show what the Scrollable hid (debug aid, never in the check)
+    if (p.get("free")) {   // debug aid, never in the check: let the panel grow to show what the Scrollable hid
       const pn = panel(); pn.style.maxHeight = "none"; pn.style.height = "auto";
     }
     // Frame the panel: hide the harness side bar so a screenshot shows only the "game viewport".

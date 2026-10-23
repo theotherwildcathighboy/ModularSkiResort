@@ -1,15 +1,6 @@
-// SnowRulesTests — Round E1 test file for tests/ResortBatch (econ-round spec ch3 §11: the snow rules (108 checks)).
-// Owner: stream S3 (docs/research/econ-round/e1-spec.md §3.2). Created empty by stage 0 (S0, 2026-10-04):
-// e1-spec R9 — `public static class SnowRulesTests` with `public static void Run(Func<bool, string, string, bool> check)`
-// and its own Near; Program.Main calls SnowRulesTests.Run(Check). Oracles are literal hand values.
-// Written by stream S3 (2026-10-04): cases S1-S16 of ch3 §11.2, one check per row (2 + 8 + 9 + 10 + 8 + 5 + 6 +
-// 5 + 11 + 8 + 4 + 8 + 10 + 5 + 4 + 5 = 108). The Burst jobs, the snapshot state machine, the async request and
-// the merge with stepScale need the Unity runtime; the field test and the ch3 §10 log lines cover them (§11.3).
-// E1 fixer (2026-10-04, e1-spec §8.9 F6): S13b IsForcedDryCheck, 6 checks (108 → 114).
-// Round M2 (2026-10-10, builder B6; docs/research/round-m2/build-contract.md §7, topup-skip.md §3.1 and its check G7):
-// the packed skip, S17-S23, 2 + 6 + 8 + 17 + 8 + 8 + 2 = 51 checks (114 → 165). S13 / S13b stay byte for byte (the new
-// DryPass fields default to 0 / false and CanSkipDry is untouched). The episode bookkeeping, the Snow [day] roll and
-// the merge need the Unity runtime: the field sheet (topup-skip §3.2 F1-F7) covers them.
+// Tests for the snow rules. Oracles are literal hand values. The Burst jobs, the snapshot state machine, the async
+// request, the merge with stepScale, the episode bookkeeping and the Snow [day] roll need the Unity runtime and are
+// covered by the field test.
 
 using System;
 using SkiResortMod.Systems;
@@ -33,18 +24,18 @@ namespace ResortBatch
             ShareFromSumsCases(check);
             StepScaleCases(check);
             CanSkipDryCases(check);
-            ForcedDryCheckCases(check);   // E1 fixer F6 (+6)
-            PackedConstants(check);       // Round M2 S17 (+2)
-            PackGuardCases(check);        // S18 (+6)
-            CalmShareCases(check);        // S19 (+8)
-            CanSkipPackedCases(check);    // S20 (+17)
-            SkipKindCases(check);         // S21 (+8)
-            ForcedCheckCases(check);      // S22 (+8)
-            PackedProperties(check);      // S23 (+2)
+            ForcedDryCheckCases(check);
+            PackedConstants(check);
+            PackGuardCases(check);
+            CalmShareCases(check);
+            CanSkipPackedCases(check);
+            SkipKindCases(check);
+            ForcedCheckCases(check);
+            PackedProperties(check);
             Mix64Cases(check);
             HourAlignedDateCases(check);
             DayMeanCases(check);
-            T09Cases(check);              // T09 S24-S32
+            T09Cases(check);
         }
 
         private static bool Near(double a, double b, double eps)
@@ -52,7 +43,6 @@ namespace ResortBatch
             return Math.Abs(a - b) <= eps;
         }
 
-        // S1 constants (2)
         private static void Constants(Func<bool, string, string, bool> check)
         {
             const string W = "snow S1 constants";
@@ -66,7 +56,6 @@ namespace ResortBatch
             check((byte)RunKind.Natural == 3, W, "RunKind.Natural = " + (byte)RunKind.Natural + ", expected 3 (appended, never renumbered)");
         }
 
-        // S2 OpenMultiplier (8)
         private static void OpenMultiplierCases(Func<bool, string, string, bool> check)
         {
             const string W = "snow S2 OpenMultiplier";
@@ -81,7 +70,6 @@ namespace ResortBatch
             v = RunSnowRules.OpenMultiplier(float.NaN); check(v == 0f, W, "NaN -> " + v);
         }
 
-        // S3 NextState (9)
         private static void NextStateCases(Func<bool, string, string, bool> check)
         {
             const string W = "snow S3 NextState";
@@ -103,7 +91,7 @@ namespace ResortBatch
             check(got == expected, w, "(" + previous + ", " + share + ") -> " + got + ", expected " + expected);
         }
 
-        // S4 a season, step by step (10): state, published multiplier (dead band), phase.
+        // A season, step by step: state, published multiplier (dead band), phase
         private static void SeasonSteps(Func<bool, string, string, bool> check)
         {
             const string W = "snow S4 season";
@@ -135,7 +123,6 @@ namespace ResortBatch
             }
         }
 
-        // S5 Republish (8)
         private static void RepublishCases(Func<bool, string, string, bool> check)
         {
             const string W = "snow S5 Republish";
@@ -149,7 +136,6 @@ namespace ResortBatch
             check(!RunSnowRules.Republish(0f, 0f), W, "(0, 0) should hold");
         }
 
-        // S6 Phase (5)
         private static void PhaseCases(Func<bool, string, string, bool> check)
         {
             const string W = "snow S6 Phase";
@@ -167,7 +153,6 @@ namespace ResortBatch
             check(got == expected, w, "(" + state + ", " + m + ") -> " + got + ", expected " + expected);
         }
 
-        // S7 ThresholdC (6)
         private static void ThresholdCases(Func<bool, string, string, bool> check)
         {
             const string W = "snow S7 ThresholdC";
@@ -180,7 +165,6 @@ namespace ResortBatch
             v = RunSnowRules.ThresholdC(RunKind.Night, 0.5f, 0f);       check(v == 0.5f, W, "(Night, 0.5, 0) -> " + v);
         }
 
-        // S8 ClampMargin (7; float since T09)
         private static void ClampMarginCases(Func<bool, string, string, bool> check)
         {
             const string W = "snow S8 ClampMargin";
@@ -193,7 +177,6 @@ namespace ResortBatch
             }
         }
 
-        // S9 EstimatedShare(bottom, top, T, threshold, base, lapse) (11)
         private static void EstimatedShareCases(Func<bool, string, string, bool> check)
         {
             const string W = "snow S9 EstimatedShare";
@@ -222,7 +205,7 @@ namespace ResortBatch
             check(v == 0f, W, "NaN bottom: " + v);
         }
 
-        // S10 IsSkiable(depthNorm, ownTargetNorm) (8; T133 the 3 ft bar: 0.91 / 8 x 65535 = 7454.53 quanta, so 7455 passes)
+        // IsSkiable(depthNorm, ownTargetNorm): the 3 ft bar is 0.91 / 8 x 65535 = 7454.53 quanta, so 7455 passes
         private static void IsSkiableCases(Func<bool, string, string, bool> check)
         {
             const string W = "snow S10 IsSkiable";
@@ -236,7 +219,6 @@ namespace ResortBatch
             check(!RunSnowRules.IsSkiable(0f, 0.5f / 65535f), W, "a sub-quantum target is ignored: bare is not skiable");
         }
 
-        // S11 ShareFromSums (4)
         private static void ShareFromSumsCases(Func<bool, string, string, bool> check)
         {
             const string W = "snow S11 ShareFromSums";
@@ -247,7 +229,7 @@ namespace ResortBatch
             v = RunSnowRules.ShareFromSums(5.0, 4.0);  check(v == 1f, W, "(5, 4) -> " + v + ", expected 1 (clamped)");
         }
 
-        // S12 StepScale (8), all exact
+        // StepScale, all exact
         private static void StepScaleCases(Func<bool, string, string, bool> check)
         {
             const string W = "snow S12 StepScale";
@@ -261,7 +243,6 @@ namespace ResortBatch
             }
         }
 
-        // S13 CanSkipDry (10)
         private static void CanSkipDryCases(Func<bool, string, string, bool> check)
         {
             const string W = "snow S13 CanSkipDry";
@@ -288,7 +269,7 @@ namespace ResortBatch
             check(!RunSnowRules.CanSkipDry(last, 0, 120, Hash, 64u), W, "no real pass this load: no skip");
         }
 
-        // S13b IsForcedDryCheck (6) — E1 fixer (e1-spec §8.9 F6): the forced check is the frame term ALONE.
+        // IsForcedDryCheck: the forced check is the frame term alone
         private static void ForcedDryCheckCases(Func<bool, string, string, bool> check)
         {
             const string W = "snow S13b IsForcedDryCheck";
@@ -307,10 +288,9 @@ namespace ResortBatch
             check(!RunSnowRules.IsForcedDryCheck(last, 0, 120, Hash, 5000u), W, "no real pass this load: not forced");
         }
 
-        // ── Round M2 packed skip (topup-skip §3.1): records and arguments ────────────────────────────────────────
-        // H = the file's footprint hash (S13's constant). P = a packed record: 478 texels and 0.212 m are field test 10
-        // run 2b's last footprint (L 951) and run mean (Surface L 946). D = a dry record. Arguments (cold, contained,
-        // hash, sinceReal, calm); the base is (0, 478, H, 188u, true): 188 sim frames = one 8× pass (L 452).
+        // Packed skip records and arguments. H = the file's footprint hash. P = a packed record: 478 texels and 0.212 m are a
+        // field run's last footprint and run mean. D = a dry record. Arguments (cold, contained, hash, sinceReal, calm); the
+        // base is (0, 478, H, 188u, true): 188 sim frames = one 8x pass.
         private const ulong PackedHash = 0x732AD62604202A70UL;
 
         private static DryPass PackedRecord()
@@ -331,7 +311,6 @@ namespace ResortBatch
             };
         }
 
-        // S17 Round M2 constants (2)
         private static void PackedConstants(Func<bool, string, string, bool> check)
         {
             const string W = "snow S17 packed constants";
@@ -343,7 +322,6 @@ namespace ResortBatch
                 W, "TopupSkip literals changed: expected None 0, Dry 1, Packed 2");
         }
 
-        // S18 PackGuard (6)
         private static void PackGuardCases(Func<bool, string, string, bool> check)
         {
             const string W = "snow S18 PackGuard";
@@ -355,7 +333,6 @@ namespace ResortBatch
             check(!RunSnowRules.PackGuard(-0.5f), W, "-0.5 m: expected off");
         }
 
-        // S19 IsCalmShare (8)
         private static void CalmShareCases(Func<bool, string, string, bool> check)
         {
             const string W = "snow S19 IsCalmShare";
@@ -368,7 +345,6 @@ namespace ResortBatch
             }
         }
 
-        // S20 CanSkipPacked (17)
         private static void CanSkipPackedCases(Func<bool, string, string, bool> check)
         {
             const string W = "snow S20 CanSkipPacked";
@@ -411,8 +387,8 @@ namespace ResortBatch
             check(got == expected, w, what + " (got " + got + ")");
         }
 
-        // S21 SkipKind (8). Row 3 (topup-skip: "D.PackGuardNext = true → Dry (dry first)") also sets RunMeanDepthM 0.212 so
-        // that BOTH predicates hold on that synthetic record and the order is really tested (with 0 m only Dry holds).
+        // Row 3 ("D.PackGuardNext = true -> Dry", dry first) also sets RunMeanDepthM 0.212 so that both predicates hold on
+        // that synthetic record and the order is really tested (with 0 m only Dry holds)
         private static void SkipKindCases(Func<bool, string, string, bool> check)
         {
             const string W = "snow S21 SkipKind";
@@ -438,7 +414,7 @@ namespace ResortBatch
             check(got == expected, w, what + ": " + got + ", expected " + expected);
         }
 
-        // S22 IsForcedCheck (8): the 1,024-frame term is the ONLY failing term (E1 F6, extended to the packed kind).
+        // IsForcedCheck: the 1,024-frame term is the only failing term
         private static void ForcedCheckCases(Func<bool, string, string, bool> check)
         {
             const string W = "snow S22 IsForcedCheck";
@@ -459,12 +435,11 @@ namespace ResortBatch
             check(!RunSnowRules.IsForcedCheck(p, 0, 478, H, 5000u, true), W, "no real pass this load: not forced");
         }
 
-        // S23 properties (2), seed 20261010, 20,000 records: one check per property, violations counted (the oracle is
-        // 0). Draw order per record (fixed, topup-skip check G7), each value tables[rng.Next(length)]: Valid, ColdTexels,
-        // Injected, Lowered, PackGuardNext, RunDepthSum, RunMeanDepthM (drawn only when RunDepthSum != 0; else 0f), then
-        // the arguments cold, contained, hash, sinceReal, calm; the record's footprint is 478 texels / H. B6 deviation: the
-        // spec's 2,000 records give this seed ONE packed record (a node port of the seeded System.Random says so); 20,000
-        // give 18 packed and 103 dry, and each check also requires that both kinds were drawn (no vacuous pass).
+        // Properties over seed 20261010, 20,000 records: one check per property, violations counted (the oracle is 0). Draw
+        // order per record (fixed), each value tables[rng.Next(length)]: Valid, ColdTexels, Injected, Lowered, PackGuardNext,
+        // RunDepthSum, RunMeanDepthM (drawn only when RunDepthSum != 0; else 0f), then the arguments cold, contained, hash,
+        // sinceReal, calm; the record's footprint is 478 texels / H. 20,000 records give 18 packed and 103 dry for this seed
+        // (2,000 give one packed record), and each check also requires that both kinds were drawn (no vacuous pass).
         private static void PackedProperties(Func<bool, string, string, bool> check)
         {
             const string W = "snow S23 packed properties";
@@ -509,16 +484,15 @@ namespace ResortBatch
                     packed++;
                 if (canDry)
                     dry++;
-                // P1: a packed skip implies the terms that make the merge a no-op (no cold texel now or at the last real
-                // pass, nothing raised or lowered, the pack guard on for the next merge) and the pass not due.
+                // A packed skip implies the terms that make the merge a no-op (no cold texel now or at the last real pass, nothing
+                // raised or lowered, the pack guard on for the next merge) and the pass not due
                 if (canPacked && !(cold == 0 && last.ColdTexels == 0 && last.Injected == 0 && last.Lowered == 0 &&
                                    last.PackGuardNext && since < RunSnowRules.ForcedRealPassFrames))
                 {
                     if (bad1++ == 0)
                         first1 = Describe(last, cold, contained, hash, since, calm);
                 }
-                // P2: never both skips on these records; SkipKind is Dry exactly when CanSkipDry, Packed exactly when
-                // CanSkipPacked.
+                // Never both skips on these records; SkipKind is Dry exactly when CanSkipDry, Packed exactly when CanSkipPacked
                 if ((canDry && canPacked) || (kind == TopupSkip.Dry) != canDry || (kind == TopupSkip.Packed) != canPacked)
                 {
                     if (bad2++ == 0)
@@ -543,7 +517,6 @@ namespace ResortBatch
                    ", calm " + calm + ")";
         }
 
-        // S14 Mix64 and the footprint hash (5)
         private static void Mix64Cases(Func<bool, string, string, bool> check)
         {
             const string W = "snow S14 Mix64";
@@ -560,7 +533,6 @@ namespace ResortBatch
             check(v == 0x0A830C0420B7813EUL, W, "Mix64(2) + Mix64(1) + Mix64(0) (order does not matter) = 0x" + v.ToString("X16"));
         }
 
-        // S15 HourAlignedDate (4)
         private static void HourAlignedDateCases(Func<bool, string, string, bool> check)
         {
             const string W = "snow S15 HourAlignedDate";
@@ -576,7 +548,6 @@ namespace ResortBatch
             check(key == 12 && d == 0.5f, W, "(0.5, days 0 counts as 1) -> key " + key + ", date " + d);
         }
 
-        // S16 DayMeanC (5)
         private static void DayMeanCases(Func<bool, string, string, bool> check)
         {
             const string W = "snow S16 DayMeanC";
@@ -593,9 +564,8 @@ namespace ResortBatch
             check(Near(v, 11.5, 1e-3), W, "days 0 counts as 1 -> " + v + ", expected 11.5");
         }
 
-        // ───────────────────────── T09 (2026-10-16): Richard's snow rulings ─────────────────────────
-        // S24 constants, S25 the skiable bar per run, S26 the gun reaches "open" by itself, S27 aspect, S28 spring, S29 the
-        // budget, S30 the protection machine, S31 the field-sheet scenarios in rule form, S32 the ledger. Hand-value oracles.
+        // Snow-rule scenarios: constants, the skiable bar per run, the gun reaching "open" by itself, aspect, spring, the
+        // budget, the protection machine, field-sheet scenarios in rule form, the ledger. Hand-value oracles.
 
         private static void T09Cases(Func<bool, string, string, bool> check)
         {
@@ -610,7 +580,6 @@ namespace ResortBatch
             T09Ledger(check);
         }
 
-        // S24 constants (10)
         private static void T09Constants(Func<bool, string, string, bool> check)
         {
             const string W = "snow S24 T09 constants";
@@ -628,16 +597,15 @@ namespace ResortBatch
             check(RunSnowRules.ProtectSpringFactor == 0.5f && RunSnowRules.ProtectNorthFactor == 1.5f && RunSnowRules.ProtectSouthFactor == 0.5f,
                 W, "spring x0.5, north x1.5, south x0.5");
             // The re-raise must beat the melt it faces: 2e-5 x T x 0.2 x 16 snow ticks x 8 m at T = 10 C is 6.4 mm per window
-            // (snow-injection.md 4; the linear form is UNVERIFIED), with 1.5x headroom.
+            // (linear form unverified), with 1.5x headroom
             double meltAt10C = 2e-5 * 10.0 * 0.2 * 16.0 * 8.0;
             check(RunSnowRules.ProtectRaisePerTopupM >= 1.5 * meltAt10C - 1e-9, W, "the protection step beats the estimated melt at 10 C by 1.5x");
         }
 
-        // S25 SkiableBarNorm and the bar in IsSkiable (15)
         private static void T09SkiableBar(Func<bool, string, string, bool> check)
         {
             const string W = "snow S25 skiable bar";
-            // T133 (Richard, 2026-10-20): every run opens at 3 ft (0.91 m), made or natural, every rating.
+            // Every run opens at 3 ft (0.91 m), made or natural, every rating
             float bar = 0.91f / 8f;
             check(RunSnowRules.SkiableBarNorm(RunKind.Natural, 3) == bar, W, "T133 natural black needs 3 ft");
             check(RunSnowRules.SkiableBarNorm(RunKind.Natural, 4) == bar, W, "T133 natural double black needs 3 ft");
@@ -657,14 +625,14 @@ namespace ResortBatch
             check(RunSnowRules.IsSkiable(1.20f / 8f, 0f, black), W, "T133 1.2 m: skiable");
         }
 
-        // S26 the gun reaches "open" by itself (9): windows of 64 frames at step scale 1, the slowest texel has rate noise at its minimum
+        // The gun reaches "open" by itself: windows of 64 frames at step scale 1, the slowest texel has rate noise at its minimum
         private static void T09GunOpens(Func<bool, string, string, bool> check)
         {
             const string W = "snow S26 gun opens";
             float thr = RunSnowRules.DefaultSnowmakingMarginC;   // freezing 0 + 3.3
             float slow = RunSnowRules.RampRateMin;
             float mean = RunSnowRules.RampRateMin + RunSnowRules.RampRateSpan * 0.5f;
-            // T133: the gun target is the 3 ft open bar (0.91 m). -3 C: chill (3.3 + 3) / 4 > 1 -> output 2.0; slowest step 0.002 m.
+            // The gun target is the 3 ft open bar (0.91 m). -3 C: chill (3.3 + 3) / 4 > 1 -> output 2.0; slowest step 0.002 m.
             float w91 = RunSnowRules.GunWindowsToReach(RunSnowRules.GunTargetDepthM, -3f, thr, slow);
             check(Near(w91, 455.0, 1.0), W, "T133 slowest texel to 91 cm at -3 C: " + w91 + " windows, expected 455");
             check(RunSnowRules.WindowsToGameHours(w91) < 3f, W, "T133 slowest texel opens (3 ft) within 3 game h at -3 C");
@@ -680,7 +648,6 @@ namespace ResortBatch
             check(Near(RunSnowRules.WindowsToGameHours(4096f), 24.0, 1e-3), W, "4096 windows of 64 frames are one game day");
         }
 
-        // S27 AspectFactor (9)
         private static void T09Aspect(Func<bool, string, string, bool> check)
         {
             const string W = "snow S27 aspect";
@@ -696,7 +663,6 @@ namespace ResortBatch
             check(Near(ne, 1.0 + 0.5 * 0.70710678, 1e-5), W, "north-east face: 1 + 0.5 x sin45 = 1.354 (" + ne + ")");
         }
 
-        // S28 IsSpring (9)
         private static void T09Spring(Func<bool, string, string, bool> check)
         {
             const string W = "snow S28 spring";
@@ -711,7 +677,6 @@ namespace ResortBatch
             check(!RunSnowRules.IsSpring(null, 5f / 12f), W, "1 June is not spring (end exclusive)");
         }
 
-        // S29 budgets (12)
         private static void T09Budget(Func<bool, string, string, bool> check)
         {
             const string W = "snow S29 budget";
@@ -735,7 +700,6 @@ namespace ResortBatch
             return RunSnowRules.StepProtection(ref run, hours, 100, warm ? 60 : 100, open, runC, spring, out started);
         }
 
-        // S30 the protection machine (14)
         private static void T09Machine(Func<bool, string, string, bool> check)
         {
             const string W = "snow S30 protection machine";
@@ -794,7 +758,6 @@ namespace ResortBatch
             check(run.State == RunSnowRules.ProtectState.Spent && end == RunSnowRules.ProtectEnd.PackLost, W, "the run closed under protection: pack lost");
         }
 
-        // S31 the field-sheet scenarios, in rule form (6)
         private static void T09FieldSheet(Func<bool, string, string, bool> check)
         {
             const string W = "snow S31 field sheet";
@@ -817,7 +780,6 @@ namespace ResortBatch
             check(RunSnowRules.SkiableBarNorm(RunKind.Natural, 3) == RunSnowRules.SkiableBarNorm(RunKind.Snowmaking, 3), W, "T133 a natural black needs the same 3 ft as a gun black");
         }
 
-        // S32 the ledger (9)
         private static void T09Ledger(Func<bool, string, string, bool> check)
         {
             const string W = "snow S32 ledger";

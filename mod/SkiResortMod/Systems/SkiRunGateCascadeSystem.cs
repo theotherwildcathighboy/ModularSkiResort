@@ -1,63 +1,38 @@
-// SkiRunGateCascadeSystem — sign deleted → its bound runs deleted, by OUR code
-// (docs/research/run-binding-glade-spec.md §3.6, Round O1; DECISIONS 90 cascade kept, 121).
-// Created 2026-10-01 (implementer I-1).
+// Sign deleted -> its bound runs deleted, by our own code (run-binding-glade-spec.md §3.6).
 //
-// WHY OUR OWN CASCADE: since O1 runs carry no Owner and the sign carries no SubArea buffer, so
-// every vanilla cascade ignores the relation: SubAreaReferencesSystem is Owner-gated
-// (Game.Areas/SubAreaReferencesSystem.cs:122-134), SubElementDeleteSystem and the bulldozer's
-// own walk read the sign's SubArea buffer (Game.Objects/SubElementDeleteSystem.cs:66-82;
-// BulldozeToolSystem.cs:907-935). The link is SkiRunBinding.m_Gate, so this system walks it.
+// Why our own cascade: runs carry no Owner and the sign carries no SubArea buffer, so every vanilla cascade ignores the
+// relation: SubAreaReferencesSystem is Owner-gated (SubAreaReferencesSystem.cs:122-134), SubElementDeleteSystem and the
+// bulldozer's own walk read the sign's SubArea buffer (SubElementDeleteSystem.cs:66-82; BulldozeToolSystem.cs:907-935). The
+// link is SkiRunBinding.m_Gate, so this system walks it.
 //
-// WHEN A SIGN IS DELETED, AND WHY Modification2 (registration, I-4 in Mod.cs):
-//   updateSystem.UpdateBefore<SkiRunGateCascadeSystem, SkiGladeCleanupSystem>(SystemUpdatePhase.Modification2)
-//   * Bulldozed: ApplyObjectsSystem.Delete adds Deleted to the original at ApplyTool inside
-//     ToolUpdate (Game.Tools/ApplyObjectsSystem.cs:484-488, identical in 1.6.2).
-//   * Collapsed: CollapsedBuildingSystem adds Deleted through the EndFrameBarrier
-//     (Game.Simulation/CollapsedBuildingSystem.cs:150-175, :261, :318, identical in 1.6.2), which
-//     plays back at the start of MainLoop (UpdateBefore<EndFrameBarrier>(MainLoop),
-//     Game.Common/SystemOrder.cs:49).
-//   * Both are visible at Modification2: MainLoop runs ToolSystem then ModificationSystem
-//     (SystemOrder.cs:58, 60, same lines in 1.6.2), and ModificationSystem runs Modification1 →
-//     … → ModificationEnd in order (Game.Common/ModificationSystem.cs:19-26). Modification1/2 hold
-//     no vanilla area-delete consumer (SystemOrder.cs:94-121). Deleted lives one frame:
-//     PrepareCleanUpSystem after MainLoop and CleanUpSystem at Cleanup (SystemOrder.cs:50, :54)
-//     destroy the sign, its runs and their trees in the SAME Cleanup.
-//   * Anchored BEFORE SkiGladeCleanupSystem (UpdateAt Modification2), so the runs we delete here
-//     are seen by the glade cleanup the same frame and their member trees go with them (the
-//     sign → runs → trees chain is explicit). Anchoring a mod system to a mod system:
-//     UpdateBefore registers into the anchor's reference list (Game/UpdateSystem.cs:168-176,
-//     :278-292, identical in 1.6.2); precedent Mod.cs (UpdateAfter<SkiRunUpkeepSystem,
-//     SkiSnowInjectionSystem>). The runs' border props are Secondary sub-objects: deleted by
-//     SecondaryObjectSystem at Modification4B for a Deleted owner
-//     (Game.Objects/SecondaryObjectSystem.cs:728-740, unchanged lines in 1.6.2;
-//     SystemOrder.cs:183), not by SubObjectSystem.
-//   * NOT on Destroyed: a disaster keeps the sign entity (Rebuild keeps it, D5) — its runs stay
-//     bound. Only Deleted is a delete.
+// Why Modification2 (Mod.cs: UpdateBefore<SkiRunGateCascadeSystem, SkiGladeCleanupSystem>(Modification2)):
+//   * Bulldozed: ApplyObjectsSystem.Delete adds Deleted at ApplyTool inside ToolUpdate (ApplyObjectsSystem.cs:484-488).
+//   * Collapsed: CollapsedBuildingSystem adds Deleted through the EndFrameBarrier (CollapsedBuildingSystem.cs:150-175, :261,
+//     :318), which plays back at the start of MainLoop (SystemOrder.cs:49).
+//   * Both are visible at Modification2: MainLoop runs ToolSystem then ModificationSystem (SystemOrder.cs:58, 60), which runs
+//     Modification1 -> ... -> ModificationEnd in order (ModificationSystem.cs:19-26); Modification1/2 hold no vanilla
+//     area-delete consumer (SystemOrder.cs:94-121). Deleted lives one frame: PrepareCleanUpSystem and CleanUpSystem
+//     (SystemOrder.cs:50, :54) destroy the sign, its runs and their trees in the same Cleanup.
+//   * Anchored BEFORE SkiGladeCleanupSystem so the glade cleanup sees the runs deleted here the same frame and their member
+//     trees go with them. UpdateBefore on a mod system registers into the anchor's reference list (UpdateSystem.cs:168-176,
+//     :278-292). The runs' border props are Secondary sub-objects, deleted by SecondaryObjectSystem at Modification4B for a
+//     Deleted owner (SecondaryObjectSystem.cs:728-740; SystemOrder.cs:183), not by SubObjectSystem.
+//   * Not on Destroyed: a disaster keeps the sign entity, so its runs stay bound. Only Deleted is a delete.
 //
-// SHAPE (copied from SkiGladeCleanupSystem.DeleteLikeOwnerCascade, which mirrors
-// SubElementDeleteSystem.cs:78-79): strip Applied/Created/Updated where present, add Deleted.
-// No refund (D1; vanilla never refunds areas, ApplyAreasSystem.cs:158-165).
+// Shape copied from SkiGladeCleanupSystem.DeleteLikeOwnerCascade (mirrors SubElementDeleteSystem.cs:78-79): strip
+// Applied/Created/Updated where present, add Deleted. No refund (vanilla never refunds areas, ApplyAreasSystem.cs:158-165).
 //
-// QUERIES. m_DeletedGates = All{Game.Buildings.Building, Deleted, PrefabRef} None{Temp} (Temp
-// excludes the bulldozer's preview copy and an applied Temp, which also end Deleted);
-// m_BoundRuns = All{SkiRunBinding, Area} None{Deleted, Temp}.
-//
-// GUARDS (per frame): m_Disabled || !m_Armed; GameManager.isGameLoading; and
-// ownership.PrefabSetsReady — NOT ownership.IsArmed: an exception in the sweep or the load pass
-// must not switch the cascade off (degraded mode stays "runs go with their sign").
-//
-// COST: one IsEmptyIgnoreFilter per frame. On a frame where ANY building is deleted: a managed
-// scan of the deleted buildings' PrefabRef (ToComponentDataArray completes only PrefabRef's
-// writers). Only when one of them is a sign of ours: one copy of the bound runs' bindings
-// (main-thread EntityManager batch calls — a sync point, fine on that rare frame).
-//
-// FAILURE MODE: a one-shot "!!!" disables the cascade until the next load. Runs whose sign is
-// deleted meanwhile are NOT deleted: the ownership sweep then reports them as paid orphans
-// ("[orphan]" WARN) — never deleted on an inferred event (§3.3 row 5, D7).
-//
-// SCOPE + DEFENSIVE CONTRACT (house pattern): Game mode only; "created" line; ARMED line per
-// load listing every constant; m_Armed/m_Disabled/m_ErrorLogged reset in OnGameLoadingComplete;
-// one log line per deleted sign (zero runs included) — silence must be impossible.
+// Queries: m_DeletedGates = All{Building, Deleted, PrefabRef} None{Temp} (Temp excludes the bulldozer's preview copy and an
+// applied Temp, which also end Deleted); m_BoundRuns = All{SkiRunBinding, Area} None{Deleted, Temp}.
+// Guards per frame: m_Disabled || !m_Armed; GameManager.isGameLoading; ownership.PrefabSetsReady, not ownership.IsArmed: an
+// exception in the sweep or the load pass must not switch the cascade off (degraded mode stays "runs go with their sign").
+// Cost: one IsEmptyIgnoreFilter per frame; when any building is deleted, a managed scan of the deleted buildings' PrefabRef
+// (ToComponentDataArray completes only PrefabRef's writers); only when one is a sign of ours, one copy of the bound runs'
+// bindings (main-thread EntityManager batch calls, a sync point on that rare frame).
+// Failure mode: a one-shot "!!!" disables the cascade until the next load. Runs whose sign is deleted meanwhile are NOT
+// deleted: the ownership sweep reports them as paid orphans ("[orphan]" WARN); never deleted on an inferred event.
+// Game mode only; "created" line; ARMED line per load listing every constant; m_Armed/m_Disabled/m_ErrorLogged reset in
+// OnGameLoadingComplete; one log line per deleted sign (zero runs included), so silence is impossible.
 
 using System;
 using System.Collections.Generic;
@@ -78,8 +53,7 @@ namespace SkiResortMod.Systems
     {
         private static class Tuning
         {
-            /// <summary>Deleted runs named individually per sign line; beyond this only the
-            /// count is written.</summary>
+            /// <summary>Deleted runs named individually per sign line; beyond this only the count is written.</summary>
             public const int LogRunLabelsMax = 4;
         }
 
@@ -89,21 +63,18 @@ namespace SkiResortMod.Systems
         private EntityQuery m_DeletedGates;
         private EntityQuery m_BoundRuns;
 
-        // Scratch, reused (cleared) every use — no per-frame managed allocation.
+        // Scratch, reused every use
         private readonly HashSet<Entity> m_DeletedSigns = new HashSet<Entity>();
 
-        // Per-load state — reset and re-armed at OnGameLoadingComplete.
+        // Per-load state, reset at OnGameLoadingComplete
         private bool m_Armed;
         private bool m_Disabled;
         private bool m_ErrorLogged;
 
-        /// <summary>Signs whose deletion this system processed this load (plain field).</summary>
         public int CascadesThisLoad;
 
-        /// <summary>Runs this system deleted this load (plain field).</summary>
         public int RunsDeletedThisLoad;
 
-        /// <summary>Last cascade line ("-" until one ran this load).</summary>
         public string LastCascade = "-";
 
         protected override void OnCreate()
@@ -154,7 +125,7 @@ namespace SkiResortMod.Systems
             LastCascade = "-";
             m_DeletedSigns.Clear();
 
-            // HARD GATE: Game only — runs are bound only by the Game-mode ownership system.
+            // Game mode only: runs are bound only by the Game-mode ownership system
             if (mode != GameMode.Game)
                 return;
 
@@ -204,11 +175,8 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>Fills m_DeletedSigns with this frame's Deleted, non-Temp buildings whose
-        /// prefab is the sign. Managed scan of a small result; ToComponentDataArray completes
-        /// only PrefabRef's writers (the SkiRunBindTriggerSystem precedent). ToEntityArray and
-        /// ToComponentDataArray of the same unfiltered query walk the same chunks in the same
-        /// order, so index i matches.</summary>
+        /// <summary>Fills m_DeletedSigns with this frame's Deleted, non-Temp buildings whose prefab is the sign. ToEntityArray and
+        /// ToComponentDataArray of the same unfiltered query walk the same chunks in the same order, so index i matches.</summary>
         private void CollectDeletedSigns()
         {
             m_DeletedSigns.Clear();
@@ -224,8 +192,7 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>Collect the runs bound to a deleted sign first, mutate after (structural
-        /// changes invalidate chunks), then one line per sign.</summary>
+        /// <summary>Collect the bound runs first, mutate after (structural changes invalidate chunks), then one line per sign.</summary>
         private void Cascade()
         {
             var runs = new NativeList<Entity>(16, Allocator.Temp);
@@ -250,8 +217,6 @@ namespace SkiResortMod.Systems
                     }
                 }
 
-                // Labels BEFORE the delete (PrefabRef stays readable either way until Cleanup,
-                // but nothing below depends on that).
                 var lines = new List<string>(m_DeletedSigns.Count);
                 foreach (Entity sign in m_DeletedSigns)
                     lines.Add(SignLine(sign, runs, runSigns));
@@ -274,7 +239,6 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>"sign SkiResortGate i:v deleted — N bound run(s) deleted [labels ≤ 4]".</summary>
         private string SignLine(Entity sign, NativeList<Entity> runs, NativeList<Entity> runSigns)
         {
             int count = 0;
@@ -305,13 +269,10 @@ namespace SkiResortMod.Systems
             return sb.ToString();
         }
 
-        /// <summary>The vanilla owner-cascade shape (SubElementDeleteSystem.cs:78-79; copied from
-        /// SkiGladeCleanupSystem.DeleteLikeOwnerCascade): remove Applied/Created/Updated where
-        /// present, add Deleted. Batched through the EntityManager array overloads (vanilla
-        /// precedents: AddComponent&lt;Deleted&gt; over a NativeList, Game.Debug/DebugSystem.cs:2900
-        /// [1.6.2 2908]; RemoveComponent over an array, Game.Areas/MapTileSystem.cs:142). Each
-        /// remove batch holds only entities that HAVE the component, so no call depends on how
-        /// the batch API treats a missing component (unverified).</summary>
+        /// <summary>The vanilla owner-cascade shape (SubElementDeleteSystem.cs:78-79): remove Applied/Created/Updated where present,
+        /// add Deleted, batched through the EntityManager array overloads (precedents: DebugSystem.cs:2900, MapTileSystem.cs:142).
+        /// Each remove batch holds only entities that have the component, so no call depends on how the batch API treats a missing
+        /// one (unverified).</summary>
         private void DeleteLikeOwnerCascade(NativeList<Entity> entities)
         {
             if (entities.Length == 0)
@@ -337,7 +298,7 @@ namespace SkiResortMod.Systems
                     EntityManager.RemoveComponent<Created>(created.AsArray());
                 if (updated.Length > 0)
                     EntityManager.RemoveComponent<Updated>(updated.AsArray());
-                // m_BoundRuns excluded Deleted, so no entity here has it yet.
+                // m_BoundRuns excluded Deleted, so no entity here has it yet
                 EntityManager.AddComponent<Deleted>(entities.AsArray());
             }
             finally

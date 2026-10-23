@@ -1,17 +1,15 @@
-// ChairPinSystem.Harvest — the loop cache's cable-lane harvest (R-4 of docs/research/lifts/lift-architecture-review-2026-10-22.md;
-// report docs/research/lifts/lift-scale-2026-10-22.md, DECISIONS 369). BuildLoopCache step 2 calls HarvestCableLanes.
+// The loop cache's cable-lane harvest; BuildLoopCache step 2 calls HarvestCableLanes.
 //
-//   SCOPED (normal): the census's line edges + their end nodes (LiftCensusSystem.CopyLineOwners), their SubLane buffers, the full
-//     scan's filter lane by lane (LiftLaneHarvest.Scoped, Loop movers). O(lift edges): no city-size term. The census builds at
-//     Modification4B before this system (Mod.cs anchor UpdateBefore<LiftCensusSystem, ChairPinSystem>) and rebuilds the SAME
-//     frame on a lift edge Created / Deleted (its probe; Updated-only edits coalesce, but they do not change the edge SET, and
-//     the lanes' curves are read live here), so the owner list is this frame's.
-//   FULL (fallback): the city-wide utility-lane scan of before (m_LaneQuery), when the census is not registered, not armed (the
-//     Editor: the census arms in game mode only) or not built yet, or for the rest of a load after the watchdog found a miss.
-//   WATCHDOG: the first scoped harvest of each load also runs the full scan and compares. Logs (once per load, "[cost] lane
-//     harvest"): owners, SubLane entries visited, lanes kept, both timings, the city's utility-lane count. A lane only the full
-//     scan kept → WARN naming up to 5 lanes and their owners, this rebuild uses the full result and the load stays on the full
-//     scan (silence impossible, self-healing). A lane only the scoped harvest kept (the filters drifted) → WARN, full result.
+//   SCOPED (normal): the census's line edges + their end nodes (LiftCensusSystem.CopyLineOwners), their SubLane buffers, the
+//     full scan's filter lane by lane (LiftLaneHarvest.Scoped, Loop movers). O(lift edges): no city-size term. The census
+//     builds at Modification4B before this system (Mod.cs anchor UpdateBefore<LiftCensusSystem, ChairPinSystem>) and rebuilds
+//     the same frame on a lift edge Created / Deleted, so the owner list is this frame's. Updated-only edits coalesce but do
+//     not change the edge set, and the lanes' curves are read live here.
+//   FULL (fallback): the city-wide utility-lane scan (m_LaneQuery), when the census is not registered, not armed (Editor: it
+//     arms in game mode only) or not built yet, or for the rest of a load after the watchdog found a miss.
+//   WATCHDOG: the first scoped harvest of each load also runs the full scan and compares, logging once per load
+//     ("[cost] lane harvest"). A lane only the full scan kept → WARN naming up to 5 lanes and their owners; this rebuild uses
+//     the full result and the load stays on the full scan. A lane only the scoped harvest kept (filters drifted) → WARN, full result.
 //   Both paths sort by lane entity (LiftLaneHarvest header ORDER).
 
 using System.Collections.Generic;
@@ -35,7 +33,7 @@ namespace SkiResortMod.Systems
         private int m_DiagHarvestOwners, m_DiagHarvestVisited;
         private double m_DiagHarvestMs;
 
-        /// <summary>R-4: per load (MoverReset).</summary>
+        /// <summary>Per load (MoverReset).</summary>
         private void HarvestReset()
         {
             m_HarvestVerified = false;
@@ -120,14 +118,14 @@ namespace SkiResortMod.Systems
             return check;
         }
 
-        /// <summary>The city-wide scan of before R-4 (m_LaneQuery: every utility lane), sorted by lane. The lane PREFAB is tested
-        /// first through the cached lookup (CableLanePrefabs, M9), so only HV-lane-prefab lanes pay for the owner read.</summary>
+        /// <summary>The city-wide scan (m_LaneQuery: every utility lane), sorted by lane. The lane PREFAB is tested first through
+        /// the cached lookup (CableLanePrefabs), so only HV-lane-prefab lanes pay for the owner read.</summary>
         private void FullLaneScan(IReadOnlyDictionary<Entity, LiftTypeDef> lineTypes, List<LiftLoopCache.CableLane> lanes,
             out int lanesSeen, out int lanesHv)
         {
             lanesSeen = 0;
             lanesHv = 0;
-            // REVIEW #16 pattern (TramShuttleSystem.HarvestLanes): complete the writers of the query's components first.
+            // Complete the writers of the query's components first (same pattern as TramShuttleSystem.HarvestLanes).
             m_LaneQuery.CompleteDependency();
             var chunks = m_LaneQuery.ToArchetypeChunkArray(Allocator.Temp);
             try
@@ -164,7 +162,7 @@ namespace SkiResortMod.Systems
                             m_Start = laneData[i].m_StartNode,
                             m_End = laneData[i].m_EndNode,
                             m_Length = curves[i].m_Length,
-                            m_TypeIndex = lineDef.Index,   // Catalog Phase B
+                            m_TypeIndex = lineDef.Index,
                         });
                     }
                 }

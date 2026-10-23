@@ -1,13 +1,10 @@
-// CatTrackGradeToolSystem.Debug — the "Ski Grading" tab of the game's developer menu (T139a probe + T139c state; build note
-// docs/research/field/2026-10-20/grading-tool-build.md). The SkiGladeToolSystem.Debug.cs pattern: DebugSystem.RegisterDebug sweeps
-// every [DebugContainer] type and invokes each [DebugTab] method on the live system (DebugSystem.cs:996-1045), so this file is a
-// partial of the tool and nothing is registered in Mod.cs. TAB NAME IS LOAD-BEARING: "Ski Grading" is unique ("Ski Resort",
-// "Ski Glades", "Ski Runs", "Ski Resort Hub" are taken; AddPanel replaces a list registered under the same name, :1085-1095).
-// COST: value getters read plain fields at 10 Hz; work runs on a button press only.
-// THE PROBE (T139a): "Probe: grade a 40 m strip" writes a 40 m constant ramp with a 1.5 m cut at its middle, starting 5 m in front of
-// the camera's pivot along the view direction, through the tool's full apply path (read, raster, guards, write verified by readback,
-// tail, trees, undo). 30 frames later it compares the CPU heights with what it wrote; 120 frames later it logs the water sim speed.
-// Then: save, load, look again. "Undo last grade" restores the newest grade of the session (any, not only the probe).
+// "Ski Grading" tab of the game's developer menu, same pattern as SkiGladeToolSystem.Debug.cs: DebugSystem.RegisterDebug invokes
+// each [DebugTab] method of every [DebugContainer] type on the live system (DebugSystem.cs:996-1045), so this partial needs no
+// registration in Mod.cs. The tab name must be unique: AddPanel replaces a panel registered under the same name (:1085-1095).
+// Value getters read plain fields at 10 Hz; work runs on a button press only.
+// "Probe: grade a 40 m strip" writes a 40 m constant ramp with a 1.5 m cut at its middle, starting 5 m ahead of the camera pivot
+// along the view direction, through the tool's full apply path. 30 frames later it compares CPU heights with what it wrote;
+// 120 frames later it logs the water sim speed. "Undo last grade" restores the newest grade of the session (any, not only the probe).
 
 using System;
 using System.Collections.Generic;

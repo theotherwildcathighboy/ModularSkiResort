@@ -1,61 +1,37 @@
-// SkiGladeCleanupSystem — the run-delete cascade for glade-tool trees: when a ski run is
-// deleted (bulldozed directly, deleted by the area tool or the info panel, or with its sign by
-// SkiRunGateCascadeSystem), every tree carrying SkiRunTreeMember{m_Run = that run} is deleted
-// with it, and EVERY deleted run of ours is logged — with 0 trees when it had none (Round O1,
-// run-binding-glade-spec.md §3.7: the field log 2037-2038 showed a run deletion with no line).
-// Orphaned tags are stripped and the tree kept (docs/research/glade-tool-spec.md §6; DECISIONS
-// 109/110).
+// Run-delete cascade for glade-tool trees: when a ski run is deleted (bulldozed, deleted by the area tool or the info
+// panel, or with its sign via SkiRunGateCascadeSystem), every tree carrying SkiRunTreeMember{m_Run = that run} is deleted
+// with it. Every deleted run of ours is logged, with 0 trees when it had none. Orphaned tags are stripped and the tree
+// kept (docs/research/glade-tool-spec.md §6).
 //
-// WHY OUR OWN CASCADE: planted trees have NO Owner (SkiRunTreeMember header explains why
-// Owner(run) is unusable), so vanilla's owner cascade cannot see them. This system mirrors
-// that cascade's shape (1.6.0f1 decompile; 1.6.2f1 line in brackets where it moved):
-//   * Vanilla: Game.Objects.SubObjectSystem processes a Deleted owner (m_UpdateQuery
-//     All{SubObject} Any{Updated, Deleted}, SubObjectSystem.cs:3936-3944 [3944-3951]),
-//     skips re-creation (:994) and RemoveUnusedOldSubObjects (:1091 call, body :1227-1268
-//     [1230-]) gives every owned non-Building, non-Secondary, non-ServiceUpgrade sub-object
-//     RemoveComponent(Applied, Created, Updated) + AddComponent(Deleted) (:1241-1242
-//     [1244-]; the type set is :3967 [3975]) — plain Deleted, no Temp, no refund.
-//   * We do the same to member trees: strip Applied/Created/Updated where present, add
-//     Deleted. A member tree with sub-objects of its own (unverified that any tree prefab
-//     has them) needs nothing extra: a Deleted entity with a SubObject buffer is picked up
-//     by that same SubObjectSystem later this frame (Modification2B, SystemOrder.cs:131).
+// Why our own cascade: planted trees have no Owner (see the SkiRunTreeMember header), so vanilla's owner cascade cannot
+// see them. This mirrors its shape (1.6.0f1 decompile; 1.6.2f1 line in brackets where it moved): SubObjectSystem
+// processes a Deleted owner (m_UpdateQuery, SubObjectSystem.cs:3936-3944 [3944-3951]) and RemoveUnusedOldSubObjects
+// (:1091, body :1227-1268 [1230-]) gives every owned non-Building, non-Secondary, non-ServiceUpgrade sub-object
+// RemoveComponent(Applied, Created, Updated) + AddComponent(Deleted) (:1241-1242 [1244-]; type set :3967 [3975]): plain
+// Deleted, no Temp, no refund. We do the same to member trees. A member tree with sub-objects of its own (unverified that
+// any tree prefab has them) needs nothing extra: SubObjectSystem picks up a Deleted entity with a SubObject buffer later
+// this frame (Modification2B, SystemOrder.cs:131).
 //
-// WHEN A RUN IS DELETED, AND WHY MODIFICATION2:
-//   * Direct bulldoze / area-tool delete (node right-click "Delete area", a node removed below
-//     3) / the info panel's Delete: ApplyAreasSystem.Delete adds Deleted to the original at
-//     ApplyTool (Game.Tools/ApplyAreasSystem.cs:158-165, identical in 1.6.2). Since O1 a run
-//     carries no Owner, so the bulldozer reaches the run itself, not the sign
-//     (run-binding-glade-spec.md §3.1, §3.10).
-//   * Sign delete: SkiRunGateCascadeSystem (Modification2, anchored BEFORE this system with
-//     UpdateBefore<SkiRunGateCascadeSystem, SkiGladeCleanupSystem>) adds Deleted to every run
-//     whose SkiRunBinding points at the deleted sign, on the main thread — visible to this
-//     system's query in the same Modification2 pass. (Before O1 this was the vanilla
-//     SubElementDeleteSystem walking a runtime SubArea buffer; that wiring is retired.)
-//   * The tool paths land inside ToolSystem (MainLoop, SystemOrder.cs:58); the Modification
-//     phases run after it in the same frame (ModificationSystem, SystemOrder.cs:60;
-//     Game.Common/ModificationSystem.cs:19-26), so the deleted run is visible here the SAME
-//     frame. Deleted lives one frame (PrepareCleanUpSystem after MainLoop, CleanUpSystem at
-//     Cleanup, SystemOrder.cs:50/:54): a member tree Deleted at Modification2 is destroyed
-//     in the same Cleanup as its run. Modification phases run paused or not (spec §6), like
-//     the bulldoze itself. Registration (integrator, Mod.cs):
-//     UpdateAt<SkiGladeCleanupSystem>(SystemUpdatePhase.Modification2).
+// Timing (why Modification2): a direct bulldoze / area-tool delete / info-panel Delete adds Deleted to the run at
+// ApplyTool (Game.Tools/ApplyAreasSystem.cs:158-165); a run carries no Owner, so the bulldozer reaches the run itself, not
+// the sign. A sign delete goes through SkiRunGateCascadeSystem (Modification2, UpdateBefore this system), which adds
+// Deleted to every run whose SkiRunBinding points at the sign, on the main thread, visible to our query in the same pass.
+// Tool paths land inside ToolSystem (MainLoop, SystemOrder.cs:58) and the Modification phases run after it in the same
+// frame (ModificationSystem, SystemOrder.cs:60; Game.Common/ModificationSystem.cs:19-26), paused or not. Deleted lives one
+// frame (PrepareCleanUpSystem after MainLoop, CleanUpSystem at Cleanup, SystemOrder.cs:50/:54), so a member tree Deleted at
+// Modification2 is destroyed in the same Cleanup as its run. Registered in Mod.cs at SystemUpdatePhase.Modification2.
 //
-// COST: per frame, one IsEmptyIgnoreFilter check (deleted areas). On a frame where ANY area is
-// Deleted (lots of bulldozed buildings, districts, our runs) the deleted areas are walked once
-// and filtered on our run PREFAB set (so unbound and directly deleted runs are logged too —
-// no third resolver); only when one of OUR runs is among them is a line written, and the
-// member scan (chunk iteration over SkiRunTreeMember) runs only when at least one member
-// exists. Deleting a run is rare, so main-thread EntityManager batch calls (a sync point) are
-// fine here. Plus one full member scan per load (orphan sweep + census line).
+// Cost: per frame one IsEmptyIgnoreFilter check (deleted areas). On a frame where any area is Deleted the deleted areas are
+// walked once and filtered on our run prefab set; only when one of our runs is among them is a line written, and the member
+// scan runs only when a member exists. Deleting a run is rare, so main-thread EntityManager batch calls (a sync point) are
+// fine. Plus one full member scan per load (orphan sweep + census line).
 //
-// ORPHANS: m_Run == Null, !Exists(m_Run) or m_Run no longer an Area (e.g. a run deleted
-// while this system was disabled): the tag is stripped, the tree stays as a plain tree.
+// Orphans: m_Run == Null, !Exists(m_Run) or no longer an Area (e.g. a run deleted while this system was disabled): the tag
+// is stripped and the tree stays as a plain tree.
 //
-// SCOPE + DEFENSIVE CONTRACT (house pattern, SkiRunOwnershipSystem precedent): Game mode
-// only; run prefabs resolved with the tolerant PrefabID + name-scan resolver, cached per
-// session; ARMED line per load; m_Armed/m_Disabled/m_ErrorLogged reset in
-// OnGameLoadingComplete; one-shot "!!!" catch that disables the cascade until the next
-// load (member trees then simply outlive their run; the next load's sweep strips the
+// Defensive contract (house pattern): Game mode only; run prefabs resolved with the tolerant PrefabID + name-scan resolver,
+// cached per session; ARMED line per load; m_Armed/m_Disabled/m_ErrorLogged reset in OnGameLoadingComplete; one-shot "!!!"
+// catch that disables the cascade until the next load (member trees then outlive their run; the next sweep strips the
 // dangling tags).
 
 using System;
@@ -76,15 +52,12 @@ namespace SkiResortMod.Systems
     {
         private static class Tuning
         {
-            /// <summary>Deleted runs named individually in the cascade log line; beyond
-            /// this only the count is written.</summary>
+            /// <summary>Deleted runs named individually in the cascade log line; beyond this only the count is written.</summary>
             public const int LogRunLabelsMax = 4;
         }
 
-        // Same tolerant name resolution as the sibling run-aware systems (house precedent
-        // is to duplicate the table; SkiRunOwnershipSystem's *SurfaceNames arrays).
-        // Round E1 (D16, econ-round spec ch2 §4.4.5): + SkiRunNaturalA — trees planted on a natural
-        // run are deleted with it, as for the other three.
+        // Same tolerant name resolution as the sibling run-aware systems (the table is duplicated per system, as in
+        // SkiRunOwnershipSystem's *SurfaceNames); SkiRunNaturalA is included: trees planted on a natural run go with it
         private static readonly string[] RunSurfaceNames =
             { "SkiRunGroomedA", "SkiRunSnowmakingA", "SkiRunNightA", "SkiRunNaturalA" };
 
@@ -97,11 +70,11 @@ namespace SkiResortMod.Systems
         private readonly HashSet<Entity> m_RunPrefabs = new HashSet<Entity>();
         private bool m_PrefabsResolved;            // session cache (PrefabSystem outlives loads)
 
-        // Scratch, reused (cleared) every use — no per-frame managed allocation.
+        // Scratch, reused (cleared) every use: no per-frame managed allocation
         private readonly HashSet<Entity> m_DeletedRuns = new HashSet<Entity>();
         private readonly HashSet<Entity> m_ScratchRuns = new HashSet<Entity>();
 
-        // Per-load state — reset and re-armed at OnGameLoadingComplete.
+        // Per-load state, reset and re-armed at OnGameLoadingComplete
         private bool m_Armed;
         private bool m_Disabled;
         private bool m_ErrorLogged;
@@ -122,8 +95,7 @@ namespace SkiResortMod.Systems
             base.OnCreate();
             m_PrefabSystem = World.GetOrCreateSystemManaged<PrefabSystem>();
 
-            // Our runs on their Deleted frame. Temp excluded: the area tool's / bulldozer's
-            // Temp copies also end Deleted and are not the run.
+            // Our runs on their Deleted frame. Temp excluded: the area tool's / bulldozer's Temp copies also end Deleted and are not the run.
             m_DeletedAreaQuery = GetEntityQuery(new EntityQueryDesc
             {
                 All = new[]
@@ -137,8 +109,7 @@ namespace SkiResortMod.Systems
                     ComponentType.ReadOnly<Temp>(),
                 },
             });
-            // Live member trees. Deleted excluded (already going — e.g. bulldozed in the
-            // same click); Temp excluded (only the tag frame's Temp trees, never members).
+            // Live member trees. Deleted excluded (already going, e.g. bulldozed in the same click); Temp excluded (never members).
             m_MemberQuery = GetEntityQuery(new EntityQueryDesc
             {
                 All = new[]
@@ -169,7 +140,7 @@ namespace SkiResortMod.Systems
             TreesDeletedThisLoad = 0;
             OrphansStrippedThisLoad = 0;
 
-            // HARD GATE: Game only — member trees only come from the Game-mode glade tool.
+            // Hard gate: member trees only come from the Game-mode glade tool
             if (mode != GameMode.Game)
                 return;
 
@@ -228,8 +199,7 @@ namespace SkiResortMod.Systems
                 if (m_DeletedRuns.Count == 0)
                     return;          // some other area (lot, district) was deleted
 
-                // Silence gap closed (spec §3.7): a deleted run is ALWAYS logged, also when no
-                // member tree exists anywhere (log 2037-2038 had no line for such a run).
+                // A deleted run is always logged, also when no member tree exists anywhere
                 if (m_MemberQuery.IsEmptyIgnoreFilter)
                     LogDeletedRuns(0, 0);
                 else
@@ -247,8 +217,7 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>Fills m_DeletedRuns with this frame's Deleted, non-Temp areas whose
-        /// prefab is one of our runs.</summary>
+        /// <summary>Fills m_DeletedRuns with this frame's Deleted, non-Temp areas whose prefab is one of our runs.</summary>
         private void CollectDeletedRuns()
         {
             m_DeletedRuns.Clear();
@@ -311,8 +280,7 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>The one line per deletion frame: "Glade: N run(s) deleted [labels] — K
-        /// member tree(s) deleted with them" (K may be 0, spec §3.11). Event-time only.</summary>
+        /// <summary>The one line per deletion frame: "Glade: N run(s) deleted [labels] — K member tree(s) deleted with them" (K may be 0).</summary>
         private void LogDeletedRuns(int treesDeleted, int orphansStripped)
         {
             var sb = new StringBuilder(160);
@@ -351,9 +319,8 @@ namespace SkiResortMod.Systems
                 return;
             }
 
-            // legacy = G1 (v1) tags, D9: m_PlanGen == 0 (spec §2), NOT m_Version < 2 — a v1 tag
-            // re-saved by a G2 build reads back as version 2 with PlanGen 0 (SkiRunTreeMember
-            // header, LEGACY TEST).
+            // legacy = v1 tags, m_PlanGen == 0, NOT m_Version < 2: a v1 tag re-saved by a newer build reads back as version 2 with
+            // PlanGen 0 (SkiRunTreeMember header, LEGACY TEST)
             int glade = 0, belt = 0, total = 0, legacy = 0;
             var orphans = new NativeList<Entity>(4, Allocator.Temp);
             m_ScratchRuns.Clear();
@@ -402,13 +369,11 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>The vanilla owner-cascade shape (SubObjectSystem.cs:1241-1242):
-        /// remove Applied/Created/Updated where present, add Deleted. Batched through the
-        /// EntityManager array overloads (vanilla precedents: AddComponent&lt;Deleted&gt;
-        /// over a NativeList, Game.Debug/DebugSystem.cs:2900 [2908]; RemoveComponent over
-        /// an array, Game.Areas/MapTileSystem.cs:142). Each remove batch holds only
-        /// entities that HAVE the component, so no call depends on how the batch API
-        /// treats a missing component (unverified).</summary>
+        /// <summary>The vanilla owner-cascade shape (SubObjectSystem.cs:1241-1242): remove Applied/Created/Updated where present,
+        /// add Deleted. Batched through the EntityManager array overloads (vanilla precedents: AddComponent&lt;Deleted&gt; over a
+        /// NativeList, Game.Debug/DebugSystem.cs:2900 [2908]; RemoveComponent over an array, Game.Areas/MapTileSystem.cs:142). Each
+        /// remove batch holds only entities that have the component, so no call depends on how the batch API treats a missing
+        /// component (unverified).</summary>
         private void DeleteLikeOwnerCascade(NativeList<Entity> entities)
         {
             if (entities.Length == 0)
@@ -468,16 +433,14 @@ namespace SkiResortMod.Systems
 
         private void ResolveRunPrefabs()
         {
-            // Session cache, but only once something resolved — a pre-import session
-            // retries on the next load instead of staying inert until restart.
+            // Session cache, but only once something resolved: a pre-import session retries on the next load
             if (m_PrefabsResolved)
                 return;
             ResolveSet(RunSurfaceNames, "SurfacePrefab", m_RunPrefabs);
             m_PrefabsResolved = m_RunPrefabs.Count > 0;
         }
 
-        /// <summary>House pattern (SkiRunOwnershipSystem.ResolveSet): fast PrefabID path +
-        /// name-scan fallback, tolerate missing (pre-import states must not throw).</summary>
+        /// <summary>Fast PrefabID path with a name-scan fallback (as SkiRunOwnershipSystem.ResolveSet); a missing prefab is tolerated.</summary>
         private void ResolveSet(string[] names, string typeName, HashSet<Entity> set)
         {
             foreach (string name in names)

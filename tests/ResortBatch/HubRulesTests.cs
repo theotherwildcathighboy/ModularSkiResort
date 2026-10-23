@@ -1,52 +1,26 @@
-// HubRulesTests — Round E1 test file for tests/ResortBatch (econ-round spec ch5 §10.1: hub rules, problems,
-// piste-map rules, the aggregate's run vertical, sections A-G; Round S1 adds H). Owner: stream S5 (docs/research/econ-round/
-// e1-spec.md §3.2). Created empty by stage 0 (S0, 2026-10-04); written 2026-10-04 by S5.
-// e1-spec R9 — `public static class HubRulesTests` with `public static void Run(Func<bool, string, string, bool> check)`
-// and its own Near; Program.Main calls HubRulesTests.Run(Check).
-//
-// ORACLES are literal hand values (ch5 §10.1 tables), never a second run of the same code:
-//   A  the small rules of HubRules (Status, OpenStateOf, Season, NextStep, LiftStatusOf, RideTimeS,
-//      OpenSharePct, FactorEffectPct, CountedFraction, TicketIncomeMonth, NetMonth, LiftNoPair; B1 2026-10-19: NetMonth over
-//      HubMonthMoney, MonthMoneyOf, MonthShare, RateSoFar and the invariant "the Finances rows add up to the Net");
-//   B  AttractionWithLodges, the receipt parity LodgePart + Terrain = AOpen and RunValueFull on ch1 §3.1's
-//      compositions built HERE (literal runs; no dependency on ScoreTests' helpers). Needs ch1's
-//      SkiResortScore.Compute / LodgeBaseOf / RoundToEven (stream S1): with the stage-0 stubs it FAILS
-//      (expected until stage 2, e1-spec §4.2) — every index is guarded so it never throws;
-//   C  HubProblems.Build, cases P1-P26, every field of every row (P20-P23 and five LiftNoPair rows in A: E1
-//      fixer, e1-spec §8.9 F9 — lone stations pair across census rows; P24-P26 and the pair row's index in
-//      P20-P22: E1 fixer pass 2, §8.10 G4 — the row whose name the finished lift keeps; P27-P31: Round F7 D5,
-//      docs/research/field-test-7-fixes.md — SignNoRoad / LodgeNoRoad from Building.m_RoadEdge);
-//   D  the Status property over all 286 (runs, open, partly) combinations;
-//   E  constants, literal enum values (gate R17's other half), HubSnowSums, TopTempC, Percent, FollowCheck;
-//   F  PisteMapRules (StyleOf, IsDashed, WidthScale, SolidRing, DashRing incl. dashes across corners,
-//      truncation, solid fallback, slope, non-finite node, tiny ring, appending);
-//   G  SkiResortAggregate.RunVerticalM on Program.AggregateTests' fixture (copied literally) next to the
-//      unchanged VerticalM (C14);
-//   H  Round S1 (2026-10-05, stream D; docs/research/ski-days/spec/ch4-hub.md §G.3): HubRules.SkiDayStateOf rows
-//      H1-H15 and H16, the powder-mark parity of C# and TS (SkiDayRules.PowderMark vs Percent ≥ 50, s1-spec N10).
-// Round S1 also adds, in C, P32-P41 (ski-day rows 20-22, F1's Efficiency hysteresis) and P42-P44 (F1b: a Factor row
-// only from a 5-point loss, orchestrator ruling R-Q2), and in E the three codes, HubSkiDayState and the two constants.
-// Fixer pass (2026-10-05, review HU-1): P45, the band row's "more" counts only the listed factors.
-// Round M1 "measure first" (Builder B, 2026-10-05; m1-spec §4 and M10 D9): P46, no LodgeNotSlopeside row on an area
-// without runs (the spec's "P42"; that number was taken by F1b). P33-P35 keep runs 3 and pass unchanged.
-// Round M2 (builder B3, 2026-10-10; docs/research/round-m2/build-contract.md §7): section A's twelve Season rows gain
-// `false, false` (gunsLiveKnown, anyGunOn: the fallback is the old rule, expected values unchanged); H17 the price
-// factor's shared literal table with test-hub-rules.js T10.1 and the 40 / 200 edge (2 checks); H18 eight Season rows
-// with the live gun gates (R5). HubRulesTests +10.
-// Catalog Phase B (lift group, 2026-10-11; docs/research/art/assets-2026-10/code-round-2/round-2-contract.md §11.2 with
-// round-2-contract-skeptic.md MUST 1): B's summer synthetic row carries ScoreFlags.SummerMode (AttractionWithLodges reads
-// the A-frame's season share from the flag, not from LodgeShare) and L10's oracle moves 61 → 73 (LodgeBaseOf(10) 32 → 44);
-// E gains codes 23-25 (26 values); new section I — RideTimeS per speed, MUST 1's summer-no-lodge row, AttractionWithLodgeApplied,
-// LodgePart = LodgeApplied, problems 23-25 and the per-type build items / pairing, H17 with the price tolerance.
-// Catalog Phase C (rules group, 2026-10-11; docs/research/art/assets-2026-10/code-round-3/round-3-contract.md §8.3 with
-// round-3-contract-skeptic.md MUST 4): new section J — the tram's hub numbers, HubRules.ShuttleRideTimeS (with its dwell
-// parameter and the ShuttleRideIncludesDwell switch) and ShuttleCapacityPerHour, over the pure ShuttleProfile.cs (linked
-// into this host); the float oracles HJ-1/2/3/5 are bit-exact (the skeptic recomputed them with Math.fround); the brief's
-// a → ∞ figures (code-economy A.2: 2,250 / 1,000 pph); the catalog's tram row through both; C14's status mapping.
-// Phase D (rules group, 2026-10-11; docs/research/art/assets-2026-10/code-round-4/round-4-contract.md §7.2): new section K —
-// HubRules.LiftCapacityShown (capacity "–" for a lift that does not carry, every type), LiftStatusOf restated for a held lift,
-// and LiftServedRule.Carries (the bool overload; D1's equivalence with SkiMoneyRules.LiftOperating).
-// Tolerances: ±1e-9 for the parity identity, ±1e-6 for ch1's 9-decimal values, ±1e-4 for float rules.
+// Tests for HubRules (status, open state, season, next step, lift status, money, problems), PisteMapRules, the aggregate's run
+// vertical and the hub's ski-day, lift-type and tram numbers. `public static class HubRulesTests` with
+// `Run(Func<bool, string, string, bool> check)` and its own Near, called from Program.Main.
+// Oracles are literal hand values, never a second run of the same code. Sections:
+//   A  small rules (Status, OpenStateOf, Season, NextStep, LiftStatusOf, RideTimeS, OpenSharePct, FactorEffectPct,
+//      CountedFraction, TicketIncomeMonth, NetMonth over HubMonthMoney, MonthMoneyOf, MonthShare, RateSoFar, the invariant that
+//      the Finances rows add up to the Net, LiftNoPair)
+//   B  AttractionWithLodges, the receipt parity LodgePart + Terrain = AOpen, and RunValueFull on compositions built here
+//      (literal runs, no dependency on ScoreTests' helpers); every index is guarded so it never throws
+//   C  HubProblems.Build, cases P1-P46, every field of every row
+//   D  the Status property over all 286 (runs, open, partly) combinations
+//   E  constants, literal enum values, HubSnowSums, TopTempC, Percent, FollowCheck
+//   F  PisteMapRules (StyleOf, IsDashed, WidthScale, SolidRing, DashRing incl. dashes across corners, truncation, solid
+//      fallback, slope, non-finite node, tiny ring, appending)
+//   G  SkiResortAggregate.RunVerticalM on Program.AggregateTests' fixture (copied literally) next to the unchanged VerticalM
+//   H  HubRules.SkiDayStateOf rows, the powder-mark parity of C# and TS, the price factor table shared with
+//      test-hub-rules.js, Season with the live gun gates
+//   I  lift-type ride times, summer with no lodge, AttractionWithLodgeApplied, LodgePart = LodgeApplied, problems 23-25,
+//      build items per type, price tolerance
+//   J  the tram's hub numbers: HubRules.ShuttleRideTimeS and ShuttleCapacityPerHour over the pure ShuttleProfile.cs (linked
+//      into this host)
+//   K  HubRules.LiftCapacityShown, LiftStatusOf for a held lift, LiftServedRule.Carries
+// Tolerances: ±1e-9 for the parity identity, ±1e-6 for 9-decimal values, ±1e-4 for float rules.
 
 using System;
 using System.Collections.Generic;
@@ -69,10 +43,10 @@ namespace ResortBatch
             SectionE();
             SectionF();
             SectionG();
-            SectionH();   // Round S1 (ch4 §G.3, refutation RF-12)
-            SectionI();   // Catalog Phase B (round-2-contract §11.2, lift group)
-            SectionJ();   // Catalog Phase C (round-3-contract §8.3, rules group)
-            SectionK();   // Phase D (round-4-contract §7.2, rules group)
+            SectionH();
+            SectionI();
+            SectionJ();
+            SectionK();
             s_Check = null;
         }
 
@@ -83,7 +57,7 @@ namespace ResortBatch
             return Math.Abs(a - b) <= eps;
         }
 
-        // ================================================================== A. small rules
+        // A. small rules
 
         private static void SectionA()
         {
@@ -138,7 +112,7 @@ namespace ResortBatch
             Eq(HubRules.LiftStatusOf(3, true), HubLiftStatus.Unfinished, w, "LiftStatusOf(3,true)");
             Eq(HubRules.LiftStatusOf(4, false), HubLiftStatus.Unfinished, w, "LiftStatusOf(4,false)");
             Eq(HubRules.LiftStatusOf(9, true), HubLiftStatus.Unfinished, w, "LiftStatusOf(9,true)");
-            // T132 (field 2026-10-20 note 20): a held-closed complete lift reads Closed, chairs on the loop or not; No power wins.
+            // A held-closed complete lift reads Closed, chairs on the loop or not; No power wins.
             Eq(HubRules.LiftStatusOf(0, true, true), HubLiftStatus.Closed, w, "T132 LiftStatusOf(0,true,closed) = Closed (held chairs on the loop)");
             Eq(HubRules.LiftStatusOf(1, true, true), HubLiftStatus.Closed, w, "T132 LiftStatusOf(1,true,closed) = Closed");
             Eq(HubRules.LiftStatusOf(0, false, true), HubLiftStatus.NoPower, w, "T132 LiftStatusOf(0,false,closed) = NoPower (power first)");
@@ -190,8 +164,7 @@ namespace ResortBatch
             Ticket(false, -1, -1, 0, 0, 0.5f, 0, 0, true);
             Ticket(true, 0, 0, 500, 10, 0.9f, 0, 0, false);
 
-            // NetMonth (B1, 2026-10-19: the one Net over HubMonthMoney; was max(0, tickets) − cost rates). Terms in the order
-            // tickets, lodge, lessons, passes | lift, run, buildings, wages.
+            // NetMonth: the one Net over HubMonthMoney. Terms in the order tickets, lodge, lessons, passes | lift, run, buildings, wages.
             Net(Mm(8000, 1200, 500, 30000, 5091, 3600, 6000, 15000), 10009, false);       // 39,700 − 29,691
             Net(Mm(0, 0, 0, 120000, 0, 0, 3000, 9000), 108000, false);                    // a pre-season September: passes land when sold
             Net(Mm(8000, 0, 0, 0, 5091, 3600, -1, -1), -691, true);                       // the building bill unknown: read 0, "≈"
@@ -224,7 +197,7 @@ namespace ResortBatch
                   HubRules.RateSoFar(1000, double.NaN) == 0 && HubRules.RateSoFar(1000, 2.0) == 1000 && HubRules.RateSoFar(0, 0.7) == 0,
                   "hub A B1", "RateSoFar");
 
-            // B1 INVARIANT: the Finances rows add up to the Net. The UI sums the eight rows it shows (contract 11: ticketsThisMonth,
+            // Invariant: the Finances rows add up to the Net. The UI sums the eight rows it shows (contract 11: ticketsThisMonth,
             // lodgeIncomeMonth, lessonIncomeMonth, passIncomeMonth | liftChargedMonth, runCostMonth, buildingsSoFar, wagesSoFar), each
             // max(0, row) since −1 shows "–"; written out here as the UI will, over a grid that includes unknowns and zeros.
             int[] vals = { -1, 0, 1, 499, 120000 };
@@ -255,8 +228,8 @@ namespace ResortBatch
             Eq(HubRules.LiftNoPair(Hints(H(3, true, false))), true, w, "LiftNoPair([(3,T,F)])");
             Eq(HubRules.LiftNoPair(Hints(H(0, true, true))), true, w, "LiftNoPair([(0,T,T)])");
             Eq(HubRules.LiftNoPair(Hints(H(0, true, true), H(4, false, true))), true, w, "LiftNoPair([(0,T,T),(4,F,T)])");
-            // E1 fixer (e1-spec §8.9 F9): the census never builds (4,T,T) — each lone station is its own row,
-            // so the pair is found across rows (+5). (4,T,T) above stays as the defensive branch.
+            // The census never builds (4,T,T): each lone station is its own row, so the pair is found across rows (+5). (4,T,T) above
+            // stays as the defensive branch.
             Eq(HubRules.LiftNoPair(Hints(H(4, true, false), H(4, false, true))), false, w, "LiftNoPair([(4,T,F),(4,F,T)]) base and top on two rows");
             Eq(HubRules.LiftNoPair(Hints(H(4, false, true), H(3, true, false))), false, w, "LiftNoPair([(4,F,T),(3,T,F)]) a line from the base, a lone top");
             Eq(HubRules.LiftNoPair(Hints(H(4, true, false), H(4, true, false))), true, w, "LiftNoPair([(4,T,F),(4,T,F)]) two bases, no top");
@@ -293,7 +266,7 @@ namespace ResortBatch
 
         private static List<HubLiftHintRow> Hints(params HubLiftHintRow[] rows) => new List<HubLiftHintRow>(rows);
 
-        // ================================================================== B. receipt, what-if, run value
+        // B. receipt, what-if, run value
 
         private static SkiResortScore.RunInput R(byte kind, byte band, double areaM2, double top, double bottom, double open)
         {
@@ -304,7 +277,7 @@ namespace ResortBatch
             };
         }
 
-        /// <summary>ch1 §3.1 Small: Groomed Green 2 ha 1150/1000; Groomed Blue 2.5 ha 1250/1000; Groomed Blue 2 ha 1250/1050.</summary>
+        /// <summary>Small: Groomed Green 2 ha 1150/1000; Groomed Blue 2.5 ha 1250/1000; Groomed Blue 2 ha 1250/1050.</summary>
         private static List<SkiResortScore.RunInput> Small(double open)
         {
             const byte G = SkiResortScore.KindGroomed;
@@ -316,7 +289,7 @@ namespace ResortBatch
             };
         }
 
-        /// <summary>ch1 §3.1 Medium: 3 × Groomed Green 2.5 ha 1250/1000; 3 × Groomed Blue 3 ha 1400/1000; Snowmaking
+        /// <summary>Medium: 3 × Groomed Green 2.5 ha 1250/1000; 3 × Groomed Blue 3 ha 1400/1000; Snowmaking
         /// Blue 3 ha 1400/1000; Night Blue 2.5 ha 1300/1000; 2 × Natural Black 3 ha 1500/1100.</summary>
         private static List<SkiResortScore.RunInput> Medium()
         {
@@ -392,15 +365,15 @@ namespace ResortBatch
             Eq(HubRules.AttractionWithLodges(in s, 0), 0, w, "AttractionWithLodges(T2 terrain, 0)");
             s.Efficiency = 0.5;
             Eq(HubRules.AttractionWithLodges(in s, 2), 48, w, "AttractionWithLodges(T2 terrain at 0.5, 2)");
-            // Catalog Phase B (round-2-contract-skeptic MUST 1): the A-frame's season share comes from the Result's summer
-            // flag, not from LodgeShare (a summer Result carries ScoreFlags.SummerMode; was `LodgeShare = 0.5` alone).
+            // The A-frame's season share comes from the Result's summer flag, not from LodgeShare (a summer Result carries
+            // ScoreFlags.SummerMode).
             var sw = new SkiResortScore.Result { AOpen = 4.898979486, LodgeBase = 0, LodgeShare = 0.5, Efficiency = 1,
                                                  Flags = SkiResortScore.ScoreFlags.SummerMode };
             Eq(HubRules.AttractionWithLodges(in sw, 1), 15, w, "AttractionWithLodges(W1 terrain, 1)");
             var s0 = new SkiResortScore.Result { AOpen = 71.585929905, LodgeBase = 0, LodgeShare = 1, Efficiency = 0 };
             Eq(HubRules.AttractionWithLodges(in s0, 1), 0, w, "AttractionWithLodges(efficiency 0, 1)");
             var s10 = new SkiResortScore.Result { AOpen = 28.882668052, LodgeBase = 0, LodgeShare = 1, Efficiency = 1 };
-            // Catalog Phase B (MUST 1, §11.2 L10): LodgeBaseOf(10) = 20 + min(4 × 9, 24) = 44 (R11's cap 24; was 32 → 61).
+            // LodgeBaseOf(10) = 20 + min(4 × 9, 24) = 44 (the extras cap is 24).
             Eq(HubRules.AttractionWithLodges(in s10, 10), 73, w, "AttractionWithLodges(T1 terrain, 10) (L10: 44, was 61)");
             Eq(HubRules.AttractionWithLodges(in nl, 2), 96, w, "AttractionWithLodges(NL from Compute, 2) — a lodge pair restores T2");
 
@@ -415,7 +388,7 @@ namespace ResortBatch
         private static double PartFull(List<SkiResortScore.RunPart> parts, int i)
         {
             if (i >= parts.Count)
-                return double.NaN;   // the stage-0 Compute stub returns no parts: fail, never throw
+                return double.NaN;   // no parts: fail, never throw
             SkiResortScore.RunPart part = parts[i];
             return HubRules.RunValueFull(in part);
         }
@@ -447,7 +420,7 @@ namespace ResortBatch
 
         private static int Clamp200(int x) => x < 0 ? 0 : x > 200 ? 200 : x;
 
-        // ================================================================== C. problems
+        // C. problems
 
         private static HubProblem P(HubProblemCode code, byte severity, int liftIndex = -1, int count = -1, int pct = -1, int more = 0,
                                     int detail = 0, int ifFixed = -1, string factor = "", string build = "")
@@ -650,11 +623,9 @@ namespace ResortBatch
                 P(HubProblemCode.RunsUnrateable, 1, count: 1),
                 P(HubProblemCode.RunsFlat, 1, count: 1));
 
-            // E1 fixer (e1-spec §8.9 F9): lone stations on DIFFERENT rows pair up (the census never builds a
-            // state-4 row with both stations). P20-P23 add 2 + 2 + 3 + 3 = 10 checks.
-            // E1 fixer pass 2 (e1-spec §8.10 G4): the pair row sits at the row whose name the finished lift
-            // keeps — the TOP's row ("Lift N" is numbered by top height, rows without a top last), or the
-            // base's row when the base has a custom name. P20-P22 moved to the top's row; P24-P26 add 2 + 2 + 3.
+            // Lone stations on different rows pair up (the census never builds a state-4 row with both stations): P20-P23, 10 checks.
+            // The pair row sits at the row whose name the finished lift keeps: the TOP's row ("Lift N" is numbered by top height, rows
+            // without a top last), or the base's row when the base has a custom name (P24-P26).
             // P20 a base and a top placed, no line yet → one "draw the lift line" row at the top's row.
             x = In(1, 1, 100, 2, 1);
             x.Lifts = Ls(L(4, false, true, false), L(4, false, false, true));
@@ -703,7 +674,7 @@ namespace ResortBatch
                 P(HubProblemCode.LiftUnfinished, 2, liftIndex: 0, build: "lift"),
                 P(HubProblemCode.StationsOnly, 1, liftIndex: 1, detail: 0, build: "lift"));
 
-            // Round F7 D5 (field-test-7-fixes.md): road edges. P27-P31 add 2 + 9 + 3 + 2 + 2 + 3 = 21 checks.
+            // Road edges (SignNoRoad / LodgeNoRoad from Building.m_RoadEdge): P27-P31, 21 checks.
             // P27 the sign alone is off the road: one SignNoRoad row, severity 3, nothing else set.
             x = In(1, 1, 100, 1, 3);
             x.Lifts = Ls(L(0, true, true, true));
@@ -759,8 +730,8 @@ namespace ResortBatch
                 P(HubProblemCode.Unlinked, 3, build: "sign"),
                 P(HubProblemCode.FreeLodges, 1, count: 2));
 
-            // T100 (2026-10-19, docs/research/ui/hub-school-launch-2026-10-19.md): a road-less top-level ski school joins the
-            // LodgeNoRoad count but never its "every lodge" severity; unlinked schools get row 26 on the Not linked entry only.
+            // A road-less top-level ski school joins the LodgeNoRoad count but never its "every lodge" severity; unlinked schools get
+            // row 26 on the Not linked entry only (docs/research/ui/hub-school-launch-2026-10-19.md).
             x = In(1, 1, 100, 1, 3);
             x.Lifts = Ls(L(0, true, true, true));
             x.SchoolsNoRoad = 1;
@@ -790,9 +761,7 @@ namespace ResortBatch
             x.FreeSchools = 3;
             Expect("T100e a sign's area ignores FreeSchools", x, o);
 
-            // Round S1 (docs/research/ski-days/spec/ch4-hub.md §G.3): ski-day rows 20-22 (D28) and F1's Efficiency
-            // hysteresis. P32-P41 add 2 + 8 + 3 + 2 + 2 + 3 + 3 + 2 + 3 + 1 = 29 checks. Every case keeps one powered,
-            // complete lift unless given.
+            // Ski-day rows 20-22 and the Efficiency hysteresis: P32-P41, 29 checks. Every case keeps one powered, complete lift unless given.
             // P32 guests cannot reach: one severity-2 row, no count.
             x = In(1, 1, 100, 1, 3);
             x.Lifts = Ls(L(0, true, true, true));
@@ -843,8 +812,8 @@ namespace ResortBatch
             };
             Expect("P36 Not linked", x, o, P(HubProblemCode.Unlinked, 3, build: "sign"));
 
-            // P37-P41 F1 (decisions F1: show at <= 90 %, hide at >= 95 %). P5 (91, not held → no row) and P6 (90 → row)
-            // above are the "not held" half. P37 held at 91.
+            // P37-P41 Efficiency hysteresis (show at <= 90 %, hide at >= 95 %). P5 (91, not held → no row) and P6 (90 → row) above are
+            // the "not held" half. P37 held at 91.
             x = In(1, 1, 91, 1, 3);
             x.Factors = Fs(F(elec, -9));
             x.Lifts = Ls(L(0, true, true, true));
@@ -864,7 +833,7 @@ namespace ResortBatch
                 P(HubProblemCode.Efficiency, 2, pct: 94, ifFixed: 60, factor: elec),
                 P(HubProblemCode.Factor, 0, pct: -6, factor: elec));
 
-            // P39 released at 95; the −5 factor still lists (F1b: a 5-point loss is listed).
+            // P39 released at 95; the −5 factor still lists (a 5-point loss is listed).
             x = In(1, 1, 95, 1, 3);
             x.Factors = Fs(F(elec, -5));
             x.Lifts = Ls(L(0, true, true, true));
@@ -889,8 +858,7 @@ namespace ResortBatch
             x.EfficiencyRowWasOn = true;
             Expect("P41 F1 no result", x, o);
 
-            // Round S1 F1b (s1-spec §5.3 ruling R-Q2): a Factor row only when the factor costs 5 points or more
-            // (FactorRowMinLossPct; EffectPct <= −5). P42-P44 add 2 + 1 + 2 = 5 checks.
+            // A Factor row only when the factor costs 5 points or more (FactorRowMinLossPct; EffectPct <= −5): P42-P44, 5 checks.
             // P42 91 % = 0.95 × 0.96 (0.912): no Efficiency row (91, not held); the −5 factor listed, the −4 not.
             x = In(1, 1, 91, 1, 3);
             x.Factors = Fs(F("NotEnoughEmployees", -5), F(elec, -4));
@@ -906,7 +874,7 @@ namespace ResortBatch
             Expect("P43 F1b lone -4", x, o);
 
             // P44 three −4 factors, 0.96³ = 0.884736 → 88 %: no Factor row is listed, so the band row still names the
-            // worst factor and counts the other two (fixer, HU-1: with none listed, "more" counts every factor).
+            // worst factor and counts the other two (with none listed, "more" counts every factor).
             x = In(1, 1, 88, 1, 3);
             x.Factors = Fs(F("WaterSupply", -4), F("SewageHandling", -4), F(elec, -4));
             x.Lifts = Ls(L(0, true, true, true));
@@ -914,7 +882,7 @@ namespace ResortBatch
             Expect("P44 F1b band row keeps small factors", x, o,
                 P(HubProblemCode.Efficiency, 2, pct: 88, more: 2, ifFixed: 60, factor: "WaterSupply"));
 
-            // P45 (fixer pass, review HU-1) mixed: −12, −3, −1 (0.88 × 0.97 × 0.99 = 0.845) → 85 %: one factor is
+            // P45mixed: −12, −3, −1 (0.88 × 0.97 × 0.99 = 0.845) → 85 %: one factor is
             // listed, so "and {N} more" counts only listed factors (the tooltip names them): more 0. 3 checks.
             x = In(1, 1, 85, 1, 3);
             x.Factors = Fs(F("WaterSupply", -12), F("SewageHandling", -3), F(elec, -1));
@@ -924,9 +892,8 @@ namespace ResortBatch
                 P(HubProblemCode.Efficiency, 2, pct: 85, more: 0, ifFixed: 60, factor: "WaterSupply"),
                 P(HubProblemCode.Factor, 0, pct: -12, factor: "WaterSupply"));
 
-            // P46 Round M1 D9 (docs/research/ski-days/measure/m1-spec.md §4 "P42"; renumbered: P42 is F1b's): an area
-            // with no runs shows NoRuns and never "Lodge is far from the runs"; the same lodge with 3 runs shows it as
-            // in P34. 2 + 2 checks.
+            // P46: an area with no runs shows NoRuns and never "Lodge is far from the runs"; the same lodge with 3 runs shows it as in
+            // P34. 4 checks.
             x = In(1, 1, 100, 1, 0);
             x.Lifts = Ls(L(0, true, true, true));
             x.LodgesNotSlopeside = 1;
@@ -971,7 +938,7 @@ namespace ResortBatch
                 P(HubProblemCode.NoRuns, 1));
         }
 
-        // ================================================================== D. status property
+        // D. status property
 
         private static void SectionD()
         {
@@ -992,7 +959,7 @@ namespace ResortBatch
             }
         }
 
-        // ================================================================== E. new helpers
+        // E. constants and helpers
 
         private static void SectionE()
         {
@@ -1000,7 +967,7 @@ namespace ResortBatch
             Check(HubRules.ChairSpeedMps == 2.5f && HubRules.MinCountedFraction == 0.25f && HubRules.EfficiencyProblemPct == 90 &&
                   HubRules.MaxBandRows == 8 && HubRules.LiftLinePerKm == 7500 && HubRules.TicksPerDay == 262144 &&
                   HubRules.FollowMinIntervalS == 2f && HubRules.FollowQuietAfterUserS == 2f &&
-                  HubRules.EfficiencyClearPct == 95 && HubRules.FactorRowMinLossPct == 5,   // Round S1 F1, F1b
+                  HubRules.EfficiencyClearPct == 95 && HubRules.FactorRowMinLossPct == 5,
                   w, "a HubRules constant moved: the oracles are literal for it");
 
             Eq((int)HubProblemCode.Unlinked, 0, w, "HubProblemCode.Unlinked");
@@ -1008,17 +975,17 @@ namespace ResortBatch
             Eq((int)HubProblemCode.StationsOnly, 10, w, "HubProblemCode.StationsOnly");
             Eq((int)HubProblemCode.Factor, 16, w, "HubProblemCode.Factor");
             Eq((int)HubProblemCode.RunsFlat, 17, w, "HubProblemCode.RunsFlat");
-            Eq((int)HubProblemCode.SignNoRoad, 18, w, "HubProblemCode.SignNoRoad");     // Round F7 D5
-            Eq((int)HubProblemCode.LodgeNoRoad, 19, w, "HubProblemCode.LodgeNoRoad");   // Round F7 D5
-            Eq((int)HubProblemCode.SkiDaysCannotReach, 20, w, "HubProblemCode.SkiDaysCannotReach");   // Round S1 D28
-            Eq((int)HubProblemCode.NoParkingNearLodge, 21, w, "HubProblemCode.NoParkingNearLodge");   // Round S1 D28
-            Eq((int)HubProblemCode.LodgeNotSlopeside, 22, w, "HubProblemCode.LodgeNotSlopeside");     // Round S1 D28
-            Eq((int)HubProblemCode.MixedLiftTypes, 23, w, "HubProblemCode.MixedLiftTypes");                     // Catalog Phase B
-            Eq((int)HubProblemCode.SummitLodgeNotLiftServed, 24, w, "HubProblemCode.SummitLodgeNotLiftServed"); // Catalog Phase B
-            Eq((int)HubProblemCode.SchoolNoGreenRun, 25, w, "HubProblemCode.SchoolNoGreenRun");                 // Catalog Phase B
-            Eq((int)HubProblemCode.SchoolsNotLinked, 26, w, "HubProblemCode.SchoolsNotLinked");                 // T100
+            Eq((int)HubProblemCode.SignNoRoad, 18, w, "HubProblemCode.SignNoRoad");
+            Eq((int)HubProblemCode.LodgeNoRoad, 19, w, "HubProblemCode.LodgeNoRoad");
+            Eq((int)HubProblemCode.SkiDaysCannotReach, 20, w, "HubProblemCode.SkiDaysCannotReach");
+            Eq((int)HubProblemCode.NoParkingNearLodge, 21, w, "HubProblemCode.NoParkingNearLodge");
+            Eq((int)HubProblemCode.LodgeNotSlopeside, 22, w, "HubProblemCode.LodgeNotSlopeside");
+            Eq((int)HubProblemCode.MixedLiftTypes, 23, w, "HubProblemCode.MixedLiftTypes");
+            Eq((int)HubProblemCode.SummitLodgeNotLiftServed, 24, w, "HubProblemCode.SummitLodgeNotLiftServed");
+            Eq((int)HubProblemCode.SchoolNoGreenRun, 25, w, "HubProblemCode.SchoolNoGreenRun");
+            Eq((int)HubProblemCode.SchoolsNotLinked, 26, w, "HubProblemCode.SchoolsNotLinked");
             Eq(Enum.GetValues(typeof(HubProblemCode)).Length, 27, w, "HubProblemCode has 27 values (append only)");
-            Eq((int)HubSkiDayState.Full, 7, w, "HubSkiDayState.Full");                                // Round S1 (contract 4)
+            Eq((int)HubSkiDayState.Full, 7, w, "HubSkiDayState.Full");
             Eq(Enum.GetValues(typeof(HubSkiDayState)).Length, 8, w, "HubSkiDayState has 8 values");
             Eq((int)SeasonHint.GatingOff, 6, w, "SeasonHint.GatingOff");
             Eq((int)RunOpenState.None, -1, w, "RunOpenState.None");
@@ -1079,7 +1046,7 @@ namespace ResortBatch
             Eq(HubRules.FollowCheck(true, false, 10f, 9f, 7f), FollowVerdict.TooSoon, w, "FollowCheck(true,false,10,9,7)");
         }
 
-        // ================================================================== F. piste-map rules
+        // F. piste-map rules
 
         private static List<float3> Square() => new List<float3>
         {
@@ -1193,7 +1160,7 @@ namespace ResortBatch
             Piece(a, b, 4, new float3(0, 0, 0), new float3(10, 0, 0), "appending (first dash after the 4 solid pieces)");
         }
 
-        // ================================================================== G. the aggregate's run vertical
+        // G. the aggregate's run vertical
 
         private static SkiResortAggregate.RunIn Run(int resort, bool rated, sbyte band, float len, float area, float top, float bottom,
                                                     float cost, float snowHa, float cover, float natural)
@@ -1258,7 +1225,7 @@ namespace ResortBatch
             Check(a.VerticalM == all, w, $"{name}: VerticalM {a.VerticalM}, want {all} (unchanged, C14)");
         }
 
-        // ================================================================== H. ski-day state (Round S1)
+        // H. ski-day state
 
         private static void SectionH()
         {
@@ -1266,7 +1233,7 @@ namespace ResortBatch
             const HubSkiDayState Unknown = HubSkiDayState.Unknown, Off = HubSkiDayState.Off, SignOff = HubSkiDayState.SignOff,
                 NoRun = HubSkiDayState.NoRun, NoLodge = HubSkiDayState.NoLodge, Night = HubSkiDayState.Night,
                 Room = HubSkiDayState.Room, Full = HubSkiDayState.Full;
-            // ch4 §G.3: SkiDayStateOf(off, hasView, scoreKnown, signRunning, runsCounted, targetLodges, claimHours, now, cap).
+            //SkiDayStateOf(off, hasView, scoreKnown, signRunning, runsCounted, targetLodges, claimHours, now, cap).
             State("H1", true, true, true, true, 5, 1, true, 0, 154, Off);
             State("H2", true, false, false, false, 0, 0, false, -1, -1, Off);       // off wins over everything
             State("H3", false, false, true, true, 5, 1, true, 0, 154, Unknown);     // no view
@@ -1279,16 +1246,16 @@ namespace ResortBatch
             State("H10", false, true, true, true, 5, 1, true, 153, 154, Room);
             State("H11", false, true, true, true, 5, 1, true, 154, 154, Full);
             State("H12", false, true, true, true, 5, 1, true, 200, 154, Full);
-            State("H13", false, true, true, true, 5, 1, true, 0, 0, Full);          // cap 0 is real (s1-spec N9)
+            State("H13", false, true, true, true, 5, 1, true, 0, 0, Full);          // cap 0 is real
             State("H14", false, true, true, true, 5, 1, true, 0, -1, Unknown);      // before the first pass
             State("H15", false, true, true, true, 5, 1, true, -1, 154, Unknown);    // now unknown
 
-            // H16 (s1-spec N10, refutation RF-12): the C# powder mark and the TS threshold (POWDER_MARK_PCT = 50 on
+            // H16: the C# powder mark and the TS threshold (POWDER_MARK_PCT = 50 on
             // skiDaysPowderPct = HubRules.Percent(powder)) agree at every reachable powder: snow-hours 0..24 (powder
             // takes sixths, 7 h = exactly 0.5). One check.
             bool parity = true;
             string first = "";
-            for (int h = 0; h <= 48; h++)   // T134: fresh steps 0..48 (24 h at precipitation 1)
+            for (int h = 0; h <= 48; h++)   //fresh steps 0..48 (24 h at precipitation 1)
             {
                 double powder = SkiDayRules.PowderOf(h);
                 bool cs = SkiDayRules.PowderMark(powder), ts = HubRules.Percent(powder) >= 50;
@@ -1300,9 +1267,8 @@ namespace ResortBatch
             }
             Check(parity, w, "H16 powder mark parity C# / TS: " + first);
 
-            // H17 (Round M2 R7, hub-price.md §3; build-contract.md §7, Decided here 13-14): the hub's price line computes
-            // D16's factor in TS (hubRules.priceFactor); this is the C# half of the shared literal table
-            // (mod/SkiResortUI/tools/test-hub-rules.js T10.1 holds the same rows). Two checks: the table, then the edge.
+            // H17: the hub's price line computes the price factor in TS (hubRules.priceFactor); this is the C# half of the shared
+            // literal table (mod/SkiResortUI/tools/test-hub-rules.js T10.1 holds the same rows). Two checks: the table, then the edge.
             int[] priceIn = { 0, 5, 40, 45, 80, 100, 120, 150, 200, 260 };
             double[] priceOut = { 1, 1, 1, 0.975, 0.8, 0.7, 0.6, 0.45, 0.2, 0.2 };
             bool priceOk = true;
@@ -1318,14 +1284,14 @@ namespace ResortBatch
             }
             Check(priceOk, w, "H17 price factor C# = the TS table: " + priceFirst);
             // The Options texts and the hub tooltip bake "40", "60" and "200" (Settings/LocaleEN.cs Locals who ski and Lift ticket
-            // price; MONEY_PRICE_TIP[Curve] through PRICE_NO_EFFECT_MAX): the no-effect edge 240 - 200, the default (80 since T137, 60 since
-            // econ-2 round 2; the factor at 80 is 0.8: "80 % at 80"), the cap.
+            // price; MONEY_PRICE_TIP[Curve] through PRICE_NO_EFFECT_MAX): the no-effect edge 240 - 200, the default (80; the factor at 80
+            // is 0.8: "80 % at 80"), the cap.
             Check(SkiDayRules.PriceFullAt - SkiDayRules.PriceSpan == 40 && SkiMoneyRules.TicketPriceDefault == 80 &&
                   SkiDayRules.PriceMax == 200 && SkiMoneyRules.TicketPriceMax == 200 &&
                   SkiDayRules.PriceFactor(SkiMoneyRules.TicketPriceDefault, 0) == 0.8,
                   w, "H17 price edge 40, default 80 (factor 0.8; T137 I1, was 60), cap 200 (the Options texts say so)");
 
-            // H18 (Round M2 R5, thaw-rules.md §3): Season reads the live gun gates when known. Arguments (gating, runs,
+            // H18: Season reads the live gun gates when known. Arguments (gating, runs,
             // open, anyGunRun, gunsLiveKnown, anyGunOn, topKnown, T, freezing 0, margin 2). Eight checks.
             Eq(HubRules.Season(true, 7, 5, true, true, false, true, 1.5f, 0f, 2f), SeasonHint.Thawing, w,
                "H18 Season(true,7,5,true,true,false,true,1.5,0,2) (old rule SnowGunsOnly; run 2b Dump 3 shape)");
@@ -1345,28 +1311,28 @@ namespace ResortBatch
                "H18 Season(true,7,5,true,true,true,false,NaN,0,2)");
         }
 
-        // ================================================================== I. Catalog Phase B (lift group)
+        // I. lift types
 
         private static HubProblemLift LT(int state, bool powered, bool hasBase, bool hasTop, byte type, bool mixed = false,
                                          bool named = false) =>
             new HubProblemLift { State = state, Powered = powered, HasBase = hasBase, HasTop = hasTop, CustomName = named,
                                  Type = type, Mixed = mixed };
 
-        /// <summary>Catalog Phase B (round-2-contract §11.2 "HubRulesTests.cs + MoneyBatch.cs (lift)"; skeptic MUST 1):
-        ///   I1  RideTimeS(loop, speed) per lift type, and the one-argument CG-2 twin;
-        ///   I2  MUST 1: a SUMMER area with no lodge keeps today's "if one lodge" number (15), whatever LodgeShare says;
+        /// <summary>Section I:
+        ///   I1  RideTimeS(loop, speed) per lift type, and the one-argument twin;
+        ///   I2  a summer area with no lodge keeps today's "if one lodge" number (15), whatever LodgeShare says;
         ///   I3  AttractionWithLodgeApplied (the IfLodgesOn ladder value) on literal results and on T2 from Compute;
-        ///   I4  LodgePart = LodgeApplied (seam S4);
-        ///   I5  problems: MixedLiftTypes 23 (build item by type, no LiftUnfinished row), 24 and 25 (counts, severities,
-        ///       the 24 cap), StationsOnly / SectionMissing build items per type, and lone stations pairing per type only;
-        ///   I6  H17 with tolerance: SkiDayRules.PriceFactor(price, tolerance) = the TS priceFactor table
-        ///       (mod/SkiResortUI/tools/test-hub-rules.js, §8.7), and PriceFactor(p) ≡ PriceFactor(p, 0).
-        /// Oracles are literal hand values (contract §11.1-§11.2 tables).</summary>
+        ///   I4  LodgePart = LodgeApplied;
+        ///   I5  problems: MixedLiftTypes 23 (build item by type, no LiftUnfinished row), 24 and 25 (counts, severities, the 24 cap),
+        ///       StationsOnly / SectionMissing build items per type, and lone stations pairing per type only;
+        ///   I6  price factor with tolerance: SkiDayRules.PriceFactor(price, tolerance) = the TS priceFactor table
+        ///       (mod/SkiResortUI/tools/test-hub-rules.js), and PriceFactor(p) ≡ PriceFactor(p, 0).
+        /// Oracles are literal hand values.</summary>
         private static void SectionI()
         {
             const string w = "hub I";
 
-            // I1 ride time per speed (contract §11.2)
+            // I1 ride time per speed
             Eq(HubRules.RideTimeS(2045f, 5.0f), 204.5f, w, "RideTimeS(2045, 5.0) (detachable)");
             Eq(HubRules.RideTimeS(2045f, 5.5f), 2045f / 2f / 5.5f, w, "RideTimeS(2045, 5.5) (gondola)");
             Eq(HubRules.RideTimeS(2045f, 0f), -1f, w, "RideTimeS(2045, 0)");
@@ -1377,7 +1343,7 @@ namespace ResortBatch
             Eq(HubRules.RideTimeS(2045f, SkiCatalog.FixedGrip.SpeedMps), HubRules.RideTimeS(2045f), w,
                "RideTimeS(2045, FixedGrip.SpeedMps) == RideTimeS(2045)");
 
-            // I2 MUST 1: summer, 0 lodges, from Compute (W1's runs with no lodge): today's 4.898979486 + 20 × 0.5 → 15.
+            // I2summer, 0 lodges, from Compute (W1's runs with no lodge): today's 4.898979486 + 20 × 0.5 → 15.
             var p = new List<SkiResortScore.RunPart>();
             SkiResortScore.Result nlw = Score(0, 1.0, Small(0.0), 1, p);
             Check((nlw.Flags & SkiResortScore.ScoreFlags.SummerMode) != 0, w, "I2: Small(0) with no lodge is summer mode");
@@ -1385,7 +1351,7 @@ namespace ResortBatch
             Eq(HubRules.AttractionWithLodges(in nlw, 1), 15, w, "I2 MUST 1: AttractionWithLodges(summer, 0 lodges, 1) = today's 15");
             Eq(HubRules.AttractionWithLodges(in nlw, 2), 17, w, "I2: AttractionWithLodges(summer, 0 lodges, 2) = 4.899 + 12 → 17");
 
-            // I3 AttractionWithLodgeApplied (seam S4; the stats system's IfLodgesOn with the ladder's applied value).
+            // I3 AttractionWithLodgeApplied (the stats system's IfLodgesOn with the ladder's applied value).
             var s = new SkiResortScore.Result { AOpen = 71.585929905, Efficiency = 1 };   // T2 terrain, no lodge applied
             Eq(HubRules.AttractionWithLodgeApplied(in s, 40.0), 112, w, "I3: T2 terrain + 40 (a Grand alone) → 112");
             Eq(HubRules.AttractionWithLodgeApplied(in s, 52.0), 124, w, "I3: T2 terrain + 52 (a Grand and a Summit, no luxury cap: LD5) → 124");
@@ -1410,7 +1376,7 @@ namespace ResortBatch
             var nan = new SkiResortScore.Result { LodgeApplied = double.NaN };
             NearF(HubRules.LodgePart(in nan), 0.0, 0.0, w, "I4: a NaN LodgeApplied reads 0");
 
-            // I5 problems (§6.1).
+            // I5 problems.
             var o = new List<HubProblem>();
             HubProblemInput x = In(1, 1, 100, 1, 3);
             x.Lifts = Ls(LT(3, true, true, true, 1, mixed: true));
@@ -1466,7 +1432,7 @@ namespace ResortBatch
             Expect("I5l an untyped lone base falls back to the fixed-grip items", x, o,
                 P(HubProblemCode.StationsOnly, 1, liftIndex: 0, detail: 1, build: "topStation"));
 
-            // I6 H17 with tolerance (C# half; test-hub-rules.js holds the TS priceFactor rows of contract §8.7).
+            // I6 H17 with tolerance (C# half; test-hub-rules.js holds the TS priceFactor rows).
             int[] tolPrice = { 80, 80, 80, 200, 250, 200, 0 };
             int[] tolTol = { 0, 20, 40, 40, 40, 0, 40 };
             double[] tolOut = { 0.8, 0.9, 1.0, 0.4, 0.4, 0.2, 1.0 };
@@ -1504,22 +1470,21 @@ namespace ResortBatch
                                         $"{claimHours},{now},{cap}) = {got}, want {want}");
         }
 
-        // ================================================================== J. Catalog Phase C (rules group): the tram
+        // J. the tram
 
-        /// <summary>Catalog Phase C (round-3-contract §8.3, C5, C14; skeptic MUST 4). v 10 m/s, a 0.8 m/s² (0.8f, as the
-        /// catalog row), dwell 60 s. Literal oracles (contract §3.3's worked rows; the skeptic's Math.fround recomputation):
-        ///   HJ-1..HJ-3  ShuttleRideTimeS: 1 km 112.5 s, 3 km 312.5 s, 100 m 22.360679774997898 (triangle) — bit-exact floats;
-        ///               2 km 212.5, 125 m 25 (the degenerate trapezoid with 0.8f);
-        ///   HJ-4        invalid → −1 (path 0 / NaN / −5 / ∞, speed 0, accel 0, dwell −1 / NaN);
-        ///   HJ-4b       C5: the dwell does not enter the ride time while ShuttleRideIncludesDwell is false (pinned false:
-        ///               flipping it is Richard's open decision and must revisit these oracles and LIFT_RIDE_TIP);
+        /// <summary>Section J: v 10 m/s, a 0.8 m/s² (0.8f, as the catalog row), dwell 60 s. Literal oracles:
+        ///   HJ-1..HJ-3  ShuttleRideTimeS: 1 km 112.5 s, 3 km 312.5 s, 100 m 22.360679774997898 (triangle), bit-exact floats (recomputed
+        ///               with Math.fround); 2 km 212.5, 125 m 25 (the degenerate trapezoid with 0.8f);
+        ///   HJ-4        invalid gives −1 (path 0 / NaN / −5 / ∞, speed 0, accel 0, dwell −1 / NaN);
+        ///   HJ-4b       the dwell does not enter the ride time while ShuttleRideIncludesDwell is false (pinned false: flipping it must
+        ///               revisit these oracles and LIFT_RIDE_TIP);
         ///   HJ-5        ShuttleCapacityPerHour(2, 100, 1 km) == (float)(720000 / 345) bit-exact;
-        ///   HJ-6        a → ∞ (1e9): 1 km 2,250 and 3 km 1,000 pph ± 0.01 (the brief's "pax × 3600 / (L/v + dwell)");
-        ///   HJ-7        one cabin = half (exact in float); cabins 0, seats 0, dwell −1, cabins −1, NaN path → −1;
-        ///   HJ-8        the Loop rule untouched: RideTimeS(2045, 2.5) == 409 (CG-2 twin);
-        ///   HJ-9        the catalog's tram row (SkiCatalog index 3) through both: 112.5 s / 2,086.96 pph at 1 km; the worked
-        ///               capacities 100 m 4,371.0, 125 m 4,235.3, 2 km 1,321.10, 3 km 966.44;
-        ///   HJ-10       C14's mapping through LiftStatusOf: Running / Held (NoPower) / no path (ChairsStopped, NoPower).</summary>
+        ///   HJ-6        a → ∞ (1e9): 1 km 2,250 and 3 km 1,000 pph ± 0.01 (pax × 3600 / (L/v + dwell));
+        ///   HJ-7        one cabin = half (exact in float); cabins 0, seats 0, dwell −1, cabins −1, NaN path give −1;
+        ///   HJ-8        the Loop rule is untouched: RideTimeS(2045, 2.5) == 409;
+        ///   HJ-9        the catalog's tram row (SkiCatalog index 3) through both: 112.5 s / 2,086.96 pph at 1 km; the worked capacities
+        ///               100 m 4,371.0, 125 m 4,235.3, 2 km 1,321.10, 3 km 966.44;
+        ///   HJ-10       the status mapping through LiftStatusOf: Running / Held (NoPower) / no path (ChairsStopped, NoPower).</summary>
         private static void SectionJ()
         {
             const string w = "hub J";
@@ -1542,7 +1507,7 @@ namespace ResortBatch
             Eq(HubRules.ShuttleRideTimeS(1000f, v, a, -1f), -1f, w, "HJ-4 ShuttleRideTimeS(1000, 10, 0.8, -1)");
             Eq(HubRules.ShuttleRideTimeS(1000f, v, a, float.NaN), -1f, w, "HJ-4 ShuttleRideTimeS(1000, 10, 0.8, NaN)");
 
-            // HJ-4b C5 / MUST 4: the trip only, whatever the dwell, while the switch is off.
+            // HJ-4bthe trip only, whatever the dwell, while the switch is off.
             Check(!HubRules.ShuttleRideIncludesDwell, w, "HJ-4b ShuttleRideIncludesDwell is false (C5 as built; open decision)");
             Eq(HubRules.ShuttleRideTimeS(1000f, v, a, 0f), 112.5f, w, "HJ-4b ShuttleRideTimeS(1000, 10, 0.8, 0)");
             Eq(HubRules.ShuttleRideTimeS(1000f, v, a, 600f), 112.5f, w, "HJ-4b ShuttleRideTimeS(1000, 10, 0.8, 600)");
@@ -1588,26 +1553,25 @@ namespace ResortBatch
                       966.44, 0.01, w, "HJ-9 capacity 3 km");
             }
 
-            // HJ-10 C14: the stats state of a tram row → the hub status (no new HubLiftStatus value, contract 6)
+            // HJ-10 the stats state of a tram row → the hub status (no new HubLiftStatus value)
             Eq(HubRules.LiftStatusOf(0, true), HubLiftStatus.Running, w, "HJ-10 path + cabins, powered → Running");
             Eq(HubRules.LiftStatusOf(0, false), HubLiftStatus.NoPower, w, "HJ-10 path + cabins, unpowered (Held) → NoPower");
             Eq(HubRules.LiftStatusOf(1, true), HubLiftStatus.ChairsStopped, w, "HJ-10 no path / no cabin, powered → ChairsStopped");
             Eq(HubRules.LiftStatusOf(1, false), HubLiftStatus.NoPower, w, "HJ-10 no path / no cabin, unpowered → NoPower");
         }
 
-        // ================================================================== K. Phase D (rules group): unpowered lifts
+        // K. unpowered lifts
 
-        /// <summary>Phase D (round-4-contract §7.2, D9; Richard's re-ruling DECISIONS 171: an unpowered lift of every type
-        /// carries no guests). Literal oracles:
-        ///   HK-1  LiftCapacityShown: the Loop capacities riding × seats × speed × 3600 / L (the Stats expression, riding 40,
-        ///         L 2,000 m: fixed-grip 3 / 2.5 → 540, detachable 4 / 5.0 → 1,440, gondola 8 / 5.5 → 3,168) and the tram's
-        ///         ShuttleCapacityPerHour(2, 100, 1000, 10, 0.8, 60): (c, true) bit-equal to c, (c, false) == −1, (−1, true)
-        ///         == −1; through Carries for a powered and an unpowered complete row (the hub's composition, §2.6);
-        ///   HK-2  LiftStatusOf(0, false) NoPower, (0, true) Running, (1, false) NoPower, (1, true) ChairsStopped (unchanged
-        ///         oracles, restated next to the capacity rows: the status of a held lift stays "No power");
+        /// <summary>Section K: an unpowered lift of every type carries no guests. Literal oracles:
+        ///   HK-1  LiftCapacityShown: the Loop capacities riding × seats × speed × 3600 / L (the Stats expression, riding 40, L 2,000 m:
+        ///         fixed-grip 3 / 2.5 → 540, detachable 4 / 5.0 → 1,440, gondola 8 / 5.5 → 3,168) and the tram's
+        ///         ShuttleCapacityPerHour(2, 100, 1000, 10, 0.8, 60): (c, true) bit-equal to c, (c, false) == −1, (−1, true) == −1;
+        ///         through Carries for a powered and an unpowered complete row;
+        ///   HK-2  LiftStatusOf(0, false) NoPower, (0, true) Running, (1, false) NoPower, (1, true) ChairsStopped (restated next to the
+        ///         capacity rows: a held lift's status stays "No power");
         ///   HK-3  Carries(complete, shownPowered, closed), 8 rows; equal to Carries(complete, p, closed) with shownPowered =
         ///         p != NoPower, and to SkiMoneyRules.LiftOperating(complete, IsPowered(p)) &amp;&amp; !closed for all 12 inputs
-        ///         (D1's equivalence with the billing system's operating predicate, SkiMoneyRules.cs:73).</summary>
+        ///         (SkiMoneyRules.cs:73).</summary>
         private static void SectionK()
         {
             const string w = "hub K";
@@ -1650,7 +1614,7 @@ namespace ResortBatch
             Eq(HubRules.LiftStatusOf(1, false), HubLiftStatus.NoPower, w, "HK-2 LiftStatusOf(1, false)");
             Eq(HubRules.LiftStatusOf(1, true), HubLiftStatus.ChairsStopped, w, "HK-2 LiftStatusOf(1, true)");
 
-            // HK-3 the bool overload, and D1's equivalences
+            // HK-3 the bool overload, and the equivalences
             for (int c = 0; c < 2; c++)
                 for (int s = 0; s < 2; s++)
                     for (int z = 0; z < 2; z++)
@@ -1672,8 +1636,6 @@ namespace ResortBatch
                            "HK-3 Carries == LiftOperating(complete, IsPowered(p)) && !closed (" + tag + ")");
                     }
         }
-
-        // ================================================================== helpers
 
         private static void Eq<T>(T got, T want, string where, string call)
         {

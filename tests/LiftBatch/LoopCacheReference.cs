@@ -1,19 +1,18 @@
-// LoopCacheReference — a FROZEN transcription of the topology pass of mod/SkiResortMod/Systems/LiftLoopCache.cs at
-// SHA-256 d3ae435b756f2e1b281617ef02cb260bb13a12bd8c16bfea1b963fcca2881b81 (the Catalog Phase B working tree, before
-// Catalog Phase C moved the topology into LiftLoopTopology.cs; round-3-contract.md §8.1 LC-REF). Lines transcribed:
-// Build :175-345 up to the closure (the pairing loop's geometry and loop notes are not here), ClassifyTerminal
-// :347-377, AddEndpoint :379-384, TryTakeNext :386-404, TryCloseLoop :407-430 (orientation + gap check; the geometry
-// :432-453 is not here), CommonType :520-540, ArcSane :558-562, OrientChain :564-578, GetChainEndpoint :580-595.
+// LoopCacheReference - a frozen transcription of the topology pass of LiftLoopCache.cs (before the topology moved into
+// LiftLoopTopology.cs) at SHA-256 d3ae435b756f2e1b281617ef02cb260bb13a12bd8c16bfea1b963fcca2881b81. Lines transcribed:
+// Build :175-345 up to the closure (the pairing loop's geometry and loop notes are not here), ClassifyTerminal :347-377,
+// AddEndpoint :379-384, TryTakeNext :386-404, TryCloseLoop :407-430 (orientation + gap check; the geometry :432-453 is
+// not here), CommonType :520-540, ArcSane :558-562, OrientChain :564-578, GetChainEndpoint :580-595.
 //
-// DO NOT EDIT to follow LiftLoopTopology: this file IS the oracle. The only substitutions are the stand-ins the topology
+// Do not edit to follow LiftLoopTopology: this file is the oracle. The only substitutions are the stand-ins the topology
 // uses, so both run on identical input:
-//   * CableLane → LiftLoopTopology.Lane; PathNode → its int id; PathNode.Equals → ==; cursor.GetOwnerIndex() →
-//     OwnerOf(cursor), a node → owner table built from the lanes (the generator gives every id one owner, as the
+//   * CableLane -> LiftLoopTopology.Lane; PathNode -> its int id; PathNode.Equals -> ==; cursor.GetOwnerIndex() ->
+//     OwnerOf(cursor), a node -> owner table built from the lanes (the generator gives every id one owner, as the
 //     64-bit search key does: Game.Pathfind/PathNode.cs:113-116).
-//   * MathUtils.Position / Tangent(lane.m_Bezier, t), t ∈ {0, 1} → the lane's P0 / P1 / T0 / T1.
-//   * List<Entity> stations → List<int> (Entity.Index).
-// What the original did after a successful gap check (AppendChain, the two turns, "top turn …", "loop closed …", the
-// loop-too-short refusal) needs Colossal.Mathematics and is NOT transcribed; such a pair is recorded as Closed with its
+//   * MathUtils.Position / Tangent(lane.m_Bezier, t), t in {0, 1} -> the lane's P0 / P1 / T0 / T1.
+//   * List<Entity> stations -> List<int> (Entity.Index).
+// What the original did after a successful gap check (AppendChain, the two turns, "top turn ...", "loop closed ...", the
+// loop-too-short refusal) needs Colossal.Mathematics and is not transcribed; such a pair is recorded as Closed with its
 // CommonType (the original computed it right after the closure, :337).
 
 using System;
@@ -49,7 +48,7 @@ namespace LiftBatch
             public int m_EndStation = -1;
         }
 
-        /// <summary>What happened to one key of the pairing dictionary (the test's view of the original's pair loop).</summary>
+        /// <summary>What happened to one key of the pairing dictionary</summary>
         internal sealed class PairResult
         {
             public int Lo, Hi, ChainCount;
@@ -100,8 +99,7 @@ namespace LiftBatch
                 return;
             }
 
-            // Endpoint index: PathNode -> lane indices sharing it (exact equality; PathNode
-            // hashes on its full search key).
+            // Endpoint index: PathNode -> lane indices sharing it (exact equality; PathNode hashes on its full search key)
             var nodeMap = new Dictionary<int, List<int>>(lanes.Count * 2);
             for (int i = 0; i < lanes.Count; i++)
             {
@@ -111,7 +109,6 @@ namespace LiftBatch
             for (int i = 0; i < stations.Count; i++)
                 stationByOwnerIndex[stations[i]] = i; // the station itself, always
 
-            // ── Chain building ─────────────────────────────────────────────────────────
             var chains = m_Chains;
             var visited = new bool[lanes.Count];
             for (int i = 0; i < lanes.Count; i++)
@@ -119,27 +116,27 @@ namespace LiftBatch
                 if (visited[i])
                     continue;
 
-                // Walk backward from this lane's start to find the chain's true beginning,
-                // then forward-collect. Loop guard: never revisit a lane.
+                // Walk backward from this lane's start to find the chain's true beginning, then forward-collect. Loop guard: never
+                // revisit a lane.
                 var chain = new Chain();
                 visited[i] = true;
 
-                // Backward extension (collect, then reverse). The walk STOPS at station
-                // anchors — shared-station stub PathNodes must never bridge two lifts.
+                // Backward extension (collect, then reverse). The walk stops at station anchors: shared-station stub PathNodes must
+                // never bridge two lifts.
                 var backLinks = new List<ChainLink>();
                 int cursor = lanes[i].StartNode;
                 while (!stationByOwnerIndex.ContainsKey(OwnerOf(cursor)) &&
                        TryTakeNext(nodeMap, lanes, visited, cursor, out int prevLane))
                 {
-                    // Entering prevLane at 'cursor': if cursor == its END the lane already
-                    // points at us (travel = forward when later reversed as a whole).
+                    // Entering prevLane at 'cursor': if cursor == its END the lane already points at us (travel = forward when later
+                    // reversed as a whole)
                     bool enteredAtEnd = lanes[prevLane].EndNode == cursor;
                     backLinks.Add(new ChainLink { m_LaneIndex = prevLane, m_Reversed = enteredAtEnd });
                     cursor = enteredAtEnd ? lanes[prevLane].StartNode : lanes[prevLane].EndNode;
                 }
                 chain.m_StartTerminal = cursor;
-                // backLinks were collected walking AWAY from lane i; in chain order they run
-                // toward lane i, so reverse the list and flip each link's direction.
+                // backLinks were collected walking away from lane i; in chain order they run toward lane i, so reverse the list and
+                // flip each link's direction
                 for (int b = backLinks.Count - 1; b >= 0; b--)
                     chain.m_Links.Add(new ChainLink
                     {
@@ -149,7 +146,7 @@ namespace LiftBatch
 
                 chain.m_Links.Add(new ChainLink { m_LaneIndex = i, m_Reversed = false });
 
-                // Forward extension from lane i's end (same station stop).
+                // Forward extension from lane i's end (same station stop)
                 cursor = lanes[i].EndNode;
                 while (!stationByOwnerIndex.ContainsKey(OwnerOf(cursor)) &&
                        TryTakeNext(nodeMap, lanes, visited, cursor, out int nextLane))
@@ -160,8 +157,7 @@ namespace LiftBatch
                 }
                 chain.m_EndTerminal = cursor;
 
-                // Terminal classification: owner match first (station or any child of it),
-                // position fallback second (entry 102). Terminals only.
+                // Terminal classification: owner match first (station or any child of it), position fallback second. Terminals only.
                 GetChainEndpoint(lanes, chain, atEnd: false, out float3 startPos, out _);
                 GetChainEndpoint(lanes, chain, atEnd: true, out float3 endPos, out _);
                 chain.m_StartStation = ClassifyTerminal(chain.m_StartTerminal, startPos, stations,
@@ -184,7 +180,6 @@ namespace LiftBatch
             }
             m_ChainCount = chains.Count;
 
-            // ── Pair chains by station pair, close each pair into a loop ─────────────────
             var byPair = new Dictionary<(int, int), List<Chain>>();
             for (int c = 0; c < chains.Count; c++)
             {
@@ -216,15 +211,14 @@ namespace LiftBatch
                     continue;
                 }
                 result.TwoChains = true;
-                // Base station = the lower of the two terminals (a ski lift climbs); loop
-                // travel starts at the base going up chain A. Arbitrary but deterministic.
+                // Base station = the lower of the two terminals (a ski lift climbs); loop travel starts at the base going up chain A.
+                // Arbitrary but deterministic.
                 int stationA = kv.Key.Item1, stationB = kv.Key.Item2;
                 int baseStation = stationPositions[stationA].y <= stationPositions[stationB].y
                     ? stationA : stationB;
                 int topStation = baseStation == stationA ? stationB : stationA;
 
-                // Catalog Phase B (orchestrator addendum 1; was kv.Value[0] / kv.Value[1] as found, :286): chain A, the
-                // up lane, is the cable on the RIGHT looking uphill (header CATALOG PHASE B).
+                // Chain A, the up lane, is the cable on the right looking uphill (was kv.Value[0] / kv.Value[1] as found, :286)
                 Chain first = kv.Value[0], second = kv.Value[1];
                 GetChainEndpoint(lanes, first, atEnd: false, out float3 f0, out _);
                 GetChainEndpoint(lanes, first, atEnd: true, out float3 f1, out _);
@@ -253,7 +247,7 @@ namespace LiftBatch
                     m_BuildNotes.Add($"stations ({stationA},{stationB}): closure failed — {why}");
                     continue;
                 }
-                // (:331-344 — the loop's geometry, its notes and m_Loops — are not transcribed.)
+                // (:331-344 - the loop's geometry, its notes and m_Loops - are not transcribed.)
                 result.Closed = true;
                 result.TypeIndex = CommonType(lanes, first, second);
             }
@@ -271,9 +265,8 @@ namespace LiftBatch
             m_OwnerOf.Add(node, owner);
         }
 
-        /// <summary>Which station a chain terminal belongs to: the PathNode owner is the
-        /// station or one of its children, else the nearest station within
-        /// StationTerminalRadius of the terminal's world position, else -1.</summary>
+        /// <summary>Which station a chain terminal belongs to: the PathNode owner is the station or one of its children, else
+        /// the nearest station within StationTerminalRadius of the terminal's world position, else -1</summary>
         private int ClassifyTerminal(int terminal, float3 position, List<int> stations,
             List<float3> stationPositions, Dictionary<int, int> stationByOwnerIndex, out string how)
         {
@@ -310,7 +303,7 @@ namespace LiftBatch
             list.Add(laneIndex);
         }
 
-        /// <summary>Finds one unvisited lane sharing this endpoint, marks it visited.</summary>
+        /// <summary>Finds one unvisited lane sharing this endpoint, marks it visited</summary>
         private static bool TryTakeNext(Dictionary<int, List<int>> nodeMap, List<LiftLoopTopology.Lane> lanes,
             bool[] visited, int node, out int laneIndex)
         {
@@ -330,24 +323,23 @@ namespace LiftBatch
             return false;
         }
 
-        // ── Loop closing (:407-430 only: orientation and the gap check) ───────────────
         private static bool TryCloseLoop(List<LiftLoopTopology.Lane> lanes, Chain chainA, Chain chainB,
             int baseStation, int topStation, out string why, out float topGap, out float baseGap)
         {
             why = null;
 
-            // Orient both chains: A travels base -> top, B travels top -> base.
+            // Orient both chains: A travels base -> top, B travels top -> base
             OrientChain(chainA, baseStation);
             OrientChain(chainB, topStation);
 
-            // Terminal geometry for the two bullwheel turns.
+            // Terminal geometry for the two bullwheel turns
             GetChainEndpoint(lanes, chainA, atEnd: true, out float3 aTop, out float3 aTopTangent);
             GetChainEndpoint(lanes, chainB, atEnd: false, out float3 bTop, out _);
             GetChainEndpoint(lanes, chainB, atEnd: true, out float3 bBase, out float3 bBaseTangent);
             GetChainEndpoint(lanes, chainA, atEnd: false, out float3 aBase, out _);
 
-            // Sanity: the turn diameter is the cable gauge (expect ~3.6 m). Wildly off means
-            // the anchors are not where this model thinks — degrade to static pinning.
+            // Sanity: the turn diameter is the cable gauge (expect ~3.6 m). Wildly off means the anchors are not where this model
+            // thinks: degrade to static pinning.
             topGap = math.distance(aTop, bTop);
             baseGap = math.distance(bBase, aBase);
             if (!ArcSane(aTop, bTop) || !ArcSane(bBase, aBase))
@@ -358,8 +350,8 @@ namespace LiftBatch
             return true;
         }
 
-        /// <summary>Catalog Phase B: the SkiCatalog.Lifts index shared by every lane of both chains; −1 when they span
-        /// several types (or a lane carries a negative index).</summary>
+        /// <summary>The SkiCatalog.Lifts index shared by every lane of both chains; -1 when they span several types (or a lane
+        /// carries a negative index)</summary>
         private static int CommonType(List<LiftLoopTopology.Lane> lanes, Chain a, Chain b)
         {
             int type = int.MinValue;
@@ -390,7 +382,7 @@ namespace LiftBatch
         {
             if (chain.m_StartStation == fromStation)
                 return;
-            // Reverse link order and per-link direction; swap terminals.
+            // Reverse link order and per-link direction; swap terminals
             chain.m_Links.Reverse();
             for (int i = 0; i < chain.m_Links.Count; i++)
             {
@@ -402,13 +394,13 @@ namespace LiftBatch
             (chain.m_StartStation, chain.m_EndStation) = (chain.m_EndStation, chain.m_StartStation);
         }
 
-        /// <summary>World position + unit travel tangent at a chain's first or last point.</summary>
+        /// <summary>World position + unit travel tangent at a chain's first or last point</summary>
         private static void GetChainEndpoint(List<LiftLoopTopology.Lane> lanes, Chain chain, bool atEnd,
             out float3 position, out float3 travelTangent)
         {
             ChainLink link = chain.m_Links[atEnd ? chain.m_Links.Count - 1 : 0];
             LiftLoopTopology.Lane lane = lanes[link.m_LaneIndex];
-            // Travel enters a lane at t=0 (or t=1 when reversed) and exits at the other end.
+            // Travel enters a lane at t=0 (or t=1 when reversed) and exits at the other end
             float tExit = link.m_Reversed ? 0f : 1f;
             float tEnter = 1f - tExit;
             float t = atEnd ? tExit : tEnter;

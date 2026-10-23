@@ -1,21 +1,21 @@
 /*
- * tools/test-hub-layout.js - the "never a scrollbar" layout test (T114, 2026-10-20; docs/research/ui/hub-round-t114-2026-10-20.md).
- * Written for this repo (MIT). Deploys nothing, writes nothing outside --shots=<dir>. No npm package: Node's own WebSocket (Node 22)
- * talks the DevTools protocol to a headless Chrome (else Edge) started here with a throw-away profile.
- *
- * Starts the harness (harness/serve.js on a free port), opens it at the game's common window sizes - 1920x1080, 2560x1440,
- * 3840x2160 - with the game's rem rule, and runs harness/layout-check.js (window.SkiLayout.run) there: every view x fold x page x
- * build tab x overlay at text scale 1.0 and 1.25 (both CSS variables, as the game's applyTextScale sets them). FAILS (exit 1) on any
- * case whose content overflows its box (the Scrollable would show its bar), a header that does not fit, or lodge chips on the
- * Buildings tab. T131 (2026-10-20, DECISIONS 350): the Runs and Lifts views are the one exception: they list every row and may
- * scroll (their list carries class listAll); for them the check FAILS on a drawn pager row instead (harness/layout-check.js).
- *
- * Needs `npm run build` first (it mounts build/SkiResortMod.mjs) and network for the React UMD scripts the harness loads from cdnjs.
- * Usage:   node tools/test-hub-layout.js [--verbose]
- *          node tools/test-hub-layout.js --shots=<dir> [--before]   # the harness screenshots listed in SHOTS / BEFORE
- * The harness is not the game's chrome (harness/README.md): the panel frame is a stand-in, so the report prints the smallest slack
- * (rem of content height left) next to the verdict.
- */
+* tools/test-hub-layout.js - the "never a scrollbar" layout test. No npm package: Node's own WebSocket (Node 22) talks the
+* DevTools protocol to a headless Chrome (else Edge) started here with a throw-away profile. Deploys nothing, writes nothing
+* outside --shots=<dir>.
+*
+* Starts the harness (harness/serve.js on a free port), opens it at 1920x1080, 2560x1440 and 3840x2160 with the game's rem
+* rule, and runs harness/layout-check.js (window.SkiLayout.run) there: every view x fold x page x build tab x overlay at text
+* scale 1.0 and 1.25 (both CSS variables, as the game's applyTextScale sets them). FAILS (exit 1) on any case whose content
+* overflows its box (the Scrollable would show its bar), a header that does not fit, or lodge chips on the Buildings tab.
+* The Runs and Lifts views are the exception: they list every row and may scroll (their list carries class listAll); for them
+* the check fails on a drawn pager row instead.
+*
+* Needs `npm run build` first (it mounts build/SkiResortMod.mjs) and network for the React UMD scripts the harness loads from cdnjs.
+* Usage:   node tools/test-hub-layout.js [--verbose]
+*          node tools/test-hub-layout.js --shots=<dir> [--before]   # the harness screenshots listed in SHOTS / BEFORE
+* The harness is not the game's chrome (harness/README.md): the panel frame is a stand-in, so the report prints the smallest slack
+* (rem of content height left) next to the verdict.
+*/
 "use strict";
 const { spawn } = require("child_process");
 const fs = require("fs");
@@ -90,7 +90,7 @@ async function startBrowser() {
 async function open(b, url, w, h) {
   await b.send("Emulation.setDeviceMetricsOverride", { width: w, height: h, deviceScaleFactor: 1, mobile: false });
   await b.send("Page.navigate", { url });
-  // Wait for the harness to mount the bundle (its status line names the bundle stamp).
+  // Wait for the harness to mount the bundle (its status line names the bundle stamp)
   for (let i = 0; i < 300; i++) {
     await sleep(100);
     const r = await b.send("Runtime.evaluate", { expression: "(document.getElementById('status')||{}).textContent||''", returnByValue: true });
@@ -114,7 +114,7 @@ const BIG = "Big resort (long name, 30 runs, 12 lifts, 5 unfinished)";
 const FIELD = "Field case: 1 complete lift, 4 unfinished";
 const ASH = "Ash Flat (runs, lifts, problems)";
 const SHOTS = [
-  // [file, height, params] - the AFTER set
+  // [file, height, params]
   ["header-long-name-1080", 1080, { scenario: BIG, view: 0 }],
   ["attraction-field-case-1080", 1080, { scenario: FIELD, view: 0 }],
   ["attraction-fold-terrain-1080", 1080, { scenario: ASH, view: 0, fold: 0 }],
@@ -149,7 +149,7 @@ async function shots(b, base, dir, list) {
     await open(b, base, w, h);
     const m = await evalAsync(b, `(async () => { const p = new URLSearchParams(${JSON.stringify(new URLSearchParams(Object.assign({ clean: 1 }, p)).toString())});
       await window.SkiLayout.shot(p); return document.body.getAttribute("data-shot-ready"); })()`, 60000);
-    // Crop to the panel (+ margin) so the shot is readable at its native size.
+    // Crop to the panel (+ margin)
     const rect = await evalAsync(b, `(() => { const r = document.querySelector('.h-panel').getBoundingClientRect();
       return { x: Math.max(0, r.left - 20), y: Math.max(0, r.top - 20), width: r.width + 40, height: Math.min(innerHeight, r.bottom + 20) - Math.max(0, r.top - 20) }; })()`, 10000);
     const shot = await b.send("Page.captureScreenshot", { format: "png", clip: Object.assign({ scale: 1 }, rect), captureBeyondViewport: true });

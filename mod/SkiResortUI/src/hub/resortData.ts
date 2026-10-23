@@ -1,23 +1,14 @@
 /*
- * src/hub/resortData.ts - which resort the hub shows, and which rows belong to it.
- *
- * Written for this repo (MIT). Created 2026-10-03 (Round U2, implementer I-3); contract 3 on
- * 2026-10-04 (Round E1, stream S6, econ-round spec ch6 section 6.14: the Not linked row counts its
- * census rows `liftRows`; `lodgesOf` and LodgeRow are gone with the `lodges` binding).
- * Authority: docs/research/hub-u2-spec.md section 4.3 (switcher entries), 4.2 (row filters),
- * 3.2 (C# owns the selected resort; the UI only asks with selectResort).
- * Contract:
- *   - Switcher entries: the sign rows (kind 0) in C#'s order, then the "Not linked" row (kind 1)
- *     ONLY when it has any run, lift row or lodge (spec 4.3). No "All resorts" entry (OD-15).
- *   - The current entry is the row whose sign equals C#'s selectedResort (Entity.Null = the Not
- *     linked row, which C# always sends). While C#'s selection names no row (one push apart, or a
- *     sign that just died) the first entry is shown; C# corrects the selection itself (spec 3.2
- *     rules 5-6) and the UI never "fixes" it by sending a selection of its own.
- *   - List rows of the selected resort: `sameEntity(row.sign, selected)` - Null selects the rows
- *     that belong to no resort (spec 4.2 RunTable / LiftTable).
- *   - Pure functions (no React) so they stay cheap: called on each render with arrays that C#
- *     replaces only when their revision moved (RawValueBinding, spec 2.2 push rules).
- */
+* src/hub/resortData.ts - which resort the hub shows, and which rows belong to it.
+*
+*   - Switcher entries: the sign rows (kind 0) in C#'s order, then the "Not linked" row (kind 1) only when it has any run,
+*     lift row or lodge. No "All resorts" entry.
+*   - The current entry is the row whose sign equals C#'s selectedResort (Entity.Null = the Not linked row, which C# always
+*     sends). While C#'s selection names no row (one push apart, or a sign that just died) the first entry is shown; C# corrects
+*     the selection itself and the UI never "fixes" it by sending a selection of its own.
+*   - List rows of the selected resort: `sameEntity(row.sign, selected)` - Null selects the rows that belong to no resort.
+*   - Pure functions (no React): called on each render with arrays that C# replaces only when their revision moved.
+*/
 import type { Entity } from "cs2/utils";
 import { sameEntity } from "../bindings";
 import type { LiftRow, ResortRow, RunRow } from "../bindings";
@@ -77,7 +68,7 @@ export function entrySign(row: ResortRow): Entity {
   return row.kind === 1 ? { index: 0, version: 0 } : row.sign;
 }
 
-/** A stable key per entry (T97 P1: the header selector's item values): "index:version", "unlinked" for the Not linked row. */
+/** A stable key per entry: "index:version", "unlinked" for the Not linked row. */
 export function entryKey(row: ResortRow): string {
   return row.kind === 1 ? "unlinked" : `${row.sign.index}:${row.sign.version}`;
 }

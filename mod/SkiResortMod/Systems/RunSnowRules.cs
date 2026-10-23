@@ -1,28 +1,16 @@
-// RunSnowRules — the pure snow rules of Round E1 (docs/research/econ-round/spec/ch3-snow.md):
-// skiable texel test, open state and multiplier (D13), the estimate from the day-mean temperature
-// (D13 fallback), the dry-skip predicate and step scale (D30), the footprint hash. No UnityEngine,
-// no Entities. IsSkiable and Mix64 are called from Burst jobs (SkiSnowInjectionSystem).
+// The pure snow rules (docs/research/econ-round/spec/ch3-snow.md): skiable texel test, open state and multiplier, the
+// estimate from the day-mean temperature, the dry-skip predicate and step scale, the footprint hash. No UnityEngine, no
+// Entities. IsSkiable and Mix64 are called from Burst jobs (SkiSnowInjectionSystem). Linked into tests/ResortBatch
+// (SnowRulesTests.cs).
 //
-// Stage 0 (Round E1, S0, 2026-10-04; e1-spec I-06) laid down the shared types block verbatim (the four
-// enums, RunSnow and DryPass); stream S3 (2026-10-04) added `internal static class RunSnowRules` (ch3 §2,
-// verbatim) and owns the file. Linked into tests/ResortBatch (SnowRulesTests.cs, ch3 §11: 108 checks).
-// Round M2 (topup-skip, 2026-10-10; docs/research/round-m2/understand/topup-skip.md §2.1 C1-C5 and its check,
-// decisions.md R11): the packed skip (TopupSkip, CanSkipPacked, SkipKind, IsForcedCheck), THE pack guard (moved
-// here from SkiSnowInjectionSystem.Tuning, value unchanged) and the share guard; S17-S23 in SnowRulesTests.
-// T09 (2026-10-16; docs/research/field/2026-10-15/build/T09-snow-rules.md, Richard's rulings): the skiable bars (15 cm,
-// 31 cm on natural black and double black), the gun margin 3.3 C, the gun and groomed targets, the ramp constants (moved
-// from SkiSnowInjectionSystem.Tuning so a test can tie them to the opening claim), the warm-spell PROTECTION rules
-// (budget, 10 C stop, spring halving, aspect factors, the per-run state machine) and the per-run snow-made LEDGER.
-// T133 (2026-10-20, Richard's rule DECISIONS 350; docs/research/field/2026-10-20/playthrough/sim-snow-build.md): EVERY run opens at
-// 3 ft (0.91 m), made or natural, one bar for all kinds and ratings ("snow piles up crazy fast in this game": the playthrough's
-// natural pack was 2.7-7.9 m mean on the gun runs from November to April); the guns of snowmaking and night runs (and the groomer)
-// keep making snow while the run is under 3 ft and top it up to 3 ft + the restart band (0.96 m), so the run stays open between
-// restarts.
+// EVERY run opens at 3 ft (0.91 m), made or natural: one bar for all kinds and ratings. The guns of snowmaking and night
+// runs (and the groomer) keep making snow while the run is under 3 ft and top it up to 3 ft + the restart band (0.96 m),
+// so the run stays open between restarts.
 using System;
 
 namespace SkiResortMod.Systems
 {
-    /// <summary>Open label with hysteresis (D13): opens at >= 60 %, closes below 40 %.</summary>
+    /// <summary>Open label with hysteresis: opens at >= 60 %, closes below 40 %.</summary>
     public enum RunSnowState : byte { Unknown = 0, Closed = 1, Open = 2 }
 
     /// <summary>Where a run's numbers come from. GatingOff = the "Snow & season gating" setting is off.</summary>
@@ -31,14 +19,14 @@ namespace SkiResortMod.Systems
     /// <summary>Display phase from the label and the multiplier (hub marks, overlay).</summary>
     public enum RunSnowPhase : byte { Closed = 0, Opening = 1, Open = 2, Closing = 3 }
 
-    /// <summary>What the decal dress and the props' snow follow (§8).</summary>
+    /// <summary>What the decal dress and the props' snow follow.</summary>
     public enum RunDressSource : byte { None = 0, Managed = 1, NaturalMeasured = 2 }
 
-    /// <summary>Round M2 (topup-skip, R11): which skip a pass takes. Dry = D30 (bare footprint); Packed = the pack
+    /// <summary>Which skip a pass takes. Dry = bare footprint; Packed = the pack
     /// guard holds managed melt and no texel is cold.</summary>
     public enum TopupSkip : byte { None = 0, Dry = 1, Packed = 2 }
 
-    /// <summary>One run's snow, as published (§5). Runtime only; never serialized.</summary>
+    /// <summary>One run's snow, as published. Runtime only; never serialized.</summary>
     public struct RunSnow
     {
         public RunKind Kind;
@@ -53,7 +41,7 @@ namespace SkiResortMod.Systems
         public float BottomY, TopY;       // Geometry.m_Bounds y (lowest / highest node), for estimates
     }
 
-    /// <summary>What the skip predicates need from a real pass (§7.2; Round M2 packed skip). Runtime only; never
+    /// <summary>What the skip predicates need from a real pass. Runtime only; never
     /// serialized (SkiSnowInjectionSystem implements no serialization interface; nothing else holds one).</summary>
     public struct DryPass
     {
@@ -63,7 +51,7 @@ namespace SkiResortMod.Systems
         public double RunDepthSum;        // merge's RunDepthSum (real passes only), normalized units
         public int ContainedTexels;       // texels with Scratch > 0, summed over bound injected runs
         public ulong FootprintHash;       // wrapping sum of Mix64(texel index) over the same texels
-        // Round M2 (topup-skip): the packed skip's inputs, real passes only.
+        // The packed skip's inputs, real passes only.
         public int Lowered;               // texels lowered by managed melt in this pass's merge
         public bool PackGuardNext;        // PackGuard(map mean this pass read): the pack guard the NEXT merge applies
         public float RunMeanDepthM;       // MeanRunSnowDepthM after this pass (the dress depth, m)
@@ -71,12 +59,9 @@ namespace SkiResortMod.Systems
 
     internal static class RunSnowRules
     {
-        // D13 threshold and shares
-        // T09 ruling (Richard, 2026-10-16): "6 inches / 15 cm is the min for all runs, except 12 inches / 31 cm for natural
-        // expert and above runs". Was 2 cm. 31, not 30.48: the ruling's own figure.
-        // T133 (Richard, 2026-10-20, DECISIONS 350): "every run opens at 3 ft (91 cm), made or natural". 0.91, not 0.9144: the
-        // rule's own figure. One bar for every run: the expert bar is the same value (kept as a name so SkiableBarNorm and its
-        // callers stay; it can split again by changing this one line).
+        // Skiable threshold and shares
+        // 3 ft (0.91 m, not 0.9144) for every run, made or natural. One bar for every run: the expert bar is the same value (kept
+        // as a name so SkiableBarNorm and its callers stay; it can split again by changing this one line).
         public const float SkiableDepthM = 0.91f;
         public const float ExpertNaturalSkiableDepthM = SkiableDepthM;
         public const byte ExpertBandMin = 3;                               // = SkiResortScore.BandBlack (3 black, 4 double black)
@@ -89,16 +74,15 @@ namespace SkiResortMod.Systems
         public const float InitialOpenShare = 0.50f;   // first label of a load (no history): the band's midpoint
         public const float MultiplierDeadBand = 0.05f;
         public const float MinFootprintTexels = 0.5f;  // below this a run is too small to measure → estimate
-        // D13 fallback
+        // Day-mean fallback
         public const int DayMeanSamples = 24;          // hourly samples, the 24 game hours up to now
         public const float GroomedMarginC = 0f;        // = the injection's groomed gate
-        // D14
-        // T09 ruling: "Snowmaking runs should be able to make snow in up to 38F / 3.3 C temps" (was 2). The setting is a
-        // float slider since T09 (step 0.1) so the default can be 3.3; the range stays 0..6.
-        public const float DefaultSnowmakingMarginC = 3.3f; // = SkiResortSettings.DefaultSnowmakingBonusCelsius (O8)
+        // Snowmaking margin: snowmaking runs make snow in up to 38F / 3.3 C temps. The setting is a float slider (step 0.1) so
+        // the default can be 3.3; the range stays 0..6.
+        public const float DefaultSnowmakingMarginC = 3.3f;  // = SkiResortSettings.DefaultSnowmakingBonusCelsius
         public const float MinSnowmakingMarginC = 0f;       // = the slider's range (SkiResortSettings)
         public const float MaxSnowmakingMarginC = 6f;
-        // D29 / D30
+        // Top-up cadence and skip limits
         public const int TopupIntervalFrames = 64;     // the injection's Tuning.TopupIntervalFrames points here
         public const float MaxStepScale = 4f;          // covers 8× (3.75); a step never spans more than 4 windows
         public const float MinPassIntervalS = 0.5f;    // at most two evaluated passes per wall-clock second
@@ -106,19 +90,16 @@ namespace SkiResortMod.Systems
         public const uint MeasureIntervalFrames = 1024;
         public const uint MaxSnapshotAgeFrames = 4096; // older snapshots are stale → estimate
         public const int MeasureFailLimit = 10;        // vanilla's retry cap (TerrainSystem.cs:3595)
-        // Round M2 (topup-skip, R11). The pack guard moved here from SkiSnowInjectionSystem.Tuning (value unchanged;
-        // Tuning points here).
         public const float PackGuardMeanDepthM = 0.02f;
-        // The dress guard. 2 x SkiRunSurfaceSystem.Tuning.FullWhiteDepthM (0.05 m, SkiRunSurfaceSystem.cs, the
-        // saturate(depth / 0.05) prop snow): the dress is saturated above 0.05 m (the decal's season thresholds,
-        // 0.02 / 0.005 m, sit below it too) and the extra 0.05 m covers one forced interval of melt (topup-skip
-        // §4.2: 0.046 m per 1,264 frames at most in field test 10). DEPENDS ON FullWhiteDepthM — that file is not
+        // The dress guard. 2 x SkiRunSurfaceSystem.Tuning.FullWhiteDepthM (0.05 m, the saturate(depth / 0.05) prop snow): the dress
+        // is saturated above 0.05 m (the decal's season thresholds, 0.02 / 0.005 m, sit below it too) and the extra 0.05 m covers
+        // one forced interval of melt (0.046 m per 1,264 frames at most, measured). DEPENDS ON FullWhiteDepthM — that file is not
         // linked into ResortBatch, so no test ties the two: change both together.
         public const float PackedSkipMinRunDepthM = 0.10f;
         public const float CalmOpenShare = 0.70f;           // OpenAtShare + 0.10
         public const float CalmClosedShare = 0.30f;         // CloseBelowShare − 0.10
 
-        /// <summary>D13 multiplier, deviation E1-S2 (§5.2): 0 below 40 %, 1 at or above 60 %, linear
+        /// <summary>Multiplier: 0 below 40 %, 1 at or above 60 %, linear
         /// in between. NaN → 0.</summary>
         public static float OpenMultiplier(float share)
         {
@@ -129,7 +110,7 @@ namespace SkiResortMod.Systems
             return (share - CloseBelowShare) / (OpenAtShare - CloseBelowShare);
         }
 
-        /// <summary>D13 label with hysteresis. Unknown (first refresh of a load) uses the midpoint.
+        /// <summary>Label with hysteresis. Unknown (first refresh of a load) uses the midpoint.
         /// NaN keeps an Open label, otherwise Closed.</summary>
         public static RunSnowState NextState(RunSnowState previous, float share)
         {
@@ -175,7 +156,7 @@ namespace SkiResortMod.Systems
             {
                 case RunKind.Snowmaking:
                 case RunKind.Night:
-                case RunKind.CatTrack:   // T54 probe 1 (cat-track-run.md §2): no injection, opens by the day-mean estimate with the gun margin
+                case RunKind.CatTrack:  // no injection: opens by the day-mean estimate with the gun margin
                     return freezingC + snowmakingMarginC;
                 case RunKind.Groomed:
                     return freezingC + GroomedMarginC;
@@ -193,9 +174,9 @@ namespace SkiResortMod.Systems
                  : settingValue > MaxSnowmakingMarginC ? MaxSnowmakingMarginC : settingValue;
         }
 
-        /// <summary>D13 fallback: the share of the run's vertical that is cold enough, with the
-        /// validated lapse T_local(h) = T − (h − base) × lapse. Same shape as today's RunCoverNow, with
-        /// the day-mean temperature and the kind's threshold. Degenerate lapse: all or nothing.</summary>
+        /// <summary>The share of the run's vertical that is cold enough, with the validated lapse
+        /// T_local(h) = T − (h − base) × lapse, from the day-mean temperature and the kind's threshold.
+        /// Degenerate lapse: all or nothing.</summary>
         public static float EstimatedShare(float bottomY, float topY, float temperatureC,
             float thresholdC, float baseHeight, float lapsePerM)
         {
@@ -214,21 +195,21 @@ namespace SkiResortMod.Systems
             return share <= 0f ? 0f : share >= 1f ? 1f : share;
         }
 
-        /// <summary>T09: the skiable bar of a run, in normalized depth units, by kind and band. T133: one bar for every run,
-        /// 3 ft (0.91 m), so both branches return SkiableNorm today (ExpertNaturalSkiableDepthM = SkiableDepthM).</summary>
+        /// <summary>The skiable bar of a run, in normalized depth units, by kind and band: one bar for every run, 3 ft (0.91 m),
+        /// so both branches return SkiableNorm today (ExpertNaturalSkiableDepthM = SkiableDepthM).</summary>
         public static float SkiableBarNorm(RunKind kind, int band)
         {
             return kind == RunKind.Natural && band >= ExpertBandMin ? ExpertNaturalSkiableNorm : SkiableNorm;
         }
 
-        /// <summary>Skiable texel with the default bar (15 cm).</summary>
+        /// <summary>Skiable texel with the default bar (SkiableNorm).</summary>
         public static bool IsSkiable(float depthNorm, float ownTargetNorm)
         {
             return IsSkiable(depthNorm, ownTargetNorm, SkiableNorm);
         }
 
-        /// <summary>Skiable texel (D13 + deviation E1-S1, §4.4), in normalized depth units (0..1 = 0..8 m):
-        /// at least <paramref name="barNorm"/> (T09: 15 cm, or 31 cm for a natural black run), or — on a texel where
+        /// <summary>Skiable texel, in normalized depth units (0..1 = 0..8 m):
+        /// at least <paramref name="barNorm"/>, or — on a texel where
         /// this run makes snow with a lower (fringe) target — at that target, using the merge's own "at target"
         /// tolerance. Targets under one quantum are ignored. Burst-called.</summary>
         public static bool IsSkiable(float depthNorm, float ownTargetNorm, float barNorm)
@@ -238,31 +219,20 @@ namespace SkiResortMod.Systems
             return depthNorm >= bar - HalfQuantum;
         }
 
-        // ── T09: gun targets and the ramp (moved here from SkiSnowInjectionSystem.Tuning; Tuning points at these) ──────
-        // Gun target 0.35 m (was 0.12), groomed 0.25 m (was 0.08): a run must be able to open by itself, and the open bar is
-        // now 0.15 m. 0.35 is 2.3 bars: the pack can sag 0.20 m (melt between passes, edge noise) and still be open, and the
-        // slowest texel (rate noise at its minimum) reaches it in about one game hour at -3 C (GunWindowsToReach, tests).
-        // Groomed 0.25 is 1.7 bars: grooming is a shoulder-season assist (gate at 0 C), not a gun. The 2026-08-11 field
-        // note in Tuning ("raise only with a melt-rate measurement") is answered by the measured 1.9 m pack that the game
-        // melted in five wall minutes (analysis-sim-and-hub.md 92-94): melt is not the limit, the open bar is.
-        // T133: the base the guns guarantee is the open bar itself (was 0.35 m = 2.3 bars of 15 cm).
+        // Gun and groomed targets and the ramp (SkiSnowInjectionSystem.Tuning points at these).
+        // The base the guns guarantee is the open bar itself.
         public const float GunTargetDepthM = SkiableDepthM;
-        // T46 (2026-10-17, Richard: "if there's lots of snow (like mid season) no reason to run the guns" / "snow piles up
-        // fast, maybe raise that limit just for the snow guns"; docs/research/snow-gun-plume-2026-10-17.md §8): the guns of
-        // a snowmaking or night run build the pack to GunStopDepthM and then STOP (the injection's gun ramp ceiling since
-        // T46); they start again only when the run's pack falls below GunStopDepthM - GunRestartBandM, and never run on a
-        // pack that is already that deep (natural snow included). GunTargetDepthM stays the base the guns GUARANTEE within a
-        // night (the S26 oracles: the ramp passes 0.35 m at the same time it did before). The predicate is
-        // SnowGunPlumeRules.NextGunState; the band is the 0.05 m the PackedSkipMinRunDepthM derivation below gives one
-        // forced interval of the worst measured melt (field test 10: 0.046 m per 1,264 frames), so the guns cannot cycle
+        // The guns of a snowmaking or night run build the pack to GunStopDepthM and then STOP (the injection's gun ramp ceiling);
+        // they restart only when the run's pack falls below GunStopDepthM - GunRestartBandM = SkiableDepthM
+        // (SnowGunPlumeRules.RestartBelowM), and never run on a pack that is already that deep (natural snow included), so a pack
+        // the guns built never sags under the open bar before they run again. GunTargetDepthM stays the base the guns GUARANTEE
+        // within a night. The predicate is SnowGunPlumeRules.NextGunState; the band is the 0.05 m the PackedSkipMinRunDepthM
+        // derivation gives one forced interval of the worst measured melt (0.046 m per 1,264 frames), so the guns cannot cycle
         // faster than one forced interval even under that melt.
-        // T133 (Richard: "the guns keep making snow until the run reaches 3 ft"): the guns RESTART when the pack falls below
-        // 3 ft (GunStopDepthM - GunRestartBandM = SkiableDepthM, SnowGunPlumeRules.RestartBelowM) and STOP at 3 ft + the band
-        // (0.96 m), so a pack the guns built never sags under the open bar before they run again. Was 0.60 / 0.55 m.
         public const float GunRestartBandM = 0.05f;
         public const float GunStopDepthM = SkiableDepthM + GunRestartBandM;
-        // T133: the groomer lays made snow too ("made or natural"), so the groomed ceiling is the gun stop depth (was 0.25 m: a
-        // groomed run could never open on its own under the 3 ft bar). Its gate stays freezing + 0 (GroomedMarginC).
+        // The groomer lays made snow too, so the groomed ceiling is the gun stop depth (a groomed run could never open on its own
+        // under the 3 ft bar otherwise). Its gate stays freezing + 0 (GroomedMarginC).
         public const float GroomedTargetDepthM = GunStopDepthM;
         public const float RampPerTopupM = 0.004f;     // meters per top-up window at rate 1 and gun output 1
         public const float RampRateMin = 0.25f;        // per-texel noise rate range: Min .. Min + Span
@@ -293,18 +263,17 @@ namespace SkiResortMod.Systems
             return windows * TopupIntervalFrames / FramesPerGameHour;
         }
 
-        // ── T09: warm-spell protection (the pack of a gun run survives a short warm spell) ───────────────────────────
         // We can only WRITE depth; the game's shader melts it (SnowSystem.AddSnow, _MeltMultiplier 2e-5, temperature, rain,
         // sun direction; the melt form is compiled HLSL, unreadable: UNVERIFIED). So protection is a RE-INJECTION with a
         // per-run budget: while a gun run has an open pack and some of its texels are too warm for the guns, those texels are
         // raised back toward the depth they had when protection began, by ProtectRaisePerTopupM per top-up window, for up
-        // to ProtectBudgetHours game hours. Natural runs get none. Every number below is one of Richard's rulings or a
-        // derivation stated beside it.
-        public const float ProtectBudgetHours = 48f;     // ruling: "survive a short dry/warm spell"; proposal 48 game hours
-        public const float ProtectMaxLocalC = 10f;       // ruling: "above 50 deg (10 C) melts faster": no protection above it
-        public const float ProtectSpringFactor = 0.5f;   // ruling: "springtime melts faster due to sun angle": budget halves
-        public const float ProtectNorthFactor = 1.5f;    // ruling: "slope orientation can also affect melt": north faces keep 1.5x
-        public const float ProtectSouthFactor = 0.5f;    //   and south faces 0.5x (linear in between; east and west 1.0)
+        // to ProtectBudgetHours game hours. Natural runs get none. Every number below is a design choice or a derivation stated
+        // beside it.
+        public const float ProtectBudgetHours = 48f;  // survive a short dry/warm spell: 48 game hours
+        public const float ProtectMaxLocalC = 10f;  // above 10 C melts faster: no protection above it
+        public const float ProtectSpringFactor = 0.5f;  // springtime melts faster (sun angle): the budget halves
+        public const float ProtectNorthFactor = 1.5f;  // slope orientation affects melt: north faces keep 1.5x
+        public const float ProtectSouthFactor = 0.5f;  // south faces 0.5x (linear in between; east and west 1.0)
         public const float AspectFullGradient = 0.10f;   // 10 % pitch: aspect counts in full at this slope (ski runs are steeper)
         // 10 mm per window beats the worst melt this rule faces: the estimate 2e-5 x T x 0.2 per snow tick, 16 ticks per
         // window, at T = 10 C is 6.4 mm (snow-injection.md 4; linear form UNVERIFIED), so 10 mm = 1.5x headroom. At step
@@ -448,7 +417,6 @@ namespace SkiResortMod.Systems
             }
         }
 
-        // ── T09: the snow-made ledger (guns and grooming this season and in total; runtime only, not saved) ────────────
         // A season runs from SeasonRolloverDate (0.6 of the year, about 1 August: no snow is made in high summer) to the next.
         public const float SeasonRolloverDate = 0.6f;
 
@@ -504,7 +472,7 @@ namespace SkiResortMod.Systems
             return (float)(s <= 0.0 ? 0.0 : s >= 1.0 ? 1.0 : s);
         }
 
-        /// <summary>D30: ramp and decay steps scale with the frames since the last evaluated pass.
+        /// <summary>Ramp and decay steps scale with the frames since the last evaluated pass.
         /// Exactly 1 at 64 frames (bit-identical to today at 1× and 2×), capped at 4.</summary>
         public static float StepScale(uint elapsedFrames)
         {
@@ -512,7 +480,7 @@ namespace SkiResortMod.Systems
             return s < 1f ? 1f : s > MaxStepScale ? MaxStepScale : s;
         }
 
-        /// <summary>D30 dry skip (§7.2): nothing can be raised now, nothing was on the footprint after
+        /// <summary>Dry skip: nothing can be raised now, nothing was on the footprint after
         /// the last real pass, the footprint is the same, and the forced real pass is not due.</summary>
         public static bool CanSkipDry(in DryPass lastReal, int coldNow, int containedNow,
             ulong footprintHashNow, uint framesSinceLastReal)
@@ -528,10 +496,9 @@ namespace SkiResortMod.Systems
                 && footprintHashNow == lastReal.FootprintHash;
         }
 
-        /// <summary>§7.1 step 11 (E1 fixer, e1-spec §8.9 F6): a real pass in an open dry-skip episode is the
-        /// FORCED check only when the 1,024-frame term is the one term of CanSkipDry that fails — the same
-        /// predicate with the frame term ignored holds. Any other failing term (cold texels, a changed
-        /// footprint) is a reason of its own and ends the episode at step 11.</summary>
+        /// <summary>A real pass in an open dry-skip episode is the FORCED check only when the 1,024-frame term is the one term of
+        /// CanSkipDry that fails — the same predicate with the frame term ignored holds. Any other failing term (cold texels, a
+        /// changed footprint) is a reason of its own and ends the episode.</summary>
         public static bool IsForcedDryCheck(in DryPass lastReal, int coldNow, int containedNow,
             ulong footprintHashNow, uint framesSinceLastReal)
         {
@@ -539,15 +506,15 @@ namespace SkiResortMod.Systems
                 && CanSkipDry(lastReal, coldNow, containedNow, footprintHashNow, 0u);
         }
 
-        /// <summary>Round M2: THE pack guard (the merge's PackGuard input and the packed skip both read it): managed
+        /// <summary>THE pack guard (the merge's PackGuard input and the packed skip both read it): managed
         /// melt stands down while the map-wide mean depth is over 2 cm. NaN → off.</summary>
         public static bool PackGuard(float mapMeanDepthM) => mapMeanDepthM > PackGuardMeanDepthM;
 
-        /// <summary>Round M2: a measured share far enough from the 40-60 % band that one forced interval cannot carry it
-        /// in at the thaw rate field test 10 showed (topup-skip §4.2). NaN → false.</summary>
+        /// <summary>A measured share far enough from the 40-60 % band that one forced interval cannot carry it
+        /// in at the measured thaw rate. NaN → false.</summary>
         public static bool IsCalmShare(float share) => share >= CalmOpenShare || share < CalmClosedShare;
 
-        /// <summary>Round M2 packed skip: no texel cold now (nothing can be raised); the last real pass was no gate change,
+        /// <summary>Packed skip: no texel cold now (nothing can be raised); the last real pass was no gate change,
         /// raised and lowered nothing, and left the pack guard on for the next merge (nothing can be lowered: a skipped
         /// pass does not write the map mean); the runs held at least PackedSkipMinRunDepthM (the dress cannot move);
         /// every measured share is calm (no label or multiplier can move); the same footprint; the forced pass not due.</summary>
@@ -568,7 +535,7 @@ namespace SkiResortMod.Systems
                 && footprintHashNow == lastReal.FootprintHash;
         }
 
-        /// <summary>Round M2: Dry first (D30 unchanged, and it ignores the share guard), then Packed.</summary>
+        /// <summary>Dry first (it ignores the share guard), then Packed.</summary>
         public static TopupSkip SkipKind(in DryPass lastReal, int coldNow, int containedNow,
             ulong footprintHashNow, uint framesSinceLastReal, bool sharesCalmNow)
         {
@@ -579,8 +546,8 @@ namespace SkiResortMod.Systems
             return TopupSkip.None;
         }
 
-        /// <summary>Round M2: the forced check of either kind — the 1,024-frame term is the only failing term (the E1 F6
-        /// rule of IsForcedDryCheck, extended).</summary>
+        /// <summary>The forced check of either kind — the 1,024-frame term is the only failing term (IsForcedDryCheck's rule,
+        /// extended).</summary>
         public static bool IsForcedCheck(in DryPass lastReal, int coldNow, int containedNow,
             ulong footprintHashNow, uint framesSinceLastReal, bool sharesCalmNow)
         {
@@ -612,7 +579,7 @@ namespace SkiResortMod.Systems
             return (float)(hourKey / hours);
         }
 
-        /// <summary>D13 fallback: mean of DayMeanSamples hourly samples ending at
+        /// <summary>Mean of DayMeanSamples hourly samples ending at
         /// <paramref name="alignedDate"/> (inclusive), wrapping over the year start.</summary>
         public static float DayMeanC(Func<float, float> temperatureAt, float alignedDate, int daysPerYear)
         {

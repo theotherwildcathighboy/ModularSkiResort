@@ -1,5 +1,5 @@
-// LiftToolInputTests — T125 (one lift tool; docs/research/field/2026-10-20/playthrough/lift-tool-build.md): the lift tool's input
-// state machine (LiftLineInput) and the edit model's undo stack (LiftLineEdit.Undo), headless. TI-1..TI-8.
+// Tests for the lift tool's input state machine (LiftLineInput) and the edit model's undo stack (LiftLineEdit.Undo), headless.
+// TI-1..TI-8.
 //   TI-1 right click table: every step x dragging x undo depth -> the one action it does (vanilla "Undo Net Control Point").
 //   TI-2 a full right-click walk back: two ends + three edits -> undo x3 -> drop the second end -> drop the first -> close.
 //   TI-3 undo restores the exact pins / removed spots after add, move, remove (free and pinned) and clear; refusals push nothing.
@@ -41,10 +41,9 @@ namespace LiftBatch
             SplitChordMembers();
         }
 
-        // ── R-6 (2026-10-22): the engine split the tool's courses (CourseSplitSystem elevation transitions) ────────────────────
-        // Replay of the 2026-10-20 playthrough log (docs/research/field/2026-10-20/playthrough/logs/SkiResortMod.Mod.log): the
-        // "Towers [nodes]" block written BEFORE the fit moved the line (:710 DQ, :1533 gondola), base first: span to the next node,
-        // node y, terrain, chord clearance at 20/40/60/80 %. Ground between nodes = lerp(node y) - clearance (LiftPlannerTests rule).
+        // The engine split the tool's courses (CourseSplitSystem elevation transitions). Replay of a playthrough log: the "Towers [nodes]"
+        // block written BEFORE the fit moved the line, base first: span to the next node, node y, terrain, chord clearance at 20/40/60/80 %.
+        // Ground between nodes = lerp(node y) - clearance (LiftPlannerTests rule).
 
         private struct DumpNode
         {
@@ -55,7 +54,7 @@ namespace LiftBatch
         private static DumpNode D(float span, float y, float terrain, params float[] chord) =>
             new DumpNode { Span = span, Y = y, Terrain = terrain, Chord = chord.Length == 0 ? null : chord };
 
-        // DQ 1,065 m, 11:25:47 (log :710-:793): 17 nodes for 10 planned courses.
+        // DQ 1,065 m: 17 nodes for 10 planned courses.
         private static readonly DumpNode[] DqBuilt =
         {
             D(28f, 923.27f, 923.27f, -0.5f, -0.2f, 0.9f, 2.6f), D(57f, 929.25f, 925.86f, 4.5f, 5.7f, 6.8f, 5.5f),
@@ -69,8 +68,8 @@ namespace LiftBatch
             D(0f, 1227.82f, 1227.82f),
         };
 
-        // The same DQ line after the fit MOVED it (11:25:47, log :843-:926; spans from the fit's positions, :807-:840): more ground
-        // samples for the replay (the 220 / 205 m spans above leave 44 m gaps).
+        // The same DQ line after the fit MOVED it (spans from the fit's positions): more ground samples for the replay (the 220 / 205 m
+        // spans above leave 44 m gaps).
         private static readonly DumpNode[] DqMoved =
         {
             D(15f, 923.27f, 923.27f, 1.4f, 3.3f, 5.4f, 7.6f), D(110f, 936.10f, 926.10f, 13.8f, 16.0f, 15.0f, 15.2f),
@@ -84,7 +83,7 @@ namespace LiftBatch
             D(0f, 1227.82f, 1227.82f),
         };
 
-        // Gondola 1,408 m, 11:45:19 (log :1533-:1648): 23 nodes for 13 planned courses.
+        // Gondola 1,408 m: 23 nodes for 13 planned courses.
         private static readonly DumpNode[] GdBuilt =
         {
             D(27f, 931.58f, 931.58f, 0.8f, 1.5f, 2.3f, 3.1f), D(14f, 935.42f, 931.58f, 6.8f, 9.8f, 12.9f, 12.9f),
@@ -191,7 +190,7 @@ namespace LiftBatch
             int n = path.Count;
             Check(n - 1 == towers.Length + 1 + extrasFromBase.Length, W, $"replay built {n - 1} edges, expected {towers.Length + 1 + extrasFromBase.Length}");
 
-            // Before R-6: the exact match fails, so the fit treated the line as an ordinary one and MOVED it.
+            // Before the split-aware match: the exact match fails, so the fit treated the line as an ordinary one and MOVED it.
             var innerPts = path.GetRange(1, n - 2);
             Check(reg.Match(innerPts, out _, out _) == null, W, "the exact match unexpectedly accepts a split line");
 
@@ -263,7 +262,7 @@ namespace LiftBatch
                               $"on this replay ground: {toolPlan.MinFloorMarginM:F1} m)");
         }
 
-        // TI-9: the 16-vs-10 detachable (drawn from the top; pins 20/135/475/680/900/950; log :700-:703).
+        // TI-9: the 16-vs-10 detachable (drawn from the top; pins 20/135/475/680/900/950).
         private static void SplitReplayDq()
         {
             var towers = new[]
@@ -274,14 +273,14 @@ namespace LiftBatch
             var extras = new[] { 27f, 609f, 657f, 669f, 697f, 866f };
             // (a) the station ropes the tool planned with (stub node + the shortest member's rope: 923.27 + 8 / 1227.82 + 8).
             SplitReplay("tool/TI-9 DQ 16 vs 10", "detachable", new[] { DqBuilt, DqMoved }, 1065f, true, 931.27f, 1235.82f, towers, extras);
-            // (b) the ropes the fit reads in game (the station's rope lane, log :807: 925.96 / 1235.40): the base lane sits 5.3 m
-            // under the tool's assumption, so span 1 is violated whatever the towers (a station-rope mismatch, not R-6): still no
+            // (b) the ropes the fit reads in game (the station's rope lane: 925.96 / 1235.40): the base lane sits 5.3 m
+            // under the tool's assumption, so span 1 is violated whatever the towers (a station-rope mismatch, not a split problem): still no
             // node moves; the fit WARNs that the pinned towers stay.
             SplitReplay("tool/TI-9b DQ 16 vs 10 (lane ropes)", "detachable", new[] { DqBuilt, DqMoved }, 1065f, true, 925.96f, 1235.40f, towers, extras);
             LanePlannedDq();
         }
 
-        /// <summary>TI-9c (R-6 follow-up): the tool now plans a station end from the station's rope lane (LiftLineInput.StationRope),
+        /// <summary>TI-9c: the tool plans a station end from the station's rope lane (LiftLineInput.StationRope),
         /// as the fit reads it. The same DQ line, same six pins, planned with the lane ropes (top 1235.40, base 925.96): the planner
         /// clears the base span itself, and the fit with the lane ropes keeps the built line (Kept, every member, nothing moved);
         /// with the extra split nodes too. Plus the pure anchor rule.</summary>
@@ -355,7 +354,7 @@ namespace LiftBatch
                               $"{same}; with 6 extra splits matched + Kept {splitKept}");
         }
 
-        // TI-10: the 22-vs-13 gondola (drawn from the base; pins 1075/1180/1235; log :1520-:1527).
+        // TI-10: the 22-vs-13 gondola (drawn from the base; pins 1075/1180/1235).
         private static void SplitReplayGondola()
         {
             SplitReplay("tool/TI-10 GD 22 vs 13", "gondola", new[] { GdBuilt }, 1408f, false, 941.58f, 1471.15f,

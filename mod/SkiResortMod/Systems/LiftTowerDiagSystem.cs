@@ -1,41 +1,36 @@
-// LiftTowerDiagSystem — READ-ONLY diagnostic: what the engine ACTUALLY did at every node of a lift line
-// (docs/research/field/2026-10-15/build/T03-tower-diag.md; ticket T03 step 1, Richard 2026-10-16: "long span across a
-// gully produced no taller towers, floating nodes got the same tower on stretched legs"). It changes nothing: no
-// command buffer, no component write, no prefab touch, no per-frame work (an int compare while nothing is pending).
+// Read-only diagnostic: what the engine actually did at every node of a lift line (docs/research/field/2026-10-15/build/T03-tower-diag.md).
+// It changes nothing: no command buffer, no component write, no prefab touch, no per-frame work (an int compare while
+// nothing is pending).
 //
-// TRIGGERS
+// Triggers:
 //   * LiftCensusSystem.BuildCensus calls OnCensusBuilt(edges) after every build (load baseline included). Components of
-//     lift-line edges are signed (edge ids + node positions); a component whose signature was not logged yet is QUEUED.
-//   * A queued line is printed once the census has been quiet for SettleFrames updates (a Move It drag or a station nudge
-//     keeps resetting the timer, so a drag prints one block, not one per build) — and at most MaxBlocksPerEmit blocks per
-//     emission (the rest are counted in one line; DUMP prints them).
-//   * DumpAll(reason): every line of the last census build, on demand (hub DUMP / census dump), MaxBlocksPerDump cap.
+//     lift-line edges are signed (edge ids + node positions); a component whose signature was not logged yet is queued.
+//   * A queued line is printed once the census has been quiet for SettleFrames updates (a drag keeps resetting the timer, so
+//     it prints one block, not one per build), at most MaxBlocksPerEmit blocks per emission (the rest counted in one line).
+//   * DumpAll(reason): every line of the last census build, on demand, capped at MaxBlocksPerDump.
 //
-// OUTPUT (log tag "Towers [nodes]", one block per line, <= MaxNodes nodes; "Towers [summary]" one line per line):
-//   per node: world y, terrain y under it, node clearance (y - terrain), net Elevation component (float2; the engine uses
-//   cmin of it, SubObjectSystem.cs:980), per span to the next node the min clearance of the CHORD over 4 samples (t = .2 .4
-//   .6 .8) and where, the largest droop of the Curve below/above the chord, the tower sub-object(s) in the node's SubObject
-//   buffer (prefab name, entity, mesh top, ObjectGeometryData size / bounds / leg / flags, Elevation component, pivot height
-//   above terrain), and the placeholder: every member with its m_Size.y and the score the engine formula gives, the formula
-//   winner marked, plus MATCH / MISMATCH against the prefab actually spawned.
+// Output (log tag "Towers [nodes]", one block per line, <= MaxNodes nodes; "Towers [summary]" one line per line): per node
+// world y, terrain y under it, clearance, net Elevation component (float2; the engine uses cmin of it, SubObjectSystem.cs:980);
+// per span to the next node the min chord clearance over 4 samples (t = .2 .4 .6 .8) and where, the largest Curve droop
+// below/above the chord; the tower sub-object(s) in the node's SubObject buffer (prefab, entity, mesh top, ObjectGeometryData
+// size / bounds / leg / flags, Elevation, pivot height above terrain); and the placeholder: every member with its m_Size.y and
+// the engine formula's score, the winner marked, plus MATCH / MISMATCH against the prefab actually spawned.
 //
-// ENGINE FORMULA REPLICATED (decompile 1.6.0f1, Game.Objects/SubObjectSystem.cs): per placeholder member (PillarData
-// Standalone / Base / Vertical, :2173-2215) spare = (m_Size.y - PlacementOffset.y) - (ownerElevation + local-to-world dy of the
-// spec position); score = 1 / (1 + (spare >= 0 ? 2*spare : -spare)) (:2182-2184, :2197-2199, :2212-2214); best score wins, equal
-// scores break by probability-weighted random (:2336-2358). NOT replicated (UNVERIFIED effect): CheckRequirements per member
+// Engine formula replicated (decompile 1.6.0f1, Game.Objects/SubObjectSystem.cs): per placeholder member (PillarData Standalone /
+// Base / Vertical, :2173-2215) spare = (m_Size.y - PlacementOffset.y) - (ownerElevation + local-to-world dy of the spec
+// position); score = 1 / (1 + (spare >= 0 ? 2*spare : -spare)) (:2182-2184, :2197-2199, :2212-2214); best score wins, equal
+// scores break by probability-weighted random (:2336-2358). Not replicated (effect unverified): CheckRequirements per member
 // (:2148), the +0.5 for a group already selected this update (:2331). ownerElevation = cmin(Game.Net.Elevation) (:980).
 //
-// PLAN (T48 step 2, docs/research/field/2026-10-19/tower-planner-build-1.md; read-only like the rest): after every "Towers [nodes]"
-// block, each path of the line is re-planned by the pure LiftTowerPlanner on the REAL terrain (TerrainUtils.SampleHeight on the
-// TerrainSystem.GetHeightData() heightmap, TerrainUtils.cs:82 / TerrainSystem.cs:2603, the same main-thread read the [nodes] block
-// uses) along the path's node polyline (xz), from its first node to its last, both ends taken as stations with the rope at node y +
-// the shortest member's rope height (the field lines' ends carry a shortest tower; a station stub's own lane height is an open item
-// for step 3b). It logs "Towers [plan]" (planned vs actual node count, per planned node the member, rope and flags, per span the
-// lowest carrier above ground and the max rope height) + one "Towers [plan summary]" line, and caches the planned geometry for
-// LiftTowerPlanOverlaySystem, keyed by every edge and node entity of the line (so selecting a section, a node or a tower finds it).
-// Selecting a line whose plan is not cached (e.g. one past the per-emission cap) queues it here: RequestPlan → next update.
+// Plan (docs/research/field/2026-10-19/tower-planner-build-1.md): after every "Towers [nodes]" block, each path of the line is
+// re-planned by the pure LiftTowerPlanner on the real terrain (TerrainUtils.SampleHeight on TerrainSystem.GetHeightData(),
+// TerrainUtils.cs:82 / TerrainSystem.cs:2603, the same main-thread read the [nodes] block uses) along the node polyline (xz),
+// both ends taken as stations with the rope at node y + the shortest member's rope height. It logs "Towers [plan]" (planned vs
+// actual node count, per planned node the member, rope and flags, per span the lowest carrier above ground and the max rope
+// height) and one "Towers [plan summary]" line, and caches the planned geometry for LiftTowerPlanOverlaySystem, keyed by every
+// edge and node entity of the line. Selecting a line whose plan is not cached queues it here: RequestPlan, next update.
 //
-// Mod.cs: UpdateAfter<LiftTowerDiagSystem, LiftCensusSystem>(Modification4B) — same anchor family as TramShuttleSystem.
+// Mod.cs: UpdateAfter<LiftTowerDiagSystem, LiftCensusSystem>(Modification4B), the same anchor family as TramShuttleSystem.
 
 using System;
 using System.Collections.Generic;
@@ -73,7 +68,7 @@ namespace SkiResortMod.Systems
         private readonly List<LiftCensus.Edge> m_LastEdges = new List<LiftCensus.Edge>();
         private int m_Blocks, m_Dumps;
 
-        // T48 step 2: the planner and the overlay cache.
+        // The planner and the overlay cache
         internal const int MaxCachedEntities = 8192;
         private readonly LiftTowerPlanner m_Planner = new LiftTowerPlanner();
         private readonly Dictionary<Entity, LiftPlanDraw> m_Draws = new Dictionary<Entity, LiftPlanDraw>();
@@ -165,10 +160,6 @@ namespace SkiResortMod.Systems
             }
         }
 
-        // ════════════════════════════════════════════════════════════════════════════════════════
-        // Triggers
-        // ════════════════════════════════════════════════════════════════════════════════════════
-
         /// <summary>Called by LiftCensusSystem after each build with its harvested line edges (main thread, cheap: the lists are
         /// small, no ECS read). Queues every connected component whose signature was not printed yet.</summary>
         internal void OnCensusBuilt(List<LiftCensus.Edge> edges)
@@ -226,10 +217,6 @@ namespace SkiResortMod.Systems
                 Mod.Log.Warn($"Towers [nodes]: DUMP ({reason}) failed ({e.GetType().Name}: {e.Message}) — non-fatal");
             }
         }
-
-        // ════════════════════════════════════════════════════════════════════════════════════════
-        // Components and signature (pure data)
-        // ════════════════════════════════════════════════════════════════════════════════════════
 
         internal static List<List<LiftCensus.Edge>> Components(List<LiftCensus.Edge> edges)
         {
@@ -303,10 +290,6 @@ namespace SkiResortMod.Systems
         {
             unchecked { return (h ^ v) * 16777619u; }
         }
-
-        // ════════════════════════════════════════════════════════════════════════════════════════
-        // One line -> one block
-        // ════════════════════════════════════════════════════════════════════════════════════════
 
         internal struct Hop
         {
@@ -397,7 +380,7 @@ namespace SkiResortMod.Systems
             Mod.Log.Info(sb.ToString());
             m_Blocks++;
 
-            // T48 step 2: the planned line beside the actual one (its own try: a planner fault must not cost the [nodes] block).
+            // The planned line beside the actual one (its own try: a planner fault must not cost the [nodes] block)
             try
             {
                 WritePlans(comp, paths, typeDef, typeName, why, ref hd);
@@ -410,12 +393,12 @@ namespace SkiResortMod.Systems
             return true;
         }
 
-        /// <summary>One "order" line per path: the line towers numbered base -> top by distance along the line (T123,
-        /// LiftTowerNumbering; the plates still show the baked height numeral), a tower on a station's stub node (T126: the stub node
-        /// takes the prefab of the connected net with the highest NetData.m_NodePriority, GenerateNodesSystem.cs:1690-1765, which
-        /// adds the composition width, NetInitializeSystem.cs:135: the marker stub's section (SkiChairliftPiece, 6 m) ties FG / DQ
-        /// (6 m) and loses to the gondola (8.2 m) and the tram (15 m), so their stub node is a line node and spawns a pillar,
-        /// SubObjectSystem.cs:1580-1760), and nodes whose ground sits at this line's own cut ceiling (T127, LiftTowerEdit).</summary>
+        /// <summary>One "order" line per path: the line towers numbered base to top by distance along the line (LiftTowerNumbering; the
+        /// plates still show the baked height numeral), a tower on a station's stub node (the stub node takes the prefab of the connected
+        /// net with the highest NetData.m_NodePriority, GenerateNodesSystem.cs:1690-1765, which adds the composition width,
+        /// NetInitializeSystem.cs:135: the marker stub's section, SkiChairliftPiece, 6 m, ties FG / DQ and loses to the gondola, 8.2 m,
+        /// and the tram, 15 m, so their stub node is a line node and spawns a pillar, SubObjectSystem.cs:1580-1760), and nodes whose
+        /// ground sits at this line's own cut ceiling (LiftTowerEdit).</summary>
         private void AppendOrder(StringBuilder sb, List<Hop> path, ref TerrainHeightData hd, Entity lineEdge)
         {
             int n = path.Count;
@@ -493,10 +476,6 @@ namespace SkiResortMod.Systems
             }
             return null;
         }
-
-        // ════════════════════════════════════════════════════════════════════════════════════════
-        // T48 step 2: plan + overlay cache
-        // ════════════════════════════════════════════════════════════════════════════════════════
 
         /// <summary>The overlay's lookup: the cached plan of the line that <paramref name="e"/> (edge, node) belongs to.</summary>
         internal bool TryGetPlanDraw(Entity e, out LiftPlanDraw draw) => m_Draws.TryGetValue(e, out draw);
@@ -720,10 +699,6 @@ namespace SkiResortMod.Systems
         {
             return EntityManager.TryGetComponent<Game.Net.Node>(node, out var n) ? n.m_Position.y : 0f;
         }
-
-        // ════════════════════════════════════════════════════════════════════════════════════════
-        // One node
-        // ════════════════════════════════════════════════════════════════════════════════════════
 
         private void DescribeNode(StringBuilder sb, ref TerrainHeightData hd, string label, Hop hop,
                                   SortedDictionary<string, int> towerCounts, ref int noTower, ref int mismatches, ref int ladderMissed,
@@ -949,10 +924,6 @@ namespace SkiResortMod.Systems
             if (!any)
                 sb.Append("      placeholder: none (the line prefab names no placeholder at node placement)\n");
         }
-
-        // ════════════════════════════════════════════════════════════════════════════════════════
-        // Tiny helpers
-        // ════════════════════════════════════════════════════════════════════════════════════════
 
         private static string GeoFlags(Game.Objects.GeometryFlags f)
         {

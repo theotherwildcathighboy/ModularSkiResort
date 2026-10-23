@@ -1,6 +1,4 @@
-// ChangelogTests — SL-CL: release/CHANGELOG.md's three fixed lines (constraints doc §4 item 9, §3 rule 9). A release entry
-// is a "## X.Y.Z ..." heading outside ``` fences (the template block is fenced, the beta notes heading has no version); the
-// entries are newest first.
+// Release entries in CHANGELOG.md are "## X.Y.Z ..." headings outside ``` fences (the template block is fenced), newest first.
 
 using System;
 using System.Collections.Generic;

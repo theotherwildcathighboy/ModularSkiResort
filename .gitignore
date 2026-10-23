@@ -58,3 +58,7 @@ assets/external/**
 
 # 2026-10-13 cleanup: superseded exports / frames / packs consolidated under assets/archive/ (8+ GB of PNG/FBX; never commit)
 assets/archive/
+
+# dotnet tool build output
+tools/**/bin/
+tools/**/obj/

@@ -1,47 +1,29 @@
-// SkiGladeToolSystem.Debug — the "Ski Glades" tab of the game's developer menu
-// (docs/research/glade-tool-spec.md §5; run-binding-glade-spec.md §4.10 for the G2 rows, §8.4 for
-// the G3 rows; the ChairPinSystem.Debug.cs pattern). Created 2026-09-30 (G1); G2 rows 2026-10-01
-// (implementer I-3); G3 2026-10-01 (implementer G3-B): the mode / variant rows and buttons became
-// target / level (spec §8.3), plus plan counts (target, now = wild + fixed + own, keep), the
-// census's Overridden-tree counts and the last apply check (the §8.1 defect, tool header).
+// SkiGladeToolSystem.Debug - the "Ski Glades" tab of the game's developer menu (the ChairPinSystem.Debug.cs pattern).
 //
-// HOW IT REACHES THE SCREEN. DebugSystem.RegisterDebug sweeps every [DebugContainer] type
-// and invokes each [DebugTab] method (DebugSystem.cs:1026-1045). A tab method declared on a
-// ComponentSystemBase runs on the LIVE system instance (ExecuteMethod,
-// DebugSystem.cs:996-1024; GetOrCreateSystemManaged at :1006-1009), which is why this file
-// is a partial of the tool. Nothing is registered in Mod.cs for the tab.
+// DebugSystem.RegisterDebug sweeps every [DebugContainer] type and invokes each [DebugTab] method (DebugSystem.cs:1026-1045). A tab
+// method declared on a ComponentSystemBase runs on the live system instance (ExecuteMethod, DebugSystem.cs:996-1024;
+// GetOrCreateSystemManaged :1006-1009), which is why this file is a partial of the tool. Nothing is registered in Mod.cs.
 //
-// TAB NAME IS LOAD-BEARING: "Ski Glades", NOT "Ski Resort". AddPanel keys widget lists by
-// tab name and REMOVES the previously registered list under the same name
-// (DebugSystem.cs:1085-1095, unchanged in 1.6.2). A second "Ski Resort" tab would wipe
-// ChairPinSystem's tab (ChairPinSystem.Debug.cs:50), or the reverse, depending on
-// reflection order.
+// The tab name is load-bearing: "Ski Glades", not "Ski Resort". AddPanel keys widget lists by tab name and removes the previously
+// registered list under the same name (DebugSystem.cs:1085-1095), so a second "Ski Resort" tab would wipe ChairPinSystem's tab
+// (ChairPinSystem.Debug.cs:50), or the reverse, depending on reflection order.
 //
-// COST CONTRACT (same as ChairPinSystem.Debug): DebugUI.Value getters run at 10 Hz while the
-// tab is open. Every row reads a plain field or a trivial property: no EntityQuery, no job
-// completion, no allocation beyond the display string. Heavier work (DumpToLog) runs on a
-// button press and goes to the mod log. The G2 rows (spec §4.10) read the tool's private
-// fields directly (this file is a partial of the same class) and the hover log's plain fields.
+// Cost (as ChairPinSystem.Debug): DebugUI.Value getters run at 10 Hz while the tab is open, so every row reads a plain field or a
+// trivial property: no EntityQuery, no job completion, no allocation beyond the display string. Heavier work (DumpToLog) runs on a
+// button press and goes to the mod log.
 //
-// ACTIVATION FROM HERE is the same route vanilla UI uses: TryActivate sets
-// ToolSystem.activeTool, the setter that ToolUISystem.SelectTool also uses
-// (ToolSystem.cs:84-99; ToolUISystem.cs:285-304). The swap lands in the next ToolUpdate
-// (ToolSystem.cs:312-327). CAVEAT shown as a row: while the cursor is over this panel,
-// Tool-map mouse actions are barrier-blocked (ToolSystem.cs:203-222) and controlOverWorld
-// is false. After clicking a button, move the cursor onto the map before Apply works.
+// Activation from here is the route vanilla UI uses: TryActivate sets ToolSystem.activeTool (ToolSystem.cs:84-99; ToolUISystem.cs:
+// 285-304); the swap lands in the next ToolUpdate (:312-327). While the cursor is over this panel, Tool-map mouse actions are
+// barrier-blocked (ToolSystem.cs:203-222) and controlOverWorld is false: after clicking a button, move the cursor onto the map
+// before Apply works.
 //
-// SPECIES POOL ROW. This file declares an optional C# 9 void partial,
-// DescribeSpeciesPoolForDebug; SkiGladeToolSystem.cs implements it from m_SpeciesPoolText,
-// which ResolveSpecies sets on the arming path. It reads "(unresolved)" before the tool first
-// arms and "(none)" if no species resolved.
+// Species pool row: an optional void partial, DescribeSpeciesPoolForDebug, is implemented by SkiGladeToolSystem.cs from
+// m_SpeciesPoolText ("(unresolved)" before the tool first arms, "(none)" if no species resolved). BlockedStatus ("Apply blocked by
+// N error(s)" / "-") is published by the tool's hold path while a validated preview holds Error entities.
 //
-// APPLY STATUS ROW. BlockedStatus ("Apply blocked by N error(s)" / "-"), published by the
-// tool's hold path while a validated preview holds Error entities.
-//
-// DOOMED-TREE HIDING BUTTON (G2 field fallback, spec §4.8 last sentence): if Hidden on the
-// felled / replaced Temp copies misbehaves in the field, this switches the after-state hiding
-// off for the session (doomed trees stay visible, rings grow to Tuning.FallbackRingDiameter) and
-// back on — no rebuild needed. The tool logs every switch.
+// Doomed-tree hiding button: if Hidden on the felled / replaced Temp copies misbehaves in the field, this switches the after-state
+// hiding off for the session (doomed trees stay visible, rings grow to Tuning.FallbackRingDiameter) and back on, no rebuild
+// needed. The tool logs every switch.
 
 using System;
 using System.Collections.Generic;
@@ -56,10 +38,9 @@ namespace SkiResortMod.Systems
     [DebugContainer]
     public sealed partial class SkiGladeToolSystem
     {
-        /// <summary>Optional hook for the tool's main file: write the resolved species pool
-        /// (e.g. "SpruceTree01 (dominant), PineTree01, BirchTree01") into <paramref name="text"/>
-        /// from a field cached at ARMED time. MUST be field-read only (10 Hz cost contract).
-        /// When unimplemented, the call below compiles away and the row keeps its fallback.</summary>
+        /// <summary>Optional hook for the tool's main file: write the resolved species pool (e.g. "SpruceTree01 (dominant),
+        /// PineTree01, BirchTree01") into <paramref name="text"/> from a field cached at ARMED time. Must be field-read only
+        /// (10 Hz cost). When unimplemented, the call below compiles away and the row keeps its fallback.</summary>
         partial void DescribeSpeciesPoolForDebug(ref string text);
 
         [DebugTab("Ski Glades", 1)]
@@ -67,7 +48,6 @@ namespace SkiResortMod.Systems
         {
             var list = new List<DebugUI.Widget>();
 
-            // ── State (plain-field / trivial-property getters only) ────────────────────────
             list.Add(Val("Armed", () => IsArmed));
             list.Add(Val("Disabled by exception", () => IsDisabled));
             list.Add(Val("Active (ToolSystem.activeTool == this)", () => IsActive));
@@ -114,12 +94,11 @@ namespace SkiResortMod.Systems
                 return text;
             }));
 
-            // Hotkey status: the poller's field-backed StatusLine, resolved once at build time.
+            // Hotkey status: the poller's field-backed StatusLine, resolved once at build time
             SkiGladeHotkeySystem hotkeys = World.GetExistingSystemManaged<SkiGladeHotkeySystem>();
             list.Add(Val("Hotkeys", () => hotkeys == null ? "hotkey system not registered" : hotkeys.StatusLine));
             list.Add(Val("Note", () => "after clicking a button, move the cursor onto the map before applying"));
 
-            // ── Actions ─────────────────────────────────────────────────────────────────────
             list.Add(new DebugUI.Button
             {
                 displayName = "Activate glade tool",
@@ -177,10 +156,9 @@ namespace SkiResortMod.Systems
             return list;
         }
 
-        // ── helpers (prefixed: the tool's main file is a separate author's partial) ──────────
 
-        /// <summary>Button bodies run inside the debug UI's invoke path. A throw there must
-        /// not escape into the menu, and must not be silent either.</summary>
+        /// <summary>Button bodies run inside the debug UI's invoke path. A throw there must not escape into the menu, and must
+        /// not be silent either.</summary>
         private static void GladeDebugAction(string label, Action body)
         {
             try
@@ -193,8 +171,7 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>Copied from ChairPinSystem.Debug.cs:323-334: a getter that cannot throw
-        /// into the 10 Hz refresh.</summary>
+        /// <summary>A getter that cannot throw into the 10 Hz refresh (copied from ChairPinSystem.Debug.cs:323-334)</summary>
         private static DebugUI.Value Val(string name, Func<object> getter)
         {
             return new DebugUI.Value

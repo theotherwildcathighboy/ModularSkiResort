@@ -1,18 +1,8 @@
-// TowerNumberTests — T123 (per-tower number tiles; docs/research/lifts/tower-numbers-build-2026-10-20.md): the pure core
-// TowerNumberTiles.cs, headless. TN-1..TN-9.
-//   TN-1 wrap: 1..200 as is, 201 -> 1, 400 -> 200, 401 -> 1, int.MaxValue in range, < 1 -> 0 (no tiles).
-//   TN-2 layout: 7 = Blank + 7 centered; 42 = Blank + 4 / 2 at -/+ half a cell; 128 / 200 = three digits, no Blank; every number
-//        1..2000 has <= 3 tiles per face, digits inside the window, a Blank exactly when it has fewer than 3 digits.
-//   TN-3 display numbers: 450 towers in any input order -> the tower at rank r shows Wrap(r); reversed when the base is last.
-//   TN-4 geometry: every plate row x number: two faces, tiles in front of their face (Blank / 3-digit at TileDepthM, layered digits
-//        LayerM further), centered on the window, the -Z face rotated 180 deg about Y and mirrored in x.
-//   TN-5 reconcile: identical = no-op; 42 -> 43 = one delete + one create per face; 99 -> 100 = the Blank and two digits go,
-//        three digits come (shared digits in a new slot are re-made); a tile moved 2 cm is re-made; duplicates are deleted.
-//   TN-6 renumber after a section edit: a tower added after tower 3 of 10 changes the tiles of towers 4..11 only.
-//   TN-7 tables: tile prefab names (SkiNumTileT1Blank .. SkiNumTileT3N9), dense unique keys, plate rows unique, ZPos > 0 > ZNeg.
-//   TN-8 a 1,000-tower line: no throw, every display number in 1..200, 6 tiles max per tower.
-//   TN-9 the plate table equals the measurement docs/research/lifts/tower-numbers-plates-2026-10-20.json (number_tiles.py
-//        --measure-plates on the shipped FBXs): a re-export that moves a plate fails here until the table follows.
+// Headless tests for the pure tower number tile core (TowerNumberTiles.cs), cases TN-1..TN-9: wrap to 1..200,
+// tile layout per digit count, display numbers by rank (reversed when the base is last), plate geometry per face,
+// reconcile (minimal deletes and creates), renumbering after a section edit, name and plate tables, a 1,000-tower
+// line, and the plate table against docs/research/lifts/tower-numbers-plates-2026-10-20.json (measured from the
+// shipped FBXs: a re-export that moves a plate fails here until the table follows).
 
 using System;
 using System.Collections.Generic;
@@ -86,7 +76,7 @@ namespace LiftBatch
                 bool hasBlank = s.Count > 0 && s[0].Glyph == TowerNumberTiles.Blank;
                 bool ok = s.Count <= 3 && hasBlank == (digits < 3) && s.Count == digits + (hasBlank ? 1 : 0);
                 foreach (TowerNumberTiles.Slot x in s)
-                    ok &= Math.Abs(x.OffsetCells) + 0.5f <= 1.5f + 1e-5f;      // inside the 3-cell window
+                    ok &= Math.Abs(x.OffsetCells) + 0.5f <= 1.5f + 1e-5f;
                 if (!ok)
                     bad++;
             }
@@ -190,7 +180,7 @@ namespace LiftBatch
         private static void Reconcile()
         {
             const string W = "TN-5 reconcile";
-            TowerNumberTiles.TowerPlate p = TowerNumberTiles.Plates[3];   // DQ10: asymmetric faces
+            TowerNumberTiles.TowerPlate p = TowerNumberTiles.Plates[3];   // asymmetric faces
             Diff(p, 42, 42, out int d, out int a);
             Check(d == 0 && a == 0, W, "42 -> 42: -" + d + " +" + a);
             Diff(p, 42, 43, out d, out a);

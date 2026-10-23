@@ -1,26 +1,15 @@
-// MoneyBatch — Round E1 test file for tests/ResortBatch (econ-round spec ch4 §7: money rules and ledger, T1-T7).
-// Owner: stream S4 (docs/research/econ-round/e1-spec.md §3.2). Created empty by stage 0 (S0, 2026-10-04):
-// e1-spec R9 — `public static class MoneyBatch` with `public static void Run(Func<bool, string, string, bool> check)`
-// and its own Near; Program.Main calls MoneyBatch.Run(Check). Oracles are literal hand values (ch4 §7).
-// Stream S4 (2026-10-04) wrote T1-T7; T8 (SkiResortMoney.Compose) is dropped with Compose (e1-spec R7).
-// Round S1 (stream C, 2026-10-05; ski-days spec ch3 §7.1): T1 and IsZero extended; T9-T11 added. The S1 T8
-// (a money-rules day key) is dropped: the one day key is SkiDayRules.DayKey (s1-spec N3, SkiDayTests N).
-// Round M1 "measure first" (Builder B, 2026-10-05; docs/research/ski-days/measure/m1-spec.md §4): T12 partial
-// months (SkiMoneyRules.IsShortMonth / SimulatedPct, SkiResortLedger.Advance(key, closedMonthShort)); T7 unchanged.
-// Round M2 (builder B3, 2026-10-10; docs/research/round-m2/build-contract.md §7): T1 +1 (LiftBilling literals incl.
-// NoOpenRun = 3), T2 +5 (six three-argument LiftBillingOf rows replace four; three LiftRate(NoOpenRun) rows), T4 +1
-// (ten four-argument GateCase rows replace nine: a running lift alone no longer opens the gate, R2), new T13
-// LiftAreaRunOpen +5 (R3). MoneyBatch +12.
-// Catalog Phase B (lift group, 2026-10-11; docs/research/art/assets-2026-10/code-round-2/round-2-contract.md §11.2): T14
-// per-type lift rates (SkiMoneyRules.LiftFullRate / LiftRate with the type's two numbers; the fixed-grip overloads ≡ the
-// 2500 + 1000 form, so T1-T7 are unchanged; each catalog row's 1 km rate) and the lodge spend of seam S3
-// (LodgeSpendDefault / Max / Step, ClampLodgeSpend, LodgeSpendOf, SpendPaid).
+// MoneyBatch — tests for tests/ResortBatch: money rules and ledger. Convention: `public static class MoneyBatch` with
+// `public static void Run(Func<bool, string, string, bool> check)` and its own Near; Program.Main calls MoneyBatch.Run(Check).
+// Oracles are literal hand values.
 //
-// Covers: SkiMoneyRules (T1 constants, T2 lift rates and billing, T3 accrual and attribution, T4 ticket price
-// and gate, T5 affordability, T6 month keys, T9 the D23 day rules) and SkiResortLedger (T7: start / roll /
-// jump, the per-entry counters, Revision, Prune, Reset; T10 the D23 arrival flags); T11 a D23 day scenario
-// (the counter's two day sets stood in for by a HashSet and a Dictionary). Not testable headless (ECS): the
-// scans, the ticket job, the lift snapshot — covered by the logs, the DUMP and the field rows of ch4 §15.
+// Covers: SkiMoneyRules (T1 constants, T2 lift rates and billing, T3 accrual and attribution, T4 ticket price and gate, T5
+// affordability, T6 month keys, T9 the guest-day rules, T12 partial months (IsShortMonth / SimulatedPct, SkiResortLedger.Advance(key,
+// closedMonthShort)), T13 LiftAreaRunOpen, T14 per-type lift rates (LiftFullRate / LiftRate with the type's two numbers; the
+// fixed-grip overloads ≡ the 2500 + 1000 form; each catalog row's 1 km rate) and lodge spend (LodgeSpendDefault / Max / Step,
+// ClampLodgeSpend, LodgeSpendOf, SpendPaid), T15 season passes, T16 lessons, T17 pre-season pass sale) and SkiResortLedger (T7:
+// start / roll / jump, the per-entry counters, Revision, Prune, Reset; T10 the arrival flags); T11 a guest-day scenario (the
+// counter's two day sets stood in for by a HashSet and a Dictionary). Not testable headless (ECS): the scans, the ticket job, the
+// lift snapshot — covered by the logs, the DUMP and the field rows.
 
 using System;
 using System.Collections.Generic;
@@ -42,18 +31,18 @@ namespace ResortBatch
             Affordability(check);
             MonthKeys(check);
             Ledger(check);
-            GuestDayRules(check);      // Round S1 T9
-            LedgerGuestDays(check);    // Round S1 T10
-            GuestDayScenario(check);   // Round S1 T11
-            PartialMonths(check);      // Round M1 T12
-            LiftAreaRuns(check);       // Round M2 T13
-            TypeRatesAndSpend(check);  // Catalog Phase B T14 (lift group)
-            SeasonPasses(check);       // Season passes v1 T15
-            Lessons(check);            // Econ-2 round 2 T16
-            Presale(check);            // Econ-2 round 2 T17
+            GuestDayRules(check);
+            LedgerGuestDays(check);
+            GuestDayScenario(check);
+            PartialMonths(check);
+            LiftAreaRuns(check);
+            TypeRatesAndSpend(check);
+            SeasonPasses(check);
+            Lessons(check);
+            Presale(check);
         }
 
-        // ── T17 Pre-season pass sale (passes v2; econ-2 round 2, docs/research/econ-2/build/round-2.md): roll, probability, decision, ledger ──
+        // ── T17 Pre-season pass sale: roll, probability, decision, ledger ──
         // Properties, not hash literals (cannot be computed without running), like T15 / T16.
         private static void Presale(Func<bool, string, string, bool> check)
         {
@@ -111,7 +100,6 @@ namespace ResortBatch
             check(SkiMoneyRules.PresaleProbability(250, 0.5) == 0.5 && SkiMoneyRules.PresaleProbability(100, 7.0) == 1.0, w,
                   "the share is clamped to 100 and p to 1");
 
-            // Decision.
             check(SkiMoneyRules.PresaleDecision(5, 2030, 1.0, 0, 9999) == SkiMoneyRules.PassSaleResult.NotEligible, w, "price 0 is NotEligible");
             check(SkiMoneyRules.PresaleDecision(5, 2030, 0.0, 240, 9999) == SkiMoneyRules.PassSaleResult.Declined, w, "p 0 is Declined even when rich");
             check(SkiMoneyRules.PresaleDecision(5, 2030, 1.0, 240, 240) == SkiMoneyRules.PassSaleResult.Bought, w, "p 1 with money == price buys");
@@ -169,7 +157,7 @@ namespace ResortBatch
                   e2.This.PassesSold == 3, w, "AddPasses without the flag does not touch the pre-season part");
         }
 
-        // ── T16 Ski-school lessons (econ-2 round 2, docs/research/econ-2/build/round-2.md): constants, price, roll, taken, paid, ledger ──
+        // ── T16 Ski-school lessons: constants, price, roll, taken, paid, ledger ──
         // No literal hash oracles (the values cannot be computed without running): the roll is held by properties, like T15.
         private static void Lessons(Func<bool, string, string, bool> check)
         {
@@ -309,7 +297,7 @@ namespace ResortBatch
             check(tot.TicketIncome == 0 && tot.PassIncome == 0 && tot.LodgeSpendIncome == 0, w, "lessons leave tickets, passes and lodge spend alone");
         }
 
-        // ── T15 Season passes v1 (docs/research/econ-2/build/season-pass-v1.md): season key, price, roll, standing, sale ──
+        // ── T15 Season passes: season key, price, roll, standing, sale ──
         private static void SeasonPasses(Func<bool, string, string, bool> check)
         {
             const string w = "money T15";
@@ -460,11 +448,11 @@ namespace ResortBatch
                   "ClampPassMultiplier");
         }
 
-        // ── T14 Catalog Phase B (round-2-contract §6.2, §11.2; lift group): per-type lift rates, lodge spend (seam S3) ──
+        // ── T14 per-type lift rates, lodge spend ──
         private static void TypeRatesAndSpend(Func<bool, string, string, bool> check)
         {
             const string w = "money T14";
-            // The type's rate: fixed + perKm × km (ROUND-SPEC §5 rows; contract §11.2 literal oracles).
+            // The type's rate: fixed + perKm × km (literal oracles).
             check(SkiMoneyRules.LiftFullRate(1500f, 5000f, 2000f) == 8000f, w,
                   "LiftFullRate(1500, 5000, 2000) " + SkiMoneyRules.LiftFullRate(1500f, 5000f, 2000f));
             check(SkiMoneyRules.LiftRate(Billing.Unfinished, 1500f, 5000f, 2000f) == 2000f, w,
@@ -475,7 +463,7 @@ namespace ResortBatch
                   "LiftFullRate(3000, 11000, 4500) " + SkiMoneyRules.LiftFullRate(3000f, 11000f, 4500f));
             check(SkiMoneyRules.LiftRate(Billing.Full, 3000f, 11000f, 4500f) == 24500f, w, "LiftRate(Full, 3000, 11000, 4500)");
             check(SkiMoneyRules.LiftRate(Billing.NoOpenRun, 2000f, 8000f, 3000f) == 3500f, w, "LiftRate(NoOpenRun, 2000, 8000, 3000)");
-            // T137 S1 (DECISIONS 358): the per-type no-open-run share (the tram 50 %); Unfinished keeps 25 %; a bad share reads 25 %.
+            // The per-type no-open-run share (the tram 50 %); Unfinished keeps 25 %; a bad share reads 25 %.
             check(SkiMoneyRules.ShuttleNoOpenRunShare == 0.5f, w, "ShuttleNoOpenRunShare 0.5 (T137 S1)");
             check(SkiMoneyRules.LiftRate(Billing.NoOpenRun, 2233f, 11000f, 4500f, 0.5f) == 10524.25f, w,
                   "the playthrough tram 2,233 m off-season: 10,524.25 (half of 21,048.5; was 21,048.5 full) " +
@@ -515,7 +503,7 @@ namespace ResortBatch
             }
             check(same, w, "the fixed-grip overloads ≡ (…, 2500, 1000): " + first);
 
-            // Every catalog row's rate at 1 km (ROUND-SPEC §5): 3,500 / 7,000 / 11,000 / 15,500.
+            // Every catalog row's rate at 1 km: 3,500 / 7,000 / 11,000 / 15,500.
             float[] perKm1 = { 3500f, 7000f, 11000f, 15500f };
             IReadOnlyList<LiftTypeDef> lifts = SkiCatalog.Lifts;
             check(lifts.Count == perKm1.Length, w, "SkiCatalog.Lifts has " + lifts.Count + " rows, the oracle 4");
@@ -525,10 +513,9 @@ namespace ResortBatch
                 check(got == perKm1[t], w, lifts[t].Id + " LiftFullRate(1 km) " + got + ", want " + perKm1[t]);
             }
 
-            // Lodge spend (seam S3, D15).
             check(SkiMoneyRules.LodgeSpendDefault == 15 && SkiMoneyRules.LodgeSpendMax == 50 && SkiMoneyRules.LodgeSpendStep == 5, w,
                   "LodgeSpendDefault / Max / Step = 15 / 50 / 5 (15 since econ-2 round 2; was 0)");
-            // econ-2 round 2: the default per tier (x1 / x1.5 / x3, rounded half up) = 15 / 23 / 45 per paying guest.
+            // The default per tier (x1 / x1.5 / x3, rounded half up) = 15 / 23 / 45 per paying guest.
             check(SkiMoneyRules.LodgeSpendOf(SkiMoneyRules.LodgeSpendDefault, 1.0f) == 15 &&
                   SkiMoneyRules.LodgeSpendOf(SkiMoneyRules.LodgeSpendDefault, 1.5f) == 23 &&
                   SkiMoneyRules.LodgeSpendOf(SkiMoneyRules.LodgeSpendDefault, 3.0f) == 45, w,
@@ -583,10 +570,8 @@ namespace ResortBatch
             check(SkiMoneyRules.TicketPriceMax == 200, w, "TicketPriceMax " + SkiMoneyRules.TicketPriceMax);
             check(SkiMoneyRules.TicketPriceStep == 5, w, "TicketPriceStep " + SkiMoneyRules.TicketPriceStep);
             check(SkiMoneyRules.TicksPerDay == 262144, w, "TicksPerDay " + SkiMoneyRules.TicksPerDay);
-            // Round M2 T2 (decisions.md R3): NoOpenRun appended as 3.
             check((int)Billing.Full == 0 && (int)Billing.NoPower == 1 && (int)Billing.Unfinished == 2 &&
                   (int)Billing.NoOpenRun == 3, w, "LiftBilling literal values 0-3");
-            // Round S1 D23 (ch3 §7.1)
             check(SkiMoneyRules.GuestDayOuting == 1, w, "GuestDayOuting " + SkiMoneyRules.GuestDayOuting);
             check(SkiMoneyRules.GuestDayLeisure == 2, w, "GuestDayLeisure " + SkiMoneyRules.GuestDayLeisure);
         }
@@ -604,7 +589,7 @@ namespace ResortBatch
             check(SkiMoneyRules.LiftFullRate(float.PositiveInfinity) == 2500f, w,
                   "LiftFullRate(+inf) " + SkiMoneyRules.LiftFullRate(float.PositiveInfinity));
 
-            // Round M2 T2: the third argument is LiftAreaRunOpen; precedence unfinished, no power, no counted run.
+            // The third argument is LiftAreaRunOpen; precedence unfinished, no power, no counted run.
             check(SkiMoneyRules.LiftBillingOf(true, true, true) == Billing.Full, w, "LiftBillingOf(complete, powered, run open)");
             check(SkiMoneyRules.LiftBillingOf(true, true, false) == Billing.NoOpenRun, w, "LiftBillingOf(complete, powered, no run)");
             check(SkiMoneyRules.LiftBillingOf(true, false, false) == Billing.NoPower, w, "LiftBillingOf(complete, no power, no run)");
@@ -619,7 +604,7 @@ namespace ResortBatch
                   "LiftRate(Unfinished, 991) " + SkiMoneyRules.LiftRate(Billing.Unfinished, 991f));
             check(SkiMoneyRules.LiftRate(Billing.NoPower, 2281f) == 1195.25f, w,
                   "LiftRate(NoPower, 2281) " + SkiMoneyRules.LiftRate(Billing.NoPower, 2281f));
-            // Round M2 T2: NoOpenRun bills the reduced share like the other non-Full billings.
+            // NoOpenRun bills the reduced share like the other non-Full billings.
             check(SkiMoneyRules.LiftRate(Billing.NoOpenRun, 1000f) == 875f, w,
                   "LiftRate(NoOpenRun, 1000) " + SkiMoneyRules.LiftRate(Billing.NoOpenRun, 1000f));
             check(SkiMoneyRules.LiftRate(Billing.NoOpenRun, 2281f) == 1195.25f, w,
@@ -679,7 +664,7 @@ namespace ResortBatch
             check(SkiMoneyRules.ClampTicketPrice(200) == 200, w, "ClampTicketPrice(200)");
             check(SkiMoneyRules.ClampTicketPrice(999) == 200, w, "ClampTicketPrice(999)");
 
-            // Round M2 T1 (R2): four arguments, the operating-lift branch is gone; known = score present and not held.
+            // Four arguments; known = score present and not held (a running lift alone does not open the gate).
             GateCase(check, w, 0, 1f, true, 3, Gate.Off);
             GateCase(check, w, 0, 0f, false, 0, Gate.Off);                  // price first
             GateCase(check, w, 40, 0f, true, 3, Gate.NoEfficiency);
@@ -688,7 +673,7 @@ namespace ResortBatch
             GateCase(check, w, 40, 1f, false, 0, Gate.NotKnownYet);
             GateCase(check, w, 40, 1f, false, 3, Gate.NotKnownYet);         // unknown wins over runs
             GateCase(check, w, 40, 0.04f, true, 1, Gate.Open);
-            GateCase(check, w, 40, 1.25f, true, 0, Gate.NothingOpen);       // was Open with 2 operating lifts (run 2b after 15:19)
+            GateCase(check, w, 40, 1.25f, true, 0, Gate.NothingOpen); // no operating-lift branch
             GateCase(check, w, 40, 0.99f, true, 5, Gate.Open);
 
             // Literal values (gate rule R17 compares them with bindings.ts TICKET_GATE).
@@ -859,14 +844,14 @@ namespace ResortBatch
             l.AddArrival(a, false, 1);
             check(l.Advance(105) == Advance.Jumped, w, "10: Advance(105) == Jumped");
             check(!l.LastMonthKnown, w, "10: !LastMonthKnown");
-            // E1 fixer (e1-spec §8.9 F8): a jump restarts counting partway through the month, as a load does.
+            // A jump restarts counting partway through the month, as a load does.
             check(l.ThisMonthSinceLoad, w, "10: ThisMonthSinceLoad (counting restarted at the jump)");
             bool allZero = true;
             for (int i = 0; i < l.Count; i++)
                 allZero &= IsZero(l.At(i).This) && IsZero(l.At(i).Last);
             check(allZero, w, "10: every Last and This zero");
             check(l.Advance(104) == Advance.Jumped, w, "10: a key that goes back is a jump");
-            // 10b. the roll after a jump: that month was counted only from the jump, never a full month (+3).
+            // 10b. the roll after a jump: that month was counted only from the jump, never a full month.
             check(l.Advance(105) == Advance.Rolled, w, "10b: Advance(105) after the jump to 104 == Rolled");
             check(l.LastMonthKnown && l.LastMonthSinceLoad, w, "10b: LastMonthKnown and LastMonthSinceLoad (partial, not full)");
             check(!l.ThisMonthSinceLoad, w, "10b: !ThisMonthSinceLoad (the next month is counted whole)");
@@ -898,10 +883,10 @@ namespace ResortBatch
         {
             return m.TouristGuests == 0 && m.TouristParties == 0 && m.LocalGuests == 0 && m.TicketsPaid == 0 &&
                    m.TicketsUnpaid == 0 && m.TicketsFree == 0 && m.TicketIncome == 0 && m.LiftCharged == 0.0 &&
-                   m.TouristOnLeisure == 0;   // Round S1 D23
+                   m.TouristOnLeisure == 0;
         }
 
-        // ── T9 the D23 day rules (Round S1, ch3 §7.1) ───────────────────────────────────────────
+        // ── T9 the guest-day rules ───────────────────────────────────────────────────
         private static void GuestDayRules(Func<bool, string, string, bool> check)
         {
             const string w = "money T9";
@@ -940,7 +925,7 @@ namespace ResortBatch
                   $"OutingPeople({party}, {already}, {hday}) = ({p}, {g}), expected ({people}, {newGroup})");
         }
 
-        // ── T10 the ledger's D23 flags (Round S1, ch3 §7.1) ─────────────────────────────────────
+        // ── T10 the ledger's arrival flags ───────────────────────────────────────────
         private static void LedgerGuestDays(Func<bool, string, string, bool> check)
         {
             const string w = "money T10";
@@ -972,9 +957,9 @@ namespace ResortBatch
             check(l.Total(true).TouristOnLeisure == 2, w, "Total(last).TouristOnLeisure " + l.Total(true).TouristOnLeisure);
         }
 
-        // ── T11 a D23 day (Round S1, ch3 §7.1): the counter's job logic on two stand-in sets ──────
-        // Area S; household H {c1, c2, c3}, household K {k1}. The two helpers below repeat the scan jobs' D23
-        // branches (SkiGuestCounterSystem LeisureScanJob / MeetingScanJob) with a HashSet and a Dictionary in
+        // ── T11 a guest day: the counter's job logic on two stand-in sets ──────────────
+        // Area S; household H {c1, c2, c3}, household K {k1}. The two helpers below repeat the scan jobs' branches
+        // (SkiGuestCounterSystem LeisureScanJob / MeetingScanJob) with a HashSet and a Dictionary in
         // place of m_CitizensToday / m_HouseholdsToday; the ledger is the real one.
         private sealed class DaySets
         {
@@ -1048,7 +1033,7 @@ namespace ResortBatch
                   $"step {step} ({label}): TG/TP/TL {m.TouristGuests}/{m.TouristParties}/{m.TouristOnLeisure}, expected {tg}/{tp}/{tl}");
         }
 
-        // ── T12 partial months (Round M1, D5; m1-spec §4 MoneyBatch, M7c) ───────────────────────────
+        // ── T12 partial months ───────────────────────────────────────────────────────
         // A month of 262,144 frames (12 days a year): 95 % = 249,036.8 frames, so 249,037 is full and 249,036 short.
         private static void PartialMonths(Func<bool, string, string, bool> check)
         {
@@ -1098,7 +1083,7 @@ namespace ResortBatch
             check(same, w, "Advance(key) differs from Advance(key, false) somewhere in the sequence");
         }
 
-        // ── T13 a lift's ski area has a counted run (Round M2 T2, decisions.md R3; thaw-rules.md §3) ─────────────
+        // ── T13 a lift's ski area has a counted run ─────────────────────────────────────
         // LiftAreaRunOpen(linked, scoreKnown, writeHeld, runsCounted): unknown reads true (the full, old rate).
         private static void LiftAreaRuns(Func<bool, string, string, bool> check)
         {

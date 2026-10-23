@@ -1,13 +1,10 @@
-// SkiGladeTooltipSystem — the mouse tooltip of the Glade tool (docs/research/run-binding-glade-spec.md
-// §4.9, Round G2, as amended by §8.4, Round G3; DECISIONS 121 DEFECT 3: "the glade tool is never
-// silent"). Created 2026-10-01 (Round G2, implementer I-3); Round G3 2026-10-01 (implementer G3-B):
-// the mode / layout-variant lines became the target / tree-density lines, plus "Trees now" and
-// "Target". While the glade tool is the active tool it shows, every frame:
+// The mouse tooltip of the Glade tool (docs/research/run-binding-glade-spec.md §4.9, §8.4): the glade tool is never
+// silent. While it is the active tool it shows, every frame:
 //
 //   1. Target                     StringTooltip  SkiResort.GladeTooltip.TARGET[Interior|TreeLine]
 //   2. Tree density (1-8)  L      IntTooltip     SkiResort.GladeTooltip.LEVEL, unit "integer"
 //   3. level name                 StringTooltip  SkiResort.GladeTooltip.LEVEL_NAME[1..8]
-//   4. by hover kind / plan state (SkiGladeToolSystem.HoverKind / PlanState, spec §4.7):
+//   4. by hover kind / plan state (SkiGladeToolSystem.HoverKind / PlanState):
 //        Terrain / Foreign / Nothing (and the one-frame None / Switching / Held states)
 //            → HINT "Hover a ski run to plan trees" (+ NO_RUNS when CityBoundRuns == 0)
 //        Unbound / Legacy        → UNBOUND (Warning)
@@ -23,53 +20,45 @@
 //                                     else → COMPLETE ("already at this tree density");
 //                                   else the PLANT / FELL / REMOVE counts (only the non-zero
 //                                   ones), BLOCKED_SPOTS (= the known blocked spots of the plan)
-//                                   only when the preview PLANTS or falls short — a fell / remove
-//                                   preview never shows it — and CLAMPED (Warning) / SATURATED /
-//                                   MONEY (Warning) for those states (spec §8.4 as amended in the
-//                                   G3 fixer round, finding tool-2: G3 returned on Complete before
-//                                   the blocked-spot line, so an L8 run k trees short read
-//                                   "Nothing to change: already at this tree density", and showed
-//                                   the whole level-independent skip set on fell previews).
+//                                   only when the preview PLANTS or falls short (the skip set is
+//                                   level-independent, so a fell / remove preview would show spots
+//                                   it never used), and CLAMPED (Warning) / SATURATED / MONEY
+//                                   (Warning) for those states. A complete plan must not return
+//                                   before the blocked-spot line: an L8 run k trees short would
+//                                   read "already at this tree density".
 //   The vanilla cost line comes from TempCostTooltipSystem, which needs our Temps
 //   (TempCostTooltipSystem.cs:57 RequireForUpdate on Temp), so it shows with any live preview.
 //
-// COUNTS. Until the preview is validated (the frame after emission) the tool's PlannedPlant /
-// PlannedFell / PlannedRemove (what it emitted) are shown; from then on the census: plant =
-// PreviewPlant − PreviewCancelled (what an Apply plants), fell = PreviewThin, remove =
-// PreviewRemove (Round G3: both count only Delete Temps without Cancel — a canceled delete keeps
-// its tree, ApplyObjectsSystem.cs:337-340, 474-482). "Trees now" counts every tree inside the run
-// that the census sees, including trees the game keeps hidden as Overridden (the §8.1 defect fix,
-// SkiGladeToolSystem header), so it can exceed what the eye counts.
+// COUNTS. Until the preview is validated (the frame after emission) the tool's PlannedPlant / PlannedFell / PlannedRemove
+// (what it emitted) are shown; from then on the census: plant = PreviewPlant − PreviewCancelled (what an Apply plants),
+// fell = PreviewThin, remove = PreviewRemove (both count only Delete Temps without Cancel: a canceled delete keeps its
+// tree, ApplyObjectsSystem.cs:337-340, 474-482). "Trees now" counts every tree inside the run that the census sees,
+// including trees the game keeps hidden as Overridden (SkiGladeToolSystem header), so it can exceed what the eye counts.
 //
-// HOW A MOD TOOLTIP WORKS (as SkiRunTooltipSystem, whose header has the full citations; none of
-// the cited Game.UI.Tooltip files changed in 1.6.2f1). TooltipSystemBase caches TooltipUISystem
-// (TooltipSystemBase.cs:14-18); AddMouseTooltip drops a duplicate non-empty path with a LogError
-// (:32-42), so every path here is mod-unique: skiGladeTarget, skiGladeLevel, skiGladeLevelName,
-// skiGladeTreesNow, skiGladeTreesTarget, skiGladeHint, skiGladeNoRuns, skiGladePlant,
-// skiGladeFell, skiGladeRemove, skiGladeBlocked. TooltipUISystem clears the mouse group and THEN
-// runs the UITooltip phase only while the mouse is not over UI and tooltips are not hidden
-// (TooltipUISystem.cs:48-55), so this OnUpdate re-adds its lines every frame and needs no over-UI
-// check.
+// HOW A MOD TOOLTIP WORKS (as SkiRunTooltipSystem, whose header has the full citations; none of the cited Game.UI.Tooltip
+// files changed in 1.6.2f1). TooltipSystemBase caches TooltipUISystem (TooltipSystemBase.cs:14-18); AddMouseTooltip drops
+// a duplicate non-empty path with a LogError (:32-42), so every path here is mod-unique: skiGladeTarget, skiGladeLevel,
+// skiGladeLevelName, skiGladeTreesNow, skiGladeTreesTarget, skiGladeHint, skiGladeNoRuns, skiGladePlant, skiGladeFell,
+// skiGladeRemove, skiGladeBlocked. TooltipUISystem clears the mouse group and THEN runs the UITooltip phase only while the
+// mouse is not over UI and tooltips are not hidden (TooltipUISystem.cs:48-55), so this OnUpdate re-adds its lines every
+// frame and needs no over-UI check.
 //
-// ORDER (registered by I-4 in Mod.cs): UpdateAfter<SkiGladeTooltipSystem,
-// Game.UI.Tooltip.TempCostTooltipSystem>(SystemUpdatePhase.UITooltip) — TempCostTooltipSystem is
-// UpdateAt UITooltip at Game.Common/SystemOrder.cs:911 (1.6.2 :912), so our lines follow the
+// ORDER (Mod.cs): UpdateAfter<SkiGladeTooltipSystem, Game.UI.Tooltip.TempCostTooltipSystem>(SystemUpdatePhase.UITooltip).
+// TempCostTooltipSystem is UpdateAt UITooltip at Game.Common/SystemOrder.cs:911 (1.6.2 :912), so our lines follow the
 // vanilla cost line our Temps produce.
 //
-// ZERO ALLOCATION PER FRAME. Widgets are built once in OnCreate (vanilla: TempCostTooltipSystem.cs
-// :44-56). StringTooltip.value compares with object.Equals on the LocalizedString struct
-// (StringTooltip.cs:18 — boxes), so the target, level-name and status values are assigned only
-// when they change; a status line swaps value + color on one widget, as vanilla
-// CityPolicyTooltipSystem.cs:139-159 does. NumberTooltip<int>.value compares through
-// IEquatable<int> (NumberTooltip.cs:24, no box) and IconTooltip.color is an enum compare
-// (IconTooltip.cs:31-39), so those are assigned every frame. LocalizedString.Id(key) is a struct
-// ctor; never Id(key, args) per frame (LINQ Dictionary). The base AddMouseTooltip runs
-// children.Any(lambda) (TooltipSystemBase.cs:34) — the cost every vanilla tooltip system pays.
+// ZERO ALLOCATION PER FRAME. Widgets are built once in OnCreate (vanilla: TempCostTooltipSystem.cs:44-56).
+// StringTooltip.value compares with object.Equals on the LocalizedString struct (StringTooltip.cs:18 — boxes), so the
+// target, level-name and status values are assigned only when they change; a status line swaps value + color on one
+// widget, as vanilla CityPolicyTooltipSystem.cs:139-159 does. NumberTooltip<int>.value compares through IEquatable<int>
+// (NumberTooltip.cs:24, no box) and IconTooltip.color is an enum compare (IconTooltip.cs:31-39), so those are assigned
+// every frame. LocalizedString.Id(key) is a struct ctor; never Id(key, args) per frame (LINQ Dictionary). The base
+// AddMouseTooltip runs children.Any(lambda) (TooltipSystemBase.cs:34) — the cost every vanilla tooltip system pays.
 // Unit "integer" for counts: HomelessTooltipSystem.cs:31-36 (identical in 1.6.2).
 //
-// SCOPE: Game mode only. Defensive contract per house rules: "created" line, ARMED line per load,
-// m_Armed/m_Disabled/m_ErrorLogged reset in OnGameLoadingComplete, one-shot "!!!" catch that
-// silences the tooltip until the next game load (the tool's own log lines keep it non-silent).
+// SCOPE: Game mode only. "created" line, ARMED line per load, m_Armed/m_Disabled/m_ErrorLogged reset in
+// OnGameLoadingComplete, one-shot "!!!" catch that silences the tooltip until the next game load (the tool's own log
+// lines keep it non-silent).
 
 using System;
 using Colossal.Serialization.Entities;
@@ -81,16 +70,14 @@ namespace SkiResortMod.Systems
 {
     public sealed partial class SkiGladeTooltipSystem : TooltipSystemBase
     {
-        // Locale keys (root LocaleEN.cs; texts are spec §2's and §8.3's). Round G3 retired
-        // SkiResort.GladeTooltip.MODE[*] and SkiResort.GladeTooltip.VARIANT.
         public const string KeyHint = "SkiResort.GladeTooltip.HINT";
         public const string KeyNoRuns = "SkiResort.GladeTooltip.NO_RUNS";
         public const string KeyUnbound = "SkiResort.GladeTooltip.UNBOUND";
         public const string KeyBlocked = "SkiResort.GladeTooltip.BLOCKED";
         public const string KeyComplete = "SkiResort.GladeTooltip.COMPLETE";
-        /// <summary>G3 fixer round (finding tool-2): complete below the target, spots blocked.</summary>
+        /// <summary>Complete below the target, spots blocked.</summary>
         public const string KeyCompleteBlocked = "SkiResort.GladeTooltip.COMPLETE_BLOCKED";
-        /// <summary>G3 fixer round (finding behavior-2): complete above the target, nothing fellable.</summary>
+        /// <summary>Complete above the target, nothing fellable.</summary>
         public const string KeyCompleteFixed = "SkiResort.GladeTooltip.COMPLETE_FIXED";
         public const string KeyClamped = "SkiResort.GladeTooltip.CLAMPED";
         public const string KeySaturated = "SkiResort.GladeTooltip.SATURATED";
@@ -296,7 +283,7 @@ namespace SkiResortMod.Systems
                 }
                 AddMouseTooltip(m_Target);
 
-                // 2./3. Tree density L and its name (spec §8.4 "Tree density L with the level name").
+                // 2./3. Tree density L and its name.
                 int level = m_Tool.Level;
                 if (level < 1 || level > LevelNameText.Length)
                     level = SkiGladeCompose.DefaultLevel;   // defensive: never garbage
@@ -350,7 +337,7 @@ namespace SkiResortMod.Systems
                 return;
             }
 
-            // Spec §8.4: "Trees now N", "Target T" for a bound run with a compose result.
+            // "Trees now N", "Target T" for a bound run with a compose result.
             if (m_Tool.PlanHasCounts)
             {
                 m_TreesNow.value = m_Tool.PlanNow;
@@ -361,8 +348,7 @@ namespace SkiResortMod.Systems
 
             if (state == GladePlanState.Complete)
             {
-                // G3 fixer round (findings tool-2 / behavior-2): "already at this tree density"
-                // only when it is true. Plain int compares, no allocation.
+                // "already at this tree density" only when it is true. Plain int compares, no allocation.
                 bool counts = m_Tool.PlanHasCounts;
                 if (counts && m_Tool.PlanNow < m_Tool.PlanTarget && m_Tool.PlanShortfall > 0)
                 {
@@ -400,9 +386,8 @@ namespace SkiResortMod.Systems
                 m_Remove.value = remove;
                 AddMouseTooltip(m_Remove);
             }
-            // Blocked spots matter only to a preview that plants or falls short (finding tool-2:
-            // the skip set is level-independent, so a fell / remove preview showed spots it never
-            // used).
+            // Blocked spots matter only to a preview that plants or falls short (the skip set is level-independent, so a fell /
+            // remove preview would show spots it never used).
             if (m_Tool.PreviewBlockedKnown > 0 && (plant > 0 || (m_Tool.PlanHasCounts && m_Tool.PlanShortfall > 0)))
             {
                 m_BlockedSpots.value = m_Tool.PreviewBlockedKnown;

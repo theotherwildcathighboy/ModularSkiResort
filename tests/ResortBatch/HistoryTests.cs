@@ -1,6 +1,5 @@
-// HistoryTests — T78 build round 1 (2026-10-18; docs/research/ui/hub-history-build-1-2026-10-18.md): the pure history store
-// (SkiResortHistory.cs) and the ledger's P3 / P4 additions (SkiResortLedger.cs). `public static class HistoryTests` with
-// `public static void Run(Func<bool, string, string, bool> check)`, called from Program.Main like the other files.
+// Tests of the pure history store (SkiResortHistory.cs) and the ledger's history additions (SkiResortLedger.cs). Called from
+// Program.Main with `Run(Func<bool, string, string, bool> check)`.
 //   H-1  element codec: a hand element → 59 literal bytes (little-endian), read back field by field, written again identically;
 //        the version byte is CurrentVersion whatever m_Version holds.
 //   H-2  month-in-progress codec: 142 bytes (= V1Bytes), round trip byte for byte, every field back (the double by its bits).
@@ -12,11 +11,11 @@
 //   H-7  ledger AddRunUpkeep: ignored ≤ 0, booked, rolls with the month, in Total.
 //   H-8  seed: same key → seeded and whole; other key / not started → nothing; ShouldSeed; pass-season merge; the roll after it.
 //   H-9  FromLedger mapping, money clamps and rounding, SnowByte.
-//   H-10 B1 (2026-10-19): for a closed month, the element's net (as historyRules.ts finish() derives it from the element's terms)
-//        == HubRules.NetMonth of the ledger's month (MonthMoneyOf with the same buildings / wages snapshot) == the literal oracle;
+//   H-10 for a closed month, the element's net (as historyRules.ts finish() derives it from the element's terms) ==
+//        HubRules.NetMonth of the ledger's month (MonthMoneyOf with the same buildings / wages snapshot) == the literal oracle;
 //        the element's Money and MonthMoneyOf are the same eight integers; snapshot missing / one rate unknown agree too.
-// Oracles are literal hand values (comments show the arithmetic). The byte oracle is OUR reading of Colossal's BinaryWriter
-// (raw little-endian values in call order, BinaryWriter.cs 1.6.2f1); the in-game save is Richard's test.
+// Oracles are literal hand values (comments show the arithmetic). The byte oracle is our reading of Colossal's BinaryWriter (raw
+// little-endian values in call order, BinaryWriter.cs 1.6.2f1).
 
 using System;
 using System.Collections.Generic;
@@ -46,7 +45,6 @@ namespace ResortBatch
 
         private static void C(bool ok, string where, string msg) => s_Check(ok, where, msg);
 
-        // ── test seams ─────────────────────────────────────────────────────────────────────────────────────────────────
 
         private struct ByteWriter : IHistoryWriter
         {
@@ -93,7 +91,6 @@ namespace ResortBatch
             return s.ToString();
         }
 
-        // ── H-1 ────────────────────────────────────────────────────────────────────────────────────────────────────────
 
         private static void ElementCodec()
         {
@@ -147,15 +144,13 @@ namespace ResortBatch
             C(again, "H-1 rewrite", "read-then-write is not byte-identical");
         }
 
-        // ── H-2 ────────────────────────────────────────────────────────────────────────────────────────────────────────
 
         private static void ProgressCodec()
         {
             C(SkiResortMonthInProgress.V1Bytes == 142, "H-MP1 consts", "V1Bytes = " + SkiResortMonthInProgress.V1Bytes + " (want 142)");
-            // L14 (code review 2026-10-19): the month-in-progress codec copies Ledger.Month's fields BY NAME (SkiResortHistory.cs), so a
-            // 20th public field would silently not persist or seed while H-MP1's 142 bytes still pass. SAVE LAYOUT: the saved
-            // SkiResortMonthInProgress / SkiResortHistoryMonth bytes carry exactly these 19 fields; adding one means a NEW
-            // ISerializable type (SaveLayouts.cs, PIPELINE "Code mod: persisted data"), never a change to the existing layouts.
+            // The month-in-progress codec copies Ledger.Month's fields BY NAME (SkiResortHistory.cs), so a 20th public field would silently
+            // not persist or seed while H-MP1's 142 bytes still pass. The saved SkiResortMonthInProgress / SkiResortHistoryMonth bytes carry
+            // exactly these 19 fields; adding one means a NEW ISerializable type (SaveLayouts.cs), never a change to the existing layouts.
             int monthFields = typeof(SkiResortLedger.Month).GetFields(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance).Length;
             C(monthFields == 19, "H-MP1 Month fields", "SkiResortLedger.Month has " + monthFields + " public instance fields (want exactly 19): " +
               "the history element and month-in-progress codecs copy them by name, so a new field is NOT persisted or seeded until a NEW " +
@@ -200,7 +195,6 @@ namespace ResortBatch
             C(same, "H-MP1 rewrite", "not byte-identical");
         }
 
-        // ── H-3 ────────────────────────────────────────────────────────────────────────────────────────────────────────
 
         private static void AppendRules()
         {
@@ -233,7 +227,6 @@ namespace ResortBatch
             C(H.Append(ref g2, M(11, 3)) == H.AppendResult.Replaced && g2.Count == 2 && !g2[1].IsGap, "H-3 marker replaced", "marker kept");
         }
 
-        // ── H-4 ────────────────────────────────────────────────────────────────────────────────────────────────────────
 
         private static void Cap()
         {
@@ -260,7 +253,6 @@ namespace ResortBatch
             C(dropped == 2 && u.Count == 2 && u[0].m_MonthKey == 9, "H-4 leading marker", $"dropped {dropped}, first {u[0].m_MonthKey}");
         }
 
-        // ── H-5 ────────────────────────────────────────────────────────────────────────────────────────────────────────
 
         private static void Seasons()
         {
@@ -305,7 +297,6 @@ namespace ResortBatch
               "H-5 gap skipped", $"count {g.Count}, months {gb.Months}, flags {gb.Flags}");
         }
 
-        // ── H-6 ────────────────────────────────────────────────────────────────────────────────────────────────────────
 
         private static void Split()
         {
@@ -354,7 +345,6 @@ namespace ResortBatch
             C(p[0] >= 0 && p[1] >= 0 && p[0] + p[1] == 1 && p[1] == 1, "H-6 negative carry", $"{p[0]}/{p[1]}");
         }
 
-        // ── H-7 ────────────────────────────────────────────────────────────────────────────────────────────────────────
 
         private static void LedgerUpkeep()
         {
@@ -375,7 +365,6 @@ namespace ResortBatch
               "last " + e.Last.RunUpkeep);
         }
 
-        // ── H-8 ────────────────────────────────────────────────────────────────────────────────────────────────────────
 
         private static void Seed()
         {
@@ -432,7 +421,6 @@ namespace ResortBatch
             C(!H.ShouldSeed(702, noMonth), "H-8 never mirrored", "NoMonth seeded");
         }
 
-        // ── H-9 ────────────────────────────────────────────────────────────────────────────────────────────────────────
 
         private static void Mapping()
         {
@@ -453,7 +441,6 @@ namespace ResortBatch
               SkiResortHistoryMonth.SnowByte(-1f) == 255 && SkiResortHistoryMonth.SnowByte(float.NaN) == 255, "H-9 snow", "SnowByte");
         }
 
-        // ── H-10 ───────────────────────────────────────────────────────────────────────────────────────────────────────
 
         /// <summary>historyRules.ts finish() for one month, transcribed: income = ticket + lodge + pass + lesson; staff = max(0, b) +
         /// max(0, w) when either is known, else −1; costs = max(0, lift) + max(0, run) + max(0, staff); net = income − costs.</summary>

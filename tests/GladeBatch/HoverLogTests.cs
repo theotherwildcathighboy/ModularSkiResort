@@ -1,7 +1,5 @@
-// HoverLogTests — GladeHoverLog (run-binding-glade-spec.md §4.7, §4.11 `hoverlog`): dedup, the
-// 40-line cap with an exact suppressed count, Switching never logged, dwell buckets summing to
-// the total, the summary format (0-plan case included) and no managed allocation on the
-// per-frame calls.
+// GladeHoverLog: dedup, the 40-line cap with an exact suppressed count, Switching never logged, dwell buckets summing to
+// the total, the summary format (0-plan case included) and no managed allocation on the per-frame calls.
 
 using System;
 using System.Globalization;
@@ -100,7 +98,7 @@ namespace GladeBatch
             double printedTotal = double.Parse(sum.Substring(tsStart, sum.IndexOf(" s —", StringComparison.Ordinal) - tsStart), CultureInfo.InvariantCulture);
             Check(Math.Abs(printed - printedTotal) <= 0.05 * printedBuckets + 0.051, w, "printed buckets " + printed + " vs printed total " + printedTotal);
 
-            // ---- bucket mapping (spec §4.7 names).
+            // ---- bucket mapping.
             Check(GladeHoverLog.BucketName(GladeHoverLog.BucketOf(GladeHoverKind.Terrain, GladePlanState.Complete)) == "terrain" &&
                   GladeHoverLog.BucketName(GladeHoverLog.BucketOf(GladeHoverKind.Bound, GladePlanState.Complete)) == "complete" &&
                   GladeHoverLog.BucketName(GladeHoverLog.BucketOf(GladeHoverKind.Bound, GladePlanState.Previewing)) == "previewing" &&

@@ -1,23 +1,17 @@
 /*
- * tools/sync-types.js - copy the game's cs2/* TypeScript declarations into ./types (git-ignored).
- *
- * Written for this repo (MIT). Derived from: docs/research/resort-hub-understand.md section
- * 2.A.1 "Typings" and 2.A.3 item 5. The declarations ship ONLY inside the game install, at
- *   <CSII_INSTALLATIONPATH>/Cities2_Data/Content/Game/.ModdingToolchain/npx-create-csii-ui-mod/template/types
- * (10 .d.ts files + validateTypes.ts on 1.6.2f1). That scaffold carries no license text, so we
- * never commit the files: they are copied at build time, every build, which also makes a game
- * patch's new typings arrive automatically (patch-day checklist, research section 2.A.5).
- *
- * Contract:
- *   - Resolves the install path from the USER environment scope first (tools/user-env.js), then
- *     process.env; prints which one it used.
- *   - Copies every *.d.ts (never validateTypes.ts: it imports ../src/index and its comment
- *     "only default export is processed" is wrong - hasCSS is read too, index.js@2306554).
- *   - Writes a file only when its content changed; deletes stale *.d.ts in ./types that the
- *     game no longer ships. Prints the file count, how many changed and the newest source date.
- *   - Exits non-zero (failing `npm run build` and the C# build's SkiUiBuild target) when the
- *     folder is missing or a declaration for a module we externalize is missing.
- */
+* tools/sync-types.js - copy the game's cs2/* TypeScript declarations into ./types (git-ignored).
+*
+* The declarations ship only inside the game install (Cities2_Data/Content/Game/.ModdingToolchain/
+* npx-create-csii-ui-mod/template/types) and carry no license text, so they are copied at build time, every build,
+* instead of committed. That also makes a game patch's new typings arrive automatically.
+*
+* - Resolves the install path from the USER environment scope first (tools/user-env.js), then process.env.
+* - Copies every *.d.ts except validateTypes.ts (it imports ../src/index, and its "only default export is
+*   processed" comment is wrong: hasCSS is read too).
+* - Writes a file only when its content changed; deletes stale *.d.ts the game no longer ships.
+* - Exits non-zero (failing `npm run build` and the C# build's SkiUiBuild target) when the folder or a declaration
+*   for an externalized module is missing.
+*/
 "use strict";
 
 const fs = require("fs");
@@ -28,8 +22,7 @@ const ROOT = path.resolve(__dirname, "..");
 const DEST = path.join(ROOT, "types");
 const TEMPLATE_TYPES_REL = path.join(
   "Cities2_Data", "Content", "Game", ".ModdingToolchain", "npx-create-csii-ui-mod", "template", "types");
-// One declaration file per window external in webpack.config.js (react.d.ts and assets.d.ts are
-// also copied when present, but the build does not depend on them).
+// One declaration file per window external in webpack.config.js
 const REQUIRED = ["api.d.ts", "bindings.d.ts", "cohtml.d.ts", "input.d.ts", "l10n.d.ts", "modding.d.ts", "ui.d.ts", "utils.d.ts"];
 
 function fail(msg) {

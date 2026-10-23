@@ -1,79 +1,25 @@
 /*
- * src/hub/StatusBlock.tsx - the status line and the problems band of the shown ski area (hub v3).
- *
- * Written for this repo (MIT). Created 2026-10-04 (Round E1, stream S6; docs/research/econ-round/
- * spec/ch6-hub-ui.md section 6.5, design hub-v3-design.md 3.1, 5.2, 6.2, 6.3, 7.2; code from the
- * checked reference spec/ch6-hub-ui-ref/src/hub/StatusBlock.tsx).
- * Contract:
- *   - Status line `div.statusRow` (ref statusRef, fixed 1.6 em of S): the open-mark shape of
- *     ResortLive.status (3 full, 2 partly, 1/0 closed dash; estimated -> 55 % opacity; Not linked:
- *     the Warning glyph; no live row: an empty box) . ONE text node by hubRules.statusVariant (one
- *     <LocText> per branch, gate R13; second pass: "partly open only" counts the partly open runs, so
- *     "Partly open · 0 of 7 runs open" cannot happen) . a spacer . the SEASON_HINT word (only for a
- *     sign row with runs). Tooltip (sign with runs and a live row): STATUS_TIP_COUNTS, the open rule,
- *     gating off / estimated / measured, SEASON_TIP of the hint, STATUS_TIP_TEMP when known,
- *     STATUS_TIP_VISUALS when the game's snow visuals are off (ch3 E1-S3).
- *   - T82 UI round (2026-10-19; docs/research/ui/hub-design-review-2026-10-18.md B5a, F10a): the hint slot shows the snow,
- *     STATUS_SNOW "64 cm · 88 %" (ResortLive.snowDepthCm / snowPct, "–" for an unknown part; "≈" in a cell before it while
- *     snowEstimated, normal color), where it said "Snow season"; hubRules.statusHint "snow". The SEASON_HINT word moves into the tooltip (above its
- *     SEASON_TIP) unless it is a warning (SEASON_HINT_WARN: Thawing, Waiting for snow, Too warm: "warn", the word stays, warning
- *     color) or "Powder day" holds the slot (D29); then the tooltip carries the snow pair (Snow depth, Run coverage).
- *   - Problems band `div.problems` (ref problemsRef): ALWAYS three `div.problemSlotRow` of 1.45 em,
- *     so a value or problem change never changes its height (D33). Slot i shows bandSlots(rows)
- *     .slots[i] (C# ranks and caps the rows; hubRules.bandRowsOf keeps every code the band knows,
- *     Factor rows excluded); slot 3 also carries the fixed-width ".problemMore" cell ("+N" with the
- *     hidden rows in its tooltip, else empty). With no band row, slot 1 is the inert None line.
- *     (Deviation from the reference file, which rendered an empty slot as a bare .problemSlot outside
- *     a .problemSlotRow: ch6 section 6.5 says "always three div.problemSlotRow", and a flex-basis-0
- *     slot directly in the column could resolve shorter than 1.45 em.)
- *   - A row is ONE text node (ProblemText) with its icon (hubRules.problemIcon: the worst factor's
- *     notification icon for Efficiency, the plug for LiftNoPower, TurnedOff for lodges off, else the
- *     Warning / Info glyph). Clickable rows (hubRules.problemClick) are a cs2/ui Button: fly to the
- *     sign or the lift (focusBuilding / focusLift), or open the Lifts / Runs view; inert rows are a
- *     plain div. Severity <= 1 is dim. Focus: content area, default focus (ch6 section 9, F17).
- *   - Row tooltip: the row's text, its PROBLEM_TIP, for Efficiency the game's factor lines (signed %)
- *     and STAFF_LINE, the PROBLEM_GAIN line when C# sent ifFixed >= 0, and what a click does.
+ * Status line and problems band of the shown ski area.
+ *   - Status line `div.statusRow` (fixed 1.6 em): the open-mark shape of ResortLive.status (3 full, 2 partly, 1/0 closed
+ *     dash; estimated -> 55 % opacity; not linked: Warning glyph; no live row: empty box), ONE text node chosen by
+ *     hubRules.statusVariant (one <LocText> per branch, gate R13), a spacer, then the hint slot: the snow ("64 cm · 88 %",
+ *     "≈" before it while estimated), "Powder day", or the SEASON_HINT word when it is a warning (SEASON_HINT_WARN);
+ *     otherwise the season word moves into the tooltip (hubRules.statusHint). Tooltip (sign with runs and a live row):
+ *     counts, open rule, gating, season tip, snow pair, powder, temperature, and a note when the game's snow visuals are off.
+ *   - Problems band `div.problems`: always three `div.problemSlotRow` (1.45 em) so a change never alters its height. Slot i
+ *     shows bandSlots(rows).slots[i] (C# ranks and caps the rows; hubRules.bandRowsOf keeps every code the band knows,
+ *     factor rows excluded); slot 3 also carries the fixed-width ".problemMore" cell, a "+N" button that opens a popover
+ *     with one clickable row per hidden row (closed by the shared backdrop). With no band row, slot 1 is the inert None
+ *     line. The dark background is drawn per filled slot (.problemRowOn).
+ *   - Two or more rows of one per-lift code (LiftUnfinished, LiftNoPower, LiftSectionMissing) fold into one row
+ *     (hubRules.foldBandRows); its click opens the Lifts view and its tooltip lists every lift.
+ *   - A row is ONE text node (ProblemText) with its icon (hubRules.problemIcon). Clickable rows (hubRules.problemClick) are a
+ *     cs2/ui Button that flies to the sign or lift (focusBuilding / focusLift) or opens the Lifts / Runs view; inert rows
+ *     are a plain div. Severity <= 1 is dim.
+ *   - Row tooltip: the row's text, its PROBLEM_TIP, for Efficiency the game's factor lines (signed %) and STAFF_LINE,
+ *     PROBLEM_GAIN when C# sent ifFixed >= 0, and what a click does. The row text is the tooltip's first line, so the
+ *     ellipsis is the net: long efficiency rows can be cut at larger text sizes, most in slot 3 beside the "+N" cell.
  *   - Panel file (gate R11): subscribes resorts$, selectedResort$, resortLive$, problems$, city$.
- *   - Round F7 (2026-10-04, implementer 4; docs/research/field-test-7-fixes.md D4-D6, findings/hub-ux.md
- *     §3.2 / §5 with its Verification):
- *       - the band's dark background is drawn per FILLED slot (`.problemRowOn`), not on the whole band,
- *         so one problem no longer sits on a box with two empty slots; the band keeps its three-slot
- *         height (D33) and its side padding moved into each slot row, so the text room is unchanged;
- *       - the efficiency rows name the sign ("Welcome Sign at {PCT}: {REASON}", "... and {N} more": "+N"
- *         stays the slot-3 cell's "more problems"); their tooltip no longer tells the player to connect a
- *         sign that is connected (PROBLEM_TIP[Efficiency]), the game's factor lines follow it. Width in S
- *         (Overpass advances; 100 / 130 / 150 %) against the slot room — slots 1-2 387 / 551 / 661 rem,
- *         slot 3 354 / 497 / 592 (beside the "+N" cell). F7 fixer, corrected: "Welcome Sign at 11 %:
- *         Backed up sewer and 3 more" (field test 7's row) 319.6 / 520.4 / 655.1 fits slots 1-2, but in slot
- *         3 only at 100 %; "Welcome Sign at 12 %: Lack of electricity and 3 more" 328.9 / 535.7 / 674.3 is cut
- *         at 150 % in slots 1-2, at 130 and 150 % in slot 3; "Welcome Sign at 45 %: Not Enough Employees and
- *         3 more" 366.6 / 597.0 / 751.5 is cut at 130 and 150 % in slots 1-2 and at EVERY size in slot 3;
- *         "Welcome Sign not running: Not Enough Employees and 3 more" 390.5 / 635.9 / 800.5 is cut at every
- *         size in every slot. The road rows below are severity 3, ranked above a 1-90 % efficiency row
- *         (severity 2), so with a sign and a lodge off the road the efficiency row sits in slot 3. The row
- *         text is the tooltip's first line, the ellipsis is the net (design §2.3); a fixed "and {N} more"
- *         tail cell was not built (owner's call, field-test-7-fixes.md §4.4 item 9);
- *       - D5: SignNoRoad (18) "Welcome Sign is not at a road" (S 184.1 / 300.1 / 377.4) and LodgeNoRoad
- *         (19) "Lodge is not at a road: guests cannot reach it" (280.0 / 456.5 / 574.1) fit every slot;
- *         both fly to their `subject` (the sign; the first lodge without a road). C# ranks them
- *         (field-test-7-notes-impl3.md).
- *   - Round S1 "Ski days" (2026-10-05, stream E; docs/research/ski-days/spec/ch4-hub.md sections C.5, D):
- *       - D28: three band rows, plain text, flying to their `subject`: SkiDaysCannotReach (20, sev 2,
- *         Warning glyph) "Guests cannot reach the lodge", NoParkingNearLodge (21, dim) "No parking near the
- *         lodge", LodgeNotSlopeside (22, dim) "Lodge is far from the runs" (29, 25, 26 characters: shorter
- *         than LodgeNoRoad's 46, which fits every slot at every size); each tooltip is its PROBLEM_TIP and
- *         PROBLEM_CLICK_FLY;
- *       - D29: the hint slot shows POWDER_DAY "Powder day" (normal text color, `.statusHintOn`) when
- *         hubRules.statusHint says "powder" (skiDaysPowderPct >= 50), else the SEASON_HINT word as before;
- *         same slot, same height, and "Powder day" (10 characters) is shorter than "Too warm for snow"
- *         (17). The status tooltip adds STATUS_TIP_POWDER after the season tip while powder > 0.
- *   - T114 (2026-10-20, field report items 2 and 9: "Lift 3 / 4 / 5 is unfinished +5" stacked three slots;
- *     docs/research/ui/hub-round-t114-2026-10-20.md): the band shows hubRules.foldBandRows: two or more rows of one per-lift code
- *     (LiftUnfinished, LiftNoPower, LiftSectionMissing) are ONE row, PROBLEM_GROUP "3 lifts unfinished: Lift 3, 4, 5"
- *     (hubRules.liftNameList), its click opens the Lifts view, its tooltip lists every lift. The "+N" cell is a button: it opens
- *     a popover (hubState.problemsOpen$), a card hanging under the band (.problems is its anchor) with one clickable row per
- *     hidden band row (same click as in a slot, then it closes); the band keeps its three fixed slots, so nothing grows. The
- *     shared backdrop (HubPanel OverlayBackdrop) closes it.
  */
 import type { RefObject } from "react";
 import { useValue } from "cs2/api";
@@ -93,8 +39,6 @@ import { HUB_FMT, HUB_LOC, SEASON_HINT_TEXT, SEASON_TIP_TEXT, STATUS_WORD, facto
 import { Glyph, LocText, NotifIcon, Tip, TipLines, cx, depthValue, numArg, useInches } from "./parts";
 import { currentResort, resortEntries } from "./resortData";
 import styles from "./hub.module.scss";
-
-// ---- status line ----------------------------------------------------------------------------------
 
 function StatusSentence({ row, live, t }: { row: ResortRow | null; live: ResortLive | null; t: Translate }): JSX.Element {
   const v = statusVariant(row, live);
@@ -131,7 +75,7 @@ function StatusMark({ row, live }: { row: ResortRow | null; live: ResortLive | n
 function statusTip(row: ResortRow | null, live: ResortLive | null, city: CityStats, t: Translate, inches: boolean): JSX.Element | undefined {
   if (!row || row.kind === 1 || !live || (row.runs | 0) <= 0) return undefined;
   const seasonTip = SEASON_TIP_TEXT[live.seasonHint] ?? null;
-  // T82 B5a: the hint word one layer down when the slot shows the snow; the snow pair here when the slot shows a word instead.
+  // The hint word one layer down when the slot shows the snow; the snow pair here when the slot shows a word instead
   const hint = statusHint(row, live);
   const seasonWord = hint !== "warn" && hint !== "season" && seasonTip ? SEASON_HINT_TEXT[live.seasonHint] ?? null : null;
   const snowHere = hint === "powder" || hint === "warn";
@@ -150,7 +94,7 @@ function statusTip(row: ResortRow | null, live: ResortLive | null, city: CitySta
           ? <LocText entry={HUB_FMT.snowDepthIn} args={{ DEPTH: numArg(depthValue(live.snowDepthCm, true), Unit.Integer) }} />
           : <LocText entry={HUB_FMT.snowDepth} args={{ DEPTH: numArg(live.snowDepthCm, Unit.Integer) }} /> },
         snowHere && live.snowPct >= 0 && { label: t(HUB_LOC.mountainSnowCover), value: numArg(live.snowPct, Unit.Percentage) },
-        // Round S1 D29: the powder now (0-100; -1 unknown, 0 none: no line).
+        // The powder now (0-100; -1 unknown, 0 none: no line)
         live.skiDaysPowderPct > 0 && <LocText key="p" entry={HUB_FMT.statusTipPowder} args={{ PCT: numArg(live.skiDaysPowderPct, Unit.Percentage) }} />,
         live.topTempKnown && <LocText key="t" entry={HUB_FMT.statusTipTemp} args={{ TEMP: numArg(live.topTempC, Unit.Temperature, false, false) }} />,
         city.snowVisualsOff && t(HUB_LOC.statusTipVisuals),
@@ -158,8 +102,6 @@ function statusTip(row: ResortRow | null, live: ResortLive | null, city: CitySta
     />
   );
 }
-
-// ---- problems band ----------------------------------------------------------------------------------
 
 /** One band row as ONE text node (one <LocText> per branch: gate R13). */
 function ProblemText({ p, t }: { p: ProblemRow; t: Translate }): JSX.Element {
@@ -180,7 +122,7 @@ function ProblemText({ p, t }: { p: ProblemRow; t: Translate }): JSX.Element {
     case "liftNoPower": return <LocText entry={HUB_FMT.problemLiftNoPower} args={{ NAME }} />;
     case "liftSectionMissing": return <LocText entry={HUB_FMT.problemLiftSectionMissing} args={{ NAME }} />;
     case "liftUnfinished": return <LocText entry={HUB_FMT.problemLiftUnfinished} args={{ NAME }} />;
-    case "noLift": return <>{t(HUB_LOC.problemNoLift)}</>;   // T77: no {PCT} on the line (the tooltip says it)
+    case "noLift": return <>{t(HUB_LOC.problemNoLift)}</>;   // no {PCT} on the line (the tooltip says it)
     case "noRuns": return <>{t(HUB_LOC.problemNoRuns)}</>;
     case "stationsPair": return <LocText entry={HUB_FMT.problemStationsPair} args={{ NAME }} />;
     case "stationsBaseOnly": return <LocText entry={HUB_FMT.problemStationsBaseOnly} args={{ NAME }} />;
@@ -196,16 +138,16 @@ function ProblemText({ p, t }: { p: ProblemRow; t: Translate }): JSX.Element {
     case "skiDaysCannotReach": return <>{t(HUB_LOC.problemSkiDaysCannotReach)}</>;
     case "noParkingNearLodge": return <>{t(HUB_LOC.problemNoParkingNearLodge)}</>;
     case "lodgeNotSlopeside": return <>{t(HUB_LOC.problemLodgeNotSlopeside)}</>;
-    // Catalog Phase B (round-2-contract §8.5, codes 23-25; integrator, patch from build-hub.md §6)
+    // Codes 23-25
     case "mixedLiftTypes": return <LocText entry={HUB_FMT.problemMixedLiftTypes} args={{ NAME }} />;
     case "summitLodgeNotLiftServed": return <LocText entry={HUB_FMT.problemSummitLodgeNotLiftServed} args={{ N }} />;
     case "schoolNoGreenRun": return <>{t(HUB_LOC.problemSchoolNoGreenRun)}</>;
-    case "schoolsNotLinked": return <LocText entry={HUB_FMT.problemSchoolsNotLinked} args={{ N }} />;   // T100
+    case "schoolsNotLinked": return <LocText entry={HUB_FMT.problemSchoolsNotLinked} args={{ N }} />;
     default: return <>{"–"}</>;
   }
 }
 
-/** T114: a folded band row's ONE text node ("3 lifts unfinished: Lift 3, 4, 5"); a plain row is ProblemText. */
+/** A folded band row's ONE text node ("3 lifts unfinished: Lift 3, 4, 5"); a plain row is ProblemText. */
 function BandText({ b, t }: { b: BandRow; t: Translate }): JSX.Element {
   if (b.group.length < 2) return <ProblemText p={b.row} t={t} />;
   const N = numArg(b.group.length, Unit.Integer);
@@ -217,7 +159,7 @@ function BandText({ b, t }: { b: BandRow; t: Translate }): JSX.Element {
   }
 }
 
-/** T114: a folded row opens the Lifts view (it names several lifts); a plain row clicks as before. */
+/** A folded row opens the Lifts view (it names several lifts); a plain row clicks as before. */
 function bandClick(b: BandRow): ProblemClick {
   return b.group.length >= 2 ? "liftsView" : problemClick(b.row);
 }
@@ -243,7 +185,7 @@ function bandTip(b: BandRow, factors: readonly ProblemRow[], live: ResortLive | 
   );
 }
 
-/** The tooltip body of a band row (design 6.3). */
+/** The tooltip body of a band row. */
 function problemTip(p: ProblemRow, factors: readonly ProblemRow[], live: ResortLive | null, t: Translate): JSX.Element {
   const PCT = numArg(p.pct, Unit.Percentage);
   const v = problemVariant(p);
@@ -274,7 +216,7 @@ function problemTip(p: ProblemRow, factors: readonly ProblemRow[], live: ResortL
     case "mixedLiftTypes": body = t(HUB_LOC.problemTipMixedLiftTypes); break;
     case "summitLodgeNotLiftServed": body = t(HUB_LOC.problemTipSummitLodgeNotLiftServed); break;
     case "schoolNoGreenRun": body = t(HUB_LOC.problemTipSchoolNoGreenRun); break;
-    case "schoolsNotLinked": body = t(HUB_LOC.problemTipSchoolsNotLinked); break;   // T100
+    case "schoolsNotLinked": body = t(HUB_LOC.problemTipSchoolsNotLinked); break;
     default: body = null;
   }
   const isEff = p.code === PROBLEM.Efficiency;
@@ -291,7 +233,7 @@ function problemTip(p: ProblemRow, factors: readonly ProblemRow[], live: ResortL
         <ProblemText key="h" p={p} t={t} />,
         body,
         ...(isEff ? factors.map((f) => ({ label: t(factorEntry(f.factor)), value: numArg(f.pct, Unit.Percentage, true, false) })) : []),
-        // second pass: the staff numbers next to the game's reasons (ResortLive jobs / jobsFilled; -1 = unknown)
+        // The staff numbers next to the game's reasons (ResortLive jobs / jobsFilled; -1 = unknown)
         isEff && live && live.jobs >= 0 && <LocText key="s" entry={HUB_FMT.staffLine} args={{ FILLED: numArg(live.jobsFilled, Unit.Integer), JOBS: numArg(live.jobs, Unit.Integer) }} />,
         gain,
         click === "sign" || click === "lift" ? t(HUB_LOC.problemClickFly) : click ? t(HUB_LOC.problemClickList) : null,
@@ -312,7 +254,7 @@ function ProblemSlot({ b, slot, more, hidden, factors, live, t, noneLine, popOpe
   b: BandRow | null; slot: number; more: number; hidden: readonly BandRow[]; factors: readonly ProblemRow[];
   live: ResortLive | null; t: Translate; noneLine: boolean; popOpen: boolean;
 }): JSX.Element {
-  // T114: "+N" is a button that opens the popover under the band (its tooltip still names the hidden rows).
+  // "+N" is a button that opens the popover under the band (its tooltip still names the hidden rows)
   const moreCell = slot !== 2 ? null : more > 0 ? (
     <div className={styles.problemMore}>
       <Tip tip={popOpen ? undefined : <TipLines lines={[t(HUB_LOC.problemMoreTip), ...hidden.map((h, i) => <BandText key={i} b={h} t={t} />),
@@ -370,22 +312,22 @@ export function StatusBlock({ statusRef, problemsRef }: {
   const live = useValue(resortLive$);
   const problems = useValue(problems$);
   const city = useValue(city$);
-  const inches = useInches();   // T130: snow depth in the player's units
+  const inches = useInches();   // the player's units for snow depth
 
   const cur = currentResort(resortEntries(resorts), selected);
   const row = cur.row;
   const sign = row && row.kind === 1 ? null : row ? row.sign : null;
   const l = row ? liveOf(live, sign) : null;
-  const band = foldBandRows(bandRowsOf(problems, sign));   // T114: per-lift rows of one code fold into one
+  const band = foldBandRows(bandRowsOf(problems, sign));   // per-lift rows of one code fold into one
   const factors = factorRowsOf(problems, sign);
   const { slots, more } = bandSlots(band);
   const popOpen = useValue(problemsOpen$) && more > 0;
-  // Round S1 D29: "Powder day" in the hint slot (normal color), else the SEASON_HINT word; same slot, same height.
+  // "Powder day" in the hint slot (normal color), else the SEASON_HINT word; same slot, same height
   const hintKind = statusHint(row, l);
   const powder = hintKind === "powder";
   const warn = hintKind === "warn";
   const seasonHint = (hintKind === "season" || warn) && l ? SEASON_HINT_TEXT[l.seasonHint] ?? null : null;
-  // T82 B5a: the snow, depth cm · coverage % (PIPELINE section 0: always the two numbers), "≈" before it while estimated.
+  // The snow, depth cm · coverage % (always the two numbers), "≈" before it while estimated
   const snow = hintKind === "snow" && l;
 
   return (

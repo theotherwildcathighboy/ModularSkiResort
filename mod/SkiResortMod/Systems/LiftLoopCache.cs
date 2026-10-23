@@ -1,84 +1,55 @@
-// LiftLoopCache — orders a drawn chairlift's cable lanes into closed travel loops.
+// Orders a drawn chairlift's cable lanes into closed travel loops (Loop mode) and builds open two-chain paths for shuttles (Shuttle mode).
 //
-// Pure topology/geometry over plain data (no EntityManager coupling beyond what the
-// caller harvested): ChairPinSystem hands in every HV cable lane owned by the chairlift
-// net (edges AND nodes — both carry PrefabRef to the net prefab) plus the station
-// entities, and this class:
+// Pure topology/geometry over plain data: ChairPinSystem hands in every HV cable lane owned by the chairlift net (edges AND nodes:
+// both carry PrefabRef to the net prefab) plus the station entities. The topology (chaining, terminal classification, pairing,
+// base / top, up lane, orientation, gap check, common type) lives in the pure LiftLoopTopology.cs; this class is its Game-side
+// adapter: it interns PathNodes to int ids (equal ids ⇔ PathNode.Equals: the 64-bit m_SearchKey, Game.Pathfind/PathNode.cs:62-65,
+// owner = GetOwnerIndex :113-116), pre-samples each lane's ends with MathUtils.Position / Tangent, runs the topology, and writes the
+// pair notes and loops in pair order. tests/LiftBatch LC-REF proves the topology against a frozen transcription.
 //
-//   1. CHAINS lanes end-to-end by EXACT PathNode equality. Sound because LaneSystem's
-//      FindAnchor overwrites BOTH the endpoint position and the endpoint PathNode with
-//      the anchor's own (LaneSystem.cs:4049-4072 / 4117-4120, decompile) — two lanes
-//      meeting at a tower sheave or station bullwheel stub share a bitwise-identical
-//      PathNode. Chain direction is per-lane (m_Start/m_End orientation is NOT
-//      consistent along one drawn lift — never assume node order).
-//   2. Recognizes STATION TERMINALS by PathNode owner index == station entity index
-//      (the anchor PathNode is owned by the station building; PathNode.GetOwnerIndex
-//      is public) — and the walk STOPS at station anchors. Load-bearing (review
-//      finding, entry 98): two lifts sharing a station also share that station's stub
-//      PathNodes, so a walk that only classified terminals would run THROUGH the
-//      shared station and merge both lifts into one mega-loop (or un-close the first
-//      lift while the second is under construction).
-//   3. Pairs the two chains that run between the same two stations (a lift's up-side
-//      and down-side cables) and CLOSES the loop with two synthesized bullwheel arcs —
-//      semicircles between the chains' terminal endpoints, bulging in the direction of
-//      travel (into the station, around the wheel). Arcs are analytic circles, not
-//      beziers: constant-speed parametrisation is exact (theta = distance / radius).
-//   4. Chair offsets live in the caller (ChairPinSystem): even spacing, carried
-//      forward BY ENTITY across rebuilds when the loop is unchanged (identity
-//      rebuild — zero jump by construction), plain deterministic grid otherwise.
+// What the topology relies on:
+//   1. Lanes chain end-to-end by exact PathNode equality. Sound because LaneSystem's FindAnchor overwrites BOTH the endpoint
+//      position and the endpoint PathNode with the anchor's own (LaneSystem.cs:4049-4072 / 4117-4120): two lanes meeting at a tower
+//      sheave or station bullwheel stub share a bitwise-identical PathNode. Chain direction is per-lane (m_Start/m_End orientation
+//      is NOT consistent along one drawn lift).
+//   2. Station terminals are recognized by PathNode owner index == station entity index (the anchor PathNode is owned by the
+//      station building; PathNode.GetOwnerIndex is public) and the walk STOPS at station anchors. Load-bearing: two lifts sharing a
+//      station also share that station's stub PathNodes, so a walk that only classified terminals would run through the shared
+//      station and merge both lifts into one mega-loop (or un-close the first lift while the second is under construction).
+//   3. The two chains that run between the same two stations (a lift's up-side and down-side cables) pair up and close into a loop
+//      with two synthesized bullwheel arcs: semicircles between the chains' terminal endpoints, bulging in the direction of travel
+//      (into the station, around the wheel). Arcs are analytic circles, not beziers: constant-speed parametrisation is exact
+//      (theta = distance / radius).
+//   4. Chair offsets live in the caller (ChairPinSystem): even spacing, carried forward by entity across rebuilds when the loop is
+//      unchanged (zero jump by construction), plain deterministic grid otherwise.
 //
-// Chairs whose owner edge is not part of any COMPLETE loop (unfinished lifts, dead-end
-// lines, station missing) are reported back for static pinning — per-lift graceful
-// degradation, never an exception.
+// Chairs whose owner edge is not part of any complete loop (unfinished lifts, dead-end lines, station missing) are reported back for
+// static pinning: per-lift graceful degradation, never an exception.
 //
-// All lengths run in double (loop phase accumulates speed * frameIndex; float32 would
-// quantize at meter scale by frame ~1e7). Per-segment lengths use the same metric as
-// MathUtils.ClampLength (Curve.m_Length for lanes, exact pi*r for arcs), so sampling
+// All lengths run in double (loop phase accumulates speed * frameIndex; float32 would quantize at meter scale by frame ~1e7).
+// Per-segment lengths use the same metric as MathUtils.ClampLength (Curve.m_Length for lanes, exact pi*r for arcs), so sampling
 // never runs past a segment end.
 //
-// ROUND L1 (2026-10-03, implementer I-2; docs/research/hub-u2-spec.md §2.1, §5.4) — data only,
-// the chaining / pairing / closing algorithm is unchanged:
-//   * Loop.m_BaseStation / m_TopStation: the two station ENTITIES of a closed loop, from the
-//     pairing indices (stations[baseStation] / [topStation], Build below). "Base" here is still
-//     the loop cache's own height tie-break (lower terminal); the hub's base is by PREFAB (the
-//     LiftCensus), so ChairPinSystem.TryGetLoop matches the pair UNORDERED.
-//   * ProjectOnOwner(loop, owner, position): the loop arc parameter of a point projected onto the
-//     lane segments of one owner (edge) — OD-7 (a) restart seeding in ChairPinSystem: a chair
-//     parked on its own section starts riding from where it stands when the lift closes again.
-//
-// CATALOG PHASE B (2026-10-11, docs/research/art/assets-2026-10/code-round-2/round-2-contract.md §5.1 and its
-// orchestrator addendum 1, lift group) — the chaining, the terminal classification and the arcs are unchanged:
-//   * CableLane.m_TypeIndex = the SkiCatalog.Lifts index of the lane owner's line prefab (ChairPinSystem harvests the
-//     lanes of Loop-mover types only). Loop.m_TypeIndex = the common type of its member lanes, else −1 with a build
-//     note "loop between stations S and T mixes lift types — not moving" (ChairPinSystem gives such a loop no roster:
-//     its chairs static-pin). Loop.m_SpeedMps is set by ChairPinSystem from the row (the mover's per-loop clock).
-//   * UP LANE (addendum 1, dq-family-review-geometry.md F2): chain A — the one traveled base → top — is the cable on
-//     the RIGHT looking uphill (StationAlign.UpLaneIsSecond on the two chains' midpoints, base → top by the stations'
-//     positions), instead of "the first chain found" (was this file :286, kv.Value[0]). A carrier faces its travel
-//     direction with its hanger at local +x, so the hanger stays OUTBOARD of the tower decks on both sides. Two chains
-//     that cannot be told apart keep the order found. Loop.m_UpLaneSwapped / m_UpLaneDecided say what happened
-//     (ChairPinSystem logs "[loop] up lane = right looking uphill" once per loop per load).
-//
-// CATALOG PHASE C (2026-10-11, docs/research/art/assets-2026-10/code-round-3/round-3-contract.md §2.3, loopcache group;
-// extensibility.md F8 as corrected by extensibility-check.md F8):
-//   * THE TOPOLOGY MOVED, UNCHANGED, into the PURE LiftLoopTopology.cs (chaining, terminal classification, pairing,
-//     base / top, up lane, orientation, the gap check, the common type; was this file :175-322, :347-404, :413-430,
-//     :520-540, :558-595 @ d3ae435b). This file keeps the Game side: it interns PathNodes to int ids (equal ids ⇔
-//     PathNode.Equals: the 64-bit m_SearchKey, Game.Pathfind/PathNode.cs:62-65, owner = GetOwnerIndex :113-116, =1.6.2),
-//     pre-samples each lane's ends with the exact MathUtils.Position / Tangent calls GetChainEndpoint made (was :590-591),
-//     runs the topology, and writes the pair notes and loops in pair order from its Pairs — so Loop mode keeps today's
-//     chains, notes, note order, counts, segments, lengths and Sample (tests/LiftBatch LC-REF proves the topology against
-//     a frozen transcription; the geometry bodies below are unchanged but for the chain type's field names
-//     (link.m_LaneIndex → link.Lane, link.m_Reversed → link.Reversed, chain.m_Links → chain.Links) and Sample's body
-//     moved verbatim into SampleSegments).
-//   * OPEN-CHAIN (SHUTTLE) MODE for the tram (code-economy §A.4: "LiftLoopCache returns the two chains UNCLOSED"):
-//     BuildShuttles returns, per station pair, a Shuttle with two Paths (chain A = the up lane, right looking uphill;
-//     both oriented base → top; base = the Base-ROLE station, C1), each = [straight run from the base dock] + the chain's
-//     lanes + [straight run to the top dock], its arc-length table being the Segment list (m_CumStart). Docks come from
-//     StationDef.DockLocalA / B through ObjectUtils.LocalToWorld(Transform, float3) (Game.Objects/ObjectUtils.cs:208-211,
-//     =1.6.2). Sample(Path, s) returns the track-rope point and the BASE → TOP unit tangent at s ∈ [0, m_Length]
-//     (allocation-free: the mover calls it every frame, round-3-contract-skeptic MUST 3). Nothing in Loop mode reads any
-//     of it; TramShuttleSystem owns its own LiftLoopCache instance.
+// Data carried for callers:
+//   * Loop.m_BaseStation / m_TopStation: the two station entities of a closed loop. "Base" here is the loop cache's own height
+//     tie-break (lower terminal); the hub's base is by prefab, so ChairPinSystem.TryGetLoop matches the pair unordered.
+//   * ProjectOnOwner(loop, owner, position): the loop arc parameter of a point projected onto the lane segments of one owner
+//     (edge), so a chair parked on its own section starts riding from where it stands when the lift closes again.
+//   * CableLane.m_TypeIndex = the SkiCatalog.Lifts index of the lane owner's line prefab (ChairPinSystem harvests the lanes of
+//     Loop-mover types only). Loop.m_TypeIndex = the common type of its member lanes, else −1 with a build note "loop between
+//     stations S and T mixes lift types — not moving" (ChairPinSystem gives such a loop no roster: its chairs static-pin).
+//     Loop.m_SpeedMps is set by ChairPinSystem from the row.
+//   * Up lane: chain A (the one traveled base → top) is the cable on the RIGHT looking uphill (StationAlign.UpLaneIsSecond on the
+//     two chains' midpoints, base → top by the stations' positions). A carrier faces its travel direction with its hanger at local
+//     +x, so the hanger stays outboard of the tower decks on both sides. Two chains that cannot be told apart keep the order found.
+//     Loop.m_UpLaneSwapped / m_UpLaneDecided say what happened (ChairPinSystem logs "[loop] up lane = right looking uphill" once
+//     per loop per load).
+//   * Shuttle (open-chain) mode for the tram: BuildShuttles returns, per station pair, a Shuttle with two Paths (chain A = the up
+//     lane, right looking uphill; both oriented base → top; base = the Base-ROLE station), each = [straight run from the base dock]
+//     + the chain's lanes + [straight run to the top dock], its arc-length table being the Segment list (m_CumStart). Docks come
+//     from StationDef.DockLocalA / B through ObjectUtils.LocalToWorld(Transform, float3) (Game.Objects/ObjectUtils.cs:208-211).
+//     Sample(Path, s) returns the track-rope point and the BASE → TOP unit tangent at s ∈ [0, m_Length] (allocation-free: the mover
+//     calls it every frame). Nothing in Loop mode reads any of it; TramShuttleSystem owns its own LiftLoopCache instance.
 
 using System.Collections.Generic;
 using Colossal.Mathematics;
@@ -90,7 +61,6 @@ namespace SkiResortMod.Systems
 {
     internal sealed class LiftLoopCache
     {
-        /// <summary>One cable lane as harvested by ChairPinSystem (world space).</summary>
         internal struct CableLane
         {
             public Entity m_Lane;
@@ -99,7 +69,7 @@ namespace SkiResortMod.Systems
             public PathNode m_Start;
             public PathNode m_End;
             public float m_Length;      // Curve.m_Length (vanilla metric)
-            public int m_TypeIndex;     // Catalog Phase B: SkiCatalog.Lifts index of the owner's line prefab
+            public int m_TypeIndex; // SkiCatalog.Lifts index of the owner's line prefab
         }
 
         internal struct Segment
@@ -120,8 +90,8 @@ namespace SkiResortMod.Systems
         {
             public readonly List<Segment> m_Segments = new List<Segment>();
             public double m_Length;
-            /// <summary>Round L1: the station entities this loop runs between (the pairing's
-            /// lower terminal = "base" by height, the other = "top"); unordered for consumers.</summary>
+            /// <summary>The station entities this loop runs between (the pairing's lower terminal = "base" by height, the other = "top");
+            /// unordered for consumers.</summary>
             public Entity m_BaseStation, m_TopStation;
             /// <summary>Owner entities (edges/nodes) of the member lanes — chairs belong to
             /// this loop when their Owner is in this set.</summary>
@@ -129,18 +99,15 @@ namespace SkiResortMod.Systems
             public readonly List<Entity> m_Chairs = new List<Entity>();
             public readonly List<float> m_GripTops = new List<float>();
             public readonly List<double> m_Offsets = new List<double>();
-            /// <summary>Catalog Phase B: the common SkiCatalog.Lifts index of the member lanes; −1 = they span several
-            /// lift types (no roster, header CATALOG PHASE B).</summary>
+            /// <summary>The common SkiCatalog.Lifts index of the member lanes; −1 = they span several lift types (no roster).</summary>
             public int m_TypeIndex = -1;
-            /// <summary>Catalog Phase B: carrier speed along this loop, m/s (ChairPinSystem sets it from the row; 0 =
-            /// not moving).</summary>
+            /// <summary>Carrier speed along this loop, m/s (ChairPinSystem sets it from the row; 0 = not moving).</summary>
             public double m_SpeedMps;
-            /// <summary>Catalog Phase B (addendum 1): the up-lane rule decided this loop (false = the two chains could not
-            /// be told apart: kept as found) and whether it swapped the chain order found.</summary>
+            /// <summary>The up-lane rule decided this loop (false = the two chains could not be told apart: kept as found) and whether it
+            /// swapped the chain order found.</summary>
             public bool m_UpLaneDecided, m_UpLaneSwapped;
-            /// <summary>R-3 (lift-scale-2026-10-22.md): ChairPinSystem's far-loop pace state (LiftMoverMath.LoopPace, seeded
-            /// at each rebuild) and the box its chairs can occupy (segments + hang; set when the mover's flat arrays are
-            /// built). Mover data only: nothing in this file reads them.</summary>
+            /// <summary>ChairPinSystem's far-loop pace state (LiftMoverMath.LoopPace, seeded at each rebuild) and the box its chairs can occupy
+            /// (segments + hang; set when the mover's flat arrays are built). Mover data only: nothing in this file reads them.</summary>
             public LiftMoverMath.LoopPace m_Pace;
             public float3 m_BoxMin, m_BoxMax;
             public bool m_BoxKnown;
@@ -150,51 +117,43 @@ namespace SkiResortMod.Systems
         public int m_ChainCount;
         public int m_UnclosedChainCount;
 
-        // Catalog Phase C (round-3-contract §2.1): StationTerminalRadius (was :126-130, 20 m) moved to
-        // LiftLoopTopology.StationTerminalRadius with ClassifyTerminal, value unchanged.
 
-        /// <summary>Catalog Phase C (round-3-contract §2.3): one open chain of a shuttle, base dock → top dock.</summary>
         internal sealed class Path
         {
-            /// <summary>[base dock run] + the chain's lanes + [top dock run]; m_CumStart is the arc-length table.</summary>
             public readonly List<Segment> m_Segments = new List<Segment>();
             public readonly HashSet<Entity> m_MemberOwners = new HashSet<Entity>();
             public double m_Length;                      // Σ segment lengths
             public float3 m_BaseEnd, m_TopEnd;           // track-rope points where the path starts / ends (docks, else rope ends)
             public float m_BaseRunM, m_TopRunM;          // synthesized dock runs (0 = none)
-            /// <summary>Additive: the station dock each end uses (0 = DockA = hosted entry 0, 1 = DockB; T14 frame: the tram base's A is the +X bay, the top's A the −X bay; −1 = none: the
-            /// path ends at the rope end).</summary>
+            /// <summary>The station dock each end uses (0 = DockA = hosted entry 0, 1 = DockB; the tram base's A is the +X bay, the top's A the
+            /// −X bay; −1 = none: the path ends at the rope end).</summary>
             public sbyte m_BaseDock = -1, m_TopDock = -1;
         }
 
-        /// <summary>Catalog Phase C: one tram between two stations — chain A (the up lane, right looking uphill) and chain
-        /// B, both base → top. Cabin A rides m_A, cabin B rides m_B.</summary>
+        /// <summary>One tram between two stations: chain A (the up lane, right looking uphill) and chain B, both base → top.
+        /// Cabin A rides m_A, cabin B rides m_B.</summary>
         internal sealed class Shuttle
         {
             public readonly Path m_A = new Path(), m_B = new Path();
-            public Entity m_BaseStation, m_TopStation;   // base by role (C1): the cabins' host
+            public Entity m_BaseStation, m_TopStation; // base by role: the cabins' host
             public quaternion m_BaseRotation, m_TopRotation;   // station rotations (the dock frames: rope point + rotation)
             public int m_TypeIndex = -1;
             public bool m_BaseByRole, m_UpLaneDecided, m_UpLaneSwapped;
-            /// <summary>Additive: the stations' indices in the lists BuildShuttles was given.</summary>
             public int m_BaseStationIndex = -1, m_TopStationIndex = -1;
             public double MeanLengthM => 0.5 * (m_A.m_Length + m_B.m_Length);
-            /// <summary>Additive (round-3-contract-skeptic F4): MeanLengthM rounded to 1 cm — the length to hand to
-            /// ShuttleProfile, so a float-noise rebuild cannot shift the cycle.</summary>
+            /// <summary>MeanLengthM rounded to 1 cm: the length to hand to ShuttleProfile, so a float-noise rebuild cannot shift the cycle.</summary>
             public double ProfileLengthM => ShuttleProfile.QuantizeLengthM(MeanLengthM);
         }
 
-        /// <summary>Catalog Phase C: BuildShuttles' result, in pair order (empty after a Loop Build).</summary>
         public readonly List<Shuttle> m_Shuttles = new List<Shuttle>();
 
-        // Catalog Phase C: the pure topology core and its stand-ins, reused across builds (rebuilds only, never per frame).
         private readonly LiftLoopTopology m_Topology = new LiftLoopTopology();
         private readonly List<LiftLoopTopology.Lane> m_TopoLanes = new List<LiftLoopTopology.Lane>();
         private readonly List<LiftLoopTopology.Station> m_TopoStations = new List<LiftLoopTopology.Station>();
         private readonly Dictionary<PathNode, int> m_NodeIds = new Dictionary<PathNode, int>();
 
-        // ── Build diagnostics (entry 102): what the last Build saw, per chain, for the
-        // developer-tab dump. Plain data, rebuilt every Build, never consulted by Sample.
+        // Build diagnostics: what the last Build saw, per chain, for the developer-tab dump. Plain data, rebuilt every Build, never
+        // consulted by Sample.
         internal struct ChainDiag
         {
             public int m_Links;
@@ -206,8 +165,6 @@ namespace SkiResortMod.Systems
         internal readonly List<ChainDiag> m_ChainDiags = new List<ChainDiag>();
         internal readonly List<string> m_BuildNotes = new List<string>();
 
-        // Catalog Phase C (round-3-contract §2.1): ChainLink / Chain (was :145-158) are LiftLoopTopology.Link / .Chain
-        // (PathNode terminals → interned ids + owner indices).
 
         public void Clear()
         {
@@ -216,18 +173,13 @@ namespace SkiResortMod.Systems
             m_UnclosedChainCount = 0;
             m_ChainDiags.Clear();
             m_BuildNotes.Clear();
-            m_Shuttles.Clear();   // Catalog Phase C
+            m_Shuttles.Clear();
         }
 
-        /// <summary>Builds loops from harvested lanes + station entities (with world
-        /// positions, for base-first orientation). <paramref name="stationByOwnerIndex"/>
-        /// maps entity INDEX → station list index for each station AND its children
-        /// (sub-objects, sub-net nodes/edges) — PathNode owners are stored as indices.
-        /// Never throws on bad topology — lifts that do not close simply produce no loop
-        /// and count as unclosed chains; the reasons land in m_BuildNotes/m_ChainDiags.
-        /// Catalog Phase C (round-3-contract §2.3): the chaining / classification / pairing / up-lane / orientation /
-        /// gap pass runs in the pure LiftLoopTopology (Loop mode, transcribed); this method is its Game-side adapter and
-        /// writes the pair notes and loops in the same order as before.</summary>
+        /// <summary>Builds loops from harvested lanes + station entities (with world positions, for base-first orientation).
+        /// <paramref name="stationByOwnerIndex"/> maps entity INDEX → station list index for each station AND its children (sub-objects,
+        /// sub-net nodes/edges): PathNode owners are stored as indices. Never throws on bad topology: lifts that do not close produce no
+        /// loop and count as unclosed chains; the reasons land in m_BuildNotes/m_ChainDiags.</summary>
         public void Build(List<CableLane> lanes, List<Entity> stations, List<float3> stationPositions,
             Dictionary<int, int> stationByOwnerIndex, List<float3> stationWheelCenters)
         {
@@ -248,7 +200,6 @@ namespace SkiResortMod.Systems
             m_Topology.Build(m_TopoLanes, m_TopoStations, stationByOwnerIndex, LiftLoopTopology.Mode.Loop);
             CopyTopologyChains();
 
-            // ── Pair chains by station pair, close each pair into a loop ─────────────────
             for (int p = 0; p < m_Topology.Pairs.Count; p++)
             {
                 LiftLoopTopology.Pair pair = m_Topology.Pairs[p];
@@ -261,9 +212,8 @@ namespace SkiResortMod.Systems
                 }
                 if (pair.Status == LiftLoopTopology.PairStatus.GapOutOfRange)
                 {
-                    // Sanity (was TryCloseLoop :423-430, now LiftLoopTopology.ArcSane on the same endpoints): the turn
-                    // diameter is the cable gauge (expect ~3.6 m). Wildly off means the anchors are not where this
-                    // model thinks — degrade to static pinning.
+                    // Sanity (LiftLoopTopology.ArcSane on the same endpoints): the turn diameter is the cable gauge (expect ~3.6 m). Wildly off
+                    // means the anchors are not where this model thinks — degrade to static pinning.
                     string gapWhy = $"terminal gap out of range (top {pair.TopGapM:F2} m, base {pair.BaseGapM:F2} m; want 1–10)";
                     m_UnclosedChainCount += 2;
                     m_BuildNotes.Add($"stations ({stationA},{stationB}): closure failed — {gapWhy}");
@@ -288,12 +238,12 @@ namespace SkiResortMod.Systems
                     m_BuildNotes.Add($"stations ({stationA},{stationB}): closure failed — {why}");
                     continue;
                 }
-                loop.m_BaseStation = stations[baseStation];   // Round L1: pair identity (data only)
+                loop.m_BaseStation = stations[baseStation]; // pair identity
                 loop.m_TopStation = stations[topStation];
                 loop.m_UpLaneDecided = decided;
                 loop.m_UpLaneSwapped = swap;
 
-                // Catalog Phase B (round-2-contract §5.1): the loop's lift type = the common type of its member lanes.
+                // The loop's lift type = the common type of its member lanes.
                 loop.m_TypeIndex = pair.TypeIndex;
                 if (loop.m_TypeIndex < 0)
                     m_BuildNotes.Add($"loop between stations {stationA} and {stationB} mixes lift types — not moving");
@@ -304,11 +254,10 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>Catalog Phase C (round-3-contract §2.3): the Shuttle-mode build (TramShuttleSystem). One Shuttle per
-        /// station pair whose two chains pass the shuttle gap check and share one lift type: both chains oriented base →
-        /// top (base = the Base-ROLE station, C1), each extended by a straight run from / to its dock (StationDef.DockLocalA
-        /// / B → world, ObjectUtils.cs:208-211). <paramref name="stationDefs"/>[i] is the catalog row of stations[i] (null =
-        /// unknown: no role, no docks). Never throws on bad topology: refusals land in m_BuildNotes (one per pair).</summary>
+        /// <summary>The Shuttle-mode build (TramShuttleSystem). One Shuttle per station pair whose two chains pass the shuttle gap check and
+        /// share one lift type: both chains oriented base → top (base = the Base-ROLE station), each extended by a straight run from / to
+        /// its dock (StationDef.DockLocalA / B → world, ObjectUtils.cs:208-211). <paramref name="stationDefs"/>[i] is the catalog row of
+        /// stations[i] (null = unknown: no role, no docks). Never throws on bad topology: refusals land in m_BuildNotes (one per pair).</summary>
         public void BuildShuttles(List<CableLane> lanes, List<Entity> stations, List<Game.Objects.Transform> stationTransforms,
                                   List<StationDef> stationDefs, Dictionary<int, int> stationByOwnerIndex)
         {
@@ -328,8 +277,8 @@ namespace SkiResortMod.Systems
                     DockB = DockWorld(transform, def != null ? def.DockLocalB : new float3(float.NaN)),
                 });
             }
-            // T02 (2026-10-16): the tram's terminal is its stub-tip track rope, 29-30 m from the station origin but ~12 m from its
-            // dock; Shuttle mode owns terminals by dock reach too (LiftLoopTopology.ClassifyShuttleTerminal). Loop mode is untouched.
+            // The tram's terminal is its stub-tip track rope, 29-30 m from the station origin but ~12 m from its dock; Shuttle mode owns
+            // terminals by dock reach too (LiftLoopTopology.ClassifyShuttleTerminal). Loop mode is untouched.
             m_Topology.ShuttleDockReach = true;
             m_Topology.Build(m_TopoLanes, m_TopoStations, stationByOwnerIndex, LiftLoopTopology.Mode.Shuttle);
             CopyTopologyChains();
@@ -397,8 +346,8 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>Catalog Phase C: the topology's stand-in lanes. Node ids are interned in first-seen lane order (start,
-        /// then end); the ends are pre-sampled with exactly the calls GetChainEndpoint made (was :590-591).</summary>
+        /// <summary>The topology's stand-in lanes. Node ids are interned in first-seen lane order (start, then end); the ends are
+        /// pre-sampled with MathUtils.Position / Tangent.</summary>
         private void FillTopologyLanes(List<CableLane> lanes)
         {
             m_TopoLanes.Clear();
@@ -433,8 +382,6 @@ namespace SkiResortMod.Systems
             return id;
         }
 
-        /// <summary>Catalog Phase C: the chain-level results (count, unclosed chains, diagnostics, "nothing to chain" /
-        /// "unclosed" notes) — written first, exactly as the chain loop wrote them (was :266-281).</summary>
         private void CopyTopologyChains()
         {
             m_ChainCount = m_Topology.Chains.Count;
@@ -465,7 +412,7 @@ namespace SkiResortMod.Systems
                 : new float3(float.NaN);
         }
 
-        /// <summary>Catalog Phase C: one path = [base dock → rope start] + the chain's lanes + [rope end → top dock]. A dock
+        /// <summary>One path = [base dock → rope start] + the chain's lanes + [rope end → top dock]. A dock
         /// run is synthesized when the dock is assigned (≥ 0) and the run exceeds 0.05 m (the bullwheel turn's threshold,
         /// AppendTerminalTurn); otherwise the path starts / ends at the rope end.</summary>
         private void BuildPath(List<CableLane> lanes, LiftLoopTopology.Chain chain, LiftLoopTopology.Station baseStation,
@@ -498,9 +445,8 @@ namespace SkiResortMod.Systems
             path.m_Length = cum;
         }
 
-        /// <summary>Round-3 contract review note: the Shuttle-mode notes are formatted in the invariant culture, because
-        /// TramShuttleSystem.WarnRefusals matches them by literal prefix (and logs numbers invariant, §4.9). Shuttle mode only:
-        /// the Loop notes keep their current-culture interpolation (bit-identical to round 2).</summary>
+        /// <summary>Shuttle-mode notes are formatted in the invariant culture, because TramShuttleSystem.WarnRefusals matches them by
+        /// literal prefix (and logs numbers invariant). Shuttle mode only: the Loop notes keep their current-culture interpolation.</summary>
         private static string Inv(System.FormattableString text)
         {
             return text.ToString(System.Globalization.CultureInfo.InvariantCulture);
@@ -513,17 +459,14 @@ namespace SkiResortMod.Systems
                                  Inv($"{LiftLoopTopology.MaxDockRunM:F0} m — cabin {chain} dwells at its rope end"));
         }
 
-        // ── Loop closing ──────────────────────────────────────────────────────────────
-        /// <summary>Catalog Phase C (round-3-contract §2.3): LiftLoopTopology already oriented the chains (A base → top,
-        /// B top → base; was OrientChain here) and passed the gap check (was :423-430 here, now ArcSane in the topology on
-        /// the same endpoints); from "double cum" on this is the geometry as before.</summary>
+        /// <summary>LiftLoopTopology already oriented the chains (A base → top, B top → base) and passed the gap check (ArcSane); from
+        /// "double cum" on this is the geometry.</summary>
         private bool TryCloseLoop(List<CableLane> lanes, LiftLoopTopology.Chain chainA, LiftLoopTopology.Chain chainB,
             float3 baseWheel, float3 topWheel, out Loop loop, out string why)
         {
             loop = new Loop();
             why = null;
 
-            // Terminal geometry for the two bullwheel turns.
             LiftLoopTopology.Endpoint(m_TopoLanes, chainA, atEnd: true, out float3 aTop, out float3 aTopTangent);
             LiftLoopTopology.Endpoint(m_TopoLanes, chainB, atEnd: false, out float3 bTop, out _);
             LiftLoopTopology.Endpoint(m_TopoLanes, chainB, atEnd: true, out float3 bBase, out float3 bBaseTangent);
@@ -558,13 +501,13 @@ namespace SkiResortMod.Systems
         /// terminal ~10 m; anything beyond is a mis-located wheel — fall back).</summary>
         private const float MaxWheelRunMeters = 30f;
 
-        /// <summary>The turnaround at a station (entry 103). With a known bullwheel center W
+        /// <summary>The turnaround at a station. With a known bullwheel center W
         /// (rope height, station-local from the terminal generator, mapped to world): a
         /// straight run from the terminal to the wheel's tangent point, a half-circle of
         /// the rope gauge around W bulging into the station, and a straight run back out to
         /// the other terminal — the rope's actual path (entry tower → dive → wheel → dive
         /// → entry tower), so chairs visibly round the bullwheel. Without a wheel (unknown
-        /// station prefab, or implausible geometry): the milestone-2 semicircle between
+        /// station prefab, or implausible geometry): the semicircle between
         /// the two terminals.</summary>
         private static bool AppendTerminalTurn(float3 from, float3 to, float3 inTangent, float3 wheel,
             Loop loop, ref double cum, out string note)
@@ -617,9 +560,7 @@ namespace SkiResortMod.Systems
 
         private static string Fmt(float3 v) => $"({v.x:F1},{v.y:F1},{v.z:F1})";
 
-        // Catalog Phase C (round-3-contract §2.1): CommonType (was :520-540) moved to LiftLoopTopology, unchanged.
 
-        /// <summary>Straight segment as a linear bezier (same sampling path as lanes).</summary>
         private static void AppendLine(float3 a, float3 b, Loop loop, ref double cum)
         {
             float length = math.max(math.distance(a, b), 0.01f);
@@ -635,8 +576,6 @@ namespace SkiResortMod.Systems
             cum += length;
         }
 
-        // Catalog Phase C (round-3-contract §2.1): ArcSane (was :558-562), OrientChain (:564-578) and GetChainEndpoint
-        // (:580-595) moved to LiftLoopTopology (ArcSane, OrientChain, Endpoint), unchanged but for the stand-ins.
 
         private void AppendChain(List<CableLane> lanes, LiftLoopTopology.Chain chain, Loop loop, ref double cum)
         {
@@ -658,7 +597,6 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>Catalog Phase C: AppendChain for a shuttle Path (the same segments and owners).</summary>
         private void AppendChain(List<CableLane> lanes, LiftLoopTopology.Chain chain, Path path, ref double cum)
         {
             for (int i = 0; i < chain.Links.Count; i++)
@@ -679,7 +617,6 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>Catalog Phase C: AppendLine for a shuttle Path (the same linear bezier, the same 0.01 m floor).</summary>
         private static void AppendLine(float3 a, float3 b, Path path, ref double cum)
         {
             float length = math.max(math.distance(a, b), 0.01f);
@@ -725,7 +662,6 @@ namespace SkiResortMod.Systems
             return true;
         }
 
-        // ── Sampling ──────────────────────────────────────────────────────────────────
         /// <summary>Position + unit travel tangent at loop distance s (caller wraps s into
         /// [0, m_Length)). Constant-speed: lanes via MathUtils.ClampLength (arc-length cut,
         /// same 16-chord metric as Curve.m_Length), arcs analytically.</summary>
@@ -734,7 +670,7 @@ namespace SkiResortMod.Systems
             SampleSegments(loop.m_Segments, s, out position, out travelTangent);
         }
 
-        /// <summary>Catalog Phase C (round-3-contract §2.3): position + unit tangent in the BASE → TOP direction at
+        /// <summary>Position + unit tangent in the BASE → TOP direction at
         /// distance s along a shuttle path, s clamped to [0, m_Length] (NaN → 0). Allocation-free (the mover calls it
         /// every frame). An empty path returns its base end and +z.</summary>
         public static void Sample(Path path, double s, out float3 position, out float3 baseToTopTangent)
@@ -749,11 +685,8 @@ namespace SkiResortMod.Systems
             SampleSegments(path.m_Segments, clamped, out position, out baseToTopTangent);
         }
 
-        /// <summary>Catalog Phase C (round-3-contract §2.3): Sample(Loop)'s body, moved verbatim (was :651-689) so a
-        /// shuttle Path samples exactly as a loop does. The caller bounds s.</summary>
         private static void SampleSegments(List<Segment> segments, double s, out float3 position, out float3 travelTangent)
         {
-            // Binary search the segment table (cumulative starts are sorted).
             int lo = 0, hi = segments.Count - 1;
             while (lo < hi)
             {
@@ -776,7 +709,6 @@ namespace SkiResortMod.Systems
             var t = new Bounds1(0f, 1f);
             if (seg.m_Reversed)
             {
-                // d meters of travel from the t=1 end toward t=0.
                 MathUtils.ClampLengthInverse(seg.m_Bezier, ref t, d);
                 position = MathUtils.Position(seg.m_Bezier, t.min);
                 travelTangent = -MathUtils.Tangent(seg.m_Bezier, t.min);
@@ -790,25 +722,20 @@ namespace SkiResortMod.Systems
             travelTangent = math.normalizesafe(travelTangent, new float3(0f, 0f, 1f));
         }
 
-        /// <summary>Round L1, OD-7 (a) restart seeding (hub-u2-spec.md §5.4): the loop arc parameter
-        /// s ∈ [0, m_Length) of <paramref name="position"/> projected onto the LANE segments whose
-        /// owner is <paramref name="owner"/> (a chair's own section; both of its cable lanes are in
-        /// the loop, one per side, so the nearest one is the chair's own side — the side guard of
-        /// ChairPinSystem's static pin, header note 3). The inverse of Sample on that segment:
-        /// forward travel measures MathUtils.Length(bezier, [0, t]), reversed travel [t, 1] (the
-        /// same metric ClampLength / ClampLengthInverse cut by in Sample). Arcs are never owned.
-        /// Returns −1 when the owner has no lane segment in the loop (the caller keeps the
-        /// entity-index grid as the fallback). The caller passes the chair's GRIP point (pivot +
+        /// <summary>Restart seeding: the loop arc parameter s ∈ [0, m_Length) of <paramref name="position"/> projected onto the LANE
+        /// segments whose owner is <paramref name="owner"/> (a chair's own section; both of its cable lanes are in the loop, one per side,
+        /// so the nearest one is the chair's own side). The inverse of Sample on that segment (forward travel measures
+        /// MathUtils.Length(bezier, [0, t]), reversed travel [t, 1]). Arcs are never owned. Returns −1 when the owner has no lane segment
+        /// in the loop (the caller keeps the entity-index grid as the fallback). The caller passes the chair's GRIP point (pivot +
         /// grip-top offset), which lies on the cable, not the pivot 2.4 m below it.</summary>
         internal static double ProjectOnOwner(Loop loop, Entity owner, float3 position)
         {
             return ProjectOnOwner(loop, owner, position, out _);
         }
 
-        /// <summary>ProjectOnOwner with the distance from <paramref name="position"/> to the chosen
-        /// lane point (float.MaxValue when the owner has no segment). ADDITIVE overload: the caller
-        /// uses the distance to tell a chair standing on its own section (parked or just spawned)
-        /// from one that is riding elsewhere on the loop (a loaded save).</summary>
+        /// <summary>ProjectOnOwner with the distance from <paramref name="position"/> to the chosen lane point (float.MaxValue when the
+        /// owner has no segment): tells a chair standing on its own section (parked or just spawned) from one riding elsewhere on the
+        /// loop (a loaded save).</summary>
         internal static double ProjectOnOwner(Loop loop, Entity owner, float3 position, out float distance)
         {
             double best = -1.0;

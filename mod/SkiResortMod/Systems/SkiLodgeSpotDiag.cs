@@ -1,42 +1,32 @@
-// SkiLodgeSpotDiag — READ-ONLY diagnostic: the spawn spots the ENGINE registered for every lodge ("Lodge [spots]").
-// Ticket T51 step 0 (docs/research/asset-markers-spawners.md §c, §f; docs/research/field/2026-10-15/build/T51-markers-step1.md).
-// It changes nothing: no command buffer, no component write, no prefab touch; one cheap poll (below); every read guarded.
+// Read-only diagnostic: the spawn spots the engine registered for every lodge ("Lodge [spots]"). Changes nothing (no command
+// buffer, component write or prefab touch); every read is guarded. Mod.cs: UpdateAt<SkiLodgeSpotDiag>(GameSimulation), not
+// load-bearing.
 //
-// WHAT "REGISTERED" MEANS (decompile 1.6.0f1)
-//   * The buffer is Game.Buildings.SpawnLocationElement {m_SpawnLocation, m_Type} on the BUILDING entity
-//     (Game.Buildings/SpawnLocationElement.cs; added to every building archetype, Game.Prefabs/BuildingPrefab.cs:45).
-//     Game.Buildings.ReferencesSystem (Modification4B, SystemOrder.cs:176) adds every Created, Owned, non-Secondary entity that
-//     carries Game.Objects.SpawnLocation (type SpawnLocation), Game.Areas.HangaroundLocation (type HangaroundLocation) or
-//     Game.Net.ParkingLane (type ParkingLane) to the buffer of its owner AND of every owner above it (ReferencesSystem.cs:51-117), so a
-//     lodge's spots also sit in the Welcome Sign's buffer. On a save load Game.Serialization.SpawnLocationElementSystem
-//     (Deserialize, SystemOrder.cs:818) rebuilds it the same way (the buffer is IEmptySerializable).
-//   * PathfindTargetSeeker.FindTargets offers exactly the entries of this buffer as the building's targets (PathfindTargetSeeker.cs
-//     :429-481, :530-740): a SpawnLocation by its prefab's SpawnLocationData (m_ConnectionType, m_ActivityMask: offered only when
-//     the mask is 0 or intersects the visitor's, :653), a HangaroundLocation area by its Game.Net.SubLane connection lanes (the
-//     branch after the SpawnLocation lookup fails, :700-720). An unlinked spot does not switch off the road-front door; a linked
-//     one does (:720, :729).
-//   * A prop prefab with Game.Prefabs.ActivityLocation (bench, chair, table set) becomes ITSELF a Game.Objects.SpawnLocation +
-//     Game.Objects.ActivityLocation entity whose prefab SpawnLocationData.m_ActivityMask is the OR of its seats' masks
-//     (Game.Prefabs/ActivityLocation.cs:60-67, :105-125); owned by the lodge (sub-object), it registers like a door marker.
-//   * A Pedestrian Access Location marker is NOT a SpawnLocation (Game.Routes.TakeoffLocation): never in the buffer; it joins an
-//     area's lanes to the street (Game.Areas/AreaConnectionSystem.cs, Modification4B, :179).
+// What "registered" means (decompile 1.6.0f1):
+//   * The buffer is Game.Buildings.SpawnLocationElement {m_SpawnLocation, m_Type} on the building entity (added to every building
+//     archetype, Game.Prefabs/BuildingPrefab.cs:45). Game.Buildings.ReferencesSystem (Modification4B, SystemOrder.cs:176) adds
+//     every Created, Owned, non-Secondary entity carrying Game.Objects.SpawnLocation, Game.Areas.HangaroundLocation or
+//     Game.Net.ParkingLane to the buffer of its owner and of every owner above it (ReferencesSystem.cs:51-117), so a lodge's
+//     spots also sit in the Welcome Sign's buffer. On load Game.Serialization.SpawnLocationElementSystem (Deserialize,
+//     SystemOrder.cs:818) rebuilds it the same way (the buffer is IEmptySerializable).
+//   * PathfindTargetSeeker.FindTargets offers exactly the entries of this buffer as the building's targets
+//     (PathfindTargetSeeker.cs:429-481, :530-740): a SpawnLocation by its prefab's SpawnLocationData (m_ConnectionType,
+//     m_ActivityMask: offered only when the mask is 0 or intersects the visitor's, :653), a HangaroundLocation area by its
+//     Game.Net.SubLane connection lanes (:700-720). An unlinked spot does not switch off the road-front door; a linked one
+//     does (:720, :729).
+//   * A prop prefab with Game.Prefabs.ActivityLocation (bench, chair, table set) becomes itself a Game.Objects.SpawnLocation +
+//     ActivityLocation entity whose SpawnLocationData.m_ActivityMask is the OR of its seats' masks
+//     (Game.Prefabs/ActivityLocation.cs:60-67, :105-125); owned by the lodge, it registers like a door marker.
+//   * A Pedestrian Access Location marker is not a SpawnLocation (Game.Routes.TakeoffLocation): never in the buffer; it joins
+//     an area's lanes to the street (Game.Areas/AreaConnectionSystem.cs, Modification4B, :179).
 //
-// OUTPUT (log tag "Lodge [spots]")
-//   * INFO at every Game-mode load: ONE line, the registered count per lodge (spawn / hangaround / parking, and how many spawn
-//     entries are seats and how many are linked to a lane), then the sign's totals.
-//   * INFO when that signature changes later (a lodge placed, deleted, moved, a prefab sub-object re-created): the same one line,
-//     at most MaxChangeLines per load. Polled every PollFrames simulation frames from the building query (an int compare on a
-//     string signature; the building query is a few thousand 8-byte PrefabRef copies).
-//   * The hub dev-tab DUMP (SkiResortHubUISystem.DumpToLog, after the Towers blocks): per lodge a header and per spot a line — kind,
-//     prefab name, position in the LODGE'S FRAME (+Z = road side, the frame the prefab JSON rows use), owner depth, the prefab's
-//     SpawnLocationData (connection type, activity mask as names, hangaround-on-lane, authorization), the instance's
-//     Game.Objects.SpawnLocation (group, flags, ConnectedLane1/2 set), registered yes/no; hangaround areas with node count and
-//     sub-lane / pedestrian connection-lane counts; Pedestrian Access Location markers (always "not a spawn spot"); the spot-bearing
-//     sub-objects the walk found that the buffer does NOT hold (registered: NO); then the sign's own totals.
-//   UNVERIFIED: that every spot the buffer holds is offered to a given visitor (needs the visitor's activity mask), and what the
-//   area's connection lanes join on the street side (read the Pathfind Debug gizmo in game).
-//
-// Mod.cs: UpdateAt<SkiLodgeSpotDiag>(GameSimulation), not load-bearing (read-only; all producers ran earlier in the frame).
+// Output: one INFO line at every Game-mode load (registered count per lodge: spawn / hangaround / parking, how many spawn entries
+// are seats and how many are linked to a lane, then the sign's totals), and again when the signature changes (at most
+// MaxChangeLines per load), polled every PollFrames from the building query. The hub dev-tab dump
+// (SkiResortHubUISystem.DumpToLog) adds per lodge a header and per spot a line, positions in the lodge's frame (+Z = road side,
+// the frame the prefab JSON rows use), and lists spot-bearing sub-objects the buffer does NOT hold.
+// Unverified: that every spot the buffer holds is offered to a given visitor (needs the visitor's activity mask), and what the
+// area's connection lanes join on the street side (read the Pathfind Debug gizmo in game).
 
 using System;
 using System.Collections.Generic;
@@ -61,7 +51,7 @@ namespace SkiResortMod.Systems
 {
     public sealed partial class SkiLodgeSpotDiag : GameSystemBase
     {
-        /// <summary>Simulation frames between signature polls (the load line and DUMP do not depend on it).</summary>
+        /// <summary>Simulation frames between signature polls.</summary>
         internal const int PollFrames = 512;
         internal const int MaxChangeLines = 12;
         internal const int MaxSpotLinesPerLodge = 48;
@@ -71,7 +61,7 @@ namespace SkiResortMod.Systems
 
         private PrefabSystem m_PrefabSystem;
         private SkiPrefabCatalogSystem m_PrefabCatalog;
-        private SkiResortAttractivenessSystem m_Attractiveness;   // T113
+        private SkiResortAttractivenessSystem m_Attractiveness;
         private EntityQuery m_BuildingQuery;
 
         private bool m_Armed, m_Disabled, m_ErrorLogged;
@@ -90,7 +80,7 @@ namespace SkiResortMod.Systems
             base.OnCreate();
             m_PrefabSystem = World.GetOrCreateSystemManaged<PrefabSystem>();
             m_PrefabCatalog = World.GetOrCreateSystemManaged<SkiPrefabCatalogSystem>();
-            m_Attractiveness = World.GetOrCreateSystemManaged<SkiResortAttractivenessSystem>();   // T113: a top-level lodge's sign
+            m_Attractiveness = World.GetOrCreateSystemManaged<SkiResortAttractivenessSystem>();
             m_BuildingQuery = GetEntityQuery(new EntityQueryDesc
             {
                 All = new[]
@@ -164,9 +154,6 @@ namespace SkiResortMod.Systems
             }
         }
 
-        // ════════════════════════════════════════════════════════════════════════════════════════
-        // Entities
-        // ════════════════════════════════════════════════════════════════════════════════════════
 
         private void CollectBuildings(List<Entity> lodges, List<Entity> signs)
         {
@@ -265,9 +252,6 @@ namespace SkiResortMod.Systems
                 sb.Append(", ").Append(c.Stale).Append(" stale");
         }
 
-        // ════════════════════════════════════════════════════════════════════════════════════════
-        // DUMP
-        // ════════════════════════════════════════════════════════════════════════════════════════
 
         /// <summary>On demand (hub dev-tab DUMP). Main thread; never throws.</summary>
         internal void DumpAll(string reason)
@@ -312,7 +296,7 @@ namespace SkiResortMod.Systems
             bool hasT = EntityManager.TryGetComponent(lodge, out ObjTransform lodgeT);
             Entity sign = EntityManager.TryGetComponent(lodge, out Owner owner) ? owner.m_Owner : Entity.Null;
             if (sign == Entity.Null)
-                m_Attractiveness.TryGetTopLevelLink(lodge, out sign);   // T113: top-level, the published link (Null = not linked)
+                m_Attractiveness.TryGetTopLevelLink(lodge, out sign);   // published top-level link (Null = not linked)
             sb.Append("  lodge ").Append(Ent(lodge)).Append(" '").Append(PrefabNameOf(lodge)).Append("' (sign ").Append(Ent(sign)).Append(") at ")
               .Append(hasT ? Fmt(lodgeT.m_Position) : "?").Append(": registered ");
             AppendCounts(sb, c);
@@ -335,7 +319,7 @@ namespace SkiResortMod.Systems
                 }
             }
 
-            // 2) spot-bearing sub-objects the walk finds that the buffer does NOT hold, and the access markers (never in it)
+            // 2) spot-bearing sub-objects the walk finds that the buffer does not hold, and the access markers (never in it)
             int scanned = 0;
             var seen = new HashSet<Entity>();
             WalkObjects(lodge, lodge, hasT, lodgeT, 1, registered, seen, lines, ref extra, ref scanned);
@@ -465,9 +449,6 @@ namespace SkiResortMod.Systems
             }
         }
 
-        // ════════════════════════════════════════════════════════════════════════════════════════
-        // Small helpers
-        // ════════════════════════════════════════════════════════════════════════════════════════
 
         private string LocalOf(Entity e, bool hasT, ObjTransform lodgeT)
         {

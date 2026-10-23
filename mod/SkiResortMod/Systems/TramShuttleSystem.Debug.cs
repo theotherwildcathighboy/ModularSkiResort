@@ -1,19 +1,13 @@
-// TramShuttleSystem.Debug — the "Tram shuttle (Phase C)" foldout of the "Ski Resort" developer tab (Catalog Phase C,
-// docs/research/art/assets-2026-10/code-round-3/round-3-contract.md §4.10 and C17, mover group).
+// TramShuttleSystem.Debug - the "Tram shuttle" foldout of the "Ski Resort" developer tab.
 //
-// HOW IT REACHES THE SCREEN. This partial carries NO [DebugContainer] / [DebugTab]: DebugSystem.AddPanel replaces the
-// widget list stored under a tab's name (Game.Debug/DebugSystem.cs:996-1023 -> :1022 AddPanel(attribute.name, ...),
-// :1085-1095 removes the previous list of the same name; 1.6.2 :1085 unchanged), so a second "Ski Resort" tab would
-// replace ChairPinSystem's rows. Any other tab name would also work (the mod has "Ski Glades", "Ski Runs", "Ski Resort
-// Hub"); the contract chose a foldout inside ChairPin's tab (round-3-contract-skeptic §5: "keep the foldout, drop
-// 'must'"). ChairPinSystem.Debug.cs's BuildSkiResortDebugUI calls AddDebugWidgets after its census foldout through
-// World.GetExistingSystemManaged<TramShuttleSystem>() (a "Tram shuttle: not registered" row when null) and appends
-// AppendDump to its DumpDiagnostics.
+// This partial carries no [DebugContainer] / [DebugTab]: DebugSystem.AddPanel replaces the widget list stored under a
+// tab's name (Game.Debug/DebugSystem.cs:1022, :1085-1095), so a second "Ski Resort" tab would replace ChairPinSystem's rows.
+// ChairPinSystem.Debug's BuildSkiResortDebugUI calls AddDebugWidgets after its census foldout and appends AppendDump to
+// its DumpDiagnostics.
 //
-// COST CONTRACT (ChairPinSystem.Debug's): the getters run at 10 Hz while the tab is open and read counters and the first
-// shuttle's run record only — no EntityQuery, no job completion. The dump runs on a Button press and writes to the mod
-// log. The kill-switch Button flips TramShuttleSystem.MovingShuttles: off parks every cabin in its hosted pose (the gate
-// re-evaluates on the next update), on lets them follow the clock again; both write one Info line.
+// Cost: the getters run at 10 Hz while the tab is open and read counters and the first shuttle's run record only (no
+// EntityQuery, no job completion). The dump runs on a Button press and writes to the mod log. The kill-switch Button
+// flips TramShuttleSystem.MovingShuttles: off parks every cabin in its hosted pose, on lets them follow the clock again.
 
 using System;
 using System.Collections.Generic;
@@ -24,7 +18,7 @@ namespace SkiResortMod.Systems
 {
     public sealed partial class TramShuttleSystem
     {
-        /// <summary>Seam S4 (C17): the "Tram shuttle (Phase C)" foldout for ChairPinSystem's "Ski Resort" tab.</summary>
+        /// <summary>The "Tram shuttle" foldout for ChairPinSystem's "Ski Resort" tab</summary>
         internal void AddDebugWidgets(List<DebugUI.Widget> into)
         {
             var foldout = new DebugUI.Foldout { displayName = "Tram shuttle (Phase C)", opened = false };
@@ -74,7 +68,7 @@ namespace SkiResortMod.Systems
             into.Add(foldout);
         }
 
-        /// <summary>The DUMP block on its own (this foldout's Button); ChairPin's dump appends the same block.</summary>
+        /// <summary>The dump block on its own (this foldout's Button); ChairPin's dump appends the same block</summary>
         internal void DumpToLog(string reason)
         {
             var sb = new StringBuilder(1024);

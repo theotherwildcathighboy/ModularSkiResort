@@ -1,33 +1,17 @@
-// EntityRef + RunKind — the shared PURE stand-ins of docs/research/hub-u2-spec.md §2.1 ("shared
-// pure (I-1, day one)"). Pure files (SkiResortIndex, SkiResortAggregate, LiftCensus, StationAlign,
-// LiftReconnectEpisodes, …) and the net8 test hosts that link them (tests/ResortBatch,
-// tests/LiftBatch) cannot see Unity.Entities, so an entity crosses into pure code as an EntityRef
-// {Index, Version} and back with `new Entity { Index = r.Index, Version = r.Version }` at the
-// system boundary.
-//
-// CONTRACT (§2.1, names and shape exact — other implementers link this file):
-//   * EntityRef(int index, int version); fields Index, Version (public, mutable, as Entity's).
-//   * IsNull ⇔ Index == 0 && Version == 0, which is exactly Unity.Entities.Entity.Null
-//     (Entity.Null = default(Entity), both fields 0). An Entity that merely does not exist is NOT
-//     null here, as for Entity.
-//   * Equality is Index AND Version (Entity's own equality), so a recycled index with a new
-//     version is a different reference. Ordering (CompareTo) is Index, then Version — the "stable
-//     order" §2.1 asks of SkiResortIndex ("sorted by Index, then Version").
-//   * RunKind: 0 groomed / 1 snowmaking / 2 night / 3 natural (appended in E1) =
-//     SkiRunOwnershipSystem.KindOf's return values = mod/SkiResortUI/src/bindings.ts `RunKind`. The snow
-//     injection system's PRIVATE kind order (0 night / 1 snowmaking / 2 groomed) never leaves that
-//     system; nothing may cast between the two.
-//
-// PURE FILE: `using System;` only (the test-host rule of tests/SlopeBatch: System + Unity.Mathematics).
-// No allocation, no state.
-//
-// Created 2026-10-03 (Round U2, implementer I-1).
+// EntityRef and RunKind: pure stand-ins so pure files and the net8 test hosts (tests/ResortBatch, tests/LiftBatch),
+// which cannot see Unity.Entities, can carry entities as {Index, Version}. Convert back at the system boundary
+// with `new Entity { Index = r.Index, Version = r.Version }`.
+//   * IsNull is Index == 0 && Version == 0, exactly Entity.Null; a merely nonexistent Entity is not null here either.
+//   * Equality is Index and Version (a recycled index with a new version differs); CompareTo orders by Index, then Version.
+//   * RunKind values equal SkiRunOwnershipSystem.KindOf and mod/SkiResortUI/src/bindings.ts RunKind. The snow
+//     injection system's private kind order (0 night / 1 snowmaking / 2 groomed) never leaves it; never cast between them.
+// Pure file: `using System;` only (the test-host rule), no allocation, no state.
 
 using System;
 
 namespace SkiResortMod.Systems
 {
-    /// <summary>Pure stand-in for Unity.Entities.Entity (hub-u2-spec.md §2.1).</summary>
+    /// <summary>Pure stand-in for Unity.Entities.Entity.</summary>
     public struct EntityRef : IEquatable<EntityRef>, IComparable<EntityRef>
     {
         public int Index, Version;
@@ -58,7 +42,7 @@ namespace SkiResortMod.Systems
             return Index * 397 ^ Version;
         }
 
-        /// <summary>Index, then Version (the stable order of §2.1).</summary>
+        /// <summary>Index, then Version.</summary>
         public int CompareTo(EntityRef other)
         {
             if (Index != other.Index)
@@ -78,46 +62,42 @@ namespace SkiResortMod.Systems
             return a.Index != b.Index || a.Version != b.Version;
         }
 
-        /// <summary>"Index:Version", the log form of Entity used across the mod. Allocates: logs
-        /// and dumps only, never per frame.</summary>
+        /// <summary>"Index:Version", the log form of Entity. Allocates: logs and dumps only.</summary>
         public override string ToString()
         {
             return Index + ":" + Version;
         }
     }
 
-    /// <summary>Run kind = SkiRunOwnershipSystem.KindOf = bindings.ts RunKind (hub-u2-spec.md §2.1).
-    /// The snow injection system's private order (0 night / 1 snowmaking / 2 groomed) never leaves it.</summary>
+    /// <summary>Run kind; values match SkiRunOwnershipSystem.KindOf and bindings.ts RunKind.</summary>
     public enum RunKind : byte
     {
         Groomed = 0,
         Snowmaking = 1,
         Night = 2,
-        Natural = 3,   // Round E1 (D16): APPENDED — never renumber (ResortBatch / LiftBatch assert 0/1/2/3)
-        CatTrack = 4,  // T54 probe 1 (cat-track-run.md §2): APPENDED — a drawable green track that may cross other runs
+        Natural = 3,   // Appended: never renumber (the test hosts assert 0-3)
+        CatTrack = 4,  // Appended: a drawable green track that may cross other runs
     }
 
-    /// <summary>T54 probe 1 (docs/research/cat-track-run.md §1 D2, §2, §4): the per-kind rules of the cat track, in one pure
-    /// place so the attraction path, the hub stats and the tests read the same answer. A cat track is a RUN for the map and the
-    /// catalog (listed, numbered, bound, fee) but not for the resort's numbers.</summary>
+    /// <summary>Per-kind rules of the cat track in one pure place. A cat track is a run for the map and the catalog
+    /// (listed, numbered, bound, fee) but not for the resort's numbers.</summary>
     public static class RunKindRules
     {
-        /// <summary>Does a run of this kind count toward RunsCapacity, the attraction score, Runs / RunsOpen / RunsPartly (and
-        /// so HubRules.Status), the green-variety flag and the "no open run" lift-closed rule? False for the cat track only.
-        /// A whitelist of the four scoring kinds: an unknown kind (-1, or one added later and not registered here) counts false.</summary>
+        /// <summary>Whether a run of this kind counts toward RunsCapacity, the attraction score, Runs / RunsOpen / RunsPartly
+        /// (so HubRules.Status), the green-variety flag and the "no open run" lift-closed rule. A whitelist: an unknown kind counts false.</summary>
         public static bool CountsTowardResort(int kind)
         {
             return kind >= (int)RunKind.Groomed && kind <= (int)RunKind.Natural;
         }
 
-        /// <summary>LiftServedRule.AssignLinked's leaf flag: a cat track may be served but never passes service on (D2).</summary>
+        /// <summary>LiftServedRule.AssignLinked's leaf flag: a cat track may be served but never passes service on.</summary>
         public static bool IsServedLeaf(int kind)
         {
             return kind == (int)RunKind.CatTrack;
         }
 
-        /// <summary>True when a run of this kind is injected, measured or billed by the snow system. The cat track is none of
-        /// these: it opens by the day-mean estimate alone (RunSnowRules.ThresholdC) and is never rasterized.</summary>
+        /// <summary>True when the snow system injects, measures or bills a run of this kind. The cat track is none of these:
+        /// it opens by the day-mean estimate alone (RunSnowRules.ThresholdC) and is never rasterized.</summary>
         public static bool HasSnowInjection(int kind)
         {
             return kind == (int)RunKind.Groomed || kind == (int)RunKind.Snowmaking || kind == (int)RunKind.Night;

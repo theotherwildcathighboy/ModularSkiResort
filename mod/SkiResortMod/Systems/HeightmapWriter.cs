@@ -1,33 +1,28 @@
-// HeightmapWriter — THE one place the mod writes the game's base terrain heightmap (T139a; DECISIONS 362 / 363; research
-// docs/research/cattrack-grading-2026-10-20.md sections 1 and 4; build note docs/research/field/2026-10-20/grading-tool-build.md).
-// Used by CatTrackGradeToolSystem (apply / undo) and its dev-tab probe. Not a system: a helper the tool owns, main thread only.
+// THE one place the mod writes the game's base terrain heightmap. Used by CatTrackGradeToolSystem (apply / undo) and its
+// dev-tab probe. Not a system: a helper the tool owns, main thread only.
 //
-// WHY THE BASE MAP (1.6.0f1 decompile): TerrainSystem keeps two height layers. The base heightmap m_Heightmap (R16_UNorm
-// RenderTexture, SetHeightmap TerrainSystem.cs:3231-3250; public getter `heightmap` :2488) is the only layer the save stores
-// (SerializeHeightmap :3030-3056 reads it back whole with AsyncGPUReadback :3043). The cascade the game renders and reads back to the
-// CPU is re-blitted from it with the net / lot / area overlays drawn on top (RenderCascade :4833-4925), so a cascade edit never
-// lasts. The vanilla terrain brush writes the base map: ApplyBrush (public, :3942-3954) = WaterSystem.TerrainWillChangeFromBrush ->
-// ApplyToTerrain (:3715-3935, compute shader into m_Heightmap; it calls OnAreaChanged itself, :3753) -> UpdateMinMax ->
-// TriggerAsyncChange.
+// WHY THE BASE MAP (1.6.0f1): TerrainSystem keeps two height layers. The base heightmap m_Heightmap (R16_UNorm RenderTexture,
+// SetHeightmap TerrainSystem.cs:3231-3250) is the only layer the save stores (SerializeHeightmap :3030-3056). The cascade the
+// game renders and reads back to the CPU is re-blitted from it with the net / lot / area overlays drawn on top (RenderCascade
+// :4833-4925), so a cascade edit never lasts. The vanilla terrain brush writes the base map: ApplyBrush (:3942-3954) ->
+// ApplyToTerrain (:3715-3935, compute shader into m_Heightmap) -> UpdateMinMax -> TriggerAsyncChange.
 //
-// THE WRITE (vanilla's own calls, public API only, no reflection):
-//   1. Read  : AsyncGPUReadback.Request(heightmap, mip 0, x, w, y, h, 0, 1).WaitForCompletion() — the sub-rect form of vanilla's
-//              SerializeHeightmap readback (:3043; the sub-rect RequestIntoNativeArray overload is used by TerrainMinMaxMap, :606). A
-//              400 x 400 rect is 320 KB (the save reads all 32 MB the same way).
-//   2. Write : a temporary Texture2D R16_UNorm of the rect, SetPixelData + Apply, then Graphics.CopyTexture(src, 0, 0, 0, 0, w, h,
-//              heightmap, 0, 0, x, y): the sub-rect form of the copy SetHeightmap makes for the whole map (:3250). Same format both
-//              sides (the D3D11 CopyTexture rule). UNVERIFIED until the probe: that the sub-rect copy lands; the write is therefore
-//              VERIFIED here by reading the rect back and comparing every texel (logged; a mismatch is an ERROR and the caller
-//              restores the pre-image).
-//   3. Tail  : WaterSystem.TerrainWillChangeFromBrush(area) (public, WaterSystem.cs:873-889: pauses the water sim for 15 frames, as
-//              per brush stamp), TerrainSystem.OnAreaChanged(area) (public, :5096-5108: the cascade re-renders the area and
-//              GroundHeightSystem re-snaps trees / props there), UpdateMinMax(default(Brush), area) (public, :3956), TriggerAsyncChange()
-//              (public, :3622: the CPU height readback refreshes). What ApplyToTerrain also sets, m_TerrainChange / m_TerrainChangeArea
-//              (private, read only by the public GetTerrainBrushUpdate :2642, which nothing in Game.dll calls), is not reachable and
-//              not needed.
-//   FORMAT GATE (one-time per load, logged): the heightmap must be a created RenderTexture, R16_UNorm, at least 1024 texels a side,
-//   with a positive playable area and height scale. Anything else refuses every write (texture formats have changed without patch
-//   notes before). The mapping uses playableArea / playableOffset / heightScaleOffset, never the 14,336 m defaults (custom maps).
+// THE WRITE (vanilla's own public calls, no reflection):
+//   1. Read : AsyncGPUReadback.Request(heightmap, mip 0, x, w, y, h, 0, 1).WaitForCompletion(), the sub-rect form of the
+//              save's readback (:3043).
+//   2. Write: a temporary Texture2D R16_UNorm of the rect, SetPixelData + Apply, then Graphics.CopyTexture(src, 0, 0, 0, 0,
+//              w, h, heightmap, 0, 0, x, y): the sub-rect form of the copy SetHeightmap makes (:3250). Same format both sides
+//              (the D3D11 CopyTexture rule). Whether the sub-rect copy lands was unverified, so every write is verified by
+//              reading the rect back and comparing every texel (a mismatch is an ERROR and the caller restores the pre-image).
+//   3. Tail : WaterSystem.TerrainWillChangeFromBrush(area) (WaterSystem.cs:873-889: pauses the water sim for 15 frames),
+//              TerrainSystem.OnAreaChanged(area) (:5096-5108: the cascade re-renders the area, GroundHeightSystem re-snaps
+//              trees / props), UpdateMinMax(default(Brush), area) (:3956), TriggerAsyncChange() (:3622: the CPU height
+//              readback refreshes). ApplyToTerrain's m_TerrainChange / m_TerrainChangeArea are private and only read by
+//              GetTerrainBrushUpdate (:2642), which nothing in Game.dll calls: not needed.
+//   FORMAT GATE (once per load, logged): the heightmap must be a created RenderTexture, R16_UNorm, at least 1024 texels a
+//   side, with a positive playable area and height scale; anything else refuses every write (texture formats have changed
+//   without patch notes before). The mapping uses playableArea / playableOffset / heightScaleOffset, never the 14,336 m
+//   defaults (custom maps).
 //
 // LOGS: every read and write is one line (rect, texels, ms, verify result); the gate one line per load; failures WARN / ERROR.
 

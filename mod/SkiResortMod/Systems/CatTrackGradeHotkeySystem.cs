@@ -1,14 +1,12 @@
-// CatTrackGradeHotkeySystem — the grading tool's keys and its every-frame watch (T139c; build note
-// docs/research/field/2026-10-20/grading-tool-build.md). The LiftLineHotkeySystem pattern (its header holds the action plumbing
-// citations: an inactive tool never ticks, ToolSystem.cs:312-327; GetAction is null before RegisterKeyBindings, ModSetting.cs:289-292;
-// mod actions start disabled, ProxyAction.cs:322-349):
-//   ToggleCatTrackGradeTool (default Ctrl+Shift+K) → CatTrackGradeToolSystem.TryActivate("hotkey") / Deactivate, in a loaded city;
-//   the Build key (BuildLiftLine, default Enter) is SHARED with the lift tool: LiftLineHotkeySystem keeps it live while either tool is
-//   open (one writer of shouldBeEnabled, so the two systems never fight over it); this system reads its press while the grading tool
-//   is active and calls RequestApply. One key for "build what the tool shows" in both tools.
-//   Every frame it also calls the tool's TickWatch (the dev-tab probe's follow-up checks run while the tool is closed).
-// UIUpdate (SystemOrder.cs:67): every frame, paused or not.
-// LOGS: one ARMED / INERT line per load; one line when the toggle is not live 120 frames after the load (probable key conflict).
+// Grading tool keys and the every-frame watch. Pattern of LiftLineHotkeySystem, whose header cites the action plumbing
+// (an inactive tool never ticks, ToolSystem.cs:312-327; GetAction is null before RegisterKeyBindings, ModSetting.cs:289-292;
+// mod actions start disabled, ProxyAction.cs:322-349).
+// ToggleCatTrackGradeTool (default Ctrl+Shift+K) → CatTrackGradeToolSystem.TryActivate("hotkey") / Deactivate, in a loaded city.
+// The Build key (BuildLiftLine, default Enter) is shared with the lift tool: LiftLineHotkeySystem keeps it live while either tool
+// is open (one writer of shouldBeEnabled, so the systems never fight over it); this system reads the press while the grading
+// tool is active and calls RequestApply. Every frame it also calls the tool's TickWatch (the dev-tab probe's follow-up checks
+// run while the tool is closed). UIUpdate (SystemOrder.cs:67): every frame, paused or not.
+// Logs: one ARMED / INERT line per load; one line when the toggle is not live 120 frames after the load (probable key conflict).
 
 using System;
 using Colossal.Serialization.Entities;

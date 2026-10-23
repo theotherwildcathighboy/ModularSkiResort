@@ -1,44 +1,38 @@
-// SkiTripSystems — Round M2 R9 (D15; docs/research/round-m2/understand/enabled-flags.md C1 with its check,
-// build-contract.md §5.11 and §6.11; builder B2, 2026-10-10): the names and texts of the game's six trip systems whose
-// ComponentSystemBase.Enabled SkiDaySystem reads at every Game load and every armed pass, and of the two known
-// trip-planner swaps, detected by assembly name only (SkiOtherMods.Refresh ORs BitOfAssembly over every loaded
-// assembly; DECISIONS 150: a label and log lines, never a behavior). The one behavior, ArmVerdict.SystemOff, is
-// SkiDayRules' and reads vanilla facts only (the Enabled bits), never this file's planner mask.
+// Names and texts of the game's six trip systems (whose ComponentSystemBase.Enabled SkiDaySystem reads at every
+// Game load and armed pass) and of the two known trip-planner swaps, detected by assembly name only
+// (SkiOtherMods.Refresh ORs BitOfAssembly over every loaded assembly). Labels and log lines, never behavior; the one
+// behavior, ArmVerdict.SystemOff, is SkiDayRules' and reads the Enabled bits only.
 //
-// Bits of a "found" / "on" mask are SkiDayRules' (TripLeisure 1, TripBehavior 2, TripNeeded 4, TripResidentAI 8,
-// TripResidentActions 16, TripResourceBuyer 32). A "planners" mask: bit 1 Realistic PathFinding (assembly
-// RealisticPathFinding: switches off TripNeededSystem, ResidentAISystem, ResidentAISystem.Actions and
-// ResourceBuyerSystem in its IMod.OnLoad), bit 2 Realistic Trips (assembly Time2Work, inferred from its csproj: switches
-// off LeisureSystem, CitizenBehaviorSystem and others; GitHub master, the shipped build unverified).
+// Found / on mask bits are SkiDayRules' (TripLeisure 1 ... TripResourceBuyer 32). Planners mask: bit 1 Realistic
+// PathFinding (assembly RealisticPathFinding; its IMod.OnLoad switches off TripNeededSystem, ResidentAISystem,
+// ResidentAISystem.Actions and ResourceBuyerSystem), bit 2 Realistic Trips (assembly Time2Work, inferred from its
+// csproj; the shipped build is unverified).
 //
-// Strings live here, not in SkiDayRules, because that file is PURE (no managed type, no string). Main thread only,
-// never called from a job; `using System;` only. The UI's TRIP_PLANNER_UNKNOWN (bindings.ts) mirrors UnknownLabel by
-// hand: no gate rule compares the two strings, so each side names the other in a comment.
-// Tests: tests/ResortBatch SkiDayTests section X (literal oracles, enabled-flags.md §3).
+// Strings live here because SkiDayRules is pure (no strings). Main thread only. UnknownLabel is mirrored by hand
+// in bindings.ts TRIP_PLANNER_UNKNOWN.
+// Tests: tests/ResortBatch SkiDayTests section X.
 
 using System;
 
 namespace SkiResortMod.Systems
 {
-    /// <summary>Round M2 R9: names, labels and log texts of the game's trip systems and the known trip-planner swaps.</summary>
+    /// <summary>Names, labels and log texts of the game's trip systems and the known trip-planner swaps.</summary>
     public static class SkiTripSystems
     {
         /// <summary>Realistic PathFinding's assembly (bit 1 of a planners mask).</summary>
         public const string RpfAssembly = "RealisticPathFinding";
         public const string RpfName = "Realistic PathFinding";
-        /// <summary>Realistic Trips' assembly (bit 2): the csproj sets no AssemblyName, so the project name (medium).</summary>
+        /// <summary>Realistic Trips' assembly (bit 2): the csproj sets no AssemblyName, so this is the project name.</summary>
         public const string T2wAssembly = "Time2Work";
         public const string T2wName = "Realistic Trips";
         public const string LookedFor = "looked for assemblies RealisticPathFinding, Time2Work";
-        /// <summary>The hub label when a trip system is off and no known swap is loaded. Mirrored by hand in
-        /// bindings.ts TRIP_PLANNER_UNKNOWN (no gate rule compares the two).</summary>
-        // = mod/SkiResortUI/src/bindings.ts TRIP_PLANNER_UNKNOWN (manual parity, no gate rule; tools/test-hub-rules.js T11.8 tests the TS literal).
+        /// <summary>Hub label when a trip system is off and no known swap is loaded; mirrors bindings.ts TRIP_PLANNER_UNKNOWN
+        /// (tools/test-hub-rules.js tests the TS literal).</summary>
         public const string UnknownLabel = "?";
 
         private const int PlannerRpf = 1, PlannerT2w = 2;
 
-        /// <summary>The planner bit of an assembly name: exact, case-sensitive (as SkiOtherMods' RWH match and Mod.cs's
-        /// Tourism Overhaul match); 1 RealisticPathFinding, 2 Time2Work, else 0 (null → 0).</summary>
+        /// <summary>The planner bit of an assembly name: exact, case-sensitive; 1 RealisticPathFinding, 2 Time2Work, else 0.</summary>
         public static int BitOfAssembly(string name)
         {
             if (name == null)
@@ -50,8 +44,7 @@ namespace SkiResortMod.Systems
             return 0;
         }
 
-        /// <summary>The known planners of a mask in bit order, joined ", " ("Realistic PathFinding (assembly
-        /// RealisticPathFinding)" with the assembly); unknown bits ignored; 0 → "".</summary>
+        /// <summary>The known planners of a mask in bit order, joined ", " (with the assembly name if asked); 0 gives "".</summary>
         public static string Names(int planners, bool withAssembly)
         {
             string s = "";
@@ -62,8 +55,7 @@ namespace SkiResortMod.Systems
             return s;
         }
 
-        /// <summary>The game system of one trip bit: 1 LeisureSystem, 2 CitizenBehaviorSystem, 4 TripNeededSystem, 8
-        /// ResidentAISystem, 16 ResidentAISystem.Actions, 32 ResourceBuyerSystem; anything else "?".</summary>
+        /// <summary>The game system of one trip bit; "?" for anything else.</summary>
         public static string SystemName(int bit)
         {
             switch (bit)
@@ -78,8 +70,7 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>Every trip system in bit order: "&lt;name&gt; on", "&lt;name&gt; OFF" (found, switched off) or
-        /// "&lt;name&gt; missing" (not found), joined ", ".</summary>
+        /// <summary>Every trip system in bit order as "name on", "name OFF" (found, switched off) or "name missing".</summary>
         public static string Long(int found, int on)
         {
             string s = "";
@@ -91,9 +82,7 @@ namespace SkiResortMod.Systems
             return s;
         }
 
-        /// <summary>"all on" when all six are found and on; else "OFF: " + every system not found and on (a missing one
-        /// with " (missing)"), joined ", ", then ", replaced by " + Names(planners, false), or ", no known replacement"
-        /// when no known planner is loaded.</summary>
+        /// <summary>"all on", else "OFF: " plus every system not found and on, then ", replaced by" the known planners or ", no known replacement".</summary>
         public static string Short(int found, int on, int planners)
         {
             if (AllOn(found, on))
@@ -111,7 +100,7 @@ namespace SkiResortMod.Systems
             return s + (names.Length > 0 ? ", replaced by " + names : ", no known replacement");
         }
 
-        /// <summary>The trip systems line of a Game load (INFO when all on, WARN otherwise; SkiDaySystem writes it).</summary>
+        /// <summary>The trip-systems line of a Game load (INFO when all on, WARN otherwise).</summary>
         public static string LoadLine(int found, int on, int planners)
         {
             string tail;
@@ -127,7 +116,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>A change of the trip systems during play (WARN, at most Tuning.TripChangeLines per load;
-        /// <paramref name="last"/> on the last one written).</summary>
+        /// <paramref name="last"/> marks the last one written).</summary>
         public static string ChangeLine(int oldFound, int oldOn, int found, int on, int planners, bool disarms, bool last)
         {
             return "SkiDays: trip systems changed during play: " + Long(found, on) + " (was: " + Short(oldFound, oldOn, planners) + "); " +
@@ -138,8 +127,7 @@ namespace SkiResortMod.Systems
                    (last ? " (further changes this load are only counted in the Dump)" : "");
         }
 
-        /// <summary>The hub label (CityStats.tripPlanner): "" when all on; else the known planners' names, or
-        /// UnknownLabel when none is loaded.</summary>
+        /// <summary>The hub label (CityStats.tripPlanner): "" when all on, else the known planners' names or UnknownLabel.</summary>
         public static string Label(int found, int on, int planners)
         {
             if (AllOn(found, on))
@@ -148,8 +136,7 @@ namespace SkiResortMod.Systems
             return names.Length > 0 ? names : UnknownLabel;
         }
 
-        /// <summary>Ski days cannot arm with these systems on (= ArmCheck's SystemOff test): LeisureSystem or
-        /// CitizenBehaviorSystem off (CityStats.tripPlannerBlocksSkiDays).</summary>
+        /// <summary>True when ski days cannot arm (ArmCheck's SystemOff test): LeisureSystem or CitizenBehaviorSystem is off.</summary>
         public static bool BlocksSkiDays(int on) => (on & SkiDayRules.TripNeededToArm) != SkiDayRules.TripNeededToArm;
 
         private static bool AllOn(int found, int on)

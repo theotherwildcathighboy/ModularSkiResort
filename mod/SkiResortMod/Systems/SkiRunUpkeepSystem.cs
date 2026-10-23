@@ -1,85 +1,48 @@
-// SkiRunUpkeepSystem — run OPERATING COSTS, the economics leg of the design triangle
-// (DECISIONS 67): snowmaking runs cost the most (guns + water + power), groomed runs a
-// third of that (cat fuel), natural terrain is free. Without this, snowmaking strictly
-// dominates groomed and both dominate "just ski the powder" — with it, season length
-// versus money is a real decision, which is what makes the run types matter.
+// SkiRunUpkeepSystem - run operating costs: snowmaking runs cost the most (guns + water + power), groomed runs a third of that
+// (cat fuel), natural terrain is free. Without this, snowmaking strictly dominates groomed and both dominate "just ski the
+// powder"; with it, season length versus money is a real decision.
 //
-// WHAT IS CHARGED (the one-model rule): the billable base is the injection system's
-// per-type ACTIVE mask — texels whose thermal gate is ON at their own elevation this
-// top-up window (SkiSnowInjectionSystem.SnowmakingActiveTexels / GroomedActiveTexels ×
-// TexelAreaM2), each run capped at its plan area since F7 (header PLAN-AREA CAP below).
-// Guns bill while guns can run, groomers bill while grooming holds, and in
-// summer everything is free because the gates are off. Visuals, attractiveness and money
-// all read the same climate model and cannot disagree. Overlapping runs never
-// double-bill (a texel is claimed once — see MaskStats). "Natural runs" are free by
-// construction: no painted surface, no mask, no bill.
+// Billing: the billable base is the injection system's per-type active mask, texels whose thermal gate is on at their own
+// elevation this top-up window (SkiSnowInjectionSystem.SnowmakingActiveTexels / GroomedActiveTexels x TexelAreaM2), each run capped
+// at its plan area (Plan-area cap). Guns bill while guns can run, groomers while grooming holds, summer is free because the
+// gates are off, and overlapping runs never double-bill (a texel is claimed once, see MaskStats). Visuals, attractiveness and
+// money all read the same climate model and cannot disagree.
 //
-// WHERE THE MONEY GOES: Game.City.PlayerMoney on the CitySystem.City entity —
-// public Add/Subtract, the component every vanilla income/expense ultimately mutates
-// (ResourceProducerSystem pattern). ACCEPTED LIMITATION (DECISIONS 67): ExpenseSource is
-// a closed enum aggregated inside CityServiceBudgetSystem, so the charge cannot appear
-// as its own budget-panel line item without Harmony (banned, SPEC §4.1). The cost shows
-// in the balance; the log carries the itemization.
+// Money goes to Game.City.PlayerMoney on the CitySystem.City entity (public Add/Subtract, the component every vanilla
+// income/expense ultimately mutates). ExpenseSource is a closed enum aggregated inside CityServiceBudgetSystem, so the charge
+// cannot appear as its own budget-panel line item without Harmony (banned); the cost shows in the balance and the log carries
+// the itemization.
 //
-// TIME MODEL: 262144 sim frames per in-game day (TimeSystem.kTicksPerDay — a PUBLIC const,
-// Game.Simulation/TimeSystem.cs:18, same line in 1.6.2; corrected in U2: an earlier comment
-// called it private and mirrored the literal) and daysPerYear from TimeSystem (settings-
-// dependent); one calendar month = kTicksPerDay × daysPerYear / 12 frames. Charges
-// accrue per elapsed frame between passes (wrap-safe uint math) with a fractional
-// carry, so no cadence drift and no rounding loss on small resorts.
+// Time: TimeSystem.kTicksPerDay is a public const (262144, TimeSystem.cs:18) and daysPerYear comes from TimeSystem; one calendar
+// month = kTicksPerDay x daysPerYear / 12 frames. Charges accrue per elapsed frame between passes (wrap-safe uint math) with a
+// fractional carry, so no cadence drift and no rounding loss on small resorts.
 //
-// SCHEDULING & PAUSE: GameSimulation phase (only runs while the sim advances, only in
-// Game action mode — pause stops the meter, Editor never runs it), anchored after
-// SkiSnowInjectionSystem so a same-frame top-up publishes its mask before we read it.
-// Self-gated cadence like the injection system's.
+// Scheduling: GameSimulation phase (runs only while the sim advances, only in Game action mode: pause stops the meter), anchored
+// after SkiSnowInjectionSystem so a same-frame top-up publishes its mask before we read it; self-gated cadence.
 //
-// U2 ACCESSORS (docs/research/hub-u2-spec.md §2.1, §3.3 runCostMonth; 2026-10-03, implementer
-// I-1): CostPerHaMonth(RunKind) — the three rates below by the shared RunKind (0 groomed / 1
-// snowmaking / 2 night = SkiRunOwnershipSystem.KindOf), so the hub prices a run's texels with the
-// SAME numbers this system bills; LastMonthlyRate — the rate of the last charge pass (0 while
-// idle); IdleReason — "" while billing, else the current idle reason (the text of the last
-// "Upkeep [idle]" line, or the pre-first-pass / disabled state). Plain field reads; the values
-// freeze while the game is paused (GameSimulation phase, below). Round M1 (m1-spec M7b): DebitedThisLoad —
-// the credits debited since the load, read by SkiGuestCounterSystem for the month's `run upkeep -N (whole city)`.
+// Hub accessors: CostPerHaMonth(RunKind) (the same rates this system bills, by the shared RunKind 0 groomed / 1 snowmaking / 2
+// night), LastMonthlyRate, IdleReason ("" while billing), DebitedThisLoad (read by SkiGuestCounterSystem for the month's `run
+// upkeep -N (whole city)`). Plain field reads; frozen while paused.
 //
-// OBSERVABILITY + DEFENSIVE CONTRACT (house pattern): ARMED line with every rate at
-// load, a charge line whenever the monthly rate bucket changes plus a periodic
-// heartbeat, idle states logged once per reason transition, and the ChairPinSystem
-// error pattern — never throw into the game loop, one-shot "!!!" with stack, disabled
-// for the current load only, re-armed at OnGameLoadingComplete.
-// FLOOD WINDOW (Round F6, item D3; log-audit A2: 126 charge lines in load 2 — the rate moves on
-// almost every pass while snow builds, and a pass is ~4.3 s apart at 4×): the charge lines go
-// through a LogWindow (LogWindow.cs) — at most one per Tuning.LogWindowS (10 s wall clock); the
-// first after a quiet window is written as before, the rest are folded into one
-// `Upkeep [charge] N more charge line(s) in T s, folded …` line (debit per pass and rate
-// min-max, then the last pass's full line). At 1× a pass is ~17 s apart, so every changed pass
-// still logs plain. A fold is flushed before an idle line, before a load (OnGamePreload) and at
-// quit (OnDestroy; F6 fixer). F6 fixer (review): the first billable pass after a load or an idle
-// spell is forced (written at once, with any fold), so a billing restart is never folded away.
+// Logging: ARMED line with every rate at load, a charge line whenever the monthly rate bucket changes plus a periodic heartbeat,
+// idle states once per reason transition, the ChairPinSystem error pattern. Flood window: the rate moves on almost every pass
+// while snow builds (a pass is ~4.3 s apart at 4x), so charge lines go through a LogWindow: at most one per Tuning.LogWindowS
+// (10 s), the rest folded into one `Upkeep [charge] N more charge line(s) in T s, folded ...` line. A fold is flushed before an
+// idle line, before a load (OnGamePreload) and at quit (OnDestroy); the first billable pass after a load or idle spell is forced
+// so a billing restart is never folded away.
 //
-// PLAN-AREA CAP (Round F7, item E2; docs/research/field-test-7-fixes.md, log-audit.md "Missed" 1): a run
-// is never billed for more hectares than it has. The mask counts every texel the outline touches as a
-// whole texel (~14 m cells, TexSize 1024 over the playable area), so edge texels over-read the run by
-// about 3-4 % (field test 7: 26.5 ha "with snow" on a 25.54 ha run, 3.2 ha on a 3.05 ha run). Each pass
-// therefore takes, per run of the catalog (SkiRunCatalogSystem rows: Entity, Kind, AreaM2 = the plan area
-// Geometry.m_SurfaceArea) with an entry in the per-run map (SkiSnowInjectionSystem.TryGetRunActiveTexels,
-// first-claim counts that sum exactly to the three totals), the part of its texel hectares above its plan
-// area off its kind's total: BilledHa(texels, texelHa, plan) = min(texels × texelHa, plan / 10⁴). A run the
-// catalog does not list yet (one UIUpdate rebuild behind) is billed uncapped for that pass, as before.
-// BilledHa is public and pure so the hub's run rows (SkiResortStatsSystem.CollectRuns, its own owner;
-// request in docs/research/field-test-7-notes-impl5.md) can read the same number as the bill. The charge
-// line names the hectares clipped when there are any. Cost: one dictionary lookup per run per charge pass
-// (1,024 frames).
+// Plan-area cap: a run is never billed for more hectares than it has. The mask counts every texel the outline touches as a whole
+// texel (~14 m cells), so edge texels over-read the run by about 3-4 %. Each pass takes, per cataloged run with an entry in the
+// per-run map (SkiSnowInjectionSystem.TryGetRunActiveTexels, first-claim counts that sum to the three totals), the part of its
+// texel hectares above its plan area (Geometry.m_SurfaceArea) off its kind's total: BilledHa(texels, texelHa, plan) = min(texels x
+// texelHa, plan / 10^4). A run the catalog does not list yet is billed uncapped for that pass. BilledHa is public and pure so the
+// hub's run rows read the same number as the bill.
 //
-// PER-AREA BOOKING (T78 P3, DECISIONS 283; docs/research/ui/hub-history-build-1-2026-10-18.md): every debit is also booked
-// per ski area into the guest counter's SkiResortLedger (Month.RunUpkeep, AddRunUpkeep), so the history store keeps each
-// area's real run cost, not a rate. Rule = the hub's per-run rule (SkiResortStatsSystem.CollectRuns): weight of an area =
-// Σ over its bound, cataloged, non-natural runs with active texels of BilledHa × CostPerHaMonth(kind); unbound runs and the
-// part of the bill no cataloged run explains (a run one catalog rebuild behind, billed uncapped) go to Not linked
-// (EntityRef.Null). SkiResortHistory.SplitDebit makes the parts sum exactly to the debit with a per-area carry, so no area
-// drifts. DebitedThisLoad and the money taken are unchanged; the hub's this-month run-cost lines are still the stats
-// system's RATE (CostGroomed/Snowmaking/NightMonth), their meaning is unchanged. Cost: one more catalog pass per charge
-// pass (every 1,024 frames), a handful of ledger writes.
+// Per-area booking: every debit is also booked per ski area into the guest counter's SkiResortLedger (Month.RunUpkeep), so the
+// history store keeps each area's real run cost. Weight of an area = sum over its bound, cataloged, non-natural runs with active
+// texels of BilledHa x CostPerHaMonth(kind) (the hub's per-run rule, SkiResortStatsSystem.CollectRuns); unbound runs and the part
+// of the bill no cataloged run explains go to Not linked (EntityRef.Null). SkiResortHistory.SplitDebit makes the parts sum
+// exactly to the debit with a per-area carry.
 
 using System;
 using System.Collections.Generic;
@@ -94,49 +57,39 @@ namespace SkiResortMod.Systems
 {
     public sealed partial class SkiRunUpkeepSystem : GameSystemBase
     {
-        // ── Tuning — the single block, all values logged at activation ───────────────────
         private static class Tuning
         {
-            // Monthly operating cost per hectare of ACTIVE run surface. First-cut
-            // calibration anchors: the resort gate's Park maintenance pool is 8000 and
-            // the day lodge's upkeep 3000/month; a mid-size resort (~40 ha of snowmaking)
-            // should read as a serious municipal line item without bankrupting a town —
-            // 40 ha × 500 = 20k/month while the guns run. Groomed at roughly a third
-            // (fuel and labor, no water/power). FIELD-CALIBRATE before release.
+            // Monthly operating cost per hectare of active run surface. Anchors: the resort gate's Park maintenance pool is 8000 and
+            // the day lodge's upkeep 3000/month; a mid-size resort (~40 ha of snowmaking) should read as a serious municipal line item
+            // without bankrupting a town: 40 ha x 500 = 20k/month while the guns run. Groomed at roughly a third (fuel and labor, no
+            // water/power). Needs field calibration before release.
             public const int SnowmakingCostPerHaMonth = 500;
             public const int GroomedCostPerHaMonth = 150;
 
-            // Night skiing (night-skiing-run.md §1.2): 500 snowmaking (a night run IS a
-            // snowmaking run) + 100 floodlight power (piste lighting is ~10 kW/ha for
-            // ~5 h/night ≈ 1,500 kWh/ha/month, 15-20% of snowmaking's energy) + 200 for
-            // the second staffed shift. The night premium (+300) is exactly twice the
-            // whole groomed rate: "lights plus a night shift cost two groomers."
+            // Night skiing: 500 snowmaking (a night run is a snowmaking run) + 100 floodlight power (piste lighting is ~10 kW/ha for
+            // ~5 h/night = ~1,500 kWh/ha/month, 15-20% of snowmaking's energy) + 200 for the second staffed shift. The night premium
+            // (+300) is exactly twice the whole groomed rate: "lights plus a night shift cost two groomers."
             public const int NightCostPerHaMonth = 800;
 
-            // Charge cadence. The injection mask refreshes every 64 frames; billing at
-            // 1024 (16 top-ups) keeps PlayerMoney writes rare while the elapsed-frame
-            // accrual keeps the amount exact regardless of cadence.
+            // Charge cadence. The injection mask refreshes every 64 frames; billing at 1024 (16 top-ups) keeps PlayerMoney writes rare
+            // while the elapsed-frame accrual keeps the amount exact regardless of cadence.
             public const int ChargeIntervalFrames = 1024;
 
-            // Heartbeat: unconditionally log every Nth charging pass even when the rate
-            // bucket is stable (~32 × 1024 frames ≈ 4 charge lines per in-game day).
+            // Heartbeat: unconditionally log every Nth charging pass even when the rate bucket is stable (~32 x 1024 frames = ~4 charge
+            // lines per in-game day)
             public const int LogEveryNthCharge = 32;
 
-            // F6 D3 (header FLOOD WINDOW): at most one charge line per this many wall-clock
-            // seconds; the rest of a burst is folded into one summary (contract: 10 s).
+            // At most one charge line per this many wall-clock seconds; the rest of a burst is folded into one summary
             public const float LogWindowS = 10f;
         }
 
-        // TimeSystem.kTicksPerDay is `public const int kTicksPerDay = 262144`
-        // (Game.Simulation/TimeSystem.cs:18 in 1.6.0f1 and 1.6.2f1) — readable, so it is used
-        // directly (U2 correction of the old "private const, unreadable at runtime" comment; the
-        // value is unchanged). Being a const, the compiler copies the number into this DLL: a patch
-        // that changed it would still need a rebuild of the mod to take effect.
+        // TimeSystem.kTicksPerDay is `public const int kTicksPerDay = 262144` (Game.Simulation/TimeSystem.cs:18 in 1.6.0f1 and
+        // 1.6.2f1), readable, so it is used directly. Being a const, the compiler copies the number into this DLL: a patch that
+        // changed it would still need a rebuild of the mod to take effect.
         private const float TicksPerDay = TimeSystem.kTicksPerDay;
 
-        /// <summary>U2 (hub-u2-spec.md §2.1): the monthly operating cost per hectare of ACTIVE run
-        /// surface for a run kind — the numbers Charge bills (Tuning: groomed 150, snowmaking 500,
-        /// night 800). Unknown values read 0.</summary>
+        /// <summary>The monthly operating cost per hectare of active run surface for a run kind - the numbers Charge bills
+        /// (Tuning: groomed 150, snowmaking 500, night 800). Unknown values read 0.</summary>
         public static int CostPerHaMonth(RunKind kind)
         {
             switch (kind)
@@ -152,10 +105,9 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>F7 E2 (header PLAN-AREA CAP): the hectares a run is billed for — its active mask texels
-        /// × the texel area in ha, never more than its plan area (m², Geometry.m_SurfaceArea). Texels on
-        /// the outline count whole, so the raw product reads a few percent over the run. A plan area that
-        /// is not a finite positive number leaves the raw value (nothing to cap against). Pure.</summary>
+        /// <summary>The hectares a run is billed for: its active mask texels x the texel area in ha, never more than its plan area
+        /// (m2, Geometry.m_SurfaceArea). Texels on the outline count whole, so the raw product reads a few percent over the run. A
+        /// plan area that is not a finite positive number leaves the raw value (nothing to cap against). Pure.</summary>
         public static float BilledHa(int activeTexels, float texelHa, float planAreaM2)
         {
             float ha = activeTexels > 0 && texelHa > 0f && !float.IsInfinity(texelHa) ? activeTexels * texelHa : 0f;
@@ -164,18 +116,15 @@ namespace SkiResortMod.Systems
             return Math.Min(ha, planAreaM2 / 10000f);
         }
 
-        /// <summary>U2: the monthly rate of the last charge pass (0 while idle or before the first
-        /// pass of this load).</summary>
+        /// <summary>The monthly rate of the last charge pass (0 while idle or before the first pass of this load)</summary>
         public float LastMonthlyRate { get; private set; }
 
-        /// <summary>Round M1 (m1-spec M7b): the credits debited from the city since this load (0 at load). The guest
-        /// counter takes month differences of it for the `Guests [month]` total line (whole city: no ski-area
-        /// attribution exists). Memory only.</summary>
+        /// <summary>The credits debited from the city since this load (0 at load). The guest counter takes month differences of it
+        /// for the `Guests [month]` total line (whole city: no ski-area attribution exists). Memory only.</summary>
         internal long DebitedThisLoad { get; private set; }
 
-        /// <summary>U2: "" while billing; otherwise why nothing is billed (the idle reason of the
-        /// last pass, "first charge pass pending" until the first pass of this load, or the
-        /// disabled / not-armed state).</summary>
+        /// <summary>"" while billing; otherwise why nothing is billed (the idle reason of the last pass, "first charge pass pending"
+        /// until the first pass of this load, or the disabled / not-armed state)</summary>
         public string IdleReason { get; private set; } = IdleNotArmed;
 
         private const string IdleNotArmed = "not armed (not in a city)";
@@ -184,11 +133,10 @@ namespace SkiResortMod.Systems
 
         private SimulationSystem m_SimulationSystem;
         private SkiSnowInjectionSystem m_SnowInjectionSystem;
-        private SkiRunCatalogSystem m_Catalog;      // F7 E2: the runs' plan areas (header PLAN-AREA CAP)
+        private SkiRunCatalogSystem m_Catalog;
         private CitySystem m_CitySystem;
         private TimeSystem m_TimeSystem;
 
-        // Per-load state — reset and re-armed at OnGameLoadingComplete.
         private bool m_Armed;
         private bool m_Disabled;
         private bool m_ErrorLogged;
@@ -200,11 +148,10 @@ namespace SkiResortMod.Systems
         private int m_LastLoggedMonthlyRate;
         private string m_LastIdleReason;
 
-        // F6 D3 (header FLOOD WINDOW): folds the charge lines; reset per load, flushed before a load.
         private readonly LogWindow m_ChargeLog = new LogWindow(Tuning.LogWindowS);
 
-        // T78 P3 (header PER-AREA BOOKING): the split of each debit over the ski areas; carries per sign, reset per load.
-        private SkiGuestCounterSystem m_Counter;   // looked up lazily (the counter creates this system in its OnCreate)
+        // The split of each debit over the ski areas (header, per-area booking); carries per sign, reset per load
+        private SkiGuestCounterSystem m_Counter;
         private readonly List<Entity> m_SplitSigns = new List<Entity>(8);
         private readonly Dictionary<Entity, double> m_SplitCarryOf = new Dictionary<Entity, double>();
         private double m_SplitCarryNotLinked;
@@ -224,16 +171,14 @@ namespace SkiResortMod.Systems
             Mod.Log.Info($"{nameof(SkiRunUpkeepSystem)} created");
         }
 
-        /// <summary>Same 4-frame slot as the injection anchor chain; the real cadence is
-        /// self-gated in OnUpdate off elapsed sim frames.</summary>
+        /// <summary>Same 4-frame slot as the injection anchor chain; the real cadence is self-gated in OnUpdate off elapsed sim frames</summary>
         public override int GetUpdateInterval(SystemUpdatePhase phase)
         {
             return 4;
         }
 
-        /// <summary>F6 D3 (header FLOOD WINDOW): a load (or leaving to the menu) writes the folded
-        /// charge lines of the city being left. Never throws: GameSystemBase.GamePreload DISABLES a
-        /// system whose OnGamePreload throws (Game/GameSystemBase.cs:85-96; same in 1.6.2).</summary>
+        /// <summary>A load (or leaving to the menu) writes the folded charge lines of the city being left. Never throws:
+        /// GameSystemBase.GamePreload disables a system whose OnGamePreload throws (Game/GameSystemBase.cs:85-96; same in 1.6.2).</summary>
         protected override void OnGamePreload(Purpose purpose, GameMode mode)
         {
             base.OnGamePreload(purpose, mode);
@@ -249,9 +194,8 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>F6 fixer (header FLOOD WINDOW): quit to desktop raises no onGamePreload, but the
-        /// world's systems are destroyed while the logger still lives (LogWindow.cs header), so the
-        /// folded charge lines are written here. Teardown must never throw: a failed write is dropped.</summary>
+        /// <summary>Quit to desktop raises no onGamePreload, but the world's systems are destroyed while the logger still lives
+        /// (LogWindow.cs header), so the folded charge lines are written here. Teardown must never throw: a failed write is dropped.</summary>
         protected override void OnDestroy()
         {
             try
@@ -261,7 +205,6 @@ namespace SkiResortMod.Systems
             }
             catch (Exception)
             {
-                // nothing left to report to
             }
             base.OnDestroy();
         }
@@ -279,10 +222,10 @@ namespace SkiResortMod.Systems
             m_ChargeCounter = 0;
             m_LastLoggedMonthlyRate = -1;
             m_LastIdleReason = null;
-            m_ChargeLog.Reset();   // F6 D3: flushed in OnGamePreload; nothing carries over
+            m_ChargeLog.Reset();
             LastMonthlyRate = 0f;
-            DebitedThisLoad = 0;   // Round M1 (M7b)
-            m_SplitCarryOf.Clear();   // T78 P3
+            DebitedThisLoad = 0;
+            m_SplitCarryOf.Clear();
             m_SplitCarryNotLinked = 0.0;
             m_LastSplitAreas = 0;
             m_LastSplitNotLinked = 0;
@@ -315,13 +258,12 @@ namespace SkiResortMod.Systems
                 uint frame = m_SimulationSystem.frameIndex;
                 if (!m_ChargeFrameValid)
                 {
-                    // First tick after load anchors the meter; nothing owed for the
-                    // pre-load past.
+                    // First tick after load anchors the meter; nothing owed for the pre-load past
                     m_ChargeFrameValid = true;
                     m_LastChargeFrame = frame;
                     return;
                 }
-                uint elapsed = frame - m_LastChargeFrame; // wrap-safe
+                uint elapsed = frame - m_LastChargeFrame;
                 if (elapsed < (uint)Tuning.ChargeIntervalFrames)
                     return;
                 m_LastChargeFrame = frame;
@@ -355,7 +297,7 @@ namespace SkiResortMod.Systems
             float snowmakingHa = m_SnowInjectionSystem.SnowmakingActiveTexels * texelHa;
             float groomedHa = m_SnowInjectionSystem.GroomedActiveTexels * texelHa;
             float nightHa = m_SnowInjectionSystem.NightActiveTexels * texelHa;
-            float clippedHa = ClipToPlanAreas(texelHa, ref snowmakingHa, ref groomedHa, ref nightHa);   // F7 E2
+            float clippedHa = ClipToPlanAreas(texelHa, ref snowmakingHa, ref groomedHa, ref nightHa);
             float monthlyRate = snowmakingHa * Tuning.SnowmakingCostPerHaMonth
                               + groomedHa * Tuning.GroomedCostPerHaMonth
                               + nightHa * Tuning.NightCostPerHaMonth;
@@ -365,7 +307,7 @@ namespace SkiResortMod.Systems
                 return;
             }
 
-            LastMonthlyRate = monthlyRate;   // U2 accessor (the rate this pass accrues at)
+            LastMonthlyRate = monthlyRate;
             float monthFrames = TicksPerDay * math.max(1, m_TimeSystem.daysPerYear) / 12f;
             m_CarryFraction += monthlyRate * (elapsedFrames / monthFrames);
             int debit = (int)m_CarryFraction;
@@ -387,13 +329,13 @@ namespace SkiResortMod.Systems
                 PlayerMoney money = EntityManager.GetComponentData<PlayerMoney>(city);
                 money.Subtract(debit);
                 EntityManager.SetComponentData(city, money);
-                DebitedThisLoad += debit;   // Round M1 (M7b): the month's run upkeep in the `Guests [month]` line
-                BookPerArea(debit, monthlyRate, texelHa);   // T78 P3: the same debit, split over the ski areas into the ledger
+                DebitedThisLoad += debit;
+                BookPerArea(debit, monthlyRate, texelHa);
             }
 
             m_ChargeCounter++;
             m_LastIdleReason = null;
-            IdleReason = "";   // U2: billing
+            IdleReason = "";
 
             int rateBucket = (int)math.round(monthlyRate);
             bool log = rateBucket != m_LastLoggedMonthlyRate ||
@@ -401,8 +343,7 @@ namespace SkiResortMod.Systems
             float now = UnityEngine.Time.realtimeSinceStartup;
             if (log)
             {
-                // F6 fixer (header FLOOD WINDOW): -1 = after a load or an idle spell, so this is the
-                // billing (re)start — forced, like the snow system's m_ForceNextTopupLog.
+                // -1 = after a load or an idle spell, so this is the billing (re)start: forced, like the snow system's m_ForceNextTopupLog
                 bool force = m_LastLoggedMonthlyRate < 0;
                 m_LastLoggedMonthlyRate = rateBucket;
                 Entity cityForLog = m_CitySystem.City;
@@ -417,8 +358,7 @@ namespace SkiResortMod.Systems
                               $"{Tuning.NightCostPerHaMonth}, balance {balance}" +
                               (clippedHa >= 0.05f ? $" (edge texels over the runs' plan areas not billed: {clippedHa:F1} ha)" : "") +
                               (debit > 0 ? $"; booked to {m_LastSplitAreas} ski area(s)" + (m_LastSplitNotLinked > 0 ? $" + Not linked {m_LastSplitNotLinked}" : "") : "");
-                // F6 D3 (header FLOOD WINDOW): the first line after a quiet window (or the forced
-                // restart) is written as before; the rest of a burst is folded into one summary.
+                // The first line after a quiet window (or the forced restart) is written as before; the rest of a burst is folded into one summary
                 switch (m_ChargeLog.Offer(now, force, body, debit, rateBucket))
                 {
                     case LogWindow.Verdict.Plain:
@@ -431,21 +371,21 @@ namespace SkiResortMod.Systems
             }
             else if (m_ChargeLog.TrailingDue(now))
             {
-                WriteChargeSummary(now);   // the end of a burst: never silent
+                WriteChargeSummary(now);
             }
         }
 
-        /// <summary>T78 P3 (header PER-AREA BOOKING): splits <paramref name="debit"/> over the ski areas by each bound run's
-        /// billed rate and books the parts into the guest ledger (AddRunUpkeep). The parts sum exactly to the debit
-        /// (SkiResortHistory.SplitDebit). Main thread; no allocation once the lists have grown to the area count.</summary>
+        /// <summary>Splits <paramref name="debit"/> over the ski areas by each bound run's billed rate and books the parts into the
+        /// guest ledger (AddRunUpkeep). The parts sum exactly to the debit (SkiResortHistory.SplitDebit). Main thread; no allocation
+        /// once the lists have grown to the area count.</summary>
         private void BookPerArea(int debit, float monthlyRate, float texelHa)
         {
             if (m_Counter == null)
                 m_Counter = World.GetExistingSystemManaged<SkiGuestCounterSystem>();
             if (m_Counter == null || debit <= 0)
                 return;
-            // Weights: the stats system's per-run rule (SkiResortStatsSystem.CollectRuns): BilledHa × CostPerHaMonth(kind) for
-            // every cataloged non-natural run with active texels, grouped by its gate. Cat tracks are in no mask (rate 0).
+            // Weights: the stats system's per-run rule (SkiResortStatsSystem.CollectRuns): BilledHa x CostPerHaMonth(kind) for every
+            // cataloged non-natural run with active texels, grouped by its gate. Cat tracks are in no mask (rate 0).
             m_SplitSigns.Clear();
             double bound = 0.0, unbound = 0.0;
             int rows = m_Catalog.RowCount;
@@ -505,10 +445,9 @@ namespace SkiResortMod.Systems
             Array.Resize(ref m_SplitParts, size);
         }
 
-        /// <summary>F7 E2 (header PLAN-AREA CAP): takes each cataloged run's texel hectares above its plan
-        /// area off its kind's total; returns the hectares taken off. Runs the catalog does not list, natural
-        /// runs and runs without an entry in the per-run map are left as they are. Each total stays >= 0.
-        /// Main thread; no allocation.</summary>
+        /// <summary>Takes each cataloged run's texel hectares above its plan area off its kind's total; returns the hectares taken
+        /// off. Runs the catalog does not list, natural runs and runs without an entry in the per-run map are left as they are. Each
+        /// total stays >= 0. Main thread; no allocation.</summary>
         private float ClipToPlanAreas(float texelHa, ref float snowmakingHa, ref float groomedHa, ref float nightHa)
         {
             if (!(texelHa > 0f))
@@ -547,9 +486,8 @@ namespace SkiResortMod.Systems
             return clipped;
         }
 
-        /// <summary>F6 D3 (header FLOOD WINDOW): one line for the folded charge lines — how many, over
-        /// how long, the debit-per-pass and rate ranges, then the last one's full text. Only passes
-        /// that would have logged are folded (a pass at an unchanged rate never was), so no sum.</summary>
+        /// <summary>One line for the folded charge lines: how many, over how long, the debit-per-pass and rate ranges, then the last
+        /// one's full text. Only passes that would have logged are folded (a pass at an unchanged rate never was), so no sum.</summary>
         private void WriteChargeSummary(float now)
         {
             Mod.Log.Info($"Upkeep [charge] {m_ChargeLog.Count} more charge line(s) in {m_ChargeLog.SpanS(now):F0} s, folded " +
@@ -558,17 +496,17 @@ namespace SkiResortMod.Systems
             m_ChargeLog.Wrote(now);
         }
 
-        /// <summary>Idle states log once per reason transition (silence impossible, spam
-        /// impossible). Accrual meter naturally reads zero while idle: the rate is zero.</summary>
+        /// <summary>Idle states log once per reason transition (silence impossible, spam impossible). The accrual meter reads zero
+        /// while idle: the rate is zero.</summary>
         private void SetIdle(string reason)
         {
-            LastMonthlyRate = 0f;   // U2 accessors: idle every pass this is called
+            LastMonthlyRate = 0f;
             IdleReason = reason;
             if (m_LastIdleReason == reason)
                 return;
             m_LastIdleReason = reason;
             m_LastLoggedMonthlyRate = -1; // next billable pass logs unconditionally
-            // F6 D3: the folded charge passes before the idle spell come first, so the log reads in order.
+            // The folded charge passes before the idle spell come first, so the log reads in order
             if (m_ChargeLog.Count > 0)
                 WriteChargeSummary(UnityEngine.Time.realtimeSinceStartup);
             Mod.Log.Info($"Upkeep [idle]: {reason} — nothing billed; re-evaluated every " +

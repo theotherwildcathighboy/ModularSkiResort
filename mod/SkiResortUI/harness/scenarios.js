@@ -1,10 +1,7 @@
 /*
- * harness/scenarios.js - sample binding values for the browser harness (MIT, 2026-10-18).
- * Shapes follow src/bindings.ts (BuildItem, GladeState, ResortRow, ResortLive, RunRow, RunLive,
- * LiftRow, ProblemRow, CityStats; HistoryArea since contract 10). Numbers are plausible, not measured: this is for wording and
- * layout, not for sim checks. Enum values: see the *_KIND / BAND / LIFT_STATE / PROBLEM tables in
- * bindings.ts (RunKind Groomed 0 Snowmaking 1 Night 2 Natural 3 CatTrack 4; BAND Green 1 Blue 2
- * Black 3 DoubleBlack 4; LIFT_STATE Running 0 ... StationsOnly 4; RESORT_STATUS Open 3).
+ * harness/scenarios.js - sample binding values for the browser harness. Shapes follow src/bindings.ts (enum tables:
+ * *_KIND / BAND / LIFT_STATE / PROBLEM / RESORT_STATUS / HISTORY_FLAG). Numbers are plausible, not measured: for wording
+ * and layout, not for sim checks.
  */
 (function () {
   "use strict";
@@ -20,7 +17,7 @@
     return IDS.map((id) => {
       const it = { id, locked: !!(o.locked && o.locked.includes(id)), active: o.active === id, reason: "" };
       if (it.locked) it.reason = o.lockReason || "Unlock the Ski Resort milestone first.";
-      // T86: C# locks a ForbidMultiple upgrade already on the SHOWN sign with REASON[AlreadyBuilt] (the school; hubRules.schoolBuiltOf).
+      // C# locks a ForbidMultiple upgrade already on the shown sign with REASON[AlreadyBuilt] (the school; hubRules.schoolBuiltOf)
       if (o.built && o.built.includes(id)) { it.locked = true; it.reason = "SkiResort.Hub.REASON[AlreadyBuilt]"; }
       if (id.startsWith("run")) {
         it.price = { runNatural: 0, runGroomed: 120, runSnowmaking: 180, runNight: 160, runCatTrack: 60 }[id];
@@ -70,12 +67,12 @@
   const resorts = [
     { sign: SIGN, kind: 0, name: "Ash Flat", customName: true, runs: 5, rated: 4, flat: 1, green: 2, blue: 1, black: 1, doubleBlack: 0, areaM2: 333000, verticalM: 610, verticalApprox: false, lodges: 3, freeLodges: 1, liftRows: 3, liftLengthM: 3140, capacityPerHour: 3600 },
     { sign: SIGN2, kind: 0, name: "Resort 2", customName: false, runs: 0, rated: 0, flat: 0, green: 0, blue: 0, black: 0, doubleBlack: 0, areaM2: 0, verticalM: 0, verticalApprox: true, lodges: 0, freeLodges: 0, liftRows: 0, liftLengthM: 0, capacityPerHour: 0 },
-    // T97 P1 (2026-10-19): C# always sends the Not linked row, last (bindings.ts ResortRow.kind); Run 6 is bound to no sign, so it
-    // counts 1 run and the header selector lists it ("Not linked to a ski area", 1 run · 0 lodges).
+    // C# always sends the Not linked row last (bindings.ts ResortRow.kind); Run 6 is bound to no sign, so that row counts 1 run
+    // and the header selector lists it.
     { sign: NULL, kind: 1, name: "", customName: false, runs: 1, rated: 0, flat: 0, green: 0, blue: 0, black: 0, doubleBlack: 0, areaM2: 19000, verticalM: 95, verticalApprox: true, lodges: 0, freeLodges: 0, liftRows: 0, liftLengthM: 0, capacityPerHour: 0 },
   ];
-  // T77: the receipt numbers are self-consistent (SkiResortScore.cs:468, 495): S = (4.55 + 21 + 12) × 1.15 × 1.2 = 51.82,
-  // terrain = 4 × sqrt(S) = 28.8, full = 18 + 28.8 = 47, attraction = 46.8 × 0.94 = 44. city.month 1 = February.
+  // The receipt numbers are self-consistent (SkiResortScore.cs:468, 495): S = (4.55 + 21 + 12) x 1.15 x 1.2 = 51.82,
+  // terrain = 4 x sqrt(S) = 28.8, full = 18 + 28.8 = 47, attraction = 46.8 x 0.94 = 44. city.month 1 = February.
   const live = {
     sign: SIGN, status: 3, runsOpen: 4, runsPartly: 1, snowEstimated: false, snowPct: 88, snowDepthCm: 64, seasonHint: 1, topTempKnown: true, topTempC: -6,
     attraction: 44, attractionFull: 47, attractionHeld: false, lodgesActive: 2, summer: false, lodgePart: 18, terrain: 28.8, runsValue: 4.55, runsValueFull: 5.5, openSharePct: 83,
@@ -101,10 +98,9 @@
     { sign: SIGN, code: 21, severity: 1, subject: E(401), subjectTop: NULL, name: "Day Lodge", count: 1, pct: 0, factor: "", more: 0, detail: 300, ifFixed: 0, buildItem: "" },
     { sign: SIGN2, code: 9, severity: 2, subject: NULL, subjectTop: NULL, name: "", count: 0, pct: 0, factor: "", more: 0, detail: 0, ifFixed: 0, buildItem: "runGroomed" },
   ];
-  // T78 build 2 (contract 10): `history` - 30 months for Ash Flat (Sep 2024 .. Feb 2027, the month in progress last: city.month 1 =
-  // February) with a winter peak, +15 % a year, a two-month GAP (Mar-Apr 2026: the mod was off), one partial month (Oct 2025: a load
-  // that was not seeded), the July season boundaries; and 10 months for "Resort 2", which started in May 2026 (First). Flags:
-  // HISTORY_FLAG in bindings.ts (Partial 1, Gap 16, First 64, Current 128). Plausible, not measured.
+  // `history`: 30 months for Ash Flat (Sep 2024 .. Feb 2027, month in progress last) with a winter peak, +15 % a year, a
+  // two-month gap (Mar-Apr 2026), one partial month (Oct 2025), the July season boundaries; and 10 months for "Resort 2",
+  // which started in May 2026 (First). Flags: HISTORY_FLAG in bindings.ts.
   const WINTER = [1.0, 1.0, 0.8, 0.45, 0.15, 0.1, 0.12, 0.12, 0.15, 0.25, 0.55, 0.9];   // Jan .. Dec
   function historyOf(sign, firstKey, n, scale, opts) {
     const o = opts || {};
@@ -138,9 +134,9 @@
     historyOf(SIGN, NOW_KEY - 29, 30, 1, { gap: [2026 * 12 + 2, 2026 * 12 + 3], partial: [2025 * 12 + 9] }),
     historyOf(SIGN2, 2026 * 12 + 4, 10, 0.2),
   ];
-  // B1 (contract 11): each live row's Net rows ARE its area's month in progress in `history` (C# HistoryAddProgress takes them from the
-  // ResortLive row), so the Finances tile = the Finances view's Net = History's last bar. Rates stay (buildingsMonth 9800, wagesMonth
-  // 31200 x monthShare 0.45 = 4410 / 14040, historyOf's rounding). netMonth = Σ income rows − Σ cost rows (the invariant; test-hub-rules T22).
+  // Each live row's Net rows ARE its area's month in progress in `history` (C# HistoryAddProgress takes them from the
+  // ResortLive row), so the Finances tile = the Finances view's Net = History's last bar. Rates stay (buildingsMonth 9800,
+  // wagesMonth 31200 x monthShare 0.45 = 4410 / 14040, historyOf's rounding). netMonth = sum of income rows - sum of cost rows.
   function moneyFrom(l, h) {
     const i = h.flags.length - 1;
     const rows = { ticketsThisMonth: h.ticketIncome[i], lodgeIncomeMonth: h.lodgeIncome[i], lessonIncomeMonth: h.lessonIncome[i],
@@ -152,14 +148,14 @@
   }
   moneyFrom(live, history[0]);
   moneyFrom(live2, history[1]);
-  const h8 = historyOf(SIGN, NOW_KEY - 95, 96, 1, { gap: [2026 * 12 + 2, 2026 * 12 + 3], partial: [2025 * 12 + 9] });   // 8 years (its own month in progress)
+  const h8 = historyOf(SIGN, NOW_KEY - 95, 96, 1, { gap: [2026 * 12 + 2, 2026 * 12 + 3], partial: [2025 * 12 + 9] });   // 8 years
 
   const glade = { available: true, active: false, level: 4, treeLine: false, reason: "" };
 
   const base = { hubOpen: false, contract: 14, buildStamp: "", showHubButton: true, build: buildItems(), glade,
     resorts: [], resortLive: [], selectedResort: NULL, runs: [], runLive: [], lifts: [], problems: [], city, pisteMap: true, follow: 0, history: [],
-    liftLine: { available: true, active: false, state: "PickBase" },   // contract 12; 13 = T136 RunLive.snowDepthCm / gunWhy
-    grade: { available: true, active: false, state: "" } };            // contract 14 (T139): the Runs tab's grading chip
+    liftLine: { available: true, active: false, state: "PickBase" },
+    grade: { available: true, active: false, state: "" } };
 
   window.SkiScenarios = {
     "not connected (no C#)": Object.assign({}, base, { contract: 0, city: Object.assign({}, city, { known: false }) }),
@@ -167,24 +163,23 @@
     "connected, empty city": Object.assign({}, base, { hubOpen: true, build: buildItems({ locked: ["lodgeGrand", "liftTram", "baseStationTram", "topStationTram"] }) }),
     "Ash Flat (runs, lifts, problems)": Object.assign({}, base, { hubOpen: true, resorts, resortLive: [live, live2], selectedResort: SIGN, runs, runLive, lifts, problems, history,
       glade: Object.assign({}, glade, { active: true }), build: buildItems({ active: "runGroomed", built: ["school"] }) }),
-    // T78: 8 years of history, so "All" draws July-June seasons (over 60 months).
+    // 8 years of history, so "All" draws July-June seasons (over 60 months)
     "Ash Flat, 8 years of history": Object.assign({}, base, { hubOpen: true, resorts, resortLive: [moneyFrom(Object.assign({}, live), h8), live2], selectedResort: SIGN,
       runs, runLive, lifts, problems, history: [h8, history[1]], build: buildItems({ built: ["school"] }) }),
-    // T82 B5a: the status line's two other snow states - estimated snow ("≈ 41 cm · 72 %", the season word in the tooltip) and a
-    // warning hint that keeps the slot ("Thawing", the snow pair in the tooltip).
+    // The status line's two other snow states: estimated snow ("≈ 41 cm · 72 %", season word in the tooltip) and a warning hint
+    // that keeps the slot ("Thawing", the snow pair in the tooltip).
     "Ash Flat, snow estimated": Object.assign({}, base, { hubOpen: true, resorts, resortLive: [Object.assign({}, live, { snowEstimated: true, snowDepthCm: 41, snowPct: 72 }), live2],
       selectedResort: SIGN, runs, runLive, lifts, problems, history, build: buildItems({ built: ["school"] }) }),
     "Ash Flat, thawing": Object.assign({}, base, { hubOpen: true, resorts, resortLive: [Object.assign({}, live, { seasonHint: 3, snowDepthCm: 22, snowPct: 54, topTempC: 3 }), live2],
       selectedResort: SIGN, runs, runLive, lifts, problems, history, build: buildItems({ built: ["school"] }) }),
-    // T86 (field 2026-10-19, Ash Flat 22:13): a ski school on a sign with no counted run (SUMMER: schoolValue 0, no row 25). The School
-    // row must read "No run counts yet" (dim), never "No ski school".
+    // A ski school on a sign with no counted run (summer: schoolValue 0, no row 25): the School row must read "No run counts
+    // yet" (dim), never "No ski school".
     "Ash Flat, school built, no run counts": Object.assign({}, base, { hubOpen: true, resorts, resortLive: [Object.assign({}, live, { summer: true, schoolValue: 0 }), live2],
       selectedResort: SIGN, runs, runLive, lifts, problems, history, build: buildItems({ built: ["school"] }) }),
   };
 
-  // T114 (2026-10-20): the stress case of "never a scrollbar" and the field's 1 / 1 + "Lift 3 / 4 / 5 is unfinished +5" (report items 2, 9):
-  // a long area name, 30 runs, 12 lift rows of which 5 are unfinished lines (liftsComplete 7, 5 of them powered), and nine band rows that
-  // fold to seven (three LiftUnfinished -> one, two LiftNoPower -> one). Plausible, not measured.
+  // Stress case for "never a scrollbar": a long area name, 30 runs, 12 lift rows of which 5 are unfinished lines (liftsComplete
+  // 7, 5 of them powered), and nine band rows that fold to seven (three LiftUnfinished -> one, two LiftNoPower -> one).
   const BIG = E(105);
   const bigRuns = [], bigRunLive = [];
   for (let i = 0; i < 30; i++) {
@@ -218,7 +213,7 @@
   window.SkiScenarios["Big resort (long name, 30 runs, 12 lifts, 5 unfinished)"] = Object.assign({}, base, { hubOpen: true, resorts: bigResorts,
     resortLive: [bigLive, live, live2], selectedResort: BIG, runs: bigRuns.concat(runs), runLive: bigRunLive.concat(runLive), lifts: bigLifts.concat(lifts),
     problems: bigProblems.concat(problems), history: [Object.assign({}, history[0], { sign: BIG }), history[0], history[1]], build: buildItems({ built: ["school"] }) });
-  // The field case (crop 23.10.43): one complete lift and four unfinished lines -> "1 / 5" (was "1 / 1"), one folded row "4 lifts unfinished".
+  // One complete lift and four unfinished lines -> "1 / 5", one folded row "4 lifts unfinished".
   const fieldLifts = [Object.assign({}, lifts[0], { name: "Lift 1", customName: false })]
     .concat([2, 3, 4, 5].map((n) => Object.assign({}, lifts[2], { entity: E(800 + n), top: E(820 + n), name: "Lift " + n, customName: false })));
   window.SkiScenarios["Field case: 1 complete lift, 4 unfinished"] = Object.assign({}, base, { hubOpen: true,

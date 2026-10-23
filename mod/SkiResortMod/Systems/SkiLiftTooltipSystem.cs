@@ -1,121 +1,75 @@
-// SkiLiftTooltipSystem — the lift building aids' tooltips: the station alignment readout and the
-// bulldozer warning (docs/research/hub-u2-spec.md §5.5 "Tooltip", §5.7; Settings ▸ Lifts ▸
-// LiftBuildAids). Created 2026-10-03 (Round L1, implementer I-2).
+// The lift building aids' tooltips: the station alignment readout and the bulldozer warning (Settings > Lifts >
+// LiftBuildAids).
 //
-// CATALOG PHASE B (2026-10-11, docs/research/art/assets-2026-10/code-round-2/round-2-contract.md §6.4, lift group): no new
-// text and no code change here — the readout's numbers and its world anchor (SubjectTip / PartnerTip, Last) come from
-// SkiStationAlignSystem, which now measures with each station row's own stub tip (−16 on the detachable / gondola
-// stations) and pairs a station with partners of its own lift type only; the bulldozer warning already reads
-// LiftLinePrefabSet, every FOUND lift line of every type.
-//
-// CATALOG PHASE C (2026-10-11, code-round-3/round-3-contract.md §4.12, mover group) — header note only, no code change: the
-// bulldozer warning covers the tram line through LiftLinePrefabSet once it is FOUND, and its text ("The lift stops until
-// you redraw it") is true for the tram too — a deleted span leaves no shuttle path, so TramShuttleSystem parks both cabins
-// in their hosted pose until the line is redrawn; the alignment readout measures the tram stations with their own rows'
-// stub tips (−12).
-//
-// 1. ALIGNMENT READOUT (state from SkiStationAlignSystem, which runs at Rendering: TooltipUISystem is
-//    a UIUpdate system and UIUpdate precedes Rendering in MainLoop, SystemOrder.cs:67-68, so this is
-//    the PREVIOUS frame's measurement — one frame of lag, accepted). The rows, by StationAlign.Classify
-//    (Round F6, item B2; StationAlign header READOUT CLASS):
+// 1. ALIGNMENT READOUT. State from SkiStationAlignSystem, which runs at Rendering: TooltipUISystem is a UIUpdate system and
+//    UIUpdate precedes Rendering in MainLoop (SystemOrder.cs:67-68), so this is the PREVIOUS frame's measurement (one frame
+//    of lag, accepted). The rows, by StationAlign.Classify (header READOUT CLASS):
 //      Numbers           → ALIGN_OFFSET (FloatTooltip, unit "length", signed: + left / − right of the
 //                          partner's axis seen from the partner, StationAlign SIGN CONVENTION),
 //                          ALIGN_ANGLE (unit "angle", signed), ALIGN_DISTANCE (length), ALIGN_RISE
 //                          (length, signed);
 //      Straight          → ALIGN_STRAIGHT (StringTooltip, Success) + ALIGN_DISTANCE + ALIGN_RISE;
 //      FacingAway        → ALIGN_OFFSET + ALIGN_FACING_AWAY (StringTooltip, Warning, in place of the
-//                          angle: |yaw| > 90° read "−180 °" in field test 6, the same 180 as the green
+//                          angle: |yaw| > 90° would read "−180 °", the same 180 as the green
 //                          "Straight — 180°") + ALIGN_DISTANCE + ALIGN_RISE;
 //      PartnerFacingAway → ALIGN_OFFSET + ALIGN_PARTNER_AWAY (Warning: the subject sits behind the
 //                          OTHER station's stub, turning the subject cannot fix it) + ALIGN_DISTANCE +
 //                          ALIGN_RISE.
-//    WHERE (Round F6, item B1; findings/ui-small.md §2 and its Verification, correction 3). The game
-//    does not lay tooltip groups out against each other: TooltipUISystem sends the mouse group (rows
-//    from cursor + (0, 16) px down and right, TooltipUISystem.cs:14, :35-41, :56-61) and then every
-//    world group (:62-65); each renders as its own 1 × 1 px box at its own screen point, later groups
-//    on top. Our world group at the stub tip covered the object tool's own rows ("Place", "Rotate",
-//    the cost) whenever the tip projected below the cursor (screenshot 20.46.09.59). So:
-//      * subject is the tool's PREVIEW (m_Align.SubjectIsTemp: the object tool in Create / Move mode,
-//        the preview sits under the cursor) → the rows go to the MOUSE list, one column with the
-//        vanilla rows — the vanilla NetCourseTooltipSystem pattern (Game.UI.Tooltip/
-//        NetCourseTooltipSystem.cs:67-75 keeps the widgets as children of its world group, :127-133
-//        adds the same widgets to the mouse list instead). Our system follows TempCostTooltipSystem
-//        (REGISTRATION; SystemOrder.cs:911) and InputHintsTooltipSystem is the last UITooltip system
-//        (:933), so the column reads: cost, our rows, then Place / Rotate hints;
-//      * the DEFAULT tool is active (a selected station, or one just moved: subjects (ii) / (iii))
-//        → a WORLD group at the subject's stub tip, as GuideLineTooltipSystem does
-//        (Game.UI.Tooltip/GuideLineTooltipSystem.cs:29-67: TooltipGroup with Center alignment and
-//        Category.Network, position from TooltipSystemBase.WorldToTooltipPos, SetChildrenChanged when
-//        the position moves; TooltipSystemBase.cs:20-30 AddGroup, :44-50 WorldToTooltipPos); nothing
-//        while the tip is off screen;
-//      * any OTHER tool, the subject a JUST-MOVED station (subject (ii), m_Align.SubjectIsMoved: e.g. a
-//        station nudged with Move It's tool) → the rows go to the MOUSE list, as for a preview (Round E1
-//        addendum A2, 2026-10-04: Round F6 B1 showed NOTHING here, so a Move It nudge showed the guide
-//        lines but no numbers — field-test-6-fixes.md §4.3: "send subject (ii) rows to the mouse list
-//        when the tool is not the default one"). In the mouse column our rows stack with the tool's own
-//        rows and cover none of them;
-//      * any OTHER tool, the subject only SELECTED (subject (iii)) → NOTHING, no-partner row included
-//        (F6 B1 kept; E1 fixer pass 2, e1-spec §8.10 G1: S0 had applied A2 to every non-default tool, so a
-//        station left selected added its rows — or "no station to align with" — under the hub's run
-//        brush, the Net Tool, the bulldozer and the tree tool; ToolSystem.activeTool's setter does not
-//        clear `selected`, ToolSystem.cs:84-99, and SelectedInfoUISystem.OnToolChanged only refreshes
-//        the panel). Never the world group with such a tool: the case the F6 checker found — a station
-//        selected in the world, then the hub's lift tile starts the Net Tool — put the world group on the
-//        station's stub tip, exactly where the line starts, over the net tool's rows.
+//    WHERE. The game does not lay tooltip groups out against each other: TooltipUISystem sends the mouse group (rows from
+//    cursor + (0, 16) px down and right, TooltipUISystem.cs:14, :35-41, :56-61) and then every world group (:62-65); each
+//    renders as its own 1 × 1 px box at its own screen point, later groups on top. A world group at the stub tip would cover
+//    the object tool's own rows ("Place", "Rotate", the cost) whenever the tip projects below the cursor. So:
+//      * subject is the tool's PREVIEW (m_Align.SubjectIsTemp: the object tool in Create / Move mode, the preview sits under
+//        the cursor) → the rows go to the MOUSE list, one column with the vanilla rows, the NetCourseTooltipSystem pattern
+//        (NetCourseTooltipSystem.cs:67-75 keeps the widgets as children of its world group, :127-133 adds the same widgets to
+//        the mouse list instead). Our system follows TempCostTooltipSystem (REGISTRATION) and InputHintsTooltipSystem is the
+//        last UITooltip system (SystemOrder.cs:933), so the column reads: cost, our rows, then Place / Rotate hints;
+//      * the DEFAULT tool is active (a selected station, or one just moved) → a WORLD group at the subject's stub tip, as
+//        GuideLineTooltipSystem does (GuideLineTooltipSystem.cs:29-67: TooltipGroup with Center alignment and
+//        Category.Network, position from TooltipSystemBase.WorldToTooltipPos, SetChildrenChanged when the position moves;
+//        TooltipSystemBase.cs:20-30 AddGroup, :44-50 WorldToTooltipPos); nothing while the tip is off screen;
+//      * any OTHER tool, the subject a JUST-MOVED station (m_Align.SubjectIsMoved: e.g. nudged with Move It's tool) → the
+//        rows go to the MOUSE list, as for a preview, so they stack with the tool's own rows and cover none of them;
+//      * any OTHER tool, the subject only SELECTED → NOTHING, no-partner row included: ToolSystem.activeTool's setter does
+//        not clear `selected` (ToolSystem.cs:84-99) and SelectedInfoUISystem.OnToolChanged only refreshes the panel, so a
+//        station left selected would add rows under the hub's run brush, the Net Tool, the bulldozer and the tree tool.
+//        Never the world group with such a tool: a station selected in the world, then the hub's lift tile starts the Net
+//        Tool, would put the group on the station's stub tip, exactly where the line starts, over the net tool's rows.
 //      The rule is the pure StationAlign.PlaceOf (header READOUT PLACE; tests/LiftBatch).
-//    NUMBER FORMAT (Round F6, item B6: this note used to say "angle with one decimal", which holds only
-//    below 100°). The installed UI formats both units with Xc (1.6.2f1 index.js@508526): ONE decimal
-//    below 100 with a trailing ".0" dropped, WHOLE numbers from 100 up, and any non-zero |v| < 0.1
-//    shown as 0.1. "angle" calls Xc with one decimal (@507953), so a yaw of −179.6° prints "−180 °";
-//    metric "length" uses Xc in meters below 1,000 m and kilometers with one decimal from 1,000 m
-//    (@504557); unit names from @501249. Values are therefore rounded to 0.1 here and |v| < 0.05 is
-//    sent as 0.
-//    No partner → ALIGN_NO_PARTNER on the MOUSE (StringTooltip, Warning) — only for a TOP station
-//    subject, or when a free station of the other kind exists but is behind / too far (fixer round,
-//    finding l1-lifts-4: in the guided base-first order every base placement and every lone selected
-//    base showed the warning; spec §5.5 literally says "when nothing qualifies"); same WHERE rule.
-// 2. BULLDOZER WARNING while BulldozeToolSystem is the active tool: count Temp lift-line edges (every
-//    SkiCatalog lift line, SkiChairliftHV today: SkiPrefabCatalogSystem.LiftLinePrefabSet (Catalog Phase B: every lift
-//    type's line — the set holds all four types' FOUND lines, so the warning covers them with no code change), Catalog Phase A
-//    R4 / extensibility.md §1 row 18 — was the census's single ChairliftPrefab entity) whose Temp flags carry Delete (TempFlags.Delete = 2, Game.Tools/TempFlags.cs:9) and sum their
-//    Curve lengths — the bulldozer preview creates Delete definitions for the hovered target
-//    (BulldozeToolSystem.cs:428-488; ApplyNetSystem.cs:438-441, per spec §5.7) [likely]:
+//    NUMBER FORMAT. The installed UI formats both units with Xc (1.6.2f1 index.js@508526): ONE decimal below 100 with a
+//    trailing ".0" dropped, WHOLE numbers from 100 up, and any non-zero |v| < 0.1 shown as 0.1. "angle" calls Xc with one
+//    decimal (@507953), so a yaw of −179.6° prints "−180 °"; metric "length" uses Xc in meters below 1,000 m and kilometers
+//    with one decimal from 1,000 m (@504557); unit names from @501249. Values are therefore rounded to 0.1 here and
+//    |v| < 0.05 is sent as 0.
+//    No partner → ALIGN_NO_PARTNER on the MOUSE (StringTooltip, Warning), only for a TOP station subject, or when a free
+//    station of the other kind exists but is behind / too far (in the guided base-first order a base has nothing to align
+//    with yet); same WHERE rule.
+// 2. BULLDOZER WARNING while BulldozeToolSystem is the active tool: count Temp lift-line edges (every FOUND line in
+//    SkiPrefabCatalogSystem.LiftLinePrefabSet, all lift types) whose Temp flags carry Delete (TempFlags.Delete = 2,
+//    Game.Tools/TempFlags.cs:9) and sum their Curve lengths. The bulldozer preview creates Delete definitions for the
+//    hovered target (BulldozeToolSystem.cs:428-488; ApplyNetSystem.cs:438-441) [likely]:
 //      1 section  → BULLDOZE_SECTION (Warning) + BULLDOZE_LENGTH;
 //      ≥ 2, ONE TOWER's sections (IsOneTower: every deleted original edge meets one node and that node
 //                   has no other lift section) → BULLDOZE_TOWER (Warning) + BULLDOZE_COUNT +
 //                   BULLDOZE_LENGTH (a tower click deletes every connected section on the layer,
-//                   BulldozeToolSystem.cs:592-641 per spec §5.1);
+//                   BulldozeToolSystem.cs:592-641);
 //      ≥ 2 otherwise (a bulldozer DRAG across several cables) → BULLDOZE_SECTIONS (Warning, neutral) +
-//                   count + length (fixer round, finding l1-lifts-3: spec §5.7's "≥ 2 → tower" called a
-//                   drag "a tower");
+//                   count + length;
 //      any Temp SkiLiftMarker edge (SkiPrefabCatalogSystem.MarkerEntity) with Delete → + BULLDOZE_STUB (Info).
 //    Vanilla's tower semantics are not changed.
 //
-// MOUSE TOOLTIP MECHANICS as SkiGladeTooltipSystem (whose header carries the citations): widgets
-// built once in OnCreate; StringTooltip.value boxes on compare, so string values are assigned once;
-// NumberTooltip values compare through IEquatable (no box) and are assigned every frame;
-// TooltipUISystem clears the mouse group and the groups, then runs UITooltip only while the mouse is
-// not over UI (TooltipUISystem.cs:48-55), so everything is re-added every frame. Mod-unique paths:
-// skiLiftAlign (group), skiLiftAlignStraight / Offset / Angle / FacingAway / PartnerAway / Distance /
-// Rise (group children, or mouse rows while placing), skiLiftAlignNoPartner, skiLiftBulldozeSection /
-// Tower / Sections / Count / Length / Stub. A widget is in the mouse list OR shown through the group in
-// one frame, never both (AddMouseTooltip refuses a duplicate path, TooltipSystemBase.cs:32-42).
+// MOUSE TOOLTIP MECHANICS as SkiGladeTooltipSystem (whose header carries the citations). Mod-unique paths (AddMouseTooltip
+// refuses a duplicate path, TooltipSystemBase.cs:32-42): skiLiftAlign (group), skiLiftAlignStraight / Offset / Angle /
+// FacingAway / PartnerAway / Distance / Rise (group children, or mouse rows while placing), skiLiftAlignNoPartner,
+// skiLiftBulldozeSection / Tower / Sections / Count / Length / Stub. A widget is in the mouse list OR shown through the
+// group in one frame, never both.
 //
-// REGISTRATION (I-4, Mod.cs): updateSystem.UpdateAfter<SkiLiftTooltipSystem,
-// Game.UI.Tooltip.TempCostTooltipSystem>(SystemUpdatePhase.UITooltip) — the SkiGladeTooltipSystem
-// anchor (TempCostTooltipSystem is UpdateAt UITooltip, SystemOrder.cs:911, 1.6.2 :912), so our lines
-// follow the vanilla cost line of the bulldozer / placement preview.
+// REGISTRATION (Mod.cs): UpdateAfter<SkiLiftTooltipSystem, Game.UI.Tooltip.TempCostTooltipSystem>(UITooltip), the
+// SkiGladeTooltipSystem anchor, so our lines follow the vanilla cost line of the bulldozer / placement preview.
 //
-// LOCALE KEYS (root LocaleEN.cs, I-4; texts are spec §2.4's): SkiResort.LiftTooltip.ALIGN_OFFSET,
-// ALIGN_ANGLE, ALIGN_DISTANCE, ALIGN_RISE, ALIGN_STRAIGHT, ALIGN_NO_PARTNER, ALIGN_FACING_AWAY and
-// ALIGN_PARTNER_AWAY (Round F6, B2), BULLDOZE_SECTION, BULLDOZE_TOWER, BULLDOZE_SECTIONS (fixer
-// round), BULLDOZE_STUB, BULLDOZE_COUNT, BULLDOZE_LENGTH.
-//
-// HOUSE RULES: "created" line; one ARM line per load; Game mode only; m_Armed / m_Disabled /
-// m_ErrorLogged per load; one-shot "!!!" catch that silences these tooltips until the next load.
-// No per-frame managed allocation in our code (no LocalizedString.Id(key, args) per frame; the
-// group's child list is rebuilt only when the readout class changes; the mouse rows are added by an
-// indexed loop over that list — vanilla's AddMouseTooltip duplicate check is its own cost).
+// HOUSE RULES: "created" line; one ARM line per load; Game mode only; one-shot "!!!" catch that silences these tooltips until
+// the next load. No per-frame managed allocation in our code (no LocalizedString.Id(key, args) per frame; the group's child
+// list is rebuilt only when the readout class changes; the mouse rows are added by an indexed loop over that list).
 
 using System;
 using System.Collections.Generic;
@@ -143,21 +97,20 @@ namespace SkiResortMod.Systems
         public const string KeyAlignRise = "SkiResort.LiftTooltip.ALIGN_RISE";
         public const string KeyAlignStraight = "SkiResort.LiftTooltip.ALIGN_STRAIGHT";
         public const string KeyAlignNoPartner = "SkiResort.LiftTooltip.ALIGN_NO_PARTNER";
-        public const string KeyAlignFacingAway = "SkiResort.LiftTooltip.ALIGN_FACING_AWAY";     // F6 B2
-        public const string KeyAlignPartnerAway = "SkiResort.LiftTooltip.ALIGN_PARTNER_AWAY";   // F6 B2
+        public const string KeyAlignFacingAway = "SkiResort.LiftTooltip.ALIGN_FACING_AWAY";
+        public const string KeyAlignPartnerAway = "SkiResort.LiftTooltip.ALIGN_PARTNER_AWAY";
         public const string KeyBulldozeSection = "SkiResort.LiftTooltip.BULLDOZE_SECTION";
         public const string KeyBulldozeTower = "SkiResort.LiftTooltip.BULLDOZE_TOWER";
-        public const string KeyBulldozeSections = "SkiResort.LiftTooltip.BULLDOZE_SECTIONS";   // fixer round, l1-lifts-3
+        public const string KeyBulldozeSections = "SkiResort.LiftTooltip.BULLDOZE_SECTIONS";
         public const string KeyBulldozeStub = "SkiResort.LiftTooltip.BULLDOZE_STUB";
         public const string KeyBulldozeCount = "SkiResort.LiftTooltip.BULLDOZE_COUNT";
         public const string KeyBulldozeLength = "SkiResort.LiftTooltip.BULLDOZE_LENGTH";
 
         private ToolSystem m_ToolSystem;
         private BulldozeToolSystem m_Bulldoze;
-        private DefaultToolSystem m_DefaultTool;   // F6 B1: the world group only with this tool
+        private DefaultToolSystem m_DefaultTool;  // the world group only with this tool
         private SkiStationAlignSystem m_Align;
-        // Catalog Phase A (ext row 18; was :145 LiftCensusSystem m_Census, whose only read was the census's
-        // ChairliftPrefab / MarkerPrefab single entities at :418): the lift lines and the marker from the catalog.
+        // The lift lines and the marker come from the catalog.
         private SkiPrefabCatalogSystem m_PrefabCatalog;
         private EntityQuery m_TempEdgeQuery;
 
@@ -344,13 +297,11 @@ namespace SkiResortMod.Systems
             }
         }
 
-        // ── 1. alignment readout ─────────────────────────────────────────────────────────────────
         private void AlignReadout()
         {
-            // Header 1 WHERE (F6 B1, E1 addendum A2 as narrowed by fixer pass 2): the tool's preview →
-            // mouse rows; the default tool → the world group; any other tool → mouse rows for a JUST-MOVED
-            // station (Move It), nothing for a station that is only still selected — no-partner row
-            // included, as in F6 (StationAlign.PlaceOf, header READOUT PLACE).
+            // Header 1 WHERE: the tool's preview → mouse rows; the default tool → the world group; any other tool → mouse rows for a
+            // JUST-MOVED station (Move It), nothing for a station that is only still selected, no-partner row included
+            // (StationAlign.PlaceOf, header READOUT PLACE).
             StationAlign.ReadoutPlace place = StationAlign.PlaceOf(m_Align.SubjectIsTemp, m_Align.SubjectIsMoved,
                 m_ToolSystem.activeTool == m_DefaultTool);
             if (place == StationAlign.ReadoutPlace.None)
@@ -359,16 +310,15 @@ namespace SkiResortMod.Systems
 
             if (!m_Align.HasPartner)
             {
-                // Fixer round (finding l1-lifts-4): placing or selecting the FIRST station of a lift (a
-                // base, in the guided base → top → line order) has nothing to align with — warn only
-                // for a top station, or when a free station of the other kind exists but is behind it or
-                // farther than the radius.
+                // Placing or selecting the FIRST station of a lift (a base, in the guided base → top → line order) has nothing to align
+                // with: warn only for a top station, or when a free station of the other kind exists but is behind it or farther than
+                // the radius.
                 if (!m_Align.SubjectIsBase || m_Align.OtherKindExists)
                     AddMouseTooltip(m_NoPartner);
                 return;
             }
             StationAlign.Result r = m_Align.Last;
-            StationAlign.Readout cls = StationAlign.Classify(r);   // F6 B2, header 1
+            StationAlign.Readout cls = StationAlign.Classify(r);
             int layout = (int)cls;
             if (layout != m_GroupLayout)
             {
@@ -426,14 +376,12 @@ namespace SkiResortMod.Systems
             return math.abs(v) < 0.05f ? 0f : math.round(v * 10f) / 10f;
         }
 
-        // ── 2. bulldozer warning ─────────────────────────────────────────────────────────────────
         private void BulldozeWarning()
         {
             if (m_TempEdgeQuery.IsEmptyIgnoreFilter)
                 return;
-            // Catalog Phase A (ext row 18; was SkiLiftTooltipSystem.cs:418-419, the census's single ChairliftPrefab /
-            // MarkerPrefab entities): the catalog's live line set (fetched once, before the chunk loop) and marker.
-            // No line FOUND → no warning, as before (the catalog's ARM line and the census's "!!!" name the miss).
+            // The catalog's live line set (fetched once, before the chunk loop) and marker. No line FOUND → no warning (the catalog's
+            // ARM line and the census's "!!!" name the miss).
             HashSet<Entity> lines = m_PrefabCatalog.LiftLinePrefabSet;
             Entity marker = m_PrefabCatalog.MarkerEntity;
             if (lines.Count == 0)
@@ -458,7 +406,7 @@ namespace SkiResortMod.Systems
                         if ((temps[i].m_Flags & TempFlags.Delete) == 0)
                             continue;
                         Entity prefab = prefabs[i].m_Prefab;
-                        if (lines.Contains(prefab))   // was prefab == lift (ext row 18)
+                        if (lines.Contains(prefab))
                         {
                             sections++;
                             length += curves[i].m_Length;
@@ -484,8 +432,8 @@ namespace SkiResortMod.Systems
             }
             else if (sections >= 2)
             {
-                // Header item 2 (fixer round, finding l1-lifts-3): the tower text only when the deleted
-                // sections ARE one tower's sections; a drag over several cables gets the neutral text.
+                // The tower text only when the deleted sections ARE one tower's sections; a drag over several cables gets the neutral
+                // text.
                 AddMouseTooltip(IsOneTower(lines, sections) ? m_TowerWarn : m_SectionsWarn);
                 m_Count.value = sections;
                 AddMouseTooltip(m_Count);
@@ -500,17 +448,14 @@ namespace SkiResortMod.Systems
             BulldozeFramesShown++;
         }
 
-        /// <summary>Fixer round (finding l1-lifts-3): the deleted lift sections (their ORIGINAL edges,
-        /// Temp.m_Original of the preview's Delete copies, GenerateEdgesSystem.cs:1371-1377, 1.6.2
-        /// :1404-1410) all meet at one node AND that node has no other lift section (its ConnectedEdge
-        /// buffer, lift prefab only) — i.e. the click removes exactly one tower's sections. A bulldozer
-        /// drag across several cables (BulldozeToolSystem.cs:1548-1551, :1705-1707 add a control point
-        /// per entity; :431-463 delete the edges of the dragged path) fails it. A 2-section drag through
-        /// one tower passes it — its outcome is the same as clicking that tower (the node is orphaned and
-        /// deleted with them, GenerateNodesSystem.cs:1250-1255), so the text stays true. Main thread;
-        /// EntityManager reads sync their own writers; at most every frame while the bulldozer previews
-        /// two or more lift sections. Catalog Phase A (ext row 18; was one Entity liftPrefab): a lift section is an
-        /// edge of any catalog lift line (the live LiftLinePrefabSet the caller fetched; one line type today).</summary>
+        /// <summary>The deleted lift sections (their ORIGINAL edges, Temp.m_Original of the preview's Delete copies,
+        /// GenerateEdgesSystem.cs:1371-1377, 1.6.2 :1404-1410) all meet at one node AND that node has no other lift section (its
+        /// ConnectedEdge buffer, lift prefab only), i.e. the click removes exactly one tower's sections. A bulldozer drag across
+        /// several cables (BulldozeToolSystem.cs:1548-1551, :1705-1707 add a control point per entity; :431-463 delete the edges of
+        /// the dragged path) fails it. A 2-section drag through one tower passes it: its outcome is the same as clicking that
+        /// tower (the node is orphaned and deleted with them, GenerateNodesSystem.cs:1250-1255), so the text stays true. Main
+        /// thread; EntityManager reads sync their own writers; at most every frame while the bulldozer previews two or more lift
+        /// sections. A lift section is an edge of any catalog lift line (the live LiftLinePrefabSet the caller fetched).</summary>
         private bool IsOneTower(HashSet<Entity> liftPrefabs, int sections)
         {
             if (m_DeletedOriginals.Count != sections || sections < 2)

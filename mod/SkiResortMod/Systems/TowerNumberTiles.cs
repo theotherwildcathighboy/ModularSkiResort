@@ -1,21 +1,20 @@
-// TowerNumberTiles — PURE core of the per-tower number tiles (T123, DECISIONS 358; route V1 of docs/research/dynamic-numbers.md;
-// build report docs/research/lifts/tower-numbers-build-2026-10-20.md). No Unity.Entities: linked into tests/LiftBatch
-// (TowerNumberTests, TN-1..TN-8). The ECS side is TowerNumberTileSystem.
+// Pure core of the per-tower number tiles (no Unity.Entities; linked into tests/LiftBatch). The ECS side is
+// TowerNumberTileSystem (route V1 of docs/research/dynamic-numbers.md).
 //
-// RULE (Richard, DECISIONS 358 (2)): every line tower shows its own number, 1..200 in order from the base station along the line
-// (LiftTowerNumbering, LP-24), wrapping back to 1 after 200: tower 201 reads 1, 400 reads 200, 401 reads 1. A long line never
-// overflows: the layout is at most 3 digits for every int.
+// RULE: every line tower shows its own number, 1..200 in order from the base station along the line (LiftTowerNumbering),
+// wrapping back to 1 after 200: tower 201 reads 1, 400 reads 200, 401 reads 1. A long line never overflows: the layout is
+// at most 3 digits for every int.
 //
-// TILES (assets/blender/number_tiles.py, the source of every constant below): per plate class 11 one-quad prefabs,
-// SkiNumTile<cls>Blank (the baked numeral's whole window) and SkiNumTile<cls>N0..N9 (one digit cell = window / 3). Per plate face
-// a number is 1-3 digit tiles centered in the window (digit i of k at (i - (k-1)/2) cells from the window center); 1-2 digit numbers
-// put the Blank behind them (digits LayerM in front of it), 3 digits fill the window alone. So <= 3 tiles per face, 6 per tower.
-// Chairs (T124) will add a class row and plate rows; nothing here is tower-specific beyond the tables.
+// TILES (assets/blender/number_tiles.py is the source of every constant below): per plate class 11 one-quad prefabs,
+// SkiNumTile<cls>Blank (the baked numeral's whole window) and SkiNumTile<cls>N0..N9 (one digit cell = window / 3). Per plate
+// face a number is 1-3 digit tiles centered in the window (digit i of k at (i - (k-1)/2) cells from the window center); 1-2
+// digit numbers put the Blank behind them (digits LayerM in front of it), 3 digits fill the window alone. So <= 3 tiles per
+// face, 6 per tower.
 //
-// FRAME (measured from the shipped LOD0 FBXs, number_tiles.py --measure-plates -> docs/research/lifts/
-// tower-numbers-plates-2026-10-20.json): every numbered tower has two plates, center x 0, front quads facing +Z and -Z; the +Z face's
-// viewer-right is -X, the -Z face's is +X. The tile prefab faces +Z with its text running along -X (number_tiles.py FRAME), so the
-// +Z face takes it unrotated and the -Z face rotated 180 deg about Y. Plate rows hold the FRONT quad's center (6 mm proud of the host).
+// FRAME (measured from the shipped LOD0 FBXs, number_tiles.py --measure-plates): every numbered tower has two plates,
+// center x 0, front quads facing +Z and -Z; the +Z face's viewer-right is -X, the -Z face's is +X. The tile prefab faces +Z
+// with its text running along -X (number_tiles.py FRAME), so the +Z face takes it unrotated and the -Z face rotated 180 deg
+// about Y. Plate rows hold the FRONT quad's center (6 mm proud of the host).
 
 using System;
 using System.Collections.Generic;
@@ -71,8 +70,8 @@ namespace SkiResortMod.Systems
             }
         }
 
-        // Measured 2026-10-20 (tower-numbers-plates-2026-10-20.json; meshes FG/DQ/GD/Lattice letter P, tram B, as the hand-made prefabs
-        // reference them in gamedata-mirror). Hosted terminal towers (ET62 / ET68 / ETDQ / ETGD) carry a glyph-only plate: not numbered.
+        // Measured from the shipped LOD0 FBXs (number_tiles.py --measure-plates; meshes FG/DQ/GD/Lattice letter P, tram B, as the
+        // hand-made prefabs reference them). Hosted terminal towers (ET62 / ET68 / ETDQ / ETGD) carry a glyph-only plate: not numbered.
         public static readonly TowerPlate[] Plates =
         {
             new TowerPlate("SkiLiftTowerFG12", 0, 12.000f, 0.1760f, -0.1760f),
@@ -193,7 +192,7 @@ namespace SkiResortMod.Systems
 
         /// <summary>The per-owner diff: an existing tile is kept when a desired tile of the same key sits within MatchTolM of it
         /// (each desired matches at most one, nearest first); everything else is deleted / created. A changed digit is delete +
-        /// create (never an in-place PrefabRef swap, dynamic-numbers.md §3).</summary>
+        /// create, never an in-place PrefabRef swap (docs/research/dynamic-numbers.md §3).</summary>
         public static void Reconcile(IList<Existing> existing, IList<TileSpec> desired, List<int> deleteIdx, List<int> createIdx)
         {
             deleteIdx.Clear();

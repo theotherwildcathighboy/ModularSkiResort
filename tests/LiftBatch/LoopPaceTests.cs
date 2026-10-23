@@ -1,26 +1,22 @@
-// LoopPaceTests — R-3 / R-4 of the lift scale round (docs/research/lifts/lift-scale-2026-10-22.md, DECISIONS 369): the PURE
-// arithmetic of LiftMoverMath.cs (far-loop pace, bounds cadence, cost percentiles) and LiftLaneScope (the scoped lane harvest's
-// owners and the load-time watchdog compare). Where-tags `loop-pace/…`.
-//   MP-1  LoopPosition == the mover's managed expression (offset + speed × TimeS) % L and the Burst job's
-//         (offset + (phase + speed × 0.0)) % L, bit for bit, 20,000 seeded cases (clock up to the whole uint frame range / 60).
+// Pure arithmetic of LiftMoverMath.cs (far-loop pace, bounds cadence, cost percentiles) and LiftLaneScope (the scoped lane
+// harvest's owners and the load-time watchdog compare). Where-tags `loop-pace/...`.
+//   MP-1  LoopPosition == the mover's managed expression (offset + speed x TimeS) % L and the Burst job's
+//         (offset + (phase + speed x 0.0)) % L, bit for bit, 20,000 seeded cases.
 //   MP-2  BoxDistance: 0 inside / on the faces, axis distance on a face side, Euclidean at a corner.
-//   MP-3  StrideFor: 1 when off, nearer than FarMinM, not moving, clock not advancing, NaN; worked examples (1 km gondola
-//         at 60 fps 1x = 5, fixed-grip = 8 (cap), 3x speed = 1, 2 km = 8); 10,000 seeded cases: k × v × dt ≤ the allowed step
-//         and (k + 1) × v × dt > it unless k is the cap.
-//   MP-4  Decide at a constant stride k: written exactly every k passes after the seed's offset; stride 1 writes every pass.
-//   MP-5  CATCH-UP: 20,000 passes, camera distance and frame time changing in spells: every near pass writes the exact
-//         unthrottled pose (bit for bit), the written pose is never more than MaxStride − 1 passes old, and within a spell of
-//         constant dt and distance a far chair's shown place is within MaxStepRadians × distance of the exact one.
-//   MP-6  BOUNDS: near loops tag at ≥ 2 m of travel and are never ≥ 2 m + one pass of travel stale; far loops tag only on a
-//         written pass and at ≥ 2 m × stride; the pass a loop comes back near with ≥ 2 m of untagged travel tags it.
-//   MP-7  Tag rate: a fixed-grip loop near the camera at 60 fps, 1x, tags 1.20-1.25 times a second per chair (2.5 m/s / 2 m,
-//         whole passes); far at
-//         stride 8, at most 1/8 of that.
+//   MP-3  StrideFor: 1 when off, nearer than FarMinM, not moving, clock not advancing, NaN; worked examples; 10,000 seeded
+//         cases: k x v x dt <= the allowed step and (k + 1) x v x dt > it unless k is the cap.
+//   MP-4  Decide at a constant stride k writes exactly every k passes after the seed's offset; stride 1 writes every pass.
+//   MP-5  Catch-up: every near pass writes the exact unthrottled pose, the written pose is never more than MaxStride - 1
+//         passes old, and within a spell of constant dt and distance a far chair's shown place is within MaxStepRadians x
+//         distance of the exact one.
+//   MP-6  Bounds: near loops tag at >= 2 m of travel and are never stale by >= 2 m + one pass; far loops tag only on a
+//         written pass and at >= 2 m x stride; the pass a loop comes back near with >= 2 m of untagged travel tags it.
+//   MP-7  Tag rate: a fixed-grip loop near the camera at 60 fps, 1x, tags 1.20-1.25 times a second per chair; far at stride 8,
+//         at most 1/8 of that.
 //   MP-8  Percentiles (nearest rank) on known samples; Rank bounds.
 //   MP-9  LiftLaneScope.OwnersOf: every edge and its two nodes once, edge order, shared nodes deduplicated, null ids skipped.
-//   MP-10 Scoped harvest vs full scan on a synthetic city (lift edges + nodes with HV cable lanes, a vanilla HV line, water
-//         lanes, a Temp / Deleted lane): identical sets; a lane on a lift node no census edge touches is reported MISSED by
-//         CompareHarvests; a lane the full filter rejects but a drifted scoped filter keeps is reported EXTRA.
+//   MP-10 Scoped harvest vs full scan on a synthetic city: identical sets; a lane on a lift node no census edge touches is
+//         reported MISSED by CompareHarvests; a lane the full filter rejects but a drifted scoped filter keeps is EXTRA.
 
 using System;
 using System.Collections.Generic;
@@ -33,7 +29,7 @@ namespace LiftBatch
     public static class LoopPaceTests
     {
         private static Func<bool, string, string, bool> s_Check;
-        private static readonly double[] s_Speeds = { 2.5, 5.0, 5.5 };   // the Loop types' SpeedMps (fixed-grip, detachable, gondola)
+        private static readonly double[] s_Speeds = { 2.5, 5.0, 5.5 };   // Loop types' SpeedMps: fixed-grip, detachable, gondola
 
         public static void Run(Func<bool, string, string, bool> check)
         {
@@ -178,7 +174,7 @@ namespace LiftBatch
                 double timeS = 1000.0 + loop * 77.7;
                 LiftMoverMath.LoopPace pace = LiftMoverMath.Seed(loop, settings.MaxStride, timeS);
                 for (int i = 0; i < chairs; i++)
-                    shown[i] = LiftMoverMath.LoopPosition(offsets[i], speed, timeS, length);   // the rebuild pass wrote them
+                    shown[i] = LiftMoverMath.LoopPosition(offsets[i], speed, timeS, length);
                 int lastWritePass = 0;
                 double spellDt = 1.0 / 60.0;
                 float spellDistance = 100f;
@@ -325,7 +321,7 @@ namespace LiftBatch
             LiftMoverMath.LoopPace near = LiftMoverMath.Seed(0, 8, 0.0), far = LiftMoverMath.Seed(1, 8, 0.0);
             int nearTags = 0, farTags = 0;
             double t = 0.0;
-            for (int pass = 1; pass <= 60 * 60; pass++)   // one minute
+            for (int pass = 1; pass <= 60 * 60; pass++)
             {
                 t += dt;
                 LiftMoverMath.Decide(ref near, 1, t, speed, out _, out bool a);
@@ -334,7 +330,7 @@ namespace LiftBatch
                 if (b) farTags++;
             }
             double nearRate = nearTags / 60.0, farRate = farTags / 60.0;
-            // 2 m of travel takes 48 passes of 2.5 / 60 m on paper; float accumulation makes it 48-49: 1.22-1.25 per second.
+            // 2 m of travel is 48 passes of 2.5 / 60 m on paper; float accumulation makes it 48-49: 1.22-1.25 per second.
             Check(nearRate >= 60.0 / 50.0 && nearRate <= 1.25 + 1e-9, W, $"near fixed-grip: {nearRate:F3} tags/s per chair (want 1.20-1.25)");
             Check(farRate <= nearRate / 8.0 + 0.02, W, $"far stride 8: {farRate:F3} tags/s per chair (want ≤ {nearRate / 8.0:F3})");
             Console.WriteLine($"INFO  {W}: near {nearRate:F3} / far {farRate:F3} bounds tags per second per chair (fixed-grip, 60 fps, 1x)");
@@ -413,7 +409,7 @@ namespace LiftBatch
             var byId = new Dictionary<int, FakeLane>();
             foreach (FakeLane l in lanes)
                 byId[l.Id] = l;
-            bool Keep(FakeLane l) => l.Live && l.Hv && liftOwners.Contains(l.Owner);   // the full scan's filter
+            bool Keep(FakeLane l) => l.Live && l.Hv && liftOwners.Contains(l.Owner);
 
             var full = new List<int>();
             foreach (FakeLane l in lanes)

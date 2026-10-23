@@ -1,21 +1,12 @@
-// LiftLaneHarvest — the SCOPED cable-lane harvest shared by ChairPinSystem (Loop lifts) and TramShuttleSystem (Shuttle lifts).
-// R-4 of docs/research/lifts/lift-architecture-review-2026-10-22.md (section 3: "the lane scan walks every utility lane in the
-// city"); report docs/research/lifts/lift-scale-2026-10-22.md, DECISIONS 369.
-//
-// BEFORE: each loop-cache rebuild (lift edits, and the 4,096-frame watchdog while lifts exist) walked EVERY utility lane of the
-// city (water, sewage, power, fences: m_LaneQuery = Lane + UtilityLane + Curve + Owner + PrefabRef) and kept the HV lanes whose
-// owner is a lift line: 0.33-1.45 ms for 10,990 lanes in the field (Richard's city), growing with the CITY, not the resort.
-// NOW: the owners are the census's line edges and their end nodes (LiftCensusSystem.CopyLineOwners); the lanes are read from
-// their Game.Net.SubLane buffers (the buffer of the lanes an edge / node owns; ChairPinSystem's static pin walks the same
-// buffer, TryPinChair). Cost = O(lift edges), independent of the city. The SAME filter as the full scan, lane by lane:
-// a live lane (exists, not Deleted, not Temp) with UtilityLane, an HV lane prefab (CableLanePrefabs), an Owner whose prefab is
-// a lift line of the asked mover kind, and Lane + Curve data. A lane reachable from two owners (an edge and its node) is kept
-// once.
-// ORDER: both harvests sort their result by lane entity (Index, Version) (SortByLane), so the loop cache sees one stable lane
-// order whichever path ran (the full scan's chunk order moved whenever a lane changed archetype, e.g. an Updated tag; the
-// topology is order-robust, but "chains side by side undecided — order kept" was not).
-// WATCHDOG: the callers run the full scan once per load next to their first scoped harvest and compare (Compare): a lane the
-// scan kept that the scoped harvest missed is a WARN, and that caller stays on the full scan for the rest of the load.
+// Scoped cable-lane harvest shared by ChairPinSystem (Loop lifts) and TramShuttleSystem (Shuttle lifts): reads the SubLane
+// buffers of the census's line edges and end nodes instead of scanning every utility lane in the city, so cost scales with
+// lift edges (docs/research/lifts/lift-scale-2026-10-22.md).
+// Applies the same filter as the full scan (live lane, UtilityLane, HV cable prefab, owner is a lift line of the mover kind,
+// Lane + Curve); a lane reachable from both an edge and its node is kept once.
+// Both paths sort by lane entity (SortByLane) so the loop cache sees one stable lane order; the full scan's chunk order
+// moves when a lane changes archetype.
+// Callers run the full scan once per load beside the first scoped harvest and Compare them; a mismatch is a WARN and that
+// caller stays on the full scan.
 
 using System.Collections.Generic;
 using System.Text;
@@ -30,9 +21,8 @@ namespace SkiResortMod.Systems
 {
     internal static class LiftLaneHarvest
     {
-        /// <summary>The lanes of <paramref name="owners"/>' SubLane buffers that pass the full scan's filter for
-        /// <paramref name="mover"/> lines, appended to <paramref name="into"/> (not cleared, not sorted). Returns the number of
-        /// SubLane entries visited. Main thread (EntityManager reads).</summary>
+        /// <summary>The lanes in <paramref name="owners"/>' SubLane buffers that pass the full scan's filter for <paramref name="mover"/>
+        /// lines, appended to <paramref name="into"/> (not cleared, not sorted). Returns the SubLane entries visited.</summary>
         public static int Scoped(EntityManager em, List<Entity> owners, IReadOnlyDictionary<Entity, LiftTypeDef> lineTypes,
             MoverKind mover, List<LiftLoopCache.CableLane> into, HashSet<Entity> seen)
         {
@@ -55,8 +45,7 @@ namespace SkiResortMod.Systems
             return visited;
         }
 
-        /// <summary>The full scan's filter for one lane entity (ChairPinSystem / TramShuttleSystem m_LaneQuery terms, then the
-        /// HV-prefab and owner tests in the same order).</summary>
+        /// <summary>The full scan's filter for one lane entity.</summary>
         public static bool TryCableLane(EntityManager em, Entity lane, IReadOnlyDictionary<Entity, LiftTypeDef> lineTypes,
             MoverKind mover, out LiftLoopCache.CableLane cable)
         {
@@ -85,7 +74,7 @@ namespace SkiResortMod.Systems
             return true;
         }
 
-        /// <summary>Header ORDER: sorts by lane entity (Index, then Version).</summary>
+        /// <summary>Sorts by lane entity (Index, then Version).</summary>
         public static void SortByLane(List<LiftLoopCache.CableLane> lanes)
         {
             lanes.Sort((a, b) =>
@@ -95,8 +84,8 @@ namespace SkiResortMod.Systems
             });
         }
 
-        /// <summary>Header WATCHDOG: lanes only the full scan kept (<paramref name="missed"/>) and lanes only the scoped harvest
-        /// kept (<paramref name="extra"/>), through the pure LiftLaneScope.CompareHarvests.</summary>
+        /// <summary>Lanes only the full scan kept (<paramref name="missed"/>) and lanes only the scoped harvest kept
+        /// (<paramref name="extra"/>), via LiftLaneScope.CompareHarvests.</summary>
         public static void Compare(List<LiftLoopCache.CableLane> full, List<LiftLoopCache.CableLane> scoped,
             List<Entity> missed, List<Entity> extra)
         {
@@ -109,7 +98,7 @@ namespace SkiResortMod.Systems
             LiftLaneScope.CompareHarvests(fullIds, scopedIds, missed, extra);
         }
 
-        /// <summary>"lane i:v (owner i:v)" for the first <paramref name="max"/> lanes (log text).</summary>
+        /// <summary>"lane i:v (owner i:v)" for the first <paramref name="max"/> lanes, for log text.</summary>
         public static string Describe(EntityManager em, List<Entity> lanes, int max)
         {
             var sb = new StringBuilder();

@@ -1,4 +1,4 @@
-// LayoutTests — SL-T (the table) and SL-L (each persisted type against it). See the Program.cs header.
+// SL-T (the table) and SL-L (each persisted type against it). See the Program.cs header.
 
 using System;
 using System.Collections.Generic;
@@ -46,10 +46,9 @@ namespace SaveBatch
         private static Func<bool, string, string, bool> s_Check;
         private static bool C(bool ok, string where, string msg) => s_Check(ok, where, msg);
 
-        // SHIPPED SNAPSHOT: every table entry that is (or, before the first upload, will be) in players' saves, verbatim as
-        // Render() prints it. A guard copy, not a second table: SL-T fails if a shipped entry is edited or removed; a NEW
-        // entry (a post-release bump) is appended to SaveLayouts.cs and listed as INFO until it ships, then added here.
-        // Frozen with release 1.0.0 (pre-release until the first upload; constraints §4, "flips at the first upload").
+        // Shipped snapshot: every table entry that is (or will be) in players' saves, verbatim as Render() prints it. A guard copy,
+        // not a second table: SL-T fails if a shipped entry is edited or removed; a new entry (a post-release bump) is appended to
+        // SaveLayouts.cs and listed as INFO until it ships, then added here.
         private static readonly string[] Shipped =
         {
             "SkiRunBinding v1 10 m_Gate:entity m_Flags:u8 m_PaidAmount:i32",
@@ -76,7 +75,6 @@ namespace SaveBatch
                 OneType(row);
         }
 
-        // ── kinds ──────────────────────────────────────────────────────────────────────────────────────────────────────
 
         private static int SizeOf(string kind)
         {
@@ -163,7 +161,7 @@ namespace SaveBatch
         private static string Render(SaveLayouts.Layout row, SaveLayouts.LayoutVersion v) =>
             row.TypeName + " v" + v.Number + " " + v.Bytes + " " + string.Join(" ", v.Appended.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries));
 
-        // ── SL-T ───────────────────────────────────────────────────────────────────────────────────────────────────────
+        // SL-T
 
         private static void Table()
         {
@@ -204,7 +202,7 @@ namespace SaveBatch
                     Program.Info("SL-T unreleased layout entry (add it to Shipped when it ships): " + r);
         }
 
-        // ── SL-L ───────────────────────────────────────────────────────────────────────────────────────────────────────
+        // SL-L
 
         private sealed class Codec
         {

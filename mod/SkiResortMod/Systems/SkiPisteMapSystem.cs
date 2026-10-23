@@ -1,57 +1,42 @@
-// SkiPisteMapSystem — the piste-map overlay (Round E1, decision D19; docs/research/econ-round/spec/
-// ch5-hub-csharp.md §8): while the hub is open with its Piste map toggle on (and the tree tool off), the
-// shown ski area's run outlines are drawn on the ground, draped on the terrain, in their difficulty colors;
-// natural runs are dashed, the run the mouse is over in the hub's run list is drawn twice as wide and fully
-// opaque. Created as a stage-0 shell (S0, e1-spec I-22); written 2026-10-04 (Round E1, stream S5).
+// The piste-map overlay: while the hub is open with its Piste map toggle on (and the tree tool off), the shown ski area's run
+// outlines are drawn on the ground, draped on the terrain, in their difficulty colors; natural runs are dashed, the run the
+// mouse is over in the hub's run list is drawn twice as wide and fully opaque.
 //
-// WHAT IT READS (ch5 §4.7, C2): SkiResortHubUISystem.PisteMapVisible (armed, not disabled, the UI answered
-// uiHello with contract 3, the hub open, the toggle on), ShownSign and HoveredRun; SkiGladeToolSystem
-// .IsActive (C15: the tree tool draws its own outlines on the same edges, so the piste map steps aside);
-// SkiRunCatalogSystem rows (Gate, Kind, Band; the catalog runs with the hub closed since E1, ch2 §2, and its
-// Revision hash includes the band, so a rating recolors within a frame) and each run's Game.Areas.Node
-// buffer. Nothing else: no ECS write, no component of ours.
+// Reads: SkiResortHubUISystem.PisteMapVisible, ShownSign and HoveredRun; SkiGladeToolSystem.IsActive (the tree tool draws its own
+// outlines on the same edges, so the piste map steps aside); SkiRunCatalogSystem rows (Gate, Kind, Band; its Revision hash
+// includes the band, so a rating recolors within a frame) and each run's Game.Areas.Node buffer. No ECS write.
 //
-// THE CACHE (§8.5): the outlines are cut ONCE into a managed stage of straight segments
-// (PisteMapRules.SolidRing; natural runs PisteMapRules.DashRing — dashes cut on the CPU along the whole
-// outline, C3, because OverlayRenderSystem.Buffer.DrawDashedLine restarts its pattern on every edge) and
-// copied into a persistent NativeArray. Rebuilt only when the overlay becomes visible, the shown area
-// changes, the catalog Revision moves, or every BackstopS while drawn (a pure move of a run keeps the
-// catalog hash). A build reads the Node buffers with EntityManager.TryGetBuffer (Colossal.Entities; it
-// completes the jobs writing Node — a sync point on a BUILD only, never per frame). At most MaxSegments
-// segments; a run cut short is counted and warned once per load. A hover never rebuilds the cache (C2): it
-// maps HoveredRun to a slot, one job parameter.
+// Cache: outlines are cut once into a managed stage of straight segments (PisteMapRules.SolidRing; natural runs
+// PisteMapRules.DashRing) and copied into a persistent NativeArray. Rebuilt only when the overlay becomes visible, the shown
+// area changes, the catalog Revision moves, or every BackstopS while drawn (a pure move of a run keeps the catalog hash). A
+// build reads the Node buffers with EntityManager.TryGetBuffer, which completes the jobs writing Node: a sync point on a build
+// only, never per frame. At most MaxSegments segments; a run cut short is counted and warned once per load. A hover never
+// rebuilds the cache: it maps HoveredRun to a slot, one job parameter.
 //
-// THE DRAW (§8.6; the SkiRunDrawFeedbackSystem.StripDrawJob precedent, ch5 F8 / C1 — the glade tool draws
-// on the main thread, the feedback system is the job precedent): one [BurstCompile] IJob per frame over the
-// segment array, scheduled on OverlayRenderSystem.GetBuffer's dependencies (OverlayRenderSystem.cs:603-634)
-// and registered with AddBufferWriter (:636-639); OverlayRenderSystem.OnUpdate completes every writer, then
-// uploads and clears the lists (:738-741, :781, :790). Each segment: Buffer.DrawLine(outline, fill,
-// outlineWidth, StyleFlags.Projected, Line3.Segment, width, roundness (1, 1)) (:207-211; Projected drapes on
-// the terrain, :99-104). Width = BaseWidthM × PisteMapRules.WidthScale(camera zoom) (× HoverWidthFactor for
-// the hovered run, whose colors go fully opaque). Colors are the hub's band colors (hub.module.scss
-// .band*), sRGB / 255: OverlayRenderSystem converts with Color.linear (F7). The job reads no ECS data, so
-// base.Dependency is neither an input nor assigned.
+// Draw: one [BurstCompile] IJob per frame over the segment array (the SkiRunDrawFeedbackSystem.StripDrawJob precedent),
+// scheduled on OverlayRenderSystem.GetBuffer's dependencies (OverlayRenderSystem.cs:603-634) and registered with
+// AddBufferWriter (:636-639); OverlayRenderSystem.OnUpdate completes every writer, then uploads and clears the lists (:738-741,
+// :781, :790). Each segment: Buffer.DrawLine(outline, fill, outlineWidth, StyleFlags.Projected, Line3.Segment, width, roundness
+// (1, 1)) (:207-211; Projected drapes on the terrain, :99-104). Width = BaseWidthM x PisteMapRules.WidthScale(camera zoom)
+// (x HoverWidthFactor for the hovered run). Colors are the hub's band colors (hub.module.scss .band*), sRGB / 255:
+// OverlayRenderSystem converts with Color.linear. The job reads no ECS data, so base.Dependency is neither an input nor assigned.
 //
-// SAFETY (the StripDrawJob rules): m_Segments is written only in Build, after CompleteDraw(); every job
-// depends on the previous overlay writers, ours included, so completing m_DrawHandle completes all of ours;
-// OnGamePreload, OnGameLoadingComplete, OnStopRunning and OnDestroy complete it, and OnDestroy disposes
-// m_Segments after it. IJobExtensions.EarlyJobInit<PisteDrawJob>() runs once in OnCreate (try/caught), so
-// the first schedule does not pay the reflection-data cost; the first draw of the PROCESS is reported apart
-// (JIT) and kept out of the draw peak, as RunFeedback does.
+// Safety (the StripDrawJob rules): m_Segments is written only in Build, after CompleteDraw(); every job depends on the previous
+// overlay writers, ours included, so completing m_DrawHandle completes all of ours; OnGamePreload, OnGameLoadingComplete,
+// OnStopRunning and OnDestroy complete it, and OnDestroy disposes m_Segments after it. IJobExtensions.EarlyJobInit<PisteDrawJob>()
+// runs once in OnCreate (try/caught) so the first schedule does not pay the reflection-data cost; the first draw of the process
+// is reported apart (JIT) and kept out of the draw peak, as RunFeedback does.
 //
-// PHASE: Rendering, anchored UpdateBefore<SkiPisteMapSystem, Game.Rendering.OverlayRenderSystem> (Mod.cs;
-// load-bearing: the job must be registered before OverlayRenderSystem completes and clears the lists in the
-// same frame). Rendering runs paused included. It reads the hub's state written at UIUpdate earlier in the
-// same MainLoop frame (SystemOrder.cs:67-68).
-// COST (§8.9): hidden (hub closed, toggle off, tree tool on, or not armed) = two bool reads and a return;
-// drawn and unchanged = a few compares, one camera zoom read, GetBuffer + one Schedule + AddBufferWriter
-// (expected < 0.05 ms, UNVERIFIED, logged); a change = one cache build (expected 0.05-0.5 ms, logged).
+// Phase: Rendering, UpdateBefore<SkiPisteMapSystem, Game.Rendering.OverlayRenderSystem> (Mod.cs; load-bearing: the job must be
+// registered before OverlayRenderSystem completes and clears the lists in the same frame). Rendering runs paused included. It
+// reads the hub's state written at UIUpdate earlier in the same MainLoop frame (SystemOrder.cs:67-68).
+// Cost: hidden = two bool reads and a return; drawn and unchanged = a few compares, one camera zoom read, GetBuffer + one
+// Schedule + AddBufferWriter (expected < 0.05 ms, unverified, logged); a change = one cache build (expected 0.05-0.5 ms, logged).
 //
-// LOGS (§8.7): `SkiPisteMapSystem created`; the ARMED line once per load (Game mode); the first outline
-// build of a load; one WARN per load each for the segment cap, a build over SlowBuildWarnMs and a draw over
-// SlowDrawWarnMs; the first draw of the process; `PisteMap [cost]` after CostLogAfterDraws draws of a load;
-// a one-shot `!!!` that switches the overlay off until the next load (the hub keeps working). No line per
-// frame, per hover, per toggle (the hub writes the toggle line) or per later build (counted, DUMP).
+// Logs: `SkiPisteMapSystem created`; the ARMED line once per load; the first outline build of a load; one WARN per load each for
+// the segment cap, a build over SlowBuildWarnMs and a draw over SlowDrawWarnMs; the first draw of the process; `PisteMap [cost]`
+// after CostLogAfterDraws draws of a load; a one-shot `!!!` that switches the overlay off until the next load (the hub keeps
+// working). No line per frame, hover, toggle (the hub writes it) or later build (counted, in the dump).
 
 using System;
 using System.Collections.Generic;
@@ -96,9 +81,8 @@ namespace SkiResortMod.Systems
             public UnityEngine.Color Fill, Outline;
         }
 
-        /// <summary>One draw: every cached segment into the overlay buffer. Field layout follows
-        /// AreaBorderRenderSystem.cs:40-41, 97 (the Buffer field carries no attribute), as StripDrawJob.
-        /// Reads only our own NativeArray; no ECS data.</summary>
+        /// <summary>One draw: every cached segment into the overlay buffer. Field layout follows AreaBorderRenderSystem.cs:40-41, 97
+        /// (the Buffer field carries no attribute), as StripDrawJob. Reads only our own NativeArray; no ECS data.</summary>
         [BurstCompile]
         private struct PisteDrawJob : IJob
         {
@@ -130,8 +114,8 @@ namespace SkiResortMod.Systems
             }
         }
 
-        // Colors by (int)PisteStyle (Pending, Unrateable, Flat, Green, Blue, Black, DoubleBlack): the hub's band
-        // colors, sRGB / 255 (ch5 §8.3). Outline = fill and width 0 except the black runs' white edge.
+        // Colors by (int)PisteStyle (Pending, Unrateable, Flat, Green, Blue, Black, DoubleBlack): the hub's band colors, sRGB / 255.
+        // Outline = fill and width 0 except the black runs' white edge.
         private static readonly UnityEngine.Color[] s_Fill =
         {
             Rgb(255, 255, 255, 0.45f), Rgb(220, 150, 60, 0.9f), Rgb(170, 180, 190, 0.9f), Rgb(76, 175, 80, 0.95f),
@@ -144,14 +128,12 @@ namespace SkiResortMod.Systems
         };
         private static readonly float[] s_OutlineWidth = { 0f, 0f, 0f, 0f, 0f, Tuning.OutlineBlackM, Tuning.OutlineDoubleBlackM };
 
-        // Systems.
         private SkiResortHubUISystem m_Hub;
         private SkiRunCatalogSystem m_Catalog;
         private SkiGladeToolSystem m_GladeTool;
         private OverlayRenderSystem m_Overlay;
         private CameraUpdateSystem m_Camera;
 
-        // The cache.
         private NativeArray<PisteSegment> m_Segments;                       // Persistent, MaxSegments
         private readonly PisteSegment[] m_Stage = new PisteSegment[Tuning.MaxSegments];
         private readonly List<float3> m_Ring = new List<float3>(64);
@@ -169,7 +151,7 @@ namespace SkiResortMod.Systems
         private bool m_Truncated;
         private JobHandle m_DrawHandle;
 
-        // Per-load counters and timings (dev tab, DUMP, the cost line).
+        // Per-load counters and timings (dev tab, dump, the cost line)
         public int Builds, Draws;
         public float LastBuildMs, MaxBuildMs, LastDrawMs, MaxDrawMs;
         private double m_DrawMsSum, m_BuildMsSum;
@@ -177,7 +159,6 @@ namespace SkiResortMod.Systems
         private string m_LastBuildWhy = "-";
         private float m_LastWidthScale = 1f;
 
-        // Flags.
         private bool m_Armed, m_Disabled, m_ErrorLogged, m_FirstBuildLogged, m_TruncLogged, m_SlowDrawLogged,
             m_SlowBuildLogged, m_CostLogged;
         private static bool s_FirstDrawDone;   // per PROCESS (the JIT of Schedule<PisteDrawJob> is paid once)
@@ -194,8 +175,7 @@ namespace SkiResortMod.Systems
                    $"hover slot {m_HoverSlot}";
         }
 
-        /// <summary>The one `piste map:` DUMP line (ch5 §8.8; called by the hub's DumpToLog after the stats
-        /// dump, e1-spec I-29). Appends only; never throws.</summary>
+        /// <summary>The one `piste map:` dump line (called by the hub's DumpToLog after the stats dump). Appends only; never throws.</summary>
         public void AppendDump(StringBuilder sb)
         {
             try
@@ -226,7 +206,6 @@ namespace SkiResortMod.Systems
             }
         }
 
-        // ── lifecycle ─────────────────────────────────────────────────────────────────────────────
 
         protected override void OnCreate()
         {
@@ -239,8 +218,8 @@ namespace SkiResortMod.Systems
             m_Segments = new NativeArray<PisteSegment>(Tuning.MaxSegments, Allocator.Persistent);
             try
             {
-                // The first job.Schedule of a process otherwise creates the job's reflection data inside the
-                // first draw's timing window (SkiRunDrawFeedbackSystem.PrewarmJit, the same call).
+                // The first job.Schedule of a process otherwise creates the job's reflection data inside the first draw's timing window
+                // (SkiRunDrawFeedbackSystem.PrewarmJit, the same call).
                 IJobExtensions.EarlyJobInit<PisteDrawJob>();
             }
             catch (Exception e)
@@ -339,7 +318,6 @@ namespace SkiResortMod.Systems
             base.OnDestroy();
         }
 
-        // ── the frame (ch5 §8.4) ──────────────────────────────────────────────────────────────────
 
         protected override void OnUpdate()
         {
@@ -347,8 +325,8 @@ namespace SkiResortMod.Systems
                 return;
             try
             {
-                // THE GUARD (per frame while hidden: two bool reads and a return).
-                bool visible = m_Hub.PisteMapVisible && !m_GladeTool.IsActive;            // §4.7, C15
+                // Guard (per frame while hidden: two bool reads and a return)
+                bool visible = m_Hub.PisteMapVisible && !m_GladeTool.IsActive;         
                 if (!visible)
                 {
                     m_WasVisible = false;
@@ -362,7 +340,7 @@ namespace SkiResortMod.Systems
                            : catalogRevision != m_BuiltCatalogRevision ? "runs changed" : now >= m_NextBackstop ? "backstop" : null;
                 m_WasVisible = true;
                 if (why != null)
-                    Build(shown, catalogRevision, now, why);                                  // §8.5
+                    Build(shown, catalogRevision, now, why);                               
 
                 Entity hover = m_Hub.HoveredRun;                                              // one compare per frame
                 if (hover != m_LastHover)
@@ -370,7 +348,7 @@ namespace SkiResortMod.Systems
                     m_LastHover = hover;
                     m_HoverSlot = hover != Entity.Null && m_SlotOfRun.TryGetValue(hover, out int slot) ? slot : -1;
                 }
-                Draw();                                                                       // §8.6
+                Draw();                                                                    
             }
             catch (Exception e)
             {
@@ -378,7 +356,6 @@ namespace SkiResortMod.Systems
             }
         }
 
-        // ── the cache build (ch5 §8.5; only on a change, never per frame) ───────────────────────────
 
         private void Build(Entity shown, int catalogRevision, float now, string why)
         {
@@ -465,7 +442,6 @@ namespace SkiResortMod.Systems
             }
         }
 
-        // ── the draw: one Burst job per frame (ch5 §8.6) ────────────────────────────────────────────
 
         private void Draw()
         {
@@ -493,8 +469,8 @@ namespace SkiResortMod.Systems
             LastDrawMs = ms;
             if (!s_FirstDrawDone)
             {
-                // The first draw of the PROCESS pays the one-time JIT of Schedule<PisteDrawJob>: reported on its
-                // own, kept out of the peak, the mean and the slow-draw WARN.
+                // The first draw of the process pays the one-time JIT of Schedule<PisteDrawJob>: reported on its own, kept out of the peak, the
+                // mean and the slow-draw WARN.
                 s_FirstDrawDone = true;
                 Mod.Log.Info($"PisteMap: first overlay draw of this process {ms:F2} ms ({m_Count} segments; one-time first call " +
                              "of the draw-job schedule, kept out of the draw peak; logged once per process)");
@@ -521,8 +497,8 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>The active camera controller's zoom (IGameCameraController.zoom,
-        /// Game.Rendering/IGameCameraController.cs:8); 0 when there is none or it is being torn down (→ width × 1).</summary>
+        /// <summary>The active camera controller's zoom (IGameCameraController.zoom, Game.Rendering/IGameCameraController.cs:8); 0 when
+        /// there is none or it is being torn down (width x1).</summary>
         private float ReadZoom()
         {
             try

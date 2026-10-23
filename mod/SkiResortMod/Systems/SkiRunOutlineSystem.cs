@@ -1,32 +1,29 @@
-// SkiRunOutlineSystem — the thick outline and corner dots of a ski run while it is drawn, edited or bulldozed,
-// drawn by us as an overlay (Round F7 item C1, docs/research/field-test-7-fixes.md; research
-// docs/research/field/2026-10-04/findings/run-collisions.md §3 / §5 and its Verification; DECISIONS entry of
-// field test 7, part 3). Replaces Round E1 addendum A1 (docs/research/econ-round/addendum-a1-run-outline.md),
-// which wrote the "Run outline size" setting into AreaGeometryData.m_SnapDistance of our four run prefabs.
+// The thick outline and corner dots of a ski run while it is drawn, edited or bulldozed, drawn by us as an overlay
+// (research: docs/research/field/2026-10-04/findings/run-collisions.md §3 / §5). The "Run outline size" setting means only
+// "how thick".
 //
-// WHY THE CHANGE (decompile-verified; 1.6.0f1 citations, every cited file identical in 1.6.2f1). m_SnapDistance
+// WHY NOT m_SnapDistance (decompile-verified; 1.6.0f1 citations, every cited file identical in 1.6.2f1). m_SnapDistance
 // does three jobs: the outline width (AreaBorderRenderSystem.cs:517, :531, × 0.3), the area tool's snapping radius
 // (AreaToolSystem.cs:353, :370-395, :1190-1247) and, halved, the blocking "invalid shape" clearance between a corner
 // and the run's other edges (AreaUtils.cs:55-58, ValidationHelpers.cs:667, :887-962). At 8 the thick line came with
 // 8 m snapping and a 4 m clearance against the game's 0.75 / 0.375. This system NEVER writes AreaGeometryData: the
 // game's value (AreaUtils.GetMinNodeDistance(Surface) = 0.75, written at every start by AreaInitializeSystem.cs:
-// 336-344, never saved) stays, and the setting means only "how thick". Runs drawn at 8 need nothing: their corners
-// are >= 4 m apart, which passes the 0.375 m rule.
+// 336-344, never saved) stays. Runs drawn at 8 need nothing: their corners are >= 4 m apart, which passes the 0.375 m rule.
 //
 // WHAT IT DRAWS — the game's own outline (AreaBorderRenderSystem, its non-infoview pass :129-136), for our four run
 // prefabs only, wider. The rules are RunOutlineRules (pure; tests/ResortBatch RunOutlineTests); the job copies the
 // game's job (:40-139, :141-264, :357-513) with these differences:
 //   * the same query as the game's (:614-628: Any {Temp, Error, Warning}, None {Hidden, Deleted}) plus All {Node,
-//     PrefabRef}, which every area archetype carries (Verification fact 16: equivalent in practice);
+//     PrefabRef}, which every area archetype carries;
 //   * the SHARED-EDGE set (borderMap) is filed from EVERY outlined area of any prefab, exactly as the game's, so a
 //     side our run shares with another outlined area is dropped by us exactly when the game drops it; the DOT set
-//     (nodeMap) holds our own dots, one per corner position per frame (Verification fact 16: mirrored, not waived);
+//     (nodeMap) holds our own dots, one per corner position per frame;
 //   * only areas whose PrefabRef is one of our four run prefab entities are DRAWN;
 //   * colors: the RenderingSettingsData singleton with the game's fallbacks (:666-680), dots white at alpha 0.5 in the game
-//     (:408) UNDER ours; T36 (2026-10-16): OUR dots are opaque white with a thin dark rim (RunOutlineRules.NodeDot*), so the
-//     corner to connect to is found on snow, grass and forest; line width and dot diameter both 0.3 × RunOutlineSize m
+//     (:408) UNDER ours; OUR dots are opaque white with a thin dark rim (RunOutlineRules.NodeDot*), so the corner to
+//     connect to is found on snow, grass and forest; line width and dot diameter both 0.3 × RunOutlineSize m
 //     (8 → 2.4 m, 16 → 4.8 m); while a run is drawn / edited the same dots also mark the nodes of our EXISTING run
-//     areas within RunOutlineRules.NeighbourMarginM (150 m) of the drawn bounds (item 41: the corner to connect to);
+//     areas within RunOutlineRules.NeighbourMarginM (150 m) of the drawn bounds (the corner to connect to);
 //     StyleFlags.Projected (the piste-map choice) so a long side lies on the terrain instead of cutting through a
 //     ridge, where the game draws surfaces as straight 3D lines (styleFlags 0, :363). The game's own thin line and
 //     dots still draw underneath in the same color; which one is on top is unverified (cosmetic).
@@ -37,12 +34,12 @@
 // unless hovered or flagged); corner dots only for Create / Modify; a 1-node Temp (the cursor before the first
 // click) draws one dot; the closing side only when the run is complete.
 //
-// THE FRAME. Phase Rendering, anchored UpdateBefore<SkiRunOutlineSystem, Game.Rendering.OverlayRenderSystem> (Mod.cs,
-// implementer 1; load-bearing: OverlayRenderSystem.OnUpdate completes every registered writer, then uploads and
-// clears the lists, OverlayRenderSystem.cs:738-741, so our job must be registered before it in the same frame).
+// THE FRAME. Phase Rendering, anchored UpdateBefore<SkiRunOutlineSystem, Game.Rendering.OverlayRenderSystem> (Mod.cs;
+// load-bearing: OverlayRenderSystem.OnUpdate completes every registered writer, then uploads and clears the lists,
+// OverlayRenderSystem.cs:738-741, so our job must be registered before it in the same frame).
 // THE GUARD (every frame, nothing drawn): two bools, the setting read, the prefab count and ONE IsEmptyIgnoreFilter
 // on a narrow query (our runs are Surface areas: a Temp / flagged Surface must exist, else nothing of ours can be
-// outlined). F7 fixer: the guard is NECESSARY, not sufficient. Any Temp or flagged Surface passes it — the vanilla
+// outlined). The guard is NECESSARY, not sufficient. Any Temp or flagged Surface passes it — the vanilla
 // Surfaces brush, a building with surface sub-areas being placed — so on those frames the job IS scheduled; it
 // returns before allocating when no area of ours is in the frame (Execute, `if (!ours)`), and the frame counts in
 // Draws, the cost line and the slow-draw WARN ("draw frames with a Temp or flagged surface, ours or not"). Not
@@ -53,20 +50,18 @@
 // Then: RenderingSettingsData read, ToArchetypeChunkListAsync, GetBuffer, one Burst IJob scheduled on
 // CombineDependencies(base.Dependency, chunk list, overlay writers), chunks.Dispose(handle), AddBufferWriter, and
 // base.Dependency = handle — the game's own sequence (:681-708). The job reads ECS data through type handles, so,
-// unlike the piste map's, it must join base.Dependency and hand its handle back (run-collisions.md §3.3). The type
-// handles are created once in OnCreate and refreshed with Update(this) (the game's __AssignHandles pattern), so
-// no sync point is added. The setting is read every frame: a change shows at once.
+// unlike the piste map's, it must join base.Dependency and hand its handle back. The type handles are created once in
+// OnCreate and refreshed with Update(this) (the game's __AssignHandles pattern), so no sync point is added. The
+// setting is read every frame: a change shows at once.
 //
 // LOGS: `SkiRunOutlineSystem created`; the ARMED line once per load (Game mode) with the size, widths and the run
 // prefabs' snap distance; one WARN per load if a run prefab is missing or its snap distance is not the game's
 // Surface value (someone else wrote it — left as is); one WARN and never armed if a TempFlags / AreaFlags value no
 // longer matches RunOutlineRules; one line when the size changed, at the next frame that would draw (a slider drag
-// logs once; a switch to 0 included, F7 fixer: RunOutlineRules.SizeChangeDue); the first draw of the process (JIT,
-// kept out of the peak); `RunOutline [cost]` after CostLogAfterDraws draw frames of a load (frames with a Temp or
-// flagged surface, ours or not); one WARN per load for a draw frame over SlowDrawWarnMs; a one-shot `!!!` that switches the overlay off until the next
-// load (the game's thin outline remains). Nothing per frame.
-//
-// Created 2026-10-04 (Round E1 stage 0, S0); rewritten 2026-10-04 (Round F7, implementer 2).
+// logs once; a switch to 0 included: RunOutlineRules.SizeChangeDue); the first draw of the process (JIT, kept out of
+// the peak); `RunOutline [cost]` after CostLogAfterDraws draw frames of a load (frames with a Temp or flagged
+// surface, ours or not); one WARN per load for a draw frame over SlowDrawWarnMs; a one-shot `!!!` that switches the
+// overlay off until the next load (the game's thin outline remains). Nothing per frame.
 
 using System;
 using System.Diagnostics;
@@ -182,7 +177,7 @@ namespace SkiResortMod.Systems
             [ReadOnly] public BufferTypeHandle<Game.Areas.Node> NodeType;
             [ReadOnly] public ComponentLookup<AreaGeometryData> GeometryData;
             [ReadOnly] public NativeList<ArchetypeChunk> Chunks;
-            [ReadOnly] public NativeList<ArchetypeChunk> RunChunks;   // T36: our existing (non-Temp) run areas
+            [ReadOnly] public NativeList<ArchetypeChunk> RunChunks;  // our existing (non-Temp) run areas
             public Entity Run0, Run1, Run2, Run3;
             public float Width, Diameter;
             public UnityEngine.Color HoveredColour, OwnerColour, WarningColour, ErrorColour, DotFill, DotRim;
@@ -211,7 +206,7 @@ namespace SkiResortMod.Systems
                 }
                 if (!ours)
                     return;
-                // T36 follow-up: the drawn areas' bounds (Temp Create / Modify of ours), and the room for the neighbor dots.
+                // The drawn areas' bounds (Temp Create / Modify of ours), and the room for the neighbor dots.
                 float4 bounds = DrawnBounds();
                 bool neighbours = RunOutlineRules.HasBounds(bounds);
                 if (neighbours)
@@ -280,7 +275,7 @@ namespace SkiResortMod.Systems
                 return n;
             }
 
-            /// <summary>T36 follow-up (item 41): the same white dots at the nodes of our existing run areas within
+            /// <summary>The same white dots at the nodes of our existing run areas within
             /// NeighbourMarginM of the drawn bounds; one dot per position per frame (the shared dot set).</summary>
             private void DrawNeighbourDots(float4 bounds, ref OverlaySink sink)
             {
@@ -380,7 +375,7 @@ namespace SkiResortMod.Systems
         private OverlayRenderSystem m_Overlay;
         private PrefabSystem m_PrefabSystem;
         private EntityQuery m_PrefabScanQuery;
-        private EntityQuery m_RunAreaQuery;           // T36: our existing run areas (neighbor dots)
+        private EntityQuery m_RunAreaQuery;  // our existing run areas (neighbor dots)
         private EntityQuery m_BorderQuery;            // the game's (header WHAT IT DRAWS)
         private EntityQuery m_SurfaceQuery;           // THE GUARD
         private EntityQuery m_RenderingSettingsQuery;
@@ -631,8 +626,8 @@ namespace SkiResortMod.Systems
                     return;
                 if (size == 0)
                 {
-                    // F7 fixer: a switch to 0 logs too, at the first frame that would have drawn (the line used to be
-                    // written only inside Draw). Once logged, m_DrawnSize is 0 and this is one int test per frame.
+                    // A switch to 0 logs too, at the first frame that would have drawn. Once logged, m_DrawnSize is 0 and this is one int
+                    // test per frame.
                     if (m_DrawnSize != 0 && RunOutlineRules.SizeChangeDue(m_DrawnSize, size, !m_SurfaceQuery.IsEmptyIgnoreFilter))
                     {
                         Mod.Log.Info($"RunOutline: size {m_DrawnSize} -> 0 (our outline off; the game's thin outline only)");
@@ -703,7 +698,7 @@ namespace SkiResortMod.Systems
                 OwnerColour = owner,
                 WarningColour = warning,
                 ErrorColour = error,
-                // T36: white with a thin dark rim, opaque (the game's dots, :408, are 50 % white and stay underneath).
+                // White with a thin dark rim, opaque (the game's dots, :408, are 50 % white and stay underneath).
                 DotFill = ToColor(RunOutlineRules.NodeDotFill),
                 DotRim = ToColor(RunOutlineRules.NodeDotRim),
                 RimWidth = RunOutlineRules.NodeRimWidth(size),
@@ -723,8 +718,7 @@ namespace SkiResortMod.Systems
             LastDrawMs = ms;
             if (RunOutlineRules.SizeChangeDue(m_DrawnSize, size, wouldDraw: true))
             {
-                // One line per change, at the next draw (a slider drag in Options logs once); a switch to 0 is logged
-                // in OnUpdate (F7 fixer).
+                // One line per change, at the next draw (a slider drag in Options logs once); a switch to 0 is logged in OnUpdate.
                 Mod.Log.Info($"RunOutline: size {m_DrawnSize} -> {size} (line {RunOutlineRules.LineWidth(size):0.0#} m, dots " +
                              $"{RunOutlineRules.DotDiameter(size):0.0#} m; snapping and the corner rule are the game's)");
                 m_DrawnSize = size;

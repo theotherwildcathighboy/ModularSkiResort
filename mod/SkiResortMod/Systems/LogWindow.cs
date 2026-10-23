@@ -1,27 +1,16 @@
-// LogWindow — wall-clock folding for flood-prone log lines (Round F6, item D3; docs/research/field/
-// 2026-10-03b/findings/log-audit.md A2 / defect 3: `Snow [topup]` was 1,275 of 2,787 lines (46 %),
-// up to 203 a minute at 4×, with `Upkeep [charge]` (126) and `Surface:` (183) behind it). Created
-// 2026-10-03 (Round F6, implementer D).
-//
-// THE RULE (contract D3): at most one line per WindowS of wall clock, and the first event of a burst
-// is never delayed.
-//   * Offer(event): when nothing is folded and no line was written for WindowS (or the caller forces
-//     it), the verdict is Plain — the caller writes its usual line at once. Otherwise the event is
-//     FOLDED: counted, with min / max / sum / last of up to Slots numbers the caller picks, and its
-//     full text kept as the "last" text. When the window has passed (or the event is forced) the
-//     verdict is Summary: the caller writes ONE line — its prefix, the fold, and the last event's
-//     text — and calls Wrote.
-//   * TrailingDue: the caller asks it on every pass that offered nothing, so the end of a burst is
-//     written at most WindowS after the last plain or summary line while its system runs ("silence
-//     impossible"). A paused simulation holds the fold until the next pass; the callers also flush
-//     before an idle line, in OnGamePreload (a load) and in OnDestroy (quit to desktop raises no
-//     onGamePreload: TerminateGame disposes the mods, then the world, whose systems' OnDestroy runs
-//     while the logger is still alive — GameManager.cs:792-793 vs LogManager.ReleaseResources at
-//     :805; 1.6.2 :802-803 / :815), so a fold is lost only on a crash. (F6 fixer: OnDestroy.)
-//   * QuietFor: the callers' unchanged-value heartbeat is wall clock (F6 fixer, after D4's
-//     CensusHeartbeatS): an unchanged pass is offered only when no line was written for that long.
-//   * Wall clock = UnityEngine.Time.realtimeSinceStartup, passed in by the caller: this class is pure
-//     (no Unity or Entities types), field arithmetic per event, no allocation of its own.
+// Wall-clock folding for flood-prone log lines: at most one line per WindowS of wall clock, and the first event of a burst is
+// never delayed. Pure (no Unity or Entities types); the caller passes UnityEngine.Time.realtimeSinceStartup.
+//   * Offer(event): when nothing is folded and no line was written for WindowS (or the caller forces it) the verdict is Plain
+//     and the caller writes its usual line. Otherwise the event is folded: counted, with min / max / sum / last of up to Slots
+//     numbers and its full text kept as the last text. When the window has passed (or the event is forced) the verdict is
+//     Summary: the caller writes one line (prefix, fold, last text) and calls Wrote.
+//   * TrailingDue: callers ask on every pass that offered nothing, so the end of a burst is written at most WindowS after the
+//     last line while the system runs. A paused simulation holds the fold until the next pass; callers also flush before an
+//     idle line, in OnGamePreload and in OnDestroy (quit to desktop raises no onGamePreload: TerminateGame disposes the mods,
+//     then the world, whose OnDestroy runs while the logger is still alive - GameManager.cs:792-793 vs LogManager
+//     .ReleaseResources at :805; 1.6.2 :802-803 / :815). A fold is lost only on a crash.
+//   * QuietFor: the unchanged-value heartbeat is wall clock; an unchanged pass is offered only when no line was written for
+//     that long.
 
 using System;
 using System.Globalization;
@@ -92,8 +81,7 @@ namespace SkiResortMod.Systems
             m_LastText = null;
         }
 
-        /// <summary>One would-log event (header THE RULE). <paramref name="text"/> is the event's full
-        /// line body, kept only when the event is folded.</summary>
+        /// <summary>One would-log event. <paramref name="text"/> is the event's full line body, kept only when the event is folded.</summary>
         public Verdict Offer(float now, bool force, string text, double v0 = 0.0, double v1 = 0.0, double v2 = 0.0)
         {
             bool windowPassed = !(now - m_LastLineAt < WindowS);
@@ -112,22 +100,20 @@ namespace SkiResortMod.Systems
             return force || windowPassed ? Verdict.Summary : Verdict.Fold;
         }
 
-        /// <summary>True when no plain or summary line was written for <paramref name="seconds"/> of wall
-        /// clock (always true before the first line): the unchanged-value heartbeat test (header QuietFor).</summary>
+        /// <summary>True when no plain or summary line was written for <paramref name="seconds"/> of wall clock (always true before the
+        /// first line).</summary>
         public bool QuietFor(float now, float seconds)
         {
             return !(now - m_LastLineAt < seconds);
         }
 
-        /// <summary>True when folded events wait and the window since the last line has passed: the
-        /// caller writes one summary line now, then calls Wrote.</summary>
+        /// <summary>True when folded events wait and the window since the last line has passed: write one summary line, then call Wrote.</summary>
         public bool TrailingDue(float now)
         {
             return m_Count > 0 && !(now - m_LastLineAt < WindowS);
         }
 
-        /// <summary>A plain or summary line was written at <paramref name="now"/>: the fold is cleared
-        /// and the window restarts.</summary>
+        /// <summary>A plain or summary line was written at <paramref name="now"/>: clears the fold and restarts the window.</summary>
         public void Wrote(float now)
         {
             m_LastLineAt = now;

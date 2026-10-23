@@ -1,60 +1,21 @@
-// SkiDayTests — Round S1 test file for tests/ResortBatch (ski-days spec ch1-rules.md §7, rows A-Q: the pure
-// SkiDayRules, the F2 PowerOf hysteresis, the SkiResortScore additions). Owner: stream A (docs/research/ski-days/
-// s1-spec.md §4.3). Created empty by stage 0 (2026-10-05, s1-spec §4.2 step 9): the e1-spec R9 convention —
-// `public static class SkiDayTests` with `public static void Run(Func<bool, string, string, bool> check)` and its
-// own Near; Program.Main calls SkiDayTests.Run(Check). Oracles are literal hand values (ch1 §7-§8).
-//
-// Written by stream A (2026-10-05). Sections, in run order (ch1 §7 letters; doubles ±1e-9 unless "exact",
-// geometry in float ±0.01; times now = 1,000,000):
-//   A  constants guard: every ch1 §2.2 row against its literal, the §2.3 enum literals, SkiDayLimit.
-//   B  CheckCitizen: the base resident / tourist and the one-flip table (who and the reject, both kinds).
-//   C  CheckLodge: each flag, the 800 m edge, NaN, the order.
-//   D  AreaStateOf: the base and one change each, the hour edges, the capacity edge; HourOf / InClaimWindow.
-//   E  ClassOf, WithinReach, DistanceFactor, TravelHours, the speed tables.
-//   F  TryClosingFrame (the 12 × 2 table, exact frames), ClaimFits, ClaimDeadline.
-//   G  Chance oracles R1-R15, T1-T5, X1-X4; PriceFactor, OpenShare, SnowFactor, the knobs, IsBetter.
-//   H  Chance properties, seed 20261005, 20,000 random sets: one check per property (violations counted).
-//   I  Rolls: the four exact values, Mix64 parity with RunSnowRules, and the statistics over 100,000 draws
-//      (hit rate within 4σ, χ² over 20 bins, joint rate of consecutive frames / days).
-//   J  Back-off (Confidence, RecordOutcome, UpdateCannotReach with its hysteresis) and LearnSpeed.
-//   K  Powder: IsSnowHour, PowderOf, PowderMark, SnowHourSampleDate (= RunSnowRules.DayMeanC's dates, exact).
-//   L  Capacity, CapacityPeople, HasRoom, and the capacity properties (20,000 random).
-//   M  Slices (the five-frame table × 16 slices) and ArmCheck, IsPowerOfTwo, the SliceOf guard.
-//   N  DayKey (rows; = SkiMoneyRules.MonthKey at 12 days over 100,000 random dates); Advance(ref MonthFlags) =
-//      SkiResortLedger.Advance over 2,000 random key sequences × 50 steps.
-//   O  Slope-side geometry: box, segment, ray crossing, the polygon walk (square, the R-3 strip).
-//   P  F2: LiftServedRule.PowerOf(flags, wanted, fulfilled, last), both states; the 1-argument overload.
-//   Q  Score additions on the ScoreTests compositions (RunsValueFull, RunsCapacity, NightRunsCounted, TopKnown /
-//      TopM, OpenShare), SkiersPerHa, RunSkiersPerDay, and the 5,000-area properties (seed 20261005).
-//   S  The ch1 §8 worked scenarios (FT8 hill, tiny hill, large resort): capacity, chances, travel times, the
-//      last claim time of a day.
-//   T  Round M1 "measure first" (docs/research/ski-days/measure/m1-spec.md §4, builder A 2026-10-05): DistanceBand;
-//      LegOf / KindBitOf / MainMode (arrival-modes.md §9 rows) and the 0..255 legs partition; the TransportType
-//      literals; FitVerdict rows and its property against ClaimFits (5,000 rows, seed 20261005); HourDate (=
-//      RunSnowRules.HourAlignedDate) and MonthOfHour; Advance(ref f, key, closedShort) rows and (fixer R7) its parity
-//      with SkiResortLedger.Advance(key, closedMonthShort) over 2,000 random sequences with a random short flag.
-// ROUND M2 (docs/research/round-m2/build-contract.md §7, builder B2 2026-10-10; +162 checks):
-//   A  (edit) "ArmVerdict 0-5" with SystemOff; (+1) the R9 trip-system bits.
-//   M  (+21) the 5-argument ArmCheck: the 10 rows of enabled-flags.md §3 and its parity with the 4-argument rule on the
-//      11 rows above (mask 63).
-//   U  (12) on-arrival (arrived-at-lodge.md §3, R6): the L 1051 / L 585 replays (confidence as an arrival and as a
-//      failure, the speed sample) and the hub row's turn with the last failures booked on arrival.
-//   V  (41) measure-core: the [area] log keys and AreaLogKey, HillClosedForCount (R4 a), ClosingEdgeOf (Decided here 1-2),
-//      MiddayRearmDue, DoneDayOf, CostDayEnded.
-//   W  (49) R10 learning (u9-learning.md U1-U11 as W1-W11, tri-state BoundLearn): TripKnobs and FloorOf, the stay
-//      overloads and their parity (5,000 rows, seed 20261005), both speeds of NewTrack, LearnSpeed with knobs,
-//      LearnSpeedAll, SpeedBound, LearnSpeedBound, the "sends unchanged with the defaults" property (2,000 sequences,
-//      seed 20261010), the bound property (5,000 rows, seed 20261010), FitSpeed.
-//   X  (38) SkiTripSystems (enabled-flags.md §3): BitOfAssembly, Names, Long, Short, LoadLine, ChangeLine, Label,
-//      UnknownLabel, BlocksSkiDays.
-// CATALOG PHASE B (docs/research/art/assets-2026-10/code-round-2/round-2-contract.md §11.2, economy group 2026-10-11):
-//   Y  PriceFactor(price, tolerance) rows and PriceFactor(p) ≡ PriceFactor(p, 0) for p −10..260; the per-tier Capacity
-//      overload rows and old ≡ new (r, 360 n, n, p) bit for bit (n 0..10, r {0, 100, 1e6, NaN}, p {0, 0.5, 1});
-//      CheckLodge with NoRoadNeeded; Chance with the school (resident × 1.2 below the clamp, tourist unchanged) and the
-//      tolerance, old ≡ new (…, 0, 1.0, …) over the G rows and 20,000 random sets; SchoolRule / PatrolRule unit rows
-//      (inclusive 1,000 m; black / double black only; served ignores patrol; max(0.4, 0.7) = 0.7, max(1.0, 0.7) = 1.0).
-// Property sections count their violations and report once per property (the first offender in the message), so
-// the check count stays small and fixed.
+// Tests for the pure SkiDayRules, the PowerOf hysteresis and the SkiResortScore additions. `public static class SkiDayTests`
+// with `public static void Run(Func<bool, string, string, bool> check)` and its own Near; Program.Main calls
+// SkiDayTests.Run(Check). Oracles are literal hand values. Doubles +-1e-9 unless "exact", geometry in float +-0.01, times
+// now = 1,000,000. Property sections count their violations and report once per property (the first offender in the message),
+// so the check count stays small and fixed.
+// Sections, in run order, are lettered in the check messages ("skiday X ..."):
+//   A constants and enum literals, the trip-system bits   B CheckCitizen   C CheckLodge   D AreaStateOf, HourOf / InClaimWindow
+//   E ClassOf, reach, DistanceFactor, TravelHours   F TryClosingFrame, ClaimFits, ClaimDeadline   G Chance oracles, PriceFactor,
+//   OpenShare, SnowFactor   H Chance properties (seed 20261005, 20,000 random sets)   I Rolls: the four exact values, Mix64
+//   parity with RunSnowRules, and the statistics over 100,000 draws (hit rate within 4 sigma, chi-squared over 20 bins, joint
+//   rate of consecutive frames / days)   J back-off and LearnSpeed   K powder (SnowHourSampleDate = RunSnowRules.DayMeanC's dates,
+//   exact)   L capacity   M slices and ArmCheck   N DayKey (= SkiMoneyRules.MonthKey at 12 days over 100,000 random dates) and
+//   Advance(ref MonthFlags) = SkiResortLedger.Advance over 2,000 random key sequences x 50 steps   O slope-side geometry   P PowerOf
+//   Q score additions and the 5,000-area properties   S worked scenarios (FT8 hill, tiny hill, large resort)   T DistanceBand,
+//   LegOf / KindBitOf / MainMode and the 0..255 legs partition, TransportType literals, FitVerdict against ClaimFits (5,000
+//   rows), HourDate, Advance(ref f, key, closedShort)   U on-arrival bookkeeping   V measure-core   W learning (the "sends
+//   unchanged with the defaults" property over 2,000 sequences, the bound property over 5,000 rows)   X SkiTripSystems   Y
+//   per-tier capacity, price tolerance, school and patrol rules (old == new bit for bit with the neutral arguments).
 
 using System;
 using System.Collections.Generic;
@@ -81,30 +42,30 @@ namespace ResortBatch
         public static void Run(Func<bool, string, string, bool> check)
         {
             s_Check = check;
-            Constants();          // A
-            Citizen();            // B
-            Lodge();              // C
-            Area();               // D
-            Travel();             // E
-            Deadline();           // F
-            Chances();            // G
-            ChanceProperties();   // H
-            Rolls();              // I
-            BackOff();            // J
-            Powder();             // K
-            CapacityRows();       // L
-            Slices();             // M
-            DayAndMonth();        // N
-            Geometry();           // O
-            Power();              // P
-            ScoreAdditions();     // Q
-            Scenarios();          // S (ch1 §8)
-            MeasureRules();       // T (Round M1)
-            OnArrival();          // U (Round M2, D3 / R6)
-            MeasureCore();        // V (Round M2 measure-core)
-            Learning();           // W (Round M2 R10)
-            TripSystems();        // X (Round M2 R9)
-            CatalogPhaseB();      // Y (Catalog Phase B: tolerance, per-tier capacity, mountain lodges, school, patrol)
+            Constants();
+            Citizen();
+            Lodge();
+            Area();
+            Travel();
+            Deadline();
+            Chances();
+            ChanceProperties();
+            Rolls();
+            BackOff();
+            Powder();
+            CapacityRows();
+            Slices();
+            DayAndMonth();
+            Geometry();
+            Power();
+            ScoreAdditions();
+            Scenarios();
+            MeasureRules();
+            OnArrival();
+            MeasureCore();
+            Learning();
+            TripSystems();
+            CatalogPhaseB();
         }
 
         private static bool Check(bool cond, string where, string msg)
@@ -121,8 +82,6 @@ namespace ResortBatch
         {
             return x.ToString("R", System.Globalization.CultureInfo.InvariantCulture);
         }
-
-        // ================================================================== A. constants guard (ch1 §2.2-§2.3)
 
         private static void Constants()
         {
@@ -156,7 +115,7 @@ namespace ResortBatch
             Check(Rules.ResidentSalt == 0x534B494441595331UL && Rules.TouristSalt == 0x534B494441595332UL &&
                   Ascii(Rules.ResidentSalt) == "SKIDAYS1" && Ascii(Rules.TouristSalt) == "SKIDAYS2", w, "salts \"SKIDAYS1\" / \"SKIDAYS2\"");
 
-            // Enum literals (§2.1, §2.3): the DUMP counters index by them; SkiDayLimit is gate R17's SKI_DAY_LIMIT.
+            // Enum literals: the DUMP counters index by them; SkiDayLimit is gate R17's SKI_DAY_LIMIT.
             Check((byte)SkiDayLimit.None == 0 && (byte)SkiDayLimit.Runs == 1 && (byte)SkiDayLimit.Lodges == 2, w, "SkiDayLimit 0/1/2");
             Check((byte)GK.Resident == 0 && (byte)GK.Tourist == 1, w, "GuestKind 0/1");
             Check((byte)TC.Walk == 0 && (byte)TC.Car == 1 && (byte)TC.NoCarFar == 2 && (byte)TC.None == 3, w, "TravelClass 0-3");
@@ -175,12 +134,11 @@ namespace ResortBatch
             Check((byte)ArmVerdict.Ok == 0 && (byte)ArmVerdict.BadInterval == 1 && (byte)ArmVerdict.BadOffset == 2 &&
                   (byte)ArmVerdict.LeisureTooFast == 3 && (byte)ArmVerdict.BehaviorTooFast == 4 && (byte)ArmVerdict.SystemOff == 5, w,
                   "ArmVerdict 0-5 (Round M2: SystemOff 5)");
-            // Round M2 (R9): the trip-system bits (SkiTripSystems names them in this order; TripNeededToArm = the first two).
+            // the trip-system bits (SkiTripSystems names them in this order; TripNeededToArm = the first two)
             Check(Rules.TripLeisure == 1 && Rules.TripBehavior == 2 && Rules.TripNeeded == 4 && Rules.TripResidentAI == 8 &&
                   Rules.TripResidentActions == 16 && Rules.TripResourceBuyer == 32 && Rules.TripAll == 63 && Rules.TripNeededToArm == 3, w,
                   "trip bits 1/2/4/8/16/32, all 63, needed to arm 3");
 
-            // Unit01 (the helper every rule uses).
             Check(Rules.Unit01(double.NaN) == 0.0 && Rules.Unit01(-1.0) == 0.0 && Rules.Unit01(0.3) == 0.3 && Rules.Unit01(1.0) == 1.0 &&
                   Rules.Unit01(2.0) == 1.0 && Rules.Unit01(double.PositiveInfinity) == 1.0 && Rules.Unit01(double.NegativeInfinity) == 0.0,
                   w, "Unit01: NaN 0, −1 0, 0.3, 1, 2 → 1, ±∞");
@@ -193,8 +151,6 @@ namespace ResortBatch
                 c[i] = (char)((salt >> (56 - 8 * i)) & 0xFF);
             return new string(c);
         }
-
-        // ================================================================== B. CheckCitizen (ch1 §3.1)
 
         private delegate void Flip(ref Rules.CitizenFacts c);
 
@@ -255,8 +211,6 @@ namespace ResortBatch
             Check(Rules.CheckCitizen(ev, out GK _) == Reject.None, w + " resident", "AttendingEvent true is ignored for residents");
         }
 
-        // ================================================================== C. CheckLodge (ch1 §3.2)
-
         private static Rules.LodgeFacts GoodLodge(float nearest)
         {
             return new Rules.LodgeFacts
@@ -285,18 +239,16 @@ namespace ResortBatch
             Check(Rules.CheckLodge(l) == LodgeReject.NotLodge, w, "not a lodge + destroyed + far → NotLodge (order)");
             l = GoodLodge(5000f); l.HasRoad = false; l.LeisureTagged = false;
             Check(Rules.CheckLodge(l) == LodgeReject.NoLeisureTag, w, "no tag + no road + far → NoLeisureTag (order)");
-            // Fixer pass (review TL-1): Inactive before Destroyed (ch1 §3.2). Both fills (ClaimJob step A, the parking
-            // census) set Active = hasBuilding && … and Destroyed = … || !hasBuilding, so a lodge that lost its Building
-            // carries both and reads Inactive (review TL-X2: the verdict is right, only the label).
+            // Inactive before Destroyed: both fills (ClaimJob step A, the parking census) set Active = hasBuilding && ... and Destroyed =
+            // ... || !hasBuilding, so a lodge that lost its Building carries both and reads Inactive (the verdict is right, only the
+            // label).
             l = GoodLodge(500f); l.Active = false; l.Destroyed = true;
             Check(Rules.CheckLodge(l) == LodgeReject.Inactive, w, "inactive + destroyed → Inactive (order)");
-            // ch3 R10: the parking census asks with nearest 0 (never NotSlopeside).
+            // the parking census asks with nearest 0 (never NotSlopeside)
             l = GoodLodge(0f);
             Check(Rules.CheckLodge(l) == LodgeReject.None, w, "the census form (nearest 0) → None");
             Check(Rules.IsSlopeside(800f) && !Rules.IsSlopeside(800.01f) && !Rules.IsSlopeside(float.NaN) && Rules.IsSlopeside(0f), w, "IsSlopeside edges");
         }
-
-        // ================================================================== D. AreaStateOf (ch1 §3.3)
 
         private static Rules.AreaFacts BaseArea()
         {
@@ -327,21 +279,18 @@ namespace ResortBatch
             Check(Rules.AreaStateOf(a, 0.1875f, false, 999, 0) == AreaState.NoScore, w, "everything wrong → NoScore (order)");
             a = BaseArea(); a.SkiDayLodges = 0;
             Check(Rules.AreaStateOf(a, 0.1875f, false, 999, 0) == AreaState.NoLodge, w, "no lodge + night + full → NoLodge (order)");
-            // Fixer pass (review TL-1): OutOfHours before Full (ch1 §3.3) — a full hill at night is OutOfHours.
+            // OutOfHours before Full: a full hill at night is OutOfHours.
             Check(Rules.AreaStateOf(BaseArea(), 0.1875f, false, 154, 154) == AreaState.OutOfHours, w, "04:30 + 154 of 154 → OutOfHours (order)");
 
-            // HourOf / InClaimWindow.
             Check(Rules.HourOf(0.375f) == 9.0 && Rules.HourOf(0.5f) == 12.0 && Rules.HourOf(1.25f) == 6.0 && Rules.HourOf(0f) == 0.0, w,
                   "HourOf 09:00 / 12:00 / frac(1.25) 06:00 / 0");
             Check(double.IsNaN(Rules.HourOf(float.NaN)) && !Rules.InClaimWindow(float.NaN, true), w, "HourOf(NaN) NaN, not in the window");
             Check(Rules.InClaimWindow(0.21875f, false) && !Rules.InClaimWindow(0.20703125f, false), w, "05:15 in, 04:58 out");
-            // O-7: 5/24 is not exact in float — the window opens one tick late (0.20833333f × 24 < 5).
+            // 5/24 is not exact in float: the window opens one tick late (0.20833333f x 24 < 5).
             Check(!Rules.InClaimWindow(5f / 24f, false) && Rules.InClaimWindow(54614f / 262144f, false), w,
                   $"05:00 as a float (hour {R(Rules.HourOf(5f / 24f))}) is one tick early; tick 54,614 is in");
             Check(Rules.CloseHourOf(false) == 16.5 && Rules.CloseHourOf(true) == 21.0, w, "CloseHourOf 16.5 / 21");
         }
-
-        // ================================================================== E. class, reach, distance, travel time (ch1 §3.4)
 
         private static void Travel()
         {
@@ -395,8 +344,6 @@ namespace ResortBatch
                   Rules.MaxSpeedOf(TC.None) == 1.0, w, "MaxSpeedOf 1 / 8 / 8 / None = Walk");
         }
 
-        // ================================================================== F. hours and deadline (ch1 §3.5)
-
         private static void Deadline()
         {
             const string w = "skiday F deadline";
@@ -414,14 +361,14 @@ namespace ResortBatch
                           $"t {times[i]} ({(n == 0 ? "day" : "night")}): closing − now {got}, expected {want} (−1 = false)");
                 }
             }
-            // Fixer pass (review TL-1): floor, not round (ch1 §3.5). Every time above is k/32, where both agree; 0.3f is
-            // 0.300000011920928955078125, so left = (0.6875 − t) × 262,144 = 101,580.796875 exactly: floor 101,580.
+            // floor, not round. Every time above is k/32, where both agree; 0.3f is 0.300000011920928955078125, so left = (0.6875 - t) x
+            // 262,144 = 101,580.796875 exactly: floor 101,580.
             {
                 bool ok = Rules.TryClosingFrame(Now, 0.3f, false, out uint closing);
                 Check(ok && (long)closing - Now == 101580, w + " closing", $"t 0.3f (day): closing − now {(long)closing - Now}, expected 101,580 (floor)");
             }
 
-            // ClaimFits (need = (t + 2) × 10,922.667).
+            // ClaimFits (need = (t + 2) x 10,922.667).
             Check(Rules.ClaimFits(Now, Now + 100000, Now + 49152, 1.985454545), w, "FT8 car, closing 49,152 (12:00) → fits");
             Check(!Rules.ClaimFits(Now, Now + 100000, Now + 40960, 1.985454545), w, "FT8 car, closing 40,960 (12:45) → no");
             Check(!Rules.ClaimFits(Now, Now + 43531, Now + 81920, 1.985454545), w, "vanilla 43,531 < need 43,531.79 → no");
@@ -440,8 +387,6 @@ namespace ResortBatch
             Check(Rules.ClaimDeadline(1100000u, 1049152u) == 1049152u && Rules.ClaimDeadline(1049152u, 1100000u) == 1049152u, w,
                   "ClaimDeadline(1,100,000, 1,049,152) = 1,049,152 (either order)");
         }
-
-        // ================================================================== G. chance oracles (ch1 §3.6)
 
         private static Rules.Knobs K(int locals = 25, int tourists = 50, int reach = 7, int powder = 100)
         {
@@ -518,8 +463,6 @@ namespace ResortBatch
             Check(Rules.IsBetter(0.1, 300, new EntityRef(5, 1), 0.1, 300, new EntityRef(5, 2)), w + " best", "equal Index: lower Version wins");
         }
 
-        // ================================================================== H. chance properties (ch1 §7 H)
-
         private static readonly int[] PropA = { 0, 10, 41, 75, 120, 160, 200 };
         private static readonly double[] PropO = { 0, 0.25, 0.5, 0.9, 1 };
         private static readonly double[] PropPowder = { 0, 1.0 / 6.0, 0.5, 0.8333, 1 };
@@ -538,7 +481,7 @@ namespace ResortBatch
         {
             const string w = "skiday H chance property";
             const int Sets = 20000;
-            const double Tol = 1e-12;   // two clamps of the same straight line can differ by an ulp; scratch saw none
+            const double Tol = 1e-12; // two clamps of the same straight line can differ by an ulp; scratch saw none
             var rng = new System.Random(20261005);
             string[] names =
             {
@@ -609,8 +552,6 @@ namespace ResortBatch
             }
         }
 
-        // ================================================================== I. rolls (ch1 §3.7)
-
         private static void Rolls()
         {
             const string w = "skiday I rolls";
@@ -634,7 +575,6 @@ namespace ResortBatch
                   w, "UnitOf: 0, the largest value below 1, 0.5");
             Check(Rules.Hit(0.09, 0.1) && !Rules.Hit(0.1, 0.1) && !Rules.Hit(0.0, 0.0) && !Rules.Hit(0.5, double.NaN), w, "Hit = roll < p");
 
-            // Statistics, i = 1..100,000.
             const int N = 100000;
             double[] ps = { 0.01, 0.11375, 0.5, 0.9 };
             int[] hitR = new int[ps.Length], hitT = new int[ps.Length];
@@ -679,8 +619,6 @@ namespace ResortBatch
                 chi += (bins[i] - e) * (bins[i] - e) / e;
             return chi;
         }
-
-        // ================================================================== J. back-off and speed (ch1 §3.8)
 
         private static void BackOff()
         {
@@ -775,17 +713,15 @@ namespace ResortBatch
             Rules.LearnSpeed(ref t, TC.Car, 3360, Now, Now);
             Rules.LearnSpeed(ref t, TC.Car, 3360, Now, Now - 100u);
             Rules.LearnSpeed(ref t, TC.Car, double.NaN, Now, Now + 21845u);
-            Rules.LearnSpeed(ref t, TC.Car, 3360, Now, Now + 546u);   // 0.04999 h < 0.05
+            Rules.LearnSpeed(ref t, TC.Car, 3360, Now, Now + 546u); // 0.04999 h < 0.05
             Check(t.SpeedKmPerHour == 2.2, w + " learn", "arrival ≤ claim, NaN distance, under 0.05 h → unchanged");
-            t = default;   // an unset speed starts from the class's start speed
+            t = default; // an unset speed starts from the class's start speed
             Rules.LearnSpeed(ref t, TC.Car, 3360, Now, Now + 21845u);
             Check(Near(t.SpeedKmPerHour, 2.196008331, 1e-9), w + " learn", "speed 0 starts from 2.2");
             t = Rules.NewTrack(TC.Walk);
-            Rules.LearnSpeed(ref t, TC.Walk, 900, Now, Now + 100000u);   // 9.155 h → 0.128 km/h, clamp 0.1..1 keeps it
+            Rules.LearnSpeed(ref t, TC.Walk, 900, Now, Now + 100000u); // 9.155 h -> 0.128 km/h, clamp 0.1..1 keeps it
             Check(Near(t.SpeedKmPerHour, 0.3 + 0.25 * (0.9 * 1.3 / (100000 / Rules.FramesPerHour) - 0.3), 1e-12), w + " learn", "Walk sample inside its clamps");
         }
-
-        // ================================================================== K. powder (ch1 §3.9)
 
         private static void Powder()
         {
@@ -802,7 +738,7 @@ namespace ResortBatch
             Check(Rules.IsSnowHour(0.2f, amb, top, bas, lapse, local) && !Rules.IsSnowHour(0.2f, amb, top, bas, lapse, local - 1e-4f), w,
                   "the local temperature is the float expression ambient − (top − base) × lapse");
 
-            // T134: PowderOf takes fresh steps (0.5 precipitation-hours each): 0 to 6, linear to 12, sixths.
+            // PowderOf takes fresh steps (0.5 precipitation-hours each): 0 to 6, linear to 12, sixths.
             for (int h = -1; h <= 14; h++)
             {
                 double want = h <= 6 ? 0.0 : (h >= 12 ? 1.0 : (h - 6) / 6.0);
@@ -818,8 +754,7 @@ namespace ResortBatch
                   Rules.FreshSteps(double.NaN) == 0 && Rules.FreshSteps(-1.0) == 0, w, "T134 FreshSteps: whole half steps, float guard, NaN / negative 0");
             Check(Rules.FreshOfHour(0.4f, true) == 0.4f && Rules.FreshOfHour(0.4f, false) == 0f && Rules.FreshOfHour(float.NaN, true) == 0f, w,
                   "T134 FreshOfHour: the precipitation of a snow hour, else 0");
-            // T134 the field case (2026-10-20 playthrough): seven snow hours of light snow (0.2) are no powder day any more; a storm
-            // of 15 hours at 0.4 is (6.0 = full).
+            // The field case: seven snow hours of light snow (0.2) are no powder day; a storm of 15 hours at 0.4 is (6.0 = full).
             Check(!Rules.PowderMark(Rules.PowderOf(Rules.FreshSteps(7 * 0.2))), w, "T134 7 light snow-hours (1.4): not a powder day (was one)");
             Check(Rules.PowderOf(Rules.FreshSteps(15 * 0.4)) == 1.0, w, "T134 a 15-hour storm at 0.4 (6.0): full powder");
 
@@ -853,8 +788,6 @@ namespace ResortBatch
             Check(mismatches == 0 && compared == 2000 * 4 * 24, w, $"{mismatches} mismatch(es) in {compared} sample dates vs DayMeanC{(firstBad != null ? "; first " + firstBad : "")}");
         }
 
-        // ================================================================== L. capacity (ch1 §3.10)
-
         private static void CapacityRows()
         {
             const string w = "skiday L capacity";
@@ -887,7 +820,6 @@ namespace ResortBatch
                   "CapacityPeople: NaN / −5 / 0.4 → 0, 0.5 → 1, 1e12 / +∞ → 1,000,000");
             Check(Rules.HasRoom(153, 154) && !Rules.HasRoom(154, 154) && !Rules.HasRoom(0, 0), w, "HasRoom(153, 154) T, (154, 154) F, (0, 0) F");
 
-            // Properties (20,000 random).
             var rng = new System.Random(20261005);
             int incRuns = 0, incLodges = 0, incPowder = 0, limitRule = 0, bounds = 0;
             for (int n = 0; n < 20000; n++)
@@ -909,8 +841,6 @@ namespace ResortBatch
             Check(limitRule == 0, w + " property", $"limit = Runs ⇔ lodges > 0 and runs ≤ lodges: {limitRule} violation(s)");
             Check(bounds == 0, w + " property", $"0 ≤ cap ≤ 1.25 × min(runs, lodges): {bounds} violation(s)");
         }
-
-        // ================================================================== M. slices and ARM (ch1 §3.11)
 
         private static void Slices()
         {
@@ -951,8 +881,8 @@ namespace ResortBatch
             Check(!Rules.IsPowerOfTwo(0) && Rules.IsPowerOfTwo(1) && Rules.IsPowerOfTwo(64) && !Rules.IsPowerOfTwo(48) && !Rules.IsPowerOfTwo(-64) &&
                   !Rules.IsPowerOfTwo(int.MinValue) && Rules.IsPowerOfTwo(1 << 30), w, "IsPowerOfTwo");
 
-            // Round M2 (R9, enabled-flags.md §3): the 5-argument ArmCheck — SystemOff first when LeisureSystem (1) or
-            // CitizenBehaviorSystem (2) is off, else the 4-argument rule; extra bits ignored.
+            // The 5-argument ArmCheck: SystemOff first when LeisureSystem (1) or CitizenBehaviorSystem (2) is off, else the 4-argument
+            // rule; extra bits ignored.
             const string wa = "skiday M arm5";
             var arm5 = new (int l, int t, int b, int o, int on, ArmVerdict want, string why)[]
             {
@@ -986,8 +916,6 @@ namespace ResortBatch
                       $"parity ({r.l}, {r.t}, {r.b}, {r.o}): 5-argument with 63 = 4-argument ({Rules.ArmCheck(r.l, r.t, r.b, r.o)})");
             }
         }
-
-        // ================================================================== N. day key and month step (ch1 §3.12)
 
         private static void DayAndMonth()
         {
@@ -1046,8 +974,6 @@ namespace ResortBatch
             Check(mismatches == 0, m, $"Advance(ref MonthFlags) = SkiResortLedger.Advance over 2,000 × 50 steps: {mismatches} mismatch(es){(first != null ? "; first " + first : "")}");
         }
 
-        // ================================================================== O. slope-side geometry (ch1 §3.2)
-
         private static float PolygonDistance(float2 p, float2[] nodes)
         {
             bool inside = false;
@@ -1097,7 +1023,7 @@ namespace ResortBatch
             Check(Near(PolygonDistance(new float2(130f, 140f), square), 50, 0.01), w + " polygon", "square: (130, 140) → 50");
             Check(Near(PolygonDistance(new float2(-30f, 50f), square), 30, 0.01), w + " polygon", "square: (−30, 50) → 30");
 
-            // The R-3 strip: a long diagonal run whose box admits a lodge the polygon refuses.
+            // The strip: a long diagonal run whose box admits a lodge the polygon refuses.
             float2[] strip = { new float2(0f, 0f), new float2(10f, -10f), new float2(1424f, 1404f), new float2(1414f, 1414f) };
             float2 lodge = new float2(2214f, 0f);
             float box = Rules.DistanceToBoundsXZ(lodge, new float2(0f, -10f), new float2(1424f, 1414f));
@@ -1111,8 +1037,6 @@ namespace ResortBatch
             Check(Near(near, 56.569, 0.01) && Rules.DistanceToBoundsXZ(new float2(1000f, 900f), new float2(0f, -10f), new float2(1424f, 1414f)) == 0f,
                   w + " strip", $"(1000, 900) → {near} (80/√2 = 56.569), box 0");
         }
-
-        // ================================================================== P. F2 power (ch1 §5)
 
         private static void Power()
         {
@@ -1158,8 +1082,6 @@ namespace ResortBatch
                   LiftServedRule.PowerOf(4) == Off && LiftServedRule.PowerOf(5) == Off, w, "the 1-argument overload: 0/1 → Powered, 2-5 → NoPower");
         }
 
-        // ================================================================== Q. score additions (ch1 §4)
-
         private const byte Gr = Score.KindGroomed, Sm = Score.KindSnowmaking, Ni = Score.KindNight, Na = Score.KindNatural;
         private const byte Flat = Score.BandFlat, Green = Score.BandGreen, Blue = Score.BandBlue, Black = Score.BandBlack, DBlack = Score.BandDoubleBlack;
 
@@ -1178,7 +1100,7 @@ namespace ResortBatch
                 runs.Add(run);
         }
 
-        // The ScoreTests compositions (econ-round ch1 §3.1), re-built here: ScoreTests keeps its builders private.
+        // The ScoreTests compositions, re-built here: ScoreTests keeps its builders private.
         private static List<Score.RunInput> Small()
         {
             return new List<Score.RunInput> { Run(Gr, Green, 20000, 1150, 1000), Run(Gr, Blue, 25000, 1250, 1000), Run(Gr, Blue, 20000, 1250, 1050) };
@@ -1208,8 +1130,8 @@ namespace ResortBatch
             return runs;
         }
 
-        /// <summary>The FT8 hill (ch1 §8): groomed black 25,100 + 25,100 + 25,000 m², natural blue 26,000, natural double
-        /// black 24,000, all served and open. Heights are not in the log; these give the §7 Q top of 1,103 m.</summary>
+        /// <summary>The FT8 hill: groomed black 25,100 + 25,100 + 25,000 m2, natural blue 26,000, natural double black 24,000, all
+        /// served and open. Heights are chosen to give a top of 1,103 m.</summary>
         private static List<Score.RunInput> Ft8()
         {
             return new List<Score.RunInput>
@@ -1401,14 +1323,12 @@ namespace ResortBatch
                 Check(bad[i] == 0, w, $"{names[i]}: {bad[i]} violation(s) in {Areas} areas");
         }
 
-        // ================================================================== S. worked scenarios (ch1 §8)
-
         private static void Scenarios()
         {
             const string w = "skiday S scenario";
             Rules.Knobs def = Rules.DefaultKnobs();
 
-            // FT8 hill: capacity 154.3 → 154 (runs), 193 on full powder; car claims fit until ~12:30, no car until ~10:50.
+            // FT8 hill: capacity 154.3 -> 154 (runs), 193 on full powder; car claims fit until ~12:30, no car until ~10:50.
             var parts = new List<Score.RunPart>();
             Score.Result ft8 = Score.Compute(AreaIn(1), Ft8(), Lifts(2), parts);
             double cap = Rules.Capacity(ft8.RunsCapacity, 1, 0, out SkiDayLimit lim);
@@ -1436,7 +1356,7 @@ namespace ResortBatch
             double walk = Rules.TravelHours(300, Rules.StartSpeedWalk);
             Check(Fits(0.21875f, walk) && Fits(13f / 24f, walk) && !Fits(0.5520833f, walk), w + " tiny", "the walk fits from 05:15 to 13:00, not at 13:15 (last ~13:12)");
 
-            // Large resort (= T3, A 160, 3 lodges): 1080 (lodges), 1350 on powder; chances at 2 km, 5 km and slope-side tourists.
+            // Large resort (A 160, 3 lodges): 1080 (lodges), 1350 on powder; chances at 2 km, 5 km and slope-side tourists.
             Score.Result large = Score.Compute(AreaIn(3), Large(), Lifts(6), parts);
             double lCap = Rules.Capacity(large.RunsCapacity, 3, 0, out SkiDayLimit lLim), lCapP = Rules.Capacity(large.RunsCapacity, 3, 1, out SkiDayLimit _);
             Check(large.Attraction == 160 && lCap == 1080 && lLim == SkiDayLimit.Lodges && lCapP == 1350, w + " large",
@@ -1449,18 +1369,16 @@ namespace ResortBatch
                   w + " large", "slope-side tourists 0.3; 5 km car 2.95 h");
         }
 
-        /// <summary>Does a claim with <paramref name="hours"/> of travel fit at time of day <paramref name="t"/> (day hours,
-        /// vanilla's deadline far away)?</summary>
+        /// <summary>Does a claim with <paramref name="hours"/> of travel fit at time of day <paramref name="t"/> (day hours, vanilla's
+        /// deadline far away)?</summary>
         private static bool Fits(float t, double hours)
         {
             return Rules.TryClosingFrame(Now, t, false, out uint closing) && Rules.ClaimFits(Now, Now + 200000u, closing, hours);
         }
 
-        // ================================================================== T. Round M1 measure rules (m1-spec §4)
-
         private static void MeasureRules()
         {
-            // DistanceBand: < 1 / 3 / 5 / 7 km, NaN and negative → 0.
+            // DistanceBand: < 1 / 3 / 5 / 7 km, NaN and negative -> 0.
             const string wd = "skiday T band";
             double[] dm = { 0, 999, 1000, 2999, 3000, 5000, 6999, 7000, 12000, double.NaN, -1 };
             int[] db = { 0, 0, 1, 1, 2, 3, 3, 4, 4, 0, 0 };
@@ -1468,14 +1386,14 @@ namespace ResortBatch
                 Check(Rules.DistanceBand(dm[i]) == db[i], wd, $"DistanceBand({R(dm[i])}) = {Rules.DistanceBand(dm[i])}, expected {db[i]}");
             Check(Rules.DistanceBands == 5, wd, "DistanceBands 5");
 
-            // Modes (arrival-modes.md §9, with its Verification: Bike for a personal car + bicycle, Other for a bicycle alone).
+            // Modes (arrival-modes.md section 9): Bike for a personal car + bicycle, Other for a bicycle alone.
             const string wm = "skiday T mode";
             Check((byte)Rules.ArrivalMode.Foot == 0 && (byte)Rules.ArrivalMode.Car == 1 && (byte)Rules.ArrivalMode.Transit == 2 &&
                   (byte)Rules.ArrivalMode.Taxi == 3 && (byte)Rules.ArrivalMode.Bike == 4 && Rules.ArrivalModes == 5, wm, "ArrivalMode literals 0..4");
             Check(Rules.LegCar == 1 && Rules.LegTransit == 2 && Rules.LegTaxi == 4 && Rules.LegBike == 8 && Rules.LegOther == 16, wm, "leg bits");
             Check(Rules.KindBus == 1 && Rules.KindTram == 2 && Rules.KindTrain == 4 && Rules.KindSubway == 8 && Rules.KindBoat == 16 &&
                   Rules.KindOther == 32 && Rules.KindBits == 6, wm, "kind bits");
-            // Game.Prefabs.TransportType (1.6.2 TransportType.cs:5-19): Bus 0, Train 1, Taxi 2, Tram 3, Ship 4, … Subway 8, … Ferry 11.
+            // Game.Prefabs.TransportType (1.6.2 TransportType.cs:5-19): Bus 0, Train 1, Taxi 2, Tram 3, Ship 4, ... Subway 8, ... Ferry 11.
             Check(Rules.TransportBus == 0 && Rules.TransportTrain == 1 && Rules.TransportTram == 3 && Rules.TransportShip == 4 &&
                   Rules.TransportSubway == 8 && Rules.TransportFerry == 11, wm, "TransportType literals");
             Check(Rules.MainMode(0) == Rules.ArrivalMode.Foot, wm, "MainMode(0) Foot");
@@ -1556,7 +1474,7 @@ namespace ResortBatch
             Check(Rules.MonthOfHour(47, 24) == 0 && Rules.MonthOfHour(48, 24) == 1, wh, "MonthOfHour 47 / 48 at 24 days = 0 / 1");
             Check(Rules.MonthOfHour(-5, 12) == 0 && Rules.MonthOfHour(100000, 12) == 11, wh, "MonthOfHour clamps to 0..11");
 
-            // Advance(ref f, key, closedShort) (D5): a short closed month reads "since load" (partial).
+            // Advance(ref f, key, closedShort): a short closed month reads "since load" (partial).
             const string wa = "skiday T month";
             Rules.MonthFlags f = Rules.NewMonthFlags();
             Check(Rules.Advance(ref f, 100, true) == MonthStep.Started && f.ThisSinceLoad && !f.LastKnown, wa, "Started 100 (a short flag does not change a start)");
@@ -1565,10 +1483,9 @@ namespace ResortBatch
             Check(Rules.Advance(ref f, 103, false) == MonthStep.Rolled && f.LastKnown && !f.LastSinceLoad, wa, "(103, false) → a full last month");
             Check(Rules.Advance(ref f, 103, true) == MonthStep.None && !f.LastSinceLoad, wa, "same key, short → None, flags unchanged");
             Check(Rules.Advance(ref f, 110, true) == MonthStep.Jumped && !f.LastKnown && !f.LastSinceLoad && f.ThisSinceLoad, wa, "(110, true) → Jumped as before");
-            // Fixer R7: an independent oracle for the D5 parity the code comments claim — the ski days' month flags and the
-            // guest ledger (SkiResortLedger.Advance(key, closedMonthShort), builder B's code) step alike over random keys
-            // AND a random short flag (the former check compared Advance(f, key) with Advance(f, key, false), which is
-            // the same code path).
+            // An independent oracle for the parity of the ski days' month flags and the guest ledger (SkiResortLedger.Advance(key,
+            // closedMonthShort)): they step alike over random keys and a random short flag (comparing Advance(f, key) with Advance(f, key,
+            // false) would be the same code path).
             int mism = 0, shortRolls = 0;
             string firstAdv = null;
             for (int s = 0; s < 2000; s++)
@@ -1602,14 +1519,12 @@ namespace ResortBatch
             return Rules.FitVerdict(Now, vanilla, closing, hours);
         }
 
-        // ================================================================== U. on-arrival (Round M2, D3 / R6)
-
-        /// <summary>arrived-at-lodge.md §3 section U (oracles re-computed with node in its check): a guest found in the
-        /// lodge with Leisure gone is booked as an arrival (RecordOutcome(true) and LearnSpeed), not a failure.</summary>
+        /// <summary>arrived-at-lodge.md section 3 (oracles re-computed with node in its check): a guest found in the lodge with
+        /// Leisure gone is booked as an arrival (RecordOutcome(true) and LearnSpeed), not a failure.</summary>
         private static void OnArrival()
         {
             const string w = "skiday U on-arrival";
-            // U1, L 1051: no car, 2.9 km, +4.0 h.
+            // U1: no car, 2.9 km, +4.0 h.
             Rules.ClassTrack t = Rules.NewTrack(TC.NoCarFar);
             Rules.RecordOutcome(ref t, true);
             Check(Near(Rules.Confidence(TC.NoCarFar, t), 0.28, 1e-12), w + " U1", $"no car, one arrival: confidence {R(Rules.Confidence(TC.NoCarFar, t))}, expected 0.28");
@@ -1620,7 +1535,7 @@ namespace ResortBatch
             t = Rules.NewTrack(TC.NoCarFar);
             Rules.LearnSpeed(ref t, TC.NoCarFar, 2900, Now, Now + 43690u);
             Check(Near(t.SpeedKmPerHour, 1.135628595, 1e-9), w + " U1", $"no car 2,900 m in 43,690 frames: speed {R(t.SpeedKmPerHour)}, expected 1.135628595 (sample 0.942514382)");
-            // U2, L 585: walk, 0.3 km, +2.0 h.
+            // U2: walk, 0.3 km, +2.0 h.
             t = Rules.NewTrack(TC.Walk);
             Rules.RecordOutcome(ref t, true);
             Check(Rules.Confidence(TC.Walk, t) == 1.0, w + " U2", $"walk, one arrival: confidence {R(Rules.Confidence(TC.Walk, t))}, expected 1.0");
@@ -1633,7 +1548,7 @@ namespace ResortBatch
             t = Rules.NewTrack(TC.Walk);
             Rules.LearnSpeed(ref t, TC.Walk, 299, Now, Now + 21845u);
             Check(t.SpeedKmPerHour == 0.3, w + " U2", $"walk 299 m: speed {R(t.SpeedKmPerHour)}, expected 0.3 unchanged (under 300 m)");
-            // U3, the hub row "cannot reach": 8 arrivals then 13 failures → on; the last 4 failures booked on arrival → off.
+            // U3, the hub row "cannot reach": 8 arrivals then 13 failures -> on; the last 4 failures booked on arrival -> off.
             Rules.ClassTrack car = Rules.NewTrack(TC.Car);
             for (int i = 0; i < 8; i++)
                 Rules.RecordOutcome(ref car, true);
@@ -1654,10 +1569,7 @@ namespace ResortBatch
             Check(!Rules.UpdateCannotReach(ref car), w + " U3", "8, 9, 4: the row is off (from 0.6)");
         }
 
-        // ================================================================== V. measure-core (Round M2)
-
-        /// <summary>measure-core.md §3 with the contract's 3-argument HillClosedForCount (R4 a) and ClosingEdgeOf rows
-        /// (build-contract.md §7, Decided here 1-2).</summary>
+        /// <summary>measure-core.md section 3 with the 3-argument HillClosedForCount and ClosingEdgeOf rows.</summary>
         private static void MeasureCore()
         {
             const string w = "skiday V measure-core";
@@ -1731,16 +1643,13 @@ namespace ResortBatch
             }
         }
 
-        // ================================================================== W. R10 learning (Round M2, u9-learning.md U1-U11)
-
-        /// <summary>u9-learning.md §3 U1-U11 as W1-W11 (now = 1,000,000; doubles ±1e-9 unless exact; BoundLearn tri-state
-        /// in place of true / false, Decided here 9).</summary>
+        /// <summary>u9-learning.md section 3 U1-U11 as W1-W11 (now = 1,000,000; doubles +-1e-9 unless exact; BoundLearn tri-state in
+        /// place of true / false).</summary>
         private static void Learning()
         {
             const string w = "skiday W learning";
             Rules.TripKnobs dk = Rules.DefaultTripKnobs();
 
-            // W1 knobs.
             Check(dk.StayHours == 2.0 && dk.FloorWalk == 0.1 && dk.FloorCar == 0.5 && dk.FloorNoCar == 0.2 && !dk.FitUsesAllOutcomes, w + " W1",
                   "DefaultTripKnobs: stay 2, floors 0.1 / 0.5 / 0.2, fit on arrivals only (exact)");
             Check(Rules.FloorOf(TC.Car, dk) == 0.5, w + " W1", "FloorOf(Car, default) = 0.5");
@@ -1779,7 +1688,6 @@ namespace ResortBatch
             Check(badFits == 0, w + " W3", $"ClaimFits(…, 2.0) = ClaimFits(…) over 5,000 rows: {badFits} bad");
             Check(badVerdicts == 0, w + " W3", $"FitVerdict(…, 2.0) = FitVerdict(…) over 5,000 rows: {badVerdicts} bad");
 
-            // W4 NewTrack: both speeds at the start speed.
             var starts = new (TC c, double v)[] { (TC.Car, 2.2), (TC.Walk, 0.3), (TC.NoCarFar, 1.2), (TC.None, 0.3) };
             for (int i = 0; i < starts.Length; i++)
             {
@@ -1788,7 +1696,7 @@ namespace ResortBatch
                       $"NewTrack({starts[i].c}): speeds {R(t0.SpeedKmPerHour)} / {R(t0.SpeedAllKmPerHour)}, expected {starts[i].v} both (exact)");
             }
 
-            // W5 floors (Car, 3,360 m, + 100,000 frames = 9.1552734375 h, sample 0.47710208 → the floor).
+            // W5 floors (Car, 3,360 m, + 100,000 frames = 9.1552734375 h, sample 0.47710208 -> the floor).
             Rules.ClassTrack t = Rules.NewTrack(TC.Car);
             bool applied = Rules.LearnSpeed(ref t, TC.Car, 3360, Now, Now + 100000u, dk);
             Check(applied && Near(t.SpeedKmPerHour, 1.775, 1e-12), w + " W5", $"default floor 0.5: speed {R(t.SpeedKmPerHour)}, expected 1.775, applied");
@@ -1813,7 +1721,6 @@ namespace ResortBatch
             bool g4 = Rules.LearnSpeed(ref t, TC.Car, 3360, Now, Now + 546u, dk);
             Check(!g1 && !g2 && !g3 && !g4 && t.SpeedKmPerHour == 2.2, w + " W5", "section J's guard rows return false and leave 2.2");
 
-            // W6 exact all-outcomes samples.
             t = Rules.NewTrack(TC.Car);
             bool all = Rules.LearnSpeedAll(ref t, TC.Car, 3360, Now, Now + 21845u, dk);
             Check(all && Near(t.SpeedAllKmPerHour, 2.196008331, 1e-9), w + " W6", $"arrival +21,845: all-outcomes speed {R(t.SpeedAllKmPerHour)}, expected 2.196008331");
@@ -1823,7 +1730,7 @@ namespace ResortBatch
             Rules.LearnSpeedAll(ref t, TC.Car, 3000, Now, Now + 65536u, dk);
             Check(Near(t.SpeedAllKmPerHour, 0.8225, 1e-12), w + " W6", $"late arrival 3,000 m in 6 h (sample 0.65) from 0.88: {R(t.SpeedAllKmPerHour)}, expected 0.8225");
 
-            // W7 SpeedBound (km × 1.3 / hours; +∞ under LearnSpeed's guards).
+            // W7 SpeedBound (km x 1.3 / hours; +infinity under LearnSpeed's guards).
             Check(Near(Rules.SpeedBound(3360, Now, Now + 32768u), 1.456, 1e-12), w + " W7", $"3 h: {R(Rules.SpeedBound(3360, Now, Now + 32768u))}, expected 1.456");
             Check(Near(Rules.SpeedBound(3360, Now, Now + 131072u), 0.364, 1e-12), w + " W7", "12 h: expected 0.364");
             double b547 = Rules.SpeedBound(3360, Now, Now + 547u);
@@ -1834,7 +1741,6 @@ namespace ResortBatch
             Check(double.IsPositiveInfinity(Rules.SpeedBound(3360, Now, Now)), w + " W7", "last = claim → +∞");
             Check(double.IsPositiveInfinity(Rules.SpeedBound(3360, Now, Now - 5u)), w + " W7", "last < claim → +∞");
 
-            // W8 LearnSpeedBound on NewTrack(Car).
             t = Rules.NewTrack(TC.Car);
             Rules.BoundLearn bl = Rules.LearnSpeedBound(ref t, TC.Car, 3360, Now, Now + 32768u, dk);
             Check(bl == Rules.BoundLearn.Lowered && Near(t.SpeedAllKmPerHour, 2.014, 1e-12) && t.SpeedKmPerHour == 2.2, w + " W8",
@@ -1864,8 +1770,8 @@ namespace ResortBatch
             bl = Rules.LearnSpeedBound(ref t, TC.Car, double.NaN, Now, Now + 32768u, dk);
             Check(bl == Rules.BoundLearn.NoInformation && t.SpeedAllKmPerHour == 2.2, w + " W8", $"NaN distance: {bl}, expected NoInformation, 2.2");
 
-            // W9 property: with the defaults every send is bit-identical — track A gets the Round M2 calls, track B only the
-            // Round M1 LearnSpeed on its arrivals; the arrival-only speed and FitSpeed(A) equal B's speed at every step.
+            // W9 property: with the defaults every send is bit-identical: track A gets the new calls, track B only the original
+            // LearnSpeed on its arrivals; the arrival-only speed and FitSpeed(A) equal B's speed at every step.
             TC[] classes = { TC.Walk, TC.Car, TC.NoCarFar };
             rng = new System.Random(20261010);
             int badSends = 0;
@@ -1882,22 +1788,22 @@ namespace ResortBatch
                     uint end = claim + (uint)rng.Next(0, 150001);
                     switch (kind)
                     {
-                        case 0:   // an arrival (BookArrival: both speeds, the outcome)
+                        case 0: // an arrival (BookArrival: both speeds, the outcome)
                             Rules.LearnSpeed(ref a, c, d, claim, end, dk);
                             Rules.LearnSpeedAll(ref a, c, d, claim, end, dk);
                             Rules.RecordOutcome(ref a, true);
                             Rules.LearnSpeed(ref b, c, d, claim, end);
                             Rules.RecordOutcome(ref b, true);
                             break;
-                        case 1:   // a late arrival after expiry (the all-outcomes speed only)
+                        case 1: // a late arrival after expiry (the all-outcomes speed only)
                             Rules.LearnSpeedAll(ref a, c, d, claim, end, dk);
                             break;
-                        case 2:   // an upper bound (a failure on the road, or a late watch's end)
+                        case 2: // an upper bound (a failure on the road, or a late watch's end)
                             Rules.LearnSpeedBound(ref a, c, d, claim, end, dk);
                             Rules.RecordOutcome(ref a, false);
                             Rules.RecordOutcome(ref b, false);
                             break;
-                        default:  // a failure with no information
+                        default: // a failure with no information
                             Rules.RecordOutcome(ref a, false);
                             Rules.RecordOutcome(ref b, false);
                             break;
@@ -1912,8 +1818,8 @@ namespace ResortBatch
             Check(badSends == 0, w + " W9", $"sends unchanged with the defaults over 2,000 × 50 events: {badSends} step(s) differ" +
                                             (firstSend != null ? "; first " + firstSend : ""));
 
-            // W10 the bound property: LearnSpeedBound never raises the all-outcomes speed; when it lowers it, the new speed
-            // is at least clamp(bound, floor, cap) and at least the floor.
+            // W10 the bound property: LearnSpeedBound never raises the all-outcomes speed; when it lowers it, the new speed is at least
+            // clamp(bound, floor, cap) and at least the floor.
             rng = new System.Random(20261010);
             int raised = 0, under = 0;
             string firstRaise = null, firstUnder = null;
@@ -1941,7 +1847,6 @@ namespace ResortBatch
             Check(raised == 0, w + " W10", $"never raises the all-outcomes speed over 5,000 rows: {raised} bad{(firstRaise != null ? "; first " + firstRaise : "")}");
             Check(under == 0, w + " W10", $"a lowered speed stays at or above clamp(bound, floor, cap): {under} bad{(firstUnder != null ? "; first " + firstUnder : "")}");
 
-            // W11 FitSpeed: the switch picks the speed (all-outcomes only when it is set).
             Rules.ClassTrack tf = Rules.NewTrack(TC.Car);
             tf.SpeedKmPerHour = 0.58;
             tf.SpeedAllKmPerHour = 0.51;
@@ -1953,25 +1858,20 @@ namespace ResortBatch
             Check(Rules.FitSpeed(tf, onAll) == 0.58, w + " W11", "switch on, all-outcomes speed 0 (unset) → 0.58");
         }
 
-        // ================================================================== X. trip systems (Round M2 R9, SkiTripSystems)
-
-        /// <summary>enabled-flags.md §3, the SkiTripSystems section (literal oracles).</summary>
+        /// <summary>SkiTripSystems rows (literal oracles).</summary>
         private static void TripSystems()
         {
             const string w = "skiday X trip systems";
-            // BitOfAssembly (exact, case-sensitive).
             Check(SkiTripSystems.BitOfAssembly("RealisticPathFinding") == 1, w + " bit", "RealisticPathFinding → 1");
             Check(SkiTripSystems.BitOfAssembly("Time2Work") == 2, w + " bit", "Time2Work → 2");
             Check(SkiTripSystems.BitOfAssembly("RWH") == 0, w + " bit", "RWH → 0");
             Check(SkiTripSystems.BitOfAssembly("realisticpathfinding") == 0, w + " bit", "realisticpathfinding → 0 (case-sensitive)");
             Check(SkiTripSystems.BitOfAssembly(null) == 0, w + " bit", "null → 0");
-            // Names.
             Eq(SkiTripSystems.Names(0, true), "", w + " names", "Names(0, true)");
             Eq(SkiTripSystems.Names(1, true), "Realistic PathFinding (assembly RealisticPathFinding)", w + " names", "Names(1, true)");
             Eq(SkiTripSystems.Names(2, true), "Realistic Trips (assembly Time2Work)", w + " names", "Names(2, true)");
             Eq(SkiTripSystems.Names(3, false), "Realistic PathFinding, Realistic Trips", w + " names", "Names(3, false)");
             Eq(SkiTripSystems.Names(4, false), "", w + " names", "Names(4, false) (unknown bits ignored)");
-            // Long.
             Eq(SkiTripSystems.Long(63, 63), "LeisureSystem on, CitizenBehaviorSystem on, TripNeededSystem on, ResidentAISystem on, " +
                "ResidentAISystem.Actions on, ResourceBuyerSystem on", w + " long", "Long(63, 63)");
             Eq(SkiTripSystems.Long(63, 3), "LeisureSystem on, CitizenBehaviorSystem on, TripNeededSystem OFF, ResidentAISystem OFF, " +
@@ -1980,7 +1880,6 @@ namespace ResortBatch
                "ResidentAISystem.Actions on, ResourceBuyerSystem on", w + " long", "Long(63, 60)");
             Eq(SkiTripSystems.Long(61, 61), "LeisureSystem on, CitizenBehaviorSystem missing, TripNeededSystem on, ResidentAISystem on, " +
                "ResidentAISystem.Actions on, ResourceBuyerSystem on", w + " long", "Long(61, 61)");
-            // Short.
             Eq(SkiTripSystems.Short(63, 63, 0), "all on", w + " short", "Short(63, 63, 0)");
             Eq(SkiTripSystems.Short(63, 63, 1), "all on", w + " short", "Short(63, 63, 1) (loaded but nothing off: no claim)");
             Eq(SkiTripSystems.Short(63, 3, 1), "OFF: TripNeededSystem, ResidentAISystem, ResidentAISystem.Actions, ResourceBuyerSystem, " +
@@ -1990,7 +1889,6 @@ namespace ResortBatch
             Eq(SkiTripSystems.Short(61, 61, 0), "OFF: CitizenBehaviorSystem (missing), no known replacement", w + " short", "Short(61, 61, 0)");
             Eq(SkiTripSystems.Short(63, 0, 3), "OFF: LeisureSystem, CitizenBehaviorSystem, TripNeededSystem, ResidentAISystem, " +
                "ResidentAISystem.Actions, ResourceBuyerSystem, replaced by Realistic PathFinding, Realistic Trips", w + " short", "Short(63, 0, 3)");
-            // LoadLine.
             Eq(SkiTripSystems.LoadLine(63, 63, 0), "SkiDays: trip systems: LeisureSystem on, CitizenBehaviorSystem on, TripNeededSystem on, " +
                "ResidentAISystem on, ResidentAISystem.Actions on, ResourceBuyerSystem on — the game's own trip planner runs (read at city load, " +
                "after every mod loaded)", w + " load", "LoadLine(63, 63, 0)");
@@ -2003,7 +1901,6 @@ namespace ResortBatch
                "loaded (looked for assemblies RealisticPathFinding, Time2Work): another mod, or the game after an error in that system (see the " +
                "game's logs); the intervals SkiDays prints are read from the game's own systems (read at city load, after every mod loaded)",
                w + " load", "LoadLine(63, 59, 0)");
-            // ChangeLine.
             Eq(SkiTripSystems.ChangeLine(63, 63, 63, 60, 2, true, false), "SkiDays: trip systems changed during play: LeisureSystem OFF, " +
                "CitizenBehaviorSystem OFF, TripNeededSystem on, ResidentAISystem on, ResidentAISystem.Actions on, ResourceBuyerSystem on (was: " +
                "all on); ski days need the game's own LeisureSystem and CitizenBehaviorSystem: NOT ARMED from now on this load (claims in flight " +
@@ -2011,7 +1908,6 @@ namespace ResortBatch
             string change = SkiTripSystems.ChangeLine(63, 63, 63, 59, 0, false, true);
             Check(change.EndsWith("(was: all on); the arm verdict stands until the next city load (further changes this load are only counted in " +
                                   "the Dump)", StringComparison.Ordinal), w + " change", $"ChangeLine(63, 63, 63, 59, 0, false, true) ends as expected: \"{change}\"");
-            // Label and UnknownLabel.
             Eq(SkiTripSystems.Label(63, 63, 1), "", w + " label", "Label(63, 63, 1)");
             Eq(SkiTripSystems.Label(63, 3, 1), "Realistic PathFinding", w + " label", "Label(63, 3, 1)");
             Eq(SkiTripSystems.Label(63, 59, 0), "?", w + " label", "Label(63, 59, 0)");
@@ -2023,8 +1919,6 @@ namespace ResortBatch
             for (int i = 0; i < blocks.Length; i++)
                 Check(SkiTripSystems.BlocksSkiDays(blocks[i].on) == blocks[i].want, w + " blocks", $"BlocksSkiDays({blocks[i].on}) expected {blocks[i].want}");
         }
-
-        // ================================================================== Y. Catalog Phase B (round-2-contract §7.2-§7.3)
 
         private static void CatalogPhaseB()
         {
@@ -2048,7 +1942,6 @@ namespace ResortBatch
             Check(Rules.PriceFactor(150, int.MaxValue) == 1.0 && Rules.PriceFactor(150, int.MinValue) == Rules.PriceFactor(150), w + " price",
                   "extreme tolerances: clamped, no overflow");
 
-            // Capacity by tier.
             double c1 = Rules.Capacity(2000, 1080.0, 2, 0, out SkiDayLimit l1);
             double c2 = Rules.Capacity(500, 1080.0, 2, 0, out SkiDayLimit l2);
             double c3 = Rules.Capacity(2000, 200.0, 0, 0, out SkiDayLimit l3);
@@ -2093,7 +1986,6 @@ namespace ResortBatch
             Check(Rules.CheckLodge(mountain) == LodgeReject.NotSlopeside, w + " lodge", "a mountain lodge is still judged slope-side");
             Check(!default(Rules.LodgeFacts).NoRoadNeeded, w + " lodge", "NoRoadNeeded defaults to false (road required)");
 
-            // Chance with the school and the tolerance.
             Rules.Knobs def = K();
             double res = Rules.Chance(GK.Resident, 75, 3.36, 1, 0, 40, 1, def);
             double resSchool = Rules.Chance(GK.Resident, 75, 3.36, 1, 0, 40, 0, SchoolRule.DemandFactor, 1, def);
@@ -2109,7 +2001,7 @@ namespace ResortBatch
                   Rules.Chance(GK.Resident, 75, 3.36, 1, 0, 40, 0, -2, 1, def) == res &&
                   Rules.Chance(GK.Resident, 75, 3.36, 1, 0, 40, 0, double.PositiveInfinity, 1, def) == res, w + " chance",
                   "a NaN / negative / infinite school factor reads 1");
-            // Old ≡ new (…, 0, 1.0, …) bit for bit over random sets.
+            // Old == new (..., 0, 1.0, ...) bit for bit over random sets.
             var rng = new System.Random(20261011);
             int chanceFails = 0;
             for (int i = 0; i < 20000; i++)
@@ -2132,13 +2024,11 @@ namespace ResortBatch
             }
             Check(chanceFails == 0, w + " chance", $"20,000 random sets: old ≡ new (…, 0, 1.0, …), school only raises residents, tolerance only raises ({chanceFails} failure(s))");
 
-            // SchoolRule.
             Check(SchoolRule.ScoreValueOf(true, true) == 12 && SchoolRule.ScoreValueOf(true, false) == 0 && SchoolRule.ScoreValueOf(false, true) == 0 &&
                   SchoolRule.ScoreValueOf(false, false) == 0, w + " school", "ScoreValueOf: 12 only while active with a counted green run");
             Check(SchoolRule.DemandFactorOf(true, true) == 1.2 && SchoolRule.DemandFactorOf(true, false) == 1.0 && SchoolRule.DemandFactorOf(false, true) == 1.0,
                   w + " school", "DemandFactorOf: 1.2 only while active with a counted green run");
 
-            // PatrolRule.
             var huts = new List<float2> { new float2(0f, 0f) };
             Check(PatrolRule.Patrolled(new float2(1000f, 0f), huts) && PatrolRule.Patrolled(new float2(600f, 800f), huts) &&
                   PatrolRule.Patrolled(new float2(0f, -1000f), huts), w + " patrol", "1,000 m is inclusive (axis and 600 / 800)");

@@ -1,52 +1,50 @@
-// LiftTowerFitSystem — T48 step 3: fits every new or changed lift line so its carriers keep the floor over the ground (ticket
-// T48, DECISIONS 306 / 311; design + decompile trail docs/research/field/2026-10-19-evening/t48-step3-build.md). The planner is the
-// pure LiftTowerPlanner (Fit); this system only reads the line, asks, writes the answer back and logs.
+// Fits every new or changed lift line so its carriers keep the floor over the ground. The planner is the pure LiftTowerPlanner
+// (Fit); this system reads the line, asks, writes the answer back and logs.
 //
-// WHAT IT CHANGES (the integration point, build note §1)
-//   The engine splits a drawn line into equal spans <= MaxPylonDistance (CourseSplitSystem.cs:3485-3493) with every node on the ground,
-//   so the placeholder ladder always spawns the shortest tower (analysis-towers.md §2). The node COUNT stays the engine's (adding a
-//   node needs a new course: step 3c); per inner node this system sets
-//     * its POSITION along the line: kept, or slid to the planner's spot when heights alone cannot clear the line and the line is
-//       straight in xz (power-line edges are straight, NetInitializeSystem.cs:2195 StraightEdges);
-//     * its HEIGHT: node y = center ground + E and Game.Net.Elevation = (E, E), E = TopM[member] - TopM[0] (LiftTowerEdit): the vanilla
-//       ladder then scores the planned member exactly 1 (SubObjectSystem.cs:980, :2189-2199) and, top-anchored (:2464-2469,
-//       :2477-2482), stands it on the ground; the rope lane rides node y + lane y (LaneSystem.cs:4112-4115). E = 0 removes the component (the engine adds
-//       it only for a non-zero elevation, GenerateNodesSystem.cs:1497-1499);
-//     * each touched edge's Curve = NetUtils.StraightCurve(start, end, net m_Hanging), the engine's own power-line curve
-//       (NetUtils.cs:178-191, CourseSplitSystem.cs:1702-1704), m_Length = MathUtils.Length (as Curve.Deserialize does);
-//   and tags the nodes and edges Updated. Nothing re-snaps them: GroundHeightSystem skips FlattenTerrain nets without a lot owner
-//   (edges :661-667, nodes :747-749; every non-marker power line gets FlattenTerrain, NetInitializeSystem.cs:2184-2187). Station
-//   stub nodes, branch nodes and owned nodes are never touched. A later edit by the net tool starts from these values
-//   (GenerateEdgesSystem.cs:1421-1425 copies the original's Elevation).
+// The engine splits a drawn line into equal spans <= MaxPylonDistance (CourseSplitSystem.cs:3485-3493) with every node on the
+// ground, so the placeholder ladder always spawns the shortest tower. The node count stays the engine's; per inner node this
+// system sets
+//   * its position along the line: kept, or slid to the planner's spot when heights alone cannot clear the line and the line is
+//     straight in xz (power-line edges are straight, NetInitializeSystem.cs:2195 StraightEdges);
+//   * its height: node y = center ground + E and Game.Net.Elevation = (E, E), E = TopM[member] - TopM[0] (LiftTowerEdit): the
+//     vanilla ladder then scores the planned member exactly 1 (SubObjectSystem.cs:980, :2189-2199) and, top-anchored (:2464-2469,
+//     :2477-2482), stands it on the ground; the rope lane rides node y + lane y (LaneSystem.cs:4112-4115). E = 0 removes the
+//     component (the engine adds it only for a non-zero elevation, GenerateNodesSystem.cs:1497-1499);
+//   * each touched edge's Curve = NetUtils.StraightCurve(start, end, net m_Hanging), the engine's own power-line curve
+//     (NetUtils.cs:178-191, CourseSplitSystem.cs:1702-1704), m_Length = MathUtils.Length (as Curve.Deserialize does);
+// and tags the nodes and edges Updated. Nothing re-snaps them: GroundHeightSystem skips FlattenTerrain nets without a lot owner
+// (edges :661-667, nodes :747-749; every non-marker power line gets FlattenTerrain, NetInitializeSystem.cs:2184-2187). Station
+// stub nodes, branch nodes and owned nodes are never touched. A later edit by the net tool starts from these values
+// (GenerateEdgesSystem.cs:1421-1425 copies the original's Elevation).
 //
-// PHASE (Mod.cs): UpdateAt Modification1. Load-bearing: every consumer of the Updated tag runs later in the same frame —
-// GroundHeightSystem (Modification2), SubObjectSystem (2B; owner query All SubObject + Any Updated, :3936-3943), CompositionSelect (3),
-// Net.GeometrySystem and LaneSystem (4), the census and ChairPinSystem (4B) — and CleanUpSystem wipes the tag at the end of the frame
-// (SystemOrder.cs:54), so a tag added at 4B would be lost.
+// Phase (Mod.cs): UpdateAt Modification1. Load-bearing: every consumer of the Updated tag runs later in the same frame
+// (GroundHeightSystem Modification2, SubObjectSystem 2B with owner query All SubObject + Any Updated :3936-3943,
+// CompositionSelect 3, Net.GeometrySystem and LaneSystem 4, the census and ChairPinSystem 4B) and CleanUpSystem wipes the tag at
+// the end of the frame (SystemOrder.cs:54), so a tag added at 4B would be lost.
 //
-// TRIGGER: LiftCensusSystem.BuildCensus -> OnCensusBuilt(edges) after every build (load baseline included: lines of an older build
-// are fitted on load too). A component whose signature (LiftTowerDiagSystem.Signature: edge ids + node positions) is new is queued and
-// fitted once the census has been quiet for SettleFrames updates (a drag keeps resetting the timer). The fit is a fixed point
-// (LiftBatch LP-13): the build it causes queues the line again and the re-fit writes nothing ("already fitted"). Guard: a line written
-// MaxWrites times within GuardFrames is left alone with a WARN.
+// Trigger: LiftCensusSystem.BuildCensus -> OnCensusBuilt(edges) after every build (load baseline included). A component whose
+// signature (LiftTowerDiagSystem.Signature: edge ids + node positions) is new is queued and fitted once the census has been
+// quiet for SettleFrames updates (a drag keeps resetting the timer). The fit is a fixed point (LiftBatch LP-13): the build it
+// causes queues the line again and the re-fit writes nothing ("already fitted"). Guard: a line written MaxWrites times within
+// GuardFrames is left alone with a WARN.
 //
-// GROUND (T127, 2026-10-20 playthrough): the terrain sampler is LiftTowerEdit.UncutSampler — a sample at this line's own cut ceiling
-// (edge y + composition height range min + terrain offset, TerrainSystem.AddSegment) is our trench, so the plane through the uncut
-// ground beside it stands in; towers stood in the trenches of a vanilla line drawn on the ground and kept round pits around them.
-// MOVED (T128): the free plan's own members travel with its nodes, spares get the shortest clearing member (LiftTowerPlanner.Fit);
-// a standing line within LiftTowerPlanner.KeepTolM of the floor is kept (grid noise, not Short).
+// Ground: the terrain sampler is LiftTowerEdit.UncutSampler. A sample at this line's own cut ceiling (edge y + composition
+// height range min + terrain offset, TerrainSystem.AddSegment) is our trench, so the plane through the uncut ground beside it
+// stands in; otherwise towers stand in the trenches of a vanilla line drawn on the ground and keep round pits around them.
+// Moved: the free plan's own members travel with its nodes, spares get the shortest clearing member (LiftTowerPlanner.Fit); a
+// standing line within LiftTowerPlanner.KeepTolM of the floor is kept (grid noise, not Short).
 //
-// TOOL LINES (T48 round 2; R-6 2026-10-22, docs/research/lifts/lift-tool-split-fix-2026-10-22.md): a line the lift-line tool built
-// is fitted heights-only with the tool's members, never Moved. Exact match = LiftToolLines.Match (same node count); when the engine
-// split the tool's courses into more edges (CourseSplitSystem elevation transitions), LiftToolLines.MatchSplit still recognizes it
-// (every emitted node within 0.5 m, ends = the tool's, extras on the line) and gives each extra split node the member that keeps the
-// rope on the planned chord (ChordMembers). One Info line per such match; a WARN when a tool line's pinned towers stay put on a
-// Short line, or when a line holding a tool line's pinned nodes did NOT match and is Moved. Ordinary lines: unchanged.
+// Tool lines: a line the lift-line tool built is fitted heights-only with the tool's members, never Moved. Exact match =
+// LiftToolLines.Match (same node count); when the engine split the tool's courses into more edges (CourseSplitSystem elevation
+// transitions), LiftToolLines.MatchSplit still recognizes it (every emitted node within 0.5 m, ends = the tool's, extras on the
+// line) and gives each extra split node the member that keeps the rope on the planned chord (ChordMembers). One Info line per
+// such match; a WARN when a tool line's pinned towers stay put on a Short line, or when a line holding a tool line's pinned nodes
+// did NOT match and is Moved.
 //
-// LOGS (silence impossible): one ARMED line per load; per fitted line a "Towers [fit]" block (per tower: position before -> after,
-// member before -> after, elevation, rope; per span: length, lowest carrier over the high side before -> after and where, max rope
-// above ground) + one "Towers [fit summary]"; "already fitted" one line; Short = WARN with the tower count the line needs; skips
-// (branched / bent with a non-plain node / no constants) one Info line each; an exception disables the system until the next load.
+// Logs (silence impossible): one ARMED line per load; per fitted line a "Towers [fit]" block (per tower: position, member,
+// elevation, rope before -> after; per span: length, lowest carrier over the high side, max rope above ground) + one "Towers
+// [fit summary]"; "already fitted" one line; Short = WARN with the tower count the line needs; skips (branched / bent with a
+// non-plain node / no constants) one Info line each; an exception disables the system until the next load.
 
 using System;
 using System.Collections.Generic;
@@ -70,7 +68,7 @@ namespace SkiResortMod.Systems
         internal const int MaxWrites = 3;
         internal const int GuardFrames = 600;
         private const float MoveEpsM = 0.05f;      // xz change that counts as a move
-        // Height writes with the member unchanged: LiftTowerEdit.HeightWrite (one-sided, T115: below 0.25 m / above 1.0 m).
+        // Height writes with the member unchanged: LiftTowerEdit.HeightWrite (one-sided: below 0.25 m / above 1.0 m)
         private const float StraightTolM = 0.5f;   // inner node off the end-to-end line: the line is bent, heights only
 
         private LiftTowerDiagSystem m_Diag;
@@ -178,9 +176,6 @@ namespace SkiResortMod.Systems
             }
         }
 
-        // ════════════════════════════════════════════════════════════════════════════════════════
-        // One line
-        // ════════════════════════════════════════════════════════════════════════════════════════
 
         private struct Target
         {
@@ -228,7 +223,7 @@ namespace SkiResortMod.Systems
                 Mod.Log.Info($"Towers [fit]: {head} — no NetGeometryData on the line prefab: not fitted");
                 return;
             }
-            // Inner nodes must be plain nodes of this line: the line prefab, no Owner (a station's sub-net), exactly two edges.
+            // Inner nodes must be plain nodes of this line: the line prefab, no Owner (a station's sub-net), exactly two edges
             for (int i = 1; i < n - 1; i++)
             {
                 Entity node = path[i].Node;
@@ -260,8 +255,8 @@ namespace SkiResortMod.Systems
             TerrainHeightData terrain = hd;
             LiftTerrainSampler raw = (along, lateral) =>
                 TerrainUtils.SampleHeight(ref terrain, LiftTowerDiagSystem.PolylineAt(pts, cum, along, lateral, out _));
-            // T127: the ground the player made. A sample at this line's own cut ceiling (edge y + height range min + terrain
-            // offset, LiftTowerEdit) is our trench, not the ground: the plane through the uncut ground beside it stands in.
+            // The ground the player made: a sample at this line's own cut ceiling (edge y + height range min + terrain offset,
+            // LiftTowerEdit) is our trench, not the ground; the plane through the uncut ground beside it stands in.
             var cutAt = new HashSet<int>();
             LiftTerrainSampler sampler = LiftTowerEdit.UncutSampler(raw, pts, cum, netGeo.m_Hanging, CutOffsets(path, netGeo),
                 c.HalfWidthM + LiftTowerEdit.CutFarMarginM, along => cutAt.Add((int)math.round(along)));
@@ -278,16 +273,15 @@ namespace SkiResortMod.Systems
                 oldMembers[i - 1] = MemberOf(c, e);
             }
             float engineMax = netGeo.m_EdgeLengthRange.max;
-            // T48 round 2: a line the lift-line tool built (every inner node a registered tool node, LiftToolLines.Match) is a TOOL
-            // LINE: heights only with the tool's members — never Moved, so a pinned node is never snapped.
+            // A line the lift-line tool built (every inner node a registered tool node, LiftToolLines.Match) is a tool line: heights only
+            // with the tool's members, never Moved, so a pinned node is never snapped.
             var innerPts = new List<float3>(n - 2);
             for (int i = 1; i < n - 1; i++)
                 innerPts.Add(pts[i]);
             LiftToolLines.Line toolLine = m_LineTool.ToolLines.Match(innerPts, out int[] toolMembers, out _);
-            // R-6 (DECISIONS 368-369; docs/research/lifts/lift-tool-split-fix-2026-10-22.md): the engine built the tool's courses as
-            // MORE edges (CourseSplitSystem elevation-transition splits, CourseSplitSystem.cs:2884-2942). Still a tool line when every
-            // emitted node has its own path node within 0.5 m: the extras get the member that keeps the rope on the planned chord, and
-            // nothing is moved.
+            // The engine built the tool's courses as MORE edges (CourseSplitSystem elevation-transition splits, CourseSplitSystem.cs:2884-2942).
+            // Still a tool line when every emitted node has its own path node within 0.5 m: the extras get the member that keeps the
+            // rope on the planned chord, and nothing is moved.
             LiftToolMatch split = null;
             string splitNote = string.Empty;
             if (toolLine == null)
@@ -318,12 +312,12 @@ namespace SkiResortMod.Systems
             if (toolLine == null)
                 partial = m_LineTool.ToolLines.BestPartial(pts, out partialFound, out partialPins);
             LiftTowerPlan before = m_Planner.PlanFixed(sampler, length, ropeA, ropeB, c, inner, oldMembers, null, assign: false);
-            // T115: the line's own members are passed in, so a line that clears as it stands is Kept unchanged (hysteresis).
+            // The line's own members are passed in, so a line that clears as it stands is Kept unchanged (hysteresis)
             LiftTowerFit fit = m_Planner.Fit(sampler, length, ropeA, ropeB, c, inner, straight && toolLine == null, engineMax,
                                              toolLine != null ? toolMembers : oldMembers, split?.Extra);
             LiftTowerPlan plan = fit.Plan;
             m_Fitted++;
-            // R-6: a pinned tower must never move silently.
+            // A pinned tower must never move silently
             int toolPins = split != null ? split.Pins : toolLine != null ? toolLine.Pins : 0;
             if (toolLine != null && toolPins > 0 && fit.Mode == LiftFitMode.Short)
                 Mod.Log.Warn($"Towers [fit]: {head} — tool line with {toolPins} pinned tower(s) is not clear with heights alone " +
@@ -340,7 +334,6 @@ namespace SkiResortMod.Systems
                 return;
             }
 
-            // Targets.
             var targets = new Target[n - 2];
             int writes = 0;
             for (int i = 1; i < n - 1; i++)
@@ -358,7 +351,7 @@ namespace SkiResortMod.Systems
                 // fresh nodes, CourseSplitSystem.CalculateElevation; a one-sided (7.93, 0)) is rewritten once.
                 bool elevOff = ElevationOff(path[i].Node, elevation);
                 if (elevOff && !moved && !reMembered && !drift)
-                    np.y = pts[i].y;   // only the component is off: keep the node where it stands (no carve chase, T115)
+                    np.y = pts[i].y;   // only the component is off: keep the node where it stands (no carve chase)
                 Target t = new Target { Node = path[i].Node, Old = pts[i], New = np, OldMember = oldMembers[i - 1], NewMember = pn.Member,
                                         Elevation = elevation, Write = moved || reMembered || drift || elevOff };
                 if (t.Write)
@@ -447,9 +440,6 @@ namespace SkiResortMod.Systems
             m_Written++;
         }
 
-        // ════════════════════════════════════════════════════════════════════════════════════════
-        // Writes
-        // ════════════════════════════════════════════════════════════════════════════════════════
 
         private void Write(List<LiftTowerDiagSystem.Hop> path, Target[] targets, float hanging)
         {
@@ -501,9 +491,6 @@ namespace SkiResortMod.Systems
             }
         }
 
-        // ════════════════════════════════════════════════════════════════════════════════════════
-        // Helpers
-        // ════════════════════════════════════════════════════════════════════════════════════════
 
         /// <summary>True when every inner node lies within StraightTolM (xz) of the first-to-last segment: then sliding a node along
         /// the polyline keeps the line's shape. <paramref name="worst"/> = the largest offset.</summary>
@@ -552,10 +539,9 @@ namespace SkiResortMod.Systems
             return best;
         }
 
-        /// <summary>T127: per path span, the offset of this line's own cut ceiling above the edge curve: the edge composition's
+        /// <summary>Per path span, the offset of this line's own cut ceiling above the edge curve: the edge composition's
         /// m_HeightRange.min (NetCompositionData) + its TerrainComposition m_MinHeightOffset (middle), the sum TerrainSystem.AddSegment
-        /// uses (TerrainSystem.cs:1397-1516, terrain-carving.md §2); the prefab's default range and the pieces' -2 when the edge has
-        /// no composition yet.</summary>
+        /// uses (TerrainSystem.cs:1397-1516); the prefab's default range and the pieces' -2 when the edge has no composition yet.</summary>
         private float[] CutOffsets(List<LiftTowerDiagSystem.Hop> path, NetGeometryData netGeo)
         {
             var off = new float[math.max(1, path.Count - 1)];

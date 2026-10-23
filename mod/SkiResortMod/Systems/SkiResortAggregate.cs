@@ -1,63 +1,53 @@
-// SkiResortAggregate — the PURE per-resort sums of the hub's resort rows
-// (docs/research/hub-u2-spec.md §3.3, §3.7; tested by tests/ResortBatch, §3.8 "aggregation (band
-// counts, vertical with and without stations, Not linked row)"). SkiResortStatsSystem collects one
-// small input row per run, lift and lodge (ECS reads stay in the system), calls Aggregate, and adds
-// the fields that need the game (names, the sign's own score, tourism share and estimate, jobs,
-// building upkeep). Created 2026-10-03 (Round U2, implementer I-1).
+// The pure per-resort sums of the hub's resort rows. SkiResortStatsSystem collects one small input row per run, lift and
+// lodge (ECS reads stay in the system), calls Aggregate, and adds the fields that need the game (names, the sign's own
+// score, tourism share and estimate, jobs, building upkeep). Tested by tests/ResortBatch.
 //
-// RESORT INDEX: inputs carry Resort = 0..resortCount−1 (the signs in the stable SkiResortIndex
-// order) or −1 = Not linked; the output array has resortCount + 1 entries, the last one being the
-// Not linked row (§2.3 ResortRow kind 1, "always last; always sent").
+// RESORT INDEX: inputs carry Resort = 0..resortCount-1 (the signs in the stable SkiResortIndex order) or -1 = Not linked;
+// the output array has resortCount + 1 entries, the last one being the Not linked row (always last; always sent).
 //
-// RULES (§3.3 table, one line each):
+// RULES, one line each:
 //   runs / rated / band counts  every run of the resort; rated = RateState 1; band counts over rated
 //                               runs by Band 0..4 (SkiSlopeClassifier.cs:441-448); Unrateable =
-//                               RateState 2/3/4 (no terrain / too large / failed: final, fixer round,
-//                               findings u2-data-05 / u2-panel-5); pending = runs − rated − unrateable
-//                               (only RateState 0). Unrateable is C#-side only (dump, tests): the UI
-//                               counts the runs whose band is −2 itself (no ResortRow field, no
-//                               contract bump)
-//   runLengthM, areaM2          Σ LengthM (rated: SlopeResult.Length, else the U1 LengthRect), Σ AreaM2
-//                               (Geometry.m_SurfaceArea — PLAN area, GeometrySystem.cs:517)
-//   verticalM                   max(run TopM, top-station tip y) − min(run BottomM, base-station tip y)
-//                               over the resort's runs and its lifts' stations; −1 when nothing has a
+//                               RateState 2/3/4 (no terrain / too large / failed: final); pending = runs - rated -
+//                               unrateable (only RateState 0). Unrateable is C#-side only (dump, tests): the UI
+//                               counts the runs whose band is -2 itself (no ResortRow field)
+//   runLengthM, areaM2          Σ LengthM (rated: SlopeResult.Length, else the LengthRect), Σ AreaM2
+//                               (Geometry.m_SurfaceArea - PLAN area, GeometrySystem.cs:517)
+//   verticalM                   max(run TopM, top-station tip y) - min(run BottomM, base-station tip y)
+//                               over the resort's runs and its lifts' stations; -1 when nothing has a
 //                               height; verticalApprox while any of its runs is PENDING (RateState 0:
-//                               TopM/BottomM are node max/min until it is rated, §2.1). An unrateable
+//                               TopM/BottomM are node max/min until it is rated). An unrateable
 //                               run also uses node heights, but they are final, so it does not keep
-//                               the "≈" forever (fixer round)
-//   runVerticalM                max(run TopM) − min(run BottomM) over the resort's runs only (contract 3's
-//                               verticalM, econ-round ch5 §6.4); −1 when no run has a height
+//                               the "≈" forever
+//   runVerticalM                max(run TopM) - min(run BottomM) over the resort's runs only; -1 when no run has a height
 //   lifts, liftsRunning,        every lift row of the resort; running = State 0; open = State 2 (a
-//   liftsOpen, chairs,          missing section — LIFTS_OPEN "{N} with a missing section"); chairs,
-//   liftLengthM, liftRiseM      LengthM and RiseM summed (RiseM summed like LengthM: "total lift rise";
-//                               §3.3 names the field without a rule — an I-1 reading, reported)
+//   liftsOpen, chairs,          missing section - LIFTS_OPEN "{N} with a missing section"); chairs,
+//   liftLengthM, liftRiseM      LengthM and RiseM summed (RiseM summed like LengthM: "total lift rise")
 //   lodges, freeLodges,         lodges listed under the resort; freeLodges = how many of them are
-//   lodgeScore                  free-standing (only the Not linked row has any, §3.1); lodgeScore =
-//                               Σ Score, −1 with no lodge
+//   lodgeScore                  free-standing (only the Not linked row has any); lodgeScore =
+//                               Σ Score, -1 with no lodge
 //   runCostMonth, snowHa        Σ over the resort's runs (bound runs bill; the caller passes 0 for
 //                               an unbound run)
-//   snowPct, season             over the resort's runs that HAVE a cover value (Cover finite — the
+//   snowPct, season             over the resort's runs that HAVE a cover value (Cover finite - the
 //                               caller passes NaN for an unbound run, which makes no snow):
-//                               snowPct = 100 · Σ cover·area / Σ area (−1 with no such run);
+//                               snowPct = 100 · Σ cover·area / Σ area (-1 with no such run);
 //                               season = 0 natural (any run with natural cover > 0), 1 snowmaking only
-//                               (else any run with cover > 0), 2 too warm (else), −1 with no such run
+//                               (else any run with cover > 0), 2 too warm (else), -1 with no such run
 //   HasAny                      the row has any run, lift or lodge (the Not linked switcher entry is
-//                               shown only then, §4.3)
+//                               shown only then)
 //
-// Lift ordinals (§3.7): LiftOrdinals numbers lifts per resort by top-station height descending, rows
-// without a top last, ties by Id (Index, Version) — "Lift N" for a lift whose station has no name.
+// Lift ordinals: LiftOrdinals numbers lifts per resort by top-station height descending, rows without a top last, ties by
+// Id (Index, Version): "Lift N" for a lift whose station has no name.
 //
-// Resort names (fixer round, finding u2-data-02; a deviation from §3.2 "N = its position in the stable
-// sign order", reported): SmallestFreeOrdinal is THE "Ski area N" pick — the smallest N >= 1 whose
-// formatted name is not taken — used by the sign auto-name (SkiRunBindTriggerSystem) and by a hub
-// rename to "" (it writes a fresh auto-name instead of removing the name). FallbackOrdinals is the
-// hub's display-only backstop for a sign that still has no name: in one pass over the signs in stable
-// order, each unnamed sign gets the smallest N whose name is neither a live sign's custom name nor an
-// earlier unnamed sign's fallback. Custom names always win, so the hub never shows two resorts with one
-// name (positional labels collided with the auto-name, which counts only custom names).
+// Resort names: SmallestFreeOrdinal is THE "Ski area N" pick, the smallest N >= 1 whose formatted name is not taken. It is
+// used by the sign auto-name (SkiRunBindTriggerSystem) and by a hub rename to "" (it writes a fresh auto-name instead of
+// removing the name). FallbackOrdinals is the hub's display-only backstop for a sign that still has no name: in one pass
+// over the signs in stable order, each unnamed sign gets the smallest N whose name is neither a live sign's custom name
+// nor an earlier unnamed sign's fallback. Custom names always win, so the hub never shows two resorts with one name
+// (positional labels collided with the auto-name, which counts only custom names).
 //
-// PURE FILE: System (+ System.Collections.Generic) and Unity.Mathematics only. No allocation: the
-// caller owns every list and the output array (grown once to the city's sign count + 1).
+// Pure file: System (+ System.Collections.Generic) and Unity.Mathematics only. No allocation: the caller owns every list
+// and the output array (grown once to the city's sign count + 1).
 
 using System;
 using System.Collections.Generic;
@@ -75,7 +65,7 @@ namespace SkiResortMod.Systems
             public float LengthM, AreaM2, TopM, BottomM;
             public float CostMonth;     // >= 0
             public float SnowHa;        // >= 0
-            public float Cover;         // 0..1 snow cover with the run's own snowmaking; NaN = no cover (unbound; Round E1: the stats always pass NaN)
+            public float Cover;  // 0..1 snow cover with the run's own snowmaking; NaN = no cover (unbound; the stats always pass NaN)
             public float NaturalCover;  // 0..1 snow cover without snowmaking; NaN = no cover
         }
 
@@ -100,7 +90,7 @@ namespace SkiResortMod.Systems
         {
             public bool HasAny;
             public int Runs, Rated, Flat, Green, Blue, Black, DoubleBlack;
-            public int Unrateable;      // fixer round: RateState 2/3/4 (C# only; the UI counts band −2 rows)
+            public int Unrateable;  // RateState 2/3/4 (C# only; the UI counts band -2 rows)
             public float RunLengthM, AreaM2, VerticalM;
             public bool VerticalApprox;
             public int Lifts, LiftsRunning, LiftsOpen, Chairs;
@@ -108,7 +98,7 @@ namespace SkiResortMod.Systems
             public int Lodges, FreeLodges, LodgeScore;
             public float RunCostMonth, SnowHa, SnowPct;
             public int Season;
-            public float RunVerticalM;  // Round E1 (ch5 §6.4, C14): runs only; −1 when no run has a height
+            public float RunVerticalM;  // runs only; -1 when no run has a height
 
             // Accumulators (valid only inside Aggregate).
             internal float Hi, Lo;
@@ -201,7 +191,7 @@ namespace SkiResortMod.Systems
                     a.Chairs += l.Chairs > 0 ? l.Chairs : 0;
                     a.LiftLengthM += Finite(l.LengthM);
                     a.LiftRiseM += Finite(l.RiseM);
-                    // Stations: the top tip raises the top, the base tip lowers the bottom (§3.3).
+                    // Stations: the top tip raises the top, the base tip lowers the bottom.
                     if (IsFinite(l.TopTipY) && l.TopTipY > a.Hi)
                         a.Hi = l.TopTipY;
                     if (IsFinite(l.BaseTipY) && l.BaseTipY < a.Lo)
@@ -243,7 +233,7 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>Per-resort lift ordinals (§3.7): resort by resort, top-station tip height
+        /// <summary>Per-resort lift ordinals: resort by resort, top-station tip height
         /// descending, lifts without a top station last, ties by Id (Index, Version). ordinals[k]
         /// is lift k's N (1-based). <paramref name="order"/> is caller-owned scratch.</summary>
         public static void LiftOrdinals(List<LiftIn> lifts, List<int> order, List<int> ordinals)
@@ -271,7 +261,7 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>Header "Resort names": the smallest N in 1..maxN whose formatted name is not in
+        /// <summary>The smallest N in 1..maxN whose formatted name is not in
         /// <paramref name="taken"/>, or −1 when every one is taken (or format is null).</summary>
         public static int SmallestFreeOrdinal(HashSet<string> taken, Func<int, string> format, int maxN)
         {
@@ -286,7 +276,7 @@ namespace SkiResortMod.Systems
             return -1;
         }
 
-        /// <summary>Header "Resort names": <paramref name="customNames"/>[i] is sign i's custom name in
+        /// <summary><paramref name="customNames"/>[i] is sign i's custom name in
         /// stable sign order (null or empty = unnamed). ordinals[i] = the N of its display-only
         /// fallback for an unnamed sign (−1 when none is free up to maxN), 0 for a named one.
         /// <paramref name="taken"/> is caller-owned scratch (cleared here).</summary>
@@ -359,7 +349,7 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>Extend's rule for the runs-only accumulators (Round E1, ch5 §6.4): each finite top and
+        /// <summary>Extend's rule for the runs-only accumulators: each finite top and
         /// bottom widens both ends.</summary>
         private static void ExtendRun(ref Agg a, float top, float bottom)
         {

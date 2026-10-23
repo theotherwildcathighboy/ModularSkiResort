@@ -1,31 +1,17 @@
-// PowerGateTests — Phase D (docs/research/art/assets-2026-10/code-round-4/round-4-contract.md §7.1, rules group, with
-// round-4-contract-skeptic.md MUST-4 and S-7): THE run predicate LiftServedRule.Carries and the flicker guard
-// LiftServedRule.GuardPower, alone and composed with the F2 power rule PowerOf(4 arguments). Where-tags `power-gate/…`.
-//   PG-1  Carries, 2 × 3 × 2 = 12 rows (complete × Unknown / Powered / NoPower × closed): oracle complete && p != NoPower
-//         && !closed; equal to the bool overload with shownPowered = p != NoPower, and to Lift.Serves for a lift with a
-//         chord and a finite TopY (Serves == Carries(Complete, Power, false)). (LiftOperating's equality is ResortBatch HK-3.)
-//   PG-2  GuardPower, frame-stepped through Reader (a model of LiftCensusSystem.ReadLiftPower as the contract wires it,
-//         §1.3: PowerOf with the last EFFECTIVE value, then GuardPower; the first read of a station has no history and is
-//         not guarded); reads every 64 frames unless said:
-//         (a) Powered 10,000 frames → Powered at every read, backSince stays NoBackSince, no recut;
-//         (b) cut at f0 → NoPower at the first read; raw Powered from f1 → NoPower at every read with f < f1 + 512, Powered
-//             at the first read with f − f1 ≥ 512 (inclusive boundary, also direct: 511 → NoPower, 512 → Powered);
-//         (c) the R15 brownout (raw NoPower 128 / Powered 256, 20 cycles) → NoPower throughout, one recut per cycle after the
-//             first (19); the same pattern read every 256 frames at six phases → NoPower throughout (skeptic claim 10);
-//         (d) reads every 256 frames: the streak starts at the first read that sees Powered (power back at 1,000 → reads
-//             1,024 NoPower … 1,280 NoPower, 1,536 Powered);
-//         (e) uint wrap: backSince 0xFFFFFF00, now 0x00000100 → Powered; now 0x000000FF → NoPower;
-//         (f) raw Unknown → Unknown, streak cleared, no recut;
-//         (g) lastEffective Powered or Unknown → raw returned for every raw, streak cleared;
-//         (h) MUST-4: one 128-frame NoPower window between Powered states, read every 64 frames → NoPower for ≥ 512 frames
-//             (640: the window plus the guard), while a 256-frame reader whose reads miss the window stays Powered — the
-//             identity holds per consumer-state PATH, not per lift;
-//         (i) the first read of a load: NoPower and Powered both pass unguarded (R-6, fail open).
-//   PG-3  composition with F2 (wanted 1,500): at 60 % with the warning and last NoPower → raw NoPower (the 3/4 rule) for
-//         5,000 frames; at 80 % with the warning → NoPower for 512 frames, then Powered and it stays Powered (F2's half rule
-//         once back); the warning cleared (fulfilled 0) → Powered after 512 frames.
-//   PG-4  ExpireStreak (skeptic S-7): no streak stays none; a gap ≤ PowerStreakStaleFrames (1,024) keeps the streak, 1,025
-//         drops it; wrap-safe; the constants 512 / uint.MaxValue / 1,024.
+// Tests for LiftServedRule.Carries (the run predicate) and LiftServedRule.GuardPower (the flicker guard), alone and composed
+// with the power rule PowerOf (4 arguments). Where-tags `power-gate/...`.
+//   PG-1  Carries over all 12 rows (complete x Unknown / Powered / NoPower x closed): oracle complete && p != NoPower &&
+//         !closed; equal to the bool overload with shownPowered = p != NoPower, and to Lift.Serves for a lift with a chord and
+//         a finite TopY.
+//   PG-2  GuardPower, frame-stepped through Reader (a model of LiftCensusSystem.ReadLiftPower: PowerOf with the last effective
+//         value, then GuardPower; the first read of a station has no history and is not guarded); reads every 64 frames unless
+//         said. Cases: steady power, a cut and the inclusive 512-frame boundary, a brownout (raw NoPower 128 / Powered 256,
+//         20 cycles) read at several phases, streak start, uint wrap, raw Unknown, lastEffective Powered or Unknown, one
+//         128-frame NoPower window (the identity holds per consumer-state path, not per lift), the first read of a load
+//         (fail open).
+//   PG-3  composition with the power rule's three-quarter and half rule (wanted 1,500).
+//   PG-4  ExpireStreak: no streak stays none; a gap <= PowerStreakStaleFrames (1,024) keeps the streak, 1,025 drops it;
+//         wrap-safe; the constants 512 / uint.MaxValue / 1,024.
 
 using System;
 using System.Collections.Generic;
@@ -38,8 +24,8 @@ namespace LiftBatch
     {
         private static Func<bool, string, string, bool> s_Check;
 
-        private const byte Warn = LiftServedRule.FlagNoElectricityWarning;   // 2
-        private const int Wanted = 1500;                                       // the fixed-grip base (SkiBaseStationBuilding.Prefab:23)
+        private const byte Warn = LiftServedRule.FlagNoElectricityWarning;
+        private const int Wanted = 1500; // the fixed-grip base (SkiBaseStationBuilding.Prefab:23)
 
         public static void Run(Func<bool, string, string, bool> check)
         {
@@ -77,9 +63,8 @@ namespace LiftBatch
             public static Consumer At(byte flags, int fulfilled) => new Consumer { Flags = flags, Fulfilled = fulfilled };
         }
 
-        /// <summary>A model of the census's one reader as round-4-contract §1.3 wires it (the movers group writes the real one):
-        /// raw = PowerOf(flags, wanted, fulfilled, known ? last : Unknown); power = known ? GuardPower(raw, last, …) : raw;
-        /// last = power.</summary>
+        /// <summary>A model of the census's one reader (LiftCensusSystem.ReadLiftPower): raw = PowerOf(flags, wanted, fulfilled,
+        /// known ? last : Unknown); power = known ? GuardPower(raw, last, ...) : raw; last = power.</summary>
         private sealed class Reader
         {
             public bool Known;
@@ -144,7 +129,6 @@ namespace LiftBatch
             Eq(12, rows, W, "row count");
         }
 
-        /// <summary>Reads every <paramref name="step"/> frames over [from, to) and returns the effective values.</summary>
         private static List<KeyValuePair<uint, LiftPower>> Sweep(Reader r, Func<uint, Consumer> consumer, uint from, uint to, uint step)
         {
             var got = new List<KeyValuePair<uint, LiftPower>>();
@@ -210,8 +194,8 @@ namespace LiftBatch
             Check(bs == LiftServedRule.NoBackSince && !rc2, W, "streak closed at 512");
         }
 
-        /// <summary>R15: the warning on for 128 of every 384 frames (DispatchElectricitySystem.cs:126-142 at its fastest:
-        /// short, short + warning, full).</summary>
+        /// <summary>The warning on for 128 of every 384 frames (DispatchElectricitySystem.cs:126-142 at its fastest: short,
+        /// short + warning, full).</summary>
         private static Consumer Brownout(uint f, uint start)
         {
             if (f < start)
@@ -225,8 +209,8 @@ namespace LiftBatch
             const string W = "power-gate/PG-2c";
             const uint start = 1024, cycles = 20;
             var r = new Reader();
-            r.Read(Consumer.Fed, 0);                      // a powered lift…
-            r.Read(Consumer.Cut, 512);                    // …cut before the brownout begins
+            r.Read(Consumer.Fed, 0);
+            r.Read(Consumer.Cut, 512);
             int notNoPower = 0;
             for (uint f = start; f < start + cycles * 384u; f += 64)
                 if (r.Read(Brownout(f, start), f) != LiftPower.NoPower)
@@ -305,7 +289,7 @@ namespace LiftBatch
         private static void Pg2hOneDispatchWindow()
         {
             const string W = "power-gate/PG-2h";
-            const uint win = 2048 + 64;                                         // the window starts on a 64-frame read, off the 256 grid
+            const uint win = 2048 + 64; // the window starts on a 64-frame read, off the 256 grid
             Func<uint, Consumer> consumer = f => f >= win && f < win + 128 ? Consumer.Cut : Consumer.Fed;
             var fast = new Reader();
             uint firstNo = 0, lastNo = 0;
@@ -341,7 +325,7 @@ namespace LiftBatch
         private static void Pg3F2Composition()
         {
             const string W = "power-gate/PG-3";
-            // 60 % with the warning: F2's way back needs 3/4 (4 × 900 = 3,600 < 4,500) → raw NoPower whatever the time.
+            // 60 % with the warning: the way back needs 3/4 (4 x 900 = 3,600 < 4,500), so raw NoPower whatever the time.
             var r60 = new Reader();
             r60.Read(Consumer.Cut, 0);
             int not60 = 0;
@@ -351,8 +335,8 @@ namespace LiftBatch
             Eq(0, not60, W, "60 % with the warning, last NoPower: reads that were not NoPower over 5,000 frames");
             Eq(0, r60.Recuts, W, "60 %: no streak ever starts, so no recut");
 
-            // 80 % with the warning: raw Powered (4 × 1,200 = 4,800 ≥ 4,500) → NoPower for 512 frames, then Powered, and F2's
-            // half rule (2 × 1,200 ≥ 1,500) keeps it Powered.
+            // 80 % with the warning: raw Powered (4 x 1,200 = 4,800 >= 4,500), so NoPower for 512 frames, then Powered; the half rule
+            // (2 x 1,200 >= 1,500) keeps it Powered.
             var r80 = new Reader();
             r80.Read(Consumer.Cut, 0);
             Eq(LiftPower.NoPower, r80.Read(Consumer.At(Warn, 1200), 64), W, "80 %: streak start");

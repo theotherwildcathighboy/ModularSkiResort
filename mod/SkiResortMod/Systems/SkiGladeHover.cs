@@ -1,39 +1,30 @@
-// SkiGladeHover — hover kinds, plan states and the per-activation hover log of the glade tool
-// (docs/research/run-binding-glade-spec.md §2 "G2 pure", §4.7; DECISIONS 121 DEFECT 3 → "silence
-// must be impossible": one log line per hover-state change, a summary when the tool closes).
-// PURE on purpose: usings System, System.Collections.Generic and Unity.Mathematics ONLY, so the
-// same file compiles into the net48 mod and is linked into tests/GladeBatch (`hoverlog`).
-// Created 2026-10-01 (Round G2, implementer I-2). Nothing here is copied from ParkManager.
+// Hover kinds, plan states and the per-activation hover log of the glade tool: one log line per hover-state change and a summary
+// when the tool closes (silence must be impossible).
+// Pure on purpose (System, System.Collections.Generic and Unity.Mathematics only): the same file compiles into the net48 mod and
+// is linked into tests/GladeBatch.
 //
-// WHO DOES WHAT. SkiGladeToolSystem (I-3) resolves the hover every frame into a GladeHoverKind
-// and keeps a GladePlanState; it owns one GladeHoverLog and:
-//   * calls Begin() in OnStartRunning;
-//   * calls Offer(kind, entityIndex, reason) from UpdateHoverStatus; when it returns true the
-//     tool writes the transition line (text and engine facts are the tool's, §4.7); when it
-//     returns false and CapJustReached is true, it writes the one "transitions capped — totals at
-//     tool stop" line — reading CapJustReached RIGHT AFTER that Offer, before any early return
-//     (the next Offer clears it and it is raised once per activation; fixer round, g2-tool-1);
-//   * calls AddDwell(kind, state, UnityEngine.Time.unscaledDeltaTime) on EVERY UpdateCore path
-//     (hold, cancel and apply early returns included, §4.7);
+// Usage: SkiGladeToolSystem resolves the hover every frame into a GladeHoverKind, keeps a GladePlanState and owns one GladeHoverLog:
+//   * Begin() in OnStartRunning;
+//   * Offer(kind, entityIndex, reason) from UpdateHoverStatus; when it returns true the tool writes the transition line; when it
+//     returns false and CapJustReached is true, it writes the one "transitions capped" line. Read CapJustReached right after that
+//     Offer, before any early return (the next Offer clears it; it is raised once per activation);
+//   * AddDwell(kind, state, UnityEngine.Time.unscaledDeltaTime) on every UpdateCore path (hold, cancel and apply early returns included);
 //   * increments Plans / Applies / ViaPoint (plain fields);
-//   * at OnStopRunning writes "Glade: " + Summary(lastState) BEFORE ResetPreviewState().
+//   * at OnStopRunning writes "Glade: " + Summary(lastState) before ResetPreviewState().
 //
-// CONTRACT.
-//   * Offer dedups on the LAST offered (kind, entityIndex, reason): the same triple twice →
-//     one line. Switching (every hotkey activation's first frame has a disabled raycast, §4.7 a)
-//     and None are NEVER logged and do not touch the dedup key, so Terrain → Switching → Terrain
-//     stays one line. At most MaxLinesPerActivation (40) offers per activation return true;
-//     every later transition counts in Suppressed (dedups are not transitions and count
-//     nowhere). CapJustReached is true after exactly one Offer per activation: the first
-//     suppressed one (it reflects the most recent Offer call).
-//   * Dwell: every finite positive `seconds` lands in exactly ONE bucket and in the total, so the
-//     buckets always sum to TotalSeconds (up to double rounding; accumulated in double, exposed
-//     as float). Non-Bound kinds bucket by kind; Bound buckets by plan state. The summary always
-//     prints the eight buckets the spec names (terrain, foreign, unbound, held, nothing,
-//     previewing, complete, blocked) and appends clamped / saturated / money short / legacy /
-//     switching / other only when non-zero — so the printed buckets also sum to the total.
-//   * Allocation: Begin / Offer / AddDwell allocate nothing (they run per frame). Summary
-//     allocates (once, at tool stop). Seconds print with one decimal, culture-free.
+// Contract:
+//   * Offer dedups on the last offered (kind, entityIndex, reason): the same triple twice → one line. Switching (every hotkey
+//     activation's first frame has a disabled raycast) and None are never logged and do not touch the dedup key, so
+//     Terrain → Switching → Terrain stays one line. At most MaxLinesPerActivation (40) offers per activation return true; every
+//     later transition counts in Suppressed (dedups count nowhere). CapJustReached is true after exactly one Offer per activation:
+//     the first suppressed one (it reflects the most recent Offer call).
+//   * Dwell: every finite positive `seconds` lands in exactly one bucket and in the total, so the buckets sum to TotalSeconds (up
+//     to double rounding; accumulated in double, exposed as float). Non-Bound kinds bucket by kind; Bound buckets by plan state.
+//     The summary always prints the eight base buckets (terrain, foreign, unbound, held, nothing, previewing, complete, blocked)
+//     and appends clamped / saturated / money short / legacy / switching / other only when non-zero, so the printed buckets also
+//     sum to the total.
+//   * Begin / Offer / AddDwell allocate nothing (they run per frame); Summary allocates once, at tool stop. Seconds print with one
+//     decimal, culture-free.
 
 using System;
 using System.Collections.Generic;
@@ -41,7 +32,7 @@ using Unity.Mathematics;
 
 namespace SkiResortMod.Systems
 {
-    /// <summary>What the cursor is on, as the glade tool resolved it (spec §4.7).</summary>
+    /// <summary>What the cursor is on, as the glade tool resolved it.</summary>
     public enum GladeHoverKind : byte
     {
         None,
@@ -55,7 +46,7 @@ namespace SkiResortMod.Systems
         Bound,
     }
 
-    /// <summary>State of the preview while the hover is Bound (spec §4.6-§4.9).</summary>
+    /// <summary>State of the preview while the hover is Bound.</summary>
     public enum GladePlanState : byte
     {
         None,
@@ -67,8 +58,7 @@ namespace SkiResortMod.Systems
         MoneyShort,
     }
 
-    /// <summary>Per-activation transition log + dwell accounting (header CONTRACT). One
-    /// instance per tool.</summary>
+    /// <summary>Per-activation transition log + dwell accounting (header contract). One instance per tool.</summary>
     public sealed class GladeHoverLog
     {
         public const int MaxLinesPerActivation = 40;

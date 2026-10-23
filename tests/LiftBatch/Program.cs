@@ -1,34 +1,15 @@
-// LiftBatch — headless tests for the PURE lift files of Round L1 (docs/research/hub-u2-spec.md §5.9):
-// LiftCensus (§5.2), StationAlign (§5.5), LiftReconnectEpisodes (§5.6). Created 2026-10-03 (Round L1,
-// implementer I-2). Round F6 (implementer B) adds StationAlign.FacesAway / Classify (the facing-away
-// rows, item B2: boundaries 89.9 / 90 / 90.1 / ±180) and StationMoveEpisodes (one "moved and settled"
-// line per station move episode, item B3), both in StationAlign.cs. Round E1 (stream S2, 2026-10-04;
-// docs/research/econ-round/spec/ch2-runs.md §3.7) adds LiftServedRule (the D5/D6 served rule, Assign's
-// "serves N runs" map, PowerOf and the one power predicate IsPowered of e1-spec R1): rows 1-26. The E1
-// fixer pass 2 adds StationAlign.PlaceOf (where the alignment readout goes, e1-spec §8.10 G1): 11 checks.
-// Catalog Phase A (2026-10-11, docs/research/art/assets-2026-10/catalog-a/phase-a-contract.md §6.1) adds the pure
-// prefab catalog SkiCatalog.cs and its CatalogTests.cs (CT-1 to CT-10; StationAlign and LiftServedRule alias it).
-// Catalog Phase B (2026-10-11, docs/research/art/assets-2026-10/code-round-2/round-2-contract.md §11.1): CatalogTests.cs
-// grows to CT-1..CT-16 (core); LiftTypeTests.cs (LT-1..LT-10, the lift group's typed census / served rule / summit-served
-// rows) runs after it. The World helper below is `internal` (with a BeforeBuild hook) so LiftTypeTests can reuse it
-// and stamp Edge / Station types onto the census input before Build.
-// Catalog Phase C (2026-10-11, docs/research/art/assets-2026-10/code-round-3/round-3-contract.md §8.1, loopcache group):
-// the loop cache gets its headless host at last (extensibility F8) — its topology pass is the pure LiftLoopTopology.cs,
-// tested by LoopCacheTests.cs (LC-1..LC-10, LC-REF vs the frozen LoopCacheReference.cs); the tram's stateless profile
-// ShuttleProfile.cs by ShuttleTests.cs (SH-1..SH-10). The Game-side geometry of LiftLoopCache still is not linked here.
-// Phase D (2026-10-11, docs/research/art/assets-2026-10/code-round-4/round-4-contract.md §7.1, rules group): unpowered lifts are
-// inert — PowerGateTests.cs (PG-0..PG-4: THE run predicate LiftServedRule.Carries and the flicker guard GuardPower, composed
-// with F2) and LoopHoldTests.cs (LH-1..LH-4: the pure hold / resume arithmetic of the new LiftLoopHold.cs, linked here).
+// LiftBatch - headless tests for the pure lift files (LiftCensus, StationAlign, StationMoveEpisodes, LiftReconnectEpisodes,
+// LiftServedRule, the prefab catalog, the loop-cache topology, the loop hold, the power gate, the tower planner).
+// The World helper below is internal (with a BeforeBuild hook) so LiftTypeTests can stamp Edge / Station types onto the
+// census input before Build.
 // Run (from the ModularSkiResort root):
 //   dotnet run --project tests/LiftBatch/LiftBatch.csproj -c Release
-// Prints `FAIL  where: msg` lines and one SUMMARY line; Environment.ExitCode = failures (the
-// GladeBatch / BindingBatch conventions).
+// Prints `FAIL  where: msg` lines and one SUMMARY line; Environment.ExitCode = failures.
 //
-// What is proven here is the PURE logic only. The ECS harvest (which entities become Edge / Node /
-// Station, the Deleted-tag snapshot, the park events, the overlay) lives in LiftCensusSystem /
-// SkiStationAlignSystem / LiftReconnectSystem and is NOT exercised here; neither is the loop cache
-// (it needs Game types). The synthetic world below models a drawn lift the way the census sees it:
-// station connection nodes carry their station index, interior nodes carry a tower.
+// Only the pure logic is proven here. The ECS harvest (which entities become Edge / Node / Station, the Deleted-tag
+// snapshot, the park events, the overlay) and the loop cache's Game-side geometry are not exercised. The synthetic world
+// models a drawn lift the way the census sees it: station connection nodes carry their station index, interior nodes
+// carry a tower.
 
 using System;
 using System.Collections.Generic;
@@ -97,34 +78,22 @@ namespace LiftBatch
             EpisodesDetachNoPoke();
             EpisodesFlushAndRemove();
 
-            // Round E1 (ch2 §3.7): the served rule and the power predicate (LiftServedRule.cs).
             ServedRuleTests();
             ServedAssignTests();
             PowerRuleTests();
 
-            // Catalog Phase A (catalog-a/phase-a-contract.md §6.1): the pure prefab catalog (CatalogTests.cs, CT-1 to CT-10).
-            // Catalog Phase B (code-round-2/round-2-contract.md §11.1): CT-1 to CT-16 (core), then the typed lift rows
-            // (LiftTypeTests.cs, LT-1 to LT-10, the lift group's body).
             CatalogTests.Run(Check);
             LiftTypeTests.Run(Check);
-            // Catalog Phase C (code-round-3/round-3-contract.md §8.1): the loop cache's pure topology (LoopCacheTests.cs,
-            // LC-1 to LC-10 and LC-REF against the frozen LoopCacheReference.cs) and the shuttle profile (ShuttleTests.cs).
             LoopCacheTests.Run(Check);
             ShuttleTests.Run(Check);
-            // Phase D (code-round-4/round-4-contract.md §7.1): the power gate and the loop hold.
             PowerGateTests.Run(Check);
             LoopHoldTests.Run(Check);
-            // Round T06 (docs/research/field/2026-10-15/build/T06-served-links.md): run-to-run links in the served rule.
             ServedLinkTests.Run(Check);
-            // T48 step 1 (docs/research/field/2026-10-19/tower-planner-build-1.md): the pure tower planner (LiftPlannerTests.cs, LP-0..LP-9).
             LiftPlannerTests.Run(Check);
             foreach (string line in LiftPlannerTests.Report)
                 Console.WriteLine("PLAN  " + line);
-            // T125 (docs/research/field/2026-10-20/playthrough/lift-tool-build.md): the lift tool's input state machine (TI-1..TI-8).
             LiftToolInputTests.Run(Check);
-            // T123 (docs/research/lifts/tower-numbers-build-2026-10-20.md): tower number tiles, wrap, layout, reconcile (TN-1..TN-9).
             TowerNumberTests.Run(Check);
-            // R-3 / R-4 (docs/research/lifts/lift-scale-2026-10-22.md): far-loop pace, bounds cadence, lane scope (MP-1..MP-10).
             LoopPaceTests.Run(Check);
 
             Console.WriteLine(string.Format(CultureInfo.InvariantCulture,
@@ -133,7 +102,6 @@ namespace LiftBatch
             return s_Failures;
         }
 
-        // ================================================================== reporting
 
         private static void Fail(string where, string msg)
         {
@@ -165,9 +133,8 @@ namespace LiftBatch
                 what + ": expected " + expected.ToString("R") + " ± " + tol + ", got " + actual.ToString("R"));
         }
 
-        // ================================================================== synthetic world
 
-        /// <summary>A tiny editable lift world, materialized into the census input lists.</summary>
+        /// <summary>A tiny editable lift world, materialized into the census input lists</summary>
         internal sealed class World
         {
             private struct St { public bool IsBase; public float3 Pos; public quaternion Rot; }
@@ -179,8 +146,8 @@ namespace LiftBatch
             private readonly SortedDictionary<int, Ed> m_Edges = new SortedDictionary<int, Ed>();
 
             public readonly LiftCensus Census = new LiftCensus();
-            /// <summary>Catalog Phase B seam (LiftTypeTests): called with the materialized census input right before
-            /// Census.Build, so a test can set per-edge / per-station fields (lift types) the World does not model.</summary>
+            /// <summary>Called with the materialized census input right before Census.Build, so a test can set per-edge /
+            /// per-station fields (lift types) the World does not model</summary>
             public Action<List<LiftCensus.Edge>, List<LiftCensus.Node>, List<LiftCensus.Station>> BeforeBuild { get; set; }
             public readonly List<LiftCensus.Event> Events = new List<LiftCensus.Event>();
 
@@ -317,8 +284,8 @@ namespace LiftBatch
         internal static World StraightLift()
         {
             var w = new World();
-            w.Station(1, true, new float3(0f, 0f, 0f), 180f);    // −Z rotated to +z
-            w.Station(2, false, new float3(0f, 100f, 600f), 0f); // −Z = south
+            w.Station(1, true, new float3(0f, 0f, 0f), 180f);    // -Z rotated to +z
+            w.Station(2, false, new float3(0f, 100f, 600f), 0f); // -Z = south
             float3 a = w.Tip(1), b = w.Tip(2);
             w.Node(200, a, station: 1);
             for (int k = 1; k <= 4; k++)
@@ -329,7 +296,6 @@ namespace LiftBatch
             return w;
         }
 
-        // ================================================================== census
 
         private static void CensusStraightLift()
         {
@@ -398,7 +364,7 @@ namespace LiftBatch
             }
             Check(w.Census.LastBuildChangedTopology, W, "topology changed");
 
-            // Redraw ONLY the gap with a new edge id → Closed (again), same key.
+            // Redraw only the gap with a new edge id: Closed again, same key
             w.Edge(113, 202, 203);
             w.Build();
             r = w.Census.Rows[0];
@@ -459,7 +425,7 @@ namespace LiftBatch
             w.Build();
             w.RemoveNode(202);
             w.Build();
-            // The game re-creates every section (the field anomaly, spec §5.1): all ids new.
+            // The game re-creates every section: all ids new
             w.Node(202, math.lerp(w.Tip(1), w.Tip(2), 2 / 5f));
             for (int k = 0; k < 5; k++)
                 w.RemoveEdge(101 + k);
@@ -485,7 +451,7 @@ namespace LiftBatch
             w.Station(2, false, new float3(0f, 100f, 400f), 0f);
             w.Station(3, false, new float3(300f, 120f, 300f), -135f);
             float3 tip = w.Tip(1);
-            w.Node(200, tip, station: 1);                     // ONE connection node shared by both lifts
+            w.Node(200, tip, station: 1);                     // one connection node shared by both lifts
             w.Node(201, new float3(0f, 10f, 200f));
             w.Node(202, w.Tip(2), station: 2);
             w.Node(211, new float3(150f, 10f, 150f));
@@ -586,13 +552,13 @@ namespace LiftBatch
             Eq(1, w.CountEvents(LiftCensus.EventKind.NewLine), W, "NewLine");
             Eq(LiftCensus.State.StationsOnly, rows[1].State, W, "top is StationsOnly");
 
-            // Extend the line: same unfinished row (rule b), no new event.
+            // Extend the line: same unfinished row, no new event
             w.Edge(103, 202, 203);
             w.Build();
             Eq(2, w.Census.Rows.Count, W, "rows while extending");
             Eq(0, w.Events.Count, W, "no event while extending");
 
-            // Reach the top: Complete, Closed (new lift = "complete", Count 0).
+            // Reach the top: Complete, Closed (new lift = "complete", Count 0)
             w.Edge(104, 203, 204);
             w.Edge(105, 204, 205);
             w.Build();
@@ -693,7 +659,7 @@ namespace LiftBatch
             var rows = w.Census.Rows;
             Eq(2, rows.Count, W, "rows");
             if (rows.Count != 2) return;
-            // Sort order is Id, then Top: both rows have Id = base 1; the new row's Top is Null (0:0).
+            // Sort order is Id, then Top: both rows have Id = base 1; the new row's Top is Null (0:0)
             Eq(LiftCensus.State.Unfinished, rows[0].State, W, "the new line is its own row (sorted first)");
             Check(rows[0].Top.IsNull, W, "the new row has no top");
             Eq(R(1), rows[0].Base, W, "new row from the shared base");
@@ -712,8 +678,8 @@ namespace LiftBatch
             w.Census.Reset();
             w.Build();
             Eq(0, w.Events.Count, W, "the first build after Reset is a silent baseline");
-            // History is in memory only (spec §5.2 item 3): after a reload mid-redraw the two
-            // fragments come back as Unfinished rows keyed by the station each touches (accepted).
+            // History is in memory only: after a reload mid-redraw the two fragments come back as Unfinished rows keyed by the
+            // station each touches
             var rows = w.Census.Rows;
             Eq(2, rows.Count, W, "two Unfinished fragments after a reset mid-redraw");
             if (rows.Count == 2)
@@ -729,11 +695,9 @@ namespace LiftBatch
                 Eq(0, cl.Count, W, "no history of an Open row: 'complete'");
         }
 
-        // ================================================================== fixer round: a station removed
 
-        // Finding l1-lifts-1 (2026-10-03): a complete lift that loses a station must keep its key (spec
-        // §5.2.3 b has no liveness condition), become Open and raise exactly one Opened — the event that
-        // parks the chairs — not NewLine. The removed station stays in the key; the row id is the live one.
+        // A complete lift that loses a station keeps its key (no liveness condition), becomes Open and raises exactly one
+        // Opened (the event that parks the chairs), not NewLine. The removed station stays in the key; the row id is the live one.
 
         private static void CensusTopStationRemovedApproachSurvives()
         {
@@ -758,9 +722,9 @@ namespace LiftBatch
             Eq(0, w.CountEvents(LiftCensus.EventKind.SectionsDeleted), W, "no section deleted");
             float3 tip2 = new float3(0f, 100f, 588f);
             Near(tip2.z, r.GapAt.z, 1e-3f, W, "GapAt at the dead terminal node");
-            // (TowersRemoved for the orphaned connection node is HELD, field-unverified: not asserted.)
+            // (TowersRemoved for the orphaned connection node is held, unverified in the field: not asserted)
 
-            // A new top station placed on the dead end and connected: rule a, a NEW key, "complete".
+            // A new top station placed on the dead end and connected: a new key, "complete"
             w.Station(3, false, new float3(0f, 100f, 600f), 0f);
             w.Node(205, w.Tip(3), station: 3);
             w.Build();
@@ -842,8 +806,8 @@ namespace LiftBatch
             w.Build();
             w.RemoveStation(2);
             w.Build();   // (1, removed 2) Open
-            // A new line from the base: all-new edges, one station. Rule c must NOT attach it to the
-            // opened lift (its other station is gone): a new Unfinished row, NewLine.
+            // A new line from the base: all-new edges, one station. It must not attach to the opened lift (its other station is
+            // gone): a new Unfinished row, NewLine.
             w.Node(260, new float3(50f, 5f, 60f));
             w.Edge(160, 200, 260);
             w.Build();
@@ -860,7 +824,6 @@ namespace LiftBatch
             Check(open == 1 && unfinished == 1, W, $"open {open} unfinished {unfinished} (want 1 / 1)");
         }
 
-        // ================================================================== alignment
 
         private static void AlignStubTipAndAxis()
         {
@@ -897,7 +860,7 @@ namespace LiftBatch
         {
             const string W = "align/yaw";
             float2 fp = new float2(0f, 1f);
-            // Rotate −f_p = (0,−1) counter-clockwise (standard 2D rotation on (x, z)) by +2°.
+            // Rotate -f_p = (0,-1) counter-clockwise (standard 2D rotation on (x, z)) by +2 degrees
             float th = math.radians(2f);
             float2 back = -fp;
             float2 ccw = new float2(back.x * math.cos(th) - back.y * math.sin(th), back.x * math.sin(th) + back.y * math.cos(th));
@@ -945,7 +908,7 @@ namespace LiftBatch
             float3 basePos = new float3(100f, 10f, -50f);
             float3 baseTip = StationAlign.StubTip(basePos, baseRot);
             float2 baseAxis = StationAlign.Axis(baseRot);
-            // Put the top tip 700 m out along the base axis, stub pointing back.
+            // Put the top tip 700 m out along the base axis, stub pointing back
             float3 topTip = baseTip + new float3(baseAxis.x, 0f, baseAxis.y) * 700f + new float3(0f, 150f, 0f);
             float2 topAxis = -baseAxis;
             var a = StationAlign.Measure(baseTip, baseAxis, topTip, topAxis);
@@ -956,7 +919,6 @@ namespace LiftBatch
             Near(700f, a.DistanceM, 1e-2f, W, "distance");
         }
 
-        // ================================================================== Round F6: facing away (B2)
 
         private static void AlignFacesAwayBoundaries()
         {
@@ -1009,18 +971,18 @@ namespace LiftBatch
         private static void AlignClassifyFieldCases()
         {
             const string W = "align/classify-field";
-            // Base at the origin facing north (+z) toward the top; top 600 m north.
+            // Base at the origin facing north (+z) toward the top; top 600 m north
             float2 baseAxis = new float2(0f, 1f);
             float3 baseTip = new float3(0f, 0f, 12f);
             float3 topTip = new float3(0f, 100f, 588f);
-            // (a) Field test 6, 20.46.09.59: the TOP placed facing away (its stub points north, away
-            //     from the base) — measured against the base it is in front, yaw 180 → FacingAway.
+            // (a) The top placed facing away (its stub points north, away from the base): measured against the base it is in
+            //     front, yaw 180 -> FacingAway.
             var topAway = StationAlign.Measure(baseTip, baseAxis, topTip, new float2(0f, 1f));
             Near(180f, math.abs(topAway.YawDeg), 1e-3f, W, "top facing away: |yaw| 180");
             Check(topAway.AlongM > 0f, W, "top facing away: it is in front of the base");
             Eq(StationAlign.Readout.FacingAway, StationAlign.Classify(topAway), W, "top facing away → 'turn it around'");
-            // (b) The same lift seen from the BASE (selected): the partner (top) faces away, so the base
-            //     sits behind the top's stub; yaw is 180 too, but turning the base would be wrong advice.
+            // (b) The same lift seen from the base (selected): the partner (top) faces away, so the base sits behind the top's
+            //     stub; yaw is 180 too, but turning the base would be wrong advice.
             var baseSeen = StationAlign.Measure(topTip, new float2(0f, 1f), baseTip, baseAxis);
             Check(baseSeen.AlongM < 0f, W, "base behind the back-facing top");
             Near(180f, math.abs(baseSeen.YawDeg), 1e-3f, W, "base: |yaw| 180 as well");
@@ -1032,30 +994,29 @@ namespace LiftBatch
             float th = math.radians(45f);
             var off45 = StationAlign.Measure(baseTip, baseAxis, topTip, new float2(math.sin(th), -math.cos(th)));
             Eq(StationAlign.Readout.Numbers, StationAlign.Classify(off45), W, "45° off → numbers");
-            // (e) Behind with tiny offset and yaw (a relocated top dropped behind the base): never
-            //     Straight, and now says why instead of showing small numbers.
+            // (e) Behind with tiny offset and yaw (a relocated top dropped behind the base): never Straight, and says why
+            //     instead of showing small numbers.
             var behind = StationAlign.Measure(baseTip, baseAxis, new float3(0.1f, 0f, -588f), new float2(0f, -1f));
             Eq(StationAlign.Readout.PartnerFacingAway, StationAlign.Classify(behind), W, "behind, small offset/yaw → partner faces away");
         }
 
-        /// <summary>E1 fixer pass 2 (e1-spec §8.10 G1; StationAlign header READOUT PLACE): where the
-        /// readout goes for every (preview, just moved, default tool) combination. 8 + 3 checks.</summary>
+        /// <summary>Where the readout goes for every (preview, just moved, default tool) combination</summary>
         private static void AlignReadoutPlace()
         {
             const string W = "align/place";
             var mouse = StationAlign.ReadoutPlace.Mouse;
             var world = StationAlign.ReadoutPlace.World;
             var none = StationAlign.ReadoutPlace.None;
-            // The object tool's preview: the mouse, whatever else holds (the object tool is not the default).
+            // The object tool's preview: the mouse, whatever else holds (the object tool is not the default)
             Eq(mouse, StationAlign.PlaceOf(true, false, false), W, "preview, object tool → mouse");
             Eq(mouse, StationAlign.PlaceOf(true, true, false), W, "preview (moved flag ignored) → mouse");
             Eq(mouse, StationAlign.PlaceOf(true, false, true), W, "preview with the default tool (defensive) → mouse");
             Eq(mouse, StationAlign.PlaceOf(true, true, true), W, "preview, all flags → mouse");
-            // The default tool: the world group at the stub tip (F6 B1), selected or just moved.
+            // The default tool: the world group at the stub tip, selected or just moved
             Eq(world, StationAlign.PlaceOf(false, false, true), W, "selected station, default tool → world");
             Eq(world, StationAlign.PlaceOf(false, true, true), W, "just-moved station, default tool → world");
-            // Any other tool: a Move It nudge reaches the mouse (A2); a station only left selected shows
-            // nothing (F6 B1: no rows under the run brush, the Net Tool, the bulldozer, the tree tool).
+            // Any other tool: a Move It nudge reaches the mouse; a station only left selected shows nothing (no rows under the
+            // run brush, the Net Tool, the bulldozer, the tree tool)
             Eq(mouse, StationAlign.PlaceOf(false, true, false), W, "just-moved station, other tool (Move It) → mouse");
             Eq(none, StationAlign.PlaceOf(false, false, false), W, "selected station, other tool (run brush) → nothing");
             Eq(0, (int)none, W, "None = 0");
@@ -1063,13 +1024,12 @@ namespace LiftBatch
             Eq(2, (int)world, W, "World = 2");
         }
 
-        // ================================================================== Round F6: move episodes (B3)
 
         private static void MoveEpisodeTopStationSettle()
         {
             const string W = "move-episode/top-settle";
-            // Field test 6, log 414-432: 18 settle lines for one top station ~0.17-0.2 s apart. Model:
-            // 18 single-frame moves 20 frames apart at 100 fps (frames 0, 20, … 340; t = frame / 100).
+            // 18 settle lines for one top station ~0.17-0.2 s apart. Model: 18 single-frame moves 20 frames apart at 100 fps
+            // (frames 0, 20, ... 340; t = frame / 100).
             var eps = new StationMoveEpisodes();
             EntityRef st = R(82656);
             int lines = 0;
@@ -1139,8 +1099,8 @@ namespace LiftBatch
         private static void MoveEpisodeTwoStationsAlternate()
         {
             const string W = "move-episode/alternate";
-            // The flood guard: should the census's last-moved station alternate between two stations
-            // every frame, each keeps ONE episode (a single-episode tracker would log every frame).
+            // The flood guard: should the census's last-moved station alternate between two stations every frame, each keeps one
+            // episode (a single-episode tracker would log every frame).
             var eps = new StationMoveEpisodes();
             int lines = 0;
             for (long f = 0; f <= 400; f++)
@@ -1162,7 +1122,7 @@ namespace LiftBatch
         private static void MoveEpisodeFrameGate()
         {
             const string W = "move-episode/frame-gate";
-            // A very slow frame rate: 2 s of wall clock pass in fewer than MoveGapFrames frames.
+            // A very slow frame rate: 2 s of wall clock pass in fewer than MoveGapFrames frames
             var eps = new StationMoveEpisodes();
             eps.Observe(R(3), 100, 0.0);
             Check(!eps.TryCloseOne(110, 3.0, out _), W, "3 s but only 10 frames: still open");
@@ -1198,7 +1158,6 @@ namespace LiftBatch
             Eq(1, eps.OpenCount, W, "after a reset the same report opens a new episode (new world)");
         }
 
-        // ================================================================== episodes
 
         private static void EpisodesDrag34()
         {
@@ -1223,7 +1182,7 @@ namespace LiftBatch
                 eps.Tick(f, settled);
                 for (int i = 0; i < settled.Count; i++)
                 {
-                    // The system's trailing step: poke + full pass + ONE line.
+                    // The system's trailing step: poke + full pass + one line
                     pokeFrames.Add(f);
                     trailing++;
                     fullPasses++;
@@ -1312,11 +1271,9 @@ namespace LiftBatch
             eps.NotePokeSet(R(2), 3, 2);   // no-op on a closed episode, must not throw
         }
 
-        // ================================================================== Round E1: served rule + power
-        // docs/research/econ-round/spec/ch2-runs.md §3.7 rows 1-26 (stream S2, 2026-10-04). Pure
-        // LiftServedRule.cs (linked): the D5/D6 served rule (150 m in xz of a chord, run top at most 15 m
-        // above the top station, both bounds inclusive, tie → lower EntityRef), Assign's reverse map and
-        // the one power predicate of e1-spec R1. Every oracle is a literal hand value. Fixture:
+        // Served rule: LiftServedRule (150 m in xz of a chord, run top at most 15 m above the top station, both bounds
+        // inclusive, tie -> lower EntityRef), Assign's reverse map and the one power predicate. Every oracle is a literal
+        // hand value. Fixture:
         //   L1: Id (101,1), Complete, Powered, TopY 300, chords (0,0)-(0,500), (0,500)-(0,1000)
         //   L2: Id (55,1),  Complete, Powered, TopY 400, chord  (200,0)-(200,1000)
         // Points are (x, y, z); chords are xz.
@@ -1349,8 +1306,8 @@ namespace LiftBatch
             };
         }
 
-        /// <summary>Reaches(top, lift) with its expected result; when it should reach, the distance
-        /// is checked against <paramref name="d"/> (±1e-3), else it must be +∞.</summary>
+        /// <summary>Reaches(top, lift) with its expected result; when it should reach, the distance is checked against
+        /// <paramref name="d"/> (+-1e-3), else it must be +infinity</summary>
         private static void ReachesCase(float3 top, LiftServedRule.Lift lift, List<LiftServedRule.Chord> chords,
             bool expect, float d, string where)
         {
@@ -1362,25 +1319,21 @@ namespace LiftBatch
                 Check(float.IsPositiveInfinity(dist), where, "distance must be +inf when not reached, got " + dist.ToString("R"));
         }
 
-        /// <summary>Rows 1-17: constants, DistanceSqXZ, Reaches (bounds, beyond the tip, each Serves
-        /// condition, a non-finite top).</summary>
+        /// <summary>Constants, DistanceSqXZ, Reaches (bounds, beyond the tip, each Serves condition, a non-finite top)</summary>
         private static void ServedRuleTests()
         {
             const string W = "served/rule";
             List<LiftServedRule.Chord> chords = ServedChords();
 
-            // 1. constants
             Check(LiftServedRule.ServeRadiusM == 150f, W, "ServeRadiusM != 150");
             Check(LiftServedRule.TopMarginM == 15f, W, "TopMarginM != 15");
             Check(LiftServedRule.PowerGatesService, W, "PowerGatesService must ship true");
 
-            // 2-5. DistanceSqXZ
             Near(10000f, LiftServedRule.DistanceSqXZ(new float2(100f, 500f), new float2(0f, 0f), new float2(0f, 1000f)), 1e-3f, W, "row 2 perpendicular");
             Near(10000f, LiftServedRule.DistanceSqXZ(new float2(0f, 1100f), new float2(0f, 0f), new float2(0f, 1000f)), 1e-3f, W, "row 3 clamped to the end");
             Near(5000f, LiftServedRule.DistanceSqXZ(new float2(50f, -50f), new float2(0f, 0f), new float2(0f, 0f)), 1e-3f, W, "row 4 degenerate segment");
             Near(16f, LiftServedRule.DistanceSqXZ(new float2(3f, 4f), new float2(0f, 0f), new float2(10f, 0f)), 1e-4f, W, "row 5");
 
-            // 6-11. Reaches on L1
             LiftServedRule.Lift l1 = ServedL1();
             ReachesCase(new float3(100f, 250f, 500f), l1, chords, true, 100f, W + " row 6");
             ReachesCase(new float3(150f, 315f, 500f), l1, chords, true, 150f, W + " row 7 (both bounds inclusive)");
@@ -1389,7 +1342,6 @@ namespace LiftBatch
             ReachesCase(new float3(0f, 250f, 1100f), l1, chords, true, 100f, W + " row 10 (beyond the top tip)");
             ReachesCase(new float3(0f, 250f, 1200f), l1, chords, false, 0f, W + " row 11 (200 m)");
 
-            // 12-16. each Serves condition
             float3 onLine = new float3(0f, 250f, 500f);
             LiftServedRule.Lift l = ServedL1();
             l.Complete = false;
@@ -1409,12 +1361,11 @@ namespace LiftBatch
             Check(!LiftServedRule.Reaches(onLine, l, chords, out float _), W + " row 16", "no chords must not reach");
             Check(!l.Serves, W + " row 16", "no chords: Serves must be false");
 
-            // 17. a non-finite run top
             Check(!LiftServedRule.Reaches(new float3(float.NaN, 250f, 500f), l1, chords, out float _), W + " row 17",
                 "a NaN run top must not reach");
         }
 
-        /// <summary>Rows 18-22: ServingLift (tie → lower EntityRef, nearest, none) and Assign.</summary>
+        /// <summary>ServingLift (tie -> lower EntityRef, nearest, none) and Assign</summary>
         private static void ServedAssignTests()
         {
             const string W = "served/assign";
@@ -1434,8 +1385,7 @@ namespace LiftBatch
             Eq(-1, s, W + " row 21", "no lift within 150 m");
             Check(float.IsPositiveInfinity(d), W + " row 21", "distance must be +inf, got " + d.ToString("R"));
 
-            // 22. Assign: serving lift per run, its distance, and runs per lift (a run within reach of
-            //     two lifts counts for both).
+            // Assign: serving lift per run, its distance, and runs per lift (a run within reach of two lifts counts for both)
             var tops = new List<float3> { new float3(100f, 250f, 500f), new float3(60f, 250f, 500f), new float3(400f, 250f, 500f) };
             var serving = new List<int> { 7, 7 };          // stale content: Assign must clear
             var dist = new List<float> { 1f };
@@ -1457,8 +1407,7 @@ namespace LiftBatch
             }
         }
 
-        /// <summary>Rows 23-26: PowerOf over the consumer flags, RunKind.Natural, IsPowered (e1-spec R1:
-        /// the one "powered" predicate; replaces chapter 1's deleted IsLiftPowered rows).</summary>
+        /// <summary>PowerOf over the consumer flags, RunKind.Natural, IsPowered</summary>
         private static void PowerRuleTests()
         {
             const string W = "served/power";

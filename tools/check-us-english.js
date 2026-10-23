@@ -233,7 +233,7 @@ function walkSrc(dir, pred, acc) {
 // Files another session still owns (the tower-number tiles awaited Richard's verdict when T130 part 2 ran): skipped, and counted in the
 // last line. Delete an entry once its comments are converted.
 // Documents about the spellings themselves (they list British words as their subject): not scanned.
-const SPELLING_DOCS = ["docs/research/us-english-sweep-2026-10-20.md"];
+const SPELLING_DOCS = ["docs/COMMIT-HASH-MAP-2026-10-22.md", "docs/research/us-english-sweep-2026-10-20.md"];
 const PENDING = [];
 
 // --self-test: the gate's own fixtures (each British sample must hit, each US / allowed sample must not).

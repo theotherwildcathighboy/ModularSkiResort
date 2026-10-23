@@ -1,48 +1,24 @@
 /*
- * src/hub/buildItems.ts - display helpers for the `build` binding and the run kinds.
+ * Display helpers for the `build` binding and the run kinds.
  *
- * Written for this repo (MIT). Created 2026-10-01 (Round U1, implementer U1-C); amended
- * 2026-10-03 (Round U2, implementer I-3: BUILD_GROUPS in build order, step badges, run-kind
- * stripes; docs/research/hub-u2-spec.md section 4.2 "footer -> BuildStrip" and 5.8); amended
- * 2026-10-04 (Round E1, stream S6; econ-round spec ch6 section 6.14: nine items, runNatural (D16 /
- * D17), the night run's own icon (D20, chapter 2 section 7.2), groups 2 / 3 / 4).
- * Contract 6 (2026-10-11, Catalog Phase B, code round 2, hub group; docs/research/art/assets-2026-10/
- * code-round-2/round-2-contract.md sections 1.6, 8.5, 8.8): BUILD_ITEMS mirrors the ONE C# table
- * (mod/SkiResortMod/Systems/SkiCatalog.cs, the BUILD-ITEMS block) row by row - id, kind (the C#
- * BuildItemKind name in lower camel case), liftType (LiftTypeDef.Id or "") and runKind (RunKind or -1);
- * gate rule R16 FAILS any difference, a missing icon and a group that does not hold every id once.
- * Contract:
- *   - C# owns WHAT each build id launches and WHICH ids it sends (bindings.ts BuildItem; a pending prefab
- *     that is not imported and every item of a Shuttle lift type are not sent); this file only maps an id
- *     to what the panel draws: its icon, its group and place in the strip, its badge.
- *   - An id this bundle does not know is ignored (bindings.ts BuildItem.id: "treat an unknown
- *     id as not for this bundle"); a known id C# did not send is not drawn.
- *   - BUILD ORDER (spec 5.8; DECISIONS 130 "base station -> top station -> lift line"; D17 run
- *     order): groups [sign, lodge tiers] | [school, patrolHut, patrolHQ] | [each lift type's base
- *     "1", top "2", line "3"] | [runNatural, runGroomed, runSnowmaking, runNight]. The lodge tiers
- *     and the lift types are ALTERNATIVES (contract 6 pickers, hubRules.pickerSets): the strip draws
- *     the selected tier and the selected type's three tiles only, so a city with every prefab shows
- *     2 + 3 + 3 + 4 tiles and an FG-only city today's 2 + 3 + 4. The numbers are the stations-first
- *     order; nothing is ever blocked by it (line-first still works through the reconnect, DECISIONS 40).
- *     Keep BUILD_ITEMS, BUILD_GROUPS and BUILD_ITEM_ICON literal arrays / objects of literals (R16).
- *   - Icons are the prefabs' own UIObject icons (assetdb://global/<id> copied from the prefab
- *     JSONs, gamedata-mirror/ImportedData/<Prefab>/<Prefab>.Prefab "m_Icon", lines below). Round E1
- *     (D20) gives the natural and the night run their own icons (art awaiting Richard's verdict,
- *     chapter 2 section 7.3 is the two-line revert); run tiles keep a kind stripe in the run list's
- *     marker colors (hub.module.scss .stripe*, the natural run's two short bars). If an icon fails
- *     to load the tile draws a CSS square instead (AssetIcon, src/hub/parts.tsx). Round M1 deletes
- *     the SkiResortCategory prefab but keeps SkiResortTab.png (aed39078...), which is no longer
- *     drawn: the launchers use SkiLauncherGlyph.svg since S1 F9 (HubLauncher.tsx HUB_GLYPH; HUB_ICON is
- *     the rollback).
- *   - Icons, style E (2026-10-04; econ-round e1-spec.md section 8): all nine icons are redrawn by
- *     assets/blender/ski_icons.py (same file names, so the same ids) and the lift tile gets its own
- *     SkiChairliftLine.png (890dda43..., SkiChairliftHV.Prefab m_Icon) instead of SkiResortTab.png.
- *   - Icons round 2 (2026-10-11; docs/research/art/assets-2026-10/build/icons-round-2.md; Richard's verdict B2):
- *     the 16 contract-6 placeholders (section 8.8) are replaced by their own style-E tiles from
- *     assets/blender/ski_icons.py, PNG + hand-minted .png.cid in gamedata-mirror/ImportedData/SkiResortIcons/
- *     (file = the prefab name; a line tile is <Type>Line.png). The prefab-surgery round sets each new prefab's
- *     UIObject m_Icon to the same assetdb://global/<cid> (the table in icons-round-2.md) and installs the PNGs
- *     game-side; until then those prefabs do not exist, C# does not send their ids, and no tile asks for them.
+ * BUILD_ITEMS mirrors the one C# table (mod/SkiResortMod/Systems/SkiCatalog.cs, the BUILD-ITEMS block) row by row:
+ * id, kind (the C# BuildItemKind name in lower camel case), liftType (LiftTypeDef.Id or "") and runKind (RunKind or -1).
+ * Gate rule R16 fails any difference, a missing icon, and a group that does not hold every id once; keep BUILD_ITEMS,
+ * BUILD_GROUPS and BUILD_ITEM_ICON literal arrays / objects of literals.
+ *   - C# owns what each build id launches and which ids it sends (a pending prefab that is not imported and every item
+ *     of a Shuttle lift type are not sent); this file only maps an id to its icon, group, place in the strip and badge.
+ *   - An id this bundle does not know is ignored; a known id C# did not send is not drawn.
+ *   - Build order: [sign, lodge tiers] | [school, patrolHut, patrolHQ] | [each lift type's base "1", top "2", line "3"] |
+ *     [runNatural, runGroomed, runSnowmaking, runNight, runCatTrack]. Lodge tiers and lift types are alternatives
+ *     (hubRules.pickerSets): the strip draws the selected tier and the selected type's three tiles only. The step
+ *     numbers suggest stations first; nothing is blocked by it (line-first works through the reconnect).
+ *   - Icons are the prefabs' own UIObject icons (assetdb://global/<id> copied from the prefab JSONs,
+ *     gamedata-mirror/ImportedData/<Prefab>/<Prefab>.Prefab "m_Icon"; the line numbers below). Run tiles keep a kind
+ *     stripe in the run list's marker colors (hub.module.scss .stripe*). If an icon fails to load the tile draws a CSS
+ *     square instead (AssetIcon, src/hub/parts.tsx). The icons are drawn by assets/blender/ski_icons.py (same file
+ *     names, so the same ids); the .png.cid files for the SkiResortIcons set are in gamedata-mirror/ImportedData/
+ *     SkiResortIcons/ (docs/research/art/assets-2026-10/build/icons-round-2.md). A prefab that does not exist yet is
+ *     not sent by C#, so no tile asks for its icon.
  */
 import { BUILD_ITEM_IDS, RUN_KIND } from "../bindings";
 import type { BuildItem, BuildItemId, RunKind } from "../bindings";
@@ -99,8 +75,7 @@ const ICON_TOP = "assetdb://global/3eb0d7b98fc9ee162816d9bb77056956"; // SkiTopS
 export const BUILD_ITEM_ICON: Readonly<Record<BuildItemId, string>> = {
   sign: ICON_SIGN,
   lodge: ICON_LODGE,
-  // Icons round 2 (2026-10-11): SkiResortIcons/<file>.png.cid; the surgery round writes the same id into each
-  // prefab's m_Icon (docs/research/art/assets-2026-10/build/icons-round-2.md).
+  // SkiResortIcons/<file>.png.cid; each prefab's m_Icon carries the same id (docs/research/art/assets-2026-10/build/icons-round-2.md)
   lodgeHut: "assetdb://global/a5cbeffe37ecc4a08dba75e5f41721a8", // SkiLodgeHut.png
   lodgeMid: "assetdb://global/d3df64753c68a935d57aff51fc52815b", // SkiLodgeMid.png
   lodgeSummit: "assetdb://global/1d6966e5716f604d124d7da9130493cd", // SkiLodgeSummit.png
@@ -117,14 +92,14 @@ export const BUILD_ITEM_ICON: Readonly<Record<BuildItemId, string>> = {
   baseStationGondola: "assetdb://global/6ec56586a0f75099238aed5b6fc78db2", // SkiGondolaBaseStationBuilding.png
   topStationGondola: "assetdb://global/eb97c9e8b0bef4a6f1466b33d2368459", // SkiGondolaTopStationBuilding.png
   liftGondola: "assetdb://global/bb635c9ad1e17621e3fffec16bc80256", // SkiGondolaLine.png (SkiGondolaHV)
-  baseStationTram: "assetdb://global/346a857e6774be57ac9b39faae5eb43e", // SkiTramBaseStationBuilding.png (not sent until Phase C)
-  topStationTram: "assetdb://global/9988b8f6ee556ce5159e1ff361b8b2c8", // SkiTramTopStationBuilding.png (not sent until Phase C)
-  liftTram: "assetdb://global/84b357124bf9365a0b29833f2ea85ed5", // SkiTramLine.png (SkiTramHV; not sent until Phase C)
-  runNatural: "assetdb://global/6cf0402a558e436be4459d740b432f98", // SkiRunNaturalA.Prefab:65 (D20; art, owner's verdict)
+  baseStationTram: "assetdb://global/346a857e6774be57ac9b39faae5eb43e", // SkiTramBaseStationBuilding.png
+  topStationTram: "assetdb://global/9988b8f6ee556ce5159e1ff361b8b2c8", // SkiTramTopStationBuilding.png
+  liftTram: "assetdb://global/84b357124bf9365a0b29833f2ea85ed5", // SkiTramLine.png (SkiTramHV)
+  runNatural: "assetdb://global/6cf0402a558e436be4459d740b432f98", // SkiRunNaturalA.Prefab:65
   runGroomed: "assetdb://global/092ca9d440ccbca7cf9783c4da1790f5", // SkiRunGroomedA.Prefab:65
   runSnowmaking: "assetdb://global/bc121f42eed0fd6829eacccc5b69b4f8", // SkiRunSnowmakingA.Prefab:65
-  runNight: "assetdb://global/a239eef8d124c3ec467a5d8afaa7e447", // SkiRunNightA.Prefab:65 (D20: own icon; was snowmaking's)
-  runCatTrack: "assetdb://global/746a4b7f2c2ea595edf43d1ecc8a8520", // SkiRunCatTrackA.Prefab:65 (T38: SkiRunCatTrackA.png, own icon; was the groomed icon in T54 probe 1)
+  runNight: "assetdb://global/a239eef8d124c3ec467a5d8afaa7e447", // SkiRunNightA.Prefab:65
+  runCatTrack: "assetdb://global/746a4b7f2c2ea595edf43d1ecc8a8520", // SkiRunCatTrackA.Prefab:65 (SkiRunCatTrackA.png)
 };
 
 /** Four groups in build order (gate R16 checks every id appears exactly once). Group 1's lodge tiers and group 3's
@@ -157,13 +132,12 @@ export const BUILD_STEP: Readonly<Partial<Record<BuildItemId, string>>> = {
   liftTram: "3",
 };
 
-/** The luxury lodge tiers: C# SkiCatalog.Lodges rows with Luxury true (summit, grand; round-2-contract section 1.5).
- *  Display only (the tile tooltip's BUILD_TIP_LUXURY line, the price tolerance): no rule hangs on it. There is NO limit
- *  on how many lodges of any tier a player builds (Richard, 2026-10-11; the one-per-ski-area lock D3 was removed).
+/** The luxury lodge tiers: C# SkiCatalog.Lodges rows with Luxury true (summit, grand). Display only (the tile tooltip's
+ *  BUILD_TIP_LUXURY line, the price tolerance): no rule hangs on it, and there is no limit on lodges of any tier.
  *  Keep in step with SkiCatalog.cs by hand. */
 export const LUXURY_LODGES: ReadonlySet<BuildItemId> = new Set<BuildItemId>(["lodgeSummit", "lodgeGrand"]);
 
-/** T129 (2026-10-20, field notes 15 / 16): what a placed building draws a month, and how it meets the ground. */
+/** What a placed building draws a month, and how it meets the ground. */
 export interface BuildingDraw {
   /** The prefab (gamedata-mirror/ImportedData/<prefab>/<prefab>.Prefab), for the gate. */
   prefab: string;
@@ -176,15 +150,15 @@ export interface BuildingDraw {
   power: number;
   water: number;
   garbage: number;
-  /** Jobs: Workplace.m_Workplaces, or for a roadless building SkiCatalog's SignJobs, which the linked sign carries (DECISIONS 347 c). */
+  /** Jobs: Workplace.m_Workplaces, or for a roadless building SkiCatalog's SignJobs, which the linked sign carries. */
   workers: number;
   /** BuildingTerraformOverride m_DontRaise AND m_DontLower: the lot keeps the terrain (LotHeightSystem.cs:253 levels it unless both
    *  are set); false = the lot is leveled (no override block, or not both flags). */
   keepsSlope: boolean;
 }
 
-/** One row per building tile, from the prefabs (gate: tools/test-hub-rules.js T22 reads every prefab and SkiCatalog's SignJobs and FAILS on
- *  a difference). A value 0 draws no row (vanilla's asset panel does the same). Lines and runs are not buildings: no row. */
+/** One row per building tile, from the prefabs (gate: tools/test-hub-rules.js T22 reads every prefab and SkiCatalog's SignJobs
+ *  and fails on a difference). A value 0 draws no row (as vanilla's asset panel). Lines and runs are not buildings: no row. */
 export const BUILDING_DRAW: Readonly<Partial<Record<BuildItemId, BuildingDraw>>> = {
   sign: { prefab: "SkiResortGate", upkeep: 0, power: 0, water: 0, garbage: 0, workers: 0, keepsSlope: true },
   lodge: { prefab: "SkiAFrameDayLodge", upkeep: 3000, power: 1500, water: 1000, garbage: 80, workers: 4, keepsSlope: false },
@@ -238,8 +212,7 @@ export function buildMeta(id: string): BuildItemMeta | undefined {
   return undefined;
 }
 
-/** "base" / "top" for a station item (the ids follow baseStation{Suffix} / topStation{Suffix}: LiftBatch CT-14),
- *  else null. */
+/** "base" / "top" for a station item (the ids follow baseStation{Suffix} / topStation{Suffix}), else null. */
 export function stationRole(id: string): "base" | "top" | null {
   const m = buildMeta(id);
   if (!m || m.kind !== "station") return null;

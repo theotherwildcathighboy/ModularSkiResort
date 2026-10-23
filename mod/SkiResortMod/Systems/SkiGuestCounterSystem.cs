@@ -1,126 +1,75 @@
-// SkiGuestCounterSystem — counts the guests who arrive at a ski area (Round E1, decision D25;
-// docs/research/econ-round/spec/ch4-money.md §4, §10): tourist parties through meetings, residents
-// through leisure at a lodge (strict partition by household, DV8), written into the monthly
-// SkiResortLedger and handed to SkiLiftTicketSystem as GuestArrival records (DrainArrivals).
-// Stage 0 (S0) laid down the shell (e1-spec I-18); stream S4 wrote the system (2026-10-04).
+// Counts the guests who arrive at a ski area (tourist parties through meetings, residents and tourists through leisure at a lodge),
+// written into the monthly SkiResortLedger and handed to SkiLiftTicketSystem as GuestArrival records (DrainArrivals).
 //
-// WHAT IS A GUEST (ch4 §4.1, DV8 — a narrowing of D25, stated):
-//   * Tourist party: a CoordinatedMeeting whose m_Target is one of our targets and whose FIRST attendee's
-//     household HAS TouristHousehold; counted at the first scan where the meeting is Attending and was
-//     not Attending in the previous scan (MeetingSystem.cs:126-147: Attending = every attendee's
-//     CurrentBuilding is the target; :149-178 a one-phase attraction outing with delay (0, 0) is
-//     Attending for exactly one MeetingSystem update). People = the attendee buffer length (all members
-//     of one household, AddMeetingSystem.cs:70-84). The prev-set rule makes a longer Attending spell count
-//     once; since Round S1 a new spell the same game day counts only members not yet counted there that
-//     day (below).
-//   * Resident: a citizen whose Leisure.m_TargetAgent is one of our LODGES and whose
-//     CurrentBuilding.m_CurrentBuilding is that lodge, household WITHOUT TouristHousehold; counted at the
-//     first leisure scan where it is on site and was not on site the scan before (set difference).
-//   * Tourist on leisure (Round S1 D23, replaces E1 DV8's exclusion): the same test at a LODGE (never the
-//     sign), household WITH TouristHousehold; counted at most once per game day per ski area
-//     (SkiDayRules.DayKey), and not when its household came there that day by outing. An outing counts only
-//     the attendees not yet counted there that day (a multi-phase outing returning the same day is not
-//     counted again). In-memory day sets, cleared at the day roll and at load — so after a load a tourist
-//     counted before the save can count, and pay, once more that day. An outing member already on site with
-//     a Leisure aimed at the lodge (LeisureSystem.cs 1.6.2 :375-403) is counted on leisure first; its outing
-//     then counts the rest (totals right, the ledger's TouristOnLeisure slightly high).
-//   * The first scan of each kind after a load is a BASELINE: it records, counts nothing (a party or a
-//     resident on site at load time was counted, and maybe charged, before the save). Additive (S4): a
-//     target that joins the map later (a lodge switched back on with residents still inside — SpendLeisure
-//     ends a visit at an inactive provider only on its own 1,024-frame pass, LeisureSystem.cs 1.6.2
+// What is a guest:
+//   * Tourist party: a CoordinatedMeeting whose m_Target is one of our targets and whose first attendee's household has
+//     TouristHousehold; counted at the first scan where the meeting is Attending and was not Attending in the previous scan
+//     (MeetingSystem.cs:126-147: Attending = every attendee's CurrentBuilding is the target; :149-178 a one-phase attraction outing
+//     with delay (0, 0) is Attending for exactly one MeetingSystem update). People = the attendee buffer length (all members of one
+//     household, AddMeetingSystem.cs:70-84). The prev-set rule makes a longer Attending spell count once; a new spell the same game
+//     day counts only members not yet counted there that day (below).
+//   * Resident: a citizen whose Leisure.m_TargetAgent is one of our lodges and whose CurrentBuilding.m_CurrentBuilding is that lodge,
+//     household without TouristHousehold; counted at the first leisure scan where it is on site and was not on site the scan before
+//     (set difference).
+//   * Tourist on leisure: the same test at a lodge (never the sign), household with TouristHousehold; counted at most once per game
+//     day per ski area (SkiDayRules.DayKey), and not when its household came there that day by outing. An outing counts only the
+//     attendees not yet counted there that day (a multi-phase outing returning the same day is not counted again). In-memory day
+//     sets, cleared at the day roll and at load, so after a load a tourist counted before the save can count, and pay, once more that
+//     day. An outing member already on site with a Leisure aimed at the lodge (LeisureSystem.cs 1.6.2 :375-403) is counted on leisure
+//     first; its outing then counts the rest (totals right, the ledger's TouristOnLeisure slightly high).
+//   * The first scan of each kind after a load is a baseline: it records, counts nothing (a party or a resident on site at load time
+//     was counted, and maybe charged, before the save). A target that joins the map later (a lodge switched back on with residents
+//     still inside; SpendLeisure ends a visit at an inactive provider only on its own 1,024-frame pass, LeisureSystem.cs 1.6.2
 //     :283-312) gets the same baseline at the next leisure scan, so nobody is counted or charged twice.
 //
-// TARGETS (ch4 §2.2, §4.2): every live Welcome Sign (SkiRunOwnershipSystem.IsGatePrefab) and every ACTIVE
-// lodge listed in a live sign's InstalledUpgrade buffer (SkiResortAttractivenessSystem.IsLodgePrefab — since Catalog
-// Phase B (round-2-contract §7.4, Phase A review finding 1) its LodgePrefabSet fetched ONCE per rebuild, every lodge tier;
-// the school and the patrol huts are not targets — and
-// !BuildingUtils.CheckOption(entry, BuildingOption.Inactive), BuildingUtils.cs:356). T113 (2026-10-20): a TOP-LEVEL lodge
-// (no Owner) is a target of its published link (SkiResortAttractivenessSystem.CopyTopLevelLinks), active by its own
-// Building.m_OptionMask. Free-standing (not linked) and
-// out-of-service lodges are not targets (counted for the targets line only). The map building → sign is
-// rebuilt on the main thread between jobs when the Park query's entity count moves, when the attraction
-// model's Generation moves (a lodge switched on or off changes no count), every Tuning.MapBackstopTicks
-// ticks, and on the first tick after a load. Query {Building, Game.Buildings.Park, PrefabRef} None {Temp,
-// Deleted}: sign and lodge both carry Game.Buildings.Park (Game.Prefabs/Park.cs:29). The rebuild syncs only
-// PrefabRef's writers (CompleteDependencyBeforeRO, ParkedVehiclesSystem.cs:1732), never the Transform writers
-// of the move systems (E1 fixer F7: Transform was in the query, so every rebuild waited on CarMoveSystem /
-// HumanMoveSystem jobs; the map rebuilds on every attraction Generation move, up to every 256 frames).
+// Targets: every live Welcome Sign (SkiRunOwnershipSystem.IsGatePrefab) and every active lodge listed in a live sign's
+// InstalledUpgrade buffer (SkiResortAttractivenessSystem.IsLodgePrefab: its LodgePrefabSet fetched once per rebuild, every lodge
+// tier; the school and the patrol huts are not targets), active = !BuildingUtils.CheckOption(entry, BuildingOption.Inactive),
+// BuildingUtils.cs:356. A top-level lodge (no Owner) is a target of its published link (SkiResortAttractivenessSystem
+// .CopyTopLevelLinks), active by its own Building.m_OptionMask. Free-standing (not linked) and out-of-service lodges are not targets
+// (counted for the targets line only). The map building -> sign is rebuilt on the main thread between jobs when the Park query's
+// entity count moves, when the attraction model's Generation moves (a lodge switched on or off changes no count), every
+// Tuning.MapBackstopTicks ticks, and on the first tick after a load. Query {Building, Game.Buildings.Park, PrefabRef} None {Temp,
+// Deleted}: sign and lodge both carry Game.Buildings.Park (Game.Prefabs/Park.cs:29). The rebuild syncs only PrefabRef's writers
+// (CompleteDependencyBeforeRO, ParkedVehiclesSystem.cs:1732), never the Transform writers of the move systems (Transform in the
+// query would make every rebuild wait on CarMoveSystem / HumanMoveSystem jobs; the map rebuilds on every attraction Generation move,
+// up to every 256 frames).
 //
-// JOBS (ch4 §4.5): MeetingScanJob (every tick) and LeisureScanJob (every Tuning.LeisureEveryNthTick-th
-// tick, scheduled after the meeting job; they share Stats) are single-threaded IJobs over
-// ToArchetypeChunkListAsync chunk lists (the BrandPopularitySystem.cs:168-177 pattern), [BurstCompile]
-// best-effort (the SkiSnowInjectionSystem convention: unburst they run as managed code on a worker).
-// Their results are read on the NEXT tick after Complete(), which by then costs nothing — no main-thread
-// wait on MeetingSystem's or TripNeededSystem's jobs. EarlyJobInit for both in OnCreate (the
-// SkiRunDrawFeedbackSystem.PrewarmJit precedent). The dev counters (parties picked, locals heading, scan
-// stats) are copied into managed fields after Complete, so DUMP / hub reads never touch a container a
-// job may be writing.
+// Jobs: MeetingScanJob (every tick) and LeisureScanJob (every Tuning.LeisureEveryNthTick-th tick, scheduled after the meeting job;
+// they share Stats) are single-threaded IJobs over ToArchetypeChunkListAsync chunk lists (the BrandPopularitySystem.cs:168-177
+// pattern), [BurstCompile] best-effort (unburst they run as managed code on a worker). Their results are read on the next tick after
+// Complete(), which by then costs nothing: no main-thread wait on MeetingSystem's or TripNeededSystem's jobs. EarlyJobInit for both
+// in OnCreate. The dev counters (parties picked, locals heading, scan stats) are copied into managed fields after Complete, so DUMP /
+// hub reads never touch a container a job may be writing.
 //
-// STEP ORDER per tick (ch4 §4.5): 1 complete the scans; 2 month (SkiMoneyRules.MonthKey of TimeSystem
-// year / normalizedDate, TimeSystem.cs:38-40; Ledger.Advance; month lines and Prune on a roll or jump);
-// 2b day (Round S1, ski-days spec ch3 §1.4: SkiDayRules.DayKey; a new key clears the two day sets — the
-// jobs are complete, so the main thread clears them safely); 3 apply last tick's arrivals (ledger, pending
-// list for the ticket system, first-arrival lines), swap the Attending / on-site sets, clear the baselines
-// that ran, copy the day sets' counts (managed, for the DUMP); 4 rebuild the map when asked; 5 schedule.
-// Arrivals detected in the last 16 frames of a month are booked into the new month (accepted, ch4 §4.5).
-// DAY SETS (Round S1 D23, ch3 §1.3): m_CitizensToday {(citizen, sign)} and m_HouseholdsToday {(household,
-// sign) → SkiMoneyRules.GuestDay* flags}, int4 keys of (Index, Version) pairs, Persistent, written by both
-// scan jobs (the leisure job runs on the meeting job's handle) and never read on the main thread while a
-// job runs.
+// Step order per tick: 1 complete the scans; 2 month (SkiMoneyRules.MonthKey of TimeSystem year / normalizedDate, TimeSystem.cs:38-40;
+// Ledger.Advance; month lines and Prune on a roll or jump); 2b day (SkiDayRules.DayKey; a new key clears the two day sets: the jobs
+// are complete, so the main thread clears them safely); 3 apply last tick's arrivals (ledger, pending list for the ticket system,
+// first-arrival lines), swap the Attending / on-site sets, clear the baselines that ran, copy the day sets' counts (managed, for the
+// DUMP); 4 rebuild the map when asked; 5 schedule. Arrivals detected in the last 16 frames of a month are booked into the new month
+// (accepted).
+// Day sets: m_CitizensToday {(citizen, sign)} and m_HouseholdsToday {(household, sign) -> SkiMoneyRules.GuestDay* flags}, int4 keys of
+// (Index, Version) pairs, Persistent, written by both scan jobs (the leisure job runs on the meeting job's handle) and never read on
+// the main thread while a job runs.
 //
-// LEDGER: this system owns the one SkiResortLedger (reset in OnGameLoadingComplete; only this system
-// calls Advance). SkiLiftTicketSystem (AddTickets, AddLocalsPaid) and SkiLiftChargeSystem
-// (AddLiftCharge) write into it through Ledger. AddLocalsPaid (additive, internal) keeps the per-ski-area
-// count of residents who paid this month for the O1 note line (e1-spec §7.3 O1), which the ledger's
-// tourist / local split of guests alone cannot give.
+// Ledger: this system owns the one SkiResortLedger (reset in OnGameLoadingComplete; only this system calls Advance).
+// SkiLiftTicketSystem (AddTickets, AddLocalsPaid) and SkiLiftChargeSystem (AddLiftCharge) write into it through Ledger. AddLocalsPaid
+// keeps the per-ski-area count of residents who paid this month for the lodge note line, which the ledger's tourist / local split of
+// guests alone cannot give.
 //
-// PHASE: GameSimulation, anchored UpdateAfter<SkiGuestCounterSystem, Game.Simulation.MeetingSystem>
-// (Mod.cs; load-bearing for freshness, not for exactly-once — ch4 §12.1; MeetingSystem is UpdateAt
-// GameSimulation, SystemOrder.cs:404). Pause stops it; the Editor never arms it.
-// CADENCE: GetUpdateInterval 16 = MeetingSystem's interval (MeetingSystem.cs:277-280), so the anchor's
-// offset is inherited (UpdateSystem.cs:400-431).
-// COST (ch4 §8; estimates, UNVERIFIED until the field): main thread per tick = Complete of jobs already
-// done, apply (few arrivals), one CalculateEntityCount (O(chunks)), two schedules: tens of µs. Workers:
-// meetings O(meeting entities) ~0.1 ms; leisure O(citizens out for leisure) 0.2-1 ms per 256 frames at
-// 100k population. Measured after each load: `Guests [cost]` after Tuning.CostTicks ticks, plus one
-// schedule-to-complete timing of both scans on the first leisure tick from tick CostTicks on (results
-// used as on any other tick — nothing counted twice). Round F7 (item E3, log-audit D5): only ticks that
-// scheduled the scans count (the map had a target); idle ticks before the first Welcome Sign are left out.
-// Round M1 (M8, m1-spec F10, E5, E6): DAILY AT MIDDAY too — once the last line was written, the first tick at or
-// after 12:00 of a new game day (SkiDayRules.DayKey) re-arms the measurement; that arming tick is not measured
-// (m_CostSkipNext), so the city's growth shows in one line per game day. The synchronous figure includes any wait
-// for the vanilla jobs the scans depend on (the line says so); each line ends "; measurement n this load, YYYY-MM
-// at HH:MM" (CostSuffix, shared with the parking census and the tickets).
-// LOGS (ch4 §4.7, exact): created; ARMED; `Guests [targets]` on change; `Guests [first]` per ski area per
-// load (first tourist party, first local; Round S1: first tourist on leisure); `Guests [month]` per ski area
-// + total at a roll (Round S1: groups and tourists on leisure in the body, ch3 §1.6), the jump line,
-// the O1 note; the month in progress before a load (` (until the load)`) and before a jump
-// (` (until the jump)`, additive); `Guests [cost]` after the load and daily at midday (Round M1); `Guests [idle]`
-// per transition; one WARN per load when arrivals pile up undrained (Tuning.PendingCap); the one-shot `!!!`
-// (disabled for the load). No per-arrival lines.
-// ROUND M1 "measure first" (docs/research/ski-days/measure/m1-spec.md, Builder B; measure only, memory only):
-//   * Month labels (D5, M7c): the closed month's lines read ` (since load)` when counting started in it at a load,
-//     ` (since the time jump)` when it started at a calendar jump (fixer R8, m_MonthByJump), else
-//     ` (partial: N % of a month simulated)` when fewer than SkiMoneyRules.FullMonthShare (95 %) of its
-//     frames were simulated since it began (m_MonthStartFrame; a developer time jump landing exactly one month later
-//     rolls instead of jumping), else nothing. The ledger is told (Advance(key, closedShort)), so the hub marks that
-//     month "(partial)" and the Money tile does not use it as a full month (SkiResortStatsSystem.cs:1714).
-//   * Run upkeep (M7b): the total line names the month's run upkeep, `run upkeep -N (whole city)`, from
-//     SkiRunUpkeepSystem.DebitedThisLoad (no ski-area attribution exists; `?` when not known).
-//   * Ledger check support (M7 a, a2): LastLeisureScanFrame / HasLeisureScan / LeisureScanIntervalFrames give
-//     SkiDaySystem the leisure scan's phase; GuestArrival.Citizen and the resident maps m_ResidentsThis / Last (the
-//     residents booked into the ledger's month in progress and the month before it, with their visit counts: fixer
-//     R2) answer TryResidentCounted and TryResidentVisits.
-// T78 HISTORY (DECISIONS 283; docs/research/ui/hub-history-build-1-2026-10-18.md; additive): LastMonthStep (each start / roll /
-// jump with the closed month's key and labels), MonthFramesSimulated, MonthByJump and LiveSigns are read by
-// SkiResortHistorySystem (UpdateAfter this system, same 16-frame interval); SeedMonthMeasures moves the month start frame and
-// the run-upkeep / fee baselines back after it seeded the ledger's month in progress from the save. Nothing else changed:
-// the ledger is still Reset here on every load and only this system calls Advance.
-// CONTRACT (house pattern): "created" line; per-load reset and re-arm in OnGameLoadingComplete (Game mode
-// only; SkiOtherMods.Refresh runs there too); OnGamePreload completes jobs, books the finished scan and the
-// ticket system's batch in flight (E1 fixer pass 2), and writes the month in progress (try/caught:
-// GameSystemBase.cs:85-96 disables a system whose OnGamePreload throws); one-shot
-// "!!!" and disabled for the load on an exception; OnDestroy completes and disposes native containers.
+// Phase: GameSimulation, UpdateAfter<SkiGuestCounterSystem, Game.Simulation.MeetingSystem> (Mod.cs; load-bearing for freshness, not
+// for exactly-once; MeetingSystem is UpdateAt GameSimulation, SystemOrder.cs:404). Pause stops it; the Editor never arms it.
+// Cadence: GetUpdateInterval 16 = MeetingSystem's interval (MeetingSystem.cs:277-280), so the anchor's offset is inherited
+// (UpdateSystem.cs:400-431).
+// Cost: main thread per tick = Complete of jobs already done, apply (few arrivals), one CalculateEntityCount and two schedules (tens of
+// microseconds); `Guests [cost]` measures it after each load and daily at midday (CostSuffix is shared with the parking census and
+// the tickets).
+// SkiResortHistorySystem (UpdateAfter this system, same 16-frame interval) reads LastMonthStep, MonthFramesSimulated, MonthByJump and
+// LiveSigns; SkiDaySystem reads the leisure scan's phase (LastLeisureScanFrame) and the resident maps (TryResidentCounted /
+// TryResidentVisits).
+// Per-load reset and re-arm in OnGameLoadingComplete (Game mode only). OnGamePreload completes jobs, books the finished scan and the
+// ticket system's batch in flight, and writes the month in progress (try/caught: GameSystemBase.cs:85-96 disables a system whose
+// OnGamePreload throws). A one-shot "!!!" disables the system for the load.
 
 using System;
 using System.Collections.Generic;
@@ -139,36 +88,34 @@ using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Jobs;
-using Unity.Mathematics;                                     // int4 (the day sets' keys, Round S1)
+using Unity.Mathematics;                                     // int4 (the day sets' keys)
 using Purpose = Colossal.Serialization.Entities.Purpose;   // Game.Citizens has a Purpose too
 
 namespace SkiResortMod.Systems
 {
-    /// <summary>One guest arrival (a tourist party or a resident household) at a ski area's building
-    /// (ch4 §10). Sign is never Entity.Null for a counted arrival (only mapped targets are counted).</summary>
+    /// <summary>One guest arrival (a tourist party or a resident household) at a ski area's building. Sign is never Entity.Null for a
+    /// counted arrival (only mapped targets are counted).</summary>
     public struct GuestArrival
     {
         public Entity Sign, Building, Household;
         public int People;
         public bool Tourist;
-        public bool NewGroup;    // Round S1 D23: the household's first count at this ski area today (tourists only)
-        public bool OnLeisure;   // Round S1 D23: from the leisure scan (residents ignore both flags)
-        public Entity Citizen;   // Round M1 (M7 a2): the citizen counted, set by the leisure scan; Null from the meeting scan
+        public bool NewGroup;    // the household's first count at this ski area today (tourists only)
+        public bool OnLeisure;   // from the leisure scan (residents ignore both flags)
+        public Entity Citizen;   // the citizen counted, set by the leisure scan; Null from the meeting scan
     }
 
     public sealed partial class SkiGuestCounterSystem : GameSystemBase
     {
-        // ── Tuning (printed in the ARMED / cost lines where it matters) ───────────────────────────────
         private static class Tuning
         {
-            /// <summary>One leisure scan per this many ticks (16 × 16 = 256 sim frames, ch4 §4.4).</summary>
+            /// <summary>One leisure scan per this many ticks (16 x 16 = 256 sim frames).</summary>
             public const int LeisureEveryNthTick = 16;
-            /// <summary>Map rebuild backstop (256 × 16 = 4,096 sim frames, ch4 §4.2).</summary>
+            /// <summary>Map rebuild backstop (256 x 16 = 4,096 sim frames).</summary>
             public const int MapBackstopTicks = 256;
-            /// <summary>Ticks with scans timed for the `Guests [cost]` line (after the load, then after each midday re-arm:
-            /// Round M1, M8; ch4 §4.7; F7 E3).</summary>
+            /// <summary>Ticks with scans timed for the `Guests [cost]` line (after the load, then after each midday re-arm).</summary>
             public const int CostTicks = 256;
-            /// <summary>O1 note threshold: the lodge break-even in paying locals a month (ch4 §4.7, e1-spec O1).</summary>
+            /// <summary>Lodge-note threshold: the lodge break-even in paying locals a month.</summary>
             public const int LocalTicketsNotePerMonth = 300;
             /// <summary>Undrained arrivals kept at most (the ticket system drains every 16 frames; more means it
             /// is not running). Above it the pending list is dropped with one WARN per load.</summary>
@@ -178,15 +125,13 @@ namespace SkiResortMod.Systems
         private const string IdleNoSign = "no Welcome Sign";
         private const string IdleNotReady = "prefab sets not ready";
 
-        // ── systems ───────────────────────────────────────────────────────────────────────────────
         private TimeSystem m_TimeSystem;
         private SimulationSystem m_SimulationSystem;
         private SkiRunOwnershipSystem m_Ownership;
         private SkiResortAttractivenessSystem m_Attractiveness;
         private Game.UI.NameSystem m_NameSystem;
-        private SkiRunUpkeepSystem m_Upkeep;   // Round M1 (M7 b): DebitedThisLoad for the month's run upkeep total
+        private SkiRunUpkeepSystem m_Upkeep;   // DebitedThisLoad for the month's run upkeep total
 
-        // ── queries, handles, lookups (registered in OnCreate, so no first-tick sync) ──────────────
         private EntityQuery m_MeetingQuery, m_LeisureQuery, m_TargetQuery;
         private EntityTypeHandle m_EntityType;
         private ComponentTypeHandle<CoordinatedMeeting> m_MeetingType;
@@ -197,50 +142,47 @@ namespace SkiResortMod.Systems
         private ComponentLookup<HouseholdMember> m_HouseholdMemberLookup;
         private ComponentLookup<TouristHousehold> m_TouristHouseholdLookup;
 
-        // ── native state (Persistent; created in OnCreate, disposed in OnDestroy) ────────────────────
         private NativeParallelHashMap<Entity, Entity> m_TargetSign;
         private NativeParallelHashSet<Entity> m_AttendingBefore, m_AttendingNow;
         private NativeParallelHashSet<Entity> m_OnSiteBefore, m_OnSiteNow;
         private NativeParallelHashSet<Entity> m_NewTargets;   // targets new since the last leisure scan (per-target baseline)
         private NativeList<GuestArrival> m_Arrivals;
         private NativeParallelHashMap<Entity, int> m_PartiesPicked, m_LocalsHeading;
-        private NativeParallelHashMap<Entity, int> m_TouristsHeading;   // Round S1 dev: tourists with a Leisure → our lodge, not there yet
-        // Round S1 D23 day sets (header DAY SETS; cleared at load and at the day roll).
+        private NativeParallelHashMap<Entity, int> m_TouristsHeading;   // tourists with a Leisure -> our lodge, not there yet
+        // Day sets (header "Day sets"; cleared at load and at the day roll).
         private NativeParallelHashSet<int4> m_CitizensToday;            // (citizen Index, Version, sign Index, Version)
         private NativeParallelHashMap<int4, byte> m_HouseholdsToday;    // (household …, sign …) → SkiMoneyRules.GuestDay* flags
-        // [0] meetings scanned, [1] attending at ours, [2] leisure citizens scanned, [3] residents on site; Round S1:
-        // [4] tourists on leisure on site, [5] tourist leisure arrivals not counted (day rule), [6] outing attendees
-        // not counted (day rule). [0], [1], [6] reset every tick; [2]-[5] each leisure tick.
+        // [0] meetings scanned, [1] attending at ours, [2] leisure citizens scanned, [3] residents on site, [4] tourists on leisure on site,
+        // [5] tourist leisure arrivals not counted (day rule), [6] outing attendees not counted (day rule). [0], [1], [6] reset every tick;
+        // [2]-[5] each leisure tick.
         private NativeArray<int> m_Stats;
         private JobHandle m_ScanHandle;
         private bool m_MeetingInFlight, m_LeisureInFlight;
 
-        // ── managed state ─────────────────────────────────────────────────────────────────────────
         private readonly SkiResortLedger m_Ledger = new SkiResortLedger();
         private readonly List<GuestArrival> m_Pending = new List<GuestArrival>(16);
         private readonly List<Entity> m_Signs = new List<Entity>(4);                 // live signs of the last rebuild
         private readonly HashSet<EntityRef> m_LiveSigns = new HashSet<EntityRef>();   // the same, for Prune
         private readonly Dictionary<Entity, int> m_PickedLast = new Dictionary<Entity, int>();
         private readonly Dictionary<Entity, int> m_HeadingLast = new Dictionary<Entity, int>();
-        private readonly Dictionary<Entity, int> m_TouristsHeadingLast = new Dictionary<Entity, int>();   // Round S1
+        private readonly Dictionary<Entity, int> m_TouristsHeadingLast = new Dictionary<Entity, int>();
         private readonly Dictionary<Entity, int> m_LocalsPaidThis = new Dictionary<Entity, int>();
         private readonly Dictionary<Entity, int> m_LocalsPaidLast = new Dictionary<Entity, int>();
         private readonly HashSet<Entity> m_FirstTourist = new HashSet<Entity>();
         private readonly HashSet<Entity> m_FirstLocal = new HashSet<Entity>();
-        private readonly HashSet<Entity> m_FirstTouristLeisure = new HashSet<Entity>();   // Round S1 (sign)
+        private readonly HashSet<Entity> m_FirstTouristLeisure = new HashSet<Entity>();   // first tourist-on-leisure line per sign
         private readonly HashSet<Entity> m_O1Noted = new HashSet<Entity>();
         private readonly HashSet<Entity> m_ListedScratch = new HashSet<Entity>();
-        private readonly List<Entity> m_TopScratch = new List<Entity>(8), m_TopSignScratch = new List<Entity>(8);   // T113
+        private readonly List<Entity> m_TopScratch = new List<Entity>(8), m_TopSignScratch = new List<Entity>(8);
         private HashSet<Entity> m_Targets = new HashSet<Entity>();       // the map's keys (this rebuild / the previous one)
         private HashSet<Entity> m_TargetsPrev = new HashSet<Entity>();
-        // Round M1 (M7 a2): residents counted through the leisure scan in the ledger's month in progress / the month
-        // before it (m_ResidentsLastKey; NoMonth = none), with how many times each was booked (fixer R2: the ledger
-        // books every resident visit, not each resident once). Swapped at a roll, cleared at a start, a jump and a load.
+        // Residents counted through the leisure scan in the ledger's month in progress / the month before it (m_ResidentsLastKey; NoMonth =
+        // none), with how many times each was booked (the ledger books every resident visit, not each resident once). Swapped at a roll,
+        // cleared at a start, a jump and a load.
         private Dictionary<Entity, int> m_ResidentsThis = new Dictionary<Entity, int>(256);
         private Dictionary<Entity, int> m_ResidentsLast = new Dictionary<Entity, int>(256);
         private int m_ResidentsLastKey = SkiResortLedger.NoMonth;
 
-        // ── per-load state ────────────────────────────────────────────────────────────────────────
         private bool m_Armed, m_Disabled, m_ErrorLogged, m_PendingWarned;
         private bool m_MeetingBaseline, m_LeisureBaseline;
         private bool m_MapValid;
@@ -250,22 +192,22 @@ namespace SkiResortMod.Systems
         private long m_Ticks;
         private int m_LastMeetings, m_LastAttendingOurs, m_LastLeisure, m_LastOnSite;
         private long m_ArrivalsTotal;
-        // Round S1 D23 (ch3 §1.3): the day key (int.MinValue = none yet), its rolls, the day rule's skips since the
-        // last roll, and managed copies of the day sets' counts made after Complete (the DUMP reads only these).
+        // The day key (int.MinValue = none yet), its rolls, the day rule's skips since the last roll, and managed copies of the day sets'
+        // counts made after Complete (the DUMP reads only these).
         private int m_DayKey = int.MinValue;
         private int m_DayRolls, m_DaySkippedLeisure, m_DaySkippedOuting, m_LastTouristsOnSite;
         private int m_LastHouseholdsToday, m_LastCitizensToday;
         private long m_TouristLeisureTotal;
 
-        // cost (first run after the load, then re-armed once per game day at midday: Round M1, M8)
+        // cost (first run after the load, then re-armed once per game day at midday)
         private int m_CostTicks;
         private double m_CostSumMs, m_CostMaxMs;
         private bool m_CostLogged;
-        private bool m_CostSkipNext;                 // Round M1: true on the arming tick only; RecordCost leaves that tick out
-        private int m_CostArmDay = int.MinValue;     // Round M1: SkiDayRules.DayKey of the last midday re-arm or afternoon line
-        private int m_CostMeasurements;              // Round M1: `Guests [cost]` lines this load
+        private bool m_CostSkipNext;                 // true on the arming tick only; RecordCost leaves that tick out
+        private int m_CostArmDay = int.MinValue;     // SkiDayRules.DayKey of the last midday re-arm or afternoon line
+        private int m_CostMeasurements;              // `Guests [cost]` lines this load
 
-        // Round M1 (M7 b, c): run upkeep per month (whole city) and the frame the ledger's month in progress began.
+        // Run upkeep per month (whole city) and the frame the ledger's month in progress began.
         private long m_UpkeepAtMonthStart, m_UpkeepLastMonth = -1;   // -1 = not known (prints "?")
         // The resort income (tickets, passes, lessons, lodge spend) booked as public transportation fees per month, from
         // SkiLiftTicketSystem.FeeBookedThisLoad baselines (same scheme as the run upkeep above; ApplyResults books ledger and fees
@@ -273,7 +215,7 @@ namespace SkiResortMod.Systems
         private long m_FeeAtMonthStart, m_FeeLastMonth = -1;
         private uint m_MonthStartFrame;
         private bool m_HasMonthStart;
-        private bool m_MonthByJump;   // fixer R8: the ledger's month in progress started at a calendar jump, not at the load
+        private bool m_MonthByJump;   // the ledger's month in progress started at a calendar jump, not at the load
 
         /// <summary>The monthly ledger; never null; reset each load.</summary>
         internal SkiResortLedger Ledger => m_Ledger;
@@ -284,20 +226,18 @@ namespace SkiResortMod.Systems
         /// <summary>For the stats change signature (= Ledger.Revision).</summary>
         internal int Revision => Ledger.Revision;
 
-        /// <summary>Additive (S4): SimulationSystem.frameIndex when the last arrivals were appended to the
-        /// pending list (the ticket system's lag figure in its DUMP, ch4 U14).</summary>
+        /// <summary>SimulationSystem.frameIndex when the last arrivals were appended to the pending list (the ticket system's lag figure in
+        /// its DUMP).</summary>
         internal uint LastPendingFrame { get; private set; }
 
-        /// <summary>Additive (E1 fixer, e1-spec §8.9 F8): SimulationSystem.frameIndex when the ledger's "this
-        /// month" started counting — the first tick after a load (Started) or a calendar jump (Jumped).
-        /// HasCountingSinceFrame is false until then. The hub's projection (HubRules.CountedFraction) measures
-        /// the counted part of a since-load month from here.</summary>
+        /// <summary>SimulationSystem.frameIndex when the ledger's "this month" started counting: the first tick after a load (Started) or a
+        /// calendar jump (Jumped). The hub's projection (HubRules.CountedFraction) measures the counted part of a since-load month from
+        /// here.</summary>
         internal uint CountingSinceFrame { get; private set; }
         internal bool HasCountingSinceFrame { get; private set; }
 
-        // Round M1 (m1-spec M7 a, §7.3): the leisure scan's timing, for SkiDaySystem's guest-scan model. The scans run
-        // at LastLeisureScanFrame + k × LeisureScanIntervalFrames while the map has a target (an idle leisure tick
-        // keeps the phase: the next one is still 256 frames on).
+        // The leisure scan's timing, for SkiDaySystem's guest-scan model. The scans run at LastLeisureScanFrame + k x
+        // LeisureScanIntervalFrames while the map has a target (an idle leisure tick keeps the phase: the next one is still 256 frames on).
         /// <summary>Sim frames between two leisure scans (16 × 16 = 256).</summary>
         internal const int LeisureScanIntervalFrames = 16 * Tuning.LeisureEveryNthTick;
         /// <summary>SimulationSystem.frameIndex when the last leisure scan was scheduled; 0 before the first.</summary>
@@ -305,7 +245,6 @@ namespace SkiResortMod.Systems
         /// <summary>False until the first leisure scan of this load.</summary>
         internal bool HasLeisureScan { get; private set; }
 
-        // ── T78 (DECISIONS 283; docs/research/ui/hub-history-build-1-2026-10-18.md): what SkiResortHistorySystem reads ──────
         /// <summary>One ledger month step (a start, roll or jump) as the counter took it: Generation ++ per step (never reset),
         /// the closed month's key and labels read BEFORE Advance moved them.</summary>
         internal struct MonthStepInfo
@@ -329,10 +268,10 @@ namespace SkiResortMod.Systems
         /// <summary>Live signs of the last target-map rebuild (main thread; do not keep the list).</summary>
         internal IReadOnlyList<Entity> LiveSigns => m_Signs;
 
-        /// <summary>T78 P4: after SkiResortHistorySystem seeded the ledger's month in progress from the save (SeedMonth +
-        /// SeedThis), the counter's own month measures follow: the month began <paramref name="framesBefore"/> frames before
-        /// now (the short rule and, for a partial month, the hub's projection); the run-upkeep and fee baselines move back by
-        /// what was seeded, so the `Guests [month]` total line covers the whole month too. Main thread.</summary>
+        /// <summary>After SkiResortHistorySystem seeded the ledger's month in progress from the save (SeedMonth + SeedThis), the counter's own
+        /// month measures follow: the month began <paramref name="framesBefore"/> frames before now (the short rule and, for a partial month,
+        /// the hub's projection); the run-upkeep and fee baselines move back by what was seeded, so the `Guests [month]` total line covers the
+        /// whole month too. Main thread.</summary>
         internal void SeedMonthMeasures(uint framesBefore, bool partial, bool byJump, long runUpkeepSeeded, long feeSeeded)
         {
             uint now = m_SimulationSystem.frameIndex;
@@ -348,10 +287,10 @@ namespace SkiResortMod.Systems
             m_FeeAtMonthStart -= Math.Max(0L, feeSeeded);
         }
 
-        /// <summary>Round M1 (m1-spec M7 a2, §7.3): was <paramref name="citizen"/> counted as a resident guest (leisure
-        /// scan) in the ledger month <paramref name="monthKey"/> (SkiMoneyRules.MonthKey)? False when that month is
-        /// neither the ledger's month in progress nor the one before it (then counted = false). Main thread, managed
-        /// sets only (filled in ApplyScans, swapped at a roll, cleared at a start, a jump and a load).</summary>
+        /// <summary>Was <paramref name="citizen"/> counted as a resident guest (leisure scan) in the ledger month
+        /// <paramref name="monthKey"/> (SkiMoneyRules.MonthKey)? False when that month is neither the ledger's month in progress nor the one
+        /// before it (then counted = false). Main thread, managed sets only (filled in ApplyScans, swapped at a roll, cleared at a start, a
+        /// jump and a load).</summary>
         internal bool TryResidentCounted(Entity citizen, int monthKey, out bool counted)
         {
             bool held = TryResidentVisits(citizen, monthKey, out int visits);
@@ -359,9 +298,9 @@ namespace SkiResortMod.Systems
             return held;
         }
 
-        /// <summary>Fixer R2 (m1-spec M7 a2): how many times <paramref name="citizen"/> was booked as a resident guest
-        /// (leisure scan) in the ledger month <paramref name="monthKey"/>; same months and false case as
-        /// TryResidentCounted (then visits = 0). Main thread, managed maps only.</summary>
+        /// <summary>How many times <paramref name="citizen"/> was booked as a resident guest (leisure scan) in the ledger month
+        /// <paramref name="monthKey"/>; same months and false case as TryResidentCounted (then visits = 0). Main thread, managed maps
+        /// only.</summary>
         internal bool TryResidentVisits(Entity citizen, int monthKey, out int visits)
         {
             visits = 0;
@@ -406,8 +345,7 @@ namespace SkiResortMod.Systems
             return p || l;
         }
 
-        /// <summary>Additive (S4, the O1 note): SkiLiftTicketSystem books residents who paid at
-        /// <paramref name="sign"/> into the month in progress. Main thread.</summary>
+        /// <summary>SkiLiftTicketSystem books residents who paid at <paramref name="sign"/> into the month in progress. Main thread.</summary>
         internal void AddLocalsPaid(Entity sign, int paid)
         {
             if (paid <= 0 || sign == Entity.Null)
@@ -424,7 +362,7 @@ namespace SkiResortMod.Systems
                 sb.Append("  Guests: armed ").Append(m_Armed).Append(", disabled ").Append(m_Disabled)
                   .Append(", month ").Append(key == SkiResortLedger.NoMonth ? "none" : MonthText(key))
                   .Append(SinceLabel())
-                  // Round M1 (D5): LastMonthSinceLoad also marks a month that was short (SkiResortLedger header).
+                  // LastMonthSinceLoad also marks a month that was short (SkiResortLedger header).
                   .Append(", last month ").Append(m_Ledger.LastMonthKnown ? (m_Ledger.LastMonthSinceLoad ? "known (partial)" : "known (full)") : "unknown")
                   .Append(", cost measurements ").Append(m_CostMeasurements)
                   .Append(", ticks ").Append(m_Ticks)
@@ -436,7 +374,7 @@ namespace SkiResortMod.Systems
                   .Append(" residents on site, ").Append(m_LastTouristsOnSite).Append(" tourists on leisure on site), baselines meeting ")
                   .Append(m_MeetingBaseline).Append(" leisure ").Append(m_LeisureBaseline)
                   .Append(", arrivals this load ").Append(m_ArrivalsTotal)
-                  // Round S1 D23 (ch3 §1.6): managed copies only (refutation R3)
+                  // managed copies only
                   .Append(", tourists on leisure this load ").Append(m_TouristLeisureTotal)
                   .Append(", day key ").Append(m_DayKey == int.MinValue ? "none" : m_DayKey.ToString())
                   .Append(" (").Append(m_LastHouseholdsToday).Append(" household(s), ").Append(m_LastCitizensToday)
@@ -482,7 +420,7 @@ namespace SkiResortMod.Systems
             m_Ownership = World.GetOrCreateSystemManaged<SkiRunOwnershipSystem>();
             m_Attractiveness = World.GetOrCreateSystemManaged<SkiResortAttractivenessSystem>();
             m_NameSystem = World.GetOrCreateSystemManaged<Game.UI.NameSystem>();
-            m_Upkeep = World.GetOrCreateSystemManaged<SkiRunUpkeepSystem>();   // Round M1 (M7 b)
+            m_Upkeep = World.GetOrCreateSystemManaged<SkiRunUpkeepSystem>();   // DebitedThisLoad for the month's run upkeep
 
             m_MeetingQuery = GetEntityQuery(new EntityQueryDesc
             {
@@ -510,9 +448,8 @@ namespace SkiResortMod.Systems
                     ComponentType.ReadOnly<Building>(),
                     ComponentType.ReadOnly<Game.Buildings.Park>(),
                     ComponentType.ReadOnly<PrefabRef>(),
-                    // E1 fixer (e1-spec §8.9 F7): no Transform here. The walk never reads it, and a query's
-                    // CompleteDependency completes the writers of every type it names — Transform is written
-                    // every frame by CarMoveSystem / HumanMoveSystem jobs scheduled just before MeetingSystem.
+                    // No Transform here: the walk never reads it, and a query's CompleteDependency completes the writers of every type it names, and
+                    // Transform is written every frame by CarMoveSystem / HumanMoveSystem jobs scheduled just before MeetingSystem.
                 },
                 None = new[] { ComponentType.ReadOnly<Temp>(), ComponentType.ReadOnly<Deleted>() },
             });
@@ -535,13 +472,13 @@ namespace SkiResortMod.Systems
             m_Arrivals = new NativeList<GuestArrival>(16, Allocator.Persistent);
             m_PartiesPicked = new NativeParallelHashMap<Entity, int>(8, Allocator.Persistent);
             m_LocalsHeading = new NativeParallelHashMap<Entity, int>(8, Allocator.Persistent);
-            m_TouristsHeading = new NativeParallelHashMap<Entity, int>(8, Allocator.Persistent);       // Round S1
-            m_CitizensToday = new NativeParallelHashSet<int4>(256, Allocator.Persistent);              // Round S1 D23
-            m_HouseholdsToday = new NativeParallelHashMap<int4, byte>(128, Allocator.Persistent);      // Round S1 D23
+            m_TouristsHeading = new NativeParallelHashMap<Entity, int>(8, Allocator.Persistent);
+            m_CitizensToday = new NativeParallelHashSet<int4>(256, Allocator.Persistent);
+            m_HouseholdsToday = new NativeParallelHashMap<int4, byte>(128, Allocator.Persistent);
             m_Stats = new NativeArray<int>(7, Allocator.Persistent);
 
-            // Job reflection data and JIT before the first Schedule (the PrewarmJit precedent of
-            // SkiRunDrawFeedbackSystem; ch4 §4.5). Process-wide; schedules nothing.
+            // Job reflection data and JIT before the first Schedule (the PrewarmJit precedent of SkiRunDrawFeedbackSystem). Process-wide;
+            // schedules nothing.
             IJobExtensions.EarlyJobInit<MeetingScanJob>();
             IJobExtensions.EarlyJobInit<LeisureScanJob>();
 
@@ -580,17 +517,13 @@ namespace SkiResortMod.Systems
             base.OnDestroy();
         }
 
-        /// <summary>A load (or leaving to the menu): completes the scans, books their arrivals, lets the ticket
-        /// system book its batch in flight, then writes the month in progress (` (until the load)`). Never
-        /// throws: GameSystemBase.GamePreload DISABLES a system whose OnGamePreload throws
-        /// (Game/GameSystemBase.cs:85-96).
-        /// E1 fixer pass 2 (e1-spec §8.10 G8): the finished scan used to be dropped (flags cleared without
-        /// ApplyScans), and the line was written before SkiLiftTicketSystem.OnGamePreload booked its last job:
-        /// onGamePreload runs in subscription order, GameSystemBase.OnCreate subscribes (GameSystemBase.cs:28),
-        /// and this system is created first (Mod.cs: the counter's UpdateAfter precedes the ticket's).
-        /// The game pauses when the menu opens, so the last tick's scan and ticket job are always in flight at
-        /// a load. The arrivals booked here land in m_Pending, which the load clears: counted, never charged
-        /// (the world is replaced).</summary>
+        /// <summary>A load (or leaving to the menu): completes the scans, books their arrivals, lets the ticket system book its batch in
+        /// flight, then writes the month in progress (` (until the load)`). Never throws: GameSystemBase.GamePreload DISABLES a system whose
+        /// OnGamePreload throws (Game/GameSystemBase.cs:85-96). The finished scan must be booked here and the line written after
+        /// SkiLiftTicketSystem.OnGamePreload booked its last job: onGamePreload runs in subscription order, GameSystemBase.OnCreate subscribes
+        /// (GameSystemBase.cs:28), and this system is created first (Mod.cs: the counter's UpdateAfter precedes the ticket's). The game
+        /// pauses when the menu opens, so the last tick's scan and ticket job are always in flight at a load. The arrivals booked here land in
+        /// m_Pending, which the load clears: counted, never charged (the world is replaced).</summary>
         protected override void OnGamePreload(Purpose purpose, GameMode mode)
         {
             base.OnGamePreload(purpose, mode);
@@ -635,29 +568,29 @@ namespace SkiResortMod.Systems
             m_Ticks = 0;
             m_LastMeetings = m_LastAttendingOurs = m_LastLeisure = m_LastOnSite = 0;
             m_ArrivalsTotal = 0;
-            m_DayKey = int.MinValue;   // Round S1 D23: the first tick starts the day (not counted as a roll)
+            m_DayKey = int.MinValue;   // the first tick starts the day (not counted as a roll)
             m_DayRolls = m_DaySkippedLeisure = m_DaySkippedOuting = m_LastTouristsOnSite = 0;
             m_LastHouseholdsToday = m_LastCitizensToday = 0;
             m_TouristLeisureTotal = 0;
             m_CostTicks = 0;
             m_CostSumMs = m_CostMaxMs = 0.0;
             m_CostLogged = false;
-            m_CostSkipNext = false;           // Round M1 (M8): the first run after the load is measured as before
+            m_CostSkipNext = false;           // the first run after the load is measured as before
             m_CostArmDay = int.MinValue;
             m_CostMeasurements = 0;
             LastPendingFrame = 0;
             CountingSinceFrame = 0;
             HasCountingSinceFrame = false;
-            LastLeisureScanFrame = 0;         // Round M1 (M7 a)
+            LastLeisureScanFrame = 0;
             HasLeisureScan = false;
-            m_ResidentsThis.Clear();          // Round M1 (M7 a2)
+            m_ResidentsThis.Clear();
             m_ResidentsLast.Clear();
             m_ResidentsLastKey = SkiResortLedger.NoMonth;
-            m_UpkeepAtMonthStart = 0;         // Round M1 (M7 b; the upkeep's DebitedThisLoad restarts at 0 too)
+            m_UpkeepAtMonthStart = 0;         // the upkeep's DebitedThisLoad restarts at 0 too
             m_UpkeepLastMonth = -1;
             m_FeeAtMonthStart = 0;            // (the ticket system's FeeBookedThisLoad restarts at 0 too)
             m_FeeLastMonth = -1;
-            m_MonthStartFrame = 0;            // Round M1 (M7 c)
+            m_MonthStartFrame = 0;
             m_HasMonthStart = false;
             m_MonthByJump = false;
 
@@ -691,7 +624,7 @@ namespace SkiResortMod.Systems
             m_O1Noted.Clear();
             m_Ledger.Reset();
 
-            // Labels only (ch4 §6.5): every mod assembly is loaded by now.
+            // Labels only: every mod assembly is loaded by now.
             SkiOtherMods.Refresh();
 
             if (mode != GameMode.Game)
@@ -699,7 +632,6 @@ namespace SkiResortMod.Systems
 
             m_Armed = true;
             int dpy = m_TimeSystem.daysPerYear;
-            // Round S1 D23 (ski-days spec ch3 §1.6, exact).
             Mod.Log.Info("Guests: ARMED — tourist parties counted when their meeting is Attending at a Welcome Sign or lodge " +
                          "(scan every 16 sim frames after MeetingSystem); residents counted when they first stand in a lodge " +
                          "they chose for leisure, tourists the same way at most once a game day per ski area and not when their " +
@@ -715,8 +647,7 @@ namespace SkiResortMod.Systems
             {
                 if (m_Disabled || !m_Armed)
                     return;
-                // 0. Round M1 (M8): the cost measurement re-arms once per game day at midday; the arming tick is not
-                // measured (the flag lives for this tick only).
+                // 0. The cost measurement re-arms once per game day at midday; the arming tick is not measured (the flag lives for this tick only).
                 m_CostSkipNext = RearmCostAtMidday();
                 long t0 = Stopwatch.GetTimestamp();
 
@@ -726,7 +657,7 @@ namespace SkiResortMod.Systems
                 // 2. Month.
                 AdvanceMonth();
 
-                // 2b. Day (Round S1 D23): a new day key clears the day sets (the jobs completed at step 1).
+                // 2b. Day: a new day key clears the day sets (the jobs completed at step 1).
                 AdvanceDay();
 
                 // 3. Apply last tick's arrivals.
@@ -764,7 +695,6 @@ namespace SkiResortMod.Systems
             }
         }
 
-        // ── 2. month ──────────────────────────────────────────────────────────────────────────────
 
         private void AdvanceMonth()
         {
@@ -773,11 +703,11 @@ namespace SkiResortMod.Systems
             bool jump = prev != SkiResortLedger.NoMonth && key != prev && !(prev != int.MaxValue && key == prev + 1);
             if (jump)
                 WriteMonthLines(prev, last: false, SinceLabel(), " (until the jump)");   // additive: nothing is lost silently
-            // Round M1 (D5, m1-spec M7c): the month being closed is short when far fewer frames were simulated than a
-            // month holds (a developer time jump that lands exactly one month later rolls, it does not jump).
+            // The month being closed is short when far fewer frames were simulated than a month holds (a developer time jump that lands exactly
+            // one month later rolls, it does not jump).
             uint now = m_SimulationSystem.frameIndex;
             bool closedSinceLoad = m_Ledger.ThisMonthSinceLoad;
-            string closedSince = SinceLabel();   // read before Advance (fixer R8)
+            string closedSince = SinceLabel();   // read before Advance
             bool closedShort = false;
             int pct = 100;
             if (key != prev && m_HasMonthStart)
@@ -790,7 +720,7 @@ namespace SkiResortMod.Systems
             SkiResortLedger.AdvanceResult step = m_Ledger.Advance(key, closedShort);
             if (step != SkiResortLedger.AdvanceResult.None)
             {
-                // T78: what the history system reads (the closed month's labels were read before Advance moved them)
+                // what the history system reads (the closed month's labels were read before Advance moved them)
                 LastMonthStep = new MonthStepInfo
                 {
                     Generation = LastMonthStep.Generation + 1, Result = step, ClosedKey = prev, NewKey = key,
@@ -800,13 +730,13 @@ namespace SkiResortMod.Systems
             switch (step)
             {
                 case SkiResortLedger.AdvanceResult.Started:
-                    CountingSinceFrame = now;   // E1 fixer F8
+                    CountingSinceFrame = now;
                     HasCountingSinceFrame = true;
-                    StartMonthMeasures(now);    // Round M1
+                    StartMonthMeasures(now);
                     m_MonthByJump = false;
                     break;
                 case SkiResortLedger.AdvanceResult.Rolled:
-                    // Round M1 (M7 b): the closed month's run upkeep, taken before its lines are written.
+                    // The closed month's run upkeep, taken before its lines are written.
                     long debited = m_Upkeep.DebitedThisLoad;
                     m_UpkeepLastMonth = debited - m_UpkeepAtMonthStart;
                     m_UpkeepAtMonthStart = debited;
@@ -817,7 +747,7 @@ namespace SkiResortMod.Systems
                     m_MonthByJump = false;
                     WriteMonthLines(prev, last: true, closedSinceLoad ? closedSince :
                                     closedShort ? PartialLabel(pct) : "", "");
-                    // Round M1 (M7 a2): the residents counted this month become last month's (key prev).
+                    // The residents counted this month become last month's (key prev).
                     Dictionary<Entity, int> swap = m_ResidentsLast;
                     m_ResidentsLast = m_ResidentsThis;
                     m_ResidentsThis = swap;
@@ -827,12 +757,12 @@ namespace SkiResortMod.Systems
                     m_Ledger.Prune(m_LiveSigns);
                     break;
                 case SkiResortLedger.AdvanceResult.Jumped:
-                    // E1 fixer F8: counting restarts here, partway through the month (the ledger marks it
-                    // since-load), so the hub's projection measures from this frame.
+                    // Counting restarts here, partway through the month (the ledger marks it since-load), so the hub's projection measures from this
+                    // frame.
                     CountingSinceFrame = now;
                     HasCountingSinceFrame = true;
-                    StartMonthMeasures(now);   // Round M1: no last month, so no last month's upkeep either
-                    m_MonthByJump = true;      // fixer R8
+                    StartMonthMeasures(now);   // no last month, so no last month's upkeep either
+                    m_MonthByJump = true;      // the month started at a jump, not at the load
                     Mod.Log.Info($"Guests [month] the calendar jumped from {MonthText(prev)} to {MonthText(key)} (time changed) — " +
                                  "last month unknown; counting restarts");
                     RollLocalsPaid(rolled: false);
@@ -848,8 +778,8 @@ namespace SkiResortMod.Systems
             return tickets != null ? tickets.FeeBookedThisLoad : 0;
         }
 
-        /// <summary>Round M1 (M7 a2, b, c): a month that starts without a last month (the first tick after a load, a
-        /// calendar jump): its start frame and run-upkeep baseline; the resident sets of both months cleared.</summary>
+        /// <summary>A month that starts without a last month (the first tick after a load, a calendar jump): its start frame and run-upkeep
+        /// baseline; the resident sets of both months cleared.</summary>
         private void StartMonthMeasures(uint now)
         {
             m_MonthStartFrame = now;
@@ -863,8 +793,8 @@ namespace SkiResortMod.Systems
             m_ResidentsLastKey = SkiResortLedger.NoMonth;
         }
 
-        /// <summary>The ledger's month in progress's start label: "", " (since load)", or " (since the time jump)" when
-        /// counting restarted at a calendar jump (fixer R8: no load happened then).</summary>
+        /// <summary>The ledger's month in progress's start label: "", " (since load)", or " (since the time jump)" when counting restarted at
+        /// a calendar jump (no load happened then).</summary>
         private string SinceLabel()
         {
             if (!m_Ledger.ThisMonthSinceLoad)
@@ -872,14 +802,12 @@ namespace SkiResortMod.Systems
             return m_MonthByJump ? " (since the time jump)" : " (since load)";
         }
 
-        /// <summary>Round M1 (D5): the label of a closed month that was simulated only in part.</summary>
+        /// <summary>The label of a closed month that was simulated only in part.</summary>
         private static string PartialLabel(int pct) => $" (partial: {pct} % of a month simulated)";
 
-        /// <summary>Round S1 D23 (ski-days spec ch3 §1.4, step 2b): the game's calendar day as SkiDayRules.DayKey
-        /// (s1-spec N3; it changes at the game's midnight, TimeSystem.cs:120-124, :150-153; = MonthKey at the
-        /// default 12 days a year). A new key (a day roll, a calendar jump, the first tick after a load) clears
-        /// both day sets and the day's skip counters; the first tick after a load is not counted as a roll.
-        /// Main thread, scans complete (step 1).</summary>
+        /// <summary>The game's calendar day as SkiDayRules.DayKey (it changes at the game's midnight, TimeSystem.cs:120-124, :150-153; =
+        /// MonthKey at the default 12 days a year). A new key (a day roll, a calendar jump, the first tick after a load) clears both day sets
+        /// and the day's skip counters; the first tick after a load is not counted as a roll. Main thread, scans complete (step 1).</summary>
         private void AdvanceDay()
         {
             int day = SkiDayRules.DayKey(m_TimeSystem.year, m_TimeSystem.normalizedDate, m_TimeSystem.daysPerYear);
@@ -905,16 +833,15 @@ namespace SkiResortMod.Systems
             m_LocalsPaidThis.Clear();
         }
 
-        /// <summary>ch4 §4.7: one line per ski area that has an entry, then the total line. <paramref name="last"/>
-        /// = the closed month (Entry.Last, after a roll) and the O1 note; else the month in progress (Entry.This).
-        /// Round M1: <paramref name="label"/> follows the month (" (since load)", " (partial: N % of a month
-        /// simulated)" or ""); the total line names the month's run upkeep (whole city, M7 b).</summary>
+        /// <summary>One line per ski area that has an entry, then the total line. <paramref name="last"/> = the closed month (Entry.Last,
+        /// after a roll) and the lodge note; else the month in progress (Entry.This). <paramref name="label"/> follows the month (" (since
+        /// load)", " (partial: N % of a month simulated)" or ""); the total line names the month's run upkeep (whole city).</summary>
         private void WriteMonthLines(int key, bool last, string label, string suffix)
         {
             string month = MonthText(key) + label + suffix;
             int guests = 0;
             long income = 0;
-            int passesSold = 0, passHolders = 0;   // passes and lessons (DECISIONS 240, 241)
+            int passesSold = 0, passHolders = 0;   // passes and lessons
             long passIncome = 0;
             int lessons = 0, passesPre = 0;
             long lessonIncome = 0, passIncomePre = 0;
@@ -948,15 +875,15 @@ namespace SkiResortMod.Systems
                 locals += pair.Value;
             foreach (var pair in m_TouristsHeadingLast)
                 tourists += pair.Value;
-            // Round M1 (M7 b): run upkeep has no ski-area attribution (SkiRunUpkeepSystem bills the whole city), so
-            // only the total line names it. A charge pass (1,024 frames) that straddles the roll lands in one month.
+            // Run upkeep has no ski-area attribution (SkiRunUpkeepSystem bills the whole city), so only the total line names it. A charge pass
+            // (1,024 frames) that straddles the roll lands in one month.
             long upkeep = last ? m_UpkeepLastMonth : m_Upkeep.DebitedThisLoad - m_UpkeepAtMonthStart;
             string upkeepText = upkeep < 0 ? "?" : "-" + upkeep;
             // How much of the resort income (tickets, passes, lessons, lodge spend: the ticket system folds every booked item into
             // Booked) was booked as public transportation fees; the rest was added to the balance directly.
             long fees = last ? m_FeeLastMonth : FeeBookedNow() - m_FeeAtMonthStart;
             string feeText = fees < 0 ? "?" : fees.ToString();
-            // D6 (code review 2026-10-19): silent in a city that never had anything of ours this load.
+            // Silent in a city that never had anything of ours this load.
             if (ResortPresence.EverSeen)
             {
             Mod.Log.Info($"Guests [month] {month} all ski areas: guests {guests}, tickets +{income}, passes {passesSold} sold +{passIncome} " +
@@ -970,7 +897,7 @@ namespace SkiResortMod.Systems
 
             if (!last)
                 return;
-            // O1 signal (e1-spec §7.3 O1): at most once per ski area per load; no behavior change.
+            // Lodge note signal: at most once per ski area per load; no behavior change.
             foreach (var pair in m_LocalsPaidThis)
             {
                 if (pair.Value <= Tuning.LocalTicketsNotePerMonth || m_O1Noted.Contains(pair.Key))
@@ -983,17 +910,16 @@ namespace SkiResortMod.Systems
 
         private static string MonthBody(SkiResortLedger.Month m)
         {
-            // Round S1 D23 (ch3 §1.6): TouristParties counts group-days (SkiResortLedger header).
+            // TouristParties counts group-days (SkiResortLedger header).
             return $"guests {m.Guests} (tourists {m.TouristGuests} in {m.TouristParties} group(s), {m.TouristOnLeisure} on leisure; " +
                    $"locals {m.LocalGuests}); " +
                    $"tickets {m.TicketsPaid} paid +{m.TicketIncome}, {m.TicketsUnpaid} could not pay, {m.TicketsFree} free; " +
                    $"passes {m.PassesSold} sold +{m.PassIncome} ({m.PassesPre} +{m.PassIncomePre} before the season), " +
-                   $"{m.PassHolderGuests} pass-holder guest(s); " +   // passes with their pre-season part, then lessons (DECISIONS 240, 241)
+                   $"{m.PassHolderGuests} pass-holder guest(s); " +   // passes with their pre-season part, then lessons
                    $"lessons {m.Lessons} +{m.LessonIncome}; " +
                    $"lift charges -{m.LiftCharged:F0}";
         }
 
-        // ── 3. apply ──────────────────────────────────────────────────────────────────────────────
 
         private void ApplyScans()
         {
@@ -1003,14 +929,14 @@ namespace SkiResortMod.Systems
             for (int i = 0; i < m_Arrivals.Length; i++)
             {
                 GuestArrival a = m_Arrivals[i];
-                m_Ledger.AddArrival(Ref(a.Sign), a.Tourist, a.People, a.NewGroup, a.OnLeisure);   // Round S1 D23
+                m_Ledger.AddArrival(Ref(a.Sign), a.Tourist, a.People, a.NewGroup, a.OnLeisure);
                 m_Pending.Add(a);
                 m_ArrivalsTotal++;
                 if (a.Tourist && a.OnLeisure)
                     m_TouristLeisureTotal++;
                 if (!a.Tourist && a.OnLeisure && a.Citizen != Entity.Null)
                 {
-                    // Round M1 (M7 a2): booked into the ledger month in progress, once per visit (fixer R2)
+                    // Booked into the ledger month in progress, once per visit
                     m_ResidentsThis.TryGetValue(a.Citizen, out int visits);
                     m_ResidentsThis[a.Citizen] = visits + 1;
                 }
@@ -1039,7 +965,7 @@ namespace SkiResortMod.Systems
                 m_AttendingNow.Clear();
                 m_LastMeetings = m_Stats[0];
                 m_LastAttendingOurs = m_Stats[1];
-                m_DaySkippedOuting += m_Stats[6];   // Round S1 D23
+                m_DaySkippedOuting += m_Stats[6];
                 CopyCounts(m_PartiesPicked, m_PickedLast);
             }
             if (m_LeisureInFlight)
@@ -1051,13 +977,12 @@ namespace SkiResortMod.Systems
                 m_OnSiteNow.Clear();
                 m_LastLeisure = m_Stats[2];
                 m_LastOnSite = m_Stats[3];
-                m_LastTouristsOnSite = m_Stats[4];     // Round S1 D23
+                m_LastTouristsOnSite = m_Stats[4];
                 m_DaySkippedLeisure += m_Stats[5];
                 CopyCounts(m_LocalsHeading, m_HeadingLast);
                 CopyCounts(m_TouristsHeading, m_TouristsHeadingLast);
             }
-            // Round S1 D23 (refutation R3): managed copies of the day sets' sizes, made after Complete; the DUMP
-            // never reads a container a job may be writing.
+            // Managed copies of the day sets' sizes, made after Complete; the DUMP never reads a container a job may be writing.
             m_LastHouseholdsToday = m_HouseholdsToday.Count();
             m_LastCitizensToday = m_CitizensToday.Count();
         }
@@ -1085,7 +1010,7 @@ namespace SkiResortMod.Systems
         {
             if (a.Tourist && a.OnLeisure)
             {
-                // Round S1 D23 (ch3 §1.6): its own first line per ski area per load.
+                // Its own first line per ski area per load.
                 if (m_FirstTouristLeisure.Add(a.Sign))
                     Mod.Log.Info($"Guests [first] ski area {Fmt(a.Sign)}{NameSuffix(a.Sign)}: first tourist on leisure this load at lodge {Fmt(a.Building)}");
                 return;
@@ -1098,7 +1023,6 @@ namespace SkiResortMod.Systems
             Mod.Log.Info($"Guests [first] ski area {Fmt(a.Sign)}{NameSuffix(a.Sign)}: first {who} this load at {where} {Fmt(a.Building)}");
         }
 
-        // ── 4. the target map ─────────────────────────────────────────────────────────────────────
 
         private void MaybeRebuildMap()
         {
@@ -1116,7 +1040,7 @@ namespace SkiResortMod.Systems
             RebuildMap();
         }
 
-        /// <summary>ch4 §4.2: signs map to themselves, active listed lodges to their sign. Main thread, between
+        /// <summary>Signs map to themselves, active listed lodges to their sign. Main thread, between
         /// jobs (step 1 completed them).</summary>
         private void RebuildMap()
         {
@@ -1137,13 +1061,12 @@ namespace SkiResortMod.Systems
             }
 
             int lodgeBuildings = 0;
-            // Catalog Phase B (round-2-contract §7.4, Phase A review finding 1; was m_Attractiveness.IsLodgePrefab per
-            // building at :1052 and :1072): the catalog's lodge-prefab view, fetched once for this rebuild.
+            // The catalog's lodge-prefab view, fetched once for this rebuild.
             HashSet<Entity> lodgePrefabs = m_Attractiveness.LodgePrefabSet;
             if (!m_TargetQuery.IsEmptyIgnoreFilter)
             {
-                // E1 fixer (F7): sync only what the walk reads — PrefabRef (Entity needs no sync; Building
-                // and Park only select chunks). Vanilla does the same (ParkedVehiclesSystem.cs:1732).
+                // Sync only what the walk reads: PrefabRef (Entity needs no sync; Building and Park only select chunks). Vanilla does the same
+                // (ParkedVehiclesSystem.cs:1732).
                 EntityManager.CompleteDependencyBeforeRO<PrefabRef>();
                 EntityTypeHandle entityHandle = GetEntityTypeHandle();
                 ComponentTypeHandle<PrefabRef> prefabHandle = GetComponentTypeHandle<PrefabRef>(isReadOnly: true);
@@ -1184,7 +1107,7 @@ namespace SkiResortMod.Systems
                         continue;   // listed twice (should not happen): counted once
                     if (BuildingUtils.CheckOption(entry, BuildingOption.Inactive))
                     {
-                        m_LodgesOff++;   // out of service: not a target (ch4 §4.2, second pass)
+                        m_LodgesOff++;   // out of service: not a target
                         continue;
                     }
                     if (m_TargetSign.TryAdd(lodge, sign))
@@ -1194,9 +1117,9 @@ namespace SkiResortMod.Systems
                     }
                 }
             }
-            // T113 (spec (b) site 7): TOP-LEVEL lodges (no Owner, no buffer entry) by the attraction snapshot's published link
-            // (nearest live sign within the tether: the score's own membership, rebuilt on its Generation like the rest of this
-            // map); active = the lodge's own Building.m_OptionMask. A child listed above wins (m_ListedScratch).
+            // Top-level lodges (no Owner, no buffer entry) by the attraction snapshot's published link (nearest live sign within the tether: the
+            // score's own membership, rebuilt on its Generation like the rest of this map); active = the lodge's own Building.m_OptionMask. A
+            // child listed above wins (m_ListedScratch).
             m_Attractiveness.CopyTopLevelLinks(m_TopScratch, m_TopSignScratch);
             for (int t = 0; t < m_TopScratch.Count; t++)
             {
@@ -1217,9 +1140,8 @@ namespace SkiResortMod.Systems
                     m_Targets.Add(lodge);
                 }
             }
-            // Per-target baseline (additive, notes-S4): a building that was not a target in the previous map
-            // (a lodge switched back on, a new sign) gets a baseline at the next leisure scan, so residents
-            // already inside it are recorded, not counted (and not charged) as new arrivals.
+            // Per-target baseline: a building that was not a target in the previous map (a lodge switched back on, a new sign) gets a baseline at
+            // the next leisure scan, so residents already inside it are recorded, not counted (and not charged) as new arrivals.
             foreach (Entity t in m_Targets)
             {
                 if (!m_TargetsPrev.Contains(t))
@@ -1253,7 +1175,6 @@ namespace SkiResortMod.Systems
             Mod.Log.Info($"Guests [idle]: {reason} — nothing counted");
         }
 
-        // ── 5. schedule ───────────────────────────────────────────────────────────────────────────
 
         /// <summary>Schedules the meeting scan (and the leisure scan on a leisure tick). Nothing while the map
         /// is empty (idle). Returns whether anything was scheduled.</summary>
@@ -1267,12 +1188,12 @@ namespace SkiResortMod.Systems
             m_PartiesPicked.Clear();
             m_Stats[0] = 0;
             m_Stats[1] = 0;
-            m_Stats[6] = 0;   // Round S1 D23
+            m_Stats[6] = 0;
             if (leisureTick)
             {
                 m_OnSiteNow.Clear();
                 m_LocalsHeading.Clear();
-                m_TouristsHeading.Clear();   // Round S1 D23
+                m_TouristsHeading.Clear();
                 m_Stats[2] = 0;
                 m_Stats[3] = 0;
                 m_Stats[4] = 0;
@@ -1299,7 +1220,7 @@ namespace SkiResortMod.Systems
                 AttendingNow = m_AttendingNow,
                 Arrivals = m_Arrivals,
                 PartiesPicked = m_PartiesPicked,
-                CitizensToday = m_CitizensToday,       // Round S1 D23
+                CitizensToday = m_CitizensToday,
                 HouseholdsToday = m_HouseholdsToday,
                 Stats = m_Stats,
                 Baseline = m_MeetingBaseline,
@@ -1310,7 +1231,7 @@ namespace SkiResortMod.Systems
 
             if (leisureTick)
             {
-                LastLeisureScanFrame = m_SimulationSystem.frameIndex;   // Round M1 (M7 a): the scan's phase
+                LastLeisureScanFrame = m_SimulationSystem.frameIndex;   // the scan's phase
                 HasLeisureScan = true;
                 m_LeisureType.Update(ref CheckedStateRef);
                 m_CurrentBuildingType.Update(ref CheckedStateRef);
@@ -1330,7 +1251,7 @@ namespace SkiResortMod.Systems
                     OnSiteNow = m_OnSiteNow,
                     Arrivals = m_Arrivals,
                     LocalsHeading = m_LocalsHeading,
-                    TouristsHeading = m_TouristsHeading,   // Round S1 D23
+                    TouristsHeading = m_TouristsHeading,
                     CitizensToday = m_CitizensToday,
                     HouseholdsToday = m_HouseholdsToday,
                     Stats = m_Stats,
@@ -1346,16 +1267,13 @@ namespace SkiResortMod.Systems
             return true;
         }
 
-        // ── cost (first run after the load, then daily at midday) ─────────────────────────────────
 
-        /// <summary>Round M1 (M8, m1-spec F10): once the last measurement was written, the first tick at or after 12:00
-        /// of a new game day (SkiDayRules.DayKey) starts a new one. Midday is when leisure scans and lodge visits are
-        /// high; the month roll (midnight) is the quietest time. Returns true on the arming tick, which the caller
-        /// leaves unmeasured (m_CostSkipNext).</summary>
+        /// <summary>Once the last measurement was written, the first tick at or after 12:00 of a new game day (SkiDayRules.DayKey) starts a
+        /// new one. Midday is when leisure scans and lodge visits are high; the month roll (midnight) is the quietest time. Returns true on
+        /// the arming tick, which the caller leaves unmeasured (m_CostSkipNext).</summary>
         private bool RearmCostAtMidday()
         {
-            // D4 (code review 2026-10-19): the midday re-arm is measurement scaffolding behind Options > Diagnostics (off by default);
-            // the once-per-load measurement stays.
+            // The midday re-arm is measurement scaffolding behind Options > Diagnostics (off by default); the once-per-load measurement stays.
             if (!SkiResortMod.Settings.SkiResortSettings.DiagnosticsOn)
                 return false;
             if (!m_CostLogged || !(m_TimeSystem.normalizedTime >= 0.5f))
@@ -1370,9 +1288,8 @@ namespace SkiResortMod.Systems
             return true;
         }
 
-        /// <summary>Round M1 (M8): the suffix of every `[cost]` line of the four timed systems (this one, parking,
-        /// tickets; SkiDaySystem writes its own): "; measurement {n} this load, {YYYY-MM} at {HH:MM}" — the game
-        /// clock when the line is written. Main thread.</summary>
+        /// <summary>The suffix of every `[cost]` line of the four timed systems (this one, parking, tickets; SkiDaySystem writes its own):
+        /// "; measurement {n} this load, {YYYY-MM} at {HH:MM}", the game clock when the line is written. Main thread.</summary>
         internal static string CostSuffix(int measurement, TimeSystem time)
         {
             float t = time.normalizedTime;
@@ -1381,16 +1298,15 @@ namespace SkiResortMod.Systems
                    $"{MonthText(SkiMoneyRules.MonthKey(time.year, time.normalizedDate))} at {minute / 60:D2}:{minute % 60:D2}";
         }
 
-        /// <summary>`Guests [cost]`: the first run after the load, then once per game day (Round M1, M8). F7 E3
-        /// (header COST): only ticks that scheduled the scans count — a tick with an empty target map does no work
-        /// (field test 7: 256 ticks were timed before the city had a Welcome Sign).</summary>
+        /// <summary>`Guests [cost]`: the first run after the load, then once per game day. Only ticks that scheduled the scans count: a tick
+        /// with an empty target map does no work (256 ticks were otherwise timed before the city had a Welcome Sign).</summary>
         private void RecordCost(double ms, bool scheduled, bool leisureScheduled)
         {
             if (m_CostLogged || !scheduled)
                 return;
             if (m_CostSkipNext)
             {
-                m_CostSkipNext = false;   // Round M1 (M8): the arming tick is not measured
+                m_CostSkipNext = false;   // the arming tick is not measured
                 return;
             }
             if (m_CostTicks < Tuning.CostTicks)
@@ -1403,16 +1319,16 @@ namespace SkiResortMod.Systems
             }
             if (!leisureScheduled)
                 return;   // wait for the first leisure tick from CostTicks on that scheduled both scans
-            // ch4 §4.5 (second pass): complete THIS tick's scans at once, timed — schedule-to-complete on the
-            // main thread. The results are applied next tick as on any other tick (nothing counted twice).
+            // Complete this tick's scans at once, timed: schedule-to-complete on the main thread. The results are applied next tick as on any
+            // other tick (nothing counted twice).
             long t0 = Stopwatch.GetTimestamp();
             m_ScanHandle.Complete();
             double w = (Stopwatch.GetTimestamp() - t0) * 1000.0 / Stopwatch.Frequency;
             m_CostLogged = true;
             m_CostMeasurements++;
-            if (m_TimeSystem.normalizedTime >= 0.5f)   // Round M1 (M8): a line written at or after 12:00 is today's (as SkiDaySystem)
+            if (m_TimeSystem.normalizedTime >= 0.5f)   // a line written at or after 12:00 is today's (as SkiDaySystem)
                 m_CostArmDay = SkiDayRules.DayKey(m_TimeSystem.year, m_TimeSystem.normalizedDate, m_TimeSystem.daysPerYear);
-            // Round M1 (M8, E6): the synchronous figure includes any wait for the vanilla jobs the scans depend on
+            // the synchronous figure includes any wait for the vanilla jobs the scans depend on
             // (their schedule joins Dependency); it is not split here.
             Mod.Log.Info($"Guests [cost] main thread per tick: mean {m_CostSumMs / Math.Max(1, m_CostTicks):F3} ms, max {m_CostMaxMs:F3} ms " +
                          $"over {m_CostTicks} ticks with scans; last scans: {m_Stats[0]} meetings, {m_Stats[2]} leisure citizens; targets " +
@@ -1420,7 +1336,6 @@ namespace SkiResortMod.Systems
                          $"meetings + leisure {w:F3} ms (includes any wait for vanilla jobs)" + CostSuffix(m_CostMeasurements, m_TimeSystem));
         }
 
-        // ── helpers ───────────────────────────────────────────────────────────────────────────────
 
         private string NameSuffix(Entity e)
         {
@@ -1439,14 +1354,12 @@ namespace SkiResortMod.Systems
         private static string Fmt(Entity e) => e.Index + ":" + e.Version;
         private static string Fmt(EntityRef r) => r.Index + ":" + r.Version;
 
-        // ── jobs (ch4 §4.5) ───────────────────────────────────────────────────────────────────────
 
-        /// <summary>Tourist parties: a meeting at one of our targets, first attendee's household a tourist
-        /// household; Attending and not Attending in the previous scan → one arrival (§4.3 exactly once).
-        /// Traveling only feeds the dev counter "parties that picked this ski area" (a preset target turns
-        /// Traveling before anyone has a path, AddMeetingSystem.cs:85-91). Round S1 D23 (ch3 §1.4): the arrival
-        /// counts only the attendees not yet counted at this ski area today (SkiMoneyRules.OutingPeople); every
-        /// attendee joins the citizen day set and the household gets GuestDayOuting, even when nobody is new.</summary>
+        /// <summary>Tourist parties: a meeting at one of our targets, first attendee's household a tourist household; Attending and not
+        /// Attending in the previous scan gives one arrival (exactly once). Traveling only feeds the dev counter "parties that picked this
+        /// ski area" (a preset target turns Traveling before anyone has a path, AddMeetingSystem.cs:85-91). The arrival counts only the
+        /// attendees not yet counted at this ski area today (SkiMoneyRules.OutingPeople); every attendee joins the citizen day set and the
+        /// household gets GuestDayOuting, even when nobody is new.</summary>
         [BurstCompile]
         private struct MeetingScanJob : IJob
         {
@@ -1461,7 +1374,7 @@ namespace SkiResortMod.Systems
             public NativeParallelHashSet<Entity> AttendingNow;          // cleared by the system before scheduling
             public NativeList<GuestArrival> Arrivals;                   // cleared by the system before scheduling
             public NativeParallelHashMap<Entity, int> PartiesPicked;    // dev: Traveling parties per sign
-            public NativeParallelHashSet<int4> CitizensToday;           // Round S1 D23 day sets (header DAY SETS)
+            public NativeParallelHashSet<int4> CitizensToday;           // day sets (header "Day sets")
             public NativeParallelHashMap<int4, byte> HouseholdsToday;
             public NativeArray<int> Stats;                              // [0] meetings scanned, [1] attending at ours, [6] not counted (day rule)
             public bool Baseline;
@@ -1488,7 +1401,7 @@ namespace SkiResortMod.Systems
                         if (!HouseholdMembers.TryGetComponent(party[0].m_Attendee, out HouseholdMember hm))
                             continue;
                         if (!TouristHouseholds.HasComponent(hm.m_Household))
-                            continue;                                                       // §4.1 partition
+                            continue;                                                       // the tourist/resident partition
                         if (m.m_Status == MeetingStatus.Traveling)
                         {
                             Bump(PartiesPicked, sign);
@@ -1497,8 +1410,8 @@ namespace SkiResortMod.Systems
                         Stats[1]++;
                         AttendingNow.Add(entities[i]);
                         if (Baseline || AttendingBefore.Contains(entities[i]))
-                            continue;                                                       // §4.3 exactly once
-                        // Round S1 D23 (ch3 §1.4 rule 5): only the members not yet counted here today.
+                            continue;                                                       // exactly once
+                        // Only the members not yet counted here today.
                         int4 hk = PairKey(hm.m_Household, sign);
                         HouseholdsToday.TryGetValue(hk, out byte hday);
                         int already = 0;
@@ -1523,7 +1436,7 @@ namespace SkiResortMod.Systems
                             Tourist = true,
                             NewGroup = newGroup,
                             OnLeisure = false,
-                            Citizen = Entity.Null,   // Round M1: a party, not one citizen
+                            Citizen = Entity.Null,   // a party, not one citizen
                         });
                     }
                 }
@@ -1536,14 +1449,13 @@ namespace SkiResortMod.Systems
                 map[key] = n + 1;
             }
 
-            /// <summary>Round S1 D23: the day sets' key of (citizen or household, sign) — two (Index, Version) pairs.</summary>
+            /// <summary>The day sets' key of (citizen or household, sign): two (Index, Version) pairs.</summary>
             internal static int4 PairKey(Entity a, Entity sign) => new int4(a.Index, a.Version, sign.Index, sign.Version);
         }
 
-        /// <summary>Residents: Leisure aimed at one of our targets (only lodges have a leisure provider tag),
-        /// household not a tourist household; on site = CurrentBuilding is that target; on site now and not in
-        /// the previous scan → one arrival (§4.4 set difference). Round S1 D23 (ch3 §1.4): tourists the same way
-        /// at a LODGE (never the sign, D8), then SkiMoneyRules.TouristLeisureCounts against the day sets.</summary>
+        /// <summary>Residents: Leisure aimed at one of our targets (only lodges have a leisure provider tag), household not a tourist
+        /// household; on site = CurrentBuilding is that target; on site now and not in the previous scan gives one arrival (set difference).
+        /// Tourists the same way at a lodge (never the sign), then SkiMoneyRules.TouristLeisureCounts against the day sets.</summary>
         [BurstCompile]
         private struct LeisureScanJob : IJob
         {
@@ -1559,8 +1471,8 @@ namespace SkiResortMod.Systems
             public NativeParallelHashSet<Entity> OnSiteNow;
             public NativeList<GuestArrival> Arrivals;
             public NativeParallelHashMap<Entity, int> LocalsHeading;    // dev: residents aiming at a lodge, not there yet
-            public NativeParallelHashMap<Entity, int> TouristsHeading;  // Round S1 dev: tourists aiming at a lodge, not there yet
-            public NativeParallelHashSet<int4> CitizensToday;           // Round S1 D23 day sets (header DAY SETS)
+            public NativeParallelHashMap<Entity, int> TouristsHeading;  // dev: tourists aiming at a lodge, not there yet
+            public NativeParallelHashSet<int4> CitizensToday;           // day sets (header "Day sets")
             public NativeParallelHashMap<int4, byte> HouseholdsToday;
             public NativeArray<int> Stats;                              // [2] scanned, [3] residents on site, [4] tourists on site, [5] not counted (day rule)
             public bool Baseline;
@@ -1584,7 +1496,7 @@ namespace SkiResortMod.Systems
                         Entity household = members[i].m_Household;
                         bool tourist = TouristHouseholds.HasComponent(household);
                         if (tourist && target == sign)
-                            continue;                                                       // D23 + D8: lodges only
+                            continue;                                                       // lodges only
                         bool onSite = hasCb && current[i].m_CurrentBuilding == target;
                         if (!onSite)
                         {
@@ -1597,11 +1509,11 @@ namespace SkiResortMod.Systems
                             Stats[3]++;
                         OnSiteNow.Add(entities[i]);
                         if (Baseline || NewTargets.Contains(target) || OnSiteBefore.Contains(entities[i]))
-                            continue;                                                       // §4.4 set difference
+                            continue;                                                       // set difference
                         bool newGroup = false;
                         if (tourist)
                         {
-                            // Round S1 D23 (ch3 §1.4 rule 4): once a game day per ski area, not after an outing.
+                            // Once a game day per ski area, not after an outing.
                             int4 ck = MeetingScanJob.PairKey(entities[i], sign);
                             int4 hk = MeetingScanJob.PairKey(household, sign);
                             HouseholdsToday.TryGetValue(hk, out byte hday);
@@ -1622,7 +1534,7 @@ namespace SkiResortMod.Systems
                             Tourist = tourist,
                             NewGroup = newGroup,
                             OnLeisure = true,
-                            Citizen = entities[i],   // Round M1 (M7 a2): the resident ledger check
+                            Citizen = entities[i],   // the resident ledger check
                         });
                     }
                 }

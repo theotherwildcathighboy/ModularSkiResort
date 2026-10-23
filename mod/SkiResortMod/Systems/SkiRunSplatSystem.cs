@@ -1,94 +1,49 @@
-// SkiRunSplatSystem — mirrors painted ski-run polygons into the game's terrain-material
-// USER SPLATMAP, so runs render as a real terrain material (triplanar, relief-shaded,
-// vanilla snow stacks on top) instead of a top-down decal smear. The architecture is
-// docs/research/terrain-material-runs.md verbatim: "polygons are data, splat is paint" —
-// the RenderedArea polygons stay the gameplay layer (attractiveness, snowmaking, identity);
-// this system only PAINTS, and repaints the whole claimed channel on any change.
+// SkiRunSplatSystem - mirrors painted ski-run polygons into the game's terrain-material user splatmap, so runs render as a real
+// terrain material (triplanar, relief-shaded, vanilla snow stacks on top) instead of a top-down decal smear. Polygons are data,
+// splat is paint: the RenderedArea polygons stay the gameplay layer; this system only paints, and repaints the whole claimed
+// channel on any change (docs/research/terrain-material-runs.md).
 //
-// ─────────────────────────────────────────────────────────────────────────────────────────
-// THE MACHINERY (all verified against fullsrc this round; line refs = TerrainMaterialSystem.cs)
+// Machinery (line refs = TerrainMaterialSystem.cs):
+//   * ApplyBrush(Brush, brushPrefabEntity) is public (:815). It stamps one dab into m_UserSplatmap (4096^2, R8G8_UNorm, :758) and
+//     m_UserSplatmapWorld (1024^2) via the PaintDither/EraseDither kernels: strength > 0 paints, < 0 erases (:872). Both
+//     splatmaps serialize into the save; we rebuild the channel from polygons every load anyway (see Invariant). ApplyBrush owns
+//     the encoding (R8G8, not RGBA; vanilla editor maps do use Extra3/4).
+//   * Channel selection: ApplyToSplatmap -> GetMaterialType(brush.m_Tool) (:805) reads TerrainMaterialProperties.m_Type from the
+//     tool prefab, which must resolve through PrefabSystem.GetPrefab<TerraformingPrefab>. No vanilla TerraformingPrefab has a
+//     non-None type outside editor-configured maps, so we register our own tool prefab per claimed slot (public
+//     PrefabSystem.AddPrefab creates the entity immediately, PrefabSystem.cs:145). The name encodes the slot
+//     ("SkiResortSplatToolExtra3") so GetMaterialType's per-entity cache cannot go stale across loads claiming different slots.
+//     Game mode only: the map editor's TerrainPanelSystem.OnGameLoaded builds a material-paint button for every Material-target
+//     TerraformingPrefab, no UIObject required. So editor loads never claim a slot or register the tool prefab, and
+//     OnGamePreload removes any tool prefab left from an earlier Game load before the panel builds its buttons.
+//   * Slot textures: TerrainRenderSettingsPrefab.m_ExtraNDiffuse/m_ExtraNNormal are AssetReference<TextureAsset>, not raw
+//     textures. ApplyRenderSettings (:1058) resolves them via AssetDatabase.global and Shader.SetGlobalTexture. So: load PNGs ->
+//     Texture2D, register as TextureAssets in AssetDatabase.user (in-memory index entry only; we never Save), assign the prefab
+//     fields, then re-assign currentTerrainRenderSettings to itself (setter :654) which runs ApplyRenderSettings.
+//     TextureAsset.SetData pins the texture as the live instance (Load() returns it without touching disk, and the refcount
+//     cycle inside repeated ApplyRenderSettings never drops to zero), so the claim survives quality changes and seasonal re-applies.
+//   * Collision policy: slot occupancy is a per-map settings question. We claim the first free slot in order Extra3 -> Extra4 ->
+//     Extra2 -> Extra1 (free = field null or invalid guid, or carrying our asset from an earlier load this session). No free
+//     slot: loud log, graceful disable for the load. The prefab mutation is runtime-only; map assets on disk are never touched.
 //
-//   * TerrainMaterialSystem.ApplyBrush(Brush, brushPrefabEntity) is PUBLIC (line 815). It
-//     stamps one dab into m_UserSplatmap (4096², GraphicsFormat.R8G8_UNorm, line 758) AND
-//     m_UserSplatmapWorld (1024²), via the PaintDither/EraseDither compute kernels —
-//     strength > 0 paints, strength < 0 erases (line 872). Both splatmaps serialize into
-//     the save (FormatTags.TerrainUserSplatmap), so paint persists; we rebuild the channel
-//     from polygons every load anyway (see INVARIANT below).
-//     NOTE the R8G8 format: the research doc assumed RGBA. Four Extra channels through two
-//     stored channels + kernels named *Dither* implies index-dithered encoding; either way
-//     ApplyBrush owns the encoding and vanilla editor maps DO use Extra3/4. The load-time
-//     measurement log below is the instrument that settles the open resolution/format
-//     question in terrain-material-runs.md.
-//   * Channel selection: ApplyToSplatmap → GetMaterialType(brush.m_Tool) (line 805) reads
-//     TerrainMaterialProperties.m_Type from the TOOL prefab, which must resolve through
-//     PrefabSystem.GetPrefab<TerraformingPrefab>. There is no vanilla TerraformingPrefab
-//     with a non-None type outside editor-configured maps, so we register our own tool
-//     prefab per claimed slot (public PrefabSystem.AddPrefab — creates the entity
-//     immediately, PrefabSystem.cs line 145; no Harmony, no reflection). The name encodes
-//     the slot ("SkiResortSplatToolExtra3") so GetMaterialType's per-entity cache can never
-//     go stale across loads that claim different slots.
-//     GAME MODE ONLY: the map editor's TerrainPanelSystem.OnGameLoaded builds a material-
-//     paint button for EVERY Material-target TerraformingPrefab — no UIObject required,
-//     the icon just falls back to Media/Editor/Material.svg (splatmap-encoding.md disproved
-//     the old "no UIObject = never visible" assumption). So editor loads never claim a slot
-//     or register the tool prefab, and OnGamePreload removes any tool prefab left over from
-//     an earlier Game load this session BEFORE the panel builds its buttons (preload fires
-//     before LoadGameSystem raises OnGameLoaded).
-//   * Slot textures: TerrainRenderSettingsPrefab.m_ExtraNDiffuse/m_ExtraNNormal are
-//     AssetReference<TextureAsset> — NOT raw textures. ApplyRenderSettings (line 1058)
-//     resolves them via AssetDatabase.global lookup and Shader.SetGlobalTexture. So the
-//     claim is: load PNGs → Texture2D (LoadImage, mips), register as TextureAssets in
-//     AssetDatabase.user (in-memory index entry only — FileSystemDataSource.
-//     AddEntryFromDatabase writes nothing to disk; we never Save), assign the prefab
-//     fields (implicit TextureAsset→AssetReference), then re-assign
-//     currentTerrainRenderSettings to itself (property setter, line 654) which runs
-//     ApplyRenderSettings. TextureAsset.SetData pins the texture as the asset's live
-//     instance; Load() then returns that instance without touching disk, and the
-//     ReleaseTextures/Load refcount cycle inside repeated ApplyRenderSettings calls never
-//     drops the object refcount to zero (SetData holds one) — the claim survives quality
-//     changes and our own seasonal re-applies.
-//   * Collision policy (settled in terrain-material-runs.md): slot occupancy is purely a
-//     per-map settings question. We claim the first FREE slot in order Extra3 → Extra4 →
-//     Extra2 → Extra1 (free = field null or invalid guid, or carrying OUR asset from an
-//     earlier load this session — prefab objects persist in PrefabSystem across loads).
-//     No free slot ⇒ loud log, graceful disable for the load. The prefab mutation is
-//     runtime-only: nothing calls asset.Save, so map assets on disk are never touched.
+// Nothing above happens before the city has a run of ours. When the Force policy took a slot the map uses, the load wipe is
+// skipped: only our own previous bounds are ever erased, never the playable area.
 //
-// C1 (code review 2026-10-19, DECISIONS 314): NOTHING above happens before the city has a run of
-// ours (the claim, the render-settings mutation and every splatmap write wait for the first run).
-// And when the Force policy took a slot the MAP uses, the load wipe is skipped: only our own
-// previous bounds are ever erased, never the playable area (the map's paint of that material
-// is in the saved splatmap; once erased it stays erased).
+// Invariant: the claimed channel is fully derived state. Every load (free slot only): wipe the channel across the playable area,
+// then re-stamp every live run polygon. Every change afterwards: erase the previous pass's union bounds, re-stamp everything.
+// Paint left in saves after uninstalling the mod is the known removal footprint.
 //
-// INVARIANT: the claimed channel is fully DERIVED state. Every load (FREE slot only): wipe the
-// channel across the playable area, then re-stamp every live run polygon. Every change event
-// afterwards: erase the previous pass's union bounds, re-stamp everything (full channel
-// re-rasterize — the research doc's answer to overlap/erase bookkeeping). Stale paint from
-// sessions where the mod was absent is cleaned by the load wipe; paint left in saves after
-// UNINSTALLING the mod is the known removal footprint (documented, not solvable from here).
+// Seasonal: winter-ish := snow line at/below the mean run mid-elevation or ambient at/below freezing (hysteresis on both). On
+// transition swap the claimed slot's diffuse/normal references and re-assign currentTerrainRenderSettings; the splatmap never
+// changes with seasons. Checked every SeasonCheckFrames + once at load.
 //
-// SEASONAL: SnowLineSystem is the climate oracle. Winter-ish := snow line at/below the
-// mean run mid-elevation OR ambient at/below freezing (with hysteresis on both, so the
-// boundary can't flap). On transition: swap the claimed slot's diffuse/normal references
-// and re-assign currentTerrainRenderSettings. The splatmap never changes with seasons —
-// only the cloth does. Checked every SeasonCheckFrames frames + once at load.
+// Scheduling: PreCulling, anchored before TerrainMaterialSystem (every frame in Game and Editor, paused included: area edits
+// arrive through tool phases that ignore simulation pause, and Created/Updated/Deleted tags live until CleanUpSystem at Cleanup).
+// Rasterization is debounced: events only mark a pending flag; at most one rasterize per RasterizeDebounceFrames.
 //
-// SCHEDULING: PreCulling, anchored before TerrainMaterialSystem (same phase, runs every
-// frame in Game AND Editor, paused included — area edits arrive through tool phases that
-// ignore simulation pause, and Created/Updated/Deleted tags live until CleanUpSystem at
-// Cleanup, so a per-frame phase reliably sees every event). Rasterization is debounced:
-// events only mark a pending flag; at most one rasterize per RasterizeDebounceFrames.
-//
-// OBSERVABILITY (v1.2.1 discipline — silence must be impossible): resolved state logged at
-// load (claim/slot/textures/brushes or the precise reason for inertness), every rasterize
-// pass logs its outcome (runs/triangles/dab counts/bounds/ms), season transitions log
-// their inputs, one-time diagnostics for the brush-prefab inventory and the splatmap
-// measurement (a deliverable — see the log format in the header of LogSplatmapOnce).
-//
-// DEFENSIVE CONTRACT (ChairPinSystem precedent): never throw into the game loop — top-level
-// try/catch per update and per load hook, one-shot "!!!" error log, disabled for the
-// current load only, re-armed at OnGameLoadingComplete.
-// ─────────────────────────────────────────────────────────────────────────────────────────
+// Logging: resolved state at load, every rasterize pass outcome (runs/triangles/dabs/bounds/ms), season transitions, a one-time
+// brush inventory and splatmap measurement (LogSplatmapOnce). Defensive contract (ChairPinSystem precedent): never throw into the
+// game loop; one-shot "!!!" log, disabled for the current load only, re-armed at OnGameLoadingComplete.
 
 using System;
 using System.Collections.Generic;
@@ -112,55 +67,47 @@ namespace SkiResortMod.Systems
 {
     public sealed partial class SkiRunSplatSystem : GameSystemBase
     {
-        // ── Tuning — the single block ────────────────────────────────────────────────────
         private static class Tuning
         {
-            // Paint dabs: soft round brush, grid-clipped to triangle interiors. 16 m brush
-            // ≈ 4.6 texels on the measured 4096-over-14336 m splat (3.5 m/texel); spacing
-            // 0.5 × size double-covers the interior so the dither saturates.
+            // Paint dabs: soft round brush, grid-clipped to triangle interiors. 16 m brush = ~4.6 texels on the measured 4096-over-14336
+            // m splat (3.5 m/texel); spacing 0.5 x size double-covers the interior so the dither saturates.
             public const float PaintBrushSizeMeters = 16f;
             public const float PaintSpacingFactor = 0.5f;
 
-            // Erase passes: rectangle brush when available (hard coverage, no fringe
-            // residue), tighter spacing when only the soft round fallback exists.
-            public const float EraseBrushSizeMeters = 256f;   // incremental bounds erase
-            public const float WipeBrushSizeMeters = 2048f;   // load-time channel wipe
+            // Erase passes: rectangle brush when available (hard coverage, no fringe residue), tighter spacing when only the soft round
+            // fallback exists
+            public const float EraseBrushSizeMeters = 256f;
+            public const float WipeBrushSizeMeters = 2048f;
             public const float EraseSpacingFactorRect = 0.5f;
             public const float EraseSpacingFactorSoft = 0.35f;
-            public const float EraseMarginMeters = PaintBrushSizeMeters; // bounds inflation
+            public const float EraseMarginMeters = PaintBrushSizeMeters;
 
-            // Debounce: coalesce area events; at most one full re-rasterize per window.
+            // Debounce: coalesce area events; at most one full re-rasterize per window
             public const int RasterizeDebounceFrames = 64;
 
-            // Season: cheap check cadence + hysteresis so a snow line hovering exactly at
-            // run mid-elevation cannot flap the texture set every check.
+            // Cheap check cadence + hysteresis so a snow line hovering exactly at run mid-elevation cannot flap the texture set every check
             public const int SeasonCheckFrames = 4096;
             public const float SeasonHysteresisMeters = 50f;
             public const float SeasonTempHysteresisC = 1f;
 
-            // Safety valve: a pass this size is a bug (or a continent of runs) — warn, keep
-            // painting, and let the log line be the evidence.
+            // Safety valve: a pass this size is a bug (or a continent of runs): warn, keep painting, and let the log line be the evidence
             public const int WarnDabsPerPass = 65536;
         }
 
-        // Run surfaces — same tolerant name resolution as SkiResortAttractivenessSystem.
-        // E1 (D16): SkiRunNaturalA is deliberately absent — a natural run paints no terrain.
+        // SkiRunNaturalA is deliberately absent: a natural run paints no terrain
         private static readonly string[] RunSurfaceNames = { "SkiRunGroomedA", "SkiRunSnowmakingA" };
 
-        // Tool prefab name prefix; the claimed slot is appended ("SkiResortSplatToolExtra3").
-        // Shared by RegisterToolPrefab (Game loads) and the editor-preload scrub.
+        // The claimed slot is appended ("SkiResortSplatToolExtra3"). Shared by RegisterToolPrefab (Game loads) and the editor-preload scrub.
         private const string ToolPrefabNamePrefix = "SkiResortSplatTool";
 
-        // Texture file contract (a parallel agent generates these; missing ⇒ graceful
-        // inert for the load, retried next load). Resolved under <mod dir>\Textures\.
+        // Texture file contract: missing files leave the system inert for the load (retried next load). Resolved under <mod dir>\Textures\.
         private const string TexturesFolderName = "Textures";
         private const string WinterDiffuseFile = "SkiTerrainSnowCorduroy_BaseColor.png";
         private const string WinterNormalFile = "SkiTerrainSnowCorduroy_Normal.png";
         private const string SummerDiffuseFile = "SkiTerrainSummerRun_BaseColor.png";
         private const string SummerNormalFile = "SkiTerrainSummerRun_Normal.png";
 
-        /// <summary>Claim preference (terrain-material-runs.md): editor-configured maps fill
-        /// slots from Extra1 upward, so the tail of the enum is the least contended.</summary>
+        /// <summary>Claim preference: editor-configured maps fill slots from Extra1 upward, so the tail of the enum is the least contended</summary>
         private static readonly TerrainMaterialType[] SlotPreference =
         {
             TerrainMaterialType.Extra3, TerrainMaterialType.Extra4,
@@ -170,17 +117,17 @@ namespace SkiResortMod.Systems
         private PrefabSystem m_PrefabSystem;
         private TerrainMaterialSystem m_TerrainMaterialSystem;
         private TerrainSystem m_TerrainSystem;
-        private SnowLineSystem m_SnowLineSystem;   // validated climate oracle (pull-based)
+        private SnowLineSystem m_SnowLineSystem;
 
-        private EntityQuery m_AreaScanQuery;       // live run polygons (prefab-filtered)
-        private EntityQuery m_AreaEventQuery;      // Created/Updated, non-Temp
-        private EntityQuery m_AreaDeletedQuery;    // Deleted, non-Temp
-        private EntityQuery m_PrefabScanQuery;     // name-resolution fallback
-        private EntityQuery m_BrushPrefabQuery;    // BrushPrefab inventory
+        private EntityQuery m_AreaScanQuery;
+        private EntityQuery m_AreaEventQuery;
+        private EntityQuery m_AreaDeletedQuery;
+        private EntityQuery m_PrefabScanQuery;
+        private EntityQuery m_BrushPrefabQuery;
 
         private readonly HashSet<Entity> m_RunPrefabs = new HashSet<Entity>();
 
-        // Session-cached (PrefabSystem and the asset database outlive individual loads).
+        // Session-cached (PrefabSystem and the asset database outlive individual loads)
         private bool m_PrefabsResolved;
         private TextureAsset m_WinterDiffuse, m_WinterNormal, m_SummerDiffuse, m_SummerNormal;
         private Entity m_PaintBrushPrefab = Entity.Null;
@@ -188,27 +135,26 @@ namespace SkiResortMod.Systems
         private bool m_EraseBrushIsRect;
         private bool m_BrushInventoryLogged;
 
-        // Per-load state.
-        private bool m_Active;                     // slot claimed + textures + brushes OK
-        private bool m_AwaitingFirstRun;           // C1(b): textures + brushes ready, claim deferred until the city has a run of ours
-        private bool m_ForcedOccupied;             // C1(a): Force policy took a slot the map was using: never wipe the playable area
-        private bool m_Disabled;                   // tripped by the catch; re-armed per load
-        private bool m_ErrorLogged;                // one "!!!" with stack per load
+        // Per-load state
+        private bool m_Active;
+        private bool m_AwaitingFirstRun;           // textures + brushes ready, claim deferred until the city has a run of ours
+        private bool m_ForcedOccupied;             // Force policy took a slot the map was using: never wipe the playable area
+        private bool m_Disabled;
+        private bool m_ErrorLogged;
         private TerrainMaterialType m_ClaimedSlot = TerrainMaterialType.None;
         private Entity m_SettingsEntity = Entity.Null;
         private TerrainRenderSettingsPrefab m_SettingsPrefab;
         private Entity m_ToolPrefabEntity = Entity.Null;
         private bool m_WinterActive;
 
-        // Rasterize bookkeeping.
         private bool m_RasterizePending;
-        private bool m_ChannelWiped;               // load-time full wipe done
+        private bool m_ChannelWiped;
         private bool m_HasLastBounds;
         private float2 m_LastBoundsMin, m_LastBoundsMax;
         private long m_FrameCounter;
         private long m_LastRasterizeFrame;
         private int m_FramesUntilSeasonCheck;
-        private bool m_SplatmapLogged;             // the measurement deliverable, once per load
+        private bool m_SplatmapLogged;
 
         protected override void OnCreate()
         {
@@ -223,7 +169,7 @@ namespace SkiResortMod.Systems
                 All = new[]
                 {
                     ComponentType.ReadOnly<Area>(),
-                    ComponentType.ReadOnly<Game.Areas.Surface>(),   // L3: runs are SurfacePrefab areas; skips lots, districts, map tiles
+                    ComponentType.ReadOnly<Game.Areas.Surface>(),   // runs are SurfacePrefab areas; skips lots, districts, map tiles
                     ComponentType.ReadOnly<Geometry>(),
                     ComponentType.ReadOnly<PrefabRef>(),
                     ComponentType.ReadOnly<Triangle>(),
@@ -240,7 +186,7 @@ namespace SkiResortMod.Systems
                 All = new[]
                 {
                     ComponentType.ReadOnly<Area>(),
-                    ComponentType.ReadOnly<Game.Areas.Surface>(),   // L3
+                    ComponentType.ReadOnly<Game.Areas.Surface>(),
                     ComponentType.ReadOnly<PrefabRef>(),
                 },
                 Any = new[]
@@ -259,7 +205,7 @@ namespace SkiResortMod.Systems
                 All = new[]
                 {
                     ComponentType.ReadOnly<Area>(),
-                    ComponentType.ReadOnly<Game.Areas.Surface>(),   // L3
+                    ComponentType.ReadOnly<Game.Areas.Surface>(),
                     ComponentType.ReadOnly<PrefabRef>(),
                     ComponentType.ReadOnly<Deleted>(),
                 },
@@ -276,28 +222,21 @@ namespace SkiResortMod.Systems
             Mod.Log.Info($"{nameof(SkiRunSplatSystem)} created");
         }
 
-        /// <summary>Editor-session scrub. The map editor's terrain panel
-        /// (TerrainPanelSystem.OnGameLoaded) builds a material-paint button for every
-        /// Material-target TerraformingPrefab — including ours, which persist in
-        /// PrefabSystem across loads within a session. OnGamePreload runs before the
-        /// panel's OnGameLoaded (GameManager fires onGamePreload before LoadGameSystem
-        /// raises the game-loaded event), so removing the prefabs here keeps the button
-        /// out of every editor session, including a same-session switch from a Game load
-        /// that registered one. RemovePrefab tags the entity Deleted (the panel's query
-        /// excludes Deleted) and clears the PrefabID index, so the next Game load
-        /// re-registers cleanly through the existing RegisterToolPrefab path.</summary>
+        /// <summary>Editor-session scrub. The map editor's terrain panel (TerrainPanelSystem.OnGameLoaded) builds a material-paint
+        /// button for every Material-target TerraformingPrefab, including ours, which persist in PrefabSystem across loads within a
+        /// session. OnGamePreload runs before the panel's OnGameLoaded, so removing the prefabs here keeps the button out of every
+        /// editor session, including a same-session switch from a Game load that registered one. RemovePrefab tags the entity
+        /// Deleted (the panel's query excludes Deleted) and clears the PrefabID index, so the next Game load re-registers cleanly
+        /// through RegisterToolPrefab.</summary>
         protected override void OnGamePreload(Purpose purpose, GameMode mode)
         {
             base.OnGamePreload(purpose, mode);
 
-            // ANTI-CONTAMINATION (every mode, before anything else): restore the settings
-            // prefab's original slot values before the next load can observe them. The
-            // managed TerrainRenderSettingsPrefab object persists across loads, and the
-            // editor's map save path (PrefabSystem.SaveTerrainRenderSettings) CLONES the
-            // live prefab into the author's map asset — an outstanding claim mutation at
-            // that moment would bake our textures into someone's map. Reverting at every
-            // preload means the mutation never outlives the load it served; Game loads
-            // simply re-claim fresh a moment later.
+            // Anti-contamination (every mode, before anything else): restore the settings prefab's original slot values before the next
+            // load can observe them. The managed TerrainRenderSettingsPrefab object persists across loads, and the editor's map save
+            // path (PrefabSystem.SaveTerrainRenderSettings) clones the live prefab into the author's map asset, so an outstanding claim
+            // mutation at that moment would bake our textures into someone's map. Reverting at every preload means the mutation never
+            // outlives the load it served; Game loads simply re-claim fresh a moment later.
             RevertClaimMutation();
 
             if (mode != GameMode.Editor)
@@ -319,8 +258,7 @@ namespace SkiResortMod.Systems
             }
             catch (Exception e)
             {
-                // Defensive contract: never throw out of a load hook — the GameSystemBase
-                // wrapper would disable this system for the whole session. A failed scrub
+                // Never throw out of a load hook: the GameSystemBase wrapper would disable this system for the whole session. A failed scrub
                 // only means the (harmless, vanilla-supported) button may show this once.
                 Mod.Log.Error($"!!! {nameof(SkiRunSplatSystem)} EXCEPTION during editor preload " +
                               $"scrub — the leaked terrain-panel button may be visible this " +
@@ -332,8 +270,7 @@ namespace SkiResortMod.Systems
         {
             base.OnGameLoadingComplete(purpose, mode);
 
-            // Re-arm and reset per load, whatever the mode — leaving to the menu must
-            // deactivate painting too.
+            // Re-arm and reset per load, whatever the mode: leaving to the menu must deactivate painting too
             m_Active = false;
             m_AwaitingFirstRun = false;
             m_ForcedOccupied = false;
@@ -363,24 +300,21 @@ namespace SkiResortMod.Systems
                                  $"'{string.Join("', '", RunSurfaceNames)}' is imported (expected pre-import)");
                     return;
                 }
-                // Decals visible by default — every early-out below leaves runs rendering
-                // as their classic surfaces; only a fully ACTIVE splat hides them (below).
-                // This must run in the editor too: a Game load earlier this session may
-                // have hidden the decals on the (session-persistent) run prefab objects.
+                // Decals visible by default: every early-out below leaves runs rendering as their classic surfaces; only a fully active
+                // splat hides them. This must run in the editor too: a Game load earlier this session may have hidden the decals on the
+                // (session-persistent) run prefab objects.
                 ApplyDecalVisibility(splatActive: false);
                 if (mode != GameMode.Game)
                 {
-                    // Map editor: claiming, tool-prefab registration and painting are
-                    // Game-mode only. The editor's terrain panel hands material brushes
-                    // to map authors — our claim would collide with their strokes and the
-                    // load-time channel wipe would erase them; the tool prefab itself was
-                    // scrubbed in OnGamePreload so it cannot appear as a paint button.
+                    // Map editor: claiming, tool-prefab registration and painting are Game-mode only. The editor's terrain panel hands material
+                    // brushes to map authors, so our claim would collide with their strokes and the load-time channel wipe would erase them;
+                    // the tool prefab itself was scrubbed in OnGamePreload so it cannot appear as a paint button.
                     Mod.Log.Info("Splat: map editor session — terrain paint inert by design " +
                                  "(Game mode only); runs render as their classic decal surfaces");
                     return;
                 }
                 if (!LoadTextures())
-                    return; // reason logged; retried next load (texture agent may deliver)
+                    return; // reason logged; retried next load
                 ResolveBrushes();
                 if (m_PaintBrushPrefab == Entity.Null)
                 {
@@ -388,10 +322,8 @@ namespace SkiResortMod.Systems
                                  "painting disabled for this load (see brush inventory above)");
                     return;
                 }
-                // C1(b) (code review 2026-10-19): never claim a slot, mutate the render
-                // settings or touch the splatmap before the city has a run of ours — a
-                // city without a resort (or with the option set once for another map) is
-                // left exactly as the map author made it.
+                // Never claim a slot, mutate the render settings or touch the splatmap before the city has a run of ours: a city without a
+                // resort (or with the option set once for another map) is left exactly as the map author made it.
                 m_AwaitingFirstRun = true;
                 if (HasAnyRun())
                     TryActivate();
@@ -412,17 +344,16 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>The deferred claim (C1 b): season, slot claim, tool prefab, first rasterize
-        /// pass. Runs at load when a run already exists, else on the first run event. Any
-        /// failure leaves the system inert for the load (reason logged) and stops waiting.</summary>
+        /// <summary>The deferred claim: season, slot claim, tool prefab, first rasterize pass. Runs at load when a run already
+        /// exists, else on the first run event. Any failure leaves the system inert for the load (reason logged) and stops waiting.</summary>
         private void TryActivate()
         {
             m_AwaitingFirstRun = false;
             m_WinterActive = EvaluateWinter(out string seasonDetail);
             if (!ClaimSlot())
-                return; // reason logged
+                return;
             if (!RegisterToolPrefab())
-                return; // reason logged
+                return;
 
             m_Active = true;
             m_RasterizePending = true; // first pass: wipe (free slot only) + full stamp
@@ -435,7 +366,7 @@ namespace SkiResortMod.Systems
             LogSplatmapOnce();
         }
 
-        /// <summary>True when at least one area of ours is in the world (completed geometry).</summary>
+        /// <summary>True when at least one area of ours is in the world (completed geometry)</summary>
         private bool HasAnyRun()
         {
             return !m_AreaScanQuery.IsEmptyIgnoreFilter && AnyMatchingPrefab(m_AreaScanQuery);
@@ -450,8 +381,7 @@ namespace SkiResortMod.Systems
 
                 if (m_AwaitingFirstRun)
                 {
-                    // Waiting for the first run (C1 b): a run is created or updated, then
-                    // the claim, and the pass below stamps it. Emptiness checks first.
+                    // Waiting for the first run: a run is created or updated, then the claim, and the pass below stamps it. Emptiness checks first.
                     m_FrameCounter++;
                     if (((!m_AreaEventQuery.IsEmptyIgnoreFilter && AnyMatchingPrefab(m_AreaEventQuery)) ||
                          m_FrameCounter % 64 == 0) && HasAnyRun())
@@ -464,8 +394,7 @@ namespace SkiResortMod.Systems
                     m_FrameCounter++;
                 }
 
-                // Event watch: emptiness checks first (free), chunk scans only on event
-                // frames, prefab-filtered so unrelated area churn stays cheap.
+                // Event watch: emptiness checks first (free), chunk scans only on event frames, prefab-filtered so unrelated area churn stays cheap
                 if (!m_RasterizePending &&
                     ((!m_AreaEventQuery.IsEmptyIgnoreFilter && AnyMatchingPrefab(m_AreaEventQuery)) ||
                      (!m_AreaDeletedQuery.IsEmptyIgnoreFilter && AnyMatchingPrefab(m_AreaDeletedQuery))))
@@ -489,8 +418,8 @@ namespace SkiResortMod.Systems
             }
             catch (Exception e)
             {
-                // Never throw into the game loop. Unmissable, with the full stack, once per
-                // load; session caches are KEPT so the next load re-arms automatically.
+                // Never throw into the game loop. Unmissable, with the full stack, once per load; session caches are kept so the next load
+                // re-arms automatically.
                 m_Disabled = true;
                 if (!m_ErrorLogged)
                 {
@@ -501,12 +430,9 @@ namespace SkiResortMod.Systems
             }
         }
 
-        // ─────────────────────────────────────────────────────────────────────────────────
-        // Rasterization: full channel rebuild. Erase where the LAST pass painted (or wipe
-        // the whole playable channel on the first pass of a load), then stamp every live
-        // polygon. Main-thread ApplyBrush calls — each dab is one small compute dispatch;
-        // counts are logged so cost is never invisible.
-        // ─────────────────────────────────────────────────────────────────────────────────
+        // Full channel rebuild: erase where the last pass painted (or wipe the whole playable channel on the first pass of a load),
+        // then stamp every live polygon. Main-thread ApplyBrush calls, each dab one small compute dispatch; counts are logged so
+        // cost is never invisible.
         private void Rasterize()
         {
             var timer = System.Diagnostics.Stopwatch.StartNew();
@@ -514,15 +440,13 @@ namespace SkiResortMod.Systems
 
             if (!m_ChannelWiped)
             {
-                // Load invariant: the channel is derived state. Wipe it across the playable
-                // area so stale paint (runs edited while the mod was absent, older bugs)
-                // cannot survive a load.
+                // The channel is derived state: wipe it across the playable area so stale paint (runs edited while the mod was absent, older
+                // bugs) cannot survive a load
                 m_ChannelWiped = true;
                 if (m_ForcedOccupied)
                 {
-                    // C1(a): the slot was the MAP's material. Its paint is the map author's
-                    // and the city's save carries it: never wipe the playable area. We erase
-                    // only our own previous bounds (the branch below), once we have any.
+                    // The slot was the map's material. Its paint is the map author's and the city's save carries it: never wipe the playable
+                    // area. We erase only our own previous bounds (the branch below), once we have any.
                     Mod.Log.Info($"Splat [wipe]: skipped for {m_ClaimedSlot} — the map uses this material, " +
                                  "so only the ski runs' own bounds are ever erased");
                 }
@@ -547,7 +471,7 @@ namespace SkiResortMod.Systems
             float2 boundsMin = new float2(float.MaxValue, float.MaxValue);
             float2 boundsMax = new float2(float.MinValue, float.MinValue);
 
-            // L4 (code review 2026-10-19): these chunk reads wait for no job; GeometrySystem writes Triangle at Modification2B.
+            // These chunk reads wait for no job; GeometrySystem writes Triangle at Modification2B
             EntityManager.CompleteDependencyBeforeRO<PrefabRef>();
             EntityManager.CompleteDependencyBeforeRO<Triangle>();
             EntityManager.CompleteDependencyBeforeRO<Node>();
@@ -609,9 +533,9 @@ namespace SkiResortMod.Systems
             LogSplatmapOnce(); // ApplyBrush lazily creates the splatmap; measure once it exists
         }
 
-        /// <summary>Grid-stamps one draped triangle (positions are world xz; the splat is a
-        /// top-down map, so xz is the whole story). Grid is world-aligned so repeated passes
-        /// land identical dabs; a centroid dab guarantees slivers are never silently empty.</summary>
+        /// <summary>Grid-stamps one draped triangle (positions are world xz; the splat is a top-down map, so xz is the whole story).
+        /// The grid is world-aligned so repeated passes land identical dabs; a centroid dab guarantees slivers are never silently
+        /// empty.</summary>
         private int StampTriangle(float2 a, float2 b, float2 c,
             ref float2 boundsMin, ref float2 boundsMax)
         {
@@ -644,9 +568,8 @@ namespace SkiResortMod.Systems
             return dabs;
         }
 
-        /// <summary>Erases the claimed channel across a rectangle with a grid of negative-
-        /// strength dabs (EraseDither kernel; the erase only touches OUR channel, which no
-        /// one else paints — the free-slot claim is the exclusivity guarantee).</summary>
+        /// <summary>Erases the claimed channel across a rectangle with a grid of negative-strength dabs (EraseDither kernel; the
+        /// erase only touches our channel, which no one else paints: the free-slot claim is the exclusivity guarantee)</summary>
         private int EraseRect(float2 min, float2 max, float dabSize)
         {
             float factor = m_EraseBrushIsRect
@@ -667,8 +590,8 @@ namespace SkiResortMod.Systems
 
         private void Dab(float2 position, float size, float strength, Entity brushPrefab)
         {
-            // ApplyToSplatmap consumes m_Position.xz/m_Size/m_Strength/m_Angle + m_Tool
-            // (fullsrc line 830); y and the target/start fields are ignored by this path.
+            // ApplyToSplatmap consumes m_Position.xz/m_Size/m_Strength/m_Angle + m_Tool (fullsrc line 830); y and the target/start
+            // fields are ignored by this path.
             Brush brush = default;
             brush.m_Tool = m_ToolPrefabEntity;
             brush.m_Position = new float3(position.x, 0f, position.y);
@@ -680,8 +603,7 @@ namespace SkiResortMod.Systems
 
         private static bool PointInTriangle(float2 p, float2 a, float2 b, float2 c)
         {
-            // Sign test, edge-inclusive with a small tolerance so grid points on shared
-            // triangle edges stamp exactly once per triangle pair at most.
+            // Sign test, edge-inclusive with a small tolerance so grid points on shared triangle edges stamp exactly once per triangle pair at most
             const float eps = 0.01f;
             float d1 = Cross(p - a, b - a);
             float d2 = Cross(p - b, c - b);
@@ -696,9 +618,6 @@ namespace SkiResortMod.Systems
             return u.x * v.y - u.y * v.x;
         }
 
-        // ─────────────────────────────────────────────────────────────────────────────────
-        // Seasonal swap: only the cloth changes, never the splat.
-        // ─────────────────────────────────────────────────────────────────────────────────
         private void UpdateSeason()
         {
             bool wantWinter = EvaluateWinter(out string detail);
@@ -711,9 +630,8 @@ namespace SkiResortMod.Systems
                          $"'{(wantWinter ? m_WinterDiffuse : m_SummerDiffuse)?.name}'");
         }
 
-        /// <summary>Winter-ish := snow line at/below the mean run mid-elevation OR ambient
-        /// at/below freezing. Hysteresis biases both thresholds toward the CURRENT state so
-        /// a hovering boundary cannot flap the texture set every check.</summary>
+        /// <summary>Winter-ish := snow line at/below the mean run mid-elevation or ambient at/below freezing. Hysteresis biases both
+        /// thresholds toward the current state so a hovering boundary cannot flap the texture set every check.</summary>
         private bool EvaluateWinter(out string detail)
         {
             float snowLine = m_SnowLineSystem.GetSnowLineElevation();
@@ -722,7 +640,7 @@ namespace SkiResortMod.Systems
 
             int runs = 0;
             float midSum = 0f;
-            EntityManager.CompleteDependencyBeforeRO<PrefabRef>();   // L4
+            EntityManager.CompleteDependencyBeforeRO<PrefabRef>();
             EntityManager.CompleteDependencyBeforeRO<Geometry>();
             var chunks = m_AreaScanQuery.ToArchetypeChunkArray(Allocator.Temp);
             try
@@ -738,8 +656,7 @@ namespace SkiResortMod.Systems
                         if (!m_RunPrefabs.Contains(prefabRefs[i].m_Prefab))
                             continue;
                         runs++;
-                        // Terrain-conformed bounds (the area pipeline drapes triangles onto
-                        // terrain — same data the attractiveness score reads).
+                        // Terrain-conformed bounds (the area pipeline drapes triangles onto terrain; same data the attractiveness score reads)
                         midSum += (geometries[i].m_Bounds.min.y + geometries[i].m_Bounds.max.y) * 0.5f;
                     }
                 }
@@ -759,14 +676,10 @@ namespace SkiResortMod.Systems
             return byLine || byTemp;
         }
 
-        // ─────────────────────────────────────────────────────────────────────────────────
-        // Slot claim + tool prefab + textures (the load-time setup chain).
-        // ─────────────────────────────────────────────────────────────────────────────────
         private bool ClaimSlot()
         {
-            // User policy (Options → Modular Ski Resort → Terrain). Off = decal look by
-            // choice; ForceExtraN = deliberately sacrifice that map material (many CO maps
-            // fill all four slots, so Auto legitimately finds nothing there).
+            // User policy (Options -> Modular Ski Resort -> Terrain). Off = decal look by choice; ForceExtraN = deliberately sacrifice
+            // that map material (many CO maps fill all four slots, so Auto legitimately finds nothing there).
             var policy = Mod.Settings != null
                 ? Mod.Settings.TerrainSnowSlot
                 : SkiResortMod.Settings.TerrainSlotPolicy.Auto;
@@ -836,8 +749,8 @@ namespace SkiResortMod.Systems
                 SetSlotParams(rs, slot);
                 ApplyClaimedSlotTextures();
 
-                // Verify the whole AssetReference-resolution chain end to end: after
-                // ApplyRenderSettings, the slot's shader global must be OUR texture object.
+                // Verify the whole AssetReference-resolution chain end to end: after ApplyRenderSettings, the slot's shader global must be
+                // our texture object.
                 Texture expected = (m_WinterActive ? m_WinterDiffuse : m_SummerDiffuse)?.Load(-1);
                 Texture actual = Shader.GetGlobalTexture(DiffuseShaderId(slot));
                 bool verified = expected != null && ReferenceEquals(expected, actual);
@@ -858,13 +771,10 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>Runs' RenderedArea decals hide while splat paint is active and show
-        /// whenever it is not — replacing the old static prefab-JSON edits that once left
-        /// runs invisible on a no-free-slot map. Two layers, both idempotent: the managed
-        /// prefab field (covers batches built later this session) and the live batch
-        /// material if one already exists (AreaBatchSystem names it "Area batch (name)"
-        /// and reads the mask once at batch creation — same live-material pattern as the
-        /// seasonal texture swap).</summary>
+        /// <summary>Runs' RenderedArea decals hide while splat paint is active and show whenever it is not, so a map with no free
+        /// slot never leaves runs invisible. Two layers, both idempotent: the managed prefab field (covers batches built later this
+        /// session) and the live batch material if one already exists (AreaBatchSystem names it "Area batch (name)" and reads the
+        /// mask once at batch creation; same live-material pattern as the seasonal texture swap).</summary>
         private void ApplyDecalVisibility(bool splatActive)
         {
             DecalLayers mask = splatActive ? (DecalLayers)0 : DecalLayers.Terrain;
@@ -888,9 +798,8 @@ namespace SkiResortMod.Systems
             Mod.Log.Info($"Splat: run decal surfaces {(splatActive ? "hidden (terrain paint active)" : "visible (terrain paint inactive)")}");
         }
 
-        // ── Claim-mutation record (anti-contamination — see OnGamePreload) ───────────────
-        // Held OUTSIDE the per-load reset block: it must survive OnGameLoadingComplete's
-        // field wipe so the NEXT preload can still revert it.
+        // Claim-mutation record (anti-contamination, see OnGamePreload). Held outside the per-load reset block: it must survive
+        // OnGameLoadingComplete's field wipe so the next preload can still revert it.
         private TerrainRenderSettingsPrefab m_MutatedSettingsPrefab;
         private TerrainMaterialType m_MutatedSlot = TerrainMaterialType.None;
         private AssetReference<TextureAsset> m_OrigDiffuse, m_OrigNormal;
@@ -898,9 +807,8 @@ namespace SkiResortMod.Systems
 
         private void CaptureClaimMutation(TerrainRenderSettingsPrefab rs, TerrainMaterialType slot)
         {
-            // A prior un-reverted record can only mean same-load re-claim (seasonal
-            // re-applies go through ApplyClaimedSlotTextures, not here) — keep the OLDEST
-            // originals, they are the true pre-mutation state.
+            // A prior un-reverted record can only mean same-load re-claim (seasonal re-applies go through ApplyClaimedSlotTextures, not
+            // here): keep the oldest originals, they are the true pre-mutation state.
             if (m_MutatedSettingsPrefab != null)
                 return;
             m_MutatedSettingsPrefab = rs;
@@ -979,9 +887,8 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>Free := null reference, invalid guid, or OUR OWN asset left from an
-        /// earlier load this session (prefab objects persist in PrefabSystem, so a reclaim
-        /// of the same map must not read its own footprint as an occupant).</summary>
+        /// <summary>Free := null reference, invalid guid, or our own asset left from an earlier load this session (prefab objects
+        /// persist in PrefabSystem, so a reclaim of the same map must not read its own footprint as an occupant)</summary>
         private bool IsSlotFree(TerrainRenderSettingsPrefab rs, TerrainMaterialType slot)
         {
             AssetReference<TextureAsset> reference = GetSlotDiffuse(rs, slot);
@@ -1022,10 +929,9 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>Writes the current season's diffuse/normal into the claimed slot's
-        /// fields and re-assigns currentTerrainRenderSettings to itself — the property
-        /// setter runs ApplyRenderSettings, which resolves our TextureAssets and pushes
-        /// SetGlobalTexture (the CursorAim managed-prefab-patch pattern, one level up).</summary>
+        /// <summary>Writes the current season's diffuse/normal into the claimed slot's fields and re-assigns
+        /// currentTerrainRenderSettings to itself: the property setter runs ApplyRenderSettings, which resolves our TextureAssets
+        /// and pushes SetGlobalTexture</summary>
         private void ApplyClaimedSlotTextures()
         {
             TextureAsset diffuse = m_WinterActive ? m_WinterDiffuse : m_SummerDiffuse;
@@ -1053,8 +959,7 @@ namespace SkiResortMod.Systems
             m_TerrainMaterialSystem.currentTerrainRenderSettings = m_SettingsEntity;
         }
 
-        /// <summary>Deterministic per-slot render params for the claimed (previously empty)
-        /// slot — never trust whatever an empty slot happened to carry.</summary>
+        /// <summary>Deterministic per-slot render params for the claimed (previously empty) slot; never trust whatever an empty slot happened to carry</summary>
         private static void SetSlotParams(TerrainRenderSettingsPrefab rs, TerrainMaterialType slot)
         {
             switch (slot)
@@ -1089,14 +994,11 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>Registers (or reuses — the name encodes the slot) the TerraformingPrefab
-        /// whose TerrainMaterialProperties.m_Type routes our ApplyBrush dabs into the
-        /// claimed channel (GetMaterialType, fullsrc line 805). Public AddPrefab creates the
-        /// prefab entity immediately. Lacking a UIObject does NOT hide the prefab from UI:
-        /// the map editor's TerrainPanelSystem.OnGameLoaded lists every Material-target
-        /// TerraformingPrefab as a paint button (default material icon fallback) — which is
-        /// why this registration only ever runs in GameMode.Game (there is no material-paint
-        /// UI in game) and OnGamePreload scrubs the prefab before any editor load.</summary>
+        /// <summary>Registers (or reuses: the name encodes the slot) the TerraformingPrefab whose TerrainMaterialProperties.m_Type
+        /// routes our ApplyBrush dabs into the claimed channel (GetMaterialType, fullsrc line 805). Public AddPrefab creates the
+        /// prefab entity immediately. Lacking a UIObject does not hide the prefab from UI: the map editor's
+        /// TerrainPanelSystem.OnGameLoaded lists every Material-target TerraformingPrefab as a paint button, which is why this
+        /// registration only runs in GameMode.Game and OnGamePreload scrubs the prefab before any editor load.</summary>
         private bool RegisterToolPrefab()
         {
             string name = ToolPrefabNamePrefix + m_ClaimedSlot;
@@ -1133,14 +1035,12 @@ namespace SkiResortMod.Systems
             return true;
         }
 
-        // ─────────────────────────────────────────────────────────────────────────────────
-        // Textures: PNG files → readable Texture2Ds → TextureAssets in AssetDatabase.user
-        // (in-memory index entry only; never saved to disk). Session-cached.
-        // ─────────────────────────────────────────────────────────────────────────────────
+        // Textures: PNG files -> readable Texture2Ds -> TextureAssets in AssetDatabase.user (in-memory index entry only; never
+        // saved to disk). Session-cached.
         private bool LoadTextures()
         {
             if (m_WinterDiffuse != null && m_SummerDiffuse != null)
-                return true; // session cache
+                return true;
 
             string root = Mod.ModRootPath;
             if (string.IsNullOrEmpty(root))
@@ -1165,7 +1065,7 @@ namespace SkiResortMod.Systems
                 return false;
             }
 
-            // BaseColor is sRGB; normal/mask maps are linear data.
+            // BaseColor is sRGB; normal/mask maps are linear data
             m_WinterDiffuse = RegisterTexture(dir, WinterDiffuseFile, linear: false);
             m_WinterNormal = RegisterTexture(dir, WinterNormalFile, linear: true);
             m_SummerDiffuse = RegisterTexture(dir, SummerDiffuseFile, linear: false);
@@ -1182,9 +1082,8 @@ namespace SkiResortMod.Systems
             AssetDataPath assetPath = AssetDataPath.Create(nameof(SkiResortMod), assetName);
             if (db.Exists(assetPath, out TextureAsset existing) && existing != null)
             {
-                // A previous world this session registered it; the asset still serves its
-                // in-memory texture. (SetData on a referenced asset throws, so no refresh —
-                // changed PNGs need a game restart, worth logging.)
+                // A previous world this session registered it; the asset still serves its in-memory texture. (SetData on a referenced asset
+                // throws, so no refresh: changed PNGs need a game restart, worth logging.)
                 Mod.Log.Info($"Splat: reusing already-registered texture asset '{assetName}'");
                 return existing;
             }
@@ -1196,23 +1095,19 @@ namespace SkiResortMod.Systems
             };
             if (!ImageConversion.LoadImage(texture, bytes))
                 throw new InvalidDataException($"LoadImage failed for '{fileName}'");
-            // Terrain materials tile; LoadImage defaults to Clamp, which would smear the
-            // last texel row across the mountain.
+            // Terrain materials tile; LoadImage defaults to Clamp, which would smear the last texel row across the mountain
             texture.wrapMode = TextureWrapMode.Repeat;
             texture.filterMode = FilterMode.Trilinear;
             texture.anisoLevel = 8;
             return db.AddAsset<TextureAsset, Texture>(assetPath, texture);
         }
 
-        // ─────────────────────────────────────────────────────────────────────────────────
-        // Brush prefabs: stamp textures for ApplyBrush. Soft round for paint ("Default
-        // Brush" — the terraforming tools' standard falloff blob), hard rectangle for erase
-        // coverage ("RectangleBrush"). Tolerant scan with a one-time inventory log.
-        // ─────────────────────────────────────────────────────────────────────────────────
+        // Brush prefabs, stamp textures for ApplyBrush: soft round for paint ("Default Brush", the terraforming tools' standard
+        // falloff blob), hard rectangle for erase coverage ("RectangleBrush"). Tolerant scan with a one-time inventory log.
         private void ResolveBrushes()
         {
             if (m_PaintBrushPrefab != Entity.Null)
-                return; // session cache
+                return;
 
             var candidates = new List<(Entity entity, string name)>();
             var entities = m_BrushPrefabQuery.ToEntityArray(Allocator.Temp);
@@ -1265,27 +1160,23 @@ namespace SkiResortMod.Systems
                 if (lower.Contains(substring1) || lower.Contains(substring2))
                     return candidate.entity;
             }
-            // Exact and fuzzy both missed: any textured brush beats none, but only for the
-            // paint pick (the erase pick falls back to the paint brush at the call site).
+            // Exact and fuzzy both missed: any textured brush beats none, but only for the paint pick (the erase pick falls back to the
+            // paint brush at the call site)
             return exactName == "Default Brush" && candidates.Count > 0
                 ? candidates[0].entity
                 : Entity.Null;
         }
 
-        // ─────────────────────────────────────────────────────────────────────────────────
-        // Shared helpers.
-        // ─────────────────────────────────────────────────────────────────────────────────
 
-        /// <summary>The measurement deliverable (terrain-material-runs.md open question #1):
-        /// user splatmap dimensions/format vs playable size, logged once per load as soon as
-        /// the splatmap exists (ApplyBrush creates it lazily on fresh maps).</summary>
+        /// <summary>Logs the user splatmap dimensions/format vs playable size once per load, as soon as the splatmap exists
+        /// (ApplyBrush creates it lazily on fresh maps)</summary>
         private void LogSplatmapOnce()
         {
             if (m_SplatmapLogged)
                 return;
             Texture splat = m_TerrainMaterialSystem.UserSplatmap;
             if (splat == null)
-                return; // not created yet — retried after the first rasterize
+                return; // not created yet; retried after the first rasterize
             m_SplatmapLogged = true;
             Texture world = m_TerrainMaterialSystem.UserSplatmapWorld;
             float2 playable = m_TerrainSystem.playableArea;
@@ -1298,11 +1189,10 @@ namespace SkiResortMod.Systems
                          $"{Tuning.PaintBrushSizeMeters / math.max(metersPerTexel, 0.001f):F1} texels)");
         }
 
-        /// <summary>True when any entity in the (event) query's chunks is one of our runs.
-        /// Runs only on event frames; chunk-level iteration.</summary>
+        /// <summary>True when any entity in the (event) query's chunks is one of our runs. Runs only on event frames; chunk-level iteration.</summary>
         private bool AnyMatchingPrefab(EntityQuery query)
         {
-            EntityManager.CompleteDependencyBeforeRO<PrefabRef>();   // L4
+            EntityManager.CompleteDependencyBeforeRO<PrefabRef>();
             var chunks = query.ToArchetypeChunkArray(Allocator.Temp);
             try
             {
@@ -1324,9 +1214,8 @@ namespace SkiResortMod.Systems
             return false;
         }
 
-        // House pattern: fast PrefabID path + name-scan fallback, tolerate missing (the run
-        // surfaces are NOT YET IMPORTED on some machines; the system logs its inertness once
-        // per load and sleeps until they exist).
+        // Fast PrefabID path + name-scan fallback, tolerating missing prefabs (the run surfaces may not be imported yet; the system
+        // logs its inertness once per load and sleeps until they exist)
         private void ResolveRunPrefabs()
         {
             if (m_PrefabsResolved)

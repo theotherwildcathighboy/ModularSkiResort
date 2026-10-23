@@ -1,59 +1,59 @@
-// TramShuttleSystem — moves the aerial tram's two cabins (Catalog Phase C, 2026-10-11; mover group).
-// Contract: docs/research/art/assets-2026-10/code-round-3/round-3-contract.md §4 (C1-C19), with
-// round-3-contract-skeptic.md MUST 1, 3, 6 applied; design: understand/code-economy.md §A.4 ("the Shuttle design");
-// rulings: ROUND-SPEC R16, R27-R31. Report: code-round-3/build-mover.md. The skeleton (seam S3 members only) was written
-// by the loopcache group (C18); this is the body. The dev-tab foldout is TramShuttleSystem.Debug.cs (C17).
+// Moves the aerial tram's two cabins. The dev-tab foldout is TramShuttleSystem.Debug.cs.
 //
 // WHAT IT MOVES. The Shuttle carriers (a SkiCatalog lift type whose Mover is Shuttle: the tram and its cabin prefab)
-// HOSTED on a Shuttle Base station: R29 — the base prefab's ObjectSubObjects list the two cabins at (9.50 / -1.50, 6.00,
-// -5.50; T14 x-sign N, 2026-10-16, game frame, was -9.50 / 1.50 before the mirror), identity, m_ParentMesh 0; the top station hosts none. Cabin A rides chain A (the up lane, right looking
+// HOSTED on a Shuttle Base station: the base prefab's ObjectSubObjects list the two cabins at (9.50 / -1.50, 6.00, -5.50)
+// in the game frame, identity, m_ParentMesh 0; the top station hosts none. Cabin A rides chain A (the up lane, right looking
 // uphill, StationAlign.UpLaneIsSecond), cabin B rides chain B; both paths run base dock -> top dock
 // (LiftLoopCache.BuildShuttles, the open-chain mode: the two chains UNCLOSED, each extended by a straight run from / to
-// the station's track-rope dock, StationDef.DockLocalA / B = (9.50 / -1.50, 16.00, -5.50) on the base, (-5.50 / +5.50, ...) on the top). Lanes: the track ropes are
-// the line's ONLY high-voltage lanes (R28: the haul ropes are low-voltage, UtilityType 8, skipped by the HV flag; a third
-// HV lane per side would give "3 chain(s), need exactly 2" and no path). ChairPinSystem never touches a Shuttle carrier
-// (IsPinnable) and never harvests a Shuttle line's lanes (its LogPrefabState writes the hand-off line once per load).
-// The R16 prototype is named SkiTramHVProto (not a catalog name): the catalog never finds it, so this system ignores it;
-// imported under the real line name it would find no tram cabin and idle (round-3-contract R-k).
+// the station's track-rope dock, StationDef.DockLocalA / B = (9.50 / -1.50, 16.00, -5.50) on the base, (-5.50 / +5.50, ...)
+// on the top). Lanes: the track ropes are the line's ONLY high-voltage lanes (the haul ropes are low-voltage, UtilityType 8,
+// skipped by the HV flag; a third HV lane per side would give "3 chain(s), need exactly 2" and no path). ChairPinSystem
+// never touches a Shuttle carrier (IsPinnable) and never harvests a Shuttle line's lanes (its LogPrefabState writes the
+// hand-off line once per load). The prototype is named SkiTramHVProto (not a catalog name): the catalog never finds it, so
+// this system ignores it; imported under the real line name it would find no tram cabin and idle.
 //
-// CLOCK (round-3-contract §3.3). TimeS = ShuttleProfile.TimeSOf(RenderingSystem.frameIndex, frameTime) = ChairPinSystem's
-// TimeS bit for bit ((frameIndex + frameTime) / 60 in double, ChairPinSystem.cs:1132-1135; LiftBatch SH-7): frozen on
-// pause (RenderingSystem.cs:187-190), smooth at any speed (:193-212), resnapped to the saved frame on load (:292-294).
-// 60 frames = 1 s of movement at 1x; one game day = 262,144 frames = 4,369 s (DECISIONS 152: movement runs about 20x
-// slower than the clock). The profile is the pure ShuttleProfile: a trapezoid at the type's SpeedMps (10 m/s) with
-// AccelMps2 (0.8 m/s²) ramps at both ends and DwellS (60 s) at each terminal, over L = Shuttle.ProfileLengthM (the mean of
-// L_A and L_B rounded to 1 cm, skeptic F4: a float-noise rebuild cannot shift the period). Cabin A at u =
-// ShuttleProfile.FractionA(TimeS, L, ...), s_A = u * L_A; cabin B at s_B = (1 - u) * L_B (C3: both dock at the same
-// instant, one haul rope; with L_A = L_B this is the brief's "cabin B at L - s_A"). One clock for every tram, no per-tram
-// phase offset (C8). A 1 km tram: trip 112.5 s, cycle 345 s = 20,700 frames, about 12.7 round trips a game day.
+// CLOCK. TimeS = ShuttleProfile.TimeSOf(RenderingSystem.frameIndex, frameTime) = ChairPinSystem's TimeS bit for bit
+// ((frameIndex + frameTime) / 60 in double, ChairPinSystem.cs:1132-1135; LiftBatch SH-7): frozen on pause
+// (RenderingSystem.cs:187-190), smooth at any speed (:193-212), resnapped to the saved frame on load (:292-294). Movement
+// runs about 20x slower than the game clock (one game day = 262,144 frames = 4,369 s of movement). The profile is the pure
+// ShuttleProfile (trapezoid at the type's SpeedMps and AccelMps2 with DwellS at each terminal) over L =
+// Shuttle.ProfileLengthM (the mean of L_A and L_B rounded to 1 cm: a float-noise rebuild cannot shift the period). Cabin A
+// at u = ShuttleProfile.FractionA(TimeS, L, ...), s_A = u * L_A; cabin B at s_B = (1 - u) * L_B (both dock at the same
+// instant, one haul rope). One clock for every tram, no per-tram phase offset.
 //
-// GATE (C6, C7). Evaluated per shuttle at a rebuild, on a power change and on the kill switch, never per frame:
+// GATE. Evaluated per shuttle at a rebuild, on a power change and on the kill switch, never per frame:
 //   Running = a shuttle path AND its census row Complete AND not Mixed AND LiftServedRule.IsPowered(power) AND not closed;
 //   Held    = a path AND Complete AND not Mixed AND (unpowered OR closed): both cabins stand at the terminals cabin A last
 //             reached (cabin A at u 0 or 1, cabin B mirrored);
 //   Parked  = everything else (no path, Open, Unfinished, StationsOnly, Mixed, no census row, the kill switch off, an
 //             invalid profile): every cabin in its hosted pose.
-//   "Closed" (hours / season) is NOT wired (C7: IsClosed returns false; lift-network F10 wires chairs and trams together
-//   later). Power = LiftCensusSystem.ReadLiftPower(base) — the mod's only reader of a station's ElectricityConsumer
-//   (LiftCensusSystem.cs:407-438; a sync point on DispatchElectricitySystem's writers) — per shuttle whose census row is
-//   Complete, every PowerPollFrames (64) rendered frames, and once per shuttle at each rebuild (deviation D2 of
-//   build-mover.md: without the rebuild read a city loaded unpowered would run its tram for up to 64 frames first).
-//   HELD LATCH (deviation D1). ShuttleProfile.HoldFractionA is a pure function of the clock: it flips between 0 and 1 every
+//   The power and closed tests are ONE predicate, LiftServedRule.Carries(true, run.Power, IsClosed(run)) — THE run
+//   predicate, which ChairPinSystem's hold and the hub's capacity use too (LiftBatch PG-1). "Closed" is the lift's
+//   held-closed flag from SkiLiftChargeSystem (the ski area has no open run). Power = LiftCensusSystem.ReadLiftPower(base),
+//   the mod's only reader of a station's ElectricityConsumer (a sync point on DispatchElectricitySystem's writers), per
+//   shuttle whose census row is Complete, every PowerPollFrames (64) rendered frames, and once per shuttle at each rebuild
+//   (without the rebuild read a city loaded unpowered would run its tram for up to 64 frames first). It is read for
+//   run.Base only: a Complete row has exactly one Base-role and one Top-role station (LiftCensus.cs), and LiftLoopTopology
+//   picks the Base-role station as the shuttle's base by role (Shuttle mode, LiftLoopTopology.cs:293-297), so run.Base IS
+//   the row's Base, the station with the ElectricityConsumer. The top station is never read. The flicker guard is
+//   inherited: ReadLiftPower returns the guarded value (NoPower at once; Powered again after 512 sim frames of power).
+//   HELD LATCH. ShuttleProfile.HoldFractionA is a pure function of the clock: it flips between 0 and 1 every
 //   half cycle (172.5 s for 1 km), so an unlatched Held tram would swap both cabins between the bays every half cycle
 //   while it stays unpowered. The mover latches it once per Held episode (transient, per shuttle, never saved): Running ->
 //   Held takes HoldFractionA at the cut (the terminal last reached: back to the station left, or on to the one reached);
 //   any other entry (a load, a rebuild, the kill switch, Parked -> Held) takes the terminal configuration the cabins
 //   already stand at (summed distance <= 1 m), else HoldFractionA. Leaving Held drops the latch; Held -> Running jumps once
-//   to the clock place (stateless by design, R-d).
+//   to the clock place (stateless by design). Running -> Held also snaps mid-span cabins to the terminals last reached
+//   (the chairs, by contrast, stop where they are).
 //
-// CABIN A / B IDENTITY (skeptic MUST 1; transient, per session, never saved). C8 rejects index-keyed state because entity
-// indices are remapped on load, so "cabin A = the lower (Index, Version)" could swap the cabins after a load (each would
+// CABIN A / B IDENTITY (transient, per session, never saved). Index-keyed state is rejected because entity indices are
+// remapped on load, so "cabin A = the lower (Index, Version)" could swap the cabins after a load (each would
 // jump to the other rope). The mover keeps a transient map cabin -> hosted BAY (0 = hosted entry 0 = dock A; 1 = entry 1 = dock B;
-// T14 frame, L12: dock A is the +X bay on the tram BASE and the -X bay on the tram TOP, SkiCatalog StationDef.DockLocalA / B).
+// dock A is the +X bay on the tram BASE and the -X bay on the tram TOP, SkiCatalog StationDef.DockLocalA / B).
 // Which chain a bay rides is geometry: chain A's cabin is the one in the bay of chain A's base dock (Path.m_BaseDock; the
 // other bay rides chain B). A cabin without an entry gets one, per station, by the first rule that applies:
 //   (a) FRESH BASE: every cabin within 0.05 m of a hosted pose -> the bay it stands in (the bay is read from the cabin's
-//       GEOMETRY against Path.m_BaseDock, never from the sign of X: since T14 the base's dock A is the +X bay, so "the
+//       GEOMETRY against Path.m_BaseDock, never from the sign of X: the base's dock A is the +X bay, so "the
 //       cabin in hosted bay 0 is A" holds by dock, not by side);
 //   (b) CLOCK PLACES: the assignment with the smaller sum |Transform - target|, the target being the clock place when
 //       Running, the latched (or both candidate) terminal configurations when Held, the hosted poses when Parked or when
@@ -61,19 +61,19 @@
 //   tie (within 1 mm) -> (Index, Version) order. The [rebuild] line names the rule ("kept", "fresh base", "by clock places,
 //   sum x.xx m", "tie by entity"). Vanilla re-hosting reuses the cabin entities (below), so the map survives it.
 //
-// HOW A CABIN IS PLACED (round-3-contract §4.7; written exactly as ChairPinSystem.MoveChair, ChairPinSystem.cs:1152-1187):
+// HOW A CABIN IS PLACED (written exactly as ChairPinSystem.MoveChair, ChairPinSystem.cs:1152-1187):
 //   rope, t_up = LiftLoopCache.Sample(path, s)      the track-rope point and the BASE -> TOP unit tangent at s
 //   position   = rope - (0, drop, 0)                 drop = the cabin's grip-top (CarrierGripTops: bounds.max.y, 10.50) -
-//                                                    CarrierDef.GripTopAboveRopeM (0.50) = 10.00 (R27: placed by the ROPE,
+//                                                    CarrierDef.GripTopAboveRopeM (0.50) = 10.00 (placed by the ROPE,
 //                                                    never by bounds.max.y); the pivot (floor underside) hangs 10 m below
-//   rotation   = NetUtils.GetNodeRotation(-t_up, the parked rotation)   (C4) NetUtils.cs:316-324 (=1.6.2) zeroes
+//   rotation   = NetUtils.GetNodeRotation(-t_up, the parked rotation)   NetUtils.cs:316-324 (=1.6.2) zeroes
 //                tangent.y: level cabins, the hanger modeled plumb; -t_up, never the travel direction, so no 180-degree
-//                turn at a reversal (R29: the cabin is front / back symmetric); at the base dock -t_up = station +Z, so
+//                turn at a reversal (the cabin is front / back symmetric); at the base dock -t_up = station +Z, so
 //                the running pose there equals the hosted identity pose (rope 16.00 - 10.00 = pivot 6.00)
 //   idempotence: distance² < 1e-6 and |dot(q, q')| > 0.99999 -> no write (ChairPinSystem.cs:1168-1171);
 //   EntityManager.SetComponentData(cabin, transform). Elevation untouched (ChairPinSystem.cs:1177-1181). InterpolatedTransform
 //   never written per frame (ChairPinSystem.cs:1183-1185): vanilla copies Transform into it (VANILLA FACTS).
-//   A level carriage on a pitched rope leaves its wheel ends +-2.80 * tan(pitch) off the rope (accepted, cabin manifest).
+//   A level carriage on a pitched rope leaves its wheel ends +-2.80 * tan(pitch) off the rope (accepted).
 //   THE PARKED POSE of hosted entry k = ObjectUtils.LocalToWorld(station Transform, Transform(m_Position, m_Rotation))
 //   (ObjectUtils.cs:244-250 (=1.6.2)), the formula SubObjectSystem uses for a building's sub-object (SubObjectSystem.cs:1757;
 //   no AnchorTop / AnchorCenter, :2459-2488 is Pillar only; no OnGround adjustment, :2507-2545, for m_ParentMesh 0, whose
@@ -87,17 +87,17 @@
 // state (SubObjectSystem, Modification2B, SystemOrder.cs:131, re-hosts them on a station update and its barrier plays at
 // the end of 2B, :88), the track-rope lanes are final (LaneSystem, Modification4, :155) and our Transform write lands
 // before Game.Objects.SearchSystem (Modification5, :197), UpdateGroupSystem (:214) and PreCulling (:633). After the census
-// so its rows (Complete / Mixed / Revision) are this frame's. Main thread, no job (C9): at most 2 Transform writes per
+// so its rows (Complete / Mixed / Revision) are this frame's. Main thread, no job: at most 2 Transform writes per
 // tram per frame. The phase must stay Modification4B or the anchor is skipped and the system silently never runs.
 //
-// TRIGGERS -> REBUILD (round-3-contract §4.4 step 3). A Shuttle cabin in the change probe ({Static, Owner, PrefabRef,
+// TRIGGERS -> REBUILD. A Shuttle cabin in the change probe ({Static, Owner, PrefabRef,
 // Transform} with Created or Updated, no Deleted / Temp), a census Revision change (only while a tram station, run or
 // cabin exists, or a census row is of a Shuttle type), a rostered cabin gone (Missing), the load, a catalog
 // re-resolution, the watchdog (4096 frames, only while tram stations or cabins exist). Event triggers bypass the
 // 30-frame cooldown; the watchdog does not (ChairPinSystem.cs:1017-1044). Our own Updated tags are added after the
 // probe at 4B and stripped by CleanUpSystem (SystemOrder.cs:54) the same frame, so they never re-trigger.
-// Census gate (C12): nothing is written until the census has built once this load (IsArmed && Builds > 0; Builds resets
-// at LiftCensusSystem.cs:757, ++ at :1153); after 120 frames without a build it runs on the cable path alone (no census
+// Census gate: nothing is written until the census has built once this load (IsArmed && Builds > 0; Builds resets per
+// load); after 120 frames without a build it runs on the cable path alone (no census
 // rows: Complete assumed, power Unknown = powered) with one WARN.
 //
 // VANILLA FACTS RELIED ON (tools/decompile/1.6.0f1; 1.6.2 shifts noted):
@@ -107,7 +107,7 @@
 //   * On a station update an existing cabin of the same prefab is REUSED — FindOldSubObject :3318-3363 (1.6.2 :3322)
 //     takes the nearest old entity of that prefab by its CURRENT position, so a mid-span re-host may put either entity in
 //     either bay: identity kept, bay irrelevant (we overwrite) — and RemoveUnusedOldSubObjects (:1227-1268) deletes only
-//     the owned entities left over (the cabins are listed in the prefab, so both are reused; understand/sign-we.md §1.4).
+//     the owned entities left over (the cabins are listed in the prefab, so both are reused).
 //     Its Transform is reset to the hosted pose (:2607-2610, 1.6.2 +3), its InterpolatedTransform REMOVED (:2687-2691: a
 //     building owner is never "interpolated", :922-926) and it gets Updated (:2737-2740): our probe sees it the same frame
 //     at 4B -> rebuild -> re-enroll -> rewrite, no visible flash. EXCEPTIONS: under construction (:2494) and a Destroyed
@@ -123,62 +123,28 @@
 //     (query :724 {Updated, InterpolatedTransform}, =1.6.2) copies Transform for an Updated entity, which refreshes a FAR
 //     cabin (not NearCamera) at every bounds refresh. Enrolled ONCE per rebuild (AddComponentData when missing + Updated,
 //     ChairPinSystem.cs:1494-1504 verbatim); vanilla InterpolatedTransform is IEmptySerializable (InterpolatedTransform.cs:9):
-//     no save-format change (rule 0.2.2; ChairPin's precedent for chairs).
+//     no save-format change.
 //   * CullingInfo and the static search tree re-read Transform only on Updated (PreCullingSystem.cs:709-718: per object, the
 //     cabin's own Transform; Owner only feeds the layer mask, :701): one Updated tag per BoundsRefreshMeters (2 m) of travel.
 //   * The cabin's UtilityObject grants IgnoreSecondaryCollision (ObjectInitializeSystem.cs:594-597, the else-if after the
 //     Pillar branch :578-593; 1.6.2 :602): a hosted cabin is never a validation obstacle. Game.Objects.UtilityObject is read
 //     only by RoadConnectionSystem for Secondary sub-objects (:844, :1544) and ObjectColorSystem: a moving cabin cannot
-//     capture a power line (skeptic F6).
+//     capture a power line.
 //   * NetUtils.GetNodeRotation zeroes tangent.y and returns its default for a degenerate tangent (NetUtils.cs:316-324).
 //
-// OBSERVABILITY ("silence must be impossible"; exact texts in build-mover.md §4, numbers invariant culture):
-//   "TramShuttleSystem created"; per load ONE [arm] line — "idle this load" (no Shuttle carrier FOUND, Info), "Editor —
-//   inactive" (Info), or the full arm line (Info; WARN with a CHECK list); the census WARN (C12); per rebuild signature the
-//   [rebuild] line (Info) and the refusal WARNs (a Complete tram with no path, dock runs over 30 m, once per text per
-//   load); per station per load the cabin-count WARNs (0, 1 or > 2 hosted cabins; a base starting two lines); per prefab
-//   per load the no-drop WARN; [state] transitions (Info, a 10 s LogWindow per shuttle, flushed on load and quit),
-//   including "<state> → Parked (no shuttle path)" when a known shuttle vanishes from a rebuild and "Parked → <state>" when
-//   that pair gets a shuttle back (round-3 behavior review #1; one transient set of vanished pairs, cleared per load);
-//   "[moving] pass alive" once per load; the slow-pass WARN (a mover pass over 1.0 ms) once per load; an exception ->
-//   "!!! TramShuttleSystem disabled for this load" with the stack, once per load, re-armed on the next load; the
-//   watchdog WARN when a watchdog rebuild changed the signature (once per load). The dev tab (C17) and AppendDump read
-//   counters only.
-//
-// COST (skeptic MUST 3: no managed allocation per frame on the steady path). Exit reasons are string literals; numbers
-// are formatted only in log lines, rebuilds and debug getters; timing with Stopwatch.GetTimestamp() (no Stopwatch
-// instance); ToArchetypeChunkArray(Allocator.Temp) only when the probe query is non-empty; no LINQ, closures or boxing in
-// OnUpdate (Entity / tuple keys use their IEquatable comparers). Per frame with trams: one probe, one Revision compare,
-// per shuttle one closed-form FractionA and two Sample calls (binary search + ClampLength), at most 2 Transform writes.
-// Without a FOUND Shuttle carrier: one dictionary count check and return.
-//
+// LOGS: every state change is logged ("silence must be impossible"; exact texts in
+// docs/research/art/assets-2026-10/code-round-3/build-mover.md §4): one [arm] line per load, [rebuild] lines, refusal and
+// cabin-count WARNs (once per text per load), folded [state] transitions (a 10 s LogWindow per shuttle, flushed on load and
+// quit), and on an exception "!!! TramShuttleSystem disabled for this load" (re-armed on the next load). No managed
+// allocation per frame on the steady path: exit reasons are string literals, numbers are formatted only in log lines and
+// rebuilds, timing uses Stopwatch.GetTimestamp(), the probe chunk array is taken only when its query is non-empty.
 // NEVER: no save data (no new IComponentData / buffer / serializable; positions come from the clock); no Hidden / Deleted
 // on a cabin; never touches a Loop carrier, a Temp entity (tool previews keep vanilla's hosted pose) or anything in the
-// Editor (C10: Richard imports there; a moved hosted cabin could be saved into a map or asset).
+// Editor (a moved hosted cabin could be saved into a map or asset).
 //
-// PHASE C CROSS-REFERENCES: ChairPinSystem's hand-off Info (LogPrefabState) and header item 7; ChairPinSystem.Debug.cs
-// builds this system's foldout and appends AppendDump to its dump; SkiResortStatsSystem reads seam S3 (TryGetShuttle,
-// CabinsHostedBy, DescribeShuttle; round-3-contract §6.2); SkiResortHubUISystem offers the tram items only while this
-// system is registered (C13).
-//
-// PHASE D (2026-10-11; docs/research/art/assets-2026-10/code-round-4/round-4-contract.md §3.3, D1, D8; movers group; report
-// code-round-4/build-movers.md). Richard's re-ruling, DECISIONS 171: an unpowered lift of every type carries no guests and
-// its carriers stop — the tram already did (Held without power, C6). What changed:
-//   * Gate's two tests (no power, then closed) are ONE predicate, LiftServedRule.Carries(true, run.Power, IsClosed(run)) —
-//     THE run predicate, which ChairPinSystem's hold and the hub's capacity use too. Same decisions, same texts (power named
-//     first): Carries(true, p, c) = IsPowered(p) && !c (LiftBatch PG-1).
-//   * The flicker guard is inherited: run.Power comes from LiftCensusSystem.ReadLiftPower (PollPower, FillRun), which now
-//     returns the guarded value (NoPower at once; Powered again after 512 sim frames of power — LiftCensusSystem header
-//     PHASE D). The 64-frame poll, the rebuild read, the Held latch (D1), the census gate (C12) and the hub's O2 gate are
-//     unchanged.
-//   * BASE STATION ONLY (Richard's ruling, DECISIONS 171): power is read for run.Base only when the census row is Complete
-//     (PollPower :844, FillRun :1523). A Complete row has exactly one Base-ROLE and one Top-role station (LiftCensus.cs:639-647,
-//     :652-656, :790), and LiftLoopTopology then picks the Base-role station as the shuttle's base by role (Shuttle mode,
-//     LiftLoopTopology.cs:293-297): run.Base IS the row's Base, the station with the ElectricityConsumer. The top station is
-//     never read.
-//   * Unchanged by Richard's default (D8, R-d): Held → Running jumps once to the clock place. Not built (Option T,
-//     round-4-contract §3.4; skeptic S-2): Running → Held also snaps mid-span cabins to the terminals last reached (the
-//     latch: HoldHint :1076-1078 and ApplyState :1119-1129), where the chairs stop where they are.
+// CROSS-REFERENCES: ChairPinSystem.Debug.cs builds this system's foldout and appends AppendDump to its dump;
+// SkiResortStatsSystem reads TryGetShuttle, CabinsHostedBy and DescribeShuttle; SkiResortHubUISystem offers the tram items
+// only while this system is registered.
 
 using System;
 using System.Collections.Generic;
@@ -202,20 +168,20 @@ namespace SkiResortMod.Systems
 {
     public sealed partial class TramShuttleSystem : GameSystemBase
     {
-        // ── Tuning (round-3-contract §4.4-§4.9) ─────────────────────────────────────────────────────────────────────
-        internal const int CensusGateFrames = 120;            // C12
-        internal const int PowerPollFrames = 64;              // C11
+        // Tuning
+        internal const int CensusGateFrames = 120;  // frames without a census build before running on the cable path alone
+        internal const int PowerPollFrames = 64;
         internal const int RebuildCooldownFrames = 30;        // = ChairPinSystem.RebuildCooldownFrames
         internal const int WatchdogIntervalFrames = 4096;     // = ChairPinSystem.WatchdogIntervalFrames
         internal const double BoundsRefreshMeters = 2.0;      // = ChairPinSystem.BoundsRefreshMeters (ChairPinSystem.cs:289)
-        internal const float FreshBaseToleranceM = 0.05f;     // MUST 1 (a)
+        internal const float FreshBaseToleranceM = 0.05f;  // fresh-base rule (a)
         internal const float HostedCheckToleranceM = 0.05f;   // [arm] CHECK: hosted pose vs dock − drop
-        internal const double HeldStandingToleranceM = 1.0;   // D1: Σ over the cabins "already at a terminal configuration"
-        internal const double TieToleranceM = 1e-3;           // MUST 1: an assignment tie
-        internal const double SlowPassMs = 1.0;               // §4.8
-        internal const float StateLogWindowS = 10f;           // §4.9: the [state] lines, like the census power lines
+        internal const double HeldStandingToleranceM = 1.0;  // Σ over the cabins "already at a terminal configuration"
+        internal const double TieToleranceM = 1e-3;  // an assignment tie
+        internal const double SlowPassMs = 1.0;
+        internal const float StateLogWindowS = 10f;  // the [state] lines, like the census power lines
 
-        // ── Kill switch (dev tab, §4.10): false parks every cabin in its hosted pose ──────────────────────────────────
+        // Kill switch (dev tab): false parks every cabin in its hosted pose
         private static bool MovingShuttles = true;
         internal static bool MovingShuttlesOn => MovingShuttles;
 
@@ -229,7 +195,7 @@ namespace SkiResortMod.Systems
         private EntityQuery m_LaneQuery;                      // = ChairPin's (:513-520)
         private EntityQuery m_StationQuery;                   // = ChairPin's (:522-527)
 
-        // ── The Shuttle carrier prefabs of this load (by catalog Generation) ──────────────────────────────────────────
+        // The Shuttle carrier prefabs of this load (by catalog Generation)
         private struct CarrierInfo
         {
             public LiftTypeDef Def;
@@ -240,7 +206,7 @@ namespace SkiResortMod.Systems
         private readonly Dictionary<Entity, CarrierInfo> m_Carriers = new Dictionary<Entity, CarrierInfo>();
         private int m_CarrierGeneration = int.MinValue;
 
-        // ── One shuttle (a station pair with a path): rebuilt geometry + transient gate state carried by pair ─────────
+        // One shuttle (a station pair with a path): rebuilt geometry + transient gate state carried by pair
         private sealed class Run
         {
             public LiftLoopCache.Shuttle Sh;
@@ -259,11 +225,11 @@ namespace SkiResortMod.Systems
             public LiftCensus.State RowState;
             public bool RowMixed;
             public LiftPower Power = LiftPower.Unknown;
-            public bool Closed;                                    // T13: the last IsClosed read (Gate); PollPower re-gates on a change
+            public bool Closed;  // the last IsClosed read (Gate); PollPower re-gates on a change
             public ShuttleState State = ShuttleState.Parked;
             public bool StateKnown;                                // false until the first gate of this run
             public string StateWhy = "";
-            public bool HasLatch;                                  // D1: the Held latch
+            public bool HasLatch;  // the Held latch
             public double HoldU;
             public double U;
             public ShuttleLeg Leg;
@@ -278,7 +244,7 @@ namespace SkiResortMod.Systems
         private readonly Dictionary<(Entity, Entity), Run> m_RunsByPair = new Dictionary<(Entity, Entity), Run>();
         private readonly List<(Entity, Entity)> m_PairScratch = new List<(Entity, Entity)>();
 
-        /// <summary>Skeptic MUST 1: cabin → hosted bay, transient (per session, cleared per load, never saved).</summary>
+        /// <summary>Cabin → hosted bay, transient (per session, cleared per load, never saved).</summary>
         private readonly Dictionary<Entity, int> m_CabinBay = new Dictionary<Entity, int>();
 
         private struct ParkedCabin
@@ -289,7 +255,7 @@ namespace SkiResortMod.Systems
         }
         private readonly List<ParkedCabin> m_ParkedCabins = new List<ParkedCabin>();
 
-        // ── Rebuild scratch (allocation-free once grown; rebuilds are event-driven) ──────────────────────────────────
+        // Rebuild scratch (allocation-free once grown; rebuilds are event-driven)
         private readonly List<Entity> m_StationList = new List<Entity>();
         private readonly List<Transform> m_StationTransforms = new List<Transform>();
         private readonly List<StationDef> m_StationDefList = new List<StationDef>();
@@ -305,7 +271,7 @@ namespace SkiResortMod.Systems
         private readonly List<LiftCensus.Row> m_Rows = new List<LiftCensus.Row>();
         private static readonly Comparison<Entity> s_ByEntity = CompareEntity;
 
-        // ── Per-load state ───────────────────────────────────────────────────────────────────────────────────────────
+        // Per-load state
         private bool m_InGame, m_InEditor;
         private bool m_Disabled, m_ErrorLogged;
         private bool m_ArmLogged, m_IdleLogged, m_CensusWarned, m_CensusBuilt;
@@ -322,14 +288,14 @@ namespace SkiResortMod.Systems
         private bool m_MovingAliveLogged, m_SlowWarned, m_WatchdogWarned;
         private readonly HashSet<string> m_Warned = new HashSet<string>(StringComparer.Ordinal);
         private readonly HashSet<Entity> m_CabinWarned = new HashSet<Entity>();
-        // Behavior review #5: the "starts N tram lines" WARN has its own once-per-base set, so a base that ALSO hosts a wrong
+        // The "starts N tram lines" WARN has its own once-per-base set, so a base that ALSO hosts a wrong
         // number of cabins (m_CabinWarned) still gets both lines.
         private readonly HashSet<Entity> m_TwoLinesWarned = new HashSet<Entity>();
-        // Behavior review #1 (transient, per load, never saved): pairs whose known Run vanished from a rebuild; the pair's
+        // Transient, per load, never saved: pairs whose known Run vanished from a rebuild; the pair's
         // next Run logs "Parked → <state>" (a new Run has no previous state of its own).
         private readonly HashSet<(Entity, Entity)> m_VanishedPairs = new HashSet<(Entity, Entity)>();
 
-        // ── Diagnostics (dev tab, AppendDump): plain counters, written where the work happens ────────────────────────
+        // Diagnostics (dev tab, AppendDump): plain counters, written where the work happens
         private int m_DiagUpdateCalls;
         private string m_LastExit = "never ran";
         private string m_LastError;
@@ -343,16 +309,16 @@ namespace SkiResortMod.Systems
         private int m_DiagPausedSkips, m_DiagPowerReads;
         private double m_DiagPassUs, m_DiagPassUsMax, m_DiagRebuildMs, m_DiagRebuildMsMax;
 
-        // ═══════════════════════════════════════════════════════════════════════════ seam S3 (round-3-contract §4.11)
+        // Accessors for SkiResortStatsSystem / SkiResortHubUISystem
 
-        /// <summary>Seam S3: a Game load, a Shuttle carrier prefab FOUND this load, not disabled by an exception.</summary>
+        /// <summary>A Game load, a Shuttle carrier prefab FOUND this load, not disabled by an exception.</summary>
         internal bool IsArmed => m_InGame && !m_Disabled && m_Carriers.Count > 0;
 
-        /// <summary>Seam S3: the shuttle between the two stations (either order); false = no path. Parked shuttles answer
+        /// <summary>The shuttle between the two stations (either order); false = no path. Parked shuttles answer
         /// true with CabinsOnPath 0 (the hub reads them ChairsStopped).</summary>
         internal bool TryGetShuttle(Entity stationA, Entity stationB, out ShuttleView view)
         {
-            // Behavior review #4: after an exception the system is disabled for the load and its cabins stand where they
+            // After an exception the system is disabled for the load and its cabins stand where they
             // were; the last Run would still read "Running". No path -> Stats reads state 1 (ChairsStopped).
             Run run = m_Disabled ? null : FindRun(stationA, stationB);
             if (run == null)
@@ -374,13 +340,13 @@ namespace SkiResortMod.Systems
             return true;
         }
 
-        /// <summary>Seam S3: Shuttle carriers owned by the station at the last rebuild (the cabins it hosts).</summary>
+        /// <summary>Shuttle carriers owned by the station at the last rebuild (the cabins it hosts).</summary>
         internal int CabinsHostedBy(Entity station)
         {
             return station != Entity.Null && m_HostedCount.TryGetValue(station, out int n) ? n : 0;
         }
 
-        /// <summary>Seam S3: one line for the hub's DUMP ("Running, cabin A Up at 0.42, path 1013 m, trip 113.8 s, cycle
+        /// <summary>One line for the hub's DUMP ("Running, cabin A Up at 0.42, path 1013 m, trip 113.8 s, cycle
         /// 347.6 s, cabins 2/2"); "" when no shuttle runs between the two stations.</summary>
         internal string DescribeShuttle(Entity stationA, Entity stationB)
         {
@@ -388,13 +354,13 @@ namespace SkiResortMod.Systems
             if (run == null)
                 return "";
             if (m_Disabled)
-                return "disabled for this load by an exception (cabins frozen; see the TramShuttle dump)";   // review #4
+                return "disabled for this load by an exception (cabins frozen; see the TramShuttle dump)";
             int onPath = run.State == ShuttleState.Parked ? 0 : run.Cabins;
             return Inv($"{run.State}{run.StateWhy}, cabin A {run.Leg} at {run.U:F2}, path {run.L:F0} m, trip {run.TripS:F1} s, ") +
                    Inv($"cycle {run.CycleS:F1} s, cabins {onPath}/{run.Cabins}");
         }
 
-        /// <summary>Seam S3: the DUMP block (ChairPinSystem.Debug's dump and this system's dev-tab button).</summary>
+        /// <summary>The DUMP block (ChairPinSystem.Debug's dump and this system's dev-tab button).</summary>
         internal void AppendDump(StringBuilder sb)
         {
             try
@@ -454,7 +420,6 @@ namespace SkiResortMod.Systems
             }
         }
 
-        // ═══════════════════════════════════════════════════════════════════════════ lifecycle
 
         protected override void OnCreate()
         {
@@ -471,7 +436,7 @@ namespace SkiResortMod.Systems
                     ComponentType.ReadOnly<Game.Objects.Static>(),
                     ComponentType.ReadOnly<Owner>(),
                     ComponentType.ReadOnly<PrefabRef>(),
-                    // M8 (code review 2026-10-19): the probe only counts PrefabRef; ReadWrite<Transform> made a
+                    // The probe only counts PrefabRef; ReadWrite<Transform> made a
                     // CompleteDependency here sync every Transform writer in the city (cars, pedestrians).
                     ComponentType.ReadOnly<Transform>(),
                 },
@@ -532,7 +497,7 @@ namespace SkiResortMod.Systems
 
         protected override void OnGameLoadingComplete(Purpose purpose, GameMode mode)
         {
-            // Contract review note #9 (REVIEW #13 pattern, like OnGamePreload): vanilla catches a throw here and writes it to
+            // Like OnGamePreload: vanilla catches a throw here and writes it to
             // the game's log only, without disabling the system (Game/GameSystemBase.cs:60-70), so a half-done reset would
             // leave nothing in SkiResortMod.Mod.log. A failed reset disables this load (fail-stop, as OnUpdate's catch).
             try
@@ -557,13 +522,13 @@ namespace SkiResortMod.Systems
             m_InEditor = mode == GameMode.Editor;
 
             // Re-arm per load (an exception disables the CURRENT load only) and drop every transient: the cache, the runs,
-            // the MUST 1 bay map (entity indices are remapped on load), the latches, the once-per-load latches.
+            // the bay map (entity indices are remapped on load), the latches, the once-per-load latches.
             m_Disabled = false;
             m_ErrorLogged = false;
             m_LastError = null;
             m_ArmLogged = false;
             m_LaneScanLogged = false;
-            m_HarvestVerified = m_HarvestFullThisLoad = false;   // R-4: the lane-harvest watchdog re-arms per load
+            m_HarvestVerified = m_HarvestFullThisLoad = false;  // the lane-harvest watchdog re-arms per load
             m_IdleLogged = false;
             m_CensusWarned = false;
             m_CensusBuilt = false;
@@ -630,7 +595,6 @@ namespace SkiResortMod.Systems
             base.OnDestroy();
         }
 
-        // ═══════════════════════════════════════════════════════════════════════════ the frame (round-3-contract §4.4)
 
         protected override void OnUpdate()
         {
@@ -664,7 +628,7 @@ namespace SkiResortMod.Systems
                     m_ArmLogged = false;
                 }
 
-                // 2. Census gate (C12): write nothing until the census has built once this load.
+                // 2. Census gate: write nothing until the census has built once this load.
                 if (m_Census == null)
                     m_Census = World.GetExistingSystemManaged<LiftCensusSystem>();
                 LiftCensusSystem census = m_Census;
@@ -695,7 +659,7 @@ namespace SkiResortMod.Systems
 
                 double timeS = ShuttleProfile.TimeSOf(m_RenderingSystem.frameIndex, m_RenderingSystem.frameTime);
 
-                // 3. Triggers. M8: the cabin probe runs only once a tram exists (a Shuttle census row, a run or a parked
+                // 3. Triggers. The cabin probe runs only once a tram exists (a Shuttle census row, a run or a parked
                 // cabin); a city without one never reads the query's chunks.
                 bool tramPresent = m_Runs.Count > 0 || m_ParkedCabins.Count > 0 || AnyShuttleRow();
                 m_DiagProbeHitsLast = !tramPresent || m_ChangedCabinQuery.IsEmptyIgnoreFilter ? 0 : CountChangedCabins();
@@ -726,7 +690,7 @@ namespace SkiResortMod.Systems
                     rebuilt = true;
                 }
 
-                // 4. Power poll (C11) and the gate (C6) on a change; the kill switch re-gates everything.
+                // 4. Power poll and the gate on a change; the kill switch re-gates everything.
                 if (censusBuilt)
                     PollPower(census, timeS);
                 if (m_GateDirty)
@@ -746,7 +710,7 @@ namespace SkiResortMod.Systems
                 }
                 m_LastTimeS = timeS;
 
-                // 6-7. Move / hold / park, bounds refresh. Timed alone (§4.8): the rebuild has its own figure in [rebuild],
+                // 6-7. Move / hold / park, bounds refresh. Timed alone: the rebuild has its own figure in [rebuild],
                 // and the power poll's ReadLiftPower is a sync point on the electricity jobs, not mover work.
                 long moveStart = Stopwatch.GetTimestamp();
                 MovePass(timeS);
@@ -795,15 +759,14 @@ namespace SkiResortMod.Systems
             Mod.Log.Info($"TramShuttle [{source}]: moving {(MovingShuttles ? "ON — the cabins follow the clock" : "OFF — every cabin parks in its hosted pose")}");
         }
 
-        // ═══════════════════════════════════════════════════════════════════════════ steady path
 
-        /// <summary>The change probe (round-3-contract §4.4 step 3): Shuttle cabins among this frame's Created / Updated
-        /// owned static objects. Called only when the query is non-empty (skeptic MUST 3).</summary>
+        /// <summary>The change probe: Shuttle cabins among this frame's Created / Updated
+        /// owned static objects. Called only when the query is non-empty.</summary>
         private int CountChangedCabins()
         {
             int count = 0;
-            // REVIEW #16 pattern (ChairPinSystem's main-thread chunk reads, code-review-2026-10/REVIEW.md #16): complete the
-            // writers of the component read below. M8: PrefabRef only (the query itself is Transform ReadOnly).
+            // Complete the writers of the component read below (as ChairPinSystem's main-thread chunk reads).
+            // PrefabRef only (the query itself is Transform ReadOnly).
             EntityManager.CompleteDependencyBeforeRO<PrefabRef>();
             var chunks = m_ChangedCabinQuery.ToArchetypeChunkArray(Allocator.Temp);
             try
@@ -837,7 +800,7 @@ namespace SkiResortMod.Systems
             return false;
         }
 
-        /// <summary>C11: ReadLiftPower per shuttle whose census row is Complete, every PowerPollFrames of the rendered frame
+        /// <summary>ReadLiftPower per shuttle whose census row is Complete, every PowerPollFrames of the rendered frame
         /// counter (nothing while paused); a change re-gates that shuttle.</summary>
         private void PollPower(LiftCensusSystem census, double timeS)
         {
@@ -852,7 +815,7 @@ namespace SkiResortMod.Systems
                     continue;
                 LiftPower power = census.ReadLiftPower(run.Base);
                 m_DiagPowerReads++;
-                // T13: a change of the closed flag re-gates too (the ski area's run state flips the cabins like power does).
+                // A change of the closed flag re-gates too (the ski area's run state flips the cabins like power does).
                 bool closedNow = IsClosed(run);
                 if (power == run.Power && closedNow == run.Closed)
                     continue;
@@ -894,7 +857,7 @@ namespace SkiResortMod.Systems
                 }
                 else
                 {
-                    // Held (D1): the latched terminal; constant, so it is written only when it changed.
+                    // Held: the latched terminal; constant, so it is written only when it changed.
                     u = run.HoldU;
                     leg = u > 0.5 ? ShuttleLeg.DwellTop : ShuttleLeg.DwellBase;
                     if (!run.PoseDirty)
@@ -907,7 +870,7 @@ namespace SkiResortMod.Systems
                 run.U = u;
                 run.Leg = leg;
 
-                // Bounds refresh (§4.4 step 7): Updated on both cabins every BoundsRefreshMeters of travel (and on a jump).
+                // Bounds refresh: Updated on both cabins every BoundsRefreshMeters of travel (and on a jump).
                 bool tag = run.PoseDirty || double.IsNaN(run.BoundsU) || Math.Abs(u - run.BoundsU) * run.L >= BoundsRefreshMeters;
                 for (int c = 0; c < 2; c++)
                 {
@@ -974,12 +937,12 @@ namespace SkiResortMod.Systems
             LiftLoopCache.Sample(path, s, out float3 rope, out float3 baseToTop);
             float3 position = rope;
             position.y -= drop;
-            // C4: −t_up, never the travel direction (no 180-degree turn at a reversal, R29); y zeroed: level cabins.
+            // -t_up, never the travel direction (no 180-degree turn at a reversal); y zeroed: level cabins.
             quaternion rotation = NetUtils.GetNodeRotation(-baseToTop, fallback);
             return Write(cabin, transform, position, rotation);
         }
 
-        /// <summary>The hosted pose; one Updated tag when it moved the cabin (round-3-contract §4.7, last paragraph).</summary>
+        /// <summary>The hosted pose; one Updated tag when it moved the cabin.</summary>
         private MoveResult Park(Entity cabin, Transform pose)
         {
             if (!EntityManager.Exists(cabin) || EntityManager.HasComponent<Deleted>(cabin) ||
@@ -1014,7 +977,6 @@ namespace SkiResortMod.Systems
                 EntityManager.AddComponent<Updated>(cabin);
         }
 
-        // ═══════════════════════════════════════════════════════════════════════════ the gate (C6, C7, D1)
 
         private ShuttleState Gate(Run run, out string why)
         {
@@ -1053,11 +1015,10 @@ namespace SkiResortMod.Systems
                     return ShuttleState.Parked;
                 }
             }
-            bool closed = IsClosed(run);   // T13: the ski area has no open run (was C7: false)
+            bool closed = IsClosed(run);  // the ski area has no open run
             run.Closed = closed;           // PollPower re-gates when it changes
-            // Phase D (round-4-contract §3.3; was TramShuttleSystem.cs:1026-1035, two tests): THE run predicate; the row is
-            // Complete here (checked above, or assumed while the census has not built: C12). Carries(true, power, closed) =
-            // IsPowered(power) && !closed (LiftBatch PG-1), so the decisions and texts are the old ones (power first).
+            // THE run predicate; the row is Complete here (checked above, or assumed while the census has not built).
+            // Carries(true, power, closed) = IsPowered(power) && !closed (LiftBatch PG-1): power is named first.
             if (!LiftServedRule.Carries(true, run.Power, closed))
             {
                 why = !LiftServedRule.IsPowered(run.Power) ? " at the terminals last reached (no power)"
@@ -1068,7 +1029,7 @@ namespace SkiResortMod.Systems
             return ShuttleState.Running;
         }
 
-        /// <summary>T13 (report item 78; was C7, "closed" not wired, always false): the shuttle's lift is closed when its ski area
+        /// <summary>The shuttle's lift is closed when its ski area
         /// has no open run — SkiLiftChargeSystem.IsLiftClosed, the one per-lift signal the chairs read too (LiftClosedRule: the
         /// state the 25 % billing reads, held one game hour before it flips). No census row, or no ski area: never closed.</summary>
         private bool IsClosed(Run run)
@@ -1080,7 +1041,7 @@ namespace SkiResortMod.Systems
             return m_Charge != null && m_Charge.IsLiftClosed(run.Base, run.Top);
         }
 
-        private SkiLiftChargeSystem m_Charge;   // T13: resolved lazily (GetExistingSystemManaged, never created here)
+        private SkiLiftChargeSystem m_Charge;  // resolved lazily (GetExistingSystemManaged, never created here)
 
         /// <summary>A gate change outside a rebuild (power, kill switch): transition, latch, log.</summary>
         private void ReGate(Run run, double timeS)
@@ -1091,7 +1052,7 @@ namespace SkiResortMod.Systems
             ApplyState(run, gate, why, timeS, gate == ShuttleState.Held ? HoldHint(run, timeS) : double.NaN);
         }
 
-        /// <summary>D1: the terminal configuration a Held episode latches (header GATE).</summary>
+        /// <summary>The terminal configuration a Held episode latches (header GATE).</summary>
         private double HoldHint(Run run, double timeS)
         {
             if (run.StateKnown && run.State == ShuttleState.Running && run.Def != null)
@@ -1104,7 +1065,7 @@ namespace SkiResortMod.Systems
                 : 0.0;
         }
 
-        /// <summary>D1: u ∈ {0, 1} when the cabins already stand at that terminal configuration (Σ ≤ 1 m), else NaN.</summary>
+        /// <summary>u ∈ {0, 1} when the cabins already stand at that terminal configuration (Σ ≤ 1 m), else NaN.</summary>
         private double StandingHoldU(Run run)
         {
             double best = double.MaxValue, bestU = double.NaN;
@@ -1153,7 +1114,7 @@ namespace SkiResortMod.Systems
             if (known && previous != gate)
                 LogState(run, previous, gate, why);
             else if (!known && run.ReturnedFromVanish)
-                LogState(run, ShuttleState.Parked, gate, why);   // review #1: the pair gets a shuttle path back
+                LogState(run, ShuttleState.Parked, gate, why);  // the pair gets a shuttle path back
             run.ReturnedFromVanish = false;
             if (!known || previous != gate)
             {
@@ -1212,7 +1173,6 @@ namespace SkiResortMod.Systems
             }
         }
 
-        // ═══════════════════════════════════════════════════════════════════════════ rebuild (round-3-contract §4.5)
 
         private void Rebuild(double timeS)
         {
@@ -1244,14 +1204,14 @@ namespace SkiResortMod.Systems
             // 4. Roster: Shuttle carriers grouped by owner, (Index, Version) order.
             HarvestCabins();
 
-            // 5-8. Runs: hosted poses, census rows, power, gate, cabins (MUST 1), enrollment.
+            // 5-8. Runs: hosted poses, census rows, power, gate, cabins, enrollment.
             if (m_CensusBuilt && m_Census != null)
             {
                 m_LastRevision = m_Census.Revision;
                 m_Census.CopyRows(m_Rows);
             }
             BuildRuns(timeS);
-            m_PowerPollFrame = m_RenderingSystem.frameIndex;   // the rebuild read the power (D2)
+            m_PowerPollFrame = m_RenderingSystem.frameIndex;  // the rebuild read the power
             ParkTheRest();
             WarnRefusals();
 
@@ -1265,14 +1225,13 @@ namespace SkiResortMod.Systems
 
         private void HarvestStations()
         {
-            // Catalog Phase A (skeptic M4): the StationDefs view, fetched ONCE before the chunk loop; rows of a Shuttle type.
+            // The StationDefs view, fetched ONCE before the chunk loop; rows of a Shuttle type.
             IReadOnlyDictionary<Entity, StationDef> stationDefs = m_PrefabCatalog.StationDefs;
             m_StationList.Clear();
             m_StationTransforms.Clear();
             m_StationDefList.Clear();
             m_StationByOwnerIndex.Clear();
-            // REVIEW #16 pattern (ChairPinSystem's main-thread chunk reads, code-review-2026-10/REVIEW.md #16): complete the
-            // writers of the query's components before the main-thread GetNativeArray reads below.
+            // Complete the writers of the query's components before the main-thread GetNativeArray reads below.
             m_StationQuery.CompleteDependency();
             var chunks = m_StationQuery.ToArchetypeChunkArray(Allocator.Temp);
             try
@@ -1315,18 +1274,18 @@ namespace SkiResortMod.Systems
                 if (EntityManager.TryGetBuffer<Game.Net.SubNet>(station, isReadOnly: true, out var subNets))
                     for (int k = 0; k < subNets.Length; k++)
                         m_StationByOwnerIndex[subNets[k].m_SubNet.Index] = i;
-                // T02: an HV edge lane's end PathNode is built as PathNode(owner = the edge, ...) (Game.Net/LaneSystem.cs:4093-4095,
+                // An HV edge lane's end PathNode is built as PathNode(owner = the edge, ...) (Game.Net/LaneSystem.cs:4093-4095,
                 // 1.6.0), so a terminal's owner index is the LINE's edge, never a node: there is no node to map here. The station
                 // map is only ever hit when FindAnchor snapped the end to a station-owned lane; otherwise the terminal falls to
                 // the position rules (dock reach, LiftLoopTopology.ClassifyShuttleTerminal).
             }
         }
 
-        /// <summary>§4.5 step 2: the HV lanes owned by a Shuttle line's edges and nodes (ChairPinSystem.cs:1307-1351 with the
+        /// <summary>The HV lanes owned by a Shuttle line's edges and nodes (ChairPinSystem.cs:1307-1351 with the
         /// Mover test inverted). R28: the track ropes are the only HV lanes; the haul ropes (LV, 8) fail the flag.</summary>
-        private bool m_LaneScanLogged;   // M9: one cost line per load
+        private bool m_LaneScanLogged;  // one cost line per load
 
-        // R-4 (docs/research/lifts/lift-scale-2026-10-22.md, DECISIONS 369; ChairPinSystem.Harvest.cs is the twin): the census's
+        // Scoped harvest (ChairPinSystem.Harvest.cs is the twin): the census's
         // line edges + their end nodes are the owners (LiftCensusSystem.CopyLineOwners), their SubLane buffers the lanes
         // (LiftLaneHarvest.Scoped, Shuttle movers) — O(lift edges) instead of every utility lane of the city. The full scan
         // (FullLaneScan) runs when the census is not built, and once per load next to the first scoped harvest as the watchdog;
@@ -1397,12 +1356,11 @@ namespace SkiResortMod.Systems
         private void FullLaneScan(List<LiftLoopCache.CableLane> lanes, out int lanesSeen, out int lanesHv)
         {
             IReadOnlyDictionary<Entity, LiftTypeDef> lineTypes = m_PrefabCatalog.LiftLineTypes;
-            // M9 (code review 2026-10-19): every utility lane of the city is in this query; the lane PREFAB is tested first through
+            // Every utility lane of the city is in this query; the lane PREFAB is tested first through
             // the shared cached lookup (CableLanePrefabs), so only HV-lane-prefab lanes pay for the owner read.
             lanesSeen = 0;
             lanesHv = 0;
-            // REVIEW #16 pattern (ChairPinSystem's main-thread chunk reads, code-review-2026-10/REVIEW.md #16): complete the
-            // writers of the query's components before the main-thread GetNativeArray reads below.
+            // Complete the writers of the query's components before the main-thread GetNativeArray reads below.
             m_LaneQuery.CompleteDependency();
             var chunks = m_LaneQuery.ToArchetypeChunkArray(Allocator.Temp);
             try
@@ -1448,7 +1406,7 @@ namespace SkiResortMod.Systems
             {
                 chunks.Dispose();
             }
-            LiftLaneHarvest.SortByLane(lanes);   // R-4: one stable lane order whichever harvest ran (LiftLaneHarvest header ORDER)
+            LiftLaneHarvest.SortByLane(lanes);  // one stable lane order whichever harvest ran (LiftLaneHarvest header ORDER)
         }
 
         private void HarvestCabins()
@@ -1456,8 +1414,7 @@ namespace SkiResortMod.Systems
             m_OwnerCabins.Clear();
             m_HostedCount.Clear();
             m_DiagCabinsFound = 0;
-            // REVIEW #16 pattern (ChairPinSystem's main-thread chunk reads, code-review-2026-10/REVIEW.md #16): complete the
-            // writers of the query's components before the main-thread GetNativeArray reads below.
+            // Complete the writers of the query's components before the main-thread GetNativeArray reads below.
             m_AllCabinQuery.CompleteDependency();
             var chunks = m_AllCabinQuery.ToArchetypeChunkArray(Allocator.Temp);
             try
@@ -1495,7 +1452,7 @@ namespace SkiResortMod.Systems
 
         private void BuildRuns(double timeS)
         {
-            // §4.5 step 4: a base that starts several shuttles gives its cabins to the one with the lower top (Index, Version).
+            // A base that starts several shuttles gives its cabins to the one with the lower top (Index, Version).
             m_BaseWinner.Clear();
             m_BaseLines.Clear();
             List<LiftLoopCache.Shuttle> shuttles = m_Cache.m_Shuttles;
@@ -1518,7 +1475,7 @@ namespace SkiResortMod.Systems
                 if (!m_RunsByPair.TryGetValue(key, out Run run))
                 {
                     run = new Run { StateLog = new LogWindow(StateLogWindowS) };
-                    run.ReturnedFromVanish = m_VanishedPairs.Remove(key);   // review #1: "Parked → <state>" at its first gate
+                    run.ReturnedFromVanish = m_VanishedPairs.Remove(key);  // "Parked → <state>" at its first gate
                     m_RunsByPair[key] = run;
                 }
                 run.Seen = true;
@@ -1534,7 +1491,7 @@ namespace SkiResortMod.Systems
             for (int i = 0; i < m_PairScratch.Count; i++)
             {
                 Run gone = m_RunsByPair[m_PairScratch[i]];
-                // Review #1: a known Run that vanished (a deleted span leaves unclosed chains, so no shuttle path) is a state
+                // A known Run that vanished (a deleted span leaves unclosed chains, so no shuttle path) is a state
                 // change to Parked; it goes through the Run's own window, and the fold is flushed just below because this
                 // Run leaves m_RunsByPair (FlushStateLogs / TrailStateLogs would never see it again).
                 if (gone.StateKnown)
@@ -1550,7 +1507,7 @@ namespace SkiResortMod.Systems
             // Two lines from one base (WARN once per base per load).
             foreach (var kv in m_BaseLines)
             {
-                if (kv.Value < 2 || !m_TwoLinesWarned.Add(kv.Key))   // review #5: its own set, not the cabin-count one
+                if (kv.Value < 2 || !m_TwoLinesWarned.Add(kv.Key))  // its own set, not the cabin-count one
                     continue;
                 Entity winner = m_BaseWinner[kv.Key];
                 var tops = new StringBuilder();
@@ -1578,11 +1535,11 @@ namespace SkiResortMod.Systems
             run.Def = def != null && def.Mover == MoverKind.Shuttle ? def : null;
             run.LA = sh.m_A.m_Length;
             run.LB = sh.m_B.m_Length;
-            run.L = sh.ProfileLengthM;   // loopcache D3 / skeptic F4: the 1 cm-quantized mean
+            run.L = sh.ProfileLengthM;  // the 1 cm-quantized mean
             run.ProfileValid = run.Def != null && ShuttleProfile.Valid(run.L, run.Def.SpeedMps, run.Def.AccelMps2, run.Def.DwellS);
             run.TripS = run.ProfileValid ? ShuttleProfile.TripTimeS(run.L, run.Def.SpeedMps, run.Def.AccelMps2) : 0.0;
             run.CycleS = run.ProfileValid ? ShuttleProfile.PeriodS(run.L, run.Def.SpeedMps, run.Def.AccelMps2, run.Def.DwellS) : 0.0;
-            // C2: the bay whose cabin rides chain A = chain A's base dock (0 = DockLocalA = hosted entry 0); when that dock
+            // The bay whose cabin rides chain A = chain A's base dock (0 = DockLocalA = hosted entry 0); when that dock
             // was refused, the bay chain B does not use; default 0.
             run.BayOfA = sh.m_A.m_BaseDock >= 0 ? sh.m_A.m_BaseDock
                 : sh.m_B.m_BaseDock >= 0 ? 1 - sh.m_B.m_BaseDock
@@ -1596,7 +1553,7 @@ namespace SkiResortMod.Systems
                 run.S[c] = 0.0;
             }
 
-            // Census row (§4.5 step 8): the row whose {Base, Top} is the pair, either order.
+            // Census row: the row whose {Base, Top} is the pair, either order.
             run.RowFound = false;
             run.RowMixed = false;
             run.RowState = LiftCensus.State.Open;
@@ -1615,7 +1572,7 @@ namespace SkiResortMod.Systems
                     }
                 }
             }
-            // Power (C11; D2: read at the rebuild too). No row / not Complete / no census: Unknown (= powered).
+            // Power (read at the rebuild too). No row / not Complete / no census: Unknown (= powered).
             if (m_CensusBuilt && m_Census != null && run.RowFound && run.RowState == LiftCensus.State.Complete)
             {
                 run.Power = m_Census.ReadLiftPower(run.Base);
@@ -1634,7 +1591,7 @@ namespace SkiResortMod.Systems
             run.PoseDirty = true;
             run.BoundsU = double.NaN;
 
-            // §4.5 step 7: enroll every cabin of a shuttle that has a path (ChairPinSystem.cs:1494-1504 verbatim).
+            // Enroll every cabin of a shuttle that has a path (ChairPinSystem.cs:1494-1504 verbatim).
             for (int c = 0; c < 2; c++)
             {
                 Entity cabin = run.Cabin[c];
@@ -1651,7 +1608,7 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>Skeptic MUST 1 (header CABIN A / B IDENTITY): the shuttle's riders (the first two Shuttle carriers its
+        /// <summary>(header CABIN A / B IDENTITY) The shuttle's riders (the first two Shuttle carriers its
         /// base hosts, by (Index, Version)) and their bays. For a Held gate without a carried latch it also returns the
         /// terminal configuration the chosen assignment stands at (NaN = none within HeldStandingToleranceM).</summary>
         private void AssignCabins(Run run, ShuttleState gate, double timeS, out double holdHint)
@@ -1768,14 +1725,14 @@ namespace SkiResortMod.Systems
             int chain = bay == run.BayOfA ? 0 : 1;
             run.Cabin[chain] = cabin;
             run.Drop[chain] = drop;
-            // Behavior review #3: a cabin with no usable drop (Drop <= 0) is only ever parked, so it is not counted among the
+            // A cabin with no usable drop (Drop <= 0) is only ever parked, so it is not counted among the
             // cabins on the path (hub capacity, "cabin(s) riding"); it stays a rider of this run (never ParkTheRest's).
             if (drop > 0f)
                 run.Cabins++;
             m_Riding.Add(cabin);
         }
 
-        /// <summary>MUST 1 (a): every cabin within FreshBaseToleranceM of its bay's hosted pose under this option.</summary>
+        /// <summary>Fresh-base rule (a): every cabin within FreshBaseToleranceM of its bay's hosted pose under this option.</summary>
         private static bool FreshFit(Run run, int option, int m, float3 p0, float3 p1)
         {
             int bay0 = option == 0 ? 0 : 1;
@@ -1793,7 +1750,7 @@ namespace SkiResortMod.Systems
             return run.ParkKnown[chain];
         }
 
-        /// <summary>MUST 1 (b): Σ |Transform − target| for an option; u NaN = the hosted poses (Parked / no drop).</summary>
+        /// <summary>Rule (b): Σ |Transform − target| for an option; u NaN = the hosted poses (Parked / no drop).</summary>
         private static double Cost(Run run, int option, double u, int m, float3 p0, float d0, float3 p1, float d1)
         {
             int bay0 = option == 0 ? 0 : 1;
@@ -1843,7 +1800,7 @@ namespace SkiResortMod.Systems
             return info.Drop;
         }
 
-        /// <summary>Round-3-contract §4.9: a shuttle's base hosting 0, 1 or more than 2 cabins (WARN once per station per load).</summary>
+        /// <summary>A shuttle's base hosting 0, 1 or more than 2 cabins (WARN once per station per load).</summary>
         private void WarnCabinCount(Run run, int hosted)
         {
             if (hosted == 2 || m_CabinWarned.Contains(run.Base))
@@ -1861,7 +1818,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Every Shuttle carrier that rides no shuttle (an open, unfinished or path-less line, a second line, a third
-        /// cabin) goes to a hosted pose of its owner: its mapped bay, else the nearest free one (MUST 1 map updated).</summary>
+        /// cabin) goes to a hosted pose of its owner: its mapped bay, else the nearest free one (bay map updated).</summary>
         private void ParkTheRest()
         {
             m_ParkedCabins.Clear();
@@ -1944,7 +1901,7 @@ namespace SkiResortMod.Systems
             return best;
         }
 
-        /// <summary>§4.5 step 5: the world hosted poses of <paramref name="owner"/>'s Shuttle-carrier entries, in prefab order
+        /// <summary>The world hosted poses of <paramref name="owner"/>'s Shuttle-carrier entries, in prefab order
         /// (entry k = bay k): ObjectUtils.LocalToWorld(owner Transform, Transform(m_Position, m_Rotation)), ObjectUtils.cs:244-250,
         /// the SubObjectSystem formula (:1757). The prefab buffer is ObjectInitializeSystem's (:703-731).</summary>
         private void HostedPoses(Entity owner, List<Transform> into)
@@ -1963,8 +1920,8 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>§4.9: a census-Complete Shuttle lift with no path, and the dock-run refusals of a built shuttle (WARN once
-        /// per text per load). Without a census (C12 fallback) every pair-level refusal is written once.</summary>
+        /// <summary>A census-Complete Shuttle lift with no path, and the dock-run refusals of a built shuttle (WARN once
+        /// per text per load). Without a census every pair-level refusal is written once.</summary>
         private void WarnRefusals()
         {
             List<string> notes = m_Cache.m_BuildNotes;
@@ -2041,8 +1998,8 @@ namespace SkiResortMod.Systems
             return sb.ToString();
         }
 
-        /// <summary>T02 (2026-10-16): the per-chain terminal diagnostics the topology keeps (LiftLoopCache.m_ChainDiags) and the
-        /// watchdog used to be the only place to print: for every track-rope chain, its link count and, per terminal, the
+        /// <summary>The per-chain terminal diagnostics the topology keeps (LiftLoopCache.m_ChainDiags): for every track-rope
+        /// chain, its link count and, per terminal, the
         /// station index it classified to (-1 = none), the PathNode owner index, how it was decided ("owner", "child",
         /// "pos 8.3m", "dock 12.1m", or "none (owner N, nearest station Xm, nearest dock Ym)") and the world position.
         /// Empty when the build saw no chain. Appended to the [rebuild] WARNs, which fire once per text per load
@@ -2132,7 +2089,6 @@ namespace SkiResortMod.Systems
             return null;
         }
 
-        // ═══════════════════════════════════════════════════════════════════════════ carriers and the per-load lines
 
         /// <summary>The Shuttle carrier prefabs FOUND this load (any SkiCatalog lift type whose Mover is Shuttle), rebuilt only
         /// when the catalog's Generation moves (a load or a re-resolution).</summary>
@@ -2169,7 +2125,7 @@ namespace SkiResortMod.Systems
             MarkDirty("prefab catalog resolved", immediate: true);
         }
 
-        /// <summary>§4.9: the idle line, once per load (no Shuttle carrier prefab FOUND).</summary>
+        /// <summary>The idle line, once per load (no Shuttle carrier prefab FOUND).</summary>
         private void LogIdle()
         {
             m_ArmLogged = true;
@@ -2203,8 +2159,8 @@ namespace SkiResortMod.Systems
                 Mod.Log.Info(line);
         }
 
-        /// <summary>§4.9: the arm line, once per load per Shuttle lift type, by the first update after the census gate; WARN
-        /// with the CHECK list when a prefab number disagrees with the contract (R27, R29, C16).</summary>
+        /// <summary>The arm line, once per load per Shuttle lift type, by the first update after the census gate; WARN
+        /// with the CHECK list when a prefab number disagrees with the expected geometry.</summary>
         private void LogArm(bool censusBuilt)
         {
             m_ArmLogged = true;
@@ -2355,7 +2311,6 @@ namespace SkiResortMod.Systems
             sb.Append(item);
         }
 
-        // ── small helpers ─────────────────────────────────────────────────────────────────────────────────────────────
 
         private static int CompareEntity(Entity a, Entity b)
         {
@@ -2364,7 +2319,7 @@ namespace SkiResortMod.Systems
             return a.Version.CompareTo(b.Version);
         }
 
-        /// <summary>Invariant-culture formatting for log lines (§4.9). C# 9 converts only a single interpolated string to
+        /// <summary>Invariant-culture formatting for log lines. C# 9 converts only a single interpolated string to
         /// FormattableString, so long lines are concatenations of several Inv(...) calls.</summary>
         private static string Inv(FormattableString text) => FormattableString.Invariant(text);
         private static string Ent(Entity e) => FormattableString.Invariant($"{e.Index}:{e.Version}");

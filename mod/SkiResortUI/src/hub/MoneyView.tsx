@@ -1,85 +1,36 @@
 /*
- * src/hub/MoneyView.tsx - the Money view (Money tile): ticket income, running costs, the game's bill
- * for buildings and wages, and the one net a month.
+ * The Money ("Finances") view: what the resort earns and costs this month, and the one net.
  *
- * Written for this repo (MIT). Created 2026-10-04 (Round E1, stream S6; docs/research/econ-round/
- * spec/ch6-hub-ui.md section 6.11, design hub-v3-design.md 3.5, 6.9; D22-D26, D34 honest labels;
- * the net is C#'s HubRules.NetMonth, e1-spec R7 - the UI adds nothing up). Round F7 (2026-10-04,
- * implementer 4; docs/research/field-test-7-fixes.md D2, D3; findings/hub-ux.md §3.2, §4 with its
- * Verification): the note area is gone - its sentences moved into the header's Info tooltip - the
- * Realistic Workplaces line reads as a detection under the row it qualifies, and run-type rows show only
- * for the kinds the area has. Field test 7 state (RWH detected, tickets not known yet, no night run):
- * 15 text lines in 17 slot lines -> 10 text lines in 10. Round M2 (2026-10-10, builder B4; ruling R7,
- * docs/research/round-m2/understand/hub-price.md section 2 item 2, build-contract.md section 8.2): the
- * price line under the tickets row -> 11 text lines in 11.
  * Contract:
- *   - A sign, in this order: MONEY header with the Info glyph right after the label and "A month" in
- *     the value column (tooltip: MONEY_NOTE[Panel]; MONEY_NOTE[Est] while tickets are projected); the
- *     tickets row (label by hubRules.ticketsRow: off / last month's / estimated / counted after a quarter
- *     month - that label is why MONEY_NOTE[Unknown] is retired; "≈" while projected or not known; the
- *     label carries no "× price", the price now is a tooltip line); Round M2 R7: under it ONE dim SubLine
- *     MONEY_PRICE_LINE "Lift ticket {PRICE} · ski days {PCT}" (PRICE = hubRules.hubPrice(city), Money;
- *     PCT = hubRules.priceFactorPct, Percentage: D16's factor as a whole percent, "Lift ticket ¢40 · ski
- *     days 100 %"; "–" while the city is not known), read-only, always present for a sign (D33), its
- *     tooltip MONEY_PRICE_TIP[Title|Where|Curve|Who] (where to change it in Options, the curve at
- *     PRICE_EXAMPLES, who reacts); Not linked has none (it sells no tickets); RUNNING COSTS with one row per run
- *     kind the area has at least one run of (natural ¢0 dim, groomed, snowmaking, night; runs$ by kind:
- *     a row appears or vanishes only when a run is drawn or deleted, a state change, D33), the lifts row
- *     and the buildings-and-wages row ("–" and "≈" while the game's bill is not known); while Realistic
- *     Workplaces is detected (a session state) one dim SubLine under it, MONEY_NOTE[Rwh] (tooltip
- *     MONEY_TIP[Rwh], also a line of the buildings row's tooltip); a divider; the net ("≈" while
- *     estimated).
- *   - Not linked: the header (Info tooltip: MONEY_NOTE[Panel]), the lifts row, the net (C#:
- *     -liftCostMonth) and UNLINKED_MONEY (a 2-line note slot).
- *   - Every value cell is a StableWidth with the shared signed-money samples (aligned columns, no
- *     jitter); every row that can be estimated renders a MarkSlot (fixed width, empty keeps it).
- *     Costs arrive positive and are shown negated; a negative (unknown) cost shows "–", never "+".
- *   - Rates in the tooltips come from the CORE `build` items (runs: monthlyPerHa; lift: monthly,
- *     monthlyPerKm), "–" when a contract-2 DLL sends none.
- *   - Width (Overpass advances, design §2.3 method): "Detected: Realistic Workplaces. The real bill can
- *     differ." is XS 290.2 / 477.4 / 602.1 rem against the SubLine room W - 32 = 390 / 568 / 687: fits.
- *     The price line's widest form "Lift ticket ¢200 · ski days 20 %" (32 characters) is about 16 em XS
- *     by the 0.5 em estimate (GuestsView.tsx header): about 192 / 316 / 398 rem, fits (an estimate; the
- *     SubLine's ellipsis is the net).
- *   - Contract 8 (2026-10-15, econ-2 round 2; docs/research/econ-2/build/round-2.md): after the pass rows, LessonRow (MONEY_ROW[Lessons]
- *     "Lessons (this month) · {N}" with the lesson income so far as its value, only once a lesson was taken, hubRules.lessonsShown), a
- *     sub row MONEY_ROW[PassesPre] "Season passes sold before the season · {N}" under the season's passes (hubRules.presaleShown) and
- *     CityIncomeRow: "City income the resort brings (estimate)" = l.cityIncomeEst, marked "≈", NOT in the net; under Tourism Overhaul
- *     the row is replaced by the SubLine EST_TO_NOTE / EST_TO_TIP (the tourist estimate's pattern, GuestsView). The lesson and
- *     lodge-spend money is booked like tickets, so MONEY_NOTE[Fees] / MONEY_NOTE[Panel] now say "Resort income" / name all four.
- *   - Contract 7 (2026-10-14, season passes v1; docs/research/econ-2/build/season-pass-v1.md): under the tickets row, while city.bookTicketsAsFees
- *     (stage 1a), ONE dim SubLine MONEY_NOTE[Fees] "Resort income shows in the Economy panel under public transportation fees."; after the lodge-spend
- *     slot, only while hubRules.passesShown (the Options pass share above 0, or a pass sold / a holder skied): the income row MONEY_ROW[Passes]
- *     "Season passes sold (this season) · {N}" with the season's pass income as its value (MONEY_TIP[Passes]) and the count row
- *     MONEY_ROW[PassHolders] "Pass holders skiing (this month)" (MONEY_TIP[PassHolders]). The net is still C#'s tickets + lodge spend: the
- *     pass income is a season figure and is not in the monthly net.
- *   - T77 (2026-10-18; contract 9): the view is "Finances" (tile, header) with a "Per month" column; the month-bound rows name the
- *     month (lift tickets of the month before or this month projected, pass holders and lessons this month: "Month of <name>",
- *     CityStats.month); the MONEY_NOTE[Fees] SubLine under the tickets row is gone (Richard: where vanilla shows resort income
- *     belongs in the player docs, T79), so `city.bookTicketsAsFees` is no longer read here; "Buildings and wages" lost "(game
- *     formula)". Supersedes the Contract 7 MONEY_NOTE[Fees] line below.
- *   - Panel file (gate R11): subscribes resorts$, selectedResort$, resortLive$, city$, build$, runs$
- *     (Round F7: the run kinds of the area).
- *   - Contract 6 (2026-10-11, Catalog Phase B, code round 2, hub group; round-2-contract.md section 8.5): the price
- *     line's PCT is priceFactorPct(price, ResortLive.priceTolerance) (C# SkiDayRules.PriceFactor(price, tolerance):
- *     the counted lodges keep ski days full up to 40 + tolerance) and its tooltip adds MONEY_PRICE_TIP[Tolerance]
- *     while priceTolerance > 0; a "Lodge spend" income row (MONEY_ROW[LodgeSpend], tooltip MONEY_TIP[LodgeSpend])
- *     sits under it only while lodgeSpendMonth > 0 (hubRules.lodgeSpendShown: the default setting 0 draws nothing,
- *     so the view stays today's); the lifts row's tooltip lists each offered lift type's rates
- *     (MONEY_TIP[LiftsTypes] + MONEY_TIP_LIFT_RATE per line item C# sent) when two or more line items are sent, else
- *     today's MONEY_TIP[Lifts] with the fixed-grip line's rates. The net is still C#'s (tickets + lodge spend).
- *   - B1 "one Net" UI half (contract 11, 2026-10-19; docs/research/ui/hub-one-net-b1-2026-10-19.md sections 2 and 4; T82 review F1/F2;
- *     supersedes the rows above where they differ): the money column is "Month of <name> so far" ("(partial)" while thisMonthSinceLoad)
- *     and holds ONLY the Net's eight rows, which add up to netMonth (C#'s invariant; hubRules.netRows, test-hub-rules T22): income
- *     Lift tickets (ticketsThisMonth), Lodge spend (lodgeIncomeMonth), Lessons (lessonIncomeMonth), Season passes sold (passIncomeMonth,
- *     its pre-season part in the tooltip); RUNNING COSTS Lifts (liftChargedMonth; today's rate in the tooltip), Runs (runCostMonth; the
- *     per-kind rates in the tooltip: the per-kind rows left the column), Building upkeep (buildingsSoFar) and Staff wages (wagesSoFar),
- *     each "rate per month at today's budget; N % of the month so far"; then the Net ("≈" only while netEstimated). An income row is
- *     hidden only while it holds no money (hubRules.netRowShown), so the drawn rows still add up. Under the Net an "Also, not in the
- *     net" block: last month's tickets (when a whole month was counted), the season's pass sales + the pre-season part + pass holders
- *     skiing, the city-income estimate. Not linked: Lifts, Runs while it holds money, the Net. Every number is C#'s; the UI adds nothing.
- *   - T114 (2026-10-20, "never a scrollbar", docs/research/ui/hub-round-t114-2026-10-20.md): RUNNING COSTS and ALSO are folds
- *     (fit.tsx Fold, closed by default, one open at a time); the income rows and the Net stay on top.
+ *   - Every number is C#'s (hubRules.netRows, HubRules.NetMonth); the UI adds nothing up. The money column is "Month of
+ *     <name> so far" ("(partial)" while thisMonthSinceLoad) and holds ONLY the Net's eight rows, which add up to netMonth:
+ *     income Lift tickets (ticketsThisMonth), Lodge spend (lodgeIncomeMonth), Lessons (lessonIncomeMonth), Season passes
+ *     sold (passIncomeMonth, its pre-season part in the tooltip); RUNNING COSTS Lifts (liftChargedMonth; today's rate in
+ *     the tooltip), Runs (runCostMonth; the per-kind rates in the tooltip), Building upkeep (buildingsSoFar) and Staff
+ *     wages (wagesSoFar), each "rate per month at today's budget; N % of the month so far"; then the Net ("≈" only while
+ *     netEstimated). An income row is hidden only while it holds no money (hubRules.netRowShown), so the drawn rows still
+ *     add up.
+ *   - Under the tickets row, one dim SubLine MONEY_PRICE_LINE "Lift ticket {PRICE} · ski days {PCT}" (PRICE =
+ *     hubRules.hubPrice(city), "–" while the city is not known; PCT = priceFactorPct(price, ResortLive.priceTolerance),
+ *     mirroring C# SkiDayRules.PriceFactor: the counted lodges keep ski days full up to 40 + tolerance). Read-only; its
+ *     tooltip MONEY_PRICE_TIP[...] says where to change the price in Options, the curve at PRICE_EXAMPLES and who reacts
+ *     (plus [Tolerance] while priceTolerance > 0).
+ *   - Under the Net an "Also, not in the net" block: last month's tickets (when a whole month was counted), the season's
+ *     pass sales + the pre-season part + pass holders skiing, and the city-income estimate (marked "≈"; under Tourism
+ *     Overhaul replaced by the SubLine EST_TO_NOTE / EST_TO_TIP, the tourist estimate's pattern in GuestsView).
+ *   - RUNNING COSTS and ALSO are folds (fit.tsx Fold, closed by default, one open at a time) so the view never needs a
+ *     scrollbar; the income rows and the Net stay on top.
+ *   - While Realistic Workplaces is detected, one dim SubLine MONEY_NOTE[Rwh] sits under the buildings-and-wages row
+ *     (tooltip MONEY_TIP[Rwh]).
+ *   - Not linked: Lifts, Runs while it holds money, the Net.
+ *   - Every value cell is a StableWidth with the shared signed-money samples (aligned columns, no jitter); every row that
+ *     can be estimated renders a MarkSlot (fixed width, empty keeps it). Costs arrive positive and are shown negated; a
+ *     negative (unknown) cost shows "–", never "+".
+ *   - Rates in the tooltips come from the CORE `build` items (runs: monthlyPerHa; lift: monthly, monthlyPerKm), "–" when
+ *     the DLL sends none.
+ *   - Width: the widest price line "Lift ticket ¢200 · ski days 20 %" is about 16 em XS by the 0.5 em estimate (GuestsView.tsx
+ *     header), about 192 / 316 / 398 rem against the SubLine room of 390 / 568 / 687; the SubLine's ellipsis is the net.
+ *   - Panel file (check-bundle rule R11): subscribes resorts$, selectedResort$, resortLive$, city$, build$, runs$.
  */
 import { useValue } from "cs2/api";
 import { Unit } from "cs2/l10n";
@@ -124,14 +75,14 @@ function incomeValue(v: number): JSX.Element | string {
   return Number.isFinite(v) && v >= 0 ? <SignedNum value={v} unit={Unit.Money} /> : DASH;
 }
 
-/** Round F7 D2: the run kinds this area has at least one run of (the Runs tooltip lists only their rates). */
+/** The run kinds this area has at least one run of (the Runs tooltip lists only their rates). */
 function kindsOf(runs: readonly RunRow[]): ReadonlySet<number> {
   const s = new Set<number>();
   for (const r of runs) if (r) s.add(r.kind);
   return s;
 }
 
-/** The FINANCES header with its Info glyph: the column is "Month of <name> so far" (B1), "(partial)" while counted since a load. */
+/** The FINANCES header with its Info glyph: the column is "Month of <name> so far", "(partial)" while counted since a load. */
 function MoneyHeader({ l, month, samples, t }: { l: ResortLive | null; month: string; samples: NumberSamples; t: Translate }): JSX.Element {
   return (
     <InfoLine
@@ -148,14 +99,14 @@ function MoneyHeader({ l, month, samples, t }: { l: ResortLive | null; month: st
   );
 }
 
-/** Contract 6: the line items C# sent (every lift type that has a line tile), table order. */
+/** The line items C# sent (every lift type that has a line tile), table order. */
 function sentLines(build: readonly BuildItem[]): Array<{ id: BuildItemId; liftType: string }> {
   const out: Array<{ id: BuildItemId; liftType: string }> = [];
   for (const m of BUILD_ITEMS) if (m.kind === "line" && findBuildItem(build, m.id)) out.push({ id: m.id, liftType: m.liftType });
   return out;
 }
 
-/** The lifts row: the lift charge booked this month (B1); its tooltip has today's rate and the per-type rates. */
+/** The lifts row: the lift charge booked this month; its tooltip has today's rate and the per-type rates. */
 function LiftsRow({ row, l, build, samples, t }: {
   row: ResortRow; l: ResortLive | null; build: readonly BuildItem[]; samples: NumberSamples; t: Translate;
 }): JSX.Element {
@@ -165,7 +116,7 @@ function LiftsRow({ row, l, build, samples, t }: {
   const REDUCED = numArg(reduced, Unit.Integer);
   const lines = sentLines(build);
   const booked = <LocText key="r" entry={HUB_FMT.moneyTipLiftsRate} args={{ RATE: numArg(l ? l.liftCostMonth : -1, Unit.Money) }} />;
-  // Contract 6: one type -> today's text with its rates; two or more -> the per-type lines.
+  // One type -> today's text with its rates; two or more -> the per-type lines.
   const tip = lines.length >= 2
     ? <TipLines lines={[
       booked,
@@ -195,7 +146,7 @@ function LiftsRow({ row, l, build, samples, t }: {
   );
 }
 
-/** B1: run upkeep booked this month; the tooltip lists today's rate per month for each run kind the area has. */
+/** Run upkeep booked this month; the tooltip lists today's rate per month for each run kind the area has. */
 function RunsRow({ l, kinds, samples, t }: { l: ResortLive | null; kinds: ReadonlySet<number>; samples: NumberSamples; t: Translate }): JSX.Element {
   const ha = (v: number | undefined): JSX.Element | string => numArg(v ?? -1, Unit.FloatSingleFraction);
   return (
@@ -214,7 +165,7 @@ function RunsRow({ l, kinds, samples, t }: { l: ResortLive | null; kinds: Readon
   );
 }
 
-/** B1: buildings / wages so far = today's rate × the share of the month simulated (C#'s rows; nothing multiplied here). */
+/** Buildings / wages so far = today's rate × the share of the month simulated (C#'s rows; nothing multiplied here). */
 function SoFarRow({ label, value, rateNow, l, rwh, samples, t }: {
   label: string; value: number; rateNow: number; l: ResortLive | null; rwh: boolean; samples: NumberSamples; t: Translate;
 }): JSX.Element {
@@ -239,7 +190,7 @@ function SoFarRow({ label, value, rateNow, l, rwh, samples, t }: {
   );
 }
 
-/** Contract 6 (D15) / B1: lodge spend booked this month (netRowShown: the setting is on or it holds money). */
+/** Lodge spend booked this month (netRowShown: the setting is on or it holds money). */
 function LodgeSpendRow({ l, city, samples, t }: { l: ResortLive | null; city: CityStats; samples: NumberSamples; t: Translate }): JSX.Element | null {
   if (!l || !netRowShown("lodge", l, city)) return null;
   return (
@@ -251,7 +202,7 @@ function LodgeSpendRow({ l, city, samples, t }: { l: ResortLive | null; city: Ci
   );
 }
 
-/** B1: season passes sold this month (pre-season sales land in their sale month); the pre-season part in the tooltip. */
+/** Season passes sold this month (pre-season sales land in their sale month); the pre-season part in the tooltip. */
 function PassesMonthRow({ l, city, samples, t }: { l: ResortLive | null; city: CityStats; samples: NumberSamples; t: Translate }): JSX.Element | null {
   if (!l || !netRowShown("passes", l, city)) return null;
   return (
@@ -264,7 +215,7 @@ function PassesMonthRow({ l, city, samples, t }: { l: ResortLive | null; city: C
   );
 }
 
-/** Contract 7 (season passes v1), now in the "Also" block (B1): the season's pass sales, the pre-season part, the pass holders skiing. */
+/** The "Also" block's pass rows: the season's pass sales, the pre-season part, the pass holders skiing. */
 function PassRows({ l, month, samples, t }: { l: ResortLive | null; month: string; samples: NumberSamples; t: Translate }): JSX.Element {
   const sold = l ? l.passesSoldSeason : -1;
   const holders = l ? l.passHoldersThisMonth : -1;
@@ -293,11 +244,11 @@ function PassRows({ l, month, samples, t }: { l: ResortLive | null; month: strin
   );
 }
 
-/** Contract 8 / B1: the lessons booked this month, drawn once a lesson was taken or while there is no ski school (T80, 0 + flag). */
+/** The lessons booked this month, drawn once a lesson was taken or while there is no ski school (0 + flag). */
 function LessonRow({ l, city, school, month, samples, t }: {
   l: ResortLive | null; city: CityStats; school: SchoolState; month: string; samples: NumberSamples; t: Translate;
 }): JSX.Element | null {
-  // T86: lessons need an installed, switched-on school (no green run): "none" and "off" are the 0s with a cause.
+  // Lessons need an installed, switched-on school (no green run): "none" and "off" are the 0s with a cause.
   if (!l || (!netRowShown("lessons", l, city) && school !== "none" && school !== "off")) return null;
   return (
     <InfoLine
@@ -309,7 +260,7 @@ function LessonRow({ l, city, school, month, samples, t }: {
   );
 }
 
-/** Contract 8: the resort's share of the city's tourist draw x the game's TouristIncome statistic, an estimate, in the "Also" block (not
+/** The resort's share of the city's tourist draw x the game's TouristIncome statistic, an estimate, in the "Also" block (not
  *  resort income, not in the net); under Tourism Overhaul the row is replaced by the same Detected note as the tourist estimate. */
 function CityIncomeRow({ l, city, samples, t }: { l: ResortLive | null; city: CityStats; samples: NumberSamples; t: Translate }): JSX.Element | null {
   if (city.tourismOverhaul) return <SubLine tip={t(HUB_LOC.estToTip)}>{t(HUB_LOC.estToNote)}</SubLine>;
@@ -335,7 +286,7 @@ function NetRow({ l, samples, t }: { l: ResortLive | null; samples: NumberSample
   );
 }
 
-/** B1: the lift tickets booked this month (ticketsThisMonth, the Net's first row); "off" keeps its label. */
+/** The lift tickets booked this month (ticketsThisMonth, the Net's first row); "off" keeps its label. */
 function TicketsRow({ l, price, samples, t }: { l: ResortLive | null; price: number; samples: NumberSamples; t: Translate }): JSX.Element {
   const off = l ? ticketsRow(l, price) === "off" : false;
   return (
@@ -350,11 +301,11 @@ function TicketsRow({ l, price, samples, t }: { l: ResortLive | null; price: num
   );
 }
 
-/** Round M2 R7 (hub-price.md section 2 item 2): under the tickets row, the Options price and what it does to ski
- *  days (D16's factor as a whole percent, hubRules.priceFactorPct). Read-only; the tooltip says where to change it.
- *  `price` = hubRules.hubPrice(city): -1 ("–") until C# has sent the city. One text node (gate R13). */
+/** Under the tickets row, the Options price and what it does to ski days (the factor as a whole percent,
+ *  hubRules.priceFactorPct). Read-only; the tooltip says where to change it.
+ *  `price` = hubRules.hubPrice(city): -1 ("–") until C# has sent the city. One text node (check-bundle rule R13). */
 function PriceLine({ price, tolerance, t }: { price: number; tolerance: number; t: Translate }): JSX.Element {
-  // Contract 6: the area's lodges' price tolerance (ResortLive.priceTolerance; -1 unknown reads as 0).
+  // The area's lodges' price tolerance (ResortLive.priceTolerance; -1 unknown reads as 0).
   const tol = tolerance > 0 ? tolerance : 0;
   const pct = priceFactorPct(price, tol);
   const ex = (i: number): { P: JSX.Element | string; F: JSX.Element | string } => ({
@@ -376,7 +327,7 @@ function PriceLine({ price, tolerance, t }: { price: number; tolerance: number; 
   );
 }
 
-/** B1: the "Also" block under the Net (its own header): money that is not in this month's net. Nothing to show -> no block. */
+/** The "Also" block under the Net (its own header): money that is not in this month's net. Nothing to show -> no block. */
 function AlsoBlock({ l, city, samples, t }: { l: ResortLive | null; city: CityStats; samples: NumberSamples; t: Translate }): JSX.Element | null {
   const last = !!l && ticketsRow(l, city.ticketPrice) === "last";
   const passes = passesShown(l, city);
@@ -425,7 +376,7 @@ function SignMoney({ row, l, city, build, kinds, problems, samples, t }: {
   );
 }
 
-/** Not linked (B1): Net = -(lift charge + run upkeep booked for Not linked); the Runs row only while it holds money (so the rows
+/** Not linked: Net = -(lift charge + run upkeep booked for Not linked); the Runs row only while it holds money (so the rows
  *  still add up to the Net). */
 function UnlinkedMoney({ row, l, city, build, samples, t }: {
   row: ResortRow; l: ResortLive | null; city: CityStats; build: readonly BuildItem[]; samples: NumberSamples; t: Translate;
@@ -454,7 +405,7 @@ export function MoneyView(): JSX.Element {
   const city = useValue(city$);
   const build = useValue(build$);
   const runs = useValue(runs$);
-  const problems = useValue(problems$);   // T80: the school's state (hubRules.schoolState) for the Lessons row
+  const problems = useValue(problems$);  // the school's state (hubRules.schoolState) for the Lessons row
 
   const cur = currentResort(resortEntries(resorts), selected);
   const row = cur.row;

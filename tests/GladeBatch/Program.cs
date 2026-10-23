@@ -1,4 +1,5 @@
-// GladeBatch — headless invariant tests for SkiGladePlanner (glade-tool-spec.md §3).
+// GladeBatch — headless invariant tests for SkiGladePlanner, SkiGladeCompose and SkiGladeHover (glade-tool-spec.md §3,
+// run-binding-glade-spec.md §4.11, §8.5).
 // Run (from the ModularSkiResort root):
 //   dotnet run --project tests\GladeBatch\GladeBatch.csproj -c Release -- 200
 // Argument = number of seeds (default 200). Prints `FAIL  fixture.params/seed: msg` lines,
@@ -15,22 +16,16 @@
 // a per-seed 3σ check over thousands of independent cases would fail ~0.27 % of them by
 // pure chance.
 //
-// ROUND G2 (run-binding-glade-spec.md §4.11): SkiGladeCompose.cs and SkiGladeHover.cs are linked
-// too. ComposeTests.cs = unit tests of Compose / PlanKey / the cache / the planner's prefix
-// property + TIME; ApplySim.cs = the apply-sequence harness (a test-local world, an oracle
-// census, a blocked-strip stand-in validator); HoverLogTests.cs = GladeHoverLog.
+// Other files: ComposeTests.cs = unit tests of Compose / PlanKey / the cache / the planner's prefix
+// property + TIME, the level tables and ThinHash; ApplySim.cs = the apply-sequence harness (a test-local world, an oracle
+// census, a blocked-strip stand-in validator): every level from bare / forested / planted starts, random level walks,
+// interior and tree line interleaved, caps on the 800k fixture, the two field-sized fixtures, judged by an independent
+// recount after every compose and apply; HoverLogTests.cs = GladeHoverLog. LevelFixtureTests (below) runs every level on
+// every static fixture geometry.
 //
-// ROUND G3 (spec §8.5): the mode/variant apply sequences are replaced by LEVEL sequences (ApplySim:
-// every level from bare / forested / planted starts, random level walks, interior and tree line
-// interleaved, caps on the 800k fixture, the two field-sized fixtures) judged by an independent
-// recount after every compose and apply; LevelFixtureTests (below, replacing G2's TwoPassTests)
-// runs every level on every static fixture geometry; ComposeTests adds the level tables and
-// ThinHash. The planner tests above it are unchanged (the planner did not change; G3 only adds
-// SkiGladePlanner.ThinHash).
-//
-// G3 FIXER ROUND: misplaced members (ApplySim editoor, ComposeTests MisplacedUnitTests), level 1 on
-// off-stream members after every perturbation, every compose repeated into one reused
-// ComposeResult, the 157.3 / ha stream (1.10 × level 8) in every stream oracle.
+// Also covered: misplaced members (ApplySim editor, ComposeTests MisplacedUnitTests), level 1 on off-stream members after
+// every perturbation, every compose repeated into one reused ComposeResult, the 157.3 / ha stream (1.10 × level 8) in
+// every stream oracle.
 
 using System;
 using System.Collections.Generic;
@@ -100,9 +95,8 @@ namespace GladeBatch
             BeltGateTests(fixtures, seeds);
             AgeHistogramTest();
             TimingReport(fixtures, sets);
-            AttemptCapReport();   // D5 (code review 2026-10-19): the worst-case attempt count and time on a giant saturated run, printed
+            AttemptCapReport();  // the worst-case attempt count and time on a giant saturated run, printed
 
-            // Round G2 (spec §4.11).
             ComposeUnitTests(fixtures);
             HoverLogTests();
             List<SimRun> simRuns = BuildSimRuns();
@@ -124,7 +118,7 @@ namespace GladeBatch
 
         /// <summary>Failures by kind (the message's leading CAPITALS tag, else its first words) —
         /// printed after SUMMARY when anything failed, so a run whose FAIL lines are capped still
-        /// shows which assertion families fired (mutation proofs, spec §8.5).</summary>
+        /// shows which assertion families fired (mutation proofs).</summary>
         private static readonly SortedDictionary<string, int> s_FailKinds = new SortedDictionary<string, int>(StringComparer.Ordinal);
 
         private static string FailKind(string where, string msg)
@@ -587,7 +581,7 @@ namespace GladeBatch
                 if (SkiGladePlanner.ThinSelect(p, seed, 0.5f) != SkiGladePlanner.ThinSelect(new float3(p.x, 999f, p.z), seed, 0.5f))
                     yFail = true;
             }
-            // Seed sensitivity and spatial independence (review finding 9): at f = 0.5 the
+            // Seed sensitivity and spatial independence: at f = 0.5 the
             // selection rate is exactly 0.5 (32768/65536), so two independent verdicts disagree
             // with p = 0.5; over 50k points σ ≈ 0.0022, ±0.01 ≈ 4.5σ.
             System.Random rs = new System.Random(4242);
@@ -843,7 +837,7 @@ namespace GladeBatch
                         agg[k].K += plan.Thinned.Count;
                         agg[k].Var += nInside * fk * (1 - fk);
 
-                        // spec §3 "seed+1 differs", for thinning (the PlanTests branch only
+                        // "seed+1 differs", for thinning (the PlanTests branch only
                         // reaches it when nothing is planted, which no default set does)
                         if (fk > 0.0 && fk < 1.0 && sets[k].Count >= 10)
                         {
@@ -1125,7 +1119,7 @@ namespace GladeBatch
             }
             Check(minFound >= s - 1e-4, where, "spacing " + F(minFound) + " < MinSpacing " + F(s) + " (" + minPair + ")");
 
-            // G2 additions: RawTarget* = the unclamped target (floored at 0) from the oracle's own
+            // RawTarget* = the unclamped target (floored at 0) from the oracle's own
             // area / inside count / perimeter; Clamped mirrors Status == Clamped.
             Check(plan.Clamped == (plan.Status == GladeStatus.Clamped), where, "GladePlan.Clamped " + plan.Clamped + " vs Status " + plan.Status);
             if (wantGlade && f.DensityCheck)
@@ -1223,7 +1217,7 @@ namespace GladeBatch
 
         // ================================================================== tool composition (Compose)
 
-        /// <summary>Round G3 (spec §8.2), replacing G2's TwoPassTests: every level on every
+        /// <summary>Every level on every
         /// static fixture geometry (CW, duplicated closing vertex, supplied triangles, exclusion
         /// rings, non-convex U / zigzag, the 7 km offset, the 8 m strip, a 3 × 3 m square), from
         /// the fixture's stand (85 % thinnable) with no members, both targets. Judged against
@@ -1373,7 +1367,7 @@ namespace GladeBatch
 
         // ================================================================== belt coverage gate
 
-        /// <summary>Review finding 10 (spec §0 "~55 % coverage with open stretches"). Paired
+        /// <summary>Belt coverage ("~55 % coverage with open stretches"). Paired
         /// control at equal target: A = BeltCoverage 0.55 at density D; B = BeltCoverage 1
         /// (the gate is skipped, SkiGladePlanner `if (k.BeltCoverage &lt; 1f)`) at 0.55·D. Belt
         /// trees are binned by the arc length of their nearest boundary point (test-local

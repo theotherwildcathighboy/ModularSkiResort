@@ -1,34 +1,20 @@
 /*
- * src/hub/RenameField.tsx - the hub's one text input: renaming a resort, a run or a lift.
+ * The hub's one text input: renaming a resort, a run or a lift. The only file allowed an <input>
+ * (tools/check-bundle.js rule 6 also requires `stopPropagation` here and a useLayoutEffect cleanup that calls `.blur()`).
  *
- * Written for this repo (MIT). Created 2026-10-03 (Round U2, implementer I-3).
- * Authority: docs/research/hub-u2-spec.md section 4.3 "RenameField". This is the ONLY file allowed
- * an <input> (tools/check-bundle.js rule 6 also requires `stopPropagation` here and a
- * useLayoutEffect cleanup that calls `.blur()`).
- *
- * Contract:
- *   - Mounted when the player clicks a pen; focuses and selects its text in useLayoutEffect.
- *   - Every keydown and mousedown stops propagating: the panel's title bar is a drag handle whose
- *     cloned onMouseDown starts a drag (DragHandle, index.js@719900 cloneElement(... onMouseDown));
- *     a key must not reach the panel's other handlers.
- *   - Enter -> commit, then blur. Esc -> cancel, then blur. Blur (clicking away) -> commit.
- *     (Enter commits itself rather than through onBlur: whether Gameface raises a blur event from
- *     a scripted blur() is not relied on.) The starting text is fixed at mount (initialRef).
- *   - Commit = the trimmed text cut to MAX_NAME (64, vanilla EllipsisTextInput's maxLength
- *     default, index.js@1008900). It is sent only when it differs from the name shown when the
- *     field opened (vanilla useInputName submits only a changed value, index.js@2099223 NMe);
- *     "" is sent as "" (C# restores the default name). C# trims and cuts again, refuses an entity
- *     that is not our sign, run or station, and logs every rename.
- *   - Unmounted while focused (the panel was closed, the resort switched) -> COMMIT (vanilla
- *     commits on blur), then blur() in the layout-effect cleanup, so the game's input-field focus
- *     flag cannot stay set: Game.SceneFlow/UserInterface.cs:170 sets InputManager.hasInputFieldFocus
- *     from the view's TextInputTypeChanged, and while it is set the keyboard is masked off for
- *     gameplay (Game.Input/InputManager.cs:644-652, 1.6.0f1: KeyboardAndMouse -> mask 2 instead of
- *     3). A commit happens at most once per mount (doneRef), whichever path comes first.
- *   - That Gameface raises TextInputTypeChanged for a mod's <input> (so typing a hotkey letter
- *     does nothing in the world) is [likely, spec 4.3 / 7.2 item 10]: settled in field test step 11.
- *   - InputActionBarrier is not used: vanilla's is gamepad-only and gamepad is not a design
- *     constraint (DECISIONS 130; spec 4.3).
+ *   - Every keydown and mousedown stops propagating: the title bar is a drag handle whose cloned onMouseDown
+ *     starts a drag (DragHandle, index.js@719900), and keys must not reach the panel's other handlers.
+ *   - Enter commits then blurs; Esc cancels then blurs; blur commits. Enter commits itself rather than via onBlur
+ *     because a scripted blur() raising a blur event in Gameface is not relied on.
+ *   - Commit is the trimmed text cut to MAX_NAME, sent only when it differs from the name at open (as vanilla
+ *     useInputName, index.js@2099223). "" is sent as "" (C# restores the default name). C# trims and cuts again,
+ *     refuses entities that are not ours, and logs every rename.
+ *   - Unmount while focused commits (as vanilla does on blur) and blurs in the layout-effect cleanup, so the game's
+ *     input-field focus flag cannot stay set: Game.SceneFlow/UserInterface.cs:170 sets InputManager.hasInputFieldFocus,
+ *     which masks the keyboard off for gameplay (Game.Input/InputManager.cs:644-652, 1.6.0f1). At most one commit
+ *     per mount (doneRef).
+ *   - Assumed, not verified: Gameface raises TextInputTypeChanged for a mod's <input>.
+ *   - InputActionBarrier is not used: vanilla's is gamepad-only.
  */
 import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import type { ChangeEvent, KeyboardEvent, MouseEvent } from "react";
@@ -56,13 +42,12 @@ export function cleanName(text: string): string {
 export function RenameField({ initial, onCommit, onClose, className }: RenameFieldProps): JSX.Element {
   const [value, setValue] = useState(initial);
   const inputRef = useRef<HTMLInputElement>(null);
-  // The starting name is fixed for this mount: a C# push of a new name while the player types
-  // (a vanilla rename arrives within one heartbeat, spec 3.2) must not close or reset the field.
+  // Fixed for this mount: a C# push of a new name while the player types must not close or reset the field.
   const initialRef = useRef(initial);
   const valueRef = useRef(initial);
   const doneRef = useRef(false);
   const cancelRef = useRef(false);
-  // The latest callbacks, for the unmount path (the cleanup must not capture stale ones).
+  // Latest callbacks for the unmount path (the cleanup must not capture stale ones)
   const commitRef = useRef(onCommit);
   const closeRef = useRef(onClose);
   commitRef.current = onCommit;
@@ -86,10 +71,10 @@ export function RenameField({ initial, onCommit, onClose, className }: RenameFie
       el?.focus();
       el?.select();
     } catch {
-      // focus/select are best effort; the player can click into the field
+      // best effort; the player can click into the field
     }
     return () => {
-      // Unmounted (panel closed, resort switched): commit like a blur, then drop the focus.
+      // Unmounted (panel closed, resort switched): commit like a blur, then drop the focus
       finish(cancelRef.current);
       try {
         el?.blur();

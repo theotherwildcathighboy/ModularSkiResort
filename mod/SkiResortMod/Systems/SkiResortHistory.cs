@@ -1,46 +1,42 @@
-// SkiResortHistory — the PURE part of the hub's history store (T78, DECISIONS 283; plan docs/research/ui/hub-history-chart-plan-
-// 2026-10-18.md §3.2, §5.1 P1/P3/P4; build note docs/research/ui/hub-history-build-1-2026-10-18.md). Four things live here, all
-// pure so tests/ResortBatch (HistoryTests.cs) links them:
-//   * SkiResortHistoryMonth — one ski area × one closed calendar month (fields below). The ECS half (IBufferElementData,
-//     ISerializable, [InternalBufferCapacity(0)]) is the other `partial` in SkiResortHistorySystem.cs; the bytes are written here
-//     (WriteTo / ReadFrom through IHistoryWriter / IHistoryReader), so the round-trip test checks exactly what the save gets.
-//   * SkiResortMonthInProgress — the ledger's month in progress of one ski area (P4, route (a): mirrored onto the sign, seeded back
-//     into the ledger on load when the month key matches). Same split: ECS half in SkiResortHistorySystem.cs.
-//   * SkiResortHistory — ring ops (Append with dedupe by month key and automatic GAP marker, 1200-month safety cap, no range cap),
-//     season / bucket sums (the July-June ski year of SkiMoneyRules.SeasonKeyOf), and the run-upkeep split (P3).
-//   * IHistoryWriter / IHistoryReader / IHistoryStore — the seams to Colossal's IWriter / IReader and to DynamicBuffer.
+// Pure part of the hub's history store, linked by tests/ResortBatch (HistoryTests.cs):
+//   * SkiResortHistoryMonth - one ski area x one closed calendar month. The ECS half (IBufferElementData, ISerializable,
+//     [InternalBufferCapacity(0)]) is the other `partial` in SkiResortHistorySystem.cs; the bytes are written here (WriteTo /
+//     ReadFrom through IHistoryWriter / IHistoryReader), so the round-trip test checks exactly what the save gets.
+//   * SkiResortMonthInProgress - the ledger's month in progress of one ski area, mirrored onto the sign and seeded back into
+//     the ledger on load when the month key matches. Same split: ECS half in SkiResortHistorySystem.cs.
+//   * SkiResortHistory - ring ops (Append with dedupe by month key and automatic GAP marker, 1200-month safety cap, no range
+//     cap), season / bucket sums (the July-June ski year of SkiMoneyRules.SeasonKeyOf), and the run-upkeep split.
+//   * IHistoryWriter / IHistoryReader / IHistoryStore - the seams to Colossal's IWriter / IReader and to DynamicBuffer.
 //
-// SAVE LAYOUT v1 IS FROZEN AT RELEASE (DECISIONS 277; docs/research/release-update-constraints-2026-10-18.md rows 2b, 2c, 8, 9):
+// Save layout v1 is frozen at release (docs/research/release-update-constraints-2026-10-18.md):
 //   SkiResortHistoryMonth, 59 bytes, little-endian (Colossal BinaryWriter):
 //     byte version | byte flags | int32 monthKey | int32 tourists | int32 residents | int32 skiDays | int32 ticketsPaid |
 //     int32 ticketIncome | int32 lodgeIncome | int32 passIncome | int32 lessonIncome | int32 liftCost | int32 runCost |
 //     int32 buildingsCost | int32 wagesCost | int32 attraction | byte snowPct
 //   SkiResortMonthInProgress, 142 bytes: see its LAYOUT comment.
-//   After 1.0 these layouts NEVER change (DECISIONS 314 D2): no payload length is written, so an older build reading a longer
-//   element cannot skip the tail and reads the rest of the block shifted (and a garbage int32 becomes the buffer's element
-//   count). A new field goes in a NEW ISerializable type (a companion component or buffer, e.g. SkiResortHistoryMonth2), which
-//   an older build skips cleanly as an unknown type. Before the 1.0 freeze an append + CurrentVersion bump (read under
-//   `if (m_Version >= 2)`) is still allowed. Never reorder, retype or
-//   rename these types, move their namespace, or turn the buffer into a component (the saved type name is the
-//   AssemblyQualifiedName). The game writes a buffer as int32 length + each element's own Serialize, stride 0
-//   (Colossal.Serialization.Entities BufferElementDataSerializer.cs:80-92 → BinaryWriter.cs:120-126, 158-161; 1.6.2f1 Colossal.Core).
+//   After 1.0 these layouts never change: no payload length is written, so an older build reading a longer element cannot skip
+//   the tail and reads the rest of the block shifted (and a garbage int32 becomes the buffer's element count). A new field goes
+//   in a new ISerializable type (a companion component or buffer, e.g. SkiResortHistoryMonth2), which an older build skips
+//   cleanly as an unknown type. Before the 1.0 freeze an append + CurrentVersion bump (read under `if (m_Version >= 2)`) is
+//   still allowed. Never reorder, retype or rename these types, move their namespace, or turn the buffer into a component (the
+//   saved type name is the AssemblyQualifiedName). The game writes a buffer as int32 length + each element's own Serialize,
+//   stride 0 (Colossal.Serialization.Entities BufferElementDataSerializer.cs:80-92, BinaryWriter.cs:120-126, 158-161).
 //
-// FLAGS (HistoryFlags; the binding of plan §5.4 uses the same bits): Partial 1 = counting started partway (a load whose month in
+// Flags (HistoryFlags; the hub binding uses the same bits): Partial 1 = counting started partway (a load whose month in
 // progress was not seeded, or a calendar jump); Short 2 = fewer than 95 % of the month's frames were simulated
 // (SkiMoneyRules.IsShortMonth); CostsEstimated 4 = reserved (v1 never sets it: every cost but buildings / wages is booked);
 // SnapshotMissing 8 = buildings / wages / attraction / snow were not taken (the stats rebuild did not answer in time); Gap 16 =
-// a MARKER, not a month: the months from its key up to the next element's key − 1 are missing (calendar jump, mod off); every
+// a marker, not a month: the months from its key up to the next element's key - 1 are missing (calendar jump, mod off), every
 // value of a Gap element is "unknown"; SkiDaysPartial 32 = the ski-day count of the month is since-load / since-jump while the
 // ledger's month is whole (SkiDaySystem keeps its month in memory only); First 64 = the area's first recorded month (the area
 // may have been placed partway through it).
 //
-// MONEY in whole ₵ as int32, clamped (ClampInt); the lift charge (double) is rounded. Unknown: skiDays / buildingsCost /
-// wagesCost / attraction −1, snowPct 255. Net is never stored (the UI derives it, so it cannot disagree with its parts);
-// B1 (2026-10-19): HubRules.NetMonth(element.Money) is that same net, the one definition the Finances tile uses (HistoryTests H-10).
+// Money in whole ₵ as int32, clamped (ClampInt); the lift charge (double) is rounded. Unknown: skiDays / buildingsCost /
+// wagesCost / attraction -1, snowPct 255. Net is never stored (the UI derives it, so it cannot disagree with its parts);
+// HubRules.NetMonth(element.Money) is that same net, the one definition the Finances tile uses.
 //
-// PURE FILE: System, System.Collections.Generic, Unity.Mathematics (SkiMoneyRules), SkiResortLedger, HubRules (B1: HubMonthMoney)
+// Pure file: System, System.Collections.Generic, Unity.Mathematics (SkiMoneyRules), SkiResortLedger, HubRules (HubMonthMoney)
 // and EntityRef only.
-// Created 2026-10-18 (T78 build round 1).
 
 using System;
 using System.Collections.Generic;
@@ -74,12 +70,12 @@ namespace SkiResortMod.Systems
         void RemoveRange(int index, int count);
     }
 
-    /// <summary>SkiResortHistoryMonth.m_Flags bits (header FLAGS).</summary>
+    /// <summary>SkiResortHistoryMonth.m_Flags bits (header).</summary>
     public static class HistoryFlags
     {
         public const byte Partial = 1;
         public const byte Short = 2;
-        public const byte CostsEstimated = 4;   // reserved in v1
+        public const byte CostsEstimated = 4; // reserved in v1
         public const byte SnapshotMissing = 8;
         public const byte Gap = 16;
         public const byte SkiDaysPartial = 32;
@@ -88,43 +84,43 @@ namespace SkiResortMod.Systems
 
     public partial struct SkiResortHistoryMonth
     {
-        /// <summary>Layout version this build writes (header). v1 is frozen; before the 1.0 freeze a bump appends a field, after 1.0 this layout never changes (a NEW type carries new fields, DECISIONS 314 D2).</summary>
+        /// <summary>Layout version this build writes. v1 is frozen (header).</summary>
         public const byte CurrentVersion = 1;
         /// <summary>Bytes one v1 element takes in the save (the round-trip test pins it).</summary>
         public const int V1Bytes = 59;
         public const int Unknown = -1;
         public const byte SnowUnknown = 255;
 
-        /// <summary>Layout version this value was created with or loaded from. NOT written as such: WriteTo writes CurrentVersion.</summary>
+        /// <summary>Layout version this value was created with or loaded from. Not written as such: WriteTo writes CurrentVersion.</summary>
         public byte m_Version;
         public byte m_Flags;
-        public int m_MonthKey;        // SkiMoneyRules.MonthKey of the closed month
-        public int m_Tourists;        // ledger TouristGuests
-        public int m_Residents;       // ledger LocalGuests
-        public int m_SkiDays;         // SkiDaySystem arrivals of the month; −1 unknown (ski days off / not measured)
-        public int m_TicketsPaid;     // ledger TicketsPaid
-        public int m_TicketIncome;    // ₵
-        public int m_LodgeIncome;     // ₵ (LodgeSpendIncome)
-        public int m_PassIncome;      // ₵
-        public int m_LessonIncome;    // ₵
-        public int m_LiftCost;        // ₵, the ledger's LiftCharged rounded
-        public int m_RunCost;         // ₵, the ledger's RunUpkeep (P3: booked per area)
-        public int m_BuildingsCost;   // ₵/month rate at the roll; −1 unknown
-        public int m_WagesCost;       // ₵/month rate at the roll; −1 unknown
-        public int m_Attraction;      // point value at the roll; −1 unknown
-        public byte m_SnowPct;        // 0..100 at the roll; 255 unknown
+        public int m_MonthKey; // SkiMoneyRules.MonthKey of the closed month
+        public int m_Tourists; // ledger TouristGuests
+        public int m_Residents; // ledger LocalGuests
+        public int m_SkiDays; // SkiDaySystem arrivals of the month; -1 unknown (ski days off / not measured)
+        public int m_TicketsPaid; // ledger TicketsPaid
+        public int m_TicketIncome;
+        public int m_LodgeIncome; // ledger LodgeSpendIncome
+        public int m_PassIncome;
+        public int m_LessonIncome;
+        public int m_LiftCost; // the ledger's LiftCharged rounded
+        public int m_RunCost; // the ledger's RunUpkeep (booked per area)
+        public int m_BuildingsCost; // per-month rate at the roll; -1 unknown
+        public int m_WagesCost; // per-month rate at the roll; -1 unknown
+        public int m_Attraction; // point value at the roll; -1 unknown
+        public byte m_SnowPct; // 0..100 at the roll; 255 unknown
 
         public bool IsGap => (m_Flags & HistoryFlags.Gap) != 0;
 
-        /// <summary>B1: the element's eight Net terms, as stored (buildings / wages −1 unknown). HubRules.NetMonth over them is the
-        /// month's Net: the number historyRules.ts finish() derives (income − lift − run − max(0, buildings) − max(0, wages)).</summary>
+        /// <summary>The element's eight Net terms, as stored (buildings / wages -1 unknown). HubRules.NetMonth over them is the
+        /// month's Net, the number historyRules.ts finish() derives (income - lift - run - max(0, buildings) - max(0, wages)).</summary>
         public HubMonthMoney Money => new HubMonthMoney
         {
             TicketIncome = m_TicketIncome, LodgeIncome = m_LodgeIncome, LessonIncome = m_LessonIncome, PassIncome = m_PassIncome,
             LiftCost = m_LiftCost, RunCost = m_RunCost, BuildingsCost = m_BuildingsCost, WagesCost = m_WagesCost,
         };
 
-        /// <summary>The GAP marker at <paramref name="monthKey"/> (header FLAGS): every value unknown or 0.</summary>
+        /// <summary>The GAP marker at <paramref name="monthKey"/> (header Flags): every value unknown or 0.</summary>
         public static SkiResortHistoryMonth Gap(int monthKey)
         {
             return new SkiResortHistoryMonth
@@ -152,7 +148,7 @@ namespace SkiResortMod.Systems
             };
         }
 
-        /// <summary>Snow cover % for the element: rounded, clamped 0..100; not finite or below 0 → 255 (unknown).</summary>
+        /// <summary>Snow cover % for the element: rounded, clamped 0..100; not finite or below 0 gives 255 (unknown).</summary>
         public static byte SnowByte(float pct)
         {
             if (float.IsNaN(pct) || float.IsInfinity(pct) || pct < 0f)
@@ -160,7 +156,7 @@ namespace SkiResortMod.Systems
             return (byte)Math.Min(100, (int)Math.Round(pct, MidpointRounding.AwayFromZero));
         }
 
-        /// <summary>v1 layout, byte for byte (header). Version FIRST, always CurrentVersion.</summary>
+        /// <summary>v1 layout, byte for byte (header). Version first, always CurrentVersion.</summary>
         public void WriteTo<TWriter>(ref TWriter w) where TWriter : IHistoryWriter
         {
             byte version = CurrentVersion;
@@ -183,7 +179,7 @@ namespace SkiResortMod.Systems
             w.Write(m_SnowPct);
         }
 
-        /// <summary>v1 layout (frozen; after 1.0 it never changes, new fields = a NEW ISerializable type, DECISIONS 314 D2).</summary>
+        /// <summary>v1 layout (frozen, see header).</summary>
         public void ReadFrom<TReader>(ref TReader r) where TReader : IHistoryReader
         {
             r.Read(out m_Version);
@@ -207,31 +203,30 @@ namespace SkiResortMod.Systems
     }
 
     // LAYOUT v1 (142 bytes): byte version | byte flags | int32 monthKey | int32 framesSimulated | the whole ledger Month in its
-    // declaration order — int32 TouristGuests, TouristParties, LocalGuests, TouristOnLeisure, TicketsPaid, TicketsUnpaid,
+    // declaration order - int32 TouristGuests, TouristParties, LocalGuests, TouristOnLeisure, TicketsPaid, TicketsUnpaid,
     // TicketsFree | int64 TicketIncome | double LiftCharged | int32 LodgeSpends | int64 LodgeSpendIncome | int32 PassesSold |
     // int64 PassIncome | int32 PassHolderGuests | int32 PassesPre | int64 PassIncomePre | int32 Lessons | int64 LessonIncome |
-    // int64 RunUpkeep — then the entry's pass season: int32 PassSeasonKey | int32 PassSeasonSold | int64 PassSeasonIncome |
+    // int64 RunUpkeep - then the entry's pass season: int32 PassSeasonKey | int32 PassSeasonSold | int64 PassSeasonIncome |
     // int32 PassSeasonPre | int64 PassSeasonPreIncome.
-    // = 2 + 4 + 4 + 7×4 + 8 + 8 + 4 + 8 + 4 + 8 + 4 + 4 + 8 + 4 + 8 + 8 + 4 + 4 + 8 + 4 + 8 = 142 bytes (V1Bytes; pinned by
-    // HistoryTests H-MP1).
+    // = 2 + 4 + 4 + 7x4 + 8 + 8 + 4 + 8 + 4 + 8 + 4 + 4 + 8 + 4 + 8 + 8 + 4 + 4 + 8 + 4 + 8 = 142 bytes (V1Bytes).
     public partial struct SkiResortMonthInProgress
     {
         public const byte CurrentVersion = 1;
         /// <summary>Bytes of a v1 value in the save (pinned by HistoryTests).</summary>
         public const int V1Bytes = 2 + 4 + 4 + 7 * 4 + 8 + 8 + 4 + 8 + 4 + 8 + 4 + 4 + 8 + 4 + 8 + 8 + 4 + 4 + 8 + 4 + 8;
 
-        public const byte FlagPartial = 1;   // the ledger's ThisMonthSinceLoad at the mirror (counting started partway)
-        public const byte FlagByJump = 2;    // ... and it started at a calendar jump (the counter's label), not at a load
+        public const byte FlagPartial = 1; // the ledger's ThisMonthSinceLoad at the mirror (counting started partway)
+        public const byte FlagByJump = 2; // ... and it started at a calendar jump (the counter's label), not at a load
 
         public byte m_Version;
         public byte m_Flags;
-        public int m_MonthKey;               // SkiResortLedger.NoMonth = nothing mirrored yet
-        public int m_FramesSimulated;        // sim frames of this month simulated before the mirror (the 95 % short rule)
+        public int m_MonthKey; // SkiResortLedger.NoMonth = nothing mirrored yet
+        public int m_FramesSimulated; // sim frames of this month simulated before the mirror (the 95 % short rule)
         public SkiResortLedger.Month m_Month;
         public int m_PassSeasonKey, m_PassSeasonSold, m_PassSeasonPre;
         public long m_PassSeasonIncome, m_PassSeasonPreIncome;
 
-        /// <summary>The mirror of one ledger entry (header P4).</summary>
+        /// <summary>The mirror of one ledger entry.</summary>
         public static SkiResortMonthInProgress From(in SkiResortLedger.Entry e, int monthKey, bool partial, bool byJump, uint framesSimulated)
         {
             return new SkiResortMonthInProgress
@@ -279,7 +274,7 @@ namespace SkiResortMod.Systems
             w.Write(m_PassSeasonPreIncome);
         }
 
-        /// <summary>v1 layout (frozen; after 1.0 it never changes, new fields = a NEW ISerializable type, DECISIONS 314 D2).</summary>
+        /// <summary>v1 layout (frozen, see header).</summary>
         public void ReadFrom<TReader>(ref TReader r) where TReader : IHistoryReader
         {
             r.Read(out m_Version);
@@ -315,14 +310,14 @@ namespace SkiResortMod.Systems
 
     public static class SkiResortHistory
     {
-        /// <summary>Safety cap only (plan §3.2: no range cap): 100 in-game years. The oldest elements go first.</summary>
+        /// <summary>Safety cap only (no range cap): 100 in-game years. The oldest elements go first.</summary>
         public const int CapMonths = 1200;
 
         public enum AppendResult : byte { Appended = 0, AppendedAfterGap = 1, Replaced = 2, Rejected = 3 }
 
         public static int ClampInt(long v) => v > int.MaxValue ? int.MaxValue : v < int.MinValue ? int.MinValue : (int)v;
 
-        /// <summary>A ₵ amount (double) rounded half away from zero and clamped to int32; not finite → 0.</summary>
+        /// <summary>A ₵ amount (double) rounded half away from zero and clamped to int32; not finite gives 0.</summary>
         public static int RoundMoney(double v)
         {
             if (double.IsNaN(v) || double.IsInfinity(v))
@@ -337,11 +332,11 @@ namespace SkiResortMod.Systems
             return store.Count > 0 ? store[store.Count - 1].m_MonthKey : SkiResortLedger.NoMonth;
         }
 
-        /// <summary>Appends <paramref name="m"/> (keys strictly increasing): the same key as the last element REPLACES it (dedupe:
-        /// the later sample wins); a key more than one month after the last inserts one Gap marker at last + 1 first; an older key
-        /// is Rejected (a backward calendar jump: history never rewrites its past). An empty store just appends (the First flag is
-        /// the caller's). Then drops the oldest elements above CapMonths (a leading Gap marker left at the front is dropped too:
-        /// it would describe months before the store's start).</summary>
+        /// <summary>Appends <paramref name="m"/> (keys strictly increasing): the same key as the last element replaces it (the later
+        /// sample wins); a key more than one month after the last inserts one Gap marker at last + 1 first; an older key is Rejected (a
+        /// backward calendar jump: history never rewrites its past). An empty store just appends (the First flag is the caller's).
+        /// Then drops the oldest elements above CapMonths (a leading Gap marker left at the front is dropped too: it would describe
+        /// months before the store's start).</summary>
         public static AppendResult Append<TStore>(ref TStore store, SkiResortHistoryMonth m) where TStore : IHistoryStore
         {
             AppendResult result = AppendResult.Appended;
@@ -379,12 +374,10 @@ namespace SkiResortMod.Systems
             if (drop <= 0)
                 return 0;
             while (drop < store.Count - 1 && store[drop].IsGap)
-                drop++;   // never start the store with a marker
+                drop++; // never start the store with a marker
             store.RemoveRange(0, drop);
             return drop;
         }
-
-        // ── seasons and buckets ──────────────────────────────────────────────────────────────────────────────────────────
 
         /// <summary>The ski season (July-June, SkiMoneyRules.SeasonKeyOf) of a month key.</summary>
         public static int SeasonOf(int monthKey)
@@ -393,18 +386,18 @@ namespace SkiResortMod.Systems
         /// <summary>The month key of July of season <paramref name="seasonKey"/> (its first month).</summary>
         public static int SeasonFirstKey(int seasonKey) => seasonKey * 12 + (SkiMoneyRules.SeasonFirstMonth - 1);
 
-        /// <summary>Flows summed, point values averaged over the months that know them (plan §4.2).</summary>
+        /// <summary>Flows summed, point values averaged over the months that know them.</summary>
         public struct Bucket
         {
             public int FirstKey, LastKey;
-            public int Months;             // months with data (Gap months and months not in the store are not counted)
-            public byte Flags;             // OR of the flags of the months counted
+            public int Months; // months with data (Gap months and months not in the store are not counted)
+            public byte Flags; // OR of the flags of the months counted
             public long Tourists, Residents, TicketsPaid, TicketIncome, LodgeIncome, PassIncome, LessonIncome, LiftCost, RunCost;
-            public long SkiDays; public int SkiDaysMonths;               // over months with skiDays known
-            public long BuildingsCost; public int BuildingsMonths;       // over months with the rate known
+            public long SkiDays; public int SkiDaysMonths; // over months with skiDays known
+            public long BuildingsCost; public int BuildingsMonths; // over months with the rate known
             public long WagesCost; public int WagesMonths;
-            public float Attraction;       // mean over months known; −1 none
-            public float SnowPct;          // mean over months known; −1 none
+            public float Attraction; // mean over months known; -1 none
+            public float SnowPct; // mean over months known; -1 none
             public long Income => TicketIncome + LodgeIncome + PassIncome + LessonIncome;
             public long Guests => Tourists + Residents;
         }
@@ -451,14 +444,12 @@ namespace SkiResortMod.Systems
             return Sum(ref store, first, first + 11);
         }
 
-        // ── P3: the run-upkeep split ─────────────────────────────────────────────────────────────────────────────────────
-
-        /// <summary>Splits one integer debit over <paramref name="count"/> slots by weight so that the parts sum EXACTLY to
-        /// <paramref name="debit"/> and no slot drifts over time: target t = carry + debit × w / Σw; part = floor(t) (never below 0);
-        /// the units left over (or over-given) go to (come from) the slots with the largest (smallest) fractions; carry = t − part.
-        /// Σ carry is conserved pass to pass. Weights that are not finite or ≤ 0 count 0; Σw ≤ 0 (or count 0) puts the whole debit
-        /// in slot <paramref name="fallback"/> (the caller's Not linked slot) and leaves carries alone. debit ≤ 0 books nothing.
-        /// Allocation-free; O(count²) worst case (count = ski areas + 1).</summary>
+        /// <summary>Splits one integer debit over <paramref name="count"/> slots by weight so that the parts sum exactly to
+        /// <paramref name="debit"/> and no slot drifts over time: target t = carry + debit x w / sum(w); part = floor(t) (never below 0);
+        /// the units left over (or over-given) go to (come from) the slots with the largest (smallest) fractions; carry = t - part. The
+        /// sum of carries is conserved pass to pass. Weights that are not finite or &lt;= 0 count 0; sum(w) &lt;= 0 (or count 0) puts the
+        /// whole debit in slot <paramref name="fallback"/> (the caller's Not linked slot) and leaves carries alone. debit &lt;= 0 books
+        /// nothing. Allocation-free; O(count^2) worst case (count = ski areas + 1).</summary>
         public static void SplitDebit(long debit, double[] weights, double[] carry, long[] parts, int count, int fallback)
         {
             for (int i = 0; i < count; i++)
@@ -480,7 +471,7 @@ namespace SkiResortMod.Systems
                 double t = W(weights[i]) > 0.0 ? carry[i] + debit * (W(weights[i]) / sum) : carry[i];
                 long p = t > 0.0 ? (long)Math.Floor(t) : 0;
                 parts[i] = p;
-                carry[i] = t;   // the target for now; becomes t − part below
+                carry[i] = t; // the target for now; becomes t - part below
                 given += p;
             }
             while (given < debit)
@@ -517,10 +508,8 @@ namespace SkiResortMod.Systems
 
         private static double W(double w) => double.IsNaN(w) || double.IsInfinity(w) || w <= 0.0 ? 0.0 : w;
 
-        // ── P4: the seed rule ────────────────────────────────────────────────────────────────────────────────────────────
-
-        /// <summary>A saved month in progress seeds the ledger only when it is the ledger's month (same key) and was mirrored
-        /// at all; any other key (stale mirror, a save from another month) is ignored, and counting stays "since load".</summary>
+        /// <summary>A saved month in progress seeds the ledger only when it is the ledger's month (same key) and was mirrored at all;
+        /// any other key (stale mirror, a save from another month) is ignored, and counting stays "since load".</summary>
         public static bool ShouldSeed(int ledgerMonthKey, in SkiResortMonthInProgress saved)
             => ledgerMonthKey != SkiResortLedger.NoMonth && saved.m_MonthKey != SkiResortLedger.NoMonth && saved.m_MonthKey == ledgerMonthKey;
     }

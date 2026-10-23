@@ -1,8 +1,7 @@
-// ComposeTests — unit tests of SkiGladeCompose (run-binding-glade-spec.md §8.3 as amending §4.3):
-// moved constants, the §8.2 level tables, ThinHash (the rank key) against ThinSelect and a
-// test-local restatement, SeparationHolds, garbage inputs, "Params.Mode / ThinFraction /
-// GladeDensity / MaxPlant are not read", PlanKey properties (level-independent, relevance of
-// Existing and other-layer trees), the planner's PREFIX PROPERTY and the TIME report.
+// Unit tests of SkiGladeCompose: moved constants, the level tables, ThinHash (the rank key) against ThinSelect and a
+// test-local restatement, SeparationHolds, garbage inputs, "Params.Mode / ThinFraction / GladeDensity / MaxPlant are not
+// read", PlanKey properties (level-independent, relevance of Existing and other-layer trees), the planner's PREFIX
+// PROPERTY and the TIME report.
 
 using System;
 using System.Collections.Generic;
@@ -17,7 +16,7 @@ namespace GladeBatch
     {
         private static void ComposeUnitTests(List<Fixture> fixtures)
         {
-            // ---- moved constants keep their G1 values (spec §2: "same value", "same body").
+            // ---- moved constants keep their original values.
             Check(SkiGladeCompose.ThinSeed == 0x7A1C3E5Bu, "compose/consts", "ThinSeed is not the G1 value 0x7A1C3E5B");
             uint[] g1Salts = { 0x5C1A9E5Du ^ 0x9E3779B1u, 0x5C1A9E5Du ^ 0x3C6EF362u, 0x5C1A9E5Du ^ 0xDAA66D13u, 0x5C1A9E5Du ^ 0x78DDE6C4u,
                                0x5C1A9E5Du ^ 0x17156075u, 0x5C1A9E5Du ^ 0xB54CDA26u, 0x5C1A9E5Du ^ 0x538453D7u, 0x5C1A9E5Du ^ 0xF1BBCD88u };
@@ -27,7 +26,7 @@ namespace GladeBatch
             Check(SkiGladeCompose.LayerGlade == 0 && SkiGladeCompose.LayerBelt == 1 && SkiGladeCompose.LayerNone == 255 &&
                   SkiGladeCompose.VariantUnknown == 0xFF, "compose/consts", "layer / VariantUnknown constants");
 
-            // ---- §8.2 / §8.3 tables (typed in from the spec).
+            // ---- level tables (typed in from the glade spec).
             Check(SkiGladeCompose.Levels == 8 && SkiGladeCompose.DefaultLevel == 4, "compose/levels", "Levels " + SkiGladeCompose.Levels + ", DefaultLevel " + SkiGladeCompose.DefaultLevel);
             for (int l = 1; l <= 8; l++)
             {
@@ -42,11 +41,11 @@ namespace GladeBatch
                   SkiGladeCompose.InteriorDensity(9) == SkiGladeCompose.InteriorDensity(8) && SkiGladeCompose.BeltFactor(99) == 1f &&
                   SkiGladeCompose.ClampLevel(0) == 1 && SkiGladeCompose.ClampLevel(255) == 8, "compose/levels", "levels are not clamped to 1..8");
             Check(SkiGladeCompose.InteriorDensity(8) == OracleD8, "compose/levels", "level-8 density is not 143/10000");
-            // §8.2 as amended in the G3 fixer round (finding behavior-2): the stream holds 1.10 × level 8.
+            // The stream holds 1.10 × level 8.
             Check(SkiGladeCompose.StreamDensityPerM2 == OracleStreamD && Math.Abs(SkiGladeCompose.StreamDensityPerM2 / OracleD8 - 1.10) < 1e-6,
                 "compose/levels", "stream density " + F(SkiGladeCompose.StreamDensityPerM2) + " is not 1.10 × level 8 (157.3/10000)");
 
-            // ---- SeparationHolds (D11).
+            // ---- SeparationHolds.
             Check(SkiGladeCompose.SeparationHolds(TInnerMargin, TBeltGap, TGladeMinSpacing, TBeltMinSpacing), "compose/separation",
                 "the tuning (2.5 + 3.1 vs 5.5 / 4.5) does not separate the layers");
             Check(!SkiGladeCompose.SeparationHolds(2.5f, 1.5f, 5.5f, 4.5f), "compose/separation", "the G1 tuning (belt gap 1.5) passes");
@@ -93,8 +92,7 @@ namespace GladeBatch
                                   new ComposeMember { Position = new float3(float.NaN, 0, 1), Layer = 0, Variant = 0, PlanGen = 1 } },
                     SkipSlots = new HashSet<int> { -3, 0, 1000000 } };
                 SkiGladeCompose.Compose(odd, r);
-                // G3 fixer round: the non-finite interior member reads "outside" → misplaced →
-                // removed first (it was G3-A's uncounted, never-removed OwnOutside).
+                // The non-finite interior member reads "outside" → misplaced → removed first.
                 Check(r.Remove.Count == 1 && r.Remove[0] == 1 && r.Skipped <= 1 && r.Same == 0 && r.SameIn == 0 && r.Misplaced == 1 && r.Other == 1,
                     "compose/garbage", "odd members/skips: remove " + r.Remove.Count + ", skipped " + r.Skipped + ", same " + r.Same + ", sameIn " + r.SameIn +
                     ", misplaced " + r.Misplaced + ", other " + r.Other);
@@ -116,7 +114,7 @@ namespace GladeBatch
             bool[] th;
             MakeStand(rf, 3, out st, out th);
 
-            // ---- Params.Mode / ThinFraction / GladeDensity / MaxPlant are not read (§8.3).
+            // ---- Params.Mode / ThinFraction / GladeDensity / MaxPlant are not read.
             foreach (SimTarget target in new[] { SimTarget.Interior, SimTarget.TreeLine })
             {
                 for (int level = 1; level <= 8; level += 3)
@@ -189,10 +187,9 @@ namespace GladeBatch
             // = 3.0 m from the edge) leaves key AND P unchanged; nearer, or inside, it changes the key.
             KeyRelevance(b, rb, k0, new float3(-3.2f, GroundY(-3.2, 150), 150), false, "an other-layer member 3.2 m outside", 1);
             KeyRelevance(b, rb, k0, new float3(-2.9f, GroundY(-2.9, 150), 150), true, "an other-layer member 2.9 m outside", 1);
-            // G3 fixer round: a tree-line member INSIDE is misplaced — removed first, never an
-            // occupant, so the key may not change (G3-A: an occupant and X). P itself differs: the
-            // compose that removes it plants nothing (never both), so only the key is compared;
-            // keybook soundness (ApplySim) ties an equal key to an equal P.
+            // A tree-line member INSIDE is misplaced: removed first, never an occupant, so the key may not change. P itself differs:
+            // the compose that removes it plants nothing (never both), so only the key is compared; keybook soundness (ApplySim)
+            // ties an equal key to an equal P.
             KeyIgnoresMisplaced(b, k0, new float3(20, GroundY(20, 20), 20), 1, "a misplaced tree-line member inside");
             KeyRelevance(b, rb, k0, new float3(-3.2f, GroundY(-3.2, 151), 151), false, "a band tree 3.2 m outside", -1);
             KeyRelevance(b, rb, k0, new float3(-2.9f, GroundY(-2.9, 151), 151), true, "a band tree 2.9 m outside", -1);
@@ -210,8 +207,7 @@ namespace GladeBatch
             MisplacedUnitTests();
         }
 
-        /// <summary>A misplaced member (G3 fixer round) is Other: the key is unchanged and the
-        /// compose lists it first in Remove.</summary>
+        /// <summary>A misplaced member is Other: the key is unchanged and the compose lists it first in Remove.</summary>
         private static void KeyIgnoresMisplaced(ComposeInput baseInput, ulong baseKey, float3 pos, int layer, string what)
         {
             ComposeInput x = Copy(baseInput);
@@ -223,9 +219,8 @@ namespace GladeBatch
                 ", other-layer occupants " + r.OccupantsOtherLayer);
         }
 
-        /// <summary>G3 fixer round (findings compose-1 / behavior-1): this run's members outside
-        /// their own layer's region are Other for the target that sees them — removed first, never
-        /// X / M / occupants — and a correctly placed other-layer member stays an occupant.</summary>
+        /// <summary>This run's members outside their own layer's region are Other for the target that sees them — removed
+        /// first, never X / M / occupants — and a correctly placed other-layer member stays an occupant.</summary>
         private static void MisplacedUnitTests()
         {
             float3[] sq = Pts(0, 0, 80, 0, 80, 80, 0, 80);
@@ -364,8 +359,7 @@ namespace GladeBatch
             };
         }
 
-        /// <summary>The stream's planner params from the spec definition (interior: the stream
-        /// density 157.3 / ha, §8.2 as amended in the G3 fixer round; the belt as in G2).</summary>
+        /// <summary>The stream's planner params from the spec definition (interior: the stream density 157.3 / ha).</summary>
         private static GladeParams StreamTestParams(SimTarget target)
         {
             GladeParams p = SimParams(target);
@@ -375,9 +369,8 @@ namespace GladeBatch
             return p;
         }
 
-        // ================================================================== prefix property
 
-        /// <summary>Spec §4.3 step 4 (kept by §8): Plan(MaxPlant m) is a bit-exact PREFIX of
+        /// <summary>Plan(MaxPlant m) is a bit-exact PREFIX of
         /// Plan(MaxPlant large), for both layers, with occupants, exclusion rings and saturation.
         /// A slice may be SHORTER than min(m, |full|) only when it ran out of its target-scaled
         /// attempt budget (then it reports Saturated) — the case SkiGladeCompose re-plans in full.</summary>
@@ -450,9 +443,8 @@ namespace GladeBatch
                               " slice(s) stopped on their attempt budget before min(MaxPlant, |full|) (still prefixes)");
         }
 
-        // ================================================================== timing (report-only)
 
-        /// <summary>§4.11 TIME, G3 form: Compose with the full stream (level 8 from the forested
+        /// <summary>TIME: Compose with the full stream (level 8 from the forested
         /// stand, uncapped) and a level-1 fell compose, on the big fixtures and the two field-sized
         /// ones; WARN above 20 ms (CoreCLR here; Mono in the game is unmeasured).</summary>
         private static void ComposeTimingReport(List<SimRun> runs)

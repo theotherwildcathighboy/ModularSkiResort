@@ -1,62 +1,41 @@
-// SkiRunContourSystem — turns the vanilla terrain contour lines on while the area tool holds
-// one of our run prefabs, and gives the player's own setting back afterwards
-// (docs/research/run-feedback-spec.md §5, DECISIONS 113). Every engine citation is
-// `Game.X/File.cs:line` in tools/decompile/1.6.0f1; "1.6.2 :N" notes a line shift in 1.6.2f1.
+// SkiRunContourSystem - turns the vanilla terrain contour lines on while the area tool holds one of our run prefabs, and gives
+// the player's own setting back afterwards. Engine citations are `Game.X/File.cs:line` in tools/decompile/1.6.0f1.
 //
-// THE ONLY ROUTE. UndergroundViewSystem.OnUpdate sets contourLinesOn = globalContourLinesOn ||
-// (GetActualSnap(selectedSnap, on, off) & Snap.ContourLines) != 0
-// (Game.Rendering/UndergroundViewSystem.cs:120; :129 with no tool; GetActualSnap is
-// ToolBaseSystem.cs:467-470). The area tool's Surface branch never puts ContourLines into its
-// masks (AreaToolSystem.cs:3291-3299; 1.6.2 :3302), so OR-ing Snap.ContourLines into its
-// selectedSnap would be masked out — and would corrupt the player's snap selection. Never do
-// it. What remains is the public setter globalContourLinesOn (UndergroundViewSystem.cs:67),
-// the same flag the vanilla contour button reads and writes (ToolUISystem.cs:154, 177,
-// 499-511; 1.6.2 :555-567). It is NOT serialized, and UndergroundViewSystem.OnGameLoaded resets
-// it to false on every load (:92-96). UndergroundViewSystem.cs is unchanged in 1.6.2.
+// The only route: UndergroundViewSystem.OnUpdate sets contourLinesOn = globalContourLinesOn || (GetActualSnap(selectedSnap, on,
+// off) & Snap.ContourLines) != 0 (UndergroundViewSystem.cs:120; GetActualSnap ToolBaseSystem.cs:467-470). The area tool's Surface
+// branch never puts ContourLines into its masks (AreaToolSystem.cs:3291-3299; 1.6.2 :3302), so OR-ing it into selectedSnap would be
+// masked out and would corrupt the player's snap selection. What remains is the public setter globalContourLinesOn
+// (UndergroundViewSystem.cs:67), the flag the vanilla contour button reads and writes (ToolUISystem.cs:154, 177, 499-511; 1.6.2
+// :555-567). It is not serialized, and OnGameLoaded resets it to false on every load (:92-96).
 //
-// ORDER. Registered UpdateBefore<SkiRunContourSystem, UndergroundViewSystem>(PreCulling) in
-// Mod.cs (UndergroundViewSystem at SystemOrder.cs:632; 1.6.2 :633) so our write is read the
-// same frame. PreCulling runs every frame, paused included (the SkiRunSplatSystem precedent).
+// Order: UpdateBefore<SkiRunContourSystem, UndergroundViewSystem>(PreCulling) in Mod.cs (UndergroundViewSystem at SystemOrder.cs:632)
+// so our write is read the same frame. PreCulling runs every frame, paused included.
 //
-// STATE MACHINE (spec §5, verbatim — Step() below; table-checked by a scratch port):
+// State machine (Step()):
 //   want = setting && armed && activeTool == areaTool && areaTool.prefab is one of our runs
 //   g    = uvs.globalContourLinesOn
 //   if (m_Active) { if (g != m_Written) { m_Active = false; m_Latched = want; }  // someone else wrote it: theirs, never restore
 //                   else if (!want)     { g := false; m_Active = false; } }
 //   else if (want && !m_Latched) { if (!g) { g := true; m_Written = true; m_Active = true; } else m_Latched = true; }
 //   if (!want) m_Latched = false;
-// Release (OnStopRunning / OnDestroy / exception): if (m_Active && g == m_Written) g := false;
-// clear the flags. "Setting turned off" is want == false, which runs the restore arm of Step
-// on the next frame — the same writes as Release. OnGameLoadingComplete applies Release too
-// (spec: clear the flags): after a load vanilla has already reset g to false (:94), so the
-// restore guard (g == m_Written) is false and nothing is written; it can only fire if g still
-// holds OUR write (no OnGameLoaded on that path — unverified whether that ever happens), and
-// then it removes our own leftover rather than leaking it.
+// Release (OnStopRunning / OnDestroy / exception): if (m_Active && g == m_Written) g := false; clear the flags. OnGameLoadingComplete
+// applies Release too: after a load vanilla has already reset g (:94), so the guard (g == m_Written) is false and nothing is
+// written; it can only fire if g still holds our write, and then it removes our own leftover.
 //
-// WHY POLL. A click on the vanilla button is a plain property write with no callback
-// (ToolUISystem.cs:508-511); the button shows ON while we override (its getter reads the same
-// flag, :499-506) and a click writes false, which the next frame sees as g != m_Written —
-// the player's click wins and is never undone. The "Toggle Global Contour Lines" hotkey has no
-// C# handler (JS-side; presumably the same trigger — unverified). Same-frame double writes
-// (off then on between two of our frames) are indistinguishable from no write; accepted.
+// Why poll: a click on the vanilla button is a plain property write with no callback (ToolUISystem.cs:508-511); the button shows
+// ON while we override (its getter reads the same flag, :499-506) and a click writes false, which the next frame sees as
+// g != m_Written, so the player's click wins and is never undone. The "Toggle Global Contour Lines" hotkey has no C# handler
+// (JS-side; presumably the same trigger, unverified). Same-frame double writes are indistinguishable from no write; accepted.
 //
-// NO RequireForUpdate: OnUpdate must run to restore. The tool's prefab is a PrefabBase
-// reference; we cache reference → isRunPrefab and resolve (PrefabSystem.TryGetEntity,
-// PrefabSystem.cs:710-713, + SkiRunOwnershipSystem.IsRunPrefab) only when the reference
-// changes, and only while ownership is armed (its prefab sets are resolved then). AreaToolSystem
-// .prefab is a plain field getter (AreaToolSystem.cs:2637-2652; 1.6.2 :2648); ToolSystem
-// .activeTool likewise (ToolSystem.cs:84-99). Idle cost: a settings bool, two bools, a
-// reference compare and one property read of UndergroundViewSystem.
+// No RequireForUpdate: OnUpdate must run to restore. The tool's prefab is cached as reference -> isRunPrefab and resolved
+// (PrefabSystem.TryGetEntity, PrefabSystem.cs:710-713, + SkiRunOwnershipSystem.IsRunPrefab) only when the reference changes and
+// ownership is armed. AreaToolSystem.prefab and ToolSystem.activeTool are plain field getters (AreaToolSystem.cs:2637-2652;
+// ToolSystem.cs:84-99). While contourLinesOn, UndergroundPass skips its early-out and re-renders terrain heights + one
+// full-screen contour compute per frame (UndergroundPass.cs:105-126): vanilla's own toggle cost, only while we override.
 //
-// COST of the lines themselves: UndergroundPass skips its early-out while contourLinesOn and
-// re-renders terrain heights + one full-screen contour compute per frame (UndergroundPass.cs:
-// 105-126) — vanilla's own toggle cost, only while we override; GPU cost on a mountain map
-// unmeasured.
-//
-// SCOPE: Game mode only (outside it want is false, so a leftover override is still restored).
-// Defensive contract per house rules: "created" line, ARMED line per load, m_Armed/m_Disabled/
-// m_ErrorLogged reset in OnGameLoadingComplete, one-shot "!!!" catch that restores (if ours)
-// and disables the override until the next game load.
+// Game mode only (outside it want is false, so a leftover override is still restored). Defensive contract: "created" line, ARMED
+// line per load, m_Armed/m_Disabled/m_ErrorLogged reset in OnGameLoadingComplete, one-shot "!!!" catch that restores (if ours) and
+// disables the override until the next game load.
 
 using System;
 using Colossal.Serialization.Entities;
@@ -71,7 +50,6 @@ namespace SkiResortMod.Systems
 {
     public sealed partial class SkiRunContourSystem : GameSystemBase
     {
-        // StateText values (const: assigning them allocates nothing).
         public const string StateOff = "off";
         public const string StateOverriding = "overriding";
         public const string StateLatchedPlayerOn = "latched (player had it on)";
@@ -84,26 +62,22 @@ namespace SkiResortMod.Systems
         private UndergroundViewSystem m_UndergroundView;
         private SkiRunOwnershipSystem m_Ownership;
 
-        // The state machine (spec §5).
         private bool m_Active;     // our override is live: g holds OUR write
         private bool m_Written;    // the value we last wrote (only ever true while active)
         private bool m_Latched;    // want is true but we stand aside until want drops
 
-        // tool.prefab reference → isRunPrefab cache.
         private PrefabBase m_CachedPrefab;
         private bool m_CachedIsRun;
 
-        // Per-load state — reset at OnGameLoadingComplete.
         private bool m_Armed;
         private bool m_Disabled;
         private bool m_ErrorLogged;
 
-        /// <summary>Dev-tab line ("Ski Runs" tab, contour state): "off" / "overriding" /
-        /// "latched (player had it on)" / "latched (player changed it)" / "DISABLED ...".
-        /// A plain field written on transitions only.</summary>
+        /// <summary>Dev-tab line ("Ski Runs" tab, contour state): "off" / "overriding" / "latched (player had it on)" /
+        /// "latched (player changed it)" / "DISABLED ...". A plain field written on transitions only.</summary>
         public string StateText = StateOff;
 
-        /// <summary>Overrides started since the last load (dev-tab / field-test aid).</summary>
+        /// <summary>Overrides started since the last load (dev-tab aid)</summary>
         public int Overrides;
 
         protected override void OnCreate()
@@ -121,8 +95,7 @@ namespace SkiResortMod.Systems
         {
             base.OnGameLoadingComplete(purpose, mode);
 
-            // Spec §5: m_Active = m_Latched = false. Applied through Release so a leftover of
-            // OUR write (g still == m_Written) is removed instead of leaked; after a normal
+            // Applied through Release so a leftover of our write (g still == m_Written) is removed instead of leaked; after a normal
             // load vanilla already reset g (UndergroundViewSystem.cs:94) and nothing is written.
             SafeRelease("load");
 
@@ -148,7 +121,7 @@ namespace SkiResortMod.Systems
         protected override void OnUpdate()
         {
             if (m_Disabled)
-                return; // the exception path already released
+                return;
 
             try
             {
@@ -190,10 +163,9 @@ namespace SkiResortMod.Systems
             base.OnDestroy();
         }
 
-        // ── the state machine (pure; mirrored 1:1 by the scratch self-check) ────────────────
 
-        /// <summary>One frame of spec §5. Returns -1 = no write, 0 = write false, 1 = write
-        /// true. Never touches engine state.</summary>
+        /// <summary>One frame of the state machine. Returns -1 = no write, 0 = write false, 1 = write true. Never touches
+        /// engine state.</summary>
         internal static int Step(ref bool active, ref bool written, ref bool latched, bool want, bool g)
         {
             int write = -1;
@@ -201,12 +173,12 @@ namespace SkiResortMod.Systems
             {
                 if (g != written)
                 {
-                    active = false;          // someone else wrote it: theirs now, never restore
+                    active = false;
                     latched = want;
                 }
                 else if (!want)
                 {
-                    write = 0;               // restore the player's setting (it was off)
+                    write = 0;
                     active = false;
                 }
             }
@@ -220,7 +192,7 @@ namespace SkiResortMod.Systems
                 }
                 else
                 {
-                    latched = true;          // the player already had them on: stand aside
+                    latched = true;
                 }
             }
             if (!want)
@@ -228,8 +200,7 @@ namespace SkiResortMod.Systems
             return write;
         }
 
-        /// <summary>Spec §5 release: true when the caller must write false (the flag still
-        /// holds our write). Clears the flags either way.</summary>
+        /// <summary>True when the caller must write false (the flag still holds our write). Clears the flags either way.</summary>
         internal static bool Release(ref bool active, ref bool written, ref bool latched, bool g)
         {
             bool restore = active && g == written;
@@ -238,7 +209,6 @@ namespace SkiResortMod.Systems
             return restore;
         }
 
-        // ── helpers ─────────────────────────────────────────────────────────────────────────
 
         private bool ComputeWant()
         {
@@ -247,16 +217,16 @@ namespace SkiResortMod.Systems
             var settings = Mod.Settings;
             if (settings != null && !settings.ContourLinesWhileDrawingRuns)
                 return false;
-            if (m_ToolSystem.activeTool != m_AreaTool)                // ToolSystem.cs:84-99
+            if (m_ToolSystem.activeTool != m_AreaTool)
                 return false;
-            // A save loading forces the default tool anyway (ToolSystem.cs:610-614); this only
-            // makes sure we never START an override mid-load (GameManager.cs:262-272).
+            // A save loading forces the default tool anyway (ToolSystem.cs:610-614); this only makes sure we never start an
+            // override mid-load (GameManager.cs:262-272).
             GameManager gm = GameManager.instance;
             if (gm == null || gm.isGameLoading)
                 return false;
-            if (!m_Ownership.IsArmed)                                  // run prefab sets resolved
+            if (!m_Ownership.IsArmed)
                 return false;
-            return IsRunPrefabCached(m_AreaTool.prefab);               // AreaToolSystem.cs:2637
+            return IsRunPrefabCached(m_AreaTool.prefab);
         }
 
         private bool IsRunPrefabCached(PrefabBase prefab)
@@ -305,7 +275,6 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>Release + the engine write; never throws (used on every exit path).</summary>
         private void SafeRelease(string why)
         {
             try

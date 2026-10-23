@@ -1,28 +1,26 @@
-// ShuttleTests — Catalog Phase C (docs/research/art/assets-2026-10/code-round-3/round-3-contract.md §8.1, loopcache
-// group): the pure stateless shuttle profile (ShuttleProfile.cs). Where-tags `shuttle/…`. Oracles from the contract's
-// §3.3 table, recomputed by the skeptic (round-3-contract-skeptic claim 10). v 10 m/s, a 0.8 m/s², dwell 60 s unless said.
-//   SH-1  TripTimeS: 100 m → 22.360679774997898 (triangle), 125 → 25 (the boundary), 1000 → 112.5, 3000 → 312.5;
-//         invalid → 0.
-//   SH-2  DistanceAt: 0 → 0, 12.5 → 62.5, 56.25 → 500, T → L, clamps; monotone over 10,000 samples (trapezoid and
-//         triangle); s continuous at the ramp ends (≤ 1e-9); speed has no jump there (one-sided differences agree to a·δ:
-//         a finite difference cannot resolve 1e-9 in speed, so this is the C¹ check the contract's "≤ 1e-9" can mean).
-//   SH-3  PeriodS(1000) = 345; invalid → 0.
-//   SH-4  FractionA legs at τ 0 / 59.999 / 60 / 116.25 (u 0.5) / 172.5 / 232.5 / 288.75 (u 0.5) / 344.999; periodicity
-//         FractionA(t + P) = FractionA(t) for 1,000 t up to 1e7 s (≤ 1e-9).
-//   SH-5  HoldFractionA: τ 100 → 0, 200 → 1, 300 → 1, 10 → 0 (the terminal last reached), the 172.5 boundary.
-//   SH-6  cabin B = 1 − A everywhere; with L_A = L_B, s_B = L − s_A; both dock at the same instant.
-//   SH-7  TimeSOf(f, ft) == ((double)f + ft) / 60.0 bit for bit (ChairPinSystem.cs:1132-1135); one game day = 262,144
-//         frames = 4,369.07 s.
-//   SH-8  CapacityPerHour(2, 100, 1000) = 2086.9565217391305, one cabin 1043.4782608695652, 0 cabins / 0 seats → −1;
-//         a → ∞: 2,250 at 1 km and 1,000 at 3 km (code-economy A.2's L/v + dwell figures).
-//   SH-9  invalid inputs (L, v, a ≤ 0 or NaN, dwell < 0, t NaN / ∞) → u 0, DwellBase (FractionA and HoldFractionA).
-//   SH-10 (skeptic F4, additive) QuantizeLengthM rounds to 1 cm; two lengths within one centimeter bucket give the same
-//         period bit for bit; the catalog's float tram row (0.8f) stays within 1e-5 s of the double oracle.
-//   SH-11 (T02, 2026-10-16, field 2026-10-15 item 80) the tram's terminal reach, on LiftLoopTopology (a Shuttle station
-//         owns a terminal within MaxDockRunM of a dock, not only within 20 m of its origin): rope tips ~29 / 30 m from the
-//         origin (catalog numbers) close both chains, also mirrored in x; a tip 29 m from its dock closes, 31 m and a
-//         terminal ~60 m out stay unclosed with the per-terminal diagnostic; Loop mode (FG / DQ / gondola) and a Shuttle
-//         station without docks keep the 20 m origin radius and their "pos" / "none" strings.
+// Tests for the pure stateless shuttle profile (ShuttleProfile.cs). Where-tags `shuttle/...`. v 10 m/s, a 0.8 m/s^2, dwell
+// 60 s unless said.
+//   SH-1  TripTimeS: 100 m -> 22.360679774997898 (triangle), 125 -> 25 (the boundary), 1000 -> 112.5, 3000 -> 312.5;
+//         invalid -> 0.
+//   SH-2  DistanceAt: 0 -> 0, 12.5 -> 62.5, 56.25 -> 500, T -> L, clamps; monotone over 10,000 samples (trapezoid and
+//         triangle); s continuous at the ramp ends (<= 1e-9); speed has no jump there (one-sided differences agree to a x delta:
+//         a finite difference cannot resolve 1e-9 in speed, so this is the C1 check).
+//   SH-3  PeriodS(1000) = 345; invalid -> 0.
+//   SH-4  FractionA legs at tau 0 / 59.999 / 60 / 116.25 (u 0.5) / 172.5 / 232.5 / 288.75 (u 0.5) / 344.999; periodicity
+//         FractionA(t + P) = FractionA(t) for 1,000 t up to 1e7 s (<= 1e-9).
+//   SH-5  HoldFractionA: tau 100 -> 0, 200 -> 1, 300 -> 1, 10 -> 0 (the terminal last reached), the 172.5 boundary.
+//   SH-6  cabin B = 1 - A everywhere; with L_A = L_B, s_B = L - s_A; both dock at the same instant.
+//   SH-7  TimeSOf(f, ft) == ((double)f + ft) / 60.0 bit for bit; one game day = 262,144 frames = 4,369.07 s.
+//   SH-8  CapacityPerHour(2, 100, 1000) = 2086.9565217391305, one cabin 1043.4782608695652, 0 cabins / 0 seats -> -1;
+//         a -> infinity: 2,250 at 1 km and 1,000 at 3 km.
+//   SH-9  invalid inputs (L, v, a <= 0 or NaN, dwell < 0, t NaN / infinity) -> u 0, DwellBase (FractionA and HoldFractionA).
+//   SH-10 QuantizeLengthM rounds to 1 cm; two lengths within one centimeter bucket give the same period bit for bit; the
+//         catalog's float tram row (0.8f) stays within 1e-5 s of the double oracle.
+//   SH-11 The tram's terminal reach, on LiftLoopTopology (a Shuttle station owns a terminal within MaxDockRunM of a dock, not
+//         only within 20 m of its origin): rope tips ~29 / 30 m from the origin (catalog numbers) close both chains, also
+//         mirrored in x; a tip 29 m from its dock closes, 31 m and a terminal ~60 m out stay unclosed with the per-terminal
+//         diagnostic; Loop mode (FG / DQ / gondola) and a Shuttle station without docks keep the 20 m origin radius and their
+//         "pos" / "none" strings.
 
 using System;
 using System.Collections.Generic;
@@ -70,8 +68,6 @@ namespace LiftBatch
                   " ± " + tol + ", got " + actual.ToString("R", CultureInfo.InvariantCulture));
         }
 
-        // ================================================================== SH-1
-
         private static void Sh1Trip()
         {
             const string W = "shuttle/SH-1";
@@ -89,8 +85,6 @@ namespace LiftBatch
             Check(ShuttleProfile.Valid(1000, V, A, 0) && !ShuttleProfile.Valid(1000, V, A, -1) && !ShuttleProfile.Valid(1000, V, A, double.NaN),
                   W, "Valid: dwell 0 valid, −1 / NaN invalid");
         }
-
-        // ================================================================== SH-2
 
         private static void Sh2Distance()
         {
@@ -119,7 +113,7 @@ namespace LiftBatch
                 Check(monotone, W, "L " + L + ": DistanceAt not monotone over 10,000 samples");
                 Near(L, prev, 1e-9, W, "L " + L + ": the last sample");
 
-                // Continuity at the ramp ends (trapezoid: v/a and T − v/a; triangle: T/2).
+                // Continuity at the ramp ends (trapezoid: v/a and T - v/a; triangle: T/2).
                 double[] joints = L >= V * V / A ? new[] { V / A, trip - V / A } : new[] { trip / 2 };
                 foreach (double j in joints)
                 {
@@ -134,8 +128,6 @@ namespace LiftBatch
             }
         }
 
-        // ================================================================== SH-3
-
         private static void Sh3Period()
         {
             const string W = "shuttle/SH-3";
@@ -145,11 +137,9 @@ namespace LiftBatch
             Near(225.0, ShuttleProfile.PeriodS(1000, V, A, 0), 1e-9, W, "PeriodS(1000, dwell 0)");
             Eq(0.0, ShuttleProfile.PeriodS(1000, V, A, -1), W, "PeriodS dwell −1");
             Eq(0.0, ShuttleProfile.PeriodS(0, V, A, D), W, "PeriodS L 0");
-            // 345 s = 20,700 frames ≈ 1.9 game hours; ≈ 12.66 round trips a game day (262,144 frames).
+            // 345 s = 20,700 frames, about 12.66 round trips a game day (262,144 frames).
             Near(20700.0, 345.0 * ShuttleProfile.FramesPerSecond, 1e-9, W, "one 1 km cycle in frames");
         }
-
-        // ================================================================== SH-4
 
         private static void Sh4Fraction()
         {
@@ -188,7 +178,7 @@ namespace LiftBatch
             }
             Check(worst <= 1e-9, W, "periodicity: max |u(t + P) − u(t)| = " + worst.ToString("R", CultureInfo.InvariantCulture) +
                   " over 1,000 t up to 1e7 s");
-            // u is continuous through every leg boundary (no jump: the cabins never teleport while running).
+            // u is continuous through every leg boundary (the cabins never teleport while running).
             foreach (double edge in new[] { 60.0, 172.5, 232.5, P })
             {
                 double before = ShuttleProfile.FractionA(edge - 1e-7, 1000, V, A, D, out _);
@@ -196,8 +186,6 @@ namespace LiftBatch
                 Check(Math.Abs(after - before) < 1e-6, W, "u jumps at τ " + edge + ": " + before + " → " + after);
             }
         }
-
-        // ================================================================== SH-5
 
         private static void Sh5Hold()
         {
@@ -221,8 +209,6 @@ namespace LiftBatch
             }
         }
 
-        // ================================================================== SH-6
-
         private static void Sh6CabinB()
         {
             const string W = "shuttle/SH-6";
@@ -234,7 +220,7 @@ namespace LiftBatch
             {
                 double t = P * k / 3450.0;
                 double uA = ShuttleProfile.FractionA(t, L, V, A, D, out ShuttleLeg leg);
-                double uB = 1.0 - uA;   // the mover's rule (C3): cabin B at (1 − u)·L_B
+                double uB = 1.0 - uA; // the mover's rule: cabin B at (1 - u) x L_B
                 if (uA < 0 || uA > 1 || uB < 0 || uB > 1)
                     inRange = false;
                 worst = Math.Max(worst, Math.Abs(uB * L - (L - uA * L)));
@@ -246,8 +232,6 @@ namespace LiftBatch
             Check(docksTogether, W, "a dwell with a cabin off its dock");
         }
 
-        // ================================================================== SH-7
-
         private static void Sh7Clock()
         {
             const string W = "shuttle/SH-7";
@@ -257,7 +241,7 @@ namespace LiftBatch
             {
                 foreach (float ft in fts)
                 {
-                    double want = ((double)f + ft) / 60.0;   // = ChairPinSystem.TimeS (:1132-1135)
+                    double want = ((double)f + ft) / 60.0; // = ChairPinSystem.TimeS
                     double got = ShuttleProfile.TimeSOf(f, ft);
                     Check(BitConverter.DoubleToInt64Bits(want) == BitConverter.DoubleToInt64Bits(got), W,
                           "TimeSOf(" + f + ", " + ft.ToString("R", CultureInfo.InvariantCulture) + ") = " +
@@ -267,8 +251,6 @@ namespace LiftBatch
             Near(4369.066666666667, ShuttleProfile.TimeSOf(262144u, 0f), 1e-9, W, "one game day (262,144 frames) in seconds");
             Eq(60.0, ShuttleProfile.FramesPerSecond, W, "FramesPerSecond");
         }
-
-        // ================================================================== SH-8
 
         private static void Sh8Capacity()
         {
@@ -286,8 +268,6 @@ namespace LiftBatch
             Near(2250.0, ShuttleProfile.CapacityPerHour(2, 100, 1000, V, 1e9, D), 1e-3, W, "a → ∞ at 1 km (code-economy A.2: pax × 3600 / (L/v + dwell))");
             Near(1000.0, ShuttleProfile.CapacityPerHour(2, 100, 3000, V, 1e9, D), 1e-3, W, "a → ∞ at 3 km (A.2)");
         }
-
-        // ================================================================== SH-9
 
         private static void Sh9Invalid()
         {
@@ -318,8 +298,6 @@ namespace LiftBatch
             Check(negLeg == ShuttleLeg.Down, W, "t −30 s is the end of the previous cycle's Down leg, got " + negLeg);
         }
 
-        // ================================================================== SH-10
-
         private static void Sh10Quantum()
         {
             const string W = "shuttle/SH-10";
@@ -340,11 +318,9 @@ namespace LiftBatch
             }
         }
 
-        // ================================================================== SH-11 (T02)
-
-        /// <summary>One synthetic two-rope line in the topology's stand-ins. Station i has owner index 100 + i; the two rope
-        /// anchors at each end belong to the line's own nodes (owner 7000 +), NOT to a station: the "line-first" case where
-        /// the census sees the stub tip through the stub edge's ConnectedEdge while the chain's PathNode owner is the line's.</summary>
+        /// <summary>One synthetic two-rope line in the topology's stand-ins. Station i has owner index 100 + i; the two rope anchors
+        /// at each end belong to the line's own nodes (owner 7000 +), not to a station: the "line-first" case where the census sees
+        /// the stub tip through the stub edge's ConnectedEdge while the chain's PathNode owner is the line's.</summary>
         private sealed class Rig
         {
             public readonly List<LiftLoopTopology.Lane> Lanes = new List<LiftLoopTopology.Lane>();
@@ -396,10 +372,10 @@ namespace LiftBatch
             });
         }
 
-        /// <summary>The catalog tram: base (role Base, yaw 180, axis at its StubTipLocalX) at y 0, top at (0, 400, 1000) yaw 0;
-        /// two rope lanes per end at lateral +- GaugeHalfM of each station's axis, at rope height AxleM, StubTipLocalZ out.
-        /// baseShiftZ moves both base rope anchors along world z (toward the top): the line starts that far past the stub tip.
-        /// baseTipFromDock (>= 0) overrides it: both base anchors then sit this far along z from a dock, at dock height.</summary>
+        /// <summary>The catalog tram: base (role Base, yaw 180, axis at its StubTipLocalX) at y 0, top at (0, 400, 1000) yaw 0; two
+        /// rope lanes per end at lateral +- GaugeHalfM of each station's axis, at rope height AxleM, StubTipLocalZ out. baseShiftZ moves
+        /// both base rope anchors along world z (toward the top): the line starts that far past the stub tip. baseTipFromDock (>= 0)
+        /// overrides it: both base anchors then sit this far along z from a dock, at dock height.</summary>
         private static Rig TramRig(float baseShiftZ = 0f, float baseTipFromDock = -1f)
         {
             LiftTypeDef tram = SkiCatalog.LiftById("tram");
@@ -435,7 +411,7 @@ namespace LiftBatch
 
         private static void Sh11TerminalReach()
         {
-            // Flag OFF (a bare topology, LoopCacheTests' default): the tram's 29 / 30 m rope tips stay unclassified.
+            // Reach flag off (a bare topology, LoopCacheTests' default): the tram's 29 / 30 m rope tips stay unclassified.
             Rig offRig = TramRig();
             offRig.DockReach = false;
             LiftLoopTopology off = offRig.Build(LiftLoopTopology.Mode.Shuttle);
@@ -451,8 +427,8 @@ namespace LiftBatch
             if (!Check(tram != null && tram.Mover == MoverKind.Shuttle, W, "no tram row"))
                 return;
 
-            // (a) The field case: both base rope tips more than 20 m from the origin (the catalog numbers give 30.4 / 28.9 m,
-            //     the log's "nearest station 30m" / "29m"), 12 m out and ~12 m from their docks. Both chains close, base 0 -> top 1.
+            // (a) Both base rope tips more than 20 m from the origin (the catalog numbers give 30.4 / 28.9 m), 12 m out and ~12 m from
+            //     their docks. Both chains close, base 0 -> top 1.
             Rig rig = TramRig();
             for (int k = 0; k < 2; k++)
                 Check(math.distance(rig.BaseTip[k], rig.Stations[0].Position) > LiftLoopTopology.StationTerminalRadius, W,
@@ -480,7 +456,7 @@ namespace LiftBatch
                             !loop.Diags[c].StartHow.Contains("dock");
             Check(loopText, W, "(b) Loop mode text: " + (loop.Diags.Count > 0 ? loop.Diags[0].StartHow : "none"));
 
-            // (c) x mirrored (the T14 sign fix moves stub rows, docks and station together): the reach follows the docks.
+            // (c) x mirrored (stub rows, docks and station move together): the reach follows the docks.
             Rig mirrored = TramRig();
             mirrored.Mirror();
             LiftLoopTopology tm = mirrored.Build(LiftLoopTopology.Mode.Shuttle);
@@ -505,8 +481,8 @@ namespace LiftBatch
             LiftLoopTopology t31 = TramRig(baseTipFromDock: 31f).Build(LiftLoopTopology.Mode.Shuttle);
             Eq(2, t31.UnclosedChainCount, W, "(e) 31 m from the dock: unclosed");
 
-            // (f) FG / DQ / gondola: Loop mode, their catalog stub tips, unowned anchors: classified by the 20 m origin radius
-            //     as before ("pos N.Nm"), the pair closes; 25 m out stays unclassified. One docks-less Shuttle probe (fixedGrip) too.
+            // (f) FG / DQ / gondola: Loop mode, their catalog stub tips, unowned anchors: classified by the 20 m origin radius as before
+            //     ("pos N.Nm"), the pair closes; 25 m out stays unclassified. One docks-less Shuttle probe (fixedGrip) too.
             foreach (string id in new[] { "fixedGrip", "detachable", "gondola" })
             {
                 LiftTypeDef def = SkiCatalog.LiftById(id);

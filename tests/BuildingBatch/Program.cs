@@ -1,33 +1,29 @@
-// BuildingBatch — the TOP-LEVEL resort buildings (T10 D1 option A, DECISIONS 308; docs/research/lodges-top-level-spec.md (b)):
-// T100 the ski school (2026-10-19, created as tests/SchoolBatch; report docs/research/field/2026-10-19/school-top-level-t100.md),
-// T113 the five lodges and both patrol huts (2026-10-20, renamed; report docs/research/field/2026-10-20/lodges-top-level-build.md).
-// Run from the ModularSkiResort root:
-//   dotnet run --project tests/BuildingBatch
-// Exit 0 = every check passed.
+// Tests for the top-level resort buildings (the ski school, the five lodges and both patrol huts). Run from the
+// ModularSkiResort root: dotnet run --project tests/BuildingBatch. Exit 0 = every check passed.
 //
 //   L  attribution (SchoolLinkRules.Resolve = SkiResortIndex.TryResolve, TetherMeters 5000): L1 nearest sign, L2 5000.00 m in,
 //      L3 5000.01 m out, L4 NaN never links, L5 an exact tie goes to the lower (Index, Version), L6 the sign deleted -> not
 //      linked, L7 a nearer new sign takes the school (not sticky), L8 no sign at all.
 //   C  the one count rule (SchoolLinkRules.Count): C1 active + live, C2 Inactive, C3 not live, C4 a child and a top-level
 //      school in one area (2 listed, active), C5 an inactive child + an active top-level school.
-//   I  THE INVARIANT: a linked top-level school yields the same slot facts as the child did, hence the same
-//      SkiResortScore.Result (all fields, Equals), SchoolValue, ski-day SchoolFactor, lessons and HubProblems rows; over
-//      four fixtures (green counted / no counted green / no runs / school Inactive). I5: an unlinked school = no school.
-//   D  the link-log diff (SchoolLinkRules.Diff): Linked, Relinked, Unlinked (new and lost), Removed, distance-only = no
-//      line, stable order, empty before -> one line per school (the per-load re-log).
-//   E  T113 D3 (SchoolLinkRules.AreaEfficiency): E1 no top-level lodge = the sign's own, E2 the tier-weighted mean x the sign,
-//      E3 a lodge at 0 alone = 0, E4 the sign at 0 = 0, E5 rounding to 0.01 and the 0.01 floor, E6 the school / patrol weigh 0.
-//   J  DECISIONS 347 (c) mountain jobs on the sign (MountainJobsRules, SkiCatalog SignJobs): J1 the sum over one sign, J2 a
-//      relink moves the slice, J3 not linked / removed / sign deleted -> 0, J4 the write rule and the grace, J5 the catalog rows,
-//      J6 the D3 slice (staffing counted once), J7 the four mountain buildings on one sign = 16, J8 the sign prefab keeps its
+//   I  invariant: a linked top-level school yields the same slot facts as the ServiceUpgrade child did, hence the same
+//      SkiResortScore.Result (all fields, Equals), SchoolValue, ski-day SchoolFactor, lessons and HubProblems rows; over four
+//      fixtures (green counted / no counted green / no runs / school Inactive). I5: an unlinked school = no school.
+//   D  the link-log diff (SchoolLinkRules.Diff): Linked, Relinked, Unlinked (new and lost), Removed, distance-only = no line,
+//      stable order, empty before -> one line per school (the per-load re-log).
+//   E  SchoolLinkRules.AreaEfficiency: E1 no top-level lodge = the sign's own, E2 the tier-weighted mean x the sign, E3 a lodge
+//      at 0 alone = 0, E4 the sign at 0 = 0, E5 rounding to 0.01 and the 0.01 floor, E6 the school / patrol weigh 0.
+//   J  mountain jobs on the sign (MountainJobsRules, SkiCatalog SignJobs): J1 the sum over one sign, J2 a relink moves the
+//      slice, J3 not linked / removed / sign deleted -> 0, J4 the write rule and the grace, J5 the catalog rows, J6 the
+//      efficiency slice (staffing counted once), J7 the four mountain buildings on one sign = 16, J8 the sign prefab keeps its
 //      Workplace block (WorkProviderSystem.cs:133 needs WorkplaceData or it liquidates the staff).
-//   P  the mirror gate PER BUILDING (gamedata-mirror; all eight: SkiAFrameDayLodge, SkiLodgeHut, SkiLodgeMid, SkiLodgeSummit,
+//   P  the mirror gate per building (gamedata-mirror; all eight: SkiAFrameDayLodge, SkiLodgeHut, SkiLodgeMid, SkiLodgeSummit,
 //      SkiLodgeGrand, SkiSchool, SkiPatrolHut, SkiPatrolHQ): P1 no ServiceUpgrade; P2 ServiceObject = Parks and Recreation;
 //      P3 PlaceableObject cost = the catalog row's BuildCost, XP = the old ServiceUpgrade XP; P4 CityServiceBuilding; P5 Park
-//      kept (D4); P6 Workplace = the row's jobs (jobs 0 = no Workplace block); P7 upkeep = the row's, and a roadless row
-//      (hut, summit, patrol huts) demands nothing (electricity, water, garbage 0); P8 the mesh CID resolves to a mesh prefab's
-//      .cid in the mirror; P9 the door spawn rows (Pedestrian Spawn Location, T51: school 4, A-frame 1, Mid 5, Grand 5, the
-//      roadless four 0) and the sub-object $rlength = the rows present; P10 every declared $type id unique.
+//      kept; P6 Workplace = the row's jobs (jobs 0 = no Workplace block); P7 upkeep = the row's, and a roadless row (hut,
+//      summit, patrol huts) demands nothing (electricity, water, garbage 0); P8 the mesh CID resolves to a mesh prefab's .cid
+//      in the mirror; P9 the door spawn rows (Pedestrian Spawn Location: school 4, A-frame 1, Mid 5, Grand 5, the roadless
+//      four 0) and the sub-object $rlength = the rows present; P10 every declared $type id unique.
 
 using System;
 using System.Collections.Generic;
@@ -42,7 +38,7 @@ namespace BuildingBatch
 {
     public static class Program
     {
-        private const float Tether = 5000f;   // SkiRunOwnershipSystem.TetherMeters (not linked here: GameSystemBase file)
+        private const float Tether = 5000f; // SkiRunOwnershipSystem.TetherMeters (not linked here: GameSystemBase file)
         private static int s_Pass, s_Fail;
 
         private static bool Check(bool ok, string id, string what)
@@ -64,7 +60,7 @@ namespace BuildingBatch
             DiffLog();
             EfficiencyRule();
             MountainJobs();
-            OffSeasonTests.Run(Check);   // T137 OS1-OS6
+            OffSeasonTests.Run(Check);
             foreach (Gate g in Gates)
                 PrefabGate(g);
             Console.WriteLine($"BuildingBatch: {s_Pass} passed, {s_Fail} failed");
@@ -82,7 +78,6 @@ namespace BuildingBatch
             return index;
         }
 
-        // ── L ────────────────────────────────────────────────────────────────────────────────
         private static void Attribution()
         {
             SkiResortIndex two = Index((SignA, 0f, 0f), (SignB, 8000f, 0f));
@@ -102,7 +97,7 @@ namespace BuildingBatch
             SchoolLinkRules.Link l5 = SchoolLinkRules.Resolve(tie, new float2(0f, 0f), Tether);
             Check(l5.Sign == SignA, "L5", "exact tie -> the lower (Index, Version) sign A");
 
-            SkiResortIndex gone = Index((SignB, 8000f, 0f));   // A bulldozed: the next index has only B
+            SkiResortIndex gone = Index((SignB, 8000f, 0f)); // A bulldozed: the next index has only B
             SchoolLinkRules.Link l6 = SchoolLinkRules.Resolve(gone, new float2(812f, 300f), Tether);
             Check(!l6.Linked, "L6", $"sign deleted -> not linked (B at {l6.Distance:F0} m is beyond the tether)");
 
@@ -115,7 +110,6 @@ namespace BuildingBatch
             Check(!l8.Linked && !l8b.Linked, "L8", "no sign (or no index) -> not linked");
         }
 
-        // ── C ────────────────────────────────────────────────────────────────────────────────
         private static void CountRule()
         {
             int n = 0; bool on = false;
@@ -128,16 +122,14 @@ namespace BuildingBatch
             SchoolLinkRules.Count(ref n, ref on, active: true, live: false);
             Check(n == 1 && !on, "C3", "not live (Deleted / Temp): 1 listed, off");
             n = 0; on = false;
-            SchoolLinkRules.Count(ref n, ref on, active: true, live: true);   // child entry
-            SchoolLinkRules.Count(ref n, ref on, active: true, live: true);   // top-level linked
+            SchoolLinkRules.Count(ref n, ref on, active: true, live: true); // child entry
+            SchoolLinkRules.Count(ref n, ref on, active: true, live: true); // top-level linked
             Check(n == 2 && on, "C4", "a child and a top-level school: 2 listed, on (SchoolActive is a flag, no double value)");
             n = 0; on = false;
             SchoolLinkRules.Count(ref n, ref on, active: false, live: true);
             SchoolLinkRules.Count(ref n, ref on, active: true, live: true);
             Check(n == 2 && on, "C5", "inactive child + active top-level: on");
         }
-
-        // ── I ────────────────────────────────────────────────────────────────────────────────
 
         /// <summary>The slot facts of area A, child path: the sign's InstalledUpgrade entry (Inactive bit = !active).</summary>
         private static (int schools, bool on) ChildPath(bool active)
@@ -200,8 +192,8 @@ namespace BuildingBatch
             return string.Join(",", parts);
         }
 
-        /// <summary>SkiLiftTicketSystem's lesson gate (slot SchoolActive = known && Result.SchoolActive; lessons only when the
-        /// school is on, the share and the price are &gt; 0) over 40 arrivals of 1-6 people on one day.</summary>
+        /// <summary>SkiLiftTicketSystem's lesson gate (slot SchoolActive = known && Result.SchoolActive; lessons only when the school
+        /// is on, the share and the price are &gt; 0) over 40 arrivals of 1-6 people on one day.</summary>
         private static int Lessons(bool school)
         {
             int share = SkiMoneyRules.LessonShareDefault;
@@ -257,7 +249,6 @@ namespace BuildingBatch
                   "an unlinked school counts for no area (= no school)");
         }
 
-        // ── D ────────────────────────────────────────────────────────────────────────────────
         private static SchoolLinkRules.Link L(EntityRef sign, float d) => new SchoolLinkRules.Link { Sign = sign, Distance = d };
 
         private static void DiffLog()
@@ -274,7 +265,7 @@ namespace BuildingBatch
                   "first recompute (or a load): one line per school, Linked / NOT LINKED");
 
             before = new Dictionary<EntityRef, SchoolLinkRules.Link>(after);
-            after[School1] = L(SignA, 400f);   // moved closer to the same sign
+            after[School1] = L(SignA, 400f); // moved closer to the same sign
             SchoolLinkRules.Diff(before, after, changes);
             Check(changes.Count == 0, "D2", "same sign, other distance (Move It within the area): no line");
 
@@ -283,7 +274,7 @@ namespace BuildingBatch
             Check(changes.Count == 1 && changes[0].Kind == SchoolLinkRules.ChangeKind.Relinked && changes[0].Before.Sign == SignA &&
                   changes[0].After.Sign == SignC, "D3", "a nearer sign: Relinked A -> C");
 
-            after[School1] = L(EntityRef.Null, float.PositiveInfinity);   // its sign bulldozed, nothing else near
+            after[School1] = L(EntityRef.Null, float.PositiveInfinity); // its sign bulldozed, nothing else near
             SchoolLinkRules.Diff(before, after, changes);
             Check(changes.Count == 1 && changes[0].Kind == SchoolLinkRules.ChangeKind.Unlinked && changes[0].Before.Sign == SignA,
                   "D4", "sign bulldozed: NOT LINKED, was A");
@@ -298,7 +289,6 @@ namespace BuildingBatch
                   "D5", "new linked school, removed school, not-linked -> linked; sorted by (Index, Version)");
         }
 
-        // ── E ────────────────────────────────────────────────────────────────────────────────
         private static bool Near(float a, float b) => Math.Abs(a - b) < 1e-5f;
 
         private static void EfficiencyRule()
@@ -316,7 +306,6 @@ namespace BuildingBatch
             Check(Near(SchoolLinkRules.AreaEfficiency(0.9f, 0.0 * 0.4, 0.0), 0.9f), "E6", "school / patrol weigh 0: the sign's efficiency");
         }
 
-        // ── J ────────────────────────────────────────────────────────────────────────────────
         private static Dictionary<EntityRef, int> Sum(params (EntityRef sign, int jobs, bool live)[] rows)
         {
             var signs = new List<EntityRef>(); var jobs = new List<int>(); var live = new List<bool>();
@@ -356,7 +345,7 @@ namespace BuildingBatch
             Check(!MountainJobsRules.NeedsWrite(true, 8, 8) && MountainJobsRules.NeedsWrite(true, 0, 8) && MountainJobsRules.StartsGrace(true, 0, 8) &&
                   !MountainJobsRules.StartsGrace(true, 8, 0), "J4", "equal = no write; 0 -> 8 writes with grace; 8 -> 0 without grace");
 
-            // J5: the catalog rows (DECISIONS 347 c): the old Workplace numbers, carried only by roadless rows with no own jobs.
+            // J5: the catalog rows: the old Workplace numbers, carried only by roadless rows with no own jobs.
             Check(hut.SignJobs == 4 && summit.SignJobs == 8 && ph.SignJobs == 2 && pq.SignJobs == 2, "J5",
                   $"SignJobs hut {hut.SignJobs} summit {summit.SignJobs} patrol hut {ph.SignJobs} patrol HQ {pq.SignJobs} (4 / 8 / 2 / 2)");
             bool rowsOk = true;
@@ -365,8 +354,8 @@ namespace BuildingBatch
             rowsOk &= ph.Jobs == 0 && pq.Jobs == 0 && SkiCatalog.SchoolByPrefab("SkiSchool").Jobs > 0;
             Check(rowsOk, "J5b", "a SignJobs row has Jobs 0 and is not a Base road row (else it would double-count)");
 
-            // J6: the D3 slice. Sign 100 % except staffing 0.5; area = summit (B 40) + A-frame (B 20, own efficiency 1). Staffing on
-            // the summit slice only, the sign term without it: (40 x 0.5 + 20 x 1) / 60 x 1.0 = 0.67.
+            // J6: the efficiency slice. Sign 100 % except staffing 0.5; area = summit (B 40) + A-frame (B 20, own efficiency 1). Staffing
+            // on the summit slice only, the sign term without it: (40 x 0.5 + 20 x 1) / 60 x 1.0 = 0.67.
             float signTerm = MountainJobsRules.SignTerm(0.5f, 1f, true);
             float summitEff = MountainJobsRules.MountainEfficiency(1f, 0.5f);
             float a6 = SchoolLinkRules.AreaEfficiency(signTerm, 40 * summitEff + 20 * 1.0, 60.0);
@@ -376,7 +365,7 @@ namespace BuildingBatch
             Check(MountainJobsRules.MountainEfficiency(0.9f, float.NaN) == 0f && MountainJobsRules.MountainEfficiency(0.9f, -1f) == 0f,
                   "J6c", "non-finite / negative staffing reads 0");
 
-            // J7: the four mountain buildings by one sign = 16, the jobs they had as ServiceUpgrade children before T113.
+            // J7: the four mountain buildings by one sign = 16, the jobs they had as ServiceUpgrade children.
             var j7 = Sum((SignA, summit.SignJobs, true), (SignA, hut.SignJobs, true), (SignA, pq.SignJobs, true), (SignA, ph.SignJobs, true));
             Check(At(j7, SignA) == 16, "J7", $"the four mountain buildings on one sign: {At(j7, SignA)} jobs (16)");
             Check(MountainJobsRules.Breakdown(new[] { "summit 1:1", "hut 2:1" }, new[] { 8, 4 }) == "summit 1:1 8 + hut 2:1 4" &&
@@ -389,7 +378,6 @@ namespace BuildingBatch
                   $"SkiResortGate keeps its Workplace block (m_Workplaces {Num(text, "m_Workplaces")}): WorkProviderSystem.cs:133 reads its WorkplaceData");
         }
 
-        // ── P ────────────────────────────────────────────────────────────────────────────────
         private sealed class Gate
         {
             public string Prefab;
@@ -398,7 +386,7 @@ namespace BuildingBatch
             public Gate(string prefab, int xp, int doors, bool roadless) { Prefab = prefab; Xp = xp; Doors = doors; Roadless = roadless; }
         }
 
-        // XP = the old ServiceUpgrade m_XPReward (unchanged by the conversion); doors = T51 Pedestrian Spawn rows.
+        // XP = the old ServiceUpgrade m_XPReward (unchanged by the conversion); doors = Pedestrian Spawn rows.
         private static readonly Gate[] Gates =
         {
             new Gate("SkiAFrameDayLodge", 100, 1, false),
@@ -411,7 +399,7 @@ namespace BuildingBatch
             new Gate("SkiPatrolHQ", 50, 0, true),
         };
 
-        private const string SpawnGuid = "c30226ded1fc8d64abee5d0bd2554bc4";   // Pedestrian Spawn Location (T51)
+        private const string SpawnGuid = "c30226ded1fc8d64abee5d0bd2554bc4"; // Pedestrian Spawn Location
         private static HashSet<string> s_MeshCids;
 
         /// <summary>Every .Prefab.cid content under the mirror (the mesh prefabs' CIDs), read once.</summary>

@@ -1,118 +1,96 @@
-// SkiDayRules — the PURE rules of Round S1 "Ski days" (docs/research/ski-days/s1-spec.md §2.2; ski-days spec
-// ch1-rules.md §2-§3; decisions D1-D21, D29). Every number and rule of a ski day lives here: candidate test
-// (D5-D7), lodge and area gates (D8-D10), travel class, reach and travel time (D11-D14), claim window and
-// deadline (D14, D20), chances (D16, D17), best area (D18), rolls (D3), back-off and speed learning (D13-D15),
-// powder (D19, D29), capacity (D21), slices and ARM (D1, D3), day key and month step. Consumers: SkiDaySystem
-// and its Burst jobs (stream B, ch2), SkiLodgeParkingSystem (CheckLodge, stream C, ch3), the settings (the
-// LocalsPct… / TouristsPct… / ReachKm… / PowderPct… constants, aliased there: s1-spec N8), HubRules tests
-// (PowderOf / PowderMark parity, N10); tests/ResortBatch SkiDayTests (ch1 §7).
+// The pure rules of a ski day. Every number and rule lives here: candidate test, lodge and area gates, travel class, reach and
+// travel time, claim window and deadline, chances, best area, rolls, back-off and speed learning, powder, capacity, slices and
+// ARM, day key and month step. Consumers: SkiDaySystem and its Burst jobs, SkiLodgeParkingSystem (CheckLodge), the settings
+// (the LocalsPct... / TouristsPct... / ReachKm... / PowderPct... constants are aliased there), HubRules tests (PowderOf /
+// PowderMark parity); tests/ResortBatch SkiDayTests.
 //
-// SkiDayLimit is declared at top level (outside the class): gate rule R17 compares it with bindings.ts
-// SKI_DAY_LIMIT (check-bundle ENUM_PAIRS; SkiResortMod.csproj lists this file in SkiUiInput), so its
-// literal values never change.
+// SkiDayLimit is declared at top level (outside the class): gate rule R17 compares it with bindings.ts SKI_DAY_LIMIT
+// (check-bundle ENUM_PAIRS; SkiResortMod.csproj lists this file in SkiUiInput), so its literal values never change.
 //
-// PURE FILE: `using System;` and `using Unity.Mathematics;` only, plus EntityRef (never Entity), + SkiCatalog
-// consts (Catalog Phase A R9: compile-time literals; Burst sees numbers — never a SkiCatalog.Lodges[…] row read
-// here, contract D4 / risk R-c). Every method is static, allocation-free and Burst-callable (SkiDaySystem's jobs call it): no managed type, no string,
-// no exception. net48 traps (the mod build is the API gate): no Math.Clamp, MathF, double.IsFinite, Span<T>
-// — math.* stands in (math.isfinite, math.clamp, math.floor).
+// Pure file: `using System;` and `using Unity.Mathematics;` only, plus EntityRef (never Entity) and SkiCatalog consts
+// (compile-time literals: Burst sees numbers, never a SkiCatalog.Lodges[...] row read here). Every method is static,
+// allocation-free and Burst-callable (SkiDaySystem's jobs call it): no managed type, no string, no exception. net48 traps (the
+// mod build is the API gate): no Math.Clamp, MathF, double.IsFinite, Span<T>; math.* stands in (math.isfinite, math.clamp,
+// math.floor).
 //
-// Created 2026-10-05 (Round S1 stage 0: s1-spec §4.2 step 3 — types, constants and the slice / day-key /
-// distance helpers in full; the other bodies stubbed); owned by stream A, which wrote the other bodies the
-// same day, ch1 §3 rule for rule (tests/ResortBatch SkiDayTests, ch1 §7 rows A-Q).
-// Round M1 "measure first" (docs/research/ski-days/measure/m1-spec.md §1.5, builder A, 2026-10-05): measure-only
-// helpers at the end of the class (distance bands, the mode seen, why a decision did not fit, the hour date and
-// month of the powder year table) and Advance's closedShort overload (D5: a jump that lands a month later closes a
-// partial month); SkiDayTests section T.
-// Round M2 (docs/research/round-m2/build-contract.md §5.2, §5.8, §5.10, §5.11; builder B2, 2026-10-10):
-// R9 trip-system bits (TripLeisure … TripNeededToArm), ArmVerdict.SystemOff and the 5-argument ArmCheck; R10
-// structural learning, shadow-only — TripKnobs (stay reserve and speed floors as code constants), a second,
-// all-outcomes speed (ClassTrack.SpeedAllKmPerHour, LearnSpeedAll, SpeedBound, LearnSpeedBound with its tri-state
-// BoundLearn) beside the arrival-only one, FitSpeed (which one the fit check reads; arrivals only while
-// FitUsesAllOutcomes is false, so every send is bit-identical), the stay overloads of ClaimFits / FitVerdict, and
-// LearnSpeed returning whether it applied; measure-core helpers (the [area] log keys, HillClosedForCount,
-// ClosingEdgeOf, MiddayRearmDue, DoneDayOf, CostDayEnded). Measure and text only except SystemOff (R9).
-// SkiDayTests sections U-X and the A / M rows.
-// CATALOG PHASE B (2026-10-11, economy group; docs/research/art/assets-2026-10/code-round-2/round-2-contract.md §7.3):
-// the lodge ladder, the school and the mountain lodges reach the ski day through four ADDITIVE overloads; every old
-// signature is kept and equals the new one with today's arguments bit for bit (SkiDayTests section Y):
-//   * LodgeFacts.NoRoadNeeded (false = road required: every existing caller keeps its verdict): a mountain lodge (R9,
-//     LodgeRoadRule.Mountain) passes CheckLodge without a road;
+// Overload families that keep every old signature bit-identical to the new one called with today's arguments (SkiDayTests
+// section Y):
+//   * LodgeFacts.NoRoadNeeded (false = road required): a mountain lodge (LodgeRoadRule.Mountain) passes CheckLodge without a road;
 //   * PriceFactor(price, tolerance): the lodge's PriceTolerance is added to the full-price threshold (mid 20, luxury 40);
 //     PriceFactor(price) = PriceFactor(price, 0);
-//   * Capacity(runs, lodgeCapacity, targetLodges, powder, out limit): the lodge side is the passing lodges' summed
-//     per-tier capacity (A-frame 360, hut 200, mid 720, summit 480, grand 1,080); the old (runs, n, …) = (runs, 360 n, n,
-//     …); the limit is Lodges when no target (road) lodge passes;
-//   * Chance(…, price, priceTolerance, schoolFactor, confidence, knobs): residents × schoolFactor (SchoolRule, 1.2 while
-//     the school is active with a counted green run) outside the cap like W and P (D16); tourists ignore it; the old
-//     signature = (…, price, 0, 1.0, …).
-// Per-tier numbers reach the Burst jobs as LodgeJob / AreaJob fields filled on the main thread (contract risk R-a); this
-// file still reads only consts.
+//   * Capacity(runs, lodgeCapacity, targetLodges, powder, out limit): the lodge side is the passing lodges' summed per-tier
+//     capacity (A-frame 360, hut 200, mid 720, summit 480, grand 1,080); the old (runs, n, ...) = (runs, 360 n, n, ...); the limit
+//     is Lodges when no target (road) lodge passes;
+//   * Chance(..., price, priceTolerance, schoolFactor, confidence, knobs): residents x schoolFactor (SchoolRule, 1.2 while the
+//     school is active with a counted green run) outside the cap like W and P; tourists ignore it; the old signature =
+//     (..., price, 0, 1.0, ...).
+// Per-tier numbers reach the Burst jobs as LodgeJob / AreaJob fields filled on the main thread; this file reads only consts.
+// Trip model: ClassTrack keeps an arrivals-only speed and a second all-outcomes speed (LearnSpeedAll, SpeedBound,
+// LearnSpeedBound with its tri-state BoundLearn); FitSpeed picks which one the fit check reads (arrivals only while
+// TripKnobs.FitUsesAllOutcomes is false, so every send is bit-identical). Measure helpers at the end of the class (distance bands,
+// the mode seen, why a decision did not fit, the [area] log keys, HillClosedForCount, ClosingEdgeOf, MiddayRearmDue, DoneDayOf,
+// CostDayEnded) are measure and text only; Advance's closedShort overload closes a partial month when a jump lands a month later.
 
 using System;
 using Unity.Mathematics;
 
 namespace SkiResortMod.Systems
 {
-    /// <summary>What limits a ski area's ski-day capacity (D21). Literal values: gate rule R17 pair
+    /// <summary>What limits a ski area's ski-day capacity. Literal values: gate rule R17 pairs it with
     /// SKI_DAY_LIMIT (bindings.ts).</summary>
     public enum SkiDayLimit : byte { None = 0, Runs = 1, Lodges = 2 }
 
-    /// <summary>Round S1 ski-day rules (ch1 §2-§3). Pure, static, Burst-callable.</summary>
+    /// <summary>The ski-day rules. Pure, static, Burst-callable.</summary>
     public static class SkiDayRules
     {
-        // ── constants (ch1 §2.2 table, exact) ────────────────────────────────────────────────
         public const int TicksPerDay = 262144;                       // TimeSystem.kTicksPerDay (TimeSystem.cs:18)
         public const double FramesPerHour = TicksPerDay / 24.0;      // 10,922.667
         public const int SliceGroups = 16;                           // SimulationUtils.cs:153-156 callers
-        public const int MaxFramesPerRenderFrame = 8;                // SimulationSystem.cs:255 (=): ≤ 8 sim frames per render frame (s1-spec N15)
-        public const int MinLeisureToTripRatio = 4;                  // D1
+        public const int MaxFramesPerRenderFrame = 8;                // SimulationSystem.cs:255 (=): ≤ 8 sim frames per render frame
+        public const int MinLeisureToTripRatio = 4;
         public const int NoMonth = int.MinValue;                     // = SkiResortLedger.NoMonth
-        public const double ClaimStartHour = 5.0, LiftsOpenHour = 8.0, CloseHour = 16.5, NightCloseHour = 21.0;   // D20 (LiftsOpenHour: ARMED line only)
-        public const double MinStayHours = 2.0;                      // D14
-        public const double WalkMaxM = 900.0;                        // D11
-        public const double NearKm = 1.0;                            // D16
-        public const double DetourFactor = 1.3;                      // D14
-        public const double StartSpeedWalk = 0.3, StartSpeedCar = 2.2, StartSpeedNoCar = 1.2;   // km per game hour; D14, NoCar ch1 §11 DV-3
+        public const double ClaimStartHour = 5.0, LiftsOpenHour = 8.0, CloseHour = 16.5, NightCloseHour = 21.0;   // (LiftsOpenHour: ARMED line only)
+        public const double MinStayHours = 2.0;
+        public const double WalkMaxM = 900.0;
+        public const double NearKm = 1.0;
+        public const double DetourFactor = 1.3;
+        public const double StartSpeedWalk = 0.3, StartSpeedCar = 2.2, StartSpeedNoCar = 1.2;   // km per game hour
         public const double MinSpeedWalk = 0.1, MaxSpeedWalk = 1.0;      // learning clamps
         public const double MinSpeedCar = 0.5, MaxSpeedCar = 8.0;
         public const double MinSpeedNoCar = 0.2, MaxSpeedNoCar = 8.0;
         public const double SpeedLearnRate = 0.25;
         public const double MinLearnDistanceM = 300.0, MinLearnHours = 0.05;
         public const double MinTravelSpeed = 0.01;                   // guard
-        public const double ConfidenceMin = 0.1;                     // D15
-        public const double PriorWeight = 4.0;                       // D13
-        public const double PriorWalk = 1.0, PriorCar = 1.0, PriorNoCar = 0.1;   // D13 (no car starts at 1 in 10)
+        public const double ConfidenceMin = 0.1;
+        public const double PriorWeight = 4.0;
+        public const double PriorWalk = 1.0, PriorCar = 1.0, PriorNoCar = 0.1;   // no car starts at 1 in 10
         public const double TrackKeep = 0.975;                       // = 1 − 1/40
-        public const int CannotReachMinResolved = 20;                // D15
-        public const double CannotReachBelow = 0.5, CannotReachClearAt = 0.6;    // D15 (+ F1-style hysteresis)
-        public const double ResidentCap = 0.20, TouristCap = 0.30;   // D16, D17
-        public const double TouristPowderShare = 0.25;               // D17
-        public const int PriceFullAt = 240, PriceSpan = 200, PriceMax = 200;     // D16: P = (240 − price) / 200, exact in int
+        public const int CannotReachMinResolved = 20;
+        public const double CannotReachBelow = 0.5, CannotReachClearAt = 0.6;    // plus hysteresis
+        public const double ResidentCap = 0.20, TouristCap = 0.30;
+        public const double TouristPowderShare = 0.25;
+        public const int PriceFullAt = 240, PriceSpan = 200, PriceMax = 200;     // P = (240 − price) / 200, exact in int
         public const int MaxAttraction = 200;                        // = SkiResortScore.MaxAttraction
         public const float SnowPrecipMin = 0.1f;                     // SnowSystem.cs:487
-        public const int SnowHourSamples = 24;                       // D19
-        // D19, T134 (2026-10-20, field note 29 "every day seems to be a powder day"): powder follows the FRESH SNOW of the last 24
-        // game hours, not the count of snowy hours. Fresh = the sum of the precipitation (ClimateSystem, 0..1) over the hours that
-        // snow at the area's top (IsSnowHour), in steps of FreshStep; powder = clamp01((steps - 6) / 6) (sixths, as before), so it
-        // starts above 3.0, the "Powder day" mark (0.5) needs 4.5 and it is full at 6.0. The old rule (snow-hours, 4 / 10, mark at
-        // 7) marked 92 of 212 logged hours in the 2026-10-20 playthrough (every winter day); this one marks 23, one storm a year
-        // (docs/research/field/2026-10-20/playthrough/sim-snow-build.md T134).
+        public const int SnowHourSamples = 24;
+        // Powder follows the fresh snow of the last 24 game hours, not the count of snowy hours. Fresh = the sum of the precipitation
+        // (ClimateSystem, 0..1) over the hours that snow at the area's top (IsSnowHour), in steps of FreshStep; powder =
+        // clamp01((steps - 6) / 6), so it starts above 3.0, the "Powder day" mark (0.5) needs 4.5 and it is full at 6.0. A snow-hours
+        // count marked nearly every winter day as powder; this marks one storm a year.
         public const double FreshStep = 0.5;                         // precipitation-hours per step
-        public const int PowderStartSteps = 6, PowderFullSteps = 12; // T134: 3.0 and 6.0 precipitation-hours
-        public const double PowderMarkAt = 0.5;                      // D29
-        public const double LodgeSkiersPerDay = SkiCatalog.AFrameLodge.SkiersPerDay, PowderCapacityBoost = 0.25;   // D21. Catalog Phase A (F10 / LodgeDef; was SkiDayRules.cs:81 = 360.0): const alias (D4)
+        public const int PowderStartSteps = 6, PowderFullSteps = 12; // 3.0 and 6.0 precipitation-hours
+        public const double PowderMarkAt = 0.5;
+        public const double LodgeSkiersPerDay = SkiCatalog.AFrameLodge.SkiersPerDay, PowderCapacityBoost = 0.25;   // Catalog const alias of the A-frame lodge's capacity
         public const int MaxCapacityPeople = 1000000;                // guard
-        public const float SlopesideMaxM = 800f;                     // D10
-        // The settings' numbers (decisions §8; s1-spec §2.11 aliases them, N8):
-        public const int LocalsPctDefault = 25, LocalsPctMin = 0, LocalsPctMax = 50;           // D16
-        public const int TouristsPctDefault = 50, TouristsPctMin = 0, TouristsPctMax = 100;    // D17
-        public const int ReachKmDefault = 7, ReachKmMin = 2, ReachKmMax = 12;                  // D14
-        public const int PowderPctDefault = 100, PowderPctMin = 0, PowderPctMax = 200;         // D16
-        public const ulong ResidentSalt = 0x534B494441595331UL;      // "SKIDAYS1" (D3)
-        public const ulong TouristSalt = 0x534B494441595332UL;       // "SKIDAYS2" (D3)
+        public const float SlopesideMaxM = 800f;
+        // The settings' numbers:
+        public const int LocalsPctDefault = 25, LocalsPctMin = 0, LocalsPctMax = 50;
+        public const int TouristsPctDefault = 50, TouristsPctMin = 0, TouristsPctMax = 100;
+        public const int ReachKmDefault = 7, ReachKmMin = 2, ReachKmMax = 12;
+        public const int PowderPctDefault = 100, PowderPctMin = 0, PowderPctMax = 200;
+        public const ulong ResidentSalt = 0x534B494441595331UL;      // "SKIDAYS1"
+        public const ulong TouristSalt = 0x534B494441595332UL;       // "SKIDAYS2"
 
-        // ── nested enums (ch1 §2.3; literal values — the DUMP counters index by them) ───────
         public enum GuestKind : byte { Resident = 0, Tourist = 1 }
         public enum TravelClass : byte { Walk = 0, Car = 1, NoCarFar = 2, None = 3 }     // None = not claimable
         public enum Reject : byte
@@ -131,14 +109,13 @@ namespace SkiResortMod.Systems
             OutOfHours = 6, Full = 7,
         }
         public enum MonthStep : byte { None = 0, Started = 1, Rolled = 2, Jumped = 3 }   // = SkiResortLedger.AdvanceResult values
-        /// <summary>SystemOff (Round M2, R9): the game's own LeisureSystem or CitizenBehaviorSystem is switched off
+        /// <summary>SystemOff: the game's own LeisureSystem or CitizenBehaviorSystem is switched off
         /// (ArmCheck's 5-argument overload; a vanilla fact, never a mod detection).</summary>
         public enum ArmVerdict : byte { Ok = 0, BadInterval = 1, BadOffset = 2, LeisureTooFast = 3, BehaviorTooFast = 4, SystemOff = 5 }
 
-        // ── value structs (ch1 §2.4) ────────────────────────────────────────────────────────
         public struct Knobs { public int LocalsPct, TouristsPct, ReachKm, PowderPct; }
 
-        public struct CitizenFacts                      // D5-D7, filled by the job from lookups (ch2)
+        public struct CitizenFacts                      // filled by the job from lookups
         {
             public bool HasLeisure, LeisureTargetNull;
             public bool HasPathInformation, HasTarget, HasTravelPurpose, HasResourceBuyer, HasAttendingMeeting;
@@ -146,53 +123,50 @@ namespace SkiResortMod.Systems
             public bool HouseholdTourist, HouseholdCommuter, HouseholdHomeless, HouseholdMovingAway;
             public bool HouseholdLodgingSeeker, HouseholdAttendingEvent;
             public bool AtHome;   // resident: PropertyRenter(household).m_Property == CurrentBuilding; tourist: m_Hotel != Null
-                                  // && m_Hotel has LodgingProvider && PropertyRenter(m_Hotel).m_Property == CurrentBuilding (D7; ch2 fills it)
+                                  // && m_Hotel has LodgingProvider && PropertyRenter(m_Hotel).m_Property == CurrentBuilding
         }
 
-        public struct LodgeFacts                        // D8, D10 (ch2 fills: SiteJob / step A; ch3's census with nearest 0)
+        public struct LodgeFacts                        // filled by the SiteJob / step A; the census with nearest 0
         {
             public bool IsLodgePrefab, OnLiveSign, Active, Destroyed, LeisureTagged, HasRoad;
             public float NearestRunOrStationM;
-            /// <summary>Catalog Phase B (R9, round-2-contract §7.3): a mountain lodge (LodgeRoadRule != Base) needs no road.
-            /// false (the default) = road required, today's verdict for every existing caller.</summary>
+            /// <summary>A mountain lodge (LodgeRoadRule != Base) needs no road. false (the default) = road required.</summary>
             public bool NoRoadNeeded;
         }
 
-        public struct AreaFacts                         // D9 + lodges passing CheckLodge
+        public struct AreaFacts                         // plus the lodges passing CheckLodge
         {
             public bool ScoreKnown, WriteHeld; public double Efficiency; public int RunsCounted;
             public int SkiDayLodges;
         }
 
-        public struct ClassTrack                        // per area × class, in memory
+        public struct ClassTrack                        // per area x class, in memory
         {
             public double Arrived, Failed; public int Resolved; public double SpeedKmPerHour;
             public bool CannotReachShown;
-            /// <summary>Round M2 R10: the all-outcomes speed (arrivals, late arrivals, upper bounds from failures and
+            /// <summary>The all-outcomes speed (arrivals, late arrivals, upper bounds from failures and
             /// expired claims); the fit check reads it only when TripKnobs.FitUsesAllOutcomes (FitSpeed).</summary>
             public double SpeedAllKmPerHour;
         }
 
-        /// <summary>Round M2 R10: the trip-model numbers that were constants, one struct for both jobs. Defaults =
-        /// today's constants (DefaultTripKnobs): stay 2 h, floors walk 0.1 / car 0.5 / no car 0.2 km per game hour.
-        /// FitUsesAllOutcomes picks the speed the fit check reads (FitSpeed); false this round (shadow-only).</summary>
+        /// <summary>The trip-model numbers that were constants, one struct for both jobs. Defaults = today's constants
+        /// (DefaultTripKnobs): stay 2 h, floors walk 0.1 / car 0.5 / no car 0.2 km per game hour.
+        /// FitUsesAllOutcomes picks the speed the fit check reads (FitSpeed); false = shadow-only.</summary>
         public struct TripKnobs { public double StayHours, FloorWalk, FloorCar, FloorNoCar; public bool FitUsesAllOutcomes; }
 
-        /// <summary>Round M2 R10: LearnSpeedBound's result. NoInformation: the bound is +∞ (SpeedBound's guards);
+        /// <summary>LearnSpeedBound's result. NoInformation: the bound is +inf (SpeedBound's guards);
         /// Lowered: the all-outcomes speed moved a quarter of the way down to it; AlreadyMet: the speed was at or below
         /// the clamped bound (unchanged).</summary>
         public enum BoundLearn : byte { NoInformation = 0, Lowered = 1, AlreadyMet = 2 }
 
         public struct MonthFlags { public int Key; public bool ThisSinceLoad, LastKnown, LastSinceLoad; }
 
-        // ── helpers ─────────────────────────────────────────────────────────────────────────
 
         /// <summary>Clamp to [0, 1]; NaN → 0.</summary>
         public static double Unit01(double x) => x > 0.0 ? (x < 1.0 ? x : 1.0) : 0.0;
 
-        // ── candidate, lodge, area (ch1 §3.1-§3.3) ──────────────────────────────────────────
 
-        /// <summary>D5-D7 (ch1 §3.1): the first failing test wins — common tests (deciding, busy, ill, trips,
+        /// <summary>The first failing test wins: common tests (deciding, busy, ill, trips,
         /// building), then the household rules of the guest's kind. Tourists ignore commuter / homeless, residents
         /// ignore lodging seeker / attending event.</summary>
         public static Reject CheckCitizen(in CitizenFacts c, out GuestKind who)
@@ -210,22 +184,22 @@ namespace SkiResortMod.Systems
                 return Reject.NotInBuilding;
             if (who == GuestKind.Tourist)
             {
-                // D7: in the hotel's building, the one vanilla outing spent (AttendingEvent), no lodging search.
+                // in the hotel's building, the one vanilla outing spent (AttendingEvent), no lodging search.
                 if (c.HouseholdMovingAway || c.HouseholdLodgingSeeker)
                     return Reject.HouseholdExcluded;
                 if (!c.AtHome)
                     return Reject.NotAtHome;
                 return c.HouseholdAttendingEvent ? Reject.None : Reject.OutingNotSpent;
             }
-            // D6: at home; not a commuter, homeless or moving-away household.
+            // at home; not a commuter, homeless or moving-away household.
             if (c.HouseholdCommuter || c.HouseholdHomeless || c.HouseholdMovingAway)
                 return Reject.HouseholdExcluded;
             return c.AtHome ? Reject.None : Reject.NotAtHome;
         }
 
-        /// <summary>D8, D10 (ch1 §3.2), in this order: not a lodge (the Welcome Sign is never a target), not on a
+        /// <summary>In this order: not a lodge (the Welcome Sign is never a target), not on a
         /// live sign, inactive, destroyed, no leisure tag (a Tourism Overhaul gate is respected), no road (unless
-        /// NoRoadNeeded: a mountain lodge, Catalog Phase B), not slope-side.</summary>
+        /// NoRoadNeeded: a mountain lodge), not slope-side.</summary>
         public static LodgeReject CheckLodge(in LodgeFacts l)
         {
             if (!l.IsLodgePrefab)
@@ -238,14 +212,14 @@ namespace SkiResortMod.Systems
                 return LodgeReject.Destroyed;
             if (!l.LeisureTagged)
                 return LodgeReject.NoLeisureTag;
-            if (!l.HasRoad && !l.NoRoadNeeded)   // Catalog Phase B (round-2-contract §7.3; was `if (!l.HasRoad)`)
+            if (!l.HasRoad && !l.NoRoadNeeded)
                 return LodgeReject.NoRoad;
             return IsSlopeside(l.NearestRunOrStationM) ? LodgeReject.None : LodgeReject.NotSlopeside;
         }
 
         /// <summary>xz distance from p to an axis box (Geometry.m_Bounds.xz); 0 inside. Never larger than the
-        /// distance to any shape inside the box, so SiteJob skips a run exactly when it is ≥ the current nearest
-        /// (ch1 §3.2). Any non-finite input → +∞ (Unity's math.max(NaN, 0) returns 0, so the guard is needed).</summary>
+        /// distance to any shape inside the box, so SiteJob skips a run exactly when it is &gt;= the current nearest.
+        /// Any non-finite input gives +inf (Unity's math.max(NaN, 0) returns 0, so the guard is needed).</summary>
         public static float DistanceToBoundsXZ(float2 p, float2 boundsMin, float2 boundsMax)
         {
             if (!math.all(math.isfinite(p)) || !math.all(math.isfinite(boundsMin)) || !math.all(math.isfinite(boundsMax)))
@@ -254,7 +228,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>xz distance from p to segment ab; a degenerate segment is the point a. The formula of
-        /// LiftServedRule.DistanceSqXZ, re-stated so this file stays self-contained (ch1-R-3).</summary>
+        /// LiftServedRule.DistanceSqXZ, re-stated so this file stays self-contained.</summary>
         public static float DistanceToSegmentXZ(float2 p, float2 a, float2 b)
         {
             float2 ab = b - a;
@@ -263,23 +237,23 @@ namespace SkiResortMod.Systems
             return math.length(p - (a + t * ab));
         }
 
-        /// <summary>Even-odd test (ch1-R-3): does the ray from p towards +x cross edge ab? (.y = world z.) The
+        /// <summary>Even-odd test: does the ray from p towards +x cross edge ab? (.y = world z.) The
         /// division only runs when the edge straddles p.y, so b.y ≠ a.y there; NaN → false.</summary>
         public static bool CrossesRayXZ(float2 p, float2 a, float2 b)
         {
             return (a.y > p.y) != (b.y > p.y) && p.x < (b.x - a.x) * (p.y - a.y) / (b.y - a.y) + a.x;
         }
 
-        /// <summary>xz distance (ch1 §3.2).</summary>
+        /// <summary>xz distance.</summary>
         public static float DistanceXZ(float2 a, float2 b) => math.distance(a, b);
 
-        /// <summary>The smaller of the two; start at +∞; NaN never wins (ch1 §3.2).</summary>
+        /// <summary>The smaller of the two; start at +∞; NaN never wins.</summary>
         public static float NearestOf(float nearest, float d) => d < nearest ? d : nearest;
 
-        /// <summary>D10: within 800 m (inclusive) of a member run or a lift station of its own area; NaN → false.</summary>
+        /// <summary>Within 800 m (inclusive) of a member run or a lift station of its own area; NaN gives false.</summary>
         public static bool IsSlopeside(float nearestM) => nearestM <= SlopesideMaxM;
 
-        /// <summary>D9, D20, D21 (ch1 §3.3), in this order: score unknown, first-write hold, efficiency not &gt; 0
+        /// <summary>In this order: score unknown, first-write hold, efficiency not &gt; 0
         /// (NaN too), no counted run (a powered lift alone is not enough), no lodge passing CheckLodge, outside the
         /// claim window, full. nightRunOpen = Result.NightRunsCounted &gt; 0.</summary>
         public static AreaState AreaStateOf(in AreaFacts a, float timeOfDay, bool nightRunOpen, int claimedActive, int capacityPeople)
@@ -299,14 +273,13 @@ namespace SkiResortMod.Systems
             return HasRoom(claimedActive, capacityPeople) ? AreaState.Open : AreaState.Full;
         }
 
-        // ── Round M2 measure-core: the [area] line key and the closed-hill count (measure and text only) ──────────
 
-        /// <summary>Round M2 (D10): keys of the SkiDays `[area]` line (AreaMemory.StateKey); None = nothing written
+        /// <summary>Keys of the SkiDays `[area]` line (AreaMemory.StateKey); None = nothing written
         /// yet this load (AreaLogKey never returns it, so the first pass always writes).</summary>
         public const byte LogKeyNone = 0, LogKeyWaiting = 1, LogKeyNoEfficiency = 2, LogKeyNoOpenRun = 3, LogKeyNoLodge = 4,
                           LogKeyOpen = 5, LogKeyFull = 6;
 
-        /// <summary>Round M2 (D10): the `[area]` line's key of an area state. NoScore and Held read Waiting; Full has its
+        /// <summary>The `[area]` line's key of an area state. NoScore and Held read Waiting; Full has its
         /// own key (its own line); OutOfHours keeps Full when the area was Full (the claim window closing is not "room
         /// again"), else reads Open, as before; any other value reads Open.</summary>
         public static byte AreaLogKey(AreaState state, byte previousKey)
@@ -331,13 +304,13 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>Round M2 (D12a, ruling R4 a): the hill counts as closed for "arrived after the hill closed" when the
+        /// <summary>The hill counts as closed for "arrived after the hill closed" when the
         /// score is known, not in the first-write hold, and no run is counted — AreaStateOf's NoOpenRun test with its
         /// earlier gates, no time-of-day test (closing hours are the deadline's business). An unknown score never counts
         /// as closed (its RunsCounted is 0 until the first score, SkiDaySystem.RebuildSnapshot).</summary>
         public static bool HillClosedForCount(bool scoreKnown, bool held, int runsCounted) => scoreKnown && !held && runsCounted <= 0;
 
-        /// <summary>Round M2 (D12, Decided here 1-2): a closure edge of a ski area this pass. Unknown or held score → 0
+        /// <summary>A closure edge of a ski area this pass. Unknown or held score → 0
         /// (never an edge: a load hold with 0 runs is not a closing); no counted run → 1 when the hill was seen open
         /// (counted runs) since the load, else 0; the night run closed (it was seen open and now is not, runs still
         /// counted) → 2; else 0. The literals equal SkiDayTiming.PullNone / PullNoRun / PullNightClosed (this file does
@@ -351,9 +324,8 @@ namespace SkiResortMod.Systems
             return (byte)(!nightRunOpen && nightOpenSeen ? 2 : 0);
         }
 
-        // ── travel class, reach, travel time (ch1 §3.4) ─────────────────────────────────────
 
-        /// <summary>D11-D13: no valid distance → None; ≤ 900 m → Walk (anyone, children too); a child beyond →
+        /// <summary>No valid distance → None; ≤ 900 m → Walk (anyone, children too); a child beyond →
         /// None; a parked car held or a free household car → Car; else NoCarFar. (Children get no car from the
         /// reserve job, CitizenBehaviorSystem.cs:67; 1.6.2 :68.)</summary>
         public static TravelClass ClassOf(double distanceM, bool isChild, bool holdsParkedCar, bool householdFreeCar)
@@ -367,10 +339,10 @@ namespace SkiResortMod.Systems
             return holdsParkedCar || householdFreeCar ? TravelClass.Car : TravelClass.NoCarFar;
         }
 
-        /// <summary>D14: straight line ≤ the reach setting (clamped 2..12 km), inclusive; NaN → false.</summary>
+        /// <summary>Straight line ≤ the reach setting (clamped 2..12 km), inclusive; NaN → false.</summary>
         public static bool WithinReach(double distanceM, int reachKm) => distanceM <= math.clamp(reachKm, ReachKmMin, ReachKmMax) * 1000.0;
 
-        /// <summary>D16 D: 1 up to 1 km, then a straight line to 0 at the reach (clamped 2..12 km); NaN or
+        /// <summary>1 up to 1 km, then a straight line to 0 at the reach (clamped 2..12 km); NaN or
         /// negative → 0.</summary>
         public static double DistanceFactor(double distanceKm, int reachKm)
         {
@@ -384,7 +356,7 @@ namespace SkiResortMod.Systems
             return (reach - distanceKm) / (reach - NearKm);
         }
 
-        /// <summary>D14 start speed, km per game hour (None reads Walk's).</summary>
+        /// <summary>Start speed, km per game hour (None reads Walk's).</summary>
         public static double StartSpeedOf(TravelClass c)
         {
             switch (c)
@@ -417,7 +389,7 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>D14: game hours = km × 1.3 / speed. A negative, NaN or infinite distance → +∞ (never fits);
+        /// <summary>Game hours = km × 1.3 / speed. A negative, NaN or infinite distance → +∞ (never fits);
         /// the speed is floored at MinTravelSpeed (NaN → the floor).</summary>
         public static double TravelHours(double distanceM, double speedKmPerHour)
         {
@@ -427,7 +399,6 @@ namespace SkiResortMod.Systems
             return distanceM / 1000.0 * DetourFactor / v;
         }
 
-        // ── hours and deadline (ch1 §3.5) ───────────────────────────────────────────────────
 
         /// <summary>Hour of the day, 24 × frac(t); t = TimeSystem.normalizedTime (ticks mod 262,144 over 262,144,
         /// TimeSystem.cs:109-112 (=)). NaN in, NaN out.</summary>
@@ -437,17 +408,17 @@ namespace SkiResortMod.Systems
             return 24.0 * (t - math.floor(t));
         }
 
-        /// <summary>D20: lifts close at 16:30, at 21:00 while the area has an open night run.</summary>
+        /// <summary>Lifts close at 16:30, at 21:00 while the area has an open night run.</summary>
         public static double CloseHourOf(bool nightRunOpen) => nightRunOpen ? NightCloseHour : CloseHour;
 
-        /// <summary>D20: claims from 05:00 (inclusive) to closing (exclusive); NaN → false.</summary>
+        /// <summary>Claims from 05:00 (inclusive) to closing (exclusive); NaN → false.</summary>
         public static bool InClaimWindow(float timeOfDay, bool nightRunOpen)
         {
             double h = HourOf(timeOfDay);
             return h >= ClaimStartHour && h < CloseHourOf(nightRunOpen);
         }
 
-        /// <summary>D20: the sim frame of today's closing, now + floor((close / 24 − frac(t)) × 262,144); false
+        /// <summary>The sim frame of today's closing, now + floor((close / 24 − frac(t)) × 262,144); false
         /// (and 0) outside the claim window. Frames compare like vanilla's deadline (wrapping uint).</summary>
         public static bool TryClosingFrame(uint now, float timeOfDay, bool nightRunOpen, out uint closingFrame)
         {
@@ -460,14 +431,14 @@ namespace SkiResortMod.Systems
             return true;
         }
 
-        /// <summary>D14, D20: a finite, non-negative travel time plus MinStayHours fits before both vanilla's
+        /// <summary>A finite, non-negative travel time plus MinStayHours fits before both vanilla's
         /// deadline and closing; false when either is ≤ now. Frames as vanilla compares them (LeisureSystem.cs:314,
         /// 1.6.2 :308: frame ≥ m_LastPossibleFrame ends the visit; CitizenBehaviorSystem.cs:491-495, 1.6.2 :493).
         /// = ClaimFits(…, MinStayHours): the same expression, so every double is identical (SkiDayTests W3).</summary>
         public static bool ClaimFits(uint now, uint vanillaDeadline, uint closingFrame, double travelHours)
             => ClaimFits(now, vanillaDeadline, closingFrame, travelHours, MinStayHours);
 
-        /// <summary>Round M2 R10: ClaimFits with the stay reserve as an input (TripKnobs.StayHours); a stay that is not
+        /// <summary>ClaimFits with the stay reserve as an input (TripKnobs.StayHours); a stay that is not
         /// finite or below 0 reads MinStayHours.</summary>
         public static bool ClaimFits(uint now, uint vanillaDeadline, uint closingFrame, double travelHours, double stayHours)
         {
@@ -480,12 +451,11 @@ namespace SkiResortMod.Systems
             return need <= vanillaDeadline - now && need <= closingFrame - now;
         }
 
-        /// <summary>D2, D20: the claim's m_LastPossibleFrame — closing, never later than vanilla's.</summary>
+        /// <summary>The claim's m_LastPossibleFrame: closing, never later than vanilla's.</summary>
         public static uint ClaimDeadline(uint vanillaDeadline, uint closingFrame) => math.min(vanillaDeadline, closingFrame);
 
-        // ── chance and best area (ch1 §3.6) ─────────────────────────────────────────────────
 
-        /// <summary>The four settings at their defaults (decisions §8).</summary>
+        /// <summary>The four settings at their defaults.</summary>
         public static Knobs DefaultKnobs()
         {
             return new Knobs
@@ -495,9 +465,9 @@ namespace SkiResortMod.Systems
             };
         }
 
-        /// <summary>Round M2 R10: the trip knobs at today's constants (stay MinStayHours, floors MinSpeedWalk /
-        /// MinSpeedCar / MinSpeedNoCar), the fit check on arrivals only. Code constants, printed in the ARMED line; no
-        /// Options exposure this round.</summary>
+        /// <summary>The trip knobs at today's constants (stay MinStayHours, floors MinSpeedWalk /
+        /// MinSpeedCar / MinSpeedNoCar), the fit check on arrivals only. Code constants, printed in the ARMED line; not
+        /// exposed in Options.</summary>
         public static TripKnobs DefaultTripKnobs()
         {
             return new TripKnobs
@@ -507,7 +477,7 @@ namespace SkiResortMod.Systems
             };
         }
 
-        /// <summary>Round M2 R10: the class's learning floor from the knobs (None reads Walk's); a floor that is NaN,
+        /// <summary>The class's learning floor from the knobs (None reads Walk's); a floor that is NaN,
         /// infinite or not &gt; 0 reads MinSpeedOf(c). At the defaults FloorOf(c, k) == MinSpeedOf(c) exactly.</summary>
         public static double FloorOf(TravelClass c, in TripKnobs k)
         {
@@ -522,7 +492,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Each knob to its Min..Max. Defensive only: the settings readers already clamp with the same
-        /// constants (s1-spec §2.11).</summary>
+        /// constants.</summary>
         public static Knobs ClampKnobs(in Knobs k)
         {
             return new Knobs
@@ -534,12 +504,12 @@ namespace SkiResortMod.Systems
             };
         }
 
-        /// <summary>D16 P = clamp01((240 − clamp(price, 0, 200)) / 200): 1 up to ₵40, 0.7 at ₵100, 0.2 from ₵200.
-        /// = PriceFactor(price, 0) bit for bit (Catalog Phase B).</summary>
+        /// <summary>P = clamp01((240 − clamp(price, 0, 200)) / 200): 1 up to ₵40, 0.7 at ₵100, 0.2 from ₵200.
+        /// = PriceFactor(price, 0) bit for bit.</summary>
         public static double PriceFactor(int ticketPrice)
             => PriceFactor(ticketPrice, 0);
 
-        /// <summary>Catalog Phase B (R11, round-2-contract §7.3): P = clamp01((240 + max(0, tolerance) − clamp(price, 0,
+        /// <summary>P = clamp01((240 + max(0, tolerance) − clamp(price, 0,
         /// 200)) / 200) — the area's best lodge's PriceTolerance (A-frame / hut 0, mid 20, luxury 40) raises the
         /// full-price threshold by that much (tolerance 40: 1 up to ₵80, 0.4 from ₵200). Exact in int before the one
         /// division. The tolerance is clamped to 0..PriceMax (the contract's max(0, t), plus an overflow guard: from 160
@@ -547,8 +517,8 @@ namespace SkiResortMod.Systems
         public static double PriceFactor(int ticketPrice, int tolerance)
             => Unit01((PriceFullAt + math.clamp(tolerance, 0, PriceMax) - math.clamp(ticketPrice, 0, PriceMax)) / (double)PriceSpan);
 
-        /// <summary>D16 open share, value-weighted (Result.RunsValue / Result.RunsValueFull = the hub's "open %",
-        /// ch1 §11 N-3); 0 unless the full value is finite and &gt; 0.</summary>
+        /// <summary>Open share, value-weighted (Result.RunsValue / Result.RunsValueFull = the hub's "open %");
+        /// 0 unless the full value is finite and &gt; 0.</summary>
         public static double OpenShare(double runsValue, double runsValueFull)
         {
             if (!math.isfinite(runsValueFull) || !(runsValueFull > 0.0))
@@ -556,7 +526,7 @@ namespace SkiResortMod.Systems
             return Unit01(runsValue / runsValueFull);
         }
 
-        /// <summary>D16 W / D17 Wt = open × (1 + s × powder × pull / 100), s = 1 residents, 0.25 tourists; pull
+        /// <summary>W / Wt = open × (1 + s × powder × pull / 100), s = 1 residents, 0.25 tourists; pull
         /// clamped 0..200 (0 ignores powder).</summary>
         public static double SnowFactor(GuestKind who, double openShare, double powder, int powderPct)
         {
@@ -565,17 +535,17 @@ namespace SkiResortMod.Systems
             return Unit01(openShare) * (1.0 + s * Unit01(powder) * pull / 100.0);
         }
 
-        /// <summary>D16 / D17 (ch1 §3.6): base = min(cap, pct/100 × share × D), share A/100 residents, A/200
-        /// tourists (ch1 §11 N-1); × W × P × confidence outside the cap (powder and price always act). Knobs
+        /// <summary>base = min(cap, pct/100 × share × distanceFactor), share A/100 residents, A/200
+        /// tourists; × W × P × confidence outside the cap (powder and price always act). Knobs
         /// clamped; every input sanitized, so the result is in [0, 0.6] residents, [0, 0.45] tourists.
-        /// = Chance(…, ticketPrice, 0, 1.0, confidence, knobs) bit for bit (Catalog Phase B).</summary>
+        /// = Chance(…, ticketPrice, 0, 1.0, confidence, knobs) bit for bit.</summary>
         public static double Chance(GuestKind who, int attraction, double distanceKm, double openShare, double powder,
                                     int ticketPrice, double confidence, in Knobs knobs)
         {
             return Chance(who, attraction, distanceKm, openShare, powder, ticketPrice, 0, 1.0, confidence, knobs);
         }
 
-        /// <summary>Catalog Phase B (round-2-contract §7.3; R11, R13): as the 8-argument Chance, with P =
+        /// <summary>As the 8-argument Chance, with P =
         /// PriceFactor(ticketPrice, priceTolerance) (the area's best lodge's tolerance) and, for RESIDENTS only, ×
         /// schoolFactor after every other factor (outside the cap, like W and P; SchoolRule.DemandFactorOf: 1 or 1.2; a
         /// NaN or non-positive factor reads 1); tourists ignore it. The result is clamped to [0, 1] (residents reach
@@ -586,9 +556,9 @@ namespace SkiResortMod.Systems
             return Chance(who, attraction, distanceKm, openShare, powder, ticketPrice, priceTolerance, schoolFactor, confidence, knobs, false);
         }
 
-        /// <summary>DECISIONS 240: as the 10-argument Chance, except that a PASS HOLDER (the household's
+        /// <summary>As the 10-argument Chance, except that a pass holder (the household's
         /// SkiSeasonPass for this season; residents only, the caller decides) gets P = 1 in place of PriceFactor — the pass is
-        /// sunk cost, so the ticket price no longer deters it (the V2-IDEAS "holders ski more"). With
+        /// sunk cost, so the ticket price no longer deters it. With
         /// <paramref name="passHolder"/> false this is the 10-argument Chance bit for bit.</summary>
         public static double Chance(GuestKind who, int attraction, double distanceKm, double openShare, double powder,
                                     int ticketPrice, int priceTolerance, double schoolFactor, double confidence, in Knobs knobs,
@@ -606,7 +576,7 @@ namespace SkiResortMod.Systems
             return Unit01(p);
         }
 
-        /// <summary>D18 best area: false unless p &gt; 0; higher p wins (no best yet = 0); a tie goes to the
+        /// <summary>Best area: false unless p &gt; 0; higher p wins (no best yet = 0); a tie goes to the
         /// shorter distance, then the lower sign (EntityRef.CompareTo: Index, then Version).</summary>
         public static bool IsBetter(double p, double distanceM, EntityRef sign, double bestP, double bestDistanceM, EntityRef bestSign)
         {
@@ -621,7 +591,6 @@ namespace SkiResortMod.Systems
             return sign.CompareTo(bestSign) < 0;
         }
 
-        // ── rolls (ch1 §3.7; s1-spec N2) ────────────────────────────────────────────────────
 
         /// <summary>splitmix64 finalizer, the constants of RunSnowRules.Mix64 (re-stated: this file links alone).</summary>
         public static ulong Mix64(ulong x)
@@ -641,7 +610,7 @@ namespace SkiResortMod.Systems
         /// <summary>The top 53 bits as a double in [0, 1), exact.</summary>
         public static double UnitOf(ulong h) => (h >> 11) * (1.0 / 9007199254740992.0);
 
-        /// <summary>D3 resident roll, one per decision (s1-spec N2, deviation V7): decisionFrame =
+        /// <summary>Resident roll, one per decision: decisionFrame =
         /// SkiDayTiming.NextLeisureVisit(chunk slice, now, leisure interval), the frame LeisureSystem takes this
         /// decision — the same for its up to 15 sightings, new for the next decision. Not m_LastPossibleFrame:
         /// CBS sets it to day start + a per-citizen constant (CitizenBehaviorSystem.cs:434-441, :472-494; 1.6.2
@@ -649,16 +618,15 @@ namespace SkiResortMod.Systems
         public static double ResidentRoll(int citizenIndex, int citizenVersion, uint decisionFrame)
             => UnitOf(Mix64(Mix64(KeyOf(citizenIndex, citizenVersion) ^ ResidentSalt) ^ decisionFrame));
 
-        /// <summary>D3 tourist roll: one per party (household) per game day (DayKey), so a party skis together.</summary>
+        /// <summary>Tourist roll: one per party (household) per game day (DayKey), so a party skis together.</summary>
         public static double TouristRoll(int householdIndex, int householdVersion, int dayKey)
             => UnitOf(Mix64(Mix64(KeyOf(householdIndex, householdVersion) ^ TouristSalt) ^ (uint)dayKey));
 
         /// <summary>roll &lt; p (a p of 0 or NaN never hits).</summary>
         public static bool Hit(double roll, double p) => roll < p;
 
-        // ── back-off and speed learning (ch1 §3.8) ──────────────────────────────────────────
 
-        /// <summary>D13 prior: Walk 1, Car 1, NoCarFar 0.1 (1 in 10 until such guests arrive), None 0.</summary>
+        /// <summary>Prior: Walk 1, Car 1, NoCarFar 0.1 (1 in 10 until such guests arrive), None 0.</summary>
         public static double PriorOf(TravelClass c)
         {
             switch (c)
@@ -670,10 +638,10 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>A fresh track (load, new area): no outcome yet, the class's start speed (both speeds, Round M2 R10).</summary>
+        /// <summary>A fresh track (load, new area): no outcome yet, the class's start speed (both speeds).</summary>
         public static ClassTrack NewTrack(TravelClass c) => new ClassTrack { SpeedKmPerHour = StartSpeedOf(c), SpeedAllKmPerHour = StartSpeedOf(c) };
 
-        /// <summary>D15: clamp((A + 4 × prior) / (A + F + 4), 0.1, 1), A and F floored at 0 (NaN → 0); a NaN ratio
+        /// <summary>clamp((A + 4 × prior) / (A + F + 4), 0.1, 1), A and F floored at 0 (NaN → 0); a NaN ratio
         /// reads the floor. Start: Walk / Car 1, NoCarFar 0.1.</summary>
         public static double Confidence(TravelClass c, in ClassTrack t)
         {
@@ -683,9 +651,9 @@ namespace SkiResortMod.Systems
             return conf > 1.0 ? 1.0 : (conf >= ConfidenceMin ? conf : ConfidenceMin);
         }
 
-        /// <summary>D15: both counts decay by 0.975 (a window of about 40 outcomes), the outcome adds 1 to its
+        /// <summary>Both counts decay by 0.975 (a window of about 40 outcomes), the outcome adds 1 to its
         /// side; Resolved counts outcomes (saturating). A failure is a claim whose Leisure lost the lodge without
-        /// arriving, or whose deadline passed (ch2 detects).</summary>
+        /// arriving, or whose deadline passed.</summary>
         public static void RecordOutcome(ref ClassTrack t, bool arrived)
         {
             t.Arrived = t.Arrived * TrackKeep + (arrived ? 1.0 : 0.0);
@@ -694,14 +662,14 @@ namespace SkiResortMod.Systems
                 t.Resolved++;
         }
 
-        /// <summary>D14 speed learning from claim → arrival: skipped for arrival ≤ claim, under 300 m (or NaN) or
+        /// <summary>Speed learning from claim → arrival: skipped for arrival ≤ claim, under 300 m (or NaN) or
         /// under 0.05 game hours; sample = clamp(km × 1.3 / hours, Min, Max); Speed moves a quarter of the way to
-        /// it (an unset speed starts from the class's start speed). Round M2 R10: returns whether it applied; =
+        /// it (an unset speed starts from the class's start speed). Returns whether it applied; =
         /// LearnSpeed(…, DefaultTripKnobs()), whose floors are MinSpeedOf(c) exactly (bit-identical, SkiDayTests W9).</summary>
         public static bool LearnSpeed(ref ClassTrack t, TravelClass c, double distanceM, uint claimFrame, uint arrivalFrame)
             => LearnSpeed(ref t, c, distanceM, claimFrame, arrivalFrame, DefaultTripKnobs());
 
-        /// <summary>Round M2 R10: LearnSpeed with the floor from the knobs (FloorOf). Touches SpeedKmPerHour only (the
+        /// <summary>LearnSpeed with the floor from the knobs (FloorOf). Touches SpeedKmPerHour only (the
         /// arrival-only speed); returns whether it applied.</summary>
         public static bool LearnSpeed(ref ClassTrack t, TravelClass c, double distanceM, uint claimFrame, uint arrivalFrame, in TripKnobs k)
         {
@@ -712,7 +680,7 @@ namespace SkiResortMod.Systems
             return true;
         }
 
-        /// <summary>Round M2 R10: the same rule and guards on the all-outcomes speed (SpeedAllKmPerHour; 0 reads the
+        /// <summary>The same rule and guards on the all-outcomes speed (SpeedAllKmPerHour; 0 reads the
         /// start speed) for an exact sample: an arrival, or a late arrival after expiry (claim → arrival).</summary>
         public static bool LearnSpeedAll(ref ClassTrack t, TravelClass c, double distanceM, uint claimFrame, uint arrivalFrame, in TripKnobs k)
         {
@@ -738,7 +706,7 @@ namespace SkiResortMod.Systems
             return true;
         }
 
-        /// <summary>Round M2 R10: an upper bound on the speed from a claim that did not arrive — km × 1.3 / hours from
+        /// <summary>An upper bound on the speed from a claim that did not arrive — km × 1.3 / hours from
         /// the claim to the last pass the guest was not there; +∞ (no information) under LearnSpeed's guards: last ≤
         /// claim, a distance under 300 m or NaN, under 0.05 game hours. The true speed is at or below it.</summary>
         public static double SpeedBound(double distanceM, uint claimFrame, uint lastNotThereFrame)
@@ -751,7 +719,7 @@ namespace SkiResortMod.Systems
             return distanceM / 1000.0 * DetourFactor / hours;
         }
 
-        /// <summary>Round M2 R10: the all-outcomes speed learns from an upper bound only when it is above it: b =
+        /// <summary>The all-outcomes speed learns from an upper bound only when it is above it: b =
         /// SpeedBound (not finite → NoInformation); sample = clamp(b, FloorOf(c, k), MaxSpeedOf(c)); v = SpeedAll (0
         /// reads the start speed); v &gt; sample → v + 0.25 × (sample − v), Lowered; else AlreadyMet, unchanged. Never
         /// raises the speed and never moves past the sample; the same rate SpeedLearnRate (the true speed is at or below
@@ -770,14 +738,14 @@ namespace SkiResortMod.Systems
             return BoundLearn.Lowered;
         }
 
-        /// <summary>Round M2 R10: the speed the fit check reads (ClaimJob's TravelHours): the all-outcomes speed when
+        /// <summary>The speed the fit check reads (ClaimJob's TravelHours): the all-outcomes speed when
         /// FitUsesAllOutcomes and it is set (&gt; 0), else the arrival-only speed. With the defaults always the
-        /// arrival-only speed, so sends are bit-identical to Round M1 (SkiDayTests W9).</summary>
+        /// arrival-only speed, so sends are bit-identical (SkiDayTests W9).</summary>
         public static double FitSpeed(in ClassTrack t, in TripKnobs k)
             => k.FitUsesAllOutcomes && t.SpeedAllKmPerHour > 0.0 ? t.SpeedAllKmPerHour : t.SpeedKmPerHour;
 
-        /// <summary>Hub row 20 (D15, ch1 §11 N-4): fewer than 20 resolved car claims → off; else on under 0.5
-        /// confidence, off from 0.6, unchanged between (F1's lesson: no threshold without hysteresis). Stores and
+        /// <summary>Hub row: fewer than 20 resolved car claims → off; else on under 0.5
+        /// confidence, off from 0.6, unchanged between (no threshold without hysteresis). Stores and
         /// returns CannotReachShown.</summary>
         public static bool UpdateCannotReach(ref ClassTrack car)
         {
@@ -794,9 +762,8 @@ namespace SkiResortMod.Systems
             return car.CannotReachShown;
         }
 
-        // ── powder (ch1 §3.9) ───────────────────────────────────────────────────────────────
 
-        /// <summary>D19: precipitation ≥ 0.1 (SnowSystem.cs:487) and the air at the area's top at or below
+        /// <summary>Precipitation ≥ 0.1 (SnowSystem.cs:487) and the air at the area's top at or below
         /// freezing — ambient − (top − base) × lapse, the float expression of SnowLineSystem.GetLocalTemperature
         /// (SnowLineSystem.cs:102-107), bit for bit. NaN → false.</summary>
         public static bool IsSnowHour(float precipitation, float ambientC, float topM, float baseHeightM, float lapsePerM, float freezingC)
@@ -813,11 +780,11 @@ namespace SkiResortMod.Systems
             return (float)t;
         }
 
-        /// <summary>T134: one hour's fresh snow: its precipitation when it snows at the top (IsSnowHour), else 0. NaN → 0.</summary>
+        /// <summary>One hour's fresh snow: its precipitation when it snows at the top (IsSnowHour), else 0. NaN → 0.</summary>
         public static float FreshOfHour(float precipitation, bool snowHour)
             => snowHour && precipitation > 0f ? precipitation : 0f;
 
-        /// <summary>T134: whole FreshStep steps in a 24-hour fresh-snow sum (rounded down, a 1e-6 guard against float sums just
+        /// <summary>Whole FreshStep steps in a 24-hour fresh-snow sum (rounded down, a 1e-6 guard against float sums just
         /// under a step); NaN or negative → 0.</summary>
         public static int FreshSteps(double fresh)
         {
@@ -826,7 +793,7 @@ namespace SkiResortMod.Systems
             return (int)math.floor(fresh / FreshStep + 1e-6);
         }
 
-        /// <summary>D19 / T134 powder = clamp01((fresh steps − 6) / 6) over the last 24 game hours: sixths only.</summary>
+        /// <summary>Powder = clamp01((fresh steps − 6) / 6) over the last 24 game hours: sixths only.</summary>
         public static double PowderOf(int freshSteps)
         {
             if (freshSteps <= PowderStartSteps)
@@ -836,22 +803,21 @@ namespace SkiResortMod.Systems
             return (freshSteps - PowderStartSteps) / (double)(PowderFullSteps - PowderStartSteps);
         }
 
-        /// <summary>D29 "Powder day": powder ≥ 0.5 (T134: 9 or more fresh steps = 4.5 precipitation-hours of snow in 24 h). The hub's POWDER_MARK_PCT = 50 on the
-        /// rounded percent agrees at every reachable powder (HubRulesTests H16 parity, s1-spec N10).</summary>
+        /// <summary>"Powder day": powder ≥ 0.5 (9 or more fresh steps = 4.5 precipitation-hours of snow in 24 h). The hub's POWDER_MARK_PCT = 50 on the
+        /// rounded percent agrees at every reachable powder (HubRulesTests parity).</summary>
         public static bool PowderMark(double powder) => powder >= PowderMarkAt;
 
-        // ── capacity (ch1 §3.10) ────────────────────────────────────────────────────────────
 
-        /// <summary>D21 room on the hill: min(runs, lodges) × (1 + 0.25 × powder). runs = Result.RunsCapacity
-        /// (NaN / ≤ 0 → 0, capped at 1e6); lodges = 360 per lodge passing CheckLodge (ch1 §11 DV-1). The limit is
+        /// <summary>Room on the hill: min(runs, lodges) × (1 + 0.25 × powder). runs = Result.RunsCapacity
+        /// (NaN / ≤ 0 → 0, capped at 1e6); lodges = 360 per lodge passing CheckLodge. The limit is
         /// Lodges when no lodge passes, else the smaller side (a tie names the runs).
-        /// = Capacity(runs, skiDayLodges × 360, skiDayLodges, powder) bit for bit (Catalog Phase B).</summary>
+        /// = Capacity(runs, skiDayLodges × 360, skiDayLodges, powder) bit for bit.</summary>
         public static double Capacity(double runsCapacity, int skiDayLodges, double powder, out SkiDayLimit limit)
         {
             return Capacity(runsCapacity, skiDayLodges > 0 ? skiDayLodges * LodgeSkiersPerDay : 0.0, skiDayLodges, powder, out limit);
         }
 
-        /// <summary>Catalog Phase B (R11, round-2-contract §7.3): the lodge side is <paramref name="lodgeCapacity"/> = Σ
+        /// <summary>The lodge side is <paramref name="lodgeCapacity"/> = Σ
         /// Capacity over the lodges passing CheckLodge (every tier, any number; a mountain lodge holds skiers without
         /// being a claim target); NaN / ≤ 0 → 0. The limit is Lodges when no TARGET
         /// lodge passes (<paramref name="targetLodges"/> ≤ 0: nowhere to send a guest), else the smaller side (a tie
@@ -865,7 +831,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Capacity in whole people, rounded half up and capped at 1e6; 0 unless &gt; 0 (NaN too). 0 is
-        /// a real capacity (Full, s1-spec N9).</summary>
+        /// a real capacity (Full).</summary>
         public static int CapacityPeople(double capacity)
         {
             if (!(capacity > 0.0))
@@ -877,10 +843,9 @@ namespace SkiResortMod.Systems
         /// <summary>claimedActive (this area's claims on the way and on site, this pass's included) &lt; capacity.</summary>
         public static bool HasRoom(int claimedActive, int capacityPeople) => claimedActive < capacityPeople;
 
-        // ── slices and ARM (ch1 §3.11) ──────────────────────────────────────────────────────
 
         /// <summary>= SimulationUtils.GetUpdateFrameWithInterval(frame, interval, 16) (SimulationUtils.cs:153-156 (=))
-        /// for a valid interval; 0 when interval ≤ 0 (no division by zero in Burst, ch1-R-9).</summary>
+        /// for a valid interval; 0 when interval ≤ 0 (no division by zero in Burst).</summary>
         public static uint SliceOf(uint frame, int interval) => interval <= 0 ? 0u : (frame / (uint)interval) & 15u;
 
         /// <summary>Does a system with this interval and offset run on GameSimulation update index
@@ -888,7 +853,7 @@ namespace SkiResortMod.Systems
         /// SimulationSystem.cs:279-286.)</summary>
         public static bool RunsThisFrame(uint frame, int interval, int offset) => (frame & (uint)(interval - 1)) == (uint)offset;
 
-        /// <summary>The exact-frame part of D3's skip rule (ch1 §3.11): the chunk's UpdateFrame index is
+        /// <summary>The exact-frame part of the skip rule: the chunk's UpdateFrame index is
         /// LeisureSystem's slice this frame (LeisureSystem.cs:959, :322; 1.6.2 :956, :316), or
         /// CitizenBehaviorSystem runs this frame and the index is its slice (CitizenBehaviorSystem.cs:1138, :603;
         /// 1.6.2 :1170, :1174). The job calls SkiDayTiming.SkipChunk, which adds the recent-CBS-run window.</summary>
@@ -899,12 +864,12 @@ namespace SkiResortMod.Systems
         /// <summary>x &gt; 0 and a power of two (UpdateSystem requires one, UpdateSystem.cs:303-306).</summary>
         public static bool IsPowerOfTwo(int x) => x > 0 && (x & (x - 1)) == 0;
 
-        /// <summary>D1 ARM check on the intervals read at run time (LeisureSystem 64, LeisureSystem.cs:914-917, 1.6.2
+        /// <summary>ARM check on the intervals read at run time (LeisureSystem 64, LeisureSystem.cs:914-917, 1.6.2
         /// :911-914; TripNeededSystem 16, TripNeededSystem.cs:1939-1942; CitizenBehaviorSystem 16 / offset 11,
         /// CitizenBehaviorSystem.cs:1016-1024, 1.6.2 :1048-1056):
         /// an interval not a power of two → BadInterval; offset outside [0, behaviorInterval) → BadOffset; leisure
         /// &lt; 4 × trip → LeisureTooFast; behaviorInterval ≤ 8 → BehaviorTooFast (CBS could run twice in one render
-        /// frame, which SkiDayTiming's recent-slice skip assumes it does not; s1-spec N15).</summary>
+        /// frame, which SkiDayTiming's recent-slice skip assumes it does not).</summary>
         public static ArmVerdict ArmCheck(int leisureInterval, int tripInterval, int behaviorInterval, int behaviorOffset)
         {
             if (!IsPowerOfTwo(leisureInterval) || !IsPowerOfTwo(tripInterval) || !IsPowerOfTwo(behaviorInterval))
@@ -918,7 +883,7 @@ namespace SkiResortMod.Systems
             return ArmVerdict.Ok;
         }
 
-        /// <summary>Round M2 (R9): bits of the six game trip systems whose ComponentSystemBase.Enabled SkiDaySystem reads
+        /// <summary>Bits of the six game trip systems whose ComponentSystemBase.Enabled SkiDaySystem reads
         /// at each Game load and every armed pass (SkiTripSystems names them; a found system that is switched off reads
         /// "OFF", a missing one "missing"). TripNeededToArm = LeisureSystem + CitizenBehaviorSystem: the claim piggybacks
         /// on LeisureSystem's decision and slice, and the car-reserve queue is drained only by
@@ -926,7 +891,7 @@ namespace SkiResortMod.Systems
         public const int TripLeisure = 1, TripBehavior = 2, TripNeeded = 4, TripResidentAI = 8, TripResidentActions = 16,
                          TripResourceBuyer = 32, TripAll = 63, TripNeededToArm = 3;
 
-        /// <summary>Round M2 (R9): the game's own LeisureSystem and CitizenBehaviorSystem must be switched on (the claim
+        /// <summary>The game's own LeisureSystem and CitizenBehaviorSystem must be switched on (the claim
         /// piggybacks on LeisureSystem's decision and slice; the car-reserve queue is drained only by
         /// CitizenBehaviorSystem.OnUpdate, CitizenBehaviorSystem.cs:1196-1210, 1.6.2 :1235-1249): SystemOff when
         /// <paramref name="tripSystemsOn"/> lacks either bit, tested first (an off system's interval says nothing about
@@ -938,11 +903,10 @@ namespace SkiResortMod.Systems
             return ArmCheck(leisureInterval, tripInterval, behaviorInterval, behaviorOffset);
         }
 
-        // ── day key and month step (ch1 §3.12) ──────────────────────────────────────────────
 
         /// <summary>year × days + clamp(floor(date × days), 0, days − 1), days = max(1, daysPerYear); a non-finite
         /// date reads day 0. The same float arithmetic as SkiMoneyRules.MonthKey, so at 12 days a year the two are
-        /// equal (the tourist roll key, D3). The one day key of the mod (s1-spec N3).</summary>
+        /// equal (the tourist roll key). The one day key of the mod.</summary>
         public static int DayKey(int year, float normalizedDate, int daysPerYear)
         {
             int days = math.max(1, daysPerYear);
@@ -950,16 +914,16 @@ namespace SkiResortMod.Systems
             return year * days + math.clamp(d, 0, days - 1);
         }
 
-        /// <summary>Round M2 (D8, D10): a once-a-day measurement or WARN re-arms at the first tick at or after 12:00 of a
-        /// day other than the one it was done on (the M1 [cost] rule, SkiDaySystem.MaybeRearmCost); NaN time → false.
+        /// <summary>A once-a-day measurement or WARN re-arms at the first tick at or after 12:00 of a
+        /// day other than the one it was done on (SkiDaySystem.MaybeRearmCost); NaN time → false.
         /// Also used by SkiResortAttractivenessSystem and SkiLiftTicketSystem.</summary>
         public static bool MiddayRearmDue(bool done, float timeOfDay, int day, int doneDay) => done && timeOfDay >= 0.5f && day != doneDay;
 
-        /// <summary>Round M2 (D8): the day a done measurement counts for — today when done at or after 12:00, else
+        /// <summary>The day a done measurement counts for — today when done at or after 12:00, else
         /// int.MinValue (none: it re-arms today at midday); NaN → int.MinValue.</summary>
         public static int DoneDayOf(float timeOfDay, int day) => timeOfDay >= 0.5f ? day : int.MinValue;
 
-        /// <summary>Round M2 (D10): a midday-re-armed measurement that has not written its line when the game day changes
+        /// <summary>A midday-re-armed measurement that has not written its line when the game day changes
         /// is written partial: not logged, armed at a midday (not the load's measurement), and the day moved on.</summary>
         public static bool CostDayEnded(bool logged, bool armedAtMidday, int armDay, int dayNow) => !logged && armedAtMidday && dayNow != armDay;
 
@@ -969,11 +933,11 @@ namespace SkiResortMod.Systems
         /// <summary>SkiResortLedger.Advance (:94-133) rule for rule, on the flags only: Started (first key:
         /// ThisSinceLoad), None (same key), Rolled (key = Key + 1, Key ≠ int.MaxValue: LastKnown, LastSinceLoad =
         /// ThisSinceLoad, ThisSinceLoad false), Jumped (any other key: LastKnown and LastSinceLoad false,
-        /// ThisSinceLoad true — counting restarts as after a load). ch2 feeds it SkiMoneyRules.MonthKey.
+        /// ThisSinceLoad true — counting restarts as after a load). Fed SkiMoneyRules.MonthKey.
         /// = Advance(ref f, key, closedShort: false).</summary>
         public static MonthStep Advance(ref MonthFlags f, int key) => Advance(ref f, key, false);
 
-        /// <summary>Round M1 (M7c, D5): as Advance(ref f, key), except that a Rolled step also marks the closed month
+        /// <summary>As Advance(ref f, key), except that a Rolled step also marks the closed month
         /// partial when <paramref name="closedShort"/> (too few of its frames were simulated: a developer time jump that
         /// landed exactly one month later, SkiMoneyRules.IsShortMonth): LastSinceLoad = ThisSinceLoad || closedShort.
         /// = SkiResortLedger.Advance(key, closedMonthShort). A short flag never changes Started, None or Jumped.</summary>
@@ -1004,9 +968,8 @@ namespace SkiResortMod.Systems
             return rolled ? MonthStep.Rolled : MonthStep.Jumped;
         }
 
-        // ── Round M1 "measure first" (m1-spec §1.5; measure only, no rule reads these) ─────────────
 
-        /// <summary>M4 distance band (straight line, meters): &lt; 1 km → 0; &lt; 3 → 1; &lt; 5 → 2; &lt; 7 → 3; else 4;
+        /// <summary>Distance band (straight line, meters): &lt; 1 km → 0; &lt; 3 → 1; &lt; 5 → 2; &lt; 7 → 3; else 4;
         /// NaN or negative → 0.</summary>
         public static int DistanceBand(double m)
         {
@@ -1020,8 +983,8 @@ namespace SkiResortMod.Systems
         }
         public const int DistanceBands = 5;
 
-        /// <summary>M3: the main mode of the vehicles a guest was seen in (docs/research/ski-days/next/arrival-modes.md
-        /// §8 row 1 with its Verification corrections). Literal values: the measure rows index by them.</summary>
+        /// <summary>The main mode of the vehicles a guest was seen in (docs/research/ski-days/next/arrival-modes.md
+        /// section 8 row 1). Literal values: the measure rows index by them.</summary>
         public enum ArrivalMode : byte { Foot = 0, Car = 1, Transit = 2, Taxi = 3, Bike = 4 }
         public const int ArrivalModes = 5;
         // Leg bits (SkiDayClaim.Legs) and transit kind bits (SkiDayClaim.Kinds).
@@ -1032,11 +995,10 @@ namespace SkiResortMod.Systems
         // file needs no Game type; a rebuild against a changed Game.dll is the only way they move (SkiDayTests T rows).
         public const int TransportBus = 0, TransportTrain = 1, TransportTram = 3, TransportShip = 4, TransportSubway = 8, TransportFerry = 11;
 
-        /// <summary>M3: the leg of one vehicle, from the LEAD vehicle's components (the Controller's, for a train or
-        /// tram car): a personal car with the Bicycle tag → Bike (a bike is a PersonalCar vehicle, arrival-modes
-        /// Verification row 10); a personal car → Car; a taxi → Taxi; public transport (not evacuating, not a prisoner
-        /// transport: the caller tests) → Transit; anything else (police car, ambulance, hearse, a bicycle tag alone) →
-        /// Other. No vehicle carries both Taxi and PublicTransport (row 7), so their order does not matter.</summary>
+        /// <summary>The leg of one vehicle, from the LEAD vehicle's components (the Controller's, for a train or
+        /// tram car): a personal car with the Bicycle tag → Bike (a bike is a PersonalCar vehicle); a personal car → Car; a taxi → Taxi;
+        /// public transport (not evacuating, not a prisoner transport: the caller tests) → Transit; anything else (police car, ambulance,
+        /// hearse, a bicycle tag alone) → Other. No vehicle carries both Taxi and PublicTransport, so their order does not matter.</summary>
         public static byte LegOf(bool personalCar, bool bicycle, bool taxi, bool publicTransport)
         {
             if (personalCar)
@@ -1046,7 +1008,7 @@ namespace SkiResortMod.Systems
             return publicTransport ? LegTransit : LegOther;
         }
 
-        /// <summary>M3: the kind bit of a public-transport vehicle's prefab TransportType (int, −1 unknown): Bus, Tram,
+        /// <summary>The kind bit of a public-transport vehicle's prefab TransportType (int, −1 unknown): Bus, Tram,
         /// Train, Subway as named; Ship or Ferry → Boat; anything else → Other.</summary>
         public static byte KindBitOf(int transportType)
         {
@@ -1062,7 +1024,7 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>M3 "mode seen": Car if any car leg; else Transit; else Taxi; else Bike; else Foot (an Other leg alone
+        /// <summary>"Mode seen": Car if any car leg; else Transit; else Taxi; else Bike; else Foot (an Other leg alone
         /// counts as on foot). Every legs byte maps to exactly one mode.</summary>
         public static ArrivalMode MainMode(byte legs)
         {
@@ -1075,16 +1037,16 @@ namespace SkiResortMod.Systems
             return (legs & LegBike) != 0 ? ArrivalMode.Bike : ArrivalMode.Foot;
         }
 
-        /// <summary>M4: why a decision did not fit (ClaimFits false) at an area.</summary>
+        /// <summary>Why a decision did not fit (ClaimFits false) at an area.</summary>
         public enum Fit : byte { Fits = 0, NoTimeBeforeClosing = 1, NoTimeBeforeOwnDeadline = 2, Invalid = 3 }
 
-        /// <summary>M4: a negative, NaN or infinite travel time → Invalid; ClaimFits → Fits; else the earlier of the two
+        /// <summary>A negative, NaN or infinite travel time → Invalid; ClaimFits → Fits; else the earlier of the two
         /// deadlines is named: vanilla's strictly earlier → NoTimeBeforeOwnDeadline, else NoTimeBeforeClosing (frames
         /// compared as ClaimDeadline compares them). FitVerdict == Fits ⇔ ClaimFits (SkiDayTests T).</summary>
         public static Fit FitVerdict(uint now, uint vanillaDeadline, uint closingFrame, double travelHours)
             => FitVerdict(now, vanillaDeadline, closingFrame, travelHours, MinStayHours);
 
-        /// <summary>Round M2 R10: FitVerdict with the stay reserve as an input (TripKnobs.StayHours; not finite or
+        /// <summary>FitVerdict with the stay reserve as an input (TripKnobs.StayHours; not finite or
         /// below 0 reads MinStayHours, as ClaimFits). FitVerdict(…, s) == Fits ⇔ ClaimFits(…, s).</summary>
         public static Fit FitVerdict(uint now, uint vanillaDeadline, uint closingFrame, double travelHours, double stayHours)
         {
@@ -1095,7 +1057,7 @@ namespace SkiResortMod.Systems
             return vanillaDeadline < closingFrame ? Fit.NoTimeBeforeOwnDeadline : Fit.NoTimeBeforeClosing;
         }
 
-        /// <summary>M9: the date of an hour of the year, (float)(hourKey / (24 × max(1, days))) — what
+        /// <summary>The date of an hour of the year, (float)(hourKey / (24 × max(1, days))) — what
         /// RunSnowRules.HourAlignedDate returns for that hour key (RunSnowRules.cs:242-249), bit for bit.</summary>
         public static float HourDate(int hourKey, int daysPerYear)
         {
@@ -1103,7 +1065,7 @@ namespace SkiResortMod.Systems
             return (float)(hourKey / (24.0 * days));
         }
 
-        /// <summary>M9: the calendar month 0..11 of an hour of the year: clamp(floor(hourKey × 12 / (24 × max(1, days))),
+        /// <summary>The calendar month 0..11 of an hour of the year: clamp(floor(hourKey × 12 / (24 × max(1, days))),
         /// 0, 11) (at 12 days a year: hourKey / 24). Integer arithmetic, exact.</summary>
         public static int MonthOfHour(int hourKey, int daysPerYear)
         {

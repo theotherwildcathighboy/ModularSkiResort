@@ -1,33 +1,32 @@
-// SkiSnowLineOverlaySystem — the WINTER snow line on the ground while a run or the Welcome Sign is being placed
-// (ticket T32 item 2, 2026-10-16; docs/research/field/2026-10-15/build/T32-snowline.md). A summer builder has no
-// snow to read the line from: this draws where the climate's mean winter temperature, lapsed with elevation,
-// crosses 0 °C (a pale contour) and, fainter and lower, where our snow guns start working (+SnowmakingMargin °C).
-// The tooltip (SkiSnowLineTooltipSystem, same file) names both elevations once.
+// The winter snow line on the ground while a run or the Welcome Sign is being placed. A summer builder has no snow to read the
+// line from: this draws where the climate's mean winter temperature, lapsed with elevation, crosses 0 °C (a pale contour) and,
+// fainter and lower, where our snow guns start working (+SnowmakingMargin °C). The tooltip (SkiSnowLineTooltipSystem, same file)
+// names both elevations once.
 //
-// THE NUMBERS (once per load, OnGameLoadingComplete; recomputed lazily if the climate was not ready, and the guns
-// line follows the Snowmaking margin option):
+// The numbers (once per load, OnGameLoadingComplete; recomputed lazily if the climate was not ready, and the guns line follows
+// the Snowmaking margin option):
 //   winter mean T  = mean of hourly ClimateSystem.SampleClimate(ClimatePrefab, t).temperature over the climate's
 //                    winter season. The prefab overload ignores the temperature override and the current date
 //                    (ClimateSystem.cs:607-623), so the answer is the same in August and in January. The curve is
 //                    ClimatePrefab.m_Temperature (:628), built from ClimatePrefab.m_Seasons[].m_TempNightDay with its
 //                    Gaussian day-to-day noise (ClimatePrefab.RebuildTemperatureCurves :980-998). The window is the
 //                    SeasonInfo whose name is "SeasonWinter" (ClimateSystem.SeasonInfo.name :73-80) from its
-//                    m_StartTime to the next season's start (vanilla 0.9167 → 1.1667 = December-February,
-//                    docs/research/snow-climate.md §3); no such season → December-February by the calendar.
+//                    m_StartTime to the next season's start (vanilla 0.9167 → 1.1667 = December-February); no such season →
+//                    December-February by the calendar.
 //   snow line      = temperatureBaseHeight + (T_winter − freezingTemperature) / snowTemperatureHeightScale
 //   guns line      = temperatureBaseHeight + (T_winter − freezingTemperature − margin) / snowTemperatureHeightScale
-// i.e. the game's own lapse T_local(h) = T − (h − base) × 0.01 (SnowSystem.SnowTransfer, snow-climate.md §1.2) solved
-// for the thresholds SnowLineSystem.GetSnowLineElevation and the injection's gates use (RunSnowRules.ThresholdC).
-// "Sea level" in the ticket is the lapse's reference elevation temperatureBaseHeight (ClimateSystem.cs:226).
+// i.e. the game's own lapse T_local(h) = T − (h − base) × 0.01 (SnowSystem.SnowTransfer) solved for the thresholds
+// SnowLineSystem.GetSnowLineElevation and the injection's gates use (RunSnowRules.ThresholdC). "Sea level" is the lapse's
+// reference elevation temperatureBaseHeight (ClimateSystem.cs:226).
 //
-// WHEN IT SHOWS (the same family of triggers as SkiRunContourSystem and the run tooltip, plus the sign): Game mode,
+// When it shows (the same family of triggers as SkiRunContourSystem and the run tooltip, plus the sign): Game mode,
 // option ShowSnowLineWhilePlacing on, ownership prefab sets resolved, and the active tool is
 //   * the area tool holding one of our run prefabs (drawing, editing; the hub's run buttons start the same tool), or
 //   * the object tool placing the Ski Area Welcome Sign (ToolBaseSystem.GetPrefab is null in Upgrade/Move mode,
 //     ObjectToolSystem.cs:2836-2847, so a sign upgrade does not show it).
-// SkiPlacementInfoviewSystem is NOT the trigger: it only reacts to our lift LINES (it closes their Electricity view).
+// SkiPlacementInfoviewSystem is not the trigger: it only reacts to our lift LINES (it closes their Electricity view).
 //
-// THE DRAW. A world-anchored 96 × 96 grid at 40 m (3.8 km square, 9,216 height samples, ≤ 10 k) around the camera
+// The draw: a world-anchored 96 × 96 grid at 40 m (3.8 km square, 9,216 height samples, ≤ 10 k) around the camera
 // pivot (IGameCameraController.pivot, the CameraPoint rule of the hub), sampled with TerrainUtils.SampleHeight on the
 // main thread (GetHeightData, no reader registration: the glade tool's precedent, SkiGladeToolSystem.cs:2306), cut
 // into straight segments by SnowLineRules.MarchingSquares for the two levels (≤ 1,536 each). Rebuilt only when the
@@ -37,17 +36,15 @@
 // writes complete the buffer's earlier writers first (GetBuffer + Complete, :603-634) and need no AddBufferWriter.
 // Width = base × PisteMapRules.WidthScale(zoom), so the line stays readable when the camera is high.
 //
-// PHASE: Rendering, anchored UpdateBefore<SkiSnowLineOverlaySystem, Game.Rendering.OverlayRenderSystem> (Mod.cs;
-// load-bearing: OverlayRenderSystem uploads and clears its lists in the same frame, :738-741, :781, :790).
-// COST: idle (tool not ours, option off, not armed) = a settings bool and two reference compares; active and
-// unchanged = two cached counts and ≤ 3,072 DrawLine calls (UNVERIFIED, expected ≪ 1 ms: the glade outline draws
-// hundreds the same way); a rebuild = 9,216 bilinear samples + two marching passes (expected 0.3-1 ms, UNVERIFIED;
-// a build over SlowBuildWarnMs is warned once per load; both times are in StateText).
+// Phase: Rendering, anchored UpdateBefore<SkiSnowLineOverlaySystem, Game.Rendering.OverlayRenderSystem> (Mod.cs; load-bearing:
+// OverlayRenderSystem uploads and clears its lists in the same frame, :738-741, :781, :790).
+// Cost: idle (tool not ours, option off, not armed) = a settings bool and two reference compares; active and unchanged = two cached
+// counts and ≤ 3,072 DrawLine calls; a rebuild = 9,216 bilinear samples + two marching passes (a build over SlowBuildWarnMs is
+// warned once per load; both times are in StateText). Timings unmeasured.
 //
-// LOGS: `SkiSnowLineOverlaySystem created`; ONE INFO line per load (ARMED) with the elevations and the climate inputs
+// Logs: `SkiSnowLineOverlaySystem created`; ONE INFO line per load (ARMED) with the elevations and the climate inputs
 // ("SnowLine: ARMED — winter mean … snow line … guns line …"); one WARN when the climate is missing, once per load, one
-// WARN for a slow build; a one-shot `!!!` switches it off until the next load. Nothing per frame.
-// SCOPE: Game mode only. Defensive contract per house rules (created line, ARMED line, per-load reset, one-shot catch).
+// WARN for a slow build; a one-shot `!!!` switches it off until the next load. Nothing per frame. Game mode only.
 
 using System;
 using System.Diagnostics;
@@ -102,7 +99,7 @@ namespace SkiResortMod.Systems
         private bool m_WinterValid, m_WinterTried;
         private float m_WinterMeanC, m_WinterMinC, m_WinterMaxC, m_WinterStart, m_WinterEnd;
         private int m_WinterSamples;
-        private float m_MarginC;   // T09 (2026-10-16): the margin is a float setting now (default 3.3 °C); an int cast drew the guns line ~30 m low
+        private float m_MarginC; // a float on purpose: an int cast drew the guns line ~30 m low
         private float m_BaseHeight, m_Lapse, m_Freezing;
         private float m_SnowLineM = float.NaN, m_GunsLineM = float.NaN;
         private string m_ClimateName = "-", m_WinterSource = "-";
@@ -240,7 +237,6 @@ namespace SkiResortMod.Systems
             }
         }
 
-        // ── the trigger ───────────────────────────────────────────────────────────────────────────────────
 
         private bool WantsOverlay()
         {
@@ -275,7 +271,6 @@ namespace SkiResortMod.Systems
             return false;
         }
 
-        // ── the climate numbers ───────────────────────────────────────────────────────────────────────────
 
         /// <summary>Reads the winter off the current ClimatePrefab and sets the two elevations. Once per load (and one
         /// retry at the first activation when the climate was not ready). Logs the one INFO line per load when asked.</summary>
@@ -352,7 +347,6 @@ namespace SkiResortMod.Systems
                          (problem != null ? $"; PROBLEM: {problem}" : ""));
         }
 
-        // ── the cache and the draw ────────────────────────────────────────────────────────────────────────
 
         private void Build(float3 pivot)
         {

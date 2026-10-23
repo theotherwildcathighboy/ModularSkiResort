@@ -1,15 +1,7 @@
 /*
- * src/hub/report.ts - one place that reports UI failures: browser console + C# (uiError trigger).
- *
- * Written for this repo (MIT). Created 2026-10-01 (Round U1, implementer U1-A).
- * Contract:
- *   - reportUiError(where, error) never throws. It writes console.error with the full error and
- *     fires hubTriggers.uiError(message) ONCE per distinct message per page load (the C# side
- *     also logs each distinct message once). At most MAX_REPORTED distinct messages are sent;
- *     the cap itself is reported once, so a loop of errors cannot flood the mod log.
- *   - Registrar failures happen at UI boot, possibly before any C# listener exists: they are
- *     queued (queueRegistrarError) and sent by HubRoot when it mounts (flushRegistrarErrors).
- *     If the "Game" hook itself failed to append, they reach the console only.
+ * Reports UI failures to the browser console and to C# (uiError trigger), once per distinct message per page load,
+ * capped at MAX_REPORTED so an error loop cannot flood the mod log. Never throws.
+ * Registrar failures can happen at boot before any C# listener exists: they are queued and flushed by HubRoot on mount.
  */
 import { hubTriggers } from "../bindings";
 

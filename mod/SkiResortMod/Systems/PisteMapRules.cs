@@ -1,29 +1,12 @@
-// PisteMapRules — the piste-map overlay's PURE part of Round E1 (decision D19; docs/research/econ-round/
-// spec/ch5-hub-csharp.md §6.3, deviation C3): the outline style of a run by its band, the dashed test (natural
-// runs), the zoom width scale, and the cutting of a run's closed node ring into the straight pieces
-// SkiPisteMapSystem caches and draws. Written 2026-10-04 (Round E1, stream S5). Tested by tests/ResortBatch
-// HubRulesTests section F (literal oracles).
-//
-// RULES:
-//   StyleOf      band −2 Unrateable, −1 Pending, 0..4 Flat..DoubleBlack, anything else Pending (the catalog's
-//                RunRow.Band, SkiRunCatalogSystem; the hub's band colors, hub.module.scss .band*)
-//   IsDashed     kind == RunKind.Natural (3): the natural run draws nothing on the ground (DV20), so its
-//                outline is dashed to say "a surface, not a groomed piste"
-//   WidthScale   1 up to RefZoomM of camera zoom, then zoom / RefZoomM, at most MaxWidthScale (a projected
-//                line keeps its width in meters, so a far camera needs wider lines to see them)
-//   SolidRing    one piece per edge of the closed ring (closing edge included), ends finite, xz length
-//                >= MinPieceM
-//   DashRing     (C3) dashes cut on the CPU along the whole xz perimeter from node 0, dashM on and gapM off,
-//                the phase carried across nodes in double, each "on" piece clipped to its edge with y
-//                interpolated linearly; pieces shorter than MinPieceM are dropped; an edge with a
-//                non-finite end is skipped and adds no length. OverlayRenderSystem.Buffer.DrawDashedLine
-//                (OverlayRenderSystem.cs:218-221) restarts its pattern on every edge, so an outline of
-//                short edges would read solid — hence the CPU cut. A bad dash or gap → SolidRing.
-//   Both ring cutters APPEND to the caller's lists (never clear) and stop at maxPieces (return value =
-//   pieces appended by this call; == maxPieces means the cap was reached).
-//
-// PURE FILE: `using System;`, `using System.Collections.Generic;` and `using Unity.Mathematics;` only (the
-// ResortBatch host links it with UnityMathematics.NoDeps). No allocation beyond the caller's lists.
+// Pure rules of the piste-map overlay: outline style by band, the dashed test for natural runs, the zoom width scale, and
+// cutting a run's closed node ring into the straight pieces SkiPisteMapSystem caches and draws.
+// Natural runs draw nothing on the ground, so their outline is dashed to read as "a surface, not a groomed piste".
+// Dashes are cut on the CPU: OverlayRenderSystem.Buffer.DrawDashedLine (OverlayRenderSystem.cs:218-221) restarts its pattern on
+// every edge, so an outline of short edges would read solid. A bad dash or gap falls back to SolidRing.
+// WidthScale: a projected line keeps its width in meters, so a far camera needs wider lines to see them.
+// Both ring cutters append to the caller's lists and stop at maxPieces (return value == maxPieces means the cap was reached).
+// Pure file: only System, System.Collections.Generic and Unity.Mathematics (the ResortBatch host links it with
+// UnityMathematics.NoDeps).
 
 using System;
 using System.Collections.Generic;
@@ -31,18 +14,18 @@ using Unity.Mathematics;
 
 namespace SkiResortMod.Systems
 {
-    /// <summary>D19 outline style by difficulty (the hub's band colors, hub.module.scss .band*).</summary>
+    /// <summary>Outline style by difficulty (the hub's band colors, hub.module.scss .band*).</summary>
     public enum PisteStyle : byte { Pending = 0, Unrateable = 1, Flat = 2, Green = 3, Blue = 4, Black = 5, DoubleBlack = 6 }
 
-    /// <summary>The overlay's pure rules (ch5 §6.3). Header RULES.</summary>
+    /// <summary>The overlay's pure rules.</summary>
     public static class PisteMapRules
     {
-        public const float RefZoomM = 750f;      // width × 1 up to this camera zoom (m)
-        public const float MaxWidthScale = 6f;   // and at most × 6
-        public const float MinPieceM = 0.05f;    // shorter pieces are not emitted (vanilla drops < 0.01 m, ch5 F7)
-        public const int KindNatural = 3;        // = RunKind.Natural (ch2)
+        public const float RefZoomM = 750f;      // width x1 up to this camera zoom (m)
+        public const float MaxWidthScale = 6f;   // capped at x6
+        public const float MinPieceM = 0.05f;    // vanilla drops pieces under 0.01 m
+        public const int KindNatural = 3;        // RunKind.Natural
 
-        /// <summary>−2 Unrateable, −1 Pending, 0..4 Flat..DoubleBlack, anything else Pending.</summary>
+        /// <summary>Band -2 Unrateable, -1 Pending, 0..4 Flat..DoubleBlack, anything else Pending.</summary>
         public static PisteStyle StyleOf(int band)
         {
             switch (band)
@@ -59,7 +42,7 @@ namespace SkiResortMod.Systems
 
         public static bool IsDashed(int kind) => kind == KindNatural;
 
-        /// <summary>!(zoom &gt; 0) → 1; else clamp(zoom / RefZoomM, 1, MaxWidthScale) (+∞ → MaxWidthScale).</summary>
+        /// <summary>!(zoom &gt; 0) gives 1; else clamp(zoom / RefZoomM, 1, MaxWidthScale).</summary>
         public static float WidthScale(float zoom)
         {
             if (!(zoom > 0f))
@@ -70,8 +53,8 @@ namespace SkiResortMod.Systems
             return s < MaxWidthScale ? s : MaxWidthScale;
         }
 
-        /// <summary>Every edge of the closed ring (closing edge included) whose ends are finite and whose
-        /// xz length ≥ MinPieceM, appended as one piece. Returns the number appended (≤ maxPieces).</summary>
+        /// <summary>Every edge of the closed ring (closing edge included) with finite ends and xz length &gt;= MinPieceM, appended as
+        /// one piece. Returns the number appended.</summary>
         public static int SolidRing(List<float3> ring, int maxPieces, List<float3> outA, List<float3> outB)
         {
             int n = ring != null ? ring.Count : 0;
@@ -91,11 +74,9 @@ namespace SkiResortMod.Systems
             return added;
         }
 
-        /// <summary>Walks the closed ring's xz perimeter from node 0, alternating dashM "on" and gapM "off"
-        /// with the phase carried across nodes (double arithmetic), and appends each "on" piece clipped to
-        /// its edge (y interpolated linearly). Edges with a non-finite end are skipped (they add no length).
-        /// Pieces shorter than MinPieceM are dropped. !(dashM &gt; 0), !(gapM ≥ 0), or a non-finite dashM or
-        /// gapM → SolidRing. Stops at maxPieces (returns maxPieces; the caller logs the truncation).</summary>
+        /// <summary>Walks the closed ring's xz perimeter from node 0, alternating dashM on and gapM off with the phase carried across
+        /// nodes (double), and appends each "on" piece clipped to its edge. Edges with a non-finite end are skipped and add no length.
+        /// A non-positive dash, negative gap or non-finite value falls back to SolidRing. Stops at maxPieces.</summary>
         public static int DashRing(List<float3> ring, float dashM, float gapM, int maxPieces, List<float3> outA, List<float3> outB)
         {
             if (!(dashM > 0f) || !(gapM >= 0f) || float.IsInfinity(dashM) || float.IsInfinity(gapM))
@@ -133,7 +114,7 @@ namespace SkiResortMod.Systems
                         next = Math.Min(L, t + period - p);
                     }
                     if (!(next > t))
-                        next = L;   // a numerical stall (a period below t's resolution): finish the edge
+                        next = L;   // numerical stall (period below t's resolution): finish the edge
                     t = next;
                 }
                 pos += L;
@@ -153,7 +134,7 @@ namespace SkiResortMod.Systems
             return Math.Sqrt(dx * dx + dz * dz);
         }
 
-        /// <summary>a + (b − a) × f in double, per component (y linear along the xz length).</summary>
+        /// <summary>a + (b - a) * f in double, per component.</summary>
         private static float3 Lerp(float3 a, float3 b, double f)
         {
             return new float3(

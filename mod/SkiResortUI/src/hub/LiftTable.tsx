@@ -1,44 +1,28 @@
 /*
  * src/hub/LiftTable.tsx - one lift of the Lifts view: a two-line row (LiftLine2).
  *
- * Written for this repo (MIT). Created 2026-10-03 (Round U2, implementer I-3); rewritten 2026-10-04
- * for contract 3 (Round E1, stream S6; docs/research/econ-round/spec/ch6-hub-ui.md section 6.9
- * "LiftLine2", design hub-v3-design.md 3.3, 5.2, 5.3, 6.7).
- * Authority before contract 3: docs/research/hub-u2-spec.md section 4.2 "LiftTable", 3.7, 5.2, OD-1.
- * Contract:
- *   - `div.liftRow2`: line 1 (1.4 em of S) = [fly part | pen]; line 2 (1.35 em of XS, ONE text node,
- *     inert, nowrap + ellipsis). The fly part is a cs2/ui Button (theme `liftFly`): the status mark
- *     (hubRules.liftMark: Running filled, No power filled warning, Chairs stopped filled dimmer,
- *     Section missing ring warning, Unfinished ring dimmer; design 5.3) · the name · the status word
- *     in a StableWidth of the five LIFT_STATUS words (so the name never moves; NoPower and
- *     SectionMissing in the warning color, ChairsStopped and Unfinished dim). While renaming, the fly
- *     part is a plain `div.liftFly` with the RenameField in the name slot (U7). The pen is a sibling.
- *   - T77 (2026-10-18, Richard item 8): line 2 reads "1.2 km · rise 300 m · 4.1 min ride · 2,400 skiers/h · 3 runs" and the
- *     tooltip pair "Capacity  2,400 skiers/h" (was "4.1 min · 2,400/h design", label "Design capacity (riders an hour ...)").
- *   - Line 2 by hubRules.liftLine2: "length · rise · ride min · capacity/h design · N runs" (one / no
- *     runs variants; E1 fixer F9: with the `partner` prop, a lone station whose other kind is placed
- *     elsewhere in the area reads "both stations placed" - the census never pairs them in one row) for a complete lift; else the section-missing / unfinished / stations-only
- *     sentence. LiftRow.powered is the raw LiftPower (status NoPower); `counted` follows the one
- *     predicate LiftServedRule.IsPowered (e1-spec R1) - both arrive from C#, the UI decides nothing.
- *   - Tooltip (design 6.7): name; status word; the line-2 sentence; ride time + its basis; capacity +
- *     its basis; runs it serves; running cost (+ "billed at 25 %" while reduced: a section missing,
- *     unfinished, or - Round M2 T2 - no open run in its ski area; since Phase D power is never a reason, and a
- *     No power row billed reduced shows the no-open-run text through LIFT_COST_REDUCED[NoPower]; the reason is
- *     hubRules.liftCostReason, mapped to LIFT_COST_REDUCED[*] by liftCostReducedEntry below, oracle
- *     T8.11); sections, towers, chairs (riding / total when complete),
- *     straightness or offset / angle (OD-9 tolerance 0.5 m / 0.5°), tower removed (today's rules);
- *     LIFT_SIGN_TIP; LIFT_ACTIONS (C# flies to the gap while a section is missing).
- *   - Rise is shown signed by the game's number format (a negative rise is printed, not hidden as
- *     unknown: minusIsUnknown false; S6 detail).
- *   - Memoised on every LiftRow field it shows (today's list + hasBase, hasTop, powered, counted,
- *     status, rideTimeS, runsServed, costMonth, billedReduced), focus, renaming, `t` and the callbacks.
- *   - Contract 6 (2026-10-11, Catalog Phase B, code round 2, hub group; round-2-contract.md section 8.5): the
- *     tooltip's second line is the lift's type (LIFT_TYPE[row.type], under its name); the capacity tip is
- *     <LocText HUB_FMT.liftCapacityTip {SEATS, SPEED}> from row.seats / row.speedMps and the ride tip
- *     <LocText HUB_FMT.liftRideTip {SPEED}> (every type has its own; "–" while C# sends 0 = unknown). In the row
- *     the type is a dim word between the name and the status word ONLY while the shown area's rows span two or
- *     more types (`typeWords` non-null, LiftsView): a fixed-grip-only area keeps today's row. Memo adds type,
- *     seats, speedMps and typeWords.
+ * - `div.liftRow2`: line 1 (1.4 em of S) = [fly part | pen]; line 2 (1.35 em of XS, ONE text node, inert, nowrap +
+ *   ellipsis). The fly part is a cs2/ui Button (theme `liftFly`): the status mark (hubRules.liftMark), the name, the
+ *   status word in a StableWidth of the five LIFT_STATUS words (so the name never moves; NoPower and SectionMissing in
+ *   the warning color, ChairsStopped and Unfinished dim). While renaming, the fly part is a plain `div.liftFly` with the
+ *   RenameField in the name slot. The pen is a sibling.
+ * - Line 2 by hubRules.liftLine2: "length · rise · ride min · capacity/h design · N runs" for a complete lift (with the
+ *   `partner` prop, a lone station whose other kind is placed elsewhere in the area reads "both stations placed": the
+ *   census never pairs them in one row); else the section-missing / unfinished / stations-only sentence.
+ *   LiftRow.powered is the raw LiftPower (status NoPower); `counted` follows the one predicate
+ *   LiftServedRule.IsPowered; both arrive from C#, the UI decides nothing.
+ * - Tooltip: name; the lift's type (LIFT_TYPE[row.type]); status word; the line-2 sentence; ride time + its basis;
+ *   capacity + its basis; runs it serves; running cost (+ "billed at 25 %" while reduced: a section missing, unfinished
+ *   or no open run in its ski area; a No power row billed reduced shows the no-open-run text through
+ *   LIFT_COST_REDUCED[NoPower]; the reason is hubRules.liftCostReason, mapped by liftCostReducedEntry below); sections,
+ *   towers, chairs (riding / total when complete), straightness or offset / angle (tolerance 0.5 m / 0.5°), tower
+ *   removed; LIFT_SIGN_TIP; LIFT_ACTIONS (C# flies to the gap while a section is missing).
+ * - The capacity tip is <LocText HUB_FMT.liftCapacityTip {SEATS, SPEED}> from row.seats / row.speedMps and the ride tip
+ *   <LocText HUB_FMT.liftRideTip {SPEED}> ("–" while C# sends 0 = unknown). In the row the type is a dim word between the
+ *   name and the status word only while the shown area's rows span two or more types (`typeWords` non-null, LiftsView).
+ * - Rise is shown signed by the game's number format (a negative rise is printed, not hidden as unknown: minusIsUnknown
+ *   false).
+ * - Memoised on every LiftRow field it shows, focus, renaming, `t`, the callbacks, type, seats, speedMps and typeWords.
  */
 import { memo } from "react";
 import { Button } from "cs2/ui";
@@ -55,16 +39,16 @@ import { RenameField } from "./RenameField";
 import { keepFocus } from "./RunList";
 import styles from "./hub.module.scss";
 
-/** OD-9 tolerance of the alignment aid (spec 5.5): within it the stations count as straight. */
+/** Tolerance of the alignment aid: within it the stations count as straight */
 export const ALIGN_TOLERANCE_M = 0.5;
 export const ALIGN_TOLERANCE_DEG = 0.5;
 
-/** Row identity of a lift: (entity, top), the key focusLift sends. */
+/** Row identity of a lift: (entity, top), the key focusLift sends */
 export function liftId(row: LiftRow): string {
   return `${entityId(row.entity)}/${entityId(row.top)}`;
 }
 
-/** Line 2 as ONE text node (one <LocText> per variant: gate R13). */
+/** Line 2 as ONE text node (one <LocText> per variant: gate R13) */
 function Line2Text({ row, partner, t }: { row: LiftRow; partner: boolean; t: Translate }): JSX.Element {
   const v = liftLine2(row, partner);
   if (v === "detail" || v === "detailOne" || v === "detailNone") {
@@ -85,7 +69,7 @@ function Line2Text({ row, partner, t }: { row: LiftRow; partner: boolean; t: Tra
   }
 }
 
-/** The tooltip line of a reduced bill (Round M2 T2: hubRules.liftCostReason picks the reason); null = billed in full. */
+/** The tooltip line of a reduced bill (hubRules.liftCostReason picks the reason); null = billed in full */
 function liftCostReducedEntry(reason: LiftCostReason): LocEntry | null {
   switch (reason) {
     case "noPower": return HUB_LOC.liftCostReducedNoPower;
@@ -96,7 +80,7 @@ function liftCostReducedEntry(reason: LiftCostReason): LocEntry | null {
   }
 }
 
-/** Contract 6: the type word of a row (LIFT_TYPE[row.type]); null for an unknown or missing type. */
+/** The type word of a row (LIFT_TYPE[row.type]); null for an unknown or missing type */
 export function liftTypeWord(row: LiftRow, t: Translate): string | null {
   const e = row && typeof row.type === "string" ? LIFT_TYPE[row.type] : undefined;
   return e ? t(e) : null;
@@ -107,7 +91,7 @@ function liftTip(row: LiftRow, partner: boolean, t: Translate): JSX.Element {
     Math.abs(row.alignOffsetM) <= ALIGN_TOLERANCE_M && Math.abs(row.alignYawDeg) <= ALIGN_TOLERANCE_DEG;
   const complete = row.state === LIFT_STATE.Running || row.state === LIFT_STATE.Static;
   const reduced = liftCostReducedEntry(liftCostReason(row));
-  // Contract 6: per-type numbers through placeholders; 0 (unknown) reads "–".
+  // Per-type numbers through placeholders; 0 (unknown) reads "–"
   const SPEED = row.speedMps > 0 ? numArg(row.speedMps, Unit.FloatSingleFraction) : "–";
   const SEATS = row.seats > 0 ? numArg(row.seats, Unit.Integer) : "–";
   return (
@@ -123,7 +107,7 @@ function liftTip(row: LiftRow, partner: boolean, t: Translate): JSX.Element {
             ? <LocText entry={HUB_FMT.liftRideMin} args={{ MIN: numArg(row.rideTimeS / 60, Unit.FloatSingleFraction) }} /> : "–",
         },
         <LocText key="rt" entry={HUB_FMT.liftRideTip} args={{ SPEED }} />,
-        // T77 (Richard item 8): "Capacity  2,400 skiers/h", the unit the row's line 2 uses.
+        // "Capacity  2,400 skiers/h", the unit the row's line 2 uses
         {
           label: t(HUB_LOC.liftCapacity),
           value: row.capacityPerHour >= 0
@@ -154,13 +138,13 @@ function liftTip(row: LiftRow, partner: boolean, t: Translate): JSX.Element {
 
 export interface LiftLineProps {
   row: LiftRow;
-  /** E1 fixer (F9): a lone station of the other kind is placed in this area (hubRules.partnerPlaced). */
+  /** A lone station of the other kind is placed in this area (hubRules.partnerPlaced) */
   partner: boolean;
   t: Translate;
-  /** The five status words, translated (the word cell's StableWidth blinds). */
+  /** The five status words, translated (the word cell's StableWidth blinds) */
   words: readonly string[];
-  /** Contract 6: the lift-type words, translated (the type cell's StableWidth blinds), while the shown area's rows
-   *  span two or more types; null = no type cell (a one-type area keeps today's row). */
+  /** The lift-type words, translated (the type cell's StableWidth blinds), while the shown area's rows span two or more
+   *  types; null = no type cell (a one-type area keeps the plain row) */
   typeWords: readonly string[] | null;
   focused: boolean;
   renaming: boolean;
@@ -223,7 +207,7 @@ function LiftLine2Impl({ row, partner, t, words, typeWords, focused, renaming, o
   );
 }
 
-/** Re-render a row only when something it shows changed. */
+/** Re-render a row only when something it shows changed */
 export const LiftLine2 = memo(LiftLine2Impl, (a, b) =>
   a.t === b.t && a.partner === b.partner && a.words === b.words && a.typeWords === b.typeWords &&
   a.focused === b.focused && a.renaming === b.renaming &&

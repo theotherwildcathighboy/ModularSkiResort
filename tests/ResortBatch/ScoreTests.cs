@@ -1,27 +1,20 @@
-// ScoreTests — Round E1 test file for tests/ResortBatch (econ-round spec ch1 §15: attraction model v2 — constants guard, helpers, the 37 sanity rows, monotonicity, order independence, sum of squares, no-throw).
-// Owner: stream S1 (docs/research/econ-round/e1-spec.md §3.2). Created empty by stage 0 (S0, 2026-10-04):
-// e1-spec R9 — `public static class ScoreTests` with `public static void Run(Func<bool, string, string, bool> check)`
-// and its own Near; Program.Main calls ScoreTests.Run(Check). Oracles are literal hand values.
-//
-// Written by stream S1 (2026-10-04). Sections, in run order:
-//   A  constants guard (ch1 §15.1): every §2.2 constant against its literal + the four RunKind copies.
-//   B  helpers (§15.2): SizeFactor (knee M3 oracles, ±1e-9), LodgeBaseOf, BandValueOf, TypeFactorOf,
-//      SignEfficiency (exact float), RoundToEven; plus the K / backcountry clamps of Compute step 1.
-//   C  the sanity table (§3.3 / §15.3): 37 rows built from the §3.1 compositions — A, PerLodge,
-//      AttractionFullEfficiency, LodgeBase, LodgeShare, LiftShare, LiftsCounted, Variety and VerticalM
-//      exact; RunsValue, S, AOpen and the vertical multiplier ±1e-6; the per-row counts and flags of the
-//      §15.3 table; the T1 / T2 / T3 RunPart values of §3.3 (±1e-6).
-//   D  properties (§15.4), seed 20261004, 5,000 random areas: twelve monotone mutations (A' ≥ A) and the
-//      zero-run invariance (gating on), order independence (reversed and one shuffle: Result.Equals exact,
-//      RunParts permuted), sum of squares, then the no-throw inputs.
-// Every oracle is a literal from ch1 §3.3 / §15 (regenerated there by Appendix A), never a second run of
-// SkiResortScore.
-// CATALOG PHASE B (2026-10-11, economy group; docs/research/art/assets-2026-10/code-round-2/round-2-contract.md §11.2):
-// LodgeExtraCap 12 → 24 (R11) and its LodgeBaseOf rows (5 → 36, 10 / 13 → 44); L10 CHANGED (LodgeBase 32 → 44, AOpen
-// 60.882668052 → 72.882668052, A 61 → 73, PerLodge 19 → 23); the A-frame constants against SkiCatalog.Lodges[0]; T1L /
-// T2L / T3L = T1-T3 with explicit A-frame AreaInput.Lodges lists → Result.Equals(T1 / T2 / T3) bit for bit (the ladder
-// over A-frames = the closed form every other row takes). Every other row is unchanged and passes on the Lodges == null
-// path. The ladder / school / patrol / per-type rows are LadderTests.cs.
+// Tests of the attraction model (SkiResortScore): constants guard, helpers, the 37 sanity rows, monotonicity, order
+// independence, sum of squares, no-throw. `public static class ScoreTests` with `public static void Run(Func<bool, string, string,
+// bool> check)` and its own Near; Program.Main calls ScoreTests.Run(Check). Oracles are literal hand values, never a second run of
+// SkiResortScore. Sections, in run order:
+//   A  constants guard: every constant against its literal + the four RunKind copies.
+//   B  helpers: SizeFactor (knee oracles, ±1e-9), LodgeBaseOf, BandValueOf, TypeFactorOf, SignEfficiency (exact float),
+//      RoundToEven; plus the K / backcountry clamps of Compute step 1.
+//   C  the sanity table: 37 rows built from the Small / Medium / Large compositions: A, PerLodge, AttractionFullEfficiency,
+//      LodgeBase, LodgeShare, LiftShare, LiftsCounted, Variety and VerticalM exact; RunsValue, S, AOpen and the vertical
+//      multiplier ±1e-6; the per-row counts and flags; the T1 / T2 / T3 RunPart values (±1e-6).
+//   D  properties, seed 20261004, 5,000 random areas: twelve monotone mutations (A' ≥ A) and the zero-run invariance (gating on),
+//      order independence (reversed and one shuffle: Result.Equals exact, RunParts permuted), sum of squares, then the no-throw
+//      inputs.
+// Ladder: LodgeExtraCap is 24 (LodgeBaseOf rows 5 → 36, 10 / 13 → 44; L10: LodgeBase 44, AOpen 72.882668052, A 73, PerLodge 23);
+// the A-frame constants are checked against SkiCatalog.Lodges[0]; T1L / T2L / T3L = T1-T3 with explicit A-frame
+// AreaInput.Lodges lists → Result.Equals(T1 / T2 / T3) bit for bit (the ladder over A-frames = the closed form every other row
+// takes). Every other row passes on the Lodges == null path. The ladder / school / patrol / per-type rows are LadderTests.cs.
 
 using System;
 using System.Collections.Generic;
@@ -34,7 +27,7 @@ namespace ResortBatch
     {
         private static Func<bool, string, string, bool> s_Check;
 
-        // Kinds and bands, short (RunKind / SlopeBand values).
+        // Kinds and bands, short (RunKind / SlopeBand values)
         private const byte Gr = Score.KindGroomed, Sm = Score.KindSnowmaking, Ni = Score.KindNight, Na = Score.KindNatural;
         private const byte Flat = Score.BandFlat, Green = Score.BandGreen, Blue = Score.BandBlue,
                            Black = Score.BandBlack, DBlack = Score.BandDoubleBlack;
@@ -59,7 +52,6 @@ namespace ResortBatch
             return Math.Abs(a - b) <= eps;
         }
 
-        // ================================================================== A. constants guard (§15.1)
 
         private static void ConstantsGuard()
         {
@@ -78,7 +70,7 @@ namespace ResortBatch
             Check(Score.FirstLodgeBase == 20.0, w, "FirstLodgeBase");
             Check(Score.LodgeExtra == 4.0, w, "LodgeExtra");
             Check(Score.LodgeExtraCap == 24.0, w, "LodgeExtraCap (Catalog Phase B R11: was 12)");
-            // Catalog Phase B: the A-frame closed form (Lodges == null) uses these; they are the catalog's row 0.
+            // The A-frame closed form (Lodges == null) uses these; they are the catalog's row 0
             Check(SkiCatalog.Lodges.Count > 0 && Score.FirstLodgeBase == SkiCatalog.Lodges[0].B && Score.LodgeExtra == SkiCatalog.Lodges[0].E &&
                   Score.SummerLodgeShare == SkiCatalog.Lodges[0].Mu && SkiCatalog.Lodges[0].MuSummit == SkiCatalog.Lodges[0].Mu,
                   w, "FirstLodgeBase / LodgeExtra / SummerLodgeShare == SkiCatalog.Lodges[0] B / E / μ (and μ summit == μ)");
@@ -91,7 +83,7 @@ namespace ResortBatch
             Check(Score.MinK == 1 && Score.MaxK == 10, w, "MinK / MaxK");
             Check(Score.BandFlat == 0 && Score.BandGreen == 1 && Score.BandBlue == 2 && Score.BandBlack == 3 &&
                   Score.BandDoubleBlack == 4, w, "SlopeBand copies");
-            // Band values of §2.2 (0 / 6 / 12 / 20 / 28) through the helper.
+            // Band values (0 / 6 / 12 / 20 / 28) through the helper
             Check(Score.BandValueOf(Score.BandState.Rated, Flat) == 0.0 && Score.BandValueOf(Score.BandState.Rated, Green) == 6.0 &&
                   Score.BandValueOf(Score.BandState.Rated, Blue) == 12.0 && Score.BandValueOf(Score.BandState.Rated, Black) == 20.0 &&
                   Score.BandValueOf(Score.BandState.Rated, DBlack) == 28.0, w, "band values 0/6/12/20/28");
@@ -102,7 +94,6 @@ namespace ResortBatch
             Check(Score.KindNatural == (byte)RunKind.Natural, w, "KindNatural == RunKind.Natural");
         }
 
-        // ================================================================== B. helpers (§15.2)
 
         private static void Helpers()
         {
@@ -119,8 +110,7 @@ namespace ResortBatch
             }
             Check(Score.SizeFactor(20000) == 1.0, w, "SizeFactor(20000) is exactly 1.0");
 
-            // LodgeBaseOf.
-            // Catalog Phase B (R11, cap 24): 5 → 36, 10 / 13 → 44 (were 32).
+            // LodgeBaseOf: cap 24: 5 → 36, 10 / 13 → 44
             int[] lodgeIn = { 0, 1, 2, 3, 4, 5, 10, 13, -1 };
             double[] lodgeOut = { 0, 20, 24, 28, 32, 36, 44, 44, 0 };
             for (int i = 0; i < lodgeIn.Length; i++)
@@ -181,7 +171,6 @@ namespace ResortBatch
             Check(hi.K == 10 && hi.BackcountryPercent == 100, w, $"K 99 / backcountry 150 clamp to 10 / 100 (got {hi.K} / {hi.BackcountryPercent})");
         }
 
-        // ================================================================== C. sanity table (§3.3, §15.3)
 
         private static Score.RunInput R(byte kind, byte band, double areaM2, double topM, double bottomM)
         {
@@ -205,8 +194,7 @@ namespace ResortBatch
                 runs.Add(run);
         }
 
-        /// <summary>§3.1 Small: Groomed Green 2.0 ha 1150/1000; Groomed Blue 2.5 ha 1250/1000; Groomed Blue
-        /// 2.0 ha 1250/1050.</summary>
+        /// <summary>Small: Groomed Green 2.0 ha 1150/1000; Groomed Blue 2.5 ha 1250/1000; Groomed Blue 2.0 ha 1250/1050.</summary>
         private static List<Score.RunInput> Small()
         {
             return new List<Score.RunInput>
@@ -217,7 +205,7 @@ namespace ResortBatch
             };
         }
 
-        /// <summary>§3.1 Medium (runs 0-9 in the order the §3.3 per-run oracles use).</summary>
+        /// <summary>Medium (runs 0-9 in the order the per-run oracles use).</summary>
         private static List<Score.RunInput> Medium()
         {
             var runs = new List<Score.RunInput>();
@@ -229,7 +217,7 @@ namespace ResortBatch
             return runs;
         }
 
-        /// <summary>§3.1 Large (runs 0-24).</summary>
+        /// <summary>Large (runs 0-24).</summary>
         private static List<Score.RunInput> Large()
         {
             var runs = new List<Score.RunInput>();
@@ -311,9 +299,8 @@ namespace ResortBatch
             return copy;
         }
 
-        /// <summary>One §3.3 row: computes it and checks the common columns (§15.3 "Per row, check").
-        /// verticalX = the table's vertical multiplier (±1e-6). Returns the Result for the row's own
-        /// counts and flags.</summary>
+        /// <summary>One sanity row: computes it and checks the common columns. verticalX = the table's vertical multiplier (±1e-6).
+        /// Returns the Result for the row's own counts and flags.</summary>
         private static Score.Result Row(string id, Score.AreaInput area, List<Score.RunInput> runs, List<Score.LiftInput> lifts,
             List<Score.RunPart> parts, double lodgeBase, bool summer, double runsValue, int liftsCounted, bool variety,
             double verticalM, double verticalX, double s, double aOpen, int a, int perLodge, int full)
@@ -346,9 +333,8 @@ namespace ResortBatch
             Check(r.Flags == expected, "score-row " + id, $"Flags {r.Flags}, expected {expected}");
         }
 
-        /// <summary>Catalog Phase B (round-2-contract §11.2): <paramref name="area"/>'s ActiveLodges as an explicit list of
-        /// A-frame LodgeInput rows (LodgeIndex 0; odd positions SummitServed, which the A-frame ignores: μ summit == μ) must
-        /// give <paramref name="expected"/> (the Lodges == null row) bit for bit.</summary>
+        /// <summary>The area's ActiveLodges as an explicit list of A-frame LodgeInput rows (LodgeIndex 0; odd positions SummitServed, which
+        /// the A-frame ignores: μ summit == μ) must give <paramref name="expected"/> (the Lodges == null row) bit for bit.</summary>
         private static void ExplicitAFrames(string id, Score.AreaInput area, List<Score.RunInput> runs, List<Score.LiftInput> lifts,
                                              Score.Result expected)
         {
@@ -397,9 +383,8 @@ namespace ResortBatch
                   Near(parts[14].Value, 16.824592986, 1e-6) && Near(parts[16].Value, 24.158883083, 1e-6) &&
                   Near(parts[22].Value, 33.822436317, 1e-6), w + " T3", "RunPart values of runs 0, 6, 14, 16, 22");
 
-            // Catalog Phase B (round-2-contract §11.2): T1L / T2L / T3L — T1-T3 with explicit A-frame AreaInput.Lodges
-            // lists (every other one marked summit-served: μ summit == μ on the A-frame, so it changes nothing) → the
-            // same Result bit for bit (Equals compares every field, the Phase B ones included).
+            // T1L / T2L / T3L: T1-T3 with explicit A-frame AreaInput.Lodges lists (every other one marked summit-served: μ summit == μ on the
+            // A-frame, so it changes nothing) → the same Result bit for bit (Equals compares every field)
             ExplicitAFrames("T1L", Area(1), Small(), Lifts(1), t1);
             ExplicitAFrames("T2L", Area(2), Medium(), Lifts(3), t2);
             ExplicitAFrames("T3L", Area(3), Large(), Lifts(6), t3);
@@ -425,7 +410,7 @@ namespace ResortBatch
                 Check(ws[i].RunsOpen == 0 && ws[i].RunsCounted == 0, w + " W" + (i + 1), "RunsOpen 0, RunsCounted 0");
                 Flags("W" + (i + 1), ws[i], Score.ScoreFlags.SummerMode);
             }
-            // Catalog Phase B: the summer twins (μ 0.5 on the best and on every extra = LodgeBase × 0.5 exactly).
+            // The summer twins (μ 0.5 on the best and on every extra = LodgeBase × 0.5 exactly)
             ExplicitAFrames("W1L", Area(1), WithOpen(Small(), 0), Lifts(1), w1);
             ExplicitAFrames("W2L", Area(2), WithOpen(Medium(), 0), Lifts(3), w2);
             ExplicitAFrames("W3L", Area(3), WithOpen(Large(), 0), Lifts(6), w3);
@@ -453,7 +438,7 @@ namespace ResortBatch
             t2Plus.Runs = 11;
             Check(Near(n2.RunsValueFull, 156.346190661, 1e-6) && Near(t2.RunsValueFull, 133.913400012, 1e-6), w + " N2",
                   $"RunsValueFull {n2.RunsValueFull:R} (T2 {t2.RunsValueFull:R}), expected 156.346190661 (133.913400012 + 22.432790649)");
-            t2Plus.RunsValueFull = n2.RunsValueFull;   // ski-days ch1 §4.4: the closed run's full value is the one other difference
+            t2Plus.RunsValueFull = n2.RunsValueFull;   // the closed run's full value is the one other difference
             Check(n2.Equals(t2Plus) && n2.Runs == 11 && n2.RunsOpen == 10, w + " N2", "equals T2 in every field but Runs (11) and RunsValueFull; RunsOpen 10");
             Check(parts[10].OpenFactor == 0 && parts[10].Value == 0 && !parts[10].Counted, w + " N2", "the closed run's part: open 0, value 0, not counted");
 
@@ -462,8 +447,8 @@ namespace ResortBatch
                                   136.913400012, 3, true, 500, 1.833333, 326.609085025, 96.289317056, 96, 68, 96);
             Check(n3.RunsCounted == 11, w + " N3", "RunsCounted 11");
 
-            // L10 / L2: Small with 10 / 2 active lodges. Catalog Phase B CHANGED L10 (R11 cap 24, round-2-contract §11.2):
-            // LodgeBase 32 → 44, AOpen 60.882668052 → 72.882668052, A 61 → 73, PerLodge 19 → 23 (73 / √10 = 23.08).
+            // L10 / L2: Small with 10 / 2 active lodges. L10: LodgeBase 32 → 44 (cap 24), AOpen 60.882668052 → 72.882668052, A 61 → 73,
+            // PerLodge 19 → 23 (73 / √10 = 23.08).
             Score.Result l10 = Row("L10", Area(10), Small(), Lifts(1), parts, 44, false, 30.803316785, 1, false,
                                    250, 1.416667, 52.138032112, 72.882668052, 73, 23, 73);
             Check(l10.ActiveLodges == 10 && l10.LodgeBase == 44 && l10.LodgeApplied == 44 && l10.LodgeBestIndex == 0 &&
@@ -471,7 +456,7 @@ namespace ResortBatch
             Score.Result l2 = Row("L2", Area(2), Small(), Lifts(1), parts, 24, false, 30.803316785, 1, false,
                                   250, 1.416667, 52.138032112, 52.882668052, 53, 37, 53);
             Check(l2.ActiveLodges == 2 && l2.LodgeBase == 24, w + " L2", "ActiveLodges 2, LodgeBase 24");
-            ExplicitAFrames("L10L", Area(10), Small(), Lifts(1), l10);   // Catalog Phase B: 10 A-frames through the ladder (cap reached)
+            ExplicitAFrames("L10L", Area(10), Small(), Lifts(1), l10);   // 10 A-frames through the ladder (cap reached)
 
             // E0 / E50 / E125: Medium at efficiency 0 / 0.5 / 1.25.
             Score.Result e0 = Row("E0", Area(2, 0.0), Medium(), Lifts(3), parts, 24, false, 133.913400012, 3, true,
@@ -607,7 +592,6 @@ namespace ResortBatch
             Flags("WF2", wf2, Score.ScoreFlags.SummerMode);
         }
 
-        // ================================================================== D. properties (§15.4)
 
         private static readonly double[] OpenChoices = { 0, 0, 0.4, 0.45, 0.55, 1, 1, 1 };
         private static readonly double[] EfficiencyChoices = { 0, 0.01, 0.3, 0.75, 1, 1.25 };
@@ -803,7 +787,6 @@ namespace ResortBatch
             return Check(after.Attraction >= before.Attraction, where, $"{what}: A {before.Attraction} → {after.Attraction}") ? 0 : 1;
         }
 
-        // ================================================================== no throw (§15.4)
 
         private static void NoThrow()
         {

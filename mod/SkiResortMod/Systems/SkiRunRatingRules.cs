@@ -1,48 +1,34 @@
-// SkiRunRatingRules — the PURE decisions of the built-run rating cache in SkiRunCatalogSystem
-// (docs/research/hub-u2-spec.md §3.5 as amended in the fixer round, see below). Created 2026-10-03
-// (U2/L1/M1 fixer round, findings u2-data-01, behavior-2 and u2-data-05/u2-panel-5); the catalog calls
-// these and tests/ResortBatch links this file, so the cache's key, queue and band rules are tested
-// headless. Nothing here reads the game.
+// Pure decisions of the built-run rating cache in SkiRunCatalogSystem, linked into tests/ResortBatch so the key, queue and
+// band rules are tested headless. Nothing here reads the game.
 //
-// THE CACHE KEY (finding u2-data-01; deviation from spec §3.5 :550, :557, reported):
-//   * Key  = FNV-1a over every node's x and z float bits, then the node count. These are the ONLY node
-//     values the rating reads: SkiSlopeClassifier.PlanCore reads a node's y only for its finiteness
-//     check (SkiSlopeClassifier.cs:803-805) and rasterizes x and z (:835-845); SkiRunRater passes the
-//     nodes only to Plan (SkiRunRater.cs:266) and to ShoelaceArea (plan area). The rated heights come
-//     from the terrain lattice, never from the nodes.
-//   * YKey = FNV-1a over every node's y float bits, then the count. It changes when GroundHeightSystem
-//     re-snaps a terrain-following area node: UpdateHeightsJob moves a node whose m_Elevation is
-//     float.MinValue by >= 1 cm and tags the area Updated (Game.Simulation/GroundHeightSystem.cs:777-791,
-//     identical in 1.6.2), and AreaUtils.AdjustPosition writes ONLY m_Position.y
-//     (Game.Areas/AreaUtils.cs:672-677) — so a terraform under a run moves YKey and never Key.
-//   * NeedsRating: no cache entry → the caller's missing reason (warm-up while seeding, else bind);
-//     Key differs → EDIT (front: the outline changed, the old rating is no longer the run's);
-//     YKey differs or the entry's terrain epoch is older → TERRAIN (back, duty-cycled: the terrain
-//     under the run changed, the old rating stays visible until the re-rate lands). Spec §3.5 keyed on
-//     node xyz, so every re-snap during a terrain brush stroke flipped the run to "pending", wrote a
-//     "Catalog [rebuild] (area edited)" line and started a full front rating — up to once per frame.
+// Cache key:
+//   * Key = FNV-1a over every node's x and z float bits, then the node count: the only node values the rating reads.
+//     SkiSlopeClassifier.PlanCore reads a node's y only for its finiteness check (SkiSlopeClassifier.cs:803-805) and
+//     rasterizes x and z (:835-845); SkiRunRater passes the nodes only to Plan (SkiRunRater.cs:266) and ShoelaceArea. The
+//     rated heights come from the terrain lattice.
+//   * YKey = FNV-1a over every node's y float bits, then the count. It changes when GroundHeightSystem re-snaps a
+//     terrain-following area node (UpdateHeightsJob moves a node whose m_Elevation is float.MinValue by >= 1 cm,
+//     GroundHeightSystem.cs:777-791; AreaUtils.AdjustPosition writes only m_Position.y, AreaUtils.cs:672-677), so a terraform
+//     under a run moves YKey and never Key. Keying on xyz would flip a run to "pending" on every re-snap of a brush stroke.
+//   * NeedsRating: no cache entry gives the caller's missing reason; Key differs gives Edit (front: the old rating is no
+//     longer the run's); YKey differs or the entry's terrain epoch is older gives Terrain (background, duty-cycled: the old
+//     rating stays visible until the re-rate lands).
 //
-// THE QUEUE (finding behavior-2): FRONT reasons are bind and edit (no duty cycle); warm-up, terrain
-// and backstop are BACKGROUND (duty-cycled). A run already queued keeps its place unless the new reason
-// is a front reason and the queued one is not — EXCEPT that a queued WARM-UP entry is never promoted by
-// a BIND: every rebuild after the warm-up seed re-asks for every row with no rating as "bind", and the
-// promotion used to move the whole remaining warm-up to the front (no duty cycle, logged as bind, and
-// the "[rate-warmup]" summary printed before the ratings ran). An EDIT (the outline changed while the
-// run waited) still promotes it.
+// Queue: front reasons are bind and edit (no duty cycle); warm-up, terrain and backstop are background (duty-cycled). A
+// queued run keeps its place unless the new reason is front and the queued one is not, except that a queued warm-up entry is
+// never promoted by a bind: every rebuild after the warm-up seed re-asks every unrated row as "bind", which would move the
+// whole remaining warm-up to the front. An edit still promotes it.
 //
-// THE ROW BAND (findings u2-data-05 / u2-panel-5; deviation from spec §2.3 band "-1 not rated", reported):
-// -1 = not rated YET (RateState 0, pending), -2 = CANNOT be rated (RateState 2 no terrain / 3 too large /
-// 4 failed): those states are final for the current outline and terrain, so the hub must not call them
-// "Being rated" forever. The RunRow shape is unchanged (a band VALUE, no new field: no contract bump).
+// Row band: -1 = not rated yet (RateState 0), -2 = cannot be rated (RateState 2 no terrain / 3 too large / 4 failed). Those
+// states are final for the current outline and terrain, so the hub must not say "Being rated" forever. A band value, not a
+// new RunRow field.
 //
-// THE ALWAYS-ON SERVICE (Round E1, D12; docs/research/econ-round/spec/ch2-runs.md §2.5; stream S2,
-// 2026-10-04): the catalog rates built runs whether the hub is open or not. The pure parts live here:
-// the RatingServiceState values (Service*), the background duty factor per panel state
-// (DutyFactorOpen 8 = the U2 value, DutyFactorClosed 32), the panel-closed minimum gap between two
-// background ratings (ClosedMinGapS), and the warm-up deadline after which the service reports Ready
-// even if its warm-up stalled (WarmupDeadlineS). tests/ResortBatch/RatingServiceTests.cs asserts them.
+// Always-on service: the catalog rates built runs whether the hub is open or not. The pure parts are here: the
+// RatingServiceState values (Service*), the background duty factor per panel state, the panel-closed minimum gap between
+// background ratings (ClosedMinGapS) and the warm-up deadline after which the service reports Ready even if warm-up stalled
+// (WarmupDeadlineS).
 //
-// PURE FILE: `using System;` + `using Unity.Mathematics;` only (the test-host rule of tests/SlopeBatch).
+// Pure file: System and Unity.Mathematics only.
 
 using System;
 using Unity.Mathematics;
@@ -54,13 +40,12 @@ namespace SkiResortMod.Systems
         /// <summary>Queue reasons (0 = nothing to do).</summary>
         public const byte ReasonNone = 0, ReasonWarmup = 1, ReasonBind = 2, ReasonEdit = 3, ReasonTerrain = 4, ReasonBackstop = 5;
 
-        /// <summary>RunRow.RateState values (hub-u2-spec.md §2.1).</summary>
+        /// <summary>RunRow.RateState values.</summary>
         public const byte RatePending = 0, RateRated = 1, RateNoTerrain = 2, RateTooLarge = 3, RateFailed = 4;
 
         /// <summary>RunRow.Band values that are not a SlopeBand (bindings.ts BAND).</summary>
         public const sbyte BandPending = -1, BandUnrateable = -2;
 
-        /// <summary>FNV-1a 64 offset basis.</summary>
         public const ulong FnvOffset = 14695981039346656037UL;
 
         /// <summary>FNV-1a over the four bytes of <paramref name="value"/>, low byte first.</summary>
@@ -74,7 +59,6 @@ namespace SkiResortMod.Systems
             return hash;
         }
 
-        /// <summary>Starts both keys (FnvOffset).</summary>
         public static void Begin(out ulong key, out ulong yKey)
         {
             key = FnvOffset;
@@ -88,14 +72,13 @@ namespace SkiResortMod.Systems
             yKey = Mix(yKey, math.asuint(p.y));
         }
 
-        /// <summary>Closes both keys with the node count.</summary>
         public static void Finish(ref ulong key, ref ulong yKey, int count)
         {
             key = Mix(key, (uint)count);
             yKey = Mix(yKey, (uint)count);
         }
 
-        /// <summary>Both keys of the first <paramref name="n"/> nodes (n &lt; 1 → the keys of an empty ring).</summary>
+        /// <summary>Both keys of the first <paramref name="n"/> nodes (n &lt; 1 gives the keys of an empty ring).</summary>
         public static void Keys(float3[] nodes, int n, out ulong key, out ulong yKey)
         {
             Begin(out key, out yKey);
@@ -110,7 +93,7 @@ namespace SkiResortMod.Systems
             Finish(ref key, ref yKey, m);
         }
 
-        /// <summary>Why a row needs a (re-)rating, or ReasonNone (header THE CACHE KEY).</summary>
+        /// <summary>Why a row needs a (re-)rating, or ReasonNone.</summary>
         public static byte NeedsRating(bool cached, ulong cachedKey, ulong cachedYKey, int cachedEpoch,
             ulong rowKey, ulong rowYKey, int epoch, byte missingReason)
         {
@@ -129,8 +112,7 @@ namespace SkiResortMod.Systems
             return reason == ReasonBind || reason == ReasonEdit;
         }
 
-        /// <summary>Whether <paramref name="reason"/> replaces an entry already queued as
-        /// <paramref name="queued"/> (header THE QUEUE).</summary>
+        /// <summary>Whether <paramref name="reason"/> replaces an entry already queued as <paramref name="queued"/> (see Queue above).</summary>
         public static bool Replaces(byte queued, byte reason)
         {
             if (!IsFront(reason) || IsFront(queued))
@@ -138,8 +120,8 @@ namespace SkiResortMod.Systems
             return !(queued == ReasonWarmup && reason == ReasonBind);
         }
 
-        /// <summary>The band a row shows: the SlopeBand when rated, -1 while pending, -2 when the
-        /// rating ended in no terrain / too large / failed (header THE ROW BAND).</summary>
+        /// <summary>The band a row shows: the SlopeBand when rated, -1 while pending, -2 when the rating ended in no terrain / too
+        /// large / failed.</summary>
         public static sbyte RowBand(byte state, sbyte band)
         {
             if (state == RateRated)
@@ -147,41 +129,38 @@ namespace SkiResortMod.Systems
             return state == RatePending ? BandPending : BandUnrateable;
         }
 
-        /// <summary>T54 probe 1 (cat-track-run.md §2, D4): the first SlopeBand a cat track may NOT have: Blue (2). The classifier
-        /// cuts Blue at GradeBlue = 25 % (SkiSlopeClassifier.cs BandOf), so a cat track is suitable below 25 % and "Unsuitable" at
-        /// 25 % or steeper (the crux of the easiest line, T44 caps included). No new grade constant: the band IS the rule.</summary>
+        /// <summary>The first SlopeBand a cat track may not have: Blue (2). The classifier cuts Blue at GradeBlue = 25 %
+        /// (SkiSlopeClassifier.cs BandOf), so a cat track is suitable below 25 % and Unsuitable at 25 % or steeper. The band is the
+        /// rule; there is no separate grade constant.</summary>
         public const sbyte CatTrackFirstUnsuitableBand = 2;
 
-        /// <summary>T54 probe 1: is a cat track with this ROW band (RowBand: -1 pending, -2 unrateable, 0..4 rated) unsuitable?
-        /// Only a rated band of Blue or steeper is; a pending or unrateable track is not (it cannot be judged yet). The hub
-        /// shows it as the "Unsuitable" run state and the drawing tooltip warns before the click.</summary>
+        /// <summary>Is a cat track with this row band (RowBand: -1 pending, -2 unrateable, 0..4 rated) unsuitable? Only a rated band
+        /// of Blue or steeper is; a pending or unrateable track cannot be judged yet. The hub shows it as the "Unsuitable" run state
+        /// and the drawing tooltip warns before the click.</summary>
         public static bool CatTrackUnsuitable(sbyte rowBand)
         {
             return rowBand >= CatTrackFirstUnsuitableBand;
         }
 
-        /// <summary>Is the state a final "cannot be rated" (2 / 3 / 4)?</summary>
         public static bool IsUnrateable(byte state)
         {
             return state == RateNoTerrain || state == RateTooLarge || state == RateFailed;
         }
 
-        // ── Round E1 (ch2 §2): the always-on rating service ──
         /// <summary>RatingServiceState values.</summary>
         public const byte ServiceOff = 0, ServiceWarmingUp = 1, ServiceReady = 2, ServiceFailed = 3;
 
-        /// <summary>Background duty factor with the hub open (the U2 value) and closed.</summary>
+        /// <summary>Background duty factor with the hub open and closed.</summary>
         public const float DutyFactorOpen = 8f, DutyFactorClosed = 32f;
 
         /// <summary>Panel closed: background ratings start at least this many seconds apart.</summary>
         public const float ClosedMinGapS = 0.25f;
 
-        /// <summary>The service turns Ready this many wall-clock seconds after a load even if its
-        /// warm-up has not finished.</summary>
+        /// <summary>The service turns Ready this many wall-clock seconds after a load even if its warm-up has not finished.</summary>
         public const float WarmupDeadlineS = 90f;
 
-        /// <summary>When the next BACKGROUND rating may start: startS + factor × rateMs / 1000, and with
-        /// the panel closed at least ClosedMinGapS after startS.</summary>
+        /// <summary>When the next background rating may start: startS + factor x rateMs / 1000, and with the panel closed at least
+        /// ClosedMinGapS after startS.</summary>
         public static float NextBackgroundStart(float startS, float rateMs, bool panelOpen)
         {
             float wait = (panelOpen ? DutyFactorOpen : DutyFactorClosed) * rateMs * 0.001f;
@@ -190,14 +169,13 @@ namespace SkiResortMod.Systems
             return startS + wait;
         }
 
-        /// <summary>Off and Failed never change here (load / exception set them); WarmingUp → Ready when
-        /// the warm-up is done or nowS − armedAtS ≥ WarmupDeadlineS; Ready stays Ready.</summary>
+        /// <summary>Off and Failed never change here (load / exception set them); WarmingUp becomes Ready when the warm-up is done or
+        /// nowS - armedAtS &gt;= WarmupDeadlineS; Ready stays Ready.</summary>
         public static byte NextServiceState(byte state, bool warmupDone, float nowS, float armedAtS)
         {
             if (state != ServiceWarmingUp)
                 return state;
             return warmupDone || nowS - armedAtS >= WarmupDeadlineS ? ServiceReady : ServiceWarmingUp;
         }
-        // (Second pass, e1-spec R14: no GateSettled rule — IsGateSettled is not built, ch2 §2.4.)
     }
 }

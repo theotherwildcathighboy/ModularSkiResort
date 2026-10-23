@@ -1,33 +1,12 @@
-// LadderTests — Catalog Phase B (docs/research/art/assets-2026-10/code-round-2/round-2-contract.md §11.2): the lodge
-// ladder, school, patrol, per-type lift rows of the pure score, and the lodge-spend ledger. SKELETON written by the core
-// group (§12.1, §12.2 step 1) so ResortBatch builds and runs before the economy group lands; the BODY is the economy
-// group's (2026-10-11): LodgeBaseOf, the LD / LS / PT / PS / SC / PA oracle rows (K 4, efficiency 1, backcountry 40), the
-// LX no-lodge-limit rows, the permutation invariance of the ladder (LD7 every order, and a SUMMER twin, LS5 shuffled —
-// skeptic MUST 3), and the ledger's AddLodgeSpend rows. Where-tags `ladder-…`.
-//
-// ONE-LUXURY LOCK REMOVED (Richard, 2026-10-11: no limit on how many lodges a player builds). The first Phase B build capped
-// the ladder at one luxury lodge per area (D3, LuxuryPerArea = 1): LD5 / LD7 / LS5 carried the capped numbers and the
-// uncapped twins LD5n / LD7n went through an internal seam. With the cap gone the seam is gone, the capped numbers are
-// replaced by the former twins' (LD5 124, LD7 196; ROUND-SPEC §5) and LS5 gets its uncapped summer value; LX1-LX6 add
-// 2-8 luxury lodges to one area. Only the extras cap (24) limits. Rows untouched: every one without a luxury lodge.
-// The R9 convention: `public static class` with `public static void Run(Func<bool, string, string, bool> check)`;
-// Main passes its Check. The catalog numbers these rows use are SkiCatalog.Lodges / Lifts / School / Patrol (linked);
-// SchoolRule.cs and PatrolRule.cs are linked by tests/ResortBatch/ResortBatch.csproj once they exist.
-//
-// Sections, in run order:
-//   A  ladder rows (contract §11.2 table): L5, LD1-LD8, LS1-LS6, LX1-LX6 (several luxury lodges in one area);
-//      per row S and AOpen ±1e-6, LodgeBase / LodgeApplied / A / PerLodge / full exact, LodgeBestIndex, PriceTolerance.
-//   B  per-type lifts: PT1-PT3 (winter), PS1-PS3 (summer), LiftsValue / LiftsApplied / LiftShare.
-//   C  school: SC1-SC4; patrol: PA1-PA5 (RunsValue too), RunsPatrolled, GreenCounted, SchoolActive.
-//   D  order-free (MUST 3): every order of LD7's four lodges (winter) and of a five-lodge summer set with summit-served
-//      lodges (LS5's Grand + Summit inside it) → Result.Equals bit for bit; 2,000 random lodge lists (seed 20261011),
-//      reversed and shuffled, each also against an independent reference ladder in this file (no lodge dropped); which
-//      luxury lodge is the best follows the season (winter: the Grand by capacity, summer: a served Summit).
-//   E  the A-frame closed form: n = 0..30 explicit A-frame lists ≡ the Lodges == null path (winter and summer) bit for bit;
-//      the public LodgeBase on null / empty lists; MUST 1 (summer, no lodge: LodgeShare 0.5 and AttractionWithLodges(.., 1)
-//      equal to today's value).
-//   F  the ledger's lodge spend (seam S8): AddLodgeSpend creates the entry, ignores negatives and all-zero calls, moves
-//      Revision, rolls / jumps / prunes with the ticket fields, Total sums it; a tickets-only month is today's.
+// Tests for the lodge ladder, school, patrol and per-type lift rows of the pure score, and the lodge-spend ledger.
+// Oracle rows use K 4, efficiency 1, backcountry 40; where-tags are `ladder-...`.
+//   A ladder rows (L5, LD, LS, LX; LX adds several luxury lodges to one area, only the extras cap of 24 limits)
+//   B per-type lifts (PT winter, PS summer)   C school (SC) and patrol (PA)
+//   D order independence: every permutation of LD7 and of a summer set, plus 2,000 random lists against an
+//     independent reference ladder in this file
+//   E A-frame closed form: explicit A-frame lists equal the Lodges == null path bit for bit; summer with no lodge
+//   F ledger lodge spend (AddLodgeSpend creates, ignores negatives, rolls, jumps, prunes, sums)
+// `public static class` with `Run(Func<bool, string, string, bool> check)`; Main passes its Check.
 
 using System;
 using System.Collections.Generic;
@@ -43,10 +22,10 @@ namespace ResortBatch
         private const byte Gr = Score.KindGroomed, Sm = Score.KindSnowmaking, Ni = Score.KindNight, Na = Score.KindNatural;
         private const byte Green = Score.BandGreen, Blue = Score.BandBlue, Black = Score.BandBlack, DBlack = Score.BandDoubleBlack;
 
-        // Catalog row indices, read from the catalog (never literals): a reordered table would fail CG-1 first.
+        // Catalog row indices are read from the catalog, never literals
         private static int AFrame => SkiCatalog.LodgeByPrefab(SkiCatalog.Names.LodgeAFrame).Index;
         private static int Hut => SkiCatalog.LodgeByPrefab(SkiCatalog.Names.LodgeHut).Index;
-        private static int Chalet => SkiCatalog.LodgeByPrefab(SkiCatalog.Names.LodgeMid).Index;     // "mid", lodges-basic's Chalet
+        private static int Chalet => SkiCatalog.LodgeByPrefab(SkiCatalog.Names.LodgeMid).Index;
         private static int Summit => SkiCatalog.LodgeByPrefab(SkiCatalog.Names.LodgeSummit).Index;
         private static int Grand => SkiCatalog.LodgeByPrefab(SkiCatalog.Names.LodgeGrand).Index;
         private static int FG => SkiCatalog.LiftById("fixedGrip").Index;
@@ -57,12 +36,12 @@ namespace ResortBatch
         public static void Run(Func<bool, string, string, bool> check)
         {
             s_Check = check;
-            LadderRows();        // A
-            LiftTypeRows();      // B
-            SchoolPatrolRows();  // C
-            OrderFree();         // D
-            ClosedForm();        // E
-            LedgerSpend();       // F
+            LadderRows();
+            LiftTypeRows();
+            SchoolPatrolRows();
+            OrderFree();
+            ClosedForm();
+            LedgerSpend();
         }
 
         private static bool Check(bool cond, string where, string msg)
@@ -80,7 +59,7 @@ namespace ResortBatch
             return x.ToString("R", System.Globalization.CultureInfo.InvariantCulture);
         }
 
-        // ================================================================== compositions (ScoreTests §3.1, copied)
+        // Compositions (copied from ScoreTests)
 
         private static Score.RunInput Run(byte kind, byte band, double areaM2, double topM, double bottomM)
         {
@@ -137,7 +116,7 @@ namespace ResortBatch
             return runs;
         }
 
-        /// <summary>Summer: every open factor 0 (no counted run, I2).</summary>
+        /// <summary>Summer: every open factor 0 (no counted run).</summary>
         private static List<Score.RunInput> Summer(List<Score.RunInput> runs)
         {
             var copy = new List<Score.RunInput>(runs.Count);
@@ -204,7 +183,7 @@ namespace ResortBatch
             };
         }
 
-        /// <summary>One §11.2 row: S and AOpen ±1e-6; LodgeBase, LodgeApplied, A, full and PerLodge exact (efficiency 1).</summary>
+        /// <summary>One row: S and AOpen within 1e-6; LodgeBase, LodgeApplied, A, full and PerLodge exact (efficiency 1).</summary>
         private static Score.Result Row(string id, Score.AreaInput area, List<Score.RunInput> runs, List<Score.LiftInput> lifts,
                                         double s, double lodgeBase, double applied, double aOpen, int a, int perLodge,
                                         double appliedTol = 0.0)
@@ -213,7 +192,7 @@ namespace ResortBatch
             Score.Result r = Score.Compute(area, runs, lifts, new List<Score.RunPart>());
             Check(Near(r.S, s, 1e-6), w, $"S {R(r.S)}, expected {s}");
             Check(r.LodgeBase == lodgeBase, w, $"LodgeBase {R(r.LodgeBase)}, expected {lodgeBase}");
-            Check(Math.Abs(r.LodgeApplied - applied) <= appliedTol, w, $"LodgeApplied {R(r.LodgeApplied)}, expected {applied}");   // exact unless a tolerance is given
+            Check(Math.Abs(r.LodgeApplied - applied) <= appliedTol, w, $"LodgeApplied {R(r.LodgeApplied)}, expected {applied}");
             Check(Near(r.AOpen, aOpen, 1e-6), w, $"AOpen {R(r.AOpen)}, expected {aOpen}");
             Check(r.Attraction == a && r.AttractionFullEfficiency == a, w, $"A {r.Attraction} (full {r.AttractionFullEfficiency}), expected {a}");
             Check(r.PerLodge == perLodge, w, $"PerLodge {r.PerLodge}, expected {perLodge}");
@@ -224,12 +203,10 @@ namespace ResortBatch
             return r;
         }
 
-        // ================================================================== A. the ladder (R11, D3)
-
         private static void LadderRows()
         {
             const string w = "ladder-row";
-            // L5 (5 A-frames: 20 + 16) and the contract's LodgeBaseOf extension.
+            // L5 (5 A-frames: 20 + 16) and the LodgeBaseOf extension
             Row("L5", Area(AFrames(5)), Small(), Lifts(FG), 52.138032112, 36, 36, 64.882668052, 65, 29);
             Check(Score.LodgeBaseOf(5) == 36 && Score.LodgeBaseOf(7) == 44 && Score.LodgeBaseOf(13) == 44 && Score.LodgeBaseOf(6) == 40,
                   w, "LodgeBaseOf 5 / 6 / 7 / 13 = 36 / 40 / 44 / 44");
@@ -242,9 +219,8 @@ namespace ResortBatch
             Score.Result ld4 = Row("LD4", Area(Lodges(L(Grand), L(AFrame))), Medium(), Lifts(FG, FG, FG), 320.284085025, 44, 44, 115.585929905, 116, 82);
             Check(ld4.LodgeExtraApplied == 4 && ld4.PriceTolerance == 40, w + " LD4", "extras 4, tolerance 40");
 
-            // LD5: Grand + Summit, both count (the one-luxury cap is gone: was base 40 / A 112 / PerLodge 79 with one ignored,
-            // the former twin LD5n is now the row): they tie in winter on B·μ 40 and E 12, the Grand's capacity 1,080 wins
-            // (MUST 3 a) and the Summit adds its extra 12 → 52.
+            // LD5: Grand + Summit both count; they tie in winter on B·μ 40 and E 12, the Grand's capacity 1,080 wins and the
+            // Summit adds its extra 12 → 52.
             List<Score.LodgeInput> ld5Lodges = Lodges(L(Grand), L(Summit));
             Score.Result ld5 = Row("LD5", Area(ld5Lodges), Medium(), Lifts(FG, FG, FG), 320.284085025, 52, 52, 123.585929905, 124, 88);
             Check(ld5.LodgeBestIndex == Grand && ld5.PriceTolerance == 40 && ld5.LodgeExtraApplied == 12 && ld5.ActiveLodges == 2, w + " LD5",
@@ -260,8 +236,8 @@ namespace ResortBatch
             Score.Result ld8 = Row("LD8", Area(Lodges(L(Hut))), Small(), Lifts(FG), 52.138032112, 16, 16, 44.882668052, 45, 45);
             Check(ld8.LodgeBestIndex == Hut && ld8.PriceTolerance == 0, w + " LD8", "best Hut, tolerance 0");
 
-            // Summer (Medium with every open factor 0: S = 3 lifts × 1.5 = 4.5). Two selections: LodgeBase = winter's,
-            // LodgeApplied / LodgeBestIndex = the season's (skeptic SHOULD "name the two selections").
+            // Summer (Medium with every open factor 0: S = 3 lifts × 1.5 = 4.5). Two selections: LodgeBase is winter's,
+            // LodgeApplied / LodgeBestIndex are the season's.
             List<Score.RunInput> ms = Summer(Medium());
             Score.Result ls1 = Row("LS1", Area(Lodges(L(Summit, true))), ms, Lifts(FG, FG, FG), 4.5, 40, 40, 48.485281374, 48, 48);
             Check(ls1.LodgeShare == 1.0 && ls1.LodgeBestIndex == Summit, w + " LS1", "summit-served summit lodge: μ 1, share 1");
@@ -277,7 +253,7 @@ namespace ResortBatch
             Score.Result ls6 = Row("LS6", Area(AFrames(13)), Summer(Small()), Lifts(FG), 1.5, 44, 22, 26.898979486, 27, 7);
             Check(ls6.LodgeExtraApplied == 12 && ls6.LodgeShare == 0.5, w + " LS6", "13 A-frames in summer: extras 24 × 0.5 = 12 exactly, share 0.5");
 
-            // LX1-LX6: NO limit on luxury lodges (Richard, 2026-10-11). Expected values from an independent hand/JS ladder
+            // LX1-LX6: no limit on luxury lodges. Expected values from an independent hand/JS ladder
             // (winter: B(best) + min(Σ E(others), 24); summer: B·μ(best) + the others' E·μ, scaled by 24 / Σ E past 24).
             // Three Grands: 40 + 12 + 12 = 64, the cap reached; a fourth, fifth … adds nothing and is not refused.
             Score.Result lx1 = Row("LX1", Area(Lodges(L(Grand), L(Grand), L(Grand))), Medium(), Lifts(FG, FG, FG), 320.284085025, 64, 64,
@@ -302,8 +278,6 @@ namespace ResortBatch
                   "summer, four Grands + two served Summits: best a served Summit (40), Σ E 60 > 24, Σ E·μ 40.8 scaled to 16.32");
         }
 
-        // ================================================================== B. lifts per type (R12)
-
         private static void LiftTypeRows()
         {
             const string w = "ladder-lift";
@@ -323,7 +297,7 @@ namespace ResortBatch
             Check(ps2.LiftsApplied == 33, w + " PS2", "tram λ 1: 30 + 1.5 + 1.5 = 33");
             Row("PS3", Area(two), ms, Lifts(DQ, FG, FG), 6.75, 24, 12, 22.392304845, 22, 16);
 
-            // Fixed-grip only: the per-type sums equal today's 6 × n and 0.25 × 6 × n exactly (W2 / T2 bit-identical).
+            // Fixed-grip only: the per-type sums equal 6 × n and 0.25 × 6 × n exactly
             Score.Result fgW = Score.Compute(Area(two), ms, Lifts(FG, FG, FG), null);
             Check(fgW.LiftsValue == 18 && fgW.LiftsApplied == 4.5 && fgW.LiftShare == 0.25, w + " FG", "summer FG: 18 / 4.5 / 0.25 exactly");
             // An unknown type index (the census's NoType 255) reads the fixed-grip row.
@@ -337,8 +311,6 @@ namespace ResortBatch
             Score.Result mx = Score.Compute(Area(two), Medium(), mixed, null);
             Check(mx.LiftsValue == 12 && mx.LiftsUnpowered == 1 && mx.LiftsOpenSection == 1, w + " uncounted", "an unpowered tram / unfinished gondola add 0");
         }
-
-        // ================================================================== C. school and patrol (R13)
 
         private static void SchoolPatrolRows()
         {
@@ -372,15 +344,13 @@ namespace ResortBatch
             Score.Result pa5 = Row("PA5", Area(AFrames(2), backcountry: 100), With(Medium(), false, true, 8, 9), Lifts(FG, FG, FG),
                                    334.472825111, 24, 24, 97.154392908, 97, 69);
             Check(Near(pa5.RunsValue, pa1.RunsValue, 1e-9), w + " PA5", "backcountry 100: max(1.0, 0.7) = served → = PA1");
-            // Patrol never touches a night run's factor or the open factor (R13): a patrolled night blue is today's.
+            // Patrol never touches a night run's factor or the open factor
             List<Score.RunInput> night = With(Medium(), null, true, 7);
             var parts = new List<Score.RunPart>();
             Score.Compute(Area(AFrames(2)), night, Lifts(FG, FG, FG), parts);
             Check(parts[7].TypeFactor == Score.NightFactor && parts[7].ServedFactor == 1.0 && parts[7].OpenFactor == 1.0, w + " night",
                   "a patrolled night blue keeps type 1.25, served 1, open 1");
         }
-
-        // ================================================================== D. order-free (MUST 3)
 
         private static void OrderFree()
         {
@@ -396,7 +366,7 @@ namespace ResortBatch
             fails = Permutations(Lodges(L(Grand), L(Summit, true)), Summer(Medium()), Lifts(FG, FG, FG), out count);
             Check(fails == 0 && count == 2, w + " LS5", $"LS5 both orders, {fails} differ");
 
-            // Which luxury lodge is the BEST follows the season (contract R-j), whatever the order; both always count.
+            // Which luxury lodge is the best follows the season, whatever the order; both always count
             double bw = Score.LodgeBase(Lodges(L(Summit, true), L(Grand)), false, out double aw, out int bestW, out double exW);
             Check(bestW == Grand && bw == 52 && aw == 52 && exW == 12, w + " best", "winter: the Grand is best (capacity), the Summit adds 12");
             double bs = Score.LodgeBase(Lodges(L(Summit, true), L(Grand)), true, out double asu, out int bestS, out double exS);
@@ -525,8 +495,6 @@ namespace ResortBatch
             return fails;
         }
 
-        // ================================================================== E. the A-frame closed form, MUST 1
-
         private static void ClosedForm()
         {
             const string w = "ladder-closed";
@@ -566,7 +534,7 @@ namespace ResortBatch
             double bl = Score.LodgeBase(Lodges(L(Grand), L(Summit)), false, out double apl, out int bestl, out double exl);
             Check(bl == 52 && apl == 52 && bestl == Grand && exl == 12, w + " luxury only", "a Grand and a Summit: base 40 + 12 = 52, best the Grand");
 
-            // MUST 1: a SUMMER area with no lodge keeps the season share 0.5, so the hub's AttractionWithLodges(r, 1) is
+            // A summer area with no lodge keeps the season share 0.5, so the hub's AttractionWithLodges(r, 1) is
             // today's AOpen + 20 × 0.5 (W2's runs with no lodge: 4 × √4.5 + 10 = 18.485 → 18).
             Score.Result nl = Score.Compute(Area(Lodges()), Summer(Medium()), Lifts(FG, FG, FG), null);
             Score.AreaInput nlNull = Area(null);
@@ -577,8 +545,6 @@ namespace ResortBatch
             Score.Result wl = Score.Compute(Area(Lodges()), Medium(), Lifts(FG, FG, FG), null);
             Check(wl.LodgeShare == 1.0, w + " MUST1", "winter, 0 lodges: LodgeShare 1");
         }
-
-        // ================================================================== F. the ledger's lodge spend (seam S8)
 
         private static void LedgerSpend()
         {
@@ -602,7 +568,7 @@ namespace ResortBatch
             SkiResortLedger.Month total = ledger.Total(false);
             Check(total.LodgeSpends == 7 && total.LodgeSpendIncome == 195 && total.TicketIncome == 90, w, "Total sums the lodge spend");
 
-            // Roll: Last = This (the spend moves with the tickets), This = 0.
+            // Roll: Last = This (the spend moves with the tickets), This = 0
             ledger.Advance(101);
             ledger.TryGet(b, out SkiResortLedger.Entry eb);
             Check(eb.Last.LodgeSpends == 3 && eb.Last.LodgeSpendIncome == 45 && eb.Last.TicketsPaid == 3 && eb.This.LodgeSpends == 0 &&

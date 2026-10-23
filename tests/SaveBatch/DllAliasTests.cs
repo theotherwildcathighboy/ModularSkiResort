@@ -1,13 +1,12 @@
-// DllAliasTests — SL-A / SL-AV: the BUILT mod DLL (mod/SkiResortMod/obj/<cfg>/net48/SkiResortMod.dll, what
-// `dotnet build -t:Compile` writes) read as metadata only (System.Reflection.Metadata; nothing of the game is loaded).
-// Colossal.Core 1.6.2f1 mechanism replayed here (Colossal.Serialization.Entities/, decompiled; constraints doc tag C162):
+// Reads the BUILT mod DLL (mod/SkiResortMod/obj/<cfg>/net48/SkiResortMod.dll) as metadata only (System.Reflection.Metadata;
+// nothing of the game is loaded) and replays Colossal.Core 1.6.2f1's save-type mechanism (Colossal.Serialization.Entities/):
 //   * save: the type is written as GetComponentType().AssemblyQualifiedName (ComponentSerializer.cs:33-41);
-//   * boot: ComponentSerializerLibrary.Initialize registers every ISerializable / IEmptySerializable TypeManager type
-//     (:45-98) and UpdateTypeTable adds each [FormerlySerializedAs] oldName -> type with Dictionary.Add (:113-121: a duplicate
-//     key THROWS inside Initialize);
+//   * boot: ComponentSerializerLibrary.Initialize registers every ISerializable / IEmptySerializable TypeManager type (:45-98)
+//     and UpdateTypeTable adds each [FormerlySerializedAs] oldName -> type with Dictionary.Add (:113-121: a duplicate key
+//     THROWS inside Initialize);
 //   * load: DeserializeType tries Type.GetType(saved); on null it strips the last ", ..." segment until the table hits
 //     (:51-65); a miss logs "Not serializable type" and the block is skipped (:66-73).
-// So a self-alias "Ns.Type, Assembly" is reached from ANY saved "Ns.Type, Assembly, Version=x, Culture=y, PublicKeyToken=z".
+// So a self-alias "Ns.Type, Assembly" is reached from any saved "Ns.Type, Assembly, Version=x, Culture=y, PublicKeyToken=z".
 
 using System;
 using System.Collections.Generic;
@@ -23,8 +22,7 @@ namespace SaveBatch
     {
         private const string ColossalNs = "Colossal.Serialization.Entities";
 
-        /// <summary>A type DECLARATION that lists ISerializable / IEmptySerializable (comments that only mention it do not count:
-        /// other sessions edit those files without touching the save format).</summary>
+        /// <summary>A type declaration that lists ISerializable / IEmptySerializable (comments that only mention it do not count).</summary>
         private static readonly System.Text.RegularExpressions.Regex PersistedDecl = new System.Text.RegularExpressions.Regex(
             @"^\s*(public|internal)\s[^\n/]*\b(struct|class)\s+\w+\s*:[^\n{]*\bI(Empty)?Serializable\b",
             System.Text.RegularExpressions.RegexOptions.Multiline);
@@ -51,8 +49,8 @@ namespace SaveBatch
             DateTime built = File.GetLastWriteTimeUtc(dll);
             Program.Info("SL-A reading " + dll.Substring(root.Length + 1) + " (" + built.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss") + ")");
 
-            // Stale DLL = the test would vouch for code that is not in it. Inputs: the csproj, SaveLayouts.cs and every source
-            // that declares a persisted type or an alias.
+            // A stale DLL would vouch for code that is not in it. Inputs: the csproj, SaveLayouts.cs and every source that declares a
+            // persisted type or an alias.
             var inputs = new List<string> { Path.Combine(modDir, "SkiResortMod.csproj") };
             foreach (string f in Directory.GetFiles(modDir, "*.cs", SearchOption.AllDirectories))
             {
@@ -107,7 +105,7 @@ namespace SaveBatch
                         check(false, "SL-A " + p.FullName, "[FormerlySerializedAs] from " + a + ", not " + ColossalNs + ": the save code never reads it");
                 }
 
-                // the alias table as UpdateTypeTable builds it (Dictionary.Add: a duplicate throws at boot)
+                // the alias table as UpdateTypeTable builds it
                 var table = new Dictionary<string, string>(StringComparer.Ordinal);
                 foreach (Persisted p in found)
                     foreach (string a in p.Aliases)
@@ -117,7 +115,7 @@ namespace SaveBatch
                     }
                 Program.Info("SL-A alias table: " + table.Count + " key(s)");
 
-                // DeserializeType's strip loop, for the AQN this DLL writes AND for one with another version (Type.GetType failed)
+                // DeserializeType's strip loop, for the AQN this DLL writes and for one with another version (Type.GetType failed)
                 foreach (Persisted p in found.Where(q => rowNames.Contains(q.FullName)))
                 {
                     foreach (string saved in new[] { p.FullName + tail, p.FullName + ", " + asmName + ", Version=0.9.8.7, Culture=neutral, PublicKeyToken=null" })
@@ -131,7 +129,7 @@ namespace SaveBatch
             }
         }
 
-        /// <summary>ComponentSerializer.DeserializeType's fallback (:55-64), verbatim in shape.</summary>
+        /// <summary>ComponentSerializer.DeserializeType's fallback (:55-64).</summary>
         private static string Strip(Dictionary<string, string> table, string saved, out string key)
         {
             string text = saved;

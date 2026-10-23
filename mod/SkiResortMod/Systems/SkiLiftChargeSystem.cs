@@ -1,99 +1,58 @@
-// SkiLiftChargeSystem — the lift running charge (Round E1, decision D23; docs/research/econ-round/spec/
-// ch4-money.md §3, §10): every lift census row bills SkiMoneyRules.LiftRate per month — full
-// (2,500 + 1,000 per km of line) when complete (powered or not since Phase D, below), 25 % of that while unfinished (any
-// census state but Complete, lone stations included: DV11), or (Round M2 T2, docs/research/round-m2/
-// decisions.md R3) complete while its ski area has no counted run — accrued like the run upkeep and
-// debited from PlayerMoney; each lift's share goes into the ledger under its ski area. Its
-// ResortLiftCharge.Operating count (complete && powered: the lift still runs) is printed by the ticket gate line
-// and the DUMP; since Round M2 T1 it no longer feeds the ticket gate. Stage 0 (S0) laid down the shell
-// (e1-spec I-20); stream S4 wrote the system (2026-10-04). Round M2 (2026-10-10, builder B3): T2 NoOpenRun.
+// The lift running charge: every lift census row bills SkiMoneyRules.LiftRate per month (the lift type's two rates,
+// SkiCatalog.LiftByIndex(row Type), else the fixed-grip row), accrued like the run upkeep and debited from PlayerMoney, each
+// lift's share booked in the ledger under its ski area. Full when complete; reduced (Loop types 25 %, the tram 50 %,
+// LiftClosedRule.NoOpenRunShare) while unfinished (any census state but Complete, lone stations included) or complete while its
+// ski area has no counted run (NoOpenRun). Power does not change the bill (SkiMoneyRules.LiftUpkeepBillingOf has no power
+// input): an unpowered complete lift bills in full. The real power stays in LiftCharge.Powered, the Operating count (complete &&
+// powered; printed by the ticket gate line and the DUMP, it does not feed the gate), the `Lifts [state]` "no power" word and the
+// power poll. LiftBilling.NoPower stays in the enum and the state switch, unreachable from here.
 //
-// PHASE D (2026-10-11, docs/research/art/assets-2026-10/code-round-4/round-4-contract-skeptic.md MUST-1 (a); Richard's
-// sub-ruling ~15:25 under DECISIONS 171: "an unpowered lift still costs its maintenance ('it does not magically
-// disappear')"; rules group): the billing is SkiMoneyRules.LiftUpkeepBillingOf(complete, areaOpen), which has no power
-// input — a complete lift without power bills like a powered one (was the 25 % LiftBilling.NoPower): in full while its ski
-// area counts a run. Kept as they were: the 25 % Unfinished and NoOpenRun reductions (NoOpenRun now also reaches an
-// unpowered complete lift, whose area's run state is read like any other complete lift's: off-season at any backcountry
-// share, or at backcountry 0 when it is the area's only serving lift; round-4-integration.md §6 L1), the real power in LiftCharge.Powered, the Operating count, the `Lifts [state]`
-// "no power" word and the power poll (a power change still re-snapshots: Operating and the state line follow it).
-// LiftBilling.NoPower stays in the enum and in the state line's switch, unreachable from here.
+// Power: LiftServedRule.IsPowered(LiftCensusSystem.ReadLiftPower(base station)), the base station's electricity warning flags
+// with the game's 2-dispatch debounce (DispatchElectricitySystem.cs:126-158): the one reader and predicate the score, the served
+// rule and the hub use. Read only for Complete rows (an unfinished lift must not raise a `Lift [power] ... no power` line);
+// Powered = true (not read) for the others, and the state line says "power not read".
 //
-// POWER (e1-spec R1): "powered" = LiftServedRule.IsPowered(LiftCensusSystem.ReadLiftPower(base station)),
-// the base station's electricity WARNING flags (the icon the player sees, with the game's 2-dispatch
-// debounce, DispatchElectricitySystem.cs:126-158) — the one reader and the one predicate the score, the
-// served rule and the hub use too. Read only for Complete rows (a non-complete row bills 25 % whatever its
-// power, and an unfinished lift must not raise a `Lift [power] … no power` line); Powered = true (not
-// read) for the others. ReadLiftPower writes the `Lift [power]` transition itself (ch2 §3.6); this system's
-// `Lifts [state]` line reports the billing consequence, and since Round F7 (item E4, log-audit D13) says
-// "power not read" for a row that is not Complete instead of the unread "powered".
+// Ski area: SkiResortIndex.TryResolve(xz, SkiRunOwnershipSystem.TetherMeters) at the live base station's Transform xz, else the
+// live top station's, else the anchor edge's start node (Game.Net.Edge.m_Start -> Game.Net.Node). Live = exists, not Deleted,
+// has a Transform. None within 5,000 m means Not linked (Entity.Null), which is billed. The sign index is rebuilt on every
+// snapshot from {Building, Game.Buildings.Park, PrefabRef, Transform} None {Temp, Deleted} (nothing saved).
 //
-// SKI AREA (ch4 §2.2, the stats system's lift rule): SkiResortIndex.TryResolve(xz,
-// SkiRunOwnershipSystem.TetherMeters) at the live base station's Transform xz; with no live base, the live
-// top station's; with no station, the anchor edge's start node (Game.Net.Edge.m_Start → Game.Net.Node).
-// Live = exists, not Deleted, has a Transform. None within 5,000 m → Not linked (Entity.Null), which IS
-// billed (the lift exists and is kept maintained, ch4 §3.4). The sign index is rebuilt on every snapshot
-// from {Building, Game.Buildings.Park, PrefabRef, Transform} None {Temp, Deleted} (nothing saved: a moved
-// or removed sign re-resolves at the next snapshot).
+// Snapshot: the published LiftCharge / ResortLiftCharge tables, taken on the first tick after a load (the anchor tick, which
+// bills nothing), on every charge pass, when LiftCensusSystem.Revision moved, and when the power signature moved
+// (LiftCensusSystem.ComputePowerSignature polled every Tuning.PowerPollTicks ticks = 256 sim frames), at most once per
+// Tuning.SnapshotMinFrames sim frames. Revision++ when any value changed. The area's run state
+// (SkiResortAttractivenessSystem.TryGetAreaScore: released score, RunsCounted) is read on each snapshot; every charge pass
+// snapshots right before it bills, so a run that closes or opens bills from the next pass (the transition pass bills its whole
+// interval at the new rate).
 //
-// SNAPSHOT (ch4 §3.3) — the published LiftCharge / ResortLiftCharge tables — is taken: on the first tick
-// after a load (the anchor tick, which bills nothing), on every charge pass, when LiftCensusSystem.Revision
-// moved, and when the power signature moved (LiftCensusSystem.ComputePowerSignature polled every
-// Tuning.PowerPollTicks ticks = 256 sim frames, ch1's poll cadence; second pass). All of it at most once
-// per Tuning.SnapshotMinFrames sim frames, so Billing, Operating and the hub follow a lift
-// that closes, opens, loses or regains power within 256 frames of the game's warning (about 10 s at 1×),
-// while billing keeps its 1,024-frame cadence (a rate change between passes bills from the next pass).
-// Revision++ when any LiftCharge (hence any ResortLiftCharge) value changed. Round M2 T2: the area's run state
-// (SkiResortAttractivenessSystem.TryGetAreaScore: released score, RunsCounted) is read on each snapshot; no new
-// trigger — every charge pass snapshots right before it bills (at most SnapshotMinFrames old), so a run that
-// closes or opens bills from the next pass (the transition pass bills its whole interval at the new rate; the
-// carry runs on). The hub's lift row follows within one charge pass.
+// Billing (the run-upkeep pattern, SkiRunUpkeepSystem): self-gated every Tuning.ChargeIntervalFrames elapsed sim frames
+// (SimulationSystem.frameIndex, wrap-safe uint), accrual SkiMoneyRules.Accrue (carry += rate x elapsed / month; month =
+// TimeSystem.kTicksPerDay x daysPerYear / 12, TimeSystem.cs:18), PlayerMoney.Subtract on the City entity (PlayerMoney.cs:38-41,
+// clamped +-2e9). Each ski area's exact AccruedShare goes into the ledger (they sum to what accrued, not to the floored debit;
+// the difference is the carry, < 1 credit). Nothing owed for the time before a load. A separate carry from the run upkeep's. Not
+// in the Economy panel (closed enums, BudgetUISystem.cs:61-66): the hub says so. Reduced precedence: Unfinished, then NoOpenRun
+// (SkiMoneyRules.LiftAreaRunOpen false = linked, the area's score released and 0 runs counted; not linked, no score yet or the
+// first score after a load bill full).
 //
-// BILLING (ch4 §3.5, the run-upkeep pattern, SkiRunUpkeepSystem): self-gated every
-// Tuning.ChargeIntervalFrames elapsed sim frames (SimulationSystem.frameIndex, wrap-safe uint), accrual
-// SkiMoneyRules.Accrue (carry += rate × elapsed / month; month = TimeSystem.kTicksPerDay × daysPerYear / 12,
-// TimeSystem.cs:18), PlayerMoney.Subtract on the City entity (PlayerMoney.cs:38-41, clamped ±2e9).
-// Attribution: each ski area's exact AccruedShare of the pass into the ledger (they sum to what accrued,
-// not to the floored debit; the difference is the carry, < 1 credit). Nothing owed for the time before a
-// load. A separate carry from the run upkeep's. Not in the Economy panel (closed enums, BudgetUISystem.cs
-// :61-66): the hub says so. Reduced cases (SkiMoneyRules.LiftUpkeepBillingOf since Phase D; was LiftBillingOf with
-// NoPower between the two), precedence: Unfinished, then
-// NoOpenRun (Round M2 T2: SkiMoneyRules.LiftAreaRunOpen false = linked, the area's score released and 0 runs
-// counted; not linked, no score yet or the first score after a load still held bill full, as before).
+// Phase: GameSimulation, UpdateAfter<SkiLiftChargeSystem, SkiRunUpkeepSystem> (Mod.cs; keeps the two monthly debits next to each
+// other in the frame and the log, not load-bearing). GetUpdateInterval 4 = the upkeep's slot (anchored children with equal
+// intervals inherit the anchor's offset, UpdateSystem.cs:400-431); the real cadence is self-gated. Pause stops the meter; the
+// Editor never arms it.
 //
-// PHASE: GameSimulation, anchored UpdateAfter<SkiLiftChargeSystem, SkiRunUpkeepSystem> (Mod.cs; not
-// load-bearing for correctness: it keeps the two monthly debits next to each other in the frame and the
-// log). Pause stops the meter; the Editor never arms it.
-// CADENCE: GetUpdateInterval 4 = the upkeep's slot (anchored children with equal intervals inherit the
-// anchor's offset, UpdateSystem.cs:400-431); the real cadence is self-gated (above).
-// COST (ch4 §8; estimates, UNVERIFIED until the field): between passes a frame-index compare, an int
-// compare of the census revision and a tick counter (nothing per frame beyond that); a snapshot is
-// O(lift rows + Park buildings) plus one ElectricityConsumer read per Complete row (it waits for the
-// dispatch job if one is in flight — a sync point once per snapshot / poll, never per frame); a power poll
-// is one consumer read per Complete row every 256 frames. A snapshot is also a Transform sync point: the
-// sign index (m_SignQuery.CompleteDependency) and TryLiveXz (EntityManager reads of the stations'
-// Transform) complete the move systems' Transform writers (CarMoveSystem, HumanMoveSystem …) — once per
-// snapshot, i.e. per charge pass (1,024 frames) plus census / power changes, never per frame; the
-// positions are needed (a station or sign moved by Move It re-resolves), so the sync stays (E1 fixer F17,
-// e1-spec §8.9). Measured once per load: `Lifts [cost]` after Tuning.CostPasses charge passes — since Round
-// F7 (item E3, log-audit D5) only passes whose snapshot had at least one lift row, and the power poll's mean
-// over polls with a lift row (the DUMP's poll count still counts every poll).
-// LOGS (ch4 §3.7, exact): created; ARMED; `Lifts [charge]` when the rounded rate changes, else every
-// Tuning.LogEveryNthCharge-th pass, through a LogWindow exactly as SkiRunUpkeepSystem.Charge (first
-// billable pass after a load or an idle spell forced); `Lifts [state]` — the first snapshot of a load
-// lists every lift plain (at most Tuning.StateLinesPerPass + "and N more"), later changes go through
-// m_StateLog (LogWindow 10 s; R15 flood fix: a brownout can flip a base station's warning every 384
-// frames); `Lifts [idle]` per reason transition; the no-PlayerMoney WARN once per load; `Lifts [cost]`
-// once; the one-shot `!!!` (disabled for the load). Folds are flushed on the system's own tick
-// (TrailingDue), before an idle line, in OnGamePreload and in OnDestroy (LogWindow.cs header).
-// CATALOG PHASE B (2026-10-11, docs/research/art/assets-2026-10/code-round-2/round-2-contract.md §6.4, lift group): the
-// rate is the lift TYPE's — SkiMoneyRules.LiftRate(billing, length, def.FixedPerMonth, def.PerKmPerMonth) with def =
-// SkiCatalog.LiftByIndex(census row Type) (else the fixed-grip row, Lifts[0]): fixed-grip 2,500 + 1,000/km, detachable
-// 5,000 + 2,000, gondola 8,000 + 3,000, tram 11,000 + 4,500 (ROUND-SPEC §5); the reduced share stays global (25 %). A
-// fixed-grip city bills exactly as before (the same two consts). The ARMED line lists every type's rate; `Lifts [state]`
-// and the DUMP name each lift's type; `Lifts [charge]` adds the full / reduced lift count per type.
-// CONTRACT (house pattern): "created" line; per-load reset in OnGameLoadingComplete (Game mode only);
-// OnGamePreload flushes folded logs (try/caught: GameSystemBase.cs:85-96); one-shot "!!!" and disabled for
-// the load (the tables are cleared: nothing is billed, nothing operates); OnDestroy flushes.
+// Cost: between passes a frame-index compare, an int compare of the census revision and a tick counter. A snapshot is O(lift
+// rows + Park buildings) plus one ElectricityConsumer read per Complete row (it waits for the dispatch job if one is in flight)
+// and is a Transform sync point: the sign index (m_SignQuery.CompleteDependency) and TryLiveXz complete the move systems'
+// Transform writers, once per snapshot, never per frame; the positions are needed (a station or sign moved by Move It
+// re-resolves). `Lifts [cost]` is measured once per load after Tuning.CostPasses charge passes whose snapshot had a lift row.
+//
+// Logs: created; ARMED (every type's rate); `Lifts [charge]` when the rounded rate changes, else every
+// Tuning.LogEveryNthCharge-th pass, through a LogWindow as SkiRunUpkeepSystem.Charge, with the full / reduced count per type;
+// `Lifts [state]` (the first snapshot of a load lists every lift plain, at most Tuning.StateLinesPerPass + "and N more"; later
+// changes go through m_StateLog, a 10 s LogWindow, because a brownout can flip a base station's warning every 384 frames);
+// `Lifts [idle]` per reason transition; the no-PlayerMoney WARN once per load; `Lifts [cost]` once; the one-shot `!!!` (disabled
+// for the load: the tables are cleared, nothing is billed). Folds are flushed on the system's own tick (TrailingDue), before an
+// idle line, in OnGamePreload (try/caught: GameSystemBase.cs:85-96) and in OnDestroy (LogWindow.cs header). Per-load reset in
+// OnGameLoadingComplete (Game mode only).
 
 using System;
 using System.Collections.Generic;
@@ -116,22 +75,21 @@ namespace SkiResortMod.Systems
 {
     public sealed partial class SkiLiftChargeSystem : GameSystemBase
     {
-        // ── Tuning — the single block (the rates are SkiMoneyRules') ───────────────────────────────────
         private static class Tuning
         {
             /// <summary>Charge pass cadence in elapsed sim frames (the upkeep's).</summary>
             public const int ChargeIntervalFrames = 1024;
             /// <summary>Heartbeat: a charge line every Nth pass even at an unchanged rate.</summary>
             public const int LogEveryNthCharge = 32;
-            /// <summary>At most one charge line and one state line per this many wall-clock seconds (R15).</summary>
+            /// <summary>At most one charge line and one state line per this many wall-clock seconds.</summary>
             public const float LogWindowS = 10f;
-            /// <summary>Power-signature poll every this many ticks (64 × 4 = 256 sim frames; second pass).</summary>
+            /// <summary>Power-signature poll every this many ticks (64 x 4 = 256 sim frames).</summary>
             public const int PowerPollTicks = 64;
             /// <summary>At most one snapshot per this many sim frames.</summary>
             public const int SnapshotMinFrames = 64;
             /// <summary>Lifts listed plain by the first snapshot of a load.</summary>
             public const int StateLinesPerPass = 6;
-            /// <summary>Charge passes with at least one lift row timed for the `Lifts [cost]` line (F7 E3).</summary>
+            /// <summary>Charge passes with at least one lift row timed for the `Lifts [cost]` line.</summary>
             public const int CostPasses = 32;
         }
 
@@ -140,11 +98,11 @@ namespace SkiResortMod.Systems
         {
             public Entity Id, Top, Sign;
             public LiftCensus.State State;
-            public bool Powered;                                         // IsPowered(ReadLiftPower(base)) for Complete rows, else true (not read)
+            public bool Powered; // IsPowered(ReadLiftPower(base)) for Complete rows, else true (not read)
             public SkiMoneyRules.LiftBilling Billing;
             public float LengthM, RatePerMonth;
-            public byte Type;                                            // Catalog Phase B: SkiCatalog.Lifts index billed (logs, DUMP)
-            public bool Closed;                                          // T13: its ski area has no open run (LiftClosedRule, with the one-game-hour hysteresis); false when Not linked
+            public byte Type; // SkiCatalog.Lifts index billed (logs, DUMP)
+            public bool Closed; // its ski area has no open run (LiftClosedRule, with the one-game-hour hysteresis); false when Not linked
         }
 
         /// <summary>One ski area's lift totals (Entity.Null = Not linked).</summary>
@@ -153,7 +111,7 @@ namespace SkiResortMod.Systems
             public float RatePerMonth;
             public int Lifts, Complete, Operating, Full, Reduced;
             public float FullKm, ReducedKm;
-            public int NoOpenRun;   // Round M2 T2: of Reduced, the complete lifts billed 25 % for no counted run (Phase D: powered or not; was "complete, powered", :144)
+            public int NoOpenRun; // of Reduced, the complete lifts billed reduced for no counted run (powered or not)
         }
 
         private struct LiftKey : IEquatable<LiftKey>
@@ -175,8 +133,8 @@ namespace SkiResortMod.Systems
         private const string WhyCensus = "lift census changed";
         private const string WhyPower = "lift power changed";
 
-        // TimeSystem.kTicksPerDay (Game.Simulation/TimeSystem.cs:18) copied into a static field so the arm-time
-        // check against SkiMoneyRules.TicksPerDay is not a constant expression (no unreachable-code warning).
+        // TimeSystem.kTicksPerDay (Game.Simulation/TimeSystem.cs:18) copied into a static field so the arm-time check against
+        // SkiMoneyRules.TicksPerDay is not a constant expression (no unreachable-code warning).
         private static readonly int s_GameTicksPerDay = TimeSystem.kTicksPerDay;
 
         /// <summary>The monthly rate of the last charge pass; 0 while idle.</summary>
@@ -194,11 +152,11 @@ namespace SkiResortMod.Systems
             return m_Lifts.TryGetValue(new LiftKey(id, top), out charge);
         }
 
-        /// <summary>T13 (report item 78): the lift between stations <paramref name="stationA"/> and <paramref name="stationB"/> (either
-        /// order; a census row's {Base, Top}) is closed — its ski area has no open run (LiftClosedRule, the same area state
-        /// the 25 % billing reads, with the one-game-hour hysteresis). False for an unknown pair, a lift with no ski area
-        /// and while no snapshot exists. Read by ChairPinSystem.IsLoopClosed and TramShuttleSystem.IsClosed (main thread;
-        /// the set is empty unless an area is closed, so the common call is one empty-set test).</summary>
+        /// <summary>The lift between stations <paramref name="stationA"/> and <paramref name="stationB"/> (either order; a census row's
+        /// {Base, Top}) is closed: its ski area has no open run (LiftClosedRule, the same area state the reduced billing reads, with the
+        /// one-game-hour hysteresis). False for an unknown pair, a lift with no ski area and while no snapshot exists. Read by
+        /// ChairPinSystem.IsLoopClosed and TramShuttleSystem.IsClosed (main thread; the set is empty unless an area is closed, so the
+        /// common call is one empty-set test).</summary>
         internal bool IsLiftClosed(Entity stationA, Entity stationB)
         {
             return m_ClosedPairs.Count > 0 && m_ClosedPairs.Contains(PairKey(stationA, stationB));
@@ -217,30 +175,28 @@ namespace SkiResortMod.Systems
             return m_Resorts.TryGetValue(signOrNull, out charge);
         }
 
-        // ── systems and queries ───────────────────────────────────────────────────────────────────
         private SimulationSystem m_SimulationSystem;
         private CitySystem m_CitySystem;
         private TimeSystem m_TimeSystem;
         private LiftCensusSystem m_Census;
         private SkiRunOwnershipSystem m_Ownership;
         private SkiGuestCounterSystem m_Counter;
-        private SkiResortAttractivenessSystem m_Attractiveness;   // Round M2 T2: the area's run state per snapshot
+        private SkiResortAttractivenessSystem m_Attractiveness; // the area's run state per snapshot
         private Game.UI.NameSystem m_NameSystem;
         private EntityQuery m_SignQuery;
 
-        // ── the published snapshot (and its next buffers, swapped) ────────────────────────────────
         private Dictionary<LiftKey, LiftCharge> m_Lifts = new Dictionary<LiftKey, LiftCharge>();
         private Dictionary<LiftKey, LiftCharge> m_LiftsNext = new Dictionary<LiftKey, LiftCharge>();
-        private List<LiftCharge> m_LiftList = new List<LiftCharge>();          // census row order (logs, DUMP)
+        private List<LiftCharge> m_LiftList = new List<LiftCharge>(); // census row order (logs, DUMP)
         private List<LiftCharge> m_LiftListNext = new List<LiftCharge>();
-        private List<Entity> m_LiftBases = new List<Entity>();                 // the row's base station, aligned with m_LiftList
+        private List<Entity> m_LiftBases = new List<Entity>(); // the row's base station, aligned with m_LiftList
         private List<Entity> m_LiftBasesNext = new List<Entity>();
         private Dictionary<Entity, ResortLiftCharge> m_Resorts = new Dictionary<Entity, ResortLiftCharge>();
         private Dictionary<Entity, ResortLiftCharge> m_ResortsNext = new Dictionary<Entity, ResortLiftCharge>();
-        private readonly List<Entity> m_ResortOrder = new List<Entity>();        // signs by Index / Version, Not linked last
+        private readonly List<Entity> m_ResortOrder = new List<Entity>(); // signs by Index / Version, Not linked last
         private readonly List<LiftCensus.Row> m_Rows = new List<LiftCensus.Row>();
-        // T13: the per-area closed state with its hysteresis (carried snapshot to snapshot; an area with no lift row is dropped),
-        // and the published set of closed lifts' station pairs (PairKey order), swapped with its Next like the tables above.
+        // The per-area closed state with its hysteresis (carried snapshot to snapshot; an area with no lift row is dropped), and the
+        // published set of closed lifts' station pairs (PairKey order), swapped with its Next like the tables above.
         private Dictionary<Entity, AreaClosedState> m_AreaClosed = new Dictionary<Entity, AreaClosedState>();
         private Dictionary<Entity, AreaClosedState> m_AreaClosedNext = new Dictionary<Entity, AreaClosedState>();
         private HashSet<(Entity, Entity)> m_ClosedPairs = new HashSet<(Entity, Entity)>();
@@ -248,9 +204,9 @@ namespace SkiResortMod.Systems
         private readonly SkiResortIndex m_Index = new SkiResortIndex();
         private float m_TotalRate, m_TotalFullKm, m_TotalReducedKm;
         private int m_TotalFull, m_TotalReduced;
-        private int m_TotalNoOpenRun;   // Round M2 T2: of m_TotalReduced, billed 25 % for no counted run
+        private int m_TotalNoOpenRun; // of m_TotalReduced, billed reduced for no counted run
 
-        // ── per-load state — reset in OnGameLoadingComplete ───────────────────────────────────────
+        // Per-load state, reset in OnGameLoadingComplete.
         private bool m_Armed, m_Disabled, m_ErrorLogged, m_CityWarned;
         private bool m_ChargeFrameValid;
         private uint m_LastChargeFrame, m_LastSnapshotFrame;
@@ -263,13 +219,13 @@ namespace SkiResortMod.Systems
         private int m_SnapshotCensusRevision, m_SnapshotPowerSignature;
         private bool m_ListedThisLoad;
         private int m_PollTicks, m_Snapshots, m_PowerSnapshots, m_Polls;
-        private int m_CostPolls;                 // F7 E3: polls timed for `Lifts [cost]` (the last snapshot had a lift row)
-        private double m_PollSumMs;              // F7 E3: summed over those polls only
+        private int m_CostPolls; // polls timed for `Lifts [cost]` (the last snapshot had a lift row)
+        private double m_PollSumMs; // summed over those polls only
         private int m_CostPasses;
         private double m_CostSumMs, m_CostMaxMs;
         private bool m_CostLogged;
 
-        // R15 / F6 D3: the charge lines and the per-lift state lines are folded separately.
+        // The charge lines and the per-lift state lines are folded separately.
         private readonly LogWindow m_ChargeLog = new LogWindow(Tuning.LogWindowS);
         private readonly LogWindow m_StateLog = new LogWindow(Tuning.LogWindowS);
 
@@ -282,7 +238,7 @@ namespace SkiResortMod.Systems
             m_Census = World.GetOrCreateSystemManaged<LiftCensusSystem>();
             m_Ownership = World.GetOrCreateSystemManaged<SkiRunOwnershipSystem>();
             m_Counter = World.GetOrCreateSystemManaged<SkiGuestCounterSystem>();
-            // Round M2 T2: no cycle (the attractiveness system reads the lift census, never this system).
+            // No cycle (the attractiveness system reads the lift census, never this system).
             m_Attractiveness = World.GetOrCreateSystemManaged<SkiResortAttractivenessSystem>();
             m_NameSystem = World.GetOrCreateSystemManaged<Game.UI.NameSystem>();
             m_SignQuery = GetEntityQuery(new EntityQueryDesc
@@ -299,15 +255,14 @@ namespace SkiResortMod.Systems
             Mod.Log.Info($"{nameof(SkiLiftChargeSystem)} created");
         }
 
-        /// <summary>The run upkeep's 4-frame slot (header CADENCE).</summary>
+        /// <summary>The run upkeep's 4-frame slot (header: cadence).</summary>
         public override int GetUpdateInterval(SystemUpdatePhase phase)
         {
             return 4;
         }
 
-        /// <summary>A load (or leaving to the menu) writes the folded lines of the city being left. Never
-        /// throws: GameSystemBase.GamePreload DISABLES a system whose OnGamePreload throws
-        /// (Game/GameSystemBase.cs:85-96).</summary>
+        /// <summary>A load (or leaving to the menu) writes the folded lines of the city being left. Never throws:
+        /// GameSystemBase.GamePreload DISABLES a system whose OnGamePreload throws (Game/GameSystemBase.cs:85-96).</summary>
         protected override void OnGamePreload(Purpose purpose, GameMode mode)
         {
             base.OnGamePreload(purpose, mode);
@@ -322,8 +277,8 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>Quit to desktop raises no onGamePreload; the folds are written here (LogWindow.cs header).
-        /// Teardown never throws.</summary>
+        /// <summary>Quit to desktop raises no onGamePreload; the folds are written here (LogWindow.cs header). Teardown never
+        /// throws.</summary>
         protected override void OnDestroy()
         {
             try
@@ -332,7 +287,6 @@ namespace SkiResortMod.Systems
             }
             catch (Exception)
             {
-                // nothing left to report to
             }
             base.OnDestroy();
         }
@@ -361,11 +315,11 @@ namespace SkiResortMod.Systems
             m_CostPasses = 0;
             m_CostSumMs = m_CostMaxMs = 0.0;
             m_CostLogged = false;
-            m_ChargeLog.Reset();   // flushed in OnGamePreload; nothing carries over
+            m_ChargeLog.Reset(); // flushed in OnGamePreload; nothing carries over
             m_StateLog.Reset();
             ClearSnapshot();
             m_LastSnapshotWhy = "-";
-            Revision++;   // the tables were emptied (readers compare for equality)
+            Revision++; // the tables were emptied (readers compare for equality)
             LastMonthlyRate = 0f;
             IdleReason = IdleNotArmed;
 
@@ -378,10 +332,6 @@ namespace SkiResortMod.Systems
                 Mod.Log.Warn($"Lifts [charge]: TimeSystem.kTicksPerDay is {s_GameTicksPerDay}, SkiMoneyRules.TicksPerDay " +
                              $"{SkiMoneyRules.TicksPerDay} — the month length of the lift charge and the ledger is off (rebuild the mod)");
             Mod.Log.Info($"Lifts [charge]: ARMED — per lift per month {SkiMoneyRules.LiftFixedPerMonth:F0} + " +
-                         // Phase D (skeptic MUST-1; was "(complete and powered; …" and "while unfinished, without power, or
-                         // while its ski area …", :356 / :358): power no longer reduces the bill. Round-4 fixer: the last
-                         // clause says "power does not change the bill" (was "a lift without power bills in full", which
-                         // read as an exception to the no-counted-run quarter; it is not one).
                          $"{SkiMoneyRules.LiftPerKmPerMonth:F0}/km of line (complete, with or without power; by lift type since Catalog Phase B: " +
                          $"{TypeRatesText()}), " +
                          $"{SkiMoneyRules.LiftReducedShare * 100f:F0} % while unfinished or while its ski area (a tram {SkiMoneyRules.ShuttleNoOpenRunShare * 100f:F0} %, T137 S1) " +
@@ -404,8 +354,8 @@ namespace SkiResortMod.Systems
                 uint frame = m_SimulationSystem.frameIndex;
                 if (!m_ChargeFrameValid)
                 {
-                    // First tick after load anchors the meter (nothing owed for the pre-load past) and takes
-                    // the first snapshot, so the gate and the hub have lift numbers at once.
+                    // First tick after load anchors the meter (nothing owed for the pre-load past) and takes the first snapshot, so the gate and
+                    // the hub have lift numbers at once.
                     m_ChargeFrameValid = true;
                     m_LastChargeFrame = frame;
                     m_PollTicks = 0;
@@ -413,7 +363,7 @@ namespace SkiResortMod.Systems
                     return;
                 }
 
-                uint elapsed = frame - m_LastChargeFrame;   // wrap-safe
+                uint elapsed = frame - m_LastChargeFrame; // wrap-safe
                 if (elapsed >= (uint)Tuning.ChargeIntervalFrames)
                 {
                     m_LastChargeFrame = frame;
@@ -435,7 +385,7 @@ namespace SkiResortMod.Systems
                             int signature = m_Census.ComputePowerSignature();
                             if (m_Rows.Count > 0)
                             {
-                                // F7 E3: the cost line times only polls with a lift to read.
+                                // the cost line times only polls with a lift to read
                                 m_PollSumMs += (Stopwatch.GetTimestamp() - t0) * 1000.0 / Stopwatch.Frequency;
                                 m_CostPolls++;
                             }
@@ -473,8 +423,6 @@ namespace SkiResortMod.Systems
             }
         }
 
-        // ── snapshot (ch4 §3.3) ───────────────────────────────────────────────────────────────────
-
         private void Snapshot(uint frame, string why)
         {
             m_LastSnapshotFrame = frame;
@@ -496,8 +444,7 @@ namespace SkiResortMod.Systems
             if (censusOn)
             {
                 m_Census.CopyRows(m_Rows);
-                // L7 (code review 2026-10-19): the sign index (a Park-building walk with a writer sync) feeds only Resolve(row);
-                // no lift rows, nothing reads it.
+                // The sign index (a Park-building walk with a writer sync) feeds only Resolve(row); no lift rows, nothing reads it.
                 if (m_Rows.Count > 0)
                     BuildSignIndex();
                 else
@@ -514,23 +461,19 @@ namespace SkiResortMod.Systems
                 Entity id = LiftCensusSystem.Ent(r.Id), top = LiftCensusSystem.Ent(r.Top), baseStation = LiftCensusSystem.Ent(r.Base);
                 Entity sign = Resolve(r);
                 bool complete = r.State == LiftCensus.State.Complete;
-                bool powered = !complete || IsPowered(baseStation);   // read only for Complete rows (header POWER)
-                // Round M2 T2 (R3): the area's run state, read only where it can matter (complete; the rule ignores it
-                // otherwise, so the short cut changes no result). Phase D (skeptic MUST-1; was `!complete || !powered ||
-                // AreaRunOpen(sign)`, :483): an unpowered complete lift is billed like a powered one, so its area is read too.
-                // T13: the same read (AreaRunState) also steps the area's closed state, once per area per snapshot.
+                bool powered = !complete || IsPowered(baseStation); // read only for Complete rows (header: power)
+                // The area's run state, read only where it can matter (complete; the rule ignores it otherwise, so the short cut changes no
+                // result). An unpowered complete lift is billed like a powered one, so its area is read too. The same read (AreaRunState) also
+                // steps the area's closed state, once per area per snapshot.
                 bool areaRunOpen = AreaRunState(sign, frame, out bool areaClosed);
-                // DECISIONS 347 (e): a Shuttle type (the tram, sightseeing) runs with no open run: never closed. T137 S1
-                // (DECISIONS 358; was "billed full"): it bills NoOpenRun at LiftClosedRule.NoOpenRunShare (50 %; Loop types 25 %).
+                // A Shuttle type (the tram, sightseeing) runs with no open run: never closed. It bills NoOpenRun at
+                // LiftClosedRule.NoOpenRunShare (50 %; Loop types 25 %).
                 LiftTypeDef def = SkiCatalog.LiftByIndex(r.Type) ?? SkiCatalog.Lifts[0];
                 areaClosed = LiftClosedRule.ClosedForLift(areaClosed, def);
                 bool areaOpen = !complete || LiftClosedRule.AreaOpenForBilling(areaRunOpen, def);
-                // Phase D (skeptic MUST-1, DECISIONS 171 sub-ruling: upkeep regardless of power; was
-                // SkiMoneyRules.LiftBillingOf(complete, powered, areaOpen), :484): no power input. `powered` still feeds
-                // LiftCharge.Powered, the Operating count and the state line.
+                // No power input. `powered` still feeds LiftCharge.Powered, the Operating count and the state line.
                 SkiMoneyRules.LiftBilling billing = SkiMoneyRules.LiftUpkeepBillingOf(complete, areaOpen);
-                // Catalog Phase B (round-2-contract §6.4; was SkiMoneyRules.LiftRate(billing, r.LengthM), the fixed-grip
-                // consts, :467): the row type's two rate numbers; an untyped row bills as fixed-grip (Lifts[0]) (def: above).
+                // The row type's two rate numbers; an untyped row bills as fixed-grip (Lifts[0]) (def: above).
                 float rate = SkiMoneyRules.LiftRate(billing, r.LengthM, def.FixedPerMonth, def.PerKmPerMonth, LiftClosedRule.NoOpenRunShare(def));
                 float km = math.isfinite(r.LengthM) && r.LengthM > 0f ? r.LengthM / 1000f : 0f;
                 var lc = new LiftCharge
@@ -602,7 +545,7 @@ namespace SkiResortMod.Systems
             Swap(ref m_LiftList, ref m_LiftListNext);
             Swap(ref m_LiftBases, ref m_LiftBasesNext);
             Swap(ref m_Resorts, ref m_ResortsNext);
-            Swap(ref m_AreaClosed, ref m_AreaClosedNext);   // T13
+            Swap(ref m_AreaClosed, ref m_AreaClosedNext);
             Swap(ref m_ClosedPairs, ref m_ClosedPairsNext);
             m_TotalRate = total;
             m_TotalFull = full;
@@ -615,16 +558,15 @@ namespace SkiResortMod.Systems
                 Revision++;
         }
 
-        /// <summary>ch4 §3.7: the first snapshot of a load lists every lift plain (at most
-        /// Tuning.StateLinesPerPass); later snapshots offer each changed lift to m_StateLog. Compares the next
-        /// table (m_LiftListNext) with the published one (m_Lifts). A lift that left the census writes nothing
-        /// here (the census logs it; the charge line shows the new rate).</summary>
+        /// <summary>The first snapshot of a load lists every lift plain (at most Tuning.StateLinesPerPass); later snapshots offer each
+        /// changed lift to m_StateLog. Compares the next table (m_LiftListNext) with the published one (m_Lifts). A lift that left the
+        /// census writes nothing here (the census logs it; the charge line shows the new rate).</summary>
         private void LogTransitions()
         {
             if (!m_ListedThisLoad)
             {
                 if (m_LiftListNext.Count == 0 && !m_Census.IsArmed)
-                    return;   // list the lifts once the census answers
+                    return; // list the lifts once the census answers
                 m_ListedThisLoad = true;
                 int shown = Math.Min(Tuning.StateLinesPerPass, m_LiftListNext.Count);
                 for (int i = 0; i < shown; i++)
@@ -671,23 +613,21 @@ namespace SkiResortMod.Systems
             switch (c.Billing)
             {
                 case SkiMoneyRules.LiftBilling.Full: billed = "full"; break;
-                case SkiMoneyRules.LiftBilling.NoPower: billed = "at 25 %: no power"; break;   // Phase D: unreachable (LiftUpkeepBillingOf), kept for the enum
-                // Round M2 T2: without this case the default would print "unfinished".
-                // T137 S1: the type's share (the tram 50 %, sightseeing; the others 25 %).
+                case SkiMoneyRules.LiftBilling.NoPower: billed = "at 25 %: no power"; break; // unreachable (LiftUpkeepBillingOf), kept for the enum
+                // Without this case the default would print "unfinished". The type's share (the tram 50 %, sightseeing; the others 25 %).
                 case SkiMoneyRules.LiftBilling.NoOpenRun:
                     billed = $"at {LiftClosedRule.NoOpenRunShare(SkiCatalog.LiftByIndex(c.Type)) * 100f:F0} %: no open run in its ski area";
                     break;
                 default: billed = "at 25 %: unfinished"; break;
             }
-            // F7 E4 (header POWER): power is read only for Complete rows; the others carry Powered = true
-            // unread, so they say so (field test 7: a lone, unpowered base station logged "powered").
+            // Power is read only for Complete rows; the others carry Powered = true unread, so they say so.
             string power = c.State != LiftCensus.State.Complete ? "power not read" : c.Powered ? "powered" : "no power";
-            // Catalog Phase B: the lift's type names the rate it bills.
+            // The lift's type names the rate it bills.
             LiftTypeDef def = SkiCatalog.LiftByIndex(c.Type);
             return $"lift base {Fmt(baseStation)} top {Fmt(c.Top)} ({LiftName(baseStation, c.Top)}, {(def != null ? def.Id : "fixedGrip")}) " +
                    $"→ ski area {(c.Sign == Entity.Null ? "not linked" : Fmt(c.Sign))}: {state}, {power}, " +
                    $"{c.LengthM:F0} m — billed {billed} {c.RatePerMonth:F2}/month" +
-                   // T13: the chairs / cabins stand while the area has no open run (held one game hour, LiftClosedRule)
+                   // the chairs / cabins stand while the area has no open run (held one game hour, LiftClosedRule)
                    (c.Closed ? $" — closed: no open run in {Fmt(c.Sign)}" : string.Empty);
         }
 
@@ -702,7 +642,7 @@ namespace SkiResortMod.Systems
         {
             return a.Id == b.Id && a.Top == b.Top && a.Sign == b.Sign && a.State == b.State && a.Powered == b.Powered &&
                    a.Billing == b.Billing && a.LengthM.Equals(b.LengthM) && a.RatePerMonth.Equals(b.RatePerMonth) &&
-                   a.Type == b.Type && a.Closed == b.Closed;   // Catalog Phase B; T13 Closed
+                   a.Type == b.Type && a.Closed == b.Closed;
         }
 
         private static void Swap<T>(ref T a, ref T b)
@@ -722,7 +662,7 @@ namespace SkiResortMod.Systems
             m_LiftBasesNext.Clear();
             m_Resorts.Clear();
             m_ResortsNext.Clear();
-            m_AreaClosed.Clear();   // T13
+            m_AreaClosed.Clear();
             m_AreaClosedNext.Clear();
             m_ClosedPairs.Clear();
             m_ClosedPairsNext.Clear();
@@ -748,8 +688,7 @@ namespace SkiResortMod.Systems
                 m_ResortOrder.Add(Entity.Null);
         }
 
-        /// <summary>Index, then Version (the SkiResortIndex / EntityRef.CompareTo order). One instance, no
-        /// allocation per sort.</summary>
+        /// <summary>Index, then Version (the SkiResortIndex / EntityRef.CompareTo order). One instance, no allocation per sort.</summary>
         private sealed class EntityOrder : IComparer<Entity>
         {
             public static readonly EntityOrder Instance = new EntityOrder();
@@ -760,8 +699,8 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>e1-spec R1: a live base station's power through the one reader and the one predicate.
-        /// A missing or dead base station reads false (only matters for Complete rows, which have a live base).</summary>
+        /// <summary>A live base station's power through the one reader and the one predicate. A missing or dead base station reads
+        /// false (only matters for Complete rows, which have a live base).</summary>
         private bool IsPowered(Entity baseStation)
         {
             if (baseStation == Entity.Null || !EntityManager.Exists(baseStation) || EntityManager.HasComponent<Deleted>(baseStation))
@@ -769,24 +708,23 @@ namespace SkiResortMod.Systems
             return LiftServedRule.IsPowered(m_Census.ReadLiftPower(baseStation));
         }
 
-        /// <summary>Round M2 T2 (decisions.md R3, thaw-rules.md item 7): the lift's ski area has a counted run, for
-        /// billing — the released score's RunsCounted from the attraction snapshot (a plain main-thread read, as the
-        /// ticket gate's). Unknown reads true (full): not linked, no score yet, or the area's first score after a load
-        /// still held (SkiMoneyRules.LiftAreaRunOpen).</summary>
+        /// <summary>The lift's ski area has a counted run, for billing: the released score's RunsCounted from the attraction snapshot (a
+        /// plain main-thread read, as the ticket gate's). Unknown reads true (full): not linked, no score yet, or the area's first score
+        /// after a load still held (SkiMoneyRules.LiftAreaRunOpen).</summary>
         private bool AreaRunOpen(Entity sign, out bool settled)
         {
             SkiResortAttractivenessSystem.AreaScoreView v = default;
             bool linked = sign != Entity.Null;
             bool known = linked && m_Attractiveness.TryGetAreaScore(sign, out v);
-            settled = known && !v.WriteHeld;   // a released score: the run count is the truth (else LiftAreaRunOpen reads "open")
+            settled = known && !v.WriteHeld; // a released score: the run count is the truth (else LiftAreaRunOpen reads "open")
             return SkiMoneyRules.LiftAreaRunOpen(linked, known, known && v.WriteHeld, known ? v.Result.RunsCounted : 0);
         }
 
-        /// <summary>T13: THE area read of one snapshot. Returns the billing's area state (<see cref="AreaRunOpen"/>, unchanged)
-        /// and <paramref name="closed"/> = the lift's closed flag: LiftClosedRule's published state of the area, stepped
-        /// ONCE per area per snapshot with that same state (the first row of the area does the step; the rest read it). Not
-        /// linked: never closed. An area whose score is not released yet (unknown / first write held) is not stepped:
-        /// it stays open until the first real observation, which is then taken at once.</summary>
+        /// <summary>THE area read of one snapshot. Returns the billing's area state (<see cref="AreaRunOpen"/>, unchanged) and
+        /// <paramref name="closed"/> = the lift's closed flag: LiftClosedRule's published state of the area, stepped once per area per
+        /// snapshot with that same state (the first row of the area does the step; the rest read it). Not linked: never closed. An area
+        /// whose score is not released yet (unknown / first write held) is not stepped: it stays open until the first real observation,
+        /// which is then taken at once.</summary>
         private bool AreaRunState(Entity sign, uint frame, out bool closed)
         {
             bool open = AreaRunOpen(sign, out bool settled);
@@ -804,7 +742,7 @@ namespace SkiResortMod.Systems
             return open;
         }
 
-        /// <summary>ch4 §2.2 lift rule (header SKI AREA).</summary>
+        /// <summary>The lift's ski-area rule (header: ski area).</summary>
         private Entity Resolve(LiftCensus.Row r)
         {
             if (!TryLiveXz(LiftCensusSystem.Ent(r.Base), out float2 at) && !TryLiveXz(LiftCensusSystem.Ent(r.Top), out at))
@@ -824,8 +762,8 @@ namespace SkiResortMod.Systems
             return true;
         }
 
-        /// <summary>A station-less row's anchor: its id edge's start node; NaN when unreadable (TryResolve then
-        /// returns Not linked). The stats system's AnchorEdgeStart rule.</summary>
+        /// <summary>A station-less row's anchor: its id edge's start node; NaN when unreadable (TryResolve then returns Not linked).
+        /// The stats system's AnchorEdgeStart rule.</summary>
         private float2 AnchorEdgeStart(Entity edge)
         {
             if (edge != Entity.Null && EntityManager.TryGetComponent(edge, out Game.Net.Edge e) &&
@@ -834,8 +772,8 @@ namespace SkiResortMod.Systems
             return new float2(float.NaN, float.NaN);
         }
 
-        /// <summary>Live signs (Destroyed included) into the index. Completes the query's writers first
-        /// (chunk reads do not wait on running jobs).</summary>
+        /// <summary>Live signs (Destroyed included) into the index. Completes the query's writers first (chunk reads do not wait on
+        /// running jobs).</summary>
         private void BuildSignIndex()
         {
             m_Index.Clear();
@@ -861,8 +799,6 @@ namespace SkiResortMod.Systems
             }
         }
 
-        // ── billing (ch4 §3.5) ────────────────────────────────────────────────────────────────────
-
         private void Charge(uint elapsedFrames)
         {
             if (!m_Census.IsArmed)
@@ -881,8 +817,8 @@ namespace SkiResortMod.Systems
             LastMonthlyRate = total;
             int debit = SkiMoneyRules.Accrue(ref m_CarryFraction, total, elapsedFrames, dpy);
 
-            // Attribution: exact shares of what accrued this pass (sum = the accrued amount; the floored debit
-            // differs by the carry, < 1 credit).
+            // Attribution: exact shares of what accrued this pass (sum = the accrued amount; the floored debit differs by the carry, < 1
+            // credit).
             SkiResortLedger ledger = m_Counter.Ledger;
             for (int i = 0; i < m_ResortOrder.Count; i++)
             {
@@ -896,7 +832,7 @@ namespace SkiResortMod.Systems
                 Entity city = m_CitySystem.City;
                 if (city == Entity.Null || !EntityManager.HasComponent<PlayerMoney>(city))
                 {
-                    m_CarryFraction += debit;   // the upkeep's rule: it keeps accruing, nothing is lost
+                    m_CarryFraction += debit; // the upkeep's rule: it keeps accruing, nothing is lost
                     IdleReason = "the City entity has no PlayerMoney (charges accrue but are not billed)";
                     if (!m_CityWarned)
                     {
@@ -918,16 +854,16 @@ namespace SkiResortMod.Systems
             int rateBucket = (int)math.round(total);
             bool log = rateBucket != m_LastLoggedMonthlyRate || m_ChargeCounter % Tuning.LogEveryNthCharge == 1;
             if (!log)
-                return;   // the trailing fold is flushed by OnUpdate
+                return; // the trailing fold is flushed by OnUpdate
             float now = UnityEngine.Time.realtimeSinceStartup;
-            // -1 = after a load or an idle spell: the billing (re)start is forced (the upkeep's F6 fixer rule).
+            // -1 = after a load or an idle spell: the billing (re)start is forced (the upkeep's rule).
             bool force = m_LastLoggedMonthlyRate < 0;
             m_LastLoggedMonthlyRate = rateBucket;
             Entity cityForLog = m_CitySystem.City;
             string balance = cityForLog != Entity.Null && EntityManager.HasComponent<PlayerMoney>(cityForLog)
                 ? EntityManager.GetComponentData<PlayerMoney>(cityForLog).money.ToString()
                 : "n/a";
-            // Round M2 T2 (build-contract.md §6.8): the reduced part names how many are reduced for no open run.
+            // The reduced part names how many are reduced for no open run.
             string body = $"-{debit} this pass (carry {m_CarryFraction:F2}) — rate {rateBucket}/month = {m_TotalFull} lift(s) " +
                           $"full ({m_TotalFullKm:F1} km) + {m_TotalReduced} reduced ({m_TotalReducedKm:F1} km; {m_TotalNoOpenRun} " +
                           $"for no open run: 25 %, a tram 50 %; unfinished 25 %); by type: {ByType()}; by ski area: {ByArea()}; balance {balance}";
@@ -942,8 +878,8 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>Catalog Phase B: "fixedGrip 2 full + 1 at 25 % = 6000" per lift type present in the last snapshot (log
-        /// only; allocates when a charge line is written).</summary>
+        /// <summary>"fixedGrip 2 full + 1 at 25 % = 6000" per lift type present in the last snapshot (log only; allocates when a charge
+        /// line is written).</summary>
         private string ByType()
         {
             var sb = new StringBuilder();
@@ -971,7 +907,7 @@ namespace SkiResortMod.Systems
             return sb.Length > 0 ? sb.ToString() : "none";
         }
 
-        /// <summary>Catalog Phase B: "fixedGrip 2500 + 1000/km, detachable 5000 + 2000/km, …" (the ARMED line).</summary>
+        /// <summary>"fixedGrip 2500 + 1000/km, detachable 5000 + 2000/km, ..." (the ARMED line).</summary>
         private static string TypeRatesText()
         {
             var sb = new StringBuilder();
@@ -986,7 +922,7 @@ namespace SkiResortMod.Systems
             return sb.ToString();
         }
 
-        /// <summary>"{sign i:v} {rate}, …, not linked {rate}" (signs by Index / Version).</summary>
+        /// <summary>"{sign i:v} {rate}, ..., not linked {rate}" (signs by Index / Version).</summary>
         private string ByArea()
         {
             var sb = new StringBuilder();
@@ -1032,14 +968,14 @@ namespace SkiResortMod.Systems
             if (m_LastIdleReason == reason)
                 return;
             m_LastIdleReason = reason;
-            m_LastLoggedMonthlyRate = -1;   // next billable pass logs unconditionally
+            m_LastLoggedMonthlyRate = -1; // next billable pass logs unconditionally
             if (m_ChargeLog.Count > 0)
                 WriteChargeSummary(UnityEngine.Time.realtimeSinceStartup);
             Mod.Log.Info($"Lifts [idle]: {reason} — nothing billed; re-evaluated every {Tuning.ChargeIntervalFrames} sim frames");
         }
 
-        /// <summary>`Lifts [cost]`, once per load. F7 E3 (header COST): only passes whose snapshot had at least
-        /// one lift row count (field test 7: 32 passes over an empty census measured nothing).</summary>
+        /// <summary>`Lifts [cost]`, once per load. Only passes whose snapshot had at least one lift row count (32 passes over an empty
+        /// census measured nothing).</summary>
         private void RecordPassCost(double ms)
         {
             if (m_CostLogged || m_Rows.Count == 0)
@@ -1056,8 +992,6 @@ namespace SkiResortMod.Systems
                          $"{Tuning.PowerPollTicks * 4} frames mean {(m_CostPolls > 0 ? m_PollSumMs / m_CostPolls : 0.0):F3} ms over " +
                          $"{m_CostPolls} poll(s) with lifts, {m_PowerSnapshots} snapshot(s) taken on a power change");
         }
-
-        // ── names and the DUMP ────────────────────────────────────────────────────────────────────
 
         /// <summary>The base station's custom name, else the top's (quoted), else "lift" (NameSystem.cs:209-212).</summary>
         private string LiftName(Entity baseStation, Entity top)

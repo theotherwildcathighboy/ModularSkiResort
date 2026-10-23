@@ -1,10 +1,9 @@
 /*
- * harness/serve.js - tiny static server for the browser harness (MIT, 2026-10-18).
- * Root = mod/SkiResortUI (so /harness/ and /build/ are both reachable). /game/index.css streams the
- * installed game's UI stylesheet (theme variables) straight from the Steam folder; nothing is copied.
- * Run: node mod/SkiResortUI/harness/serve.js [port]   (default 5173)  ->  http://localhost:5173/harness/
- * Deploys nothing, writes nothing.
- */
+* harness/serve.js - tiny static server for the browser harness.
+* Root = mod/SkiResortUI, so /harness/ and /build/ are both reachable. /game/index.css streams the installed game's UI
+* stylesheet (theme variables) from the Steam folder; nothing is copied.
+* Run: node mod/SkiResortUI/harness/serve.js [port]   (default 5173)  ->  http://localhost:5173/harness/
+*/
 "use strict";
 const http = require("http");
 const fs = require("fs");
@@ -21,9 +20,8 @@ function send(res, code, body, type) {
   res.writeHead(code, { "Content-Type": type || "text/plain; charset=utf-8", "Cache-Control": "no-store" });
   res.end(body);
 }
-// In the game, CSS and the hub reference assets by coui:// URLs and by paths relative to the game's
-// index.html ("Media/Glyphs/Warning.svg"). The browser knows neither, so served CSS is rewritten and
-// the game's Media / Fonts / Static folders are mounted read-only under /game/ and beside /harness/.
+// In the game, CSS and the hub reference assets by coui:// URLs and paths relative to the game's index.html. The browser
+// knows neither, so served CSS is rewritten and the game's Media / Fonts / Static folders are mounted read-only under /game/.
 function rewriteCss(text) {
   return text
     .replace(/coui:\/\/ui-mods\/SkiResortMod-img\//g, "/build/SkiResortMod-img/")

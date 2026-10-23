@@ -1,13 +1,5 @@
-// RunLabelTests — ticket T37 (2026-10-16) test file for tests/ResortBatch: RunLabelRules (the run-name labels' pure rules).
-// Convention as RunOutlineTests: `public static void Run(Func<bool, string, string, bool> check)`; Program.Main calls
-// RunLabelTests.Run(Check). ORACLES are literal hand values from the header RULES of RunLabelRules.cs and the piste map's
-// color table (SkiPisteMapSystem.s_Fill), never a second run of the same code.
-//   A  FadeAlpha: hidden outside 100..3000 m and for a zoom that is not a positive finite number; ramps 0 -> 1 over 100..250,
-//      1 over 250..1500, 1 -> 0 over 1500..3000.
-//   B  AlphaStep / AlphaByte: the 8-step quantization, a non-zero alpha is at least step 1, 255 at the top.
-//   C  BandRgb: the piste-map fills by band; pending and unknown = white.
-//   D  CleanText: mark-up characters out, whitespace collapsed and trimmed, the 32-char cap with "...".
-//   E  Extent / FitScale / CullRadius / InRange.
+// Tests for RunLabelRules (the run-name labels' pure rules). Oracles are literal hand values from the RULES header of
+// RunLabelRules.cs and the piste map's color table (SkiPisteMapSystem.s_Fill), never a second run of the same code.
 
 using System;
 using SkiResortMod.Systems;

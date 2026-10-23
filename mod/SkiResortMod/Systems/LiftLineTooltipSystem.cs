@@ -1,17 +1,12 @@
-// LiftLineTooltipSystem — the lift-line tool's mouse tooltip (T48 round 2; build note docs/research/field/2026-10-20/
-// t48-round2-build.md): the prompt for the current step, the plan line (towers, member mix, spans, clearance) and, over the line,
-// the hovered tower or span with its length and lowest carrier. The overlay cannot draw text, so span lengths live here.
-// T125 (docs/research/field/2026-10-20/playthrough/lift-tool-build.md):
-//   * The step hint is ALWAYS shown while the tool is open and always names the current step (LiftLineInput.Prompt, tested in
-//     LiftBatch); a refusal (LiftLineToolSystem.Notice) shows as a warning line for a few seconds under it.
-//   * Text is LocalizedString.Value(text), never IdWithFallback(fixedId, text): the frontend's translate cache is keyed by the id
-//     ALONE (installed 1.6.2f1 Cities2_Data/Content/Game/UI/index.js, `function dc()`: `n.get(s)` / `n.set(s, a)` with s = id), so a
-//     fixed id kept the FIRST text it was given. Field test 2026-10-20 shot 11.44.28: the tool in Edit (plan + hover drawn) while the
-//     prompt still read the PickBase text "Lift line: click a lift station" and the plan line "0 pinned" at plan #4 with 3 pins.
-//     Value() (id null) renders the text itself (index.js `xc`: null id -> the fallback, no translate).
-//   * One INFO log line per prompt change (the tooltip state, so a field log shows what the player was told).
-// Mod.cs: UpdateAt UITooltip (the TooltipSystemBase phase, as SkiLiftTooltipSystem). Tooltips are drawn only while the mouse is not
-// over the UI (TooltipUISystem.OnUpdate: !mouseOverUI). One "!!!" ERROR disables it until the next load.
+// Mouse tooltip of the lift-line tool: the prompt for the current step, a refusal notice, the plan line (towers,
+// member mix, spans, clearance) and, over the line, the hovered tower or span. The overlay cannot draw text, so
+// span lengths live here.
+//   * Text is LocalizedString.Value(text), never IdWithFallback(fixedId, text): the frontend's translate cache is
+//     keyed by the id alone (Cities2_Data/Content/Game/UI/index.js `function dc()`), so a fixed id keeps the first
+//     text it was given. Value() has a null id and renders the text itself (index.js `xc`).
+//   * One INFO log line per prompt change, so a field log shows what the player was told.
+// Mod.cs: UpdateAt UITooltip (the TooltipSystemBase phase). Tooltips draw only while the mouse is not over the UI
+// (TooltipUISystem.OnUpdate: !mouseOverUI). One "!!!" ERROR disables it until the next load.
 
 using System;
 using System.Globalization;
@@ -97,7 +92,7 @@ namespace SkiResortMod.Systems
             if (!string.Equals(text, last, StringComparison.Ordinal))
             {
                 last = text;
-                tip.value = LocalizedString.Value(text);   // header: never a fixed id (the frontend caches by id)
+                tip.value = LocalizedString.Value(text);   // never a fixed id (the frontend caches by id)
             }
             AddMouseTooltip(tip);
         }

@@ -1,28 +1,20 @@
-// RunOutlineTests — Round F7 test file for tests/ResortBatch (docs/research/field-test-7-fixes.md item C1: "Tests:
-// RunOutlineRules (width and dot size from size, Temp and dot eligibility, color order, closing side) with literal
-// values"). Written 2026-10-04 (Round F7, implementer 2). The e1-spec R9 convention: `public static class
-// RunOutlineTests` with `public static void Run(Func<bool, string, string, bool> check)` and its own Near;
-// Program.Main calls RunOutlineTests.Run(Check).
-//
-// ORACLES are literal hand values read off Game.Rendering/AreaBorderRenderSystem.cs (1.6.0f1, identical in 1.6.2f1),
-// never a second run of the same code:
-//   A  sizes: the clamp 0..16, on / off, line width and dot diameter 0.3 × size (8 → 2.4 m, 16 → 4.8 m);
-//   B  the flag mirrors: the literal TempFlags / AreaFlags values (Game.Tools/TempFlags.cs, Game.Areas/AreaFlags.cs;
-//      the mod also compares them with the enums at OnCreate) and the two composite masks;
-//   C  Outlined (:157-187, :388-437): every Temp flag alone in a Temp-only chunk, Hidden, no Temp, Error and Warning
-//      chunks (no Temp filter there), Slave always out;
-//   D  Dots (:427-432): Create / Modify only, never without a Temp;
-//   E  ColourOf (:388-426): all eight (Error, Warning, Parent) combinations — Error > Warning > Parent > hovered;
-//   F  ClosingSide (:243, :487) and the shared-edge keys AddKey / DrawKey (:221-262, :457-498) for both windings;
-//   G  the walks AddEdges / DrawArea on hand-built shapes, with the exact draw sequence: an open 3-node Temp (dot,
-//      side, dot, side, dot), the same closed, a 2-node line, a 1-node cursor, an empty buffer, no dots for a
-//      Delete copy, and two 10 m squares sharing a side (both clockwise; then the neighbor stored counter-clockwise
-//      with its flag) — the shared side drawn by neither, its two corners dotted once; a square that only touches a
-//      corner keeps all its sides.
-//   H  (F7 fixer) SizeChangeDue, the size-change log rule: a switch to 0 is due once a frame would draw; a clamped
-//      equal value is not; the review's sequence 8 → 0 → 16 → 8 gives exactly three lines with the right old values;
-//      a slider drag gives one line.
-// Tolerance ±1e-5 for the float widths.
+// Tests for RunOutlineRules (width and dot size from size, Temp and dot eligibility, color order, closing side) and the
+// outline walks. Oracles are literal hand values read off Game.Rendering/AreaBorderRenderSystem.cs (1.6.0f1), never a second
+// run of the same code. Own Near with tolerance 1e-5 for the float widths; Program.Main calls Run(Check).
+//   A  sizes: the clamp 0..16, on / off, line width and dot diameter 0.3 x size (8 -> 2.4 m, 16 -> 4.8 m)
+//   B  flag mirrors: the literal TempFlags / AreaFlags values (Game.Tools/TempFlags.cs, Game.Areas/AreaFlags.cs; the mod
+//      also compares them with the enums at OnCreate) and the two composite masks
+//   C  Outlined (:157-187, :388-437): every Temp flag alone in a Temp-only chunk, Hidden, no Temp, Error and Warning chunks
+//      (no Temp filter there), Slave always out
+//   D  Dots (:427-432): Create / Modify only, never without a Temp
+//   E  ColourOf (:388-426): all eight (Error, Warning, Parent) combinations; Error > Warning > Parent > hovered
+//   F  ClosingSide (:243, :487) and the shared-edge keys AddKey / DrawKey (:221-262, :457-498) for both windings
+//   G  the walks AddEdges / DrawArea on hand-built shapes with the exact draw sequence: open 3-node Temp, the same closed,
+//      a 2-node line, a 1-node cursor, an empty buffer, no dots for a Delete copy, two 10 m squares sharing a side (the shared
+//      side drawn by neither, its two corners dotted once), a square that only touches a corner keeps all its sides
+//   H  SizeChangeDue, the size-change log rule: a switch to 0 is due once a frame would draw; a clamped equal value is not;
+//      8 -> 0 -> 16 -> 8 gives exactly three lines with the right old values; a slider drag gives one line
+//   I  run-visual constants
 
 using System;
 using System.Collections.Generic;
@@ -57,8 +49,6 @@ namespace ResortBatch
             return Math.Abs(a - b) <= eps;
         }
 
-        // ================================================================== A. sizes
-
         private static void SectionA()
         {
             const string w = "outline A";
@@ -92,8 +82,6 @@ namespace ResortBatch
             }
         }
 
-        // ================================================================== B. flag mirrors
-
         private static void SectionB()
         {
             const string w = "outline B";
@@ -115,13 +103,11 @@ namespace ResortBatch
                   (byte)OutlineColour.Error == 3, w, "OutlineColour values");
         }
 
-        // ================================================================== C. Outlined
-
         private static void SectionC()
         {
             const string w = "outline C";
             // Temp-only chunk: each TempFlags value alone (Game.Tools/TempFlags.cs, all 18).
-            uint[] shown = { 0x1u, 0x2u, 0x20u, 0x40u, 0x100u, 0x800u };   // Create Delete Select Modify Replace Parent
+            uint[] shown = { 0x1u, 0x2u, 0x20u, 0x40u, 0x100u, 0x800u }; // Create Delete Select Modify Replace Parent
             uint[] notShown = { 0x0u, 0x4u, 0x8u, 0x10u, 0x80u, 0x200u, 0x400u, 0x1000u, 0x2000u, 0x4000u, 0x8000u, 0x10000u, 0x20000u };
             foreach (uint f in shown)
                 Check(RunOutlineRules.Outlined(false, false, true, f, 0), w, $"Temp-only, flags 0x{f:X} must be outlined");
@@ -143,12 +129,9 @@ namespace ResortBatch
             Check(!RunOutlineRules.Outlined(true, false, false, 0u, 8), w, "Slave with Error");
             Check(!RunOutlineRules.Outlined(false, false, true, 0x1u, 8), w, "Slave Temp Create");
             Check(!RunOutlineRules.Outlined(false, true, true, 0x40u, 9), w, "Slave, complete, Warning");
-            // Winding and completeness do not matter.
             Check(RunOutlineRules.Outlined(false, false, true, 0x1u, 2), w, "CCW Temp Create");
             Check(RunOutlineRules.Outlined(false, false, true, 0x1u, 3), w, "complete CCW Temp Create");
         }
-
-        // ================================================================== D. Dots
 
         private static void SectionD()
         {
@@ -165,8 +148,6 @@ namespace ResortBatch
             Check(!RunOutlineRules.Dots(false, 0x1u), w, "no Temp → no dots (:429-432)");
         }
 
-        // ================================================================== E. ColourOf
-
         private static void SectionE()
         {
             const string w = "outline E";
@@ -182,8 +163,6 @@ namespace ResortBatch
             Check(RunOutlineRules.ColourOf(false, false, 0x40u | 0x400u) == OutlineColour.Hovered, w, "Modify|Hidden → Hovered (colour ignores Hidden)");
             Check(RunOutlineRules.ColourOf(false, false, 0u) == OutlineColour.Hovered, w, "no flag → Hovered");
         }
-
-        // ================================================================== F. closing side and keys
 
         private static void SectionF()
         {
@@ -208,8 +187,6 @@ namespace ResortBatch
             RunOutlineRules.DrawKey(p, q, 3, out s, out e);
             Check(s.Equals(p) && e.Equals(q), w, "DrawKey CounterClockwise = (prev, cur)");
         }
-
-        // ================================================================== G. walks
 
         private struct TestNodes : IOutlineNodes
         {
@@ -272,7 +249,7 @@ namespace ResortBatch
         {
             const string w = "outline G";
 
-            // Open 3-node Temp (a run being drawn): dot, side, dot, side, dot — the game's order (:466-484).
+            // Open 3-node Temp (a run being drawn): dot, side, dot, side, dot, the game's order (:466-484).
             TestSink s1 = Frame(new[] { Shape(0, 0, 0, 10, 10, 10) }, new byte[] { 0 }, new[] { true });
             Check(Join(s1.Ops) == "D 0,0 | L 0,0>0,10 | D 0,10 | L 0,10>10,10 | D 10,10", w, "open 3-node: " + Join(s1.Ops));
             Check(s1.Borders.Count == 2, w, $"open 3-node files {s1.Borders.Count} sides, want 2 (no closing side)");
@@ -285,7 +262,6 @@ namespace ResortBatch
             TestSink s2b = Frame(new[] { Shape(0, 0, 10, 10, 0, 10) }, new byte[] { 3 }, new[] { true });
             Check(CountOps(s2b.Ops, 'L') == 3 && CountOps(s2b.Ops, 'D') == 3, w, "closed CCW 3-node: " + Join(s2b.Ops));
 
-            // A 2-node line: one side, two dots.
             TestSink s3 = Frame(new[] { Shape(0, 0, 30, 0) }, new byte[] { 0 }, new[] { true });
             Check(Join(s3.Ops) == "D 0,0 | L 0,0>30,0 | D 30,0", w, "2-node line: " + Join(s3.Ops));
 
@@ -303,8 +279,8 @@ namespace ResortBatch
             TestSink s6 = Frame(new[] { Shape(0, 0, 0, 10, 10, 10, 10, 0) }, new byte[] { 1 }, new[] { false });
             Check(Join(s6.Ops) == "L 0,0>0,10 | L 0,10>10,10 | L 10,10>10,0 | L 10,0>0,0", w, "Delete copy: " + Join(s6.Ops));
 
-            // Two clockwise 10 m squares sharing the side x = 10 (A walks it 10,10 > 10,0; B walks it 10,0 > 10,10):
-            // the game draws that side for neither (Verification fact 16), and the shared corners once.
+            // Two clockwise 10 m squares sharing the side x = 10 (A walks it 10,10 > 10,0; B walks it 10,0 > 10,10): the game draws that
+            // side for neither, and the shared corners once.
             TestNodes a = Shape(0, 0, 0, 10, 10, 10, 10, 0);
             TestNodes b = Shape(10, 0, 10, 10, 20, 10, 20, 0);
             TestSink s7 = Frame(new[] { a, b }, new byte[] { 1, 1 }, new[] { true, true });
@@ -319,18 +295,18 @@ namespace ResortBatch
             Check(!s8.Ops.Contains("L 10,10>10,0") && !s8.Ops.Contains("L 10,0>10,10"), w, "CCW neighbour, shared side drawn: " + Join(s8.Ops));
             Check(CountOps(s8.Ops, 'L') == 6 && CountOps(s8.Ops, 'D') == 6, w, "CCW neighbour: " + Join(s8.Ops));
 
-            // A neighbor stored counter-clockwise WITHOUT its flag walks the side the same way as A: not a shared
-            // key, both draw it (the game's rule keys on the flag, not on geometry).
+            // A neighbor stored counter-clockwise without its flag walks the side the same way as A: not a shared key, both draw it (the
+            // game's rule keys on the flag, not on geometry).
             TestSink s9 = Frame(new[] { a, bCcw }, new byte[] { 1, 1 }, new[] { true, true });
             Check(CountOps(s9.Ops, 'L') == 8, w, $"unflagged reversed neighbour: {CountOps(s9.Ops, 'L')} lines, want 8");
 
-            // An open Temp whose last side lies on a complete neighbor's side, opposite sense: dropped while open
-            // too (the game files open areas' sides, :221-242).
-            TestNodes open = Shape(0, 20, 10, 10, 10, 0);   // its side 10,10 > 10,0 is A's
+            // An open Temp whose last side lies on a complete neighbor's side, opposite sense: dropped while open too (the game files
+            // open areas' sides, :221-242).
+            TestNodes open = Shape(0, 20, 10, 10, 10, 0); // its side 10,10 > 10,0 is A's
             TestSink s10 = Frame(new[] { a, open }, new byte[] { 1, 0 }, new[] { false, true });
-            // A's side 10,10 > 10,0 and the open run's side 10,10 > 10,0 walk the SAME way: kept by both.
+            // A's side 10,10 > 10,0 and the open run's side 10,10 > 10,0 walk the same way: kept by both.
             Check(CountOps(s10.Ops, 'L') == 6, w, $"same-sense overlap: {CountOps(s10.Ops, 'L')} lines, want 6 (4 + 2)");
-            TestNodes openRev = Shape(0, 20, 10, 0, 10, 10);   // its side 10,0 > 10,10 is A's reversed
+            TestNodes openRev = Shape(0, 20, 10, 0, 10, 10); // its side 10,0 > 10,10 is A's reversed
             TestSink s11 = Frame(new[] { a, openRev }, new byte[] { 1, 0 }, new[] { false, true });
             Check(!s11.Ops.Contains("L 10,0>10,10") && !s11.Ops.Contains("L 10,10>10,0"), w, "open run on a neighbour's side: " + Join(s11.Ops));
             Check(CountOps(s11.Ops, 'L') == 4 && CountOps(s11.Ops, 'D') == 3, w, "open run on a neighbour's side: " + Join(s11.Ops));
@@ -345,8 +321,6 @@ namespace ResortBatch
             Check(Join(s13.Ops) == "D 5,7", w, "two cursors on one point: " + Join(s13.Ops));
         }
 
-        // ================================================================== H. the size-change log rule (F7 fixer)
-
         private static void SectionH()
         {
             const string w = "outline H";
@@ -359,8 +333,8 @@ namespace ResortBatch
             Check(RunOutlineRules.SizeChangeDue(-1, 8, true), w, "never logged (-1) -> 8: due");
             Check(!RunOutlineRules.SizeChangeDue(-1, 8, false), w, "never logged, nothing to draw: waits");
 
-            // The finding's sequence (notes-impl2 step 6): 0, then 16, then back to 8, from 8; each setting held for
-            // a few frames, the first frame of each without a surface. Three lines, each with the right old value.
+            // The review's sequence from 8: 0, then 16, then back to 8; each setting held a few frames, the first frame of each without a
+            // surface. Three lines, each with the right old value.
             int logged = 8;
             var lines = new List<string>();
             int[] settings = { 0, 0, 0, 16, 16, 16, 8, 8, 8 };
@@ -376,7 +350,7 @@ namespace ResortBatch
             }
             Check(string.Join(" ", lines) == "8->0 0->16 16->8", w, "8, 0, 16, 8: lines " + string.Join(" ", lines) +
                   ", want 8->0 0->16 16->8");
-            // A slider drag (8 -> 9 -> 10 … 14 between frames without a surface, then one frame with): one line.
+            // A slider drag (8 -> 9 -> 10 ... 14 between frames without a surface, then one frame with): one line.
             logged = 8;
             lines.Clear();
             for (int s = 9; s <= 14; s++)
@@ -389,8 +363,6 @@ namespace ResortBatch
             }
             Check(string.Join(" ", lines) == "8->14", w, "slider drag: lines " + string.Join(" ", lines) + ", want one 8->14");
         }
-
-        // ================================================================== I. T30 / T36 run-visual constants (2026-10-16)
 
         private static void SectionI()
         {
@@ -414,7 +386,7 @@ namespace ResortBatch
             Check(Near(RunOutlineRules.NodeRimWidth(1), 0.12, 1e-5), w, "rim at size 1 floors at 0.12 m");
             Check(Near(RunOutlineRules.NodeRimWidth(99), 0.48, 1e-5), w, "rim at a clamped size 99 = size 16's");
 
-            // Neighbor dots (item 41): window = drawn bounds grown by 150 m, edges inclusive, xz only.
+            // Neighbor dots: window = drawn bounds grown by 150 m, edges inclusive, xz only.
             float4 none = RunOutlineRules.EmptyBounds();
             Check(!RunOutlineRules.HasBounds(none) && !RunOutlineRules.InWindow(none, new float3(0f, 0f, 0f), 150f), w, "empty bounds: no window");
             float4 b = RunOutlineRules.Extend(RunOutlineRules.Extend(none, new float3(100f, 7f, 200f)), new float3(140f, -3f, 260f));

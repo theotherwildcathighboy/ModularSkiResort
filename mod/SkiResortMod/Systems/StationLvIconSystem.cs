@@ -1,19 +1,15 @@
-// StationLvIconSystem — removes the vanilla "low voltage not connected" icon from a lift station whose LV stub HAS a wire
-// (T117 follow-up, Richard 2026-10-20: the FG base "was powered" and the LV icon "never went away"; DECISIONS 347 (d)). The why,
-// with decompile citations, is the StationLvRule.cs header: ConnectionWarningSystem counts only edges ending AT the stub node,
-// while the electricity graph also feeds a wire end that local-connected onto the stub's middle. Build note
-// docs/research/field/2026-10-20/sim-round-build.md §3. Created 2026-10-20.
+// Removes the vanilla "low voltage not connected" icon from a lift station whose LV stub HAS a wire. The why, with decompile
+// citations, is the StationLvRule.cs header: ConnectionWarningSystem counts only edges ending AT the stub node, while the
+// electricity graph also feeds a wire end that local-connected onto the stub's middle.
 //
-// WHAT IT DOES: every PollFrames simulation frames (Game mode), for each building with an IconElement buffer whose prefab is one of
-// our stations (the catalog station set): if it carries the vanilla LowVoltageNotConnected icon (ElectricityParameterData,
-// ConnectionWarningSystem.cs:2366) and an LV wire reaches its LV stub (StationLvRule.Classify: a foreign LV edge at an LV stub
-// node, or a foreign LV node in the stub edge's ConnectedNode buffer), it queues IconCommandBuffer.Remove(station, icon prefab,
-// the icon's own Target) through the vanilla IconCommandSystem (the command ConnectionWarningSystem itself would issue,
-// :2390; matched on prefab + target, IconCommandSystem.cs:157). No wire: nothing (the icon is right). Vanilla re-adds the icon
-// only when it re-evaluates the station (the station or a sub-net Updated, CollectOwnersJob :63-140); the next poll removes it
-// again. Nothing else is written: no component, no prefab, no graph edge.
+// Every PollFrames simulation frames (Game mode), for each building with an IconElement buffer whose prefab is one of our
+// stations: if it carries the vanilla LowVoltageNotConnected icon (ElectricityParameterData, ConnectionWarningSystem.cs:2366) and
+// an LV wire reaches its LV stub (StationLvRule.Classify), it queues IconCommandBuffer.Remove(station, icon prefab, the icon's own
+// Target) through the vanilla IconCommandSystem (the command ConnectionWarningSystem itself would issue, :2390; matched on
+// prefab + target, IconCommandSystem.cs:157). Vanilla re-adds the icon only when it re-evaluates the station (the station or a
+// sub-net Updated, CollectOwnersJob :63-140); the next poll removes it again. Nothing else is written.
 //
-// LOGS: "created"; per station one line when its wire state first clears an icon this load ("StationPower [lv icon] ...") and
+// Logs: "created"; per station one line when its wire state first clears an icon this load ("StationPower [lv icon] ...") and
 // again only if the wire state changes; "!!!" once on a throw (then disabled until the next load). DUMP: AppendDump.
 // Phase GameSimulation, not load-bearing (the queue is consumed by IconCommandSystem at ModificationEnd, SystemOrder.cs:271).
 

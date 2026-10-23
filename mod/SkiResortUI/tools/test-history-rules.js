@@ -1,13 +1,11 @@
 /*
- * tools/test-history-rules.js - literal oracles for src/hub/historyRules.ts (T78 build 2, contract 10): seasons, range windows,
- * month / season bucketing (flows summed, point values averaged, gaps and absent months empty), the whole-city sum, year on year,
- * the axis helpers. Compiles bindings.ts + historyRules.ts with the installed typescript (transpileModule, CommonJS) and runs them
- * in a vm context with cs2/api stubbed, like tools/test-hub-rules.js, which calls run() as part of gate R18.
+ * tools/test-history-rules.js - literal oracles for src/hub/historyRules.ts: seasons, range windows (12 months / this season
+ * vs last / by season), month / season bucketing (flows summed, point values averaged, gaps and absent months empty), the
+ * whole-city sum, year on year, line ends and gap bands, netChange, the axis helpers. Compiles bindings.ts + historyRules.ts
+ * with the installed typescript (transpileModule, CommonJS) and runs them in a vm context with cs2/api stubbed, like
+ * tools/test-hub-rules.js, which calls run() as part of the gate.
  * Standalone: `node tools/test-history-rules.js [srcDir]` -> `test-history-rules: N check(s), failures=0`.
  * Oracles are literals computed by hand from the fixtures below (never recomputed with the code under test).
- * Written for this repo (MIT). Created 2026-10-18.
- * T82 UI round (2026-10-19, review B3 + B4): ranges 12 months / This season vs last / By season (TH2.5-TH2.13, TH4.1-TH4.3: compareOf,
- * future months, season averages over whole months with totals), line ends and gap bands (TH9.1-TH9.6), netChange (TH9.7).
  */
 "use strict";
 const fs = require("fs");
@@ -39,7 +37,7 @@ function load(srcDir, ts) {
   return compile(rulesFile);
 }
 
-/** An area of n months from `first`; fill(i) returns overrides of the month's defaults. */
+/* An area of n months from `first`; fill(i) returns overrides of the month's defaults. */
 function area(first, n, fill) {
   const a = { sign: { index: 1, version: 1 }, firstMonthKey: first, flags: [], tourists: [], residents: [], skiDays: [], ticketsPaid: [], ticketIncome: [],
     lodgeIncome: [], passIncome: [], lessonIncome: [], liftCost: [], runCost: [], buildingsCost: [], wagesCost: [], attraction: [], snowPct: [] };
@@ -75,7 +73,7 @@ function run(srcDir) {
   const B = area(24313, 5, (i) => ({ flags: i === 0 ? 64 : i === 4 ? 128 : 0, tourists: 10, ticketIncome: 100, attraction: 20 }));
   // Fixture C: Jan 2000 (24000) .. Oct 2005 (24069), 70 whole months.
   const C = area(24000, 70, () => ({ tourists: 1, buildingsCost: 0, wagesCost: 0 }));
-  // Fixture D (T82): Sep 2024 (24296) .. Feb 2026 (24313, the month in progress), 18 months. Fixture E: July 2026 only, in progress.
+  // Fixture D: Sep 2024 (24296) .. Feb 2026 (24313, the month in progress), 18 months. Fixture E: July 2026 only, in progress.
   const D = area(24296, 18, (i) => ({ flags: i === 17 ? 128 : 0, tourists: 10 }));
   const E = area(24318, 1, () => ({ flags: 128, tourists: 5 }));
 
@@ -91,7 +89,6 @@ function run(srcDir) {
   eq("TH2.3 a month bucket's numbers (i3)", [b3.tourists, b3.residents, b3.guests, b3.skiDays, b3.income, b3.staffCost, b3.costs, b3.net, b3.attraction, b3.snowPct, b3.months, b3.none],
     [130, 50, 180, -1, 4250, 1000, 1400, 2850, 43, 80, 1, false]);
   eq("TH2.4 buildings unknown: staff = wages only, the bucket partial (i5)", [w12[2].staffCost, w12[2].costs, w12[2].partial], [600, 1000, true]);
-  // T82 UI round (B4): the ranges are 12 months / This season vs last / By season ("2 seasons", "5 years", "All" are gone).
   const vs = R.windowOf(A, "seasonVs");
   eq("TH2.5 This season vs last: the 12 months of season 2025/26 (Jul 2025 .. Jun 2026), the month in progress last",
     [vs.length, vs[0].key, vs[11].key, vs.map((b, j) => (b.current ? j : -1)).filter((j) => j >= 0), vs.filter((b) => b.none).length], [12, 24306, 24317, [11], 0]);
@@ -147,7 +144,6 @@ function run(srcDir) {
   eq("TH7.2 bucketAt", [R.bucketAt(0, 12), R.bucketAt(0.999, 12), R.bucketAt(1, 12), R.bucketAt(-0.1, 12), R.bucketAt(0.5, 0), R.bucketAt(0.5, 24)], [0, 11, 11, -1, -1, 12]);
   eq("TH7.3 labelStep", [R.labelStep(12, "month"), R.labelStep(24, "month"), R.labelStep(60, "month"), R.labelStep(8, "season"), R.labelStep(30, "season")], [1, 3, 6, 1, 3]);
 
-  // T82 UI round (B3): line ends, gap bands, the headline change in money.
   eq("TH9.1 linePoints: the line ends at the last whole month (the month in progress has no point)", R.linePoints(w12, (b) => b.tourists),
     [130, 140, 150, 160, 170, 180, 190, 200, 210, 220, 230, null]);
   eq("TH9.2 linePoints: an unknown value breaks the line", R.linePoints(w12, (b) => (b.skiDays >= 0 ? b.skiDays : NaN)),

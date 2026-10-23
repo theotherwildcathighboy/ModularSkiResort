@@ -1,87 +1,45 @@
-// SkiSignUtilityHookSystem — gives the Ski Area Welcome Sign its power, water and sewage link to the road
-// when a lodge (or any other ServiceUpgrade building) is placed on it or removed from it (Round F7, items
-// A1-A3; docs/research/field-test-7-fixes.md §1 A; docs/research/field/2026-10-04/findings/sign-utilities.md
-// and its Verification). Created 2026-10-04 (Round F7, implementer 1).
+// Gives the Ski Area Welcome Sign its power, water and sewage link to the road when a lodge (or any ServiceUpgrade
+// building) is placed on or removed from it (docs/research/field/2026-10-04/findings/sign-utilities.md).
 //
-// THE DEFECT (decompile 1.6.0f1; every file cited here is byte-identical in 1.6.2f1). Field test 7: the sign
-// ran at 10-17 % with "Not enough electricity / water, Backed up sewer" in a city with spare supply.
-//   * The sign prefab has no ServiceConsumption, so the sign has no ElectricityConsumer / WaterConsumer of its
-//     own. The lodge's consumption lands on the sign later: ServiceUpgradeSystem.UpgradeInstalled adds the
-//     upgrade's components to the OWNER through ModificationBarrier4 (ServiceUpgradeSystem.cs:138-156, barrier
-//     :60) and queues no road edge.
-//   * A road-fed consumer is supplied through one flow edge from its road's node to the network sink. Only
-//     ElectricityRoadConnectionGraphSystem's UpdateRoadEdgesJob creates it, for an edge in its queue
-//     (ElectricityRoadConnectionGraphSystem.cs:86-104, create :124-130, clear :132-138). The queue is fed from
-//     RoadConnectionUpdated only for a building that ALREADY has the consumer (:38-47), and that event is raised
-//     only when the building's road changed or the building is Created (RoadConnectionSystem.cs:597-598,
-//     :622-629). AdjustElectricityConsumptionSystem only resizes an existing link (:171-177, :226-237).
-//     Water and sewage: the twin (WaterPipeRoadConnectionGraphSystem.cs:36-47, :85-137;
-//     AdjustWaterConsumptionSystem.cs:211-213). With no link the dispatch gives the sign 0
-//     (DispatchElectricitySystem.cs:88-105; DispatchWaterSystem.cs:96-122), whatever the city produces.
-//   * So a sign alone on a road edge with no other consumer never gets its link: no vanilla path fires when an
-//     upgrade adds consumers to its owner (sign-utilities.md Verification, "Only the listed paths").
+// Defect (decompile 1.6.0f1, byte-identical in 1.6.2f1): the sign prefab has no ServiceConsumption, so the lodge's
+// consumers land on the sign later through ServiceUpgradeSystem.UpgradeInstalled (cs:138-156), which queues no road
+// edge. A road-fed consumer's flow edge is created only by ElectricityRoadConnectionGraphSystem's UpdateRoadEdgesJob for
+// an edge in its queue (:86-104, :124-130), fed only for a building that already has the consumer (:38-47) when its road
+// changed or it was Created (RoadConnectionSystem.cs:597-598, :622-629); the water twin is
+// WaterPipeRoadConnectionGraphSystem.cs:36-47, :85-137. With no link the dispatch gives the sign 0
+// (DispatchElectricitySystem.cs:88-105; DispatchWaterSystem.cs:96-122), whatever the city produces.
 //
-// THE HOOK (A1). When a ServiceUpgrade object owned by a Welcome Sign (a building such as the lodge, or a
-// building extension; F7 fixer: the query takes Game.Objects.Object, as ServiceUpgradeSystem's does) is Created
-// or Deleted (not Temp), and
-// the sign's Building.m_RoadEdge is not null, the edge goes into BOTH public queues,
-// ElectricityRoadConnectionGraphSystem.GetEdgeUpdateQueue / AddQueueWriter (:209-218) and
-// WaterPipeRoadConnectionGraphSystem.GetEdgeUpdateQueue / AddQueueWriter (:208-217) — the pattern of
-// Game.Buildings/InitializeSystem.cs:184-201, :370-375, done on the main thread: the returned dependencies are
-// completed, the edge is enqueued, AddQueueWriter gets an empty handle (nothing of ours is still running). The
-// graph job recomputes the edge from scratch (sum of every consumer on it, :106-122), so an extra enqueue is
-// harmless (it dedupes, :88-92). Removal matters as much as placement: the stale link would keep its old
-// capacity; re-queued after the consumers are gone, the job resizes it or deletes it (:132-138).
+// Hook: when a ServiceUpgrade object owned by a Welcome Sign is Created or Deleted (not Temp) and the sign's
+// Building.m_RoadEdge is not null, enqueue the edge into both public queues (ElectricityRoadConnectionGraphSystem.
+// GetEdgeUpdateQueue / AddQueueWriter :209-218; water :208-217), the pattern of Game.Buildings/InitializeSystem.cs:184-201,
+// on the main thread: returned dependencies are completed and AddQueueWriter gets an empty handle. The job recomputes
+// the edge from scratch (:106-122) and dedupes (:88-92), so an extra enqueue is harmless; on removal, re-queueing makes
+// it resize or delete the stale link (:132-138).
 //
-// ORDER (load-bearing; registration in Mod.cs). In the frame of the event the tool applies the lodge in
-// ToolUpdate (Created / Deleted tags, ApplyObjectsSystem), then ModificationSystem runs Modification1 … End
-// (ModificationSystem.cs:19-26; MainLoop, SystemOrder.cs:58, 60 — paused included):
-//   * Modification4: ServiceUpgradeSystem (SystemOrder.cs:170; query Created or Deleted, not Temp,
-//     ServiceUpgradeSystem.cs:61-84) records Add/RemoveComponent of the consumers on the sign; ModificationBarrier4
-//     is UpdateAfter in Modification4 (SystemOrder.cs:90), so it plays them back before Modification4B;
-//   * Modification4B: RoadConnectionSystem (SystemOrder.cs:180) writes Building.m_RoadEdge in a job; our
-//     EntityManager read of the sign's Building completes that job first;
-//   * Modification5: THIS system, UpdateBefore ElectricityRoadConnectionGraphSystem (SystemOrder.cs:246).
-//     WaterPipeRoadConnectionGraphSystem is registered after it (:247), so one anchor puts us before both. ONE
-//     anchor only: every UpdateBefore call adds its own entry (UpdateSystem.cs:173-176, :278-292), so two would
-//     run the system twice a frame. The graph jobs then see the sign WITH its new consumers (wanted 0 in this
-//     frame: the link is created at the current sum and AdjustElectricityConsumptionSystem / the water twin
-//     resize it on the sign's next slice) or, on removal, WITHOUT them (unless another upgrade still provides
-//     them). ModificationBarrier5 (UpdateAfter, SystemOrder.cs:92) plays the new flow edge back in the same
-//     frame, before any GameSimulation dispatch reads it.
-//   The Created / Deleted tags live until CleanUpSystem (Cleanup, SystemOrder.cs:54); Deleted entities exist
-//   until then, so a deleted lodge still carries its Owner here.
+// Order (load-bearing; registered in Mod.cs). In the event frame ModificationSystem runs Modification1..End
+// (ModificationSystem.cs:19-26; SystemOrder.cs:58, 60, paused included):
+//   * Modification4: ServiceUpgradeSystem (SystemOrder.cs:170) records Add/RemoveComponent of the consumers on the sign;
+//     ModificationBarrier4 (:90) plays them back before Modification4B;
+//   * Modification4B: RoadConnectionSystem (:180) writes Building.m_RoadEdge in a job; our EntityManager read of the sign's
+//     Building completes it;
+//   * Modification5: this system, UpdateBefore ElectricityRoadConnectionGraphSystem (:246). The water graph system is
+//     registered after it (:247), so one anchor puts us before both. Use only one: every UpdateBefore adds its own entry
+//     (UpdateSystem.cs:173-176, :278-292), so two would run the system twice a frame. ModificationBarrier5 (:92) plays
+//     the new flow edge back in the same frame, before any GameSimulation dispatch reads it.
+// Created / Deleted tags live until CleanUpSystem (SystemOrder.cs:54), so a deleted lodge still carries its Owner here.
 //
-// SKIPPED (one log line each, see LOGS): a Deleted sign (bulldozing the sign deletes its lodges with it; the
-// game raises the sign's own RoadConnectionUpdated with its old edge, RoadConnectionSystem.cs:622-629, and the
-// graph systems queue it because the sign still carries its consumers, ElectricityRoadConnectionGraphSystem.cs:
-// 38-43); a Deleted road edge (vanilla skips those too, ElectricityRoadConnectionGraphSystem.cs:40); a sign with
-// no road edge (nothing to link; when a road is later built at its front, the game's own event links it, the
-// sign then having consumers).
+// Skipped (one log line each): a Deleted sign (bulldozing it deletes its lodges; the game raises the sign's own
+// RoadConnectionUpdated, RoadConnectionSystem.cs:622-629), a Deleted road edge (vanilla skips those too,
+// ElectricityRoadConnectionGraphSystem.cs:40), a sign with no road edge (the game's own event links it once a road is built).
 //
-// NO LOAD PASS (contract A1). Flow edges are saved with the city (ElectricityFlowEdge and WaterPipeEdge are
-// ISerializable), so a link made here survives a reload; a load adds no Created tag (only
-// Game.Serialization/InitializeObsoleteSystem migrations do); saves from before this fix are out of scope.
-//
-// COST. Game mode only (disabled otherwise). RequireForUpdate on the event query: OnUpdate runs only on a frame
-// where a ServiceUpgrade object with an Owner was Created or Deleted — the ServiceUpgradeSystem pattern (:84). On such a
-// frame: a handful of EntityManager reads (syncing Owner, PrefabRef and Building writers once) and two queue
-// completions — ServiceUpgradeSystem itself calls CompleteDependency on the same frames (:99).
-//
-// LOGS (A2). "created"; one ARMED / inert line per load; one line per hook:
-//   SignUtility: {lodge prefab} {lodge} added to | removed from sign {sign} — road {edge} queued for the power
-//   and water link (sign consumers now: power yes|no, water yes|no)
-//   SignUtility: {lodge prefab} {lodge} added to | removed from sign {sign} — not queued: {reason}
-// and one "!!!" line if it ever throws; the system then disables itself until the next load.
-//
-// DUMP (A3; called by the hub's DUMP, contract D7): per sign the road edge or "none", the two consumers
-// (wanted / fulfilled / cooldown / flags) and whether the road's node has its link to the supply sink
-// (ElectricityGraphUtils / WaterPipeGraphUtils.TryGetFlowEdge with ElectricityFlowSystem.sinkNode :401 and
-// WaterPipeFlowSystem.sinkNode :370, after completing the writers of the flow components), with capacity and
-// flow. "power link MISSING" with a road that has a cable is exactly the field-test-7 bug.
-//
-// NOTHING ELSE CHANGES: no serialized state, no component added to any entity, no prefab change, no Harmony,
-// no reflection. The only writes are the two vanilla queues.
+// No load pass: flow edges are saved with the city (ISerializable) and a load adds no Created tag. Game mode only;
+// RequireForUpdate on the event query, so OnUpdate runs only on a frame with an upgrade event (ServiceUpgradeSystem.cs:84).
+// Logs: "created", one ARMED / inert line per load, one line per hook, and one "!!!" line if it throws (the system then
+// disables itself until the next load).
+// Dump (called by the hub's DUMP): per sign the road edge or "none", the two consumers, and whether the road's node has its
+// link to the supply sink (TryGetFlowEdge with ElectricityFlowSystem.sinkNode :401, WaterPipeFlowSystem.sinkNode :370).
+// "power link MISSING" with a road that has a cable is the original defect.
+// No serialized state, no added components, no Harmony, no reflection; the only writes are the two vanilla queues.
 
 using System;
 using System.Collections.Generic;
@@ -103,8 +61,7 @@ namespace SkiResortMod.Systems
 {
     public sealed partial class SkiSignUtilityHookSystem : GameSystemBase
     {
-        /// <summary>The Welcome Sign BuildingPrefab (house practice: the table is duplicated per system; the same
-        /// name as SkiRunOwnershipSystem.GateNames).</summary>
+        /// <summary>The Welcome Sign BuildingPrefab (table duplicated per system; same name as SkiRunOwnershipSystem.GateNames).</summary>
         private static readonly string[] SignPrefabNames = { "SkiResortGate" };
 
         private PrefabSystem m_PrefabSystem;
@@ -138,12 +95,10 @@ namespace SkiResortMod.Systems
             m_ElectricityFlow = World.GetOrCreateSystemManaged<ElectricityFlowSystem>();
             m_WaterFlow = World.GetOrCreateSystemManaged<WaterPipeFlowSystem>();
 
-            // The ServiceUpgradeSystem query shape (ServiceUpgradeSystem.cs:61-73: ServiceUpgrade + Game.Objects.Object,
-            // Created or Deleted, not Temp), narrowed to upgrades with an Owner: these are exactly the upgrades whose
-            // components land on (or leave) their owner this frame. Object, not Building (F7 fixer): a
-            // BuildingExtensionPrefab upgrade carries Extension and no Building (BuildingExtensionPrefab.cs:37-47 vs
-            // BuildingPrefab.cs:43), may carry ServiceConsumption (ServiceConsumption.cs:7-11), and its consumers
-            // land on the owner the same way. Hook() reads only Owner, PrefabRef and Deleted from the upgrade.
+            // The ServiceUpgradeSystem query shape (ServiceUpgradeSystem.cs:61-73), narrowed to upgrades with an Owner: those whose
+            // components land on (or leave) their owner this frame. Object, not Building: a BuildingExtensionPrefab upgrade carries
+            // Extension and no Building (BuildingExtensionPrefab.cs:37-47 vs BuildingPrefab.cs:43) but may carry ServiceConsumption
+            // (ServiceConsumption.cs:7-11). Hook() reads only Owner, PrefabRef and Deleted from the upgrade.
             m_UpgradeEvents = GetEntityQuery(new EntityQueryDesc
             {
                 All = new[]
@@ -180,11 +135,9 @@ namespace SkiResortMod.Systems
             m_FlowConnectionLookup = GetBufferLookup<ConnectedFlowEdge>(isReadOnly: true);
             m_ElectricityEdgeLookup = GetComponentLookup<ElectricityFlowEdge>(isReadOnly: true);
             m_WaterEdgeLookup = GetComponentLookup<WaterPipeEdge>(isReadOnly: true);
-            // OnUpdate runs only on frames with an upgrade event (the ServiceUpgradeSystem pattern,
-            // ServiceUpgradeSystem.cs:84): no code of ours runs on an idle frame.
+            // OnUpdate runs only on frames with an upgrade event (ServiceUpgradeSystem.cs:84)
             RequireForUpdate(m_UpgradeEvents);
-            // Inert until a Game-mode load arms it; OnGameLoadingComplete is a GameManager event and fires while
-            // disabled (Game/GameSystemBase.cs:60-70; the CursorAimSystem precedent).
+            // Inert until a Game-mode load arms it; OnGameLoadingComplete fires while disabled (Game/GameSystemBase.cs:60-70)
             Enabled = false;
 
             Mod.Log.Info($"{nameof(SkiSignUtilityHookSystem)} created (Modification5, before the road power and water " +
@@ -255,7 +208,7 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>One upgrade event: resolve its owner sign and queue the sign's road edge (header THE HOOK).</summary>
+        /// <summary>One upgrade event: resolve its owner sign and queue the sign's road edge.</summary>
         private void Hook(Entity upgrade)
         {
             Owner owner = EntityManager.GetComponentData<Owner>(upgrade);
@@ -310,11 +263,8 @@ namespace SkiResortMod.Systems
                          $"{(hasPower ? "yes" : "no")}, water {(hasWater ? "yes" : "no")})");
         }
 
-        // ── DUMP (A3) ──────────────────────────────────────────────────────────────────────────────────
-
-        /// <summary>The hub DUMP's sign-utility lines (contract F7 A3, D7): per Welcome Sign the road edge, both
-        /// consumers and whether the road's link to the supply sink exists. Main thread, event time only.
-        /// Appends only; never throws.</summary>
+        /// <summary>The hub DUMP's sign-utility lines: per Welcome Sign the road edge, both consumers and whether the road's link
+        /// to the supply sink exists. Main thread, event time only. Appends only; never throws.</summary>
         public void AppendDump(StringBuilder sb)
         {
             try
@@ -329,8 +279,7 @@ namespace SkiResortMod.Systems
                     return;
                 }
 
-                // Complete the writers of the flow graph components once (the flow systems' apply jobs and the
-                // graph jobs), then read them through lookups on the main thread.
+                // Complete the writers of the flow graph components once, then read them through lookups on the main thread
                 EntityManager.CompleteDependencyBeforeRO<ConnectedFlowEdge>();
                 EntityManager.CompleteDependencyBeforeRO<ElectricityFlowEdge>();
                 EntityManager.CompleteDependencyBeforeRO<WaterPipeEdge>();
@@ -441,10 +390,7 @@ namespace SkiResortMod.Systems
                 sb.Append("MISSING");
         }
 
-        // ── prefab resolution ──────────────────────────────────────────────────────────────────────────
-
-        /// <summary>House pattern (SkiRunOwnershipSystem.ResolveSet): fast PrefabID path + name-scan fallback;
-        /// a missing prefab is tolerated (pre-import states must not throw).</summary>
+        /// <summary>Fast PrefabID path with a name-scan fallback (as SkiRunOwnershipSystem.ResolveSet); a missing prefab is tolerated.</summary>
         private void ResolvePrefabs()
         {
             m_SignPrefabs.Clear();

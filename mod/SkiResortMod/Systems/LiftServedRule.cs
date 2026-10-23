@@ -1,81 +1,55 @@
-// LiftServedRule — THE lift-served rule and THE power predicate of Round E1 (decisions D5, D6;
-// docs/research/econ-round/spec/ch2-runs.md §3.1-§3.3; e1-spec R1, R2). The rule is
-// lifts-in-economy.md §5.2 R2 as corrected by its Verification V.1 #9 (the census keeps edge -> row
-// only, so the line is a set of CHORDS, not an ordered polyline) and #16 (a complete row may carry a
-// spur). Consumers: SkiResortAttractivenessSystem (served runs, lift value), SkiResortStatsSystem
-// (servedBy, runsServed), SkiLiftChargeSystem and SkiLiftTicketSystem (IsPowered), via
-// LiftCensusSystem.CopyServeLifts / ReadLiftPower; tests/LiftBatch and tests/ResortBatch link it.
+// The lift-served rule and the power predicate. Consumers: SkiResortAttractivenessSystem (served runs, lift value),
+// SkiResortStatsSystem (servedBy, runsServed), SkiLiftChargeSystem and SkiLiftTicketSystem (IsPowered), via
+// LiftCensusSystem.CopyServeLifts / ReadLiftPower; tests/LiftBatch and tests/ResortBatch link it. The census keeps
+// edge -> row only, so a line is a set of chords, not an ordered polyline; a complete row may carry a spur.
 //
-// THE RULE. A run is served by lift L when all of these hold:
-//   1. L's census row is Complete (Open / Unfinished / StationsOnly serve nothing: a section being
-//      redrawn drops service until the line closes — D6 accepts this);
-//   2. IsPowered(L.Power): not NoPower — NoPower while the game's electricity warning shows and under
-//      half of the wanted power arrives (back at three quarters; Round S1 F2, POWER below);
-//   3. the run's top T (RunFacts.TopNode, the highest outline node) satisfies
-//      T.y <= TopY(L) + TopMarginM, TopY = the top station's stub-tip y;
-//   4. the xz distance from T to the nearest chord of L (each SkiChairliftHV line edge,
-//      Edge.StartPos.xz -> Edge.EndPos.xz) is <= ServeRadiusM.
-//   Both bounds are INCLUSIVE. A run's serving lift is the one with the smallest distance; an exact
-//   tie goes to the lower EntityRef (Index, then Version). Applies to all four run kinds.
-//   CHORDS, NOT CURVES: a curved section is measured along its straight chord (curved sections: the
-//   error is UNVERIFIED; field step 6 puts a run top 140-160 m from a curve).
+// A run is served by lift L when:
+//   1. L's census row is Complete (Open / Unfinished / StationsOnly serve nothing: a section being redrawn drops
+//      service until the line closes);
+//   2. IsPowered(L.Power): not NoPower;
+//   3. the run's top T (RunFacts.TopNode, the highest outline node) satisfies T.y <= TopY(L) + TopMarginM, TopY = the top
+//      station's stub-tip y;
+//   4. the xz distance from T to the nearest chord of L (each SkiChairliftHV line edge, Edge.StartPos.xz -> Edge.EndPos.xz)
+//      is <= ServeRadiusM.
+// Both bounds are inclusive. The serving lift is the nearest; an exact tie goes to the lower EntityRef (Index, then
+// Version). Applies to all four run kinds. A curved section is measured along its straight chord (error unverified).
+// A run is also served when linked to a served run (outline nodes within LinkMeters, or overlapping outlines, same ski
+// area; transitive): AssignLinked, RunLinks. Rules 1-4 decide direct service.
 //
-// POWER (R1). PowerOf maps ElectricityConsumer.m_Flags (Game.Buildings/ElectricityConsumerFlags.cs:5-12)
-// to NoPower exactly when the game draws its electricity icon (NoElectricityWarning or
-// BottleneckWarning, DispatchElectricitySystem.cs:126-158). IsPowered is the ONLY "powered" predicate
-// in the mod (service, lift value, billing; the ticket gate no longer reads it since Round M2 T1); PowerGatesService = false turns power into
-// status only everywhere (one switch). Round S1 F2 (ski-days spec ch1 §5; s1-spec N7): the census reads
-// the 4-argument PowerOf — NoPower only while the warning shows AND under half of the wanted power
-// arrives, back at three quarters or when the warning clears (hysteresis); the game warns at any
-// shortfall after two short dispatches (:126-142), and a 9 % city shortfall switched FT8's lifts off.
-//
-// PURE FILE: `using System;`, `using System.Collections.Generic;`, `using Unity.Mathematics;` and
-// EntityRef only (the test-host rule), + SkiCatalog consts (Catalog Phase A, 2026-10-11: ServeRadiusM and
-// TopMarginM alias SkiCatalog.FixedGrip, compile-time literals; SkiCatalog.cs is linked wherever this file is —
-// tests/LiftBatch, tests/ResortBatch). No state; Assign is allocation-free once its lists have grown.
-//
-// ROUND T06 (2026-10-16, docs/research/field/2026-10-15/build/T06-served-links.md): a run is ALSO served when it is linked
-// to a served run (outline nodes within LinkMeters, or overlapping outlines, same ski area; transitive): AssignLinked, RunLinks.
-// Rules 1-4 above are unchanged; they decide whether a run is served by a lift DIRECTLY. Connected-served factor = served (1.0).
-//
-// Created 2026-10-04 (Round E1 stage 0, S0: ch2 §3.2 as edited, verbatim); owned by stream S2.
-//
-// CATALOG PHASE B (2026-10-11, docs/research/art/assets-2026-10/code-round-2/round-2-contract.md §6.3, lift group) — the
-// rule per lift TYPE. Lift gains Rule (ServeRuleKind as a byte), RadiusM, TopMarginM and TopXZ (the top station's HV
-// stub tip xz, NaN when the top is not in the last build), filled by LiftCensusSystem.CopyServeLifts from the row's
-// SkiCatalog.Lifts entry:
-//   * AlongLine (fixed-grip, detachable, gondola: radius 150, margin 15): rules 3-4 above with the row's numbers;
+// Per lift type, Lift carries Rule (ServeRuleKind as a byte), RadiusM, TopMarginM and TopXZ (the top station's HV stub tip
+// xz, NaN when the top is not in the last build), filled by LiftCensusSystem.CopyServeLifts from the SkiCatalog.Lifts entry:
+//   * AlongLine (fixed-grip, detachable, gondola: radius 150, margin 15): rules 3-4 with the row's numbers;
 //   * TerminalsOnly (tram: radius 300, margin 15): the run top within RadiusM (xz, inclusive) of TopXZ and
-//     T.y ≤ TopY + TopMarginM — a tram serves the slopes at its top station, not along its span; distanceM = the xz
-//     distance to TopXZ.
-// STRUCT-DEFAULT COMPATIBILITY (deviation from the contract's "radius 0 serves nothing"): a Lift built without the new
-// fields (every Phase A constructor, tests/LiftBatch rows 1-26) reads RadiusM ≤ 0 as SkiCatalog.FixedGrip.ServeRadiusM
-// and TopMarginM ≤ 0 as FixedGrip.TopMarginM, so the old oracles keep their meaning. A Mixed or untyped census row serves
-// nothing because it is never Complete (LiftCensus: a mixed component is Unfinished), not through its radius.
-// SummitServed (seam S2, R11 / D11): a lodge is summit-served when its xz lies within radiusM (inclusive) of TopXZ of a
-// lift that Serves (complete, powered, chords > 0, TopY finite) — the caller passes the lifts of the lodge's ski area.
+//     T.y <= TopY + TopMarginM; distanceM is the xz distance to TopXZ.
+// A Lift built without the new fields reads RadiusM <= 0 as SkiCatalog.FixedGrip.ServeRadiusM and TopMarginM <= 0 as
+// FixedGrip.TopMarginM, so older oracles keep their meaning. A mixed or untyped census row serves nothing because it is
+// never Complete. SummitServed: a lodge is summit-served when its xz lies within radiusM (inclusive) of the TopXZ of a lift
+// that Serves; the caller passes the lifts of the lodge's ski area.
 //
-// PHASE D (2026-10-11, docs/research/art/assets-2026-10/code-round-4/round-4-contract.md §1.2-§1.3, D1-D3, with
-// round-4-contract-skeptic.md MUST-4 and S-7; rules group). Richard's re-ruling, DECISIONS 171: an unpowered lift of every
-// type carries no guests, does nothing for the resort and its carriers stop; a lift is powered from its BASE station only
-// (the top is fed through the modeled lift power line and is never read). Additive: nothing above changes.
-//   * Carries(complete, power, closed) — THE run predicate: complete AND IsPowered(power) AND NOT closed. The new call
-//     sites use it (ChairPin's hold gate through LiftLoopHold.GateOf, the hub's capacity through HubRules.LiftCapacityShown,
-//     the tram's Held gate). The older equivalent expressions (Lift.Serves' power factor above, SkiMoneyRules.LiftOperating,
-//     the score's Complete && Powered) stay as written; tests pin the equivalence over every input (LiftBatch PG-1,
-//     ResortBatch HK-3). The bool overload takes the hub's shown power (Power != NoPower). "closed" is wired false at
-//     every call site this round: the pre-beta "chairs stop when closed" item computes it later and passes it here.
-//   * GuardPower — the flicker guard, applied by the census's one power reader (LiftCensusSystem.ReadLiftPower) to
-//     PowerOf's result: NoPower at once (the game already waits two short dispatches before its warning,
-//     DispatchElectricitySystem.cs:126-142, kAlertCooldown); Powered again only after PowerBackHoldFrames (512) sim frames
-//     of raw Powered reads (SimulationSystem.frameIndex, SimulationSystem.cs:68; a dispatch every 128 frames at offset 126,
-//     DispatchElectricitySystem.cs:222-230). A station whose effective power was never NoPower is passed through
-//     untouched (lastEffective != NoPower → raw). IDENTITY holds per consumer-state PATH, not per lift (skeptic MUST-4):
-//     a reader polling every 64 frames can see a one-dispatch (128-frame) "warning and under half" window that today's
-//     256-frame pollers may miss; that lift then reads NoPower for at least 512 frames (LiftBatch PG-2 h). "Powered" for the
-//     identity claim = the base never shows the warning with under half of its wanted power arriving.
-//   * ExpireStreak (skeptic S-7, for the caller that tracks its last read frame per station): a Powered streak whose
-//     station went unread for more than PowerStreakStaleFrames is dropped, so a lift redrawn mid-streak waits a fresh 512.
+// Power: PowerOf maps ElectricityConsumer.m_Flags (ElectricityConsumerFlags.cs:5-12) to NoPower exactly when the game draws
+// its electricity icon (NoElectricityWarning or BottleneckWarning, DispatchElectricitySystem.cs:126-158). IsPowered is the
+// only "powered" predicate in the mod; PowerGatesService = false turns power into status only everywhere. The census reads
+// the 4-argument PowerOf: NoPower only while the warning shows and under half of the wanted power arrives, back at three
+// quarters or when the warning clears (hysteresis); the game warns at any shortfall after two short dispatches (:126-142).
+// An unpowered lift of every type carries no guests, does nothing for the resort and its carriers stop; a lift is powered
+// from its base station only (the top is never read).
+//   * Carries(complete, power, closed) is the run predicate: complete and IsPowered(power) and not closed. Call sites:
+//     ChairPin's hold gate (LiftLoopHold.GateOf), the hub's capacity (HubRules.LiftCapacityShown), the tram's Held gate.
+//     Older equivalent expressions (Lift.Serves' power factor, SkiMoneyRules.LiftOperating, the score's Complete && Powered)
+//     stay as written; tests pin the equivalence (LiftBatch PG-1, ResortBatch HK-3). The bool overload takes the hub's
+//     shown power (Power != NoPower).
+//   * GuardPower is the flicker guard, applied by the census's one power reader (LiftCensusSystem.ReadLiftPower) to
+//     PowerOf's result: NoPower at once, Powered again only after PowerBackHoldFrames (512) sim frames of raw Powered reads
+//     (SimulationSystem.frameIndex, SimulationSystem.cs:68; a dispatch every 128 frames at offset 126,
+//     DispatchElectricitySystem.cs:222-230). A station whose effective power was never NoPower passes through untouched.
+//     A reader polling every 64 frames can see a one-dispatch (128-frame) "warning and under half" window that 256-frame
+//     pollers may miss; that lift then reads NoPower for at least 512 frames (LiftBatch PG-2 h).
+//   * ExpireStreak, for a caller that tracks its last read frame per station: a Powered streak whose station went unread
+//     for more than PowerStreakStaleFrames is dropped, so a lift redrawn mid-streak waits a fresh 512.
+//
+// Pure file: `using System;`, `System.Collections.Generic`, `Unity.Mathematics` and EntityRef only (the test-host rule), plus
+// SkiCatalog consts (ServeRadiusM and TopMarginM alias SkiCatalog.FixedGrip, compile-time literals; SkiCatalog.cs is linked
+// wherever this file is). No state; Assign is allocation-free once its lists have grown.
 
 using System;
 using System.Collections.Generic;
@@ -83,8 +57,7 @@ using Unity.Mathematics;
 
 namespace SkiResortMod.Systems
 {
-    /// <summary>A lift's power from its base station's ElectricityConsumer (§3.3; Round S1 F2: the 4-argument
-    /// PowerOf).</summary>
+    /// <summary>A lift's power from its base station's ElectricityConsumer (the 4-argument PowerOf).</summary>
     public enum LiftPower : byte
     {
         Unknown = 0,   // no base station in the build, not complete, or no ElectricityConsumer: treated as powered
@@ -94,13 +67,12 @@ namespace SkiResortMod.Systems
 
     public static class LiftServedRule
     {
-        // Catalog Phase A (ext row 12; was LiftServedRule.cs:54-55 = 150f / 15f): the lift type's numbers (D5), one
-        // source in SkiCatalog.FixedGrip; tests/ResortBatch CatalogGuardTests CG-1 pins alias == row == const.
+        // The lift type's numbers, one source in SkiCatalog.FixedGrip; tests/ResortBatch CatalogGuardTests CG-1 pins alias == row == const
         public const float ServeRadiusM = SkiCatalog.FixedGrip.ServeRadiusM;
         public const float TopMarginM = SkiCatalog.FixedGrip.TopMarginM;
 
-        /// <summary>One-value reversal to "power is status only" (§3.3): false = a NoPower lift still
-        /// serves. static readonly, not const, so the compiler folds nothing and warns about nothing.</summary>
+        /// <summary>One-value reversal to "power is status only": false = a NoPower lift still serves. static readonly, not
+        /// const, so the compiler folds nothing and warns about nothing.</summary>
         public static readonly bool PowerGatesService = true;
 
         /// <summary>= Game.Buildings.ElectricityConsumerFlags (ElectricityConsumerFlags.cs:5-12).</summary>
@@ -120,7 +92,7 @@ namespace SkiResortMod.Systems
             public float TopY;            // top station stub-tip y; NaN when the top station is not in the last build
             public int FirstChord;        // slice of the chord list
             public int ChordCount;
-            // Catalog Phase B (round-2-contract §6.3; header CATALOG PHASE B): the row's lift type's rule.
+            // The row's lift type's rule
             public byte Rule;             // (byte)ServeRuleKind: 0 AlongLine (default), 1 TerminalsOnly
             public float RadiusM;         // ≤ 0 (struct default) = SkiCatalog.FixedGrip.ServeRadiusM
             public float TopMarginM;      // ≤ 0 (struct default) = SkiCatalog.FixedGrip.TopMarginM
@@ -144,19 +116,16 @@ namespace SkiResortMod.Systems
                 : LiftPower.Powered;
         }
 
-        /// <summary>F2 (ski-days spec ch1 §5): 2 × fulfilled &lt; wanted → under half (NoPower); a NoPower lift
-        /// is back at 4 × fulfilled ≥ 3 × wanted (hysteresis, refutation R-4).</summary>
+        /// <summary>2 × fulfilled &lt; wanted → under half (NoPower); a NoPower lift is back at 4 × fulfilled ≥ 3 × wanted (hysteresis).</summary>
         public const int HalfPowerDivisor = 2, BackPowerNumerator = 3, BackPowerDenominator = 4;
 
-        /// <summary>F2 (ski-days spec ch1 §5; s1-spec §2.3, N7): NoPower only when the game shows its electricity
-        /// warning AND under half of the wanted power arrives (2 × fulfilled &lt; wanted); a NoPower lift comes back
-        /// when the warning clears or at least three quarters arrive (4 × fulfilled ≥ 3 × wanted). Exact in long;
-        /// wanted ≤ 0 → Powered. Before electricity unlocks the game sets no warning (DispatchElectricitySystem.cs:61,
-        /// :106-109) and fulfilled may be 0, so the warning test comes first (ch1 §11 DV-2). Fields
-        /// ElectricityConsumer.m_WantedConsumption / m_FulfilledConsumption (ElectricityConsumer.cs:8-10 (=));
-        /// fulfilled = min(flow share × wanted, wanted) (DispatchElectricitySystem.cs:105 (=)). The caller passes
-        /// the station's last value (Unknown on the first read). The 1-argument overload stays (tests/LiftBatch
-        /// rows 23-24).</summary>
+        /// <summary>NoPower only when the game shows its electricity warning and under half of the wanted power arrives
+        /// (2 × fulfilled &lt; wanted); a NoPower lift comes back when the warning clears or at least three quarters arrive
+        /// (4 × fulfilled ≥ 3 × wanted). Exact in long; wanted ≤ 0 → Powered. Before electricity unlocks the game sets no warning
+        /// (DispatchElectricitySystem.cs:61, :106-109) and fulfilled may be 0, so the warning test comes first. Fields
+        /// ElectricityConsumer.m_WantedConsumption / m_FulfilledConsumption (ElectricityConsumer.cs:8-10); fulfilled = min(flow
+        /// share × wanted, wanted) (DispatchElectricitySystem.cs:105). The caller passes the station's last value (Unknown on the
+        /// first read). The 1-argument overload stays for tests/LiftBatch.</summary>
         public static LiftPower PowerOf(byte consumerFlags, int wantedConsumption, int fulfilledConsumption, LiftPower last)
         {
             if ((consumerFlags & (FlagNoElectricityWarning | FlagBottleneckWarning)) == 0)
@@ -169,40 +138,34 @@ namespace SkiResortMod.Systems
             return (long)fulfilledConsumption * HalfPowerDivisor >= wantedConsumption ? LiftPower.Powered : LiftPower.NoPower;
         }
 
-        /// <summary>E1 master contract R1: THE "powered" predicate for service (D6), lift value (D6),
-        /// lift billing (D23) and the lift charge's operating count (the ticket gate no longer reads lifts since Round M2 T1). Unknown counts as powered.
-        /// With PowerGatesService false, power is status only everywhere (one switch).</summary>
+        /// <summary>The "powered" predicate for service, lift value, lift billing and the lift charge's operating count. Unknown
+        /// counts as powered. With PowerGatesService false, power is status only everywhere (one switch).</summary>
         public static bool IsPowered(LiftPower power)
         {
             return !PowerGatesService || power != LiftPower.NoPower;
         }
 
-        // ── Phase D (round-4-contract §1.3, D1, D3; header PHASE D): the flicker guard and THE run predicate ──────────
-
-        /// <summary>Phase D (round-4-contract §1.3, D3): sim frames of raw Powered reads before a NoPower lift counts as
-        /// powered again — 4 dispatch periods (DispatchElectricitySystem.cs:222-230: every 128 frames, offset 126), 8.5 s at
-        /// 1× (60 sim frames a second, SimulationSystem.cs:238), about 2.8 game minutes (262,144 frames a day,
-        /// TimeSystem.cs:18). Absorbs the R15 brownout pattern (the warning on for 128 of every 384 frames,
-        /// DispatchElectricitySystem.cs:126-142). Richard's default, DECISIONS 171: 512.</summary>
+        /// <summary>Sim frames of raw Powered reads before a NoPower lift counts as powered again: 4 dispatch periods
+        /// (DispatchElectricitySystem.cs:222-230: every 128 frames, offset 126), 8.5 s at 1× (60 sim frames a second,
+        /// SimulationSystem.cs:238), about 2.8 game minutes (262,144 frames a day, TimeSystem.cs:18). Absorbs the brownout pattern
+        /// (the warning on for 128 of every 384 frames, DispatchElectricitySystem.cs:126-142).</summary>
         public const uint PowerBackHoldFrames = 512u;
 
-        /// <summary>Phase D: no Powered streak in progress (GuardPower's backSince). A streak that starts on frame
-        /// 2³² − 1 itself (about 2.3 years of play at 60 frames a second) restarts at the next read: one read of delay
-        /// (risk R-12).</summary>
+        /// <summary>No Powered streak in progress (GuardPower's backSince). A streak that starts on frame 2³² − 1 itself (about
+        /// 2.3 years of play at 60 frames a second) restarts at the next read: one read of delay.</summary>
         public const uint NoBackSince = uint.MaxValue;
 
-        /// <summary>Phase D (skeptic S-7): a streak whose station was not read for more than this many sim frames is stale
-        /// (2 × PowerBackHoldFrames = 1,024). Every Complete row is read at least every 256 frames (the attraction's and
-        /// the charge's power polls), so a gap this long means the row was not Complete, or not read, meanwhile.</summary>
+        /// <summary>A streak whose station was not read for more than this many sim frames is stale (2 × PowerBackHoldFrames =
+        /// 1,024). Every Complete row is read at least every 256 frames (the attraction's and the charge's power polls), so a gap
+        /// this long means the row was not Complete, or not read, meanwhile.</summary>
         public const uint PowerStreakStaleFrames = 2u * PowerBackHoldFrames;
 
-        /// <summary>Phase D (round-4-contract §1.3): the effective power after one read. raw = PowerOf(4 arguments) of this
-        /// read, computed with the station's last EFFECTIVE value; lastEffective = that value. NoPower → Powered waits until
-        /// raw has read Powered for PowerBackHoldFrames (backSince = the first frame of the current Powered streak; elapsed
-        /// by unchecked uint subtraction, so the frame counter may wrap). Every other transition is immediate. raw NoPower
-        /// ends a streak (recut = true when one was running); raw Unknown passes through and clears the streak. A station
-        /// whose lastEffective is Powered or Unknown gets raw back unchanged (the powered-lift identity, §6). Allocation-free,
-        /// Burst-safe, no state of its own (the caller keeps backSince per station).</summary>
+        /// <summary>The effective power after one read. raw = PowerOf(4 arguments) of this read, computed with the station's last
+        /// effective value; lastEffective = that value. NoPower → Powered waits until raw has read Powered for PowerBackHoldFrames
+        /// (backSince = the first frame of the current Powered streak; elapsed by unchecked uint subtraction, so the frame counter
+        /// may wrap). Every other transition is immediate. raw NoPower ends a streak (recut = true when one was running); raw
+        /// Unknown passes through and clears the streak. A station whose lastEffective is Powered or Unknown gets raw back unchanged.
+        /// Allocation-free, Burst-safe, no state of its own (the caller keeps backSince per station).</summary>
         public static LiftPower GuardPower(LiftPower raw, LiftPower lastEffective, ref uint backSince, uint nowFrame, out bool recut)
         {
             recut = false;
@@ -227,26 +190,25 @@ namespace SkiResortMod.Systems
             return LiftPower.NoPower;
         }
 
-        /// <summary>Phase D (skeptic S-7): backSince, or NoBackSince when the station was last read more than
-        /// PowerStreakStaleFrames before <paramref name="nowFrame"/> (unchecked uint subtraction). Call it before GuardPower
-        /// with the station's previous read frame; a caller that does not track read frames skips it (fail open: a streak
-        /// that started before a section redraw may then count across the gap).</summary>
+        /// <summary>backSince, or NoBackSince when the station was last read more than PowerStreakStaleFrames before
+        /// <paramref name="nowFrame"/> (unchecked uint subtraction). Call it before GuardPower with the station's previous read
+        /// frame; a caller that does not track read frames skips it (fail open: a streak that started before a section redraw may
+        /// then count across the gap).</summary>
         public static uint ExpireStreak(uint backSince, uint lastReadFrame, uint nowFrame)
         {
             return backSince != NoBackSince && unchecked(nowFrame - lastReadFrame) > PowerStreakStaleFrames ? NoBackSince : backSince;
         }
 
-        /// <summary>Phase D (round-4-contract D1): THE run predicate — a lift carries guests (counts, moves, has capacity)
-        /// when it is complete, powered (IsPowered: Unknown counts, PowerGatesService false ignores power) and not closed.
-        /// = SkiMoneyRules.LiftOperating(complete, IsPowered(power)) &amp;&amp; !closed (ResortBatch HK-3), and Lift.Serves' power
-        /// factor (LiftBatch PG-1).</summary>
+        /// <summary>The run predicate: a lift carries guests (counts, moves, has capacity) when it is complete, powered (IsPowered:
+        /// Unknown counts, PowerGatesService false ignores power) and not closed. = SkiMoneyRules.LiftOperating(complete,
+        /// IsPowered(power)) &amp;&amp; !closed (ResortBatch HK-3), and Lift.Serves' power factor (LiftBatch PG-1).</summary>
         public static bool Carries(bool complete, LiftPower power, bool closed)
         {
             return complete && IsPowered(power) && !closed;
         }
 
-        /// <summary>Phase D: Carries for a caller that holds the status's bool (the hub: shownPowered = Power != NoPower,
-        /// SkiResortAttractivenessSystem's LiftScoreView.Powered or the hub's own CopyServeLifts read).</summary>
+        /// <summary>Carries for a caller that holds the status's bool (the hub: shownPowered = Power != NoPower, the attraction's
+        /// LiftScoreView.Powered or the hub's own CopyServeLifts read).</summary>
         public static bool Carries(bool complete, bool shownPowered, bool closed)
         {
             return complete && (!PowerGatesService || shownPowered) && !closed;
@@ -267,15 +229,14 @@ namespace SkiResortMod.Systems
         public static bool Reaches(float3 runTop, in Lift lift, List<Chord> chords, out float distanceM)
         {
             distanceM = float.PositiveInfinity;
-            // Catalog Phase B (round-2-contract §6.3; was `runTop.y > lift.TopY + TopMarginM` and `ServeRadiusM`, the
-            // fixed-grip consts, LiftServedRule.cs:127 / :137): the row's own margin and radius.
+            // The row's own margin and radius (the fixed-grip consts only for a struct-default Lift)
             float radius = lift.EffectiveRadiusM;
             if (!lift.Serves || !math.all(math.isfinite(runTop)) || runTop.y > lift.TopY + lift.EffectiveTopMarginM)
                 return false;
             float2 p = runTop.xz;
             if (lift.Rule == (byte)ServeRuleKind.TerminalsOnly)
             {
-                // Catalog Phase B: a tram serves the run tops around its top station only (inclusive radius).
+                // A tram serves the run tops around its top station only (inclusive radius)
                 if (!math.all(math.isfinite(lift.TopXZ)))
                     return false;
                 float t2 = math.lengthsq(p - lift.TopXZ);
@@ -298,11 +259,11 @@ namespace SkiResortMod.Systems
             return true;
         }
 
-        /// <summary>Catalog Phase B seam S2 (round-2-contract §6.3, R11 / D11): a lodge at <paramref name="lodgeXz"/> is
-        /// summit-served when any lift of <paramref name="lifts"/> Serves (complete, powered, chords &gt; 0, TopY finite)
-        /// and its TopXZ lies within <paramref name="radiusM"/> (inclusive) of the lodge. The caller passes the lifts of
-        /// the lodge's ski area (SkiCatalog.Ladder.SummitServedRadiusM = 300). A non-finite lodge position, an empty or
-        /// null list, a NaN TopXZ (top not in the build) or a radius that is not &gt;= 0 → false. Allocation-free.</summary>
+        /// <summary>A lodge at <paramref name="lodgeXz"/> is summit-served when any lift of <paramref name="lifts"/> Serves
+        /// (complete, powered, chords &gt; 0, TopY finite) and its TopXZ lies within <paramref name="radiusM"/> (inclusive) of the
+        /// lodge. The caller passes the lifts of the lodge's ski area (SkiCatalog.Ladder.SummitServedRadiusM = 300). A non-finite
+        /// lodge position, an empty or null list, a NaN TopXZ (top not in the build) or a radius that is not &gt;= 0 → false.
+        /// Allocation-free.</summary>
         public static bool SummitServed(float2 lodgeXz, List<Lift> lifts, float radiusM)
         {
             if (lifts == null || !math.all(math.isfinite(lodgeXz)) || !(radiusM >= 0f))
@@ -368,16 +329,13 @@ namespace SkiResortMod.Systems
             }
         }
 
-        // ── Round T06 (2026-10-16, docs/research/field/2026-10-15/build/T06-served-links.md): runs that connect to a served run ──
-
-        /// <summary>T06: two runs of the SAME ski area are linked when any outline node of one lies within this many meters
-        /// (xz, inclusive) of any outline node of the other, or their outlines overlap (an edge crossing, or a node inside the
-        /// other's ring). 25 m: a connector is drawn from a node placed on or beside the run it leaves, so the nodes of the
-        /// two outlines meet within a brush width or two; 26 m apart is not linked (ServedLinkTests). Richard's design intent:
-        /// "we should be able to connect runs" (Items 76 / 80). One const, no setting.</summary>
+        /// <summary>Two runs of the same ski area are linked when any outline node of one lies within this many meters (xz,
+        /// inclusive) of any outline node of the other, or their outlines overlap (an edge crossing, or a node inside the other's
+        /// ring). 25 m: a connector is drawn from a node placed on or beside the run it leaves, so the nodes of the two outlines
+        /// meet within a brush width or two; 26 m apart is not linked (ServedLinkTests). One const, no setting.</summary>
         public const float LinkMeters = 25f;
 
-        /// <summary>T06: the run-to-run link graph of one recompute. Build(outlines, areas) fills a CSR adjacency; it is
+        /// <summary>The run-to-run link graph of one recompute. Build(outlines, areas) fills a CSR adjacency; it is
         /// SELF-VALIDATING: when the per-run outline arrays are the very same objects as at the last Build (the catalog keeps
         /// one float2[] per run until its outline moves) and the area ids are equal, the graph is kept and no pair is tested,
         /// so the O(n^2 x nodes) pass runs only after an outline, a binding or the run set changed, not on every soft
@@ -516,7 +474,7 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>T06: are two outlines linked? Any node of a within LinkMeters (xz, inclusive) of any node of b, or an
+        /// <summary>Are two outlines linked? Any node of a within LinkMeters (xz, inclusive) of any node of b, or an
         /// edge of a crosses an edge of b, or a node of a lies inside b's ring (or the reverse). Rings are implicitly closed
         /// (the last node connects to the first, as the catalog's RingMetrics reads them). Null or empty gives false.</summary>
         public static bool OutlinesLinked(float2[] a, float2[] b)
@@ -571,7 +529,7 @@ namespace SkiResortMod.Systems
             return inside;
         }
 
-        /// <summary>T06: THE served rule with run-to-run links; the attraction path and the stats path both call it, so the
+        /// <summary>The served rule with run-to-run links; the attraction path and the stats path both call it, so the
         /// two cannot disagree. Runs <c>Assign</c> first (servingLift / servingDistanceM / servedCount keep their meaning: the
         /// DIRECT test of each run's top against the lifts; a lift's runs-served count stays direct only), then a
         /// breadth-first pass over <paramref name="links"/> (Build it first; a graph of another size is ignored, i.e. no
@@ -580,7 +538,7 @@ namespace SkiResortMod.Systems
         /// served run (servedRoot[i] = that directly served run, the nearest by link count, ties to the lower run index;
         /// servedVia[i] = the run it was reached through, one link nearer the root). Unserved: both -1. Output lists are
         /// cleared and filled; allocation-free once grown.
-        /// T54 probe 1 (cat-track-run.md §1, D2): <paramref name="leafRuns"/> (null = none, the old behavior) marks LEAF runs
+        /// <paramref name="leafRuns"/> (null = none) marks LEAF runs
         /// by index. A leaf may be served (directly by a lift, or through a link from a served neighbor) but is never
         /// expanded by the pass: it never passes service on, so a cat track that crosses a black run does not "serve" it.
         /// A list shorter than the run count reads false for the missing indices.</summary>
@@ -613,7 +571,7 @@ namespace SkiResortMod.Systems
             {
                 int r = queue[head];
                 if (leafRuns != null && r < leafRuns.Count && leafRuns[r])
-                    continue;   // T54 probe 1: a leaf is served at most; it never serves its neighbors
+                    continue;   // a leaf is served at most; it never serves its neighbors
                 links.NeighboursOf(r, out int first, out int count);
                 for (int k = 0; k < count; k++)
                 {
@@ -628,7 +586,7 @@ namespace SkiResortMod.Systems
         }
     }
 
-    /// <summary>One ski area's "closed" state with its hysteresis (T13). A plain value the caller keeps per area.</summary>
+    /// <summary>One ski area's "closed" state with its hysteresis. A plain value the caller keeps per area.</summary>
     public struct AreaClosedState
     {
         public bool Known;          // the area has been observed (settled) at least once
@@ -637,16 +595,14 @@ namespace SkiResortMod.Systems
         public uint PendingSince;   // the sim frame of the first observation of the differing state
     }
 
-    /// <summary>T13 (docs/research/field/2026-10-15/build/T13-closed-gate.md; Tickets T13, report item 78): THE "closed"
-    /// signal of a lift — its ski area has no open run, the very state SkiLiftChargeSystem bills "at 25 %: no open run in
-    /// its ski area" (SkiMoneyRules.LiftAreaRunOpen). It feeds LiftServedRule.Carries' closed flag (ChairPinSystem.IsLoopClosed,
-    /// TramShuttleSystem.IsClosed, the [state] lines). A lift with no ski area is never closed.
-    /// HYSTERESIS: the published state flips only when the observed area state has held for HoldFrames sim frames (one game
-    /// hour), so a run that thaws for a minute does not start and stop the chairs. The clock is the sim frame index the
-    /// charge system already reads (SimulationSystem.frameIndex, 262,144 per game day: SkiMoneyRules.TicksPerDay); it is
-    /// observed at each charge snapshot (a pass every 1,024 frames at most), so a flip lands between HoldFrames and
-    /// HoldFrames + 1,024 frames after the area changed (one game hour to one hour and six minutes). The first settled
-    /// observation after a load is taken at once (nothing to debounce). Pure; no allocation.</summary>
+    /// <summary>The "closed" signal of a lift: its ski area has no open run, the state SkiLiftChargeSystem bills "at 25 %: no
+    /// open run in its ski area" (SkiMoneyRules.LiftAreaRunOpen). It feeds LiftServedRule.Carries' closed flag
+    /// (ChairPinSystem.IsLoopClosed, TramShuttleSystem.IsClosed, the [state] lines). A lift with no ski area is never closed.
+    /// Hysteresis: the published state flips only when the observed area state has held for HoldFrames sim frames (one game
+    /// hour), so a run that thaws for a minute does not start and stop the chairs. The clock is the sim frame index the charge
+    /// system already reads (SimulationSystem.frameIndex, 262,144 per game day: SkiMoneyRules.TicksPerDay), observed at each
+    /// charge snapshot (a pass every 1,024 frames at most), so a flip lands between HoldFrames and HoldFrames + 1,024 frames
+    /// after the area changed. The first settled observation after a load is taken at once. Pure; no allocation.</summary>
     public static class LiftClosedRule
     {
         /// <summary>One game hour in sim frames: 262,144 / 24 = 10,922.67, rounded up.</summary>
@@ -689,9 +645,8 @@ namespace SkiResortMod.Systems
             return linked && s.Known && s.Closed;
         }
 
-        /// <summary>Richard's ruling DECISIONS 347 (e), 2026-10-20: "trams can run in summer as sightseeing. This is typical." A
-        /// Shuttle type (the tram) is exempt from the no-open-run hold; Loop types (chairlifts, gondolas) and untyped rows (null)
-        /// keep it.</summary>
+        /// <summary>A Shuttle type (the tram) is exempt from the no-open-run hold, since trams keep running in summer as
+        /// sightseeing; Loop types (chairlifts, gondolas) and untyped rows (null) keep it.</summary>
         public static bool HoldsWhenClosed(LiftTypeDef type)
         {
             return type == null || type.Mover != MoverKind.Shuttle;
@@ -705,17 +660,16 @@ namespace SkiResortMod.Systems
             return areaClosed && HoldsWhenClosed(type);
         }
 
-        /// <summary>The billing's area state. T137 S1 (DECISIONS 358; was `areaRunOpen || !HoldsWhenClosed(type)`: a running tram
-        /// billed full all year): every type now bills NoOpenRun while its area has no open run; the tram's share of it is
+        /// <summary>The billing's area state: every type bills NoOpenRun while its area has no open run; the tram's share of it is
         /// <see cref="NoOpenRunShare"/>. The type argument stays for the callers and the tests.</summary>
         public static bool AreaOpenForBilling(bool areaRunOpen, LiftTypeDef type)
         {
             return areaRunOpen;
         }
 
-        /// <summary>T137 S1: the share of the full rate a lift bills while its area has no open run: a Shuttle type keeps running
-        /// for sightseers (DECISIONS 347 e) and bills SkiMoneyRules.ShuttleNoOpenRunShare (50 %); a Loop type or an untyped row
-        /// stands and bills SkiMoneyRules.LiftReducedShare (25 %).</summary>
+        /// <summary>The share of the full rate a lift bills while its area has no open run: a Shuttle type keeps running for
+        /// sightseers and bills SkiMoneyRules.ShuttleNoOpenRunShare (50 %); a Loop type or an untyped row stands and bills
+        /// SkiMoneyRules.LiftReducedShare (25 %).</summary>
         public static float NoOpenRunShare(LiftTypeDef type)
         {
             return HoldsWhenClosed(type) ? SkiMoneyRules.LiftReducedShare : SkiMoneyRules.ShuttleNoOpenRunShare;

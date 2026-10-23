@@ -1,19 +1,15 @@
-// RatingServiceTests — Round E1 ch2 §2.5: the always-on rating service's pure rules
-// (SkiRunRatingRules.NextBackgroundStart / NextServiceState) and RunKind.Natural (13 checks).
-// Owner: stream S2 (docs/research/econ-round/e1-spec.md §3.2). Created empty by stage 0 (S0, 2026-10-04),
-// filled by S2 (2026-10-04) with ch2 §2.5's text: e1-spec R9 — `public static class RatingServiceTests` with
-// `public static void Run(Func<bool, string, string, bool> check)` and its own Near; Program.Main calls
-// RatingServiceTests.Run(Check). Oracles are literal hand values.
+// Pure rules of the always-on rating service (SkiRunRatingRules.NextBackgroundStart / NextServiceState) and RunKind.Natural.
+// Oracles are literal hand values.
 using System;
 using SkiResortMod.Systems;
 
 namespace ResortBatch
 {
-    public static class RatingServiceTests          // e1-spec R9: public class, public Run
+    public static class RatingServiceTests
     {
         public static void Run(Func<bool, string, string, bool> check)
         {
-            // Constants first: the oracles below are literal for them.
+            // Constants first: the oracles below are literal for them
             check(SkiRunRatingRules.DutyFactorOpen == 8f && SkiRunRatingRules.DutyFactorClosed == 32f &&
                   SkiRunRatingRules.ClosedMinGapS == 0.25f && SkiRunRatingRules.WarmupDeadlineS == 90f,
                   "service constants", "tuning changed: update the oracles");
@@ -25,7 +21,6 @@ namespace ResortBatch
             Near(check, SkiRunRatingRules.NextBackgroundStart(100f, 10.9f, false), 100.3488f, "duty closed 10.9 ms");
             check(SkiRunRatingRules.NextBackgroundStart(100f, 0f, true) == 100f, "duty open 0 ms", "not 100");
 
-            // Service state.
             byte W = SkiRunRatingRules.ServiceWarmingUp, R = SkiRunRatingRules.ServiceReady,
                  F = SkiRunRatingRules.ServiceFailed, O = SkiRunRatingRules.ServiceOff;
             check(SkiRunRatingRules.NextServiceState(W, false, 189.9f, 100f) == W, "state", "89.9 s: must still warm up");
@@ -35,7 +30,7 @@ namespace ResortBatch
             check(SkiRunRatingRules.NextServiceState(F, true, 500f, 0f) == F, "state", "Failed must stay Failed");
             check(SkiRunRatingRules.NextServiceState(O, true, 500f, 0f) == O, "state", "Off must stay Off");
 
-            // RunKind: Natural appended, the others unchanged.
+            // Natural is appended; the existing values must not shift
             check((byte)RunKind.Groomed == 0 && (byte)RunKind.Snowmaking == 1 && (byte)RunKind.Night == 2 &&
                   (byte)RunKind.Natural == 3, "runkind", "RunKind values != 0/1/2/3");
         }

@@ -1,23 +1,8 @@
 /*
- * src/hub/StartCard.tsx - the start card: the panel's content while the city has no live Welcome Sign.
- *
- * Written for this repo (MIT). Created 2026-10-04 (Round E1, stream S6; docs/research/econ-round/
- * spec/ch6-hub-ui.md section 6.12, design hub-v3-design.md 3.7 / 6.11; replaces the contract-2
- * NO_SIGN block of ResortDashboard.tsx, deleted).
- * Contract:
- *   - Shown whenever the city has no live sign, even when unlinked runs or lifts exist (deviation U9:
- *     the player's next step is a sign either way; the header still names the Not linked entry then).
- *   - START A SKI AREA, then FIVE numbered steps (second pass, e1-spec H6: step 2 "Connect the sign:
- *     road, power, water and sewage" names the biggest lever, the sign's efficiency), each a fixed
- *     `.startStep` row (the vanilla InfoRow size); step 1 also holds the "Place Welcome Sign" button
- *     (cs2/ui Button, `.startButton` 1.6 em of S so it fits the row - E1 fixer F16, the U15 rule;
- *     launch("sign"); highlighted while the sign tool is active; a locked sign still
- *     launches - C# refuses and logs it, like the Build strip). While build[sign] is locked, its
- *     reason follows the steps (a state change). Round F7 (D6, findings/hub-ux.md §5 item 5): no
- *     START_NOTE any more - footer line 2 (NEXT2[Sign] = BUILD_HINT_SIGN) says the same sentence.
- *   - The header shows the plain title; the footer's dot sits on the sign tile (hubRules.dotItem
- *     with hasSign false).
- *   - Panel file (gate R11): subscribes build$ (CORE). Content focus (ch6 section 9).
+ * Start card: the panel content while the city has no live Welcome Sign, even when unlinked runs or
+ * lifts exist. Five numbered steps in fixed-height rows; step 1 holds the "Place Welcome Sign" button.
+ * A locked sign still launches (C# refuses and logs it); its lock reason follows the steps.
+ * Panel file: subscribes build$ (CORE).
  */
 import { useValue } from "cs2/api";
 import { Button } from "cs2/ui";

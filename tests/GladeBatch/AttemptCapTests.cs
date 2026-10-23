@@ -1,11 +1,7 @@
-// D5 (code review 2026-10-19, M11; DECISIONS 314 D5): measure the glade planner's worst case on a giant, saturated run and PRINT it.
-// Nothing is asserted about speed and the cap (SkiGladePlanner.MaxAttemptsPerLayer = 2,000,000) is NOT changed here: the ruling is "measure
-// first, then a lower attempt cap (not a time budget: determinism)", so this prints the number the cap decision needs.
-//
-// Why these cases. A layer's attempt budget is min(target * AttemptsPerTree, MaxAttemptsPerLayer). The tool plans with AttemptsPerTree = 60
-// and MaxPlant = int.MaxValue on a full replan (Program.cs: pg.MaxPlant = r.FullReplan && !r.PlanIsSlice ? int.MaxValue : slice), so on a
-// giant run the target is the whole density x area and a SATURATED run (the stand + MinSpacing leave no room for the target) burns the whole
-// budget on the main thread: up to 2,000,000 attempts per layer, glade and belt. The cases:
+// Measures the glade planner's worst case on a giant, saturated run and prints it; nothing is asserted about speed.
+// A layer's attempt budget is min(target * AttemptsPerTree, MaxAttemptsPerLayer). The tool plans with AttemptsPerTree = 60
+// and MaxPlant = int.MaxValue on a full replan (Program.cs), so a saturated giant run (stand + MinSpacing leave no room
+// for the target) burns up to the whole cap per layer on the main thread. Cases:
 //   sat.2000x2000 glade   400 ha, level-8 density 1/8 m2 -> target 50,000 -> budget = the 2,000,000 cap, saturated by MinSpacing 5.5 m
 //   sat.2000x2000 +belt   the same with the belt layer on (two layers: up to 4,000,000 attempts)
 //   field.400x2000        the 80 ha field fixture (run800k) at the 157.3 / ha stream: target ~12,600, budget 755k, not saturated (the common case)

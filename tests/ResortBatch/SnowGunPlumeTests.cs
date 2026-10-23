@@ -1,15 +1,7 @@
-// SnowGunPlumeTests — T46 (2026-10-17; docs/research/snow-gun-plume-2026-10-17.md, build note
-// docs/research/field/2026-10-15/build/T46-snow-gun-plume.md): the pure rules in SnowGunPlumeRules.cs, the ONE predicate the
-// snow injection (raise / bill) and the plume system (vapour) share. `public static class SnowGunPlumeTests` with
-// `public static void Run(Func<bool, string, string, bool> check)`, called from Program.Main like the other files.
-//   GP-1  constants: stop 0.60 m above the 0.35 m guaranteed base and four open bars; band 0.05 m; restart above the
-//         guaranteed base; the at-target tolerance is the merge's half quantum (0.06 mm); lease 1.5 game h; cap 256.
-//   GP-2  the pack measure: ratio clamp, fringe at its own target, deep natural reads "at target", NaN when unmeasured.
-//   GP-3  THE CASES Richard asked for: cold + shallow -> on; cold + at target -> off; cold + deep natural -> off; warm -> off;
-//         protection-only pass -> off; hysteresis (no flicker across the stop depth).
-//   GP-4  the plume of one gun: setting, run flag, own elevation (the thermal line crosses a run).
-//   GP-5  the lease: write / flip decisions, saturation, the game's own frame < end test.
-//   GP-6  the research numbers (§8): game hours from bare to the stop depth at -5 C and at the gate, mean and slowest texel.
+// Tests for the pure rules in SnowGunPlumeRules.cs, the one predicate that snow injection (raise / bill) and the
+// plume system (vapor) share. Run(check) is called from Program.Main like the other test files.
+//   GP-1 constants   GP-2 pack measure   GP-3 gun state cases and hysteresis   GP-4 plume of one gun
+//   GP-5 lease   GP-6 hours from bare to the stop depth, and the gun season
 // Oracles are literal hand values (the comments show the arithmetic).
 
 using System;
@@ -37,11 +29,11 @@ namespace ResortBatch
 
         private static void C(bool ok, string where, string msg) => s_Check(ok, where, msg);
 
-        // GP-1 (9)
+        // GP-1
         private static void Constants()
         {
             const string W = "plume GP-1 constants";
-            // T133 (Richard, 2026-10-20): guns run while the run is under 3 ft (0.91 m) and top it up to 3 ft + the band.
+            // Guns run while the run is under 3 ft (0.91 m) and top it up to 3 ft + the band.
             C(Near(RunSnowRules.GunStopDepthM, 0.96, 1e-6), W, "T133 gun stop depth 0.96 m (3 ft + the band)");
             C(RunSnowRules.GunRestartBandM == 0.05f, W, "restart band 0.05 m");
             C(RunSnowRules.GunStopDepthM > RunSnowRules.GunTargetDepthM, W, "the stop depth is above the 3 ft base the guns guarantee");
@@ -54,7 +46,7 @@ namespace ResortBatch
             C(S.PlumeMaxCount == 256 && S.PlumeIntervalFrames == 64, W, "plume cap 256 (the EffectPrefab's m_MaxCount), pass every 64 frames");
         }
 
-        // GP-2 (8). Normalized units: 0.60 m = 0.075, 0.30 m = 0.0375, a fringe target 0.02 m = 0.0025.
+        // GP-2. Normalized units: 0.60 m = 0.075, 0.30 m = 0.0375, a fringe target 0.02 m = 0.0025.
         private static void Pack()
         {
             const string W = "plume GP-2 pack";
@@ -62,7 +54,7 @@ namespace ResortBatch
             C(S.PackTerm(half, full) == half, W, "a shallow texel counts its depth");
             C(S.PackTerm(1.9f / 8f, full) == full, W, "a 1.9 m natural texel counts at its target (deep natural = at target)");
             C(S.PackTerm(0.01f / 8f, fringe) == 0.01f / 8f && S.PackTerm(0.05f / 8f, fringe) == fringe, W, "a fringe texel counts against its own 0.02 m target");
-            // Two texels, one at 0.30 m and one deep natural (sums in units of 0.60 / 8): ratio 0.75 -> 0.75 x the stop depth (T133: 0.72 m).
+            // Two texels, one at 0.30 m and one deep natural (sums in units of 0.60 / 8): ratio 0.75 -> 0.75 x the stop depth.
             C(Near(S.PackDepthM(0.15, 0.1125), 0.75 * RunSnowRules.GunStopDepthM, 1e-6), W, "half-built + deep natural reads 0.75 x the stop depth (ratio 0.75)");
             C(Near(S.PackDepthM(0.075, 0.075), RunSnowRules.GunStopDepthM, 1e-6), W, "fully built reads the stop depth exactly");
             C(S.PackDepthM(0.075, 0.2) == RunSnowRules.GunStopDepthM, W, "the ratio clamps at 1");
@@ -70,7 +62,7 @@ namespace ResortBatch
             C(float.IsNaN(S.PackDepthM(0.1, double.NaN)), W, "a NaN sum -> NaN");
         }
 
-        // GP-3 (17): one run, pass by pass. running = GunsRunning(state the fold used, cold); the fold uses the state stepped
+        // GP-3: one run, pass by pass. running = GunsRunning(state the fold used, cold); the fold uses the state stepped
         // after the previous pass.
         private static void Cases()
         {
@@ -84,7 +76,7 @@ namespace ResortBatch
             C(st == R, W, "bare + measured -> Running");
             C(S.GunsRunning(st, 120) && S.RaisesThisPass(st), W, "cold + shallow -> guns run (raise, bill, plume)");
             // cold + at target -> off.
-            float stop = RunSnowRules.GunStopDepthM;   // T133: 0.96 m (restart below 0.91 m)
+            float stop = RunSnowRules.GunStopDepthM;   // restart below 0.91 m
             st = S.NextGunState(R, stop);
             C(st == P, W, "pack at the stop depth -> Stopped");
             C(!S.GunsRunning(st, 120) && !S.RaisesThisPass(st), W, "cold + at target -> guns off (no raise, no bill, no plume)");
@@ -101,7 +93,7 @@ namespace ResortBatch
             // Unknown never raises or plumes.
             C(!S.RaisesThisPass(U) && !S.GunsRunning(U, 999), W, "Unknown (no measurement yet) -> no raise, no plume");
             C(S.NextGunState(U, float.NaN) == U, W, "Unknown stays Unknown until a measurement");
-            // Hysteresis (T133 numbers): build up, stop at 0.96, melt slowly, restart only below 0.91 (3 ft), stop again at 0.96.
+            // Hysteresis: build up, stop at 0.96, melt slowly, restart only below 0.91 (3 ft), stop again at 0.96.
             float[] packs = { 0.10f, 0.40f, 0.94f, 0.95f, stop, 0.95f, 0.93f, 0.916f, 0.911f, 0.905f, 0.92f, 0.95f, stop };
             var expect = new[] { R, R, R, R, P, P, P, P, P, R, R, R, P };
             st = U;
@@ -122,7 +114,7 @@ namespace ResortBatch
             C(S.NextGunState(R, 0.93f) == R && S.NextGunState(P, 0.93f) == P, W, "inside the band the state is kept");
         }
 
-        // GP-4 (7)
+        // GP-4
         private static void Plume()
         {
             const string W = "plume GP-4 plume";
@@ -139,7 +131,7 @@ namespace ResortBatch
             C(S.PlumeOn(true, true, top, thr) && !S.PlumeOn(true, true, bottom, thr), W, "top gun plumes, bottom gun does not");
         }
 
-        // GP-5 (10)
+        // GP-5
         private static void Lease()
         {
             const string W = "plume GP-5 lease";
@@ -157,14 +149,14 @@ namespace ResortBatch
             C(!S.Flips(false, true, f, f), W, "a lease ending exactly now is already off (no flip)");
         }
 
-        // GP-6 (6): GunWindowsToReach (64-frame windows), 4096 windows = 24 game h. Step = 0.004 x rate x (0.35 + 1.65 x chill).
+        // GP-6: GunWindowsToReach (64-frame windows), 4096 windows = 24 game h. Step = 0.004 x rate x (0.35 + 1.65 x chill).
         private static void Research()
         {
             const string W = "plume GP-6 research";
             float thr = RunSnowRules.DefaultSnowmakingMarginC;
             float slow = RunSnowRules.RampRateMin;                               // 0.25
             float mean = RunSnowRules.RampRateMin + RunSnowRules.RampRateSpan * 0.5f;   // 1.125
-            // T133: stop depth 0.96 m. -5 C: chill = (3.3 + 5) / 4 > 1 -> 1, output 2.0. Slowest 0.96 / (0.004 x 0.25 x 2) = 480
+            // Stop depth 0.96 m. -5 C: chill = (3.3 + 5) / 4 > 1 -> 1, output 2.0. Slowest 0.96 / (0.004 x 0.25 x 2) = 480
             // windows = 480 x 64 / 10922.67 = 2.81 game h. Mean 0.96 / 0.009 = 106.7 windows = 0.63 h.
             double hSlow = RunSnowRules.WindowsToGameHours(RunSnowRules.GunWindowsToReach(RunSnowRules.GunStopDepthM, -5f, thr, slow));
             double hMean = RunSnowRules.WindowsToGameHours(RunSnowRules.GunWindowsToReach(RunSnowRules.GunStopDepthM, -5f, thr, mean));
@@ -180,12 +172,12 @@ namespace ResortBatch
             double rGate = RunSnowRules.WindowsToGameHours(RunSnowRules.GunWindowsToReach(RunSnowRules.GunRestartBandM, thr, thr, slow));
             C(Near(rSlow, 25 * 64 / 10922.6667, 0.01) && Near(rGate, 142.86 * 64 / 10922.6667, 0.01), W,
               "a restart refills the 0.05 m band in 0.15 game h at -5 C and 0.84 h at the gate (slowest texel)");
-            // T133: the 3 ft base. The mean texel reaches it within one night (8 game h) even at the gate; the slowest within a game day.
+            // The 3 ft base: the mean texel reaches it within one night (8 game h) even at the gate; the slowest within a game day.
             C(RunSnowRules.WindowsToGameHours(RunSnowRules.GunWindowsToReach(RunSnowRules.GunTargetDepthM, thr, thr, mean)) <= 8f, W,
               "T133 the 3 ft base: mean texel within one night at the gate");
             C(RunSnowRules.WindowsToGameHours(RunSnowRules.GunWindowsToReach(RunSnowRules.GunTargetDepthM, thr, thr, slow)) <= 24f, W,
               "T133 the 3 ft base: slowest texel within one game day at the gate");
-            // T135: the gun season (October to March; a vanilla winter / summer name decides first).
+            // The gun season (October to March; a vanilla winter / summer name decides first).
             C(S.InGunSeason("SeasonWinter", 6.5f / 12f), W, "T135 a season named winter is in, whatever the calendar (southern map)");
             C(!S.InGunSeason("SeasonSummer", 0.5f / 12f), W, "T135 a season named summer is out");
             C(!S.InGunSeason("SeasonSpring", 4.8f / 12f), W, "T135 late May (spring) is out: the 2026-10-20 guns in May");

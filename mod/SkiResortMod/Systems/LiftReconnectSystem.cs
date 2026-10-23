@@ -1,91 +1,47 @@
-// LiftReconnectSystem — makes the LINE-FIRST build order work, dissolving DECISIONS #6
-// ("place both stations before drawing the line").
+// LiftReconnectSystem - makes the line-first build order work (draw the line, then place the station).
 //
-// THE PROBLEM: when a station is placed snapping onto an EXISTING lift line's end, the
-// net-level connection succeeds but cables don't draw. Root cause, decompile-verified:
-// lanes are (re)built only for owners matching LaneSystem's trigger query — All{SubLane} +
-// Any{Updated, Deleted} (LaneSystem.OnCreate, m_OwnerQuery) — and nothing about placing a
-// building marks the pre-existing line's node or edges Updated. Anchors that did not exist
-// at edge creation are therefore never searched again. The fix is exactly what the docs
-// hypothesized: mark the affected net entities Updated on station placement, so the game's
-// own systems rebuild lanes and re-run FindAnchors as if the player had modified the net
-// (the vanilla "net modified" path — GenerateEdgesSystem itself pokes affected entities
-// with AddComponent<Updated> in the same way).
+// The problem: when a station is placed snapping onto an existing lift line's end, the net-level connection succeeds but cables
+// don't draw. Lanes are (re)built only for owners matching LaneSystem's trigger query - All{SubLane} + Any{Updated, Deleted}
+// (LaneSystem.OnCreate, m_OwnerQuery) - and placing a building marks neither the line's node nor its edges Updated, so anchors
+// that did not exist at edge creation are never searched again. The fix is to mark the affected net entities Updated on station
+// placement, so the game's own systems rebuild lanes and re-run FindAnchors as if the player had modified the net
+// (GenerateEdgesSystem itself pokes affected entities with AddComponent<Updated> the same way).
 //
-// MERGE-vs-JOINED (decompile finding, GenerateEdgesSystem.TryGetNode line ~1244): a course
-// end position landing on an existing node REUSES that node entity — single merged node,
-// never two coincident nodes. Consequences per build order:
-//   * stations-first: the drawn line reuses the OWNED stub node → FindAnchors(node) walks
-//     the node's owner (the station) prefab ObjectSubLanes → bullwheel anchors → cables.
-//   * line-first: the stub course reuses the UNOWNED line node — the node keeps no owner
-//     (Owner is only added to CREATED course entities, GenerateEdgesSystem ~1550) and is
-//     NOT in the station's SubNet buffer. Anchors at that node can then come only from the
-//     node's SUB-OBJECT (the line tower standing there — its prefab carries the stage-2
-//     ObjectSubLanes wire stubs), which FindAnchors also walks. Cables reconnect to the
-//     tower at the shared node; the station's own wrap-arc lanes come from its own
-//     creation. The reused node is reachable for the poke ONLY through the stub EDGE's
-//     m_Start/m_End — a SubNet walk alone would miss it (handled below).
+// Merge vs joined (GenerateEdgesSystem.TryGetNode, ~1244): a course end landing on an existing node reuses that node entity.
+//   * stations-first: the drawn line reuses the owned stub node, so FindAnchors(node) walks the station prefab's ObjectSubLanes.
+//   * line-first: the stub course reuses the unowned line node (Owner is only added to created course entities,
+//     GenerateEdgesSystem ~1550) and the node is not in the station's SubNet buffer. Anchors there come only from the node's
+//     sub-object (the line tower, whose prefab carries the ObjectSubLanes wire stubs). The reused node is reachable for the poke
+//     only through the stub edge's m_Start/m_End; a SubNet walk alone would miss it.
 //
-// WHAT GETS POKED (dedup set, per station, only when a FOREIGN edge is attached):
-//   * every subnet entry whose net prefab carries ElectricityConnectionData (the
-//     SkiLiftMarker stub): the entry itself (edge or node);
-//   * for stub EDGES: both end nodes (this is how the reused, unowned line node is found);
-//   * every edge in each such node's ConnectedEdge buffer plus those edges' far nodes — the
-//     redraw-equivalent set (a real net modification updates an edge and both its nodes);
-//   * chairs are NOT tagged directly. (Corrected in Round L1: the old reason given here —
-//     "chairs are Secondary sub-objects and appear in no SubObject buffer" — is wrong, entry
-//     98: chairs never carry Secondary, SubObjectSystem.cs:2824-2827, and they ARE in their
-//     owner edge's SubObject buffer, SubObjectReferencesSystem.cs:122-138.) The re-pin is
-//     handed to ChairPinSystem.RequestFullPass, an idempotent full re-pin at Modification4B,
-//     because it must land AFTER LaneSystem has rebuilt the poked lanes later this same frame —
-//     tagging chairs here, before LaneSystem, would pin them onto the old curves.
-// "Foreign edge" = an edge on a stub node not owned by this station (the lift line). No
-// foreign edge → complete no-op, no log (fresh station placement with no line nearby, and
-// the normal stations-first flow, stay silent).
+// What gets poked (dedup set, per station, only when a foreign edge, one on a stub node not owned by this station, is attached):
+// every subnet entry whose net prefab carries ElectricityConnectionData (the SkiLiftMarker stub); for stub edges both end nodes;
+// every edge in each such node's ConnectedEdge buffer plus those edges' far nodes (the redraw-equivalent set). Chairs are not
+// tagged directly (they carry no Secondary flag, SubObjectSystem.cs:2824-2827, and are in their owner edge's SubObject buffer,
+// SubObjectReferencesSystem.cs:122-138): the re-pin goes to ChairPinSystem.RequestFullPass at Modification4B, because it must land
+// after LaneSystem rebuilt the poked lanes this frame. No foreign edge: complete no-op, no log.
 //
-// SCHEDULING (load-bearing, and why NOT a barrier command buffer): anchored
-// UpdateBefore<LiftReconnectSystem, Game.Net.LaneSystem> at Modification4.
-//   * The station's SubNet buffer is populated by SubNetReferencesSystem at Modification4
-//     (SystemOrder line 147, direct BufferLookup writes) — on the very placement frame the
-//     buffer does not exist before this phase, which rules out running at 2B.
-//   * LaneSystem runs later in the same phase (SystemOrder line 155) — our immediate
-//     EntityManager writes are exactly what its m_OwnerQuery consumes, same frame. A
-//     barrier buffer would defer the tags to the END of Modification4, after LaneSystem
-//     already ran, silently delaying the rebuild by a frame and losing the tags to the
-//     end-of-frame CleanUpSystem sweep. Immediate writes ARE the correct timing here.
-//   * Downstream consumers all still see the tags: Mod4B (ChairPin/PowerBridge/EBGS),
-//     Mod5 SearchSystem, PreCulling; CleanUpSystem sweeps at Cleanup.
-//   * GeometrySystem/SubObjectSystem ran earlier — harmless: the poked entities' geometry
-//     and spawn placements are position-unchanged (the node was reused in place); only
-//     LANES need rebuilding, plus the chair re-pin we trigger directly.
+// Scheduling (load-bearing, and why not a barrier command buffer): UpdateBefore<LiftReconnectSystem, Game.Net.LaneSystem> at
+// Modification4. The station's SubNet buffer is populated by SubNetReferencesSystem at Modification4 (SystemOrder line 147), so it
+// does not exist before this phase (rules out 2B). LaneSystem runs later in the same phase (line 155); our immediate EntityManager
+// writes are exactly what its m_OwnerQuery consumes, same frame, whereas a barrier buffer would defer the tags past LaneSystem and
+// lose them to the end-of-frame CleanUpSystem sweep. Downstream consumers (Mod4B ChairPin/PowerBridge/EBGS, Mod5 SearchSystem,
+// PreCulling) still see the tags. GeometrySystem/SubObjectSystem ran earlier, harmlessly: the node was reused in place, so only
+// lanes need rebuilding. Idempotent and event-driven only (station Created/Updated, including Move It nudges).
 //
-// Idempotent (re-poking a healthy connection rebuilds identical lanes), event-driven only
-// (station Created/Updated — placement, Move It nudges — never per-frame), and Move It
-// moves re-poke automatically, keeping anchors fresh after nudges.
-//
-// ROUND L1 — EPISODES (2026-10-03, implementer I-2; docs/research/hub-u2-spec.md §5.6). Field
-// test 5 logged the reconnect line 104 times, up to 34 per second (field log 443-524, 821-846):
-// Move It keyboard nudges of an already connected top station change the Transform in the poke
-// signature every moved frame, so every moved frame poked AND logged — a per-frame poke and a
-// log flood. Now the pure LiftReconnectEpisodes decides, per station:
-//   * a signature change (foreign-edge set or Transform differs from the LAST SEEN one) while no
-//     episode is open → open it and poke at once; if the foreign-edge set changed (a line
-//     attached) also RequestFullPass at once — this keeps today's same-frame closure of a line
-//     drawn before its station (log 437-438: poke, then "1 loop(s)" in the same frame);
-//   * further changes → at most one poke per PokeIntervalFrames (a line attached mid-episode
-//     still pokes + full pass at once);
-//   * stable for SettleFrames → trailing poke + RequestFullPass + ONE line:
-//     `LiftReconnect [reconnect]: 'SkiTopStationBuilding' 119398:67 — station moved 34× over
-//     4.6 s; 3 node(s) + 2 edge(s), 5 poke(s); chair re-pin requested` (or "— line attached").
-//   * The episode tick runs EVERY frame, also when the station query is empty (the old early
-//     return on an empty query, LiftReconnectSystem.cs:166 before this round, would have starved
-//     the trailing poke).
-//   * The last-seen signatures of Deleted stations are pruned (their open episode is logged and
-//     closed); open episodes are flushed (logged, no poke) in OnGameLoadingComplete and in the
-//     catch. A poke's own echo (the station comes back Updated next frame through ownership
-//     propagation) has an unchanged signature and is no change.
+// Episodes (pure LiftReconnectEpisodes decides, per station): Move It keyboard nudges of a connected top station change the
+// Transform in the poke signature every moved frame, which would poke and log every frame.
+//   * a signature change (foreign-edge set or Transform differs from the last seen one) while no episode is open: open it and
+//     poke at once; if the foreign-edge set changed (a line attached) also RequestFullPass at once, which keeps the same-frame
+//     closure of a line drawn before its station;
+//   * further changes: at most one poke per PokeIntervalFrames (a line attached mid-episode still pokes + full pass at once);
+//   * stable for SettleFrames: trailing poke + RequestFullPass + one line, e.g. `LiftReconnect [reconnect]: 'SkiTopStationBuilding'
+//     119398:67 - station moved 34x over 4.6 s; 3 node(s) + 2 edge(s), 5 poke(s); chair re-pin requested`;
+//   * the episode tick runs every frame, also when the station query is empty (an early return would starve the trailing poke);
+//   * last-seen signatures of Deleted stations are pruned (their open episode is logged and closed); open episodes are flushed
+//     (logged, no poke) in OnGameLoadingComplete and in the catch. A poke's own echo (the station comes back Updated next frame
+//     through ownership propagation) has an unchanged signature and is no change.
 // Frames are this system's update count (Modification4 runs every frame, paused included).
-// One ARM line per load lists the constants. The poke set and its timing are unchanged.
 
 using System;
 using System.Collections.Generic;
@@ -106,19 +62,16 @@ namespace SkiResortMod.Systems
     public sealed partial class LiftReconnectSystem : GameSystemBase
     {
         private PrefabSystem m_PrefabSystem;
-        private PowerBridgeSystem m_PowerBridgeSystem; // shared station-prefab resolution
-        private ChairPinSystem m_ChairPinSystem;       // chair re-pin after lane rebuilds
+        private PowerBridgeSystem m_PowerBridgeSystem;
+        private ChairPinSystem m_ChairPinSystem;
 
         private EntityQuery m_UpdatedStationQuery;
-        private EntityQuery m_DeletedStationQuery;     // Round L1: prune the last-seen map
+        private EntityQuery m_DeletedStationQuery;     // prune the last-seen map
 
-        /// <summary>What a station looked like the last time this system SAW it (Round L1: last
-        /// seen, not last poked — the episode machine needs every change). The set of attached
-        /// foreign edges (order-independent XOR hash + presence) and the station transform. The
-        /// poke's own echo (the station comes back Updated next frame through ownership
-        /// update-propagation) leaves it unchanged, which is what keeps the poke from re-firing
-        /// every frame (the v1.1 convergence gate). System-side and transient: cleared per load
-        /// (worst case one extra idempotent poke on the first station event after loading).</summary>
+        /// <summary>What a station looked like the last time this system saw it (last seen, not last poked: the episode machine
+        /// needs every change). The set of attached foreign edges (order-independent XOR hash + presence) and the station
+        /// transform. The poke's own echo leaves it unchanged, which keeps the poke from re-firing every frame. System-side and
+        /// transient: cleared per load (worst case one extra idempotent poke on the first station event after loading).</summary>
         private struct PokeSignature
         {
             public int m_ForeignEdgeHash;
@@ -138,15 +91,15 @@ namespace SkiResortMod.Systems
         private readonly Dictionary<Entity, PokeSignature> m_LastSeen = new Dictionary<Entity, PokeSignature>();
         private readonly LiftReconnectEpisodes m_Episodes = new LiftReconnectEpisodes();
         private readonly List<LiftReconnectEpisodes.Episode> m_Closed = new List<LiftReconnectEpisodes.Episode>();
-        private readonly HashSet<Entity> m_PokeSet = new HashSet<Entity>();      // reused per collection
-        private readonly HashSet<Entity> m_NodesToWalk = new HashSet<Entity>();  // reused per collection
+        private readonly HashSet<Entity> m_PokeSet = new HashSet<Entity>();
+        private readonly HashSet<Entity> m_NodesToWalk = new HashSet<Entity>();
 
-        private long m_Frame;       // update count this load
-        private bool m_Armed;       // Game or Editor loaded
-        private bool m_Disabled;    // tripped by the catch; re-armed per load
-        private bool m_ErrorLogged; // one error with stack per load
+        private long m_Frame;
+        private bool m_Armed;
+        private bool m_Disabled;
+        private bool m_ErrorLogged;
 
-        /// <summary>Dev counters: episodes open now / lines written this load.</summary>
+        /// <summary>Dev counters: episodes open now / lines written this load</summary>
         internal int OpenEpisodes => m_Episodes.OpenCount;
         internal int EpisodeLines { get; private set; }
 
@@ -157,8 +110,8 @@ namespace SkiResortMod.Systems
             m_PowerBridgeSystem = World.GetOrCreateSystemManaged<PowerBridgeSystem>();
             m_ChairPinSystem = World.GetOrCreateSystemManaged<ChairPinSystem>();
 
-            // Same trigger family as PowerBridgeSystem. No Transformer requirement — the
-            // prefab set is the real gate, and reconnection is a net concern, not electric.
+            // Same trigger family as PowerBridgeSystem. No Transformer requirement: the prefab set is the real gate, and
+            // reconnection is a net concern, not electric.
             m_UpdatedStationQuery = GetEntityQuery(new EntityQueryDesc
             {
                 All = new[]
@@ -191,8 +144,7 @@ namespace SkiResortMod.Systems
         {
             base.OnGameLoadingComplete(purpose, mode);
 
-            // Spec §5.6: pending episodes are flushed (logged) here. They belong to the world that
-            // was just replaced, so no poke and no entity lookup.
+            // Pending episodes are flushed (logged) here. They belong to the world that was just replaced, so no poke and no entity lookup.
             FlushEpisodes("game load", lookupNames: false);
             m_LastSeen.Clear();
             m_Frame = 0;
@@ -203,8 +155,8 @@ namespace SkiResortMod.Systems
             if (!m_Armed)
                 return;
 
-            // Re-arm per load. No load pass by design: saved lifts already have their lanes,
-            // and this system fires on station events only, never per-frame.
+            // Re-arm per load. No load pass by design: saved lifts already have their lanes, and this system fires on station events
+            // only, never per-frame.
             Mod.Log.Info($"LiftReconnect: ARMED — per-station episodes: first change pokes at once (+ full chair pass " +
                          $"when a line attaches), then at most one poke per {LiftReconnectEpisodes.PokeIntervalFrames} " +
                          $"frames while the station keeps changing, and after {LiftReconnectEpisodes.SettleFrames} stable " +
@@ -228,8 +180,8 @@ namespace SkiResortMod.Systems
                         ProcessChanges(stationPrefabs);
                 }
 
-                // Spec §5.6: the episode tick runs whether or not any station changed this frame —
-                // the trailing poke of a settled episode depends on it. Allocation-free when idle.
+                // The episode tick runs whether or not any station changed this frame: the trailing poke of a settled episode depends
+                // on it. Allocation-free when idle.
                 if (m_Episodes.OpenCount > 0)
                 {
                     m_Closed.Clear();
@@ -254,7 +206,7 @@ namespace SkiResortMod.Systems
                 }
                 catch
                 {
-                    // The flush is a courtesy log; the !!! line above already says what happened.
+                    // The flush is a courtesy log; the !!! line above already says what happened
                 }
             }
         }
@@ -291,8 +243,7 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>Deleted stations: forget their last-seen signature; an open episode is logged
-        /// and closed without a trailing poke.</summary>
+        /// <summary>Deleted stations: forget their last-seen signature; an open episode is logged and closed without a trailing poke</summary>
         private void PruneDeleted(HashSet<Entity> stationPrefabs)
         {
             var chunks = m_DeletedStationQuery.ToArchetypeChunkArray(Allocator.Temp);
@@ -320,14 +271,12 @@ namespace SkiResortMod.Systems
             }
         }
 
-        // ─────────────────────────────────────────────────────────────────────────────────
-        // One station event: compare with what was last seen; on a change, let the episode
-        // machine decide whether to poke now and whether to request the full chair pass.
-        // ─────────────────────────────────────────────────────────────────────────────────
+        // One station event: compare with what was last seen; on a change, let the episode machine decide whether to poke now and
+        // whether to request the full chair pass.
         private void OnStationEvent(Entity station)
         {
             if (!CollectPokeSet(station, out bool hasForeign, out int foreignHash))
-                return;   // no SubNet buffer (not yet populated)
+                return;
 
             var signature = new PokeSignature { m_ForeignEdgeHash = foreignHash, m_HasForeign = hasForeign };
             if (EntityManager.TryGetComponent<Game.Objects.Transform>(station, out var stationTransform))
@@ -337,15 +286,14 @@ namespace SkiResortMod.Systems
             }
             bool seen = m_LastSeen.TryGetValue(station, out PokeSignature last);
             if (seen && signature.Equals(in last))
-                return;   // no change (e.g. our own poke's echo)
+                return;
 
             EntityRef key = Ref(station);
             bool open = m_Episodes.TryGetOpen(key, out _);
             if (!hasForeign && !open)
             {
-                // No line attached and nothing in progress (fresh placement in the void, or the
-                // stations-first flow where the line arrives later and builds its own lanes):
-                // full no-op. Forgetting the station makes a later attach a first sight → poke.
+                // No line attached and nothing in progress (fresh placement in the void, or the stations-first flow where the line arrives
+                // later and builds its own lanes): full no-op. Forgetting the station makes a later attach a first sight -> poke.
                 m_LastSeen.Remove(station);
                 return;
             }
@@ -367,8 +315,8 @@ namespace SkiResortMod.Systems
                 m_ChairPinSystem.RequestFullPass("reconnect");
         }
 
-        /// <summary>Logs one closed episode. <paramref name="trailing"/>: the station settled — do the
-        /// trailing poke (when a line is still attached) and request the full chair pass.</summary>
+        /// <summary>Logs one closed episode. <paramref name="trailing"/>: the station settled, so do the trailing poke (when a
+        /// line is still attached) and request the full chair pass.</summary>
         private void CloseEpisode(LiftReconnectEpisodes.Episode ep, bool trailing, string note, bool lookupNames)
         {
             Entity station = Ent(ep.Station);
@@ -419,10 +367,8 @@ namespace SkiResortMod.Systems
             m_Closed.Clear();
         }
 
-        // ─────────────────────────────────────────────────────────────────────────────────
-        // Collect the redraw-equivalent poke set for one station into m_PokeSet. Main-thread
-        // EntityManager; bounded set (~10 entities per station). False = no SubNet buffer.
-        // ─────────────────────────────────────────────────────────────────────────────────
+        // Collect the redraw-equivalent poke set for one station into m_PokeSet. Main-thread EntityManager; bounded set (~10
+        // entities per station). False = no SubNet buffer.
         private bool CollectPokeSet(Entity station, out bool hasForeignEdge, out int foreignEdgeHash)
         {
             hasForeignEdge = false;
@@ -439,12 +385,12 @@ namespace SkiResortMod.Systems
                     EntityManager.HasComponent<Temp>(subNet) ||
                     !EntityManager.TryGetComponent<PrefabRef>(subNet, out var prefabRef) ||
                     !EntityManager.HasComponent<ElectricityConnectionData>(prefabRef.m_Prefab))
-                    continue; // only the connection stub (same qualification as PowerBridge)
+                    continue;
 
                 if (EntityManager.TryGetComponent<Game.Net.Edge>(subNet, out var stubEdge))
                 {
-                    // The stub EDGE: its end nodes include the reused, unowned line node in
-                    // the line-first order — the node a SubNet-only walk can never see.
+                    // The stub edge: its end nodes include the reused, unowned line node in the line-first order, the node a SubNet-only walk
+                    // can never see.
                     m_PokeSet.Add(subNet);
                     if (stubEdge.m_Start != Entity.Null) m_NodesToWalk.Add(stubEdge.m_Start);
                     if (stubEdge.m_End != Entity.Null) m_NodesToWalk.Add(stubEdge.m_End);
@@ -473,15 +419,15 @@ namespace SkiResortMod.Systems
 
                     m_PokeSet.Add(edge);
 
-                    // Redraw semantics: a modified edge updates both its end nodes too.
+                    // Redraw semantics: a modified edge updates both its end nodes too
                     if (EntityManager.TryGetComponent<Game.Net.Edge>(edge, out var edgeTopology))
                     {
                         if (edgeTopology.m_Start != Entity.Null) m_PokeSet.Add(edgeTopology.m_Start);
                         if (edgeTopology.m_End != Entity.Null) m_PokeSet.Add(edgeTopology.m_End);
                     }
 
-                    // The lift line: any attached edge this station does not own. XOR keeps
-                    // the signature order-independent over the foreign edge set.
+                    // The lift line: any attached edge this station does not own. XOR keeps the signature order-independent over the foreign
+                    // edge set.
                     if (!EntityManager.TryGetComponent<Owner>(edge, out var edgeOwner) ||
                         edgeOwner.m_Owner != station)
                     {
@@ -495,8 +441,8 @@ namespace SkiResortMod.Systems
             return true;
         }
 
-        /// <summary>Tags the collected set Updated (immediate writes — see SCHEDULING): LaneSystem
-        /// rebuilds those lanes later in this same Modification4.</summary>
+        /// <summary>Tags the collected set Updated (immediate writes, see Scheduling): LaneSystem rebuilds those lanes later in
+        /// this same Modification4.</summary>
         private void ApplyPoke(out int pokedNodes, out int pokedEdges)
         {
             pokedNodes = 0;

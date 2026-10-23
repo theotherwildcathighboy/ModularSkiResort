@@ -1,94 +1,64 @@
-// SkiGladeHotkeySystem — polls the three glade-tool keys (docs/research/glade-tool-spec.md §5)
-// and, since R3, the dump-diagnostics key (docs/research/run-binding-glade-spec.md §5.2,
-// DECISIONS 121).
+// Polls the three glade-tool keys and the dump-diagnostics key.
 //
-// WHY A SEPARATE SYSTEM. The tool cannot poll its own toggle: ToolBaseSystem.OnCreate sets
-// Enabled=false (ToolBaseSystem.cs:310) and ToolSystem.ToolUpdate enables ONLY the active
-// tool (ToolSystem.cs:312-327), so an inactive tool never ticks. This system runs at
-// SystemUpdatePhase.UIUpdate, driven by UIUpdateSystem in MainLoop (SystemOrder.cs:67,
-// UIUpdateSystem.cs:19) — every frame, paused or not. GameSimulation would stop while
-// paused.
+// Why a separate system: the tool cannot poll its own toggle: ToolBaseSystem.OnCreate sets Enabled=false (ToolBaseSystem.cs:310)
+// and ToolSystem.ToolUpdate enables ONLY the active tool (ToolSystem.cs:312-327), so an inactive tool never ticks. This system
+// runs at SystemUpdatePhase.UIUpdate, driven by UIUpdateSystem in MainLoop (SystemOrder.cs:67, UIUpdateSystem.cs:19): every frame,
+// paused or not (GameSimulation would stop while paused).
 //
-// THE KEYS are ModSetting ProxyBindings (Settings/SkiResortSettings.cs). They become input
-// actions in our own map only when Mod.OnLoad calls RegisterKeyBindings
-// (ModSetting.cs:141-231). GetAction(name) is FindAction(id, name) and returns null before
-// that (ModSetting.cs:289-292; InputManager.cs:570-573), so resolution is retried at every
-// load. Mod actions start DISABLED: shouldBeEnabled reads a lazily created activator
-// (ProxyAction.cs:322-349). A mod action is never built-in (ModSetting.cs:181), so the
-// setter does not throw. We enable each resolved action per game mode in
-// OnGameLoadingComplete: live in a loaded city, off in the main menu and the editor, which
-// UIUpdate also ticks. WasPressedThisFrame is the Unity source action's (ProxyAction.cs:494-497)
-// and is false while the action is disabled.
+// The keys are ModSetting ProxyBindings (Settings/SkiResortSettings.cs). They become input actions in our own map only when
+// Mod.OnLoad calls RegisterKeyBindings (ModSetting.cs:141-231). GetAction(name) is FindAction(id, name) and returns null before
+// that (ModSetting.cs:289-292; InputManager.cs:570-573), so resolution is retried at every load. Mod actions start DISABLED:
+// shouldBeEnabled reads a lazily created activator (ProxyAction.cs:322-349). A mod action is never built-in (ModSetting.cs:181),
+// so the setter does not throw. We enable each resolved action per game mode in OnGameLoadingComplete: live in a loaded city,
+// off in the main menu and the editor, which UIUpdate also ticks. WasPressedThisFrame is the Unity source action's
+// (ProxyAction.cs:494-497) and is false while the action is disabled.
 //
-//   toggle (default Ctrl+Shift+G since R3; was Ctrl+G) → tool.IsActive ? tool.Deactivate() :
-//   tool.TryActivate("hotkey")
-//   Round G3 (run-binding-glade-spec.md §8.3/§8.4; persisted action names UNCHANGED):
-//   GladeNextMode (Alt+G) → tool.ToggleTarget (run interior ⇄ tree line), GladeNextVariant
-//   (Shift+G) → tool.StepLevel (tree density 1..8, wrap) — forwarded ONLY while the tool is
-//   active (never polled inside the tool: one press must not toggle twice, spec §4.6). The tool
-//   writes the one log line per press.
-//   dump (R3, default Ctrl+Alt+G) → polled BEFORE the toggle and the tool-active gate, in
-//   any tool: area tool active → SkiRunDrawFeedbackSystem.DumpToLog(); glade tool active →
-//   SkiGladeToolSystem.DumpToLog(); otherwise both. UIUpdate precedes Rendering in MainLoop
-//   (SystemOrder.cs:67-68), so the feedback dump reads the PREVIOUS frame's readout with the
-//   cursor still on the map — the dev-tab button lost the Temp every time (field log 451-452
-//   … 1146-1147, "temp none … live False").
+//   toggle (default Ctrl+Shift+G) -> tool.IsActive ? tool.Deactivate() : tool.TryActivate("hotkey")
+//   GladeNextMode (Alt+G) -> tool.ToggleTarget (run interior / tree line), GladeNextVariant (Shift+G) -> tool.StepLevel (tree
+//   density 1..8, wrap); persisted action names are unchanged. Forwarded ONLY while the tool is active (never polled inside the
+//   tool: one press must not toggle twice). The tool writes the one log line per press.
+//   dump (default Ctrl+Alt+G) -> polled BEFORE the toggle and the tool-active gate, in any tool: area tool active ->
+//   SkiRunDrawFeedbackSystem.DumpToLog(); glade tool active -> SkiGladeToolSystem.DumpToLog(); otherwise both. UIUpdate precedes
+//   Rendering in MainLoop (SystemOrder.cs:67-68), so the feedback dump reads the PREVIOUS frame's readout with the cursor still on
+//   the map (a dev-tab button press loses the Temp).
 //
-// R3 RESOLUTION IS PER ACTION. R2's all-or-nothing ActionsResolved made every hotkey inert if
-// one lookup failed; now the three glade actions arm together (they only make sense together)
-// and the dump action arms on its own. The ARMED line names each.
+// Resolution is per action: the three glade actions arm together (they only make sense together) and the dump action arms on
+// its own. The ARMED line names each.
 //
-// CONFLICTS. A mod action always loses a key conflict to an enabled vanilla system/UI action and
-// is then disabled (InputConflictResolution.cs:138-198: system → UI and mod, UI → mod; each pair
-// via InputManager.HasConflicts, which calls ProxyBinding.ConflictsWith(x, y, checkUsage: false),
-// InputManager.cs:732-769, and only for actions that are ENABLED at that moment). The
-// State.enabled → Apply → ProxyAction.ApplyState path (InputConflictResolution.cs:14-24, 37-40;
-// ProxyAction.cs:577-599) flips the source action's `enabled` (ProxyAction.cs:303-307). Keyboard
-// mod actions are also masked while a text field has focus or an overlay is up
-// (InputManager.GetMaskForControlScheme, InputManager.cs:644-652, feeding the pre-resolved mask
-// in ProxyAction.UpdateState, ProxyAction.cs:524-575). Two mods on the same key are never
-// resolved against each other, so both fire (InputConflictResolution.cs:138-198).
-// R3 PROBE SEMANTICS (spec §5.2). The one-shot probe ProbeDelayFrames after arming still WARNs
-// keyed on `!action.enabled` — the RUNTIME truth. It now also logs, as INFO, each binding's
-// OPTIONS MARKER: ProxyBinding.hasConflicts / .conflicts (ProxyBinding.cs:414-456, 458-501) test
-// every action sharing the key path with ConflictsWith(checkUsage: TRUE) whether or not that
-// action is enabled — that is what draws the options row's triangle — while the runtime pass
-// above uses checkUsage FALSE against ENABLED actions only. The two can disagree (a marker with
-// a live key, or a lost key without a marker), so the log labels each "options marker" or
-// "runtime". The probe runs under whatever tool is active 120 frames after the load (normally the
-// default tool); a per-frame WATCHER (four bool reads) therefore logs when an armed action turns
-// non-live, with the active tool's id (ToolBaseSystem.toolID, ToolBaseSystem.cs:142), and the
-// matching return to live.
-// WATCHER RE-ARMS (fixer round, finding r3-plumbing-01; DEVIATES from spec §5.2 "log once per
-// action per load", amended in the spec). Any text-field focus masks every keyboard mod action:
-// Game.SceneFlow/UserInterface.cs:170 sets InputManager.hasInputFieldFocus, RefreshActiveControl
-// runs at the end of each input update (InputManager.cs:1395) and sets the mask to Mouse only
-// (:644-652), the mask setter pushes it to every map (:441-446) → ProxyActionMap.mask →
-// ProxyAction.UpdateState (ProxyActionMap.cs:52-70, ProxyAction.cs:524-575) → the next conflict
-// pass disables the source action
-// (InputConflictResolution.cs:14-24, 37-40, 187-190; ProxyAction.cs:577-599). A once-per-load
-// latch was therefore used up by the first save-name box, and a LATER real conflict in another
-// tool — the case the watcher exists for — went unlogged while the key was dead. Now every drop
-// is logged with a CAUSE LABEL read at that moment: "text field / overlay mask" when
-// InputManager.hasInputFieldFocus (:325) or .overlayActive (:341) is true (public getters), else
-// "probable key conflict in tool X — or a mask this mod cannot read" (the key-rebinding capture
-// sets the internal blockedControlTypes, InputRebindingUISystem.cs:155-158 / InputManager.cs:450,
-// 651, and UI input barriers are not queryable either; reflection is banned, so these are
-// labels, never filters). Each drop line arms one matching "live again" line. Lines are capped
-// per action AND per cause label at WatcherLinesPerAction (8) per load, then ONE "further drops
-// not logged" line, so typing in text fields can never use up the conflict lines. The dev-tab
-// StatusLine is refreshed on "live again" too (it used to keep a stale NOT-live text).
-// Whether vanilla binds Ctrl/Shift/Alt+G anywhere is input-asset data — unverified (spec D13: every
-// live probe so far, field log 244, showed the G family live).
+// Conflicts: a mod action always loses a key conflict to an enabled vanilla system/UI action and is then disabled
+// (InputConflictResolution.cs:138-198: system -> UI and mod, UI -> mod; each pair via InputManager.HasConflicts, which calls
+// ProxyBinding.ConflictsWith(x, y, checkUsage: false), InputManager.cs:732-769, and only for actions ENABLED at that moment). The
+// State.enabled -> Apply -> ProxyAction.ApplyState path (InputConflictResolution.cs:14-24, 37-40; ProxyAction.cs:577-599) flips
+// the source action's `enabled` (ProxyAction.cs:303-307). Keyboard mod actions are also masked while a text field has focus or
+// an overlay is up (InputManager.GetMaskForControlScheme, InputManager.cs:644-652, feeding the pre-resolved mask in
+// ProxyAction.UpdateState, ProxyAction.cs:524-575). Two mods on the same key are never resolved against each other, so both fire.
 //
-// DEFENSIVE CONTRACT (house pattern, SkiRunOwnershipSystem): "created" line, ARMED line per
-// load, m_Armed/m_Disabled/m_ErrorLogged reset in OnGameLoadingComplete, one-shot "!!!"
-// catch that disables the hotkeys until the next game load. Game mode only.
-// GameManager.isGameLoading guard (GameManager.cs:262-272; 1.6.2 :264-274, same body): UIUpdate
-// keeps ticking while a save loads and the tool is mid-reset
-// (ToolSystem.PreDeserialize forces the default tool, ToolSystem.cs:610-614). No per-frame
-// allocation: the watcher reads four bools; strings are built only when a line is logged.
-// Every Game.Input file cited here is unchanged in 1.6.2 (not in diff-1.6.0-to-1.6.2).
+// Probe: the one-shot probe ProbeDelayFrames after arming WARNs keyed on `!action.enabled` (the runtime truth) and logs, as INFO,
+// each binding's options marker: ProxyBinding.hasConflicts / .conflicts (ProxyBinding.cs:414-456, 458-501) test every action
+// sharing the key path with ConflictsWith(checkUsage: TRUE) whether or not that action is enabled (that is what draws the
+// options row's triangle), while the runtime pass uses checkUsage FALSE against ENABLED actions only. The two can disagree, so
+// the log labels each "options marker" or "runtime". The probe runs under whatever tool is active 120 frames after the load
+// (normally the default tool); a per-frame watcher (four bool reads) therefore logs when an armed action turns non-live, with
+// the active tool's id (ToolBaseSystem.toolID, ToolBaseSystem.cs:142), and the matching return to live.
+// The watcher re-arms: any text-field focus masks every keyboard mod action (UserInterface.cs:170 sets
+// InputManager.hasInputFieldFocus, RefreshActiveControl runs at the end of each input update (InputManager.cs:1395) and sets the
+// mask to Mouse only (:644-652), the mask setter pushes it to every map (:441-446) -> ProxyActionMap.mask -> ProxyAction.
+// UpdateState (ProxyActionMap.cs:52-70, ProxyAction.cs:524-575) -> the next conflict pass disables the source action
+// (InputConflictResolution.cs:14-24, 37-40, 187-190)). A once-per-load latch would be used up by the first save-name box and a
+// later real conflict in another tool would go unlogged while the key was dead. So every drop is logged with a cause label read
+// at that moment: "text field / overlay mask" when InputManager.hasInputFieldFocus (:325) or .overlayActive (:341) is true (public
+// getters), else "probable key conflict in tool X - or a mask this mod cannot read" (the key-rebinding capture sets the internal
+// blockedControlTypes, InputRebindingUISystem.cs:155-158 / InputManager.cs:450, 651, and UI input barriers are not queryable;
+// reflection is banned, so these are labels, never filters). Each drop line arms one matching "live again" line. Lines are capped
+// per action AND per cause label at WatcherLinesPerAction per load, then ONE "further drops not logged" line. The dev-tab
+// StatusLine is refreshed on "live again" too.
+// Whether vanilla binds Ctrl/Shift/Alt+G anywhere is input-asset data: unverified (every live probe so far showed the G family live).
+//
+// Defensive contract (house pattern, SkiRunOwnershipSystem): "created" line, ARMED line per load, m_Armed/m_Disabled/m_ErrorLogged
+// reset in OnGameLoadingComplete, one-shot "!!!" catch that disables the hotkeys until the next game load. Game mode only.
+// GameManager.isGameLoading guard (GameManager.cs:262-272): UIUpdate keeps ticking while a save loads and the tool is mid-reset
+// (ToolSystem.PreDeserialize forces the default tool, ToolSystem.cs:610-614). No per-frame allocation: strings are built only
+// when a line is logged.
 
 using System;
 using System.Collections.Generic;
@@ -106,21 +76,17 @@ namespace SkiResortMod.Systems
     {
         private static class Tuning
         {
-            /// <summary>UIUpdate frames between arming and the one-shot conflict probe.
-            /// Conflict resolution runs when the enabled-action set changes; two seconds is
-            /// comfortably after that (exact latency unverified).</summary>
+            /// <summary>UIUpdate frames between arming and the one-shot conflict probe; conflict resolution runs when the enabled-action set
+            /// changes and two seconds is comfortably after that (exact latency unverified).</summary>
             public const int ProbeDelayFrames = 120;
 
-            /// <summary>Fixer round (r3-plumbing-01): watcher drop lines per action and per cause
-            /// label (mask / not mask) per load, each with its matching "live again" line; then
-            /// one "further drops not logged" line for that action and label.</summary>
+            /// <summary>Watcher drop lines per action and per cause label (mask / not mask) per load, each with its matching "live again"
+            /// line; then one "further drops not logged" line for that action and label.</summary>
             public const int WatcherLinesPerAction = 8;
         }
 
-        // Watcher cause labels (index into the per-slot counters).
         private const int CauseMask = 0, CauseOther = 1, CauseCount = 2;
 
-        // Watcher slots (R3): fixed order, also the probe's order.
         private const int SlotToggle = 0, SlotVariant = 1, SlotMode = 2, SlotDump = 3, SlotCount = 4;
         private static readonly string[] SlotNames =
         {
@@ -141,25 +107,22 @@ namespace SkiResortMod.Systems
         // Per-load state — reset at OnGameLoadingComplete.
         private bool m_Armed;          // at least one action group armed
         private bool m_GladeArmed;     // toggle + next variant + next mode resolved and enabled
-        private bool m_DumpArmed;      // dump action resolved and enabled (R3: independent)
+        private bool m_DumpArmed;      // dump action resolved and enabled (independent)
         private bool m_Disabled;
         private bool m_ErrorLogged;
         private int m_ProbeCountdown = -1;
         private readonly bool[] m_WasLive = new bool[SlotCount];
-        // Fixer round (r3-plumbing-01): re-arming watcher state (no per-load latch any more).
+        // Re-arming watcher state
         private readonly int[] m_DropLines = new int[SlotCount * CauseCount];      // [slot * CauseCount + cause]
         private readonly bool[] m_DropCapNoted = new bool[SlotCount * CauseCount];
         private readonly bool[] m_BackPending = new bool[SlotCount];                // a logged drop awaits its "live again"
 
-        /// <summary>Drops seen by the watcher since the load (all causes, logged or not).</summary>
         public int WatcherDrops;
 
-        /// <summary>One-line hotkey status for the "Ski Glades" developer tab. A plain
-        /// property backed by a field. It is written at arm/probe/watcher time, so the 10 Hz tab
-        /// getter costs nothing.</summary>
+        /// <summary>One-line hotkey status for the "Ski Glades" developer tab; written at arm/probe/watcher time, so the 10 Hz tab getter
+        /// costs nothing.</summary>
         public string StatusLine { get; private set; } = "not armed (no city loaded yet)";
 
-        /// <summary>Dump-hotkey presses handled since the load (plain field).</summary>
         public long DumpPresses;
 
         protected override void OnCreate()
@@ -198,7 +161,7 @@ namespace SkiResortMod.Systems
                 m_DropCapNoted[i] = false;
             }
 
-            // Spec §5: shouldBeEnabled = mode.IsGame() (GameModeExtensions.cs:21-24).
+            // shouldBeEnabled = mode.IsGame() (GameModeExtensions.cs:21-24)
             bool inGame = mode.IsGame();
             try
             {
@@ -291,7 +254,7 @@ namespace SkiResortMod.Systems
 
                 WatchActions();
 
-                // R3 (spec §5.2): the dump key first, in any tool, independent of the glade keys.
+                // The dump key first, in any tool, independent of the glade keys
                 if (m_DumpArmed && m_Dump.WasPressedThisFrame())
                     DispatchDump();
 
@@ -307,23 +270,19 @@ namespace SkiResortMod.Systems
                     }
                     else
                     {
-                        // TryActivate owns the gating (armed, not disabled, Game mode) and
-                        // logs its own refusal reason.
+                        // TryActivate owns the gating (armed, not disabled, Game mode) and logs its own refusal reason
                         bool ok = m_Tool.TryActivate("hotkey");
                         Mod.Log.Info($"Glade: hotkey toggle — activate {(ok ? "ok" : "refused")}");
                     }
-                    // A toggle frame never also forwards target/density (the activation lands in
-                    // the next ToolUpdate, ToolSystem.cs:312-327).
+                    // A toggle frame never also forwards target/density (the activation lands in the next ToolUpdate, ToolSystem.cs:312-327)
                     return;
                 }
 
                 if (!m_Tool.IsActive)
                     return;
 
-                // Round G3 (spec §8.3/§8.4): the persisted action names are unchanged —
-                // GladeNextMode now toggles run interior / tree line, GladeNextVariant steps the
-                // tree density 1..8 with wrap. The tool writes the line ("Glade: target → Tree
-                // line — hotkey", "Glade: density → L5 (Glade) — hotkey"); one line per press.
+                // GladeNextMode toggles run interior / tree line, GladeNextVariant steps the tree density 1..8 with wrap. The tool writes the
+                // line ("Glade: target -> Tree line - hotkey"); one line per press.
                 if (m_NextMode.WasPressedThisFrame())
                     m_Tool.ToggleTarget("hotkey");
                 if (m_NextVariant.WasPressedThisFrame())
@@ -343,10 +302,9 @@ namespace SkiResortMod.Systems
             }
         }
 
-        // ── dump (R3) ──────────────────────────────────────────────────────────────────────
 
-        /// <summary>Spec §5.2 dispatch. Each dump has its own try/catch (both DumpToLog bodies
-        /// also catch internally), so a failing dump costs one WARN, never the hotkeys.</summary>
+        /// <summary>Each dump has its own try/catch (both DumpToLog bodies also catch internally), so a failing dump costs one WARN, never
+        /// the hotkeys.</summary>
         private void DispatchDump()
         {
             DumpPresses++;
@@ -378,17 +336,14 @@ namespace SkiResortMod.Systems
             return tool == null ? "none" : tool.toolID;   // ToolBaseSystem.cs:142
         }
 
-        // ── resolution / enabling ──────────────────────────────────────────────────────────
 
         private bool GladeActionsResolved()
         {
             return m_Toggle != null && m_NextVariant != null && m_NextMode != null;
         }
 
-        /// <summary>Looks each action up in our input map, INDEPENDENTLY (R3): a failed lookup
-        /// costs only that action. Null-tolerant: Mod.Settings is assigned before system
-        /// registration in OnLoad, but RegisterKeyBindings may have failed (it is try/caught
-        /// there).</summary>
+        /// <summary>Looks each action up in our input map, independently: a failed lookup costs only that action. Null-tolerant:
+        /// Mod.Settings is assigned before system registration in OnLoad, but RegisterKeyBindings may have failed (try/caught there).</summary>
         private void TryResolveActions()
         {
             SkiResortSettings settings = Mod.Settings;
@@ -419,7 +374,7 @@ namespace SkiResortMod.Systems
 
         private void SetActionsEnabled(bool enabled)
         {
-            // Not built-in, so the setter cannot throw (ProxyAction.cs:334-337).
+            // Not built-in, so the setter cannot throw (ProxyAction.cs:334-337)
             for (int i = 0; i < SlotCount; i++)
             {
                 if (m_Slots[i] != null)
@@ -447,20 +402,15 @@ namespace SkiResortMod.Systems
             return sb.Length == 0 ? "none missing" : "missing " + sb;
         }
 
-        // ── probe + watcher ────────────────────────────────────────────────────────────────
 
-        /// <summary>R3 per-frame watcher (spec §5.2), re-arming since the fixer round (header
-        /// WATCHER RE-ARMS): four bool reads per frame. Every true → false of an armed action's
-        /// `enabled` is counted (WatcherDrops) and logged with the active tool's id and a cause
-        /// label read at that moment — at most Tuning.WatcherLinesPerAction lines per action and
-        /// label per load, then one "further drops not logged" line; each logged drop arms one
-        /// "live again" line. Actions that change on the same frame share one line (all of them
-        /// at once is the signature of a keyboard mask rather than a key conflict). No
-        /// allocation unless a line is written.</summary>
+        /// <summary>Per-frame watcher, re-arming (see header, Probe): four bool reads per frame. Every true -> false of an armed action's
+        /// `enabled` is counted (WatcherDrops) and logged with the active tool's id and a cause label read at that moment, at most
+        /// Tuning.WatcherLinesPerAction lines per action and label per load, then one "further drops not logged" line; each logged drop
+        /// arms one "live again" line. Actions that change on the same frame share one line (all at once is the signature of a keyboard
+        /// mask rather than a key conflict). No allocation unless a line is written.</summary>
         private void WatchActions()
         {
-            // Read once per frame only when something dropped (two public getters,
-            // InputManager.cs:325, :341). Labels, never filters (header WATCHER RE-ARMS).
+            // Read once per frame only when something dropped (two public getters, InputManager.cs:325, :341); labels, never filters
             int dropped = 0, capped = 0, back = 0;   // slot bitmasks of this frame's logged transitions
             int cause = -1;
             for (int i = 0; i < SlotCount; i++)
@@ -532,7 +482,6 @@ namespace SkiResortMod.Systems
             if (back != 0)
             {
                 Mod.Log.Info($"Glade: hotkey watcher — runtime: {SlotList(back)} live again (tool '{ActiveToolId()}')");
-                // Never leave a stale NOT-live status on the dev tab.
                 bool anyDown = false;
                 for (int i = 0; i < SlotCount; i++)
                 {
@@ -558,10 +507,9 @@ namespace SkiResortMod.Systems
             return sb.ToString();
         }
 
-        /// <summary>One-shot, ProbeDelayFrames after arming. RUNTIME: a false `enabled` while
-        /// shouldBeEnabled is true means the conflict pass disabled it, or the keyboard is masked
-        /// right now (WARN, as before R3). OPTIONS MARKER (R3, INFO): every binding's
-        /// hasConflicts and each conflicting map/action (header PROBE SEMANTICS).</summary>
+        /// <summary>One-shot, ProbeDelayFrames after arming. Runtime: a false `enabled` while shouldBeEnabled is true means the conflict
+        /// pass disabled it, or the keyboard is masked right now (WARN). Options marker (INFO): every binding's hasConflicts and each
+        /// conflicting map/action.</summary>
         private void ProbeConflicts()
         {
             string line = DescribeBindings(withState: true);
@@ -590,8 +538,8 @@ namespace SkiResortMod.Systems
                          DescribeOptionsMarkers());
         }
 
-        /// <summary>Per armed action: "none" or the conflicting bindings as map/action
-        /// [built-in|mod]. ProxyBinding.conflicts allocates a list per call (probe only).</summary>
+        /// <summary>Per armed action: "none" or the conflicting bindings as map/action [built-in|mod]. ProxyBinding.conflicts allocates a
+        /// list per call (probe only).</summary>
         private string DescribeOptionsMarkers()
         {
             var sb = new StringBuilder(256);
@@ -657,9 +605,8 @@ namespace SkiResortMod.Systems
                 sb.Append(action.enabled ? " [live]" : " [NOT live]");
         }
 
-        /// <summary>"ctrl+g"-style text from the action's current (possibly rebound) bindings
-        /// (ProxyAction.bindings, ProxyAction.cs:204-217). Hand-formatted: ProxyBinding.ToString
-        /// dereferences m_Modifiers without a null check (ProxyBinding.cs:773-776).</summary>
+        /// <summary>"ctrl+g"-style text from the action's current (possibly rebound) bindings (ProxyAction.bindings, ProxyAction.cs:204-217).
+        /// Hand-formatted: ProxyBinding.ToString dereferences m_Modifiers without a null check (ProxyBinding.cs:773-776).</summary>
         private static string FormatBinding(ProxyAction action)
         {
             foreach (ProxyBinding b in action.bindings)

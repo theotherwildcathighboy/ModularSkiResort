@@ -1,45 +1,32 @@
-// LiftReconnectEpisodes — the PURE per-station episode state machine behind LiftReconnectSystem's
-// flood fix (docs/research/hub-u2-spec.md §5.6). Created 2026-10-03 (Round L1, implementer I-2).
+// The pure per-station episode state machine behind LiftReconnectSystem's flood fix.
 //
-// THE FIELD FACT. Field test 5 logged `LiftReconnect [reconnect]: poked 3 node(s) + 2 edge(s)` 104
-// times, up to 34 per second (docs/research/field/2026-10-03/SkiResortMod.Mod.log lines 443-524,
-// 821-846): Move It keyboard nudges of an already connected top station (spec §5.6, matched to the
-// frame against MoveIt.log). Every nudge frame changed the station Transform, which is part of the
-// reconnect's poke signature, so every moved frame poked AND logged. Placement itself poked once
-// (log 437), which is what makes a line drawn before its station close in the same frame (log 438).
+// Why: Move It keyboard nudges of an already connected top station changed the station Transform every frame; Transform is part
+// of the reconnect's poke signature, so every moved frame poked AND logged (104 log lines, up to 34 per second). Placement itself
+// pokes once, which is what makes a line drawn before its station close in the same frame.
 //
-// CONTRACT (one instance per LiftReconnectSystem; keyed by station EntityRef):
-//   * OnChange(...) is called by the system ONLY when a station's signature (foreign-edge set +
-//     Transform) differs from the last one it saw. It returns what to do NOW:
-//       - no episode open and no line attached          → nothing (no episode: nothing to reconnect);
-//       - no episode open and a line attached           → OPEN the episode and poke at once; if the
-//         foreign-edge set changed (a line attached) also a full chair pass at once (keeps today's
-//         same-frame closure on placement, log 437-438);
-//       - episode open, the foreign-edge set changed and a line is attached (a line attached
-//         mid-episode) → poke + full pass at once;
-//       - episode open, otherwise → poke only when ≥ PokeIntervalFrames frames passed since the last
-//         poke ("at most one poke per 10 frames"); a detached line never pokes.
-//   * Tick(frame, settled) is called EVERY frame by the system, whether or not any station changed
-//     (spec: the pending-episode tick runs before the early return on an empty query, else the
-//     trailing poke never fires). Every episode whose last change is ≥ SettleFrames old is closed
-//     and handed back; the SYSTEM then does the trailing poke + full pass + the ONE log line.
-//     Tick never pokes on its own: the rate-limited "dirty" changes are covered by the trailing poke.
-//   * Remove(station) closes one episode (station deleted); FlushAll closes every episode (game
-//     load, the system's catch). The system logs each flushed episode.
-//   * Frames are the system's own update count (it runs every frame, paused included); times are
-//     wall-clock seconds, used only for the "over N s" in the log line.
+// Contract (one instance per LiftReconnectSystem; keyed by station EntityRef):
+//   * OnChange(...) is called by the system only when a station's signature (foreign-edge set + Transform) differs from the last
+//     one it saw. It returns what to do now:
+//       - no episode open and no line attached          → nothing;
+//       - no episode open and a line attached           → open the episode and poke at once; if the foreign-edge set changed
+//         (a line attached) also a full chair pass at once (same-frame closure on placement);
+//       - episode open, foreign-edge set changed and a line attached → poke + full pass at once;
+//       - episode open, otherwise → poke only when ≥ PokeIntervalFrames frames passed since the last poke; a detached line never pokes.
+//   * Tick(frame, settled) is called every frame, whether or not any station changed (it must run before the system's early return
+//     on an empty query, else the trailing poke never fires). Every episode whose last change is ≥ SettleFrames old is closed and
+//     handed back; the system then does the trailing poke + full pass + the one log line. Tick never pokes on its own.
+//   * Remove(station) closes one episode (station deleted); FlushAll closes every episode (game load, the system's catch).
+//     The system logs each flushed episode.
+//   * Frames are the system's own update count (every frame, paused included); times are wall-clock seconds, used only for the
+//     "over N s" in the log line.
 //
-// Expected trace of the field case (a 34-change drag at 1-frame spacing, frames 0..33, an already
-// connected station): leading poke at 0, pokes at 10, 20, 30 (changes at the 10-frame mark), no
-// poke for 31..33, settle at 48 → trailing poke + full pass + 1 line "moved 34× …, 5 poke(s)".
-// tests/LiftBatch checks exactly this, plus "attach → immediate full pass".
+// Trace of a 34-change drag at 1-frame spacing (frames 0..33, already connected station): leading poke at 0, pokes at 10, 20, 30,
+// none for 31..33, settle at 48 → trailing poke + full pass + one line "moved 34× …, 5 poke(s)". tests/LiftBatch checks exactly
+// this, plus "attach → immediate full pass".
 //
-// Constants are *(tunable, unmeasured)* (spec §5.6) and printed in LiftReconnectSystem's ARM line.
-//
-// PURE FILE: `using System;` + `using System.Collections.Generic;` + `using Unity.Mathematics;`
-// only (the tests/SlopeBatch test-host rule; tests/LiftBatch links it). State is a small
-// dictionary of OPEN episodes only (a few stations at most); no per-frame allocation in steady
-// state (Tick walks the dictionary only while an episode is open).
+// Constants are tunable and unmeasured; printed in LiftReconnectSystem's ARM line.
+// Pure file: System, System.Collections.Generic and Unity.Mathematics only (tests/LiftBatch links it). State is a dictionary of open
+// episodes only; no per-frame allocation in steady state (Tick walks the dictionary only while an episode is open).
 
 using System;
 using System.Collections.Generic;
@@ -47,7 +34,7 @@ using Unity.Mathematics;
 
 namespace SkiResortMod.Systems
 {
-    /// <summary>Per-station reconnect episodes (hub-u2-spec.md §5.6). Pure.</summary>
+    /// <summary>Per-station reconnect episodes. Pure.</summary>
     public sealed class LiftReconnectEpisodes
     {
         /// <summary>At most one poke per this many frames while changes continue (tunable, unmeasured).</summary>

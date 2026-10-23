@@ -8,7 +8,8 @@ using Microsoft.CodeAnalysis.CSharp;
 
 string gitRef = args.Length > 0 ? args[0] : "HEAD";
 string root = Git("rev-parse --show-toplevel").Trim();
-var changed = Git($"diff --name-only {gitRef} -- *.cs").Split('\n', StringSplitOptions.RemoveEmptyEntries).Select(s => s.Trim()).ToList();
+var changed = Git($"diff --name-only {gitRef} -- *.cs").Split('\n', StringSplitOptions.RemoveEmptyEntries).Select(s => s.Trim())
+    .Where(s => !s.Contains("/obj/") && !s.Contains("/bin/")).ToList();
 int bad = 0, ok = 0;
 foreach (var rel in changed)
 {

@@ -1,36 +1,35 @@
 /*
- * src/hub/HistoryChart.tsx - the History view's charts as inline SVG (T78 build 2, contract 10). React only: no chart.js
- * (plan docs/research/ui/hub-history-chart-plan-2026-10-18.md section 4.1: the harness stubs it, a game patch can change it,
- * the vanilla UI draws its small charts as React SVG too).
+ * The History view's charts as inline SVG. React only, no chart.js (the harness stubs it, a game patch can change it, the
+ * vanilla UI draws its small charts as React SVG too).
  *
- * Written for this repo (MIT). Created 2026-10-18 (T78 build 2; docs/research/ui/hub-history-build-2-2026-10-18.md section 3).
  * Contract:
- *   - Pure presentation of historyRules buckets: <BarChart> draws one slot per bucket. Stacked bars: `up` series above the zero line,
- *     `down` series below it (costs, shown positive in the data); one optional line (`line`: ski days or the net) through the
- *     slot centers, broken where historyRules.linePoints has no point. ONE axis (no dual scale): the line shares the bars' scale.
- *     Each <BarChart> is its own chart; the attraction strip is a separate <LineStrip> with its own scale.
- *   - Marks: bars 70 % of a slot (a slot gap of at least 2 rem between bars), a 2 rem surface gap between stacked segments, a
- *     line 2 rem wide. Partial buckets are drawn faded (fill opacity 0.45), the month in progress also with a dashed outline.
- *   - SVG elements used: svg, rect, path, line (the ones vanilla renders through React; polyline, pattern and defs are never used).
- *     Coordinates are viewBox units (VIEW_W wide), preserveAspectRatio "none": the box fills the chart column's width.
- *     Text is HTML around the SVG (axis labels, the scale), never SVG <text>.
- *   - Hover: the plot's own div tracks the pointer (getBoundingClientRect), the bucket under it is highlighted and reported to
- *     onHover (-1 when the pointer leaves); the parent owns the tooltip.
- * T82 UI round (2026-10-19; docs/research/ui/hub-design-review-2026-10-18.md B2, B3, B4):
- *   - B3 scale gutter (F7): every chart is a row [gutter | plot + axis]. The gutter holds the top value, "0" on the zero line and
- *     the bottom value, right-aligned, never over a mark; a top / bottom value closer than LABEL_ROOM to the zero line is dropped
- *     (the "0" stays). Its width is set by `sizers` (every scale label of the view, laid out invisibly), so the gutters of the
- *     view's charts are equally wide and their slots line up (the shared hover index).
- *   - B3 gaps (F8): a slot with `gap` gets a faint band hatched at 45 deg (the dataviz texture channel), no bar. Empty slots
+ *   - Pure presentation of historyRules buckets: <BarChart> draws one slot per bucket. Stacked bars: `up` series above the
+ *     zero line, `down` series below it (costs, shown positive in the data); one optional line (`line`: ski days or the
+ *     net) through the slot centers, broken where historyRules.linePoints has no point. ONE axis (no dual scale): the line
+ *     shares the bars' scale. Each <BarChart> is its own chart; the attraction strip is a separate <LineStrip> with its
+ *     own scale.
+ *   - Marks: bars 70 % of a slot (a slot gap of at least 2 rem between bars), a 2 rem surface gap between stacked
+ *     segments, a line 2 rem wide. Partial buckets are drawn faded (fill opacity 0.45), the month in progress also with a
+ *     dashed outline.
+ *   - SVG elements used: svg, rect, path, line (the ones vanilla renders through React; polyline, pattern and defs are
+ *     never used). Coordinates are viewBox units (VIEW_W wide), preserveAspectRatio "none": the box fills the chart
+ *     column's width. Text is HTML around the SVG (axis labels, the scale), never SVG <text>.
+ *   - Hover: the plot's own div tracks the pointer (getBoundingClientRect), the bucket under it is highlighted and
+ *     reported to onHover (-1 when the pointer leaves); the parent owns the tooltip.
+ *   - Scale gutter: every chart is a row [gutter | plot + axis]. The gutter holds the top value, "0" on the zero line and
+ *     the bottom value, right-aligned, never over a mark; a top / bottom value closer than LABEL_ROOM to the zero line is
+ *     dropped (the "0" stays). Its width is set by `sizers` (every scale label of the view, laid out invisibly), so the
+ *     gutters of the view's charts are equally wide and their slots line up (the shared hover index).
+ *   - Gaps: a slot with `gap` gets a faint band hatched at 45 deg (the dataviz texture channel), no bar. Empty slots
  *     without `gap` (before the area existed, the rest of this season) stay blank.
- *   - B3 line ends (F4): lines take historyRules.linePoints (null = no point): they end at the last whole month.
- *   - B4 "This season vs last": `behind` draws last season's same months gray (HISTORY_COLOR.lastSeason) as wide bars behind this
- *     season's narrower colored ones (totals only: one gray bar up, one down), plus its line in gray.
- *   - B2 colors: the Finances chart is income (blue) above zero, costs (red) below, the net as a near-white line. Validated with the
- *     dataviz validator against the panel surface #2a3753 (dark): income / costs pass every check (CVD dE 23.6 protan, normal 31.9,
- *     contrast >= 3:1); the guests set blue / aqua / yellow passes every check (all pairs). The net line #f0fbff and the last-season
- *     gray #646c7e are neutrals, not categorical hues (band / chroma "FAIL" by design); gray vs blue normal dE 16.0, vs red CVD dE 8.3,
- *     contrast 2.25:1 (WARN: relief = the "Last season" legend label and its number in the tooltip).
+ *   - Line ends: lines take historyRules.linePoints (null = no point), so they end at the last whole month.
+ *   - "This season vs last": `behind` draws last season's same months gray (HISTORY_COLOR.lastSeason) as wide bars behind
+ *     this season's narrower colored ones (totals only: one gray bar up, one down), plus its line in gray.
+ *   - Colors: the Finances chart is income (blue) above zero, costs (red) below, the net as a near-white line. Validated
+ *     with the dataviz validator against the panel surface #2a3753 (dark): income / costs and the guests set blue / aqua /
+ *     yellow pass every check. The net line #f0fbff and the last-season gray #646c7e are neutrals, not categorical hues
+ *     (band / chroma "FAIL" by design); gray vs red CVD dE 8.3, contrast 2.25:1 (WARN: relief = the "Last season" legend
+ *     label and its number in the tooltip).
  */
 import type { ReactNode } from "react";
 import { Tip, cx } from "./parts";
@@ -40,7 +39,7 @@ import { bucketAt } from "./historyRules";
 /** viewBox width (rem at 100 %, about the chart column's width). */
 export const VIEW_W = 400;
 
-/** Series colors (dataviz reference palette, dark steps; header). */
+/** Series colors (dataviz reference palette, dark steps). */
 export const HISTORY_COLOR = {
   tourists: "#3987e5",
   residents: "#199e70",
@@ -73,7 +72,7 @@ export interface ChartSlot {
   none: boolean;
   partial: boolean;
   current: boolean;
-  /** Recorded nothing inside the area's range: the hatched band (B3). */
+  /** Recorded nothing inside the area's range: the hatched band. */
   gap: boolean;
 }
 
@@ -83,7 +82,7 @@ export interface ChartScale {
   bottom: number;
 }
 
-/** Last season behind this one (B4 "seasonVs"): one total up, one down per slot (NaN / <= 0 = none), and its line. */
+/** Last season behind this one ("seasonVs"): one total up, one down per slot (NaN / <= 0 = none), and its line. */
 export interface ChartBehind {
   up: ReadonlyArray<number>;
   down: ReadonlyArray<number>;
@@ -127,7 +126,7 @@ function linePath(points: ReadonlyArray<number | null>, slotW: number, y: (v: nu
   return path;
 }
 
-/** The gap bands of a plot (B3): a faint fill and the 45-degree hatch per gap slot. */
+/** The gap bands of a plot: a faint fill and the 45-degree hatch per gap slot. */
 function gapMarks(slots: readonly ChartSlot[], slotW: number, height: number): JSX.Element[] {
   const out: JSX.Element[] = [];
   slots.forEach((s, i) => {
@@ -159,7 +158,7 @@ function Gutter({ sizers, height, labels }: {
   );
 }
 
-/** The scale labels of a plot with its zero line at zeroY (B3): top value, "0", bottom value, none closer than LABEL_ROOM. */
+/** The scale labels of a plot with its zero line at zeroY: top value, "0", bottom value, none closer than LABEL_ROOM. */
 function scaleLabels(scale: ChartScale, height: number, zeroY: number, topLabel: ReactNode, bottomLabel: ReactNode) {
   const zeroAlign: "top" | "middle" | "bottom" = zeroY >= height - LABEL_ROOM / 2 ? "bottom" : zeroY <= LABEL_ROOM / 2 ? "top" : "middle";
   const out: Array<{ key: string; y: number; align: "top" | "middle" | "bottom"; node: ReactNode }> = [];
@@ -175,7 +174,7 @@ export function BarChart({ slots, up, down, line, behind, scale, height, hover, 
   down: readonly ChartSeries[];
   /** One line on the same scale (e.g. ski days, the net); null = none. Values below zero draw below the zero line. */
   line: ChartLine | null;
-  /** Last season, gray behind (B4); null = none. */
+  /** Last season, gray behind; null = none. */
   behind: ChartBehind | null;
   scale: ChartScale;
   /** Plot height in rem (viewBox units). */

@@ -1,20 +1,18 @@
-// LiftTowerPlanOverlaySystem — READ-ONLY debug overlay of the tower planner (T48 step 2; build note
-// docs/research/field/2026-10-19/tower-planner-build-1.md). While a lift line is the selected entity (ToolSystem.selected,
-// ToolSystem.cs:101: a section edge, a node, or an object whose Owner is one, e.g. a tower), it draws the line's PLANNED towers and
-// rope as LiftTowerDiagSystem planned them on the real terrain (the "Towers [plan]" block of the same line):
-//   * the planned rope, sample by sample (5 m; tram 10 m), colored by the lowest carrier point's floor margin:
-//     green >= 2 m, amber 0-2 m, red < 0 (below the floor), violet = rope above the max rope height;
-//   * each planned tower: a ring on the ground at its base (draped, StyleFlags.Projected) and a cross-bar at the planned rope height
-//     (white; taller members wider), plus a ring at the rope point; the two station ends get a ring at the rope.
-// Masts are NOT drawn: OverlayRenderSystem.Buffer.DrawLine measures a line by its xz length (OverlayRenderSystem.cs:209) and
+// Read-only debug overlay of the tower planner. While a lift line is the selected entity (ToolSystem.selected,
+// ToolSystem.cs:101: a section edge, a node, or an object it owns, e.g. a tower) it draws the line's planned towers and rope
+// as LiftTowerDiagSystem planned them on the real terrain:
+//   * the rope, sample by sample (5 m; tram 10 m), colored by the lowest carrier point's floor margin: green >= 2 m,
+//     amber 0-2 m, red < 0 (below the floor), violet = above the max rope height
+//   * each tower: a draped ring at its base and a cross-bar at the planned rope height (taller members wider), plus a ring
+//     at the rope point; the two station ends get a ring at the rope
+// Masts are not drawn: OverlayRenderSystem.Buffer.DrawLine measures a line by its xz length (OverlayRenderSystem.cs:209) and
 // DrawCurveImpl drops anything under 0.01 m (:269), so a vertical line never renders.
-// It changes nothing: no command buffer, no component write. Gated by Settings ▸ Lifts ▸ LiftBuildAids like the align aid.
-// Buffer use = the main-thread pattern of SkiStationAlignSystem: GetBuffer(out deps), deps.Complete() (OverlayRenderSystem.cs:603).
-// LOGS: one "Towers [overlay]" line when a newly selected line starts drawing (planned towers, color counts) and one when the
-// selected entity is a lift line whose plan is being made; nothing per frame.
+// Changes nothing; gated by Settings > Lifts > LiftBuildAids. Buffer use is the main-thread pattern of
+// SkiStationAlignSystem: GetBuffer(out deps), deps.Complete() (OverlayRenderSystem.cs:603). Logs one "Towers [overlay]"
+// line when a newly selected line starts drawing, nothing per frame.
 //
-// Mod.cs: UpdateBefore<LiftTowerPlanOverlaySystem, OverlayRenderSystem>(Rendering) — the overlay lists are consumed and cleared by
-// OverlayRenderSystem later in the same phase (OverlayRenderSystem.cs:781, :790), the SkiStationAlignSystem anchor.
+// Mod.cs: UpdateBefore<LiftTowerPlanOverlaySystem, OverlayRenderSystem>(Rendering): OverlayRenderSystem consumes and
+// clears the overlay lists later in the same phase (OverlayRenderSystem.cs:781, :790).
 
 using System;
 using System.Collections.Generic;
@@ -34,14 +32,14 @@ namespace SkiResortMod.Systems
     internal sealed class LiftPlanDraw
     {
         public string TypeId;
-        public float3[] Base;         // tower base on the center ground (stations: the end node point at ground)
-        public float3[] Rope;         // rope point
-        public float3[] Right;        // unit right of the line at the node
+        public float3[] Base; // tower base on the center ground (stations: the end node point at ground)
+        public float3[] Rope;
+        public float3[] Right; // unit right of the line at the node
         public bool[] IsStation;
         public int[] Member;
         public int LadderLength;
-        public float3[] SegA, SegB;   // the rope, sample to sample
-        public byte[] SegClass;       // 0 green, 1 amber, 2 red (floor), 3 violet (max height)
+        public float3[] SegA, SegB;
+        public byte[] SegClass; // 0 green, 1 amber, 2 red (floor), 3 violet (max height)
         public int Towers;
         public readonly int[] ClassCounts = new int[4];
 
@@ -109,10 +107,10 @@ namespace SkiResortMod.Systems
         private const float RopeRingM = 1.6f;
         private static readonly UnityEngine.Color[] SegColors =
         {
-            new UnityEngine.Color(0.25f, 0.85f, 0.35f, 0.9f),   // green: floor margin >= 2 m
-            new UnityEngine.Color(1.0f, 0.75f, 0.15f, 0.9f),    // amber: 0-2 m
-            new UnityEngine.Color(0.95f, 0.2f, 0.2f, 0.95f),    // red: below the floor
-            new UnityEngine.Color(0.7f, 0.35f, 1.0f, 0.95f),    // violet: above the max rope height
+            new UnityEngine.Color(0.25f, 0.85f, 0.35f, 0.9f),
+            new UnityEngine.Color(1.0f, 0.75f, 0.15f, 0.9f),
+            new UnityEngine.Color(0.95f, 0.2f, 0.2f, 0.95f),
+            new UnityEngine.Color(0.7f, 0.35f, 1.0f, 0.95f),
         };
         private static readonly UnityEngine.Color TowerColor = new UnityEngine.Color(1f, 1f, 1f, 0.9f);
         private static readonly UnityEngine.Color StationColor = new UnityEngine.Color(0.55f, 0.8f, 1f, 0.9f);
@@ -137,8 +135,8 @@ namespace SkiResortMod.Systems
         {
             if (Mod.Settings != null && !Mod.Settings.LiftBuildAids)
                 return;
-            // T125: never under the lift tool, whose editable preview uses the same rings: two look-alike overlays read as if the
-            // placed line could be edited there.
+            // Never under the lift tool, whose editable preview uses the same rings: two look-alike overlays would suggest the placed
+            // line can be edited there.
             if (m_ToolSystem.activeTool is LiftLineToolSystem)
                 return;
             Entity selected = m_ToolSystem.selected;
@@ -169,7 +167,7 @@ namespace SkiResortMod.Systems
             Draw(draw);
         }
 
-        /// <summary>The plan of the selected entity, or of its Owner (a tower's owner is its node). <paramref name="key"/> = the
+        /// <summary>The plan of the selected entity, or of its Owner (a tower's owner is its node). <paramref name="key"/> is the
         /// entity to ask the diag system for when nothing is cached.</summary>
         private bool TryResolve(Entity selected, out LiftPlanDraw draw, out Entity key)
         {
@@ -193,7 +191,7 @@ namespace SkiResortMod.Systems
 
         private void Draw(LiftPlanDraw d)
         {
-            // Main-thread write: complete the existing writers first (OverlayRenderSystem.cs:603-634).
+            // Main-thread write: complete the existing writers first (OverlayRenderSystem.cs:603-634)
             OverlayRenderSystem.Buffer buffer = m_Overlay.GetBuffer(out JobHandle deps);
             deps.Complete();
             var absolute = (OverlayRenderSystem.StyleFlags)0;
@@ -201,18 +199,18 @@ namespace SkiResortMod.Systems
             for (int i = 0; i < d.SegA.Length; i++)
             {
                 UnityEngine.Color c = SegColors[d.SegClass[i]];
-                buffer.DrawLine(c, c, 0f, absolute, new Line3.Segment(d.SegA[i], d.SegB[i]), RopeWidthM, round);   // :207
+                buffer.DrawLine(c, c, 0f, absolute, new Line3.Segment(d.SegA[i], d.SegB[i]), RopeWidthM, round); // OverlayRenderSystem.cs:207
             }
             for (int i = 0; i < d.Base.Length; i++)
             {
                 if (d.IsStation[i])
                 {
-                    buffer.DrawCircle(StationColor, StationColor, 0f, absolute, new float2(0f, 1f), d.Rope[i], RopeRingM);   // :138
+                    buffer.DrawCircle(StationColor, StationColor, 0f, absolute, new float2(0f, 1f), d.Rope[i], RopeRingM); // OverlayRenderSystem.cs:138
                     continue;
                 }
                 buffer.DrawCircle(TowerColor, TowerColor, 0f, OverlayRenderSystem.StyleFlags.Projected, new float2(0f, 1f), d.Base[i], BaseRingM);
                 buffer.DrawCircle(TowerColor, TowerColor, 0f, absolute, new float2(0f, 1f), d.Rope[i], RopeRingM);
-                float half = 2f + 2f * d.Member[i] / math.max(1, d.LadderLength - 1);   // 2 m (shortest) .. 4 m (tallest)
+                float half = 2f + 2f * d.Member[i] / math.max(1, d.LadderLength - 1); // 2 m (shortest) .. 4 m (tallest)
                 float3 r = d.Right[i] * half;
                 buffer.DrawLine(TowerColor, TowerColor, 0f, absolute, new Line3.Segment(d.Rope[i] - r, d.Rope[i] + r), 0.4f, round);
             }

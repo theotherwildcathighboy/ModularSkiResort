@@ -1,5 +1,4 @@
-// BindingBatch — headless decision-table tests for SkiRunBindingRules
-// (docs/research/run-binding-glade-spec.md §3.3, §3.12). Created 2026-10-01 (Round O1, I-1).
+// BindingBatch — headless decision-table tests for SkiRunBindingRules.
 // Run (from the ModularSkiResort root):
 //   dotnet run --project tests\BindingBatch\BindingBatch.csproj -c Release
 // Prints `FAIL  where: msg` lines, report-only INFO lines and one SUMMARY line;
@@ -7,18 +6,18 @@
 //
 // What is proven here is the PURE decision only. The ECS effects (Owner removal, SubArea entry
 // removal, AddComponentData, Charge) live in SkiRunOwnershipSystem and are modeled below by a
-// test-local effect function (ApplyEffect) that restates §3.3's "Effect" column; the model is
+// test-local effect function (ApplyEffect) that restates the table's "Effect" column; the model is
 // what the idempotence and money assertions run against, not the mod's ECS code.
 //
-// The oracle is a DIFFERENT encoding from Decide's if-chain: the §3.3 table as data (required-
+// The oracle is a DIFFERENT encoding from Decide's if-chain: the decision table as data (required-
 // true / required-false fact masks per row, first match wins), plus literal expected values for
 // hand-picked combinations and the exact number of combinations each row must win (a priority
 // check that does not reuse either encoding).
 //
-// Round E1 (stream S2, 2026-10-04; docs/research/econ-round/spec/ch2-runs.md §6.6): FeeTests asserts
-// SkiRunFees (D21: base + per hectare, rounded half up to ₵10, area capped at 2,000 ha, -1 for an
-// unknown kind) — a literal table (oracles computed in IEEE double, as the C#) and a monotonicity /
-// rounding sweep over every kind (4 × 201 areas). EntityRef.cs is linked for the RunKind equalities.
+// FeeTests asserts SkiRunFees (base + per hectare, rounded half up to ₵10, area capped at 2,000 ha,
+// -1 for an unknown kind) — a literal table (oracles computed in IEEE double, as the C#) and a
+// monotonicity / rounding sweep over every kind (201 areas each). EntityRef.cs is linked for the
+// RunKind equalities.
 
 using System;
 using System.Collections.Generic;
@@ -59,7 +58,7 @@ namespace BindingBatch
             }
         }
 
-        // §3.3, order = priority. ExpectedWins = 2^(free facts) with every earlier row excluded:
+        // Decision table, order = priority. ExpectedWins = 2^(free facts) with every earlier row excluded:
         // row 1/2 fix 2 facts (32 each); row 3 fixes !HasOwner, HasBinding, GateLive (16);
         // rows 4/5 fix 4 (8 each); rows 6/7 fix !HasOwner, !HasBinding, SignInTether, LoadPass
         // (8 each); row 8 fixes !HasOwner, !HasBinding, !SignInTether (16). Sum = 128.
@@ -86,7 +85,7 @@ namespace BindingBatch
             IndependenceTests();
             IdempotenceTests();
             ScenarioTests();
-            FeeTests();   // Round E1 (econ-round spec ch2 §6.6): SkiRunFees, the one-time run fee by plan area
+            FeeTests(); // SkiRunFees, the one-time run fee by plan area
 
             Console.WriteLine(string.Format(CultureInfo.InvariantCulture,
                 "SUMMARY  BindingBatch combinations={0} checks={1} failures={2}",
@@ -162,8 +161,8 @@ namespace BindingBatch
 
         // ================================================================== tests
 
-        /// <summary>Exactly the eight §2 actions exist — in particular no "delete" action: the
-        /// rules never delete a run on an inferred event (§3.3).</summary>
+        /// <summary>Exactly the eight actions exist — in particular no "delete" action: the
+        /// rules never delete a run on an inferred event.</summary>
         private static void EnumTests()
         {
             Array values = Enum.GetValues(typeof(BindAction));
@@ -181,7 +180,7 @@ namespace BindingBatch
         }
 
         /// <summary>All 2^7 combinations against the table-as-data oracle, plus the exact number
-        /// of combinations each row wins (priority order of §3.3).</summary>
+        /// of combinations each row wins (priority order).</summary>
         private static void TableTests()
         {
             var wins = new int[Table.Length];
@@ -204,7 +203,7 @@ namespace BindingBatch
                               " (MigrateLegacy/LeaveForeign/KeepBound/RebindFree/Orphan/RestoreFree/BindCharge/LeaveUnbound)");
         }
 
-        /// <summary>Literal expectations, written from the spec text, not from either encoding.</summary>
+        /// <summary>Literal expectations, written by hand, not from either encoding.</summary>
         private static void SpotTests()
         {
             Spot(0, BindAction.LeaveUnbound, "nothing at all");
@@ -310,7 +309,7 @@ namespace BindingBatch
             };
         }
 
-        /// <summary>§3.3's Effect column, restated as a model (see file header).</summary>
+        /// <summary>The table's Effect column, restated as a model (see file header).</summary>
         private static World ApplyEffect(World w, BindAction a)
         {
             switch (a)
@@ -422,7 +421,7 @@ namespace BindingBatch
             Console.WriteLine("INFO  idempotence: " + sequences + " consistent start states x {load, sweep} first, 5 decisions each");
         }
 
-        /// <summary>The named scenarios of §3.12 and §0.</summary>
+        /// <summary>The named scenarios.</summary>
         private static void ScenarioTests()
         {
             // "A paused SweepNow is not a load pass": unbound + sign in tether + LoadPass=false
@@ -438,13 +437,13 @@ namespace BindingBatch
                     "legacy Owner(sign) in a sweep gave " + a);
             }
 
-            // Uninstall -> save -> reinstall (D6): restored free at load, then bound for good.
+            // Uninstall -> save -> reinstall: restored free at load, then bound for good.
             World w = new World { Owner = OwnerKind.None, Gate = GateKind.None, SignInTether = true };
             int charges = Life(ref w, true, 4);
             Check(w.Gate == GateKind.Live && charges == 0, "scenario reinstall",
                 "reinstall restore: gate " + w.Gate + ", charges " + charges);
 
-            // Bound run whose sign dies without the cascade (D7): no other sign -> paid orphan
+            // Bound run whose sign dies without the cascade: no other sign -> paid orphan
             // (one WARN transition), kept; a sign placed later -> re-linked free.
             w = new World { Owner = OwnerKind.None, Gate = GateKind.DeadNonNull, SignInTether = false };
             charges = Life(ref w, false, 3);
@@ -461,13 +460,13 @@ namespace BindingBatch
             Check(w.Gate == GateKind.Live && charges == 0, "scenario relocate",
                 "sign relocated far: gate " + w.Gate + ", charges " + charges);
 
-            // A pre-O1 save: Owner(live sign) at load -> migrated bound, never charged.
+            // A save from before run binding existed: Owner(live sign) at load -> migrated bound, never charged.
             w = new World { Owner = OwnerKind.LiveSign, Gate = GateKind.None, SignInTether = true };
             charges = Life(ref w, true, 4);
             Check(w.Owner == OwnerKind.None && w.Gate == GateKind.Live && charges == 0, "scenario pre-O1 save",
                 "migration: owner " + w.Owner + ", gate " + w.Gate + ", charges " + charges);
 
-            // A pre-O1 save whose sign was gone at save time (Owner remapped to Null): paid
+            // A pre-binding save whose sign was gone at save time (Owner remapped to Null): paid
             // orphan, then re-linked free if a sign stands in tether.
             w = new World { Owner = OwnerKind.DeadOwner, Gate = GateKind.None, SignInTether = true };
             charges = Life(ref w, true, 4);
@@ -481,7 +480,7 @@ namespace BindingBatch
                 "fresh draw: gate " + w.Gate + ", charges " + charges + " (expected exactly 1)");
         }
 
-        // ================================================================== Round E1: run fees
+        // ================================================================== run fees
 
         private static void FeeEq(int kind, float area, int expected, string what)
         {
@@ -489,7 +488,7 @@ namespace BindingBatch
             Check(got == expected, "fee " + what, "expected " + expected + ", got " + got);
         }
 
-        /// <summary>ch2 §6.6: constants, kind equalities, the literal fee table and the sweep.</summary>
+        /// <summary>Constants, kind equalities, the literal fee table and the sweep.</summary>
         private static void FeeTests()
         {
             const string W = "fee constants";
@@ -538,7 +537,7 @@ namespace BindingBatch
             FeeEq(SkiRunFees.KindNight, float.PositiveInfinity, 14006000, "night +inf (capped at 2,000 ha)");
             FeeEq(SkiRunFees.KindNight, 1e9f, 14006000, "night 1e9 m² (capped at 2,000 ha)");
             // Unknown kinds.
-            // T54 probe 1: kind 4 is the cat track and pays the groomed fee by plan area (cat-track-run.md §2); 5 is the first unknown.
+            // Kind 4 is the cat track and pays the groomed fee by plan area; 5 is the first unknown.
             Check(SkiRunFees.KindCatTrack == (int)RunKind.CatTrack && SkiRunFees.KindCatTrack == 4, "fee kinds", "KindCatTrack != RunKind.CatTrack (4)");
             FeeEq(SkiRunFees.KindCatTrack, 0f, 2000, "cat track 0 m²");
             FeeEq(SkiRunFees.KindCatTrack, 12345f, SkiRunFees.Fee(SkiRunFees.KindGroomed, 12345f), "cat track 12,345 m² = groomed's");

@@ -1,12 +1,6 @@
-// OffSeasonTests — T137 (DECISIONS 358) off-season half staffing, OffSeasonRules (report docs/research/economy/balance-build-2026-10-20.md).
-//   OS1 Step: the first observation is taken at once (closed at load -> off; open at load -> in season).
-//   OS2 Step: a thaw shorter than 12 game hours keeps the staff; exactly HoldToOffFrames flips to off; a flicker resets the clock.
-//   OS3 Step: off -> in season after one game hour of an open run (HoldToOnFrames), not before; wrap-safe frame clock.
-//   OS4 HalfJobs / Target: rounded up, never 0 for a staffed building, setting off = full, negative = 0; the catalog rows after
-//       T137 C1 / C2 (A-frame 4 -> 2, chalet 12 -> 6, grand 18 -> 9, school 4 -> 2, hut sign 4 -> 2, summit sign 8 -> 4).
-//   OS5 IsSeasonal: lodges and the school, never patrol; the catalog's C1 / C2 numbers (A-frame jobs 4, school 4 / 3,000).
-//   OS6 a 12-day calendar replayed (one game day = one month, Richard's Oct-Jul): staff halve from the first closed day + 12 h and
-//       return within an hour of the first open run.
+// OffSeasonRules: half staffing while a building's lifts have no open run. OS1-OS3 the Step state machine (first
+// observation, 12-hour hold to off, 1-hour hold back on, wrap-safe frame clock); OS4 HalfJobs / Target and the catalog rows;
+// OS5 IsSeasonal; OS6 a 12-day calendar replay; OS7 sign jobs.
 
 using System;
 using SkiResortMod.Systems;
@@ -19,13 +13,11 @@ namespace BuildingBatch
 
         public static void Run(Func<bool, string, string, bool> check)
         {
-            // OS1
             var s = default(OffSeasonState);
             check(OffSeasonRules.Step(ref s, true, 1000u) && s.Known && !s.Pending, "OS1", "closed at the first observation -> off at once");
             s = default;
             check(!OffSeasonRules.Step(ref s, false, 1000u) && s.Known, "OS1b", "open at the first observation -> in season");
 
-            // OS2
             s = default;
             OffSeasonRules.Step(ref s, false, 0u);
             bool offEarly = OffSeasonRules.Step(ref s, true, 100u) || OffSeasonRules.Step(ref s, true, 100u + OffSeasonRules.HoldToOffFrames - 1u);
@@ -41,7 +33,6 @@ namespace BuildingBatch
             check(OffSeasonRules.HoldToOffFrames == Day / 2u && OffSeasonRules.HoldToOnFrames == 10923u, "OS2d",
                   "holds: 12 game hours to off, one game hour (LiftClosedRule.HoldFrames) back on");
 
-            // OS3
             s = default;
             OffSeasonRules.Step(ref s, true, uint.MaxValue - 100u);          // off at load, near the wrap
             bool onEarly = !OffSeasonRules.Step(ref s, false, uint.MaxValue - 50u) ||
@@ -50,7 +41,6 @@ namespace BuildingBatch
             check(!OffSeasonRules.Step(ref s, false, unchecked(uint.MaxValue - 50u + OffSeasonRules.HoldToOnFrames)), "OS3b",
                   "open for one game hour: in season (wrap-safe)");
 
-            // OS4
             check(OffSeasonRules.HalfJobs(4) == 2 && OffSeasonRules.HalfJobs(12) == 6 && OffSeasonRules.HalfJobs(18) == 9 &&
                   OffSeasonRules.HalfJobs(8) == 4 && OffSeasonRules.HalfJobs(1) == 1 && OffSeasonRules.HalfJobs(5) == 3 &&
                   OffSeasonRules.HalfJobs(0) == 0 && OffSeasonRules.HalfJobs(-3) == 0, "OS4",
@@ -66,15 +56,13 @@ namespace BuildingBatch
                   OffSeasonRules.HalfJobs(school.Jobs) == 2 && OffSeasonRules.HalfJobs(hut.SignJobs) == 2 && OffSeasonRules.HalfJobs(summit.SignJobs) == 4,
                   "OS4c", "off-season workplaces: A-frame 2, chalet 6, grand 9, school 2, hut (sign) 2, summit (sign) 4");
 
-            // OS5
             check(OffSeasonRules.IsSeasonal(true, false) && OffSeasonRules.IsSeasonal(false, true) && !OffSeasonRules.IsSeasonal(false, false),
                   "OS5", "lodges and the school are seasonal; patrol (neither) is not");
             check(aFrame.Jobs == 4 && school.Jobs == 4 && school.Upkeep == 3000 && aFrame.Upkeep == 3000, "OS5b",
                   $"T137 C1 / C2 catalog: A-frame jobs {aFrame.Jobs} (4), school jobs {school.Jobs} (4) upkeep {school.Upkeep} (3,000)");
             check(OffSeasonRules.DefaultEnabled, "OS5c", "the setting defaults to on");
 
-            // OS6: Richard's calendar replayed, one game day per month, polled every 256 frames: days 0-5 May-Oct (no open run),
-            // 6-11 Nov-Apr (open), 12 May again.
+            // OS6: one game day per month, polled every 256 frames: days 0-5 closed, 6-11 open, 12 closed again
             s = default;
             bool offAtLoad = false;
             long firstOn = -1, secondOff = -1;
@@ -95,7 +83,7 @@ namespace BuildingBatch
             check(secondOff >= 12L * Day + OffSeasonRules.HoldToOffFrames && secondOff < 12L * Day + OffSeasonRules.HoldToOffFrames + 256, "OS6c",
                   $"the next May: half staff 12 game hours after the last run closed (frame {secondOff})");
 
-            // OS7: MountainJobsRules.SignJobsFor (the roadless buildings' sign jobs).
+            // OS7: sign jobs of the roadless buildings
             check(MountainJobsRules.SignJobsFor(summit.SignJobs, false, true, false) == 8 && MountainJobsRules.SignJobsFor(summit.SignJobs, false, true, true) == 4 &&
                   MountainJobsRules.SignJobsFor(hut.SignJobs, false, true, true) == 2, "OS7",
                   "summit 8 in season, 4 off-season; hut 2 off-season");

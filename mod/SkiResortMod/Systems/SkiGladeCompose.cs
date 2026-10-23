@@ -1,202 +1,128 @@
-// SkiGladeCompose — the glade tool's APPLY COMPOSITION. Round G3 "one tree-density dial"
-// (docs/research/run-binding-glade-spec.md §8.2-§8.3, which AMENDS the G2 contract of §4.2-§4.3;
-// field test 3 / DECISIONS 124). PURE on purpose: usings are System, System.Collections.Generic
-// and Unity.Mathematics ONLY, so the same file compiles into the net48 mod (default **/*.cs glob)
-// AND is linked into the net8 headless host tests/GladeBatch, which drives it through a
-// test-local world (ApplySim, spec §8.5). Nothing here is copied from ParkManager. Created
-// 2026-10-01 (Round G2, I-2); rewritten for Round G3 the same day (implementer G3-A).
+// The glade tool's apply composition: one tree-density level per layer (docs/research/run-binding-glade-spec.md §8.2-§8.3).
+// Pure on purpose: usings are System, System.Collections.Generic and Unity.Mathematics only, so the file compiles into the
+// net48 mod (default **/*.cs glob) and is linked into the net8 headless host tests/GladeBatch, which drives it through a
+// test-local world (ApplySim, spec §8.5).
 //
-// WHAT AN APPLY MEANS (spec §8.2). One number per layer, the tree density LEVEL L = 1..8
-// (Levels, DefaultLevel 4; input.Level is clamped, so 0 means 1 = Clear). Two targets: the RUN
-// INTERIOR (layer 0, input.TreeLine = false) and the TREE LINE (layer 1, TreeLine = true). An
-// apply on (run R, target, L) brings R's layer to the level's tree COUNT:
-//   * Interior: T = round(Area · InteriorDensity(L)) trees inside the run, wild and planted
-//     together (Area = the planner's sanitized polygon area, round = floor(x + 0.5): T is read
-//     off a planner probe, PROBE below, so it uses the planner's own arithmetic). W = wild
-//     thinnable trees inside (Existing with Thinnable), X = other trees inside the tool may not
-//     fell (non-thinnable Existing: foreign-owned, other runs' members, fixed occupants; and a
-//     member of this run with an UNKNOWN layer byte, never written by the tag system — kept,
-//     never removed). X holds NO member of this run with a known layer (G3 fixer round: G3-A
-//     counted this run's tree-line members inside the polygon as X, so Interior L1 "Clear" left
-//     our own trees in a widened run — finding compose-1). M = this run's CURRENT interior members
-//     inside. N = W + X + M.
-//   * Tree line: T = round(BeltFactor(L) · B) with B = the G2 belt target (the planner's
-//     RawTargetBelt = round(BeltDensity · BeltCoverage · perimeter · (BeltDepth − BeltGap)), no
-//     survivor subtraction). N = M = this run's current belt members in the belt region
-//     (outside, within BeltDepth + MinSpacing of an edge — the tool's tree-line census band);
-//     W = X = 0: the tree line counts only its own trees and NEVER fells.
-//   "Current" = Variant == input.Variant && PlanGen == PlanGeneration (Variant is always 0 for
-//   new plantings, §8.2). Every other member of the target layer is OTHER-TAGGED (another variant
-//   or generation, v1 tags included).
-//   MISPLACED (amended in the G3 fixer round, findings compose-1 / behavior-1): a member of EITHER
-//   layer of this run that stands outside its OWN layer's region — an interior member outside the
-//   polygon, a tree-line member inside it, or (tree-line target only, which owns that test) a
-//   current tree-line member farther than BeltDepth + MinSpacing from every edge — because a run
-//   edit moved the edge past it. G3-A counted such trees nowhere (OwnOutside) or as X, and G3
-//   deleted the variant re-roll that cleared them in G2 (§4.11 edit-oor), so no level of either
-//   target could remove them: Tree line L1 left 50 of our trees inside a run widened 8 m, Interior
-//   L1 read "complete" with them standing. OTHER = other-tagged ∪ misplaced members the target's
-//   census hands in: removed FIRST OF ALL, before the count rule, wherever they stand; neither M
-//   nor X; never an occupant of P and never in PlanKey (so their removal changes neither the
-//   stream nor the key). A misplaced member of the OTHER layer is therefore removed by whichever
-//   target applies first: the interior removes this run's tree-line members inside the polygon,
-//   the tree line this run's interior members outside it (within its census band). Correctly
-//   placed members of the other layer stay occupants (layer independence, §4.3 step 2).
+// What an apply means. Level L = 1..8 (Levels, DefaultLevel 4; input.Level is clamped, so 0 means 1 = Clear). Two targets:
+// the run interior (layer 0, input.TreeLine = false) and the tree line (layer 1, TreeLine = true). An apply on (run R,
+// target, L) brings R's layer to the level's tree count T:
+//   * Interior: T = round(Area · InteriorDensity(L)), wild and planted trees together (round = floor(x + 0.5), Area = the
+//     planner's sanitized polygon area; read off a planner probe so it uses the planner's own arithmetic). W = wild
+//     thinnable trees inside, X = other trees inside the tool may not fell (non-thinnable Existing: foreign-owned, other
+//     runs' members, fixed occupants; and members of this run with an unknown layer byte, which are kept), M = this run's
+//     current interior members inside, N = W + X + M. X holds no member of this run with a known layer.
+//   * Tree line: T = round(BeltFactor(L) · B), B = the planner's RawTargetBelt = round(BeltDensity · BeltCoverage ·
+//     perimeter · (BeltDepth − BeltGap)). N = M = this run's current members in the belt region (outside, within
+//     BeltDepth + MinSpacing of an edge: the tool's tree-line census band); W = X = 0: the tree line counts only its own
+//     trees and never fells.
+//   "Current" = Variant == input.Variant && PlanGen == PlanGeneration (Variant is always 0 for new plantings); every other
+//   member of the target layer is other-tagged (another variant or generation, v1 tags included).
+//   Misplaced: a member of either layer of this run standing outside its own layer's region (an interior member outside
+//   the polygon, a tree-line member inside it, or, for the tree-line target, a current member farther than
+//   BeltDepth + MinSpacing from every edge) because a run edit moved the edge past it. Other = other-tagged ∪ misplaced
+//   members the target's census hands in: removed first of all, before the count rule, wherever they stand; neither M nor
+//   X; never an occupant of P and never in PlanKey. A misplaced member of the other layer is removed by whichever target
+//   applies first. Correctly placed members of the other layer stay occupants (layer independence).
 //
-// THE COUNT RULE (spec §8.2; one branch per apply — an apply never both plants and removes or
-// fells in a layer):
-//   * N > T (too many): KEEP the first K = clamp(T − W − X, 0, M) members (tree line:
-//     clamp(T, 0, M)) in KEEP ORDER, remove the rest (highest first). Only when NO member of the
-//     layer stands after this apply (K = 0, every removal inside the cap, no Other left) does the
-//     interior fell wild trees: exactly FellFull = W − max(0, T − X) of them, chosen by RANK —
-//     largest ThinHash(position, ThinSeed) first, ties by x, then z, then Existing index. An
-//     exact count, so a repeat fells nothing; a rank, so the set felled at a lower level contains
-//     the set felled at a higher one for the same stand. Count after = max(T, X): never below X;
-//     L = 1 leaves exactly X trees inside.
-//   * N < T (too few): plant D = T − N trees at the first unmatched, unskipped slots of the plan
-//     stream (min(D, MaxPlant) per apply). No fell and no removal in the same apply; while an
-//     Other member stands, the plant waits (that apply removes Others only and is Clamped).
+// The count rule (one branch per apply; an apply never both plants and removes or fells in a layer):
+//   * N > T: keep the first K = clamp(T − W − X, 0, M) members (tree line: clamp(T, 0, M)) in keep order, remove the rest
+//     (highest first). Only when no member of the layer stands after this apply (K = 0, every removal inside the cap, no
+//     Other left) does the interior fell wild trees: exactly FellFull = W − max(0, T − X) of them, chosen by rank (largest
+//     ThinHash(position, ThinSeed) first, ties by x, then z, then Existing index). An exact count, so a repeat fells
+//     nothing; a rank, so the set felled at a lower level contains the set felled at a higher one. Count after =
+//     max(T, X): L = 1 leaves exactly X trees inside.
+//   * N < T: plant D = T − N trees at the first unmatched, unskipped slots of the plan stream (min(D, MaxPlant) per apply).
+//     No fell and no removal in the same apply; while an Other member stands the plant waits (that apply removes Others
+//     only and is Clamped).
 //   * N = T: nothing to change (Complete), apart from Other removals.
-//   KEEP ORDER: members matched to a slot of the stream by slot index; unmatched members after
-//   all matched ones, by ThinHash(position, ThinSeed) ascending (ties x, z, Own index). So keep =
-//   first slots, remove = highest slots. "L up then back down removes exactly the trees the
-//   up-step planted" holds only while the stream is unchanged AND the members before the up-step
-//   form a PREFIX of the stream's unskipped slots (amended in the G3 fixer round, finding
-//   compose-4): a hole below a member — a member bulldozed, or a blocked slot learned in an
-//   earlier activation whose blocker is gone (skip sets last one activation, §4.6 amendment) —
-//   is filled first by the up-step, and the down-step then keeps that low slot and removes the
-//   highest slots, which can be older members. The count is exact either way; the result is the
-//   stream prefix, which is the rule. GladeBatch checks the identity only under that precondition.
+//   Keep order: members matched to a slot by slot index; unmatched members after all matched ones, by ThinHash ascending
+//   (ties x, z, Own index). So keep = first slots, remove = highest slots. "L up then back down removes exactly the trees
+//   the up-step planted" holds only while the stream is unchanged and the members before the up-step form a prefix of the
+//   stream's unskipped slots: a hole below a member (a bulldozed member, or a blocked slot learned earlier whose blocker is
+//   gone; skip sets last one activation) is filled first by the up-step, and the down-step then keeps that low slot and
+//   removes the highest slots, which can be older members. The count is exact either way. GladeBatch checks the identity
+//   only under that precondition.
 //
-// THE PLAN STREAM P (one per layer; level-INDEPENDENT, so PlanKey, skip sets and cached plans are
-// shared by all eight levels). Interior: the planner's GLADE layer with GladeDensity =
-// StreamDensityPerM2 = 157.3 / ha, 10 % above the level-8 density (amended in the G3 fixer round,
-// finding behavior-2: G3-A built it at exactly InteriorDensity(8), so its raw bound T8 − W − X
-// was exactly what level 8 needs and every learned blocked spot left an L8 run k trees short for
-// good — "Trees now 1794 / Target 1809" reading complete; the headroom lets L8 replace up to ~14
-// blocked spots per hectare from the stream's tail). The stream's own target raw = round(157.3e-4
-// · Area) − W − X; by the prefix property every slot of the 143 / ha stream keeps its index, so
-// levels 1-7 and every property below are unchanged. Tree line: the planner's BELT layer (raw =
-// B; L8 = B, so a blocked belt spot still leaves L8 short: accepted, the tree line has no exact
-// target to promise). Seed = Seed32(ring[0], VariantSalt(Variant)). Occupants = EVERY Existing
-// tree, inside and band — nothing is assumed felled — ∪ this run's members of the OTHER layer
-// standing in their own region (layer independence, G2 §4.3 step 2, D11, SeparationHolds;
-// misplaced ones are Other, above). This run's members of the TARGET layer are never occupants:
-// that is what makes a repeat a no-op. Wild trees are felled only when no member stands, so the
-// stream a member was planted from survives every apply that keeps a member.
-//   * P is a PREFIX of the full stream (planner PREFIX PROPERTY). Plant branch: m = Same +
-//     |SkipSlots| + min(D, MaxPlant) slots — enough, since at most Same slots are matched and
-//     |SkipSlots| skipped. Other branches: m = Same + |SkipSlots| (covers the members' slots,
-//     which are a prefix of the non-skipped slots after any plant-direction history); re-planned
-//     IN FULL (FullForMembers) when an in-region member is unmatched against a slice — a
-//     bulldozed hole can push a member beyond m, and it would otherwise sort as "unmatched".
-//   * SLICE RAN OUT OF ATTEMPTS (G2 refinement, kept): the planner's attempt budget reads the
-//     target, so a clamped slice can stop short ("Saturated" while "Clamped"); P is then
-//     re-planned with an unbounded MaxPlant and cut back to m (FullReplan). COST of the headroom
-//     (G3 fixer round, measured in GladeBatch on CoreCLR, Mono unmeasured): a level-8 plant
-//     request is now a slice of the longer stream, so on a run with NO room it runs out of
-//     attempts and is re-planned in full — two plans on the first compose of that PlanKey
-//     (saturated fixture 13 → ~27 ms; later composes of the key hit the tool's plan cache).
-//     Planning such requests in full at once was tried and dropped: it made every unsaturated
-//     level-8 compose pack the 10 % denser tail (run800k 15.5 → 21.7 ms, +45 % attempts).
-//   * Matching (G2 §4.3 step 5): slot s is matched iff a current in-region member of the layer
-//     lies at xz distance < MinSpacing / 2. Slots are >= MinSpacing apart (the planner rejects
-//     d < MinSpacing), so a member matches at most one slot. Misplaced members never match (they
-//     are Other; a member just outside could sit within MinSpacing / 2 of a slot 2.5 m inside).
+// The plan stream P (one per layer; level-independent, so PlanKey, skip sets and cached plans are shared by all eight
+// levels). Interior: the planner's GLADE layer with GladeDensity = StreamDensityPerM2 = 157.3 / ha, 10 % above the level-8
+// density: at exactly level 8's density every learned blocked spot would leave an L8 run short for good, and the headroom
+// lets L8 replace up to ~14 blocked spots per hectare from the stream's tail. Its raw target = round(157.3e-4 · Area) −
+// W − X; by the prefix property every slot of the 143 / ha stream keeps its index. Tree line: the planner's BELT layer
+// (raw = B; a blocked belt spot still leaves L8 short: accepted). Seed = Seed32(ring[0], VariantSalt(Variant)).
+// Occupants = every Existing tree, inside and band (nothing is assumed felled) ∪ this run's members of the other layer
+// standing in their own region (SeparationHolds). This run's members of the target layer are never occupants: that is what
+// makes a repeat a no-op. Wild trees are felled only when no member stands, so the stream a member was planted from
+// survives every apply that keeps a member.
+//   * P is a prefix of the full stream (planner prefix property). Plant branch: m = Same + |SkipSlots| + min(D, MaxPlant)
+//     slots. Other branches: m = Same + |SkipSlots|, re-planned in full (FullForMembers) when an in-region member is
+//     unmatched against a slice (a bulldozed hole can push a member beyond m).
+//   * Slice ran out of attempts: the planner's attempt budget reads the target, so a clamped slice can stop short
+//     ("Saturated" while "Clamped"); P is then re-planned with an unbounded MaxPlant and cut back to m (FullReplan). Cost:
+//     on a run with no room a level-8 plant request runs out of attempts and is re-planned in full (two plans on the first
+//     compose of that PlanKey; later composes hit the tool's plan cache). Planning such requests in full at once was tried
+//     and dropped: it made every unsaturated level-8 compose pack the denser tail (+45 % attempts).
+//   * Matching: slot s is matched iff a current in-region member of the layer lies at xz distance < MinSpacing / 2. Slots
+//     are >= MinSpacing apart (the planner rejects d < MinSpacing), so a member matches at most one slot. Misplaced members
+//     never match.
 //
-// PROBE. One planner call per compose before P: Mode = Thin | (Glade or Belt), ThinFraction 1,
-// thinnable = null (all), MaxPlant 0, GladeDensity = InteriorDensity(L), on Existing ++ Own
-// positions. It validates the geometry exactly as P's call will, returns Area, and (a) Thinned =
-// every finite position inside the planner's own polygon test — THE inside test for W, X, M and
-// for "misplaced" (so W + X is exactly the planner's survivorsInside of the stream: no member of
-// this run with a known layer is an occupant inside an interior stream), (b) RawTargetGlade =
-// floor(InteriorDensity(L) · Area + 0.5) − 0 survivors = T, (c) RawTargetBelt = B. The probe
-// plants nothing (MaxPlant 0) and its status is Clamped whenever the raw target is > 0 (ignored).
-// Positions beyond ±2.5e8 m (ThinSelect's int range) or non-finite read as "outside": a member
-// there is misplaced (removed), an Existing tree is outside (not counted).
+// Probe: one planner call per compose before P: Mode = Thin | (Glade or Belt), ThinFraction 1, thinnable = null (all),
+// MaxPlant 0, GladeDensity = InteriorDensity(L), on Existing ++ Own positions. It validates the geometry as P's call will,
+// returns Area, and gives (a) Thinned = every finite position inside the planner's own polygon test (the inside test for W,
+// X, M and misplaced), (b) RawTargetGlade = floor(InteriorDensity(L) · Area + 0.5) = T, (c) RawTargetBelt = B. It plants
+// nothing and its status is Clamped whenever the raw target is > 0 (ignored). Positions beyond ±2.5e8 m (ThinSelect's int
+// range) or non-finite read as outside: a member there is misplaced (removed), an Existing tree there is not counted.
 //
-// THINHASH vs THINSELECT. ThinHash(pos, seed) = SkiGladePlanner.ThinHash = the full 32-bit hash
-// ThinSelect thresholds: ThinSelect(pos, seed, f) == ((ThinHash(pos, seed) & 0xFFFF) < f·65536)
-// for finite, in-range positions. G1/G2 felled by that THRESHOLD (a fraction of the stand,
-// approximate count); G3 fells by RANK on the full hash (an exact count, largest first). The
-// conventions differ on purpose (ThinSelect takes the low end of the low 16 bits); both are pure
-// functions of the 12.5 cm cell, independent of y, of the stand's order and of the level.
-// ThinSelect is no longer read by Compose (the probe's fraction 1 selects every inside tree).
+// ThinHash vs ThinSelect: ThinHash(pos, seed) = SkiGladePlanner.ThinHash is the full 32-bit hash ThinSelect thresholds:
+// ThinSelect(pos, seed, f) == ((ThinHash(pos, seed) & 0xFFFF) < f·65536) for finite, in-range positions. Felling is by rank
+// on the full hash (an exact count, largest first), not by threshold. Both are pure functions of the 12.5 cm cell,
+// independent of y, of the stand's order and of the level. ThinSelect is no longer read by Compose.
 //
-// FLAGS. Clamped = more work remains that another apply can do: an Other or count-rule removal
-// cut by MaxRemove, a fell cut by MaxFell or waiting for members, a plant waiting for Others, or
-// a deficit beyond this apply's plants with more plantable slots in the stream (a slice, or
-// unplanted Missing slots). Saturated = plant branch, Shortfall > 0 and the FULL stream ran out
-// of planner attempts ("no room", final; never with Clamped). Shortfall = min(D, MaxPlant) −
-// |Plant|: the stream (then never a slice) has no more plantable slots — learned blocked spots
-// (SkipSlots) beyond the stream's headroom (interior) or at its raw bound (tree line), or no
-// room. Complete = Plant, Remove and Fell all empty — which can leave Inside != Target: below it
-// with Shortfall > 0 (blocked spots; Saturated when no room), above it when X > T (trees the tool
-// may not fell); the tool's tooltip names each case (spec §8.4 as amended in the G3 fixer round).
-// Status = the probe's degenerate status, else Clamped when Clamped, else Ok.
+// Flags: Clamped = more work remains that another apply can do (an Other or count-rule removal cut by MaxRemove, a fell cut
+// by MaxFell or waiting for members, a plant waiting for Others, or a deficit beyond this apply's plants with more plantable
+// slots in the stream). Saturated = plant branch, Shortfall > 0 and the full stream ran out of planner attempts ("no room",
+// final; never with Clamped). Shortfall = min(D, MaxPlant) − |Plant|: the stream has no more plantable slots (learned
+// blocked spots beyond the stream's headroom, or at the tree line's raw bound, or no room). Complete = Plant, Remove and
+// Fell all empty, which can leave Inside != Target: below it with Shortfall > 0, above it when X > T; the tool's tooltip
+// names each case (spec §8.4). Status = the probe's degenerate status, else Clamped when Clamped, else Ok.
 //
-// PLANKEY (unchanged meaning, G2 §4.3 step 8; format tag "GLK3" since the G3 fixer round, which
-// dropped misplaced members from the occupants and raised the stream density): FNV-1a 64 of
-// everything P depends on — ring and
-// triangle bits, layer, Variant, PlanGeneration, the effective stream params (every field but
-// MaxPlant), obstacles, exclusion rings (order-independent), and the occupants that CAN affect
-// P. NOT the level, the caps or the skip set. Relevance (G2 rule, now applied to Existing as well
-// as to other-layer members): the planner rejects only d < MinSpacing and for any polygon
-// d(inside point, outside point) >= d_in + d_out. Interior: an occupant inside always matters
-// (it blocks slots and counts in the stream's raw); one outside matters only when nearer the edge than
-// MinSpacing − InnerMargin. Tree line: one outside always matters; one inside only when nearer
-// the edge than MinSpacing − BeltGap (inside trees do not change B). Slack 1 cm (the raw ring
-// here vs the planner's sanitized ring, which strips vertices within 1 mm). Members that cannot
-// matter are still handed to the planner (P is identical); they are only left out of the key, so
-// an interior fell deep inside keeps the tree line's skip set and cached plan, and a tree-line
-// apply never touches the interior key. GladeBatch asserts key soundness on every compose (an
-// equal key always came with a bit-identical P). The key is never 0.
+// PlanKey: FNV-1a 64 (format tag "GLK3") of everything P depends on: ring and triangle bits, layer, Variant, PlanGeneration,
+// the effective stream params (every field but MaxPlant), obstacles, exclusion rings (order-independent), and the occupants
+// that can affect P; not the level, the caps or the skip set. Relevance: the planner rejects only d < MinSpacing and for any
+// polygon d(inside point, outside point) >= d_in + d_out. Interior: an occupant inside always matters (it blocks slots and
+// counts in the stream's raw); one outside matters only when nearer the edge than MinSpacing − InnerMargin. Tree line: one
+// outside always matters; one inside only when nearer the edge than MinSpacing − BeltGap (inside trees do not change B).
+// Slack 1 cm (the raw ring vs the planner's sanitized ring, which strips vertices within 1 mm). Members that cannot matter
+// are still handed to the planner (P is identical); they are only left out of the key, so an interior fell deep inside keeps
+// the tree line's skip set and cached plan. GladeBatch asserts key soundness on every compose (an equal key always came
+// with a bit-identical P). The key is never 0.
 //
-// CACHE (GladePlanCache, optional; spec §4.6 "Plan cache"): entries keyed by PlanKey, reused
-// when not a slice or holding at least the requested slice (P is then its prefix — identical to
-// a fresh compute by the prefix property and the full re-plan above).
+// Cache (GladePlanCache, optional): entries keyed by PlanKey, reused when not a slice or holding at least the requested
+// slice (P is then its prefix, identical to a fresh compute).
 //
-// CONTRACT. Compose(input, output[, cache]) is a pure function of `input` (a cache never changes
-// the result). No static mutable state (consts, switch tables and immutable delegates only), no
-// Dictionary/HashSet iteration feeds the output, never logs, never throws on bad geometry or
-// bad parameters: a degenerate ring returns the planner's GladeStatus with every output list
-// empty. Runs on re-plan only (never per frame); it allocates (probe positions, occupants, key
-// and sort buffers), like the planner itself. input.Params supplies spacing, margins, belt
-// shape, species, ages and AttemptsPerTree; Params.MinSpacing must be the TARGET layer's
-// spacing (GladeMinSpacing for the interior, BeltMinSpacing for the tree line). Params.Mode,
-// ThinFraction, GladeDensity and MaxPlant are NOT read (Compose sets them).
+// Contract: Compose(input, output[, cache]) is a pure function of `input` (a cache never changes the result). No static
+// mutable state, no Dictionary/HashSet iteration feeds the output, never logs, never throws on bad geometry or parameters:
+// a degenerate ring returns the planner's GladeStatus with every output list empty. Runs on re-plan only (never per frame);
+// it allocates. input.Params supplies spacing, margins, belt shape, species, ages and AttemptsPerTree; Params.MinSpacing
+// must be the target layer's spacing (GladeMinSpacing for the interior, BeltMinSpacing for the tree line). Params.Mode,
+// ThinFraction, GladeDensity and MaxPlant are not read (Compose sets them).
 //
-// RETIRED in G3 (do not reintroduce): the Corridor mode and Params.Mode's Thin/Glade split, the
-// thin fraction (ThinSelect felling), the eight layout variants and variant adoption
-// (MostCommonVariant deleted), and G2's DEFERRAL (slots held back next to doomed-but-standing
-// trees): a plant now never shares an apply with a removal or a fell, so no doomed tree stands
-// next to a planted slot. PlanGeneration stays 1 (spec §2, not amended by §8) although G3 changes
-// which trees are stream occupants (none assumed felled: the G2 GladeThin 0.6 no longer shapes
-// the stream; misplaced members are not occupants) and the stream density (1/70 → 157.3/10,000,
-// which only moves the stream's END by the prefix property): G2-planted members in an old city
-// would read as current but mostly off the stream (count rule still exact, keep order by hash).
-// DECISIONS 124: no compatibility work — test from a new city.
+// Retired (do not reintroduce): the Corridor mode, the thin fraction (ThinSelect felling), the eight layout variants and
+// variant adoption, and deferral of slots next to doomed-but-standing trees (a plant never shares an apply with a removal
+// or a fell). PlanGeneration stays 1. No compatibility work for older cities: test from a new city.
 //
-// LIMITS (documented): after a polygon edit, a new or removed occupant inside, or a PlanGeneration
-// bump, members stop matching the new stream — the count rule still holds the COUNT (unmatched
-// members are kept or removed by position hash), but a plant may land within MinSpacing of an
-// off-stream member (the validator may cancel it; the tool learns the slot as blocked). A
-// removed occupant can also INSERT a slot instead: in the belt loop one attempt draws 4 values
-// and an accepted tree 4 more (SkiGladePlanner "Fixed 4 draws per attempt" / "per accepted
-// tree"), so after a newly accepted dart the later darts survive shifted by one index and the
-// members still match — the next plant fills that new hole first and a later level-down keeps
-// it (so "up then down removes exactly the up-step's trees" needs an unchanged stream; seen in
-// GladeBatch when an interior fell within 1.4 m of the edge moved the tree-line stream). The
-// glade loop draws 3 per attempt, so an insertion there scrambles the later darts instead.
-// A slot learned as blocked stays skipped for its PlanKey (skip sets are the tool's, one
-// activation, §4.6 amendment). Compose only sees the members the tool's census hands in
-// (SkiGladeToolSystem.BandMarginFor: interior inside + GladeMinSpacing 5.5 m, tree line inside +
-// BeltDepth + BeltMinSpacing 14.5 m), so a member OUTSIDE BOTH bands stays where it stands until
-// the run is deleted (SkiGladeCleanupSystem deletes every member of a deleted run): one moved far
-// by Move It (G2 §4.2 limit), interior members of a run narrowed by more than InnerMargin +
-// 14.5 = 17 m (8 m for the interior's own band — the tree line removes the strays between 5.5 and
-// 14.5 m), and the outer tree-line members of a run narrowed by more than 14.5 − BeltDepth =
-// 4.5 m (they end up farther out than the tree-line band). Those trees stand outside the run.
+// Limits: after a polygon edit, a new or removed occupant inside, or a PlanGeneration bump, members stop matching the new
+// stream: the count rule still holds the count (unmatched members are kept or removed by position hash), but a plant may
+// land within MinSpacing of an off-stream member (the validator may cancel it; the tool learns the slot as blocked). A
+// removed occupant can also insert a slot: in the belt loop one attempt draws 4 values and an accepted tree 4 more
+// (SkiGladePlanner "Fixed 4 draws per attempt" / "per accepted tree"), so after a newly accepted dart the later darts
+// survive shifted by one index and the members still match; the next plant fills that new hole first and a later
+// level-down keeps it. The glade loop draws 3 per attempt, so an insertion there scrambles the later darts instead. A slot
+// learned as blocked stays skipped for its PlanKey (one activation). Compose only sees the members the tool's census hands
+// in (SkiGladeToolSystem.BandMarginFor: interior inside + GladeMinSpacing 5.5 m, tree line inside + BeltDepth +
+// BeltMinSpacing 14.5 m), so a member outside both bands stays where it stands until the run is deleted
+// (SkiGladeCleanupSystem deletes every member of a deleted run): one moved far by Move It, interior members of a run
+// narrowed by more than InnerMargin + 14.5 = 17 m, and the outer tree-line members of a run narrowed by more than
+// 14.5 − BeltDepth = 4.5 m.
 
 using System;
 using System.Collections.Generic;
@@ -227,9 +153,9 @@ namespace SkiResortMod.Systems
         /// <summary>Spacing (of the TARGET layer), margins, belt shape, species, ages,
         /// AttemptsPerTree. Mode, ThinFraction, GladeDensity and MaxPlant are not read.</summary>
         public GladeParams Params;
-        /// <summary>G3: tree density level 1..8 (clamped; 0 reads as 1 = Clear).</summary>
+        /// <summary>Tree density level 1..8 (clamped; 0 reads as 1 = Clear).</summary>
         public byte Level;
-        /// <summary>G3: false = run interior (layer 0), true = tree line (layer 1).</summary>
+        /// <summary>False = run interior (layer 0), true = tree line (layer 1).</summary>
         public bool TreeLine;
         /// <summary>Layout variant of the stream; always 0 for new plantings (§8.2).</summary>
         public byte Variant;
@@ -264,7 +190,6 @@ namespace SkiResortMod.Systems
         /// <summary>LayerGlade (interior) / LayerBelt (tree line); LayerNone before a compose.</summary>
         public byte Layer;
 
-        // ---- §8.3 additions ----
         /// <summary>T, N, W, X, M at compose time (tree line: W = X = 0, N = M).</summary>
         public int Target, Inside, WildInside, FixedInside, OwnInside;
         /// <summary>Members kept by the count rule (= OwnInside when N &lt;= T).</summary>
@@ -282,17 +207,14 @@ namespace SkiResortMod.Systems
         /// <summary>FNV-1a 64 of everything P depends on (header); never 0 once computed.</summary>
         public ulong PlanKey;
 
-        // ---- additions to the spec (documented in the header) ----
         /// <summary>The effective (clamped) level.</summary>
         public byte Level;
-        /// <summary>G2 name of OwnInside (current members in the layer region).</summary>
+        /// <summary>Alias of OwnInside (current members in the layer region).</summary>
         public int SameIn;
-        /// <summary>G3 fixer round (replaces G3-A's OwnOutside): members of the target layer
-        /// with another variant or generation, in Other.</summary>
+        /// <summary>Members of the target layer with another variant or generation, in Other.</summary>
         public int OtherTagged;
-        /// <summary>G3 fixer round (replaces G3-A's OwnOutside, which were neither counted nor
-        /// removed): this run's members of EITHER layer standing outside their own layer's region
-        /// (header MISPLACED), in Other — removed first of all.</summary>
+        /// <summary>This run's members of either layer standing outside their own layer's region (header: misplaced), in Other;
+        /// removed first of all.</summary>
         public int Misplaced;
         /// <summary>In-region current members not on any slot of P (off the stream).</summary>
         public int OwnUnmatched;
@@ -481,33 +403,27 @@ namespace SkiResortMod.Systems
 
     public static class SkiGladeCompose
     {
-        /// <summary>Bump on ANY change to the planner, its salts, Seed32, VariantSalt, ThinSeed
-        /// or a position-affecting Tuning value: every member then reads as Other and the next
-        /// apply rebuilds the layer (spec §4.2 limits). 0 is reserved for v1 tags. Stays 1 in G3
-        /// (header, RETIRED).</summary>
+        /// <summary>Bump on any change to the planner, its salts, Seed32, VariantSalt, ThinSeed or a position-affecting Tuning
+        /// value: every member then reads as Other and the next apply rebuilds the layer. 0 is reserved for v1 tags.</summary>
         public const byte PlanGeneration = 1;
 
-        /// <summary>Seed of the rank key (ThinHash). MOVED from SkiGladeToolSystem.cs:261 (G1)
-        /// with the same value: a tree's rank depends only on its position.</summary>
+        /// <summary>Seed of the rank key (ThinHash): a tree's rank depends only on its position.</summary>
         public const uint ThinSeed = 0x7A1C3E5Bu;
 
-        /// <summary>Layer values (identical to SkiRunTreeMember.LayerGlade / LayerBelt; the tag
-        /// system checks the equality at compile time). LayerNone = no compose (G3 retired the
-        /// Corridor mode that used it).</summary>
+        /// <summary>Layer values (identical to SkiRunTreeMember.LayerGlade / LayerBelt; the tag system checks the equality at
+        /// compile time). LayerNone = no compose.</summary>
         public const byte LayerGlade = 0, LayerBelt = 1, LayerNone = 255;
 
         /// <summary>m_Variant of a v1 tag (identical to SkiRunTreeMember.VariantUnknown).</summary>
         public const byte VariantUnknown = 0xFF;
 
-        /// <summary>G3 (spec §8.3): density levels 1..Levels; the tool's default level.</summary>
+        /// <summary>Density levels 1..Levels; the tool's default level.</summary>
         public const int Levels = 8;
         public const byte DefaultLevel = 4;
 
-        /// <summary>G3 fixer round (finding behavior-2; header THE PLAN STREAM): density of the
-        /// interior plan stream, trees per m² — 1.10 × the level-8 density (157.3 vs 143 per ha),
-        /// so a level-8 run replaces learned blocked spots from the stream's tail. A compile-time
-        /// constant on purpose (no runtime float product: Mono and CoreCLR must read the same
-        /// bits). Hashed into PlanKey via the stream params.</summary>
+        /// <summary>Density of the interior plan stream, trees per m²: 1.10 × the level-8 density (157.3 vs 143 per ha), so a
+        /// level-8 run replaces learned blocked spots from the stream's tail (header, plan stream). A compile-time constant on
+        /// purpose (no runtime float product: Mono and CoreCLR must read the same bits). Hashed into PlanKey via the stream params.</summary>
         public const float StreamDensityPerM2 = 157.3f / 10000f;
 
         /// <summary>Minimum float margin for SeparationHolds (m). Positions are floats: at a
@@ -522,8 +438,7 @@ namespace SkiResortMod.Systems
         private const ulong FnvOffset64 = 14695981039346656037UL;
         private const ulong FnvPrime64 = 1099511628211UL;
 
-        /// <summary>Per-variant salt for SkiGladePlanner.Seed32. MOVED from
-        /// SkiGladeToolSystem.cs:1215-1221 (G1) with the same body. G3 plants variant 0 only.</summary>
+        /// <summary>Per-variant salt for SkiGladePlanner.Seed32. Only variant 0 is planted.</summary>
         public static uint VariantSalt(int variant)
         {
             unchecked
@@ -550,7 +465,7 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>Spec §8.2: share of the G2 tree-line target for level 1..8 (clamped).</summary>
+        /// <summary>Share of the tree-line target B for level 1..8 (clamped).</summary>
         public static float BeltFactor(int level)
         {
             switch (ClampLevel(level))
@@ -711,8 +626,6 @@ namespace SkiResortMod.Systems
         {
             return level < 1 ? 1 : level > Levels ? Levels : level;
         }
-
-        // ================= probe, counts, occupants, key =================
 
         /// <summary>Header, PROBE: geometry, T, the inside flags and W / X / M / Others; the
         /// occupants of P and PlanKey. Returns the geometry status.</summary>
@@ -901,12 +814,10 @@ namespace SkiResortMod.Systems
             GladeParams pp = input.Params;
             pp.Mode = layer == LayerGlade ? GladeMode.Glade : GladeMode.Belt;
             pp.ThinFraction = 0f;
-            pp.GladeDensity = layer == LayerGlade ? StreamDensityPerM2 : 0f;   // G3 fixer round: headroom
+            pp.GladeDensity = layer == LayerGlade ? StreamDensityPerM2 : 0f;   // stream density with headroom
             pp.MaxPlant = 0;
             return pp;
         }
-
-        // ================= P =================
 
         /// <summary>P = the first m slots of the stream, then matching and the slot counts.</summary>
         private static GladeStatus ComputeP(ComposeInput input, ComposeResult output, float3[] occupants, int m, GladePlanCache cache)
@@ -1033,8 +944,6 @@ namespace SkiResortMod.Systems
             dst.Clamped = src.Clamped;
         }
 
-        // ================= matching =================
-
         /// <summary>SlotMatched[s] = some current member lies at xz distance &lt; radius from
         /// slot s; MemberSlot[k] = the slot current member k (SameScratch[k]) matches, or -1.
         /// Bucket grid over the members, cell >= radius, 3x3 query.</summary>
@@ -1110,8 +1019,6 @@ namespace SkiResortMod.Systems
                 return (x << 32) ^ (z & 0xFFFFFFFFL);
             }
         }
-
-        // ================= the count rule's lists =================
 
         private struct OrderKey
         {
@@ -1244,8 +1151,6 @@ namespace SkiResortMod.Systems
             }
         }
 
-        // ================= PlanKey hash =================
-
         private static ulong XzBits(float3 p)
         {
             return ((ulong)math.asuint(p.x) << 32) | math.asuint(p.z);
@@ -1255,7 +1160,7 @@ namespace SkiResortMod.Systems
         {
             GladeParams p = StreamParams(input, layer);
             ulong h = FnvOffset64;
-            h = U32(h, 0x334B4C47u); // "GLK3": key format version (G3 fixer round: misplaced members are no occupants; stream 157.3/ha)
+            h = U32(h, 0x334B4C47u); // "GLK3": key format version
             h = Byte(h, layer);
             h = Byte(h, input.Variant);
             h = Byte(h, PlanGeneration);
@@ -1393,8 +1298,6 @@ namespace SkiResortMod.Systems
                 return 0;
             return r >= int.MaxValue ? int.MaxValue : (int)r;
         }
-
-        // ================= ring geometry (distances; xz, raw ring) =================
 
         /// <summary>The raw ring on xz in double, for boundary distances (inside-ness comes from
         /// the probe). Consecutive / closing duplicates are harmless: a zero-length edge's

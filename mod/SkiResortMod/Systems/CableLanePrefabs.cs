@@ -1,10 +1,7 @@
-// CableLanePrefabs — the cached "is this lane prefab a high-voltage utility lane" lookup shared by the two lane
-// harvests (ChairPinSystem's loop build, TramShuttleSystem.HarvestLanes). Code review 2026-10-19, M9: the harvests walk
-// every utility lane in the city (water, sewage, power, fences; Game.Prefabs/UtilityLane.cs:51) and did two
-// EntityManager reads per lane (owner PrefabRef, then the lane prefab's UtilityLaneData). There are only a handful of
-// utility lane PREFABS, so the answer per lane prefab is cached and tested FIRST (a dictionary hit, no EntityManager
-// call): only lanes of an HV lane prefab go on to the owner test. Main thread; cleared per load by ChairPinSystem
-// (prefab entities are stable within a session, the clear is hygiene).
+// Cached "is this lane prefab a high-voltage utility lane" lookup shared by the two lane harvests (ChairPinSystem's
+// loop build, TramShuttleSystem.HarvestLanes). The harvests walk every utility lane in the city
+// (Game.Prefabs/UtilityLane.cs:51) but there are few lane PREFABS, so the per-prefab answer is cached and tested
+// first; only lanes of an HV prefab go on to the owner test. Main thread; cleared per load by ChairPinSystem.
 
 using System.Collections.Generic;
 using Colossal.Entities;
@@ -23,8 +20,7 @@ namespace SkiResortMod.Systems
             s_IsHighVoltage.Clear();
         }
 
-        /// <summary>True when the lane prefab carries UtilityLaneData with the HighVoltageLine flag (the structural test
-        /// the harvests always made; the LV comm lane and the haul ropes fail it).</summary>
+        /// <summary>True when the lane prefab carries UtilityLaneData with the HighVoltageLine flag.</summary>
         public static bool IsHighVoltage(EntityManager em, Entity lanePrefab)
         {
             if (s_IsHighVoltage.TryGetValue(lanePrefab, out bool hv))

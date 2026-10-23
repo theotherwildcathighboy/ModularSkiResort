@@ -1,48 +1,44 @@
-// CatTrackGradeToolSystem — the Cat Track Grading tool (T139c; DECISIONS 362 option A, DECISIONS 363 "build it now"; research
-// docs/research/cattrack-grading-2026-10-20.md; build note docs/research/field/2026-10-20/grading-tool-build.md).
-// Click points up the mountain; the tool solves a grade-limited track through them (CatTrackGrade.cs, pure, tested in GradeBatch),
-// previews it as an overlay, and on Enter writes the corridor into the game's BASE heightmap once (HeightmapWriter): terrain the
-// player keeps, stored in the save by the game itself (no save format of ours). The cat-track run is then drawn over graded ground
-// with no change to it (its rater reads the new heights).
+// The Cat Track Grading tool. Click points up the mountain; the tool solves a grade-limited track through them (CatTrackGrade.cs,
+// pure, tested in GradeBatch), previews it as an overlay, and on Enter writes the corridor into the game's BASE heightmap once
+// (HeightmapWriter): terrain the player keeps, stored in the save by the game itself. The cat-track run is then drawn over
+// graded ground unchanged (its rater reads the new heights). See docs/research/cattrack-grading-2026-10-20.md.
 //
-// SKELETON = LiftLineToolSystem's (the lift tool, DECISIONS 351; re-used, not re-derived): a prefab-less ToolBaseSystem
-// (base.OnCreate registers it, Game.Tools/ToolBaseSystem.cs:292-316; TrySetPrefab false, ToolSystem.cs:263-277); activation =
-// ToolSystem.activeTool (ToolSystem.cs:84-98) from the hub tile, the hotkey (CatTrackGradeHotkeySystem) or the dev tab; raycast =
-// terrain only; the tool's Cancel action (right click) is its only secondary input (Secondary Apply off: both are the right mouse
-// button by default, the T125 lesson); overlay through OverlayRenderSystem.Buffer from ToolUpdate; refusals as a few-second notice
-// in the tooltip; one "!!!" ERROR disables the tool until the next load.
+// Skeleton is LiftLineToolSystem's: a prefab-less ToolBaseSystem (base.OnCreate registers it, ToolBaseSystem.cs:292-316;
+// TrySetPrefab false, ToolSystem.cs:263-277); activation = ToolSystem.activeTool (ToolSystem.cs:84-98) from the hub tile, the
+// hotkey (CatTrackGradeHotkeySystem) or the dev tab; raycast = terrain only; the Cancel action (right click) is the only
+// secondary input (Secondary Apply off: both are the right mouse button by default); overlay through OverlayRenderSystem.Buffer
+// from ToolUpdate; refusals as a few-second notice in the tooltip; one "!!!" ERROR disables the tool until the next load.
 //
-// INPUT (GradeInput, pure; the lift tool's model, DECISIONS 351): left click adds a point (within PickPathM of the track: inserts it
-// between its two neighbors); press on a point and drag = move it; RIGHT CLICK steps back one action: cancel a drag, else undo the
-// last add / insert / move, else (no point left) undo the last grade made since the tool opened, else close the tool. The Build key
-// (Enter, the lift tool's binding: LiftLineHotkeySystem keeps it live while either tool is open) grades; Esc = the frontend's Back,
-// which closes the tool (the points are dropped, logged). The step hint always names the current step (tooltip, LocalizedString.Value).
+// Input (GradeInput, pure): left click adds a point (within PickPathM of the track: inserts it between its two neighbors); press
+// on a point and drag = move it; right click steps back one action: cancel a drag, else undo the last add / insert / move, else
+// (no point left) undo the last grade made since the tool opened, else close the tool. The Build key (Enter, shared with the
+// lift tool: LiftLineHotkeySystem keeps it live while either tool is open) grades; Esc = the frontend's Back, which closes the
+// tool (points dropped, logged).
 //
-// SOLVE ON CHANGE, NOT PER FRAME: a point added / inserted / moved (on release) / undone or a grading setting changed marks the plan
-// dirty; the next frame re-solves once: path + profile (microseconds), the preview raster on the CPU (cascade) heights, the guards'
-// obstacles in the rect (search-tree walk, lift-line edges, water depth on the changed texels). Per frame: the raycast, the precomputed
-// overlay lines (about one per 8 m of track plus ticks), the tooltip. Cost line logged per solve.
+// Solve on change, not per frame: a point added / inserted / moved (on release) / undone or a grading setting changed marks the
+// plan dirty; the next frame re-solves once: path + profile, the preview raster on the CPU (cascade) heights, the guards'
+// obstacles in the rect (search-tree walk, lift-line edges, water depth on the changed texels). Per frame: the raycast, the
+// precomputed overlay lines (about one per 8 m of track plus ticks), the tooltip. Cost line logged per solve.
 //
-// APPLY (Enter, one frame, main thread): refuse when infeasible (too steep for the limit: the shortfall says how much more track) or
-// a guard trips (a building or station lot, a lift line, water: GradeGuards, the reason in the tooltip). Else: read the BASE rect
-// (exact heights, no net / lot overlay), re-rasterize on it, re-check the guards, write (verified bit-exact by readback; a mismatch
-// writes the pre-image back and refuses), delete the trees standing on the flat top (the way a road clears its lane: plain Deleted on
-// trees with no Owner, the SkiGladeCleanupSystem idiom), push the pre-image for undo, tell the run catalog to re-rate (terrain epoch),
-// log one line. Free, like the vanilla terrain tool (DECISIONS 363).
+// Apply (Enter, one frame, main thread): refuse when infeasible (too steep for the limit; the shortfall says how much more track)
+// or a guard trips (GradeGuards, the reason in the tooltip). Else: read the BASE rect (exact heights, no net / lot overlay),
+// re-rasterize on it, re-check the guards, write (verified bit-exact by readback; a mismatch writes the pre-image back and
+// refuses), delete the trees standing on the flat top (plain Deleted on trees with no Owner, the SkiGladeCleanupSystem idiom),
+// push the pre-image for undo, tell the run catalog to re-rate (terrain epoch), log one line. Free, like the vanilla terrain tool.
 //
-// UNDO: GradeUndo keeps the last 8 grades of the session (64 MB cap). Right click with no point undoes the last grade made since the
-// tool opened; the dev tab's "Undo last grade" reaches older ones. Undo writes the pre-image back only where the terrain still holds
-// what the grade wrote (a later terrain-tool stroke survives). Removed trees do not come back. Nothing survives a save / load (the
-// result is the game's own heightmap; after a reload the vanilla terrain tool is the only undo).
+// Undo: GradeUndo keeps the last 8 grades of the session (64 MB cap). Right click with no point undoes the last grade made since
+// the tool opened; the dev tab's "Undo last grade" reaches older ones. Undo writes the pre-image back only where the terrain
+// still holds what the grade wrote (a later terrain-tool stroke survives). Removed trees do not come back. Nothing survives a
+// save / load (after a reload the vanilla terrain tool is the only undo).
 //
-// GUARDS (DECISIONS 363: never under lifts, lots or water): lots = every Building / Extension entity's lot (BuildingData.m_LotSize x 8 m,
-// BuildingUtils.CalculateCorners, Game.Buildings/BuildingUtils.cs:72-86) in the static object search tree over the rect; lift lines =
-// every lift-line net edge (SkiPrefabCatalogSystem.LiftLineTypes), straight a -> d, LiftClearanceM each side; water = the water
-// surface depth (WaterSystem.GetSurfaceData, WaterSystem.cs:754; WaterUtils.SampleDepth, WaterUtils.cs:80) above WetDepthM on any
-// texel the grade changes. Roads and other nets are not guarded: their own FlattenTerrain overlay wins over the base map there.
+// Guards (never under lifts, lots or water): lots = every Building / Extension entity's lot (BuildingData.m_LotSize x 8 m,
+// BuildingUtils.CalculateCorners, BuildingUtils.cs:72-86) in the static object search tree over the rect; lift lines = every
+// lift-line net edge (SkiPrefabCatalogSystem.LiftLineTypes), straight a -> d, LiftClearanceM each side; water = surface depth
+// (WaterSystem.GetSurfaceData, WaterSystem.cs:754; WaterUtils.SampleDepth, WaterUtils.cs:80) above WetDepthM on any texel the
+// grade changes. Roads and other nets are not guarded: their own FlattenTerrain overlay wins over the base map there.
 //
-// LOGS (silence impossible): ARMED / NOT ARMED per load; one line per activation, point edit, solve (plan, guard, cost), apply (rect,
-// texels, volumes, trees, write verify), undo, refusal; the heightmap writer logs each read / write; an exception disables the tool.
+// Logs (silence impossible): ARMED / NOT ARMED per load; one line per activation, point edit, solve, apply, undo, refusal; the
+// heightmap writer logs each read / write; an exception disables the tool.
 
 using System;
 using System.Collections.Generic;
@@ -139,22 +135,20 @@ namespace SkiResortMod.Systems
         private string m_Notice;
         private int m_NoticeFrame;
 
-        // Precomputed overlay (rebuilt per solve).
         private readonly List<Line3.Segment> m_DrawSeg = new List<Line3.Segment>();
         private readonly List<UnityEngine.Color> m_DrawColor = new List<UnityEngine.Color>();
         private readonly List<float> m_DrawWidth = new List<float>();
 
-        // Probe follow-up (TickWatch, called every frame by CatTrackGradeHotkeySystem).
+        // Probe follow-up (TickWatch, called every frame by CatTrackGradeHotkeySystem)
         private int m_ProbeCheckFrame = -1, m_ProbeWaterFrame = -1;
         private float2[] m_ProbeXz;
         private float[] m_ProbeY;
         internal string ProbeText { get; private set; } = "not run";
 
-        // ── lifecycle ────────────────────────────────────────────────────────────────────────────
 
         protected override void OnCreate()
         {
-            base.OnCreate();   // ToolBaseSystem.cs:292-316
+            base.OnCreate();
             m_Overlay = World.GetOrCreateSystemManaged<OverlayRenderSystem>();
             m_TerrainSystem = World.GetOrCreateSystemManaged<TerrainSystem>();
             m_WaterSystem = World.GetOrCreateSystemManaged<WaterSystem>();
@@ -240,7 +234,6 @@ namespace SkiResortMod.Systems
             return inputDeps;
         }
 
-        // ── public controls (hub, hotkeys, dev tab; main thread) ─────────────────────────────────
 
         public bool TryActivate(string why)
         {
@@ -251,7 +244,7 @@ namespace SkiResortMod.Systems
             }
             if (IsActive)
                 return true;
-            m_ToolSystem.activeTool = this;   // ToolSystem.cs:84-98
+            m_ToolSystem.activeTool = this;
             Mod.Log.Info($"Grade [tool]: activated ({why})");
             return true;
         }
@@ -265,7 +258,6 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>The Build key: grade on the next tool frame.</summary>
         public void RequestApply()
         {
             if (!IsActive)
@@ -278,7 +270,6 @@ namespace SkiResortMod.Systems
             m_ApplyRequested = true;
         }
 
-        // ── frame ───────────────────────────────────────────────────────────────────────────────
 
         private void UpdateCore()
         {
@@ -399,7 +390,6 @@ namespace SkiResortMod.Systems
             m_Dirty = true;
         }
 
-        // ── solve (on change only) ─────────────────────────────────────────────────────────────
 
         private void Solve(string why)
         {
@@ -469,7 +459,6 @@ namespace SkiResortMod.Systems
             return l;
         }
 
-        // ── guards (data from the world, rule in GradeGuards) ──────────────────────────────────
 
         private struct BoundsIterator : INativeQuadTreeIterator<Entity, QuadTreeBoundsXZ>, IUnsafeQuadTreeIterator<Entity, QuadTreeBoundsXZ>
         {
@@ -501,7 +490,6 @@ namespace SkiResortMod.Systems
             m_Obstacles.Clear();
             Bounds2 area = HeightmapWriter.WorldBounds(map, new int4(r.X0, r.Z0, r.W, r.H));
 
-            // Lots.
             var found = new NativeList<Entity>(64, Allocator.Temp);
             try
             {
@@ -532,7 +520,6 @@ namespace SkiResortMod.Systems
                 found.Dispose();
             }
 
-            // Lift lines.
             using (var edges = m_NetEdgeQuery.ToEntityArray(Allocator.Temp))
             using (var prefabs = m_NetEdgeQuery.ToComponentDataArray<PrefabRef>(Allocator.Temp))
             {
@@ -545,7 +532,6 @@ namespace SkiResortMod.Systems
                 }
             }
 
-            // Water on the texels the grade touches.
             WaterSurfaceData<SurfaceWater> water = m_WaterSystem.GetSurfaceData(out JobHandle wdeps);
             wdeps.Complete();
             if (water.depths.IsCreated)
@@ -565,7 +551,6 @@ namespace SkiResortMod.Systems
             return GradeGuards.Check(map, r, m_Obstacles, out where);
         }
 
-        // ── apply / undo ────────────────────────────────────────────────────────────────────────
 
         private void ApplyFromTool()
         {
@@ -591,8 +576,7 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>Read the base rect, re-rasterize on it, guard, write, clear trees, push undo, bump the run catalog. False with the
-        /// reason in the notice when refused.</summary>
+        /// <summary>Read the base rect, re-rasterize on it, guard, write, clear trees, push undo, bump the run catalog. False when refused (reason in the notice).</summary>
         private bool ApplyCore(string label, GradePath path, GradeProfile prof, GradeParams p)
         {
             var sw = System.Diagnostics.Stopwatch.StartNew();
@@ -661,10 +645,9 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Delete the free-standing trees on the flat top (+ TreeMarginM), the way a road clears its lane: plain Deleted with
-        /// Applied / Created / Updated stripped (the SkiGladeCleanupSystem idiom: CleanUpSystem destroys it at frame end). Through
-        /// EntityManager on the main thread, NOT ToolOutputBarrier: that barrier is a SafeCommandBufferSystem whose CreateCommandBuffer
-        /// throws outside its window (Game/SafeCommandBufferSystem.cs:14-21, disallowed from its own OnUpdate), and the probe runs from
-        /// a dev-tab callback.</summary>
+        /// Applied / Created / Updated stripped (CleanUpSystem destroys it at frame end). Through EntityManager on the main thread, NOT
+        /// ToolOutputBarrier: that SafeCommandBufferSystem's CreateCommandBuffer throws outside its window (SafeCommandBufferSystem.cs:14-21),
+        /// and the probe runs from a dev-tab callback.</summary>
         private int ClearTrees(GradePath path, GradeParams p)
         {
             float clear = 0.5f * p.TopWidthM + TreeMarginM;
@@ -707,7 +690,6 @@ namespace SkiResortMod.Systems
             return doomed.Count;
         }
 
-        /// <summary>Undo the newest grade of the session (right click in the tool; the dev tab). False when nothing to undo or refused.</summary>
         internal bool UndoLastGrade(string why)
         {
             GradeUndoEntry e = m_Undo.Peek();
@@ -744,11 +726,10 @@ namespace SkiResortMod.Systems
             return true;
         }
 
-        // ── the probe (T139a, dev tab) ───────────────────────────────────────────────────────────
 
-        /// <summary>Grade a fixed ProbeLengthM strip in front of the camera through the full apply path (constant grade, the current
-        /// width and side slopes, the guards on; steeper than the limit is allowed here). Then TickWatch checks the CPU heights after
-        /// 30 frames and the water sim after 30 / 120 frames. One line each.</summary>
+        /// <summary>Grades a fixed ProbeLengthM strip in front of the camera through the full apply path (constant grade, the current
+        /// width and side slopes, guards on; steeper than the limit allowed). TickWatch then checks the CPU heights after 30 frames and
+        /// the water sim after 30 / 120 frames.</summary>
         internal void Probe()
         {
             if (!m_Armed || m_Disabled)
@@ -783,7 +764,7 @@ namespace SkiResortMod.Systems
                 for (int i = 0; i < path.Count; i++)
                     ground[i] = TerrainUtils.SampleHeight(ref hd, new float3(path.Xz[i].x, 0f, path.Xz[i].y));
                 GradeProfile prof = GradeProfile.Solve(path, ground, p);
-                // A visible change on any slope: a constant ramp 1.5 m below the ground at the middle (a cut), ends on the ground.
+                // A visible change on any slope: a constant ramp 1.5 m below the ground at the middle (a cut), ends on the ground
                 for (int i = 0; i < path.Count; i++)
                     prof.Y[i] -= 1.5f * math.sin(math.PI * path.S[i] / path.LengthM);
                 Mod.Log.Info(string.Format(CultureInfo.InvariantCulture,
@@ -809,7 +790,6 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>Every frame (CatTrackGradeHotkeySystem, UIUpdate): the probe's follow-up checks. Field reads unless a check is due.</summary>
         internal void TickWatch()
         {
             if (!IsActive)
@@ -843,7 +823,6 @@ namespace SkiResortMod.Systems
             }
         }
 
-        // ── preview ─────────────────────────────────────────────────────────────────────────────
 
         private void BuildDraw(GradePath path, GradeProfile prof, GradeParams p)
         {
@@ -859,7 +838,6 @@ namespace SkiResortMod.Systems
                 Add(P(path, prof, i, hw, hw), P(path, prof, j, hw, hw), EdgeColor, 0.35f);
                 Add(P(path, prof, i, -hw, hw), P(path, prof, j, -hw, hw), EdgeColor, 0.35f);
             }
-            // Cut / fill ticks at both shoulders every 3 samples (~6 m), length by depth.
             for (int i = 0; i < path.Count; i += 3)
             {
                 float depth = prof.Ground[i] - prof.Y[i];
@@ -873,7 +851,6 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>Point at sample i, offset sideways by <paramref name="lateral"/> (left positive), at the sample's ground height.</summary>
         private static float3 P(GradePath path, GradeProfile prof, int i, float lateral, float hw)
         {
             int a = math.max(0, i - 1), b = math.min(path.Count - 1, i + 1);
@@ -902,7 +879,6 @@ namespace SkiResortMod.Systems
                 for (int i = 0; i < m_DrawSeg.Count; i++)
                     buffer.DrawLine(m_DrawColor[i], m_DrawColor[i], 0f, projected, m_DrawSeg[i], m_DrawWidth[i], round);
             }
-            // Points (and, while dragging or with one point, the chords through them).
             IReadOnlyList<float2> pts = m_Edit.Points;
             TerrainHeightData hd = m_TerrainSystem.GetHeightData();
             for (int i = 0; i < pts.Count; i++)
@@ -936,9 +912,7 @@ namespace SkiResortMod.Systems
             return p;
         }
 
-        // ── helpers ─────────────────────────────────────────────────────────────────────────────
 
-        /// <summary>The grading settings (Options ▸ Modular Ski Resort ▸ Runs), clamped; defaults when settings are absent.</summary>
         internal static GradeParams ReadParams()
         {
             var s = Mod.Settings;

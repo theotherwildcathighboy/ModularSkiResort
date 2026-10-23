@@ -1,15 +1,8 @@
-// ServedLinkTests — Round T06 (docs/research/field/2026-10-15/build/T06-served-links.md; Items 76 / 80 of the 2026-10-15 field
-// test): a run connected to a served run is served. LiftServedRule.RunLinks.Build + AssignLinked, the one rule both the
-// attraction path and the stats path call. Where-tags `served-link/…`.
-//   SL-1  connector between two served runs → served (via the lower-indexed neighbor, root = that served run);
-//   SL-2  a run whose only neighbor is unserved → unserved, and so is the neighbor; a lift without power serves nothing, linked or not;
-//   SL-3  chain A(served) - B - C → C served (root A, via B), B served via A; the end of a chain with a gap stays unserved;
-//   SL-4  distance: 24.99 m and exactly 25 m linked (inclusive), 25.01 m and 26 m not; the nodes are compared, not the edges;
-//   SL-5  a run of another ski area with coinciding nodes → not linked; area id < 0 never links;
-//   SL-6  overlap without near nodes: crossing outlines linked, a small ring inside a big one linked, disjoint boxes not;
-//   SL-7  the existing served cases unchanged: no links → servingLift / distance / servedCount equal Assign's, served = direct;
-//   SL-8  graph reuse: Build with the same arrays keeps the graph (Reuses), a replaced array or area rebuilds; a graph of another
-//         size or null links is ignored; a cycle of runs terminates; 200 runs × 120 nodes build in well under a second.
+// A run connected to a served run is served: LiftServedRule.RunLinks.Build + AssignLinked, the one rule the attraction and
+// stats paths both call. Where-tags `served-link/...`.
+//   SL-1..3 connectors, unserved neighbors, chains and gaps    SL-4 distance boundary (24.99 / 25 m linked, 25.01 m not;
+//   nodes are compared, not edges)    SL-5 other ski area or area id < 0 never links    SL-6 outline overlap without near nodes
+//   SL-7 no links reproduces Assign    SL-8 graph reuse, size mismatch, cycles, cost of 200 runs x 120 nodes
 
 using System;
 using System.Collections.Generic;
@@ -44,9 +37,8 @@ namespace LiftBatch
             Check(EqualityComparer<T>.Default.Equals(expected, actual), where, what + ": expected " + expected + ", got " + actual);
         }
 
-        // ── fixtures ────────────────────────────────────────────────────────────────────────────
 
-        /// <summary>One lift: a chord (0,0) → (0,500), top station y 300, powered; a run top at x ≤ 150 and y ≤ 315 is served.</summary>
+        /// <summary>One lift: a chord (0,0) to (0,500), top station y 300, powered; a run top within x 150 and y 315 is served.</summary>
         private static void Lift(LiftPower power, out List<LiftServedRule.Lift> lifts, out List<LiftServedRule.Chord> chords)
         {
             chords = new List<LiftServedRule.Chord> { new LiftServedRule.Chord { A = new float2(0f, 0f), B = new float2(0f, 500f) } };
@@ -105,7 +97,6 @@ namespace LiftBatch
             return new[] { new float2(x0, z0), new float2(x1, z0), new float2(x1, z1), new float2(x0, z1) };
         }
 
-        // ── cases ───────────────────────────────────────────────────────────────────────────────
 
         private static void Sl0Constant()
         {

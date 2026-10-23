@@ -1,88 +1,66 @@
-// SkiRunPropSystem — unlocks the game's OWN area-props machinery for our run surfaces
-// (DECISIONS 67/71). The vanilla mechanism is complete but lot-class-gated: the
-// AreaSubObjects prefab component (snow guns / crash fencing per polygon vertex,
-// border-placed by SecondaryObjectSystem.CreateSecondaryAreaObjects) only fires for
-// area entities that ALREADY carry a runtime Game.Objects.SubObject buffer
-// (m_ObjectQuery: All=SubObject + Any=Updated..., SecondaryObjectSystem.cs:4073-4083),
-// and that buffer comes from the prefab CLASS archetype — LotPrefab.GetArchetypeComponents
-// hard-adds it (LotPrefab.cs:36), SurfacePrefab does not. No prefab JSON can add a
-// runtime archetype component, so this system bridges the one missing wire:
+// Unlocks the game's own area-props machinery for our run surfaces. The vanilla mechanism is complete but lot-class-gated: the
+// AreaSubObjects prefab component (snow guns / crash fencing per polygon vertex, border-placed by
+// SecondaryObjectSystem.CreateSecondaryAreaObjects) only fires for area entities that already carry a runtime Game.Objects.SubObject
+// buffer (m_ObjectQuery: All=SubObject + Any=Updated..., SecondaryObjectSystem.cs:4073-4083), and that buffer comes from the prefab
+// class archetype: LotPrefab.GetArchetypeComponents hard-adds it (LotPrefab.cs:36), SurfacePrefab does not. No prefab JSON can add a
+// runtime archetype component, so this system bridges the one missing wire.
 //
-//   For each of OUR run-surface area entities whose prefab carries prefab-side
-//   sub-object entries (AreaSubObjects filled by AreaInitializeSystem) but whose
-//   instance lacks the runtime buffer: AddBuffer<Game.Objects.SubObject> + ensure
-//   Updated — and the VANILLA spawner does everything else the same frame: at most one
-//   prop per drawn polygon vertex (Options prop density, below), rotated along the
-//   outgoing border segment, elevation handled, self-healing on polygon edits (edits
-//   re-tag Updated; the buffer persists).
+// For each of our run-surface area entities whose prefab carries prefab-side sub-object entries (AreaSubObjects filled by
+// AreaInitializeSystem) but whose instance lacks the runtime buffer: AddBuffer<Game.Objects.SubObject> + ensure Updated; the vanilla
+// spawner does everything else the same frame: at most one prop per drawn polygon vertex (Options prop density, below), rotated along
+// the outgoing border segment, elevation handled, self-healing on polygon edits (edits re-tag Updated; the buffer persists).
 //
-// PHASE IS LOAD-BEARING: SecondaryObjectSystem runs at Modification4B and the
-// Created/Updated tags it keys on are wiped at Cleanup EVERY frame — the buffer and
-// tag must exist earlier in the SAME frame's Modification4B, so this system registers
-// UpdateBefore<SecondaryObjectSystem> there (the PowerBridgeSystem precedent).
-// Freshly drawn runs carry Updated already; pre-existing runs from older saves get
-// Updated added here once, alongside the buffer, so they spawn on first sight.
+// Phase is load-bearing: SecondaryObjectSystem runs at Modification4B and the Created/Updated tags it keys on are wiped at Cleanup
+// every frame, so the buffer and tag must exist earlier in the same frame's Modification4B; this system registers
+// UpdateBefore<SecondaryObjectSystem> there (the PowerBridgeSystem precedent). Freshly drawn runs carry Updated already; pre-existing
+// runs from older saves get Updated added here once, alongside the buffer, so they spawn on first sight.
 //
-// SCOPE + ANTI-CONTAMINATION: Game mode ONLY, never Editor — spawned props are real
-// owned entities and a map author must never bake them into a map. Only surfaces in
-// our watched prefab set are touched, and only when the prefab actually has
-// sub-object entries — nothing else on the map is ever modified.
+// Scope: Game mode only, never Editor (spawned props are real owned entities and a map author must never bake them into a map). Only
+// surfaces in our watched prefab set are touched, and only when the prefab actually has sub-object entries.
+// Mod removal: the runtime buffer is a vanilla component (saves load fine without us); spawned props are owned objects referencing our
+// prefab, so the game's standard missing-asset handling applies.
+// Defensive contract (house pattern): ARMED line per load, one line per bridged area, one-shot "!!!" catch that disables for the load
+// only.
 //
-// MOD-REMOVAL STORY: the runtime buffer is a vanilla component (saves load fine
-// without us); spawned props are owned objects referencing our prefab — the game's
-// standard missing-asset handling applies, same as every shipped asset in the pack.
-//
-// OBSERVABILITY + DEFENSIVE CONTRACT (house pattern): ARMED line per load, one line
-// per bridged area, one-shot "!!!" catch that disables for the load only.
-//
-// PROP DENSITY (Round M2 option 5, ruling R8; docs/research/round-m2/understand/density.md with density-check.md,
-// texts build-contract.md §6.9; pure rules RunPropDensityRules, tests DensityTests). Two Options sliders in the Runs
-// group, SnowGunDensityPct ("Snow guns and hydrants": snowmaking AND night runs) and FloodlightDensityPct ("Floodlight
-// masts on night runs"), 0-100 % step 5, default 100 = today's look. LOOK ONLY: snow and upkeep follow the run type.
-// Citations are 1.6.0f1; SecondaryObjectSystem's 1.6.2 diff changes only :3499 and :3617 (no shift), and
-// AreaInitializeSystem, ChangedDistrict and CurrentDistrictSystem are unchanged in 1.6.2.
-//   * WHAT IS WRITTEN (the runtime weight route, no prefab surgery): (1) the run prefabs' per-corner chance,
-//     Game.Prefabs.SubObject.m_Probability of SkiRunSnowmakingA's and SkiRunNightA's border entries (filled with 100
-//     once, when the prefab entity is created, AreaInitializeSystem.cs:384-404, :398; passed on per corner,
-//     SecondaryObjectSystem.cs:3004; rolled on the picked member's stream copy, :3279); (2) the night group's member
-//     weights, SpawnableObjectData.m_Probability (copied from the prefab at init, ObjectInitializeSystem.cs:913, 1.6.2
-//     :923; read live by the pick, SecondaryObjectSystem.cs:3258, :3262): the masts (members of the night group only)
-//     scaled by m / g, the shared guns, hydrants and empty marker 0 at g = 0. Formulas and why they are exact:
-//     RunPropDensityRules. Every reader of those member weights picks among ONE placeholder's members
+// Prop density (pure rules RunPropDensityRules, tests DensityTests). Two Options sliders in the Runs group, SnowGunDensityPct ("Snow
+// guns and hydrants": snowmaking and night runs) and FloodlightDensityPct ("Floodlight masts on night runs"), 0-100 % step 5, default
+// 100. Look only: snow and upkeep follow the run type. Citations are 1.6.0f1; SecondaryObjectSystem's 1.6.2 diff changes only :3499
+// and :3617 (no shift), and AreaInitializeSystem, ChangedDistrict and CurrentDistrictSystem are unchanged in 1.6.2.
+//   * What is written (the runtime weight route, no prefab surgery): (1) the run prefabs' per-corner chance,
+//     Game.Prefabs.SubObject.m_Probability of SkiRunSnowmakingA's and SkiRunNightA's border entries (filled with 100 once, when the
+//     prefab entity is created, AreaInitializeSystem.cs:384-404, :398; passed on per corner, SecondaryObjectSystem.cs:3004; rolled on
+//     the picked member's stream copy, :3279); (2) the night group's member weights, SpawnableObjectData.m_Probability (copied from
+//     the prefab at init, ObjectInitializeSystem.cs:913, 1.6.2 :923; read live by the pick, SecondaryObjectSystem.cs:3258, :3262): the
+//     masts (members of the night group only) scaled by m / g, the shared guns, hydrants and empty marker 0 at g = 0. Formulas and why
+//     they are exact: RunPropDensityRules. Every reader of those member weights picks among one placeholder's members
 //     (SecondaryObjectSystem.cs:3258/3262, SubObjectSystem.cs:2345-2397, AreaUtils.cs:553-554, LaneSystem.cs:6710-6715,
-//     AreaSpawnSystem.cs:375, CreatureSpawnerSystem.cs:168-169, PlaceholderSystem.cs:99-103 via :196,
-//     ObjectToolBaseSystem.cs:617-627 via :684; density-check C7) and our members sit in our two groups only, so only
-//     the run-prop path reads them.
-//   * WHEN: base values are recorded once per session, at the first game load and before any write (prefab entities
-//     outlive loads; the writes persist for the session and are never serialized: the PrefabBase objects are not
-//     touched, density-check C12). The values are written at the first update of every game load and after the
-//     slider pair has been still for RunPropDensityRules.SettleFrames updates; written back to the bases at a
-//     non-Game load after a write (hygiene only: no run gets props outside a game, density-check gap 7).
-//   * RE-STAMP ONLY AFTER A SETTLED SLIDER CHANGE, NEVER AT A LOAD (R8; density-check gap 1, option b). The tie-break
-//     draw of the pick (:3264) depends on each member's position in the group, and that order is the prefab-init order
-//     (ObjectInitializeSystem.cs:900-905, 1.6.2 :910-915), not shown stable across game sessions: a load re-stamp could
-//     reshuffle every saved run. So a load writes the prefab values only, and a save made at another density keeps its
-//     layout until a run is edited (any edit re-tags Updated and re-runs that run's props with the current values).
-//     The re-stamp tag is Game.Areas.ChangedDistrict on our propped runs: it is in SecondaryObjectSystem's owner query
-//     (:4073-4083), each entity of such a chunk is enqueued as an owner exactly as for Updated (:750-771), connected
-//     edges are added only for net edges (:774-778), and the system removes the tag on its ModificationBarrier4B
-//     buffer (:779; barrier :4072, buffer :4202). Its only other user is its writer CurrentDistrictSystem
-//     (CurrentDistrictSystem.cs:235-237; grep of 1.6.0f1 and 1.6.2f1, codegen registry excluded). NOT Updated: that
-//     would also wake our splat rasterize, catalog rebuild and attractiveness watcher and the vanilla area pipeline
-//     (density.md §1.3, C9). A new kind of vanilla write, on our own run entities only. Fallback if a patch gives the
-//     tag another reader or drops it from that query: tag Updated in StampRuns instead (re-grep on each game patch).
-//     Props a re-stamp creates carry Created + Updated from their archetype (ObjectPrefab.cs:40-41), so their lights
-//     are tested at creation; a re-used prop with an unchanged Transform gets no Updated (:3445-3452).
-//   * PHASE: UpdateDensity runs first in OnUpdate, before the bridge, so this frame's bridging and SecondaryObjectSystem
-//     (right after us in Modification4B) already see the written values. The writes go through EntityManager on the
-//     main thread (a sync point on prefab data: applies only, never per frame). An idle frame costs two settings
-//     reads, two compares and a counter.
-//   * LOGS (build-contract.md §6.9): per Game load "Props: density ARMED — ..." or "Props: density inert: <reason>
-//     (...)"; one apply line per write ("... runs not re-stamped (load: ...)" or "K run(s) re-stamped (setting
-//     change)"); a census the frame after a re-stamp with K > 0 (SecondaryObjectSystem has run, its barrier played
-//     back and SecondaryObjectReferencesSystem, Modification5, SystemOrder.cs:206, filed the new props); the write-back
-//     line at a non-Game load; two once-per-session WARNs; and its OWN one-shot "!!!" catch that turns density off
-//     for the load and leaves the bridge alone (the bridge's catch, below, likewise never stops density: R8).
+//     AreaSpawnSystem.cs:375, CreatureSpawnerSystem.cs:168-169, PlaceholderSystem.cs:99-103 via :196, ObjectToolBaseSystem.cs:617-627
+//     via :684) and our members sit in our two groups only, so only the run-prop path reads them.
+//   * When: base values are recorded once per session, at the first game load and before any write (prefab entities outlive loads;
+//     the writes persist for the session and are never serialized: the PrefabBase objects are not touched). The values are written at
+//     the first update of every game load and after the slider pair has been still for RunPropDensityRules.SettleFrames updates;
+//     written back to the bases at a non-Game load after a write (hygiene only: no run gets props outside a game).
+//   * Re-stamp only after a settled slider change, never at a load. The tie-break draw of the pick (:3264) depends on each member's
+//     position in the group, and that order is the prefab-init order (ObjectInitializeSystem.cs:900-905, 1.6.2 :910-915), not shown
+//     stable across game sessions: a load re-stamp could reshuffle every saved run. So a load writes the prefab values only, and a
+//     save made at another density keeps its layout until a run is edited (any edit re-tags Updated and re-runs that run's props with
+//     the current values). The re-stamp tag is Game.Areas.ChangedDistrict on our propped runs: it is in SecondaryObjectSystem's owner
+//     query (:4073-4083), each entity of such a chunk is enqueued as an owner exactly as for Updated (:750-771), connected edges are
+//     added only for net edges (:774-778), and the system removes the tag on its ModificationBarrier4B buffer (:779; barrier :4072,
+//     buffer :4202). Its only other user is its writer CurrentDistrictSystem (CurrentDistrictSystem.cs:235-237; grep of 1.6.0f1 and
+//     1.6.2f1, codegen registry excluded). Not Updated: that would also wake our splat rasterize, catalog rebuild and attractiveness
+//     watcher and the vanilla area pipeline. A new kind of vanilla write, on our own run entities only. Fallback if a patch gives the
+//     tag another reader or drops it from that query: tag Updated in StampRuns instead (re-grep on each game patch). Props a re-stamp
+//     creates carry Created + Updated from their archetype (ObjectPrefab.cs:40-41), so their lights are tested at creation; a re-used
+//     prop with an unchanged Transform gets no Updated (:3445-3452).
+//   * Phase: UpdateDensity runs first in OnUpdate, before the bridge, so this frame's bridging and SecondaryObjectSystem (right after
+//     us in Modification4B) already see the written values. The writes go through EntityManager on the main thread (a sync point on
+//     prefab data: applies only, never per frame). An idle frame costs two settings reads, two compares and a counter.
+//   * Logs: per Game load "Props: density ARMED - ..." or "Props: density inert: <reason>"; one apply line per write ("... runs not
+//     re-stamped (load: ...)" or "K run(s) re-stamped (setting change)"); a census the frame after a re-stamp with K > 0
+//     (SecondaryObjectSystem has run, its barrier played back and SecondaryObjectReferencesSystem, Modification5, SystemOrder.cs:206,
+//     filed the new props); the write-back line at a non-Game load; two once-per-session WARNs; and its own one-shot "!!!" catch that
+//     turns density off for the load and leaves the bridge alone (the bridge's catch, below, likewise never stops density).
 
 using System;
 using System.Collections.Generic;
@@ -101,16 +79,14 @@ namespace SkiResortMod.Systems
 {
     public sealed partial class SkiRunPropSystem : GameSystemBase
     {
-        // Same tolerant name resolution as the sibling run-aware systems. Groomed is
-        // watched too: it has no AreaSubObjects today, and the prefab-side gate below
-        // makes that a no-op until the day it does.
-        // E1 (D16): SkiRunNaturalA is deliberately absent — it has no AreaSubObjects, so no border props (marker poles would need an Editor import).
-        // T54 probe 1: SkiRunCatTrackA is watched like groomed (no AreaSubObjects in the probe prefab, so a no-op; its future
-        // hydrants-only entry, RunPropDensityRules.PropClassAllowed, is then bridged without a code change).
+        // Same tolerant name resolution as the sibling run-aware systems. Groomed is watched too: it has no AreaSubObjects today, and the
+        // prefab-side gate below makes that a no-op until the day it does. SkiRunNaturalA is deliberately absent: it has no AreaSubObjects, so
+        // no border props (marker poles would need an Editor import). SkiRunCatTrackA is watched like groomed (no AreaSubObjects in the probe
+        // prefab, so a no-op; its future hydrants-only entry, RunPropDensityRules.PropClassAllowed, is then bridged without a code change).
         private static readonly string[] RunSurfaceNames =
             { SnowmakingRunName, "SkiRunGroomedA", NightRunName, "SkiRunCatTrackA" };
 
-        // Round M2 density: the two run prefabs whose border props the Options sliders thin (header PROP DENSITY).
+        // The two run prefabs whose border props the Options sliders thin (header "Prop density").
         private const string SnowmakingRunName = "SkiRunSnowmakingA";
         private const string NightRunName = "SkiRunNightA";
 
@@ -121,13 +97,13 @@ namespace SkiResortMod.Systems
         private readonly HashSet<Entity> m_RunPrefabs = new HashSet<Entity>();
         private bool m_PrefabsResolved;            // session cache (PrefabSystem outlives loads)
 
-        // Per-load state — reset and re-armed at OnGameLoadingComplete.
+        // Per-load state: reset and re-armed at OnGameLoadingComplete.
         private bool m_Armed;
         private bool m_Disabled;
         private bool m_ErrorLogged;
         private int m_BridgedCount;
 
-        // --- Prop density (Round M2, header PROP DENSITY) ----------------------------------------
+        // --- Prop density ---------------------------------------------------------------------------
         /// <summary>One usable border entry of a run prefab: its index in the prefab's Game.Prefabs.SubObject buffer
         /// and the chance recorded before any write.</summary>
         private struct DensityEntry
@@ -181,16 +157,11 @@ namespace SkiResortMod.Systems
             base.OnCreate();
             m_PrefabSystem = World.GetOrCreateSystemManaged<PrefabSystem>();
 
-            // Areas that could still need the bridge. The marker of a FULLY bridged
-            // area is PseudoRandomSeed (added last), not the SubObject buffer — so
-            // runs bridged by the buffer-only first version of this system are picked
-            // up again and completed. Once done they leave the query, so steady state
-            // is empty and the early-out is near-free. Districts and foreign surfaces
-            // linger in the result set; the per-chunk prefab filter skips them cheaply.
-            // M3 (code review 2026-10-19): that "steady state is empty" was false — only LotPrefab adds
-            // PseudoRandomSeed (Game.Prefabs/LotPrefab.cs:37), so map tiles, districts and vanilla surfaces sat in
-            // this query forever and were walked every frame (paused too). Game.Areas.Surface (SurfacePrefab.cs:21-23,
-            // as m_PropRunQuery below) keeps all of them out: only a run of ours that is not yet fully bridged remains.
+            // Areas that could still need the bridge. The marker of a fully bridged area is PseudoRandomSeed (added last), not the SubObject
+            // buffer, so runs bridged by an earlier buffer-only version are picked up again and completed. Once done they leave the query, so
+            // steady state is empty and the early-out is near-free. Only LotPrefab adds PseudoRandomSeed (Game.Prefabs/LotPrefab.cs:37), so
+            // Game.Areas.Surface (SurfacePrefab.cs:21-23, as m_PropRunQuery below) keeps map tiles, districts and vanilla surfaces out: only a
+            // run of ours that is not yet fully bridged remains.
             m_UnbridgedAreaQuery = GetEntityQuery(new EntityQueryDesc
             {
                 All = new[]
@@ -209,10 +180,9 @@ namespace SkiResortMod.Systems
             });
             m_PrefabScanQuery = GetEntityQuery(ComponentType.ReadOnly<PrefabData>());
 
-            // Round M2 density: our FULLY bridged run surfaces (the re-stamp and the census). Game.Areas.Surface (the
-            // SurfacePrefab archetype, SurfacePrefab.cs:21) keeps building lots out — lots get SubObject and
-            // PseudoRandomSeed from their class archetype; vanilla building surfaces have no runtime SubObject buffer.
-            // The per-entity prefab filter (StampRuns, LogCensus) keeps only our two density prefabs.
+            // Our fully bridged run surfaces (the re-stamp and the census). Game.Areas.Surface (the SurfacePrefab archetype, SurfacePrefab.cs:21)
+            // keeps building lots out: lots get SubObject and PseudoRandomSeed from their class archetype; vanilla building surfaces have no
+            // runtime SubObject buffer. The per-entity prefab filter (StampRuns, LogCensus) keeps only our two density prefabs.
             m_PropRunQuery = GetEntityQuery(new EntityQueryDesc
             {
                 All = new[]
@@ -281,15 +251,15 @@ namespace SkiResortMod.Systems
                 }
             }
 
-            // Round M2 density: after the bridge's setup (ResolveRunPrefabs found the two run prefabs by name), in its
-            // own try/catch, so neither catch stops the other (R8).
+            // After the bridge's setup (ResolveRunPrefabs found the two run prefabs by name), in its own try/catch, so neither catch stops the
+            // other.
             LoadDensity(mode);
         }
 
         protected override void OnUpdate()
         {
-            // Round M2 density first, before the bridge's m_Disabled return (R8, build-contract Decided here 17): its
-            // own try/catch, and this frame's bridging and SecondaryObjectSystem see the values it writes.
+            // Density first, before the bridge's m_Disabled return: its own try/catch, and this frame's bridging and SecondaryObjectSystem see
+            // the values it writes.
             UpdateDensity();
 
             try
@@ -343,32 +313,22 @@ namespace SkiResortMod.Systems
                         addedBuffer = true;
                     }
 
-                    // THE VARIETY SEED (area-prop-variation.md). LotPrefab's archetype
-                    // hard-adds PseudoRandomSeed; SurfacePrefab's does not, so
-                    // SecondaryObjectSystem falls back to a fresh per-run seed
-                    // (SecondaryObjectSystem.cs:1120 picks the PseudoRandomSeed branch
-                    // only when the component exists) — every geometry edit would
-                    // reshuffle every prop on the run. We supply a seed hashed from the
-                    // area's FIRST NODE POSITION: deterministic, unique per run, stable
-                    // across loads and across edits elsewhere on the polygon, and it
-                    // serializes with the save like any vanilla seed.
+                    // The variety seed. LotPrefab's archetype hard-adds PseudoRandomSeed; SurfacePrefab's does not, so SecondaryObjectSystem falls back
+                    // to a fresh per-run seed (SecondaryObjectSystem.cs:1120 picks the PseudoRandomSeed branch only when the component exists): every
+                    // geometry edit would reshuffle every prop on the run. We supply a seed hashed from the area's first node position: deterministic,
+                    // unique per run, stable across loads and across edits elsewhere on the polygon, and it serializes with the save like any vanilla
+                    // seed.
                     ushort seed = 1;
                     var nodes = EntityManager.GetBuffer<Node>(area, isReadOnly: true);
                     if (nodes.Length > 0)
                         seed = HashSeed(nodes[0].m_Position);
                     EntityManager.AddComponentData(area, new PseudoRandomSeed(seed));
 
-                    // Seed the weather struct at zero in the SAME pass. The seed STAYS
-                    // after Round O1 (run-binding-glade-spec.md §3.8), for the run's OWN
-                    // props: the prop shader's snow lookup walks a prop's Owner chain
-                    // until it finds Game.Objects.Surface (Game.Rendering/
-                    // BatchDataSystem.cs:795-817, identical in 1.6.2), and a border prop's
-                    // Owner IS this run — without the seed, a freshly bridged run's props
-                    // would read no surface state (the walk stops at the un-owned run) for
-                    // up to 256 frames until SkiRunSurfaceSystem's first write. (The old
-                    // reason, "runs may carry Owner -> gate", is obsolete: since O1 runs
-                    // carry no Owner; the run→sign link is SkiRunBinding.) That system
-                    // SETS both fields every pass, so a zero seed is never fought over.
+                    // Seed the weather struct at zero in the same pass. The seed stays for the run's own props: the prop shader's snow lookup walks a
+                    // prop's Owner chain until it finds Game.Objects.Surface (Game.Rendering/BatchDataSystem.cs:795-817, identical in 1.6.2), and a border
+                    // prop's Owner is this run; without the seed, a freshly bridged run's props would read no surface state (the walk stops at the
+                    // un-owned run) for up to 256 frames until SkiRunSurfaceSystem's first write. Runs carry no Owner (the run -> sign link is
+                    // SkiRunBinding). That system sets both fields every pass, so a zero seed is never fought over.
                     EntityManager.AddComponent<Game.Objects.Surface>(area);
 
                     // Pre-existing areas (older saves) carry no Updated this frame —
@@ -455,7 +415,7 @@ namespace SkiResortMod.Systems
                     continue;
                 }
                 m_RunPrefabs.Add(prefabEntity);
-                // Round M2 density: the two prefabs the sliders act on, by name.
+                // The two prefabs the sliders act on, by name.
                 if (name == SnowmakingRunName)
                     m_SnowmakingPrefab = prefabEntity;
                 else if (name == NightRunName)
@@ -464,7 +424,6 @@ namespace SkiResortMod.Systems
             }
         }
 
-        // ================================================================== Prop density (Round M2)
 
         /// <summary>The Options sliders, clamped (null settings → the default 100 %).</summary>
         private static int ReadGunPct() =>
@@ -556,7 +515,7 @@ namespace SkiResortMod.Systems
                 WriteDensity(g, m, out int prefabs, out int changedValues);
                 m_AppliedGun = g;
                 m_AppliedMast = m;
-                // R8: never at a load (saved runs keep their props until edited); after a settled change, every run.
+                // never at a load (saved runs keep their props until edited); after a settled change, every run.
                 int stamped = atLoad ? 0 : StampRuns();
                 m_CensusDue = stamped > 0;
 
@@ -660,7 +619,7 @@ namespace SkiResortMod.Systems
                 m_SnowBaseTotal += baseWeight;
             }
 
-            // Mast lists print by name, base weight descending, ties by ordinal name, any count (build-contract §6.9).
+            // Mast lists print by name, base weight descending, ties by ordinal name, any count.
             m_MastOrder.Sort((a, b) =>
             {
                 int byWeight = m_NightMembers[b].Base.CompareTo(m_NightMembers[a].Base);
@@ -954,8 +913,8 @@ namespace SkiResortMod.Systems
                          $"run(s), {nCorners} corner(s): guns {nGun}, hydrants {nHydrant}, masts {nMast}, empty markers " +
                          $"{nEmpty}, nothing {nNothing} (expected guns+hydrants {Tenths(xn)}, masts {Tenths(xm)})" +
                          (other > 0 ? $", other {other}" : "") +
-                         // density-check gap 8: SkiPropNone is mesh-less; if the game gives it no valid object archetype
-                         // (SecondaryObjectSystem.cs:3552-3556 returns silently), its corners read as nothing.
+                         // SkiPropNone is mesh-less; if the game gives it no valid object archetype (SecondaryObjectSystem.cs:3552-3556 returns silently), its
+                         // corners read as nothing.
                          (sNothing > 0 ? " (empty markers not instantiated read as nothing)" : ""));
         }
 

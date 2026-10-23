@@ -1,49 +1,28 @@
-// CursorAimSystem — puts the net tool's aim plane at the tower head for our lift line,
-// the code-mod decouple that terrain-carving.md §5 established prefab data cannot provide.
-//
-// THE MECHANISM (decompile-verified, and simpler than the composition-surgery sketch):
-// the tool's aim plane does NOT read the runtime composition at raycast time. NetToolSystem
-// line 5893 reads the drawn PREFAB's NetGeometryData directly:
+// Puts the net tool's aim plane at the tower head for our lift lines (prefab data alone cannot provide this).
+// The aim plane does not read the runtime composition at raycast time: NetToolSystem line 5893 reads the drawn PREFAB's
+// NetGeometryData directly:
 //
 //     m_PrefabSystem.TryGetComponentData<NetGeometryData>(m_Prefab, out var component4);
 //     m_ToolRaycastSystem.rayOffset = new float3(0, -component4.m_DefaultSurfaceHeight.max - elevation, 0);
+// i.e. the cursor aims at a plane m_DefaultSurfaceHeight.max above the terrain hit. m_DefaultSurfaceHeight is written once at
+// prefab init (NetInitializeSystem line 139, copying the flags=0 composition's m_SurfaceHeight, which for surface-less pieces is
+// center(m_HeightRange), NetCompositionHelpers ~986). Our band {6,20} would aim at 13 m; this system rewrites the prefab field to
+// the lift's AimHeightM after init, and the aim plane rides the tower head.
 //
-// i.e. the cursor aims at a plane m_DefaultSurfaceHeight.max above the terrain hit — the
-// "top of the pole at the cursor" feel of vanilla power lines. m_DefaultSurfaceHeight is
-// written once at prefab init (NetInitializeSystem line 139, copying the flags=0
-// composition's m_SurfaceHeight, which for surface-less pieces is center(m_HeightRange) —
-// NetCompositionHelpers ~986). Our band {6,20} therefore aims at 13 m; this system
-// rewrites the PREFAB field to 8.0 after init, and the aim plane rides the tower head.
+// Consumers of NetGeometryData.m_DefaultSurfaceHeight (grep across all namespaces):
+//   * NetToolSystem 5893 (rayOffset) and 5946/5947/5954 (over/underground camera hints): the intended change;
+//   * IconCommandSystem 541: notification icon hover height above net nodes (icons drop closer to the hardware), cosmetic;
+//   * SelectedInfoUISystem 725/738: camera focus height for a selected net, cosmetic;
+//   * NetCompositionSystem 154: seeds m_SurfaceHeight only for piece-less compositions (marker-net fallback; our drawn
+//     compositions have pieces and take center(m_HeightRange) from NetCompositionHelpers, unaffected).
+// Not affected: terrain carving (TerrainSystem.AddSegment reads composition m_HeightRange for our surface-less class) and
+// collision (HasSurface / piece-driven).
 //
-// COMPLETE CONSUMER AUDIT of NetGeometryData.m_DefaultSurfaceHeight (grep across ALL
-// namespaces, per the terrain-carving.md §6 lesson):
-//   * NetToolSystem 5893 (rayOffset — the target) and 5946/5947/5954 (over/underground
-//     camera hints for the net tool) — the intended change;
-//   * IconCommandSystem 541 — notification icon hover height above net nodes: icons drop
-//     from 13 m to 8 m above nodes, closer to the hardware — cosmetic improvement;
-//   * SelectedInfoUISystem 725/738 — camera focus height for a selected net — cosmetic;
-//   * NetCompositionSystem 154 — seeds m_SurfaceHeight ONLY for piece-LESS compositions
-//     (the marker-net fallback path; our drawn line's compositions have pieces and get
-//     center(m_HeightRange) from NetCompositionHelpers instead, unaffected by this patch).
-// NOT in the list: terrain carving (TerrainSystem.AddSegment reads composition
-// m_HeightRange for our surface-less class — terrain-carving.md §2, confirmed) and
-// collision (HasSurface/piece-driven). The decouple is data-clean.
-//
-// Idempotent, once per load (prefab entities persist per app run, but a re-patch after
-// any future prefab refresh costs nothing); pure data write on the prefab entity; no
-// per-frame work (Enabled = false, empty OnUpdate — the SnowLineSystem pattern).
-//
-// CATALOG PHASE A (2026-10-11, docs/research/art/assets-2026-10/catalog-a/phase-a-contract.md R6; extensibility.md
-// §1 row 20): the drawn line names and the aim height come from SkiCatalog.Lifts (one row today: SkiChairliftHV,
-// AimHeightM 8.0); the prefab entity from SkiPrefabCatalogSystem (one resolver, per load; its "PrefabCatalog [arm]"
-// line lists every name FOUND / MISSING). This system's own WARN on a missing line stays. A mid-session prefab
-// replacement loses the patch until the next load (unchanged from before; the catalog's [re-resolve] WARN now shows
-// it — contract risk R-f).
-//
-// CATALOG PHASE B (2026-10-11, docs/research/art/assets-2026-10/code-round-2/round-2-contract.md §6.4, lift group): the
-// loop already covers every SkiCatalog.Lifts row with its own AimHeightM (fixed-grip 8.0, detachable 9.0, gondola 11.0,
-// tram 26.25). A PENDING line (LiftTypeDef.LineExpected false) that is MISSING writes nothing and no WARN; one Info line
-// lists the pending lines (silence must be impossible). An EXPECTED line missing keeps the WARN.
+// Idempotent, once per load; pure data write on the prefab entity; no per-frame work (Enabled = false, empty OnUpdate).
+// Line names and aim heights come from SkiCatalog.Lifts (LiftTypeDef.AimHeightM per row), the prefab entity from
+// SkiPrefabCatalogSystem. A mid-session prefab replacement loses the patch until the next load (the catalog's [re-resolve] WARN
+// shows it). A pending line (LiftTypeDef.LineExpected false) that is MISSING writes nothing and no WARN; one Info line lists the
+// pending lines. An expected line missing keeps the WARN.
 
 using System;
 using Colossal.Entities;
@@ -57,13 +36,10 @@ namespace SkiResortMod.Systems
 {
     public sealed partial class CursorAimSystem : GameSystemBase
     {
-        // Catalog Phase A (ext row 20; was CursorAimSystem.cs:52 CursorAimHeight = 8.0f and :56 DrawnNetPrefabNames
-        // { "SkiChairliftHV" }): the aim height is LiftTypeDef.AimHeightM (SkiCatalog.FixedGrip.AimHeightM: the tower
-        // head, axle 7.04, comm 8.15 — 8.0 sits at the sheave assembly, the vanilla-pole "top of the pole at the
-        // cursor" feel), the drawn line is LiftTypeDef.LinePrefab. Only drawn prefabs matter — the tool reads the
-        // field from the prefab being drawn — so every SkiCatalog.Lifts row is a drawn line.
+        // The aim height is LiftTypeDef.AimHeightM (FixedGrip: tower head, axle 7.04, comm 8.15; 8.0 sits at the sheave assembly, the
+        // vanilla-pole "top of the pole at the cursor" feel), the drawn line is LiftTypeDef.LinePrefab. Only drawn prefabs matter (the
+        // tool reads the field from the prefab being drawn), so every SkiCatalog.Lifts row is a drawn line.
 
-        // Catalog Phase A (ext row 20; was CursorAimSystem.cs:59 + :65 m_PrefabScanQuery and the :96-117 resolver).
         private SkiPrefabCatalogSystem m_PrefabCatalog;
 
         protected override void OnCreate()
@@ -98,19 +74,18 @@ namespace SkiResortMod.Systems
         {
             int patched = 0, alreadyPatched = 0;
             float lastAim = SkiCatalog.FixedGrip.AimHeightM;
-            var already = new System.Text.StringBuilder();   // Catalog Phase B: "fixedGrip 8.0, …" (log only, once per load)
-            var pending = new System.Text.StringBuilder();   // Catalog Phase B: pending lines MISSING (no WARN, listed)
+            var already = new System.Text.StringBuilder(); // "fixedGrip 8.0, …" (log only, once per load)
+            var pending = new System.Text.StringBuilder(); // pending lines MISSING (no WARN, listed)
             for (int l = 0; l < SkiCatalog.Lifts.Count; l++)
             {
-                // Catalog Phase A (ext row 20; was CursorAimSystem.cs:96-117, the PrefabID + name-scan resolver copy):
-                // the catalog's line entity (Entity.Null when MISSING → the WARN below, as before).
+                // The catalog's line entity (Entity.Null when MISSING → the WARN below).
                 LiftTypeDef def = SkiCatalog.Lifts[l];
                 string name = def.LinePrefab;
                 float aim = def.AimHeightM;
                 Entity prefabEntity = m_PrefabCatalog.LineEntity(def);
 
-                // Catalog Phase B (round-2-contract §6.4): a PENDING line (not imported yet; LiftTypeDef.LineExpected false)
-                // that is MISSING writes nothing and no WARN — the catalog's [arm] line lists it; listed in the Info below.
+                // A pending line (not imported yet; LiftTypeDef.LineExpected false) that is MISSING writes nothing and no WARN; the Info
+                // line below lists it.
                 if (prefabEntity == Entity.Null && !def.LineExpected)
                 {
                     if (pending.Length > 0)
@@ -131,7 +106,7 @@ namespace SkiResortMod.Systems
                     geometryData.m_DefaultSurfaceHeight.min == aim)
                 {
                     alreadyPatched++;
-                    lastAim = aim;   // Catalog Phase B: the already-patched line's own aim (was the loop's last row)
+                    lastAim = aim; // the already-patched line's own aim
                     if (already.Length > 0)
                         already.Append(", ");
                     already.Append(def.Id).Append(' ').Append(aim.ToString("F2"));

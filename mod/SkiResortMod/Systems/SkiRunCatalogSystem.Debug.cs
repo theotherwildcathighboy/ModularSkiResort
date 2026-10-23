@@ -1,33 +1,15 @@
-// SkiRunCatalogSystem.Debug — the "Ski Resort Hub" tab of the game's developer menu
-// (docs/research/resort-hub-understand.md §5.2 item 4: observer count, last rebuild ms, rows, last
-// trigger, bundle stamp; §2.G.2). Created 2026-10-01 (Round U1, implementer U1-B). The pattern of
-// ChairPinSystem.Debug.cs / SkiGladeToolSystem.Debug.cs. Round U2 (hub-u2-spec.md §3.5, §3.6;
-// 2026-10-03, implementer I-1): rating-cache rows (rated / queued / done, rating ms, terrain epoch,
-// the last rating) and the SkiResortStatsSystem rows (state, rebuild ms, revisions, row counts, the
-// first resort) plus a "Rebuild stats now" button; the retired "lifts unknown, U3" value is gone.
-// Round E1 (stream S2, 2026-10-04): the "Rating service" row (docs/research/econ-round/spec/ch2-runs.md
-// §2.3: state, rating revision, panel-closed rebuilds and ratings) and, verbatim, the hub chapter's
-// requested change R-C2-1 (spec/ch5-hub-csharp.md §14): contract 3's stats rows (revisions resorts /
-// live / runs / runLive / lifts / problems, rows, the first resort's live values), the two hub v3 rows
-// (piste map / follows / hovers, the piste-map overlay's StateText) and the "Piste map on / off" button.
-// They read stream S5's members (SkiResortStatsSystem, SkiResortHubUISystem, SkiPisteMapSystem).
+// The "Ski Resort Hub" tab of the game's developer menu: catalog, rating-cache and rating-service rows, the
+// SkiResortStatsSystem and hub rows, and action buttons. Pattern of ChairPinSystem.Debug.cs / SkiGladeToolSystem.Debug.cs.
 //
-// HOW IT REACHES THE SCREEN. Game.Debug.DebugSystem sweeps every [DebugContainer] type and invokes
-// each [DebugTab] method on the live system instance (ExecuteMethod / RegisterDebug,
-// DebugSystem.cs:996-1045, same lines in 1.6.2), which is why this file is a partial of the catalog.
-// Nothing is registered in Mod.cs for the tab. DebugSystem.Rebuild(Func<List<Widget>>) :971.
-//
-// TAB NAME IS LOAD-BEARING: "Ski Resort Hub" is unique. AddPanel keys widget lists by tab name and
-// REMOVES a previously registered list of the same name (DebugSystem.cs:1085-1095, unchanged in
-// 1.6.2): "Ski Resort" (ChairPinSystem), "Ski Glades" and "Ski Runs" are taken.
-//
-// COST CONTRACT: DebugUI.Value getters run at 10 Hz while the tab is open. Every row reads plain
-// fields or builds one display string; no EntityQuery, no job completion. The hub rows read the hub
-// system's public diagnostics (field-backed). Buttons go through the hub's own request queue
-// (SkiResortHubUISystem.DevRequest), so a dev-tab launch / focus / dump is applied, logged and
-// guarded exactly like the UI's trigger — the way to test C# before the TSX exists (§2.C last
-// paragraph). Tool mouse input is blocked while the cursor is over this panel (ToolSystem.cs:203-222):
-// after a launch, move the cursor onto the map.
+// Game.Debug.DebugSystem sweeps every [DebugContainer] type and invokes each [DebugTab] method on the live instance
+// (ExecuteMethod / RegisterDebug, DebugSystem.cs:996-1045), which is why this is a partial of the catalog; nothing is
+// registered in Mod.cs.
+// The tab name is load-bearing: AddPanel keys widget lists by tab name and removes a previously registered list of the same
+// name (DebugSystem.cs:1085-1095); "Ski Resort" (ChairPinSystem), "Ski Glades" and "Ski Runs" are taken.
+// Cost: DebugUI.Value getters run at 10 Hz while the tab is open, so every row reads plain fields or builds one display
+// string; no EntityQuery, no job completion. Buttons go through the hub's own request queue (SkiResortHubUISystem.DevRequest),
+// so a dev-tab launch / focus / dump is applied, logged and guarded like the UI's trigger. Tool mouse input is blocked while
+// the cursor is over this panel (ToolSystem.cs:203-222): after a launch, move the cursor onto the map.
 
 using System;
 using System.Collections.Generic;
@@ -46,7 +28,6 @@ namespace SkiResortMod.Systems
             var list = new List<DebugUI.Widget>();
             SkiResortHubUISystem hub = World.GetExistingSystemManaged<SkiResortHubUISystem>();
 
-            // ── Hub (SkiResortHubUISystem) ──────────────────────────────────────────────────────
             list.Add(HubVal("Hub armed / disabled / open", () => hub == null
                 ? "hub system not registered"
                 : $"{hub.IsArmed} / {hub.IsDisabled} / {hub.IsOpen}"));
@@ -60,14 +41,12 @@ namespace SkiResortMod.Systems
                 : $"{hub.TriggerCount} / {hub.RunsPushes} / {hub.UiErrorRepeats}"));
             list.Add(HubVal("Active tool / selection", () => hub == null ? "-" : hub.ToolText()));
             list.Add(HubVal("Lodge launch", () => hub == null ? "-" : hub.LodgeStateText));
-            // Round E1 (econ-round spec ch5 §14 R-C2-1 (b), verbatim): the hub v3 rows.
             list.Add(HubVal("Hub v3: piste map / follows / hovers", () => hub == null
                 ? "-"
                 : $"{(hub.PisteMapOn ? "on" : "off")} (visible {hub.PisteMapVisible}) / {hub.FollowCount} / {hub.HoverAccepted} (refused {hub.HoverRefused})"));
             SkiPisteMapSystem piste = World.GetExistingSystemManaged<SkiPisteMapSystem>();
             list.Add(HubVal("Piste map overlay", () => piste == null ? "piste map system not registered" : piste.StateText()));
 
-            // ── Catalog (this system) ───────────────────────────────────────────────────────────
             list.Add(HubVal("Catalog armed / disabled / demand", () => $"{IsArmed} / {IsDisabled} / {Demand}"));
             list.Add(HubVal("Last rebuild (why, ms, max ms)", () =>
                 $"{LastRebuildWhy}, {LastRebuildMs:F2} ms, max {MaxRebuildMs:F2} ms"));
@@ -84,15 +63,12 @@ namespace SkiResortMod.Systems
                        $"{(row.Approx ? " (node estimates)" : "")}, area {row.AreaM2:F0} m², entity {row.Entity.Index}:{row.Entity.Version}";
             }));
 
-            // ── U2 rating cache (hub-u2-spec.md §3.5) ──────────────────────────────────────────
             list.Add(HubVal("Ratings: rated / rows / queued / done", () => $"{RatedCount} / {RowCount} / {RatingsPending} / {Ratings}"));
             list.Add(HubVal("Rating ms (last / max) / terrain epoch", () => $"{LastRateMs:F1} / {MaxRateMs:F1} / {TerrainEpoch}"));
             list.Add(HubVal("Last rating", () => LastRateLine));
-            // Round E1 (ch2 §2.3): the always-on rating service (plain field reads).
             list.Add(HubVal("Rating service", () =>
                 $"{ServiceState}, revision {RatingRevision}, closed rebuilds {m_ClosedRebuilds}, closed ratings {m_ClosedRatings}"));
 
-            // ── U2 stats (SkiResortStatsSystem, hub-u2-spec.md §3.6) ───────────────────────────
             SkiResortStatsSystem stats = World.GetExistingSystemManaged<SkiResortStatsSystem>();
             list.Add(HubVal("Stats armed / disabled / demand", () => stats == null
                 ? "stats system not registered"
@@ -100,7 +76,6 @@ namespace SkiResortMod.Systems
             list.Add(HubVal("Stats last rebuild (why, ms, max ms) / rebuilds", () => stats == null
                 ? "-"
                 : $"{stats.LastRebuildWhy}, {stats.LastRebuildMs:F2} ms, max {stats.MaxRebuildMs:F2} ms / {stats.Rebuilds}"));
-            // Round E1 (econ-round spec ch5 §14 R-C2-1 (a), verbatim): contract 3's stats rows.
             list.Add(HubVal("Stats revisions resorts/live/runs/runLive/lifts/problems", () => stats == null
                 ? "-"
                 : $"{stats.ResortsRevision}/{stats.ResortLiveRevision}/{stats.RunsRevision}/{stats.RunLiveRevision}/{stats.LiftsRevision}/{stats.ProblemsRevision}"));
@@ -120,7 +95,6 @@ namespace SkiResortMod.Systems
             list.Add(HubButton("Rebuild stats now", () => stats?.RequestRebuild("dev tab")));
             list.Add(HubVal("Note", () => "after a launch button, move the cursor onto the map"));
 
-            // ── Actions (through the hub's request queue) ───────────────────────────────────────
             list.Add(HubButton("Dump hub + catalog to mod log", () =>
             {
                 RequestRebuild("dev tab dump");
@@ -148,7 +122,6 @@ namespace SkiResortMod.Systems
                 list.Add(HubButton("Launch: " + id, () =>
                     hub?.DevRequest("launch " + id, SkiResortHubUISystem.DevKindLaunch, id, Entity.Null)));
             }
-            // Round E1 (econ-round spec ch5 §14 R-C2-1 (c), verbatim).
             list.Add(HubButton("Piste map on / off", () =>
                 hub?.DevRequest("togglePisteMap", SkiResortHubUISystem.DevKindTogglePisteMap, null, Entity.Null)));
             list.Add(HubButton("Refresh tab", () => DebugSystem.Rebuild(BuildSkiResortHubDebugUI)));
@@ -156,8 +129,7 @@ namespace SkiResortMod.Systems
             return list;
         }
 
-        /// <summary>A button body runs inside the debug UI's invoke path: never throw into it, never
-        /// fail silently.</summary>
+        /// <summary>A button body runs inside the debug UI's invoke path: never throw into it, never fail silently.</summary>
         private static DebugUI.Button HubButton(string name, Action body)
         {
             return new DebugUI.Button

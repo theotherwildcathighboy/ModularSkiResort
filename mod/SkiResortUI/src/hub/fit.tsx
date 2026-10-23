@@ -1,26 +1,18 @@
 /*
- * src/hub/fit.tsx - "never a scrollbar" (T114): the fold rows and the fit-to-height list pager.
+ * src/hub/fit.tsx - "never a scrollbar": the fold rows and the view pager.
  *
- * Written for this repo (MIT). Created 2026-10-20 (T114 hub round; field report 2026-10-20 item 2, Richard: "ideally we wouldn't
- * have a scroll bar ever on our UI hub"; docs/research/ui/hub-round-t114-2026-10-20.md).
- * Contract:
- *   - The panel keeps its fixed height (HubPanel .panelFixed, 72vh, at most 780 rem); its content must fit it at UI text scale
- *     1.0 and 1.25. Two tools make that true by construction, and harness/layout-check.js + tools/test-hub-layout.js measure it:
- *       1. Fold: a section header row with a chevron that shows its rows only while open. ONE fold per view is open at a time
- *          (accordion, hubState.folds$ / toggleFold), so a view's height is its closed height plus its tallest fold, and the
- *          layout test opens every fold in turn. Closed by default (hubState.FOLD_DEFAULT). Its rows render flat (no wrapper), so
- *          the view pager (3.) can page them one by one.
- *       2. (T114 useFitPage, retired 2026-10-20 by T131 / DECISIONS 350: the Runs and Lifts views list every row again and are the
- *          two views allowed to scroll; PIPELINE section 0.) It was: a list (runs, lifts) shows as many rows as fit and pages the rest ("‹ 1 / 3 ›" under it). The
- *          rows that fit are MEASURED after layout (two animation frames later: Gameface lays a new view out a frame late,
- *          layoutReport.ts Round F7): capacity = rows drawn + floor(slack / average row height), slack = the content box's
- *          inner height minus our body's height (negative while it overflows). The pager row is always drawn (empty on one
- *          page), so showing it never changes the height. A page that no longer exists (rows went away) clamps to the last.
- *       3. useViewPager: when a view (rows + an open fold) is still taller than the box (text scale 1.25 leaves room for about
- *          seven rows), its top-level rows are shown page by page with the same Pager under the view (HubPanel).
- *   - FitContext carries the panel body's ref (HubPanel); without it (a view rendered elsewhere) nothing is measured and the
- *     page size stays at its first value.
- *   - Buttons here are content-area buttons (not in the Panel header / footer), so R15's FOCUS_DISABLED does not apply.
+ * The panel keeps its fixed height (HubPanel .panelFixed, 72vh, at most 780 rem); its content must fit it at UI text scale
+ * 1.0 and 1.25. Two tools make that true by construction, and harness/layout-check.js + tools/test-hub-layout.js measure it:
+ *   1. Fold: a section header row with a chevron that shows its rows only while open. One fold per view is open at a time
+ *      (accordion, hubState.folds$ / toggleFold), so a view's height is its closed height plus its tallest fold, and the
+ *      layout test opens every fold in turn. Closed by default (hubState.FOLD_DEFAULT). Its rows render flat (no wrapper),
+ *      so the view pager can page them one by one.
+ *   2. useViewPager: when a view (rows + an open fold) is still taller than the box (text scale 1.25 leaves room for about
+ *      seven rows), its top-level rows are shown page by page with the same Pager under the view (HubPanel). The Runs and
+ *      Lifts views list every row and are the two views allowed to scroll.
+ * FitContext carries the panel body's ref (HubPanel); without it (a view rendered elsewhere) nothing is measured and the
+ * page size stays at its first value. Buttons here are content-area buttons (not in the Panel header / footer), so
+ * FOCUS_DISABLED does not apply.
  */
 import { createContext, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { ReactNode, RefObject } from "react";
@@ -36,17 +28,16 @@ import styles from "./hub.module.scss";
 export const GLYPH_FOLD_CLOSED = "Media/Glyphs/ThickStrokeArrowRight.svg";
 export const GLYPH_FOLD_OPEN = "Media/Glyphs/ThickStrokeArrowDown.svg";
 
-/** The panel body (HubPanel's `.body`): what the pager measures against. */
+/** The panel body (HubPanel's `.body`): what the pager measures against */
 export const FitContext = createContext<RefObject<HTMLDivElement> | null>(null);
 
-/** A fold: a header row (label, optional value) with a chevron; its children only while it is the view's open fold. */
+/** A fold: a header row (label, optional value) with a chevron; its children only while it is the view's open fold */
 export function Fold({ view, id, label, value, tip, header, children }: {
   view: string;
   id: string;
   label: string | JSX.Element;
   value?: ReactNode;
   tip?: ReactNode;
-  /** Section-title look (upper case), like InfoLine `header`. */
   header?: boolean;
   children: ReactNode;
 }): JSX.Element {
@@ -68,7 +59,6 @@ export function Fold({ view, id, label, value, tip, header, children }: {
 }
 
 export interface FitPage {
-  /** First row index of the page and one past its last. */
   start: number;
   end: number;
   page: number;
@@ -114,18 +104,16 @@ export function Pager({ fit }: { fit: FitPage }): JSX.Element {
   );
 }
 
-// ---- the view pager (T114): a view whose rows do not fit shows them page by page ----------------------------------------------
 
-/** How often the view pager re-checks while the panel is open (a leaf's data push can add a row without re-rendering the panel). */
+/** How often the view pager re-checks while the panel is open (a leaf's data push can add a row without re-rendering the panel) */
 const VIEW_PAGER_POLL_MS = 400;
 
 /**
- * Pages the view slot's top-level rows (its DOM children: our views render fragments, so every InfoLine, fold header, fold row,
- * bar and chart block is one child) when the body is taller than the content box. Rows of other pages are hidden with
+ * Pages the view slot's top-level rows (its DOM children: our views render fragments, so every InfoLine, fold header, fold
+ * row, bar and chart block is one child) when the body is taller than the content box. Rows of other pages are hidden with
  * style.display = "none" (React never writes `style` on these row roots, so it stays), all in one synchronous pass: unhide,
- * measure, partition, hide, so nothing paints in between. A fold header is never the last row of a page (it moves to the next).
- * `enabled` false (the Runs / Lifts views, which list every row and may scroll: T131) unhides everything. `resetKey` (view + open fold) returns
- * to page 1.
+ * measure, partition, hide, so nothing paints in between. A fold header is never the last row of a page (it moves to the
+ * next). `enabled` false (the Runs / Lifts views) unhides everything. `resetKey` (view + open fold) returns to page 1.
  */
 export function useViewPager(viewRef: RefObject<HTMLElement>, bodyRef: RefObject<HTMLElement>, enabled: boolean, resetKey: string,
   foldRowClass: string): FitPage {
@@ -152,7 +140,7 @@ export function useViewPager(viewRef: RefObject<HTMLElement>, bodyRef: RefObject
       const slotRect = slot.getBoundingClientRect();
       const pagerOn = state.current.pages > 1;
       if (!pagerOn && bodyH <= inner + 0.5) { if (state.current.pages !== 1) setPages(1); return; }
-      // Room for the view = the box minus everything in the body that is not the view (the pager row included once it is drawn).
+      // Room for the view = the box minus everything in the body that is not the view (the pager row included once it is drawn)
       const tops = rows.map((r) => r.getBoundingClientRect().top);
       const heights = rows.map((r, i) => (i + 1 < rows.length ? tops[i + 1] : slotRect.bottom) - tops[i]);
       const first = rows.length > 0 ? heights[0] : 20;

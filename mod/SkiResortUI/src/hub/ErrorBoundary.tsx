@@ -1,26 +1,15 @@
 /*
- * src/hub/ErrorBoundary.tsx - contains a render error inside our own components.
+ * Contains a render error inside our own components. The game renders appended components inside its ModdingHook
+ * with no error boundary, and in React 18 a render error unmounts the root, which here is the whole game UI. So
+ * every component handed to moduleRegistry.append is wrapped in one of these.
  *
- * Written for this repo (MIT). Created 2026-10-01 (Round U1, implementer U1-A).
- * Why (research 2.A.1 "No error boundary"): the game renders appended components inside its
- * ModdingHook with NO error boundary around them - the shipped bundle's only componentDidCatch /
- * getDerivedStateFromError are react-dom's own - and in React 18 an error thrown while rendering
- * unmounts the root, which here is the WHOLE game UI [consequence: L, settle with research G.3
- * step 9]. Therefore EVERY component we hand to moduleRegistry.append is wrapped in one of these
- * (src/index.tsx), and the hub panel gets its own (src/hub/HubRoot.tsx).
- *
- * Contract:
- *   - A child render error -> this boundary renders `fallback` (default: nothing) and reports
- *     once through reportUiError (console + C# uiError trigger, deduped per message).
- *   - It cannot catch errors in event handlers, effects' async callbacks or the registrar
- *     (those are caught where they happen).
- *   - The fallback must be trivial markup (no cs2/ui component, no binding), so it cannot throw
- *     itself. Remount the boundary (change its key) to retry; HubRoot does that on every open.
- *   - onError (amended 2026-10-01, U1 fixer round, finding tsx-ux-3): called once per caught
- *     error, after the report, inside its own try/catch, so the owner can react (HubRoot closes the
- *     hub: the panel's X / Escape unmounted with the crashed subtree).
- *   - tools/check-bundle.js's smoke test requires every appended component to return this class
- *     (it recognizes static getDerivedStateFromError / prototype.componentDidCatch).
+ * - A child render error renders `fallback` (default: nothing) and reports once through reportUiError.
+ * - Cannot catch errors in event handlers, async callbacks or the registrar.
+ * - The fallback must be trivial markup (no cs2/ui component, no binding) so it cannot throw itself.
+ *   Remount (change the key) to retry.
+ * - onError runs once per caught error, after the report, in its own try/catch.
+ * - tools/check-bundle.js's smoke test requires every appended component to return this class
+ *   (it recognizes static getDerivedStateFromError / prototype.componentDidCatch).
  */
 import { Component } from "react";
 import type { ErrorInfo, ReactNode } from "react";

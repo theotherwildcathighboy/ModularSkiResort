@@ -1,91 +1,72 @@
-// SkiPrefabCatalogSystem — the ECS side of the prefab catalog (Catalog Phase A,
-// docs/research/art/assets-2026-10/catalog-a/phase-a-contract.md §2, with the skeptic's M1, M2, M4 and S1, S8 applied:
-// catalog-a/phase-a-contract-skeptic.md). Resolves every name of the PURE SkiCatalog.cs to its prefab entity through
-// ONE typed resolver, replacing the copy-pasted per-system resolvers (extensibility.md §1 rows 1, 3, 6, 7, 19, 20, 21;
-// F5; §3.5 of the contract lists the eight removed copies).
+// ECS side of the prefab catalog: resolves every name of the pure SkiCatalog.cs to its prefab entity through one typed
+// resolver (docs/research/art/assets-2026-10/catalog-a/phase-a-contract.md §2), replacing the per-system copy-pasted resolvers.
+//   * 30 names (4 lift types, 8 stations, 5 lodges, the school, 2 patrol huts, the sign, 4 runs, the marker); each name is
+//     Expected or pending (SkiCatalog header). Severity only, never behavior: a FOUND pending name works like an expected
+//     one; a MISSING pending name is listed in the [arm] line's "pending (not imported yet)" list and never turns it WARN;
+//     one "[pending-found]" WARN per load names every FOUND pending name so the import commit flips it.
+//   * Carrier hang check: a FOUND carrier whose bounds.max.y differs from its row's HangM by more than 0.01 m writes one
+//     WARN per carrier per load (it still pins by its bounds) and turns the [arm] line WARN.
 //
-// CATALOG PHASE B (docs/research/art/assets-2026-10/code-round-2/round-2-contract.md §2, D5, D9; skeptic MUST 5):
-//   * 30 names (4 lift types, 8 stations, 5 lodges, the school, 2 patrol huts, the sign, 4 runs, the marker); each NAME
-//     is Expected or pending (SkiCatalog header). Severity only, never behavior: a FOUND pending name works exactly like
-//     an expected one; a MISSING pending name is listed in the [arm] line's "pending (not imported yet)" list and never
-//     turns the line WARN; one "[pending-found]" WARN per load names every FOUND pending name so the import commit flips it.
-//   * New live views: LiftLineTypes, CarrierTypes, LodgeDefs, SchoolPrefabSet / SchoolDefs, PatrolPrefabSet /
-//     PatrolDefs; TryGetSchool / TryGetPatrol / IsUpgradeBuilding; ExpectedMissing / PendingFound.
-//   * D9 carrier hang check: a FOUND carrier whose bounds.max.y differs from its row's HangM by more than 0.01 m writes
-//     one WARN per carrier per load (it still pins by its bounds) and turns the [arm] line WARN.
-//   * Phase A review findings: 11 — the "no usable bounds" WARN is written once per carrier per load; 4 — a
-//     "[re-resolve]" re-resolves only the gone slots (fast path first) and keeps the rest.
+// Lifetime (a per-load resolver replaces the once-per-app lifetimes of ChairPinSystem, PowerBridgeSystem and
+// SkiResortAttractivenessSystem; proven by a second load in one session):
+//   * Initial state: nothing resolved, m_Dirty = false, m_ValidatedFrame = −1. Before the first Game / Editor load every
+//     query serves empty views and writes no line.
+//   * OnGamePreload with mode Game or Editor invalidates (dirty, Loads++). A MainMenu preload (exit to the menu,
+//     GameManager.cs:1095 passes when the old mode is Game) keeps the last load's views, still revalidated per frame.
+//     onGamePreload fires inside LoadSimulationData (GameManager.cs:1023 in :1021-1028; 1.6.2 :1033) before deserialization,
+//     for every load except the startup main menu (:1095-1098; 1.6.2 :1105).
+//   * The first catalog query after that resolves lazily. This system's OnGameLoadingComplete (:1126; 1.6.2 :1136) forces the
+//     resolution when nobody asked yet, so there is exactly one ARM line per load. Load hooks fire in subscription order =
+//     OnCreate order (GameSystemBase.cs:27-29, :60-70), so an earlier consumer may resolve first: the same resolution.
+//   * Every query validates the cached entities at most once per frame (UnityEngine.Time.frameCount): Exists && !Deleted for
+//     each FOUND entity (<= 2 EntityManager reads per name). PrefabSystem.UpdatePrefabs gives an updated prefab a new
+//     entity, Deleted on the old one (PrefabSystem.cs:782), PrefabData copied (:799), m_Entities[key] re-pointed (:804);
+//     RemovePrefab tags Deleted too (:203); identical in 1.6.2. A stale cache would silently match nothing. A gone entity
+//     re-resolves that slot (a "[re-resolve]" WARN; only the gone slots, fast path first) and the views are rebuilt.
+//   * m_Dirty is cleared and m_ValidatedFrame set before the resolution runs, whatever its outcome: a throwing resolution
+//     must never re-run on every call (one name scan costs ~15-20 ms in a large city). After an exception every query
+//     serves MISSING until the next load.
+//   * Disabled (Enabled = false; OnUpdate never runs): load hooks still fire for a disabled system (GameSystemBase.cs:27-29
+//     subscribes in OnCreate; the CursorAimSystem.cs:66 / LodgeRoadSystem.cs:129 precedent).
 //
-// LIFETIME (contract §2.2, D2; extensibility-check.md PROPOSAL row: a per-load resolver REPLACES the once-per-app
-// lifetimes of ChairPinSystem, PowerBridgeSystem and SkiResortAttractivenessSystem — contract §8 N1; proven only by
-// the smoke sheet's SECOND LOAD in one session, §7 step 7):
-//   * Initial state (M1): nothing resolved, m_Dirty = false, m_ValidatedFrame = −1. Before the first Game / Editor
-//     load every query serves EMPTY views and writes no line (the startup main menu resolves nothing, exactly as
-//     ChairPin's "no chair prefab resolved" exit behaved there before).
-//   * OnGamePreload with mode Game or Editor INVALIDATES (dirty, Loads++). A MainMenu preload (exit to the menu,
-//     GameManager.cs:1095 passes when the old mode is Game) keeps the last load's views: they are still revalidated per
-//     frame, and the old once-per-app sets persisted into the menu as well (M1).
-//     onGamePreload fires inside LoadSimulationData (GameManager.cs:1023 in :1021-1028; 1.6.2 :1033) before
-//     deserialization, for every load except the startup main menu (:1095-1098; 1.6.2 :1105).
-//   * The FIRST catalog query after that resolves (lazily). This system's own OnGameLoadingComplete (:1126; 1.6.2
-//     :1136) forces the resolution when nobody asked yet, so there is exactly one ARM line per Game / Editor load.
-//     Load hooks fire in subscription order = OnCreate order (GameSystemBase.cs:27-29, :60-70), so an earlier consumer
-//     may resolve first: that is the same resolution, not a second one.
-//   * Every query validates the cached entities at most once per frame (UnityEngine.Time.frameCount):
-//     Exists && !Deleted for each FOUND entity (<= 2 EntityManager reads per FOUND name). PrefabSystem.UpdatePrefabs
-//     gives an updated prefab a NEW entity — Deleted on the old one (PrefabSystem.cs:782), PrefabData copied (:799),
-//     m_Entities[key] re-pointed (:804); RemovePrefab tags Deleted too (:203); identical in 1.6.2 — so a stale cache
-//     would silently match nothing (ext-chk X6). A gone entity re-resolves THAT slot (a "[re-resolve]" WARN; Phase B:
-//     only the gone slots, review finding 4) and the views are rebuilt from every slot.
-//   * M2: m_Dirty is cleared and m_ValidatedFrame set BEFORE the resolution runs, whatever its outcome: a throwing
-//     resolution must never re-run on every call (one name scan costs ~15-20 ms in Richard's city, field log
-//     2026-09-30 :28-31, :45-60). After an exception every query serves MISSING until the next load.
-//   * Disabled (Enabled = false; OnUpdate never runs): load hooks still fire for a disabled system
-//     (GameSystemBase.cs:27-29 subscribes in OnCreate; the CursorAimSystem.cs:66 / LodgeRoadSystem.cs:129 precedent).
-//
-// THE ONE TYPED RESOLVER (contract §2.3; the shape of ChairPinSystem.cs:1634-1669 / :1737-1758, once):
-//   1. PrefabID fast path: PrefabSystem.TryGetPrefab(new PrefabID(type, name)) + TryGetEntity, entity live → "id".
-//      PrefabID equality includes the asset hash (PrefabID.cs:15-34, :38-52). It hits for our nets, objects and
-//      buildings; the run surfaces fall to the scan (field log 2026-09-30, skeptic S2); the ARM line's id / scan
-//      records which.
-//   2. ONE scan per resolution pass over {PrefabData, None Deleted}, shared by every fast-path miss (S1): pb.name is
-//      read once per candidate (a Unity icall that allocates) and looked up in a wanted-name table. A candidate needs
-//      PrefabData.m_Index >= 0 (TryGetPrefab<PrefabBase>, PrefabSystem.cs:658-677), so an obsolete placeholder (whose
-//      GetPrefabName returns the obsolete ID's name, :979-990) never matches; Deleted prefab entities are excluded by
-//      the query. The first candidate whose GetType().Name equals the PrefabID type wins ("scan"); else the first
-//      candidate ("scan, type X ≠ Y": still FOUND, as the old name-only scans accepted it, but the ARM line turns
-//      WARN — the bug class recorded at SkiSnowInjectionSystem.cs:359-362).
-//      A pending name that is not imported costs nothing extra: it joins the scan the run surfaces already force.
+// The one typed resolver:
+//   1. PrefabID fast path: PrefabSystem.TryGetPrefab(new PrefabID(type, name)) + TryGetEntity, entity live → "id". PrefabID
+//      equality includes the asset hash (PrefabID.cs:15-34, :38-52). It hits for our nets, objects and buildings; the run
+//      surfaces fall to the scan; the ARM line's id / scan records which.
+//   2. One scan per resolution pass over {PrefabData, None Deleted}, shared by every fast-path miss: pb.name is read once per
+//      candidate (a Unity icall that allocates) and looked up in a wanted-name table. A candidate needs PrefabData.m_Index
+//      >= 0 (TryGetPrefab<PrefabBase>, PrefabSystem.cs:658-677), so an obsolete placeholder (whose GetPrefabName returns the
+//      obsolete ID's name, :979-990) never matches. The first candidate whose GetType().Name equals the PrefabID type wins
+//      ("scan"); else the first candidate ("scan, type X ≠ Y": still FOUND, but the ARM line turns WARN; the bug class at
+//      SkiSnowInjectionSystem.cs:359-362). A pending name that is not imported joins the scan the run surfaces already force.
 //   3. None → MISSING.
-//   Carriers: a FOUND carrier with ObjectGeometryData.m_Bounds.max.y > 0 enters CarrierGripTops with that value (the
-//   bounds read moved here from ChairPinSystem.cs:1770-1783); otherwise a WARN and it is not a carrier.
+//   Carriers: a FOUND carrier with ObjectGeometryData.m_Bounds.max.y > 0 enters CarrierGripTops with that value; otherwise a
+//   WARN and it is not a carrier.
 //
-// LIVE VIEWS (contract §2.1): LiftLinePrefabSet, LiftLineTypes, CarrierGripTops, CarrierTypes, StationPrefabSet,
-// StationDefs (skeptic M4), LodgePrefabSet, LodgeDefs, SchoolPrefabSet, SchoolDefs, PatrolPrefabSet and PatrolDefs are
-// ONE instance each for the app run, cleared and refilled in place by a resolution, so a cached reference stays current.
-// Read-only by convention. A re-resolution can only happen at the FIRST catalog call of a frame, and every call that
-// hands out a view is such a call, so an enumeration started from a view cannot be invalidated within the frame.
-// Consumer rule: fetch the view once, before the chunk loop; use TryGetValue / Contains inside it (never a per-entity
-// member call in a loop over every building, M4).
+// Live views (LiftLinePrefabSet, LiftLineTypes, CarrierGripTops, CarrierTypes, StationPrefabSet, StationDefs, LodgePrefabSet,
+// LodgeDefs, SchoolPrefabSet, SchoolDefs, PatrolPrefabSet, PatrolDefs) are one instance each for the app run, cleared and
+// refilled in place by a resolution, so a cached reference stays current. Read-only by convention. A re-resolution can only
+// happen at the first catalog call of a frame, and every call that hands out a view is such a call, so an enumeration
+// started from a view cannot be invalidated within the frame. Consumer rule: fetch the view once, before the chunk loop; use
+// TryGetValue / Contains inside it, never a per-entity member call in a loop over every building.
 //
-// LOG CONTRACT — SILENCE MUST BE IMPOSSIBLE (ChairPinSystem header, ChairPinSystem.cs:352-361):
-//   * "SkiPrefabCatalogSystem created (30 names: …; 30 expected, 0 pending; 25 build items; …)" once (counts
-//     computed); "!!! PrefabCatalog: …" at OnCreate when SkiCatalog.Problems is not empty or a SkiCatalog.Type* constant
-//     differs from nameof(the Game type);
-//   * ONE "PrefabCatalog [arm] load N, generation G: E/30 expected FOUND, P/0 pending FOUND — …; MISSING: …; pending
-//     (not imported yet): …; lift types: …; resolver …" per Game / Editor load: Info when every EXPECTED name is FOUND
-//     with its own PrefabID type and every FOUND carrier has bounds within 0.01 m of its HangM, WARN otherwise (a FOUND
-//     pending name with a wrong type or bad bounds counts too: it works like an expected one). Written at the first query
-//     after the load's Game / Editor OnGamePreload, at the latest by this system's OnGameLoadingComplete;
-//   * "PrefabCatalog [pending-found] …" WARN once per load when a pending name is FOUND (D5);
-//   * "PrefabCatalog [re-resolve] (why) …" WARN when a cached prefab entity is gone or Deleted (PrefabSystem.cs:766-824),
-//     at most ReResolveLinesMax = 8 per load, the rest counted in Describe();
+// Log contract: silence must be impossible (ChairPinSystem header):
+//   * "SkiPrefabCatalogSystem created (30 names: …; 30 expected, 0 pending; 25 build items; …)" once; "!!! PrefabCatalog: …"
+//     at OnCreate when SkiCatalog.Problems is not empty or a SkiCatalog.Type* constant differs from nameof(the Game type);
+//   * one "PrefabCatalog [arm] load N, generation G: E/30 expected FOUND, P/0 pending FOUND — …; MISSING: …; pending (not
+//     imported yet): …; lift types: …; resolver …" per Game / Editor load: Info when every expected name is FOUND with its
+//     own PrefabID type and every FOUND carrier has bounds within 0.01 m of its HangM, WARN otherwise (a FOUND pending name
+//     with a wrong type or bad bounds counts too). Written at the first query after the load's preload, at the latest by
+//     this system's OnGameLoadingComplete;
+//   * "PrefabCatalog [pending-found] …" WARN once per load when a pending name is FOUND;
+//   * "PrefabCatalog [re-resolve] (why) …" WARN when a cached prefab entity is gone or Deleted (PrefabSystem.cs:766-824), at
+//     most ReResolveLinesMax = 8 per load, the rest counted in Describe();
 //   * "PrefabCatalog: carrier prefab 'X' has no usable ObjectGeometryData bounds — skipped …" WARN once per carrier per load;
-//   * "PrefabCatalog: carrier 'X' grip-top … differs from SkiCatalog HangM …" WARN once per carrier per load (D9);
-//   * "PrefabCatalog [extra] …" once per non-catalog (type, name) pair asked through TryGetPrefab(type, name) — none
-//     expected (every hub item is a catalog name; S8);
-//   * "!!! PrefabCatalog EXCEPTION …" with stack, once per load; every query then answers MISSING until the next load,
-//     so each consumer's own missing-prefab line fires (contract §3) — never a silent half-state.
+//   * "PrefabCatalog: carrier 'X' grip-top … differs from SkiCatalog HangM …" WARN once per carrier per load;
+//   * "PrefabCatalog [extra] …" once per non-catalog (type, name) pair asked through TryGetPrefab(type, name) (none expected:
+//     every hub item is a catalog name);
+//   * "!!! PrefabCatalog EXCEPTION …" with stack, once per load; every query then answers MISSING until the next load, so each
+//     consumer's own missing-prefab line fires: never a silent half-state.
 
 using System;
 using System.Collections.Generic;
@@ -108,7 +89,7 @@ namespace SkiResortMod.Systems
         /// <summary>"[re-resolve]" WARN lines per load; the rest are counted in Describe().</summary>
         internal const int ReResolveLinesMax = 8;
 
-        /// <summary>D9: |bounds.max.y − HangM| above this is a carrier contract drift (one WARN per carrier per load).</summary>
+        /// <summary>|bounds.max.y − HangM| above this is a carrier contract drift (one WARN per carrier per load).</summary>
         internal const float HangToleranceM = 0.01f;
 
         private const string ResolverText =
@@ -130,7 +111,7 @@ namespace SkiResortMod.Systems
             public bool TypeMismatch;
             public float GripTop;          // carriers: bounds.max.y, 0 when no usable bounds
             public bool NoBounds;          // carriers: FOUND but not usable
-            public bool HangDrift;         // carriers: |GripTop − HangM| > HangToleranceM (D9)
+            public bool HangDrift;         // carriers: |GripTop − HangM| > HangToleranceM
             // scan scratch: the first candidate of any type
             public Entity Alt;
             public PrefabBase AltPrefab;
@@ -161,7 +142,6 @@ namespace SkiResortMod.Systems
         private readonly List<int> m_Gone = new List<int>(4);       // FindGone's slot indices (reused)
         private readonly List<int> m_AllSlots = new List<int>(32);  // 0..n-1 for a full resolution (reused)
 
-        // ── live views: ONE instance each for the app run (header) ──
         private readonly HashSet<Entity> m_LiftLines = new HashSet<Entity>();
         private readonly Dictionary<Entity, LiftTypeDef> m_LineTypes = new Dictionary<Entity, LiftTypeDef>();
         private readonly Dictionary<Entity, float> m_CarrierGripTops = new Dictionary<Entity, float>();
@@ -177,8 +157,7 @@ namespace SkiResortMod.Systems
         private readonly HashSet<Entity> m_Signs = new HashSet<Entity>();
         private Entity m_Marker;
 
-        // ── lifetime (header; M1 initial state) ──
-        private bool m_Dirty;                    // false until the first Game / Editor preload (M1)
+        private bool m_Dirty;                    // false until the first Game / Editor preload
         private bool m_FailedThisLoad;           // the last resolution threw: serve MISSING until the next load
         private bool m_ResolvedSinceLoad;        // a resolution ran since the last Game / Editor preload
         private bool m_IsResolved;               // resolved since the last invalidation, without an exception
@@ -193,14 +172,11 @@ namespace SkiResortMod.Systems
         private long m_Validations;              // this app run
         private string m_LastText = "not resolved (no game or editor load yet)";
 
-        // ── Phase B: expected / pending (D5) and once-per-load lines ──
         private int m_ExpectedMissing;           // last resolution: MISSING names that are Expected
         private int m_PendingFound;              // last resolution: FOUND names that are pending
         private bool m_PendingFoundLogged;       // this load
-        private readonly HashSet<string> m_NoBoundsWarned = new HashSet<string>(StringComparer.Ordinal);   // this load (finding 11)
-        private readonly HashSet<string> m_HangWarned = new HashSet<string>(StringComparer.Ordinal);       // this load (D9)
-
-        // ================================================================== public surface (main thread only)
+        private readonly HashSet<string> m_NoBoundsWarned = new HashSet<string>(StringComparer.Ordinal);   // this load
+        private readonly HashSet<string> m_HangWarned = new HashSet<string>(StringComparer.Ordinal);       // this load
 
         /// <summary>++ per resolution; consumers that cache derived state compare it.</summary>
         internal int Generation
@@ -232,8 +208,6 @@ namespace SkiResortMod.Systems
             get { EnsureFresh(); return m_PendingFound; }
         }
 
-        // ── lifts ──
-
         internal bool TryGetLiftType(Entity linePrefab, out LiftTypeDef def)
         {
             EnsureFresh();
@@ -252,7 +226,7 @@ namespace SkiResortMod.Systems
             get { EnsureFresh(); return m_LiftLines; }
         }
 
-        /// <summary>LIVE VIEW (Phase B): FOUND lift line prefab entity → its lift type row (LiftCensus Edge.Type,
+        /// <summary>LIVE VIEW: FOUND lift line prefab entity → its lift type row (LiftCensus Edge.Type,
         /// ChairPin's lane harvest). Fetch once before a chunk loop, TryGetValue inside.</summary>
         internal IReadOnlyDictionary<Entity, LiftTypeDef> LiftLineTypes
         {
@@ -295,7 +269,7 @@ namespace SkiResortMod.Systems
             get { EnsureFresh(); return m_CarrierGripTops; }
         }
 
-        /// <summary>LIVE VIEW (Phase B): carrier prefab entity (usable bounds only, the CarrierGripTops keys) → its lift
+        /// <summary>LIVE VIEW: carrier prefab entity (usable bounds only, the CarrierGripTops keys) → its lift
         /// type row (ChairPin's Shuttle filter and per-type ceiling).</summary>
         internal IReadOnlyDictionary<Entity, LiftTypeDef> CarrierTypes
         {
@@ -307,8 +281,6 @@ namespace SkiResortMod.Systems
         {
             get { EnsureFresh(); return m_Marker; }
         }
-
-        // ── stations, buildings ──
 
         internal bool TryGetStation(Entity stationPrefab, out StationDef def)
         {
@@ -329,7 +301,7 @@ namespace SkiResortMod.Systems
             get { EnsureFresh(); return m_Stations; }
         }
 
-        /// <summary>LIVE VIEW (skeptic M4): station prefab entity → its StationDef. Fetch once before a loop over every
+        /// <summary>LIVE VIEW: station prefab entity → its StationDef. Fetch once before a loop over every
         /// building and use TryGetValue inside (instead of a TryGetStation call per entity).</summary>
         internal IReadOnlyDictionary<Entity, StationDef> StationDefs
         {
@@ -342,13 +314,13 @@ namespace SkiResortMod.Systems
             return m_Lodges.Contains(prefab);
         }
 
-        /// <summary>LIVE VIEW (M4's rule for the lodge loops): every FOUND lodge prefab entity.</summary>
+        /// <summary>LIVE VIEW: every FOUND lodge prefab entity.</summary>
         internal HashSet<Entity> LodgePrefabSet
         {
             get { EnsureFresh(); return m_Lodges; }
         }
 
-        /// <summary>LIVE VIEW (Phase B): FOUND lodge prefab entity → its ladder row (the tier IS the PrefabRef).</summary>
+        /// <summary>LIVE VIEW: FOUND lodge prefab entity → its ladder row (the tier IS the PrefabRef).</summary>
         internal IReadOnlyDictionary<Entity, LodgeDef> LodgeDefs
         {
             get { EnsureFresh(); return m_LodgeDefs; }
@@ -360,13 +332,13 @@ namespace SkiResortMod.Systems
             get { EnsureFresh(); return m_LodgeDefs.Count; }
         }
 
-        /// <summary>LIVE VIEW (Phase B): every FOUND ski-school prefab entity.</summary>
+        /// <summary>LIVE VIEW: every FOUND ski-school prefab entity.</summary>
         internal HashSet<Entity> SchoolPrefabSet
         {
             get { EnsureFresh(); return m_Schools; }
         }
 
-        /// <summary>LIVE VIEW (Phase B): FOUND school prefab entity → its row.</summary>
+        /// <summary>LIVE VIEW: FOUND school prefab entity → its row.</summary>
         internal IReadOnlyDictionary<Entity, SchoolDef> SchoolDefs
         {
             get { EnsureFresh(); return m_SchoolDefs; }
@@ -378,13 +350,13 @@ namespace SkiResortMod.Systems
             return m_SchoolDefs.TryGetValue(prefab, out def);
         }
 
-        /// <summary>LIVE VIEW (Phase B): every FOUND patrol hut prefab entity.</summary>
+        /// <summary>LIVE VIEW: every FOUND patrol hut prefab entity.</summary>
         internal HashSet<Entity> PatrolPrefabSet
         {
             get { EnsureFresh(); return m_Patrols; }
         }
 
-        /// <summary>LIVE VIEW (Phase B): FOUND patrol prefab entity → its row.</summary>
+        /// <summary>LIVE VIEW: FOUND patrol prefab entity → its row.</summary>
         internal IReadOnlyDictionary<Entity, PatrolDef> PatrolDefs
         {
             get { EnsureFresh(); return m_PatrolDefs; }
@@ -397,17 +369,17 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>A FOUND lodge, school or patrol prefab: every ServiceUpgrade of the sign the catalog knows. For
-        /// event-time callers; a loop over every building fetches the three sets once instead (M4).</summary>
+        /// event-time callers; a loop over every building fetches the three sets once instead.</summary>
         internal bool IsUpgradeBuilding(Entity prefab)
         {
             EnsureFresh();
             return m_Lodges.Contains(prefab) || m_Schools.Contains(prefab) || m_Patrols.Contains(prefab);
         }
 
-        /// <summary>T100 (spec (b) site 11): the RUNTIME fact behind "launch through the sign's Upgrade tool": the prefab carries
-        /// ServiceUpgradeData. False for a converted top-level building (SkiSchool since 2026-10-19), which is placed like a
-        /// station (ActivatePrefabTool); SkiCatalog's Kind-derived BuildItemDef.IsUpgrade stays the row's default until every
-        /// prefab of the family has converted (LiftBatch CatalogTests asserts it). Event time only.</summary>
+        /// <summary>The runtime fact behind "launch through the sign's Upgrade tool": the prefab carries ServiceUpgradeData. False for
+        /// a converted top-level building (SkiSchool), which is placed like a station (ActivatePrefabTool); SkiCatalog's Kind-derived
+        /// BuildItemDef.IsUpgrade stays the row's default until every prefab of the family has converted (LiftBatch CatalogTests
+        /// asserts it). Event time only.</summary>
         internal bool IsUpgradePrefab(Entity prefab)
         {
             return prefab != Entity.Null && EntityManager.HasComponent<ServiceUpgradeData>(prefab);
@@ -418,8 +390,6 @@ namespace SkiResortMod.Systems
             EnsureFresh();
             return m_Signs.Contains(prefab);
         }
-
-        // ── by name ──
 
         /// <summary>Any NAMES entry; Entity.Null when MISSING or not a catalog name.</summary>
         internal Entity EntityOf(string catalogName)
@@ -437,7 +407,7 @@ namespace SkiResortMod.Systems
         /// <summary>The hub's item lookups: same resolver, same per-load cache. A catalog name asked with its own
         /// PrefabID type is served from the catalog; any other (type, name) is an "extra": resolved on first ask with the
         /// same resolver, cached per load, re-resolved with the catalog on every full resolution (and alone when gone) and
-        /// validated with it each frame, and listed in Describe() (S8; none expected).</summary>
+        /// validated with it each frame, and listed in Describe().</summary>
         internal bool TryGetPrefab(string typeName, string name, out Entity entity, out PrefabBase prefab)
         {
             EnsureFresh();
@@ -478,8 +448,6 @@ namespace SkiResortMod.Systems
                    I(m_ReResolveSuppressed) + " line(s) suppressed), " + I(m_ReResolvesTotal) + " this app run; extras " +
                    I(m_Slots.Count - m_CatalogSlots) + "; last: " + m_LastText;
         }
-
-        // ================================================================== lifecycle
 
         protected override void OnCreate()
         {
@@ -526,7 +494,7 @@ namespace SkiResortMod.Systems
                          Plural(SkiCatalog.BuildItems.Count, "build item", "build items") + "; resolved lazily per load)");
         }
 
-        /// <summary>Game / Editor only (M1): invalidate; the first query after it resolves. A MainMenu preload keeps the
+        /// <summary>Game / Editor only: invalidate; the first query after it resolves. A MainMenu preload keeps the
         /// last load's views. Never throws: GameSystemBase.GamePreload DISABLES a system whose OnGamePreload throws
         /// (GameSystemBase.cs:85-96).</summary>
         protected override void OnGamePreload(Purpose purpose, GameMode mode)
@@ -582,8 +550,6 @@ namespace SkiResortMod.Systems
             // Never runs (Enabled = false): the catalog is pull-based.
         }
 
-        // ================================================================== freshness
-
         /// <summary>Every member's first call. Serve: return. Validate: Exists && !Deleted for every FOUND entity, once
         /// per frame; a gone one re-resolves its slot. Resolve: the load's resolution (the ARM line).</summary>
         private void EnsureFresh()
@@ -593,7 +559,7 @@ namespace SkiResortMod.Systems
             if (action == CatalogAction.Serve)
                 return;
 
-            // M2: cleared BEFORE the work, whatever its outcome — a throwing resolution must not re-run on every call.
+            //cleared BEFORE the work, whatever its outcome — a throwing resolution must not re-run on every call.
             m_Dirty = false;
             m_ValidatedFrame = frame;
             try
@@ -649,8 +615,6 @@ namespace SkiResortMod.Systems
             return why;
         }
 
-        // ================================================================== the one typed resolver
-
         private void Resolve(string why)
         {
             var sw = Stopwatch.StartNew();
@@ -666,7 +630,7 @@ namespace SkiResortMod.Systems
             }
             else
             {
-                // Phase A review finding 4: only the gone slots, fast path first; the views are rebuilt from every slot.
+                // Only the gone slots, fast path first; the views are rebuilt from every slot
                 ClearViews();
                 ResolveSlots(m_Gone, out fast, out scanFor, out scanned);
                 slots = m_Gone.Count;
@@ -715,7 +679,7 @@ namespace SkiResortMod.Systems
             LogPendingFound();
         }
 
-        /// <summary>D5: one WARN per load naming every FOUND pending name (the rows work either way).</summary>
+        /// <summary>one WARN per load naming every FOUND pending name (the rows work either way).</summary>
         private void LogPendingFound()
         {
             if (m_PendingFound == 0 || m_PendingFoundLogged)
@@ -828,7 +792,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Fills the live views from the catalog slots. True when a FOUND carrier had no usable bounds or its
-        /// grip-top differs from its row's HangM (D9).</summary>
+        /// grip-top differs from its row's HangM.</summary>
         private bool BuildViews()
         {
             bool carrierWarn = false;
@@ -852,9 +816,8 @@ namespace SkiResortMod.Systems
                     cs.GripTop = 0f;
                     cs.NoBounds = false;
                     cs.HangDrift = false;
-                    // bounds.max.y = pivot → grip top (grip is the topmost geometry, pivot at the lowest point: the
-                    // Blender contract, PIPELINE §1). Read at runtime so future carrier meshes re-derive automatically
-                    // (moved here from ChairPinSystem.cs:1770-1783).
+                    // bounds.max.y = pivot → grip top (grip is the topmost geometry, pivot at the lowest point: the Blender contract,
+                    // PIPELINE §1). Read at runtime so future carrier meshes re-derive automatically.
                     if (EntityManager.TryGetComponent(cs.Found, out ObjectGeometryData geometry) && geometry.m_Bounds.max.y > 0f)
                     {
                         cs.GripTop = geometry.m_Bounds.max.y;
@@ -863,7 +826,7 @@ namespace SkiResortMod.Systems
                             m_CarrierGripTops.Add(cs.Found, cs.GripTop);
                             m_CarrierTypes.Add(cs.Found, def);
                         }
-                        // D9: the row is the contract (catalog/carriers.json hang_m), the runtime bounds stay the pin source.
+                        //the row is the contract (catalog/carriers.json hang_m), the runtime bounds stay the pin source.
                         if (math.abs(cs.GripTop - carrier.HangM) > HangToleranceM)
                         {
                             cs.HangDrift = true;
@@ -878,7 +841,7 @@ namespace SkiResortMod.Systems
                     {
                         cs.NoBounds = true;
                         carrierWarn = true;
-                        if (m_NoBoundsWarned.Add(cs.Name))   // Phase A review finding 11: once per carrier per load
+                        if (m_NoBoundsWarned.Add(cs.Name))   //once per carrier per load
                             Mod.Log.Warn($"PrefabCatalog: carrier prefab '{cs.Name}' has no usable ObjectGeometryData bounds — " +
                                          "skipped (cannot derive grip-top offset)");
                     }
@@ -969,11 +932,9 @@ namespace SkiResortMod.Systems
             return slot;
         }
 
-        // ================================================================== text
-
         /// <summary>"E/30 expected FOUND, P/0 pending FOUND — … ; MISSING: … ; pending (not imported yet): …" into sb;
         /// sets m_ExpectedMissing / m_PendingFound. True when an EXPECTED name is MISSING or any FOUND name has another
-        /// PrefabID type (pending MISSING names never raise it, D5).</summary>
+        /// PrefabID type (pending MISSING names never raise it).</summary>
         private bool AppendSlots(StringBuilder sb)
         {
             int expectedTotal = 0, expectedFound = 0, pendingTotal = 0, pendingFound = 0;
@@ -1154,8 +1115,6 @@ namespace SkiResortMod.Systems
             if (lifts.Count == 0)
                 sb.Append("NO lift type in SkiCatalog");
         }
-
-        // ================================================================== helpers
 
         /// <summary>Every slot and every view (a full resolution, an exception).</summary>
         private void ClearAll()

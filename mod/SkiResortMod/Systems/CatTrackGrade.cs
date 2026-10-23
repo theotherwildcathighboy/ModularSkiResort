@@ -1,34 +1,34 @@
-// CatTrackGrade — the PURE half of the Cat Track Grading tool (T139b; DECISIONS 362 / 363; research
-// docs/research/cattrack-grading-2026-10-20.md section 4; build note docs/research/field/2026-10-20/grading-tool-build.md).
-// No engine types: Unity.Mathematics only, so tests/GradeBatch links this file and proves every rule headless. The engine half is
-// CatTrackGradeToolSystem (input, overlay, guards' data, apply) and HeightmapWriter (the base heightmap read / write).
+// Pure half of the Cat Track Grading tool: Unity.Mathematics only, so tests/GradeBatch links this file and proves every rule
+// headless. The engine half is CatTrackGradeToolSystem (input, overlay, guards' data, apply) and HeightmapWriter (the base
+// heightmap read / write). Design: docs/research/cattrack-grading-2026-10-20.md section 4.
 //
-// PIPELINE (one solve per change, never per frame):
-//   1. GradePath.Build: a tangent-continuous Bezier chain through the clicked points (uniform Catmull-Rom, each span converted to
-//      one cubic Bezier: controls P1 + (P2 - P0) / 6 and P2 - (P3 - P1) / 6, ends duplicated), resampled every ~SampleStepM of
-//      arc length with an equal step (so the grade limit G * ds is the same everywhere).
+// Pipeline (one solve per change, never per frame):
+//   1. GradePath.Build: a tangent-continuous Bezier chain through the clicked points (uniform Catmull-Rom, each span converted
+//      to one cubic Bezier: controls P1 + (P2 - P0) / 6 and P2 - (P3 - P1) / 6, ends duplicated), resampled every ~SampleStepM
+//      of arc length with an equal step, so the grade limit G * ds is the same everywhere.
 //   2. GradeProfile.Solve on the ground under the samples:
-//        * Follow ground (default, least earthwork): the min-max Lipschitz fit (U + L) / 2, where U is the smallest profile with
-//          |dy/ds| <= G that is >= the ground and L the largest that is <= it (two O(n) sweeps each). (U + L) / 2 is the
-//          G-limited profile whose largest cut or fill is smallest. Then a short moving average (SmoothM, a convex combination of
-//          shifted G-limited profiles: still G-limited) and the two ends pinned to the ground with slope-G cones (clamping between
-//          G-limited bounds keeps the limit). Both ends always meet the ground.
+//        * Follow ground (default, least earthwork): the min-max Lipschitz fit (U + L) / 2, where U is the smallest profile
+//          with |dy/ds| <= G that is >= the ground and L the largest that is <= it (two O(n) sweeps each); (U + L) / 2 is the
+//          G-limited profile whose largest cut or fill is smallest. Then a short moving average (SmoothM, a convex
+//          combination of shifted G-limited profiles: still G-limited) and both ends pinned to the ground with slope-G cones
+//          (clamping between G-limited bounds keeps the limit).
 //        * Constant grade: the straight ramp between the two end heights.
-//      A fixed height gain over a fixed path length bounds the grade from below: |dh| / L > G is INFEASIBLE (the path needs
-//      ShortfallM more meters: a longer line or a switchback). The profile is still produced and its steep part shows red.
+//      A fixed height gain over a fixed path length bounds the grade from below: |dh| / L > G is infeasible (ShortfallM more
+//      meters are needed: a longer line or a switchback). The profile is still produced and its steep part shows red.
 //   3. GradeRaster.Build: the cross-section per heightmap texel: flat top TopWidthM wide at the profile height, side slopes cut
-//      1 : CutRun (h rises 1 m every CutRun m outward) and fill 1 : FillRun, each meeting the ground where its line crosses it
-//      (so the edit blends into the base with no step). Every texel takes the template of its NEAREST centerline point (two
-//      switchback legs that pass close never stack), found by per-segment stamping (cost = sum of the segment boxes, not texels x
-//      segments). Output: the rect's new heights, the texels changed, cut / fill volume, deepest cut / fill.
+//      1 : CutRun (h rises 1 m every CutRun m outward) and fill 1 : FillRun, each meeting the ground where its line crosses
+//      it (so the edit blends into the base with no step). Every texel takes the template of its nearest centerline point (two
+//      switchback legs that pass close never stack), found by per-segment stamping (cost = sum of the segment boxes, not
+//      texels x segments).
 //   4. GradeGuards.Check: the changed texels (and the flat top) against the obstacles the engine half collected: building lots
-//      (oriented rects: lift stations, lodges, every building), lift lines (segments + clearance) and water (texels flagged wet).
-//      The first hit refuses the grade with its kind and place.
-//   5. GradeUndo: the pre-image and the written image of each grade (LIFO, capped). Restore writes the pre-image back ONLY where
-//      the texel still holds what we wrote: a later foreign edit (the vanilla terrain tool, a newer grade) survives the undo.
+//      (oriented rects), lift lines (segments + clearance) and water (texels flagged wet). The first hit refuses the grade
+//      with its kind and place.
+//   5. GradeUndo: the pre-image and the written image of each grade (LIFO, capped). Restore writes the pre-image back only
+//      where the texel still holds what we wrote, so a later foreign edit (the vanilla terrain tool, a newer grade) survives
+//      the undo.
 //
-// HEIGHT ENCODING (TerrainSystem, 1.6.0f1 decompile): the base heightmap is R16_UNorm (SetHeightmap :3231-3250), world height =
-// heightScaleOffset.y + u16 / 65535 * heightScaleOffset.x (GetHeightData :2603-2623: scale.y = (65536 - 1) / heightScale.x,
+// Height encoding (TerrainSystem, 1.6.0f1 decompile): the base heightmap is R16_UNorm (SetHeightmap :3231-3250), world height
+// = heightScaleOffset.y + u16 / 65535 * heightScaleOffset.x (GetHeightData :2603-2623: scale.y = (65536 - 1) / heightScale.x,
 // offset = -positionOffset, positionOffset.y = heightScaleOffset.y :2512); texel (i, j) center = playableOffset + (i + 0.5,
 // j + 0.5) * playableArea / resolution (the same :2620-2622 offset.xz -= 0.5 / scale.xz). GradeMap holds that mapping.
 
@@ -45,14 +45,14 @@ namespace SkiResortMod.Systems
         ConstantGrade,
     }
 
-    /// <summary>The solve's knobs (settings-adjustable; DECISIONS 363 defaults).</summary>
+    /// <summary>The solve's knobs (settings-adjustable).</summary>
     public sealed class GradeParams
     {
         public const float DefaultMaxGrade = 0.25f;
         public const float MinMaxGrade = 0.05f;
-        public const float DefaultTopWidthM = 8f;        // the cat-track run default width
-        public const float DefaultCutRun = 1.5f;         // cut 1 : 1.5
-        public const float DefaultFillRun = 2f;          // fill 1 : 2
+        public const float DefaultTopWidthM = 8f; // the cat-track run default width
+        public const float DefaultCutRun = 1.5f;
+        public const float DefaultFillRun = 2f;
 
         public float MaxGrade = DefaultMaxGrade;
         public float TopWidthM = DefaultTopWidthM;
@@ -62,8 +62,8 @@ namespace SkiResortMod.Systems
         public float SampleStepM = 2f;
         public float SmoothM = 6f;
         /// <summary>The side slopes reach at most this far beyond the flat top. Where a slope has not met the ground by then (a
-        /// hillside steeper than the slope, or a very deep cut / fill) the last BlendTexels of the reach blend into the ground: a
-        /// steep bank, counted and logged, never a vertical step.</summary>
+        /// hillside steeper than the slope, or a very deep cut / fill) the last BlendTexels of the reach blend into the ground: a steep
+        /// bank, counted and logged, never a vertical step.</summary>
         public float MaxSideM = 40f;
         public const int BlendTexels = 2;
 
@@ -74,13 +74,13 @@ namespace SkiResortMod.Systems
             (Mode == GradeProfileMode.FollowGround ? "follow ground" : "constant grade");
     }
 
-    /// <summary>Base heightmap texel / world mapping and the R16 height encoding (header HEIGHT ENCODING).</summary>
+    /// <summary>Base heightmap texel / world mapping and the R16 height encoding (header: height encoding).</summary>
     public struct GradeMap
     {
-        public float2 Offset;      // TerrainSystem.playableOffset
-        public float2 Area;        // TerrainSystem.playableArea
-        public int2 Res;           // heightmap width / height
-        public float HeightScale;  // heightScaleOffset.x
+        public float2 Offset; // TerrainSystem.playableOffset
+        public float2 Area; // TerrainSystem.playableArea
+        public int2 Res; // heightmap width / height
+        public float HeightScale; // heightScaleOffset.x
         public float HeightOffset; // heightScaleOffset.y
 
         public float2 Cell => Area / (float2)Res;
@@ -102,7 +102,7 @@ namespace SkiResortMod.Systems
         public bool Valid => Res.x > 0 && Res.y > 0 && Area.x > 0f && Area.y > 0f && HeightScale > 0f;
     }
 
-    /// <summary>The resampled centerline (header 1).</summary>
+    /// <summary>The resampled centerline (pipeline 1).</summary>
     public sealed class GradePath
     {
         public float2[] Xz;
@@ -112,8 +112,8 @@ namespace SkiResortMod.Systems
 
         public int Count => Xz.Length;
 
-        /// <summary>Builds the chain through <paramref name="points"/> (>= 2, consecutive duplicates dropped); null when fewer
-        /// than two distinct points or a zero-length path.</summary>
+        /// <summary>Builds the chain through <paramref name="points"/> (>= 2, consecutive duplicates dropped); null when fewer than
+        /// two distinct points or a zero-length path.</summary>
         public static GradePath Build(IList<float2> points, float step)
         {
             var pts = new List<float2>();
@@ -123,7 +123,6 @@ namespace SkiResortMod.Systems
             if (pts.Count < 2 || step <= 0f)
                 return null;
 
-            // Dense polyline along the Bezier chain.
             const int Sub = 24;
             var dense = new List<float2>(pts.Count * Sub);
             dense.Add(pts[0]);
@@ -193,7 +192,7 @@ namespace SkiResortMod.Systems
         }
     }
 
-    /// <summary>The solved profile (header 2).</summary>
+    /// <summary>The solved profile (pipeline 2).</summary>
     public sealed class GradeProfile
     {
         public float[] Ground;
@@ -244,8 +243,8 @@ namespace SkiResortMod.Systems
                 int k = (int)math.floor(p.SmoothM / math.max(ds, 1e-3f));
                 if (k > 0)
                 {
-                    // Moving average, the profile reflected point-wise about each end (y(-t) = 2 y(0) - y(t)): a straight ramp
-                    // stays exact, and every term is a G-limited profile, so the average is too.
+                    // Moving average, the profile reflected point-wise about each end (y(-t) = 2 y(0) - y(t)): a straight ramp stays exact, and
+                    // every term is a G-limited profile, so the average is too.
                     var sm = new float[n];
                     for (int i = 0; i < n; i++)
                     {
@@ -257,8 +256,8 @@ namespace SkiResortMod.Systems
                     y = sm;
                 }
 
-                // Pin both ends to the ground with slope cones: slope G, or the slope the two ends force when that is steeper
-                // (infeasible: both ends still meet the ground and the steep part shows red).
+                // Pin both ends to the ground with slope cones: slope G, or the slope the two ends force when that is steeper (infeasible:
+                // both ends still meet the ground and the steep part shows red).
                 float gc = math.max(g, L > 0f ? math.abs(gn - g0) / L * 1.0001f : g);
                 for (int i = 0; i < n; i++)
                 {
@@ -305,7 +304,7 @@ namespace SkiResortMod.Systems
             gradeAbs <= maxGrade + 0.005f ? 0 : gradeAbs <= maxGrade + 0.05f ? 1 : 2;
     }
 
-    /// <summary>The rasterized corridor over one heightmap rect (header 3). Heights are world meters (floats); the engine half
+    /// <summary>The rasterized corridor over one heightmap rect (pipeline 3). Heights are world meters (floats); the engine half
     /// encodes them (GradeMap.ToU16) and only texels whose code changes are counted / written.</summary>
     public sealed class GradeRaster
     {
@@ -324,9 +323,9 @@ namespace SkiResortMod.Systems
 
         public int Index(int i, int j) => (j - Z0) * W + (i - X0);
 
-        /// <summary>The rect the corridor can touch: the samples' box grown by the flat top and MaxSideM (the side slopes' reach;
-        /// a sidehill needs the full reach even where the centerline sits on the ground); clamped to the map. False when it misses
-        /// the map.</summary>
+        /// <summary>The rect the corridor can touch: the samples' box grown by the flat top and MaxSideM (the side slopes' reach; a
+        /// sidehill needs the full reach even where the centerline sits on the ground); clamped to the map. False when it misses the
+        /// map.</summary>
         public static bool Bounds(GradeMap map, GradePath path, GradeProfile prof, GradeParams p, out int4 rect, out float reach)
         {
             float hw = 0.5f * p.TopWidthM;
@@ -344,8 +343,8 @@ namespace SkiResortMod.Systems
             return x1 >= x0 && z1 >= z0;
         }
 
-        /// <summary>Rasterize. <paramref name="baseHeight"/> = the base height of texel (i, j) in world meters (the engine half
-        /// reads the base rect; tests pass a function).</summary>
+        /// <summary>Rasterize. <paramref name="baseHeight"/> = the base height of texel (i, j) in world meters (the engine half reads
+        /// the base rect; tests pass a function).</summary>
         public static GradeRaster Build(GradeMap map, int4 rect, GradePath path, GradeProfile prof, GradeParams p, float reach,
                                         Func<int, int, float> baseHeight)
         {
@@ -363,7 +362,6 @@ namespace SkiResortMod.Systems
                 for (int i = 0; i < r.W; i++)
                     r.Before[j * r.W + i] = baseHeight(r.X0 + i, r.Z0 + j);
 
-            // Per-segment stamping: nearest centerline point and its profile height for every texel within reach.
             float reach2 = reach * reach;
             for (int s = 0; s < path.Count - 1; s++)
             {
@@ -419,7 +417,7 @@ namespace SkiResortMod.Systems
                     zone = 1;
                     if (d > blendStart)
                     {
-                        // The slope has not met the ground this close to the reach: blend into the ground (header, MaxSideM).
+                        // The slope has not met the ground this close to the reach: blend into the ground (MaxSideM).
                         float k = math.saturate((d - blendStart) / math.max(1e-3f, reach - blendStart));
                         float bank = math.abs(h - before);
                         if (bank > 1f)
@@ -467,18 +465,18 @@ namespace SkiResortMod.Systems
     public enum GradeGuardKind : byte
     {
         None,
-        Lot,        // a building lot (lift station, lodge, any building)
-        LiftLine,   // within the clearance of a lift line
+        Lot, // a building lot (lift station, lodge, any building)
+        LiftLine,
         Water,
         OffMap,
     }
 
-    /// <summary>What the engine half found in the rect (header 4).</summary>
+    /// <summary>What the engine half found in the rect (pipeline 4).</summary>
     public sealed class GradeObstacles
     {
         public struct Lot
         {
-            public float2 Center, Right, Forward, Half;   // Right / Forward unit; Half = lot half extents (x, z)
+            public float2 Center, Right, Forward, Half; // Right / Forward unit; Half = lot half extents (x, z)
         }
 
         public struct Line
@@ -546,7 +544,7 @@ namespace SkiResortMod.Systems
             return GradeGuardKind.None;
         }
 
-        /// <summary>The player text of a refusal (US English, short).</summary>
+        /// <summary>The player text of a refusal.</summary>
         public static string Reason(GradeGuardKind k)
         {
             switch (k)
@@ -560,7 +558,7 @@ namespace SkiResortMod.Systems
         }
     }
 
-    /// <summary>One applied grade, for undo (header 5).</summary>
+    /// <summary>One applied grade, for undo (pipeline 5).</summary>
     public sealed class GradeUndoEntry
     {
         public int X0, Z0, W, H;
@@ -616,9 +614,9 @@ namespace SkiResortMod.Systems
             return e;
         }
 
-        /// <summary>The image to write for undoing <paramref name="e"/> over the rect's CURRENT content: the pre-image where the
-        /// texel still holds what the grade wrote, the current value elsewhere (a foreign edit since then survives). <paramref
-        /// name="kept"/> = texels left as they are.</summary>
+        /// <summary>The image to write for undoing <paramref name="e"/> over the rect's current content: the pre-image where the texel
+        /// still holds what the grade wrote, the current value elsewhere (a foreign edit since then survives).
+        /// <paramref name="kept"/> = texels left as they are.</summary>
         public static ushort[] Restore(GradeUndoEntry e, ushort[] current, out int kept)
         {
             kept = 0;
@@ -640,9 +638,9 @@ namespace SkiResortMod.Systems
     /// <summary>The tool's step (CatTrackGradeToolSystem).</summary>
     public enum GradeStep : byte
     {
-        Empty,      // no point yet
-        OnePoint,   // one point: click the next
-        Path,       // two or more points: the corridor is solved and previewed
+        Empty,
+        OnePoint,
+        Path, // two or more points: the corridor is solved and previewed
         Applying,
     }
 
@@ -650,10 +648,10 @@ namespace SkiResortMod.Systems
     public enum GradeBack : byte
     {
         None,
-        CancelDrag,  // a point is being dragged: it goes back where it was
-        UndoEdit,    // the last add / insert / move is undone (removing the last point included)
-        UndoGrade,   // no point left and a grade was applied since the tool opened: the terrain goes back
-        CloseTool,   // nothing left: back to the default tool
+        CancelDrag, // a point is being dragged: it goes back where it was
+        UndoEdit, // the last add / insert / move is undone (removing the last point included)
+        UndoGrade, // no point left and a grade was applied since the tool opened: the terrain goes back
+        CloseTool, // nothing left: back to the default tool
     }
 
     /// <summary>The edit model: the clicked points and an undo stack of point snapshots (pure; the LiftLineEdit pattern).</summary>
@@ -732,8 +730,8 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Where a left click away from every point goes: between the two clicked points of the path span it is within
-        /// <paramref name="radius"/> of (insert index), else after the last point (append). The path is the chain through the
-        /// points; the span test uses the straight chords, good enough at pick distance.</summary>
+        /// <paramref name="radius"/> of (insert index), else after the last point (append). The path is the chain through the points;
+        /// the span test uses the straight chords, good enough at pick distance.</summary>
         public int InsertIndex(float2 p, float radius)
         {
             float best = radius;
@@ -751,9 +749,9 @@ namespace SkiResortMod.Systems
         }
     }
 
-    /// <summary>The input rules (pure; LiftBatch's LiftLineInput pattern, DECISIONS 351): left click adds a point (on the path:
-    /// inserts it), press-drag moves one, right click steps back one action and closes the tool only when nothing is left, the
-    /// Build key (Enter) applies, Esc closes.</summary>
+    /// <summary>The input rules (pure; LiftBatch's LiftLineInput pattern): left click adds a point (on the path: inserts it),
+    /// press-drag moves one, right click steps back one action and closes the tool only when nothing is left, the Build key (Enter)
+    /// applies, Esc closes.</summary>
     public static class GradeInput
     {
         public static GradeStep StepOf(int points, bool applying) =>
@@ -770,7 +768,7 @@ namespace SkiResortMod.Systems
             return gradesThisOpening > 0 ? GradeBack.UndoGrade : GradeBack.CloseTool;
         }
 
-        /// <summary>The step hint: ALWAYS a non-empty line naming what the next click does in this step.</summary>
+        /// <summary>The step hint: always a non-empty line naming what the next click does in this step.</summary>
         public static string Prompt(GradeStep step, bool dragging, bool canUndoGrade)
         {
             if (dragging)

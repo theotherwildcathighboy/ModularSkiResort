@@ -1,13 +1,6 @@
-// ParkingTests — Round S1 test file for tests/ResortBatch (ski-days spec ch3-counting-parking.md §7.2, P1 and P3-P6:
-// the pure SkiParkingRules). Owner: stream C (docs/research/ski-days/s1-spec.md §4.3). Created empty by stage 0
-// (2026-10-05, s1-spec §4.2 step 9): the e1-spec R9 convention — `public static class ParkingTests` with
-// `public static void Run(Func<bool, string, string, bool> check)`; Program.Main calls ParkingTests.Run(Check).
-// Oracles are literal hand values (ch3 §7.2). Stream C (2026-10-05) wrote P1, P3-P6; P2 is dropped with the
-// parking-side lodge state (s1-spec ch3-R10: the census uses SkiDayRules.CheckLodge, tested in SkiDayTests C).
-// Fixer pass (2026-10-05, review TL-X1): two-fault rows in P4 / P5 pin the whole verdict order.
+// Tests for the pure SkiParkingRules (P1, P3-P6). Oracles are literal hand values.
 //
-// Not testable headless (ECS): the census job, the lane walk, the garage walk — covered by the `Parking [census]`
-// lines, the DUMP and the field rows of ch3 §3.7.
+// Not testable headless (ECS): the census job, the lane walk, the garage walk.
 
 using System;
 using SkiResortMod.Systems;
@@ -26,7 +19,6 @@ namespace ResortBatch
             LacksParking(check);
         }
 
-        // ── P1 constants and literal enum values ────────────────────────────────────────────────
         private static void Constants(Func<bool, string, string, bool> check)
         {
             const string w = "parking P1";
@@ -59,7 +51,6 @@ namespace ResortBatch
             check((int)ParkingRoot.OtherBuilding == 2, w, "ParkingRoot.OtherBuilding 2");
         }
 
-        // ── P3 RootOf and IsRestricted ──────────────────────────────────────────────────────────
         private static void RootAndRestriction(Func<bool, string, string, bool> check)
         {
             const string w = "parking P3";
@@ -92,7 +83,6 @@ namespace ResortBatch
             check(r == expected, w, $"IsRestricted({has}, {ours}, 0x{flags:X}, 0x{mask:X}) = {r}, expected {expected} ({label})");
         }
 
-        // ── P4 ClassifyLane ─────────────────────────────────────────────────────────────────────
         private static void Lanes(Func<bool, string, string, bool> check)
         {
             const string w = "parking P4";
@@ -110,8 +100,8 @@ namespace ResortBatch
             LaneCase(check, w, 0x2000u, 1, 5.5f, 10f, false, V.Closed, "parking disabled");
             LaneCase(check, w, 0x0u, 1, 0f, 10f, false, V.NoSlots, "slot interval 0");
             LaneCase(check, w, 0x0u, 1, float.NaN, 10f, false, V.NoSlots, "slot interval NaN");
-            // Fixer pass (review TL-X1): one two-fault row per neighboring pair, so every swap of the order fails
-            // (only the DUMP's not-counted buckets depend on it; car spaces do not).
+            // One two-fault row per neighboring pair, so every swap of the order fails
+            // (only the DUMP's not-counted buckets depend on it; car spaces do not)
             LaneCase(check, w, 0x200u, 1, 5.5f, 300.01f, false, V.TooFar, "too far before virtual");
             LaneCase(check, w, 0x10200u, 1, 5.5f, 10f, false, V.Virtual, "virtual before service");
             LaneCase(check, w, 0x10000u, 0x10, 5.5f, 10f, false, V.Service, "service before not-car");
@@ -126,7 +116,6 @@ namespace ResortBatch
             check(v == expected, w, $"ClassifyLane(0x{flags:X}, 0x{roadTypes:X}, {interval}, {d}, {restricted}) = {v}, expected {expected} ({label})");
         }
 
-        // ── P5 ClassifyGarage ───────────────────────────────────────────────────────────────────
         private static void Garages(Func<bool, string, string, bool> check)
         {
             const string w = "parking P5";
@@ -136,7 +125,7 @@ namespace ResortBatch
             GarageCase(check, w, 0x100u, 1, 40, 10f, true, V.Private, "restricted");
             GarageCase(check, w, 0x4100u, 1, 40, 10f, false, V.Closed, "disabled");
             GarageCase(check, w, 0x100u, 1, 0, 10f, false, V.NoSlots, "capacity 0");
-            // Fixer pass (review TL-X1): the order, one row per neighboring pair.
+            // The order, one row per neighboring pair
             GarageCase(check, w, 0x4100u, 0x10, 0, 301f, true, V.TooFar, "too far before everything");
             GarageCase(check, w, 0x4100u, 0x10, 0, 10f, true, V.NotCar, "not-car before private");
             GarageCase(check, w, 0x4100u, 1, 0, 10f, true, V.Private, "private before closed");
@@ -150,7 +139,6 @@ namespace ResortBatch
             check(v == expected, w, $"ClassifyGarage(0x{flags:X}, 0x{roadTypes:X}, {capacity}, {d}, {restricted}) = {v}, expected {expected} ({label})");
         }
 
-        // ── P6 LodgeLacksParking (hub row 21) ───────────────────────────────────────────────────
         private static void LacksParking(Func<bool, string, string, bool> check)
         {
             const string w = "parking P6";

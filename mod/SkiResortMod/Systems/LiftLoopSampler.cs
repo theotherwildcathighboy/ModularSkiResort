@@ -1,18 +1,11 @@
-// LiftLoopSampler — the chair mover's per-chair kernel over FLAT segment arrays (R-3 of
-// docs/research/lifts/lift-architecture-review-2026-10-22.md; report docs/research/lifts/lift-scale-2026-10-22.md, DECISIONS 369).
-//
-// WHY A SECOND SAMPLER. LiftLoopCache.Sample walks a managed List<Segment> (a class-held list: not usable from Burst). The
-// mover's Burst job (ChairPinSystem.Mover.cs, MoveChairsJob) needs the same arithmetic over a NativeArray. This file holds
-// it ONCE, generic over the segment store (IFlatSegments), so:
-//   * the job instantiates it over NativeArray<FlatSegment> (Burst-compiled, worker threads);
-//   * tests/MoverBench instantiates it over a managed FlatSegment[] and proves it equals LiftLoopCache.Sample bit for bit on a
-//     synthetic 20-lift resort (JIT, not Burst; Burst may contract float ops differently: sub-micrometer, far inside
-//     MoveChair's 1 mm idempotence test).
-// Body = LiftLoopCache.SampleSegments (binary search on m_CumStart, analytic arcs, MathUtils.ClampLength / ClampLengthInverse
-// on lane beziers) and ChairPinSystem.MoveChair's pose (grip-top drop, NetUtils.GetNodeRotation(travel tangent, current
-// rotation), the 1 mm / 0.99999 idempotence test) — line for line, no new math.
-// Dependencies: Unity.Mathematics, Colossal.Mathematics (Bezier4x3, Bounds1, MathUtils), Game.Net.NetUtils.GetNodeRotation
-// (pure math, Game.Net/NetUtils.cs:316-324 [D160]) and Game.Objects.Transform. No Entities / Collections type.
+// The chair mover's per-chair kernel over FLAT segment arrays. LiftLoopCache.Sample walks a managed List<Segment>, unusable
+// from Burst, while MoveChairsJob (ChairPinSystem.Mover.cs) needs the same arithmetic over a NativeArray. It lives here once,
+// generic over the segment store (IFlatSegments): the job uses NativeArray<FlatSegment> (Burst, worker threads);
+// tests/MoverBench uses a managed array and proves bit-for-bit equality with LiftLoopCache.Sample (JIT, not Burst; Burst may
+// contract float ops differently: sub-micrometer, far inside MoveChair's 1 mm idempotence test).
+// Body = LiftLoopCache.SampleSegments and ChairPinSystem.MoveChair's pose, line for line, no new math.
+// Dependencies: Unity.Mathematics, Colossal.Mathematics, Game.Net.NetUtils.GetNodeRotation (pure math, NetUtils.cs:316-324)
+// and Game.Objects.Transform. No Entities / Collections type.
 
 using Colossal.Mathematics;
 using Game.Net;
@@ -67,7 +60,6 @@ namespace SkiResortMod.Systems
         public static void Sample<T>(ref T segments, int first, int count, double s, out float3 position, out float3 travelTangent)
             where T : struct, IFlatSegments
         {
-            // Binary search the segment table (cumulative starts are sorted).
             int lo = 0, hi = count - 1;
             while (lo < hi)
             {
@@ -104,9 +96,9 @@ namespace SkiResortMod.Systems
             travelTangent = math.normalizesafe(travelTangent, new float3(0f, 0f, 1f));
         }
 
-        /// <summary>ChairPinSystem.MoveChair's pose: the grip top rides ON the cable, yaw from the travel tangent (plumb hang;
-        /// the current rotation is only the degenerate-tangent fallback). Returns InPlace (transform untouched) when the chair
-        /// already stands there (1 mm, |dot| &gt; 0.99999), else Moved with <paramref name="transform"/> updated.</summary>
+        /// <summary>ChairPinSystem.MoveChair's pose: the grip top rides ON the cable, yaw from the travel tangent (the current
+        /// rotation is only the degenerate-tangent fallback). Returns InPlace (transform untouched) when the chair already stands
+        /// there (1 mm, |dot| &gt; 0.99999), else Moved with <paramref name="transform"/> updated.</summary>
         public static byte Pose(float3 position, float3 travelTangent, float gripTop, ref Transform transform)
         {
             position.y -= gripTop;
@@ -119,9 +111,8 @@ namespace SkiResortMod.Systems
             return Moved;
         }
 
-        /// <summary>A box around everything a loop's chairs can occupy: the segments' control points (a bezier lies in their
-        /// convex hull) and each arc's circle box; the caller grows it by the hang below the rope. The far-loop pace measures
-        /// the camera's distance to it.</summary>
+        /// <summary>A box around everything a loop's chairs can occupy: the segments' control points (a bezier lies in their convex
+        /// hull) and each arc's circle box. The caller grows it by the hang below the rope.</summary>
         public static void GrowBox(in FlatSegment seg, ref float3 min, ref float3 max)
         {
             if (seg.IsArc != 0)

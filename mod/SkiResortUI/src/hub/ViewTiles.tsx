@@ -1,39 +1,25 @@
 /*
- * src/hub/ViewTiles.tsx - the five tiles: they ARE the navigation (D33, design 3.1, 5.2, 6.4, 7.1).
- *
- * Written for this repo (MIT). Created 2026-10-04 (Round E1, stream S6; docs/research/econ-round/
- * spec/ch6-hub-ui.md section 6.6; code from the checked reference
- * spec/ch6-hub-ui-ref/src/hub/ViewTiles.tsx).
- * Contract:
- *   - `div.tileRow` (ref tilesRef) with one cs2/ui Button per HUB_VIEWS entry (theme `tile [tileOn]`,
- *     selected = on); a click sets the local view$ unless already on. Content focus (ch6 section 9).
- *   - Each tile: `div.tileValue` (1.25 em of M, fit-shrink), `div.tileCaption` (TILE[...], sentence
- *     case), and the "≈" mark: a corner `div.tileMark` (out of flow), except the Money tile, whose "≈"
- *     sits in a fixed trailing slot beside its caption (`div.tileCaptionRow` > `div.tileCaption` +
- *     `div.tileCaptionMark`, a fixed-width flex item, always reserved; second pass: the corner mark
- *     overlapped the last digit at 130-150 % text; E1 fixer F13: flex, not inline-block). A value
- *     change never changes a tile's size.
- *   - Values (a sign / Not linked): Attraction = "…" while the first write after a load is held
- *     (second pass: the game keeps the SAVED score then), else `attraction` / "–"; Runs = runsOpen /
- *     runs (LocalizedFraction) / `runs`; Lifts = liftsCounted / liftsComplete / `liftRows`; Guests =
- *     guestsThisMonth / "–"; Money = the signed netMonth as sent (B1, contract 11: this month so far; Not linked: minus its booked
- *     lift and run costs).
- *   - Tooltips: the tile's title and meaning, its state lines (full-efficiency score, held, partly
- *     open, unfinished lifts, since load, last month only when a whole month was counted, the "≈"
- *     reasons), then TILE_TIP_OPEN. Not linked (E1 fixer F15): the Runs and Lifts tiles show totals,
- *     so their meaning line is UNLINKED_NOTE and no partly-open / unfinished line is added.
- *   - Round F7 D1 (docs/research/field-test-7-fixes.md): a sign's Runs tile is captioned "Runs open"
- *     (TILE[RunsOpen], XS 56.6 / 93.1 / 117.5 rem against the caption room 75 / 111 / 135 of design §2.3:
- *     fits, no shrink), so "2 / 3" says what it counts; the Not linked tile shows a total and keeps
- *     "Runs" (TILE[Runs]). The tooltip title follows the caption.
- *   - T78 (contract 10): a sixth tile, History, after Finances: its value is a glyph (T82 B8: our HistoryGlyph.svg, three bars on
- *     a baseline, replaced the game's City Statistics glyph) (never a number: the
- *     tile must not subscribe `history`, which only the History view observes), its tooltip TILE_TIP[History].
- *   - T114 (2026-10-20, field report item 9: "1 / 1" while five lines existed): the Lifts tile is built / drawn
- *     (hubRules.liftsTile: liftsComplete of liftRows, every census row: complete lifts, unfinished lines, lone stations); the
- *     powered count (liftsCounted) moved into its tooltip (TILE_TIP_POWERED), with the unfinished count as before.
- *   - Panel file (gate R11): subscribes resorts$, selectedResort$, resortLive$, city$ (T77: the month's name in the Guests
- *     tooltip, "Month of <name>"); local view$.
+ * src/hub/ViewTiles.tsx - the tiles: they are the navigation.
+ *   - `div.tileRow` (ref tilesRef) with one cs2/ui Button per HUB_VIEWS entry (theme `tile [tileOn]`, selected = on); a click
+ *     sets the local view$ unless already on.
+ *   - Each tile: `div.tileValue` (1.25 em of M, fit-shrink), `div.tileCaption` (TILE[...], sentence case), and the "≈" mark:
+ *     a corner `div.tileMark` (out of flow), except the Money tile, whose "≈" sits in a fixed trailing slot beside its caption
+ *     (`div.tileCaptionRow` > `div.tileCaption` + `div.tileCaptionMark`, a fixed-width flex item, always reserved: the corner
+ *     mark overlapped the last digit at 130-150 % text). A value change never changes a tile's size.
+ *   - Values (a sign / Not linked): Attraction = "…" while the first write after a load is held (the game keeps the saved score
+ *     then), else `attraction` / "–"; Runs = runsOpen / runs (LocalizedFraction) / `runs`; Lifts = liftsComplete of liftRows
+ *     (hubRules.liftsTile: every census row, i.e. complete lifts, unfinished lines, lone stations; the powered count liftsCounted
+ *     is in the tooltip, TILE_TIP_POWERED); Guests = guestsThisMonth / "–"; Money = the signed netMonth as sent (this month so
+ *     far; Not linked: minus its booked lift and run costs).
+ *   - A sign's Runs tile is captioned "Runs open" (TILE[RunsOpen]; fits the caption room, no shrink) so "2 / 3" says what it
+ *     counts; the Not linked tile shows a total and keeps "Runs" (TILE[Runs]). The tooltip title follows the caption.
+ *   - History tile: its value is a glyph (HistoryGlyph.svg, three bars on a baseline), never a number: the tile must not
+ *     subscribe `history`, which only the History view observes. Its tooltip is TILE_TIP[History].
+ *   - Tooltips: the tile's title and meaning, its state lines (full-efficiency score, held, partly open, unfinished lifts, since
+ *     load, last month only when a whole month was counted, the "≈" reasons), then TILE_TIP_OPEN. Not linked: the Runs and
+ *     Lifts tiles show totals, so their meaning line is UNLINKED_NOTE and no partly-open / unfinished line is added.
+ *   - Panel file (hub gate): subscribes resorts$, selectedResort$, resortLive$, city$ (the month's name in the Guests tooltip);
+ *     local view$.
  */
 import type { RefObject } from "react";
 import { useValue } from "cs2/api";
@@ -62,15 +48,14 @@ const CAPTION: Readonly<Record<HubView, LocEntry>> = {
   history: HUB_LOC.tileHistory,
 };
 
-/** The History tile's value: our own flat glyph, three bars on a baseline (T82 B8: the game's CityStatistics.svg is isometric and
- *  masked flat read as a blob at tile size), drawn as a mask in the tile's text color. coui://ui-mods/SkiResortMod-img/HistoryGlyph.svg
- *  (webpack asset/resource, like SkiLauncherGlyph.svg). */
+/** The History tile's value: our own flat glyph (the game's CityStatistics.svg is isometric and reads as a blob when masked flat
+ *  at tile size), drawn as a mask in the tile's text color; webpack asset/resource, like SkiLauncherGlyph.svg. */
 const HISTORY_GLYPH: string = historyGlyph;
 
 const DASH = <span>{"–"}</span>;
 const HELD = <span>{"…"}</span>;
 
-/** The tile's caption: "Runs open" on a sign's Runs tile (Round F7 D1), else CAPTION. */
+/** The tile's caption: "Runs open" on a sign's Runs tile, else CAPTION. */
 function captionOf(v: HubView, unlinked: boolean): LocEntry {
   return v === "runs" && !unlinked ? HUB_LOC.tileRunsOpen : CAPTION[v];
 }
@@ -83,8 +68,7 @@ function numArgEl(n: number): JSX.Element {
 function tileValue(v: HubView, row: ResortRow, l: ResortLive | null, unlinked: boolean): JSX.Element {
   switch (v) {
     case "overview":
-      // second pass: while the first write after a load is held the game keeps the SAVED provider, not
-      // this Result, so the tile shows "…" instead of a number the game is not using.
+      // While the first write after a load is held the game keeps the SAVED provider, not this Result, so the tile shows "…".
       if (!unlinked && l && l.attractionHeld) return HELD;
       return !unlinked && l && l.attraction >= 0 ? numArgEl(l.attraction) : DASH;
     case "runs":
@@ -93,14 +77,14 @@ function tileValue(v: HubView, row: ResortRow, l: ResortLive | null, unlinked: b
         ? <LocalizedFraction value={Math.max(0, l.runsOpen)} total={Math.max(0, row.runs | 0)} unit={Unit.Integer} /> : DASH;
     case "lifts": {
       if (unlinked) return numArgEl(row.liftRows);
-      // T114: built / drawn (every line counts, unfinished ones included).
+      // Built / drawn: every line counts, unfinished ones included.
       const lt = liftsTile(row, l);
       return lt ? <LocalizedFraction value={lt.built} total={lt.drawn} unit={Unit.Integer} /> : DASH;
     }
     case "guests":
       return !unlinked && l && l.guestsThisMonth >= 0 ? numArgEl(l.guestsThisMonth) : DASH;
     case "history":
-      // T78 (contract 10): a glyph, not a number - the tile must not subscribe `history` (only the History view does).
+      // A glyph, not a number: the tile must not subscribe `history` (only the History view does).
       return <Glyph src={HISTORY_GLYPH} className={styles.tileGlyph} />;
     default:
       return l ? <SignedNum value={l.netMonth} unit={Unit.Money} /> : DASH;
@@ -109,7 +93,7 @@ function tileValue(v: HubView, row: ResortRow, l: ResortLive | null, unlinked: b
 
 function tileMark(v: HubView, l: ResortLive | null, unlinked: boolean): "≈" | "" {
   if (!l || unlinked) return "";
-  // (overview: the held "…" is the value itself, second pass - no corner mark)
+  // (overview: the held "…" is the value itself, no corner mark)
   if (v === "runs" && l.snowEstimated) return "≈";
   if (v === "money" && l.netEstimated) return "≈";
   return "";
@@ -123,13 +107,13 @@ function tileTip(v: HubView, row: ResortRow, l: ResortLive | null, unlinked: boo
         l && l.efficiencyPct >= 0 && <LocText key="s" entry={HUB_FMT.tileTipStaffing} args={{ PCT: numArg(l.efficiencyPct, Unit.Percentage) }} />,
         l && l.attractionFull >= 0 && <LocText key="f" entry={HUB_FMT.tileTipFull} args={{ N: numArg(l.attractionFull, Unit.Integer) }} />,
         l && l.attractionHeld && t(HUB_LOC.tileTipHeld), open]} />;
-    // E1 fixer (e1-spec 8.9 F15): the Not linked tiles show totals (row.runs, row.liftRows), so their
-    // second line is UNLINKED_NOTE, not the "fully open" / "counted of complete" meaning of a sign's tile.
+    // The Not linked tiles show totals (row.runs, row.liftRows), so their second line is UNLINKED_NOTE, not the
+    // "fully open" / "counted of complete" meaning of a sign's tile.
     case "runs":
       return <TipLines lines={[t(captionOf(v, unlinked)), unlinked ? t(HUB_LOC.unlinkedNote) : t(HUB_LOC.tileTipRuns),
         !unlinked && l && l.runsPartly > 0 && <LocText key="p" entry={HUB_FMT.tileTipPartly} args={{ N: numArg(l.runsPartly, Unit.Integer) }} />, open]} />;
     case "lifts": {
-      // E1 fixer (F11): hubRules.unfinishedLifts is 0 unless the live row knows the complete count.
+      // hubRules.unfinishedLifts is 0 unless the live row knows the complete count.
       const n = unlinked ? 0 : unfinishedLifts(row, l);
       return <TipLines lines={[t(HUB_LOC.tileLifts), unlinked ? t(HUB_LOC.unlinkedNote) : t(HUB_LOC.tileTipLifts),
         n > 0 && <LocText key="u" entry={HUB_FMT.tileTipUnfinished} args={{ N: numArg(n, Unit.Integer) }} />,
@@ -137,7 +121,7 @@ function tileTip(v: HubView, row: ResortRow, l: ResortLive | null, unlinked: boo
         open]} />;
     }
     case "guests":
-      // T77 (contract 9): this month and the one before by name (city.month).
+      // This month and the one before by name (city.month).
       return <TipLines lines={[t(HUB_LOC.tileGuests), <LocText key="g" entry={HUB_FMT.tileTipGuests} args={{ MONTH: monthName(month, t) }} />,
         l && l.thisMonthSinceLoad && t(HUB_LOC.tileTipSinceLoad),
         l && l.lastMonthFull && l.guestsLastMonth >= 0 && <LocText key="l" entry={HUB_FMT.tileTipLast} args={{
@@ -146,7 +130,7 @@ function tileTip(v: HubView, row: ResortRow, l: ResortLive | null, unlinked: boo
     case "history":
       return <TipLines lines={[t(HUB_LOC.tileHistory), t(HUB_LOC.tileTipHistory), open]} />;
     default:
-      // B1 (contract 11): the tile is the Finances view's Net, this month so far; "≈" only while a term is unknown (netEstimated).
+      // The tile is the Finances view's Net, this month so far; "≈" only while a term is unknown (netEstimated).
       return <TipLines lines={[t(HUB_LOC.tileMoney), t(HUB_LOC.tileTipMoney), l && l.thisMonthSinceLoad && t(HUB_LOC.tileTipSinceLoad),
         l && l.netEstimated && buildingsAndWages(l) >= 0 && t(HUB_LOC.tileTipEst),
         l && buildingsAndWages(l) < 0 && t(HUB_LOC.tileTipEstBuildings), open]} />;
@@ -178,11 +162,9 @@ export function ViewTiles({ tilesRef }: { tilesRef: RefObject<HTMLDivElement> })
             >
               <div className={styles.tileValue}>{row ? tileValue(v, row, l, unlinked) : DASH}</div>
               {v === "money" ? (
-                // second pass: the Money tile's "≈" sits in a fixed trailing slot of the caption (always
-                // reserved), because the absolute corner mark overlapped the last digit at 130-150 % text.
-                // E1 fixer (e1-spec 8.9 F13): the slot is a fixed-width flex item beside the caption in a
-                // flex row (the technique our bundle has proven), not an inline-block span (unproven in
-                // Gameface: collapsed when empty, the caption would shift when "≈" toggles).
+                // The Money tile's "≈" sits in a fixed trailing slot of the caption (always reserved), because the absolute corner
+                // mark overlapped the last digit at 130-150 % text. A fixed-width flex item in a flex row, not an inline-block
+                // span: that is unproven in Gameface and would collapse when empty, shifting the caption when "≈" toggles.
                 <div className={styles.tileCaptionRow}>
                   <div className={styles.tileCaption}>{t(captionOf(v, unlinked))}</div>
                   <div className={styles.tileCaptionMark}>{mark}</div>

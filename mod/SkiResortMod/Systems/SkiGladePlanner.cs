@@ -1,97 +1,63 @@
-// SkiGladePlanner — the pure, deterministic tree planner behind the Glade tool
-// (docs/research/glade-tool-spec.md §2-§3, DECISIONS 109/110). Entities-free on purpose:
-// usings are System, System.Collections.Generic and Unity.Mathematics ONLY, so the same
-// file is compiled into the net48 mod (default **/*.cs glob) AND linked into the net8
-// headless test host tests/GladeBatch (run: `dotnet run --project
-// tests\GladeBatch\GladeBatch.csproj -c Release -- 200` from the ModularSkiResort root).
-// Everything here is re-derived from the vanilla systems named below; nothing is copied
-// from ParkManager.
+// The pure, deterministic tree planner behind the Glade tool. Entities-free on purpose: usings are System,
+// System.Collections.Generic and Unity.Mathematics ONLY, so the same file is compiled into the net48 mod AND linked into the
+// net8 headless test host tests/GladeBatch. Re-derived from the vanilla systems named below; nothing copied from ParkManager.
 //
-// CONTRACT: the output is a pure function of (ring, triangles, seed, params, obstacles,
-// existing, thinnable, exclusion rings). No static mutable state (only consts), no
-// Dictionary iteration feeds the output, never logs, never throws on bad geometry or bad
-// parameters — it returns a GladeStatus and leaves both output lists empty for every
-// degenerate status. The tool (SkiGladeToolSystem) is the adapter: Node/Triangle buffers
-// in, CreationDefinitions out, and it overwrites Position.y with a terrain sample.
+// Contract: the output is a pure function of (ring, triangles, seed, params, obstacles, existing, thinnable, exclusion rings).
+// No static mutable state (only consts), no Dictionary iteration feeds the output, never logs, never throws on bad geometry or
+// parameters: it returns a GladeStatus and leaves both output lists empty for every degenerate status. The tool
+// (SkiGladeToolSystem) is the adapter: Node/Triangle buffers in, CreationDefinitions out, and it overwrites Position.y with a
+// terrain sample.
 //
-// PHASES (fixed order; a later layer never moves an earlier one — each layer has its own
-// salted Unity.Mathematics.Random stream and consumes a FIXED number of draws per
-// attempt and per accepted tree, so rejection-test order never changes the sequence):
-//   1. SANITIZE: NaN/Inf anywhere in the ring -> NonFinite; strip a duplicated closing
-//      vertex and consecutive duplicates (xz within 1 mm); < 3 vertices -> TooFewVertices;
-//      |shoelace area| < 1 m² -> ZeroArea; supplied triangles validated (index range +
-//      total area within 5 % of the polygon) -> BadTriangles; null/empty triangles ->
-//      O(n²)-ish ear clipper over the sanitized ring (BadTriangles if it finds no ear, e.g.
-//      a self-intersecting ring).
-//   2. THIN: existing[i] with thinnable[i] (null array = all thinnable; out of range =
-//      NOT thinnable, the conservative side) and inside the polygon is selected iff
-//      ThinSelect(pos, seed, ThinFraction). A threshold on a position hash, not a rank:
-//      the same fraction twice removes nothing new, a larger fraction removes exactly the
-//      extra share of the ORIGINAL stand, and the result is permutation-invariant.
-//      Indices come out ascending.
-//   3. GLADE: the spacing grid is seeded with every survivor (existing minus thinned,
-//      inside or outside); target = round(GladeDensity·Area) − survivorsInside, clamped to
-//      [0, MaxPlant] (clamp -> Clamped). Area-CDF triangle pick (binary search) + uniform
-//      barycentric sample with reflection — the idea of vanilla AreaUtils.GetRandomPosition
-//      (Game.Areas/AreaUtils.cs:249-272 in 1.6.0f1, unchanged in 1.6.2f1; not linkable: it
-//      needs DynamicBuffer/Colossal.Mathematics). Reject: outside the polygon, nearer than
-//      InnerMargin to the boundary, nearer than MinSpacing to a grid occupant, within
-//      obstacle radius + MinSpacing/2, inside any exclusion ring. Attempts =
-//      target·AttemptsPerTree (hard cap MaxAttemptsPerLayer); exhausted -> Saturated.
-//   4. BELT: edge by length-CDF, t along it, offset d ∈ [BeltGap, BeltDepth] along the
-//      OUTWARD normal (sign from the shoelace winding). Reject: inside the polygon,
-//      boundary distance outside [gap, depth], inside an exclusion ring (other runs),
-//      coverage gate smoothstep(1−cov−0.15, 1−cov+0.15, valueNoise(arc/wavelength)) <=
-//      u, plus the same grid/obstacle checks. The value noise is periodic around the
-//      perimeter (K = max(2, round(perimeter / wavelength)) lattice cells) so the closing
-//      vertex has no seam. BeltArea = perimeter·(depth − gap); target =
-//      round(BeltDensity·BeltCoverage·BeltArea), clamped to the MaxPlant budget left
-//      after the glade (MaxPlant is a per-plan total).
-//   5. PER TREE (4 draws, same layer stream): rotation u·2π in [0, 2π); species 0 with
-//      p = DominantShare else uniform over 1..SpeciesCount−1; age by the AgeWeights CDF
-//      over the four vanilla constants; Position.y = barycentric (glade) / edge lerp (belt).
+// Phases (fixed order; a later layer never moves an earlier one; each layer has its own salted Unity.Mathematics.Random stream and
+// consumes a FIXED number of draws per attempt and per accepted tree, so rejection-test order never changes the sequence):
+//   1. Sanitize: NaN/Inf anywhere in the ring -> NonFinite; strip a duplicated closing vertex and consecutive duplicates (xz
+//      within 1 mm); < 3 vertices -> TooFewVertices; |shoelace area| < 1 m2 -> ZeroArea; supplied triangles validated (index range
+//      + total area within 5 % of the polygon) -> BadTriangles; null/empty triangles -> ear clipper over the sanitized ring
+//      (BadTriangles if it finds no ear, e.g. a self-intersecting ring).
+//   2. Thin: existing[i] with thinnable[i] (null array = all thinnable; out of range = NOT thinnable, the conservative side) and
+//      inside the polygon is selected iff ThinSelect(pos, seed, ThinFraction). A threshold on a position hash, not a rank: the
+//      same fraction twice removes nothing new, a larger fraction removes exactly the extra share of the ORIGINAL stand, and the
+//      result is permutation-invariant. Indices come out ascending.
+//   3. Glade: the spacing grid is seeded with every survivor (existing minus thinned, inside or outside); target =
+//      round(GladeDensity * Area) - survivorsInside, clamped to [0, MaxPlant] (clamp -> Clamped). Area-CDF triangle pick (binary
+//      search) + uniform barycentric sample with reflection, the idea of vanilla AreaUtils.GetRandomPosition (AreaUtils.cs:249-272;
+//      not linkable: it needs DynamicBuffer/Colossal.Mathematics). Reject: outside the polygon, nearer than InnerMargin to the
+//      boundary, nearer than MinSpacing to a grid occupant, within obstacle radius + MinSpacing/2, inside any exclusion ring.
+//      Attempts = target * AttemptsPerTree (hard cap MaxAttemptsPerLayer); exhausted -> Saturated.
+//   4. Belt: edge by length-CDF, t along it, offset d in [BeltGap, BeltDepth] along the OUTWARD normal (sign from the shoelace
+//      winding). Reject: inside the polygon, boundary distance outside [gap, depth], inside an exclusion ring (other runs),
+//      coverage gate smoothstep(1-cov-0.15, 1-cov+0.15, valueNoise(arc/wavelength)) <= u, plus the same grid/obstacle checks.
+//      The value noise is periodic around the perimeter (K = max(2, round(perimeter / wavelength)) lattice cells) so the closing
+//      vertex has no seam. BeltArea = perimeter * (depth - gap); target = round(BeltDensity * BeltCoverage * BeltArea), clamped
+//      to the MaxPlant budget left after the glade (MaxPlant is a per-plan total).
+//   5. Per tree (4 draws, same layer stream): rotation u * 2pi; species 0 with p = DominantShare else uniform over
+//      1..SpeciesCount-1; age by the AgeWeights CDF over the four vanilla constants; Position.y = barycentric (glade) / edge lerp
+//      (belt).
 //
-// RANDOMNESS: streams are `new Unity.Mathematics.Random(hash | 1u)`. Seed 0 is NOT caught
-// by the library in a shipped build: the zero-seed check is
-// [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")] (com.unity.mathematics@1.3.2
-// random.cs:680-686), and a zero xorshift state stays zero forever.
+// Randomness: streams are `new Unity.Mathematics.Random(hash | 1u)`. Seed 0 is NOT caught by the library in a shipped build: the
+// zero-seed check is [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")] (com.unity.mathematics@1.3.2 random.cs:680-686), and a zero
+// xorshift state stays zero forever.
+// Ages: the four constants are vanilla ToolUtils.GetRandomAge's (ToolUtils.cs:148-170): 0f / 0.17500001f / 0.425f / 0.77500004f.
+// ObjectUtils.InitializeTreeState (ObjectUtils.cs:426-454) maps them to Child(<0.1) / Teen(<0.25) / Adult(<0.6) / Elderly(<0.95).
+// Precision: all geometry runs in double on the xz plane; every acceptance test is evaluated on the FINAL float3 position (after
+// rounding), so spacing/margin invariants hold for what the tool actually places, also at far map offsets. Cross-runtime bit
+// equality (CoreCLR test host vs the game's Mono) is unverified; the decision path is kept to + - * / sqrt, floor and integer
+// hashes to make it likely.
 //
-// AGES: the four constants are vanilla ToolUtils.GetRandomAge's (Game.Tools/ToolUtils.cs:
-// 148-170 in 1.6.0f1, :148 unchanged in 1.6.2f1): 0f / 0.17500001f / 0.425f / 0.77500004f.
-// ObjectUtils.InitializeTreeState (Game.Objects/ObjectUtils.cs:426-454, same line in
-// 1.6.2f1) maps them to Child(<0.1) / Teen(<0.25) / Adult(<0.6) / Elderly(<0.95).
+// Prefix property (SkiGladeCompose relies on it; asserted by GladeBatch `prefix`): for fixed inputs, the accepted trees of a run
+// with MaxPlant m1 are a BIT-EXACT PREFIX of the accepted trees of a run with MaxPlant m2 > m1 (Planted, in order, every field).
+// The per-attempt acceptance tests never read the target; each layer's stream consumes a fixed number of draws per attempt and
+// per accepted tree; the target only decides when the loop stops. Caveat: the attempt budget DOES read the target (maxAttempts =
+// min(target * AttemptsPerTree, MaxAttemptsPerLayer)), so a clamped run can stop on its attempt budget with FEWER than m1 trees
+// ("Saturated" while "Clamped"): still a prefix, but shorter than the slice it was asked for. SkiGladeCompose re-plans in full
+// in that case.
 //
-// PRECISION: all geometry runs in double on the xz plane; every acceptance test is
-// evaluated on the FINAL float3 position (after rounding), so spacing/margin invariants
-// hold for what the tool actually places, also at far map offsets.
-//
-// Cross-runtime bit equality (CoreCLR test host vs the game's Mono) is unverified; the
-// decision path is kept to + - * / sqrt, floor and integer hashes to make it likely.
-//
-// PREFIX PROPERTY (Round G2 contract, run-binding-glade-spec.md §4.3 step 4 / §4.4; callers —
-// SkiGladeCompose — rely on it; asserted by GladeBatch `prefix`): for fixed inputs, the
-// accepted trees of a run with MaxPlant m1 are a BIT-EXACT PREFIX of the accepted trees of a
-// run with MaxPlant m2 > m1 (Planted, in order, every field). Reason: the per-attempt
-// acceptance tests (glade loop and belt loop below) never read the target; each layer's
-// stream consumes a fixed number of draws per attempt and per accepted tree; the target only
-// decides when the loop stops. CAVEAT the spec text leaves out: the attempt budget DOES read
-// the target (maxAttempts = min(target · AttemptsPerTree, MaxAttemptsPerLayer)), so a clamped
-// run can stop on its attempt budget with FEWER than m1 trees ("Saturated" while "Clamped") —
-// still a prefix, but shorter than the slice it was asked for. SkiGladeCompose re-plans in
-// full in that case (its header, "SLICE RAN OUT OF ATTEMPTS").
-//
-// G2 ADDITIONS (no algorithm change: PlanGeneration 1 = this planner + the G2 Tuning):
-// GladePlan.RawTargetGlade / RawTargetBelt = the unclamped `raw` of the glade and belt
-// targets, floored at 0 and capped at int.MaxValue (TargetGlade/TargetBelt keep storing the
-// CLAMPED value, which is what hid the real deficit in the G1 plan line, spec §4.1);
-// GladePlan.Clamped = a MaxPlant budget bound one of the targets (set exactly where
-// ClampTarget sets Status = Clamped). Both are reset by Clear().
-//
-// G3 ADDITION (run-binding-glade-spec.md §8.3; no algorithm change, the dart stream and every
-// output are untouched): ThinHash(pos, seed) exposes the 32-bit position hash ThinSelect
-// thresholds — ThinSelect(pos, seed, f) == ((ThinHash(pos, seed) & 0xFFFF) < f·65536) for every
-// finite, in-range position and 0 < f < 1 (asserted by GladeBatch `thinhash`). SkiGladeCompose
-// ranks wild trees by it (the G3 count rule fells an EXACT count, largest hash first).
+// GladePlan.RawTargetGlade / RawTargetBelt = the unclamped `raw` of the glade and belt targets, floored at 0 and capped at
+// int.MaxValue (TargetGlade/TargetBelt store the CLAMPED value, which hides the real deficit); GladePlan.Clamped = a MaxPlant
+// budget bound one of the targets (set exactly where ClampTarget sets Status = Clamped). Both are reset by Clear().
+// ThinHash(pos, seed) exposes the 32-bit position hash ThinSelect thresholds: ThinSelect(pos, seed, f) == ((ThinHash(pos, seed)
+// & 0xFFFF) < f * 65536) for every finite, in-range position and 0 < f < 1 (asserted by GladeBatch `thinhash`). SkiGladeCompose
+// ranks wild trees by it (the count rule fells an EXACT count, largest hash first).
 
 using System;
 using System.Collections.Generic;
@@ -159,12 +125,11 @@ namespace SkiResortMod.Systems
         public int TargetGlade, TargetBelt, Attempts;
         public bool Saturated;
 
-        /// <summary>G2: the glade / belt target BEFORE the MaxPlant clamp (the `raw` of the
-        /// target formulas, floored at 0, capped at int.MaxValue). 0 for a layer not planned.</summary>
+        /// <summary>The glade / belt target BEFORE the MaxPlant clamp (the `raw` of the target formulas, floored at 0, capped at
+        /// int.MaxValue). 0 for a layer not planned.</summary>
         public int RawTargetGlade, RawTargetBelt;
 
-        /// <summary>G2: a MaxPlant budget bound a target (Status == Clamped stays as before;
-        /// this flag is the explicit form of the same event).</summary>
+        /// <summary>A MaxPlant budget bound a target (Status == Clamped stays as before; this flag is the explicit form of the same event).</summary>
         public bool Clamped;
 
         public void Clear()
@@ -186,18 +151,17 @@ namespace SkiResortMod.Systems
 
     public static class SkiGladePlanner
     {
-        // Vanilla ToolUtils.GetRandomAge constants (ToolUtils.cs:158-165, 1.6.0f1; Mature at
-        // :162-163, unchanged in 1.6.2f1). Spec §2 now lists the same 0.425f (corrected 2026-09-30)
-        // (both map to TreeState.Adult in ObjectUtils.InitializeTreeState :438-442).
+        // Vanilla ToolUtils.GetRandomAge constants (ToolUtils.cs:158-165; Mature at :162-163); both 0.425f and the vanilla value map to
+        // TreeState.Adult in ObjectUtils.InitializeTreeState :438-442
         public const float AgeSapling = 0f, AgeYoung = 0.17500001f, AgeMature = 0.425f, AgeElderly = 0.77500004f;
 
-        // Stream salts (consts, not state). Changing any of them changes every plan.
+        // Stream salts: changing any of them changes every plan
         private const uint SaltThin = 0x7A1B3C5Du;
         private const uint SaltGlade = 0x9E3779B9u;
         private const uint SaltBelt = 0x85EBCA6Bu;
         private const uint SaltNoise = 0xC2B2AE35u;
 
-        // Hard ceilings so absurd parameters can never hang the main thread.
+        // Hard ceilings so absurd parameters can never hang the main thread
         private const long MaxAttemptsPerLayer = 2000000;
         private const int MaxNoiseCells = 1000000;
         private const double DuplicateEpsSq = 1e-6;   // 1 mm in xz
@@ -248,11 +212,9 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>G3 (spec §8.3): the full 32-bit hash ThinSelect thresholds — same 12.5 cm
-        /// cells, same seed/salt words, same Fmix32 finalizer — so for a finite, in-range
-        /// position ThinSelect(pos, seed, f) == ((ThinHash(pos, seed) &amp; 0xFFFF) &lt; f·65536).
-        /// Non-finite or out-of-int-range positions (the ones ThinSelect never selects) return 0.
-        /// y is ignored. SkiGladeCompose ranks by it (SkiGladeCompose.ThinHash).</summary>
+        /// <summary>The full 32-bit hash ThinSelect thresholds (same 12.5 cm cells, seed/salt words and Fmix32 finalizer), so for a finite,
+        /// in-range position ThinSelect(pos, seed, f) == ((ThinHash(pos, seed) &amp; 0xFFFF) &lt; f*65536). Non-finite or out-of-int-range
+        /// positions (the ones ThinSelect never selects) return 0. y is ignored. SkiGladeCompose ranks by it.</summary>
         public static uint ThinHash(float3 pos, uint seed)
         {
             if (!math.isfinite(pos.x) || !math.isfinite(pos.z))
@@ -275,7 +237,6 @@ namespace SkiResortMod.Systems
                 output = new GladePlan(); // never throw; the caller simply gets nothing back
             output.Clear();
 
-            // ---------------- 1. SANITIZE ----------------
             Polygon poly;
             GladeStatus geo = BuildPolygon(ring, trianglesOrNull, out poly);
             if (geo != GladeStatus.Ok)
@@ -288,7 +249,6 @@ namespace SkiResortMod.Systems
             Knobs k = Knobs.From(in p);
             GladeStatus status = GladeStatus.Ok;
 
-            // ---------------- 2. THIN ----------------
             int existingCount = existingOrNull != null ? existingOrNull.Length : 0;
             bool[] thinned = existingCount > 0 ? new bool[existingCount] : null;
             if ((k.Mode & GladeMode.Thin) != 0 && k.ThinFraction > 0f)
@@ -319,7 +279,6 @@ namespace SkiResortMod.Systems
                 return status;
             }
 
-            // Shared occupancy: survivors (everything not thinned), then every accepted tree.
             SpacingGrid grid = new SpacingGrid(k.MinSpacing);
             int survivorsInside = 0;
             for (int i = 0; i < existingCount; i++)
@@ -340,7 +299,6 @@ namespace SkiResortMod.Systems
             AgeTable ages = new AgeTable(k.AgeWeights);
             int budget = k.MaxPlant;
 
-            // ---------------- 3. GLADE ----------------
             if (wantGlade)
             {
                 double raw = math.floor(k.GladeDensity * poly.Area + 0.5) - survivorsInside;
@@ -356,7 +314,6 @@ namespace SkiResortMod.Systems
                     while (placed < target && attempts < maxAttempts)
                     {
                         attempts++;
-                        // Fixed 3 draws per attempt.
                         float uTri = rng.NextFloat();
                         float2 bary = rng.NextFloat2();
                         int t = poly.PickTriangle(uTri);
@@ -390,7 +347,6 @@ namespace SkiResortMod.Systems
                 }
             }
 
-            // ---------------- 4. BELT ----------------
             if (wantBelt)
             {
                 double band = (double)k.BeltDepth - k.BeltGap;
@@ -417,7 +373,6 @@ namespace SkiResortMod.Systems
                     while (placed < target && attempts < maxAttempts)
                     {
                         attempts++;
-                        // Fixed 4 draws per attempt.
                         float uEdge = rng.NextFloat();
                         float uT = rng.NextFloat();
                         float uD = rng.NextFloat();
@@ -465,11 +420,9 @@ namespace SkiResortMod.Systems
             return status;
         }
 
-        // ================= helpers =================
 
         private static PlantedTree MakeTree(ref Unity.Mathematics.Random rng, float3 world, byte layer, in Knobs k, AgeTable ages)
         {
-            // Fixed 4 draws per accepted tree.
             float uRot = rng.NextFloat();
             float uDom = rng.NextFloat();
             float uIdx = rng.NextFloat();
@@ -505,14 +458,13 @@ namespace SkiResortMod.Systems
             if (raw > budget)
             {
                 status = GladeStatus.Clamped;
-                clamped = true; // G2: GladePlan.Clamped, set exactly where the status is
+                clamped = true; // GladePlan.Clamped, set exactly where the status is
                 return budget;
             }
             return (int)raw;
         }
 
-        /// <summary>G2 RawTarget*: the raw target floored at 0 (also NaN) and capped at
-        /// int.MaxValue (raw is already integral: floor(x + 0.5) − an int).</summary>
+        /// <summary>The raw target floored at 0 (also NaN) and capped at int.MaxValue (raw is already integral: floor(x + 0.5), an int).</summary>
         private static int RawToInt(double raw)
         {
             if (!(raw > 0.0))
@@ -598,7 +550,6 @@ namespace SkiResortMod.Systems
             return a.x * b.y - a.y * b.x;
         }
 
-        // ----- parameter sanitation: never throw, never hang -----
         private struct Knobs
         {
             public GladeMode Mode;
@@ -677,7 +628,6 @@ namespace SkiResortMod.Systems
             }
         }
 
-        // ----- sparse spacing grid: Dictionary<long,int> cell -> head + next chain -----
         private sealed class SpacingGrid
         {
             private readonly Dictionary<long, int> m_Head = new Dictionary<long, int>();
@@ -741,7 +691,6 @@ namespace SkiResortMod.Systems
             }
         }
 
-        // ----- obstacles: bucket grid, clearance = radius + MinSpacing/2 -----
         private sealed class ObstacleSet
         {
             private readonly Dictionary<long, int> m_Head = new Dictionary<long, int>();
@@ -821,7 +770,6 @@ namespace SkiResortMod.Systems
             }
         }
 
-        // ----- exclusion rings (other runs): bbox prefilter + crossing number -----
         private sealed class ExclusionSet
         {
             private readonly List<double2[]> m_Rings = new List<double2[]>();
@@ -890,7 +838,6 @@ namespace SkiResortMod.Systems
             return inside;
         }
 
-        // ----- the sanitized polygon with its triangulation and perimeter tables -----
         private sealed class Polygon
         {
             public int Count;
@@ -971,7 +918,6 @@ namespace SkiResortMod.Systems
             if (!AllFinite(ring))
                 return GladeStatus.NonFinite;
 
-            // Strip consecutive duplicates, then a duplicated closing vertex.
             List<double3> v = new List<double3>(ring.Length);
             for (int i = 0; i < ring.Length; i++)
             {
@@ -1001,7 +947,6 @@ namespace SkiResortMod.Systems
             }
             pg.Bounds = b;
 
-            // Shoelace relative to vertex 0 (keeps far-offset maps exact enough).
             double2 o = pg.Xz[0];
             double twice = 0.0;
             for (int i = 1; i < n - 1; i++)
@@ -1013,7 +958,6 @@ namespace SkiResortMod.Systems
             pg.Area = area;
             bool ccw = signedArea > 0.0; // CCW in (x, z): interior on the LEFT of each edge
 
-            // Perimeter tables and outward normals.
             pg.EdgeLength = new double[n];
             pg.EdgeStart = new double[n];
             pg.EdgeCdf = new double[n];
@@ -1032,7 +976,6 @@ namespace SkiResortMod.Systems
             }
             pg.Perimeter = acc;
 
-            // Triangles: supplied (validated) or ear-clipped.
             List<double3> ta = new List<double3>(), tb = new List<double3>(), tc = new List<double3>();
             if (tris != null && tris.Length > 0)
             {

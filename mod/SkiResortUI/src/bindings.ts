@@ -1,29 +1,12 @@
 /*
  * src/bindings.ts - THE single source of truth for the C# <-> UI contract of the Ski Resort hub.
  *
- * Written for this repo (MIT). Created 2026-10-01 (Round U1, implementer U1-A); rewritten for
- * contract 2 on 2026-10-03 (Round U2, implementer I-3); contract 3 on 2026-10-04 (Round E1, stream
- * S6: docs/research/econ-round/spec/ch6-hub-ui.md section 4, design
- * docs/research/econ-round/design/hub-v3-design.md section 8; e1-spec.md I-25); contract 4 on
- * 2026-10-05 (Round S1 "Ski days", stream E: docs/research/ski-days/s1-spec.md section 2.10,
- * spec/ch4-hub.md section A: ten ResortLive fields appended, SKI_DAY_STATE, SKI_DAY_LIMIT, PROBLEM
- * 20-22; the six last-month guest fields are now also sent for a partial month, F7); contract 5 on
- * 2026-10-10 (Round M2, ruling R9 "Enabled flags": docs/research/round-m2/build-contract.md section
- * 8.1, understand/enabled-flags.md C5: CityStats gains tripPlanner and tripPlannerBlocksSkiDays, and
- * TRIP_PLANNER_UNKNOWN names the C# "?" label; the only contract change of Round M2); contract 6 on
- * 2026-10-11 (Catalog Phase B, code round 2, hub group: docs/research/art/assets-2026-10/code-round-2/
- * round-2-contract.md section 8.5 with the skeptic's MUST-CHANGE applied): the build items are the 25
- * rows of the ONE table in C# Systems/SkiCatalog.cs (BUILD-ITEMS block; src/hub/buildItems.ts
- * BUILD_ITEMS mirrors it row by row), PROBLEM 23-25 appended, LiftRow gains type / seats / speedMps and
- * ResortLive the lodge-ladder fields (lodgeBest ... lodgeSpendMonth); no binding or trigger changes.
- * Authority before contract 3: docs/research/hub-u2-spec.md section 2.2 (binding table) and 2.3
- * (shapes); contract 1 was resort-hub-understand.md section 5.3. The C# side (SkiResortHubUISystem,
- * group "skiResort") must register EXACTLY these names with these shapes (ch5 section 4.4 writes the
- * same fields in the same names). Change a name, a type or a field here and in C# together, bump
- * HUB_CONTRACT in both, then run `npm run contract:lock` and review the diff of tools/contract.lock.
+ * The C# side (SkiResortHubUISystem, group "skiResort") must register EXACTLY these names with these shapes. Change a
+ * name, a type or a field here and in C# together, bump HUB_CONTRACT in both, then run `npm run contract:lock` and review
+ * the diff of tools/contract.lock. Binding table and shapes: docs/research/hub-u2-spec.md section 2.2 and 2.3.
  *
- * WHAT THE BUILD GATE READS FROM THIS FILE (tools/check-bundle.js, spec section 4.7; keep these
- * shapes literal so the TypeScript AST can read them):
+ * WHAT THE BUILD GATE READS FROM THIS FILE (tools/check-bundle.js; keep these shapes literal so the TypeScript AST can
+ * read them):
  *   - HUB_CONTRACT = <integer literal>  (compared with C# `HubContract`);
  *   - BINDING / TRIGGER = { name: "name", ... } (every name must be registered in C# with a string
  *     literal: `new ValueBinding<T>(Group, "name", ...)`, `new RawValueBinding(Group, "name", ...)`,
@@ -33,14 +16,13 @@
  *   - every `export interface X` below: the field list of `writer.TypeBegin("SkiResortMod.X")` in C#;
  *   - every `bindValue<T>(GROUP, BINDING.x, FALLBACK.x)`: the TS type of binding x;
  *   - every `hubTriggers` entry `(a: A, b: B): void => fire(TRIGGER.x, ...)`: the argument list of x;
- *   - (Round E1) rule R16: BUILD_ITEM_IDS, the BuildItemId union and BUILD_ITEM_PREFAB (with
- *     src/hub/buildItems.ts BUILD_ITEMS, BUILD_GROUPS and BUILD_ITEM_ICON); contract 6 compares them
- *     with C# Systems/SkiCatalog.cs (the NAMES and BUILD-ITEMS blocks), no longer with the hub system;
- *   - (Round E1) rule R17: the const objects RUN_KIND, RESORT_STATUS, OPEN_STATE, SEASON_HINT,
- *     NEXT_STEP, LIFT_STATUS, PROBLEM, TICKET_GATE (literal numbers) against their C# enums
- *     (EntityRef.cs RunKind, HubRules.cs, SkiMoneyRules.TicketGate). BAND and LIFT_STATE have no
- *     C# enum (literal ints in C#) and are not compared. Round S1 (contract 4) adds SKI_DAY_STATE
- *     (HubRules.cs HubSkiDayState) and SKI_DAY_LIMIT (SkiDayRules.cs SkiDayLimit, a top-level enum).
+ *   - rule R16: BUILD_ITEM_IDS, the BuildItemId union and BUILD_ITEM_PREFAB (with
+ *     src/hub/buildItems.ts BUILD_ITEMS, BUILD_GROUPS and BUILD_ITEM_ICON) against C# Systems/SkiCatalog.cs
+ *     (the NAMES and BUILD-ITEMS blocks);
+ *   - rule R17: the const objects RUN_KIND, RESORT_STATUS, OPEN_STATE, SEASON_HINT, NEXT_STEP, LIFT_STATUS, PROBLEM,
+ *     TICKET_GATE, SKI_DAY_STATE (literal numbers) against their C# enums (EntityRef.cs RunKind, HubRules.cs,
+ *     SkiMoneyRules.TicketGate) and SKI_DAY_LIMIT (SkiDayRules.cs SkiDayLimit, a top-level enum). BAND and LIFT_STATE
+ *     have no C# enum (literal ints in C#) and are not compared.
  *
  * Rules every consumer relies on (verified in the installed 1.6.2f1 Cities2_Data/Content/Game/UI/
  * index.js unless marked):
@@ -50,27 +32,26 @@
  *     undefined after subscribing (index.js@421257). So a missing or not yet registered C#
  *     binding renders the fallback instead of throwing (check-bundle's smoke test enforces it).
  *     A DLL of an older contract therefore shows the fallbacks for every new name; the panel reads
- *     them only when `contract` is HUB_CONTRACT (spec 4.5: on a mismatch only CORE is read).
+ *     them only when `contract` is HUB_CONTRACT (on a mismatch only CORE is read).
  *   - C# pushes a value as soon as JS subscribes (Colossal.UI.Binding ValueBinding/RawValueBinding,
  *     research 2.B.1), so `contract$` reads the DLL's contract synchronously when the hub system
  *     exists and stays CONTRACT_ABSENT (0) when it does not.
  *   - A JS binding connects on its first subscriber and disconnects with its last
  *     (index.js@421257 subscribe/dispose), so C#'s observerCount counts binding objects, not
- *     components. Subscribe to every panel binding (contract 3, ch6 section 10.1: build$, glade$,
- *     resorts$, resortLive$, selectedResort$, runs$, runLive$, lifts$, problems$, city$, pisteMap$,
- *     follow$; contract 10: history$, without Demand) ONLY in components that mount while the panel is open (research 2.F.6; gate rule R11):
- *     closing the panel unsubscribes them, and C# stops computing (the stats system's Demand follows
- *     the observers of build, resorts, resortLive, runs, runLive, lifts, problems and city, ch5 4.3;
- *     pisteMap and follow are panel bindings without Demand). hubOpen$, contract$, buildStamp$ and
+ *     components. Subscribe to every panel binding (build$, glade$, resorts$, resortLive$, selectedResort$, runs$,
+ *     runLive$, lifts$, problems$, city$, pisteMap$, follow$, history$ without Demand) ONLY in components that mount
+ *     while the panel is open (research 2.F.6; gate rule R11): closing the panel unsubscribes them, and C# stops
+ *     computing (the stats system's Demand follows the observers of build, resorts, resortLive, runs, runLive, lifts,
+ *     problems and city; pisteMap and follow are panel bindings without Demand). hubOpen$, contract$, buildStamp$ and
  *     showHubButton$ are subscribed always (launchers, root).
  *   - Triggers fire the cohtml event "<group>.<name>" (cs2/api trigger). An exception in a C#
  *     trigger body is caught and logged to the vanilla UI log, not ours (research 2.B.1), so C#
  *     wraps every body in try/catch and writes its own "!!!" line.
  *   - Entities travel as { index, version } both ways (research 2.B.1, UnityWriters/UnityReaders);
- *     Entity.Null is { index: 0, version: 0 } (spec 2.1 EntityRef.IsNull).
+ *     Entity.Null is { index: 0, version: 0 } (EntityRef.IsNull).
  *   - Rows written by C# with JsonWriter.TypeBegin carry an extra "__Type" field; ignore it. Every
- *     TypeBegin name is "SkiResortMod.<TS interface name>" (spec 2.2 push rules).
- *   - Contract 3 conventions (ch6 section 4.3): -1 = unknown (rendered "–" by numArg / NumOrDash);
+ *     TypeBegin name is "SkiResortMod.<TS interface name>".
+ *   - Conventions: -1 = unknown (rendered "–" by numArg / NumOrDash);
  *     the two arrays of a pair (resorts / resortLive, runs / runLive) are joined by key (`sign`,
  *     `entity`), never by index alone (src/hub/hubRules.ts liveOf, runLiveMap); costs arrive
  *     positive; ProblemRow.factor is an EfficiencyFactor enum name the UI translates;
@@ -88,33 +69,12 @@ import type { Entity } from "cs2/utils";
 export const GROUP = "skiResort";
 
 /**
- * Contract 10 (T78 build 2, 2026-10-18: docs/research/ui/hub-history-build-2-2026-10-18.md - the `history` binding, one HistoryArea per live
- * ski area: parallel monthly series oldest -> newest, the month in progress last with HISTORY_FLAG.Current; the History view reads it).
- * Contract 9 (T77 hub wording round 1, 2026-10-18: docs/research/ui/hub-wording-round-1-2026-10-18.md - CityStats appends month, the
- * calendar month 0..11 that the guest ledger counts as this month; the views name it "Month of <name>" through vanilla Common.MONTH:<n>).
- * Contract 11 (B1 "one Net", 2026-10-19: docs/research/ui/hub-one-net-b1-2026-10-19.md section 2 - ResortLive appends passIncomeMonth,
- * passIncomePreMonth, lodgeIncomeMonth, liftChargedMonth, runCostMonth, buildingsSoFar, wagesSoFar, monthShare; netMonth / netEstimated
- * change meaning (the one Net of this month so far; "some term unknown"); no binding, trigger or CityStats change; the history shape is
- * unchanged). Contracts 9-10: T77 / T78 (CityStats.month; the history binding).
- * Contract 8 (econ-2 round 2, 2026-10-15: docs/research/econ-2/build/round-2.md - ResortLive appends lessonsThisMonth, lessonsLastMonth,
- * lessonIncomeMonth, passesPreSeason, passIncomePreSeason, cityIncomeEst; no CityStats, binding or trigger change).
- * Contract 7 (season passes v1, 2026-10-14: docs/research/econ-2/build/season-pass-v1.md - ResortLive appends passesSoldSeason,
- * passIncomeSeason, passHoldersThisMonth, passHoldersLastMonth; CityStats appends bookTicketsAsFees and passShare; no binding or
- * trigger changes). Contract 6 (Catalog Phase B, code round 2: round-2-contract.md section 8.5 - 25 build items from the
- * SkiCatalog table, PROBLEM 23-25, LiftRow.type / seats / speedMps, the ResortLive lodge-ladder fields;
- * contract 5 was Round M2 R9: CityStats.tripPlanner / tripPlannerBlocksSkiDays, docs/research/round-m2/
- * build-contract.md section 8.1; contract 4 was Round S1, ski days: docs/research/ski-days/spec/
- * ch4-hub.md section A; contract 3 was Round E1, D32). Contract 12 (T114 + the lift generator, 2026-10-20,
- * docs/research/ui/hub-round-t114-2026-10-20.md section 10): the `liftLine` value binding (LiftLineState) and the `liftLineToggle`
- * trigger (LiftLineToolSystem on / off from the Lifts tab). Contract 14 (T139, 2026-10-20,
- * docs/research/field/2026-10-20/grading-tool-build.md): the `grade` value binding (LiftLineState reused) and the `gradeToggle`
- * trigger (CatTrackGradeToolSystem on / off from the Runs tab). C#: SkiResortHubUISystem.HubContract.
- * Bump both whenever a binding, trigger, field or meaning below changes (tools/check-bundle.js
- * fails a change without a bump, against tools/contract.lock). The panel renders the resort views
- * only when C#'s `contract` equals this; on a mismatch it shows the Build strip and the tree
- * controls (CORE only) and says why (spec 4.5).
+ * Bump both this and C# SkiResortHubUISystem.HubContract whenever a binding, trigger, field or meaning below changes
+ * (tools/check-bundle.js fails a change without a bump, against tools/contract.lock). The panel renders the resort views
+ * only when C#'s `contract` equals this; on a mismatch it shows the Build strip and the tree controls (CORE only) and
+ * says why.
  */
-export const HUB_CONTRACT = 14;   // 14 = T139: the grade binding and the gradeToggle trigger; 13 = T136: RunLive.snowDepthCm, gunWhy
+export const HUB_CONTRACT = 14;
 
 /** The `contract` value while the C# binding is absent (the fallback). Real contracts start at 1. */
 export const CONTRACT_ABSENT = 0;
@@ -158,21 +118,21 @@ function wire(e: Entity | null | undefined): Entity {
 
 // ---- enumerations (C# enums of the same values; gate rule R17 compares them) ---------------------
 
-/** Run type. C# RunKind (EntityRef.cs): Natural = 3 appended in Round E1 (D16), CatTrack = 4 in T54 probe 1, never renumbered. */
+/** Run type. C# RunKind (EntityRef.cs): append only, never renumbered. */
 export type RunKind = 0 | 1 | 2 | 3 | 4;
 export const RUN_KIND = { Groomed: 0, Snowmaking: 1, Night: 2, Natural: 3, CatTrack: 4 } as const;
 
-/** RunRow.band (unchanged): -2 cannot be rated (final for the current outline and terrain), -1 not
+/** RunRow.band: -2 cannot be rated (final for the current outline and terrain), -1 not
  *  rated yet, 0 Flat .. 4 DoubleBlack (C#: SkiRunRatingRules.RowBand; literal ints, no enum). */
 export const BAND = { Unrateable: -2, Pending: -1, Flat: 0, Green: 1, Blue: 2, Black: 3, DoubleBlack: 4 } as const;
 
-/** LiftRow.state (stats rules, unchanged; literal ints in C#, no enum). */
+/** LiftRow.state (stats rules; literal ints in C#, no enum). */
 export const LIFT_STATE = { Running: 0, Static: 1, Open: 2, Unfinished: 3, StationsOnly: 4 } as const;
 
 /** ResortLive.status. C# HubRules ResortStatus. */
 export const RESORT_STATUS = { NoRuns: 0, Closed: 1, Partly: 2, Open: 3 } as const;
 
-/** RunLive.openState. C# HubRules RunOpenState. Unsuitable = 3 (T54 probe 1): a cat track rated blue or steeper. */
+/** RunLive.openState. C# HubRules RunOpenState. Unsuitable = 3: a cat track rated blue or steeper. */
 export const OPEN_STATE = { None: -1, Closed: 0, Partly: 1, Open: 2, Unsuitable: 3 } as const;
 
 /** ResortLive.seasonHint. C# HubRules SeasonHint. */
@@ -182,9 +142,9 @@ export const SEASON_HINT = { None: 0, SnowSeason: 1, SnowGunsOnly: 2, Thawing: 3
 export const NEXT_STEP = { Done: 0, Lodge: 1, Lift: 2, Run: 3 } as const;
 
 /** LiftRow.status. C# HubRules HubLiftStatus. */
-export const LIFT_STATUS = { Running: 0, NoPower: 1, ChairsStopped: 2, SectionMissing: 3, Unfinished: 4, Closed: 5 } as const; // T132: Closed appended (a held lift, no open run)
+export const LIFT_STATUS = { Running: 0, NoPower: 1, ChairsStopped: 2, SectionMissing: 3, Unfinished: 4, Closed: 5 } as const;  // Closed: a held lift, no open run
 
-/** RunLive.gunWhy. C# HubRules RunGunWhy (T136). */
+/** RunLive.gunWhy. C# HubRules RunGunWhy. */
 export const RUN_GUN_WHY = { None: 0, Making: 1, DepthReached: 2, TooWarm: 3, OutOfSeason: 4, Waiting: 5 } as const;
 
 /** ResortLive.ticketGate. C# SkiMoneyRules.TicketGate (chapter 4). */
@@ -195,29 +155,29 @@ export const PROBLEM = {
   Unlinked: 0, NoLodge: 1, LodgesAllOff: 2, LodgesSomeOff: 3, Efficiency: 4, LiftNoPower: 5,
   LiftSectionMissing: 6, LiftUnfinished: 7, NoLift: 8, NoRuns: 9, StationsOnly: 10, LiftChairsStopped: 11,
   RunsUnserved: 12, RunsUnrateable: 13, RunsRating: 14, FreeLodges: 15, Factor: 16,
-  RunsFlat: 17, // second pass: appended after Factor (append only; C# HubProblemCode.RunsFlat)
-  SignNoRoad: 18, // Round F7 D5: the Welcome Sign's Building.m_RoadEdge is null (C# HubProblemCode.SignNoRoad)
-  LodgeNoRoad: 19, // Round F7 D5: a lodge of the area has Building.m_RoadEdge null; subject = the first such lodge
-  SkiDaysCannotReach: 20, // Round S1 D28: most car ski-day guests never arrived (sev 2); subject = that lodge, else the sign
-  NoParkingNearLodge: 21, // Round S1 D28 (D26 census): ski-day lodges with 0 car spaces within 300 m (sev 1); count
-  LodgeNotSlopeside: 22, // Round S1 D28 (D10): active lodges more than 800 m from the runs and stations (sev 1); count
-  MixedLiftTypes: 23, // Contract 6 (D18): a lift's line and stations span two of our lift types (sev 2); counts 0
-  SummitLodgeNotLiftServed: 24, // Contract 6 (D11): summit-bonus lodges no working lift's top reaches (sev 1); count
-  SchoolNoGreenRun: 25, // Contract 6 (D13): the ski school is on but no green run counts (sev 1); T100: subject = the top-level school
-  SchoolsNotLinked: 26, // T100 (contract 11, codes are not in the lock): top-level ski schools on no sign, Not linked entry (sev 1); count; subject = the first
+  RunsFlat: 17,
+  SignNoRoad: 18,  // the Welcome Sign's Building.m_RoadEdge is null (C# HubProblemCode.SignNoRoad)
+  LodgeNoRoad: 19,  // a lodge of the area has Building.m_RoadEdge null; subject = the first such lodge
+  SkiDaysCannotReach: 20,  // most car ski-day guests never arrived (sev 2); subject = that lodge, else the sign
+  NoParkingNearLodge: 21,  // ski-day lodges with 0 car spaces within 300 m (sev 1); count
+  LodgeNotSlopeside: 22,  // active lodges more than 800 m from the runs and stations (sev 1); count
+  MixedLiftTypes: 23,  // a lift's line and stations span two of our lift types (sev 2); counts 0
+  SummitLodgeNotLiftServed: 24,  // summit-bonus lodges no working lift's top reaches (sev 1); count
+  SchoolNoGreenRun: 25,  // the ski school is on but no green run counts (sev 1); subject = the top-level school
+  SchoolsNotLinked: 26,  // top-level ski schools on no sign, Not linked entry (sev 1); count; subject = the first
 } as const;
 
-/** ResortLive.skiDaysState. C# HubRules HubSkiDayState (Round S1, contract 4). */
+/** ResortLive.skiDaysState. C# HubRules HubSkiDayState. */
 export const SKI_DAY_STATE = { Unknown: 0, Off: 1, SignOff: 2, NoRun: 3, NoLodge: 4, Night: 5, Room: 6, Full: 7 } as const;
 
-/** ResortLive.skiDaysLimit. C# SkiDayRules SkiDayLimit (ch1): which D21 term sets the capacity. */
+/** ResortLive.skiDaysLimit. C# SkiDayRules SkiDayLimit: which term sets the capacity. */
 export const SKI_DAY_LIMIT = { None: 0, Runs: 1, Lodges: 2 } as const;
 
-/** Build-strip ids. Contract 6: the 26 ids (25 + runCatTrack, T54 probe 1) of the ONE C# table, SkiCatalog.cs BUILD-ITEMS, in its order (gate
+/** Build-strip ids: the 26 ids of the ONE C# table, SkiCatalog.cs BUILD-ITEMS, in its order (gate
  *  rule R16 compares the union, this list, BUILD_ITEM_PREFAB and buildItems.ts BUILD_ITEMS / BUILD_GROUPS /
  *  BUILD_ITEM_ICON with it). C# owns what each id launches and which ids it SENDS (a pending prefab that is not
- *  imported, and every item of a Shuttle lift type, are not sent: round-2-contract D7); the strip draws
- *  BUILD_GROUPS. Phase A's nine ids keep their spelling. */
+ *  imported, and every item of a Shuttle lift type, are not sent); the strip draws
+ *  BUILD_GROUPS. */
 export type BuildItemId =
   | "sign" | "lodge" | "lodgeHut" | "lodgeMid" | "lodgeSummit" | "lodgeGrand"
   | "school" | "patrolHut" | "patrolHQ"
@@ -272,36 +232,36 @@ export const LIFT_TYPE_IDS: readonly string[] = ["fixedGrip", "detachable", "gon
 
 // ---- value shapes (C# -> UI); C# structs mirror them field for field ----------------------------
 
-/** One Build-strip entry. CORE: only optional fields may be added (contract 3 adds six). */
+/** One Build-strip entry. CORE: only optional fields may be added. */
 export interface BuildItem {
   /** One of BUILD_ITEM_IDS (typed as string: treat an unknown id as "not for this bundle"). */
   id: string;
-  /** Locked by progression, a missing prefab, no sign for an upgrade item, or (contract 6) already on the shown
+  /** Locked by progression, a missing prefab, no sign for an upgrade item, or already on the shown
    *  sign (ForbidMultiple: the school; a lodge tier only if its prefab still has m_ForbidMultiple — the prefab flag decides until the surgery sets it false); `reason` says why. */
   locked: boolean;
   /** This item's tool is the active tool (clicking it again returns to the default tool). */
   active: boolean;
   /** A locale key explaining `locked`, or "". */
   reason: string;
-  /** Run items: D21 base fee (SkiRunFees.BaseFee); -1 others. */
+  /** Run items: base fee (SkiRunFees.BaseFee); -1 others. */
   price?: number;
-  /** A locale key or "" (line items: HINT[LiftNoPair] for the SHOWN area's rows of that lift type, D37). */
+  /** A locale key or "" (line items: HINT[LiftNoPair] for the SHOWN area's rows of that lift type). */
   hint?: string;
-  /** Run items: D21 fee per hectare (SkiRunFees.PerHaFee); -1 others. */
+  /** Run items: fee per hectare (SkiRunFees.PerHaFee); -1 others. */
   pricePerHa?: number;
   /** Sign and stations: construction cost; lodges, school, patrol huts: upgrade cost; -1 unknown. */
   cost?: number;
-  /** Line items: line construction per km (D24; the type's row); -1 others. */
+  /** Line items: line construction per km (the type's row); -1 others. */
   costPerKm?: number;
-  /** Line items: fixed running cost per complete lift a month (D23; the type's row); -1 others. */
+  /** Line items: fixed running cost per complete lift a month (the type's row); -1 others. */
   monthly?: number;
-  /** Run items: running cost per active hectare a month (D22); -1 others. */
+  /** Run items: running cost per active hectare a month; -1 others. */
   monthlyPerHa?: number;
-  /** Line items: running cost per km of line a month (D23; the type's row); -1 others. */
+  /** Line items: running cost per km of line a month (the type's row); -1 others. */
   monthlyPerKm?: number;
 }
 
-/** `glade`: the tree tool (SkiGladeToolSystem; density dial). CORE since contract 1, unchanged. */
+/** `glade`: the tree tool (SkiGladeToolSystem; density dial). CORE. */
 export interface GladeState {
   /** The tool is armed and can be activated. */
   available: boolean;
@@ -315,7 +275,7 @@ export interface GladeState {
   reason: string;
 }
 
-/** `liftLine` (contract 12): the lift-line generator (LiftLineToolSystem, the lift planner as a tool; Ctrl+Shift+L). Panel only. */
+/** `liftLine`: the lift-line generator (LiftLineToolSystem, the lift planner as a tool; Ctrl+Shift+L). Panel only. */
 export interface LiftLineState {
   /** A city is loaded and the tool exists (it may still refuse: not armed, disabled after an exception; C# logs why). */
   available: boolean;
@@ -364,7 +324,7 @@ export interface ResortRow {
 }
 
 /** Per-area values that move (same order and count as `resorts`, joined by `sign`). Score fields
- *  are the model's Result (D10: never recomputed in the UI); -1 = unknown or no result. */
+ *  are the model's Result (never recomputed in the UI); -1 = unknown or no result. */
 export interface ResortLive {
   sign: Entity;
   /** RESORT_STATUS. */
@@ -403,7 +363,7 @@ export interface ResortLive {
   nextStep: number;
   thisMonthSinceLoad: boolean;
   /** A whole month was counted. Last-month fields are -1 only when no month has rolled since counting
-   *  started; with lastMonthFull false they hold a partial month (shown with "(partial)"; Round S1 F7). */
+   *  started; with lastMonthFull false they hold a partial month (shown with "(partial)"). */
   lastMonthFull: boolean;
   guestsThisMonth: number;
   touristsThisMonth: number;
@@ -438,13 +398,13 @@ export interface ResortLive {
   wagesMonth: number;
   jobs: number;
   jobsFilled: number;
-  /** The one net (B1, contract 11): this month's booked income - costs, so far (C# HubRules.NetMonth); the eight rows that add up to
+  /** The one net (C# HubRules.NetMonth): this month's booked income - costs, so far; the eight rows that add up to
    *  it: ticketsThisMonth + lodgeIncomeMonth + lessonIncomeMonth + passIncomeMonth - liftChargedMonth - runCostMonth - buildingsSoFar -
    *  wagesSoFar (each max(0, row)). Not linked: -(lift charge + run upkeep booked for Not linked). Used as sent. */
   netMonth: number;
-  /** Some term of the net is unknown (read as 0). Contract 11; was "income projected". */
+  /** Some term of the net is unknown (read as 0). */
   netEstimated: boolean;
-  // Contract 4 (Round S1, ski days; ch4 section A.1): appended in this order, as in C# ResortLiveStats.
+  // Ski days: appended in this order, as in C# ResortLiveStats.
   /** SKI_DAY_STATE (0 Unknown; also on the Not linked row). */
   skiDaysState: number;
   /** Ski-day guests who reached a lodge this month; -1 unknown. */
@@ -453,36 +413,35 @@ export interface ResortLive {
   skiDaysLastMonth: number;
   /** Ski-day claims this month, all classes; -1 unknown. */
   skiDaysSent: number;
-  /** Of those, class Car (farther than walking, had a car, D12); -1 unknown. */
+  /** Of those, class Car (farther than walking, had a car); -1 unknown. */
   skiDaysSentCar: number;
-  /** Of those, class "far, no car" (D13); -1 unknown. Walk = sent - car - no car (hubRules.skiDayWalk). */
+  /** Of those, class "far, no car"; -1 unknown. Walk = sent - car - no car (hubRules.skiDayWalk). */
   skiDaysSentNoCar: number;
-  /** Claimed guests on the way plus on site now (D21); -1 unknown. */
+  /** Claimed guests on the way plus on site now; -1 unknown. */
   skiDaysNow: number;
-  /** Capacity at once (D21 Cap incl. powder, whole skiers; 0 is real and reads Full); -1 unknown. */
+  /** Capacity at once (Cap incl. powder, whole skiers; 0 is real and reads Full); -1 unknown. */
   skiDaysCap: number;
-  /** SKI_DAY_LIMIT: which D21 term binds (0 None). */
+  /** SKI_DAY_LIMIT: which term binds (0 None). */
   skiDaysLimit: number;
-  /** Powder 0-100 (HubRules.Percent of the area's powder, D19); -1 unknown. */
+  /** Powder 0-100 (HubRules.Percent of the area's powder); -1 unknown. */
   skiDaysPowderPct: number;
-  // Contract 6 (Catalog Phase B, round-2-contract section 8.5; the model's Result, never recomputed here): appended in
-  // this order, as in C# ResortLiveStats.
+  // Lodge-ladder fields (the model's Result, never recomputed here): appended in this order, as in C# ResortLiveStats.
   /** The best counted lodge of the season's selection, as its BuildItemId ("lodge", "lodgeGrand", ...); "" none. */
   lodgeBest: string;
   /** The other lodges' extras as applied (after the extras cap, ExtraCap 24); -1 unknown. */
   lodgeExtra: number;
-  /** RETAINED FOR THE WIRE ONLY, always 0 since 2026-10-11 (was: luxury lodges the one-per-area cap did not count, D3;
-   *  the cap was removed, no limit on lodges). Kept so contract 6 and tools/contract.lock do not change; no view reads it. */
+  /** RETAINED FOR THE WIRE ONLY, always 0 (was: luxury lodges the one-per-area cap did not count;
+   *  the cap was removed, no limit on lodges). Kept so the contract and tools/contract.lock do not change; no view reads it. */
   luxuryIgnored: number;
   /** The ski school's term in the terrain sum (0 while no green run counts or no school); -1 unknown. */
   schoolValue: number;
-  /** Runs a ski patrol hut covers (R13); -1 unknown. */
+  /** Runs a ski patrol hut covers; -1 unknown. */
   patrolledRuns: number;
   /** The highest counted lodge's ticket price tolerance (Luxury 40, Chalet 20, else 0); -1 unknown. */
   priceTolerance: number;
-  /** Lodge spend income a month, the tickets' month rule; -1 unknown, 0 while the setting is 0 (D15). */
+  /** Lodge spend income a month, the tickets' month rule; -1 unknown, 0 while the setting is 0. */
   lodgeSpendMonth: number;
-  // Contract 7 (DECISIONS 240): appended in this order, as in C# ResortLiveStats.
+  // Season passes: appended in this order, as in C# ResortLiveStats.
   /** Season passes sold at this area in the current ski season (July to June), counted since the game was loaded; -1 unknown. */
   passesSoldSeason: number;
   /** What those passes paid; -1 unknown. */
@@ -491,7 +450,7 @@ export interface ResortLive {
   passHoldersThisMonth: number;
   /** The same, last month; -1 until a month rolled since counting started. */
   passHoldersLastMonth: number;
-  // Contract 8 (DECISIONS 241): appended in this order, as in C# ResortLiveStats.
+  // Lessons and city income: appended in this order, as in C# ResortLiveStats.
   /** People who took a lesson at this area this month (one lesson each); -1 unknown. */
   lessonsThisMonth: number;
   /** The same, last month; -1 until a month rolled since counting started. */
@@ -508,7 +467,7 @@ export interface ResortLive {
    *  kUpdatesPerDay = 32 times a game day, :363; BudgetSystem.cs:172-174, 280 reads it the same way). An ESTIMATE: whether that entry is a
    *  cumulative or a daily window is prefab data, not in the decompile. */
   cityIncomeEst: number;
-  // Contract 11 (B1 "one Net"; docs/research/ui/hub-one-net-b1-2026-10-19.md section 2): appended in this order, as in C# WriteResortLive.
+  // The one Net's money rows: appended in this order, as in C# WriteResortLive.
   // The Net's rows of the month in progress not sent above (ticketsThisMonth and lessonIncomeMonth are the other two). -1 unknown.
   /** Season passes sold at this area this month, pre-season sales included (the Net's pass row). */
   passIncomeMonth: number;
@@ -576,9 +535,9 @@ export interface RunLive {
   snowEstimated: boolean;
   valueNow: number;
   costMonth: number;
-  /** T136 (contract 13): coverage-weighted mean snow depth, cm; -1 not measured. */
+  /** Coverage-weighted mean snow depth, cm; -1 not measured. */
   snowDepthCm: number;
-  /** T136 (contract 13): RUN_GUN_WHY, the snow guns of a snowmaking or night run now. */
+  /** RUN_GUN_WHY, the snow guns of a snowmaking or night run now. */
   gunWhy: number;
 }
 
@@ -621,7 +580,7 @@ export interface LiftRow {
   runsServed: number;
   costMonth: number;
   billedReduced: boolean;
-  // Contract 6 (Catalog Phase B, round-2-contract section 8.5): appended in this order, as in C# LiftStats.
+  // Appended in this order, as in C# LiftStats.
   /** The row's lift type: SkiCatalog.Lifts[row.Type].Id (LIFT_TYPE_IDS); "" = unknown. */
   type: string;
   /** Seats per carrier of that type (the capacity tooltip's {SEATS}); 0 unknown. */
@@ -662,27 +621,27 @@ export interface CityStats {
   snowVisualsOff: boolean;
   tourismOverhaul: boolean;
   realisticWorkplaces: boolean;
-  /** Round M2 R9 (contract 5): which known mod replaced the game's trip systems, read at each city load
+  /** Which known mod replaced the game's trip systems, read at each city load
    *  (C# SkiDaySystem.TripPlannerLabel = SkiTripSystems.Label): "" = the game's six trip systems all on;
    *  "Realistic PathFinding", "Realistic Trips", both joined ", ", or TRIP_PLANNER_UNKNOWN when a system
-   *  is off and no known replacement is loaded. A label only (DECISIONS 150): the UI decides nothing on it
+   *  is off and no known replacement is loaded. A label only: the UI decides nothing on it
    *  but the Guests view's note (hubRules.tripPlannerNote). */
   tripPlanner: string;
-  /** Round M2 R9: the game's LeisureSystem or CitizenBehaviorSystem is switched off, so ski days do not arm
+  /** The game's LeisureSystem or CitizenBehaviorSystem is switched off, so ski days do not arm
    *  this load (C# ArmVerdict.SystemOff; SkiDaySystem.TripPlannerBlocksSkiDays = SkiTripSystems.BlocksSkiDays). */
   tripPlannerBlocksSkiDays: boolean;
-  /** Contract 7: the Options setting Book resort income as public transportation fees: lift tickets, passes, lessons and lodge spend
+  /** The Options setting Book resort income as public transportation fees: lift tickets, passes, lessons and lodge spend
    *  then show in the game's Economy panel under public transportation fees. */
   bookTicketsAsFees: boolean;
-  /** Contract 7: the Options setting Season pass share, 0-100 (0 = passes off). */
+  /** The Options setting Season pass share, 0-100 (0 = passes off). */
   passShare: number;
-  /** Contract 9 (T77): the calendar month of the game date, 0 = January .. 11 = December (C# SkiMoneyRules.MonthKey, the month the guest
+  /** The calendar month of the game date, 0 = January .. 11 = December (C# SkiMoneyRules.MonthKey, the month the guest
    *  ledger counts); -1 = not known. Named in the views through vanilla Common.MONTH:<n> (hubText.monthEntry). */
   month: number;
 }
 
 /**
- * HistoryArea.flags bits (contract 10). 1..64 are the STORED bits of C# HistoryFlags (Systems/SkiResortHistory.cs; tools/test-hub-rules.js
+  * HistoryArea.flags bits. 1..64 are the STORED bits of C# HistoryFlags (Systems/SkiResortHistory.cs; tools/test-hub-rules.js
  * compares them literally); Current = 128 is binding only (C# SkiResortHubUISystem.HistoryFlagCurrent): the month in progress, always the
  * last entry. Partial: counting started partway (a load not seeded, a calendar jump). Short: under 95 % of the month simulated.
  * CostsEstimated: reserved (never set in v1). SnapshotMissing: buildings / wages / attraction / snow unknown. Gap: no data for that month
@@ -694,7 +653,7 @@ export const HISTORY_FLAG = {
 } as const;
 
 /**
- * `history` (contract 10, T78): one row per live ski area (resorts order; Not linked has none), months oldest -> newest. Densified in C#:
+  * `history`: one row per live ski area (resorts order; Not linked has none), months oldest -> newest. Densified in C#:
  * index i is month firstMonthKey + i; every array has the same length n >= 1; the last entry is the month in progress (flags & Current).
  * Money in whole credits, costs positive. Rates and point values (buildingsCost, wagesCost, attraction, snowPct) are snapshots at the
  * month's roll; for the month in progress buildings / wages are the rate x the share simulated so far. -1 = unknown in skiDays,
@@ -745,7 +704,7 @@ export function clampGladeLevel(level: number): number {
 
 // ---- names --------------------------------------------------------------------------------------
 
-/** Value binding names (C# -> UI): 16 in contract 3 (`lodges` removed); 17 in contract 10 (`history`). */
+/** Value binding names (C# -> UI). */
 export const BINDING = {
   hubOpen: "hubOpen",
   contract: "contract",
@@ -764,11 +723,11 @@ export const BINDING = {
   pisteMap: "pisteMap",
   follow: "follow",
   history: "history",
-  liftLine: "liftLine",   // contract 12
-  grade: "grade",         // contract 14 (T139)
+  liftLine: "liftLine",  // the lift-line generator
+  grade: "grade",  // the cat track grading tool
 } as const;
 
-/** Trigger names (UI -> C#): 17 in contract 3. */
+/** Trigger names (UI -> C#). */
 export const TRIGGER = {
   toggleHub: "toggleHub",
   setHubOpen: "setHubOpen",
@@ -787,12 +746,12 @@ export const TRIGGER = {
   uiLayout: "uiLayout",
   setPisteMap: "setPisteMap",
   hoverRun: "hoverRun",
-  liftLineToggle: "liftLineToggle",   // contract 12
-  gradeToggle: "gradeToggle",         // contract 14 (T139)
+  liftLineToggle: "liftLineToggle",  // the lift-line generator
+  gradeToggle: "gradeToggle",  // the cat track grading tool
 } as const;
 
 /**
- * CORE = frozen since contract 1 (spec 2.2): unchanged in contract 3. These names may only gain
+ * CORE = frozen since contract 1. These names may only gain
  * OPTIONAL fields; they are never renamed, retyped or removed. The ONE machine-readable list:
  * tools/check-bundle.js reads it (string literals only) and checks it against tools/contract.lock.
  * On a contract mismatch the panel reads only these (spec 4.5).
@@ -838,7 +797,7 @@ export const FALLBACK = {
     snowmakingMarginC: 2, snowVisualsOff: false, tourismOverhaul: false, realisticWorkplaces: false,
     tripPlanner: "", tripPlannerBlocksSkiDays: false, bookTicketsAsFees: true, passShare: 50, month: -1,
   } as CityStats,
-  /** D19: the piste map is on by default (C# owns the value). */
+  /** The piste map is on by default (C# owns the value). */
   pisteMap: true,
   follow: 0,
   history: EMPTY_HISTORY,
@@ -861,31 +820,31 @@ export const showHubButton$: ValueBinding<boolean> = bindValue<boolean>(GROUP, B
 export const build$: ValueBinding<readonly BuildItem[]> = bindValue<readonly BuildItem[]>(GROUP, BINDING.build, FALLBACK.build);
 /** The tree tool. Subscribe only while the panel is open. CORE. */
 export const glade$: ValueBinding<GladeState> = bindValue<GladeState>(GROUP, BINDING.glade, FALLBACK.glade);
-/** The lift-line generator (contract 12). Panel only: the Build strip's Lifts tab, ok panel only (never on a mismatch). */
+/** The lift-line generator. Panel only, the Build strip's Lifts tab (never on a mismatch). */
 export const liftLine$: ValueBinding<LiftLineState> = bindValue<LiftLineState>(GROUP, BINDING.liftLine, FALLBACK.liftLine);
-/** The cat track grading tool (contract 14, T139; state = C# GradeStep name while open). Panel only: the Runs tab, ok panel only. */
+/** The cat track grading tool (state = C# GradeStep name while open). Panel only: the Runs tab. */
 export const grade$: ValueBinding<LiftLineState> = bindValue<LiftLineState>(GROUP, BINDING.grade, FALLBACK.grade);
 /** One row per sign, then the Not linked row (always last). Panel only. */
 export const resorts$: ValueBinding<readonly ResortRow[]> = bindValue<readonly ResortRow[]>(GROUP, BINDING.resorts, FALLBACK.resorts);
-/** The moving values of each `resorts` row (contract 3). Panel only: read by leaf components only. */
+/** The moving values of each `resorts` row. Panel only: read by leaf components only. */
 export const resortLive$: ValueBinding<readonly ResortLive[]> = bindValue<readonly ResortLive[]>(GROUP, BINDING.resortLive, FALLBACK.resortLive);
 /** The area the hub shows: a sign, or Entity.Null = the Not linked view. Panel only. */
 export const selectedResort$: ValueBinding<Entity> = bindValue<Entity>(GROUP, BINDING.selectedResort, FALLBACK.selectedResort);
 /** One row per run of ours. Panel only (never read on a contract mismatch). */
 export const runs$: ValueBinding<readonly RunRow[]> = bindValue<readonly RunRow[]>(GROUP, BINDING.runs, FALLBACK.runs);
-/** The moving values of each `runs` row (contract 3). Panel only. */
+/** The moving values of each `runs` row. Panel only. */
 export const runLive$: ValueBinding<readonly RunLive[]> = bindValue<readonly RunLive[]>(GROUP, BINDING.runLive, FALLBACK.runLive);
 /** One row per lift. Panel only. */
 export const lifts$: ValueBinding<readonly LiftRow[]> = bindValue<readonly LiftRow[]>(GROUP, BINDING.lifts, FALLBACK.lifts);
-/** The problems band and the efficiency factors of every area (contract 3). Panel only. */
+/** The problems band and the efficiency factors of every area. Panel only. */
 export const problems$: ValueBinding<readonly ProblemRow[]> = bindValue<readonly ProblemRow[]>(GROUP, BINDING.problems, FALLBACK.problems);
 /** City-wide settings and session facts. Panel only. */
 export const city$: ValueBinding<CityStats> = bindValue<CityStats>(GROUP, BINDING.city, FALLBACK.city);
-/** D19: the piste map toggle as C# holds it (contract 3). Panel only. */
+/** The piste map toggle as C# holds it. Panel only. */
 export const pisteMap$: ValueBinding<boolean> = bindValue<boolean>(GROUP, BINDING.pisteMap, FALLBACK.pisteMap);
-/** D36: a counter C# moves on each automatic area switch (selection rule 7). Panel only. */
+/** A counter C# moves on each automatic area switch (selection rule 7). Panel only. */
 export const follow$: ValueBinding<number> = bindValue<number>(GROUP, BINDING.follow, FALLBACK.follow);
-/** Contract 10 (T78): the monthly history of every live ski area. Panel only, and only the History view subscribes it (no Demand:
+/** The monthly history of every live ski area. Panel only, and only the History view subscribes it (no Demand:
  *  C# builds and sends it only while observed, on a stored month, an area change, or the month in progress at most every 5 s). */
 export const history$: ValueBinding<readonly HistoryArea[]> = bindValue<readonly HistoryArea[]>(GROUP, BINDING.history, FALLBACK.history);
 
@@ -917,9 +876,9 @@ export const hubTriggers = {
   focusRun: (run: Entity): void => fire(TRIGGER.focusRun, wire(run)),
   /** Tree tool on/off. */
   gladeToggle: (): void => fire(TRIGGER.gladeToggle),
-  /** Lift-line generator on / off (contract 12): C# LiftLineToolSystem.TryActivate("hub") / Deactivate(). */
+  /** Lift-line generator on / off: C# LiftLineToolSystem.TryActivate("hub") / Deactivate(). */
   liftLineToggle: (): void => fire(TRIGGER.liftLineToggle),
-  /** Cat track grading tool on / off (contract 14, T139): C# CatTrackGradeToolSystem.TryActivate("hub") / Deactivate(). */
+  /** Cat track grading tool on / off: C# CatTrackGradeToolSystem.TryActivate("hub") / Deactivate(). */
   gradeToggle: (): void => fire(TRIGGER.gradeToggle),
   /** Tree density level, clamped 1..8 here and again in C#. */
   gladeSetLevel: (level: number): void => fire(TRIGGER.gladeSetLevel, clampGladeLevel(level)),
@@ -939,8 +898,8 @@ export const hubTriggers = {
   focusBuilding: (building: Entity): void => fire(TRIGGER.focusBuilding, wire(building)),
   /** Dev aid: measured panel heights; C# logs `Hub [layout] ...` once per distinct text. */
   uiLayout: (text: string): void => fire(TRIGGER.uiLayout, text),
-  /** D19: set the piste-map toggle; C# owns the value (pisteMap$) and logs `Hub [piste] map on|off`. */
+  /** Set the piste-map toggle; C# owns the value (pisteMap$) and logs `Hub [piste] map on|off`. */
   setPisteMap: (on: boolean): void => fire(TRIGGER.setPisteMap, on),
-  /** D19: the hovered run (Null clears). Send through hubState.ts sendHoverRun only (dedup). */
+  /** The hovered run (Null clears). Send through hubState.ts sendHoverRun only (dedup). */
   hoverRun: (run: Entity): void => fire(TRIGGER.hoverRun, wire(run)),
 } as const;

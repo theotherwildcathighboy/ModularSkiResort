@@ -1,31 +1,22 @@
-// SkiDayTimingTests — Round S1 test file for tests/ResortBatch (ski-days spec ch2-system.md §14, ST1-ST9: the pure
-// SkiDayTiming). Owner: stream B (docs/research/ski-days/s1-spec.md §4.3). Created empty by stage 0 (2026-10-05,
-// s1-spec §4.2 step 9): the e1-spec R9 convention — `public static class SkiDayTimingTests` with
-// `public static void Run(Func<bool, string, string, bool> check)` and its own Near; Program.Main calls
-// SkiDayTimingTests.Run(Check). Oracles are literal hand values (ch2 §14). Stream B wrote the rows (2026-10-05).
+// Tests for the pure SkiDayTiming (tests/ResortBatch): `public static class SkiDayTimingTests` with
+// `public static void Run(Func<bool, string, string, bool> check)` and its own Near; Program.Main calls SkiDayTimingTests.Run(Check).
+// Oracles are literal hand values. Row groups are tagged ST0..ST46 in the check names.
 //
-// Covers: the constants and enum literals (ST0); RecentBehaviorSlice (ST1, ST1b: CitizenBehaviorSystem at
-// interval 16, offset 11); SkipChunk (ST2: LeisureSystem 64 + the recent CBS slice); IsLastPass (ST3); FramesFor /
-// HoursFor (ST4, ST4b: the uint.MaxValue clamp); Resolve (ST5: every on-the-way and on-site row); HourStep (ST6);
-// NextLeisureVisit (ST7: the resident roll key, s1-spec N2); TrackIndex (ST8: the job's index guard, ch2-RF2-1);
-// SameBits (ST9). The rows are followed by property sweeps (ST10-ST13) that tie the helpers to each other and to
-// SkiDayRules.SliceOf / SkipSlice (one decision = one NextLeisureVisit; IsLastPass ⇔ next visit is one interval
-// away; the recent-CBS window is exactly the 8 frames from a run; SkipChunk ⊇ SkipSlice). Fixer pass (review
-// SIM-1): IsLastSighting rows (ST14) and the sweep over all 64 LeisureSystem offsets (ST15). Not testable headless
-// (ECS): the jobs, the claim itself, the car-reserve handshake — covered by the logs, the DUMP and field test 9.
-// Round M1 "measure first" (docs/research/ski-days/measure/m1-spec.md §4; builder A, 2026-10-05): ST16 PlaceOf,
-// ST17 EndCauseOf, ST18 ExitOfPurpose / TryExit and the two watch constants, ST19 MinuteOfDay / ClockMinuteAfter,
-// ST20 GuestScanSaw, ST21 CarReserveOf, ST22 ClockBin / StayBin / ClosestBand, ST23 MarkHoursPerMonth, ST24 WhyOf,
-// ST25 TryLate and HasMarker. Not testable headless: the ResolveJob sampling, the ring, the measure rows, the ledger
-// check — covered by the logs and the DUMP in field test 10. Fixer pass: ST26 DepartedNow (review M1-ECS-2: a guest
-// on the road with GoingHome has departed).
-// ROUND M2 (docs/research/round-m2/build-contract.md §7; builder B1, 2026-10-10), +210 checks, literal oracles: ST17
-// edited (EndCause literals 0..8, EndCauseCount 9; no new row); ST27 ArrivedThenRemoved (D3) and ST28 the on-arrival
-// visit end (stay 0, scan verdict never Seen); ST29 MovedOffNow and ST30 ShowNear500 (D1, D6); ST31-ST33 remover-reason
-// (constants, ShiftNeed / NeedTaken / IsFastStay, RemoveWhyOf rows and sweeps, NoPurposeAtOf; D4, U16); ST34-ST42 the
-// follow and walkers near a lodge (D5: PlacedNow per U16's one rule, TryFollow without a previous penalty); ST43-ST44
-// FailureEvidence / LateEvidence (R10, one predicate); ST45-ST46 the deadline pull (R4 b, with the 21:00 flap guard).
-// Not testable headless: ResolveJob (the D3 branch, the need register, the follow, the pull write), NearJob, the texts.
+// Covers: the constants and enum literals (ST0); RecentBehaviorSlice (ST1, ST1b: CitizenBehaviorSystem at interval 16, offset 11);
+// SkipChunk (ST2: LeisureSystem 64 + the recent CBS slice); IsLastPass (ST3); FramesFor / HoursFor (ST4, ST4b: the uint.MaxValue
+// clamp); Resolve (ST5: every on-the-way and on-site row); HourStep (ST6); NextLeisureVisit (ST7: the resident roll key); TrackIndex
+// (ST8: the job's index guard); SameBits (ST9). Property sweeps (ST10-ST13) tie the helpers to each other and to
+// SkiDayRules.SliceOf / SkipSlice (one decision = one NextLeisureVisit; IsLastPass iff next visit is one interval away; the
+// recent-CBS window is exactly the 8 frames from a run; SkipChunk contains SkipSlice). IsLastSighting rows (ST14) and the sweep
+// over all 64 LeisureSystem offsets (ST15). Then ST16 PlaceOf, ST17 EndCauseOf (EndCause literals 0..8, EndCauseCount 9), ST18
+// ExitOfPurpose / TryExit and the two watch constants, ST19 MinuteOfDay / ClockMinuteAfter, ST20 GuestScanSaw, ST21 CarReserveOf,
+// ST22 ClockBin / StayBin / ClosestBand, ST23 MarkHoursPerMonth, ST24 WhyOf, ST25 TryLate and HasMarker, ST26 DepartedNow (a guest
+// on the road with GoingHome has departed), ST27 ArrivedThenRemoved, ST28 the on-arrival visit end (stay 0, scan verdict never
+// Seen), ST29 MovedOffNow, ST30 ShowNear500, ST31-ST33 remover-reason (constants, ShiftNeed / NeedTaken / IsFastStay, RemoveWhyOf
+// rows and sweeps, NoPurposeAtOf), ST34-ST42 the follow and walkers near a lodge (PlacedNow, TryFollow without a previous penalty),
+// ST43-ST44 FailureEvidence / LateEvidence (one predicate), ST45-ST46 the deadline pull (with the 21:00 flap guard).
+// Not testable headless (ECS): the jobs, the claim itself, the car-reserve handshake, ResolveJob sampling and the ring, NearJob, the
+// measure rows, the ledger check, the texts.
 
 using System;
 using SkiResortMod.Systems;
@@ -60,8 +51,7 @@ namespace ResortBatch
             TrackIndex(check);
             SameBits(check);
             Properties(check);
-            LastSighting(check);   // fixer pass (review SIM-1)
-            // Round M1 (m1-spec §4)
+            LastSighting(check);
             PlaceRows(check);      // ST16
             EndCauseRows(check);   // ST17
             ExitRows(check);       // ST18
@@ -72,28 +62,27 @@ namespace ResortBatch
             MarkHourRows(check);   // ST23
             WhyRows(check);        // ST24
             LateRows(check);       // ST25
-            DepartRows(check);     // ST26 (fixer M1-ECS-2)
-            // Round M2 (build-contract §7), +210
-            OnArrivalRows(check);      // ST27 (D3)
-            OnArrivalEndRows(check);   // ST28 (D3)
-            MovedOffRows(check);       // ST29 (D1)
-            Near500Rows(check);        // ST30 (D6)
-            RemoveConstRows(check);    // ST31 (D4)
-            RemoveWhyRows(check);      // ST32 (D4)
-            NoPurposeRows(check);      // ST33 (U16)
-            FollowConstRows(check);    // ST34 (D5)
+            DepartRows(check);     // ST26
+            OnArrivalRows(check);      // ST27
+            OnArrivalEndRows(check);   // ST28
+            MovedOffRows(check);       // ST29
+            Near500Rows(check);        // ST30
+            RemoveConstRows(check);    // ST31
+            RemoveWhyRows(check);      // ST32
+            NoPurposeRows(check);      // ST33
+            FollowConstRows(check);    // ST34
             FollowKindRows(check);     // ST35
-            PlacedRows(check);         // ST36 (U16, one rule)
+            PlacedRows(check);         // ST36
             TryFollowRows(check);      // ST37
             StillOutRows(check);       // ST38
             WaitHourRows(check);       // ST39
             WalkerKindRows(check);     // ST40
             WithinRows(check);         // ST41
             SlotRows(check);           // ST42
-            FailureEvidenceRows(check);   // ST43 (R10)
-            LateEvidenceRows(check);   // ST44 (R10)
-            PullConstRows(check);      // ST45 (R4 b)
-            PullRows(check);           // ST46 (R4 b)
+            FailureEvidenceRows(check);   // ST43
+            LateEvidenceRows(check);   // ST44
+            PullConstRows(check);      // ST45
+            PullRows(check);           // ST46
         }
 
         private static bool Near(double a, double b, double eps)
@@ -101,7 +90,7 @@ namespace ResortBatch
             return Math.Abs(a - b) <= eps;
         }
 
-        // ── ST0 constants ───────────────────────────────────────────────────────────────────────
+        // ST0 constants
         private static void Constants(Func<bool, string, string, bool> check)
         {
             const string w = "skiday-timing ST0";
@@ -112,7 +101,7 @@ namespace ResortBatch
                   (byte)Outcome.Gone == 4 && (byte)Outcome.Retargeted == 5 && (byte)Outcome.Expired == 6, w, "ClaimOutcome literals 0..6");
         }
 
-        // ── ST1, ST1b RecentBehaviorSlice(F, 16, 11) ────────────────────────────────────────────
+        // ST1, ST1b RecentBehaviorSlice(F, 16, 11)
         private static void RecentBehavior(Func<bool, string, string, bool> check)
         {
             const string w = "skiday-timing ST1";
@@ -122,7 +111,7 @@ namespace ResortBatch
             Recent(check, w, 1000019u, 16, 11, false, 0u);   // diff 8 is not < 8
             Recent(check, w, 1000064u, 16, 11, true, 7u);    // last 1,000,059; 62,503 & 15 = 7
             Recent(check, w, 5u, 16, 11, false, 0u);         // 5 < offset 11: no run yet
-            Recent(check, "skiday-timing ST1b", 1000u, 0, 11, false, 0u);    // interval guard (s1-spec M-3)
+            Recent(check, "skiday-timing ST1b", 1000u, 0, 11, false, 0u);    // interval guard
             Recent(check, "skiday-timing ST1b", 1000u, -16, 11, false, 0u);  // negative interval
             Recent(check, "skiday-timing ST1b", 1000u, 16, -1, false, 0u);   // negative offset
         }
@@ -135,7 +124,7 @@ namespace ResortBatch
                   $"RecentBehaviorSlice({frame}, {interval}, {offset}) = ({got}, {slice}), expected ({expected}, {expectedSlice})");
         }
 
-        // ── ST2 SkipChunk, ST3 IsLastPass ───────────────────────────────────────────────────────
+        // ST2 SkipChunk, ST3 IsLastPass
         private static void SkipAndLast(Func<bool, string, string, bool> check)
         {
             const string w2 = "skiday-timing ST2";
@@ -152,7 +141,7 @@ namespace ResortBatch
             check(SkiDayTiming.IsLastPass(0u, 960u, 64), w3, "IsLastPass(0, 960, 64): (15 + 1) & 15 = 0");
         }
 
-        // ── ST4, ST4b FramesFor / HoursFor ──────────────────────────────────────────────────────
+        // ST4, ST4b FramesFor / HoursFor
         private static void FramesAndHours(Func<bool, string, string, bool> check)
         {
             const string w = "skiday-timing ST4";
@@ -179,7 +168,7 @@ namespace ResortBatch
             check(got == expected, w, $"FramesFor({hours:R}) = {got}, expected {expected}");
         }
 
-        // ── ST5 Resolve, deadline 1,075,366 ─────────────────────────────────────────────────────
+        // ST5 Resolve, deadline 1,075,366
         private static void Resolve(Func<bool, string, string, bool> check)
         {
             const string w = "skiday-timing ST5";
@@ -210,7 +199,7 @@ namespace ResortBatch
             check(got == expected, w, $"Resolve({onSite}, {hasL}, {atL}, {at}, {now}, {deadline}) = {got}, expected {expected}");
         }
 
-        // ── ST6 HourStep ────────────────────────────────────────────────────────────────────────
+        // ST6 HourStep
         private static void HourStep(Func<bool, string, string, bool> check)
         {
             const string w = "skiday-timing ST6";
@@ -230,7 +219,7 @@ namespace ResortBatch
             check(got == expected, w, $"HourStep({prev}, {key}, {days}) = {got}, expected {expected}");
         }
 
-        // ── ST7 NextLeisureVisit (LS 64, slice 12) ──────────────────────────────────────────────
+        // ST7 NextLeisureVisit (LS 64, slice 12)
         private static void NextVisit(Func<bool, string, string, bool> check)
         {
             const string w = "skiday-timing ST7";
@@ -248,7 +237,7 @@ namespace ResortBatch
             check(got == expected, w, $"NextLeisureVisit({slice}, {frame}, {li}) = {got}, expected {expected}");
         }
 
-        // ── ST8 TrackIndex ──────────────────────────────────────────────────────────────────────
+        // ST8 TrackIndex
         private static void TrackIndex(Func<bool, string, string, bool> check)
         {
             const string w = "skiday-timing ST8";
@@ -260,7 +249,7 @@ namespace ResortBatch
             check(SkiDayTiming.TrackIndex(0, (byte)SkiDayRules.TravelClass.None) == -1, w, "TrackIndex(0, TravelClass.None) is -1");
         }
 
-        // ── ST9 SameBits ────────────────────────────────────────────────────────────────────────
+        // ST9 SameBits
         private static void SameBits(Func<bool, string, string, bool> check)
         {
             const string w = "skiday-timing ST9";
@@ -272,7 +261,7 @@ namespace ResortBatch
             check(!SkiDayTiming.SameBits(0.0, -0.0), w, "!SameBits(0.0, -0.0)");
         }
 
-        // ── ST10-ST13 property sweeps (tie the helpers to each other and to SkiDayRules) ─────────
+        // ST10-ST13 property sweeps (tie the helpers to each other and to SkiDayRules)
         private static void Properties(Func<bool, string, string, bool> check)
         {
             // ST10: for every slice and pass frame, NextLeisureVisit lands on that slice, on LeisureSystem's frames,
@@ -334,7 +323,7 @@ namespace ResortBatch
             check(bad13 == 0, "skiday-timing ST13", $"SkipChunk covers SkipSlice: {bad13} bad");
         }
 
-        // ── ST14, ST15 IsLastSighting (fixer pass, review SIM-1; CBS 16 / 11, LeisureSystem 64) ───────
+        // ST14, ST15 IsLastSighting (CBS 16 / 11, LeisureSystem 64)
         private static void LastSighting(Func<bool, string, string, bool> check)
         {
             const string w = "skiday-timing ST14";
@@ -351,8 +340,7 @@ namespace ResortBatch
 
             // ST15: at every LeisureSystem offset q (0..63), for 48 visits each (three rounds of the 16 slices), exactly
             // one of the 15 passes before the visit sees the slice unskipped AND calls it the last sighting (a decision
-            // enters a pool once); the last sighting is not the last pass at 32 offsets — the reviewer's probe P1 and
-            // the checker's recomputation (q 0-2, 11-18, 27-34, 43-50, 59-63).
+            // enters a pool once); the last sighting is not the last pass at 32 offsets (q 0-2, 11-18, 27-34, 43-50, 59-63).
             int bad15 = 0, differ = 0;
             string first15 = null;
             for (uint q = 0u; q < 64u; q++)
@@ -391,9 +379,8 @@ namespace ResortBatch
             check(got == expected, w, $"IsLastSighting({slice}, {frame}, {li}, 16, 11) = {got}, expected {expected}");
         }
 
-        // ══ Round M1 "measure first" (m1-spec §4; literal oracles) ═══════════════════════════════════
 
-        // ── ST16 PlaceOf(gone, inBuilding, atOrigin, atLodge, departed) ───────────────────────────
+        // ST16 PlaceOf(gone, inBuilding, atOrigin, atLodge, departed)
         private static void PlaceRows(Func<bool, string, string, bool> check)
         {
             const string w = "skiday-timing ST16";
@@ -424,14 +411,14 @@ namespace ResortBatch
             check(got == expected, w, $"PlaceOf({gone}, {inB}, {atO}, {atL}, {dep}) = {got}, expected {expected}");
         }
 
-        // ── ST17 EndCauseOf (now 1,000,000, deadline 1,000,100) ───────────────────────────────────
+        // ST17 EndCauseOf (now 1,000,000, deadline 1,000,100)
         private static void EndCauseRows(Func<bool, string, string, bool> check)
         {
             const string w = "skiday-timing ST17";
             check((byte)EndCause.DeadlineOwn == 0 && (byte)EndCause.DeadlineClosing == 1 && (byte)EndCause.NeedFilled == 2 &&
                   (byte)EndCause.NewOuting == 3 && (byte)EndCause.Removed == 4 && (byte)EndCause.WalkedOut == 5 &&
                   (byte)EndCause.PastGrace == 6 && (byte)EndCause.Deleted == 7 && (byte)EndCause.RemovedOnArrival == 8 &&
-                  SkiDayTiming.EndCauseCount == 9, w, "EndCause literals 0..8");   // Round M2 D3 (edit; no new row)
+                  SkiDayTiming.EndCauseCount == 9, w, "EndCause literals 0..8");
             check(SkiDayTiming.NeedFilledCounter == 250, w, "NeedFilledCounter 250");
             const uint now = 1000000u, dl = 1000100u;
             // (gone, hasLeisure, leisureAtLodge, atLodge, deadline, closing, counter)
@@ -457,7 +444,7 @@ namespace ResortBatch
             check(got == expected, w, $"EndCauseOf({gone}, {hasL}, {atL}, {at}, 1000000, {deadline}, {closing}, {counter}) = {got}, expected {expected}");
         }
 
-        // ── ST18 ExitOfPurpose, TryExit, ExitWatchFrames, LateWatchFrames ─────────────────────────
+        // ST18 ExitOfPurpose, TryExit, ExitWatchFrames, LateWatchFrames
         private static void ExitRows(Func<bool, string, string, bool> check)
         {
             const string w = "skiday-timing ST18";
@@ -500,7 +487,7 @@ namespace ResortBatch
             check(got == expected, w, $"ExitOfPurpose(true, {purpose}) = {got}, expected {expected}");
         }
 
-        // ── ST19 MinuteOfDay, ClockMinuteAfter ────────────────────────────────────────────────────
+        // ST19 MinuteOfDay, ClockMinuteAfter
         private static void ClockRows(Func<bool, string, string, bool> check)
         {
             const string w = "skiday-timing ST19";
@@ -520,7 +507,7 @@ namespace ResortBatch
             check(got == expected, w, $"ClockMinuteAfter({start}, {startFrame}, {frame}) = {got}, expected {expected}");
         }
 
-        // ── ST20 GuestScanSaw (pass 64, scans every 256 at 1000) ──────────────────────────────────
+        // ST20 GuestScanSaw (pass 64, scans every 256 at 1000)
         private static void ScanRows(Func<bool, string, string, bool> check)
         {
             const string w = "skiday-timing ST20";
@@ -542,7 +529,7 @@ namespace ResortBatch
             check(got == expected, w, $"GuestScanSaw({first}, {last}, {end}, 64, {known}, {scan}, {interval}) = {got}, expected {expected}");
         }
 
-        // ── ST21 CarReserveOf, all eight (departed, heldEver, heldAtHome) ─────────────────────────
+        // ST21 CarReserveOf, all eight (departed, heldEver, heldAtHome)
         private static void ReserveRows(Func<bool, string, string, bool> check)
         {
             const string w = "skiday-timing ST21";
@@ -563,7 +550,7 @@ namespace ResortBatch
             check(got == expected, w, $"CarReserveOf({dep}, {ever}, {home}) = {got}, expected {expected}");
         }
 
-        // ── ST22 ClockBin, StayBin, ClosestBand ───────────────────────────────────────────────────
+        // ST22 ClockBin, StayBin, ClosestBand
         private static void BinRows(Func<bool, string, string, bool> check)
         {
             const string w = "skiday-timing ST22";
@@ -581,14 +568,14 @@ namespace ResortBatch
                 check(SkiDayTiming.ClosestBand(m[i]) == mb[i], w, $"ClosestBand({m[i]:R}) = {SkiDayTiming.ClosestBand(m[i])}, expected {mb[i]}");
         }
 
-        // ── ST23 MarkHoursPerMonth (12 days: 288 hours, month = hour / 24) ────────────────────────
+        // ST23 MarkHoursPerMonth (12 days: 288 hours, month = hour / 24)
         private static void MarkHourRows(Func<bool, string, string, bool> check)
         {
             const string w = "skiday-timing ST23";
             var marks = new int[12];
             var snows = new int[12];
             var snow = new bool[288];
-            var fresh = new float[288];   // T134: the fresh snow per hour; 0.65 on a snow hour, so 7 snow hours = 4.55 = the mark (6 = 3.9 is not)
+            var fresh = new float[288];   // the fresh snow per hour; 0.65 on a snow hour, so 7 snow hours = 4.55 = the mark (6 = 3.9 is not)
             void Fill() { for (int i = 0; i < 288; i++) fresh[i] = snow[i] ? 0.65f : 0f; }
             for (int hr = 0; hr < 24; hr++)
                 snow[hr] = true;   // every hour of month 0
@@ -628,7 +615,7 @@ namespace ResortBatch
             return s;
         }
 
-        // ── ST24 WhyOf(gone, ill, movingAway, hasPurpose, purpose, hasTrip, trip, resourceBuyer) ──
+        // ST24 WhyOf(gone, ill, movingAway, hasPurpose, purpose, hasTrip, trip, resourceBuyer)
         private static void WhyRows(Func<bool, string, string, bool> check)
         {
             const string w = "skiday-timing ST24";
@@ -661,7 +648,7 @@ namespace ResortBatch
             check(got == expected, w, $"WhyOf({gone}, {ill}, {moving}, {hasP}, {p}, {hasT}, {trip}, {buyer}) = {got}, expected {expected}");
         }
 
-        // ── ST25 TryLate (claim deadline 1,000,000) and HasMarker ─────────────────────────────────
+        // ST25 TryLate (claim deadline 1,000,000) and HasMarker
         private static void LateRows(Func<bool, string, string, bool> check)
         {
             const string w = "skiday-timing ST25";
@@ -701,7 +688,7 @@ namespace ResortBatch
             check(set == 0, wm, $"no marker from the other bits: {set} set");
         }
 
-        // ── ST26 DepartedNow(inBuilding, atOrigin, atLodge, hasPurpose, purpose) (fixer M1-ECS-2) ────────
+        // ST26 DepartedNow(inBuilding, atOrigin, atLodge, hasPurpose, purpose)
         private static void DepartRows(Func<bool, string, string, bool> check)
         {
             const string w = "skiday-timing ST26";
@@ -710,7 +697,7 @@ namespace ResortBatch
             Dp(check, w, true, true, false, true, SkiDayTiming.PurposeLeisure, false);
             Dp(check, w, true, true, false, true, SkiDayTiming.PurposeGoingHome, false);
             // on the road (no building): departed with Leisure, with GoingHome (a car guest turned home before our pass:
-            // the M1-ECS-2 case), and with no TravelPurpose at all
+            // the GoingHome case), and with no TravelPurpose at all
             Dp(check, w, false, false, false, true, SkiDayTiming.PurposeLeisure, true);
             Dp(check, w, false, false, false, true, SkiDayTiming.PurposeGoingHome, true);
             Dp(check, w, false, false, false, false, 0, true);
@@ -742,9 +729,8 @@ namespace ResortBatch
             check(!SkiDayTiming.HasMarker(0, 0, marker), w, $"HasMarker(0, 0, {marker}) is not set");
         }
 
-        // ══ Round M2 (docs/research/round-m2/build-contract.md §7; literal oracles) ══════════════════
 
-        // ── ST27 ArrivedThenRemoved(outcome, gone, atLodge) (D3, R6): 9 rows + 2 chained with Resolve (11) ──
+        // ST27 ArrivedThenRemoved(outcome, gone, atLodge): 9 rows + 2 chained with Resolve (11)
         private static void OnArrivalRows(Func<bool, string, string, bool> check)
         {
             const string w = "skiday-timing ST27";
@@ -772,7 +758,7 @@ namespace ResortBatch
             check(got == expected, w, $"ArrivedThenRemoved({o}, {gone}, {atLodge}) = {got}, expected {expected}");
         }
 
-        // ── ST28 the on-arrival visit end: stay 0 and the scan verdict (pass 64, scans every 256) (6) ──
+        // ST28 the on-arrival visit end: stay 0 and the scan verdict (pass 64, scans every 256) (6)
         private static void OnArrivalEndRows(Func<bool, string, string, bool> check)
         {
             const string w = "skiday-timing ST28";
@@ -786,12 +772,12 @@ namespace ResortBatch
             Sc(check, w, 1088u, 1024u, 1088u, true, 1088u, 256u, ScanVerdict.Missed);   // nor one at this pass
         }
 
-        // ── ST29 MovedOffNow(departed, inBuilding, walkerLive, mark) (D1) (6) ───────────────────────
+        // ST29 MovedOffNow(departed, inBuilding, walkerLive, mark) (6)
         private static void MovedOffRows(Func<bool, string, string, bool> check)
         {
             const string w = "skiday-timing ST29";
             Mv(check, w, false, false, true, false, false);   // not departed
-            Mv(check, w, true, true, true, false, false);     // in a building: no walker read (E7)
+            Mv(check, w, true, true, true, false, false);     // in a building: no walker read
             Mv(check, w, true, false, false, false, false);   // walker lost
             Mv(check, w, true, false, true, true, false);     // waiting at the door (Divert PathFailed)
             Mv(check, w, true, false, true, false, true);
@@ -804,7 +790,7 @@ namespace ResortBatch
             check(got == expected, w, $"MovedOffNow({dep}, {inB}, {live}, {mark}) = {got}, expected {expected}");
         }
 
-        // ── ST30 ShowNear500(distanceM, near500Frame) (D6) (6) ────────────────────────────────────
+        // ST30 ShowNear500(distanceM, near500Frame) (6)
         private static void Near500Rows(Func<bool, string, string, bool> check)
         {
             const string w = "skiday-timing ST30";
@@ -822,7 +808,7 @@ namespace ResortBatch
             check(got == expected, w, $"ShowNear500({d:R}, {frame}) = {got}, expected {expected}");
         }
 
-        // ── ST31 remover constants, ShiftNeed, NeedTaken, IsFastStay (D4) (24) ───────────────────────
+        // ST31 remover constants, ShiftNeed, NeedTaken, IsFastStay (24)
         private static void RemoveConstRows(Func<bool, string, string, bool> check)
         {
             const string w = "skiday-timing ST31";
@@ -843,7 +829,7 @@ namespace ResortBatch
             Sn(check, w, 48, false, 32);
             Sn(check, w, 15, false, 15);    // the marker bits are kept
             Sn(check, w, 63, false, 47);
-            Sn(check, w, 80, false, 96);    // the pull flag 64 is kept (build-contract §3)
+            Sn(check, w, 80, false, 96);    // the pull flag 64 is kept
             Nt(check, w, 16, false, true);
             Nt(check, w, 32, false, true);
             Nt(check, w, 48, false, true);
@@ -877,7 +863,7 @@ namespace ResortBatch
             check(got == expected, w, $"IsFastStay({hours:R}) = {got}, expected {expected}");
         }
 
-        // ── ST32 RemoveWhyOf: 25 rows + 3 sweeps (one check each, violations counted) (28) ──────────
+        // ST32 RemoveWhyOf: 25 rows + 3 sweeps (one check each, violations counted) (28)
         private static void RemoveWhyRows(Func<bool, string, string, bool> check)
         {
             const string w = "skiday-timing ST32";
@@ -964,7 +950,7 @@ namespace ResortBatch
                                       $"trip {hasT}/{t}, buyer {buyer}, need {need}, venue {venue}, counter {counter}, at {at}) = {got}, expected {expected}");
         }
 
-        // ── ST33 NoPurposeAtOf(inBuilding, atOrigin, atOutsideConnection, penalty) (U16) (10) ─────────
+        // ST33 NoPurposeAtOf(inBuilding, atOrigin, atOutsideConnection, penalty) (10)
         private static void NoPurposeRows(Func<bool, string, string, bool> check)
         {
             const string w = "skiday-timing ST33";
@@ -986,7 +972,7 @@ namespace ResortBatch
             check(got == expected, w, $"NoPurposeAtOf({inB}, {atO}, {edge}, {penalty}) = {got}, expected {expected}");
         }
 
-        // ── ST34 follow constants (D5) (8) ────────────────────────────────────────────────────────
+        // ST34 follow constants (8)
         private static void FollowConstRows(Func<bool, string, string, bool> check)
         {
             const string w = "skiday-timing ST34";
@@ -1008,7 +994,7 @@ namespace ResortBatch
                   "FollowFlag bits 1, 2, 4, 8, 16, 32");
         }
 
-        // ── ST35 FollowExitKind(exitWay) (13) ─────────────────────────────────────────────────────
+        // ST35 FollowExitKind(exitWay) (13)
         private static void FollowKindRows(Func<bool, string, string, bool> check)
         {
             const string w = "skiday-timing ST35";
@@ -1026,7 +1012,7 @@ namespace ResortBatch
             check(got == expected, w, $"FollowExitKind({exitWay}) = {got}, expected {expected}");
         }
 
-        // ── ST36 PlacedNow(firstSample, penaltyNow) (U16, one rule) (5) ───────────────────────────
+        // ST36 PlacedNow(firstSample, penaltyNow) (5)
         private static void PlacedRows(Func<bool, string, string, bool> check)
         {
             const string w = "skiday-timing ST36";
@@ -1043,7 +1029,7 @@ namespace ResortBatch
             check(got == expected, w, $"PlacedNow({first}, {penalty}) = {got}, expected {expected}");
         }
 
-        // ── ST37 TryFollow (exit 1,000,000 unless named) (15) ────────────────────────────────────
+        // ST37 TryFollow (exit 1,000,000 unless named) (15)
         private static void TryFollowRows(Func<bool, string, string, bool> check)
         {
             const string w = "skiday-timing ST37";
@@ -1076,7 +1062,7 @@ namespace ResortBatch
                   $"expected ({expectDone}, {expectResult}, {expectPlaced})");
         }
 
-        // ── ST38 StillOutOf(walkerLive, riding, waiting, failed) (5) ──────────────────────────────
+        // ST38 StillOutOf(walkerLive, riding, waiting, failed) (5)
         private static void StillOutRows(Func<bool, string, string, bool> check)
         {
             const string w = "skiday-timing ST38";
@@ -1093,7 +1079,7 @@ namespace ResortBatch
             check(got == expected, w, $"StillOutOf({live}, {riding}, {waiting}, {failed}) = {got}, expected {expected}");
         }
 
-        // ── ST39 WaitHoursOfTimer(timer) (all exact in double) (6) ────────────────────────────────
+        // ST39 WaitHoursOfTimer(timer) (all exact in double) (6)
         private static void WaitHourRows(Func<bool, string, string, bool> check)
         {
             const string w = "skiday-timing ST39";
@@ -1111,7 +1097,7 @@ namespace ResortBatch
             check(got == expected, w, $"WaitHoursOfTimer({timer}) = {got:R}, expected {expected:R}");
         }
 
-        // ── ST40 WalkerKindOf(aboard, residentFlags, divertPathFailed, pathBad) (12) ─────────────────
+        // ST40 WalkerKindOf(aboard, residentFlags, divertPathFailed, pathBad) (12)
         private static void WalkerKindRows(Func<bool, string, string, bool> check)
         {
             const string w = "skiday-timing ST40";
@@ -1135,7 +1121,7 @@ namespace ResortBatch
             check(got == expected, w, $"WalkerKindOf({aboard}, {flags}, {divert}, {pathBad}) = {got}, expected {expected}");
         }
 
-        // ── ST41 WithinXZ(p, center, radius) (7) ──────────────────────────────────────────────────
+        // ST41 WithinXZ(p, center, radius) (7)
         private static void WithinRows(Func<bool, string, string, bool> check)
         {
             const string w = "skiday-timing ST41";
@@ -1156,7 +1142,7 @@ namespace ResortBatch
             check(got == expected, w, $"WithinXZ(({p.x:R}, {p.y:R}), ({c.x:R}, {c.y:R}), {r:R}) = {got}, expected {expected}");
         }
 
-        // ── ST42 FollowSlot / AtOnceSlot (incl. the one-to-one property as one check) (12) ───────────
+        // ST42 FollowSlot / AtOnceSlot (incl. the one-to-one property as one check) (12)
         private static void SlotRows(Func<bool, string, string, bool> check)
         {
             const string w = "skiday-timing ST42";
@@ -1202,7 +1188,7 @@ namespace ResortBatch
             check(got == expected, w, $"AtOnceSlot({kind}, {result}) = {got}, expected {expected}");
         }
 
-        // ── ST43 FailureEvidence(o, departed, place, turnedBack) (R10) (12) ────────────────────────
+        // ST43 FailureEvidence(o, departed, place, turnedBack) (12)
         private static void FailureEvidenceRows(Func<bool, string, string, bool> check)
         {
             const string w = "skiday-timing ST43";
@@ -1226,8 +1212,8 @@ namespace ResortBatch
             check(got == expected, w, $"FailureEvidence({o}, {dep}, {place}, {turned}) = {got}, expected {expected}");
         }
 
-        // ── ST44 LateEvidence(r, departed, place, turnedBack) (R10: FailureEvidence's predicate, place at the late end;
-        //    fixer S1: the two rows the late end actually produces for a deleted / gave-up guest) (12) ──
+        // ST44 LateEvidence(r, departed, place, turnedBack): FailureEvidence's predicate with place at the late end; the two rows the late
+        // end actually produces for a deleted / gave-up guest
         private static void LateEvidenceRows(Func<bool, string, string, bool> check)
         {
             const string w = "skiday-timing ST44";
@@ -1235,8 +1221,8 @@ namespace ResortBatch
             Le(check, w, LateResult.ArrivedLate, false, Place.HomeNeverLeft, false, SpeedEvidence.Exact);   // an arrival is exact anyway
             Le(check, w, LateResult.GaveUp, true, Place.Road, false, SpeedEvidence.Bound);
             Le(check, w, LateResult.Deleted, true, Place.Road, false, SpeedEvidence.Bound);
-            Le(check, w, LateResult.Deleted, true, Place.Deleted, false, SpeedEvidence.None); // S1: what PlaceOf reads at the late end
-            Le(check, w, LateResult.GaveUp, true, Place.OtherBuilding, false, SpeedEvidence.None);   // S1: GaveUp is in a building
+            Le(check, w, LateResult.Deleted, true, Place.Deleted, false, SpeedEvidence.None); // what PlaceOf reads at the late end
+            Le(check, w, LateResult.GaveUp, true, Place.OtherBuilding, false, SpeedEvidence.None);   // GaveUp is in a building
             Le(check, w, LateResult.NotWithin6h, true, Place.Road, false, SpeedEvidence.Bound);
             Le(check, w, LateResult.GaveUp, false, Place.HomeNeverLeft, false, SpeedEvidence.None);
             Le(check, w, LateResult.NotWithin6h, true, Place.HomeCameBack, false, SpeedEvidence.None);
@@ -1251,7 +1237,7 @@ namespace ResortBatch
             check(got == expected, w, $"LateEvidence({r}, {dep}, {place}, {turned}) = {got}, expected {expected}");
         }
 
-        // ── ST45 pull constants (R4 b) (2) ─────────────────────────────────────────────────────────
+        // ST45 pull constants (2)
         private static void PullConstRows(Func<bool, string, string, bool> check)
         {
             const string w = "skiday-timing ST45";
@@ -1265,7 +1251,7 @@ namespace ResortBatch
                   $"Flag2DeadlinePulled {SkiDayTiming.Flag2DeadlinePulled} = 64, distinct from the Flags2 bits 1, 2, 4, 8, 16, 32 (their union {others})");
         }
 
-        // ── ST46 PullDeadline (now 1,000,000; deadlineIsClosing true unless named) (12) ─────────────
+        // ST46 PullDeadline (now 1,000,000; deadlineIsClosing true unless named) (12)
         private static void PullRows(Func<bool, string, string, bool> check)
         {
             const string w = "skiday-timing ST46";

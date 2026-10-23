@@ -1,81 +1,54 @@
-// SkiStationAlignSystem — the station alignment aid: subject, partner, overlay guide lines and the
-// placement log (docs/research/hub-u2-spec.md §5.5; OD-9 (a): READ-ONLY guide + readout + an
-// "aligned" state at 0.5 m / 0.5°; DECISIONS 130 "orientation/guidelines for when a top station is
-// perfectly 180"). Created 2026-10-03 (Round L1, implementer I-2). The math is the pure
-// StationAlign; the readout tooltip is SkiLiftTooltipSystem, which reads this system's state.
+// Station alignment aid: subject, partner, overlay guide lines and the placement log. Read-only guide + readout + an "aligned"
+// state at 0.5 m / 0.5 deg. The math is the pure StationAlign; the readout tooltip is SkiLiftTooltipSystem, which reads this
+// system's state.
 //
-// READ-ONLY BY DESIGN. Snapping is not possible inside the vanilla object tool: its rotation is a
-// private struct in a private NativeReference (Game.Tools/ObjectToolSystem.cs:54-63, :2275) with no
-// public setter, and its only alignment snap is ExistingGeometry onto a net node (from :1025, the
-// line-first mechanism).
-// This system never writes to a tool, a station or a definition; it draws overlay lines and logs.
+// Read-only by design: snapping is not possible inside the vanilla object tool. Its rotation is a private struct in a private
+// NativeReference (ObjectToolSystem.cs:54-63, :2275) with no public setter, and its only alignment snap is ExistingGeometry onto
+// a net node (from :1025, the line-first mechanism). This system never writes to a tool, a station or a definition.
 //
-// SUBJECT (only while Settings ▸ Lifts ▸ LiftBuildAids is on), first match wins:
-//   (i)  the vanilla object tool is the active tool (ToolSystem.activeTool, ToolSystem.cs:84) with a
-//        station prefab (ObjectToolSystem.prefab, ObjectToolSystem.cs:2396) in Create mode
-//        (actualMode, :2323; Mode enum :35-44) — or Move mode, the vanilla relocate (a deviation:
-//        the spec names Create only; relocating is the same question) — subject = the Temp station
-//        entity (the snapped preview) and its Transform [likely: Temp station previews carry
-//        Transform every frame, spec §7.2 item 9; field step 3]. Placing with no preview yet
-//        (cursor off terrain) = no subject; (ii)/(iii) are NOT consulted while placing;
-//   (ii) else LiftCensusSystem.LastMovedStation if it moved within MovedWindowS of wall-clock time
-//        (Move It nudges, connected or not — the reconnect state exists only with a line attached,
-//        LiftReconnectSystem's "foreign edge" rule) — published as SubjectIsMoved (E1 fixer pass 2,
-//        e1-spec §8.10 G1: only this subject's rows reach the mouse under a non-default tool,
-//        StationAlign header READOUT PLACE);
+// Subject (only while Settings > Lifts > LiftBuildAids is on), first match wins:
+//   (i)   the vanilla object tool is the active tool (ToolSystem.activeTool, ToolSystem.cs:84) with a station prefab
+//         (ObjectToolSystem.prefab, :2396) in Create mode (actualMode, :2323; Mode enum :35-44), or Move mode (the vanilla
+//         relocate): subject = the Temp station entity (the snapped preview) and its Transform [likely: Temp station previews
+//         carry Transform every frame]. Placing with no preview yet (cursor off terrain) = no subject; (ii)/(iii) are NOT
+//         consulted while placing;
+//   (ii)  else LiftCensusSystem.LastMovedStation if it moved within MovedWindowS of wall-clock time (Move It nudges, connected or
+//         not; the reconnect state exists only with a line attached, LiftReconnectSystem's "foreign edge" rule), published as
+//         SubjectIsMoved (only this subject's rows reach the mouse under a non-default tool, StationAlign header READOUT PLACE);
 //   (iii) else ToolSystem.selected (ToolSystem.cs:101) when it is a station.
-// PARTNER: if the subject (a real station) is a terminal of a census row with both stations, the
-// opposite station of that row (the field case: an already connected top station nudged with Move
-// It). The same for a Move-mode preview through the station it relocates, Temp.m_Original (fixer
-// round, finding l1-lifts-2: the relocated top station of a complete lift was measured against
-// nothing, or an unrelated free base, because the free-station rule below skips stations on a
-// Complete row — its own base included). Else a station of the OPPOSITE prefab kind, not the subject nor its Temp.m_Original, on no
-// Complete census row, within PartnerRadiusM (planning constant, unverified) and with along > 0 seen
-// from the candidate; smallest bearing error first, then the nearest. The pick is kept unless
-// another candidate is better by SwitchMarginDeg for SwitchFrames consecutive frames (tunable).
-// Partners are measured from LIVE Transforms (the census station list may lag a moving station by
-// up to LiftCensusSystem.CoalesceFrames).
+// Partner: if the subject (a real station) is a terminal of a census row with both stations, the opposite station of that row (an
+// already connected top station nudged with Move It). The same for a Move-mode preview through the station it relocates,
+// Temp.m_Original (otherwise the relocated top station of a complete lift would be measured against nothing, or an unrelated free
+// base, because the free-station rule below skips stations on a Complete row, its own base included). Else a station of the
+// OPPOSITE prefab kind, not the subject nor its Temp.m_Original, on no Complete census row, within PartnerRadiusM (planning
+// constant, unverified) and with along > 0 seen from the candidate; smallest bearing error first, then the nearest. The pick is
+// kept unless another candidate is better by SwitchMarginDeg for SwitchFrames consecutive frames. Partners are measured from LIVE
+// Transforms (the census station list may lag a moving station by up to LiftCensusSystem.CoalesceFrames).
+// The partner must be a station of the subject's lift type (StationDef.LiftTypeIndex through LiftCensusSystem.TryGetStationDef):
+// a row partner of another type (a mixed row) is not used, and a free candidate of another type is never picked. Every stub tip
+// is the station row's own (StationAlign.StubTip(pos, rot, StationDef.StubTipLocalZ): -16 on the detachable / gondola stations)
+// for the subject, partner, candidates and log lines; SkiLiftTooltipSystem's readout reads SubjectTip / PartnerTip from here.
 //
-// DRAW (Rendering, anchored before OverlayRenderSystem — the SkiRunDrawFeedbackSystem anchor; the
-// overlay lists are consumed and cleared by OverlayRenderSystem.OnUpdate later in the same phase,
-// OverlayRenderSystem.cs:781, :790 per Mod.cs:349-356): the partner's axis DASHED from its stub tip
-// to max(along + PartnerAxisExtraM, PartnerAxisMinM); the subject's axis SOLID SubjectAxisM; a
-// perpendicular tick from the subject tip to its foot on the partner's axis. Color: neutral, amber
-// when within NearOffsetM and NearYawDeg (and in front), green when aligned. Lines are Projected
-// (draped on the terrain, OverlayRenderSystem.StyleFlags.Projected = 2, :99-104). Buffer use is the
-// main-thread pattern of SkiGladeToolSystem: GetBuffer(out deps) then deps.Complete() before writing
-// (GetBuffer :603-634; DrawLine :207, DrawDashedLine :218; identical lines in 1.6.2).
+// Draw (Rendering, anchored before OverlayRenderSystem, which consumes and clears the overlay lists later in the same phase,
+// OverlayRenderSystem.cs:781, :790; Mod.cs:349-356): the partner's axis DASHED from its stub tip to max(along + PartnerAxisExtraM,
+// PartnerAxisMinM); the subject's axis SOLID SubjectAxisM; a perpendicular tick from the subject tip to its foot on the partner's
+// axis. Color: neutral, amber when within NearOffsetM and NearYawDeg (and in front), green when aligned. Lines are Projected
+// (draped, OverlayRenderSystem.StyleFlags.Projected = 2, :99-104). Buffer use is the main-thread pattern of SkiGladeToolSystem:
+// GetBuffer(out deps) then deps.Complete() before writing (GetBuffer :603-634; DrawLine :207, DrawDashedLine :218).
 //
-// LOGS (while the aid is on): one line per station Created — `Align: placed SkiTopStationBuilding
-// 119398:67 612 m from base 119459:77 — offset 0.2 m right, yaw 0.1° (aligned)` (capped at
-// PlacementLinesPerFrame per frame + one summary line: a mass placement must not flood); one line
-// per MOVE EPISODE (Round F6, item B3: it was one line per 15-frame pause, 18 lines in 3.7 s for one
-// top station whose height re-settled after placement, findings/log-audit.md A5) — the pure
-// StationMoveEpisodes (StationAlign.cs, header MOVE EPISODES) keeps one episode per station and
-// closes it after StationMoveEpisodes.QuietSeconds of wall clock without a move of that station:
-// `Align: moved and settled — moved 18 time(s) over 3.7 s; now SkiTopStationBuilding 119398:67 612 m
-// from its lift's base …` (the final numbers, measured when the episode closes; a station removed
-// meanwhile reads "(gone)" instead of staying silent). Created tags are visible at Rendering: they
-// live until Cleanup (PrepareCleanUpSystem is the last MainLoop system, SystemOrder.cs:50, after
-// RenderingSystem :68). Frame counts here are UnityEngine.Time.frameCount (advances while paused).
-// The log verdict uses StationAlign.Classify (F6 B2): "aligned", "facing away from it — turn it
-// around", "the <kind> faces away from it", else the tolerances.
+// Logs (while the aid is on): one line per station Created, `Align: placed SkiTopStationBuilding 119398:67 612 m from base
+// 119459:77 - offset 0.2 m right, yaw 0.1 deg (aligned)` (capped at PlacementLinesPerFrame per frame + one summary line); one
+// line per move episode: the pure StationMoveEpisodes (StationAlign.cs) keeps one episode per station and closes it after
+// StationMoveEpisodes.QuietSeconds of wall clock without a move of that station (a station whose height re-settles after
+// placement would otherwise log a line per pause): `Align: moved and settled - moved 18 time(s) over 3.7 s; now ...` (final
+// numbers, measured when the episode closes; a station removed meanwhile reads "(gone)"). Created tags are visible at Rendering:
+// they live until Cleanup (PrepareCleanUpSystem is the last MainLoop system, SystemOrder.cs:50, after RenderingSystem :68). Frame
+// counts are UnityEngine.Time.frameCount (advances while paused). The log verdict uses StationAlign.Classify.
 //
-// REGISTRATION (I-4, Mod.cs): updateSystem.UpdateBefore<SkiStationAlignSystem,
-// Game.Rendering.OverlayRenderSystem>(SystemUpdatePhase.Rendering).
-//
-// CATALOG PHASE B (2026-10-11, docs/research/art/assets-2026-10/code-round-2/round-2-contract.md §6.4, lift group): the
-// partner must be a station of the SUBJECT'S LIFT TYPE (StationDef.LiftTypeIndex through LiftCensusSystem.TryGetStationDef)
-// — a row partner of another type (a mixed row) is not used, and a free candidate of another type is never picked: a
-// detachable top is aligned with a detachable base only. Every stub tip is the station row's own
-// (StationAlign.StubTip(pos, rot, StationDef.StubTipLocalZ): −16 on the detachable / gondola stations), for the subject,
-// the partner, the candidates and the placement / settle log lines; SkiLiftTooltipSystem's readout reads SubjectTip /
-// PartnerTip from here, so it follows. A fixed-grip-only city measures exactly as before (−12, one type).
-//
-// HOUSE RULES: "created" line; one `Align: ARMED` line per load with every constant; Game mode
-// only; m_Armed / m_Disabled / m_ErrorLogged per load; one-shot `!!!` catch that disables the aid
-// until the next load. No per-frame managed allocation: queries are probed with IsEmptyIgnoreFilter,
-// chunk arrays are Allocator.Temp, strings are built only for log lines.
+// Registration (Mod.cs): UpdateBefore<SkiStationAlignSystem, Game.Rendering.OverlayRenderSystem>(SystemUpdatePhase.Rendering).
+// House rules: "created" line; one `Align: ARMED` line per load with every constant; Game mode only; m_Armed / m_Disabled /
+// m_ErrorLogged per load; one-shot `!!!` catch that disables the aid until the next load. No per-frame managed allocation:
+// queries are probed with IsEmptyIgnoreFilter, chunk arrays are Allocator.Temp, strings are built only for log lines.
 
 using System;
 using Colossal.Entities;
@@ -96,16 +69,15 @@ namespace SkiResortMod.Systems
 {
     public sealed partial class SkiStationAlignSystem : GameSystemBase
     {
-        // ── constants (printed in the ARM line) ──────────────────────────────────────────────────
-        internal const float PartnerRadiusM = 3000f;       // planning constant, unverified (spec §5.5)
-        internal const float MovedWindowS = 2f;            // tunable
-        internal const float SwitchMarginDeg = 5f;         // tunable
-        internal const int SwitchFrames = 10;              // tunable
+        internal const float PartnerRadiusM = 3000f;       // planning constant, unverified
+        internal const float MovedWindowS = 2f;
+        internal const float SwitchMarginDeg = 5f;
+        internal const int SwitchFrames = 10;
         internal const float SubjectAxisM = 60f;
         internal const float PartnerAxisExtraM = 60f;
         internal const float PartnerAxisMinM = 200f;
-        internal const float NearOffsetM = 5f;             // amber band (tunable)
-        internal const float NearYawDeg = 5f;              // amber band (tunable)
+        internal const float NearOffsetM = 5f;             // amber band
+        internal const float NearYawDeg = 5f;              // amber band
         internal const float AxisWidthM = 1.0f;
         internal const float TickWidthM = 0.6f;
         internal const float DashM = 6f, GapM = 4f;
@@ -115,7 +87,6 @@ namespace SkiResortMod.Systems
         private static readonly UnityEngine.Color AmberColor = new UnityEngine.Color(1f, 0.72f, 0.1f, 0.85f);
         private static readonly UnityEngine.Color GreenColor = new UnityEngine.Color(0.25f, 1f, 0.35f, 0.9f);
 
-        // ── systems / queries ─────────────────────────────────────────────────────────────────────
         private ToolSystem m_ToolSystem;
         private ObjectToolSystem m_ObjectTool;
         private OverlayRenderSystem m_Overlay;
@@ -124,17 +95,13 @@ namespace SkiResortMod.Systems
         private EntityQuery m_TempStationQuery;
         private EntityQuery m_CreatedStationQuery;
 
-        // ── state read by SkiLiftTooltipSystem (previous frame's values at UITooltip) ─────────────
         internal bool Active { get; private set; }
         internal bool HasPartner { get; private set; }
-        /// <summary>Fixer round (l1-lifts-4): a free station of the other kind exists (in front or not).</summary>
         internal bool OtherKindExists { get; private set; }
-        /// <summary>Fixer round (l1-lifts-4): the subject is a base station (prefab kind).</summary>
         internal bool SubjectIsBase { get; private set; }
         internal bool SubjectIsTemp { get; private set; }
-        /// <summary>E1 fixer pass 2 (e1-spec §8.10 G1): the subject came from rule (ii), a station moved
-        /// within MovedWindowS (a Move It nudge) — not from rule (i) or (iii). The tooltip's
-        /// StationAlign.PlaceOf input.</summary>
+        /// <summary>The subject came from rule (ii), a station moved within MovedWindowS (a Move It nudge), not from rule (i) or (iii).
+        /// The tooltip's StationAlign.PlaceOf input.</summary>
         internal bool SubjectIsMoved { get; private set; }
         internal Entity Subject { get; private set; }
         internal Entity Partner => m_Partner;
@@ -143,18 +110,17 @@ namespace SkiResortMod.Systems
         internal float3 PartnerTip { get; private set; }
         internal StationAlign.Result Last { get; private set; }
 
-        // ── private state ─────────────────────────────────────────────────────────────────────────
         private Entity m_Partner, m_Challenger;
         private int m_ChallengerFrames;
-        private int m_SubjectType = -1;   // Catalog Phase B: the subject's StationDef.LiftTypeIndex (partners share it)
+        private int m_SubjectType = -1;   // the subject's StationDef.LiftTypeIndex (partners share it)
         private long m_SubjectKey = long.MinValue;
         private float2 m_SubjectAxis, m_PartnerAxis;
         private ObjectPrefab m_LastToolPrefab;
         private Entity m_LastToolPrefabEntity;
-        private readonly StationMoveEpisodes m_MoveEpisodes = new StationMoveEpisodes();   // F6 B3
+        private readonly StationMoveEpisodes m_MoveEpisodes = new StationMoveEpisodes();
         private bool m_Armed, m_Disabled, m_ErrorLogged;
 
-        /// <summary>Dev counters (this load). MovesLogged counts move EPISODES (F6 B3).</summary>
+        /// <summary>Dev counters (this load). MovesLogged counts move episodes.</summary>
         public long FramesDrawn, PlacementsLogged, MovesLogged;
 
         protected override void OnCreate()
@@ -248,15 +214,14 @@ namespace SkiResortMod.Systems
                 SubjectIsTemp = isTemp;
                 SubjectIsMoved = isMoved;
                 SubjectIsBase = subjectIsBase;
-                // Catalog Phase B (round-2-contract §6.4): the subject's lift type and its row's stub tip.
+                // The subject's lift type and its row's stub tip
                 m_SubjectType = subjectDef != null ? subjectDef.LiftTypeIndex : -1;
                 float3 tip = StationAlign.StubTip(subjectTransform.m_Position, subjectTransform.m_Rotation, StubZ(subjectDef), StubX(subjectDef));
                 m_SubjectAxis = StationAlign.Axis(subjectTransform.m_Rotation);
                 SubjectTip = tip;
 
-                // Header PARTNER: a real station uses its row's other station; so does a Move-mode
-                // preview, through the station being relocated (Temp.m_Original; fixer round, finding
-                // l1-lifts-2). A Create-mode preview has no original and takes the free-station rule.
+                // A real station uses its row's other station; so does a Move-mode preview, through the station being relocated
+                // (Temp.m_Original). A Create-mode preview has no original and takes the free-station rule.
                 bool found = isTemp
                     ? (original != Entity.Null && TryRowPartner(original)) ||
                       PickCandidate(subject, original, subjectIsBase, tip, m_SubjectAxis)
@@ -298,28 +263,24 @@ namespace SkiResortMod.Systems
             Last = default;
         }
 
-        /// <summary>Catalog Phase B: the row's stub tip z (StationAlign.StubTipLocalZ, the fixed-grip −12, without a row).</summary>
+        /// <summary>The row's stub tip z (StationAlign.StubTipLocalZ; the fixed-grip -12 without a row).</summary>
         private static float StubZ(StationDef def)
         {
             return def != null ? def.StubTipLocalZ : StationAlign.StubTipLocalZ;
         }
 
-        /// <summary>Nitpick B2 (2026-10-13): the row's line axis x (StationDef.StubTipLocalX: +4.00 on the tram base's 6 x 3
-        /// lot since T14 x-sign N, 2026-10-16; was −4.00), 0 without a row.</summary>
+        /// <summary>The row's line axis x (StationDef.StubTipLocalX, +4.00 on the tram base's 6 x 3 lot), 0 without a row.</summary>
         private static float StubX(StationDef def)
         {
             return def != null ? def.StubTipLocalX : 0f;
         }
 
-        /// <summary>Catalog Phase B: a station row of the subject's lift type (both unknown counts as the same).</summary>
+        /// <summary>A station row of the subject's lift type (both unknown counts as the same).</summary>
         private bool SameType(StationDef def)
         {
             return (def != null ? def.LiftTypeIndex : -1) == m_SubjectType;
         }
 
-        // ════════════════════════════════════════════════════════════════════════════════════════
-        // Subject
-        // ════════════════════════════════════════════════════════════════════════════════════════
 
         private bool FindSubject(out Entity subject, out bool isTemp, out bool isMoved, out Entity original,
             out bool isBase, out Transform transform, out long key, out StationDef def)
@@ -330,7 +291,7 @@ namespace SkiResortMod.Systems
             key = 0;
             def = null;
 
-            // (i) placing / relocating a station with the vanilla object tool.
+            // (i) placing / relocating a station with the vanilla object tool
             if (m_ToolSystem.activeTool == m_ObjectTool)
             {
                 Entity toolPrefab = ToolPrefabEntity();
@@ -340,26 +301,26 @@ namespace SkiResortMod.Systems
                 {
                     if (!FindTempStation(toolPrefab, out subject, out original, out transform))
                         return false;   // placing, no preview this frame: no subject at all
-                    m_Census.TryGetStationDef(toolPrefab, out def);   // Catalog Phase B: the preview's row (type, stub z)
+                    m_Census.TryGetStationDef(toolPrefab, out def);   // the preview's row (type, stub z)
                     isTemp = true;
                     key = ((long)toolPrefab.Index << 32) ^ (uint)original.Index ^ 0x5A5A0000L;
                     return true;
                 }
             }
 
-            // (ii) a station that moved within the window (Move It nudges, relocations).
+            // (ii) a station that moved within the window (Move It nudges, relocations)
             Entity moved = m_Census.LastMovedStation;
             if (moved != Entity.Null &&
                 UnityEngine.Time.realtimeSinceStartup - m_Census.LastMovedRealtime <= MovedWindowS &&
                 TryRealStation(moved, out isBase, out transform, out def))
             {
                 subject = moved;
-                isMoved = true;   // E1 fixer pass 2: the tooltip shows this one on the mouse under any tool
+                isMoved = true;   // the tooltip shows this one on the mouse under any tool
                 key = ((long)moved.Index << 32) | (uint)moved.Version;
                 return true;
             }
 
-            // (iii) the selected station.
+            // (iii) the selected station
             Entity selected = m_ToolSystem.selected;
             if (selected != Entity.Null && TryRealStation(selected, out isBase, out transform, out def))
             {
@@ -423,7 +384,7 @@ namespace SkiResortMod.Systems
             return TryRealStation(e, out isBase, out transform, out _);
         }
 
-        /// <summary>Catalog Phase B: TryRealStation with the station's catalog row (lift type, stub tip z).</summary>
+        /// <summary>TryRealStation with the station's catalog row (lift type, stub tip z).</summary>
         private bool TryRealStation(Entity e, out bool isBase, out Transform transform, out StationDef def)
         {
             isBase = false;
@@ -437,25 +398,20 @@ namespace SkiResortMod.Systems
                    EntityManager.TryGetComponent<Transform>(e, out transform);
         }
 
-        // ════════════════════════════════════════════════════════════════════════════════════════
-        // Partner
-        // ════════════════════════════════════════════════════════════════════════════════════════
 
         private bool PickRowPartnerOrCandidate(Entity subject, bool subjectIsBase, float3 tip, float2 axis)
         {
             return TryRowPartner(subject) || PickCandidate(subject, Entity.Null, subjectIsBase, tip, axis);
         }
 
-        /// <summary>The other station of <paramref name="station"/>'s census row (both stations alive),
-        /// set as the partner. <paramref name="station"/> is a real station: the subject itself, or the
-        /// station a Move-mode preview relocates (its Temp.m_Original — GenerateObjectsSystem.cs:989-992
-        /// copies the definition's original into Temp; the Relocate definition's original is
-        /// ObjectToolSystem.m_MovingObject, set by StartMoving :3020 and passed to CreateDefinitions
-        /// :4353; 1.6.2 :3079, :4421).</summary>
+        /// <summary>The other station of <paramref name="station"/>'s census row (both stations alive), set as the partner.
+        /// <paramref name="station"/> is a real station: the subject itself, or the station a Move-mode preview relocates (its
+        /// Temp.m_Original: GenerateObjectsSystem.cs:989-992 copies the definition's original into Temp; the Relocate definition's
+        /// original is ObjectToolSystem.m_MovingObject, set by StartMoving :3020 and passed to CreateDefinitions :4353).</summary>
         private bool TryRowPartner(Entity station)
         {
-            // Catalog Phase B (round-2-contract §6.4): the row partner must share the subject's lift type (a mixed row's
-            // other station is no partner: the free-station rule picks one of the right type instead).
+            // The row partner must share the subject's lift type (a mixed row's other station is no partner: the free-station rule picks
+            // one of the right type instead).
             if (m_Census.TryGetOppositeStation(station, out Entity other) &&
                 TryRealStation(other, out bool otherIsBase, out Transform t, out StationDef otherDef) && SameType(otherDef))
             {
@@ -468,9 +424,8 @@ namespace SkiResortMod.Systems
             return false;
         }
 
-        /// <summary>Best free station of the opposite kind (see header PARTNER), with hysteresis. Also sets
-        /// OtherKindExists: a free station of the opposite kind exists at all, in front or not, near or
-        /// far (fixer round, finding l1-lifts-4: the tooltip warns only then, or for a top station).</summary>
+        /// <summary>Best free station of the opposite kind (see header, Partner), with hysteresis. Also sets OtherKindExists: a free
+        /// station of the opposite kind exists at all, in front or not, near or far (the tooltip warns only then, or for a top station).</summary>
         private bool PickCandidate(Entity subject, Entity original, bool subjectIsBase, float3 tip, float2 axis)
         {
             Entity best = Entity.Null;
@@ -487,7 +442,7 @@ namespace SkiResortMod.Systems
                 Entity e = m_Census.StationEntityAt(i);
                 if (e == subject || e == original || m_Census.StationAt(i).IsBase == subjectIsBase)
                     continue;
-                // Catalog Phase B (round-2-contract §6.4): only a station of the subject's lift type is a candidate.
+                // Only a station of the subject's lift type is a candidate
                 if (!TryRealStation(e, out bool eIsBase, out Transform t, out StationDef eDef) || eIsBase == subjectIsBase ||
                     !SameType(eDef))
                     continue;
@@ -536,7 +491,6 @@ namespace SkiResortMod.Systems
                 return true;
             }
 
-            // Keep the current pick unless the best is better by the margin for SwitchFrames frames.
             if (bestErr + SwitchMarginDeg <= currentErr)
             {
                 if (best == m_Challenger) m_ChallengerFrames++;
@@ -562,14 +516,11 @@ namespace SkiResortMod.Systems
         {
             m_Partner = partner;
             PartnerIsBase = isBase;
-            // Catalog Phase B: the partner row's own stub tip (was StationAlign.StubTip(pos, rot), the fixed-grip −12).
+            // The partner row's own stub tip
             PartnerTip = StationAlign.StubTip(t.m_Position, t.m_Rotation, StubZ(def), StubX(def));
             m_PartnerAxis = StationAlign.Axis(t.m_Rotation);
         }
 
-        // ════════════════════════════════════════════════════════════════════════════════════════
-        // Draw
-        // ════════════════════════════════════════════════════════════════════════════════════════
 
         private void Draw()
         {
@@ -578,7 +529,7 @@ namespace SkiResortMod.Systems
                 : r.AlongM > 0f && math.abs(r.LateralM) <= NearOffsetM && math.abs(r.YawDeg) <= NearYawDeg ? AmberColor
                 : NeutralColor;
 
-            // Main-thread write: complete the existing writers first (OverlayRenderSystem.cs:603-634).
+            // Main-thread write: complete the existing writers first (OverlayRenderSystem.cs:603-634)
             OverlayRenderSystem.Buffer buffer = m_Overlay.GetBuffer(out JobHandle deps);
             deps.Complete();
             var flags = OverlayRenderSystem.StyleFlags.Projected;
@@ -588,12 +539,12 @@ namespace SkiResortMod.Systems
             float3 fp = new float3(m_PartnerAxis.x, 0f, m_PartnerAxis.y);
             float length = math.max(r.AlongM + PartnerAxisExtraM, PartnerAxisMinM);
             buffer.DrawDashedLine(color, color, 0f, flags, new Line3.Segment(pp, pp + fp * length),
-                AxisWidthM, DashM, GapM);   // :218
+                AxisWidthM, DashM, GapM);
 
             float3 ps = SubjectTip;
             float3 fs = new float3(m_SubjectAxis.x, 0f, m_SubjectAxis.y);
             if (math.lengthsq(fs) > 0.25f)
-                buffer.DrawLine(color, color, 0f, flags, new Line3.Segment(ps, ps + fs * SubjectAxisM), AxisWidthM, round);   // :207
+                buffer.DrawLine(color, color, 0f, flags, new Line3.Segment(ps, ps + fs * SubjectAxisM), AxisWidthM, round);
 
             if (r.AlongM > 0f && math.abs(r.LateralM) > 0.01f)
             {
@@ -603,9 +554,6 @@ namespace SkiResortMod.Systems
             }
         }
 
-        // ════════════════════════════════════════════════════════════════════════════════════════
-        // Logs
-        // ════════════════════════════════════════════════════════════════════════════════════════
 
         private void LogPlacements()
         {
@@ -640,10 +588,9 @@ namespace SkiResortMod.Systems
                 Mod.Log.Info($"Align: … and {suppressed} more station(s) placed this frame (lines capped at {PlacementLinesPerFrame})");
         }
 
-        /// <summary>F6 B3 (header LOGS): feeds the census's last move (recorded at Modification4B of this
-        /// frame; this system runs at Rendering) into the per-station episodes and writes ONE line per
-        /// episode that has gone quiet. Per frame: one compare, and a walk over the open episodes (a
-        /// station or two at most); strings only when a line is written.</summary>
+        /// <summary>Feeds the census's last move (recorded at Modification4B of this frame; this system runs at Rendering) into the
+        /// per-station episodes and writes ONE line per episode that has gone quiet. Per frame: one compare, and a walk over the open
+        /// episodes (a station or two at most); strings only when a line is written.</summary>
         private void LogSettledMove()
         {
             Entity moved = m_Census.LastMovedStation;
@@ -663,15 +610,15 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>"SkiTopStationBuilding 119398:67 612 m from base 119459:77 — offset 0.2 m right, yaw
-        /// 0.1° (aligned)", measured with the same partner rule as the guide (log only: allocates).</summary>
+        /// <summary>"SkiTopStationBuilding 119398:67 612 m from base 119459:77 - offset 0.2 m right, yaw 0.1 deg (aligned)", measured
+        /// with the same partner rule as the guide (log only: allocates).</summary>
         private string DescribeAlignment(Entity station)
         {
             if (!TryRealStation(station, out bool isBase, out Transform t, out StationDef stationDef))
                 return $"station {station.Index}:{station.Version} (gone)";
             string name = EntityManager.TryGetComponent<PrefabRef>(station, out var prefab)
                 ? m_PrefabSystem.GetPrefabName(prefab.m_Prefab) : "station";
-            // Catalog Phase B (round-2-contract §6.4): the station row's stub tip; partners of the same lift type only.
+            // The station row's stub tip; partners of the same lift type only
             float3 tip = StationAlign.StubTip(t.m_Position, t.m_Rotation, StubZ(stationDef), StubX(stationDef));
             float2 axis = StationAlign.Axis(t.m_Rotation);
             int type = stationDef != null ? stationDef.LiftTypeIndex : -1;
@@ -719,7 +666,7 @@ namespace SkiResortMod.Systems
             var m = StationAlign.Measure(StationAlign.StubTip(pt.m_Position, pt.m_Rotation, StubZ(partnerDef), StubX(partnerDef)),
                 StationAlign.Axis(pt.m_Rotation), tip, axis);
             string side = math.abs(m.LateralM) < 0.05f ? string.Empty : m.LateralM > 0f ? " left" : " right";
-            // F6 B2: the same classes as the readout (StationAlign header READOUT CLASS).
+            // The same classes as the readout (StationAlign header READOUT CLASS)
             StationAlign.Readout cls = StationAlign.Classify(m);
             string verdict = cls == StationAlign.Readout.Straight ? "aligned"
                 : cls == StationAlign.Readout.FacingAway ? "not aligned: facing away from it — turn it around"

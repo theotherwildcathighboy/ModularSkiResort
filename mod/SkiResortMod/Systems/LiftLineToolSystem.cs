@@ -1,68 +1,61 @@
-// LiftLineToolSystem — our own lift-line tool (T48 steps 3c + 4; build note docs/research/field/2026-10-20/t48-round2-build.md).
-// The node set of the line IS the planner's plan: click the base station, click the top station, see the planned towers in an
-// overlay preview, drag / add / remove towers (the planner re-plans around the user's pins), then Build: the line is emitted as one
-// CreationDefinition + NetCourse per planned span and goes through the game's own apply path (validation, cost, ApplyNetSystem).
-// The vanilla net tool stays the fallback (LiftTowerFitSystem fits whatever it builds, as before).
+// Our own lift-line tool. The node set of the line is the planner's plan: click the base station, click the top station, see the
+// planned towers in an overlay preview, drag / add / remove towers (the planner re-plans around the user's pins), then Build:
+// the line is emitted as one CreationDefinition + NetCourse per planned span and goes through the game's own apply path
+// (validation, cost, ApplyNetSystem). The vanilla net tool stays the fallback (LiftTowerFitSystem fits whatever it builds). The
+// hub's lift-line tiles open THIS tool with their lift type (TryActivate(why, type)); the line prefabs have UIObject m_Group
+// null, so the hub tile is the only way in. Enter on the default plan builds what quick-place built, with fewer, fitted towers.
 //
-// SEAM (re-derived from the vanilla net tool and docs/research/parkmanager-dissection.md C.1-C.5; nothing copied, GPL):
+// Seam (re-derived from the vanilla net tool and docs/research/parkmanager-dissection.md C.1-C.5; nothing copied, GPL):
 //   * a prefab-less ToolBaseSystem (the SkiGladeToolSystem skeleton): base.OnCreate registers the tool and its Apply / Secondary
-//     Apply / Cancel proxies (Game.Tools/ToolBaseSystem.cs:292-316); TrySetPrefab false (ToolSystem.cs:263-277); activation =
+//     Apply / Cancel proxies (ToolBaseSystem.cs:292-316); TrySetPrefab false (ToolSystem.cs:263-277); activation =
 //     ToolSystem.activeTool (ToolSystem.cs:84-98) from LiftLineHotkeySystem; raycast = terrain only (InitializeRaycast).
 //   * per span one entity CreationDefinition{m_Prefab = the line net, SubElevation} + NetCourse + Updated through the
-//     ToolOutputBarrier's ECB, the shape of NetToolSystem.CreateStraightLine (NetToolSystem.cs:3603-3660): StraightCurve, IsFirst on
-//     the first start, IsLast on the last end, IsLeft | IsRight everywhere, m_FixedIndex -1, m_ParentMesh -1, rotation
-//     NetUtils.GetNodeRotation(tangent). The station ends carry CoursePos.m_Entity = the station's stub node (the node vanilla snaps
-//     to; GenerateEdgesSystem.cs:1242-1248 / NodeMapKey m_Original); the inner nodes are plain positions shared bit-for-bit by the
-//     two courses they join (NodeMapKey exact float3, GenerateEdgesSystem.cs:59-70), y = ground + E(member), NO FreeHeight (so
-//     CourseSplitSystem.SampleCourseHeight keeps the y, CourseSplitSystem.cs:1643-1700).
+//     ToolOutputBarrier's ECB, the shape of NetToolSystem.CreateStraightLine (NetToolSystem.cs:3603-3660): StraightCurve, IsFirst
+//     on the first start, IsLast on the last end, IsLeft | IsRight everywhere, m_FixedIndex -1, m_ParentMesh -1, rotation
+//     NetUtils.GetNodeRotation(tangent). The station ends carry CoursePos.m_Entity = the station's stub node (the node vanilla
+//     snaps to; GenerateEdgesSystem.cs:1242-1248 / NodeMapKey m_Original); the inner nodes are plain positions shared bit-for-bit
+//     by the two courses they join (NodeMapKey exact float3, GenerateEdgesSystem.cs:59-70), y = ground + E(member), NO FreeHeight
+//     (so CourseSplitSystem.SampleCourseHeight keeps the y, CourseSplitSystem.cs:1643-1700).
 //   * CourseSplitSystem still cuts any course longer than NetGeometryData.m_EdgeLengthRange.max into equal pieces
 //     (CourseSplitSystem.cs:3487-3493) and ValidationHelpers flags an edge longer than 1.1 x max (ValidationHelpers.cs:1395-1425),
-//     so WHILE THIS TOOL IS OPEN the four line prefabs' m_EdgeLengthRange.max / m_ElevatedLength (set from m_MaxPylonDistance,
-//     NetInitializeSystem.cs:2180-2181) are raised to the planner's MaxSpanM (FG 60 -> 90, DQ 90 -> 245; gondola 250 and tram 1000
-//     already reach it) and restored when it closes — the CursorAimSystem precedent (a prefab-entity data write, logged). The
-//     vanilla net tool keeps its own split (LiftBatch LP-20: a permanent raise cut tonight's DQ 328 m line to one engine node).
-//   * R-6 (2026-10-22, docs/research/lifts/lift-tool-split-fix-2026-10-22.md): CourseSplitSystem.CheckHeightRange ALSO cuts a
-//     course where its height profile changes elevation class (FreeHeight transition nodes, CourseSplitSystem.cs:2884-2942) — the
-//     2026-10-20 "Temp-edge MISMATCH" (16 for 10, 22 for 13). While the tool is open the line prefabs carry PlacementFlags.ShoreLine,
-//     the gate that skips it (SetSplitGate). Crossings with other HV nets still split; the fit matches a line with extra nodes
-//     (LiftToolLines.MatchSplit), and a mismatch logs the split points ("engine split points not in the plan").
+//     so while this tool is open the four line prefabs' m_EdgeLengthRange.max / m_ElevatedLength (set from m_MaxPylonDistance,
+//     NetInitializeSystem.cs:2180-2181) are raised to the planner's MaxSpanM and restored when it closes (the CursorAimSystem
+//     precedent: a prefab-entity data write, logged). The vanilla net tool keeps its own split: a permanent raise cut a long
+//     line to one engine node (LiftBatch LP-20).
+//   * CourseSplitSystem.CheckHeightRange also cuts a course where its height profile changes elevation class (FreeHeight
+//     transition nodes, CourseSplitSystem.cs:2884-2942), which built tool lines with more edges than planned. While the tool is
+//     open the line prefabs carry PlacementFlags.ShoreLine, the gate that skips it (SetSplitGate). Crossings with other HV nets
+//     still split; the fit matches a line with extra nodes (LiftToolLines.MatchSplit), and a mismatch logs the split points
+//     ("engine split points not in the plan").
 //   * CalculateElevation re-derives each node's Elevation from the terrain beside it (CourseSplitSystem.cs:3549-3647); the fit
-//     system then writes Elevation = (E, E) exactly (the T48 step 3 ladder rule), recognizing the line as a TOOL LINE through
-//     ToolLines (LiftLineEdit.cs LiftToolLines): heights only, with the tool's members, never moved — a pinned node is never
-//     snapped.
+//     system then writes Elevation = (E, E) exactly, recognizing the line as a tool line through ToolLines (LiftToolLines):
+//     heights only, with the tool's members, never moved, so a pinned node is never snapped.
 //   * Apply: the frame after the emission the Temps exist and are validated (CourseSplit PostTool, GenerateNodes Modification1,
 //     GenerateEdges Modification2, Validation ModificationEnd); then applyMode = Apply for one frame when GetAllowApply holds (no
 //     Error, ToolBaseSystem.cs:533-540) and the definitions are destroyed (DestroyDefinitions, :506-518). Errors: Clear, back to
 //     editing, WARN with the count. Cost is the vanilla Temp pricing (Game.Net/CostSystem, parkmanager-dissection C.6).
 //
-// THE ONE LIFT TOOL (T125, DECISIONS 350; build note docs/research/field/2026-10-20/playthrough/lift-tool-build.md): the hub's
-// lift-line tiles open THIS tool with their lift type (TryActivate(why, type)); the vanilla net tool ("quick-place") is no longer on
-// the player's path (the line prefabs have UIObject m_Group null, so the hub tile was the only way in). Enter on the default plan
-// builds what quick-place built, with fewer, fitted towers.
+// Edit loop (the "generate -> edit -> build" pattern; LiftLineEdit holds the model, the input rules are the pure LiftLineInput,
+// tested in LiftBatch): left click = the first end, then the other end. An end is a station's stub (a station that already has
+// its line is refused: bulldoze the section to rework, then click its loose ends), a loose end of a lift line of the same type (a
+// node with one lift-line edge and no station: what a bulldozed section leaves, so a section is redrawn between its two
+// neighbors), or, once the type is known (hub tile, or the first end), open ground (a fresh end node). Then left click on the
+// line = add a tower (pinned); press on a tower and drag = move it; release it off the line = remove it. Right click = step back
+// one action (cancel a drag, undo the last edit, drop the second end, drop the first end) and close the tool only when nothing is
+// left. Build key (Enter by default) = build; Esc = the frontend's Back, which closes the tool (unverified in game whether Esc
+// also fires the tool's Cancel action: then it steps back). Right click is the tool's Cancel action ONLY; Secondary Apply stays
+// off, because both are the right mouse button by default and with both live one click removed a tower AND dropped the line.
 //
-// EDIT LOOP (the Park Manager / Placemaker "generate -> edit -> build" pattern, re-derived; LiftLineEdit holds the model; the input
-// rules are the pure LiftLineInput, tested in LiftBatch):
-//   left click = the first end, then the other end. An end is a station's stub (a station that already has its line is refused:
-//   bulldoze the section to rework, then click its loose ends), a LOOSE END of a lift line of the same type (a node with one
-//   lift-line edge and no station: what a bulldozed section leaves, so a section is redrawn between its two neighbors), or, once
-//   the type is known (hub tile, or the first end), open ground (a fresh end node: quick-place's line-first drawing). Then left
-//   click on the line = add a tower (pinned); press on a tower and drag = move it; release it off the line = remove it. RIGHT
-//   CLICK = step back one action (cancel a drag, undo the last edit, drop the second end, drop the first end) and close the tool
-//   only when nothing is left (vanilla's "Undo Net Control Point", LiftLineInput). Build key (Enter by default) = build; Esc = the
-//   frontend's Back, which closes the tool (UNVERIFIED in game whether Esc also fires the tool's Cancel action: then it steps back).
-//   Before T125 right click was BOTH the tool's Cancel (drop the whole line) and Secondary Apply (remove a tower): the field test
-//   (2026-10-20 log, 11:41:03 "Edit line dropped (Esc)" on a right click) saw the line vanish.
+// Preview (OverlayRenderSystem.Buffer, drawn at ToolUpdate, cleared every frame, OverlayRenderSystem.cs:738-790): the planned
+// rope colored by the lowest carrier's floor margin (LiftPlanDraw: green >= 2 m, amber 0-2, red below the floor, violet above
+// the max rope height); every tower a ground ring colored by its spans (green clear, red a span below the floor = SHORT, violet
+// a span above the max rope height = ROPE TOO HIGH), a blue inner ring when pinned, a cross-bar at rope height sized by the
+// member; the hovered tower white; the dragged tower a white ring at the cursor. Span lengths and the plan line are in the
+// tooltip (LiftLineTooltipSystem) and in the log.
 //
-// PREVIEW (OverlayRenderSystem.Buffer, drawn at ToolUpdate, cleared by OverlayRenderSystem every frame, OverlayRenderSystem.cs:738-790):
-//   the planned rope colored by the lowest carrier's floor margin (LiftPlanDraw: green >= 2 m, amber 0-2, red below the floor,
-//   violet above the max rope height); every tower a ground ring colored by its spans (green clear, red a span below the floor =
-//   SHORT, violet a span above the max rope height = ROPE TOO HIGH), a blue inner ring when pinned, a cross-bar at rope height sized
-//   by the member; the hovered tower white; the dragged tower a white ring at the cursor. Span lengths and the plan line are in the
-//   tooltip (LiftLineTooltipSystem) and in the log.
-//
-// LOGS (silence impossible): ARMED / patch lines per load; one line per activation, station pick, plan (towers, member mix, spans,
-// clearance, pins), edit (what and the result), build (courses emitted), apply (Temps, errors, registered tool line); an exception
-// disables the tool until the next load (one "!!!" ERROR with the stack).
+// Logs (silence impossible): ARMED / patch lines per load; one line per activation, station pick, plan (towers, member mix,
+// spans, clearance, pins), edit, build (courses emitted), apply (Temps, errors, registered tool line); an exception disables
+// the tool until the next load (one "!!!" ERROR with the stack).
 
 using System;
 using System.Collections.Generic;
@@ -121,7 +114,6 @@ namespace SkiResortMod.Systems
 
         public override string toolID => "SkiResort Lift Line Tool";
 
-        /// <summary>Lines built by this tool this session (LiftTowerFitSystem asks Match for every line it fits).</summary>
         internal readonly LiftToolLines ToolLines = new LiftToolLines();
 
         public bool IsActive => m_ToolSystem != null && m_ToolSystem.activeTool == this;
@@ -133,9 +125,7 @@ namespace SkiResortMod.Systems
         internal bool DragOff => Dragging && m_DragOff;
         internal string LastMessage { get; private set; } = string.Empty;
         internal string PendingTypeName => m_Type != null ? m_Type.Id : m_Preset != null ? m_Preset.Id : string.Empty;
-        /// <summary>The lift type the tool was opened for (a hub line tile), null for the hotkey / the hub's generator chip.</summary>
         internal LiftTypeDef PresetType => m_Preset;
-        /// <summary>The player-facing refusal of the last few seconds (the tooltip shows it), else null.</summary>
         internal string Notice => m_Notice != null && m_Frame - m_NoticeFrame < NoticeFrames ? m_Notice : null;
 
         internal LiftLineStep Step
@@ -162,8 +152,8 @@ namespace SkiResortMod.Systems
         private EntityQuery m_LineEdgeQuery;
         private JobHandle m_Deps;
 
-        /// <summary>One end of the line being drawn (LiftLineEndKind). Station / LooseEnd: Node is the existing net node the course
-        /// snaps to (CoursePos.m_Entity); Ground: Pos is the clicked ground point and the course makes a fresh node.</summary>
+        /// <summary>One end of the line being drawn. Station / LooseEnd: Node is the existing net node the course snaps to
+        /// (CoursePos.m_Entity); Ground: Pos is the clicked ground point and the course makes a fresh node.</summary>
         private struct LineEnd
         {
             public LiftLineEndKind Kind;
@@ -199,11 +189,10 @@ namespace SkiResortMod.Systems
         private int m_EmitFrame, m_Frame, m_Seed = 1;
         private List<LiftLineNode> m_Emitted;
 
-        // ── lifecycle ────────────────────────────────────────────────────────────────────────────
 
         protected override void OnCreate()
         {
-            base.OnCreate();   // ToolBaseSystem.cs:292-316: tools.Add(this), proxies, Enabled = false
+            base.OnCreate();   // ToolBaseSystem.cs:292-316: registers the tool and its proxies
             m_Barrier = World.GetOrCreateSystemManaged<ToolOutputBarrier>();
             m_TerrainSystem = World.GetOrCreateSystemManaged<TerrainSystem>();
             m_Overlay = World.GetOrCreateSystemManaged<OverlayRenderSystem>();
@@ -215,7 +204,7 @@ namespace SkiResortMod.Systems
                 All = new[] { ComponentType.ReadOnly<Temp>(), ComponentType.ReadOnly<Edge>(), ComponentType.ReadOnly<PrefabRef>() },
                 None = new[] { ComponentType.ReadOnly<Deleted>() },
             });
-            // Player-built line edges (a station's own stub edge carries Owner): the loose-end search.
+            // Player-built line edges (a station's own stub edge carries Owner): the loose-end search
             m_LineEdgeQuery = GetEntityQuery(new EntityQueryDesc
             {
                 All = new[] { ComponentType.ReadOnly<Game.Net.Edge>(), ComponentType.ReadOnly<PrefabRef>() },
@@ -252,11 +241,10 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>The vanilla (m_MaxPylonDistance) max edge length / elevated length of each line prefab, read at load.</summary>
         private readonly Dictionary<Entity, float2> m_VanillaSpans = new Dictionary<Entity, float2>();
         private bool m_SpansRaised;
 
-        /// <summary>Load: remember each lift line prefab's vanilla max edge length (header SEAM, third bullet).</summary>
+        /// <summary>Load: remember each lift line prefab's vanilla max edge length (see header, Seam).</summary>
         private void PatchSpans()
         {
             // Prefab entities outlive a city: a load while the spans were raised restores them before reading the vanilla values.
@@ -281,11 +269,10 @@ namespace SkiResortMod.Systems
                          "raised to the planner's max span only while the lift-line tool is open (the vanilla net tool keeps its split)");
         }
 
-        /// <summary>Tool open: each line prefab's max edge length = max(vanilla, planner MaxSpanM), so CourseSplitSystem does not
-        /// cut a planned span and ValidationHelpers does not flag it (header SEAM). Tool closed: the vanilla values back. Permanent
-        /// edges are not validated (ValidationHelpers.ValidateEdge runs on Temp entities only), so a built tool line stays valid; a
-        /// LATER vanilla edit that makes a Temp copy of a tool span longer than the vanilla max would see it flagged (risk, build
-        /// note §7).</summary>
+        /// <summary>Tool open: each line prefab's max edge length = max(vanilla, planner MaxSpanM), so CourseSplitSystem does not cut a
+        /// planned span and ValidationHelpers does not flag it. Tool closed: the vanilla values back. Permanent edges are not validated
+        /// (ValidationHelpers.ValidateEdge runs on Temp entities only), so a built tool line stays valid; a later vanilla edit that makes a
+        /// Temp copy of a tool span longer than the vanilla max would see it flagged (risk).</summary>
         private void SetSpansRaised(bool raised)
         {
             if (m_SpansRaised == raised)
@@ -311,19 +298,16 @@ namespace SkiResortMod.Systems
             SetSplitGate(raised);
         }
 
-        /// <summary>Line prefabs whose PlaceableNetData got the ShoreLine bit from us (removed again when the tool closes).</summary>
         private readonly HashSet<Entity> m_GateAdded = new HashSet<Entity>();
 
-        /// <summary>R-6 (docs/research/lifts/lift-tool-split-fix-2026-10-22.md): while the tool is open the four line prefabs carry
-        /// PlacementFlags.ShoreLine, the one prefab-side gate of CourseSplitSystem.CheckHeightRange's elevation segmentation
-        /// (CourseSplitSystem.cs:2884: sampleTerrain && !RequireElevated && !ShoreLine). Without it the engine cuts a tool course
-        /// wherever its height profile changes elevation class (GetElevationType :2655-2662: 2 / 4 m above the ground at the piece's
-        /// sides, m_ElevationLimit 4, NetInitializeSystem.cs:874): a span with an end tower of Elevation >= 4 m follows the chord where
-        /// it is above the ground (:1381-1385, :1437-1438), and ground steeper than m_MaxSlopeSteepness is filled (:1436-1450), so
-        /// the 2026-10-20 tool lines were built with 16 / 22 edges for 10 / 13 planned. Other readers of the bit: CalculateElevation
-        /// (:3574-3592, only over water >= 4 m deep) and ValidationHelpers.CheckSurface (:1604, the underwater check of OnGround
-        /// nets is skipped); NetToolSystem (:6221) only when the vanilla net tool is the active tool, which it is not while ours is.
-        /// Same window and restore discipline as the span raise.</summary>
+        /// <summary>While the tool is open the four line prefabs carry PlacementFlags.ShoreLine, the one prefab-side gate of
+        /// CourseSplitSystem.CheckHeightRange's elevation segmentation (CourseSplitSystem.cs:2884: sampleTerrain && !RequireElevated &&
+        /// !ShoreLine). Without it the engine cuts a tool course wherever its height profile changes elevation class (GetElevationType
+        /// :2655-2662: 2 / 4 m above the ground at the piece's sides, m_ElevationLimit 4, NetInitializeSystem.cs:874): a span with an end
+        /// tower of Elevation >= 4 m follows the chord where it is above the ground (:1381-1385, :1437-1438), and ground steeper than
+        /// m_MaxSlopeSteepness is filled (:1436-1450). Other readers of the bit: CalculateElevation (:3574-3592, only over water >= 4 m
+        /// deep) and ValidationHelpers.CheckSurface (:1604, the underwater check of OnGround nets is skipped); NetToolSystem (:6221) only
+        /// when the vanilla net tool is the active tool. Same window and restore discipline as the span raise.</summary>
         private void SetSplitGate(bool on)
         {
             var sb = new StringBuilder();
@@ -387,12 +371,12 @@ namespace SkiResortMod.Systems
             base.OnStopRunning();
         }
 
-        public override PrefabBase GetPrefab() => null;                 // ToolBaseSystem.cs:426
-        public override bool TrySetPrefab(PrefabBase prefab) => false;   // :428; ToolSystem.cs:263-277
+        public override PrefabBase GetPrefab() => null;
+        public override bool TrySetPrefab(PrefabBase prefab) => false;   // ToolSystem.cs:263-277
 
         public override void InitializeRaycast()
         {
-            base.InitializeRaycast();   // clears flags and masks (ToolBaseSystem.cs:430-443)
+            base.InitializeRaycast();   // ToolBaseSystem.cs:430-443
             m_ToolRaycastSystem.typeMask = TypeMask.Terrain;
         }
 
@@ -417,9 +401,8 @@ namespace SkiResortMod.Systems
             return m_Deps;
         }
 
-        // ── public controls (LiftLineHotkeySystem, main thread) ──────────────────────────────────
 
-        /// <summary>Open the tool. <paramref name="type"/> = the lift type of the hub tile that opened it (picks are limited to it and
+        /// <summary>Opens the tool. <paramref name="type"/> = the lift type of the hub tile that opened it (picks are limited to it and
         /// open ground is allowed from the first click); null = any type, set by the first station or loose end. Already open with
         /// another type: the line in progress is dropped (logged) and the tool restarts for the new type.</summary>
         public bool TryActivate(string why, LiftTypeDef type = null)
@@ -441,7 +424,7 @@ namespace SkiResortMod.Systems
                 return true;
             }
             m_Preset = type;
-            m_ToolSystem.activeTool = this;   // ToolSystem.cs:84-98
+            m_ToolSystem.activeTool = this;
             Mod.Log.Info($"LiftLine [tool]: activated ({why}; type {(type != null ? type.Id : "any")})");
             return true;
         }
@@ -458,7 +441,6 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>The Build key (LiftLineHotkeySystem): builds the line being edited on the next tool frame.</summary>
         public void RequestBuild()
         {
             if (!IsActive)
@@ -471,7 +453,6 @@ namespace SkiResortMod.Systems
             m_BuildRequested = true;
         }
 
-        // ── frame ───────────────────────────────────────────────────────────────────────────────
 
         private void UpdateCore()
         {
@@ -494,8 +475,7 @@ namespace SkiResortMod.Systems
             }
 
             applyMode = ApplyMode.None;
-            // T125: right click is the tool's Cancel action ONLY (step back). Secondary Apply stays off: both are the right mouse
-            // button by default, and with both live one click removed a tower AND dropped the whole line (field test 2026-10-20).
+            // Right click is the tool's Cancel action only (step back); Secondary Apply stays off (see header)
             SetActions(live, false, live);
 
             if (cancelAction.WasPressedThisFrame())
@@ -513,7 +493,6 @@ namespace SkiResortMod.Systems
                 return;
             }
 
-            // Edit.
             if (m_BuildRequested)
             {
                 m_BuildRequested = false;
@@ -531,8 +510,8 @@ namespace SkiResortMod.Systems
             return math.all(math.isfinite(m_Hit));
         }
 
-        /// <summary>One right click (LiftLineInput.RightClick): cancel a drag, undo an edit, drop the second end, drop the first end,
-        /// or close the tool when nothing is left.</summary>
+        /// <summary>One right click (LiftLineInput.RightClick): cancel a drag, undo an edit, drop the second end, drop the first end, or
+        /// close the tool when nothing is left.</summary>
         private void StepBack()
         {
             LiftLineBack back = LiftLineInput.RightClick(Step, Dragging, m_Edit != null ? m_Edit.UndoDepth : 0);
@@ -582,7 +561,6 @@ namespace SkiResortMod.Systems
                 action.shouldBeEnabled = value;
         }
 
-        // ── picking the ends ────────────────────────────────────────────────────────────────────
 
         /// <summary>The lift type a pick must have: the first end's once it is placed, else the hub tile's (null = any).</summary>
         private LiftTypeDef WantType => m_State == ToolState.PickTop ? m_Type : m_Preset;
@@ -644,7 +622,6 @@ namespace SkiResortMod.Systems
                 return;
             }
 
-            // PickTop.
             if (end.Kind != LiftLineEndKind.Ground && end.Node == m_Base.Node)
             {
                 Say("LiftLine [pick]: that is the first end — click the other one", "That is the first end: click the other one");
@@ -665,11 +642,11 @@ namespace SkiResortMod.Systems
                 return;
             }
             m_Top = end;
-            // End ropes. A STATION end: the height the built line's rope lane will have there, read as the fit reads it (R-6
-            // follow-up, LiftLineInput.StationRope: the lowest HV sub-lane anchor of the stub node's sub-objects / its station within
-            // 30 m; the 2026-10-20 DQ base was 5.3 m under the old rule, log :807). A loose end is a tower node at ground + E(member),
-            // whose rope is ground + TopM[member] - RopeBelowTopM = node y + RopeAboveBase(0); a ground end gets the shortest
-            // member's rope on its fresh node: both keep the node formula (LiftTowerFitSystem uses it for any end without a lane).
+            // End ropes. A station end: the height the built line's rope lane will have there, read as the fit reads it
+            // (LiftLineInput.StationRope: the lowest HV sub-lane anchor of the stub node's sub-objects / its station within 30 m). A loose
+            // end is a tower node at ground + E(member), whose rope is ground + TopM[member] - RopeBelowTopM = node y + RopeAboveBase(0); a
+            // ground end gets the shortest member's rope on its fresh node: both keep the node formula (LiftTowerFitSystem uses it for any
+            // end without a lane).
             float ropeA = EndRope(m_Base, a, out string srcA), ropeB = EndRope(end, b, out string srcB);
             m_Edit = new LiftLineEdit(m_C, a, b, ropeA, ropeB);
             m_State = ToolState.Edit;
@@ -715,8 +692,8 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>A census station as a line end: its stub node, refused when the station already has its line (T125 note a: the
-        /// tool drew a new plan over the placed line, which read as "editing" it; the build was then refused).</summary>
+        /// <summary>A census station as a line end: its stub node, refused when the station already has its line (drawing a new plan over
+        /// a placed line read as editing it).</summary>
         private bool StationEnd(int index, out LineEnd end, out LiftTypeDef def)
         {
             end = default;
@@ -770,7 +747,6 @@ namespace SkiResortMod.Systems
             return node != Entity.Null;
         }
 
-        /// <summary>Player-built lift-line edges (no Owner, not Temp / Deleted) at <paramref name="node"/>.</summary>
         private int LineEdgesAt(Entity node)
         {
             if (!EntityManager.TryGetBuffer(node, true, out DynamicBuffer<Game.Net.ConnectedEdge> edges))
@@ -825,7 +801,6 @@ namespace SkiResortMod.Systems
 
         private float3 NodePos(Entity node) => EntityManager.GetComponentData<Game.Net.Node>(node).m_Position;
 
-        /// <summary>The rope height the tool plans with at an end (see UpdatePick); <paramref name="source"/> for the log.</summary>
         private float EndRope(LineEnd e, float3 pos, out string source)
         {
             float fallback = pos.y + m_C.RopeAboveBase(0);
@@ -866,12 +841,10 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>The end's live world position (a node may have been refitted since the pick).</summary>
         private float3 EndPos(LineEnd e) =>
             e.Kind != LiftLineEndKind.Ground && EntityManager.Exists(e.Node) && EntityManager.HasComponent<Game.Net.Node>(e.Node)
                 ? NodePos(e.Node) : e.Pos;
 
-        /// <summary>The course's elevation at an end: a loose end keeps its tower's Elevation; stations and ground ends 0.</summary>
         private float EndElevation(LineEnd e) =>
             e.Kind == LiftLineEndKind.LooseEnd && EntityManager.TryGetComponent<Game.Net.Elevation>(e.Node, out var el) ? math.cmin(el.m_Elevation) : 0f;
 
@@ -885,7 +858,6 @@ namespace SkiResortMod.Systems
             }
         }
 
-        // ── editing ─────────────────────────────────────────────────────────────────────────────
 
         private float PickAlongM => math.max(8f, 1.5f * m_C.StepM);
         private float PickLateralM => math.max(15f, 3f * m_C.HalfWidthM);
@@ -917,7 +889,7 @@ namespace SkiResortMod.Systems
                     m_DragOff = false;
                     if (off)
                     {
-                        // T125: released off the line = remove (was right click on the tower).
+                        // Released off the line = remove
                         bool pinned = m_Edit.IsPinned(from);
                         LiftLineEditResult rr = m_Edit.RemoveTower(from);
                         if (rr == LiftLineEditResult.Done)
@@ -998,7 +970,6 @@ namespace SkiResortMod.Systems
             Say(sb.ToString());
         }
 
-        // ── build ───────────────────────────────────────────────────────────────────────────────
 
         private void EmitCourses()
         {
@@ -1119,9 +1090,8 @@ namespace SkiResortMod.Systems
                 Mod.Log.Info(DescribeSplits());
         }
 
-        /// <summary>R-6: the Temp nodes of this line that the tool did not emit (engine split points), each with its along from the
-        /// first end, its height above the ground and whether every planned node has a Temp node within 0.5 m (what the fit's
-        /// MatchSplit needs).</summary>
+        /// <summary>The Temp nodes of this line that the tool did not emit (engine split points), each with its along from the first end,
+        /// its height above the ground and whether every planned node has a Temp node within 0.5 m (what the fit's MatchSplit needs).</summary>
         private string DescribeSplits()
         {
             var nodes = new List<float3>();
@@ -1179,7 +1149,6 @@ namespace SkiResortMod.Systems
             list.Add(n.m_Position);
         }
 
-        // ── preview ─────────────────────────────────────────────────────────────────────────────
 
         private void DrawPick()
         {
@@ -1198,7 +1167,7 @@ namespace SkiResortMod.Systems
                 UnityEngine.Color c = i == m_HoverStation ? HoverColor : StationColor;
                 buffer.DrawCircle(c, c, 0f, OverlayRenderSystem.StyleFlags.Projected, ring, st.StubTip, i == m_HoverStation ? 10f : 7f);
             }
-            // T125: the loose ends a section can be redrawn from (amber).
+            // The loose ends a section can be redrawn from (amber)
             for (int i = 0; i < m_LooseEnds.Count; i++)
             {
                 LooseEnd le = m_LooseEnds[i];
@@ -1272,7 +1241,6 @@ namespace SkiResortMod.Systems
             }
         }
 
-        // ── helpers ─────────────────────────────────────────────────────────────────────────────
 
         private void Reset(string why)
         {

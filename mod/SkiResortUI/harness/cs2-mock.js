@@ -1,22 +1,21 @@
 /*
- * harness/cs2-mock.js - browser stand-ins for the game's window modules, so build/SkiResortMod.mjs
- * can mount in a plain browser (no game). Written for this repo (MIT), 2026-10-18.
- *
- * The bundle is an ES module with window externals (webpack.config.js): it reads window.React,
- * window["cs2/api"], window["cs2/ui"], window["cs2/l10n"], window["cs2/input"]. This file defines
- * those names BEFORE the bundle is imported (index.html loads it after the React UMD scripts).
- *
- * What is faithful: bindValue / useValue / bindLocalValue / trigger semantics (cs2/api typings in
- * types/api.d.ts), LocalizedString placeholder substitution, LocalizedNumber unit formats as the
- * hub expects them (src/hub/parts.tsx header), Panel / PanelFoldout / Button / FloatingButton /
- * Tooltip props the hub uses. What is NOT: the game's own component styling (vanilla panel chrome,
- * fonts, sounds, focus / gamepad), its full number localization, and anything C# computes. The
- * harness only answers the triggers a C# HubSystem would answer trivially (toggleHub, setHubOpen,
- * selectResort, setPisteMap, glade*, rename); everything else is logged.
- *
- * Harness API (window.SkiHarness): bindings (name -> LocalValueBinding), set(name, value),
- * get(name), log (trigger log array), onLog(fn), dict (locale id -> text; empty = fallbacks).
- */
+* harness/cs2-mock.js - browser stand-ins for the game's window modules, so build/SkiResortMod.mjs can mount in a plain
+* browser (no game).
+*
+* The bundle is an ES module with window externals (webpack.config.js): it reads window.React, window["cs2/api"],
+* window["cs2/ui"], window["cs2/l10n"], window["cs2/input"]. This file defines those names before the bundle is imported
+* (index.html loads it after the React UMD scripts).
+*
+* Faithful: bindValue / useValue / bindLocalValue / trigger semantics (cs2/api typings in types/api.d.ts), LocalizedString
+* placeholder substitution, LocalizedNumber unit formats as the hub expects them (src/hub/parts.tsx header), and the props of
+* Panel / PanelFoldout / Button / FloatingButton / Tooltip the hub uses. Not faithful: the game's own component styling
+* (vanilla panel chrome, fonts, sounds, focus / gamepad), its full number localization, and anything C# computes. The harness
+* only answers the triggers a C# HubSystem would answer trivially (toggleHub, setHubOpen, selectResort, setPisteMap, glade*,
+* rename); everything else is logged.
+*
+* Harness API (window.SkiHarness): bindings (name -> LocalValueBinding), set(name, value), get(name), log (trigger log array),
+* onLog(fn), dict (locale id -> text; empty = fallbacks).
+*/
 (function () {
   "use strict";
   const React = window.React;
@@ -103,8 +102,8 @@
     setHubOpen: (open) => set("hubOpen", !!open),
     selectResort: (sign) => set("selectedResort", sign || { index: 0, version: 0 }),
     setPisteMap: (on) => set("pisteMap", !!on),
-    liftLineToggle: () => { const g = get("liftLine"); if (g) set("liftLine", Object.assign({}, g, { active: !g.active, state: "PickBase" })); },   // contract 12
-    gradeToggle: () => { const g = get("grade"); if (g) set("grade", Object.assign({}, g, { active: !g.active, state: g.active ? "" : "Empty" })); },   // contract 14
+    liftLineToggle: () => { const g = get("liftLine"); if (g) set("liftLine", Object.assign({}, g, { active: !g.active, state: "PickBase" })); },
+    gradeToggle: () => { const g = get("grade"); if (g) set("grade", Object.assign({}, g, { active: !g.active, state: g.active ? "" : "Empty" })); },
     gladeToggle: () => { const g = get("glade"); if (g) set("glade", Object.assign({}, g, { active: !g.active })); },
     gladeSetLevel: (level) => { const g = get("glade"); if (g) set("glade", Object.assign({}, g, { level })); },
     gladeSetTreeLine: (treeLine) => { const g = get("glade"); if (g) set("glade", Object.assign({}, g, { treeLine: !!treeLine })); },
@@ -248,9 +247,9 @@
       onClick: () => { if (props.onSelect) props.onSelect(); },
     }), props.src ? h("img", { src: imgSrc(props.src), alt: "", className: "h-floating-img" }) : props.children);
   }
-  // T80 (2026-10-18): like the game's Tooltip (it attaches its listeners to its ONE child, no wrapper element), the listeners go on the
-  // child itself and the tip renders in a portal on <body>, fixed under the child, wrapping at 420 rem. The old inline
-  // `span.h-tipwrap` shrink-wrapped every row with a tooltip (ragged value columns) and collapsed tipped flex bars.
+  // Like the game's Tooltip (it attaches its listeners to its one child, no wrapper element), the listeners go on the child
+  // itself and the tip renders in a portal on <body>, fixed under the child, wrapping at 420 rem. An inline wrapper span would
+  // shrink-wrap every row with a tooltip (ragged value columns) and collapse tipped flex bars.
   function Tooltip(props) {
     const [at, setAt] = React.useState(null);
     const tip = props.tooltip;
@@ -283,12 +282,12 @@
       open ? h("div", { className: "h-foldout-content" }, props.children) : null);
   }
   const simple = (tag, cls) => (props) => h(tag, Object.assign(rest(props), { className: cx(cls, props.className) }), props.children);
-  // T97 P1 (2026-10-19): Dropdown / DropdownToggle / DropdownItem follow the game's dropdown.tsx (installed 1.6.2f1 index.js@716237,
-  // @717950, @719062): a context with visible / toggle / hide; the children (the toggle) render in place; while open the list renders in a
-  // PORTAL on <body> under the toggle (at least its width, AnchoredPopup minWidth: true, @713812) above a full-screen barrier whose click
-  // closes it (PointerBarrier, @621027). Portals bubble React events along the React tree, exactly as in game, so the hub's mousedown guard
-  // around the Dropdown is exercised here too. An item fires onChange only when it is not selected, then closes the list. Not faithful:
-  // the vanilla chrome (here plain dark boxes), flipping up, focus / gamepad navigation, sounds.
+  // Dropdown / DropdownToggle / DropdownItem follow the game's dropdown.tsx (installed 1.6.2f1 index.js@716237, @717950,
+  // @719062): a context with visible / toggle / hide; the children (the toggle) render in place; while open the list renders in
+  // a portal on <body> under the toggle (at least its width, AnchoredPopup minWidth: true, @713812) above a full-screen barrier
+  // whose click closes it (PointerBarrier, @621027). Portals bubble React events along the React tree, as in game, so the hub's
+  // mousedown guard around the Dropdown is exercised too. An item fires onChange only when it is not selected, then closes the
+  // list. Not faithful: the vanilla chrome, flipping up, focus / gamepad navigation, sounds.
   const DropdownContext = React.createContext({ visible: false, toggle: () => {}, hide: () => {} });
   function Dropdown(props) {
     const [open, setOpen] = React.useState(false);

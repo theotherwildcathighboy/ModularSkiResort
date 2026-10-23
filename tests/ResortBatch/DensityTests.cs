@@ -1,18 +1,14 @@
-// DensityTests — Round M2 test file for tests/ResortBatch: the Options prop density rules (RunPropDensityRules;
-// docs/research/round-m2/understand/density.md §3.1 with density-check.md, build-contract.md §7 B5, ruling R8).
-// Written 2026-10-10 (Round M2, builder B5). The R9 convention: `public static class DensityTests` with
-// `public static void Run(Func<bool, string, string, bool> check)` and its own Near; Program.Main calls
-// DensityTests.Run(Check). Sections D1-D8 = density.md §3.1 A-H (the contract's ids), one check per row:
-// 2 + 5 + 9 + 17 + (22 + 4) + (4 + 6) + (7 + 6) + 24 = 106 checks.
+// Tests for the Options prop density rules (RunPropDensityRules). Convention: `public static class DensityTests` with
+// `public static void Run(Func<bool, string, string, bool> check)` and its own Near; Program.Main calls DensityTests.Run(Check).
+// Sections D1-D9, one check per row.
 //
-// ORACLES are literal hand values (density.md §2.1 formulas evaluated by hand and with node; every row re-derived by
-// the skeptic check), never a second run of the same code:
+// Oracles are literal hand values (formulas evaluated by hand and with node), never a second run of the same code:
 //   D1 constants: PctMin 0, PctMax 100, PctStep 5, PctDefault 100, SettleFrames 30; ClassOther..ClassEmpty = 0..4.
 //   D2 ClampPct; D3 SnowmakingChance (base, g): round(base × g / 100), half up (7 × 50 % = 3.5 → 4).
 //   D4 NightChance (base 100; NM 200 shared = guns 110 + hydrants 40 + empty marker 50, M 150 masts; g, m), the
 //      no-mast and no-shared groups, and the empty group.
 //   D5 MastWeight (base, g, m) for the three masts 100 / 28 / 22 (the 5 % row rounds 1.4 and 1.1 up to the floor 1)
-//      and NonMastWeight (base, g). At (100, 100) every written value equals its base: the default look is today's.
+//      and NonMastWeight (base, g). At (100, 100) every written value equals its base: the default look is unchanged.
 //   D6 NextStable and ApplyDue: the settle rule (one apply per settled change; forced at a load; -1 = nothing applied).
 //   D7 ExpectedTenths (the census expectation) and ClassOf (census classes by name).
 //   D8 a property test against a TEST-ONLY mirror of the engine's draw order for one area corner
@@ -22,9 +18,10 @@
 //      keeps a subset of the corners, same pick and seed); H2 the main stream does not depend on the weights; H3 the
 //      night shares match the formula in both member orders (20,000 corners: sd about 0.35 pp, tolerance ±1.0 pp;
 //      checked beforehand with a JavaScript port of the xorshift32 generator: all 24 pass, the largest gap 0.905 pp on
-//      "masts first" (100, 100) masts, 43.805 % against 42.9); H4 one state step per NextInt whatever the bound, with NextInt(1) in place of the spec's
-//      NextInt(0) (density-check gap 9, build-contract Decided here 17).
-// Not testable headless: the ECS writes, the ChangedDistrict re-stamp, the census (field sheet, density.md §3.2).
+//      "masts first" (100, 100) masts, 43.805 % against 42.9); H4 one state step per NextInt whatever the bound, with
+//      NextInt(1) in place of NextInt(0) (see the mirror's comment).
+//   D9 mast aim (MastAimRules).
+// Not testable headless: the ECS writes, the ChangedDistrict re-stamp, the census.
 
 using System;
 using SkiResortMod.Systems;
@@ -38,15 +35,15 @@ namespace ResortBatch
         public static void Run(Func<bool, string, string, bool> check)
         {
             s_Check = check;
-            SectionD1();   // constants (2)
-            SectionD2();   // ClampPct (5)
-            SectionD3();   // SnowmakingChance (9)
-            SectionD4();   // NightChance (17)
-            SectionD5();   // MastWeight (22) + NonMastWeight (4)
-            SectionD6();   // NextStable (4) + ApplyDue (6)
-            SectionD7();   // ExpectedTenths (7) + ClassOf (6)
-            SectionD8();   // engine mirror (24)
-            SectionD9();   // T22 mast aim (MastAimRules)
+            SectionD1(); // constants
+            SectionD2(); // ClampPct
+            SectionD3(); // SnowmakingChance
+            SectionD4(); // NightChance
+            SectionD5(); // MastWeight + NonMastWeight
+            SectionD6(); // NextStable + ApplyDue
+            SectionD7(); // ExpectedTenths + ClassOf
+            SectionD8(); // engine mirror
+            SectionD9(); // mast aim (MastAimRules)
             s_Check = null;
         }
 
@@ -57,8 +54,8 @@ namespace ResortBatch
             return Math.Abs(a - b) <= eps;
         }
 
-        // ================================================================== D9. T22 mast aim (MastAimRules)
-        // Hand oracles (2026-10-16): a 20 m square, x right / z up. (0,0)->(0,20)->(20,20)->(20,0) is CLOCKWISE
+        // ================================================================== D9. mast aim (MastAimRules)
+        // Hand oracles: a 20 m square, x right / z up. (0,0)->(0,20)->(20,20)->(20,0) is CLOCKWISE
         // (shoelace -800), interior on the RIGHT of travel; the reverse order is counter-clockwise (interior left).
         // At the corner (0,20) the two inward normals are (1,0) and (0,-1): aim (0.7071,-0.7071). At the mid-edge node
         // (10,20) of the top side both edges run +x, inward (0,-1). Fall 1.5 m over the 10 m out-edge = 0.15 m/m,
@@ -324,8 +321,8 @@ namespace ResortBatch
         private const uint MirrorSeed = 20261010u;
         private const int ClassG = 0, ClassH = 1, ClassE = 2, ClassM = 3;   // test-local classes of the members below
 
-        // Members "masts last" = the 8 guns, the 2 hydrants, SkiPropNone, the 3 masts (mirror prefabs, density.md §1.2:
-        // SkiSnowGun* .Prefab:25, SkiHydrantBox* :25, SkiPropNone :25, SkiPisteFloodlight* :24). "Masts first" = reversed.
+        // Members "masts last" = the 8 guns, the 2 hydrants, SkiPropNone, the 3 masts (mirror prefabs: SkiSnowGun* .Prefab:25,
+        // SkiHydrantBox* :25, SkiPropNone :25, SkiPisteFloodlight* :24). "Masts first" = reversed.
         private static readonly int[] GunWeights = { 25, 13, 12, 17, 8, 8, 18, 9 };
         private static readonly int[] HydrantWeights = { 24, 16 };
         private const int EmptyWeight = 50;
@@ -333,10 +330,10 @@ namespace ResortBatch
         // Mirror of SecondaryObjectSystem.CreateSecondaryObject, group branch, one area corner (1.6.0f1 :3075-3286 =
         // 1.6.2). Every member passes CheckRequirements (no requirement component on ours, :3009-3043) and scores 0 (no
         // traffic data): the first is taken (:3251-3259), the rest tie (:3260-3271). The per-owner selected-spawnable
-        // cache (:3246-3250) is left out: a key collision needs the same 32-bit group index (density-check C4).
+        // cache (:3246-3250) is left out: a key collision needs the same 32-bit group index.
         // The engine calls NextInt(num2) with num2 = 0 while the first members all weigh 0 (gun 0 %, masts last); Unity's
         // NextInt(max) is one state step returning (int)((state × max) >> 32), 0 for max 0 and 1 alike, so the mirror
-        // passes 1 there to stay clear of the package's argument check (density-check gap 9; H4 shows one step whatever
+        // passes 1 there to stay clear of the package's argument check (H4 shows one step whatever
         // the bound). Unity.Mathematics is not in the decompile tree: that body is unverified there, H4 checks the step.
         private static int Corner(ref Unity.Mathematics.Random random, int[] w, int chance, out uint seed)
         {
@@ -506,7 +503,7 @@ namespace ResortBatch
                 Check(differ == 0, w, $"H2 the (100,100) pass after a (60,100) pass differs at {differ} corner(s)");
             }
 
-            // H3 shares of 20,000 night corners in both member orders, against the §2.1 targets.
+            // H3 shares of 20,000 night corners in both member orders, against the formula targets.
             {
                 int[] cls = NightClasses();
                 for (int order = 0; order < 2; order++)
@@ -538,7 +535,7 @@ namespace ResortBatch
                 }
             }
 
-            // H4 one state step per NextInt whatever the bound (the mirror's draw count rests on it, density.md C4).
+            // H4 one state step per NextInt whatever the bound (the mirror's draw count rests on it).
             {
                 var a = new Unity.Mathematics.Random(12345u);
                 var b = a;

@@ -1,6 +1,5 @@
-// ChairPinSystem.Mover — the per-frame chair move pass at release scale (R-3 of docs/research/lifts/lift-architecture-review-2026-10-22.md
-// section 3 / 7; report docs/research/lifts/lift-scale-2026-10-22.md; DECISIONS 368-369). Target: under 0.5 ms a frame on the
-// main thread for 20 lifts / ~3,000 chairs, and no cost that grows with the city.
+// The per-frame chair move pass at release scale. Target: under 0.5 ms a frame on the main thread for 20 lifts / ~3,000
+// chairs, and no cost that grows with the city.
 //
 // WHAT RUNS WHEN
 //   * On a loop-cache rebuild (lift edits, load, the 4,096-frame watchdog): BuildLoopCache seeds every loop's pace
@@ -8,17 +7,17 @@
 //     arrays (EnsureMoverArrays: segments, chairs with offset / grip top / loop, a box per loop). A hold resume (Rebase) marks
 //     them dirty too (the offsets moved). O(chairs + segments), never per frame.
 //   * Every moving pass (every rendered frame the render clock advanced; RunMovePass), MAIN THREAD, O(loops) + the tags:
-//       1. last frame's job is complete (OnUpdate's first line, MoverCompleteJob; it ran on workers during last frame) and its
-//          result counts become the "last pass moved / in place / missing" numbers (a missing chair dirties the cache);
-//       2. per loop: a HELD loop keeps Phase D's managed path (its frozen pose is written at the hold's entry or a rebuild only,
-//          a handful of frames per session); a running loop gets its camera distance (box), its stride
-//          (LiftMoverMath.StrideFor) and the pace decision (LiftMoverMath.Decide: write this pass? tag bounds?);
+//       1. last frame's job is complete (OnUpdate's first line, MoverCompleteJob) and its result counts become the "last pass
+//          moved / in place / missing" numbers (a missing chair dirties the cache);
+//       2. per loop: a HELD loop keeps the managed path (its frozen pose is written at the hold's entry or a rebuild only, a
+//          handful of frames per session); a running loop gets its camera distance (box), its stride (LiftMoverMath.StrideFor)
+//          and the pace decision (LiftMoverMath.Decide: write this pass? tag bounds?);
 //       3. the bounds tags of this pass (the loops that reached their refresh travel, plus held loops' entry tags) are added in
-//          ONE batched EntityManager.AddComponent<Updated> — a structural change, so it runs BEFORE the job is scheduled (a
+//          ONE batched EntityManager.AddComponent<Updated>: a structural change, so it runs BEFORE the job is scheduled (a
 //          structural change completes every running job);
 //       4. MoveChairsJob is scheduled (IJobParallelFor, batch 64, Burst) over all rostered chairs; a chair of a loop not
 //          written this pass returns at once. SumResultsJob (IJob, Burst) folds the per-chair results into four ints.
-//   * WORKER THREADS: MoveChairsJob — per chair: alive (EntityStorageInfoLookup.Exists, no Deleted), s = (offset + phase) % L
+//   * WORKER THREADS: MoveChairsJob, per chair: alive (EntityStorageInfoLookup.Exists, no Deleted), s = (offset + phase) % L
 //     (phase = speed × TimeS computed on the main thread, PhaseOf's product: bit for bit the managed s), LiftLoopSampler.Sample
 //     (= LiftLoopCache.SampleSegments) and LiftLoopSampler.Pose (= MoveChair's pose and 1 mm idempotence), then a Transform
 //     write through ComponentLookup<Transform> only when the pose changed.
@@ -33,26 +32,25 @@
 //     Objects.SearchSystem via UpdateCollectSystem, PreCulling, ObjectInterpolateSystem.UpdateStaticAnimations' copy into
 //     InterpolatedTransform). A later main-thread EntityManager read or write of Transform (TramShuttleSystem's cabin pass,
 //     a structural change by a barrier) completes the job first (the main thread then waits for what is left of it).
-//   * Timing: Modification4B, as before. Vanilla's Modification4B systems and ModificationBarrier4B run after this system
-//     (SystemOrder.cs:83,:91 [D160]); our job is done by the time PreCulling / Rendering read the Transforms.
+//   * Timing: Modification4B. Vanilla's Modification4B systems and ModificationBarrier4B run after this system
+//     (SystemOrder.cs:83,:91); our job is done by the time PreCulling / Rendering read the Transforms.
 //   * Our own native arrays are read by the job and written only on the main thread AFTER MoverCompleteJob, never while the
 //     job can run; the dev tab and the dump read the managed loop cache, never these arrays.
 //   * The lookups are refreshed (Update(this)) right before the schedule, after this pass's structural change.
-//   * Held loops, Temp-chair previews, the static flow, BuildLoopCache's roster and OD-7 seeding stay managed (rare events).
+//   * Held loops, Temp-chair previews, the static flow and BuildLoopCache's roster stay managed (rare events).
 //
 // FAR-LOOP PACE (LiftMoverMath header item 2): a loop whose box is ≥ 500 m from the camera is written every k-th pass, k ≤ 8,
 // such that a chair never steps more than 0.5 mrad on screen; its bounds refresh every 2 m × k of its own travel; it is written
 // (and its bounds refreshed when ≥ 2 m stale) on the very pass it comes back near. Positions are a function of the clock, so
 // a throttled loop is written at its EXACT current pose (no catch-up error). Camera = CameraUpdateSystem.position (the active
-// viewer's position, CameraUpdateSystem.cs:164,:268 [D160]), which updates before PreCulling (SystemOrder.cs:631 [D160]): at
+// viewer's position, CameraUpdateSystem.cs:164,:268), which updates before PreCulling (SystemOrder.cs:631): at
 // Modification4B it is the previous frame's (one frame of lag, inside the 500 m margin). No viewer → every loop near (fail open).
 // Distance only, no frustum test: a loop behind the camera but within 500 m runs at full rate (cheap and safe).
 //
-// DEV TAB (ChairPinSystem.Debug.cs "Mover scale (R-3)" foldout): Burst job ⇄ managed path (A/B), pace on / off, stress ×1 /
-// ×4 / ×16 (the move work repeated K times per pass — K − 1 extra writes at an earlier clock, then the real pass; the Updated
-// tags are not multiplied), sync-measure (the job is completed inside the timed span so the [cost] numbers include it), and
-// "log mover cost now". The once-per-load "[cost] chair mover" line reports p50 / p95 / max main-thread ms over the first 600
-// moving passes, chairs, loops near / far, chairs written per pass and bounds Updated tags per second.
+// DEV TAB (ChairPinSystem.Debug.cs "Mover scale" foldout): Burst job ⇄ managed path (A/B), pace on / off, stress ×1 / ×4 /
+// ×16 (the move work repeated K times per pass: K − 1 extra writes at an earlier clock, then the real pass; the Updated tags
+// are not multiplied), sync-measure (the job is completed inside the timed span so the [cost] numbers include it). The
+// once-per-load "[cost] chair mover" line reports p50 / p95 / max main-thread ms over the first 600 moving passes.
 
 using System;
 using System.Collections.Generic;
@@ -71,7 +69,7 @@ namespace SkiResortMod.Systems
 {
     public sealed partial class ChairPinSystem
     {
-        // ── settings (static: the dev tab flips them; per app run, like MovingChairs) ──────────────────────────────────────
+        // Settings (static: the dev tab flips them; per app run, like MovingChairs)
         private static bool s_MoverUseJob = true;
         private static LiftMoverMath.PaceSettings s_Pace = LiftMoverMath.PaceSettings.Default;
         private static int s_StressFactor = 1;
@@ -185,7 +183,6 @@ namespace SkiResortMod.Systems
             }
         }
 
-        // ── state ──────────────────────────────────────────────────────────────────────────────────────────────────────────
         private NativeList<FlatSegment> m_JobSegments;
         private NativeList<JobLoop> m_JobLoops;
         private NativeList<JobChair> m_JobChairs;
@@ -311,7 +308,7 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>Header WHAT RUNS WHEN, rebuild bullet: the flat copy of the loop cache (main thread, job complete).</summary>
+        /// <summary>The flat copy of the loop cache (main thread, job complete).</summary>
         private void EnsureMoverArrays()
         {
             if (!m_MoverArraysDirty)
@@ -392,7 +389,7 @@ namespace SkiResortMod.Systems
                     JobLoop jl = l < m_JobLoops.Length ? m_JobLoops[l] : default;
                     jl.Active = 0;
 
-                    // 2a. Phase D: a HELD loop is written only at a rebuild or the hold's entry, at the frozen pose
+                    // 2a. A HELD loop is written only at a rebuild or the hold's entry, at the frozen pose
                     // (LiftLoopHold.FrozenPhase = PhaseOf's product at FrozenTimeS, bit for bit), managed; its entry tag below.
                     if (m_HeldLoopCount > 0 && l < m_HoldByLoop.Count && m_HoldByLoop[l].Held)
                     {
@@ -412,7 +409,7 @@ namespace SkiResortMod.Systems
                             }
                             hold.PoseDirty = false;
                         }
-                        // Phase D (round-4-contract §3.2 step 6): the hold-entry bounds tag, once, so CullingInfo and the static
+                        // The hold-entry bounds tag, once, so CullingInfo and the static
                         // search tree hold the exact frozen pose (PreCullingSystem.cs:709-718 re-reads Transform on Updated only).
                         if (hold.TagBounds)
                         {
@@ -480,7 +477,7 @@ namespace SkiResortMod.Systems
                     }
                     else
                     {
-                        // The managed path of before (MoveChair, EntityManager per chair) — the dev tab's A/B baseline.
+                        // The managed path (MoveChair, EntityManager per chair): the dev tab's A/B baseline.
                         for (int k = 0; k < stress; k++)
                         {
                             double shift = (k - (stress - 1)) * StressShiftS;   // the last pass: 0.0, the real clock
@@ -590,9 +587,9 @@ namespace SkiResortMod.Systems
             if (moved > 0)
                 m_DiagPassesWithMoves++;
             m_DiagHeldWrites += heldWrites;
-            m_DiagLastExit = null;   // L9: LastExitText() formats it from m_DiagLast* when the dev tab / dump reads it
+            m_DiagLastExit = null;  // LastExitText() formats it from m_DiagLast* when the dev tab / dump reads it
 
-            // Phase D (skeptic S-8): a frozen-pose write proves the pass alive too. Job mode: "moved" is the last completed
+            // A frozen-pose write proves the pass alive too. Job mode: "moved" is the last completed
             // job's count (one pass late), so the line still means chairs really moved.
             if ((moved > 0 || heldWrites > 0) && !m_MovingAliveLogged)
             {

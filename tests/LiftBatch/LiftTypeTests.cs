@@ -1,38 +1,32 @@
-// LiftTypeTests — Catalog Phase B (docs/research/art/assets-2026-10/code-round-2/round-2-contract.md §11.1): the typed
-// lift rows. SKELETON written by the core group (§12.1, §12.2 step 1) so LiftBatch builds and runs before the lift group
-// lands; the BODY is the lift group's (LT-1 to LT-11, 2026-10-11). Where-tags `lifttype-…`.
+// LiftTypeTests - typed lift rows (where-tags `lifttype-...`):
 //   LT-1  two lifts of different types, apart: two Complete rows, Type 0 and 1, Mixed false, no note.
-//   LT-2  FG stations + FG edges + one DQ edge sharing a node. CHANGED by T05 (2026-10-16): the DQ spur is its own
-//         Unfinished row (not Mixed), the FG lift stays Complete, one split note; removing the spur drops that row.
-//   LT-13 (T05) a gondola base->top chain and a tram chain sharing one mid node: two Complete rows, no mix; split note,
-//         one "split at node" announcement per load (again after Reset); a same-type spur still unions.
-//   LT-14 (T05) a DQ line between a gondola base and a DQ top still raises Mixed (23); so does a tram line between
-//         gondola stations.
-//   LT-3  DQ edges between FG base and FG top: Unfinished, Mixed (stations count, D18).
-//   LT-4  vanilla feeder: an edge typed NoType never unions, the row stays Complete, note "has no lift type — ignored".
+//   LT-2  FG stations + FG edges + one DQ edge sharing a node: the DQ spur is its own Unfinished row (not Mixed), the FG
+//         lift stays Complete, one split note; removing the spur drops that row.
+//   LT-13 a gondola base->top chain and a tram chain sharing one mid node: two Complete rows, no mix; split note, one
+//         "split at node" announcement per load (again after Reset); a same-type spur still unions.
+//   LT-14 a DQ line between a gondola base and a DQ top still raises Mixed; so does a tram line between gondola stations.
+//   LT-3  DQ edges between FG base and FG top: Unfinished, Mixed (stations count).
+//   LT-4  vanilla feeder: an edge typed NoType never unions, the row stays Complete, note "has no lift type - ignored".
 //   LT-5  shared FG base used by an FG lift and a DQ line: FG row Complete; DQ component Unfinished + Mixed.
 //   LT-6  Row.Type: StationsOnly rows = station type; Mixed row = its base station's type; no-station row = lowest edge.
 //   LT-7  LiftServedRule per type: AlongLine 150 and TerminalsOnly 300 (top 299 / 301 m; TopY margin both).
-//   LT-8  SummitServed: 299.9 / 300.0 (inclusive) / 300.1 m; unpowered → false; Open (incomplete) → false.
-//   LT-9  StationAlign.StubTip(pos, rot, −16) vs (pos, rot) (= −12) on a rotated transform; nitpick B2: the 4-argument tip
-//         on the row's line axis x (the tram base −4.00).
-//   LT-10 (ride time per speed lives in ResortBatch HubRulesTests section I.)
-//   LT-11 (orchestrator addendum 1, dq-family-review-geometry.md F2) the up-lane rule on a MIRRORED two-chain graph:
-//         chain A = the cable on the RIGHT looking uphill whichever chain is found first, for an uphill +z lift, its
-//         mirror (uphill −z) and a 45° one; SideLookingUphill's signs; a carrier facing its travel with its hanger at
-//         local +x keeps the hanger outboard on both chains (LiftLoopCache itself needs Game types: the rule is the pure
-//         StationAlign.UpLaneIsSecond it calls).
-//   LT-12 (Catalog Phase C, docs/research/art/assets-2026-10/code-round-3/round-3-contract.md §5 / §8.2, rules group; no
-//         code change, C19) the tram through the census and the served rule: tram base + top (type 3) and three tram
-//         edges (type 3, no carriers) → one Complete row, Type 3, Mixed false, Chairs 0; its served Lift built the way
-//         LiftCensusSystem.CopyServeLifts builds it (LiftCensusSystem.cs:347-375, Game side, mirrored here): Rule
-//         TerminalsOnly, 300 / 15 from the row type, TopXZ / TopY = the top station's StubTip(pos, rot, its row's
-//         StubTipLocalZ −12); a run top 299 m from TopXZ served, 300 m served (inclusive), 301 m not; a run 20 m from the
-//         mid-span chord but 500 m from the top not served (an AlongLine lift on the same chords serves it); 299 m away and
-//         15 m above TopY served, 16 m above not; unpowered not served; tram edges between fixed-grip stations → Mixed,
-//         Unfinished, note "mixes lift types (fixedGrip+tram)", served by nothing.
+//   LT-8  SummitServed: 299.9 / 300.0 (inclusive) / 300.1 m; unpowered -> false; Open (incomplete) -> false.
+//   LT-9  StationAlign.StubTip(pos, rot, -16) vs (pos, rot) (= -12) on a rotated transform; the 4-argument tip on the
+//         row's line axis x (the tram base -4.00).
+//   LT-11 the up-lane rule on a mirrored two-chain graph: chain A = the cable on the right looking uphill whichever chain
+//         is found first, for an uphill +z lift, its mirror (uphill -z) and a 45 degree one; SideLookingUphill's signs; a
+//         carrier facing its travel with its hanger at local +x keeps the hanger outboard on both chains (LiftLoopCache
+//         needs Game types: the rule is the pure StationAlign.UpLaneIsSecond it calls).
+//   LT-12 the tram through the census and the served rule: tram base + top (type 3) and three tram edges (type 3, no
+//         carriers) -> one Complete row, Type 3, Mixed false, Chairs 0; its served Lift built the way
+//         LiftCensusSystem.CopyServeLifts builds it (Game side, mirrored here): Rule TerminalsOnly, 300 / 15 from the row
+//         type, TopXZ / TopY = the top station's StubTip(pos, rot, its row's StubTipLocalZ -12); a run top 299 m from TopXZ
+//         served, 300 m served (inclusive), 301 m not; a run 20 m from the mid-span chord but 500 m from the top not served
+//         (an AlongLine lift on the same chords serves it); 299 m away and 15 m above TopY served, 16 m above not; unpowered
+//         not served; tram edges between fixed-grip stations -> Mixed, Unfinished, note "mixes lift types (fixedGrip+tram)",
+//         served by nothing.
 // Helpers: Program.World (internal; set World.BeforeBuild to stamp LiftCensus.Edge.Type / Station.Type onto the census
-// input before Census.Build), Program.StraightLift(), Program.R(index). The R9 convention: `public static class` with
+// input before Census.Build), Program.StraightLift(), Program.R(index). `public static class` with
 // `public static void Run(Func<bool, string, string, bool> check)`; Main passes its Check. Every oracle is a literal.
 
 using System;
@@ -67,7 +61,6 @@ namespace LiftBatch
             s_Check = null;
         }
 
-        // ================================================================== helpers
 
         private static bool Check(bool cond, string where, string msg) => s_Check(cond, where, msg);
 
@@ -82,8 +75,8 @@ namespace LiftBatch
                   ", got " + actual.ToString("R"));
         }
 
-        /// <summary>Stamps lift types onto the census input by entity index (edges and stations; default = fixed-grip 0,
-        /// the struct default, so an unstamped id stays fixed-grip).</summary>
+        /// <summary>Stamps lift types onto the census input by entity index (edges and stations; default = fixed-grip 0, the
+        /// struct default, so an unstamped id stays fixed-grip)</summary>
         private static void Stamp(Program.World w, Dictionary<int, byte> edgeTypes, Dictionary<int, byte> stationTypes)
         {
             w.BeforeBuild = (edges, nodes, stations) =>
@@ -110,7 +103,7 @@ namespace LiftBatch
         }
 
         /// <summary>A second straight lift, StraightLift's shape shifted by x: base station b, top t, tip nodes n and n+5,
-        /// towers n+1..n+4, sections e..e+4.</summary>
+        /// towers n+1..n+4, sections e..e+4</summary>
         private static void AddLift(Program.World w, int b, int t, int n, int e, float x)
         {
             w.Station(b, true, new float3(x, 0f, 0f), 180f);
@@ -142,7 +135,6 @@ namespace LiftBatch
             return d;
         }
 
-        // ================================================================== LT-1 .. LT-6: the typed census
 
         private static void Lt1TwoTypesApart()
         {
@@ -171,9 +163,8 @@ namespace LiftBatch
             w.Edge(106, 202, 210);                           // a DQ spur off FG tower 202
             Stamp(w, Types(106, DQ), null);
             w.Build();
-            // T05 (2026-10-16): this oracle changed. Before, the DQ spur unioned with the FG component through tower node
-            // 202 (one Unfinished Mixed row, "mixes lift types (fixedGrip+detachable)"). Edges of different types no longer
-            // union at a shared node: the node is a split, the FG lift stays Complete and the spur is its own row.
+            // Edges of different types do not union at a shared node: the node is a split, the FG lift stays Complete and the
+            // spur is its own row.
             var rows = w.Census.Rows;
             Eq(2, rows.Count, W, "two rows (T05: the spur is counted apart at the shared tower node)");
             if (rows.Count != 2) return;
@@ -218,7 +209,7 @@ namespace LiftBatch
             Eq(FG, rows[0].Type, W, "type = the base station's (fixed-grip)");
             Check(NoteContains(w, "mixes lift types (fixedGrip+detachable)"), W, "note: " + Notes(w));
 
-            // The same line with DQ stations is a complete detachable lift.
+            // The same line with DQ stations is a complete detachable lift
             var w2 = Program.StraightLift();
             Stamp(w2, Types(101, DQ, 102, DQ, 103, DQ, 104, DQ, 105, DQ), Types(1, DQ, 2, DQ));
             w2.Build();
@@ -281,7 +272,7 @@ namespace LiftBatch
         private static void Lt6RowType()
         {
             const string W = "lifttype-6 Row.Type";
-            // StationsOnly rows carry their station's type.
+            // StationsOnly rows carry their station's type
             var w = new Program.World();
             w.Station(7, true, new float3(0f, 0f, 0f), 0f);
             w.Station(8, false, new float3(500f, 50f, 0f), 0f);
@@ -295,7 +286,7 @@ namespace LiftBatch
                 Eq(rows[i].Base.Index == 7 ? DQ : GD, rows[i].Type, W, "row " + i + " type = its station's");
             }
 
-            // A line with no station: the lowest-index edge's type (and Mixed when its edges differ).
+            // A line with no station: the lowest-index edge's type (and Mixed when its edges differ)
             var w2 = new Program.World();
             w2.Node(201, new float3(0f, 0f, 0f));
             w2.Node(202, new float3(0f, 0f, 100f));
@@ -306,9 +297,8 @@ namespace LiftBatch
             w2.Build();
             Check(w2.Census.Rows.Count == 1 && w2.Census.Rows[0].Type == GD && !w2.Census.Rows[0].Mixed, W,
                   "a gondola line with no station: Type 2, not mixed");
-            // T05 (2026-10-16): CHANGED. Edges of two types sharing node 202 no longer union: two Unfinished rows, one
-            // per type (before: one Mixed row, "mixes lift types (detachable+tram)"). A FRESH world: restamping w2 would
-            // keep the old single key for both fragments (attribution rule b), which is not what a new drawing does.
+            // Edges of two types sharing node 202 do not union: two Unfinished rows, one per type. A fresh world: restamping w2
+            // would keep the old single key for both fragments (attribution rule b), which is not what a new drawing does.
             var w2b = new Program.World();
             w2b.Node(201, new float3(0f, 0f, 0f));
             w2b.Node(202, new float3(0f, 0f, 100f));
@@ -326,7 +316,7 @@ namespace LiftBatch
                       "split rows: each carries its own edge's type (tram 105, detachable 107)");
             Check(!NoteContains(w2b, "mixes lift types"), W, "no mixed note: " + Notes(w2b));
 
-            // A Mixed row with stations: the base station's type (LT-3 checks FG; here a DQ base with FG edges).
+            // A Mixed row with stations: the base station's type (LT-3 checks FG; here a DQ base with FG edges)
             var w3 = Program.StraightLift();
             Stamp(w3, null, Types(1, DQ, 2, DQ));
             w3.Build();
@@ -334,7 +324,6 @@ namespace LiftBatch
                   "FG edges between DQ stations: Mixed, Type = the base's (1)");
         }
 
-        // ================================================================== LT-7, LT-8: the served rule per type
 
         private static List<LiftServedRule.Chord> Chords()
         {
@@ -368,13 +357,13 @@ namespace LiftBatch
         private static void Lt7ServedPerType()
         {
             const string W = "lifttype-7 served per type";
-            // Struct default (every Phase A constructor): AlongLine at the fixed-grip 150 / 15.
+            // Struct default: AlongLine at the fixed-grip 150 / 15
             var def = new LiftServedRule.Lift();
             Eq((byte)ServeRuleKind.AlongLine, def.Rule, W, "default rule");
             Eq(150f, def.EffectiveRadiusM, W, "default radius = FixedGrip.ServeRadiusM");
             Eq(15f, def.EffectiveTopMarginM, W, "default margin = FixedGrip.TopMarginM");
 
-            // AlongLine from the catalog rows (fixed-grip, detachable, gondola: 150 / 15) — the E1 oracles.
+            // AlongLine from the catalog rows (fixed-grip, detachable, gondola: 150 / 15)
             for (int t = 0; t < 3; t++)
             {
                 LiftTypeDef row = SkiCatalog.LiftByIndex(t);
@@ -387,7 +376,7 @@ namespace LiftBatch
                 Reach(l, new float3(100f, 315.01f, 500f), false, 0f, W + " " + row.Id + " above top + 15 m");
             }
 
-            // TerminalsOnly 300 / 15 (the tram row): around the top station's stub tip only.
+            // TerminalsOnly 300 / 15 (the tram row): around the top station's stub tip only
             LiftTypeDef tram = SkiCatalog.LiftByIndex(3);
             Check(tram != null && tram.ServeRule == ServeRuleKind.TerminalsOnly && tram.ServeRadiusM == 300f && tram.TopMarginM == 15f,
                   W, "the tram row is TerminalsOnly 300 / 15");
@@ -405,7 +394,7 @@ namespace LiftBatch
             tn.Power = LiftPower.NoPower;
             Reach(tn, new float3(0f, 250f, 1000f), false, 0f, W + " tram: no power");
 
-            // ServingLift across types: a run near the tram's span but far from its top goes to the fixed-grip lift.
+            // ServingLift across types: a run near the tram's span but far from its top goes to the fixed-grip lift
             var lifts = new List<LiftServedRule.Lift> { tl, Lift(ServeRuleKind.AlongLine, 150f, 15f) };
             var chords = Chords();
             LiftServedRule.Lift fg = lifts[1];
@@ -445,13 +434,12 @@ namespace LiftBatch
             Check(LiftServedRule.SummitServed(top, new List<LiftServedRule.Lift> { l }, radius), W, "power unknown counts as powered");
         }
 
-        // ================================================================== LT-9: per-row stub tip
 
         private static void Lt9StubTip()
         {
             const string W = "lifttype-9 StubTip per row";
             float3 pos = new float3(10f, 5f, 20f);
-            quaternion rot = quaternion.RotateY(math.radians(30f));   // (0, 0, 1) → (sin 30°, 0, cos 30°)
+            quaternion rot = quaternion.RotateY(math.radians(30f));   // (0, 0, 1) -> (sin 30, 0, cos 30)
             float3 dq = StationAlign.StubTip(pos, rot, -16f);
             float3 fg = StationAlign.StubTip(pos, rot);
             Near(10f - 8f, dq.x, 1e-4f, W, "−16: x = 10 − 16 sin 30°");
@@ -466,9 +454,8 @@ namespace LiftBatch
             Check(math.all(nan == fg), W, "a NaN stub z falls back to the fixed-grip −12");
             StationDef dqBase = SkiCatalog.StationOf(1, StationRole.Base);
             Check(dqBase != null && dqBase.StubTipLocalZ == -16f, W, "the detachable base row's stub tip is −16");
-            // Nitpick B2 (2026-10-13, build/nitpick-b2-tram-ramps.md): the 4-argument tip on the row's line axis x. The
-            // 3-argument call is the x 0 case bit for bit; the tram base's tip (−4, 0, −12) under the 30° yaw is
-            // pos + (−4 cos 30° − 12 sin 30°, 0, 4 sin 30° − 12 cos 30°); a NaN x counts as 0.
+            // The 4-argument tip on the row's line axis x. The 3-argument call is the x 0 case bit for bit; the tram base's tip
+            // (-4, 0, -12) under the 30 degree yaw is pos + (-4 cos 30 - 12 sin 30, 0, 4 sin 30 - 12 cos 30); a NaN x counts as 0.
             Check(math.all(StationAlign.StubTip(pos, rot, -16f, 0f) == dq), W, "StubTip(pos, rot, z, 0) == StubTip(pos, rot, z)");
             float3 tb = StationAlign.StubTip(pos, rot, -12f, -4f);
             Near(10f - 3.4641016f - 6f, tb.x, 1e-4f, W, "x −4, z −12: x = 10 − 4 cos 30° − 12 sin 30°");
@@ -477,16 +464,15 @@ namespace LiftBatch
             Near(4f, math.distance(tb, fg), 1e-4f, W, "the tram base's tip lies 4 m off the origin axis, abeam");
             Check(math.all(StationAlign.StubTip(pos, rot, -12f, float.NaN) == fg), W, "a NaN axis x counts as 0");
             StationDef tramBase = SkiCatalog.StationOf(3, StationRole.Base);
-            // T14 x-sign N (2026-10-16): +4.00 in the game frame (the prefab rows were mirrored; was −4.00)
+            // +4.00 in the game frame
             Check(tramBase != null && tramBase.StubTipLocalX == 4f && tramBase.StubTipLocalZ == -12f, W,
                   "the tram base row's line axis is x +4.00 (its 6 x 3 lot, game frame), its stub tip z −12");
         }
 
-        // ================================================================== LT-12: the tram (Catalog Phase C)
 
-        /// <summary>LiftCensusSystem.CopyServeLifts (LiftCensusSystem.cs:347-375; Game side, not linked here) for one row:
-        /// the row type's rule / radius / margin unless Mixed (then AlongLine radius 0: it is Unfinished, so Serves is
-        /// false), TopY / TopXZ = the top station's stub tip (TopYOf / TopXZOf, :463-482), the row's chord slice.</summary>
+        /// <summary>LiftCensusSystem.CopyServeLifts (Game side, not linked here) for one row: the row type's rule / radius /
+        /// margin unless Mixed (then AlongLine radius 0: it is Unfinished, so Serves is false), TopY / TopXZ = the top
+        /// station's stub tip, the row's chord slice</summary>
         private static LiftServedRule.Lift ServeLiftOf(LiftCensus.Row row, float3 topStubTip, int firstChord, int chordCount,
                                                        LiftPower power)
         {
@@ -513,12 +499,12 @@ namespace LiftBatch
                 return;
             Check(tram.ServeRule == ServeRuleKind.TerminalsOnly && tram.ServeRadiusM == 300f && tram.TopMarginM == 15f, W,
                   "the tram row is TerminalsOnly 300 / 15");
-            // The World stamps the fixed-grip −12 stub tip; the census system uses each station row's own (SkiCatalog.cs
-            // tram rows −12, LiftCensusSystem.cs:1218): equal, so the World's tips are the tram's.
+            // The World stamps the fixed-grip -12 stub tip; the census system uses each station row's own (SkiCatalog.cs tram
+            // rows -12, LiftCensusSystem.cs:1218): equal, so the World's tips are the tram's
             Eq(-12f, tramBase.StubTipLocalZ, W, "tram base StubTipLocalZ");
             Eq(-12f, tramTop.StubTipLocalZ, W, "tram top StubTipLocalZ");
 
-            // A 1 km tram: base at the origin facing +z (yaw 180), top 400 m up facing the base; two towers; three spans.
+            // A 1 km tram: base at the origin facing +z (yaw 180), top 400 m up facing the base; two towers; three spans
             var w = new Program.World();
             float3 basePos = new float3(0f, 0f, 0f), topPos = new float3(0f, 400f, 1000f);
             w.Station(1, true, basePos, 180f);
@@ -529,7 +515,7 @@ namespace LiftBatch
             w.Node(201, t1);
             w.Node(202, t2);
             w.Node(203, c, station: 2);
-            w.Edge(101, 200, 201, chairs: 0);   // a tram edge carries no carrier sub-objects (the cabins are hosted, R29)
+            w.Edge(101, 200, 201, chairs: 0);   // a tram edge carries no carrier sub-objects (the cabins are hosted)
             w.Edge(102, 201, 202, chairs: 0);
             w.Edge(103, 202, 203, chairs: 0);
             Stamp(w, Types(101, TR, 102, TR, 103, TR), Types(1, TR, 2, TR));
@@ -548,7 +534,7 @@ namespace LiftBatch
             Eq(Program.R(2), row.Top, W, "top = station 2");
             Eq(0, w.Census.Notes.Count, W, "no build note: " + Notes(w));
 
-            // The served Lift, as CopyServeLifts builds it.
+            // The served Lift, as CopyServeLifts builds it
             float3 topTip = StationAlign.StubTip(topPos, quaternion.RotateY(math.radians(0f)), tramTop.StubTipLocalZ);
             Check(math.all(topTip == c), W, "TopXZ source = the World's top tip (0, 400, 988): " + topTip);
             var chords = new List<LiftServedRule.Chord>
@@ -613,7 +599,6 @@ namespace LiftBatch
                   "mixed: not Complete, serves nothing (not even at the top tip)");
         }
 
-        // ================================================================== LT-13 / LT-14: T05 split at a shared node
 
         private static void Lt13SplitAtSharedNode()
         {
@@ -662,8 +647,8 @@ namespace LiftBatch
             w.Build();
             Eq(1, w.Census.NewSplits.Count, W, "announced again after Reset (new load)");
 
-            // Same type at a shared node still unions: a second gondola line snapped on is ONE component (Open/Complex
-            // rules unchanged) - the pre-T05 behavior for same-type edges.
+            // Same type at a shared node still unions: a second gondola line snapped on is one component (Open/Complex rules
+            // unchanged)
             var w2 = Program.StraightLift();
             w2.Node(210, new float3(40f, 20f, 240f));
             w2.Edge(106, 202, 210);                          // a fixed-grip spur (same type 0)
@@ -676,7 +661,7 @@ namespace LiftBatch
         private static void Lt14MixedStationsStillRaise()
         {
             const string W = "lifttype-14 mixed stations still mix";
-            // A DQ line between a gondola base and a DQ top: one component touching two station types -> Mixed (23).
+            // A DQ line between a gondola base and a DQ top: one component touching two station types -> Mixed
             var w = Program.StraightLift();
             Stamp(w, Types(101, DQ, 102, DQ, 103, DQ, 104, DQ, 105, DQ), Types(1, GD, 2, DQ));
             w.Build();
@@ -690,8 +675,8 @@ namespace LiftBatch
             Check(NoteContains(w, "mixes lift types (detachable+gondola)"), W, "note: " + Notes(w));
             Eq(0, w.Census.SplitNotes.Count, W, "no split note");
 
-            // A line of one type touching stations of another type (edge type != station type) is still Mixed, even with
-            // a split node on it: a tram line between gondola stations, plus a fixed-grip spur at one of its towers.
+            // A line of one type touching stations of another type (edge type != station type) is still Mixed, even with a split
+            // node on it: a tram line between gondola stations, plus a fixed-grip spur at one of its towers.
             var w2 = Program.StraightLift();
             w2.Node(210, new float3(40f, 20f, 240f));
             w2.Edge(106, 202, 210);                          // FG spur at tower 202 ...
@@ -705,7 +690,6 @@ namespace LiftBatch
             Eq(2, rows2.Count, W, "the FG spur (type 0) splits off as its own row");
         }
 
-        // ================================================================== LT-11: the up lane (orchestrator addendum 1)
 
         private static void Lt11UpLane()
         {
@@ -718,7 +702,6 @@ namespace LiftBatch
             Eq(0, StationAlign.SideLookingUphill(b, t, new float2(0f, 300f)), W, "on the axis");
             Eq(0, StationAlign.SideLookingUphill(b, b, right), W, "degenerate axis");
 
-            // The mirrored two-chain graph: whichever chain is found first, chain A ends up the right one.
             Check(StationAlign.UpLaneIsSecond(b, t, left, right), W, "first = left, second = right → swap");
             Check(!StationAlign.UpLaneIsSecond(b, t, right, left), W, "first = right → keep");
             // The mirrored lift (uphill −z): the right looking uphill is −x now.
@@ -735,8 +718,8 @@ namespace LiftBatch
                   !StationAlign.UpLaneIsSecond(b, t, new float2(0f, 500f), new float2(0f, 100f)), W, "both on the axis: undecided");
             Check(!StationAlign.UpLaneIsSecond(b, b, left, right), W, "degenerate axis: keep");
 
-            // The reason for the rule: a carrier faces its travel direction with its hanger at local +x. Up on the right
-            // lane facing uphill, down on the left lane facing downhill — the hanger lies outboard of its lane on both.
+            // A carrier faces its travel direction with its hanger at local +x. Up on the right lane facing uphill, down on the
+            // left lane facing downhill: the hanger lies outboard of its lane on both.
             float3 up3 = new float3(0f, 0f, 1f), y = new float3(0f, 1f, 0f);
             float3 hangerUp = math.mul(quaternion.LookRotationSafe(up3, y), new float3(1f, 0f, 0f));
             float3 hangerDown = math.mul(quaternion.LookRotationSafe(-up3, y), new float3(1f, 0f, 0f));

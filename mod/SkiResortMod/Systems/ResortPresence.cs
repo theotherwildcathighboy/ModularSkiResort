@@ -1,26 +1,16 @@
-// ResortPresence — the one cheap "is there a resort of ours in this city" bit (code review 2026-10-19,
-// DECISIONS 314 architecture ruling). Present := any Ski Area Welcome Sign, any run area of ours, or any
-// lift of ours exists. Systems whose cost must be ~0 in a city without a resort read Present FIRST and
-// return before any query, sync or allocation; "costs ~0 when unused" is then checkable with the one log
-// line below instead of by profiling.
+// The one cheap "is there a resort of ours in this city" bit: any Ski Area Welcome Sign, run area or lift.
+// Systems that must cost ~0 in a city without a resort read Present first and return before any query, sync
+// or allocation.
 //
-// WHO WRITES (the two systems that already count these things; nothing new is walked for the bit):
-//   * SkiRunOwnershipSystem — signs (m_Gates.Count) and runs (m_Plan.Count) from its load pass and every
-//     sweep (SweepNow on a drawn run / placed sign keeps this immediate; the 64-frame sweep catches the
-//     rest). Also resets the whole record at its OnGameLoadingComplete and calls MarkUnknown() when it is
-//     disabled by an exception (the bit then FAILS OPEN: Present stays true so no system goes dark).
-//   * LiftCensusSystem — lifts (census rows) after every BuildCensus.
-// WHO READS: SkiSnowInjectionSystem, SkiRunPropSystem, SkiNightLightSystem, SkiRunOwnershipSystem (sweep
-// gating), TramShuttleSystem, SkiResortAttractivenessWatchSystem, SkiSnowGunPlumeSystem, SkiLiftChargeSystem,
-// the daily INFO lines. All main thread, plain static fields (no Entity is kept: nothing to remap at a load).
+// Writers: SkiRunOwnershipSystem (signs and runs; also Reset() at load, and MarkUnknown() when it is disabled
+// by an exception, so Present fails open) and LiftCensusSystem (lifts, after every BuildCensus).
+// Main thread, plain static fields (no Entity is kept, so nothing to remap at load).
 //
-// ORDER: ownership's load handler runs Reset() BEFORE it counts; the census sets its count at its first
-// build (the first update after a load), so Lifts is 0 for the first frames of a load: a reader that must not
-// miss a lifts-only city re-tests every pass (all of them do; none latches "absent").
+// Order: ownership's load handler runs Reset() before it counts, and the census sets its count at its first
+// build after load, so Lifts is 0 for the first frames: readers must re-test every pass, never latch "absent".
 //
-// LOG (silence impossible): `Resort [present] no|yes (signs n, runs n, lifts n)` — the first refresh after a
-// load, and again whenever the bit changes. EverSeen (anything of ours seen since this load) is what the
-// daily INFO lines wait for (D6).
+// Log: one "Resort [present]" line on the first refresh after a load and whenever the bit changes. EverSeen
+// is what the daily INFO lines wait for.
 
 namespace SkiResortMod.Systems
 {
@@ -33,7 +23,7 @@ namespace SkiResortMod.Systems
         /// <summary>True after the ownership sweep failed: callers behave as before this bit existed.</summary>
         public static bool Unknown { get; private set; }
 
-        /// <summary>Anything of ours seen since this load (D6: the daily INFO lines stay silent until true).</summary>
+        /// <summary>Anything of ours seen since this load (the daily INFO lines stay silent until true).</summary>
         public static bool EverSeen { get; private set; }
 
         /// <summary>The bit. Fails open when the writers are unreliable.</summary>

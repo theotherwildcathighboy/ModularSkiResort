@@ -1,25 +1,20 @@
-// CatTrackTests — T54 probe 1 (docs/research/cat-track-run.md §1-§4; docs/research/field/2026-10-15/build/T54-probe1-overlap.md):
-// the pure rules of the fifth run type, RunKind.CatTrack = 4 (SkiRunCatTrackA). `public static class CatTrackTests` with
-// `public static void Run(Func<bool, string, string, bool> check)`, called from Program.Main like the other files.
+// Tests for the pure rules of the cat-track run type, RunKind.CatTrack = 4 (SkiRunCatTrackA). Oracles are literal hand
+// values. The ECS side (the AreaGeometryData write, the hub rows, the tooltip) is not covered here.
 //   CT54-1  RunKind.CatTrack is 4 and appended (0..3 unchanged); RunKindRules: counts toward the resort for kinds 0-3 only,
 //           leaf for the cat track only, snow injection for groomed / snowmaking / night only; an unknown kind counts nothing.
-//   CT54-2  THE LEAF RULE (LiftServedRule.AssignLinked, optional leaf mask): a cat track crossing a served run and an unserved
-//           run is served through the first and does NOT serve the second; a directly served leaf serves nobody; a null mask,
-//           an empty mask and an all-false mask are the old behavior bit for bit; a short mask reads false past its end; a
-//           leaf is served at most (servedVia stays a real neighbor, never itself).
-//   CT54-3  THE UNSUITABLE RULE: SkiRunRatingRules.CatTrackUnsuitable on the ROW band (-2 unrateable, -1 pending: not
-//           unsuitable; 0 flat, 1 green: fine; 2 blue .. 4 double black: unsuitable) and HubRules.CatTrackOpenState (the new
-//           RunOpenState.Unsuitable = 3 beats any open factor; otherwise OpenStateOf as a member).
-//   CT54-4  THE EXCLUSIONS: the attraction path drops the cat track before RunInput (the same RunKindRules predicate the system
-//           uses), so capacity, attraction, Runs / RunsOpen and the green-variety flag equal the area without it; a leaked
-//           kind-4 RunInput WOULD change them (it reads as groomed), which is why the filter exists; HubRules.Status of an area
-//           whose only run is a cat track is NoRuns.
-//   CT54-5  SNOW: the cat track is never injected (RunKindRules.HasSnowInjection) and opens by the day-mean estimate with the
-//           gun margin (RunSnowRules.ThresholdC = freezing + margin, like snowmaking); the groomed threshold is unchanged.
-//   CT54-6  PROPS: RunPropDensityRules.PropClassAllowed — a cat track carries hydrants only; every other kind allows every class.
-//   CT54-7  CATALOG: SkiCatalog has the fifth RunDef (kind 4, prefab SkiRunCatTrackA, item runCatTrack) after the four.
-// Oracles are literal hand values. The ECS side (the AreaGeometryData write, the hub rows, the tooltip) is in the field test.
-// UNTESTED HEADLESS: that GradeBlue (25 %, SkiSlopeClassifier.cs) is where band 2 begins — tests/SlopeBatch owns BandOf.
+//   CT54-2  Leaf rule (LiftServedRule.AssignLinked, optional leaf mask): a cat track crossing a served and an unserved run is
+//           served through the first and does not serve the second; a directly served leaf serves nobody; a null, empty or
+//           all-false mask is the old behavior bit for bit; a short mask reads false past its end.
+//   CT54-3  Unsuitable rule: SkiRunRatingRules.CatTrackUnsuitable on the row band, and HubRules.CatTrackOpenState
+//           (RunOpenState.Unsuitable beats any open factor).
+//   CT54-4  Exclusions: the attraction path drops the cat track before RunInput (the same RunKindRules predicate the system
+//           uses), so capacity, attraction, run counts and the green-variety flag equal the area without it; HubRules.Status of
+//           an area whose only run is a cat track is NoRuns.
+//   CT54-5  Snow: never injected (RunKindRules.HasSnowInjection); opens by the day-mean estimate with the gun margin
+//           (RunSnowRules.ThresholdC = freezing + margin); the groomed threshold is unchanged.
+//   CT54-6  Props: RunPropDensityRules.PropClassAllowed, a cat track carries hydrants only.
+//   CT54-7  Catalog: SkiCatalog has the fifth RunDef (kind 4, prefab SkiRunCatTrackA, item runCatTrack) after the four.
+// Not tested headless: that GradeBlue (25 %, SkiSlopeClassifier.cs) is where band 2 begins; tests/SlopeBatch owns BandOf.
 
 using System;
 using System.Collections.Generic;
@@ -48,8 +43,6 @@ namespace ResortBatch
 
         private static bool Check(bool cond, string where, string msg) => s_Check(cond, where, msg);
 
-        // ── CT54-1 ──────────────────────────────────────────────────────────────────────────────
-
         private static void Kinds()
         {
             const string W = "cattrack/kinds";
@@ -71,10 +64,8 @@ namespace ResortBatch
                   "natural (measured only), the cat track and an unknown kind are not injected");
         }
 
-        // ── CT54-2: the leaf rule ───────────────────────────────────────────────────────────────
-
-        private static readonly float3 Served1 = new float3(100f, 250f, 200f);   // as tests/LiftBatch ServedLinkTests: served by the fixture lift
-        private static readonly float3 Far = new float3(1000f, 200f, 200f);      // not served directly
+        private static readonly float3 Served1 = new float3(100f, 250f, 200f); // as tests/LiftBatch ServedLinkTests: served by the fixture lift
+        private static readonly float3 Far = new float3(1000f, 200f, 200f);
 
         private static void Lift(out List<LiftServedRule.Lift> lifts, out List<LiftServedRule.Chord> chords)
         {
@@ -133,8 +124,8 @@ namespace ResortBatch
         {
             var s = new Scene();
             a = s.Add(Served1, Rect(90f, 100f, 130f, 200f));
-            c = s.Add(Far, Rect(90f, 190f, 700f, 210f));            // overlaps A (z 190-200) and reaches into B
-            b = s.Add(Far, Rect(580f, 100f, 620f, 300f));          // x 580-620: more than 25 m from A, crossed by C
+            c = s.Add(Far, Rect(90f, 190f, 700f, 210f)); // overlaps A (z 190-200) and reaches into B
+            b = s.Add(Far, Rect(580f, 100f, 620f, 300f)); // x 580-620: more than 25 m from A, crossed by C
             return s;
         }
 
@@ -157,8 +148,8 @@ namespace ResortBatch
 
             // A directly served leaf serves no neighbor: C is served directly, A is not, B is linked to C only.
             s = new Scene();
-            int c2 = s.Add(Served1, Rect(90f, 190f, 700f, 210f));          // the cat track, directly served
-            int a2 = s.Add(Far, Rect(90f, 100f, 130f, 200f));              // linked to C, not served itself
+            int c2 = s.Add(Served1, Rect(90f, 190f, 700f, 210f));
+            int a2 = s.Add(Far, Rect(90f, 100f, 130f, 200f)); // linked to C, not served itself
             int b2 = s.Add(Far, Rect(580f, 100f, 620f, 300f));
             s.Solve(new List<bool> { true, false, false });
             Check(s.Served(c2) && s.Root[c2] == c2 && s.Via[c2] == -1, W, "a directly served leaf is its own root");
@@ -170,7 +161,6 @@ namespace ResortBatch
             s.Solve(null);
             Check(s.Served(a2) && s.Served(b2), W, "the same scene without a mask serves both neighbours (the old behaviour)");
 
-            // Null, empty and all-false masks are the old behavior, bit for bit.
             Scene none = Crossing(out _, out _, out _).Solve(null);
             Scene empty = Crossing(out _, out _, out _).Solve(new List<bool>());
             Scene falses = Crossing(out _, out _, out _).Solve(new List<bool> { false, false, false });
@@ -178,7 +168,8 @@ namespace ResortBatch
             Check(SameInts(none.Root, falses.Root) && SameInts(none.Via, falses.Via), W, "an all-false mask differs from no mask");
             Check(SameInts(none.ServedCount, falses.ServedCount) && SameInts(none.ServingLift, falses.ServingLift), W, "the direct counts changed with a mask");
 
-            // A mask shorter than the runs reads false past its end: a one-entry mask marks A only (A served directly, a leaf: C and B stay unserved).
+            // A mask shorter than the runs reads false past its end: a one-entry mask marks A only (A served directly, a leaf: C and B
+            // stay unserved).
             Scene shortMask = Crossing(out a, out c, out b).Solve(new List<bool> { true });
             Check(shortMask.Served(a) && !shortMask.Served(c) && !shortMask.Served(b), W, "a short mask {true} makes A a leaf; C and B are not reached");
             // The leaf rule changes nothing about the lift's direct count (the system takes the cat track off it itself).
@@ -197,8 +188,6 @@ namespace ResortBatch
             }
             return true;
         }
-
-        // ── CT54-3: unsuitable ──────────────────────────────────────────────────────────────────
 
         private static void Unsuitable()
         {
@@ -226,8 +215,6 @@ namespace ResortBatch
             Check(HubRules.CatTrackOpenState(1.0, -1) == RunOpenState.Open, W, "pending band: read by the factor (Open)");
             Check(HubRules.CatTrackOpenState(1.0, -2) == RunOpenState.Open, W, "unrateable band: read by the factor (Open)");
         }
-
-        // ── CT54-4: exclusions ──────────────────────────────────────────────────────────────────
 
         private static Score.AreaInput Area()
         {
@@ -279,7 +266,7 @@ namespace ResortBatch
             Check(!filtered.GreenCounted, W, "a cat track (green) must not make the variety flag true");
             Check(filtered.RunsCapacity > 0.0 && filtered.RunsCapacity == clean.RunsCapacity, W, "capacity must not include the cat track's hectares");
 
-            // WHY the filter matters: a kind-4 RunInput that leaked in is read as groomed and adds value, capacity and a green.
+            // Why the filter matters: a kind-4 RunInput that leaked in is read as groomed and adds value, capacity and a green.
             Score.Result leaked = Score.Compute(Area(), new List<Score.RunInput>(withCat), lifts, new List<Score.RunPart>());
             Check(leaked.Runs == 3 && leaked.RunsCapacity > clean.RunsCapacity && leaked.RunsValue > clean.RunsValue, W,
                   "a leaked cat track would add a run, capacity and value; the filter is what keeps them out");
@@ -289,8 +276,6 @@ namespace ResortBatch
             Check(HubRules.Status(Collect(new List<Score.RunInput> { Input(4, Score.BandGreen, 40000.0) }).Count, 0, 0) == ResortStatus.NoRuns,
                   W, "a lone cat track must leave the area at NoRuns");
         }
-
-        // ── CT54-5: snow ────────────────────────────────────────────────────────────────────────
 
         private static void Snow()
         {
@@ -308,8 +293,6 @@ namespace ResortBatch
             Check(cat >= 1f && RunSnowRules.OpenMultiplier(cat) == 1f, W, "at +2 C the cat track estimate is fully open (share " + cat + ")");
             Check(groomed <= 0f && RunSnowRules.OpenMultiplier(groomed) == 0f, W, "at +2 C a groomed run's estimate is closed (share " + groomed + ")");
         }
-
-        // ── CT54-6: props ───────────────────────────────────────────────────────────────────────
 
         private static void Props()
         {
@@ -329,8 +312,6 @@ namespace ResortBatch
             Check(!RunPropDensityRules.PropClassAllowed(4, RunPropDensityRules.ClassOf("SkiSnowFanGun", false)), W, "a gun is not allowed");
             Check(!RunPropDensityRules.PropClassAllowed(4, RunPropDensityRules.ClassOf("SkiPropNone", false)), W, "the empty marker is not allowed");
         }
-
-        // ── CT54-7: catalog ─────────────────────────────────────────────────────────────────────
 
         private static void Catalog()
         {

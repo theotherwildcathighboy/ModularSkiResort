@@ -1,57 +1,38 @@
 /*
  * src/hub/OverviewView.tsx - the Overview (Attraction tile): the score receipt and the mountain.
- *
- * Written for this repo (MIT). Created 2026-10-04 (Round E1, stream S6; docs/research/econ-round/
- * spec/ch6-hub-ui.md section 6.7, design hub-v3-design.md 3.1, 3.7, 6.5). The difficulty bar and
- * legend moved here from the contract-2 ResortDashboard.tsx (deleted).
- * Contract:
- *   - A sign, in this order: ATTRACTION header with "A of 200"; the 0-200 score bar (fill = the
- *     score, ghost = up to the full-efficiency score, integer flex-grow parts: hubRules.scoreBarParts)
- *     with ticks at 50 and 120 and their labels; the receipt (lodge base, runs and lifts with its
- *     parts and open share, Welcome Sign efficiency, the result, the share of the city's draw); then
- *     the MOUNTAIN section. Not linked: the MOUNTAIN section and the UNLINKED_NOTE (2 XS lines).
- *   - THE RECEIPT MULTIPLIES NOTHING (design 8.5, D10): every number is a ResortLive field of C#'s
- *     model Result; -1 or a missing live row renders "–" (numArg).
- *   - Held first write (second pass, e1-spec H4: no number the game is not using): while
- *     `attractionHeld` the result row shows "…" (with TILE_TIP_HELD in its tooltip), and - S6
- *     interpretation, ch6 section 6.7 names only the tile and the result row - so does the header's
- *     "A of 200" (the same number twice). E1 fixer (e1-spec 8.9 F12): the score bar too - an empty
- *     track and "…" as its tooltip's NOW, so no fill or digit claims the held Result.
- *   - Lodge-base label: "(no lodge)" when lodgesActive == 0 (S6: `== 0`, like hubRules.resultVariant,
- *     so -1 = no result does not claim "no lodge"; ch6 writes "<= 0"), "(half until a run counts)" in
- *     summer (R3: no counted run; Round F7 D6 wording, hub-ux Verification correction 2: S 220.3 /
- *     359.2 / 451.7 rem, fits the label room), else plain.
- *   - No lodge (second pass, e1-spec H3): the result row reads "Attraction (no lodge: 0)" and a
- *     SubLine "With a lodge, the attraction would be {A}." follows, A = the ifFixed of the area's
- *     NoLodge problem row (all lodges switched off: the LodgesAllOff row with PROBLEM_GAIN[LodgesOn]);
- *     no such row with ifFixed >= 0 -> no SubLine.
- *   - Fixed heights only (InfoLine 1.3 em + 10 rem of S, SubLine of XS, bar 0.5 em, ticks 5 rem):
- *     a value change never changes layout (D33).
- *   - Panel file (gate R11): subscribes resorts$, selectedResort$, resortLive$, runs$ (the
- *     unrateable count), problems$ (factor rows, gains), city$.
- *   - Contract 6 (2026-10-11, Catalog Phase B, code round 2, hub group; round-2-contract.md section 8.5): the
- *     lodge-base tooltip adds RECEIPT_TIP_LODGE_BEST (the best lodge's Assets.NAME from
- *     ResortLive.lodgeBest, the others' extras lodgeExtra); the parts line becomes RECEIPT_PARTS_SCHOOL with the school
- *     term while schoolValue > 0 (hubRules.receiptPartsVariant), its tooltip RECEIPT_TIP[School]. Every number is still
- *     the model's Result (D10). ResortLive.luxuryIgnored is no longer read (always 0 since 2026-10-11, when the
- *     one-luxury-lodge cap went; the field stays on the wire so contract 6 does not change).
- *   - T77 (2026-10-18, Richard item 9): the parts line reads as the sum and the multipliers it is, "(runs + lifts [+ school]) × variety
- *     × vertical" (SkiResortScore.cs:468 S), and a second SubLine RECEIPT_ROOT "{K} × the square root of the line above = {TERRAIN}"
- *     closes the equation (HubRules.Terrain = K × sqrt(S); TERRAIN = ResortLive.terrain, the row's own value; nothing computed here).
- *   - T80 (2026-10-18, Richard round 2, PIPELINE section 0 "Hub UI design rule"): layered. "Runs, lifts and school" is the section
- *     total; its terms are labeled sub rows (Runs + the open-share SubLine, Lifts, Ski school, Variety × , Vertical × , Square root ×
- *     scale K); T77's two equation lines moved into the total's tooltip. The School row flags its 0 (hubRules.schoolState: "No ski
- *     school" / "No green run" with the Warning glyph). MOUNTAIN: snow is two rows, Snow depth (cm) and Run coverage (%), "≈" while
- *     estimated. Supersedes the T77 SubLines and the "Snow now" row above.
- *   - T82 UI round (2026-10-19; docs/research/ui/hub-design-review-2026-10-18.md B6, F11): each term row carries its operator in a
- *     fixed cell before the label ("+ Runs", "+ Lifts", "+ Ski school", "× Variety", "× Vertical", "× Scale, after the square root"; the review's "√" is not on
- *     the Gameface font safe list, check-bundle research 2.F.2), so the rows read as
- *     the equation the total's tooltip spells out, not as a sum that does not add; Variety and Vertical show the bare multiplier
- *     (the "×" moved to the operator cell). The header shows the score alone ("44"; supersedes "A of 200" above), the cap 200 in
- *     its tooltip (SCORE_BAR_TIP, also the bar's); the bar has a third tick, park 10. The UI still multiplies nothing (D10).
- *   - T114 (2026-10-20, "never a scrollbar", docs/research/ui/hub-round-t114-2026-10-20.md): "Runs, lifts and school" is a fold
- *     (fit.tsx Fold, closed by default): its seven term rows show on a click; MOUNTAIN under the receipt is a fold too (its header
- *     row shows the vertical). One fold of the view is open at a time, so the view always fits the panel.
+ *   - A sign, in this order: ATTRACTION header with the score alone (the cap 200 is in its tooltip, SCORE_BAR_TIP, also the
+ *     bar's); the 0-200 score bar (fill = the score, ghost = up to the full-efficiency score, integer flex-grow parts:
+ *     hubRules.scoreBarParts) with ticks at 10 (park), 50 and 120 and their labels; the receipt; then the MOUNTAIN section.
+ *     Not linked: the MOUNTAIN section and the UNLINKED_NOTE (2 XS lines).
+ *   - The receipt multiplies nothing: every number is a ResortLive field of C#'s model Result; -1 or a missing live row
+ *     renders "–" (numArg).
+ *   - Receipt layers: "Runs, lifts and school" is the section total and a fold (fit.tsx Fold, closed by default; one fold of
+ *     the view is open at a time, so the view always fits the panel); its seven term rows show on a click (Runs + the open-share
+ *     SubLine, Lifts, Ski school, Variety, Vertical, Square root, scale K). Each term row carries its operator in a fixed cell
+ *     before the label ("+ Runs", "+ Lifts", "+ Ski school", "× Variety", "× Vertical", "× Scale, after the square root"; "√"
+ *     is not on the Gameface font safe list), so the rows read as the equation the total's tooltip spells out. Variety and
+ *     Vertical show the bare multiplier. The School row flags its 0 (hubRules.schoolState: "No ski school" / "No green run"
+ *     with the Warning glyph). The parts line becomes RECEIPT_PARTS_SCHOOL while schoolValue > 0 (hubRules.receiptPartsVariant),
+ *     its tooltip RECEIPT_TIP[School]. The equation "(runs + lifts [+ school]) × variety × vertical" (SkiResortScore.cs:468 S)
+ *     and RECEIPT_ROOT "{K} × the square root of the line above = {TERRAIN}" (HubRules.Terrain = K × sqrt(S); TERRAIN =
+ *     ResortLive.terrain, nothing computed here) are in the total's tooltip. ResortLive.luxuryIgnored is not read (always 0; the
+ *     field stays on the wire so the contract does not change).
+ *   - The lodge-base tooltip adds RECEIPT_TIP_LODGE_BEST (the best lodge's Assets.NAME from ResortLive.lodgeBest, the others'
+ *     extras lodgeExtra).
+ *   - MOUNTAIN: snow is two rows, Snow depth (cm) and Run coverage (%), "≈" while estimated. Under the receipt it is a fold too
+ *     (its header row shows the vertical).
+ *   - Held first write: while `attractionHeld` the game keeps the saved score, so the result row shows "…" (with TILE_TIP_HELD
+ *     in its tooltip) and so does the header's number; the score bar shows an empty track and "…" as its tooltip's NOW, so no
+ *     fill or digit claims the held Result.
+ *   - Lodge-base label: "(no lodge)" when lodgesActive == 0 (`== 0`, like hubRules.resultVariant, so -1 = no result does not
+ *     claim "no lodge"), "(half until a run counts)" in summer (no counted run), else plain.
+ *   - No lodge: the result row reads "Attraction (no lodge: 0)" and a SubLine "With a lodge, the attraction would be {A}."
+ *     follows, A = the ifFixed of the area's NoLodge problem row (all lodges switched off: the LodgesAllOff row with
+ *     PROBLEM_GAIN[LodgesOn]); no such row with ifFixed >= 0 -> no SubLine.
+ *   - Fixed heights only (InfoLine 1.3 em + 10 rem of S, SubLine of XS, bar 0.5 em, ticks 5 rem): a value change never changes
+ *     layout.
+ *   - Panel file (hub gate): subscribes resorts$, selectedResort$, resortLive$, runs$ (the unrateable count), problems$ (factor
+ *     rows, gains), city$.
  */
 import { useValue } from "cs2/api";
 import { Unit } from "cs2/l10n";
@@ -71,7 +52,6 @@ import styles from "./hub.module.scss";
 
 const DASH = "–";
 
-// ---- difficulty (moved from the contract-2 ResortDashboard) --------------------------------------
 
 const BAND_SEGMENT = ["segFlat", "segGreen", "segBlue", "segBlack", "segDoubleBlack"] as const;
 
@@ -108,9 +88,8 @@ function DifficultyBar({ row, unrateable, tip }: { row: ResortRow; unrateable: n
   );
 }
 
-/** Marker + count per band; a "being rated" item and a "cannot be rated" item only while one exists
- *  (Round F7 D6: at count 0 the dimmed "being rated" ring looked exactly like Flat's, hub-ux §5 item 8).
- *  The legend has no label of its own (deviation U16: the MOUNTAIN header names the block). */
+/** Marker + count per band; a "being rated" item and a "cannot be rated" item only while one exists (at count 0 the dimmed
+ *  "being rated" ring looks exactly like Flat's). The legend has no label of its own: the MOUNTAIN header names the block. */
 function DifficultyLegend({ row, unrateable, t }: { row: ResortRow; unrateable: number; t: Translate }): JSX.Element {
   const counts = bandCounts(row);
   const pending = pendingCount(row, unrateable);
@@ -133,10 +112,10 @@ function DifficultyLegend({ row, unrateable, t }: { row: ResortRow; unrateable: 
   );
 }
 
-/** MOUNTAIN: difficulty bar + legend, vertical, skiable area, snow now (sign and Not linked). */
+/** MOUNTAIN: difficulty bar + legend, vertical, skiable area, snow (sign and Not linked). */
 function MountainSection({ row, live, city, unrateable, t, folded }: {
   row: ResortRow; live: ResortLive | null; city: CityStats; unrateable: number; t: Translate;
-  /** T114: under the receipt the section is a fold (closed by default); Not linked shows it open, it is the whole view there. */
+  /** Under the receipt the section is a fold (closed by default); Not linked shows it open, it is the whole view there. */
   folded?: boolean;
 }): JSX.Element {
   const counts = bandCounts(row);
@@ -151,11 +130,11 @@ function MountainSection({ row, live, city, unrateable, t, folded }: {
       ]}
     />
   );
-  // T80 (Richard item 6, PIPELINE section 0): snow is ALWAYS two numbers, depth in cm and run coverage in %; "≈" in the mark slot
-  // when estimated, and the tooltip says measured or estimated. tools/test-hub-rules.js T18 guards it.
+  // Snow is always two numbers, depth in cm and run coverage in %; "≈" in the mark slot when estimated, and the tooltip says
+  // measured or estimated. tools/test-hub-rules.js guards it.
   const snowPct = live ? live.snowPct : -1;
   const depthCm = live ? live.snowDepthCm : -1;
-  const inches = useInches();   // T130: depth in the player's units
+  const inches = useInches(); // depth in the player's units
   const snowMark = live && live.snowEstimated && (snowPct >= 0 || depthCm >= 0) ? "≈" : null;
   const how = live && (live.snowEstimated ? t(HUB_LOC.runEstimated) : t(HUB_LOC.statusTipMeasured));
   const snowTip = (head: string, body: string): JSX.Element => (
@@ -193,7 +172,7 @@ function MountainSection({ row, live, city, unrateable, t, folded }: {
     </>
   );
   if (folded) {
-    // T114: closed, the header row carries the vertical (the section's headline number); the snow is on the status line above.
+    // Closed, the header row carries the vertical (the section's headline number); the snow is on the status line above.
     return (
       <Fold view="overview" id="mountain" header label={t(HUB_LOC.sectionMountain)}
         value={row.verticalM >= 0 ? <Num value={row.verticalM} unit={Unit.Height} /> : DASH}
@@ -210,7 +189,6 @@ function MountainSection({ row, live, city, unrateable, t, folded }: {
   );
 }
 
-// ---- the receipt ----------------------------------------------------------------------------------
 
 /** First problem row of an area with this code, or null. */
 function problemOf(problems: readonly ProblemRow[] | null | undefined, sign: ResortRow["sign"], code: number): ProblemRow | null {
@@ -224,15 +202,15 @@ function Receipt({ row, l, city, problems, build, t }: {
   const held = !!l && l.attractionHeld;
   const attraction = l ? l.attraction : -1;
   const full = l ? l.attractionFull : -1;
-  // E1 fixer (e1-spec 8.9 F12, H4): while the first write is held the game keeps the SAVED score, so
-  // neither the bar's fill nor its tooltip's "now" claims this Result: an empty track and "…".
+  // While the first write is held the game keeps the SAVED score, so neither the bar's fill nor its tooltip's "now" claims this
+  // Result: an empty track and "…".
   const [fill, ghost, rest] = scoreBarParts(held ? -1 : attraction, full);
   const factors = factorRowsOf(problems, row.sign);
 
   const lodgeLabel = l && l.lodgesActive === 0 ? HUB_LOC.receiptLodgeBaseNone
     : l && l.summer ? HUB_LOC.receiptLodgeBaseHalf : HUB_LOC.receiptLodgeBase;
   const variant = resultVariant(l);
-  // Contract 6: the best lodge's name (an unknown id shows nothing) and the school variant of the parts line.
+  // The best lodge's name (an unknown id shows nothing) and the school variant of the parts line.
   const bestEntry = l && typeof l.lodgeBest === "string" && l.lodgeBest !== "" ? ASSET_NAME[l.lodgeBest as BuildItemId] : undefined;
   const parts = {
     RUNS: numArg(l ? l.runsValue : -1, Unit.FloatSingleFraction),
@@ -241,7 +219,7 @@ function Receipt({ row, l, city, problems, build, t }: {
     VERTICAL: numArg(l ? l.verticalMultiplier : -1, Unit.FloatTwoFractions),
   };
   const school = receiptPartsVariant(l) === "school";
-  // T80: the School row's flag; T86: built-but-0 has its own cause (the build strip's AlreadyBuilt lock = this shown sign has one).
+  // The School row's flag; built-but-0 has its own cause (the build strip's AlreadyBuilt lock = this shown sign has one).
   const schoolNow = schoolState(l, problems, row.sign, schoolBuiltOf(build));
   const schoolFlag = schoolFlagOf(schoolNow);
   const K = numArg(city.scaleK, Unit.Integer);
@@ -371,7 +349,7 @@ export function OverviewView(): JSX.Element {
   const runs = useValue(runs$);
   const problems = useValue(problems$);
   const city = useValue(city$);
-  const build = useValue(build$);   // T86: the school tile's AlreadyBuilt lock (hubRules.schoolBuiltOf)
+  const build = useValue(build$); // the school tile's AlreadyBuilt lock (hubRules.schoolBuiltOf)
 
   const cur = currentResort(resortEntries(resorts), selected);
   const row = cur.row;

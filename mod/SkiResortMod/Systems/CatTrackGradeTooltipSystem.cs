@@ -1,13 +1,8 @@
-// CatTrackGradeTooltipSystem — the grading tool's mouse tooltip (T139c; build note docs/research/field/2026-10-20/grading-tool-build.md).
-// The LiftLineTooltipSystem pattern, unchanged in its two load-bearing rules:
-//   * The step hint is ALWAYS shown while the tool is open and names the current step (GradeInput.Prompt, tested in GradeBatch GR-15);
-//     a refusal (CatTrackGradeToolSystem.Notice) shows as a warning line for a few seconds under it.
-//   * Text is LocalizedString.Value(text), never a fixed id: the frontend's translate cache is keyed by the id alone, so a fixed id keeps
-//     the FIRST text it was given (LiftLineTooltipSystem header, field test 2026-10-20 shot 11.44.28).
-// Lines: prompt; notice; the plan (length, grade avg / max against the limit, cut / fill volume, the switchback shortfall), green
-// when it can grade, amber otherwise; the guard reason (error color); a steep-bank note.
-// One INFO line per prompt change. Mod.cs: UpdateAfter TempCostTooltipSystem at UITooltip (as LiftLineTooltipSystem). One "!!!" ERROR
-// disables it until the next load.
+// Grading tool mouse tooltip, same pattern as LiftLineTooltipSystem. Mod.cs: UpdateAfter TempCostTooltipSystem at UITooltip.
+// Text is LocalizedString.Value(text), never a fixed id: the frontend's translate cache is keyed by id alone, so a fixed id
+// would keep the first text it was given.
+// The step hint is always shown while the tool is open; a refusal (CatTrackGradeToolSystem.Notice) shows as a warning under it.
+// A "!!!" ERROR disables the system until the next load.
 
 using System;
 using Game.UI.Localization;
@@ -79,7 +74,7 @@ namespace SkiResortMod.Systems
             if (!string.Equals(text, last, StringComparison.Ordinal))
             {
                 last = text;
-                tip.value = LocalizedString.Value(text);   // header: never a fixed id (the frontend caches by id)
+                tip.value = LocalizedString.Value(text);
             }
             AddMouseTooltip(tip);
         }

@@ -1,54 +1,50 @@
-// LiftTowerPlanner — PURE tower planner for a lift line (ticket T48 step 1; design docs/research/lift-tower-planner-notes.md, the
-// field evidence and build plan docs/research/field/2026-10-19/analysis-towers.md §4, build note
-// docs/research/field/2026-10-19/tower-planner-build-1.md). No ECS, no Game types: LiftBatch tests it headless (LiftPlannerTests).
-// It runs once per edit (or once per printed diag block), so it is plain C#, not Burst; arrays are reused per planner instance.
+// Pure tower planner for a lift line (design docs/research/lift-tower-planner-notes.md). No ECS, no Game types: LiftBatch tests it
+// headless (LiftPlannerTests). It runs once per edit (or once per printed diag block), so it is plain C#, not Burst; arrays are
+// reused per planner instance. Deterministic: no randomness, no hash order, ties broken by the sample index.
 //
-// INPUT
-//   * a terrain sampler (along-line meters from station A, lateral meters; + = right of A→B) — sampled every StepM along the line
-//     at the center and at ±HalfWidthM (the engine's own side samples, CourseSplitSystem.cs:3566-3573, half the net width);
+// Input:
+//   * a terrain sampler (along-line meters from station A, lateral meters; + = right of A->B), sampled every StepM along the line at
+//     the center and at +-HalfWidthM (the engine's own side samples, CourseSplitSystem.cs:3566-3573, half the net width);
 //   * the line length (xz) and the two station anchors' rope heights (world y of the haul rope at the stub);
 //   * LiftTowerPlanConstants for the lift type (ladder members, rope offset, carrier drop, floor, max rope height, spans, width, sag);
 //   * optionally seed nodes (the output of an earlier plan): they are kept as anchors, which makes re-planning a plan a fixed point.
 //
-// GROUND MODEL (per 5 m sample)
-//   center = the ground under the line axis (the tower base: our own spawn stands on it, step 3b);
-//   high   = max(center, left, right): the clearance ground. The rope must keep the chair floor over the HIGHER side; this is the
+// Ground model (per sample):
+//   center = the ground under the line axis (the tower base: our own spawn stands on it);
+//   high   = max(center, left, right): the clearance ground. The rope must keep the chair floor over the higher side; this is the
 //            engine's "lower elevation side" (cmin of Net.Elevation, SubObjectSystem.cs:980), so the side that governs the engine's
 //            ladder also governs ours. A node whose high and low side differ by more than SideHillM is flagged SideHill.
 //   rope(t) on a span = straight chord between the two rope points minus the engine's sag: LaneSystem.cs:4128-4134 lowers the
-//            bezier's b/c by d·m_Hanging·4/3, which is a parabola 4·d·m_Hanging·t(1-t) (mid-span sag = d·m_Hanging).
+//            bezier's b/c by d*m_Hanging*4/3, which is a parabola 4*d*m_Hanging*t(1-t) (mid-span sag = d*m_Hanging).
 //   floor margin(t) = rope(t) - CarrierDropM - high(t) - FloorM (>= 0 required);
 //   rope height(t)  = rope(t) - center(t) (<= MaxRopeAboveGroundM when that is > 0; the tram has no cap).
 //
-// PHASES
+// Phases:
 //   (a) anchors: the station-to-station chord (or a seed-to-seed span) that has a violation is split where the terrain forces it.
-//       The split is solved EXACTLY (Anchors: a shortest-path search over the samples x ladder members) instead of the greedy
+//       The split is solved exactly (Anchors: a shortest-path search over the samples x ladder members) instead of the greedy
 //       recursive worst-intrusion split, which put 18 towers on LP-5's 40 m wall: fewest towers (anchors + the infill (b) will add),
-//       then fewest anchors, shortest members, anchors nearest the worst-intrusion sample. The floor test ignores the sag on spans
-//       (b) will split (their sub-spans sag far less) and keeps it on spans (b) leaves whole (FloorSag). Anchor spans <= 3 x MaxSpanM.
+//       then fewest anchors, shortest members, anchors nearest the worst-intrusion sample. The floor test ignores the sag on spans (b)
+//       will split (their sub-spans sag far less) and keeps it on spans (b) leaves whole (FloorSag). Anchor spans <= 3 x MaxSpanM.
 //       If no clear arrangement exists, the greedy split (Split) minimizes what is left. Shoulders on convex ground become
 //       breakovers and move one sample past the crest toward the higher ground (uphill of the crest, planner notes "Real-world span
 //       lengths", rule 1) when both spans stay clear. Flags: Shoulder (the ground pokes through the chord), Valley (max height),
 //       Breakover.
 //   (b) infill: a span between anchors gets max(ceil(len / MaxSpanM), round(len / TypicalSpanM)) sub-spans: first at the
-//       equal-spacing samples, else each infill node slides inside ±half a sub-span of its spot to the clear spot with the shortest
-//       member, nearest the spot. No sub-span exceeds MaxSpanM or 1.5 × TypicalSpanM - StepM (so a re-plan rounds it to one span:
+//       equal-spacing samples, else each infill node slides inside +-half a sub-span of its spot to the clear spot with the shortest
+//       member, nearest the spot. No sub-span exceeds MaxSpanM or 1.5 x TypicalSpanM - StepM (so a re-plan rounds it to one span:
 //       idempotence). If no arrangement is clear, one to three extra sub-spans are tried; the best is kept and its violation reported.
-//   (c) elevation: every tower starts at the shortest member that keeps the floor at its own node (side-hill); then, while a span
-//       has a floor violation, the end nearer the worst sample (the other end if that one is at the top of the ladder or is a
-//       station) goes up one member. Members whose rope is above MaxRopeAboveGroundM are never used. If (c) leaves a violation that
-//       the (a)/(b) members did not have, the (a)/(b) members are kept.
-//   (d) output: ordered nodes (along, ground, high side, member, rope y, flags) + per-span clearance profile, and AppendLog writes
-//       a "Towers [plan]" block in the "Towers [nodes]" format of LiftTowerDiagSystem so the two compare line by line.
+//   (c) elevation: every tower starts at the shortest member that keeps the floor at its own node (side-hill); then, while a span has
+//       a floor violation, the end nearer the worst sample (the other end if that one is at the top of the ladder or is a station)
+//       goes up one member. Members whose rope is above MaxRopeAboveGroundM are never used. If (c) leaves a violation that the (a)/(b)
+//       members did not have, the (a)/(b) members are kept.
+//   (d) output: ordered nodes (along, ground, high side, member, rope y, flags) + per-span clearance profile, and AppendLog writes a
+//       "Towers [plan]" block in the "Towers [nodes]" format of LiftTowerDiagSystem so the two compare line by line.
 //
-// STEP 3 (T48, build note docs/research/field/2026-10-19-evening/t48-step3-build.md): the engine's node COUNT is fixed (equal split,
-//   CourseSplitSystem.cs:3485-3493), so LiftTowerFitSystem asks Fit: (1) PlanFixed = phase (c) only at the line's own nodes (each
-//   node gets its own profile sample); (2) else, on a straight line, the free plan with spans capped at the engine's max edge length,
-//   spare nodes at the longest spans' midpoints; (3) else Short (the better of the two, the tower count the line would need).
-//   LiftTowerEdit holds the engine-side numbers (node elevation per member, the vanilla score / top-anchored placement replica, the
-//   power-line edge curve). LiftBatch LP-11..LP-15.
-//
-// Deterministic: no randomness, no hash order, ties broken by the sample index.
+// Fixed node count: the engine's node count is fixed (equal split, CourseSplitSystem.cs:3485-3493), so LiftTowerFitSystem asks Fit:
+// (1) PlanFixed = phase (c) only at the line's own nodes (each node gets its own profile sample); (2) else, on a straight line, the
+// free plan with spans capped at the engine's max edge length, spare nodes at the longest spans' midpoints; (3) else Short (the better
+// of the two, the tower count the line would need). LiftTowerEdit holds the engine-side numbers (node elevation per member, the vanilla
+// score / top-anchored placement replica, the power-line edge curve). LiftBatch LP-11..LP-15.
 
 using System;
 using System.Collections.Generic;
@@ -85,7 +81,7 @@ namespace SkiResortMod.Systems
         Infill = 16,      // phase (b)
         SideHill = 32,    // high side - low side > SideHillM (the engine ladder would score the uphill side, cmin)
         Seed = 64,        // given by the caller (re-plan)
-        NearStation = 128, // T126: a planner tower inside the station clearance, placed only because no clear plan exists without it
+        NearStation = 128, // a planner tower inside the station clearance, placed only because no clear plan exists without it
     }
 
     public sealed class LiftTowerPlanConstants
@@ -105,7 +101,7 @@ namespace SkiResortMod.Systems
         public readonly float StepM;
         public readonly float SideHillM;
         public readonly float ConvexM;                   // breakover: second difference over ±2 samples below -ConvexM
-        /// <summary>T126: no NEW tower nearer a station end than this (meters along the line from the stub): the station's own rope
+        /// <summary>no NEW tower nearer a station end than this (meters along the line from the stub): the station's own rope
         /// run (StationRunM: bullwheel or dock to the stub tip, the longest of the type's stations), at least MinSpanM. Seeds (pins,
         /// a line's own nodes in PlanFixed) are kept wherever they are.</summary>
         public readonly float StationClearM;
@@ -136,7 +132,7 @@ namespace SkiResortMod.Systems
         /// <summary>Rope height above the tower base for ladder member <paramref name="m"/>.</summary>
         public float RopeAboveBase(int m) => Ladder[m].TopM - RopeBelowTopM;
 
-        /// <summary>A copy with other rules (tests and Richard's questions: floor, max rope height, spans).</summary>
+        /// <summary>A copy with other rules (tests and what-if questions: floor, max rope height, spans).</summary>
         public LiftTowerPlanConstants With(float? floorM = null, float? maxRopeAboveGroundM = null, float? typicalSpanM = null,
                                            float? maxSpanM = null, float? carrierDropM = null)
         {
@@ -145,7 +141,7 @@ namespace SkiResortMod.Systems
                 SagRatio, EngineElevationCapM, StepM, SideHillM, ConvexM, StationClearM);
         }
 
-        /// <summary>T126: a station's own rope run, meters along the line axis from where the carriers turn or dock to the HV stub
+        /// <summary>A station's own rope run, meters along the line axis from where the carriers turn or dock to the HV stub
         /// tip (prefab z): |WheelLocal.z - StubTipLocalZ| on a loop station, |DockLocalA.z - StubTipLocalZ| on a shuttle station;
         /// 0 when the row has neither. Catalog rows (SkiCatalog stations): FG base 12.2 / top 12.0, DQ 25.6 / 21.6, gondola
         /// 25.4 / 21.4, tram 6.5 / 6.5.</summary>
@@ -160,7 +156,7 @@ namespace SkiResortMod.Systems
             return 0f;
         }
 
-        /// <summary>T126: the longest StationRunM over the type's base and top stations (the planner does not know which station a
+        /// <summary>The longest StationRunM over the type's base and top stations (the planner does not know which station a
         /// line end is, so both ends keep the longer run).</summary>
         public static float StationRunM(LiftTypeDef def)
         {
@@ -169,17 +165,15 @@ namespace SkiResortMod.Systems
             return math.max(StationRunM(SkiCatalog.StationOf(def.Index, StationRole.Base)), StationRunM(SkiCatalog.StationOf(def.Index, StationRole.Top)));
         }
 
-        // ── Per-type constants (sources: build note tower-planner-build-1.md §2) ───────────────────────────────────────────────
-        // Ladder tops: the tower manifests' top_anchor_y = ObjectGeometryData m_Size.y, confirmed in game by the 2026-10-19 dump
-        // (SkiResortMod.Mod.log:632/:669/:789 member lists). Rope offset = shortest top - catalog AxleM (lane y on the shortest tower),
-        // which equals every member's top - axle in the manifests (FG 1.974, DQ 1.95, GD 2.0, tram stubs 3.75).
-        // Drop = catalog HangM. Floor / max rope / spans = Richard's defaults (2026-10-19). Half width = piece m_Width / 2
-        // (gamedata-mirror SkiChairliftPiece / SkiDetachablePiece 6, SkiGondolaPiece 8.2, SkiTramPiece 15). Sag = PIPELINE m_Hanging
-        // (FG net SkiChairliftHV 0.03; DQ / GD / tram rope lanes 0.004). Elevation caps (informational): planner notes.
+        // Ladder tops: the tower manifests' top_anchor_y = ObjectGeometryData m_Size.y, confirmed in game (member lists in the mod log). Rope
+        // offset = shortest top - catalog AxleM (lane y on the shortest tower), which equals every member's top - axle in the manifests (FG
+        // 1.974, DQ 1.95, GD 2.0, tram stubs 3.75). Drop = catalog HangM. Half width = piece m_Width / 2 (gamedata-mirror SkiChairliftPiece /
+        // SkiDetachablePiece 6, SkiGondolaPiece 8.2, SkiTramPiece 15). Sag = PIPELINE m_Hanging (FG net SkiChairliftHV 0.03; DQ / GD / tram
+        // rope lanes 0.004). Elevation caps (informational): planner notes.
 
         public static readonly LiftTowerMember[] FixedGripLadder =
         {
-            new LiftTowerMember("SkiLiftTowerFG2", 9.014f),    // the FG8 member (prefab keeps its legacy name; PIPELINE line 355)
+            new LiftTowerMember("SkiLiftTowerFG2", 9.014f),    // the FG8 member (prefab keeps its legacy name)
             new LiftTowerMember("SkiLiftTowerFG12", 13.014f),
             new LiftTowerMember("SkiLiftTowerFG16", 17.014f),
             new LiftTowerMember("SkiLiftTowerFG20", 21.014f),
@@ -214,7 +208,7 @@ namespace SkiResortMod.Systems
         {
             if (def == null)
                 return null;
-            float run = StationRunM(def);   // T126: the station clearance (StationClearM = max(MinSpanM, run))
+            float run = StationRunM(def);   // the station clearance (StationClearM = max(MinSpanM, run))
             switch (def.Id)
             {
                 case "fixedGrip":
@@ -379,7 +373,7 @@ namespace SkiResortMod.Systems
         internal static string Sg(float v) => (v >= 0f ? "+" : string.Empty) + v.ToString("F1", CultureInfo.InvariantCulture);
     }
 
-    /// <summary>Step 3: how a line with a fixed node count was fitted (LiftTowerPlanner.Fit).</summary>
+    /// <summary>How a line with a fixed node count was fitted (LiftTowerPlanner.Fit).</summary>
     public enum LiftFitMode
     {
         Kept,    // heights only, at the nodes where they are
@@ -398,12 +392,12 @@ namespace SkiResortMod.Systems
         public int Needed;            // line towers the free plan uses
     }
 
-    /// <summary>Step 3 (T48): the engine-side numbers of a fitted node, pure so LiftBatch checks them (LP-15). A tower node is raised
-    /// so that the vanilla placeholder ladder spawns exactly the planned member on the ground:
+    /// <summary>The engine-side numbers of a fitted node, pure so LiftBatch checks them (LP-15). A tower node is raised
+    ///   so that the vanilla placeholder ladder spawns exactly the planned member on the ground:
     ///   node y = center ground + E, Game.Net.Elevation = (E, E), E = TopM[member] - TopM[0];
     ///   SubObjectSystem scores member m' with spare = m_Size.y - (cmin(Elevation) + spec y) (Game.Objects/SubObjectSystem.cs:980,
     ///   :2189-2199; spec y = TopM[0] in all four line prefabs: FG 9.014, DQ 9.95, GD 12, tram 30), so the planned member has spare 0
-    ///   and score 1, every other member scores at most 1/(1 + step) — no tie, no random draw (:2346-2358); a node tagged Updated
+    ///   and score 1, every other member scores at most 1/(1 + step): no tie, no random draw (:2346-2358); a node tagged Updated
     ///   is re-scored (owner query All SubObject + Any Updated, :3936-3943);
     ///   a Standalone pillar is placed TOP-anchored (AnchorTop + OnGround, :2464-2469): pivot = node y + spec y - member top
     ///   (:2477-2482; the node-y-minus-elevation rule at :2521 skips AnchorTop rows) = ground + E + TopM[0] - TopM[m] = the ground;
@@ -415,14 +409,14 @@ namespace SkiResortMod.Systems
         /// <summary>A node this far BELOW its target (ground + E) is rewritten: the tower would sink into the ground.</summary>
         public const float HeightBelowTolM = 0.25f;
 
-        /// <summary>A node up to this far ABOVE its target is left alone (T115). Every write re-curves the node's edges, the carve
-        /// (cut ceiling = edge y + m_HeightRange.min - 2, terrain-carving.md §2) follows the curve, and on the steep tram spans the
-        /// cut reaches the node: the ground under it sank 0.39 -> 0.33 -> 0.27 m per write (2026-10-20 log :1541 / :1655 / :1769,
-        /// node 345662:37; ratio ~0.85), so a fit that re-grounds on every 0.25 m wrote three times and hit the loop guard. The
-        /// write that caused the sink is ours; the tower base then stands at most this far above the carved ground.</summary>
+        /// <summary>A node up to this far ABOVE its target is left alone. Every write re-curves the node's edges, the carve (cut ceiling =
+        /// edge y + m_HeightRange.min - 2, terrain-carving.md section 2) follows the curve, and on the steep tram spans the cut reaches the
+        /// node: the ground under it sank 0.39 -> 0.33 -> 0.27 m per write (ratio ~0.85), so a fit that re-grounds on every 0.25 m wrote
+        /// three times and hit the loop guard. The write that caused the sink is ours; the tower base then stands at most this far above the
+        /// carved ground.</summary>
         public const float HeightAboveTolM = 1.0f;
 
-        /// <summary>T115: does a node at <paramref name="oldY"/> need a height write to reach <paramref name="targetY"/> (ground + E)
+        /// <summary>Does a node at <paramref name="oldY"/> need a height write to reach <paramref name="targetY"/> (ground + E)
         /// when its member and position are unchanged? One-sided: below by more than HeightBelowTolM, or above by more than
         /// HeightAboveTolM.</summary>
         public static bool HeightWrite(float oldY, float targetY) =>
@@ -485,20 +479,17 @@ namespace SkiResortMod.Systems
             return math.lerp(a.y, d.y, t) - 3f * t * (1f - t) * drop;
         }
 
-        // ── T127: the ground the player made, not the ground our own line cut ─────────────────────────────────────────────────
         // A lift line is a FlattenTerrain power line: TerrainSystem cuts the terrain down to a ceiling of edge y +
-        // NetCompositionData.m_HeightRange.min + TerrainComposition.m_MinHeightOffset (AddSegment, TerrainSystem.cs:1397-1516;
-        // terrain-carving.md §2: our pieces {6, 20} and -2 = edge y + 4) and never fills. The cut is LIVE: it is drawn into the
-        // height cascade from the base heightmap on every update of the area (DrawHeightAdjustments, :4727-4800; the brush path
-        // writes the base map, :3950), and the CPU heights the fit samples are read back from the cascade (:3598-3646). A vanilla line drawn on the ground runs its
-        // edges up to 15 m under convex terrain (playthrough log :1096, min floor margin -12.4 m), so its cut is meters deep; the
-        // fit sampled THAT as the ground and stood towers in the trench (node y = cut floor + E). Once the old edges were replaced
-        // the trench refilled around the towers (the ground at a fitted tower rose +0.5 / +0.4 / +1.9 m after the write, log
-        // :1125 vs :1096) and a node left more than 4 m under the ground keeps its own round cut: the pits of shots 11.39.56,
-        // 11.40.13, 11.42.27.
-        // Rule: a sample that sits AT this line's own cut ceiling (within OwnCutTolM; natural ground is never exactly there, the cut
-        // never fills) is replaced by the plane through the ground just outside the cut (lateral ± (half width + CutFarMarginM)),
-        // when that plane is higher. Ground below the ceiling (a valley the rope crosses) is the player's and is kept.
+        // NetCompositionData.m_HeightRange.min + TerrainComposition.m_MinHeightOffset (AddSegment, TerrainSystem.cs:1397-1516; terrain-carving.md
+        // section 2: our pieces {6, 20} and -2 = edge y + 4) and never fills. The cut is live: it is drawn into the height cascade from the base
+        // heightmap on every update of the area (DrawHeightAdjustments, :4727-4800; the brush path writes the base map, :3950), and the CPU
+        // heights the fit samples are read back from the cascade (:3598-3646). A vanilla line drawn on the ground runs its edges up to 15 m under
+        // convex terrain, so its cut is meters deep; the fit sampled that as the ground and stood towers in the trench (node y = cut floor + E).
+        // Once the old edges were replaced the trench refilled around the towers (the ground at a fitted tower rose +0.5 / +0.4 / +1.9 m after
+        // the write) and a node left more than 4 m under the ground keeps its own round cut: pits.
+        // Rule: a sample that sits at this line's own cut ceiling (within OwnCutTolM; natural ground is never exactly there, the cut never
+        // fills) is replaced by the plane through the ground just outside the cut (lateral +- (half width + CutFarMarginM)), when that plane is
+        // higher. Ground below the ceiling (a valley the rope crosses) is the player's and is kept.
 
         public const float OwnCutTolM = 0.3f;
         /// <summary>Lateral margin beyond the piece half width for the uncut reference samples. The cut's smoothing width lives in the
@@ -510,7 +501,7 @@ namespace SkiResortMod.Systems
         /// the edge's TerrainComposition when it has one.</summary>
         public const float PieceMinHeightOffsetM = -2f;
 
-        /// <summary>T127: the ground at a sample: <paramref name="raw"/> unless it sits at <paramref name="ceiling"/> (our own cut), then
+        /// <summary>The ground at a sample: <paramref name="raw"/> unless it sits at <paramref name="ceiling"/> (our own cut), then
         /// the higher of raw and the plane through <paramref name="farLeft"/> / <paramref name="farRight"/> (sampled at ±<paramref
         /// name="farM"/>) at <paramref name="lateral"/>.</summary>
         public static float UncutGround(float raw, float ceiling, float farLeft, float farRight, float lateral, float farM, out bool cut)
@@ -525,7 +516,7 @@ namespace SkiResortMod.Systems
             return plane;
         }
 
-        /// <summary>T127: <paramref name="raw"/> with UncutGround applied against the line's own cut: the line runs through the node
+        /// <summary><paramref name="raw"/> with UncutGround applied against the line's own cut: the line runs through the node
         /// points <paramref name="pts"/> (xz distance <paramref name="cum"/> from the first), each span a HangingCurve with
         /// <paramref name="hanging"/>, its ceiling <paramref name="cutOffset"/>[span] above the curve; the uncut reference is sampled
         /// at ±<paramref name="farM"/>. <paramref name="onCut"/> (optional) gets the along of every replaced sample.</summary>
@@ -551,11 +542,11 @@ namespace SkiResortMod.Systems
         }
     }
 
-    /// <summary>T123: tower numbers along a lift line. Today the number on a tower's plate is its HEIGHT CLASS baked into the prefab
-    /// texture (assets/blender/lift_tower.py:4146-4152 plate_numeral: FG8 -> 8, DQ12 -> 12, GD20 -> 20), so a line that mixes members
-    /// reads 12, 16, 20, 12, ... (Richard's "random"). The order rule (docs/research/dynamic-numbers.md §1): tower n = the n-th line
-    /// tower by distance along the line from the BASE station, 1 at the base, dense (nodes without a tower are skipped). Computed from
-    /// geometry only, so it is the same after a save / load; an edit renumbers only the towers after the first changed one.</summary>
+    /// <summary>Tower numbers along a lift line. The number on a tower's plate is its height class baked into the prefab texture
+    /// (assets/blender/lift_tower.py:4146-4152 plate_numeral: FG8 -> 8, DQ12 -> 12, GD20 -> 20), so a line that mixes members would read
+    /// 12, 16, 20, 12, ... instead. The order rule (docs/research/dynamic-numbers.md section 1): tower n = the n-th line tower by distance
+    /// along the line from the base station, 1 at the base, dense (nodes without a tower are skipped). Computed from geometry only, so it
+    /// is the same after a save / load; an edit renumbers only the towers after the first changed one.</summary>
     public static class LiftTowerNumbering
     {
         /// <summary>Numbers 1..N for towers at <paramref name="alongFromBaseM"/> (meters from the base station, any order); ties keep the
@@ -593,13 +584,13 @@ namespace SkiResortMod.Systems
         private float m_RopeA, m_RopeB;
         private bool m_UseSag = true;
 
-        /// <summary>T48 round 2 objective switch. false (default) = FEWEST TOWERS: an exact search for the fewest towers with every
+        /// <summary>Objective switch. false (default) = fewest towers: an exact search for the fewest towers with every
         /// span <= MaxSpanM and clear with its real sag, tall members wherever one saves a tower; then the fewest ladder steps; then
-        /// even spans. true = the 2026-10-19 objective (anchors, then infill at the TYPICAL span, shortest members), kept for the
+        /// even spans. true = the legacy objective (anchors, then infill at the typical span, shortest members), kept for the
         /// before / after replays (LiftBatch LP-17) and as the fallback where no clear arrangement exists.</summary>
         public bool LegacySpacing;
 
-        /// <summary>Lift-line tool (T48 step 4): spots the user removed a tower from (meters along). The fewest-towers search never
+        /// <summary>Lift-line tool: spots the user removed a tower from (meters along). The fewest-towers search never
         /// puts a NEW tower within ForbiddenRadiusM of one (a seed there is still kept). Null / empty = none.</summary>
         public IList<float> Forbidden;
         public float ForbiddenRadiusM = 10f;
@@ -639,14 +630,14 @@ namespace SkiResortMod.Systems
                 }
             }
 
-            // (a+b) fewest towers (round 2): per segment (station to station, or between seeds) the exact search; where it finds
-            // no clear arrangement, the 2026-10-19 phases (a) anchors / greedy split + (b) infill minimize what is left.
+            // (a+b) fewest towers: per segment (station to station, or between seeds) the exact search; where it finds
+            // no clear arrangement, the legacy phases (a) anchors / greedy split + (b) infill minimize what is left.
             for (int i = 0; i < m_K.Count - 1; )
             {
                 int added = LegacySpacing ? -1 : MinTowers(i, i + 1);
                 if (added < 0 && !LegacySpacing)
                 {
-                    // T126: the station clearance yields only where the ground leaves no clear plan without a tower inside it (the
+                    // the station clearance yields only where the ground leaves no clear plan without a tower inside it (the
                     // 1,408 m gondola's top station sits on a crest: the ground 8 m in front of it is at station level, LP-22);
                     // such a tower is flagged NearStation.
                     m_NoClearance = true;
@@ -667,15 +658,13 @@ namespace SkiResortMod.Systems
             return Build();
         }
 
-        // ════════════════════════════════════════════════════════════════════════════════════════
         // Profile
-        // ════════════════════════════════════════════════════════════════════════════════════════
 
         private void Sample(LiftTerrainSampler terrain) => Sample(terrain, null);
 
         /// <summary>The profile: one sample every StepM (the last at the line's end), plus one at each of <paramref name="extra"/>
-        /// (fixed node positions, step 3: a node off the grid gets its own sample, so its tower base and rope are exact). Plan()
-        /// passes none, which keeps its grid (k · StepM) unchanged.</summary>
+        /// (fixed node positions: a node off the grid gets its own sample, so its tower base and rope are exact). Plan()
+        /// passes none, which keeps its grid (k * StepM) unchanged.</summary>
         private void Sample(LiftTerrainSampler terrain, IList<float> extra)
         {
             float step = m_C.StepM;
@@ -736,9 +725,7 @@ namespace SkiResortMod.Systems
             return along - m_S[at - 1] <= m_S[at] - along ? at - 1 : at;
         }
 
-        // ════════════════════════════════════════════════════════════════════════════════════════
-        // Step 3: fixed nodes (the engine's node count) — PlanFixed, Fit
-        // ════════════════════════════════════════════════════════════════════════════════════════
+        // Fixed nodes (the engine's node count): PlanFixed, Fit
 
         /// <summary>Members for towers at FIXED positions <paramref name="innerAlongM"/> (meters from station A, ascending; the line's
         /// existing nodes): phase (c) only, no node added or moved. <paramref name="members"/> given and <paramref name="assign"/>
@@ -751,7 +738,7 @@ namespace SkiResortMod.Systems
             return PlanFixedCore(terrain, lengthM, ropeA, ropeB, c, innerAlongM, members, flags, assign, false);
         }
 
-        /// <summary>PlanFixed; <paramref name="fillSpares"/> (T128, the Moved fit): the given members are kept (the free plan's own,
+        /// <summary>PlanFixed; <paramref name="fillSpares"/> (the Moved fit): the given members are kept (the free plan's own,
         /// found by the exact search) and a member of -1 marks a spare node, which gets the shortest member that keeps both of its
         /// spans clear (else the least violation); only if the result is still violated does phase (c) run, kept when better.</summary>
         private LiftTowerPlan PlanFixedCore(LiftTerrainSampler terrain, float lengthM, float ropeA, float ropeB, LiftTowerPlanConstants c,
@@ -796,7 +783,7 @@ namespace SkiResortMod.Systems
             return Build();
         }
 
-        /// <summary>T128: the member of spare node <paramref name="n"/> (between two nodes whose members are set): the shortest that
+        /// <summary>The member of spare node <paramref name="n"/> (between two nodes whose members are set): the shortest that
         /// keeps its node and both spans clear, else the one with the least summed violation.</summary>
         private void FillSpare(int n)
         {
@@ -823,7 +810,7 @@ namespace SkiResortMod.Systems
             m_M[n] = best;
         }
 
-        /// <summary>Step 3 (T48): fit a line whose node COUNT is fixed (the engine split it, CourseSplitSystem.cs:3485-3493; adding a node
+        /// <summary>Fit a line whose node COUNT is fixed (the engine split it, CourseSplitSystem.cs:3485-3493; adding a node
         /// needs a new course). (1) Kept: heights only at the current positions. (2) Moved (allowed on a straight line): the free plan
         /// (spans capped at the engine's max edge length <paramref name="engineMaxSpanM"/>) when it needs no more towers than the line
         /// has; the spare nodes go to the midpoints of the longest spans; heights by phase (c). (3) Short: neither is clear: the better
@@ -838,9 +825,9 @@ namespace SkiResortMod.Systems
                 cm = c.With(maxSpanM: engineMaxSpanM, typicalSpanM: math.min(c.TypicalSpanM, engineMaxSpanM));
             fit.Free = Plan(terrain, lengthM, ropeA, ropeB, cm);
             fit.Needed = fit.Free.LineTowers;
-            // T115 hysteresis: the members the line already carries win when they clear it as they stand. Phase (c) re-run on ground
-            // that moved a few decimeters (our own carve, rounding) can pick an equally clear but different assignment (the 1,223 m
-            // tram flipped {T30 x9, T45 x3} <-> {T30 x8, T45 x4} on every re-fit, 2026-10-20 log :3078-:3295); a clear line is final.
+            // Hysteresis: the members the line already carries win when they clear it as they stand. Phase (c) re-run on ground that moved a few
+            // decimeters (our own carve, rounding) can pick an equally clear but different assignment (a 1,223 m tram flipped {T30 x9, T45 x3}
+            // <-> {T30 x8, T45 x4} on every re-fit); a clear line is final.
             if (currentMembers != null && currentMembers.Count == currentInnerAlongM.Count)
             {
                 LiftTowerPlan current = PlanFixed(terrain, lengthM, ropeA, ropeB, c, currentInnerAlongM, currentMembers, null, assign: false);
@@ -851,9 +838,9 @@ namespace SkiResortMod.Systems
                     fit.Plan = current;
                     return fit;
                 }
-                // R-6: a tool line the engine split (LiftToolLines.MatchSplit): the extra split nodes (spareNodes) take the T128 spare
-                // fill (the shortest member that keeps both of their spans clear) while every tool node keeps its member; only when
-                // that is still not clear does phase (c) below re-assign the whole line.
+                // A tool line the engine split (LiftToolLines.MatchSplit): the extra split nodes (spareNodes) take the spare fill (the shortest
+                // member that keeps both of their spans clear) while every tool node keeps its member; only when that is still not clear does phase
+                // (c) below re-assign the whole line.
                 if (spareNodes != null && spareNodes.Count == currentInnerAlongM.Count && spareNodes.Contains(true))
                 {
                     var spareMembers = new List<int>(currentMembers.Count);
@@ -878,9 +865,9 @@ namespace SkiResortMod.Systems
             }
             if (allowMove && fit.Needed <= fit.Inner && fit.Inner > 0)
             {
-                // T128: the free plan's own members travel with its nodes (phase (c) alone, greedy from the shortest member, missed
-                // the exact search's assignment: the 1,408 m gondola, playthrough log :1096, was Short with 11 nodes where the free
-                // plan needs 9, then re-planned on every re-fit until the loop guard, :1450); spares get FillSpare.
+                // The free plan's own members travel with its nodes (phase (c) alone, greedy from the shortest member, missed the exact search's
+                // assignment: a 1,408 m gondola was Short with 11 nodes where the free plan needs 9, then re-planned on every re-fit until the loop
+                // guard); spares get FillSpare.
                 var along = new List<float>();
                 var flags = new List<LiftPlanNodeFlags>();
                 var members = new List<int>();
@@ -923,10 +910,10 @@ namespace SkiResortMod.Systems
             return fit;
         }
 
-        /// <summary>T128: a STANDING line (its own members, hysteresis) is kept when every span is within KeepTolM of the floor and
+        /// <summary>A standing line (its own members, hysteresis) is kept when every span is within KeepTolM of the floor and
         /// under the max rope height. The planner's 5 / 10 m grid starts at the path's first node, so the same line sampled from
-        /// the other end reads the ground a few decimeters differently: the lift-line tool planned the 1,925 m tram from the top
-        /// (+0.2 m, playthrough log :2095) and the fit, sampling from the base, read -0.1 m and called it Short (:2131).</summary>
+        /// the other end reads the ground a few decimeters differently: a 1,925 m tram planned from the top (+0.2 m) read -0.1 m when the fit
+        /// sampled from the base and was called Short.</summary>
         public const float KeepTolM = 0.5f;
 
         private static bool KeepClear(LiftTowerPlan p)
@@ -937,9 +924,7 @@ namespace SkiResortMod.Systems
             return true;
         }
 
-        // ════════════════════════════════════════════════════════════════════════════════════════
         // Span evaluation
-        // ════════════════════════════════════════════════════════════════════════════════════════
 
         private float Rope(int k, int member)
         {
@@ -1038,9 +1023,7 @@ namespace SkiResortMod.Systems
             return true;
         }
 
-        // ════════════════════════════════════════════════════════════════════════════════════════
         // (a) anchors
-        // ════════════════════════════════════════════════════════════════════════════════════════
 
         private struct Cost
         {
@@ -1062,9 +1045,7 @@ namespace SkiResortMod.Systems
         private Cost[] m_Cost = new Cost[0];
         private bool[] m_Reached = new bool[0];
 
-        // ════════════════════════════════════════════════════════════════════════════════════════
-        // (a+b) fewest towers (T48 round 2, Richard 2026-10-20: "I almost never saw our tallest towers")
-        // ════════════════════════════════════════════════════════════════════════════════════════
+        // (a+b) fewest towers: tall members win wherever they save a tower
 
         private struct MinCost
         {
@@ -1239,7 +1220,7 @@ namespace SkiResortMod.Systems
             return added;
         }
 
-        /// <summary>The 2026-10-19 phases for the segment from working node a to a + 1: (a) anchors (exact search, else the greedy
+        /// <summary>The legacy phases for the segment from working node a to a + 1: (a) anchors (exact search, else the greedy
         /// split), then (b) infill of every anchor span. Returns the nodes added.</summary>
         private int LegacySegment(int a)
         {
@@ -1464,8 +1445,8 @@ namespace SkiResortMod.Systems
 
         private int MinGap() => math.max(1, (int)math.ceil(m_C.MinSpanM / m_C.StepM - 1e-4f));
 
-        /// <summary>T126: sample k is inside a station's clearance (StationClearM from either end, in meters: the grid's last step is
-        /// short, so a sample count alone let a tower stand 8 m from a 10 m-MinSpan station, 2026-10-20 playthrough log :1492).</summary>
+        /// <summary>Sample k is inside a station's clearance (StationClearM from either end, in meters: the grid's last step is
+        /// short, so a sample count alone let a tower stand 8 m from a 10 m-MinSpan station).</summary>
         private bool NearStation(int k) =>
             !m_NoClearance && (m_S[k] < m_C.StationClearM - Tol || m_Length - m_S[k] < m_C.StationClearM - Tol);
 
@@ -1512,7 +1493,7 @@ namespace SkiResortMod.Systems
         /// <summary>Sub-spans phase (b) will make of a span of <paramref name="len"/> meters, minus one = the infill towers it adds.</summary>
         private int InfillTowers(float len)
         {
-            // Round 2: the fewest sub-spans that respect MaxSpanM; LegacySpacing keeps the typical-span count (2026-10-19).
+            // The fewest sub-spans that respect MaxSpanM; LegacySpacing keeps the typical-span count.
             int n = LegacySpacing ? math.max((int)math.ceil(len / m_C.MaxSpanM - 1e-4f), (int)math.round(len / m_C.TypicalSpanM))
                                   : (int)math.ceil(len / m_C.MaxSpanM - 1e-4f);
             return math.max(0, n - 1);
@@ -1547,9 +1528,7 @@ namespace SkiResortMod.Systems
             return best;
         }
 
-        // ════════════════════════════════════════════════════════════════════════════════════════
         // (b) infill
-        // ════════════════════════════════════════════════════════════════════════════════════════
 
         private int Infill(int a, int b)
         {
@@ -1653,9 +1632,7 @@ namespace SkiResortMod.Systems
             return total;
         }
 
-        // ════════════════════════════════════════════════════════════════════════════════════════
         // (c) elevation
-        // ════════════════════════════════════════════════════════════════════════════════════════
 
         private void AssignMembers()
         {
@@ -1732,9 +1709,7 @@ namespace SkiResortMod.Systems
             return total;
         }
 
-        // ════════════════════════════════════════════════════════════════════════════════════════
         // Working list + output
-        // ════════════════════════════════════════════════════════════════════════════════════════
 
         private int IndexOf(int k)
         {

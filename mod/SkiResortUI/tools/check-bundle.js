@@ -1,136 +1,109 @@
 /*
- * tools/check-bundle.js - THE build gate of the Ski Resort UI module.
+ * tools/check-bundle.js - the build gate of the Ski Resort UI module.
  *
- * Written for this repo (MIT). Derived from docs/research/resort-hub-understand.md sections
- * 2.A.1 (what the game's module loader does), 2.A.3 item 6 (this gate), 2.F.1/2.F.2 (what
- * Gameface 2.2.1.3 cannot draw) and contract section 5. Why a gate at all: every mod's UI module
- * shares ONE document and ONE registrar loop with no try/catch (index.js@800454 in the installed
- * 1.6.2f1 Cities2_Data/Content/Game/UI/index.js), and the loader waits forever for a missing
- * .css (index.js@2306554). A broken bundle of ours can therefore blank or truncate EVERY mod's
- * UI. Nothing leaves build/ for the game's Mods folder unless this passes:
+ * Why a gate: every mod's UI module shares one document and one registrar loop with no try/catch (index.js@800454 in the
+ * installed 1.6.2f1 Cities2_Data/Content/Game/UI/index.js), and the loader waits forever for a missing .css
+ * (index.js@2306554). A broken bundle of ours can therefore blank or truncate every mod's UI. Nothing leaves build/ for the
+ * game's Mods folder unless this passes:
  *   - `npm run build` runs it as `postbuild` (so the C# build's SkiUiBuild target fails with it);
  *   - `npm run dev` (webpack --watch --env deploy) runs it in-process before every copy.
  *
- * THE GATE MARKER (fixer round U1, finding pipeline-safety-1). A failed run used to block only
- * the build it failed in: webpack had already written the rejected bundle and build/.ui-stamp,
- * both newer than every input, so the NEXT `dotnet build` skipped SkiUiBuild as up to date and
- * deployed the rejected bundle. Now the result is recorded where MSBuild can see it:
- *   - every run first deletes build/.gate-pass, and writes it (content = the stamp in
- *     build/.ui-stamp) only on PASS - so a FAIL, a CRASH or a killed run all leave no marker;
+ * The gate marker: a failed run must not let the next `dotnet build` skip SkiUiBuild as up to date and deploy the rejected
+ * bundle (webpack has already written it and build/.ui-stamp, both newer than every input). So the result is recorded where
+ * MSBuild can see it:
+ *   - every run first deletes build/.gate-pass, and writes it (content = the stamp in build/.ui-stamp) only on PASS, so a FAIL,
+ *     a CRASH or a killed run all leave no marker;
  *   - webpack deletes it whenever it emits a new bundle (webpack.config.js SkiStampPlugin);
- *   - SkiResortMod.csproj lists it as an Output of SkiUiBuild (a missing marker reruns the gate)
- *     and its targets SkiBuildStamp and SkiUiDeploy refuse a bundle whose marker is missing or
- *     names another stamp; SkiDeployPlugin (npm run dev) checks it before every copy.
+ *   - SkiResortMod.csproj lists it as an Output of SkiUiBuild (a missing marker reruns the gate) and its targets SkiBuildStamp
+ *     and SkiUiDeploy refuse a bundle whose marker is missing or names another stamp; SkiDeployPlugin (npm run dev) checks it
+ *     before every copy.
  *
  * What it checks (each failure is one line naming the file and the rule):
- *   1. build/ holds exactly SkiResortMod.mjs + SkiResortMod.css (+ the extracted-license .txt,
- *      SkiResortMod-img/*.png|svg, the .ui-stamp file and the .gate-pass marker) - a second .mjs,
- *      a .js chunk, a .map or a .json (the asset database turns *.json in a mod folder into
- *      Metadata assets, DefaultAssetFactory.cs:242 [1.6.2f1 Colossal.IO.AssetDatabase, ilspycmd]) fails.
- *   2. the banner parses exactly like the game's UIModuleAsset.ParseModuleInfo (ported below):
- *      identifier line, Id = mod.json id, a Dependencies line (absent = AddTags(null) NRE in
- *      PostCreate), a System.Version-parseable Version, and Build = the stamp in build/.ui-stamp.
- *   3. the bundle contains the stamp, no dynamic import(), no internal "game-ui/" path, no
- *      .extend( / .override(, no <select>/<option>/<table> element and no inline grid /
- *      space-evenly / auto-margin style.
- *   4. the compiled CSS has no display:grid, grid-template, margin-left/right:auto (or an auto
- *      margin shorthand), :not(, space-evenly, and no var() inside a shorthand property (the
- *      2026-09-30 UI.log already warns "Custom CSS expressions are not supported in shorthand
- *      declaration").
- *      SCOPING (fixer round U1, pipeline-safety-2): our CSS shares ONE document with the game and
- *      every mod (research 2.A.1), and it is the one failure no error boundary or try/catch can
- *      contain - `:global(div){pointer-events:none}` would freeze the whole UI. Every selector
- *      must be able to match only inside our own subtree: its subject (rightmost compound)
- *      carries one of our `.sr-` classes, or a compound carrying one is followed by a descendant
- *      or child combinator (a sibling combinator right after it, `.sr-x ~ div`, leaks beside our
- *      root). @media / @supports are checked inside; @keyframes and @font-face names must start
- *      with `sr-` (both names are global too); @charset is allowed; any other at-rule fails.
- *   5. src/ (TypeScript AST): every value import from cs2/* names a RUNTIME export of the game
- *      (the typings declare more than exists; a missing name is `undefined` at runtime), no
- *      namespace/default import of cs2/* (except src/cs2shim.ts, whose every `<ns>.<Name>`
- *      access is checked the same way), no npm package other than react, no dynamic import(),
- *      no moduleRegistry call other than append, no .extend(/.override(, no select/option/table
- *      elements, no inline grid styles, no style import other than *.module.scss (a plain .scss
- *      compiles with global selectors), and every string / JSX text passes the glyph allowlist.
+ *   1. build/ holds exactly SkiResortMod.mjs + SkiResortMod.css (+ the extracted-license .txt, SkiResortMod-img/*.png|svg, the
+ *      .ui-stamp file and the .gate-pass marker); a second .mjs, a .js chunk, a .map or a .json (the asset database turns
+ *      *.json in a mod folder into Metadata assets, DefaultAssetFactory.cs:242 [1.6.2f1 Colossal.IO.AssetDatabase, ilspycmd])
+ *      fails.
+ *   2. the banner parses exactly like the game's UIModuleAsset.ParseModuleInfo (ported below): identifier line, Id = mod.json
+ *      id, a Dependencies line (absent = AddTags(null) NRE in PostCreate), a System.Version-parseable Version, and Build = the
+ *      stamp in build/.ui-stamp.
+ *   3. the bundle contains the stamp, no dynamic import(), no internal "game-ui/" path, no .extend( / .override(, no
+ *      <select>/<option>/<table> element and no inline grid / space-evenly / auto-margin style.
+ *   4. the compiled CSS has no display:grid, grid-template, margin-left/right:auto (or an auto margin shorthand), :not(,
+ *      space-evenly, and no var() inside a shorthand property (the UI.log warns "Custom CSS expressions are not supported in
+ *      shorthand declaration"). Scoping: our CSS shares one document with the game and every mod, and it is the one failure no
+ *      error boundary or try/catch can contain (`:global(div){pointer-events:none}` would freeze the whole UI). Every selector
+ *      must be able to match only inside our own subtree: its subject (rightmost compound) carries one of our `.sr-` classes,
+ *      or a compound carrying one is followed by a descendant or child combinator (a sibling combinator right after it,
+ *      `.sr-x ~ div`, leaks beside our root). @media / @supports are checked inside; @keyframes and @font-face names must
+ *      start with `sr-` (both names are global too); @charset is allowed; any other at-rule fails.
+ *   5. src/ (TypeScript AST): every value import from cs2/* names a runtime export of the game (the typings declare more than
+ *      exists; a missing name is `undefined` at runtime), no namespace/default import of cs2/* (except src/cs2shim.ts, whose
+ *      every `<ns>.<Name>` access is checked the same way), no npm package other than react, no dynamic import(), no
+ *      moduleRegistry call other than append, no .extend(/.override(, no select/option/table elements, no inline grid styles,
+ *      no style import other than *.module.scss (a plain .scss compiles with global selectors), and every string / JSX text
+ *      passes the glyph allowlist.
  *   6. mod/SkiResortMod/LocaleEN.cs: every SkiResort.Hub.* value passes the glyph allowlist.
- *   7. SMOKE TEST: the bundle is import()ed in Node against stub window modules (real React from
- *      node_modules); `default` must be a function, `hasCSS` must be true, the registrar must not
- *      throw, must call only moduleRegistry.append, only on the hooks we own, each time with a
- *      plain function component (append() treats a non-function second argument as a module
- *      PATH: index.js@213139), and every bindValue() must pass a fallback that is not undefined
- *      (a binding without one throws when C# lacks it: index.js@421257).
- *      CONTAINMENT (fixer round U1, pipeline-safety-3): the registrar is run a second time with a
- *      registry whose append() throws, as the game's does when a patch moves the ModdingHook path
- *      (append -> extend("game-ui/modding/modding-hook.tsx") throws "Module ... was not found.",
- *      installed index.js@~212540-213139) - nothing may escape, because the game's registrar loop
- *      has no try/catch (index.js@800454). Each appended component is then called once as a
- *      plain function (it must stay hook-free) and must return an element whose type is an
- *      error boundary (static getDerivedStateFromError or prototype.componentDidCatch).
- *
- *   8. CONTRACT AND SOURCE RULES of Round U2 (docs/research/hub-u2-spec.md section 4.7; added
- *      2026-10-03 by implementer I-3; function checkContract below):
- *      R1 C#/TS name parity: SkiResortHubUISystem.cs `HubContract` == bindings.ts HUB_CONTRACT and
- *         `Group` == GROUP; every BINDING / TRIGGER name is registered in C# with a string literal
- *         (`new ValueBinding<T>(Group, "name", ...)`, `new RawValueBinding(Group, "name", ...)`,
- *         `new TriggerBinding<...>(Group, "name", ...)`) as the same kind, and C# registers
- *         nothing else; a value binding's C# type matches the TS type's kind; a trigger's C#
- *         generic arity equals its TS argument count.
- *      R2 shape parity: for every `writer.TypeBegin("SkiResortMod.<X>")` block in mod/SkiResortMod
- *         (**\/*.cs, bin/obj excluded) the `PropertyName("...")` literals equal the fields of TS
- *         interface <X> (a typo would otherwise render `undefined` -> "–" silently); every
- *         interface a binding carries must have at least one writer.
- *      R3 contract lock (tools/contract.lock): names, types and fields per shape. A change without
- *         a HUB_CONTRACT bump FAILS; a CORE name (bindings.ts CORE_NAMES) renamed, retyped or
- *         removed, a CORE shape field removed or retyped, or a new non-optional CORE field FAILS.
- *         `npm run contract:lock` rewrites the lock after a deliberate bump (it refuses a CORE
+ *   7. smoke test: the bundle is import()ed in Node against stub window modules (real React from node_modules); `default` must
+ *      be a function, `hasCSS` must be true, the registrar must not throw, must call only moduleRegistry.append, only on the
+ *      hooks we own, each time with a plain function component (append() treats a non-function second argument as a module
+ *      PATH: index.js@213139), and every bindValue() must pass a fallback that is not undefined (a binding without one throws
+ *      when C# lacks it: index.js@421257). Containment: the registrar is run a second time with a registry whose append()
+ *      throws, as the game's does when a patch moves the ModdingHook path (append -> extend("game-ui/modding/modding-hook.tsx")
+ *      throws "Module ... was not found.", installed index.js@~212540-213139); nothing may escape, because the game's registrar
+ *      loop has no try/catch (index.js@800454). Each appended component is then called once as a plain function (it must stay
+ *      hook-free) and must return an element whose type is an error boundary (static getDerivedStateFromError or
+ *      prototype.componentDidCatch).
+ *   8. contract and source rules (function checkContract below):
+ *      R1 C#/TS name parity: SkiResortHubUISystem.cs `HubContract` == bindings.ts HUB_CONTRACT and `Group` == GROUP; every
+ *         BINDING / TRIGGER name is registered in C# with a string literal (`new ValueBinding<T>(Group, "name", ...)`,
+ *         `new RawValueBinding(Group, "name", ...)`, `new TriggerBinding<...>(Group, "name", ...)`) as the same kind, and C#
+ *         registers nothing else; a value binding's C# type matches the TS type's kind; a trigger's C# generic arity equals its
+ *         TS argument count. A constructed binding that is never passed to AddBinding( is never registered with the game, so
+ *         the UI shows its fallback forever and C# logs nothing.
+ *      R2 shape parity: for every `writer.TypeBegin("SkiResortMod.<X>")` block in mod/SkiResortMod (**\/*.cs, bin/obj
+ *         excluded) the `PropertyName("...")` literals equal the fields of TS interface <X> (a typo would otherwise render
+ *         `undefined` -> "–" silently); every interface a binding carries must have at least one writer.
+ *      R3 contract lock (tools/contract.lock): names, types and fields per shape. A change without a HUB_CONTRACT bump FAILS; a
+ *         core name (bindings.ts CORE_NAMES) renamed, retyped or removed, a core shape field removed or retyped, or a new
+ *         non-optional core field FAILS. `npm run contract:lock` rewrites the lock after a deliberate bump (it refuses a core
  *         break and a change without a bump; the diff is reviewed).
- *      R4 locale parity: every `[key, english]` tuple of string literals in src/ whose key starts
- *         with SkiResort. / Assets. / SubServices. exists in root LocaleEN.cs with IDENTICAL
- *         text; a SkiResort.Hub.* key used by neither src/ nor another .cs file -> WARNING.
- *      R5 placeholders: t(...) / translate(...) on an entry whose English contains "{" FAILS
- *         ("use LocalizedString": translate() never substitutes, index.js@435324).
- *      R6 inputs: <input> / <textarea> only in src/hub/RenameField.tsx, which must contain
- *         `stopPropagation` and a useLayoutEffect cleanup that calls `.blur()`.
- *      R7 no JSX `title=` attribute (it shows nothing in Gameface; use Tip, research 2.F.1).
+ *      R4 locale parity: every `[key, english]` tuple of string literals in src/ whose key starts with SkiResort. / Assets. /
+ *         SubServices. exists in root LocaleEN.cs with identical text; a SkiResort.Hub.* key used by neither src/ nor another
+ *         .cs file -> WARNING.
+ *      R5 placeholders: t(...) / translate(...) on an entry whose English contains "{" FAILS ("use LocalizedString": translate()
+ *         never substitutes, index.js@435324).
+ *      R6 inputs: <input> / <textarea> only in src/hub/RenameField.tsx, which must contain `stopPropagation` and a
+ *         useLayoutEffect cleanup that calls `.blur()`.
+ *      R7 no JSX `title=` attribute (it shows nothing in Gameface; use Tip).
  *      R8 CSS `gap`, `row-gap`, `column-gap`, `grid-gap` FAIL (compiled CSS and inline styles).
  *      R9 every CSS class whose name contains "blind" declares height: 0 and visibility: hidden.
- *      R10 every "Media/..." string literal in src/ exists under the installed
- *         Cities2_Data/Content/Game/UI (WARNING when no install path is set).
- *      FIXER ROUND (2026-10-03, finding u2-panel-6; function lintFixerRules): R11 panel bindings only
- *         in panel-mounted files (PANEL_FILES); R12 hooks never after an early return or inside a
- *         condition / loop; R13 placeholder entries only as <LocText entry={...}> (R5 hardening: an
- *         alias of t or of the map passed R5); R14 no untranslated JSX text / child string / visible
- *         prop string; R6 / R7 hardened for createElement / jsx calls and `title` in spread or props
- *         object literals. R11, R12 and R14 go beyond spec 4.7; R13 and the R6 / R7 hardening close
- *         evasions of spec rules 5-7. Each was proven with a scratch fault copy of src/ (--src=).
- *      ROUND F6 (2026-10-03, implementer C, item C1; function lintPanelEdgeFocus): R15 a focusable
- *         cs2/ui button rendered (directly or through our components) in a cs2/ui Panel's header or
- *         footer must pass focusKey={FOCUS_DISABLED} - those slots host ONE focus child (field test 6:
- *         106 UI.log ERRORs). Beyond spec 4.7; proven with scratch fault copies of src/.
- *      ROUND E1 (2026-10-04, econ-round spec ch6 §10): R16 build-item parity C# ↔ TS (ItemIds /
- *         ItemPrefabNames / item constants against BUILD_ITEM_IDS / BuildItemId / BUILD_ITEM_PREFAB /
- *         BUILD_GROUPS); R17 enum parity (eight TS const objects against their C# enums); R18 the UI
- *         rules self-test (tools/test-hub-rules.js). R11's lists follow contract 3. Proven with
- *         scratch fault copies (--contract-only --src= / --cs-dir= / --hub-cs=; build/notes-S6.md).
- *      CONTRACT 6 (2026-10-11, Catalog Phase B, code round 2, hub group; docs/research/art/assets-2026-10/
- *         code-round-2/round-2-contract.md section 8.7 with skeptic MUST 8): R16 is REWRITTEN for the ONE
- *         build-item table. It reads mod/SkiResortMod/Systems/SkiCatalog.cs (`--catalog-cs=` overrides it),
- *         no longer the hub system: the NAMES block (`public const string X = "Name"; // Type[, item id]
- *         [, pending]`) and the BUILD-ITEMS block (`new BuildItemDef("id", Names.X, BuildItemKind.K, "type",
- *         n),`, the markers INSIDE the braces: every line between them is a row) as RAW text (the NAMES
- *         grammar lives in end-of-line comments and the markers are comments, so this rule does not strip
- *         comments), and compares them with bindings.ts BuildItemId / BUILD_ITEM_IDS / BUILD_ITEM_PREFAB /
+ *      R10 every "Media/..." string literal in src/ exists under the installed Cities2_Data/Content/Game/UI (WARNING when no
+ *         install path is set).
+ *      R11 panel bindings only in panel-mounted files (PANEL_FILES); an always-mounted file may import only HubPanel from the
+ *         panel files.
+ *      R12 hooks never after an early return or inside a condition / loop.
+ *      R13 placeholder entries only as <LocText entry={...}> (an alias of t or of the map would pass R5).
+ *      R14 no untranslated JSX text / child string / visible prop string; R6 / R7 also cover createElement / jsx calls and
+ *         `title` in spread or props object literals.
+ *      R15 (function lintPanelEdgeFocus) a focusable cs2/ui button rendered (directly or through our components) in a cs2/ui
+ *         Panel's header or footer must pass focusKey={FOCUS_DISABLED}: those slots host one focus child.
+ *      R16 build-item parity C# <-> TS: reads mod/SkiResortMod/Systems/SkiCatalog.cs (`--catalog-cs=` overrides it), the NAMES
+ *         block (`public const string X = "Name"; // Type[, item id][, pending]`) and the BUILD-ITEMS block (`new
+ *         BuildItemDef("id", Names.X, BuildItemKind.K, "type", n),`, the markers inside the braces: every line between them
+ *         is a row) as raw text (the NAMES grammar lives in end-of-line comments and the markers are comments, so this rule
+ *         does not strip comments), and compares them with bindings.ts BuildItemId / BUILD_ITEM_IDS / BUILD_ITEM_PREFAB /
  *         LIFT_TYPE_IDS and src/hub/buildItems.ts BUILD_ITEMS / BUILD_GROUPS / BUILD_ITEM_ICON (checkBuildItems).
- *      `node tools/check-bundle.js --contract-only` runs R1-R7, R10 and R11-R18 plus the source lint
- *      without a bundle; `--hub-cs=`, `--catalog-cs=`, `--locale=`, `--lock=`, `--src=` and `--cs-dir=`
- *      point the checks at other files (fault tests; any override is reported as a WARNING).
+ *      R17 enum parity: eight TS const objects against their C# enums.
+ *      R18 the UI rules self-test (tools/test-hub-rules.js).
+ *      `node tools/check-bundle.js --contract-only` runs R1-R7, R10 and R11-R18 plus the source lint without a bundle;
+ *      `--hub-cs=`, `--catalog-cs=`, `--locale=`, `--lock=`, `--src=` and `--cs-dir=` point the checks at other files (fault
+ *      tests; any override is reported as a WARNING).
  *
- * Runtime export lists: parsed at check time from the INSTALLED game's index.js (so a patch that
- * removes an export fails the build on patch day). When CSII_INSTALLATIONPATH is set but that
- * index.js cannot be read or its export table cannot be parsed, the gate FAILS and names the
- * reason (fixer round U1, pipeline-safety-4: it used to fall back silently to the 1.6.2f1 lists
- * below, which disabled the patch-day check exactly when a patch changed the file). The built-in
- * lists are used only when no install path is set at all, and the report says so.
+ * Runtime export lists: parsed at check time from the installed game's index.js (so a patch that removes an export fails the
+ * build on patch day). When CSII_INSTALLATIONPATH is set but that index.js cannot be read or its export table cannot be parsed,
+ * the gate FAILS and names the reason (falling back silently to the 1.6.2f1 lists below would disable the patch-day check
+ * exactly when a patch changed the file). The built-in lists are used only when no install path is set at all, and the report
+ * says so.
  */
 "use strict";
 
@@ -142,11 +115,7 @@ const { readCsiiVar } = require("./user-env");
 const ROOT = path.resolve(__dirname, "..");
 const BUILD = path.join(ROOT, "build");
 
-/**
- * Path overrides for fault tests (header item 8): `--src=`, `--locale=`, `--hub-cs=`, `--cs-dir=`,
- * `--lock=`. Every override in use is reported as a WARNING, so a gate run on the wrong files can
- * never pass silently.
- */
+/** Path overrides for fault tests: `--src=`, `--locale=`, `--hub-cs=`, `--cs-dir=`, `--lock=`. Every override in use is reported as a WARNING, so a gate run on the wrong files can never pass silently. */
 const ARGS = process.argv.slice(2);
 function argValue(name) {
   const hit = ARGS.find((a) => a.startsWith(`--${name}=`));
@@ -162,39 +131,34 @@ function pathArg(name, fallback) {
 const SRC = pathArg("src", path.join(ROOT, "src"));
 const CS_DIR = pathArg("cs-dir", path.resolve(ROOT, "..", "SkiResortMod"));
 const LOCALE_EN = pathArg("locale", path.join(CS_DIR, "LocaleEN.cs"));
-/** The C# side of the binding contract (spec 2.2; rule R1). */
+/** The C# side of the binding contract (rule R1) */
 const HUB_CS = pathArg("hub-cs", path.join(CS_DIR, "Systems", "SkiResortHubUISystem.cs"));
-/** Rule R16 since contract 6: the ONE build-item table and the NAMES block (round-2-contract section 1.1, 1.6). */
+/** Rule R16: the one build-item table and the NAMES block */
 const CATALOG_CS = pathArg("catalog-cs", path.join(CS_DIR, "Systems", "SkiCatalog.cs"));
 /** Rule R3. Written by `npm run contract:lock` (= node tools/check-bundle.js --write-lock). */
 const CONTRACT_LOCK = pathArg("lock", path.join(ROOT, "tools", "contract.lock"));
-/** The one file allowed an <input> (rule R6; spec 4.3). */
+/** The one file allowed an <input> (rule R6) */
 const RENAME_FIELD = "hub/RenameField.tsx";
-/** The contract's source of truth (spec 2.2). */
+/** The contract's source of truth */
 const BINDINGS_TS = "bindings.ts";
 /**
- * Rule R11 (fixer round, finding u2-panel-6 (a); a gate rule BEYOND spec 4.7): the bindings whose
- * observers make C# compute for the panel may be referenced only in files that mount while the panel
- * is open. An always-mounted subscriber (index.tsx, HubRoot, HubLauncher, hubState) would keep the
- * catalog / stats running with the panel closed (spec 3.6 "nothing is computed while closed"). A new
- * panel file must be added here on purpose.
- * Contract 3 (Round E1, econ-round spec ch6 section 10.1, ch5 section 4.3): SkiResortHubUISystem's
- * Demand = build, resorts, resortLive, runs, runLive, lifts, problems, city observed; selectedResort and
- * glade are panel bindings too; pisteMap and follow are panel bindings without Demand. `lodges` is
- * gone; ResortDashboard.tsx / ResortLists.tsx are deleted; the five views, the status block, the tiles
- * and the start card are panel files.
+ * Rule R11: the bindings whose observers make C# compute for the panel may be referenced only in files that mount while the
+ * panel is open. An always-mounted subscriber (index.tsx, HubRoot, HubLauncher, hubState) would keep the catalog / stats running
+ * with the panel closed. A new panel file must be added here on purpose. SkiResortHubUISystem's Demand = build, resorts,
+ * resortLive, runs, runLive, lifts, problems, city observed; selectedResort and glade are panel bindings too; pisteMap, follow,
+ * history and liftLine are panel bindings without Demand.
  */
 const PANEL_BINDINGS = new Set([
   "resorts$", "resortLive$", "selectedResort$", "runs$", "runLive$", "lifts$", "problems$", "city$",
   "build$", "glade$", "pisteMap$", "follow$",
-  "history$",   // contract 10 (T78): only the History view subscribes it (no Demand)
-  "liftLine$",  // contract 12 (lift generator): the Build strip's Lifts tab, ok panel only (no Demand)
+  "history$",
+  "liftLine$",
 ]);
 /**
- * Rule R11 addition (code review 2026-10-19, L17): the always-mounted files (they render while the hub is closed) may import ONLY
- * HubPanel from the panel files (a value import; type-only imports are erased). An always-mounted file that imports and renders
- * <StatusBlock/> or any other panel component passes the per-binding check (it references no panel binding itself) but mounts that
- * component's subscriptions with the panel closed.
+ * Rule R11: the always-mounted files (they render while the hub is closed) may import only HubPanel from the panel files (a
+ * value import; type-only imports are erased). An always-mounted file that imports and renders <StatusBlock/> or any other panel
+ * component passes the per-binding check (it references no panel binding itself) but mounts that component's subscriptions
+ * with the panel closed.
  */
 const ALWAYS_MOUNTED_FILES = new Set([
   "index.tsx", "hub/HubRoot.tsx", "hub/HubLauncher.tsx", "hub/hubState.ts", "hub/ErrorBoundary.tsx",
@@ -204,16 +168,14 @@ const PANEL_FILES = new Set([
   "hub/HubPanel.tsx", "hub/HubHeader.tsx", "hub/StartCard.tsx", "hub/StatusBlock.tsx", "hub/ViewTiles.tsx",
   "hub/OverviewView.tsx", "hub/RunsView.tsx", "hub/RunList.tsx", "hub/LiftsView.tsx", "hub/LiftTable.tsx",
   "hub/GuestsView.tsx", "hub/MoneyView.tsx", "hub/BuildStrip.tsx", "hub/TreeControls.tsx",
-  "hub/HistoryView.tsx", "hub/HistoryChart.tsx",   // contract 10 (T78 build 2)
+  "hub/HistoryView.tsx", "hub/HistoryChart.tsx",
 ]);
-/** Rule R16 (Round E1): the TS file that holds BUILD_GROUPS. */
+/** Rule R16: the TS file that holds BUILD_GROUPS */
 const BUILD_ITEMS_TS = path.join("hub", "buildItems.ts");
 /**
- * Rule R17 (Round E1, econ-round spec ch6 section 10.3): the TS const objects of bindings.ts and the C#
- * enums (file under CS_DIR) that must hold the same names with the same values, both directions.
- * BAND and LIFT_STATE have no C# enum (literal ints in C#) and are not compared.
- * Round S1 (contract 4; docs/research/ski-days/spec/ch4-hub.md A.2): SKI_DAY_STATE and SKI_DAY_LIMIT, ten
- * pairs. Systems/SkiDayRules.cs is in the csproj's SkiUiInput list, so an edit there re-runs this gate.
+ * Rule R17: the TS const objects of bindings.ts and the C# enums (file under CS_DIR) that must hold the same names with the same
+ * values, both directions. BAND and LIFT_STATE have no C# enum (literal ints in C#) and are not compared. Systems/SkiDayRules.cs
+ * is in the csproj's SkiUiInput list, so an edit there re-runs this gate.
  */
 const ENUM_PAIRS = [
   ["RUN_KIND", "Systems/EntityRef.cs", "RunKind"],
@@ -222,36 +184,35 @@ const ENUM_PAIRS = [
   ["SEASON_HINT", "Systems/HubRules.cs", "SeasonHint"],
   ["NEXT_STEP", "Systems/HubRules.cs", "NextStepKind"],
   ["LIFT_STATUS", "Systems/HubRules.cs", "HubLiftStatus"],
-  ["RUN_GUN_WHY", "Systems/HubRules.cs", "RunGunWhy"],   // T136 (contract 13)
+  ["RUN_GUN_WHY", "Systems/HubRules.cs", "RunGunWhy"],
   ["PROBLEM", "Systems/HubRules.cs", "HubProblemCode"],
   ["TICKET_GATE", "Systems/SkiMoneyRules.cs", "TicketGate"],
   ["SKI_DAY_STATE", "Systems/HubRules.cs", "HubSkiDayState"],
   ["SKI_DAY_LIMIT", "Systems/SkiDayRules.cs", "SkiDayLimit"],
 ];
-/** Rule R14 (fixer round, u2-panel-6 (d)): JSX props whose string-literal value the player reads. */
+/** Rule R14: JSX props whose string-literal value the player reads */
 const VISIBLE_PROPS = new Set(["label", "tip", "tooltip", "tooltipLabel", "placeholder", "aria-label", "alt", "title", "text", "header"]);
-/** Rule R14: a letter in any script (an untranslated word). */
+/** Rule R14: a letter in any script (an untranslated word) */
 const LETTER_RE = /\p{L}/u;
 const MOD = JSON.parse(fs.readFileSync(path.join(ROOT, "mod.json"), "utf8"));
 const STAMP_FILE = ".ui-stamp";
-/** Written (content = the stamp) only by a PASSING run; see "THE GATE MARKER" in the header. */
+/** Written (content = the stamp) only by a passing run; see "The gate marker" in the header */
 const GATE_FILE = ".gate-pass";
 const STAMP_RE = /^[A-Za-z0-9._-]{1,64}$/;
-/** Text of the "/*!" comment in src/index.tsx that guarantees terser extracts >= 1 comment. */
+/** Text of the "/*!" comment in src/index.tsx that guarantees terser extracts >= 1 comment */
 const BANNER_ANCHOR = "SkiResortMod UI module";
 
-/** The one source file allowed a namespace import of cs2/* (src/cs2shim.ts header says why). */
+/** The one source file allowed a namespace import of cs2/* (src/cs2shim.ts header says why) */
 const SHIM_FILE = "cs2shim.ts";
 
-/** The append hooks this mod may use (contract section 5.2 item 2; research 2.E.1). */
+/** The append hooks this mod may use */
 const ALLOWED_HOOKS = ["UniversalModMenu", "GameTopLeft", "Game"];
 
 /**
- * Runtime exports of the game's window modules on 1.6.2f1, read from the installed
- * Cities2_Data/Content/Game/UI/index.js: window names at @799710 (`Object.defineProperties(window,
- * {...})`), each module object built by `n.r(X),n.d(X,{name:()=>...})` - cs2/api @191690,
- * cs2/l10n @192007, cs2/ui @197852, cs2/bindings @209234, cs2/utils @209823, cs2/input @210083,
- * cs2/modding @212063. Fallback only: the live parse below wins when it succeeds.
+ * Runtime exports of the game's window modules on 1.6.2f1, read from the installed Cities2_Data/Content/Game/UI/index.js: window
+ * names at @799710 (`Object.defineProperties(window, {...})`), each module object built by `n.r(X),n.d(X,{name:()=>...})` -
+ * cs2/api @191690, cs2/l10n @192007, cs2/ui @197852, cs2/bindings @209234, cs2/utils @209823, cs2/input @210083, cs2/modding
+ * @212063. Fallback only: the live parse below wins when it succeeds.
  */
 const RUNTIME_EXPORTS_1_6_2 = {
   "cs2/api": "bindEvent bindLocalValue bindMap bindTrigger bindTriggerWithArgs bindValue call trigger useMapValue useMapValueOnChange useMapValues useReducedValue useValue useValueOnChange useValueRef",
@@ -262,20 +223,16 @@ const RUNTIME_EXPORTS_1_6_2 = {
   "cs2/input": "ActionHintLayout ActiveControlSchemeInputHint ActiveFocusDiv AutoNavigationScope BackConsumer ControlIcon ControlIcons EventInputProvider ExpandConsumer FOCUS_AUTO FOCUS_DISABLED FocusActivation FocusBoundary FocusContext FocusControllerBase FocusDisabled FocusKeyOverride FocusNode FocusRoot FocusScope FocusSymbol FocusedInputHint GamepadAxis GamepadButton GamepadPointerEventProvider InputActionBarrier InputActionConsumer InputActionHints InputContext InputControllerImpl InputHint InputStack MultiChildFocusController NativeInputProvider NavigationDirection NavigationScope PassiveFocusDiv PointerBarrier RootInputControllerImpl SelectConsumer SelectableFocusBoundary defaultInputController disabledFocusController focusAnchorBottom focusAnchorCenter focusAnchorLeft focusAnchorRight focusAnchorTop gamepadButtonFromString getClosestKey getClosestKeyInDirection getElementFocusPosition inputActionNames$ navActions onInputActionPerformed$ onInputActionReleased$ refocusClosestKey refocusClosestKeyIfNoFocus setInputActionPriority transformNavigationInput useElementFocusController useEntityFocusChangeListener useFocusCallback useFocusChangeListener useFocused useFocusedRef useGamepadType useInputControlIcon useInputController useKeyFocusController useKeyboardLayout useLayoutMap useMultiChildFocusController usePassThroughFocusController useRootFocusController useStringFocusChangeListener useUniqueFocusKey",
   "cs2/modding": "findModule getModule",
 };
-/** A name each module must contain, to pick the right `n.d(X,{...})` when a minified name repeats. */
+/** A name each module must contain, to pick the right `n.d(X,{...})` when a minified name repeats */
 const ANCHOR = { "cs2/api": "bindValue", "cs2/bindings": "tool", "cs2/l10n": "useLocalization", "cs2/ui": "Panel", "cs2/utils": "entityKey", "cs2/input": "FOCUS_AUTO", "cs2/modding": "getModule" };
 
 /**
- * Glyphs that render in every in-game font chain (Overpass, Noto Sans, CJK, Thai), research
- * 2.F.2 [V from the fonts' character maps], beside printable ASCII: arrows, ellipsis, middle dot,
- * en dash, multiplication sign, degree, superscript two, no-break space. NOT safe: the em dash
- * was not on the checked list, and triangles / circles / diamonds / check marks exist only in
- * fallback fonts. Extend this list only with evidence.
- * "≈" (U+2248) added 2026-10-03 (Round U2, I-3; spec 4.2 "≈ prefix when verticalApprox"): present
- * in the cmap of Overpass-Regular/-Bold.ttf AND NotoSans-Regular/-Bold.ttf of the installed
- * Cities2_Data/Content/Game/UI/Fonts (format-4 cmap read by a scratch script), and every
- * --fontFamily chain of index.css contains "Noto Sans" (index.css@1349: the default chain starts
- * Overpass, "Noto Sans"; the ru/ko/ja/zh chains start "Noto Sans").
+ * Glyphs that render in every in-game font chain (Overpass, Noto Sans, CJK, Thai), read from the fonts' character maps, beside
+ * printable ASCII: arrows, ellipsis, middle dot, en dash, multiplication sign, degree, superscript two, no-break space, and
+ * "≈" (U+2248: in the cmap of Overpass-Regular/-Bold.ttf and NotoSans-Regular/-Bold.ttf of the installed
+ * Cities2_Data/Content/Game/UI/Fonts, and every --fontFamily chain of index.css contains "Noto Sans", index.css@1349). Not
+ * safe: the em dash was not on the checked list, and triangles / circles / diamonds / check marks exist only in fallback
+ * fonts. Extend this list only with evidence.
  */
 const SAFE_GLYPHS = new Set(["←", "→", "↑", "↓", "…", "·", "–", "×", "°", "²", "≈"," "]);
 const CSS_SHORTHANDS = ["margin", "padding", "border", "border-top", "border-right", "border-bottom", "border-left",
@@ -283,7 +240,6 @@ const CSS_SHORTHANDS = ["margin", "padding", "border", "border-top", "border-rig
   "transition", "animation", "outline", "inset", "gap", "overflow", "text-decoration", "list-style", "place-items",
   "place-content", "columns", "mask"];
 
-// ------------------------------------------------------------------------------------------------
 
 function listFiles(dir, base = dir) {
   const out = [];
@@ -311,12 +267,12 @@ function removeGateMarker(buildDir = BUILD) {
   try { fs.rmSync(path.join(buildDir, GATE_FILE), { force: true }); } catch { /* reported by readGateMarker */ }
 }
 
-/** The stamp a passing run recorded in build/.gate-pass, or null. */
+/** The stamp a passing run recorded in build/.gate-pass, or null */
 function readGateMarker(buildDir = BUILD) {
   try { return fs.readFileSync(path.join(buildDir, GATE_FILE), "utf8").trim() || null; } catch { return null; }
 }
 
-/** Port of Colossal.IO.AssetDatabase.UIModuleAsset.ParseModuleInfo / ProcessLine (1.6.2f1). */
+/** Port of Colossal.IO.AssetDatabase.UIModuleAsset.ParseModuleInfo / ProcessLine (1.6.2f1) */
 function parseModuleInfo(text) {
   const info = { id: null, author: null, version: null, versionRaw: null, deps: null, identifier: false, extra: {} };
   let inComment = false;
@@ -345,19 +301,16 @@ function parseModuleInfo(text) {
   return info;
 }
 
-/** System.Version.TryParse: 2-4 non-negative int32 components. */
+/** System.Version.TryParse: 2-4 non-negative int32 components */
 function parseDotNetVersion(s) {
   if (!/^\d+(\.\d+){1,3}$/.test(s)) return null;
   return s.split(".").every((p) => Number(p) <= 2147483647) ? s : null;
 }
 
-// ------------------------------------------------------------------------------------------------
-// Runtime exports of the installed game
 
 /**
- * The game's runtime exports. `problem` is non-null when an install path IS set but its index.js
- * could not be read or parsed: checkBundle then FAILS (fixer round U1, pipeline-safety-4). Only a
- * missing install path falls back to the built-in 1.6.2f1 lists without an error.
+ * The game's runtime exports. `problem` is non-null when an install path is set but its index.js could not be read or parsed:
+ * checkBundle then FAILS. Only a missing install path falls back to the built-in 1.6.2f1 lists without an error.
  */
 function readRuntimeExports() {
   const install = readCsiiVar("CSII_INSTALLATIONPATH");
@@ -397,8 +350,6 @@ function readRuntimeExports() {
   return { lists, source: `installed game (${indexJs})`, drift, problem: null };
 }
 
-// ------------------------------------------------------------------------------------------------
-// Glyphs
 
 function badGlyph(text, allowNewlines) {
   for (const ch of text) {
@@ -411,8 +362,6 @@ function badGlyph(text, allowNewlines) {
   return null;
 }
 
-// ------------------------------------------------------------------------------------------------
-// Source lint (TypeScript AST)
 
 function lintSources(runtime, errors) {
   let ts;
@@ -423,7 +372,7 @@ function lintSources(runtime, errors) {
     display: /^(inline-)?grid$/, justifyContent: /space-evenly/, alignContent: /space-evenly/,
     marginLeft: /^auto$/, marginRight: /^auto$/, margin: /\bauto\b/,
     gridTemplate: /./, gridTemplateColumns: /./, gridTemplateRows: /./, gridArea: /./,
-    gap: /./, rowGap: /./, columnGap: /./, gridGap: /./, // rule R8 (spec 4.7 item 8)
+    gap: /./, rowGap: /./, columnGap: /./, gridGap: /./,
   };
   const BAD_TAGS = new Set(["select", "option", "table", "thead", "tbody", "tr", "td", "th"]);
 
@@ -433,7 +382,7 @@ function lintSources(runtime, errors) {
     const sf = ts.createSourceFile(file, text, ts.ScriptTarget.ES2020, true,
       rel.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
     const at = (node) => `src/${rel}:${sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1}`;
-    /** src/cs2shim.ts only: namespace identifier -> cs2 module; every `<ns>.<Name>` is checked. */
+    /** src/cs2shim.ts only: namespace identifier -> cs2 module; every `<ns>.<Name>` is checked */
     const shimNamespaces = new Map();
     const unwrap = (e) => {
       while (ts.isParenthesizedExpression(e) || ts.isAsExpression(e) || ts.isNonNullExpression(e) ||
@@ -443,8 +392,8 @@ function lintSources(runtime, errors) {
 
     const checkModuleRef = (node, spec, clause, isExport) => {
       if (spec.startsWith(".")) {
-        // A plain .scss/.css compiles with GLOBAL selectors (webpack.config.js modules.auto only
-        // localizes *.module.s?css) into a document shared by every mod (fixer round U1, pipeline-safety-2).
+        // A plain .scss/.css compiles with global selectors (webpack.config.js modules.auto only localizes *.module.s?css) into a
+        // document shared by every mod
         if (/\.(s[ac]ss|css|less|styl)$/i.test(spec) && !/\.module\.scss$/i.test(spec)) {
           errors.push(`${at(node)}: imports "${spec}" - only *.module.scss stylesheets (class names scoped "sr-...") may be imported`);
         }
@@ -512,8 +461,6 @@ function lintSources(runtime, errors) {
   return files.length;
 }
 
-// ------------------------------------------------------------------------------------------------
-// LocaleEN.cs (C#): SkiResort.Hub.* values
 
 function csTokens(text) {
   const toks = [];
@@ -526,7 +473,7 @@ function csTokens(text) {
       const e = text.indexOf("*/", i + 2), end = e < 0 ? text.length : e + 2;
       line += (text.slice(i, end).match(/\n/g) || []).length; i = end; continue;
     }
-    if (c === "@" && text[i + 1] === "\"") { // verbatim string
+    if (c === "@" && text[i + 1] === "\"") {
       let j = i + 2, v = "";
       while (j < text.length) { if (text[j] === "\"") { if (text[j + 1] === "\"") { v += "\""; j += 2; continue; } break; } if (text[j] === "\n") line++; v += text[j++]; }
       toks.push({ t: "s", v, line }); i = j + 1; continue;
@@ -563,7 +510,7 @@ function lintLocale(errors, warnings) {
       if (toks[j].t === "s") value += toks[j].v;
       else if (toks[j].t !== "+") { ok = false; break; }
     }
-    if (!ok) continue; // not a plain literal value
+    if (!ok) continue;
     count++;
     const bad = badGlyph(value, true);
     if (bad) errors.push(`LocaleEN.cs:${key.line}: ${key.v} uses glyph ${bad}, not on the safe list (research 2.F.2)`);
@@ -571,8 +518,6 @@ function lintLocale(errors, warnings) {
   return count;
 }
 
-// ------------------------------------------------------------------------------------------------
-// CSS
 
 function lintCss(css, errors) {
   const noComments = css.replace(/\/\*[\s\S]*?\*\//g, "");
@@ -602,7 +547,7 @@ function lintCss(css, errors) {
   return lintCssScoping(noComments, errors, "");
 }
 
-/** Every rule (selector text, declarations) of a CSS rule list, recursing into @media / @supports. */
+/** Every rule (selector text, declarations) of a CSS rule list, recursing into @media / @supports */
 function cssRules(text, out = []) {
   for (const it of cssItems(text)) {
     if (it.block === null || it.unclosed || it.stray) continue;
@@ -623,10 +568,9 @@ function cssRules(text, out = []) {
 }
 
 /**
- * Rule R9 (spec 4.7 item 9): a class whose name contains "blind" is a width sample (vanilla
- * FullWidthDigits, index.css@127211 `.blind_u0R{height:0;visibility:hidden}`); one that shows or
- * takes height would put a second copy of a number on screen. Its own rule(s) - selector exactly
- * `.<class>` - must declare height: 0 and visibility: hidden.
+ * Rule R9: a class whose name contains "blind" is a width sample (vanilla FullWidthDigits, index.css@127211
+ * `.blind_u0R{height:0;visibility:hidden}`); one that shows or takes height would put a second copy of a number on screen. Its
+ * own rule(s) - selector exactly `.<class>` - must declare height: 0 and visibility: hidden.
  */
 function lintBlindClasses(text, errors) {
   const rules = cssRules(text);
@@ -646,10 +590,8 @@ function lintBlindClasses(text, errors) {
   }
 }
 
-// ------------------------------------------------------------------------------------------------
-// CSS selector scoping (fixer round U1, finding pipeline-safety-2; rule: header item 4)
 
-/** Index just past the string literal whose opening quote is text[i]. */
+/** Index just past the string literal whose opening quote is text[i] */
 function skipString(text, i) {
   const q = text[i];
   let j = i + 1;
@@ -657,7 +599,7 @@ function skipString(text, i) {
   return j + 1;
 }
 
-/** Index of the "}" that closes the "{" at text[i], or -1. */
+/** Index of the "}" that closes the "{" at text[i], or -1 */
 function matchBrace(text, i) {
   let depth = 0;
   for (let j = i; j < text.length; j++) {
@@ -670,7 +612,7 @@ function matchBrace(text, i) {
   return -1;
 }
 
-/** Top-level items of a CSS rule list (comments removed): { prelude, block|null, unclosed?, stray? }. */
+/** Top-level items of a CSS rule list (comments removed): { prelude, block|null, unclosed?, stray? } */
 function cssItems(text) {
   const items = [];
   let start = 0;
@@ -699,7 +641,7 @@ function cssItems(text) {
   return items;
 }
 
-/** Splits at top-level `sep` characters (outside (), [] and strings). */
+/** Splits at top-level `sep` characters (outside (), [] and strings) */
 function splitTopLevel(text, sep) {
   const parts = [];
   let depth = 0, start = 0;
@@ -715,7 +657,7 @@ function splitTopLevel(text, sep) {
   return parts;
 }
 
-/** A complex selector's compounds and the combinators between them (" ", ">", "+", "~"). */
+/** A complex selector's compounds and the combinators between them (" ", ">", "+", "~") */
 function parseComplexSelector(sel) {
   const compounds = [], combinators = [];
   let cur = "", pending = null, depth = 0;
@@ -727,7 +669,7 @@ function parseComplexSelector(sel) {
     else if (c === ")" || c === "]") depth--;
     else if (depth === 0 && (c === ">" || c === "+" || c === "~" || /\s/.test(c))) {
       if (cur) { compounds.push(cur); cur = ""; pending = " "; }
-      if (!/\s/.test(c)) pending = c; // an explicit combinator wins over the whitespace around it
+      if (!/\s/.test(c)) pending = c;
       continue;
     }
     if (!cur && pending !== null) {
@@ -754,10 +696,9 @@ function compoundHasOurClass(compound) {
 }
 
 /**
- * Why a complex selector could match an element outside our own subtree, or null when it cannot.
- * Safe: the subject (rightmost compound) carries an .sr- class, OR some compound carrying one is
- * followed by a descendant (" ") or child (">") combinator - every later compound then lies
- * strictly inside that element's subtree (a sibling of a strict descendant is still inside it).
+ * Why a complex selector could match an element outside our own subtree, or null when it cannot. Safe: the subject (rightmost
+ * compound) carries an .sr- class, or some compound carrying one is followed by a descendant (" ") or child (">") combinator -
+ * every later compound then lies strictly inside that element's subtree (a sibling of a strict descendant is still inside it).
  */
 function selectorLeak(sel) {
   const { compounds, combinators } = parseComplexSelector(sel);
@@ -788,8 +729,8 @@ function lintCssScoping(text, errors, where) {
         continue;
       }
       if (/^(-webkit-)?keyframes$/.test(name) && it.block !== null) {
-        // from / to / n% inside are keyframe selectors, not element selectors. The NAME is global:
-        // a clash replaces the game's (or another mod's) animation.
+        // from / to / n% inside are keyframe selectors, not element selectors. The name is global: a clash replaces the game's (or
+        // another mod's) animation.
         const kname = head.slice(name.length + 1).trim().replace(/^["']|["']$/g, "");
         if (!kname.startsWith("sr-")) errors.push(`${MOD.id}.css: ${where}@keyframes "${kname}" - keyframe names are global; ours must start with "sr-" (define it in a *.module.scss)`);
         continue;
@@ -814,23 +755,21 @@ function lintCssScoping(text, errors, where) {
   return count;
 }
 
-// ------------------------------------------------------------------------------------------------
-// Contract and source rules R1-R7, R10 (header item 8; docs/research/hub-u2-spec.md section 4.7)
 
-/** C# source with comments removed (strings, verbatim strings and interpolation holes respected). */
+/** C# source with comments removed (strings, verbatim strings and interpolation holes respected) */
 function stripCsComments(src) {
   const n = src.length;
   const isStrStart = (j) => src[j] === "\"" ||
     ((src[j] === "$" || src[j] === "@") && (src[j + 1] === "\"" || ((src[j + 1] === "$" || src[j + 1] === "@") && src[j + 2] === "\"")));
-  function readChar(j) { // 'x' / '\n' / '\''
+  function readChar(j) {
     let k = j + 1;
     while (k < n && src[k] !== "'" && src[k] !== "\n") k += src[k] === "\\" ? 2 : 1;
     return k + 1;
   }
-  function readString(j) { // returns the index just past the string starting at j
+  function readString(j) {
     let verbatim = false, interp = false;
     while (src[j] === "$" || src[j] === "@") { if (src[j] === "$") interp = true; else verbatim = true; j++; }
-    j++; // opening quote
+    j++;
     let depth = 0;
     while (j < n) {
       const c = src[j];
@@ -857,7 +796,7 @@ function stripCsComments(src) {
     if (c === "/" && src[i + 1] === "*") {
       const e = src.indexOf("*/", i + 2);
       const end = e < 0 ? n : e + 2;
-      out += src.slice(i, end).replace(/[^\n]/g, " "); // keep line numbers
+      out += src.slice(i, end).replace(/[^\n]/g, " ");
       i = end;
       continue;
     }
@@ -869,7 +808,7 @@ function stripCsComments(src) {
   return out;
 }
 
-/** Splits a C# generic argument list "A, B<C, D>" at top-level commas. */
+/** Splits a C# generic argument list "A, B<C, D>" at top-level commas */
 function splitGenericArgs(text) {
   const out = [];
   let depth = 0, start = 0;
@@ -884,7 +823,7 @@ function splitGenericArgs(text) {
   return out;
 }
 
-/** The C# side of R1 / R2: Group, HubContract, registrations, TypeBegin blocks. */
+/** The C# side of R1 / R2: Group, HubContract, registrations, TypeBegin blocks */
 function readHubCs(file, errors) {
   let text;
   try { text = fs.readFileSync(file, "utf8"); } catch (e) { errors.push(`contract: cannot read ${file} (${e && e.code ? e.code : e}) - rule R1 needs the C# hub system`); return null; }
@@ -902,9 +841,9 @@ function readHubCs(file, errors) {
     const literal = m[6] !== undefined ? m[6] : null;
     const kind = /^(TriggerBinding|CallBinding)$/.test(cls) ? "trigger" : /^(ValueBinding|RawValueBinding|GetterValueBinding|RawMapBinding|ValueBindingWithCustomEquality)$/.test(cls) ? "binding" : null;
     if (!kind) continue;
-    // R1 (code review 2026-10-19, L17): a constructed binding that is never passed to AddBinding( is never registered with the
-    // game, so the UI shows its fallback forever and C# logs nothing. Registered = the `new` sits directly in an AddBinding(
-    // argument (through any `x = y =` assignment chain), or it is assigned to a name that appears as AddBinding(name).
+    // R1: a constructed binding that is never passed to AddBinding( is never registered with the game. Registered = the `new` sits
+    // directly in an AddBinding( argument (through any `x = y =` assignment chain), or it is assigned to a name that appears as
+    // AddBinding(name).
     const before = src.slice(0, m.index);
     let added = /\bAddBinding\s*\(\s*(?:[A-Za-z_][\w.]*\s*=\s*)*$/.test(before);
     if (!added) {
@@ -921,7 +860,7 @@ function readHubCs(file, errors) {
   return out;
 }
 
-/** Every `TypeBegin("SkiResortMod.<X>")` block of every .cs under dir (bin/obj excluded). */
+/** Every `TypeBegin("SkiResortMod.<X>")` block of every .cs under dir (bin/obj excluded) */
 function readCsWriters(dir, errors) {
   const blocks = [];
   const memberKinds = new Map();
@@ -965,10 +904,10 @@ function readCsWriters(dir, errors) {
 }
 
 /**
- * R2 (code review 2026-10-19, L17): value-kind inference for `writer.PropertyName("x"); writer.Write(<expr>);`. The checker has no
- * C# type information, so it uses the declared type of the LAST identifier of the argument (field, property, local, parameter or
- * method return type declared anywhere under CS_DIR; a name declared with more than one kind is "unknown" and skipped), plus
- * the cast / Fin(...) / "?? \"\"" / comparison / literal forms. "unknown" never fails: only a certain mismatch does.
+ * R2: value-kind inference for `writer.PropertyName("x"); writer.Write(<expr>);`. The checker has no C# type information, so it
+ * uses the declared type of the last identifier of the argument (field, property, local, parameter or method return type
+ * declared anywhere under CS_DIR; a name declared with more than one kind is "unknown" and skipped), plus the cast / Fin(...) /
+ * "?? \"\"" / comparison / literal forms. "unknown" never fails: only a certain mismatch does.
  */
 function collectCsMemberKinds(src, map) {
   const re = /(?:^|[\s(,;{])(bool|byte|sbyte|short|ushort|int|uint|long|ulong|float|double|string|Entity)(\[\])?\s+([A-Za-z_]\w*)\s*(?=[=;,)(\[{]|=>)/g;
@@ -979,7 +918,7 @@ function collectCsMemberKinds(src, map) {
   }
 }
 
-/** The argument text of the `.Write(...)` statement that directly follows a PropertyName call ending at `pos`, or null. */
+/** The argument text of the `.Write(...)` statement that directly follows a PropertyName call ending at `pos`, or null */
 function writeArgAfter(src, pos) {
   const head = /^\s*;\s*[A-Za-z_][\w.]*\.Write\s*\(/.exec(src.slice(pos, pos + 160));
   if (!head) return null;
@@ -994,7 +933,7 @@ function writeArgAfter(src, pos) {
   return depth === 0 ? src.slice(start, i - 1).trim() : null;
 }
 
-/** Splits at the first top-level `?` (not `??`) and its `:`; null when there is none. */
+/** Splits at the first top-level `?` (not `??`) and its `:`; null when there is none */
 function splitTernary(e) {
   let depth = 0, q = -1;
   for (let i = 0; i < e.length; i++) {
@@ -1016,7 +955,7 @@ function splitTernary(e) {
   return null;
 }
 
-/** "bool" | "number" | "string" | "entity" | "unknown" for a C# Write argument. */
+/** "bool" | "number" | "string" | "entity" | "unknown" for a C# Write argument */
 function kindOfWriteArg(arg, memberKinds) {
   let e = (arg || "").trim();
   if (!e) return "unknown";
@@ -1052,7 +991,7 @@ function kindOfWriteArg(arg, memberKinds) {
   return k === "bool" || k === "number" || k === "string" || k === "entity" ? k : "unknown";
 }
 
-/** tsKind widened for R2: unions of string literals are strings, unions of numeric literals are numbers. */
+/** tsKind widened for R2: unions of string literals are strings, unions of numeric literals are numbers */
 function tsWriteKind(t) {
   const s = t.trim();
   const k = tsKind(s);
@@ -1065,7 +1004,7 @@ function tsWriteKind(t) {
 
 const LOCALE_KEY_RE = /^(SkiResort|Assets|SubServices)\.[^\s"]+$/;
 
-/** Every `{ "key", "value" }` entry of LocaleEN.cs (plain literals, '+' concatenation). */
+/** Every `{ "key", "value" }` entry of LocaleEN.cs (plain literals, '+' concatenation) */
 function readLocaleEntries(file) {
   const map = new Map();
   let text;
@@ -1084,12 +1023,11 @@ function readLocaleEntries(file) {
   return map;
 }
 
-/** Normalized TypeScript type text. */
 function typeText(sf, node) {
   return node ? node.getText(sf).replace(/\s+/g, " ").trim() : "?";
 }
 
-/** The TS side of R1-R3: read from src/bindings.ts with the TypeScript AST. */
+/** The TS side of R1-R3: read from src/bindings.ts with the TypeScript AST */
 function readBindingsTs(ts, file, errors) {
   let text;
   try { text = fs.readFileSync(file, "utf8"); } catch (e) { errors.push(`contract: cannot read ${file}`); return null; }
@@ -1162,7 +1100,7 @@ function readBindingsTs(ts, file, errors) {
   return out;
 }
 
-/** Base interface name of a TS type ("readonly ResortRow[]" -> "ResortRow"), or null. */
+/** Base interface name of a TS type ("readonly ResortRow[]" -> "ResortRow"), or null */
 function baseTypeName(t) {
   const s = t.replace(/^readonly\s+/, "").replace(/\[\]$/, "").replace(/^ReadonlyArray<(.*)>$/, "$1").replace(/^Array<(.*)>$/, "$1").trim();
   return /^[A-Z][A-Za-z0-9_]*$/.test(s) ? s : null;
@@ -1188,7 +1126,7 @@ function csKind(t) {
   return "other";
 }
 
-/** The lock's text for a TS snapshot (sorted, one fact per line, for a readable review diff). */
+/** The lock's text for a TS snapshot (sorted, one fact per line, for a readable review diff) */
 function lockText(snap) {
   const lines = [];
   lines.push("# tools/contract.lock - the Ski Resort hub's binding contract as the build gate last accepted it.");
@@ -1232,7 +1170,7 @@ function parseLock(text) {
   return lock;
 }
 
-/** CORE violations of the current snapshot against a lock (rule R3). */
+/** Core violations of the current snapshot against a lock (rule R3) */
 function coreViolations(snap, lock) {
   const v = [];
   const nowCore = new Set(snap.core || []);
@@ -1283,7 +1221,6 @@ function checkContract(errors, warnings, report, opts = {}) {
   try { ts = require("typescript"); } catch { errors.push("contract: typescript is not installed (run npm ci)"); return {}; }
   for (const o of OVERRIDES) warnings.push(`contract: path override in use: ${o} - this run does NOT check the real files`);
 
-  // ---- R1: name parity ------------------------------------------------------------------------
   const snap = readBindingsTs(ts, path.join(SRC, BINDINGS_TS), errors);
   if (!snap) return {};
   const cs = readHubCs(HUB_CS, errors);
@@ -1333,7 +1270,6 @@ function checkContract(errors, warnings, report, opts = {}) {
     report.push(`contract R1: HUB_CONTRACT ${snap.contract} / C# ${cs.contract}; ${snap.binding.size} binding(s) + ${snap.trigger.size} trigger(s) in TS, ${csNames.size} registered in ${path.basename(HUB_CS)}`);
   }
 
-  // ---- R2: shape parity -----------------------------------------------------------------------
   const writers = readCsWriters(CS_DIR, errors);
   const written = new Map();
   let kindChecks = 0, kindDecided = 0;
@@ -1349,7 +1285,7 @@ function checkContract(errors, warnings, report, opts = {}) {
       seen.add(p);
       if (!fields.find((f) => f.name === p)) errors.push(`contract: ${where} SkiResortMod.${b.name} writes "${p}" - not a field of TS interface ${b.name} (rule R2)`);
     }
-    // R2 (L17): the value kind of each Write(...) against the TS field type (a bool written for a number, a string for a bool, ...).
+    // The value kind of each Write(...) against the TS field type (a bool written for a number, a string for a bool, ...)
     for (const w of b.writes) {
       const f = fields.find((x) => x.name === w.name);
       if (!f || w.arg === null) continue;
@@ -1367,7 +1303,6 @@ function checkContract(errors, warnings, report, opts = {}) {
   for (const s of carried) if (!written.has(s)) errors.push(`contract: no C# writer for TS interface ${s} (no TypeBegin("SkiResortMod.${s}") under ${CS_DIR}) (rule R2)`);
   report.push(`contract R2: ${writers.blocks.length} TypeBegin("SkiResortMod.*") block(s) in ${writers.files.length} .cs file(s); shapes written: ${[...written.keys()].sort().join(", ") || "none"}; ${kindChecks} Write(...) value kind(s) against the TS field types, ${kindDecided} decided (the rest unknown C# types, skipped)`);
 
-  // ---- R3: contract lock ----------------------------------------------------------------------
   if (opts.lockMode !== "none") {
     let lockRaw = null;
     try { lockRaw = fs.readFileSync(CONTRACT_LOCK, "utf8"); } catch { /* reported below */ }
@@ -1387,11 +1322,10 @@ function checkContract(errors, warnings, report, opts = {}) {
     }
   }
 
-  // ---- R4-R7, R10: sources and locale -----------------------------------------------------------
   const locale = readLocaleEntries(LOCALE_EN);
   if (!locale) errors.push(`contract: cannot read ${LOCALE_EN} (rule R4)`);
   const files = fs.existsSync(SRC) ? listFiles(SRC).filter((f) => /\.tsx?$/.test(f) && !f.endsWith(".d.ts")) : [];
-  const entryMaps = new Map(); // "OBJ.prop" -> english
+  const entryMaps = new Map();
   const allStrings = new Set();
   const parsed = [];
   for (const rel of files) {
@@ -1436,7 +1370,6 @@ function checkContract(errors, warnings, report, opts = {}) {
       return null;
     };
     const visit = (node) => {
-      // R4: [key, english] tuples
       if (ts.isArrayLiteralExpression(node) && node.elements.length === 2 &&
           ts.isStringLiteralLike(node.elements[0]) && ts.isStringLiteralLike(node.elements[1]) && LOCALE_KEY_RE.test(node.elements[0].text)) {
         tuples++;
@@ -1447,7 +1380,6 @@ function checkContract(errors, warnings, report, opts = {}) {
           else if (hit.value !== en) errors.push(`${at(node)}: "${key}" English differs from ${path.basename(LOCALE_EN)}:${hit.line}: TS "${en}" vs C# "${hit.value}" (rule R4)`);
         }
       }
-      // R5: translate on a placeholder entry
       if (ts.isCallExpression(node)) {
         const callee = node.expression;
         const isT = (ts.isIdentifier(callee) && (callee.text === "t" || callee.text === "translate")) ||
@@ -1459,7 +1391,7 @@ function checkContract(errors, warnings, report, opts = {}) {
             errors.push(`${at(node)}: ${callee.getText(sf)}(...) on an entry with a placeholder ("${en.slice(0, 60)}") - translate() never substitutes {...}: use LocalizedString (<LocText>) (rule R5)`);
           }
         }
-        // R6 (RenameField): the useLayoutEffect cleanup must call .blur()
+        // RenameField: the useLayoutEffect cleanup must call .blur()
         if (isRename && ts.isIdentifier(callee) && callee.text === "useLayoutEffect" && node.arguments[0]) {
           const fn = node.arguments[0];
           const findBlurInReturn = (n) => {
@@ -1477,7 +1409,6 @@ function checkContract(errors, warnings, report, opts = {}) {
         }
       }
       if (isRename && ts.isIdentifier(node) && node.text === "stopPropagation") renameOk.stop = true;
-      // R6: inputs; R7: title=
       if (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) {
         const tag = node.tagName.getText(sf);
         if (tag === "input" || tag === "textarea") {
@@ -1488,7 +1419,6 @@ function checkContract(errors, warnings, report, opts = {}) {
           if (ts.isJsxAttribute(attr) && attr.name.getText(sf) === "title") errors.push(`${at(attr)}: JSX title= attribute - it shows nothing in Gameface; use Tip (cs2/ui Tooltip) (rule R7)`);
         }
       }
-      // R10: Media/ paths
       if (ts.isStringLiteralLike(node) && /^Media\/[^\s"']+\.(svg|png)$/i.test(node.text)) {
         media++;
         if (uiDir && !fs.existsSync(path.join(uiDir, ...node.text.split("/")))) {
@@ -1504,20 +1434,17 @@ function checkContract(errors, warnings, report, opts = {}) {
   }
   if (inputs > 0 && !renameOk.exists) errors.push(`src/${RENAME_FIELD} is missing but the sources render an input (rule R6)`);
 
-  // R11-R14 and the R5 / R6 / R7 hardening (fixer round, finding u2-panel-6)
   const fixer = lintFixerRules(ts, parsed, entryMaps, errors);
   report.push(`contract R11-R14: ${fixer.panelRefs} panel-binding reference(s) in ${PANEL_FILES.size} panel file(s); ` +
     `${fixer.hookFns} function(s) hook-order checked; ${fixer.fmtRefs} placeholder-entry reference(s); ` +
     `${fixer.createCalls} createElement/jsx call(s); ${fixer.visible} visible JSX string(s) checked`);
 
-  // R15 (Round F6, C1): focusable buttons in a Panel header / footer
   const edge = lintPanelEdgeFocus(ts, parsed, errors);
   report.push(`contract R15: ${edge.edges} Panel header/footer slot(s); ${edge.buttons} focusable cs2/ui JSX element(s) ` +
     `rendered there, each checked for focusKey={FOCUS_DISABLED} (sections: disableFocus) (${edge.components} component(s) and ` +
     `${edge.helpers} helper function(s) followed: ${edge.names.join(", ") || "none"})`);
 
-  // R16-R18 (Round E1, econ-round spec ch6 sections 10.2-10.4): build items and enums C# <-> TS, and
-  // the UI rules self-test. Each runs on its own; a crash of one is an error, never a silent pass.
+  // Each of R16-R18 runs on its own; a crash of one is an error, never a silent pass
   const tsLiterals = readTsLiterals(ts, errors);
   try { checkBuildItems(tsLiterals, errors, report); }
   catch (e) { errors.push(`contract: rule R16 crashed (${e && e.message ? e.message : e}) (rule R16)`); }
@@ -1525,7 +1452,7 @@ function checkContract(errors, warnings, report, opts = {}) {
   catch (e) { errors.push(`contract: rule R17 crashed (${e && e.message ? e.message : e}) (rule R17)`); }
   checkHubRules(errors, report);
 
-  // R4 WARNING: SkiResort.Hub.* keys nobody uses
+  // R4 warning: SkiResort.Hub.* keys nobody uses
   let unused = 0;
   if (locale) {
     const csTexts = [];
@@ -1544,22 +1471,20 @@ function checkContract(errors, warnings, report, opts = {}) {
 }
 
 /**
- * Fixer round (2026-10-03, finding u2-panel-6): the panel rules R5-R7 were blind to aliasing,
- * spreads and createElement, and three panel rules had no check at all. Each rule here FAILS:
- *   R11 (beyond spec 4.7) a panel binding (PANEL_BINDINGS) referenced outside PANEL_FILES and
- *       bindings.ts - an always-mounted subscriber keeps C# computing with the panel closed;
- *   R12 (beyond spec 4.7) a hook call (use[A-Z]...) after an early return in the same function, or
- *       inside an if / loop / switch / ?: branch / the right side of && || ?? - React's hook order;
- *   R13 (hardening of R5) a reference to a placeholder entry (a [key, english] map entry whose English
- *       contains "{") that is not the `entry` prop of <LocText>, or the placeholder map itself used
- *       other than as `MAP.entry` - `const say = t; say(HUB_FMT.x)` rendered "{N} ..." literally;
- *   R14 (beyond spec 4.7) untranslated text: JSX text with a letter, a string-literal JSX child with a
- *       letter, or a letter in the string-literal value of a player-visible prop (VISIBLE_PROPS) -
- *       structural props (variant, src, type, className, key, theme) and Media/ paths are not checked;
- *   R6 / R7 hardening: createElement / jsx / jsxs calls with "input" / "textarea" (outside
- *       RenameField) or "select" / "option" / "table", and a `title` prop passed through a spread
- *       object literal or a createElement props literal. A spread of a non-literal object is not
- *       checkable here (stated, not hidden).
+ * R11-R14 and the R5 / R6 / R7 hardening; each rule here FAILS:
+ *   R11 a panel binding (PANEL_BINDINGS) referenced outside PANEL_FILES and bindings.ts - an always-mounted subscriber keeps C#
+ *       computing with the panel closed;
+ *   R12 a hook call (use[A-Z]...) after an early return in the same function, or inside an if / loop / switch / ?: branch / the
+ *       right side of && || ?? - React's hook order;
+ *   R13 a reference to a placeholder entry (a [key, english] map entry whose English contains "{") that is not the `entry` prop
+ *       of <LocText>, or the placeholder map itself used other than as `MAP.entry` - `const say = t; say(HUB_FMT.x)` rendered
+ *       "{N} ..." literally;
+ *   R14 untranslated text: JSX text with a letter, a string-literal JSX child with a letter, or a letter in the string-literal
+ *       value of a player-visible prop (VISIBLE_PROPS) - structural props (variant, src, type, className, key, theme) and Media/
+ *       paths are not checked;
+ *   R6 / R7 hardening: createElement / jsx / jsxs calls with "input" / "textarea" (outside RenameField) or "select" / "option" /
+ *       "table", and a `title` prop passed through a spread object literal or a createElement props literal. A spread of a
+ *       non-literal object is not checkable here (stated, not hidden).
  * Returns counters for the report line.
  */
 function lintFixerRules(ts, parsed, entryMaps, errors) {
@@ -1575,7 +1500,7 @@ function lintFixerRules(ts, parsed, entryMaps, errors) {
   };
   const shortCircuit = new Set([ts.SyntaxKind.AmpersandAmpersandToken, ts.SyntaxKind.BarBarToken, ts.SyntaxKind.QuestionQuestionToken,
     ts.SyntaxKind.AmpersandAmpersandEqualsToken, ts.SyntaxKind.BarBarEqualsToken, ts.SyntaxKind.QuestionQuestionEqualsToken]);
-  // Placeholder maps: map names with at least one "{...}" English (HUB_FMT today).
+  // Placeholder maps: map names with at least one "{...}" English (HUB_FMT today)
   const fmtMaps = new Set();
   for (const [k, en] of entryMaps) if (en.includes("{")) fmtMaps.add(k.slice(0, k.indexOf(".")));
   const hasLetter = (s) => LETTER_RE.test(s);
@@ -1590,7 +1515,7 @@ function lintFixerRules(ts, parsed, entryMaps, errors) {
     const isBindings = relN === BINDINGS_TS;
     const isRename = relN === RENAME_FIELD;
 
-    // R12: one pass per function body.
+    // R12: one pass per function body
     const containsReturn = (node) => {
       let found = false;
       const walk = (n) => {
@@ -1608,7 +1533,7 @@ function lintFixerRules(ts, parsed, entryMaps, errors) {
       let returned = false;
       for (const st of body.statements) {
         const scan = (node, cond) => {
-          if (isFn(node)) return;   // a nested function is checked on its own
+          if (isFn(node)) return;
           if (ts.isCallExpression(node)) {
             const name = calleeName(node);
             if (name && isHookName(name)) {
@@ -1648,7 +1573,7 @@ function lintFixerRules(ts, parsed, entryMaps, errors) {
     const visit = (node) => {
       if (isFn(node)) checkFunction(node);
 
-      // R11 (L17): an always-mounted file may import only HubPanel from the panel files.
+      // R11: an always-mounted file may import only HubPanel from the panel files
       if (ts.isImportDeclaration(node) && ts.isStringLiteral(node.moduleSpecifier) && node.moduleSpecifier.text.startsWith(".") &&
           ALWAYS_MOUNTED_FILES.has(relN)) {
         const target = path.posix.normalize(path.posix.join(path.posix.dirname(relN), node.moduleSpecifier.text));
@@ -1668,7 +1593,7 @@ function lintFixerRules(ts, parsed, entryMaps, errors) {
         }
       }
 
-      // R11: panel bindings outside panel files.
+      // R11: panel bindings outside panel files
       if (ts.isIdentifier(node) && PANEL_BINDINGS.has(node.text)) {
         out.panelRefs++;
         if (!panelFile && !isBindings) {
@@ -1676,7 +1601,7 @@ function lintFixerRules(ts, parsed, entryMaps, errors) {
         }
       }
 
-      // R13: placeholder entries only as <LocText entry={...}>.
+      // R13: placeholder entries only as <LocText entry={...}>
       if (ts.isPropertyAccessExpression(node) && ts.isIdentifier(node.expression) &&
           (entryMaps.get(`${node.expression.text}.${node.name.text}`) ?? "").includes("{")) {
         out.fmtRefs++;
@@ -1694,7 +1619,7 @@ function lintFixerRules(ts, parsed, entryMaps, errors) {
         if (!ok) errors.push(`${at(node)}: the placeholder map ${node.text} is used as a value (aliased or spread) - reference its entries as ${node.text}.x inside <LocText entry={...}> only (rule R13, R5 hardening)`);
       }
 
-      // R14: untranslated text.
+      // R14: untranslated text
       if (ts.isJsxText(node)) {
         const text = node.text.trim();
         if (text) {
@@ -1718,7 +1643,7 @@ function lintFixerRules(ts, parsed, entryMaps, errors) {
         }
       }
 
-      // R6 / R7 hardening: createElement / jsx calls and spread props.
+      // R6 / R7 hardening: createElement / jsx calls and spread props
       if (ts.isCallExpression(node)) {
         const name = calleeName(node);
         if (name && /^(createElement|jsx|jsxs|jsxDEV|_jsx|_jsxs)$/.test(name)) {
@@ -1740,60 +1665,41 @@ function lintFixerRules(ts, parsed, entryMaps, errors) {
   return out;
 }
 
-/** Rule R15: cs2/ui components that register a focus key unless told not to (focusKey prop, ui.d.ts ButtonProps). */
+/** Rule R15: cs2/ui components that register a focus key unless told not to (focusKey prop, ui.d.ts ButtonProps) */
 const EDGE_FOCUSABLE = new Set(["Button", "FloatingButton", "MenuButton", "DropdownToggle", "Dropdown"]);
 /**
- * Rule R15 (F6 fixer): cs2/ui sections that register a focus key unless given a literal `disableFocus`
- * (installed index.js@198225 exports PanelSection = InfoSection @721944, PanelFoldout = InfoSectionFoldout
- * @730261, PanelSectionRow = InfoRow @731753). Without it each renders an ActiveFocusDiv (`Gp` @586265:
- * focusKey FOCUS_AUTO, activation Always); with it a pass-through div (`Bp`) whose inner NavigationScope
- * registers only when a focusable child does (activation AnyChildren, @570953) - and those children are
+ * Rule R15: cs2/ui sections that register a focus key unless given a literal `disableFocus` (installed index.js@198225 exports
+ * PanelSection = InfoSection @721944, PanelFoldout = InfoSectionFoldout @730261, PanelSectionRow = InfoRow @731753). Without it
+ * each renders an ActiveFocusDiv (`Gp` @586265: focusKey FOCUS_AUTO, activation Always); with it a pass-through div (`Bp`) whose
+ * inner NavigationScope registers only when a focusable child does (activation AnyChildren, @570953), and those children are
  * checked on their own. A PanelSectionRow with `link` renders the ActiveFocusDiv whatever disableFocus says.
  */
 const EDGE_SECTIONS = new Set(["PanelSection", "PanelFoldout", "PanelSectionRow"]);
-/** Rule R15: the cs2/ui Panel props whose content sits under a single-child focus controller. */
+/** Rule R15: the cs2/ui Panel props whose content sits under a single-child focus controller */
 const EDGE_SLOTS = new Set(["header", "footer"]);
 
 /**
- * Rule R15 (Round F6, implementer C, item C1; docs/research/field/2026-10-03b/findings/log-audit.md
- * A1 and its Verification; beyond spec 4.7). cs2/ui Panel wraps its header and its footer each in a
- * FocusKeyOverride (installed 1.6.2f1 index.js@684800 `Tp`) whose KeyFocusController hosts ONE child
- * (`bp.registerChild` @578500: "Cannot register second focus key ... KeyFocusControllers can only
- * host a single child"), and a cs2/ui Button registers itself unless its focusKey is FOCUS_DISABLED
- * (button.tsx @629600: `Gg(e??(s?Ug:Bg))`, FOCUS_AUTO by default). Field test 6: our header's 4 and
- * our footer's 8 buttons logged 106 UI.log ERRORs (3 + 7 on every panel open and again on every
- * close). The vanilla title bar's close button passes focusKey:Ug (FOCUS_DISABLED, @686490).
- * FAILS: a focusable cs2/ui component (EDGE_FOCUSABLE) rendered, directly or through our own
- * components, inside the `header` / `footer` prop of a cs2/ui <Panel> without
- * `focusKey={FOCUS_DISABLED}` (the identifier imported from cs2/input), with a spread and no
- * explicit focusKey, or with a spread AFTER the explicit focusKey (it can override it; F6 fixer).
- * FAILS too (F6 fixer, EDGE_SECTIONS): a cs2/ui PanelSection / PanelFoldout / PanelSectionRow there
- * without a literal `disableFocus` (bare, or ={true}), with a spread after it, or - PanelSectionRow -
- * with `link` or any spread (a spread could carry link). Also FAILS when src/ has no Panel header /
- * footer at all (the rule would check nothing). Followed: JSX tags (capitalized), and (F6 fixer)
- * helper functions - the callee of a call in the slot (`{tile(...)}`) and a function passed by name
- * as a call argument (`.map(tile)`) - each when it is a local declaration of the same file or a
- * relative import (its exported declaration; a default import = the whole file); cs2/*, react and
- * npm names are not followed. Not followed (stated, not hidden): JSX kept in a variable outside the
- * slot (HubPanel's `failed` fallback), a component passed as a prop value, createElement calls, a
- * function reached through a property (`parts.tile()`, `{...}.map(o.render)`) or declared inside
- * another function's body outside the slot.
- * Proven with scratch fault copies of src/ (--contract-only --src=, 2026-10-03): a header button
- * without the prop, a build tile without it, a header button given it through a spread, a new
- * footer component (its own file) with a bare Button, focusKey={FOCUS_AUTO}, focusKey={"x"} - one
- * R15 error each - and every header= / footer= renamed (the "checks nothing" error). F6 fixer
- * (2026-10-04), one R15 error each: a top-level helper returning a bare Button called in the
- * footer; the same helper passed to .map(); the helper imported from its own file; a footer
- * PanelSection without disableFocus; a PanelFoldout with disableFocus={false}; a PanelSectionRow
- * with disableFocus and link; <Button focusKey={FOCUS_DISABLED} {...p}>. And passing: <Button {...p}
- * focusKey={FOCUS_DISABLED}>, <PanelSection disableFocus> and <PanelSectionRow disableFocus>. The
- * real src/ passes (2 elements: HubHeader's HeaderButton, BuildStrip's tile).
+ * Rule R15. cs2/ui Panel wraps its header and its footer each in a FocusKeyOverride (installed 1.6.2f1 index.js@684800 `Tp`)
+ * whose KeyFocusController hosts ONE child (`bp.registerChild` @578500: "Cannot register second focus key ... KeyFocusControllers
+ * can only host a single child"), and a cs2/ui Button registers itself unless its focusKey is FOCUS_DISABLED (button.tsx @629600:
+ * `Gg(e??(s?Ug:Bg))`, FOCUS_AUTO by default). The vanilla title bar's close button passes focusKey:Ug (FOCUS_DISABLED, @686490).
+ * FAILS: a focusable cs2/ui component (EDGE_FOCUSABLE) rendered, directly or through our own components, inside the `header` /
+ * `footer` prop of a cs2/ui <Panel> without `focusKey={FOCUS_DISABLED}` (the identifier imported from cs2/input), with a spread
+ * and no explicit focusKey, or with a spread after the explicit focusKey (it can override it). Also FAILS: a cs2/ui PanelSection /
+ * PanelFoldout / PanelSectionRow (EDGE_SECTIONS) there without a literal `disableFocus` (bare, or ={true}), with a spread after
+ * it, or - PanelSectionRow - with `link` or any spread (a spread could carry link). Also FAILS when src/ has no Panel header /
+ * footer at all (the rule would check nothing). Followed: JSX tags (capitalized), and helper functions - the callee of a call in
+ * the slot (`{tile(...)}`) and a function passed by name as a call argument (`.map(tile)`) - each when it is a local declaration
+ * of the same file or a relative import (its exported declaration; a default import = the whole file); cs2/*, react and npm names
+ * are not followed. Not followed: JSX kept in a variable outside the slot (HubPanel's `failed` fallback), a component passed as a
+ * prop value, createElement calls, a function reached through a property (`parts.tile()`, `{...}.map(o.render)`) or declared
+ * inside another function's body outside the slot.
  */
 function lintPanelEdgeFocus(ts, parsed, errors) {
   const out = { edges: 0, buttons: 0, components: 0, helpers: 0, names: [] };
   const byRel = new Map(parsed.map((p) => [p.rel.split(path.sep).join("/"), p]));
   const facts = new Map();
-  /** Per file: value imports (local name -> { spec, name }) and top-level declarations (name -> node). */
+  /** Per file: value imports (local name -> { spec, name }) and top-level declarations (name -> node) */
   const factsOf = (rel) => {
     if (facts.has(rel)) return facts.get(rel);
     const p = byRel.get(rel);
@@ -1837,7 +1743,7 @@ function lintPanelEdgeFocus(ts, parsed, errors) {
       const imp = e && ts.isIdentifier(e) ? f.imports.get(e.text) : null;
       ok = !!imp && imp.spec === "cs2/input" && imp.name === "FOCUS_DISABLED";
     });
-    const late = ok && spreadAt > keyAt; // F6 fixer: a later spread can override the explicit prop
+    const late = ok && spreadAt > keyAt; // a later spread can override the explicit prop
     if (!ok || late) {
       const tag = el.tagName.getText(f.p.sf);
       errors.push(`${at(f, el)}: <${tag}> (cs2/ui ${kind}) renders in a Panel ${via} ` +
@@ -1847,7 +1753,7 @@ function lintPanelEdgeFocus(ts, parsed, errors) {
         ` - ${R15_WHY}. Vanilla's close button passes it too (rule R15)`);
     }
   };
-  /** F6 fixer: PanelSection / PanelFoldout / PanelSectionRow (EDGE_SECTIONS) need a literal disableFocus. */
+  /** PanelSection / PanelFoldout / PanelSectionRow (EDGE_SECTIONS) need a literal disableFocus */
   const checkDisableFocus = (f, el, kind, via) => {
     let ok = false, flagAt = -1, spreadAt = -1, link = false;
     el.attributes.properties.forEach((a, i) => {
@@ -1870,22 +1776,22 @@ function lintPanelEdgeFocus(ts, parsed, errors) {
         `without it the section is an ActiveFocusDiv (FOCUS_AUTO, activation Always: index.js@586265) and ${R15_WHY} (rule R15)`);
     }
   };
-  /** A helper passed by name (`.map(tile)`) is followed only when it is a function (F6 fixer). */
+  /** A helper passed by name (`.map(tile)`) is followed only when it is a function */
   const isFnLike = (d) => !!d && (ts.isFunctionDeclaration(d) || (ts.isVariableDeclaration(d) && !!d.initializer &&
     (ts.isArrowFunction(d.initializer) || ts.isFunctionExpression(d.initializer))));
-  /** how: undefined = a JSX tag, "call" = a called helper, "ref" = a helper passed by name (F6 fixer). */
+  /** how: undefined = a JSX tag, "call" = a called helper, "ref" = a helper passed by name */
   const follow = (f, name, via, how) => {
     let tf = f, tname = name;
     if (!f.decls.has(name)) {
       const imp = f.imports.get(name);
-      if (!imp || !imp.spec.startsWith(".")) return; // cs2/* (focusable ones are checked by walk), react, npm
+      if (!imp || !imp.spec.startsWith(".")) return;
       const rel = resolveRel(f.rel, imp.spec);
       tf = rel ? factsOf(rel) : null;
       if (!tf) return;
       tname = imp.name;
     }
     const decl = tf.decls.get(tname);
-    if (how === "ref" && !isFnLike(decl)) return; // a value passed along, not a render helper
+    if (how === "ref" && !isFnLike(decl)) return;
     const key = `${tf.rel}#${tname}`;
     if (visited.has(key)) return;
     visited.add(key);
@@ -1910,7 +1816,7 @@ function lintPanelEdgeFocus(ts, parsed, errors) {
           follow(f, name, via);
         }
       } else if (ts.isCallExpression(n)) {
-        // F6 fixer: JSX returned by a helper called in the slot, or by one passed to a call by name.
+        // JSX returned by a helper called in the slot, or by one passed to a call by name
         if (ts.isIdentifier(n.expression)) follow(f, n.expression.text, via, "call");
         for (const a of n.arguments) if (ts.isIdentifier(a)) follow(f, a.text, via, "ref");
       }
@@ -1943,16 +1849,10 @@ function lintPanelEdgeFocus(ts, parsed, errors) {
   return out;
 }
 
-// ------------------------------------------------------------------------------------------------
-// Rules R16-R18 (Round E1, 2026-10-04, stream S6; docs/research/econ-round/spec/ch6-hub-ui.md
-// sections 10.2-10.4; ported from the checked prototype spec/ch6-hub-ui-ref/tools/gate-r16-r17.js
-// with this gate's own stripCsComments). R16 and R17 read the C# files LITERALLY: keep the compared
-// enums literal (HubRules.cs, EntityRef.cs, SkiMoneyRules.cs, SkiDayRules.cs). Contract 6: R16 reads
-// Systems/SkiCatalog.cs's NAMES and BUILD-ITEMS blocks as raw lines (one grammar each, below); the hub
-// system's ItemIds / ItemPrefabNames arrays and item constants are gone (round-2-contract D6).
+// R16 and R17 read the C# files literally: keep the compared enums literal (HubRules.cs, EntityRef.cs, SkiMoneyRules.cs,
+// SkiDayRules.cs). R16 reads Systems/SkiCatalog.cs's NAMES and BUILD-ITEMS blocks as raw lines (one grammar each, below).
 
-/** `enum <name> [: type] { A = 0, B, ... }` -> Map name -> number (explicit values or the implicit
- *  +1 rule), or null when absent or not literal. Comments must be stripped first. */
+/** `enum <name> [: type] { A = 0, B, ... }` -> Map name -> number (explicit values or the implicit +1 rule), or null when absent or not literal. Comments must be stripped first. */
 function csEnum(src, name) {
   const m = new RegExp(`\\benum\\s+${name}\\b[^{;]*\\{([^}]*)\\}`).exec(src);
   if (!m) return null;
@@ -1970,10 +1870,7 @@ function csEnum(src, name) {
   return out;
 }
 
-/** The TS literals R16 / R17 read (TypeScript AST): bindings.ts BUILD_ITEM_IDS, the BuildItemId union,
- *  BUILD_ITEM_PREFAB, LIFT_TYPE_IDS (contract 6) and every UPPER_CASE const object of literal numbers;
- *  buildItems.ts BUILD_GROUPS and (contract 6) BUILD_ITEMS (rows of literals) and BUILD_ITEM_ICON (its keys).
- *  A missing or non-literal value stays null (the rule reports it). */
+/** The TS literals R16 / R17 read (TypeScript AST): bindings.ts BUILD_ITEM_IDS, the BuildItemId union, BUILD_ITEM_PREFAB, LIFT_TYPE_IDS and every UPPER_CASE const object of literal numbers; buildItems.ts BUILD_GROUPS, BUILD_ITEMS (rows of literals) and BUILD_ITEM_ICON (its keys). A missing or non-literal value stays null (the rule reports it). */
 function readTsLiterals(ts, errors) {
   const out = { ids: null, union: null, prefab: null, groups: null, liftTypes: null, items: null, iconKeys: null, consts: new Map() };
   const unwrap = (e) => { while (e && (ts.isAsExpression(e) || ts.isParenthesizedExpression(e))) e = e.expression; return e; };
@@ -2022,7 +1919,7 @@ function readTsLiterals(ts, errors) {
   }
   if (textI !== null) {
     const sf = ts.createSourceFile("buildItems.ts", textI, ts.ScriptTarget.ES2020, true, ts.ScriptKind.TS);
-    // One literal row: { id: "x", kind: "y", liftType: "z", runKind: n } (a leading "-" allowed), nothing else.
+    // One literal row: { id: "x", kind: "y", liftType: "z", runKind: n } (a leading "-" allowed), nothing else
     const row = (e) => {
       e = unwrap(e);
       if (!ts.isObjectLiteralExpression(e)) return null;
@@ -2063,18 +1960,18 @@ function readTsLiterals(ts, errors) {
   return out;
 }
 
-/** Contract 6 (round-2-contract section 1.1): one NAMES line; groups 1 const, 2 prefab name, 3 PrefabID type, 4 item, 5 pending. */
+/** One NAMES line; groups 1 const, 2 prefab name, 3 PrefabID type, 4 item, 5 pending */
 const NAMES_LINE_RE = /^\s*public const string (\w+)\s*=\s*"([^"]+)";\s*\/\/\s*(\w+Prefab)(?:,\s*item\s+(\w+))?(?:,\s*(pending))?\s*$/;
-/** Contract 6 (round-2-contract section 1.6): one BUILD-ITEMS row; groups 1 id, 2 Names const, 3 kind, 4 lift type, 5 run kind. */
+/** One BUILD-ITEMS row; groups 1 id, 2 Names const, 3 kind, 4 lift type, 5 run kind */
 const BUILD_ITEM_LINE_RE = /^\s*new BuildItemDef\("(\w+)",\s*Names\.(\w+),\s*BuildItemKind\.(\w+),\s*"(\w*)",\s*(-?\d+)\),\s*$/;
-/** C# BuildItemKind -> its PrefabID type (SkiCatalog.TypeNameOf): Line -> PowerLinePrefab, Run -> SurfacePrefab, else BuildingPrefab. */
+/** C# BuildItemKind -> its PrefabID type (SkiCatalog.TypeNameOf): Line -> PowerLinePrefab, Run -> SurfacePrefab, else BuildingPrefab */
 function typeNameOfKind(kind) {
   return kind === "Line" ? "PowerLinePrefab" : kind === "Run" ? "SurfacePrefab" : "BuildingPrefab";
 }
 
 /**
- * The raw lines between `// <name>-BEGIN` and `// <name>-END` of a C# text, with their 1-based line numbers, or an
- * error text (markers missing, repeated or out of order). `before` / `after` = the lines right outside the markers.
+ * The raw lines between `// <name>-BEGIN` and `// <name>-END` of a C# text, with their 1-based line numbers, or an error text
+ * (markers missing, repeated or out of order). `before` / `after` = the lines right outside the markers.
  */
 function markerBlock(lines, name) {
   const begin = [], end = [];
@@ -2090,23 +1987,19 @@ function markerBlock(lines, name) {
 }
 
 /**
- * Rule R16: build items, C# <-> TS. CONTRACT 6 (round-2-contract section 8.7, skeptic MUST 8; the Round E1
- * version compared the hub system's ItemIds / ItemPrefabNames arrays, deleted with D6). Reads CATALOG_CS RAW (its
- * NAMES grammar sits in end-of-line comments and the markers are comments) and the TS literals. FAILS, one line
- * each ending "(rule R16)": the file unreadable; a block's markers missing / repeated / out of order; a BUILD-ITEMS
- * block not directly inside its array braces (`{` before BEGIN, `};` after END: MUST 8, as LiftBatch CT-9); a line
- * inside a block that does not match its grammar (a comment line included: every line between the markers is an
- * entry); an empty NAMES block or table; a duplicate NAMES const or prefab name; a duplicate table id; an unknown
- * BuildItemKind (the C# enum, comments stripped); `Names.X` not in NAMES; the NAMES type not the kind's
- * (TypeNameOf); a NAMES `item` token without a table row, or a row whose NAMES entry has a different or no item
- * token; a Run row whose id does not start with "run" (or another row whose id does), a run kind outside RUN_KIND
- * (TS, itself R17-checked against C# RunKind), a non-run row with run kind != -1; a Station / Line row without a lift
- * type or another row with one; a lift type without exactly one base station ("baseStation..." id), one top station
- * ("topStation..." id, the LiftBatch CT-14 naming) and one line row; the table's lift types != bindings.ts
- * LIFT_TYPE_IDS; a TS literal missing or not literal; BUILD_ITEMS row i != C# row i (id, kind in lower camel case,
- * liftType, runKind) or a different row count; the BuildItemId union, BUILD_ITEM_IDS, BUILD_ITEM_PREFAB keys or
- * BUILD_ITEM_ICON keys != the table's id set; BUILD_ITEM_PREFAB[id] != the C# row's prefab; BUILD_GROUPS not holding
- * every id exactly once.
+ * Rule R16: build items, C# <-> TS. Reads CATALOG_CS raw (its NAMES grammar sits in end-of-line comments and the markers are
+ * comments) and the TS literals. FAILS, one line each ending "(rule R16)": the file unreadable; a block's markers missing /
+ * repeated / out of order; a BUILD-ITEMS block not directly inside its array braces (`{` before BEGIN, `};` after END); a line
+ * inside a block that does not match its grammar (a comment line included: every line between the markers is an entry); an
+ * empty NAMES block or table; a duplicate NAMES const or prefab name; a duplicate table id; an unknown BuildItemKind (the C#
+ * enum, comments stripped); `Names.X` not in NAMES; the NAMES type not the kind's (TypeNameOf); a NAMES `item` token without a
+ * table row, or a row whose NAMES entry has a different or no item token; a Run row whose id does not start with "run" (or
+ * another row whose id does), a run kind outside RUN_KIND (TS, itself R17-checked against C# RunKind), a non-run row with run
+ * kind != -1; a Station / Line row without a lift type or another row with one; a lift type without exactly one base station
+ * ("baseStation..." id), one top station ("topStation..." id) and one line row; the table's lift types != bindings.ts
+ * LIFT_TYPE_IDS; a TS literal missing or not literal; BUILD_ITEMS row i != C# row i (id, kind in lower camel case, liftType,
+ * runKind) or a different row count; the BuildItemId union, BUILD_ITEM_IDS, BUILD_ITEM_PREFAB keys or BUILD_ITEM_ICON keys !=
+ * the table's id set; BUILD_ITEM_PREFAB[id] != the C# row's prefab; BUILD_GROUPS not holding every id exactly once.
  */
 function checkBuildItems(tsSide, errors, report) {
   const at = path.basename(CATALOG_CS);
@@ -2115,10 +2008,9 @@ function checkBuildItems(tsSide, errors, report) {
   try { text = fs.readFileSync(CATALOG_CS, "utf8"); } catch (e) { fail(`cannot read ${CATALOG_CS} (${e && e.code ? e.code : e})`); return; }
   const lines = text.split(/\r?\n/);
 
-  // ---- C#: the NAMES block --------------------------------------------------------------------------------------
   const nb = markerBlock(lines, "NAMES");
   if (nb.error) { fail(`${at} ${nb.error}`); return; }
-  const names = new Map();          // const -> { name, type, item, pending, line }
+  const names = new Map();
   const byPrefab = new Set();
   for (const { text: l, line } of nb.body) {
     const m = NAMES_LINE_RE.exec(l);
@@ -2130,7 +2022,6 @@ function checkBuildItems(tsSide, errors, report) {
   }
   if (names.size === 0) { fail(`${at} has an empty NAMES block`); return; }
 
-  // ---- C#: the BUILD-ITEMS block ---------------------------------------------------------------------------------
   const bb = markerBlock(lines, "BUILD-ITEMS");
   if (bb.error) { fail(`${at} ${bb.error}`); return; }
   if (bb.before.trim() !== "{") fail(`${at}:${bb.beginLine} the line before "// BUILD-ITEMS-BEGIN" must be "{" (the markers sit INSIDE the array braces: MUST 8), found "${bb.before.trim()}"`);
@@ -2150,8 +2041,8 @@ function checkBuildItems(tsSide, errors, report) {
   if (!runKindValues) fail("bindings.ts has no literal const object RUN_KIND");
   const ids = [];
   const prefabOf = new Map();
-  const itemRows = new Map();       // item id -> NAMES const of its row
-  const types = new Map();          // lift type -> { base, top, line }
+  const itemRows = new Map();
+  const types = new Map();
   for (const r of rows) {
     const w = `${at}:${r.line} row "${r.id}"`;
     if (ids.indexOf(r.id) >= 0) fail(`${w} duplicates an id`);
@@ -2187,7 +2078,6 @@ function checkBuildItems(tsSide, errors, report) {
     if (t.base !== 1 || t.top !== 1 || t.line !== 1) fail(`${at} lift type "${type}" has ${t.base} base station, ${t.top} top station and ${t.line} line row(s), want 1 each`);
   }
 
-  // ---- TS side -----------------------------------------------------------------------------------------------------
   if (!tsSide.ids || !tsSide.union || !tsSide.prefab || !tsSide.groups || !tsSide.items || !tsSide.iconKeys || !tsSide.liftTypes) {
     const missing = [["bindings.ts BUILD_ITEM_IDS", tsSide.ids], ["bindings.ts BuildItemId", tsSide.union], ["bindings.ts BUILD_ITEM_PREFAB", tsSide.prefab],
       ["bindings.ts LIFT_TYPE_IDS", tsSide.liftTypes], ["buildItems.ts BUILD_ITEMS", tsSide.items], ["buildItems.ts BUILD_GROUPS", tsSide.groups],
@@ -2227,10 +2117,9 @@ function checkBuildItems(tsSide, errors, report) {
 }
 
 /**
- * Rule R17: enum parity, C# <-> TS (ch6 section 10.3). For each ENUM_PAIRS entry the TS const object
- * (literal numbers, a leading "-" allowed) and the C# enum (literal values or the implicit +1 rule)
- * must hold the same names with the same values, both directions; a missing file, enum or const
- * object FAILS too. A TS-only or C#-only member would make the UI misread a code silently.
+ * Rule R17: enum parity, C# <-> TS. For each ENUM_PAIRS entry the TS const object (literal numbers, a leading "-" allowed) and the
+ * C# enum (literal values or the implicit +1 rule) must hold the same names with the same values, both directions; a missing file,
+ * enum or const object FAILS too. A TS-only or C#-only member would make the UI misread a code silently.
  */
 function checkEnumParity(tsSide, errors, report) {
   let n = 0;
@@ -2255,9 +2144,8 @@ function checkEnumParity(tsSide, errors, report) {
 }
 
 /**
- * Rule R18: the UI rules self-test (ch6 section 10.4). tools/test-hub-rules.js compiles
- * src/bindings.ts and src/hub/hubRules.ts (of --src= when given) in Node and checks its literal
- * oracles; each failure (or a crash: an impure import, a syntax error) FAILS the gate.
+ * Rule R18: the UI rules self-test. tools/test-hub-rules.js compiles src/bindings.ts and src/hub/hubRules.ts (of --src= when
+ * given) in Node and checks its literal oracles; each failure (or a crash: an impure import, a syntax error) FAILS the gate.
  */
 function checkHubRules(errors, report) {
   let r;
@@ -2272,9 +2160,9 @@ function checkHubRules(errors, report) {
   report.push(`contract R18: test-hub-rules ${r.checks} check(s), failures=${r.failures.length}`);
 }
 
-/** `npm run contract:lock`: rewrite tools/contract.lock (refuses a CORE break or a change without a bump). */
+/** `npm run contract:lock`: rewrite tools/contract.lock (refuses a CORE break or a change without a bump) */
 function writeLock() {
-  // The lock records the TS side only (bindings.ts); C# parity is the gate's business (R1/R2).
+  // The lock records the TS side only (bindings.ts); C# parity is the gate's business (R1/R2)
   const errors = [];
   for (const o of OVERRIDES) console.warn(`contract:lock: WARNING path override in use: ${o}`);
   let ts;
@@ -2309,8 +2197,6 @@ function writeLock() {
   return 0;
 }
 
-// ------------------------------------------------------------------------------------------------
-// Smoke test: import the bundle in Node against stub window modules
 
 function universalStub(label) {
   const fn = function () { return null; };
@@ -2381,13 +2267,12 @@ async function smokeTest(mjsPath, errors, warnings) {
     }
     if (!log.appended.length) errors.push("smoke: the registrar appended nothing");
 
-    // CONTAINMENT (header item 7; fixer round U1, pipeline-safety-3). The registrar's own
-    // console.error lines are expected here and only counted.
+    // Containment (header item 7). The registrar's own console.error lines are expected here and only counted.
     const savedConsoleError = console.error;
     let quietLines = 0;
     console.error = () => { quietLines++; };
     try {
-      // (a) every append() throws, as the game's does when the ModdingHook path moved.
+      // (a) every append() throws, as the game's does when the ModdingHook path moved
       const thrown = "Module game-ui/modding/modding-hook.tsx was not found.";
       const throwing = new Proxy({}, {
         get(t, p) { if (p === "then") return undefined; return () => { throw thrown; }; },
@@ -2399,10 +2284,10 @@ async function smokeTest(mjsPath, errors, warnings) {
         errors.push(`smoke: with a throwing moduleRegistry.append the registrar let "${e}" escape - in game every ` +
           "later mod's registrar would be skipped (index.js@800454: no try/catch). Wrap every append in try/catch");
       }
-      // (b) each appended wrapper, called as a plain function, must return an error boundary element.
+      // (b) each appended wrapper, called as a plain function, must return an error boundary element
       log.boundaries = 0;
       for (const a of log.appended) {
-        if (a.kind !== "function") continue; // reported above
+        if (a.kind !== "function") continue;
         let el;
         try {
           el = a.component({});
@@ -2429,12 +2314,11 @@ async function smokeTest(mjsPath, errors, warnings) {
   return log;
 }
 
-// ------------------------------------------------------------------------------------------------
 
 /**
- * Runs every check on buildDir. Never leaves a stale pass behind: it deletes build/.gate-pass
- * FIRST, so a FAIL, an exception (CRASH) or a killed process leaves no marker, and writes it
- * (= the stamp) only on PASS (header "THE GATE MARKER"). Resolves { ok, errors, warnings, report, stamp }.
+ * Runs every check on buildDir. Never leaves a stale pass behind: it deletes build/.gate-pass first, so a FAIL, an exception
+ * (CRASH) or a killed process leaves no marker, and writes it (= the stamp) only on PASS. Resolves { ok, errors, warnings,
+ * report, stamp }.
  */
 async function checkBundle({ quiet = false, buildDir = BUILD } = {}) {
   const errors = [], warnings = [], report = [];
@@ -2444,7 +2328,6 @@ async function checkBundle({ quiet = false, buildDir = BUILD } = {}) {
   removeGateMarker(buildDir);
   if (readGateMarker(buildDir) !== null) errors.push(`build/${GATE_FILE} cannot be deleted - delete it by hand (a stale marker would let a rejected bundle deploy)`);
 
-  // 1. files
   if (!fs.existsSync(buildDir)) { errors.push(`build folder missing: ${buildDir}`); return finish(); }
   const files = listFiles(buildDir);
   for (const f of files) if (!isAllowedBuildFile(f)) errors.push(`build/${f}: unexpected output file (exactly one .mjs + .css may ship; .json/.map/.js are forbidden)`);
@@ -2454,7 +2337,6 @@ async function checkBundle({ quiet = false, buildDir = BUILD } = {}) {
   if (stamp !== null && !STAMP_RE.test(stamp)) errors.push(`build/${STAMP_FILE}: "${stamp}" is not a valid stamp`);
   if (errors.length && (!fs.existsSync(mjs) || !fs.existsSync(css))) return finish();
 
-  // 2. banner
   const bundle = fs.readFileSync(mjs, "utf8");
   const info = parseModuleInfo(bundle);
   if (!info.identifier) errors.push("banner: no 'Cities: Skylines II UI Module' line (terser writes the banner only when it extracted a comment)");
@@ -2463,12 +2345,11 @@ async function checkBundle({ quiet = false, buildDir = BUILD } = {}) {
   if (!info.author) errors.push("banner: no Author line");
   if (info.version === null) errors.push(`banner: Version ${JSON.stringify(info.versionRaw)} does not parse as System.Version`);
   if (stamp && info.extra.Build !== stamp) errors.push(`banner: Build ${JSON.stringify(info.extra.Build)} differs from build/${STAMP_FILE} "${stamp}"`);
-  // The banner must not hinge on a third-party license comment (src/index.tsx header).
+  // The banner must not hinge on a third-party license comment (src/index.tsx header)
   const licence = path.join(buildDir, `${MOD.id}.mjs.LICENSE.txt`);
   const licenceText = fs.existsSync(licence) ? fs.readFileSync(licence, "utf8") : "";
   if (!licenceText.includes(BANNER_ANCHOR)) errors.push(`banner: our "/*! ${BANNER_ANCHOR} ..." comment (src/index.tsx, on hasCSS) was not extracted - the banner now depends on a third-party licence comment`);
 
-  // 3. bundle content
   if (stamp && !bundle.includes(JSON.stringify(stamp))) errors.push(`bundle: the stamp "${stamp}" is not compiled in (DefinePlugin __BUILD_STAMP__)`);
   if (/\bimport\(/.test(bundle)) errors.push("bundle: contains dynamic import() - must be ONE module");
   if (/game-ui\//.test(bundle)) errors.push("bundle: references an internal game-ui/ module path - append hooks only");
@@ -2476,12 +2357,10 @@ async function checkBundle({ quiet = false, buildDir = BUILD } = {}) {
   if (/["'](select|option|table)["']/.test(bundle)) errors.push("bundle: renders a select/option/table element - unsupported by Gameface");
   if (/display:"(inline-)?grid"|"space-evenly"|margin(Left|Right):"auto"/.test(bundle)) errors.push("bundle: inline style uses grid, space-evenly or an auto margin");
 
-  // 4. CSS
   const cssText = fs.readFileSync(css, "utf8");
   if (!cssText.trim()) warnings.push(`${MOD.id}.css is empty (allowed, but src/index.tsx imports base.module.scss to keep it non-empty)`);
   const selectorCount = lintCss(cssText, errors);
 
-  // 5. sources, 6. locale
   const runtime = readRuntimeExports();
   if (runtime.problem) {
     errors.push(`runtime exports: CSII_INSTALLATIONPATH is set but the installed game's export table could not be checked: ` +
@@ -2493,10 +2372,8 @@ async function checkBundle({ quiet = false, buildDir = BUILD } = {}) {
   const srcCount = lintSources(runtime, errors);
   const locCount = lintLocale(errors, warnings);
 
-  // 8. contract and source rules R1-R7, R10 (spec 4.7; R8/R9 ran with the CSS above)
   checkContract(errors, warnings, report);
 
-  // 7. smoke test
   const smoke = errors.length ? null : await smokeTest(mjs, errors, warnings);
 
   const kb = (p) => (fs.existsSync(p) ? (fs.statSync(p).size / 1024).toFixed(1) + " KB" : "-");
@@ -2513,8 +2390,8 @@ async function checkBundle({ quiet = false, buildDir = BUILD } = {}) {
 
   function finish() {
     let ok = errors.length === 0;
-    // A run on substituted files (fault tests) proves nothing about the real ones: it never marks
-    // the bundle deployable (the marker was deleted when this run started).
+    // A run on substituted files (fault tests) proves nothing about the real ones: it never marks the bundle deployable (the
+    // marker was deleted when this run started).
     const overridden = OVERRIDES.length > 0;
     if (ok && !overridden) {
       try {
@@ -2540,8 +2417,8 @@ async function checkBundle({ quiet = false, buildDir = BUILD } = {}) {
 }
 
 /**
- * `--contract-only`: the source lint, the locale glyph lint and rules R1-R7 / R10 without a
- * bundle (no build/ needed; the gate marker is not touched). For quick checks and fault tests.
+ * `--contract-only`: the source lint, the locale glyph lint and rules R1-R7 / R10 without a bundle (no build/ needed; the gate
+ * marker is not touched). For quick checks and fault tests.
  */
 function checkContractOnly() {
   const errors = [], warnings = [], report = [];
@@ -2566,7 +2443,7 @@ if (require.main === module && ARGS.includes("--write-lock")) {
   process.exit(checkContractOnly());
 } else if (require.main === module) {
   checkBundle().then((r) => process.exit(r.ok ? 0 : 1), (e) => {
-    removeGateMarker(); // already gone (deleted when the run started); kept as belt and braces
+    removeGateMarker();
     console.error(`check-bundle: CRASHED (build/${GATE_FILE} is absent, nothing may be deployed) ${e && e.stack ? e.stack : e}`);
     process.exit(1);
   });

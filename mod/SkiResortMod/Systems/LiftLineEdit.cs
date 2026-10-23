@@ -1,30 +1,29 @@
-// LiftLineEdit — PURE edit model of the lift-line tool (T48 steps 3c + 4; build note docs/research/field/2026-10-20/
-// t48-round2-build.md). No ECS, no Game types: LiftBatch tests it headless (LiftPlannerTests LP-18 / LP-19). LiftLineToolSystem
-// owns one instance per line being drawn and turns its Emit() list into CreationDefinition + NetCourse entities.
+// Pure edit model of the lift-line tool. No ECS, no Game types: LiftBatch tests it headless. LiftLineToolSystem owns one
+// instance per line being drawn and turns its Emit() list into CreationDefinition + NetCourse entities.
 //
-// THE MODEL
+// The model:
 //   * Two station ends A (base click) and B (top click): the stub-tip nodes' world positions; the line is the straight xz segment
 //     A -> B ("along" = meters from A in xz). Station ropes RopeA / RopeB are given (LiftLineToolSystem: the station's bullwheel
 //     height, else stub node y + the shortest member's rope).
-//   * PINS: positions the user fixed (click on the line = add, drag a tower = move, which pins a free tower). Pins are snapped to the
-//     planner's sample grid (StepM: 5 m, tram 10 m), so a pin is a planner sample and LiftTowerPlanner.Plan keeps it exactly as a
-//     seed (Plan: k = round(along / StepM)). A pin closer than MinSpanM to a station or to another pin is refused.
-//   * THE PLAN = LiftTowerPlanner.Plan(seeds = pins): the fewest-towers search fills every pin-to-pin segment (round 2 objective),
-//     members by phase (c) for every tower (pinned ones included). Re-planned after every change.
-//   * UNDO (T125, right click): every Done edit saves the pins / removed spots before it; Undo restores the last (UndoDepth).
-//   * REMOVE (drag a tower off the line; was right click before T125): a pinned tower is unpinned (the planner may put a tower back near it if the line needs one);
-//     a FREE tower is removed by pinning every OTHER line tower where it stands and dropping this one — the user's "not here" sticks,
-//     and the planner fills only spans that still exceed MaxSpanM or violate the floor; it never puts a NEW tower within
+//   * Pins: positions the user fixed (click on the line = add, drag a tower = move, which pins a free tower). Pins are snapped to
+//     the planner's sample grid (StepM: 5 m, tram 10 m), so a pin is a planner sample and LiftTowerPlanner.Plan keeps it exactly
+//     as a seed (Plan: k = round(along / StepM)). A pin closer than MinSpanM to a station or to another pin is refused.
+//   * The plan = LiftTowerPlanner.Plan(seeds = pins): the fewest-towers search fills every pin-to-pin segment, members by phase
+//     for every tower (pinned ones included). Re-planned after every change.
+//   * Undo (right click): every Done edit saves the pins / removed spots before it; Undo restores the last (UndoDepth).
+//   * Remove (drag a tower off the line): a pinned tower is unpinned (the planner may put a tower back near it if the line needs
+//     one); a free tower is removed by pinning every other line tower where it stands and dropping this one, so the "not here"
+//     sticks: the planner fills only spans that still exceed MaxSpanM or violate the floor, and never puts a new tower within
 //     RemovedRadiusM of a removed spot (LiftTowerPlanner.Forbidden), so a tower the span still needs lands elsewhere in it.
-//   * EMIT: the plan's nodes in order, stations first and last, each tower at (x, ground + E(member), z) with E = TopM[member] -
-//     TopM[0] (LiftTowerEdit.ElevationM): the node height the fit system writes, so the line is born fitted. Node count = the plan's.
+//   * Emit: the plan's nodes in order, stations first and last, each tower at (x, ground + E(member), z) with E = TopM[member] -
+//     TopM[0] (LiftTowerEdit.ElevationM): the node height the fit system writes, so the line is born fitted.
 //
-// TOOL LINES (LiftToolLines): after an Apply the tool registers the emitted inner nodes (xz, member, pinned). LiftTowerFitSystem
-// asks Match() for every line it fits: a line whose every inner node is a registered tool node (xz within MatchTolM) is a TOOL
-// LINE — heights only with the tool's members (never Moved, so a pinned node is never snapped). In-session only (the registry is
-// not saved): after a load the fit's hysteresis (Fit currentMembers) keeps a clear line as it is.
-// R-6 (2026-10-22, docs/research/lifts/lift-tool-split-fix-2026-10-22.md): the engine can build a tool line with MORE nodes than
-// emitted (CourseSplitSystem elevation-transition splits). MatchSplit still recognizes it (every emitted inner node has its own
+// Tool lines (LiftToolLines): after an Apply the tool registers the emitted inner nodes (xz, member, pinned). LiftTowerFitSystem
+// asks Match() for every line it fits: a line whose every inner node is a registered tool node (xz within MatchTolM) is a tool
+// line, fitted heights only with the tool's members (never Moved, so a pinned node is never snapped). In-session only (the
+// registry is not saved): after a load the fit's hysteresis (Fit currentMembers) keeps a clear line as it is.
+// The engine can build a tool line with more nodes than emitted (CourseSplitSystem elevation-transition splits; see
+// docs/research/lifts/lift-tool-split-fix-2026-10-22.md). MatchSplit still recognizes it (every emitted inner node has its own
 // path node within MatchTolM, the ends are the tool's, the extras lie on the line); the extras get ChordMembers (the rope stays
 // on the planned chord) and the whole line is fitted heights-only, never Moved.
 
@@ -39,7 +38,7 @@ namespace SkiResortMod.Systems
     {
         Station,
         Free,     // placed by the planner
-        Pinned,   // placed / moved by the user
+        Pinned,   // placed or moved by the user
     }
 
     /// <summary>One node of the emitted line (stations first and last).</summary>
@@ -96,7 +95,6 @@ namespace SkiResortMod.Systems
         public float RemovedRadiusM => math.max(C.MinSpanM, 2f * C.StepM);
         public int LineTowers => Plan == null ? 0 : Plan.LineTowers;
 
-        // ── geometry ─────────────────────────────────────────────────────────────────────────────
 
         /// <summary>World xz point at <paramref name="alongM"/> (y = 0) plus <paramref name="lateralM"/> to the right of A -> B.</summary>
         public float3 PointAt(float alongM, float lateralM = 0f)
@@ -118,7 +116,6 @@ namespace SkiResortMod.Systems
         /// <summary>The planner sample grid (pins are samples, so Plan keeps them exactly).</summary>
         public float Snap(float alongM) => math.round(alongM / C.StepM) * C.StepM;
 
-        // ── plan ─────────────────────────────────────────────────────────────────────────────────
 
         /// <summary>Re-plan with the pins as seeds (the fewest-towers objective fills between them).</summary>
         public LiftTowerPlan Replan(LiftTerrainSampler terrain)
@@ -160,11 +157,9 @@ namespace SkiResortMod.Systems
             return best;
         }
 
-        // ── edits (the caller re-plans after Done) ───────────────────────────────────────────────
 
-        // ── undo (T125: right click steps back one action) ───────────────────────────────────────
-        // Every edit that returns Done first saves the pins and removed spots it changed; Undo restores the last save (the
-        // caller re-plans). ClearPins saves too, so it can be undone.
+        // Every edit that returns Done first saves the pins and removed spots it changed; Undo restores the last save (the caller
+        // re-plans). ClearPins saves too, so it can be undone.
 
         private readonly List<float[][]> m_Undo = new List<float[][]>();
 
@@ -244,8 +239,8 @@ namespace SkiResortMod.Systems
             return LiftLineEditResult.Done;
         }
 
-        /// <summary>A tower dragged off the line (T125; was right click): a pin is unpinned; a free tower is removed by pinning every
-        /// other line tower where it stands and dropping this one.</summary>
+        /// <summary>A tower dragged off the line: a pin is unpinned; a free tower is removed by pinning every other line tower where it
+        /// stands and dropping this one.</summary>
         public LiftLineEditResult RemoveTower(float alongM) => Saved(Snapshot(), RemoveTowerCore(alongM));
 
         private LiftLineEditResult RemoveTowerCore(float alongM)
@@ -297,7 +292,6 @@ namespace SkiResortMod.Systems
             }
         }
 
-        // ── emission ─────────────────────────────────────────────────────────────────────────────
 
         /// <summary>The line to build: the plan's nodes, stations at A / B, towers at (x, ground + E, z).</summary>
         public List<LiftLineNode> Emit()
@@ -374,13 +368,12 @@ namespace SkiResortMod.Systems
         Ground,
     }
 
-    /// <summary>T125 — the lift tool's input rules, pure so LiftBatch tests them (LT-T125-*). One model for every lift type:
-    /// left click places a point / adds a tower, drag moves a tower (released off the line: removes it), right click steps back
-    /// one action and closes the tool only when nothing is left, the Build key (Enter) builds, Esc closes (the frontend's Back).
-    /// Vanilla: NetToolSystem binds right click ("Cancel", override "Undo Net Control Point") to removing the LAST control point
-    /// (NetToolSystem.cs:5482-5483 enable, :6256-6330 Cancel -> m_ControlPoints.RemoveAt(Length - 1)); it disables the action
-    /// when fewer than two points are placed (:5482), where we close the tool instead (ticket T125: "cancels the tool only when
-    /// nothing is left").</summary>
+    /// <summary>The lift tool's input rules, pure so LiftBatch tests them. One model for every lift type: left click places a point /
+    /// adds a tower, drag moves a tower (released off the line: removes it), right click steps back one action and closes the tool
+    /// only when nothing is left, the Build key (Enter) builds, Esc closes (the frontend's Back). Vanilla: NetToolSystem binds right
+    /// click ("Cancel", override "Undo Net Control Point") to removing the last control point (NetToolSystem.cs:5482-5483 enable,
+    /// :6256-6330 Cancel -> m_ControlPoints.RemoveAt(Length - 1)); it disables the action when fewer than two points are placed
+    /// (:5482), where we close the tool instead.</summary>
     public static class LiftLineInput
     {
         public static LiftLineBack RightClick(LiftLineStep step, bool dragging, int undoDepth)
@@ -414,21 +407,21 @@ namespace SkiResortMod.Systems
         /// <summary>A drag released this far (or more) to the side of the line removes the tower instead of moving it.</summary>
         public static bool DragRemoves(float lateralM, float pickLateralM) => math.abs(lateralM) > pickLateralM;
 
-        /// <summary>The shortest line the tool draws: two planner samples, the fit's own floor (LiftTowerFitSystem "too short to
-        /// fit"). A station-to-station line also needs room for its two station run-outs (2 x MinSpanM), as before.</summary>
+        /// <summary>The shortest line the tool draws: two planner samples, the fit's own floor (LiftTowerFitSystem "too short to fit"). A
+        /// station-to-station line also needs room for its two station run-outs (2 x MinSpanM).</summary>
         public static float MinLengthM(LiftTowerPlanConstants c, bool bothStations) =>
             bothStations ? 2f * c.MinSpanM : 2f * c.StepM;
 
         /// <summary>A rope-lane anchor this far (xz) from the end node or nearer belongs to this end (LiftTowerFitSystem.StationRope).</summary>
         public const float AnchorSearchM = 30f;
 
-        /// <summary>R-6 follow-up (2026-10-22): the rope height the BUILT line will have at a station end, so the tool plans with what
-        /// the fit reads. LaneSystem anchors the line's rope lane end to the station: anchors are the world end points of the HV
-        /// sub-lanes of the node's sub-objects (order 0) and of the node's owner, the station (order 2) (FindAnchors,
-        /// Game.Net/LaneSystem.cs:2371-2416, :2441-2453; FindAnchor :4049-4071, applied :4117-4121); the fit takes the LOWEST
-        /// rope-lane end within AnchorSearchM of the node. <paramref name="subObjectAnchors"/> / <paramref name="ownerAnchors"/> =
-        /// those world points (the lower order wins when it has any within reach); none -> <paramref name="fallback"/> (stub node
-        /// + the shortest member's rope, the old rule). <paramref name="fromLane"/> = an anchor was used.</summary>
+        /// <summary>The rope height the built line will have at a station end, so the tool plans with what the fit reads. LaneSystem
+        /// anchors the line's rope lane end to the station: anchors are the world end points of the HV sub-lanes of the node's
+        /// sub-objects (order 0) and of the node's owner, the station (order 2) (FindAnchors, Game.Net/LaneSystem.cs:2371-2416,
+        /// :2441-2453; FindAnchor :4049-4071, applied :4117-4121); the fit takes the lowest rope-lane end within AnchorSearchM of the
+        /// node. <paramref name="subObjectAnchors"/> / <paramref name="ownerAnchors"/> = those world points (the lower order wins when it
+        /// has any within reach); none gives <paramref name="fallback"/> (stub node + the shortest member's rope).
+        /// <paramref name="fromLane"/> = an anchor was used.</summary>
         public static float StationRope(IList<float3> subObjectAnchors, IList<float3> ownerAnchors, float3 node, float fallback,
                                         out bool fromLane)
         {
@@ -463,7 +456,7 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>The step hint: ALWAYS a non-empty line that names what the next click does in this step.</summary>
+        /// <summary>The step hint: always a non-empty line that names what the next click does in this step.</summary>
         public static string Prompt(LiftLineStep step, string typeId, bool dragging)
         {
             string type = string.IsNullOrEmpty(typeId) ? "Lift" : TypeName(typeId);
@@ -486,8 +479,8 @@ namespace SkiResortMod.Systems
         }
     }
 
-    /// <summary>R-6: a tool line found in a built path that the engine split into more nodes than the tool emitted
-    /// (LiftToolLines.MatchSplit). Per inner path node: the tool's member (-1 = an EXTRA engine split node), pinned, extra.</summary>
+    /// <summary>A tool line found in a built path that the engine split into more nodes than the tool emitted
+    /// (LiftToolLines.MatchSplit). Per inner path node: the tool's member (-1 = an extra engine split node), pinned, extra.</summary>
     public sealed class LiftToolMatch
     {
         public LiftToolLines.Line Line;
@@ -500,11 +493,10 @@ namespace SkiResortMod.Systems
         public bool Reversed;      // the path runs from the tool's last end to its first
     }
 
-    /// <summary>In-session registry of lines built by the lift-line tool (see the header TOOL LINES).
-    /// R-6 (DECISIONS 368-369; docs/research/lifts/lift-tool-split-fix-2026-10-22.md): the engine may build a tool course as more
-    /// edges than emitted (CourseSplitSystem.CheckHeightRange elevation transitions, CourseSplitSystem.cs:2884-2942; crossings).
-    /// MatchSplit then recognizes the line when every emitted inner node has its own path node within MatchTolM, in order, the
-    /// path's ends are the tool's ends (EndTolM) and every extra node lies on the tool's straight line (ExtraLateralTolM).</summary>
+    /// <summary>In-session registry of lines built by the lift-line tool (see the header "Tool lines"). The engine may build a tool
+    /// course as more edges than emitted (CourseSplitSystem.CheckHeightRange elevation transitions, CourseSplitSystem.cs:2884-2942;
+    /// crossings). MatchSplit then recognizes the line when every emitted inner node has its own path node within MatchTolM, in order,
+    /// the path's ends are the tool's ends (EndTolM) and every extra node lies on the tool's straight line (ExtraLateralTolM).</summary>
     public sealed class LiftToolLines
     {
         public const float MatchTolM = 0.5f;
@@ -515,8 +507,8 @@ namespace SkiResortMod.Systems
         public const float ExtraLateralTolM = 1f;
         /// <summary>ChordMembers: two members whose ropes are this close in distance to the planned chord tie (the taller wins).</summary>
         public const float ChordTolM = 0.25f;
-        /// <summary>ChordMembers hysteresis: the extra node's current member is kept while the chord moves less than this (the
-        /// ground under a written node shifts a few decimeters with our own carve, T115).</summary>
+        /// <summary>ChordMembers hysteresis: the extra node's current member is kept while the chord moves less than this (the ground
+        /// under a written node shifts a few decimeters with our own carve).</summary>
         public const float ChordHystM = 0.5f;
         public const int MaxLines = 64;
 
@@ -527,7 +519,7 @@ namespace SkiResortMod.Systems
             public int[] Members;
             public bool[] Pinned;
             public int Pins;
-            public float3 EndA, EndB;  // emitted first / last node positions (R-6 MatchSplit)
+            public float3 EndA, EndB;  // emitted first / last node positions (MatchSplit)
             public bool HasEnds;
         }
 
@@ -598,10 +590,10 @@ namespace SkiResortMod.Systems
             return null;
         }
 
-        /// <summary>R-6: the registered line this built path is, allowing EXTRA engine split nodes. <paramref name="path"/> = every
-        /// node of the path in order, ends included (world positions). Needs: the path's ends within EndTolM of the tool's ends
-        /// (either direction); every tool inner node matched, in order, by its own path node within MatchTolM (xz); every other
-        /// inner path node within ExtraLateralTolM of the tool's end-to-end xz line. Newest line first; null when none.</summary>
+        /// <summary>The registered line this built path is, allowing extra engine split nodes. <paramref name="path"/> = every node of
+        /// the path in order, ends included (world positions). Needs: the path's ends within EndTolM of the tool's ends (either
+        /// direction); every tool inner node matched, in order, by its own path node within MatchTolM (xz); every other inner path node
+        /// within ExtraLateralTolM of the tool's end-to-end xz line. Newest line first; null when none.</summary>
         public LiftToolMatch MatchSplit(IList<float3> path)
         {
             if (path == null || path.Count < 3)
@@ -665,9 +657,9 @@ namespace SkiResortMod.Systems
             return math.distance(a.xz + ab * t, p.xz);
         }
 
-        /// <summary>R-6 diagnostics (a line that did NOT match): the registered line with the most inner nodes found in
-        /// <paramref name="path"/> (xz within MatchTolM, any order), <paramref name="found"/> / <paramref name="pins"/> of them; null
-        /// when no registered node is on the path. The fit WARNs when it would move such a line's pinned towers.</summary>
+        /// <summary>Diagnostics for a line that did not match: the registered line with the most inner nodes found in
+        /// <paramref name="path"/> (xz within MatchTolM, any order), <paramref name="found"/> / <paramref name="pins"/> of them; null when
+        /// no registered node is on the path. The fit WARNs when it would move such a line's pinned towers.</summary>
         public Line BestPartial(IList<float3> path, out int found, out int pins)
         {
             found = pins = 0;
@@ -700,13 +692,12 @@ namespace SkiResortMod.Systems
             return best;
         }
 
-        /// <summary>R-6: members for the EXTRA split nodes of a matched tool line (members[i] &lt; 0), so the rope stays on the plan:
-        /// the planned chord runs between the neighboring tool nodes' ropes (ground + RopeAboveBase(member); the station ropes at
-        /// the ends) and an extra node gets the member whose rope is NEAREST that chord (a tie goes to the taller: never a dip
-        /// below the planned rope when a member sits exactly between). <paramref name="current"/> (the node's member now, -1
-        /// unknown) is kept while its rope is within ChordHystM of the best one's distance (no flip-flop on re-fits). Tool nodes
-        /// are not touched. Pure. The fit then checks the clearance; an extra that breaks it is re-filled by the planner
-        /// (LiftTowerPlanner.Fit spareNodes, T128 FillSpare).</summary>
+        /// <summary>Members for the extra split nodes of a matched tool line (members[i] &lt; 0), so the rope stays on the plan: the
+        /// planned chord runs between the neighboring tool nodes' ropes (ground + RopeAboveBase(member); the station ropes at the ends)
+        /// and an extra node gets the member whose rope is nearest that chord (a tie goes to the taller: never a dip below the planned
+        /// rope when a member sits exactly between). <paramref name="current"/> (the node's member now, -1 unknown) is kept while its
+        /// rope is within ChordHystM of the best one's distance (no flip-flop on re-fits). Tool nodes are not touched. Pure. The fit
+        /// then checks the clearance; an extra that breaks it is re-filled by the planner (LiftTowerPlanner.Fit spareNodes).</summary>
         public static void ChordMembers(LiftTowerPlanConstants c, IList<float> innerAlongM, IList<float> groundM, int[] members,
                                         IList<int> current, float lengthM, float ropeA, float ropeB)
         {

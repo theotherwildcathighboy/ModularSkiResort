@@ -1,103 +1,55 @@
 /*
- * src/hub/BuildStrip.tsx - the Build strip: the panel's FOOTER, the icon tiles in build order plus
- * two fixed one-string status lines and the one dot; since contract 6 an optional picker row above
- * the tiles (lodge tier, lift type).
+ * src/hub/BuildStrip.tsx - the Build strip: the panel's footer. Three tabs (Lifts | Runs | Buildings), a fixed-height family row,
+ * the icon tiles of the shown tab, two fixed one-string status lines and the one dot.
  *
- * Written for this repo (MIT). Created 2026-10-01 (Round U1, implementer U1-C: a 2-column tile
- * grid in the scroll area); rewritten 2026-10-03 (Round U2, implementer I-3) for
- * docs/research/hub-u2-spec.md section 4.2 ("footer -> BuildStrip"), 4.4 J2 / J4, 5.8; rewritten
- * 2026-10-04 for contract 3 (Round E1, stream S6; docs/research/econ-round/spec/ch6-hub-ui.md
- * section 6.13, design hub-v3-design.md 6.10 / 7.4 / 7.5, D17 / D36 / D37; code from the checked
- * reference spec/ch6-hub-ui-ref/src/hub/BuildStrip.tsx); contract 6 on 2026-10-11 (Catalog Phase B,
- * code round 2, hub group; docs/research/art/assets-2026-10/code-round-2/round-2-contract.md section
- * 8.5: 25 items in four groups, the PICKERS, texts by item kind).
- * Why a footer: cs2/ui Panel renders `footer` in its own div OUTSIDE the content Scrollable
- * (index.js@684600: header / content / footer divs, the content div holding the Scrollable,
- * @733600), so the strip never scrolls away and its tiles never move under the mouse.
- * T31 (2026-10-16, field report items 1 and 28; docs/research/field/2026-10-15/build/T31-build-tabs.md): THREE TABS above the
- * tiles, "Lifts | Runs | Buildings" (hubRules.BuildTab; the last one used is the local value hubState.buildTab$, default = the tab
- * the idle NEXT line points at). The tab shows only its own groups (stations + lines / the four runs / the sign, the chosen
- * lodge tier, the school and the patrol huts); the family row under the tabs holds the lift-type chips (Lifts), the tree tool
- * (Runs) or the lodge-tier chips (Buildings), and is ALWAYS drawn at one fixed height so a tab switch never moves the tabs under
- * the mouse. Every tile now draws its short name under the icon (BUILD_LABEL). The tabs only filter what is drawn: every launch
- * id, binding and trigger is unchanged. The ONE dot also shows on the tab that holds its tile. The sections below that talk of
- * ONE tile row and the picker row describe the strip before T31.
- * T114 (2026-10-20, field report item 2, Richard: "the way you select different lodge levels is confusing, because the other
- * buildings don't change"; docs/research/ui/hub-round-t114-2026-10-20.md): the Buildings tab draws EVERY sent lodge tier as its own
- * tile (A-frame, Hut, Chalet, Summit, Grand: hubRules.visibleIds no longer filters lodges) between the sign and the school / patrol
- * group; the lodge chips are gone. The family row keeps its fixed height and, on that tab, names the lodge group ("Lodges" over its
- * tiles, BUILD_GROUP[Lodges]); the lift-type chips (Lifts) and the tree tool (Runs) are unchanged.
- * Contract 12 (2026-10-20, Richard: a "Lift generator" button on the Lifts tab, done like the Runs tab's tree tool): the Lifts family row
- * holds the type chips and, after them, the LIFT_TOOL toggle (LiftToolSet: reads liftLine$, fires hubTriggers.liftLineToggle, which C#
- * turns into LiftLineToolSystem.TryActivate("hub") / Deactivate()). Ok panel only (FooterInfo.liftTool): on a contract mismatch the
- * strip reads CORE only and the toggle is not drawn.
- * Contract 14 (T139, 2026-10-20, DECISIONS 363): the Runs family row holds, after the tree tool, a "Grade cat track" chip over the
- * night and cat-track tiles (GradeToolSet: reads grade$, fires hubTriggers.gradeToggle -> CatTrackGradeToolSystem). Ok panel only.
- * T129 (2026-10-20, field notes 14-16): no tile says it joins or goes near the Welcome Sign any more (T113 made every building top-level;
- * the player does not need the link rule). A building tile's tooltip shows what the building draws, vanilla's way (the asset panel's
- * Upkeep / Electricity / Water / Garbage rows, only the ones above 0, units by the game's unit setting) plus Workers, from
- * buildItems.BUILDING_DRAW, then one terrain line (TERRAIN[Level|Slope]). Lodge, school and patrol tools say BUILD_ACTIVE like any tool.
- * Contract:
- *   - Groups [sign, lodge tier] | [school, patrolHut, patrolHQ] | [lift type: base "1", top "2", line
- *     "3"] | [runNatural, runGroomed, runSnowmaking, runNight] (src/hub/buildItems.ts). ONE nowrap row;
- *     tiles `flex: 1 1 0; min-width: 0`, each group's flex-grow = its DRAWN tile count, so all tiles are
- *     equal at any panel width and text scale (J4: no text in tiles, so text growth cannot reflow them).
- *     A group none of whose items C# sent is not drawn: a fixed-grip-only city before any import draws
- *     today's 2 + 3 + 4 tiles.
- *   - PICKERS (contract 6): the lodge tiers and the lift types are alternatives (hubRules.pickerSets: a
- *     lodge tier is an option when C# sent it; a lift type when C# sent ALL its station and line items).
- *     The strip draws the chosen tier and the chosen type's three tiles (hubRules.visibleIds). The choice
- *     is session state (`pick$`, a module-level local value: no C# observer; it survives closing the hub,
- *     a UI reload resets it); "" or an option that disappeared reads as the first option
- *     (hubRules.effectiveSelection); when an item becomes the ACTIVE tool (launched here, or the lodge
- *     tier from the sign's own upgrade menu) its option is chosen. ONE picker row (fixed height, above the
- *     tiles) is drawn only while a set has >= 2 options; it holds one segmented control per such set,
- *     lodge first (the left group), each as wide as its option count - DEVIATION from section 8.5's
- *     "over its group": the lodge group is two tiles wide and cannot hold five chips (440 rem panel,
- *     12 tiles of about 33 rem); the order still maps left to left. The footer therefore grows by one
- *     line the session a second tier or type is imported (risk R-n), never during play.
- *   - Icon-only tiles: the prefab icon; a step badge on the lift tiles; a kind stripe on the run
- *     tiles (natural: two short bars, the dashed outline's echo; groomed white, snowmaking cyan
- *     outline, night amber: the run list's colors); the ONE amber dot (D37, design 7.4) on the tile
- *     FooterInfo.dot names (hubRules.dotItem: "sign" with no sign, else the buildItem of the shown
- *     area's first band row) - never from build[].hint any more. Contract 6: a dot on an alternative
- *     that is not chosen shows on its picker chip (hubRules.dotTarget).
- *   - Locked: dimmed + Lock glyph, NOT `disabled` (whether a disabled <button> gets mouse events in
- *     Gameface is unverified, hub-u2-spec 7.2 item 10). A click shows the reason in line 2 AND still
- *     sends launch(id): C# refuses it and logs "refused - locked" (SkiResortHubUISystem ApplyLaunch),
- *     so the click is never silent. Active: highlighted; clicking it again returns to the default tool.
- *     Contract 6 reason: REASON[AlreadyBuilt] (the shown sign; C# re-checks the
- *     sign it picks at launch, MUST 6). The lodge tiers are not ForbidMultiple once the surgery sets m_ForbidMultiple false (the prefab flag decides); they still lock for Missing / Locked / NoSign.
- *   - TWO fixed lines (`div.buildStatusLine` x 2, each ONE text node, 1.3 em of XS, nowrap + ellipsis:
- *     D37, J2 - a FIXED height, never min-height, or the footer would grow and move the tiles under
- *     the mouse). Priority (hubRules.footerState): empty > hovered tile > the D36 "Now showing" notice
- *     > the active tile > the last locked click > idle (NEXT / NEXT2 by ResortLive.nextStep). Line 1
- *     of a tile is ONE <LocText> by hubRules.line1Variant on the item's KIND (name · fee + per ha; name ·
- *     about per km for a line of any lift type; name · cost; else the name alone - a contract-2 DLL sends
- *     no new field). Line 2: the locked reason, else C#'s hint key (line items: HINT[LiftNoPair] for the
- *     SHOWN area's rows of that type), else the short hint. Item names: RUN_TYPE for runs (D17, sentence
- *     case), Assets.NAME for the others (deviation U5).
- *   - Tile tooltip: name; "One-time" and "Per month" label / value rows (run: base fee + per ha;
- *     line: about per km; stations: part of the lift's running cost; natural and the sign: nothing a month; a billed
- *     building: vanilla's Upkeep row instead of Per month); T129 the draw rows and the terrain line (drawRows); the long
- *     hint (or BUILD_ACTIVE); runs: BUILD_TIP_RESHAPE; natural: BUILD_TIP_NATURAL and the natural type factors
- *     (second pass); the luxury tiers: BUILD_TIP_LUXURY; school: BUILD_TIP_SCHOOL; patrol huts: BUILD_TIP_PATROL; the locked reason.
- *   - BuildStrip reads ONLY the CORE `build` binding (and its own local `pick$`), so it is also the
- *     contract-mismatch panel's footer (MISMATCH_FOOTER: no dot, idle NEXT[Done]; hub-u2-spec 4.5,
- *     deviation U11). Everything non-CORE comes in through `info` (FooterInfo), built by OkFooter (ok
- *     panel; a panel file for gate R11: resorts$, selectedResort$, resortLive$, problems$, follow$).
- *   - D36 notice (design 7.5): OkFooter remembers the `follow` value seen at mount; when C# moves it
- *     (an automatic area switch, selection rule 7), "Now showing <the area shown NOW>." holds line 1
- *     for FOLLOW_NOTICE_MS; a second follow restarts the timer; unmount clears it. No ordering
- *     assumption between the `follow` and `selectedResort` pushes. Nothing runs per frame.
- *   - FOCUS (Round F6, C1; field test 6 log-audit A1): every tile and every picker chip is a cs2/ui Button
- *     with focusKey={FOCUS_DISABLED}. The Panel wraps its footer in a FocusKeyOverride whose
- *     KeyFocusController hosts ONE child (installed index.js@684800 `Tp` around the footer div;
- *     `bp.registerChild` @578500 logs "Cannot register second focus key ... KeyFocusControllers can
- *     only host a single child"), and a Button registers itself by default (FOCUS_AUTO, button.tsx
- *     @629600 `Gg(e??(s?Ug:Bg))`). FOCUS_DISABLED is what the vanilla title bar's own close button
- *     passes (focusKey:Ug, index.js@686490). tools/check-bundle.js rule R15 FAILS a focusable cs2/ui
- *     Button rendered into a Panel header or footer without it (it follows OkFooter into BuildStrip).
+ * Why a footer: cs2/ui Panel renders `footer` in its own div outside the content Scrollable (index.js@684600, @733600), so the
+ * strip never scrolls away and its tiles never move under the mouse.
+ *
+ * Tabs (hubRules.BuildTab): the last one used is the local value hubState.buildTab$, default = the tab the idle NEXT line points
+ * at; the tab follows the active tool. A tab shows only its own groups (Lifts: stations + lines; Runs: the four runs; Buildings:
+ * the sign, every sent lodge tier as its own tile, the school and the patrol huts); tabs only filter what is drawn, so every
+ * launch id, binding and trigger is unchanged, and the one dot also shows on the tab that holds its tile. The family row under
+ * the tabs holds the lift-type chips and the LIFT_TOOL toggle (Lifts; LiftToolSet fires hubTriggers.liftLineToggle ->
+ * LiftLineToolSystem.TryActivate("hub")), the tree tool and a "Grade cat track" chip (Runs; GradeToolSet fires
+ * hubTriggers.gradeToggle -> CatTrackGradeToolSystem), or the group captions (Buildings, BUILD_GROUP[Lodges]). It is always drawn
+ * at one fixed height so a tab switch never moves the tabs under the mouse. The toggles are ok-panel only (FooterInfo.liftTool):
+ * on a contract mismatch the strip reads core only.
+ *
+ * Tiles: ONE nowrap row; tiles `flex: 1 1 0; min-width: 0`, each group's flex-grow = its drawn tile count, so all tiles are equal
+ * at any panel width and text scale (no text in tiles). A group none of whose items C# sent is not drawn. Every tile draws its
+ * short name under the icon (BUILD_LABEL); a step badge on the lift tiles; a kind stripe on the run tiles (natural: two short
+ * bars; groomed white, snowmaking cyan outline, night amber); the one amber dot on the tile FooterInfo.dot names
+ * (hubRules.dotItem). The lift types are alternatives (hubRules.pickerSets): the strip draws the chosen type's three tiles
+ * (hubRules.visibleIds); the choice is session state (`pick$`, a module-level local value, reset by a UI reload); "" or a
+ * vanished option reads as the first (hubRules.effectiveSelection); an item that becomes the active tool chooses its option. One
+ * picker row is drawn only while a set has >= 2 options; a dot on an unchosen alternative shows on its chip
+ * (hubRules.dotTarget).
+ * Locked tiles are dimmed with a Lock glyph, not `disabled` (whether a disabled <button> gets mouse events in Gameface is
+ * unverified). A click shows the reason in line 2 and still sends launch(id): C# refuses and logs "refused - locked"
+ * (SkiResortHubUISystem ApplyLaunch), so the click is never silent. Active: highlighted; clicking again returns to the default
+ * tool. REASON[AlreadyBuilt] (C# re-checks the sign it picks at launch); the lodge tiers lock for Missing / Locked / NoSign.
+ *
+ * Status lines: TWO fixed lines (`div.buildStatusLine`, each ONE text node, 1.3 em of XS, nowrap + ellipsis; a fixed height, never
+ * min-height, or the footer would grow and move the tiles under the mouse). Priority (hubRules.footerState): empty > hovered tile
+ * > the "Now showing" notice > the active tile > the last locked click > idle (NEXT / NEXT2 by ResortLive.nextStep). Line 1 of a
+ * tile is ONE <LocText> by hubRules.line1Variant on the item's kind (name · fee + per ha; name · about per km; name · cost; else
+ * the name alone). Line 2: the locked reason, else C#'s hint key, else the short hint. Names: RUN_TYPE for runs, Assets.NAME for
+ * the rest.
+ * Tile tooltip: name; "One-time" and "Per month" rows (run: base fee + per ha; line: about per km; stations: part of the lift's
+ * running cost; natural and the sign: nothing a month; a billed building: vanilla's Upkeep row instead); a building's draw rows
+ * (vanilla's Upkeep / Electricity / Water / Garbage rows above 0, units by the game's unit setting, plus Workers, from
+ * buildItems.BUILDING_DRAW) and one terrain line (TERRAIN[Level|Slope]); the long hint (or BUILD_ACTIVE); BUILD_TIP_* for runs,
+ * luxury lodges, school, patrol; the locked reason.
+ * BuildStrip reads only the core `build` binding (and its own `pick$`), so it is also the contract-mismatch panel's footer
+ * (MISMATCH_FOOTER: no dot, idle NEXT[Done]). Everything else comes in through `info` (FooterInfo), built by OkFooter (a panel
+ * file: resorts$, selectedResort$, resortLive$, problems$, follow$). "Now showing" notice: OkFooter remembers the `follow` value
+ * seen at mount; when C# moves it (an automatic area switch), "Now showing <area>." holds line 1 for FOLLOW_NOTICE_MS; a second
+ * follow restarts the timer; unmount clears it. Nothing runs per frame.
+ * Focus: every tile and picker chip is a cs2/ui Button with focusKey={FOCUS_DISABLED}. The Panel wraps its footer in a
+ * FocusKeyOverride whose KeyFocusController hosts ONE child (index.js@684800; `bp.registerChild` @578500 logs "Cannot register
+ * second focus key ... KeyFocusControllers can only host a single child"), and a Button registers itself by default (FOCUS_AUTO,
+ * button.tsx @629600). FOCUS_DISABLED is what the vanilla close button passes (focusKey:Ug, index.js@686490).
+ * tools/check-bundle.js rule R15 fails a focusable cs2/ui Button rendered into a Panel header or footer without it.
  */
 import { useEffect, useRef, useState } from "react";
 import { bindLocalValue, useValue } from "cs2/api";
@@ -127,47 +79,45 @@ import type { TipLine } from "./parts";
 import { currentResort, resortEntries } from "./resortData";
 import styles from "./hub.module.scss";
 
-/** What the footer needs beyond CORE `build`. */
+/* What the footer needs beyond core `build`. */
 export interface FooterInfo {
-  /** The one dot (null = none). */
+  /* The one dot (null = none). */
   dot: BuildItemId | null;
-  /** Idle text. */
   next: NextVariant;
-  /** D36 notice: the shown area's name while the 6 s notice runs, else null. */
+  /* The notice: the shown area's name while the 6 s notice runs, else null. */
   followName: string | null;
-  /** Contract 12: draw the lift generator toggle (ok panel only; it reads the non-CORE liftLine binding). Contract 14: also the
-   *  Runs tab's "Grade cat track" chip (the non-CORE grade binding). */
+  /*
+   * Draw the lift generator toggle (ok panel only; it reads the non-CORE liftLine binding) and the Runs tab's "Grade cat track"
+   * chip (the non-CORE grade binding).
+   */
   liftTool?: boolean;
 }
 
 export const MISMATCH_FOOTER: FooterInfo = { dot: null, next: "done", followName: null };
 
-/** How long the D36 notice stays (design 7.5). */
 export const FOLLOW_NOTICE_MS = 6000;
 
-/** T114: the Buildings-tab kinds that each draw as their own tile group. */
+/* The Buildings-tab kinds that each draw as their own tile group. */
 const SPLIT_KINDS: readonly string[] = ["sign", "lodge", "school", "patrol"];
 
-/** Contract 6: the pickers' choice for the UI session (local value: nothing sent to C#; a UI reload resets it). */
+/* The pickers' choice for the UI session (local value: nothing sent to C#; a UI reload resets it). */
 export const pick$ = bindLocalValue<PickerSelection>(NO_PICK);
 
-// Index = RunKind; 3 (natural) is drawn separately (two bars), 4 (cat track, T54 probe 1) is green.
+// Index = RunKind; 3 (natural) is drawn separately (two bars), 4 (cat track) is green.
 const KIND_STRIPE = ["stripeGroomed", "stripeSnowmaking", "stripeNight", "stripeNight", "stripeCatTrack"] as const;
 
-/** The name entry of an item: RUN_TYPE for runs (D17), Assets.NAME for the others. */
 function nameEntry(id: BuildItemId): LocEntry {
   const kind = BUILD_RUN_KIND[id];
   if (kind !== undefined) return RUN_TYPE[kind];
   return ASSET_NAME[id] ?? HUB_LOC.locked;
 }
 
-/** The C# kind of an item ("" for an id this bundle does not know: line1Variant then reads cost / name). */
+/* The C# kind of an item ("" for an id this bundle does not know: line1Variant then reads cost / name). */
 function kindOf(id: BuildItemId): string {
   const m = buildMeta(id);
   return m ? m.kind : "";
 }
 
-/** Footer line 1 of a tile: ONE <LocText> per variant (R13), or the name alone. */
 function Line1({ id, item, t }: { id: BuildItemId; item: BuildItem; t: Translate }): JSX.Element {
   const NAME = t(nameEntry(id));
   switch (line1Variant(kindOf(id), item)) {
@@ -178,8 +128,10 @@ function Line1({ id, item, t }: { id: BuildItemId; item: BuildItem; t: Translate
   }
 }
 
-/** The short line-2 hint of a tile (design 6.10; contract 6: by kind - every lift type's base / top / line reads the
- *  fixed-grip pair's hints, the lodges, the school and the patrol huts their own). */
+/*
+ * The short line-2 hint of a tile, by kind: every lift type's base / top / line reads the fixed-grip pair's hints; the lodges,
+ * the school and the patrol huts have their own.
+ */
 function shortEntry(id: BuildItemId): LocEntry {
   const kind = BUILD_RUN_KIND[id];
   if (kind !== undefined) return BUILD_SHORT_RUN[kind];
@@ -193,14 +145,12 @@ function shortEntry(id: BuildItemId): LocEntry {
   }
 }
 
-/** Line 2 text: locked reason > C#'s hint > the short hint. */
 function line2Text(t: Translate, id: BuildItemId, item: BuildItem): string {
   if (item.locked) return t(sentKeyEntry(item.reason, HUB_LOC.locked));
   if (item.hint) return t(sentKeyEntry(item.hint, shortEntry(id)));
   return t(shortEntry(id));
 }
 
-/** The long hint of a tile's tooltip (design 6.10). */
 function longEntry(id: BuildItemId): LocEntry {
   const kind = BUILD_RUN_KIND[id];
   if (kind !== undefined) return BUILD_SHORT_RUN[kind];
@@ -225,7 +175,7 @@ function onceValue(id: BuildItemId, item: BuildItem): JSX.Element | string {
 
 function monthValue(id: BuildItemId, item: BuildItem, t: Translate): JSX.Element | string {
   const kind: RunKind | undefined = BUILD_RUN_KIND[id];
-  if (kind === 3 || kind === 4) return t(HUB_LOC.buildMonthNone);   // natural; cat track (T54 probe 1: no snow bill, D1 pending)
+  if (kind === 3 || kind === 4) return t(HUB_LOC.buildMonthNone); // natural; cat track (no snow bill)
   if (kind !== undefined) {
     return typeof item.monthlyPerHa === "number" && item.monthlyPerHa >= 0
       ? <LocText entry={HUB_FMT.buildMonthRun} args={{ RATE: numArg(item.monthlyPerHa, Unit.Money) }} /> : "–";
@@ -236,11 +186,13 @@ function monthValue(id: BuildItemId, item: BuildItem, t: Translate): JSX.Element
       ? <LocText entry={HUB_FMT.buildMonthLift} args={{ BASE: numArg(item.monthly, Unit.Money), PERKM: numArg(item.monthlyPerKm, Unit.Money) }} /> : "–";
   }
   if (k === "station") return t(HUB_LOC.buildMonthStation);
-  return t(HUB_LOC.buildMonthNone);   // T129: a building with upkeep draws its Upkeep row instead (drawRows)
+  return t(HUB_LOC.buildMonthNone); // a building with upkeep draws its Upkeep row instead (drawRows)
 }
 
-/** T129: a building's draw rows, vanilla's asset-panel rows (each only above 0) plus Workers, then its terrain line. The Upkeep row
- *  replaces "Per month" on a building the game bills; a station keeps "Per month" (the lift's running cost covers it). */
+/*
+ * A building's draw rows, vanilla's asset-panel rows (each only above 0) plus Workers, then its terrain line. The Upkeep row
+ * replaces "Per month" on a building the game bills; a station keeps "Per month" (the lift's running cost covers it).
+ */
 function drawRows(id: BuildItemId, t: Translate): TipLine[] {
   const d = BUILDING_DRAW[id];
   if (!d) return [];
@@ -269,23 +221,22 @@ function tileTip(e: OrderedBuildItem, t: Translate): JSX.Element {
         e.item.active ? t(HUB_LOC.buildActive) : t(longEntry(e.id)),
         run && t(HUB_LOC.buildTipReshape),
         e.id === "runNatural" && t(HUB_LOC.buildTipNatural),
-        e.id === "runNatural" && t(HUB_LOC.buildTipTypeNatural),   // second pass: the natural type factors
-        LUXURY_LODGES.has(e.id) && t(HUB_LOC.buildTipLuxury),      // contract 6: the luxury label and its price tolerance
-        k === "school" && t(HUB_LOC.buildTipSchool),               // contract 6: R13
-        k === "patrol" && t(HUB_LOC.buildTipPatrol),               // contract 6: R13
+        e.id === "runNatural" && t(HUB_LOC.buildTipTypeNatural),
+        LUXURY_LODGES.has(e.id) && t(HUB_LOC.buildTipLuxury), // the luxury label and its price tolerance
+        k === "school" && t(HUB_LOC.buildTipSchool),
+        k === "patrol" && t(HUB_LOC.buildTipPatrol),
         e.item.locked && t(sentKeyEntry(e.item.reason, HUB_LOC.locked)),
       ]}
     />
   );
 }
 
-/** One picker chip's label: the lift type's word or the lodge tier's (an unknown option shows its raw id). */
 function chipLabel(set: PickerSet, value: string, t: Translate): string {
   const e = set === "lift" ? LIFT_TYPE[value] : LODGE_TIER[value as BuildItemId];
   return e ? t(e) : value;
 }
 
-/** Contract 6: one segmented control (a set with >= 2 options). Chips are cs2/ui Buttons with FOCUS_DISABLED (R15). */
+/* One segmented control (a set with >= 2 options). Chips are cs2/ui Buttons with FOCUS_DISABLED (R15). */
 function PickerSetView({ set, options, chosen, dot, t, onPick }: {
   set: PickerSet; options: readonly string[]; chosen: string; dot: DotTarget; t: Translate;
   onPick: (set: PickerSet, value: string) => void;
@@ -317,7 +268,7 @@ function PickerSetView({ set, options, chosen, dot, t, onPick }: {
   );
 }
 
-/** T31: a tile's visible label (hubText BUILD_LABEL): by role for stations / lines, by kind or id for the rest, by run kind for runs. */
+/* A tile's visible label (hubText BUILD_LABEL): by role for stations / lines, by kind or id for the rest, by run kind for runs. */
 function labelEntry(id: BuildItemId): LocEntry {
   const rk = BUILD_RUN_KIND[id];
   if (rk !== undefined) return BUILD_LABEL["run" + rk] ?? nameEntry(id);
@@ -325,15 +276,17 @@ function labelEntry(id: BuildItemId): LocEntry {
     case "station": return BUILD_LABEL[stationRole(id) === "top" ? "top" : "base"];
     case "line": return BUILD_LABEL.line;
     case "sign": return BUILD_LABEL.sign;
-    case "lodge": return LODGE_TIER[id] ?? BUILD_LABEL.lodge;   // T114: each tier is its own tile, named by its tier
+    case "lodge": return LODGE_TIER[id] ?? BUILD_LABEL.lodge;
     case "school": return BUILD_LABEL.school;
     case "patrol": return id === "patrolHQ" ? BUILD_LABEL.patrolHQ : BUILD_LABEL.patrolHut;
     default: return nameEntry(id);
   }
 }
 
-/** T31: the tab row. Buttons are cs2/ui Buttons with FOCUS_DISABLED (R15); the ONE dot shows on the tab holding it when that
- *  tab is not the one shown. */
+/*
+ * The tab row. Buttons are cs2/ui Buttons with FOCUS_DISABLED (R15); the ONE dot shows on the tab holding it when that tab is
+ * not the one shown.
+ */
 function TabBarView({ tabs, tab, dotTab, t, onTab }: {
   tabs: readonly BuildTab[]; tab: string; dotTab: BuildTab | null; t: Translate; onTab: (id: BuildTab) => void;
 }): JSX.Element {
@@ -362,8 +315,11 @@ function TabBarView({ tabs, tab, dotTab, t, onTab }: {
   );
 }
 
-/** T114: the Buildings tab's family row: "Lodges" over the lodge group and "Ski patrol" over the two huts (same flex-grow as the tile
- *  groups below), empty over the sign and the school, so the five lodge tiles read as one choice and the row keeps its fixed height. */
+/*
+ * The Buildings tab's family row: "Lodges" over the lodge group and "Ski patrol" over the two huts (same flex-grow as the tile
+ * groups below), empty over the sign and the school, so the five lodge tiles read as one choice and the row keeps its fixed
+ * height.
+ */
 function GroupCaptions({ groups, t }: { groups: readonly OrderedBuildItem[][]; t: Translate }): JSX.Element {
   return (
     <>
@@ -381,7 +337,7 @@ function GroupCaptions({ groups, t }: { groups: readonly OrderedBuildItem[][]; t
   );
 }
 
-/** Contract 12: the Lifts tab's lift generator toggle (the tree tool's pattern): on / off, refused by C# when the tool is not armed. */
+/* The Lifts tab's lift generator toggle (the tree tool's pattern): on / off, refused by C# when the tool is not armed. */
 function LiftToolSet({ t }: { t: Translate }): JSX.Element {
   const g = useValue(liftLine$);
   const available = !!g?.available;
@@ -407,8 +363,10 @@ function LiftToolSet({ t }: { t: Translate }): JSX.Element {
   );
 }
 
-/** T31: the Runs tab's family row: the glade (tree) tool's on / off, the same trigger as the Runs view's "Tree tool" button
- *  (TreeControls.tsx; reads the CORE glade binding only). */
+/*
+ * The Runs tab's family row: the glade (tree) tool's on / off, the same trigger as the Runs view's "Tree tool" button
+ * (TreeControls.tsx; reads the CORE glade binding only).
+ */
 function TreeToolSet({ t, grade }: { t: Translate; grade?: boolean }): JSX.Element {
   const g = useValue(glade$);
   const available = !!g?.available;
@@ -445,9 +403,11 @@ function TreeToolSet({ t, grade }: { t: Translate; grade?: boolean }): JSX.Eleme
   );
 }
 
-/** Contract 14 (T139): the Runs tab's "Grade cat track" chip, over the night and cat-track tiles (the lift generator's pattern: reads
- *  the non-CORE grade binding, fires hubTriggers.gradeToggle, which C# turns into CatTrackGradeToolSystem.TryActivate("hub") /
- *  Deactivate()). Ok panel only (FooterInfo.liftTool). */
+/*
+ * The Runs tab's "Grade cat track" chip, over the night and cat-track tiles (the lift generator's pattern: reads the non-CORE
+ * grade binding, fires hubTriggers.gradeToggle, which C# turns into CatTrackGradeToolSystem.TryActivate("hub") /
+ * Deactivate()). Ok panel only (FooterInfo.liftTool).
+ */
 function GradeToolSet({ t }: { t: Translate }): JSX.Element {
   const g = useValue(grade$);
   const available = !!g?.available;
@@ -480,15 +440,14 @@ export function BuildStrip({ info }: { info: FooterInfo }): JSX.Element {
   const [hovered, setHovered] = useState<BuildItemId | null>(null);
   const [lockedClick, setLockedClick] = useState<BuildItemId | null>(null);
 
-  // Contract 6 pickers: options from what C# sent, the choice in force, the drawn tiles.
   const sets = pickerSets(items, BUILD_ITEMS);
   const eff = effectiveSelection(sets, sel);
   const visible = visibleIds(items, BUILD_ITEMS, sel);
   const all = groupBuildItems(items);
   const tabs = drawnTabs(visible, BUILD_ITEMS);
   const tab = effectiveTab(tabs, storedTab, info.next);
-  // T114: on the Buildings tab the sign, the five lodges, the school and the two patrol huts are four groups (captions "Lodges" and
-  // "Ski patrol" over theirs); BUILD_GROUPS keeps its R16 shape, the split is drawing only. Lift and run groups are unchanged.
+  // On the Buildings tab the sign, the five lodges, the school and the two patrol huts are four groups (captions "Lodges" and
+  // "Ski patrol" over theirs); BUILD_GROUPS keeps its shape, the split is drawing only. Lift and run groups are unchanged.
   const groups: OrderedBuildItem[][] = [];
   const splitKey = (id: BuildItemId): string => { const k = kindOf(id); return SPLIT_KINDS.indexOf(k) >= 0 ? k : "rest"; };
   for (const g of all) {
@@ -506,8 +465,8 @@ export function BuildStrip({ info }: { info: FooterInfo }): JSX.Element {
   let hoveredEntry: OrderedBuildItem | null = null;
   let activeEntry: OrderedBuildItem | null = null;
   let lockedEntry: OrderedBuildItem | null = null;
-  // The active item is looked up among ALL sent items: a lodge tier placed from the sign's own upgrade menu may not be
-  // the chosen one yet (the effect below chooses it).
+  // The active item is looked up among ALL sent items: a lodge tier placed from the sign's own upgrade menu may not be the
+  // chosen one yet (the effect below chooses it).
   for (const g of all) {
     for (const e of g) {
       if (e.item.active && !activeEntry) activeEntry = e;
@@ -518,7 +477,7 @@ export function BuildStrip({ info }: { info: FooterInfo }): JSX.Element {
   }
   const activeId = activeEntry ? activeEntry.id : null;
 
-  // Contract 6: when an item becomes the active tool, its option is chosen (an item of another tier or type).
+  // When an item becomes the active tool, its option is chosen (an item of another tier or type).
   useEffect(() => {
     const opt = optionOf(activeId, BUILD_ITEMS);
     if (!opt) return;
@@ -527,8 +486,8 @@ export function BuildStrip({ info }: { info: FooterInfo }): JSX.Element {
     else if (opt.set === "lift" && cur.lift !== opt.value) pick$.update({ lodge: cur.lodge, lift: opt.value });
   }, [activeId]);
 
-  // T31: the tab follows the active tool (a tool started elsewhere, e.g. the Start card's button) and the idle NEXT step when it
-  // CHANGES (not at mount, so the remembered tab survives closing and reopening the hub).
+  // The tab follows the active tool (a tool started elsewhere, e.g. the Start card's button) and the idle NEXT step when it
+  // changes (not at mount, so the remembered tab survives closing and reopening the hub).
   useEffect(() => {
     const at = tabOfItem(activeId, BUILD_ITEMS);
     if (at && buildTab$.value !== at) buildTab$.update(at);
@@ -557,7 +516,7 @@ export function BuildStrip({ info }: { info: FooterInfo }): JSX.Element {
     line1 = <LocText entry={HUB_FMT.follow} args={{ NAME: info.followName ?? "" }} />; line2 = ""; line1Cls = styles.buildLineNormal;
   } else if (state === "active" && activeEntry) {
     line1 = <Line1 id={activeEntry.id} item={activeEntry.item} t={t} />;
-    line2 = t(HUB_LOC.buildActive);   // T129: every building is a plain tool since T113
+    line2 = t(HUB_LOC.buildActive); // every building is a plain tool
   } else if (state === "locked" && lockedEntry) {
     line1 = <Line1 id={lockedEntry.id} item={lockedEntry.item} t={t} />;
     line2 = t(sentKeyEntry(lockedEntry.item.reason, HUB_LOC.locked)); line2Cls = styles.buildLineLocked;
@@ -634,7 +593,7 @@ export function BuildStrip({ info }: { info: FooterInfo }): JSX.Element {
   );
 }
 
-/** The ok panel's footer: computes FooterInfo from the non-CORE bindings (panel file, R11). */
+/* The ok panel's footer: computes FooterInfo from the non-CORE bindings (panel file). */
 export function OkFooter(): JSX.Element {
   const t = useT();
   const resorts = useValue(resorts$);
@@ -664,7 +623,7 @@ export function OkFooter(): JSX.Element {
     dot: dotItem(problems, sign, hasSign),
     next: nextVariant(hasSign, unlinked, l),
     followName: noticeOn && shown ? (unlinked ? t(HUB_LOC.unlinkedEntry) : shown.name) : null,
-    liftTool: true,   // contract 12: the ok panel draws the lift generator toggle
+    liftTool: true, // the ok panel draws the lift generator toggle
   };
   return <BuildStrip info={info} />;
 }

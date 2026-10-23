@@ -1,7 +1,5 @@
-// SkiSlopeClassifier — pure, deterministic slope-difficulty rating for a ski-run polygon
-// (docs/research/run-feedback-spec.md §2-§3 as amended by §9 "Round R2" and its last subsection
-// §9.8 "Round R2b", which win where they disagree; DECISIONS 113, 116, 118; SPEC §6.1 =
-// docs/SPEC.md:235-241, bands amended by §9.2).
+// Pure, deterministic slope-difficulty rating for a ski-run polygon (docs/research/run-feedback-spec.md §2-§3 as amended by
+// §9, which wins where they disagree; SPEC §6.1 = docs/SPEC.md:235-241, bands amended by §9.2).
 // Entities-free on purpose: usings are System, System.Collections.Generic and
 // Unity.Mathematics ONLY, so the same file is compiled into the net48 mod (default **/*.cs
 // glob) AND linked into the net8 headless test host tests/SlopeBatch (run: `dotnet run
@@ -15,108 +13,50 @@
 // shrink; fixed top-k insertion arrays, a counting sort, union-find, a binary heap (open last
 // bucket only) and BFS on reused arrays; per-row run lists; no Sort, no LINQ).
 //
-// WHAT THE RATING IS (R2 §9.3, end zones and connectivity as replaced by R2b §9.8). A resort
-// rates a run by its hardest part that a skier cannot AVOID. R1 rated the steepest ~86 m² (the
-// k-th largest 20 m window), which on the field's 68,300 m² meadow was a corner touching a bank:
-// Double black 41.7 % on a 17.2 % mean run (DECISIONS 116). R2 / R2b:
-//   RatingGrade = the crux of the easiest line = min over all connected paths of inside cells
-//   from the run's top end zone to its bottom end zone of the max per-cell value o on the path
-//   (a bottleneck / minimax path). A steep corner or side bank the line can go around does not
-//   count; a full-width headwall or a chute does.
-//   - Per-cell value o (published as CellGrade; CellBand = BandOf(o)) = R1's overlay value: the
-//     centered 20 m fall-line window when it fits the Mask, else the longest centered window of
-//     15 / 10 / 7 m that fits, else |g| (Classify below).
-//   - Connectivity (R2b, §9.8): SlopeGrid.DiagonalRule, set by the CALLER (true when its step
-//     multiple >= 2; the classifier does not know m) and copied into SlopeResult.DiagonalRule.
-//     false (m = 1): the 8 neighbors — R2's code path, unchanged and bit-identical (R2b round,
-//     a scratch A/B linking R2's file: 2,999 random cases, every output identical with the
-//     height key forced). true (m >= 2): the 4 orthogonal neighbors, plus a diagonal only when
-//     BOTH cells it shares orthogonally with the step are outside the Mask (so a one-cell-wide
-//     diagonal sliver stays connected), in the union-find AND the crux BFS. Why: at 7 m cells an
-//     8-connected path slipped diagonally through a one-cell-wide band of high values (a
-//     full-width 12 m bank @ 50 % read up to 8.1 % low at m = 2).
-//   - End zones (R2b, §9.8). n = inside cells, ḡ = (Σgx, Σgz) / n the mean box gradient
-//     (MeanGradient, internal). KEY: when |ḡ| >= EndZoneMinMeanGrade (3 %) OR FallCoherence =
-//     |Σg| / Σ|g| >= EndZoneMinCoherence (0.5; the OR clause added in the R2b fixer round), the
-//     position along the mean fall line, key = -(FallLine · (i, j))·step ("up the fall line" =
-//     larger key), computed inline per cell (ZoneKey; no per-cell buffer); otherwise (cones,
-//     craters, saddles, flat ground: no usable axis) the node height, exactly as R2. Published
-//     as ZoneByFallLine. Coherence does not REPLACE the |ḡ| clause: coherence falls with wall
-//     steepness, so a coherence-only gate put steep-sided valleys back on the height rule (§9.8:
-//     10 % floor with 50 % walls Black 50.9 % under a 0.3 coherence gate; SlopeBatch R2b end
-//     zones: Green 8.99-9.96 %, coherence 0.27, taken by |ḡ|). It is ADDED because the |ḡ|
-//     clause alone sent a long gentle run whose gradients all agree (coherence ~1) to the
-//     height key and R2's area cap below 3 %, which skipped a full-width pitch near an end
-//     again (review finding code-1; SlopeBatch "key gate", 8 frames, R2b as first built in
-//     brackets): a 30 m 45 % drop-in atop a 60 m-wide 1 % run reads 42.71-44.96 % Black at
-//     every length [500 m Black, 600 m 12.90-44.96 % Green..Black by orientation, 650 m and
-//     longer 1.89-12.90 % Flat..Green: the band flipped as the end node crossed the gate, and
-//     the tooltip called the unavoidable drop-in "avoidable"]; §9.8's 10 × 2000 trail with a
-//     60 m 50 % wall on 1 % / 0 % ground 50.00-50.18 % [0.95-1.16 / 0.00 % Flat]. Cones,
-//     craters and saddles (coherence <= 0.007) and noise on flat ground (<= 0.304 for ±0.3 m
-//     at 5 m) keep the height fallback. SIZE: z = clamp(round(EndZoneShare·n), 1, max(1, cap))
-//     with cap = floor(n·EndZoneDepthM / L), L = (max - min key over the inside cells) + step,
-//     on the fall-line key — EndZoneDepthM of run at the run's MEAN width (it is a cell count;
-//     at an end narrower than the mean the zone runs deeper, limit (g)) — and R2's area cap
-//     floor(EndZoneMaxM2 / step²) on the height key.
-//     SELECTION (unchanged): 1024 equal bins over the key's inside range (one bin below 1 mm),
-//     whole bins from each end until >= z cells, so a zone can hold more than z (deterministic,
-//     independent of scan order). The key range is read from the clamped Mask runs' END cells
-//     (the key is linear along a row and float rounding is monotone: exact, O(runs)); the same
-//     ZoneKey / HeightBin call bins every cell in the histogram (pass 1) and in the zone bits
-//     (pass 2), and the BFS reads those bits (no third evaluation). FallLine, MeanGradient and
-//     FallCoherence are final before Crux on every path (ClassifyRing sets them first;
-//     CruxForTest re-reads the stored values). Zones, not the single highest / lowest cell,
-//     because a drawn run's entry and exit are unknown and its very top is exactly where it
-//     pokes onto a bank (the field case); a cap stops a long runout from swallowing a short
-//     pitch at the top. Zones
-//     may overlap (flat ground): a shared cell is a zero-length path. WHY R2b (§9.8): R2 ranked
-//     by raw node height, so on any polygon with side ground the highest / lowest cells sat on
-//     that side ground, not at the run's ends; and its cap was an AREA, so it skipped
-//     EndZoneMaxM2 / width of run at each end (33 m at 60 m wide, 100 m at 20 m, 200 m at 10 m).
-//   - Algorithm, O(n) (O(n + k log k) when the minimax is in the open last bucket, k = its
-//     cells): counting sort of the inside cells into RatingBuckets = 2048 buckets,
-//     bucket = min(2047, (int)(o·1024)) (1/1024 = 0.098 % wide up to 200 %); union-find (path
-//     halving, union by size) over flat cell indices plus virtual TOP / BOTTOM nodes; buckets
-//     activated in ascending order, each cell unioned with its active inside neighbors (the
-//     connectivity above: one union per run of active 8-neighbors on R2's path, one per allowed
-//     neighbor under the diagonal rule) and with TOP / BOTTOM when in a zone, until TOP ~
-//     BOTTOM. RatingGrade = the largest o in that
-//     bucket: order-independent and at most one bucket width above the exact minimax (SlopeBatch
-//     checks every ring rating it makes against a brute-force minimax oracle). Bucket 2047 is
-//     OPEN ([199.9 %, inf)), where "the largest o in the bucket" would be the largest value of
-//     any cell above 199.9 %, avoidable or not (review finding, R2 fixer round: a full-width
-//     235 % step plus an avoidable 60 m pit rated 310.7 % with the crux ring in the pit). So that
-//     bucket's cells are activated in ascending o (a binary min-heap over its Order segment)
-//     with a TOP ~ BOTTOM test per cell, and RatingGrade is the EXACT minimax there — the bound
-//     "at most one bucket width above the exact minimax" now holds at every grade (§9.3 as
-//     amended in the R2 fixer round; SlopeBatch R2-l and the oracle assert it).
-//   - Not connected (the Mask falls apart between the zones: self-intersecting or hair-thin
-//     polygons): Connected = false, RatingGrade = P90Grade.
-//   - Crux cell (CruxI / CruxJ grid-local, CruxHeight; the overlay's marker), the full traversal
-//     contract (pinned in the R2 fixer round so SlopeBatch's independent BFS can assert the cell
-//     exactly): traversable = the inside cells with o <= RatingGrade (below 200 % exactly the
-//     buckets <= the connecting one); seeds = the traversable top-zone cells in row-major scan
-//     order — a seed that is also in the bottom zone is the crux at once (a zero-length path);
-//     breadth-first, each dequeued cell's neighbors expanded in row-major order (NW N NE W E
-//     SW S SE = flat offsets -Nx-1, -Nx, -Nx+1, -1, +1, Nx-1, Nx, Nx+1; under the diagonal rule a
-//     diagonal is skipped unless both cells it shares orthogonally are outside the Mask); stop
-//     when the first bottom-zone cell is DISCOVERED (not when it is dequeued); walk the parents
-//     back; the crux is the path cell with the largest o, the one nearest the top on ties.
-//   - Also published: SteepestGrade = R1's statistic unchanged (k-th largest full window, k =
-//     max(MinRatingCells, ceil(RatingAreaM2 / step²)); in ShortRun the k-th / last largest
-//     overlay value) — "the steepest patch, avoidable or not"; P90Grade = the smallest bucket top
-//     (b + 1) / 1024 with >= 90 % of inside cells in buckets <= b (saturates at 200 %);
-//     TopZoneCells / BottomZoneCells, ZoneByFallLine, DiagonalRule. Band = BandOf(RatingGrade).
-//     Status: ShortRun when fewer than k full windows fit (unchanged meaning; the rating is
-//     still the crux), else Ok.
-//   - Polyline mode keeps its statistic: a line has exactly one path, so its k-th window IS its
-//     crux. SteepestGrade = P90Grade = RatingGrade, Connected = true, CruxValid = false,
-//     ZoneByFallLine = false.
+// WHAT THE RATING IS. A resort rates a run by its hardest part that a skier cannot AVOID: RatingGrade = the crux of the
+// easiest line = min over all connected paths of inside cells from the run's top end zone to its bottom end zone of the max
+// per-cell value o on the path (a bottleneck / minimax path). A steep corner or side bank the line can go around does not
+// count; a full-width headwall or a chute does. Rating the steepest ~86 m² instead read a corner touching a bank as Double
+// black on a 17 % mean run.
+//   - Per-cell value o (CellGrade; CellBand = BandOf(o)): the centered 20 m fall-line window when it fits the Mask, else the
+//     longest centered window of 15 / 10 / 7 m that fits, else |g|.
+//   - Connectivity: SlopeGrid.DiagonalRule, set by the CALLER (true when its step multiple m >= 2). false: 8 neighbors. true:
+//     the 4 orthogonal neighbors plus a diagonal only when BOTH cells it shares orthogonally with the step are outside the
+//     Mask, in the union-find AND the crux BFS. At 7 m cells an 8-connected path slipped diagonally through a one-cell-wide
+//     band of high values (a full-width 12 m bank @ 50 % read up to 8.1 % low).
+//   - End zones. KEY: when the mean box gradient |ḡ| >= EndZoneMinMeanGrade (3 %) OR FallCoherence = |Σg| / Σ|g| >=
+//     EndZoneMinCoherence (0.5), the position along the mean fall line, key = -(FallLine · (i, j))·step (ZoneKey, computed
+//     inline per cell); otherwise (cones, craters, saddles, flat ground: no usable axis) the node height. Published as
+//     ZoneByFallLine. Coherence does not REPLACE the |ḡ| clause: coherence falls with wall steepness, so a coherence-only gate
+//     would put steep-sided valleys back on the height rule. It is ADDED because the |ḡ| clause alone sent a long gentle run
+//     whose gradients all agree to the height key and the area cap, which skipped a full-width pitch near an end (the band
+//     flipped as the end node crossed the gate). SIZE: z = clamp(round(EndZoneShare·n), 1, max(1, cap)); cap =
+//     floor(n·EndZoneDepthM / L) on the fall-line key (L = key range of the inside cells + step: EndZoneDepthM of run at the
+//     run's MEAN width, a cell count, so deeper at an end narrower than the mean, limit (g)), floor(EndZoneMaxM2 / step²) on
+//     the height key. SELECTION: 1024 equal bins over the key's inside range, whole bins from each end until >= z cells
+//     (deterministic, independent of scan order). The key range is read from the clamped Mask runs' END cells (the key is
+//     linear along a row and float rounding is monotone: exact, O(runs)); the same ZoneKey / HeightBin call bins every cell in
+//     the histogram (pass 1) and the zone bits (pass 2), and the BFS reads those bits. FallLine, MeanGradient and
+//     FallCoherence are final before Crux on every path. Zones, not the single highest / lowest cell, because a drawn run's
+//     entry and exit are unknown and its very top is exactly where it pokes onto a bank; the cap stops a long runout from
+//     swallowing a short pitch at the top. Zones may overlap (flat ground): a shared cell is a zero-length path.
+//   - The open last bucket: bucket 2047 is OPEN ([199.9 %, inf)), where "the largest o in the bucket" would be the largest
+//     value of any cell above 199.9 %, avoidable or not (a full-width 235 % step plus an avoidable 60 m pit rated 310.7 % with
+//     the crux ring in the pit). Its cells are therefore activated in ascending o (a binary min-heap over its Order segment)
+//     with a TOP ~ BOTTOM test per cell, and RatingGrade is the EXACT minimax there. Elsewhere it is the largest o in the
+//     connecting bucket: order-independent and at most one bucket width (1/1024) above the exact minimax (SlopeBatch checks
+//     every ring rating against a brute-force oracle).
+//   - Not connected (the Mask falls apart between the zones: self-intersecting or hair-thin polygons): Connected = false,
+//     RatingGrade = P90Grade.
+//   - Crux cell (CruxI / CruxJ, CruxHeight; the overlay's marker): BFS over the traversable cells (o <= RatingGrade) from the
+//     top-zone cells in row-major scan order, neighbors expanded in row-major order (NW N NE W E SW S SE), stopped when the
+//     first bottom-zone cell is DISCOVERED (not dequeued); the crux is the path cell with the largest o, the one nearest the
+//     top on ties. A seed that is also in the bottom zone is the crux at once. The contract is pinned so SlopeBatch's
+//     independent BFS can assert the cell exactly.
+//   - Polyline mode keeps its statistic: a line has exactly one path, so its k-th window IS its crux.
 //
-// T44 DIFFICULTY LAYER (2026-10-16; docs/research/field/2026-10-15/build/T44-difficulty.md; Richard: "an IRL hard blue",
-// run width, and "no cat track becomes a black diamond"). RatingGrade and every crux output are UNCHANGED (SlopeBatch's
-// rating fingerprint is bit-identical: the layer reads them). SlopeResult.Band is now BandOf(RatingGrade) moved by FinishBand,
+// DIFFICULTY LAYER (an IRL "hard blue", run width, and no cat track becomes a black diamond). RatingGrade and every crux
+// output are UNCHANGED by it (the layer reads them). SlopeResult.Band is BandOf(RatingGrade) moved by FinishBand,
 // ring mode with a valid easiest line only: (3) green-mean runs (MeanGrade < GreenMeanKeepsBlueMax) rate at most blue unless the
 // crux pitch is >= CruxLengthForBlack; (1) otherwise a borderline black (double black) crux with a steep-cell share below
 // SteepShareForBlack (DoubleBlackShare) and a mean below its floor rates one band lower, unless the pitch is long or the steep
@@ -128,183 +68,60 @@
 // the easiest line is the BFS-shortest traversable path, so its stretch follows the pitch the line crosses; the pitch estimate
 // wobbles about +-5 m on a 3.5 m lattice (a 15 m / 50 % pitch reads 34-43 m), so "40 m" is a soft edge.
 //
-// WHAT R2b FIXED (SlopeBatch "R2b end zones", asserted, m = 1, 8 frames = rotations 0/17/45/73°
-// × 2 origins; R2's value in brackets): valley 600 × 120 (40 m floor at 15 %, 30 % sides)
-// 14.24-14.94 % Green [31.8-33.6 % Blue]; steep-wall valleys (10 % floor, 40 / 50 % walls)
-// 9.23-9.96 / 8.99-9.96 % Green; open bowl 400 × 240 (15 % floor, 42 % walls) 14.14-14.84 %
-// Green [41.9-42.0 % Black]; ridges 300 × 60 / 600 × 120 / 1000 × 80 / 2000 × 80 (12 % crest,
-// 27.7 % flanks) 13.04-15.33 % Green [600 × 120 27.6-27.7 % Blue]; a full-length 50 m 45 % side
-// bank on a 150 m-wide 15 % run 14.61-15.04 % Green [44.8-45.0 % Black]; the F116 meadow with
-// 48 % corner pokes 60 × 80 / 80 × 100 / 120 × 100 m 19.04-19.24 / 19.43-20.11 / 20.50-21.07 %
-// Green [80 × 100: 42.3-43.5 % Black]; a 71 % sliver along the top side (13 % of the area)
-// 16.01-16.11 % Green; a full-width 40 m 71 % top face on 800 × 125 70.90-71.12 % Double black;
-// a 68 % mountain face 68.07-68.26 %; 20 × 1500 trails at 20 % with a full-width 40 m 45 % wall
-// at s 60-100 / 60-100 m above the bottom 45.00-45.18 % Black [31.6-37.7 / 30.6-38.7 % Blue]; a
-// 60 m 50 % wall at s 100-160 of a 10 × 2000 trail 50.00-50.18 % [20.1-20.2 % Green]; the 30 m
-// 45 % drop-in atop a 12 % run at 20 / 60 / 125 / 200 m wide 43.30-45.00 % Black at every width
-// [12.0-12.2 / 20.8-25.6 / 44.8-45.2 / 44.9-45.2 %]; wide-short 150 × 400 with a full-width 45 %
-// headwall 45.00-45.18 %; an L-run with a 45 % pitch in its second leg 44.90-45.01 %; cone /
-// crater / saddle: |ḡ| <= 0.002, height key taken, rating bit-identical to the forced height
-// key (R2's rule): 29.98-30.08 / 29.98-30.08 / 41.30-41.80 %. Unchanged: R2-a..R2-d, the
-// runouts, the DECISIONS 116 field fixtures (Green 19.04-19.14 %). At m = 2 (diagonal rule) a
-// full-width 12 m bank's crux - oracle is -2.88 / -2.66 / -2.95 % on 60 / 80 / 100 m-wide runs
-// [-8.06 / -6.65 / -4.45 %], the 5 m bank -0.46 / -0.15 / -0.15 % [-0.46 / -1.28 / -3.92 %].
-// R2b FIXER ROUND (the key gate's coherence clause; "below the gate" fixtures, asserted: |ḡ| <
-// 3 %, fall-line key by coherence 1.000, no "avoidable" tooltip line; R2b as first built in
-// brackets): §9.8's 10 × 2000 trail with a 60 m 50 % wall at s 100-160 on 1 % / 0 % ground
-// 50.00-50.18 % Black [0.95-1.16 / 0.00 % Flat]; a 20 × 1200 trail on 1.5 % with a 40 m 45 % wall
-// at s 60-100 44.96-45.18 % [15.93-31.97 % Green..Blue]; the 30 m 45 % drop-in atop a 60 m-wide
-// 1 % run 700 m long 42.77-44.96 % [1.89-12.90 %], atop a 2 % run 1,500 m long 42.87-44.96 %
-// [13.53-18.05 % Green]. Every other SlopeBatch line is unchanged by the clause (scratch A/B of
-// the full suite before the tests were added: identical apart from 39 classifications' key).
-//
-// KNOWN AND DELIBERATE (§9.3 / §9.8), with SlopeBatch's numbers:
-//   (a) a headwall or drop-in entirely inside an END zone is skipped, at the top AND at the
-//       bottom. R2b: the fall-line zone is ~EndZoneDepthM = 20 m of run on a run of uniform
-//       width (top zones 96-102 cells on a 60 m-wide run ≈ the top 20.8 m; deeper at an end
-//       narrower than the mean, (g)), so R2-e, a 45 % band at
-//       the top of a 60 × 600 m run, reads 26.70-31.84 % Blue at 20 m long (it straddles the
-//       zone depth; R2: 10.5-10.7 % Green), 44.90-45.18 % at 40 m (R2: 37.1-42.2 %, a §9.4 (2)
-//       SPEC-GAP of -2.81 % that is gone: worst shift -0.28 %), 45.01-45.18 % at 80 m (3 starts ×
-//       7 angles). The 30 m drop-in reads 41.85-45.18 % (Black) over those 21 frames at 125 /
-//       200 m wide (43.30-45.00 % on the 8 asserted frames). On the height key (cones, craters,
-//       saddles; gentle runs whose gradients disagree, (j)) R2's area cap still skips
+// KNOWN AND DELIBERATE:
+//   (a) A headwall or drop-in entirely inside an END zone is skipped, at the top AND the bottom (the fall-line zone is
+//       ~EndZoneDepthM of run at the mean width, deeper at a narrower end, (g)). On the height key the area cap still skips
 //       EndZoneMaxM2 / width at each end.
-//   (b) not monotone under supersets: widening a run can add an easier line (old invariant (5)
-//       dropped; SlopeBatch's nested pairs: 5 of 28 fall, worst -2.05 % — R2: 3, -0.11 %; a
-//       wider polygon also moves the mean fall line and so the zones). SteepestGrade still is.
-//   (c) a narrow traverse is still rated by its sidehill (no run-axis input).
-//   (d) among equal-valued cells the crux follows scan order (deterministic).
-//   (e) R2b, a run that curves strongly around convex terrain (fall line turning with the run):
-//       position along the MEAN fall line is not position along the run. SlopeBatch's C-run
-//       (two straight 150 m arms 40 m wide joined by a 180° bend of radius 60 m around a hill
-//       falling 10 % outward; 40 % for the first 120 m, then 12 %): the arms' along-run fall
-//       lines cancel in the mean, so the fall-line key puts both arms' far ends (the run's start
-//       AND its end) in the top zone and the bend in the bottom zone, and the easiest "line"
-//       climbs the gentle last arm: 15.62 % Green on the fall-line key, crux in the last arm,
-//       against 41.20-41.40 % Black on the height key (crux in the steep first arm) — lenient.
-//       A switchback whose fall line is constant (three 300 m traverses on 20 % / 35 % ground)
-//       reads 34.96-35.15 % Blue on both keys.
-//   (f) R2b, a full-length avoidable side cliff covering ≳ 40-55 % of the width tilts the mean
-//       fall line onto itself (geometry-dependent): a 60 % cliff over 40 % of a 150 m-wide 10.5 %
-//       run reads 12.50-31.68 % (Green..Blue) by orientation (R2: 59.9-60.1 %).
-//   (g) R2b fixer round (review finding rule-and-tests-zone-depth-uses-mean-width): the depth cap
-//       is a cell COUNT, n·EndZoneDepthM / L = EndZoneDepthM at the MEAN width, so at an end
-//       narrower than the mean the zone runs EndZoneDepthM × mean / end width down the run, and
-//       R2's limit (b) returns by shape (SlopeBatch "zone depth", 8 frames; two WARN SPEC-GAP
-//       lines against §9.8's "~20 m whatever the width"): a 600 m run at 15 % whose top 200 m
-//       is a 20 m trail opening into a 150 m bowl: top zone 103.0-106.7 m deep, a full-width 60
-//       (40) m 45 % pitch at s 20-80 (40-80) 15.04-15.15 % Green; a 150 m slope narrowing into a
-//       20 m cat track for its last 150 m: bottom zone 108.6-117.1 m, a 40 m pitch 30-70 m above
-//       the bottom 15.04-15.17 %; 50 / 150 m funnels 44.8-48.7 m, 17.32-22.80 / 19.15-22.49 %.
-//       Constant-width controls 45.00-45.18 % Black, zone 17.5-20.7 m. Measured option, NOT
-//       applied (a trade-off, Richard's call): also stop each bin walk at 2.5·EndZoneDepthM of
-//       key — the trail / cat-track rows read Black 44.99-45.18 %, but (f) moves from 12.4-31.7 %
-//       to 38.4-56.2 % (Blue..Black), a 60 × 80 poke under a 100 m-slanted top edge from 19.0-22.7
-//       % Green to 26.6-36.5 % Blue, 80 × 100 from 39.5-39.8 % to 40.2-40.9 % (14-frame scratch
-//       lab, review's variant A); a pure 20 m key-depth cap breaks slanted top edges (R2-a
-//       slanted 60 m 30.9-42.1 %, the 30 × 40 field poke rotated 30° 24.0-35.7 %; variant B):
-//       rejected.
-//   (h) R2b fixer round (review finding rule-and-tests-fall-key-zone-past-crest): the key is a
-//       position, it never reads height, so a polygon drawn more than ~EndZoneDepthM past a
-//       crest (past a valley floor) puts the top (bottom) zone on the back slope (counter-slope)
-//       and every line climbs it (SlopeBatch "past a crest", 8 frames; 400 m at 20 % below the
-//       crest, 60 m wide): 20 m past 20.02-20.44 % Green (asserted); 30 / 40 / 60 m onto a 30 %
-//       back slope 27.63-30.05 / 29.97-30.05 / 29.97-30.05 % Blue, onto 45 % 41.74-45.14 /
-//       45.00-45.14 / 45.01-45.18 % Black, 30 m onto 60 % 56.07-60.05 %; 30 / 40 / 60 m past a
-//       floor up a 30 % counter-slope 27.10-30.05 / 29.97-30.05 / 29.97-30.05 %, 40 m up 45 %
-//       45.01-45.18 % — the height key reads 20.02-20.20 % on all of them. Across a crest at
-//       s 100 (45 % up, 15 % down; |ḡ| 0.029-0.031, coherence 0.14): 15.04-45.18 % by orientation.
-//       Measured option, NOT applied (a trade-off, Richard's call): extend each zone to the key
-//       bin of the highest (lowest) inside cell when that bin lies in the top (bottom) quarter of
-//       the key range, ties within 1 m going to the own end — every overshoot row Green
-//       20.02-20.67 % (60 % back slope 20.18-26.98 %), across-crest 15.04-22.10 %, every other
-//       SlopeBatch line unchanged; but a knoll in the top quarter higher than the top edge pulls
-//       the zone down to it (a 40 m knoll at s 110: a full-width headwall at s 40-80 goes from
-//       43.16-44.11 % to 20.02-20.21 %), as R2's height key does (scratch lab, review's variant X).
-//   (i) R2b fixer round (review finding rule-and-tests-rotated-poke-not-exercised): §9.8's
-//       "large corner pokes read Green" holds for a top edge roughly ALONG the contours. With the
-//       polygon rotated about the poke corner (corner highest) or its top edge slanted, the
-//       count-capped top zone collects in the highest corner wedge (SlopeBatch "pokes with the
-//       top edge NOT along the contours", F116 meadow, 8 frames): the 30 × 40 field-size poke
-//       19.04-19.24 % Green at -30 / 20 / 30 / 45° and slants -60 / 60 / 100 m (asserted); 60 × 80
-//       up to 20.02-25.36 % (30°); 80 × 100 19.04-26.14 / 41.39-42.18 / 37.19-40.89 % at 20 / 30 /
-//       45°, 22.83-36.12 / 39.54-39.84 % at 60 / 100 m slant; 120 × 100 29.20-37.74 / 41.49-42.06
-//       / 40.16-41.10 %, 37.97-47.24 / 47.74-48.61 %.
-//   (j) R2b fixer round, the coherence clause's own threshold: below 3 % mean gradient, terrain
-//       whose gradients partly cancel (coherence < 0.5) keeps R2's height key and area cap, and
-//       their limits (SlopeBatch "key gate: coherence survey", 8 frames): the 30 m drop-in atop a
-//       1 % run with a ±1 m 140 × 110 m wave reads 41.37-43.14 % at 700 m long (coherence
-//       0.55-0.56) and 4.10-5.08 % Flat at 1,500 m (0.45-0.46); §9.8's trail10 on 0 % ground with
-//       ±1 m noise at 5 m wavelength reads 49.90-51.81 % at coherence 0.58-0.65 on the 8 frames,
-//       but straddles 0.5 over 14 frames (0.28-0.65; 0.19-51.81 %, scratch lab). As with the |ḡ|
-//       clause alone, dragging such a run across the threshold flips the band; the clause moves
-//       the flip from every coherent gentle run near 3 % to textured or canceling terrain.
-// MEASURED LIMITS of the crux (SlopeBatch; the line follows the LOWEST-reading cells, so
-// per-cell under-reads become rating under-reads):
-//   - Knife-edge ridge (12 % crest, 25 % flanks): the line runs down the crest, whose cells read
-//     12 % on a node and up to ~20 % between nodes. R2b, m = 1: 300 × 60 12.29-15.23 %, worst
-//     rotation / translation shift +1.69 % (R2: 13.8-19.9 %, +6.07 %), 2,000 × 80 12.29-15.33 %,
-//     +1.78 % (R2 read 26.8-27.7 % there, its bottom zone on a flank, within 0.82 %): §9.4 (2)'s
-//     "rotation changes the rating <= 1 %" is not met (two WARN SPEC-GAP lines, envelopes 2.2 /
-//     2.3 %; all Green). At m = 2 the diagonal rule links a crest running diagonally across the
-//     lattice only through flank cells: 2,600 × 80 reads 12.53-20.49 % (worst +6.45 %; R2
-//     -5.60 %), the trade-off the R2 review predicted ("a diagonal ridge crest reading up to
-//     20.5 % instead of ~14 %"), still Green.
-//   - A full-width pitch SHORTER than ~17 m: its 20 m-window plateau (20 m minus the pitch
-//     length) is narrower than a 3.5 m cell, so the lattice nodes straddle the peak and every
-//     per-cell value reads below it (~2 %/m off the plateau). 50 % pitches in a 10.5 % run at
-//     m = 1 (SlopeBatch ShortHeadwallTests, closed-form oracle 42.1 / 46.05 / 50 %): 16 m crux
-//     -2.0..-0.1 %, 18 m -3.4..-1.1 %, 20 m -4.7..-2.1 % (SteepestGrade -0.7..+0.2, -1.5..0.0,
-//     -3.5..-1.4 %); regression envelopes, no spec bound. 12 m / 5 m banks (plateaus 8 / 15 m)
-//     and 60 m pitches read within 0.4 %.
-//   - Next to steep ground outside the polygon, box gradients tilt toward it and in-run windows
-//     run off the fall line, reading g·cos(tilt): a 60 % cliff one step outside a 10.5 % run
-//     moves the crux by -0.55 % (SteepestGrade +0.23 %).
-//   - At m = 2 (runs over 200,704 m², 7 m cells) the 7 m lattice still blurs narrow features:
-//     with the diagonal rule a full-width 12 m bank @ 50 % in a 10 % run (analytic 34 %) reads
-//     crux - oracle -2.88 / -2.66 / -2.95 % on 60 / 80 / 100 m-wide runs (-2.66 % at 20 and 30 m
-//     wide; R2's 8-connected slip read -8.06 / -6.65 / -4.45 %, -14.71 % at 20 m), the same
-//     size as SteepestGrade's -2.66 % there (SlopeBatch regression envelopes, no spec bound);
-//     short 50 % headwalls (report only at m = 2) 16 / 18 / 20 m -4.78..-0.12 / -5.98..-1.54 /
-//     -9.23..-1.43 % (R2 -10.45..-1.65 / -12.81..-3.99 / -15.02..-6.70 %). The rule's measured
-//     costs: the m = 2 noise shift (±0.3 m at 5 m) 2.45-2.49 % (R2 2.01 %, bound 3 %), the
-//     diagonal ridge crest above, and the rotation shift of an xl bank at m = 2 1.71-2.12 % (R2
-//     6.41-7.21 %); a ±3 m spike moves the m = 2 crux <= 0.25 % (R2 0.30 %).
+//   (b) Not monotone under supersets: widening a run can add an easier line (and moves the mean fall line, hence the zones).
+//       SteepestGrade still is monotone.
+//   (c) A narrow traverse is still rated by its sidehill (no run-axis input).
+//   (d) Among equal-valued cells the crux follows scan order (deterministic).
+//   (e) A run that curves strongly around convex terrain (fall line turning with the run): position along the MEAN fall line
+//       is not position along the run. On a C-run the arms' along-run fall lines cancel in the mean, so the fall-line key
+//       puts both arms' far ends in the top zone and the bend in the bottom zone, and the easiest "line" climbs the gentle
+//       last arm: lenient (15.6 % Green against 41 % Black on the height key).
+//   (f) A full-length avoidable side cliff covering ≳ 40-55 % of the width tilts the mean fall line onto itself: the rating
+//       varies with orientation.
+//   (g) The depth cap is a cell COUNT, so at an end narrower than the mean the zone runs EndZoneDepthM × mean / end width
+//       down the run (a 20 m trail opening into a 150 m bowl: a top zone ~105 m deep skips a full-width pitch within it).
+//       Capping each bin walk at 2.5·EndZoneDepthM of key was measured and NOT applied (it fixes those rows but moves (f) to
+//       Blue..Black and corner pokes toward Blue); a pure 20 m key-depth cap breaks slanted top edges.
+//   (h) The key is a position, never height, so a polygon drawn more than ~EndZoneDepthM past a crest (or valley floor) puts
+//       the top (bottom) zone on the back slope and the back slope is rated. Extending each zone to the highest (lowest)
+//       cell's bin was measured and NOT applied: a knoll in the top quarter higher than the top edge pulls the zone down to it.
+//   (i) "Large corner pokes read Green" holds for a top edge roughly ALONG the contours; with the polygon rotated or its top
+//       edge slanted, the count-capped top zone collects in the highest corner wedge and pokes of 60 × 80 and up read Blue to
+//       Black.
+//   (j) Below 3 % mean gradient, terrain whose gradients partly cancel (coherence < 0.5) keeps the height key and area cap
+//       and their limits: a 30 m drop-in atop a 1 % run with a ±1 m wave reads Black at 700 m but Flat at 1,500 m. The
+//       coherence clause moves the band flip from every coherent gentle run near 3 % to textured or canceling terrain.
+//   (k) The ShortRun -> Ok transition as a small run grows can LOWER SteepestGrade (shorter windows read steeper). Values
+//       carry up to +0.3 % height-quantization bias on planes, hence DisplayHysteresis for the live readout.
 //
-// RUN LENGTH (R3, docs/research/run-binding-glade-spec.md §5.1; decision D14: HORIZONTAL map
-// meters, which differ from along-the-slope meters by < 5 % below a 30 % grade). Published as
-// SlopeResult.Length / LengthRect / AxisLength (the drawing tooltip's "Length" line). Geometry
-// only, computed in Classify, reset by Clear(); NOTHING in the rating reads it — every rating
-// output is bit-identical to R2b (SlopeBatch's rating fingerprint: 34,058 classifications,
-// FNV-1a 0x3FAEB2F59B9897D1 with the pre-R3 and the R3 file).
-//   Ring:     Length = max(LengthRect, AxisLength).
-//             LengthRect = (P + sqrt(max(0, P² − 16A))) / 4, the centerline of the rectangle with
-//             the sanitized ring's perimeter P (closing edge added explicitly: Plan stripped the
-//             duplicated closing vertex) and |shoelace| area A. Exact for any constant-width band
-//             (P² − 16A = 4(L − W)² for an L × W rectangle; mitred bends and circular arcs keep
-//             A = L·W and P = 2L + 2W), whatever its bends: SlopeBatch's L, dogleg and C-run
-//             read 500.0 / 550.0 / 488.5 m for 500 / 550 / 488.5 m centerlines.
-//             AxisLength = the fall-line key range of the inside cells + step (the depth cap's
-//             L, Crux) when ZoneByFallLine, else 0. It rescues outlines whose perimeter
-//             under-states their length (a pointed or tapered outline) and over-reads a straight
-//             run by up to about one cell (cell CENTERS + step on a rotated lattice: rect 600 × 60
-//             reads 600.0-603.3 m over 4 frames).
-//   Polyline: Length = the horizontal arc length (LengthRect = AxisLength = 0).
-// KNOWN LIMITS (accepted, spec §5.1; SlopeBatch "length" rows, report-only against the designed
-// centerline, regression-asserted at ±0.1 %):
-//   (L1) a bowl funnelling into a trail OVER-reads: its wide top adds perimeter, not length.
-//        SlopeBatch funnel (200 m bowl × 150 m, 100 m taper, 30 m trail × 400 m): 722.2 m for
-//        650 m (+11.1 %); the spec's skeptic measured ~19 % on its own funnel.
-//   (L2) a diamond or tapered outline on the HEIGHT-key fallback (cones, craters, flat ground:
-//        AxisLength = 0) reads LengthRect alone: a 500 × 240 m diamond on flat ground reads
-//        407.3 m (−18.5 %; the spec's "407 vs 500 m"); a 500 m taper 150 → 30 m wide 504.4 m.
-//        On the fall-line key the axis term restores them.
-// Field captures (2026-10-01, all on the fall-line key; LengthRect / AxisLength → Length):
-// 092600 433.8 / 509.9 → 509.9; 093404 1010.8 / 1030.6 → 1030.6; 093455 and 093534 239.8 / 308.5
-// → 308.5; 093640 833.1 / 703.8 → 833.1; 093940 2170.2 / 1940.4 → 2170.2; 094240 2665.6 /
-// 2618.5 → 2665.6; 095100 825.6 / 864.4 → 864.4 (LengthRect agrees with the spec's skeptic
-// recomputation to the meter on all eight).
+// MEASURED LIMITS of the crux (the line follows the LOWEST-reading cells, so per-cell under-reads become rating under-reads):
+//   - Knife-edge ridge (12 % crest, 25 % flanks): the line runs down the crest, whose cells read 12 % on a node and up to
+//     ~20 % between nodes (all Green; rotation shifts it by up to ~1.8 %).
+//   - A full-width pitch SHORTER than ~17 m: its plateau (20 m minus the pitch length) is narrower than a 3.5 m cell, so
+//     lattice nodes straddle the peak and every per-cell value reads below it (a 20 m 50 % pitch ~4.7 % low, 16 m ~2 % low).
+//     12 m / 5 m banks and 60 m pitches read within 0.4 %.
+//   - Next to steep ground outside the polygon, box gradients tilt toward it and in-run windows run off the fall line,
+//     reading g·cos(tilt).
+//   - Lattice resolution: a valid window's endpoint may lie up to half a cell past the last inside node (rounded mask check),
+//     so its bilinear can read ONE node beyond the polygon: terrain within one step outside the edge leaks into SteepestGrade
+//     (a 60 % cliff at the boundary of a 10.5 % run reads up to +4.7 %; the crux avoids those edge cells). Stricter endpoint
+//     rules are listed in Window. A coarse step blurs narrow features: StepMultiple budgets by AREA (CellBudget 16384), so
+//     only a run over 200,704 m² gets m = 2 (longer than 2,007 m at 100 m wide). There a 12 m bank's SteepestGrade reads up
+//     to 2.66 % low and its crux up to ~3 % low with the diagonal rule (an 8-connected slip read up to 14.7 % low); a crest
+//     running diagonally across the lattice reads up to ~20.5 % instead of ~14 %.
+//
+// RUN LENGTH (docs/research/run-binding-glade-spec.md §5.1): HORIZONTAL map meters (< 5 % from along-the-slope meters below
+// a 30 % grade). Published as SlopeResult.Length / LengthRect / AxisLength; geometry only, NOTHING in the rating reads it.
+// Ring: Length = max(LengthRect, AxisLength). LengthRect is the centerline of the rectangle with the ring's perimeter and
+// area (EquivalentRectLength), exact for any constant-width band; AxisLength = the fall-line key range + step when
+// ZoneByFallLine, else 0 (rescues outlines whose perimeter under-states their length; over-reads a straight run by up to
+// about one cell). Polyline: the horizontal arc length. Known limits: a bowl funnelling into a trail OVER-reads (+11 % on a
+// 200 m bowl into a 400 m trail: its wide top adds perimeter, not length); a diamond or tapered outline on the height-key
+// fallback reads LengthRect alone (a 500 × 240 m diamond on flat ground reads 407 m).
 //
 // ENGINE FACTS this rests on (1.6.0f1 citations; the caller relies on them too):
 //  - One height texel = 1 / hd.scale.x world meters: scale = float3(res.x, res.y-1, res.z) /
@@ -326,123 +143,44 @@
 //    out. Grade therefore comes from height differences on a lattice. An open polyline with
 //    >= 3 nodes is triangulated as if closed (GeometrySystem.cs:99-112), hence ring mode below.
 //
-// TWO PHASES.
-//  Plan(points, count, latticeOrigin, step, grid): sanitize (NaN/Inf -> NonFinite; step <= 0,
-//    NaN or > 100 m -> BadStep; strip consecutive duplicates and a duplicated closing vertex,
-//    xz within 1 mm; < 2 points -> TooFewPoints). Ring mode when >= 3 points and |shoelace|
-//    >= 1 m², else polyline mode. Lattice index of a world x = floor((x - origin.x) / step);
-//    bbox padded by Dilation + 1 (low side) / Dilation + 2 (high side); > 1 << 21 bbox cells
-//    -> TooLarge. Ring: even-odd scanline per lattice row in double -> Mask (cell CENTER =
-//    lattice node inside), with the crossings bucketed by row (each edge visits only the rows
-//    it spans: O(rows + vertices + crossings), R2 fixer round; more crossings than MaxBboxCells
-//    -> TooLarge); Need = Mask dilated by Dilation (Chebyshev), because the 5×5 box gradient
-//    reads ±3 nodes and the bilinear lookups read the +1 neighbor. Polyline: Need = nodes
-//    within Dilation (Chebyshev) of the rounded node of every walk sample (spacing <= step / 2)
-//    along the segments. Both sets are also recorded as exact per-row RUN LISTS (SlopeGrid
-//    MaskRuns / NeedRuns, R2 fixer round) that every later pass walks. No inside cell ->
-//    NoCells. Plan returns Ok in BOTH modes (grid.PolylineMode tells them apart) and writes NaN
-//    into every Need height, so a node the caller forgets to fill surfaces as NonFinite instead
-//    of rating garbage.
-//  CALLER: for every q with Need[q] != 0: Heights[q] = SampleHeight at world
-//    (Origin.x + (I0 + i)·Step, Origin.y + (J0 + j)·Step), q = j·Nx + i — walking
-//    grid.NeedRuns (internal; the mod's feedback system and SlopeBatch do) visits exactly those.
-//  Classify(grid, result): Heights null/short -> BadHeights; any Need height non-finite ->
-//    NonFinite. Ring mode, per Mask cell p:
-//      g      = (Σ of the 25 central differences in the 5×5 box) / (50·step)  (17.5 m scale at
-//               3.5 m; reads unmasked Need heights, so a cell's value never depends on where
-//               the polygon edge is — superset polygons keep every old window bit-identical)
-//      d̂      = -normalize(g), fallback (1, 0) when |g| < 1e-6
-//      window = |H(p - 10 d̂) - H(p + 10 d̂)| / 20, bilinear on the grid, VALID only when the
-//               rounded node at every check point (spacing <= 1 cell) along the segment is a
-//               Mask cell. ABSOLUTE drop on purpose: on bowls, saddles and washboards the box
-//               direction can point uphill relative to the 20 m chord.
-//      overlay value o (CellGrade; CellBand = BandOf(o)) = the full window when valid, else
-//               the longest centered window from {15, 10, 7} m (never shorter than 2 steps)
-//               that fits, else |g|.
-//    SteepestGrade (R1's rating, unchanged) = the k-th largest FULL window, k =
-//    max(MinRatingCells, ceil(RatingAreaM2 / step²)) — an ABSOLUTE area, never a fraction of
-//    the run (a fraction dilutes with length). Fewer than k full windows -> ShortRun,
-//    SteepestGrade = k-th (or last) largest overlay value. RatingGrade = the crux (WHAT THE
-//    RATING IS above). Also MeanGrade (mean |g|), Drop (max - min height over inside cells),
-//    FallLine = normalize(-Σg) ((0, 0) when Σg vanishes), FallCoherence = |Σg| / Σ|g|,
-//    MeanGradient = |Σg| / n (internal; the R2b end-zone key gate), DiagonalRule (the grid's),
-//    BandShare (per-cell bands, sums to 1), Area = inside cells·step², ValidWindows, CellBand
-//    (BandOutside outside the Mask), CellGrade (only Mask cells meaningful), a copy of the
-//    grid geometry for the overlay, and (R3) Length / LengthRect / AxisLength (RUN LENGTH above;
-//    polyline mode: Length = arc length).
-//    Polyline mode: SegmentGrade[i] = |H(b) - H(a)| / |ab|xz with SegmentBand[i]; windows
-//    |H(s) - H(s + 20)| / 20 over arc length at ds = step / 2; rating = k-th largest with
-//    k = max(PolylineMinWindows = 11, ceil(8 / ds)) (spec §3 as amended; see the constant) ->
-//    Status Polyline; fewer than k windows (length < 20 m + 10·ds) -> ShortRun with the last
-//    largest; total length < 20 m -> endpoint grade over the full length, ShortRun.
-//    MeanGrade = length-weighted mean segment grade, BandShare = length share per segment
-//    band, Drop over the arc samples; FallLine, FallCoherence and Area stay 0; CellBand is
-//    BandOutside everywhere and CellGrade is not meaningful (no Mask in polyline mode).
+// PLAN AND CLASSIFY, in short. Plan(points, count, latticeOrigin, step, grid) sanitizes (NaN/Inf -> NonFinite; step <= 0,
+// NaN or > 100 m -> BadStep; consecutive duplicates and a duplicated closing vertex stripped, xz within 1 mm; < 2 points ->
+// TooFewPoints), picks ring mode (>= 3 points and |shoelace| >= 1 m²) or polyline mode, rasterizes the Mask (cell CENTER =
+// lattice node inside; > 1 << 21 bbox cells -> TooLarge) and Need = Mask dilated by Dilation (Chebyshev; the 5×5 box gradient
+// reads ±3 nodes and the bilinear lookups the +1 neighbor), records both as exact per-row RUN LISTS (SlopeGrid MaskRuns /
+// NeedRuns) that every later pass walks, and writes NaN into every Need height so a node the caller forgets to fill surfaces
+// as NonFinite instead of rating garbage. The CALLER fills Heights for every Need node (world (Origin.x + (I0 + i)·Step,
+// Origin.y + (J0 + j)·Step), q = j·Nx + i) by walking grid.NeedRuns. Plan returns Ok in BOTH modes (grid.PolylineMode tells
+// them apart).
+// Classify(grid, result), ring mode, per Mask cell: g = box gradient (25 central differences / (50·step)), reading unmasked
+// Need heights so a cell's value never depends on where the polygon edge is (superset polygons keep every old window
+// bit-identical); window = |H(p - 10 d̂) - H(p + 10 d̂)| / 20 with d̂ = -normalize(g), VALID only when the rounded node at
+// every check point along the segment is a Mask cell. ABSOLUTE drop on purpose: on bowls, saddles and washboards the box
+// direction can point uphill relative to the 20 m chord. SteepestGrade = the k-th largest FULL window, k =
+// max(MinRatingCells, ceil(RatingAreaM2 / step²)) — an ABSOLUTE area, never a fraction of the run (a fraction dilutes with
+// length). Fewer than k full windows -> ShortRun, SteepestGrade = the k-th (or last) largest overlay value.
+// Polyline mode: window |H(s) - H(s + 20)| / 20 over arc length at ds = step / 2; rating = k-th largest with k =
+// max(PolylineMinWindows, ceil(8 / ds)) -> Status Polyline; fewer windows -> ShortRun; FallLine, FallCoherence and Area stay
+// 0; CellBand is BandOutside everywhere and CellGrade is not meaningful (no Mask).
 //
-// BANDS (§9.2): Flat < 6 % <= Green < 25 % <= Blue < 40 % <= Black < 60 % <= Double black.
+// BANDS: Flat < 6 % <= Green < 25 % <= Blue < 40 % <= Black < 60 % <= Double black.
 // Half-open, band = number of thresholds <= grade (exactly 25 % is Blue). Grades are rise/run
-// fractions (0.25 = 25 %), not degrees. The R1 values 6 / 15 / 25 / 40 were one class harsher
-// than resort convention (DECISIONS 116); 60 % for double black is our choice.
+// fractions (0.25 = 25 %), not degrees. The earlier values 6 / 15 / 25 / 40 were one class harsher
+// than resort convention; 60 % for double black is our choice.
 //
-// KNOWN AND DELIBERATE (R1, still true): the ShortRun -> Ok transition as a small run grows
-// can LOWER SteepestGrade (shorter windows read steeper). Values carry up to +0.3 %
-// height-quantization bias on planes (SlopeBatch planes: rating - g in [-0.12 %, +0.26 %]),
-// hence DisplayHysteresis for the live readout.
+// MinRatingCells (7) and PolylineMinWindows (11) are the smallest values that keep a ±3 m single-texel spike to "same band,
+// |Δ| <= 1 %" (run-feedback-spec.md §3 invariants (7), (11)); the original 5 and 3 do not (numbers at the constants). The
+// crux needs no such count: a spike raises a few cells the easiest line goes around.
 //
-// MinRatingCells (7) and PolylineMinWindows (11) are the smallest values that keep a ±3 m
-// single-texel spike to "same band, |Δ| <= 1 %" (run-feedback-spec.md §3 invariant (7), (11))
-// in the SlopeBatch sweeps; the original 5 and 3 do not (numbers at the constants). They now
-// define SteepestGrade and the polyline rating. The crux needs no such count: a spike raises
-// a few cells the easiest line goes around (SlopeBatch R2-f, 21,600 cases on 15.5 / 32.5 /
-// 50 % planes: worst |Δ| 0.10 % at m = 1, 0.25 % at m = 2 with R2b's rules (R2 0.30 %), no
-// band flip).
-//
-// LATTICE RESOLUTION: a valid window's endpoint may lie up to half a cell past the last inside
-// node (rounded mask check), so its bilinear can read ONE node beyond the polygon: terrain
-// within one step outside the edge leaks into SteepestGrade (SlopeBatch: a 60 % cliff starting
-// exactly at the boundary of a 10.5 % run reads up to +4.7 %; the crux avoids those edge cells,
-// +0.03 %; the stricter endpoint rules tried are listed in Window). And a coarse step blurs
-// narrow features: StepMultiple budgets by AREA (CellBudget 16384, decided 2026-09-30), so
-// only a run over 200,704 m² gets m = 2: longer than 2,007 m at 100 m wide (2,509 m at 80 m,
-// 3,345 m at 60 m; 6,690 m at 30 m, 10,035 m at 20 m). There a 12 m bank's SteepestGrade
-// reads up to 2.66 % low (spec §3 (8) holds at m = 1 only: WARN SPEC-GAP lines on 3,400 × 60,
-// 2,600 × 80 and 3,000 × 100) and its crux up to 2.95 % low with R2b's diagonal rule (8.1 %
-// in R2; MEASURED LIMITS above).
-//
-// COST (R2 fixer round): Plan is O(rows + vertices + crossings) for the scanline (edges
-// bucketed by row) plus O(Need) for the run lists; every later pass — the per-cell loop, the
-// crux pass, the caller's fill and strips — walks the exact per-row RUN LISTS, so managed work is
-// O(inside) / O(Need) whatever the shape, plus O(bbox) memsets (Plan's Array.Clear of Mask and
-// Need, FillOutside of CellBand; memset speed). Before this round every pass walked each row's
-// first..last span, which bridges the outside gap of a row crossing two arms of a concave run
-// (span = 37× the inside cells for a 15 m × r1500 C, 163× for a U with 10 m arms 4 km apart:
-// 2.5-5 ms on CoreCLR, reviewer-measured, over the budget). The crux pass is O(n) (O(n + k log k)
-// in the open last bucket): two passes over the Mask runs, the union-find (near-constant finds),
-// a BFS; its per-cell state lives in a bbox-sized int buffer (Uf, 4·(Nx·Nz + 2) bytes; up to
-// 8 MB at MaxBboxCells, retained), initialized over the Mask runs (dilated by one cell) only.
-// Its cost is memory latency (bucket order visits cells at random), hence one union per run of
-// active neighbors (8-neighbor path) and zone bits packed into the bucket-ordered entries;
-// R2b's BFS reads the zone bits from its Unvisited states instead of re-binning each cell. The
-// key gate is two compares per classification (the coherence clause of the R2b fixer round
-// reads FallCoherence, already computed). The
-// fall-line key adds an O(runs) range pass and one multiply-add per cell in passes 1 and 2; the
-// diagonal rule (m >= 2) unions per allowed neighbor and reads CellBand for an active diagonal.
-// The bbox is bounded only by MaxBboxCells, not CellBudget: a 2-node 5 km diagonal at m = 1 has
-// ~1.04M bbox cells. SlopeBatch TIME, CoreCLR, mean plan + fill + classify, ranges over six
-// full runs of the R2b round (budget 1.5 ms, §9.4): 2.5 km × 80 m at m = 1 (~16k inside cells,
-// the costliest convex m = 1 run) 1.14-1.46 ms, crux 0.39-0.48 ms = 37-42 % of classify (R2:
-// 1.15-1.85 ms, crux 0.40-0.67 ms, 38-56 %); 2 km × 80 m 0.91-1.19 ms, crux 34-42 %; 2.6 km ×
-// 80 m at m = 2 (diagonal rule) 0.24-0.40 ms, crux 0.071-0.116 ms = 32-44 % (R2's 8-neighbor
-// path on the same grids 0.058-0.136 ms); 5 km diagonal / sliver 0.20-0.41 ms; concave, all
-// m = 1: C 15 m × r1500 330° (662 vertices) 1.19-1.61 ms, U with 10 / 30 / 60 m arms
-// 0.87-1.42 / 1.11-2.22 / 1.08-1.26 ms (C and U 30 m over 1.5 ms in one of six runs each:
-// single-run noise, as R2's thin margins); a 250 % cliff 400 × 100 (every cell in the open
-// bucket) 0.29-0.33 ms, and the stress case 2.5 km × 80 m all at 250 % 1.85-2.06 ms (the heap;
-// over budget, not a realistic run). Interleaved A/B against R2's file on the same grids
-// (scratch, 3 × 200 reps): crux pass at m = 1 5-12 % FASTER (no re-binning in the BFS), at
-// m = 2 within ±4 % (the per-neighbor path costs no more than R2's on these runs). The game's
-// Mono ran R1's recompute at ~5-8× CoreCLR (DECISIONS 116); R2 / R2b under Mono is unmeasured.
-//
+// COST: all passes walk the exact per-row RUN LISTS, so managed work is O(inside) / O(Need) whatever the shape, plus O(bbox)
+// memsets (Plan's Array.Clear of Mask and Need, FillOutside of CellBand). Walking each row's first..last span would bridge
+// the outside gap of a row crossing two arms of a concave run (37× the inside cells for a 15 m × r1500 C). The crux pass is
+// O(n) (O(n + k log k) in the open last bucket); its per-cell state lives in a bbox-sized int buffer (Uf, up to 8 MB at
+// MaxBboxCells, retained) initialized over the Mask runs (dilated by one cell) only. Its cost is memory latency (bucket
+// order visits cells at random), hence one union per run of active neighbors (8-neighbor path) and zone bits packed into the
+// bucket-ordered entries. The bbox is bounded only by MaxBboxCells, not CellBudget (a 2-node 5 km diagonal at m = 1 has
+// ~1.04M bbox cells). Budget 1.5 ms per classification (SlopeBatch TIME, CoreCLR): the costliest convex m = 1 run (2.5 km ×
+// 80 m) takes 1.1-1.5 ms; the game's Mono ran an earlier version at ~5-8× CoreCLR, this one is unmeasured.
 // Cross-runtime bit equality (CoreCLR test host vs the game's Mono) is unverified; within a
 // runtime a replay is bit-identical (proven in SlopeBatch).
 
@@ -461,7 +199,7 @@ namespace SkiResortMod.Systems
         DoubleBlack = 4,
     }
 
-    /// <summary>T44 (2026-10-16) difficulty layer: why SlopeResult.Band differs from (or nearly differs
+    /// <summary>Difficulty layer: why SlopeResult.Band differs from (or nearly differs
     /// from) BandOf(RatingGrade). None = the crux band stands. Capped = a black (double black) crux
     /// capped one band down by the steep-cell share. WideEase = a crux within WideEase of the
     /// green/blue boundary on a wide gentle run rounded down to green. NarrowKept = the cap WOULD
@@ -469,7 +207,7 @@ namespace SkiResortMod.Systems
     /// NarrowWidthM, so the crux band stands: the deciding factor is the width. LongKept = the cap
     /// would have applied but the crux pitch is at least CruxLengthForBlack long: the length decides.
     /// GreenMean = a black or double black crux on a run whose MEAN grade is in the green band, rated blue
-    /// (Richard 2026-10-16: no cat track becomes a black diamond).</summary>
+    /// (no cat track becomes a black diamond).</summary>
     public enum SlopeNote : byte
     {
         None = 0,
@@ -509,9 +247,9 @@ namespace SkiResortMod.Systems
         public float3[] Points;                 // sanitized input copy (polyline mode reads it)
         public int PointCount;
 
-        /// <summary>R2b (run-feedback-spec.md §9.8) connectivity of the crux pass, set by the
+        /// <summary>Connectivity of the crux pass, set by the
         /// CALLER (the classifier does not know the step multiple): true when the caller's step
-        /// multiple is >= 2. false (default) = 8-neighbor connectivity, bit-identical to R2;
+        /// multiple is >= 2. false (default) = 8-neighbor connectivity;
         /// true = the four orthogonal neighbors plus a diagonal neighbor only when BOTH cells
         /// orthogonally shared between the two are outside the Mask. Plan leaves it untouched;
         /// Classify copies it into SlopeResult.DiagonalRule.</summary>
@@ -524,8 +262,8 @@ namespace SkiResortMod.Systems
         internal int[] CrossStart, CrossFill;   // scanline scratch: per-row offsets into Crossings / fill cursors
         internal double[] ArcLength;            // polyline cumulative arc length, meters
 
-        // Per-row RUN LISTS (R2 fixer round; replace R1's per-row first/last spans, which bridged
-        // the outside gap of every row that crosses two arms of a concave ring). Row j's runs are
+        // Per-row RUN LISTS (a per-row first/last span would bridge the outside gap of every row that crosses two arms of a
+        // concave ring). Row j's runs are
         // the inclusive column pairs (Runs[2k], Runs[2k + 1]) for k in [RowStart[j], RowStart[j + 1]),
         // RowStart has Nz + 1 entries. Runs are EXACT, sorted, disjoint and non-adjacent: every
         // cell of a Mask run is a Mask cell and every Mask cell lies in exactly one Mask run (same
@@ -543,7 +281,7 @@ namespace SkiResortMod.Systems
     public sealed class SlopeResult
     {
         public SlopeStatus Status;
-        public SlopeBand Band;                  // THE rated band: BandOf(RatingGrade) moved by the T44 difficulty layer (CruxBand, Note) in ring mode
+        public SlopeBand Band;  // THE rated band: BandOf(RatingGrade) moved by the difficulty layer (CruxBand, Note) in ring mode
         public float RatingGrade, MeanGrade, Drop, MinHeight, MaxHeight, Area, FallCoherence;
         public float2 FallLine;
         public readonly float[] BandShare = new float[5];
@@ -556,9 +294,9 @@ namespace SkiResortMod.Systems
         public byte[] SegmentBand;
         public int SegmentCount;
 
-        // R2 (run-feedback-spec.md §9.3). Ring mode: RatingGrade = the crux of the easiest line.
+        // Ring mode: RatingGrade = the crux of the easiest line.
         public float[] CellGrade;               // per cell overlay value o, index j·Nx + i; only Mask cells are meaningful
-        public float SteepestGrade;             // R1 statistic: k-th largest full 20 m window (ShortRun: k-th/last overlay value)
+        public float SteepestGrade;             // k-th largest full 20 m window (ShortRun: k-th/last overlay value)
         public float P90Grade;                  // smallest bucket top with >= 90 % of inside cells at or below it
         public float CruxHeight;                // node height of the crux cell (valid when CruxValid)
         public bool Connected;                  // a top-zone -> bottom-zone path exists over Mask cells (DiagonalRule's connectivity)
@@ -566,18 +304,17 @@ namespace SkiResortMod.Systems
         public int CruxI, CruxJ;                // grid-local index of the crux cell
         public int TopZoneCells, BottomZoneCells;
 
-        // R2b (run-feedback-spec.md §9.8).
-        public bool ZoneByFallLine;             // ring mode: end zones ranked along the mean fall line (else by node height, as R2)
+        public bool ZoneByFallLine;  // ring mode: end zones ranked along the mean fall line (else by node height)
         public bool DiagonalRule;               // copy of SlopeGrid.DiagonalRule this classification used
 
-        // R3 (run-binding-glade-spec.md §5.1, decision D14: HORIZONTAL map meters). Geometry only:
+        // Run length (docs/research/run-binding-glade-spec.md §5.1: HORIZONTAL map meters). Geometry only:
         // computed in Classify from the sanitized points and the end-zone key range, never read by
-        // the rating (every rating output is bit-identical to R2b; SlopeBatch fingerprint).
+        // the rating.
         public float Length;                    // m; ring: max(LengthRect, AxisLength); polyline: arc length
         public float LengthRect;                // m; ring: (P + sqrt(max(0, P² − 16A))) / 4 over the sanitized ring (closing edge included); polyline 0
         public float AxisLength;                // m; ring: ZoneByFallLine ? fall-line key range of the inside cells + step : 0; polyline 0
 
-        // T44 (2026-10-16, docs/research/field/2026-10-15/build/T44-difficulty.md): the difficulty layer
+        // The difficulty layer
         // on top of the crux. RatingGrade stays the raw crux (the oracle, "Hardest unavoidable pitch");
         // Band = the band the run is RATED (the catalog, the hub and the economy read it). Polyline mode,
         // a broken Mask (!Connected) and cleared results: CruxBand == Band, BandGrade == RatingGrade,
@@ -664,33 +401,33 @@ namespace SkiResortMod.Systems
     {
         public const byte BandOutside = 255;
 
-        // SPEC §6.1 as amended by run-feedback-spec.md §9.2 (R2, DECISIONS 116): 6 / 25 / 40 / 60 %.
+        // SPEC §6.1 as amended by run-feedback-spec.md §9.2: 6 / 25 / 40 / 60 %.
         // Half-open: band = number of thresholds <= grade. 60 % for double black is our choice
-        // (no numeric convention exists); the R1 values 6 / 15 / 25 / 40 were one class too harsh.
+        // (no numeric convention exists); the earlier values 6 / 15 / 25 / 40 were one class too harsh.
         public const float GradeGreen = 0.06f, GradeBlue = 0.25f, GradeBlack = 0.40f, GradeDoubleBlack = 0.60f;
         public const int BaseValueFlat = 0, BaseValueGreen = 6, BaseValueBlue = 12, BaseValueBlack = 20, BaseValueDoubleBlack = 28;
 
-        // Crux end zones (§9.3 as replaced by §9.8 "Round R2b"). Key: position along the mean fall
+        // Crux end zones. Key: position along the mean fall
         // line (key = -(FallLine · (i, j))·step) when the mean box gradient |Σg| / n >=
-        // EndZoneMinMeanGrade OR FallCoherence = |Σg| / Σ|g| >= EndZoneMinCoherence (the second
-        // clause added in the R2b fixer round, see the header), else node height (R2). Size: z =
+        // EndZoneMinMeanGrade OR FallCoherence = |Σg| / Σ|g| >= EndZoneMinCoherence (see the header), else
+        // node height. Size: z =
         // clamp(round(EndZoneShare·n), 1, max(1, cap)) inside cells at each end, cap =
         // floor(n·EndZoneDepthM / L) on the fall-line key (L = key range of the inside cells +
         // step: ~EndZoneDepthM of run at the run's MEAN width — deeper at an end narrower than
-        // the mean, header limit (g)), floor(EndZoneMaxM2 / step²) (R2's area cap) on the height
+        // the mean, header limit (g)), floor(EndZoneMaxM2 / step²) (the area cap) on the height
         // key. Whole histogram bins of the key from each end. RatingBuckets = the counting-sort
         // resolution of the per-cell values: bucket = min(2047, (int)(o·1024)), i.e. 1/1024 =
         // 0.098 % grade wide up to 200 %.
-        // T44 (2026-10-16) difficulty layer, applied AFTER the crux (see FinishBand). Every constant with its reason:
+        // Difficulty layer, applied AFTER the crux (see FinishBand). Every constant with its reason:
         //  SteepShareForBlack 0.15  a black crux is capped at blue ("hard blue") when fewer than 15 % of the run's cells
-        //                           read at/above 40 %: a few steep cells are a pitch, not a black run (Richard 2026-10-16).
+        //                           read at/above 40 %: a few steep cells are a pitch, not a black run.
         //  DoubleBlackShare 0.10    the same against the 60 % band, one step tighter (a 60 % face is rarer and the cap
         //                           only drops a double black to black, never to blue).
         //  CruxLengthForBlack 40 m  never cap a crux pitch this long along the easiest line: a 40 m wall is black whatever
         //                           its share of a long run. Measured as CruxStretchM + PitchBlurM (below).
         //  PitchBlurM 20 m          the 20 m window smears a wall of length L into about L - 15 .. L - 5 m of line at/above
         //                           its floor (50 m @ 55 % reads 42 m, 40 m @ 45 % reads 25 m); the estimate adds the window length so a 40 m wall clears 40 m.
-        //  CapMaxOverFloor 0.10     only a BORDERLINE band is capped (crux < floor + 10 pp, Richard: "a borderline black"):
+        //  CapMaxOverFloor 0.10     only a BORDERLINE band is capped (crux < floor + 10 pp,  "a borderline black"):
         //                           a 20 m wall at 62 % is black however few the cells.
         //  NarrowWidthM 20 m        a steep section narrower than this counts double in the steep share and can never be
         //                           capped (narrow + steep = harder; a 20 m chute leaves no room to turn).
@@ -701,7 +438,7 @@ namespace SkiResortMod.Systems
         //  GreenMeanKeepsBlueMax 25 %  a run whose MEAN grade is below this (the green band, the classifier's own green/blue
         //                           boundary) rates at most BLUE however short and steep its crux, unless the unavoidable pitch
         //                           is CruxLengthForBlack or longer: a cat track is narrow and has a short kick, it is not a
-        //                           black diamond (Richard 2026-10-16). The share, margin and width rules do not apply to it.
+        //                           black diamond. The share, margin and width rules do not apply to it.
         public const float GreenMeanKeepsBlueMax = GradeBlue;
 
         public const float EndZoneShare = 0.10f, EndZoneMaxM2 = 2000f;
@@ -724,7 +461,7 @@ namespace SkiResortMod.Systems
         // m = 1: k=5 +1.96 % (315 of 10800 cases >= 1 %), k=6 +1.14 % (59), k=7 +0.40 % (0);
         // m = 2 stays <= 0.23 % for k = 5..7. A texel spike perturbs the 5×5 box direction of the
         // cells around it, so up to ~6 cells' windows reach it, not the 4 of the bilinear footprint.
-        // CellBudget 16384 (was 4096; decided 2026-09-30, spec §3 "Step budget"): every run up to
+        // CellBudget 16384 (spec §3 "Step budget"): every run up to
         // 200,704 m² (e.g. 2.5 km × 80 m) rates at m = 1, where spec §3 (2) and (8) hold; at
         // 4096 every run over 50,176 m² fell to m = 2 and narrow banks rated up to 14.7 % low.
         public const int MinRatingCells = 7, CellBudget = 16384, Dilation = 3;
@@ -763,7 +500,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Display rule of the tooltip's "Steepest patch (avoidable)" line (spec §9.6
-        /// item 4 as amended in the R2 fixer round); kept here, pure and Entities-free, so the
+        /// item 4); kept here, pure and Entities-free, so the
         /// net8 test host can sweep it (SlopeBatch TooltipLineTests). Shown only when ALL hold:
         /// (a) Connected — with a broken Mask the rating is the P90 fallback, not a crux, so no
         /// patch can be called "avoidable" relative to it; (b) both grades finite;
@@ -846,7 +583,6 @@ namespace SkiResortMod.Systems
             return strict ? cells < budget : cells <= budget;
         }
 
-        // ================================================================== Plan
 
         public static SlopeStatus Plan(float3[] points, int count, double2 latticeOrigin, float step, SlopeGrid grid)
         {
@@ -1021,14 +757,14 @@ namespace SkiResortMod.Systems
         /// then merged, so the runs are disjoint and non-adjacent). Returns the inside count, or
         /// -1 when the polygon has more than MaxCrossings row crossings (Plan: TooLarge).
         ///
-        /// EDGE BUCKETING (R2 fixer round): R1 tested every edge against every row, O(rows ·
+        /// EDGE BUCKETING: testing every edge against every row is O(rows ·
         /// vertices) — 0.42 ms of Plan for a 662-vertex C-shaped run on CoreCLR. Row j crosses
         /// edge (k, l) iff (v_k > j) != (v_l > j), i.e. iff min(v_k, v_l) <= j < max(v_k, v_l) for
         /// an integer j, so each edge visits exactly the rows ceil(min) .. ceil(max) - 1: a count
         /// pass, a prefix sum and a fill pass bucket every crossing by row in O(rows + vertices +
         /// crossings); each row's bucket is then insertion-sorted (few crossings per row; no Sort).
-        /// The crossing x is the same expression as R1's, and a sorted list of equal values is
-        /// the same list whatever the insertion order, so the Mask is bit-identical to R1's.</summary>
+        /// A sorted list of equal values is the same list whatever the insertion order, so the Mask
+        /// does not depend on the bucketing.</summary>
         private static int Rasterize(SlopeGrid grid, int m)
         {
             double[] u = grid.LocalU, v = grid.LocalV;
@@ -1066,7 +802,7 @@ namespace SkiResortMod.Systems
                 for (int j = ja; j <= jb; j++)
                 {
                     double row = j;
-                    xs[fill[j]++] = u[k] + (row - va) * (u[l] - u[k]) / (vb - va);   // R1's expression
+                    xs[fill[j]++] = u[k] + (row - va) * (u[l] - u[k]) / (vb - va);
                 }
             }
 
@@ -1287,14 +1023,13 @@ namespace SkiResortMod.Systems
             grid.NeedRunCount = runCount;
         }
 
-        // ================================================================== Classify
 
         public static SlopeStatus Classify(SlopeGrid grid, SlopeResult result)
         {
             return Classify(grid, result, EndZoneShare, EndZoneMaxM2, EndZoneDepthM, EndZoneMinMeanGrade, EndZoneMinCoherence);
         }
 
-        /// <summary>Test-only overload (tests/SlopeBatch: R2-j sensitivity table, the curved-run
+        /// <summary>Test-only overload (tests/SlopeBatch: sensitivity table, the curved-run
         /// report rows under the height key via endZoneMinMeanGrade = endZoneMinCoherence = +inf,
         /// the key-gate rows with the coherence clause off (+inf), the random oracle sweep; the
         /// host links this file, so `internal` is visible there). The mod calls the public
@@ -1331,11 +1066,11 @@ namespace SkiResortMod.Systems
             }
             else if (grid.PolylineMode)
             {
-                // §9.3: a line has exactly one path, so its k-th window statistic IS its crux.
+                // A line has exactly one path, so its k-th window statistic IS its crux.
                 result.SteepestGrade = result.RatingGrade;
                 result.P90Grade = result.RatingGrade;
                 result.Connected = true;
-                result.CruxBand = result.Band;      // T44: no lattice, no difficulty layer
+                result.CruxBand = result.Band;  // no lattice, no difficulty layer
                 result.BandGrade = result.RatingGrade;
             }
             result.Status = status;
@@ -1551,7 +1286,7 @@ namespace SkiResortMod.Systems
             if (n == 0)
                 return SlopeStatus.NoCells;
 
-            // R1 statistic, kept as SteepestGrade ("the steepest patch, avoidable or not").
+            // SteepestGrade ("the steepest patch, avoidable or not").
             SlopeStatus status;
             float steepest;
             if (valid >= k)
@@ -1586,15 +1321,15 @@ namespace SkiResortMod.Systems
                 double coh = sumAbs > 0.0 ? fl / sumAbs : 0.0;
                 result.FallCoherence = (float)(coh > 1.0 ? 1.0 : coh);
             }
-            result.MeanGradient = (float)(fl / n);   // |ḡ| = |Σg| / n, the R2b end-zone key gate (§9.8); NaN only for tampered heights
+            result.MeanGradient = (float)(fl / n);   // |ḡ| = |Σg| / n, the end-zone key gate; NaN only for tampered heights
 
             // The crux (needs MinHeight / MaxHeight, CellGrade, CellBand, and the FINAL FallLine,
             // MeanGradient and FallCoherence: the end-zone key gate reads them, so they are set
             // above on every path).
             Crux(grid, result, endZoneShare, endZoneMaxM2, endZoneDepthM, endZoneMinMeanGrade, endZoneMinCoherence);
-            FinishBand(grid, result);   // T44: Band = BandOf(RatingGrade) moved by the difficulty layer
+            FinishBand(grid, result);  // Band = BandOf(RatingGrade) moved by the difficulty layer
 
-            // R3 (run-binding-glade-spec.md §5.1): run length = max(equivalent rectangle, fall-line
+            // Run length (run-binding-glade-spec.md §5.1) = max(equivalent rectangle, fall-line
             // extent). Reads only the sanitized points and AxisLength (set by Crux); writes only
             // the three length fields — no rating output depends on them.
             float rect = (float)EquivalentRectLength(grid.Points, grid.PointCount);
@@ -1603,7 +1338,7 @@ namespace SkiResortMod.Systems
             return status;
         }
 
-        /// <summary>R3 (run-binding-glade-spec.md §5.1): the centerline length of the rectangle
+        /// <summary>The centerline length of the rectangle
         /// with the ring's perimeter P and area A, (P + sqrt(max(0, P² − 16A))) / 4, horizontal
         /// meters (xz only). P includes the closing edge explicitly (Plan stripped the duplicated
         /// closing vertex, so pts[m - 1] → pts[0] is an edge here); A = |shoelace| relative to
@@ -1634,17 +1369,16 @@ namespace SkiResortMod.Systems
             return IsFinite(len) ? len : 0.0;
         }
 
-        // ---------------------------------------------------------------- crux (R2, R2b)
 
-        /// <summary>RatingGrade = min over all connected Mask paths (8-neighbor, or the R2b
+        /// <summary>RatingGrade = min over all connected Mask paths (8-neighbor, or the
         /// diagonal rule when result.DiagonalRule) from the top end zone to the bottom end zone
-        /// of the max per-cell value o along the path (§9.3 / §9.8), via a counting sort into
+        /// of the max per-cell value o along the path, via a counting sort into
         /// RatingBuckets buckets and a union-find with TOP / BOTTOM virtual nodes; then a BFS for
         /// the crux cell. Also P90Grade, Connected, the zone sizes and ZoneByFallLine.
         ///
-        /// END ZONES (R2b): the key is ZoneKey (position along the mean fall line) when the
+        /// END ZONES: the key is ZoneKey (position along the mean fall line) when the
         /// FallLine is non-zero and MeanGradient >= endZoneMinMeanGrade OR FallCoherence >=
-        /// endZoneMinCoherence (the second clause: R2b fixer round), else the node height; the
+        /// endZoneMinCoherence, else the node height; the
         /// cap is DepthCap (fall-line key) or AreaCap (height key). See the file header.
         ///
         /// "Inside cell" here = a cell the per-cell loop processed, i.e. CellBand != BandOutside
@@ -1662,12 +1396,12 @@ namespace SkiResortMod.Systems
         /// Activation makes a cell a root; roots hold -size, other active cells their parent
         /// (> 0). After the union-find, the active cells (= every cell with o <= RatingGrade =
         /// the traversable cells, see the last bucket below) are reset to Unvisited ORed with
-        /// their Order entry's zone bits (UnvisitedTop / UnvisitedBottom; R2b, so the BFS uses
+        /// their Order entry's zone bits (UnvisitedTop / UnvisitedBottom, so the BFS uses
         /// exactly the union-find's zones) and Uf becomes the BFS predecessor map (-1 = seed,
         /// > 0 = predecessor's flat index); everything else in the dilated runs is still
         /// Inactive, so "Uf < UnvisitedLimit" alone means "traversable and not yet reached".
         ///
-        /// THE OPEN LAST BUCKET (R2 fixer round). Bucket 2047 holds every o >= 2047/1024
+        /// THE OPEN LAST BUCKET. Bucket 2047 holds every o >= 2047/1024
         /// (199.9 %), so "the largest o in the connecting bucket" would be the largest value of
         /// ANY cell above 199.9 %, avoidable or not (reviewer's case: a full-width 235 % step plus
         /// an avoidable 60 m pit rated 310.7 % with the crux in the pit). When the union-find
@@ -1691,9 +1425,9 @@ namespace SkiResortMod.Systems
             int[] uf = result.Uf, bound = result.BucketBound, hist = result.HeightHist;
             Array.Clear(bound, 0, RatingBuckets + 1);
             Array.Clear(hist, 0, HeightBins);
-            result.PathLen = 0;                 // T44: the recorded easiest line is void until this pass finds one
+            result.PathLen = 0;
 
-            // ---- end-zone key (R2b, §9.8; Crux summary "END ZONES"). The fall-line key is
+            // ---- end-zone key (Crux summary "END ZONES"). The fall-line key is
             // computed inline per cell by ZoneKey (no per-cell buffer); it is linear in i along a
             // row and float rounding is monotone, so its range over the inside cells is the range
             // over the clamped Mask runs' END cells (O(runs)). The SAME ZoneKey / HeightBin call
@@ -1701,7 +1435,7 @@ namespace SkiResortMod.Systems
             float s = grid.Step;
             float2 fall = result.FallLine;
             float flx = fall.x, flz = fall.y;
-            // Gate (§9.8, coherence clause added in the R2b fixer round): a usable axis when the
+            // Gate: a usable axis when the
             // mean box gradient is >= 3 % OR the box gradients agree (|Σg| / Σ|g| >= 0.5, a long
             // gentle run). NaN on either side compares false -> height.
             bool byFall = (flx != 0f || flz != 0f) &&
@@ -1729,14 +1463,14 @@ namespace SkiResortMod.Systems
                 }
                 hmin = kLo;
                 range = kHi - kLo;
-                keyLength = ((double)kHi - kLo) + s;   // L = key range of the inside cells + step (§9.8)
+                keyLength = ((double)kHi - kLo) + s;  // L = key range of the inside cells + step
             }
             else
             {
                 hmin = result.MinHeight;
                 range = result.MaxHeight - result.MinHeight;
             }
-            // R3 (run-binding-glade-spec.md §5.1): the run's extent along the mean fall line, the
+            // The run's extent along the mean fall line, the
             // same L as the depth cap (an output only; nothing below reads it). 0 on the height key.
             result.AxisLength = byFall ? (float)keyLength : 0f;
             int bins = range >= OneBinRange ? HeightBins : 1;   // also 1 for a NaN range (tampered heights)
@@ -1791,7 +1525,7 @@ namespace SkiResortMod.Systems
             result.P90Grade = (p90Bucket + 1) / BucketsPerUnit;   // exact in float; saturates at 2.0 (200 %)
 
             // ---- end zones: whole key bins from each end until >= z cells. Cap: the depth cap
-            // floor(n·EndZoneDepthM / L) on the fall-line key, R2's area cap on the height key.
+            // floor(n·EndZoneDepthM / L) on the fall-line key, the area cap on the height key.
             int z = ZoneSize(n, endZoneShare, byFall ? DepthCap(n, endZoneDepthM, keyLength) : AreaCap(s, endZoneMaxM2));
             int topBin = bins, topCells = 0;
             while (topBin > 0 && topCells < z)
@@ -1838,13 +1572,13 @@ namespace SkiResortMod.Systems
             // ---- union-find, bucket by bucket (ascending); stop at the first connecting bucket.
             // Activation turns Inactive into a size-1 root and joins the cell to its ACTIVE
             // inside neighbors under the grid's connectivity rule.
-            //  * 8-neighbor (DiagonalRule false; R2's code path, unchanged): walking the
+            //  * 8-neighbor (DiagonalRule false): walking the
             //    neighbors as a cycle (NW N NE E SE S SW W), consecutive ones are 8-adjacent to
             //    each other, so by induction on activation order every run of consecutive active
             //    neighbors is already one set: one union per run gives exactly the partition of
             //    unioning with all of them (usually one union instead of up to eight; the
             //    union-find is most of this pass's cost).
-            //  * DiagonalRule (R2b, step multiple >= 2): N W E S, plus a diagonal only when both
+            //  * DiagonalRule (step multiple >= 2): N W E S, plus a diagonal only when both
             //    cells it shares orthogonally with q are outside the Mask. Two orthogonal
             //    neighbors of q are NOT adjacent under this rule, so the run trick above does not
             //    hold: one union per allowed active neighbor.
@@ -2004,8 +1738,7 @@ namespace SkiResortMod.Systems
             // are order[0 .. bound[connecting + 1]); in the last bucket, order[0 .. bound[2047])
             // plus the popped segment order[heapEnd .. n). Each traversable cell's Unvisited
             // state carries its Order entry's zone bits, so seeds and the stop test read exactly
-            // the zones the union-find used (no key recomputation here; R2 recomputed the height
-            // bin, which is the same value).
+            // the zones the union-find used (no key recomputation here).
             int traversable = connecting == last ? bound[last] : bound[connecting + 1];
             for (int k = 0; k < traversable; k++)
             {
@@ -2074,7 +1807,7 @@ namespace SkiResortMod.Systems
                 return; // cannot happen once connected; CruxValid stays false
 
             // Walk bottom -> top; ">=" lets a later (nearer the top) cell win ties.
-            // T44: the walked cells are also recorded (bottom -> top) so the difficulty layer can
+            // The walked cells are also recorded (bottom -> top) so the difficulty layer can
             // measure the crux pitch and its width without a second traversal.
             Grow(ref result.Path, n + 2);
             int[] path = result.Path;
@@ -2104,7 +1837,7 @@ namespace SkiResortMod.Systems
             result.CruxHeight = h[crux];
         }
 
-        // ================================================================== T44 difficulty layer
+        // ================================================================== Difficulty layer
 
         /// <summary>Floor of a band's grade range (Green 6 %, Blue 25 %, Black 40 %, Double black 60 %).</summary>
         private static float FloorOf(SlopeBand band)
@@ -2119,7 +1852,7 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>T44 (2026-10-16). Sets Band / CruxBand / BandGrade / Note and the evidence fields
+        /// <summary>Sets Band / CruxBand / BandGrade / Note and the evidence fields
         /// from the finished crux pass. Pure: reads only the result (CellGrade, the recorded easiest
         /// line Path, FallLine, MeanGrade, RatingGrade) and the grid's Mask; no terrain sampling, no
         /// allocation. Rules, each one a pure function of those numbers (constants and reasons at
@@ -2131,7 +1864,7 @@ namespace SkiResortMod.Systems
         ///     (LongKept), nor when the crux stretch is narrower than NarrowWidthM or the width-weighted
         ///     share (cells in a section narrower than NarrowWidthM counted twice) reaches the limit
         ///     (NarrowKept: the width decided).
-        ///  3. Green mean (Richard 2026-10-16). MeanGrade below GreenMeanKeepsBlueMax (the green band): at most
+        ///  3. Green mean. MeanGrade below GreenMeanKeepsBlueMax (the green band): at most
         ///     blue however short and steep the crux (double black included), unless the pitch is
         ///     CruxLengthForBlack or longer (LongKept). Checked before the share rule; no share, margin
         ///     or width condition.
@@ -2209,7 +1942,7 @@ namespace SkiResortMod.Systems
                 return;
             }
 
-            // Rule 3 (Richard 2026-10-16): a green-mean run (cat track, traverse) rates at most blue unless its
+            // Rule 3: a green-mean run (cat track, traverse) rates at most blue unless its
             // unavoidable pitch is long. Narrowness does NOT keep the band here (cat tracks are narrow by nature).
             if (result.MeanGrade < GreenMeanKeepsBlueMax)
             {
@@ -2325,8 +2058,7 @@ namespace SkiResortMod.Systems
 
         /// <summary>z = clamp(round(share·n), 1, max(1, cap)), never above n. Round half up, in
         /// double. Non-finite or negative parameters degrade to the clamps (the overload taking
-        /// them is test-only). With cap = AreaCap this is R2's ZoneSize, operation for
-        /// operation.</summary>
+        /// them is test-only).</summary>
         private static int ZoneSize(int n, float share, double cap)
         {
             double raw = (double)share * n;
@@ -2342,23 +2074,22 @@ namespace SkiResortMod.Systems
             return (int)z;
         }
 
-        /// <summary>R2's area cap (height key): floor(EndZoneMaxM2 / step²) cells.</summary>
+        /// <summary>Area cap (height key): floor(EndZoneMaxM2 / step²) cells.</summary>
         private static double AreaCap(float step, float maxM2)
         {
             return math.floor((double)maxM2 / ((double)step * step));
         }
 
-        /// <summary>R2b depth cap (fall-line key, §9.8): floor(n·EndZoneDepthM / L) cells, L = the
+        /// <summary>Depth cap (fall-line key): floor(n·EndZoneDepthM / L) cells, L = the
         /// key range of the inside cells + step (> 0) — EndZoneDepthM of run at the run's MEAN
         /// width n·step² / L. It is a cell COUNT, so at an end narrower than the mean the zone
-        /// reaches EndZoneDepthM × mean / end width along the fall line (header limit (g), R2b
-        /// fixer round).</summary>
+        /// reaches EndZoneDepthM × mean / end width along the fall line (header limit (g)).</summary>
         private static double DepthCap(int n, float depthM, double keyLength)
         {
             return math.floor((double)n * depthM / keyLength);
         }
 
-        /// <summary>R2b fall-line end-zone key of node (i, j) (§9.8): -(FallLine · (i, j))·step,
+        /// <summary>Fall-line end-zone key of node (i, j): -(FallLine · (i, j))·step,
         /// "up the fall line" = larger key. Grid-local i, j (the key is only ranked, so the
         /// origin does not matter). The ONE expression for the key range, the histogram and the
         /// zone bits.</summary>
@@ -2368,7 +2099,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Counting-sort bucket of a per-cell value: min(2047, (int)(o·1024)); NaN,
-        /// negative and >= 200 % go to the last bucket (§9.3 guard; cannot occur with finite
+        /// negative and >= 200 % go to the last bucket (a guard; cannot occur with finite
         /// heights below 200 %).</summary>
         private static int BucketOf(float o)
         {
@@ -2439,8 +2170,8 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>End-zone key bin: (int)((key - min key) · (1024 / key range)) in float, clamped
-        /// to [0, bins - 1]; always 0 with one bin. NaN -> 0. The key is the node height (R2,
-        /// min key = MinHeight) or ZoneKey (R2b fall-line key).</summary>
+        /// to [0, bins - 1]; always 0 with one bin. NaN -> 0. The key is the node height
+        /// (min key = MinHeight) or ZoneKey (the fall-line key).</summary>
         private static int HeightBin(float hv, float hmin, float scale, int bins)
         {
             if (bins <= 1)
@@ -2524,7 +2255,7 @@ namespace SkiResortMod.Systems
             }
             // Rounded endpoint check on purpose: the bilinear can read ONE node past the last
             // inside node (header, LATTICE RESOLUTION). Stricter endpoint rules were measured in
-            // SlopeBatch (fixer round 2026-09-30) and each broke a spec §3 invariant: four inside
+            // SlopeBatch and each broke a spec §3 invariant: four inside
             // corners -> (10) 30x15 ShortRun in 12 of 14 cases, (9) ridge m=2 26.07 % vs 27.73 %;
             // renormalised inside-corner weights -> (1) planes up to +2.46 % at m = 2; pull the end
             // inward <= 1 cell -> (4) runout -0.11 %, (10) 2 cases, classify +70 % (worst 1.6 ms).
@@ -2600,7 +2331,7 @@ namespace SkiResortMod.Systems
             double totalLen = arc[segs];
             if (!(totalLen > 0.0))
                 return SlopeStatus.TooFewPoints; // cannot happen after sanitize (1 mm dedupe)
-            // R3 (run-binding-glade-spec.md §5.1): a line's length is its horizontal arc length
+            // A line's length is its horizontal arc length
             // (LengthRect / AxisLength stay 0: no ring, no fall-line key).
             result.Length = (float)totalLen;
             for (int b = 0; b < 5; b++)

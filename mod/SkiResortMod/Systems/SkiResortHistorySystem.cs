@@ -1,49 +1,42 @@
-// SkiResortHistorySystem — the hub's monthly history store, the C# half (T78 build round 1, DECISIONS 283; plan
-// docs/research/ui/hub-history-chart-plan-2026-10-18.md §5.1 P2 and P4; build note docs/research/ui/hub-history-build-1-2026-10-18.md).
-// The element and its bytes are pure (SkiResortHistory.cs); this file holds their ECS halves and the system that fills them.
-// The binding (P5, SkiResortHubUISystem `history`) and the History view (P6) came in build round 2 (header BINDING).
+// The hub's monthly history store, the C# half. The element and its bytes are pure (SkiResortHistory.cs); this file holds their
+// ECS halves and the system that fills them. SkiResortHubUISystem publishes the `history` binding from these buffers.
 //
-// STORE (decision F1): a DynamicBuffer<SkiResortHistoryMonth> on each Welcome Sign, [InternalBufferCapacity(0)] (off-chunk), one
-// element per closed calendar month, oldest first, keys strictly increasing (SkiResortHistory.Append: same key replaces, a key
-// more than one month on inserts one Gap marker first, an older key is rejected), 1200-month safety cap. A deleted ski area's
-// history goes with its sign. Saved by the game like our components: every ISerializable TypeManager type of a mod assembly
-// gets a serializer (Colossal ComponentSerializerLibrary.cs:73-87, 1.6.2f1); a buffer is written as int32 length + each
-// element's Serialize (BufferElementDataSerializer.cs:80-92, BinaryWriter.cs:120-126). Nothing is added in Mod.cs for that.
+// Store: a DynamicBuffer<SkiResortHistoryMonth> on each Welcome Sign, [InternalBufferCapacity(0)] (off-chunk), one element per
+// closed calendar month, oldest first, keys strictly increasing (SkiResortHistory.Append: same key replaces, a key more than one
+// month on inserts one Gap marker first, an older key is rejected), 1200-month safety cap. A deleted ski area's history goes
+// with its sign. Saved by the game like our components: every ISerializable TypeManager type of a mod assembly gets a serializer
+// (Colossal ComponentSerializerLibrary.cs:73-87, 1.6.2f1); a buffer is written as int32 length + each element's Serialize
+// (BufferElementDataSerializer.cs:80-92, BinaryWriter.cs:120-126). Nothing is added in Mod.cs for that.
 //
-// SAMPLING (P2): GameSimulation, UpdateAfter SkiGuestCounterSystem with the counter's interval (16), so it inherits the counter's
-// offset and runs right after it in the same frame (UpdateSystem.cs:400-431, the counter's header). Each tick it compares the
-// counter's LastMonthStep.Generation with the last one it handled:
-//   * Rolled → for every live sign (the counter's LiveSigns ∪ the ledger's linked entries) a pending element from the ledger's
-//     Last (booked: guests, tickets paid, ticket / lodge / pass / lesson income, lift charge, run upkeep P3) with Partial /
-//     Short from the counter's closed-month labels; SkiResortStatsSystem.RequestRebuild("history") once. The pending set is
-//     committed when the stats system has rebuilt since the request (Rebuilds moved: buildings, wages, attraction, snow % taken
-//     from its ResortLive row of the sign) AND SkiDaySystem has stepped to the new month (ski days = its ArrivedLastMonth), or
-//     after Tuning.SnapshotTimeoutFrames with SnapshotMissing / skiDays −1. The buffer is added on first use (main thread).
-//   * Jumped → the month in progress before the jump is recorded from the mirror (below; ≤ MirrorEveryFrames old) as Partial +
+// Sampling: GameSimulation, UpdateAfter SkiGuestCounterSystem with the counter's interval (16), so it inherits the counter's
+// offset and runs right after it in the same frame (UpdateSystem.cs:400-431). Each tick it compares the counter's
+// LastMonthStep.Generation with the last one it handled:
+//   * Rolled: for every live sign (the counter's LiveSigns plus the ledger's linked entries) a pending element from the ledger's
+//     Last (guests, tickets paid, ticket / lodge / pass / lesson income, lift charge, run upkeep) with Partial / Short from the
+//     counter's closed-month labels; SkiResortStatsSystem.RequestRebuild("history") once. The pending set is committed when the
+//     stats system has rebuilt since the request (Rebuilds moved: buildings, wages, attraction, snow % from the sign's
+//     ResortLive row) and SkiDaySystem has stepped to the new month (ski days = its ArrivedLastMonth), or after
+//     Tuning.SnapshotTimeoutFrames with SnapshotMissing / skiDays -1. The buffer is added on first use (main thread).
+//   * Jumped: the month in progress before the jump is recorded from the mirror (below; <= MirrorEveryFrames old) as Partial +
 //     SnapshotMissing; the months the calendar skipped become a Gap marker at the next roll (Append).
-//   * Started (the first counter tick after a load) → the seed (P4, below).
-// MONTH IN PROGRESS (P4, decision F2 route (a)): SkiResortMonthInProgress on each live sign mirrors the ledger's This of that
-// area (+ its pass season, the month key, the partial / by-jump state and the frames simulated so far) every
-// Tuning.MirrorEveryFrames sim frames when the ledger's Revision moved, and at every start / roll / jump. A save therefore
-// holds the month in progress up to 256 frames (~0.1 % of a month at the default 12 days a year) behind. After a load, at the
-// counter's Started step, every saved component whose key is the ledger's month is ADDED back (SkiResortLedger.SeedMonth +
-// SeedThis) and the counter's month measures follow (SeedMonthMeasures); a component of another month seeds nothing and the
-// month stays "since load" (the hub's "(partial)"). Not linked (EntityRef.Null) has no sign and is not restored.
-// WHY N = 256: the cost is a handful of SetComponentData per mirror and nothing when the ledger did not move; the bound on what a
-// save can miss is N frames of bookings, 256 / 262,144 ≈ 0.1 % of a month at 12 days a year (shorter years scale it up:
-// 1.2 % at 1 day a year). 256 is also the guest counter's leisure-scan period (16 × 16), so every leisure scan is followed by a
-// mirror at most one scan later. Smaller N buys nothing visible; larger N makes the miss visible on a short year.
-// LOGS (silence impossible): created; ARMED per load with the areas holding history and their lengths; `History [load]` once per
-// load at the seed (seeded / stale / none); `History [month]` per area per roll; `History [jump]` per jump; the house "!!!"
-// error pattern (disabled for the load). No per-mirror lines.
-// COST: per tick a few field reads; per roll one stats rebuild and one buffer append per area; per mirror N signs × one
-// component write. AddBuffer / AddComponentData are structural changes (a sync point), once per sign per city.
-// BINDING (T78 build 2, P5): SkiResortHubUISystem publishes the `history` binding from these buffers and the ledger's month in
-// progress. It reads two counters of this system: Revision (moves when a stored month changes: an append, a replace, a gap
-// marker, and at every city load) and ProgressRevision (moves at every month-in-progress mirror write). Nothing else here
-// knows about the UI.
-//
-// Created 2026-10-18.
+//   * Started (the first counter tick after a load): the seed (below).
+// Month in progress: SkiResortMonthInProgress on each live sign mirrors the ledger's This of that area (+ its pass season, the
+// month key, the partial / by-jump state and the frames simulated so far) every Tuning.MirrorEveryFrames sim frames when the
+// ledger's Revision moved, and at every start / roll / jump. A save therefore holds the month in progress up to 256 frames
+// (~0.1 % of a month at the default 12 days a year) behind. After a load, at the counter's Started step, every saved component
+// whose key is the ledger's month is added back (SkiResortLedger.SeedMonth + SeedThis) and the counter's month measures follow
+// (SeedMonthMeasures); a component of another month seeds nothing and the month stays "since load" (the hub's "(partial)").
+// Not linked (EntityRef.Null) has no sign and is not restored.
+// Why N = 256: the cost is a handful of SetComponentData per mirror and nothing when the ledger did not move; the bound on what
+// a save can miss is N frames of bookings, 256 / 262,144 = ~0.1 % of a month at 12 days a year (1.2 % at 1 day a year). 256 is
+// also the guest counter's leisure-scan period (16 x 16), so every leisure scan is followed by a mirror at most one scan later.
+// Logs (silence impossible): created; ARMED per load with the areas holding history and their lengths; `History [load]` once per
+// load at the seed (seeded / stale / none); `History [month]` per area per roll; `History [jump]` per jump; the house "!!!" error
+// pattern (disabled for the load). No per-mirror lines.
+// Cost: per tick a few field reads; per roll one stats rebuild and one buffer append per area; per mirror N signs x one component
+// write. AddBuffer / AddComponentData are structural changes (a sync point), once per sign per city.
+// Binding: the hub reads two counters of this system: Revision (moves when a stored month changes: an append, a replace, a gap
+// marker, and at every city load) and ProgressRevision (moves at every month-in-progress mirror write).
 
 using System;
 using System.Collections.Generic;
@@ -59,8 +52,8 @@ namespace SkiResortMod.Systems
 {
     /// <summary>ECS half of the pure SkiResortHistoryMonth (SkiResortHistory.cs holds the fields, the layout and the codec).
     /// NEVER rename, move or turn into a component (header of SkiResortHistory.cs).</summary>
-    // SELF-ALIAS (T74): the stripped saved AQN, a literal; why and the rules in SkiRunBinding.cs "SELF-ALIAS". Here, not on
-    // the pure half: SkiResortHistory.cs stays free of Colossal types (tests/ResortBatch links it).
+    // Self-alias: the stripped saved AQN, a literal; why and the rules in SkiRunBinding.cs "SELF-ALIAS". Here, not on the pure half:
+    // SkiResortHistory.cs stays free of Colossal types (tests/ResortBatch links it).
     [FormerlySerializedAs("SkiResortMod.Systems.SkiResortHistoryMonth, SkiResortMod")]
     [InternalBufferCapacity(0)]
     public partial struct SkiResortHistoryMonth : IBufferElementData, ISerializable
@@ -78,8 +71,8 @@ namespace SkiResortMod.Systems
         }
     }
 
-    /// <summary>ECS half of the pure SkiResortMonthInProgress (P4). One per Welcome Sign; written only by SkiResortHistorySystem.</summary>
-    // SELF-ALIAS (T74): as SkiResortHistoryMonth above.
+    /// <summary>ECS half of the pure SkiResortMonthInProgress. One per Welcome Sign; written only by SkiResortHistorySystem.</summary>
+    // Self-alias: as SkiResortHistoryMonth above.
     [FormerlySerializedAs("SkiResortMod.Systems.SkiResortMonthInProgress, SkiResortMod")]
     public partial struct SkiResortMonthInProgress : IComponentData, IQueryTypeParameter, ISerializable
     {
@@ -96,7 +89,7 @@ namespace SkiResortMod.Systems
         }
     }
 
-    /// <summary>The pure codec's writer over Colossal's IWriter (typed locals pin each overload, the SkiRunBinding precedent).</summary>
+    /// <summary>The pure codec's writer over Colossal's IWriter (typed locals pin each overload, as in SkiRunBinding).</summary>
     internal struct HistoryWriter<TWriter> : IHistoryWriter where TWriter : IWriter
     {
         private TWriter m_Writer;
@@ -132,7 +125,7 @@ namespace SkiResortMod.Systems
     {
         private static class Tuning
         {
-            /// <summary>The month-in-progress mirror period in sim frames (header WHY N = 256).</summary>
+            /// <summary>The month-in-progress mirror period in sim frames (header "Why N = 256").</summary>
             public const int MirrorEveryFrames = 256;
             /// <summary>A roll's snapshot (stats rebuild, SkiDaySystem's month step) is waited for at most this many sim frames.</summary>
             public const int SnapshotTimeoutFrames = 4096;
@@ -170,12 +163,12 @@ namespace SkiResortMod.Systems
         private readonly HashSet<Entity> m_SignSet = new HashSet<Entity>();
         private readonly StringBuilder m_Sb = new StringBuilder(256);
 
-        /// <summary>T78 P5 (header BINDING): moves whenever a stored month changes (append, replace, gap marker) and at every city
-        /// load. The hub re-sends `history` when it moved.</summary>
+        /// <summary>Moves whenever a stored month changes (append, replace, gap marker) and at every city load. The hub re-sends
+        /// `history` when it moved.</summary>
         public int Revision { get; private set; }
 
-        /// <summary>T78 P5 (header BINDING): moves at every month-in-progress mirror write (at most every MirrorEveryFrames sim
-        /// frames, and only when the ledger moved). The hub re-sends the month in progress on it, throttled.</summary>
+        /// <summary>Moves at every month-in-progress mirror write (at most every MirrorEveryFrames sim frames, and only when the ledger
+        /// moved). The hub re-sends the month in progress on it, throttled.</summary>
         public int ProgressRevision { get; private set; }
 
         protected override void OnCreate()
@@ -200,7 +193,7 @@ namespace SkiResortMod.Systems
             Mod.Log.Info($"{nameof(SkiResortHistorySystem)} created");
         }
 
-        /// <summary>The counter's interval: with UpdateAfter it inherits the counter's offset (header SAMPLING).</summary>
+        /// <summary>The counter's interval: with UpdateAfter it inherits the counter's offset (header Sampling).</summary>
         public override int GetUpdateInterval(SystemUpdatePhase phase)
         {
             return 16;
@@ -217,7 +210,7 @@ namespace SkiResortMod.Systems
             m_Mirrored = false;
             m_LastMirrorFrame = 0;
             m_LastMirrorRevision = int.MinValue;
-            Revision++;   // P5: another city's buffers (the hub re-sends `history`)
+            Revision++;   // another city's buffers: the hub re-sends `history`
             m_SeenGeneration = m_Counter.LastMonthStep.Generation;   // the next step (Started) is this load's
             if (mode != GameMode.Game)
                 return;
@@ -275,7 +268,6 @@ namespace SkiResortMod.Systems
             }
         }
 
-        // ── P4: seed on load ────────────────────────────────────────────────────────────────────────────────────────────
 
         private void SeedFromSave()
         {
@@ -339,12 +331,11 @@ namespace SkiResortMod.Systems
                          "; this month counts since the load (the hub shows it \"(partial)\")");
         }
 
-        // ── P2: the roll ────────────────────────────────────────────────────────────────────────────────────────────────
 
         private void BeginRoll(in SkiGuestCounterSystem.MonthStepInfo step)
         {
             if (m_HasPending)
-                TryCommit(force: true);   // never: a month is ~1000× the timeout; kept so nothing is ever dropped silently
+                TryCommit(force: true);   // never reached (a month is ~1000x the timeout); kept so nothing is dropped silently
             SkiResortLedger ledger = m_Counter.Ledger;
             byte flags = (byte)((step.ClosedSinceLoad ? HistoryFlags.Partial : 0) | (step.ClosedShort ? HistoryFlags.Short : 0));
             CollectSigns();
@@ -436,10 +427,9 @@ namespace SkiResortMod.Systems
             result = SkiResortHistory.Append(ref store, m);
             length = store.Count;
             if (result != SkiResortHistory.AppendResult.Rejected)
-                Revision++;   // P5: the hub re-sends `history`
+                Revision++;   // the hub re-sends `history`
         }
 
-        // ── the jump ────────────────────────────────────────────────────────────────────────────────────────────────────
 
         private void RecordJump(in SkiGuestCounterSystem.MonthStepInfo step)
         {
@@ -467,7 +457,6 @@ namespace SkiResortMod.Systems
                                                              $"{MonthText(step.ClosedKey + 1)} are not stored (history never rewrites its past)" : "no month skipped"));
         }
 
-        // ── P4: the mirror ──────────────────────────────────────────────────────────────────────────────────────────────
 
         private void Mirror(bool stepped)
         {
@@ -498,10 +487,9 @@ namespace SkiResortMod.Systems
             m_LastMirrorFrame = now;
             m_LastMirrorRevision = ledger.Revision;
             m_Mirrored = true;
-            ProgressRevision++;   // P5: the month in progress moved (the hub re-sends it, throttled)
+            ProgressRevision++;   // the hub re-sends the month in progress, throttled
         }
 
-        // ── helpers ─────────────────────────────────────────────────────────────────────────────────────────────────────
 
         /// <summary>The live signs: the counter's target-map signs ∪ the ledger's linked entries, existing and not Deleted.</summary>
         private void CollectSigns()

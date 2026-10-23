@@ -1,33 +1,25 @@
-// SaveLayouts — THE frozen table of every persisted type of this mod (T74, DECISIONS 277 / 278; docs/research/release-update-
-// constraints-2026-10-18.md §1 rows 2b / 2c / 8 / 9 / 10, §3 rules 5 / 6 / 9, §4 items 3 / 5 / 9; scaffold note docs/research/
-// release-scaffolds-2026-10-19.md). One row per ISerializable type, one entry per layout version, APPEND ONLY:
-//   * a version entry lists the fields that version APPENDED, in write order, after the leading version byte, as
-//     "field:kind" (kind u8 = 1 byte, i32 = 4, i64 = 8, f64 = 8, entity = the int32 saved index; Colossal BinaryWriter.cs
-//     :128-141 / :305-354, 1.6.2f1 Colossal.Core), and the total bytes a value of that version takes in the save.
-//   * tests/SaveBatch reads this table and checks, per type: the bytes Serialize writes == the last entry's bytes; every
-//     field lands at the offset the table says (order, kind); the struct's fields (reflection) == the union of the
-//     entries' fields, so a field added without a new entry fails; CurrentVersion == the last entry's version; every older
-//     version still deserializes (a blob of just that version's fields is read back whole). It also reads the built DLL:
-//     every ISerializable type in it has a row here and a [FormerlySerializedAs] self-alias equal to Alias(row).
-//   * release/CHANGELOG.md: the newest release entry's "Layout versions:" line must equal ChangelogLine (SaveBatch SL-CL).
-// HOW TO BUMP (rule 5): append fields at the END of Serialize, bump the type's CurrentVersion, read the new fields under
-// `if (m_Version >= N)` in Deserialize, then append ONE entry here (never edit an older one), write the new line into the
-// changelog with "Do not load in older versions: yes" (rule 9). A new persisted concept is a NEW type (rule 6): add a row.
-// NEVER edit a shipped entry, reorder rows' fields, or delete a row of a shipped type (the bytes are in players' saves).
-//
-// PURE FILE: System only (tests/SaveBatch links it). Created 2026-10-19 (T74 scaffolds).
+// The frozen table of every persisted type of this mod, APPEND ONLY: one row per ISerializable type, one entry per layout
+// version. An entry lists the fields that version appended, in write order after the leading version byte, as "field:kind"
+// (u8 = 1 byte, i32 = 4, i64 = 8, f64 = 8, entity = int32 saved index; Colossal BinaryWriter.cs:128-141 / :305-354, 1.6.2f1),
+// and the total bytes a value of that version takes in the save.
+// tests/SaveBatch checks the serializers, the struct fields and the built DLL's [FormerlySerializedAs] self-aliases against
+// this table; the newest release/CHANGELOG.md entry's "Layout versions:" line must equal ChangelogLine.
+// To bump a layout: append fields at the END of Serialize, bump CurrentVersion, read the new fields under
+// `if (m_Version >= N)` in Deserialize, append ONE entry here, and write the new changelog line with
+// "Do not load in older versions: yes". A new persisted concept is a new type with a new row.
+// Never edit a shipped entry, reorder a row's fields, or delete a row of a shipped type: the bytes are in players' saves.
+// Pure file (System only); tests/SaveBatch links it.
 
 namespace SkiResortMod.Systems
 {
     public static class SaveLayouts
     {
-        /// <summary>The namespace and assembly name every row's saved AssemblyQualifiedName starts with (never change either:
-        /// the save stores the AQN, Colossal ComponentSerializer.cs:33-41).</summary>
+        /// <summary>Namespace and assembly name that every row's saved AssemblyQualifiedName starts with; never change either
+        /// (ComponentSerializer.cs:33-41).</summary>
         public const string Namespace = "SkiResortMod.Systems";
         public const string AssemblyName = "SkiResortMod";
 
-        /// <summary>The csproj's pinned AssemblyVersion (SkiResortMod.csproj, SAVE IDENTITY comment); SaveBatch SL-AV reads it
-        /// from the built DLL.</summary>
+        /// <summary>The csproj's pinned AssemblyVersion (SAVE IDENTITY comment in SkiResortMod.csproj).</summary>
         public const string PinnedAssemblyVersion = "1.0.0.0";
 
         public const string KindComponent = "IComponentData";
@@ -81,12 +73,11 @@ namespace SkiResortMod.Systems
         };
         // FROZEN-END
 
-        /// <summary>The [FormerlySerializedAs] self-alias of a row: the saved AQN with its ", Version=..", ", Culture=..",
-        /// ", PublicKeyToken=.." segments stripped, i.e. the key Colossal's lookup reaches by stripping from the right
-        /// (ComponentSerializer.cs:51-65; the table is filled by ComponentSerializerLibrary.UpdateTypeTable :113-121).</summary>
+        /// <summary>The [FormerlySerializedAs] self-alias of a row: the saved AQN without Version / Culture / PublicKeyToken, the key
+        /// Colossal's lookup reaches by stripping from the right (ComponentSerializer.cs:51-65, UpdateTypeTable :113-121).</summary>
         public static string Alias(Layout row) => Namespace + "." + row.TypeName + ", " + AssemblyName;
 
-        /// <summary>The changelog's fixed line (release/CHANGELOG.md, constraints §4 item 9), built from the rows in order.</summary>
+        /// <summary>The fixed "Layout versions:" changelog line, built from the rows in order.</summary>
         public static string ChangelogLine
         {
             get

@@ -1,14 +1,12 @@
-// RunPropDensityRules — the PURE part of the Options prop density (Round M2 option 5, ruling R8;
-// docs/research/round-m2/understand/density.md §2.1 with its check density-check.md, build-contract.md §6.9 / §7 B5).
-// SkiRunPropSystem calls these on the main thread; tests/ResortBatch DensityTests checks them with literal values
-// (sections D1-D8 = density.md §3.1 A-H). Written 2026-10-10 (Round M2, builder B5).
+// The pure part of the Options prop density. SkiRunPropSystem calls these on the main thread; tests/ResortBatch DensityTests
+// checks them with literal values.
 //
-// LOOK ONLY. Two Options sliders, "Snow guns and hydrants" (snowmaking AND night runs) and "Floodlight masts on night
-// runs", 0-100 % step 5, default 100. They change how many corners of our propped runs carry a prop; snow (a per-texel
-// line by run type) and upkeep (per active hectare by run type, SkiRunUpkeepSystem) never read them.
+// Look only. Two Options sliders, "Snow guns and hydrants" (snowmaking AND night runs) and "Floodlight masts on night runs",
+// 0-100 % step 5, default 100. They change how many corners of our propped runs carry a prop; snow (a per-texel line by run type)
+// and upkeep (per active hectare by run type, SkiRunUpkeepSystem) never read them.
 //
-// WHAT IT MIRRORS. Game.Objects/SecondaryObjectSystem.cs (1.6.0f1; the 1.6.2f1 diff changes only :3499 and :3617, no
-// shift, so these lines hold for both), the group branch of CreateSecondaryObject, one area corner:
+// Mirrors the group branch of CreateSecondaryObject for one area corner (Game.Objects/SecondaryObjectSystem.cs, 1.6.0f1; the
+// 1.6.2f1 diff changes only :3499 and :3617, no shift, so these lines hold for both):
 //   * CreateSecondaryAreaObjects passes the run prefab entry's Game.Prefabs.SubObject.m_Probability on as the chance
 //     (:3004); AreaInitializeSystem sets it to 100 once, when the prefab entity is created
 //     (Game.Prefabs/AreaInitializeSystem.cs:398, fill :384-404; unchanged in 1.6.2).
@@ -33,28 +31,25 @@
 //   shows each shared member on g × w_X / (NM + M) and each mast on m × w_X / (NM + M): today's share times its slider.
 //   At g = 0 the shared weights go to 0 (snowmaking runs then have chance 0, so shared members show nowhere) and the
 //   chance is m × M / (NM + M). With m = g: r = 1, chance g, pure thinning. Integer rounding keeps every tabled
-//   setting within 0.3 pp of the target (density-check C5). With g ≠ m night corners re-pick (same shares, other
-//   corners); the same settings give the same layout for the same group member order (density-check C4: the order is
-//   the prefab-init order, Game.Prefabs/ObjectInitializeSystem.cs:900-905, 1.6.2 :910-915).
+//   setting within 0.3 pp of the target. With g ≠ m night corners re-pick (same shares, other corners); the same settings give
+//   the same layout for the same group member order (the prefab-init order, Game.Prefabs/ObjectInitializeSystem.cs:900-905).
 //   NextStable / ApplyDue: the settle rule (an apply once the pair has been still for SettleFrames updates, or forced
 //   at a game load). ExpectedTenths / ClassOf: the census log line only; the math above uses group membership, never
 //   names.
 //
-// PURE FILE: `using System;` only (no Game.dll, no Unity types); compiled into the mod by the glob and linked into
+// Pure file: `using System;` only (no Game.dll, no Unity types); compiled into the mod by the glob and linked into
 // tests/ResortBatch. C# 9 / net48: no Math.Clamp.
 
 using System;
 
 namespace SkiResortMod.Systems
 {
-    /// <summary>Options prop density rules (header).</summary>
     public static class RunPropDensityRules
     {
         /// <summary>The two Options sliders: 0-100 % in steps of 5, default 100 (= today's look).</summary>
         public const int PctMin = 0, PctMax = 100, PctStep = 5, PctDefault = 100;
 
-        /// <summary>OnUpdate frames the slider pair must stay still before an apply (R8: "30 frames after a slider
-        /// settles"), so a drag writes once.</summary>
+        /// <summary>OnUpdate frames the slider pair must stay still before an apply, so a drag writes once.</summary>
         public const int SettleFrames = 30;
 
         /// <summary>Census classes of a run prop (log lines only).</summary>
@@ -67,7 +62,6 @@ namespace SkiResortMod.Systems
         private const string EmptyMarkerName = "SkiPropNone";
         private const string HydrantPrefix = "SkiHydrant";
 
-        /// <summary>The slider clamped to PctMin..PctMax.</summary>
         public static int ClampPct(int pct)
         {
             return pct < PctMin ? PctMin : pct > PctMax ? PctMax : pct;
@@ -120,7 +114,6 @@ namespace SkiResortMod.Systems
             return baseWeight;
         }
 
-        /// <summary>The settle counter: 0 on a change, else one more, capped at SettleFrames.</summary>
         public static int NextStable(int stable, bool changed)
         {
             if (changed)
@@ -166,12 +159,10 @@ namespace SkiResortMod.Systems
             return ClassGun;
         }
 
-        /// <summary>T54 probe 1 (cat-track-run.md §2, D6): which census classes a run kind may carry at its corners. The cat
-        /// track (RunKind.CatTrack = 4) is hydrants only: no guns, no floodlight masts (it is not injected or lit), and no
-        /// empty-marker gaps of its own. Every other kind keeps what its prefab ships (true for all classes: the existing
-        /// groups are untouched by this rule). NO CONSUMER YET: the probe's SkiRunCatTrackA ships no AreaSubObjects (a
-        /// clone of the groomed prefab), so the rule is the spec and the test for the day its hydrant entry lands; the
-        /// prop system already watches the prefab (it bridges nothing without entries).</summary>
+        /// <summary>Which census classes a run kind may carry at its corners. The cat track (RunKind.CatTrack = 4) is hydrants only: no
+        /// guns, no floodlight masts (it is not injected or lit), and no empty-marker gaps of its own. Every other kind keeps what its
+        /// prefab ships. No consumer yet: the SkiRunCatTrackA prefab ships no AreaSubObjects (a clone of the groomed prefab), so this rule
+        /// is the spec and test for the day its hydrant entry lands; the prop system already watches the prefab.</summary>
         public static bool PropClassAllowed(int runKind, byte propClass)
         {
             if (runKind == (int)RunKind.CatTrack)
@@ -179,7 +170,6 @@ namespace SkiResortMod.Systems
             return true;
         }
 
-        /// <summary>round(a / b), half up, for a &gt;= 0 and b &gt; 0.</summary>
         private static long RoundDiv(long a, long b)
         {
             return (2 * a + b) / (2 * b);
@@ -191,23 +181,22 @@ namespace SkiResortMod.Systems
         }
     }
 
-    /// <summary>T22 (field test 2026-10-15, item 87): the yaw a night-run floodlight mast must have so its lamps aim INTO the
-    /// run and slightly downhill. PURE, plain floats (System only), x/z in the game's xz plane, y = height.
+    /// <summary>The yaw a night-run floodlight mast must have so its lamps aim INTO the run and slightly downhill. Pure, plain floats
+    /// (System only), x/z in the game's xz plane, y = height.
     ///
-    /// WHY CODE. The game places an area-border prop with local +Z along the outgoing border segment
+    /// Why code: the game places an area-border prop with local +Z along the outgoing border segment
     /// (Game.Objects/SecondaryObjectSystem.cs:2984-2992, quaternion.LookRotationSafe) and never consults the winding
-    /// (AreaFlags.CounterClockwise), so the lamps (prefab EffectSource rotation, pitch 25 deg about X, yaw 0 = +Z) shine
-    /// ALONG the border and a prefab yaw cannot fix it: the two sides of a run mirror (DECISIONS 82(3)). We turn the
-    /// placed mast ourselves (SkiNightLightSystem.AimMasts) to look along the vector returned here.
+    /// (AreaFlags.CounterClockwise), so the lamps (prefab EffectSource rotation, pitch 25 deg about X, yaw 0 = +Z) shine ALONG the
+    /// border and a prefab yaw cannot fix it: the two sides of a run mirror. We turn the placed mast ourselves
+    /// (SkiNightLightSystem.AimMasts) to look along the vector returned here.
     ///
-    /// RULES. Interior side from the shoelace sign (CCW in x,z = interior on the LEFT of travel, the glade planner's
-    /// convention): inward(d) = ccw ? (-d.z, d.x) : (d.z, -d.x). At a corner the two edges' inward normals are summed
-    /// (the miter direction; a cusp, sum shorter than CuspMinLen, falls back to the outgoing edge's normal). Downhill
-    /// bias: s = mean of the two edges' fall rate along travel (positive = traveling along the border loses height);
-    /// the aim is inward + clamp(s / SlopeFull, -1, 1) × tan(BiasMaxDeg) × tangent, normalized, so on a border along the
-    /// fall line the lamps lean up to BiasMaxDeg toward downhill and across a contour line they aim straight in. The
-    /// 25 deg downward pitch stays the prefab's (EffectSource rotation x 0.21644 w 0.976296 on all three masts).
-    /// Deterministic: a function of the node ring only.</summary>
+    /// Rules: interior side from the shoelace sign (CCW in x,z = interior on the LEFT of travel, the glade planner's convention):
+    /// inward(d) = ccw ? (-d.z, d.x) : (d.z, -d.x). At a corner the two edges' inward normals are summed (the miter direction; a
+    /// cusp, sum shorter than CuspMinLen, falls back to the outgoing edge's normal). Downhill bias: s = mean of the two edges' fall
+    /// rate along travel (positive = traveling along the border loses height); the aim is inward + clamp(s / SlopeFull, -1, 1) ×
+    /// tan(BiasMaxDeg) × tangent, normalized, so on a border along the fall line the lamps lean up to BiasMaxDeg toward downhill and
+    /// across a contour line they aim straight in. The 25 deg downward pitch stays the prefab's (EffectSource rotation x 0.21644
+    /// w 0.976296 on all three masts). Deterministic: a function of the node ring only.</summary>
     public static class MastAimRules
     {
         /// <summary>Largest sideways lean toward downhill (degrees) and the fall rate (m/m) that earns all of it.</summary>
@@ -220,7 +209,6 @@ namespace SkiResortMod.Systems
         private const float CuspMinLen = 0.25f;
         private const float MinEdgeM = 0.05f;
 
-        /// <summary>Twice the shoelace area of the ring in x,z (positive = counter-clockwise in x,z).</summary>
         public static float SignedArea2(float[] x, float[] z, int n)
         {
             double sum = 0.0;
@@ -232,7 +220,6 @@ namespace SkiResortMod.Systems
             return (float)sum;
         }
 
-        /// <summary>The ring node nearest (px, pz) in xz within <see cref="MatchRadiusM"/>; -1 when none.</summary>
         public static int NearestNode(float[] x, float[] z, int n, float px, float pz)
         {
             int best = -1;

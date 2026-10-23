@@ -1,7 +1,6 @@
-// SkiRunLabelSystem — the run names on the hill (ticket T37, 2026-10-16; docs/research/field/2026-10-15/build/
-// T37-run-labels.md). Each of our runs gets its name written flat on the ground at the run's center, in the piste-map color
-// of its difficulty, at the zoom range where the piste map reads, faded in and out like the district names. Default on
-// (option ShowRunNamesOnTheHill, Richard's ruling T37). A summer player sees where the runs are and what they are called.
+// The run names on the hill: each of our runs gets its name written flat on the ground at the run's center, in the piste-map
+// color of its difficulty, at the zoom range where the piste map reads, faded in and out like the district names. Default on
+// (option ShowRunNamesOnTheHill).
 //
 // WHICH MECHANISM (the decompile, 1.6.0f1 baseline). Vanilla's district / street names are NOT one reusable "label"
 // service:
@@ -20,28 +19,28 @@
 //   * the game's own overlay TEXT material (OverlayConfigurationPrefab.m_TextMaterial, as GetOverlayTextMaterial :1147-1153) with
 //     the font atlas copied across (OverlayRenderSystem.CopyFontAtlasParameters :667-672);
 //   * the district labels' geometry: AreaUtils.CalculateLabelRotation (flat on the ground, reads along the camera's right,
-//     AreaUtils.cs:115-119) and AreaUtils.CalculateLabelScale (sqrt(distance x 0.001), :126-129) — the same size-by-distance rule;
+//     AreaUtils.cs:115-119) and AreaUtils.CalculateLabelScale (sqrt(distance x 0.001), :126-129): the same size-by-distance rule;
 //   * the district labels' anchor: Geometry.m_CenterPosition (AreaUtils.CalculateLabelPosition :121-124). GeometrySystem computes
 //     it as the point INSIDE the area that is furthest from every edge (Game.Areas/GeometrySystem.cs:520-585, the best
-//     CheckCenterPositionCandidate), so a concave run's label never lands outside it — no centroid fix-up needed. The catalog row
-//     already carries it (RunRow.CenterX / CenterZ); y is the terrain height + LiftM.
-// What is OURS: the per-run mesh (color and fade in the vertex colors), the fade rule (RunLabelRules.FadeAlpha — the vanilla
+//     CheckCenterPositionCandidate), so a concave run's label never lands outside it. The catalog row already carries it
+//     (RunRow.CenterX / CenterZ); y is the terrain height + LiftM.
+// What is OURS: the per-run mesh (color and fade in the vertex colors), the fade rule (RunLabelRules.FadeAlpha; the vanilla
 // district fade is inside its shader, which the decompile does not show), and the draw (Graphics.DrawMesh, the camera of the game).
 //
 // GATES (cheapest first): option ShowRunNamesOnTheHill; Game mode armed; RenderingSystem.hideOverlay (photo mode / screenshot hides
 // the district names the same way, AreaRenderSystem :81); the fade (zoom outside the range → nothing, nothing rebuilt); a tool
-// working on runs — the area tool holding one of our run prefabs or the tree (glade) tool active → no labels at all; any other tool
-// with Temp copies of runs (an edit of an existing run) → just that run's label is skipped. The game has no general "show names"
-// setting for areas (searched Game.Settings and the interface settings: none); hideOverlay is the one switch it honors.
+// working on runs (the area tool holding one of our run prefabs or the tree (glade) tool active → no labels at all; any other tool
+// with Temp copies of runs, i.e. an edit of an existing run → just that run's label is skipped). The game has no general "show
+// names" setting for areas; hideOverlay is the one switch it honors.
 //
-// THE CACHE. Rebuilt only when the catalog moved (SkiRunCatalogSystem.Revision, or Rebuilds — a pure move of a run keeps the
+// THE CACHE. Rebuilt only when the catalog moved (SkiRunCatalogSystem.Revision, or Rebuilds: a pure move of a run keeps the
 // Revision hash, the rows' centers are refreshed by every catalog rebuild) AND the labels are about to be drawn. A rebuild reads
 // the rows (entity, name, band, center, outline), samples the terrain once per label, and rebuilds a label's text mesh only when
 // its (clean text, band) changed. The fade is vertex alpha: rewritten for every label only when the quantized step moves.
 //
 // PHASE: Rendering, but NOT anchored to OverlayRenderSystem (nothing is written to its buffers: this is Graphics.DrawMesh).
 // COST: option off / out of zoom range / hidden = a bool read, a zoom read and a return. Drawn and unchanged = one DrawMesh per
-// label within the cull radius (RunLabelRules.CullRadius) — a few dozen on a big resort (UNVERIFIED, expected well under 0.1 ms);
+// label within the cull radius (RunLabelRules.CullRadius), a few dozen on a big resort (UNVERIFIED, expected well under 0.1 ms);
 // a rebuild = one pass over the rows + one TMP text mesh per changed label (UNVERIFIED, expected ~0.05 ms per label).
 //
 // LOGS: `SkiRunLabelSystem created`; ONE INFO line per load (ARMED); one WARN if the overlay text material is missing; a one-shot
@@ -200,7 +199,6 @@ namespace SkiResortMod.Systems
             base.OnDestroy();
         }
 
-        // ── the frame ────────────────────────────────────────────────────────────────────────────────────
 
         protected override void OnUpdate()
         {
@@ -251,7 +249,6 @@ namespace SkiResortMod.Systems
             }
         }
 
-        // ── the gates ────────────────────────────────────────────────────────────────────────────────────
 
         /// <summary>The area tool holding one of our run prefabs (drawing) or the tree tool: no labels at all.</summary>
         private bool ToolHidesAll()
@@ -289,7 +286,6 @@ namespace SkiResortMod.Systems
             temps.Dispose();
         }
 
-        // ── the cache ────────────────────────────────────────────────────────────────────────────────────
 
         private void Rebuild(int revision, long rebuilds)
         {
@@ -460,7 +456,6 @@ namespace SkiResortMod.Systems
             }
         }
 
-        // ── the draw ─────────────────────────────────────────────────────────────────────────────────────
 
         private void Draw(Camera cam, float zoom)
         {
@@ -522,7 +517,6 @@ namespace SkiResortMod.Systems
             }
         }
 
-        // ── lifetime ─────────────────────────────────────────────────────────────────────────────────────
 
         private static bool IsFinite(float v) => !float.IsNaN(v) && !float.IsInfinity(v);
 

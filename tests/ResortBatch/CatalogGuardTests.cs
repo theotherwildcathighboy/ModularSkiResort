@@ -1,55 +1,40 @@
-// CatalogGuardTests — the constants guard between the pure prefab catalog SkiCatalog.cs and the pure rule files that
-// alias it. Catalog Phase A (docs/research/art/assets-2026-10/catalog-a/phase-a-contract.md §6.2) created CG-1, CG-2 and
-// CG-T1..T4; Catalog Phase B (docs/research/art/assets-2026-10/code-round-2/round-2-contract.md §11.2) updates them.
-// Core builder, 2026-10-11. Where-tags `catalog-guard…`. The R9 convention: `public static class` with
-// `public static void Run(Func<bool, string, string, bool> check)`; Main passes its Check.
+// The constants guard between the pure prefab catalog SkiCatalog.cs and the pure rule files that alias it. `public static class`
+// with `public static void Run(Func<bool, string, string, bool> check)`; Main passes its Check. Where-tags `catalog-guard...`.
 //   CG-1  every alias == row == const: SkiResortScore.LiftValue, SkiMoneyRules.LiftFixedPerMonth / LiftPerKmPerMonth,
-//         HubRules.ChairSpeedMps / LiftLinePerKm, LiftServedRule.ServeRadiusM / TopMarginM against Lifts[0] and
-//         SkiCatalog.FixedGrip; SkiDayRules.LodgeSkiersPerDay against Lodges[0].Capacity and SkiCatalog.AFrameLodge.
-//         Phase B: Lifts.Count == 4 and Lifts[0].Id == "fixedGrip" (replace "Count == 1"; the aliases stay the FG row's,
-//         per-row numbers reach Burst jobs as struct fields, contract risk R-a); the seam consts of other groups —
-//         SchoolRule (economy, §7.2), PatrolRule (economy, §7.2) and SkiMoneyRules.LodgeSpendDefault / Max / Step
-//         (lift, seam S3) — == SkiCatalog.School / Patrol / LodgeSpend. They are read by REFLECTION over this test
-//         assembly (the linked files compile into it), so the host builds before those groups land: a file that does
-//         not exist yet (SchoolRule.cs / PatrolRule.cs) or a const not added yet prints one "INFO … not landed yet"
-//         line; once present, any mismatch FAILs. The integrator confirms no "not landed yet" line remains.
+//         HubRules.ChairSpeedMps / LiftLinePerKm, LiftServedRule.ServeRadiusM / TopMarginM against Lifts[0] and SkiCatalog.FixedGrip;
+//         SkiDayRules.LodgeSkiersPerDay against Lodges[0].Capacity and SkiCatalog.AFrameLodge. Lifts.Count == 4 and Lifts[0].Id ==
+//         "fixedGrip" (the aliases stay the FG row's; per-row numbers reach Burst jobs as struct fields). The consts of other rule
+//         files (SchoolRule, PatrolRule, SkiMoneyRules.LodgeSpendDefault / Max / Step) == SkiCatalog.School / Patrol / LodgeSpend.
+//         They are read by REFLECTION over this test assembly (the linked files compile into it), so the host builds when one of
+//         those files does not exist yet: that prints one "INFO ... not landed yet" line; once present, any mismatch FAILs.
 //   CG-2  HubRules.RideTimeS(2045) == 2045 / 2 / Lifts[0].SpeedMps (409.0): the ride time uses the catalog speed.
-//   CG-T  text guard over the root mod/SkiResortMod/LocaleEN.cs, single-line `{ "key", "value" },` entries (hubText.ts
-//         equals it by gate R4, check-bundle.js, so one side is enough here). Every number is DERIVED from the catalog:
-//         T1 Assets.NAME[SkiChairliftHV] == "Fixed-Grip Triple Chairlift" while SeatsPerCarrier == 3 (unchanged);
-//         T2 SkiResort.Hub.LIFT_CAPACITY_TIP contains {SEATS} and {SPEED} and no digit (HUB_FMT since contract 6);
+//   CG-T  text guard over mod/SkiResortMod/LocaleEN.cs, single-line `{ "key", "value" },` entries (hubText.ts equals it by gate
+//         R4, check-bundle.js, so one side is enough here). Every number is DERIVED from the catalog:
+//         T1 Assets.NAME[SkiChairliftHV] == "Fixed-Grip Triple Chairlift" while SeatsPerCarrier == 3;
+//         T2 SkiResort.Hub.LIFT_CAPACITY_TIP contains {SEATS} and {SPEED} and no digit;
 //         T3 SkiResort.Hub.LIFT_RIDE_TIP contains {SPEED} and no digit apart from the game-speed "1×";
 //         T4 SkiResort.Hub.RECEIPT_TIP[Lifts] names every Loop row "<name> <ScoreValue:0>" in index order (fixed-grip 6,
-//            detachable 15, gondola 25) and the summer-share words of every λ < 1 (0.25 "a quarter" for all three
-//            chairlift-class types since DECISIONS 376);
+//            detachable 15, gondola 25) and the summer-share words of every λ < 1 (0.25 "a quarter" for all three chairlift-class
+//            types);
 //         T5 SkiResort.Hub.RECEIPT_TIP[LodgeBase] contains "up to <Ladder.ExtraCap>" (24);
 //         T6 BUILD_TIP_SCHOOL "+<School.ScoreValue>" and "<(DemandFactor − 1) × 100> %" (+12, 20 %); BUILD_TIP_PATROL
 //            "<RadiusM / 1000> km", "<(ExpertFactor − 1) × 100> %", "<BackcountryServedMin × 100> %" (1 km, 15 %, 70 %);
 //            BUILD_TIP_LUXURY "<the luxury tiers' PriceTolerance>" (40); PROBLEM_TIP[SummitLodgeNotLiftServed]
 //            "<Ladder.SummitServedRadiusM> m" (300 m).
-//         T7 (Catalog Phase C, docs/research/art/assets-2026-10/code-round-3/round-3-contract.md C15 / §8.3, rules group)
-//            SkiResort.Hub.LIFT_RIDE_TIP contains no "loop" and LIFT_CAPACITY_TIP no "spaced" (case-insensitive): both
-//            tips are shown for a tram row too (T2 / T3 still hold for the reworded texts). Minors fix (contract review
-//            note): the same for SkiResort.Hub.LIFTS_TOTAL_CAPACITY_TIP, the totals row that sums a tram too (no
-//            "spaced"; it names the tram's "station stops").
-//         T8 (Phase D, docs/research/art/assets-2026-10/code-round-4/round-4-contract.md §7.3 with round-4-contract-skeptic.md
-//            MUST-1 / MUST-3, hub group; DECISIONS 171 rulings: an unpowered lift of every type is inert, power never
-//            lowers its upkeep, its power is the base station's): case-insensitive —
-//            (a) TILE_TIP[Lifts] has no "still move" and says the lift "stops";
-//            (b) LIFT_CAPACITY_TIP and LIFTS_TOTAL_CAPACITY_TIP name "power" (an unpowered lift has capacity –);
-//            (c) PROBLEM_TIP[LiftNoPower] says it "stops", names the "base station", says maintenance / upkeep is "still
-//                charged" and does NOT say "full" (round-4 fixer: the kept NoOpenRun quarter reaches an unpowered lift whose
-//                ski area counts no run, round-4-integration.md §6 L1; if Richard chooses "strict" billing, flip this check);
-//            (d) each of those four is 25 words or fewer (whitespace-separated tokens, as `wc -w`; LocaleEN.cs:26-31 rule);
-//            (e) MONEY_TIP[Lifts] and MONEY_TIP[LiftsTypes]: the "a quarter …" clause (to its full stop) names no power,
-//                and the text says "in full" and "power" (ruling 2: power never lowers the bill);
-//            (f) LIFT_COST_REDUCED[NoPower] names no power: that row is billed reduced only for NoOpenRun since Phase D
-//                (SkiMoneyRules.LiftUpkeepBillingOf), while hubRules.ts liftCostReason still picks this key for it;
-//            (g) round-4 fixer: MONEY_TIP[Lifts] has 42 words or fewer and MONEY_TIP[LiftsTypes] 44 or fewer (their Phase D
-//                lengths; the LocaleEN.cs header exempts them from the 25-word rule because they carry live figures).
-//   BY DESIGN (contract §12.2 step 1, Phase A's R-e precedent): between the core landing and the hub group landing the
-//   texts, T2-T6 FAIL (the root LocaleEN.cs still holds contract 5's literal texts / lacks the keys); every other check
-//   passes from core onward.
+//         T7 SkiResort.Hub.LIFT_RIDE_TIP contains no "loop" and LIFT_CAPACITY_TIP no "spaced" (case-insensitive): both tips are
+//            shown for a tram row too; the same for LIFTS_TOTAL_CAPACITY_TIP, the totals row that sums a tram too (no "spaced";
+//            it names the tram's "station stops").
+//         T8 an unpowered lift of every type is inert, power never lowers its upkeep, its power is the base station's;
+//            case-insensitive: (a) TILE_TIP[Lifts] has no "still move" and says the lift "stops"; (b) LIFT_CAPACITY_TIP and
+//            LIFTS_TOTAL_CAPACITY_TIP name "power" (an unpowered lift has capacity –); (c) PROBLEM_TIP[LiftNoPower] says it "stops",
+//            names the "base station", says maintenance / upkeep is "still charged" and does NOT say "full" (the kept NoOpenRun
+//            quarter reaches an unpowered lift whose ski area counts no run; if "strict" billing is chosen, flip this check); (d)
+//            each of those four is 25 words or fewer (whitespace-separated tokens, as `wc -w`; the LocaleEN.cs rule); (e)
+//            MONEY_TIP[Lifts] and MONEY_TIP[LiftsTypes]: the "a quarter ..." clause (to its full stop) names no power, and the
+//            text says "in full" and "power" (power never lowers the bill); (f) LIFT_COST_REDUCED[NoPower] names no power: that row
+//            is billed reduced only for NoOpenRun (SkiMoneyRules.LiftUpkeepBillingOf), while hubRules.ts liftCostReason still picks
+//            this key for it; (g) MONEY_TIP[Lifts] has 42 words or fewer and MONEY_TIP[LiftsTypes] 44 or fewer (the LocaleEN.cs
+//            header exempts them from the 25-word rule because they carry live figures).
 // Untouched oracles elsewhere: ScoreTests.cs (LiftValue == 6.0), HubRulesTests.cs, MoneyBatch.cs, SkiDayTests.cs.
 
 using System;
@@ -70,15 +55,15 @@ namespace ResortBatch
         public static void Run(Func<bool, string, string, bool> check)
         {
             s_Check = check;
-            AliasesEqualRows();   // CG-1
-            SeamConsts();         // CG-1 (other groups' aliases, reflection)
-            RideTimeSpeed();      // CG-2
-            LocaleTexts();        // CG-T
-            OffSeasonTexts();     // CG-T137
+            AliasesEqualRows();
+            SeamConsts();         // other groups' aliases, reflection
+            RideTimeSpeed();
+            LocaleTexts();
+            OffSeasonTexts();
         }
 
-        /// <summary>CG-T137 (DECISIONS 358): the hub texts of the T137 build. S2: the closed-gate note names the off-season half staff
-        /// and vanilla's Inactive (a tenth); S1: the reduced lift texts no longer say "at a quarter" flat (the tram bills half).</summary>
+        /// <summary>The hub texts of the off-season staffing: the closed-gate note names the off-season half staff and vanilla's Inactive
+        /// (a tenth); the reduced lift texts no longer say "at a quarter" flat (the tram bills half).</summary>
         private static void OffSeasonTexts()
         {
             const string W = "catalog-guard-t137";
@@ -116,7 +101,6 @@ namespace ResortBatch
             return v.ToString("R", CultureInfo.InvariantCulture);
         }
 
-        // ================================================================== CG-1
 
         private static void AliasesEqualRows()
         {
@@ -142,7 +126,7 @@ namespace ResortBatch
                      "SkiDayRules.LodgeSkiersPerDay vs Lodges[0].Capacity");
         }
 
-        /// <summary>Other groups' const aliases of SkiCatalog (seams S3 and §7.2), read by reflection over this assembly.</summary>
+        /// <summary>Other rule files' const aliases of SkiCatalog, read by reflection over this assembly.</summary>
         private static void SeamConsts()
         {
             const string W = "catalog-guard-seams";
@@ -153,7 +137,7 @@ namespace ResortBatch
             SeamFile(asm, W, "SkiResortMod.Systems.PatrolRule", "mod/SkiResortMod/Systems/PatrolRule.cs", "economy (round-2-contract §7.2)",
                      new[] { "RadiusM", "ExpertFactor", "BackcountryServedMin" },
                      new double[] { SkiCatalog.Patrol.RadiusM, SkiCatalog.Patrol.ExpertFactor, SkiCatalog.Patrol.BackcountryServedMin });
-            // SkiMoneyRules exists today; its lodge-spend consts land with the lift group (seam S3).
+            // SkiMoneyRules exists today; its lodge-spend consts land with the lift group
             string[] spend = { "LodgeSpendDefault", "LodgeSpendMax", "LodgeSpendStep" };
             double[] spendWant = { SkiCatalog.LodgeSpend.Default, SkiCatalog.LodgeSpend.Max, SkiCatalog.LodgeSpend.Step };
             Type money = typeof(SkiMoneyRules);
@@ -213,7 +197,6 @@ namespace ResortBatch
             return false;
         }
 
-        // ================================================================== CG-2
 
         private static void RideTimeSpeed()
         {
@@ -226,7 +209,6 @@ namespace ResortBatch
                   ", want 2045 / 2 / " + SkiCatalog.Lifts[0].SpeedMps.ToString(CultureInfo.InvariantCulture) + " = 409");
         }
 
-        // ================================================================== CG-T
 
         private static void LocaleTexts()
         {
@@ -265,8 +247,8 @@ namespace ResortBatch
                 Check(!HasDigit(ride.Replace("1×", "")), W + "-t3", rideKey + " = \"" + ride + "\" bakes a number besides \"1×\"");
             }
 
-            // T7 (Catalog Phase C, round-3-contract C15 / §8.3): both tips hold for a Shuttle row too — the ride tip names
-            // no "loop" (a tram cabin rides dock to dock) and the capacity tip no "spaced" (a tram counts its stops).
+            // Both tips hold for a Shuttle row too: the ride tip names no "loop" (a tram cabin rides dock to dock) and the capacity tip no
+            // "spaced" (a tram counts its stops).
             if (Check(loc.TryGetValue(rideKey, out string ride7), W + "-t7", rideKey + " not found as a single-line entry"))
                 Check(ride7.IndexOf("loop", StringComparison.OrdinalIgnoreCase) < 0, W + "-t7",
                       rideKey + " = \"" + ride7 + "\" says \"loop\": false for the tram (C15)");
@@ -283,7 +265,7 @@ namespace ResortBatch
                       totalKey + " = \"" + total7 + "\" does not say that a tram counts its station stops (like LIFT_CAPACITY_TIP)");
             }
 
-            // T8 (Phase D, round-4-contract §7.3, skeptic MUST-1 / MUST-3): the unpowered-lift texts follow DECISIONS 171.
+            // T8: the unpowered-lift texts
             UnpoweredTexts(loc, W + "-t8", capKey, totalKey);
 
             // T4: the receipt names every Loop type's value in index order and the summer words.
@@ -332,8 +314,8 @@ namespace ResortBatch
                     luxuryTolerance = Math.Max(luxuryTolerance, d.PriceTolerance);
             }
             Contains(loc, "SkiResort.Hub.BUILD_TIP_LUXURY", W + "-t6", luxuryTolerance.ToString(CultureInfo.InvariantCulture));
-            // T6b (2026-10-11, Richard: no limit on lodges): no text states the one-luxury-lodge-per-area rule, and its two
-            // keys (REASON[OneLuxury], RECEIPT_TIP_LUXURY_IGNORED) are gone from the locale.
+            // T6b: no text states the one-luxury-lodge-per-area rule (there is no limit on lodges), and its two keys (REASON[OneLuxury],
+            // RECEIPT_TIP_LUXURY_IGNORED) are gone from the locale.
             Check(!loc.ContainsKey("SkiResort.Hub.REASON[OneLuxury]") && !loc.ContainsKey("SkiResort.Hub.RECEIPT_TIP_LUXURY_IGNORED"),
                   W + "-t6b", "REASON[OneLuxury] / RECEIPT_TIP_LUXURY_IGNORED are removed from the locale");
             string limitText = null;
@@ -350,9 +332,8 @@ namespace ResortBatch
                      SkiCatalog.Ladder.SummitServedRadiusM.ToString("0", CultureInfo.InvariantCulture) + " m");
         }
 
-        /// <summary>CG-T8 (Phase D): DECISIONS 171 — an unpowered lift of every type stops, has no capacity and serves no run
-        /// (ruling 1), power never lowers its upkeep (ruling 2), its power is its base station's (ruling 3); the four tooltips
-        /// keep the 25-word rule (skeptic MUST-3) and the two money tips may not grow (round-4 fixer, (g)).</summary>
+        /// <summary>CG-T8: an unpowered lift of every type stops, has no capacity and serves no run, power never lowers its upkeep, its
+        /// power is its base station's; the four tooltips keep the 25-word rule and the two money tips may not grow.</summary>
         private static void UnpoweredTexts(Dictionary<string, string> loc, string w, string capKey, string totalKey)
         {
             const string tileKey = "SkiResort.Hub.TILE_TIP[Lifts]";
@@ -372,8 +353,8 @@ namespace ResortBatch
                 if (Check(loc.TryGetValue(key, out string text), w, key + " not found as a single-line entry"))
                     Check(Has(text, "power"), w, key + " = \"" + text + "\" does not name power (an unpowered lift shows capacity –)");
             }
-            // (c) the problem tip: stops, base station (ruling 3), maintenance still charged (ruling 2), and no "full" (the
-            // NoOpenRun quarter still reaches an unpowered lift whose area counts no run: round-4 fixer, integration §6 L1).
+            // (c) the problem tip: stops, base station, maintenance still charged, and no "full" (the NoOpenRun quarter still reaches an
+            // unpowered lift whose area counts no run)
             if (Check(loc.TryGetValue(problemKey, out string problem), w, problemKey + " not found as a single-line entry"))
             {
                 Check(Has(problem, "stops"), w, problemKey + " = \"" + problem + "\" does not say the lift stops");
@@ -406,10 +387,10 @@ namespace ResortBatch
                 Check(Has(money, "in full") && Has(money, "power"), w,
                       key + " = \"" + money + "\" does not say a lift without power pays in full (ruling 2)");
             }
-            // (f) the NoPower reason line: never power since Phase D.
+            // (f) the NoPower reason line: never power
             if (Check(loc.TryGetValue(reducedKey, out string reduced), w, reducedKey + " not found as a single-line entry"))
                 Check(!Has(reduced, "power"), w, reducedKey + " = \"" + reduced + "\" blames power: a No power row is billed reduced only for NoOpenRun now");
-            // (g) round-4 fixer: the two money tips are exempt from the 25-word rule (live figures) but may not grow.
+            // (g) the two money tips are exempt from the 25-word rule (live figures) but may not grow
             int[] moneyCaps = { 42, 44 };
             for (int i = 0; i < moneyKeys.Length; i++)
             {
@@ -510,9 +491,9 @@ namespace ResortBatch
             return sb.ToString();
         }
 
-        /// <summary>A repo file: the current directory first (the documented run is from the ModularSkiResort root), then
-        /// walking up from AppContext.BaseDirectory (tests/ResortBatch/bin/&lt;cfg&gt;/net8.0/; the SlopeBatch
-        /// Program.cs:4889-4898 precedent, skeptic S4). null when not found (the caller writes ONE FAIL).</summary>
+        /// <summary>A repo file: the current directory first (the documented run is from the ModularSkiResort root), then walking up
+        /// from AppContext.BaseDirectory (tests/ResortBatch/bin/&lt;cfg&gt;/net8.0/). null when not found (the caller writes ONE
+        /// FAIL).</summary>
         private static string RepoFile(string rel)
         {
             string native = rel.Replace('/', Path.DirectorySeparatorChar);

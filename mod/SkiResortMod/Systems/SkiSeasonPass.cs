@@ -1,39 +1,27 @@
-// SkiSeasonPass — the persisted season-pass standing of a RESIDENT household (DECISIONS 240, 241;
-// docs/research/econ-2/build/season-pass-v1.md). Our persisted-component house pattern is
-// SkiRunBinding.cs; its header holds the verified serialization facts and they apply here unchanged:
-//   * Mod components are registered with the save serializer automatically (ComponentSerializerLibrary walks every
-//     TypeManager ISerializable type of an assembly other than Game.dll, Game.Serialization/SerializerSystem.cs:194-209);
-//     nothing is added in Mod.cs.
-//   * LAYOUT v1 IS FROZEN: byte version | int32 SeasonKey | int32 PricePaid | byte Flags = 10 bytes per household,
-//     little-endian. After 1.0 this layout NEVER changes (DECISIONS 314 D2: no payload
-//     length is written, so an older build reading a longer element reads the rest of the block shifted); new fields = a NEW
-//     ISerializable type, which an older build skips cleanly as an unknown type. Before the 1.0 freeze an append +
-//     CurrentVersion bump (branch on m_Version in Deserialize) is still allowed.
-//   * NEVER rename this type, move its namespace or rename the assembly (the saved type name is its
-//     AssemblyQualifiedName); a build that does not know the type skips the block ("Not serializable type" in Player.log).
-//
-// MEANING. On the household entity (a resident household; tourists never get one). SeasonKey = the ski-season year the
-// standing is for (SkiMoneyRules.SeasonKeyOf: July on = the year, else the year before). A component of another season
-// counts as absent (SkiMoneyRules.PassStandingOf) and is overwritten the next time the household is decided.
-//   Flags 0                         → the household HOLDS a pass for SeasonKey: PricePaid is what it paid (locked at the sale).
-//   Flags & SkiMoneyRules.PassFlagDeclined → it was asked this season and did not buy (rolled out, or could not pay): it pays
-//                                    day tickets all season and is not asked again; PricePaid is 0.
-// WHO WRITES: SkiLiftTicketSystem only, on the main thread in the tick after the job decided (never in a Burst job: a
-// structural change). WHO READS: the ticket job and the pre-season sale job (ComponentLookup, read-only) and the ski-day
-// decision job (a holder gets P = 1).
-//
-// Created 2026-10-14.
+// Persisted season-pass standing of a resident household (tourists never get one).
+// Serialization follows the SkiRunBinding.cs pattern: mod ISerializable components are registered with the
+// save serializer automatically (Game.Serialization/SerializerSystem.cs:194-209), nothing in Mod.cs.
+//   * Layout v1 is frozen: byte version | int32 SeasonKey | int32 PricePaid | byte Flags (little-endian).
+//     No payload length is written, so an older build reading a longer element would shift; new fields go in a
+//     NEW ISerializable type, which older builds skip as unknown.
+//   * Never rename the type, its namespace or the assembly (the saved name is the AssemblyQualifiedName).
+// SeasonKey is the ski-season year (SkiMoneyRules.SeasonKeyOf); a component of another season counts as absent
+// (SkiMoneyRules.PassStandingOf) and is overwritten at the next decision.
+//   Flags 0: the household holds a pass; PricePaid is locked at the sale.
+//   PassFlagDeclined: asked this season and did not buy; pays day tickets and is not asked again; PricePaid is 0.
+// Written by SkiLiftTicketSystem only, on the main thread after the job decided (a structural change, so never
+// in a Burst job). Read by the ticket job, the pre-season sale job and the ski-day decision job.
 
 using Colossal.Serialization.Entities;
 using Unity.Entities;
 
 namespace SkiResortMod.Systems
 {
-    // SELF-ALIAS (T74): the stripped saved AQN, a literal; why and the rules in SkiRunBinding.cs "SELF-ALIAS".
+    // Stripped saved AQN as a literal; rules in SkiRunBinding.cs "SELF-ALIAS"
     [FormerlySerializedAs("SkiResortMod.Systems.SkiSeasonPass, SkiResortMod")]
     public struct SkiSeasonPass : IComponentData, IQueryTypeParameter, ISerializable
     {
-        /// <summary>Layout version written by this build (see header). v1 is frozen; before the 1.0 freeze a bump appends a field, after 1.0 this layout never changes (a NEW type carries new fields, DECISIONS 314 D2).</summary>
+        /// <summary>Layout version written by this build; v1 is frozen (see header).</summary>
         public const byte CurrentVersion = 1;
 
         /// <summary>The ski-season year this standing is for (SkiMoneyRules.SeasonKeyOf).</summary>
@@ -45,7 +33,7 @@ namespace SkiResortMod.Systems
         /// <summary>SkiMoneyRules.PassFlagDeclined or 0 (a holder).</summary>
         public byte m_Flags;
 
-        /// <summary>Layout version this value was created with or loaded from. NOT written: Serialize always writes CurrentVersion.</summary>
+        /// <summary>Layout version loaded or created with; not written (Serialize always writes CurrentVersion).</summary>
         public byte m_Version;
 
         public SkiSeasonPass(int seasonKey, int pricePaid, byte flags)
@@ -58,19 +46,18 @@ namespace SkiResortMod.Systems
 
         public void Serialize<TWriter>(TWriter writer) where TWriter : IWriter
         {
-            // v1 layout, byte for byte (header). Version FIRST, always the CURRENT layout's version; a local typed byte pins the
-            // IWriter.Write(byte) overload (the SkiRunBinding / SkiRunTreeMember precedent).
+            // Local typed byte pins the IWriter.Write(byte) overload
             byte version = CurrentVersion;
             writer.Write(version);
-            writer.Write(m_SeasonKey);   // int32
-            writer.Write(m_PricePaid);   // int32
-            writer.Write(m_Flags);       // byte
+            writer.Write(m_SeasonKey);
+            writer.Write(m_PricePaid);
+            writer.Write(m_Flags);
         }
 
         public void Deserialize<TReader>(TReader reader) where TReader : IReader
         {
             reader.Read(out m_Version);
-            // v1 layout (frozen; after 1.0 it never changes, new fields = a NEW ISerializable type, DECISIONS 314 D2).
+            // v1 layout (frozen)
             reader.Read(out m_SeasonKey);
             reader.Read(out m_PricePaid);
             reader.Read(out m_Flags);

@@ -1,27 +1,19 @@
-// LiftCensus — the PURE lift model: one row per lift, built from net topology (docs/research/
-// hub-u2-spec.md §5.2). Created 2026-10-03 (Round L1, implementer I-2). LiftCensusSystem harvests the
-// ECS data into the plain Edge / Node / Station lists below and calls Build on events; the hub
-// (SkiResortStatsSystem / SkiResortHubUISystem) and the lift logs read the rows. tests/LiftBatch
-// links this file into a net8 host and runs §5.9's synthetic graphs.
+// The PURE lift model: one row per lift, built from net topology (docs/research/hub-u2-spec.md §5.2). LiftCensusSystem
+// harvests the ECS data into the plain Edge / Node / Station lists below and calls Build on events; the hub
+// (SkiResortStatsSystem / SkiResortHubUISystem) and the lift logs read the rows. tests/LiftBatch links this file into a
+// net8 host and runs synthetic graphs.
 //
-// WHY A CENSUS (spec §8.1 "Lift data source"). ChairPinSystem's loop cache exists only in moving mode
-// (ChairPinSystem.cs:443-447), measures the CIRCUIT (chain A + top turn + chain B + base turn,
-// LiftLoopCache.cs:371-386), is lane-based and up to 30 frames stale. The census is independent of
-// moving chairs and is the lift authority for the hub and the logs; the loop cache contributes only
+// WHY A CENSUS. ChairPinSystem's loop cache exists only in moving mode (ChairPinSystem.cs:443-447), measures the CIRCUIT
+// (chain A + top turn + chain B + base turn, LiftLoopCache.cs:371-386), is lane-based and up to 30 frames stale. The census
+// is independent of moving chairs and is the lift authority for the hub and the logs; the loop cache contributes only
 // "chairs riding" per station pair (ChairPinSystem.TryGetLoop).
 //
-// INPUTS (spec §5.2 item 1; the ECS side is LiftCensusSystem's header):
-//   Edge    — every live SkiChairliftHV edge: Start/End node, end positions, Curve length, chairs
-//             (chair-prefab entries of its SubObject buffer). Station stub edges (SkiLiftMarker) are
-//             NOT edges here (LengthM = Σ line edges only).
-//   Node    — every endpoint of those edges: Station = index into the station list when the node is
-//             a station connection node (its Owner is a station: stations-first; or a connected edge
-//             owned by a station: line-first — the IsStationConnectionNode rule of ChairPinSystem
-//             extended to say WHICH station), else −1; HasTower = any non-chair sub-object.
-//   Station — every live station: IsBase by PREFAB (never by height; the loop cache's "lower = base"
-//             is only its internal tie-break), position, HV stub tip and axis (StationAlign).
+// INPUTS (the ECS side is LiftCensusSystem's header): Station stub edges (SkiLiftMarker) are NOT edges here (LengthM = Σ line
+// edges only); a station connection node is one whose Owner is a station (stations-first) or whose connected edge is owned
+// by a station (line-first); a station's IsBase is by PREFAB, never by height (the loop cache's "lower = base" is only its
+// internal tie-break).
 //
-// MODEL (spec §5.2 items 2-4):
+// MODEL:
 //   * Components: edges are unioned through shared nodes, but a station connection node is a
 //     TERMINAL, never a connector (the loop cache's "walk stops at station anchors",
 //     LiftLoopCache.cs:14-20) — two lifts sharing a station stay two components.
@@ -29,86 +21,67 @@
 //     no complete pair, so two unfinished lines from one station stay two rows):
 //       a. a component touching exactly one base and one top station → key (base, top);
 //       b. else, if its surviving edges carried exactly ONE key K at the previous build and the
-//          stations it touches ⊆ {K.Base, K.Top} → K (a fragment) — spec §5.2.3 b as written, with NO
-//          liveness condition on K's stations. FIXER ROUND (finding l1-lifts-1): I-2 had added "K's
-//          stations are still alive" here, so a complete lift that lost a station (the player deletes
-//          and re-places a top station to straighten it) got a NEW key — NewLine instead of Opened —
-//          and its chairs were never parked: they froze mid-air. Now the lift keeps its key, becomes
-//          Open with Gaps 1 (the dead terminal is untouched) and DiffEvents raises Opened, so the
-//          existing park runs. Liveness stays in rule c (a redraw must reach a living partner);
+//          stations it touches ⊆ {K.Base, K.Top} → K (a fragment), with NO liveness condition on K's
+//          stations: a complete lift that lost a station (the player deletes and re-places a top
+//          station to straighten it) must keep its key, else it gets a NEW key — NewLine instead of
+//          Opened — and its chairs are never parked: they freeze mid-air. It becomes Open with Gaps 1
+//          (the dead terminal is untouched) and DiffEvents raises Opened, so the existing park runs.
+//          Liveness stays in rule c (a redraw must reach a living partner);
 //       c. else, if it touches exactly one station S and a previous OPEN row K has S as a station
-//          and its other station is alive → K (a redrawn fragment whose edges are all new). The
-//          spec says "a previous key K"; a COMPLETE previous row is excluded here, because a new
-//          line drawn from a station that already has a complete lift is a second lift, not a
-//          fragment of the first (shared-station case);
+//          and its other station is alive → K (a redrawn fragment whose edges are all new). A COMPLETE
+//          previous row is excluded here, because a new line drawn from a station that already has a
+//          complete lift is a second lift, not a fragment of the first (shared-station case);
 //       d. else a new key: (S, Null) when S is a base, (Null, S) when a top, (Null, Null) with no
 //          station — each with its lowest-index edge as anchor. A component touching > 2 stations
 //          or two of one kind is d with a build note (Notes).
 //     A key with no component left is dropped; its stations become StationsOnly rows. History is in
 //     memory only: after a reload mid-redraw, fragments come back as Unfinished rows (accepted).
-//   * Row values: Complete = exactly one component touching both stations; Open = a pair with any
-//     other shape; Unfinished = no pair (or a build note); StationsOnly = a station on no component
-//     and in no row. Gaps = fragments − 1 + (base not touched) + (top not touched), 0 when Complete
-//     (one deleted middle section = 1, a deleted approach section = 1). GapAt = the dead-end
-//     (non-station, single-edge) node nearest the base (else the top, else the Id edge's start).
-//     LengthM = Σ edge Curve lengths (NOT the loop). RiseM = top tip y − base tip y (else max − min
-//     node y). HorizontalM = |top tip.xz − base tip.xz| (else Σ edge chord xz). Alignment from
-//     StationAlign.Measure(partner = base, subject = top) when both stations exist. Towers = row
-//     nodes with a tower; TowersRemoved = non-station row nodes WITHOUT one (vanilla keeps a tower
-//     on every line node while a section uses it, GenerateNodesSystem.cs:1250-1254 per spec §5.1,
-//     so a missing one was removed by another tool — OD-8 (a); it clears by itself once a section at
-//     that node is redrawn and the game regenerates the tower). Id = the LIVE Base, else the live Top,
-//     else the lowest-index edge (fixer round: a key may now hold a removed station, rule b; the row
-//     id is what the hub addresses, renames and flies to, so it must be a living entity — for a key
-//     whose stations are both alive this is spec §2.1's "Base, else Top" unchanged). KNOWN, HELD
-//     (fixer-round review): after a station is removed, its former connection node becomes a plain
-//     dead end with no tower of its own, so it counts as TowersRemoved = 1 unless vanilla regenerates
-//     a tower there — unverified until the field shows which; no guard added.
-//   * Events (spec §5.2 item 5), appended to the caller's list by Build (the list is cleared first),
-//     only from the SECOND build after Reset (the first build is the per-load baseline, never logged):
-//       SectionsDeleted — edges of a previous row that are gone, when that row gained no new edge in
-//                         the same build (a pure deletion; a redraw that replaces edges is an edit,
-//                         not a deletion). Row = the row's index now (−1 when dropped), PrevRow = its
-//                         index in PreviousRows, Count = sections, LengthM = their length.
-//       Opened          — Complete → Open (same key). Count = Gaps.
-//       Closed          — Complete now and not Complete under the same key before. Count = 1 when the
-//                         key existed as Open ("complete again"), 0 for a new lift ("complete").
-//       NewLine         — a new Unfinished row with at least one section.
-//       Removed         — never produced here: LiftCensusSystem appends it from its Deleted-tag
-//                         snapshot (an element removed by another tool).
+//   * Row values: Complete = exactly one component touching both stations; Open = a pair with any other shape; Unfinished = no
+//     pair (or a build note); StationsOnly = a station on no component and in no row. Gaps = fragments − 1 + (base not
+//     touched) + (top not touched), 0 when Complete. LengthM = Σ edge Curve lengths (NOT the loop). TowersRemoved =
+//     non-station row nodes WITHOUT a tower (vanilla keeps a tower on every line node while a section uses it,
+//     GenerateNodesSystem.cs:1250-1254, so a missing one was removed by another tool; it clears by itself once a section at
+//     that node is redrawn and the game regenerates the tower). Id = the LIVE Base, else the live Top, else the lowest-index
+//     edge (a key may hold a removed station, rule b; the row id is what the hub addresses, renames and flies to, so it must
+//     be a living entity). KNOWN: after a station is removed, its former connection node becomes a plain dead end with no
+//     tower of its own, so it counts as TowersRemoved = 1 unless vanilla regenerates a tower there — unverified, no guard.
+//   * Events, appended to the caller's list by Build (the list is cleared first), only from the SECOND build after Reset (the
+//     first build is the per-load baseline, never logged). SectionsDeleted = edges of a previous row that are gone, when that
+//     row gained no new edge in the same build (a redraw that replaces edges is an edit, not a deletion); Opened = Complete →
+//     Open (same key); Closed = Complete now and not Complete under the same key before (Count 1 when the key existed as Open:
+//     "complete again"); NewLine = a new Unfinished row with at least one section. Removed is never produced here:
+//     LiftCensusSystem appends it from its Deleted-tag snapshot (an element removed by another tool).
 //   * Revision ++ whenever the row CONTENT changed (every field, hashed), so the stats system can
 //     gate on it; LastBuildChangedTopology says whether edges, node roles or row keys changed (the
 //     system then asks ChairPinSystem for an immediate loop rebuild).
 //
-// CONTRACT DEVIATIONS (additive only, spec §2.1 names unchanged): Event.PrevRow, PreviousRows, Reset(),
-// LastBuildChangedTopology, Notes, HasBaseline. They let the system name a lift whose row was dropped
-// (its last section deleted) and keep the first build after a load silent.
+// Additive members beyond the base contract: Event.PrevRow, PreviousRows, Reset(), LastBuildChangedTopology, Notes,
+// HasBaseline. They let the system name a lift whose row was dropped (its last section deleted) and keep the first build
+// after a load silent.
 //
 // COST. Build is event-driven (lift edits, coalesced station moves, a 4096-frame watchdog), O(edges +
 // nodes + stations) with dictionary lookups; it reuses its member collections, so a build allocates
 // only when a collection grows or a build note is written.
 //
-// CATALOG PHASE B (2026-10-11, docs/research/art/assets-2026-10/code-round-2/round-2-contract.md §4.1, D18, lift
-// group) — the TYPED census. Edge.Type = the SkiCatalog.Lifts index of the edge's line prefab, Station.Type = its
-// StationDef.LiftTypeIndex (NoType = 255 when the harvest could not type it — defensive only). In the union pass an
-// edge with Type == NoType is IGNORED: never unioned, never part of a component, a row or a degree count, one build
-// note "edge {id} has no lift type — ignored" (the harvest passes catalog lines only, so a vanilla HV feeder never
-// arrives here at all — DECISIONS 94 lets one feed a station stub; ext-chk X1). Every component carries TypeMask (bit
-// Type of each typed edge and each touched station); popcount > 1 = MIXED (D18: a detachable line between fixed-grip
-// terminals is as broken as two line types — gauge ±2.6 vs ±1.8 anchors): Complex (→ Unfinished through the existing
-// MakeRow path), a build note "component of N edge(s) from {edge} mixes lift types (fixedGrip+detachable) —
-// Unfinished", and every row built from it gets Mixed = true. Attribution is unchanged (a mixed component touching one
-// base and one top keeps that pair's key, so removing the stray edge returns the same row to Complete). Row.Type = the
-// live base station's type, else the live top's, else the lowest-index edge's; StationsOnly rows: their station's.
-// The row hash (Revision) covers Type and Mixed; the topology hash covers the edges' types.
+// TYPED CENSUS. Edge.Type = the SkiCatalog.Lifts index of the edge's line prefab, Station.Type = its StationDef.LiftTypeIndex
+// (NoType = 255 when the harvest could not type it — defensive only). In the union pass an edge with Type == NoType is
+// IGNORED: never unioned, never part of a component, a row or a degree count, one build note "edge {id} has no lift type —
+// ignored" (the harvest passes catalog lines only, so a vanilla HV feeder never arrives here at all, though vanilla lets one
+// feed a station stub). Every component carries TypeMask (bit Type of each typed edge and each touched station); popcount
+// > 1 = MIXED (a detachable line between fixed-grip terminals is as broken as two line types — gauge ±2.6 vs ±1.8
+// anchors): Complex (→ Unfinished through the existing MakeRow path), a build note "component of N edge(s) from {edge}
+// mixes lift types (fixedGrip+detachable) — Unfinished", and every row built from it gets Mixed = true. Attribution is
+// unchanged (a mixed component touching one base and one top keeps that pair's key, so removing the stray edge returns the
+// same row to Complete). Row.Type = the live base station's type, else the live top's, else the lowest-index edge's;
+// StationsOnly rows: their station's. The row hash (Revision) covers Type and Mixed; the topology hash covers the edges'
+// types.
 //
-// T05 (2026-10-16, docs/research/field/2026-10-15/build/T05-mixed-types.md) — SPLIT AT A SHARED NODE. Two lines of
-// DIFFERENT lift types that share a non-station node (the net tool snapped a new node onto another lift's tower node;
-// field 2026-10-15 item 70: a tram redrawn onto the gondola read "mixes lift types" and left BOTH Unfinished) no longer
-// union: LinkEndpoint keys the first-edge-at-node map by (node, type), so each type keeps its own component and the node
-// is a split point. A component's TypeMask therefore carries at most ONE bit from its edges; code 23 (Mixed) still fires
-// when a component's edge type differs from a station it touches, or it touches stations of two types (a DQ line drawn
-// between a gondola base and a DQ top). A split is recorded as Row.SplitNodes (this row's components touch N split
+// SPLIT AT A SHARED NODE. Two lines of DIFFERENT lift types that share a non-station node (the net tool snapped a new node
+// onto another lift's tower node: a tram redrawn onto the gondola would read "mixes lift types" and leave BOTH Unfinished)
+// do not union: LinkEndpoint keys the first-edge-at-node map by (node, type), so each type keeps its own component and the
+// node is a split point. A component's TypeMask therefore carries at most ONE bit from its edges; code 23 (Mixed) still
+// fires when a component's edge type differs from a station it touches, or it touches stations of two types (a DQ line
+// drawn between a gondola base and a DQ top). A split is recorded as Row.SplitNodes (this row's components touch N split
 // nodes; hashed, NOT bound to the hub), SplitNotes (the note text with the node position; DUMP only) and NewSplits (the
 // splits not yet announced since Reset: the system logs one "[census] split at node N: types A|B" INFO line each).
 //
@@ -127,7 +100,7 @@ namespace SkiResortMod.Systems
     {
         public enum State : byte { Complete, Open, Unfinished, StationsOnly }
 
-        /// <summary>Catalog Phase B (round-2-contract §4.1): an edge or station the harvest could not type (defensive
+        /// <summary>An edge or station the harvest could not type (defensive
         /// only: the harvest passes catalog lines and catalog stations). Never a SkiCatalog.Lifts index.</summary>
         public const byte NoType = 255;
 
@@ -137,7 +110,7 @@ namespace SkiResortMod.Systems
             public float3 StartPos, EndPos;
             public float LengthM;
             public int Chairs;
-            public byte Type;     // Catalog Phase B: SkiCatalog.Lifts index of the edge's line prefab (NoType = ignored)
+            public byte Type;  // SkiCatalog.Lifts index of the edge's line prefab (NoType = ignored)
         }
 
         /// <summary>Station: index into the station list, or −1.</summary>
@@ -155,7 +128,7 @@ namespace SkiResortMod.Systems
             public bool IsBase;
             public float3 Position, StubTip;
             public float2 Axis;
-            public byte Type;     // Catalog Phase B: StationDef.LiftTypeIndex (NoType when unknown)
+            public byte Type;  // StationDef.LiftTypeIndex (NoType when unknown)
         }
 
         public struct Row
@@ -169,11 +142,11 @@ namespace SkiResortMod.Systems
             public bool HasGap;
             public bool AlignKnown;
             public float AlignOffsetM, AlignYawDeg;
-            // Catalog Phase B (round-2-contract §4.1, seam S1): the row's lift type (SkiCatalog.Lifts index; NoType when
+            // The row's lift type (SkiCatalog.Lifts index; NoType when
             // nothing typed it) and whether its component spans two or more of our lift types (then State Unfinished).
             public byte Type;
             public bool Mixed;
-            // T05: how many split nodes (a node shared with a line of another lift type, counted apart) this row's
+            // How many split nodes (a node shared with a line of another lift type, counted apart) this row's
             // components touch. Census/DUMP only, hashed; never bound to the hub.
             public int SplitNodes;
         }
@@ -192,7 +165,6 @@ namespace SkiResortMod.Systems
         /// <summary>Smallest focus radius (a station-only row, a one-section lift), meters.</summary>
         public const float MinFocusRadiusM = 40f;
 
-        // ── keys ───────────────────────────────────────────────────────────────────────────────
         private struct Key : IEquatable<Key>
         {
             public EntityRef Base, Top, Anchor;
@@ -212,7 +184,7 @@ namespace SkiResortMod.Systems
             public bool HasPair => !Base.IsNull && !Top.IsNull;
         }
 
-        /// <summary>T05: (node, lift type) - the union key; edges of different types at one node do not union.</summary>
+        /// <summary>(node, lift type) - the union key; edges of different types at one node do not union.</summary>
         private struct NodeType : IEquatable<NodeType>
         {
             public EntityRef Node;
@@ -232,9 +204,9 @@ namespace SkiResortMod.Systems
             public EntityRef LowestEdge;
             public Key Key;
             public bool Complex;
-            public uint TypeMask;        // Catalog Phase B: bit Type of every typed edge and touched station
-            public bool Mixed;           // Catalog Phase B: popcount(TypeMask) > 1 (D18)
-            public int SplitNodes;       // T05: distinct split nodes (shared with another lift type) its edges end at
+            public uint TypeMask;  // bit Type of every typed edge and touched station
+            public bool Mixed;  // popcount(TypeMask) > 1
+            public int SplitNodes;  // distinct split nodes (shared with another lift type) its edges end at
 
             public void Reset()
             {
@@ -250,14 +222,14 @@ namespace SkiResortMod.Systems
             }
         }
 
-        // ── current build ──────────────────────────────────────────────────────────────────────
+        // current build
         private readonly List<Row> m_Rows = new List<Row>();
         private readonly List<Key> m_Keys = new List<Key>();
         private Dictionary<EntityRef, int> m_EdgeRow = new Dictionary<EntityRef, int>();
         private Dictionary<EntityRef, Key> m_EdgeKey = new Dictionary<EntityRef, Key>();
         private Dictionary<EntityRef, float> m_EdgeLength = new Dictionary<EntityRef, float>();
 
-        // ── previous build (swapped in at the start of Build) ──────────────────────────────────
+        // previous build (swapped in at the start of Build)
         private readonly List<Row> m_PrevRows = new List<Row>();
         private readonly List<Key> m_PrevKeys = new List<Key>();
         private readonly Dictionary<Key, int> m_PrevKeyIndex = new Dictionary<Key, int>();
@@ -265,14 +237,14 @@ namespace SkiResortMod.Systems
         private Dictionary<EntityRef, Key> m_PrevEdgeKey = new Dictionary<EntityRef, Key>();
         private Dictionary<EntityRef, float> m_PrevEdgeLength = new Dictionary<EntityRef, float>();
 
-        // ── scratch (reused) ───────────────────────────────────────────────────────────────────
+        // scratch (reused)
         private readonly Dictionary<EntityRef, int> m_NodeIndex = new Dictionary<EntityRef, int>();
         private readonly Dictionary<EntityRef, int> m_StationIndex = new Dictionary<EntityRef, int>();
-        private readonly Dictionary<NodeType, int> m_FirstEdgeAtNode = new Dictionary<NodeType, int>();   // T05: per (node, type)
-        private readonly Dictionary<EntityRef, uint> m_NodeTypeMask = new Dictionary<EntityRef, uint>();  // T05: edge-type bits per non-station node
-        private readonly List<EntityRef> m_SplitNodeList = new List<EntityRef>();                         // T05: nodes with > 1 edge type, sorted
+        private readonly Dictionary<NodeType, int> m_FirstEdgeAtNode = new Dictionary<NodeType, int>();  // per (node, type)
+        private readonly Dictionary<EntityRef, uint> m_NodeTypeMask = new Dictionary<EntityRef, uint>();  // edge-type bits per non-station node
+        private readonly List<EntityRef> m_SplitNodeList = new List<EntityRef>();  // nodes with > 1 edge type, sorted
         private readonly HashSet<EntityRef> m_SplitNodeSet = new HashSet<EntityRef>();
-        private readonly HashSet<EntityRef> m_LoggedSplits = new HashSet<EntityRef>();                    // T05: announced since Reset
+        private readonly HashSet<EntityRef> m_LoggedSplits = new HashSet<EntityRef>();  // announced since Reset
         private readonly HashSet<EntityRef> m_CompSplitScratch = new HashSet<EntityRef>();
         private readonly Dictionary<EntityRef, int> m_Degree = new Dictionary<EntityRef, int>();
         private readonly List<int> m_Parent = new List<int>();
@@ -300,7 +272,7 @@ namespace SkiResortMod.Systems
         private int m_LastTopoHash;
         private bool m_HashValid;
 
-        /// <summary>++ whenever the row content changed (spec §2.1).</summary>
+        /// <summary>++ whenever the row content changed.</summary>
         public int Revision { get; private set; }
 
         public IReadOnlyList<Row> Rows => m_Rows;
@@ -317,12 +289,12 @@ namespace SkiResortMod.Systems
         /// <summary>ADDITIVE: build notes of the last Build (odd topologies; dev tab / dump only).</summary>
         public readonly List<string> Notes = new List<string>();
 
-        /// <summary>T05 ADDITIVE: one note per split node of the last Build ("lift line joined to another lift's node at
+        /// <summary>ADDITIVE: one note per split node of the last Build ("lift line joined to another lift's node at
         /// (x, z): the lines render as one chain but are counted apart"). DUMP only; not part of Notes so it is not
         /// re-logged as a build note.</summary>
         public readonly List<string> SplitNotes = new List<string>();
 
-        /// <summary>T05 ADDITIVE: "split at node N: types A|B" for each split node not yet announced since Reset (the
+        /// <summary>ADDITIVE: "split at node N: types A|B" for each split node not yet announced since Reset (the
         /// system logs each once per load, [census] INFO). Cleared at the start of every Build.</summary>
         public readonly List<string> NewSplits = new List<string>();
 
@@ -373,9 +345,6 @@ namespace SkiResortMod.Systems
             return any;
         }
 
-        // ════════════════════════════════════════════════════════════════════════════════════════
-        // Build
-        // ════════════════════════════════════════════════════════════════════════════════════════
 
         public void Build(List<Edge> edges, List<Node> nodes, List<Station> stations, List<Event> events)
         {
@@ -386,7 +355,7 @@ namespace SkiResortMod.Systems
             bool baseline = m_HasBaseline;
             SwapToPrevious();
 
-            // ── 1. indices ─────────────────────────────────────────────────────────────────────
+            // 1. Indices
             m_NodeIndex.Clear();
             for (int i = 0; i < nodes.Count; i++)
                 m_NodeIndex[nodes[i].Id] = i;
@@ -396,12 +365,11 @@ namespace SkiResortMod.Systems
             m_CurrentEdges.Clear();
             for (int i = 0; i < edges.Count; i++)
             {
-                if (edges[i].Type != NoType)   // Catalog Phase B: an untyped edge is not a lift edge (header)
+                if (edges[i].Type != NoType)  // an untyped edge is not a lift edge (header)
                     m_CurrentEdges.Add(edges[i].Id);
             }
 
-            // ── 2. union-find through non-station nodes; degree per node ─────────────────────
-            // Catalog Phase B (round-2-contract §4.1): an edge with Type == NoType is never linked (it never connects
+            // 2. Union-find through non-station nodes; degree per node. An edge with Type == NoType is never linked (it never connects
             // two components) and adds no degree (it is ignored, so it cannot make a dead end look connected).
             m_Parent.Clear();
             for (int i = 0; i < edges.Count; i++)
@@ -417,7 +385,7 @@ namespace SkiResortMod.Systems
                 LinkEndpoint(i, edges[i].End, edges[i].Type, nodes, stations.Count);
             }
 
-            // T05: a non-station node carrying edges of two or more lift types is a SPLIT point (LinkEndpoint kept the
+            // A non-station node carrying edges of two or more lift types is a SPLIT point (LinkEndpoint kept the
             // types apart). Sorted by entity so notes and logs are deterministic.
             m_SplitNodeList.Clear();
             m_SplitNodeSet.Clear();
@@ -441,7 +409,7 @@ namespace SkiResortMod.Systems
                     NewSplits.Add("split at node " + sn + ": types " + types);
             }
 
-            // ── 3. components ──────────────────────────────────────────────────────────────────
+            // 3. Components
             m_Comps.Clear();
             m_CompOfRoot.Clear();
             for (int i = 0; i < edges.Count; i++)
@@ -450,7 +418,7 @@ namespace SkiResortMod.Systems
             {
                 if (edges[i].Type == NoType)
                 {
-                    // Catalog Phase B: defensive (the harvest only passes catalog lines); one note per such edge.
+                    // Defensive (the harvest only passes catalog lines); one note per such edge.
                     Notes.Add("edge " + edges[i].Id + " has no lift type — ignored");
                     continue;
                 }
@@ -470,12 +438,12 @@ namespace SkiResortMod.Systems
                 comp.Edges.Add(i);
                 if (comp.LowestEdge.IsNull || edges[i].Id.CompareTo(comp.LowestEdge) < 0)
                     comp.LowestEdge = edges[i].Id;
-                comp.TypeMask |= TypeBit(edges[i].Type);   // Catalog Phase B
+                comp.TypeMask |= TypeBit(edges[i].Type);
                 TouchStation(comp, StationOf(edges[i].Start, nodes, stations.Count), stations);
                 TouchStation(comp, StationOf(edges[i].End, nodes, stations.Count), stations);
             }
 
-            // T05: per component, the distinct split nodes its edges end at (Row.SplitNodes).
+            // Per component, the distinct split nodes its edges end at (Row.SplitNodes).
             if (m_SplitNodeSet.Count > 0)
             {
                 for (int c = 0; c < m_Comps.Count; c++)
@@ -492,9 +460,9 @@ namespace SkiResortMod.Systems
                 }
             }
 
-            // ── 3b. Catalog Phase B (D18): a component whose edges and touched stations span two or more of our lift
-            //        types is MIXED. T05: its EDGES are now one type (split nodes), so this fires only when a touched
-            //        station's type differs from the edges' type or from another touched station's — Complex (→ Unfinished in MakeRow), one note, every row built from it Mixed. ──
+            // 3b. A component whose edges and touched stations span two or more of our lift types is MIXED. Its EDGES are one type
+            // (split nodes), so this fires only when a touched station's type differs from the edges' type or from another touched
+            // station's: Complex (→ Unfinished in MakeRow), one note, every row built from it Mixed.
             for (int c = 0; c < m_Comps.Count; c++)
             {
                 Comp comp = m_Comps[c];
@@ -506,7 +474,7 @@ namespace SkiResortMod.Systems
                           TypeIds(comp.TypeMask) + ") — Unfinished");
             }
 
-            // ── 4. attribution (rules a-d) ─────────────────────────────────────────────────────
+            // 4. Attribution (rules a-d)
             m_KeySlot.Clear();
             m_SlotKeys.Clear();
             for (int s = 0; s < m_SlotComps.Count; s++)
@@ -526,7 +494,7 @@ namespace SkiResortMod.Systems
                 m_SlotComps[slot].Add(comp);
             }
 
-            // ── 5. rows ────────────────────────────────────────────────────────────────────────
+            // 5. Rows
             // Slots [0, compSlots) carry components; StationsOnly slots are appended after them.
             int compSlots = m_SlotKeys.Count;
             m_SlotRows.Clear();
@@ -562,11 +530,11 @@ namespace SkiResortMod.Systems
                     FocusCenter = st.Position,
                     GapAt = st.Position,
                     FocusRadius = MinFocusRadiusM,
-                    Type = st.Type,   // Catalog Phase B: a StationsOnly row's type is its station's
+                    Type = st.Type,  // a StationsOnly row's type is its station's
                 });
             }
 
-            // ── 6. stable order: Id, then Top, then anchor ─────────────────────────────────────
+            // 6. Stable order: Id, then Top, then anchor
             m_Order.Clear();
             for (int i = 0; i < m_SlotRows.Count; i++)
                 m_Order.Add(i);
@@ -599,11 +567,11 @@ namespace SkiResortMod.Systems
                 }
             }
 
-            // ── 7. events (never on the baseline build) ───────────────────────────────────────
+            // 7. Events (never on the baseline build)
             if (baseline)
                 DiffEvents(events);
 
-            // ── 8. revision + topology ─────────────────────────────────────────────────────────
+            // 8. Revision + topology
             int rowHash = HashRows();
             int topoHash = HashTopology(edges, nodes);
             if (!m_HashValid || rowHash != m_LastRowHash)
@@ -648,7 +616,6 @@ namespace SkiResortMod.Systems
             return comp;
         }
 
-        // ── union-find ────────────────────────────────────────────────────────────────────────
         private int Find(int i)
         {
             while (m_Parent[i] != i)
@@ -672,7 +639,7 @@ namespace SkiResortMod.Systems
             m_Degree[node] = deg + 1;
             if (StationOf(node, nodes, stationCount) >= 0)
                 return;   // a station connection node is a terminal, never a connector
-            // T05: only edges of the SAME type union at a node; another type's edges there are a separate chain.
+            // Only edges of the SAME type union at a node; another type's edges there are a separate chain.
             m_NodeTypeMask.TryGetValue(node, out uint mask);
             m_NodeTypeMask[node] = mask | TypeBit(type);
             var key = new NodeType { Node = node, Type = type };
@@ -699,17 +666,17 @@ namespace SkiResortMod.Systems
             comp.Stations.Add(station);
             if (stations[station].IsBase) comp.Bases++;
             else comp.Tops++;
-            comp.TypeMask |= TypeBit(stations[station].Type);   // Catalog Phase B (D18): stations count for Mixed
+            comp.TypeMask |= TypeBit(stations[station].Type);  // stations count for Mixed
         }
 
-        /// <summary>Catalog Phase B: bit <paramref name="type"/> of a component's TypeMask; 0 for NoType (and any index
+        /// <summary>Bit <paramref name="type"/> of a component's TypeMask; 0 for NoType (and any index
         /// past 31 — SkiCatalog.Lifts holds 4 rows, APPEND ONLY).</summary>
         private static uint TypeBit(byte type)
         {
             return type < 32 ? 1u << type : 0u;
         }
 
-        /// <summary>Catalog Phase B: "fixedGrip+detachable" — the type ids of a mask in index order (SkiCatalog
+        /// <summary>"fixedGrip+detachable" — the type ids of a mask in index order (SkiCatalog
         /// LiftTypeDef.Id; "type N" for an index the catalog does not know). Allocates: build notes only.</summary>
         private static string TypeIds(uint mask, string sep = "+")
         {
@@ -724,7 +691,6 @@ namespace SkiResortMod.Systems
             return ids;
         }
 
-        // ── attribution ───────────────────────────────────────────────────────────────────────
         private Key Attribute(Comp comp, List<Edge> edges, List<Station> stations)
         {
             // a. exactly one base and one top.
@@ -750,7 +716,7 @@ namespace SkiResortMod.Systems
             }
 
             // b. the surviving edges carried exactly one key covering the stations touched — even when one
-            //    of its stations is gone (header rule b; fixer round, finding l1-lifts-1).
+            //    of its stations is gone (header rule b).
             if (TryCarriedKey(comp, edges, out Key carried) && TouchedWithin(comp, carried, stations))
                 return carried;
 
@@ -821,7 +787,6 @@ namespace SkiResortMod.Systems
             return false;
         }
 
-        // ── row values ────────────────────────────────────────────────────────────────────────
         private Row MakeRow(Key key, List<Comp> comps, List<Edge> edges, List<Node> nodes, List<Station> stations)
         {
             var row = new Row { Base = key.Base, Top = key.Top };
@@ -832,7 +797,7 @@ namespace SkiResortMod.Systems
             bool complex = false, touchedBase = false, touchedTop = false, mixed = false;
             int bothTouching = 0, splitNodes = 0;
             EntityRef lowest = default;
-            byte lowestType = NoType;   // Catalog Phase B: the lowest-index edge's type (Row.Type's last fallback)
+            byte lowestType = NoType;  // the lowest-index edge's type (Row.Type's last fallback)
             float3 bmin = new float3(float.MaxValue), bmax = new float3(float.MinValue);
             float chordXZ = 0f;
             m_RowNodes.Clear();
@@ -895,14 +860,14 @@ namespace SkiResortMod.Systems
             row.HasGap = row.Gaps > 0;
 
             // Id: the live base, else the live top, else the lowest edge (header; a key may hold a
-            // removed station since the fixer round).
+            // removed station).
             row.Id = hasBase ? key.Base : hasTop ? key.Top : lowest;
 
-            // Catalog Phase B (round-2-contract §4.1): the row's type follows its Id's rule — the live base station's
+            // The row's type follows its Id's rule — the live base station's
             // type, else the live top's, else the lowest-index edge's; Mixed when any of its components is.
             row.Type = hasBase ? stations[baseIdx].Type : hasTop ? stations[topIdx].Type : lowestType;
             row.Mixed = mixed;
-            row.SplitNodes = splitNodes;   // T05
+            row.SplitNodes = splitNodes;
 
             // Focus
             if (bmin.x <= bmax.x)
@@ -1006,7 +971,6 @@ namespace SkiResortMod.Systems
             return a.CompareTo(b);
         }
 
-        // ── events ────────────────────────────────────────────────────────────────────────────
         private void DiffEvents(List<Event> events)
         {
             // SectionsDeleted: previous edges that are gone, per previous key.
@@ -1118,7 +1082,7 @@ namespace SkiResortMod.Systems
             return false;
         }
 
-        // ── hashes (FNV-1a over 32-bit words; order-independent sum for topology) ─────────────
+        // Hashes: FNV-1a over 32-bit words; order-independent sum for topology
         private int HashRows()
         {
             uint h = 2166136261u;
@@ -1138,8 +1102,8 @@ namespace SkiResortMod.Systems
                 h = Mix(h, Bits(r.FocusRadius));
                 h = Mix(h, r.HasGap ? 1u : 0u); h = Mix(h, r.AlignKnown ? 1u : 0u);
                 h = Mix(h, Bits(r.AlignOffsetM)); h = Mix(h, Bits(r.AlignYawDeg));
-                h = Mix(h, r.Type); h = Mix(h, r.Mixed ? 1u : 0u);   // Catalog Phase B (§4.1)
-                h = Mix(h, (uint)r.SplitNodes);   // T05
+                h = Mix(h, r.Type); h = Mix(h, r.Mixed ? 1u : 0u);
+                h = Mix(h, (uint)r.SplitNodes);
             }
             return (int)h;
         }
@@ -1155,7 +1119,7 @@ namespace SkiResortMod.Systems
                     h = Mix(h, (uint)edges[i].Id.Index); h = Mix(h, (uint)edges[i].Id.Version);
                     h = Mix(h, (uint)edges[i].Start.Index); h = Mix(h, (uint)edges[i].Start.Version);
                     h = Mix(h, (uint)edges[i].End.Index); h = Mix(h, (uint)edges[i].End.Version);
-                    h = Mix(h, edges[i].Type);   // Catalog Phase B: a type change is a topology change
+                    h = Mix(h, edges[i].Type);  // a type change is a topology change
                     sum += h;
                 }
                 for (int i = 0; i < nodes.Count; i++)

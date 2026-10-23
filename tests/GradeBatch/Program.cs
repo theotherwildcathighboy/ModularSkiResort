@@ -1,26 +1,9 @@
-// GradeBatch — headless tests for the PURE half of the Cat Track Grading tool (T139b; DECISIONS 362 / 363; build note
-// docs/research/field/2026-10-20/grading-tool-build.md): CatTrackGrade.cs. GR-1..GR-16.
-//   GR-1  the path: the Bezier chain passes every clicked point, equal sample steps, ends exact, length >= the chords.
-//   GR-2  flat ground: the profile is the ground, nothing changes.
-//   GR-3  a 15 % slope under a 25 % limit: follow ground keeps the ground (no earthwork), grade within the limit.
-//   GR-4  a 40 % straight climb: infeasible, ShortfallM = dh / G - L, the overlay class goes red; ends still pinned.
-//   GR-5  hump and hollow: grade within the limit everywhere, both ends meet the ground, the hump is cut and the hollow filled.
-//   GR-6  switchback-free long climb: a diagonal traverse of a 30 % mountain (path grade 30 % x cos 45 = 21 %) is feasible with no
-//         shortfall; the same height gain straight up the fall line is not.
-//   GR-7  constant grade: a straight ramp between the ends; infeasible past the limit.
-//   GR-8  side slopes: a cut through a 5 m mound is 1 : 1.5, a fill across a 5 m ditch is 1 : 2, the flat top is TopWidthM wide,
-//         and outside the slopes the ground is untouched.
-//   GR-9  sidehill steeper than the fill slope: the bank blends into the ground (counted), never a vertical step at the reach.
-//   GR-10 guards: a lot, a lift line or water under the corridor refuses with its kind; the same obstacles clear of it do not.
-//   GR-11 undo: the pre-image comes back bit-exact; a texel a foreign edit changed since keeps that edit.
-//   GR-12 undo stack: LIFO, capped at MaxEntries, the newest always kept.
-//   GR-13 switchback legs: a texel takes its NEAREST leg's template (two legs never stack).
-//   GR-14 map encoding: texel center <-> continuous texel, height <-> u16 within half a step.
-//   GR-15 the edit model + input rules: add / insert / move / undo; the right-click table (cancel drag > undo edit > undo grade
-//         > close); the prompt is never empty, differs per step, names right click / Enter / Esc, US English.
-//   GR-16 cost: a 1.5 km winding path solves and rasterizes (time printed; FAIL above 3 s).
-// Run (from the ModularSkiResort root):
-//   dotnet run --project tests/GradeBatch/GradeBatch.csproj -c Release
+// Headless tests for the pure half of the cat track grading tool (CatTrackGrade.cs), cases GR-1..GR-16:
+// path (Bezier chain through every click), profiles (flat, follow ground, infeasible climbs with ShortfallM, hump and
+// hollow, diagonal traverse, constant grade), cross-section slopes (cut 1:1.5, fill 1:2, flat top TopWidthM, bank
+// blending), guards (lot, lift line, water), undo (bit-exact pre-image, foreign edits survive, LIFO stack capped at
+// MaxEntries), nearest-leg template at switchbacks, map encoding, edit model and input rules, cost (1.5 km path under 3 s).
+// Run from the repo root: dotnet run --project tests/GradeBatch/GradeBatch.csproj -c Release
 // Prints `FAIL  where: msg` lines and one SUMMARY line; Environment.ExitCode = failures (the LiftBatch convention).
 
 using System;
@@ -107,7 +90,6 @@ namespace GradeBatch
 
         private static float2[] Line(float2 a, float2 b) => new[] { a, b };
 
-        // ── GR-1 ──────────────────────────────────────────────────────────────────────────────────────
 
         private static void PathShape()
         {
@@ -134,7 +116,6 @@ namespace GradeBatch
             Check(GradePath.Build(new[] { new float2(5, 5), new float2(5, 5) }, 2f) == null, "GR-1 degenerate", "two equal points = no path");
         }
 
-        // ── GR-2 .. GR-7: profiles ────────────────────────────────────────────────────────────────────
 
         private static void FlatGround()
         {
@@ -242,7 +223,6 @@ namespace GradeBatch
             Check(!steep.Prof.Feasible && steep.Prof.ShortfallM > 0f, "GR-7 infeasible", $"{steep.Prof.ShortfallM:F1}");
         }
 
-        // ── GR-8 / GR-9: cross-section ────────────────────────────────────────────────────────────────
 
         private static void SideSlopes()
         {
@@ -313,7 +293,6 @@ namespace GradeBatch
                 Check(math.abs(r.After[r.Index(ti, tj)] - r.Before[r.Index(ti, tj)]) < 1e-4f, "GR-9 edge", "ground at the reach");
         }
 
-        // ── GR-10 guards ──────────────────────────────────────────────────────────────────────────────
 
         private static void Guards()
         {
@@ -349,7 +328,6 @@ namespace GradeBatch
                 Check(GradeGuards.Reason(g).Length > 10, "GR-10 reason", g.ToString());
         }
 
-        // ── GR-11 / GR-12 undo ────────────────────────────────────────────────────────────────────────
 
         private static void UndoRoundTrip()
         {
@@ -409,7 +387,6 @@ namespace GradeBatch
             Check(new GradeUndo().Pop() == null, "GR-12 empty", "pop on empty = null");
         }
 
-        // ── GR-13 switchback legs ─────────────────────────────────────────────────────────────────────
 
         private static void SwitchbackLegs()
         {
@@ -439,7 +416,6 @@ namespace GradeBatch
             Check(math.abs(got - lowerY) < 0.15f, "GR-13 nearest leg", $"{got:F2} vs lower leg {lowerY:F2}");
         }
 
-        // ── GR-14 encoding ────────────────────────────────────────────────────────────────────────────
 
         private static void Encoding()
         {
@@ -454,7 +430,6 @@ namespace GradeBatch
             Check(Map.ToU16(-10f) == 0 && Map.ToU16(5000f) == 65535, "GR-14 clamp", "out of range clamps");
         }
 
-        // ── GR-15 edit model + input ──────────────────────────────────────────────────────────────────
 
         private static void EditAndInput()
         {
@@ -480,7 +455,6 @@ namespace GradeBatch
             e.Undo();
             Check(e.Count == 0 && e.UndoDepth == 0 && !e.Undo(), "GR-15 undo to empty", "");
 
-            // Right click table.
             Check(GradeInput.RightClick(GradeStep.Path, true, 3, 0) == GradeBack.CancelDrag, "GR-15 rc drag", "");
             Check(GradeInput.RightClick(GradeStep.Path, false, 3, 1) == GradeBack.UndoEdit, "GR-15 rc edit", "");
             Check(GradeInput.RightClick(GradeStep.OnePoint, false, 1, 0) == GradeBack.UndoEdit, "GR-15 rc one point", "drops the point");
@@ -508,7 +482,6 @@ namespace GradeBatch
             }
             Check(string.Join(",", seq) == "UndoEdit,UndoEdit,UndoEdit,UndoGrade,CloseTool", "GR-15 walk back", string.Join(",", seq));
 
-            // Prompts.
             var seen = new HashSet<string>();
             foreach (GradeStep st in new[] { GradeStep.Empty, GradeStep.OnePoint, GradeStep.Path, GradeStep.Applying })
             {
@@ -529,7 +502,6 @@ namespace GradeBatch
             Check(GradeInput.Prompt(GradeStep.Path, true, false).StartsWith("Release"), "GR-15 drag prompt", "");
         }
 
-        // ── GR-16 cost ────────────────────────────────────────────────────────────────────────────────
 
         private static void Cost()
         {

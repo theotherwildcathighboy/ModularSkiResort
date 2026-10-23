@@ -1,27 +1,20 @@
 /*
- * src/hub/LiftsView.tsx - the Lifts view (Lifts tile): the shown area's lifts and their totals.
- *
- * Written for this repo (MIT). Created 2026-10-04 (Round E1, stream S6; docs/research/econ-round/
- * spec/ch6-hub-ui.md section 6.9, design hub-v3-design.md 3.3; replaces the Lifts tab and focus strip
- * of the contract-2 ResortLists.tsx, deleted).
- * Contract:
- *   - Rows: the census rows whose `sign` is the shown area (Entity.Null = Not linked), C#'s order,
- *     each a LiftLine2 (LiftTable.tsx); none -> LIFTS_EMPTY. Then a divider and two totals that are
- *     always shown (design 3.3): total lift length and the design capacity of all complete lifts.
- *   - React key: liftId (entity/top) with "#n" for a repeated id (U2 fixer round, finding u2-panel-2:
- *     two unfinished lines from ONE station are two census rows with the same (entity, top); interim
- *     until the census anchor is in LiftRow).
- *   - Click a row: focused$ + focusLift(entity, top) (C# flies to the gap while a section is missing).
- *     Pen: rename(row.entity, text) - C# renames the base station, else the top station, and refuses
- *     (with a log line) a row with no station; one row renames at a time.
- *   - Panel file (gate R11): subscribes resorts$, selectedResort$, lifts$; local focused$.
- *   - Contract 6 (2026-10-11, Catalog Phase B, code round 2, hub group; round-2-contract.md section 8.5): while the
- *     shown area's rows span two or more lift types (hubRules.liftTypesOf), each row shows its type word
- *     (LiftLine2 `typeWords`); the totals row's tooltip is LIFTS_TOTAL_CAPACITY_TIP (it sums several types, so the
- *     per-type LIFT_CAPACITY_TIP with {SEATS} / {SPEED} would not fit it).
- *   - T131 (2026-10-20, field report item 27, DECISIONS 350): every lift in one list, no pager (T114 paged it); this view and the
- *     Runs view are the two that may scroll (PIPELINE section 0 hub rule; harness/layout-check.js checks every row is drawn).
- */
+* src/hub/LiftsView.tsx - the Lifts view: the shown area's lifts and their totals.
+*
+*   - Rows: the census rows whose `sign` is the shown area (Entity.Null = Not linked), C#'s order, each a LiftLine2
+*     (LiftTable.tsx); none -> LIFTS_EMPTY. Then a divider and two always-shown totals: lift length and the design capacity
+*     of all complete lifts.
+*   - React key: liftId (entity/top) with "#n" for a repeated id: two unfinished lines from one station are two census rows
+*     with the same (entity, top).
+*   - Click a row: focused$ + focusLift(entity, top) (C# flies to the gap while a section is missing).
+*     Pen: rename(row.entity, text) - C# renames the base station, else the top station, and refuses (with a log line) a row
+*     with no station; one row renames at a time.
+*   - Panel file (gate R11): subscribes resorts$, selectedResort$, lifts$; local focused$.
+*   - While the rows span two or more lift types (hubRules.liftTypesOf) each row shows its type word (LiftLine2 `typeWords`);
+*     the totals tooltip is LIFTS_TOTAL_CAPACITY_TIP because it sums several types.
+*   - Every lift is in one list with no pager; this view and the Runs view may scroll (harness/layout-check.js checks every
+*     row is drawn).
+*/
 import { useCallback, useMemo, useState } from "react";
 import type { RefObject } from "react";
 import { useValue } from "cs2/api";
@@ -46,7 +39,7 @@ export function LiftsView({ listRef }: { listRef: RefObject<HTMLDivElement> }): 
   const [renaming, setRenaming] = useState<string | null>(null);
 
   const words = useMemo(() => LIFT_STATUS_TEXT.map((e) => t(e)), [t]);
-  // Contract 6: the type words' StableWidth samples (every known type, so a row's cell never changes width).
+  // StableWidth samples for the type words: every known type, so a row's cell never changes width
   const allTypeWords = useMemo(() => Object.keys(LIFT_TYPE).map((k) => t(LIFT_TYPE[k])), [t]);
   const onPick = useCallback((row: LiftRow) => {
     focused$.update({ kind: "lift", entity: row.entity, top: row.top });
@@ -64,7 +57,7 @@ export function LiftsView({ listRef }: { listRef: RefObject<HTMLDivElement> }): 
 
   const row = currentResort(resortEntries(resorts), selected).row;
   const lifts = liftsOf(liftRows, selected);
-  // E1 fixer (F9): lone stations pair across rows (the census never puts both on one row).
+  // Lone stations pair across rows (the census never puts both on one row)
   const lone = loneStations(lifts);
   const typeWords = liftTypesOf(lifts).length >= 2 ? allTypeWords : null;
   const focusedId = focused.kind === "lift" ? `${entityId(focused.entity)}/${entityId(focused.top)}` : "";

@@ -1,6 +1,5 @@
-// LoopCacheTests — Catalog Phase C (docs/research/art/assets-2026-10/code-round-3/round-3-contract.md §8.1, loopcache
-// group): the headless host for LiftLoopCache's topology (extensibility.md F8, as corrected by extensibility-check.md F8:
-// the pure LiftLoopTopology over plain stand-ins; the Game-side geometry is not linkable here). Where-tags `loopcache/…`.
+// LoopCacheTests — the headless host for LiftLoopCache's topology (the pure LiftLoopTopology over plain stand-ins; the Game-side
+// geometry is not linkable here). Where-tags `loopcache/…`.
 //   LC-1  two-terminal FG loop (Program.StraightLift's geometry: base (0,0,0) yaw 180, top (0,100,600) yaw 0, gauge ±1.8,
 //         5 sections, node lanes at the 4 towers): 2 chains of 9 links, 1 pair Ok, base 0 / top 1, A = the +x side (right
 //         looking uphill), decided, A base→top / B top→base, gaps 3.6, type 0, no notes; the found order does not matter.
@@ -28,9 +27,9 @@
 //         and LiftLoopTopology in Loop mode: identical chains (links, terminals, stations), diagnostics (floats bit for
 //         bit), notes in order, unclosed count, pairs (order, key, status, base, top, decided / swapped, A / B, gaps bit for
 //         bit, type) and the station map; plus Shuttle-mode invariants on the same graphs.
-// LIMIT (round-3-contract-skeptic MUST 2): LC-REF compares the topology with a transcription over the SAME stand-ins; it
-// cannot see LiftLoopCache's Game-side adapter (PathNode interning, the lane fill, the geometry and its notes). Those are
-// checked by the integrator's body compare and by the FG loop-notes comparison on one save across the two builds.
+// LIMIT: LC-REF compares the topology with a transcription over the SAME stand-ins; it cannot see LiftLoopCache's Game-side
+// adapter (PathNode interning, the lane fill, the geometry and its notes). Those are checked by a body compare and by the FG
+// loop-notes comparison on one save across the two builds.
 
 using System;
 using System.Collections.Generic;
@@ -261,10 +260,10 @@ namespace LiftBatch
 
         /// <summary>The tram (LC-2): base 0 (Role Base) yaw 180 with its LINE AXIS on world x 0, top 1 (Role Top) at
         /// (0, 400, 1000) yaw 0, track ropes ±halfGauge about each station's axis at y 16, stub tips local z −12, docks
-        /// from the SkiCatalog tram rows, `spans` spans, lift type 3. Nitpick B2 (2026-10-13): the base's 6 x 3 lot put its
-        /// axis at prefab x StubTipLocalX −4.00 (docks (−9.50 / 1.50, 16, −5.50); since T14 x-sign N, 2026-10-16: +4.00 and (9.50 / −1.50)), so the base origin stands at world
+        /// from the SkiCatalog tram rows, `spans` spans, lift type 3. The base's lot puts its axis at prefab x StubTipLocalX
+        /// (+4.00; docks (9.50 / −1.50, 16, −5.50)), so the base origin stands at world
         /// x = StubTipLocalX (yaw 180 maps local x a to world origin.x − a): every world rope end, dock and run is the
-        /// one the axis-0 rows gave (base docks world (±5.5, 16, 5.5)).</summary>
+        /// one an axis-0 layout gives (base docks world (±5.5, 16, 5.5)).</summary>
         private static Graph Tram(float halfGauge = 5.5f, int spans = 3, float baseY = 0f, float topY = 400f, bool roles = true)
         {
             var g = new Graph();
@@ -373,7 +372,7 @@ namespace LiftBatch
             Eq(1, SideOf(g, p.A), W, "chain A world side (+x, right looking uphill)");
             Eq(-1, SideOf(g, p.B), W, "chain B world side");
             Eq(true, p.UpLaneDecided && p.UpLaneSwapped, W, "up lane decided and swapped (the −x rope is found first)");
-            // T14 x-sign N (2026-10-16): dock A is the +X bay now (local 9.5), B the −X bay (−1.5): chain A (world +x) takes dock 1
+            // Dock A is the +X bay (local 9.5), B the −X bay (−1.5): chain A (world +x) takes dock 1
             Eq(1, (int)p.ABaseDock, W, "ABaseDock (base local −X = world +x under yaw 180 = dock B, index 1)");
             Eq(0, (int)p.BBaseDock, W, "BBaseDock");
             Eq(1, (int)p.ATopDock, W, "ATopDock (top yaw 0: world +x = local +X — the dock index is per station)");
@@ -386,8 +385,8 @@ namespace LiftBatch
             Near(11.0, p.BaseGapM, 1e-4, W, "BaseGapM");
             Near(11.0, p.TopGapM, 1e-4, W, "TopGapM");
             Eq(3, p.TypeIndex, W, "TypeIndex (tram)");
-            // The docks themselves: world (−5.5, 16, 5.5) / (5.5, 16, 5.5) at the base (T14 x-sign N, 2026-10-16: A is the +X
-            // bay, local 9.5, which yaw 180 about x 4 puts at world −5.5; was (5.5, …) / (−5.5, …)), (−5.5, 416, 994.5) / (5.5, …) at the top.
+            // The docks themselves: world (−5.5, 16, 5.5) / (5.5, 16, 5.5) at the base (A is the +X bay, local 9.5, which yaw 180 about x 4
+            // puts at world −5.5), (−5.5, 416, 994.5) / (5.5, …) at the top.
             Check(math.distance(g.Stations[0].DockA, new float3(-5.5f, 16f, 5.5f)) < 1e-4f, W, "base DockA world " + g.Stations[0].DockA);
             Check(math.distance(g.Stations[1].DockA, new float3(-5.5f, 416f, 994.5f)) < 1e-4f, W, "top DockA world " + g.Stations[1].DockA);
 
@@ -563,9 +562,9 @@ namespace LiftBatch
             }
             Check(lt.Pairs.Count == 1 && lt.Pairs[0].Status == LiftLoopTopology.PairStatus.Ok, W, "(a)/(b) pair not Ok");
 
-            // (c) 20.6 m: beyond StationTerminalRadius (20, inclusive) → unclassified, the chain is unclosed. (Not the
-            //     contract's 20.5: "F0" of an exact midpoint is runtime-dependent — net8 prints "20", the original's net48
-            //     Mono may print "21"; the classification is not, the text of a log line is.)
+            // (c) 20.6 m: beyond StationTerminalRadius (20, inclusive) → unclassified, the chain is unclosed. (Not 20.5: "F0" of an
+            // exact midpoint is runtime-dependent — net8 prints "20", net48 Mono may print "21"; the classification is not, the text of a
+            // log line is.)
             var h = new Graph();
             int hb = h.Station(new float3(0f, 0f, 0f), 180f);
             int ht = h.Station(new float3(0f, 100f, 600f), 0f);
@@ -669,7 +668,7 @@ namespace LiftBatch
             }
 
             Graph far = Tram();
-            float bx = SkiCatalog.StationOf(3, StationRole.Base).StubTipLocalX;   // nitpick B2: the base's line axis (+4.00 since T14 x-sign N)
+            float bx = SkiCatalog.StationOf(3, StationRole.Base).StubTipLocalX; // the base's line axis (+4.00)
             far.Docks(0, new float3(bx - 5.5f, 16f, 29f), new float3(bx + 5.5f, 16f, -5.5f));   // DockA 41 m from rope A's end
             LiftLoopTopology f = far.Build(LiftLoopTopology.Mode.Shuttle);
             if (Check(f.Pairs.Count == 1 && f.Pairs[0].Status == LiftLoopTopology.PairStatus.Ok, W, "(b) pair not Ok"))
@@ -790,7 +789,7 @@ namespace LiftBatch
                 if (!Check(sdiff == null, W, "seed " + seed + " (Shuttle mode): " + sdiff))
                     differ++;
 
-                // T02: the same graph with ShuttleDockReach on = the flag-off chain pass, except terminals the dock reach newly owns.
+                // The same graph with ShuttleDockReach on = the flag-off chain pass, except terminals the dock reach newly owns.
                 LiftLoopTopology sr = g.Build(LiftLoopTopology.Mode.Shuttle, out Dictionary<int, int> reachMap, dockReach: true);
                 string rdiff = ReachInvariants(g, s, sr, shuttleMap, reachMap, ref reclassified);
                 if (!Check(rdiff == null, W, "seed " + seed + " (Shuttle mode, dock reach): " + rdiff))
@@ -994,7 +993,7 @@ namespace LiftBatch
             return null;
         }
 
-        /// <summary>T02: Shuttle with ShuttleDockReach (on) against the same build without it (off): identical lanes, owners and
+        /// <summary>Shuttle with ShuttleDockReach (on) against the same build without it (off): identical lanes, owners and
         /// positions; a terminal either keeps its classification bit for bit, or off had none / a position station and on has a
         /// "dock" station within MaxDockRunM of one of its docks (an owner / child terminal never moves). With no terminal moved
         /// the pairs, notes and counts are identical; with some moved, the shuttle's own invariants still hold on the new pairs.</summary>

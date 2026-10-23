@@ -1,100 +1,66 @@
-// SkiGladeTagSystem — puts the SkiRunTreeMember tag on the trees the glade tool plants, on
-// the Apply frame, BEFORE vanilla turns the Temp trees into permanent ones
-// (docs/research/glade-tool-spec.md §6; DECISIONS 109/110).
+// Puts the SkiRunTreeMember tag on the trees the glade tool plants, on the Apply frame, before vanilla turns the Temp trees into
+// permanent ones.
 //
-// MECHANISM (1.6.0f1 decompile; 1.6.2f1 line in brackets where it moved):
-//   * Frame order: ToolSystem runs in MainLoop (Game.Common/SystemOrder.cs:58) and does
-//     PreTool -> ToolUpdate -> PostTool (Game.Tools/ToolSystem.cs:251-258, :327). Inside
-//     ToolUpdate, after the active tool's OnUpdate, ToolOutputSystem runs the ApplyTool
-//     phase ONLY when ToolSystem.applyMode == Apply (Game.Tools/ToolOutputSystem.cs:20-31;
-//     registered UpdateAfter in ToolUpdate, SystemOrder.cs:694 [695]), and
-//     ToolSystem.applyMode is the LAST-UPDATED tool's applyMode (ToolSystem.cs:147-157).
-//     So this system ticks on exactly the frame SkiGladeToolSystem set applyMode = Apply,
-//     and on Apply frames of every OTHER tool too — hence the three-way guard below.
-//   * Registration (integrator, Mod.cs): UpdateBefore<SkiGladeTagSystem,
-//     Game.Tools.ApplyObjectsSystem>(SystemUpdatePhase.ApplyTool) — ApplyObjectsSystem is
-//     at ApplyTool (SystemOrder.cs:714 [715]). Our EntityManager change is immediate (main
-//     thread) and lands before ApplyObjectsSystem schedules its job over Temp+Object
-//     (ApplyObjectsSystem.cs:922) — its command buffer is the ToolOutputBarrier (:1001),
-//     played back after ToolOutputSystem (SystemOrder.cs:695 [696]).
-//   * Why the tag survives Apply: for a Temp with m_Original == Null and no Cancel/Delete
-//     flag, ApplyObjectsSystem takes the create path (:414-432) and Create (:670-687) KEEPS
-//     THE SAME ENTITY — it removes Temp/Animation/BackSide (:672, set :925), adds
-//     Applied/Created/Updated (:686, set :924) and Recent when m_Cost > 0 (:677-685).
-//     Any component we add to the Temp tree is therefore on the permanent tree.
-//     (ApplyObjectsSystem.cs: dispatch :337, Create :670 and the call :432 are unchanged
-//     in 1.6.2f1 — checked.)
-//   * Which Temps — Round G3 (run-binding-glade-spec.md §8.1 defect; the full diagnosis is in
-//     the SkiGladeToolSystem header): EXACTLY the Temps ApplyObjectsSystem will CREATE, decided
-//     in its own order (HandleTempEntitiesJob, ApplyObjectsSystem.cs:333-438): TempFlags.Cancel
-//     first → Cancel() adds Deleted, nothing is created (:337-340, :474-482); then Delete →
-//     the original is deleted (:342-352, :484-504); then an original that HAS PrefabRef → the
-//     Update path changes the original and deletes the Temp (:354-413); everything else →
-//     Create keeps the Temp entity (:414-432, :670-687). Query All{Temp, Game.Objects.Tree,
-//     PrefabRef} (Tree from the TreeObject archetype, Game.Prefabs/TreeObject.cs:27) WITHOUT a
-//     Deleted filter, because ApplyObjectsSystem's own query (Temp + Object, :922) has none; a
-//     Temp that already carries Deleted is counted ("already deleted") but not tagged — CleanUp
-//     destroys it at frame end (Game.Common/CleanUpSystem.cs:48-52) and SearchSystem never adds a
-//     Deleted chunk (SearchSystem.cs:90-95). G2 tested only "m_Original == Null and no
-//     Cancel/Delete"; the Update-path test (original WITH PrefabRef) makes the create set exact
-//     for a stale original too (none of our definitions produces one). While our tool is the
-//     active tool it is the only producer of object definitions, so every create-path Temp tree
-//     is one of our planted trees. The counts of every class are published (LastCreatePath,
-//     LastTagged, LastCancelled, LastDeleteTemps, LastUpdatePath, LastAlreadyDeleted with
-//     LastApplyRun / LastApplyFrame) and the tool's APPLY CHECK compares them with the census
-//     taken on the next frame.
-//   * Guard: our tool is ToolSystem.activeTool (ToolSystem.cs:84-98), both ToolSystem and
-//     our tool report ApplyMode.Apply, and tool.ApplyingRun != Entity.Null (spec §2: non-
-//     Null only on the frame the tool applies). The activeTool/applyMode checks stop a
-//     stale ApplyingRun (tool switched away right after an Apply) from tagging a vanilla
-//     tool's trees.
-//   * Decoration forced ON (spec §4.4: planted trees never age and count no wood).
-//     ObjectDefinition.m_IsDecoration = true only matters on the NEW-entity path: there
-//     GenerateObjectsSystem disables Decoration iff !m_IsDecoration
-//     (Game.Tools/GenerateObjectsSystem.cs:1311-1317 [1.6.2f1 :1314-1316]). The REUSE path
-//     (oldEntity != Null, :1112-1219, same line in 1.6.2f1) re-sets Transform/Temp/Elevation/
-//     Tree state but never touches the Decoration bit, and old Temps are matched by
-//     prefab/original/owner only (:56-73, :89-140) — so a vanilla object-tool ghost of the
-//     same species (decorationMode defaults false, ObjectToolSystem.cs:2651) can be reused
-//     for one of our trees with Decoration DISABLED. We therefore set the bit on every
-//     planted Temp here; ApplyObjectsSystem.Create keeps the entity (:670-687), so the bit
-//     carries into the permanent tree. Decoration is IEnableableComponent
-//     (Game.Objects/Decoration.cs:8) in the TreeObject archetype (Game.Prefabs/TreeObject.cs:29);
-//     TreeGrowthSystem only ages trees WithDisabled<Decoration> (TreeGrowthSystem.cs:268-273
-//     [1.6.2f1 :271]). Also done in the dead-run branch (untagged trees must not grow either).
-//     KNOWN LIMIT (not fixable here): the reverse case — the player switches from a pending
-//     glade preview straight to the vanilla object tool with the same species and vanilla
-//     reuses our Decoration-enabled Temp — leaves that one vanilla tree non-growing
-//     (DECISIONS 112).
+// Mechanism (1.6.0f1 decompile; 1.6.2f1 line in brackets where it moved):
+//   * Frame order: ToolSystem runs in MainLoop (Game.Common/SystemOrder.cs:58) and does PreTool -> ToolUpdate -> PostTool
+//     (Game.Tools/ToolSystem.cs:251-258, :327). Inside ToolUpdate, after the active tool's OnUpdate, ToolOutputSystem runs the
+//     ApplyTool phase only when ToolSystem.applyMode == Apply (Game.Tools/ToolOutputSystem.cs:20-31; registered UpdateAfter in
+//     ToolUpdate, SystemOrder.cs:694 [695]), and ToolSystem.applyMode is the last-updated tool's applyMode (ToolSystem.cs:147-157).
+//     So this system ticks on exactly the frame SkiGladeToolSystem set applyMode = Apply, and on Apply frames of every other tool
+//     too: hence the three-way guard below.
+//   * Registration (Mod.cs): UpdateBefore<SkiGladeTagSystem, Game.Tools.ApplyObjectsSystem>(SystemUpdatePhase.ApplyTool);
+//     ApplyObjectsSystem is at ApplyTool (SystemOrder.cs:714 [715]). Our EntityManager change is immediate (main thread) and lands
+//     before ApplyObjectsSystem schedules its job over Temp+Object (ApplyObjectsSystem.cs:922); its command buffer is the
+//     ToolOutputBarrier (:1001), played back after ToolOutputSystem (SystemOrder.cs:695 [696]).
+//   * Why the tag survives Apply: for a Temp with m_Original == Null and no Cancel/Delete flag, ApplyObjectsSystem takes the create
+//     path (:414-432) and Create (:670-687) keeps the same entity: it removes Temp/Animation/BackSide (:672, set :925), adds
+//     Applied/Created/Updated (:686, set :924) and Recent when m_Cost > 0 (:677-685). Any component we add to the Temp tree is
+//     therefore on the permanent tree. (ApplyObjectsSystem.cs: dispatch :337, Create :670 and the call :432 are unchanged in 1.6.2f1.)
+//   * Which Temps: exactly the Temps ApplyObjectsSystem will CREATE, decided in its own order (HandleTempEntitiesJob,
+//     ApplyObjectsSystem.cs:333-438): TempFlags.Cancel first → Cancel() adds Deleted, nothing is created (:337-340, :474-482); then
+//     Delete → the original is deleted (:342-352, :484-504); then an original that HAS PrefabRef → the Update path changes the
+//     original and deletes the Temp (:354-413); everything else → Create keeps the Temp entity (:414-432, :670-687). Query
+//     All{Temp, Game.Objects.Tree, PrefabRef} (Tree from the TreeObject archetype, Game.Prefabs/TreeObject.cs:27) without a Deleted
+//     filter, because ApplyObjectsSystem's own query (Temp + Object, :922) has none; a Temp that already carries Deleted is counted
+//     ("already deleted") but not tagged: CleanUp destroys it at frame end (Game.Common/CleanUpSystem.cs:48-52) and SearchSystem
+//     never adds a Deleted chunk (SearchSystem.cs:90-95). While our tool is the active tool it is the only producer of object
+//     definitions, so every create-path Temp tree is one of our planted trees. The counts of every class are published
+//     (LastCreatePath, LastTagged, LastCancelled, LastDeleteTemps, LastUpdatePath, LastAlreadyDeleted with LastApplyRun /
+//     LastApplyFrame) and the tool's APPLY CHECK compares them with the census taken on the next frame.
+//   * Guard: our tool is ToolSystem.activeTool (ToolSystem.cs:84-98), both ToolSystem and our tool report ApplyMode.Apply, and
+//     tool.ApplyingRun != Entity.Null (non-Null only on the frame the tool applies). The activeTool/applyMode checks stop a stale
+//     ApplyingRun (tool switched away right after an Apply) from tagging a vanilla tool's trees.
+//   * Decoration forced ON (planted trees never age and count no wood). ObjectDefinition.m_IsDecoration = true only matters on the
+//     NEW-entity path: there GenerateObjectsSystem disables Decoration iff !m_IsDecoration (Game.Tools/GenerateObjectsSystem.cs:
+//     1311-1317 [1.6.2f1 :1314-1316]). The REUSE path (oldEntity != Null, :1112-1219, same line in 1.6.2f1) re-sets
+//     Transform/Temp/Elevation/Tree state but never touches the Decoration bit, and old Temps are matched by prefab/original/owner
+//     only (:56-73, :89-140), so a vanilla object-tool ghost of the same species (decorationMode defaults false,
+//     ObjectToolSystem.cs:2651) can be reused for one of our trees with Decoration DISABLED. We therefore set the bit on every
+//     planted Temp here; ApplyObjectsSystem.Create keeps the entity (:670-687), so the bit carries into the permanent tree.
+//     Decoration is IEnableableComponent (Game.Objects/Decoration.cs:8) in the TreeObject archetype (Game.Prefabs/TreeObject.cs:29);
+//     TreeGrowthSystem only ages trees WithDisabled<Decoration> (TreeGrowthSystem.cs:268-273 [1.6.2f1 :271]). Also done in the
+//     dead-run branch (untagged trees must not grow either).
+//     Known limit (not fixable here): the reverse case, where the player switches from a pending glade preview straight to the
+//     vanilla object tool with the same species and vanilla reuses our Decoration-enabled Temp, leaves that one vanilla tree
+//     non-growing.
 //
-// WHAT IS WRITTEN — layout v2 (Round G2, docs/research/run-binding-glade-spec.md §4.5; Round G3
-// §8.2): every planted tree gets new SkiRunTreeMember(run, tool.ApplyingLayer,
-// tool.ApplyingVariant, SkiGladeCompose.PlanGeneration). Every plan is SINGLE-LAYER (run
-// interior → layer 0, tree line → layer 1), so layer and variant are per-plan values read once
-// per apply. Round G3: the variant is always the tool's NewPlantingVariant (0) — no adoption, no
-// roll (spec §8.2); members of another variant / generation read as "other" and the next apply
-// of the layer removes them. Guards: a layer other than LayerGlade/LayerBelt tags NOTHING — an
-// un-removable member with a bogus layer would be worse than a plain tree — WARN once per load,
-// Decoration still forced on (and the apply check then reports created ≠ tagged). A variant of
-// VariantUnknown is written as given and WARNed once per load. The layer / VariantUnknown
-// constants of the tag and of the pure SkiGladeCompose must agree: checked at COMPILE time
-// (LayerContract below).
+// What is written: every planted tree gets new SkiRunTreeMember(run, tool.ApplyingLayer, tool.ApplyingVariant,
+// SkiGladeCompose.PlanGeneration). Every plan is single-layer (run interior → layer 0, tree line → layer 1), so layer and variant
+// are per-plan values read once per apply. The variant is always the tool's NewPlantingVariant (0): no adoption, no roll; members
+// of another variant / generation read as "other" and the next apply of the layer removes them. Guards: a layer other than
+// LayerGlade/LayerBelt tags nothing (an un-removable member with a bogus layer would be worse than a plain tree), WARN once per
+// load, Decoration still forced on (and the apply check then reports created ≠ tagged). A variant of VariantUnknown is written as
+// given and WARNed once per load. The layer / VariantUnknown constants of the tag and of the pure SkiGladeCompose must agree:
+// checked at compile time (LayerContract below).
 //
-// OUTPUT: one census line per Apply — "Glade: tagged N trees for run X — Interior L4 (Open
-// glade), glade layer, variant 0, gen …; ApplyObjectsSystem create path N, canceled C (not
-// created), delete D, update U, already deleted K" — the apply census source for planted trees
-// (spec §6, §8.4 "tag lines name the level"); also kept in LastCensus for the dev tab. A create
-// path count that differs from the tagged count is a WARN on the spot.
+// Output: one census line per Apply, "Glade: tagged N trees for run X — Interior L4 (Open glade), glade layer, variant 0, gen …;
+// ApplyObjectsSystem create path N, canceled C (not created), delete D, update U, already deleted K", the apply census source for
+// planted trees; also kept in LastCensus for the dev tab. A create path count that differs from the tagged count is a WARN on the spot.
 //
-// SCOPE + DEFENSIVE CONTRACT (house pattern, SkiRunOwnershipSystem precedent): Game mode
-// only; ARMED line per load (lists the layout version, PlanGeneration and the layer/variant
-// constants); m_Armed/m_Disabled/m_ErrorLogged and the warn-once flags reset in
-// OnGameLoadingComplete; one-shot "!!!" catch that disables tagging until the next load
-// (the tool keeps planting; those trees are simply untagged, i.e. plain trees). No managed
-// allocation outside Apply frames (OnUpdate returns on the guards first).
-//
-// Created 2026-09-30 (G1); v2 tags 2026-10-01 (Round G2, implementer I-2); Round G3 2026-10-01
-// (implementer G3-B): exact ApplyObjectsSystem decision order, published counts, level in the line.
+// Scope + defensive contract (SkiRunOwnershipSystem pattern): Game mode only; ARMED line per load (lists the layout version,
+// PlanGeneration and the layer/variant constants); m_Armed/m_Disabled/m_ErrorLogged and the warn-once flags reset in
+// OnGameLoadingComplete; one-shot "!!!" catch that disables tagging until the next load (the tool keeps planting; those trees are
+// simply untagged, i.e. plain trees). No managed allocation outside Apply frames (OnUpdate returns on the guards first).
 
 using System;
 using Colossal.Serialization.Entities;
@@ -121,7 +87,6 @@ namespace SkiResortMod.Systems
 
         private EntityQuery m_TempTreeQuery;
 
-        // Per-load state — reset and re-armed at OnGameLoadingComplete.
         private bool m_Armed;
         private bool m_Disabled;
         private bool m_ErrorLogged;
@@ -129,14 +94,12 @@ namespace SkiResortMod.Systems
         private bool m_BadLayerWarned;
         private bool m_UnknownVariantWarned;
 
-        /// <summary>Last apply census line (plain field; dev-tab safe at 10 Hz).</summary>
         public string LastCensus = "no apply yet";
 
-        /// <summary>Trees tagged by the last apply (plain field).</summary>
         public int LastTagged;
 
-        // Round G3 (header "Which Temps"): the last apply's ApplyObjectsSystem classes, published
-        // for the tool's apply check. Valid when LastApplyRun / LastApplyFrame match.
+        // The last apply's ApplyObjectsSystem classes (header "Which Temps"), published for the tool's apply check. Valid when
+        // LastApplyRun / LastApplyFrame match.
         public Entity LastApplyRun;
         public int LastApplyFrame = -1;            // UnityEngine.Time.frameCount of that Apply frame
         public int LastCreatePath, LastCancelled, LastDeleteTemps, LastUpdatePath, LastAlreadyDeleted;
@@ -225,8 +188,7 @@ namespace SkiResortMod.Systems
                 if (run == Entity.Null)
                     return;
 
-                // Round G3: one classification pass in ApplyObjectsSystem's order (header "Which
-                // Temps"), published whatever happens next.
+                // One classification pass in ApplyObjectsSystem's order (header "Which Temps"), published whatever happens next.
                 var create = new NativeList<Entity>(64, Allocator.Temp);
                 try
                 {
@@ -260,13 +222,13 @@ namespace SkiResortMod.Systems
                         return;
                     }
 
-                    // Per-plan values (spec §2: valid while ApplyingRun != Null).
+                    // Per-plan values (valid while ApplyingRun != Null).
                     byte layer = m_Tool.ApplyingLayer;
                     byte variant = m_Tool.ApplyingVariant;
                     if (layer != SkiRunTreeMember.LayerGlade && layer != SkiRunTreeMember.LayerBelt)
                     {
-                        // Every Round G3 plan has a layer; planted Temps under any other value are
-                        // unexpected. Never persist a bogus layer (header): plain trees instead.
+                        // Every plan has a layer; planted Temps under any other value are unexpected. Never persist a bogus layer (header): plain trees
+                        // instead.
                         ForceDecoration(create);
                         if (create.Length == 0)
                         {
@@ -317,13 +279,10 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>Round G3 (header "Which Temps"): one pass over every Temp tree in
-        /// ApplyObjectsSystem.HandleTempEntitiesJob's order (ApplyObjectsSystem.cs:337-432):
-        /// Cancel → not created; Delete → original deleted; original WITH PrefabRef → Update path
-        /// (:354); else → Create (:432). Collects the create-path entities (all chunks, Deleted
-        /// ones counted apart — ApplyObjectsSystem's query has no Deleted filter, :922, but CleanUp
-        /// destroys them). Reads only; the caller mutates afterwards (structural changes
-        /// invalidate chunks).</summary>
+        /// <summary>One pass over every Temp tree in ApplyObjectsSystem.HandleTempEntitiesJob's order (ApplyObjectsSystem.cs:337-432):
+        /// Cancel → not created; Delete → original deleted; original WITH PrefabRef → Update path (:354); else → Create (:432). Collects the
+        /// create-path entities (all chunks, Deleted ones counted apart: ApplyObjectsSystem's query has no Deleted filter, :922, but CleanUp
+        /// destroys them). Reads only; the caller mutates afterwards (structural changes invalidate chunks).</summary>
         private Classes Classify(NativeList<Entity> create)
         {
             Classes k = default;
@@ -407,17 +366,15 @@ namespace SkiResortMod.Systems
                 for (int i = 0; i < toSet.Length; i++)
                     EntityManager.SetComponentData(toSet[i], tag);
 
-                // Spec §4.4 state on the permanent tree whatever Temp entity was reused
-                // (header: GenerateObjectsSystem.cs:1311-1317 applies m_IsDecoration only on
-                // the new-entity path; the reuse path :1112-1219 never touches the bit).
+                // Decoration state on the permanent tree whatever Temp entity was reused (header: GenerateObjectsSystem.cs:1311-1317 applies
+                // m_IsDecoration only on the new-entity path; the reuse path :1112-1219 never touches the bit).
                 int decorationFixed = 0;
                 for (int i = 0; i < toAdd.Length; i++)
                     decorationFixed += EnsureDecoration(toAdd[i]);
                 for (int i = 0; i < toSet.Length; i++)
                     decorationFixed += EnsureDecoration(toSet[i]);
 
-                // Count what actually carries the tag now (not what was asked): a check, not
-                // an echo — the line below WARNs when it differs from the create path.
+                // Count what actually carries the tag now (not what was asked): the line below WARNs when it differs from the create path.
                 int tagged = 0;
                 for (int i = 0; i < create.Length; i++)
                 {
