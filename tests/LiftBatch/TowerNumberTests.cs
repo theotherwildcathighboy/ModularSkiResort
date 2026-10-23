@@ -278,7 +278,7 @@ namespace LiftBatch
         private static void PlatesMatchMeasurement()
         {
             const string W = "TN-9 plates = measurement";
-            string path = CatalogTests.RepoFile("docs/research/lifts/tower-numbers-plates-2026-10-20.json");
+            string path = CatalogTests.RepoFile("tests/LiftBatch/data/tower-number-plates.json");
             if (!Check(path != null, W, "tower-numbers-plates-2026-10-20.json not found from " + Directory.GetCurrentDirectory()))
                 return;
             using JsonDocument doc = JsonDocument.Parse(File.ReadAllText(path));

@@ -2714,7 +2714,7 @@ namespace SkiResortMod.Systems
             else
                 Mod.Log.Warn($"{head}: {LastApplyCheck} (a tree at a canceled planted spot means a canceled Temp " +
                              "was created; near a felled tree, a tree the census could not see; created ≠ tagged, a " +
-                             "create-path Temp the tag system missed — see SkiGladeToolSystem header §8.1)");
+                             "create-path Temp the tag system missed — see EngineNotes/SkiGladeToolSystem.md)");
         }
 
         private static bool NearAny(List<float3> spots, float3 p, float radius)

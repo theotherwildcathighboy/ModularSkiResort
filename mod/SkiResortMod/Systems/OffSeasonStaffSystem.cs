@@ -65,7 +65,7 @@ namespace SkiResortMod.Systems
                 All = new[] { ComponentType.ReadOnly<BuildingEfficiencyParameterData>() },
                 Options = EntityQueryOptions.IncludeSystems,
             });
-            Mod.Log.Info($"{nameof(OffSeasonStaffSystem)} created (lodges and the ski school at half staff off-season, T137 / DECISIONS 358)");
+            Mod.Log.Info($"{nameof(OffSeasonStaffSystem)} created (lodges and the ski school at half staff off-season)");
         }
 
         protected override void OnGameLoadingComplete(Purpose purpose, GameMode mode)
@@ -211,7 +211,7 @@ namespace SkiResortMod.Systems
         /// <summary>The setting, each area's state and every seasonal building's workplaces vs its prefab.</summary>
         internal void AppendDump(StringBuilder sb)
         {
-            sb.Append("  off-season staff (T137): armed ").Append(m_Armed).Append(", disabled ").Append(m_Disabled)
+            sb.Append("  off-season staff: armed ").Append(m_Armed).Append(", disabled ").Append(m_Disabled)
               .Append(", setting ").Append(EnabledSetting ? "on" : "off").Append(", polls ").Append(m_Polls)
               .Append(", writes ").Append(m_Writes).Append(';');
             if (m_Areas.Count == 0)
