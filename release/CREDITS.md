@@ -6,7 +6,7 @@
   compatibility. Credit only; not required. The mod detects it by assembly name to show a hub
   notice and changes nothing in it.
 - **Yenyang — Recolor** — the asset color convention (channel masks, light-albedo regions)
-  follows the standard their mod established; line towers are recolorable via its painter (optional).
+  follows the standard their mod established; its painter can paint line towers, which the game's own color tool cannot select (optional).
 - **krzychu124 — Scene Explorer** — indispensable for live ECS debugging during development.
 - **CitiesSkylinesModding community** — agents-plugins toolchain and documentation.
 - Reference photography: Arapahoe Basin's original Pallavicini lift (Yan double) — this

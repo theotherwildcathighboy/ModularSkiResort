@@ -10,6 +10,11 @@ import Icon from '../../../components/Icon.astro';
 A lift is a **base station**, a **top station** and the **lift line** between them. One lift tool draws the line for
 all four types; it plans the towers, and the cable and carriers are generated.
 
+<Aside type="note" title="Lifts Make Runs Work">
+A run reaches full value only while a lift serves it; a run no lift serves counts as backcountry (**40 %** by default).
+Which runs a lift serves, and the distances: [Runs and Snow, Lift Service](/guides/runs-and-snow/#lift-service).
+</Aside>
+
 ## Build Order
 
 <Steps>
@@ -34,12 +39,17 @@ all four types; it plans the towers, and the cable and carriers are generated.
 One input model for every lift type. The prompt at the top of the screen names what the next click does.
 
 - **Start:** click a station, a loose line end or open ground; then click the other end.
-- **Add a tower:** click the line.
-- **Move a tower:** drag it. It stays where you put it, pinned, while the planner refits the rest.
-- **Remove a tower:** drag it off the line and release.
+- **Add a tower:** click the line. A tower you add is pinned.
+- **Move a tower:** drag it. It is pinned where you drop it (snapped to a 5 m step, tram 10 m). Every pinned tower stays exactly where it is; the planner refits only the unpinned towers between them, and still sets every tower's height. A pin closer than 10 m (tram 40 m) to a station or another pin is refused. Pinned towers show a blue inner ring.
+- **Remove a tower:** drag it off the line and release. A pinned tower becomes unpinned; the planner puts a tower back near it only if the line needs one there.
 - **Step back:** right click undoes one action. With nothing left to undo it closes the tool.
 - **Build:** **Enter**. **Esc** closes the tool without building.
-- **Preview:** the cable is colored by how far it clears the ground, so a bad line shows before it is built.
+- **Preview:** the cable is colored by how far its lowest carrier clears the ground beyond the required minimum (**3 m**, tram **5 m**), so a bad line shows before it is built:
+  - **Green:** at least **2 m** to spare.
+  - **Amber:** 0 to 2 m to spare. Clear, but tight.
+  - **Red:** below the minimum. The carriers would be too low; the tower ring is red too (*short*).
+  - **Violet:** the cable is more than **30 m** above the ground (chairlifts and gondolas; the tram has no limit); the tower ring is violet.
+  - **Tooltip:** span lengths and the lowest carrier height; it turns to a warning while any span is red or violet. Add or move a tower to fix it. The tool does not block building a flagged line.
 - **Planner:** fits tower heights to the terrain and uses the fewest towers the lift type allows. Option *Plan lift towers*, default on.
 - **Tower numbers:** every tower shows its number, counted up the line from the base station, 1 to 200, then back to 1. All chairs show the same number.
 - **Already-lined station:** refused. Bulldoze a section first, then click its two loose ends.
@@ -63,24 +73,24 @@ Limits per lift type:
 - **Steepest slope:** fixed-grip **80 %**, detachable **90 %**, gondola **120 %**, aerial tram **250 %**.
 - **Longest tower span:** fixed-grip **90 m**, detachable **245 m**, gondola **245 m**, tram **1,000 m**. The planner adds towers to stay under it.
 - **Towers:** height follows terrain; concrete foundations; grounding matches vanilla power pylons on sensible lines. Heights come in steps: see [Lift Types](/reference/lifts/).
-- **Out-of-envelope lines** (canyon crossings, cliffs): the result can look wrong, as vanilla power lines do in the same places.
-- **Stations:** no terrain flattening. Site on level ground or terraform first.
+- **Canyons and cliffs:** the planner puts towers where the ground rises toward the cable and uses tall towers where they let a span reach farther, so crossings take fewer towers. Carriers stay at least **3 m** above the ground (tram **5 m**); chairlift and gondola cable stays at most **30 m** above it. If no mix of tower heights clears a span, the preview shows red or violet (see Preview above): add or move a tower, or route the line elsewhere.
+- **Stations:** sit on the slope as placed; no terrain flattening. The one exception is the aerial tram's base terminal, which levels a flat pad by design. Adjust the ground with the game's terraforming, or reposition a station with Move It.
 
 ## Power
 
 A lift line is a power-line network, so it behaves like one.
 
-- **Electricity overlay:** lift lines and stub nodes show as high-voltage lines.
-- **Base station = transformer:** wire a low-voltage line into the base station's low-voltage stub. The lift line carries that power up the mountain to the top station, which has no consumer of its own.
+- **Electricity overlay:** the lift line and the stations' line-side stubs are high-voltage class (that is what lets the line snap to the stations), so they draw as high-voltage lines. Only the base station's own stub is low-voltage.
+- **Base station = transformer:** wire a low-voltage line into the base station's low-voltage stub. Only the base station needs power: the top station has no consumer, and a lift counts as powered from its base. The base joins its stub to the lift line like a vanilla transformer, but the line ends at the top station, so a lift carries no city power anywhere and does not add grid capacity.
 - **City high-voltage lines:** do not connect them to a lift tower or lift line. The result is untested and can break the lift.
 
 ## Uninstall
 
-Bulldoze all lifts before removing the mod. Leftover lift pieces turn into missing-prefab placeholders. Behavior after removal is untested.
+Bulldoze all lifts before removing the mod. Leftover lift pieces turn into missing-prefab placeholders.
 
 ## Known Limits
 
-- **Riders:** chairs and cabins move along the cable but carry no passengers. Skiers are counted, not simulated.
+- **Riders:** chairs and cabins move along the cable empty. Skier character models are not shown on screen; the guests are real in the economy.
 - **Wind:** the cable moves in the wind; the chairs do not sway with it (engine limit).
 
 ## Scoring
@@ -92,10 +102,7 @@ Conditions for a lift to add to the ski area score:
 
 Values per type: [Attraction Formula](/reference/attraction/). Speeds, seats and prices: [Lift Types](/reference/lifts/).
 
-**Run service:** a run counts at full value while a running lift reaches its top.
-
-- **Chairlift and gondola:** line within **150 m** of the run, at most **15 m** above the top station.
-- **Tram:** within **300 m** of the top terminal (serves terminals only).
+**Run service:** a run counts at full value while a running lift serves it. Distances and rules: [Runs and Snow, Lift Service](/guides/runs-and-snow/#lift-service).
 
 ## Problem States
 
@@ -111,4 +118,4 @@ Values per type: [Attraction Formula](/reference/attraction/). Speeds, seats and
 ## Recoloring
 
 - **Stations:** the game's color picker (steel and safety padding).
-- **Line towers:** network objects; require the Recolor mod's painter tool.
+- **Line towers:** the game's color tool works by selecting an object, and towers that belong to a lift line cannot be selected. The optional Recolor mod's painter tool can paint them.

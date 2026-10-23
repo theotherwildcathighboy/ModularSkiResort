@@ -64,5 +64,5 @@ Lifts are power-line networks, so they follow power-line rules.
 ## Playing nice
 
 - Move It works on every building in the pack.
-- Recoloring: stations recolor with the game's color picker (steel and safety pads). Line towers need the Recolor mod's painter tool.
+- Recoloring: stations and buildings recolor with the game's own color tool (select the object). Towers on a lift line cannot be selected, so the optional Recolor mod's painter is the way to paint them.
 - Start from a new city. The first public release makes no promise for saves from test builds.

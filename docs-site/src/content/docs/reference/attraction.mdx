@@ -50,12 +50,32 @@ run value = difficulty × size × type × lift × open
 | Factor | Values |
 |---|---|
 | **Difficulty** | Green **6**, blue **12**, black **20**, double black **28**. Flat **0**. Cannot be rated **3**. Pending **0**. |
-| **Size** | `1 + 0.3 × ln(area ÷ 2 ha)`, clamped to **0.25** to **2**. Below 1 ha, scales down proportionally. |
+| **Size** | `1 + 0.3 × ln(area ÷ 2 ha)`, at most **2**. Below 1 ha, scales down in proportion to the area. See [Size Factor](#size-factor). |
 | **Type** | Groomed and snowmaking **1**. Night **1.25**. Natural: green **0.5**, blue **0.75**, black and double black **1**. |
 | **Lift** | **1** if a running lift reaches the top. Otherwise *Backcountry run value* (default **40 %**). Patrolled run: at least **70 %**. |
 | **Open** | Open **1**. Closed **0**. Patchy: partial. |
 
 Snow moves the score: a closed run adds **0**. The receipt shows both the actual and the all-open sum.
+
+### Size Factor
+
+Bigger runs are worth more, with diminishing returns: each doubling of the area adds only about **0.21**. A run of
+2 ha is the reference (**1**); the cap of **2** needs about 56 ha.
+
+| Area | Size factor |
+|---|---|
+| 0.25 ha | 0.20 |
+| 0.5 ha | 0.40 |
+| 1 ha | 0.79 |
+| **2 ha** | **1.00** |
+| 4 ha | 1.21 |
+| 8 ha | 1.42 |
+| 10 ha | 1.48 |
+| 20 ha | 1.69 |
+| 40 ha | 1.90 |
+| 56 ha and up | 2.00 |
+
+Under 1 ha the factor drops in a straight line to zero, so a tiny run is worth almost nothing.
 
 ## Lifts
 

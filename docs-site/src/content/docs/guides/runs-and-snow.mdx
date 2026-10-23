@@ -31,7 +31,7 @@ Rating = slope of the **hardest unavoidable pitch**: the crux of the easiest lin
 - **Cannot be rated:** outline too large, too thin or without terrain. Worth **3**.
 - **New run:** counts **0** until rated.
 - **Reshaped run:** keeps its last rating during re-rating.
-- **Size factor:** **1** at 2 ha, **2** at the top end, minimum **0.25**. See [Attraction Formula](/reference/attraction/#run-value).
+- **Size factor:** bigger runs are worth more, with diminishing returns: **1** at 2 ha, about **1.4** at 8 ha, the cap **2** at about 56 ha. Under 1 ha it falls in proportion to the area. Worked values: [Attraction Formula](/reference/attraction/#size-factor).
 
 ## Run Types
 
@@ -81,13 +81,14 @@ Separate tool: cuts and fills the ground along a path so a cat track never climb
 
 Snow is measured per run from the game's snow simulation.
 
-- **Open:** at least **3 ft (91 cm)** of snow on **60 %** of the run. One bar for every run: natural or made, every rating.
+- **Open:** at least **91 cm** of snow on **60 %** of the run. One bar for every run: natural or made, every rating.
 - **Patchy:** between open and closed. Counts part of its value.
 - **Closed:** snow of that depth on less than **40 %** of the run.
 - **Snow guns:** snowmaking and night runs, where air temperature is at most **3.3 °C** above freezing (option *Snowmaking margin*). Higher margin: longer season, higher snowmaking bill.
-- **Gun depth:** the guns start when the run falls under **3 ft** and stop at about **3 ft** (a few centimeters above), so the run stays open between restarts.
+- **Gun depth:** the guns start when the run falls under **91 cm** and stop at **96 cm**, so the run stays open between restarts.
 - **Gun season:** **October 1 to April 1**; no guns, no bill and no plume outside it. Where the game's own season reads Winter the guns run, and where it reads Summer they do not, whatever the date.
 - **Powder day:** fresh snow in the last 24 hours. More locals go skiing; see [Passes and Lessons](/guides/passes-and-lessons/).
+- **Units:** the docs are metric. The in-game hub shows snow depth in the unit setting you chose in the game's options.
 - **Estimated snow:** after a save load, or for a new sign, snow is estimated from the day's temperature. Marked **≈**.
 - **No open run:** ski area counts as summer sightseeing; lodges and lifts count at a reduced share. After one game hour with no open run, chairlifts and gondolas stop. The aerial tram keeps running as sightseeing.
 
@@ -97,7 +98,12 @@ Option **Snow & season gating** off: every run counts as open all year. Upkeep i
 
 ## Lift Service
 
-- **Lift-served:** a complete, powered lift reaches the run top.
+Runs need lifts: a run reaches full value only while a lift serves it. See [Lifts](/guides/lifts/) for building one.
+
+- **Served:** a complete, powered lift reaches the run top (the highest point of the outline). An unpowered, unfinished or missing-section lift serves nothing.
+  - **Chairlift and gondola:** the lift line passes within **150 m** of the run top, and the run top is at most **15 m** above the top station.
+  - **Aerial tram:** the run top is within **300 m** of the top terminal. The tram serves around its terminals only, not along the line.
+- **Linked runs:** a run whose outline comes within **25 m** of a served run, or overlaps it, in the same ski area is served too. A chain of linked runs is served from one lift.
 - **Backcountry:** no lift serves the run. Counts **40 %** of a served run (option *Backcountry run value*).
 - **Ski patrol:** raises nearby black backcountry runs to at least **70 %**. See [Lodges, Ski School and Patrol](/guides/lodges-school-patrol/).
 

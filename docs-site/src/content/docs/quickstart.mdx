@@ -1,18 +1,22 @@
 ---
 title: Resort Quickstart
-description: The fewest steps to a working resort, then the details for each step. Welcome Sign, lift, run, hub, score.
+description: The gameplay loop (Welcome Sign, lifts, runs, any lodge), then the details for each step.
 ---
 
 import { Steps, Aside } from '@astrojs/starlight/components';
 import Shot from '../../components/Shot.astro';
 
-## Minimum Steps
+## The Loop
+
+**Welcome Sign → lifts → runs → any lodge.** That is literally all you need for a working resort.
 
 1. Place the Welcome Sign by a road.
-2. Build one lift, from base station to top station.
-3. Draw one run under the lift.
-4. Open the hub from the top-left button.
-5. Check the attraction score in the hub.
+2. Build a lift, from base station to top station. Runs only work with a lift serving them.
+3. Draw a run under the lift.
+4. Place any lodge near the sign.
+
+Everything else is for more, and for fun: Ski School, ski patrol, snowmaking, night runs, cat tracks and grading, the
+hub's economy and history views.
 
 ## Step Details
 
@@ -39,17 +43,11 @@ Build on or above both.
 
    <Shot label="The hub's Start a ski area card with the five steps, and the Welcome Sign placed at a road." />
 
-2. **Add a lodge.**
+2. **Build the chairlift.**
 
-   Hub > **Buildings** tab > lodge, placed near the sign.
-
-   - **Default:** A-Frame Day Lodge, the cheapest lodge with real capacity.
-   - **Requirements:** deck side on a road; staff, power, water.
-   - **No lodge:** attraction score **0**.
-
-   Tiers: [Lodges, Ski School and Patrol](/guides/lodges-school-patrol/).
-
-3. **Build the chairlift.**
+   Lifts are required: a run reaches full value only while a lift serves it. Without one, runs count as backcountry
+   (**40 %** by default). Which runs a lift serves, and the distances:
+   [Runs and Snow, Lift Service](/guides/runs-and-snow/#lift-service).
 
    Hub > **Lifts** tab > lift type, then:
 
@@ -62,20 +60,30 @@ Build on or above both.
 
    Details: [Lifts](/guides/lifts/).
 
-4. **Draw a run.**
+3. **Draw a run.**
 
    Hub > **Runs** tab > type (**Groomed** to start). Draw the outline from the lift top downhill, within **5 km** of the sign.
 
    - **Rating:** green, blue, black or double black from the hardest unavoidable pitch. Shown in the tooltip while drawing.
-   - **Full value:** requires a running lift that reaches the run top.
+   - **Full value:** requires a running lift that serves the run.
 
    <Shot label="A run outline being drawn, with the slope heat-map and the rating tooltip." />
 
    Details: [Runs and Snow](/guides/runs-and-snow/).
 
+4. **Add a lodge.**
+
+   Hub > **Buildings** tab > lodge, placed near the sign. Any lodge works.
+
+   - **Default:** A-Frame Day Lodge, the cheapest lodge with real capacity.
+   - **Requirements:** deck side on a road; staff, power, water.
+   - **No lodge:** attraction score **0**.
+
+   Tiers: [Lodges, Ski School and Patrol](/guides/lodges-school-patrol/).
+
 5. **Open for the season.**
 
-   - **Open:** at least **3 ft (91 cm)** of snow covers **60 %** of the run. Hub status line: *Open · 2 of 3 runs open*.
+   - **Open:** at least **91 cm** of snow covers **60 %** of the run. Hub status line: *Open · 2 of 3 runs open*.
    - **Tiles:** Attraction rises first; Guests and Finances fill as ski-day trips arrive.
 
    <Shot label="The hub's status line and tiles in winter: Open, attraction score, guests and finances." />
