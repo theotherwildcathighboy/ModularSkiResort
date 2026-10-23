@@ -17,11 +17,10 @@
 		<!--
 		SAVE IDENTITY (Systems/SkiRunBinding.cs:50-57). A save names each of our persisted components by its AssemblyQualifiedName, which
 		carries "Version=" + this AssemblyVersion (Colossal.Core ComponentSerializer.cs:33-41). Whether Mono resolves a saved
-		name whose version differs is unverified, so the version never changes: AssemblyVersion is PINNED at 1.0.0.0 FOREVER
-		(it was the SDK default 1.0.0.0 before this pin, so no build ever wrote another one). It is also the third tie-break
-		when two copies of the DLL are installed (Colossal.IO.AssetDatabase ExecutableAsset.cs:149, :189). The release number
-		moves in FileVersion (below) and in Properties/PublishConfiguration.xml ModVersion. tests/SaveBatch SL-AV reads the
-		built DLL and fails on any other AssemblyVersion (SaveLayouts.PinnedAssemblyVersion).
+		name whose version differs is unverified, so the version never changes: AssemblyVersion is PINNED at 1.0.0.0 FOREVER.
+		It is also the third tie-break when two copies of the DLL are installed (Colossal.IO.AssetDatabase ExecutableAsset.cs:149, :189).
+		The release number moves in FileVersion (below) and in Properties/PublishConfiguration.xml ModVersion. tests/SaveBatch SL-AV
+		reads the built DLL and fails on any other AssemblyVersion (SaveLayouts.PinnedAssemblyVersion).
 		-->
 		<AssemblyVersion>1.0.0.0</AssemblyVersion>
 		<!-- Moves with each release (free; nothing persisted reads it). -->
@@ -53,10 +52,10 @@
 		<Reference Include="Colossal.Localization">
 			<Private>false</Private>
 		</Reference>
-		<!-- The tooltip widgets (Game.UI.Tooltip StringTooltip / IntTooltip, via
-		     Game.UI.Widgets.Widget) implement interfaces declared in Colossal.UI.Binding; the
-		     compiler needs it resolvable for SkiRunTooltipSystem (run-feedback-spec §5/§6).
-		     Present in %CSII_MANAGEDPATH% as Colossal.UI.Binding.dll. -->
+		<!--
+		The tooltip widgets (Game.UI.Tooltip StringTooltip / IntTooltip, via Game.UI.Widgets.Widget) implement interfaces declared in
+		Colossal.UI.Binding; the compiler needs it resolvable for SkiRunTooltipSystem. Present in %CSII_MANAGEDPATH% as Colossal.UI.Binding.dll.
+		-->
 		<Reference Include="Colossal.UI.Binding">
 			<Private>false</Private>
 		</Reference>
@@ -73,9 +72,10 @@
 		<Reference Include="UnityEngine.CoreModule">
 			<Private>false</Private>
 		</Reference>
-		<!-- UnityEngine.Rendering.DebugUI (the developer-menu widget model the game's own
-		     debug tabs are built from) lives in the render-pipeline core assembly. Used only
-		     by the Ski Resort developer-menu tab (ChairPinSystem.Debug.cs, entry 101). -->
+		<!--
+		UnityEngine.Rendering.DebugUI (the developer-menu widget model the game's own debug tabs are built from) lives in the
+		render-pipeline core assembly. Used only by the Ski Resort developer-menu tab (ChairPinSystem.Debug.cs).
+		-->
 		<Reference Include="Unity.RenderPipelines.Core.Runtime">
 			<Private>false</Private>
 		</Reference>
@@ -103,8 +103,10 @@
 		<Reference Include="Unity.InputSystem">
 			<Private>false</Private>
 		</Reference>
-		<!-- T37 (2026-10-16): SkiRunLabelSystem builds the run-name labels from the game's own TextMeshPro text mesh
-		     (OverlayRenderSystem.GetTextMesh returns a TMPro.TextMeshPro). Reference only; nothing is copied. -->
+		<!--
+		SkiRunLabelSystem builds the run-name labels from the game's own TextMeshPro text mesh (OverlayRenderSystem.GetTextMesh returns a
+		TMPro.TextMeshPro). Reference only; nothing is copied.
+		-->
 		<Reference Include="Unity.TextMeshPro">
 			<Private>false</Private>
 		</Reference>
@@ -159,46 +161,33 @@
 	<!--
 	===============================================================================================
 	Ski Resort UI module (mod/SkiResortUI): build, build stamp, deploy.
-
-	  SkiUiBuild    (before BeforeBuild) when mod/SkiResortUI/node_modules exists: generates ONE new
-	                build stamp and runs `npm run build` there (sync-types -> webpack -> the
-	                tools/check-bundle.js gate) with it in SKI_BUILD_STAMP; webpack compiles it into
-	                the bundle (__BUILD_STAMP__) and writes it to build\.ui-stamp. Incremental: skipped
-	                while no UI input (sources, configs, root LocaleEN.cs, Systems\SkiResortHubUISystem.cs
-	                and tools\contract.lock since contract 2, the game's typings and UI index.js) is newer
-	                than the bundle AND build\.gate-pass exists. A failing UI build
-	                FAILS this build before anything compiles; nothing is deployed and the Mods folder
-	                keeps the previous build (a broken bundle can blank every mod's UI).
-	  GATE MARKER   (amended 2026-10-01, U1 fixer round, finding pipeline-safety-1). Before it, the
-	                gate blocked only the build it failed in: webpack had already written the rejected
-	                bundle and .ui-stamp, newer than every input, so the NEXT build (or a publish,
-	                which rebuilds with NeedBuild=true, Mod.targets:45-46) skipped SkiUiBuild and
-	                shipped the rejected bundle - and the stamp handshake could not see it (same stamp
-	                in DLL and bundle). Now build\.gate-pass records the gate result: webpack deletes it
-	                on every emit, check-bundle deletes it when it starts and writes it (= the stamp)
-	                only on PASS, and SkiUiBuildFailedHint deletes it and .ui-stamp on any failure.
-	                It is an Output of SkiUiBuild (missing = the gate reruns), and SkiBuildStamp and
-	                SkiUiDeploy raise an error unless it exists and equals .ui-stamp. So a rejected
-	                bundle never reaches the DLL or the Mods folder, on the failing build or any later
-	                one, however build\ got there (dotnet build, npm run build/dev, npm run check).
-	  SkiBuildStamp (before CoreCompile; every build, design-time builds included): compiles the stamp
-	                of the GATED bundle in build\ into SkiResortMod.BuildStamp.Value (obj\...\
-	                SkiBuildStamp.g.cs, rewritten only when the value changes, so an unchanged UI
-	                forces no recompile). So the DLL and the bundle deployed beside it always carry
-	                the same stamp; the C# hub compares it with the bundle's uiHello. No UI: "no-ui"
+	
+	  SkiUiBuild    (before BeforeBuild) when mod/SkiResortUI/node_modules exists: generates ONE new build stamp and runs
+	                `npm run build` there (sync-types, webpack, the tools/check-bundle.js gate) with it in SKI_BUILD_STAMP; webpack
+	                compiles it into the bundle (__BUILD_STAMP__) and writes build\.ui-stamp. Incremental: skipped while no UI input
+	                (sources, configs, root LocaleEN.cs, the C# files listed below, tools\contract.lock, the game's typings and UI
+	                index.js) is newer than the bundle AND build\.gate-pass exists. A failing UI build FAILS this build before
+	                anything compiles; nothing is deployed and the Mods folder keeps the previous build (a broken bundle can blank
+	                every mod's UI).
+	  GATE MARKER   build\.gate-pass records the gate result: webpack deletes it on every emit, check-bundle deletes it when it
+	                starts and writes it (= the stamp) only on PASS, and SkiUiBuildFailedHint deletes it and .ui-stamp on any
+	                failure. It is an Output of SkiUiBuild (missing = the gate reruns), and SkiBuildStamp and SkiUiDeploy raise an
+	                error unless it exists and equals .ui-stamp. So a rejected bundle never reaches the DLL or the Mods folder, on
+	                the failing build or any later one, however build\ got there (dotnet build, npm run build/dev, npm run check).
+	  SkiBuildStamp (before CoreCompile; every build, design-time builds included): compiles the stamp of the GATED bundle in
+	                build\ into SkiResortMod.BuildStamp.Value (obj\...\SkiBuildStamp.g.cs, rewritten only when the value changes,
+	                so an unchanged UI forces no recompile). The C# hub compares it with the bundle's uiHello. No UI: "no-ui"
 	                (also in a design-time build that finds an ungated bundle: no error there).
-	  SkiUiDeploy   (after DeployWIP, which deletes the deploy folder first, Mod.targets:106-113):
-	                copies build\ (minus .ui-stamp and .gate-pass) beside the DLL, after re-checking
-	                the marker and that build\ still holds the stamp compiled into the DLL. An error
-	                here leaves the new DLL deployed WITHOUT a bundle (logged in game as "UI module
-	                present: False"), never a mismatched or ungated one. Publishing uploads the deploy
-	                folder (Mod.targets:122, :148), so the bundle ships with no further change.
-	  No node_modules (a fresh clone before `npm ci`) or -p:SkipUi=true: the DLL builds and deploys
-	  exactly as before and ONE line says the UI is absent (a warning when node_modules is missing).
-	Ordering: declared after the RunModPostProcessor override above and hooked only on BeforeBuild,
-	CoreCompile and DeployWIP, so build -> post-process -> DeployWIP -> SkiUiDeploy stays intact.
-	BuildGetFullPaths (Mod.targets, also BeforeTargets="BeforeBuild", declared earlier) sets
-	NeedBuild/DeployDir before SkiUiBuild's condition is evaluated.
+	  SkiUiDeploy   (after DeployWIP, which deletes the deploy folder first, Mod.targets:106-113): copies build\ (minus
+	                .ui-stamp and .gate-pass) beside the DLL, after re-checking the marker and that build\ still holds the stamp
+	                compiled into the DLL. An error here leaves the new DLL deployed WITHOUT a bundle (logged in game as "UI
+	                module present: False"), never a mismatched or ungated one. Publishing uploads the deploy folder
+	                (Mod.targets:122, :148), so the bundle ships with no further change.
+	  No node_modules (a fresh clone before `npm ci`) or -p:SkipUi=true: the DLL builds and deploys exactly as before and ONE
+	  line says the UI is absent (a warning when node_modules is missing).
+	Ordering: declared after the RunModPostProcessor override above and hooked only on BeforeBuild, CoreCompile and DeployWIP, so
+	build, post-process, DeployWIP, SkiUiDeploy stays intact. BuildGetFullPaths (Mod.targets, also BeforeTargets="BeforeBuild",
+	declared earlier) sets NeedBuild/DeployDir before SkiUiBuild's condition is evaluated.
 	===============================================================================================
 	-->
 	<PropertyGroup>
@@ -218,21 +207,23 @@
 		<SkiUiInput Include="$(SkiUiDir)\package.json;$(SkiUiDir)\package-lock.json;$(SkiUiDir)\webpack.config.js;$(SkiUiDir)\tsconfig.json;$(SkiUiDir)\mod.json" />
 		<!-- check-bundle lints the SkiResort.Hub.* strings here and parses the game's runtime exports. -->
 		<SkiUiInput Include="$(MSBuildProjectDirectory)\LocaleEN.cs" />
-		<!-- Contract 2 (rules 1-3): the gate also
-		     matches the hub system's binding / trigger literals and TypeBegin blocks against bindings.ts
-		     and reads tools/contract.lock, so a C#-only change of a name or a field must re-run it. The
-		     *.lock wildcard matches nothing (and adds no input) until the lock file exists. -->
+		<!--
+		Contract rules 1-3: the gate also matches the hub system's binding / trigger literals and TypeBegin blocks against
+		bindings.ts and reads tools/contract.lock, so a C#-only change of a name or a field must re-run it. The *.lock wildcard matches
+		nothing (and adds no input) until the lock file exists.
+		-->
 		<SkiUiInput Include="$(MSBuildProjectDirectory)\Systems\SkiResortHubUISystem.cs" />
-		<!-- Round E1 (econ-round spec ch6 §10.3, gate rule R17): the gate compares these files' enums with
-		     bindings.ts, so a C#-only change of a compared enum must re-run it. Round S1 (ski-days s1-spec §4.2
-		     step 8) appends SkiDayRules.cs: its top-level SkiDayLimit is the SKI_DAY_LIMIT pair. -->
+		<!--
+		Gate rule R17: the gate compares these files' enums with bindings.ts, so a C#-only change of a compared enum must re-run it.
+		SkiDayRules.cs is appended: its top-level SkiDayLimit is the SKI_DAY_LIMIT pair.
+		-->
 		<SkiUiInput Include="$(MSBuildProjectDirectory)\Systems\HubRules.cs;$(MSBuildProjectDirectory)\Systems\EntityRef.cs;$(MSBuildProjectDirectory)\Systems\SkiMoneyRules.cs;$(MSBuildProjectDirectory)\Systems\SkiDayRules.cs" />
-		<!-- Catalog Phase B (round-2-contract-skeptic MUST 9, added 2026-10-11 by the round-2 integrator): check-bundle R16 now
-		     parses the NAMES and BUILD-ITEMS blocks of Systems\SkiCatalog.cs (the C# item table moved there from the hub
-		     system), so a SkiCatalog-only edit must re-run the gate. -->
+		<!-- check-bundle R16 parses the NAMES and BUILD-ITEMS blocks of Systems\SkiCatalog.cs, so a SkiCatalog-only edit must re-run the gate. -->
 		<SkiUiInput Include="$(MSBuildProjectDirectory)\Systems\SkiCatalog.cs" />
-		<!-- T78 build 2 (contract 10): tools/test-hub-rules.js (gate R18) compares bindings.ts HISTORY_FLAG with the
-		     HistoryFlags constants of this file, so a C#-only flag change must re-run the gate. -->
+		<!--
+		tools/test-hub-rules.js (gate R18) compares bindings.ts HISTORY_FLAG with the HistoryFlags constants of this file, so a
+		C#-only flag change must re-run the gate.
+		-->
 		<SkiUiInput Include="$(MSBuildProjectDirectory)\Systems\SkiResortHistory.cs" />
 		<SkiUiInput Include="$(SkiUiDir)\tools\*.lock" />
 		<SkiUiInput Include="$(SkiCsiiInstall)\Cities2_Data\Content\Game\.ModdingToolchain\npx-create-csii-ui-mod\template\types\*.d.ts" Condition="'$(SkiCsiiInstall)' != ''" />

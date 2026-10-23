@@ -20,11 +20,14 @@ Long engine and design explanations moved out of the source headers. Each note s
 - [`HubLauncher.tsx.md`](HubLauncher.tsx.md) -> HubLauncher.tsx: how the two hub launchers attach to the game UI (grid child, tooltip, tinted mask icon)
 - [`HubPanel.tsx.md`](HubPanel.tsx.md) -> HubPanel.tsx: panel frame, link states, and the Panel / Scrollable layout quirks it works around
 - [`HubRules.md`](HubRules.md) -> HubRules: the hub's pure rules, the single Net definition, and the lift-pairing logic of the problems band
+- [`hubText.ts.md`](hubText.ts.md) -> hubText.ts: the hub text contract (literal tuples, placeholder maps, glyphs, reused keys) the build gate reads
 - [`index.tsx.md`](index.tsx.md) -> index.tsx: how the game loads the UI bundle and why the registrar must never throw
 - [`layoutReport.ts.md`](layoutReport.ts.md) -> layoutReport.ts: the uiLayout dev aid, why the rem is measured with a probe, and when it measures
 - [`LiftCensus.md`](LiftCensus.md) -> LiftCensus: how lift rows are built from net topology (components, row keys, typed census, split nodes)
 - [`LiftCensusSystem.md`](LiftCensusSystem.md) -> LiftCensusSystem: lift edit probe, snapshot, event logs, chair park and the power reader
+- [`LiftLineEdit.md`](LiftLineEdit.md) -> LiftLineEdit: the pure edit model of the lift-line tool (pins, undo, emit) and how tool lines are recognized after the engine splits them
 - [`LiftLineHotkeySystem.md`](LiftLineHotkeySystem.md) -> LiftLineHotkeySystem: how mod key actions behave in the game (inactive tools, disabled-at-start actions, key conflicts)
+- [`LiftLineToolSystem.md`](LiftLineToolSystem.md) -> LiftLineToolSystem: how the lift-line tool plugs into the net pipeline (courses, span raise, split gate, apply) and emits a fitted line
 - [`LiftLoopCache.md`](LiftLoopCache.md) -> LiftLoopCache: how drawn cable lanes become closed travel loops and open shuttle paths
 - [`LiftLoopHold.md`](LiftLoopHold.md) -> LiftLoopHold: the arithmetic behind stopping and resuming a chairlift loop
 - [`LiftLoopTopology.md`](LiftLoopTopology.md) -> LiftLoopTopology: the pure loop topology pass and how it matches the original LiftLoopCache
@@ -33,6 +36,9 @@ Long engine and design explanations moved out of the source headers. Each note s
 - [`LiftReconnectSystem.md`](LiftReconnectSystem.md) -> LiftReconnectSystem: why placing a station needs a poke, what gets poked, and where it runs
 - [`LiftServedRule.md`](LiftServedRule.md) -> LiftServedRule: when a run counts as lift-served, and the power predicate with its flicker guard
 - [`LiftTowerDiagSystem.md`](LiftTowerDiagSystem.md) -> LiftTowerDiagSystem: what the tower diagnostic logs and the engine's tower-member scoring it replicates
+- [`LiftTowerFitSystem.md`](LiftTowerFitSystem.md) -> LiftTowerFitSystem: what the fit writes into the engine's line, why it holds, and when it runs
+- [`LiftTowerPlanner.md`](LiftTowerPlanner.md) -> LiftTowerPlanner: the planner's ground model and phases, the engine facts behind a fitted node, and the tram's 3 km span
+- [`LocaleEN.md`](LocaleEN.md) -> LocaleEN: how the English text source is keyed, gated and worded
 - [`LodgeRoadSystem.md`](LodgeRoadSystem.md) -> LodgeRoadSystem: why roadless top-level buildings and the cat track need prefab flag writes, and what each write touches
 - [`Mod.md`](Mod.md) -> Mod.cs: why each system runs in its update phase and anchor
 - [`MountainJobsSystem.md`](MountainJobsSystem.md) -> MountainJobsSystem: why mountain building jobs live on the Welcome Sign, and the engine path that reads them
@@ -46,7 +52,9 @@ Long engine and design explanations moved out of the source headers. Each note s
 - [`RunOutlineRules.md`](RunOutlineRules.md) -> RunOutlineRules: how the run outline mirrors the game's area outline (AreaBorderRenderSystem)
 - [`RunPropDensityRules.md`](RunPropDensityRules.md) -> RunPropDensityRules: how the game picks area-corner props, the exact thinning formulas, and mast aiming
 - [`SaveLayouts.md`](SaveLayouts.md) -> SaveLayouts: how to bump a persisted layout without breaking saves
+- [`Settings.LocaleEN.md`](Settings.LocaleEN.md) -> Settings/LocaleEN: which locale keys the options UI and key bindings read
 - [`ShuttleProfile.md`](ShuttleProfile.md) -> ShuttleProfile: the jig-back tram's speed profile, cycle, clock and length quantum
+- [`SkiCatalog.md`](SkiCatalog.md) -> SkiCatalog: the prefab catalog's contract (save-identity names, pending flags, text-parsed blocks, readers) and the tram frames
 - [`SkiDayRules.md`](SkiDayRules.md) -> SkiDayRules: Burst-callable pure rules, overload families and the trip model
 - [`SkiDaySystem.Jobs.md`](SkiDaySystem.Jobs.md) -> SkiDaySystem.Jobs: what each Burst job reads and writes, the measure-only parts, and the deadline pull
 - [`SkiDaySystem.md`](SkiDaySystem.md) -> SkiDaySystem: scheduling anchor, the pass, claim writes into vanilla state, tracking and the cost measurement

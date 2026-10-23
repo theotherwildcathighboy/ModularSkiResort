@@ -1,14 +1,12 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <!--
     MoverBench: the headless benchmark of the chair mover's MATH.
-    Run from the ModularSkiResort root:
-      see the one-line command in the Program.cs header (XML comments cannot hold a double dash)
-    Unlike the *Batch hosts this one references the INSTALLED game's managed DLLs (CSII_MANAGEDPATH, set by the modding
-    toolchain): LiftLoopCache.Sample and LiftLoopSampler need Colossal.Mathematics (Bezier4x3, ClampLength) and
-    Game.Net.NetUtils.GetNodeRotation, so the benchmark runs the real code, not a transcription. Only pure math is executed
-    (no Unity engine call), which loads fine on net8 (probe 2026-10-22). The DLLs are copied into bin/ (gitignored,
-    tests/**/bin/), never committed or redistributed. No EntityManager here: what costs per chair in the game on top of the
-    math (5 EntityManager calls per chair before R-3) is the field number in the report.
+    Run from the ModularSkiResort root: see the one-line command in the Program.cs header.
+    Unlike the *Batch hosts this one references the INSTALLED game's managed DLLs (CSII_MANAGEDPATH, set by the modding toolchain):
+    LiftLoopCache.Sample and LiftLoopSampler need Colossal.Mathematics (Bezier4x3, ClampLength) and Game.Net.NetUtils.GetNodeRotation,
+    so the benchmark runs the real code, not a transcription. Only pure math is executed (no Unity engine call), which loads fine
+    on net8. The DLLs are copied into bin/ (gitignored, tests/**/bin/), never committed or redistributed. No EntityManager here:
+    what a chair costs in the game on top of the math is a field number, not measured by this host.
     Lives OUTSIDE mod/SkiResortMod on purpose (the mod csproj globs **/*.cs). LangVersion 9.0 = the mod's.
   -->
   <PropertyGroup>

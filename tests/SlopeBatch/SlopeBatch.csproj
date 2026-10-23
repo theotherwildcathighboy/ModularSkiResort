@@ -1,14 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <!--
-    Headless test host for mod/SkiResortMod/Systems/SkiSlopeClassifier.cs (run-feedback-spec.md §3).
-    Run from the ModularSkiResort root:
-      see the one-line command in the Program.cs header (XML comments cannot hold a double dash)
-    Clone of tests/GladeBatch/GladeBatch.csproj. Lives OUTSIDE mod/SkiResortMod on purpose: the
-    mod csproj globs **/*.cs, so a test host under it would be compiled into the net48 mod DLL.
-    LangVersion pinned to the mod's 9.0 (Mod.props:8) so newer syntax in the linked classifier
-    fails here too; net48 APIs are NOT gated here (net8 has Math.Clamp etc.) — the mod build is
-    the net48 API gate. UnityMathematics.NoDeps 1.3.2 matches the toolchain's
-    com.unity.mathematics@1.3.2.
+    Headless test host for mod/SkiResortMod/Systems/SkiSlopeClassifier.cs.
+    Run from the ModularSkiResort root: see the one-line command in the Program.cs header.
+    Lives OUTSIDE mod/SkiResortMod on purpose: the mod csproj globs **/*.cs, so a test host under it would be compiled into
+    the net48 mod DLL. LangVersion pinned to the mod's 9.0 (Mod.props:8) so newer syntax in the linked classifier fails here too;
+    net48 APIs are NOT gated here (net8 has Math.Clamp etc.); the mod build is the net48 API gate.
+    UnityMathematics.NoDeps 1.3.2 matches the toolchain's com.unity.mathematics@1.3.2.
   -->
   <PropertyGroup>
     <OutputType>Exe</OutputType>
@@ -23,7 +20,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Program.cs" />
-    <!-- U2 (hub-u2-spec.md §3.5): the Plan → Fill → Classify path moved into SkiRunRater; RaterParity.cs proves it bit-identical. -->
+    <!-- The Plan → Fill → Classify path moved into SkiRunRater; RaterParity.cs proves it bit-identical. -->
     <Compile Include="RaterParity.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiSlopeClassifier.cs" Link="SkiSlopeClassifier.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiRunRater.cs" Link="SkiRunRater.cs" />

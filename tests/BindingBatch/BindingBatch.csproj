@@ -1,12 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <!--
     Headless test host for mod/SkiResortMod/Systems/SkiRunBindingRules.cs.
-    Run from the ModularSkiResort root:
-      see the one-line command in the Program.cs header (XML comments cannot hold a double dash)
-    Lives OUTSIDE mod/SkiResortMod on purpose: the mod csproj globs **/*.cs, so a test host
-    under it would be compiled into the net48 mod DLL. LangVersion pinned to the mod's 9.0
-    (Mod.props) so newer syntax in the linked file fails here too. The linked file is pure
-    (no usings), so no package reference is needed.
+    Run from the ModularSkiResort root: see the one-line command in the Program.cs header.
+    Lives OUTSIDE mod/SkiResortMod on purpose: the mod csproj globs **/*.cs, so a test host under it would be compiled into
+    the net48 mod DLL. LangVersion pinned to the mod's 9.0 (Mod.props) so newer syntax in the linked file fails here too.
+    The linked file is pure (no usings), so no package reference is needed.
   -->
   <PropertyGroup>
     <OutputType>Exe</OutputType>
@@ -22,8 +20,7 @@
   <ItemGroup>
     <Compile Include="Program.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiRunBindingRules.cs" Link="SkiRunBindingRules.cs" />
-    <!-- Round E1 (2026-10-04, econ-round spec ch2 §6.6): RunKind for the SkiRunFees kind equalities
-         (EntityRef.cs is pure, `using System;` only: still no package reference). -->
+    <!-- RunKind for the SkiRunFees kind equalities (EntityRef.cs is pure, `using System;` only: still no package reference). -->
     <Compile Include="..\..\mod\SkiResortMod\Systems\EntityRef.cs" Link="EntityRef.cs" />
   </ItemGroup>
 </Project>

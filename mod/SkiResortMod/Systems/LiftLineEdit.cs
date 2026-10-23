@@ -1,31 +1,10 @@
 // Pure edit model of the lift-line tool. No ECS, no Game types: LiftBatch tests it headless. LiftLineToolSystem owns one
 // instance per line being drawn and turns its Emit() list into CreationDefinition + NetCourse entities.
-//
-// The model:
-//   * Two station ends A (base click) and B (top click): the stub-tip nodes' world positions; the line is the straight xz segment
-//     A -> B ("along" = meters from A in xz). Station ropes RopeA / RopeB are given (LiftLineToolSystem: the station's bullwheel
-//     height, else stub node y + the shortest member's rope).
-//   * Pins: positions the user fixed (click on the line = add, drag a tower = move, which pins a free tower). Pins are snapped to
-//     the planner's sample grid (StepM: 5 m, tram 10 m), so a pin is a planner sample and LiftTowerPlanner.Plan keeps it exactly
-//     as a seed (Plan: k = round(along / StepM)). A pin closer than MinSpanM to a station or to another pin is refused.
-//   * The plan = LiftTowerPlanner.Plan(seeds = pins): the fewest-towers search fills every pin-to-pin segment, members by phase
-//     for every tower (pinned ones included). Re-planned after every change.
-//   * Undo (right click): every Done edit saves the pins / removed spots before it; Undo restores the last (UndoDepth).
-//   * Remove (drag a tower off the line): a pinned tower is unpinned (the planner may put a tower back near it if the line needs
-//     one); a free tower is removed by pinning every other line tower where it stands and dropping this one, so the "not here"
-//     sticks: the planner fills only spans that still exceed MaxSpanM or violate the floor, and never puts a new tower within
-//     RemovedRadiusM of a removed spot (LiftTowerPlanner.Forbidden), so a tower the span still needs lands elsewhere in it.
-//   * Emit: the plan's nodes in order, stations first and last, each tower at (x, ground + E(member), z) with E = TopM[member] -
-//     TopM[0] (LiftTowerEdit.ElevationM): the node height the fit system writes, so the line is born fitted.
-//
-// Tool lines (LiftToolLines): after an Apply the tool registers the emitted inner nodes (xz, member, pinned). LiftTowerFitSystem
-// asks Match() for every line it fits: a line whose every inner node is a registered tool node (xz within MatchTolM) is a tool
-// line, fitted heights only with the tool's members (never Moved, so a pinned node is never snapped). In-session only (the
-// registry is not saved): after a load the fit's hysteresis (Fit currentMembers) keeps a clear line as it is.
-// The engine can build a tool line with more nodes than emitted (CourseSplitSystem elevation-transition splits; see
-// docs/research/lifts/lift-tool-split-fix-2026-10-22.md). MatchSplit still recognizes it (every emitted inner node has its own
-// path node within MatchTolM, the ends are the tool's, the extras lie on the line); the extras get ChordMembers (the rope stays
-// on the planned chord) and the whole line is fitted heights-only, never Moved.
+// Pins are snapped to the planner's sample grid (StepM) so LiftTowerPlanner.Plan keeps them as seeds; every edit re-plans.
+// Emit: stations first and last, each tower at (x, ground + E(member), z) with E = TopM[member] - TopM[0] (LiftTowerEdit.ElevationM),
+// so the line is born fitted. LiftToolLines registers the emitted inner nodes (in-session only, not saved) so LiftTowerFitSystem
+// recognizes a tool line (Match / MatchSplit) and fits heights only, never Moved.
+// Engine notes: EngineNotes/LiftLineEdit.md
 
 using System.Collections.Generic;
 using System.Globalization;
@@ -492,7 +471,7 @@ namespace SkiResortMod.Systems
         public bool Reversed;      // the path runs from the tool's last end to its first
     }
 
-    /// <summary>In-session registry of lines built by the lift-line tool (see the header "Tool lines"). The engine may build a tool
+    /// <summary>In-session registry of lines built by the lift-line tool (EngineNotes/LiftLineEdit.md, Tool lines). The engine may build a tool
     /// course as more edges than emitted (CourseSplitSystem.CheckHeightRange elevation transitions, CourseSplitSystem.cs:2884-2942;
     /// crossings). MatchSplit then recognizes the line when every emitted inner node has its own path node within MatchTolM, in order,
     /// the path's ends are the tool's ends (EndTolM) and every extra node lies on the tool's straight line (ExtraLateralTolM).</summary>

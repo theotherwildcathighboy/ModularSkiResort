@@ -1,28 +1,10 @@
 /*
  * src/hub/hubText.ts - every player-facing string of the hub panel: locale key + English fallback.
- *
- * Wording rules: every text with "TIP" in its key is at most 25 words (tools/test-hub-rules.js T18.4; the two lift-money tips
- * have their own caps of 42 / 44 words, CG-T8 (g)). "Patchy" is the Runs view's run state word, never "Partly" (the area's
- * STATUS_WORD uses that). Some texts bake in catalog numbers (+12, 20 %, 1 km, 15 %, 70 %, up to 24, 6 / 15 / 25, a quarter):
- * they are SkiCatalog's, and tests/ResortBatch CatalogGuardTests derive them from the catalog and fail on a difference. Snow
- * is always two numbers, depth and run coverage; "≈" marks an estimate (tools/test-hub-rules.js T18 guards it). No text says a
- * building joins or goes near the Welcome Sign. US spelling only (tools/check-us-english.js).
- *
- * Contract:
- *   - Every entry is a literal `[key, english]` tuple. tools/check-bundle.js rule R4 fails the build unless each key exists in
- *     mod/SkiResortMod/LocaleEN.cs with identical text, and warns about a SkiResort.Hub.* key there that neither TS nor C#
- *     uses. That is why the runtime-built keys (level names, keys C# sends, run types) are spelled out as tuples below.
- *   - R5 / R13: an entry whose English contains "{" lives in HUB_FMT only and is referenced only as
- *     <LocText entry={HUB_FMT.x}> (cs2/l10n LocalizedString). Every other map holds no placeholder (a map with one placeholder
- *     entry could no longer be indexed); helpers return entries of placeholder-free maps only (hubRules.ts returns variant
- *     names).
- *   - Numbers are never baked into a text: each is an argument built by parts.tsx numArg.
- *   - Glyphs: printable ASCII plus the safe list (← → ↑ ↓ … · – × ° ² ≈ NBSP; tools/check-bundle.js SAFE_GLYPHS). No "¢", "−" or
- *     "√": money and signs come from LocalizedNumber.
- *   - Run names in the hub are RUN_TYPE (sentence case), never Assets.NAME (the run assets are Title Case, "Natural Run").
- *   - Reused keys: `Assets.NAME[<prefab>]` (non-run items), `SkiResort.SlopeBand[*]` (the drawing tooltip's band names),
- *     `SkiResort.Tooltip.*`, `SkiResort.LiftTooltip.*`, `SkiResort.GladeTooltip.*`; vanilla
- *     `SelectedInfoPanel.EFFICIENCY_FACTORS[*]` (factorEntry, not ours, not in LocaleEN.cs).
+ * Every entry is a literal `[key, english]` tuple (gate R4 compares each with mod/SkiResortMod/LocaleEN.cs). An entry whose English
+ * holds "{" lives in HUB_FMT only (R5 / R13); numbers are always arguments (parts.tsx numArg). Texts with "TIP" in the key are at most
+ * 25 words (two lift-money tips have own caps); texts that bake in catalog numbers are guarded by CatalogGuardTests. Glyphs: the safe
+ * list of tools/check-bundle.js. US spelling only.
+ * Engine notes: EngineNotes/hubText.ts.md
  */
 import type { LocEntry } from "../l10n";
 import { BAND, clampGladeLevel } from "../bindings";
@@ -246,8 +228,8 @@ export const HUB_LOC = {
   liftsTotalCapacityTip: ["SkiResort.Hub.LIFTS_TOTAL_CAPACITY_TIP", "Sum over complete lifts with power and an open run; a tram counts its station stops. Riders are not simulated."],
   liftRuns: ["SkiResort.Hub.LIFT_RUNS", "Runs it serves"],
   liftCost: ["SkiResort.Hub.LIFT_COST", "Running cost"],
-  // Power no longer lowers the bill, so a reduced row whose status is No power is billed reduced only for NoOpenRun;
-  // hubRules.liftCostReason still picks this key for it, so the text names that reason.
+  // Power does not lower the bill, so a reduced row whose status is No power is billed reduced only for NoOpenRun;
+  // hubRules.liftCostReason picks this key for it, so the text names that reason.
   liftCostReducedNoPower: ["SkiResort.Hub.LIFT_COST_REDUCED[NoPower]", "Billed reduced: no open run in its ski area (a quarter; a tram half)"],
   liftCostReducedUnfinished: ["SkiResort.Hub.LIFT_COST_REDUCED[Unfinished]", "Billed at a quarter while unfinished"],
   liftCostReducedSectionMissing: ["SkiResort.Hub.LIFT_COST_REDUCED[SectionMissing]", "Billed at a quarter while a section is missing"],
@@ -514,8 +496,8 @@ export const HUB_FMT = {
   runOpenOpen: ["SkiResort.Hub.RUN_OPEN[Open]", "Open: snow on {PCT} of it"],
   runOpenPartly: ["SkiResort.Hub.RUN_OPEN[Partly]", "Patchy: snow on {PCT} of it"],
   runOpenClosed: ["SkiResort.Hub.RUN_OPEN[Closed]", "Closed: snow on {PCT} of it"],
-  /* {DEPTH} = RunLive.snowDepthCm / 100 (unit length: m or ft by the player's unit setting). No baked open depth (T29.4, DECISIONS 381):
-     the threshold is C#'s and would need its own placeholder from RunList.tsx. */
+  /* {DEPTH} = RunLive.snowDepthCm / 100 (unit length: m or ft by the player's unit setting). No baked open depth: the threshold
+     is C#'s and would need its own placeholder from RunList.tsx. */
   runDepth: ["SkiResort.Hub.RUN_DEPTH", "Snow depth {DEPTH}"],
   runServed: ["SkiResort.Hub.RUN_SERVED", "Served by {NAME}"],
   runNotServed: ["SkiResort.Hub.RUN_NOT_SERVED", "No running lift reaches its top: it counts {PCT}"],

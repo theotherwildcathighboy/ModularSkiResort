@@ -1,15 +1,12 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <!--
-    Headless test host for the TOP-LEVEL resort buildings (T10 D1 option A, DECISIONS 308): T100 the ski school (2026-10-19,
-    as tests/SchoolBatch), T113 the five lodges and both patrol huts (2026-10-20, renamed BuildingBatch). SchoolLinkRules.cs
-    (attribution, the one count rule, the link-log diff, D3 AreaEfficiency) and the invariant "a linked top-level school
-    yields the same schoolValue / lessons / problem rows as the child did", plus the per-building mirror gate P1-P10 over
-    all eight prefabs (no ServiceUpgrade; ServiceObject + PlaceableObject + CityServiceBuilding + Park; cost / XP / jobs /
-    upkeep equal to the catalog row; roadless rows demand nothing; mesh CID resolves; door spawn rows). Run from the
-    ModularSkiResort root:
-      see the one-line command in the Program.cs header (XML comments cannot hold a double dash)
-    Own host (ResortBatch and LiftBatch belong to other sessions). Lives OUTSIDE mod/SkiResortMod on purpose: the mod
-    csproj globs **/*.cs. LangVersion pinned to the mod's 9.0; net48 APIs are NOT gated here (the mod build is the gate).
+    Headless test host for the top-level resort buildings: SchoolLinkRules.cs (attribution, the one count rule, the link-log diff,
+    AreaEfficiency) and the invariant that a linked top-level school yields the same schoolValue / lessons / problem rows as a
+    child did, plus the per-building mirror gate P1-P10 over all eight prefabs (no ServiceUpgrade; ServiceObject + PlaceableObject +
+    CityServiceBuilding + Park; cost / XP / jobs / upkeep equal to the catalog row; roadless rows demand nothing; mesh CID resolves;
+    door spawn rows). Run from the ModularSkiResort root: see the one-line command in the Program.cs header.
+    Lives OUTSIDE mod/SkiResortMod on purpose: the mod csproj globs **/*.cs. LangVersion pinned to the mod's 9.0; net48 APIs are
+    NOT gated here (the mod build is the gate).
   -->
   <PropertyGroup>
     <OutputType>Exe</OutputType>
@@ -28,7 +25,7 @@
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiResortIndex.cs" Link="SkiResortIndex.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\SchoolLinkRules.cs" Link="SchoolLinkRules.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\MountainJobsRules.cs" Link="MountainJobsRules.cs" />
-    <!-- T137 (2026-10-20): off-season half staffing, OS1-OS6. -->
+    <!-- Off-season half staffing, OS1-OS6. -->
     <Compile Include="..\..\mod\SkiResortMod\Systems\OffSeasonRules.cs" Link="OffSeasonRules.cs" />
     <Compile Include="OffSeasonTests.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiResortScore.cs" Link="SkiResortScore.cs" />

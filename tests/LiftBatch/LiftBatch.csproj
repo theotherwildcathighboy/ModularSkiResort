@@ -1,25 +1,18 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <!--
-    Headless test host for the PURE lift files:
-    LiftCensus.cs, StationAlign.cs, LiftReconnectEpisodes.cs,
-    plus the shared EntityRef.cs (linked, never copied).
-    Run from the ModularSkiResort root:
-      see the one-line command in the Program.cs header (XML comments cannot hold a double dash)
-    Clone of tests/SlopeBatch/SlopeBatch.csproj. Lives OUTSIDE mod/SkiResortMod on purpose: the
-    mod csproj globs **/*.cs, so a test host under it would be compiled into the net48 mod DLL.
-    LangVersion pinned to the mod's 9.0 (Mod.props) so newer syntax in the linked files fails here
-    too; net48 APIs are NOT gated here (net8 has Math.Clamp etc.); the mod build is the net48 API
-    gate. UnityMathematics.NoDeps 1.3.2 matches the toolchain's com.unity.mathematics@1.3.2.
-    The loop cache's GEOMETRY is not tested here (it needs Game types: Colossal.Mathematics, PathNode, Entity);
-    since Catalog Phase C its topology pass is the pure LiftLoopTopology.cs, linked below (LoopCacheTests.cs).
-    SkiCatalog (pure) is linked because StationAlign and LiftServedRule alias it; CatalogTests.cs holds
-    CT-1 to CT-10 (the catalog's sanity, the frozen-name oracle, NAMES block and hub-literal text parses,
-    and the resolver-lifetime decision table).
-    CatalogTests.cs CT-1 to CT-16 (adds the carriers.json parse CT-11 with System.Text.Json, the gamedata-mirror
-    drift CT-12, pending tokens CT-13, the BUILD-ITEMS table CT-14, the EvenSpacing arithmetic CT-15 and the
-    sanity twin CT-16); LiftTypeTests.cs LT-1 to LT-10 (skeleton by core, body by the lift group).
-    LiftLoopHold.cs
-    (pure) linked; PowerGateTests.cs PG-0 to PG-4 and LoopHoldTests.cs LH-1 to LH-4.
+    Headless test host for the PURE lift files (LiftCensus, StationAlign, LiftReconnectEpisodes, the loop topology and hold, the
+    served rule, the tower planner, the lift-line edit model and more), linked from mod/SkiResortMod/Systems and never copied.
+    Run from the ModularSkiResort root: see the one-line command in the Program.cs header.
+    Lives OUTSIDE mod/SkiResortMod on purpose: the mod csproj globs **/*.cs, so a test host under it would be compiled into
+    the net48 mod DLL. LangVersion pinned to the mod's 9.0 (Mod.props) so newer syntax in the linked files fails here too;
+    net48 APIs are NOT gated here (net8 has Math.Clamp etc.); the mod build is the net48 API gate.
+    UnityMathematics.NoDeps 1.3.2 matches the toolchain's com.unity.mathematics@1.3.2.
+    The loop cache's GEOMETRY needs Game types (Colossal.Mathematics, PathNode, Entity) and is not tested here; its topology pass is
+    the pure LiftLoopTopology.cs (LoopCacheTests.cs). SkiCatalog (pure) is linked because StationAlign and LiftServedRule alias it;
+    CatalogTests.cs holds CT-1 to CT-16 (sanity, frozen-name oracle, NAMES and hub-literal text parses, resolver lifetime, the
+    carriers.json parse CT-11 with System.Text.Json, the gamedata-mirror drift CT-12, pending tokens CT-13, the BUILD-ITEMS table
+    CT-14, EvenSpacing CT-15 and its sanity twin CT-16); LiftTypeTests.cs holds LT-1 to LT-10. PowerGateTests.cs (PG-0 to PG-4)
+    and LoopHoldTests.cs (LH-1 to LH-4) cover the pure LiftLoopHold.cs.
   -->
   <PropertyGroup>
     <OutputType>Exe</OutputType>
@@ -38,24 +31,24 @@
     <Compile Include="..\..\mod\SkiResortMod\Systems\LiftCensus.cs" Link="LiftCensus.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\StationAlign.cs" Link="StationAlign.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\LiftReconnectEpisodes.cs" Link="LiftReconnectEpisodes.cs" />
-    <!-- Round E1 (2026-10-04, econ-round spec ch2 §3.7): the served rule and the power predicate. -->
+    <!-- The served rule and the power predicate. -->
     <Compile Include="..\..\mod\SkiResortMod\Systems\LiftServedRule.cs" Link="LiftServedRule.cs" />
-    <!-- T137 S1 (2026-10-20): LiftClosedRule.NoOpenRunShare reads SkiMoneyRules' two shares. -->
+    <!-- LiftClosedRule.NoOpenRunShare reads SkiMoneyRules' two shares. -->
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiMoneyRules.cs" Link="SkiMoneyRules.cs" />
-    <!-- Catalog Phase A -->
+    <!-- The pure prefab catalog (StationAlign and LiftServedRule alias it). -->
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiCatalog.cs" Link="SkiCatalog.cs" />
     <Compile Include="CatalogTests.cs" />
-    <!-- Catalog Phase B (round-2-contract.md 11.1): the typed census / served-rule rows (body: the lift group). -->
+    <!-- The typed census / served-rule rows. -->
     <Compile Include="LiftTypeTests.cs" />
-    <!-- Catalog Phase C (round-3-contract.md 8.1, loopcache group): the loop cache's pure topology and the shuttle profile. -->
+    <!-- The loop cache's pure topology and the shuttle profile. -->
     <Compile Include="..\..\mod\SkiResortMod\Systems\LiftLoopTopology.cs" Link="LiftLoopTopology.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\ShuttleProfile.cs" Link="ShuttleProfile.cs" />
     <Compile Include="LoopCacheReference.cs" />
     <Compile Include="LoopCacheTests.cs" />
     <Compile Include="ShuttleTests.cs" />
-    <!-- Phase D (code-round-4/round-4-contract.md 7.1, rules group): the pure loop hold and the power-gate / hold tests. -->
+    <!-- The pure loop hold and the power-gate / hold tests. -->
     <Compile Include="..\..\mod\SkiResortMod\Systems\LiftLoopHold.cs" Link="LiftLoopHold.cs" />
-    <!-- 2026-10-20 sim round (DECISIONS 347 d): the station LV icon rule, LoopHoldTests LV-1..LV-4. -->
+    <!-- The station LV icon rule, LoopHoldTests LV-1..LV-4. -->
     <Compile Include="..\..\mod\SkiResortMod\Systems\StationLvRule.cs" Link="StationLvRule.cs" />
     <Compile Include="PowerGateTests.cs" />
     <Compile Include="LoopHoldTests.cs" />

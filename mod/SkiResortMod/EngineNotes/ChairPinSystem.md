@@ -146,7 +146,7 @@ A lift's power is its base station's. Per loop (station pair), transient, no sav
 
 With no hold, the move pass, `PhaseOf`, `TimeS`, `MoveChair`, the bounds refresh and `BuildLoopCache`'s slot assignment run unchanged;
 the poll is read-only and the move loop gains a held branch taken only while a loop is held. The 64-frame power read can see a
-one-dispatch shortfall window a 256-frame poller would miss (see the `LiftServedRule` header).
+one-dispatch shortfall window a 256-frame poller would miss (see `LiftServedRule.md`, GuardPower).
 
 ### Scale
 

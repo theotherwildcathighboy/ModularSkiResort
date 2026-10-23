@@ -1,36 +1,10 @@
-// English display names + descriptions for the asset pack's player-facing prefabs, plus the hub and tooltip texts.
-// Registered in Mod.OnLoad via GameManager.instance.localizationManager.AddSource("en-US", ...)
-// alongside the options-UI source (Settings\LocaleEN.cs) — the manager merges every source
-// registered for the active locale.
-//
-// Key patterns (verified against decompiled Game.UI.InGame.PrefabUISystem.GetTitleAndDescription, PrefabUISystem.cs:1498-1528,
-// 1.6.0f1):
-//   - plain assets:                Assets.NAME[<prefab name>] / Assets.DESCRIPTION[<prefab name>]
-//     (Assets.UPGRADE_NAME / UPGRADE_DESCRIPTION are read only for a ServiceUpgrade prefab; the mod ships none)
-//
-// Rules:
-//   - Every SkiResort.Hub.* text must equal its src/hub/hubText.ts tuple (gate rule R4 of mod/SkiResortUI/tools/check-bundle.js
-//     fails the UI build on a difference).
-//   - Tooltips (*TIP*) are at most 25 words (tools/test-hub-rules.js T18.4). Exemption: MONEY_TIP[Lifts] and
-//     MONEY_TIP[LiftsTypes] carry live figures ({BASE} / {PERKM}, {FULL}, {REDUCED}) and the billing rule; each is capped at
-//     its length (42 and 44 words, `wc -w`) and tests/ResortBatch CatalogGuardTests CG-T8 (g) fails if either grows.
-//   - The numbers baked into BUILD_TIP_SCHOOL / PATROL / LUXURY, PROBLEM_TIP[SummitLodgeNotLiftServed], RECEIPT_TIP[LodgeBase]
-//     and RECEIPT_TIP[Lifts] are SkiCatalog's: tests/ResortBatch CatalogGuardTests CG-T2..T6 derive them from the catalog, so
-//     each of those keys must stay a single-line `{ "key", "value" },` entry.
-//   - Asset names: Find It lists every StaticObjectPrefab, pillar, service building, upgrade and surface under the title
-//     PrefabUISystem.GetTitleAndDescription picks, and falls back to the raw prefab name split at capitals ("Ski Lift Tower
-//     FG2"). So every prefab a player can meet has a NAME + DESCRIPTION here, deployed and to-import alike (a key whose
-//     prefab does not exist yet is inert); the exceptions are never shown (pieces, sections, effects, meshes). Scheme: family
-//     first, then size, then the variant in parentheses ("Gondola Tower 16 m", "Ski Rack, Freestanding, 12 pairs + 2 boards
-//     (Red)"); test objects say so ("Ski Resort — import probe B: Sheet (delete after test)"). Parts a player can meet
-//     (pickers, station towers, cable lanes and stubs, sign sets, fence lane, run-edge groups, empty slot) put the variant
-//     FIRST and drop the "Ski Resort — <kind>:" prefix; test objects keep it. Station buildings say the lift type and the end
-//     ("Fixed-Grip Chairlift: Base Station", "Gondola: Base Station"); the tram says "Aerial Tram: Base Terminal" / "Top
-//     Terminal" (never "Tram Station": a stranger reads the city tram). hubText.ts ASSET_NAME follows (gate R4). Internal
-//     prefab names are untouched (deployed ones are save identity).
-//   - Keep every entry unique: a duplicate key throws inside ReadEntries and LocalizationManager.LoadLocaleSource drops this
-//     whole source.
-// Additional languages: further IDictionarySource implementations.
+// English names and descriptions of the asset pack's prefabs, plus the hub, run-drawing, glade and lift tooltip texts.
+// Registered in Mod.OnLoad via localizationManager.AddSource("en-US", ...) next to Settings/LocaleEN.cs; the manager merges
+// every source of the active locale.
+// Constraints: every SkiResort.Hub.* text equals its src/hub/hubText.ts tuple (UI gate R4); *TIP* texts are at most 25 words
+// (two money tips are capped); CatalogGuardTests pin numbers in some keys, which stay single-line entries; keys are unique
+// (a duplicate drops the whole source).
+// Engine notes: EngineNotes/LocaleEN.md
 
 using System.Collections.Generic;
 using Colossal;
@@ -72,10 +46,9 @@ namespace SkiResortMod
                 { "Assets.DESCRIPTION[SkiPatrolHQ]", "Patrol headquarters: patrols the steep runs nearby. No road needed." },
 
                 // --- Lift network ---------------------------------------------------------
-                // The fixed-grip stations' names gain the type, so the picker's types read apart; hubText.ts ASSET_NAME equals them.
+                // The fixed-grip stations' names gain the type, so the picker's types read apart (hubText.ts ASSET_NAME equals them).
                 // "<lift type>: <end>" for all eight stations; the tram's are terminals. The deployed .loc of the base / top station
-                // carries different NAME and DESCRIPTION texts; this source loads after it and wins (probes-B.md "Deployed .loc name
-                // conflicts").
+                // carries different texts; this source loads after it and wins.
                 { "Assets.NAME[SkiBaseStationBuilding]", "Fixed-Grip Chairlift: Base Station" },
                 { "Assets.DESCRIPTION[SkiBaseStationBuilding]", "Drive terminal. Connect a low-voltage line to the wire end at its front corner." },
                 { "Assets.NAME[SkiTopStationBuilding]", "Fixed-Grip Chairlift: Top Station" },
@@ -337,7 +310,7 @@ namespace SkiResortMod
                     "own snow is the run, and it opens only when real snow covers it. No monthly " +
                     "cost. Cut the trail through the forest with the tree tool."
                 },
-                // Cat track: the fifth run type (docs/research/cat-track-run.md §2). Description <= 25 words.
+                // Cat track: the fifth run type. Description <= 25 words.
                 { "Assets.NAME[SkiRunCatTrackA]", "Cat Track" },
                 {
                     "Assets.DESCRIPTION[SkiRunCatTrackA]",
@@ -345,21 +318,11 @@ namespace SkiResortMod
                     "Green only: steeper than 25 % is unsuitable. Can cross other runs."
                 },
 
-                // --- Run drawing feedback (docs/research/run-feedback-spec.md §5, §9.6) -------
-                // Mouse tooltip of SkiRunTooltipSystem while the area tool draws or edits a
-                // run. Read through LocalizedString.Id(key) (LocalizedString.cs:39-42); keys
-                // are free-form strings, the bracketed band suffix = SlopeBand member name.
-                // The pitch / drop / patch labels sit in front of IntTooltip values whose units ("percentage",
-                // "length") the UI formats, so they carry no number or unit themselves.
-                // The rating is the crux of the easiest line, so CRUX_PITCH ("Steepest 20 m pitch") replaces
-                // STEEPEST_PITCH; STEEPEST_PATCH labels the old statistic when it is shown as an avoidable patch.
-                // APPROX_PITCH replaces CRUX_PITCH when the run outline falls
-                // apart (Readout.Connected false): the number is then the P90 fallback, not an
-                // unavoidable pitch. Bands follow the thresholds 6 / 25 / 40 / 60 % (run-feedback-spec.md §9.2).
-                // Flat no longer says "unrated": band -1 in the hub is
-                // "Being rated" (SkiResort.Hub.PENDING), so no two states share the word.
-                // RUN_FEE labels the one-time run fee row
-                // (a money IntTooltip value) of SkiRunTooltipSystem.
+                // --- Run drawing feedback -------------------------------------------------------------------
+                // Mouse tooltip of SkiRunTooltipSystem while the area tool draws or edits a run, read through LocalizedString.Id(key); the
+                // bracketed band suffix is the SlopeBand member name. Pitch / drop / patch labels precede IntTooltip values whose units the
+                // UI formats, so they carry no number. CRUX_PITCH replaces STEEPEST_PITCH; APPROX_PITCH replaces CRUX_PITCH when the outline
+                // is broken. RUN_FEE labels the one-time fee row. Details: EngineNotes/LocaleEN.md
                 { "SkiResort.SlopeBand[Flat]", "Flat (too gentle to rate)" },
                 { "SkiResort.SlopeBand[Green]", "Green circle" },
                 { "SkiResort.SlopeBand[Blue]", "Blue square" },
@@ -389,17 +352,10 @@ namespace SkiResortMod
                 // (SkiRunTooltipSystem.KeyLength).
                 { "SkiResort.Tooltip.RUN_LENGTH", "Length" },
 
-                // --- Glade tool tooltip (run-binding-glade-spec.md §2 "Locale keys", §4.9, §8.3) --
-                // Read by SkiGladeTooltipSystem through LocalizedString.Id(key), built once in
-                // OnCreate. TARGET[Interior|TreeLine], LEVEL, LEVEL_NAME[1..8] (the names of spec §8.2's
-                // table, also SkiGladeToolSystem.Tuning.LevelNames for the log), TREES_NOW and
-                // TREES_TARGET. PLANT / FELL / REMOVE / BLOCKED_SPOTS / LEVEL / TREES_NOW /
-                // TREES_TARGET label IntTooltips (unit "integer"), so they carry no number
-                // themselves. REMOVE is "Planted trees to remove" (members are removed to lower the
-                // density; nothing is replaced). COMPLETE is "the run is already at this tree density"
-                // (level 1 plants nothing), shown only when Trees now = Target; COMPLETE_BLOCKED is for a complete plan
-                // below its target (learned blocked spots used up the stream) and COMPLETE_FIXED
-                // for one above it (the trees left inside may not be felled).
+                // --- Glade tool tooltip -----------------------------------------------------------------------
+                // Read by SkiGladeTooltipSystem through LocalizedString.Id(key), built once in OnCreate. PLANT / FELL / REMOVE / BLOCKED_SPOTS /
+                // LEVEL / TREES_* label IntTooltips (unit "integer"), so they carry no number themselves. COMPLETE shows only when Trees now =
+                // Target; COMPLETE_BLOCKED / COMPLETE_FIXED are a complete plan below / above its target. Details: EngineNotes/LocaleEN.md
                 { "SkiResort.GladeTooltip.HINT", "Point at a ski run to plan trees" },
                 { "SkiResort.GladeTooltip.NO_RUNS", "No ski run in this city is linked to a Welcome Sign yet" },
                 { "SkiResort.GladeTooltip.UNBOUND", "Run not linked: a Ski Area Welcome Sign must stand within 5 km of its center" },
@@ -428,14 +384,10 @@ namespace SkiResortMod
                 { "SkiResort.GladeTooltip.REMOVE", "Planted trees to remove" },
                 { "SkiResort.GladeTooltip.BLOCKED_SPOTS", "Spots blocked (roads, buildings)" },
 
-                // --- Ski Resort hub (docs/research/resort-hub-understand.md §5.3 last paragraph) ---------------------------------
-                // The UI module (mod/SkiResortUI) renders every SkiResort.Hub.* key through
-                // translate(key, englishFallback); each text below MUST equal its TS fallback (the
-                // fallback shows only while a key is missing). GLYPHS: printable ASCII plus the
-                // research §2.F.2 safe list only (← → ↑ ↓ … · – × ° ² ≈ NBSP; NO em dash):
-                // mod/SkiResortUI/tools/check-bundle.js fails the UI build on any other glyph in a
-                // SkiResort.Hub.* value of this file. Editing this file re-runs the UI build
-                // (it is an input of the csproj's SkiUiBuild target).
+                // --- Ski Resort hub --------------------------------------------------------------------------
+                // The UI renders every SkiResort.Hub.* key through translate(key, englishFallback); each text below MUST equal its TS
+                // fallback and use only printable ASCII plus check-bundle.js SAFE_GLYPHS (the UI build fails otherwise). Editing this file
+                // re-runs the UI build. Details: EngineNotes/LocaleEN.md
                 //
                 // (a) src/l10n.ts LOC: launcher, connection and error texts.
                 { "SkiResort.Hub.TITLE", "Ski Resort" },
@@ -488,11 +440,8 @@ namespace SkiResortMod
                 { "SkiResort.Hub.COL_LENGTH_TIP", "Horizontal length, estimated from the outline." },
                 { "SkiResort.Hub.COL_DROP_TIP", "Approximate height from the lowest to the highest point of the outline." },
 
-                // (d) Texts are the spec's (docs/research/hub-u2-spec.md §2.4), verbatim; the TS
-                // fallbacks carry the same text and tools/check-bundle.js rule 4 fails the UI build
-                // on any difference. Keys with {X} placeholders are rendered by LocalizedString in TS, never
-                // through translate() (gate rule 5), except RESORT_DEFAULT and LIFT_DEFAULT, which C#
-                // formats (SkiResortStatsSystem / SkiRunBindTriggerSystem, "{N}" replaced) and sends as a
+                // (d) Same text as the TS fallbacks (tools/check-bundle.js rule 4). Keys with {X} placeholders are rendered by LocalizedString
+                // in TS, never through translate() (gate rule 5), except RESORT_DEFAULT and LIFT_DEFAULT, which C# formats and sends as a
                 // finished name.
                 // Resort switcher (title bar).
                 { "SkiResort.Hub.RESORT_PREV", "Previous ski area" },
@@ -603,7 +552,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.PROBLEM_TIP[NoLodge]", "Guests arrive at a lodge, so without one the attraction is 0. Build one from the Buildings tab." },
                 { "SkiResort.Hub.PROBLEM_TIP[LodgesAllOff]", "Switched-off lodges do not count, so the attraction is 0. Switch one on in its info panel." },
                 { "SkiResort.Hub.PROBLEM_TIP[LodgesSomeOff]", "Switched-off lodges do not count in the lodge base." },
-                // No longer tells the player to connect a sign that is connected. Names garbage and points at the factor rows below it.
+                // Names garbage and points at the factor rows below it.
                 { "SkiResort.Hub.PROBLEM_TIP[Efficiency]", "As in the Welcome Sign's info panel. Every cause that costs 5 % or more is listed below." },
                 // The lift stops, serves no run, and its upkeep is still billed (power never lowers it; no "full": the NoOpenRun quarter
                 // can still apply); power is the base station's only (CG-T8).
@@ -619,7 +568,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.PROBLEM_TIP[FreeLodges]", "They are more than 5 km from every Welcome Sign, so they count nowhere. Place a sign nearby or move them." },
                 // The tooltip's first line is the row ("Welcome Sign is not at a road" /
                 // "Lodge is not at a road: ..."), so "it" names the building; the fix hints: the deck side is the lot front,
-                // and the game links a road within 8.4 m of the front point (sign-utilities.md §5, ped-access.md §4.2).
+                // and the game links a road within 8.4 m of the front point.
                 { "SkiResort.Hub.PROBLEM_TIP[SignNoRoad]", "Move it so its front touches a road: staff and visitors come in from it." },
                 { "SkiResort.Hub.PROBLEM_TIP[LodgeNoRoad]", "Move it so its entrance side touches a road. Guests walk in from that road." },
                 // Top-level ski schools on no Welcome Sign (C# HubProblemCode SchoolsNotLinked; its row text is FMT below).
@@ -741,9 +690,9 @@ namespace SkiResortMod
                 { "SkiResort.Hub.LIFTS_TOTAL_CAPACITY_TIP", "Sum over complete lifts with power and an open run; a tram counts its station stops. Riders are not simulated." },
                 { "SkiResort.Hub.LIFT_RUNS", "Runs it serves" },
                 { "SkiResort.Hub.LIFT_COST", "Running cost" },
-                // Power no longer lowers the bill (SkiMoneyRules.LiftUpkeepBillingOf), so a reduced row whose status is No power is
-                // billed reduced only because its ski area has no counted run (NoOpenRun). hubRules.ts liftCostReason still
-                // picks this key for that row, so the key keeps its slot and names the true reason.
+                // Power does not lower the bill (SkiMoneyRules.LiftUpkeepBillingOf), so a reduced row whose status is No power is billed
+                // reduced only because its ski area has no counted run (NoOpenRun). hubRules.ts liftCostReason picks this key for that
+                // row, so the key names the true reason.
                 { "SkiResort.Hub.LIFT_COST_REDUCED[NoPower]", "Billed reduced: no open run in its ski area (a quarter; a tram half)" },
                 { "SkiResort.Hub.LIFT_COST_REDUCED[Unfinished]", "Billed at a quarter while unfinished" },
                 { "SkiResort.Hub.LIFT_COST_REDUCED[SectionMissing]", "Billed at a quarter while a section is missing" },
@@ -799,7 +748,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.GUESTS_NOTE[SinceLoad]", "Counting started when you loaded the city, partway through the month." },
                 { "SkiResort.Hub.TICKETS_NOTE[Off]", "Lift tickets are off: the Lift ticket price in Options is 0." },
                 { "SkiResort.Hub.TICKETS_NOTE[NoEfficiency]", "No lift tickets now: the Welcome Sign is not running." },
-                // A running lift alone no longer opens the gate, and NotKnownYet also covers a new sign without a score (kept to 58
+                // A running lift alone does not open the gate, and NotKnownYet also covers a new sign without a score (kept to 58
                 // characters so the one-line ticket slot shows it whole; hubText.ts holds the same text).
                 // The off-season hint: OffSeasonStaffSystem halves lodge and school staff; Inactive = vanilla upkeep x0.1, no wages,
                 // CityServiceBudgetSystem.cs:398-411.
@@ -1121,13 +1070,10 @@ namespace SkiResortMod
                 { "SkiResort.Hub.NEXT2[Run]", "Natural runs cost nothing to run; the others cost per hectare." },
                 { "SkiResort.Hub.NEXT2[Done]", "Click a tile to build; click it again to stop." },
 
-                // --- Lift tooltips (docs/research/hub-u2-spec.md §2.4, §5.5, §5.7) ----------
-                // Read by SkiLiftTooltipSystem through LocalizedString.Id(key), built once — never
-                // Id(key, args) per frame. ALIGN_OFFSET / ANGLE / DISTANCE / RISE and BULLDOZE_COUNT /
-                // LENGTH label FloatTooltip / IntTooltip values whose units the UI formats. These are not
-                // SkiResort.Hub.* keys, so the UI gate's glyph check does not cover them: ALIGN_STRAIGHT's
-                // em dash is not on the research §2.F.2 safe-glyph list; it renders correctly in game, so
-                // ALIGN_FACING_AWAY reuses it.
+                // --- Lift tooltips --------------------------------------------------------------------------
+                // Read by SkiLiftTooltipSystem through LocalizedString.Id(key), built once. These are not SkiResort.Hub.* keys, so the UI
+                // gate's glyph check does not cover them (ALIGN_STRAIGHT's em dash renders in game; ALIGN_FACING_AWAY reuses it).
+                // Details: EngineNotes/LocaleEN.md
                 { "SkiResort.LiftTooltip.ALIGN_OFFSET", "Offset from the straight line" },
                 { "SkiResort.LiftTooltip.ALIGN_ANGLE", "Angle off straight" },
                 { "SkiResort.LiftTooltip.ALIGN_DISTANCE", "Distance to the other station" },
@@ -1147,7 +1093,7 @@ namespace SkiResortMod
                 { "SkiResort.LiftTooltip.BULLDOZE_LENGTH", "Length removed" },
                 // SkiSnowLineTooltipSystem, the one line under the cursor while a run or the Welcome Sign is
                 // placed. {SNOW_LINE} and {GUN_LINE} are integer elevations in world meters (LocalizedNumber<int>, unit "integer");
-                // "≈" and "·" are on the research §2.F.2 safe-glyph list.
+                // "≈" and "·" are on the UI glyph allowlist.
                 { "SkiResort.Tooltip.SNOW_LINE", "Winter snow line ≈ {SNOW_LINE} m · guns work above ≈ {GUN_LINE} m" },
             };
         }

@@ -1,7 +1,7 @@
 // English strings for the options UI. Registered in Mod.OnLoad via
 // GameManager.instance.localizationManager.AddSource("en-US", new LocaleEN(settings)). Plain characters only (°, &, %).
-// Additional languages: add further IDictionarySource implementations (or a translations file) and AddSource them with the
-// matching locale id.
+// Additional languages: add further IDictionarySource implementations and AddSource them with the matching locale id.
+// Engine notes: EngineNotes/Settings.LocaleEN.md
 
 using System.Collections.Generic;
 using Colossal;
@@ -447,16 +447,8 @@ namespace SkiResortMod.Settings
                 },
 
                 // --- Key bindings (glade tool) ---
-                // Every key built with the ModSetting helpers (ModSetting.cs:303-371):
-                //   option row label/description — GetOptionLabelLocaleID/DescLocaleID(property)
-                //     (the KeyBinding widget uses the normal item displayName/description,
-                //     AutomaticSettings.cs:1492-1500);
-                //   GetBindingKeyLocaleID(action) → "Options.OPTION[<id>/<action>/<binding>]"
-                //     (:343-361) and GetBindingKeyHintLocaleID(action) → "Common.ACTION[<id>/
-                //     <action>]" (:363-366) — consumed by the frontend rebinding UI / input
-                //     hints, not by Game.dll C# (unverified which screens show them);
-                //   GetBindingMapLocaleID() → "Options.INPUT_MAP[<id>]" (:368-371), the map
-                //     title the conflict notification falls back to (InputManager.cs:1522).
+                // Every key comes from the ModSetting helpers (ModSetting.cs:303-371): option row label / description, the binding key and
+                // hint key, and the map title. Which key feeds which screen: EngineNotes/Settings.LocaleEN.md
                 { m_Setting.GetOptionGroupLocaleID(SkiResortSettings.GroupKeybindings), "Key bindings" },
                 { m_Setting.GetBindingMapLocaleID(), "Modular Ski Resort" },
                 {

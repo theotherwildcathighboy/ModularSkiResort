@@ -1,50 +1,11 @@
-// Pure tower planner for a lift line (design docs/research/lift-tower-planner-notes.md). No ECS, no Game types: LiftBatch tests it
-// headless (LiftPlannerTests). It runs once per edit (or once per printed diag block), so it is plain C#, not Burst; arrays are
-// reused per planner instance. Deterministic: no randomness, no hash order, ties broken by the sample index.
-//
-// Input:
-//   * a terrain sampler (along-line meters from station A, lateral meters; + = right of A->B), sampled every StepM along the line at
-//     the center and at +-HalfWidthM (the engine's own side samples, CourseSplitSystem.cs:3566-3573, half the net width);
-//   * the line length (xz) and the two station anchors' rope heights (world y of the haul rope at the stub);
-//   * LiftTowerPlanConstants for the lift type (ladder members, rope offset, carrier drop, floor, max rope height, spans, width, sag);
-//   * optionally seed nodes (the output of an earlier plan): they are kept as anchors, which makes re-planning a plan a fixed point.
-//
-// Ground model (per sample):
-//   center = the ground under the line axis (the tower base: our own spawn stands on it);
-//   high   = max(center, left, right): the clearance ground. The rope must keep the chair floor over the higher side; this is the
-//            engine's "lower elevation side" (cmin of Net.Elevation, SubObjectSystem.cs:980), so the side that governs the engine's
-//            ladder also governs ours. A node whose high and low side differ by more than SideHillM is flagged SideHill.
-//   rope(t) on a span = straight chord between the two rope points minus the engine's sag: LaneSystem.cs:4128-4134 lowers the
-//            bezier's b/c by d*m_Hanging*4/3, which is a parabola 4*d*m_Hanging*t(1-t) (mid-span sag = d*m_Hanging).
-//   floor margin(t) = rope(t) - CarrierDropM - high(t) - FloorM (>= 0 required);
-//   rope height(t)  = rope(t) - center(t) (<= MaxRopeAboveGroundM when that is > 0; the tram has no cap).
-//
-// Phases:
-//   (a) anchors: the station-to-station chord (or a seed-to-seed span) that has a violation is split where the terrain forces it.
-//       The split is solved exactly (Anchors: a shortest-path search over the samples x ladder members) instead of the greedy
-//       recursive worst-intrusion split, which put 18 towers on LP-5's 40 m wall: fewest towers (anchors + the infill (b) will add),
-//       then fewest anchors, shortest members, anchors nearest the worst-intrusion sample. The floor test ignores the sag on spans (b)
-//       will split (their sub-spans sag far less) and keeps it on spans (b) leaves whole (FloorSag). Anchor spans <= 3 x MaxSpanM.
-//       If no clear arrangement exists, the greedy split (Split) minimizes what is left. Shoulders on convex ground become
-//       breakovers and move one sample past the crest toward the higher ground (uphill of the crest, planner notes "Real-world span
-//       lengths", rule 1) when both spans stay clear. Flags: Shoulder (the ground pokes through the chord), Valley (max height),
-//       Breakover.
-//   (b) infill: a span between anchors gets max(ceil(len / MaxSpanM), round(len / TypicalSpanM)) sub-spans: first at the
-//       equal-spacing samples, else each infill node slides inside +-half a sub-span of its spot to the clear spot with the shortest
-//       member, nearest the spot. No sub-span exceeds MaxSpanM or 1.5 x TypicalSpanM - StepM (so a re-plan rounds it to one span:
-//       idempotence). If no arrangement is clear, one to three extra sub-spans are tried; the best is kept and its violation reported.
-//   (c) elevation: every tower starts at the shortest member that keeps the floor at its own node (side-hill); then, while a span has
-//       a floor violation, the end nearer the worst sample (the other end if that one is at the top of the ladder or is a station)
-//       goes up one member. Members whose rope is above MaxRopeAboveGroundM are never used. If (c) leaves a violation that the (a)/(b)
-//       members did not have, the (a)/(b) members are kept.
-//   (d) output: ordered nodes (along, ground, high side, member, rope y, flags) + per-span clearance profile, and AppendLog writes a
-//       "Towers [plan]" block in the "Towers [nodes]" format of LiftTowerDiagSystem so the two compare line by line.
-//
-// Fixed node count: the engine's node count is fixed (equal split, CourseSplitSystem.cs:3485-3493), so LiftTowerFitSystem asks Fit:
-// (1) PlanFixed = phase (c) only at the line's own nodes (each node gets its own profile sample); (2) else, on a straight line, the
-// free plan with spans capped at the engine's max edge length, spare nodes at the longest spans' midpoints; (3) else Short (the better
-// of the two, the tower count the line would need). LiftTowerEdit holds the engine-side numbers (node elevation per member, the vanilla
-// score / top-anchored placement replica, the power-line edge curve). LiftBatch LP-11..LP-15.
+// Pure tower planner for a lift line. No ECS, no Game types: LiftBatch tests it headless (LiftPlannerTests). It runs once per edit
+// (or once per printed diag block), so it is plain C#, not Burst; arrays are reused per planner instance. Deterministic: no
+// randomness, no hash order, ties broken by the sample index.
+// Input: a terrain sampler (along-line meters from station A, lateral meters), the line length, the two stations' rope heights,
+// LiftTowerPlanConstants for the lift type and optional seed nodes (kept as anchors, so re-planning a plan is a fixed point).
+// Phases: (a) anchors by exact shortest-path search, (b) even infill, (c) member elevation, (d) output. Fit asks the fixed
+// node-count variants for LiftTowerFitSystem. Rope sag is the engine's parabola 4*d*m_Hanging*t(1-t) (LaneSystem.cs:4128-4134).
+// Engine notes: EngineNotes/LiftTowerPlanner.md
 
 using System;
 using System.Collections.Generic;
@@ -165,17 +126,15 @@ namespace SkiResortMod.Systems
             return math.max(StationRunM(SkiCatalog.StationOf(def.Index, StationRole.Base)), StationRunM(SkiCatalog.StationOf(def.Index, StationRole.Top)));
         }
 
-        // Ladder tops: the tower manifests' top_anchor_y = ObjectGeometryData m_Size.y, confirmed in game (member lists in the mod log). Rope
-        // offset = shortest top - catalog AxleM (lane y on the shortest tower), which equals every member's top - axle in the manifests (FG
-        // 1.974, DQ 1.95, GD 2.0, tram stubs 3.75). Drop = catalog HangM. Half width = piece m_Width / 2 (gamedata-mirror SkiChairliftPiece /
-        // SkiDetachablePiece 6, SkiGondolaPiece 8.2, SkiTramPiece 15). Sag = PIPELINE m_Hanging (FG net SkiChairliftHV 0.03; DQ / GD / tram
-        // rope lanes 0.004). Elevation caps (informational): planner notes.
+        // Ladder tops: the tower manifests' top_anchor_y = ObjectGeometryData m_Size.y, confirmed in game. Rope offset = shortest top -
+        // catalog AxleM (lane y on the shortest tower). Drop = catalog HangM. Half width = piece m_Width / 2. Sag = the net's m_Hanging (FG net
+        // SkiChairliftHV 0.03; DQ / GD / tram rope lanes 0.004). Per-type values: EngineNotes/LiftTowerPlanner.md
 
-        /// <summary>The tram's longest free span (DECISIONS 381; Peak 2 Peak's record span is 3.03 km). Only the lift-line tool builds a
-        /// span this long: while it is open the line prefab's max edge length is raised to it (LiftLineToolSystem.SetSpansRaised); the
-        /// vanilla net tool keeps SkiTramHV m_MaxPylonDistance 1,000 m. The sag check is unchanged: the engine's rope is the parabola
-        /// 4·d·m_Hanging·t(1-t) at any length (LaneSystem.cs:4128-4134), 12 m mid-span at 3 km, and every span is tested at every 10 m
-        /// sample. Engine limits checked for one 3 km edge: docs/research/lifts/tram-span-and-costs-2026-10-22.md.</summary>
+        /// <summary>The tram's longest free span (Peak 2 Peak's record span is 3.03 km). Only the lift-line tool builds a span this long:
+        /// while it is open the line prefab's max edge length is raised to it (LiftLineToolSystem.SetSpansRaised); the vanilla net tool
+        /// keeps SkiTramHV m_MaxPylonDistance 1,000 m. The sag check is unchanged: the engine's rope is the parabola 4·d·m_Hanging·t(1-t)
+        /// at any length (LaneSystem.cs:4128-4134), 12 m mid-span at 3 km, and every span is tested at every 10 m sample. The other
+        /// engine limits for one 3 km edge: EngineNotes/LiftTowerPlanner.md.</summary>
         public const float TramMaxSpanM = 3000f;
 
         public static readonly LiftTowerMember[] FixedGripLadder =
@@ -399,25 +358,18 @@ namespace SkiResortMod.Systems
         public int Needed;            // line towers the free plan uses
     }
 
-    /// <summary>The engine-side numbers of a fitted node, pure so LiftBatch checks them (LP-15). A tower node is raised
-    ///   so that the vanilla placeholder ladder spawns exactly the planned member on the ground:
-    ///   node y = center ground + E, Game.Net.Elevation = (E, E), E = TopM[member] - TopM[0];
-    ///   SubObjectSystem scores member m' with spare = m_Size.y - (cmin(Elevation) + spec y) (Game.Objects/SubObjectSystem.cs:980,
-    ///   :2189-2199; spec y = TopM[0] in all four line prefabs: FG 9.014, DQ 9.95, GD 12, tram 30), so the planned member has spare 0
-    ///   and score 1, every other member scores at most 1/(1 + step): no tie, no random draw (:2346-2358); a node tagged Updated
-    ///   is re-scored (owner query All SubObject + Any Updated, :3936-3943);
-    ///   a Standalone pillar is placed TOP-anchored (AnchorTop + OnGround, :2464-2469): pivot = node y + spec y - member top
-    ///   (:2477-2482; the node-y-minus-elevation rule at :2521 skips AnchorTop rows) = ground + E + TopM[0] - TopM[m] = the ground;
-    ///   the rope lane = node y + lane y (LaneSystem.cs:4112-4115) = ground + TopM[m] - RopeBelowTopM = the planner's rope;
-    ///   the edge curve is the engine's own power-line curve between the two node points, NetUtils.StraightCurve(a, d, net
-    ///   m_Hanging) (NetUtils.cs:178-191, CourseSplitSystem.cs:1702-1704 for StrictNodes nets).</summary>
+    /// <summary>The engine-side numbers of a fitted node, pure so LiftBatch checks them (LP-15). A tower node is raised so the vanilla
+    /// placeholder ladder spawns exactly the planned member on the ground: node y = center ground + E, Game.Net.Elevation = (E, E),
+    /// E = TopM[member] - TopM[0]. SubObjectSystem scores the planned member spare 0 / score 1 (SubObjectSystem.cs:980, :2189-2199), a
+    /// Standalone pillar is placed top-anchored (:2464-2469, :2477-2482) and the rope lane is node y + lane y (LaneSystem.cs:4112-4115).
+    /// The edge curve is NetUtils.StraightCurve(a, d, net m_Hanging) (NetUtils.cs:178-191). Derivation: EngineNotes/LiftTowerPlanner.md</summary>
     public static class LiftTowerEdit
     {
         /// <summary>A node this far BELOW its target (ground + E) is rewritten: the tower would sink into the ground.</summary>
         public const float HeightBelowTolM = 0.25f;
 
         /// <summary>A node up to this far ABOVE its target is left alone. Every write re-curves the node's edges, the carve (cut ceiling =
-        /// edge y + m_HeightRange.min - 2, terrain-carving.md section 2) follows the curve, and on the steep tram spans the cut reaches the
+        /// edge y + m_HeightRange.min - 2, TerrainSystem.AddSegment) follows the curve, and on the steep tram spans the cut reaches the
         /// node: the ground under it sank 0.39 -> 0.33 -> 0.27 m per write (ratio ~0.85), so a fit that re-grounds on every 0.25 m wrote
         /// three times and hit the loop guard. The write that caused the sink is ours; the tower base then stands at most this far above the
         /// carved ground.</summary>
@@ -486,17 +438,13 @@ namespace SkiResortMod.Systems
             return math.lerp(a.y, d.y, t) - 3f * t * (1f - t) * drop;
         }
 
-        // A lift line is a FlattenTerrain power line: TerrainSystem cuts the terrain down to a ceiling of edge y +
-        // NetCompositionData.m_HeightRange.min + TerrainComposition.m_MinHeightOffset (AddSegment, TerrainSystem.cs:1397-1516; terrain-carving.md
-        // section 2: our pieces {6, 20} and -2 = edge y + 4) and never fills. The cut is live: it is drawn into the height cascade from the base
-        // heightmap on every update of the area (DrawHeightAdjustments, :4727-4800; the brush path writes the base map, :3950), and the CPU
-        // heights the fit samples are read back from the cascade (:3598-3646). A vanilla line drawn on the ground runs its edges up to 15 m under
-        // convex terrain, so its cut is meters deep; the fit sampled that as the ground and stood towers in the trench (node y = cut floor + E).
-        // Once the old edges were replaced the trench refilled around the towers (the ground at a fitted tower rose +0.5 / +0.4 / +1.9 m after
-        // the write) and a node left more than 4 m under the ground keeps its own round cut: pits.
-        // Rule: a sample that sits at this line's own cut ceiling (within OwnCutTolM; natural ground is never exactly there, the cut never
-        // fills) is replaced by the plane through the ground just outside the cut (lateral +- (half width + CutFarMarginM)), when that plane is
-        // higher. Ground below the ceiling (a valley the rope crosses) is the player's and is kept.
+        // A lift line is a FlattenTerrain power line: TerrainSystem cuts the terrain down to a ceiling of edge y + m_HeightRange.min +
+        // m_MinHeightOffset (AddSegment, TerrainSystem.cs:1397-1516; our pieces {6, 20} and -2 = edge y + 4) and never fills. The cut is
+        // live (DrawHeightAdjustments, :4727-4800) and the CPU heights the fit samples read back from the cascade (:3598-3646), so a vanilla
+        // line drawn on the ground leaves a trench the fit would take for ground and stand towers in (and refill into pits around them).
+        // Rule: a sample at this line's own cut ceiling (within OwnCutTolM; natural ground is never exactly there) is replaced by the plane
+        // through the ground just outside the cut (lateral +- (half width + CutFarMarginM)), when that plane is higher. Ground below the
+        // ceiling (a valley the rope crosses) is the player's and is kept. More: EngineNotes/LiftTowerPlanner.md
 
         public const float OwnCutTolM = 0.3f;
         /// <summary>Lateral margin beyond the piece half width for the uncut reference samples. The cut's smoothing width lives in the
@@ -551,7 +499,7 @@ namespace SkiResortMod.Systems
 
     /// <summary>Tower numbers along a lift line. The number on a tower's plate is its height class baked into the prefab texture
     /// (assets/blender/lift_tower.py:4146-4152 plate_numeral: FG8 -> 8, DQ12 -> 12, GD20 -> 20), so a line that mixes members would read
-    /// 12, 16, 20, 12, ... instead. The order rule (docs/research/dynamic-numbers.md section 1): tower n = the n-th line tower by distance
+    /// 12, 16, 20, 12, ... instead. The order rule: tower n = the n-th line tower by distance
     /// along the line from the base station, 1 at the base, dense (nodes without a tower are skipped). Computed from geometry only, so it
     /// is the same after a save / load; an edit renumbers only the towers after the first changed one.</summary>
     public static class LiftTowerNumbering
@@ -833,8 +781,8 @@ namespace SkiResortMod.Systems
             fit.Free = Plan(terrain, lengthM, ropeA, ropeB, cm);
             fit.Needed = fit.Free.LineTowers;
             // Hysteresis: the members the line already carries win when they clear it as they stand. Phase (c) re-run on ground that moved a few
-            // decimeters (our own carve, rounding) can pick an equally clear but different assignment (a 1,223 m tram flipped {T30 x9, T45 x3}
-            // <-> {T30 x8, T45 x4} on every re-fit); a clear line is final.
+            // decimeters (our own carve, rounding) can pick an equally clear but different assignment (a long tram flipped between two member mixes on
+            // every re-fit); a clear line is final.
             if (currentMembers != null && currentMembers.Count == currentInnerAlongM.Count)
             {
                 LiftTowerPlan current = PlanFixed(terrain, lengthM, ropeA, ropeB, c, currentInnerAlongM, currentMembers, null, assign: false);
@@ -1057,7 +1005,7 @@ namespace SkiResortMod.Systems
         private struct MinCost
         {
             public int Towers;      // line towers so far
-            public int Breaks;      // towers on the uphill sample of a convex crest (planner notes span table rule 1): more is better
+            public int Breaks;      // towers on the uphill sample of a convex crest (breakover rule): more is better
             public int Members;     // sum of ladder indices (fewer steps = shorter towers at the same count)
             public float SumSq;     // sum of squared span lengths (even spans at the same count and steps)
             public int Parent;      // state index (k * ladder + m), -1 = the segment's start node
@@ -1085,7 +1033,7 @@ namespace SkiResortMod.Systems
         private bool[] m_UphillOfCrest = new bool[0];
 
         /// <summary>Marks, for samples i..j, the uphill neighbor of every convex crest (Curvature below -ConvexM and the most convex
-        /// within ±2 samples): a tower there is the real-world "tower just before a breakover" (planner notes span table rule 1).</summary>
+        /// within ±2 samples): a tower there is the real-world "tower just before a breakover".</summary>
         private void MarkCrests(int i, int j)
         {
             if (m_UphillOfCrest.Length < m_N + 1)
@@ -1363,7 +1311,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Shoulders on convex ground (between working nodes a and b) become breakovers: each moves one sample past the crest
-        /// toward the higher ground (uphill of the crest, planner notes span table rule 1) with the shortest member that keeps both of
+        /// toward the higher ground (uphill of the crest) with the shortest member that keeps both of
         /// its spans clear and adds no infill tower.</summary>
         private void BreakoverPass(int a, int b)
         {
@@ -1419,7 +1367,7 @@ namespace SkiResortMod.Systems
             {
                 flags |= LiftPlanNodeFlags.Breakover;
                 // Uphill of the crest: one sample past the most convex sample toward the higher ground, with the shortest member
-                // that leaves the halves no worse than the chosen split (planner notes, span table rule 1).
+                // that leaves the halves no worse than the chosen split.
                 int up = m_High[math.min(crest + 1, m_N)] >= m_High[math.max(crest - 1, 0)] ? crest + 1 : crest - 1;
                 int minGap = MinGap();
                 if (up != k && up - i >= minGap && j - up >= minGap && !NearStation(up))
