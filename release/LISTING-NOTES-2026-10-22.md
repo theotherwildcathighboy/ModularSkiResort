@@ -59,7 +59,7 @@ Resolved questions below: Q1 (straight to 1.0: the save line stays "start from a
 | Power: overlay, base station is a transformer, LV into the stub at the front corner, line carries power up, no power no lift | DECISIONS 342, 358 (d), 369, 370; `LocaleEN` station descriptions | V; field PASS "station power as desired" (358) |
 | Do not connect city HV lines to a tower | docs-site lifts.mdx, DECISIONS 370 (c) ("labeled untested") | L, untested (sheet row 12) |
 | Remove lifts before uninstalling; leftover behavior untested | DECISIONS 370 (c); docs-site lifts.mdx | L; sheet row 19 pending |
-| Steepest slope 80 / 90 / 120 / 250 %; tram spans 1,000 m | prefab mirror `m_MaxSlopeSteepness` 0.8 / 0.9 / 1.2 / 2.5; `LiftTowerPlanner.For` (tram max span 1000) | V (prefab). Whether the lift tool path enforces the slope cap in game: UNVERIFIED |
+| Steepest slope 80 / 90 / 120 / 250 %; tram spans 3,000 m | prefab mirror `m_MaxSlopeSteepness` 0.8 / 0.9 / 1.2 / 2.5; `LiftTowerPlanner.For` (TramMaxSpanM 3000, DECISIONS 382) | V (prefab). Whether the lift tool path enforces the slope cap in game: UNVERIFIED |
 | Canyon / cliff results can look wrong, like vanilla power lines | Carried from the old text and docs-site lifts.mdx | L, softened; see questions |
 | Stations sit on the slope; tram base terminal levels a pad | prefab mirror (`BuildingTerraformOverride` DontRaise + DontLower on FG / DQ / gondola bases, all top stations, tram top; none on the tram base, A-frame, Grand); DECISIONS 354 (c), 358 (6) | V |
 | Skiers counted, not simulated; chairs carry no passengers | docs-site hub-panel ("Riders are not simulated"), V2-IDEAS "Seated riders", DECISIONS 158 (g) | L |

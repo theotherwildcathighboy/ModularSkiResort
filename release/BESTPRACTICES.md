@@ -25,7 +25,7 @@ If the panel shows a problem line ("No lift yet", "Lodge is not at a road"), cli
 - **Lift tool.** Click the line to add a tower. Drag a tower to move it; it stays where you put it. Drag a tower off the line to remove it. Right click steps back one action. Enter builds. Esc closes. Ctrl+Shift+L opens the tool from the keyboard.
 - **Let the planner work first.** It picks tower heights to fit the ground and uses the fewest towers the lift type allows. Move towers only where you want them. The preview colors the cable by how far it clears the ground.
 - **Steep or uneven ground.** Build one section at a time. To fix one section, bulldoze it and click its two ends again. The other sections keep their towers, cable and chairs.
-- **Pick the type for the terrain.** Steepest slope: fixed-grip 80 percent, detachable 90, gondola 120, tram 250. The tram reaches farthest between towers (1,000 m).
+- **Pick the type for the terrain.** Steepest slope: fixed-grip 80 percent, detachable 90, gondola 120, tram 250. The tram reaches farthest between towers (up to 3,000 m with the lift tool).
 - **Stations sit on the slope.** They do not flatten the ground. The tram base terminal does level a pad. Site stations on reasonably level ground, or terraform first.
 - **Push a lift across a canyon or up a cliff face and the result can look wrong**, as vanilla power lines do in the same places. Use the preview.
 - Towers are numbered up the line from the base station.

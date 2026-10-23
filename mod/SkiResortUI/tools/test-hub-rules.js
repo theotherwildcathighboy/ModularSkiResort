@@ -653,8 +653,10 @@ function run(srcDir) {
       .map((id) => id + " prefab " + JSON.stringify(prefabDraw(id, ITEMS.BUILDING_DRAW[id].prefab))), []);
   const linkText = [...tuples.entries()].filter(([, v]) => /join(s|ed)? (this ski area's |the )?Welcome Sign|(near|on) (this ski area's |the |a )?(selected )?Welcome Sign|needs staff/i.test(v)).map(([k]) => k);
   eq("T29.3 no hub text tells the player a building joins or goes near the Welcome Sign, or that it \"needs staff\" (T129)", linkText, []);
-  // A depth is a number with cm, or with in / ft not followed by a word ("0 in Options", "0 in the net" are not depths).
-  const bakedDepth = [...tuples.entries()].filter(([, v]) => /\d\s*cm\b|\d\s*(in|ft)\b(?!\s+[A-Za-z])/.test(v) && !/\{DEPTH\}/.test(v)).map(([k]) => k);
+  // A depth is a number with cm or ft, or with in not followed by a word ("0 in Options", "0 in the net" are not depths). Checked
+  // on the text WITHOUT its placeholders, so a {DEPTH} text cannot also bake a threshold ("3 ft reached", "opens at 3 ft (91 cm)"
+  // slipped through the first version: the "ft + word" exception and the {DEPTH} exemption; DECISIONS 381).
+  const bakedDepth = [...tuples.entries()].filter(([, v]) => /\d\s*(cm|ft)\b|\d\s*in\b(?!\s+[A-Za-z])/.test(v.replace(/\{[A-Z_]+\}/g, ""))).map(([k]) => k);
   eq("T29.4 no hub text bakes a snow depth (the open depth is C#'s and changes, T133; depth goes through {DEPTH})", bakedDepth, []);
   const stripSrc = read(path.join("hub", "BuildStrip.tsx"));
   eq("T29.5 the tile tooltip draws the vanilla rows from BUILDING_DRAW (Power / VolumePerMonth / WeightPerMonth / MoneyPerMonth) and the terrain line",

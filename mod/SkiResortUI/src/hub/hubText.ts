@@ -217,7 +217,7 @@ export const HUB_LOC = {
   runEstimated: ["SkiResort.Hub.RUN_ESTIMATED", "Estimated from the day's temperature."],
   /* the run tooltip's snow-gun line by RUN_GUN_WHY (the depth line is HUB_FMT.runDepth) */
   runGunsMaking: ["SkiResort.Hub.RUN_GUNS[Making]", "Snow guns: making snow now"],
-  runGunsDepth: ["SkiResort.Hub.RUN_GUNS[DepthReached]", "Snow guns: off, 3 ft reached"],
+  runGunsDepth: ["SkiResort.Hub.RUN_GUNS[DepthReached]", "Snow guns: off, the snow is deep enough"],
   runGunsWarm: ["SkiResort.Hub.RUN_GUNS[TooWarm]", "Snow guns: off, too warm"],
   runGunsSeason: ["SkiResort.Hub.RUN_GUNS[OutOfSeason]", "Snow guns: off, out of season (October–March)"],
   runGunsWaiting: ["SkiResort.Hub.RUN_GUNS[Waiting]", "Snow guns: waiting for the first snow reading"],
@@ -514,8 +514,9 @@ export const HUB_FMT = {
   runOpenOpen: ["SkiResort.Hub.RUN_OPEN[Open]", "Open: snow on {PCT} of it"],
   runOpenPartly: ["SkiResort.Hub.RUN_OPEN[Partly]", "Patchy: snow on {PCT} of it"],
   runOpenClosed: ["SkiResort.Hub.RUN_OPEN[Closed]", "Closed: snow on {PCT} of it"],
-  /* {DEPTH} = RunLive.snowDepthCm / 100 (unit length) */
-  runDepth: ["SkiResort.Hub.RUN_DEPTH", "Snow depth {DEPTH} · opens at 3 ft (91 cm)"],
+  /* {DEPTH} = RunLive.snowDepthCm / 100 (unit length: m or ft by the player's unit setting). No baked open depth (T29.4, DECISIONS 381):
+     the threshold is C#'s and would need its own placeholder from RunList.tsx. */
+  runDepth: ["SkiResort.Hub.RUN_DEPTH", "Snow depth {DEPTH}"],
   runServed: ["SkiResort.Hub.RUN_SERVED", "Served by {NAME}"],
   runNotServed: ["SkiResort.Hub.RUN_NOT_SERVED", "No running lift reaches its top: it counts {PCT}"],
   runValueOf: ["SkiResort.Hub.RUN_VALUE_OF", "{NOW} of {FULL}"],

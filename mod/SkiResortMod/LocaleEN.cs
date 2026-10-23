@@ -709,9 +709,9 @@ namespace SkiResortMod
                 { "SkiResort.Hub.COL_LIFT_TIP", "↑: a running lift reaches the top of this run." },
                 { "SkiResort.Hub.RUN_ESTIMATED", "Estimated from the day's temperature." },
                 // The run tooltip's depth line and snow-gun line (hubText.ts runDepth / runGuns*).
-                { "SkiResort.Hub.RUN_DEPTH", "Snow depth {DEPTH} · opens at 3 ft (91 cm)" },
+                { "SkiResort.Hub.RUN_DEPTH", "Snow depth {DEPTH}" },
                 { "SkiResort.Hub.RUN_GUNS[Making]", "Snow guns: making snow now" },
-                { "SkiResort.Hub.RUN_GUNS[DepthReached]", "Snow guns: off, 3 ft reached" },
+                { "SkiResort.Hub.RUN_GUNS[DepthReached]", "Snow guns: off, the snow is deep enough" },
                 { "SkiResort.Hub.RUN_GUNS[TooWarm]", "Snow guns: off, too warm" },
                 { "SkiResort.Hub.RUN_GUNS[OutOfSeason]", "Snow guns: off, out of season (October–March)" },
                 { "SkiResort.Hub.RUN_GUNS[Waiting]", "Snow guns: waiting for the first snow reading" },

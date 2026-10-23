@@ -171,6 +171,13 @@ namespace SkiResortMod.Systems
         // SkiDetachablePiece 6, SkiGondolaPiece 8.2, SkiTramPiece 15). Sag = PIPELINE m_Hanging (FG net SkiChairliftHV 0.03; DQ / GD / tram
         // rope lanes 0.004). Elevation caps (informational): planner notes.
 
+        /// <summary>The tram's longest free span (DECISIONS 381; Peak 2 Peak's record span is 3.03 km). Only the lift-line tool builds a
+        /// span this long: while it is open the line prefab's max edge length is raised to it (LiftLineToolSystem.SetSpansRaised); the
+        /// vanilla net tool keeps SkiTramHV m_MaxPylonDistance 1,000 m. The sag check is unchanged: the engine's rope is the parabola
+        /// 4·d·m_Hanging·t(1-t) at any length (LaneSystem.cs:4128-4134), 12 m mid-span at 3 km, and every span is tested at every 10 m
+        /// sample. Engine limits checked for one 3 km edge: docs/research/lifts/tram-span-and-costs-2026-10-22.md.</summary>
+        public const float TramMaxSpanM = 3000f;
+
         public static readonly LiftTowerMember[] FixedGripLadder =
         {
             new LiftTowerMember("SkiLiftTowerFG2", 9.014f),    // the FG8 member (prefab keeps its legacy name)
@@ -222,7 +229,7 @@ namespace SkiResortMod.Systems
                         110f, 245f, 10f, 4.1f, 0.004f, 28f, stationClearM: run);
                 case "tram":
                     return new LiftTowerPlanConstants(def.Id, TramLadder, TramLadder[0].TopM - def.AxleM, def.HangM, 5f, 0f,
-                        800f, 1000f, 40f, 7.5f, 0.004f, 30f, 10f, stationClearM: run);   // 10 m samples: a 1-3 km line stays cheap
+                        800f, TramMaxSpanM, 40f, 7.5f, 0.004f, 30f, 10f, stationClearM: run);   // 10 m samples: a 1-3 km line stays cheap
                 default:
                     return null;
             }

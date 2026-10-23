@@ -1,39 +1,10 @@
-// Tests for the pure LiftTowerPlanner on measured profiles replayed from field logs and on synthetic ground. Where-tags
-// `planner/...`.
-//   LP-0  constants: every catalog lift type has planner constants; ladders ascend; the shortest member's rope = catalog AxleM;
-//         every member's rope = its manifest axle (FG 7.04/11.04/15.04/19.04, DQ 8..18, GD 10/14/18, tram stubs
-//         26.25/41.25/56.25)
-//   LP-1  DQ gully replay: 2 line towers, one of them tall (>= DQ16), every span clear; and the same with an assumed 6.0 m
-//         rope-to-ground minimum
-//   LP-2  tram pitch replay: 1 line tower, every span clear
-//   LP-3  FG dip replay: 1 line tower, every span clear
-//   LP-4  flat ground: infill only, at the typical span, shortest members
-//   LP-5  a 40 m wall, up and down: max rope height respected everywhere and the floor clear
-//   LP-6  side-hill: the high side governs (a taller member than on flat ground), side samples at +-half width, SideHill flag
-//   LP-7  breakover: a node flagged Breakover at the convex knee, on its uphill side
-//   LP-8  idempotence: re-planning every plan with its own nodes as seeds changes no position, member or rope; planning twice is
-//         identical (determinism)
-//   LP-9  the "Towers [plan]" block: header + one line per node + one per span, in the "Towers [nodes]" layout
-//   Fixed node count (LiftTowerPlanner.Fit):
-//   LP-11 a seven-node FG line: violated before (5 x FG8), clear after with its 5 nodes, spans <= 60 m, both station-rope
-//         models (node + 7.04; ET68 5.84 / ET62 5.24)
-//   LP-12 three lines at the engine's equal split: FG dip and tram clear; DQ gully Short (needs 4 towers, has 3), much better
-//         than before
-//   LP-13 a fitted line re-fits to itself (Kept, same nodes and members: the system's write-once guarantee)
-//   LP-14 Short when the line has too few nodes; allowMove false never moves
-//   LP-15 engine numbers: the vanilla ladder picks the planned member at E = TopM[m] - TopM[0] with score 1, top-anchored
-//         placement stands it on the ground, ground + E + AxleM = the planner's rope, E within the net's elevation cap, the edge
-//         curve formula
-//   LP-21 the 1,408 m gondola with 11 engine nodes is Moved and clear (was Short x3 + the loop guard), its re-fit writes
-//         nothing; a standing line within KeepTolM (0.5 m) of the floor is Kept
-//   LP-22 StationClearM per type from the station geometry; no planner tower inside it unless the ground leaves no clear plan
-//         (flagged NearStation), in both directions; a pin inside it is kept
-//   LP-23 UncutGround cases; the 1,408 m gondola in its own trench: the raw sampler sinks towers > 4 m under the natural ground
-//         (a self-sustaining pit), the UncutSampler none
-//   LP-24 tower numbers base -> top by distance, dense, reversed from the top, an edit shifts only the towers after it
+// Tests for the pure LiftTowerPlanner on measured profiles replayed from field logs and on synthetic ground (where-tags `planner/...`,
+// LP-0..LP-25). Pinned: every lift type has planner constants and each member's rope = its manifest axle; the DQ gully, tram pitch and
+// FG dip replays end with every span clear; flat ground gets infill only; walls, side-hill (the high side governs) and breakover knees
+// are respected; Fit (fixed node count) is Kept / Moved / Short as designed and a fitted line re-fits to itself (write-once guarantee).
 // Replay terrain: ground at each node = the log's `terrain`; between nodes the four chord samples at 20/40/60/80 % give ground =
-// lerp(node y, next node y, t) - chord clearance (the diag's chord runs between node positions, LiftTowerDiagSystem
-// DescribeNode); linear in between. The log has no cross-slope, so the replay sampler ignores the lateral offset.
+// lerp(node y, next node y, t) - chord clearance (the diag's chord runs between node positions, LiftTowerDiagSystem DescribeNode);
+// linear in between. The log has no cross-slope, so the replay sampler ignores the lateral offset.
 
 using System;
 using System.Collections.Generic;
@@ -79,6 +50,7 @@ namespace LiftBatch
             Lp22StationClearance();
             Lp23OwnCut();
             Lp24TowerNumbers();
+            Lp25TramLongSpan();
             s_Check = null;
         }
 
@@ -301,9 +273,14 @@ namespace LiftBatch
             const string W = "planner/LP-2";
             Profile p = Reconstruct(TramPitch);
             LiftTowerPlanConstants c = LiftTowerPlanConstants.For("tram");
+            // The 1,000 m span of the original replay (before DECISIONS 381) needs one tower; at the 3 km max the 1,160 m pitch is one clear span.
+            LiftTowerPlan plan1k = PlanAndReplan("LP-2/1k", (s, l) => p.At(s), p.Length, c.With(maxSpanM: 1000f), p.Start, p.End);
+            AddReport("LP-2 tram pitch (log :665), max span 1,000 m", "1 line tower, clear", plan1k);
+            Check(plan1k.LineTowers == 1, W, "1 km max: line towers " + plan1k.LineTowers + ", expected 1: " + Describe(plan1k));
+            Check(plan1k.Clear, W, "1 km max: a span is violated: " + Describe(plan1k));
             LiftTowerPlan plan = PlanAndReplan("LP-2", (s, l) => p.At(s), p.Length, c, p.Start, p.End);
-            AddReport("LP-2 tram pitch (log :665)", "1 line tower, clear", plan);
-            Check(plan.LineTowers == 1, W, "line towers " + plan.LineTowers + ", expected 1: " + Describe(plan));
+            AddReport("LP-2 tram pitch (log :665), max span 3,000 m", "0 line towers, one clear span", plan);
+            Check(plan.LineTowers == 0, W, "line towers " + plan.LineTowers + ", expected 0: " + Describe(plan));
             Check(plan.Clear, W, "a span is violated: " + Describe(plan));
         }
 
@@ -1289,6 +1266,73 @@ namespace LiftBatch
             Check(added[1] == 1 && added[2] == 2 && added[4] == 3 && added[0] == 4 && added[3] == 5, W, "insert: " + string.Join(",", added));
             s_Report.Add("LP-24 tower numbers | base -> top by distance, dense, an edit shifts only the towers after it | " +
                          "{300,50,120,600} -> " + string.Join(",", a) + "; from the top " + string.Join(",", r) + "; + a tower at 200 -> " + string.Join(",", added));
+        }
+
+        /// <summary>LP-25 (DECISIONS 381): the tram's 3 km free span with the sag check intact. Stations on ground 1,000 m at both ends,
+        /// ropes on the shortest member. (a) a 3,000 m valley 300 m deep is ONE clear span, its mid-span rope 12 m (3,000 x 0.004) under
+        /// the chord, and the tool emits only the two stations; (b) the same valley with a ridge at mid-span up to station level: the bare
+        /// chord clears it (+10.75 m) but the sagging rope does not (-1.25 m), so the free plan puts a tower there and the fixed fit of
+        /// the bare span is Short; (c) a 3,200 m valley needs one tower (the cap); (d) 3,000 m of flat ground needs one tower (the sag
+        /// leaves the cabin 3.75 m up, under the 5 m floor); (e) the 3 km plans stay fast.</summary>
+        private static void Lp25TramLongSpan()
+        {
+            const string W = "planner/LP-25";
+            LiftTowerPlanConstants c = LiftTowerPlanConstants.For("tram");
+            Check(c.MaxSpanM == LiftTowerPlanConstants.TramMaxSpanM && c.MaxSpanM == 3000f, W, "tram max span " + c.MaxSpanM + ", expected 3000");
+            const float L = 3000f, G = 1000f;
+            float rope = G + c.RopeAboveBase(0);
+            LiftTerrainSampler valley = (s, l) => G - 300f * math.sin(math.PI * math.saturate(s / L));
+            LiftTerrainSampler ridge = (s, l) => math.max(valley(s, l), G - 0.5f * math.abs(s - 1500f));
+
+            // (a) the valley: one span, the engine's parabola.
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            LiftTowerPlan a = PlanAndReplan("LP-25a", valley, L, c, G, G);
+            double msA = sw.Elapsed.TotalMilliseconds;
+            AddReport("LP-25a tram 3,000 m valley", "0 line towers, one 3,000 m span, clear", a);
+            Check(a.LineTowers == 0 && a.Clear && a.Spans.Length == 1 && math.abs(a.Spans[0].LengthM - L) < 1e-2f, W, "valley: " + Describe(a));
+            float mid = a.RopeAt(0, 1500f);
+            Check(math.abs(rope - mid - L * c.SagRatio) < 0.05f, W, "mid-span sag " + (rope - mid).ToString("F2") + " m, expected " + (L * c.SagRatio).ToString("F2"));
+            LiftLineEdit e = new LiftLineEdit(c, new float3(0f, G, 0f), new float3(L, G, 0f), rope, rope);
+            e.Replan(valley);
+            Check(e.Plan.Clear && e.Emit().Count == 2, W, "tool on the valley: " + e.Describe());
+            CheckEmission("LP-25a tram 3 km valley", e, valley);
+            s_Report.Add("LP-25a tool on the 3,000 m valley | 2 nodes (the stations), clear | " + e.Describe() +
+                         "; mid-span sag " + (rope - mid).ToString("F2") + " m");
+
+            // (b) a ridge the chord clears but the sag does not.
+            float need = c.CarrierDropM + c.FloorM;
+            float chordMargin = rope - need - G;
+            float sagMargin = rope - L * c.SagRatio - need - G;
+            Check(chordMargin > 0f && sagMargin < 0f, W, "ridge arithmetic: chord " + chordMargin.ToString("F2") + ", with sag " + sagMargin.ToString("F2"));
+            LiftTowerPlan bare = s_Planner.PlanFixed(ridge, L, rope, rope, c, new float[0]);
+            Check(!bare.Clear && bare.Spans[0].FloorViolated && math.abs(bare.Spans[0].MinFloorMarginAtM - 1500f) <= c.StepM, W,
+                  "bare 3 km span over the ridge should violate the floor at 1,500 m: " + Describe(bare));
+            sw.Restart();
+            LiftTowerPlan b = PlanAndReplan("LP-25b", ridge, L, c, G, G);
+            double msB = sw.Elapsed.TotalMilliseconds;
+            AddReport("LP-25b tram 3,000 m valley + mid ridge at station level", "a tower at the ridge, every span clear", b);
+            Check(b.LineTowers >= 1 && b.Clear, W, "ridge: " + Describe(b));
+            LiftTowerFit fit = s_Planner.Fit(ridge, L, rope, rope, c, new float[0], true, c.MaxSpanM, new int[0]);
+            Check(fit.Mode == LiftFitMode.Short && fit.Needed >= 1, W, "fixed fit of the bare span: " + fit.Mode + ", needs " + fit.Needed);
+            s_Report.Add("LP-25b bare 3,000 m span over the ridge | floor violated at 1,500 m (chord +" + chordMargin.ToString("F2") +
+                         " m, with the 12 m sag " + sagMargin.ToString("F2") + " m); fixed fit Short | " + Describe(bare) + "; fit " + fit.Mode +
+                         ", needs " + fit.Needed);
+
+            // (c) past the cap.
+            LiftTerrainSampler valley32 = (s, l) => G - 300f * math.sin(math.PI * math.saturate(s / 3200f));
+            LiftTowerPlan cc = PlanAndReplan("LP-25c", valley32, 3200f, c, G, G);
+            AddReport("LP-25c tram 3,200 m valley", "1 line tower (span cap), clear", cc);
+            Check(cc.LineTowers == 1 && cc.Clear, W, "3,200 m valley: " + Describe(cc));
+
+            // (d) flat: the sag alone needs a tower.
+            LiftTowerPlan d = PlanAndReplan("LP-25d", (s, l) => G, L, c, G, G);
+            AddReport("LP-25d tram 3,000 m flat", "1 line tower (12 m sag leaves the cabin 3.75 m up), clear", d);
+            Check(d.LineTowers == 1 && d.Clear, W, "flat 3 km: " + Describe(d));
+
+            // (e) cost: each PlanAndReplan above is 3 plans; the tool re-plans once per edit.
+            Check(msA < 1500.0 && msB < 1500.0, W, "3 km plans too slow: valley " + msA.ToString("F1") + " ms, ridge " + msB.ToString("F1") + " ms (3 plans each)");
+            s_Report.Add("LP-25e 3 km plan time (3 plans: plan, determinism, idempotence) | < 1,500 ms | valley " + msA.ToString("F1") +
+                         " ms, ridge " + msB.ToString("F1") + " ms");
         }
 
         private static int[] MembersOf(LiftTowerPlan p)
