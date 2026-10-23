@@ -1,19 +1,11 @@
-// The Plan, Fill, Classify path of a ski run's rating, shared by the drawing tooltip (SkiRunDrawFeedbackSystem) and the
-// hub's built-run rating cache (SkiRunCatalogSystem) so both rate a polygon with the same code.
-//   * Rate<T>: StepMultiple(area, texel, stepCurrent) clamped to >= 1, step = m * texel, target.DiagonalRule = m >= 2
-//     (the classifier does not know m), Plan, then (if Plan produced a lattice) the reuse guard, FillHeights and Classify.
-//     A failed Plan is not classified; the result keeps its previous contents.
-//   * The heights-ready check (heightmap created, >= MinHeightmapResolution wide) stays with each caller, and so does
-//     the caller's part of the reuse guard (verify age, forced resample): a caller that may not reuse passes null.
-//   * Rate takes `double2 origin` (the lattice origin, -hd.offset.xz), which Plan cannot run without. ShoelaceArea
-//     returns double because SkiSlopeClassifier.StepMultiple takes double (a float would move m at a budget boundary).
-//     The Rate overload with `out RateDetail` publishes plan / classify status, the reuse decision, reused / sampled
-//     counts and plan time.
-// Parity: tests/SlopeBatch links this file and proves Rate is bit-identical to the direct Plan, fill, Classify calls on
-// every field capture, FillHeights to a verbatim copy of the pre-extraction body, and ShoelaceArea to the old one.
-// Bit equality between CoreCLR and the game's Mono is unverified (as for the classifier).
-// Pure file: `using System;` and `using Unity.Mathematics;` only (the tests/SlopeBatch rule); Stopwatch by full name
-// (exists in net48 and net8). No allocation except FillHeights' growth of a too-small Heights array.
+// The Plan, Fill, Classify path of a ski run's rating, shared by the drawing tooltip (SkiRunDrawFeedbackSystem) and the hub's
+// built-run rating cache (SkiRunCatalogSystem) so both rate a polygon with the same code. A failed Plan is not classified.
+// Callers keep the heights-ready check and their part of the reuse guard (verify age, forced resample); one that may not reuse passes null.
+// ShoelaceArea returns double because SkiSlopeClassifier.StepMultiple takes double (a float would move m at a budget boundary).
+// Parity: tests/SlopeBatch links this file and proves Rate bit-identical to the direct Plan, fill, Classify calls; bit equality
+// between CoreCLR and the game's Mono is unverified (as for the classifier).
+// Pure file: `using System;` and `using Unity.Mathematics;` only (the tests/SlopeBatch rule); Stopwatch by full name (net48 and net8).
+// No allocation except FillHeights' growth of a too-small Heights array.
 
 using System;
 using Unity.Mathematics;

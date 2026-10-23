@@ -1,23 +1,11 @@
-// BindingBatch — headless decision-table tests for SkiRunBindingRules.
-// Run (from the ModularSkiResort root):
-//   dotnet run --project tests\BindingBatch\BindingBatch.csproj -c Release
-// Prints `FAIL  where: msg` lines, report-only INFO lines and one SUMMARY line;
-// Environment.ExitCode = failures (the GladeBatch conventions).
-//
-// What is proven here is the PURE decision only. The ECS effects (Owner removal, SubArea entry
-// removal, AddComponentData, Charge) live in SkiRunOwnershipSystem and are modeled below by a
-// test-local effect function (ApplyEffect) that restates the table's "Effect" column; the model is
-// what the idempotence and money assertions run against, not the mod's ECS code.
-//
-// The oracle is a DIFFERENT encoding from Decide's if-chain: the decision table as data (required-
-// true / required-false fact masks per row, first match wins), plus literal expected values for
-// hand-picked combinations and the exact number of combinations each row must win (a priority
-// check that does not reuse either encoding).
-//
-// FeeTests asserts SkiRunFees (base + per hectare, rounded half up to ₵10, area capped at 2,000 ha,
-// -1 for an unknown kind) — a literal table (oracles computed in IEEE double, as the C#) and a
-// monotonicity / rounding sweep over every kind (201 areas each). EntityRef.cs is linked for the
-// RunKind equalities.
+// BindingBatch - headless decision-table tests for SkiRunBindingRules (the pure decision only).
+// Run (from the ModularSkiResort root): dotnet run --project tests\BindingBatch\BindingBatch.csproj -c Release
+// Prints `FAIL  where: msg` lines, report-only INFO lines and one SUMMARY line; Environment.ExitCode = failures.
+// The ECS effects (Owner removal, SubArea entry removal, Charge) live in SkiRunOwnershipSystem; the test-local ApplyEffect restates
+// the table's Effect column, and the idempotence and money assertions run against that model, not against the ECS code.
+// Oracle: the decision table as data (required-true / required-false fact masks per row, first match wins), literal expected values
+// and the exact number of combinations each row must win: a different encoding from Decide's if-chain.
+// FeeTests: SkiRunFees (base + per hectare, half up to 10, area capped at 2,000 ha, -1 for an unknown kind) against a literal table.
 
 using System;
 using System.Collections.Generic;

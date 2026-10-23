@@ -1,17 +1,10 @@
 /*
- * src/hub/HubRoot.tsx - the always-mounted root of the hub (appended at the game's "Game" hook).
- *   - The "Game" hook renders in one place, inside the in-game main screen, so the root exists only in Game mode.
- *   - Handshake: fires uiHello(HUB_CONTRACT, BUNDLE_STAMP) once per mount, at the first render where C# is connected
- *     (contract$ != CONTRACT_ABSENT), so C# logs one "UI hub connected" line per UI load. Before C# registers its bindings
- *     there is no trigger handler either, so nothing is lost by waiting. The panel cannot send it: it mounts only while open.
- *   - Subscribes only contract$ and hubOpen$ (both change rarely) and relays "connected" to the launchers
- *     (hubState.ts useHubConnectedRoot). The panel, and every summary/runs/build/glade subscription, mounts only while open.
- *   - The panel sits in its own ErrorBoundary, re-created on every open, so a crashed panel can be reopened.
- *   - Panel crash: a render error above the section boundaries (cs2/ui Panel, HubPanel, HubBody) unmounts the panel with its
- *     X button and Close/Back handler (cs2/ui Panel `ep onAction`, index.js@~684052) while hubOpen stays true in C#. So the
- *     boundary's onError closes the hub (C# setHubOpen(false), or the local flag while C# is absent) and sets `crashed`.
- *     The notice (LOC.uiError, plain markup) shows until a click, CRASH_NOTICE_MS, or the hub opens again.
- *   - Registrar errors queued at UI boot are sent to C# once it is connected.
+ * src/hub/HubRoot.tsx - the always-mounted root of the hub (appended at the game's "Game" hook, so it exists only in Game mode).
+ * Handshake: fires uiHello(HUB_CONTRACT, BUNDLE_STAMP) once per mount at the first render where C# is connected (contract$ != CONTRACT_ABSENT);
+ * the panel cannot send it, it mounts only while open. Subscribes only contract$ and hubOpen$ and relays "connected" to the launchers.
+ * The panel sits in its own ErrorBoundary, re-created on every open. A render error above the section boundaries unmounts the panel with
+ * its X button and Close/Back handler (cs2/ui Panel `ep onAction`, index.js@~684052) while hubOpen stays true in C#, so onError closes the
+ * hub and shows LOC.uiError until a click, CRASH_NOTICE_MS, or the next open.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { BUNDLE_STAMP, HUB_CONTRACT, hubTriggers } from "../bindings";

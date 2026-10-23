@@ -1,10 +1,8 @@
 // TramShuttleSystem.Debug - the "Tram shuttle" foldout of the "Ski Resort" developer tab.
-//
 // This partial carries no [DebugContainer] / [DebugTab]: DebugSystem.AddPanel replaces the widget list stored under a
 // tab's name (Game.Debug/DebugSystem.cs:1022, :1085-1095), so a second "Ski Resort" tab would replace ChairPinSystem's rows.
 // ChairPinSystem.Debug's BuildSkiResortDebugUI calls AddDebugWidgets after its census foldout and appends AppendDump to
 // its DumpDiagnostics.
-//
 // Cost: the getters run at 10 Hz while the tab is open and read counters and the first shuttle's run record only (no
 // EntityQuery, no job completion). The dump runs on a Button press and writes to the mod log. The kill-switch Button
 // flips TramShuttleSystem.MovingShuttles: off parks every cabin in its hosted pose, on lets them follow the clock again.

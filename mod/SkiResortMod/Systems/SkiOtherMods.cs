@@ -1,13 +1,10 @@
-// Which other mods are loaded, for hub labels and log lines only. Detection is by assembly name
-// (AppDomain, GetName().Name); no type of another mod is touched and no behavior depends on it.
-// Detects Realistic Workplaces And Households (assembly "RWH"), Meapy's Tourism Overhaul (Mod.DetectTourismOverhaul)
-// and the known trip-planner swaps (SkiTripSystems.BitOfAssembly); TripPlannerMask ORs the bits over every
-// loaded assembly, so there is no early break.
-//
-// Static class, not a system: Refresh() runs from SkiGuestCounterSystem.OnGameLoadingComplete, when every mod
-// assembly is loaded and before SkiDaySystem's load handler (which reads TripPlannerMask) because the counter is
-// created first in Mod.cs. Each of its two log lines is written on the first scan of the session and whenever
-// its own value changes; never throws (a failed scan is one WARN and keeps the last values). Main thread.
+// Which other mods are loaded, for hub labels and log lines only. Detection is by assembly name (AppDomain, GetName().Name); no
+// type of another mod is touched and no behavior depends on it. Detects Realistic Workplaces And Households (assembly "RWH"),
+// Meapy's Tourism Overhaul (Mod.DetectTourismOverhaul) and the known trip-planner swaps (SkiTripSystems.BitOfAssembly);
+// TripPlannerMask ORs the bits over every loaded assembly, so there is no early break.
+// Static class, not a system: Refresh() runs from SkiGuestCounterSystem.OnGameLoadingComplete, when every mod assembly is loaded
+// and before SkiDaySystem's load handler (reads TripPlannerMask), because the counter is created first in Mod.cs. Each of its two
+// log lines is written on the first scan and whenever its value changes; never throws (a failed scan is one WARN). Main thread.
 
 using System;
 

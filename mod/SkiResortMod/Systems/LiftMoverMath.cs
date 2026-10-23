@@ -1,31 +1,11 @@
 // Pure arithmetic of the chair mover's far-loop pace and lane scope. No Game or Entities type (Unity.Mathematics and System only)
 // so tests/LiftBatch links it (LoopPaceTests.cs).
-//
-// 1. Loop position. A riding chair's place on its loop is a pure function of the render clock:
-//      s = (offset + speed x TimeS) % L        (ChairPinSystem: PhaseOf = speed x TimeS, then the modulo)
-//    so a loop that skipped passes is exactly where an unthrottled loop is on the pass it is written again: nothing accumulates,
-//    there is no per-chair state to drift. LoopPosition is that expression, bit for bit.
-//
-// 2. Far-loop pace. A loop whose box is at least FarMinM from the camera is written every Stride-th moving pass, where Stride is
-//    the largest k <= MaxStride for which k passes of travel stay under MaxStepRadians x distance (a far chair never steps more
-//    than about one pixel: 0.0005 rad is 0.73 px at a 60 degree vertical field of view on 1,440 lines, 1.2 px at 35).
-//    Travel per pass = speed x the render-clock delta of the pass (it grows with sim speed and shrinks with fps, so the stride
-//    adapts to both). Near loops (Stride 1) are written every pass.
-//      * A far loop counts passes since its last write (SinceWrite) and is written when SinceWrite >= Stride; the countdown is
-//        seeded per loop at a rebuild (loop index x 3 mod MaxStride) so far loops do not all land on the same pass.
-//      * The pass a loop comes back near writes it at once, at the exact unthrottled pose (item 1).
-//    Bounds refresh follows the pace: a loop's chairs get one Updated tag when its own travel since its last tag reaches
-//    BoundsRefreshMeters x Stride (2 m near, at most 16 m far), and only on a pass that writes it. It is per loop, with the loop's
-//    own speed (one global cadence at the fastest loop's speed tagged a fixed-grip loop next to a gondola 2.2x too often). A loop
-//    that comes back near is tagged on that very pass whenever its untagged travel is >= 2 m, so near the camera CullingInfo / the
-//    search tree are never more than 2 m + one pass of travel stale.
-//
-// 3. Cost percentiles for the "[cost] chair mover" line: p50 / p95 / max of a sample (nearest-rank, on a copy).
-//
-// 4. Lane scope. The cable lanes of the lifts hang off the lift-line edges and their end nodes (SubLane buffers). The owners to
-//    visit are the census's line edges plus each edge's two nodes, each once (OwnersOf). The load-time watchdog compares the full
-//    city-wide scan with the scoped harvest (CompareHarvests): a lane the scan kept and the scoped harvest missed is a WARN and
-//    switches that system back to the full scan for the rest of the load.
+// A riding chair's place is a pure function of the render clock, s = (offset + speed x TimeS) % L, so skipped passes leave no
+// per-chair state to drift. A far loop is written every Stride-th pass (the largest k <= MaxStride whose travel stays under
+// MaxStepRadians x distance); a loop that comes back near is written at once at the exact unthrottled pose.
+// Lane scope: owners = the census's line edges plus each edge's two nodes, once each (OwnersOf); the load-time watchdog compares
+// the scoped harvest with the full scan and a miss switches that system back to the full scan for the load.
+// Engine notes: EngineNotes/LiftMoverMath.md
 
 using System;
 using System.Collections.Generic;
@@ -42,7 +22,7 @@ namespace SkiResortMod.Systems
         public const float FarMinMetersDefault = 500f;
         /// <summary>A far loop is written at least every this many moving passes.</summary>
         public const int MaxStrideDefault = 8;
-        /// <summary>The largest on-screen step allowed for a far chair, as an angle: 0.5 mrad = 0.7-1.2 px (header item 2).</summary>
+        /// <summary>The largest on-screen step allowed for a far chair, as an angle: 0.5 mrad = 0.7-1.2 px (engine notes item 2).</summary>
         public const double MaxStepRadiansDefault = 0.0005;
 
         /// <summary>The far-loop pace settings (the dev tab can switch the pace off or change the numbers).</summary>
@@ -70,7 +50,7 @@ namespace SkiResortMod.Systems
             public double LastBoundsTimeS;  // the render clock at this loop's last bounds tag
         }
 
-        /// <summary>Header item 1: the loop distance of a chair, (offset + speed x timeS) % length, the mover's expression bit for bit
+        /// <summary>Engine notes item 1: the loop distance of a chair, (offset + speed x timeS) % length, the mover's expression bit for bit
         /// (PhaseOf's product, then the add and the modulo).</summary>
         public static double LoopPosition(double offset, double speedMps, double timeS, double lengthM)
         {
@@ -85,7 +65,7 @@ namespace SkiResortMod.Systems
             return math.length(d);
         }
 
-        /// <summary>Header item 2: the stride of a loop this pass. 1 (written every pass) when the pace is off, the loop is nearer than
+        /// <summary>Engine notes item 2: the stride of a loop this pass. 1 (written every pass) when the pace is off, the loop is nearer than
         /// FarMinM, it does not move, or the clock did not advance; else the largest k in [1, MaxStride] with
         /// k x speed x dt <= MaxStepRadians x distance. NaN-safe (NaN distance gives 1).</summary>
         public static int StrideFor(float distanceM, double speedMps, double passDtS, in PaceSettings settings)
@@ -114,7 +94,7 @@ namespace SkiResortMod.Systems
             };
         }
 
-        /// <summary>Header item 2: one moving pass for one running loop. <paramref name="write"/> = write its chairs this pass;
+        /// <summary>Engine notes item 2: one moving pass for one running loop. <paramref name="write"/> = write its chairs this pass;
         /// <paramref name="tagBounds"/> = tag them Updated this pass (only when written).</summary>
         public static void Decide(ref LoopPace pace, int stride, double timeS, double speedMps,
             out bool write, out bool tagBounds)
@@ -136,7 +116,7 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>Header item 3: nearest-rank percentile (p in [0, 1]) of the first <paramref name="count"/> values, on a sorted copy
+        /// <summary>Engine notes item 3: nearest-rank percentile (p in [0, 1]) of the first <paramref name="count"/> values, on a sorted copy
         /// in <paramref name="scratch"/> (sorted once per call; callers ask for p50 / p95 / max together through Percentiles). 0 for an
         /// empty sample.</summary>
         public static void Percentiles(float[] values, int count, List<float> scratch, out float p50, out float p95, out float max)
@@ -164,7 +144,7 @@ namespace SkiResortMod.Systems
         }
     }
 
-    /// <summary>Header item 4: which entities the scoped cable-lane harvest visits, and the load-time watchdog's compare. Generic over
+    /// <summary>Engine notes item 4: which entities the scoped cable-lane harvest visits, and the load-time watchdog's compare. Generic over
     /// the id type so the Game side passes Entity and the tests pass int.</summary>
     internal static class LiftLaneScope
     {

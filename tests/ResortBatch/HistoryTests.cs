@@ -1,21 +1,10 @@
-// Tests of the pure history store (SkiResortHistory.cs) and the ledger's history additions (SkiResortLedger.cs). Called from
-// Program.Main with `Run(Func<bool, string, string, bool> check)`.
-//   H-1  element codec: a hand element → 59 literal bytes (little-endian), read back field by field, written again identically;
-//        the version byte is CurrentVersion whatever m_Version holds.
-//   H-2  month-in-progress codec: 142 bytes (= V1Bytes), round trip byte for byte, every field back (the double by its bits).
-//   H-3  Append: order, dedupe (same key replaces), an older key rejected, one GAP marker for a jump, none for consecutive months.
-//   H-4  the 1200-month safety cap drops the oldest; a marker left at the front is dropped too.
-//   H-5  seasons: SeasonOf across the July boundary, SeasonFirstKey, SumSeason sums flows / averages points / skips gaps and
-//        unknowns.
-//   H-6  SplitDebit: parts sum exactly to the debit, carries conserved, no drift over 1000 passes, fallback, bad weights.
-//   H-7  ledger AddRunUpkeep: ignored ≤ 0, booked, rolls with the month, in Total.
-//   H-8  seed: same key → seeded and whole; other key / not started → nothing; ShouldSeed; pass-season merge; the roll after it.
-//   H-9  FromLedger mapping, money clamps and rounding, SnowByte.
-//   H-10 for a closed month, the element's net (as historyRules.ts finish() derives it from the element's terms) ==
-//        HubRules.NetMonth of the ledger's month (MonthMoneyOf with the same buildings / wages snapshot) == the literal oracle;
-//        the element's Money and MonthMoneyOf are the same eight integers; snapshot missing / one rate unknown agree too.
-// Oracles are literal hand values (comments show the arithmetic). The byte oracle is our reading of Colossal's BinaryWriter (raw
-// little-endian values in call order, BinaryWriter.cs 1.6.2f1).
+// Tests of the pure history store (SkiResortHistory.cs) and the ledger's history additions (SkiResortLedger.cs); `Run(check)` is called from
+// Program.Main. Cases H-1..H-10. Pinned: the element codec (59 literal bytes, little-endian; the version byte is CurrentVersion whatever
+// m_Version holds) and the month-in-progress codec (142 bytes = V1Bytes) round-trip byte for byte; Append orders, dedupes (same key replaces,
+// an older key is rejected) and adds one GAP marker per jump; the 1200-month cap drops the oldest; SplitDebit conserves the debit and its
+// carries; a closed month's element net == HubRules.NetMonth of the ledger's month == a literal oracle (historyRules.ts finish() derives it
+// from the element's terms). Oracles are literal hand values; the byte oracle is our reading of Colossal's BinaryWriter (raw little-endian
+// values in call order, BinaryWriter.cs 1.6.2f1).
 
 using System;
 using System.Collections.Generic;

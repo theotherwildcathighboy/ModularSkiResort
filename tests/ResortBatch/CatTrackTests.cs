@@ -1,19 +1,9 @@
-// Tests for the pure rules of the cat-track run type, RunKind.CatTrack = 4 (SkiRunCatTrackA). Oracles are literal hand
-// values. The ECS side (the AreaGeometryData write, the hub rows, the tooltip) is not covered here.
-//   CT54-1  RunKind.CatTrack is 4 and appended (0..3 unchanged); RunKindRules: counts toward the resort for kinds 0-3 only,
-//           leaf for the cat track only, snow injection for groomed / snowmaking / night only; an unknown kind counts nothing.
-//   CT54-2  Leaf rule (LiftServedRule.AssignLinked, optional leaf mask): a cat track crossing a served and an unserved run is
-//           served through the first and does not serve the second; a directly served leaf serves nobody; a null, empty or
-//           all-false mask is the old behavior bit for bit; a short mask reads false past its end.
-//   CT54-3  Unsuitable rule: SkiRunRatingRules.CatTrackUnsuitable on the row band, and HubRules.CatTrackOpenState
-//           (RunOpenState.Unsuitable beats any open factor).
-//   CT54-4  Exclusions: the attraction path drops the cat track before RunInput (the same RunKindRules predicate the system
-//           uses), so capacity, attraction, run counts and the green-variety flag equal the area without it; HubRules.Status of
-//           an area whose only run is a cat track is NoRuns.
-//   CT54-5  Snow: never injected (RunKindRules.HasSnowInjection); opens by the day-mean estimate with the gun margin
-//           (RunSnowRules.ThresholdC = freezing + margin); the groomed threshold is unchanged.
-//   CT54-6  Props: RunPropDensityRules.PropClassAllowed, a cat track carries hydrants only.
-//   CT54-7  Catalog: SkiCatalog has the fifth RunDef (kind 4, prefab SkiRunCatTrackA, item runCatTrack) after the four.
+// Tests for the pure rules of the cat-track run type, RunKind.CatTrack = 4 (SkiRunCatTrackA); oracles are literal hand values. The ECS side
+// (the AreaGeometryData write, the hub rows, the tooltip) is not covered. Case tags CT54-1..CT54-7.
+// Pinned: CatTrack is 4 and appended (0..3 unchanged); it does not count toward the resort (kinds 0-3 only), is a leaf for service
+// (LiftServedRule.AssignLinked leaf mask: served through the first run it crosses, serves nobody; a null / empty / all-false mask changes
+// nothing), never gets snow injection, is Unsuitable on its row band (beats any open factor), is dropped before RunInput so the area's
+// numbers equal the area without it, carries hydrants only, and is the fifth RunDef in SkiCatalog (kind 4, prefab SkiRunCatTrackA, item runCatTrack).
 // Not tested headless: that GradeBlue (25 %, SkiSlopeClassifier.cs) is where band 2 begins; tests/SlopeBatch owns BandOf.
 
 using System;

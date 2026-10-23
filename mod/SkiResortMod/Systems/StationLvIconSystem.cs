@@ -1,17 +1,11 @@
-// Removes the vanilla "low voltage not connected" icon from a lift station whose LV stub HAS a wire. The why, with decompile
-// citations, is the StationLvRule.cs header: ConnectionWarningSystem counts only edges ending AT the stub node, while the
-// electricity graph also feeds a wire end that local-connected onto the stub's middle.
-//
-// Every PollFrames simulation frames (Game mode), for each building with an IconElement buffer whose prefab is one of our
-// stations: if it carries the vanilla LowVoltageNotConnected icon (ElectricityParameterData, ConnectionWarningSystem.cs:2366) and
-// an LV wire reaches its LV stub (StationLvRule.Classify), it queues IconCommandBuffer.Remove(station, icon prefab, the icon's own
-// Target) through the vanilla IconCommandSystem (the command ConnectionWarningSystem itself would issue, :2390; matched on
-// prefab + target, IconCommandSystem.cs:157). Vanilla re-adds the icon only when it re-evaluates the station (the station or a
-// sub-net Updated, CollectOwnersJob :63-140); the next poll removes it again. Nothing else is written.
-//
-// Logs: "created"; per station one line when its wire state first clears an icon this load ("StationPower [lv icon] ...") and
-// again only if the wire state changes; "!!!" once on a throw (then disabled until the next load). DUMP: AppendDump.
-// Phase GameSimulation, not load-bearing (the queue is consumed by IconCommandSystem at ModificationEnd, SystemOrder.cs:271).
+// Removes the vanilla "low voltage not connected" icon from a lift station whose LV stub HAS a wire (the why, with decompile
+// citations: the StationLvRule.cs header). Every PollFrames sim frames (Game mode), for each of our stations carrying the icon
+// (ElectricityParameterData, ConnectionWarningSystem.cs:2366) with a wire on its LV stub (StationLvRule.Classify): queue
+// IconCommandBuffer.Remove(station, icon prefab, the icon's own Target) through IconCommandSystem (the command ConnectionWarningSystem
+// itself issues, :2390; matched on prefab + target, IconCommandSystem.cs:157). Vanilla re-adds the icon only when it re-evaluates the
+// station (the station or a sub-net Updated, CollectOwnersJob :63-140); the next poll removes it again. Nothing else is written.
+// Logs: "created"; one line per station when its wire state first clears an icon this load, again only if it changes; "!!!" once on a
+// throw (then disabled until the next load). Phase GameSimulation, not load-bearing (IconCommandSystem consumes at ModificationEnd, SystemOrder.cs:271).
 
 using System;
 using System.Collections.Generic;

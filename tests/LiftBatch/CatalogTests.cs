@@ -1,45 +1,10 @@
-// CatalogTests — the PURE prefab catalog SkiCatalog.cs. Where-tags `catalog-…`.
-//   CT-1  SkiCatalog.Problems is empty (the static initializer never throws; it reports here).
-//   CT-2  AllPrefabNames(): 31 entries (all Expected, none pending), unique, "Ski…", one of the four PrefabID types,
-//         kind ↔ type, 26 item ids unique; ExpectedNameCount / PendingNameCount.
-//   CT-3  every lift type has exactly one Base and one Top station (StationOf answers them); station → known type and
-//         index; a carrier in one type; Ids unique; Carriers mirror CarrierPrefabs.
-//   CT-4  the FROZEN-NAME ORACLE: all names as literals, in NAMES-block order, with kind / type / item / expected,
-//         because names are save identity (PrefabSystem.Serialize writes type + name, PrefabSystem.cs:827-865). A rename
-//         fails here first. Plus every lookup's positives and negatives.
-//   CT-5  every lift row == literal oracles incl. computed LinePerKm and ApproachPinCeilingM; row 0 == the
-//         FixedGrip consts; lodge, school, patrol and sign rows == literals; the spec arrays are copied; AccelMps2 / DwellS
-//         oracles (tram 0.8 / 60, Loop types 0 / 0).
-//   CT-6  the 8 station rows: wheels, stub tips, costs, items, roles, types, flags; FG stub == StationAlign == −12;
-//         DockLocalA / DockLocalB / HostsCarriers (tram docks (∓5.50, 16.00, −5.50) on both, the base hosts), the 9-argument
-//         constructor's NaN / false defaults, and dock y − (HangM − grip) = the hosted pivot 6.00.
-//   CT-7  the 26 build items in strip order (id, prefab, kind, lift type, run kind); TryGetBuildItem / TryGetBuildItemDef.
-//   CT-8  the NAMES block as TEXT with tools/preflight.ps1 section 7's regex (with ", pending"): name, type, item and
-//         pending, in order, == AllPrefabNames().
-//   CT-9  the BUILD-ITEMS block as TEXT (markers INSIDE the braces, every line between them a row of the item regex) ==
-//         BuildItems row by row; every NAMES item token ↔ exactly one row.
-//   CT-10 the resolver-lifetime decision table, SkiCatalog.NextAction (including the failed-resolution case).
-//   CT-11 catalog/carriers.json (schema 1): every row's numbers == its catalog row's; dwell_s == DwellS when present,
-//         required on a Shuttle row (tram 60).
-//   CT-12 gamedata-mirror drift, Expected rows only: line, piece, station, lodge, school, patrol and sign prefabs vs
-//         the mirror numbers (the sign row mirrors the shipped cost, so no allow-list is needed).
-//   CT-13 every name's ", pending" token ⇔ !Expected; each row's Expected is derived from its names.
-//   CT-14 BUILD-ITEMS ↔ NAMES ↔ lift types: base / top / line per type, `baseStation{Suffix}` ids, LineItemOf /
-//         StationItemOf / TypeNameOf.
-//   CT-15 arithmetic: EvenSpacingCount oracles (SubObjectSystem.cs:1743), the "never MORE than floor(loop / s) − 1"
-//         property over 1,000 seeded random straight courses per Loop type, ApproachPinCeilingM and the
-//         HeightRange.min clearance bound.
-//   CT-16 the static sanity rules (SkiCatalog.CheckRows) on a hand-made twin: clean → 0 findings; with a duplicate item
-//         id, a Loop type with SpacingM 0 and a station of an unknown type → exactly those 3 findings. The twin also has a
-//         Shuttle row (the tram's shape): clean → 0; the faulty twin's Shuttle has AccelMps2 0 → exactly 4 findings; each
-//         shuttle / loop rule alone (shuttle dwell < 0, no hosting base, a hosting top, a NaN dock; a Loop station with a dock
-//         or HostsCarriers, a Loop type with a dwell) → exactly 1.
-//
-// Resolver-lifetime note (a comment, not a check): the per-load + per-frame lifetime itself
-// (SkiPrefabCatalogSystem.EnsureFresh: invalidate at a Game / Editor OnGamePreload, resolve at the first query,
-// revalidate Exists && !Deleted once per frame) needs Game types (PrefabSystem, EntityManager) and is proven only by
-// the smoke sheet's second load in one session (two "PrefabCatalog [arm] load 1 / load 2" lines). CT-10 pins the decision
-// table it runs on.
+// CatalogTests - the pure prefab catalog SkiCatalog.cs (where-tags `catalog-...`, CT-1..CT-16): row, name and station oracles as literals;
+// the NAMES / BUILD-ITEMS blocks read as TEXT with tools/preflight.ps1 section 7's regex; catalog/carriers.json and gamedata-mirror drift;
+// the resolver-lifetime decision table (NextAction); the static sanity rules (CheckRows) on a hand-made twin.
+// CT-4 is the FROZEN-NAME ORACLE: every name is a literal because names are save identity (PrefabSystem.Serialize writes type + name,
+// PrefabSystem.cs:827-865), so a rename fails here first. EvenSpacingCount oracles follow SubObjectSystem.cs:1743.
+// Not covered: the resolver's per-load + per-frame lifetime (SkiPrefabCatalogSystem.EnsureFresh) needs Game types (PrefabSystem,
+// EntityManager); the smoke sheet's second load in one session proves it (two "PrefabCatalog [arm] load 1 / load 2" lines).
 
 using System;
 using System.Collections.Generic;

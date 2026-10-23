@@ -1,43 +1,9 @@
 /*
- * src/hub/GuestsView.tsx - the Guests view: arrivals this month and last month, the game-formula tourist estimate, and the
- * notes on what is counted and what tickets do.
- *   - A sign: GUESTS header with the Info glyph (tooltip GUESTS_NOTE[Where]; [SinceLoad] while this month started before the
- *     load; TICKETS_NOTE[Open] while tickets are sold). Two bars (this month, last month) on one scale: hubRules.guestBarScale,
- *     the smallest step of 50, 100, 200, 500, 1000, ... that holds both months, so 2 guests fill 4 % of the bar (the scale is in
- *     both tooltips, GUESTS_BAR_SCALE); hubRules.guestBarParts gives integer flex-grow; an unknown value = an empty track and
- *     "–". The months are named ("Month of <name>", CityStats.month, vanilla Common.MONTH:<n>); bar 2 reads "(partial)" for a
- *     since-load month. Its StableWidth samples every label, so the track never moves. The column heads carry the bare name
- *     (their cells keep the money width).
- *   - Fixed slots only: StableWidth cells with the shared money / count samples, and note slots of fixed height (note2 = 2 XS
- *     lines, note1 = 1) whose empty state keeps its height, so a state change moves nothing.
- *   - The table is three Folds (fit.tsx Fold, closed by default, one open at a time; the bars, column heads and estimate stay
- *     on top): GUESTS_GROUP[Lodges] (tourists, tourist groups, residents, and a dim GUESTS_NOTE[NeverSki] line: the guest count
- *     is everyone at a lodge), GUESTS_GROUP[Sent] (the Ski days row and its state line), GUESTS_GROUP[Tickets] (paid, pass
- *     holders, lessons, lift tickets in money). The three populations differ by design.
- *   - Ski days row (tooltip GUESTS_TIP[SkiDays]: sent counts by class, guests on the way or on the hill now of the capacity)
- *     and ONE state line (hubRules.skiDayLine: "Holds {N} skiers at once (runs limit)", "Full right now", "Closed: no open
- *     run", ...; one text node, XS, ellipsis, tooltip hubRules.skiDayTip). Widths are estimated, the ellipsis is the net.
- *   - Estimate slot: the game-formula target tourists, or, with Tourism Overhaul detected (a session state), ONE line
- *     EST_TO_NOTE with EST_TO_TIP as its tooltip.
- *   - Trip-planner note: while hubRules.tripPlannerNote(city) is not "none", ONE note line (one text node per branch):
- *     TRIP_PLANNER_NOTE[Known] "Detected: {NAME}. ..." / [KnownOff] "Ski days off: {NAME} replaced the game's leisure
- *     systems." (NAME = city.tripPlanner) / [Unknown] / [UnknownOff]. Its tooltip repeats the note (the line ellipsizes) and
- *     adds TRIP_PLANNER_TIP. The line appears or goes at a city load or when the game's trip systems change during play
- *     (SkiDaySystem.TripSystemsTick updates the label; the ticket slot then moves down one line). The ski-day state line also
- *     shows the "Off" note while ski days are blocked and the state is unknown.
- *   - Ticket slot: one ellipsized line with the ticket note of hubRules.ticketNote while tickets are not sold (off, sign not
- *     running, nothing open, not known yet; full text in its tooltip), empty at the same height while they are (that sentence
- *     is in the header tooltip), so a gate flip moves nothing. Texts in XS.
- *   - Last month is never a fake 0 (hubRules.lastMonthMark): C# sends the last-month fields whenever a month rolled since
- *     counting started. "full" = a whole month; "partial" = counted since the load (numbers shown; bar 2's label and every
- *     tooltip say so with GUESTS_LAST_PARTIAL); "none" = -1 (the UI shows "–", the empty track and GUESTS_LAST_NA).
- *   - GUESTS_ROW[Lessons] "of which took a lesson" (lessonsThisMonth / lessonsLastMonth; GUESTS_TIP[Lessons]) above the
- *     tickets row once a lesson was taken (hubRules.lessonsShown): people who took a lesson, one each; a subset of the guests
- *     counted, like the pass-holder row.
- *   - GUESTS_ROW[PassHolders] "of which pass holders" (passHoldersThisMonth / passHoldersLastMonth; GUESTS_TIP[PassHolders])
- *     under "Paid a lift ticket" while hubRules.passesShown (the Options pass share above 0, or a pass sold / a holder
- *     skied). A subset of the residents row, not of the paid row.
- *   - Not linked: the header and UNLINKED_NOTE. Panel file: subscribes resorts$, selectedResort$, resortLive$, city$.
+ * src/hub/GuestsView.tsx - the Guests view: arrivals this month and last month, the game-formula tourist estimate, and the notes on what
+ * is counted and what tickets do. Two bars on one scale (hubRules.guestBarScale, integer flex-grow via guestBarParts); the table is three
+ * Folds (Lodges, Sent, Tickets) whose populations differ by design. Fixed slots only (StableWidth cells, fixed-height note slots), so a
+ * state change moves nothing. Last month is never a fake 0 (hubRules.lastMonthMark): "full" = a whole month, "partial" = counted since the
+ * load, "none" = -1 shown as "–". Panel file: subscribes resorts$, selectedResort$, resortLive$, city$.
  */
 import { useValue } from "cs2/api";
 import { Unit } from "cs2/l10n";

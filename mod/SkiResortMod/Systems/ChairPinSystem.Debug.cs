@@ -1,12 +1,10 @@
 // The "Ski Resort" tab of the game's developer menu, a partial of ChairPinSystem so it reads the mover's private state.
-// DebugSystem.RegisterDebug sweeps all loaded non-Unity assemblies on every menu open for [DebugContainer] classes and
-// invokes each [DebugTab] method (decompile 1.6.2:1025-1044) on the live system instance (:1005-1009), so nothing is
-// registered in Mod.cs. The widget tree is published as the `debug.children` binding and every Button is a
-// `debug.invoke`, so the gameface MCP (localhost:9444, --uiDeveloperMode) can read and drive it.
-// Cost: DebugUI.Value getters run at 10 Hz while the tab is open, so rows read plain counters only (no allocation,
-// jobs or EntityQueries); anything heavier is a Button that writes to the mod log.
-// Other partials add foldouts through AddDebugWidgets: DebugSystem.AddPanel replaces the widget list stored under a
-// tab name (Game.Debug/DebugSystem.cs:1085-1095), so a second "Ski Resort" tab would replace these rows.
+// DebugSystem.RegisterDebug sweeps all loaded non-Unity assemblies on every menu open for [DebugContainer] classes and invokes each
+// [DebugTab] method (decompile 1.6.2:1025-1044) on the live system instance (:1005-1009), so nothing is registered in Mod.cs.
+// The widget tree is the `debug.children` binding and every Button a `debug.invoke`: the gameface MCP (localhost:9444, --uiDeveloperMode) drives it.
+// Cost: DebugUI.Value getters run at 10 Hz while the tab is open, so rows read plain counters only (no allocation, jobs or EntityQueries; anything heavier is a Button that writes to the mod log).
+// Other partials add foldouts through AddDebugWidgets: DebugSystem.AddPanel replaces the widget list stored under a tab name
+// (Game.Debug/DebugSystem.cs:1085-1095), so a second "Ski Resort" tab would replace these rows.
 // Systems are fetched with GetExistingSystemManaged, so an unregistered one shows "not registered" instead of being created.
 
 using System;
@@ -91,7 +89,7 @@ namespace SkiResortMod.Systems
             moving.children.Add(Val("Last hold change", () => m_HoldLastChange));
             list.Add(moving);
 
-            // Mover at scale (docs/research/lifts/lift-scale-2026-10-22.md, ChairPinSystem.Mover.cs header). Plain fields only
+            // Mover at scale (EngineNotes/ChairPinSystem.Mover.md). Plain fields only
             // (the 10 Hz cost contract); the percentile row sorts <= 600 floats into a reused list.
             var scale = new DebugUI.Foldout { displayName = "Mover scale (R-3 / R-4)", opened = false };
             scale.children.Add(Val("Path / Burst-compiled / stress / sync-measure", () =>

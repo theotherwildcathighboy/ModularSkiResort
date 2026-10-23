@@ -1,17 +1,11 @@
 // Save-format gate, run from the repo root after `dotnet build -t:Compile` in mod/SkiResortMod (SL-A reads the built DLL):
 //   dotnet run --project tests\SaveBatch\SaveBatch.csproj -c Release
-// Prints `FAIL  where: msg` lines and one SUMMARY line; Environment.ExitCode = failures.
-//   SL-T  the SaveLayouts table: versions 1..n consecutive, bytes strictly growing, each entry's bytes == 1 + its field sizes;
-//         the shipped snapshot still appears verbatim.
-//   SL-L  per persisted type: CurrentVersion == last entry; Serialize writes exactly the entry's bytes, version byte first,
-//         every field at the table's offset and kind; struct fields (reflection) == table fields; Deserialize consumes exactly
-//         those bytes, a rewrite is byte-identical; every older version's blob still loads whole.
-//   SL-A  the built DLL (System.Reflection.Metadata, no engine load): every ISerializable / IEmptySerializable type has a
-//         SaveLayouts row of the same kind and exactly one [FormerlySerializedAs] == SaveLayouts.Alias(row); the alias table built
-//         like ComponentSerializerLibrary.UpdateTypeTable (:113-121) has no duplicate; the saved AQN, with any version, strips to
-//         its own type through ComponentSerializer.DeserializeType (:51-65). SL-AV: AssemblyVersion == PinnedAssemblyVersion.
-//   SL-CL release/CHANGELOG.md (ChangelogTests): see there.
-// Oracle for the byte codec: our reading of Colossal BinaryWriter.cs (1.6.2f1, little-endian in call order, Entity = int32 saved index).
+// Prints `FAIL  where: msg` lines and one SUMMARY line; Environment.ExitCode = failures. Checks: SL-T the SaveLayouts table (versions 1..n
+// consecutive, bytes strictly growing, each entry's bytes == 1 + its field sizes, the shipped snapshot still verbatim); SL-L per persisted
+// type (CurrentVersion == last entry; Serialize writes exactly the entry's bytes, version byte first; Deserialize consumes exactly those
+// bytes; every older version's blob still loads whole); SL-A the built DLL (every ISerializable / IEmptySerializable type has a SaveLayouts
+// row and exactly one [FormerlySerializedAs] == SaveLayouts.Alias(row); no duplicate alias key, as in UpdateTypeTable :113-121; the saved
+// AQN with any version strips to its own type through DeserializeType :51-65); SL-AV AssemblyVersion == PinnedAssemblyVersion; SL-CL: ChangelogTests.
 
 using System;
 using System.Globalization;

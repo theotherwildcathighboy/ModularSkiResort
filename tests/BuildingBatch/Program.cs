@@ -1,29 +1,10 @@
-// Tests for the top-level resort buildings (the ski school, the five lodges and both patrol huts). Run from the
-// ModularSkiResort root: dotnet run --project tests/BuildingBatch. Exit 0 = every check passed.
-//
-//   L  attribution (SchoolLinkRules.Resolve = SkiResortIndex.TryResolve, TetherMeters 5000): L1 nearest sign, L2 5000.00 m in,
-//      L3 5000.01 m out, L4 NaN never links, L5 an exact tie goes to the lower (Index, Version), L6 the sign deleted -> not
-//      linked, L7 a nearer new sign takes the school (not sticky), L8 no sign at all.
-//   C  the one count rule (SchoolLinkRules.Count): C1 active + live, C2 Inactive, C3 not live, C4 a child and a top-level
-//      school in one area (2 listed, active), C5 an inactive child + an active top-level school.
-//   I  a linked top-level school's slot facts (1 listed, on = active) and what follows from them: SchoolValue, lessons and the
-//      HubProblems row 25; over four fixtures (green counted / no counted green / no runs / school Inactive). I5: an unlinked
-//      school = no school.
-//   D  the link-log diff (SchoolLinkRules.Diff): Linked, Relinked, Unlinked (new and lost), Removed, distance-only = no line,
-//      stable order, empty before -> one line per school (the per-load re-log).
-//   E  SchoolLinkRules.AreaEfficiency: E1 no top-level lodge = the sign's own, E2 the tier-weighted mean x the sign, E3 a lodge
-//      at 0 alone = 0, E4 the sign at 0 = 0, E5 rounding to 0.01 and the 0.01 floor, E6 the school / patrol weigh 0.
-//   J  mountain jobs on the sign (MountainJobsRules, SkiCatalog SignJobs): J1 the sum over one sign, J2 a relink moves the
-//      slice, J3 not linked / removed / sign deleted -> 0, J4 the write rule and the grace, J5 the catalog rows, J6 the
-//      efficiency slice (staffing counted once), J7 the four mountain buildings on one sign = 16, J8 the sign prefab keeps its
-//      Workplace block (WorkProviderSystem.cs:133 needs WorkplaceData or it liquidates the staff).
-//   P  the mirror gate per building (gamedata-mirror; all eight: SkiAFrameDayLodge, SkiLodgeHut, SkiLodgeMid, SkiLodgeSummit,
-//      SkiLodgeGrand, SkiSchool, SkiPatrolHut, SkiPatrolHQ): P1 no ServiceUpgrade; P2 ServiceObject = Parks and Recreation;
-//      P3 PlaceableObject cost = the catalog row's BuildCost, XP = the old ServiceUpgrade XP; P4 CityServiceBuilding; P5 Park
-//      kept; P6 Workplace = the row's jobs (jobs 0 = no Workplace block); P7 upkeep = the row's, and a roadless row (hut,
-//      summit, patrol huts) demands nothing (electricity, water, garbage 0); P8 the mesh CID resolves to a mesh prefab's .cid
-//      in the mirror; P9 the door spawn rows (Pedestrian Spawn Location: school 4, A-frame 1, Mid 5, Grand 5, the roadless
-//      four 0) and the sub-object $rlength = the rows present; P10 every declared $type id unique.
+// Tests for the top-level resort buildings (the ski school, the five lodges and both patrol huts). Run from the ModularSkiResort
+// root: dotnet run --project tests/BuildingBatch. Exit 0 = every check passed. Groups: L sign attribution (nearest sign within
+// TetherMeters 5000, a tie goes to the lower (Index, Version)), C the one count rule, I a linked school's slot facts and what follows,
+// D the link-log diff, E AreaEfficiency, J mountain jobs on the sign (the sign prefab must keep its Workplace block:
+// WorkProviderSystem.cs:133 needs WorkplaceData or it liquidates the staff), P the gamedata-mirror gate over all eight buildings.
+// Oracles are literal values; the mirror gate reads the shipped prefab JSON, not the code under test.
+// Engine notes: EngineNotes/BuildingBatch.Program.md
 
 using System;
 using System.Collections.Generic;

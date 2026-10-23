@@ -1,13 +1,10 @@
-// The few engine types the persisted component files (SkiRunBinding.cs, SkiRunTreeMember.cs, SkiSeasonPass.cs) name,
-// re-declared with the same namespaces, names and member shapes so those files compile here unchanged. Lives in
-// tests/SaveBatch only: a shim of an engine namespace in a shared test host would let a "pure" file that accidentally uses
-// Unity.Entities compile there.
-//
-// Shapes from the decompile (Colossal.Core): ISerializable.cs:3-8, FormerlySerializedAsAttribute.cs:5-13. IWriter / IReader
-// carry only the scalar overloads, so a persisted field of another type fails to compile here on purpose: extend the shim
-// and the codec in Program.cs together, from BinaryWriter.cs.
-// Encoding = BinaryWriter.cs:128-141 (Entity: int32 saved index, -1 when not in the table; here Entity.Index is written as
-// is, the identity table), :305-354 (int32 / int64 / double / byte little-endian, raw).
+// The few engine types the persisted component files (SkiRunBinding.cs, SkiRunTreeMember.cs, SkiSeasonPass.cs) name, re-declared with the
+// same namespaces, names and member shapes so those files compile here unchanged. They live in tests/SaveBatch only: a shim of an engine
+// namespace in a shared test host would let a "pure" file that accidentally uses Unity.Entities compile there.
+// Shapes from the decompile (Colossal.Core): ISerializable.cs:3-8, FormerlySerializedAsAttribute.cs:5-13. IWriter / IReader carry only the
+// scalar overloads, so a persisted field of another type fails to compile here on purpose: extend the shim and the codec in Program.cs
+// together, from BinaryWriter.cs. Encoding = BinaryWriter.cs:128-141 (Entity: int32 saved index, -1 when not in the table; here
+// Entity.Index is written as is, the identity table), :305-354 (int32 / int64 / double / byte little-endian, raw).
 
 using System;
 

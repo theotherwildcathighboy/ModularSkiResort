@@ -2,29 +2,10 @@
 // when the tool closes (silence must be impossible).
 // Pure on purpose (System, System.Collections.Generic and Unity.Mathematics only): the same file compiles into the net48 mod and
 // is linked into tests/GladeBatch.
-//
-// Usage: SkiGladeToolSystem resolves the hover every frame into a GladeHoverKind, keeps a GladePlanState and owns one GladeHoverLog:
-//   * Begin() in OnStartRunning;
-//   * Offer(kind, entityIndex, reason) from UpdateHoverStatus; when it returns true the tool writes the transition line; when it
-//     returns false and CapJustReached is true, it writes the one "transitions capped" line. Read CapJustReached right after that
-//     Offer, before any early return (the next Offer clears it; it is raised once per activation);
-//   * AddDwell(kind, state, UnityEngine.Time.unscaledDeltaTime) on every UpdateCore path (hold, cancel and apply early returns included);
-//   * increments Plans / Applies / ViaPoint (plain fields);
-//   * at OnStopRunning writes "Glade: " + Summary(lastState) before ResetPreviewState().
-//
-// Contract:
-//   * Offer dedups on the last offered (kind, entityIndex, reason): the same triple twice → one line. Switching (every hotkey
-//     activation's first frame has a disabled raycast) and None are never logged and do not touch the dedup key, so
-//     Terrain → Switching → Terrain stays one line. At most MaxLinesPerActivation (40) offers per activation return true; every
-//     later transition counts in Suppressed (dedups count nowhere). CapJustReached is true after exactly one Offer per activation:
-//     the first suppressed one (it reflects the most recent Offer call).
-//   * Dwell: every finite positive `seconds` lands in exactly one bucket and in the total, so the buckets sum to TotalSeconds (up
-//     to double rounding; accumulated in double, exposed as float). Non-Bound kinds bucket by kind; Bound buckets by plan state.
-//     The summary always prints the eight base buckets (terrain, foreign, unbound, held, nothing, previewing, complete, blocked)
-//     and appends clamped / saturated / money short / legacy / switching / other only when non-zero, so the printed buckets also
-//     sum to the total.
-//   * Begin / Offer / AddDwell allocate nothing (they run per frame); Summary allocates once, at tool stop. Seconds print with one
-//     decimal, culture-free.
+// Offer() dedups on the last (kind, entityIndex, reason) and caps lines per activation (MaxLinesPerActivation); read CapJustReached
+// right after the Offer that returned false, before any early return (the next Offer clears it).
+// Begin / Offer / AddDwell allocate nothing (they run per frame).
+// Engine notes: EngineNotes/SkiGladeHover.md
 
 using System;
 using System.Collections.Generic;
@@ -58,7 +39,7 @@ namespace SkiResortMod.Systems
         MoneyShort,
     }
 
-    /// <summary>Per-activation transition log + dwell accounting (header contract). One instance per tool.</summary>
+    /// <summary>Per-activation transition log + dwell accounting (engine notes contract). One instance per tool.</summary>
     public sealed class GladeHoverLog
     {
         public const int MaxLinesPerActivation = 40;
@@ -131,7 +112,7 @@ namespace SkiResortMod.Systems
             m_CapJust = false;
         }
 
-        /// <summary>True = write the transition line now (header CONTRACT).</summary>
+        /// <summary>True = write the transition line now (engine notes CONTRACT).</summary>
         public bool Offer(GladeHoverKind kind, int entityIndex, byte reason)
         {
             m_CapJust = false;

@@ -1,30 +1,9 @@
 /*
- * src/hub/historyRules.ts - pure rules of the History view: the whole-city sum, the range windows, the month and
- * July-June season buckets, the year-on-year headline and the axis scale. No React, no binding, no text: values only
- * from ../bindings (HISTORY_FLAG). tools/test-history-rules.js holds its literal oracles; tools/test-hub-rules.js runs it.
- *
- * Rules:
- *   - Month keys are C# SkiMoneyRules.MonthKey: year x 12 + calendar month 0..11. A ski season is July-June, keyed by the
- *     year of its July (C# SkiMoneyRules.SeasonKeyOf, SeasonFirstMonth 7).
- *   - Months before the area existed or GAP months are empty buckets (`none`), never zeros.
- *   - A season bucket sums the flows (guests, ski days, income, costs) of its months with data and averages the point
- *     values (attraction, snow coverage) over the months that know them. Unknown parts (-1) are left out of a sum; a
- *     bucket with none known is -1.
- *   - partial = the bucket holds the month in progress or a month flagged Partial, Short, SnapshotMissing,
- *     SkiDaysPartial or First, or (a season) fewer months with data than the season has. The chart draws it hollow.
- *   - Whole city = the areas sent (the live ones), month by month; attraction and snow are the mean over the areas that
- *     know them.
- *   - Year on year: the last whole month (the one before the month in progress) against the same month a year earlier.
- *   - Ranges: "months12" = the last 12 months; "seasonVs" = the 12 months July-June of this season (months not reached
- *     yet are `future`, empty) with last season's same months beside them (compareOf); "bySeason" = one bucket per
- *     July-June season drawn as the monthly average (seasonAverage) over its whole months with data. The month in
- *     progress and GAP months are left out of both the average and the season total, so a season with missing months or
- *     one still running is not drawn as a slump. totalGuests / totalNet = the sums over the same months (average x
- *     perMonth). Both season ranges need data in an earlier season (rangeEnabled).
- *   - `gap` = an empty bucket with a GAP-flagged month inside the area's range (recorded nothing: the chart hatches it);
- *     months before the area existed or not reached yet are empty without a hatch. linePoints ends every line at the
- *     last whole month; gapSlots lists the hatched buckets. netChange = the headline's year-on-year change in money (a
- *     percentage of a net is unstable).
+ * src/hub/historyRules.ts - pure rules of the History view: the whole-city sum, the range windows, the month and July-June season
+ * buckets, the year-on-year headline and the axis scale. No React, no binding, no text; tools/test-history-rules.js holds its oracles.
+ * Month keys are C# SkiMoneyRules.MonthKey (year x 12 + month 0..11); a season is July-June keyed by the year of its July (SeasonKeyOf).
+ * Months before the area existed and GAP months are empty buckets (`none`), never zeros; unknown (-1) parts are left out of sums. The
+ * month in progress and GAP months are left out of season averages, so a season with missing months is not drawn as a slump.
  */
 import { HISTORY_FLAG } from "../bindings";
 import type { HistoryArea } from "../bindings";

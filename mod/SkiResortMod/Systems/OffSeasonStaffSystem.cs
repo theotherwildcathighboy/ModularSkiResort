@@ -1,20 +1,11 @@
 // Lodges and the ski school run at half staff while their ski area is off-season. Pure rules and engine citations:
 // OffSeasonRules.cs. Phase GameSimulation, not load-bearing (WorkProviderSystem's tick reads the value whenever it runs).
-// Every PollFrames sim frames (Game mode, setting SkiResortSettings.OffSeasonHalfStaff):
-//   * per Welcome Sign, OffSeasonRules.Step on its released score (SkiResortAttractivenessSystem.TryGetAreaScore: known and not
-//     WriteHeld; noOpenRun = Result.RunsCounted == 0). An area with no released score is not stepped and reads in season;
-//   * per top-level lodge / school with its own WorkProvider: m_MaxWorkers = OffSeasonRules.Target(prefab
-//     WorkplaceData.m_MaxWorkers, area off, setting). Lowering it lets the game's tick lay the surplus off
-//     (WorkProviderSystem.cs:199-230); raising it restarts vanilla's new-workplace grace (m_EfficiencyCooldown =
-//     -m_ServiceBuildingEfficiencyGracePeriod, CityServiceWorkplaceInitializeSystem.cs:111, :119) so the hiring weeks do not
-//     cut efficiency (WorkProviderSystem.cs:259-263 saturates a negative cooldown to no penalty);
-//   * the hut's and the summit lodge's jobs ride on the sign: MountainJobsSystem asks IsHalf(sign) and halves them.
-// Nothing vanilla rewrites m_MaxWorkers of a city service building after its Created frame, so this system re-asserts on every
-// poll. Turning the setting off restores every building on the next poll. The first poll after a load takes the area state at
-// once (WorkProvider serializes).
-// Upkeep is not halved, only the wage row (OffSeasonRules header).
-// Logs: "created"; ARMED once per load; one "OffSeason [area]" line per transition and one "OffSeason [staff]" line per write;
-// "!!!" once on a throw (disabled until the next load). AppendDump feeds the hub's "Dump diagnostics".
+// Every PollFrames sim frames (Game mode, setting SkiResortSettings.OffSeasonHalfStaff): per Welcome Sign, OffSeasonRules.Step on
+// its released score (no released score: not stepped, reads in season); per top-level lodge / school with its own WorkProvider,
+// m_MaxWorkers = OffSeasonRules.Target. The hut's and summit lodge's jobs ride on the sign (MountainJobsSystem asks IsHalf).
+// Nothing vanilla rewrites m_MaxWorkers after the Created frame, so this re-asserts on every poll; the setting off restores all.
+// Logs: "created", ARMED once per load, one "OffSeason [area]" per transition, one "OffSeason [staff]" per write, "!!!" once on a throw.
+// Engine notes: EngineNotes/OffSeasonStaffSystem.md
 
 using System;
 using System.Collections.Generic;

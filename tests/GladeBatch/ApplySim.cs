@@ -1,51 +1,10 @@
-// ApplySim — the apply-sequence harness for the glade tool's compose / apply loop.
-//
-// A TEST-LOCAL WORLD of trees (wild, foreign = other runs' members / owned trees, our run's
-// members tagged {layer, variant, planGen}) and one run polygon per fixture. ApplyOnce mirrors
-// the tool's apply loop: ORACLE CENSUS (winding-number inside test + own segment distance, the
-// tool's census bands: interior = GladeMinSpacing, tree line = BeltDepth + BeltMinSpacing;
-// Existing sorted by (x, z, id) like the tool) → PlanKey → the skip set learned for that key →
-// Compose(level, target) → STAND-IN VALIDATOR (a 12 m blocked strip across the run cancels planted
-// trees inside it, and a plant within 4 m of a tree still standing is canceled; canceled slots
-// are learned into the skip set, like the tool's first ready preview frame) → mutate the
-// world (fell, remove, plant members tagged layer / variant 0 / PlanGeneration).
-//
-// ORACLES THAT DO NOT RESTATE THE IMPLEMENTATION. Every compose is judged by an INDEPENDENT
-// RECOUNT (CheckComposeOracles): W / X / M / N / Others from the test-local census geometry; T
-// from the documented table typed in here and the test's own shoelace / perimeter; the plan stream
-// re-derived from its definition (planner glade/belt layer, variant-0 seed, occupants = every
-// census tree ∪ other-layer members, the level-8 density) and P required to be its bit-exact
-// prefix; member→slot matching by a sorted-x sweep; the keep order, the removal sequence, the
-// exact wild-fell RANK set (a test-local ThinHash restating the documented formula), the plant
-// slots, Clamped / Saturated / Shortfall all recomputed. Every apply is then judged on WORLD
-// STATE (ApplyOnce): which ids disappeared, which positions appeared, the recounted tree count.
-// Assertions:
-//   never both       an apply never plants AND removes/fells in a layer (compose and world)
-//   members first    a wild tree is felled only when no tree of this run stands in the interior
-//                    census (any layer inside, interior strays within GladeMinSpacing outside)
-//   exact rank       the felled set is exactly the top-k by ThinHash rank (k = W − max(0, T − X))
-//   nested           felled sets are nested in L for the same stand (levels / nested)
-//   count            after an un-clamped apply the count is T (interior: max(T, X) when too many),
-//                    except blocked spots / no room (Shortfall) and validator cancels
-//   L1               level 1 leaves exactly X trees inside and NO tree of this run in the
-//                    target's census (every own member, any layer, any tag: the same rule as Compose)
-//   misplaced        this run's members outside their own layer's region are Other for every
-//                    target whose census sees them: removed first, never X / M / occupants
-//   twice            applying L again after it settled is a no-op
-//   up/down          raising L only plants, lowering only removes/fells; L up then back down
-//                    removes exactly the trees the up-step planted (stream unchanged and the
-//                    members a prefix of its unskipped slots — header of SkiGladeCompose)
-//   plant set        a plant sequence plants exactly the first D unmatched, unblocked slots of
-//                    the stream (blocked spots compensated by later slots)
-//   layers           an apply never touches a correctly placed member of the other layer or a
-//                    foreign tree (it may remove only the other layer's MISPLACED census members);
-//                    the tree line never fells; a tree-line apply never changes the interior key
-//   keybook          EVERY compose: an equal PlanKey always came with a bit-identical P prefix
-//   reused result    EVERY compose without a cache is repeated into ONE long-lived ComposeResult
-//                    and must equal the fresh-object compose field by field (the tool reuses one
-//                    result, so a stale FellFull / FullForMembers must not leak)
-//   caps             run800k: plant and remove slices of 4,000, members before wild across
-//                    slices, a fell cap fells the exact rank order slice by slice
+// ApplySim - the apply-sequence harness for the glade tool's compose / apply loop. A test-local world of trees (wild, foreign, and
+// this run's members tagged {layer, variant, planGen}) plus one run polygon per fixture; ApplyOnce mirrors the tool's apply loop
+// (oracle census -> PlanKey -> skip set -> Compose -> stand-in validator -> mutate the world).
+// Every compose is judged by an independent recount (CheckComposeOracles) and every apply on world state, never by the planner's own
+// arithmetic. Pinned: an apply never plants AND removes in one layer; members go before wild trees; the felled set is the exact
+// ThinHash rank top-k and nested across levels; level 1 leaves no member of this run in the census; re-applying is a no-op.
+// Engine notes: EngineNotes/GladeBatch.ApplySim.md
 
 using System;
 using System.Collections.Generic;
@@ -1349,7 +1308,7 @@ namespace GladeBatch
                     }
                     clampedO = t - n > r.Plant.Count && plantableTotal > r.Plant.Count;
                     if (!clampedO && r.Clamped && r.PlanIsSlice && t - n > r.Plant.Count)
-                        sliceEdge = true; // Compose cannot see past its slice (header, FLAGS)
+                        sliceEdge = true; // Compose cannot see past its slice (engine notes, FLAGS)
                     satO = expect.Count < want && po.Saturated;
                 }
                 else
@@ -1452,7 +1411,7 @@ namespace GladeBatch
         }
 
         /// <summary>CONTROL for the "slice ran out of attempts" refinement (SkiGladeCompose
-        /// header): on every compose that needed a full re-plan, plan the requested slice
+        /// engine notes): on every compose that needed a full re-plan, plan the requested slice
         /// VERBATIM (planner at MaxPlant = RequestedSlice, test-built occupants) and count how
         /// often it would have offered fewer plantable slots — a false Complete when none.</summary>
         private static void VerbatimSpecControl(SimRun run, SimTarget target, CensusOut c, ComposeInput input, ComposeResult r)

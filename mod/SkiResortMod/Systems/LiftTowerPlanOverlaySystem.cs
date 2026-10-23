@@ -1,18 +1,11 @@
-// Read-only debug overlay of the tower planner. While a lift line is the selected entity (ToolSystem.selected,
-// ToolSystem.cs:101: a section edge, a node, or an object it owns, e.g. a tower) it draws the line's planned towers and rope
-// as LiftTowerDiagSystem planned them on the real terrain:
-//   * the rope, sample by sample (5 m; tram 10 m), colored by the lowest carrier point's floor margin: green >= 2 m,
-//     amber 0-2 m, red < 0 (below the floor), violet = above the max rope height
-//   * each tower: a draped ring at its base and a cross-bar at the planned rope height (taller members wider), plus a ring
-//     at the rope point; the two station ends get a ring at the rope
-// Masts are not drawn: OverlayRenderSystem.Buffer.DrawLine measures a line by its xz length (OverlayRenderSystem.cs:209) and
-// DrawCurveImpl drops anything under 0.01 m (:269), so a vertical line never renders.
-// Changes nothing; gated by Settings > Lifts > LiftBuildAids. Buffer use is the main-thread pattern of
-// SkiStationAlignSystem: GetBuffer(out deps), deps.Complete() (OverlayRenderSystem.cs:603). Logs one "Towers [overlay]"
-// line when a newly selected line starts drawing, nothing per frame.
-//
-// Mod.cs: UpdateBefore<LiftTowerPlanOverlaySystem, OverlayRenderSystem>(Rendering): OverlayRenderSystem consumes and
-// clears the overlay lists later in the same phase (OverlayRenderSystem.cs:781, :790).
+// Read-only debug overlay of the tower planner. While a lift line is the selected entity (ToolSystem.selected, ToolSystem.cs:101:
+// a section edge, a node, or an object it owns, e.g. a tower) it draws the line's planned towers and rope as LiftTowerDiagSystem
+// planned them on the real terrain. Rope colored by the lowest carrier point's floor margin: green >= 2 m, amber 0-2 m, red < 0,
+// violet = above the max rope height. Masts are not drawn: OverlayRenderSystem.Buffer.DrawLine measures a line by its xz length
+// (OverlayRenderSystem.cs:209) and DrawCurveImpl drops anything under 0.01 m (:269), so a vertical line never renders.
+// Changes nothing; gated by Settings > Lifts > LiftBuildAids. Buffer use is the main-thread pattern of SkiStationAlignSystem:
+// GetBuffer(out deps), deps.Complete() (OverlayRenderSystem.cs:603). Logs one "Towers [overlay]" line per newly selected line.
+// Mod.cs: UpdateBefore<LiftTowerPlanOverlaySystem, OverlayRenderSystem>(Rendering): the renderer clears the lists later (:781, :790).
 
 using System;
 using System.Collections.Generic;

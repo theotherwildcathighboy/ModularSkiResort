@@ -15,8 +15,7 @@
 		<PublishConfigurationPath>Properties\PublishConfiguration.xml</PublishConfigurationPath>
 
 		<!--
-		SAVE IDENTITY (T74, 2026-10-19; docs/research/release-update-constraints-2026-10-18.md section 1 row 9, section 4 item 4;
-		Systems/SkiRunBinding.cs:50-57). A save names each of our persisted components by its AssemblyQualifiedName, which
+		SAVE IDENTITY (Systems/SkiRunBinding.cs:50-57). A save names each of our persisted components by its AssemblyQualifiedName, which
 		carries "Version=" + this AssemblyVersion (Colossal.Core ComponentSerializer.cs:33-41). Whether Mono resolves a saved
 		name whose version differs is unverified, so the version never changes: AssemblyVersion is PINNED at 1.0.0.0 FOREVER
 		(it was the SDK default 1.0.0.0 before this pin, so no build ever wrote another one). It is also the third tie-break
@@ -160,8 +159,6 @@
 	<!--
 	===============================================================================================
 	Ski Resort UI module (mod/SkiResortUI): build, build stamp, deploy.
-	Created 2026-10-01, Round U1 (implementer U1-A). Authority: docs/research/resort-hub-understand.md
-	section 5.2 item 1 and section 2.A.3 item 11.
 
 	  SkiUiBuild    (before BeforeBuild) when mod/SkiResortUI/node_modules exists: generates ONE new
 	                build stamp and runs `npm run build` there (sync-types -> webpack -> the
@@ -221,7 +218,7 @@
 		<SkiUiInput Include="$(SkiUiDir)\package.json;$(SkiUiDir)\package-lock.json;$(SkiUiDir)\webpack.config.js;$(SkiUiDir)\tsconfig.json;$(SkiUiDir)\mod.json" />
 		<!-- check-bundle lints the SkiResort.Hub.* strings here and parses the game's runtime exports. -->
 		<SkiUiInput Include="$(MSBuildProjectDirectory)\LocaleEN.cs" />
-		<!-- Contract 2 (docs/research/hub-u2-spec.md 4.7 rules 1-3, added 2026-10-03 by I-4): the gate also
+		<!-- Contract 2 (rules 1-3): the gate also
 		     matches the hub system's binding / trigger literals and TypeBegin blocks against bindings.ts
 		     and reads tools/contract.lock, so a C#-only change of a name or a field must re-run it. The
 		     *.lock wildcard matches nothing (and adds no input) until the lock file exists. -->

@@ -1,19 +1,10 @@
 /*
  * src/hub/RunsView.tsx - the Runs view: the tree tool rows, the piste-map toggle and the run list of the shown ski area.
- *   - Structure: TreeRows (TreeControls.tsx) · Divider · list header (piste-map toggle, Lift / Length / Drop labels) · the
- *     rows (RunList.tsx RunLine, C#'s order) or RUNS_EMPTY. Every run is in one list, no pager; this view and the Lifts view
- *     are the two that may scroll (PIPELINE section 0 hub rule; harness/layout-check.js checks every row is drawn).
- *   - Piste map: a cs2/ui Button (theme `pisteToggle`) whose check box shows C#'s value (pisteMap$), never a guess; a click
- *     sends setPisteMap(!value) and C# answers by pushing the new value.
- *   - Hover: RunLine sends hoverRun on mouse enter (hubState.sendHoverRun dedups); leaving the list and unmounting this view
- *     send Null once. HubPanel covers the area switch and the panel's unmount.
- *   - Click a row: focused$ (highlight) + focusRun (C# flies the camera). One row renames at a time (local state, entityId);
- *     commit -> rename(run, text).
- *   - Joins: runLive by entityId (hubRules.runLiveMap, memoised on the array), lift names by LiftRow.entity (memoised on
- *     lifts$), so a live push re-renders only the rows that moved.
- *   - The three run state words (RUN_STATE_TEXT) are translated once per `t` (useMemo) and handed to every RunLine, which
- *     shows its run's word in their common width.
- *   - Panel file: subscribes selectedResort$, runs$, runLive$, lifts$, pisteMap$, city$ (+ glade$ in TreeRows); local focused$.
+ * One list, no pager (this view and Lifts are the two that may scroll). The piste-map check box shows C#'s value (pisteMap$), never a guess:
+ * a click sends setPisteMap(!value) and C# answers by pushing it. RunLine sends hoverRun on enter (dedup); leaving the list and unmounting send
+ * Null once (HubPanel covers the area switch and the panel unmount). Joins: runLive by entityId (hubRules.runLiveMap), lift names by LiftRow.entity,
+ * both memoised so a live push re-renders only the rows that moved. Panel file: subscribes selectedResort$, runs$, runLive$, lifts$, pisteMap$,
+ * city$ (+ glade$ in TreeRows); local focused$.
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { RefObject } from "react";

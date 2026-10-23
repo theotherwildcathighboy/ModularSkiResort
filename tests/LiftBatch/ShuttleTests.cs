@@ -1,26 +1,9 @@
-// Tests for the pure stateless shuttle profile (ShuttleProfile.cs). Where-tags `shuttle/...`. v 10 m/s, a 0.8 m/s^2, dwell
-// 60 s unless said.
-//   SH-1  TripTimeS: 100 m -> 22.360679774997898 (triangle), 125 -> 25 (the boundary), 1000 -> 112.5, 3000 -> 312.5;
-//         invalid -> 0.
-//   SH-2  DistanceAt: 0 -> 0, 12.5 -> 62.5, 56.25 -> 500, T -> L, clamps; monotone over 10,000 samples (trapezoid and
-//         triangle); s continuous at the ramp ends (<= 1e-9); speed has no jump there (one-sided differences agree to a x delta:
-//         a finite difference cannot resolve 1e-9 in speed, so this is the C1 check).
-//   SH-3  PeriodS(1000) = 345; invalid -> 0.
-//   SH-4  FractionA legs at tau 0 / 59.999 / 60 / 116.25 (u 0.5) / 172.5 / 232.5 / 288.75 (u 0.5) / 344.999; periodicity
-//         FractionA(t + P) = FractionA(t) for 1,000 t up to 1e7 s (<= 1e-9).
-//   SH-5  HoldFractionA: tau 100 -> 0, 200 -> 1, 300 -> 1, 10 -> 0 (the terminal last reached), the 172.5 boundary.
-//   SH-6  cabin B = 1 - A everywhere; with L_A = L_B, s_B = L - s_A; both dock at the same instant.
-//   SH-7  TimeSOf(f, ft) == ((double)f + ft) / 60.0 bit for bit; one game day = 262,144 frames = 4,369.07 s.
-//   SH-8  CapacityPerHour(2, 100, 1000) = 2086.9565217391305, one cabin 1043.4782608695652, 0 cabins / 0 seats -> -1;
-//         a -> infinity: 2,250 at 1 km and 1,000 at 3 km.
-//   SH-9  invalid inputs (L, v, a <= 0 or NaN, dwell < 0, t NaN / infinity) -> u 0, DwellBase (FractionA and HoldFractionA).
-//   SH-10 QuantizeLengthM rounds to 1 cm; two lengths within one centimeter bucket give the same period bit for bit; the
-//         catalog's float tram row (0.8f) stays within 1e-5 s of the double oracle.
-//   SH-11 The tram's terminal reach, on LiftLoopTopology (a Shuttle station owns a terminal within MaxDockRunM of a dock, not
-//         only within 20 m of its origin): rope tips ~29 / 30 m from the origin (catalog numbers) close both chains, also
-//         mirrored in x; a tip 29 m from its dock closes, 31 m and a terminal ~60 m out stay unclosed with the per-terminal
-//         diagnostic; Loop mode (FG / DQ / gondola) and a Shuttle station without docks keep the 20 m origin radius and their
-//         "pos" / "none" strings.
+// Tests for the pure stateless shuttle profile (ShuttleProfile.cs). Where-tags `shuttle/...`, SH-1..SH-11; v 10 m/s, a 0.8 m/s^2, dwell 60 s.
+// Pinned: TripTimeS (triangle below 125 m, trapezoid above), DistanceAt (continuous, monotone, C1 at the ramp ends), PeriodS, FractionA /
+// HoldFractionA legs and periodicity, cabin B = 1 - A, TimeSOf == ((double)f + ft) / 60.0 bit for bit (one game day = 262,144 frames),
+// CapacityPerHour (a -> infinity gives 2,250 at 1 km and 1,000 at 3 km), invalid inputs -> DwellBase, QuantizeLengthM (1 cm buckets).
+// SH-11, the tram's terminal reach on LiftLoopTopology: a Shuttle station owns a terminal within MaxDockRunM of a dock (rope tips
+// ~29 / 30 m out close both chains, 31 m and ~60 m stay unclosed); Loop mode and docks-less stations keep the 20 m origin radius.
 
 using System;
 using System.Collections.Generic;

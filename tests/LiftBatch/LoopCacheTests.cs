@@ -1,35 +1,11 @@
-// LoopCacheTests — the headless host for LiftLoopCache's topology (the pure LiftLoopTopology over plain stand-ins; the Game-side
-// geometry is not linkable here). Where-tags `loopcache/…`.
-//   LC-1  two-terminal FG loop (Program.StraightLift's geometry: base (0,0,0) yaw 180, top (0,100,600) yaw 0, gauge ±1.8,
-//         5 sections, node lanes at the 4 towers): 2 chains of 9 links, 1 pair Ok, base 0 / top 1, A = the +x side (right
-//         looking uphill), decided, A base→top / B top→base, gaps 3.6, type 0, no notes; the found order does not matter.
-//   LC-2  the tram in Shuttle mode (base Role 0 yaw 180, top (0,400,1000) Role 1 yaw 0, track ropes ±5.5, stub tips local
-//         (±5.5,16,−12), docks local (∓5.5,16,−5.5), 3 spans): Ok, base by role, both chains base→top, A = world +x,
-//         ABaseDock 0 / BBaseDock 1 but ATopDock 1 / BTopDock 0 (the dock index is per station), runs 6.5, gaps 11.0;
-//         the same graph in Loop mode is refused (gap 11 > 10).
-//   LC-3  the mirror (x → −x) of LC-1 and LC-2: A still right looking uphill (now the other lanes), docks swap, every run
-//         and gap bit-equal.
-//   LC-4  towers without node lanes: one chain per side passes 4 tower-owned anchors (the walk does not stop at towers).
-//   LC-5  one edge per side: Loop 2 chains of 1 link, Ok; one side only → 1 chain, NotTwoChains, the topology's
-//         UnclosedChainCount 0 (LiftLoopCache adds the pair's 1).
-//   LC-6  a base station shared by two lifts (shared stub anchors): 4 chains, 2 pairs in insertion order, no chain
-//         crosses the station.
-//   LC-7  terminal classification strings: "owner", "child", the positional fallback "pos 9.9m", and at 20.6 m
-//         "none (owner 7000, nearest station 21m)" with the unclosed note.
-//   LC-8  one lane typed 1: TypeIndex −1 (the pair still Ok).
-//   LC-9  a downhill shuttle (base above top): Shuttle base = the Role-0 station; Loop picks the lower one; roles absent →
-//         the height rule.
-//   LC-10 shuttle refusals: ropes 2.0 m apart → GapOutOfRange; a dock 41 m from the rope end → that dock −1, run 0, refused
-//         41; NaN docks → −1; the gap window's inclusive bounds.
-//   LC-REF 2,000 seeded random graphs (1-4 stations, 0-2 lifts per pair, 0-8 towers, node lanes or not, shared stubs,
-//         child-owned and fallback terminals near / far, missing sides and lanes, stray lanes, random reversal and order,
-//         height ties, gauge 0-12 m) through LoopCacheReference (the frozen transcription of LiftLoopCache.cs @ d3ae435b)
-//         and LiftLoopTopology in Loop mode: identical chains (links, terminals, stations), diagnostics (floats bit for
-//         bit), notes in order, unclosed count, pairs (order, key, status, base, top, decided / swapped, A / B, gaps bit for
-//         bit, type) and the station map; plus Shuttle-mode invariants on the same graphs.
-// LIMIT: LC-REF compares the topology with a transcription over the SAME stand-ins; it cannot see LiftLoopCache's Game-side
-// adapter (PathNode interning, the lane fill, the geometry and its notes). Those are checked by a body compare and by the FG
-// loop-notes comparison on one save across the two builds.
+// LoopCacheTests - the headless host for LiftLoopCache's topology (the pure LiftLoopTopology over plain stand-ins; the Game-side
+// geometry is not linkable here). Where-tags `loopcache/...`, LC-1..LC-10 and LC-REF.
+// Pinned: a two-terminal FG loop and a Shuttle-mode tram give the right chains, pairs, base/top, A side (the cable on the right looking
+// uphill, whichever chain is found first), docks, runs and gaps; the mirror image is bit-equal; shared stations, towers without node
+// lanes, terminal classification strings, refusals (GapOutOfRange, NotTwoChains) and the downhill-shuttle base rule.
+// LC-REF: 2,000 seeded random graphs through LoopCacheReference and LiftLoopTopology in Loop mode must give identical chains, notes, pairs.
+// LIMIT: LC-REF shares its stand-ins, so it cannot see LiftLoopCache's Game-side adapter (PathNode interning, the lane fill, the
+// geometry and its notes); those are checked by a body compare and by the FG loop-notes comparison on one save across the two builds.
 
 using System;
 using System.Collections.Generic;

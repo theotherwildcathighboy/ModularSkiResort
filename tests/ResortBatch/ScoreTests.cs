@@ -1,20 +1,11 @@
-// Tests of the attraction model (SkiResortScore): constants guard, helpers, the 37 sanity rows, monotonicity, order
-// independence, sum of squares, no-throw. `public static class ScoreTests` with `public static void Run(Func<bool, string, string,
-// bool> check)` and its own Near; Program.Main calls ScoreTests.Run(Check). Oracles are literal hand values, never a second run of
-// SkiResortScore. Sections, in run order:
-//   A  constants guard: every constant against its literal + the four RunKind copies.
-//   B  helpers: SizeFactor (knee oracles, ±1e-9), LodgeBaseOf, BandValueOf, TypeFactorOf, SignEfficiency (exact float),
-//      RoundToEven; plus the K / backcountry clamps of Compute step 1.
-//   C  the sanity table: 37 rows built from the Small / Medium / Large compositions: A, PerLodge, AttractionFullEfficiency,
-//      LodgeBase, LodgeShare, LiftShare, LiftsCounted, Variety and VerticalM exact; RunsValue, S, AOpen and the vertical
-//      multiplier ±1e-6; the per-row counts and flags; the T1 / T2 / T3 RunPart values (±1e-6).
-//   D  properties, seed 20261004, 5,000 random areas: twelve monotone mutations (A' ≥ A) and the zero-run invariance (gating on),
-//      order independence (reversed and one shuffle: Result.Equals exact, RunParts permuted), sum of squares, then the no-throw
-//      inputs.
-// Ladder: LodgeExtraCap is 24 (LodgeBaseOf rows 5 → 36, 10 / 13 → 44; L10: LodgeBase 44, AOpen 72.882668052, A 73, PerLodge 23);
-// the A-frame constants are checked against SkiCatalog.Lodges[0]; T1L / T2L / T3L = T1-T3 with explicit A-frame
-// AreaInput.Lodges lists → Result.Equals(T1 / T2 / T3) bit for bit (the ladder over A-frames = the closed form every other row
-// takes). Every other row passes on the Lodges == null path. The ladder / school / patrol / per-type rows are LadderTests.cs.
+// Tests of the attraction model (SkiResortScore): constants guard, helpers, the 37 sanity rows, monotonicity, order independence, sum of
+// squares, no-throw. `public static class ScoreTests` with `Run(check)` and its own Near; Program.Main calls ScoreTests.Run(Check).
+// Oracles are literal hand values, never a second run of SkiResortScore. Sections in run order: A constants guard, B helpers, C the sanity
+// table (Small / Medium / Large compositions; exact for A, PerLodge, LodgeBase, Variety, VerticalM; +-1e-6 for the doubles), D properties
+// (seed 20261004, 5,000 random areas: twelve monotone mutations, zero-run invariance, order independence, sum of squares, no-throw inputs).
+// Ladder: LodgeExtraCap is 24 (LodgeBaseOf rows 5 -> 36, 10 / 13 -> 44); the A-frame constants are checked against SkiCatalog.Lodges[0];
+// explicit A-frame AreaInput.Lodges lists equal the Lodges == null closed form bit for bit (T1L / T2L / T3L = T1-T3). The ladder / school /
+// patrol / per-type rows are LadderTests.cs.
 
 using System;
 using System.Collections.Generic;

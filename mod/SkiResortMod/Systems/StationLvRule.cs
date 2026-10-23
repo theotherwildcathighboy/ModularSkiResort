@@ -5,8 +5,7 @@
 // are skipped for layers the node requires (:1878-1881), and the LV stub node requires PowerlineLow.
 // The power path counts more: a wire landing on the stub's middle becomes a ConnectedNode (NetInitializeSystem.cs:2412-2454,
 // GenerateEdgesSystem.cs:1805-1856) and powers the station (CreateEdgeMiddleNodeConnections, :86-99) while the icon stays.
-// Rule: an LV wire attached to the stub (at a node or on its middle) means the station is LV-connected, so the icon is removed.
-// No wire: the icon stays.
+// Rule: an LV wire attached to the stub (at a node or on its middle) means the station is LV-connected, so the icon is removed; no wire: the icon stays.
 
 namespace SkiResortMod.Systems
 {

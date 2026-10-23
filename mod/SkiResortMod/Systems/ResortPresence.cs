@@ -1,16 +1,11 @@
 // The one cheap "is there a resort of ours in this city" bit: any Ski Area Welcome Sign, run area or lift.
-// Systems that must cost ~0 in a city without a resort read Present first and return before any query, sync
-// or allocation.
-//
-// Writers: SkiRunOwnershipSystem (signs and runs; also Reset() at load, and MarkUnknown() when it is disabled
-// by an exception, so Present fails open) and LiftCensusSystem (lifts, after every BuildCensus).
-// Main thread, plain static fields (no Entity is kept, so nothing to remap at load).
-//
-// Order: ownership's load handler runs Reset() before it counts, and the census sets its count at its first
-// build after load, so Lifts is 0 for the first frames: readers must re-test every pass, never latch "absent".
-//
-// Log: one "Resort [present]" line on the first refresh after a load and whenever the bit changes. EverSeen
-// is what the daily INFO lines wait for.
+// Systems that must cost ~0 in a city without a resort read Present first and return before any query, sync or allocation.
+// Writers: SkiRunOwnershipSystem (signs and runs; also Reset() at load, and MarkUnknown() when it is disabled by an exception,
+// so Present fails open) and LiftCensusSystem (lifts, after every BuildCensus). Main thread, plain static fields.
+// Order: ownership's load handler runs Reset() before it counts, and the census sets its count at its first build after load,
+// so Lifts is 0 for the first frames: readers must re-test every pass, never latch "absent".
+// Log: one "Resort [present]" line on the first refresh after a load and whenever the bit changes. EverSeen is what the daily
+// INFO lines wait for.
 
 namespace SkiResortMod.Systems
 {

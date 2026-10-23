@@ -1,27 +1,11 @@
-// SkiDayTiming - the pure timing helpers of SkiDaySystem: the render-frame slice window (the skip rule beyond
-// SkiDayRules.SkipSlice: a CitizenBehaviorSystem run up to 7 frames earlier in the same render frame), the last pass of a
-// decision and its last unskipped sighting, the next LeisureSystem visit (the resident roll key), frames <-> game hours, a
-// claim's outcome, the hour step of the powder ring, and bit-exact float / double compares. Every demand, capacity, powder,
-// confidence and gate rule is SkiDayRules'; this file only does time. Consumers: SkiDaySystem and its Burst jobs;
-// tests/ResortBatch SkiDayTimingTests.
-//
-// Pure file: `using System;` and `using Unity.Mathematics;` only. Every method is static, allocation-free and
-// Burst-callable (no managed type, no string, no exception), with one exception: MarkHoursPerMonth takes managed arrays and
-// runs on the main thread only (SkiDaySystem.PowderYearTick), never from a job. net48 traps: no Math.Clamp, MathF,
-// double.IsFinite, Span<T>; math.* stands in.
-//
-// Measure-only helpers (nothing here changes a guest unless noted): where a failed guest stood (Place), the claim's
-// markers, why Leisure went (GoneWhy, from the traces vanilla leaves), why a visit ended (EndCause) and how the guest left
-// the lodge (ExitWay), late arrivals after expiry (TryLate), the car-reserve buckets, the guest-scan timing model
-// (GuestScanSaw), clock and stay bins, the year's powder hours per month, the departure rule DepartedNow, ArrivedThenRemoved
-// (EndCause.RemovedOnArrival = 8, EndCauseCount 9), MovedOffNow (the door wait ends when the game removes the walker's
-// Divert{PathFailed}), RemoveWhy / RemoveWhyOf (why the Leisure went before the deadline, CitizenBehaviorSystem's order), the
-// household-need register ShiftNeed / NeedTaken, the follow after leaving the lodge (FollowWatchFrames, FollowExitKind,
-// PlacedNow, TryFollow, StillOutOf) and walkers near a lodge (WalkerKindOf, WaitHoursOfTimer, WithinXZ, FollowSlot,
-// AtOnceSlot), and what an ended claim tells the all-outcomes speed (SpeedEvidence, FailureEvidence, LateEvidence: one
-// predicate, departed + on the road + not turned back).
-// PullDeadline (Flag2DeadlinePulled 64, PullMinFrames, PullNone / PullNoRun / PullNightClosed) is the only helper here that
-// feeds a vanilla write (ResolveJob lowers Leisure.m_LastPossibleFrame).
+// SkiDayTiming - the pure timing helpers of SkiDaySystem: the render-frame slice window (the skip rule beyond SkiDayRules.SkipSlice:
+// a CitizenBehaviorSystem run up to 7 frames earlier in the same render frame), the last pass of a decision and its last unskipped
+// sighting, the next LeisureSystem visit (the resident roll key), frames <-> game hours, a claim's outcome, the hour step of the
+// powder ring, and bit-exact float / double compares. Every rule is SkiDayRules'. Consumers: SkiDaySystem and its Burst jobs.
+// Pure file: `using System;` and `using Unity.Mathematics;` only; every method static, allocation-free and Burst-callable except
+// MarkHoursPerMonth (managed arrays, main thread only). net48: no Math.Clamp, MathF, double.IsFinite, Span<T>.
+// Measure-only helpers change no guest, except PullDeadline, the only helper that feeds a vanilla write.
+// Engine notes: EngineNotes/SkiDayTiming.md
 
 using System;
 using Unity.Mathematics;
@@ -346,12 +330,9 @@ namespace SkiResortMod.Systems
         /// fires there only past the grace) -> PastGrace; now >= deadline (Resolve's compare) -> DeadlineClosing when the claim's
         /// deadline was the lifts' closing, else DeadlineOwn (sleep or work); Leisure aimed elsewhere -> NewOuting; no Leisure and a
         /// counter >= NeedFilledCounter -> NeedFilled (inferred); no Leisure -> Removed (CitizenBehaviorSystem: moving away, illness,
-        /// shopping errand; bedtime and work time end at the claim's deadline, since DoLeisure sets it to the next sleep or work
-        /// start, 1.6.2 :472-494, and the claim deadline is min(that, closing), so they read DeadlineOwn / DeadlineClosing; why:
-        /// RemoveWhyOf); else (Leisure at the lodge, not in it) WalkedOut. Not told apart: LeisureSystem.SpendLeisure also removes
-        /// Leisure at a venue that is switched off (BuildingOption.Inactive), has ServiceAvailable &lt;= 0 or no output resource
-        /// (1.6.2 LeisureSystem.cs:285-310); for our lodge that is the player deactivating it, which lands in Removed (or NeedFilled
-        /// with a high counter). Rare, and visible in the `[lodges]` line.</summary>
+        /// shopping errand; bedtime and work time end at the claim's deadline, 1.6.2 :472-494; why: RemoveWhyOf); else (Leisure at the
+        /// lodge, not in it) WalkedOut. Not told apart: LeisureSystem.SpendLeisure also removes Leisure at a switched-off venue, one with
+        /// ServiceAvailable &lt;= 0 or no output resource (1.6.2 LeisureSystem.cs:285-310). Detail: EngineNotes/SkiDayTiming.md</summary>
         public static EndCause EndCauseOf(bool gone, bool hasLeisure, bool leisureAtLodge, bool atLodge, uint now, uint deadline,
                                           bool deadlineIsClosing, int leisureCounter)
         {

@@ -1,48 +1,11 @@
-// Ski days: claim at decision. For a share of residents at home and hotel tourists who just decided to go out (Leisure with
-// no venue yet), name a ski-day lodge with LeisureSystem's own two writes (Leisure.m_TargetAgent + TripNeeded) and, for a far
-// car trip with a free household car, the public car-reserve queue; then track each claim to arrival or failure, learn speeds
-// and confidence per area and class, and publish one SkiDayAreaView per ski area for the hub. Demand, capacity, powder,
-// confidence and gate rules are SkiDayRules'; timing helpers are SkiDayTiming's. In memory only, reset on load.
-//
-// Phase: GameSimulation, anchored UpdateAfter<SkiDaySystem, Game.Simulation.LeisureSystem> (Mod.cs). Anchor AND interval are
-// load-bearing: LeisureSystem is UpdateAt GameSimulation (SystemOrder.cs:377, 1.6.2 :378) and GetUpdateInterval returns
-// LeisureSystem's own (262144 / kUpdatePerDay = 64, LeisureSystem.cs:914-917, 1.6.2 :911-914), so this follower inherits its
-// offset (UpdateSystem.cs:431-436, :355-356, :457-516) and every pass runs on LeisureSystem's frames, before TripNeededSystem
-// (SystemOrder.cs:393, 1.6.2 :394). NEVER override GetUpdateOffset. Pause stops it; the Editor never arms it.
-//
-// The pass (one per LeisureSystem interval): 1 complete last pass's jobs; 2 ApplyPass copies every job result into managed
-// state; 3 month roll; 4 ApplyCensus; 5 powder ring (one ClimateSystem.SampleClimate per game hour; main thread only:
-// PrefabSystem.GetPrefab + AnimationCurve.Evaluate, ClimateSystem.cs:625-654); 6 area snapshot, rebuilt only on change; 6b powder
-// year table; 7 no ski area → idle (claims in flight resolve as orphans); 8 schedule SiteJob (when due) → ResolveJob → ClaimJob
-// (+ the car-reserve handshake) → CensusJob (hourly). No EntityManager read of a citizen, lane or Transform and no
-// CompleteDependency: citizens are walked through ToArchetypeChunkListAsync + IJob, positions through RO lookups in the jobs.
-// The one exception is the timed `[cost]` pass.
-//
-// The claim writes Leisure and TripNeeded (RW type handles in ClaimJob: ECS orders it after LeisureSystem's job and
-// TripNeededSystem's after it, no main-thread wait) and enqueues on CitizenBehaviorSystem.GetCarReserveQueue with
-// AddCarReserveWriter (WorkerSystem.cs:450-454; CBS :1094-1103, 1.6.2 :1126-1135). Those are the only writes to vanilla state,
-// plus ResolveJob lowering that claim's Leisure.m_LastPossibleFrame when the hill closes early: a guest on site then leaves with
-// the new closing, at least SkiDayTiming.OnSiteGraceFrames from then, and vanilla's LeisureSystem still ends the visit
-// (LeisureSystem.cs:314-317, 1.6.2 :308-311). A ski day given before a load finishes as a vanilla leisure trip.
-//
-// Tracking: m_Claims is compacted every pass by ResolveJob (outcome per claim: SkiDayTiming.Resolve). Arrivals and failures
-// feed the per-area, per-class ClassTrack (confidence, learned speed, "cannot reach"), kept in AreaMemory (not named AreaState,
-// which here is SkiDayRules.AreaState). Claim states 2 (visit over, still inside), 3 (expired, watched up to 6 game hours for a
-// late arrival) and 4 (followed after leaving) exist for measurement only: none is ever on the way, on site, in ActiveNow or in
-// a view, and a late arrival feeds only the all-outcomes speed.
-// Month: per area This / Last (SkiDayRules.MonthFlags, the ledger's rules); a rolled month with fewer than 95 % of its frames
-// simulated closes "partial" (SkiMoneyRules.IsShortMonth). Views are published every armed pass while an area exists (also with
-// both knobs at 0: the powder mark is a snow fact); Revision moves only when a view is not Same.
-// Measurement state (the RM / RH / CM rows in Jobs.cs, the ring of ended ski days, the DUMP) is memory only and resets at load.
-// Two measured features change behavior: SystemOff (a switched-off vanilla trip system stops ski days) and the deadline pull.
-//
-// Cost: `[cost]` is measured once per load over Tuning.CostPasses passes that scheduled ClaimJob, then one pass is completed
-// at once (its vanilla inputs are completed first and timed apart, never in our number); re-armed daily at midday. It is NOT in
-// any main-thread figure: our one dependency handle covers ResolveJob, ClaimJob and CensusJob together, and those jobs read
-// about 20 types that the game's movement and AI jobs write, so on a pass frame those writers wait for the whole chain.
-// Contract (house pattern): "created" line; per-load reset and arm in OnGameLoadingComplete (Game mode only); OnGamePreload
-// completes and books the last pass, writes the month in progress (try/caught: GameSystemBase.cs :85-96 disables a system whose
-// OnGamePreload throws); one-shot "!!!" and disabled for the load on an exception; OnDestroy completes, flushes and disposes.
+// Ski days: claim at decision. For a share of residents at home and hotel tourists who just decided to go out (Leisure with no
+// venue yet), name a ski-day lodge with LeisureSystem's own two writes (Leisure.m_TargetAgent + TripNeeded) and, for a far car trip
+// with a free household car, the public car-reserve queue; track each claim to arrival or failure, learn speeds and confidence per
+// area and class, publish one SkiDayAreaView per ski area for the hub. In memory only (rules: SkiDayRules, timing: SkiDayTiming).
+// Phase: GameSimulation, UpdateAfter<SkiDaySystem, Game.Simulation.LeisureSystem> (Mod.cs). Anchor AND interval are load-bearing
+// (every pass runs on LeisureSystem's frames); NEVER override GetUpdateOffset. Pause stops it; the Editor never arms it.
+// No EntityManager read of a citizen, lane or Transform and no CompleteDependency except the timed `[cost]` pass. One-shot "!!!".
+// Engine notes: EngineNotes/SkiDaySystem.md
 
 using System;
 using System.Collections.Generic;
@@ -3048,7 +3011,7 @@ namespace SkiResortMod.Systems
             long tJobs = 0;
             if (timed)
             {
-                // Once per load and daily at midday, the measurement's one main-thread sync (header Cost). The wait
+                // Once per load and daily at midday, the measurement's one main-thread sync (engine notes Cost). The wait
                 // for the vanilla jobs we depend on is timed apart and printed, never in our number.
                 long tWait = Stopwatch.GetTimestamp();
                 Dependency.Complete();
@@ -3322,14 +3285,13 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>NearJob after <paramref name="all"/> (ClaimJob, and the census when due), in the census's pattern (chunk lists by
-        /// ToArchetypeChunkListAsync, disposed on the job's handle, read-only type handles updated here). Per lodge (aligned with
-        /// m_Lodges) the walkers within SkiDayTiming.NearLodgeM of the lodge's xz, and the game's per-stop waiting counts
-        /// (Game.Routes.WaitingPassengers on line waypoints with a Game.Routes.Position; taxi stands have none). A chunk walk, not the
-        /// moving search tree: a creature on a lane with a LaneObject buffer (every pedestrian lane) is not in the tree
-        /// (Game.Creatures/ReferencesSystem.cs:125-138, Game.Prefabs/PedestrianLane.cs:36). <paramref name="lodges"/> and
-        /// <paramref name="sites"/> are the arrays ScheduleJobs took before SiteJob (which writes m_SiteOut) was scheduled; calling
-        /// m_SiteOut.AsArray() here, after that writer is in the chain, is a main-thread access the collection safety checks may reject
-        /// (unverified which check). The chunk lists are disposed here if Schedule throws.</summary>
+        /// ToArchetypeChunkListAsync, disposed on the job's handle, or here if Schedule throws). Per lodge (aligned with m_Lodges) the
+        /// walkers within SkiDayTiming.NearLodgeM of the lodge's xz, and the game's per-stop waiting counts (Game.Routes.WaitingPassengers
+        /// on line waypoints with a Game.Routes.Position; taxi stands have none). A chunk walk, not the moving search tree: a creature
+        /// on a lane with a LaneObject buffer (every pedestrian lane) is not in the tree (Game.Creatures/ReferencesSystem.cs:125-138,
+        /// Game.Prefabs/PedestrianLane.cs:36). <paramref name="lodges"/> and <paramref name="sites"/> are the arrays ScheduleJobs took
+        /// before SiteJob (which writes m_SiteOut) was scheduled; calling m_SiteOut.AsArray() here, after that writer is in the chain, is
+        /// a main-thread access the collection safety checks may reject (unverified which check).</summary>
         private void ScheduleNear(ref JobHandle all, uint now, NativeArray<LodgeJob> lodges, NativeArray<SiteOut> sites)
         {
             m_NearOut.Clear();

@@ -1,16 +1,11 @@
-// Headless benchmark of the chair mover's math at release scale (report: docs/research/lifts/lift-scale-2026-10-22.md).
-// Run from the repo root (needs the game installed, CSII_MANAGEDPATH set):
+// Headless benchmark of the chair mover's math at release scale. Run from the repo root (needs the game installed, CSII_MANAGEDPATH set):
 //   dotnet run --project tests/MoverBench/MoverBench.csproj -c Release
 // Prints INFO / BENCH lines, `FAIL  where: msg` lines and one SUMMARY line; Environment.ExitCode = failures.
-//
-// Builds a synthetic 20-lift resort (about 3,000 carriers over 6 x 6 km) through the real LiftLoopCache.Build.
-// Single thread on the .NET 8 JIT, not Burst or the game's Mono; in-game numbers come from the dev tab.
-//   B-1 correctness: LiftLoopSampler.Sample on the flat arrays == LiftLoopCache.Sample bit for bit, and Pose ==
-//       MoveChair's pose, for every chair at three clocks (Burst may contract float ops differently)
-//   B-2 before: managed per-chair math of the old pass, every chair every pass (p50 / p95 / max over 600 passes)
-//   B-3 after: the flat kernel MoveChairsJob runs per chair, one thread, then spread over workers (Parallel.For, batch 64)
-//   B-4 pace: four camera scenarios at 60 fps 1x and 3x: loops near / far, chairs written per pass, bounds Updated tags
-//       per second with one global cadence (before) versus per loop at its own speed (after)
+// Builds a synthetic 20-lift resort (about 3,000 carriers over 6 x 6 km) through the real LiftLoopCache.Build. Single thread on the
+// .NET 8 JIT, not Burst or the game's Mono; in-game numbers come from the dev tab.
+//   B-1 correctness: LiftLoopSampler.Sample on the flat arrays == LiftLoopCache.Sample bit for bit, and Pose == MoveChair's pose, for
+//       every chair at three clocks (Burst may contract float ops differently); B-2 / B-3 the managed per-chair pass vs the flat
+//       MoveChairsJob kernel (p50 / p95 / max over 600 passes; one thread, then Parallel.For batch 64); B-4 pace: four camera scenarios.
 
 using System;
 using System.Collections.Generic;

@@ -1,10 +1,8 @@
 // Scoped cable-lane harvest shared by ChairPinSystem (Loop lifts) and TramShuttleSystem (Shuttle lifts): reads the SubLane
 // buffers of the census's line edges and end nodes instead of scanning every utility lane in the city, so cost scales with
-// lift edges (docs/research/lifts/lift-scale-2026-10-22.md).
-// Applies the same filter as the full scan (live lane, UtilityLane, HV cable prefab, owner is a lift line of the mover kind,
+// lift edges. Applies the full scan's filter (live lane, UtilityLane, HV cable prefab, owner is a lift line of the mover kind,
 // Lane + Curve); a lane reachable from both an edge and its node is kept once.
-// Both paths sort by lane entity (SortByLane) so the loop cache sees one stable lane order; the full scan's chunk order
-// moves when a lane changes archetype.
+// Both paths sort by lane entity (SortByLane): the full scan's chunk order moves when a lane changes archetype.
 // Callers run the full scan once per load beside the first scoped harvest and Compare them; a mismatch is a WARN and that
 // caller stays on the full scan.
 

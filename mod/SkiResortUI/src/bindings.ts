@@ -1,63 +1,9 @@
 /*
  * src/bindings.ts - THE single source of truth for the C# <-> UI contract of the Ski Resort hub.
- *
- * The C# side (SkiResortHubUISystem, group "skiResort") must register EXACTLY these names with these shapes. Change a
- * name, a type or a field here and in C# together, bump HUB_CONTRACT in both, then run `npm run contract:lock` and review
- * the diff of tools/contract.lock. Binding table and shapes: docs/research/hub-u2-spec.md section 2.2 and 2.3.
- *
- * WHAT THE BUILD GATE READS FROM THIS FILE (tools/check-bundle.js; keep these shapes literal so the TypeScript AST can
- * read them):
- *   - HUB_CONTRACT = <integer literal>  (compared with C# `HubContract`);
- *   - BINDING / TRIGGER = { name: "name", ... } (every name must be registered in C# with a string
- *     literal: `new ValueBinding<T>(Group, "name", ...)`, `new RawValueBinding(Group, "name", ...)`,
- *     `new TriggerBinding<...>(Group, "name", ...)`, and nothing else may be registered);
- *   - CORE_NAMES = [ "...", ... ] (string literals): the names frozen since contract 1. A CORE name
- *     may only gain OPTIONAL fields in its shape; it is never renamed, retyped or removed;
- *   - every `export interface X` below: the field list of `writer.TypeBegin("SkiResortMod.X")` in C#;
- *   - every `bindValue<T>(GROUP, BINDING.x, FALLBACK.x)`: the TS type of binding x;
- *   - every `hubTriggers` entry `(a: A, b: B): void => fire(TRIGGER.x, ...)`: the argument list of x;
- *   - rule R16: BUILD_ITEM_IDS, the BuildItemId union and BUILD_ITEM_PREFAB (with
- *     src/hub/buildItems.ts BUILD_ITEMS, BUILD_GROUPS and BUILD_ITEM_ICON) against C# Systems/SkiCatalog.cs
- *     (the NAMES and BUILD-ITEMS blocks);
- *   - rule R17: the const objects RUN_KIND, RESORT_STATUS, OPEN_STATE, SEASON_HINT, NEXT_STEP, LIFT_STATUS, PROBLEM,
- *     TICKET_GATE, SKI_DAY_STATE (literal numbers) against their C# enums (EntityRef.cs RunKind, HubRules.cs,
- *     SkiMoneyRules.TicketGate) and SKI_DAY_LIMIT (SkiDayRules.cs SkiDayLimit, a top-level enum). BAND and LIFT_STATE
- *     have no C# enum (literal ints in C#) and are not compared.
- *
- * Rules every consumer relies on (verified in the installed 1.6.2f1 Cities2_Data/Content/Game/UI/
- * index.js unless marked):
- *   - Every bindValue() below passes a fallback that is NOT undefined. bindValue(group, name, fb)
- *     builds a binding whose starting value is fb (class `ml`, index.js@419651); connect() throws
- *     "'<group>.<name>.update' was not called after subscribe!" only while the value is still
- *     undefined after subscribing (index.js@421257). So a missing or not yet registered C#
- *     binding renders the fallback instead of throwing (check-bundle's smoke test enforces it).
- *     A DLL of an older contract therefore shows the fallbacks for every new name; the panel reads
- *     them only when `contract` is HUB_CONTRACT (on a mismatch only CORE is read).
- *   - C# pushes a value as soon as JS subscribes (Colossal.UI.Binding ValueBinding/RawValueBinding,
- *     research 2.B.1), so `contract$` reads the DLL's contract synchronously when the hub system
- *     exists and stays CONTRACT_ABSENT (0) when it does not.
- *   - A JS binding connects on its first subscriber and disconnects with its last
- *     (index.js@421257 subscribe/dispose), so C#'s observerCount counts binding objects, not
- *     components. Subscribe to every panel binding (build$, glade$, resorts$, resortLive$, selectedResort$, runs$,
- *     runLive$, lifts$, problems$, city$, pisteMap$, follow$, history$ without Demand) ONLY in components that mount
- *     while the panel is open (research 2.F.6; gate rule R11): closing the panel unsubscribes them, and C# stops
- *     computing (the stats system's Demand follows the observers of build, resorts, resortLive, runs, runLive, lifts,
- *     problems and city; pisteMap and follow are panel bindings without Demand). hubOpen$, contract$, buildStamp$ and
- *     showHubButton$ are subscribed always (launchers, root).
- *   - Triggers fire the cohtml event "<group>.<name>" (cs2/api trigger). An exception in a C#
- *     trigger body is caught and logged to the vanilla UI log, not ours (research 2.B.1), so C#
- *     wraps every body in try/catch and writes its own "!!!" line.
- *   - Entities travel as { index, version } both ways (research 2.B.1, UnityWriters/UnityReaders);
- *     Entity.Null is { index: 0, version: 0 } (EntityRef.IsNull).
- *   - Rows written by C# with JsonWriter.TypeBegin carry an extra "__Type" field; ignore it. Every
- *     TypeBegin name is "SkiResortMod.<TS interface name>".
- *   - Conventions: -1 = unknown (rendered "–" by numArg);
- *     the two arrays of a pair (resorts / resortLive, runs / runLive) are joined by key (`sign`,
- *     `entity`), never by index alone (src/hub/hubRules.ts liveOf, runLiveMap); costs arrive
- *     positive; ProblemRow.factor is an EfficiencyFactor enum name the UI translates;
- *     BuildItem.hint is a locale key that feeds footer line 2 only.
- *
- * Patch day (research 2.A.5): grep the new index.js for every name in VANILLA_NAMES_USED.
+ * C# (SkiResortHubUISystem, group "skiResort") must register EXACTLY these names with these shapes. Change a name, a type or a
+ * field here and in C# together, bump HUB_CONTRACT in both, run `npm run contract:lock` and review the diff of tools/contract.lock.
+ * tools/check-bundle.js reads this file's literal shapes (HUB_CONTRACT, BINDING / TRIGGER, CORE_NAMES, interfaces, R16 / R17): keep them literal.
+ * Engine notes: EngineNotes/bindings.ts.md
  */
 import { bindValue, trigger } from "cs2/api";
 import type { ValueBinding } from "cs2/api";
@@ -658,7 +604,7 @@ export const HISTORY_FLAG = {
  * Money in whole credits, costs positive. Rates and point values (buildingsCost, wagesCost, attraction, snowPct) are snapshots at the
  * month's roll; for the month in progress buildings / wages are the rate x the share simulated so far. -1 = unknown in skiDays,
  * buildingsCost, wagesCost, attraction, snowPct. The view sums areas for "whole city" and buckets long ranges into July-June seasons
- * (src/hub/historyRules.ts). C#: SkiResortHubUISystem WriteHistory (header HISTORY).
+ * (src/hub/historyRules.ts). C#: SkiResortHubUISystem WriteHistory (EngineNotes/SkiResortHubUISystem.md, History binding).
  */
 export interface HistoryArea {
   sign: Entity;

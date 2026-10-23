@@ -1,15 +1,10 @@
-// MoneyBatch — tests for tests/ResortBatch: money rules and ledger. Convention: `public static class MoneyBatch` with
-// `public static void Run(Func<bool, string, string, bool> check)` and its own Near; Program.Main calls MoneyBatch.Run(Check).
-// Oracles are literal hand values.
-//
-// Covers: SkiMoneyRules (T1 constants, T2 lift rates and billing, T3 accrual and attribution, T4 ticket price and gate, T5
-// affordability, T6 month keys, T9 the guest-day rules, T12 partial months (IsShortMonth / SimulatedPct, SkiResortLedger.Advance(key,
-// closedMonthShort)), T13 LiftAreaRunOpen, T14 per-type lift rates (LiftFullRate / LiftRate with the type's two numbers; the
-// fixed-grip overloads ≡ the 2500 + 1000 form; each catalog row's 1 km rate) and lodge spend (LodgeSpendDefault / Max / Step,
-// ClampLodgeSpend, LodgeSpendOf, SpendPaid), T15 season passes, T16 lessons, T17 pre-season pass sale) and SkiResortLedger (T7:
-// start / roll / jump, the per-entry counters, Revision, Prune, Reset; T10 the arrival flags); T11 a guest-day scenario (the
-// counter's two day sets stood in for by a HashSet and a Dictionary). Not testable headless (ECS): the scans, the ticket job, the
-// lift snapshot — covered by the logs, the DUMP and the field rows.
+// MoneyBatch - tests for tests/ResortBatch: money rules and ledger. `public static class MoneyBatch` with `Run(check)` and its own Near;
+// Program.Main calls MoneyBatch.Run(Check). Oracles are literal hand values.
+// Covers SkiMoneyRules (constants, lift rates and billing incl. per-type rates, accrual and attribution, ticket price and gate,
+// affordability, month keys, guest-day rules, partial months via IsShortMonth / SimulatedPct and Ledger.Advance(key, closedMonthShort),
+// LiftAreaRunOpen, lodge spend, season passes, lessons, pre-season pass sale) and SkiResortLedger (start / roll / jump, per-entry counters,
+// Revision, Prune, Reset, arrival flags). A guest-day scenario stands in the counter's two day sets with a HashSet and a Dictionary.
+// Not testable headless (ECS): the scans, the ticket job, the lift snapshot; the logs and field tests cover them.
 
 using System;
 using System.Collections.Generic;

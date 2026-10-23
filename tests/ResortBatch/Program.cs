@@ -1,12 +1,9 @@
-// ResortBatch - headless tests for the pure resort-data and rule files (EntityRef, SkiResortIndex, SkiResortTourism,
-// SkiResortAggregate, the rating / snow / money / hub / ski-day / parking / catalog rules; one Run(check) per test file).
-// Run (from the ModularSkiResort root):
-//   dotnet run --project tests\ResortBatch\ResortBatch.csproj -c Release
+// ResortBatch - headless tests for the pure resort-data and rule files (EntityRef, SkiResortIndex, SkiResortTourism, SkiResortAggregate,
+// the rating / snow / money / hub / ski-day / parking / catalog rules; one Run(check) per test file).
+// Run (from the ModularSkiResort root): dotnet run --project tests\ResortBatch\ResortBatch.csproj -c Release
 // Prints `FAIL  where: msg` lines, report-only INFO lines and one SUMMARY line; Environment.ExitCode = failures.
-//
-// Oracles are literal hand values, not a second run of the same code. Each test file is a
-// `public static class <Name>` with `public static void Run(Func<bool, string, string, bool> check)` and its own Near;
-// Main passes its Check, Program stays non-partial.
+// Oracles are literal hand values, not a second run of the same code. Each test file is a `public static class <Name>` with
+// `public static void Run(Func<bool, string, string, bool> check)` and its own Near; Main passes its Check, Program stays non-partial.
 
 using System;
 using System.Collections.Generic;

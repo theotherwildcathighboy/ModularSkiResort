@@ -1,29 +1,9 @@
 // SkiRunBindingRules - the bind decision table, one pure function used by both the load pass and the sweep of SkiRunOwnershipSystem
-// so the two can never disagree about what a run's state means. tests/BindingBatch links this file and asserts every one of the
-// 2^7 fact combinations, the priority order, idempotence and the money rules. Pure file: no usings (it compiles unchanged into the
-// net48 mod and the net8 test host), no ECS, no Unity types, no allocation. SkiRunFees is pure too (System.Math written out).
-//
-// The table (first matching row wins):
-//   1  HasOwner && OwnerIsOurSign                 MigrateLegacy  drop the sign's SubArea entry, remove Owner, binding {owner if
-//                                                                live else Null, Paid, cost}; never charge
-//   2  HasOwner && !OwnerIsOurSign                LeaveForeign   untouched, counted, never charged
-//   3  HasBinding && GateLive                     KeepBound
-//   4  HasBinding && !GateLive && SignInTether    RebindFree     m_Gate = nearest sign, Paid kept, "[rebind] ... no charge"
-//   5  HasBinding && !GateLive                    Orphan         m_Gate = Null (if it was not), Paid kept, WARN once per run
-//   6  !HasBinding && SignInTether && LoadPass    RestoreFree    binding {sign, Paid|Restored, 0}, "[restore]"
-//   7  !HasBinding && SignInTether                BindCharge     binding {sign, Paid, cost} + Charge(cost) (refused before LoadPassDone)
-//   8  otherwise                                  LeaveUnbound
-//
-// Facts (built by SkiRunOwnershipSystem): GateNull (m_Gate == Entity.Null, "never had a sign" vs "sign died"; steers only the
-// effect of Orphan, Decide never reads it); GateLive (ownership.IsLiveGate: != Null, exists, not Deleted, PrefabRef in the sign
-// prefab set); OwnerIsOurSign (the owner is a sign of ours or no longer exists: only our old sweep ever wrote Owner on a drawn
-// run, vanilla never does in game mode, AreaToolSystem.cs:2105-2111 editor-only, 1.6.2 :2112-2118, so a dead owner on one of our
-// runs is legacy; a live non-sign owner is foreign); SignInTether (a live sign lies within TetherM of the run's
-// Geometry.m_CenterPosition.xz); LoadPass (the load pass in OnGameLoadingComplete; a paused SweepNow is not one: there an
-// unbound run in tether is a fresh draw and pays).
-//
-// Never delete on an inferred event: no row deletes a run. A broken reference at load would otherwise wipe the resort. A paid
-// orphan is the one exception, when the cascade was missed.
+// so the two can never disagree about what a run's state means. tests/BindingBatch asserts every one of the 2^7 fact combinations.
+// Pure file: no usings (it compiles unchanged into the net48 mod and the net8 test host), no ECS, no Unity types, no allocation.
+// Never delete on an inferred event: no row deletes a run (a broken reference at load would wipe the resort). A paid orphan is the
+// one exception, when the cascade was missed.
+// Engine notes: EngineNotes/SkiRunBindingRules.md
 
 namespace SkiResortMod.Systems
 {
@@ -40,7 +20,7 @@ namespace SkiResortMod.Systems
         LeaveUnbound,
     }
 
-    /// <summary>The seven facts one decision reads (definitions in the file header)</summary>
+    /// <summary>The seven facts one decision reads (definitions in the engine notes)</summary>
     public struct BindFacts
     {
         public bool HasBinding, GateNull, GateLive, HasOwner, OwnerIsOurSign, SignInTether, LoadPass;

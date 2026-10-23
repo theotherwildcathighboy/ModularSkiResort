@@ -1,11 +1,8 @@
 // Measures the glade planner's worst case on a giant, saturated run and prints it; nothing is asserted about speed.
-// A layer's attempt budget is min(target * AttemptsPerTree, MaxAttemptsPerLayer). The tool plans with AttemptsPerTree = 60
-// and MaxPlant = int.MaxValue on a full replan (Program.cs), so a saturated giant run (stand + MinSpacing leave no room
-// for the target) burns up to the whole cap per layer on the main thread. Cases:
-//   sat.2000x2000 glade   400 ha, level-8 density 1/8 m2 -> target 50,000 -> budget = the 2,000,000 cap, saturated by MinSpacing 5.5 m
-//   sat.2000x2000 +belt   the same with the belt layer on (two layers: up to 4,000,000 attempts)
-//   field.400x2000        the 80 ha field fixture (run800k) at the 157.3 / ha stream: target ~12,600, budget 755k, not saturated (the common case)
-//   sat.400x2000          80 ha but a 12 m spacing: a smaller run that saturates early (budget 755k, fewer than the cap)
+// A layer's attempt budget is min(target * AttemptsPerTree, MaxAttemptsPerLayer). The tool plans with AttemptsPerTree = 60 and
+// MaxPlant = int.MaxValue on a full replan (Program.cs), so a saturated run (stand + MinSpacing leave no room for the target) burns up
+// to the whole cap per layer on the main thread. Cases: sat.2000x2000 glade (400 ha, target 50,000, budget = the 2,000,000 cap), the
+// same +belt (two layers), field.400x2000 (80 ha at the 157.3 / ha stream, budget 755k, not saturated), sat.400x2000 (12 m spacing).
 // Output: `INFO  D5 attempts  <case>: attempts A (budget B), planted N of target T, saturated S, mean/max ms over R plans`.
 
 using System;

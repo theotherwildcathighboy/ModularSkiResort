@@ -1,27 +1,11 @@
-// Tests for the Options prop density rules (RunPropDensityRules). Convention: `public static class DensityTests` with
-// `public static void Run(Func<bool, string, string, bool> check)` and its own Near; Program.Main calls DensityTests.Run(Check).
-// Sections D1-D9, one check per row.
-//
-// Oracles are literal hand values (formulas evaluated by hand and with node), never a second run of the same code:
-//   D1 constants: PctMin 0, PctMax 100, PctStep 5, PctDefault 100, SettleFrames 30; ClassOther..ClassEmpty = 0..4.
-//   D2 ClampPct; D3 SnowmakingChance (base, g): round(base × g / 100), half up (7 × 50 % = 3.5 → 4).
-//   D4 NightChance (base 100; NM 200 shared = guns 110 + hydrants 40 + empty marker 50, M 150 masts; g, m), the
-//      no-mast and no-shared groups, and the empty group.
-//   D5 MastWeight (base, g, m) for the three masts 100 / 28 / 22 (the 5 % row rounds 1.4 and 1.1 up to the floor 1)
-//      and NonMastWeight (base, g). At (100, 100) every written value equals its base: the default look is unchanged.
-//   D6 NextStable and ApplyDue: the settle rule (one apply per settled change; forced at a load; -1 = nothing applied).
-//   D7 ExpectedTenths (the census expectation) and ClassOf (census classes by name).
-//   D8 a property test against a TEST-ONLY mirror of the engine's draw order for one area corner
-//      (Game.Objects/SecondaryObjectSystem.cs, group branch of CreateSecondaryObject, 1.6.0f1 :3075-3286 = 1.6.2f1:
-//      its diff changes only :3499 and :3617, no shift) with Unity.Mathematics.Random from UnityMathematics.NoDeps 1.3.2
-//      (the toolchain's com.unity.mathematics@1.3.2, ResortBatch.csproj): H1 thinning is monotone (a lower chance
-//      keeps a subset of the corners, same pick and seed); H2 the main stream does not depend on the weights; H3 the
-//      night shares match the formula in both member orders (20,000 corners: sd about 0.35 pp, tolerance ±1.0 pp;
-//      checked beforehand with a JavaScript port of the xorshift32 generator: all 24 pass, the largest gap 0.905 pp on
-//      "masts first" (100, 100) masts, 43.805 % against 42.9); H4 one state step per NextInt whatever the bound, with
-//      NextInt(1) in place of NextInt(0) (see the mirror's comment).
-//   D9 mast aim (MastAimRules).
+// Tests for the Options prop density rules (RunPropDensityRules): constants, ClampPct, the chance / weight formulas (round half up),
+// the settle rule (NextStable / ApplyDue), census expectations and classes, mast aim. Sections D1-D9, `public static class DensityTests`
+// with `Run(check)` and its own Near. Oracles are literal hand values (evaluated by hand and with node), never a second run of the code;
+// at (100, 100) every written value equals its base, so the default look is unchanged.
+// D8 is a property test against a TEST-ONLY mirror of the engine's draw order for one area corner (SecondaryObjectSystem.cs, group branch
+// of CreateSecondaryObject, 1.6.0f1 :3075-3286), using Unity.Mathematics.Random from UnityMathematics.NoDeps 1.3.2.
 // Not testable headless: the ECS writes, the ChangedDistrict re-stamp, the census.
+// Engine notes: EngineNotes/ResortBatch.DensityTests.md
 
 using System;
 using SkiResortMod.Systems;

@@ -1,55 +1,10 @@
 /*
- * src/hub/BuildStrip.tsx - the Build strip: the panel's footer. Three tabs (Lifts | Runs | Buildings), a fixed-height family row,
- * the icon tiles of the shown tab, two fixed one-string status lines and the one dot.
- *
- * Why a footer: cs2/ui Panel renders `footer` in its own div outside the content Scrollable (index.js@684600, @733600), so the
- * strip never scrolls away and its tiles never move under the mouse.
- *
- * Tabs (hubRules.BuildTab): the last one used is the local value hubState.buildTab$, default = the tab the idle NEXT line points
- * at; the tab follows the active tool. A tab shows only its own groups (Lifts: stations + lines; Runs: the four runs; Buildings:
- * the sign, every sent lodge tier as its own tile, the school and the patrol huts); tabs only filter what is drawn, so every
- * launch id, binding and trigger is unchanged, and the one dot also shows on the tab that holds its tile. The family row under
- * the tabs holds the lift-type chips and the LIFT_TOOL toggle (Lifts; LiftToolSet fires hubTriggers.liftLineToggle ->
- * LiftLineToolSystem.TryActivate("hub")), the tree tool and a "Grade cat track" chip (Runs; GradeToolSet fires
- * hubTriggers.gradeToggle -> CatTrackGradeToolSystem), or the group captions (Buildings, BUILD_GROUP[Lodges]). It is always drawn
- * at one fixed height so a tab switch never moves the tabs under the mouse. The toggles are ok-panel only (FooterInfo.liftTool):
- * on a contract mismatch the strip reads core only.
- *
- * Tiles: ONE nowrap row; tiles `flex: 1 1 0; min-width: 0`, each group's flex-grow = its drawn tile count, so all tiles are equal
- * at any panel width and text scale (no text in tiles). A group none of whose items C# sent is not drawn. Every tile draws its
- * short name under the icon (BUILD_LABEL); a step badge on the lift tiles; a kind stripe on the run tiles (natural: two short
- * bars; groomed white, snowmaking cyan outline, night amber); the one amber dot on the tile FooterInfo.dot names
- * (hubRules.dotItem). The lift types are alternatives (hubRules.pickerSets): the strip draws the chosen type's three tiles
- * (hubRules.visibleIds); the choice is session state (`pick$`, a module-level local value, reset by a UI reload); "" or a
- * vanished option reads as the first (hubRules.effectiveSelection); an item that becomes the active tool chooses its option. One
- * picker row is drawn only while a set has >= 2 options; a dot on an unchosen alternative shows on its chip
- * (hubRules.dotTarget).
- * Locked tiles are dimmed with a Lock glyph, not `disabled` (whether a disabled <button> gets mouse events in Gameface is
- * unverified). A click shows the reason in line 2 and still sends launch(id): C# refuses and logs "refused - locked"
- * (SkiResortHubUISystem ApplyLaunch), so the click is never silent. Active: highlighted; clicking again returns to the default
- * tool. REASON[AlreadyBuilt] (C# re-checks the sign it picks at launch); the lodge tiers lock for Missing / Locked / NoSign.
- *
- * Status lines: TWO fixed lines (`div.buildStatusLine`, each ONE text node, 1.3 em of XS, nowrap + ellipsis; a fixed height, never
- * min-height, or the footer would grow and move the tiles under the mouse). Priority (hubRules.footerState): empty > hovered tile
- * > the "Now showing" notice > the active tile > the last locked click > idle (NEXT / NEXT2 by ResortLive.nextStep). Line 1 of a
- * tile is ONE <LocText> by hubRules.line1Variant on the item's kind (name · fee + per ha; name · about per km; name · cost; else
- * the name alone). Line 2: the locked reason, else C#'s hint key, else the short hint. Names: RUN_TYPE for runs, Assets.NAME for
- * the rest.
- * Tile tooltip: name; "One-time" and "Per month" rows (run: base fee + per ha; line: about per km; stations: part of the lift's
- * running cost; natural and the sign: nothing a month; a billed building: vanilla's Upkeep row instead); a building's draw rows
- * (vanilla's Upkeep / Electricity / Water / Garbage rows above 0, units by the game's unit setting, plus Workers, from
- * buildItems.BUILDING_DRAW) and one terrain line (TERRAIN[Level|Slope]); the long hint (or BUILD_ACTIVE); BUILD_TIP_* for runs,
- * luxury lodges, school, patrol; the locked reason.
- * BuildStrip reads only the core `build` binding (and its own `pick$`), so it is also the contract-mismatch panel's footer
- * (MISMATCH_FOOTER: no dot, idle NEXT[Done]). Everything else comes in through `info` (FooterInfo), built by OkFooter (a panel
- * file: resorts$, selectedResort$, resortLive$, problems$, follow$). "Now showing" notice: OkFooter remembers the `follow` value
- * seen at mount; when C# moves it (an automatic area switch), "Now showing <area>." holds line 1 for FOLLOW_NOTICE_MS; a second
- * follow restarts the timer; unmount clears it. Nothing runs per frame.
- * Focus: every tile and picker chip is a cs2/ui Button with focusKey={FOCUS_DISABLED}. The Panel wraps its footer in a
- * FocusKeyOverride whose KeyFocusController hosts ONE child (index.js@684800; `bp.registerChild` @578500 logs "Cannot register
- * second focus key ... KeyFocusControllers can only host a single child"), and a Button registers itself by default (FOCUS_AUTO,
- * button.tsx @629600). FOCUS_DISABLED is what the vanilla close button passes (focusKey:Ug, index.js@686490).
- * tools/check-bundle.js rule R15 fails a focusable cs2/ui Button rendered into a Panel header or footer without it.
+ * src/hub/BuildStrip.tsx - the Build strip, the panel's footer: tabs (Lifts | Runs | Buildings), a fixed-height family row, icon tiles,
+ * two fixed one-string status lines, the one dot. Fixed heights and equal-width tiles: nothing may move under the mouse.
+ * Locked tiles are dimmed with a Lock glyph, not `disabled`; a click shows the reason and still sends launch(id), C# refuses and logs it.
+ * Reads only the core `build` binding (plus local pick$), so it is also the contract-mismatch panel's footer; the rest arrives as FooterInfo.
+ * Every tile and picker chip is a Button with focusKey={FOCUS_DISABLED} (rule R15).
+ * Engine notes: EngineNotes/BuildStrip.tsx.md
  */
 import { useEffect, useRef, useState } from "react";
 import { bindLocalValue, useValue } from "cs2/api";

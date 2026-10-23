@@ -1,33 +1,10 @@
-// LiftTypeTests - typed lift rows (where-tags `lifttype-...`):
-//   LT-1  two lifts of different types, apart: two Complete rows, Type 0 and 1, Mixed false, no note.
-//   LT-2  FG stations + FG edges + one DQ edge sharing a node: the DQ spur is its own Unfinished row (not Mixed), the FG
-//         lift stays Complete, one split note; removing the spur drops that row.
-//   LT-13 a gondola base->top chain and a tram chain sharing one mid node: two Complete rows, no mix; split note, one
-//         "split at node" announcement per load (again after Reset); a same-type spur still unions.
-//   LT-14 a DQ line between a gondola base and a DQ top still raises Mixed; so does a tram line between gondola stations.
-//   LT-3  DQ edges between FG base and FG top: Unfinished, Mixed (stations count).
-//   LT-4  vanilla feeder: an edge typed NoType never unions, the row stays Complete, note "has no lift type - ignored".
-//   LT-5  shared FG base used by an FG lift and a DQ line: FG row Complete; DQ component Unfinished + Mixed.
-//   LT-6  Row.Type: StationsOnly rows = station type; Mixed row = its base station's type; no-station row = lowest edge.
-//   LT-7  LiftServedRule per type: AlongLine 150 and TerminalsOnly 300 (top 299 / 301 m; TopY margin both).
-//   LT-8  SummitServed: 299.9 / 300.0 (inclusive) / 300.1 m; unpowered -> false; Open (incomplete) -> false.
-//   LT-9  StationAlign.StubTip(pos, rot, -16) vs (pos, rot) (= -12) on a rotated transform; the 4-argument tip on the
-//         row's line axis x (the tram base -4.00).
-//   LT-11 the up-lane rule on a mirrored two-chain graph: chain A = the cable on the right looking uphill whichever chain
-//         is found first, for an uphill +z lift, its mirror (uphill -z) and a 45 degree one; SideLookingUphill's signs; a
-//         carrier facing its travel with its hanger at local +x keeps the hanger outboard on both chains (LiftLoopCache
-//         needs Game types: the rule is the pure StationAlign.UpLaneIsSecond it calls).
-//   LT-12 the tram through the census and the served rule: tram base + top (type 3) and three tram edges (type 3, no
-//         carriers) -> one Complete row, Type 3, Mixed false, Chairs 0; its served Lift built the way
-//         LiftCensusSystem.CopyServeLifts builds it (Game side, mirrored here): Rule TerminalsOnly, 300 / 15 from the row
-//         type, TopXZ / TopY = the top station's StubTip(pos, rot, its row's StubTipLocalZ -12); a run top 299 m from TopXZ
-//         served, 300 m served (inclusive), 301 m not; a run 20 m from the mid-span chord but 500 m from the top not served
-//         (an AlongLine lift on the same chords serves it); 299 m away and 15 m above TopY served, 16 m above not; unpowered
-//         not served; tram edges between fixed-grip stations -> Mixed, Unfinished, note "mixes lift types (fixedGrip+tram)",
-//         served by nothing.
-// Helpers: Program.World (internal; set World.BeforeBuild to stamp LiftCensus.Edge.Type / Station.Type onto the census
-// input before Census.Build), Program.StraightLift(), Program.R(index). `public static class` with
-// `public static void Run(Func<bool, string, string, bool> check)`; Main passes its Check. Every oracle is a literal.
+// LiftTypeTests - typed lift rows through the census and the served rule (where-tags `lifttype-...`, LT-1..LT-14).
+// Pinned: lifts of different types stay separate Complete rows; a spur of another type is its own Unfinished row (split note, one
+// "split at node" announcement per load); an edge typed NoType never unions; a lift between stations of another type is Mixed;
+// Row.Type resolution; LiftServedRule per type (AlongLine 150, TerminalsOnly 300, both inclusive; TopY margin; unpowered and Open
+// never serve); the up-lane rule (StationAlign.UpLaneIsSecond; LiftLoopCache itself needs Game types); the tram's Lift built the way
+// LiftCensusSystem.CopyServeLifts builds it (Game side, mirrored here). Every oracle is a literal.
+// Helpers: Program.World (set World.BeforeBuild to stamp Edge.Type / Station.Type before Census.Build), Program.StraightLift(), Program.R(index).
 
 using System;
 using System.Collections.Generic;

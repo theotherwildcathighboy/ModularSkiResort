@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <!--
-    MoverBench: the headless benchmark of the chair mover's MATH (R-3, docs/research/lifts/lift-scale-2026-10-22.md).
+    MoverBench: the headless benchmark of the chair mover's MATH.
     Run from the ModularSkiResort root:
       see the one-line command in the Program.cs header (XML comments cannot hold a double dash)
     Unlike the *Batch hosts this one references the INSTALLED game's managed DLLs (CSII_MANAGEDPATH, set by the modding

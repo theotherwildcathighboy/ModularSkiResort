@@ -1,20 +1,10 @@
 /*
-* src/hub/LiftsView.tsx - the Lifts view: the shown area's lifts and their totals.
-*
-*   - Rows: the census rows whose `sign` is the shown area (Entity.Null = Not linked), C#'s order, each a LiftLine2
-*     (LiftTable.tsx); none -> LIFTS_EMPTY. Then a divider and two always-shown totals: lift length and the design capacity
-*     of all complete lifts.
-*   - React key: liftId (entity/top) with "#n" for a repeated id: two unfinished lines from one station are two census rows
-*     with the same (entity, top).
-*   - Click a row: focused$ + focusLift(entity, top) (C# flies to the gap while a section is missing).
-*     Pen: rename(row.entity, text) - C# renames the base station, else the top station, and refuses (with a log line) a row
-*     with no station; one row renames at a time.
-*   - Panel file (gate R11): subscribes resorts$, selectedResort$, lifts$; local focused$.
-*   - While the rows span two or more lift types (hubRules.liftTypesOf) each row shows its type word (LiftLine2 `typeWords`);
-*     the totals tooltip is LIFTS_TOTAL_CAPACITY_TIP because it sums several types.
-*   - Every lift is in one list with no pager; this view and the Runs view may scroll (harness/layout-check.js checks every
-*     row is drawn).
-*/
+ * src/hub/LiftsView.tsx - the Lifts view: the shown area's lifts and their totals.
+ * Rows: census rows whose `sign` is the shown area (Entity.Null = Not linked), C#'s order, each a LiftLine2 (LiftTable.tsx), then two always-shown
+ * totals. React key = liftId (entity/top) plus "#n" for a repeat: two unfinished lines from one station are two census rows with the same (entity, top).
+ * Click -> focused$ + focusLift (C# flies to the gap while a section is missing); pen -> rename(row.entity, text), C# renames the base station, else the top.
+ * One list, no pager: this view and the Runs view may scroll. Panel file (gate R11): subscribes resorts$, selectedResort$, lifts$.
+ */
 import { useCallback, useMemo, useState } from "react";
 import type { RefObject } from "react";
 import { useValue } from "cs2/api";

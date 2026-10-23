@@ -1,14 +1,10 @@
-// Which ski area a top-level resort building (school, lodges, patrol huts) belongs to.
+// Which ski area a top-level resort building (school, lodges, patrol huts) belongs to. Nothing is stored or serialized.
 // Rule (same as lifts): a building with no Owner belongs to the nearest live Welcome Sign within the tether
 // (SkiRunOwnershipSystem.TetherMeters, 5000 m; SkiResortIndex.TryResolve breaks ties by distance, Index, Version; 5000.00 m
 // in, 5000.01 m out; a non-finite position never links). None = not linked, counts for no area. Not sticky: a nearer new sign
-// takes the building. Nothing is stored or serialized.
-// One count rule (Count): every school counted for an area adds 1 to Schools; SchoolActive is true when any is live and not
-// Inactive (the building's own Building.m_OptionMask), so every downstream number follows one flag.
-// Log discipline (Diff): the system keeps the last published link per building and logs ONE line per change: Linked, Relinked
-// (another sign is nearer), Unlinked (sign bulldozed or building moved away), Removed. Stable order (Index, Version).
-// Kind* tags the log line and the count path. AreaEfficiency: once lodges carry their own staffing and utilities, the area's
-// efficiency = the sign's efficiency x the mean of its active top-level lodges' efficiency weighted by tier base.
+// takes the building.
+// Count: every school counted for an area adds 1 to Schools; SchoolActive is true when any is live and not Inactive (the
+// building's own Building.m_OptionMask). Diff logs ONE line per change (Linked, Relinked, Unlinked, Removed), stable order (Index, Version).
 // Pure file: System, System.Collections.Generic and Unity.Mathematics only (tests/BuildingBatch links it).
 
 using System;

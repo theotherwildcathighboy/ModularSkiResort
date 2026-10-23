@@ -1,15 +1,9 @@
 /*
- * src/hub/hubRules.ts - pure display rules of the hub: joins, the problem band, the dot, the footer, the variants that pick
- * one localized string. No React, no bindings, no cs2 value import, so tools/test-hub-rules.js (hub gate) runs it in Node
- * with literal oracles.
- *   - A function here never returns a placeholder LocEntry (placeholder entries are referenced only as
- *     <LocText entry={HUB_FMT.x}>). It returns a variant name; the component switches on it and renders the one <LocText>
- *     of that branch.
- *   - Pure: values only from ../bindings (constants, sameEntity, entityId), types from cs2/utils and ../bindings.
- *     tools/test-hub-rules.js throws on any other import; that is why the build table rows reach the pickers as `meta`
- *     (buildItems.ts BUILD_ITEMS is what the strip passes).
- *   - Total: every function answers any input without throwing.
- *   - A new rule adds its literal rows to tools/test-hub-rules.js.
+ * src/hub/hubRules.ts - pure display rules of the hub: joins, the problem band, the dot, the footer, and the variants that pick
+ * one localized string. No React, no bindings, no cs2 value import (values only from ../bindings, types from cs2/utils), so
+ * tools/test-hub-rules.js runs it in Node with literal oracles and throws on any other import; a new rule adds its rows there.
+ * A function here never returns a placeholder LocEntry: it returns a variant name and the component renders that branch's <LocText>.
+ * Total: every function answers any input without throwing.
  */
 import type { Entity } from "cs2/utils";
 import {

@@ -1,8 +1,7 @@
-// Headless tests for the pure tower number tile core (TowerNumberTiles.cs), cases TN-1..TN-9: wrap to 1..200,
-// tile layout per digit count, display numbers by rank (reversed when the base is last), plate geometry per face,
-// reconcile (minimal deletes and creates), renumbering after a section edit, name and plate tables, a 1,000-tower
-// line, and the plate table against docs/research/lifts/tower-numbers-plates-2026-10-20.json (measured from the
-// shipped FBXs: a re-export that moves a plate fails here until the table follows).
+// Headless tests for the pure tower number tile core (TowerNumberTiles.cs), cases TN-1..TN-9: wrap to 1..200, tile layout per digit
+// count, display numbers by rank (reversed when the base is last), plate geometry per face, reconcile (minimal deletes and creates),
+// renumbering after a section edit, name and plate tables, a 1,000-tower line, and the plate table against a measured JSON table
+// (measured from the shipped FBXs: a re-export that moves a plate fails here until the table follows).
 
 using System;
 using System.Collections.Generic;

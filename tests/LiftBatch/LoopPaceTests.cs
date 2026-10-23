@@ -1,22 +1,9 @@
-// Pure arithmetic of LiftMoverMath.cs (far-loop pace, bounds cadence, cost percentiles) and LiftLaneScope (the scoped lane
-// harvest's owners and the load-time watchdog compare). Where-tags `loop-pace/...`.
-//   MP-1  LoopPosition == the mover's managed expression (offset + speed x TimeS) % L and the Burst job's
-//         (offset + (phase + speed x 0.0)) % L, bit for bit, 20,000 seeded cases.
-//   MP-2  BoxDistance: 0 inside / on the faces, axis distance on a face side, Euclidean at a corner.
-//   MP-3  StrideFor: 1 when off, nearer than FarMinM, not moving, clock not advancing, NaN; worked examples; 10,000 seeded
-//         cases: k x v x dt <= the allowed step and (k + 1) x v x dt > it unless k is the cap.
-//   MP-4  Decide at a constant stride k writes exactly every k passes after the seed's offset; stride 1 writes every pass.
-//   MP-5  Catch-up: every near pass writes the exact unthrottled pose, the written pose is never more than MaxStride - 1
-//         passes old, and within a spell of constant dt and distance a far chair's shown place is within MaxStepRadians x
-//         distance of the exact one.
-//   MP-6  Bounds: near loops tag at >= 2 m of travel and are never stale by >= 2 m + one pass; far loops tag only on a
-//         written pass and at >= 2 m x stride; the pass a loop comes back near with >= 2 m of untagged travel tags it.
-//   MP-7  Tag rate: a fixed-grip loop near the camera at 60 fps, 1x, tags 1.20-1.25 times a second per chair; far at stride 8,
-//         at most 1/8 of that.
-//   MP-8  Percentiles (nearest rank) on known samples; Rank bounds.
-//   MP-9  LiftLaneScope.OwnersOf: every edge and its two nodes once, edge order, shared nodes deduplicated, null ids skipped.
-//   MP-10 Scoped harvest vs full scan on a synthetic city: identical sets; a lane on a lift node no census edge touches is
-//         reported MISSED by CompareHarvests; a lane the full filter rejects but a drifted scoped filter keeps is EXTRA.
+// Pure arithmetic of LiftMoverMath.cs (far-loop pace, bounds cadence, cost percentiles) and LiftLaneScope (the scoped lane harvest's
+// owners and the load-time watchdog compare). Where-tags `loop-pace/...`, MP-1..MP-10.
+// Pinned: LoopPosition equals the mover's managed expression and the Burst job's, bit for bit; StrideFor never lets k x v x dt exceed the
+// allowed step (unless k is the cap); a chair is never shown more than MaxStride - 1 passes stale and a near pass writes the exact pose;
+// bounds are tagged at >= 2 m of travel and never stale by >= 2 m + one pass (a fixed-grip loop near the camera tags 1.20-1.25 times a
+// second per chair); the scoped lane harvest equals the full scan, and CompareHarvests reports MISSED and EXTRA lanes.
 
 using System;
 using System.Collections.Generic;

@@ -1,21 +1,11 @@
-// Proves the Plan -> Fill -> Classify path extracted into the pure SkiRunRater behaves exactly like the original in
-// SkiRunDrawFeedbackSystem. Runs in the test runtime (CoreCLR; Mono bit equality is unverified, as for the classifier itself).
-//
-//   (1) Captures - every *.skislope in tests/SlopeBatch/captures:
-//       * SkiRunRater.Rate (stepCurrent = the captured multiple, the feedback system's hysteresis input) returns the captured m
-//         and a result bit-identical (Snapshot.Diff) to the direct calls (Plan -> DiagonalRule -> fill -> Classify,
-//         ReplayCapture) and to the old path (verbatim copies of the pre-extraction ShoelaceArea / Recompute middle /
-//         FillHeights below);
-//       * a second Rate with the first grid as reuse source copies every Need height (sampled 0) and gives the same result;
-//       * at m = 1, stepCurrent 0 and 1 give the same m and result; the deterministic m (stepCurrent 0, the hub catalog's
-//         choice) is printed for every capture.
-//   (2) Synthetic - shapes on the analytic test terrain (rects at 7 angles, a polyline, a disconnected dumbbell, rings that need
-//       m = 2 and 3), stepCurrent 0..3: Rate == old path == direct, and FillHeights == the old body with a reuse source whose
-//       lattice is offset (a moved vertex), counts included; a reuse source with another Step is refused.
-//   (3) Status mapping - TooFewPoints / TooLarge never classify (the result is left untouched), NaN heights give NoTerrain.
-//
-// The section runs with the rating fingerprint and the minimax oracle off (it compares paths; the PostCheck'd classifications
-// elsewhere carry the oracle), so the printed fingerprint stays comparable across runs.
+// Proves the Plan -> Fill -> Classify path extracted into the pure SkiRunRater equals the original in SkiRunDrawFeedbackSystem (CoreCLR; Mono bit equality is unverified).
+// (1) Captures (every tests/SlopeBatch/captures/*.skislope): SkiRunRater.Rate (stepCurrent = the captured multiple, the feedback system's
+//     hysteresis input) returns the captured m and a result bit-identical (Snapshot.Diff) to the direct calls (Plan -> DiagonalRule -> fill ->
+//     Classify, ReplayCapture) and to the old path (verbatim copies of ShoelaceArea / Recompute middle / FillHeights below); a second Rate with
+//     the first grid as reuse source copies every Need height (sampled 0) and gives the same result; at m = 1, stepCurrent 0 and 1 agree.
+// (2) Synthetic shapes on the analytic test terrain (stepCurrent 0..3): Rate == old path == direct; FillHeights == the old body with an
+//     offset-lattice reuse source (a moved vertex); a reuse source with another Step is refused. (3) TooFewPoints / TooLarge never classify,
+//     NaN heights give NoTerrain. The section runs with the rating fingerprint and the minimax oracle off, so the fingerprint stays comparable.
 
 using System;
 using System.Collections.Generic;

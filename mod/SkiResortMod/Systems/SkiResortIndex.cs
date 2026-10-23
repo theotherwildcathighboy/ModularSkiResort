@@ -1,17 +1,11 @@
 // THE "which resort is this point in" rule for lifts and stations: the nearest live Ski Area Welcome Sign whose distance is
 // <= the tether (SkiRunOwnershipSystem.TetherMeters, 5000 m); none → not linked.
-//
-// Add replaces the position of a sign already present. Count / SignAt / PositionAt are sorted by Index, then Version
-// (EntityRef.CompareTo): the stable order the hub numbers "Ski area N" by when a sign has no name.
-// TryResolve is true when the nearest sign lies within maxDistance. The scan runs in sorted order and replaces the best only
-// on a STRICTLY smaller distance, so an exact tie keeps the lower Index / Version. `distance` is the nearest sign's distance
-// even beyond maxDistance (+inf with no sign or a non-finite point); `sign` is EntityRef.Null whenever the result is false.
-// Distances are float math.distance on xz, the same arithmetic as the run bind test (SkiRunOwnershipSystem.
-// TryNearestGateEntity, `d <= TetherM`): a point exactly 5000 m away is in, 5000.01 m is out. The bind test breaks exact ties
-// by chunk order instead, but runs never go through this index (they keep the sign they bound to), so the two never disagree.
-//
-// Pure file: System, System.Collections.Generic, Unity.Mathematics only (tests/ResortBatch links it). No allocation once the
-// lists have grown to the city's sign count; O(signs) per TryResolve.
+// Count / SignAt / PositionAt are sorted by Index, then Version (EntityRef.CompareTo): the stable order the hub numbers
+// "Ski area N" by when a sign has no name. The scan replaces the best only on a STRICTLY smaller distance, so an exact tie keeps
+// the lower Index / Version.
+// Distances are float math.distance on xz, the same arithmetic as the run bind test (SkiRunOwnershipSystem.TryNearestGateEntity,
+// `d <= TetherM`); runs never go through this index, so the bind test's tie order (chunk order) never disagrees.
+// Pure file: System, System.Collections.Generic, Unity.Mathematics only (tests/ResortBatch links it).
 
 using System;
 using System.Collections.Generic;

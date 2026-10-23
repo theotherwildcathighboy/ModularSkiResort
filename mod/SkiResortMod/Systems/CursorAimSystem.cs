@@ -1,28 +1,11 @@
-// Puts the net tool's aim plane at the tower head for our lift lines (prefab data alone cannot provide this).
-// The aim plane does not read the runtime composition at raycast time: NetToolSystem line 5893 reads the drawn PREFAB's
-// NetGeometryData directly:
-//
-//     m_PrefabSystem.TryGetComponentData<NetGeometryData>(m_Prefab, out var component4);
-//     m_ToolRaycastSystem.rayOffset = new float3(0, -component4.m_DefaultSurfaceHeight.max - elevation, 0);
-// i.e. the cursor aims at a plane m_DefaultSurfaceHeight.max above the terrain hit. m_DefaultSurfaceHeight is written once at
-// prefab init (NetInitializeSystem line 139, copying the flags=0 composition's m_SurfaceHeight, which for surface-less pieces is
-// center(m_HeightRange), NetCompositionHelpers ~986). Our band {6,20} would aim at 13 m; this system rewrites the prefab field to
-// the lift's AimHeightM after init, and the aim plane rides the tower head.
-//
-// Consumers of NetGeometryData.m_DefaultSurfaceHeight (grep across all namespaces):
-//   * NetToolSystem 5893 (rayOffset) and 5946/5947/5954 (over/underground camera hints): the intended change;
-//   * IconCommandSystem 541: notification icon hover height above net nodes (icons drop closer to the hardware), cosmetic;
-//   * SelectedInfoUISystem 725/738: camera focus height for a selected net, cosmetic;
-//   * NetCompositionSystem 154: seeds m_SurfaceHeight only for piece-less compositions (marker-net fallback; our drawn
-//     compositions have pieces and take center(m_HeightRange) from NetCompositionHelpers, unaffected).
-// Not affected: terrain carving (TerrainSystem.AddSegment reads composition m_HeightRange for our surface-less class) and
-// collision (HasSurface / piece-driven).
-//
+// Puts the net tool's aim plane at the tower head for our lift lines (prefab data alone cannot provide this): after prefab init it
+// rewrites NetGeometryData.m_DefaultSurfaceHeight on the line prefabs to the lift's AimHeightM (NetToolSystem line 5893 reads it).
 // Idempotent, once per load; pure data write on the prefab entity; no per-frame work (Enabled = false, empty OnUpdate).
-// Line names and aim heights come from SkiCatalog.Lifts (LiftTypeDef.AimHeightM per row), the prefab entity from
-// SkiPrefabCatalogSystem. A mid-session prefab replacement loses the patch until the next load (the catalog's [re-resolve] WARN
-// shows it). A pending line (LiftTypeDef.LineExpected false) that is MISSING writes nothing and no WARN; one Info line lists the
-// pending lines. An expected line missing keeps the WARN.
+// Line names and aim heights come from SkiCatalog.Lifts (LiftTypeDef.AimHeightM per row), the prefab entity from SkiPrefabCatalogSystem.
+// A mid-session prefab replacement loses the patch until the next load (the catalog's [re-resolve] WARN shows it).
+// A pending line (LiftTypeDef.LineExpected false) that is MISSING writes nothing and no WARN; one Info line lists the pending lines.
+// An expected line missing keeps the WARN.
+// Engine notes: EngineNotes/CursorAimSystem.md
 
 using System;
 using Colossal.Entities;

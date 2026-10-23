@@ -4,16 +4,8 @@
 // again once a run has counted for HoldToOnFrames (one game hour, LiftClosedRule.HoldFrames). While off-season and the setting is
 // on, each lodge and the ski school of that area keeps HalfJobs(full) workplaces (A-frame 4 -> 2, chalet 12 -> 6, grand lodge
 // 18 -> 9, school 4 -> 2, plus the hut's 4 -> 2 and the summit lodge's 8 -> 4 on the Welcome Sign). Patrol stays full (rescue is a
-// year-round job). Not linked / no score yet / score held: in season.
-//
-// Why staff and not upkeep (decompile 1.6.0f1): a city service building's monthly bill is (upkeep + the wage of every employee) x
-// budget % (CityServiceBudgetSystem.cs:392-421; wages CityServiceUpkeepSystem.GetUpkeepOfEmployeeWage :628-643). Lowering
-// WorkProvider.m_MaxWorkers lays the surplus off in the game's own tick (WorkProviderSystem.RefreshFreeWorkplace :199-230,
-// LayOffReason.TooMany), so the wage part halves in the budget panel, the building's Upkeep section (:226-233) and the hub. The
-// upkeep part cannot be halved honestly: our prefabs bill it through ServiceConsumption.m_Upkeep, which BuildingInitializeSystem
-// turns into a ServiceUpkeepData with m_ScaleWithUsage = false (:1183-1191), and the selected building's Upkeep section applies
-// usage only to non-money resources (UpkeepSection.cs:183-198 vs :206-211), so a halved budget line would show the full amount.
-// Upkeep stays full; vanilla's Inactive (upkeep x0.1 and no wage: CityServiceBudgetSystem.cs:396-411) remains the player's deep cut.
+// year-round job). Not linked / no score yet / score held: in season. Staff is halved, upkeep is not.
+// Engine notes: EngineNotes/OffSeasonRules.md
 
 using System;
 

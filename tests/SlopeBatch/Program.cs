@@ -1,48 +1,11 @@
-// Headless invariant tests for SkiSlopeClassifier. Run (from the ModularSkiResort root):
-//   dotnet run --project tests\SlopeBatch\SlopeBatch.csproj -c Release
-// Prints `FAIL  test/case: msg` lines, report-only INFO/TIME/WARN/SPIKE lines and one SUMMARY line; Environment.ExitCode =
-// failures. `WARN  SPEC-GAP` = a spec invariant the classifier does not meet at a run's operating step, with the measured numbers;
-// a regression envelope (asserted) keeps the gap from widening. WARN lines do not count as failures.
-//
-// Terrain stand-in (test-local; the classifier only ever sees it through the public Plan -> Need -> Heights -> Classify
-// contract): a 3.5 m texel lattice (14336/4096, TerrainSystem.cs:2618-2620 in 1.6.0f1, :2630-2632 in 1.6.2f1) anchored at the
-// default map's texel centers (-7166.25 + 3.5k: ToWorldSpace TerrainUtils.cs:35-38 with the -0.5 texel offset of
-// TerrainSystem.cs:2621-2622), heights quantized to 4096/65535 m (the default height scale), sampled with the float bilinear of
-// TerrainUtils.SampleHeightInternal (TerrainUtils.cs:121-137: heightmap space, floor, saturate, lerp along x per row, then along z).
-//
-// Oracles are deliberately different code from the classifier's: analytic plane grades and fall lines; the closed-form max 20 m
-// window of piecewise-linear 1-D profiles (evaluated at the breakpoints); winding-number point-in-polygon (classifier: even-odd
-// scanline); brute-force Chebyshev dilation (classifier: rectangle marking); sorted lists for the k-th selection (classifier:
-// fixed top-k insertion). OracleCheck runs on EVERY ring-mode classification this host makes (plus RandomOracleTests' random
-// polygons / terrains) and recomputes, by brute force and with its own data structures, the end zones (sorted bin table), the
-// exact minimax (binary search over the sorted distinct per-cell values, a plain flood fill per threshold: 8-neighbor, or the
-// diagonal rule), the expected rating (the largest value of the minimax's bucket below 200 %, the exact minimax in the open last
-// bucket), P90, Connected, and the EXACT crux cell from an independent BFS written from the traversal contract (row-major seeds,
-// row-major neighbor order, stop on discovery, largest o nearest the top). OracleCheck takes the per-cell values (CellGrade) as
-// given; they are pinned separately: KthCase asserts CellGrade of EVERY Mask cell against a per-cell oracle (20/15/10/7 m row
-// windows, |g| fallback) on z-invariant profiles, and BankTests / ShortHeadwallTests assert RatingGrade of full-width
-// (unavoidable) features against the closed-form max window (the plane / bank / ridge tests assert SteepestGrade, a separate
-// top-k list). Within-runtime replay is proven bit-identical; CoreCLR vs the game's Mono bit equality is unverified, so no golden
-// values are asserted.
-//
-// The "caller" (RateWith, ReplayCapture, the TIME / allocation loops) sets SlopeGrid.DiagonalRule = step multiple >= 2, as
-// SkiRunDrawFeedbackSystem does. OracleCheck recomputes the zones under BOTH keys (its own double-precision mean box gradient
-// decides the key and checks FallLine / MeanGradient; the key gate's coherence clause |mean g| >= 3 % OR FallCoherence >= 0.5 is
-// decided from its own double sums, and FallCoherence is asserted) and uses the m >= 2 connectivity (4-connected flood fill with
-// the diagonal exception) in its minimax and its crux BFS. EndZoneTests asserts the end-zone fixtures at m = 1 over 8 frames and
-// reports the known-and-deliberate curved runs (C-run, switchback) under the fall-line key and, through the test-only gate
-// (+inf), the height key. Captures: the writer uses G9 / G17, the loader reads both, and the round trip proves the legacy "R"
-// file parses to the same values.
-// SkiRunRater parity (RaterParity.cs): the Plan → Fill → Classify path lives in the pure SkiRunRater (linked here).
-// RaterParityTests proves SkiRunRater.Rate bit-identical to the direct calls and to verbatim copies of the pre-extraction
-// ShoelaceArea / FillHeights / Recompute middle on every capture (plus the reuse path and stepCurrent 0 vs 1 at m = 1) and on
-// synthetic shapes at stepCurrent 0..3; it runs with the fingerprint and the oracle off.
-// Run length: LengthCheck on every PostCheck'd classification (polyline arc length, LengthRect with an independent area formula,
-// Length = max(LengthRect, AxisLength), zeros on a non-rating status), OracleCheck pins AxisLength to the oracle's key range +
-// step, CaptureTests prints a length column and asserts each capture's Length (regression, ±0.1 %) and LengthRect (±1 m), and
-// LengthTests runs 11 synthetic shapes (regression ±0.1 %, error vs the designed centerline as INFO). "Every existing rating
-// bit-identical" is proven by the rating fingerprint (FNV-1a over every PostCheck'd classification outside LengthTests, printed
-// before SUMMARY; the value changes whenever a test is added, so it is printed, not asserted).
+// Headless invariant tests for SkiSlopeClassifier. Run (from the ModularSkiResort root): dotnet run --project tests\SlopeBatch\SlopeBatch.csproj -c Release
+// Prints `FAIL  test/case: msg` lines, report-only INFO/TIME/WARN/SPIKE lines and one SUMMARY line; Environment.ExitCode = failures.
+// `WARN  SPEC-GAP` = a spec invariant the classifier does not meet at a run's operating step (measured numbers shown); an asserted
+// regression envelope keeps the gap from widening. WARN lines do not count as failures.
+// The terrain is a test-local stand-in (a 3.5 m texel lattice with the game's heightmap quantization and bilinear sampling) and the oracles
+// are deliberately different code from the classifier's. Within-runtime replay is proven bit-identical; CoreCLR vs the game's Mono bit
+// equality is unverified, so no golden values are asserted. The terrain stand-in, oracle design and run-length checks are described in the note.
+// Engine notes: EngineNotes/SlopeBatch.Program.md
 
 using System;
 using System.Collections.Generic;
@@ -5442,7 +5405,7 @@ namespace SlopeBatch
             File.WriteAllText(path, sb.ToString(), new UTF8Encoding(false));
         }
 
-        /// <summary>True when two parsed captures hold bit-identical values (header, rated line,
+        /// <summary>True when two parsed captures hold bit-identical values (engine notes, rated line,
         /// nodes, every captured height).</summary>
         private static bool SameCapture(Capture a, Capture b)
         {
@@ -5620,7 +5583,7 @@ namespace SlopeBatch
         // of this host; this section pins the VALUES: 11 synthetic shapes and the 8 field captures are REGRESSION fixtures of the
         // computed Length (±0.1 %, CoreCLR, frame 0 of each shape), each shape's error against its designed centerline length is INFO
         // only (asserting ±2 % against the true length would fail the funnel and the height-key diamond by design: the two known limits
-        // in the classifier header). The constant-width bands (rectangles, the mitred L and dogleg) additionally assert LengthRect
+        // in the classifier engine notes). The constant-width bands (rectangles, the mitred L and dogleg) additionally assert LengthRect
         // against the true length (±0.01 %): the closed form is exact for them.
 
         /// <summary>A mitred constant-width band of width w around a centerline polyline:

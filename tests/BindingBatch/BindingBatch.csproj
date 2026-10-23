@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <!--
-    Headless test host for mod/SkiResortMod/Systems/SkiRunBindingRules.cs
-    (docs/research/run-binding-glade-spec.md §3.12). Run from the ModularSkiResort root:
+    Headless test host for mod/SkiResortMod/Systems/SkiRunBindingRules.cs.
+    Run from the ModularSkiResort root:
       see the one-line command in the Program.cs header (XML comments cannot hold a double dash)
     Lives OUTSIDE mod/SkiResortMod on purpose: the mod csproj globs **/*.cs, so a test host
     under it would be compiled into the net48 mod DLL. LangVersion pinned to the mod's 9.0

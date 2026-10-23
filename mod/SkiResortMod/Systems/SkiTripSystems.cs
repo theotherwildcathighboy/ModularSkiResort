@@ -1,16 +1,11 @@
-// Names and texts of the game's six trip systems (whose ComponentSystemBase.Enabled SkiDaySystem reads at every
-// Game load and armed pass) and of the two known trip-planner swaps, detected by assembly name only
-// (SkiOtherMods.Refresh ORs BitOfAssembly over every loaded assembly). Labels and log lines, never behavior; the one
-// behavior, ArmVerdict.SystemOff, is SkiDayRules' and reads the Enabled bits only.
-//
-// Found / on mask bits are SkiDayRules' (TripLeisure 1 ... TripResourceBuyer 32). Planners mask: bit 1 Realistic
-// PathFinding (assembly RealisticPathFinding; its IMod.OnLoad switches off TripNeededSystem, ResidentAISystem,
-// ResidentAISystem.Actions and ResourceBuyerSystem), bit 2 Realistic Trips (assembly Time2Work, inferred from its
-// csproj; the shipped build is unverified).
-//
-// Strings live here because SkiDayRules is pure (no strings). Main thread only. UnknownLabel is mirrored by hand
-// in bindings.ts TRIP_PLANNER_UNKNOWN.
-// Tests: tests/ResortBatch SkiDayTests section X.
+// Names and texts of the game's six trip systems (whose Enabled SkiDaySystem reads at every Game load and armed pass) and of the two
+// known trip-planner swaps, detected by assembly name only (SkiOtherMods.Refresh ORs BitOfAssembly over every loaded assembly).
+// Labels and log lines, never behavior; the one behavior, ArmVerdict.SystemOff, is SkiDayRules' and reads the Enabled bits only.
+// Found / on mask bits are SkiDayRules' (TripLeisure 1 ... TripResourceBuyer 32). Planners mask: bit 1 Realistic PathFinding (assembly
+// RealisticPathFinding; its IMod.OnLoad switches off TripNeededSystem, ResidentAISystem, ResidentAISystem.Actions and
+// ResourceBuyerSystem), bit 2 Realistic Trips (assembly Time2Work, inferred from its csproj; the shipped build is unverified).
+// Strings live here because SkiDayRules is pure (no strings). Main thread only. UnknownLabel is mirrored by hand in bindings.ts
+// TRIP_PLANNER_UNKNOWN. Tests: tests/ResortBatch SkiDayTests section X.
 
 using System;
 

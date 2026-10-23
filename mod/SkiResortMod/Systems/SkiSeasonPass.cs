@@ -1,16 +1,11 @@
 // Persisted season-pass standing of a resident household (tourists never get one).
-// Serialization follows the SkiRunBinding.cs pattern: mod ISerializable components are registered with the
-// save serializer automatically (Game.Serialization/SerializerSystem.cs:194-209), nothing in Mod.cs.
-//   * Layout v1 is frozen: byte version | int32 SeasonKey | int32 PricePaid | byte Flags (little-endian).
-//     No payload length is written, so an older build reading a longer element would shift; new fields go in a
-//     NEW ISerializable type, which older builds skip as unknown.
-//   * Never rename the type, its namespace or the assembly (the saved name is the AssemblyQualifiedName).
-// SeasonKey is the ski-season year (SkiMoneyRules.SeasonKeyOf); a component of another season counts as absent
-// (SkiMoneyRules.PassStandingOf) and is overwritten at the next decision.
-//   Flags 0: the household holds a pass; PricePaid is locked at the sale.
-//   PassFlagDeclined: asked this season and did not buy; pays day tickets and is not asked again; PricePaid is 0.
-// Written by SkiLiftTicketSystem only, on the main thread after the job decided (a structural change, so never
-// in a Burst job). Read by the ticket job, the pre-season sale job and the ski-day decision job.
+// Serialization follows the SkiRunBinding.cs pattern: mod ISerializable components are registered with the save serializer
+// automatically (Game.Serialization/SerializerSystem.cs:194-209), nothing in Mod.cs.
+//   * Layout v1 is frozen: byte version | int32 SeasonKey | int32 PricePaid | byte Flags (little-endian). No payload length is written,
+//     so new fields go in a NEW ISerializable type, which older builds skip as unknown. Never rename the type, namespace or assembly.
+// SeasonKey is the ski-season year (SkiMoneyRules.SeasonKeyOf); another season's component counts as absent (PassStandingOf).
+// Flags 0: holds a pass, PricePaid locked at the sale. PassFlagDeclined: asked this season, did not buy (day tickets), PricePaid 0.
+// Written by SkiLiftTicketSystem only, on the main thread after the job decided (structural change, never in Burst); read by the jobs.
 
 using Colossal.Serialization.Entities;
 using Unity.Entities;

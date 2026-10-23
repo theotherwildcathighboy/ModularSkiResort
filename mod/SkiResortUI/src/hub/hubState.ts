@@ -1,27 +1,10 @@
 /*
  * src/hub/hubState.ts - hub open state and the C# connection state, shared by the launchers, HubRoot and the panel.
- *
- * - C# owns "is the hub open" (binding hubOpen). The launchers send toggleHub, the panel's X / Escape send setHubOpen(false), and
- *   C# opens the hub when a Welcome Sign is selected (setting OpenHubOnSignSelect).
- * - While C# has not registered the hub bindings (contract$ == CONTRACT_ABSENT: hub system missing, failed, or the game is
- *   between loads) a click must still visibly do something (silence must be impossible): the launchers then toggle a LOCAL open
- *   flag and the panel shows the "not connected" notice. The always-mounted HubRoot subscribes contract$ and relays "connected"
- *   to the launchers through a local value (linkLocal$, no C# binding); the launchers live in other append hooks (other React
- *   trees), so a context cannot carry it. useHubConnection() is for components that mount only while the panel is open: it
- *   subscribes buildStamp$, which nothing else needs.
- * - Panel view state: module-level local values (cs2/api bindLocalValue: no C# observer, nothing sent). They outlive the panel's
- *   mount, so the chosen view, the foldouts' state and the focused row survive closing and reopening the hub within one UI
- *   session (a UI reload resets them). cs2/ui PanelFoldout is uncontrolled (index.js@726855 FoldoutItem keeps its own useState
- *   unless `expanded` is passed, which PanelFoldout does not, @730976): the foldouts read these values once as initialExpanded
- *   and write them back from onToggleExpanded.
- * - sendHoverRun is the only caller of hubTriggers.hoverRun and sends only when the run differs from the last one sent (module
- *   level: no per-move traffic; C# logs only the first valid hover per load); resetHoverRun (panel mount) forgets the last value
- *   without sending, because C# resets its own hovered run at every load and a stale "last sent" would swallow the first hover
- *   after a load. The panel's unmount, an area switch, a view switch and leaving the run list send Entity.Null once.
- * - Root mounted: a module-level flag HubRoot sets while it is mounted. A launcher click while it is false (the "Game" hook moved,
- *   another mod's registrar threw before ours, the root boundary tripped) reports one uiError / console line (reportUiError
- *   dedups) and still fires toggleHub, so C# logs the click. C# also WARNs once per session when no uiHello came 30 s after its
- *   first arm.
+ * C# owns "is the hub open" (binding hubOpen). While its bindings are absent (contract$ == CONTRACT_ABSENT) a click must still visibly do
+ * something (silence must be impossible): launchers toggle a LOCAL open flag and the panel shows "not connected"; HubRoot relays "connected"
+ * through a local value (linkLocal$) because the launchers live in other React trees. Panel view state is module-level bindLocalValue
+ * values that outlive the panel; cs2/ui PanelFoldout is uncontrolled (index.js@726855, @730976), so foldouts read them once as initialExpanded.
+ * sendHoverRun sends only on a change; resetHoverRun (panel mount) forgets without sending, since C# resets its hover at every load.
  */
 import { useEffect } from "react";
 import { reportUiError } from "./report";

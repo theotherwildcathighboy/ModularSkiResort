@@ -1,20 +1,10 @@
 // Pure "is the camera already on this sign?" test behind the hub's camera moves (resort switch, lodge launch).
-//
-// Already on  <=>  zoom <= KeepMaxZoomM  and  d <= KeepZoomFraction x zoom   (both inclusive), with d the horizontal (x, z)
-// distance from the camera pivot to the sign.
-//   * pivot and zoom come from IGameCameraController (Game.Rendering/IGameCameraController.cs:8-10). The pivot is the screen
-//     center: the gameplay camera's m_Pivot (CameraController.cs:176-186), the orbit camera's anchor
-//     (OrbitCameraController.cs:75-85), which a follow glides onto the followed entity within 0.5 s (:262-266). zoom is about
-//     the camera-to-pivot distance (CameraController.cs:224-234, :405, :476-479; the orbit camera sits at zoom + radius,
-//     OrbitCameraController.cs:272), good enough for a keep radius.
-//   * Zoom-relative: zoomed in at 150 m a sign 100 m off-center is at the screen edge; at 1,000 m, 300 m off is still central.
-//   * Screen center, not "on screen": the hub panel covers the right quarter and can be dragged (C# cannot see where), so a
-//     viewport test would call a sign hidden under the panel "in view". The pivot is never covered.
-//   * Above KeepMaxZoomM the sign is a few pixels even at the center, so the move zooms in.
-//   * Unknown camera state flies: a non-finite pivot, sign or zoom, or zoom <= 0, gives false.
-// KeepZoomFraction and KeepMaxZoomM are unmeasured estimates (the field of view is scene data, CameraController.cs:324).
-//
-// Pure file: Unity.Mathematics only; linked into the net8 test host. No allocation, no state.
+// Already on  <=>  zoom <= KeepMaxZoomM  and  d <= KeepZoomFraction x zoom  (both inclusive), d = horizontal (x, z) distance from the
+// camera pivot to the sign. Zoom-relative; screen center rather than "on screen" (the hub panel covers the right quarter and can be
+// dragged, so a viewport test would call a sign hidden under it "in view"). Above KeepMaxZoomM the move zooms in.
+// Unknown camera state flies: a non-finite pivot, sign or zoom, or zoom <= 0, gives false.
+// KeepZoomFraction and KeepMaxZoomM are unmeasured estimates. Pure file: Unity.Mathematics only; linked into the net8 test host.
+// Engine notes: EngineNotes/HubCameraRules.md
 
 using Unity.Mathematics;
 

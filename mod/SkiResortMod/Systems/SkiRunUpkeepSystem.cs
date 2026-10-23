@@ -1,48 +1,11 @@
-// SkiRunUpkeepSystem - run operating costs: snowmaking runs cost the most (guns + water + power), groomed runs a third of that
-// (cat fuel), natural terrain is free. Without this, snowmaking strictly dominates groomed and both dominate "just ski the
-// powder"; with it, season length versus money is a real decision.
-//
-// Billing: the billable base is the injection system's per-type active mask, texels whose thermal gate is on at their own
-// elevation this top-up window (SkiSnowInjectionSystem.SnowmakingActiveTexels / GroomedActiveTexels x TexelAreaM2), each run capped
-// at its plan area (Plan-area cap). Guns bill while guns can run, groomers while grooming holds, summer is free because the
-// gates are off, and overlapping runs never double-bill (a texel is claimed once, see MaskStats). Visuals, attractiveness and
-// money all read the same climate model and cannot disagree.
-//
-// Money goes to Game.City.PlayerMoney on the CitySystem.City entity (public Add/Subtract, the component every vanilla
-// income/expense ultimately mutates). ExpenseSource is a closed enum aggregated inside CityServiceBudgetSystem, so the charge
-// cannot appear as its own budget-panel line item without Harmony (banned); the cost shows in the balance and the log carries
-// the itemization.
-//
-// Time: TimeSystem.kTicksPerDay is a public const (262144, TimeSystem.cs:18) and daysPerYear comes from TimeSystem; one calendar
-// month = kTicksPerDay x daysPerYear / 12 frames. Charges accrue per elapsed frame between passes (wrap-safe uint math) with a
-// fractional carry, so no cadence drift and no rounding loss on small resorts.
-//
-// Scheduling: GameSimulation phase (runs only while the sim advances, only in Game action mode: pause stops the meter), anchored
-// after SkiSnowInjectionSystem so a same-frame top-up publishes its mask before we read it; self-gated cadence.
-//
-// Hub accessors: CostPerHaMonth(RunKind) (the same rates this system bills, by the shared RunKind 0 groomed / 1 snowmaking / 2
-// night), LastMonthlyRate, IdleReason ("" while billing), DebitedThisLoad (read by SkiGuestCounterSystem for the month's `run
-// upkeep -N (whole city)`). Plain field reads; frozen while paused.
-//
-// Logging: ARMED line with every rate at load, a charge line whenever the monthly rate bucket changes plus a periodic heartbeat,
-// idle states once per reason transition, the ChairPinSystem error pattern. Flood window: the rate moves on almost every pass
-// while snow builds (a pass is ~4.3 s apart at 4x), so charge lines go through a LogWindow: at most one per Tuning.LogWindowS
-// (10 s), the rest folded into one `Upkeep [charge] N more charge line(s) in T s, folded ...` line. A fold is flushed before an
-// idle line, before a load (OnGamePreload) and at quit (OnDestroy); the first billable pass after a load or idle spell is forced
-// so a billing restart is never folded away.
-//
-// Plan-area cap: a run is never billed for more hectares than it has. The mask counts every texel the outline touches as a whole
-// texel (~14 m cells), so edge texels over-read the run by about 3-4 %. Each pass takes, per cataloged run with an entry in the
-// per-run map (SkiSnowInjectionSystem.TryGetRunActiveTexels, first-claim counts that sum to the three totals), the part of its
-// texel hectares above its plan area (Geometry.m_SurfaceArea) off its kind's total: BilledHa(texels, texelHa, plan) = min(texels x
-// texelHa, plan / 10^4). A run the catalog does not list yet is billed uncapped for that pass. BilledHa is public and pure so the
-// hub's run rows read the same number as the bill.
-//
-// Per-area booking: every debit is also booked per ski area into the guest counter's SkiResortLedger (Month.RunUpkeep), so the
-// history store keeps each area's real run cost. Weight of an area = sum over its bound, cataloged, non-natural runs with active
-// texels of BilledHa x CostPerHaMonth(kind) (the hub's per-run rule, SkiResortStatsSystem.CollectRuns); unbound runs and the part
-// of the bill no cataloged run explains go to Not linked (EntityRef.Null). SkiResortHistory.SplitDebit makes the parts sum
-// exactly to the debit with a per-area carry.
+// SkiRunUpkeepSystem - run operating costs: snowmaking runs cost the most (guns + water + power), groomed runs a third of that (cat
+// fuel), natural terrain is free, so season length versus money is a real decision.
+// Billing: the injection system's per-type active mask (texels whose thermal gate is on at their own elevation), each run capped at
+// its plan area (BilledHa, public and pure so the hub's rows read the same number); overlapping runs never double-bill.
+// Money goes to Game.City.PlayerMoney (no budget-panel line item without Harmony); every debit is also booked per ski area into SkiResortLedger.
+// Charges accrue per elapsed frame between passes (wrap-safe uint math, fractional carry); the meter stops while paused.
+// Scheduling: GameSimulation, Game action mode only, anchored after SkiSnowInjectionSystem so its same-frame top-up publishes first.
+// Engine notes: EngineNotes/SkiRunUpkeepSystem.md
 
 using System;
 using System.Collections.Generic;
@@ -150,7 +113,7 @@ namespace SkiResortMod.Systems
 
         private readonly LogWindow m_ChargeLog = new LogWindow(Tuning.LogWindowS);
 
-        // The split of each debit over the ski areas (header, per-area booking); carries per sign, reset per load
+        // The split of each debit over the ski areas (engine notes, per-area booking); carries per sign, reset per load
         private SkiGuestCounterSystem m_Counter;
         private readonly List<Entity> m_SplitSigns = new List<Entity>(8);
         private readonly Dictionary<Entity, double> m_SplitCarryOf = new Dictionary<Entity, double>();

@@ -1,16 +1,11 @@
 /*
-* src/l10n.ts - player-facing text: locale keys + English fallbacks, and the translate hook.
-*
-* Every player-facing string is a `SkiResort.Hub.*` key in the mod's root LocaleEN.cs; there is no TS dictionary. The TSX
-* calls translate(key, englishFallback), which resolves live against the active dictionary, so the fallback shows only
-* while a key is missing.
-* Gate (tools/check-bundle.js):
-*   - every `[key, english]` tuple in src/ must exist in root LocaleEN.cs with identical text;
-*   - an entry whose English contains "{" is a placeholder entry: render it only with <LocText> (src/hub/parts.tsx).
-*     translate() / useT() never substitute placeholders (LocalizedString's renderer does: index.js@435324
-*     renderLocalizedString, substitute @510010), so the gate fails a t(...) call on such an entry.
-* Numbers: <LocalizedNumber value unit={Unit.X} /> (src/hub/parts.tsx Num) beside the text, never baked into a string.
-*/
+ * src/l10n.ts - player-facing text: locale keys + English fallbacks, and the translate hook.
+ * Every player-facing string is a `SkiResort.Hub.*` key in the mod's root LocaleEN.cs; there is no TS dictionary. translate(key, englishFallback)
+ * resolves live against the active dictionary, so the fallback shows only while a key is missing. Gate (tools/check-bundle.js): every
+ * `[key, english]` tuple in src/ must exist in LocaleEN.cs with identical text. An entry whose English contains "{" is a placeholder entry:
+ * render it only with <LocText> (parts.tsx); translate() / useT() never substitute placeholders (index.js@435324, @510010), so the gate fails
+ * a t(...) call on it. Numbers: <LocalizedNumber value unit={Unit.X} /> (parts.tsx Num) beside the text, never baked into a string.
+ */
 import { useCallback } from "react";
 import { useLocalization } from "cs2/l10n";
 

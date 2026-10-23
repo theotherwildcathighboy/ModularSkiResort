@@ -1,16 +1,11 @@
 // Wall-clock folding for flood-prone log lines: at most one line per WindowS of wall clock, and the first event of a burst is
 // never delayed. Pure (no Unity or Entities types); the caller passes UnityEngine.Time.realtimeSinceStartup.
-//   * Offer(event): when nothing is folded and no line was written for WindowS (or the caller forces it) the verdict is Plain
-//     and the caller writes its usual line. Otherwise the event is folded: counted, with min / max / sum / last of up to Slots
-//     numbers and its full text kept as the last text. When the window has passed (or the event is forced) the verdict is
-//     Summary: the caller writes one line (prefix, fold, last text) and calls Wrote.
-//   * TrailingDue: callers ask on every pass that offered nothing, so the end of a burst is written at most WindowS after the
-//     last line while the system runs. A paused simulation holds the fold until the next pass; callers also flush before an
-//     idle line, in OnGamePreload and in OnDestroy (quit to desktop raises no onGamePreload: TerminateGame disposes the mods,
-//     then the world, whose OnDestroy runs while the logger is still alive - GameManager.cs:792-793 vs LogManager
-//     .ReleaseResources at :805; 1.6.2 :802-803 / :815). A fold is lost only on a crash.
-//   * QuietFor: the unchanged-value heartbeat is wall clock; an unchanged pass is offered only when no line was written for
-//     that long.
+//   * Offer(event): Plain verdict (the caller writes its usual line) when nothing is folded and no line was written for WindowS
+//     or the caller forces it; otherwise the event is folded (count, min / max / sum / last of up to Slots numbers, its text)
+//     until the window passes, then the verdict is Summary: the caller writes one line and calls Wrote.
+//   * TrailingDue: callers ask on every pass that offered nothing, so a burst's end is written within WindowS. A paused sim holds
+//     the fold until the next pass; callers also flush in OnGamePreload and OnDestroy (quit to desktop raises no onGamePreload:
+//     the world's OnDestroy runs while the logger is alive, GameManager.cs:792-793 vs LogManager.ReleaseResources :805; 1.6.2 :802-815).
 
 using System;
 using System.Globalization;

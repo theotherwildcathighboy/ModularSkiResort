@@ -1,25 +1,10 @@
 /*
  * Status line and problems band of the shown ski area.
- *   - Status line `div.statusRow` (fixed 1.6 em): the open-mark shape of ResortLive.status (3 full, 2 partly, 1/0 closed
- *     dash; estimated -> 55 % opacity; not linked: Warning glyph; no live row: empty box), ONE text node chosen by
- *     hubRules.statusVariant (one <LocText> per branch, gate R13), a spacer, then the hint slot: the snow ("64 cm · 88 %",
- *     "≈" before it while estimated), "Powder day", or the SEASON_HINT word when it is a warning (SEASON_HINT_WARN);
- *     otherwise the season word moves into the tooltip (hubRules.statusHint). Tooltip (sign with runs and a live row):
- *     counts, open rule, gating, season tip, snow pair, powder, temperature, and a note when the game's snow visuals are off.
- *   - Problems band `div.problems`: always three `div.problemSlotRow` (1.45 em) so a change never alters its height. Slot i
- *     shows bandSlots(rows).slots[i] (C# ranks and caps the rows; hubRules.bandRowsOf keeps every code the band knows,
- *     factor rows excluded); slot 3 also carries the fixed-width ".problemMore" cell, a "+N" button that opens a popover
- *     with one clickable row per hidden row (closed by the shared backdrop). With no band row, slot 1 is the inert None
- *     line. The dark background is drawn per filled slot (.problemRowOn).
- *   - Two or more rows of one per-lift code (LiftUnfinished, LiftNoPower, LiftSectionMissing) fold into one row
- *     (hubRules.foldBandRows); its click opens the Lifts view and its tooltip lists every lift.
- *   - A row is ONE text node (ProblemText) with its icon (hubRules.problemIcon). Clickable rows (hubRules.problemClick) are a
- *     cs2/ui Button that flies to the sign or lift (focusBuilding / focusLift) or opens the Lifts / Runs view; inert rows
- *     are a plain div. Severity <= 1 is dim.
- *   - Row tooltip: the row's text, its PROBLEM_TIP, for Efficiency the game's factor lines (signed %) and STAFF_LINE,
- *     PROBLEM_GAIN when C# sent ifFixed >= 0, and what a click does. The row text is the tooltip's first line, so the
- *     ellipsis is the net: long efficiency rows can be cut at larger text sizes, most in slot 3 beside the "+N" cell.
- *   - Panel file (gate R11): subscribes resorts$, selectedResort$, resortLive$, problems$, city$.
+ * Status line `div.statusRow` (fixed 1.6 em): ONE text node chosen by hubRules.statusVariant (one <LocText> per branch, gate R13), then a hint slot.
+ * Problems band `div.problems`: always three `div.problemSlotRow` (1.45 em) so a change never alters its height; C# ranks and caps the rows and slot 3
+ * carries the "+N" popover for hidden ones. Two or more rows of one per-lift code fold into one (hubRules.foldBandRows). A row is ONE text node;
+ * clickable rows (hubRules.problemClick) are a cs2/ui Button, inert rows a plain div. The row text is the tooltip's first line, so the ellipsis is the net.
+ * Panel file (gate R11): subscribes resorts$, selectedResort$, resortLive$, problems$, city$.
  */
 import type { RefObject } from "react";
 import { useValue } from "cs2/api";

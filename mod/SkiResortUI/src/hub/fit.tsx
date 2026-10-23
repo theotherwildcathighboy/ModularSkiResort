@@ -1,17 +1,9 @@
 /*
  * src/hub/fit.tsx - "never a scrollbar": the fold rows and the view pager.
- *
- * The panel keeps its fixed height (HubPanel .panelFixed, 72vh, at most 780 rem); its content must fit it at UI text scale
- * 1.0 and 1.25. Two tools make that true by construction, and harness/layout-check.js + tools/test-hub-layout.js measure it:
- *   1. Fold: a section header row with a chevron that shows its rows only while open. One fold per view is open at a time
- *      (accordion, hubState.folds$ / toggleFold), so a view's height is its closed height plus its tallest fold, and the
- *      layout test opens every fold in turn. Closed by default (hubState.FOLD_DEFAULT). Its rows render flat (no wrapper),
- *      so the view pager can page them one by one.
- *   2. useViewPager: when a view (rows + an open fold) is still taller than the box (text scale 1.25 leaves room for about
- *      seven rows), its top-level rows are shown page by page with the same Pager under the view (HubPanel). The Runs and
- *      Lifts views list every row and are the two views allowed to scroll.
- * FitContext carries the panel body's ref (HubPanel); without it (a view rendered elsewhere) nothing is measured and the
- * page size stays at its first value. Buttons here are content-area buttons (not in the Panel header / footer), so
+ * The panel keeps a fixed height (HubPanel .panelFixed); its content must fit at UI text scale 1.0 and 1.25 (harness/layout-check.js,
+ * tools/test-hub-layout.js). Fold: a section header row with a chevron; one fold per view is open at a time (accordion), so a view's
+ * height is its closed height plus its tallest fold; rows render flat so useViewPager can page them when a view is still taller than
+ * the box. FitContext carries the panel body's ref (without it nothing is measured). These buttons are content-area buttons, so
  * FOCUS_DISABLED does not apply.
  */
 import { createContext, useEffect, useLayoutEffect, useRef, useState } from "react";

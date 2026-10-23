@@ -1,8 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <!--
-    Headless test host for the PURE lift files of Round L1 (docs/research/hub-u2-spec.md section 5.9):
-    LiftCensus.cs (section 5.2), StationAlign.cs (section 5.5), LiftReconnectEpisodes.cs (section 5.6),
-    plus the shared EntityRef.cs (section 2.1, implementer I-1's file, linked, never copied).
+    Headless test host for the PURE lift files:
+    LiftCensus.cs, StationAlign.cs, LiftReconnectEpisodes.cs,
+    plus the shared EntityRef.cs (linked, never copied).
     Run from the ModularSkiResort root:
       see the one-line command in the Program.cs header (XML comments cannot hold a double dash)
     Clone of tests/SlopeBatch/SlopeBatch.csproj. Lives OUTSIDE mod/SkiResortMod on purpose: the
@@ -12,15 +12,13 @@
     gate. UnityMathematics.NoDeps 1.3.2 matches the toolchain's com.unity.mathematics@1.3.2.
     The loop cache's GEOMETRY is not tested here (it needs Game types: Colossal.Mathematics, PathNode, Entity);
     since Catalog Phase C its topology pass is the pure LiftLoopTopology.cs, linked below (LoopCacheTests.cs).
-    Catalog Phase A (2026-10-11, docs/research/art/assets-2026-10/catalog-a/phase-a-contract.md C4/C5):
     SkiCatalog (pure) is linked because StationAlign and LiftServedRule alias it; CatalogTests.cs holds
     CT-1 to CT-10 (the catalog's sanity, the frozen-name oracle, NAMES block and hub-literal text parses,
     and the resolver-lifetime decision table).
-    Catalog Phase B (2026-10-11, docs/research/art/assets-2026-10/code-round-2/round-2-contract.md 11.1):
     CatalogTests.cs CT-1 to CT-16 (adds the carriers.json parse CT-11 with System.Text.Json, the gamedata-mirror
     drift CT-12, pending tokens CT-13, the BUILD-ITEMS table CT-14, the EvenSpacing arithmetic CT-15 and the
     sanity twin CT-16); LiftTypeTests.cs LT-1 to LT-10 (skeleton by core, body by the lift group).
-    Phase D (2026-10-11, docs/research/art/assets-2026-10/code-round-4/round-4-contract.md 7.1, rules group): LiftLoopHold.cs
+    LiftLoopHold.cs
     (pure) linked; PowerGateTests.cs PG-0 to PG-4 and LoopHoldTests.cs LH-1 to LH-4.
   -->
   <PropertyGroup>
@@ -61,19 +59,19 @@
     <Compile Include="..\..\mod\SkiResortMod\Systems\StationLvRule.cs" Link="StationLvRule.cs" />
     <Compile Include="PowerGateTests.cs" />
     <Compile Include="LoopHoldTests.cs" />
-    <!-- Round T06 (2026-10-16, docs/research/field/2026-10-15/build/T06-served-links.md): runs linked to a served run are served. -->
+    <!-- Runs linked to a served run are served. -->
     <Compile Include="ServedLinkTests.cs" />
-    <!-- T48 step 1 (2026-10-19, docs/research/field/2026-10-19/tower-planner-build-1.md): the pure tower planner and its tests. -->
+    <!-- The pure tower planner and its tests. -->
     <Compile Include="..\..\mod\SkiResortMod\Systems\LiftTowerPlanner.cs" Link="LiftTowerPlanner.cs" />
     <Compile Include="LiftPlannerTests.cs" />
-    <!-- T48 round 2 (2026-10-20, docs/research/field/2026-10-20/t48-round2-build.md): the lift-line tool's pure edit model. -->
+    <!-- The lift-line tool's pure edit model. -->
     <Compile Include="..\..\mod\SkiResortMod\Systems\LiftLineEdit.cs" Link="LiftLineEdit.cs" />
-    <!-- T125 (2026-10-20, docs/research/field/2026-10-20/playthrough/lift-tool-build.md): the one lift tool's input rules + undo. -->
+    <!-- The one lift tool's input rules + undo. -->
     <Compile Include="LiftToolInputTests.cs" />
-    <!-- T123 (2026-10-20, docs/research/lifts/tower-numbers-build-2026-10-20.md): per-tower number tiles, the pure core. -->
+    <!-- Per-tower number tiles, the pure core. -->
     <Compile Include="..\..\mod\SkiResortMod\Systems\TowerNumberTiles.cs" Link="TowerNumberTiles.cs" />
     <Compile Include="TowerNumberTests.cs" />
-    <!-- R-3 / R-4 (2026-10-22, docs/research/lifts/lift-scale-2026-10-22.md): the far-loop pace, bounds cadence and lane scope. -->
+    <!-- The far-loop pace, bounds cadence and lane scope. -->
     <Compile Include="..\..\mod\SkiResortMod\Systems\LiftMoverMath.cs" Link="LiftMoverMath.cs" />
     <Compile Include="LoopPaceTests.cs" />
   </ItemGroup>

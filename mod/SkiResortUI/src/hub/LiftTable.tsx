@@ -1,28 +1,10 @@
 /*
  * src/hub/LiftTable.tsx - one lift of the Lifts view: a two-line row (LiftLine2).
- *
- * - `div.liftRow2`: line 1 (1.4 em of S) = [fly part | pen]; line 2 (1.35 em of XS, ONE text node, inert, nowrap +
- *   ellipsis). The fly part is a cs2/ui Button (theme `liftFly`): the status mark (hubRules.liftMark), the name, the
- *   status word in a StableWidth of the five LIFT_STATUS words (so the name never moves; NoPower and SectionMissing in
- *   the warning color, ChairsStopped and Unfinished dim). While renaming, the fly part is a plain `div.liftFly` with the
- *   RenameField in the name slot. The pen is a sibling.
- * - Line 2 by hubRules.liftLine2: "length · rise · ride min · capacity/h design · N runs" for a complete lift (with the
- *   `partner` prop, a lone station whose other kind is placed elsewhere in the area reads "both stations placed": the
- *   census never pairs them in one row); else the section-missing / unfinished / stations-only sentence.
- *   LiftRow.powered is the raw LiftPower (status NoPower); `counted` follows the one predicate
- *   LiftServedRule.IsPowered; both arrive from C#, the UI decides nothing.
- * - Tooltip: name; the lift's type (LIFT_TYPE[row.type]); status word; the line-2 sentence; ride time + its basis;
- *   capacity + its basis; runs it serves; running cost (+ "billed at 25 %" while reduced: a section missing, unfinished
- *   or no open run in its ski area; a No power row billed reduced shows the no-open-run text through
- *   LIFT_COST_REDUCED[NoPower]; the reason is hubRules.liftCostReason, mapped by liftCostReducedEntry below); sections,
- *   towers, chairs (riding / total when complete), straightness or offset / angle (tolerance 0.5 m / 0.5°), tower
- *   removed; LIFT_SIGN_TIP; LIFT_ACTIONS (C# flies to the gap while a section is missing).
- * - The capacity tip is <LocText HUB_FMT.liftCapacityTip {SEATS, SPEED}> from row.seats / row.speedMps and the ride tip
- *   <LocText HUB_FMT.liftRideTip {SPEED}> ("–" while C# sends 0 = unknown). In the row the type is a dim word between the
- *   name and the status word only while the shown area's rows span two or more types (`typeWords` non-null, LiftsView).
- * - Rise is shown signed by the game's number format (a negative rise is printed, not hidden as unknown: minusIsUnknown
- *   false).
- * - Memoised on every LiftRow field it shows, focus, renaming, `t`, the callbacks, type, seats, speedMps and typeWords.
+ * Line 1 = [fly part | pen] (status mark, name, status word in a StableWidth of the five LIFT_STATUS words so the name never moves); line 2 is ONE
+ * inert nowrap text node from hubRules.liftLine2. LiftRow.powered is the raw LiftPower; `counted` follows the one predicate LiftServedRule.IsPowered;
+ * both arrive from C#, the UI decides nothing. While renaming, the fly part is a plain div (an <input> is never inside a <button>).
+ * The "billed at 25 %" reason is hubRules.liftCostReason, mapped by liftCostReducedEntry. Rise is shown signed (a negative rise is printed, not
+ * unknown). Memoised on every LiftRow field it shows plus focus, renaming, `t`, the callbacks, type, seats, speedMps and typeWords.
  */
 import { memo } from "react";
 import { Button } from "cs2/ui";

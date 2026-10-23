@@ -1,4 +1,4 @@
-// The pure snow rules (docs/research/econ-round/spec/ch3-snow.md): skiable texel test, open state and multiplier, the
+// The pure snow rules: skiable texel test, open state and multiplier, the
 // estimate from the day-mean temperature, the dry-skip predicate and step scale, the footprint hash. No UnityEngine, no
 // Entities. IsSkiable and Mix64 are called from Burst jobs (SkiSnowInjectionSystem). Linked into tests/ResortBatch
 // (SnowRulesTests.cs).

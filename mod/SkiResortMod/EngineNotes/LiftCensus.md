@@ -1,0 +1,93 @@
+# LiftCensus: how lift rows are built from net topology (components, row keys, typed census, split nodes)
+
+`LiftCensus` is the pure lift model: one row per lift. `LiftCensusSystem` harvests the ECS data into the plain Edge / Node / Station
+lists and calls `Build` on events; the hub and the lift logs read the rows. `tests/LiftBatch` links the file into a net8 host and runs
+synthetic graphs.
+
+## Why a census
+`ChairPinSystem`'s loop cache exists only in moving mode (ChairPinSystem.cs:443-447), measures the CIRCUIT (chain A + top turn + chain B
++ base turn, LiftLoopCache.cs:371-386), is lane-based and up to 30 frames stale. The census is independent of moving chairs and is the
+lift authority for the hub and the logs; the loop cache contributes only "chairs riding" per station pair (`ChairPinSystem.TryGetLoop`).
+
+## Inputs (the ECS side is in LiftCensusSystem)
+- Station stub edges (`SkiLiftMarker`) are NOT edges here (LengthM = sum of line edges only).
+- A station connection node is one whose Owner is a station (stations-first) or whose connected edge is owned by a station (line-first).
+- A station's IsBase is by PREFAB, never by height (the loop cache's "lower = base" is only its internal tie-break).
+
+## Model
+- Components: edges are unioned through shared nodes, but a station connection node is a TERMINAL, never a connector (the loop cache's
+  "walk stops at station anchors", LiftLoopCache.cs:14-20). Two lifts sharing a station stay two components.
+- Attribution: rows are keyed by the station pair (Base, Top), plus an anchor edge for rows with no complete pair, so two unfinished
+  lines from one station stay two rows.
+  1. A component touching exactly one base and one top station gets key (base, top).
+  2. Else, if its surviving edges carried exactly ONE key K at the previous build and the stations it touches are a subset of
+     {K.Base, K.Top}: K (a fragment), with NO liveness condition on K's stations. A complete lift that lost a station (the player deletes
+     and re-places a top station to straighten it) must keep its key, else it gets a NEW key (NewLine instead of Opened) and its chairs
+     are never parked: they freeze mid-air. It becomes Open with Gaps 1 (the dead terminal is untouched) and `DiffEvents` raises Opened,
+     so the existing park runs. Liveness stays in rule 3 (a redraw must reach a living partner).
+  3. Else, if it touches exactly one station S and a previous OPEN row K has S as a station and its other station is alive: K (a
+     redrawn fragment whose edges are all new). A COMPLETE previous row is excluded, because a new line drawn from a station that
+     already has a complete lift is a second lift, not a fragment of the first (shared-station case).
+  4. Else a new key: (S, Null) when S is a base, (Null, S) when a top, (Null, Null) with no station, each with its lowest-index edge
+     as anchor. A component touching more than 2 stations or two of one kind is rule 4 with a build note (Notes).
+
+  A key with no component left is dropped; its stations become StationsOnly rows. History is in memory only: after a reload mid-redraw,
+  fragments come back as Unfinished rows (accepted).
+- Row values:
+  - Complete = exactly one component touching both stations; Open = a pair with any other shape; Unfinished = no pair (or a build note);
+    StationsOnly = a station on no component and in no row.
+  - Gaps = fragments - 1 + (base not touched) + (top not touched), 0 when Complete.
+  - LengthM = sum of edge Curve lengths (NOT the loop).
+  - TowersRemoved = non-station row nodes WITHOUT a tower. Vanilla keeps a tower on every line node while a section uses it
+    (GenerateNodesSystem.cs:1250-1254), so a missing one was removed by another tool; it clears by itself once a section at that node
+    is redrawn and the game regenerates the tower.
+  - Id = the LIVE Base, else the live Top, else the lowest-index edge (a key may hold a removed station, rule 2; the row id is what the
+    hub addresses, renames and flies to, so it must be a living entity).
+  - Known: after a station is removed, its former connection node becomes a plain dead end with no tower of its own, so it counts as
+    TowersRemoved = 1 unless vanilla regenerates a tower there. Unverified, no guard.
+- Events are appended to the caller's list by Build (the list is cleared first), only from the SECOND build after Reset (the first build
+  is the per-load baseline, never logged).
+  - SectionsDeleted = edges of a previous row that are gone, when that row gained no new edge in the same build (a redraw that replaces
+    edges is an edit, not a deletion).
+  - Opened = Complete to Open (same key).
+  - Closed = Complete now and not Complete under the same key before (Count 1 when the key existed as Open: "complete again").
+  - NewLine = a new Unfinished row with at least one section.
+  - Removed is never produced here: `LiftCensusSystem` appends it from its Deleted-tag snapshot (an element removed by another tool).
+- Revision increments whenever the row CONTENT changed (every field, hashed), so the stats system can gate on it.
+  `LastBuildChangedTopology` says whether edges, node roles or row keys changed (the system then asks `ChairPinSystem` for an immediate
+  loop rebuild).
+- Additive members beyond the base contract: Event.PrevRow, PreviousRows, Reset(), LastBuildChangedTopology, Notes, HasBaseline. They
+  let the system name a lift whose row was dropped (its last section deleted) and keep the first build after a load silent.
+
+## Cost
+Build is event-driven (lift edits, coalesced station moves, a 4096-frame watchdog), O(edges + nodes + stations) with dictionary lookups.
+It reuses its member collections, so a build allocates only when a collection grows or a build note is written.
+
+## Typed census
+- Edge.Type = the `SkiCatalog.Lifts` index of the edge's line prefab; Station.Type = its `StationDef.LiftTypeIndex` (NoType = 255 when the
+  harvest could not type it; defensive only).
+- In the union pass an edge with Type == NoType is IGNORED: never unioned, never part of a component, a row or a degree count; one build
+  note "edge {id} has no lift type - ignored". The harvest passes catalog lines only, so a vanilla HV feeder never arrives here at all,
+  though vanilla lets one feed a station stub.
+- Every component carries TypeMask (bit Type of each typed edge and each touched station). Popcount > 1 = MIXED (a detachable line
+  between fixed-grip terminals is as broken as two line types: gauge +-2.6 vs +-1.8 anchors). A mixed component is Complex (Unfinished
+  through the existing MakeRow path), gets a build note "component of N edge(s) from {edge} mixes lift types (fixedGrip+detachable) -
+  Unfinished", and every row built from it gets Mixed = true.
+- Attribution is unchanged: a mixed component touching one base and one top keeps that pair's key, so removing the stray edge returns the
+  same row to Complete.
+- Row.Type = the live base station's type, else the live top's, else the lowest-index edge's; StationsOnly rows: their station's. The row
+  hash (Revision) covers Type and Mixed; the topology hash covers the edges' types.
+
+## Split at a shared node
+Two lines of DIFFERENT lift types that share a non-station node (the net tool snapped a new node onto another lift's tower node: a tram
+redrawn onto the gondola would read "mixes lift types" and leave BOTH Unfinished) do not union. `LinkEndpoint` keys the first-edge-at-node
+map by (node, type), so each type keeps its own component and the node is a split point.
+- A component's TypeMask therefore carries at most ONE bit from its edges. Code 23 (Mixed) still fires when a component's edge type differs
+  from a station it touches, or it touches stations of two types (a DQ line drawn between a gondola base and a DQ top).
+- A split is recorded as Row.SplitNodes (this row's components touch N split nodes; hashed, NOT bound to the hub), SplitNotes (the note
+  text with the node position; DUMP only) and NewSplits (the splits not yet announced since Reset: the system logs one
+  "[census] split at node N: types A|B" INFO line each).
+
+## Pure file
+Only `using System;`, `System.Collections.Generic`, `Unity.Mathematics` (the test-host rule of tests/SlopeBatch; EntityRef.cs is the pure
+stand-in for Entity), plus SkiCatalog (pure, linked wherever this file is) for the type ids in the "mixes lift types" note.

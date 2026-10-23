@@ -1,25 +1,9 @@
 /*
  * src/hub/ViewTiles.tsx - the tiles: they are the navigation.
- *   - `div.tileRow` (ref tilesRef) with one cs2/ui Button per HUB_VIEWS entry (theme `tile [tileOn]`, selected = on); a click
- *     sets the local view$ unless already on.
- *   - Each tile: `div.tileValue` (1.25 em of M, fit-shrink), `div.tileCaption` (TILE[...], sentence case), and the "≈" mark:
- *     a corner `div.tileMark` (out of flow), except the Money tile, whose "≈" sits in a fixed trailing slot beside its caption
- *     (`div.tileCaptionRow` > `div.tileCaption` + `div.tileCaptionMark`, a fixed-width flex item, always reserved: the corner
- *     mark overlapped the last digit at 130-150 % text). A value change never changes a tile's size.
- *   - Values (a sign / Not linked): Attraction = "…" while the first write after a load is held (the game keeps the saved score
- *     then), else `attraction` / "–"; Runs = runsOpen / runs (LocalizedFraction) / `runs`; Lifts = liftsComplete of liftRows
- *     (hubRules.liftsTile: every census row, i.e. complete lifts, unfinished lines, lone stations; the powered count liftsCounted
- *     is in the tooltip, TILE_TIP_POWERED); Guests = guestsThisMonth / "–"; Money = the signed netMonth as sent (this month so
- *     far; Not linked: minus its booked lift and run costs).
- *   - A sign's Runs tile is captioned "Runs open" (TILE[RunsOpen]; fits the caption room, no shrink) so "2 / 3" says what it
- *     counts; the Not linked tile shows a total and keeps "Runs" (TILE[Runs]). The tooltip title follows the caption.
- *   - History tile: its value is a glyph (HistoryGlyph.svg, three bars on a baseline), never a number: the tile must not
- *     subscribe `history`, which only the History view observes. Its tooltip is TILE_TIP[History].
- *   - Tooltips: the tile's title and meaning, its state lines (full-efficiency score, held, partly open, unfinished lifts, since
- *     load, last month only when a whole month was counted, the "≈" reasons), then TILE_TIP_OPEN. Not linked: the Runs and
- *     Lifts tiles show totals, so their meaning line is UNLINKED_NOTE and no partly-open / unfinished line is added.
- *   - Panel file (hub gate): subscribes resorts$, selectedResort$, resortLive$, city$ (the month's name in the Guests tooltip);
- *     local view$.
+ * `div.tileRow` with one cs2/ui Button per HUB_VIEWS entry (selected = on); a click sets the local view$. A value change never changes a tile's size;
+ * the Money tile's "≈" sits in a fixed trailing slot (a corner mark overlapped the last digit at 130-150 % text). The History tile shows a glyph,
+ * never a number: it must not subscribe `history`, which only the History view observes. Not linked: Runs and Lifts show totals.
+ * Panel file (hub gate): subscribes resorts$, selectedResort$, resortLive$, city$ (the month's name in the Guests tooltip); local view$.
  */
 import type { RefObject } from "react";
 import { useValue } from "cs2/api";

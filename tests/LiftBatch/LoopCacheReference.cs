@@ -1,19 +1,11 @@
-// LoopCacheReference - a frozen transcription of the topology pass of LiftLoopCache.cs (before the topology moved into
-// LiftLoopTopology.cs) at SHA-256 d3ae435b756f2e1b281617ef02cb260bb13a12bd8c16bfea1b963fcca2881b81. Lines transcribed:
-// Build :175-345 up to the closure (the pairing loop's geometry and loop notes are not here), ClassifyTerminal :347-377,
-// AddEndpoint :379-384, TryTakeNext :386-404, TryCloseLoop :407-430 (orientation + gap check; the geometry :432-453 is
-// not here), CommonType :520-540, ArcSane :558-562, OrientChain :564-578, GetChainEndpoint :580-595.
-//
-// Do not edit to follow LiftLoopTopology: this file is the oracle. The only substitutions are the stand-ins the topology
-// uses, so both run on identical input:
-//   * CableLane -> LiftLoopTopology.Lane; PathNode -> its int id; PathNode.Equals -> ==; cursor.GetOwnerIndex() ->
-//     OwnerOf(cursor), a node -> owner table built from the lanes (the generator gives every id one owner, as the
-//     64-bit search key does: Game.Pathfind/PathNode.cs:113-116).
-//   * MathUtils.Position / Tangent(lane.m_Bezier, t), t in {0, 1} -> the lane's P0 / P1 / T0 / T1.
-//   * List<Entity> stations -> List<int> (Entity.Index).
-// What the original did after a successful gap check (AppendChain, the two turns, "top turn ...", "loop closed ...", the
-// loop-too-short refusal) needs Colossal.Mathematics and is not transcribed; such a pair is recorded as Closed with its
-// CommonType (the original computed it right after the closure, :337).
+// LoopCacheReference - the oracle for LiftLoopTopology: a frozen transcription of LiftLoopCache.cs's topology pass (before the topology
+// moved out) at SHA-256 d3ae435b756f2e1b281617ef02cb260bb13a12bd8c16bfea1b963fcca2881b81. Do not edit it to follow LiftLoopTopology.
+// Transcribed: Build :175-345 up to the closure, ClassifyTerminal :347-377, AddEndpoint :379-384, TryTakeNext :386-404, TryCloseLoop
+// :407-430 (orientation + gap check only), CommonType :520-540, ArcSane :558-562, OrientChain :564-578, GetChainEndpoint :580-595.
+// Substitutions are the stand-ins the topology uses, so both run on identical input: CableLane -> LiftLoopTopology.Lane; PathNode -> its
+// int id (one owner per id, as the 64-bit search key does: Game.Pathfind/PathNode.cs:113-116); Position / Tangent(lane.m_Bezier, t),
+// t in {0, 1} -> the lane's P0 / P1 / T0 / T1; List<Entity> -> List<int>. Needs Colossal.Mathematics, so not transcribed: AppendChain, the
+// two turns, "top turn ..." / "loop closed ..." notes, the loop-too-short refusal; such a pair is recorded as Closed with its CommonType.
 
 using System;
 using System.Collections.Generic;

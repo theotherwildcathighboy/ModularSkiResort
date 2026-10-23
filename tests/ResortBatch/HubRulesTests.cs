@@ -1,26 +1,10 @@
-// Tests for HubRules (status, open state, season, next step, lift status, money, problems), PisteMapRules, the aggregate's run
-// vertical and the hub's ski-day, lift-type and tram numbers. `public static class HubRulesTests` with
-// `Run(Func<bool, string, string, bool> check)` and its own Near, called from Program.Main.
-// Oracles are literal hand values, never a second run of the same code. Sections:
-//   A  small rules (Status, OpenStateOf, Season, NextStep, LiftStatusOf, RideTimeS, OpenSharePct, FactorEffectPct,
-//      CountedFraction, TicketIncomeMonth, NetMonth over HubMonthMoney, MonthMoneyOf, MonthShare, RateSoFar, the invariant that
-//      the Finances rows add up to the Net, LiftNoPair)
-//   B  AttractionWithLodges, the receipt parity LodgePart + Terrain = AOpen, and RunValueFull on compositions built here
-//      (literal runs, no dependency on ScoreTests' helpers); every index is guarded so it never throws
-//   C  HubProblems.Build, cases P1-P46, every field of every row
-//   D  the Status property over all 286 (runs, open, partly) combinations
-//   E  constants, literal enum values, HubSnowSums, TopTempC, Percent, FollowCheck
-//   F  PisteMapRules (StyleOf, IsDashed, WidthScale, SolidRing, DashRing incl. dashes across corners, truncation, solid
-//      fallback, slope, non-finite node, tiny ring, appending)
-//   G  SkiResortAggregate.RunVerticalM on Program.AggregateTests' fixture (copied literally) next to the unchanged VerticalM
-//   H  HubRules.SkiDayStateOf rows, the powder-mark parity of C# and TS, the price factor table shared with
-//      test-hub-rules.js, Season with the live gun gates
-//   I  lift-type ride times, summer with no lodge, AttractionWithLodgeApplied, LodgePart = LodgeApplied, problems 23-25,
-//      build items per type, price tolerance
-//   J  the tram's hub numbers: HubRules.ShuttleRideTimeS and ShuttleCapacityPerHour over the pure ShuttleProfile.cs (linked
-//      into this host)
-//   K  HubRules.LiftCapacityShown, LiftStatusOf for a held lift, LiftServedRule.Carries
-// Tolerances: ±1e-9 for the parity identity, ±1e-6 for 9-decimal values, ±1e-4 for float rules.
+// Tests for HubRules (status, open state, season, next step, lift status, money, problems), PisteMapRules, the aggregate's run vertical and
+// the hub's ski-day, lift-type and tram numbers. `public static class HubRulesTests` with `Run(check)` and its own Near, called from
+// Program.Main. Oracles are literal hand values, never a second run of the same code. Sections: A small rules, B attraction with lodges and
+// the receipt parity LodgePart + Terrain = AOpen, C HubProblems.Build (cases P1-P46, every field of every row), D the Status property over
+// all 286 (runs, open, partly) combinations, E constants and enum literals, F PisteMapRules, G SkiResortAggregate.RunVerticalM, H SkiDayStateOf
+// and the C# / TS parities (test-hub-rules.js), I lift-type ride times and problems 23-25, J the tram's hub numbers, K unpowered lifts.
+// Tolerances: +-1e-9 for the parity identity, +-1e-6 for 9-decimal values, +-1e-4 for float rules.
 
 using System;
 using System.Collections.Generic;
@@ -731,7 +715,7 @@ namespace ResortBatch
                 P(HubProblemCode.FreeLodges, 1, count: 2));
 
             // A road-less top-level ski school joins the LodgeNoRoad count but never its "every lodge" severity; unlinked schools get
-            // row 26 on the Not linked entry only (docs/research/ui/hub-school-launch-2026-10-19.md).
+            // row 26 on the Not linked entry only.
             x = In(1, 1, 100, 1, 3);
             x.Lifts = Ls(L(0, true, true, true));
             x.SchoolsNoRoad = 1;
@@ -1318,15 +1302,11 @@ namespace ResortBatch
             new HubProblemLift { State = state, Powered = powered, HasBase = hasBase, HasTop = hasTop, CustomName = named,
                                  Type = type, Mixed = mixed };
 
-        /// <summary>Section I:
-        ///   I1  RideTimeS(loop, speed) per lift type, and the one-argument twin;
-        ///   I2  a summer area with no lodge keeps today's "if one lodge" number (15), whatever LodgeShare says;
-        ///   I3  AttractionWithLodgeApplied (the IfLodgesOn ladder value) on literal results and on T2 from Compute;
-        ///   I4  LodgePart = LodgeApplied;
-        ///   I5  problems: MixedLiftTypes 23 (build item by type, no LiftUnfinished row), 24 and 25 (counts, severities, the 24 cap),
-        ///       StationsOnly / SectionMissing build items per type, and lone stations pairing per type only;
-        ///   I6  price factor with tolerance: SkiDayRules.PriceFactor(price, tolerance) = the TS priceFactor table
-        ///       (mod/SkiResortUI/tools/test-hub-rules.js), and PriceFactor(p) ≡ PriceFactor(p, 0).
+        /// <summary>Section I: I1 RideTimeS(loop, speed) per lift type and the one-argument twin; I2 a summer area with no lodge keeps the
+        /// "if one lodge" number (15), whatever LodgeShare says; I3 AttractionWithLodgeApplied (the IfLodgesOn ladder value); I4 LodgePart =
+        /// LodgeApplied; I5 problems: MixedLiftTypes 23, 24 and 25 (counts, severities, the 24 cap), StationsOnly / SectionMissing build
+        /// items per type, lone stations pairing per type only; I6 price factor with tolerance: SkiDayRules.PriceFactor(price, tolerance) =
+        /// the TS priceFactor table (mod/SkiResortUI/tools/test-hub-rules.js), and PriceFactor(p) == PriceFactor(p, 0).
         /// Oracles are literal hand values.</summary>
         private static void SectionI()
         {
@@ -1472,19 +1452,14 @@ namespace ResortBatch
 
         // J. the tram
 
-        /// <summary>Section J: v 10 m/s, a 0.8 m/s² (0.8f, as the catalog row), dwell 60 s. Literal oracles:
-        ///   HJ-1..HJ-3  ShuttleRideTimeS: 1 km 112.5 s, 3 km 312.5 s, 100 m 22.360679774997898 (triangle), bit-exact floats (recomputed
-        ///               with Math.fround); 2 km 212.5, 125 m 25 (the degenerate trapezoid with 0.8f);
-        ///   HJ-4        invalid gives −1 (path 0 / NaN / −5 / ∞, speed 0, accel 0, dwell −1 / NaN);
-        ///   HJ-4b       the dwell does not enter the ride time while ShuttleRideIncludesDwell is false (pinned false: flipping it must
-        ///               revisit these oracles and LIFT_RIDE_TIP);
-        ///   HJ-5        ShuttleCapacityPerHour(2, 100, 1 km) == (float)(720000 / 345) bit-exact;
-        ///   HJ-6        a → ∞ (1e9): 1 km 2,250 and 3 km 1,000 pph ± 0.01 (pax × 3600 / (L/v + dwell));
-        ///   HJ-7        one cabin = half (exact in float); cabins 0, seats 0, dwell −1, cabins −1, NaN path give −1;
-        ///   HJ-8        the Loop rule is untouched: RideTimeS(2045, 2.5) == 409;
-        ///   HJ-9        the catalog's tram row (SkiCatalog index 3) through both: 112.5 s / 2,086.96 pph at 1 km; the worked capacities
-        ///               100 m 4,371.0, 125 m 4,235.3, 2 km 1,321.10, 3 km 966.44;
-        ///   HJ-10       the status mapping through LiftStatusOf: Running / Held (NoPower) / no path (ChairsStopped, NoPower).</summary>
+        /// <summary>Section J: v 10 m/s, a 0.8 m/s^2 (0.8f, as the catalog row), dwell 60 s. Literal oracles:
+        ///   HJ-1..HJ-3  ShuttleRideTimeS: 1 km 112.5 s, 3 km 312.5 s, 100 m 22.360679774997898 (triangle), bit-exact floats; 125 m 25;
+        ///   HJ-4        invalid gives -1; HJ-4b the dwell does not enter the ride time while ShuttleRideIncludesDwell is false (pinned
+        ///               false: flipping it must revisit these oracles and LIFT_RIDE_TIP);
+        ///   HJ-5..HJ-7  ShuttleCapacityPerHour(2, 100, 1 km) == (float)(720000 / 345); a -> infinity gives 2,250 and 1,000 pph; one cabin =
+        ///               half; cabins 0, seats 0, dwell -1, NaN path give -1;
+        ///   HJ-8..HJ-10 the Loop rule is untouched (RideTimeS(2045, 2.5) == 409); the catalog's tram row (index 3) through both; the
+        ///               status mapping through LiftStatusOf (Running / Held NoPower / no path).</summary>
         private static void SectionJ()
         {
             const string w = "hub J";
@@ -1563,15 +1538,12 @@ namespace ResortBatch
         // K. unpowered lifts
 
         /// <summary>Section K: an unpowered lift of every type carries no guests. Literal oracles:
-        ///   HK-1  LiftCapacityShown: the Loop capacities riding × seats × speed × 3600 / L (the Stats expression, riding 40, L 2,000 m:
-        ///         fixed-grip 3 / 2.5 → 540, detachable 4 / 5.0 → 1,440, gondola 8 / 5.5 → 3,168) and the tram's
-        ///         ShuttleCapacityPerHour(2, 100, 1000, 10, 0.8, 60): (c, true) bit-equal to c, (c, false) == −1, (−1, true) == −1;
-        ///         through Carries for a powered and an unpowered complete row;
-        ///   HK-2  LiftStatusOf(0, false) NoPower, (0, true) Running, (1, false) NoPower, (1, true) ChairsStopped (restated next to the
-        ///         capacity rows: a held lift's status stays "No power");
-        ///   HK-3  Carries(complete, shownPowered, closed), 8 rows; equal to Carries(complete, p, closed) with shownPowered =
-        ///         p != NoPower, and to SkiMoneyRules.LiftOperating(complete, IsPowered(p)) &amp;&amp; !closed for all 12 inputs
-        ///         (SkiMoneyRules.cs:73).</summary>
+        ///   HK-1  LiftCapacityShown: the Loop capacities riding x seats x speed x 3600 / L (riding 40, L 2,000 m: fixed-grip 540,
+        ///         detachable 1,440, gondola 3,168) and the tram's ShuttleCapacityPerHour(2, 100, 1000, 10, 0.8, 60): (c, true) == c,
+        ///         (c, false) == -1, (-1, true) == -1; through Carries for a powered and an unpowered complete row;
+        ///   HK-2  LiftStatusOf: a held lift's status stays "No power" ((0, false) NoPower, (1, true) ChairsStopped);
+        ///   HK-3  Carries(complete, shownPowered, closed), 8 rows; equal to Carries(complete, p, closed) with shownPowered = p != NoPower,
+        ///         and to SkiMoneyRules.LiftOperating(complete, IsPowered(p)) &amp;&amp; !closed for all 12 inputs (SkiMoneyRules.cs:73).</summary>
         private static void SectionK()
         {
             const string w = "hub K";

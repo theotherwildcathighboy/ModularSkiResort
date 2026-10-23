@@ -4,11 +4,8 @@
 // and the total bytes a value of that version takes in the save.
 // tests/SaveBatch checks the serializers, the struct fields and the built DLL's [FormerlySerializedAs] self-aliases against
 // this table; the newest release/CHANGELOG.md entry's "Layout versions:" line must equal ChangelogLine.
-// To bump a layout: append fields at the END of Serialize, bump CurrentVersion, read the new fields under
-// `if (m_Version >= N)` in Deserialize, append ONE entry here, and write the new changelog line with
-// "Do not load in older versions: yes". A new persisted concept is a new type with a new row.
 // Never edit a shipped entry, reorder a row's fields, or delete a row of a shipped type: the bytes are in players' saves.
-// Pure file (System only); tests/SaveBatch links it.
+// Pure file (System only); tests/SaveBatch links it. How to bump a layout: EngineNotes/SaveLayouts.md
 
 namespace SkiResortMod.Systems
 {

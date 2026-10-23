@@ -2,146 +2,10 @@
 // it previews "bring this run to tree density L" for one of two targets (run interior, or its outside tree-line belt) as
 // ordinary Temp objects: felling wild trees, removing this run's planted trees, or planting the missing trees of the plan
 // stream. Left click applies through the vanilla pipeline (validation, cost tooltip, charging, refunds). Engine citations are
-// `Game.X/File.cs:line` in tools/decompile/1.6.0f1; "1.6.2 :N" notes a line shift in 1.6.2f1. Re-derived from the vanilla
-// systems named; nothing is copied from ParkManager (GPL).
-//
-// Settings: Level 1..8 (SkiGladeCompose.Levels, default DefaultLevel = 4; persisted action GladeNextVariant, Shift+G) and target
-// interior / tree line (GladeNextMode, Alt+G), kept for the session, not stored per run. SkiGladeCompose (pure) owns the count
-// rule (interior: T = round(area * InteriorDensity(L)); remove own members first, then fell wild trees by hash rank, or plant
-// T - N at the first unmatched slots; tree line: BeltFactor(L) of the belt). The tool hands it ComposeInput.Level / .TreeLine
-// and the census and emits what it returns; new plantings are tagged variant 0 (NewPlantingVariant).
-//
-// Skeleton: base.OnCreate (ToolBaseSystem.cs:292-316) registers the tool in ToolSystem.tools, creates the Apply / Secondary
-// Apply / Cancel proxies and sets Enabled=false; ToolSystem.ToolUpdate enables only the active tool (ToolSystem.cs:312-327).
-// The parameterless OnUpdate is sealed (ToolBaseSystem.cs:411-417), so the one-shot "!!!" catch wraps OnUpdate(JobHandle)
-// (:420). TrySetPrefab returns false for every prefab, otherwise ToolSystem.ActivatePrefabTool would hand us asset-menu clicks
-// (ToolSystem.cs:263-277). Activation is TryActivate() -> ToolSystem.activeTool = this (ToolSystem.cs:84-98), called by
-// SkiGladeHotkeySystem, the "Ski Glades" dev tab and the hub (SkiResortHubUISystem: TryActivate("hub") / Deactivate, SetLevel /
-// SetTreeLine, UnavailableReasonKey to gray its buttons out).
-//
-// Bound: SkiRunOwnershipSystem.IsBound(run) = the run carries our SkiRunBinding and its sign is live. Runs carry no vanilla
-// Owner(sign) (it would let the bulldozer delete the whole resort), so m_RunQuery matches every surface area and the run-prefab
-// set narrows it to ours. Owner is still read on non-run entities (owned trees are never thinnable; planted / felled
-// definitions carry a Null owner).
-//
-// Raycast: typeMask Terrain|Areas, areaTypeMask Surfaces, raycastFlags |= SubElements after base.InitializeRaycast() (which
-// clears flags and masks every frame, ToolBaseSystem.cs:430-443), the vanilla area tool's masks (AreaToolSystem.cs:3051-3052;
-// 1.6.2 :3062-3063). SubElements is inert for our un-owned runs (RaycastJobs.cs:95 applies it only when typeMask2 != None,
-// set only inside the Owner walk :84-88) but kept so a run with a legacy Owner(sign) resolves to the run. Never add
-// StaticObjects (an owned hit would resolve to the building).
-//
-// Hover resolver, per frame:
-//   (a) input not live (controlOverWorld false, or raycast DebugDisable|UIDisable, ToolRaycastSystem.cs:105-112) -> HELD: hold
-//       the preview. ToolSystem.fullUpdateRequired (ToolSystem.cs:161, :258, :95) or raycastFlags & ToolDisable
-//       (ToolRaycastSystem.cs:98-101; a disabled input raycasts nothing, RaycastSystem.cs:772-775) -> SWITCHING: every hotkey
-//       activation's first frame(s); held, never logged.
-//   (b) no raycast result -> NOTHING.
-//   (c) the hit is one of our bound runs -> BOUND (keep the planned run when it also contains the point: overlapping runs tie on
-//       distance, RaycastResult.cs:12-18).
-//   (d) otherwise a point scan of our runs at the hit xz (bounds, then triangles with MathUtils.Intersect(AreaUtils.GetTriangle3
-//       (nodes, tri).xz, p, out float2 _), RaycastJobs.cs:168). A bound run there -> BOUND "via point", counted, logged once per
-//       run per activation by what the raycast's winner was: another ground area (Area) is an ordinary tie, INFO (every
-//       ground-area result keeps HitEntity = terrain with m_NormalizedDistance reduced by 0.25/len, RaycastJobs.cs:299-304, so
-//       two ground areas at one point tie exactly and RaycastResult.Accumulate keeps whichever came first, :14); the terrain
-//       is a raycast miss, WARN (the terrain result is t + 1/len, RaycastSystem.cs:177-181, so a validated ground-area result
-//       t + 0.75/len would have won; RaycastJobs.cs:46-120 accepts our un-owned Surface runs, so the area pass found nothing for a
-//       run that contains the point: a search-tree / validation anomaly, or a raycast older than the geometry the scan reads,
-//       RaycastSystem.cs:806-835). One of our runs with Owner(sign) and no binding -> LEGACY (WARN once per run per load). Any
-//       other run of ours -> UNBOUND (no binding / paid orphan whose sign is gone / foreign Owner).
-//   (e) the hit has Area -> FOREIGN surface; (f) else TERRAIN.
-//
-// Logging (silence must be impossible; GladeHoverLog in SkiGladeHover.cs): one line per hover-state change, deduplicated on
-// (kind, run or hit entity, reason), at most GladeHoverLog.MaxLinesPerActivation (40) per activation, then one "transitions
-// capped" line, written right after the Offer that reports CapJustReached, before the Legacy-WARN and Bound-with-re-plan early
-// returns (CapJustReached is raised on one Offer per activation only). Status strings for the dev tab are built on change only
-// and kept in a two-slot memo. Stop logs the dwell summary before ResetPreviewState; dwell is fed on every UpdateCore path.
-//
-// Lifecycle (emit-and-hold, the vanilla idiom). Vanilla's object tool emits nothing while the control point is unchanged
-// (ObjectToolSystem.cs:4057-4058) and re-emits only on a change as Clear + UpdateDefinitions (:4100-4104). Holding works because
-// GenerateObjectsSystem consumes only definitions carrying Updated (GenerateObjectsSystem.cs:1730-1748), Updated is stripped at
-// frame end (CleanUpSystem.cs:53), and ValidationSystem only runs on Temp+Updated (ValidationSystem.cs:1917, 1930), so
-// Error/Warning/Override persist while applyMode == None (:645 strips them when applyMode != None: never hold with Clear).
-// Destroying a definition never removes its Temp; only the ClearTool / ApplyTool phases do (ToolOutputSystem.cs:22-30). The base
-// never enables the proxies for a mod tool (ToolBaseSystem.cs:362-364; WasPressedThisFrame is false unless enabled,
-// UIInputAction.cs:62-69), so every frame writes the enable flags; Cancel is enabled only while a preview is pending, which
-// leaves Escape to the frontend's Back (ToolUISystem.cs:280-304, 344-356).
-//   * Re-plan (hover / target / level / forceUpdate / requested): applyMode = Clear (ToolClearSystem.cs:88-106 deletes our old
-//     Temps), DestroyDefinitions on the previous frames' definitions (GetDefinitionQuery excludes Updated, ToolBaseSystem.cs:
-//     689-692), emit the new ones with Updated.
-//   * The frame after an emission the Temps exist and are validated ("ready"). On that frame, before the action flags: the
-//     preview census, skip-set learning and the after-state hide. An Apply press on that same frame is ignored.
-//   * After an Apply the next ToolUpdate re-plans the same run: the applied trees are in the static tree by then (SearchSystem
-//     runs at Modification5 of the Apply frame; Deleted trees leave it there, SearchSystem.cs:91-99).
-//
-// Apply semantics: PlanAndEmit takes a census, then hands SkiGladeCompose.Compose the run geometry, level and target, the census
-// minus this run's members (Existing/Thinnable), this run's members (Own), the known blocked slots (SkipSlots) and the per-apply
-// caps; it emits Compose's Fell and Remove lists as vanilla bulldoze-shaped delete definitions and its Plant list as planted-tree
-// definitions. Applying a level twice is a no-op; large runs go in slices of <= 4,000 (provisional caps). This run's trees
-// standing outside their own layer's region after a run edit are MISPLACED; Compose removes them first. Apply takes the held
-// preview only while it is the plan of the current level and target (UpdateFrame "planCurrent").
-//   * Skip set: on the ready frame every canceled planted Temp maps back to its slot through m_EmittedSlots (definition positions
-//     are written verbatim, GenerateObjectsSystem.cs:1253) and joins m_SkipSlots[PlanKey] (<= SkipKeysMax keys, oldest evicted).
-//     Lifetime is one activation (cleared in OnStartRunning and at load): PlanKey hashes trees, vertex obstacles, exclusion rings
-//     and params but no road, building or map tile, so a longer-lived set kept a slot skipped after its blocker was removed.
-//     Nothing is learned when money may be short (PlayerMoney.money < PreviewPlant x MaxTreeCost: ValidationSystem also cancels
-//     Optional Temps for money, ValidationSystem.cs:1434-1449, not distinguishable per Temp; the state is MoneyShort). A ready
-//     preview that learns new slots re-plans at once and Apply waits for it: under the count rule a canceled spot leaves the run
-//     below T, so otherwise the re-plan after the Apply would plant replacements instead of reading "nothing to change".
-//   * Plan cache: SkiGladeCompose's GladePlanCache (PlanCacheEntries = 4, keyed by PlanKey): a saturated giant run burns
-//     MaxAttemptsPerLayer (2,000,000) per plan.
-//
-// Preview (after-state): on the ready frame every Delete Temp gets Game.Tools.Hidden + Game.Common.BatchesUpdated through the
-// barrier's ECB, the idiom vanilla uses on the originals (GenerateObjectsSystem.cs:976-977). The renderer reads the component
-// (BatchDataSystem.cs:605); Apply reads only the Cancel/Delete flags (ApplyObjectsSystem.cs:337-352) and Delete touches only the
-// original (:484-504); old-Temp reuse is keyed on (prefab, sub-prefab, original, owner) (GenerateObjectsSystem.cs:56-79, 89-140),
-// so a hidden delete Temp is only reused for a delete of the same original and the reuse path never removes Hidden. Hold frames
-// fix Delete Temps whose Hidden state is wrong (self-heal, logged once per plan). Felled trees get a red ring, removed members
-// an orange one (outline only: a Projected fill would paint every mesh in its column). Warning/Override recoloring is not used:
-// on Apply ToolApplySystem deletes Warning entities and marks Override ones Overridden + Updated (ToolApplySystem.cs:50-57,
-// :118-126). Fallback if Hidden misbehaves in the field: the dev tab toggles hiding off; the rings grow to FallbackRingDiameter.
-//
-// Definitions: a planted tree is CreationDefinition{prefab, no owner, stable m_RandomSeed, Optional} + ObjectDefinition{terrain-
-// sampled y + m_PlacementOffset.y, m_IsDecoration = true} + Updated. A felled / removed tree is the vanilla bulldoze shape
-// (BulldozeToolSystem.cs:664, 731-751, 812-875); the delete Temp hides each original, which the collision iterator skips
-// (ValidationHelpers.cs:78), so an apply's new trees never collide with the trees it removes. Both go through ToolOutputBarrier's
-// ECB (ObjectToolBaseSystem.cs:2446-2451).
-//
-// Census: trees come from SearchSystem's static tree read on the main thread (GetStaticSearchTree(readOnly) + Complete,
-// SearchSystem.cs:421-425), iterated per run triangle (inside) and per edge (band) with the AreaResourceSystem TreeIterator
-// shape (AreaResourceSystem.cs:621-660). A tree tagged SkiRunTreeMember with m_Run == this run goes to Own; other runs' members
-// go to Existing as fixed occupants. Overridden trees are counted too (the iterator requires BoundsMask.IsTree only, not
-// NotOverridden), separately in m_CenOverriddenInside / Band.
-//
-// Why Overridden trees are counted: trees are Overridable, not DeleteOverridden (every ObjectGeometryPrefab that is not a pillar,
-// utility or net object gets Overridable | Brushable, ObjectInitializeSystem.cs:578-605; only buildings get DeleteOverridden,
-// BuildingInitializeSystem.cs:859), so two overlapping trees, or a tree under a net / building, are resolved by OverrideSystem
-// hiding one (Overridden, :1777-1791), not deleting it; an Overridden object loses BoundsMask.NotOverridden in the static tree
-// (SearchSystem.cs:106, 138-140; OverrideSystem.cs:74-80, 132-140, 158-161). When a felled tree is Deleted (ApplyObjectsSystem.cs:
-// 484-504), UpdateCollectSystem enqueues its bounds (:66-76), SearchSystem removes it (:90-95) and OverrideSystem re-checks every
-// object in those bounds (FindUpdatedObjectsJob :180-219 ignores the mask) and removes Overridden from a tree that no longer
-// collides (:1777-1791), restoring NotOverridden. A census requiring NotOverridden then sees it as a new untagged wild tree and
-// a re-plan right after an apply reads "plant 5, fell 2". It is not canceled Temps coming back: a Temp with TempFlags.Cancel on
-// the Apply frame is never created (ApplyObjectsSystem.cs:337-340, 474-482; the flag is written only by ValidationSystem's
-// ProcessValidationResultsJob.Cancel, :1705-1712, how every error on an Optional Temp ends, :1667-1703), and every Temp the
-// create path does create is tagged by SkiGladeTagSystem the same ApplyTool phase (UpdateBefore ApplyObjectsSystem,
-// SystemOrder.cs:714). Visible consequences (accepted): "Trees now" includes hidden trees; a rank fell can take a hidden tree
-// (red ring, no visible change) or uncover one (already counted); trees hidden under a road crossing the run count as wild and
-// are felled at low levels. The tag system mirrors ApplyObjectsSystem's decision order (Cancel -> Delete -> original with
-// PrefabRef -> create); delete Temps carrying Cancel are not counted as felled because Cancel() keeps their original.
-//
-// Apply check: on the Apply frame the tool snapshots the census it planned from, the planted spots validation canceled and the
-// live fell / remove counts; the first re-plan after the apply re-takes the census of the applied run and writes one "Glade:
-// apply check" line (trees created vs tagged, own members, non-member trees, new untagged trees classified as "at a canceled
-// spot" / "near a felled tree" / "elsewhere", vanished trees, un-overridden trees). INFO when every count balances, WARN
-// "APPLY MISMATCH" otherwise. One extra census per apply.
-//
-// Load reset: OnGameLoadingComplete resets the per-load flags and calls ResetPreviewState, the skip sets, the plan cache
-// (entries and hit / miss counters), the census counters printed by DUMP / the dev tab, the legacy-warned set, the candidate
-// rings, the plan counts the tooltip shows and a pending apply check.
-//
-// Scope: Game mode only; inert (logged) when the run prefabs or the species pool are missing. Defensive contract: "created" line,
-// ARMED line per load listing every constant, one-shot "!!!" catch that disables the tool until the next load, never throws into
-// the engine, no per-frame managed allocation or string formatting.
+// `Game.X/File.cs:line` in tools/decompile/1.6.0f1; "1.6.2 :N" notes a line shift in 1.6.2f1.
+// Emit-and-hold: the preview is emitted once and held while applyMode == None; never hold with Clear (ValidationSystem.cs:645
+// strips Error/Warning when applyMode != None). Silence must be impossible: GladeHoverLog lines, one-shot "!!!" catch.
+// Engine notes: EngineNotes/SkiGladeToolSystem.md
 
 using System;
 using System.Collections.Generic;
@@ -301,7 +165,7 @@ namespace SkiResortMod.Systems
         /// and Misplaced (this run's trees outside their layer's region, removed first). Valid while PlanHasCounts. Plain fields.</summary>
         public int PlanShortfall, PlanMisplaced;
 
-        /// <summary>The last apply check line (header, Apply check), "-" until one ran</summary>
+        /// <summary>The last apply check line (engine notes, Apply check), "-" until one ran</summary>
         public string LastApplyCheck = "-";
 
         /// <summary>What the cursor resolved to this frame</summary>
@@ -483,7 +347,7 @@ namespace SkiResortMod.Systems
         private float m_CensusBandMargin;          // band margin of the last census (apply check reuses it)
         private bool m_CensusWithBand;
 
-        // Apply check (header). Snapshot taken on the Apply frame; consumed by the first Replan after it. Collections are reused
+        // Apply check (engine notes). Snapshot taken on the Apply frame; consumed by the first Replan after it. Collections are reused
         // (cleared, never re-allocated).
         private bool m_CheckPending;
         private Entity m_CheckRun;
@@ -564,7 +428,7 @@ namespace SkiResortMod.Systems
             public bool HasPoint;
         }
 
-        /// <summary>Two-slot status memo (header, Logging contract)</summary>
+        /// <summary>Two-slot status memo (engine notes, Logging contract)</summary>
         private struct StatusSlot
         {
             public bool Valid;
@@ -793,7 +657,7 @@ namespace SkiResortMod.Systems
             base.InitializeRaycast(); // first: clears flags + zeroes masks (ToolBaseSystem.cs:430-443)
             m_ToolRaycastSystem.typeMask = TypeMask.Terrain | TypeMask.Areas;
             m_ToolRaycastSystem.areaTypeMask = AreaTypeMask.Surfaces;
-            // Kept, inert for un-owned runs (header, Raycast): Game.Areas/RaycastJobs.cs:95 needs typeMask2 != None, set only by an Owner walk
+            // Kept, inert for un-owned runs (engine notes, Raycast): Game.Areas/RaycastJobs.cs:95 needs typeMask2 != None, set only by an Owner walk
             // (:84-88); it makes a run still carrying a legacy Owner(sign) resolve to the run. Never add StaticObjects.
             m_ToolRaycastSystem.raycastFlags |= RaycastFlags.SubElements;      // AreaToolSystem.cs:3051 (1.6.2 :3062)
         }
@@ -1269,7 +1133,7 @@ namespace SkiResortMod.Systems
             applyMode = ApplyMode.Clear;
             m_Deps = DestroyDefinitions(m_DefinitionQuery, m_Barrier, m_Deps);
             ClearPending();
-            // The first re-plan after an Apply (the applied trees are in the static tree by now, header Lifecycle), whatever run is hovered now
+            // The first re-plan after an Apply (the applied trees are in the static tree by now, engine notes Lifecycle), whatever run is hovered now
             if (m_CheckPending)
                 RunApplyCheck();
             m_PlannedRun = run;
@@ -1377,7 +1241,7 @@ namespace SkiResortMod.Systems
             m_SkipEvictions = 0;
         }
 
-        /// <summary>Per-load caches that must never leak into another city (header, Load reset)</summary>
+        /// <summary>Per-load caches that must never leak into another city (engine notes, Load reset)</summary>
         private void ResetLoadCaches()
         {
             FlushApplyCheck(canRun: false, "a game load came first (the applied run belongs to the previous city)");
@@ -1604,7 +1468,7 @@ namespace SkiResortMod.Systems
             if (h.Kind == GladeHoverKind.Switching || h.Kind == GladeHoverKind.None)
                 return;
 
-            // Via point (counted on the rising edge; logged once per run per activation). Only a ground-area winner is a tie (header,
+            // Via point (counted on the rising edge; logged once per run per activation). Only a ground-area winner is a tie (engine notes,
             // Hover resolver (d)).
             bool via = h.Kind == GladeHoverKind.Bound && h.ViaPoint;
             if (via)
@@ -1871,7 +1735,7 @@ namespace SkiResortMod.Systems
 
         /// <summary>Census band margin per target: the tree line reaches every belt member (BeltDepth + BeltMinSpacing, the Compose
         /// SameIn region); the interior every tree that can block a glade slot. These bands are also how far each target sees this run's
-        /// misplaced trees (SkiGladeCompose header): the interior removes its own strays up to 5.5 m outside, the tree line interior
+        /// misplaced trees (EngineNotes/SkiGladeCompose.md): the interior removes its own strays up to 5.5 m outside, the tree line interior
         /// strays up to 14.5 m outside; farther ones stay until the run is deleted (documented limit, not widened: unverified need).</summary>
         private static float BandMarginFor(bool treeLine)
         {
@@ -2073,7 +1937,7 @@ namespace SkiResortMod.Systems
             m_PreviewReady = false;
 
             // 8. State. A Complete plan that is also Saturated (plant branch, Shortfall > 0, the FULL stream out of attempts - SkiGladeCompose
-            // header FLAGS) is "no room, final", not "already at this tree density": under the count rule the run stays below T, and every
+            // engine notes FLAGS) is "no room, final", not "already at this tree density": under the count rule the run stays below T, and every
             // later re-plan reads the same.
             if (r.Complete)
                 m_PlanState = r.Saturated ? GladePlanState.Saturated : GladePlanState.Complete;
@@ -2204,7 +2068,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Density of the plan stream: SkiGladeCompose.StreamDensityPerM2 = 1.10 x the densest level's, so the stream does not
-        /// depend on L and a level-8 run replaces learned blocked spots from its tail. SkiGladeCompose sets it itself (its header PLAN
+        /// depend on L and a level-8 run replaces learned blocked spots from its tail. SkiGladeCompose sets it itself (its engine notes PLAN
         /// STREAM: Params.Mode, ThinFraction, GladeDensity and MaxPlant are not read) and derives T from ComposeInput.Level; the tool
         /// passes the same value only so the Params it hands over are self-consistent, and prints it in the ARMED line.</summary>
         private static float StreamDensity()
@@ -2309,7 +2173,7 @@ namespace SkiResortMod.Systems
         /// there go to Own (belt members, or glade members a run edit left outside). A member of this run that is burning or owned is a
         /// fixed occupant this time: its delete could block the whole Apply (ValidationSystem.cs:920-929). Overridden trees
         /// (Game.Common.Overridden, hidden by Game.Objects.OverrideSystem) are included exactly like visible ones and counted in
-        /// m_CenOverriddenInside / Band (header, Census).</summary>
+        /// m_CenOverriddenInside / Band (engine notes, Census).</summary>
         private void CensusTrees(Entity run, float3[] ring, int3[] triangles, bool withBand, float bandMargin)
         {
             m_CenWildInside = 0;
@@ -2518,15 +2382,11 @@ namespace SkiResortMod.Systems
         }
 
 
-        /// <summary>Planted tree. No owner (Owner(run) is reconciled by SubObjectSystem.RelocateSubObjects on any run Updated,
-        /// SubObjectSystem.cs:1360-1533). Optional -> TempFlags.Optional (GenerateObjectsSystem.cs:1090-1093): a collision becomes a
-        /// canceled Temp instead of an Apply-blocking Error (ValidationHelpers.cs:166-181, ValidationSystem.cs:1636, 1667-1712; vanilla
-        /// tree brush, ObjectToolBaseSystem.cs:1024, 1.6.2 :1027), and over-budget Optionals are canceled to fit
-        /// (ValidationSystem.cs:1434-1449). m_IsDecoration = true leaves the archetype's Decoration enabled
-        /// (GenerateObjectsSystem.cs:1311-1317, TreeObject.cs:25-29): the tree never ages (TreeGrowthSystem.cs:268-273) and counts no
-        /// wood. y is sampled here because the pipeline never terrain-snaps (GenerateObjectsSystem.cs:1253; vanilla
-        /// ObjectToolBaseSystem.SampleTransform :1040-1072, 1.6.2 :1043). The slot is recorded by xz key: the Temp's Transform is the
-        /// definition position verbatim (:1253; reuse path :1116), which is how a canceled Temp maps back to its slot (skip set).</summary>
+        /// <summary>Planted tree. No owner. Optional: a collision becomes a canceled Temp instead of an Apply-blocking Error
+        /// (ValidationSystem.cs:1667-1712). m_IsDecoration = true leaves the archetype's Decoration enabled
+        /// (GenerateObjectsSystem.cs:1311-1317): the tree never ages and counts no wood. y is sampled here because the pipeline never
+        /// terrain-snaps (GenerateObjectsSystem.cs:1253). The slot is recorded by xz key: the Temp's Transform is the definition
+        /// position verbatim, which is how a canceled Temp maps back to its slot (skip set).</summary>
         private bool EmitPlant(EntityCommandBuffer ecb, ref TerrainHeightData heightData, PlantedTree tree, int slot)
         {
             int species = tree.Species;
@@ -2745,7 +2605,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>The first Replan after an Apply (or OnStopRunning when none came): re-takes the applied run's census (same band as
-        /// the applied plan) and writes one "apply check" line (header, Apply check). INFO when it balances, WARN "APPLY MISMATCH"
+        /// the applied plan) and writes one "apply check" line (engine notes, Apply check). INFO when it balances, WARN "APPLY MISMATCH"
         /// otherwise. Apply time only (one census + set work); never per frame.</summary>
         private void RunApplyCheck()
         {
@@ -2883,7 +2743,7 @@ namespace SkiResortMod.Systems
             Mod.Log.Info($"Glade: apply check — run {EntityText(m_CheckRun)}: {LastApplyCheck}");
         }
 
-        /// <summary>The ready frame (header, Lifecycle): census, learning, hide, derived state</summary>
+        /// <summary>The ready frame (engine notes, Lifecycle): census, learning, hide, derived state</summary>
         private void OnPreviewReady()
         {
             RefreshPreviewCensus(force: true);
@@ -3473,7 +3333,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>The stop line: GladeHoverLog.Summary returns "tool stopped after ..."; the tool prefixes "Glade: " (SkiGladeHover.cs
-        /// header). Tolerant of either body shape.</summary>
+        /// engine notes). Tolerant of either body shape.</summary>
         private static string StopLine(string body)
         {
             if (string.IsNullOrEmpty(body))

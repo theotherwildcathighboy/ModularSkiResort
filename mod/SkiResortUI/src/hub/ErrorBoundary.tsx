@@ -1,15 +1,9 @@
 /*
- * Contains a render error inside our own components. The game renders appended components inside its ModdingHook
- * with no error boundary, and in React 18 a render error unmounts the root, which here is the whole game UI. So
- * every component handed to moduleRegistry.append is wrapped in one of these.
- *
- * - A child render error renders `fallback` (default: nothing) and reports once through reportUiError.
- * - Cannot catch errors in event handlers, async callbacks or the registrar.
- * - The fallback must be trivial markup (no cs2/ui component, no binding) so it cannot throw itself.
- *   Remount (change the key) to retry.
- * - onError runs once per caught error, after the report, in its own try/catch.
- * - tools/check-bundle.js's smoke test requires every appended component to return this class
- *   (it recognizes static getDerivedStateFromError / prototype.componentDidCatch).
+ * Contains a render error inside our own components. The game renders appended components inside its ModdingHook with no error
+ * boundary, and in React 18 a render error unmounts the root, which here is the whole game UI: every component handed to
+ * moduleRegistry.append is wrapped in one of these. Catches render errors only (not event handlers, async callbacks, the registrar).
+ * The fallback must be trivial markup (no cs2/ui component, no binding) so it cannot throw itself; remount (change the key) to retry.
+ * tools/check-bundle.js's smoke test requires every appended component to return this class (static getDerivedStateFromError).
  */
 import { Component } from "react";
 import type { ErrorInfo, ReactNode } from "react";

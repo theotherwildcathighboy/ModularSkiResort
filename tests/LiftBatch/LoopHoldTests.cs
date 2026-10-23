@@ -1,23 +1,9 @@
-// LoopHoldTests - the pure arithmetic of a chairlift loop that stops and resumes (LiftLoopHold.cs). Where-tags `loop-hold/...`.
-// The chair clock is ChairPinSystem's: s = (offset + speed x TimeS) % L (ChairPinSystem.cs:1072-1076, :1140-1143),
-// modeled here with the same double expressions.
-//   LH-1  Rebase, 10,000 seeded cases with frozen in [0, 2e5] s and 10,000 with frozen in [0, 7.16e7] s (the whole uint frame
-//         clock / 60); offset in [0, L), L in [50, 5,000] m, speed in {2.5, 5.0, 5.5, 10.0}, now in [frozen, frozen + 1e5]:
-//         the result is in [0, L) and the circular distance between (r + speed x now) % L and (offset + speed x frozen) % L
-//         is < 1e-6 m (MoveChair's idempotence test is 1 mm, ChairPinSystem.cs:1169-1171). One check per property per set;
-//         the worst error is printed as an INFO line.
-//   LH-2  Rebase(o, v, t, t, L) == o bit for bit for o in [0, L); FrozenPhase(v, t) == v * t bit for bit (PhaseOf's
-//         product) and the held pose (o + FrozenPhase) % L == the running pose at t; invalid inputs return the offset.
-//   LH-3  hold then resume on a simulated loop of 40 chairs on the grid (offset i x L / 40) for each lift speed: positions
-//         at the hold == positions at the resume (< 1e-6 m); spacing mod L unchanged (< 1e-9 m); one frame (1/60 s) after
-//         the resume every chair has advanced by speed / 60 (< 1e-6 m).
-//   LH-4  GateOf, 2 x 2 x 3 x 2 = 24 rows: Hold only for (row known, Complete, NoPower) and (row known, Complete, closed).
-//   LH-5  LiftClosedRule: closed = the ski area has no open run, with one game hour (HoldFrames 10,923 sim frames) of
-//         hysteresis: the first observation is taken at once; the state flips only after the observed state held HoldFrames
-//         (boundary exact, both ways, uint-wrap safe); a flicker never flips; an interrupted spell restarts the clock; at
-//         the 1,024-frame charge cadence the flip lands in [10,923, 11,947); Not linked is never closed; GateOf stops a
-//         Complete powered lift and resumes it (a season walk); not Complete / no row never holds; the tram shuttle's
-//         predicate Carries(true, power, closed) follows.
+// LoopHoldTests - the pure arithmetic of a chairlift loop that stops and resumes (LiftLoopHold.cs). Where-tags `loop-hold/...`, LH-1..LH-5.
+// The chair clock is ChairPinSystem's, s = (offset + speed x TimeS) % L (ChairPinSystem.cs:1072-1076, :1140-1143), modeled with the same
+// double expressions. Pinned: Rebase keeps the pose across a hold within 1e-6 m (MoveChair's idempotence test is 1 mm,
+// ChairPinSystem.cs:1169-1171) over the whole uint frame clock range; Rebase(o, v, t, t, L) == o and FrozenPhase(v, t) == v * t bit for
+// bit; a held and resumed 40-chair loop keeps positions and spacing; GateOf holds only a known, Complete row that is NoPower or closed;
+// LiftClosedRule = no open run, with one game hour (HoldFrames 10,923 sim frames) of hysteresis, uint-wrap safe, a flicker never flips.
 
 using System;
 using System.Collections.Generic;

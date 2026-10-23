@@ -1,38 +1,10 @@
 /*
  * src/hub/OverviewView.tsx - the Overview (Attraction tile): the score receipt and the mountain.
- *   - A sign, in this order: ATTRACTION header with the score alone (the cap 200 is in its tooltip, SCORE_BAR_TIP, also the
- *     bar's); the 0-200 score bar (fill = the score, ghost = up to the full-efficiency score, integer flex-grow parts:
- *     hubRules.scoreBarParts) with ticks at 10 (park), 50 and 120 and their labels; the receipt; then the MOUNTAIN section.
- *     Not linked: the MOUNTAIN section and the UNLINKED_NOTE (2 XS lines).
- *   - The receipt multiplies nothing: every number is a ResortLive field of C#'s model Result; -1 or a missing live row
- *     renders "–" (numArg).
- *   - Receipt layers: "Runs, lifts and school" is the section total and a fold (fit.tsx Fold, closed by default; one fold of
- *     the view is open at a time, so the view always fits the panel); its seven term rows show on a click (Runs + the open-share
- *     SubLine, Lifts, Ski school, Variety, Vertical, Square root, scale K). Each term row carries its operator in a fixed cell
- *     before the label ("+ Runs", "+ Lifts", "+ Ski school", "× Variety", "× Vertical", "× Scale, after the square root"; "√"
- *     is not on the Gameface font safe list), so the rows read as the equation the total's tooltip spells out. Variety and
- *     Vertical show the bare multiplier. The School row flags its 0 (hubRules.schoolState: "No ski school" / "No green run"
- *     with the Warning glyph). The parts line becomes RECEIPT_PARTS_SCHOOL while schoolValue > 0 (hubRules.receiptPartsVariant),
- *     its tooltip RECEIPT_TIP[School]. The equation "(runs + lifts [+ school]) × variety × vertical" (SkiResortScore.cs:468 S)
- *     and RECEIPT_ROOT "{K} × the square root of the line above = {TERRAIN}" (HubRules.Terrain = K × sqrt(S); TERRAIN =
- *     ResortLive.terrain, nothing computed here) are in the total's tooltip. ResortLive.luxuryIgnored is not read (always 0; the
- *     field stays on the wire so the contract does not change).
- *   - The lodge-base tooltip adds RECEIPT_TIP_LODGE_BEST (the best lodge's Assets.NAME from ResortLive.lodgeBest, the others'
- *     extras lodgeExtra).
- *   - MOUNTAIN: snow is two rows, Snow depth (cm) and Run coverage (%), "≈" while estimated. Under the receipt it is a fold too
- *     (its header row shows the vertical).
- *   - Held first write: while `attractionHeld` the game keeps the saved score, so the result row shows "…" (with TILE_TIP_HELD
- *     in its tooltip) and so does the header's number; the score bar shows an empty track and "…" as its tooltip's NOW, so no
- *     fill or digit claims the held Result.
- *   - Lodge-base label: "(no lodge)" when lodgesActive == 0 (`== 0`, like hubRules.resultVariant, so -1 = no result does not
- *     claim "no lodge"), "(half until a run counts)" in summer (no counted run), else plain.
- *   - No lodge: the result row reads "Attraction (no lodge: 0)" and a SubLine "With a lodge, the attraction would be {A}."
- *     follows, A = the ifFixed of the area's NoLodge problem row (all lodges switched off: the LodgesAllOff row with
- *     PROBLEM_GAIN[LodgesOn]); no such row with ifFixed >= 0 -> no SubLine.
- *   - Fixed heights only (InfoLine 1.3 em + 10 rem of S, SubLine of XS, bar 0.5 em, ticks 5 rem): a value change never changes
- *     layout.
- *   - Panel file (hub gate): subscribes resorts$, selectedResort$, resortLive$, runs$ (the unrateable count), problems$ (factor
- *     rows, gains), city$.
+ * The receipt multiplies nothing: every number is a ResortLive field of C#'s model Result; -1 or a missing live row renders "–" (numArg).
+ * The equation "(runs + lifts [+ school]) × variety × vertical" (SkiResortScore.cs:468 S) and HubRules.Terrain = K × sqrt(S) are spelled out
+ * in the total's tooltip; operators sit in fixed cells ("√" is not on the Gameface font safe list). While `attractionHeld` the game keeps the
+ * saved score, so the result row and the bar show "…". ResortLive.luxuryIgnored is not read (always 0; kept on the wire for the contract).
+ * Fixed heights only, so a value change never changes layout. Panel file: subscribes resorts$, selectedResort$, resortLive$, runs$, problems$, city$.
  */
 import { useValue } from "cs2/api";
 import { Unit } from "cs2/l10n";

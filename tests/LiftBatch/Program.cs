@@ -1,15 +1,11 @@
 // LiftBatch - headless tests for the pure lift files (LiftCensus, StationAlign, StationMoveEpisodes, LiftReconnectEpisodes,
 // LiftServedRule, the prefab catalog, the loop-cache topology, the loop hold, the power gate, the tower planner).
-// The World helper below is internal (with a BeforeBuild hook) so LiftTypeTests can stamp Edge / Station types onto the
-// census input before Build.
-// Run (from the ModularSkiResort root):
-//   dotnet run --project tests/LiftBatch/LiftBatch.csproj -c Release
+// Run (from the ModularSkiResort root): dotnet run --project tests/LiftBatch/LiftBatch.csproj -c Release
 // Prints `FAIL  where: msg` lines and one SUMMARY line; Environment.ExitCode = failures.
-//
-// Only the pure logic is proven here. The ECS harvest (which entities become Edge / Node / Station, the Deleted-tag
-// snapshot, the park events, the overlay) and the loop cache's Game-side geometry are not exercised. The synthetic world
-// models a drawn lift the way the census sees it: station connection nodes carry their station index, interior nodes
-// carry a tower.
+// Only the pure logic is proven: the ECS harvest (which entities become Edge / Node / Station, the Deleted-tag snapshot, park events,
+// the overlay) and the loop cache's Game-side geometry are not exercised. The synthetic World models a drawn lift the way the census
+// sees it (station connection nodes carry their station index, interior nodes a tower); it is internal with a BeforeBuild hook so
+// LiftTypeTests can stamp Edge / Station types onto the census input before Build.
 
 using System;
 using System.Collections.Generic;

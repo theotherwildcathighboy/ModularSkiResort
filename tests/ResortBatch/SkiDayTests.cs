@@ -1,21 +1,11 @@
-// Tests for the pure SkiDayRules, the PowerOf hysteresis and the SkiResortScore additions. `public static class SkiDayTests`
-// with `public static void Run(Func<bool, string, string, bool> check)` and its own Near; Program.Main calls
-// SkiDayTests.Run(Check). Oracles are literal hand values. Doubles +-1e-9 unless "exact", geometry in float +-0.01, times
-// now = 1,000,000. Property sections count their violations and report once per property (the first offender in the message),
-// so the check count stays small and fixed.
-// Sections, in run order, are lettered in the check messages ("skiday X ..."):
-//   A constants and enum literals, the trip-system bits   B CheckCitizen   C CheckLodge   D AreaStateOf, HourOf / InClaimWindow
-//   E ClassOf, reach, DistanceFactor, TravelHours   F TryClosingFrame, ClaimFits, ClaimDeadline   G Chance oracles, PriceFactor,
-//   OpenShare, SnowFactor   H Chance properties (seed 20261005, 20,000 random sets)   I Rolls: the four exact values, Mix64
-//   parity with RunSnowRules, and the statistics over 100,000 draws (hit rate within 4 sigma, chi-squared over 20 bins, joint
-//   rate of consecutive frames / days)   J back-off and LearnSpeed   K powder (SnowHourSampleDate = RunSnowRules.DayMeanC's dates,
-//   exact)   L capacity   M slices and ArmCheck   N DayKey (= SkiMoneyRules.MonthKey at 12 days over 100,000 random dates) and
-//   Advance(ref MonthFlags) = SkiResortLedger.Advance over 2,000 random key sequences x 50 steps   O slope-side geometry   P PowerOf
-//   Q score additions and the 5,000-area properties   S worked scenarios (FT8 hill, tiny hill, large resort)   T DistanceBand,
-//   LegOf / KindBitOf / MainMode and the 0..255 legs partition, TransportType literals, FitVerdict against ClaimFits (5,000
-//   rows), HourDate, Advance(ref f, key, closedShort)   U on-arrival bookkeeping   V measure-core   W learning (the "sends
-//   unchanged with the defaults" property over 2,000 sequences, the bound property over 5,000 rows)   X SkiTripSystems   Y
-//   per-tier capacity, price tolerance, school and patrol rules (old == new bit for bit with the neutral arguments).
+// Tests for the pure SkiDayRules, the PowerOf hysteresis and the SkiResortScore additions. `public static class SkiDayTests` with `Run(check)`
+// and its own Near; Program.Main calls SkiDayTests.Run(Check). Oracles are literal hand values. Doubles +-1e-9 unless "exact", geometry in
+// float +-0.01, times now = 1,000,000. Property sections count their violations and report once per property (the first offender in the
+// message), so the check count stays small and fixed. Sections are lettered in the check messages ("skiday X ..."): A-G constants, citizen
+// / lodge checks, area state, claim window, distance and travel, closing frame, chance oracles; H chance properties (seed 20261005, 20,000
+// random sets); I rolls (Mix64 parity with RunSnowRules, statistics over 100,000 draws); J-O back-off, learning, powder, capacity, slices,
+// DayKey / Advance against SkiMoneyRules.MonthKey / SkiResortLedger.Advance, slope-side geometry; P PowerOf; Q-Y score additions, worked
+// scenarios, legs partition, on-arrival bookkeeping, measure-core, learning bounds, SkiTripSystems, per-tier capacity and price tolerance.
 
 using System;
 using System.Collections.Generic;

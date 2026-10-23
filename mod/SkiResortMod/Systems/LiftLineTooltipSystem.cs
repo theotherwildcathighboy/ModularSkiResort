@@ -1,10 +1,8 @@
-// Mouse tooltip of the lift-line tool: the prompt for the current step, a refusal notice, the plan line (towers,
-// member mix, spans, clearance) and, over the line, the hovered tower or span. The overlay cannot draw text, so
-// span lengths live here.
-//   * Text is LocalizedString.Value(text), never IdWithFallback(fixedId, text): the frontend's translate cache is
-//     keyed by the id alone (Cities2_Data/Content/Game/UI/index.js `function dc()`), so a fixed id keeps the first
-//     text it was given. Value() has a null id and renders the text itself (index.js `xc`).
-//   * One INFO log line per prompt change, so a field log shows what the player was told.
+// Mouse tooltip of the lift-line tool: the prompt for the current step, a refusal notice, the plan line (towers, member mix,
+// spans, clearance) and, over the line, the hovered tower or span. The overlay cannot draw text, so span lengths live here.
+// Text is LocalizedString.Value(text), never IdWithFallback(fixedId, text): the frontend's translate cache is keyed by the id
+// alone (Cities2_Data/Content/Game/UI/index.js `function dc()`), so a fixed id keeps the first text it was given. Value() has
+// a null id and renders the text itself (index.js `xc`). One INFO log line per prompt change, so a field log shows the prompt.
 // Mod.cs: UpdateAt UITooltip (the TooltipSystemBase phase). Tooltips draw only while the mouse is not over the UI
 // (TooltipUISystem.OnUpdate: !mouseOverUI). One "!!!" ERROR disables it until the next load.
 

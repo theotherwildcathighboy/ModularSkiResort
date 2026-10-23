@@ -1,13 +1,10 @@
-// Pure arithmetic of the mountain jobs. The hut, summit lodge and both patrol buildings are roadless, so a Workplace on
-// them would set RequireRoad (BuildingInitializeSystem.cs:229-283). Their jobs (SkiCatalog LodgeDef / PatrolDef .SignJobs)
-// are carried by the Welcome Sign they link to (SchoolLinkRules, 5 km): WorkProvider.m_MaxWorkers is the sum of SignJobs
-// over every live linked building (cf. CityUtils.cs:41-78). Staff work at the sign and "ride up".
-//
+// Pure arithmetic of the mountain jobs. The hut, summit lodge and both patrol buildings are roadless, so a Workplace on them
+// would set RequireRoad (BuildingInitializeSystem.cs:229-283). Their jobs (SkiCatalog LodgeDef / PatrolDef .SignJobs) are carried
+// by the Welcome Sign they link to (SchoolLinkRules, 5 km): WorkProvider.m_MaxWorkers is the sum of SignJobs over every live linked
+// building (cf. CityUtils.cs:41-78). Staff work at the sign and "ride up".
 // Efficiency: WorkProviderSystem writes the staffing factors into the sign's Efficiency buffer (WorkProviderSystem.cs:252-281).
-// When the area's tier-weighted mean holds a mountain lodge, the staffing product moves from the sign term to each lodge
-// (MountainEfficiency) and the sign term excludes it (SignTerm), so a shortfall counts once. With no lodge in the mean
-// (patrol huts only, weight 0) it stays on the sign term.
-//
+// With a mountain lodge in the area's tier-weighted mean the staffing product moves to each lodge (MountainEfficiency) and the
+// sign term excludes it (SignTerm), so a shortfall counts once; with none (patrol huts only, weight 0) it stays on the sign term.
 // Pure file: System and System.Collections.Generic only (+ EntityRef). Linked into tests/BuildingBatch.
 
 using System;

@@ -1,44 +1,10 @@
 // The Cat Track Grading tool. Click points up the mountain; the tool solves a grade-limited track through them (CatTrackGrade.cs,
 // pure, tested in GradeBatch), previews it as an overlay, and on Enter writes the corridor into the game's BASE heightmap once
-// (HeightmapWriter): terrain the player keeps, stored in the save by the game itself. The cat-track run is then drawn over
-// graded ground unchanged (its rater reads the new heights). See docs/research/cattrack-grading-2026-10-20.md.
-//
-// Skeleton is LiftLineToolSystem's: a prefab-less ToolBaseSystem (base.OnCreate registers it, ToolBaseSystem.cs:292-316;
-// TrySetPrefab false, ToolSystem.cs:263-277); activation = ToolSystem.activeTool (ToolSystem.cs:84-98) from the hub tile, the
-// hotkey (CatTrackGradeHotkeySystem) or the dev tab; raycast = terrain only; the Cancel action (right click) is the only
-// secondary input (Secondary Apply off: both are the right mouse button by default); overlay through OverlayRenderSystem.Buffer
-// from ToolUpdate; refusals as a few-second notice in the tooltip; one "!!!" ERROR disables the tool until the next load.
-//
-// Input (GradeInput, pure): left click adds a point (within PickPathM of the track: inserts it between its two neighbors); press
-// on a point and drag = move it; right click steps back one action: cancel a drag, else undo the last add / insert / move, else
-// (no point left) undo the last grade made since the tool opened, else close the tool. The Build key (Enter, shared with the
-// lift tool: LiftLineHotkeySystem keeps it live while either tool is open) grades; Esc = the frontend's Back, which closes the
-// tool (points dropped, logged).
-//
-// Solve on change, not per frame: a point added / inserted / moved (on release) / undone or a grading setting changed marks the
-// plan dirty; the next frame re-solves once: path + profile, the preview raster on the CPU (cascade) heights, the guards'
-// obstacles in the rect (search-tree walk, lift-line edges, water depth on the changed texels). Per frame: the raycast, the
-// precomputed overlay lines (about one per 8 m of track plus ticks), the tooltip. Cost line logged per solve.
-//
-// Apply (Enter, one frame, main thread): refuse when infeasible (too steep for the limit; the shortfall says how much more track)
-// or a guard trips (GradeGuards, the reason in the tooltip). Else: read the BASE rect (exact heights, no net / lot overlay),
-// re-rasterize on it, re-check the guards, write (verified bit-exact by readback; a mismatch writes the pre-image back and
-// refuses), delete the trees standing on the flat top (plain Deleted on trees with no Owner, the SkiGladeCleanupSystem idiom),
-// push the pre-image for undo, tell the run catalog to re-rate (terrain epoch), log one line. Free, like the vanilla terrain tool.
-//
-// Undo: GradeUndo keeps the last 8 grades of the session (64 MB cap). Right click with no point undoes the last grade made since
-// the tool opened; the dev tab's "Undo last grade" reaches older ones. Undo writes the pre-image back only where the terrain
-// still holds what the grade wrote (a later terrain-tool stroke survives). Removed trees do not come back. Nothing survives a
-// save / load (after a reload the vanilla terrain tool is the only undo).
-//
-// Guards (never under lifts, lots or water): lots = every Building / Extension entity's lot (BuildingData.m_LotSize x 8 m,
-// BuildingUtils.CalculateCorners, BuildingUtils.cs:72-86) in the static object search tree over the rect; lift lines = every
-// lift-line net edge (SkiPrefabCatalogSystem.LiftLineTypes), straight a -> d, LiftClearanceM each side; water = surface depth
-// (WaterSystem.GetSurfaceData, WaterSystem.cs:754; WaterUtils.SampleDepth, WaterUtils.cs:80) above WetDepthM on any texel the
-// grade changes. Roads and other nets are not guarded: their own FlattenTerrain overlay wins over the base map there.
-//
-// Logs (silence impossible): ARMED / NOT ARMED per load; one line per activation, point edit, solve, apply, undo, refusal; the
-// heightmap writer logs each read / write; an exception disables the tool.
+// (HeightmapWriter): terrain the player keeps, stored in the save by the game itself.
+// Skeleton is LiftLineToolSystem's (a prefab-less ToolBaseSystem). Solve on change, not per frame; Apply runs in one main-thread frame.
+// Logs (silence impossible): ARMED / NOT ARMED per load; one line per activation, edit, solve, apply, undo, refusal; an exception
+// disables the tool.
+// Engine notes: EngineNotes/CatTrackGradeToolSystem.md
 
 using System;
 using System.Collections.Generic;

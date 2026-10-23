@@ -1,14 +1,11 @@
-// src/base.module.scss - styles of the always-mounted parts (error notice).
+// src/base.module.scss - styles of the always-mounted parts (error notice). Written for this repo (MIT).
 //
-// Written for this repo (MIT). Created 2026-10-01 (Round U1, implementer U1-A).
-// LOAD-BEARING: src/index.tsx imports this file so that SkiResortMod.css ALWAYS exists. The bundle
-// exports `hasCSS = true` and the game then waits for SkiResortMod.css with no error path and no
-// timeout (index.js@2306554): no .css = blank UI for every mod. Do not remove the import.
-//
-// Gameface 2.2.1 rules for every .scss in src/ (tools/check-bundle.js enforces the first four on
-// the compiled CSS; research 2.F.1): flex only (no display:grid), no :not(), no space-evenly,
-// no auto margins, and write LONGHAND properties whenever a value uses var() (shorthands with
-// var() are not supported). Class names become "sr-<name>_<hash>" (webpack.config.js).
+// LOAD-BEARING: src/index.tsx imports this file so that SkiResortMod.css ALWAYS exists. The bundle exports `hasCSS = true`
+// and the game then waits for SkiResortMod.css with no error path and no timeout (index.js@2306554): no .css = blank UI for
+// every mod. Do not remove the import.
+// Gameface 2.2.1 rules for every .scss in src/ (tools/check-bundle.js enforces them on the compiled CSS): flex only (no
+// display:grid), no :not(), no space-evenly, no auto margins; LONGHAND properties whenever a value uses var(). Class names
+// become "sr-<name>_<hash>" (webpack.config.js).
 
 .errorNotice {
   position: absolute;

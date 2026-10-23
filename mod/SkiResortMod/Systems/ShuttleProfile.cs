@@ -1,25 +1,11 @@
-// The pure, stateless motion of a jig-back tram: a stateless s(t) (trapezoid speed profile + dwell; cabin B at L − s_A).
-// Pure file: System and Unity.Mathematics only. Linked into tests/LiftBatch (ShuttleTests) and tests/ResortBatch
-// (HubRules' shuttle rows).
-//
-// THE PROFILE (double throughout). Cruise speed v, symmetric acceleration / deceleration a, path L (dock to dock), dwell
-// D at each terminal. Ramps together cover d_ad = v²/a:
-//   * L ≥ d_ad (trapezoid): trip T = L/v + v/a; s(t) = ½at² up to v/a, v²/(2a) + v(t − v/a) up to T − v/a, then
-//     L − ½a(T − t)².
-//   * L < d_ad (triangle): T = 2√(L/a), peak √(aL) < v; s(t) = ½at² up to T/2, then L − ½a(T − t)².
-//   Continuous in s and speed, monotone. The tram (v 10, a 0.8, D 60; SkiCatalog's tram row): 1 km → trip 112.5 s,
-//   cycle 345 s; 100 m → triangle, 22.36 s; the boundary is 125 m.
-// THE CYCLE. P = 2(T + D); τ = t − P·⌊t / P⌋ (clamped to [0, P)). Cabin A: τ < D → u 0 (DwellBase); τ < D + T →
-// u = s(τ − D)/L (Up); τ < 2D + T → 1 (DwellTop); else 1 − s(τ − 2D − T)/L (Down). Cabin B is 1 − u (both dock at the
-// same instant: one haul rope). HOLD (no power): u = τ < D + T ? 0 : 1, the terminal of cabin A's latest dwell.
+// The pure, stateless motion of a jig-back tram: a stateless s(t) (trapezoid speed profile + dwell; cabin B at L − s_A), double
+// throughout. Pure file: System and Unity.Mathematics only. Linked into tests/LiftBatch (ShuttleTests) and tests/ResortBatch
+// (HubRules' shuttle rows). Cabin B is 1 − u (both dock at the same instant: one haul rope).
 // Invalid input (L, v, a ≤ 0 or not finite, D < 0 or not finite, t not finite) → u 0, DwellBase.
-// THE CLOCK. TimeSOf is ChairPin's clock bit for bit (ChairPinSystem.cs:1132-1135: (frameIndex + frameTime) / 60 in
-// double, RenderingSystem's frame counter): frozen on pause, smooth at any speed, resnapped to the saved frame on load.
-// 60 frames = 1 s of movement at 1×; one game day = 262,144 frames = 4,369 s (movement runs about 20× slower than the
-// clock), so a 1 km tram does about 12.7 round trips a game day.
-// LENGTH QUANTUM: τ depends on P, so a rebuild that moves L by δ shifts a cabin by about
-// (t / P) · 2δ / v — at t 1e6 s, 1 mm moves it ≈ 5.8 m. QuantizeLengthM rounds a path length to 1 cm before it reaches the
-// profile, so float-noise rebuilds (identical topology, last-bit differences) give the same P.
+// TimeSOf is ChairPin's clock bit for bit (ChairPinSystem.cs:1132-1135): frozen on pause, smooth at any speed, resnapped to the
+// saved frame on load. QuantizeLengthM rounds a path length to 1 cm before it reaches the profile, so float-noise rebuilds
+// (identical topology, last-bit differences) give the same cycle period P.
+// Engine notes: EngineNotes/ShuttleProfile.md
 
 using System;
 using Unity.Mathematics;

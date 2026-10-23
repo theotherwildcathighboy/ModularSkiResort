@@ -1,35 +1,11 @@
 /*
-* src/hub/HistoryView.tsx - the History view: guests and money month by month, by ski season for long ranges.
-*
-* Contract:
-*   - Top level (PIPELINE section 0: the chart and the number that matters): two control rows, then per chart one headline row
-*     - the last whole month's guests (Guests) or net (Finances) with its change on the same month a year earlier ("–" without
-*     one), shown as "vs <short month> <year>" (HISTORY_VS), and as "Guests, January" / "Net, January" (HISTORY_HEAD) so label,
-*     value, change and "vs Jan 2026" fit one 365 rem row - then the chart, its axis and its legend. One layer down
-*     (tooltips): the headline's year-earlier figure, each control's meaning, and the hovered month's (or season's) numbers.
-*   - Controls (local values in hubState.ts, nothing sent): scope This ski area / Whole city (historyScope$; the city is the sum
-*     of the areas `history` carries, the live ones: a deleted area's history went with it, HISTORY_TIP[Scope]); charts Guests /
-*     Finances / Both (historyCharts$, default Both); range 12 months / This season vs last / By season (historyRange$, default
-*     12 months; an option without enough months is disabled, historyRules.rangeEnabled, and the drawn range falls back to 12
-*     months); the Attraction strip (historyAttraction$, off by default). Snow is not drawn: the store has run coverage but no
-*     depth, and the hub never shows snow as one number (PIPELINE section 0).
-*   - Guests chart: tourists + residents stacked, ski days as a line on the same scale. Buckets from historyRules.windowOf. The
-*     month in progress is the last bar, faded with a dashed outline; partial months faded.
-*   - Finances chart: income as one blue series above zero, costs as one red series below, the net as a line; the hover tooltip
-*     keeps every line (Income, its four parts, Costs, its three parts, Net). Legend: Income, Costs, Net.
-*   - Lines end at the last whole month (historyRules.linePoints); gap months hatched; the scale in a left gutter with "0" on the
-*     zero line (HistoryChart).
-*   - Ranges: 12 months; This season vs last (this season's 12 months July-June in color, last season's same months gray behind
-*     them, compareOf; the hover tip adds last season's figure); By season (one bar per season = the average month over its whole
-*     months; tip: "{N} of 12 months · the average month" and the Season total).
-*   - Whole city has no Attraction checkbox and no strip (each ski area has its own score; HISTORY_TIP[Scope] says so). In area
-*     scope the checkbox sits under the charts as the strip's header (beside the three ranges it wrapped to a third control row).
-*   - Hover: one index shared by every chart of the view (the bars line up); each chart's tooltip lists its own series for it.
-*   - Not linked selected with scope "area": HISTORY[Unlinked] (the Not linked row has no sign, so no history); no data:
-*     HISTORY[Empty].
-*   - Panel file (gate R11): subscribes history$ (only this view, so C# builds `history` only while it is shown), resorts$,
-*     selectedResort$; local historyScope$, historyRange$, historyCharts$, historyAttraction$.
-*/
+ * src/hub/HistoryView.tsx - the History view: guests and money month by month, by ski season for long ranges.
+ * Top level shows the chart and the number that matters (headline = last whole month against the same month a year earlier); tooltips
+ * hold the detail. Controls are local values (hubState.ts, nothing sent): scope area / whole city, charts, range, Attraction strip.
+ * Snow is not drawn: the store has run coverage but no depth, and the hub never shows snow as one number. Hover: one index shared by
+ * every chart of the view. Panel file (gate R11): subscribes history$ (only this view, so C# builds `history` only while it is shown),
+ * resorts$, selectedResort$.
+ */
 import { useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { useValue } from "cs2/api";

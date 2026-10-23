@@ -1,31 +1,11 @@
-// GladeBatch — headless invariant tests for SkiGladePlanner, SkiGladeCompose and SkiGladeHover (glade-tool-spec.md §3,
-// run-binding-glade-spec.md §4.11, §8.5).
-// Run (from the ModularSkiResort root):
-//   dotnet run --project tests\GladeBatch\GladeBatch.csproj -c Release -- 200
-// Argument = number of seeds (default 200). Prints `FAIL  fixture.params/seed: msg` lines,
-// report-only TIME/WARN/INFO lines and one SUMMARY line; Environment.ExitCode = failures.
-//
-// Every geometric oracle here is test-local and deliberately a DIFFERENT algorithm from the
-// planner's: winding-number point-in-polygon (planner: crossing number), plain shoelace
-// without origin shift, own segment distance, own FNV for Seed32. The planner is
-// linked as source (net8 here, net48 in the mod); within-runtime replay is what is proven —
-// CoreCLR vs the game's Mono bit equality is unverified, so no golden hashes are asserted.
-//
-// Statistical bounds (thin count, histograms) are asserted on AGGREGATES across seeds at the
-// spec's bound (3σ + 1 for the thin count) and per seed only at a loose 5σ + 1 gross bound:
-// a per-seed 3σ check over thousands of independent cases would fail ~0.27 % of them by
-// pure chance.
-//
-// Other files: ComposeTests.cs = unit tests of Compose / PlanKey / the cache / the planner's prefix
-// property + TIME, the level tables and ThinHash; ApplySim.cs = the apply-sequence harness (a test-local world, an oracle
-// census, a blocked-strip stand-in validator): every level from bare / forested / planted starts, random level walks,
-// interior and tree line interleaved, caps on the 800k fixture, the two field-sized fixtures, judged by an independent
-// recount after every compose and apply; HoverLogTests.cs = GladeHoverLog. LevelFixtureTests (below) runs every level on
-// every static fixture geometry.
-//
-// Also covered: misplaced members (ApplySim editor, ComposeTests MisplacedUnitTests), level 1 on off-stream members after
-// every perturbation, every compose repeated into one reused ComposeResult, the 157.3 / ha stream (1.10 × level 8) in
-// every stream oracle.
+// GladeBatch - headless invariant tests for SkiGladePlanner, SkiGladeCompose and SkiGladeHover.
+// Run (from the ModularSkiResort root): dotnet run --project tests\GladeBatch\GladeBatch.csproj -c Release -- 200
+// Argument = number of seeds (default 200). Prints `FAIL  fixture.params/seed: msg`, report-only TIME/WARN/INFO lines and one SUMMARY.
+// Oracles are test-local and a DIFFERENT algorithm from the planner's (winding-number point-in-polygon vs crossing number, plain
+// shoelace, own segment distance, own FNV for Seed32). The planner is linked as source (net8 here, net48 in the mod): only within-runtime
+// replay is proven; CoreCLR vs the game's Mono bit equality is unverified, so no golden hashes are asserted.
+// Statistical bounds (thin count, histograms) hold on aggregates across seeds at 3 sigma + 1; per seed only a loose 5 sigma + 1,
+// since a per-seed 3 sigma check over thousands of independent cases would fail ~0.27 % of them by chance.
 
 using System;
 using System.Collections.Generic;
@@ -1217,16 +1197,12 @@ namespace GladeBatch
 
         // ================================================================== tool composition (Compose)
 
-        /// <summary>Every level on every
-        /// static fixture geometry (CW, duplicated closing vertex, supplied triangles, exclusion
-        /// rings, non-convex U / zigzag, the 7 km offset, the 8 m strip, a 3 × 3 m square), from
-        /// the fixture's stand (85 % thinnable) with no members, both targets. Judged against
-        /// test-local oracles: T from the spec table and the oracle area / perimeter; W / X by
-        /// the winding test; too many → Fell is exactly the top W − max(0, T − X) by the
-        /// documented rank; too few → Plant is the first T − N slots of P and P obeys every
-        /// planner invariant against the WHOLE stand (nothing assumed felled, CheckPlan); then the
-        /// chain: the plants as members → the same level is Complete, one level down removes
-        /// the highest slots first.</summary>
+        /// <summary>Every level on every static fixture geometry (CW, duplicated closing vertex, supplied triangles, exclusion
+        /// rings, non-convex U / zigzag, the 7 km offset, the 8 m strip, a 3 x 3 m square), from the fixture's stand (85 %
+        /// thinnable) with no members, both targets. Judged against test-local oracles: too many: Fell is exactly the top
+        /// W - max(0, T - X) by the documented rank; too few: Plant is the first T - N slots of P and P obeys every planner
+        /// invariant against the WHOLE stand (nothing assumed felled, CheckPlan); then the chain: the plants as members make
+        /// the same level Complete, and one level down removes the highest slots first.</summary>
         private static void LevelFixtureTests(List<Fixture> fixtures, int seeds)
         {
             int cases = 0, fellCases = 0, plantCases = 0, chainCases = 0;

@@ -3,11 +3,8 @@
 // in the score, not in SkiDayRules. A patrolled run:
 //   * rated Black or Double Black: type factor × ExpertFactor (1.15);
 //   * not lift-served: served factor max(backcountry, BackcountryServedMin); a served run stays 1.
-// Capacity follows via the served factor SkiResortScore.RunSkiersPerDay already multiplies. Never gates night runs
-// or powder.
-//
-// Pure file (System, Collections.Generic, Unity.Mathematics, SkiCatalog consts, SkiResortScore.BandState); linked
-// into tests/ResortBatch. Main thread (List). The consts alias SkiCatalog.Patrol (CatalogGuardTests CG-1 reads
+// Capacity follows via the served factor SkiResortScore.RunSkiersPerDay already multiplies. Never gates night runs or powder.
+// Pure file, linked into tests/ResortBatch; main thread (List). The consts alias SkiCatalog.Patrol (CatalogGuardTests reads
 // RadiusM, ExpertFactor and BackcountryServedMin by name).
 
 using System;

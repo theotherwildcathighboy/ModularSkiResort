@@ -1,30 +1,11 @@
-// THE one place the mod writes the game's base terrain heightmap. Used by CatTrackGradeToolSystem (apply / undo) and its
-// dev-tab probe. Not a system: a helper the tool owns, main thread only.
-//
-// WHY THE BASE MAP (1.6.0f1): TerrainSystem keeps two height layers. The base heightmap m_Heightmap (R16_UNorm RenderTexture,
-// SetHeightmap TerrainSystem.cs:3231-3250) is the only layer the save stores (SerializeHeightmap :3030-3056). The cascade the
-// game renders and reads back to the CPU is re-blitted from it with the net / lot / area overlays drawn on top (RenderCascade
-// :4833-4925), so a cascade edit never lasts. The vanilla terrain brush writes the base map: ApplyBrush (:3942-3954) ->
-// ApplyToTerrain (:3715-3935, compute shader into m_Heightmap) -> UpdateMinMax -> TriggerAsyncChange.
-//
-// THE WRITE (vanilla's own public calls, no reflection):
-//   1. Read : AsyncGPUReadback.Request(heightmap, mip 0, x, w, y, h, 0, 1).WaitForCompletion(), the sub-rect form of the
-//              save's readback (:3043).
-//   2. Write: a temporary Texture2D R16_UNorm of the rect, SetPixelData + Apply, then Graphics.CopyTexture(src, 0, 0, 0, 0,
-//              w, h, heightmap, 0, 0, x, y): the sub-rect form of the copy SetHeightmap makes (:3250). Same format both sides
-//              (the D3D11 CopyTexture rule). Whether the sub-rect copy lands was unverified, so every write is verified by
-//              reading the rect back and comparing every texel (a mismatch is an ERROR and the caller restores the pre-image).
-//   3. Tail : WaterSystem.TerrainWillChangeFromBrush(area) (WaterSystem.cs:873-889: pauses the water sim for 15 frames),
-//              TerrainSystem.OnAreaChanged(area) (:5096-5108: the cascade re-renders the area, GroundHeightSystem re-snaps
-//              trees / props), UpdateMinMax(default(Brush), area) (:3956), TriggerAsyncChange() (:3622: the CPU height
-//              readback refreshes). ApplyToTerrain's m_TerrainChange / m_TerrainChangeArea are private and only read by
-//              GetTerrainBrushUpdate (:2642), which nothing in Game.dll calls: not needed.
-//   FORMAT GATE (once per load, logged): the heightmap must be a created RenderTexture, R16_UNorm, at least 1024 texels a
-//   side, with a positive playable area and height scale; anything else refuses every write (texture formats have changed
-//   without patch notes before). The mapping uses playableArea / playableOffset / heightScaleOffset, never the 14,336 m
-//   defaults (custom maps).
-//
+// THE one place the mod writes the game's base terrain heightmap (CatTrackGradeToolSystem apply / undo and its dev-tab probe).
+// Not a system: a helper the tool owns, main thread only. Writes the base map, not the render cascade (the cascade is re-blitted from it).
+// Every write is verified by reading the rect back and comparing every texel (a mismatch is an ERROR; the caller restores the pre-image).
+// FORMAT GATE (once per load, logged): the heightmap must be a created R16_UNorm RenderTexture, at least 1024 texels a side, with a
+// positive playable area and height scale; anything else refuses every write. The mapping uses playableArea / playableOffset /
+// heightScaleOffset, never the 14,336 m defaults (custom maps).
 // LOGS: every read and write is one line (rect, texels, ms, verify result); the gate one line per load; failures WARN / ERROR.
+// Engine notes: EngineNotes/HeightmapWriter.md
 
 using System;
 using System.Globalization;
@@ -53,7 +34,7 @@ namespace SkiResortMod.Systems
 
         public string LastLine { get; private set; } = "-";
 
-        /// <summary>The live base-map mapping, or false with the reason (header FORMAT GATE). Logs the gate once per distinct result.</summary>
+        /// <summary>The live base-map mapping, or false with the reason (engine notes FORMAT GATE). Logs the gate once per distinct result.</summary>
         public bool TryMap(out GradeMap map, out string why)
         {
             map = default;
@@ -107,7 +88,7 @@ namespace SkiResortMod.Systems
             return new Bounds2(min, max);
         }
 
-        /// <summary>Synchronous readback of a base-map rect (header THE WRITE 1); null on a readback error (logged).</summary>
+        /// <summary>Synchronous readback of a base-map rect (engine notes THE WRITE 1); null on a readback error (logged).</summary>
         public ushort[] Read(int4 rect, string why)
         {
             var sw = System.Diagnostics.Stopwatch.StartNew();
@@ -132,7 +113,7 @@ namespace SkiResortMod.Systems
             return result;
         }
 
-        /// <summary>Write a rect into the base map, verify it by readback and run the vanilla notification tail (header THE WRITE 2-3).
+        /// <summary>Write a rect into the base map, verify it by readback and run the vanilla notification tail (engine notes THE WRITE 2-3).
         /// <paramref name="mismatches"/> = texels the readback did not find as written (0 = the write landed); -1 when the verify
         /// readback itself failed. Returns false when nothing was attempted (gate) or the verify found mismatches.</summary>
         public bool Write(GradeMap map, int4 rect, ushort[] data, string why, out int mismatches)

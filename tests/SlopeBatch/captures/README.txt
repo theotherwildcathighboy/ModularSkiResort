@@ -59,7 +59,7 @@ Notes
 - The "rated" line records what the game said at capture time; it is printed for comparison,
   never asserted (CoreCLR vs the game's Mono bit equality is unverified, and the classifier may
   have changed since).
-- R3 (docs/research/run-binding-glade-spec.md §5.1, run length): the INFO line also prints the
+- Run length: the INFO line also prints the
   run's horizontal Length with its two parts (rect = equivalent rectangle, axis = fall-line
   extent). The eight 2026-10-01 captures are REGRESSION fixtures of that Length (±0.1 %) and their
   LengthRect is cross-checked against the spec's skeptic values (±1 m) — the table is

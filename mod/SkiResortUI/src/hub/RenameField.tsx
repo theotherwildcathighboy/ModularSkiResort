@@ -1,20 +1,10 @@
 /*
- * The hub's one text input: renaming a resort, a run or a lift. The only file allowed an <input>
- * (tools/check-bundle.js rule 6 also requires `stopPropagation` here and a useLayoutEffect cleanup that calls `.blur()`).
- *
- *   - Every keydown and mousedown stops propagating: the title bar is a drag handle whose cloned onMouseDown
- *     starts a drag (DragHandle, index.js@719900), and keys must not reach the panel's other handlers.
- *   - Enter commits then blurs; Esc cancels then blurs; blur commits. Enter commits itself rather than via onBlur
- *     because a scripted blur() raising a blur event in Gameface is not relied on.
- *   - Commit is the trimmed text cut to MAX_NAME, sent only when it differs from the name at open (as vanilla
- *     useInputName, index.js@2099223). "" is sent as "" (C# restores the default name). C# trims and cuts again,
- *     refuses entities that are not ours, and logs every rename.
- *   - Unmount while focused commits (as vanilla does on blur) and blurs in the layout-effect cleanup, so the game's
- *     input-field focus flag cannot stay set: Game.SceneFlow/UserInterface.cs:170 sets InputManager.hasInputFieldFocus,
- *     which masks the keyboard off for gameplay (Game.Input/InputManager.cs:644-652, 1.6.0f1). At most one commit
- *     per mount (doneRef).
- *   - Assumed, not verified: Gameface raises TextInputTypeChanged for a mod's <input>.
- *   - InputActionBarrier is not used: vanilla's is gamepad-only.
+ * The hub's one text input: renaming a resort, a run or a lift. The only file allowed an <input> (tools/check-bundle.js rule 6
+ * also requires `stopPropagation` here and a useLayoutEffect cleanup that calls `.blur()`). Keydown / mousedown stop propagating (the title
+ * bar's cloned onMouseDown starts a drag, index.js@719900). Enter commits itself, not via blur: a scripted blur() event in Gameface is not
+ * relied on. Commit = trimmed text cut to MAX_NAME, sent only if changed (as vanilla useInputName, index.js@2099223). Unmount while focused
+ * commits and blurs in the cleanup: UserInterface.cs:170 sets InputManager.hasInputFieldFocus, which masks the keyboard for gameplay
+ * (Game.Input/InputManager.cs:644-652, 1.6.0f1). Assumed, not verified: Gameface raises TextInputTypeChanged for a mod's <input>.
  */
 import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import type { ChangeEvent, KeyboardEvent, MouseEvent } from "react";

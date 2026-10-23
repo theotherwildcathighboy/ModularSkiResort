@@ -1,36 +1,10 @@
 /*
  * The Money ("Finances") view: what the resort earns and costs this month, and the one net.
- *
- * Contract:
- *   - Every number is C#'s (hubRules.netRows, HubRules.NetMonth); the UI adds nothing up. The money column is "Month of
- *     <name> so far" ("(partial)" while thisMonthSinceLoad) and holds ONLY the Net's eight rows, which add up to netMonth:
- *     income Lift tickets (ticketsThisMonth), Lodge spend (lodgeIncomeMonth), Lessons (lessonIncomeMonth), Season passes
- *     sold (passIncomeMonth, its pre-season part in the tooltip); RUNNING COSTS Lifts (liftChargedMonth; today's rate in
- *     the tooltip), Runs (runCostMonth; the per-kind rates in the tooltip), Building upkeep (buildingsSoFar) and Staff
- *     wages (wagesSoFar), each "rate per month at today's budget; N % of the month so far"; then the Net ("≈" only while
- *     netEstimated). An income row is hidden only while it holds no money (hubRules.netRowShown), so the drawn rows still
- *     add up.
- *   - Under the tickets row, one dim SubLine MONEY_PRICE_LINE "Lift ticket {PRICE} · ski days {PCT}" (PRICE =
- *     hubRules.hubPrice(city), "–" while the city is not known; PCT = priceFactorPct(price, ResortLive.priceTolerance),
- *     mirroring C# SkiDayRules.PriceFactor: the counted lodges keep ski days full up to 40 + tolerance). Read-only; its
- *     tooltip MONEY_PRICE_TIP[...] says where to change the price in Options, the curve at PRICE_EXAMPLES and who reacts
- *     (plus [Tolerance] while priceTolerance > 0).
- *   - Under the Net an "Also, not in the net" block: last month's tickets (when a whole month was counted), the season's
- *     pass sales + the pre-season part + pass holders skiing, and the city-income estimate (marked "≈"; under Tourism
- *     Overhaul replaced by the SubLine EST_TO_NOTE / EST_TO_TIP, the tourist estimate's pattern in GuestsView).
- *   - RUNNING COSTS and ALSO are folds (fit.tsx Fold, closed by default, one open at a time) so the view never needs a
- *     scrollbar; the income rows and the Net stay on top.
- *   - While Realistic Workplaces is detected, one dim SubLine MONEY_NOTE[Rwh] sits under the buildings-and-wages row
- *     (tooltip MONEY_TIP[Rwh]).
- *   - Not linked: Lifts, Runs while it holds money, the Net.
- *   - Every value cell is a StableWidth with the shared signed-money samples (aligned columns, no jitter); every row that
- *     can be estimated renders a MarkSlot (fixed width, empty keeps it). Costs arrive positive and are shown negated; a
- *     negative (unknown) cost shows "–", never "+".
- *   - Rates in the tooltips come from the CORE `build` items (runs: monthlyPerHa; lift: monthly, monthlyPerKm), "–" when
- *     the DLL sends none.
- *   - Width: the widest price line "Lift ticket ¢200 · ski days 20 %" is about 16 em XS by the 0.5 em estimate (GuestsView.tsx
- *     header), about 192 / 316 / 398 rem against the SubLine room of 390 / 568 / 687; the SubLine's ellipsis is the net.
- *   - Panel file (check-bundle rule R11): subscribes resorts$, selectedResort$, resortLive$, city$, build$, runs$.
+ * Every number is C#'s (hubRules.netRows, HubRules.NetMonth); the UI adds nothing up. The money column holds ONLY the Net's eight rows
+ * (four incomes, four running costs), which add up to netMonth; an income row is hidden only while it holds no money (hubRules.netRowShown).
+ * Costs arrive positive and are shown negated; a negative (unknown) cost shows "–", never "+". MONEY_PRICE_LINE shows the ticket price and
+ * the ski-day share (priceFactorPct mirrors C# SkiDayRules.PriceFactor). RUNNING COSTS and ALSO are Folds, one open at a time.
+ * Panel file (rule R11): subscribes resorts$, selectedResort$, resortLive$, city$, build$, runs$.
  */
 import { useValue } from "cs2/api";
 import { Unit } from "cs2/l10n";

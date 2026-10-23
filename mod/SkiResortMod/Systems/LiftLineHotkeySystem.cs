@@ -1,17 +1,11 @@
 // LiftLineHotkeySystem - the lift-line tool's two keys:
 //   ToggleLiftLineTool (default Ctrl+Shift+L) -> LiftLineToolSystem.TryActivate("hotkey") / Deactivate, in a loaded city;
-//   BuildLiftLine (default Enter) -> LiftLineToolSystem.RequestBuild(), live only while the tool is active, so Enter is
-//   never taken from the game otherwise.
-// This system is the one writer of shouldBeEnabled for the Build key (live while the lift tool or the grading tool is
-// open; two writers would fight every frame). CatTrackGradeHotkeySystem reads the press for its tool.
-// Action plumbing is as in the SkiGladeHotkeySystem header (an inactive tool never ticks, ToolSystem.cs:312-327; mod
-// actions exist after Mod.OnLoad's RegisterKeyBindings, ModSetting.cs:141-231, and start disabled, ProxyAction.cs:322-349;
-// a key lost to a vanilla action is disabled by the conflict pass, InputConflictResolution.cs:138-198).
-// UIUpdate (SystemOrder.cs:67): every frame, paused or not. The build request lands on the tool's next frame.
-// The hotkey opens the tool with no lift type (the first station or loose end sets it); the hub's line tiles open it
-// with their type (SkiResortHubUISystem.ApplyLaunch).
-// Logs: one ARMED / INERT line per load with the bindings; one line when an armed action is not live 120 frames after
-// the load (probable key conflict); the tool logs every press it acts on.
+//   BuildLiftLine (default Enter) -> LiftLineToolSystem.RequestBuild(), live only while the tool is active.
+// This system is the one writer of shouldBeEnabled for the Build key (live while the lift tool or the grading tool is open;
+// two writers would fight every frame). CatTrackGradeHotkeySystem reads the press for its tool.
+// The hotkey opens the tool with no lift type (the first station or loose end sets it); the hub's line tiles open it with
+// their type (SkiResortHubUISystem.ApplyLaunch).
+// Engine notes: EngineNotes/LiftLineHotkeySystem.md
 
 using System;
 using Colossal.Serialization.Entities;

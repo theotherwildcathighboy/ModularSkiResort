@@ -1,17 +1,9 @@
-// Tests for LiftServedRule.Carries (the run predicate) and LiftServedRule.GuardPower (the flicker guard), alone and composed
-// with the power rule PowerOf (4 arguments). Where-tags `power-gate/...`.
-//   PG-1  Carries over all 12 rows (complete x Unknown / Powered / NoPower x closed): oracle complete && p != NoPower &&
-//         !closed; equal to the bool overload with shownPowered = p != NoPower, and to Lift.Serves for a lift with a chord and
-//         a finite TopY.
-//   PG-2  GuardPower, frame-stepped through Reader (a model of LiftCensusSystem.ReadLiftPower: PowerOf with the last effective
-//         value, then GuardPower; the first read of a station has no history and is not guarded); reads every 64 frames unless
-//         said. Cases: steady power, a cut and the inclusive 512-frame boundary, a brownout (raw NoPower 128 / Powered 256,
-//         20 cycles) read at several phases, streak start, uint wrap, raw Unknown, lastEffective Powered or Unknown, one
-//         128-frame NoPower window (the identity holds per consumer-state path, not per lift), the first read of a load
-//         (fail open).
-//   PG-3  composition with the power rule's three-quarter and half rule (wanted 1,500).
-//   PG-4  ExpireStreak: no streak stays none; a gap <= PowerStreakStaleFrames (1,024) keeps the streak, 1,025 drops it;
-//         wrap-safe; the constants 512 / uint.MaxValue / 1,024.
+// Tests for LiftServedRule.Carries (the run predicate) and LiftServedRule.GuardPower (the flicker guard), alone and composed with the
+// power rule PowerOf (4 arguments). Where-tags `power-gate/...`, PG-1..PG-4.
+// Pinned: Carries = complete && power != NoPower && !closed over all 12 rows; GuardPower, frame-stepped through a model of
+// LiftCensusSystem.ReadLiftPower, holds the last effective value over a short NoPower streak (inclusive 512-frame boundary), rides out
+// a brownout, is uint-wrap safe and fails open on the first read of a load; ExpireStreak drops a streak after a gap of more than
+// PowerStreakStaleFrames (1,024).
 
 using System;
 using System.Collections.Generic;

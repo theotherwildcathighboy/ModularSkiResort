@@ -1,24 +1,10 @@
 /*
  * Display helpers for the `build` binding and the run kinds.
- *
- * BUILD_ITEMS mirrors the one C# table (mod/SkiResortMod/Systems/SkiCatalog.cs, the BUILD-ITEMS block) row by row:
- * id, kind (the C# BuildItemKind name in lower camel case), liftType (LiftTypeDef.Id or "") and runKind (RunKind or -1).
- * Gate rule R16 fails any difference, a missing icon, and a group that does not hold every id once; keep BUILD_ITEMS,
- * BUILD_GROUPS and BUILD_ITEM_ICON literal arrays / objects of literals.
- *   - C# owns what each build id launches and which ids it sends (a pending prefab that is not imported and every item
- *     of a Shuttle lift type are not sent); this file only maps an id to its icon, group, place in the strip and badge.
- *   - An id this bundle does not know is ignored; a known id C# did not send is not drawn.
- *   - Build order: [sign, lodge tiers] | [school, patrolHut, patrolHQ] | [each lift type's base "1", top "2", line "3"] |
- *     [runNatural, runGroomed, runSnowmaking, runNight, runCatTrack]. Lodge tiers and lift types are alternatives
- *     (hubRules.pickerSets): the strip draws the selected tier and the selected type's three tiles only. The step
- *     numbers suggest stations first; nothing is blocked by it (line-first works through the reconnect).
- *   - Icons are the prefabs' own UIObject icons (assetdb://global/<id> copied from the prefab JSONs,
- *     gamedata-mirror/ImportedData/<Prefab>/<Prefab>.Prefab "m_Icon"; the line numbers below). Run tiles keep a kind
- *     stripe in the run list's marker colors (hub.module.scss .stripe*). If an icon fails to load the tile draws a CSS
- *     square instead (AssetIcon, src/hub/parts.tsx). The icons are drawn by assets/blender/ski_icons.py (same file
- *     names, so the same ids); the .png.cid files for the SkiResortIcons set are in gamedata-mirror/ImportedData/
- *     SkiResortIcons/ (docs/research/art/assets-2026-10/build/icons-round-2.md). A prefab that does not exist yet is
- *     not sent by C#, so no tile asks for its icon.
+ * BUILD_ITEMS mirrors the C# table (mod/SkiResortMod/Systems/SkiCatalog.cs, BUILD-ITEMS block) row by row; gate rule R16 fails
+ * any difference, a missing icon, or a group that does not hold every id once: keep BUILD_ITEMS, BUILD_GROUPS and BUILD_ITEM_ICON
+ * literal. C# owns what each id launches and which ids it sends; this file only maps an id to icon, group, strip position and
+ * badge. An id this bundle does not know is ignored; a known id C# did not send is not drawn.
+ * Icons are the prefabs' own UIObject icons (assetdb://global/<id>, gamedata-mirror/ImportedData/<Prefab>/<Prefab>.Prefab "m_Icon").
  */
 import { BUILD_ITEM_IDS, RUN_KIND } from "../bindings";
 import type { BuildItem, BuildItemId, RunKind } from "../bindings";
@@ -75,7 +61,7 @@ const ICON_TOP = "assetdb://global/3eb0d7b98fc9ee162816d9bb77056956"; // SkiTopS
 export const BUILD_ITEM_ICON: Readonly<Record<BuildItemId, string>> = {
   sign: ICON_SIGN,
   lodge: ICON_LODGE,
-  // SkiResortIcons/<file>.png.cid; each prefab's m_Icon carries the same id (docs/research/art/assets-2026-10/build/icons-round-2.md)
+  // SkiResortIcons/<file>.png.cid (gamedata-mirror/ImportedData/SkiResortIcons/); each prefab's m_Icon carries the same id
   lodgeHut: "assetdb://global/a5cbeffe37ecc4a08dba75e5f41721a8", // SkiLodgeHut.png
   lodgeMid: "assetdb://global/d3df64753c68a935d57aff51fc52815b", // SkiLodgeMid.png
   lodgeSummit: "assetdb://global/1d6966e5716f604d124d7da9130493cd", // SkiLodgeSummit.png

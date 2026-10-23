@@ -1,22 +1,11 @@
-// Tests for the pure SkiDayTiming (tests/ResortBatch): `public static class SkiDayTimingTests` with
-// `public static void Run(Func<bool, string, string, bool> check)` and its own Near; Program.Main calls SkiDayTimingTests.Run(Check).
-// Oracles are literal hand values. Row groups are tagged ST0..ST46 in the check names.
-//
-// Covers: the constants and enum literals (ST0); RecentBehaviorSlice (ST1, ST1b: CitizenBehaviorSystem at interval 16, offset 11);
-// SkipChunk (ST2: LeisureSystem 64 + the recent CBS slice); IsLastPass (ST3); FramesFor / HoursFor (ST4, ST4b: the uint.MaxValue
-// clamp); Resolve (ST5: every on-the-way and on-site row); HourStep (ST6); NextLeisureVisit (ST7: the resident roll key); TrackIndex
-// (ST8: the job's index guard); SameBits (ST9). Property sweeps (ST10-ST13) tie the helpers to each other and to
-// SkiDayRules.SliceOf / SkipSlice (one decision = one NextLeisureVisit; IsLastPass iff next visit is one interval away; the
-// recent-CBS window is exactly the 8 frames from a run; SkipChunk contains SkipSlice). IsLastSighting rows (ST14) and the sweep
-// over all 64 LeisureSystem offsets (ST15). Then ST16 PlaceOf, ST17 EndCauseOf (EndCause literals 0..8, EndCauseCount 9), ST18
-// ExitOfPurpose / TryExit and the two watch constants, ST19 MinuteOfDay / ClockMinuteAfter, ST20 GuestScanSaw, ST21 CarReserveOf,
-// ST22 ClockBin / StayBin / ClosestBand, ST23 MarkHoursPerMonth, ST24 WhyOf, ST25 TryLate and HasMarker, ST26 DepartedNow (a guest
-// on the road with GoingHome has departed), ST27 ArrivedThenRemoved, ST28 the on-arrival visit end (stay 0, scan verdict never
-// Seen), ST29 MovedOffNow, ST30 ShowNear500, ST31-ST33 remover-reason (constants, ShiftNeed / NeedTaken / IsFastStay, RemoveWhyOf
-// rows and sweeps, NoPurposeAtOf), ST34-ST42 the follow and walkers near a lodge (PlacedNow, TryFollow without a previous penalty),
-// ST43-ST44 FailureEvidence / LateEvidence (one predicate), ST45-ST46 the deadline pull (with the 21:00 flap guard).
-// Not testable headless (ECS): the jobs, the claim itself, the car-reserve handshake, ResolveJob sampling and the ring, NearJob, the
-// measure rows, the ledger check, the texts.
+// Tests for the pure SkiDayTiming: `public static class SkiDayTimingTests` with `Run(check)` and its own Near; Program.Main calls
+// SkiDayTimingTests.Run(Check). Oracles are literal hand values. Row groups are tagged ST0..ST46 in the check names.
+// Pinned: the engine cadences the helpers model (RecentBehaviorSlice = CitizenBehaviorSystem at interval 16, offset 11; SkipChunk =
+// LeisureSystem 64 + the recent CBS slice) and property sweeps tying the helpers to each other and to SkiDayRules.SliceOf / SkipSlice (one
+// decision = one NextLeisureVisit; IsLastPass iff the next visit is one interval away; the recent-CBS window is exactly the 8 frames from a
+// run; all 64 LeisureSystem offsets). Also FramesFor / HoursFor (uint.MaxValue clamp), Resolve, EndCause, remover reasons, follow and walkers
+// near a lodge, FailureEvidence / LateEvidence, the deadline pull (21:00 flap guard).
+// Not testable headless (ECS): the jobs, the claim, the car-reserve handshake, ResolveJob sampling, NearJob, the ledger check, the texts.
 
 using System;
 using SkiResortMod.Systems;

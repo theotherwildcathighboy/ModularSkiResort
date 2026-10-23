@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <!--
-    Headless test host for the PURE half of the Cat Track Grading tool (T139b, DECISIONS 362 / 363; build note
-    docs/research/field/2026-10-20/grading-tool-build.md): mod/SkiResortMod/Systems/CatTrackGrade.cs (path, profile,
+    Headless test host for the PURE half of the Cat Track Grading tool:
+    mod/SkiResortMod/Systems/CatTrackGrade.cs (path, profile,
     cross-section raster, guards, undo, edit model, input rules). Run from the ModularSkiResort root:
       see the one-line command in the Program.cs header (XML comments cannot hold a double dash)
     Clone of tests/LiftBatch/LiftBatch.csproj: lives OUTSIDE mod/SkiResortMod (the mod csproj globs **/*.cs), LangVersion

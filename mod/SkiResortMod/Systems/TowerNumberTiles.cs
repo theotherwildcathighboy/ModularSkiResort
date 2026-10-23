@@ -1,20 +1,11 @@
-// Pure core of the per-tower number tiles (no Unity.Entities; linked into tests/LiftBatch). The ECS side is
-// TowerNumberTileSystem (route V1 of docs/research/dynamic-numbers.md).
-//
-// RULE: every line tower shows its own number, 1..200 in order from the base station along the line (LiftTowerNumbering),
-// wrapping back to 1 after 200: tower 201 reads 1, 400 reads 200, 401 reads 1. A long line never overflows: the layout is
-// at most 3 digits for every int.
-//
-// TILES (assets/blender/number_tiles.py is the source of every constant below): per plate class 11 one-quad prefabs,
-// SkiNumTile<cls>Blank (the baked numeral's whole window) and SkiNumTile<cls>N0..N9 (one digit cell = window / 3). Per plate
-// face a number is 1-3 digit tiles centered in the window (digit i of k at (i - (k-1)/2) cells from the window center); 1-2
-// digit numbers put the Blank behind them (digits LayerM in front of it), 3 digits fill the window alone. So <= 3 tiles per
-// face, 6 per tower.
-//
-// FRAME (measured from the shipped LOD0 FBXs, number_tiles.py --measure-plates): every numbered tower has two plates,
-// center x 0, front quads facing +Z and -Z; the +Z face's viewer-right is -X, the -Z face's is +X. The tile prefab faces +Z
-// with its text running along -X (number_tiles.py FRAME), so the +Z face takes it unrotated and the -Z face rotated 180 deg
-// about Y. Plate rows hold the FRONT quad's center (6 mm proud of the host).
+// Pure core of the per-tower number tiles (no Unity.Entities; linked into tests/LiftBatch). The ECS side is TowerNumberTileSystem.
+// RULE: every line tower shows its own number, 1..200 in order from the base station along the line (LiftTowerNumbering), wrapping
+// back to 1 after 200 (201 reads 1, 400 reads 200, 401 reads 1); the layout is at most 3 digits for every int.
+// TILES (assets/blender/number_tiles.py is the source of every constant below): per plate class 11 one-quad prefabs (Blank, N0..N9);
+// a number is 1-3 digit tiles centered in the plate window, so <= 3 tiles per face, 6 per tower.
+// FRAME: two plates per numbered tower, center x 0, facing +Z and -Z; the tile prefab faces +Z with its text along -X, so the -Z face
+// takes it rotated 180 deg about Y.
+// Engine notes: EngineNotes/TowerNumberTiles.md
 
 using System;
 using System.Collections.Generic;
@@ -192,7 +183,7 @@ namespace SkiResortMod.Systems
 
         /// <summary>The per-owner diff: an existing tile is kept when a desired tile of the same key sits within MatchTolM of it
         /// (each desired matches at most one, nearest first); everything else is deleted / created. A changed digit is delete +
-        /// create, never an in-place PrefabRef swap (docs/research/dynamic-numbers.md §3).</summary>
+        /// create, never an in-place PrefabRef swap (vanilla swaps prefabs only through ReplacePrefabSystem).</summary>
         public static void Reconcile(IList<Existing> existing, IList<TileSpec> desired, List<int> deleteIdx, List<int> createIdx)
         {
             deleteIdx.Clear();

@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <!--
-    Headless test host for the save format (T74, 2026-10-19; docs/research/release-scaffolds-2026-10-19.md): every persisted
+    Headless test host for the save format: every persisted
     type's layout against the frozen table SaveLayouts.cs, the [FormerlySerializedAs] self-aliases and the pinned
     AssemblyVersion of the BUILT mod DLL, and the release/CHANGELOG.md layout line. Run from the ModularSkiResort root:
       see the one-line command in the Program.cs header (XML comments cannot hold a double dash)

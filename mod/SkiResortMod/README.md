@@ -69,7 +69,7 @@ the post-processed DLL — not the raw one — is what gets deployed.
 ## Do NOT run `dotnet publish`
 
 Publish invokes `ModPublisher.exe` against `Properties\PublishConfiguration.xml` and uploads
-to Paradox Mods. Publishing is a release-day step owned by Richard (docs/RELEASE-CHECKLIST.md), never part of a
+to Paradox Mods. Publishing is a release-day step owned by Richard, never part of a
 build or test loop.
 
 ## Editing rules that keep this project healthy

@@ -5,8 +5,7 @@
 // every edge, so an outline of short edges would read solid. A bad dash or gap falls back to SolidRing.
 // WidthScale: a projected line keeps its width in meters, so a far camera needs wider lines to see them.
 // Both ring cutters append to the caller's lists and stop at maxPieces (return value == maxPieces means the cap was reached).
-// Pure file: only System, System.Collections.Generic and Unity.Mathematics (the ResortBatch host links it with
-// UnityMathematics.NoDeps).
+// Pure file: only System, System.Collections.Generic and Unity.Mathematics (ResortBatch links it with UnityMathematics.NoDeps).
 
 using System;
 using System.Collections.Generic;

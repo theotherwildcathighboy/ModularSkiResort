@@ -1,14 +1,10 @@
 /*
-* src/hub/resortData.ts - which resort the hub shows, and which rows belong to it.
-*
-*   - Switcher entries: the sign rows (kind 0) in C#'s order, then the "Not linked" row (kind 1) only when it has any run,
-*     lift row or lodge. No "All resorts" entry.
-*   - The current entry is the row whose sign equals C#'s selectedResort (Entity.Null = the Not linked row, which C# always
-*     sends). While C#'s selection names no row (one push apart, or a sign that just died) the first entry is shown; C# corrects
-*     the selection itself and the UI never "fixes" it by sending a selection of its own.
-*   - List rows of the selected resort: `sameEntity(row.sign, selected)` - Null selects the rows that belong to no resort.
-*   - Pure functions (no React): called on each render with arrays that C# replaces only when their revision moved.
-*/
+ * src/hub/resortData.ts - which resort the hub shows, and which rows belong to it. Pure functions (no React), called on each render.
+ * Switcher entries: the sign rows (kind 0) in C#'s order, then the "Not linked" row (kind 1) only when it has any run, lift row or
+ * lodge. The current entry is the row whose sign equals C#'s selectedResort (Entity.Null = Not linked, which C# always sends); while
+ * the selection names no row the first entry is shown, and the UI never "fixes" the selection by sending one of its own.
+ * List rows of the selected resort: `sameEntity(row.sign, selected)`.
+ */
 import type { Entity } from "cs2/utils";
 import { sameEntity } from "../bindings";
 import type { LiftRow, ResortRow, RunRow } from "../bindings";

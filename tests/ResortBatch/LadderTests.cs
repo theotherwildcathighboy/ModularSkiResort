@@ -1,11 +1,8 @@
-// Tests for the lodge ladder, school, patrol and per-type lift rows of the pure score, and the lodge-spend ledger.
-// Oracle rows use K 4, efficiency 1, backcountry 40; where-tags are `ladder-...`.
-//   A ladder rows (L5, LD, LS, LX; LX adds several luxury lodges to one area, only the extras cap of 24 limits)
-//   B per-type lifts (PT winter, PS summer)   C school (SC) and patrol (PA)
-//   D order independence: every permutation of LD7 and of a summer set, plus 2,000 random lists against an
-//     independent reference ladder in this file
-//   E A-frame closed form: explicit A-frame lists equal the Lodges == null path bit for bit; summer with no lodge
-//   F ledger lodge spend (AddLodgeSpend creates, ignores negatives, rolls, jumps, prunes, sums)
+// Tests for the lodge ladder, school, patrol and per-type lift rows of the pure score, and the lodge-spend ledger; where-tags `ladder-...`.
+// Oracle rows use K 4, efficiency 1, backcountry 40. Sections: A ladder rows (LX adds several luxury lodges to one area, only the extras cap
+// of 24 limits), B per-type lifts (winter / summer), C school and patrol, D order independence (every permutation of LD7 and of a summer set,
+// plus 2,000 random lists against an independent reference ladder in this file), E A-frame closed form (explicit A-frame lists equal the
+// Lodges == null path bit for bit; summer with no lodge), F ledger lodge spend (create, ignore negatives, roll, jump, prune, sum).
 // `public static class` with `Run(Func<bool, string, string, bool> check)`; Main passes its Check.
 
 using System;

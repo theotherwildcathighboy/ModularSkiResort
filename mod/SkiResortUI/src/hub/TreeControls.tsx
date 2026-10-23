@@ -1,21 +1,9 @@
 /*
- * src/hub/TreeControls.tsx - the glade (tree) tool's controls: two fixed rows at the top of the Runs view (TreeRows) and the
- * same rows in a foldout on the contract-mismatch panel (TreesFoldout).
- *   - Row A: the tool's on/off Button with one constant label "Tree tool" (`.treeToolButton`, 1.6 em: `.actionButton`'s
- *     30 rem x fontScale is taller than a 1.9 em row at 100 %), highlighted while active. Its tooltip says what the tool does
- *     and how to stop it, or while unavailable C#'s reason. Disabled unless available or active, so an active tool can always
- *     be stopped. Then a spacer and the density stepper (- / value / +): the value is a StableWidth whose blinds are the 8
- *     labels "<level> · <name>", so - / + never move.
- *   - Row B: [Run interior | Tree line], each Button in its own Tip. One Tip around both put two focusable Buttons under one
- *     vanilla Tooltip, whose FocusBoundary (a PassThroughFocusController) hosts one child ("PassThroughFocusControllers can
- *     only host a single child" on every toggle). Renders only while the tool is active (a state change may change layout), so
- *     with the tool off the Runs view gains one run row.
- *   - On/off: gladeToggle(); C# calls SkiGladeToolSystem.TryActivate("hub") or deactivates. The stepper clamps to 1..8 and
- *     does not wrap (the Shift+G hotkey wraps 8 -> 1); each click sends gladeSetLevel(level +/- 1). Target:
- *     gladeSetTreeLine(false / true). glade.available == false disables every control except the button that stops an active
- *     tool; level and target are tool settings, changeable while the tool is off.
- *   - Reads only the core `glade` binding, so TreesFoldout also works on a contract mismatch. Mounted only while the panel is
- *     open. Content area: default focus for every Button.
+ * src/hub/TreeControls.tsx - the glade (tree) tool's controls: two fixed rows at the top of the Runs view (TreeRows), and the same rows in a
+ * foldout on the contract-mismatch panel (TreesFoldout). Row A: on/off Button (disabled unless available or active, so an active tool can always
+ * be stopped) and the density stepper (clamps 1..8, no wrap; the Shift+G hotkey wraps 8 -> 1). Row B [Run interior | Tree line]: each Button in its
+ * own Tip, because one Tip around two focusable Buttons puts two children under one vanilla Tooltip FocusBoundary (a PassThroughFocusController hosts
+ * one child: "can only host a single child" on every toggle). Reads only the core `glade` binding. Content area: default focus for every Button.
  */
 import { useState } from "react";
 import { useValue } from "cs2/api";

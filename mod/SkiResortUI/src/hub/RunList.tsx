@@ -1,33 +1,11 @@
 /*
-* src/hub/RunList.tsx - one run row of the Runs view (RunLine) and the list header (RunHeader).
-*
-*   - Row `div.runRow` (fixed 1.9 em; no scroll area of its own, the panel content scrolls as one): [fly part | pen].
-*     The fly part is a cs2/ui Button (theme `runFly`) holding the state word ("Open" / "Patchy" / "Closed" of
-*     RunLive.openState in an XS StableWidth of the three translated words, so the name never moves; -1 = an empty slot of
-*     the same width), BandMarker (-1 being rated, -2 cannot be rated), KindStripe (natural: two short bars), the name
-*     (C#'s string, else the RUN_TYPE word), the lift mark ("↑" while a running lift reaches the top), Length, Drop (dimmed
-*     while estimated from the outline). A closed row's fly part is dimmed to 55 % (`runRowClosed`; never while renaming),
-*     the pen is not; an estimated state does not dim, the tooltip says "Estimated".
-*     The pen is a sibling Button at the right end, never nested; while a row renames, its fly part is a plain `div.runFly`
-*     of the same layout with the RenameField in the name slot (an <input> is never inside a <button>). One row renames at a
-*     time; a view or area switch unmounts the field, which commits (RenameField contract).
-*   - Mouse enter sends hoverRun(row) through hubState.sendHoverRun (dedup: no per-move traffic; RunsView sends Null on
-*     leaving the list and on unmount).
-*   - Click -> onPick (RunsView: focused$ + focusRun; C# flies the camera, logs `Hub [focus]`).
-*   - Run tooltip, in order: name; "type · band"; the open line (Not linked: no snow state; gating off: counts as open; else
-*     open / partly / closed with the snow share); "estimated"; served by <lift> / a running lift / no running lift reaches
-*     its top (counts the backcountry %); the natural type note (second pass, typeFactor < 1); score value now of full; its
-*     parts (difficulty × size × type × lift × open); the crux pitch and the steepest patch; area; running cost (not for
-*     natural runs); RUN_ACTIONS.
-*   - Number columns: every cell and the header label carry the width samples of useNumberSamples, so the columns line up
-*     and never jitter; the em min-widths apply only if the samples cannot be rendered.
-*   - Memoised: a row re-renders only when one of its own RunRow / RunLive fields, its lift name, focus, renaming state, the
-*     gating / backcountry settings, `t`, the samples, the state words (RunsView memoises them on `t`) or a callback changed
-*     (the callbacks are stable useCallbacks of RunsView).
-*   - Width (Overpass advances): the word slot is "Patchy" (the widest of the three) + 0.4 em of XS = 42.3 / 69.5 / 87.8 rem
-*     at 100 / 130 / 150 % text, so the name room is 167.2 / 201.5 / 224.1 rem. Every default name fits at 100 and 130 %; at
-*     150 % "Snowmaking run 1" (231.8) and longer end in "…", the full name stays the first tooltip line.
-*/
+ * src/hub/RunList.tsx - one run row of the Runs view (RunLine) and the list header (RunHeader).
+ * Row `div.runRow` (fixed 1.9 em): [fly part | pen]. The pen is a sibling Button, never nested; while a row renames, the fly part is a plain div
+ * with RenameField (an <input> is never inside a <button>). The state word sits in an XS StableWidth of the three translated words so the name never moves.
+ * Mouse enter sends hoverRun through hubState.sendHoverRun (dedup); click -> onPick. Number columns carry the useNumberSamples widths (no jitter).
+ * Memoised on the row's own RunRow / RunLive fields, lift name, focus, renaming, settings, `t`, samples, state words and the stable callbacks.
+ * Width (Overpass advances): name room 167 / 201 / 224 rem at 100 / 130 / 150 % text; the ellipsis is the net, the full name is tooltip line 1.
+ */
 import { memo } from "react";
 import type { MouseEvent } from "react";
 import { Button } from "cs2/ui";
@@ -88,7 +66,7 @@ function runTip(p: RunLineProps, name: string, typeName: string): JSX.Element {
   }
   // A cat track rated blue or steeper says why it is shut (OPEN_STATE.Unsuitable, C# HubRules.CatTrackOpenState)
   if (live && live.openState === OPEN_STATE.Unsuitable) openLine = t(HUB_LOC.runUnsuitable);
-  // Why it is open or closed (the measured depth against the 3 ft rule) and, on a gun run, what its snow guns do now
+  // Why it is open or closed (the measured depth against the 91 cm rule) and, on a gun run, what its snow guns do now
   const depthLine = row.bound && gating && live && live.snowDepthCm >= 0 && live.openState !== OPEN_STATE.Unsuitable
     ? <LocText key="d" entry={HUB_FMT.runDepth} args={{ DEPTH: numArg(live.snowDepthCm / 100, Unit.Length) }} /> : null;
   const gunWhy = live ? live.gunWhy : RUN_GUN_WHY.None;

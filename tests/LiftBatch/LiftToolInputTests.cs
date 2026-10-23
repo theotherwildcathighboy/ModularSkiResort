@@ -1,15 +1,8 @@
-// Tests for the lift tool's input state machine (LiftLineInput) and the edit model's undo stack (LiftLineEdit.Undo), headless.
-// TI-1..TI-8.
-//   TI-1 right click table: every step x dragging x undo depth -> the one action it does (vanilla "Undo Net Control Point").
-//   TI-2 a full right-click walk back: two ends + three edits -> undo x3 -> drop the second end -> drop the first -> close.
-//   TI-3 undo restores the exact pins / removed spots after add, move, remove (free and pinned) and clear; refusals push nothing.
-//   TI-4 the step hint: never empty, different per step, names right click / Enter / Esc where they act, US English.
-//   TI-5 drag off the line removes (threshold), on the line moves.
-//   TI-6 minimum line length: station-to-station keeps 2 x MinSpanM; a section between loose / ground ends needs 2 x StepM, and
-//        the planner plans such a short section clear with no tower.
-//   TI-7 Enter on the default plan: the emitted line is the planner's own (stations first / last, every tower Free), so the tool
-//        with no edit builds what the old quick-place built, with the planner's towers.
-//   TI-8 the type names the hub tiles pass.
+// Tests for the lift tool's input state machine (LiftLineInput) and the edit model's undo stack (LiftLineEdit.Undo), headless (TI-1..TI-8).
+// Pinned: the right-click table (step x dragging x undo depth -> the one action, as vanilla "Undo Net Control Point"); undo restores the
+// exact pins / removed spots and refusals push nothing; the step hint is never empty, differs per step and names its keys; a drag off the
+// line removes, on the line moves; the minimum line length (station to station 2 x MinSpanM, a loose or ground end 2 x StepM); Enter on
+// the default plan emits the planner's own line (stations first / last, every tower Free).
 
 using System;
 using System.Collections.Generic;

@@ -1,0 +1,117 @@
+# Engine notes
+
+Long engine and design explanations moved out of the source headers. Each note sits next to the file it explains
+(`// Engine notes: EngineNotes/<name>.md` in that file). Citations are `File.cs:line` against the decompile baseline 1.6.0f1.
+
+- [`bindings.ts.md`](bindings.ts.md) -> bindings.ts: the C# <-> UI binding contract, what the build gate reads, and the UI bundle rules consumers rely on
+- [`BuildingBatch.Program.md`](BuildingBatch.Program.md) -> BuildingBatch: what the top-level resort building tests pin
+- [`BuildStrip.tsx.md`](BuildStrip.tsx.md) -> BuildStrip.tsx: the Build strip as the Panel footer, its fixed layout, locked tiles and the focus-key rule
+- [`CatTrackGrade.md`](CatTrackGrade.md) -> CatTrackGrade: the grading pipeline (path, profile, raster, guards, undo) and the heightmap encoding
+- [`CatTrackGradeToolSystem.md`](CatTrackGradeToolSystem.md) -> CatTrackGradeToolSystem: how the Cat Track Grading tool inputs, solves, guards and writes terrain
+- [`ChairPinSystem.md`](ChairPinSystem.md) -> ChairPinSystem: how lift chairs are pinned to the cable, moved along the loop, held without power and culled
+- [`ChairPinSystem.Mover.md`](ChairPinSystem.Mover.md) -> ChairPinSystem.Mover: the Burst chair move pass, its threading rules and far-loop pacing
+- [`CursorAimSystem.md`](CursorAimSystem.md) -> CursorAimSystem: why the net tool's aim plane needs NetGeometryData.m_DefaultSurfaceHeight rewritten
+- [`GladeBatch.ApplySim.md`](GladeBatch.ApplySim.md) -> GladeBatch.ApplySim: how the glade apply harness works and what it asserts
+- [`HeightmapWriter.md`](HeightmapWriter.md) -> HeightmapWriter: why the base terrain heightmap is the layer to write, and the exact write sequence
+- [`HistoryChart.tsx.md`](HistoryChart.tsx.md) -> HistoryChart.tsx: how the History view draws its charts as inline SVG, and why
+- [`hub.module.scss.md`](hub.module.scss.md) -> hub.module.scss: the Gameface CSS rules the hub stylesheet follows, and the scrollbar-over-the-tile fix
+- [`HubCameraRules.md`](HubCameraRules.md) -> HubCameraRules: how the camera's pivot and zoom are read for the "already on this sign" test
+- [`HubHeader.tsx.md`](HubHeader.tsx.md) -> HubHeader.tsx: how the hub's title bar sits in the cs2/ui Panel (drag handle, title styles, focus keys)
+- [`HubLauncher.tsx.md`](HubLauncher.tsx.md) -> HubLauncher.tsx: how the two hub launchers attach to the game UI (grid child, tooltip, tinted mask icon)
+- [`HubPanel.tsx.md`](HubPanel.tsx.md) -> HubPanel.tsx: panel frame, link states, and the Panel / Scrollable layout quirks it works around
+- [`HubRules.md`](HubRules.md) -> HubRules: the hub's pure rules, the single Net definition, and the lift-pairing logic of the problems band
+- [`index.tsx.md`](index.tsx.md) -> index.tsx: how the game loads the UI bundle and why the registrar must never throw
+- [`layoutReport.ts.md`](layoutReport.ts.md) -> layoutReport.ts: the uiLayout dev aid, why the rem is measured with a probe, and when it measures
+- [`LiftCensus.md`](LiftCensus.md) -> LiftCensus: how lift rows are built from net topology (components, row keys, typed census, split nodes)
+- [`LiftCensusSystem.md`](LiftCensusSystem.md) -> LiftCensusSystem: lift edit probe, snapshot, event logs, chair park and the power reader
+- [`LiftLineHotkeySystem.md`](LiftLineHotkeySystem.md) -> LiftLineHotkeySystem: how mod key actions behave in the game (inactive tools, disabled-at-start actions, key conflicts)
+- [`LiftLoopCache.md`](LiftLoopCache.md) -> LiftLoopCache: how drawn cable lanes become closed travel loops and open shuttle paths
+- [`LiftLoopHold.md`](LiftLoopHold.md) -> LiftLoopHold: the arithmetic behind stopping and resuming a chairlift loop
+- [`LiftLoopTopology.md`](LiftLoopTopology.md) -> LiftLoopTopology: the pure loop topology pass and how it matches the original LiftLoopCache
+- [`LiftMoverMath.md`](LiftMoverMath.md) -> LiftMoverMath: chair loop position, far-loop pace (stride) and lane scope
+- [`LiftReconnectEpisodes.md`](LiftReconnectEpisodes.md) -> LiftReconnectEpisodes: the per-station episode state machine that throttles reconnect pokes
+- [`LiftReconnectSystem.md`](LiftReconnectSystem.md) -> LiftReconnectSystem: why placing a station needs a poke, what gets poked, and where it runs
+- [`LiftServedRule.md`](LiftServedRule.md) -> LiftServedRule: when a run counts as lift-served, and the power predicate with its flicker guard
+- [`LiftTowerDiagSystem.md`](LiftTowerDiagSystem.md) -> LiftTowerDiagSystem: what the tower diagnostic logs and the engine's tower-member scoring it replicates
+- [`LodgeRoadSystem.md`](LodgeRoadSystem.md) -> LodgeRoadSystem: why roadless top-level buildings and the cat track need prefab flag writes, and what each write touches
+- [`Mod.md`](Mod.md) -> Mod.cs: why each system runs in its update phase and anchor
+- [`MountainJobsSystem.md`](MountainJobsSystem.md) -> MountainJobsSystem: why mountain building jobs live on the Welcome Sign, and the engine path that reads them
+- [`OffSeasonRules.md`](OffSeasonRules.md) -> OffSeasonRules: why off-season halves staff and not upkeep
+- [`OffSeasonStaffSystem.md`](OffSeasonStaffSystem.md) -> OffSeasonStaffSystem: how the half-staff write interacts with the game's workplace tick
+- [`parts.tsx.md`](parts.tsx.md) -> parts.tsx: engine facts of the cs2/ui and cs2/l10n bundle that the shared hub building blocks rely on
+- [`PowerBridgeSystem.md`](PowerBridgeSystem.md) -> PowerBridgeSystem: why station stubs need a valve bootstrap to join the electricity graph
+- [`ResortBatch.CatalogGuardTests.md`](ResortBatch.CatalogGuardTests.md) -> CatalogGuardTests: what ties the prefab catalog to the rule files and the hub tip texts
+- [`ResortBatch.DensityTests.md`](ResortBatch.DensityTests.md) -> DensityTests: the Options prop density rules and the engine draw-order mirror they are checked against
+- [`ResortBatch.RunOutlineTests.md`](ResortBatch.RunOutlineTests.md) -> RunOutlineTests: the engine's area-border drawing rules the run outline mirrors
+- [`RunOutlineRules.md`](RunOutlineRules.md) -> RunOutlineRules: how the run outline mirrors the game's area outline (AreaBorderRenderSystem)
+- [`RunPropDensityRules.md`](RunPropDensityRules.md) -> RunPropDensityRules: how the game picks area-corner props, the exact thinning formulas, and mast aiming
+- [`SaveLayouts.md`](SaveLayouts.md) -> SaveLayouts: how to bump a persisted layout without breaking saves
+- [`ShuttleProfile.md`](ShuttleProfile.md) -> ShuttleProfile: the jig-back tram's speed profile, cycle, clock and length quantum
+- [`SkiDayRules.md`](SkiDayRules.md) -> SkiDayRules: Burst-callable pure rules, overload families and the trip model
+- [`SkiDaySystem.Jobs.md`](SkiDaySystem.Jobs.md) -> SkiDaySystem.Jobs: what each Burst job reads and writes, the measure-only parts, and the deadline pull
+- [`SkiDaySystem.md`](SkiDaySystem.md) -> SkiDaySystem: scheduling anchor, the pass, claim writes into vanilla state, tracking and the cost measurement
+- [`SkiDayTiming.md`](SkiDayTiming.md) -> SkiDayTiming: how a ski-day claim's end is told apart from the traces vanilla leaves
+- [`SkiGladeCleanupSystem.md`](SkiGladeCleanupSystem.md) -> SkiGladeCleanupSystem: how the game cascades Deleted to owned sub-objects, and where our tree cascade hooks in
+- [`SkiGladeCompose.md`](SkiGladeCompose.md) -> SkiGladeCompose: how a glade apply turns a density level into plant, remove and fell lists
+- [`SkiGladeHotkeySystem.md`](SkiGladeHotkeySystem.md) -> SkiGladeHotkeySystem: why a separate polling system, how mod key actions are registered, and how conflicts drop them
+- [`SkiGladeHover.md`](SkiGladeHover.md) -> SkiGladeHover: hover log contract and dwell accounting for the Glade tool
+- [`SkiGladePlanner.md`](SkiGladePlanner.md) -> SkiGladePlanner: how the Glade tool's deterministic tree planner works
+- [`SkiGladeTagSystem.md`](SkiGladeTagSystem.md) -> SkiGladeTagSystem: tagging planted glade trees before vanilla's Apply makes them permanent
+- [`SkiGladeToolSystem.Debug.md`](SkiGladeToolSystem.Debug.md) -> SkiGladeToolSystem.Debug: how the "Ski Glades" developer-menu tab is wired
+- [`SkiGladeToolSystem.md`](SkiGladeToolSystem.md) -> SkiGladeToolSystem: how the Glade tool hovers, previews, applies and checks itself
+- [`SkiGladeTooltipSystem.md`](SkiGladeTooltipSystem.md) -> SkiGladeTooltipSystem: what the Glade tool's mouse tooltip shows and how it stays allocation-free
+- [`SkiGuestCounterSystem.md`](SkiGuestCounterSystem.md) -> SkiGuestCounterSystem: how ski-area guests are detected, counted once and booked into the ledger
+- [`SkiLiftChargeSystem.md`](SkiLiftChargeSystem.md) -> SkiLiftChargeSystem: how the monthly lift running charge is billed, resolved to a ski area and logged
+- [`SkiLiftTicketSystem.md`](SkiLiftTicketSystem.md) -> SkiLiftTicketSystem: how lift tickets, passes, lessons and lodge spend are charged and booked
+- [`SkiLiftTicketSystem.Presale.md`](SkiLiftTicketSystem.Presale.md) -> SkiLiftTicketSystem.Presale: how the pre-season pass sale pools households and why a sale tick drains no arrivals
+- [`SkiLiftTooltipSystem.md`](SkiLiftTooltipSystem.md) -> SkiLiftTooltipSystem: where the lift station alignment readout and bulldozer warning tooltips go, and why
+- [`SkiLodgeParkingSystem.md`](SkiLodgeParkingSystem.md) -> SkiLodgeParkingSystem: how the lodge parking census counts car spaces and when it re-runs
+- [`SkiLodgeSpotDiag.md`](SkiLodgeSpotDiag.md) -> SkiLodgeSpotDiag: which spawn spots the engine registers for a lodge
+- [`SkiMoneyRules.md`](SkiMoneyRules.md) -> SkiMoneyRules: the money rules (lift charge, tickets, passes, lessons, guest days)
+- [`SkiNightLightSystem.md`](SkiNightLightSystem.md) -> SkiNightLightSystem: why Night-gated lights on run props need a re-evaluation stamp
+- [`SkiPisteMapSystem.md`](SkiPisteMapSystem.md) -> SkiPisteMapSystem: how the piste-map overlay is cached, drawn and kept job-safe
+- [`SkiPlacementInfoviewSystem.md`](SkiPlacementInfoviewSystem.md) -> SkiPlacementInfoviewSystem: why and how the Electricity infoview is closed while drawing lifts
+- [`SkiPrefabCatalogSystem.md`](SkiPrefabCatalogSystem.md) -> SkiPrefabCatalogSystem: how catalog names resolve to prefab entities, per load
+- [`SkiResortAggregate.md`](SkiResortAggregate.md) -> SkiResortAggregate: the per-resort sum rules behind the hub's resort rows
+- [`SkiResortAttractivenessSystem.md`](SkiResortAttractivenessSystem.md) -> SkiResortAttractivenessSystem: how the per-area attraction score is gathered and written over vanilla
+- [`SkiResortAttractivenessWatchSystem.md`](SkiResortAttractivenessWatchSystem.md) -> SkiResortAttractivenessWatchSystem: why placement tags need a ModificationEnd watcher
+- [`SkiResortHistory.md`](SkiResortHistory.md) -> SkiResortHistory: the frozen save layout and flags of the hub's history store
+- [`SkiResortHistorySystem.md`](SkiResortHistorySystem.md) -> SkiResortHistorySystem: how the monthly history is stored, sampled, mirrored and saved
+- [`SkiResortHubUISystem.md`](SkiResortHubUISystem.md) -> SkiResortHubUISystem: bindings, triggers, selection rules, launch and camera behavior of the hub's C# side
+- [`SkiResortLedger.md`](SkiResortLedger.md) -> SkiResortLedger: the monthly guest and money ledger contract
+- [`SkiResortScore.md`](SkiResortScore.md) -> SkiResortScore: how the attraction score of a ski area is computed
+- [`SkiResortSettings.md`](SkiResortSettings.md) -> SkiResortSettings: option design, density polling and key-binding plumbing
+- [`SkiResortStatsSystem.md`](SkiResortStatsSystem.md) -> SkiResortStatsSystem: ski-area membership, hub rebuild rules and the per-area numbers
+- [`SkiResortTourism.md`](SkiResortTourism.md) -> SkiResortTourism: the game's city tourism formula and the per-resort figures derived from it
+- [`SkiRunAreaTypeSystem.md`](SkiRunAreaTypeSystem.md) -> SkiRunAreaTypeSystem: why the cat track prefab is switched to AreaType Space
+- [`SkiRunBinding.md`](SkiRunBinding.md) -> SkiRunBinding: the persisted run-to-sign link and its save-format contract
+- [`SkiRunBindingRules.md`](SkiRunBindingRules.md) -> SkiRunBindingRules: the run bind decision table and the facts it reads
+- [`SkiRunBindTriggerSystem.md`](SkiRunBindTriggerSystem.md) -> SkiRunBindTriggerSystem: why runs bind at ModificationEnd, and how signs get auto-named
+- [`SkiRunCatalogSystem.md`](SkiRunCatalogSystem.md) -> SkiRunCatalogSystem: the run list, the always-on rating service, its cadences and the rating cache
+- [`SkiRunContourSystem.md`](SkiRunContourSystem.md) -> SkiRunContourSystem: how the vanilla contour lines are switched on for the area tool, and handed back
+- [`SkiRunDecalSystem.md`](SkiRunDecalSystem.md) -> SkiRunDecalSystem: how the live decal material of our ski-run surfaces is upgraded at runtime
+- [`SkiRunDrawFeedbackSystem.Debug.md`](SkiRunDrawFeedbackSystem.Debug.md) -> SkiRunDrawFeedbackSystem.Debug: how the "Ski Runs" developer-menu tab is registered and why its rows are cheap
+- [`SkiRunDrawFeedbackSystem.md`](SkiRunDrawFeedbackSystem.md) -> SkiRunDrawFeedbackSystem: slope feedback while a run is drawn, the terrain read, the overlay job and the validation watch
+- [`SkiRunGateCascadeSystem.md`](SkiRunGateCascadeSystem.md) -> SkiRunGateCascadeSystem: why a deleted Welcome Sign takes its runs with it, and why at Modification2
+- [`SkiRunLabelSystem.md`](SkiRunLabelSystem.md) -> SkiRunLabelSystem: how run names are drawn flat on the ground, reusing the district-label machinery (Game.dll 1.6.0f1 baseline)
+- [`SkiRunOutlineSystem.md`](SkiRunOutlineSystem.md) -> SkiRunOutlineSystem: how the thick run outline reuses the game's area border pass, and why it never touches m_SnapDistance
+- [`SkiRunOwnershipSystem.md`](SkiRunOwnershipSystem.md) -> SkiRunOwnershipSystem: how ski runs are bound to their Welcome Sign without Owner, the decision table, the load pass and the sweep
+- [`SkiRunPropSystem.md`](SkiRunPropSystem.md) -> SkiRunPropSystem: how run borders get snow guns and fencing from the vanilla area-props spawner, and how the prop density sliders work
+- [`SkiRunRatingRules.md`](SkiRunRatingRules.md) -> SkiRunRatingRules: why the run rating cache is keyed on node x/z, how terraform re-snaps are told apart, and the queue and band rules
+- [`SkiRunSplatSystem.md`](SkiRunSplatSystem.md) -> SkiRunSplatSystem: how ski runs are painted into the terrain-material splatmap, which channel it claims and when it repaints
+- [`SkiRunSurfaceSystem.md`](SkiRunSurfaceSystem.md) -> SkiRunSurfaceSystem: why props on ski runs need Game.Objects.Surface, and why it runs right after WetnessSystem at interval 256
+- [`SkiRunTooltipSystem.md`](SkiRunTooltipSystem.md) -> SkiRunTooltipSystem: the mouse-tooltip lines shown while drawing a ski run, and the vanilla tooltip machinery they rely on
+- [`SkiRunTreeMember.md`](SkiRunTreeMember.md) -> SkiRunTreeMember: why glade trees carry a tag instead of Owner(run), and the save layout of that tag
+- [`SkiRunUpkeepSystem.md`](SkiRunUpkeepSystem.md) -> SkiRunUpkeepSystem: how run operating costs are billed, booked and logged
+- [`SkiSlopeClassifier.md`](SkiSlopeClassifier.md) -> SkiSlopeClassifier: how a ski run is rated (crux of the easiest line), its end zones, difficulty layer, measured limits and engine facts
+- [`SkiSnowGunPlumeSystem.md`](SkiSnowGunPlumeSystem.md) -> SkiSnowGunPlumeSystem: how snow-gun vapor plumes are driven through the engine's effect system
+- [`SkiSnowInjectionSystem.md`](SkiSnowInjectionSystem.md) -> SkiSnowInjectionSystem: how run-shaped snow is injected into the game's own snow simulation buffer
+- [`SkiSnowLineOverlaySystem.md`](SkiSnowLineOverlaySystem.md) -> SkiSnowLineOverlaySystem: where the winter snow line and the snow-gun line are computed and drawn on the terrain
+- [`SkiStationAlignSystem.md`](SkiStationAlignSystem.md) -> SkiStationAlignSystem: how the station alignment aid picks subject and partner, draws guides and logs placements
+- [`SlopeBatch.Program.md`](SlopeBatch.Program.md) -> SlopeBatch: terrain stand-in, oracle design and run-length checks for the slope classifier tests
+- [`SnowGunPlumeRules.md`](SnowGunPlumeRules.md) -> SnowGunPlumeRules: when a run's snow guns count as running, how the pack is measured, and the plume lease
+- [`SnowLineSystem.md`](SnowLineSystem.md) -> SnowLineSystem: the shared climate oracle (ambient temperature, snow line, day mean) and why it samples the climate curve
+- [`StationAlign.md`](StationAlign.md) -> StationAlign: station stub-tip geometry, the sign convention, readout classes and place, and move episodes
+- [`TowerNumberTiles.md`](TowerNumberTiles.md) -> TowerNumberTiles: the tower number rule, tile prefab layout and the plate frame the tiles are placed in
+- [`TowerNumberTileSystem.md`](TowerNumberTileSystem.md) -> TowerNumberTileSystem: how number tile objects are created under towers and swept again by the engine
+- [`TramShuttleSystem.md`](TramShuttleSystem.md) -> TramShuttleSystem: how the aerial tram's two cabins are driven, gated, identified and placed against vanilla's sub-object system

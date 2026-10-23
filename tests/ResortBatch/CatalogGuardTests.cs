@@ -1,41 +1,11 @@
-// The constants guard between the pure prefab catalog SkiCatalog.cs and the pure rule files that alias it. `public static class`
-// with `public static void Run(Func<bool, string, string, bool> check)`; Main passes its Check. Where-tags `catalog-guard...`.
-//   CG-1  every alias == row == const: SkiResortScore.LiftValue, SkiMoneyRules.LiftFixedPerMonth / LiftPerKmPerMonth,
-//         HubRules.ChairSpeedMps / LiftLinePerKm, LiftServedRule.ServeRadiusM / TopMarginM against Lifts[0] and SkiCatalog.FixedGrip;
-//         SkiDayRules.LodgeSkiersPerDay against Lodges[0].Capacity and SkiCatalog.AFrameLodge. Lifts.Count == 4 and Lifts[0].Id ==
-//         "fixedGrip" (the aliases stay the FG row's; per-row numbers reach Burst jobs as struct fields). The consts of other rule
-//         files (SchoolRule, PatrolRule, SkiMoneyRules.LodgeSpendDefault / Max / Step) == SkiCatalog.School / Patrol / LodgeSpend.
-//         They are read by REFLECTION over this test assembly (the linked files compile into it), so the host builds when one of
-//         those files does not exist yet: that prints one "INFO ... not landed yet" line; once present, any mismatch FAILs.
-//   CG-2  HubRules.RideTimeS(2045) == 2045 / 2 / Lifts[0].SpeedMps (409.0): the ride time uses the catalog speed.
-//   CG-T  text guard over mod/SkiResortMod/LocaleEN.cs, single-line `{ "key", "value" },` entries (hubText.ts equals it by gate
-//         R4, check-bundle.js, so one side is enough here). Every number is DERIVED from the catalog:
-//         T1 Assets.NAME[SkiChairliftHV] == "Fixed-Grip Triple Chairlift" while SeatsPerCarrier == 3;
-//         T2 SkiResort.Hub.LIFT_CAPACITY_TIP contains {SEATS} and {SPEED} and no digit;
-//         T3 SkiResort.Hub.LIFT_RIDE_TIP contains {SPEED} and no digit apart from the game-speed "1×";
-//         T4 SkiResort.Hub.RECEIPT_TIP[Lifts] names every Loop row "<name> <ScoreValue:0>" in index order (fixed-grip 6,
-//            detachable 15, gondola 25) and the summer-share words of every λ < 1 (0.25 "a quarter" for all three chairlift-class
-//            types);
-//         T5 SkiResort.Hub.RECEIPT_TIP[LodgeBase] contains "up to <Ladder.ExtraCap>" (24);
-//         T6 BUILD_TIP_SCHOOL "+<School.ScoreValue>" and "<(DemandFactor − 1) × 100> %" (+12, 20 %); BUILD_TIP_PATROL
-//            "<RadiusM / 1000> km", "<(ExpertFactor − 1) × 100> %", "<BackcountryServedMin × 100> %" (1 km, 15 %, 70 %);
-//            BUILD_TIP_LUXURY "<the luxury tiers' PriceTolerance>" (40); PROBLEM_TIP[SummitLodgeNotLiftServed]
-//            "<Ladder.SummitServedRadiusM> m" (300 m).
-//         T7 SkiResort.Hub.LIFT_RIDE_TIP contains no "loop" and LIFT_CAPACITY_TIP no "spaced" (case-insensitive): both tips are
-//            shown for a tram row too; the same for LIFTS_TOTAL_CAPACITY_TIP, the totals row that sums a tram too (no "spaced";
-//            it names the tram's "station stops").
-//         T8 an unpowered lift of every type is inert, power never lowers its upkeep, its power is the base station's;
-//            case-insensitive: (a) TILE_TIP[Lifts] has no "still move" and says the lift "stops"; (b) LIFT_CAPACITY_TIP and
-//            LIFTS_TOTAL_CAPACITY_TIP name "power" (an unpowered lift has capacity –); (c) PROBLEM_TIP[LiftNoPower] says it "stops",
-//            names the "base station", says maintenance / upkeep is "still charged" and does NOT say "full" (the kept NoOpenRun
-//            quarter reaches an unpowered lift whose ski area counts no run; if "strict" billing is chosen, flip this check); (d)
-//            each of those four is 25 words or fewer (whitespace-separated tokens, as `wc -w`; the LocaleEN.cs rule); (e)
-//            MONEY_TIP[Lifts] and MONEY_TIP[LiftsTypes]: the "a quarter ..." clause (to its full stop) names no power, and the
-//            text says "in full" and "power" (power never lowers the bill); (f) LIFT_COST_REDUCED[NoPower] names no power: that row
-//            is billed reduced only for NoOpenRun (SkiMoneyRules.LiftUpkeepBillingOf), while hubRules.ts liftCostReason still picks
-//            this key for it; (g) MONEY_TIP[Lifts] has 42 words or fewer and MONEY_TIP[LiftsTypes] 44 or fewer (the LocaleEN.cs
-//            header exempts them from the 25-word rule because they carry live figures).
-// Untouched oracles elsewhere: ScoreTests.cs (LiftValue == 6.0), HubRulesTests.cs, MoneyBatch.cs, SkiDayTests.cs.
+// The constants guard between the pure prefab catalog SkiCatalog.cs and the pure rule files that alias it. `public static class` with
+// `Run(Func<bool, string, string, bool> check)`; Main passes its Check. Where-tags `catalog-guard...`.
+// CG-1 every alias == row == const against Lifts[0], SkiCatalog.FixedGrip and the other catalog rows (the aliases stay the FG row's; per-row
+// numbers reach Burst jobs as struct fields). The consts of other rule files are read by REFLECTION over this test assembly, so the host
+// builds when one does not exist yet (one "INFO ... not landed yet" line; once present, any mismatch FAILs). CG-2 RideTimeS uses the catalog speed.
+// CG-T is a text guard over mod/SkiResortMod/LocaleEN.cs: every number in the hub tips is DERIVED from the catalog, and the tip wording
+// must follow the lift rules (a tram row shares the tips; an unpowered lift is inert). Oracles elsewhere: ScoreTests, HubRulesTests, MoneyBatch.
+// Engine notes: EngineNotes/ResortBatch.CatalogGuardTests.md
 
 using System;
 using System.Collections.Generic;

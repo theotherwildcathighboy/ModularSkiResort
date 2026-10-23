@@ -1,16 +1,11 @@
-// The loop cache's cable-lane harvest; BuildLoopCache step 2 calls HarvestCableLanes.
-//
-//   SCOPED (normal): the census's line edges + their end nodes (LiftCensusSystem.CopyLineOwners), their SubLane buffers, the
-//     full scan's filter lane by lane (LiftLaneHarvest.Scoped, Loop movers). O(lift edges): no city-size term. The census
-//     builds at Modification4B before this system (Mod.cs anchor UpdateBefore<LiftCensusSystem, ChairPinSystem>) and rebuilds
-//     the same frame on a lift edge Created / Deleted, so the owner list is this frame's. Updated-only edits coalesce but do
-//     not change the edge set, and the lanes' curves are read live here.
-//   FULL (fallback): the city-wide utility-lane scan (m_LaneQuery), when the census is not registered, not armed (Editor: it
-//     arms in game mode only) or not built yet, or for the rest of a load after the watchdog found a miss.
-//   WATCHDOG: the first scoped harvest of each load also runs the full scan and compares, logging once per load
-//     ("[cost] lane harvest"). A lane only the full scan kept → WARN naming up to 5 lanes and their owners; this rebuild uses
-//     the full result and the load stays on the full scan. A lane only the scoped harvest kept (filters drifted) → WARN, full result.
-//   Both paths sort by lane entity (LiftLaneHarvest header ORDER).
+// The loop cache's cable-lane harvest; BuildLoopCache step 2 calls HarvestCableLanes. Both paths sort by lane entity (LiftLaneHarvest ORDER).
+//   SCOPED (normal): the census's line edges + end nodes (LiftCensusSystem.CopyLineOwners), their SubLane buffers, the full scan's filter
+//     lane by lane (LiftLaneHarvest.Scoped, Loop movers); O(lift edges). The census builds at Modification4B before this system (Mod.cs
+//     anchor) and rebuilds the same frame on a lift edge Created / Deleted; Updated-only edits do not change the edge set (curves are read live).
+//   FULL (fallback): the city-wide utility-lane scan (m_LaneQuery): census not registered, not armed (Editor) or not built yet, or after a miss.
+//   WATCHDOG: the first scoped harvest of each load also runs the full scan and compares (one "[cost] lane harvest" line per load). A lane
+//     only the full scan kept → WARN naming up to 5 lanes and owners; this rebuild uses the full result and the load stays on the full
+//     scan. A lane only the scoped harvest kept (filters drifted) → WARN, full result.
 
 using System.Collections.Generic;
 using Colossal.Entities;

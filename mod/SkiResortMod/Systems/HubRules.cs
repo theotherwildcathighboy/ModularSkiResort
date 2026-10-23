@@ -1,91 +1,11 @@
-// The hub's PURE rules (docs/research/econ-round/spec/ch5-hub-csharp.md §6.1-6.2): the literal-valued enums of the hub
-// contract (ResortStatus, RunOpenState, SeasonHint, NextStepKind, HubLiftStatus, HubProblemCode, HubSkiDayState; gate rule
-// R17 of mod/SkiResortUI/tools/check-bundle.js compares each name and value with bindings.ts, so every value is written
-// out and HubProblemCode is APPEND ONLY), the small rules behind the ResortLive / RunLive / LiftRow fields, the
-// area-weighted snow sums, rule 7's guard (FollowCheck) and the problems band (HubProblems.Build).
-//
-// CALLERS: SkiResortStatsSystem (every rule of a rebuild; HubProblems.Build per area) and SkiResortHubUISystem (LiftNoPair
-// for build[lift].hint, FollowCheck for rule 7, LiftLinePerKm for the Build strip). Never the UI: the UI receives the
-// results as numbers and enum values, it never recomputes the score (AttractionWithLodges is the one "what if" and uses
-// the model's own LodgeBaseOf / RoundToEven / MaxAttraction).
-//
-// RULES (tests/ResortBatch HubRulesTests sections A-H are the literal oracles; the small ones are documented on their methods):
-//   Season            gating off GatingOff; no run / unknown top temperature None; natural = T <= freezing
-//                     (T = the 24-hour day mean at the top); gun = a gun run && the live gun gates when
-//                     known (anyGunOn: a bound snowmaking or night run with gun-gated texels at the
-//                     last mask pass), else (before the first mask pass, or the injection off) T <= freezing +
-//                     margin (both inclusive); with an open run: natural SnowSeason, else gun SnowGunsOnly, else
-//                     Thawing; none open: natural or gun WaitingForSnow, else TooWarm
-//   LiftStatusOf      stats state 0 powered Running / NoPower; 1 powered ChairsStopped / NoPower;
-//                     2 SectionMissing; anything else Unfinished. The closed overload: a complete, powered lift
-//                     (state 0 or 1) held by the no-open-run rule (LiftClosedRule, the tram exempt) reads Closed, not Running
-//   NetMonth          THE one Net of the hub, over the eight terms of HubMonthMoney (header ONE NET below)
-//   AttractionWithLodges  the model's A with `lodges` active lodges at the same efficiency: swap the lodge
-//                     base, clamp to 0..MaxAttraction BEFORE rounding, RoundToEven. = r.AOpen − r.LodgeApplied +
-//                     LodgeBaseOf(n) × (summer ? SummerLodgeShare : 1): n A-frames in place of the area's applied lodge
-//                     base, so a SUMMER area with no lodge keeps its "if fixed" number (its LodgeApplied is 0).
-//                     AttractionWithLodgeApplied(r, applied) is the stats system's IfLodgesOn, with the ladder's applied
-//                     value of the area's lodges all switched on (SkiResortScore.LodgeBase)
-//   LiftNoPair        false when one row of the shown area has both stations live and a line to draw or
-//                     finish (state 2, 3 or 4), or a lone base and a lone top sit on two rows
-//                     of state 3 or 4 (the census never puts both on one such row); else true (the empty list too).
-//                     The hub calls it per lift type over the rows of that type (HubLiftHintRow.Type)
-//   FollowCheck       (order matters) hub closed; a rule switched in this pass; within
-//                     FollowQuietAfterUserS of the player's own switch; within FollowMinIntervalS of the
-//                     last follow; else Follow. −∞ = never; a NaN comparison is false, so it allows
-//   SkiDayStateOf     (first match wins) off Off; no view Unknown; no score or the
-//                     first-write hold Unknown; sign not running SignOff; runs counted <= 0 NoRun; target
-//                     lodges <= 0 NoLodge; outside the claim hours Night; cap < 0 or now < 0 Unknown (before the
-//                     first pass); now >= cap Full (a capacity of 0 is real: the simulation sends nobody,
-//                     SkiDayRules.HasRoom(x, 0) is false); else Room
-//   ShuttleRideTimeS / ShuttleCapacityPerHour  from ShuttleProfile (the cabin is unavailable while it dwells); both widen
-//                     their float inputs to double once and narrow the result once (bit-exact float oracles).
-//                     ShuttleRideIncludesDwell (false) is the one switch for an open decision
-//   LiftCapacityShown an unpowered lift of every type carries no guests, so it shows no capacity (−1, the UI's "–");
-//                     status, the chairs count and the ride time are not touched by it
-//   HubProblems.Build Unlinked rows only for the Not linked entry (SchoolsNotLinked: FreeSchools > 0 → severity 1,
-//                     count); else lodges, road edges (SignNoRoad severity 3; LodgeNoRoad counts min(LodgesNoRoad, Lodges)
-//                     + SchoolsNoRoad, severity 3 only when every LODGE has no road, else 1, a school alone 1),
-//                     efficiency (at <= EfficiencyProblemPct, and kept while the band showed it
-//                     on the area's previous build and the percent is still below EfficiencyClearPct; "more" =
-//                     the factors listed as Factor rows − 1, or every factor − 1 when none is listed),
-//                     lifts (lone stations of state 4 paired across rows — one "draw the lift
-//                     line" row per base + top pair; a lift row with Mixed writes MixedLiftTypes, severity 2, instead of
-//                     LiftUnfinished; every other lift row's build item comes from the row's type, LineItemOf /
-//                     StationItemOf, fixed-grip = "lift" / "baseStation" / "topStation"; NoLift keeps "baseStation"),
-//                     no lift, no runs, unserved, unrateable / rating / flat, the
-//                     ski-day rows (SkiDaysCannotReach severity 2; NoParkingNearLodge and
-//                     LodgeNotSlopeside severity 1, count = min(n, Lodges), none when 0; LodgeNotSlopeside
-//                     only when the area has runs, Runs > 0), SummitLodgesNotServed > 0 → SummitLodgeNotLiftServed
-//                     (severity 1, count), SchoolNoGreenRun (severity 1) — then a STABLE
-//                     insertion sort by (severity descending, code ascending, insertion order), cut to
-//                     MaxBandRows, then one Factor row per efficiency factor that costs at least
-//                     FactorRowMinLossPct points (severity 0, never in the band)
-//
-// ONE NET (docs/research/ui/hub-one-net-b1-2026-10-19.md): every Net the hub shows (the Finances tile, the Finances view,
-// History's months and its month in progress) is NetMonth over the SAME eight terms (HubMonthMoney), so they cannot disagree:
-//   income  TicketIncome   ledger TicketIncome            BOOKED this month (₵ paid at the gate)
-//           LodgeIncome    ledger LodgeSpendIncome        BOOKED this month
-//           LessonIncome   ledger LessonIncome            BOOKED this month
-//           PassIncome     ledger PassIncome              BOOKED this month = passes SOLD this month, pre-season sales included
-//                                                         (they land in the month they were sold: "a big September is honest")
-//   costs   LiftCost       ledger LiftCharged, rounded    BOOKED this month (SkiLiftChargeSystem's accrual)
-//           RunCost        ledger RunUpkeep               BOOKED this month, per area (SkiRunUpkeepSystem)
-//           BuildingsCost  the game's upkeep formula      RATE SNAPSHOT: ₵/month at the current service budget × MonthShare for
-//           WagesCost      for the sign + its lodges      the month in progress; the rate at the roll for a closed month
-//                                                         (the game bills these through the city budget; nothing books them per area)
-// Net = Σ income − Σ costs, every term < 0 (unknown) read as 0, so the rows the UI shows (max(0, term) each) add up to the Net
-// exactly (ResortBatch HubRulesTests A and HistoryTests H-10). Estimated (the "≈") = some term is unknown: the ledger not
-// counting yet, or the building bill unreadable. A month counted only since a load is PARTIAL, not estimated: ResortLive's
-// thisMonthSinceLoad carries that, as for the guests. Rounding = the history element's (SkiResortHistoryMonth.FromLedger:
-// ClampInt of the longs, LiftCharged half away from zero), so a closed month's element and MonthMoneyOf(its ledger Month) are
-// the same eight integers.
-//
-// PURE FILE: `using System;` and `using System.Collections.Generic;` only, plus SkiResortScore (pure), the SkiCatalog consts
-// (ChairSpeedMps and LiftLinePerKm alias SkiCatalog.FixedGrip — compile-time literals), the pure ShuttleProfile.cs and the
-// pure SkiResortLedger.cs (MonthMoneyOf's Month); all linked into tests/ResortBatch next to this file. No Entities, no Game,
-// no Unity.Mathematics. net48 traps: no Math.Clamp, MathF, double.IsFinite, Span<T>; private Clamp and IsFinite below. No
-// allocation once the caller's lists have grown.
+// The hub's PURE rules: the literal-valued enums of the hub contract (gate R17 of mod/SkiResortUI/tools/check-bundle.js compares each name and
+// value with bindings.ts, so every value is written out and HubProblemCode is APPEND ONLY), the small rules behind the ResortLive / RunLive /
+// LiftRow fields, the area-weighted snow sums, rule 7's guard (FollowCheck) and the problems band (HubProblems.Build).
+// Callers: SkiResortStatsSystem and SkiResortHubUISystem. Never the UI: it receives numbers and enum values and never recomputes the score.
+// Pure file: System / System.Collections.Generic only, plus SkiResortScore, ShuttleProfile, SkiResortLedger and SkiCatalog consts, all
+// linked into tests/ResortBatch. No Entities, Game or Unity.Mathematics. net48 traps: no Math.Clamp, MathF, double.IsFinite, Span<T>
+// (private Clamp and IsFinite below); no allocation once the caller's lists have grown.
+// Engine notes: EngineNotes/HubRules.md
 
 using System;
 using System.Collections.Generic;
@@ -229,7 +149,7 @@ namespace SkiResortMod.Systems
         }
     }
 
-    /// <summary>The eight terms of one month's Net (header ONE NET), whole ₵, each −1 when unknown. Booked: the six income /
+    /// <summary>The eight terms of one month's Net (EngineNotes/HubRules.md, ONE NET), whole ₵, each −1 when unknown. Booked: the six income /
     /// lift / run terms; rate snapshots: BuildingsCost and WagesCost.</summary>
     public struct HubMonthMoney
     {
@@ -250,7 +170,7 @@ namespace SkiResortMod.Systems
         public long Costs => (long)Math.Max(0, LiftCost) + Math.Max(0, RunCost) + Math.Max(0, BuildingsCost) + Math.Max(0, WagesCost);
     }
 
-    /// <summary>The hub's pure rules. Header RULES.</summary>
+    /// <summary>The hub's pure rules. Rules: EngineNotes/HubRules.md, RULES.</summary>
     public static class HubRules
     {
         // An alias of SkiCatalog.FixedGrip.SpeedMps, as ChairPinSystem's is: one source (tests/ResortBatch CatalogGuardTests CG-1, CG-2).
@@ -494,7 +414,7 @@ namespace SkiResortMod.Systems
             return -1;
         }
 
-        /// <summary>THE month net (header ONE NET) = Σ max(0, income term) − Σ max(0, cost term) of <paramref name="m"/>,
+        /// <summary>THE month net (EngineNotes/HubRules.md, ONE NET) = Σ max(0, income term) − Σ max(0, cost term) of <paramref name="m"/>,
         /// clamped to int. Income: lift tickets, lodge spend, lessons, passes sold this month (all BOOKED). Costs: lift charge and
         /// run upkeep (BOOKED), buildings and wages (RATE SNAPSHOTS: × MonthShare in the month in progress, the rate at the roll for
         /// a closed month). <paramref name="estimated"/> = a term is unknown (&lt; 0, read as 0).</summary>
@@ -705,7 +625,7 @@ namespace SkiResortMod.Systems
         }
     }
 
-    /// <summary>The problems band of one area. Header RULES.</summary>
+    /// <summary>The problems band of one area. Rules: EngineNotes/HubRules.md, RULES.</summary>
     public static class HubProblems
     {
         /// <summary>Clears <paramref name="output"/>, then the band rows (sorted, at most MaxBandRows), then
@@ -774,23 +694,13 @@ namespace SkiResortMod.Systems
                     more: Math.Max(0, (listed > 0 ? listed : factors) - 1), ifFixed: input.AttractionFull));
             }
 
-            // 4. Lifts, in `lifts` order.
-            // The census makes every untouched station its own single-station
-            // StationsOnly row (state 4) and an Unfinished row (state 3) carries at most one station, so a
-            // placed base and a placed top are never ONE row. Pre-scan: the i-th lone base of state 4 pairs
-            // with the i-th lone top of state 4 — the pair is one Detail 0 row ("draw the lift line", build
-            // "lift"), and the other station's row is not listed. A lone state-4 station left over
-            // whose other kind waits on an Unfinished line's end also reads Detail 0 (finish the line to it).
-            // Only a station with no partner anywhere keeps Detail 1 / 2.
-            // The pair row sits at the row whose NAME the finished lift
-            // keeps (the stats system's lift-name rule: the base's custom name, else the top's custom name,
-            // else "Lift N" numbered by top-station height with rows without a top last, SkiResortAggregate
-            // .LiftOrdinals) — the base's row when the base has a custom name, else the top's row. Otherwise
-            // the band names a lift "Lift 2" that the hub calls "Lift 1" once its line is drawn.
-            // The pairing runs PER LIFT TYPE: a lone fixed-grip base never
-            // pairs with a lone detachable top (that line would be Mixed). A Mixed row is not an unfinished line of its
-            // stations' kind, so it does not count as one. No allocation: per-type counts are rescans (an area has a
-            // handful of lift rows).
+            // 4. Lifts, in `lifts` order. The census makes every untouched station its own single-station StationsOnly row (state 4) and an
+            // Unfinished row (state 3) carries at most one station, so a placed base and a placed top are never one row. Pre-scan: the i-th
+            // lone base of state 4 pairs with the i-th lone top of state 4 (one Detail 0 "draw the lift line" row, build "lift"; the other
+            // station's row is not listed). The pair row sits at the row whose name the finished lift keeps (SkiResortAggregate.LiftOrdinals).
+            // Pairing runs per lift type (a fixed-grip base never pairs with a detachable top: Mixed); a Mixed row does not count as an
+            // unfinished line. No allocation: per-type counts are rescans.
+            // Details: EngineNotes/HubRules.md, "Near HubProblems.Build, step 4".
             int lifts = input.Lifts != null ? input.Lifts.Count : 0;
             for (int k = 0; k < lifts; k++)
             {
