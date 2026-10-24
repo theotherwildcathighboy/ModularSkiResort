@@ -236,10 +236,10 @@ namespace SkiResortMod.Settings
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.TerrainSnowSlot)),
                     "Ski runs paint the terrain itself using one of the map's four extra " +
-                    "material slots. Auto uses a free slot only — many maps have none, and " +
+                    "material slots. Auto uses a free slot only; many maps have none, and " +
                     "runs then fall back to flat painted surfaces. Force replaces that map " +
                     "material with ski-run snow everywhere the map author painted it " +
-                    "(usually small areas — check your map), and ERASES the map's paint of " +
+                    "(usually small areas, so check your map), and erases the map's paint of " +
                     "that material under and around your ski runs: once the city is saved, " +
                     "that paint stays erased, and switching the option back does not restore " +
                     "it. Nothing is touched until the city has its first ski run. Takes " +
@@ -281,7 +281,7 @@ namespace SkiResortMod.Settings
                     "When enabled, a run drawn within 5 km of a Ski Area Welcome Sign joins " +
                     "the resort (and is charged) immediately, even while paused, and waiting " +
                     "runs join the moment a sign is placed. Disabled, runs join on the next " +
-                    "periodic check, which only happens while the game is running."
+                    "periodic check, which only happens while the game is running. Default on."
                 },
                 {
                     m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.ShowRunGradeWhileDrawing)),
@@ -291,7 +291,7 @@ namespace SkiResortMod.Settings
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.ShowRunGradeWhileDrawing)),
                     "When enabled, drawing or editing a ski run shows a slope heat-map over " +
                     "the run (gray flat, green, blue, black, red double black) and a tooltip " +
-                    "with its rating, hardest unavoidable pitch, length and vertical drop."
+                    "with its rating, hardest unavoidable pitch, length and vertical drop. Default on."
                 },
                 {
                     m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.ContourLinesWhileDrawingRuns)),
@@ -301,7 +301,7 @@ namespace SkiResortMod.Settings
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.ContourLinesWhileDrawingRuns)),
                     "When enabled, terrain contour lines turn on while a ski run is selected " +
                     "in the area tool and turn off again afterwards. If you already had them " +
-                    "on, they stay on."
+                    "on, they stay on. Default on."
                 },
                 // The winter snow line while placing
                 {
@@ -312,7 +312,7 @@ namespace SkiResortMod.Settings
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.ShowSnowLineWhilePlacing)),
                     "When enabled, drawing a ski run or placing a Ski Area Welcome Sign draws two lines on the terrain: the " +
                     "average winter snow line (where the December-February average climate reaches freezing, even in " +
-                    "summer) and a fainter one below it where snow guns start to work. The tooltip gives both heights."
+                    "summer) and a fainter one below it where snow guns start to work. The tooltip gives both heights. Default on."
                 },
                 // The run names on the hill
                 {
@@ -323,7 +323,7 @@ namespace SkiResortMod.Settings
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.ShowRunNamesOnTheHill)),
                     "When enabled, each ski run's name is written on the ground at the run's center, in its difficulty color, " +
                     "while the camera is at piste-map distance. Handy in summer, when the runs carry no snow. The names step " +
-                    "aside while you draw or edit a run."
+                    "aside while you draw or edit a run. Default on."
                 },
                 // The setting is thickness only (no corner rule, no snapping)
                 {
@@ -333,7 +333,7 @@ namespace SkiResortMod.Settings
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.RunOutlineSize)),
                     "How thick the outline and corner dots are while you draw, edit or bulldoze a ski run. " +
-                    "0 keeps the game's thin outline."
+                    "0 keeps the game's thin outline. Default 8."
                 },
                 // Prop density: look only, labels exactly the ruling's names. "In a city; saved runs keep their look until edited", since
                 // density re-stamps only on a settled slider change, never at a load.
@@ -365,7 +365,7 @@ namespace SkiResortMod.Settings
                 },
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.SnowGunPlumes)),
-                    "Snow guns on snowmaking and night runs show a vapour plume while they make snow: cold enough at " +
+                    "Snow guns on snowmaking and night runs show a vapor plume while they make snow: cold enough at " +
                     "the gun and the run's snow below the depth where the guns stop. Look only: snow and upkeep do not " +
                     "change. Default on."
                 },
@@ -422,7 +422,7 @@ namespace SkiResortMod.Settings
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.LiftBuildAids)),
                     "Guide line and offset readout while placing a station; a warning on the bulldozer " +
-                    "showing what a click on a lift removes"
+                    "showing what a click on a lift removes. Default on."
                 },
                 {
                     m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.LiftTowerPlanner)),
@@ -431,7 +431,7 @@ namespace SkiResortMod.Settings
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.LiftTowerPlanner)),
                     "After you draw or change a lift line, its towers are raised and moved along the line so the chairs " +
-                    "and cabins stay at least 3 m above the ground (trams 5 m). Off: the towers stay where the game puts them."
+                    "and cabins stay at least 3 m above the ground (trams 5 m). Off: the towers stay where the game puts them. Default on."
                 },
 
                 // --- Diagnostics ---
@@ -443,7 +443,23 @@ namespace SkiResortMod.Settings
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.DiagnosticMeasurements)),
                     "For field tests, off by default. Turns on extra measurements that cost a little frame time " +
-                    "(a daily ski-day measurement pass and the Ctrl+Alt+G slope capture file). Leave it off for normal play."
+                    "(a daily ski-day measurement pass and the Ctrl+Alt+G slope capture file). Leave it off for normal play. Default off."
+                },
+
+                // --- Reset ---
+                { m_Setting.GetOptionGroupLocaleID(SkiResortSettings.GroupReset), "Reset" },
+                {
+                    m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.ResetToDefaults)),
+                    "Reset all options to defaults"
+                },
+                {
+                    m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.ResetToDefaults)),
+                    "Puts every Modular Ski Resort option and key binding back to its default. Asks you to confirm first."
+                },
+                // The confirmation dialog text (AutomaticSettings.GetConfirmationMessage)
+                {
+                    m_Setting.GetOptionWarningLocaleID(nameof(SkiResortSettings.ResetToDefaults)),
+                    "Reset all Modular Ski Resort options and key bindings to their defaults?"
                 },
 
                 // --- Key bindings (glade tool) ---
@@ -531,7 +547,7 @@ namespace SkiResortMod.Settings
                 },
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.DumpDiagnosticsBinding)),
-                    "Writes the drawing-feedback and glade-tool state to the mod log, also while a run is on the cursor"
+                    "Writes the drawing-feedback and glade-tool state to the mod log, also while a run is on the cursor. Default Ctrl+Alt+G."
                 },
                 { m_Setting.GetBindingKeyLocaleID(SkiResortSettings.ActDumpDiagnostics), "Dump diagnostics" },
                 { m_Setting.GetBindingKeyHintLocaleID(SkiResortSettings.ActDumpDiagnostics), "Dump" },

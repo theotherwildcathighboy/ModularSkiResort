@@ -49,7 +49,7 @@ const BRITISH = [
   ["fulfil", "fulfill"], ["enrol", "enroll"], ["cheque*", "check"], ["jewellery", "jewelry"], ["aeroplane*", "airplane"],
   // T130 part 2 additions: more -our / -re words, -ise verbs with their endings spelled out (a bare "stem*" would hit organism, optimism,
   // finalist), doubled-l forms, and the odd spellings found in docs and comments. "re:" = a raw regex (a word start is added).
-  ["recolour*", "recolor"], ["armour*", "armor"], ["humour*", "humor"], ["rumour*", "rumor"], ["vigour*", "vigor"], ["odour*", "odor"],
+  ["recolour*", "recolor"], ["armour*", "armor"], ["humour*", "humor"], ["rumour*", "rumor"], ["vigour*", "vigor"], ["odour*", "odor"], ["vapour*", "vapor"],
   ["theatre*", "theater"], ["fibre*", "fiber"], ["calibre*", "caliber"], ["millimetre*", "millimeter"], ["decimetre*", "decimeter"],
   ["sulphur*", "sulfur"], ["analogue*", "analog"], ["maths", "math"], ["per cent", "percent"], ["practise*", "practice"],
   ["channelled", "channeled"], ["tunnelled", "tunneled"], ["equalled", "equaled"], ["dialled", "dialed"], ["shovelled", "shoveled"],

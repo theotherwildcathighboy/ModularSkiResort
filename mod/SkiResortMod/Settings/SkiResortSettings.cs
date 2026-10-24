@@ -28,8 +28,8 @@ namespace SkiResortMod.Settings
     }
 
     [FileLocation("ModsSettings/SkiResortMod/SkiResortMod")]
-    [SettingsUIGroupOrder(GroupHub, GroupBalance, GroupSkiDays, GroupSnow, GroupTerrain, GroupRuns, GroupLifts, GroupKeybindings, GroupDiagnostics)]
-    [SettingsUIShowGroupName(GroupHub, GroupBalance, GroupSkiDays, GroupSnow, GroupTerrain, GroupRuns, GroupLifts, GroupKeybindings, GroupDiagnostics)]
+    [SettingsUIGroupOrder(GroupHub, GroupBalance, GroupSkiDays, GroupSnow, GroupTerrain, GroupRuns, GroupLifts, GroupKeybindings, GroupDiagnostics, GroupReset)]
+    [SettingsUIShowGroupName(GroupHub, GroupBalance, GroupSkiDays, GroupSnow, GroupTerrain, GroupRuns, GroupLifts, GroupKeybindings, GroupDiagnostics, GroupReset)]
     // One keyboard action declaration per binding (conflict warnings; see engine notes)
     [SettingsUIKeyboardAction(ActToggleGlade)]
     [SettingsUIKeyboardAction(ActGladeNextVariant)]
@@ -50,6 +50,7 @@ namespace SkiResortMod.Settings
         public const string GroupLifts = "Lifts";
         public const string GroupKeybindings = "Keybindings";
         public const string GroupDiagnostics = "Diagnostics";
+        public const string GroupReset = "Reset";
 
         // Action names inside our input map (map name = ModSetting.id, "SkiResortMod.SkiResortMod.Mod", ModSetting.cs:39, 245).
         // Persisted in the settings file and the player's rebinds: never rename. GladeNextVariant steps the tree density (1-8),
@@ -285,7 +286,7 @@ namespace SkiResortMod.Settings
         [SettingsUISection(SectionMain, GroupRuns)]
         public int FloodlightDensityPct { get; set; }
 
-        /// <summary>Look only: snow guns show a vapour plume while their run's guns are running (SnowGunPlumeRules). Read every pass (64
+        /// <summary>Look only: snow guns show a vapor plume while their run's guns are running (SnowGunPlumeRules). Read every pass (64
         /// sim frames) by SkiSnowGunPlumeSystem only; off cuts every plume within one pass. Snow, upkeep and the guns' own start / stop
         /// never read it.</summary>
         [SettingsUISection(SectionMain, GroupRuns)]
@@ -385,6 +386,23 @@ namespace SkiResortMod.Settings
         [SettingsUIKeyboardBinding(BindingKeyboard.K, ActToggleCatTrackGrade, ctrl: true, shift: true)]
         [SettingsUISection(SectionMain, GroupKeybindings)]
         public ProxyBinding ToggleCatTrackGradeToolBinding { get; set; }
+
+        /// <summary>Write-only button with the game's confirmation dialog (message: GetOptionWarningLocaleID, AutomaticSettings.cs:1146-1166;
+        /// same pattern as GeneralSettings.resetSettings, GeneralSettings.cs:138-146). Restores every option and the key bindings to
+        /// their defaults, then saves.</summary>
+        [SettingsUIButton]
+        [SettingsUIConfirmation]
+        [SettingsUISection(SectionMain, GroupReset)]
+        public bool ResetToDefaults
+        {
+            set
+            {
+                SetDefaults();
+                // ResetKeyBindings regenerates the attribute defaults (SetDefaults must not) and saves; without registered bindings save here
+                if (keyBindingRegistered) ResetKeyBindings();
+                else ApplyAndSave();
+            }
+        }
 
         public override void SetDefaults()
         {
