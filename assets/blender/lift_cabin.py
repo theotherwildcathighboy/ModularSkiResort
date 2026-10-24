@@ -6,7 +6,7 @@ Contract: docs/research/art/assets-2026-10/design/cabins.md, with every MUST-CHA
 design/cabins-skeptic.md applied and the overnight rulings R27-R31 (ROUND-SPEC.md) overriding
 the contract where they conflict. Build report: docs/research/art/assets-2026-10/build/lift_cabin.md.
 
-Run (headless only - generator code never runs in Richard's live Blender, R10):
+Run (headless only - generator code never runs in the live Blender, R10):
 
     blender --background --factory-startup --python-exit-code 1 --python lift_cabin.py -- \\
         --kind gondola|tram [--out assets/import/cabins/A] [--export]
@@ -65,7 +65,7 @@ TRAM `SkiTramCabinA` (cabins.md section 4 as reconciled by R27-R30)
     --split: SkiTramCabinA (everything below the carriage pin K) + SkiTramCarriageA (carriage,
     pivot K = (0, 0, hang - 0.12)), each its own 4-map set (cabins.md section 4.8).
 
-REVISION 1 (Richard's first live review 2026-10-11, verdicts items 6 / 9: "a bit blocky ... straight
+REVISION 1 (first live review 2026-10-11, verdicts items 6 / 9: "a bit blocky ... straight
 outta CAD - a cleanup pass"; "the icon is great, reuse it, but a tiny bit low-res"; tram "same
 critique"). Every contract number above is unchanged (hang / rope / UtilityObject / bounds / hosted
 poses; seams S5 / S6 and the station T8 sweep pin them). Gondola: shell crown (3 seg) / skirt foot
@@ -86,7 +86,7 @@ the door-plug corner fill and welds the one collapsed corner, so the shell + plu
 closed (asserted in soften_shell and as G11); C4 grip stem, fork crossbar ends and cliplinks sit
 2 mm inside the faces they were flush with. G12 / T12: no same-facing coplanar overlap > 1 cm2.
 
-REVISION 2 (2026-10-11, tram only; the gondola build is untouched): Richard, after approving both
+REVISION 2 (2026-10-11, tram only; the gondola build is untouched): after approving both
 looks - "gondola has some details that the tram doesn't now (door handles, bolts etc), also a tram
 would have a pair of sliding doors on each side in the middle, opening outwards". tram_door_kit: one
 outward-opening sliding (plug) double door per long side, centered, CLOSED: leaves 0.838 wide from
@@ -253,7 +253,7 @@ TRAM_STATION = {"deck_y": 6.30, "dock_z": -5.50, "track_y": 16.00, "deck_edge_dx
 # Shared constants
 # ======================================================================================
 
-#: Revision 1 (Richard's verdicts 2026-10-11 items 6 / 9) measured 60 vs 66: the Wilin shell's
+#: Revision 1 (verdicts 2026-10-11 items 6 / 9) measured 60 vs 66: the Wilin shell's
 #: facets sit at 50-70 deg, so 60 marks 93 more shell edges sharp (the faceted "CAD" read) while
 #: 66 keeps the shell, the 12-segment tubes and rollers (30 deg) and the 2-3 segment bevels
 #: (30-45 deg) smooth and every box / frame edge (>= 80 deg) crisp. lift_cabin.md Revision 1.
@@ -265,7 +265,7 @@ LV_ROPE_R = 0.060          # vanilla LV cable lane mesh bounds x +-0.060 [V]
 GLYPH_SS = 4               # ski_launcher_glyph.render_alpha supersampling of the logo stamp
 GLYPH_RGB = (0.85, 0.85, 0.85)          # linear white of the stamped logos
 #: Revision 1: the logo shipped at 95 px (gondola, 170 px/m x 0.56 m) and 135 px (tram, 193 px/m
-#: x 0.70 m); Richard: "a tiny bit low-res". Every logo quad of one asset now shares ONE pinned
+#: x 0.70 m); "a tiny bit low-res". Every logo quad of one asset now shares ONE pinned
 #: square of the stamp stripe (PIPELINE section 3: stamped strips keep their UVs, copied 1:1),
 #: >= 4x the shipped edge length; the glyph alpha is rendered at the square's own pixel size.
 LOGO_SHIPPED_PX = {"gondola": 95.0, "tram": 135.0}
@@ -472,7 +472,7 @@ T = dict(
     carriage_prefixes=("carhead_", "carbeam_", "tie_", "bolster_", "bogie_", "sheave_", "axle_",
                        "clamp_", "bolt_", "cliplink_", "pivot_"),
     split_tex=1024,
-    # ---- Revision 2 (Richard 2026-10-11: "a tram would have a pair of sliding doors on each
+    # ---- Revision 2 (2026-10-11: "a tram would have a pair of sliding doors on each
     # side in the middle, opening outwards"; "gondola has some details that the tram doesn't")
     # One outward-opening sliding (plug) double door per long side, centered on the cabin length
     # (R29 symmetric), modeled CLOSED: two leaves meeting at x 0, each 0.838 wide, from the
@@ -907,7 +907,7 @@ def bevel_part(obj, width=0.02, segments=1, angle_deg=30.0):
 
 
 # --------------------------------------------------------------------------------------
-# Revision 1 builders (Richard's verdicts 2026-10-11: "blocky ... straight outta CAD")
+# Revision 1 builders (verdicts 2026-10-11: "blocky ... straight outta CAD")
 # --------------------------------------------------------------------------------------
 
 def rounded_box(name, size, loc, radius, segs=2, open_bottom=False, drop=()):
@@ -1727,7 +1727,7 @@ def fit_logo(bvh_obj, end, name):
 def gondola_parts(args, report):
     """All gondola parts in the authoring frame: [(obj, material key)].
 
-    Revision 1 (Richard's verdict item 6): every rebuilt part is soft-edged and connected -
+    Revision 1 (verdict item 6): every rebuilt part is soft-edged and connected -
     rounded roof rails carrying the hanger arm on a foot block and a saddle clamp; ONE smooth
     12-segment hanger tube (no flat gussets); a rounded hanger head the tube ends in; two coil
     springs up to a rounded carriage frame; 12-segment rollers that overlap the frame sides
@@ -2170,7 +2170,7 @@ def tram_door_kit():
 def tram_parts(args, report, dims):  # noqa: ARG001 (report kept for the gondola signature)
     """All tram parts in the authoring frame (cabins.md 4.1-4.2 reconciled by R27-R30).
 
-    Revision 1 (Richard's verdict item 9, "same critique as the gondola"): rounded boat
+    Revision 1 (verdict item 9, "same critique as the gondola"): rounded boat
     bottom and roof crown, glazing set back behind frames (reveals), rounded box sections on
     the yoke / fin / column / fork / uprights / carriage, real wheel profiles (dished web,
     flanges, V groove), lighter bogie side plates, rounded roof equipment with seams, logo
@@ -3716,7 +3716,7 @@ def gondola_detail():
 
 
 def tram_detail():
-    """Revision 2 (Richard: "gondola has some details that the tram doesn't (door handles,
+    """Revision 2 ("gondola has some details that the tram doesn't (door handles,
     bolts etc)"): measured on the Revision 1 bake, EVERY tram bolt row was below the 2-texel
     floor and skipped (509 faces) - the galv band ships at ~44-54 px/m and a 0.010 m head is
     1.1 texels across. The tram's structural bolts are now tram-scale heads (r 0.018-0.022,
@@ -4217,7 +4217,7 @@ def finish_asset(args, cfg, obj, sources, result):
         "density_px_per_m": post_rep.get("density_px_per_m"),
         "density_hero_px_per_m": post_rep.get("density_hero"),
         "stamp_layout": result.get("stamp_layout"),
-        "revision": "Revision 1 (Richard's verdicts 2026-10-11 items 6 / 9): soft-edged rebuild, "
+        "revision": "Revision 1 (verdicts 2026-10-11 items 6 / 9): soft-edged rebuild, "
                     "CAD-tell cleanup, pinned >= 4x logo square; Revision 1b (2026-10-11): "
                     "geometry defects C1-C4 fixed (cap triangulation, closed shell, 2 mm insets), "
                     "G11 / G12 / T12 + cap_check contracts" + (

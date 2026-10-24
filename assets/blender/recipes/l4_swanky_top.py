@@ -46,7 +46,7 @@ flue pots 12-seg (were 8). Kept as built: the kit handrail posts / rails (cs2_ki
 station's: an 8-gon would put post flats in the rails' planes, kit need K21), the glass balustrade's
 box posts and the glulam columns (boxes stay boxes, B.1), the 12 deck LED pucks (PLACEHOLDER).
 
-NITPICK C (2026-10-13; Richard, twenty-fifth look: "the roof of the lower part is a different style, but we can say
+NITPICK C (2026-10-13; twenty-fifth look: "the roof of the lower part is a different style, but we can say
 it's lore ... Same issue with the sign outside as the chalet."; build/nitpick-c-lodges.md): the forecourt board's
 fork-and-knife becomes a BLANK board (NC_LABELS: sign cream, a thin graphite trim rim; fine_detail.blank_board),
 listed in the manifest's `we_boards` block for an optional Write Everywhere layout; `--no-fine` keeps the
@@ -59,7 +59,7 @@ engine-base edges (check_base_mode "plinth" on LOD0/1/2 in lodge.py).
 
 Design terrain t_S(X) = -S (20 - X), S_D = 0.20; supported S in [0.17, 0.30].
 
-T59 (2026-10-18; Richard, Blender review 2026-10-17 item 4: "We seem to have lost the outdoor firepit props, would like
+T59 (2026-10-18; Blender review 2026-10-17 item 4: "We seem to have lost the outdoor firepit props, would like
 some ... on the patio of [the summit lodge]. Chairs should surround both. Rearrange the other props as needed."; build note
 docs/research/field/2026-10-15/build/T59-T60-chalet-summit.md): T59_FIRE_PIT (False = the pre-T59 rows, L4_ROWS_PRE_T59,
 byte-identical). A vanilla CampgroundFireplace02 (the stone ring, DECISIONS 231; GUID from the harvest map, entry 230)
@@ -184,7 +184,7 @@ ARRIVAL_PREFIXES = ("deck_fc", "entry_u", "roof_ueg", "pier_ueg", "col_ueg")
 
 
 # ======================================================================================
-# Revision 1 (a): vanilla props by reference (DECISIONS 183; Richard's eighteenth look "needs
+# Revision 1 (a): vanilla props by reference (DECISIONS 183; eighteenth look "needs
 # the in-game assets pass that the others have gotten"). GUIDs / bounds / snow flags come from
 # recipes/l5_swanky_bottom.VANILLA (one table for both lodges, re-derived from the dump by the
 # test). (prefab, x, y, z, yaw deg, m_ParentMesh, zone), authoring frame (no shift): yaw turns
@@ -209,7 +209,7 @@ L4_ROWS_PRE_T59 = (
     # the west and north edges
     *((_T, x, y, Z_DECK, 90.0, 0, "terrace") for x, y in L4_TABLES),
     # T26 2026-10-16 dropped the 4 terrace + 2 cantilever parasols (random yellow); restored
-    # 2026-10-17 (Richard: vanilla props, random colors accepted)
+    # 2026-10-17 (vanilla props, random colors accepted)
     *(_parasol(x, y, Z_DECK, 90.0, "terrace") for x, y in L4_TABLES),
     (_H, -9.0, 10.5, Z_DECK, 0.0, 0, "terrace"), (_H, -9.0, 19.5, Z_DECK, 0.0, 0, "terrace"),
     (_B, -11.7, 22.1, Z_DECK, -90.0, 0, "terrace"), (_B, -4.5, 22.1, Z_DECK, -90.0, 0, "terrace"),
@@ -224,7 +224,7 @@ L4_ROWS_PRE_T59 = (
     (_P, -15.5, 4.3, Z_DECK, 180.0, 0, "cantilever"), (_P, -15.5, 18.7, Z_DECK, 180.0, 0, "cantilever"),
     # --- the forecourt: lamp posts at the revision-0 lantern spots, a bench and a bin, pots
     # either side of the porch; the entry's two wall lanterns -> vanilla short-range wall lights
-    # (Richard H4) on the U front wall beside the door surround
+    # (H4) on the U front wall beside the door surround
     (_L, 16.5, -7.5, Z_ARRIVAL, 0.0, 0, "forecourt"), (_L, 16.5, 2.5, Z_ARRIVAL, 0.0, 0, "forecourt"),
     (_B, 18.6, -5.4, Z_ARRIVAL, 0.0, 0, "forecourt"), (_BIN, 18.9, -7.4, Z_ARRIVAL, 0.0, 0, "forecourt"),
     (_POT, 16.4, -5.4, Z_ARRIVAL, 0.0, 0, "forecourt"), (_POT, 16.4, 0.4, Z_ARRIVAL, 0.0, 0, "forecourt"),
@@ -878,7 +878,7 @@ FINE_NOTES = ("Fine-detail step 3e (12-seg flue pots; no rack, the lanterns vani
 # the approved forecourt board (revision 1 / step 3e): the fork-and-knife painted over the whole 1.6 x 0.85 face
 # (white on the light label ground; paint_pictogram has no square mode). `--no-fine` keeps it (legacy).
 PICTO_LABELS = (("sign_fc_face", "paint_pictogram", {"kind": "restaurant"}),)
-# nitpick C (2026-10-13; Richard, twenty-fifth look, L4: "Same issue with the sign outside as the chalet", i.e. "not
+# nitpick C (2026-10-13; twenty-fifth look, L4: "Same issue with the sign outside as the chalet", i.e. "not
 # loving the SIGN of the FORK AND KNIFE ... leave it blank or keep it simple, and people can paste their own labels
 # on it?"; build/nitpick-c-lodges.md): a BLANK board - a cream panel (the resort's sign cream, cs2_signset.GATE_CREAM)
 # with a thin rim in the lodge's graphite trim (slot 1 (0.12, 0.12, 0.13) as shown on the 0.80 trim paint:

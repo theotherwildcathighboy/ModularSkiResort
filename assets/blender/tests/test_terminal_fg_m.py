@@ -742,7 +742,7 @@ def m19_forbid():
 
 
 # --------------------------------------------------------------------------------------
-# Nitpick A (2026-10-13; Richard's twenty-fifth look S-1 / S-2 / S-3; build/nitpick-a-stations.md)
+# Nitpick A (2026-10-13; twenty-fifth look S-1 / S-2 / S-3; build/nitpick-a-stations.md)
 # --------------------------------------------------------------------------------------
 LADDER_CLEAR = 0.30     # S-3: no dressing part within this (plan) of the base's main ladder rails / rungs
 

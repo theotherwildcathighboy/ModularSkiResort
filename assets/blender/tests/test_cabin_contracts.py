@@ -37,7 +37,7 @@ What it proves (one PASS line, exit 1 on any failure):
      channel, ControlMask R + G + B <= 1, A 0 (review minor 6).
   7. Nothing is written into the repo: without --export every asset folder lives under
      <tempdir>/lift_cabin.
-  8. Revision 1 (Richard's verdicts 2026-10-11 items 6 / 9): every logo quad shares ONE pinned
+  8. Revision 1 (verdicts 2026-10-11 items 6 / 9): every logo quad shares ONE pinned
      square (identical, non-mirrored UVUnique) of >= 4x the shipped logo edge; the stamp rects
      are restored 1:1 by the bake; the shipped texels are not anisotropic (area-weighted
      median <= 1.05, p95 <= 1.35 - the stamp stripe's band squeeze is pre-compensated and the

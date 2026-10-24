@@ -1,5 +1,5 @@
 """
-safety_fence.py - the orange safety-net fence (Richard, twenty-fifth look, 2026-10-13: "ORANGE PLASTIC
+safety_fence.py - the orange safety-net fence (twenty-fifth look, 2026-10-13: "ORANGE PLASTIC
 FENCING that is ubiquitous at ski areas ... another FENCE TYPE ... use all the functions built in already
 of fences"). Design: docs/research/art/assets-2026-10/design/safety-fence.md (sections 3, 4, 7).
 Build report: docs/research/art/assets-2026-10/build/safety-fence.md. Prefab staging + S1 surgery:
@@ -135,7 +135,7 @@ SEED = 20261013
 PREVIEW_DISTANCES = (2.0, 10.0, 50.0)
 PREVIEW_VIEWS = ("front", "oblique", "backlit")
 #: preview-only A/B: a deeper "fluo" orange for slot 2 / 3 (the shipped default stays PAD_RGB;
-#: the in-game VariationSet color space is unverified, so this is a JSON knob to show Richard)
+#: the in-game VariationSet color space is unverified, so this is a JSON knob for review)
 ALT_TINT = (1.0, 0.15, 0.02)
 
 

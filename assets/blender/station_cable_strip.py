@@ -1,5 +1,5 @@
 """
-T121 (2026-10-20, Richard: "extra cables are MODELED into the DQ stations and the gondola base and top stations ...
+T121 (2026-10-20, "extra cables are MODELED into the DQ stations and the gondola base and top stations ...
 the chairlift attachment already draws every rope"): strip ONLY the modeled rope triangles out of the SHIPPED station
 FBX files and touch nothing else.
 
@@ -99,7 +99,7 @@ def fbx_names(path, stem):
 
 
 def stats(o, path):
-    """What Richard's rule names: object / mesh names (as imported and as written in the file), vertex and triangle
+    """What the rule names: object / mesh names (as imported and as written in the file), vertex and triangle
     counts, bounds, material slots, UV layers."""
     me = o.data
     me.calc_loop_triangles()

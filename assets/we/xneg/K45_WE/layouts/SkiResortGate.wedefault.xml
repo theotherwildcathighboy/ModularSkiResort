@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- DRAFT Write Everywhere default layout for the SkiResortGate prefab (the Welcome Sign).
      Contract: docs/research/art/assets-2026-10/design/civic-sign.md section 5. Verified vs
-     guessed fields: assets/we/README.md. Richard's in-game WE export
+     guessed fields: assets/we/README.md. The owner's in-game WE export
      replaces this file (authoring loop, README); never add <hideMesh>.
      Offset = welcome_sign.py WE_OFFSET (plank centre, game frame, 4 mm standoff toward +Z);
      MaxWidthMeters = WE_MAX_WIDTH (7.50 plank - 2 x 0.45 margin). -->

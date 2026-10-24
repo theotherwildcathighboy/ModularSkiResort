@@ -632,7 +632,7 @@ def add_nuts(prefix, centre, r, z, n, size=0.034, phase=0.0):
 def add_cabinet(name, size, centre, z0, facing, zone, door=True, louvres=True,
                 lid_zone=Z_GALV):
     """
-    Folded-sheet cabinet (T20 de-CAD; Richard: "a folded-sheet look, door seam, hinges,
+    Folded-sheet cabinet (T20 de-CAD; "a folded-sheet look, door seam, hinges,
     louvre band, slight overhang"): a chamfered body, a lid that overhangs on all sides,
     a door leaf standing 5 mm proud (its outline is the seam) with two hinge barrels on one
     edge and a handle off-center on the other, and a band of louvre slats low on the side.
@@ -818,7 +818,7 @@ def build_tower(p: TowerParams):
     Fan gun on a mast with a caged ladder and a work basket (SMI Denali pattern; the TT10
     has no ladder, DECISIONS 75). T20 rebuilt the access, after the A mesh shipped with:
       * cage hoops made of CAPPED cylinders = solid 0.72 m discs threaded on the mast, which
-        read in game as platforms the ladder passes through (Richard, Ash Flat item 30);
+        read in game as platforms the ladder passes through (Ash Flat item 30);
       * the cage centered 0.30 m off the ladder so it wrapped the mast, and its top hoop and
         two straps cutting through the deck, a rail post and the kick plate;
       * a rail closed on all four sides (no way onto the deck) and stiles stopping at deck
@@ -1003,7 +1003,7 @@ def build_lance(p: LanceParams):
     T20: a lance is a light aluminum tube HINGED on a short galvanised column (the
     "lance snow gun" photograph: a bracket and pin, the tube's tail running past the pivot
     to the water inlet). The jacket covers only the lower column so the pivot reads; the
-    tube is galvanised aluminum (Richard: "aluminum tubes"); the machine-colored parts
+    tube is galvanised aluminum ("aluminum tubes"); the machine-colored parts
     are the nucleator head and the sensor box.
     De-CAD: a cast foot with nuts replaces the square plate, the column is one open tube
     into it with a weld collar under the cheeks, the jacket is a lathe with a rolled top
@@ -1537,7 +1537,7 @@ VARIANTS = {
     # Lean varies per variant inside the documented 25-40 deg band (anatomy, Machine 3).
     "lance":   [("SkiSnowGunLanceB",     dict(height=7.0, lean_deg=30.0), 128),
                 ("SkiSnowGunLanceTallB", dict(height=10.0, pipe_r=0.035, lean_deg=35.0), 128),
-                # Folded / summer variant DROPPED (Richard, verdict 2, 2026-10-16: "if it still
+                # Folded / summer variant DROPPED (verdict 2, 2026-10-16: "if it still
                 # does not read in a 150 m shot, drop the variant"). The laid pose (tube swung
                 # flat onto a low cradle, hose coiled, compressor away) reads close up but at
                 # 150 m it is an orange dot with a hairline that vanishes into the snow
@@ -1609,7 +1609,7 @@ LAST_WEATHER = None
 # (wiki-best-practices-gap-2026-10-17.md section 2a). With --repack these sizes are the DEFAULTS
 # (coordinator decision, reversible: `--tex B` restores the exported B sizes). quad_size stays
 # DERIVED as tex // 2 everywhere (finish(), build_maps(), the AO rebake).
-# Lances 512 -> 1024 (Richard 2026-10-17, after the street-light comparison, weather doc section 12: the 6.9 / 11 m
+# Lances 512 -> 1024 (2026-10-17, after the street-light comparison, weather doc section 12: the 6.9 / 11 m
 # single-quad tube is capped along its length by the atlas width; vanilla poles sit on 4096 maps).
 TEX_REDO = {"tower": 1024, "fan": 1024, "lance": 1024, "hydrant": 512}
 TEX_FLOOR = 512                # wiki minimum; cs2_validate texture-size ERROR below it
@@ -2212,7 +2212,7 @@ def build_maps(key, obj, name, asset_dir, quad_size, do_finish=False, weather=Fa
     finish rebake. Split out (T20) so the preview build can make the same maps WITHOUT
     writing an FBX or settings.json.
 
-    `weather` (2026-10-17, opt-in until Richard's verdict): run snow_weather's clean-style
+    `weather` (2026-10-17, opt-in until the verdict): run snow_weather's clean-style
     texture pass inside the finish bake (post_compose). Pixels only: the mesh, UVs, LODs and
     every file name are unchanged. Needs do_finish. `weather_step` (REDO, wiki style): 1 =
     smoothness / metal parity + flat clean base + normal-map detail, 2 = step 1 + the

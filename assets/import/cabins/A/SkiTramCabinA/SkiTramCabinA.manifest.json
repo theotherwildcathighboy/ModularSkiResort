@@ -297,7 +297,7 @@
     "stripe1_px": 640.0,
     "reserved_restored": 6
   },
-  "revision": "Revision 1 (Richard's verdicts 2026-10-11 items 6 / 9): soft-edged rebuild, CAD-tell cleanup, pinned >= 4x logo square; Revision 1b (2026-10-11): geometry defects C1-C4 fixed (cap triangulation, closed shell, 2 mm insets), G11 / G12 / T12 + cap_check contracts; Revision 2 (2026-10-11, tram): centred outward-opening sliding double doors on both long sides (closed, 15 mm proud, gap-line seals, pocket grab bars, release pulls, header rollers, threshold nosing, drip rail), gondola detail parity (bolt rows above the texel floor, hanger pin, roof hatches, end bumpers, intercoms), T13 door contract",
+  "revision": "Revision 1 (verdicts 2026-10-11 items 6 / 9): soft-edged rebuild, CAD-tell cleanup, pinned >= 4x logo square; Revision 1b (2026-10-11): geometry defects C1-C4 fixed (cap triangulation, closed shell, 2 mm insets), G11 / G12 / T12 + cap_check contracts; Revision 2 (2026-10-11, tram): centred outward-opening sliding double doors on both long sides (closed, 15 mm proud, gap-line seals, pocket grab bars, release pulls, header rollers, threshold nosing, drip rail), gondola detail parity (bolt rows above the texel floor, hanger pin, roof hatches, end bumpers, intercoms), T13 door contract",
   "lod_switch": {
     "switch_m": {
       "1": 80.5,

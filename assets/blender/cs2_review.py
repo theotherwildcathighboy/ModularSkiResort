@@ -3,7 +3,7 @@ cs2_review.py - headless review packs for the live Blender review (ROUND-SPEC R1
 
 WHY
 ---
-Generator code must never run in Richard's live Blender session: every generator's
+Generator code must never run in the live Blender session: every generator's
 clear_scene() deletes all objects and purges orphans (lift_chair.py:158-165,
 lift_terminal.py:103-110), the finish pass leaks scene settings (lift_tower.py:929,
 982-984), export_fbx renames sources (cs2_asset.py:1217-1218) and Cycles bakes block the
@@ -99,7 +99,7 @@ From an exported folder (no generator run; write_folder_pack, CLI --from-folder)
 FBXs (LOD0 / LOD1 / LOD2 / `<Name>_<suffix>.fbx` subs, the manifest's sign set as the SignSet extra)
 are imported headless, the export's (x, y, z) -> (x, z, -y) x 100 is undone on the mesh data (5.x
 wm.fbx_import keeps raw vertices; checked against the manifest's extent_game_m), and write_pack
-runs with the folder's manifest, so the pack is built from exactly what Richard imports.
+runs with the folder's manifest, so the pack is built from exactly what gets imported.
 
 Collection custom props (flat, UI-readable; everything again as JSON in "cs2r_meta_json"):
 tris_LOD<k> / tris_<suffix>, cap_LOD<k> (meta["caps"]), lod_switch_m_LOD<k> / lod_cull_m /
@@ -1176,7 +1176,7 @@ def _recipe_meta(manifest):
 def write_folder_pack(asset_dir, out_dir=None, name=None):
     """
     Write the review pack of an EXPORTED asset folder (module docstring): no generator run, so a
-    pack is minutes, not a 20-minute bake, and shows exactly the files Richard imports. LOD0 =
+    pack is minutes, not a 20-minute bake, and shows exactly the files that get imported. LOD0 =
     <name>.fbx, LOD1 / LOD2 = <name>_LOD<k>.fbx, subs = every other <name>_<suffix>.fbx whose
     suffix does not start with LOD (the generator hands write_pack the LOD0 subs only), the
     manifest's sign set as the SignSet extra (its texture via its own settings.json). The

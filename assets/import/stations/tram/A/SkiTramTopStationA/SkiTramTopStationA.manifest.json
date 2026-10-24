@@ -4766,7 +4766,7 @@
         "m_Bounds": "unclamped: min y -12.00 on LOD0 / LOD1 / LOD2 (MC11, as L4; culling then keeps the plinth: no HasBase, so PreCullingSystem uses the mesh bounds)",
         "terraform": "unchanged: the FG-top no-level block (LevelMin 1600, DontRaise + DontLower)"
       },
-      "why": "revision 3 (Richard T-3): the foundation and supports continue below grade so the station can be set into a cliff edge or buried on a flat summit"
+      "why": "revision 3 (T-3): the foundation and supports continue below grade so the station can be set into a cliff edge or buried on a flat summit"
     },
     "axis_x": 0.0,
     "frame": {

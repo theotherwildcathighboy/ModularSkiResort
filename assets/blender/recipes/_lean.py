@@ -1,5 +1,5 @@
 """
-recipes/_lean.py - generator CONTRACT "LEAN" (Richard, 2026-10-11, fifteenth look: "on the ski
+recipes/_lean.py - generator CONTRACT "LEAN" (2026-10-11, fifteenth look: "on the ski
 patrol shacks, a few of the toboggans lean against nothing"). NOT a recipe: load_recipes()
 skips files whose name starts with "_". It imports bpy at module level, so recipe modules
 load it lazily inside their builders (as recipes/_civic.py).

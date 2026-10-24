@@ -5,7 +5,7 @@
 | Title | Ski gongola and lift station detailed drafts (sic) |
 | Author | Wilin_Amaurea - https://sketchfab.com/wilinamaurea |
 | Source | https://sketchfab.com/3d-models/ski-gongola-and-lift-station-detailed-drafts-a8fabd3e955643a2a9e9f09bd46635db |
-| License | CC BY 4.0 (CC Attribution) - https://creativecommons.org/licenses/by/4.0/ (Sketchfab API `v3/models/a8fabd3e955643a2a9e9f09bd46635db`; Richard confirmed Sketchfab CC BY on 2026-10-11, ROUND-SPEC finding 12 / Q8) |
+| License | CC BY 4.0 (CC Attribution) - https://creativecommons.org/licenses/by/4.0/ (Sketchfab API `v3/models/a8fabd3e955643a2a9e9f09bd46635db`; Sketchfab CC BY confirmed 2026-10-11, ROUND-SPEC finding 12 / Q8) |
 | Published | 2020-06-09 (faceCount 36,557 = this file's triangle count; tag `xyz-school-draftpunk-3`) |
 | Downloaded | 2026-10-10, by theotherwildcathighboy |
 | Archived | 2026-10-11: copied (not moved) from `Desktop\ski resort assets reference images\gondolas\source\` |
@@ -13,7 +13,7 @@
 
 Caveat (ref-models-skeptic verdict 12): the FBX header says it was written 2020-06-09 14:56 GMT
 as `gondola_last.fbx`, 46 min after the Sketchfab publish, so it is a later export than the
-original upload. Same geometry is likely; the exact download page is Richard's answer (Q8).
+original upload. Same geometry is likely; the exact download page is the open question Q8.
 
 ## Files
 

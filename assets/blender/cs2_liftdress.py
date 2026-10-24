@@ -57,7 +57,7 @@ distance primitives of ski_launcher_glyph (its ("line"|"fill"|"disk"|"ring"|"rec
 256 canvas, y down); the resort glyph is ski_launcher_glyph.cand_c. Never imports lodge or
 recipes directly (welcome_sign does, lazily, on the first painted word). One exception,
 lazily and inside ski_rack only: cs2_bldg, whose ski_gear is THE ski-gear part project-wide
-(Richard, 2026-10-11: the stations' racks must match the A-frame's, no bindings).
+(2026-10-11: the stations' racks must match the A-frame's, no bindings).
 Headless only for builders / painters (bpy); the tables import without side effects.
 """
 
@@ -666,7 +666,7 @@ def tools(name, foot, facing, z0, lean_deg=75.0, gap=0.35):
     return out
 
 
-# The ONE ski-gear part project-wide (Richard, eleventh look, 2026-10-11: "the skis outside
+# The ONE ski-gear part project-wide (eleventh look, 2026-10-11: "the skis outside
 # the tram building look totally different from the ones on the A frame - the A-frame ones
 # way preferred"; ninth look: "I don't think we need to render the bindings"): the rack's
 # items are cs2_bldg's gear (a ski PAIR base to base with sidecut and curled tips, a snowboard
@@ -756,7 +756,7 @@ def ski_rack(name, x0, x1, y, z0, pairs=7, boards=2, side=-1.0, h=1.30, stand_of
 
 def aframe_rack(name, x, y, skis, z0=0.0, along="Y"):
     """The A-frame KIT rack (cs2_bldg.ski_rack_frame: 8 slots, gear=True, no bindings) - ONE rack look
-    project-wide (Richard, eleventh look 2026-10-11: "the A-frame ones way preferred (sans bindings)").
+    project-wide (eleventh look 2026-10-11: "the A-frame ones way preferred (sans bindings)").
     Center (x, y) in the Blender authoring frame, standing on z0, long axis `along` ("X" | "Y"); `skis` =
     cs2_bldg gear entries (slot, side, kind[, color[, length]]). Parts `skirack_<name>` (the galv frame) and
     `skirack_<name>g<code>` (one per gear matkey), each passed through _adopt like ski_rack's gear (tram rev 2
@@ -1061,7 +1061,7 @@ DRESS_CONTACT_KINDS = {tuple(sorted(tok.split(":"))): why for why, toks in DRESS
 
 
 # ======================================================================================
-# Painters (design 2.1 "Painters", 2.2 legibility). 2026-10-12 lift-board redraw (Richard,
+# Painters (design 2.1 "Painters", 2.2 legibility). 2026-10-12 lift-board redraw (
 # twenty-second look: "the guy is getting his HEAD SLAMMED BY THE BAR ... the SKIS LOOK LIKE THEY
 # HAVE BLOCKS ON THEM ... trying to avoid AI slop"; build/lift-boards-redraw.md): every lift board
 # is drawn in the REAL North-American signage style of docs/research/art/assets-2026-10/ref-signs/

@@ -36,7 +36,7 @@ validate) into a temp dir: W1 and W2 with the recipe's weather, N with weather N
       normal; a deck prop's pivot is on a deck top (+-0.01); every prop's box (the union of
       its vanilla variants' render bounds, dump.zip) inflated by 0.05 m touches no face of
       ours other than its mounting surface (skeptic S6).
-  D11 LEAN (Richard, fifteenth look: "a few of the toboggans lean against nothing"): every
+  D11 LEAN (fifteenth look: "a few of the toboggans lean against nothing"): every
       leaning part (akja_, gear_, pole_) of the built recipe is measured by recipes/_lean.py:
       the top of its back face has a SOLID face of the EXPECTED support part <= 0.02 m behind
       it over >= 80 % of its width, its foot is on grade / the deck within 0.02 m; the set of
@@ -164,7 +164,7 @@ SPEC = {
         lod0_cap=1750, ppm_w1=28.0, n_sub=10, n_vanilla=5, n_mod=5, sign_faces=1, frames_w=0.75,
         frames_ppm=20.0),
 }
-# D11: leaning part / kit row -> the part it must rest on (lean fix, Richard's fifteenth look; step 3d: the
+# D11: leaning part / kit row -> the part it must rest on (lean fix, fifteenth look; step 3d: the
 # kit rows keep the modeled parts' supports)
 SPEC["P1"]["lean"] = {f"pole_{k}": "wall_p1" for k in range(6)}
 SPEC["P1"]["lean_rows"] = {"akja_p1": "wall_p1", "akja_p1b": "tobrack_p1", "gear_p1board": "tobrack_p1"}
@@ -600,7 +600,7 @@ def _remove_new_objects(keep):
 
 
 def d11_lean(key, rec):
-    """CONTRACT LEAN (lean fix, Richard's fifteenth look), measured on a fresh build of the
+    """CONTRACT LEAN (lean fix, fifteenth look), measured on a fresh build of the
     recipe's parts (the builder runs the contract itself) + the negative cases. Step 3d: also on the
     kit lean rows (the real kit mesh), with their own negatives."""
     from mathutils import Vector

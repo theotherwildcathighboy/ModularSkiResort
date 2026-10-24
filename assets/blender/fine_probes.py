@@ -1,11 +1,11 @@
 """
-fine_probes.py - PROBES B for Richard's import session S1 (fine-detail pass, design section F as cut
+fine_probes.py - PROBES B for import session S1 (fine-detail pass, design section F as cut
 down by the skeptic: F1 + F4 + the FS7 lodge rack row; FS2 / FS8 / FS9 applied).
 
 Design: docs/research/art/assets-2026-10/design/fine-detail-pass.md section F (+ C.3, C.6) and
 design/fine-detail-pass-skeptic.md FS7 / FS8 / FS9 / FS12 / FS15 (the skeptic wins).
 Build report: docs/research/art/assets-2026-10/build/probes-b.md.
-Richard's S1 steps, surgery JSON and outcome table: docs/research/art/assets-2026-10/surgery/probes-B.md
+S1 steps, surgery JSON and outcome table: docs/research/art/assets-2026-10/surgery/probes-B.md
 (+ surgery/probes-B.data/).
 
     cd assets/blender

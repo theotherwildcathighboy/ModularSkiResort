@@ -431,7 +431,7 @@ def aframe_parts(c, opts):
     """L1 massing: base_lodge.build_lodge (:579-873) rebuilt on the kit, pre-yaw (entry at
     -X), every derived value from aframe_derived (25c). Section 13.1 port map + deltas,
     skeptic MUST-CHANGE 4 (porch slab a ground part, entry surround on the porch).
-    Revision 1 (Richard's first live review 2026-10-11, verdicts item 12; L1 is the only
+    Revision 1 (first live review 2026-10-11, verdicts item 12; L1 is the only
     `aframe` recipe): `KNEE_H` (bldg_recipes.aframe_knee; absent = 0 = the base_lodge port)
     is the vertical wall added under the eaves - every literal height above the old eave
     moves with it (roof windows, loft bands, clerestory, chimney top = RIDGE_Z + 1.16); the
@@ -568,7 +568,7 @@ def aframe_parts(c, opts):
                 kind="timber")
     P += K.rail("landingb", [(DX1, 1.5, DTOP), (sx0 - 0.05, 1.5, DTOP)], kind="timber")
     # ---- umbrellas (slot 2) -------------------------------------------------------------------
-    # PARASOLS_VANILLA (L1, fifteenth look 2026-10-11, Richard: no house-made umbrellas): the
+    # PARASOLS_VANILLA (L1, fifteenth look 2026-10-11, no house-made umbrellas): the
     # deck parasols are vanilla ParasolRandom01 sub-objects (bldg_recipes.L1_PARASOLS), none
     # modeled; params without the key keep the base_lodge port's modeled umbrellas
     umbrellas = () if c.get("PARASOLS_VANILLA") else (
@@ -694,7 +694,7 @@ def aframe_parts(c, opts):
         gap_e = (S2X1 + OVER + 0.25) - ex if fit and nm.startswith("E") else 0.02
         P += K.downspout(nm, x, y, gz, nrm, wall_gap=abs(gap_w) if gap_w else gap_e, z_bottom=zb,
                          ledge_drain=fit and nm.startswith("W"))
-    # detail pass 1 (Richard's second verdict 2026-10-11, DETAIL1 in the params; L1 only):
+    # detail pass 1 (second verdict 2026-10-11, DETAIL1 in the params; L1 only):
     # snow guards on the two prow slopes (the main slopes have them), and the prow gutters'
     # downspouts: outlet at the gutter end, an offset leader to the prow corner, down to the deck
     if c.get("DETAIL1"):

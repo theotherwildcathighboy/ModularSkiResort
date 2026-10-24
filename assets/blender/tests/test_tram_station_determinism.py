@@ -16,7 +16,7 @@ skeptic's MUST-CHANGEs and ROUND-SPEC R27-R31).
       face struts, an undeclared clash, a part wholly inside a closed part, a member inside the hut).
       T2 also asserts C14 on every variant: the open findings (F2 / F3 base, --no-wheels shaft)
       are listed by name, the hut group is clear, the bullwheel frame keeps >= 0.30 m (F1).
-      C15 platform reachability - revision 1c (Richard's fourth look): T2 asserts on every variant
+      C15 platform reachability - revision 1c (fourth look): T2 asserts on every variant
       that every walkable surface reaches grade through the expected flights / ladders (top: the
       +X stair s, the maintenance stair m, the new -X flights wu + wl, each <= 3.7 m; base: u + l and
       the catwalk ladder pcat). T2n: the 1b top (LEFT_STAIR False: grate_bayL, grate_bayc,
@@ -93,7 +93,7 @@ skeptic's MUST-CHANGEs and ROUND-SPEC R27-R31).
       not-walkable list. T2n NB3 (each FAILS C15 with "the side area is a dead end"): no stair (the B2 base's dead end),
       the wall not cut, 3 risers of 0.367 m, treads 1.0 m wide, the landing block begun inside the annex; ANNEX_STAIR False
       is the B2 base again (annexcap not walkable, flights u + l, no route, door goal reached); the pure plan numbers.
-  Revision 3 (build/tram-top-rev3.md; tram_station.PLINTH_TOP; Richard's twenty-seventh look T-3): the TOP in PLINTH MODE
+  Revision 3 (build/tram-top-rev3.md; tram_station.PLINTH_TOP; twenty-seventh look T-3): the TOP in PLINTH MODE
       (the L4 rule): no engine base, the foundation and supports continue below grade to min y -12.00, closed.
   T9  (a) above grade NOTHING moved: the plinth-mode top blockout vs the PLINTH_TOP False blockout (= the shipped nitpick-B2
       top) in process - every vertex above y 0.01 identical (0.1 mm), every old part present, the parts whose vertices
@@ -417,7 +417,7 @@ def t2_negative():
     except ts.ContractError as e:
         check(str(e).startswith("C11"), f"T2n C11 cells: fails with {str(e)[:90]}")
     # C13 (revision 1, verdict 10): a painted label whose UVs are turned 90 deg left - the bug
-    # Richard saw on the pictogram - and a mirrored one both fail the upright check
+    # seen on the pictogram - and a mirrored one both fail the upright check
     t, _win, tb, _r = ts.build_checked(B)
     me = t.data
     uvl = me.uv_layers["UVMap"]
@@ -467,9 +467,9 @@ def t2_negative():
                 lambda k: k.box("probe_c14in", 3.00, 3.20, 18.20, 18.40, 5.20, 5.40, "steel"))
     expect_fail("C14 member inside the open-bottom hut", "C14", T,
                 lambda k: k.box("probe_c14hut", 2.50, 3.00, 7.00, 8.00, 0.50, 1.00, "steel"))
-    # C15 (revision 1c, Richard's fourth look): the shipped 1b builds and injected faults each FAIL
+    # C15 (revision 1c, fourth look): the shipped 1b builds and injected faults each FAIL
     for label, attr, argv, must in (
-            ("the 1b top: no -X stair, no gangway (Richard's 'left platform')", "LEFT_STAIR", T,
+            ("the 1b top: no -X stair, no gangway ('left platform')", "LEFT_STAIR", T,
              ("orphan surfaces", "grate_bayL", "grate_bayc", "plinthcap", "grate_svcplat")),
             ("the 1b base: no catwalk ladder", "PCAT_LADDER", B, ("orphan surfaces", "grate_pcat"))):
         saved_v = getattr(ts, attr)

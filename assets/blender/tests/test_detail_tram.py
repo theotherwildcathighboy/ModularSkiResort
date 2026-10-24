@@ -97,7 +97,7 @@ import cs2_validate  # noqa: E402
 REPO = os.path.dirname(os.path.dirname(LIB))
 SHIPPED = os.environ.get("TRAM_SHIPPED_DIR") or os.path.join(REPO, "assets", "import", "stations", "tram", "A")
 # (TRAM_SHIPPED_DIR: read the manifests / textures of a scratch export instead of the imported letter folder, to
-# verify an unimported round before Richard's export; unset = the shipped folder as before)
+# verify an unimported round before the export; unset = the shipped folder as before)
 # TRAM_LETTER (T76 R3): the generation letter of the asset names inside TRAM_SHIPPED_DIR (default: tram_station.NAMES' A)
 SHIPPED_NAMES = {r: n[:-1] + os.environ.get("TRAM_LETTER", n[-1]) for r, n in ts.NAMES.items()}
 FAILS = []

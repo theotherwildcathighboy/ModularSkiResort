@@ -6,7 +6,7 @@ sections 0, 2a, 2b, 3.
 
 History: rev 1-4 of this module painted texel-scale weathering (galvanised spangle and haze, salt
 streaks, rust bloom, chips to primer, water runs, soot / oil, a rusty guard, relief) on 9-26 mm
-texels with a resolution gate that admitted 1.5-3 texel features. Richard rejected it (DECISIONS
+texels with a resolution gate that admitted 1.5-3 texel features. It was rejected (DECISIONS
 264 VERDICT FAIL): "too much weathering or the wrong style ... looked better before ... too
 pixelated". The wiki's only style rule is "clean, minimal grunge, no repetitive patterns", detail
 under ~5 cm belongs in the NORMAL map, and vanilla props have near-flat albedo. Every texel-scale
@@ -16,7 +16,7 @@ It runs inside lift_tower.apply_finish_textures' `post_compose` slot (linear lig
 multiplied, stamped strips already restored, before the sRGB encode) and changes PIXELS ONLY:
 mesh, UVs, part table, LOD chain and file names are untouched.
 
-STEP 1 (`step=1`, Richard's "one variable at a time"): resolution + repack + parity, no soiling.
+STEP 1 (`step=1`, "one variable at a time"): resolution + repack + parity, no soiling.
   N0 re-orient    every reprojected atlas normal is turned by its face's atlas -> unique UV rotation
                   (reorient_normals): the REDO packer unfolds and rotates islands, the EMIT bake
                   copies tangent-space normals verbatim.
@@ -105,7 +105,7 @@ ZONE_TARGET = {
 }
 CONCRETE_DETAIL = 0.5        # concrete keeps half its photo contrast (albedo, smoothness, normal)
 GALV_LUMA_SRGB = 0.72        # clean galvanised albedo (vanilla metal band 0.51-0.84, fence 0.72, industrial
-                             # light pole 0.74; Richard 2026-10-17 after the street-light comparison: was 0.64)
+                             # light pole 0.74; 2026-10-17 after the street-light comparison: was 0.64)
 GALV_DESAT = 0.80            # pull Metal032's blue cast toward neutral
 SLOT_ZONES = {"livery": 0, "plastic": 1, "accent": 2}    # zone -> ControlMask channel
 SLOT_KEEP = 0.90             # guard: slot-texel albedo mean (sRGB) stays >= 90 % of the bake's

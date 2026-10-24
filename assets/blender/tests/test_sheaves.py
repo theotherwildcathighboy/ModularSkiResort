@@ -39,7 +39,7 @@ return, DQ base / top, gondola base / top, tram base / top) with cs2_sheaves.WHE
       cs2_asset.export_fbx and re-imported: cap corners (discs, boss tops) exactly axial (flat caps, vanilla's hard
       tread / cap split), the groove-flank corners at the crest NOT axial (the split exists), the treads smooth around
       (the flank corners at one crest vertex within 1 deg). [The repo's .Geometry decoder (vlib.py) reads the
-      game's imported files; the FBX re-import is the check available before Richard imports.]
+      game's imported files; the FBX re-import is the check available before the import.]
 
 The ingest DQ heads need the gitignored Kagelok .blend; when it is absent DQ10-DQ20 are built with the rebuild head (the
 train is the same code) and a line says so.

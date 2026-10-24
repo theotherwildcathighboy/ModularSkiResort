@@ -1,6 +1,6 @@
 """
 test_door_kit - door kit v2 contracts (docs/research/art/door-kit-2026-10-17.md), the HARDWARE GATE first
-(Richard 2026-10-17: "It's good to render levers or doorknobs. Vanilla buildings tend to have them").
+(2026-10-17: "It's good to render levers or doorknobs. Vanilla buildings tend to have them").
 
     blender --background --factory-startup --python-exit-code 1 --python tests\\test_door_kit.py
 

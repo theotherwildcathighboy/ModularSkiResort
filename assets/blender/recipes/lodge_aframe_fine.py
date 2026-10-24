@@ -1,6 +1,6 @@
 """
 recipes/lodge_aframe_fine.py - the FINE-DETAIL L1 A-frame day lodge (fine-detail pass step 3a, 2026-10-12;
-design/fine-detail-pass.md A.2 / B / D as cut by -skeptic.md FS4 / FS6 / FS7, Richard's seventeenth look
+design/fine-detail-pass.md A.2 / B / D as cut by -skeptic.md FS4 / FS6 / FS7, seventeenth look
 H1-H6 defaults; build/fine-detail-step3a-buildings.md; the school is the reference host,
 build/fine-detail-step2-engine.md section 12).
 
@@ -69,7 +69,7 @@ FINE_SUB_OBJECTS = tuple(
     ("WallLightShortRangeRandom01", _WALL_SHORT, (round(-py, 4), round(PORCH_LAMP_Z, 4), round(-PORCH_LAMP_X, 4)),
      (0.0, 0.0, 0.0, 1.0), 0)
     for py, _tag in PORCH_LAMPS)
-#: kit color variants (Richard 2026-10-12 ~18:50: "a colour that makes sense for that building";
+#: kit color variants (2026-10-12 ~18:50: "a colour that makes sense for that building";
 #: build/kit-colour-variants.md): the A-frame's own slot-2 orange accent (PAD_RGB: the umbrellas / flag of L1)
 KIT_COLOUR_SET = "orange"
 #: the 6 racks as kit rows at the old centers (pre-yaw (x, y) -> game (-y, 0, -x)), on the lot, identity,

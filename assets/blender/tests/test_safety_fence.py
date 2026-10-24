@@ -29,7 +29,7 @@ Exit 1 on any failure; --quick skips the two child processes (C12 fresh-process 
   C14  the manifest records template, TilingCount, tile length, alpha mean, tris per LOD.
   STG  staged prefab JSON: design section 5 type tables in order, check_prefab_text clean except
        the two REPLACE_ placeholders, UTF-8 no BOM, CRLF, .cid 32 hex no newline; the staged files
-       equal what stage() emits for their CIDs; prove_loc (SkiLiftHaulRopeB .loc rewritten byte
+       equal what stage() emits for their CIDs; prove_loc (SkiRunGroomedA .loc rewritten byte
        for byte); renumber_types rejects a forward reference.
   SRG  surgery rehearsal in a temp ImportedData (simulate_import from the temp export): template
        gate passes at 34 and STOPs at 0 / 1; LOD gate; fragments appended once (a second run

@@ -1,7 +1,7 @@
 """
 fg_loadroom_probe.py - T17 (Ash Flat 2026-10-15 item 16): the fixed-grip BASE station's loading room, measured.
 
-Richard (shot 17.44.53.17): "The entire rear support posts need to be moved back (and thus the weight and such; we can
+Shot 17.44.53.17: "The entire rear support posts need to be moved back (and thus the weight and such; we can
 have a bigger empty platform up top) so that there is more room for the skiers to get into the lift load spot."
 lift_terminal.M_BASE_LOADROOM switches the redesign (False = the pre-T17 base byte for byte). This probe:
 
@@ -15,7 +15,7 @@ lift_terminal.M_BASE_LOADROOM switches the redesign (False = the pre-T17 base by
               deployed vanilla / mod rows (trash bin box, the SkiPisteFloodlightLow pole) that the M1 frozen block
               keeps where they are.  Writes JSON to --json.
   --render ASSET_DIR TAG   the preview set of a shipped-format asset folder (EEVEE, Nishita sky, AgX):
-              Richard's screenshot angle, the skier's eye on the
+              the screenshot angle, the skier's eye on the
               ramp, a plan (lot outline, the chair sweep, the legs) and 20 m.
 
     blender --background --factory-startup --python-exit-code 1 --python fg_loadroom_probe.py -- --measure --flag on
@@ -436,7 +436,7 @@ def render(asset_dir, tag, out_dir, views=("1_shot_angle", "2a_ramp_eye", "2b_ap
     cam.data.sensor_fit = "HORIZONTAL"
     cam.data.sensor_width = 36.0
     shots = {
-        # (1) Richard's 17.44.53.17 angle: low, from the hut (+y) side, the counterweight on the left
+        # (1) the 17.44.53.17 shot angle: low, from the hut (+y) side, the counterweight on the left
         "1_shot_angle": dict(loc=(4.6, 15.5, 4.3), target=(1.2, 0.0, 2.7), lens=22.0),
         # (2a) a skier standing on the load ramp (mid-ramp, eye 1.6 m over it) looking at the load line
         "2a_ramp_eye": dict(loc=(2.30, 2.05, 0.55 + 1.60), target=(spec.wheel[0], 1.80, 1.30), lens=16.0,

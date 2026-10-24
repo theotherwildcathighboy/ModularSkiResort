@@ -233,7 +233,7 @@ def l2_contracts(recipe, mod, r, obj, win, table):
              (mod["WING_X0"], mod["BRIDGE_X1"], mod["BRIDGE_Y"], mod["WING_Y"]),
              (mod["WING_X0"], mod["BRIDGE_X1"], -mod["WING_Y"], -mod["BRIDGE_Y"]))
     subs = mod["SUB_OBJECTS"]
-    # T26 2026-10-16 dropped the parasol (15 rows); restored 2026-10-17 (Richard: vanilla props, random colors
+    # T26 2026-10-16 dropped the parasol (15 rows); restored 2026-10-17 (vanilla props, random colors
     # accepted): 16 rows again, one ParasolRandom01
     assert len(subs) == 16 and all(s[4] == 0 for s in subs), [(s[0], s[4]) for s in subs]
     assert sum(1 for s in subs if s[0] == "ParasolRandom01") == 1, "hut parasol row missing"
@@ -350,7 +350,7 @@ def l3_contracts(recipe, mod, r, obj, win, table):
     subs = recipe.sub_objects
     base = tuple(mod["SUB_OBJECTS"])
     fine_rows = tuple(mod["FINE_SUB_OBJECTS"]) + tuple(mod["KIT_ROWS"]) + tuple(mod["T60_SUB_OBJECTS"])
-    # T26 2026-10-16 dropped the 4 parasols (25 rows); restored 2026-10-17 (Richard: vanilla props, random colors
+    # T26 2026-10-16 dropped the 4 parasols (25 rows); restored 2026-10-17 (vanilla props, random colors
     # accepted): 29 rows again, four ParasolRandom01
     assert tuple(subs) == base + fine_rows and len(base) == n == 29, (len(subs), n)
     assert sum(1 for s in base if s[0] == "ParasolRandom01") == 4, "chalet parasol rows missing"
@@ -374,7 +374,7 @@ def l3_contracts(recipe, mod, r, obj, win, table):
 
 
 def l3_blank_boards(recipe, mod, r):
-    """Nitpick C (2026-10-13; Richard: "not loving the SIGN of the FORK AND KNIFE ... leave it blank or keep it
+    """Nitpick C (2026-10-13; "not loving the SIGN of the FORK AND KNIFE ... leave it blank or keep it
     simple"): the chalet's three pictogram boards are BLANK boards (fine_detail.blank_board: the board ground + a
     trim-color rim), each a flat label quad listed in the run's `we_boards` (role blank, game-frame center / unit
     horizontal normal / size = the face); `--no-fine` keeps the pictograms (PICTO_LABELS: negative)."""
@@ -417,7 +417,7 @@ def l3_blank_boards(recipe, mod, r):
 
 
 def l3_t60(recipe, mod, table):
-    """T60 (2026-10-18; Richard: "the small building has no door ... we also need a door on the patio itself. Probably
+    """T60 (2026-10-18; "the small building has no door ... we also need a door on the patio itself. Probably
     turn one of the tall windows into a door."): on the blockout (door kit v1) the two entries exist and bW1 is gone;
     on a door kit v2 parts build (lodge.build_parts with the --tiled --window-kit v2 --door-kit v2 configs) the kiosk
     door is one chalet leaf, the patio door two, each leaf with its lever, the leaf glass in the EXISTING rooms kiosk /

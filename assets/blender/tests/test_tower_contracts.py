@@ -2,7 +2,7 @@
 Geometry contracts for the lift_tower v2 port (towers-v2.md section 14.2-14.4, with the
 skeptic's MUST-CHANGE items), checked INDEPENDENTLY of the generator's own asserts:
 
-1. All eleven variants - Revision 1 added FG20 / DQ16 (Richard's verdict 5) - (DQ line variants
+1. All eleven variants - Revision 1 added FG20 / DQ16 (verdict 5) - (DQ line variants
    with both heads when the Kagelok .blend is present),
    no bake: axle = mast - 0.96 (FG), lanes from the sheave centers in the NET frame
    (gauge = X: +-1.8 / +-2.6), bounds top per variant from a hard-coded table (the
@@ -63,7 +63,7 @@ skeptic's MUST-CHANGE items), checked INDEPENDENTLY of the generator's own asser
    C9 / C10 from the manifest, DT-C9 decorrelated twins, G5 ControlMask weather on == off.
 8. Follow-up 2026-10-11 (DQ20 + sub-texel faces). (a) DQ20 (top 19.950, axle 18.0, comm 19.2, pier 6,
    lanes +-2.6) ships ALONGSIDE DQ18 under the per-family LOD0 cap table LOD0_CAP (DQ 3,600 after
-   Richard's "no need to hold the cap on the towers"; FG / GD stay 3,500): the table itself, every
+   the "no need to hold the cap on the towers"; FG / GD stay 3,500): the table itself, every
    spec's cap, DQ20's measured 3,554 / 3,534 against it, scoring with both members (stage 2: switch
    points 4/3 .. 28/3, DQ20 wins 9.333-16, grounds to 16 = the FG line) while the DQ18 stage-1 family
    stays frozen. Wrong build: DQ20 held to the old 3,500 cap (C11).
@@ -112,7 +112,7 @@ TOPS = {"FG8": 9.014, "FG12": 13.014, "FG16": 17.014, "FG20": 21.014, "ET62": 7.
 # detail pass 1 (DECISIONS 171): DQ18 (the transfer audit's fallback - DQ20 measured 3,554 tris > 3,500)
 # and the gondola entry compression tower ETGD (rope 4.85, H_top 2.000)
 # ETDQ 3.70 = the DQ base station lane (integration 2026-10-11; was 3.95, see lift_tower DQ_ENTRY_ROPE_Y)
-# FG20 / DQ16: Revision 1 (Richard's verdict 5) - one taller line member per family
+# FG20 / DQ16: Revision 1 (verdict 5) - one taller line member per family
 # GD12/16/20: Revision 1b - axle = top - H_top_GD 2.000 (tram_tower.GD; the gondola piece lane 10.0)
 AXLES = {"FG8": 7.04, "FG12": 11.04, "FG16": 15.04, "FG20": 19.04, "ET62": 5.24, "ET68": 5.84,
          "DQ10": 8.0, "DQ12": 10.0, "DQ14": 12.0, "DQ16": 14.0, "ETDQ": 3.70,

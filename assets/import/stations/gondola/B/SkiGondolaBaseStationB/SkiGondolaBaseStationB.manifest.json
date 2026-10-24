@@ -2861,7 +2861,7 @@
     },
     "line_prefab": "SkiGondolaHV",
     "carrier_prefab": "SkiGondolaCabin8 (mesh SkiGondolaCabin8A)",
-    "lot_note": "m_LotWidth 3 x m_LotDepth 4 (Richard, eighth look): 24 m ACROSS the line = prefab x (lateral |x| <= 12; the mesh spans x -8.25 .. 8.25, the vanilla sub-objects stay inside too, G9), 32 m ALONG the travel = prefab z (z -16 .. 16 + 0.5; the mesh spans z -11.00 .. 14.95; the hosted entry tower at z -11 spans z -13.52 .. -8.48 and the HV stub runs z -13 -> -16 = SkiCatalog StubTipLocalZ, on the lot's front edge, as on 2 x 4)",
+    "lot_note": "m_LotWidth 3 x m_LotDepth 4 (eighth look): 24 m ACROSS the line = prefab x (lateral |x| <= 12; the mesh spans x -8.25 .. 8.25, the vanilla sub-objects stay inside too, G9), 32 m ALONG the travel = prefab z (z -16 .. 16 + 0.5; the mesh spans z -11.00 .. 14.95; the hosted entry tower at z -11 spans z -13.52 .. -8.48 and the HV stub runs z -13 -> -16 = SkiCatalog StubTipLocalZ, on the lot's front edge, as on 2 x 4)",
     "win_room_ids": "revision 1: one room per curtain-wall bay (all its tiers), the operator room its own; ids reused beyond 3 m (manifest gondola.glazing.rooms / room_ids)",
     "color_defaults": {
       "slot1": {

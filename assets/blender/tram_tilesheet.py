@@ -1,7 +1,7 @@
 """
 tram_tilesheet.py - T76: the two tram stations on their OWN 4096^2 swatch sheet (`SkiTramSheet<letter>`).
 
-Plan: docs/research/art/tram-tile-route-plan-2026-10-18.md (DECISIONS 282; Richard's Q1-Q5 answers in its section 0).
+Plan: docs/research/art/tram-tile-route-plan-2026-10-18.md (DECISIONS 282; the Q1-Q5 answers in its section 0).
 Round 1 build note: docs/research/art/tram-tile-build-1-2026-10-18.md.
 
 Only tram_station.py --tiled imports this module, so a flag-off build is byte-identical to before. The base station's

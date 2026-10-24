@@ -51,7 +51,7 @@ ONE SHARED SET
     (round lows are circumscribed: vertex radius r / cos(pi / n)), cage extrusion 3 mm, max ray
     40 mm; a ray never starts inside hi geometry.
 
-COLOR (kit color variants, 2026-10-12, build/kit-colour-variants.md; FS7 Parent DROPPED by Richard ~18:50:
+COLOR (kit color variants, 2026-10-12, build/kit-colour-variants.md; FS7 Parent DROPPED ~18:50:
     "I think they should stay a color that makes sense for that building")
     Ski-rack gear `accent` texels and the akja shell are ControlMask G (slot 2, channel 1), albedo 0.80
     under the mask. ColorProperties lives on the MESH prefab (RenderPrefab; decompile: ColorProperties.cs
@@ -2666,7 +2666,7 @@ def _num(v):
 
 
 def colour_components_json():
-    """RETIRED 2026-10-12 (FS7 Parent dropped by Richard; kit color variants): never written any more, kept so
+    """RETIRED 2026-10-12 (FS7 Parent dropped; kit color variants): never written any more, kept so
     the archived staging (assets/staging/archive/superseded-parent-2026-10-12) stays reproducible.
     The mesh prefab's `components` block (FS7): ColorProperties, ExternalColorSource Parent (1),
     channel 1 external, 0 / 2 not; 4 fallback VariationSets (slot-2 color / RECOLOR_ALBEDO,
@@ -2813,7 +2813,7 @@ def settings_proof():
 # Kit color variants: the registry (2026-10-12, build/kit-colour-variants.md)
 # ======================================================================================
 #
-# Richard (verdicts 2026-10-11, ~18:50): "Sorry, I don't think we want the accents to follow the parent
+# Verdicts 2026-10-11, ~18:50: "Sorry, I don't think we want the accents to follow the parent
 # color. I think they should stay a color that makes sense for that building." -> FS7 Parent DROPPED.
 # ENGINE (decompile 1.6.0f1, unchanged in 1.6.2f1): ColorProperties is a RenderPrefab component
 # (ColorProperties.cs:12-16 ComponentMenu RenderPrefab / CharacterOverlay; :137-140 puts the ColorVariation
@@ -3102,7 +3102,7 @@ def write_variant_table(path=VARIANT_TABLE, import_root=IMPORT_ROOT):
     data = {
         "generator": GENERATOR + " (kit colour variants: stage_variant / sync_variants / variant_surgery)",
         "report": "docs/research/art/assets-2026-10/build/kit-colour-variants.md",
-        "ruling": "Richard 2026-10-11 ~18:50: accents do NOT follow the Parent colour; \"a colour that makes "
+        "ruling": "2026-10-11 ~18:50: accents do NOT follow the Parent colour; \"a colour that makes "
                   "sense for that building\" -> one fixed colour set per building (fine_detail.COLOUR_SETS)",
         "engine": "ColorProperties is a RenderPrefab component; MeshColorSystem reads the SubMesh's MESH prefab "
                   "(decompile 1.6.0f1 ColorProperties.cs:12-16 / 137-140, MeshColorSystem.cs:470-471 / 541): "

@@ -1462,7 +1462,7 @@ def main():
 #   F13 saddle = the shared block between the girder ends ......... gantry_saddle
 #   F14 DQ AimHeightM 9.0 handed to the catalog ................... manifest catalog_handoff
 #   review F2 (dq-family-review-geometry): decks <= 2.15, rails 2.05, hanger column clear . C18
-# Revision 1 (Richard's verdicts 2026-10-11, build/lift_tower.md "Revision 1"):
+# Revision 1 (verdicts 2026-10-11, build/lift_tower.md "Revision 1"):
 #   verdict 5: one taller line member per family, FG20 (axle 19.04, top 21.014) and DQ16
 #       (axle 14.0, top 15.950); new placeholder rows in their manifests .. VARIANTS, pillar_scoring
 #   review F3: crash pad sits on the base-flange plate (z0 = plate top + 5 mm), triangle-
@@ -1476,7 +1476,7 @@ import numpy as np  # noqa: E402
 import cs2_kit as K  # noqa: E402  (bpy + cs2_asset only: no import cycle)
 import cs2_uv  # noqa: E402
 import cs2_compose  # noqa: E402
-# 2026-10-13 (nitpick-a, Richard S-2): the sheave-train builder lives in cs2_sheaves (this module's code, moved
+# 2026-10-13 (nitpick-a, S-2): the sheave-train builder lives in cs2_sheaves (this module's code, moved
 # verbatim) so the lift stations build the same trains; the towers pass THIS module's globals into it at call time.
 import cs2_sheaves as S  # noqa: E402
 from cs2_sheaves import (_box_uv_bm, _new_part, lite_sheave, lite_sheave_parts, _unit,  # noqa: E402,F401
@@ -1533,7 +1533,7 @@ DQ_HANGER_COL = dict(half=0.45, depth=1.70, rise=0.22)   # C18: lane +- half, gr
 DQ_RAIL_GAP = 0.20                     # F10: rail runs stop |X| >= 0.20 short of the portal
 DQ_SUB_Y = S.DQ_SUB_Y                  # 2.512, F9: 2.517 moved 5 mm inboard (outer face 2.545)
 DQ_MAIN_Y = S.DQ_MAIN_Y                # 2.44
-# Revision 1c (revision1b-check-gd-towers section B; Richard's verdict 7 on the tram tower, "the
+# Revision 1c (revision1b-check-gd-towers section B; verdict 7 on the tram tower, "the
 # rollers are not attached to any upper stabilizing mechanism"): a sub-rocker no main rocker
 # carries - the lone MIDDLE sub of an odd train (GD: 10 sheaves = 5 subs, _sub_pairs) - hangs from
 # the yoke on a LINK in the main rockers' section (DQ_MAIN_Y, 0.072 thick, paint, 1-segment bevel)
@@ -1566,7 +1566,7 @@ DQ_STATION_INBOARD_MAX = -8.3          # dq-terminal.md N8: train inboard end <=
 DQ_ENTRY_ROPE_Y = 3.70
 
 # -- GD: the gondola tubular family (Revision 1b, 2026-10-11; revision1-check-towers item 6) --
-# Richard's verdict 5 ("towers serve gondola, fixed grip and detachable alike") had no tubular
+# Verdict 5 ("towers serve gondola, fixed grip and detachable alike") had no tubular
 # gondola member: the gondola line's spec y 12.000 rested on a GD12 that did not exist
 # (tram_tower.md O2). Contract = the GD numbers the shipped lattice towers already assume
 # (tram_tower.GD; lattice-towers D2 / Q5; towers-v2 section 3 "Gondola tubular (P2)"; RS R4 / R6):
@@ -1630,7 +1630,7 @@ GD_STUB_LANES = {"hv": ("SkiGondolaHaulRope", "UnityGUID:5d88ac45a40b30341a79535
                         "UnityGUID:37c8abdb015384f4e8b7ce9b5b2b6c9b")}   # = tram_tower.STUB_LANES gd_*
 
 # -- Detail pass 1 (2026-10-11): design/detail-pass-1-towers.md section 3 with the skeptic's
-# MUST-CHANGE items (detail-pass-1-towers-skeptic.md) and Richard's DECISIONS 171 ("yes to
+# MUST-CHANGE items (detail-pass-1-towers-skeptic.md) and DECISIONS 171 ("yes to
 # both": a DQ20 member, the gondola entry tower). Build report: build/detail-pass-1-towers-o.md.
 #   M1  FG16 / FG20 mast cut at one stiff_mastjoint (+32 tris) so the metric mast island fits
 #       the 1024 atlas .................................................... _mast_cut_z
@@ -1742,15 +1742,15 @@ LOD_TOL = 0.10
 # C12 (D9 as corrected by M5): expected LOD2 bounds-top drift per family; LOD1 must be 0.
 LOD2_DRIFT_EXPECT = {"FG": 0.0, "DQ": 1.950 - 1.926, "GD": 2.000 - (1.926 + GD_RISE)}
 LOD2_DRIFT_RAISE = 0.02                # beyond expected + this the build fails
-# Per-family LOD0 triangle cap (RS section 4: 3,500). Richard, DQ20 follow-up 2026-10-11: "no need
+# Per-family LOD0 triangle cap (RS section 4: 3,500). DQ20 follow-up 2026-10-11: "no need
 # to hold the cap on the towers" -> the DQ family (DQ10-DQ20 + ETDQ) is held at 3,600 so the
 # transfer audit's DQ20 (3,534 rebuild / 3,554 ingest after every reclaim) ships beside DQ18.
 # FG / ET and the GD family (GD12-20, ETGD) stay at 3,500; the lattice towers have their own caps.
-# T62 round 2 (2026-10-18, Richard "probably raise the cap"): the 16-segment capped wheel (cs2_sheaves.WHEEL_TRIS 224 vs
+# T62 round 2 (2026-10-18, "probably raise the cap"): the 16-segment capped wheel (cs2_sheaves.WHEEL_TRIS 224 vs
 # 72 / 44) on 8 (FG) / 16 (DQ) / 16-20 (GD) wheels; each cap = the smallest 100 above the family's worst LOD0 / 0.95
 # (>= 5 % headroom): FG 3,500 -> 4,600 (FG20 4,282), DQ 3,600 -> 6,400 (DQ20 5,986), GD 3,500 -> 7,500 (GD20 7,062).
 # v1 builds sit under these too (a cap is a ceiling).
-# T62 round 3 (Richard: "Ouch, 224 tris ... we need to reduce the tris on the wheels"): the <= 120-tri wheel (76 + 22 per
+# T62 round 3 ("Ouch, 224 tris ... we need to reduce the tris on the wheels"): the <= 120-tri wheel (76 + 22 per
 # seen hub boss: FG 120 both faces seen, DQ / GD 98 inboard face behind the sub rocker) -> every cap reset to
 # max(the round-1 cap, the smallest 100 with >= 5 % headroom): FG 4,600 -> 3,700 (FG20 3,450), DQ 6,400 -> 4,200 (DQ20
 # 3,970), GD 7,500 -> 4,800 (GD20 4,542). Round 1: 3,500 / 3,600 / 3,500.
@@ -1839,7 +1839,7 @@ VARIANTS = {
     "FG8": _fg_spec("FG8", 8.0, "line", 8.15, 2600),
     "FG12": _fg_spec("FG12", 12.0, "line", 12.15, 2750),
     "FG16": _fg_spec("FG16", 16.0, "line", 16.15, 2950),
-    # Revision 1 (Richard's verdict 5, 2026-10-11): one taller line member per family for big
+    # Revision 1 (verdict 5, 2026-10-11): one taller line member per family for big
     # gaps; same head, pier and spec y, scored per node elevation (pillar_scoring below).
     "FG20": _fg_spec("FG20", 20.0, "line", 20.15, 3050),
     "ET62": _fg_spec("ET62", 6.2, "terminal", None, 2550),
@@ -1875,7 +1875,7 @@ VARIANTS = {
                      ("ingest", "rebuild")),
     # ... and the gondola entry compression tower (transfer audit G2).
     "ETGD": _gd_entry_spec("ETGD", 2600, 1300),
-    # Follow-up 2026-10-11 (DQ20 + sub-texel faces): Richard "no need to hold the cap on the
+    # Follow-up 2026-10-11 (DQ20 + sub-texel faces): "no need to hold the cap on the
     # towers" -> LOD0_CAP["DQ"] 3,600, so the audit's DQ20 ships ALONGSIDE DQ18 (both are
     # height options): top 19.950, axle / UtilityObject y 18.0, comm 19.2, pier 6, legs
     # (2.2, 6, 2.2), lanes +-2.6; wins e 9.333-16 (DQ18 then wins 7.333-9.333), grounds to 16
@@ -2480,7 +2480,7 @@ def sheave_ngon(spec):
 
 
 # -- T27 ROPE ON THE CROWN (2026-10-17, docs/research/field/2026-10-15/build/T27-rope-path.md) -------------------------
-# Richard (playtest items 25 / 27): "the cable passes straight through pulleys/rollers". The shipped contract (D6) puts
+# Playtest items 25 / 27: "the cable passes straight through pulleys/rollers". The shipped contract (D6) puts
 # the LANE on the sheave AXLE, so the vanilla rope drawn on the lane runs through the wheel centers. ROPE_ON_CROWN True =
 # the lane rides the train: a SUPPORT head (rope above the sheaves: every line tower, ET62 / ET68) lane = axle + seat, a
 # COMPRESSION head (ETDQ / ETGD, rope under) lane = axle - seat, seat = rope_seat() (the vanilla HV cable hexagon resting

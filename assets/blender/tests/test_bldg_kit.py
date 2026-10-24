@@ -262,7 +262,7 @@ def check_builders():
 
 
 def check_gear_bindings():
-    """Richard, 2026-10-11 (ninth look): NO binding blocks on skis or boards, anywhere.
+    """2026-10-11 (ninth look): NO binding blocks on skis or boards, anywhere.
     bindings=False is the default of ski_gear / ski_rack_frame / ski_rack; the keyword
     bindings=True is the detail-pass-1 geometry and exists for this test."""
     # a ski pair and a board, free-standing: default has no galv part, bindings=True adds
@@ -784,7 +784,7 @@ def _closed_one_shell(o):
 
 
 def check_curved_braces():
-    """Structure v1 round 2 (Richard 2026-10-18: "that break in brace frame ... it would need to be curved. You can
+    """Structure v1 round 2 (2026-10-18: "that break in brace frame ... it would need to be curved. You can
     see there is a slight gap"): a framing / curved truss brace and a curved bracket are ONE mitred beam each - one
     closed shell (every edge on exactly two faces: no gap or notch at any joint), CURVE_SEGS equal segments turning
     by equal angles (a circular arc), the section 0.7 x member square to the member in every segment, every corner

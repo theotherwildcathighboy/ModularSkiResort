@@ -30,7 +30,7 @@ K6  Recipe.sub_objects -> the manifest sub_objects block (keys, values, validati
 K7  Recipe.weights -> the density_w face attribute; obj["w_override"] wins; no weights =
     the kit's dict.
 K8  prism_gable(inner=), gable_roof(wall_inner=False), deck(soffit=True): face / area deltas.
-K9  detail pass 1b (Richard, ninth look, 2026-10-11): (a) every gear item on the L1 / L2 / school
+K9  detail pass 1b (ninth look, 2026-10-11): (a) every gear item on the L1 / L2 / school
     racks spans the rack's lean, K.rack_reach() 1.33 m (integration F1; L5's short pole pairs are
     reported, not asserted: not this pass's file); (b) REWRITTEN for the vanilla retrofit
     (fifteenth look, 2026-10-11: no house-made umbrellas): the ten L1 table spots each carry a
@@ -171,7 +171,7 @@ PREFIXES = ("sign_", "maze_", "mast_", "lamp_", "tobrack_", "gear_", "hosereel_"
 DEFAULT_HASH = {
     "bench": "3d8cad9281f7", "flag_mast": "392db5a1fc60", "flag_mast_def": "1be59ee86cf4",
     # the detail-pass-1 gear WITH bindings (keyword bindings=True, kept for this test only); the
-    # default is now bindingless (Richard, ninth look): its hash is "ski_rack_frame_gear_nb"
+    # default is now bindingless (ninth look): its hash is "ski_rack_frame_gear_nb"
     "ski_rack_frame_gear": "af8aab4247c1", "ski_rack_frame_gear_nb": "00efa56b1692",
     "ski_rack_frame_slab": "73a6ae01602c",
     "ski_rack_frame_bare": "ca023b5ec3db", "ski_rack_panel": "fa9b6c10bf0a",
@@ -436,7 +436,7 @@ def k3_metrics():
 # ======================================================================================
 
 # key: (source file under assets/blender, its sha1[:12], LOD0_prebake, Win, LOD1b, LOD2b).
-# RE-BASED 2026-10-11 (detail pass 1b, Richard's ninth look: no bindings on skis / boards, pole
+# RE-BASED 2026-10-11 (detail pass 1b, ninth look: no bindings on skis / boards, pole
 # pairs that reach the rail, the P2 name board keeps its LOD1 frame): every row was measured
 # on the CURRENT recipe sources (closes integration F2: L2 / school / P1 / P2 / L5 had been
 # skipped on their source sha1 since their detail passes), so a recipe edited after this
@@ -453,7 +453,7 @@ def k3_metrics():
 # longer pole pairs; L1's blockout LOD0 10,591 tris from 12,111), their LOD1b / LOD2b shift with
 # the part ids; P2 = LOD1b only (beam_strutL / R off LOD1, sign_hqname_frame kept). `Win` (the
 # room cells) is equal for every recipe.
-# RE-BASED AGAIN 2026-10-11 for L1 and L3 only (vanilla retrofit, fifteenth look: Richard "are we
+# RE-BASED AGAIN 2026-10-11 for L1 and L3 only (vanilla retrofit, fifteenth look: "are we
 # gonna use our house-made umbrellas?" -> no), measured on the current sources; before (the rows
 # of the 1b re-base, the 19:45 L1 / 10:20 L3 exports):
 #   L1 520cea17ca2e: db9e6e963b39 / 49730cc8149f / bf6c6dddc948 / fa020fae48f8
@@ -497,7 +497,7 @@ K4_TABLE = {
     # ONLY this row re-based for L2 (was aec16fdc1359 / 93c9b746b2fc / c240f5239068 / 2f413682db4b /
     # 70c5833b8a91 = what `lodge.py --lodge L2 --no-fine --blockout` still reproduces); `Win` moved
     # through the `part` ids only (pane geometry and cells unchanged)
-    # NITPICK C (2026-10-13, build/nitpick-c-lodges.md; Richard, twenty-fifth look: "the grill (?) on the left side of
+    # NITPICK C (2026-10-13, build/nitpick-c-lodges.md; twenty-fifth look: "the grill (?) on the left side of
     # the entrance may end up in mid-air"): the fine hut's fuel station (cradle drum + legs + pump, crib, crib drum) left
     # for two ground-following BarrelRandom01 rows (blockout LOD0 4,435 -> 4,227); RE-BASED for the five re-exported
     # hosts only (L2, L3, L4, L5, school), measured on the edited sources (scratchpad ncl/scripts/k4_probe.py). Before:
@@ -905,7 +905,7 @@ def k9_l1_tables():
     # those), then the 2 porch wall lights (K10) and the 6 kit racks (boxed here too, on the lot)
     rec = R.get_recipe("L1")
     ums = R.AFRAME_L1["UMBRELLAS"]
-    # T26 2026-10-16 dropped the parasols (12 rows); restored 2026-10-17 (Richard: vanilla props, random colors
+    # T26 2026-10-16 dropped the parasols (12 rows); restored 2026-10-17 (vanilla props, random colors
     # accepted): the deck / porch rows are 10 tables + 10 parasols + 2 porch = 22 again
     rows = tuple(rec.sub_objects[:22])
     kit = tuple((e["prefab"], e["m_Object"], tuple(e["position"]), tuple(e["rotation"]), e["m_ParentMesh"])

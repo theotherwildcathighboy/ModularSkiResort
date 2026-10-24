@@ -54,7 +54,7 @@ Realistic Trips replaces the game's leisure system that ski days need: with it, 
 </LongDescription>
 	<!--Thumbnail-->
 	<Thumbnail Value="Properties/Thumbnail.png" />
-	<!--Screenshot, can be set multiple times. TODO (Richard): at least 4, taken in game (RELEASE-CHECKLIST section 7)-->
+	<!--Screenshot, can be set multiple times. TODO: at least 4, taken in game (RELEASE-CHECKLIST section 7)-->
 	<Screenshot Value="" />
 	<!--Tag, can be set multiple times. The publisher adds "Code Mod" by default. These three ids exist on live Paradox Mods listings (cached tag list, 1426 mods); a hybrid code plus prefab item is tagged this way. Whether the server accepts a tag outside that list is UNVERIFIED-->
 	<Tag Value="Code Mod" />

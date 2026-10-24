@@ -354,7 +354,7 @@ def check_structure_gate():
 
 
 def check_glass_gate():
-    """Round 2 (Richard 2026-10-18 "I still see some brackets going into the bottom window"): audit_glass on
+    """Round 2 (2026-10-18 "I still see some brackets going into the bottom window"): audit_glass on
     hand-built scenes: a pane on a wall, then a bracket / beam / post / rail near it."""
     mode = FIT.STRUCT_AUDIT_MODE
     FIT.STRUCT_AUDIT_MODE = "report"

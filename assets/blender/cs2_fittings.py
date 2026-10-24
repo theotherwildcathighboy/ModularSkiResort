@@ -1,5 +1,5 @@
 """Fittings v1 (2026-10-17, docs/research/art/fittings-2026-10-17.md): the small items vanilla buildings and
-Richard's reference photos have and the eight buildings lacked. `lodge.py --fittings v1` (with --door-kit v2).
+the reference photos have and the eight buildings lacked. `lodge.py --fittings v1` (with --door-kit v2).
 
 What lives where:
   * cs2_bldg (inside `cs2_bldg.fittings()`): the downspout SHOE (every downspout() call unless shoe=False), the
@@ -44,7 +44,7 @@ WALL_LIGHT = "WallLightShortRangeRandom01"          # the project's entry-lamp p
 ROOF_LIGHT = "RoofLightRandom01"                    # ceiling-mounted downlight (hangs 0.15 below its origin)
 VENT = "ACVentRoofRandom01"                         # small roof vents: capped pipes, mushroom cap, turbine
 KITCHEN = "CommercialACVentRoofRandom01"            # commercial exhaust stacks / fans (1.5-2.0 m)
-# T101 r3 (2026-10-19, DECISIONS 320, Richard: "if a sub object, fixture, detail exists in game and we can re-use it, we
+# T101 r3 (2026-10-19, DECISIONS 320, "if a sub object, fixture, detail exists in game and we can re-use it, we
 # should"): SPECIFIC vanilla variants for a fixed look / a matched pair. GUIDs from the installed resources.assets
 # PrefabsMap (tools/vanilla-guid-map.py: 47,432 prefabs; checked against the placeholder GUIDs above); base data per
 # variant in fittings_vanilla_bases.json (one-variant groups, docs/research/field/2026-10-19/integration-build.md 12).
@@ -64,7 +64,7 @@ VARIANT_GUIDS = {
     CARRIAGE: "64dc87161400b8b4eab7ef0b1f75fda2", DOWNLIGHT: "9941294ce11529c42a120ac622d61cbd",
     CHIMNEY_POT: "b916e77fd42bccf448ed1020e15673e4",
 }
-# rooftop units stand only on a FLAT roof (Richard, DECISIONS 320): the roof gate raises when the footprint's roof heights
+# rooftop units stand only on a FLAT roof (DECISIONS 320): the roof gate raises when the footprint's roof heights
 # differ by more than FLAT_TOL_M; on a sloped roof the unit is the heat pump on a wall (ground_wall) instead
 FLAT_ONLY = (AC_HEATPUMP, AC_UNIT_A, AC_UNIT_B)
 FLAT_TOL_M = 0.01
@@ -84,8 +84,8 @@ ROWS = {
     "school": {
         "roof": ((VENT, (10.5, -5.5), "plumbing vent, upper roof (washrooms)"),
                  (VENT, (-5.0, -5.5), "plumbing vent, upper roof"),
-                 # T101 r3: the two rooftop units are vanilla (Richard: "vanilla only, never ours"), no curb, and ONLY on
-                 # a flat roof (Richard 2026-10-19: "rooftop units go only on flat roof areas"; the gate FLAT_ONLY below):
+                 # T101 r3: the two rooftop units are vanilla ("vanilla only, never ours"), no curb, and ONLY on
+                 # a flat roof (2026-10-19: "rooftop units go only on flat roof areas"; the gate FLAT_ONLY below):
                  # the ground floor's flat front roof roof_gf (z 3.45, 2.5 m deep), between the upper-floor windows
                  # (x 8.1-9.4 / 10.6-11.9) and below their sills (4.24); they were on the 13.5-deg monopitch at x 6 / 11
                  (AC_UNIT_A, (8.75, -14.6), "rooftop AC unit, flat front roof (was hvac_a)"),
@@ -564,7 +564,7 @@ def build(recipe, parts, opts):
 
 
 # =====================================================================================================================
-# Close look (2026-10-17, Richard on the v1 previews: "the gutters are too blocky and it looks like some of the
+# Close look (2026-10-17, on the v1 previews: "the gutters are too blocky and it looks like some of the
 # fittings are floating like a chimney, or go through other objects they shouldn't"): the CONTACT + INTERSECTION
 # audit of every fitting part, run by build() on every fittings build. It RAISES (AUDIT_MODE "raise", the default)
 # on a violation; AUDIT_MODE "report" only records it (the before-table of docs/research/art/fittings-2026-10-17.md
@@ -1805,7 +1805,7 @@ def closelook(recipe, parts, opts):
 
 
 # =====================================================================================================================
-# STRUCTURE (T58, 2026-10-18; Richard's Blender review: "a pass on all buildings for what is structurally unrealistic";
+# STRUCTURE (T58, 2026-10-18; Blender review: "a pass on all buildings for what is structurally unrealistic";
 # docs/research/art/structure-2026-10-18.md): the fittings close look extended to every DECLARED STRUCTURAL PART.
 # Same frame and units as the fittings audit (authoring frame, before yaw; meters; 5 mm contact). A part is declared
 # by its name (`struct_role`: prefix / suffix rules, plus STRUCT_DECLARE per recipe for the exceptions, each with a
@@ -2288,7 +2288,7 @@ def audit_structure(recipe, parts):
 
 
 # ---------------------------------------------------------------------------------------------------------------------
-# NOTHING CROSSES GLASS (structure v1 round 2, Richard 2026-10-18 on the L5 posts preview: "I still see some brackets
+# NOTHING CROSSES GLASS (structure v1 round 2, 2026-10-18 on the L5 posts preview: "I still see some brackets
 # going into the bottom window"): no structural part (bracket, post, rail post, member: struts, beams, trusses,
 # braces) may overlap a window opening in the wall's plane. A window opening = a glass pane part (`win_`, one quad
 # 5 cm proud of its wall, facing out); "in the wall's plane" = from GLASS_BEHIND_M behind the pane (a member

@@ -8,7 +8,7 @@ amended by design/detail-pass-1-lifts-skeptic.md MC1-MC11; build report build/de
       part per matkey (ski_b_ x 5).
   D11 the board order along the chair's travel (assert_board_order, measured on the build): base WAIT HERE ->
       carpet -> load line -> LOWER BAR -> SKI TIPS UP; top RAISE BAR -> UNLOAD at the unload line, nothing past it.
-      2026-10-12 (Richard, nineteenth look: "We don't need the STAY SEATED at the top DQ station"): the top has NO
+      2026-10-12 (nineteenth look: "We don't need the STAY SEATED at the top DQ station"): the top has NO
       STAY SEATED board (post / rods / panel / label / atlas rect), in both FINE_DETAIL modes; the base is unchanged.
       Negatives raise D11 - a STAY SEATED on the top at its old slot (x -2.50), at the detail pass's x 2.20, and as a
       free-standing post board (any mount), the top's RAISE BAR / UNLOAD swapped, and a swapped base; the shipped
@@ -105,7 +105,7 @@ FROZEN = {
     "top": {"wheel_local_prefab": [0.0, 3.7, 5.6], "lane_rope_y": 3.7, "deck_top_y": 0.3, "soffit_y": 3.35,
             "band_top_or_eave_y": 5.75, "crown_y": 8.0422, "stub_tip_local_z": -16.0,
             "stub_hv": [[0.0, 0.0, -13.0], [0.0, 0.0, -16.0]], "stub_lv": None, "lv_pole": None, "lot": [2, 4],
-            # nitpick A (2026-10-13, Richard S-1): the top's operator cabin moved from the +Y side (its roof + drips
+            # nitpick A (2026-10-13, S-1): the top's operator cabin moved from the +Y side (its roof + drips
             # reached 7.97) onto the -Y apron beside the unload lane: prefab x max = the deck's +Y edge 5.50 (the
             # bounds are the mesh's; recorded deviation, build/nitpick-a-stations.md)
             "bounds_prefab": {"min": [-7.5, 0.0, -12.1], "max": [5.5, 9.2422, 12.0]},
@@ -129,7 +129,7 @@ D1_COUNTS = dict(D1_COUNTS_LEGACY, **{"estop_": (0, 0), "ext_": (0, 0), "hoseree
                                       "skirack_": (0, 0), "ski_b_": (0, 0), "lamp_": (0, 0), "cabinet_": (6, 6)})
 # D11 the board order along the chair's travel, as the shipped contract (2026-10-12: the top lost STAY SEATED)
 D11_SEQ = {"base": ("waithere", "carpet", "load", "lowerbar", "tipsup"), "top": ("raisebar", "unload")}
-# T17-DQ 2026-10-16: lamp posts -> SkiPisteFloodlightLow (Richard): the 4 vanilla LightpoleParkRandom01 rows per DQ /
+# T17-DQ 2026-10-16: lamp posts -> SkiPisteFloodlightLow: the 4 vanilla LightpoleParkRandom01 rows per DQ /
 # gondola station are gone; 2 SkiPisteFloodlightLow "mod" rows stand per station (so vanilla -4, "kit" (mod) +2)
 D9_ROWS_LEGACY = {"base": (10, 2), "top": (7, 2)}   # (vanilla, mod) - detail pass 10 / 7 vanilla rows + 2 floodlights
 # fine-detail: (vanilla, mod) - + 4 RoofLightRandom01 on the soffit lenses each; the wall lights moved, not added;
@@ -296,7 +296,7 @@ def _counts_and_frozen_one(kind, fine):
                   f"{kind} F3 lamps: 4 RoofLight rows on the old soffit lenses (game x +-3.6, y {p.z_soffit}, z "
                   f"{sorted(round(o['pos'][2], 2) for o in soff)}), the wall-light rows moved onto lamp_cab / lamp_eng "
                   f"{[o['pos'] for o in wl]}")
-        # T17-DQ 2026-10-16: lamp posts -> SkiPisteFloodlightLow (Richard): no vanilla LightpoleParkRandom01 row,
+        # T17-DQ 2026-10-16: lamp posts -> SkiPisteFloodlightLow: no vanilla LightpoleParkRandom01 row,
         # two floodlight "mod" rows on the deck top, no modeled flood mast
         lamps = [o for o in objs if o["prefab"] == "LightpoleParkRandom01"]
         floods = [o for o in objs_all if o["prefab"] == FLOOD_PREFAB]
@@ -959,7 +959,7 @@ def fine_geometry():
 
 
 # --------------------------------------------------------------------------------------
-# Nitpick A (2026-10-13; Richard's twenty-fifth look S-1 / S-2; build/nitpick-a-stations.md)
+# Nitpick A (2026-10-13; twenty-fifth look S-1 / S-2; build/nitpick-a-stations.md)
 # --------------------------------------------------------------------------------------
 
 def _nk_contract(kind, gondola=False, fn="orient", layout=None):

@@ -25,7 +25,7 @@ Public API
     PartWeather(role, scale, edge, grime, rust, scuff, snow, rust_source, slot_bound)
     WeatherSpec(name, kind="building", intensity=0.40, ..., tone=1.0,
                 slot_wear="free")  .key() .validate() .preset()
-                (defaults per DECISIONS 171, Richard 2026-10-11: slots may weather beyond
+                (defaults per DECISIONS 171, 2026-10-11: slots may weather beyond
                 +-10 %, intensity = the highest budget-clean step on L2 with free slots,
                 snow stays 0.0; a building may raise its own intensity to its own highest
                 budget-clean step: lodge.py --weather-sweep)
@@ -44,7 +44,7 @@ Public API
 
 Fix pass 1 (2026-10-11, build report "Fix pass 1"): visibility retune (edge band >= 3
 texels, 0.6 m deeper ground band, large-scale tone, AO-aware eave grime), slot_wear
-"bounded" | "free" (Richard's Q2 is one spec field), scuffs fixed in meters and oriented
+"bounded" | "free" (Q2 is one spec field), scuffs fixed in meters and oriented
 by the part axis (no radial sunburst), gutter deltas slot-bounded, tower preset keeps the
 concrete foundation `pad` out of the crash-pad role, `protect_px` for painter sub-rects.
     hash3 / vnoise3 / fbm / uniform   world-meter hashed value noise (no tiling, no seams)
@@ -435,7 +435,7 @@ class WeatherSpec:
     """Section 3.1. Frozen; overrides / tables are coerced to tuples."""
     name: str
     kind: str = "building"
-    #: DECISIONS 171 (Richard 2026-10-11, applied by the detail-pass kit group): 0.40 = the
+    #: DECISIONS 171 (2026-10-11, applied by the detail-pass kit group): 0.40 = the
     #: highest step of the 0.35 / 0.40 / 0.45 ... ladder that keeps the vanilla budget on
     #: every one of L2 / school / P1 / P2 with free slots (weathering-layer-check-2 section 7;
     #: L2 first WARNs at 0.45). Was 0.35

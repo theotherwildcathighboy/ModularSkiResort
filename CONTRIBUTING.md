@@ -14,7 +14,7 @@ Audience: a senior C# / TypeScript programmer who does not know this project's h
 - `///` summaries on types and non-obvious public members: one line where the name is not enough.
 
 ## Remove
-- Ticket ids (T123), DECISIONS numbers, round / session / agent names, dates, people ("Richard ruled"), field-log
+- Ticket ids (T123), DECISIONS numbers, round / session / agent names, dates, people ("the owner ruled"), field-log
   timestamps, "was X, now Y" history, "Phase B", "round 2". Exception: keep a reference only when the reason itself
   is too long for the code and lives in one doc; then cite the doc path, not a ticket.
 - Anything a senior programmer reads directly from the code: restated conditions, loop descriptions, parameter

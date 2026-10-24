@@ -242,7 +242,7 @@ function Receipt({ row, l, city, problems, build, t }: {
           l && bestEntry && <LocText key="b" entry={HUB_FMT.receiptTipLodgeBest} args={{ NAME: t(bestEntry), E: numArg(l.lodgeExtra, Unit.FloatSingleFraction) }} />,
         ]} />}
       />
-      {/* T80 (Richard item 4): the section total, its full equation one layer down (the header's tooltip: RECEIPT_PARTS[_SCHOOL] +
+      {/* T80 (item 4): the section total, its full equation one layer down (the header's tooltip: RECEIPT_PARTS[_SCHOOL] +
           RECEIPT_ROOT, T77's two lines), then one labeled row per term. Every number is C#'s (D10). */}
       <Fold
         view="overview"

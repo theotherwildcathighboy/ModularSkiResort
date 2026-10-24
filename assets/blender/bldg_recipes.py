@@ -210,7 +210,7 @@ def aframe_derived(c):
 
 
 def aframe_knee(c, knee_h, **over):
-    """AFRAME with knee walls (revision 1, Richard's first live review 2026-10-11, verdicts
+    """AFRAME with knee walls (revision 1, first live review 2026-10-11, verdicts
     item 12: "needs walls at the base of the A frame, it's not a triangle right from the
     base"). The eave EAVE_Z rises by knee_h; the ridges FOLLOW from the unchanged pitches
     (25c: RIDGE_Z = EAVE_Z + MAIN_PITCH x run, PROW_RIDGE likewise), so aframe_derived keeps
@@ -237,7 +237,7 @@ def aframe_knee(c, knee_h, **over):
 
 PAD_RGB = (0.85, 0.25, 0.10)            # cs2_asset.PAD_RGB (slot 2 default, umbrellas)
 
-# ---- Revision 1 (Richard's first live review 2026-10-11, verdicts-2026-10-11.md item 12) --
+# ---- Revision 1 (first live review 2026-10-11, verdicts-2026-10-11.md item 12) --
 # Knee walls: 2.40 m of vertical timber wall under the eaves (eave 5.30 -> 7.70, ridge 16.7 ->
 # 19.1, prow ridge 15.9 -> 18.3, wall plates S2_Z 9.158 / S2P_Z 9.025; pitches unchanged).
 # Visible wall deck -> fascia 2.77 m (A-Basin: one clad story above the deck under the eave).
@@ -257,18 +257,18 @@ AFRAME_L1 = aframe_knee(
     UMBRELLAS=((5.6, -17.6), (9.5, -17.6), (13.4, -17.6), (8.25, -12.0), (11.75, -12.0),
                (5.6, 17.6), (9.5, 17.6), (13.4, 17.6), (8.25, 13.0), (11.75, 13.0)),
 )
-# Ski racks (Richard: "ski racks around the base - not a prop in the game so add it to the
+# Ski racks ("ski racks around the base - not a prop in the game so add it to the
 # asset"): modeled A-frame racks (cs2_bldg.ski_rack slots=, 8 slots x 0.20 m per side,
 # 1.70 m), pre-yaw frame: two flank the porch (arrival), four stand in front of the deck
 # posts on the slope side, clear of the deck stair (x 15.6-17.0, y -5.8..3.0). Skis / boards
 # = slot-2 slabs, (slot, side, kind); LOD0 only (`skirack_` is on LOD1_DELETE).
 # (revision 1 slab racks: superseded by detail pass 1 below)
-# ---- Detail pass 1 (Richard's second verdict 2026-10-11 ~14:10: "A frame lodge looks solid
+# ---- Detail pass 1 (second verdict 2026-10-11 ~14:10: "A frame lodge looks solid
 # nice work. Now for the detail pass on that one, actual skis/boards on the racks instead of
 # wooden planks, put our icon on it etc. Brown looks good on it.") ---------------------------
 # Rack contents are REAL gear (cs2_bldg.ski_rack_frame gear=True): ski pairs base to base
 # (sidecut, curled tips), snowboards (rounded nose / tail, kick, two graphic bands), pole
-# pairs; NO bindings (Richard, ninth look: "they just come out as blocks and looks bad");
+# pairs; NO bindings (ninth look: "they just come out as blocks and looks bad");
 # colors = accent (slot 2, recolors with the umbrellas) +
 # white / black / blue / red paint, (body, tip) or (top, stripe). Entries (slot, side, kind,
 # color, length). Pre-yaw frame as above; LOD0 only (`skirack_` is on LOD1_DELETE).
@@ -341,7 +341,7 @@ SIGN_FRAME = 0.08
 _D1 = aframe_derived(AFRAME_L1)
 _DTOP, _EAVE = _D1["DECK_TOP"], AFRAME_L1["EAVE_Z"]
 _PX1, _PRY, _BX0 = AFRAME_L1["PROW_X1"], AFRAME_L1["PROW_RIDGE_Y"], AFRAME_L1["BASE_X0"]
-# ---- Detail pass 1b (Richard, ninth look: "the umbrellas need tables - use the in-game
+# ---- Detail pass 1b (ninth look: "the umbrellas need tables - use the in-game
 # tables"): one vanilla cafe table set (a table with its two chairs, ActivityLocation seats)
 # under each of the ten deck umbrellas, as ObjectSubObjects of SkiAFrameDayLodge (manifest
 # `sub_objects`, m_ParentMesh 0 = on the deck). TableSetCommercialRandom01 is the placeholder
@@ -361,7 +361,7 @@ L1_TABLES = tuple(
     ("TableSetCommercialRandom01", _TABLE_GUID, (round(-uy, 4), round(_DTOP, 4), round(-ux, 4)),
      (0.0, 0.0, 0.0, 1.0), 0)
     for ux, uy in AFRAME_L1["UMBRELLAS"])
-# ---- Vanilla retrofit (fifteenth look, 2026-10-11; Richard: "are we gonna use our house-made
+# ---- Vanilla retrofit (fifteenth look, 2026-10-11; "are we gonna use our house-made
 # umbrellas?" -> no). The ten modeled umbrellas (umbstand_ / umbpole_ / umbcanopy_) are vanilla
 # ParasolRandom01 (Parasol01-03, base game, 241 buildings place it; GUID re-derived from the dump:
 # PlaceholderObject, 3 variants, union bounds x +-1.75, y 0..2.641, z -0.726..3.056 = an OFFSET
@@ -458,7 +458,7 @@ L1 = Recipe(
     labels=L1_LABELS,
     # detail pass 1b: a vanilla table set at each umbrella spot; fifteenth look: a vanilla parasol
     # beside each (no modeled umbrella), the porch bench + bin vanilla (22 rows)
-    # T26 2026-10-16 dropped the parasols (random yellow); Richard 2026-10-17 ("bring the umbrellas
+    # T26 2026-10-16 dropped the parasols (random yellow); 2026-10-17 ("bring the umbrellas
     # back ... vanilla props, worst case people delete them") restored them: random colors accepted
     sub_objects=L1_TABLES + L1_PARASOLS + L1_PORCH,
     cull_ok=("ridge_main", "ridge_prow", "soffit_mainE"),   # caps inside the slab X; the E
@@ -468,7 +468,7 @@ L1 = Recipe(
     notes="base_lodge.py port: skirt deleted, porch slab a ground part, entry surround on "
           "the porch (z 0.52). Revision 1 (verdicts 2026-10-11 item 12): 2.40 m knee walls "
           "(aframe_knee), deck +1.5 m on posts and full width, 6 modelled ski racks (LOD0). "
-          "Detail pass 1 (Richard's second verdict 2026-10-11): real ski / board / pole gear "
+          "Detail pass 1 (second verdict 2026-10-11): real ski / board / pole gear "
           "on the racks + 8 leaning singles, the resort-glyph sign over the entry and on the "
           "prow, menu board, bench, bin, flag, 4 deck festoons, prow snow guards + downspouts. "
           "Detail pass 1b (ninth look, 2026-10-11): rack gear without bindings, pole pairs "

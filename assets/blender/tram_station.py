@@ -18,13 +18,13 @@ tram_station.py - aerial-tram stations for the Modular Ski Resort (asset round 2
                                         vertical bullwheel, goalpost crane beam, maintenance stair,
                                         open grating deck on braced legs, operator shack (_Win 1)
 
-Revision 1 (Richard's first live review, 2026-10-11, verdicts 10 / 11): the build report's
+Revision 1 (first live review, 2026-10-11, verdicts 10 / 11): the build report's
 "Revision 1" section lists every change and deviation. The integration levels, stubs and hosted
 poses below are unchanged (test_gondola_tram_seams pins them).
 Revision 1b (fixups, 2026-10-11; revision1-check-tram-stations F1): contract C14 (part-against-
 part clashes, check_part_clashes) and the top's bullwheel frame legs moved inboard of the operator
 hut (BULLFRAME_FOOT_X); the deck binoculars moved out of the face struts (SCOPE_X).
-Revision 1c (left-platform stair, C15; Richard's fourth look 2026-10-11: "the platform on the left
+Revision 1c (left-platform stair, C15; fourth look 2026-10-11: "the platform on the left
 side has no staircase"): contract C15 (check_reachability) builds the access graph of every walkable
 surface and fails a build with a surface no stair / ladder path joins to grade. It found the top's -X
 outer deck AND the plinth deck / center deck / service platform orphaned, and the base's catwalk under
@@ -83,7 +83,7 @@ and scraper + shovel. The annex door's lamp bar becomes a WallLightShortRangeRan
 the C4 zones + the T8 cabin-sweep box, the LV pole, every row, the lot); C15 measures its crossings with the kit meshes
 (fd_probe). Every LIFT board / label (FS5), the anemometer mast (FS1), the beacon lens (frozen top 20.70), the EXIT
 light, gates and medallions stay modeled and vertex-identical.
-Nitpick B (2026-10-13; Richard's twenty-fifth look T-1 / T-2, build/nitpick-b-tram.md; photos ref-richard-2026-10-13):
+Nitpick B (2026-10-13; twenty-fifth look T-1 / T-2, build/nitpick-b-tram.md; photos ref-richard-2026-10-13):
 base only (JH_DETAILS; False = the shipped 3c / kit-color base byte for byte; the pass is not FINE_DETAIL-gated, so
 --no-fine is the revision-2 base byte for byte only with JH_DETAILS False too). The Jackson Hole details the base lacked,
 cheap ones first: the JH-04 canopy on V-shaped timber struts across the village front (a timber-soffit canopy with a dark
@@ -120,7 +120,7 @@ as a WALKABLE surface (it leaves NOT_WALKABLE; ANNEX_STAIR False restores the ol
 -> turn landing -> ramp B -> landing -> balcony -> (side-area door) -> annex floor -> stair -> landing -> (hall door) -> deck:
 the report's `route` (no other stair may carry it), with the stair >= 1.20 m wide between rails and the doorway clear.
 
-Revision 3 (2026-10-13; Richard's twenty-seventh look T-3: "Can we have the whole FOUNDATION and SUPPORTS go LOWER? I'm
+Revision 3 (2026-10-13; twenty-seventh look T-3: "Can we have the whole FOUNDATION and SUPPORTS go LOWER? I'm
 imagining sticking it into a cliff edge, so players will bury some of it and then parts of it stick out and reach further.
 Or if they place it on a flat mountain top the whole support structure just gets buried. Also it'll help to clear the
 low-down bullwheels."; build/tram-top-rev3.md; PLINTH_TOP, False = the shipped nitpick-B2 top byte for byte): the TOP in
@@ -403,7 +403,7 @@ SGPOST0_DEG = 68.5
 # ropes drop from 8 to 6 tube segments (-584 tris, 1,168 -> 876 each; a 35 mm rope at 6 sides is
 # indistinguishable at any game distance). The base keeps 8 (it has the budget).
 TRACK_ROPE_SEGS = {"base": 8, "top": 6}
-# T76 (--tiled, docs/research/art/tram-tile-route-plan-2026-10-18.md Q2, Richard 2026-10-18): the base's track ropes
+# T76 (--tiled, docs/research/art/tram-tile-route-plan-2026-10-18.md Q2, 2026-10-18): the base's track ropes
 # drop to the top's 6 sides (-272 tris) so the tiled base fits its 16,000 cap. TILED is set by apply_tiled() from the
 # run's args (main / build_checked), like FINE_DETAIL; flag off reads TRACK_ROPE_SEGS as before.
 TILED = False
@@ -429,7 +429,7 @@ FD_CLOSEUP_DIR = "fine-detail-2026-10-12"
 # the base's one A-frame rack: the kit loadout R3 (8 pairs + 2 boards + 2 pole pairs, 600 tris), the closest to
 # the removed rack's 10 items and the cheapest; the kit racks alternate by host (dress-kit.md 1.2)
 FD_RACK = "SkiDressSkiRackV3"
-#: kit color variants (Richard 2026-10-12 ~18:50; build/kit-colour-variants.md): the color set
+#: kit color variants (2026-10-12 ~18:50; build/kit-colour-variants.md): the color set
 #: (fine_detail.COLOUR_SETS) of the colored kit rows per role - the base rack goes back to revision 2's red /
 #: white look (TRAM_RACK_GEAR: ski_red / trim_white; red = the base's slot-3 red, TINT['base']['B']); the top has
 #: no colored row
@@ -443,7 +443,7 @@ FD_ANNEX_LIGHT = ("WallLightShortRangeRandom01", (HALL_X - 0.13 - 0.02, DECK_Y +
 # top (16) / +476 on the base (17); the top would keep ~200 of its 14,000-tri cap and a 6-gon ring still reads
 # hexagonal at the 10 m minimum zoom - not cheap: the approved discs stay
 FD_MEDAL_RING = False
-# Nitpick B (2026-10-13; Richard's twenty-fifth look T-1: "Let me know if I've missed any other significant details we
+# Nitpick B (2026-10-13; twenty-fifth look T-1: "Let me know if I've missed any other significant details we
 # should add"; build/nitpick-b-tram.md; JH photos ref-richard-2026-10-13 03 / 04, ref 07): the Jackson Hole details the
 # base lacked, cheap ones first. False = the shipped 3c / kit-color base byte for byte (no top part reads it).
 #   JH_CANOPY   the JH-04 canopy across the hall's village front at mid height: a timber soffit slab (jhcanopy) under a
@@ -461,7 +461,7 @@ FD_MEDAL_RING = False
 #   chalkboard  an A-frame stand at the front ticket windows (ref 07 / JH-04's A-frame): two timber leaves with black
 #               chalk faces. PLACEHOLDER (DECISIONS 183): the only vanilla A-frame is AStand01 (a brand-spawned ad stand:
 #               its variants AStand01 - <brand> carry BrandObject; placeholder GUID 655ebd65... inferred from the dump,
-#               unverified on a host without a company) - swap at the first import look if Richard prefers an ad stand
+#               unverified on a host without a company) - swap at the first import look if an ad stand is preferred
 JH_DETAILS = True
 JH_CANOPY = {"x": 12.25, "z0": 10.30, "z1": 11.95, "y0": 8.80, "y_back": 9.40, "y_front": 9.10, "roof_t": 0.08}
 # (a timber wedge: flat soffit, 0.60 deep at the wall, a 0.30 fascia; its roof sheet flush on top - the wedge's top and
@@ -538,7 +538,7 @@ ANNEX_WALK = ("annexcap",)              # the annex floor: a C15 walkable surfac
 # top ramps (each side x: 7.80..11.70 deck = 3.90 m, rails 0.06 in: 3.724 m clear >= 3.40): head at the deck 6.30 on
 # z 0.50 (the -X stair's landing / gangway back edge, mirrored by a +X head grating + landing), 1:8 down to the pad
 TOP_RAMP = {"x": (7.80, 11.70), "z0": 0.50, "pad": (10.10, 11.60), "head_grate": (7.80, 10.20, -0.70, 0.50)}
-# Revision 3 (2026-10-13; Richard's twenty-seventh look T-3: "Can we have the whole FOUNDATION and SUPPORTS go LOWER? I'm
+# Revision 3 (2026-10-13; twenty-seventh look T-3: "Can we have the whole FOUNDATION and SUPPORTS go LOWER? I'm
 # imagining sticking it into a cliff edge ... if they place it on a flat mountain top the whole support structure just
 # gets buried"; build/tram-top-rev3.md): the TOP in PLINTH MODE, the L4 pattern (recipes/l4_swanky_top.py + cs2_bldg
 # check_base_mode "plinth"): no engine base (no vertex within PLINTH band of y 0 on any LOD, so the importer finds no
@@ -1690,7 +1690,7 @@ def build_base(k, opts):
             za, zb = FACE_Z + 0.05, ROOF_Z1 - 0.05
             k.member(f"purlin_{tag}{j}", (sx * xp, roof_under(za) - 0.11, za),
                      (sx * xp, roof_under(zb) - 0.11, zb), 0.12, 0.20, "steel", up=(0, 1, 0))
-        # T71 (review 8, Richard 2026-10-18 "it didn't add anything"): the timber corner fins (timberfin_L/R: 0.20 x
+        # T71 (review 8, 2026-10-18 "it didn't add anything"): the timber corner fins (timberfin_L/R: 0.20 x
         # 0.80 m, y 9.50..19.80, hung 4.3 m over the plinth) are gone; the steel face columns are the corner
 
     # glazing (painted) and transoms; the two side-wall door bays leave their openings at the
@@ -1857,7 +1857,7 @@ def build_base(k, opts):
     # 4.0 m drive wheel (haul_route_base, C20b) ---------------------------------------------------
     k.tube("rope_haul", haul_route_base()["points"], HAUL_ROPE_R, "rope", segs=6)
 
-    # -- platform lamps hung from the roof. Revision 2 (Richard: vanilla lamps; JH-04: downlights, no pole
+    # -- platform lamps hung from the roof. Revision 2 (vanilla lamps; JH-04: downlights, no pole
     # lights): the modeled pendant boxes and the two entrance lantern boxes are gone - the vanilla
     # RoofLightRandom01 rows (SUBOBJ_ROWS) ARE the lamps, each hung from a ceiling plate on its rod (skeptic
     # MC3: C16's ceiling ray needs a face over the row; the 4-seg rods are open tubes). The entrance's two
@@ -2509,7 +2509,7 @@ def build_top(k, opts):
         k.member(f"brace_{tag}b", fb, ra, 0.35, 0.35, "steel", up=(sx, 0, 0))
     k.box("headbeam_face", -8.00, 8.00, HEAD_Y0, HEAD_Y1, -10.10, -9.10, "steel")
     k.box("headbeam_rear", -8.00, 8.00, HEAD_Y0, HEAD_Y1, REAR_Z - 0.50, REAR_Z + 0.50, "steel")
-    # revision 2 (C19, Z1 - the "shimmer on the top part" Richard saw in Blender, skeptic MC1): the head girders
+    # revision 2 (C19, Z1 - the "shimmer on the top part" seen in Blender, skeptic MC1): the head girders
     # shared their top (18.30) and both end faces with the head beams - 4.36 m2 of same-facing coplanar steel
     # at y 17.3-18.3. They now stop HEADGIRDER_INSET under the beams' top and inside their outer faces.
     gi = HEADGIRDER_INSET
@@ -2608,7 +2608,7 @@ def build_top(k, opts):
               caps="top")
         k.cyl(f"scope_head_{tag}", 0.09, (x, DECK_Y + 1.18, z + 0.18), (x, DECK_Y + 1.28, z - 0.18),
               "galv", segs=8)
-    # revision 2 (L1, Richard's eleventh look "lights on top of posts are looking a little square"): the four
+    # revision 2 (L1, eleventh look "lights on top of posts are looking a little square"): the four
     # modeled 3 m posts with 0.30 m cube heads are gone; vanilla LightpoleParkRandom01 rows stand in their
     # place (SUBOBJ_ROWS, ruling Q1)
 
@@ -2650,7 +2650,7 @@ def build_top(k, opts):
 
 
 def build_top_foundation(k):
-    """Revision 3 (PLINTH_TOP; Richard's twenty-seventh look T-3; photo 01: lattice legs on concrete footings in front of the
+    """Revision 3 (PLINTH_TOP; twenty-seventh look T-3; photo 01: lattice legs on concrete footings in front of the
     concrete housing that carries the counterweight wheel; photo 02: the wheel on its concrete wall). Everything is BELOW
     grade (max y PLINTH seat / cap), so on a flat summit the terrain hides it and on a cliff edge it reaches down the face:
       - the FOUNDATION BLOCK (`found_block`): the pier's housing widened under the anchor-drum bays and the ramps out to
@@ -2709,7 +2709,7 @@ def left_stair_plan():
 
 
 def build_top_left_stair(k):
-    """Revision 1c (C15; Richard's fourth look): the -X ground stair - top landing beside the -X outer
+    """Revision 1c (C15; fourth look): the -X ground stair - top landing beside the -X outer
     deck's back corner, two flights descending toward +Z (the +X stair's tread, stringer and slab kit)
     with a mid landing on posts, a concrete foot pad - and the grating gangway on two deck beams from
     the plinth cap to the landing. Railings as on the base stair: one straight run per flight side
@@ -3138,7 +3138,7 @@ def build_base_detail(k):
         k.dress(LD.chevrons(tag, "+Z", DECK_Y, (TRENCH_Z1, -0.80), (x0, x1), period=0.60, band=0.30))
     for tag, (x0, x1) in (("nosL", (-11.80, -8.11)), ("nosC", (-2.89, 2.89)), ("nosR", (8.11, 11.80))):
         k.dress(LD.stripe(tag, (TRENCH_Z1 + 0.05, x0), (TRENCH_Z1 + 0.05, x1), 0.10, DECK_Y, mat="safety"))
-    # TB10 ski rack. Revision 2 (B1, Richard's eleventh look: "the skis outside the tram building look totally
+    # TB10 ski rack. Revision 2 (B1, eleventh look: "the skis outside the tram building look totally
     # different from the ones on the A frame - the A-frame ones way preferred (sans bindings)"): the A-frame
     # KIT rack itself (cs2_liftdress.aframe_rack -> cs2_bldg.ski_rack_frame, 8 slots, gear, no bindings) with
     # L1's entry-rack contents, on the village front east of the canopy, long axis along prefab X (Blender
@@ -4994,7 +4994,7 @@ def check_part_clashes(obj, role):
     return rep
 
 # --------------------------------------------------------------------------------------
-# C15 platform reachability (revision 1c; Richard's fourth look 2026-10-11: "every walkable platform
+# C15 platform reachability (revision 1c; fourth look 2026-10-11: "every walkable platform
 # on a station must be reachable from grade by a stair or ladder" - a contract, not a visual check)
 # --------------------------------------------------------------------------------------
 # Walkable surfaces = the up-facing tops of these parts: grating plates (a `_lip` is the grating's
@@ -6524,7 +6524,7 @@ def prefab_contract(role, report, atlas_rule, base_report, switch):
                         "m_Bounds": "unclamped: min y -12.00 on LOD0 / LOD1 / LOD2 (MC11, as L4; culling then keeps "
                                     "the plinth: no HasBase, so PreCullingSystem uses the mesh bounds)",
                         "terraform": "unchanged: the FG-top no-level block (LevelMin 1600, DontRaise + DontLower)"},
-            "why": "revision 3 (Richard T-3): the foundation and supports continue below grade so the station can be set "
+            "why": "revision 3 (T-3): the foundation and supports continue below grade so the station can be set "
                    "into a cliff edge or buried on a flat summit"}
     if RAMPS:
         # nitpick B2: the line axis in prefab x (the stubs / docks / hosted cabins sit +-TRACK_X / +-HAUL_X about it)
@@ -7757,7 +7757,7 @@ def main(argv=None):
     atlas_rule["shipped_median"] = round(shipped_med, 2)
     if finish and shipped_med < args.min_ppm:
         print(f"[tram] WARN shipped area-weighted median {shipped_med:.1f} px/m < {args.min_ppm} "
-              f"at {A} (report; R18 vs RS section 4 is Richard's call)")
+              f"at {A} (report; R18 vs RS section 4 is a judgment call)")
     check_hygiene(t)
     report["C13_unique"] = check_label_uvs(t, table, cs2_uv.UNIQUE_LAYER)   # the shipped layout
     vm = cs2_validate.validate_mesh(t, kind=kind)

@@ -20,7 +20,7 @@ WHY
         arrive with scale 0.01 and a +90 deg X turn (Y-up file) above 187 empties
         (ref-models.md sec 2.1; measured 2026-10-11 with Blender 5.2.2).
     A generator must never open_mainfile (it would replace the session - R10 keeps
-    generator code out of Richard's live Blender), so .blend sources are APPENDED through
+    generator code out of the live Blender), so .blend sources are APPENDED through
     bpy.data.libraries.load(link=False) into a fresh "CS2_INGEST_<stem>" collection.
 
 CONTRACT (pipeline-gap.md sec 3.3, corrected by its skeptic verdict 3 and miss 4)

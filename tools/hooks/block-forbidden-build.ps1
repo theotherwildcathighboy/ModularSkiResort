@@ -6,7 +6,7 @@
 #   (b) `--env deploy` (webpack UI deploy, also what `npm run dev` runs) is never allowed.
 # Reads the hook JSON on stdin; exit 2 + one stderr line = block (Claude sees the line);
 # exit 0 = allow. A command that merely MENTIONS these strings (grep, echo) is blocked too:
-# rephrase it or ask Richard.
+# rephrase it or ask the owner.
 $ErrorActionPreference = 'Stop'
 try {
     $raw = [Console]::In.ReadToEnd()

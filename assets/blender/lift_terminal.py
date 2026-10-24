@@ -1132,7 +1132,7 @@ def preview_material(obj, asset_dir, name):
 #
 # Lift-board redraw (2026-10-12; build/lift-boards-redraw.md): the boards repaint in the real signage style
 # (cs2_liftdress.paint_board, same rects / UVs), and the TOP carries no STAY SEATED board any more (post, panel,
-# label, atlas rect gone; Richard's nineteenth-look ruling on the DQ top, "We don't need the STAY SEATED at the top
+# label, atlas rect gone; the nineteenth-look ruling on the DQ top, "We don't need the STAY SEATED at the top
 # ... doesn't quite make sense", applied to the Pali top, whose STAY stood 2.55 m PAST the unload line). M19 =
 # the DQ top's D11 `forbid`: any board_stay* / label_stay* part on the top raises, whatever the mount (M_FORBID).
 # Both FINE_DETAIL_M modes drop the board (the DQ precedent); --no-fine still reproduces the approved BASE geometry
@@ -1277,7 +1277,7 @@ FINE_DETAIL_M = True
 M_X_CONVENTION = ("game (gx, gy, gz) = authoring (-y, z, x) (lift_terminal.m_to_game, S1): gx = -authoring y; gx "
                   "NEGATED (x-sign gate settled N, 2026-10-15 playtest; the DQ / gondola / tram / building rows "
                   "follow it since S1b-N, 2026-10-16: cs2_liftdress.blender_to_game is the same map)")
-#: kit color variants (Richard 2026-10-12 ~18:50; build/kit-colour-variants.md): the color set
+#: kit color variants (2026-10-12 ~18:50; build/kit-colour-variants.md): the color set
 #: (fine_detail.COLOUR_SETS) of the colored kit rows per kind - yellow, the Yan black / yellow (the stations' safety
 #: yellow, the yellow / black placards); the return station has no colored row
 FD_M_KIT_COLOUR = {"drive": "yellow", "return": "yellow"}
@@ -1767,7 +1767,7 @@ M_LABELS = {
     "return": {"label_unload": "unload", "label_ops": "ops", "label_slow": "slow"},
 }
 # M19 (2026-10-12, the DQ top's D11 `forbid`): board kinds a station must not carry in ANY mount; a part named
-# board_<kind>* / label_<kind>* raises. The top: STAY SEATED (it stood past the unload line; Richard: "doesn't quite
+# board_<kind>* / label_<kind>* raises. The top: STAY SEATED (it stood past the unload line; "doesn't quite
 # make sense" at a top station).
 M_FORBID = {"drive": (), "return": ("stay",)}
 # floor marks: (authoring right, authoring up) of the reading frame (riders face -x at the load)
@@ -1842,7 +1842,7 @@ M_BASE = dict(
 )
 
 # -- T17 loading room (Ash Flat 2026-10-15 item 16, shot 17.44.53.17; build/T17-fg-loadroom.md) -----------------
-# Richard: "The entire rear support posts need to be moved back (and thus the weight and such; we can have a bigger
+# "The entire rear support posts need to be moved back (and thus the weight and such; we can have a bigger
 # empty platform up top) so that there is more room for the skiers to get into the lift load spot." The rear portal
 # (legs, beam, saddles), the rail ends + end member, the counterweight (deflection sheave, brackets, mast, pot,
 # footing) and the main ladder move back 2.80 m inside the SAME 2 x 3 lot; the house does NOT move (its door, wall
@@ -1867,7 +1867,7 @@ def m_base():
     return dict(M_BASE, **M_LOADROOM) if M_BASE_LOADROOM else M_BASE
 
 
-# -- Nitpick A (2026-10-13; Richard's twenty-fifth look; build/nitpick-a-stations.md) ---------------------------
+# -- Nitpick A (2026-10-13; twenty-fifth look; build/nitpick-a-stations.md) ---------------------------
 # S-2 ("Let's all apply the same PULLEY WHEELS / ROLLERS we use on the lift tower onto the lift stations"): the base's
 # four hold-down sheaves per lane become the TOWERS' Yan rocker tree (cs2_sheaves.fg_train_side - the code lift_tower
 # builds every FG / ET head with: hanger, main rocker, pins, two sub rockers, sheave arms, 4 sheaves with rubber liners
@@ -2087,7 +2087,7 @@ def build_base_m():
                             M_ROPE_R, 8, "none"), "rope"))
 
     # -- hold-down sheaves on the chord (PAL-05 boom), hung from the front beam (X12) ---------
-    # nitpick A (2026-10-13, Richard S-2): the towers' Yan rocker tree (cs2_sheaves.fg_train_side, M_HOLD_TRAIN)
+    # nitpick A (2026-10-13, S-2): the towers' Yan rocker tree (cs2_sheaves.fg_train_side, M_HOLD_TRAIN)
     # replaces the four plain cylinders: build_hold_train_m
     if M_HOLD_TRAIN:
         parts += build_hold_train_m(spec)
@@ -2204,7 +2204,7 @@ def build_base_m():
     for side, s in (("n", -1.0), ("p", 1.0)):
         y = s * 0.30
         if M_HOLD_TRAIN:
-            # nitpick A (2026-10-13, Richard S-2): the counterweight's head + deflection sheaves are the towers'
+            # nitpick A (2026-10-13, S-2): the counterweight's head + deflection sheaves are the towers'
             # wheels (cs2_sheaves.lite_sheave_parts: V-groove discs + rubber liner, 12 segments), same centers / radii
             # (the counterweight ropes keep their tangent points), w 0.10
             parts += _cw_sheave_m(f"sheave_cwhead_{side}", 0.35, (mhx, y, hz))
@@ -2340,7 +2340,7 @@ def _dress_base_m():
         out += board("waithere", (3.13 + 0.005 + 0.023, 1.25, ph + 0.535), "+X", 0.60, 0.35, mount="wall",
                      fine=fine)
     else:
-        # nitpick A (2026-10-13, Richard S-3: "The ladder and the corral fencing would get in the way of each other.
+        # nitpick A (2026-10-13, S-3: "The ladder and the corral fencing would get in the way of each other.
         # I wouldn't worry about corral fencing; the skiers could enter through the side."): no maze, no gate - the
         # skiers walk straight onto the load ramp; WAIT HERE stands on its own post beside the ramp's top, off the
         # deck's +y (loading-lane) edge, facing the skiers coming up the ramp (+X)
@@ -2582,7 +2582,7 @@ def subobjects_m(kind):
                 ("WallLightShortRangeRandom01", (B["hut"][1], 5.15, 2.40), "+X", "wall")]
     T = M_TOP
     yd = (T["hut"][2] + T["hut"][3]) / 2.0          # the booth door's y (the door sits on the +x wall)
-    # T17 lamp part: was LightpolePark -Y at bay x1 + 0.50; the deployed floodlight row was nudged to game z 2.64 (Richard,
+    # T17 lamp part: was LightpolePark -Y at bay x1 + 0.50; the deployed floodlight row was nudged to game z 2.64 (review,
     # 2026-10-17: its 0.90 m base plate corner sat 0.021 m inside liftiebay's +x wall at 2.60)
     return [(M_FLOOD["prefab"], (T["bay"][1] + 0.54, yd, 0.0), None, "grade"),
             ("WallLightShortRangeRandom01", (T["hut"][1], yd, 3.30), "+X", "wall")]
@@ -2803,7 +2803,7 @@ def build_station_m(kind):
     if missing:
         raise RuntimeError(f"M parts use undefined materials {missing}")
     if any("binding" in n for n in names):
-        raise RuntimeError("M12: a part named *binding* (Richard: no bindings on rack gear)")
+        raise RuntimeError("M12: a part named *binding* (no bindings on rack gear)")
     import cs2_sheaves as S
     S.cull_hidden_bosses(parts, label=f"FG M {kind}")    # T62 round 3: hidden hub bosses dropped (measured; v1 no-op)
     return parts
@@ -2911,7 +2911,7 @@ def _part_centre_m(co, tris, names, prefix):
 
 
 def orientation_m(co, tris, names, kind):
-    """M20 (nitpick A, 2026-10-13; Richard twenty-fifth look S-1): the station is laid out round ONE up lane
+    """M20 (nitpick A, 2026-10-13; twenty-fifth look S-1): the station is laid out round ONE up lane
     (UP_LANE_Y: the base LOADS the departing chairs on +y, the top UNLOADS the arriving chairs on -y - the same
     physical lane, the right one looking uphill in this authoring frame) and the liftie's hut / booth, the load
     (unload) surface and line and the rider boards stand on THAT lane's side (center y sign), the lane boards facing
@@ -2944,7 +2944,7 @@ def orientation_m(co, tris, names, kind):
 
 
 def sheave_trains_m(co, tris, names, kind):
-    """M21 (nitpick A, 2026-10-13; Richard S-2): the base's hold-down trains are the towers' rocker tree - per lane
+    """M21 (nitpick A, 2026-10-13; S-2): the base's hold-down trains are the towers' rocker tree - per lane
     M_HOLD n rims, each rim's lowest point on the code chord's top (rope tangent, 2 mm: the sheaves press the rope
     from above), centered on its lane (1 mm); every train part above the rope and in front of the portal beam's front
     face (the beam / house never touched but by the saddle); the counterweight wheels on their old centers. The top

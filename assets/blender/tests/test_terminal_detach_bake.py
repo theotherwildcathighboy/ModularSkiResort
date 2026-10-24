@@ -633,7 +633,7 @@ def check_rows(tag, p, sub, vanilla_rows):
     import fine_detail as FD
     objs = sub.get("objects") or []
     van = [o for o in objs if o.get("kind") != "mod"]
-    # T17-DQ 2026-10-16: lamp posts -> SkiPisteFloodlightLow (Richard): the 2 floodlight "mod" rows per station are
+    # T17-DQ 2026-10-16: lamp posts -> SkiPisteFloodlightLow: the 2 floodlight "mod" rows per station are
     # not kit rows (no staged kit CID); literal expectations (game local pos, yaw quaternion x y z w)
     fl = [o for o in objs if o.get("kind") == "mod" and o["prefab"] == "SkiPisteFloodlightLow"]
     mod = [o for o in objs if o.get("kind") == "mod" and o["prefab"] != "SkiPisteFloodlightLow"]
@@ -729,7 +729,7 @@ def check_gondola_rev1(p, name, asset_dir, man, g, doors):
     rb_ = man.get("rev1") or {}
     sub = rb_.get("sub_objects") or {}
     objs = sub.get("objects") or []
-    # T17-DQ 2026-10-16: lamp posts -> SkiPisteFloodlightLow (Richard): 0 vanilla lamp posts, 2 floodlight rows (the
+    # T17-DQ 2026-10-16: lamp posts -> SkiPisteFloodlightLow: 0 vanilla lamp posts, 2 floodlight rows (the
     # literal positions / yaws are asserted in check_rows)
     check(sum(1 for o in objs if o["prefab"].startswith("LightpolePark")) == 0
           and sum(1 for o in objs if o["prefab"] == "SkiPisteFloodlightLow") == 2,

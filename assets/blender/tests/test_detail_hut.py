@@ -6,7 +6,7 @@ report build/detail-pass-1-hut.md), UPDATED for the fine-detail pass step 3a
 (fine_detail=True, sign_set=SIGN_SET); the benches, the wing racks, the upright drum and the two
 entry lanterns are ROWS (GardenBench / kit racks / BarrelRandom01 / WallLightShortRange), the three
 label faces live in the sign set SkiSignSetHutB (a sharer of the building sheet). NITPICK C (2026-10-13,
-build/nitpick-c-lodges.md; Richard: "The GRILL (?) on the left side of the entrance may end up in mid-air depending
+build/nitpick-c-lodges.md; "The GRILL (?) on the left side of the entrance may end up in mid-air depending
 on terrain"): the fuel station (cradle drum + legs + pump, the timber crib, the barrel on it) left the host for two
 GROUND-FOLLOWING BarrelRandom01 rows (m_ParentMesh -1) at the old drum centers; D13 audits every part whose foot is
 on grade outside the plinth (structure / access only: no dressing).

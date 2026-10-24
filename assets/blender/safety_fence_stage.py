@@ -19,7 +19,7 @@ game-side files)
     _probe/SkiSafetyFenceProbe{,Section,Piece}/   step 0 of the design: our net on the VANILLA
                                chain-link lane (UnityGUID 9a89f6ce...), no import needed
     SkiSafetyFence/SkiSafetyFence_en-US.loc (+ .cid)   OPTIONAL display name (format proven by
-                               re-writing SkiLiftHaulRopeB_en-US.loc byte for byte, see prove_loc)
+                               re-writing SkiRunGroomedA_en-US.loc byte for byte, see prove_loc)
     safety-fence-staging.json  the record (names, cids, placeholders, GUIDs and their sources)
 
 Every $type table is written by one emitter (`emit`): ids are declared at first use in document
@@ -28,7 +28,7 @@ meshes follow the sign-set convention: `$fstrref:"CID:REPLACE_<Mesh>_MESH_CID"`.
 
 SURGERY (`surgery(imported_data, apply=False, ...)`, game CLOSED; dry run unless apply=True)
     probe=True   install the three probe prefabs only (no import needed).
-    default      after Richard's import of assets/import/fences/A:
+    default      after the import of assets/import/fences/A:
       1 find "SkiSafetyNetA Mesh_*", "SkiSafetyNetA_LOD1 Mesh_*", "SkiNetPostA Mesh_*" under
         ImportedData/c030ee3ff256df91 (exactly one each, else STOP);
       2 TEMPLATE GATE: the .Surface each net mesh prefab references must carry template hash 34
@@ -628,10 +628,10 @@ LOC_ENTRIES = (
 
 def prove_loc(mirror=MIRROR):
     """Re-write an Editor-made .loc byte for byte with loc_bytes. Returns (ok, detail)."""
-    path = os.path.join(mirror, "SkiLiftHaulRopeB", "SkiLiftHaulRopeB_en-US.loc")
+    path = os.path.join(mirror, "SkiRunGroomedA", "SkiRunGroomedA_en-US.loc")
     with open(path, "rb") as fh:
         want = fh.read()
-    got = loc_bytes([("Assets.NAME[SkiLiftHaulRopeB]", "SkiLiftHaulRopeB")])
+    got = loc_bytes([("Assets.NAME[SkiRunGroomedA]", "SkiRunGroomedA")])
     return got == want, f"{os.path.relpath(path, REPO)}: {len(want)} bytes, rewrite " \
                         f"{'identical' if got == want else 'DIFFERS'}"
 
@@ -873,7 +873,7 @@ def surgery(imported_data, apply=False, end_posts=False, probe=False, staging=ST
     for name in (NET, SECTION, PIECE):
         install(name, staged_text(name))
     install(LANE, lane)
-    if loc:                                   # OPTIONAL display name (Richard's call, build report)
+    if loc:                                   # OPTIONAL display name (build report)
         for fn in (f"{NET}_en-US.loc", f"{NET}_en-US.loc.cid"):
             with open(os.path.join(staged_dir(NET, staging), fn), "rb") as fh:
                 write(os.path.join(imported_data, NET, fn), fh.read())

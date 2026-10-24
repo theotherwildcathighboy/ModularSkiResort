@@ -355,8 +355,8 @@ def live_smoke(work, review_dir):
     check(sc.view_settings.view_transform == "AgX" and sc.world is not None,
           f"ensure_scene: AgX + sky ({sc.view_settings.view_transform}, {sc.world})")
     vl = bpy.context.view_layer
-    # the copy of the live file already holds Richard's loaded chair (root + library): without this
-    # unload the "first" load is a reload of HIS library and 8 checks fail (2026-10-11, one-line fix)
+    # the copy of the live file already holds a loaded chair (root + library): without this
+    # unload the "first" load is a reload of that library and 8 checks fail (2026-10-11, one-line fix)
     ns["unload"](CHAIR_NAME)
     ns["_find_layer_coll"](vl.layer_collection, "Review").exclude = True
     r = call("load", CHAIR_NAME, review_dir=review_dir)
@@ -389,7 +389,7 @@ def live_smoke(work, review_dir):
     old = bpy.data.objects.get("ScaleTowerFG8N")
     if old is not None and old.instance_collection is None:
         # the review file carries a pre-pack MESH stand-in (older stand_ins imported it
-        # live): it is kept and flagged, never replaced behind Richard's back
+        # live): it is kept and flagged, never replaced silently
         r = call("stand_ins", review_dir=review_dir)
         check(r.get("tower_kind") == "mesh" and any("pre-pack" in n for n in r.get("notes", [])),
               f"a pre-pack mesh stand-in is kept and flagged ({r.get('notes')})")

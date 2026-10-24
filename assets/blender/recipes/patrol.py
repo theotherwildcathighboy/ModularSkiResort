@@ -10,7 +10,7 @@ civic-sign-skeptic.md applied (skeptic wins), ROUND-SPEC R21 (complexity 1), R22
     M1  P1 fence rolls moved inside the lot: centers x <= 3.20 (max x 3.42 <= 3.75);
         G3 (|x|, |y| <= half lot - 0.25) asserted on the parts.
     M2  P1 glazing is `_Win` (one cell (2, 2) = 12, _LOD1_Win + _LOD2_Win), the interior
-        keyword CommercialLow is in the FILE name (no Richard ruling for frosted panes).
+        keyword CommercialLow is in the FILE name (no ruling for frosted panes).
     M3  the white-on-red crosses are painted on FRONT-ONLY faces: kit emblem_disc gives
         `emblem_<n>_face` (one 16-fan, its own island) + `emblem_<n>_rim`; the P1 info
         board is kit sign_board `sign_p1info_face` (one quad) + frame.
@@ -25,7 +25,7 @@ door lamp sits beside the door (the wall is 2.35 m tall and the door head meets 
 plate: no room above it).
 
 Detail pass 1 (2026-10-11): design/detail-pass-1.md sections 3.3 / 3.4 / 5.2 with ALL ten
-MUST-CHANGE items of design/detail-pass-1-skeptic.md (Richard: "all make sense") on the kit
+MUST-CHANGE items of design/detail-pass-1-skeptic.md ("all make sense") on the kit
 of build/detail-pass-1-kit.md; report build/detail-pass-1-patrol.md.
     P1  "SKI" / "PATROL" board on the -Y end (M4 fix: 2.60 x 1.30 at w 1.75, T1), bench
         under it (bench_ in lod1_extra, M1), roof cross on the +X slope (kept to LOD2; the
@@ -48,7 +48,7 @@ of build/detail-pass-1-kit.md; report build/detail-pass-1-patrol.md.
     Arrival prefixes name the DISC emblems exactly ("emblem_<n>_"): the roof crosses and
     flags are emblems too and would move the arrival centroid.
 
-Lean fix (Richard, 2026-10-11 fifteenth look: "on the ski patrol shacks, a few of the
+Lean fix (2026-10-11 fifteenth look: "on the ski patrol shacks, a few of the
 toboggans lean against nothing"; report build/detail-pass-1-patrol.md "Lean fix"). Generator
 CONTRACT LEAN (recipes/_lean.py, run at the end of both builders, fails the build): every
 leaning part (akja_, gear_ spine boards, pole_) has a SOLID face <= 0.02 m behind the top of
@@ -62,8 +62,8 @@ its back face over >= 80 % of its width, and its foot on grade / a deck / a trea
         top. The spine board already rested on the front gable (gap 0.006).
 
 Fine-detail step 3d (2026-10-12; build/fine-detail-step3d-patrol-sign.md; the engine of
-build/fine-detail-step2-engine.md, the school / L2 as the worked examples; Richard approved the shacks
-in his eighteenth look and called their signs pixelated: "I think we know our plan for that"). Both
+build/fine-detail-step2-engine.md, the school / L2 as the worked examples; the shacks were approved
+in the eighteenth look and their signs were called pixelated: "I think we know our plan for that"). Both
 recipes are fine_detail.FineRecipe (fine_detail=True, sign_set=..., legacy = the approved rows), so
 `lodge.py --no-fine` rebuilds the approved shacks vertex for vertex:
     signs   P1 "SKI / PATROL" + the info board, P2 "SKI PATROL / FIRST AID" leave the host atlas for
@@ -207,7 +207,7 @@ KIT_REST = {"SkiDressAkja": (1.8801, -0.7108), "SkiDressSpineBoard": (1.843, -0.
 KIT_GAP = 0.004              # rest line this far in front of its support face (LEAN reads ~+0.005..0.007 m)
 LEAN_SAMPLE = 0.005          # _lean.measure_part samples the contact 5 mm down the part's axis
 KIT_LEAN_DEG = {"SkiDressAkja": 75.0, "SkiDressSpineBoard": 85.0}   # dress_kit AKJA / SPINE "lean"
-#: kit color variants (Richard 2026-10-12 ~18:50; build/kit-colour-variants.md): the akja shells in rescue red
+#: kit color variants (2026-10-12 ~18:50; build/kit-colour-variants.md): the akja shells in rescue red
 #: (the red cross, cs2_bldg.PATROL_RED_SRGB); P1 and P2 alike
 KIT_COLOUR_SET = "red"
 

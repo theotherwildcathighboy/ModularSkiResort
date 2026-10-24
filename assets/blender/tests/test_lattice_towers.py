@@ -18,7 +18,7 @@ Groups (lattice-towers.md section 14, adapted to the R27-R31 rulings):
                   shipping path (no beacon, no _Emissive) on gondola 25: maps, channel rules (R + G + B
                   <= 1), recolor level p95 0.78-0.82 under every present mask; temp folder removed
 
-Revision 1 (Richard's verdicts 7 / 8, 2026-10-11; build/tram_tower.md "Revision 1"):
+Revision 1 (verdicts 7 / 8, 2026-10-11; build/tram_tower.md "Revision 1"):
   2r ladder       both families: rails from below grade (revision 1c: the pier depth with rungs on the
                   variants that float - 30A / 45A 10.0, 25O 4.66, 32O 5.33 m - else LADDER_FAM sink
                   2.2 / 3.0, deeper than the face-normal drop at the piers' grade allowance, with rungs

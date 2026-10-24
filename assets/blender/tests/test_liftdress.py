@@ -285,7 +285,7 @@ def _world_verts(parts):
 
 
 def k1_gear_equality():
-    """Richard, eleventh look: "the skis outside the tram building look totally different from
+    """eleventh look: "the skis outside the tram building look totally different from
     the ones on the A frame - the A-frame ones way preferred" and ninth look: no bindings.
     ONE ski-gear part project-wide: the items of LD.ski_rack ARE cs2_bldg.ski_gear's (same
     vertices, same materials / accent slot, no binding blocks, nothing of the old slabs)."""
@@ -575,7 +575,7 @@ def _seg_dist(px, py, ax, ay, bx, by):
 
 
 def k9_glyphs():
-    """K9 (2026-10-12 lift-board redraw; Richard: "the guy is getting his HEAD SLAMMED BY THE BAR ... the SKIS
+    """K9 (2026-10-12 lift-board redraw; "the guy is getting his HEAD SLAMMED BY THE BAR ... the SKIS
     LOOK LIKE THEY HAVE BLOCKS ON THEM"): the shared glyph primitives keep the rider's head clear of the bar in
     BOTH states, the lowered cross-bar sits at CHEST height in front of the torso, the raised bar sits above the
     head, the ski is ONE thin line whose front tip curves UP (no rects / fills under the rider), and every

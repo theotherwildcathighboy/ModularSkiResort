@@ -4,9 +4,9 @@ Deterministic Build-strip icon generator for the Modular Ski Resort mod, style E
 Draws the 25 icons of the hub's Build strip (256x256 RGBA PNG + 32-hex .png.cid sidecar each): the
 nine of the 2026-10-04 style-E round and, since 2026-10-11 (round 2), the 16 tiles of contract 6
 (lodge tiers, school, patrol, detachable / gondola / tram) listed after the nine below.
-Style E ("a small flat color picture fills a rounded plate") was chosen by Richard on 2026-10-04
-from the options sheet docs/research/art/icons-2026-10-04/run-icon-options.png (rows A to F; his
-verdict: E, with the snow gun throwing its snow UP and over, never "puking it out"). The final set
+Style E ("a small flat color picture fills a rounded plate") was chosen on 2026-10-04
+from the options sheet docs/research/art/icons-2026-10-04/run-icon-options.png (rows A to F;
+pick: E, with the snow gun throwing its snow UP and over, never "puking it out"). The final set
 and its review sheet: docs/research/art/icons-2026-10-04/final-e/final/ (sheet.png). Design notes
 and the round's record: docs/research/econ-round/e1-spec.md section 8 ("Icons, style E").
 
@@ -62,7 +62,7 @@ record docs/research/art/assets-2026-10/build/icons-round-2.md; each after its a
                              between two lattice towers
 T38 (2026-10-17; playtest item 84, docs/research/field/2026-10-15/build/T38-run-type-icons.md), FINAL: the snowmaking
 and night tiles are redrawn and SkiRunCatTrackA is new (a cat track used to borrow the groomed tile's icon);
-natural and groomed keep their original pictures (Richard's verdict after three redraws). All on the family
+natural and groomed keep their original pictures (verdict after three redraws). All on the family
 scene (the same sky and the same white slope falling top-left to bottom-right):
     SkiRunSnowmakingA        a bigger orange fan gun and a thicker white plume on the slope (PLUME_SPEC_T38)
     SkiRunNightA             dark navy sky, lit slope, big cream crescent, two stars, a floodlight with big amber lamps
@@ -862,7 +862,7 @@ NAT_PINES = ((122.0, 84.0, 27.0, PINE2_LIT, PINE2_SHADE), (182.0, 120.0, 37.0, P
 
 # T38 (2026-10-17, playtest item 84 "the run-type icons are not obviously different"): the natural and groomed
 # tiles below are the ORIGINAL style-E pictures again. Three redraws were previewed (assets/preview/
-# hub-icons-2026-10-17/) and Richard's final verdict was to keep these two ("the colors worked better along
+# hub-icons-2026-10-17/) and the final verdict was to keep these two ("the colors worked better along
 # with the icon itself") and take the new snowmaking, night and cat track tiles (below), which keep the same
 # family scene (RunScene: blue sky, white slope falling top-left to bottom-right). The rejected natural /
 # groomed redraws (trees, moguls, wavy lines, navy bands) are not in this file; the build note records them.
@@ -1171,7 +1171,7 @@ def icon_launcher():
 
 # ---------------------------------------------------------------------------------------------
 # Round 2 tiles (2026-10-11): the 16 tiles that contract 6 left as placeholders
-# (docs/research/art/assets-2026-10/code-round-2/round-2-contract.md section 8.8; Richard's
+# (docs/research/art/assets-2026-10/code-round-2/round-2-contract.md section 8.8; the
 # verdict B2, docs/research/art/assets-2026-10/verdicts-2026-10-11.md: "fit the style of the
 # ones we have already decided on and like"). The lodge tiers (mountain hut, chalet, summit,
 # grand), the ski school, the patrol hut and HQ, and base / top / line for the detachable,

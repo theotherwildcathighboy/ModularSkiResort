@@ -38,7 +38,7 @@ budget-clean step (build report). Every grade-standing new part reaches below th
 design grade (no band vertex); everything else stands on a deck.
 
 FINE-DETAIL PASS, step 3a (2026-10-12; design/fine-detail-pass.md A.2 / B / C as cut by
--skeptic.md, Richard's seventeenth look H1-H6 defaults; build/fine-detail-step3a-buildings.md;
+-skeptic.md, seventeenth look H1-H6 defaults; build/fine-detail-step3a-buildings.md;
 the school is the reference host, build/fine-detail-step2-engine.md section 12). RECIPE is a
 fine_detail.FineRecipe (fine_detail=True, sign_set=SIGN_SET); `lodge.py --no-fine` rebuilds the
 approved pre-pass hut from `legacy` (byte-identical, proven in the build report):
@@ -62,7 +62,7 @@ approved pre-pass hut from `legacy` (byte-identical, proven in the build report)
 Row frame: every row, old and new, is game (gx, gy, gz) = authoring (y, z, x), gx NOT negated
 (fine_detail.X_CONVENTION, the hut's existing convention; probe X2 decides, S1b mirrors on N).
 
-NITPICK C (2026-10-13; Richard, twenty-fifth look: "The GRILL (?) on the left side of the entrance may end up
+NITPICK C (2026-10-13; twenty-fifth look: "The GRILL (?) on the left side of the entrance may end up
 in mid-air depending on terrain. Otherwise good. I like how this one can be molded into the terrain.";
 build/nitpick-c-lodges.md): the fuel station (cradle drum + pump, the crib and its barrel) was the only
 DRESSING standing on grade outside the plinth; on the fine build it leaves the mesh for two ground-following
@@ -133,7 +133,7 @@ BAS_STAIR_FOOT_Y = -BAS_LAND_Y - BAS_STAIR_N * BAS_STAIR_RUN                    
 BAS_RAIL_H = 1.00
 # ---- T58 / T61 (2026-10-18, structure v1: cs2_bldg.STRUCTURE["version"] >= 1, lodge.py --structure v1; off = the
 # close-look hut byte for byte; docs/research/art/structure-2026-10-18.md) ------------------------------------------
-# T61 (Richard, Blender review 2026-10-17 item 6: "I imagine a build this into a steep hillside ... the stairs might
+# T61 (Blender review 2026-10-17 item 6: "I imagine a build this into a steep hillside ... the stairs might
 # leave some gaps ... extend the front steps down more"): the two stone step blocks stopped 0.60 m under the anchor
 # terrain, so on any hillside steeper than ~60 % their undersides hung in the air beside the bridge; with structure
 # v1 they run down to STEP_Z0_V1 (the old bridge / wing posts' depth): buried on the 35 % design slope, a stone stair
@@ -180,7 +180,7 @@ BOARD_BROWN, HUT_RED, CHALK = (0.20, 0.14, 0.10), (0.62, 0.10, 0.08), (0.10, 0.2
 _A, _W, _K, _B, _R = "accent", "trim_white", "ski_black", "ski_blue", "ski_red"
 # 9 items on 2 x 6 slots: the M10 cap (LOD0 about 5,300) - the first build with 7 slots and 11
 # items came to 5,390 (racks 956 tris of the 1,711 new). Detail pass 1b (2026-10-11): no
-# bindings on the skis / boards (Richard, ninth look), and the two pole pairs are 1.36 / 1.38 m
+# bindings on the skis / boards (ninth look), and the two pole pairs are 1.36 / 1.38 m
 # (were 1.20 / 1.25): a rack item must span the lean, cs2_bldg.rack_reach() = 1.33 m
 # (detail pass 1 integration F1)
 RACK_GEAR = {
@@ -273,7 +273,7 @@ GBENCH_X = (("hutS0", -3.0), ("hutS1", 1.49))
 GBENCH_Y = round(BENCH_Y - 0.06 - GBENCH_HALF_DEPTH, 4)      # -6.286
 ENTRY_LAMP_U = 0.6 + 0.2 + 0.35    # cs2_bldg.entry: lamps at u +-(w / 2 + 0.2 + 0.35), w 1.2
 ENTRY_LAMP_Z = FL1_Z + 2.2         # 2.65: the old lens center height (entry lamps at z + 2.2)
-# nitpick C (2026-10-13; Richard, twenty-fifth look, L2: "The GRILL (?) on the left side of the entrance may end up
+# nitpick C (2026-10-13; twenty-fifth look, L2: "The GRILL (?) on the left side of the entrance may end up
 # in mid-air depending on terrain. Otherwise good."; build/nitpick-c-lodges.md): the snow-cat fuel station (H5: the
 # horizontal drum on its cradle + pump, read as a grill, and the upright barrel on its timber crib) stood on GRADE
 # left of the entry steps (seen from the arrival), held below the 35 % DESIGN grade by fixed legs / an open-bottom
@@ -289,7 +289,7 @@ FINE_SUB_OBJECTS = tuple(
     ("WallLightShortRangeRandom01", _WALLLIGHT, (sg * ENTRY_LAMP_U, ENTRY_LAMP_Z, FL_X1), _yaw_q(0), 0)
     for sg in (-1.0, 1.0)                                                         # lamp_hut0 / 1
 )
-# kit color variants (Richard 2026-10-12 ~18:50; build/kit-colour-variants.md): the hut red
+# kit color variants (2026-10-12 ~18:50; build/kit-colour-variants.md): the hut red
 # (cs2_bldg.HUT_RED_SRGB) against the green trim and dark timber
 KIT_COLOUR_SET = "red"
 # the wing racks (wingN = +Y, wingS = -Y) as kit rows on the wing decks, alternating loadouts
@@ -462,7 +462,7 @@ def _detail1(K, fine=False):
     # H5 snow-cat fuel station: horizontal drum on a cradle (legs below the design grade),
     # upright drum on a timber crib (open bottom below grade, top 0.12). fine (nitpick C, 2026-10-13): the whole
     # station leaves the mesh for two ground-following BarrelRandom01 rows (FUEL_ROWS, m_ParentMesh -1): on grade
-    # beside the steps it floated / sank wherever the slope is not the 35 % design (Richard: "the grill (?) ...
+    # beside the steps it floated / sank wherever the slope is not the 35 % design ("the grill (?) ...
     # may end up in mid-air")
     if not fine:
         P += K.drum("hutfuel", (FUEL_X, FUEL_Y, FUEL_ZC), "X", **fk)

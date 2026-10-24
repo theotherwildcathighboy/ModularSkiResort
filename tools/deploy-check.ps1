@@ -21,7 +21,7 @@
 #   2 log-stamp   log line 3 stamp == deployed DLL stamp (else the game ran an older deploy: restart it)
 #   3 log-time    the log's first line is newer than the deployed DLL's file time (game started after the deploy)
 #   4 bundle      bundle stamp == DLL stamp (a mismatched pair blanks the hub)
-#   5 sources     no mod/ source file is newer than the deployed DLL (else: rebuild + deploy, Richard's call)
+#   5 sources     no mod/ source file is newer than the deployed DLL (else: rebuild + deploy; the owner decides)
 #   6 git         no uncommitted changes under mod/ (else the deploy cannot be tied to HEAD)
 #   7 prefabs     game ImportedData == gamedata-mirror\ (same ownership + include rules as tools\sync-gamedata.ps1;
 #                 file hashes; the mirror is a copy of the game side, so a difference means the mirror is behind

@@ -1,7 +1,7 @@
 """
 cs2_signset.py - the shared BUILDING SIGN SHEET and the per-host SIGN-SET props (fine-detail
 pass, design/fine-detail-pass.md C as cut by -skeptic.md FS5 / FS12 / FS14 / FS15 / FS16;
-Richard's seventeenth look H2: name signs glow faintly at night when powered, intensity 0.2).
+seventeenth look H2: name signs glow faintly at night when powered, intensity 0.2).
 Build report: docs/research/art/assets-2026-10/build/fine-detail-step2-engine.md.
 
 WHY. The building signs were stamped into each host's atlas with a 5x7 bitmap font at
@@ -19,7 +19,7 @@ THE SHEET (SHEET, below; FROZEN and APPEND-ONLY, SS4)
     holds the only five PNGs. Every later host's sign set is a SHARER (settings.json
     sharedAssets -> the owner's PNGs, cs2_asset.write_settings(shared_from=...), probe F1).
     Kinds of APPROVED hosts are painted (school, L2); kinds of PENDING hosts are BLANK reserved
-    rects (FS14: P1, P2, L5, tram), painted when Richard approves that host's design. Once the
+    rects (FS14: P1, P2, L5, tram), painted once that host's design is approved. Once the
     sheet is imported its rects never move (a sharer's UVs point into them): a new kind goes into
     free space (append a Kind with a rect inside the free area), a CHANGED painted rect after
     import means a new owner letter (both sheets coexist until the sharers migrate, design C.2).
@@ -61,7 +61,7 @@ FOLDER LAYOUT (decided here; build report section 3)
                                                (FS8, the funicular pattern) - no PNG path at all
     assets/staging/prefabs/signs/<L>/SkiSignSet<Host>/   object prefab + .cid + surgery fragments
 
-NITPICK C (2026-10-13, build/nitpick-c-lodges.md; Richard, twenty-fifth look: the Bfont lettering "just looks too
+NITPICK C (2026-10-13, build/nitpick-c-lodges.md; twenty-fifth look: the Bfont lettering "just looks too
 AI"): the lettered boards are drawn in INSTALLED Windows typefaces through the same vector path (draw kind "type":
 a FONT curve with the TTF loaded; TYPEFACES pins each file's sha1, the file is never copied or shipped): Bookman
 Old Style Bold for the resort-identity boards (GRAND LODGE with a rule and lozenges, SKI AREA), Franklin Gothic
@@ -217,8 +217,8 @@ SHEET = SHEET + (
           ("frame", {"width": 0.018, "inset": 0.014, "fg": WHITE})),
          note="red NO SLEDDING sign with a white rim (Street View 120856)"),
 )
-# ---- PAINTED 2026-10-12, fine-detail step 3d (build/fine-detail-step3d-patrol-sign.md): Richard approved the
-# patrol shacks (eighteenth look: "Ski patrol shacks look good"; "some of the signs ... are pixelated but I think
+# ---- PAINTED 2026-10-12, fine-detail step 3d (build/fine-detail-step3d-patrol-sign.md): the patrol shacks were approved
+# (eighteenth look: "Ski patrol shacks look good"; "some of the signs ... are pixelated but I think
 # we know our plan for that"), so their three RESERVED rects are painted in place (FS14). Only `state`, `draws`
 # and `note` change: key, size, rect and lit are untouched, so every layout_hash prefix is unchanged. Vector
 # Bfont only (the 5x7 bitmap font is retired for them); the two name boards are lit (H2, 0.2 at surgery).
@@ -247,7 +247,7 @@ SHEET = tuple(replace(k, state="painted", draws=_PATROL_PAINT[k.key][0], note=_P
 # snowflakes' +-1.47): the 2.60 m lettering panel (780 px, the last shelf's free run x 1260-2040) and two
 # 0.70 m snowflake end panels that share ONE rect (the flake is centered in each; free space above the lessons).
 # Field = the color the host band's slot-1 field shows: welcome_sign.SLOTS[1] (0.15, 0.31, 0.225) multiplied into
-# the band's 0.80 albedo in LINEAR space (cs2_preview._tinted_base_image's model, the look Richard reviews), so the
+# the band's 0.80 albedo in LINEAR space (cs2_preview._tinted_base_image's model, the look that gets reviewed), so the
 # panel meets the beam trim without a step; ControlMask 0 here (the gate has one VariationSet). [U] how the game
 # applies a VariationSet color (as linear like the preview, or decoded from sRGB, which would read darker on the
 # host) decides the in-game match; the field is one constant, repaintable before the first import.
@@ -263,7 +263,7 @@ SHEET = SHEET + (
          (("flake", {"d": 0.36, "fg": GATE_CREAM, "bg": GATE_FIELD}),),
          note="snowflake end panel of the welcome sign header (ORNAMENT_D 0.36 m, centred); used twice (L / R)"),
 )
-# ---- PAINTED 2026-10-12, fine-detail step 3e (build/fine-detail-step3e-swanky.md): Richard approved L5 revision 4
+# ---- PAINTED 2026-10-12, fine-detail step 3e (build/fine-detail-step3e-swanky.md): L5 revision 4 was approved
 # (twenty-third look: "L5 and L4 look good, run the engine pass on them too!"), so its RESERVED name slot is painted in
 # place (FS14): "GRAND LODGE" (the building's in-game name, LocaleEN SkiLodgeGrand) in the welcome sign's cream on the
 # school's board brown, the porte-cochere name board on the front truss (recipes/l5_swanky_bottom.py NB_*); lit (H2,
@@ -276,7 +276,7 @@ _GRAND_PAINT = {
 }
 SHEET = tuple(replace(k, state="painted", draws=_GRAND_PAINT[k.key][0], note=_GRAND_PAINT[k.key][1])
               if k.key in _GRAND_PAINT else k for k in SHEET)
-# ---- REPAINTED 2026-10-13, nitpick C (build/nitpick-c-lodges.md; Richard, twenty-fifth look: L5 "use a DIFFERENT
+# ---- REPAINTED 2026-10-13, nitpick C (build/nitpick-c-lodges.md; twenty-fifth look: L5 "use a DIFFERENT
 # FONT. Hard to explain but it just looks too AI", ski school "Same comment as the swanky lodge on the fonts", L3 / L4
 # "not loving the SIGN of the FORK AND KNIFE ... leave it blank or keep it simple"). In place, within the rects: only
 # `draws` and `note` change (key, size, rect and lit untouched), so every layout_hash prefix (20 / 22 / 24) is
@@ -308,7 +308,7 @@ _NC_PAINT = {
                             "tracking": 0.06}),),
                  "RESTAURANT in Franklin Gothic Demi Cond, white on hut red (nitpick C, was Bfont)"),
     "hut.picto": ((("blank", {"bg": BOARD_BROWN, "rim": L2_TRIM_SRGB, "rim_m": 0.02, "inset_m": 0.05}),),
-                  "BLANK board (nitpick C: the fork-and-knife pictogram Richard called 'quite bad' on L3 / L4 is the same "
+                  "BLANK board (nitpick C: the fork-and-knife pictogram on L3 / L4 read as poor and is the same "
                   "glyph): board brown with a thin rim in the hut's green trim; a label surface for the player"),
     "p1.name": ((("type", {"lines": ("SKI", "PATROL"), "face": NC_UTILITY_FACE, "fg": PATROL_WHITE, "bg": PATROL_RED,
                            "cap_frac": 0.75, "pitch": 1.35, "tracking": 0.04}),),
@@ -587,7 +587,7 @@ def draw_flake(d=0.36, fg=(0.93, 0.89, 0.78), bg=None):
 
 
 # ======================================================================================
-# Nitpick C (2026-10-13, build/nitpick-c-lodges.md): REAL SIGNAGE TYPOGRAPHY. Richard, twenty-fifth
+# Nitpick C (2026-10-13, build/nitpick-c-lodges.md): REAL SIGNAGE TYPOGRAPHY. Twenty-fifth
 # look, L5: "use a DIFFERENT FONT. Hard to explain but it just looks too AI"; ski school: "Same comment
 # as the swanky lodge on the fonts". The sheet's lettered boards are drawn in INSTALLED Windows
 # typefaces through the SAME vector path as Bfont (a Blender FONT curve with the TTF loaded ->
@@ -613,7 +613,7 @@ class Typeface:
 
 
 #: candidates rendered for the font table (assets/preview/boards-2026-10-13/fonts/); the CHOSEN ones are named
-#: by FACE_FOR below. sha1 = the file on Richard's machine 2026-10-13 (C:\Windows\Fonts).
+#: by FACE_FOR below. sha1 = the file on the author's machine 2026-10-13 (C:\Windows\Fonts).
 TYPEFACES = {t.key: t for t in (
     Typeface("bookman_bold", "Bookman Old Style Bold", "BOOKOSB.TTF", "275aab405883ea72", role="lodge"),
     Typeface("georgia_bold", "Georgia Bold", "georgiab.ttf", "e27ea4537381876f", role="lodge"),

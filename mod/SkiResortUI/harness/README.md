@@ -51,7 +51,7 @@ sim numbers off it.
 
 The gate (`tools/check-bundle.js`) does not look at this folder; nothing here ships.
 
-**Known gap (Richard, 2026-10-18 in game):** the game's own tooltip balloons wrap and its panel / button chrome has more padding than
+**Known gap (2026-10-18 in game):** the game's own tooltip balloons wrap and its panel / button chrome has more padding than
 these stand-ins, so the harness reads a little more crammed than the game ("in game it looked totally good"). Judge wording,
 hierarchy, numbers and charts here; judge spacing and wrapping in game. The stand-in CSS was loosened (tooltips wrap at 320 rem,
 buttons 6 x 12 rem padding) but it is still not the game's chrome.

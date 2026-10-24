@@ -1,7 +1,7 @@
 """
 cs2_sheaves - the towers' sheave-train builder, shared by the towers and the lift stations.
 
-Extracted 2026-10-13 from lift_tower.py (Richard, twenty-fifth look S-2: "Let's all apply the same PULLEY
+Extracted 2026-10-13 from lift_tower.py (twenty-fifth look S-2: "Let's all apply the same PULLEY
 WHEELS / ROLLERS we use on the lift tower onto the lift stations"; build report
 docs/research/art/assets-2026-10/build/nitpick-a-stations.md). The code below is lift_tower.py's, moved
 VERBATIM (expression for expression, the same part order and names): lift_tower imports every function
@@ -66,7 +66,7 @@ TRAIN_BEVEL = {"FG": {"hanger_": 1, "rocker_main_": 2}, "DQ": {"rocker_main_": 1
 TRAIN_CHAMFER = {"FG": (("rocker_sub_", (1.0, 0.0, 0.0)), ("sheave_arm_", (0.0, 0.0, 1.0))), "DQ": ()}
 
 # -- T62 (2026-10-18): ONE sheave WHEEL on every tower and station ----------------------------------------
-# Richard 2026-10-17: "the gondola station bottom used the simpler roller wheel; let's be consistent. The ones on
+# 2026-10-17: "the gondola station bottom used the simpler roller wheel; let's be consistent. The ones on
 # CS2R_SkiLiftTowerDQ20O_LOD0 seem to look the best" + "it's more just the pulley wheels themselves should be
 # consistent on every tower. Different pulley housings make sense." Build note:
 # docs/research/field/2026-10-15/build/T62-sheave-wheels.md.
@@ -79,7 +79,7 @@ TRAIN_CHAMFER = {"FG": (("rocker_sub_", (1.0, 0.0, 0.0)), ("sheave_arm_", (0.0, 
 # generators' CLI is --wheels v1|v2.
 WHEELS = "v2"
 WHEEL_ID = "cs2_sheaves.wheel"         # the stamp every wheel part carries (obj["cs2_wheel"]); tests/test_sheaves.py
-# -- T62 round 2 (2026-10-18). Richard on round 1: "VERY confused about the T62 wheels. They all look different still and
+# -- T62 round 2 (2026-10-18). On round 1: "VERY confused about the T62 wheels. They all look different still and
 # of varying quality. FG tower ones look probably best, maybe a bit shiny, but still a tiny bit blocky. They'd be
 # slightly smaller than a bicycle or car wheel... So, probably raise the cap." He judged the FG wheel WITH its raised
 # axle cap the best. Decisions: every wheel = that FG wheel made round; raise the caps. Build note section "Round 2" in
@@ -90,14 +90,14 @@ WHEEL_ID = "cs2_sheaves.wheel"         # the stamp every wheel part carries (obj
 #   V groove root r - max(0.02, 0.18 r) at mid-width (the DQ20O groove); crest rings at radius r, |y| = w/2 - chamfer;
 #   rim chamfer 0.05 r at 45 deg on both corners (crest -> disc edge (r - c, +-w/2));
 #   flat n-gon side discs at +-w/2; a raised hub boss on BOTH faces: a 12-gon frustum base 0.45 r -> top 0.35 r,
-#   height 0.10 r (FG: 0.09 -> 0.07, 0.02 = the T27 kit axle cap Richard picked, made round) + a flat n-gon top;
+#   height 0.10 r (FG: 0.09 -> 0.07, 0.02 = the T27 kit axle cap, made round) + a flat n-gon top;
 #   every ring loop (disc edge, crest, groove root, boss base, boss top) is marked SHARP and every edge between two
 #   segments stays smooth (shade_by_angle 66 keeps sharp marks): the treads (chamfer, flanks, boss side) shade smooth
 #   around and flat across, the caps stay flat - vanilla's tire split (the round-1 disc/flank edge was smoothed: rim
 #   normals tilted 31 deg, the disc read as a dome; vanilla-wheels section 1.6).
 #   Tris: liner 4 x 16 + chamfers 4 x 16 + discs 2 x 14 + boss sides 2 x 24 + boss tops 2 x 10 = 224 (WHEEL_TRIS).
 # Material: every wheel's discs / chamfers / bosses take WHEEL_KEY (WHEEL_MATERIAL, one spec for every generator) instead
-# of the generator's "galv" (Metal032 at metal 1.0: the dark sky-tinted mirror Richard called shiny; the snow-props
+# of the generator's "galv" (Metal032 at metal 1.0: the dark sky-tinted mirror that read as shiny; the snow-props
 # galvanised lesson, snow-props-weather-2026-10-17 section 2: light albedo, smoothness inside vanilla's band, metal low
 # for paint); liners stay rubber.
 # LODs (WHEEL_LOD, one rule for every family): a wheel is never collapse-decimated. LOD1 = 8 segments, a FLAT band on
@@ -105,7 +105,7 @@ WHEEL_ID = "cs2_sheaves.wheel"         # the stamp every wheel part carries (obj
 # (vanilla car LOD2). Which assets still draw wheels at LOD1 is each generator's LOD table (unchanged: the towers and
 # the FG M counterweight sheaves; the lattice / tram rollers / station trains leave at LOD1 with their trains).
 # Implemented as the make_lod_chain `fixed` hook (lod_fixed / LodWheels below).
-# -- T62 round 3 (2026-10-18). Richard on round 2's 224 tris: "Ouch, 224 tris sounds like a lot compared to vanilla
+# -- T62 round 3 (2026-10-18). On round 2's 224 tris: "Ouch, 224 tris sounds like a lot compared to vanilla
 # wheels, which is our closest analogy... We need to reduce the tris on the wheels." Budget <= 120 tris per wheel at LOD0
 # (WHEEL_TRIS_BUDGET); keep, in order, the V groove, 16 segments, a hub boss. Round 3 cut (build note "Round 3"):
 #   * the 45 deg rim chamfer is gone (the sharp tread / cap split is the hard edge): the discs sit on the crest rings
@@ -125,7 +125,7 @@ WHEEL_PROFILE = dict(groove=0.18, groove_min=0.02, chamfer=0.0, boss_r=0.45, bos
 WHEEL_TRIS_BASE = 2 * 3 * WHEEL_PROFILE["root_segs"] + 2 * (WHEEL_SEGS - 2)                  # 76
 WHEEL_BOSS_TRIS = 2 * WHEEL_PROFILE["boss_segs"] + (WHEEL_PROFILE["boss_segs"] - 2)         # 22
 WHEEL_TRIS = WHEEL_TRIS_BASE + 2 * WHEEL_BOSS_TRIS                                           # 120 (both bosses)
-WHEEL_TRIS_BUDGET = 120                # Richard 2026-10-18 (round 3): <= 120 per wheel at LOD0; tests/test_sheaves
+WHEEL_TRIS_BUDGET = 120                # 2026-10-18 (round 3): <= 120 per wheel at LOD0; tests/test_sheaves
 BOSS_HIDDEN = dict(dist=0.10, share=0.75)
 WHEEL_LOD = {1: dict(segs=8, form="flat band on the crest rings + 2 n-gon discs (no boss)",
                      tris=2 * 8 + 2 * (8 - 2)),                                          # 28

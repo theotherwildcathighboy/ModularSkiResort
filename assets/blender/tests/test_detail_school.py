@@ -42,7 +42,7 @@ D11 fine-detail H1 / H9: every new row at its removed part (cones' plan center +
     lamps on the wall plane at the old lens (y, z) +-0.01 m, each kit rack's frame = the removed
     rack's frame vertex for vertex +-1 mm, 2 cm lower: the kit foot is on y 0); host lot bounds =
     the pre-pass school's +-0.005 m (H9, design FS1).
-UPDATED for REVISION 2 (2026-10-12, Richard's twentieth look; build/school-rev2.md): no door
+UPDATED for REVISION 2 (2026-10-12, twentieth look; build/school-rev2.md): no door
 numbering, the red markings, the 13.5 deg monopitch, lot 4 x 5, both carpets in the back at 12 %
 (the right one a bubble gallery). D1 / D3 / D8 / D10 / D11 follow the new parts and rows (the
 sub_objects are now 32 + the sign set; H9 pins the revision-2 lot bounds), and:

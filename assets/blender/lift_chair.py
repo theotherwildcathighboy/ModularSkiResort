@@ -8,7 +8,7 @@ docs/research/art/assets-2026-10/design/dq-chair.md with dq-chair-skeptic.md app
     style  default name        what                                             LOD0 / LOD1 / LOD2   carrier
     tr     SkiLiftChair6M      fixed-grip TRIPLE, old school: the FG J-stem       494 / ~220 / 62      tr  (2.400)
                                chair with Kagelok-shaped cushions + back pads,
-                               NO footrest and NO restraint (Richard 2026-10-11),
+                               NO footrest and NO restraint (2026-10-11),
                                a real FIXED GRIP (jaw block, long jaw saddle on
                                the rope, lateral spring housing, two clamp plates
                                on the hanger); the bench hangs 0.09 m lower so the
@@ -30,7 +30,7 @@ docs/research/art/assets-2026-10/design/dq-chair.md with dq-chair-skeptic.md app
                                the old numbers can be regenerated (never imported,
                                R1 amended). Same code path, byte-identical PNGs.
 
-Revision 1 (Richard's first live review, 2026-10-11, verdicts-2026-10-11.md items 1-2;
+Revision 1 (first live review, 2026-10-11, verdicts-2026-10-11.md items 1-2;
 build report .../build/lift_chair.md "Revision 1"): tr loses the footrest (+ links) and
 the clamp studs, gains the fixed grip, C4's bottom owner becomes the seat plank; dq gets
 the DT grip, the restraint pivots on the hoop top bar beside the hanger clamp, the
@@ -40,7 +40,7 @@ wheels move from the rope plane above the rope to beside the jaw on the inboard 
 centers near rope height (Kagelok D05 rollers, dq-chair-skeptic claim 4), on stub axles
 buried in the jaw; the carriage gets chamfered edges and a shallow tray on top holding
 the silver friction comb (ribs = DetailSpec seams); LOD1 still keeps box + jaw only.
-Revision 2 (Richard's second look, verdicts-2026-10-11 item 2'; build report "Revision 2"):
+Revision 2 (second look, verdicts-2026-10-11 item 2'; build report "Revision 2"):
 the restraint is rebuilt around a working hinge. Two bosses on the inboard faces of the
 hoop's side legs at shoulder height carry ONE bent tube (arm -> lap bar -> arm, ends
 buried in the bosses); the lap bar sits 0.35 above the cushion (was 0.40, "a bit high")
@@ -50,7 +50,7 @@ are gone. New contract C13 (check_bar_mechanics): the bar assembly is swept abou
 measured hinge axis DOWN -> UP in 12 steps (x4 sub-poses) with a BVH overlap test
 against every other part, and UP must park over the backrest top and a seated head
 (not in front of the riders' faces). --preview adds <name>_pbr_barup_* (the UP pose).
-Revision 3 (Richard 2026-10-11 ~14:10, verdict 2'': "still ... too high", three photos with
+Revision 3 (2026-10-11 ~14:10, verdict 2'': "still ... too high", three photos with
 riders; build report "Revision 3"): the bar is placed from the RIDERS. Measured on the frontal
 AL photo (PHOTO_* constants): lap bar 0.20 above the cushion (was 0.35), pivot 0.47 above it
 just under the backrest top (was 0.60); the lap bar sits ahead of the knees (x 0.48), the T
@@ -300,7 +300,7 @@ DQ_GRIP_SIDE_PARTS = ("gripbody", "comb", "lever_fin", "lever_roller", "spring_"
 DQ_R = {"hanger": HANGER_R, "hoop": 0.044, "armrest": 0.020, "armpost": 0.018,
         "barhinge": 0.032, "barlink": 0.024, "footstem": 0.016, "footbar": 0.022}
 
-# dq restraint. Revision 2 (Richard's second look, verdicts-2026-10-11 item 2': "bar down is
+# dq restraint. Revision 2 (second look, verdicts-2026-10-11 item 2': "bar down is
 # good - but the safety bar is a bit high", "2 upside down T-s coming from the safety bar",
 # "think about the mechanics ... right now it would be stuck in place", "where the bar is
 # coming from is all wrong") rebuilt it around a working hinge: bosses on the side frames,
@@ -309,7 +309,7 @@ DQ_R = {"hanger": HANGER_R, "hoop": 0.044, "armrest": 0.020, "armpost": 0.018,
 # DOWN -> UP. Photos detachable quad 1 (bar UP: the lap bar just under the top bar, each arm
 # running down INBOARD of the hoop leg to a pivot at the backrest's outer end), lpoa-04/-08.
 #
-# Revision 3 (Richard 2026-10-11 ~14:10, verdict 2'': "quad chair safety bar still isn't quite
+# Revision 3 (2026-10-11 ~14:10, verdict 2'': "quad chair safety bar still isn't quite
 # right, it's too high", with three photos of chairs WITH RIDERS in detachable quad/). The bar
 # is now placed from the riders, not from the frame:
 #   AL_New_Generation_2018_059-scaled-1.jpg (2560 x 1707, near-level frontal shot of a Poma
@@ -384,7 +384,7 @@ DQ_BAR = {
     "swing_deg": 95.0,                 # DOWN -> UP about the hinge (C13; the clamp stops it at 99)
 }
 
-# dq detachable grip, Revision 1 (Richard: "the grip is not quite right"; photo detachable
+# dq detachable grip, Revision 1 ("the grip is not quite right"; photo detachable
 # quad/close up of grip.jpg, a Doppelmayr DT grip: carriage with the friction plate, two
 # coil-spring stacks, the jaw lever with its roller, running wheels; detachable quad 1.jpg
 # for the grip on the line). Meters; heights relative to the rope center unless noted;
@@ -840,7 +840,7 @@ def build_chair_parts(p: ChairParams, offset=(0, 0, 0), prefix="", facing=1,
     variant "tr" (the 2026-10 triple, dq-chair.md section 4.2): the scooped cushions, the
     dividers, the lip tube and the two inner back bars (hidden behind the panel) go;
     three Kagelok profile8 cushions and three profile6 back pads (vertical: the J-stem
-    frame is vertical, section 9 Q7) come in. Revision 1 (Richard 2026-10-11): the grip
+    frame is vertical, section 9 Q7) come in. Revision 1 (2026-10-11): the grip
     box becomes a real fixed grip (build_fixed_grip), the footrest bar + links and the
     two clamp studs go, and the bench hangs at p.hanger_len = TR_HANGER_LEN so the plank
     bottom is the lowest point. Everything else is the 6L chair. "6l" is the shipped
@@ -1831,7 +1831,7 @@ def check_bar_mechanics(obj, row, swing_deg=None, steps=C13_STEPS, sub=C13_SUB, 
     lateral, one on each side frame: each boss's outer end INSIDE the hoop tube - within r
     of its surface and behind it, Revision 3 - not merely near it); the bar assembly
     (BAR_MOVING) must be attached at it (the U's end rings centered on the axis).
-    DOWN (Revision 3, Richard's verdicts 2' / 2'' "too high"): the lap bar's center sits
+    DOWN (Revision 3, verdicts 2' / 2'' "too high"): the lap bar's center sits
     LAP_WINDOW_M above the cushion top and its back face ahead of the riders' knee line.
     The assembly is then rotated about the axis from DOWN (0) to UP (swing_deg, default
     DQ_BAR) in `steps` steps, each checked at `sub` sub-poses; at every pose BVH overlap
@@ -1931,7 +1931,7 @@ def check_bar_mechanics(obj, row, swing_deg=None, steps=C13_STEPS, sub=C13_SUB, 
     above = down_c[1] - seat_top
     if not (LAP_WINDOW_M[0] <= above <= LAP_WINDOW_M[1]):
         _fail("C13", lv, f"the lap bar DOWN sits {above:.3f} above the cushion, outside "
-                         f"{LAP_WINDOW_M[0]:.2f}-{LAP_WINDOW_M[1]:.2f} (Richard 2026-10-11: 0.35 "
+                         f"{LAP_WINDOW_M[0]:.2f}-{LAP_WINDOW_M[1]:.2f} (2026-10-11: 0.35 "
                          f"was too high; the AL rider photo measures {PHOTO_LAP_ABOVE_CUSHION_M:.2f})")
     knee_x = _pad_front_x(seat_top, pad_edge) + RIDER["knee"]
     back_face = float(lap[:, 0].min())

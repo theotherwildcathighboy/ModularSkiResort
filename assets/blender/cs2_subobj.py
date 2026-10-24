@@ -3,9 +3,9 @@ cs2_subobj.py - vanilla-prop sub-object rows -> labeled review stand-ins (DECISI
 
 WHY
 ---
-Standing rule (Richard, 2026-10-11 ~22:05): vanilla props are REFERENCED as ObjectSubObjects rows
+Standing rule (2026-10-11 ~22:05): vanilla props are REFERENCED as ObjectSubObjects rows
 (prefab GUID, position, rotation, m_ParentMesh) and never modeled. A review pack that shows only
-our own mesh hides them, so Richard never sees where the benches, bins, lamps and tables go.
+our own mesh hides them, so the reviewer never sees where the benches, bins, lamps and tables go.
 `cs2_review.write_pack` calls this module: every row becomes one semi-transparent BOX of the prop's
 union bounds, with a text label, in the pack's SUB collection. Nothing is exported (the pack
 only); the stand-ins never reach an FBX, a PNG or a manifest.
@@ -143,7 +143,7 @@ def colour_set_rgb(key):
 LABEL_SIZE = 0.30                    # m (small packs; larger packs scale it, see label_size)
 LABEL_REL = 0.016                    # label size per meter of the pack's LOD0 bounding-box diagonal
 LABEL_MAX = 0.60                     # m
-LABEL_FACES = 4                      # one text object per 90 degrees of azimuth: whichever way Richard
+LABEL_FACES = 4                      # one text object per 90 degrees of azimuth: whichever way the viewer
 #                                    # orbits, a face within 45 degrees of the camera reads un-mirrored
 #                                    # (the material hides each label's back; face 0 = the three_quarter view)
 LABEL_LIFT = 0.10                    # m above the box top

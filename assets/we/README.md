@@ -45,14 +45,14 @@ sign's manifest `"we"` block:
 
 ## Authoring loop (R14)
 
-1. Deploy this draft. 2. Richard places a sign with WE on and fixes the text in WE's editor.
-3. He saves it as the prefab default → `ModsData\.Klyte45Mods\WriteEverywhere\layouts\SkiResortGate.wedefault.xml`
+1. Deploy this draft. 2. The owner places a sign with WE on and fixes the text in WE's editor.
+3. The owner saves it as the prefab default → `ModsData\.Klyte45Mods\WriteEverywhere\layouts\SkiResortGate.wedefault.xml`
    (WELayoutController.cs:193-199). 4. We copy that file over this draft.
-5. Richard MOVES his ModsData copy out: it applies to every SkiResortGate and concatenates with
+5. The owner MOVES the ModsData copy out: it applies to every SkiResortGate and concatenates with
    ours, which doubles the text.
 
 Rules: never `<hideMesh>` (re-creates the prefab entity, our session caches go stale); no atlas
-from Richard's WE folder. Fonts: the gate plank and the blank boards use the default
+from the owner's WE folder. Fonts: the gate plank and the blank boards use the default
 (`fontName=""` = Source Sans Pro); the two painted boards name `BOOKOSB` (GRAND LODGE) and
 `FRADMCN` (SKI SCHOOL) and the opt-in header overlay names `BOOKOSB` (5 nodes in all: 2 per set
 in the P and N sets + 1 in the overlay; Windows' Bookman Old Style Bold / Franklin Gothic Demi

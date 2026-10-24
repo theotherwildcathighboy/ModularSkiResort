@@ -118,7 +118,7 @@
   "Options.OPTION[SkiResortMod.SkiResortMod.Mod/GladeNextMode/binding]": "Interior / tree line",
   "Common.ACTION[SkiResortMod.SkiResortMod.Mod/GladeNextMode]": "Interior / tree line",
   "Options.OPTION[SkiResortMod.SkiResortMod.Mod.SkiResortSettings.DumpDiagnosticsBinding]": "Dump diagnostics",
-  "Options.OPTION_DESCRIPTION[SkiResortMod.SkiResortMod.Mod.SkiResortSettings.DumpDiagnosticsBinding]": "Writes the drawing-feedback and glade-tool state to the mod log, also while a run is on the cursor. Default Ctrl+Alt+G.",
+  "Options.OPTION_DESCRIPTION[SkiResortMod.SkiResortMod.Mod.SkiResortSettings.DumpDiagnosticsBinding]": "Writes the drawing-feedback and glade-tool state to the mod log, also while a run is on the cursor. Needs Measurement diagnostics on. Default Ctrl+Alt+G.",
   "Options.OPTION[SkiResortMod.SkiResortMod.Mod/DumpDiagnostics/binding]": "Dump diagnostics",
   "Common.ACTION[SkiResortMod.SkiResortMod.Mod/DumpDiagnostics]": "Dump",
   "Assets.NAME[SkiResortGate]": "Ski Area Welcome Sign",

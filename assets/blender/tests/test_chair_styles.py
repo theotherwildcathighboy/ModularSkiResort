@@ -14,7 +14,7 @@ dq-chair-skeptic.md applied: T1 determinism, T2 contracts, T3 trace, T4 full bui
      cs2_validate.lint_asset_name, the dq chair at --hanger-offset 0.40 (C7 bound = offset
      + r + 0.02, skeptic D7). Negative checks: a shifted vertex, a wrong carrier row and a
      shifted LOD2 must RAISE.
-  2b. Revision 1 (Richard's verdicts 2026-10-11, items 1-2), measured on LOD0:
+  2b. Revision 1 (verdicts 2026-10-11, items 1-2), measured on LOD0:
      tr has no footrest and no restraint part, a fixed grip (jaw block = the top, saddle on
      the rope reaching past the block fore / aft, spring housing outboard, two clamp plates
      below on either side of the stem) and the plank as its lowest part; dq's grip has the
@@ -29,7 +29,7 @@ dq-chair-skeptic.md applied: T1 determinism, T2 contracts, T3 trace, T4 full bui
      friction comb (<= 24 tris) sits on the carriage top inside its footprint, its top
      0.1-5 mm below the carriage top (C2 stays the carriage's); LOD1's grip is the
      carriage + jaw only.
-  2c. The dq restraint: Revision 2's parts (Richard's second look 2026-10-11, item 2') at
+  2c. The dq restraint: Revision 2's parts (second look 2026-10-11, item 2') at
      Revision 3's numbers (verdict 2'' "too high", the rider photos; lift_chair PHOTO_*),
      measured on LOD0: the Revision 1 restraint parts are gone; two coaxial hinge bosses
      (~0.06 across), one per hoop leg (outer end at the side frame, center on the leg line),
@@ -271,7 +271,7 @@ def test_contracts(work):
 
 
 # --------------------------------------------------------------------------------------
-# 2b. Revision 1 (Richard's verdicts 2026-10-11)
+# 2b. Revision 1 (verdicts 2026-10-11)
 # --------------------------------------------------------------------------------------
 
 ROPE_R = 0.024        # lift_cable.py default rope radius
@@ -528,7 +528,7 @@ def test_revision3():
 
     # negatives: each must RAISE (C13)
     cases = (
-        ("Revision 2's lap bar 0.35 above the cushion (Richard: too high)", {"down": (0.480, 0.750)}),
+        ("Revision 2's lap bar 0.35 above the cushion (too high)", {"down": (0.480, 0.750)}),
         ("lap bar over the knees, not ahead of them", {"down": (0.400, 0.600)}),
         ("hinge 0.20 above the cushion (the arc runs through the riders)", {"hinge_z": 0.600}),
         ("swing 60 deg (UP below a seated head)", {"swing_deg": 60.0}),

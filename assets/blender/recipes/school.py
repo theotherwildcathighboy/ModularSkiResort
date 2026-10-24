@@ -37,7 +37,7 @@ REFERENCE HOST: RECIPE is a fine_detail.FineRecipe (fine_detail=True, sign_set=S
 (maze posts, flag masts, lesson poles), vanilla rows for the cones and entry lanterns, kit
 racks, and the sign set SkiSignSetSchoolB (the OWNER of the shared building sheet, cs2_signset).
 
-REVISION 2 (2026-10-12, Richard's twentieth look; build/school-rev2.md; 9 reference photos:
+REVISION 2 (2026-10-12, twentieth look; build/school-rev2.md; 9 reference photos:
 the original "palisades ski school.jpg" + 8 Google Street View screenshots, 12:07-12:10):
     DOORS   the door numbering is gone (no plates "1"-"4"); the RED MARKINGS of the photos are
             reproduced: a red placard with a white legend on the upper half of the two white
@@ -249,7 +249,7 @@ def _bf(pos):
 
 
 SUB_OBJECTS = (
-    # T87 (2026-10-19, Richard item 6): the white picket fence rows (FenceResidentialPieceLow*, six pieces lining the
+    # T87 (2026-10-19, item 6): the white picket fence rows (FenceResidentialPieceLow*, six pieces lining the
     # learning area at lot y -13.6 / 12.6) are gone; FENCE_4M / FENCE_2M stay defined for the record
     _so(SNOWMAN, "SnowmanRandom01", (3.5, 0.0, -4.0), QID, -1),                    # learning area
     _so(BENCH, "GardenBenchRandom01", _bf((6.5, 0.0, 5.0)), QID, -1),          # +X, storefront 1
@@ -319,7 +319,7 @@ RACKS = (
         (3, -1, "ski", (_K, _W), 1.62), (5, -1, "poles", _K, 1.38),
         (7, -1, "ski", (_B, _K), 1.44))),
 )
-# kit color variants (Richard 2026-10-12 ~18:50; build/kit-colour-variants.md): blue, the school's lesson /
+# kit color variants (2026-10-12 ~18:50; build/kit-colour-variants.md): blue, the school's lesson /
 # trail-board blue (TRAIL_BLUE); the brown siding has no slot-2 surface to match
 KIT_COLOUR_SET = "blue"
 # the kit rows at the racks' own centers (on grade: m_ParentMesh -1), facing game +Z (identity)
@@ -509,7 +509,7 @@ def detail_parts(K, C, fine=False):
     P += marking_parts(K, C)
     # S11 belfry glow: a lit floor on the lantern deck + the balustrade's inner faces
     cx, cy = TC
-    # T87c (2026-10-19, Richard item 10 "too bright, floating"): with fittings v1 the 9.0 m2 of lit floor (5.76) + balustrade faces (3.3)
+    # T87c (2026-10-19, item 10 "too bright, floating"): with fittings v1 the 9.0 m2 of lit floor (5.76) + balustrade faces (3.3)
     # faces are gone (a whole lit belfry read as a white-hot box at night); the light is ONE small lantern lens
     # (bell_lantern, in school_parts) at the vanilla lens scale
     if K.FITTINGS.get("version", 0) < 1:
@@ -874,7 +874,7 @@ def build(recipe, opts):
                 "trim_white")
     P += C.cyl_part("bell_hanger", (cx, cy, bz1 - 0.02), (cx, cy, HEAD_Z[0] + 0.05), 0.04, "galv", segs=6)
     if K.FITTINGS.get("version", 0) >= 1:
-        # T101 r3 (2026-10-19, DECISIONS 320: vanilla props first): NO belfry light at all (Richard: the hung lantern read as hanging in front of / inside the bell);
+        # T101 r3 (2026-10-19, DECISIONS 320: vanilla props first): NO belfry light at all (the hung lantern read as hanging in front of / inside the bell);
         # no lens, no glow, no emissive in the belfry. (T87c before it: a LANTERN hung from the cross beam beside the
         # bell: a rod from the beam (underside 13.18) into a cone cap, an 8-seg lens 0.18 m across x 0.22 m (0.124 m2 lit,
         # the scale of a vanilla wall-light lens; the prefab keeps the vanilla house intensity 0.6, prop-emissive-lights.md
@@ -962,7 +962,7 @@ def build(recipe, opts):
             # T101 (DECISIONS 305 / 317, vanilla props first): only the level curb is ours; the unit on it is a vanilla
             # ACMachineRoofRandom01 row (cs2_fittings ROWS["school"]["curb"]). T87b's modeled unit
             # (cs2_bldg.rooftop_unit, 284 tris) stays in the kit, unused here.
-            # T101 r3 (2026-10-19, DECISIONS 320: vanilla props first): no curb either (Richard: "vanilla only, never ours"; the units sit on
+            # T101 r3 (2026-10-19, DECISIONS 320: vanilla props first): no curb either ("vanilla only, never ours"; the units sit on
             # the roof with no gap: cs2_fittings ROWS["school"]["roof"] seats ACMachineRoof02 / 03 on the 13.5-deg slope)
             continue
         P += K.box_part(f"hvac_{'ab'[k]}", (x - 0.75, y - 0.5, roof_top(x + 0.75) - 0.05),

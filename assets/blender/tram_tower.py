@@ -51,8 +51,8 @@ SKEPTIC MUST-CHANGE (section 4) - where each landed
     9  citations live in the build report (PIPELINE line drift fixed there)
     10 validator kind passed explicitly (validate_asset_folder kind "hanging" = no per-part density floor, like lift_tower; assets-check -Kind hanging (DECISIONS 315: the 30 px/m prop floor fails every shipped lattice / tram tower))
 
-REVISION 1 - Richard's first live review (verdicts-2026-10-11.md items 7 / 8; reference digest
-ref-liftblog/digest.md sections 1.3-1.5: P2P-03/11/15/24/26/33, JH-09/15). Richard's verdict wins over
+REVISION 1 - first live review (verdicts-2026-10-11.md items 7 / 8; reference digest
+ref-liftblog/digest.md sections 1.3-1.5: P2P-03/11/15/24/26/33, JH-09/15). The verdict wins over
 the contract; the deviations are listed in build/tram_tower.md "Revision 1".
     V7a  ONE ladder system from the GROUND to the head, outside the shaft on the -X face (both families;
          the gondola had none by default, D8 superseded): build_ladder_system / ladder_plan.
@@ -4317,7 +4317,7 @@ def render_details(t, lods, asset_dir, name, out_dir, spec, tint, ladder=None):
             cam.data.lens = 35.0
             written.append(cp._render(rig, os.path.join(out_dir, f"{name}_ladder_float.png"), engine="EEVEE"))
             gnd.location.z = 0.0
-        # field frames: LOD1 at 150 m, LOD2 at 300 m noon + dusk (silhouettes at Richard's distances)
+        # field frames: LOD1 at 150 m, LOD2 at 300 m noon + dusk (silhouettes at the review distances)
         cam.data.lens = 12.0 / math.tan(math.radians(cp.VERTICAL_FOV_DEG) / 2.0)
         gnd.hide_render = True
         t.hide_render = True

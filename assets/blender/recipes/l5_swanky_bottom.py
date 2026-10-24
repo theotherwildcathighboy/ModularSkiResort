@@ -156,7 +156,7 @@ def _lin2srgb(c):
 SIDING_RED_LIN = (0.200, 0.100, 0.068)
 SIDING_WALNUT_LIN = (0.140, 0.080, 0.050)
 STONE_TAN_LIN = (0.300, 0.169, 0.0996)
-# T90 (2026-10-19, Richard item 13 "outer wood trimmings are still too light"): the exposed structural timber (porch
+# T90 (2026-10-19, item 13 "outer wood trimmings are still too light"): the exposed structural timber (porch
 # and gable trusses, beams, posts, outriggers, clock-tower trim, deck rails) is ONE walnut-family stain, TRIM_WOOD_LIN,
 # a step lighter than the cladding (SIDING_WALNUT_LIN 0.14): it was the honey glulam (0.50, 0.24, 0.10), the brightest
 # surface of the building in the 2026-10-18 shots. T65 had split the balustrades off as BALRAIL_LIN (0.22, 0.10, 0.045);
@@ -1338,7 +1338,7 @@ def clock_tower(name="ct", cx=0.0, cy=0.0, z0=0.0, *, ground=True, stone="lux_st
             P += K.wall_box(f"trim_{name}louvre{k}", sw, uc - ub, uc + ub, zl0, zl1, 0.0,
                             0.03, "ski_black" if "ski_black" in K.BLDG_MATERIALS else trim)
             if K.FITTINGS.get("version", 0) >= 1:
-                # T87d (2026-10-19, Richard item 15 "vents on the clock tower ... missed the detail pass"): the four
+                # T87d (2026-10-19, item 15 "vents on the clock tower ... missed the detail pass"): the four
                 # flat slabs become a framed louvre: 8 blades 16 cm wide tilted 35 deg (bottom edge out: they shed
                 # rain) over the dark backing, inside a 7 cm frame that stands 12 cm proud (blade tips 11.6 cm)
                 from mathutils import Vector
@@ -1406,7 +1406,7 @@ def clock_tower_labels(name="ct"):
 
 
 # ======================================================================================
-# L5 constants - REVISION 1 (2026-10-11, verdicts-2026-10-11.md B1: Richard "the Swanky
+# L5 constants - REVISION 1 (2026-10-11, verdicts-2026-10-11.md B1: "the Swanky
 # lodge should be bigger", reference = the Breckenridge Grand Lodge on Peak 7, "pools are a
 # good addition"). Authoring meters; lot 10 x 8 cells = 80 x 64 m (was 8 x 6: the
 # ROUND-SPEC lot table is amended by that verdict).
@@ -1555,7 +1555,7 @@ PS_X0 = -HX - X_SHIFT + 0.6                        # -39.4 (revision-1 frame) = 
 PS_Y = HY - 1.5                                    # 38.5
 PS_STEPS = (-2.0, 2.0)                             # the podium's -X flight (y): the plaza axis
 # four freestanding kit racks with real gear along the slope edge where skiers come in (no
-# vanilla ski rack exists); kit gear WITHOUT bindings (cs2_bldg default since Richard's ninth
+# vanilla ski rack exists); kit gear WITHOUT bindings (cs2_bldg default since the ninth
 # look; this recipe never passes bindings=); pole pairs at the kit's 1.38 m so they reach the
 # rack's 1.33 m lean (revision 2's 1.20-1.28 m poles stopped in mid-air)
 PS_RACK_X = -37.6
@@ -1591,7 +1591,7 @@ PZ_FIREPIT = (-34.0, -31.0)
 
 # ---------------- T57 / T59 (2026-10-18, structure v1: cs2_bldg.STRUCTURE["version"] >= 1, lodge.py --structure v1;
 # off = revision 4 / the close look byte for byte; docs/research/art/structure-2026-10-18.md) --------------------
-# T57 (Richard, Blender review 2026-10-17 item 1: the F2 balcony supports "go almost into the windows below, except
+# T57 (Blender review 2026-10-17 item 1: the F2 balcony supports "go almost into the windows below, except
 # that they don't connect so they float ... make it one long structural support pole from the top balcony on each
 # side ... all the way to the ground"): every balcony stack loses its per-balcony struts (`bracket_<n>`, 2 per
 # balcony) and gets two glulam posts `balcpost_<stack>` at the outer corners, from grade (cs2_bldg.GROUND_LIFT; on a
@@ -1606,7 +1606,7 @@ BP_TOP = 0.0                                       # the post top is flush with 
 # the window sits framed between king post, tie, brace and rafter; the gate check_gable_braces raises on a truss
 # member inside any gable window's opening + casing.
 XG_BRACE_FRAME = (1.12, 1.75)
-# round 2 (Richard 2026-10-18 "I still see some brackets going into the bottom window"): the four courtyard bays
+# round 2 (2026-10-18 "I still see some brackets going into the bottom window"): the four courtyard bays
 # (xgc0/1, xgws/n) lose their curved wall brackets (they hung over the GF glass) for two outriggers each, host wall
 # -> balcony post, under the bay floor (cross_gable)
 XG_OUT = (0.18, 0.30)                              # outrigger section (w across, h): narrower than the 0.20 post
@@ -1743,7 +1743,7 @@ VANILLA = {
         guid="98c77a4f2885dd541a7a3700edefa21e", variants=(),
         bounds=((-0.727, -0.008, -0.732), (0.727, 0.229, 0.732)), tris=304, snow=None, placeholder=False),
     # revision 4 (2026-10-12): the porte-cochere gable lights (and L4's entry lights, its
-    # revision 1): the fine-detail default for a wall lantern (Richard H4, seventeenth look),
+    # revision 1): the fine-detail default for a wall lantern (H4, seventeenth look),
     # 138 tris; mount "wall" = the pivot on the wall face, local +Z out of it (0..0.115), y
     # vertical about the pivot (cs2_liftdress.SUBOBJ, verify_subobj)
     "WallLightShortRangeRandom01": dict(
@@ -1790,7 +1790,7 @@ SUB_OBJECT_ROWS = (
     # along the slope edge, a tree at each outer corner
     *((_T, x, y, _ST, 90.0, 0, "slope plaza") for x in (-36.8, -33.2) for y in (-12.0, -6.5, 6.5, 12.0)),
     # T26 2026-10-16 dropped the 4 plaza, 4 pool-terrace and 1 tower-deck parasols (random yellow);
-    # restored 2026-10-17 (Richard: vanilla props, random colors accepted)
+    # restored 2026-10-17 (vanilla props, random colors accepted)
     _parasol(-36.8, 6.5, _ST, 180.0, "slope plaza"), _parasol(-36.8, -6.5, _ST, 180.0, "slope plaza"),
     _parasol(-33.2, 12.0, _ST, 0.0, "slope plaza"), _parasol(-33.2, -12.0, _ST, 0.0, "slope plaza"),
     (_H, -31.4, -9.25, _ST, 0.0, 0, "slope plaza"), (_H, -31.4, 9.25, _ST, 0.0, 0, "slope plaza"),
@@ -1910,7 +1910,7 @@ def pm_mount(y):
     return ((M_X1 if DK_Y0 < y < DK_Y1 else M_X1 + 0.6), y, PM_LAMP_Z)
 
 
-# the 4 lanterns -> WallLightShortRangeRandom01 (Richard H4): pivot ON the pier / wall face at the
+# the 4 lanterns -> WallLightShortRangeRandom01 (H4): pivot ON the pier / wall face at the
 # lens height, local +Z out of it = the road (yaw 0); same tuple form / frame as SUB_OBJECT_ROWS
 FINE_ROWS = tuple(("WallLightShortRangeRandom01", *pm_mount(y), 0.0, 0, "M road face") for y in PM_YS)
 FINE_SUB_OBJECTS = tuple((pf, VANILLA[pf]["guid"], to_game(x, y, z), _yaw_q(yaw), int(parent))
@@ -1922,7 +1922,7 @@ FINE_SUB_OBJECTS = tuple((pf, VANILLA[pf]["guid"], to_game(x, y, z), _yaw_q(yaw)
 # A-frame is symmetric under the 180 deg yaw, both sides carry gear. On the plaza slab (m_ParentMesh
 # 0, gy = SLAB_T: the old racks stood on it through ski_rack_frame z0 = SLAB_T, so the kit frame =
 # the removed frame vertex for vertex, no 2 cm drop). Accent color: build report (the kit color-set
-# variants re-point these rows later; FS7 Parent color dropped by Richard).
+# variants re-point these rows later; FS7 Parent color dropped).
 RACK_KIT = tuple((nm, AFRAME_RACKS[i % len(AFRAME_RACKS)]) for i, (nm, *_r) in enumerate(PZ_RACKS))
 #: kit color variants (build/kit-colour-variants.md): red, the Grand Lodge's deep-red slot 2 family (bronze /
 #: deep red / copper VariationSet A)
@@ -2328,7 +2328,7 @@ def cross_gable(name, side, plane, c, z0, meet, *, wall_mat, glulam, gf_mat=None
         u0, u1 = _u(side, c - 1.7, c + 1.7)
         P += balcony_posts(f"xg{name}", wall, u0, u1, floors)
     if brackets and st and floors:
-        # structure v1 round 2 (Richard 2026-10-18: "I still see some brackets going into the bottom window"): the
+        # structure v1 round 2 (2026-10-18: "I still see some brackets going into the bottom window"): the
         # two curved brackets stood on the host wall at c +- 2.4, over the GF curtain / terrace-door glass below the
         # bay. The T57 balcony posts now carry the bay: two glulam OUTRIGGERS `beam_xg<name>o<j>` run under the bay
         # floor from the host wall's solid band over the glass head (pocketed XG_OUT_EMBED into it) out to each post,
@@ -3863,7 +3863,7 @@ RECIPE = FineRecipe(
     # 25-riser stair) add ~6,800 tris; all of it is LOD0 dressing (deleted at LOD1).
     # revision 3: the cap and target stand (verdict brief); the modeled dressing is vanilla
     # sub-objects now (their tris are vanilla's own, not ours), so LOD0 drops (build report)
-    budget=Budget(26000, 33500, 11000, 480, 800),   # T90 (T92): 33,500 = 31,812 measured x 1.05 (Richard item 16 "up the tri budget by a bit"); was 30,000
+    budget=Budget(26000, 33500, 11000, 480, 800),   # T90 (T92): 33,500 = 31,812 measured x 1.05 (item 16 "up the tri budget by a bit"); was 30,000
     # tiled rollout (2026-10-16, texture-parity-rollout-2026-10-16.md section 2): read only on
     # the --tiled path. 20,833 m2 of LOD0 cut at 1.5-3 m tiles is ~51,600 tris; 2 x 2 tiles on the
     # members, pavers and the swanky walls, plus flat trims / soffits / trusses, fit the 30,000 cap

@@ -1,5 +1,5 @@
 """
-review_live.py - the fixed snippet for Richard's LIVE Blender review (ROUND-SPEC R10).
+review_live.py - the fixed snippet for the LIVE Blender review (ROUND-SPEC R10).
 
 WHY
 ---
@@ -52,7 +52,7 @@ sub-object row (benches, bins, lamps, tables ...; pack only, never exported). SU
 load() / status() / stand_ins() report the stand-in count per pack ("props").
 labels() puts an upright "<cell>  <name>" sign in front of every loaded pack (CS2R_Labels);
 people() stands a 1.8 m mannequin beside each (CS2R_People, one shared CS2R_Mannequin180 mesh)
-(Richard 2026-10-17: a person for scale, a sign to tell the cell).
+(2026-10-17: a person for scale, a sign to tell the cell).
 stand_ins() adds a 3 m story ruler (the `_Win` slice height) and the shipped
 SkiLiftTowerFG8N into Review_Scale as a COLLECTION instance of its own review pack
 (<review_dir>/SkiLiftTowerFG8N.blend, LOD0), built HEADLESS by
@@ -1013,7 +1013,7 @@ def cams(name, active=None):
 LABEL_COLL = "CS2R_Labels"
 PEOPLE_COLL = "CS2R_People"
 MANNEQUIN_MESH = "CS2R_Mannequin180"
-MANNEQUIN_H = 1.8                     # Richard: a 1.8 m person beside every asset (2026-10-17)
+MANNEQUIN_H = 1.8                     # a 1.8 m person beside every asset (2026-10-17)
 LABEL_SIZE_M = 2.5
 LABEL_POS = (0.0, -16.0, 0.0)         # upright text on the ground in front of the cell
 PEOPLE_POS = (5.0, -5.0, 0.0)         # the mannequin stands front-right of the asset

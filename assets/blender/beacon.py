@@ -1,6 +1,6 @@
 """
 beacon.py - SkiBeaconRedA: ONE shared blinking red obstruction beacon, hosted as a sub-object on
-the tall gondola and tram towers (asset round 2026-10; Richard's ninth look on GD12: "emissive red
+the tall gondola and tram towers (asset round 2026-10; ninth look on GD12: "emissive red
 blinking lights on the tops of the towers", ruled for the GD12 / 16 / 20 tube towers, the gondola
 lattice 25 / 32 / 40 and the 60 m tram tower only, never the 8-20 m fixed-grip / quad towers).
 Design: docs/research/art/assets-2026-10/design/blinking-lights.md, option B (section 5).
@@ -150,7 +150,7 @@ CURVE = dict(m_Duration=2.0,      # 120 frames; 0.30 s on per 2.0 s = 30 flashes
 LOD_BIAS = -1                     # LodProperties.m_Bias on the mesh prefab (empty m_LodMeshes)
 LOD_FACTOR = 652.0
 
-# The seven hosts (Richard's ruling). Design anchors from blinking-lights.md section 5; the
+# The seven hosts. Design anchors from blinking-lights.md section 5; the
 # surgery uses measure_anchors() on the CURRENT FBX instead.
 TOWERS = (
     # gameplay prefab,      mesh asset,             folder (assets/import), design y, host

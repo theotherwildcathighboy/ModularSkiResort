@@ -1230,7 +1230,7 @@ def _beam_into(g, p0, p1, w, h, up=Vector((0, 0, 1))):
     g.obb((P0 + P1) * 0.5, (ax, side, upv), (0.5 * L, 0.5 * w, 0.5 * h))
 
 
-# structure v1 round 2 (Richard 2026-10-18: "that break in brace frame ... I think it would need to be curved. You
+# structure v1 round 2 (2026-10-18: "that break in brace frame ... I think it would need to be curved. You
 # can see there is a slight gap"): a curved member is ONE mitred beam (rings shared at every joint), never OBB
 # segments (two boxes meeting at an angle leave a notch on the outside of every joint).
 CURVE_SEGS = 6                  # segments of a curved brace / curved bracket (structure v1)
@@ -1709,7 +1709,7 @@ def window_bay(name, wall, u0, u1, win, room=None, sill_board=True, head_board=T
 
 
 # --------------------------------------------------------------------------------------
-# Window kit v2 (2026-10-17, docs/research/art/window-kit-2026-10-17.md). Richard on the
+# Window kit v2 (2026-10-17, docs/research/art/window-kit-2026-10-17.md). On the
 # rollout previews: "the vanilla school's window frames next to ours is, uh, rough. Ours need
 # to be a bit more detailed and fine." Dimensions from the vanilla meshes (window-kit doc
 # section 1: EU_ResidentialLow01 glass 12 cm behind the wall, casing 10.5 cm wide / 3 cm
@@ -1749,7 +1749,7 @@ KIT2_RECESSED = ("reveal_", "sash_", "mull_")       # behind the (unholed) wall 
 KIT2_PARTS = ("reveal_", "sash_", "mull_", "jamb_", "head_", "sill_")
 PUNCH_ORDER = "v"       # punch_openings: "h" = sill / head lines first (shared along a row), "v"
 
-# FAMILIES (Richard's lodge window references, 2026-10-16: Snowbasin Needles / John Paul, the
+# FAMILIES (lodge window references, 2026-10-16: Snowbasin Needles / John Paul, the
 # glazed BC lodge, A-Basin's 6th Alley, a residential ski lodge, a European timber casement):
 #   glazing  big-lodge window walls: thin dark / timber frames, no sash ring, aluminum-width
 #            mullions (5 cm), a slim sill flashing, a header on the arrival facade (L1, L4, L5)
@@ -2242,7 +2242,7 @@ def unrecess_panes(win, far, depth=REVEAL_M, offset=PANE_OFFSET, tol=0.01):
 
 
 # --------------------------------------------------------------------------------------
-# Door kit v2 (2026-10-17, docs/research/art/door-kit-2026-10-17.md). Richard on window kit
+# Door kit v2 (2026-10-17, docs/research/art/door-kit-2026-10-17.md). On window kit
 # v2: "big thumbs up"; the doors get the same treatment and ride the same re-export. Vanilla
 # measured (doc section 1): EU_ResidentialLow01's door leaf sits 9.5 cm behind the wall face
 # in an 11.7 cm casing 3 cm proud, 2 cm panel moldings and frame steps, a 12 cm threshold;
@@ -2376,7 +2376,7 @@ def door_unit(name, wall, u, w, h, zf, *, leaves=None, room=None, glass_room=Non
     p = DOOR_FAMILIES[DOOR_KIT["family"]]
     n, _t = _SIDES[wall.side]
     full = (DOOR_KIT["mode"] == "full") if lean is None else not lean
-    # HARDWARE GATE (Richard 2026-10-17: "It's good to render levers or doorknobs. Vanilla
+    # HARDWARE GATE (2026-10-17: "It's good to render levers or doorknobs. Vanilla
     # buildings tend to have them"): every leaf ends with a pull / lever / knob part; the only
     # way out is an explicit, reasoned opt-out hardware="none:<reason>" (no silent off switch)
     if hardware == "auto":
@@ -2591,7 +2591,7 @@ def door_unit(name, wall, u, w, h, zf, *, leaves=None, room=None, glass_room=Non
                 ue, sgn = lb - 0.06, -1.0
             else:
                 ue, sgn = la + 0.06, 1.0
-            # An L-shaped lever on a rose (follow-up 2, Richard: "School door handle looks like it
+            # An L-shaped lever on a rose (follow-up 2, "School door handle looks like it
             # is floating"): the bar (front, top, bottom, free-end cap) runs from the latch end
             # `ue` toward the hinge; at the latch end a return leg (DOOR_LEVER_NECK wide) runs
             # back to the leaf face, so no gap; a rose plate (DOOR_ROSE, the EU house door's
@@ -2963,9 +2963,9 @@ def truss_kingpost(name, wall, span, eave_z, pitch_deg, member=0.35, braces="cur
     The WallRef's (u0 + u1) / 2 is the truss center.
     braces="frame" (T57, structure v1, 2026-10-18): each brace rises from the tie at uc +- frame[0] to the
     rafter at uc +- frame[1], curved outward (away from the king post), so a gable window between the king post
-    and the brace is FRAMED by tie, king post, brace and rafter instead of crossed (Richard: "a decorative wood
+    and the brace is FRAMED by tie, king post, brace and rafter instead of crossed ("a decorative wood
     piece going across the window in a weird way").
-    Structure v1 round 2 (Richard 2026-10-18: "that break in brace frame ... it would need to be curved"): both
+    Structure v1 round 2 (2026-10-18: "that break in brace frame ... it would need to be curved"): both
     "frame" and "curved" braces are ONE circular arc each (arc_points, CURVE_SEGS segments, _mitred_into: no notch
     at any joint, 0.7 x member square to the member), each its own part `truss_<name>br<k>` (the kit "along"
     projection runs along a part's principal axis: grain along the brace, not along the tie). A "frame" brace
@@ -3465,7 +3465,7 @@ def ski_rack(name, x, y, length=4.0, facing="+X", h=1.3, *, slots=None, w=None, 
     Painted panel (default, the 2026-10 kit build): `skirack_<name>` frame (2 legs, top +
     bottom rails, from GROUND_LIFT) and `skirack_<name>_face` panel (ONE quad facing
     `facing`, stamped with paint_skis).
-    Modeled A-frame (keyword `slots=` given; L1 revision 1, Richard's verdict "ski racks
+    Modeled A-frame (keyword `slots=` given; L1 revision 1, the verdict "ski racks
     around the base - not a prop in the game so add it to the asset"): see ski_rack_frame
     (`length` / `facing` / `h` are ignored on that path; `gear`, `z0`, `leg_to` and
     `bindings` (detail pass 1) are passed on; the painted panel takes none of them)."""
@@ -3524,14 +3524,14 @@ def ski_rack_frame(name, x, y, slots=8, w=None, mat="galv", along="Y", skis=(),
     Closed parts from GROUND_LIFT, not ground parts (asserted); bar end caps and the foot
     bars' undersides are not built. The `skirack_` prefix puts both parts on LOD1_DELETE
     (LOD0 only) and on the cull's protect list (LABEL_PREFIXES).
-    gear=True (detail pass 1, Richard: "actual skis/boards on the racks instead of wooden
+    gear=True (detail pass 1, "actual skis/boards on the racks instead of wooden
     planks"): `skis` entries are (slot, side, kind[, color[, length]]), kind in GEAR_KINDS
     (a ski PAIR base to base, a snowboard, a pole pair), color a matkey or a (body, tip) /
     (top, stripe) pair (default ski_mat), length default GEAR_LEN; the same foot / top-rail
     lean as the slabs, the back face on that line; occupancy GEAR_W (a board's neighbors on
     its side may hold skis / poles, not a board: asserted). Parts `skirack_<name>g<code>`,
     one per matkey (GEAR_CODE), instead of `skirack_<name>skis`.
-    bindings (default False, Richard 2026-10-11: "I don't think we need to render the
+    bindings (default False, 2026-10-11: "I don't think we need to render the
     bindings. They just come out as blocks and looks bad"): the ski pairs and boards carry NO
     binding blocks. True restores the detail-pass-1 geometry (galv blocks on the skis, base
     plates + highbacks on the boards) and exists for tests only. An item that cannot reach
@@ -3663,7 +3663,7 @@ def rack_reach(h=1.20, spread=0.40, bar=0.035):
 
 
 # --------------------------------------------------------------------------------------
-# Detail pass 1 (L1, Richard's second verdict 2026-10-11: "actual skis/boards on the racks
+# Detail pass 1 (L1, second verdict 2026-10-11: "actual skis/boards on the racks
 # instead of wooden planks, put our icon on it etc."). Additive: real ski gear (ski pairs,
 # snowboards, pole pairs) for ski_rack_frame(gear=True) and free-standing ski_gear; the
 # painted_board sign (stamp target with a texel-density override); bench, litter_bin and
@@ -3683,7 +3683,7 @@ SKI_TH = 0.018              # a ski PAIR stands base to base: each top sheet 18 
 SKI_STATIONS = ((0.00, 0.041, 0.0), (0.45, 0.033, 0.0), (0.80, 0.049, 0.0),
                 (0.90, 0.044, 0.012), (0.965, 0.030, 0.040), (1.00, 0.011, 0.060))
 SKI_TIP_FROM = 2            # stations from this index: tip color + the exposed (curled) base
-# (bindings are NOT drawn by default - Richard 2026-10-11 "they just come out as blocks and
+# (bindings are NOT drawn by default - 2026-10-11 "they just come out as blocks and
 # looks bad"; SKI_BINDING / BOARD_BINDINGS below serve bindings=True, kept for a test)
 SKI_BINDING = (0.36, 0.60, 0.036, 0.050)    # (s0 / L, s1 / L, half width, height)
 # snowboard, (s / L, half width, kick toward the top sheet): rounded tail / nose, waist
@@ -3720,7 +3720,7 @@ def _ski_pair_into(G, O, d, a, n, L, colour, bindings=False):
     """A ski PAIR base to base (as it stands in a rack slot): per ski the top sheet (body
     color to the shovel, tip color beyond) and the curled tip's black base (the V of the
     two tips). color = matkey | (body, tip). bindings=True adds the detail-pass-1 binding
-    block (galv) per ski; the default draws none (Richard, 2026-10-11)."""
+    block (galv) per ski; the default draws none (2026-10-11)."""
     body, tip = (colour, colour) if isinstance(colour, str) else tuple(colour)
     k = SKI_TIP_FROM
     s0, s1, bw, bh = SKI_BINDING
@@ -3738,7 +3738,7 @@ def _board_into(G, O, d, a, n, L, colour, bindings=False):
     """A snowboard, base to the support: top sheet (+n), black base (-n), nose / tail kick
     toward the top, two graphic bands proud of the top sheet. color = matkey | (top,
     stripe). bindings=True adds the detail-pass-1 pair (base plate + highback; black, galv
-    on a black board); the default draws none (Richard, 2026-10-11)."""
+    on a black board); the default draws none (2026-10-11)."""
     top, stripe = (colour, None) if isinstance(colour, str) else tuple(colour)
     _strip_into(G(top), O, d, a, n, L, BOARD_STATIONS, BOARD_TH, 1, n)
     _strip_into(G("ski_black"), O, d, a, n, L, BOARD_STATIONS, -BOARD_TH, 1, -n)
@@ -3825,7 +3825,7 @@ def ski_gear(name, items, *, bindings=False):
     the lean, the top sheet faces away from the support. Parts
     `skirack_<name>g<code>` (one per matkey): LOD0 only and cull-protected, as the racks.
     bindings=False (default): no binding blocks on skis or boards, here or on any rack
-    (Richard, 2026-10-11); True is the detail-pass-1 geometry, for tests only."""
+    (2026-10-11); True is the detail-pass-1 geometry, for tests only."""
     G = _GeoSet()
     for kind, foot, lean, colour, L in items:
         F, T = Vector(foot), Vector(lean)

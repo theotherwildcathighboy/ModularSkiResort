@@ -802,7 +802,7 @@ def check_l4_fine():
     leg = FD.effective(rec, fine=False)
     g4 = rec.builder.__globals__
     assert leg.notes == g4["NOTES_R1"] and leg.sub_objects == rec.sub_objects
-    # nitpick C (2026-10-13; Richard: "Same issue with the sign outside as the chalet"): the forecourt board is a
+    # nitpick C (2026-10-13; "Same issue with the sign outside as the chalet"): the forecourt board is a
     # BLANK board (fine_detail.blank_board: sign cream + a graphite trim rim); --no-fine keeps the fork-and-knife
     assert tuple(leg.labels) == tuple(g4["PICTO_LABELS"]) and not any(FD.is_blank_label(e) for e in leg.labels)
     assert len(rec.labels) == 1 and rec.labels[0][0] == "sign_fc_face", rec.labels

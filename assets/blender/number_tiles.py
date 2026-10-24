@@ -4,7 +4,7 @@ number_tiles.py — per-tower number tiles (T123, DECISIONS 358; route V1 of doc
     blender --background --factory-startup --python-exit-code 1 --python number_tiles.py -- \
             --preview <dir>                       # PREVIEW GATE: tiles composed over each class's plate, no FBX
     blender ... --python number_tiles.py -- --measure-plates <out.json>     # re-measure the shipped plates
-    blender ... --python number_tiles.py -- --export --out ../import/numtiles/<LETTER>   # after Richard's verdict ONLY
+    blender ... --python number_tiles.py -- --export --out ../import/numtiles/<LETTER>   # after the owner's verdict ONLY
 
 WHAT IT MAKES. Per tower plate class, 11 one-quad tiles: `SkiNumTile<cls>Blank` (covers the baked numeral's whole
 window) and `SkiNumTile<cls>N0..N9` (one digit cell, a third of the window wide). The code mod (TowerNumberTileSystem)
@@ -81,7 +81,7 @@ BAKED_NUMERAL = {"T1": "12", "T2": "25", "T3": "30"}   # what the preview's "bef
 MAX_DIGITS = 3            # numbers 1..200 (DECISIONS 358); the code wraps 201 -> 1
 TILE_DEPTH_M = 0.004      # Blank / 3-digit tiles: in front of the plate's FRONT face (dynamic-numbers.md §5)
 LAYER_M = 0.003           # digits in front of the Blank tile (1-2 digit numbers)
-CONDENSE = 0.82           # glyph x scale: Richard's verdict B (2026-10-20, DECISIONS 361: "B for tiles"); 1.0 = the baked font (A)
+CONDENSE = 0.82           # glyph x scale: verdict B (2026-10-20, DECISIONS 361: "B for tiles"); 1.0 = the baked font (A)
 ATLAS = 512               # texture floor (PIPELINE / blender-build: 512^2)
 COLS, ROWS = 6, 2         # cells 0-9 = digits, 10 = Blank (plain field), 11 = spare (plain field)
 SS = 4                    # coverage supersampling

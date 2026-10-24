@@ -547,7 +547,7 @@ namespace SkiResortMod.Settings
                 },
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.DumpDiagnosticsBinding)),
-                    "Writes the drawing-feedback and glade-tool state to the mod log, also while a run is on the cursor. Default Ctrl+Alt+G."
+                    "Writes the drawing-feedback and glade-tool state to the mod log, also while a run is on the cursor. Needs Measurement diagnostics on. Default Ctrl+Alt+G."
                 },
                 { m_Setting.GetBindingKeyLocaleID(SkiResortSettings.ActDumpDiagnostics), "Dump diagnostics" },
                 { m_Setting.GetBindingKeyHintLocaleID(SkiResortSettings.ActDumpDiagnostics), "Dump" },

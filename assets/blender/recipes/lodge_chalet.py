@@ -23,7 +23,7 @@ hidden texels: A's +X face (B covers it), B's G -X face (A + podium), the podium
 faces, the piers' +X faces, the chimney's -Y face below the gable.
 
 FINE-DETAIL PASS, step 3a (2026-10-12; design/fine-detail-pass.md A.2 / B as cut by -skeptic.md,
-Richard's seventeenth look H1-H6 defaults; build/fine-detail-step3a-buildings.md; the school is the
+seventeenth look H1-H6 defaults; build/fine-detail-step3a-buildings.md; the school is the
 reference host, build/fine-detail-step2-engine.md section 12). RECIPE is a fine_detail.FineRecipe
 (fine_detail=True, NO sign set); `lodge.py --no-fine` rebuilds the approved chalet from `legacy`:
     B.1 kit geometry  the 3 flag masts 12-seg + ball finial (flag_mast fine=True)
@@ -42,13 +42,13 @@ reference host, build/fine-detail-step2-engine.md section 12). RECIPE is a fine_
 Row frame: every row, old and new, is game (gx, gy, gz) = authoring (y, z, x), gx NOT negated
 (fine_detail.X_CONVENTION, the chalet's existing convention; probe X2 decides, S1b mirrors on N).
 
-NITPICK C (2026-10-13; Richard, twenty-fifth look: "not loving the SIGN of the FORK AND KNIFE ... leave it blank or
+NITPICK C (2026-10-13; twenty-fifth look: "not loving the SIGN of the FORK AND KNIFE ... leave it blank or
 keep it simple, and people can paste their own labels on it?"; build/nitpick-c-lodges.md): the three pictogram
 boards are BLANK boards (NC_LABELS: their own ground + a thin trim-color rim, fine_detail.blank_board), listed in
 the manifest's `we_boards` block for an optional Write Everywhere layout; `--no-fine` keeps the pictograms
 (PICTO_LABELS, legacy). Geometry unchanged: only the three label rects of the atlas repaint.
 
-T60 (2026-10-18; Richard, Blender review 2026-10-17 item 5: "the small building has no door, so it just needs one. I
+T60 (2026-10-18; Blender review 2026-10-17 item 5: "the small building has no door, so it just needs one. I
 think we also need a door on the patio itself. Probably turn one of the tall windows into a door."; build note
 docs/research/field/2026-10-15/build/T59-T60-chalet-summit.md): T60_DOORS (fine builds only; False = the chalet before
 T60, byte-identical). (a) the kiosk (the small building) gets a chalet-family door on its -Y gable, the end facing the
@@ -129,7 +129,7 @@ PICTO_LABELS = (("sign_boardB_face", "paint_pictogram",
                  {"kind": "restaurant", "fg": 0.92, "bg": RED_BOARD_SRGB}),
                 ("sign_kiosk_face", "paint_pictogram",
                  {"kind": "info", "fg": 0.92, "bg": DARK_BOARD_SRGB}))
-# nitpick C (2026-10-13; Richard, twenty-fifth look, L3: "not loving the SIGN of the FORK AND KNIFE, that looks
+# nitpick C (2026-10-13; twenty-fifth look, L3: "not loving the SIGN of the FORK AND KNIFE, that looks
 # quite bad. I wonder if we just leave it blank or keep it simple, and people can paste their own labels on it?";
 # build/nitpick-c-lodges.md): the three pictogram boards become BLANK boards - the board's own ground (red / dark)
 # with a thin rim in the chalet's trim color (slot 1 (0.0625, 0.3125, 0.25) as shown on the 0.80 trim paint:
@@ -259,7 +259,7 @@ T60_SUB_OBJECTS = tuple(
     for _tag, (x, y, z), yaw in T60_LAMPS) if T60_DOORS else ()
 #: the planned SKI_RACK_SPOTS (never placed: L3 had no racks) as kit rows on the flattened lot in front
 #: of Mass A's arcade, alternating the three loadouts (FS6), identity (long axis along authoring Y)
-#: kit color variants (Richard 2026-10-12 ~18:50; build/kit-colour-variants.md): the chalet's trim green (slot 1,
+#: kit color variants (2026-10-12 ~18:50; build/kit-colour-variants.md): the chalet's trim green (slot 1,
 #: "one resort, one trim"); L1 next door is orange
 KIT_COLOUR_SET = "green"
 KIT_ROWS = tuple(

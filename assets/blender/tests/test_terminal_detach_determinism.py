@@ -43,7 +43,7 @@ maze / gate / board posts and rods get their fine segments, the cabinets lose th
 build also runs F1 (assert_kit_rows on the real kit meshes, which loads props/B FBXs mid-build and must leave the scene
 as it was - the second build hashing identically proves it). The pre-pass (--no-fine) is proved byte-identical to the
 approved exports by the build report's A/B, not here.
-STAY SEATED removed at the top; DQ _Emissive dropped (2026-10-12, Richard's nineteenth look): the DQ TOP's geometry hash
+STAY SEATED removed at the top; DQ _Emissive dropped (2026-10-12, nineteenth look): the DQ TOP's geometry hash
 moves on purpose (board_stay + 2 rods + label_stay leave the host: 331 -> 327 parts, 4614 -> 4578 vertices, 3778 -> 3759
 polygons; the label sheet repacks without the STAY SEATED rect); the DQ BASE and both gondola roles must NOT move. This
 gate PINS NO HASH (it compares two builds per role), so there is nothing to re-pin; the run lines are recorded in the

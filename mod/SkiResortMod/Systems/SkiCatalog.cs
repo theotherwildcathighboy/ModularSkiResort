@@ -1175,7 +1175,7 @@ namespace SkiResortMod.Systems
                 if (d.Capacity <= 0)
                     problems.Add(at + " has Capacity " + d.Capacity);
                 if (d.ForbidMultiple)
-                    problems.Add(at + " is ForbidMultiple: no lodge tier may be (no count limit, Richard 2026-10-11; the engine would refuse a second one on the sign)");
+                    problems.Add(at + " is ForbidMultiple: no lodge tier may be (lodges have no count limit; the engine would refuse a second one on the sign)");
                 if (d.PriceTolerance < 0 || !(d.SpendMultiplier > 0f))
                     problems.Add(at + " has PriceTolerance " + d.PriceTolerance + " / SpendMultiplier " + d.SpendMultiplier);
             }

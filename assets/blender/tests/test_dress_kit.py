@@ -142,7 +142,7 @@ def fbx_signature(path):
 
 # -- DK9 kit color variants (2026-10-12, build/kit-colour-variants.md) ---------------------------------------
 
-#: the palette (one set per building, Richard's 18:50 ruling as built): shipped host -> color set
+#: the palette (one set per building, the 18:50 ruling as built): shipped host -> color set
 PALETTE = {"SkiSchoolCommercialLowA": "blue", "SkiLodgeAFrameCommercialLowB": "orange",
            "SkiLodgeHutCommercialLowB": "red", "SkiLodgeChaletCommercialLowB": "green",
            "SkiLodgeSwankyBottomCommercialLowB": "red", "SkiPatrolHutCommercialLowA": "red",

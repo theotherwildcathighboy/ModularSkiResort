@@ -2,7 +2,7 @@
 fine_detail.py - the fine-detail engine's RECIPE-SIDE API (no bpy: recipe modules import it).
 
 Design: docs/research/art/assets-2026-10/design/fine-detail-pass.md A-D as cut by
-design/fine-detail-pass-skeptic.md FS1-FS16 (the skeptic wins) and Richard's seventeenth look
+design/fine-detail-pass-skeptic.md FS1-FS16 (the skeptic wins) and seventeenth look
 (H1-H6 defaults: lanterns -> WallLightShortRangeRandom01, lit name signs at 0.2, +34 MB).
 Build report: docs/research/art/assets-2026-10/build/fine-detail-step2-engine.md.
 
@@ -210,7 +210,7 @@ KIT = {
 
 
 # --------------------------------------------------------------------------------------
-# Kit color variants (Richard 2026-10-12 ~18:50: "I don't think we want the accents to follow the parent
+# Kit color variants (2026-10-12 ~18:50: "I don't think we want the accents to follow the parent
 # color. I think they should stay a color that makes sense for that building." -> FS7 Parent DROPPED;
 # build/kit-colour-variants.md). ENGINE FACT (decompile 1.6.0f1): ColorProperties is a RenderPrefab
 # component (ColorProperties.cs:12-16 ComponentMenu RenderPrefab / CharacterOverlay; GetPrefabComponents
@@ -296,7 +296,7 @@ def kit_cid(prop, colour_set=None):
 #: A-frame rack loadouts to alternate along a row (FS6; dress-kit.md 1.2)
 AFRAME_RACKS = ("SkiDressSkiRack", "SkiDressSkiRackV2", "SkiDressSkiRackV3")
 WALL_RACKS = ("SkiDressSkiRackWall", "SkiDressSkiRackWallV2")
-#: the lean props' foot-line rule (Richard / dress-kit.md 3, the "0.393 m" note): the prop's
+#: the lean props' foot-line rule (dress-kit.md 3, the "0.393 m" note): the prop's
 #: rest plane (prefab z = rest_z) touches the wall face; FOOT_TOL = the contract tolerance
 FOOT_TOL = 0.005
 
@@ -346,7 +346,7 @@ def row_colour_error(row):
 
 
 def check_kit_colours(recipe):
-    """Every colored kit row of a FineRecipe names the recipe's kit_colour_set (one set per building, Richard
+    """Every colored kit row of a FineRecipe names the recipe's kit_colour_set (one set per building,
     2026-10-12); raises ValueError. Uncolored rows and sign-set rows pass."""
     want = getattr(recipe, "kit_colour_set", None)
     bad = []
@@ -462,7 +462,7 @@ def sign_set_row(spec, cid, bounds=None):
 
 
 # ======================================================================================
-# Nitpick C (2026-10-13, build/nitpick-c-lodges.md): BLANK BOARDS. Richard, twenty-fifth look, L3: "not
+# Nitpick C (2026-10-13, build/nitpick-c-lodges.md): BLANK BOARDS. Twenty-fifth look, L3: "not
 # loving the SIGN of the FORK AND KNIFE, that looks quite bad. I wonder if we just leave it blank or keep
 # it simple, and people can paste their own labels on it?"; L4: "Same issue with the sign outside as the
 # chalet." A pictogram board becomes a plain panel with a thin rim (a draw callable for cs2_bldg's

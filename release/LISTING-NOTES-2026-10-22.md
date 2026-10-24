@@ -2,7 +2,7 @@
 
 Files rewritten from the current feature set: `release/DESCRIPTION.md`, `release/BESTPRACTICES.md`, `release/CHANGELOG.md` (1.0.0 notes and the beta notes; the three fixed lines untouched, so SL-CL is unaffected), `release/CREDITS.md` (Golf Pack and Tourism Overhaul as credits only, asset inspirations added), `release/README.md` (one contents line). Not touched: the ticket file, DECISIONS, `mod/SkiResortMod/Properties/PublishConfiguration.xml` (see Stale elsewhere).
 
-Status key: **V** = verified in code or prefab this session. **L** = in DECISIONS or the docs only. **B** = built, not yet seen working in game (test sheet `docs/research/field/2026-10-22/test-sheet.md`). **P** = Richard played it and passed it.
+Status key: **V** = verified in code or prefab this session. **L** = in DECISIONS or the docs only. **B** = built, not yet seen working in game (test sheet `docs/research/field/2026-10-22/test-sheet.md`). **P** = played in game and passed.
 
 ## Second pass, 2026-10-22 evening: front page (DECISIONS 376 (4); research docs/research/release-preview-2026-10-22.md)
 
@@ -20,7 +20,7 @@ Resolved questions below: Q1 (straight to 1.0: the save line stays "start from a
 |---|---|---|
 | Base game only, no other mod required, works unmodded | CLAUDE.md "Base game only", DECISIONS 150, RELEASE-CHECKLIST section 0 ("Required mods: none"); `SkiOtherMods.cs` (assembly-name detection, labels only) | V |
 | Four lift types: fixed-grip triple, detachable quad, gondola, aerial tram | `SkiCatalog.cs` rows (3 / 4 / 8 / 100 seats, ids fixedGrip, detachable, gondola, tram) | V |
-| Chairs and cabins move along the cable | `ChairPinSystem.*`, `LiftMoverMath.cs`; Richard's 10-20 report ("chairlifts look very good", "the tram runs, looks awesome", DECISIONS 350) | P |
+| Chairs and cabins move along the cable | `ChairPinSystem.*`, `LiftMoverMath.cs`; the owner's 10-20 report ("chairlifts look very good", "the tram runs, looks awesome", DECISIONS 350) | P |
 | Tram shuttles two cabins between terminals | `SkiTramHV` description in `LocaleEN.cs`; `TramShuttleSystem.cs` | V |
 | One lift tool for all four; click base, click top, click line adds a tower, drag moves (stays pinned), Enter builds | DECISIONS 341, 350, 351; `LiftLineEdit.Prompt` (exact prompt text); `LiftLineToolSystem` header | V (code); the tool path in game is B (T125 / R-6 checks, sheet rows 7, 8) |
 | Drag a tower off the line removes it; right click steps back; Esc closes; Ctrl+Shift+L | `LiftLineEdit.Prompt`, DECISIONS 351, `SkiResortSettings.cs` (ToggleLiftLineTool default) | V |
@@ -64,7 +64,7 @@ Resolved questions below: Q1 (straight to 1.0: the save line stays "start from a
 | Stations sit on the slope; tram base terminal levels a pad | prefab mirror (`BuildingTerraformOverride` DontRaise + DontLower on FG / DQ / gondola bases, all top stations, tram top; none on the tram base, A-frame, Grand); DECISIONS 354 (c), 358 (6) | V |
 | Skiers counted, not simulated; chairs carry no passengers | docs-site hub-panel ("Riders are not simulated"), V2-IDEAS "Seated riders", DECISIONS 158 (g) | L |
 | Cable moves in wind, chairs do not sway | DECISIONS 249 | V (ledger) |
-| All chairs show the same number | DECISIONS 356 (T124); Richard's report item 5 | P (observed) |
+| All chairs show the same number | DECISIONS 356 (T124); the owner's report item 5 | P (observed) |
 | Costs run all year, income comes with snow | DECISIONS 357, 360 (upkeep not halved) | L |
 | Saves: first public release, start from a new city, later changelogs say whether saves load | memory "no save compat before release"; RELEASE-CHECKLIST section 2 ("flips at the first upload"); `release/CHANGELOG.md` template; `release/saves-by-release/README.md` | L |
 | Move It works on every building | DECISIONS 350, 358 | P |
@@ -109,7 +109,7 @@ Everything below is described in the copy as working. Do not upload until the 10
 - `docs/RELEASE-CHECKLIST.md` section 4 still lists "no moving chairs v1" under known limitations.
 - Root `README.md` and `CLAUDE.md` still describe a welcome-sign upgrade menu and "ServiceUpgrade children" for lodges.
 
-## Questions for Richard
+## Questions for the owner
 
 1. **Which upload is this copy for?** The save line says "first public release, start from a new city". If the first upload is the unlisted 0.9.x beta (checklist section 9), swap that line for "beta builds, no save promise".
 2. **Cut or keep the B-status features?** The copy claims tower numbers, the grading tool and the 3-ft snow rule as working. If row 4, 3 or 14 of the 10-22 sheet fails, which of these lines go?

@@ -1,5 +1,5 @@
 /*
- * tools/check-us-english.js - US English in every player-facing text (T130, 2026-10-20; field test note 18, Richard: "remove ALL British
+ * tools/check-us-english.js - US English in every player-facing text (T130, 2026-10-20; field test note 18, "remove ALL British
  * English, here and everywhere", he is American; DECISIONS 350). Written for this repo (MIT). Reads only; writes nothing.
  *
  * Scans the text a player can read:
@@ -8,13 +8,13 @@
  *   - mod/SkiResortMod/**.cs (not obj/, bin/): the string literals of every Mod.Log / log Info / Warn / Error call (the mod log is
  *     something a player opens and posts);
  *   - docs-site/src/content/**.md(x): the prose (code fences skipped; LOCK regions are scanned too: a hit there is reported for
- *     Richard, never edited by an agent, CLAUDE.md docs-site rule).
+ *     the owner, never edited by an agent, CLAUDE.md docs-site rule).
  * T130 part 2 (2026-10-20) adds the text a developer reads:
  *   - the comments and docstrings of every .cs .ts .tsx .js .scss .py .ps1 .sh file under mod/, tests/, tools/, assets/blender, docs/;
  *   - the prose of every .md under docs/ (not docs/archive/), README / release / .claude / assets notes, code fences included.
  *   In comments and prose a token is NOT checked when it is an identifier or a path: it holds _ or a digit or an inner capital
  *   (colour_set, GladeOutlineColour), sits inside `backticks`, a URL, a file name or a path, or is followed by = (a parameter), or sits inside a quotation (a
- *   double-quoted span of 3+ words: Richard's words, a wiki page, a field-log line: never edited).
+ *   double-quoted span of 3+ words: the owner's words, a wiki page, a field-log line: never edited).
  *   A prose line that discusses spellings (it says "British", "US English", "T130", "spelling", or holds a British word AND its
  *   US form) is skipped. NOT scanned: string literals outside the player-facing places above, identifiers, docs/archive/, JSON data,
  *   tools/loop-identity/baseline-* (a frozen copy of an old source file), and the PENDING files below.
@@ -246,7 +246,7 @@ const SPELLING_TALK = /British|US English|T130|check-us-english|spelling/i;
 function proseHits(line) {
   if (SPELLING_TALK.test(line)) return [];
   let text = line.replace(/`[^`]*`/g, (m) => " ".repeat(m.length));
-  // a quotation (a double-quoted span of 3+ words: Richard's words, a wiki, a log line) keeps its spelling; an odd quote count = no span
+  // a quotation (a double-quoted span of 3+ words: the owner's words, a wiki, a log line) keeps its spelling; an odd quote count = no span
   const qi = []; for (let i = 0; i < text.length; i++) if (text[i] === '"' && text[i - 1] !== "\\" && text[i + 1] !== '"' && text[i - 1] !== '"') qi.push(i);
   if (qi.length % 2 === 0) {
     for (let k = 0; k < qi.length; k += 2) {
@@ -282,7 +282,7 @@ function walkSrc(dir, pred, acc) {
   }
   return acc;
 }
-// Files another session still owns (the tower-number tiles awaited Richard's verdict when T130 part 2 ran): skipped, and counted in the
+// Files another session still owns (the tower-number tiles awaited the verdict when T130 part 2 ran): skipped, and counted in the
 // last line. Delete an entry once its comments are converted.
 // Documents about the spellings themselves (they list British words as their subject): not scanned.
 const SPELLING_DOCS = ["docs/COMMIT-HASH-MAP-2026-10-22.md", "docs/research/us-english-sweep-2026-10-20.md"];
@@ -300,7 +300,7 @@ if (process.argv.includes("--self-test")) {
   const cBad = ["the centre of the tile", "kit colour variants", "rasterise the quad", "a two-storey lodge", "equalised areas", "texel centres, metres", "grey-white"];
   const cGood = ["the center of the tile", "colour_set keeps its name", "the `centre` argument", "GladeOutlineColour is a constant", "see kit-colour-variants.md",
     "docs/research/colour/x", "pass centre=True", "three analyses", "a programmer", "an organism", "optimism", "the British colour spelling", "colour / color", "colour->color",
-    'Richard: "a colour that makes sense for that building" is the rule'];
+    'The rule: "a colour that makes sense for that building" is kept'];
   for (const s of cBad) if (proseHits(s).length === 0) missed.push("comment: " + s);
   for (const s of cGood) if (proseHits(s).length > 0) wrong.push("comment: " + s);
   // C# string literal fixtures (csStrings): British text inside a literal hits; the same word in a comment, an identifier, a {hole} or a 'c' does not
