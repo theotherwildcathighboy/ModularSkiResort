@@ -83,7 +83,7 @@ and scraper + shovel. The annex door's lamp bar becomes a WallLightShortRangeRan
 the C4 zones + the T8 cabin-sweep box, the LV pole, every row, the lot); C15 measures its crossings with the kit meshes
 (fd_probe). Every LIFT board / label (FS5), the anemometer mast (FS1), the beacon lens (frozen top 20.70), the EXIT
 light, gates and medallions stay modeled and vertex-identical.
-Nitpick B (2026-10-13; twenty-fifth look T-1 / T-2, build/nitpick-b-tram.md; photos ref-richard-2026-10-13):
+Nitpick B (2026-10-13; twenty-fifth look T-1 / T-2, build/nitpick-b-tram.md; photos ref-owner-2026-10-13):
 base only (JH_DETAILS; False = the shipped 3c / kit-color base byte for byte; the pass is not FINE_DETAIL-gated, so
 --no-fine is the revision-2 base byte for byte only with JH_DETAILS False too). The Jackson Hole details the base lacked,
 cheap ones first: the JH-04 canopy on V-shaped timber struts across the village front (a timber-soffit canopy with a dark
@@ -444,7 +444,7 @@ FD_ANNEX_LIGHT = ("WallLightShortRangeRandom01", (HALL_X - 0.13 - 0.02, DECK_Y +
 # hexagonal at the 10 m minimum zoom - not cheap: the approved discs stay
 FD_MEDAL_RING = False
 # Nitpick B (2026-10-13; twenty-fifth look T-1: "Let me know if I've missed any other significant details we
-# should add"; build/nitpick-b-tram.md; JH photos ref-richard-2026-10-13 03 / 04, ref 07): the Jackson Hole details the
+# should add"; build/nitpick-b-tram.md; JH photos ref-owner-2026-10-13 03 / 04, ref 07): the Jackson Hole details the
 # base lacked, cheap ones first. False = the shipped 3c / kit-color base byte for byte (no top part reads it).
 #   JH_CANOPY   the JH-04 canopy across the hall's village front at mid height: a timber soffit slab (jhcanopy) under a
 #               dark metal roof sheet (jhroof, slot 2), from just in front of the front wall's X-braces (their front
@@ -3464,7 +3464,7 @@ def nitpick_b_block(role, t):
     _tri, names = triangles(t)
     fam = {k_: sum(1 for n_ in names if n_.startswith(p_)) for k_, p_ in JH_FAMILIES.items()}
     return {"flag": "JH_DETAILS", "report": "build/nitpick-b-tram.md",
-            "photos": "ref-richard-2026-10-13 03 / 04 / 07 (JH tram base, guest-services building)",
+            "photos": "ref-owner-2026-10-13 03 / 04 / 07 (JH tram base, guest-services building)",
             "added_tris_lod0": fam, "added_tris_lod0_total": sum(fam.values()),
             "labels": {nm: list(w) for nm, w in sorted(LABEL_WORDS.items())},
             "placeholders": {"chalkboard_": "no vanilla chalkboard; the vanilla AStand01 is a brand-spawned ad stand "
