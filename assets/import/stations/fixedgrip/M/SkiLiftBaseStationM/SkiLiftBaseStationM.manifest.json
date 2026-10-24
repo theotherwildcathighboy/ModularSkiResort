@@ -1420,9 +1420,9 @@
   },
   "prefab_contract": {
     "source": "gamedata-mirror/ImportedData/SkiBaseStationBuilding/SkiBaseStationBuilding.Prefab",
-    "source_sha256": "099fd9b53342c7f0994ddd76538ac01d6d3cad72867b22c9a7c0252ebe5ad584",
+    "source_sha256": "5ac45acfd5072375717009412207345aa800790f363b4d4e4ded61eb72d373e5",
     "repoint": {
-      "m_Meshes[0].m_Mesh_from": "$fstrref:CID:be0ae052544d8f7fea8d183fdde6ac57",
+      "m_Meshes[0].m_Mesh_from": "$fstrref:CID:8808c7b7ec2c4336edc50e51ef1557c5",
       "m_Meshes[0].m_Mesh_to": "<the M mesh's CID, written by the importer>",
       "k_mesh": "SkiLiftBaseStationK",
       "rule": "only this line changes (surgery/towers-transfer.md; never rename, never a new .Prefab.cid)"
@@ -1536,25 +1536,25 @@
                       "$type": 11,
                       "x": 6,
                       "y": 0,
-                      "z": -9
+                      "z": -7.5
                     },
                     "b": {
                       "$type": 11,
                       "x": 6,
                       "y": 0,
-                      "z": -10
+                      "z": -8.5
                     },
                     "c": {
                       "$type": 11,
                       "x": 6,
                       "y": 0,
-                      "z": -11
+                      "z": -9.5
                     },
                     "d": {
                       "$type": 11,
                       "x": 6,
                       "y": 0,
-                      "z": -12
+                      "z": -10.5
                     }
                   },
                   "m_NodeIndex": {
@@ -1765,7 +1765,7 @@
             "active": true,
             "m_SubObjects": {
               "$type": "24|Game.Prefabs.ObjectSubObjectInfo[], Game",
-              "$rlength": 2,
+              "$rlength": 10,
               "$rcontent": [
                 {
                   "$type": "25|Game.Prefabs.ObjectSubObjectInfo, Game",
@@ -1792,12 +1792,35 @@
                 },
                 {
                   "$type": 25,
-                  "m_Object": "$fstrref:UnityGUID:4010d5851d69dbb418c62e6bd4d19759",
+                  "m_Object": "$fstrref:CID:6827e281427c087a3b7ef19c824ca28b",
                   "m_Position": {
                     "$type": 11,
-                    "x": 6,
-                    "y": 0,
-                    "z": -12
+                    "x": 3.4,
+                    "y": 0.3,
+                    "z": 5.6
+                  },
+                  "m_Rotation": {
+                    "$type": 21,
+                    "value": {
+                      "$type": 22,
+                      "x": 0,
+                      "y": 0.9961947,
+                      "z": 0,
+                      "w": -0.0871557
+                    }
+                  },
+                  "m_ParentMesh": 0,
+                  "m_GroupIndex": 0,
+                  "m_Probability": 100
+                },
+                {
+                  "$type": 25,
+                  "m_Object": "$fstrref:UnityGUID:41e3c9ba6e1d6b948a6b1bc3499a5397",
+                  "m_Position": {
+                    "$type": 11,
+                    "x": -2.7,
+                    "y": 0.3,
+                    "z": 5.6
                   },
                   "m_Rotation": {
                     "$type": 21,
@@ -1809,7 +1832,168 @@
                       "w": 1
                     }
                   },
-                  "m_ParentMesh": -1,
+                  "m_ParentMesh": 0,
+                  "m_GroupIndex": 0,
+                  "m_Probability": 100
+                },
+                {
+                  "$type": 25,
+                  "m_Object": "$fstrref:UnityGUID:cfc12fde01d9da24b86ddedd657eaae1",
+                  "m_Position": {
+                    "$type": 11,
+                    "x": -1.25,
+                    "y": 7.42,
+                    "z": 1.175
+                  },
+                  "m_Rotation": {
+                    "$type": 21,
+                    "value": {
+                      "$type": 22,
+                      "x": 0,
+                      "y": -0.7071068,
+                      "z": 0,
+                      "w": 0.7071068
+                    }
+                  },
+                  "m_ParentMesh": 0,
+                  "m_GroupIndex": 0,
+                  "m_Probability": 100
+                },
+                {
+                  "$type": 25,
+                  "m_Object": "$fstrref:UnityGUID:cfc12fde01d9da24b86ddedd657eaae1",
+                  "m_Position": {
+                    "$type": 11,
+                    "x": -5.15,
+                    "y": 2.4,
+                    "z": -0.3
+                  },
+                  "m_Rotation": {
+                    "$type": 21,
+                    "value": {
+                      "$type": 22,
+                      "x": 0,
+                      "y": 0,
+                      "z": 0,
+                      "w": 1
+                    }
+                  },
+                  "m_ParentMesh": 0,
+                  "m_GroupIndex": 0,
+                  "m_Probability": 100
+                },
+                {
+                  "$type": 25,
+                  "m_Object": "$fstrref:CID:9ad8824185f7473ea1799df015acc940",
+                  "m_Position": {
+                    "$type": 11,
+                    "x": -3.3,
+                    "y": 0.3,
+                    "z": -1.25
+                  },
+                  "m_Rotation": {
+                    "$type": 21,
+                    "value": {
+                      "$type": 22,
+                      "x": 0,
+                      "y": 0.7071068,
+                      "z": 0,
+                      "w": 0.7071068
+                    }
+                  },
+                  "m_ParentMesh": 0,
+                  "m_GroupIndex": 0,
+                  "m_Probability": 100
+                },
+                {
+                  "$type": 25,
+                  "m_Object": "$fstrref:CID:04211f82829f421b9899ffaff582e530",
+                  "m_Position": {
+                    "$type": 11,
+                    "x": -1.25,
+                    "y": 5.41,
+                    "z": 2.6
+                  },
+                  "m_Rotation": {
+                    "$type": 21,
+                    "value": {
+                      "$type": 22,
+                      "x": 0,
+                      "y": -0.7071068,
+                      "z": 0,
+                      "w": 0.7071068
+                    }
+                  },
+                  "m_ParentMesh": 0,
+                  "m_GroupIndex": 0,
+                  "m_Probability": 100
+                },
+                {
+                  "$type": 25,
+                  "m_Object": "$fstrref:CID:04211f82829f421b9899ffaff582e530",
+                  "m_Position": {
+                    "$type": 11,
+                    "x": -5.8,
+                    "y": 0.95,
+                    "z": -0.3
+                  },
+                  "m_Rotation": {
+                    "$type": 21,
+                    "value": {
+                      "$type": 22,
+                      "x": 0,
+                      "y": 0,
+                      "z": 0,
+                      "w": 1
+                    }
+                  },
+                  "m_ParentMesh": 0,
+                  "m_GroupIndex": 0,
+                  "m_Probability": 100
+                },
+                {
+                  "$type": 25,
+                  "m_Object": "$fstrref:CID:5f92c70cec824289aa2673d59018e8a5",
+                  "m_Position": {
+                    "$type": 11,
+                    "x": 3.25,
+                    "y": 0.3,
+                    "z": -1.1075
+                  },
+                  "m_Rotation": {
+                    "$type": 21,
+                    "value": {
+                      "$type": 22,
+                      "x": 0,
+                      "y": 0,
+                      "z": 0,
+                      "w": 1
+                    }
+                  },
+                  "m_ParentMesh": 0,
+                  "m_GroupIndex": 0,
+                  "m_Probability": 100
+                },
+                {
+                  "$type": 25,
+                  "m_Object": "$fstrref:CID:9cf0daba3e7653253601eaa3b61d645a",
+                  "m_Position": {
+                    "$type": 11,
+                    "x": 3.4,
+                    "y": 0.3,
+                    "z": 0.5
+                  },
+                  "m_Rotation": {
+                    "$type": 21,
+                    "value": {
+                      "$type": 22,
+                      "x": 0,
+                      "y": 0.7071068,
+                      "z": 0,
+                      "w": 0.7071068
+                    }
+                  },
+                  "m_ParentMesh": 0,
                   "m_GroupIndex": 0,
                   "m_Probability": 100
                 }
@@ -1845,7 +2029,7 @@
         }
       ]
     },
-    "frozen_sha256": "ef892532916d6d07a0fa1706b5d87dd981e1c9f90cac1afaecafe8af28347629",
+    "frozen_sha256": "66c960be465ba5fc1b507aaef882bef7fac8ecdde29ad5793ac748709eb25a07",
     "code": {
       "WheelLocal_game": [
         0.0,
@@ -1897,7 +2081,12 @@
         1.0,
         1.0
       ]
-    ]
+    ],
+    "refrozen": {
+      "utc": "2026-10-24T18:44:57Z",
+      "why": "baseline re-frozen from the deployed prefab after the 2026-10-19/20 surgeries; the FBX / mesh files are unchanged (T144)",
+      "previous_source_sha256": "099fd9b53342c7f0994ddd76538ac01d6d3cad72867b22c9a7c0252ebe5ad584"
+    }
   },
   "bounds": {
     "m_game": {

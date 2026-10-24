@@ -905,9 +905,9 @@
   },
   "prefab_contract": {
     "source": "gamedata-mirror/ImportedData/SkiTopStationBuilding/SkiTopStationBuilding.Prefab",
-    "source_sha256": "d423596bf9719bcb0fa3fa3324d75e71b68dbb580b0b84324a6514cf7436b434",
+    "source_sha256": "d70c2393335ac9e58915965614c25321967a6f5357c71bf1bfca9b9ec206741d",
     "repoint": {
-      "m_Meshes[0].m_Mesh_from": "$fstrref:CID:82c3d0ded701ec28bcc5239d2e24ab64",
+      "m_Meshes[0].m_Mesh_from": "$fstrref:CID:57c95d66af6c9e586865050713df683b",
       "m_Meshes[0].m_Mesh_to": "<the M mesh's CID, written by the importer>",
       "k_mesh": "SkiLiftTopStationK",
       "rule": "only this line changes (surgery/towers-transfer.md; never rename, never a new .Prefab.cid)"
@@ -1199,7 +1199,7 @@
             "active": true,
             "m_SubObjects": {
               "$type": "24|Game.Prefabs.ObjectSubObjectInfo[], Game",
-              "$rlength": 1,
+              "$rlength": 6,
               "$rcontent": [
                 {
                   "$type": "25|Game.Prefabs.ObjectSubObjectInfo, Game",
@@ -1221,6 +1221,121 @@
                     }
                   },
                   "m_ParentMesh": -1,
+                  "m_GroupIndex": 0,
+                  "m_Probability": 100
+                },
+                {
+                  "$type": 25,
+                  "m_Object": "$fstrref:CID:6827e281427c087a3b7ef19c824ca28b",
+                  "m_Position": {
+                    "$type": 11,
+                    "x": 4.77,
+                    "y": 0,
+                    "z": 2.64
+                  },
+                  "m_Rotation": {
+                    "$type": 21,
+                    "value": {
+                      "$type": 22,
+                      "x": 0,
+                      "y": 0.9961947,
+                      "z": 0,
+                      "w": -0.0871557
+                    }
+                  },
+                  "m_ParentMesh": 0,
+                  "m_GroupIndex": 0,
+                  "m_Probability": 100
+                },
+                {
+                  "$type": 25,
+                  "m_Object": "$fstrref:UnityGUID:cfc12fde01d9da24b86ddedd657eaae1",
+                  "m_Position": {
+                    "$type": 11,
+                    "x": 4.77,
+                    "y": 3.3,
+                    "z": 1
+                  },
+                  "m_Rotation": {
+                    "$type": 21,
+                    "value": {
+                      "$type": 22,
+                      "x": 0,
+                      "y": 0,
+                      "z": 0,
+                      "w": 1
+                    }
+                  },
+                  "m_ParentMesh": 0,
+                  "m_GroupIndex": 0,
+                  "m_Probability": 100
+                },
+                {
+                  "$type": 25,
+                  "m_Object": "$fstrref:CID:9ad8824185f7473ea1799df015acc940",
+                  "m_Position": {
+                    "$type": 11,
+                    "x": 3.42,
+                    "y": 1,
+                    "z": 0
+                  },
+                  "m_Rotation": {
+                    "$type": 21,
+                    "value": {
+                      "$type": 22,
+                      "x": 0,
+                      "y": -0.7071068,
+                      "z": 0,
+                      "w": 0.7071068
+                    }
+                  },
+                  "m_ParentMesh": 0,
+                  "m_GroupIndex": 0,
+                  "m_Probability": 100
+                },
+                {
+                  "$type": 25,
+                  "m_Object": "$fstrref:CID:04211f82829f421b9899ffaff582e530",
+                  "m_Position": {
+                    "$type": 11,
+                    "x": 4.12,
+                    "y": 1.75,
+                    "z": 1
+                  },
+                  "m_Rotation": {
+                    "$type": 21,
+                    "value": {
+                      "$type": 22,
+                      "x": 0,
+                      "y": 0,
+                      "z": 0,
+                      "w": 1
+                    }
+                  },
+                  "m_ParentMesh": 0,
+                  "m_GroupIndex": 0,
+                  "m_Probability": 100
+                },
+                {
+                  "$type": 25,
+                  "m_Object": "$fstrref:CID:5f92c70cec824289aa2673d59018e8a5",
+                  "m_Position": {
+                    "$type": 11,
+                    "x": 6.125,
+                    "y": 1,
+                    "z": 1.6409
+                  },
+                  "m_Rotation": {
+                    "$type": 21,
+                    "value": {
+                      "$type": 22,
+                      "x": 0,
+                      "y": 1,
+                      "z": 0,
+                      "w": 0
+                    }
+                  },
+                  "m_ParentMesh": 0,
                   "m_GroupIndex": 0,
                   "m_Probability": 100
                 }
@@ -1256,7 +1371,7 @@
         }
       ]
     },
-    "frozen_sha256": "354967bc1f3646ca212f8ecdd5312177a4afe9b51c538bd87716c981a68d3903",
+    "frozen_sha256": "e23c26d4c8a69f1c48efd7df0c14f438b5e5de625447f7646fe915c97e1b9617",
     "code": {
       "WheelLocal_game": [
         0.0,
@@ -1308,7 +1423,12 @@
         1.0,
         1.0
       ]
-    ]
+    ],
+    "refrozen": {
+      "utc": "2026-10-24T18:44:57Z",
+      "why": "baseline re-frozen from the deployed prefab after the 2026-10-19/20 surgeries; the FBX / mesh files are unchanged (T144)",
+      "previous_source_sha256": "d423596bf9719bcb0fa3fa3324d75e71b68dbb580b0b84324a6514cf7436b434"
+    }
   },
   "bounds": {
     "m_game": {
