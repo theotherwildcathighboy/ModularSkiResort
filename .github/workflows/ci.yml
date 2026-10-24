@@ -57,6 +57,8 @@ jobs:
         run: node tools/check-no-user-paths.js
       - name: Listing text matches DESCRIPTION.md
         run: node tools/sync-listing.js --check
+      - name: Translation template is current
+        run: node tools/export-locale.js --check
       - name: Hub rules, history rules, gate fixtures
         working-directory: mod/SkiResortUI
         run: |

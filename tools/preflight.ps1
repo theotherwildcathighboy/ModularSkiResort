@@ -656,6 +656,16 @@ if ($LASTEXITCODE -ne 0) {
     $rows.Add("OK    USERPATHS $(($upOut | Select-Object -Last 1))")
 }
 
+# ---- 12c. LOCALE: locale/en-US.json (the translation template) matches the English dictionaries -------------------------------
+# tools/export-locale.js --check regenerates the file in memory from LocaleEN.cs and Settings/LocaleEN.cs and compares it with the
+# one on disk; it also fails on a duplicate key, an unreadable value or a hub text that differs from hubText.ts.
+$locOut = @(& node (Join-Path $PSScriptRoot "export-locale.js") --check 2>&1)
+if ($LASTEXITCODE -ne 0) {
+    $rows.Add("FAIL  LOCALE $(($locOut | Select-Object -Last 1))"); $failures++
+} else {
+    $rows.Add("OK    LOCALE $(($locOut | Select-Object -Last 1))")
+}
+
 # ---- 13. STUBNET: station stub marker nets (T121 / T126, 2026-10-20; research/art/station-stubs-2026-10-20.md) -----------
 # A shared node takes the net prefab with the highest NetData.m_NodePriority (GenerateNodesSystem.cs:1690-1765, strict >),
 # which is the composition width (NetInitializeSystem.cs:135): a stub marker no wider than a line hands its tip node to the
