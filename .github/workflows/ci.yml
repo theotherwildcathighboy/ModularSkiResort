@@ -1,0 +1,65 @@
+# The checks that run without Cities: Skylines II installed. The mod compile (dotnet build -t:Compile), the UI typecheck /
+# build (sync-types copies the game's cs2 type declarations), SaveBatch (reads the compiled mod DLL), MoverBench and the
+# Blender tests need the game or Blender and stay local: CONTRIBUTING.md lists them.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-hosts:
+    # windows-latest: the hosts are written and run on Windows (path case, separators)
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 8.0.x
+      - name: Test hosts
+        shell: pwsh
+        run: |
+          $failed = @()
+          foreach ($h in 'LiftBatch','ResortBatch','SlopeBatch','GladeBatch','GradeBatch','BuildingBatch','BindingBatch') {
+            Write-Host "::group::$h"
+            dotnet run --project "tests/$h/$h.csproj" -c Release
+            if ($LASTEXITCODE -ne 0) { $failed += $h }
+            Write-Host "::endgroup::"
+          }
+          if ($failed.Count -gt 0) { Write-Error "failed: $($failed -join ', ')"; exit 1 }
+
+  gates:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: mod/SkiResortUI/package-lock.json
+      - name: UI dependencies
+        working-directory: mod/SkiResortUI
+        run: npm ci --no-audit --no-fund
+      - name: US English
+        run: node tools/check-us-english.js
+      - name: No user paths
+        run: node tools/check-no-user-paths.js
+      - name: Listing text matches DESCRIPTION.md
+        run: node tools/sync-listing.js --check
+      - name: Hub rules, history rules, gate fixtures
+        working-directory: mod/SkiResortUI
+        run: |
+          node tools/test-gate-fixtures.js
+          node tools/test-hub-rules.js
+          node tools/test-history-rules.js

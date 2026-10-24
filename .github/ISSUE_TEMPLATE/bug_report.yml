@@ -1,0 +1,50 @@
+name: Bug report
+description: Something in the mod does not work as described.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Players: the quickest route is the Paradox forum thread or the Discord thread linked from the mod's page and the README.
+        This form is for reports with a log attached.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, what you saw instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: In a new city if you can.
+      placeholder: |
+        1. Place a Welcome Sign
+        2. ...
+  - type: input
+    id: mod-version
+    attributes:
+      label: Mod version
+      description: Shown on the mod's Paradox Mods page.
+    validations:
+      required: true
+  - type: input
+    id: game-version
+    attributes:
+      label: Game version
+      placeholder: 1.6.2f1
+    validations:
+      required: true
+  - type: textarea
+    id: log
+    attributes:
+      label: Mod log
+      description: Attach `SkiResortMod.Mod.log` from the game's `Logs` folder (Cities Skylines II user data folder).
+    validations:
+      required: true
+  - type: textarea
+    id: mods
+    attributes:
+      label: Other mods
+      description: The list from `Modding.log`, or "none".
