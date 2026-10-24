@@ -323,11 +323,13 @@ def _game_to_auth(v):
 def _prop_box(o):
     """(center, axes 3x3 rows = local x / y / z in authoring, lo, hi local) of a prop."""
     lo, hi = row_bounds(o)
-    x, y, z, w = o["rotation"]
+    # the manifest rows are game frame (rule T: gx negated since the x-sign gate N); this test reasons in the
+    # recipe's design frame (gx = +authoring y), so undo rule T first (it is an involution)
+    x, y, z, w = FD.rule_t_rot(o["rotation"])
     q = Quaternion((w, x, y, z))
     axes = np.array([list(_game_to_auth(q @ Vector(e))) for e in
                      ((1, 0, 0), (0, 1, 0), (0, 0, 1))], np.float64)
-    P = np.array(list(_game_to_auth(o["position"])), np.float64)
+    P = np.array(list(_game_to_auth(FD.rule_t_pos(o["position"]))), np.float64)
     return P, axes, np.array(lo, np.float64), np.array(hi, np.float64)
 
 
@@ -423,7 +425,10 @@ def d10_props(T, tnames, man):
 
 def d11_fine(man, verts_fine, legacy):
     """H1 (rows at the removed parts) and H9 (lot bounds), design G.2 / skeptic FS1."""
-    objs = man["sub_objects"]["objects"]
+    # the manifest rows are game frame (rule T, gx negated); the removed parts' vertices (lverts) are authoring, so
+    # compare in the recipe's design frame: undo rule T (an involution) on every row
+    objs = [dict(o, position=list(FD.rule_t_pos(o["position"])), rotation=list(FD.rule_t_rot(o["rotation"])))
+            for o in man["sub_objects"]["objects"]]
     _lp, _lk, _lz, _lT, _ln, lverts, _lnt = legacy
     # cones: plan center of the removed cone_k = the row's (gx, gz) -> authoring (gz, gx)
     cones = [o for o in objs if o["prefab"] == "SafetyConeRandom01"]

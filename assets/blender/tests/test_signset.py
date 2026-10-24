@@ -414,6 +414,17 @@ def sign_set_checks(tmp):
 def sg7():
     paths = sorted(glob.glob(os.path.join(REPO, "assets", "import", "**", "settings.json"), recursive=True))
     paths = [p for p in paths if os.sep + "archive" + os.sep not in p]
+    # a tiled sheet OWNER (the school X / Y, the tram base B) writes its own settings.json (LOD2 maps = the LOD1 far set,
+    # cs2_tilesheet), not a default write_settings output: it is a sharer in all but name, so it is left out
+    def tiled_owner(p):
+        d = os.path.dirname(p)
+        mp = os.path.join(d, os.path.basename(d) + ".manifest.json")
+        if not os.path.isfile(mp):
+            return False
+        sheet = (json.load(open(mp, encoding="utf-8")).get("tiled") or {}).get("sheet") or {}
+        return sheet.get("owner") == os.path.basename(d)
+    owners = [p for p in paths if tiled_owner(p)]
+    paths = [p for p in paths if p not in owners]
     # 2026-10-13: cs2_asset.write_settings gained `surface=` (the fence fleet: a "Surface" block written last); a
     # file carrying one is proven with that keyword (its own Surface dict), every other one with the defaults
     surf = {p: json.load(open(p, encoding="utf-8")).get("Surface") for p in paths}
@@ -427,7 +438,7 @@ def sg7():
     n_surf = len(paths) - len(plain)
     ok(not diff and len(same) >= 100, f"SG7 write_settings default: {len(same)} shipped settings.json "
                                       f"byte-identical ({n_surf} with a Surface block, proven with it), "
-                                      f"{len(skip)} sharers skipped ({diff[:2]})")
+                                      f"{len(skip)} sharers + {len(owners)} tiled owners skipped ({diff[:2]})")
     orig = cs2_asset.write_settings
 
     def patched(out_dir, name, supplied_lods=(), dedicated_texture_lods=()):
@@ -435,7 +446,7 @@ def sg7():
         with open(p, "a", encoding="utf-8") as fh:
             fh.write(" ")
         return p
-    _s, d2, _k = SS.sg7_settings_proof(paths[:5], write_settings=patched)
+    _s, d2, _k = SS.sg7_settings_proof(same[:5], write_settings=patched)     # files the default writer reproduces
     ok(len(d2) == 5, "SG7 negative: a patched write_settings is caught on every file")
     tmp = tempfile.mkdtemp(prefix="sg7b_")
     try:
@@ -547,7 +558,8 @@ def rows():
     sch = R.get_recipe("school")
     leg = FD.effective(sch, fine=False)
     nos = FD.effective(sch, signset=False)
-    ok(leg.sign_set is None and not leg.fine_detail and len(leg.sub_objects) == 20,
+    # 14 = the school's 20 minus the six picket-fence rows T87 removed (DECISIONS 302)
+    ok(leg.sign_set is None and not leg.fine_detail and len(leg.sub_objects) == 14,
        f"EFF --no-fine: legacy rows {len(leg.sub_objects)}, no sign set")
     ok(nos.sign_set is None and nos.fine_detail and len(nos.sub_objects) == len(sch.sub_objects),
        "EFF --no-signset keeps the fine rows")

@@ -37,6 +37,7 @@ rows, 12-seg masts); `--no-fine` is the pre-pass sign. Added:
   P1 / P2     the info / name board faces are in the sign sets, not in the host
 """
 
+import glob
 import hashlib
 import json
 import math
@@ -423,11 +424,13 @@ def check_school_manifest():
     writes it from Recipe.sub_objects on every export (lodge.sub_objects_block: per-object
     m_Object / prefab / position / rotation / m_ParentMesh, skeptic S4), so a re-export no
     longer drops it (recipes/school.py -- --merge-manifest is kept for older exports)."""
-    d = os.path.join(REPO, "assets", "import", "buildings", "A", "SkiSchoolCommercialLowA")
-    path = os.path.join(d, "SkiSchoolCommercialLowA.manifest.json")
-    if not os.path.isfile(path):
-        print(f"SKIP school manifest: not exported ({path})")
+    # the NEWEST exported generation (the A folder is the superseded 10-13 round): the highest letter folder
+    cands = sorted(glob.glob(os.path.join(REPO, "assets", "import", "buildings", "*", "SkiSchool*", "SkiSchool*.manifest.json")),
+                   key=lambda p: os.path.basename(os.path.dirname(os.path.dirname(p))))
+    if not cands:
+        print("SKIP school manifest: not exported")
         return
+    path = cands[-1]
     rec = R.get_recipe("school")
     with open(path, encoding="utf-8") as fh:
         man = json.load(fh)
@@ -437,9 +440,14 @@ def check_school_manifest():
     # sign-set identity row lodge appends at export (its staged CID)
     want = rec.builder.__globals__["manifest_block"]()["sub_objects"]
     n_extra = 1 if getattr(rec, "sign_set", None) is not None else 0
-    ok(len(objs) == len(rec.sub_objects) + n_extra == len(want["objects"]),
-       f"school manifest sub_objects: {len(objs)} objects (want {len(rec.sub_objects)} from "
-       f"Recipe.sub_objects + {n_extra} sign-set row; re-export with lodge.py --school)")
+    # a fittings-v1 export appends its vanilla fitting rows between the recipe's rows and the sign-set row, so the
+    # shipped list is the recipe rows first (compared below), any fittings rows, then the sign-set row last
+    n = len(rec.sub_objects)
+    ok(len(objs) >= n + n_extra and len(want["objects"]) == n + n_extra
+       and (not n_extra or objs[-1].get("role") == "signset"),
+       f"school manifest sub_objects: {len(objs)} objects (want the {n} from Recipe.sub_objects + fittings rows + "
+       f"{n_extra} sign-set row; re-export with lodge.py --school)")
+    objs, want = objs[:n], {**want, "objects": want["objects"][:n]}      # the recipe's own rows
     ok(sub.get("target_prefab") == man.get("prefab") == "SkiSchool",
        f"school sub_objects target {sub.get('target_prefab')} / prefab {man.get('prefab')}")
     # DECISIONS 245 (T14 x-sign N, 2026-10-16; T53): the shipped manifest holds the PRE-T14 rows until the next

@@ -316,7 +316,7 @@ def test_export(tmp):
     e1 = [f for f in f1 if f[0] != "INFO"]
     ok(not e1 and any(c == "settings" and "cutout" in m for _l, c, m in f1),
        f"C11 net (kind hanging, cutout from settings): {len(e1)} errors/warnings {e1[:2]}")
-    f2, _s2 = cs2_validate.validate_asset_folder_ex(post_dir, F.POST_NAME, {"kind": "prop"})
+    f2, _s2 = cs2_validate.validate_asset_folder_ex(post_dir, F.POST_NAME, F.VALIDATE_SPEC_POST)   # the post is 256 px by design: the spec lowers the floor
     e2 = [f for f in f2 if f[0] != "INFO"]
     ok(not e2, f"C11 post (kind prop): {len(e2)} errors/warnings {e2[:2]}")
     neg = os.path.join(tmp, "neg", F.NAME)

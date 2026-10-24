@@ -915,6 +915,33 @@
    "tris": 92,
    "variants": []
   },
+  "SkiPisteFloodlightLow": {
+   "bounds": [
+    [
+     -0.775,
+     0.0,
+     -0.45
+    ],
+    [
+     0.775,
+     8.373,
+     0.45
+    ]
+   ],
+   "guid": null,
+   "mesh_offset_variants": [],
+   "meshes": [
+    "SkiPisteFloodlightLowA Mesh"
+   ],
+   "prefab": "SkiPisteFloodlightLow",
+   "prefabs": [
+    "SkiPisteFloodlightLow",
+    "SkiPisteFloodlightLowA"
+   ],
+   "source": "lift_terminal.M_FLOOD boxes (union, measured on the shipped props/A FBX 2026-10-17; game local, prefab frame)",
+   "tris": 0,
+   "variants": []
+  },
   "a4fdfd0ffe3c5fa4bb7cc6522ef81d01": {
    "bounds": [
     [

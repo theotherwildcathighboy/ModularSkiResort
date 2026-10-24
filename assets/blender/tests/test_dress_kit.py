@@ -148,6 +148,13 @@ PALETTE = {"SkiSchoolCommercialLowA": "blue", "SkiLodgeAFrameCommercialLowB": "o
            "SkiLodgeSwankyBottomCommercialLowB": "red", "SkiPatrolHutCommercialLowA": "red",
            "SkiPatrolHQCommercialLowA": "red", "SkiDQBaseStationA": "orange", "SkiGondolaBaseStationA": "orange",
            "SkiGondolaTopStationA": "orange", "SkiTramBaseStationA": "red", "SkiLiftBaseStationM": "yellow"}
+
+
+def _family(host):
+    """A host name without its generation (CommercialLow<letter> / <letter>): SkiPatrolHQCommercialLowX -> SkiPatrolHQ."""
+    return re.sub(r"(CommercialLow)?[A-Z]$", "", host)
+
+
 HYDRANT_MESH = os.path.join(REPO, "gamedata-mirror", "ImportedData", "c030ee3ff256df91", "SkiHydrantBoxA",
                             "SkiHydrantBoxA Mesh_3a28bf00d14e0b012b4cffacb9ecc91d.Prefab")
 
@@ -206,7 +213,11 @@ def variants(tmp):
     for vn, u in used.items():
         for h in u["hosts"]:
             per_host.setdefault(h, set()).add(u["colour_set"])
-    ok(per_host == {h: {c} for h, c in PALETTE.items()}, f"DK9 hosts' colour sets = the palette: {per_host}")
+    # every shipped generation of a building (A / B / M / N, X, Y folders) carries its family's one set
+    fam = {_family(h): c for h, c in PALETTE.items()}
+    want = {h: {fam[_family(h)]} for h in per_host if _family(h) in fam}
+    ok(per_host == want and set(map(_family, PALETTE)) <= set(map(_family, per_host)),
+       f"DK9 hosts' colour sets = the palette ({len(per_host)} hosts, {len(fam)} families): {per_host}")
     # V3 staging: exactly the used variants, complete and fixed; the six base prefabs retired
     staged = D.staged_variant_names()
     ok(staged == sorted(used), f"DK9 staged variants = the used ones ({len(staged)} / {len(used)}): "

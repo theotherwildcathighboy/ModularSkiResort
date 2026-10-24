@@ -874,7 +874,7 @@ def faces_game(me, M, names):
     co = co.reshape(-1, 3)
     Mx = np.array(M)
     co = co @ Mx[:3, :3].T + Mx[:3, 3]
-    G = np.stack([co[:, 0], co[:, 2], -co[:, 1]], axis=1)
+    G = np.stack([-co[:, 0], co[:, 2], -co[:, 1]], axis=1)   # + the game's x negation (x-sign gate N), as SS.game_coords
     out = {}
     for p in me.polygons:
         n = table[pv[p.index] - 1]

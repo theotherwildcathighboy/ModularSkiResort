@@ -4248,6 +4248,8 @@ def finish_asset(args, cfg, obj, sources, result):
         spec = {"kind": "hanging", "lod0_cap": cfg["lod0_cap"], "lod1_ratio": 0.48,
                 "lod2_cap": cfg["lod2_cap"], "expected_lods": tuple(range(1, len(lods) + 1)),
                 "expected_submeshes": ()}
+        if not args.finish:
+            spec["min_texture"] = 128       # the draft bake is 256 px by design; only --finish output ships
         findings = cs2_validate.validate_asset_folder(asset_dir, name, spec)
         result["validation"] = {"errors": sum(1 for f in findings if f[0] == "ERROR"),
                                 "warnings": sum(1 for f in findings if f[0] == "WARN")}

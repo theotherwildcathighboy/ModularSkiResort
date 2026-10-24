@@ -142,7 +142,11 @@ def test_shipped_manifests():
                 # fine-detail step 3c: a tram block lists its kit "mod" rows after the vanilla C16 rows (which carry
                 # the recorded boxes), so only the first len(tram_boxes) rows have one
                 if tram_boxes and i < len(tram_boxes) and tram_boxes[i]:
-                    elo, ehi = pack_aabb_from_game(*tram_boxes[i])
+                    blo, bhi = tram_boxes[i]
+                    if "NEGATED" in str(((d1.get("block") or {}).get("x_convention")) or ""):
+                        # the recorded boxes stay in the DESIGN frame; the rows (and the pack) are game frame, gx negated
+                        blo, bhi = (-bhi[0], blo[1], blo[2]), (-blo[0], bhi[1], bhi[2])
+                    elo, ehi = pack_aabb_from_game(blo, bhi)
                     check(near(lo, elo, 0.002) and near(hi, ehi, 0.002),
                           f"{tag}: AABB {lo} {hi} != the manifest's recorded box mapped {elo} {ehi}")
     check(seen >= 8 and total >= 80, f"only {seen} manifests / {total} rows had sub-objects")

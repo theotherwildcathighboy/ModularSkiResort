@@ -30,10 +30,10 @@ run through cs2_tilesheet.tile_mesh with the weathering rules on. Asserts:
 Exit 1 on the first failure; one PASS line otherwise.
 """
 
+import hashlib
 import importlib.util
 import math
 import os
-import subprocess
 import sys
 import tempfile
 import traceback
@@ -51,6 +51,7 @@ import cs2_uv                          # noqa: E402
 import lodge                           # noqa: E402
 
 PRE_T70 = "53defed"                    # the last commit before T70: the flag-off reference implementation
+PRE_T70_SHA1 = "8dd04295205481d3197e913a0b351044969d2e58"    # sha1 of its cs2_tilesheet.py (tests/data fixture)
 CHECKS = []
 
 
@@ -68,10 +69,11 @@ def clear():
 
 
 def pre_t70_module():
-    """cs2_tilesheet as of PRE_T70, imported under another name (git show)."""
-    repo = os.path.dirname(os.path.dirname(HERE))
-    src = subprocess.run(["git", "-C", repo, "show", f"{PRE_T70}:assets/blender/cs2_tilesheet.py"],
-                         capture_output=True, check=True).stdout
+    """cs2_tilesheet as of PRE_T70, imported under another name (tests/data fixture: the history was rewritten
+    2026-10-22, so `git show PRE_T70` no longer resolves; the fixture is byte-identical to that commit's file)."""
+    with open(os.path.join(HERE, "tests", "data", "cs2_tilesheet_pre_t70.py"), "rb") as fh:
+        src = fh.read()
+    assert hashlib.sha1(src).hexdigest() == PRE_T70_SHA1, "tests/data/cs2_tilesheet_pre_t70.py changed"
     d = tempfile.mkdtemp(prefix="t70_ref_")
     p = os.path.join(d, "cs2_tilesheet_pre_t70.py")
     with open(p, "wb") as fh:

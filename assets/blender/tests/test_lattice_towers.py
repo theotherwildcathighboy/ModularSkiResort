@@ -14,7 +14,7 @@ Groups (lattice-towers.md section 14, adapted to the R27-R31 rulings):
                   buried saddle must each FAIL
   4 scoring       D13 variant pick: tram switches 10 / 25, float <= 10, burial <= 5, stub = node + 26.25;
                   gondola family 12/16/20 (provisional tubular) + 25/32/40
-  5 bake smoke    tram 30 through cs2_bake at 256 px with --beacon (emissive only on the lens) and the
+  5 bake smoke    tram 30 through cs2_bake at 512 px with --beacon (emissive only on the lens) and the
                   shipping path (no beacon, no _Emissive) on gondola 25: maps, channel rules (R + G + B
                   <= 1), recolor level p95 0.78-0.82 under every present mask; temp folder removed
 
@@ -775,7 +775,7 @@ def load(path):
     return px.reshape(h, w, 4)
 
 
-def bake_args(tmp, family, H, beacon=False, atlas=256, ao=4, weather="off"):
+def bake_args(tmp, family, H, beacon=False, atlas=512, ao=4, weather="off"):   # 512 = the validator's texture floor
     return SimpleNamespace(family=family, height=H, all=False, out=tmp, letter=None, finish=True,
                            lods=True, export=True, review=None, preview=None, no_preview=True,
                            beacon=beacon, atlas=atlas, ao_samples=ao, saddle_l=tt.SADDLE_L_DEFAULT,

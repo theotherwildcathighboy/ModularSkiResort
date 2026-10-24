@@ -37,7 +37,7 @@ TC5 decal: "AB" reads as authored on a mirrored-UV plane and a 16-gon cylinder, 
     edges, ControlMask R/G 0 under solid paint, returned rects cover every changed texel;
     M3: per-part plate rects (plate_n / plate_p) vs the prefix union.
 TC6 determinism: two runs and a child Blender process hash identically.
-Needs git on PATH (TC1 reads the round-L module with `git show`); about 5 s.
+TC1 reads the round-L module from tests/data/cs2_compose_roundL.py (sha1-pinned); about 5 s.
 """
 
 import json
@@ -301,6 +301,7 @@ REPO = os.path.normpath(os.path.join(HERE, os.pardir, os.pardir, os.pardir))
 #: sha1 of its bytes; TC1 runs it side by side with the current module
 REF_COMMIT = "e0b20681a2ca80be2889d170e1275f7abf52369f"
 REF_FILE_SHA1 = "fc0d17b750e207aa5e20ef7b2c39f07ee1dbfd9d"
+REF_FILE = os.path.join(HERE, "data", "cs2_compose_roundL.py")
 FG8_PACK = os.path.join(REPO, "assets", "preview", "review", "SkiLiftTowerFG8O.blend")
 #: TC1(a) golden sha1s, recorded 2026-10-11 with the round-L module (REF_COMMIT)
 GOLDEN_TC1 = {
@@ -349,18 +350,10 @@ def mesh_from(name, verts, faces, face_uvs_px, part_ids, table, A):
 
 
 def load_reference_compose():
-    """The round-L cs2_compose (REF_COMMIT) as module cs2_compose_ref, read with git."""
-    rel = "assets/blender/cs2_compose.py"
-    src = None
-    for git in ("git", r"C:\Program Files\Git\cmd\git.exe"):
-        try:
-            src = subprocess.run([git, "-C", REPO, "show", f"{REF_COMMIT}:{rel}"],
-                                 capture_output=True, check=True).stdout
-            break
-        except (OSError, subprocess.CalledProcessError):
-            continue
-    if src is None:
-        raise RuntimeError(f"git show {REF_COMMIT}:{rel} failed (git missing?)")
+    """The round-L cs2_compose (REF_COMMIT) as module cs2_compose_ref, read from tests/data (the history was
+    rewritten 2026-10-22, so `git show REF_COMMIT` no longer resolves; the fixture is byte-identical to it)."""
+    with open(REF_FILE, "rb") as fh:
+        src = fh.read()
     got = hashlib.sha1(src).hexdigest()
     if got != REF_FILE_SHA1:
         raise RuntimeError(f"reference cs2_compose sha1 {got} != {REF_FILE_SHA1}")

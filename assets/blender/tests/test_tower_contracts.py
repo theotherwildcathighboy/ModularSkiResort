@@ -28,7 +28,7 @@ skeptic's MUST-CHANGE items), checked INDEPENDENTLY of the generator's own asser
    R in [0.78, 0.82] (RECOLOR_ALBEDO), warning-triangle texels (BaseColor >= 0.85 inside the
    crashpad_outer island) have ctl R = G = 0.
 4. main_v2 (towers-v2 section 14.6, pipeline review 7): FG8 with and without --review at
-   --atlas 256 --ao-samples 4 in one process; every asset file byte-identical (FBX clock frozen),
+   --atlas 512 --ao-samples 4 in one process; every asset file byte-identical (FBX clock frozen),
    manifests equal without written_utc, the pack outside the asset folder.
 5. Revision 1b (revision1-check-towers item 6): the gondola tubular family GD12 / GD16 / GD20
    (rebuild head) through every check above, plus: axle = top - 2.000 and tube top = axle + 0.50
@@ -1296,7 +1296,7 @@ def f3_case():
 def review_case():
     """towers-v2 section 14.6 (pipeline review 7): FG8 through main_v2 - export, settings.json,
     manifest, validation and the review hook - twice in this process, without and with
-    --review, at --atlas 256 --ao-samples 4. Every file in the asset folder must be
+    --review, at --atlas 512 --ao-samples 4 (512 = the validator floor). Every file in the asset folder must be
     byte-identical (FBX header clock frozen as tests/test_review_side_effects.py; same process
     = same FBX UID salt); the manifests equal without written_utc; the pack lands outside."""
     import datetime
@@ -1315,7 +1315,7 @@ def review_case():
     name = "SkiLiftTowerFG8O"
 
     def run(out, review=None):
-        LT.main_v2(["--variant", "FG8", "--out", out, "--atlas", "256", "--ao-samples", "4"]
+        LT.main_v2(["--variant", "FG8", "--out", out, "--atlas", "512", "--ao-samples", "4"]
                    + (["--review", review] if review else []))
         d = os.path.join(out, name)
         hs = {}

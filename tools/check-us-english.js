@@ -275,7 +275,8 @@ const SRC_SKIP = new Set(["node_modules", "obj", "bin", "build", "dist", "types"
 function walkSrc(dir, pred, acc) {
   if (!fs.existsSync(dir)) return acc;
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
-    if (SRC_SKIP.has(e.name) || e.name.startsWith("baseline-") || (e.name.startsWith(".") && e.name !== ".claude")) continue;
+    // assets/blender/tests/data: byte-exact copies of old generator modules (sha1-pinned by their tests), never respelled
+    if (SRC_SKIP.has(e.name) || e.name.startsWith("baseline-") || (e.name === "data" && path.basename(dir) === "tests" && rel(dir).startsWith("assets/blender")) || (e.name.startsWith(".") && e.name !== ".claude")) continue;
     const p = path.join(dir, e.name);
     if (e.isDirectory()) walkSrc(p, pred, acc); else if (pred(p)) acc.push(p);
   }

@@ -131,7 +131,9 @@ _KIT_MAN = os.path.join(REPO, "assets", "import", "props", "B", "SkiDressHoseRee
 _BM = json.load(open(_KIT_MAN, encoding="utf-8"))["bounds_m"]
 PROP_BOUNDS["SkiDressHoseReel"] = (tuple(_BM["min"]), tuple(_BM["max"]))
 # the approved shacks' blockout hashes (lean fix export, 2026-10-11 21:19; test_detail_kit K4 before step 3d)
-LEGACY_HASH = {"P1": ("b0d4f1b4dfa7", "463b9012de23"), "P2": ("11cb23e4083a", "38666256c858")}
+# P2 LOD0_prebake re-pinned 2026-10-24 (T81): was 11cb23e4083a. T94 (2026-10-19) moved P2's toboggan rack + akja
+# (P2_RACK / P2_AKJA) from south to north of the door, which the --no-fine path shares; `Win` is unchanged
+LEGACY_HASH = {"P1": ("b0d4f1b4dfa7", "463b9012de23"), "P2": ("79d939910e08", "38666256c858")}
 
 SPEC = {
     # fine-detail step 3d: the FINE build's dressing parts (the boards' faces went to the sign set; the akjas,
@@ -724,7 +726,7 @@ def d12_signset(key, rec, res, man, tmp):
         def game(o):
             W = K._world_coords(o)                               # authoring (pre-orient)
             B = np.column_stack([W[:, 1], -W[:, 0], W[:, 2]])   # orient_for_net: (x, y) -> (y, -x)
-            return np.column_stack([B[:, 0], B[:, 2], -B[:, 1]])
+            return np.column_stack([-B[:, 0], B[:, 2], -B[:, 1]])   # gx negated (x-sign gate N), as SS.game_coords
         host_q = {f: game(objs[f]) for f in names}
     finally:
         _remove_new_objects(keep)
