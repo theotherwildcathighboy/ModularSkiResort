@@ -893,7 +893,7 @@ namespace SkiResortMod.Systems
             }
             catch (Exception e)
             {
-                problems.Add("the static initialiser threw " + e.GetType().Name + ": " + e.Message + " — the catalog is incomplete");
+                problems.Add("the static initializer threw " + e.GetType().Name + ": " + e.Message + " — the catalog is incomplete");
             }
 
             Lifts = Array.AsReadOnly(lifts);
@@ -1125,7 +1125,7 @@ namespace SkiResortMod.Systems
                                      " / DockLocalB " + s.DockLocalB + " (want both finite: the track-rope point at each bay)");
                     else if (!(math.abs((s.DockLocalA.x + s.DockLocalB.x) * 0.5f - s.StubTipLocalX) <= 1e-3f))
                         // the two bays sit either side of the line axis (the tram base: 9.50 / -1.50 about +4.00)
-                        problems.Add("station '" + s.Prefab + "' of Shuttle type '" + l.Id + "' has its docks centred on x " +
+                        problems.Add("station '" + s.Prefab + "' of Shuttle type '" + l.Id + "' has its docks centered on x " +
                                      ((s.DockLocalA.x + s.DockLocalB.x) * 0.5f) + ", not on its line axis StubTipLocalX " +
                                      s.StubTipLocalX);
                     if (s.HostsCarriers && s.Role == StationRole.Base)

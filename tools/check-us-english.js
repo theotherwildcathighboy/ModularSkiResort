@@ -20,7 +20,9 @@
  *   tools/loop-identity/baseline-* (a frozen copy of an old source file), and the PENDING files below.
  * FAILS (exit 1) on a word of BRITISH below, matched case-insensitively at a word start; ALLOW holds the proper names that contain one
  * (another mod's or a vanilla name). Prints "file:line: word -> us" per hit.
- * Usage: node tools/check-us-english.js [--verbose]
+ *   T130 part 3 (2026-10-24): the string literals of every .cs under mod/ tests/ tools/ (log lines, DUMP rows, warnings, assert messages),
+ *   not only the ones inside a Log call; CS_LITERAL_ALLOW lists the few intentional ones. --cs-counts prints the count per file.
+ * Usage: node tools/check-us-english.js [--verbose] [--cs-counts] [--self-test]
  */
 "use strict";
 const fs = require("fs");
@@ -87,6 +89,55 @@ function csLiterals(line) {
   const re = /"((?:[^"\\]|\\.)*)"/g;
   let m;
   while ((m = re.exec(line))) out.push(m[1]);
+  return out;
+}
+/** Every C# string literal of `text` as {text, line}: regular, $"" (the {holes} blanked: they are code), verbatim @"", raw """ ; comments and 'c' literals skipped (T130 part 3). */
+function csStrings(text){
+  const out=[],n=text.length;let i=0,line=1;
+  const nl=(a,b)=>{for(let k=a;k<b;k++)if(text[k]==="\n")line++;};
+  while(i<n){
+    const c=text[i],d=text[i+1];
+    if(c==="\n"){line++;i++;continue;}
+    if(c==="/"&&d==="/"){const j=text.indexOf("\n",i);i=j<0?n:j;continue;}
+    if(c==="/"&&d==="*"){let j=text.indexOf("*/",i+2);if(j<0)j=n;nl(i,j);i=j+2;continue;}
+    if(c==="'"){i++;if(text[i]==="\\"){i++;} i++; while(i<n&&text[i]!=="'"&&text[i]!=="\n")i++; i++;continue;}
+    if(c==="$"||c==="@"||c==='"'){
+      const mm=/^(\$*)(@?)(\$*)(""")?/.exec(text.slice(i,i+10));
+      const dollars=(mm[1]||"").length+(mm[3]||"").length, verb=mm[2]==="@";
+      let p=i+mm[1].length+mm[2].length+mm[3].length;
+      if(text[p]!=='"'){i++;continue;}
+      let raw=!verb&&text.startsWith('"""',p);
+      const startLine=line;let buf="";
+      if(raw){let q=0;while(text[p+q]==='"')q++;const close='"'.repeat(q);p+=q;const j=text.indexOf(close,p);const body=text.slice(p,j<0?n:j);
+        out.push({text:body,line:startLine,kind:"raw"});nl(p,j);i=j+q;continue;}
+      p++;
+      while(p<n){
+        const ch=text[p];
+        if(ch==="\n"&&!verb){break;}
+        if(!verb&&ch==="\\"){buf+=text.slice(p,p+2);p+=2;continue;}
+        if(verb&&ch==='"'){if(text[p+1]==='"'){buf+='"';p+=2;continue;}break;}
+        if(!verb&&ch==='"')break;
+        if(dollars&&ch==="{"){
+          if(text[p+1]==="{"){buf+="{";p+=2;continue;}
+          // hole: skip to matching }, strings inside
+          let depth=1;p++;buf+=" ";
+          while(p<n&&depth>0){const h=text[p];
+            if(h==='"'){p++;while(p<n&&text[p]!=='"'){if(text[p]==="\\")p++;p++;}p++;continue;}
+            if(h==="'"){p++;if(text[p]==="\\")p++;p+=2;continue;}
+            if(h==="{")depth++;else if(h==="}")depth--;
+            if(h==="\n")line++;
+            p++;buf+=" ";}
+          continue;
+        }
+        if(dollars&&ch==="}"&&text[p+1]==="}"){buf+="}";p+=2;continue;}
+        if(ch==="\n")line++;
+        buf+=ch;p++;
+      }
+      out.push({text:buf,line:startLine,kind:verb?"verbatim":"regular"});
+      i=p+1;continue;
+    }
+    i++;
+  }
   return out;
 }
 function stripLineComment(line) {
@@ -251,7 +302,12 @@ if (process.argv.includes("--self-test")) {
     'Richard: "a colour that makes sense for that building" is the rule'];
   for (const s of cBad) if (proseHits(s).length === 0) missed.push("comment: " + s);
   for (const s of cGood) if (proseHits(s).length > 0) wrong.push("comment: " + s);
-  console.log(`check-us-english --self-test: ${bad.length + cBad.length - missed.length} / ${bad.length + cBad.length} British samples caught, ${wrong.length} wrong`);
+  // C# string literal fixtures (csStrings): British text inside a literal hits; the same word in a comment, an identifier, a {hole} or a 'c' does not
+  const csBad = ['Log.Info("cancelled spots");', 'x = $"{n} metres, {m:F1}";', 'y = @"the ""grey"" tile";', 'z = """a colour"""', 'a = "x" + "the centre";'];
+  const csGood = ['// the centre of the tile', 'int centre = 0; /* colour */', 'q = $"{centre} m, {(ok ? "yes" : "no")}";', "c = 'x'; d = \"center\";"];
+  for (const t of csBad) if (!csStrings(t).some((l) => hitsIn(l.text).length)) missed.push("cs literal: " + t);
+  for (const t of csGood) if (csStrings(t).some((l) => hitsIn(l.text).length)) wrong.push("cs literal: " + t);
+  console.log(`check-us-english --self-test: ${bad.length + cBad.length + csBad.length - missed.length} / ${bad.length + cBad.length + csBad.length} British samples caught, ${wrong.length} wrong`);
   for (const s of missed) console.log(`  MISSED ${s}`);
   for (const s of wrong) console.log(`  WRONG  ${s}`);
   process.exit(missed.length + wrong.length === 0 ? 0 : 1);
@@ -336,6 +392,28 @@ for (const f of mdFiles) {
   if (SPELLING_DOCS.includes(rel(f))) continue;
   fs.readFileSync(f, "utf8").split(/\r?\n/).forEach((l, i) => { scanned++; add(f, i + 1, proseHits(l)); });
 }
+
+// 7. every C# string literal of the mod and the test hosts: log lines, DUMP text, warnings, assert messages (T130 part 3, 2026-10-24).
+// CS_LITERAL_ALLOW: literals that are British ON PURPOSE (a test's own fixture list of the words it forbids; a JSON key the data file
+// spells that way): file -> exact literal texts. Add an entry only with a reason beside it.
+const CS_LITERAL_ALLOW = {
+  "tests/LiftBatch/LiftToolInputTests.cs": ["colour", "metre", "centre", "grey", "behaviour", "cancelled"], // TI-4 forbidden-word list
+  "tests/GradeBatch/Program.cs": ["colour", "metre", "centre", "grey"], // GR-15 forbidden-word list
+  "tests/LiftBatch/TowerNumberTests.cs": ["centre"], // JSON key of tests/LiftBatch/data/tower-number-plates.json
+};
+const csCounts = {};
+for (const f of walkSrc(ROOT, (p) => /\.cs$/i.test(p), []).filter((p) => /^(mod|tests|tools)\//.test(rel(p)))) {
+  const r = rel(f);
+  if (r === "tools/check-us-english.js") continue;
+  const allow = CS_LITERAL_ALLOW[r] || [];
+  for (const lit of csStrings(fs.readFileSync(f, "utf8"))) {
+    scanned++;
+    if (allow.includes(lit.text)) continue;
+    const hs = hitsIn(lit.text);
+    if (hs.length) { add(f, lit.line, hs); csCounts[r] = (csCounts[r] || 0) + hs.length; }
+  }
+}
+if (process.argv.includes("--cs-counts")) for (const [k, v] of Object.entries(csCounts)) console.log(`cs-literals ${v}  ${k}`);
 
 for (const h of hits) console.log(`${h.file}:${h.line}: "${h.word}" -> ${h.us}`);
 if (pendingSeen) console.log(`check-us-english: ${pendingSeen} PENDING file(s) not scanned (see PENDING in this file)`);

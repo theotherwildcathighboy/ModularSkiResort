@@ -414,7 +414,7 @@ namespace ResortBatch
             const byte Terrain = SkiRunRatingRules.ReasonTerrain, Back = SkiRunRatingRules.ReasonBackstop;
             Check(SkiRunRatingRules.IsFront(Bind) && SkiRunRatingRules.IsFront(Edit) && !SkiRunRatingRules.IsFront(Warm) &&
                   !SkiRunRatingRules.IsFront(Terrain) && !SkiRunRatingRules.IsFront(Back), W, "front = bind and edit only");
-            Check(!SkiRunRatingRules.Replaces(Warm, Bind), W, "bind must not promote a queued warm-up (behaviour-2)");
+            Check(!SkiRunRatingRules.Replaces(Warm, Bind), W, "bind must not promote a queued warm-up (behavior-2)");
             Check(SkiRunRatingRules.Replaces(Warm, Edit), W, "an edit promotes a queued warm-up");
             Check(SkiRunRatingRules.Replaces(Terrain, Edit) && SkiRunRatingRules.Replaces(Back, Edit) && SkiRunRatingRules.Replaces(Terrain, Bind),
                 W, "front over background (terrain / backstop)");

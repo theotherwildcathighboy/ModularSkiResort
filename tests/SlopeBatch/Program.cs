@@ -3729,17 +3729,17 @@ namespace SlopeBatch
 
         private static Scn Cone()
         {
-            return new Scn("cone peak 30% (centred)", "300x300", Square300, (s, t) => 1000.0 - 0.30 * Math.Sqrt(s * s + t * t));
+            return new Scn("cone peak 30% (centered)", "300x300", Square300, (s, t) => 1000.0 - 0.30 * Math.Sqrt(s * s + t * t));
         }
 
         private static Scn Crater()
         {
-            return new Scn("crater 30% (centred)", "300x300", Square300, (s, t) => 1000.0 + 0.30 * Math.Sqrt(s * s + t * t));
+            return new Scn("crater 30% (centered)", "300x300", Square300, (s, t) => 1000.0 + 0.30 * Math.Sqrt(s * s + t * t));
         }
 
         private static Scn Saddle()
         {
-            return new Scn("saddle (centred)", "300x300", Square300, (s, t) => 1000.0 + 0.0015 * (s * s - t * t));
+            return new Scn("saddle (centered)", "300x300", Square300, (s, t) => 1000.0 + 0.0015 * (s * s - t * t));
         }
 
         private static Scn SideCliff()
@@ -5749,7 +5749,7 @@ namespace SlopeBatch
                             continue;
                         if (ls.ExactBand)
                             Check(Math.Abs(r.LengthRect - ls.True) <= 1e-4 * ls.True, w,
-                                "frame " + fi + ": LengthRect " + F(r.LengthRect) + " vs the band's centreline " + F(ls.True) + " (the closed form is exact for a constant-width band)");
+                                "frame " + fi + ": LengthRect " + F(r.LengthRect) + " vs the band's centerline " + F(ls.True) + " (the closed form is exact for a constant-width band)");
                         lo = Math.Min(lo, r.Length);
                         hi = Math.Max(hi, r.Length);
                         if (fi == 0)

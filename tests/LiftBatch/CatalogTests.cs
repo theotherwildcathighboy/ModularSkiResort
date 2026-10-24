@@ -731,7 +731,7 @@ namespace LiftBatch
                 if (math.all(math.isfinite(s.DockLocalA)) && math.all(math.isfinite(s.DockLocalB)))
                 {
                     Near(s.StubTipLocalX, (s.DockLocalA.x + s.DockLocalB.x) * 0.5, 1e-5, W,
-                         "station '" + s.Prefab + "' docks centred on its line axis");
+                         "station '" + s.Prefab + "' docks centered on its line axis");
                     // the tram base's A is the +X bay, so B.x - A.x = -11 there (+11 on the top)
                     Near(s.Prefab == "SkiTramBaseStationBuilding" ? -11.0 : 11.0, s.DockLocalB.x - s.DockLocalA.x, 1e-5, W,
                          "station '" + s.Prefab + "' docks 2 x 5.50 apart (the lane gauge, unchanged by the shift)");

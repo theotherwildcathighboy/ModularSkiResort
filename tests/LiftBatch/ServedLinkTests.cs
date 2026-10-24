@@ -116,7 +116,7 @@ namespace LiftBatch
             Eq(-1, s.Via[a], W, "A via");
             Check(s.ServingLift[c] < 0, W, "the connector's own top is not served by the lift");
             Check(s.Served(c), W, "the connector between two served runs is served");
-            Eq(a, s.Root[c], W, "connector root: the first (lower) served neighbour");
+            Eq(a, s.Root[c], W, "connector root: the first (lower) served neighbor");
             Eq(a, s.Via[c], W, "connector via");
             Eq(2, s.Links.LinkCount, W, "links A-C and B-C");
             Eq(2, s.ServedCount[0], W, "the lift's runs-served count stays direct only (A, B)");
@@ -132,7 +132,7 @@ namespace LiftBatch
             s.Solve();
             Check(!s.Served(d) && !s.Served(e), W, "two linked runs, neither near a lift: both unserved");
             Eq(1, s.Links.LinkCount, W, "D-E linked");
-            Check(!s.Served(f), W, "a run above the lift's top margin with no neighbour is unserved");
+            Check(!s.Served(f), W, "a run above the lift's top margin with no neighbor is unserved");
             Eq(-1, s.Via[d], W, "unserved via");
 
             var off = new Scene(LiftPower.NoPower);

@@ -1630,7 +1630,7 @@ namespace GladeBatch
                 "INFO  applysim checks: plant sets {0} (skipped {1}: members off the stream), up/down {2} (walk up-steps not tracked: {3}, a hole below members), nested {4}, keys kept across the other layer's applies {5}, tree-line key changed by near-edge fells {6}; T near .5: {7}",
                 a.PlantSetChecks, a.PlantSetSkipped, a.UpDownChecks, a.UpDownHoleSkips, a.NestedChecks, a.KeyKeptChecks, a.KeyChangedNearEdge, a.TargetNearHalf));
             Console.WriteLine(string.Format(CultureInfo.InvariantCulture,
-                "INFO  applysim stream: {0} full re-plan(s) (slice out of attempts), {1} full re-plan(s) to order members, {2} cache hit(s); {3} plant(s) cancelled ({4} by the live-tree stand-in)",
+                "INFO  applysim stream: {0} full re-plan(s) (slice out of attempts), {1} full re-plan(s) to order members, {2} cache hit(s); {3} plant(s) canceled ({4} by the live-tree stand-in)",
                 a.FullReplans, a.FullForMembers, a.CacheHits, a.Cancelled, a.LiveCancels));
             Console.WriteLine(string.Format(CultureInfo.InvariantCulture,
                 "INFO  applysim.verbatim: of {0} composes that needed a full re-plan, a verbatim slice would have reported a FALSE Complete on {1} and planted fewer on {2}",
@@ -1638,7 +1638,7 @@ namespace GladeBatch
             Console.WriteLine(string.Format(CultureInfo.InvariantCulture,
                 "INFO  applysim G3 fixer: misplaced member sightings [interior target: interior {0}, tree line {1}; tree-line target: interior {2}, tree line {3}]; " +
                 "level-1 composes with off-stream members [interior {4}, tree line {5}]; editoor widen {6} / narrow {7} case(s), {8} with interior strays beyond the interior band; " +
-                "{9} interior L8 settle(s) reached T despite cancelled spots (stream headroom); {10} composes repeated into the reused result",
+                "{9} interior L8 settle(s) reached T despite canceled spots (stream headroom); {10} composes repeated into the reused result",
                 a.Misplaced[0, 0], a.Misplaced[0, 1], a.Misplaced[1, 0], a.Misplaced[1, 1], a.L1OffStream[0], a.L1OffStream[1],
                 a.EditOorWiden, a.EditOorNarrow, a.EditOorBeyondInteriorBand, a.L8HeadroomUsed, a.SharedResultChecks));
             // Power: every branch and every refinement was exercised.
@@ -1660,7 +1660,7 @@ namespace GladeBatch
             Check(a.EditOorWiden > 0 && a.EditOorNarrow > 0 && a.EditOorBeyondInteriorBand > 0, "applysim/power", "editoor cases: widen " + a.EditOorWiden +
                 ", narrow " + a.EditOorNarrow + ", beyond the interior band " + a.EditOorBeyondInteriorBand);
             Check(a.SharedResultChecks > 0 && a.L8HeadroomUsed > 0, "applysim/power", "reused-result checks " + a.SharedResultChecks +
-                ", interior L8 settles that reached T despite cancelled spots " + a.L8HeadroomUsed + " (finding behaviour-2 not covered)");
+                ", interior L8 settles that reached T despite canceled spots " + a.L8HeadroomUsed + " (finding behavior-2 not covered)");
         }
 
         private static string TargetsText(SimRun run)
@@ -1982,7 +1982,7 @@ namespace GladeBatch
                     w.RemoveIds(del);
                     ApplyReport rep = ApplyOnce(w, run, target, level, Caps(TCap), where, book);
                     Check(SameList(PosBits(rep.PlantedPos), PosBits(delPos)) && rep.Removed == 0 && rep.Felled == 0 && rep.Cancelled == 0, where,
-                        "REPAIR: replanted " + rep.Planted + " (cancelled " + rep.Cancelled + ") for " + del.Count + " bulldozed; positions equal " +
+                        "REPAIR: replanted " + rep.Planted + " (canceled " + rep.Cancelled + ") for " + del.Count + " bulldozed; positions equal " +
                         SameList(PosBits(rep.PlantedPos), PosBits(delPos)));
                     ApplyReport again = ApplyOnce(w, run, target, level, Caps(TCap), where + "-again", book);
                     Check(again.NoOp && again.R.Complete, where, "apply after the repair is not a no-op");

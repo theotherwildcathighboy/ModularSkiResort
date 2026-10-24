@@ -532,7 +532,7 @@ namespace GladeBatch
             Check(!mismatch, "seed32/random", "Seed32 differs from the test-local FNV oracle");
             float3 a = new float3(100.02f, 50.03f, 7.01f);
             float3 b = new float3(100.04f, 50.01f, 7.03f); // same 0.1 m cells
-            Check(SkiGladePlanner.Seed32(a, 3) == SkiGladePlanner.Seed32(b, 3), "seed32/quantize", "0.1 m quantization not honoured");
+            Check(SkiGladePlanner.Seed32(a, 3) == SkiGladePlanner.Seed32(b, 3), "seed32/quantize", "0.1 m quantization not honored");
             Check(SkiGladePlanner.Seed32(a, 3) != SkiGladePlanner.Seed32(a, 4), "seed32/salt", "salt has no effect");
             Check(SkiGladePlanner.Seed32(new float3(float.NaN, 1, 2), 0) == SkiGladePlanner.Seed32(new float3(0, 1, 2), 0), "seed32/nan", "NaN component not quantized to 0");
         }
@@ -592,10 +592,10 @@ namespace GladeBatch
             // Spatial independence. Before the Fmix32 finalizer math.hash(uint4) was linear in
             // its lanes: x-neighbors disagreed 0.477, z-neighbors 0.431, 1 m apart 0.171 —
             // a stripe lattice instead of a random 60 % felling.
-            Check(Math.Abs(cellRate - 0.5) <= 0.01, "thinselect/spatial_x", "neighbouring 1/8 m cells (x) disagree on " + F(cellRate) + " (expect 0.5 ± 0.01)");
-            Check(Math.Abs(cellRateZ - 0.5) <= 0.01, "thinselect/spatial_z", "neighbouring 1/8 m cells (z) disagree on " + F(cellRateZ) + " (expect 0.5 ± 0.01)");
+            Check(Math.Abs(cellRate - 0.5) <= 0.01, "thinselect/spatial_x", "neighboring 1/8 m cells (x) disagree on " + F(cellRate) + " (expect 0.5 ± 0.01)");
+            Check(Math.Abs(cellRateZ - 0.5) <= 0.01, "thinselect/spatial_z", "neighboring 1/8 m cells (z) disagree on " + F(cellRateZ) + " (expect 0.5 ± 0.01)");
             Check(Math.Abs(meterRate - 0.5) <= 0.01, "thinselect/spatial_1m", "points 1 m apart disagree on " + F(meterRate) + " (expect 0.5 ± 0.01)");
-            Console.WriteLine("INFO  thinselect: seed disagreement " + F(seedRate) + ", neighbour-cell disagreement x " + F(cellRate) + " z " + F(cellRateZ) + ", 1 m apart " + F(meterRate));
+            Console.WriteLine("INFO  thinselect: seed disagreement " + F(seedRate) + ", neighbor-cell disagreement x " + F(cellRate) + " z " + F(cellRateZ) + ", 1 m apart " + F(meterRate));
 
             Check(!monoFail, "thinselect/monotone", "a larger fraction deselected a tree");
             Check(!quantFail, "thinselect/quantize", "two points in one 1/8 m cell disagree");

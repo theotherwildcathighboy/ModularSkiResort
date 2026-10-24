@@ -51,7 +51,7 @@ namespace SkiResortMod.Systems
             list.Add(Val("Hover kind / detail", () => $"{HoverKind} — {HoverStatus ?? "-"}"));
             list.Add(Val("Input live (controlOverWorld, no UI/debug disable)", () => m_InputLive));
             list.Add(Val("Plan state", () => PlanState.ToString()));
-            list.Add(Val("Preview plant / cancelled / thin / remove / cancelled deletes / cost / errors", () =>
+            list.Add(Val("Preview plant / canceled / thin / remove / canceled deletes / cost / errors", () =>
                 $"{PreviewPlant} / {PreviewCancelled} / {PreviewThin} / {PreviewRemove} / {PreviewDeleteCancelled} / " +
                 $"{PreviewCost} / {PreviewErrors}"));
             list.Add(Val("Blocked spots known (this plan)", () => PreviewBlockedKnown));

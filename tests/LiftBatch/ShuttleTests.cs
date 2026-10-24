@@ -290,7 +290,7 @@ namespace LiftBatch
             double q1 = ShuttleProfile.QuantizeLengthM(1013.2012), q2 = ShuttleProfile.QuantizeLengthM(1013.2037);
             Check(BitConverter.DoubleToInt64Bits(ShuttleProfile.PeriodS(q1, V, A, D)) ==
                   BitConverter.DoubleToInt64Bits(ShuttleProfile.PeriodS(q2, V, A, D)), W,
-                  "two lengths in one centimetre give different periods after quantizing");
+                  "two lengths in one centimeter give different periods after quantizing");
             // The catalog row reaches the profile as floats widened to double (0.8f = 0.800000011920929).
             LiftTypeDef tram = SkiCatalog.LiftById("tram");
             if (Check(tram != null, W, "no tram row"))

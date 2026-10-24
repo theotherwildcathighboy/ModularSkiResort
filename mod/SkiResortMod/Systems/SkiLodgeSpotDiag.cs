@@ -376,7 +376,7 @@ namespace SkiResortMod.Systems
             bool hang = EntityManager.HasComponent<Game.Areas.HangaroundLocation>(area);
             sb.Append(hang ? "hangaround area " : "area ").Append(Ent(area)).Append(" '").Append(PrefabNameOf(area)).Append('\'');
             if (EntityManager.TryGetComponent(area, out Game.Areas.Geometry g))
-                sb.Append(" centre ").Append(hasT ? Fmt(ToLocal(g.m_CenterPosition, lodgeT)) : Fmt(g.m_CenterPosition)).Append(", surface ")
+                sb.Append(" center ").Append(hasT ? Fmt(ToLocal(g.m_CenterPosition, lodgeT)) : Fmt(g.m_CenterPosition)).Append(", surface ")
                   .Append(g.m_SurfaceArea.ToString("F0", Ic)).Append(" m2");
             if (EntityManager.TryGetBuffer(area, isReadOnly: true, out DynamicBuffer<Game.Areas.Node> nodes))
                 sb.Append(", ").Append(nodes.Length).Append(" node(s)");

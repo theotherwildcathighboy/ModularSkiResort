@@ -1022,7 +1022,7 @@ namespace ResortBatch
             Check(Near(poly, 1551.392, 0.01), w + " strip", $"polygon distance {poly}, expected 1097·√2 = 1551.392");
             Check(Rules.CheckLodge(GoodLodge(box)) == LodgeReject.None && Rules.CheckLodge(GoodLodge(poly)) == LodgeReject.NotSlopeside, w + " strip",
                   "box → None (the hole R-3 closed), polygon → NotSlopeside");
-            Check(PolygonDistance(new float2(712f, 702f), strip) == 0f, w + " strip", "(712, 702) on the centre line → 0");
+            Check(PolygonDistance(new float2(712f, 702f), strip) == 0f, w + " strip", "(712, 702) on the center line → 0");
             float near = PolygonDistance(new float2(1000f, 900f), strip);
             Check(Near(near, 56.569, 0.01) && Rules.DistanceToBoundsXZ(new float2(1000f, 900f), new float2(0f, -10f), new float2(1424f, 1414f)) == 0f,
                   w + " strip", $"(1000, 900) → {near} (80/√2 = 56.569), box 0");

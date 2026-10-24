@@ -70,7 +70,7 @@ namespace ResortBatch
                 if (!MastAimRules.Aim(cx, cy, cz, 4, k, out ax, out az) || ax * (10f - cx[k]) + az * (10f - cz[k]) <= 0f) allIn = false;
                 if (!MastAimRules.Aim(rx, ry, rz, 4, k, out ax, out az) || ax * (10f - rx[k]) + az * (10f - rz[k]) <= 0f) allIn = false;
             }
-            Check(allIn, w, "every corner of both windings aims toward the centre");
+            Check(allIn, w, "every corner of both windings aims toward the center");
 
             // Mid-edge node on the top side (CW ring with a fifth node).
             float[] mx = { 0f, 0f, 10f, 20f, 20f }, mz = { 0f, 20f, 20f, 20f, 0f }, my = { 0f, 0f, 0f, 0f, 0f };

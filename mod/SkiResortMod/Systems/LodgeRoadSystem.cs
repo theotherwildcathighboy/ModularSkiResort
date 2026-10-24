@@ -519,7 +519,7 @@ namespace SkiResortMod.Systems
                 if (haveFront && EdgeDistances(edge, front, out float boundary, out float centre, out float t))
                 {
                     sb.Append(": front->boundary ").Append(F(boundary)).Append(" m (limit ").Append(F(AccessLimitM))
-                      .Append("), front->centre ").Append(F(centre)).Append(" m, nearest centre t ").Append(F(t));
+                      .Append("), front->center ").Append(F(centre)).Append(" m, nearest center t ").Append(F(t));
                 }
                 else if (!haveFront)
                     sb.Append(": front point unavailable");

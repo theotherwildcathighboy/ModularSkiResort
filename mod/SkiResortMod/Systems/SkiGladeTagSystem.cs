@@ -177,7 +177,7 @@ namespace SkiResortMod.Systems
                         if (create.Length == 0)
                         {
                             LastCensus = $"nothing to tag for run {RunLabel(run)} (plan layer {layer}; " +
-                                         $"{k.Delete} delete Temp(s), {k.Cancelled} cancelled)";
+                                         $"{k.Delete} delete Temp(s), {k.Cancelled} canceled)";
                             Mod.Log.Info($"Glade: {LastCensus}");
                         }
                         else
@@ -333,7 +333,7 @@ namespace SkiResortMod.Systems
                              (layer == SkiRunTreeMember.LayerBelt ? "belt" : "glade") +
                              $" layer, variant {variant}, gen {SkiGladeCompose.PlanGeneration}, layout " +
                              $"v{SkiRunTreeMember.CurrentVersion}; ApplyObjectsSystem create path {create.Length}, " +
-                             $"cancelled {k.Cancelled} (not created), delete {k.Delete}, update {k.Update}, " +
+                             $"canceled {k.Cancelled} (not created), delete {k.Delete}, update {k.Update}, " +
                              $"already deleted {k.AlreadyDeleted}" +
                              (retagged > 0 ? $"; {retagged} re-tagged" : "") +
                              (decorationFixed > 0 ? $"; Decoration re-enabled on {decorationFixed} reused Temp(s)" : "");

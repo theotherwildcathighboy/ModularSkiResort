@@ -2293,7 +2293,7 @@ namespace SkiResortMod.Systems
             {
                 point = row.FocusCenter;
                 wanted = math.max(row.FocusRadius * Tuning.FocusZoomFactor, Tuning.FocusLiftMinZoomM);
-                where = $"the lift's centre ({point.x:F0}, {point.z:F0}), radius {row.FocusRadius:F0} m";
+                where = $"the lift's center ({point.x:F0}, {point.z:F0}), radius {row.FocusRadius:F0} m";
             }
             if (!Fly(Entity.Null, point, wanted, out float zoom, out string failure))
             {

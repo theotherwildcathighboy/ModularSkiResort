@@ -143,13 +143,13 @@ namespace ResortBatch
             int b2 = s.Add(Far, Rect(580f, 100f, 620f, 300f));
             s.Solve(new List<bool> { true, false, false });
             Check(s.Served(c2) && s.Root[c2] == c2 && s.Via[c2] == -1, W, "a directly served leaf is its own root");
-            Check(!s.Served(a2) && !s.Served(b2), W, "a directly served leaf must serve neither neighbour");
+            Check(!s.Served(a2) && !s.Served(b2), W, "a directly served leaf must serve neither neighbor");
             s = new Scene();
             c2 = s.Add(Served1, Rect(90f, 190f, 700f, 210f));
             a2 = s.Add(Far, Rect(90f, 100f, 130f, 200f));
             b2 = s.Add(Far, Rect(580f, 100f, 620f, 300f));
             s.Solve(null);
-            Check(s.Served(a2) && s.Served(b2), W, "the same scene without a mask serves both neighbours (the old behaviour)");
+            Check(s.Served(a2) && s.Served(b2), W, "the same scene without a mask serves both neighbors (the old behavior)");
 
             Scene none = Crossing(out _, out _, out _).Solve(null);
             Scene empty = Crossing(out _, out _, out _).Solve(new List<bool>());

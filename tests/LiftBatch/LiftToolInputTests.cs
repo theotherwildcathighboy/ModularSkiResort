@@ -461,8 +461,8 @@ namespace LiftBatch
             Check(LiftLineInput.RightClick(LiftLineStep.PickTop, false, 0) == LiftLineBack.DropBase, W, "PickTop must drop the first end");
             Check(LiftLineInput.RightClick(LiftLineStep.Edit, false, 0) == LiftLineBack.DropTop, W, "Edit, no edits, must drop the second end");
             Check(LiftLineInput.RightClick(LiftLineStep.Edit, false, 3) == LiftLineBack.UndoEdit, W, "Edit with edits must undo");
-            Check(LiftLineInput.RightClick(LiftLineStep.Edit, true, 3) == LiftLineBack.CancelDrag, W, "a drag must be cancelled first");
-            Check(LiftLineInput.RightClick(LiftLineStep.Edit, true, 0) == LiftLineBack.CancelDrag, W, "a drag must be cancelled first (no edits)");
+            Check(LiftLineInput.RightClick(LiftLineStep.Edit, true, 3) == LiftLineBack.CancelDrag, W, "a drag must be canceled first");
+            Check(LiftLineInput.RightClick(LiftLineStep.Edit, true, 0) == LiftLineBack.CancelDrag, W, "a drag must be canceled first (no edits)");
             Check(LiftLineInput.RightClick(LiftLineStep.Building, false, 2) == LiftLineBack.None, W, "building must ignore right click");
             // Never the old behavior: no single right click drops a line that has edits.
             foreach (LiftLineStep s in (LiftLineStep[])Enum.GetValues(typeof(LiftLineStep)))

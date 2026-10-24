@@ -230,7 +230,7 @@ namespace SkiResortMod.Systems
         private const string TerrainStatus = "terrain — no run here";
         /// <summary>Binding happens on draw (paused too) or when a sign is placed; a moved sign binds on the next unpaused 64-frame sweep</summary>
         private const string UnboundStatus =
-            "unbound run — a Ski Area Welcome Sign must stand within 5 km of the run's centre; " +
+            "unbound run — a Ski Area Welcome Sign must stand within 5 km of the run's center; " +
             "it binds at once when the run is drawn or a sign is placed (paused too), else on the " +
             "next unpaused 64-frame sweep";
 
@@ -832,10 +832,10 @@ namespace SkiResortMod.Systems
                     sb.Append("none (no compose for the planned run)\n");
                 }
                 sb.Append("  preview: plant ").Append(PreviewPlant)
-                  .Append(" (cancelled ").Append(PreviewCancelled)
+                  .Append(" (canceled ").Append(PreviewCancelled)
                   .Append("), thin ").Append(PreviewThin)
                   .Append(", remove ").Append(PreviewRemove)
-                  .Append(", cancelled delete Temps ").Append(PreviewDeleteCancelled)
+                  .Append(", canceled delete Temps ").Append(PreviewDeleteCancelled)
                   .Append(", live ").Append(LiveTemps)
                   .Append(", cost ").Append(PreviewCost)
                   .Append(", errors ").Append(PreviewErrors)
@@ -854,7 +854,7 @@ namespace SkiResortMod.Systems
                   .Append("; doomed-tree hiding ").Append(m_HideDoomed ? "on" : "OFF (fallback)")
                   .Append(", mis-hidden now ").Append(m_MisHiddenDoomed)
                   .Append("; candidate ring nodes ").Append(m_CandidatePointCount)
-                  .Append("; hover colour alpha ").Append(m_HoverColor.a.ToString("F3"))
+                  .Append("; hover color alpha ").Append(m_HoverColor.a.ToString("F3"))
                   .Append(" → candidate alpha ").Append(m_CandidateColor.a.ToString("F3")).Append('\n');
                 sb.Append("  last census: wild inside ").Append(m_CenWildInside)
                   .Append(" thinnable + ").Append(m_CenFixedInside).Append(" fixed, band ").Append(m_CenBand)
@@ -1049,10 +1049,10 @@ namespace SkiResortMod.Systems
                     LastApplyCensus =
                         $"run {EntityText(m_PlannedRun)} {TargetText(m_PlannedTreeLine)} L{m_PlannedLevel} " +
                         $"({LevelName(m_PlannedLevel)}; layer {LayerText(m_PlannedLayer)}): planted " +
-                        $"{PreviewPlant - PreviewCancelled} ({PreviewCancelled} cancelled by validation/budget — " +
+                        $"{PreviewPlant - PreviewCancelled} ({PreviewCancelled} canceled by validation/budget — " +
                         $"not created, ApplyObjectsSystem.cs:337-340), felled {PreviewThin}, removed {PreviewRemove}" +
                         (PreviewDeleteCancelled > 0
-                            ? $" ({PreviewDeleteCancelled} delete Temp(s) cancelled — their trees stay)"
+                            ? $" ({PreviewDeleteCancelled} delete Temp(s) canceled — their trees stay)"
                             : "") +
                         $", net cost {PreviewCost}";
                     Mod.Log.Info($"Glade: APPLY — {LastApplyCensus}");
@@ -1621,21 +1621,21 @@ namespace SkiResortMod.Systems
             if (reason == ReasonOrphan)
             {
                 return $"unbound run {label} — paid orphan (its Welcome Sign is gone); nearest sign " +
-                       $"{DistanceText(distance)} from the run's centre: it re-links free to a sign within " +
+                       $"{DistanceText(distance)} from the run's center: it re-links free to a sign within " +
                        $"5 km on the next unpaused 64-frame sweep{notReady}";
             }
             if (float.IsPositiveInfinity(distance))
             {
                 return $"unbound run {label} — no Ski Area Welcome Sign in this city; place one within " +
-                       $"5 km of the run's centre (binds at once){notReady}";
+                       $"5 km of the run's center (binds at once){notReady}";
             }
             if (inRange)
             {
                 return $"unbound run {label} — nearest Welcome Sign {DistanceText(distance)} from the " +
-                       $"run's centre, within 5 km: it binds on the next unpaused 64-frame sweep{notReady}";
+                       $"run's center, within 5 km: it binds on the next unpaused 64-frame sweep{notReady}";
             }
             return $"unbound run {label} — nearest Welcome Sign {DistanceText(distance)} from the run's " +
-                   "centre (max 5 km); place a sign within 5 km (binds at once) or move one there (binds " +
+                   "center (max 5 km); place a sign within 5 km (binds at once) or move one there (binds " +
                    $"on the next unpaused 64-frame sweep){notReady}";
         }
 
@@ -2700,11 +2700,11 @@ namespace SkiResortMod.Systems
             LastApplyCheck =
                 $"created {(tagKnown ? created.ToString() : "?")} by ApplyObjectsSystem's create path " +
                 $"(tagged {(tagKnown ? tagged.ToString() : "? — tag system did not report this apply")}; planned " +
-                $"{m_CheckPlanted}), cancelled {m_CheckCancelled} planted spot(s) (not created), " +
-                $"{m_CheckDeleteCancelled} cancelled delete Temp(s); own members now {ownNow} (expected {ownExpected} = " +
+                $"{m_CheckPlanted}), canceled {m_CheckCancelled} planted spot(s) (not created), " +
+                $"{m_CheckDeleteCancelled} canceled delete Temp(s); own members now {ownNow} (expected {ownExpected} = " +
                 $"{m_CheckOwnBefore} − removed {m_CheckRemoved} + tagged {taggedForExpect}); other trees now {othersNow} " +
                 $"(expected {othersExpected} = {othersBefore} − felled {m_CheckFelled}); NEW untagged trees {newTotal}: " +
-                $"{newAtCancelled} at cancelled planted spots, {newAtPlanted} at planted spots, {newNearFelled} " +
+                $"{newAtCancelled} at canceled planted spots, {newAtPlanted} at planted spots, {newNearFelled} " +
                 $"within {Tuning.CheckFelledRadiusM} m of a felled tree, {newElsewhere} elsewhere; vanished {vanished}; " +
                 $"doomed still standing {doomedStanding}; un-overridden since the apply {unOverridden} (hidden " +
                 "before, counted before — OverrideSystem.cs:1777-1791)" +

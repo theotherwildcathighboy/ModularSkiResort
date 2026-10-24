@@ -2497,7 +2497,7 @@ namespace SkiResortMod.Systems
         {
             RunSnow s = ch.Now;
             string excluded = s.Kind == RunKind.Natural && s.Source == RunSnowSource.Measured
-                ? $", {s.ExcludedShare * 100f:F0} % excluded (injected neighbours)" : "";
+                ? $", {s.ExcludedShare * 100f:F0} % excluded (injected neighbors)" : "";
             string source = s.Source == RunSnowSource.Measured
                 ? $"measured (snapshot {frame - s.SnapshotFrame} sim frames old)"
                 : $"estimated (day-mean {dayMean:F1} C)";

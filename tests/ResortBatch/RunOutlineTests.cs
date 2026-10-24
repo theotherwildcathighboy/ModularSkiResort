@@ -149,7 +149,7 @@ namespace ResortBatch
                 Check(got == want, w, $"error {e} warning {wa} parent {p}: {got}, want {want}");
             }
             Check(RunOutlineRules.ColourOf(false, false, 0x800u) == OutlineColour.Owner, w, "Parent alone → Owner");
-            Check(RunOutlineRules.ColourOf(false, false, 0x40u | 0x400u) == OutlineColour.Hovered, w, "Modify|Hidden → Hovered (colour ignores Hidden)");
+            Check(RunOutlineRules.ColourOf(false, false, 0x40u | 0x400u) == OutlineColour.Hovered, w, "Modify|Hidden → Hovered (color ignores Hidden)");
             Check(RunOutlineRules.ColourOf(false, false, 0u) == OutlineColour.Hovered, w, "no flag → Hovered");
         }
 
@@ -281,13 +281,13 @@ namespace ResortBatch
             // The neighbor stored counter-clockwise (nodes reversed, CounterClockwise flag): the same result.
             TestNodes bCcw = Shape(10, 0, 20, 0, 20, 10, 10, 10);
             TestSink s8 = Frame(new[] { a, bCcw }, new byte[] { 1, 3 }, new[] { true, true });
-            Check(!s8.Ops.Contains("L 10,10>10,0") && !s8.Ops.Contains("L 10,0>10,10"), w, "CCW neighbour, shared side drawn: " + Join(s8.Ops));
-            Check(CountOps(s8.Ops, 'L') == 6 && CountOps(s8.Ops, 'D') == 6, w, "CCW neighbour: " + Join(s8.Ops));
+            Check(!s8.Ops.Contains("L 10,10>10,0") && !s8.Ops.Contains("L 10,0>10,10"), w, "CCW neighbor, shared side drawn: " + Join(s8.Ops));
+            Check(CountOps(s8.Ops, 'L') == 6 && CountOps(s8.Ops, 'D') == 6, w, "CCW neighbor: " + Join(s8.Ops));
 
             // A neighbor stored counter-clockwise without its flag walks the side the same way as A: not a shared key, both draw it (the
             // game's rule keys on the flag, not on geometry).
             TestSink s9 = Frame(new[] { a, bCcw }, new byte[] { 1, 1 }, new[] { true, true });
-            Check(CountOps(s9.Ops, 'L') == 8, w, $"unflagged reversed neighbour: {CountOps(s9.Ops, 'L')} lines, want 8");
+            Check(CountOps(s9.Ops, 'L') == 8, w, $"unflagged reversed neighbor: {CountOps(s9.Ops, 'L')} lines, want 8");
 
             // An open Temp whose last side lies on a complete neighbor's side, opposite sense: dropped while open too (the game files
             // open areas' sides, :221-242).
@@ -297,8 +297,8 @@ namespace ResortBatch
             Check(CountOps(s10.Ops, 'L') == 6, w, $"same-sense overlap: {CountOps(s10.Ops, 'L')} lines, want 6 (4 + 2)");
             TestNodes openRev = Shape(0, 20, 10, 0, 10, 10); // its side 10,0 > 10,10 is A's reversed
             TestSink s11 = Frame(new[] { a, openRev }, new byte[] { 1, 0 }, new[] { false, true });
-            Check(!s11.Ops.Contains("L 10,0>10,10") && !s11.Ops.Contains("L 10,10>10,0"), w, "open run on a neighbour's side: " + Join(s11.Ops));
-            Check(CountOps(s11.Ops, 'L') == 4 && CountOps(s11.Ops, 'D') == 3, w, "open run on a neighbour's side: " + Join(s11.Ops));
+            Check(!s11.Ops.Contains("L 10,0>10,10") && !s11.Ops.Contains("L 10,10>10,0"), w, "open run on a neighbor's side: " + Join(s11.Ops));
+            Check(CountOps(s11.Ops, 'L') == 4 && CountOps(s11.Ops, 'D') == 3, w, "open run on a neighbor's side: " + Join(s11.Ops));
 
             // A square touching A only at the corner 10,10: no shared side; the corner dotted once.
             TestNodes c = Shape(10, 10, 10, 20, 20, 20, 20, 10);
@@ -358,13 +358,13 @@ namespace ResortBatch
             const string w = "outline I";
             float4 g = RunOutlineRules.GladeOutlineColour;
             Check(Near(g.x, 0.86, 1e-6) && Near(g.y, 0.30, 1e-6) && Near(g.z, 1.00, 1e-6) && Near(g.w, 0.95, 1e-6), w,
-                  "glade outline colour (0.86, 0.30, 1.00, 0.95)");
+                  "glade outline color (0.86, 0.30, 1.00, 0.95)");
             // Distinct from the game's hovered blue, owner green, warning yellow and error red.
             float4[] game = { new float4(0.5f, 0.5f, 1f, 0.5f), new float4(0.5f, 1f, 0.5f, 0.5f), new float4(1f, 1f, 0.25f, 0.5f), new float4(1f, 0.25f, 0.25f, 0.5f) };
             bool distinct = true;
             foreach (float4 c in game)
                 if (math.distance(c.xyz, g.xyz) < 0.3f) distinct = false;
-            Check(distinct, w, "glade colour is at least 0.3 (rgb distance) from every game outline colour");
+            Check(distinct, w, "glade color is at least 0.3 (rgb distance) from every game outline color");
             Check(RunOutlineRules.GladeCandidateAlphaFactor == 0.8f && RunOutlineRules.GladeLineWidthM == 2.2f &&
                   RunOutlineRules.GladeDashM == 9f && RunOutlineRules.GladeGapM == 5f, w, "glade width 2.2 m, dash 9 / gap 5, candidate alpha x0.8");
             Check(RunOutlineRules.NodeDotFill.Equals(new float4(1f, 1f, 1f, 1f)), w, "node dot fill is opaque white");
