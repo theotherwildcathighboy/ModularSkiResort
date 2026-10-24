@@ -881,14 +881,54 @@ def inspect_fbx(path, expected_stem, rep, spec, kind_hint=None, part_table=None)
 # Folder validation
 # --------------------------------------------------------------------------------------
 
-def guess_kind(name):
-    """Heuristic asset kind from the name, for the CLI where no spec is available."""
+KINDS = ("prop", "building", "hanging")
+
+
+def manifest_kind(asset_dir, name):
+    """The kind an asset's own manifest declares, or None. `kind` leads with the validator kind
+    ("building", "prop (hosted sub-object; ...)"); lodge.py manifests carry no `kind` but a `lot`
+    (every lodge.py asset is a building). Anything else (drive / support / ...) gives None."""
+    try:
+        with open(os.path.join(asset_dir, f"{name}.manifest.json"), encoding="utf-8") as fh:
+            data = json.load(fh)
+    except (OSError, ValueError):
+        return None
+    if not isinstance(data, dict):
+        return None
+    kind = data.get("kind")
+    if isinstance(kind, str):
+        lead = re.match(r"[a-z]+", kind.strip().lower())
+        return lead.group(0) if lead and lead.group(0) in KINDS else None
+    if data.get("generator") == "lodge.py" and "lot" in data:
+        return "building"
+    return None
+
+
+def guess_kind(name, asset_dir=None):
+    """Asset kind for the CLI where no spec is available: the asset's manifest first (a school,
+    patrol hut or sign has no building word in its name), the name only as the fallback."""
+    if asset_dir:
+        kind = manifest_kind(asset_dir, name)
+        if kind:
+            return kind
     n = name.lower()
     if "chair" in n:
         return "hanging"
     if any(t in n for t in ("station", "lodge", "fnd", "hut", "building")):
         return "building"
     return "prop"
+
+
+def family_folder_error(target):
+    """None when a cross-asset sharedAssets `target` stays inside the family folder (PIPELINE
+    section 4 one-batch layout, DECISIONS 298): `../<Owner>/<file>`, a file in a SIBLING asset
+    folder, so the owner and every sharer sit under one parent and import in one Editor action.
+    Otherwise the reason string."""
+    parts = target.replace("\\", "/").split("/")
+    if len(parts) == 3 and parts[0] == ".." and not {parts[1], parts[2]} & {"", ".", ".."}:
+        return None
+    return (f"{target!r} leaves the family folder: it must be '../<Owner>/<file>' (owner and sharers "
+            f"under ONE parent, imported in ONE action; a later action duplicates the LOD0 set)")
 
 
 def validate_asset_folder(asset_dir, name, spec=None):
@@ -1013,6 +1053,9 @@ def validate_asset_folder_ex(asset_dir, name, spec=None):
             rep.error("settings", f"sharedAssets[{key!r}] is not a filename")
             continue
         if "/" in target:
+            why = family_folder_error(target)
+            if why:
+                rep.error("family-folder", f"sharedAssets[{key!r}] {why}")
             if not os.path.isfile(os.path.normpath(os.path.join(asset_dir, target))):
                 rep.error("settings", f"sharedAssets[{key!r}] -> {target!r} does not exist")
             if re.fullmatch(rf"{re.escape(name)}_(BaseColor|Normal|MaskMap|ControlMask|Emissive)\.png", key):
@@ -1283,7 +1326,7 @@ def main(argv=None):
     for d in folders:
         d = os.path.abspath(d)
         name = os.path.basename(os.path.normpath(d))
-        kind = guess_kind(name) if args.kind == "auto" else args.kind
+        kind = guess_kind(name, d) if args.kind == "auto" else args.kind
         row = {"name": name, "dir": d, "kind": kind, "errors": 0, "warnings": 0,
                "tris": "-", "tex": "-", "engine_base": "-", "density_min": "-", "first_error": ""}
         try:

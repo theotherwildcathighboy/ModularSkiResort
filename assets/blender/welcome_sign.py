@@ -36,7 +36,7 @@ parts from recipes/_civic.py.
 
 CLI (headless only):
     blender --background --factory-startup --python-exit-code 1 --python welcome_sign.py --
-        [--out DIR | --export] [--name SkiWelcomeSignA] [--masts {0,2,3}] [--no-lanterns]
+        [--out DIR | --export] [--letter A] [--name SkiWelcomeSignA] [--masts {0,2,3}] [--no-lanterns]
         [--header "SKI AREA"] [--finish] [--lods] [--blockout] [--preview [DIR]]
         [--we-mock [TEXT]] [--review [DIR]] [--tex 1024] [--ao-samples 48] [--no-validate]
     Without --finish: blockout bake at A = 512, AO off (fast look). --blockout: geometry,
@@ -66,6 +66,7 @@ import importlib.util
 import json
 import math
 import os
+import re
 import sys
 import tempfile
 import time
@@ -108,9 +109,18 @@ def _load_civic():
 C = _load_civic()
 
 REPO = os.path.normpath(os.path.join(_HERE, os.pardir, os.pardir))
-IMPORT_DIR = os.path.join(REPO, "assets", "import", "signs", "A")
+IMPORT_ROOT = os.path.join(REPO, "assets", "import", "signs")
 PREVIEW_DIR = os.path.join(REPO, "assets", "preview", "signs")
 NAME = "SkiWelcomeSignA"
+LETTER_DEFAULT = "A"
+
+
+def letter_names(letter):
+    """(export letter folder, default asset name) for a generation letter: --export writes
+    assets/import/signs/<letter>/SkiWelcomeSign<letter>. The default letter A is today's output."""
+    if not re.fullmatch(r"[A-Z]", letter or ""):
+        raise ValueError(f"--letter must be one capital letter, got {letter!r}")
+    return os.path.join(IMPORT_ROOT, letter), "SkiWelcomeSign" + letter
 PREFAB = "SkiResortGate"
 SPEC_TAG = "civic-sign-2026-10"
 
@@ -241,8 +251,12 @@ def parse_args(argv=None):
         argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
     ap = argparse.ArgumentParser(prog="welcome_sign.py")
     ap.add_argument("--out", default=None)
-    ap.add_argument("--export", action="store_true", help="write to assets/import/signs/A")
-    ap.add_argument("--name", default=NAME)
+    ap.add_argument("--export", action="store_true",
+                    help="write to assets/import/signs/<letter> (default letter A)")
+    ap.add_argument("--letter", default=LETTER_DEFAULT,
+                    help="generation letter: the --export folder signs/<letter> and, without --name, "
+                         "the asset name SkiWelcomeSign<letter>")
+    ap.add_argument("--name", default=None, help="asset name (default SkiWelcomeSign<letter>)")
     ap.add_argument("--masts", type=int, default=2, choices=(0, 2, 3))
     ap.add_argument("--no-lanterns", action="store_true")
     ap.add_argument("--header", default=HEADER_TEXT)
@@ -1008,13 +1022,14 @@ def run(args):
     if not bpy.app.background:
         raise RuntimeError("welcome_sign.py runs headless only (ROUND-SPEC R10)")
     t0 = time.perf_counter()
-    name = cs2_asset.validate_asset_name(args.name)
+    letter_dir, default_name = letter_names(args.letter)
+    name = cs2_asset.validate_asset_name(args.name or default_name)
     rep = cs2_validate._Report(name)
     cs2_validate.lint_asset_name(name, rep)
     if any(f[0] == "ERROR" for f in rep):
         raise RuntimeError(f"{name}: name lint {list(rep)}")
-    out = os.path.abspath(args.out) if args.out else (IMPORT_DIR if args.export else
-                                                      os.path.join(tempfile.gettempdir(), "welcome_sign", "A"))
+    out = os.path.abspath(args.out) if args.out else (letter_dir if args.export else
+                                                      os.path.join(tempfile.gettempdir(), "welcome_sign", args.letter))
     asset_dir = os.path.join(out, name)
     A = int(args.tex) if args.finish else 512
     ao = int(args.ao_samples) if args.finish else 0

@@ -12,11 +12,14 @@ CLI (headless only - refuses to run unless bpy.app.background, ROUND-SPEC R10):
     blender --background --factory-startup --python-exit-code 1 --python lodge.py --
         (--lodge {L1..L5 | basic-base | basic-top | mid | lux-top | lux-base}
          | --school | --patrol {p1,p2} | --recipe KEY)
-        [--out DIR | --export]   letter folder; --export = assets/import/<category>/<letter>;
+        [--out DIR | --export]   letter folder; --export = assets/import/<category>/<letter> (a --tiled
+                                 building goes under the sheet owner's category, "buildings": one family folder);
                                  neither = a scratch dir under the system temp
         [--name BASE] [--letter X]
         [--blockout]             geometry + contracts + rooms + cull + area / density
                                  prediction + manifest; no bake, no FBX
+        [--finalize]             tiled round, after the last building: recompose the family sheet with every
+                                 label rect into the owner (school) folder (PIPELINE section 4); builds nothing
         [--finish | --no-finish] bake (default on); --no-finish = look-only FBX, NOT shippable
         [--lods | --no-lods] [--no-validate]
         [--tex {auto,1024,2048,4096}] [--interior {name,settings}]
@@ -172,6 +175,10 @@ def parse_args(argv=None):
     # buildings share ONE family sheet (an owner folder beside the buildings); "probe" rebuilds T16
     ap.add_argument("--sheet-layout", default="rollout", choices=("rollout", "probe"),
                     help="tiled: rollout = shared family sheet + weathering; probe = the T16 probe")
+    ap.add_argument("--finalize", action="store_true",
+                    help="tiled round, after the last building: recompose the family sheet with every label "
+                         "rect and install it into the owner (school) folder; no building is built "
+                         "(needs --out or --export, --letter, the same --trim/--slots/--glass/--sheet-tex)")
     ap.add_argument("--sheet-dir", default=None,
                     help="tiled rollout: the family sheet owner folder (default <out>/SkiTileSheet<letter>)")
     ap.add_argument("--weather-level", default="auto",
@@ -1740,12 +1747,22 @@ def _gls_extra_faces(win, table, prefixes):
     return out
 
 
+def family_category(recipe):
+    """The import-tree category folder a recipe's letter folder lives in. A TILED building goes
+    under the sheet owner's category (assets/import/<family>/<letter>/<Asset>/), so the owner and
+    every sharer sit under ONE parent and import in ONE Editor action (DECISIONS 298; sharedAssets
+    '../<Owner>/...', checked by cs2_validate 'family-folder'). Untiled keeps its own category."""
+    if getattr(recipe, "tiled", False):
+        return R.get_recipe(SHEET_OWNER_KEY).category
+    return recipe.category
+
+
 def _out_dir(recipe, args, letter):
     if args.out:
         return os.path.abspath(args.out)
     if args.export:
-        return os.path.join(IMPORT_ROOT, recipe.category, letter)
-    return os.path.join(tempfile.gettempdir(), "lodge", recipe.category, letter)
+        return os.path.join(IMPORT_ROOT, family_category(recipe), letter)
+    return os.path.join(tempfile.gettempdir(), "lodge", family_category(recipe), letter)
 
 
 def run(recipe, args):
@@ -2243,7 +2260,8 @@ def sheet_paths(args, letter):
     sname = cs2_asset.validate_asset_name("SkiTileSheet" + letter)
     if getattr(args, "sheet_dir", None):
         return os.path.abspath(args.sheet_dir), sname
-    root = os.path.abspath(args.out) if args.out else os.path.join(IMPORT_ROOT, "buildings", letter)
+    root = os.path.abspath(args.out) if args.out else os.path.join(
+        IMPORT_ROOT, R.get_recipe(SHEET_OWNER_KEY).category, letter)
     return os.path.join(root, "_" + sname), sname
 
 
@@ -2302,6 +2320,26 @@ def recompose_family_sheet(sdir, sname, A=4096, trim=False, slots=False, glass=F
     if os.path.isfile(jp):
         os.remove(jp)
     return ensure_family_sheet(sdir, sname, A, _sheet_repeats(), trim=trim, slots=slots, glass=glass)
+
+
+def finalize_family_sheet(args):
+    """lodge.py --finalize: after the LAST building of a tiled round, recompose the family sheet with
+    every building's label rect pasted and install it as the sheet owner's LOD0 maps (the school's
+    own folder). Replaces the research-folder finalize.py scripts. Build all eight with the same
+    --out / --export, --letter and kit flags first; the sheet flags (--trim, --slots, --glass,
+    --sheet-tex) must match those builds or the layout hash differs and the sheet is rebuilt."""
+    if not (args.out or args.export):
+        raise RuntimeError("--finalize needs --out DIR or --export (the family folder it installs into)")
+    letter = args.letter or (os.path.basename(os.path.normpath(args.out)) if args.out else None)
+    if not letter:
+        raise RuntimeError("--finalize needs --letter")
+    sdir, sname = sheet_paths(args, letter)
+    odir, oname = sheet_owner(args, letter)
+    lay = recompose_family_sheet(sdir, sname, int(args.sheet_tex), trim=args.trim == "v1",
+                                 slots=args.slots == "v2", glass=args.glass == "gls")
+    files = install_owner_maps(sdir, sname, odir, oname)
+    print(f"[lodge] FINALIZE {sname} hash {lay['hash']} -> {odir} {files}")
+    return {"sheet": sname, "hash": lay["hash"], "owner_dir": odir, "files": files}
 
 
 def _tiled_lod0_rollout(far, lod0, recipe, args, name, asset_dir, keys, rep, result, A_far):
@@ -2778,6 +2816,9 @@ def validate(asset_dir, name, recipe, obj, win, A, max_texture=None, subsfx="Win
 
 def main():
     args = parse_args()
+    if args.finalize:
+        finalize_family_sheet(args)
+        return
     recipe = select_recipe(args)
     run(recipe, args)
 
