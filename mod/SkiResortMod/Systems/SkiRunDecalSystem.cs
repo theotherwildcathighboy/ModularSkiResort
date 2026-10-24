@@ -908,10 +908,10 @@ namespace SkiResortMod.Systems
 
             if (missing.Count > 0)
                 Mod.Log.Warn($"Decal: {missing.Count} of 8 texture file(s) unavailable under " +
-                             $"'{dir}': {string.Join(", ", missing)} — those applications are " +
+                             $"'{Mod.ScrubUserPath(dir)}': {string.Join(", ", missing)} — those applications are " +
                              "skipped this load (retried next load); everything else proceeds");
             else
-                Mod.Log.Info($"Decal: 8 texture file(s) ready under '{dir}' (cached across loads)");
+                Mod.Log.Info($"Decal: 8 texture file(s) ready under '{Mod.ScrubUserPath(dir)}' (cached across loads)");
         }
 
         /// <summary>Winter-look decision: the primary driver is measured snow on the runs (TryGetDressDepth: the injection

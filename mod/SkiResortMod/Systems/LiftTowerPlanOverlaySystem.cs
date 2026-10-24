@@ -11,6 +11,7 @@ using System;
 using System.Collections.Generic;
 using Colossal.Entities;
 using Colossal.Mathematics;
+using Colossal.Serialization.Entities;
 using Game;
 using Game.Common;
 using Game.Rendering;
@@ -114,6 +115,7 @@ namespace SkiResortMod.Systems
         private Entity m_LastSelected;
         private LiftPlanDraw m_LastDraw;
         private bool m_WaitLogged;
+        private bool m_Disabled, m_ErrorLogged;
 
         protected override void OnCreate()
         {
@@ -124,40 +126,63 @@ namespace SkiResortMod.Systems
             Mod.Log.Info($"{nameof(LiftTowerPlanOverlaySystem)} created");
         }
 
+        protected override void OnGameLoadingComplete(Purpose purpose, GameMode mode)
+        {
+            base.OnGameLoadingComplete(purpose, mode);
+            m_Disabled = false;
+            m_ErrorLogged = false;
+        }
+
         protected override void OnUpdate()
         {
-            if (Mod.Settings != null && !Mod.Settings.LiftBuildAids)
-                return;
-            // Never under the lift tool, whose editable preview uses the same rings: two look-alike overlays would suggest the placed
-            // line can be edited there.
-            if (m_ToolSystem.activeTool is LiftLineToolSystem)
-                return;
-            Entity selected = m_ToolSystem.selected;
-            if (selected == Entity.Null)
+            try
             {
-                m_LastSelected = Entity.Null;
+                if (m_Disabled)
+                    return;
+                if (Mod.Settings != null && !Mod.Settings.LiftBuildAids)
+                    return;
+                // Never under the lift tool, whose editable preview uses the same rings: two look-alike overlays would suggest the placed
+                // line can be edited there.
+                if (m_ToolSystem.activeTool is LiftLineToolSystem)
+                    return;
+                Entity selected = m_ToolSystem.selected;
+                if (selected == Entity.Null)
+                {
+                    m_LastSelected = Entity.Null;
+                    m_LastDraw = null;
+                    return;
+                }
+                if (selected != m_LastSelected)
+                {
+                    m_LastSelected = selected;
+                    m_LastDraw = null;
+                    m_WaitLogged = false;
+                }
+                if (!TryResolve(selected, out LiftPlanDraw draw, out Entity key))
+                {
+                    m_Diag.RequestPlan(key);
+                    return;
+                }
+                if (!ReferenceEquals(draw, m_LastDraw))
+                {
+                    m_LastDraw = draw;
+                    Mod.Log.Info($"Towers [overlay]: drawing the planned {draw.TypeId} line for the selected {selected.Index}:{selected.Version} — " +
+                                 $"{draw.Towers} planned line tower(s); rope samples green {draw.ClassCounts[0]}, amber {draw.ClassCounts[1]}, " +
+                                 $"red {draw.ClassCounts[2]}, violet {draw.ClassCounts[3]} (see its Towers [plan] block)");
+                }
+                Draw(draw);
+            }
+            catch (Exception e)
+            {
+                m_Disabled = true;
                 m_LastDraw = null;
-                return;
+                if (!m_ErrorLogged)
+                {
+                    m_ErrorLogged = true;
+                    Mod.Log.Error($"!!! {nameof(LiftTowerPlanOverlaySystem)} EXCEPTION — the tower plan overlay is disabled until the " +
+                                  $"next game load (debug aid only). Please report this stack:\n{e}");
+                }
             }
-            if (selected != m_LastSelected)
-            {
-                m_LastSelected = selected;
-                m_LastDraw = null;
-                m_WaitLogged = false;
-            }
-            if (!TryResolve(selected, out LiftPlanDraw draw, out Entity key))
-            {
-                m_Diag.RequestPlan(key);
-                return;
-            }
-            if (!ReferenceEquals(draw, m_LastDraw))
-            {
-                m_LastDraw = draw;
-                Mod.Log.Info($"Towers [overlay]: drawing the planned {draw.TypeId} line for the selected {selected.Index}:{selected.Version} — " +
-                             $"{draw.Towers} planned line tower(s); rope samples green {draw.ClassCounts[0]}, amber {draw.ClassCounts[1]}, " +
-                             $"red {draw.ClassCounts[2]}, violet {draw.ClassCounts[3]} (see its Towers [plan] block)");
-            }
-            Draw(draw);
         }
 
         /// <summary>The plan of the selected entity, or of its Owner (a tower's owner is its node). <paramref name="key"/> is the

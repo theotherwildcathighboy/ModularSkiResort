@@ -348,6 +348,8 @@ namespace SkiResortMod
                 },
                 // SkiRunTooltipSystem.KeyCatSteep: the Error line on a cat track rated blue or steeper.
                 { "SkiResort.Tooltip.CAT_TRACK_TOO_STEEP", "Too steep for a cat track: it will be unsuitable. Keep it under 25 %." },
+                // GradeGuards.KeyTooLarge: the grading tool refuses a track whose area is over GradeRaster.MaxTexels.
+                { "SkiResort.Tooltip.GRADE_TOO_LARGE", "This track covers too much ground to grade. Use a shorter track." },
                 // The run's horizontal length, an IntTooltip label in front of a "length" unit value
                 // (SkiRunTooltipSystem.KeyLength).
                 { "SkiResort.Tooltip.RUN_LENGTH", "Length" },

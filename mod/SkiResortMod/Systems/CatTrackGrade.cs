@@ -281,6 +281,14 @@ namespace SkiResortMod.Systems
     /// encodes them (GradeMap.ToU16) and only texels whose code changes are counted / written.</summary>
     public sealed class GradeRaster
     {
+        /// <summary>Largest rect (texels) the tool will rasterize. Build holds 17 bytes per texel (four float arrays and the zone
+        /// byte) and the main thread samples the terrain once per texel on every edit; 2^20 texels (a 3.6 km square at the vanilla
+        /// 3.5 m texel) is about 18 MB and a fraction of a second, where 2048 x 2048 would be 71 MB before the apply's readbacks.</summary>
+        public const int MaxTexels = 1 << 20;
+
+        /// <summary>True when the rect is over <see cref="MaxTexels"/>; the long product avoids int overflow on a degenerate rect.</summary>
+        public static bool TooLarge(int4 rect) => (long)rect.z * rect.w > MaxTexels;
+
         public int X0, Z0, W, H;
         public float[] Before;
         public float[] After;
@@ -442,6 +450,7 @@ namespace SkiResortMod.Systems
         LiftLine,
         Water,
         OffMap,
+        TooLarge, // the rect is over GradeRaster.MaxTexels: refused before any raster is built
     }
 
     /// <summary>What the engine half found in the rect (pipeline 4).</summary>
@@ -517,11 +526,15 @@ namespace SkiResortMod.Systems
             return GradeGuardKind.None;
         }
 
-        /// <summary>The player text of a refusal.</summary>
+        /// <summary>Locale key of the TooLarge refusal (LocaleEN); the tooltip resolves a key where the other reasons are plain text.</summary>
+        public const string KeyTooLarge = "SkiResort.Tooltip.GRADE_TOO_LARGE";
+
+        /// <summary>The player text of a refusal (a locale key for TooLarge).</summary>
         public static string Reason(GradeGuardKind k)
         {
             switch (k)
             {
+                case GradeGuardKind.TooLarge: return KeyTooLarge;
                 case GradeGuardKind.Lot: return "The track would grade under a building or station lot: move it clear";
                 case GradeGuardKind.LiftLine: return "The track would grade under a lift line: move it clear";
                 case GradeGuardKind.Water: return "The track would grade into water: move it clear";
@@ -563,9 +576,12 @@ namespace SkiResortMod.Systems
         public void Clear() => m_Entries.Clear();
 
         /// <summary>Push; the oldest entries go when over MaxEntries or MaxBytes (the newest always stays). Returns how many were
-        /// dropped.</summary>
+        /// dropped, or -1 (nothing stored) for an entry over GradeRaster.MaxTexels: the newest-always-stays rule would otherwise
+        /// hold it past MaxBytes. The tool refuses such a rect before it writes, so this is a backstop.</summary>
         public int Push(GradeUndoEntry e)
         {
+            if (e.Before.Length > GradeRaster.MaxTexels || e.After.Length > GradeRaster.MaxTexels)
+                return -1;
             m_Entries.Add(e);
             int dropped = 0;
             while (m_Entries.Count > 1 && (m_Entries.Count > MaxEntries || Bytes > MaxBytes))

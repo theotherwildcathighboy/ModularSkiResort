@@ -1021,7 +1021,7 @@ namespace SkiResortMod.Systems
             }
             if (missing.Count > 0)
             {
-                Mod.Log.Warn($"Splat: {missing.Count} of 4 texture file(s) missing under '{dir}': " +
+                Mod.Log.Warn($"Splat: {missing.Count} of 4 texture file(s) missing under '{Mod.ScrubUserPath(dir)}': " +
                              $"{string.Join(", ", missing)} — painting disabled for this load " +
                              "(retried next load)");
                 return false;
@@ -1032,7 +1032,7 @@ namespace SkiResortMod.Systems
             m_WinterNormal = RegisterTexture(dir, WinterNormalFile, linear: true);
             m_SummerDiffuse = RegisterTexture(dir, SummerDiffuseFile, linear: false);
             m_SummerNormal = RegisterTexture(dir, SummerNormalFile, linear: true);
-            Mod.Log.Info($"Splat: 4 texture(s) loaded from '{dir}' and registered as user-db " +
+            Mod.Log.Info($"Splat: 4 texture(s) loaded from '{Mod.ScrubUserPath(dir)}' and registered as user-db " +
                          $"TextureAssets ({m_WinterDiffuse.width}x{m_WinterDiffuse.height} winter diffuse)");
             return true;
         }

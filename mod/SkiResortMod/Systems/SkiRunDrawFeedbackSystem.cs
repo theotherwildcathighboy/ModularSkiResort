@@ -10,6 +10,7 @@
 using System;
 using System.Globalization;
 using System.Text;
+using System.Text.RegularExpressions;
 using Colossal.Mathematics;              // Line3
 using Colossal.Serialization.Entities;   // Purpose
 using Game;
@@ -1995,7 +1996,7 @@ namespace SkiResortMod.Systems
                 else
                 {
                     LastCapturePath = path;
-                    Mod.Log.Info($"RunFeedback: capture written to {path} ({m_CapNodeCount} nodes, " +
+                    Mod.Log.Info($"RunFeedback: capture written to {Mod.ScrubUserPath(path)} ({m_CapNodeCount} nodes, " +
                                  $"{needCount} need heights, rated {m_CapBand} " +
                                  $"{(m_CapRating * 100f).ToString("F1", CultureInfo.InvariantCulture)} %)");
                 }
@@ -2003,7 +2004,7 @@ namespace SkiResortMod.Systems
             catch (Exception e)
             {
                 LastCapturePath = "failed: " + e.GetType().Name;
-                Mod.Log.Warn($"RunFeedback: capture failed: {e.GetType().Name}: {e.Message}");
+                Mod.Log.Warn($"RunFeedback: capture failed: {e.GetType().Name}: {Mod.ScrubUserPath(e.Message)}");
             }
         }
 
@@ -2093,7 +2094,51 @@ namespace SkiResortMod.Systems
                     }
                 }
             }
+            PruneCaptures(dir, path);
             return path;
+        }
+
+        private const int CapturesKept = 20;
+        private static readonly Regex CaptureFileName = new Regex(@"^run-\d{8}-\d{6}(-\d+)?\.skislope$", RegexOptions.CultureInvariant);
+
+        /// <summary>Keeps the newest <see cref="CapturesKept"/> run-*.skislope files in the capture folder. Only names this system
+        /// writes are touched, so anything else a player puts there stays. Newest by write time, not name: the "-2" suffix of a
+        /// same-second dump sorts before its base name. The file just written is never removed. A failure is logged and never fails
+        /// the capture.</summary>
+        private static void PruneCaptures(string dir, string justWritten)
+        {
+            try
+            {
+                string[] files = System.IO.Directory.GetFiles(dir, "run-*.skislope");
+                var list = new System.Collections.Generic.List<System.IO.FileInfo>(files.Length);
+                for (int i = 0; i < files.Length; i++)
+                {
+                    var fi = new System.IO.FileInfo(files[i]);
+                    if (CaptureFileName.IsMatch(fi.Name) && (fi.Attributes & System.IO.FileAttributes.ReparsePoint) == 0)
+                        list.Add(fi);
+                }
+                if (list.Count <= CapturesKept)
+                    return;
+                list.Sort((a, b) =>
+                {
+                    int c = b.LastWriteTimeUtc.CompareTo(a.LastWriteTimeUtc);
+                    return c != 0 ? c : string.CompareOrdinal(b.Name, a.Name);
+                });
+                string keepName = System.IO.Path.GetFileName(justWritten);
+                int removed = 0;
+                for (int i = CapturesKept; i < list.Count; i++)
+                {
+                    if (string.Equals(list[i].Name, keepName, StringComparison.Ordinal))
+                        continue;
+                    list[i].Delete();
+                    removed++;
+                }
+                Mod.Log.Info($"RunFeedback: removed {removed} old capture file(s), keeping the newest {CapturesKept}");
+            }
+            catch (Exception e)
+            {
+                Mod.Log.Warn($"RunFeedback: capture cleanup failed: {e.GetType().Name}: {Mod.ScrubUserPath(e.Message)}");
+            }
         }
 
         /// <summary>Drops the readout and the cache key, so re-entry recomputes. Cheap (field writes only), runs on every idle frame.

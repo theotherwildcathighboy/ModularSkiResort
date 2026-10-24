@@ -389,6 +389,18 @@ namespace SkiResortMod.Systems
             double rasterMs = 0, guardMs = 0;
             if (GradeRaster.Bounds(map, path, prof, p, out int4 rect, out float reach))
             {
+                if (GradeRaster.TooLarge(rect))
+                {
+                    m_Guard = GradeGuardKind.TooLarge;
+                    m_Path = path;
+                    m_Prof = prof;
+                    BuildDraw(path, prof, p);
+                    sw.Stop();
+                    LastPlanText = GradeInput.Describe(path, prof, null, p);
+                    Say($"Grade [plan] #{m_Edit.Revision} ({why}): REFUSED — the rect is {rect.z} x {rect.w} texels, over the " +
+                        $"{GradeRaster.MaxTexels} texel limit; no raster built ({sw.Elapsed.TotalMilliseconds:F2} ms)");
+                    return;
+                }
                 raster = GradeRaster.Build(map, rect, path, prof, p, reach, (i, j) =>
                 {
                     float2 c = map.TexelCenter(i, j);
@@ -553,6 +565,12 @@ namespace SkiResortMod.Systems
             if (!GradeRaster.Bounds(map, path, prof, p, out int4 rect, out float reach))
             {
                 Say($"Grade [apply:{label}]: REFUSED — off the map", GradeGuards.Reason(GradeGuardKind.OffMap));
+                return false;
+            }
+            if (GradeRaster.TooLarge(rect))
+            {
+                Say($"Grade [apply:{label}]: REFUSED — the rect is {rect.z} x {rect.w} texels, over the {GradeRaster.MaxTexels} texel limit",
+                    GradeGuards.Reason(GradeGuardKind.TooLarge));
                 return false;
             }
             ushort[] before = m_Writer.Read(rect, label + " pre-image");
@@ -865,7 +883,7 @@ namespace SkiResortMod.Systems
                     buffer.DrawLine(EdgeColor, EdgeColor, 0f, projected, new Line3.Segment(Ground(ref hd, last), m_Hit), 0.6f, round);
                 buffer.DrawCircle(HoverColor, HoverColor, 0f, projected, ring, m_Hit, 3f);
             }
-            if (m_Guard != GradeGuardKind.None && m_Guard != GradeGuardKind.OffMap)
+            if (m_Guard != GradeGuardKind.None && m_Guard != GradeGuardKind.OffMap && m_Guard != GradeGuardKind.TooLarge)
                 buffer.DrawCircle(GuardColor, GuardColor, 0f, projected, ring, Ground(ref hd, m_GuardAt), 10f);
         }
 

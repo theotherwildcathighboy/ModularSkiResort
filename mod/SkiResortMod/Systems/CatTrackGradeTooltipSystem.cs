@@ -74,7 +74,8 @@ namespace SkiResortMod.Systems
             if (!string.Equals(text, last, StringComparison.Ordinal))
             {
                 last = text;
-                tip.value = LocalizedString.Value(text);
+                // A locale key (a fixed text) goes by id; the other lines carry numbers and stay Value.
+                tip.value = text == GradeGuards.KeyTooLarge ? LocalizedString.Id(text) : LocalizedString.Value(text);
             }
             AddMouseTooltip(tip);
         }

@@ -164,6 +164,8 @@ namespace SkiResortMod.Systems
         private readonly bool[] m_ItemLuxury = new bool[ItemCount];
         private readonly bool[] m_ItemDriftLogged = new bool[ItemCount];
         private int m_SentCount;
+        private bool m_QueueDropLogged, m_UnknownLaunchLogged;   // per load
+        private readonly HashSet<string> m_WriterFailed = new HashSet<string>();   // per load: raw binding writers that threw
         private bool m_SentMismatchLogged;      // per load: WriteBuild's never-silent guard
         private Entity m_LockSign = Entity.Null;   // the shown sign the locks were evaluated for (a switch re-checks)
         private int m_ActiveItem = -1;
@@ -735,6 +737,8 @@ namespace SkiResortMod.Systems
                 s_NonFinite = 0;
                 Array.Clear(m_ItemDriftLogged, 0, m_ItemDriftLogged.Length);   // one drift WARN per item per load
                 m_SentMismatchLogged = false;
+                m_QueueDropLogged = m_UnknownLaunchLogged = false;
+                m_WriterFailed.Clear();
                 m_LockSign = Entity.Null;
                 LastTriggerText = "-";
                 LastSelectText = "-";
@@ -1064,8 +1068,12 @@ namespace SkiResortMod.Systems
         {
             if (m_QueueCount >= m_Queue.Length)
             {
-                Mod.Log.Warn($"Hub: trigger {name} DROPPED — {m_QueueCount} requests already queued since the last " +
-                             "update (QueueCapacity)");
+                if (!m_QueueDropLogged)
+                {
+                    m_QueueDropLogged = true;
+                    Mod.Log.Warn($"Hub: trigger {name} DROPPED — {m_QueueCount} requests already queued since the last " +
+                                 "update (QueueCapacity); further drops this load are not logged");
+                }
                 return;
             }
             m_Queue[m_QueueCount++] = request;
@@ -1959,6 +1967,20 @@ namespace SkiResortMod.Systems
             }
         }
 
+        /// <summary>A raw binding writer threw. It runs on subscribe, outside OnUpdate's try, so it must not escape into the UI's binding
+        /// dispatch: the panel gets an empty array and the first failure per binding is logged. Tokens the writer had already emitted
+        /// cannot be taken back.</summary>
+        private void WriterFailed(IJsonWriter writer, string binding, Exception e)
+        {
+            if (m_WriterFailed.Add(binding))
+            {
+                Mod.Log.Error($"!!! Hub binding writer '{binding}' EXCEPTION — sent an empty array instead; this binding logs once per game " +
+                              $"load. Please report this stack:\n{e}");
+            }
+            writer.ArrayBegin(0u);
+            writer.ArrayEnd();
+        }
+
         private static string Cut(string text)
         {
             return text.Length <= Tuning.TextMax ? text : text.Substring(0, Tuning.TextMax) + "…";
@@ -1982,9 +2004,15 @@ namespace SkiResortMod.Systems
             int item = IndexOfItem(id);
             if (item < 0)
             {
-                Mod.Log.Warn($"Hub [launch] '{id ?? "(null)"}' — not a build id of this DLL (contract {HubContract}); " +
-                             $"nothing started ({source})");
-                LastTriggerText = $"launch '{id}': unknown id";
+                // The id comes from the UI, so it is cut, and one line per load is enough.
+                string shown = Cut(id ?? "(null)");
+                if (!m_UnknownLaunchLogged)
+                {
+                    m_UnknownLaunchLogged = true;
+                    Mod.Log.Warn($"Hub [launch] '{shown}' — not a build id of this DLL (contract {HubContract}); " +
+                                 $"nothing started ({source}); further unknown ids this load are not logged");
+                }
+                LastTriggerText = $"launch '{shown}': unknown id";
                 return;
             }
             PrefabBase prefab = m_ItemPrefab[item];
@@ -2857,6 +2885,18 @@ namespace SkiResortMod.Systems
         /// thread). Fixed-size arrays only.</summary>
         private void WriteBuild(IJsonWriter writer)
         {
+            try
+            {
+                WriteBuildRows(writer);
+            }
+            catch (Exception e)
+            {
+                WriterFailed(writer, "build", e);
+            }
+        }
+
+        private void WriteBuildRows(IJsonWriter writer)
+        {
             writer.ArrayBegin((uint)m_SentCount);
             int written = 0;
             for (int i = 0; i < ItemCount; i++)
@@ -2904,6 +2944,18 @@ namespace SkiResortMod.Systems
         /// <summary>`resorts` (bindings.ts ResortRow: identity and slow facts): SkiResortStatsSystem
         /// rows — signs in stable order, then the Not linked row. Main thread.</summary>
         private void WriteResorts(IJsonWriter writer)
+        {
+            try
+            {
+                WriteResortsRows(writer);
+            }
+            catch (Exception e)
+            {
+                WriterFailed(writer, "resorts", e);
+            }
+        }
+
+        private void WriteResortsRows(IJsonWriter writer)
         {
             int count = m_Stats.ResortCount;
             writer.ArrayBegin((uint)count);
@@ -2957,6 +3009,18 @@ namespace SkiResortMod.Systems
         /// <summary>`resortLive` (bindings.ts ResortLive): the values that move, same order and count as `resorts`, joined by sign. Main
         /// thread.</summary>
         private void WriteResortLive(IJsonWriter writer)
+        {
+            try
+            {
+                WriteResortLiveRows(writer);
+            }
+            catch (Exception e)
+            {
+                WriterFailed(writer, "resortLive", e);
+            }
+        }
+
+        private void WriteResortLiveRows(IJsonWriter writer)
         {
             int count = m_Stats.ResortLiveCount;
             writer.ArrayBegin((uint)count);
@@ -3183,6 +3247,18 @@ namespace SkiResortMod.Systems
         /// <summary>`runs` (bindings.ts RunRow: identity, rating, service, value parts).</summary>
         private void WriteRuns(IJsonWriter writer)
         {
+            try
+            {
+                WriteRunsRows(writer);
+            }
+            catch (Exception e)
+            {
+                WriterFailed(writer, "runs", e);
+            }
+        }
+
+        private void WriteRunsRows(IJsonWriter writer)
+        {
             int count = m_Stats.RunCount;
             writer.ArrayBegin((uint)count);
             for (int i = 0; i < count; i++)
@@ -3241,6 +3317,18 @@ namespace SkiResortMod.Systems
         /// <summary>`runLive` (bindings.ts RunLive): same order and count as `runs`, joined by entity.</summary>
         private void WriteRunLive(IJsonWriter writer)
         {
+            try
+            {
+                WriteRunLiveRows(writer);
+            }
+            catch (Exception e)
+            {
+                WriterFailed(writer, "runLive", e);
+            }
+        }
+
+        private void WriteRunLiveRows(IJsonWriter writer)
+        {
             int count = m_Stats.RunLiveCount;
             writer.ArrayBegin((uint)count);
             for (int i = 0; i < count; i++)
@@ -3272,6 +3360,18 @@ namespace SkiResortMod.Systems
 
         /// <summary>`lifts` (bindings.ts LiftRow).</summary>
         private void WriteLifts(IJsonWriter writer)
+        {
+            try
+            {
+                WriteLiftsRows(writer);
+            }
+            catch (Exception e)
+            {
+                WriterFailed(writer, "lifts", e);
+            }
+        }
+
+        private void WriteLiftsRows(IJsonWriter writer)
         {
             int count = m_Stats.LiftCount;
             writer.ArrayBegin((uint)count);
@@ -3350,6 +3450,18 @@ namespace SkiResortMod.Systems
 
         /// <summary>`problems` (bindings.ts ProblemRow): grouped by area in `resorts` order.</summary>
         private void WriteProblems(IJsonWriter writer)
+        {
+            try
+            {
+                WriteProblemsRows(writer);
+            }
+            catch (Exception e)
+            {
+                WriterFailed(writer, "problems", e);
+            }
+        }
+
+        private void WriteProblemsRows(IJsonWriter writer)
         {
             int count = m_Stats.ProblemCount;
             writer.ArrayBegin((uint)count);
@@ -3616,6 +3728,18 @@ namespace SkiResortMod.Systems
 
         /// <summary>`history` (bindings.ts HistoryArea): the rows CollectHistory built.</summary>
         private void WriteHistory(IJsonWriter writer)
+        {
+            try
+            {
+                WriteHistoryRows(writer);
+            }
+            catch (Exception e)
+            {
+                WriterFailed(writer, "history", e);
+            }
+        }
+
+        private void WriteHistoryRows(IJsonWriter writer)
         {
             writer.ArrayBegin((uint)m_HistoryRowCount);
             for (int i = 0; i < m_HistoryRowCount; i++)

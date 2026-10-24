@@ -1,8 +1,9 @@
-// Headless tests for the pure half of the cat track grading tool (CatTrackGrade.cs), cases GR-1..GR-16:
+// Headless tests for the pure half of the cat track grading tool (CatTrackGrade.cs), cases GR-1..GR-17:
 // path (Bezier chain through every click), profiles (flat, follow ground, infeasible climbs with ShortfallM, hump and
 // hollow, diagonal traverse, constant grade), cross-section slopes (cut 1:1.5, fill 1:2, flat top TopWidthM, bank
 // blending), guards (lot, lift line, water), undo (bit-exact pre-image, foreign edits survive, LIFO stack capped at
-// MaxEntries), nearest-leg template at switchbacks, map encoding, edit model and input rules, cost (1.5 km path under 3 s).
+// MaxEntries; entries over the texel cap refused), raster texel cap, nearest-leg template at switchbacks, map encoding,
+// edit model and input rules, cost (1.5 km path under 3 s).
 // Run from the repo root: dotnet run --project tests/GradeBatch/GradeBatch.csproj -c Release
 // Prints `FAIL  where: msg` lines and one SUMMARY line; Environment.ExitCode = failures (the LiftBatch convention).
 
@@ -45,6 +46,7 @@ namespace GradeBatch
             Guards();
             UndoRoundTrip();
             UndoStack();
+            RasterCap();
             SwitchbackLegs();
             Encoding();
             EditAndInput();
@@ -324,7 +326,7 @@ namespace GradeBatch
             obs.WetTexels.Add((int2)math.round(Map.ToTexel(new float2(120, 200))));
             Check(GradeGuards.Check(Map, s.Raster, obs, out _) == GradeGuardKind.None, "GR-10 water clear", "water 200 m off");
 
-            foreach (GradeGuardKind g in new[] { GradeGuardKind.Lot, GradeGuardKind.LiftLine, GradeGuardKind.Water, GradeGuardKind.OffMap })
+            foreach (GradeGuardKind g in new[] { GradeGuardKind.Lot, GradeGuardKind.LiftLine, GradeGuardKind.Water, GradeGuardKind.OffMap, GradeGuardKind.TooLarge })
                 Check(GradeGuards.Reason(g).Length > 10, "GR-10 reason", g.ToString());
         }
 
@@ -380,11 +382,33 @@ namespace GradeBatch
             Check(u.Count == GradeUndo.MaxEntries, "GR-12 cap", $"{u.Count}");
             Check(u.Pop().Label == "g9" && u.Pop().Label == "g8", "GR-12 LIFO", "newest first");
             var big = new GradeUndo();
-            int half = GradeUndo.MaxBytes / 2 / 2;   // ushorts in half the budget
-            big.Push(new GradeUndoEntry { Before = new ushort[half], After = new ushort[half], Label = "a" });
-            big.Push(new GradeUndoEntry { Before = new ushort[half], After = new ushort[half], Label = "b" });
-            Check(big.Count == 1 && big.Peek().Label == "b", "GR-12 bytes", "over the byte cap the oldest goes, the newest stays");
+            for (int i = 0; i < GradeUndo.MaxEntries; i++)
+                big.Push(new GradeUndoEntry { Before = new ushort[GradeRaster.MaxTexels], After = new ushort[GradeRaster.MaxTexels], Label = "m" + i });
+            Check(big.Count == GradeUndo.MaxEntries && big.Bytes <= GradeUndo.MaxBytes, "GR-12 bytes",
+                  $"{big.Count} cap-size entries hold {big.Bytes / 1048576f:F0} MB of {GradeUndo.MaxBytes / 1048576} MB");
+            var over = new GradeUndo();
+            int pushed = over.Push(new GradeUndoEntry { Before = new ushort[GradeRaster.MaxTexels + 1], After = new ushort[GradeRaster.MaxTexels + 1], Label = "x" });
+            Check(pushed == -1 && over.Count == 0, "GR-12 over-cap entry", $"push returned {pushed}, {over.Count} stored");
             Check(new GradeUndo().Pop() == null, "GR-12 empty", "pop on empty = null");
+        }
+
+
+        private static void RasterCap()
+        {
+            var p = new GradeParams();
+            Check(!GradeRaster.TooLarge(new int4(0, 0, 1024, 1024)), "GR-17 at cap", "1024 x 1024 = MaxTexels is allowed");
+            Check(GradeRaster.TooLarge(new int4(0, 0, 1025, 1024)), "GR-17 over cap", "one column over is refused");
+            Check(GradeRaster.TooLarge(new int4(0, 0, int.MaxValue, int.MaxValue)), "GR-17 overflow", "the product does not wrap");
+
+            var path = GradePath.Build(Line(new float2(-5000, -5000), new float2(5000, 5000)), p.SampleStepM);
+            var prof = GradeProfile.Solve(path, new float[path.Count], p);
+            bool ok = GradeRaster.Bounds(Map, path, prof, p, out int4 rect, out float _);
+            Check(ok && GradeRaster.TooLarge(rect), "GR-17 corner to corner", $"a 14 km diagonal needs {rect.z} x {rect.w} texels");
+
+            path = GradePath.Build(Line(new float2(0, 0), new float2(1500, 0)), p.SampleStepM);
+            prof = GradeProfile.Solve(path, new float[path.Count], p);
+            ok = GradeRaster.Bounds(Map, path, prof, p, out rect, out float _);
+            Check(ok && !GradeRaster.TooLarge(rect), "GR-17 normal track", $"a 1.5 km track needs {rect.z} x {rect.w} texels");
         }
 
 

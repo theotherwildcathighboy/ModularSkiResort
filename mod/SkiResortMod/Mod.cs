@@ -5,6 +5,7 @@
 
 using System;
 using System.IO;
+using System.Text.RegularExpressions;
 using Colossal.IO.AssetDatabase;
 using Colossal.Logging;
 using Game;
@@ -35,6 +36,15 @@ namespace SkiResortMod
         /// Consumed by SkiRunSplatSystem.</summary>
         public static string ModRootPath { get; private set; }
 
+        // The profile folder up to and including the account name; the name may hold spaces, so it runs to the next separator.
+        private static readonly Regex UserProfileFolder = new Regex(@"(?<![A-Za-z0-9_])(?:[A-Za-z]:)?[\\/](?:Users|home)[\\/][^\\/'""]+",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
+        /// <summary>The text with the user-profile folder replaced by %USERPROFILE%. Players paste logs into bug reports, and the account
+        /// name must not travel with them; every log line that prints a path or an IO exception message goes through this.</summary>
+        internal static string ScrubUserPath(string text) =>
+            string.IsNullOrEmpty(text) ? text : UserProfileFolder.Replace(text, "%USERPROFILE%");
+
         /// <summary>True once OnDispose has started. The quit disposes mods before the world (GameManager.cs:792-793; 1.6.2
         /// :802-803), so a system's OnDestroy can run after OnDispose; SkiResortStatsSystem reads this to skip its quiet summary.</summary>
         internal static bool Disposed { get; private set; }
@@ -46,7 +56,7 @@ namespace SkiResortMod
 
             if (GameManager.instance.modManager.TryGetExecutableAsset(this, out var asset))
             {
-                Log.Info($"Current mod asset at {asset.path}");
+                Log.Info($"Current mod asset at {ScrubUserPath(asset.path)}");
                 ModRootPath = Path.GetDirectoryName(asset.path);
             }
 
@@ -380,7 +390,7 @@ namespace SkiResortMod
                 else if (bundled)
                 {
                     Log.Error($"!!! UI module present: False — this DLL was built with the UI (stamp {stamp}) but " +
-                              $"{moduleFile} is missing from {ModRootPath}: no Ski Resort hub this session " +
+                              $"{moduleFile} is missing from {ScrubUserPath(ModRootPath)}: no Ski Resort hub this session " +
                               "(redeploy with dotnet build, game closed)");
                 }
                 else
