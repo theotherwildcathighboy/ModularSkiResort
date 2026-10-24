@@ -65,6 +65,9 @@ namespace SkiResortMod.Systems
             m_Frame = m_Removed = 0;
             m_Logged.Clear();
             m_LastState.Clear();
+            Mod.Log.Info(m_Armed
+                ? $"StationPower [lv icon]: ARMED — polls every {PollFrames} frames; the first clear of a station is logged"
+                : $"StationPower [lv icon]: NOT ARMED (mode {mode})");
         }
 
         protected override void OnUpdate()

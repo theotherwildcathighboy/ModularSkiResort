@@ -3,6 +3,8 @@
 // LiftCensusSystem.BuildCensus calls OnCensusBuilt(edges) after every build; a queued line prints once the census has been quiet
 // for SettleFrames updates (a drag prints one block). Logs "Towers [nodes]" (replicating the engine's SubObjectSystem placeholder
 // scoring) and "Towers [plan]" (a re-plan by the pure LiftTowerPlanner on the real terrain, cached for LiftTowerPlanOverlaySystem).
+// The blocks run to dozens of lines per lift, so they print only with the diagnostics option on (or in a hub DUMP); the plan cache
+// fills either way.
 // Mod.cs: UpdateAfter<LiftTowerDiagSystem, LiftCensusSystem>(Modification4B), the same anchor family as TramShuttleSystem.
 // Engine notes: EngineNotes/LiftTowerDiagSystem.md
 
@@ -100,6 +102,8 @@ namespace SkiResortMod.Systems
                 return;
             try
             {
+                // The blocks are a developer dump: without the diagnostics option the pass only fills the plan cache the overlay reads.
+                bool log = SkiResortMod.Settings.SkiResortSettings.DiagnosticsOn;
                 int printed = 0;
                 int skipped = 0;
                 for (int i = 0; i < m_Pending.Count; i++)
@@ -109,10 +113,10 @@ namespace SkiResortMod.Systems
                         skipped++;
                         continue;
                     }
-                    if (WriteLine(m_Pending[i], "new or changed"))
+                    if (WriteLine(m_Pending[i], "new or changed", log))
                         printed++;
                 }
-                if (skipped > 0)
+                if (skipped > 0 && log)
                     Mod.Log.Info($"Towers [nodes]: {skipped} more new or changed line(s) not printed (cap {MaxBlocksPerEmit} per emission); the DUMP prints every line");
                 m_Pending.Clear();
             }
@@ -179,7 +183,7 @@ namespace SkiResortMod.Systems
                 {
                     if (printed >= MaxBlocksPerDump)
                         break;
-                    if (WriteLine(comps[c], "dump: " + reason))
+                    if (WriteLine(comps[c], "dump: " + reason, log: true))
                         printed++;
                 }
                 Mod.Log.Info($"Towers [nodes]: DUMP ({reason}) — {printed} of {comps.Count} line(s) printed " +
@@ -272,7 +276,8 @@ namespace SkiResortMod.Systems
             public Entity NextNode;
         }
 
-        private bool WriteLine(List<LiftCensus.Edge> comp, string why)
+        /// <summary>Prints the [nodes] and [plan] blocks of one line when <paramref name="log"/>; always refreshes the plan cache.</summary>
+        private bool WriteLine(List<LiftCensus.Edge> comp, string why, bool log)
         {
             // Stale (a deleted / replaced edge): a newer build queued the replacement.
             for (int i = 0; i < comp.Count; i++)
@@ -284,7 +289,8 @@ namespace SkiResortMod.Systems
             TerrainHeightData hd = m_TerrainSystem.GetHeightData();
             if (!hd.isCreated)
             {
-                Mod.Log.Info("Towers [nodes]: terrain heightmap not ready — line skipped (DUMP again later)");
+                if (log)
+                    Mod.Log.Info("Towers [nodes]: terrain heightmap not ready — line skipped (DUMP again later)");
                 return false;
             }
 
@@ -298,6 +304,20 @@ namespace SkiResortMod.Systems
             int nodeTotal = 0;
             for (int p = 0; p < paths.Count; p++)
                 nodeTotal += paths[p].Count;
+
+            if (!log)
+            {
+                try
+                {
+                    WritePlans(comp, paths, typeDef, typeName, why, ref hd, log: false);
+                }
+                catch (Exception e)
+                {
+                    Mod.Log.Warn($"Towers [plan]: line {typeName} edge {Fmt(LiftCensusSystem.Ent(comp[0].Id))} — planner failed " +
+                                 $"({e.GetType().Name}: {e.Message})\n{e}");
+                }
+                return true;
+            }
 
             var sb = new StringBuilder(2048);
             sb.Append("Towers [nodes]: line ").Append(typeName).Append(" edge ").Append(Fmt(LiftCensusSystem.Ent(comp[0].Id)))
@@ -357,7 +377,7 @@ namespace SkiResortMod.Systems
             // The planned line beside the actual one (its own try: a planner fault must not cost the [nodes] block)
             try
             {
-                WritePlans(comp, paths, typeDef, typeName, why, ref hd);
+                WritePlans(comp, paths, typeDef, typeName, why, ref hd, log: true);
             }
             catch (Exception e)
             {
@@ -473,7 +493,7 @@ namespace SkiResortMod.Systems
                     if (LiftCensusSystem.Ent(comp[i].Id) == want || LiftCensusSystem.Ent(comp[i].Start) == want ||
                         LiftCensusSystem.Ent(comp[i].End) == want)
                     {
-                        if (!WriteLine(comp, "selected (overlay)"))
+                        if (!WriteLine(comp, "selected (overlay)", SkiResortMod.Settings.SkiResortSettings.DiagnosticsOn))
                             m_NotALine.Add(want);
                         return;
                     }
@@ -483,13 +503,14 @@ namespace SkiResortMod.Systems
         }
 
         private void WritePlans(List<LiftCensus.Edge> comp, List<List<Hop>> paths, LiftTypeDef typeDef, string typeName, string why,
-                                ref TerrainHeightData hd)
+                                ref TerrainHeightData hd, bool log)
         {
             string head = "line " + typeName + " edge " + Fmt(LiftCensusSystem.Ent(comp[0].Id));
             LiftTowerPlanConstants constants = LiftTowerPlanConstants.For(typeDef);
             if (constants == null)
             {
-                Mod.Log.Info($"Towers [plan]: {head} — no planner constants for lift type '{typeName}' (untyped line): not planned");
+                if (log)
+                    Mod.Log.Info($"Towers [plan]: {head} — no planner constants for lift type '{typeName}' (untyped line): not planned");
                 return;
             }
             if (m_Draws.Count > MaxCachedEntities)
@@ -510,7 +531,8 @@ namespace SkiResortMod.Systems
                 string pathHead = paths.Count > 1 ? head + " path " + p : head;
                 if (length < 2f * constants.StepM)
                 {
-                    Mod.Log.Info($"Towers [plan]: {pathHead} — {length:F1} m of line, too short to plan");
+                    if (log)
+                        Mod.Log.Info($"Towers [plan]: {pathHead} — {length:F1} m of line, too short to plan");
                     continue;
                 }
 
@@ -524,24 +546,27 @@ namespace SkiResortMod.Systems
                 LiftTowerPlan plan = m_Planner.Plan(sampler, length, ropeA, ropeB, constants);
                 m_Plans++;
 
-                var sb = new StringBuilder(2048);
-                plan.AppendLog(sb, pathHead + " (" + why + "; ends = the path's first / last node, rope at node y + " +
-                                   F(constants.RopeAboveBase(0), "F2") + ") vs actual " + path.Count + " node(s), " +
-                                   math.max(0, path.Count - 2) + " line tower(s)");
-                float maxAbove = float.NegativeInfinity;
-                int violated = 0;
-                for (int s = 0; s < plan.Spans.Length; s++)
+                if (log)
                 {
-                    maxAbove = math.max(maxAbove, plan.Spans[s].MaxRopeAboveM);
-                    if (plan.Spans[s].FloorViolated || plan.Spans[s].HeightViolated)
-                        violated++;
+                    var sb = new StringBuilder(2048);
+                    plan.AppendLog(sb, pathHead + " (" + why + "; ends = the path's first / last node, rope at node y + " +
+                                       F(constants.RopeAboveBase(0), "F2") + ") vs actual " + path.Count + " node(s), " +
+                                       math.max(0, path.Count - 2) + " line tower(s)");
+                    float maxAbove = float.NegativeInfinity;
+                    int violated = 0;
+                    for (int s = 0; s < plan.Spans.Length; s++)
+                    {
+                        maxAbove = math.max(maxAbove, plan.Spans[s].MaxRopeAboveM);
+                        if (plan.Spans[s].FloorViolated || plan.Spans[s].HeightViolated)
+                            violated++;
+                    }
+                    sb.Append("Towers [plan summary]: ").Append(pathHead).Append(": planned ").Append(plan.Nodes.Length).Append(" node(s) / ")
+                      .Append(plan.LineTowers).Append(" line tower(s) vs actual ").Append(path.Count).Append(" / ").Append(math.max(0, path.Count - 2))
+                      .Append("; members {").Append(plan.MemberCounts()).Append("}; min floor margin ").Append(Sg(plan.MinFloorMarginM))
+                      .Append(" m; max rope above ground ").Append(F(maxAbove, "F1")).Append(" m; ")
+                      .Append(violated == 0 ? "every span clear" : violated + " span(s) VIOLATED (no clear arrangement on this ground)");
+                    Mod.Log.Info(sb.ToString());
                 }
-                sb.Append("Towers [plan summary]: ").Append(pathHead).Append(": planned ").Append(plan.Nodes.Length).Append(" node(s) / ")
-                  .Append(plan.LineTowers).Append(" line tower(s) vs actual ").Append(path.Count).Append(" / ").Append(math.max(0, path.Count - 2))
-                  .Append("; members {").Append(plan.MemberCounts()).Append("}; min floor margin ").Append(Sg(plan.MinFloorMarginM))
-                  .Append(" m; max rope above ground ").Append(F(maxAbove, "F1")).Append(" m; ")
-                  .Append(violated == 0 ? "every span clear" : violated + " span(s) VIOLATED (no clear arrangement on this ground)");
-                Mod.Log.Info(sb.ToString());
 
                 LiftPlanDraw draw = LiftPlanDraw.Build(plan, s => PolylineAt(pts, cum, s, 0f, out _), s =>
                 {

@@ -34,6 +34,8 @@ namespace SkiResortMod.Systems
             // Re-assert sentinel cadence: verify our live values still stand (texture-quality changes and EnabledShadersUpdated re-Load
             // prefab assets over them; batch rebuilds Destroy the clone). Two materials, a handful of Get* calls: cheap.
             public const int ReassertCheckFrames = 256;
+            // Sentinel lines per load; a mod that keeps rewriting these values would otherwise log on every check
+            public const int ReassertLinesMax = 6;
 
             // Doc-safe scalars (area-material-override.md section 3 Tier 0). Each is mirrored to the managed RenderedArea field of the
             // same name (RenderedArea.cs 58-76) so later-built batches agree with the live mutation.
@@ -222,6 +224,9 @@ namespace SkiResortMod.Systems
         // happened); the next season re-dress starts from zero.
         private int m_ChangedWrites;
         private int m_SameWrites;
+        private int m_ReassertLines;
+        // True while a re-apply past the line cap runs: ApplyToMaterial counts its writes but logs nothing
+        private bool m_ReassertQuiet;
 
         protected override void OnCreate()
         {
@@ -283,6 +288,8 @@ namespace SkiResortMod.Systems
             m_AppliedCount = 0;
             m_ChangedWrites = 0;
             m_SameWrites = 0;
+            m_ReassertLines = 0;
+            m_ReassertQuiet = false;
             m_ProbedInstances.Clear();
             m_LastScanBatchNames.Clear();
             foreach (Target target in m_Targets)
@@ -460,6 +467,9 @@ namespace SkiResortMod.Systems
             int instanceId = material.GetInstanceID();
             if (!m_ProbedInstances.Add(instanceId))
                 return;
+            // A developer dump of every shader property (about 50 lines per material, four per load)
+            if (!SkiResortMod.Settings.SkiResortSettings.DiagnosticsOn)
+                return;
 
             Shader shader = material.shader;
             var sb = new StringBuilder(4096);
@@ -619,9 +629,21 @@ namespace SkiResortMod.Systems
             m_SameWrites = 0;
         }
 
+        /// <summary>True while the per-load line budget lasts; the last allowed line carries a note that later ones are dropped.</summary>
+        private bool NextReassertLine(out string capNote)
+        {
+            capNote = string.Empty;
+            if (m_ReassertLines >= Tuning.ReassertLinesMax)
+                return false;
+            m_ReassertLines++;
+            if (m_ReassertLines == Tuning.ReassertLinesMax)
+                capNote = $" — further re-assert lines this load are not written (cap {Tuning.ReassertLinesMax})";
+            return true;
+        }
+
         // Re-assert sentinel: our mutations must survive texture-quality changes (UpdateTextures re-Loads prefab assets over the
         // live clone) and batch rebuilds (the clone is Destroyed and rebuilt). Verify cheaply, re-apply loudly; each re-apply line
-        // in the log is evidence, not noise.
+        // in the log is evidence, not noise (up to ReassertLinesMax per load).
         private void Reassert()
         {
             Material[] scan = null;
@@ -653,22 +675,28 @@ namespace SkiResortMod.Systems
                         }
                         continue;
                     }
-                    Mod.Log.Info($"Decal [reassert]: '{target.BatchMaterialName}' was rebuilt by " +
-                                 "the game — re-probing and re-applying (T8 path)");
+                    m_ReassertQuiet = !NextReassertLine(out string rebuiltCap);
+                    if (!m_ReassertQuiet)
+                        Mod.Log.Info($"Decal [reassert]: '{target.BatchMaterialName}' was rebuilt by " +
+                                     "the game — re-probing and re-applying (T8 path)" + rebuiltCap);
                     target.Material = found;
                     target.RebuildWarned = false;
                     ProbeIfNewInstance(found);
                     ApplyToMaterial(target);
+                    m_ReassertQuiet = false;
                     continue;
                 }
 
                 string drift = DetectDrift(target);
                 if (drift != null)
                 {
-                    Mod.Log.Info($"Decal [reassert]: '{target.BatchMaterialName}' drifted ({drift}) — " +
-                                 "re-applying (T8 evidence: the game re-loaded prefab values over " +
-                                 "our live set)");
+                    m_ReassertQuiet = !NextReassertLine(out string driftCap);
+                    if (!m_ReassertQuiet)
+                        Mod.Log.Info($"Decal [reassert]: '{target.BatchMaterialName}' drifted ({drift}) — " +
+                                     "re-applying (T8 evidence: the game re-loaded prefab values over " +
+                                     "our live set)" + driftCap);
                     ApplyToMaterial(target);
+                    m_ReassertQuiet = false;
                 }
             }
         }
@@ -738,7 +766,8 @@ namespace SkiResortMod.Systems
             if (old != texture)
             {
                 m_ChangedWrites++;
-                Mod.Log.Info($"Decal: '{material.name}': {propertyName} <- '{texture.name}' " +
+                if (!m_ReassertQuiet)
+                    Mod.Log.Info($"Decal: '{material.name}': {propertyName} <- '{texture.name}' " +
                              $"({texture.width}x{texture.height}), was '{(old != null ? old.name : "null")}'");
             }
             else
@@ -768,7 +797,8 @@ namespace SkiResortMod.Systems
             if (!old.Equals(value))
             {
                 m_ChangedWrites++;
-                Mod.Log.Info($"Decal: '{material.name}': {propertyName} {old:R} -> {value:R}" +
+                if (!m_ReassertQuiet)
+                    Mod.Log.Info($"Decal: '{material.name}': {propertyName} {old:R} -> {value:R}" +
                              (mirrored ? " (+ prefab RenderedArea mirror)" : ""));
             }
             else
