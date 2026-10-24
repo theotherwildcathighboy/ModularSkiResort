@@ -110,7 +110,7 @@ namespace SkiResortMod.Systems
         private const uint SaltNoise = 0xC2B2AE35u;
 
         // Hard ceilings so absurd parameters can never hang the main thread
-        private const long MaxAttemptsPerLayer = 2000000;
+        private const long MaxAttemptsPerLayer = 200000;
         private const int MaxNoiseCells = 1000000;
         private const double DuplicateEpsSq = 1e-6;   // 1 mm in xz
         private const double MinArea = 1.0;           // m²

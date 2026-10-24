@@ -47,7 +47,7 @@ namespace SkiResortMod.Systems
         {
             public int OwnerIndex; // the station entity's Index
             public float3 Position;
-            public sbyte Role; // 0 Base, 1 Top, -1 unknown (Shuttle mode only)
+            public sbyte Role; // 0 Base, 1 Top, -1 unknown (the catalog has no row for it)
             public float3 DockA, DockB; // world track-rope points of its two docks; NaN = none (Shuttle mode only)
         }
 
@@ -80,7 +80,7 @@ namespace SkiResortMod.Systems
             public readonly List<int> ChainIndices = new List<int>();
             public PairStatus Status;
             public int Base = -1, Top = -1; // station list indices
-            public bool BaseByRole; // Shuttle: the Base role decided; false = height tie-break
+            public bool BaseByRole; // the Base role decided; false = height tie-break
             public Chain A, B; // Loop: A base->top, B top->base; Shuttle: both base->top
             public bool UpLaneDecided, UpLaneSwapped;
             public int TypeIndex = -1; // common type of both chains' lanes, -1 mixed
@@ -249,12 +249,16 @@ namespace SkiResortMod.Systems
                     continue;
                 }
 
-                // Base station = the lower of the two terminals (a ski lift climbs); loop travel starts at the base going up chain A.
-                // Arbitrary but deterministic. Shuttle: the Base-role station when exactly one of the two has it.
+                // Base station = the one with the Base role when exactly one of the two has it: a lift built downhill or across a
+                // saddle would otherwise ride up on the stations' unloading sides, because the lower terminal was taken as base.
+                // A Loop pair needs both roles known to use the rule (a missing catalog row keeps the old one); Shuttle has always
+                // taken it on one Base alone. Without it: the lower of the two terminals (a ski lift climbs). Loop travel starts at
+                // the base going up chain A. Arbitrary but deterministic.
                 int stationA = kv.Key.Item1, stationB = kv.Key.Item2;
                 int baseStation;
                 bool aIsBase = stations[stationA].Role == 0, bIsBase = stations[stationB].Role == 0;
-                if (mode == Mode.Shuttle && aIsBase != bIsBase)
+                bool rolesKnown = stations[stationA].Role >= 0 && stations[stationB].Role >= 0;
+                if (aIsBase != bIsBase && (mode == Mode.Shuttle || rolesKnown))
                 {
                     baseStation = aIsBase ? stationA : stationB;
                     pair.BaseByRole = true;

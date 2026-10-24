@@ -135,9 +135,10 @@ namespace SkiResortMod.Systems
         /// <summary>Builds loops from harvested lanes + station entities (with world positions, for base-first orientation).
         /// <paramref name="stationByOwnerIndex"/> maps entity INDEX → station list index for each station AND its children (sub-objects,
         /// sub-net nodes/edges): PathNode owners are stored as indices. Never throws on bad topology: lifts that do not close produce no
-        /// loop and count as unclosed chains; the reasons land in m_BuildNotes/m_ChainDiags.</summary>
+        /// loop and count as unclosed chains; the reasons land in m_BuildNotes/m_ChainDiags. <paramref name="stationRoles"/>[i] is the
+        /// catalog role of stations[i] (0 Base, 1 Top); null or short = unknown, which keeps the lower-terminal rule.</summary>
         public void Build(List<CableLane> lanes, List<Entity> stations, List<float3> stationPositions,
-            Dictionary<int, int> stationByOwnerIndex, List<float3> stationWheelCenters)
+            Dictionary<int, int> stationByOwnerIndex, List<float3> stationWheelCenters, List<sbyte> stationRoles = null)
         {
             Clear();
             FillTopologyLanes(lanes);
@@ -148,7 +149,7 @@ namespace SkiResortMod.Systems
                 {
                     OwnerIndex = stations[i].Index,
                     Position = stationPositions[i],
-                    Role = -1,
+                    Role = stationRoles != null && i < stationRoles.Count ? stationRoles[i] : (sbyte)-1,
                     DockA = new float3(float.NaN),
                     DockB = new float3(float.NaN),
                 });
@@ -175,7 +176,7 @@ namespace SkiResortMod.Systems
                     m_BuildNotes.Add($"stations ({stationA},{stationB}): closure failed — {gapWhy}");
                     continue;
                 }
-                // Base station = the lower of the two terminals (LiftLoopTopology, Loop mode); chain A = the up lane,
+                // Base station = the Base-role station, else the lower of the two terminals (LiftLoopTopology); chain A = the up lane,
                 // oriented base → top, chain B top → base.
                 int baseStation = pair.Base;
                 int topStation = pair.Top;

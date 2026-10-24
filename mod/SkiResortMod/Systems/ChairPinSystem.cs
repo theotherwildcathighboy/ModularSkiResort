@@ -1082,6 +1082,7 @@ namespace SkiResortMod.Systems
             var stations = new List<Entity>();
             var stationPositions = new List<float3>();
             var stationWheels = new List<float3>();
+            var stationRoles = new List<sbyte>();
             m_DiagStationLines.Clear();
             var chunks = m_StationQuery.ToArchetypeChunkArray(Allocator.Temp);
             try
@@ -1100,6 +1101,7 @@ namespace SkiResortMod.Systems
                             continue;
                         stations.Add(entities[i]);
                         stationPositions.Add(transforms[i].m_Position);
+                        stationRoles.Add((sbyte)stationDef.Role);
 
                         // Bullwheel center: rope height over the wheel, in station-local space, from the terminal generator's invariant wheel placement
                         // (lift_terminal.py: drive wheel_x/z 0.2/3.5, return 0/3.7, rope = wheel + 0.05; authoring +X = travel maps to prefab +Z) - the
@@ -1145,7 +1147,7 @@ namespace SkiResortMod.Systems
                     for (int k = 0; k < subNets.Length; k++)
                         stationByOwnerIndex[subNets[k].m_SubNet.Index] = i;
             }
-            m_LoopCache.Build(lanes, stations, stationPositions, stationByOwnerIndex, stationWheels);
+            m_LoopCache.Build(lanes, stations, stationPositions, stationByOwnerIndex, stationWheels, stationRoles);
 
             // Each loop's speed from its lift type; a loop whose lanes span several types moves nothing (no roster below; its chairs static-pin),
             // one WARN per rebuild signature. The fastest speed drives the bounds refresh. The up-lane line is written once per loop per load.

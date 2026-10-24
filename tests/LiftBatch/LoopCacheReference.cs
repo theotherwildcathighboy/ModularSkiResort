@@ -2,6 +2,8 @@
 // moved out) at SHA-256 d3ae435b756f2e1b281617ef02cb260bb13a12bd8c16bfea1b963fcca2881b81. Do not edit it to follow LiftLoopTopology.
 // Transcribed: Build :175-345 up to the closure, ClassifyTerminal :347-377, AddEndpoint :379-384, TryTakeNext :386-404, TryCloseLoop
 // :407-430 (orientation + gap check only), CommonType :520-540, ArcSane :558-562, OrientChain :564-578, GetChainEndpoint :580-595.
+// One deliberate edit since the freeze: the base-station choice (Build, pair loop) takes the Base-role station first when both roles are
+// known (stationRoles, new parameter), as LiftLoopTopology does for chair lifts; everything else is the frozen text.
 // Substitutions are the stand-ins the topology uses, so both run on identical input: CableLane -> LiftLoopTopology.Lane; PathNode -> its
 // int id (one owner per id, as the 64-bit search key does: Game.Pathfind/PathNode.cs:113-116); Position / Tangent(lane.m_Bezier, t),
 // t in {0, 1} -> the lane's P0 / P1 / T0 / T1; List<Entity> -> List<int>. Needs Colossal.Mathematics, so not transcribed: AppendChain, the
@@ -46,6 +48,7 @@ namespace LiftBatch
             public int Lo, Hi, ChainCount;
             public bool TwoChains, Closed;           // Closed = passed the gap check (the geometry is not transcribed)
             public int Base = -1, Top = -1;
+            public bool BaseByRole;
             public bool Decided, Swapped;
             public Chain A, B;
             public int ChainIndexA = -1, ChainIndexB = -1;
@@ -70,7 +73,7 @@ namespace LiftBatch
         }
 
         public void Build(List<LiftLoopTopology.Lane> lanes, List<int> stations, List<float3> stationPositions,
-            Dictionary<int, int> stationByOwnerIndex)
+            Dictionary<int, int> stationByOwnerIndex, List<sbyte> stationRoles)
         {
             m_Chains.Clear();
             m_Pairs.Clear();
@@ -203,11 +206,22 @@ namespace LiftBatch
                     continue;
                 }
                 result.TwoChains = true;
-                // Base station = the lower of the two terminals (a ski lift climbs); loop travel starts at the base going up chain A.
-                // Arbitrary but deterministic.
+                // Base station = the Base-role station when both roles are known and exactly one is Base; else the lower of the two
+                // terminals (a ski lift climbs); loop travel starts at the base going up chain A. Arbitrary but deterministic.
                 int stationA = kv.Key.Item1, stationB = kv.Key.Item2;
-                int baseStation = stationPositions[stationA].y <= stationPositions[stationB].y
-                    ? stationA : stationB;
+                bool aIsBase = stationRoles[stationA] == 0, bIsBase = stationRoles[stationB] == 0;
+                bool rolesKnown = stationRoles[stationA] >= 0 && stationRoles[stationB] >= 0;
+                int baseStation;
+                if (aIsBase != bIsBase && rolesKnown)
+                {
+                    baseStation = aIsBase ? stationA : stationB;
+                    result.BaseByRole = true;
+                }
+                else
+                {
+                    baseStation = stationPositions[stationA].y <= stationPositions[stationB].y
+                        ? stationA : stationB;
+                }
                 int topStation = baseStation == stationA ? stationB : stationA;
 
                 // Chain A, the up lane, is the cable on the right looking uphill (was kv.Value[0] / kv.Value[1] as found, :286)

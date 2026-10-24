@@ -1,7 +1,7 @@
 // Measures the glade planner's worst case on a giant, saturated run and prints it; nothing is asserted about speed.
 // A layer's attempt budget is min(target * AttemptsPerTree, MaxAttemptsPerLayer). The tool plans with AttemptsPerTree = 60 and
 // MaxPlant = int.MaxValue on a full replan (Program.cs), so a saturated run (stand + MinSpacing leave no room for the target) burns up
-// to the whole cap per layer on the main thread. Cases: sat.2000x2000 glade (400 ha, target 50,000, budget = the 2,000,000 cap), the
+// to the whole cap per layer on the main thread. Cases: sat.2000x2000 glade (400 ha, target 50,000, budget = the 200,000 cap), the
 // same +belt (two layers), field.400x2000 (80 ha at the 157.3 / ha stream, budget 755k, not saturated), sat.400x2000 (12 m spacing).
 // Output: `INFO  D5 attempts  <case>: attempts A (budget B), planted N of target T, saturated S, mean/max ms over R plans`.
 
@@ -65,8 +65,8 @@ namespace GladeBatch
                 if (ms > max)
                     max = ms;
             }
-            long budgetGlade = Math.Min((long)plan.TargetGlade * p.AttemptsPerTree, 2000000L);
-            long budgetBelt = (p.Mode & GladeMode.Belt) != 0 ? Math.Min((long)plan.TargetBelt * p.AttemptsPerTree, 2000000L) : 0;
+            long budgetGlade = Math.Min((long)plan.TargetGlade * p.AttemptsPerTree, 200000L);
+            long budgetBelt = (p.Mode & GladeMode.Belt) != 0 ? Math.Min((long)plan.TargetBelt * p.AttemptsPerTree, 200000L) : 0;
             Console.WriteLine(string.Format(CultureInfo.InvariantCulture,
                 "INFO  D5 attempts  {0}: attempts {1} (budget {2}{3}), planted {4} (glade target {5}{6}), saturated {7}, mean {8:F1} ms, max {9:F1} ms over {10} plans",
                 label, plan.Attempts, budgetGlade, budgetBelt > 0 ? " + belt " + budgetBelt : "", plan.Planted.Count, plan.TargetGlade,

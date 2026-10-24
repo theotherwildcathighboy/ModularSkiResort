@@ -107,7 +107,7 @@ plan of the current level and target (UpdateFrame "planCurrent").
   re-plans at once and Apply waits for it: under the count rule a canceled spot leaves the run below T, so otherwise the re-plan
   after the Apply would plant replacements instead of reading "nothing to change".
 - Plan cache: `SkiGladeCompose`'s GladePlanCache (PlanCacheEntries = 4, keyed by PlanKey): a saturated giant run burns
-  MaxAttemptsPerLayer (2,000,000) per plan.
+  MaxAttemptsPerLayer (200,000) per plan.
 
 ## Preview (after-state)
 

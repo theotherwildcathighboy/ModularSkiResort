@@ -600,6 +600,12 @@ namespace LiftBatch
 
         // ================================================================== LC-9
 
+        private static LiftLoopTopology.Station SetRole(LiftLoopTopology.Station s, sbyte role)
+        {
+            s.Role = role;
+            return s;
+        }
+
         private static void Lc9DownhillShuttle()
         {
             const string W = "loopcache/LC-9";
@@ -617,8 +623,27 @@ namespace LiftBatch
             LiftLoopTopology l =g.Build(LiftLoopTopology.Mode.Loop);
             if (Check(l.Pairs.Count == 1, W, "loop pairs"))
             {
-                Eq(1, l.Pairs[0].Base, W, "Loop base = the lower station");
-                Eq(false, l.Pairs[0].BaseByRole, W, "Loop BaseByRole");
+                Eq(0, l.Pairs[0].Base, W, "Loop base = the Role-0 station, though it is the higher one");
+                Eq(true, l.Pairs[0].BaseByRole, W, "Loop BaseByRole");
+                Check(l.Pairs[0].A.StartStation == 0 && l.Pairs[0].B.EndStation == 0, W, "loop chains not oriented from the role base");
+            }
+            // A Loop pair with one role unknown keeps the height rule (a station with no catalog row says nothing about being the base).
+            Graph half = Tram(baseY: 400f, topY: 0f);
+            half.Stations[1] = SetRole(half.Stations[1], -1);
+            LiftLoopTopology h = half.Build(LiftLoopTopology.Mode.Loop);
+            if (Check(h.Pairs.Count == 1, W, "loop, one role unknown: pairs"))
+            {
+                Eq(1, h.Pairs[0].Base, W, "Loop, one role unknown: the lower station");
+                Eq(false, h.Pairs[0].BaseByRole, W, "Loop, one role unknown: BaseByRole");
+            }
+            // Both stations the same role: no role decides, the height rule stands.
+            Graph same = Tram(baseY: 400f, topY: 0f);
+            same.Stations[1] = SetRole(same.Stations[1], 0);
+            LiftLoopTopology sm = same.Build(LiftLoopTopology.Mode.Loop);
+            if (Check(sm.Pairs.Count == 1, W, "loop, both Base: pairs"))
+            {
+                Eq(1, sm.Pairs[0].Base, W, "Loop, both Base: the lower station");
+                Eq(false, sm.Pairs[0].BaseByRole, W, "Loop, both Base: BaseByRole");
             }
             Graph n = Tram(baseY: 400f, topY: 0f, roles: false);
             LiftLoopTopology r = n.Build(LiftLoopTopology.Mode.Shuttle);
@@ -698,7 +723,7 @@ namespace LiftBatch
         {
             const string W = "loopcache/LC-REF";
             int differ = 0, ok = 0, gap = 0, notTwo = 0, unclosed = 0, swapped = 0, undecided = 0, mixed = 0, empty = 0;
-            int howOwner = 0, howChild = 0, howPos = 0, howNone = 0, ties = 0, shuttleOk = 0, docked = 0, refused = 0, byRole = 0, reclassified = 0;
+            int howOwner = 0, howChild = 0, howPos = 0, howNone = 0, ties = 0, shuttleOk = 0, docked = 0, refused = 0, byRole = 0, reclassified = 0, loopByRole = 0;
             for (int seed = 1; seed <= RefGraphs; seed++)
             {
                 Graph g = RandomGraph(new Random(seed), out bool tie);
@@ -706,16 +731,18 @@ namespace LiftBatch
                     ties++;
                 var stationIds = new List<int>();
                 var positions = new List<float3>();
+                var roles = new List<sbyte>();
                 for (int i = 0; i < g.Stations.Count; i++)
                 {
                     stationIds.Add(g.Stations[i].OwnerIndex);
                     positions.Add(g.Stations[i].Position);
+                    roles.Add(g.Stations[i].Role);
                 }
                 var refMap = new Dictionary<int, int>(g.Children);
                 var reference = new LoopCacheReference();
                 try
                 {
-                    reference.Build(g.Lanes, stationIds, positions, refMap);
+                    reference.Build(g.Lanes, stationIds, positions, refMap, roles);
                 }
                 catch (Exception e)
                 {
@@ -745,6 +772,8 @@ namespace LiftBatch
                         notTwo++;
                         continue;
                     }
+                    if (pair.BaseByRole)
+                        loopByRole++;
                     if (pair.UpLaneSwapped)
                         swapped++;
                     if (!pair.UpLaneDecided)
@@ -779,15 +808,16 @@ namespace LiftBatch
                   " / child " + howChild + " / pos " + howPos + " / none " + howNone);
             Check(swapped >= 100 && undecided >= 5 && mixed >= 10 && empty >= 10 && ties >= 50, W, "coverage: swapped " + swapped +
                   ", undecided " + undecided + ", mixed " + mixed + ", nothing to chain " + empty + ", height ties " + ties);
+            Check(loopByRole >= 30, W, "coverage (Loop): pairs with the base chosen by role " + loopByRole);
             Check(reclassified >= 5, W, "coverage (dock reach): terminals reclassified " + reclassified);
             Check(shuttleOk >= 50 && docked >= 50 && refused >= 5 && byRole >= 50, W, "coverage (Shuttle): Ok " + shuttleOk +
                   ", docked ends " + docked + ", refused docks " + refused + ", base by role " + byRole);
             Console.WriteLine(string.Format(CultureInfo.InvariantCulture,
                 "INFO  {0}: {1} graphs; pairs Ok {2}, gap {3}, not two {4}; unclosed chains {5}; terminals owner {6} / child {7} / " +
                 "pos {8} / none {9}; swapped {10}, undecided {11}, mixed {12}, empty {13}, height ties {14}; Shuttle Ok {15}, docked " +
-                "ends {16}, refused {17}, by role {18}",
+                "ends {16}, refused {17}, by role {18}; Loop by role {19}",
                 W, RefGraphs, ok, gap, notTwo, unclosed, howOwner, howChild, howPos, howNone, swapped, undecided, mixed, empty, ties,
-                shuttleOk, docked, refused, byRole));
+                shuttleOk, docked, refused, byRole, loopByRole));
         }
 
         private static void Count(string how, ref int owner, ref int child, ref int pos, ref int none)
@@ -877,8 +907,9 @@ namespace LiftBatch
                     return at + "two chains";
                 if (!rp.TwoChains)
                     continue;
-                if (rp.Base != tp.Base || rp.Top != tp.Top || tp.BaseByRole)
-                    return at + "base / top " + rp.Base + "/" + rp.Top + " vs " + tp.Base + "/" + tp.Top;
+                if (rp.Base != tp.Base || rp.Top != tp.Top || rp.BaseByRole != tp.BaseByRole)
+                    return at + "base / top " + rp.Base + "/" + rp.Top + " (by role " + rp.BaseByRole + ") vs " + tp.Base + "/" + tp.Top +
+                           " (by role " + tp.BaseByRole + ")";
                 if (rp.Decided != tp.UpLaneDecided || rp.Swapped != tp.UpLaneSwapped)
                     return at + "up lane decided / swapped";
                 if (rp.ChainIndexA != t.Chains.IndexOf(tp.A) || rp.ChainIndexB != t.Chains.IndexOf(tp.B))
