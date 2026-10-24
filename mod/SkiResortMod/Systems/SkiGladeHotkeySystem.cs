@@ -57,6 +57,7 @@ namespace SkiResortMod.Systems
         private bool m_DumpArmed;      // dump action resolved and enabled (independent)
         private bool m_Disabled;
         private bool m_ErrorLogged;
+        private bool m_DumpOffLogged;  // the "diagnostics off" refusal, once per load
         private int m_ProbeCountdown = -1;
         private readonly bool[] m_WasLive = new bool[SlotCount];
         // Re-arming watcher state
@@ -94,6 +95,7 @@ namespace SkiResortMod.Systems
             m_DumpArmed = false;
             m_Disabled = false;
             m_ErrorLogged = false;
+            m_DumpOffLogged = false;
             m_ProbeCountdown = -1;
             DumpPresses = 0;
             WatcherDrops = 0;
@@ -254,6 +256,16 @@ namespace SkiResortMod.Systems
         /// the hotkeys.</summary>
         private void DispatchDump()
         {
+            // A developer aid: a player who hits the chord by accident gets one line, not a page of state
+            if (!SkiResortMod.Settings.SkiResortSettings.DiagnosticsOn)
+            {
+                if (!m_DumpOffLogged)
+                {
+                    m_DumpOffLogged = true;
+                    Mod.Log.Info("Glade: hotkey dump ignored — turn on Options > Diagnostics > Measurement diagnostics to use it");
+                }
+                return;
+            }
             DumpPresses++;
             bool area = m_ToolSystem.activeTool == m_AreaTool;   // ToolSystem.cs:84-99
             bool glade = m_Tool.IsActive;
