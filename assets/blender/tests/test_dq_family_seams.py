@@ -246,7 +246,7 @@ def _hosted(co_prefab, pos, quat):
     """ETDQ prefab coords -> station prefab coords: the station's hosted pose (Unity quat
     (x, y, z, w) = (0, 1, 0, 0) is 180 deg about y)."""
     if [round(float(c), 6) for c in quat] != [0.0, 1.0, 0.0, 0.0]:
-        raise ValueError(f"hosted rotation {quat}: only 180 deg about y is modelled here")
+        raise ValueError(f"hosted rotation {quat}: only 180 deg about y is modeled here")
     out = co_prefab * np.array([-1.0, 1.0, -1.0])
     return out + np.asarray(pos, dtype=np.float64)
 
@@ -494,7 +494,7 @@ def s9_code(top):
           and got_p["1.1 %"] == "crossed" and got_p["-1.1 %"] == "crossed" and got_h["+0.012"] == "crossed",
           "S9 DQ top nose: the gate holds on a level lane only - lost at 0.14 % pitch, crossed from 1.1 % / +12 mm")
     NOTES.append("S9 DQ top nose: LEVEL-LANE LIMIT (documented, nitpick A4): the 11.5 mm wheel / rocker_main gap is a "
-                 f"level-lane, axle-height number - pitch about the nose centre {got_p}; lane height above the axle "
+                 f"level-lane, axle-height number - pitch about the nose center {got_p}; lane height above the axle "
                  f"{got_h}; the DQ towers share it; in game the lane through the nose train is level (the rigid "
                  "building, one straight in-station run; the stations do not flatten terrain) at 3.70..3.73 "
                  "(anchors a..d), see NOSE_LANE_PITCH_LIMIT['basis']")

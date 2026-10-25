@@ -373,11 +373,11 @@ def check_rooms():
     cs2_asset.store_part_table(obj, table)
     boxes, hard, soft = K.room_graph(obj, table)
     assert ("s0b0", "s0b1") in hard and ("s0b0", "s1b0") not in hard, "hard = same floor < 3 m"
-    assert ("s0b0", "s1b0") in soft, "vertically adjacent bays are soft neighbours"
+    assert ("s0b0", "s1b0") in soft, "vertically adjacent bays are soft neighbors"
     sub, cells = K.split_rooms(obj, table, "auto", name="RoomTest")
     assert len(set(cells.values())) <= 25 and set(cells.values()) <= set(K.WIN_POOL)
     for a, b in hard:
-        assert cells[a] != cells[b], f"hard neighbours {a} {b} share id {cells[a]}"
+        assert cells[a] != cells[b], f"hard neighbors {a} {b} share id {cells[a]}"
     # equal ids only beyond 3 m on overlapping floors
     hs = set(hard)
     for a in cells:
@@ -405,7 +405,7 @@ def check_rooms():
                                                         "RoomTest_LOD2_Win.fbx"]
     finally:
         shutil.rmtree(d, ignore_errors=True)
-    ok(f"split_rooms: {len(cells)} rooms -> {len(set(cells.values()))} ids, hard neighbours differ, "
+    ok(f"split_rooms: {len(cells)} rooms -> {len(set(cells.values()))} ids, hard neighbors differ, "
        f"decode == id on {len(ids)} panes, tall pane uncut, _Win/_LOD1_Win/_LOD2_Win")
 
 
@@ -549,7 +549,7 @@ def check_materials_colour():
         if m.target_srgb is not None:
             assert all(0.0 <= c <= 1.0 for c in m.target_srgb), key
         if m.recolor:
-            assert m.slot > 0, f"{key}: recolour needs a slot"
+            assert m.slot > 0, f"{key}: recolor needs a slot"
         if m.set:
             d = os.path.join(cs2_bake.TEXTURE_ROOT, m.set)
             paths = {mp: cs2_bake.find_set_map(d, mp) for mp in ("Color", "NormalGL", "Roughness")}
@@ -563,7 +563,7 @@ def check_materials_colour():
             tu, tv = K.image_tile_m(m)
             assert abs(w / h - tu / tv) < 1e-6, f"{key}: image {w}x{h} vs tile {tu}x{tv}"
     ok(f"{len(K.BLDG_MATERIALS)} materials: sets complete, image aspect == tile aspect (after uv_rot), "
-       f"targets in [0, 1], recolour has a slot")
+       f"targets in [0, 1], recolor has a slot")
     for c in (0.0, 0.02, 0.2, 0.5, 0.8, 1.0):
         assert abs(K.linear_to_srgb(K.srgb_to_linear(c)) - c) < 1e-9
     assert abs(K.srgb_to_linear(0.80) - 0.6038) < 1e-3
@@ -579,7 +579,7 @@ def check_materials_colour():
         b = np.full((40, 80, 4), 0.5, np.float32)
         p((0, 40, 0, 80), b, np.zeros_like(b))
         assert np.abs(b - 0.5).max() > 0.05, f"painter {getattr(p, '__name__', p)} painted nothing"
-    ok("colour: sRGB round trip, cross-disc red / white encode to their declared sRGB, 6 painters paint")
+    ok("color: sRGB round trip, cross-disc red / white encode to their declared sRGB, 6 painters paint")
     # retile: vertical boards rotate UVTile, along keeps it isotropic
     clear()
     parts = K.storey("vb", 0, 4, 0, 4, 0.5, 3.5, "timber_vboard") + \
@@ -600,7 +600,7 @@ def check_materials_colour():
         e3 = (P[1] - P[0]).length
         e2 = float(np.linalg.norm(q[1] - q[0])) * specs["timber_heavy"].metres_per_tile
         assert abs(e3 - e2) < 1e-3, f"along projection not isotropic ({e3} vs {e2})"
-    ok("retile: uv_rot 90 rotates UVTile, `along` projection isotropic (metres / tile)")
+    ok("retile: uv_rot 90 rotates UVTile, `along` projection isotropic (meters / tile)")
 
 
 def check_lods():
@@ -855,7 +855,7 @@ def check_curved_braces():
     assert len(old) == 1 and len(old[0][0].data.polygons) == 6 * 8, len(old[0][0].data.polygons)
     ok(f"curved braces (structure v1): frame + curved truss braces and the curved bracket are one closed mitred "
        f"shell each ({n} equal segments, equal turns, 0.7 x member square section, exact mitres), own parts; the "
-       f"frame brace bulges away from the king post, ends on the tie / rafter centre lines; flag off unchanged")
+       f"frame brace bulges away from the king post, ends on the tie / rafter center lines; flag off unchanged")
 
 
 def main():

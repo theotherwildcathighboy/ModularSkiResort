@@ -611,7 +611,7 @@ def measure_one(row):
 
     y0, n0 = down(0.0, 0.0)
     if y0 is None:
-        return {"prefab": row[0], "mesh": row[1], "error": "no hit at the tower centre", "ok": False}
+        return {"prefab": row[0], "mesh": row[1], "error": "no hit at the tower center", "ok": False}
     h = PLATE_HALF
     foot = [down(dx, dz)[0] for dx, dz in ((h, h), (-h, h), (-h, -h), (h, -h),
                                             (h, 0.0), (-h, 0.0), (0.0, h), (0.0, -h))]

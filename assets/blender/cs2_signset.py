@@ -233,7 +233,7 @@ _PATROL_PAINT = {
                            "cap_frac": 0.75, "pitch": 1.35}),),
                 "SKI / PATROL white on patrol red (recipes/patrol.py P1_NAME); painted at approval"),
     "p1.info": ((("bars", {"bars_lin": INFO_BARS_LIN, "white": 0.90}),),
-                "info board, three colour bars (P1_BOARD, _civic.BarsPainter); painted at approval"),
+                "info board, three color bars (P1_BOARD, _civic.BarsPainter); painted at approval"),
     "p2.name": ((("text", {"lines": ("SKI PATROL", "FIRST AID"), "fg": PATROL_WHITE, "bg": PATROL_RED,
                            "cap_frac": 0.75, "pitch": 1.35}),),
                 "SKI PATROL / FIRST AID white on patrol red (P2_NAME); painted at approval"),
@@ -261,7 +261,7 @@ SHEET = SHEET + (
               "HEADER_CAP); lit: the resort name board (H2)"),
     Kind("gate.flake", "gate", (0.70, 0.60), (1524, 624, 1734, 804), "painted", False,
          (("flake", {"d": 0.36, "fg": GATE_CREAM, "bg": GATE_FIELD}),),
-         note="snowflake end panel of the welcome sign header (ORNAMENT_D 0.36 m, centred); used twice (L / R)"),
+         note="snowflake end panel of the welcome sign header (ORNAMENT_D 0.36 m, centered); used twice (L / R)"),
 )
 # ---- PAINTED 2026-10-12, fine-detail step 3e (build/fine-detail-step3e-swanky.md): L5 revision 4 was approved
 # (twenty-third look: "L5 and L4 look good, run the engine pass on them too!"), so its RESERVED name slot is painted in

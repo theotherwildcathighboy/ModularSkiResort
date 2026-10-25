@@ -333,7 +333,7 @@ def check_folder(p, name, asset_dir):
                                          f"(max {emi[..., 0:3].max():.2f}; {n_lamps} lamp_ parts)")
     else:
         check(D.FINE_DETAIL and not os.path.exists(os.path.join(asset_dir, f"{name}_Emissive.png")),
-              f"{tag} no _Emissive map: no modelled lamp left (fine-detail: vanilla RoofLight / WallLight rows)")
+              f"{tag} no _Emissive map: no modeled lamp left (fine-detail: vanilla RoofLight / WallLight rows)")
     lum = base[..., 0:3].mean(axis=-1)
     p95 = {}
     for c, ch in enumerate("RGB"):
@@ -716,7 +716,7 @@ def check_gondola_rev1(p, name, asset_dir, man, g, doors):
     check(all(doors[s_].get("clear_opening_m") == list(D.GD_SIDE_DOOR) and doors[s_].get("clear_rays", 0) >= 54
               and doors[s_].get("centre_post") is False
               and abs(doors[s_].get("head_y", 0) - (D.DECK_H + D.GD_SIDE_DOOR[1])) < 1e-6 for s_ in ("n", "p")),
-          f"{tag} G3 clear opening {D.GD_SIDE_DOOR} m, no centre post, head {D.DECK_H + D.GD_SIDE_DOOR[1]:.2f} "
+          f"{tag} G3 clear opening {D.GD_SIDE_DOOR} m, no center post, head {D.DECK_H + D.GD_SIDE_DOOR[1]:.2f} "
           f"({doors['p'].get('clear_rays')} rays per door)")
     nw = g.get("not_walkable") or []
     check(nw and all(isinstance(x, dict) and x.get("why") for x in nw)
@@ -809,7 +809,7 @@ def gd_negatives():
         ("G3", "base", {}, add(lambda p: (DD._box("door_p_centrepost", DD.gd_hall_layout(p)["xd"] - 0.03,
                                                    DD.gd_hall_layout(p)["xd"] + 0.03, p.w_half - 0.08,
                                                    p.w_half + 0.04, DD.DECK_H, DD.GD_DOOR_HEAD), "paint1")),
-         "revision 1's fixed 0.06 m centre post back in the +Y double door (two 0.87 m passages)"),
+         "revision 1's fixed 0.06 m center post back in the +Y double door (two 0.87 m passages)"),
         ("G3", "top", {}, add(lambda p: (DD._box("shelf_g3probe", p.x_back + 2.5, p.x_back + 3.5, -0.5, 0.5,
                                                   1.00, 1.05), "galv")),
          "an undeclared 1 x 1 m flat top (the standable-top census)"),

@@ -735,7 +735,7 @@ def storey(name, x0, x1, y0, y1, z0, z1, mat, ground=False, drop=(), cut_z=()):
     remove covered strips."""
     keys = tuple(drop) + (("-Z",) if ground else ())
     if ground and abs(z0) > 1e-9:
-        raise ValueError(f"storey {name}: ground storeys start at z 0 (got {z0})")
+        raise ValueError(f"storey() {name}: ground stories start at z 0 (got {z0})")
     g = _Geo()
     g.aabb((x0, y0, z0), (x1, y1, z1), keys)
     for z in sorted(set(float(c) for c in cut_z)):
@@ -3474,7 +3474,7 @@ def ski_rack(name, x, y, length=4.0, facing="+X", h=1.3, *, slots=None, w=None, 
                               ski_mat=ski_mat, gear=gear, z0=z0, leg_to=leg_to,
                               bindings=bindings)
     if z0 != 0.0 or leg_to is not None or bindings:
-        raise ValueError(f"ski_rack {name}: z0 / leg_to / bindings need the modelled rack "
+        raise ValueError(f"ski_rack {name}: z0 / leg_to / bindings need the modeled rack "
                          f"(slots=)")
     n, t = _SIDES[facing]
     wall = WallRef(facing, (x if facing in ("+X", "-X") else y))
@@ -3606,7 +3606,7 @@ def ski_rack_frame(name, x, y, slots=8, w=None, mat="galv", along="Y", skis=(),
             span = (sc - GEAR_W[kind] / 2, sc + GEAR_W[kind] / 2)
             for (a0, a1) in taken.get(sg, ()):
                 if span[0] < a1 - 1e-6 and a0 < span[1] - 1e-6:
-                    raise ValueError(f"ski_rack {name}: {(j, sg, kind)} overlaps a neighbour")
+                    raise ValueError(f"ski_rack {name}: {(j, sg, kind)} overlaps a neighbor")
             taken.setdefault(sg, []).append(span)
         G = _GeoSet()
         short = []
@@ -3634,7 +3634,7 @@ def ski_rack_frame(name, x, y, slots=8, w=None, mat="galv", along="Y", skis=(),
         span = (sc - wid / 2, sc + wid / 2)
         for (a0, a1) in taken.get(sg, ()):
             if span[0] < a1 - 1e-6 and a0 < span[1] - 1e-6:
-                raise ValueError(f"ski_rack {name}: slab {(j, sg, kind)} overlaps a neighbour")
+                raise ValueError(f"ski_rack {name}: slab {(j, sg, kind)} overlaps a neighbor")
         taken.setdefault(sg, []).append(span)
     sk = _Geo()
     for j, sg, kind in skis:
@@ -4650,7 +4650,7 @@ def roof_emblem(name, spec, side, size, s0=None, centre=None, lift=ROOF_PANE_OFF
         R = Vector((g["r"], am, zr)) if g["ax"] == "Y" else Vector((am, g["r"], zr))
         C = R - up * (float(s0) + size / 2)
     else:
-        raise ValueError(f"roof_emblem {name}: give s0 or centre")
+        raise ValueError(f"roof_emblem {name}: give s0 or center")
     hs = size / 2
     lo_e = (C - up * hs)
     e_lo = lo_e.x if g["ax"] == "Y" else lo_e.y

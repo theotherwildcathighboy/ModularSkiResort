@@ -1208,7 +1208,7 @@ def int_tangent(c1, r1, c2, r2):
     dx, dy = c2[0] - c1[0], c2[1] - c1[1]
     d = math.hypot(dx, dy)
     if d <= r1 + r2:
-        raise ContractError(f"C20: the foot sheave and the bullwheel overlap (centres {d:.3f} m apart, radii "
+        raise ContractError(f"C20: the foot sheave and the bullwheel overlap (centers {d:.3f} m apart, radii "
                             f"{r1} + {r2})")
     theta = math.atan2(dy, dx) + math.asin((r1 + r2) / d)
     return theta - math.pi / 2.0, theta + math.pi / 2.0, theta
@@ -1328,7 +1328,7 @@ def check_wheels(role, wheels=True):
         if not C20["dia"][0] - 1e-9 <= d <= C20["dia"][1] + 1e-9:
             msgs.append(f"bullwheel diameter {d:.2f} m outside {C20['dia'][0]:.2f}-{C20['dia'][1]:.2f} (JH-11/12/14)")
         if not DECK_Y + C20["above_deck"] - 1e-9 <= BULL_Y <= TRACK_Y - C20["below_crest"] + 1e-9:
-            msgs.append(f"bullwheel centre y {BULL_Y:.2f} outside deck + {C20['above_deck']} .. crest - "
+            msgs.append(f"bullwheel center y {BULL_Y:.2f} outside deck + {C20['above_deck']} .. crest - "
                         f"{C20['below_crest']} ({DECK_Y + C20['above_deck']:.2f}..{TRACK_Y - C20['below_crest']:.2f})")
         if BULL_Y - BULL_RIM < HUT_ROOF_TOP + C20["hut_wheel"] - 1e-9:
             msgs.append(f"bullwheel rim bottom {BULL_Y - BULL_RIM:.2f} < hut-roof top {HUT_ROOF_TOP:.2f} + "
@@ -3291,10 +3291,10 @@ def fd_kit_specs(role):
                      removed=("ext_hall",), was="extinguisher('hall', col (-12, 0) +X face, bottom DECK_Y + 0.90)"),
                 dict(prop="SkiDressHoseReel", pos=(0.00, round(DECK_Y + 1.10 - 0.35, 4), BW_CENTRE[2] - 1.20),
                      facing="-Z", mount="wall", parent=0, removed=("hosereel_drive_",),
-                     was="hose_reel('drive', drive house -Z face, centre DECK_Y + 1.10, r 0.30 = the kit plate)"),
+                     was="hose_reel('drive', drive house -Z face, center DECK_Y + 1.10, r 0.30 = the kit plate)"),
                 dict(prop=FD_RACK, pos=(TRAM_RACK_AT[0], 0.0, TRAM_RACK_AT[2]), facing="+Z", mount="ground",
                      parent=-1, grade=True, removed=("skirack_t",),
-                     was="aframe_rack('t', centre (10.80, 11.20), z0 0.02, along prefab X): frame + L1's entry gear "
+                     was="aframe_rack('t', center (10.80, 11.20), z0 0.02, along prefab X): frame + L1's entry gear "
                          "(ski_rack_frame slots 8); the kit rack stands on the grade (foot drop 0.02)")]
     hx1 = HUT[1]
     # the hut's -Z face (the old spot, x 4.70) has the plinth cap's front railing 0.23 m in front of it (F1 access:
@@ -3306,10 +3306,10 @@ def fd_kit_specs(role):
                      "beside the hose reel (no 0.40 m access in front of the -Z face: the cap railing 0.23 m off it)"),
             dict(prop="SkiDressHoseReel", pos=(hx1, round(DECK_Y + 1.10 - 0.35, 4), 1.00), facing="+X", mount="wall",
                  parent=0, removed=("hosereel_hut_",),
-                 was="hose_reel('hut', hut +X face z 1.00, centre DECK_Y + 1.10, r 0.30 = the kit plate)"),
+                 was="hose_reel('hut', hut +X face z 1.00, center DECK_Y + 1.10, r 0.30 = the kit plate)"),
             # the builder pair's center: foot + right * gap / 2 (cs2_liftdress.tools lays the 2nd tool 0.35 to its right)
             dict(prop="SkiDressTools", pos=(round(4.30 + 0.175, 4), DECK_Y, HUT[3]), facing="+Z", mount="lean", parent=0,
-                 removed=("tool_hut_",), was="tools('hut', foot (x 4.30, hut +Z face + 0.32), +Z): the pair centre x 4.475")]
+                 removed=("tool_hut_",), was="tools('hut', foot (x 4.30, hut +Z face + 0.32), +Z): the pair center x 4.475")]
 
 
 def fd_kit_rows(role, colour_set=None):
@@ -3426,7 +3426,7 @@ def fine_detail_block(role, report):
     blk = (report.get("C16") or {}).get("block") or {}
     lamps = ([{"part": "lamp_annexdoor", "row": FD_ANNEX_LIGHT[0], "pos": [round(v, 4) + 0.0 for v in _LD().rule_t_pos(pf(role, FD_ANNEX_LIGHT[1]))],
                "facing": FD_ANNEX_LIGHT[2] + " (design frame; pos is game: rule T)", "why": "design A.2 (the tram base's wall lamps -> short-range wall "
-                                                  "lights); the bar's lens centre"}] if role == "base" else [])
+                                                  "lights); the bar's lens center"}] if role == "base" else [])
     kept = {"labels / LIFT boards": "FS5: the host atlas (TICKETS, LIFT OPS, departure board, station name, "
                                     "tension, the three trail boards)",
             "gates": "boxes stay boxes (benchmark 2.2); the 2.2 m perforated top leaves and the C17 layout unchanged",
@@ -4206,7 +4206,7 @@ def check_contracts(t, role, opts, report):
         cen = P_[sel].mean(axis=0)
         err = float(np.linalg.norm(cen - np.array(st["a"])))
         if err > 0.001:
-            _fail("C2", f"{prefix} end ring centre {np.round(cen, 4)} vs stub a {st['a']} "
+            _fail("C2", f"{prefix} end ring center {np.round(cen, 4)} vs stub a {st['a']} "
                         f"(err {err:.4f})")
         measured.append({"lane": st["kind"], "a": st["a"], "ring_centre": [round(float(c), 4)
                                                                              for c in cen]})
@@ -5012,7 +5012,7 @@ WALK_PREFIXES = ("deck_", "edgestrip_", "grate_", "landing_", "plinthcap", "pad_
 NOT_WALKABLE = (
     ("stonecap", "the slab under the boarding decks: where it is open (the lobby, 1.1 m below the decks"
                  " behind the dark glazing, and the two cabin berth pits under the parked cabins) it is a"
-                 " hall interior with no modelled interior stair (the entrance doors are at grade) - not"
+                 " hall interior with no modeled interior stair (the entrance doors are at grade) - not"
                  " a platform (N2)"),
     ("trenchcap", "the moving-platform pit floor between the rails: a machine space reached only for"
                   " maintenance, never walked (C15 since 1c; the design's pit ladder TB-A1 dropped,"
@@ -6041,7 +6041,7 @@ def check_gate_door(obj, role):
     c, half = door["centre"], door["half"]
     msgs = []
     if abs(c - DOCK_Z) > 1e-6:
-        msgs.append(f"the cabin's door centre z {c} is not the station's DOCK_Z {DOCK_Z}")
+        msgs.append(f"the cabin's door center z {c} is not the station's DOCK_Z {DOCK_Z}")
     pf, parts = _part_tris(obj)
     span = (c - half, c + half)
     open_min = max(C17_OPEN_MIN, 2.0 * half)
@@ -6101,7 +6101,7 @@ def check_gate_door(obj, role):
         if opening < open_min - 1e-6:
             msgs.append(f"edge {e} (x {ex}): opening {opening:.3f} m < {open_min:.2f} m (door span)")
         if abs(centre - c) > C17_CENTRE_TOL:
-            msgs.append(f"edge {e} (x {ex}): opening centre z {centre:.3f} is {centre - c:+.3f} m off the "
+            msgs.append(f"edge {e} (x {ex}): opening center z {centre:.3f} is {centre - c:+.3f} m off the "
                         f"door seam {c}")
     if msgs:
         _fail("C17", "; ".join(msgs))
@@ -6420,7 +6420,7 @@ def check_hygiene(obj):
     if len(me.uv_layers) != 1:
         _fail("C12", f"{len(me.uv_layers)} UV layers")
     if me.color_attributes:
-        _fail("C12", "colour attributes present")
+        _fail("C12", "color attributes present")
     ngons = sum(1 for p in me.polygons if p.loop_total > 4)
     if ngons:
         _fail("C12", f"{ngons} n-gons")
@@ -6493,7 +6493,7 @@ def prefab_contract(role, report, atlas_rule, base_report, switch):
         wheels["anchor_drums"] = report.get("drums")
     out = {
         "x_frame": "design / FBX-raw x; game x = -x (x-sign gate settled N 2026-10-15): every x below (stubs, docks, "
-                   "hosted, wheel centres, bounds, axis_x) is NOT game - negate it when writing prefab rows; the "
+                   "hosted, wheel centers, bounds, axis_x) is NOT game - negate it when writing prefab rows; the "
                    "sub_objects block is already written through rule T (game frame)",
         "prefab": PREFAB_NAMES[role], "lot": [W, D], "stub_tip_z": STUB_Z, "face_z": FACE_Z,
         "deck_y": DECK_Y, "pivot_y": PIVOT_Y, "track_y": TRACK_Y, "haul_y": HAUL_Y,
@@ -6531,7 +6531,7 @@ def prefab_contract(role, report, atlas_rule, base_report, switch):
         # and the design -> prefab shift of this build (SkiCatalog.cs StationDef.StubTipLocalX reads axis_x)
         out["axis_x"] = dx
         out["frame"] = {"design_to_prefab_dx": dx, "lot_was": list(LOT[role]),
-                        "why": "nitpick B2: the 6 x 3 lot is centred on the prefab origin; the new cell is on the "
+                        "why": "nitpick B2: the 6 x 3 lot is centered on the prefab origin; the new cell is on the "
                                "clock-tower (+X) side, so the building moved 4.00 m toward -X" if dx else
                                "unchanged (the top keeps its 3 x 3 lot)"}
     return out
@@ -7487,9 +7487,9 @@ def check_stage(t, table, name, role, args, report):
                   f"(between {j['between']})")
     print(f"[tram] C15 not walkable by design: {sorted(c15['not_walkable'])}")
     ops = sorted({e_["opening_m"] for e_ in c17["edges"].values()})
-    print(f"[tram] C17 gate span vs cabin door: door z {c17['span_z'][0]}..{c17['span_z'][1]} (centre "
+    print(f"[tram] C17 gate span vs cabin door: door z {c17['span_z'][0]}..{c17['span_z'][1]} (center "
           f"{c17['door']['centre']}, leaves -+{c17['door']['half']}), {len(c17['edges'])} berth edges, "
-          f"opening {ops} m (>= {c17['open_min_m']}), centred on the seam, no post / leaf in the span; "
+          f"opening {ops} m (>= {c17['open_min_m']}), centered on the seam, no post / leaf in the span; "
           f"posts {sorted({e_['posts'] for e_ in c17['edges'].values()})} leaves "
           f"{sorted({e_['leaves'] for e_ in c17['edges'].values()})} per edge")
     if report["C16"] is not None:

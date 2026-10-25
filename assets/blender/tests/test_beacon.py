@@ -156,7 +156,7 @@ def main():
         sizes = {cs2_validate.read_png_header(os.path.join(asset_dir, f))[:2] for f in pngs}
         ok(sizes == {(B.A, B.A)}, f"all maps {B.A} x {B.A}: {sizes}")
         ctypes = {cs2_validate.read_png_header(os.path.join(asset_dir, f))[3] for f in pngs}
-        ok(ctypes == {6}, f"all maps RGBA (colour type 6): {ctypes}")
+        ok(ctypes == {6}, f"all maps RGBA (color type 6): {ctypes}")
         vram = 5 * B.A * B.A * 4 * 4 / 3 / 2 ** 20
         ok(vram <= 0.5, f"VRAM five maps uncompressed with mips {vram:.3f} MB <= 0.5")
         check_folder(asset_dir, "temp export")

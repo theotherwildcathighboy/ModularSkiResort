@@ -175,7 +175,7 @@ def test_kagelok_load():
         xs = sorted(round(float(co[c][:, 0].mean()), 3)
                     for c in cs2_ingest._components(sheave.data))
         check(len(xs) == 16 and all(abs(abs(x) - 7.5) < 0.01 for x in xs),
-              f"16 line sheaves centred at x = +-7.5 u (got {len(xs)}: {sorted(set(xs))})")
+              f"16 line sheaves centered at x = +-7.5 u (got {len(xs)}: {sorted(set(xs))})")
     return objs
 
 
@@ -212,10 +212,10 @@ def test_textures(objs):
           "case-only collision pil_Haut_01 / pil_haut_01 folds into one set")
     bp = sets.get("Barrière Pil Haut Bas")
     check(bp is not None and bp.height and bp.height.endswith("_Albedo_Normal_DIS.png"),
-          "truncated _DIS displacement recognised")
+          "truncated _DIS displacement recognized")
     si = sets.get(SIEGE)
     check(si is not None and os.path.basename(si.rough) == "Siège_AlbedoRoughness.png",
-          "_AlbedoRoughness spelling recognised (siege)")
+          "_AlbedoRoughness spelling recognized (siege)")
     th = sets.get("Therm bas haut")
     check(th is not None and all((th.base, th.normal, th.height, th.rough)),
           "Therm bas haut has all four maps (pipeline-gap-skeptic miss 4)")
@@ -258,8 +258,8 @@ def test_textures(objs):
     by_type = {}
     for f in all_files:
         by_type.setdefault(png_colour_type(os.path.join(KAGELOK_TEX, f)), f)
-    print(f"        PNG colour types present: {sorted(by_type)}")
-    check({0, 2, 3, 4, 6} <= set(by_type), "grey, RGB, palette, grey+alpha and RGBA files present")
+    print(f"        PNG color types present: {sorted(by_type)}")
+    check({0, 2, 3, 4, 6} <= set(by_type), "gray, RGB, palette, gray+alpha and RGBA files present")
     for ct, f in sorted(by_type.items()):
         px = cs2_ingest.load_map(os.path.join(KAGELOK_TEX, f), size=64)
         ok = px.shape == (64, 64, 4) and bool(np.isfinite(px).all())
@@ -267,7 +267,7 @@ def test_textures(objs):
             ok = ok and bool(np.allclose(px[..., 0], px[..., 1]))
         if ct in (0, 2):
             ok = ok and bool(np.allclose(px[..., 3], 1.0))
-        check(ok, f"load_map colour type {ct} ({f}) -> (64, 64, 4) RGBA")
+        check(ok, f"load_map color type {ct} ({f}) -> (64, 64, 4) RGBA")
 
 
 def test_clean_frame_parts(objs):
@@ -286,7 +286,7 @@ def test_clean_frame_parts(objs):
           f"1 Material Output (target ALL) per material {[(k, len(v)) for k, v in outs.items()]}")
     feed = [v[0].inputs["Surface"].links[0].from_node.type for v in outs.values()]
     check(feed == ["BSDF_PRINCIPLED"], f"the kept output is the Principled one (got {feed})")
-    check(not chair.data.color_attributes, "no colour attributes")
+    check(not chair.data.color_attributes, "no color attributes")
     check((extent(chair) - e0).length < 1e-4, "clean leaves the extent unchanged")
     cs2_ingest.clean(grip)
 
@@ -296,7 +296,7 @@ def test_clean_frame_parts(objs):
     check(abs(lo.z) < 1e-5, f"reframe: lowest point at z 0 (got {lo.z:.2e})")
     check(near(hi.z, 9.091, 0.005), f"reframe: grip top at {hi.z:.4f} u")
     check(abs(glo.x + ghi.x) < 1e-4 and abs(glo.y + ghi.y) < 1e-4,
-          "reframe: grip XY centre on the Z axis")
+          "reframe: grip XY center on the Z axis")
     e = hi - lo
     check(near(e.y, 6.72, 0.01), f"reframe: chair width now along Y ({e.y:.3f} u)")
     check(isinstance(m, type(chair.matrix_basis)), "reframe returns the applied matrix")
@@ -602,7 +602,7 @@ def test_gondola():
     area1 = sum(p.area for p in body.data.polygons)
     check(tris0 == 739 and rep_c["ngons"] == 0 and rep_c["tris"] < tris0
           and near(area1, area0, 1e-4) and rep_c["doubles"] > 0,
-          f"body clean (metres): {tris0} -> {rep_c['tris']} tris, {rep_c['doubles']} welded, "
+          f"body clean (meters): {tris0} -> {rep_c['tris']} tris, {rep_c['doubles']} welded, "
           f"area {area0:.4f} -> {area1:.4f} m2 kept")
     check(had_custom and rep_c["custom_normals_cleared"] and not body.data.has_custom_normals
           and rep_c["sharp_edges_cleared"] > 0 and "sharp_edge" not in body.data.attributes,

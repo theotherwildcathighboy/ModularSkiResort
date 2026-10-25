@@ -271,8 +271,8 @@ def ss9_blank(maps, metrics):
         inner = base[y0 + pad:y1 - pad, x0 + pad:x1 - pad, :3]
         flat = float((inner.max(axis=(0, 1)) - inner.min(axis=(0, 1))).max()) if inner.size else 1.0
         ok(len(d) == 1 and flat < 1e-6 and float(emi[y0:y1, x0:x1].max()) == 0.0 and d[0]["rim_px"] >= 4.0,
-           f"SS9 {key}: blank board (inside the rim one colour, spread {flat:.2e}), rim {d[0]['rim_px'] if d else None} "
-           f"px in the trim colour {d[0]['rim'] if d else None}, unlit")
+           f"SS9 {key}: blank board (inside the rim one color, spread {flat:.2e}), rim {d[0]['rim_px'] if d else None} "
+           f"px in the trim color {d[0]['rim'] if d else None}, unlit")
     k = SS.kind(NC_BLANK[0])
     old = replace(k, draws=(("pictogram", {"kind": "restaurant", "square": True, "bg": SS.BOARD_BROWN}),))
     m2, _ = SS.paint_sheet((old,))
@@ -477,7 +477,7 @@ def rows():
     ok(not bad, f"KIT {sum(1 for k in FD.KIT.values() if not k.coloured)} uncoloured kit CIDs = the staged .cid "
                 f"files ({bad})")
     live = [p for p, k in FD.KIT.items() if k.coloured and FD.staged_cid(p) is not None]
-    ok(not live, f"KIT the coloured base object prefabs are retired from staging ({live})")
+    ok(not live, f"KIT the colored base object prefabs are retired from staging ({live})")
     drift = [(p, c) for p, k in FD.KIT.items() if k.coloured for c in FD.COLOUR_SETS
              if FD.staged_kit_cid(p, c) not in (None, FD.kit_cid(p, c))]
     ok(not drift, f"KIT staged variant .cid files = their seeded CIDs ({drift})")
@@ -546,8 +546,8 @@ def rows():
     rk = sch0.sub_objects[rack]
     e5 = _raises(rack, m_Object=FD.KIT[rk["prefab"]].cid)
     e6 = _raises(rack, colour_set="green")
-    ok(bool(e5) and "dressing-kit" in e5, "REJ negative (building): a coloured kit row on the retired base CID raises")
-    ok(bool(e6), "REJ negative (building): a kit row whose colour set is not its variant's / the recipe's raises")
+    ok(bool(e5) and "dressing-kit" in e5, "REJ negative (building): a colored kit row on the retired base CID raises")
+    ok(bool(e6), "REJ negative (building): a kit row whose color set is not its variant's / the recipe's raises")
     # EFF (a plain recipe: P1; L1 opts in since fine-detail step 3a; P1 / P2 since step 3d, so the plain Recipe is
     # now built from P1's base Recipe fields: independent of which hosts have opted in)
     import dataclasses

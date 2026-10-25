@@ -634,7 +634,7 @@ def f2_m():
                 ok_t = moved or (lat < 1e-3 and (s.get("tube") or s.get("ledge")
                                                  or abs(float(mv @ nv) - (0.3925 - 0.32)) < 1e-3))
                 check(ok_t, f"{tag}: F2 the kit tools " + ("MOVED (declared)" if moved else
-                                                           "= the builder pair's centre, moved out from the wall only"),
+                                                           "= the builder pair's center, moved out from the wall only"),
                       f"(foot line moved {out[tag]['foot_line_move_m']} m, {float(mv @ nv):+.4f} out, lateral {lat:.4f}; "
                       f"{s['was'][:80]})")
             else:                                   # the wall rack: frame vertex for vertex after the foot drop

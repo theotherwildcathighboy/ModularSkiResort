@@ -2535,13 +2535,13 @@ def pivot_check(obj, spec):
     if kind == "ground":
         cx = 0.5 * (lo[0] + hi[0])
         if abs(cx) > 0.02:
-            fails.append(f"x centre {cx:.4f}")
+            fails.append(f"x center {cx:.4f}")
         if spec["code"][0] in ("R", "E") and abs(0.5 * (lo[1] + hi[1])) > 0.02:
-            fails.append(f"y centre {0.5 * (lo[1] + hi[1]):.4f}")
+            fails.append(f"y center {0.5 * (lo[1] + hi[1]):.4f}")
     if kind == "lean":
         foot = co[co[:, 2] <= lo[2] + 0.005]
         if abs(float(foot[:, 1].mean())) > 0.03 or abs(float(foot[:, 0].mean())) > 0.03:
-            fails.append(f"foot line centre ({foot[:, 0].mean():.3f}, {foot[:, 1].mean():.3f})")
+            fails.append(f"foot line center ({foot[:, 0].mean():.3f}, {foot[:, 1].mean():.3f})")
     return fails
 
 
@@ -2851,9 +2851,9 @@ def colour_record(spec):
     """The kit manifest's `colour` value of a prop (export and patch_kit_manifests write the same)."""
     if spec["colour"] != "variants":
         return None
-    return {"ColorProperties": "per colour-set VARIANT (kit colour variants 2026-10-12): the variant's own mesh "
+    return {"ColorProperties": "per color-set VARIANT (kit color variants 2026-10-12): the variant's own mesh "
                                "prefab (a RenderPrefab clone of this mesh's imported prefab) carries ONE fixed "
-                               "VariationSet (white / set colour / white), no external channel, ranges 0; the "
+                               "VariationSet (white / set color / white), no external channel, ranges 0; the "
                                "imported mesh prefab itself gets NO ColorProperties; the FS7 Parent block and the "
                                "base object prefab are retired",
             "slot": 2, "variants": "assets/staging/prefabs/props/B/kit-variants.json",
@@ -2865,7 +2865,7 @@ def retired_base_record(spec):
     return {"object_prefab": None, "retired_base_object_prefab": spec["obj"],
             "retired_base_cid": _fd().KIT[spec["obj"]].cid,
             "retired_to": os.path.relpath(os.path.join(RETIRED_DIR, spec["obj"]), REPO).replace("\\", "/"),
-            "ships_as": "colour-set variants <Object>_<Set> (assets/staging/prefabs/props/B/kit-variants.json)"}
+            "ships_as": "color-set variants <Object>_<Set> (assets/staging/prefabs/props/B/kit-variants.json)"}
 
 
 def variant_components_json(rgb):
@@ -3100,10 +3100,10 @@ def write_variant_table(path=VARIANT_TABLE, import_root=IMPORT_ROOT):
         rec["staged"] = sorted(os.listdir(os.path.join(STAGING, n)))
         variants.append(rec)
     data = {
-        "generator": GENERATOR + " (kit colour variants: stage_variant / sync_variants / variant_surgery)",
+        "generator": GENERATOR + " (kit color variants: stage_variant / sync_variants / variant_surgery)",
         "report": "docs/research/art/assets-2026-10/build/kit-colour-variants.md",
-        "ruling": "2026-10-11 ~18:50: accents do NOT follow the Parent colour; \"a colour that makes "
-                  "sense for that building\" -> one fixed colour set per building (fine_detail.COLOUR_SETS)",
+        "ruling": "2026-10-11 ~18:50: accents do NOT follow the Parent color; \"a color that makes "
+                  "sense for that building\" -> one fixed color set per building (fine_detail.COLOUR_SETS)",
         "engine": "ColorProperties is a RenderPrefab component; MeshColorSystem reads the SubMesh's MESH prefab "
                   "(decompile 1.6.0f1 ColorProperties.cs:12-16 / 137-140, MeshColorSystem.cs:470-471 / 541): "
                   "a variant = its own object prefab + its own mesh prefab (RenderPrefab clone of the imported "
@@ -3119,7 +3119,7 @@ def write_variant_table(path=VARIANT_TABLE, import_root=IMPORT_ROOT):
         "surgery": [
             "Import all 11 props/B folders in ONE Editor action (unchanged; F1 decides share / copy).",
             "The 5 uncoloured object prefabs as before (dress-kit.md 3.1 step 4: REPLACE_<Mesh>_MESH_CID).",
-            "The 6 imported coloured base mesh prefabs stay EXACTLY as imported (no ColorProperties: the retired "
+            "The 6 imported colored base mesh prefabs stay EXACTLY as imported (no ColorProperties: the retired "
             "*B Mesh.components.json Parent blocks are not pasted); no base object prefab for them.",
             "Per variant (game closed): blender ... --python dress_kit.py -- --variant-surgery \"<ImportedData>\" "
             "writes <ID>\\<Variant>\\<Variant>.Prefab + .cid (copied from staging) and <Variant> Mesh.Prefab + .cid "
@@ -3687,10 +3687,10 @@ def row_spec(spec, pr, staging):
     """How a host writes the ObjectSubObjects row for this prop (host integration is a later step). A colored
     prop (kit color variants, 2026-10-12) is written by color-set VARIANT: its row names the variant."""
     if spec["colour"] == "variants":
-        m_obj = ('per colour set: $fstrref:"CID:<the variant object-prefab CID>" (fine_detail.kit_row(..., '
+        m_obj = ('per color set: $fstrref:"CID:<the variant object-prefab CID>" (fine_detail.kit_row(..., '
                  'colour_set=<COLOUR_SETS key>) = fine_detail.kit_cid(prop, set); assets/staging/prefabs/props/B/'
                  'kit-variants.json); the base object prefab is retired')
-        obj = f"{spec['obj']}_<Set> (colour-set variant, e.g. {spec['obj']}_Red)"
+        obj = f"{spec['obj']}_<Set> (color-set variant, e.g. {spec['obj']}_Red)"
     else:
         m_obj = (f'$fstrref:"CID:{staging["cid"]}"' if staging else f'$fstrref:"CID:<{spec["obj"]}.Prefab.cid>"')
         obj = spec["obj"]
@@ -3711,23 +3711,23 @@ def row_spec(spec, pr, staging):
                    "rack vertex for vertex at identity IN THE DESIGN FRAME)"}
     k = spec["kind"]
     if k == "wall":
-        rs["pivot"] = "wall plane (prop back at prefab z 0), bottom of the prop at y 0, centred on x"
+        rs["pivot"] = "wall plane (prop back at prefab z 0), bottom of the prop at y 0, centered on x"
         if spec["code"] == "HR":
             rs["from_builder"] = ("position = the old hose_reel mount point on the wall face with "
-                                  f"y = old centre height - {HOSE['cz']:.2f}")
+                                  f"y = old center height - {HOSE['cz']:.2f}")
         else:
             rs["from_builder"] = ("position = the old extinguisher mount point on the wall face with y = "
                                   "the old bottom z (the body stands 0.02 off the wall as before)")
     elif k == "lean":
-        rs["pivot"] = "foot line centre on the ground; the part leans back toward -Z"
+        rs["pivot"] = "foot line center on the ground; the part leans back toward -Z"
         rs["rest_plane_prefab_z"] = pr["rest_plane_prefab_z"]
         rs["from_builder"] = ("position = the foot line; the support face (wall / bar) must lie at "
                               f"prefab z {pr['rest_plane_prefab_z']} +0..0.02 behind it (LEAN contract, "
                               "recipes/_lean.py)")
     else:
-        rs["pivot"] = "foot centre on the ground"
+        rs["pivot"] = "foot center on the ground"
         if spec["code"][0] == "R":
-            rs["from_builder"] = ("A-frame: position = the old ski_rack_frame centre (x, y) on its surface "
+            rs["from_builder"] = ("A-frame: position = the old ski_rack_frame center (x, y) on its surface "
                                   "(z0); long axis = prefab x = game x = authoring y: IDENTITY for a rack "
                                   "that ran along='Y' (the school), yaw +-90 (fine_detail.yaw_quat((+-1, 0))) "
                                   "for one that ran along='X'; front (+Z) = the builder's side +1; alternate "
@@ -3735,7 +3735,7 @@ def row_spec(spec, pr, staging):
                                   "step 3a: the earlier 'yaw 90 deg for along=Y hosts' assumed game x = "
                                   "authoring x, which no host uses.)")
         elif spec["code"][0] == "W":
-            rs["from_builder"] = ("wall rack: position = centre of the old ski_rack run ((x0 + x1) / 2, y), "
+            rs["from_builder"] = ("wall rack: position = center of the old ski_rack run ((x0 + x1) / 2, y), "
                                   "items toward prefab +Z (the old `side`); 3.0 m long along prefab x: "
                                   "identity for a run along authoring Y facing +X, fine_detail.yaw_quat((dx, "
                                   "dz)) of the run's outward normal otherwise")
@@ -3760,9 +3760,9 @@ def parse_args(argv):
     ap.add_argument("--json", default=None, help="write the kit report here")
     ap.add_argument("--settings-proof", action="store_true")
     ap.add_argument("--variants", action="store_true",
-                    help="kit colour variants: stage every (prop, set) a shipped host manifest names, archive the "
+                    help="kit color variants: stage every (prop, set) a shipped host manifest names, archive the "
                          "unused ones and the six Parent base prefabs, rewrite kit-variants.json, patch the kit "
-                         "manifests' colour / row_spec (no geometry, no texture)")
+                         "manifests' color / row_spec (no geometry, no texture)")
     ap.add_argument("--variant-surgery", default=None, metavar="IMPORTED_DATA",
                     help="S1 (game closed): write every staged variant's object + mesh prefab (+ .cid) under this "
                          "ImportedData, the mesh prefab cloned from the imported base mesh prefab")

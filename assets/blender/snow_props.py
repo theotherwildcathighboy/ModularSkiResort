@@ -2832,7 +2832,7 @@ def parse_args():
     ap.add_argument("--out", default=None, help="import folder, e.g. ../import/props/A")
     ap.add_argument("--lineup", default=None, help="render a scale-lineup preview here")
     ap.add_argument("--row", default=None,
-                    help="render a simulated piste-edge ROW here (variety judgement)")
+                    help="render a simulated piste-edge ROW here (variety judgment)")
     ap.add_argument("--assets", default="tower,hydrant,lance,fan")
     ap.add_argument("--finish", action="store_true",
                     help="bevel boxy parts + bake AO into the atlas (slow, shipping default)")

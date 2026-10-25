@@ -252,7 +252,7 @@ def run():
 
         # prop ground contact + contracts
         f_prop = cs2_validate.validate_mesh(opened, kind="prop",
-                                            contracts={"one metre tall": lambda o: abs(o.dimensions.z - 1.0) < 1e-6,
+                                            contracts={"one meter tall": lambda o: abs(o.dimensions.z - 1.0) < 1e-6,
                                                        "never": lambda o: (False, "by design")})
         check("ground" not in codes(f_prop), f"prop on ground errored {f_prop}")
         check(sum(1 for l, c, m in f_prop if c == "contract" and l == "ERROR") == 1, "contract count")

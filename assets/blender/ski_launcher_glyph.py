@@ -670,7 +670,7 @@ def main():
               f"= {min(strokes) * 72 / 256:.1f}-{max(strokes) * 72 / 256:.1f} px at 4K, "
               f"{min(strokes) * 36 / 256:.1f}-{max(strokes) * 36 / 256:.1f} px at 1080p", flush=True)
         print(f"{key} {title:24s} bbox {m['bbox']}  span {m['span'] * 100:.1f}% of plate  area "
-              f"{m['area'] * 100:.1f}% of plate  centre ({m['centre'][0]:.0f},{m['centre'][1]:.0f})  "
+              f"{m['area'] * 100:.1f}% of plate  center ({m['centre'][0]:.0f},{m['centre'][1]:.0f})  "
               + gap_text(m), flush=True)
     if args.row:
         rej = {} if only else {k: fn() for k, fn in REJECTED.items()}

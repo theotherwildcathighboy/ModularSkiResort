@@ -546,7 +546,7 @@ def append_components(text, fragments):
         raise ValueError("no root components block") from None
     i_len = next(i for i in range(i_c, len(lines)) if re.fullmatch(r'        "\$rlength": \d+,', lines[i]))
     if lines[i_len + 1] != '        "$rcontent": [':
-        raise ValueError("components block shape not recognised")
+        raise ValueError("components block shape not recognized")
     i_close = next(i for i in range(i_len + 2, len(lines)) if lines[i] == "        ]")
     n = int(re.search(r"\d+", lines[i_len]).group(0))
     existing_ids = {int(x) for x in re.findall(r'"\$id":\s*(\d+)', text)}

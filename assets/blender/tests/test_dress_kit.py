@@ -191,10 +191,10 @@ def variants(tmp):
        "DK9 variant CIDs = md5(seed + name), object and mesh")
     ok(set(D.COLOURED) == {p for p, k in FD.KIT.items() if k.coloured} == {s["obj"] for s in D.PROPS
                                                                              if s["colour"] == "variants"},
-       f"DK9 the coloured props agree (dress_kit PROPS / fine_detail.KIT): {D.COLOURED}")
+       f"DK9 the colored props agree (dress_kit PROPS / fine_detail.KIT): {D.COLOURED}")
     ok(4 <= len(FD.COLOUR_SETS) <= 5 and all(len(c.rgb) == 3 and max(c.rgb) <= 1.0 for c in FD.COLOUR_SETS.values()),
-       f"DK9 4-5 colour sets, slot-2 values <= 1: {sorted(FD.COLOUR_SETS)}")
-    for bad, why in ((("SkiDressSkiRack", None), "a coloured prop without a set"),
+       f"DK9 4-5 color sets, slot-2 values <= 1: {sorted(FD.COLOUR_SETS)}")
+    for bad, why in ((("SkiDressSkiRack", None), "a colored prop without a set"),
                      (("SkiDressSkiRack", "pink"), "an unknown set"), (("SkiDressEStop", "red"), "an uncoloured prop with a set")):
         try:
             FD.kit_row(bad[0], (0.0, 0.0, 0.0), colour_set=bad[1])
@@ -203,7 +203,7 @@ def variants(tmp):
             ok(True, f"DK9 negative: kit_row with {why} raises")
     r = FD.kit_row("SkiDressSkiRackV3", (1.0, 0.0, 2.0), colour_set="green")
     ok(r["m_Object"] == FD.variant_cids("SkiDressSkiRackV3_Green")[0] and r["variant"] == "SkiDressSkiRackV3_Green"
-       and FD.row_colour_error(r) is None, f"DK9 a coloured row names its variant {r}")
+       and FD.row_colour_error(r) is None, f"DK9 a colored row names its variant {r}")
     ok(FD.row_colour_error(dict(r, m_Object=FD.KIT["SkiDressSkiRackV3"].cid)) is not None
        and FD.row_colour_error(dict(r, colour_set="red")) is not None,
        "DK9 negative: the retired base CID / a mismatched set are row errors")
@@ -217,7 +217,7 @@ def variants(tmp):
     fam = {_family(h): c for h, c in PALETTE.items()}
     want = {h: {fam[_family(h)]} for h in per_host if _family(h) in fam}
     ok(per_host == want and set(map(_family, PALETTE)) <= set(map(_family, per_host)),
-       f"DK9 hosts' colour sets = the palette ({len(per_host)} hosts, {len(fam)} families): {per_host}")
+       f"DK9 hosts' color sets = the palette ({len(per_host)} hosts, {len(fam)} families): {per_host}")
     # V3 staging: exactly the used variants, complete and fixed; the six base prefabs retired
     staged = D.staged_variant_names()
     ok(staged == sorted(used), f"DK9 staged variants = the used ones ({len(staged)} / {len(used)}): "
@@ -272,8 +272,8 @@ def variants(tmp):
             txt = fh.read()
         m = json.loads(txt)
         ok("Parent (1)" not in txt and m.get("colour") == D.colour_record(spec)
-           and (spec["colour"] != "variants" or "colour-set variant" in m["row_spec"]["object_prefab"]),
-           f"DK9 {spec['name']} manifest: colour / row_spec as the registry writes them, no Parent")
+           and (spec["colour"] != "variants" or "color-set variant" in m["row_spec"]["object_prefab"]),
+           f"DK9 {spec['name']} manifest: color / row_spec as the registry writes them, no Parent")
     # V6 the clone: an importer-shaped base -> the variant mesh prefab
     base = synth_base_mesh("SkiDressSkiRackV2B")
     comp = D.variant_components_json(FD.COLOUR_SETS["red"].rgb)
@@ -462,7 +462,7 @@ def main():
                 d = os.path.join(D.STAGING, spec["obj"])
                 pf = os.path.join(d, f"{spec['obj']}.Prefab")
                 if spec["colour"] == "variants":       # kit color variants: the Parent base prefab is retired
-                    ok(not os.path.exists(d), f"staging {spec['obj']}: coloured base prefab NOT staged (retired)")
+                    ok(not os.path.exists(d), f"staging {spec['obj']}: colored base prefab NOT staged (retired)")
                     continue
                 if not os.path.isfile(pf):
                     SKIPS.append(f"staging {spec['obj']} absent")

@@ -239,7 +239,7 @@ def d1_parts(keys, man, ntri):
     missing = sorted(n for n in list(NEW) + rev2_part_names() + list(MARK_FACES) if n not in table)
     assert not missing, f"D1: missing parts {missing}"
     gone = sorted(n for n in table if n.startswith(("cone_", "lamp_main", "skirack_")))
-    assert not gone, f"D1: modelled parts the pass replaced are still built: {gone}"
+    assert not gone, f"D1: modeled parts the pass replaced are still built: {gone}"
     for c in SCH["CARPETS"]:
         assert keys[f"carpet_belt{c[0]}"] == "rubber", f"D1: S13 belt key {keys[f'carpet_belt{c[0]}']}"
     for n in table:
@@ -475,7 +475,7 @@ def d11_fine(man, verts_fine, legacy):
     for ax in ("x", "y"):
         d = max(abs(a - b) for a, b in zip(lot[ax], PRE_PASS_LOT[ax]))
         assert d <= 0.005, f"D11 H9: lot {ax} {lot[ax]} vs pre-pass {PRE_PASS_LOT[ax]} ({d:.4f} m)"
-    ok(f"D11 H1 / H9: {len(cones)} cone rows at the removed cones' plan centres, {len(lamps)} entry-lamp "
+    ok(f"D11 H1 / H9: {len(cones)} cone rows at the removed cones' plan centers, {len(lamps)} entry-lamp "
        f"rows on the wall at the old lens (y, z), {len(racks)} kit racks = the removed frames +-1 mm "
        f"(identity yaw; a 90-degree yaw misses), lot x {lot['x']} y {lot['y']} within 5 mm of the "
        f"revision-2 pin")
@@ -495,7 +495,7 @@ def _placard_problems(V, leaf, cz_want):
                    f"{leaf[:, 1].max():.3f}")
     cz = 0.5 * (V[:, 2].min() + V[:, 2].max()) - leaf[:, 2].min()
     if abs(cz - cz_want) > 0.01 or V[:, 2].max() > leaf[:, 2].max() - 0.05:
-        bad.append(f"centre {cz:.3f} m above the leaf bottom (want {cz_want})")
+        bad.append(f"center {cz:.3f} m above the leaf bottom (want {cz_want})")
     return bad
 
 
@@ -537,7 +537,7 @@ def r2_revision(parts, keys, verts):
     assert np.abs(ns[:, 0] - (xw + ox - 0.006)).max() < 1e-4, f"R2a: NO SLEDDING x {ns[:, 0]}"
     assert ns[:, 2].min() >= head[:, 2].max() + 0.05 - 1e-6 and ns[:, 2].max() <= lamp_lo - 0.05 + 1e-6, \
         f"R2a: NO SLEDDING z {ns[:, 2].min():.3f}..{ns[:, 2].max():.3f} vs head {head[:, 2].max():.3f} / lamp {lamp_lo:.3f}"
-    assert abs(0.5 * (ns[:, 1].min() + ns[:, 1].max()) - yd) < 1e-4, "R2a: NO SLEDDING not centred on the svc door"
+    assert abs(0.5 * (ns[:, 1].min() + ns[:, 1].max()) - yd) < 1e-4, "R2a: NO SLEDDING not centered on the svc door"
     bell, leaf_m, head_m = verts["bell_alarm"], verts["door_main_leaf"], verts["door_main_head"]
     assert bell[:, 1].max() < leaf_m[:, 1].min() - 0.05 and bell[:, 2].min() > head_m[:, 2].max(), \
         f"R2a: the alarm bell is not above-left of the tower door ({bell.min(0)}..{bell.max(0)})"

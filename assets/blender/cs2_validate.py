@@ -266,7 +266,7 @@ def validate_texture_set(asset_dir, prefix, rep, spec, coverage=None):
         elif spec["hero"] and w < 512:
             rep.warn("texture-size", f"{prefix}_{m}.png is {w} px on a hero asset (< 512)")
         if ctype != 6:
-            rep.error("texture-rgba", f"{prefix}_{m}.png colour type {ctype}, must be 6 (RGBA)")
+            rep.error("texture-rgba", f"{prefix}_{m}.png color type {ctype}, must be 6 (RGBA)")
         if depth != 8:
             rep.warn("texture-depth", f"{prefix}_{m}.png bit depth {depth}, expected 8")
         sizes[m] = w
@@ -623,7 +623,7 @@ def _report_ground_ring(obj, rep, table=None, matrix=None):
         rep.warn("engine-base", "engine base NONE: no edges in the z = 0 +- 1 cm band; the "
                                 "engine will draw no skirt")
     if r["below_verts"]:
-        rep.warn("below-ground", f"{r['below_verts']} vertices below z = -1 cm (a modelled "
+        rep.warn("below-ground", f"{r['below_verts']} vertices below z = -1 cm (a modeled "
                                  f"skirt or a floating error; the engine base ignores them)")
     return r
 
@@ -690,7 +690,7 @@ def validate_mesh(obj, kind="prop", contracts=None):
     tris = cs2_asset.tri_count(obj)
     rep.info("mesh", f"{n_faces} faces, {tris} tris, {len(me.vertices)} verts")
     if me.color_attributes:
-        rep.error("mesh", f"colour attributes present {[a.name for a in me.color_attributes]}: "
+        rep.error("mesh", f"color attributes present {[a.name for a in me.color_attributes]}: "
                           f"the importer reads Color as window/emissive IDs")
     flat = sum(1 for p in me.polygons if not p.use_smooth)
     if flat:
@@ -853,7 +853,7 @@ def inspect_fbx(path, expected_stem, rep, spec, kind_hint=None, part_table=None)
                     f"{len(me.vertices)} verts")
     if ext.max() < 5.0 or ext.max() > 100000.0:
         rep.error("fbx-extent", f"{fname}: raw extent {ext.max():.1f} units; expected "
-                                f"centimetres (x100 bake missing or doubled?)")
+                                f"centimeters (x100 bake missing or doubled?)")
     if spec.get("extent_m") is not None and expected_stem == spec.get("_name"):
         # Blender (x, y, z) meters -> raw (x, z, y) cm
         ex = np.array(spec["extent_m"], dtype=np.float32) * RAW_UNITS_PER_M
@@ -867,7 +867,7 @@ def inspect_fbx(path, expected_stem, rep, spec, kind_hint=None, part_table=None)
         rep.error("fbx-normals", f"{fname}: no custom normals in the file; the importer "
                                  f"consumes FBX normals verbatim")
     if me.color_attributes:
-        rep.error("fbx-colors", f"{fname}: colour attributes {[a.name for a in me.color_attributes]} "
+        rep.error("fbx-colors", f"{fname}: color attributes {[a.name for a in me.color_attributes]} "
                                 f"exported")
     if len(me.uv_layers) != 1:
         rep.error("fbx-uv", f"{fname}: {len(me.uv_layers)} UV layers in the file, expected 1")

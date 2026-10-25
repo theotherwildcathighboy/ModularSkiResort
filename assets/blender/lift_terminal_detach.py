@@ -2046,7 +2046,7 @@ def nose_train_numbers(p):
     rope tangent, the train's x extent and the carriers' |y|."""
     import cs2_sheaves as S
     T = nose_train_layout(p)
-    rule = ("axle on the lane: the code lane / modelled rope through the sheave centres (the towers' convention, "
+    rule = ("axle on the lane: the code lane / modeled rope through the sheave centers (the towers' convention, "
             "F10; nitpick A3 D1)" if T["axle_on_lane"] else "rope tangent on the rim tops (nitpick A)")
     return {"builder": "cs2_sheaves.dq_train (lift_tower's gantry train) + finish_train", "head": T["family"],
             "per_lane": T["n"], "lanes_y": [-p.lane_y, p.lane_y], "gauge_m": round(2.0 * p.lane_y, 3),
@@ -2910,7 +2910,7 @@ def fd_kit_specs(p):
     so = gd_opr_side(p)                 # nitpick A2: the reel stays with the operator room's side
     out += [dict(prop="SkiDressHoseReel", pos=(round(xd - 1.60, 4), so * wi, round(DECK_H + 0.45 - 0.35, 4)),
                  facing="-Y" if so > 0 else "+Y", mount="wall", removed=("hosereel_pl_",),
-                 was="hose_reel('pl', (xd - 1.60, wi), -Y, z 0.75, r 0.22): same centre, the kit's 0.70 m plate"
+                 was="hose_reel('pl', (xd - 1.60, wi), -Y, z 0.75, r 0.22): same center, the kit's 0.70 m plate"
                      + ("" if so > 0 else "; nitpick A2 2026-10-13: mirrored onto the -Y wall with the operator room")),
             dict(prop=FD_WALL_RACK[("gd", p.kind)], pos=(round(xd + 3.7, 4), -(W2 + 1.05), 0.0), facing="-Y",
                  mount="ground", removed=("skirack_gn_", "ski_gn_"),
@@ -4465,7 +4465,7 @@ def assert_revision1(me, table, fparts, co, p):
         _near(float(np.ptp(v[:, 2])), lay["H"], 1e-3, "R1e signband_n height")
         _near(float(v[:, 0].mean()), p.x_nose - (0.072 if GD_REV1 else 0.012), 1e-3,
               "R1e signband_n on the portal face")
-        _near(float(v[:, 1].mean()), 0.0, 1e-3, "R1e signband_n centred")
+        _near(float(v[:, 1].mean()), 0.0, 1e-3, "R1e signband_n centered")
         for tag, s in (("p", 1.0), ("q", -1.0)):
             v = _pv(me, table, fparts, co, f"signband_{tag}")
             _near(float(np.ptp(v[:, 0])), lay["W"], 1e-3, f"R1e signband_{tag} width")
@@ -4555,7 +4555,7 @@ def assert_revision1(me, table, fparts, co, p):
     n_win = sum(1 for n in table if n.startswith("hsgwin_"))
     if n_win != 4:
         raise ContractError(f"R1f {n_win} housing windows, want 2 per side")
-    res["R1f"] = (f"2 windows per side {WIN_W} x {WIN_H} m (ratio {WIN_W / WIN_H:.2f}), centres "
+    res["R1f"] = (f"2 windows per side {WIN_W} x {WIN_H} m (ratio {WIN_W / WIN_H:.2f}), centers "
                   f"x {[round(c[0], 2) for c in window_centres(p)]}, z {sign_z_centre(p):.3f}")
     return res
 
@@ -6369,7 +6369,7 @@ def gd_glazing(t, me, table, fparts, co, p):
     distinct = sorted(set(ids.values()))
     bad = [(a, b) for a, b in hard if ids[a] == ids[b]]
     if len(distinct) > B.MAX_ROOM_IDS or any(not (1 <= i <= 23) for i in distinct) or bad:
-        raise ContractError(f"G5 rooms: {len(distinct)} ids {distinct}, hard neighbours sharing an id {bad[:4]}")
+        raise ContractError(f"G5 rooms: {len(distinct)} ids {distinct}, hard neighbors sharing an id {bad[:4]}")
     # independent re-check: same-id rooms whose pane boxes overlap vertically lie >= NEIGHBOUR_M apart
     for a in sorted(boxes):
         for b in sorted(boxes):
@@ -6789,7 +6789,7 @@ def assert_gondola(t, me, table, fparts, co, p):
     lay = sign_layout(plate_digits(p))
     zc = gd_sign_nose_z(p)
     v = _pv(me, table, fparts, co, "signband_n")
-    _near(float((v[:, 2].min() + v[:, 2].max()) / 2.0), zc, 1e-3, "G7 signband_n centre z")
+    _near(float((v[:, 2].min() + v[:, 2].max()) / 2.0), zc, 1e-3, "G7 signband_n center z")
     # revision 1: the sign spandrel under the nose ring beam (draft 1: under the nose band)
     band_lo = p.z_top - GD_NOSE_HEAD_DROP if GD_REV1 else p.z_top - 1.0
     if v[:, 2].max() > band_lo - 0.02 + 1e-6 or v[:, 2].min() < GD_PORTAL["z_slot"] + 0.05 - 1e-6:
@@ -6799,7 +6799,7 @@ def assert_gondola(t, me, table, fparts, co, p):
     covered = gd_sign_occlusion(me, table, fparts, co, p)
     if covered:
         raise ContractError(f"G7 signs covered: {covered[:6]}")
-    res["G7"] = (f"sign on the PORTAL face (centre y 0, z {zc}) between the slot tops and the nose "
+    res["G7"] = (f"sign on the PORTAL face (center y 0, z {zc}) between the slot tops and the nose "
                  f"{'ring beam' if GD_REV1 else 'band'} + both sides, {lay['W']:.3f} x {lay['H']:.3f} m, "
                  f"emblem + vector '{lay['digits']}' at {SIGN_PX_PER_M:.0f} px/m "
                  f"({'p and q share rect n' if GD_REV1 else 'side q shares rect p'}); 3 x 25 rays "
@@ -6855,7 +6855,7 @@ def assert_nose_train(me, table, fparts, co, p):
                 zc = float((v[:, 2].min() + v[:, 2].max()) / 2.0)
                 worst_t = max(worst_t, abs(zc - p.z_rope))
                 if abs(zc - p.z_rope) > 1e-3 or dt > 0.002:
-                    raise ContractError(f"ST1: {nm} centre z {zc:.4f} / top {v[:, 2].max():.4f} vs the lane "
+                    raise ContractError(f"ST1: {nm} center z {zc:.4f} / top {v[:, 2].max():.4f} vs the lane "
                                         f"{p.z_rope:.4f} / {rim_top:.4f} (axle not on the lane)")
             elif T.get("hold_down"):            # T27: the rim bottom on the vanilla rope's top (axle - r)
                 dt = abs(float(v[:, 2].min()) - (T["axle"] - T["r"]))
@@ -6869,7 +6869,7 @@ def assert_nose_train(me, table, fparts, co, p):
             yc = float((v[:, 1].min() + v[:, 1].max()) / 2.0)
             worst_lat = max(worst_lat, abs(yc - side * p.lane_y))
             if abs(yc - side * p.lane_y) > 1e-3:
-                raise ContractError(f"ST1: {nm} centred at y {yc:.4f}, lane {side * p.lane_y}")
+                raise ContractError(f"ST1: {nm} centered at y {yc:.4f}, lane {side * p.lane_y}")
         elif not core.startswith(("sheave_", "liner_")):
             if core.startswith(("hanger_", "yoke_", "girder_")):
                 xr[core] = (float(v[:, 0].min()), float(v[:, 0].max()))
@@ -6892,7 +6892,7 @@ def assert_nose_train(me, table, fparts, co, p):
             hc, yc = (h[0] + h[1]) / 2.0, (y_[0] + y_[1]) / 2.0
             worst_hx = max(worst_hx, abs(hc - yc))
             if abs(hc - yc) > 1e-3 or h[0] < g[0] - 1e-4 or h[1] > g[1] + 1e-4:
-                raise ContractError(f"ST1: hanger_{tag} centre x {hc:.4f} vs its yoke {yc:.4f} (girder stub x "
+                raise ContractError(f"ST1: hanger_{tag} center x {hc:.4f} vs its yoke {yc:.4f} (girder stub x "
                                     f"{g[0]:.3f}..{g[1]:.3f}): the hanger is not at its yoke")
     for s, tag in ((-1.0, "n"), (1.0, "p")):
         r = _pv(me, table, fparts, co, f"haulrope_{tag}")
@@ -6904,7 +6904,7 @@ def assert_nose_train(me, table, fparts, co, p):
     nums = dict(nose_train_numbers(p), lateral_err_m=round(worst_lat, 5),
                 carrier_max_dy_from_lane_m=round(worst_in, 4), parts=len(names), tris_lod0=tris)
     nums[errk] = round(worst_t, 5)
-    how = (f"axle on the lane {p.z_rope} (rope through the sheave centres, the towers' convention)" if on_lane
+    how = (f"axle on the lane {p.z_rope} (rope through the sheave centers, the towers' convention)" if on_lane
            else "rope tangent on the rims")
     msg = (f"{T['family']} head x {T['n']} per lane, {how} (err {worst_t * 1000:.2f} mm), carriers "
            f"<= lane {worst_in:+.3f} (gate -{NOSE_CARRIER_IN}), x >= {T['x_out']}, {len(names)} parts / {tris} tris")
@@ -6951,7 +6951,7 @@ NOSE_CONTACTS = (
     (r"sheave_guide_sheave_hub[np]_\d+", r"sheave_guide_sheave_[np]_\d+_rim",
      "T62 round 3: the seen hub boss (cs2_sheaves.hub_name part) stands on its own wheel's disc"),
     (r"haulrope_[np]", r"sheave_guide_(?:" + "|".join(NOSE_ROPE_PASS) + r")\w*",
-     "F10: the drawn rope runs through the sheave centres, through the liners and the sub pins' ends"),
+     "F10: the drawn rope runs through the sheave centers, through the liners and the sub pins' ends"),
     (r"haulrope_[np]", r"wheelrope", "the rope tube ends inside the bullwheel's rope torus (C1 / C2)"),
     (r"guideframe_[np]", r"band_nose_c", "the guide beam's end sockets 3 cm into the nose band's edge"),
     (r"clamp_comm\d+_[lu]", r"commcable_nose", "a cable clamp closes round its cable"),
@@ -7263,7 +7263,7 @@ def assert_contracts(t, table, p):
     want = comm_bracket_centre(p)
     for i, k in enumerate("xyz"):
         _near(float(bc[i]), want[i], 1e-3, f"C13 comm bracket {k}")
-    res["C13"] = f"bracket centre {tuple(round(v, 3) for v in want)}"
+    res["C13"] = f"bracket center {tuple(round(v, 3) for v in want)}"
     # nitpick A (2026-10-13): ST1 the towers' sheave train at the top's nose; O1 the DQ layout round its up lane
     st_nums = or_nums = None
     if p.kind == "top" and NOSE_TRAIN:
@@ -7798,7 +7798,7 @@ def fine_detail_block(p, name, table, fine_nums):
     blk = subobject_rows(p, name) or {}
     kit_removed = sorted({pre for s in fd_kit_specs(p) for pre in s["removed"]})
     lamps = ([] if p.gondola else
-             [{"part": f"lamp_s{k}", "now": "RoofLightRandom01 row (soffit, the lens centre)"} for k in range(4)]
+             [{"part": f"lamp_s{k}", "now": "RoofLightRandom01 row (soffit, the lens center)"} for k in range(4)]
              + [{"part": "lamp_cab", "now": "the cabin WallLightShortRangeRandom01 row moved onto it (y 6.35, z 2.38)"}]
              + ([{"part": "lamp_eng", "now": "the engine-room WallLightShortRangeRandom01 row moved onto it (y 6.70, "
                                               "z 2.38)"}] if p.kind == "base" else []))
@@ -8617,7 +8617,7 @@ def prefab_numbers(p, bounds_authoring):
         "lane_rope_y": p.z_rope, "deck_top_y": DECK_H,
         "soffit_y": p.z_soffit, "band_top_or_eave_y": p.z_top, "crown_y": round(p.z_crown, 4),
         "pin_convention": "lane = chair GRIP TOP today (ChairPinSystem bounds.max.y); "
-                          "the modelled rope, torus, wheel table and anchors sit on the lane",
+                          "the modeled rope, torus, wheel table and anchors sit on the lane",
         "seat_over_deck_m": {"today": seat_today,
                              "if_dq_chair_Q1_pins_rope_point": (round(seat_today + gtar, 3)
                                                                 if gtar else None)},
@@ -8702,7 +8702,7 @@ def prefab_numbers(p, bounds_authoring):
                           "towers-transfer G5 compensated value)"},
                 "slot3": {"rgb": [0.16, 0.30, 0.20], "what": "sign spandrel + side sign plates + the sign "
                           "fields (the DQ / draft-1 green default)"},
-                "slot2": {"rgb": [0.85, 0.25, 0.10], "what": "the ski rack gear's accent colour (the shared "
+                "slot2": {"rgb": [0.85, 0.25, 0.10], "what": "the ski rack gear's accent color (the shared "
                           "cs2_bldg gear via cs2_liftdress.ski_rack, material 'accent'); the platform stripes "
                           "are fixed safety yellow"}}
         nums["deck_top_y"] = DECK_H
@@ -8759,7 +8759,7 @@ def parse_args(argv=None):
                          "budget-clean intensity (off = the same build, dressing and bay sharing "
                          "without the layer; the gondola has none)")
     ap.add_argument("--no-fine", action="store_true",
-                    help="fine-detail step 3b OFF: the approved pre-pass station byte for byte (modelled "
+                    help="fine-detail step 3b OFF: the approved pre-pass station byte for byte (modeled "
                          "dressing + box lamps, no kit rows; the DQ TOP alone differs - it has no STAY SEATED "
                          "board since 2026-10-12); default = the fine-detail pass (FINE_DETAIL)")
     ap.add_argument("--wheels", choices=("v1", "v2"), default="v2",

@@ -273,7 +273,7 @@ def parse_args(argv=None):
     ap.add_argument("--no-validate", action="store_true")
     # fine-detail step 3d (module docstring)
     ap.add_argument("--no-fine", action="store_true",
-                    help="the pre-pass sign (header in the band, modelled lanterns, 8-seg masts)")
+                    help="the pre-pass sign (header in the band, modeled lanterns, 8-seg masts)")
     ap.add_argument("--signset-out", default=None, help="sign-set letter folder (default: beside --out)")
     return ap.parse_args(argv)
 
@@ -761,7 +761,7 @@ def contracts_authoring(obj, table, args):
     if abs(ext[1] - PLANK_W) > 1e-3 or abs(ext[2] - PLANK_H) > 1e-3 or ext[0] > 1e-5:
         raise RuntimeError(f"S1: plank extents {ext} != (0, {PLANK_W}, {PLANK_H})")
     if np.abs(cen - np.array(PLANK_CENTRE_AUTH)).max() > 1e-4:
-        raise RuntimeError(f"S1: plank centre {cen} != {PLANK_CENTRE_AUTH}")
+        raise RuntimeError(f"S1: plank center {cen} != {PLANK_CENTRE_AUTH}")
     rep["S1"] = dict(extents=[round(float(x), 4) for x in ext], centre=[round(float(x), 4) for x in cen])
     # S2 (M8): 21 x 5 rays along +X from the WE box, 5 m, hit nothing
     bvh = _bvh_without(obj, table, (FRONT_PROBE,))
@@ -842,7 +842,7 @@ def contracts_oriented(obj, table):
     co = np.array([tuple(obj.matrix_world @ obj.data.vertices[v].co) for v in f.vertices]).mean(0)
     game = (float(-co[0]) + 0.0, float(co[2]), float(-co[1]))      # FBX-raw (x, z, -y), then the game negates x
     if max(abs(a - b) for a, b in zip(game, PLANK_CENTRE_GAME)) > 1e-4:
-        raise RuntimeError(f"S6: game plank centre {game} != {PLANK_CENTRE_GAME}")
+        raise RuntimeError(f"S6: game plank center {game} != {PLANK_CENTRE_GAME}")
     return dict(plank_centre_game=[round(x, 4) for x in game], normal_game=(0, 0, 1))
 
 
@@ -943,7 +943,7 @@ def we_block():
     return {"PLANK_CENTRE_GAME": list(PLANK_CENTRE_GAME), "normal_game": [0.0, 0.0, 1.0],
             "PLANK_W": PLANK_W, "PLANK_H": PLANK_H, "WE_MARGIN": WE_MARGIN,
             "WE_MAX_WIDTH": WE_MAX_WIDTH, "WE_STANDOFF": WE_STANDOFF, "WE_OFFSET": list(WE_OFFSET),
-            "layout": WE_LAYOUT, "frame": "game: lot-centre origin at grade, +Z road, y up"}
+            "layout": WE_LAYOUT, "frame": "game: lot-center origin at grade, +Z road, y up"}
 
 
 def _we_mock_object(obj, text, A):

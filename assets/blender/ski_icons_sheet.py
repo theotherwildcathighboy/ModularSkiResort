@@ -406,7 +406,7 @@ def make_sheet(icons, path, live=None, live_note="", title=DEFAULT_TITLE):
     cv.text(title, 20, y, 3, (236, 240, 244))
     y += 34
     cv.text("256 PX PICTURES ON A ROUNDED PLATE (10..245, R45); EVERY MARK KEEPS 22+ PX TO THE "
-            "PLATE EDGE. HERE AT 160 PX ON THE TILE COLOUR.", 20, y, 2, (180, 192, 204))
+            "PLATE EDGE. HERE AT 160 PX ON THE TILE COLOR.", 20, y, 2, (180, 192, 204))
     y += 26
     # 1) the nine icons large
     big = 160
@@ -435,7 +435,7 @@ def make_sheet(icons, path, live=None, live_note="", title=DEFAULT_TITLE):
         y += int(np.ceil(h)) + 16
     # 3) grayscale copy of the 30 px strip, actual size
     sy0, sh, sw = strip_imgs[1.0]
-    cv.text("THE 30 PX STRIP IN GREYSCALE (LUMINANCE ONLY), ACTUAL SIZE", 20, y, 2, (236, 240, 244))
+    cv.text("THE 30 PX STRIP IN GRAYSCALE (LUMINANCE ONLY), ACTUAL SIZE", 20, y, 2, (236, 240, 244))
     y += 22
     grey = to_grey(cv.rgb[sy0:sy0 + sh, 20:20 + sw])
     cv.paste_rgb(grey, 20, y)
@@ -467,7 +467,7 @@ def make_sheet(icons, path, live=None, live_note="", title=DEFAULT_TITLE):
     # 5) the 30 px strip zoomed x3 (nearest), color and gray
     z = 3
     col = cv.rgb[sy0:sy0 + sh, 20:20 + sw]
-    cv.text("THE 30 PX STRIP ZOOMED X3 (NEAREST NEIGHBOUR): COLOUR, THEN GREY", 20, y, 2,
+    cv.text("THE 30 PX STRIP ZOOMED X3 (NEAREST NEIGHBOR): COLOR, THEN GRAY", 20, y, 2,
             (236, 240, 244))
     y += 22
     cv.paste_rgb(zoom(col, z), 20, y)
@@ -525,7 +525,7 @@ def make_launcher_sheet(icons, launcher, before, path):
             "22 PX TO THE PLATE EDGE.", 20, y, 2, sub)
     y += 30
     # 1) before / after at 256 px, actual size, on the button color
-    cv.text("256 PX, ACTUAL SIZE, ON THE BUTTON COLOUR", 20, y, 2, hd)
+    cv.text("256 PX, ACTUAL SIZE, ON THE BUTTON COLOR", 20, y, 2, hd)
     y += 22
     x = 20
     for lab, im in (("BEFORE (RETIRED)", before), ("AFTER", launcher)):
@@ -538,7 +538,7 @@ def make_launcher_sheet(icons, launcher, before, path):
         x += 272 + 24
     y += 272 + 44
     # 2) next to the nine Build-strip tiles at 160 px on the tile color
-    cv.text("NEXT TO THE NINE BUILD-STRIP TILES, 160 PX ON THE TILE COLOUR", 20, y, 2, hd)
+    cv.text("NEXT TO THE NINE BUILD-STRIP TILES, 160 PX ON THE TILE COLOR", 20, y, 2, hd)
     y += 22
     big = 160
     x = 20
@@ -551,7 +551,7 @@ def make_launcher_sheet(icons, launcher, before, path):
         x += big + 16 + 4
     y += big + 16 + 40
     # 3) 1080p: the launcher on the top-left row (button 40, icon 33) beside the 30 px strip
-    cv.text("1080P: FLOATING BUTTON 40 PX, ICON 33 PX, ON THE TOP-LEFT ROW (NEIGHBOURS = OTHER MODS, "
+    cv.text("1080P: FLOATING BUTTON 40 PX, ICON 33 PX, ON THE TOP-LEFT ROW (NEIGHBORS = OTHER MODS, "
             "PLAIN), BESIDE THE 30 PX BUILD STRIP", 20, y, 2, hd)
     y += 22
     rows = [("AFTER, AREA AVERAGE", launcher, "area"), ("AFTER, BILINEAR NO MIPMAPS", launcher,
@@ -578,7 +578,7 @@ def make_launcher_sheet(icons, launcher, before, path):
         h4 = 2 * h4 + 12
     y += h4 + 24
     # 5) grayscale, then zoomed x6 (nearest): before, after, after bilinear, after gray
-    cv.text("THE 33 PX BUTTON IN GREYSCALE (LUMINANCE ONLY), ACTUAL SIZE: BEFORE, AFTER", 20, y, 2,
+    cv.text("THE 33 PX BUTTON IN GRAYSCALE (LUMINANCE ONLY), ACTUAL SIZE: BEFORE, AFTER", 20, y, 2,
             hd)
     y += 22
     x = 20
@@ -586,7 +586,7 @@ def make_launcher_sheet(icons, launcher, before, path):
         cv.paste_rgb(to_grey(launcher_button(im, 40, 33)), x, y)
         x += 56
     y += 40 + 20
-    cv.text("THE 33 PX BUTTON ZOOMED X6 (NEAREST): BEFORE, AFTER, AFTER BILINEAR, AFTER GREY", 20, y,
+    cv.text("THE 33 PX BUTTON ZOOMED X6 (NEAREST): BEFORE, AFTER, AFTER BILINEAR, AFTER GRAY", 20, y,
             2, hd)
     y += 22
     tiles = []
@@ -725,14 +725,14 @@ def make_contact_sheet(icons, path):
         strips.append((y, w, h))
         y += h + 8
     y += 12
-    cv.text("THE SAME STRIPS ZOOMED X3 (NEAREST NEIGHBOUR)", 20, y, 2, hd)
+    cv.text("THE SAME STRIPS ZOOMED X3 (NEAREST NEIGHBOR)", 20, y, 2, hd)
     y += 24
     for sy, sw, sh in strips:
         cv.paste_rgb(zoom(cv.rgb[sy:sy + sh, 300:300 + sw].copy(), 3), 20, y)
         y += sh * 3 + 8
     y += 12
     # 3) the 16 round-2 tiles at 160 px
-    cv.text("THE 16 ROUND-2 TILES AT 160 PX ON THE TILE COLOUR", 20, y, 2, hd)
+    cv.text("THE 16 ROUND-2 TILES AT 160 PX ON THE TILE COLOR", 20, y, 2, hd)
     y += 24
     big = 160
     for row in (si.ROUND2[:8], si.ROUND2[8:]):
@@ -795,7 +795,7 @@ def main():
         print(f"wrote {path}")
         return
     for a, b, d in grey_contrast(icons):
-        print(f"grey 30px mean |dL| {a:10s} vs {b:10s} {d:.3f}")
+        print(f"gray 30px mean |dL| {a:10s} vs {b:10s} {d:.3f}")
     live, note = load_live(args.live) if args.live else (None, "")
     path = os.path.join(args.out, "sheet.png")
     make_sheet(icons, path, live, note, args.title)

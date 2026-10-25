@@ -264,14 +264,14 @@ def as_source_set(x, index="?"):
     what = f"material {index}"
     if s.base is None:
         raise ValueError(f"{what}: SourceSet.base is None - every kept material needs a base "
-                         f"map or colour (no silent mid-grey, pipeline-gap.md section 3.3)")
+                         f"map or color (no silent mid-gray, pipeline-gap.md section 3.3)")
     if s.normal_convention not in NORMAL_CONVENTIONS:
         raise ValueError(f"{what}: normal_convention {s.normal_convention!r} not in "
                          f"{NORMAL_CONVENTIONS}")
     if s.slot not in SLOT_RGB:
         raise ValueError(f"{what}: slot {s.slot!r} not in 0..3")
     if s.recolor_albedo and s.slot == 0:
-        raise ValueError(f"{what}: recolor_albedo needs a recolour slot (slot > 0)")
+        raise ValueError(f"{what}: recolor_albedo needs a recolor slot (slot > 0)")
     if s.mask is not None and (s.rough is not None or _is_path(s.metal) or float(s.metal) != 0.0):
         raise ValueError(f"{what}: give either `mask` or `rough`/`metal`, not both")
     for fname in ("base", "normal", "height", "rough", "metal", "emissive", "mask", "control"):
@@ -1048,7 +1048,7 @@ def bake_unique(obj, asset_dir, name, A, sources, *, reserved=(), margin_px=None
                 mean = float(lum[stat].mean())
                 if s.recolor_albedo:
                     if mean <= 1e-6:
-                        raise ValueError(f"material {i}: black albedo cannot be recoloured")
+                        raise ValueError(f"material {i}: black albedo cannot be recolored")
                     k = recolour_lin / mean
                     sel = idsm == i
                     base[sel, 0:3] = np.clip(lum[sel] * k, 0.0, 1.0)[:, None]
@@ -1241,7 +1241,7 @@ def _resolve_spec(spec, key, texture_root=None):
     color = find_set_map(d, "Color")
     if color is None:
         raise FileNotFoundError(f"material {key!r}: set {d} has no *_Color map "
-                                f"(no silent mid-grey)")
+                                f"(no silent mid-gray)")
     n_gl, n_dx = find_set_map(d, "NormalGL"), find_set_map(d, "NormalDX")
     normal, conv = (n_gl, "GL") if n_gl else ((n_dx, "DX") if n_dx else (None, "unknown"))
     rough = spec.rough if spec.rough is not None else (find_set_map(d, "Roughness")

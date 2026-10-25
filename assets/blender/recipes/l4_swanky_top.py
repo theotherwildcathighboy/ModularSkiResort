@@ -761,7 +761,7 @@ def build_l4(recipe, opts):
     left = sorted(o.name for o, _m in P if o.name.startswith(
         ("umbstand_", "umbpole_", "umbcanopy_", "plant_t", "col_t", "lamp_t", "col_fc", "lamp_fc",
          "lamp_u0", "lamp_u1")))
-    SW.check(not left or not PORCH_UNDER_EAVE, f"R1a modelled dressing left (vanilla rule): {left[:8]}")
+    SW.check(not left or not PORCH_UNDER_EAVE, f"R1a modeled dressing left (vanilla rule): {left[:8]}")
     ph = {what: (sum(sum(len(p.vertices) - 2 for p in o.data.polygons) for o, _m in P
                      if o.name.startswith(pre)), sum(1 for o, _m in P if o.name.startswith(pre)))
           for pre, what, _why in PLACEHOLDERS}

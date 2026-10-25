@@ -191,7 +191,7 @@ def _d1_counts(fine):
     norm = [(o.name, "UVMap" in o.data.uv_layers,
              sorted(a.name for a in o.data.attributes if a.name in ("netu", "netv", "netf"))) for o, _m in ar]
     check({n for n, _u, _a in norm} == set(kit) and all(u and not a for _n, u, a in norm),
-          f"D1 base: cs2_liftdress.aframe_rack parts are the kit call's, normalised (UVMap, no net layers) {norm}")
+          f"D1 base: cs2_liftdress.aframe_rack parts are the kit call's, normalized (UVMap, no net layers) {norm}")
     for role in ("base", "top"):
         args = ts.parse_args(["--role", role])
         ts.clear_scene()
@@ -234,7 +234,7 @@ def _d1_counts(fine):
         new2 = {"top": {"cwguard_postL", "cwguard_postR", "cwguard_top", "cwguard_mid", "antdish", "antpanel",
                         "mast", "fsrim_L", "fsrim_R", "fsbeam"},
                 "base": {"bwdrim_L", "bwdrim_R", "bwdarm_L", "bwdarm_R"} | {f"lamp_plate_{i}" for i in range(6)}}[role]
-        check(not gone and new2 <= names, f"D1 {role}: no modelled post / head / hut / lantern / pendant lamp "
+        check(not gone and new2 <= names, f"D1 {role}: no modeled post / head / hut / lantern / pendant lamp "
                                          f"{gone}; revision-2 parts built (missing {sorted(new2 - names)})")
     kit = {tok for why, toks in ts.CONTACTS.items() if why.startswith("dressing kits") for tok in toks.split()}
     dress_kit = {tok for toks in LD.DRESS_CONTACTS.values() for tok in toks.split()}

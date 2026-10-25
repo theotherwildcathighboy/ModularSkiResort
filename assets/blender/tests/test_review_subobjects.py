@@ -336,7 +336,7 @@ def test_synthetic_pack(work):
                   f"{tag}: not semi-transparent ({alpha})")
         cols = {f: tuple(round(c, 3) for c in m.node_tree.nodes["Principled BSDF"].inputs["Base Color"].default_value[:3])
                 for f, m in mats.items()}
-        check(len(set(cols.values())) == len(cols) == 4, f"family colours not distinct: {cols}")
+        check(len(set(cols.values())) == len(cols) == 4, f"family colors not distinct: {cols}")
         p = got["props"]
         fams = json.loads(p["prop_families"])
         check(fams == {"bins": 1, "seating": 2, "other": 2, "lights": 1}, f"prop_families {fams}")
@@ -473,13 +473,13 @@ def test_mod_pack(work, review_dir):
               and rcol == tuple(round(c, 3) for c in S.colour_set_rgb("red"))
               and all(lb.data.body == f"{RED_VARIANT} (ground)" for lb in rlabs)
               and rlabs and rlabs[0].data.materials[0].name == f"CS2R_{name}_PropText_mod_red",
-              f"E tinted kit box: colour {rcol} (want {S.colour_set_rgb('red')}), label / material by set")
-        check(rcol != tuple(round(c, 3) for c in S.FAMILY_RGB["mod"]), "E the tinted box is not the cyan mod colour")
+              f"E tinted kit box: color {rcol} (want {S.colour_set_rgb('red')}), label / material by set")
+        check(rcol != tuple(round(c, 3) for c in S.FAMILY_RGB["mod"]), "E the tinted box is not the cyan mod color")
         col = tuple(round(c, 3) for c in kit[0].data.materials[0].node_tree.nodes["Principled BSDF"]
                     .inputs["Base Color"].default_value[:3])
         others = {tuple(round(c, 3) for c in v) for f, v in S.FAMILY_RGB.items() if f != "mod"}
         check(col == tuple(round(c, 3) for c in S.FAMILY_RGB["mod"]) and col not in others,
-              f"E mod colour {col} distinct from the vanilla families")
+              f"E mod color {col} distinct from the vanilla families")
         check(not [b for b in got["boxes"] if b.get("cs2r_prefab") == "SkiSignSetSynth"], "E a signset row got a box")
         ss = [o for o in got["sub"].objects if o.get("cs2r_extra") == "SkiSignSetSynthB"]
         check(len(ss) == 1 and ss[0].name == f"CS2R_{name}_SignSet", f"E sign-set mesh in SUB {[o.name for o in ss]}")
@@ -493,7 +493,7 @@ def test_mod_pack(work, review_dir):
         bpy.data.libraries.remove(lib)
         bpy.data.objects.remove(sobj, do_unlink=True)
         bpy.data.meshes.remove(sme)
-    print("[subobj-test] E: a kit row by CID -> one cyan box labelled with the prop name (cache bounds), a "
+    print("[subobj-test] E: a kit row by CID -> one cyan box labeled with the prop name (cache bounds), a "
           "signset row -> no box + the real sign-set mesh in SUB and SUB_NOPROPS, session untouched")
 
 

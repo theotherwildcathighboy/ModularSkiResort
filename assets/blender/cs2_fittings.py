@@ -111,14 +111,14 @@ ROWS = {
                       for i, x in enumerate((16.909, 6.682, -7.0, -17.0))),
     },
     "P1": {
-        "roof": ((PIPE_VENT, (1.5, 1.2), "stove flue vent (was the modelled stovepipe)"),),
+        "roof": ((PIPE_VENT, (1.5, 1.2), "stove flue vent (was the modeled stovepipe)"),),
     },
     "P2": {
-        "roof": ((PIPE_VENT, (-2.5, 1.5), "stove flue vent (was the modelled stovepipe)"),),
+        "roof": ((PIPE_VENT, (-2.5, 1.5), "stove flue vent (was the modeled stovepipe)"),),
     },
     "L2": {
         "roof": ((VENT, (3.0, 2.5), "plumbing vent, east slope (the stovepipe is on the west)"),
-                 (PIPE_VENT, (-3.2, -1.5), "stove flue vent (was the modelled stovepipe)")),
+                 (PIPE_VENT, (-3.2, -1.5), "stove flue vent (was the modeled stovepipe)")),
         "curb": ((DECK_LIGHT, "deck_hutW", (-8.25, 7.75), "deck light, was lamp_deckSW"),
                  (DECK_LIGHT, "deck_hutW", (5.25, 7.75), "deck light, was lamp_deckNW")),
     },
@@ -2309,7 +2309,7 @@ GLASS_FREE = ("rail_", "trail_", "stair_", "tail_")
 # timber structure in front, not a bracket / strut hanging over a punched window.
 GLASS_DECLARE = {
     "L4": {"trim_dposts": ("win_d", "the dining glass box's glulam posts stand on its curtain's mullion lines "
-                                    "(0.30 wide over a mullion: 11 cm of each neighbouring pane's edge); they are "
+                                    "(0.30 wide over a mullion: 11 cm of each neighboring pane's edge); they are "
                                     "the glass box's structure"),
            "trim_trussd": ("win_dgab", "the dining gable's feature king-post truss 0.75 m in front of its glazed "
                                        "gable (the L5 hall idiom)")},

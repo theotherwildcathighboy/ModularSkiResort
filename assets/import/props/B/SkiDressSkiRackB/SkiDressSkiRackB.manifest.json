@@ -104,7 +104,7 @@
     "status": "[U] formula until SkiProbeLodA"
   },
   "colour": {
-    "ColorProperties": "per colour-set VARIANT (kit colour variants 2026-10-12): the variant's own mesh prefab (a RenderPrefab clone of this mesh's imported prefab) carries ONE fixed VariationSet (white / set colour / white), no external channel, ranges 0; the imported mesh prefab itself gets NO ColorProperties; the FS7 Parent block and the base object prefab are retired",
+    "ColorProperties": "per color-set VARIANT (kit color variants 2026-10-12): the variant's own mesh prefab (a RenderPrefab clone of this mesh's imported prefab) carries ONE fixed VariationSet (white / set color / white), no external channel, ranges 0; the imported mesh prefab itself gets NO ColorProperties; the FS7 Parent block and the base object prefab are retired",
     "slot": 2,
     "variants": "assets/staging/prefabs/props/B/kit-variants.json",
     "colour_sets": [
@@ -116,8 +116,8 @@
     ]
   },
   "row_spec": {
-    "m_Object": "per colour set: $fstrref:\"CID:<the variant object-prefab CID>\" (fine_detail.kit_row(..., colour_set=<COLOUR_SETS key>) = fine_detail.kit_cid(prop, set); assets/staging/prefabs/props/B/kit-variants.json); the base object prefab is retired",
-    "object_prefab": "SkiDressSkiRack_<Set> (colour-set variant, e.g. SkiDressSkiRack_Red)",
+    "m_Object": "per color set: $fstrref:\"CID:<the variant object-prefab CID>\" (fine_detail.kit_row(..., colour_set=<COLOUR_SETS key>) = fine_detail.kit_cid(prop, set); assets/staging/prefabs/props/B/kit-variants.json); the base object prefab is retired",
+    "object_prefab": "SkiDressSkiRack_<Set> (color-set variant, e.g. SkiDressSkiRack_Red)",
     "m_GroupIndex": 0,
     "m_Probability": 100,
     "m_ParentMesh": "0 on a deck / wall / roof of the host mesh; -1 on the lot (snaps to terrain)",
@@ -392,35 +392,35 @@
         "retired_base_object_prefab": "SkiDressSkiRack",
         "retired_base_cid": "56fd40887e144eb3b01f270044f47271",
         "retired_to": "assets/staging/archive/superseded-parent-2026-10-12/prefabs/props/B/SkiDressSkiRack",
-        "ships_as": "colour-set variants <Object>_<Set> (assets/staging/prefabs/props/B/kit-variants.json)"
+        "ships_as": "color-set variants <Object>_<Set> (assets/staging/prefabs/props/B/kit-variants.json)"
       },
       "SkiDressSkiRackV2": {
         "object_prefab": null,
         "retired_base_object_prefab": "SkiDressSkiRackV2",
         "retired_base_cid": "b1a58b870920400ea06c1a2590d2e081",
         "retired_to": "assets/staging/archive/superseded-parent-2026-10-12/prefabs/props/B/SkiDressSkiRackV2",
-        "ships_as": "colour-set variants <Object>_<Set> (assets/staging/prefabs/props/B/kit-variants.json)"
+        "ships_as": "color-set variants <Object>_<Set> (assets/staging/prefabs/props/B/kit-variants.json)"
       },
       "SkiDressSkiRackV3": {
         "object_prefab": null,
         "retired_base_object_prefab": "SkiDressSkiRackV3",
         "retired_base_cid": "1bef6d6e9b884b06828092a9ad5c9bc1",
         "retired_to": "assets/staging/archive/superseded-parent-2026-10-12/prefabs/props/B/SkiDressSkiRackV3",
-        "ships_as": "colour-set variants <Object>_<Set> (assets/staging/prefabs/props/B/kit-variants.json)"
+        "ships_as": "color-set variants <Object>_<Set> (assets/staging/prefabs/props/B/kit-variants.json)"
       },
       "SkiDressSkiRackWall": {
         "object_prefab": null,
         "retired_base_object_prefab": "SkiDressSkiRackWall",
         "retired_base_cid": "7d045169cdbf4756b260975e6cd68982",
         "retired_to": "assets/staging/archive/superseded-parent-2026-10-12/prefabs/props/B/SkiDressSkiRackWall",
-        "ships_as": "colour-set variants <Object>_<Set> (assets/staging/prefabs/props/B/kit-variants.json)"
+        "ships_as": "color-set variants <Object>_<Set> (assets/staging/prefabs/props/B/kit-variants.json)"
       },
       "SkiDressSkiRackWallV2": {
         "object_prefab": null,
         "retired_base_object_prefab": "SkiDressSkiRackWallV2",
         "retired_base_cid": "df644f5447f34ecf87722c623fe18bcb",
         "retired_to": "assets/staging/archive/superseded-parent-2026-10-12/prefabs/props/B/SkiDressSkiRackWallV2",
-        "ships_as": "colour-set variants <Object>_<Set> (assets/staging/prefabs/props/B/kit-variants.json)"
+        "ships_as": "color-set variants <Object>_<Set> (assets/staging/prefabs/props/B/kit-variants.json)"
       },
       "SkiDressHoseReel": {
         "object_prefab": "SkiDressHoseReel",
@@ -455,7 +455,7 @@
         "retired_base_object_prefab": "SkiDressAkja",
         "retired_base_cid": "c447edf1e8ff4063929996fdf990a042",
         "retired_to": "assets/staging/archive/superseded-parent-2026-10-12/prefabs/props/B/SkiDressAkja",
-        "ships_as": "colour-set variants <Object>_<Set> (assets/staging/prefabs/props/B/kit-variants.json)"
+        "ships_as": "color-set variants <Object>_<Set> (assets/staging/prefabs/props/B/kit-variants.json)"
       },
       "SkiDressSpineBoard": {
         "object_prefab": "SkiDressSpineBoard",

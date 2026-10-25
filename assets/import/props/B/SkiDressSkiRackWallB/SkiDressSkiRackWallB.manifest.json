@@ -84,7 +84,7 @@
     "status": "[U] formula until SkiProbeLodA"
   },
   "colour": {
-    "ColorProperties": "per colour-set VARIANT (kit colour variants 2026-10-12): the variant's own mesh prefab (a RenderPrefab clone of this mesh's imported prefab) carries ONE fixed VariationSet (white / set colour / white), no external channel, ranges 0; the imported mesh prefab itself gets NO ColorProperties; the FS7 Parent block and the base object prefab are retired",
+    "ColorProperties": "per color-set VARIANT (kit color variants 2026-10-12): the variant's own mesh prefab (a RenderPrefab clone of this mesh's imported prefab) carries ONE fixed VariationSet (white / set color / white), no external channel, ranges 0; the imported mesh prefab itself gets NO ColorProperties; the FS7 Parent block and the base object prefab are retired",
     "slot": 2,
     "variants": "assets/staging/prefabs/props/B/kit-variants.json",
     "colour_sets": [
@@ -96,8 +96,8 @@
     ]
   },
   "row_spec": {
-    "m_Object": "per colour set: $fstrref:\"CID:<the variant object-prefab CID>\" (fine_detail.kit_row(..., colour_set=<COLOUR_SETS key>) = fine_detail.kit_cid(prop, set); assets/staging/prefabs/props/B/kit-variants.json); the base object prefab is retired",
-    "object_prefab": "SkiDressSkiRackWall_<Set> (colour-set variant, e.g. SkiDressSkiRackWall_Red)",
+    "m_Object": "per color set: $fstrref:\"CID:<the variant object-prefab CID>\" (fine_detail.kit_row(..., colour_set=<COLOUR_SETS key>) = fine_detail.kit_cid(prop, set); assets/staging/prefabs/props/B/kit-variants.json); the base object prefab is retired",
+    "object_prefab": "SkiDressSkiRackWall_<Set> (color-set variant, e.g. SkiDressSkiRackWall_Red)",
     "m_GroupIndex": 0,
     "m_Probability": 100,
     "m_ParentMesh": "0 on a deck / wall / roof of the host mesh; -1 on the lot (snaps to terrain)",

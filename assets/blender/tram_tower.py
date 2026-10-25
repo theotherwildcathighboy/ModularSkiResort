@@ -4678,7 +4678,7 @@ def run_variant(family, H, args, catalog_drift):
                      "changes": ["ground-to-head ladder outside the -X face, side baskets, offset flights",
                                  "curved saddle girders + haul sheave row" if family == "tram" else
                                  "lifting lugs under the gantry-beam tips over the lanes",
-                                 "upper stabilising frame + slewing jib cranes + lugs" if family == "tram"
+                                 "upper stabilizing frame + slewing jib cranes + lugs" if family == "tram"
                                  else "gondola sheave trains unchanged (monocable)"]},
         "tris": dict(enumerate(c9["tris"])), "budget": {k: c9[k] for k in ("lod0_target", "lod0_cap",
                                                                          "lod1_target", "lod2_warn", "lod2_cap")},

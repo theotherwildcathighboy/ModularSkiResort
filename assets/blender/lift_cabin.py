@@ -2738,7 +2738,7 @@ def gondola_contracts(obj, level, outboard=None, single_quads=True):
     if len(shell):
         cx = 0.5 * (shell[:, 0].min() + shell[:, 0].max())
         cy = 0.5 * (shell[:, 1].min() + shell[:, 1].max())
-        c.check("G3", abs(cx) <= 0.01 and abs(cy) <= 0.01, f"shell bbox centre ({cx:+.4f}, {cy:+.4f})")
+        c.check("G3", abs(cx) <= 0.01 and abs(cy) <= 0.01, f"shell bbox center ({cx:+.4f}, {cy:+.4f})")
     else:
         c.check("G3", False, "no shell faces")
     gap = z_coverage_gaps(m, 0.0, hang)
@@ -2828,7 +2828,7 @@ def tram_contracts(obj, level, dims, part_role="whole"):
                 bad.append((nm, round(cy, 4), round(cz, 4)))
         n_rims = sum(1 for nm in m.table if nm.startswith("sheave_") and nm.endswith("_rim"))
         c.check("T2", not bad and n_rims == len(T["bogie_x"]) * len(T["wheel_dx"]),
-                f"{n_rims} wheel rims centred at y 0 (the single HV track rope, R28), z "
+                f"{n_rims} wheel rims centered at y 0 (the single HV track rope, R28), z "
                 f"{dims['wheel_z']:.4f} = rope {rope:.2f} + HV top {HV_ROPE_TOP} + groove radius; "
                 f"bad {bad[:3]}")
     # T3: carriage clear zone (C10 / R30)
@@ -2886,7 +2886,7 @@ def tram_contracts(obj, level, dims, part_role="whole"):
         good = [p for p in cl if abs(abs(p[1]) - T["haul_dy"]) <= 1e-3
                 and abs(p[2] - dims["haul_z"]) <= 1e-3]
         c.check("T10", len(cl) == 4 and len(good) == 4,
-                f"{len(good)}/{len(cl)} haul grips centred at |y| {T['haul_dy']} z {dims['haul_z']:.2f} "
+                f"{len(good)}/{len(cl)} haul grips centered at |y| {T['haul_dy']} z {dims['haul_z']:.2f} "
                 f"(haul rope +-5.0, 0.40 below the track rope, both sides)")
     # T11 R30 tower keep-outs
     for code, (dz0, dz1, dmin) in (("T11a", T["k1"]), ("T11b", T["k2"])):
@@ -2932,7 +2932,7 @@ def door_contract(c, m, W, level):
                 continue
             xs = v[:, 0] * t
             if xs.min() < -1e-6:
-                bad.append(f"leaf {tag} crosses the door centre")
+                bad.append(f"leaf {tag} crosses the door center")
             w = float(xs.max() - xs.min())
             front = float((v[:, 1] * s).max())
             zb, zt = float(v[:, 2].min()), float(v[:, 2].max())
@@ -2941,7 +2941,7 @@ def door_contract(c, m, W, level):
             if not 0.75 <= w <= 0.90:
                 bad.append(f"leaf {tag} width {w:.3f}")
             if xs.min() > 0.015:
-                bad.append(f"leaf {tag} meeting edge {xs.min():.3f} off the centre")
+                bad.append(f"leaf {tag} meeting edge {xs.min():.3f} off the center")
             if not (wall + 0.010 <= front <= T_BOUNDS["lat"]):
                 bad.append(f"leaf {tag} face {front:.4f} not proud of the wall {wall} (>= 10 mm, "
                            f"<= {T_BOUNDS['lat']})")
@@ -3870,7 +3870,7 @@ def prefab_numbers(kind, name, bounds, dims=None, outboard="+Y"):
         "tower_envelope": "R30: tower <= lane + 0.36 at dz -0.80..+0.60 and <= lane + 0.80 at dz "
                           "-3.80..-0.70; carrier half-width <= 1.10 above the fin; carrier "
                           "symmetric (the inboard fork upright clips the saddle cantilever arm "
-                          "for ~0.7 s per tower pass - the accepted centred-hanger class, "
+                          "for ~0.7 s per tower pass - the accepted centered-hanger class, "
                           "lattice-towers D4)",
         "ColorProperties": {"on": "LOD0 RenderPrefab only", "m_VariationRanges": [0, 0, 0],
                             "sets": [{"name": s[0], "slot1": s[1], "slot2": s[2], "slot3": s[3]}
@@ -4167,7 +4167,7 @@ def finish_asset(args, cfg, obj, sources, result):
     if result["shipped_uv"] != [cs2_uv.UNIQUE_LAYER] or result["shipped_materials"] \
             or result["shipped_colour_attrs"]:
         raise RuntimeError(f"{name}: after the bake expected one UV layer UVUnique, no materials, "
-                           f"no colour attributes; got {result['shipped_uv']}, "
+                           f"no color attributes; got {result['shipped_uv']}, "
                            f"{result['shipped_materials']} materials, {result['shipped_colour_attrs']}")
     cs2_asset.export_fbx(obj, os.path.join(asset_dir, f"{name}.fbx"))
 
@@ -4221,7 +4221,7 @@ def finish_asset(args, cfg, obj, sources, result):
                     "CAD-tell cleanup, pinned >= 4x logo square; Revision 1b (2026-10-11): "
                     "geometry defects C1-C4 fixed (cap triangulation, closed shell, 2 mm insets), "
                     "G11 / G12 / T12 + cap_check contracts" + (
-                        "; Revision 2 (2026-10-11, tram): centred outward-opening sliding double "
+                        "; Revision 2 (2026-10-11, tram): centered outward-opening sliding double "
                         "doors on both long sides (closed, 15 mm proud, gap-line seals, pocket "
                         "grab bars, release pulls, header rollers, threshold nosing, drip rail), "
                         "gondola detail parity (bolt rows above the texel floor, hanger pin, roof "

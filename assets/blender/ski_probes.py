@@ -588,7 +588,7 @@ def check_textures(asset_dir, name, lod_sets=()):
             w = int.from_bytes(head[16:20], "big")
             h = int.from_bytes(head[20:24], "big")
             if (w, h) != (TEX, TEX) or head[25] != 6:
-                raise RuntimeError(f"{p}: {w}x{h} colour type {head[25]}, want {TEX} RGBA")
+                raise RuntimeError(f"{p}: {w}x{h} color type {head[25]}, want {TEX} RGBA")
     # channel contract from the written files: BaseColor A == 1 everywhere, MaskMap B == 0,
     # ControlMask A == 0; plus the per-probe MaskMap G expectation.
     def load(stem, m):

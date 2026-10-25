@@ -325,7 +325,7 @@ def variant_case(key, head=None):
         pair = sorted([c for _n, c in rims if np.sign(c[0]) == side], key=lambda c: abs(c[1]))[:2]
         mz = (pair[0][2] + pair[1][2]) / 2.0
         tol = 1e-4 if spec.sag == 0 else 2e-3
-        check(abs(mz - AXLES[key]) <= tol, f"{tag} centre-pair sheave Z side {side:+d} = axle ({mz:.5f})")
+        check(abs(mz - AXLES[key]) <= tol, f"{tag} center-pair sheave Z side {side:+d} = axle ({mz:.5f})")
     if spec.family == "FG":
         check(abs(AXLES[key] - (spec.tube_top - 0.96)) < 1e-9, f"{tag} FG axle = mast - 0.96")
     # bounds

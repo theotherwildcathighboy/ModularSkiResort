@@ -101,8 +101,8 @@ def parse_args():
     ap.add_argument("--out", required=True)
     ap.add_argument("--name", default=DEFAULT_NAME)
     ap.add_argument("--length", type=float, default=8.0,
-                    help="segment length in metres; tune once CS2's lane tiling is understood")
-    ap.add_argument("--radius", type=float, default=0.024, help="rope radius in metres")
+                    help="segment length in meters; tune once CS2's lane tiling is understood")
+    ap.add_argument("--radius", type=float, default=0.024, help="rope radius in meters")
     ap.add_argument("--segments", type=int, default=8)
     return ap.parse_args(argv)
 

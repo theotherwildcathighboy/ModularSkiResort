@@ -165,7 +165,7 @@ def build_two_quads(A):
 
 
 def test_detail_height():
-    print("[3] detail_height: seams at metre pitch, 2-texel floor")
+    print("[3] detail_height: seams at meter pitch, 2-texel floor")
     A = 256
     obj, me, table = build_two_quads(A)
     specs = {"wall": C.DetailSpec(seams_m=1.2, seam_depth_m=0.002, seam_axes="ribs")}

@@ -339,10 +339,10 @@ def test_revision1():
         wc = (w0 + w1) / 2.0
         wc_all.append(wc)
         check(abs(wc[2] - rope) <= 0.04 and w1[2] < hang - 0.05,
-              f"dq: wheel {k} centre z {wc[2]:.3f} not near rope height {rope:.3f} (top {w1[2]:.3f})")
+              f"dq: wheel {k} center z {wc[2]:.3f} not near rope height {rope:.3f} (top {w1[2]:.3f})")
         check(w1[1] < j0[1] and w1[1] < -ROPE_R and abs(wc[1] - wy_trace) < 0.005,
               f"dq: wheel {k} y {w0[1]:.3f}..{w1[1]:.3f} not inboard beside the jaw (jaw from "
-              f"{j0[1]:.3f}, rope {-ROPE_R}, trace centre {wy_trace:.3f})")
+              f"{j0[1]:.3f}, rope {-ROPE_R}, trace center {wy_trace:.3f})")
         check(j0[0] <= w0[0] and w1[0] <= j1[0],
               f"dq: wheel {k} x {w0[0]:.3f}..{w1[0]:.3f} not alongside the jaw {j0[0]:.3f}..{j1[0]:.3f}")
         a0, a1 = pbo(chair, f"axle_{k}")
@@ -484,7 +484,7 @@ def test_revision3():
           f"dq: lap bar {lz - seat_top:.3f} above the cushion (want {L.LAP_WINDOW_M}, photo "
           f"{L.PHOTO_LAP_ABOVE_CUSHION_M})")
     check(float(lap[:, 0].min()) > knee_x and 0.10 <= lx - seat_front <= 0.25,
-          f"dq: lap bar back face x {lap[:, 0].min():.3f} vs knees {knee_x:.3f}; centre "
+          f"dq: lap bar back face x {lap[:, 0].min():.3f} vs knees {knee_x:.3f}; center "
           f"{lx - seat_front:.3f} ahead of the cushion front (want 0.10-0.25)")
     # long arms: hinge -> lap bar axis >= 0.55, passing over the armrests
     arm_len = math.hypot(lx - hc[0][0], lz - hc[0][2])
@@ -624,7 +624,7 @@ def test_trace():
         if rol:
             got["roller_inboard"] = float(np.mean([(r0[0] + r1[0]) / 2.0 for r0, r1 in rol])) - got["rope_x"]
             dz = max(abs((r0[2] + r1[2]) / 2.0 - got["rope_z"]) for r0, r1 in rol)
-            check(dz < 0.03, f"trace: D05 roller centres {dz:.3f} u off the rope height")
+            check(dz < 0.03, f"trace: D05 roller centers {dz:.3f} u off the rope height")
         c = _co(by["05"])
         got["chair_lowest_z"] = c[:, 2].min()
         isl = [(len(i), c[i].min(axis=0), c[i].max(axis=0)) for i in _islands(by["05"])]

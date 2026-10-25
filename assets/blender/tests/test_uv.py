@@ -182,7 +182,7 @@ def main():
     plain = table4.index("box1_") + 1
     ratio = float(np.median(dens[part == hero]) / np.median(dens[part == plain]))
     print(f"[test] density_w 2.0: hero/plain px/m ratio {ratio:.3f}")
-    assert 1.7 <= ratio <= 2.3, f"density_w not honoured: ratio {ratio:.3f}"
+    assert 1.7 <= ratio <= 2.3, f"density_w not honored: ratio {ratio:.3f}"
     check_contract(obj4, table4, "density_w")
 
     print(f"PASS test_uv: {len(table)} parts, {n_faces} faces, atlas {A}, "

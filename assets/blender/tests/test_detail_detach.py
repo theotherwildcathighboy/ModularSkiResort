@@ -304,7 +304,7 @@ def _counts_and_frozen_one(kind, fine):
               and all(abs(o["pos"][1] - D.DECK_H) < 1e-6 for o in floods)
               and not any(n.startswith(("flood", "lamp_flood")) for n in table),
               f"{kind} T17-DQ: {len(lamps)} vanilla LightpoleParkRandom01 rows, {len(floods)} SkiPisteFloodlightLow rows "
-              f"on the deck top (game local {[o['pos'] for o in floods]}, yaw rule R), no modelled flood mast left")
+              f"on the deck top (game local {[o['pos'] for o in floods]}, yaw rule R), no modeled flood mast left")
         # D11 the board order along the chair's travel (measured on the build)
         me = t.data
         try:
@@ -866,12 +866,12 @@ def kit_h1():
                         check(dev <= KIT_H1_TOL, f"{rtag} F2 the kit plate's back corners = the removed plate's: "
                                                  f"max {dev * 1000:.3f} mm")
                     else:
-                        check("MOVED" in s["was"] or "same centre" in s["was"],
-                              f"{rtag} F2 plate {size_o} -> {size_k} m, centre moved {rec['centre_move_m']} "
+                        check("MOVED" in s["was"] or "same center" in s["was"],
+                              f"{rtag} F2 plate {size_o} -> {size_k} m, center moved {rec['centre_move_m']} "
                               f"(declared: {s['was'][:70]})")
-                        if "same centre" in s["was"]:
+                        if "same center" in s["was"]:
                             check(float(np.linalg.norm(ck - co_)) <= KIT_H1_TOL,
-                                  f"{rtag} F2 the resized plate keeps the removed plate's centre "
+                                  f"{rtag} F2 the resized plate keeps the removed plate's center "
                                   f"({float(np.linalg.norm(ck - co_)) * 1000:.3f} mm)")
                     out[rtag] = rec
                 elif s["prop"] == "SkiDressTools":

@@ -125,7 +125,7 @@ def main():
     # --- the rig cleaned up after itself
     check(len(bpy.data.objects) == n_objects, f"rig left objects behind: {[o.name for o in bpy.data.objects]}")
     check(len(box.data.materials) == 0, "object material slots not restored")
-    check("cs2_preview_density" not in box.data.color_attributes, "density colour attribute not removed")
+    check("cs2_preview_density" not in box.data.color_attributes, "density color attribute not removed")
     check(bpy.context.scene.camera is None, "scene camera not restored")
     check(not any(m.name.startswith(name + "_Preview") for m in bpy.data.materials), "preview materials not removed")
     check(not lod1.hide_render, "hide_render not restored on the LOD")

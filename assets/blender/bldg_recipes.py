@@ -467,13 +467,13 @@ L1 = Recipe(
            ("roofwindows", (-1.0, 0.25, 0.85))),
     notes="base_lodge.py port: skirt deleted, porch slab a ground part, entry surround on "
           "the porch (z 0.52). Revision 1 (verdicts 2026-10-11 item 12): 2.40 m knee walls "
-          "(aframe_knee), deck +1.5 m on posts and full width, 6 modelled ski racks (LOD0). "
+          "(aframe_knee), deck +1.5 m on posts and full width, 6 modeled ski racks (LOD0). "
           "Detail pass 1 (second verdict 2026-10-11): real ski / board / pole gear "
           "on the racks + 8 leaning singles, the resort-glyph sign over the entry and on the "
           "prow, menu board, bench, bin, flag, 4 deck festoons, prow snow guards + downspouts. "
           "Detail pass 1b (ninth look, 2026-10-11): rack gear without bindings, pole pairs "
           "that reach the rail, a vanilla table set under each deck umbrella (sub_objects). "
-          "Vanilla retrofit (fifteenth look, 2026-10-11): the 10 modelled umbrellas, the porch "
+          "Vanilla retrofit (fifteenth look, 2026-10-11): the 10 modeled umbrellas, the porch "
           "bench and bin are vanilla ParasolRandom01 / GardenBenchRandom01 / TrashbinRandom01 "
           "sub-objects (parasol 1.37 m beside its table, the vanilla convention)",
 )

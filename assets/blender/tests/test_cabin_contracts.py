@@ -360,7 +360,7 @@ def negatives_tram(name, dims):
     L._drop(o)
     o = _dup(name)
     _move(o, _vidx(o, leaf), (0.0, -0.05, 0.0))
-    expect_raise("tram door leaf slid 5 cm off the centre", ["T5", "T13"],
+    expect_raise("tram door leaf slid 5 cm off the center", ["T5", "T13"],
                  lambda: L.tram_contracts(o, 0, dims))
     L._drop(o)
     o = _dup(name)
@@ -412,7 +412,7 @@ def gondola_checks(res, label):
     check(res["shipped_uv"] == ["UVUnique"] and res["shipped_materials"] == 0
           and not res["shipped_colour_attrs"],
           f"{label}: shipped mesh UV {res['shipped_uv']}, {res['shipped_materials']} materials, "
-          f"colour attrs {res['shipped_colour_attrs']}")
+          f"color attrs {res['shipped_colour_attrs']}")
     check(all(v["ok"] for v in res.get("verify", [])) and len(res.get("verify", [])) == 3,
           f"{label}: FBX re-import top 4.50 / min 0 on every LOD")
     check(res.get("validation", {}).get("errors") == 0, f"{label}: cs2_validate 0 errors")
@@ -547,7 +547,7 @@ def mask_levels(res, label):
         p95 = float(np.percentile(under, 95))
         check(0.78 <= p95 <= 0.82, f"{label}: BaseColor p95 under mask {slot} = {p95:.3f} "
                                    f"(0.78..0.82, {under.size} texels)")
-    check(seen >= 1, f"{label}: at least one recolour mask present ({seen})")
+    check(seen >= 1, f"{label}: at least one recolor mask present ({seen})")
 
 
 def determinism(kind, extra):
@@ -648,7 +648,7 @@ def main():
           f"one UVMap (MC3), ingest counts, Revision 1 logo square / 1:1 stamp rects / "
           f"isotropic texels{' / hero >= 120 px/m' if FULL else ''}, Revision 1b closed shell "
           f"(G11) / no coplanar z-fight (G12, T12) / cap_check + C1 / C3 / C4 negatives, "
-          f"Revision 2 tram doors (T13) + flush / off-centre / no-handle negatives, "
+          f"Revision 2 tram doors (T13) + flush / off-center / no-handle negatives, "
           f"{'finish' if FULL else 'draft'} determinism per kind ({dt:.0f} s)")
 
 

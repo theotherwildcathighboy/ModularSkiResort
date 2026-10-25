@@ -1259,7 +1259,7 @@ def build_dq_parts(row, hanger_offset=HANGER_OFFSET):
     # foot bar's bottom vertex is z 0 (C4)
     fx, fz = d["foot"]
     if abs(fz - R["footbar"]) > 1e-12:
-        raise RuntimeError(f"foot bar centre z {fz} != its radius {R['footbar']} (C4: bottom 0)")
+        raise RuntimeError(f"foot bar center z {fz} != its radius {R['footbar']} (C4: bottom 0)")
     fy, fh = DQ_BAR["foot_y"], DQ_BAR["foot_half"]
     for k, s in enumerate((-1, 1)):
         parts.append((add_link(f"footstem_{k}", (bx, s * fy, bz), (fx, s * fy, fz), R["footstem"],
@@ -1396,7 +1396,7 @@ def equalise_quadrant_density(parts, weights=None, verbose=True):
     if verbose:
         lo = min(v[1] for v in report.values())
         hi = max(v[1] for v in report.values())
-        print(f"[chair] density equalised in the atlas quads: uv/3d ratio now "
+        print(f"[chair] density equalized in the atlas quads: uv/3d ratio now "
               f"{lo:.3f} .. {hi:.3f} (was {min(v[0] for v in report.values()):.3f} .. "
               f"{max(v[0] for v in report.values()):.3f}); weights {weights}")
     return report
@@ -2267,7 +2267,7 @@ def check_finished_maps(chair, info, asset_dir, name, A, plate_prefix="plate_fac
         errs.append(f"paint: {int((ctl[f == 2, 0] < tol).sum())} of {n_p} texels R < 0.99")
     if (ctl[f == 1, 0:3] > 1e-3).any():
         errs.append(f"galvanised: {int((ctl[f == 1, 0:3] > 1e-3).any(axis=-1).sum())} of "
-                    f"{n_g} texels recolourable")
+                    f"{n_g} texels recolorable")
     if (ctl[..., 1] > 1e-3).any():
         errs.append(f"ControlMask G non-zero on {int((ctl[..., 1] > 1e-3).sum())} texels")
     if (base[..., 3] < 1.0 - 0.5 / 255.0).any():
@@ -2282,7 +2282,7 @@ def check_finished_maps(chair, info, asset_dir, name, A, plate_prefix="plate_fac
         errs.append(f"plate: {dark} dark texels (< 0.05 linear), need >= 20")
     if errs:
         _fail("C12", "finish", "; ".join(errs))
-    return {"C12": f"bench {n_b} / paint {n_p} / galv {n_g} texels as recoloured; "
+    return {"C12": f"bench {n_b} / paint {n_p} / galv {n_g} texels as recolored; "
                    f"plate {dark} dark texels"}
 
 

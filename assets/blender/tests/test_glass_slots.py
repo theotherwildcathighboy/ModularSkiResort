@@ -124,7 +124,7 @@ def check_slots(v2):
         if a.startswith("lux_"):
             assert M[k].slot == 2 and M[k].recolor, k
     same = M["lux_glulam"].target_srgb == M["lux_balrail"].target_srgb
-    assert ("lux_balrail" in ren) == same, ("balcony walls join slot 2 exactly when they share the glulam colour", same)
+    assert ("lux_balrail" in ren) == same, ("balcony walls join slot 2 exactly when they share the glulam color", same)
     rl = float(K.srgb_to_linear(cs2_asset.RECOLOR_ALBEDO))
     for k, t in list(TS.ACCENT_FIXED.items()) + [("metal_roof_lt", TS.METAL_ROOF_LIGHT),
                                                    ("metal_roof_dk", TS.METAL_ROOF_DARK)]:
@@ -141,7 +141,7 @@ def check_slots(v2):
     assert TS.slots_v2_trim_remap("L5")["lux_trim"] == "trim_grain"
     assert TS.slots_v2_trim_remap("L1")["trim"] == "trim_grain_s2"
     assert TS.slots_v2_trim_remap("school")["trim_white"] == "trim_grain_s2"
-    ok("S3 slot keys: frame B, trim_grain_s2 / glulam (+ balcony walls iff one colour) G, accent + metal roofs fixed at "
+    ok("S3 slot keys: frame B, trim_grain_s2 / glulam (+ balcony walls iff one color) G, accent + metal roofs fixed at "
        "lin(0.80) x lin(old default); slot_default_for round-trips; L4 / L5 boards stay on band 0")
 
 

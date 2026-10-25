@@ -693,7 +693,7 @@ def match_texture_sets(materials, tex_dir, overrides=None, keep=None):
             raise ValueError(f"keep names no material in the list: {unknown}")
         bad = [n for n in kept if n not in matched]
         if bad:
-            raise ValueError("kept material(s) without a base map (no silent mid-grey): "
+            raise ValueError("kept material(s) without a base map (no silent mid-gray): "
                              + "; ".join(f"{n!r}: {why.get(n, 'unknown')}" for n in bad)
                              + " - add an override or drop the faces")
     print(f"[ingest] textures {os.path.basename(os.path.normpath(tex_dir))}: "
@@ -791,7 +791,7 @@ def rescale_by_reference(objs, ref, axis, metres):
         lo, hi = world_bounds(ref if not isinstance(ref, bpy.types.Object) else [ref])
         extent = hi[ax] - lo[ax]
     if extent <= 0.0 or metres <= 0.0:
-        raise ValueError(f"rescale_by_reference: extent {extent} / metres {metres}")
+        raise ValueError(f"rescale_by_reference: extent {extent} / meters {metres}")
     factor = float(metres) / extent
     s = Matrix.Scale(factor, 4)
     for o in sorted(objs, key=lambda o: o.name):
@@ -1180,7 +1180,7 @@ def clean(obj, merge_dist=MERGE_DIST, recalc=RECALC_DEFAULT):
           f"{rep['components_closed']}/{rep['components']} closed), custom normals "
           f"{'cleared' if rep['custom_normals_cleared'] else 'none'}, "
           f"{rep['sharp_edges_cleared']} sharp edges cleared, "
-          f"{len(rep['colour_attributes'])} colour attrs, "
+          f"{len(rep['colour_attributes'])} color attrs, "
           f"{rep['unused_slots']} unused slots, {rep['outputs_removed']} outputs removed "
           f"-> {rep['tris']} tris")
     return rep

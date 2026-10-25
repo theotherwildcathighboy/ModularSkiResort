@@ -312,7 +312,7 @@ def check_panes(parts, max_h, lines_of, tag):
         c = W.mean(0)
         for zl in lines_of(float(c[0]), float(c[1])):
             check(not (z0 + 1e-3 < zl < z1 - 1e-3),
-                  f"{tag}: pane {o.name} ({z0:.2f}..{z1:.2f}) crosses the storey line {zl}")
+                  f"{tag}: pane {o.name} ({z0:.2f}..{z1:.2f}) crosses the story line {zl}")
         n += 1
     return n
 
@@ -1960,7 +1960,7 @@ FINE_PLACEHOLDERS = (
     PLACEHOLDERS[0], PLACEHOLDERS[1],
     (("lamp_pc",), "the porte-cochere's hanging lanterns (2, with rods)",
      "vanilla has no pendant (RoofLightRandom01 is a ceiling dome, WallLightShortRange a wall mount); "
-     "kept modelled, emissive; the rods are 8-seg round now. Fittings v1 (T101 r3, DECISIONS 320): replaced by "
+     "kept modeled, emissive; the rods are 8-seg round now. Fittings v1 (T101 r3, DECISIONS 320): replaced by "
      "vanilla RoofLight03 ceiling rows"),
 )
 
@@ -3017,7 +3017,7 @@ def check_door_walks(parts, doors, boxes, rows=SUB_OBJECT_ROWS):
         ax, sg, al = _side_axes(d["side"])
         slo, shi = parts_bounds(parts, (DOOR_STEPS[d["tag"]],))
         sc = 0.5 * (float(slo[al]) + float(shi[al]))
-        check(abs(sc - d["s"]) <= 0.05, f"D4 door {d['tag']}: its flight is centred at {sc:.2f}, "
+        check(abs(sc - d["s"]) <= 0.05, f"D4 door {d['tag']}: its flight is centered at {sc:.2f}, "
                                         f"the door at {d['s']:.2f}")
         near = float(slo[ax]) if sg > 0 else float(shi[ax])
         length = (near - d["plane"]) * sg
@@ -3706,7 +3706,7 @@ def build_l5(recipe, opts):
         fl = int(t[1]) if t[0] == "f" else (0 if t == "hlo" else 1 if t == "hup" else 2)
         per_floor.setdefault(fl, []).append(t)
     check(all(len(per_floor.get(fl, [])) >= 2 for fl in range(5)),
-          f"night read: room tags per storey {per_floor}")
+          f"night read: room tags per story {per_floor}")
     # ---------------- revision 4 contracts (eighteenth look) ------------------------------------
     # (a) G1: no ray from an arrival-side preview camera or the close walk-around through the
     # porte-cochere's front gable triangle sees into it (front faces only, within GABLE_DEPTH_MAX
@@ -3748,7 +3748,7 @@ def build_l5(recipe, opts):
             "umbstand_", "umbpole_", "umbcanopy_", "post_pl", "post_fc", "post_pz", "post_tw",
             "lamp_pl", "lamp_fc", "lamp_tw", "lamp_pz0", "lamp_pz1", "lamp_pz2", "lamp_pz3")
     left = sorted(o.name for o, _m in P if o.name.startswith(gone))
-    check(not left, f"R3d modelled dressing left (vanilla rule): {left[:8]}")
+    check(not left, f"R3d modeled dressing left (vanilla rule): {left[:8]}")
     import inspect
     check(inspect.signature(K.ski_rack_frame).parameters["bindings"].default is False,
           "R3d cs2_bldg.ski_rack_frame draws bindings by default (the no-bindings kit rule)")
@@ -3756,7 +3756,7 @@ def build_l5(recipe, opts):
             o.name.rstrip("AWKBRG").endswith("g")]
     if fine:                            # step 3e: no modeled rack / road-face lantern is left
         left = sorted(o.name for o, _m in P if o.name.startswith(("skirack_", "lamp_pm")))
-        check(not left, f"R3d fine: modelled racks / road-face lanterns left: {left[:6]}")
+        check(not left, f"R3d fine: modeled racks / road-face lanterns left: {left[:6]}")
     else:
         check(len({g[len("skirack_"):].split("g")[0] for g in gear}) == len(PZ_RACKS),
               f"R3d gear on {len(gear)} parts, want all {len(PZ_RACKS)} plaza racks")
@@ -3835,7 +3835,7 @@ NOTES_R4 = ("Revision 4 (the porte-cochere gable closed with tongue-and-groove b
             "wall lights; three French terrace doors in real recessed openings onto the pool terrace, "
             "each facing a flight up to the podium) on "
             "revision 3 (pool-side plaza, valet drive, stair right, vanilla props) on revision 2 "
-            "(clock, tower deck) and revision 1 (Peak 7): U-shaped 5-storey grand lodge on a 10 x 9 "
+            "(clock, tower deck) and revision 1 (Peak 7): U-shaped 5-story grand lodge on a 10 x 9 "
             "lot - main bar + two wings, 6 cross gables over balcony stacks, 13 dormers, 5 stone "
             "chimneys, great hall with king-post glass gable, porte-cochere on +X over a valet loop "
             "with a raised island, clock tower (raised 4 m, dial on the shaft), an elevated deck "

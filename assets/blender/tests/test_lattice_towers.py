@@ -267,7 +267,7 @@ for family in tt.FAMILIES:
         if family == "tram" and H == 60:
             check(night is not None and len(night) == 1 and night[0]["guid"] == "6b6861547d4e1964aa977434af734126"
                   and abs(night[0]["position_net_m"][1] - 59.96) < 1e-3 and night[0]["position_net_m"][0] == 0.0,
-                  f"{name} DT-C12 one WarningLightRandom01 row at the top centre on gantryx_1 "
+                  f"{name} DT-C12 one WarningLightRandom01 row at the top center on gantryx_1 "
                   f"({night[0]['position_net_m'] if night else None})")
         else:
             check(night is None, f"{name} DT-C12 no night sub-object")
@@ -338,7 +338,7 @@ for family in tt.FAMILIES:
             ok = gb[:, 1].max() >= 5.5 + 0.30 and gb[:, 1].min() <= -5.8 and len(lugs) == 4
             for lv in lugs:
                 ok &= abs(abs(lv[:, 1].mean()) - 5.5) < 1e-3 and abs(lv[:, 2].max() - (z0 + 3.45)) < 1e-3
-            check(ok, f"{name} top beams overhang both lanes (tips y +-{gb[:, 1].max():.2f}), a lifting lug centred "
+            check(ok, f"{name} top beams overhang both lanes (tips y +-{gb[:, 1].max():.2f}), a lifting lug centered "
                       f"over each lane under each tip")
             check(len([n for n in table if n.startswith("sbrkdiag_")]) == 4,
                   f"{name} 4 main diagonals inner-post top -> crossarm end")
@@ -374,7 +374,7 @@ for family in tt.FAMILIES:
             for tag, s in (("p", 1), ("n", -1)):
                 lv = mv.verts(f"lug_{tag}")
                 ok &= abs(lv[:, 1].mean() - s * 3.0) < 1e-3 and abs(lv[:, 2].max() - (A + 1.76)) < 1e-3
-            check(ok, f"{name} lifting lugs under both gantry-beam tips, centred on the lanes (JH-15 lesson)")
+            check(ok, f"{name} lifting lugs under both gantry-beam tips, centered on the lanes (JH-15 lesson)")
         # ---- Revision 1 (verdicts 7 / 8): the ladder system, both families ----
         lad, plan = rep["ladder"], parts.ladder
         z_arr = tt.ladder_arrival(spec)
@@ -571,7 +571,7 @@ def neg_ladder_short():
     tt.check_contracts(t, table, spec, parts, "authoring")
 
 
-expect_fail(neg_landing_over_flight, "C7", "centred landing over the flight below (verdict 8)")
+expect_fail(neg_landing_over_flight, "C7", "centered landing over the flight below (verdict 8)")
 expect_fail(neg_flights_not_offset, "C7", "flights not offset (verdict 8)")
 expect_fail(neg_ladder_short, "C7", "ladder stops short of the head deck (verdict 7)")
 

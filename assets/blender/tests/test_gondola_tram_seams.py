@@ -464,7 +464,7 @@ def gate_door_seams():
     c, half = float(LC.TRAM_STATION["dock_z"]), float(door["x_out"])
     check(close(c, TS.DOCK_Z) and close(c, TS.GATE_DOOR_Z) and close(half, 0.85)
           and close(2 * half, 1.70) and close(door["x_meet"], 0.012) and TS.GATES_AT_DOOR is True,
-          "S13 door centre = lift_cabin dock z = tram_station DOCK_Z = GATE_DOOR_Z; leaves -+0.850 about the "
+          "S13 door center = lift_cabin dock z = tram_station DOCK_Z = GATE_DOOR_Z; leaves -+0.850 about the "
           "seam (1.70 m span), gates laid out from the door",
           f"(cabin {c}, station {TS.DOCK_Z}, gates {TS.GATE_DOOR_Z}, leaf outer {half}, meet {door['x_meet']})")
     check(close(TS.GATE_OPEN_HALF * 2.0, 1.90) and TS.GATE_OPEN_HALF * 2.0 >= TS.C17_OPEN_MIN - EPS
@@ -475,14 +475,14 @@ def gate_door_seams():
     for ex in TS.GATE_EDGES:
         gap = abs(abs(ex) - TS.TRACK_X)                            # berth edge to the lane center
         check(gap - float(door["y_front"]) >= 0.40,
-              f"S13 gate line x {ex}: {gap:.2f} m from the lane centre, {gap - float(door['y_front']):.3f} m "
+              f"S13 gate line x {ex}: {gap:.2f} m from the lane center, {gap - float(door['y_front']):.3f} m "
               f"outside the door face ({door['y_front']})")
     for role in ("base", "top"):
         inside, opening, centre, bound, leaf = gate_span_report(role)
         check(not inside and opening >= 1.70 - EPS and centre is not None and abs(centre - c) <= TS.C17_CENTRE_TOL
               and min(leaf) >= opening / 2.0 - EPS,
               f"S13 {role} fence from z {TS.GATE_Z0[role]}: nothing in the door span z {c - half:.2f}..{c + half:.2f}, "
-              f"opening {opening:.3f} m centred {centre} between {bound}, the leaves beside it "
+              f"opening {opening:.3f} m centered {centre} between {bound}, the leaves beside it "
               f"{[round(v, 3) for v in leaf]} m close on the seam (each >= half the opening)",
               f"(parts in the span {inside})")
     TS.GATES_AT_DOOR = False
@@ -511,7 +511,7 @@ def gate_door_seams():
               and (zb is None or close(c17["door"]["manifest_z_bay"], zb)) and c17["door"]["t13_held"] is True
               and all(e_["opening_m"] >= 1.70 - EPS and abs(e_["centre_z"] - c) <= TS.C17_CENTRE_TOL
                       and e_["margin_lo_m"] >= 0 and e_["margin_hi_m"] >= 0 for e_ in ed.values()),
-              f"S13 {name} manifest C17: door centre {c17['door']['centre']} leaves -+{c17['door']['half']} "
+              f"S13 {name} manifest C17: door center {c17['door']['centre']} leaves -+{c17['door']['half']} "
               f"(cabin z_bay {zb}), 4 berth edges, openings {sorted({e_['opening_m'] for e_ in ed.values()})}",
               f"(span {c17.get('span_z')})")
         inside, opening, centre, _b, _leaf = gate_span_report(role)
@@ -519,7 +519,7 @@ def gate_door_seams():
         check(close(e0["opening_m"], opening, 1e-3) and close(e0["centre_z"], centre, 1e-3)
               and e0["posts"] == len(TS.gate_layout(TS.GATE_Z0[role])[0])
               and e0["leaves"] == len(TS.gate_layout(TS.GATE_Z0[role])[1]),
-              f"S13 {name} manifest edge 0 == the code layout (opening {opening:.3f}, centre {centre}, "
+              f"S13 {name} manifest edge 0 == the code layout (opening {opening:.3f}, center {centre}, "
               f"{e0['posts']} posts / {e0['leaves']} leaves)")
 
 

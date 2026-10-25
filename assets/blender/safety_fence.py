@@ -660,7 +660,7 @@ def texture_contracts(maps, post_maps=None):
     rec = (ctl[..., 1] >= 0.5) | (ctl[..., 2] >= 0.5)
     dev = float(np.abs(base[..., 0:3][rec] - RECOLOR).max())
     if dev > 0.05:
-        fails.append(f"C8 recolour texels deviate {dev:.3f} > 0.05 from {RECOLOR}")
+        fails.append(f"C8 recolor texels deviate {dev:.3f} > 0.05 from {RECOLOR}")
     if float(ctl[ys, xs, 1].min()) < 1.0:
         fails.append("C9 net region ControlMask G < 1")
     pys, pxs = _sl(R_POST_BAND)

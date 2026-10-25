@@ -350,7 +350,7 @@ def test_cube(paths, out_a, out_b):
                   "slot 2, explicit False": False, "slot 1 set later (replace)": True},
           f"recolor_albedo None = auto (slot > 0, no control): {got}")
     cube, mat1, rect_face, _ = build_cube()
-    out_c = out_b + "_recolour"
+    out_c = out_b + "_recolor"
     srcs = sources_for(paths, recolor=True)
     ramp = np.zeros((A, A, 4), np.int32)
     ramp[..., 0:3] = np.arange(A)[:, None, None]          # height rises with source v
@@ -372,7 +372,7 @@ def test_cube(paths, out_a, out_b):
             if poly == rect_face:
                 continue
             err = int(np.abs(tb[:, 0:3] - want).max())
-            check(err <= 2, f"face {poly}: BaseColor == {want} grey within 2/255 (max err {err})")
+            check(err <= 2, f"face {poly}: BaseColor == {want} gray within 2/255 (max err {err})")
             check(bool((te[:, 0:3] == 0).all()), f"face {poly}: no emission")
         else:
             err = int(np.abs(te[:, 0:3] - want_e).max())
@@ -386,7 +386,7 @@ def test_cube(paths, out_a, out_b):
           f"report: height route {rep['height_route']}")
     k = rep["materials"][1]["recolor_scale"]
     check(rep["ao"] is None and k is not None,
-          f"ao_samples=0 skips AO; recolour scale {k if k is None else round(k, 3)}")
+          f"ao_samples=0 skips AO; recolor scale {k if k is None else round(k, 3)}")
 
 
 # --------------------------------------------------------------------------------------
@@ -623,7 +623,7 @@ def test_material_sources(out_dir):
     puv = cs2_uv.loop_uvs(probe.data.uv_layers["UVProbe"])[top.loop_start:
                                                           top.loop_start + top.loop_total]
     check(abs(float(puv[:, 0].mean()) - 10.0) < 1e-4 and abs(float(puv[:, 1].mean())) < 1e-4,
-          f"project_world_uv after `.location = (10, 0, 1)`: top face centred at u "
+          f"project_world_uv after `.location = (10, 0, 1)`: top face centered at u "
           f"{puv[:, 0].mean():.3f} (10 tiles, not the stale 0)")
     clear_scene()
     bpy.ops.mesh.primitive_cube_add(size=2.0, location=(0.0, 0.0, 1.0))
@@ -652,7 +652,7 @@ def test_material_sources(out_dir):
     wuv = cs2_uv.loop_uvs(wall.data.uv_layers["UVTile"])[wtop.loop_start:
                                                          wtop.loop_start + wtop.loop_total]
     check(abs(float(wuv[:, 1].mean()) - 2.0) < 1e-4,
-          f"material_sources after `wall.location = (0, 4, 1)`: top face v centre "
+          f"material_sources after `wall.location = (0, 4, 1)`: top face v center "
           f"{wuv[:, 1].mean():.3f} tiles (2.0 at 2 m/tile)")
     check(sorted(srcs) == [0, 1] and srcs[0].normal_convention == "GL" and srcs[0].uv == "UVTile"
           and srcs[1].slot == 1, "indices by sorted key, GL normal, uv = UVTile")
@@ -686,7 +686,7 @@ def test_material_sources(out_dir):
     check(float(conc_tex[:, 0:3].std()) > 2.0, f"concrete faces carry the photo texture "
                                                f"(std {conc_tex[:, 0:3].std():.1f})")
     want = int(round(cs2_asset.RECOLOR_ALBEDO * 255))
-    check(int(np.abs(paint_tex[:, 0:3] - want).max()) <= 2, "paint faces neutral 0.80 grey")
+    check(int(np.abs(paint_tex[:, 0:3] - want).max()) <= 2, "paint faces neutral 0.80 gray")
     check(bool((paint_ctl[:, 0:3] == (255, 0, 0)).all()), "paint faces ControlMask R")
     nc = nrm[cov][:, 0:3] / 255.0
     check(float(nc[:, 2].min()) > 0.5 and abs(float(nc[:, 0].mean()) - 0.5) < 0.05,

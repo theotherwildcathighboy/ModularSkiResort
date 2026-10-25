@@ -2677,7 +2677,7 @@ def fd_kit_specs_m(kind):
                  mount="wall", removed=("ext_booth",), was="extinguisher('booth', booth +x (door) wall), +X"),
             dict(prop="SkiDressTools", pos=(rail, ty, cz), facing=tf, mount="lean", removed=("tool_bay_",),
                  tube=(1.10, 0.028),
-                 was="tools('bay', foot M_TOP tools, -X): the builder pair's centre, leaning on the E rail's top "
+                 was="tools('bay', foot M_TOP tools, -X): the builder pair's center, leaning on the E rail's top "
                      "tube (the rest plane behind the tube's inner face so the pair just touches the tube, "
                      "cs2_kitrows.kit_tube_offset)")]
 
@@ -2773,11 +2773,11 @@ def fine_detail_block_m(kind, contracts):
                                                                "UNLOAD (no STAY SEATED: M19), LIFT OPS, SLOW, the capacity placard, "
                                                                "the sign") + ")",
             "maze / gate / board posts": "fine geometry (8-seg capped posts, 6-sided ropes, 12-seg capped posts)",
-            "tension gauge": "modelled (no vanilla gauge)" if kind == "drive" else None,
+            "tension gauge": "modeled (no vanilla gauge)" if kind == "drive" else None,
             "cabinet": "PLACEHOLDER: ElectricalBox01 / 02 need the S1 Editor GUID harvest; fine: lid lip, no bevel"
                        if kind == "drive" else None,
             "weather mast": None if kind == "drive" else "FS1: the guyed anemometer mast stays",
-            "propane / stop arm / stakes": None if kind == "drive" else "modelled (no vanilla match / M18 layout)"}
+            "propane / stop arm / stakes": None if kind == "drive" else "modeled (no vanilla match / M18 layout)"}
     return {"flag": True, "step": "3c", "report": "build/fine-detail-step3c-tram-pali.md",
             "x_convention": blk.get("x_convention"), "rows": blk.get("kinds"), "F1": msg.get("F1"),
             "kit_rows": (nums or {}).get("rows"),
@@ -2974,10 +2974,10 @@ def sheave_trains_m(co, tris, names, kind):
             worst_t = max(worst_t, dt)
             worst_y = max(worst_y, abs(float(c[1]) - ys))
             if dt > 0.002:
-                _m_fail("M21", f"{nm}: centre {d:.4f} off the rope axis along its normal, want r + rope "
+                _m_fail("M21", f"{nm}: center {d:.4f} off the rope axis along its normal, want r + rope "
                                f"{T['r'] + M_ROPE_R:.4f} (the rope not tangent under the sheave)")
             if abs(float(c[1]) - ys) > 1e-3:
-                _m_fail("M21", f"{nm} centred at y {c[1]:.4f}, lane {ys}")
+                _m_fail("M21", f"{nm} centered at y {c[1]:.4f}, lane {ys}")
     tp = [i for i, n in enumerate(names) if n.startswith(pre)]
     front = float(co[np.unique(tris[tp].ravel())][:, 0].max())
     bf = M_BASE["beam_front"]
@@ -2987,7 +2987,7 @@ def sheave_trains_m(co, tris, names, kind):
         for s in ("n", "p"):
             cc, _ = _part_centre_m(co, tris, names, f"{nm}{s}")
             if c is not None and (abs(cc[0] - c[0]) > 1e-3 or abs(cc[2] - c[1]) > 1e-3):
-                _m_fail("M21", f"{nm}{s} centred at {cc.round(3).tolist()}, want x {c[0]} z {c[1]}")
+                _m_fail("M21", f"{nm}{s} centered at {cc.round(3).tolist()}, want x {c[0]} z {c[1]}")
     tri_n = sum(1 for n in names if n.startswith((pre, "holdboom_", "holdhang_", "sheave_cw")))
     return dict(hold_train_numbers_m(spec), tangent_err_m=round(worst_t, 5), lateral_err_m=round(worst_y, 5),
                 rims=len(rims), tris_lod0=tri_n, ok=True)

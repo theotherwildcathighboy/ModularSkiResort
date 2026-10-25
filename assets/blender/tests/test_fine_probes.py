@@ -126,7 +126,7 @@ def main():
         if fronts:
             c = fronts[0].center
             ok(abs(c.z - card["y"]) < 0.001 and abs(-c.y - card["z"]) < 0.001,
-               f"FP2 {card['key']}: centre y {c.z:.4f} z {-c.y:.4f} vs ({card['y']}, {card['z']})")
+               f"FP2 {card['key']}: center y {c.z:.4f} z {-c.y:.4f} vs ({card['y']}, {card['z']})")
             ok(abs(fronts[0].area - card["w"] * card["h"]) < 1e-4,
                f"FP2 {card['key']}: face {fronts[0].area:.4f} m2 = {card['w']} x {card['h']}")
     mpath = os.path.join(SHIPPED, F.SIGNSET, F.SIGNSET + ".manifest.json")

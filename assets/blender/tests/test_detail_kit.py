@@ -969,7 +969,7 @@ def k9_l1_tables():
         table = json.loads(obj.data[cs2_asset.PART_TABLE_PROP])
         gone = [n for n in table if n.startswith(("umbstand_", "umbpole_", "umbcanopy_", "bench_", "bin_",
                                                   "skirack_entry", "skirack_slope", "lamp_porch"))]
-        assert not gone, f"modelled umbrella / bench / bin / rack / porch-lantern parts left: {gone[:6]}"
+        assert not gone, f"modeled umbrella / bench / bin / rack / porch-lantern parts left: {gone[:6]}"
         rows = rows + kit                                   # box the kit racks too (ground props)
         me = obj.data
         pid = np.empty(len(me.polygons), np.int32)
@@ -1009,7 +1009,7 @@ def k9_l1_tables():
         shutil.rmtree(tmp, ignore_errors=True)
     ok(f"K9b L1 vanilla deck: 10 TableSetCommercialRandom01 + 10 ParasolRandom01 (each "
        f"{R.PARASOL_OFFSET} m beside its table, facing it) + GardenBench + Trashbin (lot), verified GUIDs "
-       f"({src} bounds), the manifest block (22 + the step-3a rows), no modelled umbrella / bench / bin / "
+       f"({src} bounds), the manifest block (22 + the step-3a rows), no modeled umbrella / bench / bin / "
        f"rack / porch lantern left, no lodge triangle inside any prop box (+ the 6 kit racks), no box "
        f"overlap but a pole in its own table (closest {near:.3f} m)")
 

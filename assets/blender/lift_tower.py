@@ -1291,7 +1291,7 @@ def parse_args():
     )
     ap.add_argument(
         "--mast", type=float, default=8.0,
-        help="mast height in metres, overriding TowerParams.mast_height (default 8.0 - "
+        help="mast height in meters, overriding TowerParams.mast_height (default 8.0 - "
              "the line tower). 6.8 / 6.2 build the short ET terminal towers that stand "
              "at the station mouths as hosted sub-objects (J-generation).",
     )
@@ -1344,7 +1344,7 @@ def main():
           f"(expect {lo_expect:.2f} .. {p.mast_height + p.arm_thickness / 2 + 0.90:.2f}"
           f" - catwalk handrail tops the head details; bounds.max is the top-anchor "
           f"spec and must not move)")
-    print(f"[tower] CS2 m_Bounds should match these metres once unit scale is right")
+    print(f"[tower] CS2 m_Bounds should match these meters once unit scale is right")
     print(f"[tower] ---- CS2 NetPieceLanes settings for this tower ----")
     print(f"[tower]   lane 0 Position: X {-p.lane_offset:.2f}  Y {p.sheave_axle_height:.2f}  Z 0")
     print(f"[tower]   lane 1 Position: X {+p.lane_offset:.2f}  Y {p.sheave_axle_height:.2f}  Z 0")
@@ -3004,7 +3004,7 @@ def ingest_beam_faces(gantry, spec):
                if p.normal.x * sgn > 0.9 and yext(p)[0] <= 0.3 and yext(p)[1] >= -0.3
                and A + 1.70 <= p.center.z <= A + 1.93]
         if not sel:
-            raise TowerContractError(f"{spec.key}: no gantry_00 beam face with n.x {sgn:+.0f} at the centreline")
+            raise TowerContractError(f"{spec.key}: no gantry_00 beam face with n.x {sgn:+.0f} at the centerline")
         area = sum(p.area for p in sel)
         n = sum((p.normal * p.area for p in sel), mathutils.Vector()) / area
         n.normalize()
@@ -3692,7 +3692,7 @@ def assert_tower_contracts(obj, spec, frame, head):
     for side in (-1.0, 1.0):
         mine = sorted([c for c in sc if np.sign(c[2]) == side], key=lambda c: abs(c[1]))[:2]
         mz = sum(c[3] for c in mine) / 2.0
-        _check(abs(mz - A) <= tol1, f"{tag} C1 centre-pair axle side {side:+.0f} = {A}",
+        _check(abs(mz - A) <= tol1, f"{tag} C1 center-pair axle side {side:+.0f} = {A}",
                f"({mz:.5f}, tol {tol1})")
     if spec.family == "FG":
         _check(abs(A - (spec.tube_top - 0.96)) < 1e-9, f"{tag} C1 FG axle = mast - 0.96",
@@ -3715,7 +3715,7 @@ def assert_tower_contracts(obj, spec, frame, head):
     # C5 mast center, pad top
     m = pv["mast"]
     mc = (m.min(axis=0) + m.max(axis=0)) / 2.0
-    _check(abs(mc[0]) <= 1e-4 and abs(mc[1]) <= 1e-4, f"{tag} C5 mast centred on the origin",
+    _check(abs(mc[0]) <= 1e-4 and abs(mc[1]) <= 1e-4, f"{tag} C5 mast centered on the origin",
            f"({mc[0]:+.1e}, {mc[1]:+.1e})")
     _check(abs(pv["pad"][:, 2].max() - 0.15) <= 1e-4, f"{tag} C5 pad top 0.15",
            f"({pv['pad'][:, 2].max():.5f})")

@@ -246,7 +246,7 @@ def check_sign(tmp):
     ol = os.path.join(tmp, "sfinl", "A")
     rl, _o = sign_run(["--finish", "--no-fine", "--tex", "512", "--ao-samples", "4", "--no-validate", "--out", ol])
     ok(os.path.isfile(os.path.join(rl["asset_dir"], f"{name}_Emissive.png")), "sign --no-fine _Emissive")
-    print("ok sign --no-fine finish: _Emissive present (modelled lanterns)")
+    print("ok sign --no-fine finish: _Emissive present (modeled lanterns)")
 
 
 def _o_name(r):

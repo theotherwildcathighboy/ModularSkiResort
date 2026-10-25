@@ -352,7 +352,7 @@ def t2_contracts():
                         inside17.append(nm_)
             check(ok17 and not inside17,
                   f"T2 {' '.join(argv)}: C17 4 berth edges, opening {sorted({e_['opening_m'] for e_ in ed17.values()})} m "
-                  f"(>= 1.70) centred on the door seam {d17['centre']} (door span z {span17[0]:.2f}..{span17[1]:.2f}, "
+                  f"(>= 1.70) centered on the door seam {d17['centre']} (door span z {span17[0]:.2f}..{span17[1]:.2f}, "
                   f"leaves -+{d17['half']}), margins {sorted({e_['margin_lo_m'] for e_ in ed17.values()})}, "
                   f"parts in the span {inside17}")
             if argv[1] == "top":
@@ -754,7 +754,7 @@ def t2_negative_c17(work=None):
     B, T = ["--role", "base"], ["--role", "top"]
     # the shipped 1d grids: the base post at z -6.20 and the leaf 0.30 m off the door center, the top
     # post at -5.60 with its two leaves across the doorway (revision2-check-tram-cabin section C)
-    expect_c17("the 1d base grid (post -6.20 inside the door span, leaf off centre)", B,
+    expect_c17("the 1d base grid (post -6.20 inside the door span, leaf off center)", B,
                ("inside the door span", "gatepost_0_1 z -6.24..-6.16", "gate_0_1 z -6.15..-4.25"),
                attr="GATES_AT_DOOR", value=False)
     expect_c17("the 1d top grid (post -5.60 at the seam, leaves across the doorway)", T,

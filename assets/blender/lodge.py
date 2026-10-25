@@ -226,8 +226,8 @@ def parse_args(argv=None):
                     help="a PROPOSED LOD0 cap for this build only (T92: caps may rise 'by a bit', never silently): the "
                          "recipe's cap is replaced and the manifest records both under budget_override")
     ap.add_argument("--slots", default="v1", choices=("v1", "v2"),
-                    help="v2 = T89 three recolour slots: R paint (as today), G trim boards / wood trim, B window "
-                         "casings; accent and metal roof become fixed colours (needs --trim v1)")
+                    help="v2 = T89 three recolor slots: R paint (as today), G trim boards / wood trim, B window "
+                         "casings; accent and metal roof become fixed colors (needs --trim v1)")
     # ridge v2 (T95, docs/research/art/cad-review-2026-10-19.md section 8): gable slabs end on the ridge plane (3 mm
     # overlap) under a 12-tri bent flashing; hip ridges / hips flashed too; L1's hand-built roofs follow. off = every
     # build byte-identical.
@@ -1563,7 +1563,7 @@ def _mod_row_block(recipe, e):
     # (fine_detail.row_colour_error), an uncolored one the staged KIT CID
     if e.get("role") != "signset" and (kit is None or FD.row_colour_error(e)):
         raise ValueError(f"{recipe.key}: mod row {e.get('prefab')!r} CID {cid} is neither a dressing-kit "
-                         f"object prefab (fine_detail.KIT / its colour variant: "
+                         f"object prefab (fine_detail.KIT / its color variant: "
                          f"{FD.row_colour_error(e) if kit else 'not in KIT'}) nor a sign-set identity row")
     pos, q, parent = e["position"], e["rotation"], int(e.get("m_ParentMesh", -1))
     if len(pos) != 3 or len(q) != 4:
@@ -2719,7 +2719,7 @@ def _write_manifest(asset_dir, name, recipe, args, result, hook, win, T, t0):
             "use": "optional Write Everywhere layouts (another fleet): each face is the board's flat printable quad, "
                    "unobstructed (its frame ring sits outside the face, 0.03 m proud); role blank = an empty panel "
                    "left for the player's own label, name = a lit name board (sheet kind) a WE text may cover",
-            "frame": "centre / normal / right / up in prefab-local game metres; " + FD.X_CONVENTION,
+            "frame": "center / normal / right / up in prefab-local game meters; " + FD.X_CONVENTION,
             "boards": result["we_boards"]}
     if recipe.sub_objects:
         data["sub_objects"] = sub_objects_block(recipe)

@@ -260,9 +260,9 @@ def is_coloured(prop):
 def variant_name(prop, colour_set):
     """The variant object prefab of a colored kit prop: SkiDressSkiRackV2 + red -> SkiDressSkiRackV2_Red."""
     if prop not in KIT or not KIT[prop].coloured:
-        raise ValueError(f"variant_name: {prop!r} is not a coloured kit prop")
+        raise ValueError(f"variant_name: {prop!r} is not a colored kit prop")
     if colour_set not in COLOUR_SETS:
-        raise ValueError(f"variant_name: unknown colour set {colour_set!r} (COLOUR_SETS {sorted(COLOUR_SETS)})")
+        raise ValueError(f"variant_name: unknown color set {colour_set!r} (COLOUR_SETS {sorted(COLOUR_SETS)})")
     return f"{prop}_{COLOUR_SETS[colour_set].label}"
 
 
@@ -287,11 +287,11 @@ def kit_cid(prop, colour_set=None):
     k = KIT[prop]
     if k.coloured:
         if colour_set is None:
-            raise ValueError(f"{prop} is a coloured kit prop: its row needs a colour set ({sorted(COLOUR_SETS)}); "
-                             f"the base prefab (Parent colour) does not ship")
+            raise ValueError(f"{prop} is a colored kit prop: its row needs a color set ({sorted(COLOUR_SETS)}); "
+                             f"the base prefab (Parent color) does not ship")
         return variant_cids(variant_name(prop, colour_set))[0]
     if colour_set is not None:
-        raise ValueError(f"{prop} has no ControlMask texel: no colour set ({colour_set!r})")
+        raise ValueError(f"{prop} has no ControlMask texel: no color set ({colour_set!r})")
     return k.cid
 #: A-frame rack loadouts to alternate along a row (FS6; dress-kit.md 1.2)
 AFRAME_RACKS = ("SkiDressSkiRack", "SkiDressSkiRackV2", "SkiDressSkiRackV3")
@@ -357,9 +357,9 @@ def check_kit_colours(recipe):
         if err:
             bad.append(err)
         elif KIT[e["prefab"]].coloured and e.get("colour_set") != want:
-            bad.append(f"{e['prefab']}: colour set {e.get('colour_set')!r} != the recipe's {want!r}")
+            bad.append(f"{e['prefab']}: color set {e.get('colour_set')!r} != the recipe's {want!r}")
     if bad:
-        raise ValueError(f"{getattr(recipe, 'key', '?')} kit colours: {bad[:4]}")
+        raise ValueError(f"{getattr(recipe, 'key', '?')} kit colors: {bad[:4]}")
     return True
 
 

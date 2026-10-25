@@ -513,7 +513,7 @@ def d8_coplanar_inside(mod, parts):
     vols = [((mod["FL_X0"], -mod["FL_Y"], mod["FL1_Z"]), (mod["FL_X1"], mod["FL_Y"], mod["PLATE_Z"])),
             ((mod["PL_X0"], -mod["PL_Y"], -mod["PL_DEPTH"]), (mod["PL_X1"], mod["PL_Y"], mod["PL_TOP"]))]
     C.check_inside(new, vols)
-    return f"coplanar: none with {len(new)} new parts; check_inside: no new face in the storey / plinth"
+    return f"coplanar: none with {len(new)} new parts; check_inside: no new face in the story / plinth"
 
 
 def d10_props(recipe, mod, me, M, label):
@@ -652,7 +652,7 @@ def d11_fine(recipe, mod, lp, lot):
         cx, cy = 0.5 * (P[:, 0].min() + P[:, 0].max()), 0.5 * (P[:, 1].min() + P[:, 1].max())
         gx, gy, gz = r[2]
         assert math.hypot(gz - cx, gx - cy) <= 0.01 and gy == 0.0 and r[4] == -1, \
-            f"D11 H1: barrel {r[2]} (parent {r[4]}) vs {tag} plan centre ({cx:.3f}, {cy:.3f})"
+            f"D11 H1: barrel {r[2]} (parent {r[4]}) vs {tag} plan center ({cx:.3f}, {cy:.3f})"
     lamps = [r for r in rows if r[0] == "WallLightShortRangeRandom01"]
     assert len(lamps) == 2
     for tag, r in zip(("lamp_hut0", "lamp_hut1"), lamps):
@@ -679,7 +679,7 @@ def d11_fine(recipe, mod, lp, lot):
         cx, cy = 0.5 * (P[:, 0].min() + P[:, 0].max()), 0.5 * (P[:, 1].min() + P[:, 1].max())
         gx, gy, gz = r[2]
         assert math.hypot(gz - cx, gx - cy) <= 0.01 and abs(gy - mod["DECK_TOP"]) < 1e-6 \
-            and tuple(r[3]) == (0.0, 0.0, 0.0, 1.0), f"D11 H1: kit rack {tag} {r[2]} vs frame centre ({cx:.3f}, {cy:.3f})"
+            and tuple(r[3]) == (0.0, 0.0, 0.0, 1.0), f"D11 H1: kit rack {tag} {r[2]} vs frame center ({cx:.3f}, {cy:.3f})"
         wx0, wx1, wy0, wy1 = wings[tag]
         x0, x1, y0, y1 = box_plan(r, 0.0)
         assert wx0 <= x0 and x1 <= wx1 and wy0 <= y0 and y1 <= wy1, \
@@ -691,8 +691,8 @@ def d11_fine(recipe, mod, lp, lot):
         d = max(abs(a - b) for a, b in zip(lot[ax], SHIPPED_LOT[ax]))
         assert d <= 0.005, f"D11 H9: lot {ax} {lot[ax]} vs pre-pass {SHIPPED_LOT[ax]} ({d:.4f} m)"
     ok(f"D11 H1 / H9: {len(benches)} bench rows on the removed benches' back plane (x within 0.015), the "
-       f"2 ground barrels (parent -1) on the removed fuel drums' plan centres, {len(lamps)} entry wall lights at the old lens "
-       f"(y, z) on the wall, {len(racks)} kit racks at the removed frames' centres inside the wing "
+       f"2 ground barrels (parent -1) on the removed fuel drums' plan centers, {len(lamps)} entry wall lights at the old lens "
+       f"(y, z) on the wall, {len(racks)} kit racks at the removed frames' centers inside the wing "
        f"(yaw 90 would overhang: negative), lot x {lot['x']} y {lot['y']} = the pre-pass +-5 mm")
 
 

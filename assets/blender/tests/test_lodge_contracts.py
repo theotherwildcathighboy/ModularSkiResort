@@ -221,8 +221,8 @@ def check_l1_constants():
     for (x, z) in ((d["S2_X0"] - d["OVER"], d["EAVE_Z"]), (d["RIDGE_AT_X"], d["RIDGE_Z"]),
                    (d["S2_X0"], d["S2_Z"])):
         dist = plane_dist(x, z)
-        assert abs(dist) < 1e-3, f"W slab centre plane misses ({x}, {z}) by {dist:.4f} m"
-    print("ok L1: W slab centre plane passes through the eave tip (-13.1, 5.30), the ridge "
+        assert abs(dist) < 1e-3, f"W slab center plane misses ({x}, {z}) by {dist:.4f} m"
+    print("ok L1: W slab center plane passes through the eave tip (-13.1, 5.30), the ridge "
           "(-4.5, 16.7) and the wall plate (-12.0, S2_Z)")
 
 

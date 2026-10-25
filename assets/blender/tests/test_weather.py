@@ -590,7 +590,7 @@ def t4_edge(obj, maps, f0):
         s = part_sel(fl, "bar_t") & (fl.edge_d <= 0.03)
         res[("dS", inten)] = (S_of(out.msk, fl)[s] - S_of(m.msk, fl)[s]).mean()
     R, ne, nc = res[("bar_t", 0.35)]
-    check(R >= 1.05, f"steel bar at 0.35: R {R:.4f} >= 1.05 ({ne} edge / {nc} centre texels)")
+    check(R >= 1.05, f"steel bar at 0.35: R {R:.4f} >= 1.05 ({ne} edge / {nc} center texels)")
     R1 = res[("bar_t", 1.0)][0]
     check(R1 >= 1.12, f"steel bar at 1.0: R {R1:.4f} >= 1.12")
     Rt = res[("trim_t", 0.35)][0]
@@ -859,7 +859,7 @@ def t10_budget(obj, maps, f0):
         spec = kit_spec(intensity=inten)
         m, fl, masks, out = run_layer(obj, A0, spec, maps, f0)
         v = W.weather_report(m, out, fl, spec, masks)["vanilla"]
-        print(f"    flat synthetic colours (VL4 floored, informative): VL1 {v['VL1_mean_rel_dL']} "
+        print(f"    flat synthetic colors (VL4 floored, informative): VL1 {v['VL1_mean_rel_dL']} "
               f"VL2 {v['VL2_share_rel_dL_gt_0.15']} VL4 {v['VL4_max']} "
               f"{[(x['part'], x['ratio']) for x in v['VL4_parts']]}")
         m, fl, masks, out = run_layer(obj, A0, spec, textured(maps, f0), f0)

@@ -255,7 +255,7 @@ def check_p2_build():
     vent = [r for r in a["rows"] if r["prefab"] == FIT.PIPE_VENT]
     assert len(vent) == 1 and vent[0]["air_mm"] <= FIT.CONTACT_M * 1000, vent
     ok(f"P2 with fittings v1: audit clean in RAISE mode ({a['n_shells']} shells); half-round gutter seated on its "
-       f"fascia with {g['straps']} straps; the leader's shoe on grade + GROUND_LIFT; no modelled stovepipe, the vanilla "
+       f"fascia with {g['straps']} straps; the leader's shoe on grade + GROUND_LIFT; no modeled stovepipe, the vanilla "
        f"{FIT.PIPE_VENT} row seated ({vent[0]['air_mm']} mm air)")
 
 

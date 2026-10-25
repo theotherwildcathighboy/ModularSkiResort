@@ -129,7 +129,7 @@ CARD_T = 0.020                      # = board_ops thickness (0.020): card front 
 CARDS = (
     dict(key="card_a_lettered", label="PROBE B (lit)", wall_x=5.600, outward=-1.0,
          y=2.525, z=4.500, w=1.20, h=0.40, part_hint="engroom_walls",
-         note="engine-room wall, same plane as board_ops (cab wall x 5.600, its centre z 7.500, "
+         note="engine-room wall, same plane as board_ops (cab wall x 5.600, its center z 7.500, "
               "y 2.525); 3.0 m along the wall (1.6 m lands on the 45-deg corner at z 6.0)"),
     dict(key="card_b_ruler", label="1.000 m ruler", wall_x=-4.500, outward=-1.0,
          y=4.600, z=9.500, w=1.000, h=0.200, part_hint="band_n_2",

@@ -357,7 +357,7 @@ def k1_gear_equality():
         check(abs(dm["rough"] - (1.0 - bm_.smooth)) < 1e-6 and dm["metal"] == 0.0
               and dm.get("slot", 0) == bm_.slot and bool(dm.get("recolor_albedo")) == bool(bm_.recolor),
               f"K1 gear material {k}: rough / metal / slot {dm} vs {bm_}")
-    check(LD.DRESS_MATERIALS["accent"]["slot"] == 2, "K1 gear: accent is the slot-2 recolour")
+    check(LD.DRESS_MATERIALS["accent"]["slot"] == 2, "K1 gear: accent is the slot-2 recolor")
     check(not {"ski_a", "ski_b", "ski_c"} & set(LD.DRESS_MATERIALS), "K1 gear: the old ski_a/b/c remain")
     # a rack whose pitch cannot hold two neighbors across is refused
     try:
@@ -553,7 +553,7 @@ def k3_painters():
     blk = np.abs(col - np.asarray(LD.INK["black"], np.float32)).sum(axis=-1) < 0.05
     r_, c_ = np.nonzero(blk)
     wm, hm = (c_.max() - c_.min() + 1) / pu, (r_.max() - r_.min() + 1) / pv
-    check(abs(wm / hm - 1.0) < 0.04 and abs(wm - 0.40) < 0.01, f"K3 picto ring in metres {wm:.3f} x {hm:.3f}")
+    check(abs(wm / hm - 1.0) < 0.04 and abs(wm - 0.40) < 0.01, f"K3 picto ring in meters {wm:.3f} x {hm:.3f}")
     # the stamp_on_face painter wrapper
     p = LD.board_painter("seat2")
     b = np.zeros((100, 100, 4), np.float32)

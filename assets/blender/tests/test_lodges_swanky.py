@@ -568,7 +568,7 @@ def check_l4_r1(r, obj, table, man):
         fp = [o for o in so if o["prefab"] == "CampgroundFireplace02"]
         assert len(fp) == 1 and fp[0]["m_Object"] == "98c77a4f2885dd541a7a3700edefa21e" and fp[0]["m_ParentMesh"] == 0, fp
         nb = sum(1 for o in so if o["prefab"] == "GardenBenchRandom01")
-        assert nb == 6, f"T59 benches: {nb} (4 round the pit + the east kerb bench + the forecourt bench)"
+        assert nb == 6, f"T59 benches: {nb} (4 round the pit + the east curb bench + the forecourt bench)"
     print(f"ok L4 r1: {len(so)} vanilla rows = L4_ROWS, parent-0 rows on their faces (2 on the wall); "
           f"cantilever soffits kept after the cull {({k: round(v, 1) for k, v in down.items()})} m2; deck "
           f"x {deck[:, 0].min():.2f}..{deck[:, 0].max():.2f} at {g4['Z_DECK']}; dining door real, nearest "
@@ -817,7 +817,7 @@ def check_l4_fine():
     diff = [n for n in fv if n not in flues and not np.array_equal(fv[n], lv[n])]
     assert not diff, f"fine L4 parts moved beyond the flue pots: {diff[:6]}"
     print(f"ok L4 fine (step 3e + nitpick C): FineRecipe, no sign set, the forecourt board BLANK (--no-fine: the "
-          f"pictogram), no kit rows (no modelled rack), "
+          f"pictogram), no kit rows (no modeled rack), "
           f"lanterns vanilla since revision 1; parts = the --no-fine parts vertex for vertex but the 4 flue pots "
           f"12-seg (22 -> 34 tris, same heights)")
     return dict(flues=len(flues))
@@ -864,11 +864,11 @@ def check_l5_r3(r, obj, table, man, racks):
     gone = ("cafe", "bench_", "bin_", "planter_", "shrub_", "conifer_", "bollard_", "lounger_",
             "umbstand_", "umbpole_", "umbcanopy_", "post_pl", "post_fc", "post_pz", "post_tw")
     left = sorted({nm for nm in by if nm.startswith(gone)})
-    assert not left, f"modelled dressing left: {left[:8]}"
+    assert not left, f"modeled dressing left: {left[:8]}"
     fine = bool(getattr(recipe, "fine_detail", False))
     if fine:
         left = sorted({nm for nm in by if nm.startswith(("skirack_", "lamp_pm"))})
-        assert not left, f"fine L5: modelled racks / road-face lanterns left: {left[:6]}"
+        assert not left, f"fine L5: modeled racks / road-face lanterns left: {left[:6]}"
         rk = [r_["prefab"] for r_ in SW.KIT_ROWS]
     else:
         rz = pts("skirack_pz")
@@ -965,7 +965,7 @@ def check_l5_r3(r, obj, table, man, racks):
     for nm, ps_ in sorted(faces_ct.items()):
         V = np.concatenate([W[list(p.vertices)] for p in ps_])
         c = V.mean(0)
-        assert abs(c[2] - SW.CT_CLOCK_Z_L5) < 0.01, f"{nm} centre z {c[2]:.3f}"
+        assert abs(c[2] - SW.CT_CLOCK_Z_L5) < 0.01, f"{nm} center z {c[2]:.3f}"
         assert V[:, 2].max() <= stage - 0.3 + 1e-3, f"{nm} top {V[:, 2].max():.2f} below the stage?"
         n = sum((Vector(p.normal) * p.area for p in ps_), Vector()).normalized()
         sp = [Vector(c)]

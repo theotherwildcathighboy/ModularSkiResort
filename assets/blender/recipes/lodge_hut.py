@@ -321,7 +321,7 @@ KIT_NEEDS = (
     "ski_rack_frame / bench / string_lights / flag_mast stand on a deck through z0 (detail "
     "pass 1); grade-standing dressing (wing posts, fuel cradle, crib) reaches below the "
     "design grade by explicit boxes / leg_to",
-    "slate is slot 0 (not recolourable); slot 3 only reaches the metal_roof entry canopy",
+    "slate is slot 0 (not recolorable); slot 3 only reaches the metal_roof entry canopy",
 )
 
 

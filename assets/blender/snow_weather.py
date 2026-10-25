@@ -600,9 +600,9 @@ NORMAL_DETAIL_CLASSES = {
                "(2.2 cm); mast-foot fillet weld bead (3.2 cm / 2.5 mm)",
     "fan":     "GunHousing seam ring; galvanised cabinet door: 4 corner bolt heads; tank: two end "
                "weld beads (2 cm); compressor lid: 4 corner bolt heads",
-    "lance":   "BaseJacket: two moulded ribs (2.4 cm / 2 mm); compressor drum: two end seams "
+    "lance":   "BaseJacket: two molded ribs (2.4 cm / 2 mm); compressor drum: two end seams "
                "(groove 2 cm); column-foot fillet weld bead (2.8 cm)",
-    "hydrant": "lid: a raised moulded panel (1.5 mm, 6 cm in from the edge); standpipe-foot fillet "
+    "hydrant": "lid: a raised molded panel (1.5 mm, 6 cm in from the edge); standpipe-foot fillet "
                "weld bead (3 cm)",
 }
 
