@@ -116,6 +116,11 @@ namespace SkiResortMod.Systems
         public string LastEvent = "-";
         public float LastBuildMs, MaxBuildMs;
         public int Builds;
+        // The harvest walks every net edge in the city, so its cost grows with the city, not the resort: the first build of a
+        // load and each new maximum above CostReportMs print one "[cost]" line (at most CostLinesMax per load) for field tests.
+        private const float CostReportMs = 1f;
+        private const int CostLinesMax = 4;
+        private int m_CostLines;
 
         /// <summary>The station whose Transform last changed, and when (UnityEngine.Time.frameCount; see engine notes, Frames and time).</summary>
         internal Entity LastMovedStation { get; private set; }
@@ -624,6 +629,7 @@ namespace SkiResortMod.Systems
             LastEvent = "-";
             LastBuildMs = MaxBuildMs = 0f;
             Builds = 0;
+            m_CostLines = 0;
             ClearSnapshot();
             // Nothing of the previous city's power reads carries over (the fold was flushed in OnGamePreload)
             m_ServeCounts.Clear();
@@ -1005,13 +1011,23 @@ namespace SkiResortMod.Systems
         {
             long t0 = Stopwatch.GetTimestamp();
             Harvest();
+            long t1 = Stopwatch.GetTimestamp();
             m_Census.Build(m_Edges, m_Nodes, m_Stations, m_Events);
             m_LastBuildFrame = m_Frame;
             m_CoalescePending = false;
             Builds++;
             LastBuildMs = (float)((Stopwatch.GetTimestamp() - t0) * 1000.0 / Stopwatch.Frequency);
-            if (LastBuildMs > MaxBuildMs)
+            bool newMax = LastBuildMs > MaxBuildMs;
+            if (newMax)
                 MaxBuildMs = LastBuildMs;
+            if (m_CostLines < CostLinesMax && (Builds == 1 || (newMax && LastBuildMs > CostReportMs)))
+            {
+                m_CostLines++;
+                double harvestMs = (t1 - t0) * 1000.0 / Stopwatch.Frequency;
+                Mod.Log.Info($"Census [cost] build {Builds} ({why}): {LastBuildMs:F2} ms, of it harvest {harvestMs:F2} ms over " +
+                             $"{m_EdgeQuery.CalculateEntityCount()} city net edge(s) for {m_Edges.Count} lift edge(s); max this load " +
+                             $"{MaxBuildMs:F2} ms" + (m_CostLines == CostLinesMax ? " (last [cost] line this load)" : ""));
+            }
 
             ComputeRowSignatures();
             if (baseline)
