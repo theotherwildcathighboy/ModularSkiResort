@@ -21,6 +21,8 @@
 The binaries are gitignored (`.gitignore`, "Third-party originals" block); this file is tracked.
 On a fresh clone, re-download from the source URL above and place the files at these paths.
 
+**Status: visual reference only. No geometry or texture derived from this model ships.**
+
 ## Credit line (ref-models.md §3)
 
 Required as soon as anything derived from this model ships (release/CREDITS.md, the listing and
@@ -28,7 +30,7 @@ in-game description, assets/LICENSE carve-out, README.md):
 
 > "Chair Lift" by Kagelok (https://sketchfab.com/3d-models/chair-lift-afd305cdd4cb450f80b59f24b4b3e236),
 > licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). Modified by
-> theotherwildcathighboy for Modular Ski Resort: re-scaled, re-topologised, re-UV'd and re-textured
+> theotherwildcathighboy for Modular Ski Resort: re-scaled, re-topologized, re-UV'd and re-textured
 > for Cities: Skylines II.
 
 ## Use in this repo

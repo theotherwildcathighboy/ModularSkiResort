@@ -41,16 +41,13 @@ hut, the patrol building at Song Mountain (New York). Source: docs-site credits 
 
 ## Third-party 3D models (CC BY 4.0)
 
-The following models were used as modeling references and, where stated, as mesh sources. Each is
-licensed under Creative Commons Attribution 4.0 (https://creativecommons.org/licenses/by/4.0/) and
-was modified for Cities: Skylines II (re-scaled, re-topologized, re-UV'd and re-textured; see
-`assets/external/*/SOURCE.md` for exactly what was reused).
+The following models (each Creative Commons Attribution 4.0, https://creativecommons.org/licenses/by/4.0/)
+were visual references for the lifts. No geometry or texture from them ships; every mesh is built by
+the generators in `assets/blender/`.
 
 - **"Chair Lift" by Kagelok** — https://sketchfab.com/3d-models/chair-lift-afd305cdd4cb450f80b59f24b4b3e236 —
-  CC BY 4.0. Planned (nothing derived ships yet): tower sheave-train and catwalk geometry adapted;
-  chair, grip and terminal proportions traced.
+  reference for the chair, grip, tower sheave trains and terminal proportions.
 - **"Ski gongola and lift station detailed drafts" by Wilin_Amaurea** —
   https://sketchfab.com/3d-models/ski-gongola-and-lift-station-detailed-drafts-a8fabd3e955643a2a9e9f09bd46635db —
-  CC BY 4.0. Planned (nothing derived ships yet): gondola cabin shell adapted; hanger, carriage and
-  station layout used as reference.
+  reference for the gondola cabin, hanger, carriage and station layout.
 - Tiling materials: CC0 sets from ambientCG (https://ambientcg.com), no attribution required.

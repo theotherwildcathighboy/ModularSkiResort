@@ -23,11 +23,8 @@ and adapt (remix, transform, and build upon the material), under the following t
   No additional restrictions — You may not apply legal terms or technological
   measures that legally restrict others from doing anything the license permits.
 
-Third-party works incorporated (each CC BY 4.0, modified — see assets/external/*/SOURCE.md
-and release/CREDITS.md for what was reused). CC BY 4.0 allows adapted material to be
-shared under CC BY-NC-SA 4.0; the original works themselves remain CC BY 4.0 from their
-authors. Anyone redistributing or adapting the derived meshes must credit these authors
-as well as "Modular Ski Resort by theotherwildcathighboy":
+No third-party geometry or textures are included. Two CC BY 4.0 models served only as
+visual references, and nothing derived from them ships (release/CREDITS.md):
 
   "Chair Lift" by Kagelok
   https://sketchfab.com/3d-models/chair-lift-afd305cdd4cb450f80b59f24b4b3e236

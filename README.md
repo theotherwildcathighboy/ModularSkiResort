@@ -29,9 +29,8 @@ Code (the C# mod, the Blender generators, the tools) is MIT — see `LICENSE`. A
 everything generated from them are CC BY-NC-SA 4.0 — see `assets/LICENSE`. Design references are
 credited in `release/CREDITS.md`; no third-party code is included, and the GPL-licensed mods we
 studied (ParkManager, ParkingLotTool) were re-derived from the game's own systems, never copied.
-Two CC BY 4.0 Sketchfab models (Kagelok's "Chair Lift", Wilin_Amaurea's gondola drafts) are
-archived as mesh sources for upcoming lift art; nothing derived from them ships yet. Their
-credit lines (`assets/LICENSE`, `release/CREDITS.md`) apply from the first release that does.
+Two CC BY 4.0 Sketchfab models (Kagelok's "Chair Lift", Wilin_Amaurea's gondola drafts) were
+visual references for the lifts only; no geometry or texture from them ships.
 
 ## Contributing
 

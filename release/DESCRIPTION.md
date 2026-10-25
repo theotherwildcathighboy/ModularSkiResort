@@ -65,8 +65,3 @@ Realistic Trips replaces the game's leisure system that ski days need: with it, 
 
 *Kept off the front page on purpose (all in the docs site; see docs/research/release-preview-2026-10-22.md section 5 for the move list): the per-lift slope and span limits, the economy numbers (ticket 80, pass 2 tickets, lessons 30 percent, off-season half staff, income booked as public transportation fees), the attraction formula, the lift tool keys, cat track grading, glades, piste map, powder days, the long Honest-notes list (stations sit on the slope, wind and chair sway, all chairs show one number, canyon and cliff lines), Yenyang's Recolor, Scene Explorer, Write Everywhere and the "ideas, not promises" line.*
 
-*Add to the Credits at the first upload that ships derived meshes (nothing does yet; assets/external/\*/SOURCE.md):* Includes geometry adapted from "Chair Lift" by Kagelok
-(https://sketchfab.com/3d-models/chair-lift-afd305cdd4cb450f80b59f24b4b3e236) and "Ski
-gongola and lift station detailed drafts" by Wilin_Amaurea
-(https://sketchfab.com/3d-models/ski-gongola-and-lift-station-detailed-drafts-a8fabd3e955643a2a9e9f09bd46635db),
-both licensed CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/), modified.
