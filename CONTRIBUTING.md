@@ -8,7 +8,7 @@ Audience: a senior C# / TypeScript programmer who does not know this project's h
 - Engine citations that justify non-obvious code: keep `File.cs:line` (decompile baseline 1.6.0f1), one per claim,
   no prose retelling of the engine code.
 - `Mod.cs` system registration phase / anchor comments (load-bearing: they say why a system runs where it does).
-- The log-discipline rule in the ChairPinSystem header (CLAUDE.md points to it), in a few lines.
+- The log-discipline rule in the ChairPinSystem header, in a few lines.
 - Product rules the code enforces, stated as the rule ("Trams keep running in summer; other lifts close with no open
   run"), not as who decided it or when.
 - `///` summaries on types and non-obvious public members: one line where the name is not enough.

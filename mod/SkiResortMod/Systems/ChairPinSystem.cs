@@ -3,7 +3,7 @@
 // UtilityLaneData.m_Hanging), not the edge bezier SubObjectSystem spawns chairs on; each chair is re-seated so its grip top lies on it.
 // Runs at Modification4B: after SubObjectSystem (2B) and LaneSystem (4), before Game.Objects.SearchSystem and PreCulling (5).
 // Never throws into the game loop; a chair with no matching cable sublane is left untouched.
-// LOG DISCIPLINE (CLAUDE.md points here): silence must be impossible. Every way this system can fail or idle has a distinct log
+// LOG DISCIPLINE: silence must be impossible. Every way this system can fail or idle has a distinct log
 // signature, once per load or per change; no per-frame lines (see "Observability" below).
 // Engine notes: EngineNotes/ChairPinSystem.md
 

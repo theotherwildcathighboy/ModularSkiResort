@@ -52,7 +52,7 @@ Then launch the game and enable the mod under **Options → Mods**. Logs land in
 `%CSII_USERDATAPATH%\Logs\` — our logger writes `SkiResortMod.Mod.log`.
 
 A compile check that deploys nothing is exactly `dotnet build -t:Compile` (no other flags: `--no-incremental` or
-`-t:Rebuild` fire `DeployWIP`; see the repo CLAUDE.md).
+`-t:Rebuild` fire `DeployWIP` and overwrite the installed mod).
 
 There is no hot reload: rebuild, then restart the game.
 

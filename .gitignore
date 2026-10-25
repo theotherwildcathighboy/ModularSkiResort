@@ -62,3 +62,18 @@ assets/archive/
 # dotnet tool build output
 tools/**/bin/
 tools/**/obj/
+
+# Claude Code agent layer (2026-10-24): the working contract, skills and hook settings are private, like docs/, which they
+# cite throughout. Local copies stay; the repository never carries them.
+/CLAUDE.md
+/.claude/
+
+# More editor / OS / tool noise
+.vs/
+.idea/
+.DS_Store
+*.log
+*.bak
+*.orig
+*.tmp
+npm-debug.log*

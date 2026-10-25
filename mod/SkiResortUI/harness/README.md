@@ -11,7 +11,6 @@ cd mod/SkiResortUI
 npm run build                 # plain webpack into build/ (deploys nothing; postbuild gate runs)
 node harness/serve.js         # http://localhost:5173/harness/
 ```
-From Claude Code: `.claude/launch.json` at the ClaudeProjects root has a `hub-harness` entry (preview_start).
 Edit a component -> `npm run build` -> "Reload bundle" in the page.
 
 ## What the page gives you
