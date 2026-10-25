@@ -55,7 +55,7 @@ namespace SkiResortMod
                 {
                     "Assets.DESCRIPTION[SkiTopStationBuilding]",
                     "Return terminal of a fixed-grip chairlift. Power flows up the line from " +
-                    "the base — no hookup needed here."
+                    "the base: no hookup needed here."
                 },
                 // Equals SkiCatalog.FixedGrip — tests/ResortBatch CatalogGuardTests text guard; hubText.ts holds the same text (gate R4).
                 { "Assets.NAME[SkiChairliftHV]", "Fixed-Grip Triple Chairlift" },
@@ -300,7 +300,7 @@ namespace SkiResortMod
                 { "Assets.NAME[SkiRunNightA]", "Night Run" },
                 {
                     "Assets.DESCRIPTION[SkiRunNightA]",
-                    "A snowmaking run with floodlighting for a second, after-dark shift — " +
+                    "A snowmaking run with floodlighting for a second, after-dark shift: " +
                     "the most expensive trail to keep open, and the biggest draw."
                 },
                 { "Assets.NAME[SkiRunNaturalA]", "Natural Run" },
@@ -367,7 +367,7 @@ namespace SkiResortMod
                 { "SkiResort.GladeTooltip.COMPLETE_FIXED", "Nothing to change: the remaining trees cannot be felled (other runs', buildings')" },
                 { "SkiResort.GladeTooltip.CLAMPED", "Large run: apply again to continue" },
                 { "SkiResort.GladeTooltip.SATURATED", "No room for more trees" },
-                { "SkiResort.GladeTooltip.MONEY", "Some trees canceled — not enough money?" },
+                { "SkiResort.GladeTooltip.MONEY", "Some trees canceled: not enough money?" },
                 { "SkiResort.GladeTooltip.TARGET[Interior]", "Run interior" },
                 { "SkiResort.GladeTooltip.TARGET[TreeLine]", "Tree line" },
                 { "SkiResort.GladeTooltip.LEVEL", "Tree density (1-8)" },
@@ -1079,11 +1079,11 @@ namespace SkiResortMod
                 { "SkiResort.LiftTooltip.ALIGN_ANGLE", "Angle off straight" },
                 { "SkiResort.LiftTooltip.ALIGN_DISTANCE", "Distance to the other station" },
                 { "SkiResort.LiftTooltip.ALIGN_RISE", "Rise" },
-                { "SkiResort.LiftTooltip.ALIGN_STRAIGHT", "Straight — 180°" },
+                { "SkiResort.LiftTooltip.ALIGN_STRAIGHT", "Straight: 180°" },
                 { "SkiResort.LiftTooltip.ALIGN_NO_PARTNER", "No free station of the other kind within 3 km" },
                 // In place of the angle row when the yaw is beyond 90°, and when this station sits behind
                 // the other one's stub (StationAlign READOUT CLASS).
-                { "SkiResort.LiftTooltip.ALIGN_FACING_AWAY", "Facing away from the other station — turn it around" },
+                { "SkiResort.LiftTooltip.ALIGN_FACING_AWAY", "Facing away from the other station: turn it around" },
                 { "SkiResort.LiftTooltip.ALIGN_PARTNER_AWAY", "The other station faces away from this one" },
                 { "SkiResort.LiftTooltip.BULLDOZE_SECTION", "Removes 1 lift section. The lift stops until you redraw it." },
                 { "SkiResort.LiftTooltip.BULLDOZE_TOWER", "This is a tower: it removes every section attached to it. Click the cable to remove one section." },
