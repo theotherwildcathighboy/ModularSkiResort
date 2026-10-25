@@ -1,5 +1,5 @@
 // Attraction model: ONE attraction score per ski area (one Welcome Sign), from its member runs (band, size with the 1 ha knee,
-// type, lift service, open factor), its complete and powered lifts, its active lodges and the sign's efficiency. Consumers:
+// type, lift service, open factor; a cat track counts a quarter and only there: CatTrackFactor), its complete and powered lifts, its active lodges and the sign's efficiency. Consumers:
 // SkiResortAttractivenessSystem (Compute on every recompute), SkiResortStatsSystem / HubRules (the hub reads this Result, never
 // recomputes), tests/ResortBatch ScoreTests.
 // Pure file: System and System.Collections.Generic only, plus SkiCatalog, SchoolRule and PatrolRule (linked wherever this file is).
@@ -39,10 +39,17 @@ namespace SkiResortMod.Systems
         public const double SkiersPerHaGreen = 45.0, SkiersPerHaBlue = 25.0, SkiersPerHaBlack = 15.0,
                             SkiersPerHaDoubleBlack = 7.5, SkiersPerHaUnrateable = 15.0;
         public const double NaturalSkiersFactor = 0.5;
+
+        // The cat track (2026-10-24: "counts minimally as a run"): rated green by construction (SkiRunRatingRules.CatTrackBand),
+        // a quarter of a groomed green of the same plan area in the score (type factor) and in the capacity (skiers). A quarter keeps
+        // the order groomed 1 > natural green 0.5 > cat track: a ribbon guests ride through, not a run they come for. It counts in
+        // Runs / RunsOpen / RunsCounted, never in the variety or school green, the vertical / top, or the end of the summer mode, so a
+        // summit-to-base track cannot double the score through the vertical multiplier or flip the lodges and lifts to winter alone.
+        public const double CatTrackFactor = 0.25, CatTrackSkiersFactor = 0.25;
         public const double MaxCapacityAreaM2 = 20000000.0; // 2,000 ha = SkiRunFees.MaxAreaHa
 
         // RunKind values (EntityRef.cs RunKind).
-        public const byte KindGroomed = 0, KindSnowmaking = 1, KindNight = 2, KindNatural = 3;
+        public const byte KindGroomed = 0, KindSnowmaking = 1, KindNight = 2, KindNatural = 3, KindCatTrack = 4;
         // SlopeBand values (SkiSlopeClassifier.SlopeBand).
         public const byte BandFlat = 0, BandGreen = 1, BandBlue = 2, BandBlack = 3, BandDoubleBlack = 4;
 
@@ -53,7 +60,7 @@ namespace SkiResortMod.Systems
         {
             None = 0,
             NoLodge = 1, // N = 0: A = 0 (no lodge: guests have nowhere to arrive)
-            SummerMode = 2, // no counted run (RunsCounted == 0): mu 0.5, lambda 0.25
+            SummerMode = 2, // no counted run other than a cat track: mu 0.5, lambda 0.25
             PendingRatings = 4, // >= 1 member run has no band yet (it counts 0)
             SnowGatingOff = 8, // the setting: every run counts fully open
             OpenEstimated = 16, // >= 1 open run's open factor comes from the temperature model
@@ -64,7 +71,7 @@ namespace SkiResortMod.Systems
 
         public struct RunInput
         {
-            public byte Kind; // KindGroomed .. KindNatural; other values are treated as groomed
+            public byte Kind; // KindGroomed .. KindCatTrack; other values are treated as groomed
             public BandState State; // Rated: Band holds the SlopeBand
             public byte Band; // 0..4, read only when State == Rated
             public double AreaM2; // plan area (Geometry.m_SurfaceArea); <= 0 or NaN gives size 0 (the run counts 0)
@@ -261,6 +268,7 @@ namespace SkiResortMod.Systems
             // Step 2: per run, in list order: counts, the five factors, the part; counted runs feed the value list, the height range and
             // the band flags.
             bool green = false, blue = false, black = false, heights = false;
+            int catCounted = 0;   // counted cat tracks: not a reason to leave the summer mode
             double top = double.NegativeInfinity, bottom = double.PositiveInfinity;
             int runCount = runs?.Count ?? 0;
             for (int i = 0; i < runCount; i++)
@@ -326,6 +334,11 @@ namespace SkiResortMod.Systems
                     s_CapacityValues.Add(skiers);
                 if (run.Kind == KindNight)
                     r.NightRunsCounted++;
+                if (run.Kind == KindCatTrack)
+                {
+                    catCounted++;
+                    continue;   // no height range, no band flag (see CatTrackFactor)
+                }
                 if (IsFinite(run.TopM) && IsFinite(run.BottomM))
                 {
                     if (run.TopM > top)
@@ -350,9 +363,9 @@ namespace SkiResortMod.Systems
             r.RunsValueFull = AscendingSum(s_FullValues);
             r.RunsCapacity = AscendingSum(s_CapacityValues);
 
-            // Step 3: summer = no counted run. The two shares are display values, set in steps 5 and 6 from the per-type lift sums and
+            // Step 3: summer = no counted run but cat tracks. The two shares are display values, set in steps 5 and 6 from the per-type lift sums and
             // the ladder.
-            bool summer = r.RunsCounted == 0;
+            bool summer = r.RunsCounted - catCounted == 0;
 
             // Step 4: lifts (the caller passes only lifts whose two stations exist). A counted lift's value and summer share are its type's
             // row (SkiCatalog.LiftByIndex(TypeIndex); an unknown index reads the fixed-grip row 0, as the census's NoType rows never reach
@@ -518,8 +531,8 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>Night 1.25, natural by band (0.5 / 0.75 / 1.0; unrateable or pending 0.5), else 1 (groomed, snowmaking and any
-        /// unknown kind).</summary>
+        /// <summary>Night 1.25, natural by band (0.5 / 0.75 / 1.0; unrateable or pending 0.5), cat track CatTrackFactor when rated green
+        /// else 0, else 1 (groomed, snowmaking and any unknown kind).</summary>
         public static double TypeFactorOf(byte kind, BandState state, byte band)
         {
             switch (kind)
@@ -536,6 +549,8 @@ namespace SkiResortMod.Systems
                         case BandDoubleBlack: return 1.0;
                         default: return 0.5; // Flat, Green (and an out-of-range band)
                     }
+                case KindCatTrack:
+                    return state == BandState.Rated && band == BandGreen ? CatTrackFactor : 0.0;   // unrateable or pending (or a band the catalog never sends): 0
                 default:
                     return 1.0;
             }
@@ -564,14 +579,14 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>One run's share of RunsCapacity: 0 unless the part is counted and the area &gt; 0; area capped at MaxCapacityAreaM2
-        /// (+inf too); then, left to right, ha x SkiersPerHa x (natural 0.5, else 1) x the part's served and open factors (an open run
+        /// (+inf too); then, left to right, ha x SkiersPerHa x (natural 0.5, cat track 0.25, else 1) x the part's served and open factors (an open run
         /// weighted by its open factor, as the score is). Night runs hold no extra skiers (no type factor).</summary>
         public static double RunSkiersPerDay(in RunInput run, in RunPart part)
         {
             if (!part.Counted || !(run.AreaM2 > 0.0))
                 return 0.0;
             double area = run.AreaM2 < MaxCapacityAreaM2 ? run.AreaM2 : MaxCapacityAreaM2;
-            return area / 10000.0 * SkiersPerHa(run.State, run.Band) * (run.Kind == KindNatural ? NaturalSkiersFactor : 1.0) *
+            return area / 10000.0 * SkiersPerHa(run.State, run.Band) * (run.Kind == KindNatural ? NaturalSkiersFactor : run.Kind == KindCatTrack ? CatTrackSkiersFactor : 1.0) *
                    part.ServedFactor * part.OpenFactor;
         }
 

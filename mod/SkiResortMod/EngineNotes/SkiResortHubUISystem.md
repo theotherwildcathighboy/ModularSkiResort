@@ -313,3 +313,7 @@ Appended fields and bindings by contract:
 - 14: the `grade` value binding (`HubLiftLineState` reused: available / active / state) and the `gradeToggle` trigger
   (`CatTrackGradeToolSystem` on / off).
 - 15: HistoryArea appends `snowDepthCm` (the run snow depth at each month's roll, whole cm, -1 unknown; T142 B7b, history element v2).
+- 16: the `grade` binding and the `gradeToggle` trigger are REMOVED (2026-10-24): the Cat track tile opens the cat track tool
+  (`CatTrackGradeToolSystem`, which grades and builds the run in one action) through ApplyLaunch and lights while it is active
+  (ActiveItemIndex), the lift-line tiles' pattern, with no area-tool fallback (every cat track is tool-built). RunLive.openState
+  loses Unsuitable (3): a rated cat track is always Green (SkiRunRatingRules.CatTrackBand), so it reads Closed / Partly / Open.

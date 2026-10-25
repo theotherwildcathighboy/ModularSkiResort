@@ -1,9 +1,12 @@
 // Tests for the pure rules of the cat-track run type, RunKind.CatTrack = 4 (SkiRunCatTrackA); oracles are literal hand values. The ECS side
-// (the AreaGeometryData write, the hub rows, the tooltip) is not covered. Case tags CT54-1..CT54-7.
-// Pinned: CatTrack is 4 and appended (0..3 unchanged); it does not count toward the resort (kinds 0-3 only), is a leaf for service
-// (LiftServedRule.AssignLinked leaf mask: served through the first run it crosses, serves nobody; a null / empty / all-false mask changes
-// nothing), never gets snow injection, is Unsuitable on its row band (beats any open factor), is dropped before RunInput so the area's
-// numbers equal the area without it, carries hydrants only, and is the fifth RunDef in SkiCatalog (kind 4, prefab SkiRunCatTrackA, item runCatTrack).
+// (the AreaGeometryData write, the hub rows, the tooltip, the cat track tool) is not covered. Case tags CT54-1..CT54-7, CT139-M, CT139-G.
+// Pinned: CatTrack is 4 and appended (0..3 unchanged); since 2026-10-24 it counts minimally toward the resort (a member: Runs / RunsOpen /
+// RunsCounted, a quarter of a run its size in value and capacity, never the variety or school green, the vertical or the end of the
+// summer mode; worth 0 unless rated green), is rated Green by construction once rated (SkiRunRatingRules.CatTrackBand: the cat
+// track tool grades every track under 25 %), is a leaf for service (LiftServedRule.AssignLinked leaf mask: served through the first
+// run it crosses, serves nobody; a null / empty / all-false mask changes nothing), never gets snow injection, reads its open state
+// like any member run (no Unsuitable state since 2026-10-25), carries hydrants only, and is the fifth RunDef in SkiCatalog (kind 4,
+// prefab SkiRunCatTrackA, item runCatTrack).
 // Not tested headless: that GradeBlue (25 %, SkiSlopeClassifier.cs) is where band 2 begins; tests/SlopeBatch owns BandOf.
 
 using System;
@@ -23,8 +26,9 @@ namespace ResortBatch
             s_Check = check;
             Kinds();
             Leaf();
-            Unsuitable();
-            Exclusions();
+            OpenState();
+            Minimal();
+            GreenRule();
             Snow();
             Props();
             Catalog();
@@ -44,7 +48,8 @@ namespace ResortBatch
                 Check(RunKindRules.CountsTowardResort(k), W, "kind " + k + " must count toward the resort");
                 Check(!RunKindRules.IsServedLeaf(k), W, "kind " + k + " must not be a served leaf");
             }
-            Check(!RunKindRules.CountsTowardResort(4), W, "the cat track must not count toward the resort");
+            Check(RunKindRules.CountsTowardResort(4), W, "the cat track counts toward the resort (minimally, since 2026-10-24)");
+            Check(Score.KindCatTrack == (byte)RunKind.CatTrack, W, "SkiResortScore.KindCatTrack == RunKind.CatTrack");
             Check(RunKindRules.IsServedLeaf(4), W, "the cat track must be a served leaf");
             Check(!RunKindRules.CountsTowardResort(-1) && !RunKindRules.IsServedLeaf(-1), W, "kind -1 (not ours) counts nothing and is no leaf");
             Check(!RunKindRules.CountsTowardResort(5), W, "an unknown kind 5 counts nothing");
@@ -162,7 +167,7 @@ namespace ResortBatch
             // stay unserved).
             Scene shortMask = Crossing(out a, out c, out b).Solve(new List<bool> { true });
             Check(shortMask.Served(a) && !shortMask.Served(c) && !shortMask.Served(b), W, "a short mask {true} makes A a leaf; C and B are not reached");
-            // The leaf rule changes nothing about the lift's direct count (the system takes the cat track off it itself).
+            // The leaf rule changes nothing about the lift's direct count (a lift's "runs served" counts a cat track since 2026-10-24).
             Check(leafC.Count == 3 && none.ServedCount.Count == 1 && none.ServedCount[0] == 1, W,
                   "the direct count is Assign's, one run (A), whatever the mask");
         }
@@ -179,31 +184,15 @@ namespace ResortBatch
             return true;
         }
 
-        private static void Unsuitable()
+        private static void OpenState()
         {
-            const string W = "cattrack/unsuitable";
-            Check(SkiRunRatingRules.CatTrackFirstUnsuitableBand == 2, W, "the first unsuitable band is Blue (2)");
-            Check(!SkiRunRatingRules.CatTrackUnsuitable(SkiRunRatingRules.BandUnrateable), W, "an unrateable track is not unsuitable");
-            Check(!SkiRunRatingRules.CatTrackUnsuitable(SkiRunRatingRules.BandPending), W, "a pending track is not unsuitable");
-            Check(!SkiRunRatingRules.CatTrackUnsuitable(0), W, "flat is fine");
-            Check(!SkiRunRatingRules.CatTrackUnsuitable(1), W, "green is fine");
-            Check(SkiRunRatingRules.CatTrackUnsuitable(2), W, "blue is unsuitable");
-            Check(SkiRunRatingRules.CatTrackUnsuitable(3), W, "black is unsuitable");
-            Check(SkiRunRatingRules.CatTrackUnsuitable(4), W, "double black is unsuitable");
-            // RowBand feeds it: a rated state passes the band through, the others become -1 / -2.
-            Check(!SkiRunRatingRules.CatTrackUnsuitable(SkiRunRatingRules.RowBand(SkiRunRatingRules.RatePending, 3)), W, "pending state: not unsuitable");
-            Check(SkiRunRatingRules.CatTrackUnsuitable(SkiRunRatingRules.RowBand(SkiRunRatingRules.RateRated, 2)), W, "rated blue: unsuitable");
-            Check(!SkiRunRatingRules.CatTrackUnsuitable(SkiRunRatingRules.RowBand(SkiRunRatingRules.RateFailed, 3)), W, "failed rating: not unsuitable");
-
-            Check((int)RunOpenState.Unsuitable == 3 && (int)RunOpenState.Open == 2 && (int)RunOpenState.None == -1, W, "RunOpenState.Unsuitable is 3 (appended)");
-            Check(HubRules.CatTrackOpenState(1.0, 1) == RunOpenState.Open, W, "green, factor 1: Open");
-            Check(HubRules.CatTrackOpenState(0.5, 1) == RunOpenState.Partly, W, "green, factor 0.5: Partly");
-            Check(HubRules.CatTrackOpenState(0.0, 0) == RunOpenState.Closed, W, "flat, factor 0: Closed");
-            Check(HubRules.CatTrackOpenState(double.NaN, 1) == RunOpenState.Closed, W, "green, NaN factor: Closed");
-            Check(HubRules.CatTrackOpenState(1.0, 2) == RunOpenState.Unsuitable, W, "blue beats an open factor: Unsuitable");
-            Check(HubRules.CatTrackOpenState(0.0, 4) == RunOpenState.Unsuitable, W, "double black, factor 0: Unsuitable");
-            Check(HubRules.CatTrackOpenState(1.0, -1) == RunOpenState.Open, W, "pending band: read by the factor (Open)");
-            Check(HubRules.CatTrackOpenState(1.0, -2) == RunOpenState.Open, W, "unrateable band: read by the factor (Open)");
+            const string W = "cattrack/openstate";
+            Check((int)RunOpenState.None == -1 && (int)RunOpenState.Closed == 0 && (int)RunOpenState.Partly == 1 && (int)RunOpenState.Open == 2,
+                  W, "RunOpenState values (no Unsuitable since 2026-10-25)");
+            Check(Enum.GetValues(typeof(RunOpenState)).Length == 4, W, "four open states");
+            // A cat track is a member, so its row reads the member rule like any run
+            Check(HubRules.OpenStateOf(1.0, true) == RunOpenState.Open && HubRules.OpenStateOf(0.5, true) == RunOpenState.Partly &&
+                  HubRules.OpenStateOf(0.0, true) == RunOpenState.Closed, W, "member open states");
         }
 
         private static Score.AreaInput Area()
@@ -236,35 +225,71 @@ namespace ResortBatch
             return kept;
         }
 
-        private static void Exclusions()
+        /// <summary>CT139-M: the cat track's minimal weight. A blue groomed + a black snowmaking run, then the same with a 4 ha green cat
+        /// track whose top is 600 m higher than theirs: one more run (Runs / RunsOpen / RunsCounted), exactly a quarter of a groomed green
+        /// of 4 ha in value and in capacity, the same vertical, no variety / school green, no summer end on its own.</summary>
+        private static void Minimal()
         {
-            const string W = "cattrack/exclusions";
-            var withCat = new List<Score.RunInput>
-            {
-                Input(0, Score.BandBlue, 60000.0), Input(4, Score.BandGreen, 40000.0), Input(1, Score.BandBlack, 30000.0),
-            };
-            var without = new List<Score.RunInput> { withCat[0], withCat[2] };
+            const string W = "cattrack/minimal";
+            Check(Score.CatTrackFactor == 0.25 && Score.CatTrackSkiersFactor == 0.25, W, "the cat track weighs a quarter (score and capacity)");
+            Score.RunInput cat = Input(4, Score.BandGreen, 40000.0);
+            cat.TopM = 2400.0;   // a summit-to-base track: must not stretch the vertical
+            var without = new List<Score.RunInput> { Input(0, Score.BandBlue, 60000.0), Input(1, Score.BandBlack, 30000.0) };
+            var withCat = new List<Score.RunInput> { without[0], cat, without[1] };
             List<Score.RunInput> kept = Collect(withCat);
-            Check(kept.Count == 2 && kept[0].Kind == 0 && kept[1].Kind == 1, W, "the filter must drop exactly the cat track");
+            Check(kept.Count == 3 && kept[1].Kind == 4, W, "the filter keeps the cat track");
 
             var lifts = new List<Score.LiftInput> { new Score.LiftInput { Complete = true, Powered = true, TypeIndex = 0 } };
-            Score.Result filtered = Score.Compute(Area(), kept, lifts, new List<Score.RunPart>());
+            var parts = new List<Score.RunPart>();
+            Score.Result r = Score.Compute(Area(), kept, lifts, parts);
             Score.Result clean = Score.Compute(Area(), without, lifts, new List<Score.RunPart>());
-            Check(filtered.Equals(clean), W, "the area with a filtered cat track must equal the area without it, bit for bit");
-            Check(filtered.Runs == 2 && filtered.RunsOpen == 2 && filtered.RunsCounted == 2, W,
-                  $"Runs {filtered.Runs} / RunsOpen {filtered.RunsOpen} / RunsCounted {filtered.RunsCounted}, expected 2 / 2 / 2");
-            Check(!filtered.GreenCounted, W, "a cat track (green) must not make the variety flag true");
-            Check(filtered.RunsCapacity > 0.0 && filtered.RunsCapacity == clean.RunsCapacity, W, "capacity must not include the cat track's hectares");
+            Check(r.Runs == 3 && r.RunsOpen == 3 && r.RunsCounted == 3, W, $"Runs {r.Runs} / RunsOpen {r.RunsOpen} / RunsCounted {r.RunsCounted}, expected 3 / 3 / 3");
+            var gParts = new List<Score.RunPart>();
+            Score.Compute(Area(), new List<Score.RunInput> { Input(0, Score.BandGreen, 40000.0) }, lifts, gParts);
+            Check(Math.Abs(parts[1].Value - 0.25 * gParts[0].Value) < 1e-12, W, $"cat track value {parts[1].Value} = a quarter of a groomed green {gParts[0].Value}");
+            Check(Math.Abs(parts[1].TypeFactor - 0.25) < 1e-12 && parts[1].Counted, W, "type factor 0.25, counted");
+            Check(Math.Abs(r.RunsCapacity - clean.RunsCapacity - 0.25 * 4.0 * Score.SkiersPerHaGreen) < 1e-9, W,
+                  $"capacity +{r.RunsCapacity - clean.RunsCapacity:F2} skiers, expected 4 ha x 45 x 0.25 = 45");
+            Check(r.RunsValue > clean.RunsValue, W, "the score grows");
+            Check(!r.GreenCounted && !r.Variety && r.VarietyMultiplier == clean.VarietyMultiplier, W, "a green cat track sets no variety / school green");
+            Check(r.VerticalM == clean.VerticalM && r.TopM == clean.TopM, W, $"vertical {r.VerticalM} / top {r.TopM} must ignore the cat track ({clean.VerticalM} / {clean.TopM})");
+            Check(r.NightRunsCounted == clean.NightRunsCounted, W, "no night run");
 
-            // Why the filter matters: a kind-4 RunInput that leaked in is read as groomed and adds value, capacity and a green.
-            Score.Result leaked = Score.Compute(Area(), new List<Score.RunInput>(withCat), lifts, new List<Score.RunPart>());
-            Check(leaked.Runs == 3 && leaked.RunsCapacity > clean.RunsCapacity && leaked.RunsValue > clean.RunsValue, W,
-                  "a leaked cat track would add a run, capacity and value; the filter is what keeps them out");
-            Check(leaked.GreenCounted, W, "a leaked green cat track WOULD set the variety flag");
+            // A lone cat track: a run (the hub shows the area, not NoRuns) that counts, but the area stays in summer mode.
+            var lone = Collect(new List<Score.RunInput> { cat });
+            Score.Result l = Score.Compute(Area(), lone, lifts, new List<Score.RunPart>());
+            Check(l.Runs == 1 && l.RunsCounted == 1 && l.RunsValue > 0.0 && l.RunsCapacity > 0.0, W, "a lone cat track counts");
+            Check((l.Flags & Score.ScoreFlags.SummerMode) != 0 && (l.Flags & Score.ScoreFlags.NoRuns) == 0, W, "a lone cat track keeps the summer mode, no NoRuns flag");
+            Check(HubRules.Status(lone.Count, 1, 0) != ResortStatus.NoRuns, W, "a lone cat track is a run for the hub status");
 
-            // An area whose only run is a cat track has no runs for the hub (Status NoRuns, not Closed / Open).
-            Check(HubRules.Status(Collect(new List<Score.RunInput> { Input(4, Score.BandGreen, 40000.0) }).Count, 0, 0) == ResortStatus.NoRuns,
-                  W, "a lone cat track must leave the area at NoRuns");
+            // Worth nothing unless rated green (the score's own guard; the catalog sends a rated cat track as Green): blue, flat, unrateable,
+            // pending; still a listed member run.
+            foreach (Score.RunInput bad in new[]
+            {
+                Input(4, Score.BandBlue, 40000.0), Input(4, Score.BandFlat, 40000.0),
+                new Score.RunInput { Kind = 4, State = Score.BandState.Unrateable, AreaM2 = 40000.0, Served = true, OpenFactor = 1.0 },
+                new Score.RunInput { Kind = 4, State = Score.BandState.Pending, AreaM2 = 40000.0, Served = true, OpenFactor = 1.0 },
+            })
+            {
+                var bp = new List<Score.RunPart>();
+                Score.Result b = Score.Compute(Area(), new List<Score.RunInput> { bad }, lifts, bp);
+                Check(b.Runs == 1 && b.RunsCounted == 0 && b.RunsValue == 0.0 && b.RunsCapacity == 0.0 && !bp[0].Counted, W,
+                      $"a cat track {bad.State} band {bad.Band} must be worth 0 (counted {b.RunsCounted}, value {b.RunsValue})");
+            }
+        }
+
+        /// <summary>CT139-G: the green rule. A rated cat track reads Green whatever band the classifier gave (the tool grades it under 25 %;
+        /// the rater reads a hairpin or a crossing steeper than the track's own grade, GradeBatch GR-20); pending / unrateable pass through.</summary>
+        private static void GreenRule()
+        {
+            const string W = "cattrack/green";
+            Check(SkiRunRatingRules.CatTrackMaxGrade == 0.25f, W, "built under 25 %");
+            Check(SkiRunRatingRules.BandGreenValue == Score.BandGreen, W, "BandGreenValue is Green (1)");
+            for (sbyte band = 0; band <= 4; band++)
+                Check(SkiRunRatingRules.CatTrackBand(band) == SkiRunRatingRules.BandGreenValue, W, "rated band " + band + " reads green");
+            Check(SkiRunRatingRules.CatTrackBand(SkiRunRatingRules.BandPending) == SkiRunRatingRules.BandPending &&
+                  SkiRunRatingRules.CatTrackBand(SkiRunRatingRules.BandUnrateable) == SkiRunRatingRules.BandUnrateable, W,
+                  "pending / unrateable pass through");
         }
 
         private static void Snow()

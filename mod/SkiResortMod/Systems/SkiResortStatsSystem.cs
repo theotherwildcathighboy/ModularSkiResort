@@ -1297,10 +1297,10 @@ namespace SkiResortMod.Systems
                     resort = -1;
                 float ha = 0f, cost = 0f;
                 RunSnow snow = default;
-                // A cat track is listed (a RunStats / RunLiveStats row below) but is not part of the resort's numbers: no snow aggregate, no ha
-                // or cost, no TopM or gun flag, no RunIn (so not in Runs / Rated / the season), no Member (so not in RunsOpen / RunsPartly /
-                // RunValueFull / Status).
-                bool catTrack = row.Kind == (int)RunKind.CatTrack; // = the one kind with !RunKindRules.CountsTowardResort
+                // A cat track counts minimally (2026-10-24, RunKindRules): a member (RunsOpen / RunsPartly / RunValueFull / Status) and a RunIn
+                // (Runs, Rated, the difficulty bar, length, area), but never injected: no snow aggregate, no ha or cost, no TopM or gun flag, and
+                // NaN heights in its RunIn so the hub's vertical stays the score's (SkiResortScore keeps it out of the vertical too).
+                bool catTrack = row.Kind == (int)RunKind.CatTrack;
                 if (bound && catTrack)
                 {
                     snow = m_Injection.GetRunSnow(row.Entity, (RunKind)row.Kind, row.NodeBottomM, row.NodeTopM);   // the estimate: never injected
@@ -1366,21 +1366,20 @@ namespace SkiResortMod.Systems
                     work.RunsValueFull += HubRules.RunValueFull(in part);
                 }
 
-                if (!catTrack) // a cat track is not in the aggregate (Runs, Rated, Unrateable, length, cost)
-                    m_RunIn.Add(new SkiResortAggregate.RunIn
-                    {
-                        Resort = resort,
-                        RateState = row.RateState,
-                        Band = row.Band,
-                        LengthM = row.LengthM,
-                        AreaM2 = row.AreaM2,
-                        TopM = row.TopM,
-                        BottomM = row.BottomM,
-                        CostMonth = cost,
-                        SnowHa = ha,
-                        Cover = float.NaN, // the aggregate's snow fields are unused
-                        NaturalCover = float.NaN,
-                    });
+                m_RunIn.Add(new SkiResortAggregate.RunIn
+                {
+                    Resort = resort,
+                    RateState = row.RateState,
+                    Band = row.Band,
+                    LengthM = row.LengthM,
+                    AreaM2 = row.AreaM2,
+                    TopM = catTrack ? float.NaN : row.TopM,
+                    BottomM = catTrack ? float.NaN : row.BottomM,
+                    CostMonth = cost,
+                    SnowHa = ha,
+                    Cover = float.NaN, // the aggregate's snow fields are unused
+                    NaturalCover = float.NaN,
+                });
                 m_RunsNext.Add(new RunStats
                 {
                     Entity = row.Entity,
@@ -1409,12 +1408,8 @@ namespace SkiResortMod.Systems
                 m_RunLiveNext.Add(new RunLiveStats
                 {
                     Entity = row.Entity,
-                    // A cat track is no member, yet its row says Open / Partly / Closed from the day-mean estimate (never injected) or Unsuitable
-                    // when rated blue or steeper (HubRules.CatTrackOpenState).
-                    OpenState = catTrack
-                        ? (bound ? (int)HubRules.CatTrackOpenState(snow.Multiplier, row.Band) : (int)RunOpenState.None)
-                        : (int)HubRules.OpenStateOf(member ? part.OpenFactor : 0.0, member),
-                    OpenFactor = catTrack ? (bound ? snow.Multiplier : 0f) : member ? (float)part.OpenFactor : 0f,
+                    OpenState = (int)HubRules.OpenStateOf(member ? part.OpenFactor : 0.0, member),
+                    OpenFactor = member ? (float)part.OpenFactor : 0f,
                     SnowPct = bound ? HubRules.Percent(snow.Share) : -1,
                     SnowEstimated = bound && snow.Source == RunSnowSource.Estimated,
                     ValueNow = member ? (float)part.Value : 0f,
@@ -1466,14 +1461,8 @@ namespace SkiResortMod.Systems
                 RunStats r = m_RunsNext[i];
                 int root = m_ServedRoot[i];
                 int l = root >= 0 ? m_ServingLift[root] : -1;
-                if (r.Kind == (int)RunKind.CatTrack)
-                {
-                    // A cat track is no member (no attraction view), so its served flag comes from this pass; it is served
-                    // directly (a lift top near it) or through a link. A lift's "runs served" counts members only.
-                    r.Served = root >= 0 && r.Bound;
-                    if (m_ServingLift[i] >= 0 && m_ServingLift[i] < m_ServedCount.Count && m_ServedCount[m_ServingLift[i]] > 0)
-                        m_ServedCount[m_ServingLift[i]]--;
-                }
+                // A cat track is a member since 2026-10-24: its Served comes from the attraction's view like every run's (the leaf rule
+                // runs there too), and a lift's "runs served" counts it.
                 if (r.Served && l >= 0 && l < m_ServeLifts.Count)
                     r.ServedBy = ToEntity(m_ServeLifts[l].Id);
                 m_RunsNext[i] = r;

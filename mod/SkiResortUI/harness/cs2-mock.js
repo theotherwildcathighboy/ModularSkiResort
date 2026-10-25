@@ -103,7 +103,6 @@
     selectResort: (sign) => set("selectedResort", sign || { index: 0, version: 0 }),
     setPisteMap: (on) => set("pisteMap", !!on),
     liftLineToggle: () => { const g = get("liftLine"); if (g) set("liftLine", Object.assign({}, g, { active: !g.active, state: "PickBase" })); },
-    gradeToggle: () => { const g = get("grade"); if (g) set("grade", Object.assign({}, g, { active: !g.active, state: g.active ? "" : "Empty" })); },
     gladeToggle: () => { const g = get("glade"); if (g) set("glade", Object.assign({}, g, { active: !g.active })); },
     gladeSetLevel: (level) => { const g = get("glade"); if (g) set("glade", Object.assign({}, g, { level })); },
     gladeSetTreeLine: (treeLine) => { const g = get("glade"); if (g) set("glade", Object.assign({}, g, { treeLine: !!treeLine })); },

@@ -362,6 +362,7 @@ namespace SkiResortMod.Systems
         private readonly List<int> m_ServedRoot = new List<int>(32);
         private readonly List<int> m_ServedVia = new List<int>(32);
         private readonly List<RunRef> m_RunRefs = new List<RunRef>(32);
+        private readonly List<bool> m_LeafRuns = new List<bool>(32);   // per run ref, RunKindRules.IsServedLeaf (the cat track)
         private readonly List<LiftServedRule.Lift> m_ServeLifts = new List<LiftServedRule.Lift>(8);
         private readonly List<LiftServedRule.Chord> m_Chords = new List<LiftServedRule.Chord>(64);
         private readonly List<int> m_ServingLift = new List<int>(32);
@@ -1068,8 +1069,19 @@ namespace SkiResortMod.Systems
                 // outline array, a slot or the run set changed (RunLinks.Build keeps its graph otherwise), so the pair pass
                 // does not run on every soft recompute; the lift part (Assign) is the same cost as before.
                 m_RunLinks.Build(m_RunOutlines, m_RunAreas);
+                // A cat track is a member since 2026-10-24, so it is a leaf here too (served at most, never serves a neighbor): the
+                // same rule as SkiResortStatsSystem.AssignServedLifts.
+                m_LeafRuns.Clear();
+                bool anyLeaf = false;
+                for (int i = 0; i < m_RunRefs.Count; i++)
+                {
+                    RunRef lr = m_RunRefs[i];
+                    bool leaf = RunKindRules.IsServedLeaf(next.Slots[lr.Slot].Runs[lr.Index].Kind);
+                    m_LeafRuns.Add(leaf);
+                    anyLeaf |= leaf;
+                }
                 LiftServedRule.AssignLinked(m_RunTops, m_RunLinks, m_ServeLifts, m_Chords, m_ServingLift, m_ServingDistance,
-                                            m_ServedCount, m_ServedRoot, m_ServedVia);
+                                            m_ServedCount, m_ServedRoot, m_ServedVia, anyLeaf ? m_LeafRuns : null);
             }
             else if (!m_CensusOpenLogged && m_RunRefs.Count > 0)
             {
@@ -1582,9 +1594,8 @@ namespace SkiResortMod.Systems
                         int kind = m_Ownership.KindOf(prefabRefs[i].m_Prefab);
                         if (kind < 0)
                             continue;
-                        // A cat track is a run for the map and the hub list, not for the resort's numbers: no RunInput, so no capacity, no
-                        // attraction, no Runs / RunsOpen, no green-variety flag and no "open run" for the lift-closed rule. The hub stats read it
-                        // from the catalog.
+                        // Every run kind is a member (the cat track since 2026-10-24, at its reduced weight: SkiResortScore.CatTrackFactor);
+                        // the whitelist keeps an unknown kind out.
                         if (!RunKindRules.CountsTowardResort(kind))
                             continue;
                         AddRun(next.Slots[slotIndex], slotIndex, entities[i], kind, geometries[i]);

@@ -1,8 +1,9 @@
 // Pure half of the Cat Track Grading tool: Unity.Mathematics only, so tests/GradeBatch links this file and proves every rule
 // headless. The engine half is CatTrackGradeToolSystem (input, overlay, guards' data, apply) and HeightmapWriter (the base
 // heightmap read / write).
-// One solve per change, never per frame: GradePath.Build -> GradeProfile.Solve -> GradeRaster.Build -> GradeGuards.Check, with
-// GradeUndo holding the pre-images. Every profile step stays G-limited (|dy/ds| <= G).
+// One solve per change, never per frame: GradePath.Build -> GradeProfile.Solve -> GradeRaster.Build -> GradeGuards.Check, plus
+// GradeRibbon.Build (the flat top's outline = the cat-track run the same action creates), with GradeUndo holding the pre-images.
+// Every profile step stays G-limited (|dy/ds| <= G).
 // Height encoding: the base heightmap is R16_UNorm; GradeMap holds the world <-> texel mapping.
 // Engine notes: EngineNotes/CatTrackGrade.md
 
@@ -23,7 +24,10 @@ namespace SkiResortMod.Systems
     public sealed class GradeParams
     {
         public const float DefaultMaxGrade = 0.25f;
-        public const float DefaultTopWidthM = 8f; // the cat-track run default width
+        /// <summary>20 m = 2.5x the first build's 8 m, which graded visibly but too narrow in the field (2026-10-24). The flat top is
+        /// also the cat-track run's outline (GradeRibbon), so this is the run's width.</summary>
+        public const float DefaultTopWidthM = 20f;
+        public const float MinTopWidthM = 8f, MaxTopWidthM = 32f;
         public const float DefaultCutRun = 1.5f;
         public const float DefaultFillRun = 2f;
 
@@ -38,7 +42,11 @@ namespace SkiResortMod.Systems
         /// hillside steeper than the slope, or a very deep cut / fill) the last BlendTexels of the reach blend into the ground: a steep
         /// bank, counted and logged, never a vertical step.</summary>
         public float MaxSideM = 40f;
-        public const int BlendTexels = 2;
+        /// <summary>Crossings (2026-10-25): the grade never changes the ground inside another run's outline (the cat track rides that
+        /// run's snow there, GradeObstacles.Runs) and fades into it over this distance outside the outline, so a crossed run keeps its
+        /// terrain and its rating. 15 m: a bench step of up to ~5 m (a 20 m top across a 45 % hillside) eases in at about 1:3.</summary>
+        public float CrossBlendM = 15f;
+        public const int BlendTexels = 3;
 
         public GradeParams Clone() => (GradeParams)MemberwiseClone();
 
@@ -179,7 +187,10 @@ namespace SkiResortMod.Systems
         /// <summary>Extra path length the grade limit needs between the two ends (0 when feasible).</summary>
         public float ShortfallM;
 
-        public static GradeProfile Solve(GradePath path, float[] ground, GradeParams p)
+        /// <summary><paramref name="pinned"/> (null = none): samples held to the ground like the two ends (inside a crossed run the
+        /// track rides that run's ground, GradeRaster.PinMask). FollowGround only: a constant grade is one straight ramp by definition,
+        /// the final-surface guard (GradeRaster.AlongTrackSteepSample) is its only protection.</summary>
+        public static GradeProfile Solve(GradePath path, float[] ground, GradeParams p, bool[] pinned = null)
         {
             int n = path.Count;
             if (ground == null || ground.Length != n)
@@ -237,6 +248,39 @@ namespace SkiResortMod.Systems
                     float s = path.S[i];
                     y[i] = math.clamp(y[i], g0 - gc * s, g0 + gc * s);
                     y[i] = math.clamp(y[i], gn - gc * (L - s), gn + gc * (L - s));
+                }
+
+                // Pinned samples (inside crossed runs): the same cones from each one, slope G. hi / lo are min / max of G-Lipschitz cones
+                // (two sweeps, O(n)), so clamping a G-limited profile between them keeps it G-limited; where two pins disagree by more than
+                // the grade allows (lo > hi, two crossings too far apart in height) the midpoint is taken and the surface guard refuses.
+                if (pinned != null && pinned.Length == n)
+                {
+                    var pinHi = new float[n];
+                    var pinLo = new float[n];
+                    bool any = false;
+                    for (int i = 0; i < n; i++)
+                    {
+                        pinHi[i] = pinned[i] ? ground[i] : float.PositiveInfinity;
+                        pinLo[i] = pinned[i] ? ground[i] : float.NegativeInfinity;
+                        any |= pinned[i];
+                    }
+                    if (any)
+                    {
+                        for (int i = 1; i < n; i++)
+                        {
+                            float d = g * (path.S[i] - path.S[i - 1]);
+                            pinHi[i] = math.min(pinHi[i], pinHi[i - 1] + d);
+                            pinLo[i] = math.max(pinLo[i], pinLo[i - 1] - d);
+                        }
+                        for (int i = n - 2; i >= 0; i--)
+                        {
+                            float d = g * (path.S[i + 1] - path.S[i]);
+                            pinHi[i] = math.min(pinHi[i], pinHi[i + 1] + d);
+                            pinLo[i] = math.max(pinLo[i], pinLo[i + 1] - d);
+                        }
+                        for (int i = 0; i < n; i++)
+                            y[i] = pinLo[i] > pinHi[i] ? 0.5f * (pinLo[i] + pinHi[i]) : math.clamp(y[i], pinLo[i], pinHi[i]);
+                    }
                 }
             }
 
@@ -300,6 +344,8 @@ namespace SkiResortMod.Systems
         public float TexelAreaM2;
         /// <summary>Texels in the blend band that still moved more than 1 m (the side slope did not meet the ground: a steep bank).</summary>
         public int SteepBankTexels;
+        /// <summary>Texels inside a crossed run's outline, left as they were (GradeParams.CrossBlendM).</summary>
+        public int KeptTexels;
         public float MaxBankStepM;
 
         public int Index(int i, int j) => (j - Z0) * W + (i - X0);
@@ -325,10 +371,13 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Rasterize. <paramref name="baseHeight"/> = the base height of texel (i, j) in world meters (the engine half reads
-        /// the base rect; tests pass a function).</summary>
+        /// the base rect; tests pass a function). <paramref name="keep"/> = the outlines of other runs the track may cross (null = none):
+        /// inside one the ground is kept, within CrossBlendM outside it the template fades into the ground (KeepWeight).</summary>
         public static GradeRaster Build(GradeMap map, int4 rect, GradePath path, GradeProfile prof, GradeParams p, float reach,
-                                        Func<int, int, float> baseHeight)
+                                        Func<int, int, float> baseHeight, IList<float2[]> keep = null)
         {
+            float4[] keepBox = KeepBoxes(keep, p.CrossBlendM);
+            bool[] keepFade = EnteredOutlines(path, keep);
             var r = new GradeRaster { X0 = rect.x, Z0 = rect.y, W = rect.z, H = rect.w };
             int count = r.W * r.H;
             r.Before = new float[count];
@@ -409,6 +458,17 @@ namespace SkiResortMod.Systems
                         h = math.lerp(h, before, k);
                     }
                 }
+                if (keepBox != null)
+                {
+                    float w = KeepWeight(map.TexelCenter(r.X0 + t % r.W, r.Z0 + t / r.W), keep, keepBox, p.CrossBlendM, keepFade);
+                    if (w >= 1f)
+                    {
+                        r.After[t] = before;   // inside a crossed run: its ground, untouched (zone 0: no guard, no count)
+                        r.KeptTexels++;
+                        continue;
+                    }
+                    h = math.lerp(h, before, w);
+                }
                 float dh = h - before;
                 if (math.abs(dh) < 0.5f * step)
                 {
@@ -434,13 +494,173 @@ namespace SkiResortMod.Systems
             return r;
         }
 
+        /// <summary>Per keep outline its box grown by <paramref name="blendM"/> (x0, z0, x1, z1); null when there is none.</summary>
+        public static float4[] KeepBoxes(IList<float2[]> keep, float blendM)
+        {
+            if (keep == null || keep.Count == 0)
+                return null;
+            var boxes = new float4[keep.Count];
+            for (int k = 0; k < keep.Count; k++)
+            {
+                float2 mn = new float2(float.MaxValue), mx = new float2(float.MinValue);
+                float2[] poly = keep[k];
+                for (int i = 0; poly != null && i < poly.Length; i++)
+                {
+                    mn = math.min(mn, poly[i]);
+                    mx = math.max(mx, poly[i]);
+                }
+                float g = math.max(0f, blendM);
+                boxes[k] = poly != null && poly.Length >= 3 ? new float4(mn - g, mx + g) : new float4(1f, 1f, -1f, -1f);   // empty box
+            }
+            return boxes;
+        }
+
+        /// <summary>Per keep outline: does the path enter it (any sample inside)? Only those outlines fade the bench into the ground; a run
+        /// the track merely runs beside keeps its own ground but never tilts the flat top (review fix, 2026-10-25). Null for no keep.</summary>
+        public static bool[] EnteredOutlines(GradePath path, IList<float2[]> keep)
+        {
+            if (keep == null || keep.Count == 0 || path == null)
+                return null;
+            var entered = new bool[keep.Count];
+            for (int k = 0; k < keep.Count; k++)
+            {
+                float2[] poly = keep[k];
+                for (int i = 0; poly != null && poly.Length >= 3 && i < path.Count && !entered[k]; i++)
+                    entered[k] = Inside(poly, path.Xz[i]);
+            }
+            return entered;
+        }
+
+        /// <summary>The path samples inside any keep outline or inside the fade band of one the path enters (null = none): the profile is
+        /// pinned to the ground there, so the template equals the ground wherever the fade acts and the surface along the track is the
+        /// ground's own (a lerp of two equal heights). The G-limited solver then carries the approach to the fade band.</summary>
+        public static bool[] PinMask(GradePath path, IList<float2[]> keep, float blendM)
+        {
+            if (keep == null || keep.Count == 0 || path == null)
+                return null;
+            float4[] boxes = KeepBoxes(keep, blendM);
+            bool[] fade = EnteredOutlines(path, keep);
+            var mask = new bool[path.Count];
+            bool any = false;
+            for (int i = 0; i < path.Count; i++)
+            {
+                mask[i] = KeepWeight(path.Xz[i], keep, boxes, blendM, fade) > 0f;
+                any |= mask[i];
+            }
+            return any ? mask : null;
+        }
+
+        /// <summary>How much of the ground a texel at <paramref name="c"/> keeps: 1 inside any keep outline, else 1 - d / blendM for the
+        /// nearest outline edge within blendM (a linear fade) of an outline flagged in <paramref name="fade"/> (null = all fade), else 0.</summary>
+        public static float KeepWeight(float2 c, IList<float2[]> keep, float4[] boxes, float blendM, bool[] fade = null)
+        {
+            float w = 0f;
+            for (int k = 0; k < keep.Count; k++)
+            {
+                float4 b = boxes[k];
+                if (c.x < b.x || c.y < b.y || c.x > b.z || c.y > b.w)
+                    continue;
+                float2[] poly = keep[k];
+                if (Inside(poly, c))
+                    return 1f;
+                if (blendM > 0f && (fade == null || fade[k]))
+                {
+                    float d = float.PositiveInfinity;
+                    for (int i = 0, j = poly.Length - 1; i < poly.Length; j = i++)
+                        d = math.min(d, GradePath.SegDistance(c, poly[j], poly[i], out float _));
+                    w = math.max(w, math.saturate(1f - d / blendM));
+                }
+            }
+            return w;
+        }
+
+        /// <summary>Even-odd point in polygon.</summary>
+        public static bool Inside(float2[] poly, float2 c)
+        {
+            bool inside = false;
+            for (int i = 0, j = poly.Length - 1; i < poly.Length; j = i++)
+            {
+                if ((poly[i].y > c.y) != (poly[j].y > c.y) &&
+                    c.x < (poly[j].x - poly[i].x) * (c.y - poly[i].y) / (poly[j].y - poly[i].y) + poly[i].x)
+                    inside = !inside;
+            }
+            return inside;
+        }
+
+        /// <summary>The first path sample whose step to the next runs inside a crossed run (both ends in one keep outline) on ground
+        /// steeper than <paramref name="maxGrade"/> (+0.5 pp), or -1. Inside a crossing the track rides the run's own ground, so that
+        /// ground must keep the grade limit (guard CrossingSteep).</summary>
+        public static int CrossingSteepSample(GradePath path, float[] ground, IList<float2[]> keep, float maxGrade)
+        {
+            if (keep == null || keep.Count == 0 || path == null)
+                return -1;
+            for (int i = 0; i < path.Count - 1; i++)
+            {
+                float ds = path.S[i + 1] - path.S[i];
+                if (ds <= 1e-4f || math.abs(ground[i + 1] - ground[i]) / ds <= maxGrade + 0.005f)
+                    continue;
+                for (int k = 0; k < keep.Count; k++)
+                {
+                    if (keep[k] != null && keep[k].Length >= 3 && Inside(keep[k], path.Xz[i]) && Inside(keep[k], path.Xz[i + 1]))
+                        return i;
+                }
+            }
+            return -1;
+        }
+
+        /// <summary>Margin of the along-track surface guard over the max grade: 1 pp (the bilinear read of the raster at the path samples
+        /// shows up to 0.7 pp of noise, GradeBatch GR-21).</summary>
+        public const float AlongTrackSlack = 0.01f;
+
+        /// <summary>The bilinear height of <paramref name="a"/> (a raster-sized array, Before or After) at the world point.</summary>
+        public float SampleAt(GradeMap map, float[] a, float2 xz)
+        {
+            float2 t = map.ToTexel(xz);
+            int i = (int)math.floor(t.x), j = (int)math.floor(t.y);
+            float fx = t.x - i, fz = t.y - j;
+            int i1 = math.min(i + 1, X0 + W - 1), j1 = math.min(j + 1, Z0 + H - 1);
+            i = math.clamp(i, X0, X0 + W - 1);
+            j = math.clamp(j, Z0, Z0 + H - 1);
+            return math.lerp(math.lerp(a[Index(i, j)], a[Index(i1, j)], fx), math.lerp(a[Index(i, j1)], a[Index(i1, j1)], fx), fz);
+        }
+
+        /// <summary>The safety net behind the pins (review fix, 2026-10-25): the FIRST path sample whose step to the next, on the FINAL
+        /// surface (After, read at the path samples), is steeper than <paramref name="maxGrade"/> + AlongTrackSlack, over the steps where
+        /// either end lies inside a kept outline or its fade band; else -1. The solver and the ground check know nothing of the fade, so
+        /// this is the only test of the surface the crossing really builds (a ConstantGrade ramp, two crossings too far apart in height,
+        /// a steep hillside right outside a run).</summary>
+        public int AlongTrackSteepSample(GradeMap map, GradePath path, IList<float2[]> keep, float blendM, float maxGrade)
+        {
+            if (keep == null || keep.Count == 0 || path == null)
+                return -1;
+            float4[] boxes = KeepBoxes(keep, blendM);
+            bool[] fade = EnteredOutlines(path, keep);
+            var h = new float[path.Count];
+            var w = new float[path.Count];
+            for (int i = 0; i < path.Count; i++)
+            {
+                h[i] = SampleAt(map, After, path.Xz[i]);
+                w[i] = KeepWeight(path.Xz[i], keep, boxes, blendM, fade);
+            }
+            for (int i = 0; i < path.Count - 1; i++)
+            {
+                if (w[i] <= 0f && w[i + 1] <= 0f)
+                    continue;
+                float ds = path.S[i + 1] - path.S[i];
+                if (ds > 1e-4f && math.abs(h[i + 1] - h[i]) / ds > maxGrade + AlongTrackSlack)
+                    return i;
+            }
+            return -1;
+        }
+
         public string Describe() =>
             string.Format(CultureInfo.InvariantCulture, "rect ({0}, {1}) {2} x {3}, {4} texel(s) changed, cut {5:F0} m3 (max {6:F1} m), " +
-                          "fill {7:F0} m3 (max {8:F1} m){9}", X0, Z0, W, H, Changed, CutM3, MaxCutM, FillM3, MaxFillM,
+                          "fill {7:F0} m3 (max {8:F1} m){9}{10}", X0, Z0, W, H, Changed, CutM3, MaxCutM, FillM3, MaxFillM,
                           SteepBankTexels > 0
                               ? string.Format(CultureInfo.InvariantCulture, ", steep bank at {0} texel(s) (up to {1:F1} m blended over the last {2} texels)",
                                               SteepBankTexels, MaxBankStepM, GradeParams.BlendTexels)
-                              : string.Empty);
+                              : string.Empty,
+                          KeptTexels > 0 ? string.Format(CultureInfo.InvariantCulture, ", {0} texel(s) of crossed runs kept", KeptTexels) : string.Empty);
     }
 
     public enum GradeGuardKind : byte
@@ -451,6 +671,8 @@ namespace SkiResortMod.Systems
         Water,
         OffMap,
         TooLarge, // the rect is over GradeRaster.MaxTexels: refused before any raster is built
+        RunShape, // the flat top's outline touches itself (GradeRibbon): it cannot become the cat-track run
+        CrossingSteep, // where it crosses another run the track rides that run's ground, and that ground is steeper than the max grade
     }
 
     /// <summary>What the engine half found in the rect (pipeline 4).</summary>
@@ -471,12 +693,15 @@ namespace SkiResortMod.Systems
         public readonly List<Line> Lines = new List<Line>();
         /// <summary>Texels (global i, j) the water surface covers; empty when none.</summary>
         public readonly HashSet<int2> WetTexels = new HashSet<int2>();
+        /// <summary>The outlines (xz) of the other runs in the rect: crossings keep their ground (GradeRaster.Build keep).</summary>
+        public readonly List<float2[]> Runs = new List<float2[]>();
 
         public void Clear()
         {
             Lots.Clear();
             Lines.Clear();
             WetTexels.Clear();
+            Runs.Clear();
         }
     }
 
@@ -526,21 +751,223 @@ namespace SkiResortMod.Systems
             return GradeGuardKind.None;
         }
 
-        /// <summary>Locale key of the TooLarge refusal (LocaleEN); the tooltip resolves a key where the other reasons are plain text.</summary>
+        /// <summary>Locale keys of the TooLarge, RunShape and CrossingSteep refusals (LocaleEN); the tooltip resolves a key (IsKey) where the other
+        /// reasons are plain text.</summary>
         public const string KeyTooLarge = "SkiResort.Tooltip.GRADE_TOO_LARGE";
+        public const string KeyRunShape = "SkiResort.Tooltip.GRADE_RUN_SHAPE";
+        public const string KeyCrossingSteep = "SkiResort.Tooltip.GRADE_CROSSING_STEEP";
 
-        /// <summary>The player text of a refusal (a locale key for TooLarge).</summary>
+        public static bool IsKey(string text) => text != null && text.StartsWith("SkiResort.", StringComparison.Ordinal);
+
+        /// <summary>The player text of a refusal (a locale key for TooLarge, RunShape and CrossingSteep).</summary>
         public static string Reason(GradeGuardKind k)
         {
             switch (k)
             {
                 case GradeGuardKind.TooLarge: return KeyTooLarge;
+                case GradeGuardKind.RunShape: return KeyRunShape;
+                case GradeGuardKind.CrossingSteep: return KeyCrossingSteep;
                 case GradeGuardKind.Lot: return "The track would grade under a building or station lot: move it clear";
                 case GradeGuardKind.LiftLine: return "The track would grade under a lift line: move it clear";
                 case GradeGuardKind.Water: return "The track would grade into water: move it clear";
                 case GradeGuardKind.OffMap: return "The track leaves the map";
                 default: return string.Empty;
             }
+        }
+    }
+
+    public enum GradeRibbonFail : byte
+    {
+        None,
+        TooShort, // fewer than two samples per edge survive
+        Crosses, // two non-adjacent outline edges cross or come closer than MinClearanceM (switchback legs too close for the width)
+    }
+
+    /// <summary>The cat-track run's outline (pipeline 6): the flat top's two edges as one closed ring, left edge forward, right edge
+    /// back, so the run covers exactly the graded flat top. Each edge is the centerline offset by half the top width; the loops an
+    /// offset makes on the inside of a bend tighter than the half width are cut at their crossing, then each edge is simplified
+    /// (Douglas-Peucker) and thinned to MinSpacingM. The ring must be simple with MinClearanceM between non-adjacent edges: the
+    /// engine refuses a touching outline as InvalidShape (Game.Areas/ValidationHelpers.cs:887-943, min distance = snap / 2 = 0.5 m for
+    /// Space, AreaUtils.cs:55-58). The ring has no closing duplicate; the engine half adds it (GenerateAreasSystem.cs:282-291).</summary>
+    public static class GradeRibbon
+    {
+        public const float SimplifyM = 0.5f;
+        public const float MinSpacingM = 2f;
+        public const float MinClearanceM = 1.5f;
+
+        public static float2[] Build(GradePath path, float halfWidth, out GradeRibbonFail fail) => Build(path, halfWidth, out fail, out float2 _);
+
+        /// <summary><paramref name="at"/> = the middle of the first edge that fails the clearance (Crosses), else default.</summary>
+        public static float2[] Build(GradePath path, float halfWidth, out GradeRibbonFail fail, out float2 at)
+        {
+            fail = GradeRibbonFail.TooShort;
+            at = default;
+            if (path == null || path.Count < 2 || !(halfWidth > 0f))
+                return null;
+            int n = path.Count;
+            var left = new List<float2>(n);
+            var right = new List<float2>(n);
+            for (int i = 0; i < n; i++)
+            {
+                float2 t = math.normalizesafe(path.Xz[math.min(i + 1, n - 1)] - path.Xz[math.max(i - 1, 0)], new float2(1f, 0f));
+                float2 nl = new float2(-t.y, t.x) * halfWidth;
+                left.Add(path.Xz[i] + nl);
+                right.Add(path.Xz[i] - nl);
+            }
+            // A loop on the inside of a bend spans at most about a half circle of the half width plus both legs' approach
+            int window = (int)math.ceil((4f * halfWidth + 20f) / math.max(path.StepM, 0.1f));
+            List<float2> l = Thin(Simplify(CutLoops(left, window), SimplifyM), MinSpacingM);
+            List<float2> r = Thin(Simplify(CutLoops(right, window), SimplifyM), MinSpacingM);
+            if (l.Count < 2 || r.Count < 2)
+                return null;
+            var ring = new float2[l.Count + r.Count];
+            for (int i = 0; i < l.Count; i++)
+                ring[i] = l[i];
+            for (int i = 0; i < r.Count; i++)
+                ring[l.Count + i] = r[r.Count - 1 - i];
+            fail = Clear(ring, MinClearanceM, out at) ? GradeRibbonFail.None : GradeRibbonFail.Crosses;
+            return ring;
+        }
+
+        /// <summary>Walks the polyline and, where the current segment crosses a later one within <paramref name="window"/> samples,
+        /// jumps to the crossing (the farthest crossing first, so nested loops go in one cut).</summary>
+        public static List<float2> CutLoops(List<float2> p, int window)
+        {
+            var o = new List<float2>(p.Count) { p[0] };
+            float2 a = p[0];
+            int i = 0;
+            while (i < p.Count - 1)
+            {
+                float2 b = p[i + 1];
+                int hit = -1;
+                float2 x = default;
+                for (int j = math.min(p.Count - 2, i + window); j >= i + 2; j--)
+                {
+                    if (SegCross(a, b, p[j], p[j + 1], out x))
+                    {
+                        hit = j;
+                        break;
+                    }
+                }
+                if (hit < 0)
+                {
+                    o.Add(b);
+                    a = b;
+                    i++;
+                }
+                else
+                {
+                    o.Add(x);
+                    a = x;
+                    i = hit;
+                }
+            }
+            return o;
+        }
+
+        public static List<float2> Simplify(List<float2> p, float tol)
+        {
+            if (p.Count < 3)
+                return new List<float2>(p);
+            var keep = new bool[p.Count];
+            keep[0] = keep[p.Count - 1] = true;
+            var stack = new Stack<int2>();
+            stack.Push(new int2(0, p.Count - 1));
+            while (stack.Count > 0)
+            {
+                int2 s = stack.Pop();
+                float worst = tol;
+                int at = -1;
+                for (int k = s.x + 1; k < s.y; k++)
+                {
+                    float d = GradePath.SegDistance(p[k], p[s.x], p[s.y], out float _);
+                    if (d > worst)
+                    {
+                        worst = d;
+                        at = k;
+                    }
+                }
+                if (at < 0)
+                    continue;
+                keep[at] = true;
+                stack.Push(new int2(s.x, at));
+                stack.Push(new int2(at, s.y));
+            }
+            var o = new List<float2>();
+            for (int k = 0; k < p.Count; k++)
+                if (keep[k])
+                    o.Add(p[k]);
+            return o;
+        }
+
+        /// <summary>Drops interior points closer than <paramref name="minM"/> to the last kept one (and the one before the end when
+        /// it sits that close to the end); both ends stay.</summary>
+        public static List<float2> Thin(List<float2> p, float minM)
+        {
+            if (p.Count < 3)
+                return new List<float2>(p);
+            float min2 = minM * minM;
+            var o = new List<float2> { p[0] };
+            for (int k = 1; k < p.Count - 1; k++)
+                if (math.distancesq(p[k], o[o.Count - 1]) >= min2)
+                    o.Add(p[k]);
+            if (o.Count > 1 && math.distancesq(o[o.Count - 1], p[p.Count - 1]) < min2)
+                o.RemoveAt(o.Count - 1);
+            o.Add(p[p.Count - 1]);
+            return o;
+        }
+
+        /// <summary>True when no two non-adjacent edges of the closed ring come within <paramref name="clearance"/> (crossing = 0).</summary>
+        public static bool Clear(float2[] ring, float clearance) => Clear(ring, clearance, out float2 _);
+
+        public static bool Clear(float2[] ring, float clearance, out float2 at)
+        {
+            at = default;
+            int n = ring.Length;
+            if (n < 3)
+                return false;
+            for (int a = 0; a < n; a++)
+            {
+                float2 a0 = ring[a], a1 = ring[(a + 1) % n];
+                for (int b = a + 2; b < n; b++)
+                {
+                    if (a == 0 && b == n - 1)
+                        continue;   // adjacent through the closing edge
+                    float2 b0 = ring[b], b1 = ring[(b + 1) % n];
+                    if (math.any(math.min(a0, a1) - clearance > math.max(b0, b1)) || math.any(math.min(b0, b1) - clearance > math.max(a0, a1)))
+                        continue;   // boxes apart: cheap reject
+                    if (SegSegDistance(a0, a1, b0, b1) < clearance)
+                    {
+                        at = 0.5f * (a0 + a1);
+                        return false;
+                    }
+                }
+            }
+            return true;
+        }
+
+        public static bool SegCross(float2 a, float2 b, float2 c, float2 d, out float2 x)
+        {
+            x = default;
+            float2 r = b - a, s = d - c;
+            float den = r.x * s.y - r.y * s.x;
+            if (math.abs(den) < 1e-9f)
+                return false;
+            float2 ca = c - a;
+            float t = (ca.x * s.y - ca.y * s.x) / den;
+            float u = (ca.x * r.y - ca.y * r.x) / den;
+            if (t < 0f || t > 1f || u < 0f || u > 1f)
+                return false;
+            x = a + t * r;
+            return true;
+        }
+
+        public static float SegSegDistance(float2 a, float2 b, float2 c, float2 d)
+        {
+            if (SegCross(a, b, c, d, out float2 _))
+                return 0f;
+            return math.min(math.min(GradePath.SegDistance(a, c, d, out float _), GradePath.SegDistance(b, c, d, out float _)),
+                            math.min(GradePath.SegDistance(c, a, b, out float _), GradePath.SegDistance(d, a, b, out float _)));
         }
     }
 
@@ -551,6 +978,8 @@ namespace SkiResortMod.Systems
         public ushort[] Before;
         public ushort[] After;
         public string Label;
+        /// <summary>The cat-track run this grade built (Entity index, version; 0 = none, e.g. the dev-tab probe). Undo deletes it.</summary>
+        public int2 Run;
         public int Bytes => (Before.Length + After.Length) * 2;
     }
 
@@ -766,14 +1195,14 @@ namespace SkiResortMod.Systems
             {
                 case GradeStep.Empty:
                     return canUndoGrade
-                        ? "Grade cat track: click where the track starts · right click: undo the last grade · Esc: close"
-                        : "Grade cat track: click where the track starts · right click: close";
+                        ? "Cat track: click where the track starts · right click: undo the last track · Esc: close"
+                        : "Cat track: click where the track starts · right click: close";
                 case GradeStep.OnePoint:
                     return "Click the next point of the track · right click: back";
                 case GradeStep.Path:
-                    return "Click: add a point (on the track: insert) · drag a point: move it · right click: undo · Enter: grade · Esc: close";
+                    return "Click: add a point (on the track: insert) · drag a point: move it · right click: undo · Enter: build · Esc: close";
                 default:
-                    return "Grading…";
+                    return "Building the cat track…";
             }
         }
 

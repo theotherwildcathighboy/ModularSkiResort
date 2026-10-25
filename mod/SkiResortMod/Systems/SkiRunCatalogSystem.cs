@@ -1154,6 +1154,8 @@ namespace SkiResortMod.Systems
                 if (r.State == RateRated)
                 {
                     row.Band = SkiRunRatingRules.RowBand(r.State, r.Band);
+                    if (row.Kind == (int)RunKind.CatTrack)
+                        row.Band = SkiRunRatingRules.CatTrackBand(row.Band);   // green by construction (the tool grades it under 25 %)
                     row.GradePct = r.RatingGrade * 100f;
                     row.SteepestPct = r.SteepestGrade * 100f;
                     row.TopM = r.TopM;

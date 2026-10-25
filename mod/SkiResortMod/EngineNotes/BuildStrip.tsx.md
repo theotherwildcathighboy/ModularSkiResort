@@ -15,8 +15,8 @@ scrolls away and its tiles never move under the mouse.
   own tile, the school and the patrol huts). Tabs only filter what is drawn, so every launch id, binding and trigger is unchanged; the
   one dot also shows on the tab that holds its tile.
 - The family row under the tabs holds the lift-type chips and the LIFT_TOOL toggle (Lifts; `hubTriggers.liftLineToggle` ->
-  `LiftLineToolSystem.TryActivate("hub")`), the tree tool and a "Grade cat track" chip (Runs; `hubTriggers.gradeToggle` ->
-  `CatTrackGradeToolSystem`), or the group captions (Buildings). It is always drawn at one fixed height so a tab switch never moves the
+  `LiftLineToolSystem.TryActivate("hub")`), the tree tool (Runs; since 2026-10-24 no grading chip: the Cat track tile opens
+  `CatTrackGradeToolSystem` through ApplyLaunch, contract 16), or the group captions (Buildings). It is always drawn at one fixed height so a tab switch never moves the
   tabs under the mouse. The toggles are ok-panel only (`FooterInfo.liftTool`): on a contract mismatch the strip reads core only.
 - Tiles: ONE nowrap row; tiles `flex: 1 1 0; min-width: 0`, each group's flex-grow = its drawn tile count, so all tiles are equal at any
   panel width and text scale (no text in tiles). A group none of whose items C# sent is not drawn. The lift types are alternatives

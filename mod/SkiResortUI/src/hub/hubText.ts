@@ -95,10 +95,6 @@ export const HUB_LOC = {
   liftToolTip: ["SkiResort.Hub.LIFT_TOOL_TIP", "Plan a lift line between two stations: Ctrl+Shift+L"],
   liftToolTipOn: ["SkiResort.Hub.LIFT_TOOL_TIP_ON", "On: click a station, then the other station of the lift. Click again to stop."],
   liftToolUnavailable: ["SkiResort.Hub.LIFT_TOOL_UNAVAILABLE", "Available once a city is loaded."],
-  // the cat track grading chip on the Runs tab (CatTrackGradeToolSystem); unavailable reads LIFT_TOOL_UNAVAILABLE
-  gradeTool: ["SkiResort.Hub.GRADE_TOOL", "Grade cat track"],
-  gradeToolTip: ["SkiResort.Hub.GRADE_TOOL_TIP", "Grade the ground for a cat track, never steeper than the max grade: Ctrl+Shift+K"],
-  gradeToolTipOn: ["SkiResort.Hub.GRADE_TOOL_TIP_ON", "On: click points up the hill, then press Enter to grade. Click again to stop."],
   patrolGroup: ["SkiResort.Hub.BUILD_GROUP[Patrol]", "Ski patrol"],
 
   tileAttraction: ["SkiResort.Hub.TILE[Attraction]", "Attraction"],
@@ -206,8 +202,7 @@ export const HUB_LOC = {
   runOpenNone: ["SkiResort.Hub.RUN_OPEN_NONE", "Not linked: no snow state."],
   runServedAnon: ["SkiResort.Hub.RUN_SERVED_ANON", "A running lift reaches its top."],
   runTypeNote: ["SkiResort.Hub.RUN_TYPE_NOTE", "Natural green and blue runs count less; a groomed run counts in full."],
-  runCatTrackNote: ["SkiResort.Hub.RUN_CAT_TRACK_NOTE", "A cat track links the hill but adds nothing to the score or the capacity."],
-  runUnsuitable: ["SkiResort.Hub.RUN_UNSUITABLE", "Unsuitable: steeper than 25 % for a cat track. Redraw it on gentler ground."],
+  runCatTrackNote: ["SkiResort.Hub.RUN_CAT_TRACK_NOTE", "A cat track always rates green and counts a quarter of a run its size, in the score and the capacity."],
   runValue: ["SkiResort.Hub.RUN_VALUE", "Score value"],
   runCost: ["SkiResort.Hub.RUN_COST", "Running cost"],
   runActions: ["SkiResort.Hub.RUN_ACTIONS", "Click to fly there. The pen renames it."],
@@ -598,7 +593,6 @@ export const RUN_STATE_TEXT: readonly LocEntry[] = [
   ["SkiResort.Hub.RUN_STATE[Closed]", "Closed"],
   ["SkiResort.Hub.RUN_STATE[Patchy]", "Patchy"],
   ["SkiResort.Hub.RUN_STATE[Open]", "Open"],
-  ["SkiResort.Hub.RUN_STATE[Unsuitable]", "Unsuitable"], // OPEN_STATE.Unsuitable = 3, a cat track rated blue or steeper
 ];
 
 /* SEASON_HINT words, index = SEASON_HINT value (0 None = no text). */
@@ -655,7 +649,7 @@ export const BUILD_SHORT_RUN: Readonly<Record<RunKind, LocEntry>> = {
   1: ["SkiResort.Hub.BUILD_SHORT[Snowmaking]", "Snow guns open it earlier and keep it open longer."],
   2: ["SkiResort.Hub.BUILD_SHORT[Night]", "Floodlit snowmaking run: scores 25 % more."],
   3: ["SkiResort.Hub.BUILD_SHORT[Natural]", "Natural snow only, no running cost; easy runs score less."],
-  4: ["SkiResort.Hub.BUILD_SHORT[CatTrack]", "Green only; crosses other runs. Not part of the score."],
+  4: ["SkiResort.Hub.BUILD_SHORT[CatTrack]", "Graded as you lay it out; always green, counts a quarter."],
 };
 
 /* Footer idle lines (NEXT, NEXT2) by hubRules.nextVariant. NEXT2[Sign] is BUILD_HINT_SIGN (no own key). */

@@ -79,15 +79,19 @@ namespace SkiResortMod.Systems
         CatTrack = 4,  // Appended: a drawable green track that may cross other runs
     }
 
-    /// <summary>Per-kind rules of the cat track in one pure place. A cat track is a run for the map and the catalog
-    /// (listed, numbered, bound, fee) but not for the resort's numbers.</summary>
+    /// <summary>Per-kind rules of the cat track in one pure place. Since 2026-10-24 a cat track counts minimally: a member run of its
+    /// resort (Runs, RunsOpen, the difficulty bar, the "no open run" lift rule) rated green by construction (the cat track tool grades it under
+    /// 25 %, SkiRunRatingRules.CatTrackBand), worth a quarter of a run its size in the score and the capacity
+    /// (SkiResortScore.CatTrackFactor / CatTrackSkiersFactor), and nothing else: no variety or school green, no vertical, it does
+    /// not end the summer mode (SkiResortScore.Compute).</summary>
     public static class RunKindRules
     {
-        /// <summary>Whether a run of this kind counts toward RunsCapacity, the attraction score, Runs / RunsOpen / RunsPartly
-        /// (so HubRules.Status), the green-variety flag and the "no open run" lift-closed rule. A whitelist: an unknown kind counts false.</summary>
+        /// <summary>Whether a run of this kind is a member of its resort's numbers (RunInput: RunsCapacity, the attraction score, Runs /
+        /// RunsOpen / RunsPartly, so HubRules.Status, and the "no open run" lift-closed rule). A whitelist: an unknown kind counts false.
+        /// The cat track's reduced weight lives in SkiResortScore.</summary>
         public static bool CountsTowardResort(int kind)
         {
-            return kind >= (int)RunKind.Groomed && kind <= (int)RunKind.Natural;
+            return kind >= (int)RunKind.Groomed && kind <= (int)RunKind.CatTrack;
         }
 
         /// <summary>LiftServedRule.AssignLinked's leaf flag: a cat track may be served but never passes service on.</summary>

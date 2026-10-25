@@ -105,18 +105,22 @@ namespace SkiResortMod.Systems
             return state == RatePending ? BandPending : BandUnrateable;
         }
 
-        /// <summary>The first SlopeBand a cat track may not have: Blue (2). The classifier cuts Blue at GradeBlue = 25 %
-        /// (SkiSlopeClassifier.cs BandOf), so a cat track is suitable below 25 % and Unsuitable at 25 % or steeper. The band is the
-        /// rule; there is no separate grade constant.</summary>
-        public const sbyte CatTrackFirstUnsuitableBand = 2;
+        /// <summary>The grade every cat track is built under: the cat track tool's max grade (GradeParams.DefaultMaxGrade, the
+        /// settings cap it at 25 %; GradeBatch GR-18 pins the two equal).</summary>
+        public const float CatTrackMaxGrade = 0.25f;
 
-        /// <summary>Is a cat track with this row band (RowBand: -1 pending, -2 unrateable, 0..4 rated) unsuitable? Only a rated band
-        /// of Blue or steeper is; a pending or unrateable track cannot be judged yet. The hub shows it as the "Unsuitable" run state
-        /// and the drawing tooltip warns before the click.</summary>
-        public static bool CatTrackUnsuitable(sbyte rowBand)
+        /// <summary>The band a RATED cat track shows: always Green (2026-10-25). Every cat track is built by the cat track tool (the hub
+        /// tile has no area-tool fallback), which grades its whole length under CatTrackMaxGrade, so the 25 % rule holds by
+        /// construction. The rater is not the judge: on a ribbon it reads the surface's steepest slope, not the grade along the track
+        /// (a hairpin graded to 25 % reads up to 29 %, and a crossing rides the crossed run's own fall line; GradeBatch GR-20).
+        /// Pending / unrateable rows (band &lt; 0) pass through.</summary>
+        public static sbyte CatTrackBand(sbyte band)
         {
-            return rowBand >= CatTrackFirstUnsuitableBand;
+            return band < 0 ? band : BandGreenValue;
         }
+
+        /// <summary>SlopeBand.Green as a row band (SkiSlopeClassifier.SlopeBand; the ScoreTests / CatTrackTests oracles pin 1).</summary>
+        public const sbyte BandGreenValue = 1;
 
         public static bool IsUnrateable(byte state)
         {

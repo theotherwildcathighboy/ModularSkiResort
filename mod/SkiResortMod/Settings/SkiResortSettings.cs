@@ -292,17 +292,19 @@ namespace SkiResortMod.Settings
         [SettingsUISection(SectionMain, GroupRuns)]
         public bool SnowGunPlumes { get; set; }
 
-        // Cat track grading tool: read live by CatTrackGradeToolSystem.ReadParams (clamped there; a change re-solves the open plan)
+        // Cat track tool (grades the corridor and builds the run in one action): read live by CatTrackGradeToolSystem.ReadParams
+        // (clamped there; a change re-solves the open plan)
 
-        /// <summary>The steepest grade the grading tool lets a cat track climb, percent (5-25, default 25 = the blue-run crux)</summary>
+        /// <summary>The steepest grade the cat track tool lets a track climb, percent (5-25, default 25 = the blue-run crux)</summary>
         [SettingsUISlider(min = 5f, max = 25f, step = 1f, unit = "percentage")]
         [SettingsUISection(SectionMain, GroupRuns)]
         public int CatTrackGradeMaxPct { get; set; }
 
-        /// <summary>The flat top of a graded cat track, meters (4-16, default 8 = the cat-track run's default width)</summary>
-        [SettingsUISlider(min = 4f, max = 16f, step = 1f, unit = "integer")]
+        /// <summary>The cat track's width = the graded flat top = the run's outline, meters (8-32, default 20 = GradeParams.DefaultTopWidthM).
+        /// Renamed from CatTrackGradeWidthM (4-16, default 8) on 2026-10-24 so a saved 8 does not survive the new default.</summary>
+        [SettingsUISlider(min = 8f, max = 32f, step = 1f, unit = "integer")]
         [SettingsUISection(SectionMain, GroupRuns)]
-        public int CatTrackGradeWidthM { get; set; }
+        public int CatTrackWidthM { get; set; }
 
         /// <summary>Cut side slope, meters out per meter down (1.0-3.0, default 1.5 = 1:1.5)</summary>
         [SettingsUISlider(min = 1f, max = 3f, step = 0.5f, unit = "floatSingleFraction")]
@@ -381,7 +383,7 @@ namespace SkiResortMod.Settings
         [SettingsUISection(SectionMain, GroupKeybindings)]
         public ProxyBinding BuildLiftLineBinding { get; set; }
 
-        /// <summary>Toggles the cat track grading tool (default Ctrl+Shift+K). Polled by CatTrackGradeHotkeySystem in a loaded city; the
+        /// <summary>Toggles the cat track tool (default Ctrl+Shift+K). Polled by CatTrackGradeHotkeySystem in a loaded city; the
         /// tool grades with the BuildLiftLine key (Enter).</summary>
         [SettingsUIKeyboardBinding(BindingKeyboard.K, ActToggleCatTrackGrade, ctrl: true, shift: true)]
         [SettingsUISection(SectionMain, GroupKeybindings)]
@@ -433,7 +435,7 @@ namespace SkiResortMod.Settings
             FloodlightDensityPct = RunPropDensityRules.PctDefault;
             SnowGunPlumes = DefaultSnowGunPlumes;
             CatTrackGradeMaxPct = 25;
-            CatTrackGradeWidthM = 8;
+            CatTrackWidthM = 20;
             CatTrackGradeCutRun = 1.5f;
             CatTrackGradeFillRun = 2f;
             CatTrackGradeConstant = false;

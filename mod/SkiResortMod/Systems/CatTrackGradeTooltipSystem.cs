@@ -1,6 +1,7 @@
-// Grading tool mouse tooltip, same pattern as LiftLineTooltipSystem. Mod.cs: UpdateAfter TempCostTooltipSystem at UITooltip.
-// Text is LocalizedString.Value(text), never a fixed id: the frontend's translate cache is keyed by id alone, so a fixed id
-// would keep the first text it was given.
+// Cat track tool mouse tooltip, same pattern as LiftLineTooltipSystem. Mod.cs: UpdateAfter TempCostTooltipSystem at UITooltip.
+// Text is LocalizedString.Value(text), never a fixed id for text that carries numbers: the frontend's translate cache is keyed by id
+// alone, so a fixed id would keep the first text it was given. A fixed notice or refusal that is a locale key (GradeGuards.IsKey:
+// TooLarge, RunShape, CrossingSteep, the run notices) goes by LocalizedString.Id instead.
 // The step hint is always shown while the tool is open; a refusal (CatTrackGradeToolSystem.Notice) shows as a warning under it.
 // A "!!!" ERROR disables the system until the next load.
 
@@ -75,7 +76,7 @@ namespace SkiResortMod.Systems
             {
                 last = text;
                 // A locale key (a fixed text) goes by id; the other lines carry numbers and stay Value.
-                tip.value = text == GradeGuards.KeyTooLarge ? LocalizedString.Id(text) : LocalizedString.Value(text);
+                tip.value = GradeGuards.IsKey(text) ? LocalizedString.Id(text) : LocalizedString.Value(text);
             }
             AddMouseTooltip(tip);
         }

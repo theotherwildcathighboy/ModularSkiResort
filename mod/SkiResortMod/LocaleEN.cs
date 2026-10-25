@@ -314,8 +314,8 @@ namespace SkiResortMod
                 { "Assets.NAME[SkiRunCatTrackA]", "Cat Track" },
                 {
                     "Assets.DESCRIPTION[SkiRunCatTrackA]",
-                    "A narrow groomed track for getting across the hill and up to lodges. " +
-                    "Green only: steeper than 25 % is unsuitable. Can cross other runs."
+                    "A groomed track up the hill, graded as you lay it out. Always green; counts a quarter " +
+                    "of a run. Crosses other runs."
                 },
 
                 // --- Run drawing feedback -------------------------------------------------------------------
@@ -346,10 +346,16 @@ namespace SkiResortMod
                     "No Ski Area Welcome Sign within 5 km: this run will not count until " +
                     "one is placed nearby"
                 },
-                // SkiRunTooltipSystem.KeyCatSteep: the Error line on a cat track rated blue or steeper.
-                { "SkiResort.Tooltip.CAT_TRACK_TOO_STEEP", "Too steep for a cat track: it will be unsuitable. Keep it under 25 %." },
                 // GradeGuards.KeyTooLarge: the grading tool refuses a track whose area is over GradeRaster.MaxTexels.
                 { "SkiResort.Tooltip.GRADE_TOO_LARGE", "This track covers too much ground to grade. Use a shorter track." },
+                // GradeGuards.KeyRunShape: the track's outline (its flat top) touches itself, so it cannot become a run.
+                { "SkiResort.Tooltip.GRADE_RUN_SHAPE", "The track's edges touch: spread the switchback legs apart or make the track narrower." },
+                // CatTrackGradeToolSystem.KeyRunRefused: the game's validation refused the run preview; nothing was graded.
+                { "SkiResort.Tooltip.CAT_TRACK_REFUSED", "The game refuses a cat track here: move it off what blocks it and press Enter again." },
+                // GradeGuards.KeyCrossingSteep: inside a crossed run the track rides that run's ground, which is steeper than the max grade.
+                { "SkiResort.Tooltip.GRADE_CROSSING_STEEP", "The track crosses a run on ground steeper than the max grade: cross it more level." },
+                // CatTrackGradeToolSystem.KeyRunMissing: the SkiRunCatTrackA asset did not load.
+                { "SkiResort.Tooltip.CAT_TRACK_MISSING", "The cat track asset did not load: check that the mod is installed completely." },
                 // The run's horizontal length, an IntTooltip label in front of a "length" unit value
                 // (SkiRunTooltipSystem.KeyLength).
                 { "SkiResort.Tooltip.RUN_LENGTH", "Length" },
@@ -465,10 +471,6 @@ namespace SkiResortMod
                 { "SkiResort.Hub.LIFT_TOOL_TIP", "Plan a lift line between two stations: Ctrl+Shift+L" },
                 { "SkiResort.Hub.LIFT_TOOL_TIP_ON", "On: click a station, then the other station of the lift. Click again to stop." },
                 { "SkiResort.Hub.LIFT_TOOL_UNAVAILABLE", "Available once a city is loaded." },
-                // The cat track grading chip on the Runs tab.
-                { "SkiResort.Hub.GRADE_TOOL", "Grade cat track" },
-                { "SkiResort.Hub.GRADE_TOOL_TIP", "Grade the ground for a cat track, never steeper than the max grade: Ctrl+Shift+K" },
-                { "SkiResort.Hub.GRADE_TOOL_TIP_ON", "On: click points up the hill, then press Enter to grade. Click again to stop." },
                 { "SkiResort.Hub.RESORT_DEFAULT", "Ski area {N}" },
                 { "SkiResort.Hub.RESORT_FLY", "Fly to the Welcome Sign" },
                 { "SkiResort.Hub.RESORT_TIP", "Click to pick the ski area the panel shows." },
@@ -669,8 +671,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.RUN_OPEN_NONE", "Not linked: no snow state." },
                 { "SkiResort.Hub.RUN_SERVED_ANON", "A running lift reaches its top." },
                 { "SkiResort.Hub.RUN_TYPE_NOTE", "Natural green and blue runs count less; a groomed run counts in full." },
-                { "SkiResort.Hub.RUN_CAT_TRACK_NOTE", "A cat track links the hill but adds nothing to the score or the capacity." },
-                { "SkiResort.Hub.RUN_UNSUITABLE", "Unsuitable: steeper than 25 % for a cat track. Redraw it on gentler ground." },
+                { "SkiResort.Hub.RUN_CAT_TRACK_NOTE", "A cat track always rates green and counts a quarter of a run its size, in the score and the capacity." },
                 { "SkiResort.Hub.RUN_VALUE", "Score value" },
                 { "SkiResort.Hub.RUN_COST", "Running cost" },
                 { "SkiResort.Hub.RUN_ACTIONS", "Click to fly there. The pen renames it." },
@@ -1029,7 +1030,6 @@ namespace SkiResortMod
                 { "SkiResort.Hub.RUN_STATE[Closed]", "Closed" },
                 { "SkiResort.Hub.RUN_STATE[Patchy]", "Patchy" },
                 { "SkiResort.Hub.RUN_STATE[Open]", "Open" },
-                { "SkiResort.Hub.RUN_STATE[Unsuitable]", "Unsuitable" },  // a cat track rated blue or steeper
                 { "SkiResort.Hub.SEASON_HINT[SnowSeason]", "Snow season" },
                 { "SkiResort.Hub.SEASON_HINT[SnowGunsOnly]", "Snow guns only" },
                 { "SkiResort.Hub.SEASON_HINT[Thawing]", "Thawing" },
@@ -1058,7 +1058,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.BUILD_SHORT[Snowmaking]", "Snow guns open it earlier and keep it open longer." },
                 { "SkiResort.Hub.BUILD_SHORT[Night]", "Floodlit snowmaking run: scores 25 % more." },
                 { "SkiResort.Hub.BUILD_SHORT[Natural]", "Natural snow only, no running cost; easy runs score less." },
-                { "SkiResort.Hub.BUILD_SHORT[CatTrack]", "Green only; crosses other runs. Not part of the score." },
+                { "SkiResort.Hub.BUILD_SHORT[CatTrack]", "Graded as you lay it out; always green, counts a quarter." },
                 { "SkiResort.Hub.NEXT[Sign]", "Next: place a Ski Area Welcome Sign from the Buildings tab." },
                 { "SkiResort.Hub.NEXT[Unlinked]", "Runs and lifts link to the nearest Welcome Sign within 5 km." },
                 { "SkiResort.Hub.NEXT[Lodge]", "Next: build a lodge from the Buildings tab." },

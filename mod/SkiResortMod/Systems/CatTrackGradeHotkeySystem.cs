@@ -1,4 +1,4 @@
-// Grading tool keys and the every-frame watch. Pattern of LiftLineHotkeySystem, whose engine notes (EngineNotes/LiftLineHotkeySystem.md) cover the action plumbing
+// Cat track tool keys and the every-frame watch. Pattern of LiftLineHotkeySystem, whose engine notes (EngineNotes/LiftLineHotkeySystem.md) cover the action plumbing
 // (an inactive tool never ticks, ToolSystem.cs:312-327; GetAction is null before RegisterKeyBindings, ModSetting.cs:289-292;
 // mod actions start disabled, ProxyAction.cs:322-349).
 // ToggleCatTrackGradeTool (default Ctrl+Shift+K) → CatTrackGradeToolSystem.TryActivate("hotkey") / Deactivate, in a loaded city.
@@ -55,8 +55,8 @@ namespace SkiResortMod.Systems
                 }
                 m_Armed = true;
                 m_Probe = ProbeDelayFrames;
-                Mod.Log.Info($"Grade [keys]: ARMED — {SkiResortSettings.ActToggleCatTrackGrade} toggles the grading tool, " +
-                             $"{SkiResortSettings.ActBuildLiftLine} (shared with the lift tool) grades while it is open; rebind in Options ▸ Modular Ski Resort ▸ Key bindings");
+                Mod.Log.Info($"Grade [keys]: ARMED — {SkiResortSettings.ActToggleCatTrackGrade} toggles the cat track tool, " +
+                             $"{SkiResortSettings.ActBuildLiftLine} (shared with the lift tool) grades and builds while it is open; rebind in Options ▸ Modular Ski Resort ▸ Key bindings");
             }
             catch (Exception e)
             {

@@ -58,24 +58,26 @@ Rating = slope of the **hardest unavoidable pitch**: the crux of the easiest lin
   </TabItem>
   <TabItem label="Cat track">
     <Icon name="run-cat-track" alt="Cat track icon" />
-    **Role:** link across the hill. Adds **0** to score and capacity. **Pricing:** as groomed.
-    **Slope limit:** under **25 %**; steeper is marked *Unsuitable*. The grading tool below cuts a track that stays under it.
+    **Role:** link across the hill. Always rated **green**; counts **a quarter** of a run its size in score and capacity. **Pricing:** as groomed.
+    **Slope limit:** built with the cat track tool below, which grades the ground to stay under **25 %**, so a cat track is always green. Crosses other runs without changing them.
   </TabItem>
 </Tabs>
 
 Reshaping a run: no extra cost.
 
-## Cat Track Grading
+## Cat Track Tool
 
-Separate tool: cuts and fills the ground along a path so a cat track never climbs steeper than the grade you set.
+One action: lay out the track, and **Enter** cuts and fills the ground so it never climbs steeper than the grade you set, then builds the cat track on the graded strip.
 
-- **Open:** hub **Runs** tab > **Grade cat track**, or **Ctrl+Shift+K**.
-- **Use:** click points up the hill, drag a point to move it, right click to step back (with no point left it undoes the last grade of this opening, then closes), **Enter** grades, **Esc** closes.
-- **Defaults:** max grade **25 %**, flat width **8 m**, cut slope **1:1.5**, fill slope **1:2**. Free, like vanilla terraforming.
+- **Open:** hub **Runs** tab > **Cat track**, or **Ctrl+Shift+K**.
+- **Use:** click points up the hill, drag a point to move it, right click to step back (with no point left it undoes the last track of this opening, ground and run, then closes), **Enter** builds, **Esc** closes.
+- **Defaults:** max grade **25 %**, width **20 m**, cut slope **1:1.5**, fill slope **1:2**. Grading is free, like vanilla terraforming; the track pays the cat track fee.
+- **Switchbacks:** legs closer than the track width are refused: spread them apart or make the track narrower.
 - **Mode:** *Follow ground* moves as little earth as the max grade allows. Option *Constant grade* makes one even slope from end to end.
 - **Too steep:** a path that cannot stay under the max grade is refused, with the missing length in meters. Add a switchback.
-- **Terrain:** trees in the corridor are removed; the run catalog rates again after the terrain changes. Ground under buildings, in water and within **6 m** of a lift line is left alone.
-- **Options:** Options > Modular Ski Resort > Main > Runs. Max grade **5 to 25 %**, flat width **4 to 16 m**, cut **1 to 3**, fill **1 to 4**.
+- **Crossing runs:** a cat track crosses groomed, snowmaking, night and natural runs without changing them: inside a run it rides that run's snow, and the grading fades in over **15 m** outside it, so the crossed run keeps its ground, its difficulty band and its hardest pitch. The track follows the ground for those last 15 m before a run (and across it), so it must stay under the max grade there: cross level, not down the fall line. Trees in the 15 m before a run are cleared with the rest of the corridor. A run the track only runs beside is left alone and the track keeps its full width. Two cat tracks cannot overlap.
+- **Terrain:** trees in the corridor are removed (not inside a crossed run); the run catalog rates again after the terrain changes. Ground under buildings, in water and within **6 m** of a lift line is left alone.
+- **Options:** Options > Modular Ski Resort > Main > Runs. Max grade **5 to 25 %**, width **8 to 32 m**, cut **1 to 3**, fill **1 to 4**.
 
 ## Snow Conditions
 

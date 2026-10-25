@@ -11,7 +11,7 @@ import { bindLocalValue, useValue } from "cs2/api";
 import { Button } from "cs2/ui";
 import { FOCUS_DISABLED } from "cs2/input";
 import { Unit } from "cs2/l10n";
-import { build$, follow$, glade$, grade$, hubTriggers, liftLine$, problems$, resortLive$, resorts$, selectedResort$ } from "../bindings";
+import { build$, follow$, glade$, hubTriggers, liftLine$, problems$, resortLive$, resorts$, selectedResort$ } from "../bindings";
 import type { BuildItem, BuildItemId, RunKind } from "../bindings";
 import { useT } from "../l10n";
 import type { LocEntry, Translate } from "../l10n";
@@ -42,8 +42,8 @@ export interface FooterInfo {
   /* The notice: the shown area's name while the 6 s notice runs, else null. */
   followName: string | null;
   /*
-   * Draw the lift generator toggle (ok panel only; it reads the non-CORE liftLine binding) and the Runs tab's "Grade cat track"
-   * chip (the non-CORE grade binding).
+   * Draw the lift generator toggle (ok panel only; it reads the non-CORE liftLine binding). The cat track tool has no chip of
+   * its own since 2026-10-24: the Cat track tile opens it (C# ApplyLaunch).
    */
   liftTool?: boolean;
 }
@@ -322,7 +322,7 @@ function LiftToolSet({ t }: { t: Translate }): JSX.Element {
  * The Runs tab's family row: the glade (tree) tool's on / off, the same trigger as the Runs view's "Tree tool" button
  * (TreeControls.tsx; reads the CORE glade binding only).
  */
-function TreeToolSet({ t, grade }: { t: Translate; grade?: boolean }): JSX.Element {
+function TreeToolSet({ t }: { t: Translate }): JSX.Element {
   const g = useValue(glade$);
   const available = !!g?.available;
   const active = !!g?.active;
@@ -346,44 +346,8 @@ function TreeToolSet({ t, grade }: { t: Translate; grade?: boolean }): JSX.Eleme
           </Tip>
         </div>
       </div>
-      {grade ? (
-        <>
-          <div className={styles.pickerSet} style={{ flexGrow: 1 }} />
-          <GradeToolSet t={t} />
-        </>
-      ) : (
-        <div className={styles.pickerSet} style={{ flexGrow: 3 }} />
-      )}
+      <div className={styles.pickerSet} style={{ flexGrow: 3 }} />
     </>
-  );
-}
-
-/*
- * The Runs tab's "Grade cat track" chip, over the night and cat-track tiles (the lift generator's pattern: reads the non-CORE
- * grade binding, fires hubTriggers.gradeToggle, which C# turns into CatTrackGradeToolSystem.TryActivate("hub") /
- * Deactivate()). Ok panel only (FooterInfo.liftTool).
- */
-function GradeToolSet({ t }: { t: Translate }): JSX.Element {
-  const g = useValue(grade$);
-  const available = !!g?.available;
-  const active = !!g?.active;
-  const tip = active ? t(HUB_LOC.gradeToolTipOn) : !available ? t(HUB_LOC.liftToolUnavailable) : t(HUB_LOC.gradeToolTip);
-  return (
-    <div className={cx(styles.pickerSet, styles.pickerSetNext)} style={{ flexGrow: 2 }}>
-      <div className={styles.pickerCell}>
-        <Tip tip={<TipLines lines={[t(HUB_LOC.gradeTool), tip]} />}>
-          <Button
-            focusKey={FOCUS_DISABLED}
-            disabled={!available && !active}
-            theme={{ button: cx(styles.pickerChip, active && styles.pickerChipOn) }}
-            selected={active}
-            onSelect={() => hubTriggers.gradeToggle()}
-          >
-            <div className={styles.pickerLabel}>{t(HUB_LOC.gradeTool)}</div>
-          </Button>
-        </Tip>
-      </div>
-    </div>
   );
 }
 
@@ -502,7 +466,7 @@ export function BuildStrip({ info }: { info: FooterInfo }): JSX.Element {
           {tab === "lifts" && sets.lift.length > 0 && <PickerSetView set="lift" options={sets.lift} chosen={eff.lift} dot={dot} t={t} onPick={onPick} />}
           {tab === "lifts" && info.liftTool && <LiftToolSet t={t} />}
           {tab === "buildings" && <GroupCaptions groups={groups} t={t} />}
-          {tab === "runs" && <TreeToolSet t={t} grade={info.liftTool} />}
+          {tab === "runs" && <TreeToolSet t={t} />}
         </div>
       )}
       <div className={styles.buildRow}>

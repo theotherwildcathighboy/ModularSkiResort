@@ -64,10 +64,8 @@ function runTip(p: RunLineProps, name: string, typeName: string): JSX.Element {
         : live.openState === 0 ? <LocText key="o" entry={HUB_FMT.runOpenClosed} args={{ PCT }} />
           : null;
   }
-  // A cat track rated blue or steeper says why it is shut (OPEN_STATE.Unsuitable, C# HubRules.CatTrackOpenState)
-  if (live && live.openState === OPEN_STATE.Unsuitable) openLine = t(HUB_LOC.runUnsuitable);
   // Why it is open or closed (the measured depth against the 91 cm rule) and, on a gun run, what its snow guns do now
-  const depthLine = row.bound && gating && live && live.snowDepthCm >= 0 && live.openState !== OPEN_STATE.Unsuitable
+  const depthLine = row.bound && gating && live && live.snowDepthCm >= 0
     ? <LocText key="d" entry={HUB_FMT.runDepth} args={{ DEPTH: numArg(live.snowDepthCm / 100, Unit.Length) }} /> : null;
   const gunWhy = live ? live.gunWhy : RUN_GUN_WHY.None;
   const gunLine = gunWhy === RUN_GUN_WHY.Making ? t(HUB_LOC.runGunsMaking)
@@ -91,8 +89,8 @@ function runTip(p: RunLineProps, name: string, typeName: string): JSX.Element {
         gunLine,
         !!live && live.snowEstimated && t(HUB_LOC.runEstimated),
         servedLine,
-        row.member && row.typeFactor < 1 && t(HUB_LOC.runTypeNote),
-        row.kind === RUN_KIND.CatTrack && t(HUB_LOC.runCatTrackNote),   // listed, but not in the score or the capacity
+        row.member && row.typeFactor < 1 && row.kind !== RUN_KIND.CatTrack && t(HUB_LOC.runTypeNote),
+        row.kind === RUN_KIND.CatTrack && t(HUB_LOC.runCatTrackNote),   // counts a quarter in the score and the capacity; always green
         row.member && {
           label: t(HUB_LOC.runValue),
           value: <LocText entry={HUB_FMT.runValueOf} args={{
@@ -107,8 +105,10 @@ function runTip(p: RunLineProps, name: string, typeName: string): JSX.Element {
           L: numArg(row.servedFactor, Unit.FloatTwoFractions),
           O: numArg(live ? live.openFactor : -1, Unit.FloatTwoFractions),
         }} />,
-        rated && row.gradePct >= 0 && { label: t(HUB_LOC.cruxPitch), value: <Num value={row.gradePct} unit={Unit.PercentageSingleFraction} /> },
-        rated && row.steepestPct > row.gradePct && { label: t(HUB_LOC.steepestPatch), value: <Num value={row.steepestPct} unit={Unit.PercentageSingleFraction} /> },
+        // A cat track's green is the tool's (graded under 25 %), not the rater's: the rater's crux / steepest % read hairpins and crossings
+        // higher (GradeBatch GR-20), so the rows stay off.
+        rated && row.kind !== RUN_KIND.CatTrack && row.gradePct >= 0 && { label: t(HUB_LOC.cruxPitch), value: <Num value={row.gradePct} unit={Unit.PercentageSingleFraction} /> },
+        rated && row.kind !== RUN_KIND.CatTrack && row.steepestPct > row.gradePct && { label: t(HUB_LOC.steepestPatch), value: <Num value={row.steepestPct} unit={Unit.PercentageSingleFraction} /> },
         { label: t(HUB_LOC.colArea), value: <LocText entry={HUB_FMT.areaHa} args={{ HA: numArg(hectares(row.areaM2), Unit.FloatSingleFraction) }} /> },
         row.kind !== RUN_KIND.Natural && row.kind !== RUN_KIND.CatTrack && row.bound && {
           label: t(HUB_LOC.runCost),
@@ -154,7 +154,7 @@ function RunLineImpl(p: RunLineProps): JSX.Element {
   return (
     <div
       className={cx(styles.runRow, focused && styles.runRowFocused, !row.bound && styles.listRowUnbound,
-        (state === OPEN_STATE.Closed || state === OPEN_STATE.Unsuitable) && !renaming && styles.runRowClosed)}
+        state === OPEN_STATE.Closed && !renaming && styles.runRowClosed)}
       onMouseEnter={() => sendHoverRun(row.entity)}
     >
       {renaming ? (

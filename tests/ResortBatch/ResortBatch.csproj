@@ -93,7 +93,7 @@
     <Compile Include="UnpoweredTests.cs" />
   </ItemGroup>
   <!-- The cat track's pure rules (CT54-1 to
-       CT54-7: kinds, leaf, unsuitable, exclusions, snow, props, catalog) over files linked above. No new linked file. -->
+       CT54-7 and CT139: kinds, leaf, open state, minimal weight, green rule, snow, props, catalog) over files linked above. No new linked file. -->
   <ItemGroup>
     <Compile Include="CatTrackTests.cs" />
   </ItemGroup>

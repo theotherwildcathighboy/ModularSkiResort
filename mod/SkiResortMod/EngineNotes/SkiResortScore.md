@@ -7,17 +7,26 @@ every recompute; `SkiResortStatsSystem` / `HubRules` read the Result (the hub ne
 ## Compute in one breath
 
 Per run `v = band x size x type x served x open` (each factor >= 0; `open = clamp01(OpenFactor)` with gating on, NaN -> 0, else 1). A
-run counts when `v > 0`, and only counted runs feed RunsValue, variety, vertical and the summer test (summer <=> RunsCounted == 0).
+run counts when `v > 0`, and only counted runs feed RunsValue, variety, vertical and the summer test (summer <=> no counted run but
+cat tracks).
 RunsValue is the sum of the counted values in ascending order: the sorted sequence is the same for any permutation of the runs, so the
 Result is bit-identical whatever order the chunk walk returns (`Result.Equals` stays exact; the attractiveness Generation does not move
 on a chunk reorder). A is clamped before rounding: a non-finite double never reaches an int cast.
+
+## The cat track (2026-10-24)
+
+A member run (kind 4) at a quarter weight: type factor `CatTrackFactor` 0.25 when rated green, else 0 (unrateable or
+pending count nothing); `RunSkiersPerDay` x `CatTrackSkiersFactor` 0.25. It counts in Runs / RunsOpen / RunsCounted, but never in the
+variety or school green, the vertical / TopM, or the end of the summer mode (a summit-to-base track would otherwise double S through the
+vertical multiplier, or flip lodges and lifts to their winter shares on its own). Its green comes from the catalog row
+(SkiRunRatingRules.CatTrackBand: every rated cat track is Green, the tool grades it under 25 %). ResortBatch CT139-M / CT139-G.
 
 ## Ski-day inputs
 
 They come out of the same recompute, so score, capacity and the gate come from one snapshot:
 
 - RunsValueFull: sum of band x size x type x served over all member runs, open ignored (the denominator of `SkiDayRules.OpenShare`).
-- RunsCapacity: sum of `RunSkiersPerDay` over counted runs (skiers per hectare by band, natural x 0.5, x served x open).
+- RunsCapacity: sum of `RunSkiersPerDay` over counted runs (skiers per hectare by band, natural x 0.5, cat track x 0.25, x served x open).
 - NightRunsCounted, TopKnown / TopM (the counted-run top, for powder).
 
 Both sums are ascending like RunsValue, so Equals stays exact in any run order.
