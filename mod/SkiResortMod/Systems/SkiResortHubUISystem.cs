@@ -37,7 +37,7 @@ namespace SkiResortMod.Systems
 
         /// <summary>The contract number (bindings.ts HUB_CONTRACT). Bump both together whenever a binding, trigger, field or meaning
         /// changes (Engine notes: Near HubContract lists what each number appended).</summary>
-        public const int HubContract = 14;
+        public const int HubContract = 15;
 
         /// <summary>The `contract` value the UI reads as "C# absent" (bindings.ts CONTRACT_ABSENT). Pushed after the one-shot "!!!"
         /// until the next load: the UI then shows its "not connected" notice instead of launchers that do nothing.</summary>
@@ -3507,7 +3507,7 @@ namespace SkiResortMod.Systems
         // Series indices of a HistoryRow, in the HistoryArea field order after sign / firstMonthKey.
         private const int HsFlags = 0, HsTourists = 1, HsResidents = 2, HsSkiDays = 3, HsTicketsPaid = 4, HsTicketIncome = 5,
                           HsLodgeIncome = 6, HsPassIncome = 7, HsLessonIncome = 8, HsLiftCost = 9, HsRunCost = 10, HsBuildingsCost = 11,
-                          HsWagesCost = 12, HsAttraction = 13, HsSnowPct = 14, HsCount = 15;
+                          HsWagesCost = 12, HsAttraction = 13, HsSnowPct = 14, HsSnowDepthCm = 15, HsCount = 16;
 
         /// <summary>One HistoryArea row as it will be sent (rows are reused across pushes; no per-push allocation once warm).</summary>
         private sealed class HistoryRow
@@ -3669,6 +3669,7 @@ namespace SkiResortMod.Systems
             s[HsWagesCost].Add(m.m_WagesCost);
             s[HsAttraction].Add(m.m_Attraction);
             s[HsSnowPct].Add(snowPct);
+            s[HsSnowDepthCm].Add(m.m_SnowDepthCm);   // -1 unknown (gap months, v1 elements)
         }
 
         /// <summary>The month in progress: the ledger's This booked so far (the stored months' own mapping,
@@ -3702,6 +3703,7 @@ namespace SkiResortMod.Systems
                 m.m_Attraction = live.Attraction >= 0 ? live.Attraction : SkiResortHistoryMonth.Unknown;
                 byte b = SkiResortHistoryMonth.SnowByte(live.SnowPct);
                 snow = b == SkiResortHistoryMonth.SnowUnknown ? -1 : b;
+                m.m_SnowDepthCm = SkiResortHistoryMonth.DepthCm(live.SnowDepthCm);
             }
             HistoryAdd(row, m, snow);
             row.Series[HsFlags][row.Count - 1] = flags;
@@ -3780,6 +3782,8 @@ namespace SkiResortMod.Systems
                 WriteHistorySeries(writer, r.Series[HsAttraction]);
                 writer.PropertyName("snowPct");
                 WriteHistorySeries(writer, r.Series[HsSnowPct]);
+                writer.PropertyName("snowDepthCm");
+                WriteHistorySeries(writer, r.Series[HsSnowDepthCm]);
                 writer.TypeEnd();
             }
             writer.ArrayEnd();

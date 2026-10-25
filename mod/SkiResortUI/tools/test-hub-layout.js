@@ -12,7 +12,7 @@
 *
 * Needs `npm run build` first (it mounts build/SkiResortMod.mjs) and network for the React UMD scripts the harness loads from cdnjs.
 * Usage:   node tools/test-hub-layout.js [--verbose]
-*          node tools/test-hub-layout.js --shots=<dir> [--before]   # the harness screenshots listed in SHOTS / BEFORE
+*          node tools/test-hub-layout.js --shots=<dir> [--before | --list=t142]   # the harness screenshots listed in SHOTS / BEFORE / T142
 * The harness is not the game's chrome (harness/README.md): the panel frame is a stand-in, so the report prints the smallest slack
 * (rem of content height left) next to the verdict.
 */
@@ -142,17 +142,83 @@ const BEFORE = [
   ["before-guests-2160-uncut", 2160, { scenario: ASH, view: 3, free: 1 }],
 ];
 
+// T142 whole-hub text round (2026-10-24): every view top-down, its folds, and the tooltips the round reworded. `hover` = the
+// start of an element's visible text inside the panel: the smallest such element gets a real mouse move (CDP), so the stand-in
+// Tooltip opens and the crop grows to hold it. `--list=t142` picks this list.
+const T142 = [
+  ["attraction-1080", 1080, { scenario: ASH, view: 0 }],
+  ["attraction-fold0-1080", 1080, { scenario: ASH, view: 0, fold: 0 }],
+  ["attraction-fold1-1080", 1080, { scenario: ASH, view: 0, fold: 1 }],
+  ["attraction-fold2-1080", 1080, { scenario: ASH, view: 0, fold: 2 }],
+  ["attraction-field-1080", 1080, { scenario: FIELD, view: 0 }],
+  ["attraction-big-problems-1440", 1440, { scenario: BIG, view: 0, problems: 1 }],
+  ["runs-1080", 1080, { scenario: ASH, view: 1 }],
+  ["lifts-1080", 1080, { scenario: ASH, view: 2 }],
+  ["guests-1080", 1080, { scenario: ASH, view: 3 }],
+  ["guests-fold0-1080", 1080, { scenario: ASH, view: 3, fold: 0 }],
+  ["guests-fold1-1080", 1080, { scenario: ASH, view: 3, fold: 1 }],
+  ["guests-fold2-1080", 1080, { scenario: ASH, view: 3, fold: 2 }],
+  ["finances-1080", 1080, { scenario: ASH, view: 4 }],
+  ["finances-fold0-1080", 1080, { scenario: ASH, view: 4, fold: 0 }],
+  ["finances-fold1-1080", 1080, { scenario: ASH, view: 4, fold: 1 }],
+  ["history-1080", 1080, { scenario: ASH, view: 5 }],
+  ["history-1440-fs125", 1440, { scenario: ASH, view: 5, fs: 1.25 }],
+  ["tab-buildings-1080", 1080, { scenario: ASH, view: 0, tab: "buildings" }],
+  ["tab-lifts-1080", 1080, { scenario: ASH, view: 0, tab: "lifts" }],
+  ["tab-runs-1080", 1080, { scenario: ASH, view: 0, tab: "runs" }],
+  ["tip-status-1080", 1080, { scenario: ASH, view: 0, hover: "Open" }],
+  ["tip-attraction-tile-1080", 1080, { scenario: ASH, view: 0, hover: "Attraction" }],
+  ["tip-history-attraction-1080", 1080, { scenario: ASH, view: 5, hover: "Attraction" }],
+  // B7b: the Attraction strip switched on, the pointer on a winter month (strip plot = the last plot of the view, x = share of width)
+  ["tip-history-strip-snow-1080", 1080, { scenario: ASH, view: 5, click: "Attraction", hoverPlot: 0.72 }],
+  ["tip-history-strip-snow-byseason-1080", 1080, { scenario: ASH, view: 5, click: "Attraction", clickRange: "By season", hoverPlot: 0.5 }],
+];
+
 async function shots(b, base, dir, list) {
   fs.mkdirSync(dir, { recursive: true });
-  for (const [file, h, p] of list) {
+  for (const [file, h, p0] of list) {
     const w = Math.round(h * 16 / 9);
+    const p = Object.assign({}, p0);
+    const { hover, click, clickRange, hoverPlot } = p;
+    delete p.hover; delete p.click; delete p.clickRange; delete p.hoverPlot;
     await open(b, base, w, h);
     const m = await evalAsync(b, `(async () => { const p = new URLSearchParams(${JSON.stringify(new URLSearchParams(Object.assign({ clean: 1 }, p)).toString())});
       await window.SkiLayout.shot(p); return document.body.getAttribute("data-shot-ready"); })()`, 60000);
-    // Crop to the panel (+ margin)
+    for (const want of [clickRange, click]) {
+      if (!want) continue;
+      const ok = await evalAsync(b, `(async () => { const want = ${JSON.stringify(want)};
+        const el = Array.from(document.querySelectorAll('.h-panel button')).find((e) => (e.textContent || '').trim() === want);
+        if (!el) return false; el.click(); await new Promise((r) => setTimeout(r, 300)); return true; })()`, 10000);
+      if (!ok) console.log(`shot ${file}: button "${want}" not found`);
+    }
+    if (hoverPlot !== undefined) {
+      const at = await evalAsync(b, `(() => { const ps = Array.from(document.querySelectorAll('.h-panel [class*="sr-histPlot_"]'));
+        const e = ps[ps.length - 1]; if (!e) return null; const r = e.getBoundingClientRect();
+        return { x: r.left + r.width * ${Number(hoverPlot)}, y: r.top + r.height / 2 }; })()`, 10000);
+      if (at) {   // two moves: the first enters the plot (the tooltip opens), the second is the mousemove that picks the bucket
+        await b.send("Input.dispatchMouseEvent", { type: "mouseMoved", x: at.x - 2, y: at.y });
+        await sleep(200);
+        await b.send("Input.dispatchMouseEvent", { type: "mouseMoved", x: at.x, y: at.y });
+        await sleep(400);
+      } else console.log(`shot ${file}: no chart plot to point at`);
+    }
+    if (hover) {
+      const at = await evalAsync(b, `(() => { const want = ${JSON.stringify(hover)};
+        const els = Array.from(document.querySelectorAll('.h-panel *')).filter((e) => (e.textContent || '').trim().startsWith(want) && e.getBoundingClientRect().width > 0);
+        els.sort((a, c) => a.textContent.length - c.textContent.length || c.querySelectorAll('*').length - a.querySelectorAll('*').length);
+        const e = els[0]; if (!e) return null; const r = e.getBoundingClientRect(); return { x: r.left + Math.min(r.width / 2, 20), y: r.top + r.height / 2 }; })()`, 10000);
+      if (at) {
+        await b.send("Input.dispatchMouseEvent", { type: "mouseMoved", x: at.x, y: at.y });
+        await sleep(400);
+      } else console.log(`shot ${file}: hover target "${hover}" not found`);
+    }
+    // Crop to the panel (+ margin), grown to hold an open tooltip
     const rect = await evalAsync(b, `(() => { const r = document.querySelector('.h-panel').getBoundingClientRect();
-      return { x: Math.max(0, r.left - 20), y: Math.max(0, r.top - 20), width: r.width + 40, height: Math.min(innerHeight, r.bottom + 20) - Math.max(0, r.top - 20) }; })()`, 10000);
-    const shot = await b.send("Page.captureScreenshot", { format: "png", clip: Object.assign({ scale: 1 }, rect), captureBeyondViewport: true });
+      const t = document.querySelector('.h-tip'); const tr = t ? t.getBoundingClientRect() : null;
+      const left = Math.min(r.left, tr ? tr.left : r.left), right = Math.max(r.right, tr ? tr.right : r.right);
+      const top = Math.min(r.top, tr ? tr.top : r.top), bottom = Math.max(r.bottom, tr ? tr.bottom : r.bottom);
+      return { x: Math.max(0, left - 20), y: Math.max(0, top - 20), width: Math.min(innerWidth, right + 20) - Math.max(0, left - 20), height: Math.min(innerHeight, bottom + 20) - Math.max(0, top - 20) }; })()`, 10000);
+    const shot = await b.send("Page.captureScreenshot", { format: "png", clip: Object.assign({ scale: 1 }, rect), captureBeyondViewport: !hover && hoverPlot === undefined });   // a pointer shot stays in the viewport: growing it re-lays the page under the pointer and the bucket hover drops
     const out = path.join(dir, file + ".png");
     fs.writeFileSync(out, Buffer.from(shot.data, "base64"));
     console.log(`shot ${out} (${w}x${h}) ${m}`);
@@ -167,7 +233,8 @@ async function main() {
   const base = `http://127.0.0.1:${server.port}/harness/`;
   try {
     if (shotsArg) {
-      await shots(b, base, path.resolve(shotsArg.slice("--shots=".length)), process.argv.includes("--before") ? BEFORE : SHOTS);
+      await shots(b, base, path.resolve(shotsArg.slice("--shots=".length)),
+        process.argv.includes("--list=t142") ? T142 : process.argv.includes("--before") ? BEFORE : SHOTS);
       return 0;
     }
     let failures = 0;

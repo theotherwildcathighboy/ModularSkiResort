@@ -219,15 +219,15 @@ function PassRows({ l, month, samples, t }: { l: ResortLive | null; month: strin
 }
 
 /** The lessons booked this month, drawn once a lesson was taken or while there is no ski school (0 + flag). */
-function LessonRow({ l, city, school, month, samples, t }: {
-  l: ResortLive | null; city: CityStats; school: SchoolState; month: string; samples: NumberSamples; t: Translate;
+function LessonRow({ l, city, school, samples, t }: {
+  l: ResortLive | null; city: CityStats; school: SchoolState; samples: NumberSamples; t: Translate;
 }): JSX.Element | null {
   // Lessons need an installed, switched-on school (no green run): "none" and "off" are the 0s with a cause.
   if (!l || (!netRowShown("lessons", l, city) && school !== "none" && school !== "off")) return null;
   return (
     <InfoLine
       flag={school === "none" ? t(HUB_LOC.noSchool) : school === "off" ? t(HUB_LOC.schoolOff) : undefined}
-      label={<LocText entry={HUB_FMT.moneyRowLessons} args={{ MONTH: month, N: numArg(Math.max(0, l.lessonsThisMonth), Unit.Integer) }} />}
+      label={<LocText entry={HUB_FMT.moneyRowLessons} args={{ N: numArg(Math.max(0, l.lessonsThisMonth), Unit.Integer) }} />}
       value={<Cell samples={samples}>{incomeValue(l.lessonIncomeMonth)}</Cell>}
       tip={t(HUB_LOC.moneyTipLessons)}
     />
@@ -332,7 +332,7 @@ function SignMoney({ row, l, city, build, kinds, problems, samples, t }: {
       <TicketsRow l={l} price={city.ticketPrice} samples={samples} t={t} />
       <PriceLine price={hubPrice(city)} tolerance={l ? l.priceTolerance : -1} t={t} />
       <LodgeSpendRow l={l} city={city} samples={samples} t={t} />
-      <LessonRow l={l} city={city} school={schoolState(l, problems, row.sign, schoolBuiltOf(build))} month={month} samples={samples} t={t} />
+      <LessonRow l={l} city={city} school={schoolState(l, problems, row.sign, schoolBuiltOf(build))} samples={samples} t={t} />
       <PassesMonthRow l={l} city={city} samples={samples} t={t} />
       <Fold view="money" id="costs" header label={t(HUB_LOC.sectionCosts)}>
       <LiftsRow row={row} l={l} build={build} samples={samples} t={t} />

@@ -72,16 +72,18 @@ function statusTip(row: ResortRow | null, live: ResortLive | null, city: CitySta
           CLOSED: numArg(closedRuns(row, live), Unit.Integer),
         }} />,
         t(HUB_LOC.statusTipRule),
-        !city.snowGating ? t(HUB_LOC.statusTipGating) : live.snowEstimated ? t(HUB_LOC.statusTipEstimated) : t(HUB_LOC.statusTipMeasured),
+        // Measured snow is the default and gets no line (T142); only the exceptions say how the snow is read.
+        !city.snowGating ? t(HUB_LOC.statusTipGating) : live.snowEstimated && t(HUB_LOC.statusTipEstimated),
         seasonWord && t(seasonWord),
         seasonTip && t(seasonTip),
+        // The reading the season tip is about, right under it (T142: the tips no longer repeat "day average at the top").
+        live.topTempKnown && <LocText key="t" entry={HUB_FMT.statusTipTemp} args={{ TEMP: numArg(live.topTempC, Unit.Temperature, false, false) }} />,
         snowHere && live.snowDepthCm >= 0 && { label: t(HUB_LOC.mountainSnowDepth), value: inches
           ? <LocText entry={HUB_FMT.snowDepthIn} args={{ DEPTH: numArg(depthValue(live.snowDepthCm, true), Unit.Integer) }} />
           : <LocText entry={HUB_FMT.snowDepth} args={{ DEPTH: numArg(live.snowDepthCm, Unit.Integer) }} /> },
         snowHere && live.snowPct >= 0 && { label: t(HUB_LOC.mountainSnowCover), value: numArg(live.snowPct, Unit.Percentage) },
         // The powder now (0-100; -1 unknown, 0 none: no line)
         live.skiDaysPowderPct > 0 && <LocText key="p" entry={HUB_FMT.statusTipPowder} args={{ PCT: numArg(live.skiDaysPowderPct, Unit.Percentage) }} />,
-        live.topTempKnown && <LocText key="t" entry={HUB_FMT.statusTipTemp} args={{ TEMP: numArg(live.topTempC, Unit.Temperature, false, false) }} />,
         city.snowVisualsOff && t(HUB_LOC.statusTipVisuals),
       ]}
     />

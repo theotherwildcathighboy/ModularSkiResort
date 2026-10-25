@@ -89,21 +89,31 @@ export interface HistoryBucket {
   net: number;
   attraction: number;
   snowPct: number;
+  /** Mean snow depth on the runs at the rolls, cm; -1 unknown (snow is shown only as depth and coverage together) */
+  snowDepthCm: number;
 }
 
 interface Acc {
   months: number; current: boolean; partial: boolean;
   tourists: number; residents: number; skiDays: number; skiKnown: number; ticketsPaid: number;
   ticketIncome: number; lodgeIncome: number; passIncome: number; lessonIncome: number; liftCost: number; runCost: number;
-  staff: number; staffKnown: number; attr: number; attrKnown: number; snow: number; snowKnown: number;
+  staff: number; staffKnown: number; attr: number; attrKnown: number; snow: number; snowKnown: number; depth: number; depthKnown: number;
 }
 
 function acc(): Acc {
   return { months: 0, current: false, partial: false, tourists: 0, residents: 0, skiDays: 0, skiKnown: 0, ticketsPaid: 0, ticketIncome: 0,
-    lodgeIncome: 0, passIncome: 0, lessonIncome: 0, liftCost: 0, runCost: 0, staff: 0, staffKnown: 0, attr: 0, attrKnown: 0, snow: 0, snowKnown: 0 };
+    lodgeIncome: 0, passIncome: 0, lessonIncome: 0, liftCost: 0, runCost: 0, staff: 0, staffKnown: 0, attr: 0, attrKnown: 0, snow: 0, snowKnown: 0,
+    depth: 0, depthKnown: 0 };
 }
 
 const num = (v: number | undefined): number => (typeof v === "number" && Number.isFinite(v) ? v : 0);
+
+/** The depth of entry i, -1 when unknown. Not part of lengthOf: a short or missing snowDepthCm array reads unknown and never cuts
+ *  the money and guest series (contract 15 appended it). */
+export function depthAt(area: HistoryArea, i: number): number {
+  const d = area.snowDepthCm ? area.snowDepthCm[i] : undefined;
+  return typeof d === "number" && Number.isFinite(d) && d >= 0 ? d : -1;
+}
 
 function addMonth(a: Acc, area: HistoryArea, i: number): void {
   const f = area.flags[i] | 0;
@@ -126,6 +136,8 @@ function addMonth(a: Acc, area: HistoryArea, i: number): void {
   if (b < 0 || w < 0) a.partial = true;
   if (area.attraction[i] >= 0) { a.attr += area.attraction[i]; a.attrKnown++; }
   if (area.snowPct[i] >= 0) { a.snow += area.snowPct[i]; a.snowKnown++; }
+  const d = depthAt(area, i);
+  if (d >= 0) { a.depth += d; a.depthKnown++; }
 }
 
 function finish(kind: "month" | "season", key: number, firstKey: number, lastKey: number, a: Acc, expected: number): HistoryBucket {
@@ -140,6 +152,7 @@ function finish(kind: "month" | "season", key: number, firstKey: number, lastKey
     ticketsPaid: a.ticketsPaid, ticketIncome: a.ticketIncome, lodgeIncome: a.lodgeIncome, passIncome: a.passIncome, lessonIncome: a.lessonIncome,
     income, liftCost: a.liftCost, runCost: a.runCost, staffCost: staff, costs, net: income - costs,
     attraction: a.attrKnown > 0 ? a.attr / a.attrKnown : -1, snowPct: a.snowKnown > 0 ? a.snow / a.snowKnown : -1,
+    snowDepthCm: a.depthKnown > 0 ? a.depth / a.depthKnown : -1,
     totalGuests: guests, totalNet: income - costs,
   };
 }
@@ -255,7 +268,7 @@ export function gapSlots(buckets: readonly HistoryBucket[]): number[] {
 }
 
 /** Whole city: the areas summed month by month over the union of their ranges (null without data). Flags: the OR of the
- *  months that have data; GAP where none has; attraction and snow the mean of the areas that know them; -1 parts stay -1
+ *  months that have data; GAP where none has; attraction and snow (coverage, depth) the mean of the areas that know them; -1 parts stay -1
  *  only when no area knows them (then SnapshotMissing / SkiDaysPartial mark the month). */
 export function sumAreas(areas: readonly HistoryArea[]): HistoryArea | null {
   const rows = areas.filter((a) => a && lengthOf(a) > 0);
@@ -267,11 +280,11 @@ export function sumAreas(areas: readonly HistoryArea[]): HistoryArea | null {
   const out: HistoryArea = {
     sign: { index: 0, version: 0 }, firstMonthKey: first, flags: z(), tourists: z(), residents: z(), skiDays: z(), ticketsPaid: z(),
     ticketIncome: z(), lodgeIncome: z(), passIncome: z(), lessonIncome: z(), liftCost: z(), runCost: z(), buildingsCost: z(), wagesCost: z(),
-    attraction: z(), snowPct: z(),
+    attraction: z(), snowPct: z(), snowDepthCm: z(),
   };
   for (let i = 0; i < n; i++) {
     const k = first + i;
-    let flags = 0, has = 0, ski = 0, skiK = 0, bld = 0, bldK = 0, wag = 0, wagK = 0, attr = 0, attrK = 0, snow = 0, snowK = 0;
+    let flags = 0, has = 0, ski = 0, skiK = 0, bld = 0, bldK = 0, wag = 0, wagK = 0, attr = 0, attrK = 0, snow = 0, snowK = 0, depth = 0, depthK = 0;
     for (const a of rows) {
       const j = k - a.firstMonthKey;
       if (j < 0 || j >= lengthOf(a)) continue;
@@ -287,6 +300,8 @@ export function sumAreas(areas: readonly HistoryArea[]): HistoryArea | null {
       if (a.wagesCost[j] >= 0) { wag += a.wagesCost[j]; wagK++; } else flags |= HISTORY_FLAG.SnapshotMissing;
       if (a.attraction[j] >= 0) { attr += a.attraction[j]; attrK++; }
       if (a.snowPct[j] >= 0) { snow += a.snowPct[j]; snowK++; }
+      const d = depthAt(a, j);
+      if (d >= 0) { depth += d; depthK++; }
     }
     if (has === 0) flags = HISTORY_FLAG.Gap;
     // First is per area: in a city sum it would mark every month an area started in; keep it only if every area starts there
@@ -297,6 +312,7 @@ export function sumAreas(areas: readonly HistoryArea[]): HistoryArea | null {
     out.wagesCost[i] = wagK > 0 ? wag : -1;
     out.attraction[i] = attrK > 0 ? attr / attrK : -1;
     out.snowPct[i] = snowK > 0 ? snow / snowK : -1;
+    out.snowDepthCm[i] = depthK > 0 ? depth / depthK : -1;
   }
   return out;
 }

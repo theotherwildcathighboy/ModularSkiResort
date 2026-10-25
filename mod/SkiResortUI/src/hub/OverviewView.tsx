@@ -108,7 +108,7 @@ function MountainSection({ row, live, city, unrateable, t, folded }: {
   const depthCm = live ? live.snowDepthCm : -1;
   const inches = useInches(); // depth in the player's units
   const snowMark = live && live.snowEstimated && (snowPct >= 0 || depthCm >= 0) ? "≈" : null;
-  const how = live && (live.snowEstimated ? t(HUB_LOC.runEstimated) : t(HUB_LOC.statusTipMeasured));
+  const how = live && live.snowEstimated && t(HUB_LOC.runEstimated);   // measured is the default: no line (T142)
   const snowTip = (head: string, body: string): JSX.Element => (
     <TipLines lines={[head, body, how, city.snowVisualsOff && t(HUB_LOC.statusTipVisuals)]} />
   );

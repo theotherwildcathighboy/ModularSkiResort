@@ -56,7 +56,8 @@ namespace SkiResortMod.Systems
             new Layout("SkiResortHistoryMonth", "HistoryMonth", KindBuffer,
                 new LayoutVersion(1, 59, "m_Flags:u8 m_MonthKey:i32 m_Tourists:i32 m_Residents:i32 m_SkiDays:i32 m_TicketsPaid:i32 " +
                                    "m_TicketIncome:i32 m_LodgeIncome:i32 m_PassIncome:i32 m_LessonIncome:i32 m_LiftCost:i32 " +
-                                   "m_RunCost:i32 m_BuildingsCost:i32 m_WagesCost:i32 m_Attraction:i32 m_SnowPct:u8")),
+                                   "m_RunCost:i32 m_BuildingsCost:i32 m_WagesCost:i32 m_Attraction:i32 m_SnowPct:u8"),
+                new LayoutVersion(2, 63, "m_SnowDepthCm:i32")),
             new Layout("SkiResortMonthInProgress", "MonthInProgress", KindComponent,
                 new LayoutVersion(1, 142, "m_Flags:u8 m_MonthKey:i32 m_FramesSimulated:i32 " +
                                     "m_Month.TouristGuests:i32 m_Month.TouristParties:i32 m_Month.LocalGuests:i32 " +

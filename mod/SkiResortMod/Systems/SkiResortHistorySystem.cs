@@ -368,6 +368,7 @@ namespace SkiResortMod.Systems
                     m.m_WagesCost = live.WagesMonth >= 0 ? live.WagesMonth : SkiResortHistoryMonth.Unknown;
                     m.m_Attraction = live.Attraction >= 0 ? live.Attraction : SkiResortHistoryMonth.Unknown;
                     m.m_SnowPct = SkiResortHistoryMonth.SnowByte(live.SnowPct);
+                    m.m_SnowDepthCm = SkiResortHistoryMonth.DepthCm(live.SnowDepthCm);   // B7b: depth with the coverage
                     snap = true;
                     break;
                 }
@@ -499,7 +500,8 @@ namespace SkiResortMod.Systems
               .Append(" / buildings ").Append(m.m_BuildingsCost < 0 ? "?" : m.m_BuildingsCost.ToString())
               .Append(" / wages ").Append(m.m_WagesCost < 0 ? "?" : m.m_WagesCost.ToString())
               .Append("; A ").Append(m.m_Attraction < 0 ? "?" : m.m_Attraction.ToString())
-              .Append(", snow ").Append(m.m_SnowPct == SkiResortHistoryMonth.SnowUnknown ? "?" : m.m_SnowPct.ToString()).Append(" %")
+              .Append(", snow ").Append(m.m_SnowDepthCm < 0 ? "?" : m.m_SnowDepthCm.ToString()).Append(" cm · ")
+              .Append(m.m_SnowPct == SkiResortHistoryMonth.SnowUnknown ? "?" : m.m_SnowPct.ToString()).Append(" %")
               .Append(", flags ").Append(FlagsText(m.m_Flags)).Append(note).Append(" → ");
             switch (result)
             {

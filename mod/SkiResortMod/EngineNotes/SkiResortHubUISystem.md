@@ -312,3 +312,4 @@ Appended fields and bindings by contract:
 - 13: RunLive appends `snowDepthCm` and `gunWhy` (the run tooltip says why a run is open or closed and why its snow guns run or not).
 - 14: the `grade` value binding (`HubLiftLineState` reused: available / active / state) and the `gradeToggle` trigger
   (`CatTrackGradeToolSystem` on / off).
+- 15: HistoryArea appends `snowDepthCm` (the run snow depth at each month's roll, whole cm, -1 unknown; T142 B7b, history element v2).

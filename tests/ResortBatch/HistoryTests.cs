@@ -1,6 +1,6 @@
 // Tests of the pure history store (SkiResortHistory.cs) and the ledger's history additions (SkiResortLedger.cs); `Run(check)` is called from
-// Program.Main. Cases H-1..H-10. Pinned: the element codec (59 literal bytes, little-endian; the version byte is CurrentVersion whatever
-// m_Version holds) and the month-in-progress codec (142 bytes = V1Bytes) round-trip byte for byte; Append orders, dedupes (same key replaces,
+// Program.Main. Cases H-1..H-10. Pinned: the element codec (v2: 63 literal bytes, little-endian; the version byte is CurrentVersion whatever
+// m_Version holds; a v1 element of 59 bytes still loads with the depth unknown, T142 B7b) and the month-in-progress codec (142 bytes = V1Bytes) round-trip byte for byte; Append orders, dedupes (same key replaces,
 // an older key is rejected) and adds one GAP marker per jump; the 1200-month cap drops the oldest; SplitDebit conserves the debit and its
 // carries; a closed month's element net == HubRules.NetMonth of the ledger's month == a literal oracle (historyRules.ts finish() derives it
 // from the element's terms). Oracles are literal hand values; the byte oracle is our reading of Colossal's BinaryWriter (raw little-endian
@@ -83,7 +83,8 @@ namespace ResortBatch
 
         private static void ElementCodec()
         {
-            C(SkiResortHistoryMonth.CurrentVersion == 1 && SkiResortHistoryMonth.V1Bytes == 59, "H-1 consts", "version / V1Bytes");
+            C(SkiResortHistoryMonth.CurrentVersion == 2 && SkiResortHistoryMonth.V1Bytes == 59 && SkiResortHistoryMonth.V2Bytes == 63, "H-1 consts",
+              "version / V1Bytes / V2Bytes");
             var m = new SkiResortHistoryMonth
             {
                 m_Version = 0,   // not what is written: Serialize always writes CurrentVersion
@@ -97,19 +98,21 @@ namespace ResortBatch
                 m_RunCost = 2000,                                              // 0x07D0
                 m_BuildingsCost = -1, m_WagesCost = 3000,                      // 0x0BB8
                 m_Attraction = 45, m_SnowPct = 80,
+                m_SnowDepthCm = 300,                                           // 0x012C (v2)
             };
             byte[] want =
             {
-                0x01, 0x41,
+                0x02, 0x41,
                 0xFA, 0x5E, 0x00, 0x00,   0x78, 0x00, 0x00, 0x00,   0x28, 0x00, 0x00, 0x00,   0xFF, 0xFF, 0xFF, 0xFF,
                 0x64, 0x00, 0x00, 0x00,   0xB0, 0x04, 0x00, 0x00,   0x00, 0x00, 0x00, 0x00,   0x70, 0x11, 0x01, 0x00,
                 0x2C, 0x01, 0x00, 0x00,   0xC2, 0x01, 0x00, 0x00,   0xD0, 0x07, 0x00, 0x00,   0xFF, 0xFF, 0xFF, 0xFF,
                 0xB8, 0x0B, 0x00, 0x00,   0x2D, 0x00, 0x00, 0x00,
                 0x50,
+                0x2C, 0x01, 0x00, 0x00,
             };
             var w = new ByteWriter { Bytes = new List<byte>() };
             m.WriteTo(ref w);
-            C(w.Bytes.Count == 59 && want.Length == 59, "H-1 size", $"wrote {w.Bytes.Count} bytes, oracle {want.Length}");
+            C(w.Bytes.Count == 63 && want.Length == 63, "H-1 size", $"wrote {w.Bytes.Count} bytes, oracle {want.Length}");
             bool same = w.Bytes.Count == want.Length;
             int at = -1;
             for (int i = 0; same && i < want.Length; i++)
@@ -119,18 +122,34 @@ namespace ResortBatch
             var r = new ByteReader { Bytes = w.Bytes };
             var back = default(SkiResortHistoryMonth);
             back.ReadFrom(ref r);
-            C(r.Pos == 59, "H-1 read", "read " + r.Pos + " bytes");
-            C(back.m_Version == 1 && back.m_Flags == 0x41 && back.m_MonthKey == 24314 && back.m_Tourists == 120 && back.m_Residents == 40 &&
+            C(r.Pos == 63, "H-1 read", "read " + r.Pos + " bytes");
+            C(back.m_Version == 2 && back.m_Flags == 0x41 && back.m_MonthKey == 24314 && back.m_Tourists == 120 && back.m_Residents == 40 &&
               back.m_SkiDays == -1 && back.m_TicketsPaid == 100 && back.m_TicketIncome == 1200 && back.m_LodgeIncome == 0 &&
               back.m_PassIncome == 70000 && back.m_LessonIncome == 300 && back.m_LiftCost == 450 && back.m_RunCost == 2000 &&
-              back.m_BuildingsCost == -1 && back.m_WagesCost == 3000 && back.m_Attraction == 45 && back.m_SnowPct == 80,
-              "H-1 fields", "a field did not come back");
+              back.m_BuildingsCost == -1 && back.m_WagesCost == 3000 && back.m_Attraction == 45 && back.m_SnowPct == 80 &&
+              back.m_SnowDepthCm == 300, "H-1 fields", "a field did not come back");
             var w2 = new ByteWriter { Bytes = new List<byte>() };
             back.WriteTo(ref w2);
             bool again = w2.Bytes.Count == w.Bytes.Count;
             for (int i = 0; again && i < w.Bytes.Count; i++)
                 again = w.Bytes[i] == w2.Bytes[i];
             C(again, "H-1 rewrite", "read-then-write is not byte-identical");
+
+            // H-1b: a v1 element (the 59 bytes a pre-T142 build wrote: version 1, no depth) still loads whole, its depth unknown, and
+            // writes back as v2.
+            var v1 = new List<byte>(want);
+            v1.RemoveRange(59, 4);
+            v1[0] = 0x01;
+            var r1 = new ByteReader { Bytes = v1 };
+            var old = default(SkiResortHistoryMonth);
+            old.m_SnowDepthCm = 777;   // a stale value must not survive the read
+            old.ReadFrom(ref r1);
+            C(r1.Pos == 59 && old.m_Version == 1 && old.m_SnowPct == 80 && old.m_Attraction == 45 && old.m_SnowDepthCm == -1, "H-1b v1 load",
+              $"read {r1.Pos} of 59, version {old.m_Version}, depth {old.m_SnowDepthCm}");
+            var w3 = new ByteWriter { Bytes = new List<byte>() };
+            old.WriteTo(ref w3);
+            C(w3.Bytes.Count == 63 && w3.Bytes[0] == 2 && w3.Bytes[59] == 0xFF && w3.Bytes[62] == 0xFF, "H-1b v1 rewrite",
+              $"a loaded v1 element writes {w3.Bytes.Count} bytes, version {(w3.Bytes.Count > 0 ? w3.Bytes[0] : -1)}, depth -1");
         }
 
 
@@ -197,7 +216,7 @@ namespace ResortBatch
             // jump 101 → 105: one marker at 102 (covers 102..104), then 105
             C(H.Append(ref s, M(105, 5)) == H.AppendResult.AppendedAfterGap && s.Count == 4, "H-3 gap", "count " + s.Count);
             C(s[2].IsGap && s[2].m_MonthKey == 102 && s[2].m_SkiDays == -1 && s[2].m_BuildingsCost == -1 && s[2].m_SnowPct == 255 &&
-              s[2].m_Tourists == 0, "H-3 gap", "marker fields");
+              s[2].m_SnowDepthCm == -1 && s[2].m_Tourists == 0, "H-3 gap", "marker fields");
             C(!s[3].IsGap && s[3].m_MonthKey == 105 && H.LastKey(ref s) == 105, "H-3 gap", "after the marker");
             C(H.Append(ref s, M(106)) == H.AppendResult.Appended && s.Count == 5, "H-3 after gap", "count " + s.Count);
             // keys strictly increasing, markers included
@@ -260,6 +279,7 @@ namespace ResortBatch
                 m.m_SkiDays = k == 2025 * 12 + 8 ? -1 : 2;       // September 2025 unknown
                 m.m_Attraction = k == 2025 * 12 + 9 ? -1 : 40;   // October 2025 unknown
                 m.m_SnowPct = (byte)(k == 2025 * 12 + 10 ? 255 : 50);
+                m.m_SnowDepthCm = k == 2025 * 12 + 10 ? -1 : k == 2026 * 12 + 1 ? 120 : 20;   // November unknown, February 2026 deep
                 m.m_BuildingsCost = 1000;
                 m.m_WagesCost = -1;
                 if (k == 2026 * 12 + 0)
@@ -271,6 +291,8 @@ namespace ResortBatch
               b.RunCost == 84, "H-5 season sums", $"months {b.Months}, tourists {b.Tourists}, ticket {b.TicketIncome}, run {b.RunCost}");
             C(b.SkiDaysMonths == 11 && b.SkiDays == 22, "H-5 unknown ski days", $"{b.SkiDays} over {b.SkiDaysMonths}");
             C(b.Attraction == 40f && b.SnowPct == 50f, "H-5 point means", $"A {b.Attraction}, snow {b.SnowPct}");
+            // depth: 11 known months, ten at 20 cm and February at 120 = 320 / 11
+            C(Math.Abs(b.SnowDepthCm - 320f / 11f) < 1e-4f, "H-5 depth mean", $"depth {b.SnowDepthCm}, want {320f / 11f}");
             C(b.BuildingsMonths == 12 && b.BuildingsCost == 12000 && b.WagesMonths == 0, "H-5 rates", "buildings / wages known months");
             C(b.Flags == HistoryFlags.Partial, "H-5 flags", "OR of flags " + b.Flags);
             H.Bucket next = H.SumSeason(ref s, 2026);   // July, August 2026 only
@@ -419,15 +441,18 @@ namespace ResortBatch
                 PassIncome = 12, LessonIncome = 13, LiftCharged = 449.5, RunUpkeep = 99,
             };
             SkiResortHistoryMonth h = SkiResortHistoryMonth.FromLedger(m, 24000, HistoryFlags.Short);
-            C(h.m_Version == 1 && h.m_Flags == HistoryFlags.Short && h.m_MonthKey == 24000 && h.m_Tourists == 7 && h.m_Residents == 3 &&
+            C(h.m_Version == 2 && h.m_Flags == HistoryFlags.Short && h.m_MonthKey == 24000 && h.m_Tourists == 7 && h.m_Residents == 3 &&
               h.m_TicketsPaid == 6 && h.m_TicketIncome == int.MaxValue && h.m_LodgeIncome == 11 && h.m_PassIncome == 12 &&
               h.m_LessonIncome == 13 && h.m_LiftCost == 450 && h.m_RunCost == 99, "H-9 FromLedger", $"ticket {h.m_TicketIncome}, lift {h.m_LiftCost}");
-            C(h.m_SkiDays == -1 && h.m_BuildingsCost == -1 && h.m_WagesCost == -1 && h.m_Attraction == -1 && h.m_SnowPct == 255,
-              "H-9 unknowns", "snapshot fields not unknown");
+            C(h.m_SkiDays == -1 && h.m_BuildingsCost == -1 && h.m_WagesCost == -1 && h.m_Attraction == -1 && h.m_SnowPct == 255 &&
+              h.m_SnowDepthCm == -1, "H-9 unknowns", "snapshot fields not unknown");
             C(H.RoundMoney(double.NaN) == 0 && H.RoundMoney(-2.5) == -3 && H.RoundMoney(1e12) == int.MaxValue && H.ClampInt(long.MinValue) == int.MinValue,
               "H-9 money", "RoundMoney / ClampInt");
             C(SkiResortHistoryMonth.SnowByte(79.5f) == 80 && SkiResortHistoryMonth.SnowByte(0f) == 0 && SkiResortHistoryMonth.SnowByte(120f) == 100 &&
               SkiResortHistoryMonth.SnowByte(-1f) == 255 && SkiResortHistoryMonth.SnowByte(float.NaN) == 255, "H-9 snow", "SnowByte");
+            C(SkiResortHistoryMonth.DepthCm(63.5f) == 64 && SkiResortHistoryMonth.DepthCm(0f) == 0 && SkiResortHistoryMonth.DepthCm(-1f) == -1 &&
+              SkiResortHistoryMonth.DepthCm(float.NaN) == -1 && SkiResortHistoryMonth.DepthCm(float.PositiveInfinity) == -1 &&
+              SkiResortHistoryMonth.DepthCm(5e9f) == 100000, "H-9 depth", "DepthCm");
         }
 
 

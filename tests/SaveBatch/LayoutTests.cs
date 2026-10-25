@@ -58,6 +58,8 @@ namespace SaveBatch
             "SkiResortHistoryMonth v1 59 m_Flags:u8 m_MonthKey:i32 m_Tourists:i32 m_Residents:i32 m_SkiDays:i32 m_TicketsPaid:i32 " +
                 "m_TicketIncome:i32 m_LodgeIncome:i32 m_PassIncome:i32 m_LessonIncome:i32 m_LiftCost:i32 m_RunCost:i32 " +
                 "m_BuildingsCost:i32 m_WagesCost:i32 m_Attraction:i32 m_SnowPct:u8",
+            // T142 B7b (2026-10-24, before 1.0): the snow depth per month. Ships in 1.0.0, so it is listed as shipped.
+            "SkiResortHistoryMonth v2 63 m_SnowDepthCm:i32",
             "SkiResortMonthInProgress v1 142 m_Flags:u8 m_MonthKey:i32 m_FramesSimulated:i32 m_Month.TouristGuests:i32 " +
                 "m_Month.TouristParties:i32 m_Month.LocalGuests:i32 m_Month.TouristOnLeisure:i32 m_Month.TicketsPaid:i32 " +
                 "m_Month.TicketsUnpaid:i32 m_Month.TicketsFree:i32 m_Month.TicketIncome:i64 m_Month.LiftCharged:f64 " +

@@ -20,7 +20,7 @@ export const GROUP = "skiResort";
  * only when C#'s `contract` equals this; on a mismatch it shows the Build strip and the tree controls (CORE only) and
  * says why.
  */
-export const HUB_CONTRACT = 14;
+export const HUB_CONTRACT = 15;
 
 /** The `contract` value while the C# binding is absent (the fallback). Real contracts start at 1. */
 export const CONTRACT_ABSENT = 0;
@@ -601,9 +601,9 @@ export const HISTORY_FLAG = {
 /**
   * `history`: one row per live ski area (resorts order; Not linked has none), months oldest -> newest. Densified in C#:
  * index i is month firstMonthKey + i; every array has the same length n >= 1; the last entry is the month in progress (flags & Current).
- * Money in whole credits, costs positive. Rates and point values (buildingsCost, wagesCost, attraction, snowPct) are snapshots at the
+ * Money in whole credits, costs positive. Rates and point values (buildingsCost, wagesCost, attraction, snowPct, snowDepthCm) are snapshots at the
  * month's roll; for the month in progress buildings / wages are the rate x the share simulated so far. -1 = unknown in skiDays,
- * buildingsCost, wagesCost, attraction, snowPct. The view sums areas for "whole city" and buckets long ranges into July-June seasons
+ * buildingsCost, wagesCost, attraction, snowPct, snowDepthCm. The view sums areas for "whole city" and buckets long ranges into July-June seasons
  * (src/hub/historyRules.ts). C#: SkiResortHubUISystem WriteHistory (EngineNotes/SkiResortHubUISystem.md, History binding).
  */
 export interface HistoryArea {
@@ -631,6 +631,8 @@ export interface HistoryArea {
   attraction: number[];
   /** Run snow coverage 0-100 at the roll; -1 unknown. */
   snowPct: number[];
+  /** Mean snow depth on the runs at the roll, whole cm; -1 unknown (gap months, months stored before contract 15). */
+  snowDepthCm: number[];
 }
 
 /** CityStats.tripPlanner when a trip system is off and no known replacement is loaded. Manual parity with

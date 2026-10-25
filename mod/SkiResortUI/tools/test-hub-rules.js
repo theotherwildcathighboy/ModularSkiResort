@@ -553,7 +553,13 @@ function run(srcDir) {
   eq("T20.5 HISTORY_FLAG = C# HistoryFlags (stored bits) + HistoryFlagCurrent (binding only)", BIND.HISTORY_FLAG, csFlags);
   const historyUsers = allSrc.filter(([p, s]) => /\bhistory\$/.test(s) && !/bindings\.ts$/.test(p)).map(([p]) => path.relative(srcDir, p).split(path.sep).join("/"));
   eq("T20.6 history$ is subscribed only by the History view (C# builds `history` only while it is observed)", historyUsers, ["hub/HistoryView.tsx"]);
-  eq("T20.7 the History view draws no snow (the store has coverage but no depth; snow is never one number, T18)", /snowPct|snowDepth/.test(viewSrc), false);
+  // T142 B7b (contract 15): the store has the depth too, so the Attraction strip's hover names a month's snow, always as the pair
+  // (both labels, both fields, in one conditional block: neither number alone); still no snow line or series in a chart.
+  const snowBlock = (viewSrc.match(/hovered\.snowDepthCm >= 0 \|\| hovered\.snowPct >= 0\) \? \[([\s\S]*?)\] : \[\]/) || [, ""])[1];
+  eq("T20.7 History shows snow only as depth + coverage together in the strip hover (T18), never as a chart line",
+    [["HUB_LOC.mountainSnowDepth", "HUB_LOC.mountainSnowCover", "hovered.snowDepthCm", "hovered.snowPct"].map((x) => snowBlock.includes(x)),
+      (viewSrc.match(/snowPct|snowDepthCm/g) || []).length === (snowBlock.match(/snowPct|snowDepthCm/g) || []).length + 2],
+    [[true, true, true, true], true]);
   eq("T20.8 the History tile shows a glyph, not a number from `history` (ViewTiles never reads history$)", /history\$/.test(read(path.join("hub", "ViewTiles.tsx"))), false);
   // T21 source checks for what the pure rules cannot see: two money series (income blue, costs red, the validated pair) and the
   // legend Income / Costs / Net; lines take linePoints, the chart hatches gaps and has a scale gutter with "0"; the status line

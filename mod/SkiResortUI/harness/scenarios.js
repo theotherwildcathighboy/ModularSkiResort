@@ -105,13 +105,13 @@
   function historyOf(sign, firstKey, n, scale, opts) {
     const o = opts || {};
     const h = { sign, firstMonthKey: firstKey, flags: [], tourists: [], residents: [], skiDays: [], ticketsPaid: [], ticketIncome: [], lodgeIncome: [],
-      passIncome: [], lessonIncome: [], liftCost: [], runCost: [], buildingsCost: [], wagesCost: [], attraction: [], snowPct: [] };
+      passIncome: [], lessonIncome: [], liftCost: [], runCost: [], buildingsCost: [], wagesCost: [], attraction: [], snowPct: [], snowDepthCm: [] };
     const push = (m) => { for (const k of Object.keys(m)) h[k].push(m[k]); };
     for (let i = 0; i < n; i++) {
       const key = firstKey + i, month = key % 12;
       if (o.gap && o.gap.includes(key)) {
         push({ flags: 16, tourists: 0, residents: 0, skiDays: -1, ticketsPaid: 0, ticketIncome: 0, lodgeIncome: 0, passIncome: 0, lessonIncome: 0,
-          liftCost: 0, runCost: 0, buildingsCost: -1, wagesCost: -1, attraction: -1, snowPct: -1 });
+          liftCost: 0, runCost: 0, buildingsCost: -1, wagesCost: -1, attraction: -1, snowPct: -1, snowDepthCm: -1 });
         continue;
       }
       const current = i === n - 1, share = current ? 0.45 : 1;
@@ -125,6 +125,8 @@
         lessonIncome: Math.round(t * 0.04) * 80, liftCost: Math.round((i < 6 ? 3900 : 5500) * share), runCost: Math.round((f > 0.3 ? 29400 : 4400) * scale * share),
         buildingsCost: Math.round(9800 * share), wagesCost: Math.round(31200 * share), attraction: Math.round((30 + 14 * f + i * 0.3) * (scale < 1 ? 0.4 : 1)),
         snowPct: Math.round(f > 0.3 ? 70 + 25 * f : 5 + 40 * f),
+        // contract 15: the depth with the coverage (deep in midwinter, a few cm in summer); one early month unknown (an element stored before contract 15)
+        snowDepthCm: key === firstKey + 3 ? -1 : Math.round(f > 0.3 ? 30 + 90 * f : 4 * f),
       });
     }
     return h;
@@ -152,14 +154,14 @@
 
   const glade = { available: true, active: false, level: 4, treeLine: false, reason: "" };
 
-  const base = { hubOpen: false, contract: 14, buildStamp: "", showHubButton: true, build: buildItems(), glade,
+  const base = { hubOpen: false, contract: 15, buildStamp: "", showHubButton: true, build: buildItems(), glade,
     resorts: [], resortLive: [], selectedResort: NULL, runs: [], runLive: [], lifts: [], problems: [], city, pisteMap: true, follow: 0, history: [],
     liftLine: { available: true, active: false, state: "PickBase" },
     grade: { available: true, active: false, state: "" } };
 
   window.SkiScenarios = {
     "not connected (no C#)": Object.assign({}, base, { contract: 0, city: Object.assign({}, city, { known: false }) }),
-    "contract mismatch (DLL 13, UI 14)": Object.assign({}, base, { contract: 13, hubOpen: true }),
+    "contract mismatch (DLL 14, UI 15)": Object.assign({}, base, { contract: 14, hubOpen: true }),
     "connected, empty city": Object.assign({}, base, { hubOpen: true, build: buildItems({ locked: ["lodgeGrand", "liftTram", "baseStationTram", "topStationTram"] }) }),
     "Ash Flat (runs, lifts, problems)": Object.assign({}, base, { hubOpen: true, resorts, resortLive: [live, live2], selectedResort: SIGN, runs, runLive, lifts, problems, history,
       glade: Object.assign({}, glade, { active: true }), build: buildItems({ active: "runGroomed", built: ["school"] }) }),

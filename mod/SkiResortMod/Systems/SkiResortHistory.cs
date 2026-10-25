@@ -1,9 +1,10 @@
 // Pure part of the hub's history store, linked by tests/ResortBatch (HistoryTests.cs): SkiResortHistoryMonth, SkiResortMonthInProgress,
 // the ring / season / bucket ops of SkiResortHistory and the seams IHistoryWriter / IHistoryReader / IHistoryStore. The ECS halves are
 // the other `partial` in SkiResortHistorySystem.cs; the bytes are written here, so the round-trip test checks what the save gets.
-// Save layout v1 is frozen at release: no payload length is written, so never reorder, retype or rename these types, move their
-// namespace or turn the buffer into a component; a new field goes in a new ISerializable type.
-// Money in whole ₵ as int32, clamped; unknown: skiDays / buildingsCost / wagesCost / attraction -1, snowPct 255. Net is never stored.
+// Save layouts are frozen once shipped: no payload length is written, so never reorder, retype or rename these types, move their
+// namespace or turn the buffer into a component. A new field is appended under a version bump (EngineNotes/SaveLayouts.md): the
+// element is v2 since T142 (m_SnowDepthCm, B7b), a v1 element reads it as unknown.
+// Money in whole ₵ as int32, clamped; unknown: skiDays / buildingsCost / wagesCost / attraction / snowDepthCm -1, snowPct 255. Net is never stored.
 // Pure file: System, System.Collections.Generic, Unity.Mathematics (SkiMoneyRules), SkiResortLedger, HubRules and EntityRef only.
 // Engine notes: EngineNotes/SkiResortHistory.md
 
@@ -53,10 +54,12 @@ namespace SkiResortMod.Systems
 
     public partial struct SkiResortHistoryMonth
     {
-        /// <summary>Layout version this build writes. v1 is frozen (engine notes).</summary>
-        public const byte CurrentVersion = 1;
+        /// <summary>Layout version this build writes: v2 = v1 + m_SnowDepthCm (T142 B7b). v1 is frozen (engine notes).</summary>
+        public const byte CurrentVersion = 2;
         /// <summary>Bytes one v1 element takes in the save (the round-trip test pins it).</summary>
         public const int V1Bytes = 59;
+        /// <summary>Bytes one v2 element takes: v1 + int32 m_SnowDepthCm.</summary>
+        public const int V2Bytes = V1Bytes + 4;
         public const int Unknown = -1;
         public const byte SnowUnknown = 255;
 
@@ -78,6 +81,7 @@ namespace SkiResortMod.Systems
         public int m_WagesCost; // per-month rate at the roll; -1 unknown
         public int m_Attraction; // point value at the roll; -1 unknown
         public byte m_SnowPct; // 0..100 at the roll; 255 unknown
+        public int m_SnowDepthCm; // v2: area-weighted mean depth on the runs at the roll, whole cm; -1 unknown (and every v1 element)
 
         public bool IsGap => (m_Flags & HistoryFlags.Gap) != 0;
 
@@ -95,7 +99,7 @@ namespace SkiResortMod.Systems
             return new SkiResortHistoryMonth
             {
                 m_Version = CurrentVersion, m_Flags = HistoryFlags.Gap, m_MonthKey = monthKey, m_SkiDays = Unknown,
-                m_BuildingsCost = Unknown, m_WagesCost = Unknown, m_Attraction = Unknown, m_SnowPct = SnowUnknown,
+                m_BuildingsCost = Unknown, m_WagesCost = Unknown, m_Attraction = Unknown, m_SnowPct = SnowUnknown, m_SnowDepthCm = Unknown,
             };
         }
 
@@ -113,7 +117,7 @@ namespace SkiResortMod.Systems
                 m_LessonIncome = SkiResortHistory.ClampInt(m.LessonIncome),
                 m_LiftCost = SkiResortHistory.RoundMoney(m.LiftCharged),
                 m_RunCost = SkiResortHistory.ClampInt(m.RunUpkeep),
-                m_BuildingsCost = Unknown, m_WagesCost = Unknown, m_Attraction = Unknown, m_SnowPct = SnowUnknown,
+                m_BuildingsCost = Unknown, m_WagesCost = Unknown, m_Attraction = Unknown, m_SnowPct = SnowUnknown, m_SnowDepthCm = Unknown,
             };
         }
 
@@ -125,7 +129,17 @@ namespace SkiResortMod.Systems
             return (byte)Math.Min(100, (int)Math.Round(pct, MidpointRounding.AwayFromZero));
         }
 
-        /// <summary>v1 layout, byte for byte (Engine notes: Save layout v1). Version first, always CurrentVersion.</summary>
+        /// <summary>Snow depth for the element (ResortLive.SnowDepthCm): whole cm, rounded; not finite or below 0 gives -1 (unknown);
+        /// clamped to 100,000 cm (1 km, far above any snow) so a stray value never wraps.</summary>
+        public static int DepthCm(float cm)
+        {
+            if (float.IsNaN(cm) || float.IsInfinity(cm) || cm < 0f)
+                return Unknown;
+            return (int)Math.Min(100000.0, Math.Round(cm, MidpointRounding.AwayFromZero));
+        }
+
+        /// <summary>v2 layout, byte for byte (Engine notes: Save layout): the v1 fields, then m_SnowDepthCm. Version first, always
+        /// CurrentVersion.</summary>
         public void WriteTo<TWriter>(ref TWriter w) where TWriter : IHistoryWriter
         {
             byte version = CurrentVersion;
@@ -146,9 +160,11 @@ namespace SkiResortMod.Systems
             w.Write(m_WagesCost);
             w.Write(m_Attraction);
             w.Write(m_SnowPct);
+            w.Write(m_SnowDepthCm);   // v2
         }
 
-        /// <summary>v1 layout (frozen, see engine notes).</summary>
+        /// <summary>v1 fields (frozen, see engine notes), then the v2 field when the element is v2 or newer; a v1 element reads
+        /// m_SnowDepthCm as unknown.</summary>
         public void ReadFrom<TReader>(ref TReader r) where TReader : IHistoryReader
         {
             r.Read(out m_Version);
@@ -168,6 +184,10 @@ namespace SkiResortMod.Systems
             r.Read(out m_WagesCost);
             r.Read(out m_Attraction);
             r.Read(out m_SnowPct);
+            if (m_Version >= 2)
+                r.Read(out m_SnowDepthCm);
+            else
+                m_SnowDepthCm = Unknown;
         }
     }
 
@@ -367,6 +387,7 @@ namespace SkiResortMod.Systems
             public long WagesCost; public int WagesMonths;
             public float Attraction; // mean over months known; -1 none
             public float SnowPct; // mean over months known; -1 none
+            public float SnowDepthCm; // mean over months known (v2 elements); -1 none
             public long Income => TicketIncome + LodgeIncome + PassIncome + LessonIncome;
             public long Guests => Tourists + Residents;
         }
@@ -374,9 +395,9 @@ namespace SkiResortMod.Systems
         /// <summary>The bucket of months <paramref name="firstKey"/>..<paramref name="lastKey"/> (inclusive).</summary>
         public static Bucket Sum<TStore>(ref TStore store, int firstKey, int lastKey) where TStore : IHistoryStore
         {
-            Bucket b = new Bucket { FirstKey = firstKey, LastKey = lastKey, Attraction = -1f, SnowPct = -1f };
-            long attrSum = 0, snowSum = 0;
-            int attrN = 0, snowN = 0;
+            Bucket b = new Bucket { FirstKey = firstKey, LastKey = lastKey, Attraction = -1f, SnowPct = -1f, SnowDepthCm = -1f };
+            long attrSum = 0, snowSum = 0, depthSum = 0;
+            int attrN = 0, snowN = 0, depthN = 0;
             for (int i = 0; i < store.Count; i++)
             {
                 SkiResortHistoryMonth m = store[i];
@@ -398,11 +419,14 @@ namespace SkiResortMod.Systems
                 if (m.m_WagesCost >= 0) { b.WagesCost += m.m_WagesCost; b.WagesMonths++; }
                 if (m.m_Attraction >= 0) { attrSum += m.m_Attraction; attrN++; }
                 if (m.m_SnowPct != SkiResortHistoryMonth.SnowUnknown) { snowSum += m.m_SnowPct; snowN++; }
+                if (m.m_SnowDepthCm >= 0) { depthSum += m.m_SnowDepthCm; depthN++; }
             }
             if (attrN > 0)
                 b.Attraction = (float)attrSum / attrN;
             if (snowN > 0)
                 b.SnowPct = (float)snowSum / snowN;
+            if (depthN > 0)
+                b.SnowDepthCm = (float)depthSum / depthN;
             return b;
         }
 

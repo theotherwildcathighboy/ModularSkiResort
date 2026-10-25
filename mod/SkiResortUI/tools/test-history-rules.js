@@ -40,16 +40,16 @@ function load(srcDir, ts) {
 /* An area of n months from `first`; fill(i) returns overrides of the month's defaults. */
 function area(first, n, fill) {
   const a = { sign: { index: 1, version: 1 }, firstMonthKey: first, flags: [], tourists: [], residents: [], skiDays: [], ticketsPaid: [], ticketIncome: [],
-    lodgeIncome: [], passIncome: [], lessonIncome: [], liftCost: [], runCost: [], buildingsCost: [], wagesCost: [], attraction: [], snowPct: [] };
+    lodgeIncome: [], passIncome: [], lessonIncome: [], liftCost: [], runCost: [], buildingsCost: [], wagesCost: [], attraction: [], snowPct: [], snowDepthCm: [] };
   for (let i = 0; i < n; i++) {
     const m = Object.assign({ flags: 0, tourists: 0, residents: 0, skiDays: -1, ticketsPaid: 0, ticketIncome: 0, lodgeIncome: 0, passIncome: 0,
-      lessonIncome: 0, liftCost: 0, runCost: 0, buildingsCost: -1, wagesCost: -1, attraction: -1, snowPct: -1 }, fill(i));
+      lessonIncome: 0, liftCost: 0, runCost: 0, buildingsCost: -1, wagesCost: -1, attraction: -1, snowPct: -1, snowDepthCm: -1 }, fill(i));
     for (const k of Object.keys(m)) a[k].push(m[k]);
   }
   return a;
 }
 
-const GAP = { flags: 16, tourists: 0, residents: 0, skiDays: -1, buildingsCost: -1, wagesCost: -1, attraction: -1, snowPct: -1 };
+const GAP = { flags: 16, tourists: 0, residents: 0, skiDays: -1, buildingsCost: -1, wagesCost: -1, attraction: -1, snowPct: -1, snowDepthCm: -1 };
 
 function run(srcDir) {
   const ts = require("typescript");
@@ -155,6 +155,20 @@ function run(srcDir) {
   eq("TH9.6 a whole-city month no area recorded is a hatched gap", [R.gapSlots(R.compareOf(R.sumAreas([A, B]), "seasonVs"))], [[11]]);
   const yN = { now: { net: 500 }, before: { net: 5000 } };
   eq("TH9.7 netChange: the year-on-year change in money (not a %), null without both months", [R.netChange(yN), R.netChange(R.yearOnYear(A)), R.netChange(R.yearOnYear(B)), R.netChange(R.yearOnYear(null))], [-4500, 0, null, null]);
+  // TH10 (T142 B7b): snow depth per month, contract 15. Point value like the coverage: averaged over the months that know it, the
+  // areas averaged in Whole city; a missing or short snowDepthCm array reads unknown and never shortens the other series.
+  const F = area(24303, 3, (i) => ({ tourists: 1, snowPct: 80, snowDepthCm: [100, -1, 40][i] }));
+  const F2 = area(24303, 3, (i) => ({ tourists: 2, snowPct: 60, snowDepthCm: [200, 50, -1][i] }));
+  const fS = R.seasonBuckets(F, 2024, 2024)[0];
+  const fM = R.windowOf(F, "months12").filter((b) => !b.none).map((b) => b.snowDepthCm);
+  eq("TH10.1 depth: a month bucket keeps its value (-1 unknown), a season averages the months that know it", [fM, fS.snowDepthCm, fS.snowPct], [[100, -1, 40], 70, 80]);
+  const G = Object.assign({}, F); delete G.snowDepthCm;
+  const H = Object.assign({}, F, { snowDepthCm: [100] });
+  eq("TH10.2 no / short depth array: lengthOf unchanged, depth unknown where absent, flows intact",
+    [R.lengthOf(G), R.seasonBuckets(G, 2024, 2024)[0].snowDepthCm, R.seasonBuckets(G, 2024, 2024)[0].tourists, R.lengthOf(H), R.seasonBuckets(H, 2024, 2024)[0].snowDepthCm, R.depthAt(H, 2)],
+    [3, -1, 3, 3, 100, -1]);
+  const cityF = R.sumAreas([F, F2]);
+  eq("TH10.3 Whole city: depth is the mean of the areas that know it, like the coverage", [cityF.snowDepthCm, cityF.snowPct], [[150, 50, 40], [70, 70, 70]]);
   return { checks, failures };
 }
 

@@ -2,7 +2,8 @@
  * src/hub/HistoryView.tsx - the History view: guests and money month by month, by ski season for long ranges.
  * Top level shows the chart and the number that matters (headline = last whole month against the same month a year earlier); tooltips
  * hold the detail. Controls are local values (hubState.ts, nothing sent): scope area / whole city, charts, range, Attraction strip.
- * Snow is not drawn: the store has run coverage but no depth, and the hub never shows snow as one number. Hover: one index shared by
+ * Snow is not drawn as a line: the Attraction strip's hover names each month's snow at the roll as its two numbers, depth and run
+ * coverage (T142 B7b, contract 15; snow is never one number). Hover: one index shared by
  * every chart of the view. Panel file (gate R11): subscribes history$ (only this view, so C# builds `history` only while it is shown),
  * resorts$, selectedResort$.
  */
@@ -24,7 +25,7 @@ import {
 import type { HistoryBucket, HistoryCharts, HistoryRange } from "./historyRules";
 import { historyAttraction$, historyCharts$, historyRange$, historyScope$ } from "./hubState";
 import { HUB_FMT, HUB_LOC, monthName, monthShortName } from "./hubText";
-import { CheckBox, InfoLine, LocText, Num, SignedNum, StableWidth, Tip, TipLines, cx, numArg, useNumberSamples } from "./parts";
+import { CheckBox, InfoLine, LocText, Num, SignedNum, StableWidth, Tip, TipLines, cx, depthValue, numArg, useInches, useNumberSamples } from "./parts";
 import type { NumberSamples, TipLine } from "./parts";
 import { currentResort, resortEntries } from "./resortData";
 import styles from "./hub.module.scss";
@@ -148,6 +149,7 @@ export function HistoryView(): JSX.Element {
   const rangeRaw = useValue(historyRange$);
   const chartsRaw = useValue(historyCharts$);
   const attractionOn = useValue(historyAttraction$);
+  const inches = useInches();   // snow depth in the player's units (T130)
   const [hover, setHover] = useState(-1);
   const cur = currentResort(resortEntries(resorts), selected);
   const signRow = cur.row && !cur.isUnlinked ? cur.row : null;
@@ -380,7 +382,14 @@ export function HistoryView(): JSX.Element {
   // ---- Attraction strip (own scale: never a second axis on a chart; area scope only)
   const attrTip = hovered
     ? head([bucketTitle(hovered, t), stateLine(hovered, t),
-      !hovered.none && { label: t(HUB_LOC.historyAttraction), value: hovered.attraction >= 0 ? <Num value={round(hovered.attraction)} unit={Unit.Integer} /> : "–" }])
+      !hovered.none && { label: t(HUB_LOC.historyAttraction), value: hovered.attraction >= 0 ? <Num value={round(hovered.attraction)} unit={Unit.Integer} /> : "–" },
+      // B7b: the month's snow, always the two numbers together (one may read "–" for a month stored before contract 15)
+      ...(!hovered.none && (hovered.snowDepthCm >= 0 || hovered.snowPct >= 0) ? [
+        { label: t(HUB_LOC.mountainSnowDepth), value: hovered.snowDepthCm < 0 ? "–" : inches
+          ? <LocText entry={HUB_FMT.snowDepthIn} args={{ DEPTH: numArg(depthValue(round(hovered.snowDepthCm), true), Unit.Integer) }} />
+          : <LocText entry={HUB_FMT.snowDepth} args={{ DEPTH: numArg(round(hovered.snowDepthCm), Unit.Integer) }} /> },
+        { label: t(HUB_LOC.mountainSnowCover), value: hovered.snowPct >= 0 ? <Num value={round(hovered.snowPct)} unit={Unit.Percentage} /> : "–" },
+      ] : [])])
     : t(HUB_LOC.historyTipAttraction);
   const attractionBlock = attraction ? (
     <>

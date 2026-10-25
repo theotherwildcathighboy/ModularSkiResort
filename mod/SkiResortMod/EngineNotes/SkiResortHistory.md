@@ -11,14 +11,15 @@ Pure part of the hub's history store, linked by tests/ResortBatch (HistoryTests.
   season / bucket sums (the July-June ski year of `SkiMoneyRules.SeasonKeyOf`), and the run-upkeep split.
 - `IHistoryWriter` / `IHistoryReader` / `IHistoryStore`: the seams to Colossal's `IWriter` / `IReader` and to `DynamicBuffer`.
 
-## Save layout v1 (frozen at release)
+## Save layout v2 (frozen at release)
 
-`SkiResortHistoryMonth`, 59 bytes, little-endian (Colossal `BinaryWriter`):
+`SkiResortHistoryMonth` v2, 63 bytes, little-endian (Colossal `BinaryWriter`); v1 (59 bytes, the same without the last field)
+still loads, its depth reads -1 (T142 B7b, 2026-10-24, the pre-1.0 append the paragraph below allows):
 
 ```
 byte version | byte flags | int32 monthKey | int32 tourists | int32 residents | int32 skiDays | int32 ticketsPaid |
 int32 ticketIncome | int32 lodgeIncome | int32 passIncome | int32 lessonIncome | int32 liftCost | int32 runCost |
-int32 buildingsCost | int32 wagesCost | int32 attraction | byte snowPct
+int32 buildingsCost | int32 wagesCost | int32 attraction | byte snowPct | int32 snowDepthCm (v2)
 ```
 
 `SkiResortMonthInProgress`, 142 bytes: see its LAYOUT comment.
