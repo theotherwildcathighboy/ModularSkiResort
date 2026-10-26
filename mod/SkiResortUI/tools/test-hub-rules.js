@@ -360,9 +360,9 @@ function run(srcDir) {
   eq("T17.3 spot rows", [kindTabs.sign, kindTabs.lodgeGrand, kindTabs.school, kindTabs.patrolHQ, kindTabs.liftTram, kindTabs.topStationGondola, kindTabs.runNight],
     ["buildings", "buildings", "buildings", "buildings", "lifts", "lifts", "runs"]);
   // The safety net fence (a net prefab drawn like a path) is a Runs-tab tile of its own kind, not a run item and not a lift or a building.
-  eq("T17.3b the safety fence: kind fence, Runs tab, not a run item, its own group, a Media/ icon",
+  eq("T17.3b the safety fence: kind fence, Runs tab, not a run item, its own group, its own style-E icon (SkiSafetyFence.png, 2026-10-26)",
     [META.find((m) => m.id === "safetyFence").kind, kindTabs.safetyFence, R.RUN_ITEMS.has("safetyFence"), R.runKindOfItem("safetyFence"), R.tabOfKind("fence"),
-      ITEMS.BUILD_GROUPS.filter((g) => g.includes("safetyFence")).map((g) => g.length), ITEMS.BUILD_ITEM_ICON.safetyFence.startsWith("Media/"),
+      ITEMS.BUILD_GROUPS.filter((g) => g.includes("safetyFence")).map((g) => g.length), ITEMS.BUILD_ITEM_ICON.safetyFence === "assetdb://global/0e39601f806f95d2a8a542e3575d7e75",
       R.runToolActive([{ id: "safetyFence", active: true, locked: false, reason: "" }], false)],
     ["fence", "runs", false, undefined, "runs", [1], true, false]);
   eq("T17.4 tabOfItem of an unknown id / null", [R.tabOfItem("nope", META), R.tabOfItem(null, META), R.tabOfKind("weird")], [null, null, null]);

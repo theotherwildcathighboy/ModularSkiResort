@@ -89,8 +89,7 @@ export const BUILD_ITEM_ICON: Readonly<Record<BuildItemId, string>> = {
   runSnowmaking: "assetdb://global/bc121f42eed0fd6829eacccc5b69b4f8", // SkiRunSnowmakingA.Prefab:65
   runNight: "assetdb://global/a239eef8d124c3ec467a5d8afaa7e447", // SkiRunNightA.Prefab:65
   runCatTrack: "assetdb://global/746a4b7f2c2ea595edf43d1ecc8a8520", // SkiRunCatTrackA.Prefab:65 (SkiRunCatTrackA.png)
-  // The vanilla fence icon the prefab itself carries (SkiSafetyFence.Prefab UIObject m_Icon); a Media/ path, drawn like Media/Glyphs/*.svg
-  safetyFence: "Media/Game/Icons/Fences/TallIndustrialChainLinkFence.svg",
+  safetyFence: "assetdb://global/0e39601f806f95d2a8a542e3575d7e75", // SkiSafetyFence.png (SkiSafetyFence.Prefab UIObject m_Icon)
 };
 
 /** Four groups in build order (gate R16 checks every id appears exactly once). Group 1's lodge tiers and group 3's

@@ -622,7 +622,7 @@ CONTACT_LABEL = {
     "SkiTramBaseStationBuilding": "TRAM BASE", "SkiTramTopStationBuilding": "TRAM TOP",
     "SkiTramLine": "TRAM LINE",
     "SkiRunNaturalA": "NATURAL", "SkiRunGroomedA": "GROOMED", "SkiRunSnowmakingA": "SNOWMAKING",
-    "SkiRunNightA": "NIGHT",
+    "SkiRunNightA": "NIGHT", "SkiSafetyFence": "SAFETY FENCE",
 }
 LODGES = ["SkiAFrameDayLodge", "SkiLodgeHut", "SkiLodgeMid", "SkiLodgeSummit", "SkiLodgeGrand"]
 CIVIC = ["SkiSchool", "SkiPatrolHut", "SkiPatrolHQ"]
@@ -631,6 +631,7 @@ LIFT_TYPES = [["SkiBaseStationBuilding", "SkiTopStationBuilding", "SkiChairliftL
               ["SkiGondolaBaseStationBuilding", "SkiGondolaTopStationBuilding", "SkiGondolaLine"],
               ["SkiTramBaseStationBuilding", "SkiTramTopStationBuilding", "SkiTramLine"]]
 RUNS = ["SkiRunNaturalA", "SkiRunGroomedA", "SkiRunSnowmakingA", "SkiRunNightA"]
+FENCE = si.FENCE_NEW                # the Runs tab's decor group after the runs (buildItems.ts BUILD_GROUPS)
 NEW_COL = (255, 196, 70)            # round-2 labels (the hub's amber)
 
 
@@ -692,7 +693,7 @@ def draw_groups(cv, icons, groups, x0, y0, s, u, gap_cell=4.0, gap_group=12.0, l
 
 
 def make_contact_sheet(icons, path):
-    W = 1880
+    W = 2040                        # 2026-10-26: the x3 strips grew by the fence group
     cv = Canvas(W, 2600, (34, 38, 46))
     hd, sub, note = (236, 240, 244), (190, 200, 212), (170, 182, 196)
     y = 16
@@ -708,7 +709,7 @@ def make_contact_sheet(icons, path):
             "LIFT TYPES (BASE 1, TOP 2, LINE 3) / RUNS", 20, y, 2, hd)
     y += 24
     s64 = 64.0 / 30.0
-    for groups in ([["SkiResortGate"] + LODGES, CIVIC], LIFT_TYPES, [RUNS]):
+    for groups in ([["SkiResortGate"] + LODGES, CIVIC], LIFT_TYPES, [RUNS, FENCE]):
         _, h = draw_groups(cv, icons, groups, 20, y, s64, 1, labels=True)
         y += h + 12
     y += 14
@@ -719,7 +720,7 @@ def make_contact_sheet(icons, path):
     pairs = list(zip(LODGES[:4], LIFT_TYPES)) + [(LODGES[4], LIFT_TYPES[3])]
     strips = []
     for lodge, lift in pairs:
-        groups = [["SkiResortGate", lodge], CIVIC, lift, RUNS]
+        groups = [["SkiResortGate", lodge], CIVIC, lift, RUNS, FENCE]
         cv.text(f"{CONTACT_LABEL[lodge]} + {CONTACT_LABEL[lift[0]].split()[0]}", 20, y + 18, 2, sub)
         w, h = draw_groups(cv, icons, groups, 300, y, 1.0, 1)
         strips.append((y, w, h))
@@ -782,7 +783,7 @@ def main():
     args = ap.parse_args(sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else sys.argv[1:])
     os.makedirs(args.out, exist_ok=True)
     if args.contact:
-        icons = {name: si.render(name)[0] for name in si.STRIP_ORDER}
+        icons = {name: si.render(name)[0] for name in si.STRIP_ORDER + FENCE}
         path = os.path.join(args.out, args.name)
         make_contact_sheet(icons, path)
         print(f"wrote {path}")

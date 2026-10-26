@@ -15,7 +15,7 @@
                 "active": true,
                 "m_Group": $fstrref:"UnityGUID:05564431524791c48846dbd183fd232d",
                 "m_Priority": 1000,
-                "m_Icon": "Media/Game/Icons/Fences/TallIndustrialChainLinkFence.svg",
+                "m_Icon": "assetdb://global/0e39601f806f95d2a8a542e3575d7e75",
                 "m_IsDebugObject": false
             },
             {

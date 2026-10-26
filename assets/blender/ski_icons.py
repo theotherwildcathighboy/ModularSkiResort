@@ -1120,6 +1120,43 @@ def icon_run_cattrack():
     ly += two_tone(blade, above(sy(y0 - 8.0)), STEEL_LIT, STEEL_SHADE)
     return ly
 
+
+# Safety fence (2026-10-26; the Runs tab's fence tile, prefab SkiSafetyFence, asset fences/A/SkiSafetyNetA): the
+# orange net on dark posts set into the family slope, running along it (base = the skyline dropped by
+# FENCE_DROP, posts plumb). The net is a solid orange band behind a diamond mesh: the strands are the lit tone,
+# the cells the snow showing through an orange veil, so at 28 px it reads as one orange band with dark ticks.
+FENCE_DROP, FENCE_H, FENCE_X = 44.0, 58.0, (36.0, 196.0)
+FENCE_POSTS = (44.0, 82.0, 120.0, 158.0, 192.0)
+FENCE_MESH, FENCE_STRAND = 11.0, 2.6
+NET_LIT, NET_SHADE, NET_CORD = (246, 98, 38), (214, 70, 34), (176, 52, 30)
+FPOST_LIT, FPOST_SHADE = (78, 86, 100), (40, 46, 58)
+
+
+def icon_safety_fence():
+    sc = RunScene()
+    ly = list(sc.layers)
+    x0, x1 = FENCE_X
+    xs = np.linspace(x0, x1, 40).tolist()
+    base = [(x, ry(x) + FENCE_DROP) for x in xs]
+    top = [(x, y - FENCE_H) for x, y in base]
+    net = sd_polygon(top + base[::-1])
+    ly.append(L(sd_polygon([(x + 6.0, y - 2.0) for x, y in base] + [(x + 14.0, y + 7.0) for x, y in base[::-1]]),
+                SHADOW, 0.30))
+    ly.append(L(net, NET_SHADE, 0.55))
+    p = FENCE_MESH
+    fam = []
+    for s in (X + Y, X - Y):
+        m = np.mod(s, p)
+        fam.append((p / 2.0 - np.abs(m - p / 2.0)) / np.sqrt(2.0) - FENCE_STRAND / 2.0)
+    ly.append(L(inter(net, union(*fam)), NET_LIT))
+    ly.append(L(sd_polyline(top, 4.5), NET_CORD))
+    ly.append(L(sd_polyline(base, 3.0), NET_CORD))
+    for px in FENCE_POSTS:
+        by = ry(px) + FENCE_DROP
+        post = sd_segment(px, by + 4.0, px, by - FENCE_H - 7.0, 6.5)
+        ly += two_tone(post, left_of(px), FPOST_LIT, FPOST_SHADE)
+    return ly
+
 # ---------------------------------------------------------------------------------------------
 # The hub launcher (SkiResortTab.png; not a Build-strip tile; Round F7 E1, 2026-10-04)
 # ---------------------------------------------------------------------------------------------
@@ -2169,11 +2206,13 @@ ICONS = {
     "SkiRunSnowmakingA": icon_run_snowmaking,           # runSnowmaking
     "SkiRunNightA": icon_run_night,                     # runNight
     "SkiRunCatTrackA": icon_run_cattrack,               # runCatTrack     (T38; was the groomed tile's icon)
+    "SkiSafetyFence": icon_safety_fence,                # safetyFence     (2026-10-26; was the vanilla chain-link SVG)
 }
 # T38 (2026-10-17): the cat track tile is new (it had borrowed the groomed tile's icon); the 25-tile review
 # sheets and ROUND2 keep their meaning, so it is listed apart.
 T38_NEW = ["SkiRunCatTrackA"]
-STRIP_ORDER = [n for n in ICONS if n not in T38_NEW]
+FENCE_NEW = ["SkiSafetyFence"]      # 2026-10-26, listed apart for the same reason
+STRIP_ORDER = [n for n in ICONS if n not in T38_NEW + FENCE_NEW]
 # the nine tiles of the 2026-10-04 style-E round (reproduced byte for byte; ski_icons_sheet.py's
 # default sheet shows these)
 E1_NINE = ["SkiResortGate", "SkiAFrameDayLodge", "SkiBaseStationBuilding", "SkiTopStationBuilding",
