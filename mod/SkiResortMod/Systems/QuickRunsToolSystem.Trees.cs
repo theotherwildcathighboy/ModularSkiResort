@@ -7,7 +7,9 @@
 // trees) or one species from every tree prefab with wood (SkiGladeSpecies). Plant runs in slices of FillerSliceTrees, one Apply each, and
 // continues by itself until the slope is complete ("Planting trees 2,400 / 9,000"; right click stops after the slice in flight, every
 // applied slice stays planted and undoable). Undo in the same session deletes the planted batch with the bulldoze definition (vanilla
-// refunds Recent trees).
+// refunds Recent trees) in slices of the glade cap MaxRemovePerApply, one Apply each ("Removing trees 4,000 / 9,000"; right click stops
+// after the slice in flight, the rest stays undoable). While the preview is on, an edit (tree line, species, level, corners) only marks
+// the plan dirty: the compose runs TreeDebounceFrames after the last edit; the planting slices, trees on and Plant re-plan at once.
 // Engine notes: EngineNotes/QuickRunsToolSystem.md (Tree filler)
 
 using System;
@@ -35,6 +37,8 @@ namespace SkiResortMod.Systems
         private const int ContourSide = 65;      // contour grid (64 x 64 cells over the region's bounds)
         /// <summary>Trees per Apply while planting (within the glade caps): smoothness over speed, the slices continue by themselves.</summary>
         internal const int FillerSliceTrees = 2000;
+        /// <summary>Frames after the last edit before the preview re-composes (one compose per burst of clicks, not one per click).</summary>
+        internal const int TreeDebounceFrames = 15;
 
         /// <summary>Group chip indices the hub sends (hubText QUICK_GROUP[*]).</summary>
         internal const int GroupConifer = 0, GroupDeciduous = 1, GroupPalm = 2, GroupAll = 3;
@@ -58,7 +62,13 @@ namespace SkiResortMod.Systems
 
         private bool m_TreesOn, m_TreesDirty, m_TreeSnapStale = true, m_TreeLineStale = true, m_TreeLineAuto = true;
         private bool m_TreesEmitPending, m_TreesPreviewReady, m_TreeApplyRequested, m_ApplyingTrees, m_TreeBatchFresh;
-        private int m_TreeUndoStage;   // 0 none, 1 thin definitions emitted (apply next frame)
+        private int m_TreeUndoStage;   // 0 none, 1 thin definitions of a slice emitted (apply next frame), 2 emit the next slice
+        private bool m_Removing;       // Undo trees: slices of m_TreeBatch[m_RemoveCursor..] apply until the batch is gone or stopped
+        private int m_RemoveCursor, m_RemoveSliceEnd, m_RemoveSliceEmitted, m_RemoveDone, m_RemoveTotal, m_RemoveSlices;
+        private long m_RemoveStartTicks;
+        private int m_TreesDirtyFrame, m_TreesCleanFrame;   // frame of the last debounced edit / of the last compose
+        private bool m_TreesComposeNow;                     // dirty without debounce (trees on, Plant, the planting slices)
+        private bool m_PlantAfterCompose;               // Plant pressed while dirty: plant once the fresh plan is emitted
         private byte m_TreeLevel = SkiGladeCompose.DefaultLevel, m_ApplyingTreeLevel;
         private float m_TreeLine = float.PositiveInfinity, m_GroundMin, m_GroundMax;
         private int m_TreeGroup = GroupConifer, m_SpeciesPick = -1;
@@ -100,6 +110,10 @@ namespace SkiResortMod.Systems
         /// <summary>Trees still to plant for the target (the whole slope, not one slice); the hub's and the tooltip's count.</summary>
         internal int TreeToPlant => math.max(m_TreePlant, m_TreeTarget - m_TreeNow);
         internal bool Planting => m_Planting;
+        /// <summary>"Removing trees N / M": the undo in flight (trees removed / trees it set out to remove).</summary>
+        internal bool RemovingTrees => m_Removing;
+        internal int RemoveDone => m_RemoveDone;
+        internal int RemoveTotal => math.max(m_RemoveTotal, m_RemoveDone);
         /// <summary>"Planting trees N / M": trees planted by this Plant / trees it set out to plant.</summary>
         internal int PlantDone => math.clamp(m_PlantPlanted, 0, math.max(m_PlantTotal, m_PlantPlanted));
         internal int PlantTotal => math.max(m_PlantTotal, m_PlantPlanted);
@@ -163,7 +177,7 @@ namespace SkiResortMod.Systems
                     return;
                 }
                 m_TreesOn = true;
-                m_TreesDirty = true;
+                MarkTreesDirty(false);
                 m_TreeLineStale = true;
                 ResolveSpecies();
                 Say($"QuickRuns [trees]: ON ({why}) — {SpeciesText()}, level {m_TreeLevel}");
@@ -172,6 +186,8 @@ namespace SkiResortMod.Systems
             {
                 if (m_Planting)
                     FinishPlanting("stopped: trees turned off");
+                if (m_Removing)
+                    FinishRemoving("stopped: trees turned off", cancelInFlight: true);
                 ClearTreePreview();
                 m_TreesOn = false;
                 Say($"QuickRuns [trees]: off ({why})");
@@ -184,6 +200,8 @@ namespace SkiResortMod.Systems
         {
             m_TreesOn = m_TreesDirty = m_TreesEmitPending = m_TreesPreviewReady = m_TreeApplyRequested = m_Planting = false;
             m_TreeUndoStage = 0;
+            m_Removing = m_PlantAfterCompose = false;
+            m_TreesComposeNow = false;
             m_TreeSnapStale = m_TreeLineStale = true;
             m_TreeLineAuto = true;
             m_ContourCount = 0;
@@ -210,6 +228,19 @@ namespace SkiResortMod.Systems
             }
             if (m_Planting)
                 return;   // already planting: the slices continue by themselves
+            if (m_Removing)
+            {
+                Say($"QuickRuns [trees]: plant refused ({why}) — trees are being removed (Stop first)");
+                return;
+            }
+            if (m_TreesDirty)
+            {
+                // The preview on screen is older than the last edit (debounce) or not validated yet: plant from the fresh plan
+                m_PlantAfterCompose = true;
+                MarkTreesDirty(false);
+                Say($"QuickRuns [trees]: plant ({why}) waits for the re-plan of the last edit");
+                return;
+            }
             if (m_TreePlant + m_TreeRemove == 0)
             {
                 Say($"QuickRuns [trees]: nothing to plant ({why}) — the region already has this density", NoticeKey("TREES_COMPLETE"));
@@ -228,6 +259,8 @@ namespace SkiResortMod.Systems
         /// <summary>Right click or the hub's Stop while planting: the slice in flight finishes, no further slice is applied.</summary>
         private void StopPlanting(string why)
         {
+            if (m_Removing)
+                FinishRemoving("stopped (" + why + ")", cancelInFlight: false);   // the slice in flight still applies
             if (!m_Planting)
                 return;
             m_TreeApplyRequested = false;
@@ -241,13 +274,15 @@ namespace SkiResortMod.Systems
             bool stopped = how.StartsWith("stopped", StringComparison.Ordinal);
             Say(string.Format(CultureInfo.InvariantCulture,
                 "QuickRuns [trees]: PLANTING {0} — {1} tree(s) planted in {2} slice(s), {3:F0} ms wall; {4} tree(s) undoable this session",
-                how.ToUpperInvariant(), m_PlantPlanted, m_PlantSlices, MsSince(m_PlantStartTicks), m_TreeBatch.Count),
+                how.ToUpperInvariant(), m_PlantPlanted, m_PlantSlices, QuickRunsRules.MsSince(m_PlantStartTicks), m_TreeBatch.Count),
                 notice ? NoticeKey(stopped ? "TREES_STOPPED" : "TREES_PLANTED") : null);
             Bump();
         }
 
         private void RequestTreeUndo(string why)
         {
+            if (m_Removing)
+                return;   // already removing: the slices continue by themselves
             if (m_Planting)
                 StopPlanting("undo");
             int alive = 0;
@@ -261,22 +296,98 @@ namespace SkiResortMod.Systems
                 return;
             }
             ClearTreePreview();
+            m_PlantAfterCompose = false;
+            m_Removing = true;
+            m_RemoveCursor = m_RemoveDone = m_RemoveSlices = 0;
+            m_RemoveTotal = alive;
+            m_RemoveStartTicks = System.Diagnostics.Stopwatch.GetTimestamp();
+            Say($"QuickRuns [trees]: undo ({why}) — {alive} planted tree(s) to remove in slices of {SkiGladeToolSystem.Tuning.MaxRemovePerApply}; " +
+                "right click stops after a slice");
+            EmitRemoveSlice();
+        }
+
+        /// <summary>Thin definitions for the next MaxRemovePerApply live trees of the batch from m_RemoveCursor (the glade cap compose
+        /// uses); they apply on the next frame (UpdateTreesCycle stage 1).</summary>
+        private void EmitRemoveSlice()
+        {
             applyMode = ApplyMode.Clear;
             m_Deps = DestroyDefinitions(m_DefinitionQuery, m_Barrier, m_Deps);
             EntityCommandBuffer ecb = m_Barrier.CreateCommandBuffer();
-            int emitted = 0;
-            foreach (Entity e in m_TreeBatch)
-                if (SkiGladeToolSystem.EmitThinDefinition(EntityManager, ecb, e, out float3 _))
+            int cap = SkiGladeToolSystem.Tuning.MaxRemovePerApply, emitted = 0, i = m_RemoveCursor;
+            for (; i < m_TreeBatch.Count && emitted < cap; i++)
+                if (SkiGladeToolSystem.EmitThinDefinition(EntityManager, ecb, m_TreeBatch[i], out float3 _))
                     emitted++;
+            m_RemoveSliceEnd = i;
+            m_RemoveSliceEmitted = emitted;
             m_TreeUndoStage = 1;
-            Say($"QuickRuns [trees]: undo ({why}) — {emitted} removal(s) emitted for the planted batch, applying next frame");
+            if (SkiResortSettings.DiagnosticsOn)
+                Mod.Log.Info($"QuickRuns [probe] removing slice {m_RemoveSlices + 1}: {emitted} removal(s) emitted (batch {m_RemoveCursor}..{i} of " +
+                             $"{m_TreeBatch.Count}), applying next frame");
+        }
+
+        /// <summary>Ends an undo. The applied part leaves the batch; the rest stays undoable. <paramref name="cancelInFlight"/>: the
+        /// slice emitted but not applied is dropped (its definitions cleared) instead of applying.</summary>
+        private void FinishRemoving(string how, bool cancelInFlight)
+        {
+            m_Removing = false;
+            if (m_TreeUndoStage == 1 && !cancelInFlight)
+                return;   // the slice in flight applies next frame; UpdateTreesCycle then closes (m_Removing is false)
+            if (m_TreeUndoStage == 1)
+            {
+                // Nothing of that slice applied: its definitions go (the ClearTreePreview idiom) and it stays in the batch
+                applyMode = ApplyMode.Clear;
+                m_Deps = DestroyDefinitions(m_DefinitionQuery, m_Barrier, m_Deps);
+            }
+            CloseRemoving(how);   // stage 2 (between slices) or 0: nothing in flight
+        }
+
+        private void CloseRemoving(string how)
+        {
+            m_Removing = false;
+            m_TreeUndoStage = 0;
+            m_TreeBatch.RemoveRange(0, math.min(m_RemoveCursor, m_TreeBatch.Count));
+            m_RemoveCursor = 0;
+            if (m_TreeBatch.Count == 0)
+                m_TreeBatchFresh = false;
+            if (m_TreesOn)
+                MarkTreesDirty(true);
+            bool stopped = how.StartsWith("stopped", StringComparison.Ordinal);
+            Say(string.Format(CultureInfo.InvariantCulture,
+                "QuickRuns [trees]: {0} — {1} planted tree(s) removed in {2} slice(s), {3:F0} ms wall (vanilla refunds recently placed trees); " +
+                "{4} tree(s) still undoable this session", stopped ? "UNDO " + how.ToUpperInvariant() : "UNDONE", m_RemoveDone, m_RemoveSlices,
+                QuickRunsRules.MsSince(m_RemoveStartTicks), m_TreeBatch.Count), stopped ? null : NoticeKey("TREES_UNDONE"));   // a stopped undo: the hub's Undo trees count shows what is left
+            Bump();
+        }
+
+        /// <summary>Marks the tree plan dirty. <paramref name="debounce"/>: an edit while the preview is on (compose TreeDebounceFrames
+        /// after the last one); false: compose on the next frame (trees on, Plant, the planting slices).</summary>
+        private void MarkTreesDirty(bool debounce)
+        {
+            m_TreesDirty = true;
+            if (debounce)
+                m_TreesDirtyFrame = m_Frame;
+            else
+                m_TreesComposeNow = true;
+        }
+
+        /// <summary>The dirty plan composes this frame: never during an undo; at once unless debounced; else TreeDebounceFrames after
+        /// the last edit.</summary>
+        private bool TreeComposeDue()
+        {
+            if (!m_TreesDirty || m_Removing || m_TreeUndoStage != 0)
+                return false;
+            if (m_Planting || m_TreesComposeNow)
+                return true;
+            if (m_TreesDirtyFrame <= m_TreesCleanFrame)
+                m_TreesDirtyFrame = m_Frame;   // marked dirty elsewhere (a corner edit, RegionChanged): the window starts now
+            return m_Frame - m_TreesDirtyFrame >= TreeDebounceFrames;
         }
 
         private void SetTreeLine(int meters, string why)
         {
             m_TreeLineAuto = false;
             m_TreeLine = QuickRunsRules.ClampTreeLine(meters, m_GroundMin, m_GroundMax);
-            m_TreesDirty = true;
+            MarkTreesDirty(true);
             Say(string.Format(CultureInfo.InvariantCulture, "QuickRuns [trees]: tree line {0:F0} m ({1}; ground {2:F0}-{3:F0} m)",
                 m_TreeLine, why, m_GroundMin, m_GroundMax));
             Bump();
@@ -287,7 +398,7 @@ namespace SkiResortMod.Systems
             m_TreeGroup = math.clamp(group, GroupConifer, GroupAll);
             m_SpeciesPick = -1;
             BuildPool();
-            m_TreesDirty = true;
+            MarkTreesDirty(true);
             Say($"QuickRuns [trees]: species {SpeciesText()} ({why})");
             Bump();
         }
@@ -297,7 +408,7 @@ namespace SkiResortMod.Systems
             ResolveSpecies();
             m_SpeciesPick = index >= 0 && index < m_Species.Count ? index : -1;
             BuildPool();
-            m_TreesDirty = true;
+            MarkTreesDirty(true);
             Say($"QuickRuns [trees]: species {SpeciesText()} ({why})");
             Bump();
         }
@@ -305,7 +416,7 @@ namespace SkiResortMod.Systems
         private void SetTreeLevel(int level, string why)
         {
             m_TreeLevel = (byte)math.clamp(level, 1, SkiGladeCompose.Levels);
-            m_TreesDirty = true;
+            MarkTreesDirty(true);
             Say($"QuickRuns [trees]: level {m_TreeLevel} ({SkiGladeToolSystem.LevelName(m_TreeLevel)}) ({why})");
             Bump();
         }
@@ -316,16 +427,23 @@ namespace SkiResortMod.Systems
         /// <summary>Preview-ready flip, the Apply frame and the undo's apply frame. True when this frame applied (no other input).</summary>
         private bool UpdateTreesCycle()
         {
+            if (m_TreeUndoStage == 2)
+            {
+                EmitRemoveSlice();   // the next undo slice (emit and apply never share a frame, the planting idiom)
+                return true;
+            }
             if (m_TreeUndoStage == 1)
             {
                 m_TreeUndoStage = 0;
                 applyMode = ApplyMode.Apply;   // the removals (Temp Delete) apply; ApplyingNow stays false: nothing to tag
                 m_Deps = DestroyDefinitions(m_DefinitionQuery, m_Barrier, m_Deps);
-                int n = m_TreeBatch.Count;
-                m_TreeBatch.Clear();
-                m_TreeBatchFresh = false;
-                m_TreesDirty = m_TreesOn;
-                Say($"QuickRuns [trees]: UNDONE — {n} planted tree(s) removed (vanilla refunds recently placed trees)", NoticeKey("TREES_UNDONE"));
+                m_RemoveDone += m_RemoveSliceEmitted;
+                m_RemoveCursor = m_RemoveSliceEnd;
+                m_RemoveSlices++;
+                if (m_Removing && m_RemoveCursor < m_TreeBatch.Count)
+                    m_TreeUndoStage = 2;
+                else
+                    CloseRemoving(m_Removing ? "complete" : "stopped after the slice in flight");
                 Bump();
                 return true;
             }
@@ -360,7 +478,7 @@ namespace SkiResortMod.Systems
                     if (SkiResortSettings.DiagnosticsOn && m_PlantSlices > 1)
                         Mod.Log.Info(string.Format(CultureInfo.InvariantCulture,
                             "QuickRuns [probe] planting slice {0}: {1} planted so far of about {2}; {3:F0} ms wall over {4} frame(s) since the last slice",
-                            m_PlantSlices, m_PlantPlanted, m_PlantTotal, MsSince(m_SliceTicks), m_Frame - m_SliceFrame));
+                            m_PlantSlices, m_PlantPlanted, m_PlantTotal, QuickRunsRules.MsSince(m_SliceTicks), m_Frame - m_SliceFrame));
                     m_SliceTicks = System.Diagnostics.Stopwatch.GetTimestamp();
                     m_SliceFrame = m_Frame;
                 }
@@ -373,7 +491,7 @@ namespace SkiResortMod.Systems
                     $"{(float.IsPositiveInfinity(m_TreeLine) ? "none" : m_TreeLine.ToString("F0", CultureInfo.InvariantCulture) + " m")}, {SpeciesText()})");
                 m_TreesPreviewReady = false;
                 m_TreePlant = m_TreeRemove = 0;
-                m_TreesDirty = true;   // the next frame re-composes: Complete, or the next slice
+                MarkTreesDirty(false);   // the next frame re-composes: Complete, or the next slice (no debounce)
                 Bump();
                 return true;
             }
@@ -387,7 +505,10 @@ namespace SkiResortMod.Systems
         /// frame (the glade tool's Replan idiom).</summary>
         private void ComposeTrees(string why)
         {
-            m_TreesDirty = false;
+            m_TreesDirty = m_TreesComposeNow = false;
+            m_TreesCleanFrame = m_Frame;
+            bool plantAfter = m_PlantAfterCompose;   // dropped when this compose stops early (its notice says why)
+            m_PlantAfterCompose = false;
             long t0 = System.Diagnostics.Stopwatch.GetTimestamp();
             ClearTreePreview();
             float2[] region = CornerArray();
@@ -505,7 +626,7 @@ namespace SkiResortMod.Systems
             if (m_Planting && planted + removed == 0)
                 FinishPlanting(r.Complete ? "complete" : "done (" + m_TreeStatus + ")");
             m_TreesPreviewReady = false;
-            double ms = (System.Diagnostics.Stopwatch.GetTimestamp() - t0) * 1000.0 / System.Diagnostics.Stopwatch.Frequency;
+            double ms = QuickRunsRules.MsSince(t0);
             Say(string.Format(CultureInfo.InvariantCulture,
                 "QuickRuns [trees]: plan ({0}) — status {1}, level {2}, target {3}, now {4} (wild {5}, own {6}), plant {7}, remove {8}{9}; " +
                 "{10} hole(s), tree line {11}; {12}; {13:F1} ms",
@@ -514,6 +635,8 @@ namespace SkiResortMod.Systems
                 float.IsPositiveInfinity(mask.TreeLine) ? "none" : mask.TreeLine.ToString("F0", CultureInfo.InvariantCulture) + " m",
                 SpeciesText(), ms));
             Bump();
+            if (plantAfter)
+                RequestPlant("after the re-plan");
         }
 
         private float3[] Ring3(float2[] region)
@@ -532,7 +655,8 @@ namespace SkiResortMod.Systems
         private float3[][] Holes(float2[] region)
         {
             var holes = new List<float3[]>();
-            Bounds2 rb = BoundsOf(region);
+            SkiRunAutoPlanner.BBox(region, out float2 rbMin, out float2 rbMax);
+            var rb = new Bounds2(rbMin, rbMax);
             using (var areas = m_AreaQuery.ToEntityArray(Allocator.Temp))
             using (var prefabs = m_AreaQuery.ToComponentDataArray<PrefabRef>(Allocator.Temp))
             {
@@ -540,18 +664,8 @@ namespace SkiResortMod.Systems
                 {
                     if (m_Ownership.KindOf(prefabs[i].m_Prefab) < 0)
                         continue;
-                    DynamicBuffer<Game.Areas.Node> nodes = EntityManager.GetBuffer<Game.Areas.Node>(areas[i], true);
-                    if (nodes.Length < 3)
-                        continue;
-                    var ring = new float3[nodes.Length];
-                    float2 mn = new float2(float.MaxValue), mx = new float2(float.MinValue);
-                    for (int k = 0; k < nodes.Length; k++)
-                    {
-                        ring[k] = nodes[k].m_Position;
-                        mn = math.min(mn, ring[k].xz);
-                        mx = math.max(mx, ring[k].xz);
-                    }
-                    if (MathUtils.Intersect(new Bounds2(mn - HoleMarginM, mx + HoleMarginM), rb))
+                    float3[] ring = RunAreaEmit.ReadRing3(EntityManager, areas[i], out Bounds2 b);
+                    if (ring != null && MathUtils.Intersect(new Bounds2(b.min - HoleMarginM, b.max + HoleMarginM), rb))
                         holes.Add(ring);
                 }
             }
@@ -565,17 +679,6 @@ namespace SkiResortMod.Systems
             return holes.Count > 0 ? holes.ToArray() : null;
         }
 
-        private static Bounds2 BoundsOf(float2[] ring)
-        {
-            float2 mn = new float2(float.MaxValue), mx = new float2(float.MinValue);
-            for (int i = 0; i < ring.Length; i++)
-            {
-                mn = math.min(mn, ring[i]);
-                mx = math.max(mx, ring[i]);
-            }
-            return new Bounds2(mn, mx);
-        }
-
         /// <summary>Census of the region (+ GladeMinSpacing band, the glade interior's band): filler members (LayerFiller, run Null) go to
         /// Own, every other tree to Existing (wild trees count as occupants: the filler never fells). The glade tool's CensusTrees idiom:
         /// static search tree, IsTree mask, Overridden trees included; burning or owned filler members are fixed occupants.</summary>
@@ -585,7 +688,8 @@ namespace SkiResortMod.Systems
             m_OwnMembers.Clear();
             m_OwnEntities.Clear();
             float band = SkiGladeToolSystem.Tuning.GladeMinSpacing;
-            Bounds2 rb = BoundsOf(region);
+            SkiRunAutoPlanner.BBox(region, out float2 rbMin, out float2 rbMax);
+            var rb = new Bounds2(rbMin, rbMax);
             var found = new NativeList<Entity>(256, Allocator.Temp);
             try
             {
@@ -619,7 +723,8 @@ namespace SkiResortMod.Systems
         /// <summary>Wild trees (no member tag, no owner) within SkiGladeTreeLine.AroundM of the region: the tree line estimate's input.</summary>
         private float3[] WildTreesAround(float2[] region)
         {
-            Bounds2 rb = BoundsOf(region);
+            SkiRunAutoPlanner.BBox(region, out float2 rbMin, out float2 rbMax);
+            var rb = new Bounds2(rbMin, rbMax);
             float around = SkiGladeTreeLine.AroundM;
             var found = new NativeList<Entity>(1024, Allocator.Temp);
             var trees = new List<float3>();
@@ -659,7 +764,8 @@ namespace SkiResortMod.Systems
         /// <summary>Snapshot heights on a ContourSide grid over the region's bounds; the ground range over the grid points inside the region.</summary>
         private void BuildContourGrid(float2[] region)
         {
-            Bounds2 rb = BoundsOf(region);
+            SkiRunAutoPlanner.BBox(region, out float2 rbMin, out float2 rbMax);
+            var rb = new Bounds2(rbMin, rbMax);
             float2 size = rb.max - rb.min;
             m_ContourCell = math.max(math.max(size.x, size.y) / (ContourSide - 1), 1f);
             m_ContourOriginX = rb.min.x;
@@ -782,6 +888,8 @@ namespace SkiResortMod.Systems
             m_TreeBatch.Clear();
             m_TreeBatchFresh = false;
             m_TreeUndoStage = 0;
+            m_Removing = false;
+            m_RemoveCursor = 0;
             if (why == "load")
             {
                 m_TreeSkip.Clear();

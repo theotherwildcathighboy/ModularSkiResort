@@ -616,6 +616,35 @@ namespace AutoGenBatch
             k6.Density = AutoDensity.Sparse;
             ReselectCheck("reselect density, existing run", withRun, k6);
             Check(withRun.Knobs.Density == AutoDensity.Normal, "reselect density, existing run", "Reselect changed the caller's input knobs");
+            // F5 (quick runs fix round): the check above must not pass trivially. (1) the existing run changes the layout, (2) the density changes
+            // it WITH the run present, (3) Dense and a chain of Reselects equal a fresh run too.
+            AutoPlanInput without = Input(Mixed, MixedRegion);
+            ulong fpRun = Plan(withRun).Fingerprint, fpNone = Plan(without).Fingerprint;
+            Check(fpRun != fpNone, "reselect density, existing run", "the existing run does not change the layout (the case proves nothing)");
+            // AutoPlanInput is a class: build separate inputs (an alias would share one Knobs)
+            AutoPlanInput sparseRun = Input(Mixed, MixedRegion, existing), denseRun = Input(Mixed, MixedRegion, existing);
+            sparseRun.Knobs.Density = AutoDensity.Sparse;
+            denseRun.Knobs.Density = AutoDensity.Dense;
+            ulong fpSparse = Plan(sparseRun).Fingerprint, fpDense = Plan(denseRun).Fingerprint;
+            Check(fpSparse != fpRun && fpDense != fpRun && fpSparse != fpDense, "reselect density, existing run",
+                  "the density does not change the layout beside an existing run (Normal " + fpRun + ", Sparse " + fpSparse + ", Dense " + fpDense + ")");
+            AutoPlanKnobs k7 = withRun.Knobs;
+            k7.Density = AutoDensity.Dense;
+            ReselectCheck("reselect density Dense, existing run", withRun, k7);
+            // A chain on ONE planner: Normal -> Sparse -> Dense -> Normal ends where a fresh Normal run starts
+            var chain = new SkiRunAutoPlanner();
+            chain.Run(withRun);
+            foreach (AutoDensity d in new[] { AutoDensity.Sparse, AutoDensity.Dense, AutoDensity.Normal })
+            {
+                AutoPlanKnobs kd = withRun.Knobs;
+                kd.Density = d;
+                Check(chain.Reselect(kd), "reselect chain, existing run", "Reselect refused at " + d);
+                while (!chain.Step(float.PositiveInfinity))
+                {
+                }
+                ulong want = d == AutoDensity.Sparse ? fpSparse : d == AutoDensity.Dense ? fpDense : fpRun;
+                Check(chain.Result.Fingerprint == want, "reselect chain, existing run", "after Reselect to " + d + " the layout differs from a fresh run");
+            }
         }
 
         private static void ReselectCheck(string name, AutoPlanInput input, AutoPlanKnobs knobs)

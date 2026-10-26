@@ -309,6 +309,9 @@ namespace SkiResortMod.Systems
             }
             SetActions(live, false, live);
 
+            // Undo trees: every frame is a slice's emit or Apply (UpdateTreesCycle returns true), so right click is read here
+            if (RemovingTrees && cancelAction.WasPressedThisFrame())
+                StopPlanting("right click");
             if (UpdateTreesCycle())
             {
                 Draw();
@@ -337,8 +340,8 @@ namespace SkiResortMod.Systems
             if (m_Phase == ToolPhase.Scanning)
                 StepScan();
             UpdateHoverCluster();
-            if (m_TreesOn && m_TreesDirty && !Dragging && m_Phase != ToolPhase.Scanning)
-                ComposeTrees("edit");
+            if (m_TreesOn && !Dragging && m_Phase != ToolPhase.Scanning && TreeComposeDue())
+                ComposeTrees("edit");   // debounced: TreeDebounceFrames after the last edit (Trees.cs TreeComposeDue)
             Draw();
         }
 

@@ -316,7 +316,8 @@ export interface QuickRunsState {
   buildTotal: number;
   /** Plant pressed: slices apply until the slope is complete or Stop. */
   planting: boolean;
-  /** "Planting trees N / M": trees planted by this planting / trees it set out to plant; treesTotal 0 when not planting. */
+  /** "Planting trees N / M" (planting) or "Removing trees N / M" (Undo trees in flight: planting false, treesTotal > 0); treesTotal 0
+   *  when neither runs. */
   treesDone: number;
   treesTotal: number;
 }

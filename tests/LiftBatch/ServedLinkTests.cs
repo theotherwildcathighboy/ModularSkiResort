@@ -6,6 +6,8 @@
 // Downhill (2026-10-25): SL-1..8 pass no heights (flat terrain), which reproduces the old linking exactly. With node heights:
 //   SL-9 BelowJunction boundaries    SL-10 a run touching only at its bottom is not served    SL-11 a run joined mid-way is served,
 //   and service never flows up it past its entry    SL-12 downhill chains    SL-13 a terrain re-snap (new height array) rebuilds
+//   SL-14 (quick runs fix round) a LEVEL cat track crossing a run at mid height vs in its bottom 20 m (30.0 / 29.9 m boundary), and two
+//   parallel runs side by side on a sidehill sharing an edge: the "board highest" pick serves both from one lift, whichever is served
 
 using System;
 using System.Collections.Generic;
@@ -35,6 +37,7 @@ namespace LiftBatch
             Sl11MidJoin();
             Sl12Chain();
             Sl13HeightReuse();
+            Sl14LevelCrossingAndNeighbours();
             s_Check = null;
         }
 
@@ -522,6 +525,99 @@ namespace LiftBatch
             s.Heights[b] = new float[2];
             s.Solve();
             Check(s.Served(b), W, "a mismatched height array reads flat (served, as without heights)");
+        }
+
+        /// <summary>A level cat track ring of four nodes (its two ends only, as GradeRibbon simplifies a straight one): x0..x1, z zc +- 1.</summary>
+        private static float2[] LevelTrack(float x0, float x1, float zc) => Rect(x0, zc - 1f, x1, zc + 1f);
+
+        private static float[] Level(float2[] ring, float y)
+        {
+            var h = new float[ring.Length];
+            for (int k = 0; k < h.Length; k++)
+                h[k] = y;
+            return h;
+        }
+
+        /// <summary>The same Build + AssignLinked as Scene.Solve with the cat track mask (Scene.Solve passes none).</summary>
+        private static void SolveWithTracks(Scene s, List<bool> tracks)
+        {
+            s.Links.Build(s.Outlines, s.Heights, s.Areas);
+            LiftServedRule.AssignLinked(s.Tops, s.Links, s.Lifts, s.Chords, s.ServingLift, s.Distance, s.ServedCount, s.Root, s.Via, tracks);
+        }
+
+        /// <summary>SL-14 (a): A (served directly, x 0-40, z 0-400, y 1000-800) and a LEVEL cat track at y 900 (A's height at z 200) from x 10
+        /// to 510 that crosses A and then runs X: x 455-475, from z 0 down to zBottom on the same mountain (y = 1000 - 0.5 z). The track
+        /// meets X at its edge crossing, 900 m high on the track and 899.5-900.5 on X: the junction is p = 900. X is served iff
+        /// p - lowest(X) >= min(30, drop / 3): mid height (zBottom 400, lowest 800: 100 m below) yes; zBottom 260 (lowest 870, exactly 30.0 m
+        /// below) yes; 259.8 (lowest 870.1, 29.9 m) no; 240 (the bottom 20 m, 20 m below) no.
+        /// (b) Two runs side by side on a sidehill (y = 1000 - 0.5 z - 0.2 x), sharing the edge x = 40 and its corner nodes: one lift serves
+        /// either of them directly and the other is served through the shared edge. A skier boards the neighbor at its HIGHEST shared node
+        /// (992 m at z 0), not the lowest (792 m at z 400, only 8 m above its bottom), so both are served in both directions.</summary>
+        private static void Sl14LevelCrossingAndNeighbours()
+        {
+            const string W = "served-link/SL-14";
+            foreach (var (zBottom, lowest, served, what) in new (float, float, bool, string)[]
+            {
+                (400f, 800f, true, "a level crossing at mid height (100 m of the run below it)"),
+                (260f, 870f, true, "exactly 30.0 m of the run below the crossing"),
+                (259.8f, 870.1f, false, "29.9 m of the run below the crossing"),
+                (240f, 880f, false, "the crossing in the run's bottom 20 m"),
+            })
+            {
+                var s = new Scene();
+                int a = s.AddSloped(Served1, Rect(0f, 0f, 40f, 400f));
+                float2[] ring = LevelTrack(10f, 510f, 200f);
+                int t = s.Add(Far, ring);
+                s.Heights[t] = Level(ring, 900f);
+                int x = s.AddSloped(Far, Rect(455f, 0f, 475f, zBottom));
+                float low = float.MaxValue;
+                foreach (float y in s.Heights[x])
+                    low = math.min(low, y);
+                SolveWithTracks(s, new List<bool> { false, true, false });
+                Check(math.abs(low - lowest) < 1e-3f, W, "setup: X's lowest node is " + low + ", expected " + lowest);
+                Check(s.Served(a) && s.Served(t) && s.Via[t] == a, W, what + ": the level track is served from A (via " + s.Via[t] + ")");
+                Check(s.Served(x) == served, W, what + ": X " + (s.Served(x) ? "served" : "NOT served") + ", expected " + (served ? "served" : "not served") +
+                      " (junction 900, lowest " + low + ", drop " + (1000f - low) + ")");
+                if (served)
+                    Eq(t, s.Via[x], W, what + ": X via the track");
+            }
+
+            // (b) two parallel runs sharing an edge, on a sidehill with a cross slope
+            foreach (bool leftServed in new[] { true, false })
+            {
+                var s = new Scene();
+                float2[] p = Rect(0f, 0f, 40f, 400f), q = Rect(40f, 0f, 80f, 400f);
+                int ip = s.Add(leftServed ? Served1 : Far, p);
+                int iq = s.Add(leftServed ? Far : Served1, q);
+                s.Heights[ip] = SideHeights(p);
+                s.Heights[iq] = SideHeights(q);
+                s.Solve();
+                string who = leftServed ? "the upper run directly served" : "the lower run directly served";
+                Eq(1, s.Links.LinkCount, W, who + ": one link along the shared edge");
+                Check(s.Served(ip) && s.Served(iq), W, who + ": both runs served (the neighbor boarded at its highest shared node)");
+                Eq(leftServed ? ip : iq, s.Via[leftServed ? iq : ip], W, who + ": the other is served through it");
+            }
+            // The same pair with a denser edge: both rings carry a node at (40, 200) too
+            {
+                var s = new Scene();
+                float2[] p = { new float2(0f, 0f), new float2(40f, 0f), new float2(40f, 200f), new float2(40f, 400f), new float2(0f, 400f) };
+                float2[] q = { new float2(40f, 0f), new float2(80f, 0f), new float2(80f, 400f), new float2(40f, 400f), new float2(40f, 200f) };
+                int ip = s.Add(Served1, p);
+                int iq = s.Add(Far, q);
+                s.Heights[ip] = SideHeights(p);
+                s.Heights[iq] = SideHeights(q);
+                s.Solve();
+                Check(s.Served(ip) && s.Served(iq), W, "five-node rings sharing three edge nodes: both served");
+            }
+        }
+
+        /// <summary>The sidehill: y = 1000 - 0.5 z - 0.2 x (the fall line toward +z, a 20 % cross slope toward +x).</summary>
+        private static float[] SideHeights(float2[] ring)
+        {
+            var y = new float[ring.Length];
+            for (int k = 0; k < ring.Length; k++)
+                y[k] = 1000f - 0.5f * ring[k].y - 0.2f * ring[k].x;
+            return y;
         }
     }
 }

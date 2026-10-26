@@ -49,7 +49,7 @@ namespace SkiResortMod.Systems
             var projected = OverlayRenderSystem.StyleFlags.Projected;
             var round = new float2(1f, 1f);
             var ring = new float2(0f, 1f);
-            float k = PisteMapRules.WidthScale(ReadZoom());
+            float k = PisteMapRules.WidthScale(SkiPisteMapSystem.ReadZoom(m_Camera));
             TerrainHeightData hd = m_TerrainSystem.GetHeightData();
 
             if (m_DrawDirty)
@@ -160,19 +160,5 @@ namespace SkiResortMod.Systems
         }
 
         private static float3 Ground(ref TerrainHeightData hd, float2 xz) => RunAreaEmit.Ground(ref hd, xz);
-
-        /// <summary>The active camera controller's zoom (SkiPisteMapSystem.ReadZoom's idiom); 0 = width x1.</summary>
-        private float ReadZoom()
-        {
-            try
-            {
-                var controller = m_Camera.activeCameraController;
-                return controller != null ? controller.zoom : 0f;
-            }
-            catch (Exception)
-            {
-                return 0f;
-            }
-        }
     }
 }

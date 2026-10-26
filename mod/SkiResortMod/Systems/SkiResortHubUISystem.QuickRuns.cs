@@ -175,10 +175,11 @@ namespace SkiResortMod.Systems
             writer.Write(t.Building ? t.BuildTotal : 0);
             writer.PropertyName("planting");
             writer.Write(t.Planting);
+            // Undo trees reuses the progress pair with planting false ("Removing trees N / M"; same shape, contract unchanged)
             writer.PropertyName("treesDone");
-            writer.Write(t.PlantDone);
+            writer.Write(t.RemovingTrees ? t.RemoveDone : t.PlantDone);
             writer.PropertyName("treesTotal");
-            writer.Write(t.Planting ? t.PlantTotal : 0);
+            writer.Write(t.Planting ? t.PlantTotal : t.RemovingTrees ? t.RemoveTotal : 0);
             writer.TypeEnd();
         }
 

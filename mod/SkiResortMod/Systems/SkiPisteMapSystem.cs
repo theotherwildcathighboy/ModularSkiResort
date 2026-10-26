@@ -428,7 +428,7 @@ namespace SkiResortMod.Systems
                 return;
             // Timed with raw timestamps (no allocation): GetBuffer + schedule + AddBufferWriter only.
             long t0 = Stopwatch.GetTimestamp();
-            float scale = PisteMapRules.WidthScale(ReadZoom());
+            float scale = PisteMapRules.WidthScale(ReadZoom(m_Camera));
             m_LastWidthScale = scale;
             OverlayRenderSystem.Buffer buffer = m_Overlay.GetBuffer(out JobHandle deps);   // :603-634
             var job = new PisteDrawJob
@@ -478,11 +478,11 @@ namespace SkiResortMod.Systems
 
         /// <summary>The active camera controller's zoom (IGameCameraController.zoom, Game.Rendering/IGameCameraController.cs:8); 0 when
         /// there is none or it is being torn down (width x1).</summary>
-        private float ReadZoom()
+        internal static float ReadZoom(CameraUpdateSystem camera)
         {
             try
             {
-                IGameCameraController controller = m_Camera.activeCameraController;
+                IGameCameraController controller = camera.activeCameraController;
                 return controller != null ? controller.zoom : 0f;
             }
             catch (Exception)

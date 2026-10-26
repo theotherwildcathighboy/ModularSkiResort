@@ -134,6 +134,41 @@ namespace AutoGenBatch
             // Tree line
             Check(QuickRunsRules.ClampTreeLine(float.NaN, 1000, 1400) == 1410 && QuickRunsRules.ClampTreeLine(900, 1000, 1400) == 1000 &&
                   QuickRunsRules.ClampTreeLine(2000, 1000, 1400) == 1410 && QuickRunsRules.ClampTreeLine(1234, 1000, 1400) == 1234, W, "tree-line clamp");
+
+            // Centroid (F3): the area-weighted polygon centroid, either winding, any start node
+            float2 c = QuickRunsRules.Centroid(Square(100, 200, 50));
+            Check(math.distance(c, new float2(125, 225)) < 1e-3f, W, $"square centroid (125, 225), got {c}");
+            float2[] sq = Square(100, 200, 50);
+            System.Array.Reverse(sq);
+            Check(math.distance(QuickRunsRules.Centroid(sq), new float2(125, 225)) < 1e-3f, W, "reversed square, same centroid");
+            // A tongue: a 20 x 400 m strip (z 0-400) on a 200 x 100 m fan (z 400-500). Vertex average = (100, 325) (eight nodes, four of
+            // them on the narrow strip); area-weighted = (8000 x 200 + 20000 x 450) / 28000 = 378.6 in z.
+            var tongue = new[]
+            {
+                new float2(90, 0), new float2(110, 0), new float2(110, 400), new float2(200, 400),
+                new float2(200, 500), new float2(0, 500), new float2(0, 400), new float2(90, 400),
+            };
+            c = QuickRunsRules.Centroid(tongue);
+            Check(math.abs(c.x - 100f) < 1e-3f && math.abs(c.y - 10600000f / 28000f) < 1e-2f, W, $"tongue centroid (100, 378.57), got {c}");
+            float2 avg = 0f;
+            for (int i = 0; i < tongue.Length; i++)
+                avg += tongue[i];
+            avg /= tongue.Length;
+            Check(c.y - avg.y > 50f, W, $"the tongue's centroid lies in the fan, well below the vertex average ({avg.y}): the F3 case");
+            // Degenerate: empty / null -> 0; a line (zero area) -> the vertex average; non-finite stays out
+            Check(math.all(QuickRunsRules.Centroid(null) == 0f) && math.all(QuickRunsRules.Centroid(new float2[0]) == 0f), W, "null / empty -> 0");
+            c = QuickRunsRules.Centroid(new[] { new float2(0, 0), new float2(10, 0), new float2(20, 0) });
+            Check(math.distance(c, new float2(10, 0)) < 1e-4f, W, $"zero-area ring -> vertex average (10, 0), got {c}");
+
+            // Game checks (F1): the vanilla error prefab for OverlapExisting, enabled in game, else off; ignoreErrors a second source
+            Check(QuickRunsRules.ChecksState(false, 1, 1) == QuickGameChecks.On, W, "an enabled overlap prefab and no ignoreErrors: On");
+            Check(QuickRunsRules.ChecksState(false, 1, 0) == QuickGameChecks.OverlapDisabled, W, "the prefab with DisableInGame (Anarchy): OverlapDisabled");
+            Check(QuickRunsRules.ChecksState(false, 0, 0) == QuickGameChecks.NoOverlapPrefab, W, "no overlap prefab at all: NoOverlapPrefab");
+            Check(QuickRunsRules.ChecksState(true, 1, 1) == QuickGameChecks.IgnoreErrors, W, "ignoreErrors with the prefab on: IgnoreErrors");
+            Check(QuickRunsRules.ChecksState(true, 1, 0) == QuickGameChecks.OverlapDisabled, W, "both: the prefab reason wins");
+            Check(QuickRunsRules.ChecksState(false, 2, 1) == QuickGameChecks.On, W, "two prefabs, one enabled: On (ValidationSystem keeps the enabled one)");
+            Check(!QuickRunsRules.ChecksOff(QuickGameChecks.On) && QuickRunsRules.ChecksOff(QuickGameChecks.IgnoreErrors) &&
+                  QuickRunsRules.ChecksOff(QuickGameChecks.OverlapDisabled) && QuickRunsRules.ChecksOff(QuickGameChecks.NoOverlapPrefab), W, "ChecksOff");
         }
     }
 }

@@ -620,18 +620,8 @@ namespace SkiResortMod.Systems
                     int kind = m_Ownership.KindOf(prefabs[k].m_Prefab);
                     if (kind < 0 || kind == (int)RunKind.CatTrack)
                         continue;
-                    DynamicBuffer<Game.Areas.Node> nodes = EntityManager.GetBuffer<Game.Areas.Node>(runs[k], true);
-                    if (nodes.Length < 3)
-                        continue;
-                    var outline = new float2[nodes.Length];
-                    float2 mn = new float2(float.MaxValue), mx = new float2(float.MinValue);
-                    for (int i = 0; i < nodes.Length; i++)
-                    {
-                        outline[i] = nodes[i].m_Position.xz;
-                        mn = math.min(mn, outline[i]);
-                        mx = math.max(mx, outline[i]);
-                    }
-                    if (MathUtils.Intersect(new Bounds2(mn, mx), area))
+                    float2[] outline = RunAreaEmit.ReadRing(EntityManager, runs[k], out Bounds2 b);
+                    if (outline != null && MathUtils.Intersect(b, area))
                         m_Obstacles.Runs.Add(outline);
                 }
             }

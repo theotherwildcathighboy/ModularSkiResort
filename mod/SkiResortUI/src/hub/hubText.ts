@@ -418,7 +418,7 @@ export const HUB_LOC = {
   quickMix1: ["SkiResort.Hub.QUICK_MIX[Beginner]", "Beginner"],
   quickMix2: ["SkiResort.Hub.QUICK_MIX[Expert]", "Expert"],
   quickMix3: ["SkiResort.Hub.QUICK_MIX[Terrain]", "As the slope allows"],
-  quickDensityCaption: ["SkiResort.Hub.QUICK_DENSITY", "Runs"],
+  quickDensityCaption: ["SkiResort.Hub.QUICK_DENSITY", "How many"],
   quickDensityTip: ["SkiResort.Hub.QUICK_DENSITY_TIP", "How many runs to fit on the slope."],
   quickDensity0: ["SkiResort.Hub.QUICK_DENSITY[Sparse]", "Few"],
   quickDensity1: ["SkiResort.Hub.QUICK_DENSITY[Normal]", "Normal"],
@@ -430,7 +430,7 @@ export const HUB_LOC = {
   quickKindSnowmaking: ["SkiResort.Hub.QUICK_KIND[Snowmaking]", "Snowmaking"],
   quickKindNight: ["SkiResort.Hub.QUICK_KIND[Night]", "Night"],
   quickStart: ["SkiResort.Hub.QUICK_START", "Click the corners of a slope on the map, then Scan."],
-  quickRegionOver: ["SkiResort.Hub.QUICK_REGION_OVER", "The region is larger than the 1 square km limit: make it smaller."],
+  quickRegionOver: ["SkiResort.Hub.QUICK_REGION_OVER", "The region is larger than the limit shown above: make it smaller."],
   quickPreviewHint: ["SkiResort.Hub.QUICK_PREVIEW_HINT", "Click a run on the map to leave it out or take it back."],
   quickBuilding: ["SkiResort.Hub.QUICK_BUILDING", "Building the runs. Large areas can take a few seconds to a minute."],
   quickStop: ["SkiResort.Hub.QUICK_STOP", "Stop"],
@@ -635,7 +635,7 @@ export const HUB_FMT = {
   historySeasonMonths: ["SkiResort.Hub.HISTORY_SEASON_MONTHS", "{N} of 12 months · the average month"],
   historyVs: ["SkiResort.Hub.HISTORY_VS", "vs {MONTH} {YEAR}"],
   // the Quick runs tool (QuickRunsControls.tsx); the MIX / CLUSTER / POD templates are also the tool tooltip's
-  quickRegion: ["SkiResort.Hub.QUICK_REGION_LINE", "{N} corners · {AREA} of {MAX} · vertical {V}"],
+  quickRegion: ["SkiResort.Hub.QUICK_REGION_LINE", "{N} corners · {AREA} of {MAX} · vertical between the corners {V}"],
   quickScanning: ["SkiResort.Hub.QUICK_SCANNING_LINE", "Scanning the slope: {P}"],
   quickTotals: ["SkiResort.Hub.QUICK_TOTALS_LINE", "{N} of {M} runs · {FEE} · {SKIERS} skiers a day"],
   quickBatch: ["SkiResort.Hub.QUICK_BATCH_LINE", "Last build: {N} runs. Undo removes them and refunds the fee."],
@@ -646,6 +646,7 @@ export const HUB_FMT = {
   quickPodMid: ["SkiResort.Tooltip.QUICK_POD[MidStation]", "Mid-station here: {N} runs"],
   quickBuildProgress: ["SkiResort.Tooltip.QUICK_BUILDING_PROGRESS", "Building runs {N} / {M}"],
   quickPlantProgress: ["SkiResort.Tooltip.QUICK_PLANTING_PROGRESS", "Planting trees {N} / {M}"],
+  quickRemoveProgress: ["SkiResort.Tooltip.QUICK_REMOVING_PROGRESS", "Removing trees {N} / {M}"],
 } as const;
 
 /* STATUS_WORD by hubRules.statusWord. */
@@ -869,7 +870,7 @@ export const SENT_KEYS: readonly LocEntry[] = [
   ["SkiResort.Hub.QUICK_REASON[NotArmed]", "Available once a city is loaded."],
   ["SkiResort.Hub.QUICK_REASON[Disabled]", "Quick runs hit an error and is off until the next load. Details are in the mod log."],
   ["SkiResort.Tooltip.QUICK_STATUS[BadInput]", "The region could not be read. Draw it again."],
-  ["SkiResort.Tooltip.QUICK_STATUS[TooLarge]", "The region is larger than 1 square km. Make it smaller."],
+  ["SkiResort.Tooltip.QUICK_STATUS[TooLarge]", "The region is over the size limit shown beside it. Make it smaller."],
   ["SkiResort.Tooltip.QUICK_STATUS[TooSmall]", "The region is too small or too narrow for a run."],
   ["SkiResort.Tooltip.QUICK_STATUS[Blocked]", "Most of the region is taken by other areas or by land the city does not own."],
   ["SkiResort.Tooltip.QUICK_STATUS[NoVertical]", "The region has too little vertical for ski runs."],
@@ -877,7 +878,7 @@ export const SENT_KEYS: readonly LocEntry[] = [
   ["SkiResort.Tooltip.QUICK_STATUS[TooFlat]", "The region is too flat for ski runs."],
   ["SkiResort.Tooltip.QUICK_STATUS[NoRuns]", "No run fits this region. Try another shape or another mix."],
   ["SkiResort.Tooltip.QUICK_WARN[FewRuns]", "Fewer than 2 runs fit here."],
-  ["SkiResort.Tooltip.QUICK_WARN[NoGreen]", "No green runs: the slope is too steep for them."],
+  ["SkiResort.Tooltip.QUICK_WARN[NoGreen]", "No green runs: the slope is too steep for them, or the gentle part at the bottom is too short."],
   ["SkiResort.Tooltip.QUICK_WARN[NoBlue]", "No blue runs: the slope gives none."],
   ["SkiResort.Tooltip.QUICK_WARN[NoBlack]", "No black runs: the slope is too gentle for them."],
   ["SkiResort.Tooltip.QUICK_WARN[NoEasyWayHome]", "A lift top here has no green way down."],

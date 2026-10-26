@@ -33,7 +33,7 @@ namespace SkiResortMod.Systems
         private const int TempTimeoutFrames = 30;   // the cat track tool's (and LiftLineToolSystem's) value
         private const int BindCheckFrames = 150;    // the bind line: ownership binds new runs within its sweep (64 frames) + margin
         /// <summary>Runs per emission. Smoothness over speed: a validation and a binding wave per chunk, never the whole batch in one frame.</summary>
-        internal const int BuildChunkRuns = 4;
+        internal const int BuildChunkRuns = 2;   // first field value (CRITIQUE F6: each chunk's Apply is a full sweep + ratings in one frame)
 
         private struct BatchRun
         {
@@ -191,7 +191,7 @@ namespace SkiResortMod.Systems
             int unmatched = 0, unmatchedErrors = 0, errors = 0;
             foreach (Entity t in temps)
             {
-                float2[] ring = RingOf(t, out _);
+                float2[] ring = RunAreaEmit.ReadRing(EntityManager, t, out _);
                 int k = QuickRunsRules.MatchRing(ring, m_EmitRings);
                 bool error = EntityManager.HasComponent<Error>(t);
                 if (error)
@@ -239,8 +239,9 @@ namespace SkiResortMod.Systems
                         m_AppliedIdx.Add(m_EmitIdx[k]);
                     }
                     m_Phase = ToolPhase.Applying;
+                    QuickGameChecks checks = GameChecks();
                     Say($"QuickRuns [build]: APPLY — {tempOf.Length} run(s) validated after {waited} frame(s){(m_Retried ? " (second emission)" : string.Empty)}" +
-                        (m_ToolSystem.ignoreErrors ? "; game checks are OFF (ToolSystem.ignoreErrors): only the planner's checks protected this build" : string.Empty));
+                        (QuickRunsRules.ChecksOff(checks) ? $"; game checks are OFF ({ChecksText(checks)}): only the planner's checks protected this build" : string.Empty));
                     break;
                 case QuickBuildStep.Retry:
                     for (int k = m_EmitIdx.Count - 1; k >= 0; k--)
@@ -338,7 +339,7 @@ namespace SkiResortMod.Systems
             if (SkiResortSettings.DiagnosticsOn)
                 Mod.Log.Info(string.Format(CultureInfo.InvariantCulture,
                     "QuickRuns [probe] build chunk {0}: {1} run(s) applied, {2} of {3} built; {4:F0} ms wall over {5} frame(s)",
-                    m_BuildChunk, m_Batch.Count - before, m_BuildDone, m_BuildTotal, MsSince(m_ChunkStartTicks), m_Frame - m_ChunkFrame));
+                    m_BuildChunk, m_Batch.Count - before, m_BuildDone, m_BuildTotal, QuickRunsRules.MsSince(m_ChunkStartTicks), m_Frame - m_ChunkFrame));
             Bump();
             if (m_BuildQueue.Count > 0 && !m_StopBuild)
             {
@@ -349,8 +350,6 @@ namespace SkiResortMod.Systems
             FinishBuild();
         }
 
-        private static double MsSince(long ticks) =>
-            (System.Diagnostics.Stopwatch.GetTimestamp() - ticks) * 1000.0 / System.Diagnostics.Stopwatch.Frequency;
 
         /// <summary>The build ends (done, stopped, or a later chunk refused): the batch, the bind line, the preview gone.</summary>
         private void FinishBuild()
@@ -368,7 +367,7 @@ namespace SkiResortMod.Systems
             DropPreview(null);
             LastBuildText = $"{m_Batch.Count} of {m_BuildTotal} run(s) in {m_BuildChunk} chunk(s)" +
                             $"{(stopped ? ", stopped" : m_BuildPartial ? ", partly refused" : string.Empty)}";
-            string wall = string.Format(CultureInfo.InvariantCulture, "{0:F0} ms wall", MsSince(m_BuildStartTicks));
+            string wall = string.Format(CultureInfo.InvariantCulture, "{0:F0} ms wall", QuickRunsRules.MsSince(m_BuildStartTicks));
             string notice = stopped ? NoticeKey("STOPPED") : m_BuildPartial ? NoticeKey("PARTIAL") : NoticeKey("BUILT");
             Say($"QuickRuns [build]: {(stopped ? "STOPPED" : m_BuildPartial ? "PARTLY BUILT" : "BUILT")} — {m_Batch.Count} of {m_BuildTotal} " +
                 $"run(s) permanent in {m_BuildChunk} chunk(s), {wall} (they bind to the nearest Ski Area Welcome Sign and pay their fees like " +
@@ -561,9 +560,27 @@ namespace SkiResortMod.Systems
                     sb.Append(' ');
                 sb.Append(k).Append("->").Append(tempOf[k] == Entity.Null ? "none" : Describe(tempOf[k]));
             }
+            // The planner refused these for what the game also checks (an obstacle: any Surface area or an unowned tile; the region / map
+            // edge; a self-crossing outline). With the game's checks off the game would have accepted them: only the pre-check stood.
+            AutoPlanResult r = m_Planner.Result;
+            int preRefused = r.Rejects[(int)AutoReject.Obstacle] + r.Rejects[(int)AutoReject.Region] + r.Rejects[(int)AutoReject.Crosses];
+            QuickGameChecks checks = GameChecks();
             Mod.Log.Info($"QuickRuns [probe] emission: {m_EmitIdx.Count} definition(s) emitted in frame {m_EmitFrame}, {temps} Temp run(s) after " +
                          $"{waited} frame(s); errors {errors}, unmatched {unmatched}, missing {missing}; mapping {sb}; game checks " +
-                         $"{(m_ToolSystem.ignoreErrors ? "OFF (Anarchy-style ignoreErrors: errors may still be flagged, Apply ignores them)" : "on")}");
+                         $"{(QuickRunsRules.ChecksOff(checks) ? "OFF (" + ChecksText(checks) + ")" : "on")}; pre-check refused {preRefused} " +
+                         $"candidate(s) (obstacle / region / crossing){(QuickRunsRules.ChecksOff(checks) && preRefused > 0 ? ", which the game would have accepted" : string.Empty)}");
+        }
+
+        /// <summary>The log text of a game-checks state (developer lines only).</summary>
+        private static string ChecksText(QuickGameChecks checks)
+        {
+            switch (checks)
+            {
+                case QuickGameChecks.OverlapDisabled: return "the OverlapExisting error prefab is disabled in game: a mod turned the check off";
+                case QuickGameChecks.NoOverlapPrefab: return "no OverlapExisting error prefab";
+                case QuickGameChecks.IgnoreErrors: return "ToolSystem.ignoreErrors: errors may still be flagged, Apply ignores them";
+                default: return "on";
+            }
         }
 
         private void ProbeBinds()

@@ -35,6 +35,10 @@ const KINDS: ReadonlyArray<[number, LocEntry]> = [
 ];
 const GROUPS: readonly LocEntry[] = [HUB_LOC.quickGroup0, HUB_LOC.quickGroup1, HUB_LOC.quickGroup2, HUB_LOC.quickGroup3];
 
+/* A vanilla tree species: the game's own name key for the prefab (vanilla ships one per tree), the raw prefab name as the fallback
+   (C# sends the raw names). */
+const treeNameEntry = (prefab: string): LocEntry => ["Assets.NAME[" + prefab + "]", prefab];
+
 const set = (key: QuickRunsKey, value = 0): void => hubTriggers.quickRunsSet(key, value);
 
 /* C# QuickRunsToolSystem.ClusterKey's pod keys (the rest is QUICK_CLUSTER). */
@@ -46,9 +50,14 @@ function building(q: QuickRunsState): boolean {
   return q.phase === "Emitted" || q.phase === "Retry" || q.phase === "Applying";
 }
 
-/* C# is busy (a scan, a build or a planting in flight): every knob waits; only Stop answers. */
+/* A tree job in flight: planting, or Undo trees (planting false with a progress total). */
+function treeJob(q: QuickRunsState): boolean {
+  return q.planting || q.treesTotal > 0;
+}
+
+/* C# is busy (a scan, a build or a tree job in flight): every knob waits; only Stop answers. */
 function busy(q: QuickRunsState): boolean {
-  return q.phase === "Scanning" || building(q) || q.planting;
+  return q.phase === "Scanning" || building(q) || treeJob(q);
 }
 
 /* The Build strip's Runs-tab chip: "Quick runs (experimental)", grayed with the reason while unavailable. */
@@ -147,7 +156,7 @@ function TreeRowsQuick({ q, t, wait }: { q: QuickRunsState; t: Translate; wait: 
   const none = q.treeLine < 0 || q.treeLine > q.groundMax;
   const line = none ? q.groundMax + TREE_LINE_STEP : q.treeLine;
   const nSpecies = q.speciesNames.length;
-  const speciesName = q.species >= 0 && q.species < nSpecies ? q.speciesNames[q.species] : t(HUB_LOC.quickSpeciesGroup);
+  const speciesName = q.species >= 0 && q.species < nSpecies ? t(treeNameEntry(q.speciesNames[q.species])) : t(HUB_LOC.quickSpeciesGroup);
   const step = (d: number): void => set("species", q.species + d < -1 ? nSpecies - 1 : q.species + d >= nSpecies ? -1 : q.species + d);
   return (
     <>
@@ -156,7 +165,7 @@ function TreeRowsQuick({ q, t, wait }: { q: QuickRunsState; t: Translate; wait: 
         <Act label={t(HUB_LOC.quickTrees)} tip={t(HUB_LOC.quickTreesTip)} on={q.trees} disabled={wait} onSelect={() => set("trees", q.trees ? 0 : 1)} />
         {q.trees && (
           <>
-            {q.planting
+            {treeJob(q)
               ? <Act label={t(HUB_LOC.quickStop)} tip={t(HUB_LOC.quickStopTip)} next onSelect={() => set("stop")} />
               : <Act label={t(HUB_LOC.quickPlant)} tip={t(HUB_LOC.quickPlantTip)} next disabled={wait || q.plant <= 0} onSelect={() => set("plant")} />}
             <Act label={t(HUB_LOC.quickTreesUndo)} tip={t(HUB_LOC.quickTreesUndoTip)} next disabled={wait || q.treesUndo <= 0} onSelect={() => set("treesUndo")} />
@@ -197,6 +206,8 @@ function TreeRowsQuick({ q, t, wait }: { q: QuickRunsState; t: Translate; wait: 
           <div className={styles.quickLine}>
             {q.planting && q.treesTotal > 0
               ? <LocText entry={HUB_FMT.quickPlantProgress} args={{ N: numArg(q.treesDone, Unit.Integer), M: numArg(q.treesTotal, Unit.Integer) }} />
+              : treeJob(q)
+              ? <LocText entry={HUB_FMT.quickRemoveProgress} args={{ N: numArg(q.treesDone, Unit.Integer), M: numArg(q.treesTotal, Unit.Integer) }} />
               : <LocText entry={HUB_FMT.quickTreeCounts} args={{ P: numArg(q.plant, Unit.Integer), R: numArg(q.remove, Unit.Integer) }} />}
           </div>
         </>

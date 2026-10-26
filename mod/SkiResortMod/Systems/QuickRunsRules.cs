@@ -54,7 +54,18 @@ namespace SkiResortMod.Systems
         Renumber = 2,         // default-named runs exist: the new runs renumber them (SkiRunCatalogSystem ordinals)
         OtherResort = 4,      // the enabled runs bind to more than one Welcome Sign
         NoSign = 8,           // no Welcome Sign within the tether: the runs build and wait unbound, as drawn runs do
-        ChecksOff = 16,       // ToolSystem.ignoreErrors: the game's own checks are off; only the planner's checks protect the build
+        ChecksOff = 16,       // the game's own checks are off (QuickRunsRules.ChecksState); only the planner's checks protect the build
+    }
+
+    /// <summary>Whether the game would flag an overlapping preview run (QuickRunsRules.ChecksState). Read from the vanilla error prefab
+    /// for OverlapExisting, as ValidationSystem.FillErrorPrefabsJob does (ValidationSystem.cs:1318-1325: a prefab whose ToolErrorData
+    /// carries DisableInGame is skipped, and with none left no Error is spawned), with ToolSystem.ignoreErrors as a second source.</summary>
+    public enum QuickGameChecks : byte
+    {
+        On,
+        OverlapDisabled,   // every OverlapExisting error prefab carries DisableInGame (a mod disabled the check: Anarchy does this)
+        NoOverlapPrefab,   // no OverlapExisting error prefab at all: the game cannot flag an overlap
+        IgnoreErrors,      // ToolSystem.ignoreErrors: errors are flagged but Apply ignores them (ToolBaseSystem.cs:533-540)
     }
 
     /// <summary>What to do after the game validated an emission (all-or-nothing Apply: ToolBaseSystem.cs:533-540).</summary>
@@ -62,6 +73,10 @@ namespace SkiResortMod.Systems
 
     public static class QuickRunsRules
     {
+        /// <summary>Milliseconds since a Stopwatch.GetTimestamp() reading: the one conversion for every wall-time log of the tool.</summary>
+        public static double MsSince(long ticks) =>
+            (System.Diagnostics.Stopwatch.GetTimestamp() - ticks) * 1000.0 / System.Diagnostics.Stopwatch.Frequency;
+
         /// <summary>The size line turns amber from this share of the cap.</summary>
         public const float NearCapShare = 0.85f;
 
@@ -98,6 +113,48 @@ namespace SkiResortMod.Systems
                 r.State = QuickRegionState.Ok;
             return r;
         }
+
+        /// <summary>The area-weighted centroid of a ring (xz; either winding, no closing duplicate needed): the sign check's point, nearer
+        /// the bind's Geometry.m_CenterPosition than a vertex average when one end of a run is a narrow tongue (CRITIQUE F3). A ring of
+        /// (nearly) zero area gives the vertex average; null or empty gives 0.</summary>
+        public static float2 Centroid(float2[] ring)
+        {
+            if (ring == null || ring.Length == 0)
+                return 0f;
+            double2 o = ring[0], s = 0.0;
+            double a2 = 0.0;
+            for (int i = 0; i < ring.Length; i++)
+            {
+                double2 p = (double2)ring[i] - o, q = (double2)ring[i + 1 < ring.Length ? i + 1 : 0] - o;
+                double cross = p.x * q.y - q.x * p.y;
+                a2 += cross;
+                s += (p + q) * cross;
+            }
+            if (math.abs(a2) < 1e-6)
+            {
+                double2 avg = 0.0;
+                for (int i = 0; i < ring.Length; i++)
+                    avg += ring[i];
+                return (float2)(avg / ring.Length);
+            }
+            return (float2)(o + s / (3.0 * a2));
+        }
+
+        // ---------------------------------------------------------------- game checks
+
+        /// <summary>The game-checks state. overlapPrefabs = the OverlapExisting error prefabs found (ToolErrorData.m_Error);
+        /// overlapEnabledInGame = those without ToolErrorFlags.DisableInGame. The prefab reason wins over ignoreErrors (it is the one that
+        /// hides the errors themselves).</summary>
+        public static QuickGameChecks ChecksState(bool ignoreErrors, int overlapPrefabs, int overlapEnabledInGame)
+        {
+            if (overlapPrefabs <= 0)
+                return QuickGameChecks.NoOverlapPrefab;
+            if (overlapEnabledInGame <= 0)
+                return QuickGameChecks.OverlapDisabled;
+            return ignoreErrors ? QuickGameChecks.IgnoreErrors : QuickGameChecks.On;
+        }
+
+        public static bool ChecksOff(QuickGameChecks state) => state != QuickGameChecks.On;
 
         // ---------------------------------------------------------------- fees, skiers, totals
 

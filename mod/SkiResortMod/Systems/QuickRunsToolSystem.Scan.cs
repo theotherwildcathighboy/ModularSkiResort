@@ -108,7 +108,7 @@ namespace SkiResortMod.Systems
         private void FinishScan()
         {
             AutoPlanResult r = m_Planner.Result;
-            double ms = (System.Diagnostics.Stopwatch.GetTimestamp() - m_ScanT0) * 1000.0 / System.Diagnostics.Stopwatch.Frequency;
+            double ms = QuickRunsRules.MsSince(m_ScanT0);
             m_StatusKey = QuickRunsRules.StatusKey(r.Status);
             m_Phase = r.Status == AutoPlanStatus.Ok ? ToolPhase.Preview : ToolPhase.Region;
             RefreshEnabled();
@@ -206,7 +206,7 @@ namespace SkiResortMod.Systems
             }
             m_Snap = s;
             m_SnapPrint = h;
-            m_SnapMs = (System.Diagnostics.Stopwatch.GetTimestamp() - t0) * 1000.0 / System.Diagnostics.Stopwatch.Frequency;
+            m_SnapMs = QuickRunsRules.MsSince(t0);
             return true;
         }
 
@@ -253,7 +253,7 @@ namespace SkiResortMod.Systems
                     }
                     else
                         continue;
-                    float2[] ring = RingOf(areas[i], out Bounds2 b);
+                    float2[] ring = RunAreaEmit.ReadRing(EntityManager, areas[i], out Bounds2 b);
                     if (ring == null || !MathUtils.Intersect(b, area))
                         continue;
                     m_Obstacles.Add(new AutoObstacle { Kind = kind, Ring = ring });
@@ -266,7 +266,7 @@ namespace SkiResortMod.Systems
                 }
             }
             m_ObstaclePrint = h;
-            m_ObstacleMs = (System.Diagnostics.Stopwatch.GetTimestamp() - t0) * 1000.0 / System.Diagnostics.Stopwatch.Frequency;
+            m_ObstacleMs = QuickRunsRules.MsSince(t0);
         }
 
         private Bounds2 SnapBounds()
@@ -275,24 +275,6 @@ namespace SkiResortMod.Systems
             float2 lo = new float2(m_Snap.X0 * texel - m_Snap.Offset.x, m_Snap.Z0 * texel - m_Snap.Offset.z);
             float2 hi = lo + new float2(m_Snap.Width * texel, m_Snap.Depth * texel);
             return new Bounds2(lo, hi);
-        }
-
-        private float2[] RingOf(Entity e, out Bounds2 b)
-        {
-            b = default;
-            DynamicBuffer<Node> nodes = EntityManager.GetBuffer<Node>(e, true);
-            if (nodes.Length < 3)
-                return null;
-            var ring = new float2[nodes.Length];
-            float2 mn = new float2(float.MaxValue), mx = new float2(float.MinValue);
-            for (int k = 0; k < nodes.Length; k++)
-            {
-                ring[k] = nodes[k].m_Position.xz;
-                mn = math.min(mn, ring[k]);
-                mx = math.max(mx, ring[k]);
-            }
-            b = new Bounds2(mn, mx);
-            return ring;
         }
 
         /// <summary>Enter's freshness check: the same heights, water and obstacles as the scan saw. False = re-scan.</summary>
@@ -370,8 +352,8 @@ namespace SkiResortMod.Systems
             {
                 if (!QuickRunsRules.CanPay(CityMoney(), m_Totals.Fee))
                     m_ToolWarn |= QuickToolWarning.MoneyShort;
-                if (m_ToolSystem != null && m_ToolSystem.ignoreErrors)
-                    m_ToolWarn |= QuickToolWarning.ChecksOff;   // ToolSystem.ignoreErrors (ToolSystem.cs:159, ToolBaseSystem.cs:535)
+                if (QuickRunsRules.ChecksOff(GameChecks()))
+                    m_ToolWarn |= QuickToolWarning.ChecksOff;
                 if (m_GateOf.Length != r.Runs.Count)
                     m_GateOf = new Entity[r.Runs.Count];
                 Entity first = Entity.Null;
@@ -385,7 +367,7 @@ namespace SkiResortMod.Systems
                     if (!IsEnabled(i))
                         continue;
                     AutoRun run = r.Runs[i];
-                    float2 c = Center(run.Ring);
+                    float2 c = QuickRunsRules.Centroid(run.Ring);
                     if (!m_Ownership.TryNearestGateEntity(c, out Entity gate, out float _))
                     {
                         m_ToolWarn |= QuickToolWarning.NoSign;
@@ -434,14 +416,34 @@ namespace SkiResortMod.Systems
             return false;
         }
 
-        private static float2 Center(float2[] ring)
+        private EntityQuery m_ToolErrorQuery;
+        private bool m_ToolErrorQueryMade;
+
+        /// <summary>The game-checks state, the one source for the ChecksOff warning and the build / probe lines: the vanilla error
+        /// prefabs for OverlapExisting read as ValidationSystem reads them (its query NotificationIconData + ToolErrorData,
+        /// ValidationSystem.cs:1920; FillErrorPrefabsJob skips a prefab whose flags carry DisableInGame, :1318-1325), plus
+        /// ToolSystem.ignoreErrors (ToolSystem.cs:159, ToolBaseSystem.cs:535). Our own reads of vanilla prefab data: no reflection, no
+        /// other mod's types (a mod that disables the check, as Anarchy does, shows up as OverlapDisabled).</summary>
+        private QuickGameChecks GameChecks()
         {
-            float2 s = 0f;
-            if (ring == null || ring.Length == 0)
-                return s;
-            for (int i = 0; i < ring.Length; i++)
-                s += ring[i];
-            return s / ring.Length;
+            if (!m_ToolErrorQueryMade)
+            {
+                m_ToolErrorQuery = GetEntityQuery(ComponentType.ReadOnly<NotificationIconData>(), ComponentType.ReadOnly<ToolErrorData>());
+                m_ToolErrorQueryMade = true;
+            }
+            int found = 0, enabled = 0;
+            using (var errors = m_ToolErrorQuery.ToComponentDataArray<ToolErrorData>(Allocator.Temp))
+            {
+                for (int i = 0; i < errors.Length; i++)
+                {
+                    if (errors[i].m_Error != Game.Tools.ErrorType.OverlapExisting)
+                        continue;
+                    found++;
+                    if ((errors[i].m_Flags & ToolErrorFlags.DisableInGame) == 0)
+                        enabled++;
+                }
+            }
+            return QuickRunsRules.ChecksState(m_ToolSystem != null && m_ToolSystem.ignoreErrors, found, enabled);
         }
 
         /// <summary>The cluster within 40 m of the cursor: pod labels (DECISIONS 409) and the summit line.</summary>

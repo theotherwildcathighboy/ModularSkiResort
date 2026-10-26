@@ -3,6 +3,7 @@
 // node, and the bulldozer-shape delete. No state: the tools keep their own phases, queries and logs.
 // Engine notes: EngineNotes/QuickRunsToolSystem.md ("Shared emit")
 
+using Colossal.Mathematics;
 using Game.Common;
 using Game.Simulation;
 using Game.Tools;
@@ -36,6 +37,46 @@ namespace SkiResortMod.Systems
             if (hd.isCreated)
                 p.y = TerrainUtils.SampleHeight(ref hd, p);
             return p;
+        }
+
+        /// <summary>The outline of a run or other area as xz points plus its bounds; null (bounds default) under 3 nodes. The one reader
+        /// of an area's Node buffer for the scan, the cat track tool's obstacles and the tree filler's holes (RunOutlineRules is a pure
+        /// file and cannot take an EntityManager).</summary>
+        public static float2[] ReadRing(EntityManager em, Entity e, out Bounds2 bounds)
+        {
+            bounds = default;
+            DynamicBuffer<Game.Areas.Node> nodes = em.GetBuffer<Game.Areas.Node>(e, true);
+            if (nodes.Length < 3)
+                return null;
+            var ring = new float2[nodes.Length];
+            float2 mn = new float2(float.MaxValue), mx = new float2(float.MinValue);
+            for (int k = 0; k < nodes.Length; k++)
+            {
+                ring[k] = nodes[k].m_Position.xz;
+                mn = math.min(mn, ring[k]);
+                mx = math.max(mx, ring[k]);
+            }
+            bounds = new Bounds2(mn, mx);
+            return ring;
+        }
+
+        /// <summary>ReadRing with the node heights (the glade planner's hole rings are float3); bounds are still xz.</summary>
+        public static float3[] ReadRing3(EntityManager em, Entity e, out Bounds2 bounds)
+        {
+            bounds = default;
+            DynamicBuffer<Game.Areas.Node> nodes = em.GetBuffer<Game.Areas.Node>(e, true);
+            if (nodes.Length < 3)
+                return null;
+            var ring = new float3[nodes.Length];
+            float2 mn = new float2(float.MaxValue), mx = new float2(float.MinValue);
+            for (int k = 0; k < nodes.Length; k++)
+            {
+                ring[k] = nodes[k].m_Position;
+                mn = math.min(mn, ring[k].xz);
+                mx = math.max(mx, ring[k].xz);
+            }
+            bounds = new Bounds2(mn, mx);
+            return ring;
         }
 
         /// <summary>Plain Deleted with Applied / Created / Updated stripped (the SkiRunGateCascadeSystem idiom; CleanUpSystem destroys it at

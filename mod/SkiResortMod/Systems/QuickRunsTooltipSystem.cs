@@ -94,6 +94,10 @@ namespace SkiResortMod.Systems
                     ShowValue(m_Progress, ref m_LastProgress, Template(P + "PLANTING_PROGRESS")
                         .Replace("{N}", m_Tool.PlantDone.ToString("N0", CultureInfo.InvariantCulture))
                         .Replace("{M}", m_Tool.PlantTotal.ToString("N0", CultureInfo.InvariantCulture)));
+                else if (m_Tool.RemovingTrees)
+                    ShowValue(m_Progress, ref m_LastProgress, Template(P + "REMOVING_PROGRESS")
+                        .Replace("{N}", m_Tool.RemoveDone.ToString("N0", CultureInfo.InvariantCulture))
+                        .Replace("{M}", m_Tool.RemoveTotal.ToString("N0", CultureInfo.InvariantCulture)));
                 if (phase == QuickRunsToolSystem.ToolPhase.Scanning)
                 {
                     m_Scan.value = (float)Math.Round(m_Tool.ScanProgress * 100f);
