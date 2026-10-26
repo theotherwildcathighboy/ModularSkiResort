@@ -61,6 +61,8 @@
     <Compile Include="..\..\mod\SkiResortMod\Systems\LiftLineEdit.cs" Link="LiftLineEdit.cs" />
     <!-- The one lift tool's input rules + undo. -->
     <Compile Include="LiftToolInputTests.cs" />
+    <!-- The 2026-10-26 lift pass (DQ refusal, station-end towers, edge slope, pin end margin). -->
+    <Compile Include="LiftPassTests.cs" />
     <!-- Per-tower number tiles, the pure core. -->
     <Compile Include="..\..\mod\SkiResortMod\Systems\TowerNumberTiles.cs" Link="TowerNumberTiles.cs" />
     <Compile Include="TowerNumberTests.cs" />

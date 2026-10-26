@@ -40,6 +40,7 @@ namespace SkiResortMod.Systems
         private const int NoticeFrames = 240;
         private const float ProbeLengthM = 40f;
         private const int TempTimeoutFrames = 30;   // frames to wait for the run definition's Temp area (LiftLineToolSystem's value)
+        private const int DeleteRingsFrames = 30;   // Delete mode re-reads the cat track outlines this often (and after each delete)
 
         /// <summary>Edit: points and preview. Emitted: the run definition is out, waiting for its Temp area and the game's validation.
         /// Applying: the frame after Apply, checks that the run became permanent.</summary>
@@ -51,6 +52,7 @@ namespace SkiResortMod.Systems
         private static readonly UnityEngine.Color CutColor = new UnityEngine.Color(1f, 0.55f, 0.1f, 0.9f);
         private static readonly UnityEngine.Color FillColor = new UnityEngine.Color(0.25f, 0.55f, 1f, 0.9f);
         private static readonly UnityEngine.Color GuardColor = new UnityEngine.Color(0.95f, 0.15f, 0.15f, 0.95f);
+        private static readonly UnityEngine.Color DeleteHoverColor = new UnityEngine.Color(1f, 0.6f, 0.55f, 0.9f);
         private static readonly UnityEngine.Color[] GradeColors =
         {
             new UnityEngine.Color(0.25f, 0.85f, 0.35f, 0.9f),   // within the limit
@@ -66,7 +68,8 @@ namespace SkiResortMod.Systems
         public bool IsDisabled => m_Disabled;
         internal GradeStep Step => GradeInput.StepOf(m_Edit.Count, m_Phase != RunPhase.Edit);
         internal bool Dragging => m_DragIndex >= 0;
-        internal bool CanUndoGrade => m_GradesThisOpening > 0 && m_Undo.Count > 0;
+        internal bool DeleteMode => m_DeleteMode;
+        internal string DeletePrompt => GradeDeleteInput.Prompt(m_DelHover, ArmedIndex);
         internal string Notice => m_Notice != null && m_Frame - m_NoticeFrame < NoticeFrames ? m_Notice : null;
         internal string PlanLine => m_Path != null ? GradeInput.Describe(m_Path, m_Prof, m_Raster, m_Params) : null;
         internal bool PlanOk => m_Prof != null && m_Prof.Feasible && m_Guard == GradeGuardKind.None && !m_CrossingPending;
@@ -114,13 +117,19 @@ namespace SkiResortMod.Systems
         private int m_EmitFrame;
         private Entity m_RunPrefab, m_AppliedRun;
         private JobHandle m_Deps;
-        private int m_GradesThisOpening;
         private float3 m_Hit;
         private bool m_HasHit;
         private int m_HoverPoint = -1, m_DragIndex = -1;
         private float2 m_DragTo;
         private string m_Notice;
         private int m_NoticeFrame;
+        // Delete mode (field test 2026-10-26b): the cat track outlines (refreshed every DeleteRingsFrames), the hovered index and the
+        // armed track (an Entity: it survives a refresh)
+        private bool m_DeleteMode;
+        private readonly List<Entity> m_DelTracks = new List<Entity>();
+        private readonly List<float2[]> m_DelRings = new List<float2[]>();
+        private int m_DelRingsFrame = int.MinValue, m_DelHover = -1;
+        private Entity m_DelArmed;
 
         private readonly List<Line3.Segment> m_DrawSeg = new List<Line3.Segment>();
         private readonly List<UnityEngine.Color> m_DrawColor = new List<UnityEngine.Color>();
@@ -173,6 +182,7 @@ namespace SkiResortMod.Systems
             m_Writer.ResetGate();
             m_ProbeCheckFrame = m_ProbeWaterFrame = -1;
             ClearPlan("load");
+            ResetDeleteMode();
             m_RunCatalog = World.GetExistingSystemManaged<SkiRunCatalogSystem>();
             if (mode != GameMode.Game)
             {
@@ -182,13 +192,13 @@ namespace SkiResortMod.Systems
             m_Armed = true;
             m_RunPrefab = m_Catalog.EntityOf(SkiCatalog.Names.RunCatTrack);
             Mod.Log.Info($"Grade [tool]: ARMED — '{toolID}' (T139, one action since 2026-10-24): click points up the mountain, drag a " +
-                         "point to move it, right click steps back one action (with no point: undoes the last track built since the tool " +
-                         "opened, terrain and run; then closes), Enter grades the corridor AND builds the cat-track run on its flat top " +
+                         "point to move it, right click / Esc step back one action (with no point: close; a built track is never undone), " +
+                         "Ctrl+Shift+D toggles delete mode (two clicks on a track delete it), Enter grades the corridor AND builds the cat-track run on its flat top " +
                          $"(run prefab {SkiCatalog.Names.RunCatTrack} {(m_RunPrefab != Entity.Null ? "FOUND" : "MISSING: Enter refuses")}), " +
-                         $"Esc closes. {ReadParams().Describe()}; guards: lots, lift lines ({LiftClearanceM:F0} m), water " +
+                         $"{ReadParams().Describe()}; guards: lots, lift lines ({LiftClearanceM:F0} m), water " +
                          $"(> {WetDepthM:F1} m), run outline clearance {GradeRibbon.MinClearanceM:F1} m, crossed runs keep their ground (fade " +
                          $"{ReadParams().CrossBlendM:F0} m) and must be crossed under the max grade; trees on the flat top are " +
-                         $"removed; grading free, the run pays its fee at bind; undo for this session (last {GradeUndo.MaxEntries})");
+                         $"removed; grading free, the run pays its fee at bind; probe grades undo for this session (last {GradeUndo.MaxEntries})");
         }
 
         protected override void OnStartRunning()
@@ -196,9 +206,13 @@ namespace SkiResortMod.Systems
             base.OnStartRunning();
             applyMode = ApplyMode.None;
             ClearPlan("activated");
-            m_GradesThisOpening = 0;
+            // OnStopRunning cleared the mode, so it is on here only when the hub chip opened the tool in Delete mode this frame
+            bool deleteMode = m_DeleteMode;
+            ResetDeleteMode();
+            m_DeleteMode = deleteMode;
             m_Params = ReadParams();
-            Mod.Log.Info($"Grade [tool]: running — {m_Params.Describe()}; {m_Undo.Count} grade(s) to undo this session");
+            Mod.Log.Info($"Grade [tool]: running — {m_Params.Describe()}; right click / Esc never touch a built cat track (delete: the " +
+                         "tool's delete mode, two clicks on the track, or the hub row's trash)");
         }
 
         protected override void OnStopRunning()
@@ -226,6 +240,7 @@ namespace SkiResortMod.Systems
                                  $"{EntityManager.Exists(m_AppliedRun)}, Temp {EntityManager.Exists(m_AppliedRun) && EntityManager.HasComponent<Temp>(m_AppliedRun)})");
                 }
                 ClearPlan("stopped");
+                ResetDeleteMode();
                 if (!m_DefinitionQuery.IsEmptyIgnoreFilter)
                     EntityManager.DestroyEntity(m_DefinitionQuery);
             }
@@ -302,6 +317,40 @@ namespace SkiResortMod.Systems
             m_ApplyRequested = true;
         }
 
+        /// <summary>Delete mode on / off (the field-test ruling of 2026-10-26b). While on, a click on a cat track arms it (red), a second
+        /// click on it deletes it with the hub row trash's path (DeleteTrack); right click / Esc only turn the mode off. Refused while a
+        /// build is in flight; the points of a track being drawn stay.</summary>
+        public bool SetDeleteMode(bool on, string why)
+        {
+            if (!IsActive || m_DeleteMode == on)
+                return m_DeleteMode == on;
+            if (on && m_Phase != RunPhase.Edit)
+            {
+                Say($"Grade [delete]: delete mode refused ({why}) — a cat track is being built", "Wait until the cat track is built");
+                return false;
+            }
+            m_DeleteMode = on;
+            m_DelHover = -1;
+            m_DelArmed = Entity.Null;
+            m_DelRingsFrame = int.MinValue;
+            m_DragIndex = m_HoverPoint = -1;
+            Say($"Grade [delete]: delete mode {(on ? "ON" : "off")} ({why}){(on ? " — click a cat track twice to delete it" : string.Empty)}",
+                on ? "Delete mode: click a cat track twice to delete it" : "Delete mode off");
+            return true;
+        }
+
+        public bool ToggleDeleteMode(string why) => SetDeleteMode(!m_DeleteMode, why);
+
+        private void ResetDeleteMode()
+        {
+            m_DeleteMode = false;
+            m_DelHover = -1;
+            m_DelArmed = Entity.Null;
+            m_DelTracks.Clear();
+            m_DelRings.Clear();
+            m_DelRingsFrame = int.MinValue;
+        }
+
 
         private void UpdateCore()
         {
@@ -333,6 +382,15 @@ namespace SkiResortMod.Systems
 
             if (cancelAction.WasPressedThisFrame())
                 StepBack();
+            else if (m_DeleteMode)
+            {
+                if (m_ApplyRequested)
+                {
+                    m_ApplyRequested = false;
+                    Say("Grade [apply]: refused in delete mode — right click leaves it, then Enter builds", "Leave delete mode to build (right click)");
+                }
+                UpdateDelete();
+            }
             else if (m_ApplyRequested)
             {
                 m_ApplyRequested = false;
@@ -369,9 +427,12 @@ namespace SkiResortMod.Systems
 
         private void StepBack()
         {
-            GradeBack back = GradeInput.RightClick(Step, Dragging, m_Edit.UndoDepth, CanUndoGrade ? m_GradesThisOpening : 0);
+            GradeBack back = GradeInput.RightClick(Step, Dragging, m_Edit.UndoDepth, m_DeleteMode);
             switch (back)
             {
+                case GradeBack.LeaveDeleteMode:
+                    SetDeleteMode(false, "right click / Esc");
+                    return;
                 case GradeBack.CancelDrag:
                     m_DragIndex = -1;
                     Say("Grade [back]: move canceled (right click)");
@@ -380,10 +441,6 @@ namespace SkiResortMod.Systems
                     m_Edit.Undo();
                     m_Dirty = true;
                     Say($"Grade [back]: undo (right click) — {m_Edit.Count} point(s) left, {m_Edit.UndoDepth} edit(s) to undo");
-                    return;
-                case GradeBack.UndoGrade:
-                    if (UndoLastGrade("right click"))
-                        m_GradesThisOpening--;
                     return;
                 case GradeBack.CloseTool:
                     Say("Grade [back]: nothing left — tool closed (right click)");
@@ -434,6 +491,62 @@ namespace SkiResortMod.Systems
             m_Dirty = true;
         }
 
+
+        private int ArmedIndex => m_DelArmed == Entity.Null ? -1 : m_DelTracks.IndexOf(m_DelArmed);
+
+        /// <summary>Delete mode, one frame: pick the cat track under the terrain hit (point in outline, no area raycast: the tool's raycast
+        /// stays Terrain only), then the two-click confirm (GradeDeleteInput).</summary>
+        private void UpdateDelete()
+        {
+            if (m_Frame - m_DelRingsFrame >= DeleteRingsFrames)
+                ReadCatTrackRings();
+            m_DelHover = m_HasHit ? GradeDeleteInput.Pick(m_DelRings, m_Hit.xz) : -1;
+            if (!m_HasHit || !applyAction.WasPressedThisFrame())
+                return;
+            switch (GradeDeleteInput.Click(m_DelHover, ArmedIndex))
+            {
+                case GradeDeleteClick.Arm:
+                    m_DelArmed = m_DelTracks[m_DelHover];
+                    Say($"Grade [delete]: cat track {Describe(m_DelArmed)} selected — click it again to delete", "Click again to delete this cat track");
+                    return;
+                case GradeDeleteClick.Disarm:
+                    Say($"Grade [delete]: cat track {Describe(m_DelArmed)} deselected (click off the track)");
+                    m_DelArmed = Entity.Null;
+                    return;
+                case GradeDeleteClick.Delete:
+                    Entity e = m_DelArmed;
+                    m_DelArmed = Entity.Null;
+                    if (DeleteTrack(e, "tool delete mode"))
+                        Say($"Grade [delete]: cat track {Describe(e)} deleted from the tool's delete mode", "Cat track deleted");
+                    m_DelRingsFrame = int.MinValue;   // re-read next frame: the track is gone
+                    return;
+            }
+        }
+
+        private void ReadCatTrackRings()
+        {
+            m_DelRingsFrame = m_Frame;
+            m_DelTracks.Clear();
+            m_DelRings.Clear();
+            if (m_RunPrefab == Entity.Null)
+                return;
+            using (var runs = m_RunAreaQuery.ToEntityArray(Allocator.Temp))
+            using (var prefabs = m_RunAreaQuery.ToComponentDataArray<PrefabRef>(Allocator.Temp))
+            {
+                for (int k = 0; k < runs.Length; k++)
+                {
+                    if (prefabs[k].m_Prefab != m_RunPrefab)
+                        continue;
+                    float2[] ring = RunAreaEmit.ReadRing(EntityManager, runs[k], out Bounds2 _);
+                    if (ring == null || ring.Length < 3)
+                        continue;
+                    m_DelTracks.Add(runs[k]);
+                    m_DelRings.Add(ring);
+                }
+            }
+            if (m_DelArmed != Entity.Null && !m_DelTracks.Contains(m_DelArmed))
+                m_DelArmed = Entity.Null;   // gone meanwhile (the hub trash)
+        }
 
         private void Solve(string why, bool settle = false)
         {
@@ -862,12 +975,11 @@ namespace SkiResortMod.Systems
             m_Deps = DestroyDefinitions(m_DefinitionQuery, m_Barrier, m_Deps);
             m_AppliedRun = temp;
             m_Phase = RunPhase.Applying;
-            m_GradesThisOpening++;
             int points = m_Edit.Count;
             m_Edit.Clear();
             ClearPlan(null);
-            Say($"Grade [apply]: done — the cat-track run {Describe(temp)} applied with the grade; {points} point(s) cleared; right click " +
-                "undoes both", "Cat track built. Right click: undo");
+            Say($"Grade [apply]: done — the cat-track run {Describe(temp)} applied with the grade; {points} point(s) cleared (a built track " +
+                "stays: delete it with the hub row's trash; the ground stays graded)", "Cat track built");
         }
 
         /// <summary>Applying (the frame after Apply): the run must be permanent now; one line either way.</summary>
@@ -992,11 +1104,11 @@ namespace SkiResortMod.Systems
                 Mod.Log.Warn($"Grade [apply:{label}]: the verify readback failed; the write is assumed to have landed (undo kept)");
             }
             int trees = ClearTrees(path, p);
-            int dropped = m_Undo.Push(new GradeUndoEntry
-            {
-                X0 = rect.x, Z0 = rect.y, W = rect.z, H = rect.w, Before = before, After = after, Label = label,
-                Run = run != Entity.Null ? new int2(run.Index, run.Version) : default,
-            });
+            // Only a grade without a run (the dev-tab probe) goes on the undo stack: a built cat track is never un-graded by a right click,
+            // Esc or the dev tab (field test 2026-10-26b: repeated right clicks popped built tracks); it is deleted by the hub row's trash.
+            int dropped = run == Entity.Null
+                ? m_Undo.Push(new GradeUndoEntry { X0 = rect.x, Z0 = rect.y, W = rect.z, H = rect.w, Before = before, After = after, Label = label })
+                : 0;
             m_RunCatalog?.NoteTerrainChanged("cat-track grade (" + label + ")");
             sw.Stop();
             LastApplyText = string.Format(CultureInfo.InvariantCulture, "{0}: {1} texels, cut {2:F0} m³, fill {3:F0} m³, {4} tree(s), {5:F0} ms",
@@ -1085,11 +1197,10 @@ namespace SkiResortMod.Systems
             ushort[] restored = GradeUndo.Restore(e, current, out int kept);
             m_Writer.Write(map, rect, restored, "undo " + e.Label, out int mismatches);
             m_Undo.Pop();
-            string run = DeleteRun(e.Run);
-            m_RunCatalog?.NoteTerrainChanged("cat-track grade undone");
+            m_RunCatalog?.NoteTerrainChanged("grade undone");
             Say($"Grade [undo]: UNDONE ({why}) — {e.Label} grade at {HeightmapWriter.Rect(rect)}; {kept} texel(s) changed since by something " +
-                $"else were kept; verify {(mismatches == 0 ? "OK" : mismatches + " mismatch(es)")}; run {run}; removed trees do not come " +
-                $"back; {m_Undo.Count} grade(s) left to undo", "Cat track undone");
+                $"else were kept; verify {(mismatches == 0 ? "OK" : mismatches + " mismatch(es)")}; removed trees do not come " +
+                $"back; {m_Undo.Count} grade(s) left to undo", "Grade undone");
             return true;
         }
 
@@ -1113,20 +1224,6 @@ namespace SkiResortMod.Systems
             RunAreaEmit.DeleteLikeBulldozer(EntityManager, e);
             Mod.Log.Info($"Grade [delete]: DELETED cat track {Describe(e)} ({why}); the ground stays graded, no refund");
             return true;
-        }
-
-        /// <summary>Deletes the cat-track run an undone grade built: plain Deleted with Applied / Created / Updated stripped, the
-        /// SkiRunGateCascadeSystem idiom (no refund: the bulldozer refunds no run fee either). Skipped when the entity is gone, already
-        /// deleted, or no longer a cat track (the index was reused). Returns the log word.</summary>
-        private string DeleteRun(int2 id)
-        {
-            if (math.all(id == 0))
-                return "none (a grade without a run)";
-            var e = new Entity { Index = id.x, Version = id.y };
-            if (!IsCatTrack(e))
-                return $"{id.x}:{id.y} already gone (deleted?)";
-            RunAreaEmit.DeleteLikeBulldozer(EntityManager, e);
-            return $"{id.x}:{id.y} deleted";
         }
 
 
@@ -1185,7 +1282,7 @@ namespace SkiResortMod.Systems
                 m_ProbeWaterFrame = m_Frame + 120;
                 ProbeText = "written: " + m_Writer.LastLine + "; CPU check in 30 frames";
                 Mod.Log.Info("Grade [probe]: WRITTEN — now check: the terrain dips along the strip, trees / props on it follow the ground, " +
-                             "water nearby resumes; then save, load, and look again (the dip must stay). Undo: dev tab \"Undo last grade\"");
+                             "water nearby resumes; then save, load, and look again (the dip must stay). Undo: dev tab \"Undo last probe grade\"");
             }
             catch (Exception e)
             {
@@ -1305,6 +1402,23 @@ namespace SkiResortMod.Systems
             }
             if (m_Guard != GradeGuardKind.None && m_Guard != GradeGuardKind.OffMap && m_Guard != GradeGuardKind.TooLarge)
                 buffer.DrawCircle(GuardColor, GuardColor, 0f, projected, ring, Ground(ref hd, m_GuardAt), 10f);
+            if (m_DeleteMode)
+            {
+                int armed = ArmedIndex;
+                if (armed >= 0)
+                    DrawOutline(buffer, ref hd, m_DelRings[armed], GuardColor, 2.5f);
+                if (m_DelHover >= 0 && m_DelHover != armed && m_DelHover < m_DelRings.Count)
+                    DrawOutline(buffer, ref hd, m_DelRings[m_DelHover], DeleteHoverColor, 1.5f);
+            }
+        }
+
+        private static void DrawOutline(OverlayRenderSystem.Buffer buffer, ref TerrainHeightData hd, float2[] ring, UnityEngine.Color c, float width)
+        {
+            for (int i = 0; i < ring.Length; i++)
+            {
+                var seg = new Line3.Segment(Ground(ref hd, ring[i]), Ground(ref hd, ring[(i + 1) % ring.Length]));
+                buffer.DrawLine(c, c, 0f, OverlayRenderSystem.StyleFlags.Projected, seg, width, new float2(1f, 1f));
+            }
         }
 
         private static float3 Ground(ref TerrainHeightData hd, float2 xz) => RunAreaEmit.Ground(ref hd, xz);

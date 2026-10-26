@@ -485,39 +485,37 @@ namespace GradeBatch
             e.Undo();
             Check(e.Count == 0 && e.UndoDepth == 0 && !e.Undo(), "GR-15 undo to empty", "");
 
-            Check(GradeInput.RightClick(GradeStep.Path, true, 3, 0) == GradeBack.CancelDrag, "GR-15 rc drag", "");
-            Check(GradeInput.RightClick(GradeStep.Path, false, 3, 1) == GradeBack.UndoEdit, "GR-15 rc edit", "");
-            Check(GradeInput.RightClick(GradeStep.OnePoint, false, 1, 0) == GradeBack.UndoEdit, "GR-15 rc one point", "drops the point");
-            Check(GradeInput.RightClick(GradeStep.Empty, false, 0, 1) == GradeBack.UndoGrade, "GR-15 rc grade", "");
-            Check(GradeInput.RightClick(GradeStep.Empty, false, 0, 0) == GradeBack.CloseTool, "GR-15 rc close", "");
-            Check(GradeInput.RightClick(GradeStep.Applying, false, 2, 1) == GradeBack.None, "GR-15 rc applying", "");
+            Check(GradeInput.RightClick(GradeStep.Path, true, 3) == GradeBack.CancelDrag, "GR-15 rc drag", "");
+            Check(GradeInput.RightClick(GradeStep.Path, false, 3) == GradeBack.UndoEdit, "GR-15 rc edit", "");
+            Check(GradeInput.RightClick(GradeStep.OnePoint, false, 1) == GradeBack.UndoEdit, "GR-15 rc one point", "drops the point");
+            Check(GradeInput.RightClick(GradeStep.Empty, false, 0) == GradeBack.CloseTool, "GR-15 rc close",
+                  "with no point left a right click closes the tool: it never un-grades or deletes a built cat track (field test 2026-10-26b)");
+            Check(GradeInput.RightClick(GradeStep.Applying, false, 2) == GradeBack.None, "GR-15 rc applying", "");
+            Check(Enum.GetNames(typeof(GradeBack)).Length == 5, "GR-15 no undo-grade step", "GradeBack is None / CancelDrag / UndoEdit / CloseTool / LeaveDeleteMode");
 
-            // Walk back: three points + one grade -> 3 undos, undo the grade, close.
+            // Walk back: three points -> 3 undos, then close (however many tracks were built this opening: they stay).
             var w = new GradeEdit();
             w.Add(new float2(0, 0));
             w.Add(new float2(50, 0));
             w.Add(new float2(90, 10));
-            int grades = 1;
             var seq = new List<GradeBack>();
             for (int guard = 0; guard < 10; guard++)
             {
-                GradeBack b = GradeInput.RightClick(GradeInput.StepOf(w.Count, false), false, w.UndoDepth, grades);
+                GradeBack b = GradeInput.RightClick(GradeInput.StepOf(w.Count, false), false, w.UndoDepth);
                 seq.Add(b);
                 if (b == GradeBack.UndoEdit)
                     w.Undo();
-                else if (b == GradeBack.UndoGrade)
-                    grades--;
                 else
                     break;
             }
-            Check(string.Join(",", seq) == "UndoEdit,UndoEdit,UndoEdit,UndoGrade,CloseTool", "GR-15 walk back", string.Join(",", seq));
+            Check(string.Join(",", seq) == "UndoEdit,UndoEdit,UndoEdit,CloseTool", "GR-15 walk back", string.Join(",", seq));
 
             var seen = new HashSet<string>();
             foreach (GradeStep st in new[] { GradeStep.Empty, GradeStep.OnePoint, GradeStep.Path, GradeStep.Applying })
             {
-                foreach (bool canUndo in new[] { false, true })
+                foreach (bool drag in new[] { false, true })
                 {
-                    string pr = GradeInput.Prompt(st, false, canUndo);
+                    string pr = GradeInput.Prompt(st, drag);
                     Check(!string.IsNullOrWhiteSpace(pr), "GR-15 prompt", $"{st} empty");
                     seen.Add(pr);
                     string low = pr.ToLowerInvariant();
@@ -525,11 +523,48 @@ namespace GradeBatch
                         Check(!low.Contains(brit), "GR-15 US English", $"{st}: {brit}");
                 }
             }
-            Check(seen.Count >= 5, "GR-15 prompt per step", $"{seen.Count} distinct");
-            Check(GradeInput.Prompt(GradeStep.Path, false, false).Contains("Enter") && GradeInput.Prompt(GradeStep.Path, false, false).Contains("Esc") &&
-                  GradeInput.Prompt(GradeStep.Path, false, false).Contains("right click"), "GR-15 keys named", "");
-            Check(GradeInput.Prompt(GradeStep.Empty, false, true).Contains("undo the last track"), "GR-15 undo named", "");
-            Check(GradeInput.Prompt(GradeStep.Path, true, false).StartsWith("Release"), "GR-15 drag prompt", "");
+            Check(seen.Count >= 4, "GR-15 prompt per step", $"{seen.Count} distinct");
+            Check(GradeInput.Prompt(GradeStep.Path, false).Contains("Enter") && GradeInput.Prompt(GradeStep.Path, false).Contains("Esc") &&
+                  GradeInput.Prompt(GradeStep.Path, false).Contains("right click"), "GR-15 keys named", "");
+            Check(!GradeInput.Prompt(GradeStep.Empty, false).Contains("undo"), "GR-15 no undo of a built track", GradeInput.Prompt(GradeStep.Empty, false));
+            Check(GradeInput.Prompt(GradeStep.Path, true).StartsWith("Release"), "GR-15 drag prompt", "");
+
+            // GR-15d Delete mode (field test 2026-10-26b): right click / Esc only leave the mode, in any step but Applying, whatever is
+            // placed; the two-click confirm; the pick is point in outline.
+            foreach (GradeStep st in new[] { GradeStep.Empty, GradeStep.OnePoint, GradeStep.Path })
+                Check(GradeInput.RightClick(st, false, 3, deleteMode: true) == GradeBack.LeaveDeleteMode, "GR-15d rc leaves delete mode", st.ToString());
+            Check(GradeInput.RightClick(GradeStep.Applying, false, 0, deleteMode: true) == GradeBack.None, "GR-15d rc applying", "");
+            Check(GradeDeleteInput.Click(-1, -1) == GradeDeleteClick.None, "GR-15d click off", "");
+            Check(GradeDeleteInput.Click(2, -1) == GradeDeleteClick.Arm, "GR-15d first click arms", "");
+            Check(GradeDeleteInput.Click(2, 2) == GradeDeleteClick.Delete, "GR-15d second click deletes", "");
+            Check(GradeDeleteInput.Click(1, 2) == GradeDeleteClick.Arm, "GR-15d other track re-arms", "never deletes the armed one");
+            Check(GradeDeleteInput.Click(-1, 2) == GradeDeleteClick.Disarm, "GR-15d click off disarms", "");
+            // Walk: hover a track, click, click: exactly one delete, and only on the second click
+            int armedIx = -1, deletes = 0, firstDeleteAt = -1;
+            for (int c = 0; c < 2; c++)
+            {
+                GradeDeleteClick dc = GradeDeleteInput.Click(0, armedIx);
+                if (dc == GradeDeleteClick.Arm)
+                    armedIx = 0;
+                else if (dc == GradeDeleteClick.Delete)
+                {
+                    deletes++;
+                    firstDeleteAt = c;
+                    armedIx = -1;
+                }
+            }
+            Check(deletes == 1 && firstDeleteAt == 1, "GR-15d two clicks one delete", $"deletes {deletes} at click {firstDeleteAt}");
+            var rings = new List<float2[]>
+            {
+                new[] { new float2(0, 0), new float2(100, 0), new float2(100, 10), new float2(0, 10) },
+                new[] { new float2(100, 0), new float2(110, 0), new float2(110, 80), new float2(100, 80) },   // a branch touching the first
+            };
+            Check(GradeDeleteInput.Pick(rings, new float2(50, 5)) == 0, "GR-15d pick inside", "");
+            Check(GradeDeleteInput.Pick(rings, new float2(105, 40)) == 1, "GR-15d pick the branch", "");
+            Check(GradeDeleteInput.Pick(rings, new float2(50, 20)) == -1, "GR-15d pick outside", "");
+            Check(GradeDeleteInput.Pick(null, new float2(0, 0)) == -1, "GR-15d pick no tracks", "");
+            Check(GradeDeleteInput.Prompt(0, 0).StartsWith("Click again to delete") && GradeDeleteInput.Prompt(0, -1).Contains("right click: leave") &&
+                  GradeDeleteInput.Prompt(-1, -1).Contains("right click: leave"), "GR-15d prompts", GradeDeleteInput.Prompt(0, 0));
         }
 
 

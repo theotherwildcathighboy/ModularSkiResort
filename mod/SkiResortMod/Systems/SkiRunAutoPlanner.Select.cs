@@ -110,11 +110,14 @@ namespace SkiResortMod.Systems
         }
 
         // ---------------------------------------------------------------- stage 5a: clusters and seeds (sliced)
-        // m_Cursor2 phases: 0 setup, 1 top-cell rows, 2 one summit pick per unit, 3 pod rows, 4 one cluster's seeds per unit.
+        // m_Cursor2 phases: 0 setup, 1 top-cell rows, 2 one summit pick per unit, 3 pod rows (one pod after another), 4 seed-cell rows
+        // (every cluster at once), 5 one (cluster, pass) seed list per unit (sort and space).
 
         private int m_NTop, m_SummitCap, m_PodIdx, m_PodBest;
-        private readonly bool[] m_TopReach = new bool[Passes], m_PodAny = new bool[Passes];
+        private readonly bool[] m_TopReach = new bool[Passes];
         private float[] m_TopD = new float[256];
+        private float m_SeedBand;
+        private List<long>[] m_SeedLists = new List<long>[0];
 
         private void UnitSeeds()
         {
@@ -126,7 +129,6 @@ namespace SkiResortMod.Systems
                     m_NTop = 0;
                     m_SummitCap = ClusterCap(m_Result.RegionAreaM2);
                     Array.Clear(m_TopReach, 0, Passes);
-                    Array.Clear(m_PodAny, 0, Passes);
                     m_Cursor = m_RegionJ0;
                     m_Cursor2 = 1;
                     return;
@@ -141,55 +143,58 @@ namespace SkiResortMod.Systems
                         m_Cursor = m_RegionJ0;
                         m_Cursor2 = m_PodPasses.Count > 0 ? 3 : 4;
                         if (m_Cursor2 == 4)
-                            m_Cursor = 0;
+                            BeginSeedRows();
                     }
                     return;
                 case 3:
                     PodRows();
                     return;
+                case 4:
+                    SeedRows();
+                    return;
                 default:
-                    if (m_Cursor < m_Clusters.Count)
-                        ClusterSeeds(m_Cursor++);
-                    if (m_Cursor >= m_Clusters.Count)
+                    if (m_Cursor < m_Clusters.Count * Passes)
+                        ClusterSeeds(m_Cursor / Passes, m_Cursor % Passes);
+                    m_Cursor++;
+                    if (m_Cursor >= m_Clusters.Count * Passes)
                         Next(Stage.Candidates);
                     return;
             }
         }
 
-        /// <summary>Top cells (usable, in the upper TopShare of the vertical, at least TopBandM, reaching the base below the double black
-        /// ceiling) into m_Order, plus per pass whether a top cell reaches the base and whether any cell MinDropM above the base does
-        /// (the pod test). Row chunks over the region bbox.</summary>
+        /// <summary>Top cells (usable, in the upper TopShare of the skiable vertical, at least TopBandM, reaching the base below the
+        /// double black ceiling) into m_Order, plus per pass whether a top cell keeps that pass's band to the base. The top line hangs
+        /// from m_HReach, the highest ground that reaches the base (A: a steep summit cap above it is advisory, never a refusal). Row
+        /// chunks over the region bbox.</summary>
         private void TopRows()
         {
             int dbCeil = Bucket(PassCeiling[Passes - 1]);
-            float topLine = m_HMaxU - Math.Max(TopBandM, TopShare * (m_HMaxU - m_HMinU));
+            float topLine = m_HReach - Math.Max(TopBandM, TopShare * (m_HReach - m_HMinU));
             int jEnd = Math.Min(m_RegionJ1 + 1, m_Cursor + RowsPerUnit);
             for (int j = m_Cursor; j < jEnd; j++)
                 for (int i = m_RegionI0; i <= m_RegionI1; i++)
                 {
                     int c = j * m_Nx + i;
                     bool top = (m_Flags[c] & (FOpen | FCliff)) == FOpen && m_H[c] >= topLine && m_M[c] < dbCeil;
-                    if (top)
-                        m_Order[m_NTop++] = c;
+                    if (!top)
+                        continue;
+                    m_Order[m_NTop++] = c;
                     for (int p = 0; p < Passes - 1; p++)
-                        if (Reachable(p, c))
-                        {
-                            if (top)
-                                m_TopReach[p] = true;
-                            if (m_H[c] - m_BaseTop >= MinDropM)
-                                m_PodAny[p] = true;
-                        }
+                        if (InBand(p, c))
+                            m_TopReach[p] = true;
                 }
             m_Cursor = jEnd;
             if (m_Cursor <= m_RegionJ1)
                 return;
-            // Pods (real-world-layout.md 5): a pass (green, blue, black) that no top cell reaches gets a cluster of its own at the highest
-            // ground that pass does reach: the beginner pod near the base, a blue mid-station under a steep summit. Easiest pass first, at
-            // most MaxPods; they come on top of the summits (P2: a pod no longer takes a summit's slot).
+            // E, pods (real-world-layout.md 5): green and blue always get up to MaxPodsPerPass pods each at the highest ground that pass
+            // keeps its band to the base (the beginner pods on the gentle lower slope, blue mid-stations), black only when no top cell
+            // keeps the black band. They come on top of the summits.
             m_PodPasses.Clear();
+            int perPass = MaxPodsPerPass(m_Result.RegionAreaM2);
             for (int p = 0; p < Passes - 1; p++)
-                if (!m_TopReach[p] && m_PodAny[p] && m_PodPasses.Count < MaxPods)
-                    m_PodPasses.Add(p);
+                if (p < 2 || !m_TopReach[p])
+                    for (int k = 0; k < perPass; k++)
+                        m_PodPasses.Add(p);
             Grow(ref m_TopD, Math.Max(1, m_NTop));
             for (int k = 0; k < m_NTop; k++)
                 m_TopD[k] = float.PositiveInfinity;
@@ -228,8 +233,10 @@ namespace SkiResortMod.Systems
             return true;
         }
 
-        /// <summary>The current pod pass's cell: the highest cell it reaches MinDropM above the base outside every cluster's radius (row
-        /// chunks; the pods are placed one after another, each away from the ones before).</summary>
+        /// <summary>The current pod's cell: the highest cell its pass keeps the band from to the base, MinDropM above the base,
+        /// EdgeSeedMarginM inside the region and ClusterRadiusM (half the summit spacing) from every cluster, summits and pods (row
+        /// chunks; the pods are placed one after another, each away from the ones before). A pass that finds no cell skips its
+        /// remaining pods.</summary>
         private void PodRows()
         {
             int p = m_PodPasses[m_PodIdx];
@@ -238,7 +245,8 @@ namespace SkiResortMod.Systems
                 for (int i = m_RegionI0; i <= m_RegionI1; i++)
                 {
                     int c = j * m_Nx + i;
-                    if (!Reachable(p, c) || m_H[c] - m_BaseTop < MinDropM || (m_PodBest >= 0 && m_H[c] <= m_H[m_PodBest]))
+                    if (!InBand(p, c) || m_H[c] - SourceTop(p) < MinDropM || (m_PodBest >= 0 && m_H[c] <= m_H[m_PodBest]) ||
+                        !(m_DHard[c] >= EdgeSeedMarginM))
                         continue;
                     if (m_Clusters.Count > 0 && NearestCenter(CellCenter(c), out int _) < ClusterRadiusM)
                         continue;
@@ -249,71 +257,127 @@ namespace SkiResortMod.Systems
                 return;
             if (m_PodBest >= 0)
                 AddCluster(m_PodBest, p);
+            else
+                while (m_PodIdx + 1 < m_PodPasses.Count && m_PodPasses[m_PodIdx + 1] == p)
+                    m_PodIdx++;
             m_PodBest = -1;
             m_Cursor = m_RegionJ0;
             if (++m_PodIdx >= m_PodPasses.Count)
             {
-                m_Cursor = 0;
                 m_Cursor2 = 4;
+                BeginSeedRows();
             }
         }
 
-        /// <summary>Seeds of one cluster for every pass: member cells within TopBandM of the cluster top, ordered by height plus a seeded
-        /// jitter of SeedJitterM, spaced one corridor plus a gap apart.</summary>
-        private void ClusterSeeds(int cl)
+        // D: seeds across each cluster's top band, not a disc. Seed-cell rows (m_Cursor2 4) walk the region once for every cluster:
+        // a usable cell on the 2-cell seed lattice, EdgeSeedMarginM inside the region, whose nearest cluster center is cluster k
+        // (Voronoi) and whose height lies in [TopY_k - m_SeedBand, TopY_k], joins cluster k's list for every pass that keeps its band
+        // from there. Then one (cluster, pass) list per unit is sorted by height plus a seeded jitter and spaced (ClusterSeeds).
+        private void BeginSeedRows()
         {
-            ClusterInfo ci = m_Clusters[cl];
-            int ri = (int)math.ceil(ClusterRadiusM / m_Texel);
-            int ci0 = ci.Cell % m_Nx, cj0 = ci.Cell / m_Nx;
-            Grow(ref m_SortKeys, (2 * ri + 1) * (2 * ri + 1));   // Grow does not copy: size it once, before the fill
-            for (int p = 0; p < Passes; p++)
+            m_SeedBand = Math.Max(TopBandM, 0.5f * TopShare * (m_HReach - m_HMinU));
+            int lists = m_Clusters.Count * Passes;
+            if (m_SeedLists.Length < lists)
             {
-                int n = 0;
-                for (int j = Math.Max(m_RegionJ0, cj0 - ri); j <= Math.Min(m_RegionJ1, cj0 + ri); j++)
-                    for (int i = Math.Max(m_RegionI0, ci0 - ri); i <= Math.Min(m_RegionI1, ci0 + ri); i++)
+                var grown = new List<long>[lists];
+                Array.Copy(m_SeedLists, grown, m_SeedLists.Length);
+                m_SeedLists = grown;
+            }
+            for (int k = 0; k < lists; k++)
+            {
+                if (m_SeedLists[k] == null)
+                    m_SeedLists[k] = new List<long>();
+                m_SeedLists[k].Clear();
+            }
+            m_Cursor = m_RegionJ0;
+        }
+
+        private void SeedRows()
+        {
+            float lowest = float.PositiveInfinity;
+            for (int k = 0; k < m_Clusters.Count; k++)
+                lowest = Math.Min(lowest, m_Clusters[k].TopY - m_SeedBand);
+            int jEnd = Math.Min(m_RegionJ1 + 1, m_Cursor + RowsPerUnit);
+            for (int j = m_Cursor; j < jEnd; j++)
+            {
+                if (((m_LJ0 + j) & 1) != 0)
+                    continue;
+                for (int i = m_RegionI0 + ((m_LI0 + m_RegionI0) & 1); i <= m_RegionI1; i += 2)
+                {
+                    int c = j * m_Nx + i;
+                    byte bits = m_InBand[c];
+                    if (bits == 0 || m_H[c] < lowest || !(m_DHard[c] >= EdgeSeedMarginM))
+                        continue;
+                    NearestCenter(CellCenter(c), out int owner);
+                    if (owner < 0 || m_H[c] > m_Clusters[owner].TopY || m_H[c] < m_Clusters[owner].TopY - m_SeedBand)
+                        continue;
+                    for (int p = 0; p < Passes; p++)
                     {
-                        int c = j * m_Nx + i;
-                        if (!Reachable(p, c) || m_H[c] < ci.TopY - TopBandM)
-                            continue;
-                        float d = NearestCenter(CellCenter(c), out int owner);
-                        if (owner != cl || d > ClusterRadiusM)
+                        if ((bits & (1 << p)) == 0)
                             continue;
                         float key = m_H[c] + SeedJitterM * Jitter(m_Knobs.Seed, c, p);
                         long q = (long)Math.Round((1.0e6 - key) * 1000.0);
-                        m_SortKeys[n++] = (q << 21) | (long)c;
+                        m_SeedLists[owner * Passes + p].Add((q << 21) | (long)c);
                     }
-                Array.Sort(m_SortKeys, 0, n);
-                float spacing = TargetWidthM[p] + NormalGapM;
-                int start = m_Seeds.Count, ordinal = 0;
-                for (int k = 0; k < n && ordinal < SeedsPerClusterPass; k++)
-                {
-                    int c = (int)(m_SortKeys[k] & ((1L << 21) - 1));
-                    float2 pc = CellCenter(c);
-                    bool near = false;
-                    for (int s = start; s < m_Seeds.Count; s++)
-                        if (math.distance(CellCenter(m_Seeds[s].Cell), pc) < spacing)
-                        {
-                            near = true;
-                            break;
-                        }
-                    if (!near)
-                        m_Seeds.Add(new SeedRec { Cell = c, Cluster = cl, Pass = p, Ordinal = ordinal++ });
                 }
+            }
+            m_Cursor = jEnd;
+            if (m_Cursor <= m_RegionJ1)
+                return;
+            m_Cursor = 0;
+            m_Cursor2 = 5;
+        }
+
+        /// <summary>Seeds of one cluster and pass: its seed cells ordered by height plus a seeded jitter of SeedJitterM, spaced one
+        /// corridor plus NormalGapM apart (density-free on purpose: a Density re-select restarts at Select), at most SeedsPerClusterPass.</summary>
+        private void ClusterSeeds(int cl, int p)
+        {
+            List<long> list = m_SeedLists[cl * Passes + p];
+            int n = list.Count;
+            Grow(ref m_SortKeys, Math.Max(1, n));   // Grow does not copy: size it once, before the fill
+            list.CopyTo(m_SortKeys);
+            Array.Sort(m_SortKeys, 0, n);           // keys are unique (the cell is in the low bits): a deterministic order
+            float spacing = TargetWidthM[p] + NormalGapM;
+            int start = m_Seeds.Count, ordinal = 0;
+            for (int k = 0; k < n && ordinal < SeedsPerClusterPass; k++)
+            {
+                int c = (int)(m_SortKeys[k] & ((1L << 21) - 1));
+                float2 pc = CellCenter(c);
+                bool near = false;
+                for (int s = start; s < m_Seeds.Count; s++)
+                    if (math.distance(CellCenter(m_Seeds[s].Cell), pc) < spacing)
+                    {
+                        near = true;
+                        break;
+                    }
+                if (!near)
+                    m_Seeds.Add(new SeedRec { Cell = c, Cluster = cl, Pass = p, Ordinal = ordinal++ });
             }
         }
 
+        private bool InBand(int pass, int c) => (m_InBand[c] & (1 << pass)) != 0;
+
+        /// <summary>Pods per pass for a region of this area: round(2 x AreaScale) (2 at 1 km2, 6 at 9 km2).</summary>
+        public static int MaxPodsPerPass(float areaM2) => (int)Math.Round(2f * AreaScale(areaM2));
+
+        /// <summary>Most pods a region of this area can get: green, blue and black, MaxPodsPerPass each.</summary>
+        public static int PodCap(float areaM2) => (Passes - 1) * MaxPodsPerPass(areaM2);
+
         /// <summary>Summit clusters for a region of this area: 3 per km2 of side, sqrt(km2) clamped to [1, 3] (the v1 ruling's 3 top
-        /// clusters at 1 km2, 9 at the 9 km2 cap). Pods come on top (MaxPods).</summary>
+        /// clusters at 1 km2, 9 at the 9 km2 cap). Pods come on top (PodCap).</summary>
         public static int ClusterCap(float areaM2) => (int)Math.Round(MaxClusters * AreaScale(areaM2));
 
         /// <summary>sqrt(area in km2) clamped to [1, 3]: how many 1 km2 slopes fit across the region (caps scale with the width).</summary>
         public static float AreaScale(float areaM2) => math.clamp(math.sqrt(Math.Max(0f, areaM2) / 1.0e6f), 1f, 3f);
 
-        /// <summary>The run cap: the knob's cap, else the density's (8 / 12 / 16 per 1 km2) times AreaScale, at most HardRunCap.</summary>
+        /// <summary>The run cap: the knob's cap, else the density's per km2 (8 / 12 / 16) times the area in km2 (AreaScale squared:
+        /// at least 1 km2; the cap used to grow with the side only, which held a 4 km2 mountain to 6 runs per km2 on Normal), at most
+        /// HardRunCap.</summary>
         public static int RunCapOf(AutoPlanKnobs knobs, float areaM2)
         {
+            float km2 = AreaScale(areaM2) * AreaScale(areaM2);
             int cap = knobs.RunCap > 0 ? knobs.RunCap
-                : (int)Math.Round((knobs.Density == AutoDensity.Sparse ? 8 : knobs.Density == AutoDensity.Dense ? 16 : 12) * AreaScale(areaM2));
+                : (int)Math.Round((knobs.Density == AutoDensity.Sparse ? 8 : knobs.Density == AutoDensity.Dense ? 16 : 12) * km2);
             return Math.Min(cap, HardRunCap);
         }
 
@@ -336,12 +400,6 @@ namespace SkiResortMod.Systems
                 }
             }
             return best;
-        }
-
-        private bool Reachable(int pass, int c)
-        {
-            byte p = m_Pred[pass][c];
-            return p != PredNone && p != PredSource;
         }
 
         /// <summary>Uniform [0, 1) from (seed, cell, pass): a salted stream per draw, so the order cells are visited in never matters.</summary>
@@ -371,14 +429,13 @@ namespace SkiResortMod.Systems
             byte[] pred = m_Pred[s.Pass];
             int start = m_Paths.Count;
             int c = s.Cell;
-            float len = 0f, maxO = 0f;
+            float len = 0f;
             ulong hash = 14695981039346656037UL;
             int guard = m_N;
             while (guard-- > 0)
             {
                 m_Paths.Add(c);
                 hash = (hash ^ (ulong)(uint)c) * 1099511628211UL;
-                maxO = Math.Max(maxO, m_O[c]);
                 byte d = pred[c];
                 if (d == PredSource || d == PredNone)
                     break;
@@ -392,6 +449,11 @@ namespace SkiResortMod.Systems
             int count = m_Paths.Count - start;
             float drop = m_H[s.Cell] - m_H[m_Paths[m_Paths.Count - 1]];
             AutoReject fate = AutoReject.Kept;
+            // C: the expected band is the band of the line's steepest cell (a seed is in band, so it is at most the pass's band). The
+            // percentile tried first (P90) mislabeled half the blue lines: the rater's crux is a minimax.
+            float maxO = 0f;
+            for (int k = 0; k < count; k++)
+                maxO = Math.Max(maxO, m_O[m_Paths[start + k]]);
             SlopeBand expected = SkiSlopeClassifier.BandOf(maxO);
             if (!m_PathHashes.Add(hash))
                 fate = AutoReject.Duplicate;
@@ -419,8 +481,9 @@ namespace SkiResortMod.Systems
         }
 
         // ---------------------------------------------------------------- stage 7: greedy selection
-        // Per candidate: a pick unit (with the build when the free line needs no reroute), reroute units (RerouteUnitPops each), a build
-        // unit, a rate unit, chamfer units for an accepted run. m_SelPhase: 0 pick, 1 reroute, 2 build, 3 rate, 4 / 5 chamfer.
+        // Per candidate (H: no unit over ~1 ms CoreCLR): a pick unit, reroute units (RerouteUnitPops each), one unit per build attempt
+        // (BuildAttempts: area shrink or narrower corridor), rating units (Plan, Need-height row chunks, Classify + accept), chamfer
+        // units for an accepted run. m_SelPhase: 0 pick, 1 reroute, 2 build, 3 rate, 4 / 5 chamfer.
 
         private Cand m_SelCand;
         private float2[] m_PendRing;
@@ -444,7 +507,7 @@ namespace SkiResortMod.Systems
                 for (int c = m_Cursor2 * m_Nx; c < jEnd * m_Nx; c++)
                 {
                     m_DAcc[c] = float.PositiveInfinity;
-                    m_DHard[c] = float.PositiveInfinity;
+                    m_AG[c] = float.PositiveInfinity;
                 }
                 m_Cursor2 = jEnd;
                 if (m_Cursor2 >= m_Nz)
@@ -488,7 +551,7 @@ namespace SkiResortMod.Systems
                 Cand c = m_Cands[i];
                 if (c.Tried)
                     continue;
-                double w = c.Score0 * MixWeight(c.Expected);
+                double w = SelectWeight(c);
                 if (best == null || w > bestW || (w == bestW && c.Id < best.Id))
                 {
                     best = c;
@@ -508,6 +571,10 @@ namespace SkiResortMod.Systems
         {
             DropReroute();   // a Reselect may have cut a candidate short
             m_SelPhase = 0;
+            m_RStep = 0;
+            m_PendRing = null;
+            m_PendPath = null;
+            m_ChPending = false;
             m_Touched.Clear();
             m_RunCap = RunCapOf(m_Knobs, m_Result.RegionAreaM2);
             m_MaxRatings = Math.Max(MaxRatings, RatingsPerRun * m_RunCap);
@@ -562,6 +629,16 @@ namespace SkiResortMod.Systems
             }
         }
 
+        /// <summary>Greedy order: with a mix, the mix picks the band and the score the line, so the band's own value (a black is worth
+        /// three greens) leaves the score: Score0 / BandValue x MixWeight. Without the division the long summit blacks claimed the
+        /// lower mountain before any green was tried. Terrain: the score alone.</summary>
+        private double SelectWeight(Cand c)
+        {
+            if (m_Knobs.Mix == AutoMix.Terrain)
+                return c.Score0;
+            return c.Score0 / SkiResortScore.BandValueOf(SkiResortScore.BandState.Rated, (byte)c.Expected) * MixWeight(c.Expected);
+        }
+
         private double MixWeight(SlopeBand band)
         {
             if (m_Knobs.Mix == AutoMix.Terrain)
@@ -607,7 +684,7 @@ namespace SkiResortMod.Systems
                 m_SelPhase = 1;
                 return;
             }
-            EndAttempt();
+            BeginBuild();
         }
 
         /// <summary>Phase 1 done: take the rerouted line when it is longer than the free line's merge stub.</summary>
@@ -627,33 +704,136 @@ namespace SkiResortMod.Systems
                     m_SelMerge = merges;
                 }
             }
-            m_SelPhase = 2;
+            BeginBuild();
         }
 
-        /// <summary>Phase 2: build and check; drop the rerouted cells; a kept ring waits for its rating unit (phase 3).</summary>
+        /// <summary>Start of phase 2 (the line is final): the length checks, then one build attempt per unit (H).</summary>
+        private void BeginBuild()
+        {
+            m_BAttempt = 0;
+            m_BScale = 1f;
+            m_BKeep = m_SelLen;
+            m_SelPhase = 2;
+            AutoReject fate = LineChecks(m_SelCand, m_SelStart, m_SelLen, m_SelMerge);
+            if (fate != AutoReject.Kept)
+                EndBuild(fate);
+        }
+
+        /// <summary>Phase 2: one build attempt (area shrink or narrower corridor between attempts); a kept ring waits for its rating
+        /// units (phase 3); the rerouted cells are dropped when the build ends.</summary>
         private void EndAttempt()
         {
-            AutoReject fate = AttemptPath(m_SelCand, m_SelStart, m_SelLen, m_SelMerge, m_SelGap);
+            AutoReject fate = AttemptStep(m_SelCand, m_SelStart, m_SelLen, m_SelMerge, m_SelGap, out bool done);
+            if (done)
+                EndBuild(fate);
+        }
+
+        private void EndBuild(AutoReject fate)
+        {
             DropReroute();
             if (fate == AutoReject.Kept)
             {
                 m_SelPhase = 3;
+                m_RStep = 0;
                 return;
             }
             m_Result.Rejects[(int)fate]++;
             m_SelPhase = 0;
         }
 
-        /// <summary>Phase 3: rate the built ring (one SkiRunRater call, the one unit that cannot shrink); back to phase 0.</summary>
+        /// <summary>Phase 3: rate the built ring in units (H): m_RStep 0 = node heights and the classifier's Plan, 1 = the Need
+        /// heights in row chunks, 2 = Classify and the accept; back to phase 0 (or the chamfer).</summary>
         private void RatePending()
         {
-            AutoReject fate = Rate(m_SelCand, m_PendRing, m_PendPath, m_PendMerge, m_PendInto, m_PendEnd, m_SelGap);
+            AutoReject fate;
+            if (m_RStep == 0)
+            {
+                if (RatePlan(m_PendRing))
+                {
+                    m_RStep = 1;
+                    return;
+                }
+                fate = AutoReject.Unrated;
+            }
+            else if (m_RStep == 1)
+            {
+                if (!RateFill())
+                    return;
+                m_RStep = 2;
+                return;
+            }
+            else
+            {
+                fate = Rate(m_SelCand, m_PendRing, m_PendPath, m_PendMerge, m_PendInto, m_PendEnd, m_SelGap);
+            }
             m_PendRing = null;
             m_PendPath = null;
+            m_RStep = 0;
             m_Result.Rejects[(int)fate]++;
             m_SelPhase = m_ChPending ? 4 : 0;
             m_ChPending = false;
         }
+
+        // The rating, split (H): exactly SkiRunRater.Rate's steps on the public classifier entries (StepMultiple of ShoelaceArea, the
+        // DiagonalRule for that multiple, SkiSlopeClassifier.Plan, SkiRunRater.FillHeights' sampling without a reuse source,
+        // SkiSlopeClassifier.Classify, SkiRunRater.ToRateStatus), so the band is bit for bit the catalog's (AutoGenBatch re-rates
+        // every run with SkiRunRater.Rate and compares).
+        private int m_RStep, m_RRow, m_RNodes;
+        private SlopeStatus m_RPlanStatus;
+        private SnapshotSampler m_RSampler;
+
+        private bool RatePlan(float2[] ring)
+        {
+            int n = ring.Length;
+            Grow(ref m_RateNodes, n);
+            m_RSampler = new SnapshotSampler(m_In.Snapshot);
+            for (int i = 0; i < n; i++)
+            {
+                var w = new float3(ring[i].x, 0f, ring[i].y);
+                w.y = m_RSampler.Sample(w);
+                m_RateNodes[i] = w;
+            }
+            m_RNodes = n;
+            m_Result.Rated++;
+            int m = Math.Max(1, SkiSlopeClassifier.StepMultiple(SkiRunRater.ShoelaceArea(m_RateNodes, n), m_Texel, 0));
+            m_RateGrid.DiagonalRule = m >= 2;
+            m_RPlanStatus = SkiSlopeClassifier.Plan(m_RateNodes, n, m_Origin, m * m_Texel, m_RateGrid);
+            m_RRow = 0;
+            if (!SkiRunRater.IsPlanOk(m_RPlanStatus))
+                return false;
+            SlopeGrid g = m_RateGrid;
+            int cells = g.Nx * g.Nz;
+            if (g.Heights == null || g.Heights.Length < cells)
+                g.Heights = new float[Math.Max(cells, g.Heights == null ? 0 : g.Heights.Length * 2)];
+            return true;
+        }
+
+        /// <summary>FillHeights' sampling (no reuse source) over a row chunk of the rating grid; true when every row is filled.</summary>
+        private bool RateFill()
+        {
+            SlopeGrid g = m_RateGrid;
+            int nx = g.Nx;
+            byte[] need = g.Need;
+            float[] heights = g.Heights;
+            double step = g.Step, ox = g.Origin.x, oz = g.Origin.y;
+            int jEnd = Math.Min(g.Nz, m_RRow + Math.Max(1, RateFillCells / Math.Max(1, nx)));
+            for (int j = m_RRow; j < jEnd; j++)
+            {
+                float wz = (float)(oz + (g.J0 + j) * step);
+                int row = j * nx;
+                for (int i = 0; i < nx; i++)
+                {
+                    if (need[row + i] == 0)
+                        continue;
+                    float wx = (float)(ox + (g.I0 + i) * step);
+                    heights[row + i] = m_RSampler.Sample(new float3(wx, 0f, wz));
+                }
+            }
+            m_RRow = jEnd;
+            return m_RRow >= g.Nz;
+        }
+
+        private const int RateFillCells = 65536;
 
         /// <summary>Phases 4 and 5: the accepted run's local chamfer, forward then backward, in row chunks of the box (one pass over
         /// consecutive rows is the same as the whole box in one call); back to phase 0.</summary>
@@ -686,50 +866,67 @@ namespace SkiResortMod.Systems
             m_SelRerouted = -1;
         }
 
-        /// <summary>Builds and checks one line of a candidate against the accepted runs; Kept means a ring waits in m_Pend* for Rate.</summary>
-        private AutoReject AttemptPath(Cand cand, int start, int len, bool merge, float gap)
+        /// <summary>The line's own checks before any build: MinLengthM and MinDropM, and (F) a merged line must keep MergeKeepShare of
+        /// its free line or MergeKeepM, else it is a stub (TooShort).</summary>
+        private AutoReject LineChecks(Cand cand, int start, int len, bool merge)
         {
             int seed = m_Paths[start], last = m_Paths[start + len - 1];
             float pathLen = PathLength(start, len);
             if (pathLen < MinLengthM || m_H[seed] - m_H[last] < MinDropM)
                 return AutoReject.TooShort;
+            if (merge && pathLen < MergeKeepShare * cand.LengthM && pathLen < MergeKeepM)
+                return AutoReject.TooShort;
+            return AutoReject.Kept;
+        }
 
-            AutoReject fate = AutoReject.Crosses;
-            float scale = 1f;
-            int keep = len;
-            for (int attempt = 0; attempt < 4; attempt++)
+        private int m_BAttempt, m_BKeep;
+        private float m_BScale;
+        private const int BuildAttempts = 4;
+
+        /// <summary>One build attempt of a candidate's line against the accepted runs (H: each area shrink or narrower corridor is its
+        /// own Select unit). done = the build ended: Kept means a ring waits in m_Pend* for the rating, anything else is the reject.</summary>
+        private AutoReject AttemptStep(Cand cand, int start, int len, bool merge, float gap, out bool done)
+        {
+            done = true;
+            int keep = m_BKeep;
+            AutoReject fate = BuildRing(cand, start, keep, merge && keep == len, gap, m_BScale, out float2[] ring, out GradePath path, out int mergeInto);
+            bool retry = false;
+            if (fate == AutoReject.Kept)
             {
-                fate = BuildRing(cand, start, keep, merge && keep == len, gap, scale, out float2[] ring, out GradePath path, out int mergeInto);
-                if (fate == AutoReject.Kept)
+                double area = PolygonArea(ring);
+                if (area > MaxRunAreaM2 || SkiSlopeClassifier.StepMultiple(area, m_Texel, 0) > 1)
                 {
-                    double area = PolygonArea(ring);
-                    if (area > MaxRunAreaM2 || SkiSlopeClassifier.StepMultiple(area, m_Texel, 0) > 1)
-                    {
-                        keep = Math.Max(2, (int)(keep * Math.Min(0.95, MaxRunAreaM2 / area * 0.95)));
-                        continue;
-                    }
+                    m_BKeep = Math.Max(2, (int)(keep * Math.Min(0.95, MaxRunAreaM2 / area * 0.95)));
+                    fate = AutoReject.Crosses;   // reported only when the attempts run out still over the cap
+                    retry = true;
+                    if (PathLength(start, m_BKeep) < MinLengthM)
+                        return AutoReject.TooShort;   // F: a cut-back line is still at least MinLengthM
+                }
+                else
+                {
                     m_PendRing = ring;
                     m_PendPath = path;
                     m_PendMerge = merge && keep == len && mergeInto >= 0;
                     m_PendInto = mergeInto;
                     m_PendEnd = keep == len;
-                    return AutoReject.Kept;   // built; RatePending decides
+                    return AutoReject.Kept;   // built; the rating units decide
                 }
-                if (fate == AutoReject.Obstacle || fate == AutoReject.Overlap || fate == AutoReject.Region || fate == AutoReject.Crosses)
-                {
-                    scale *= 0.75f;
-                    continue;
-                }
-                return fate;
             }
+            else if (fate == AutoReject.Obstacle || fate == AutoReject.Overlap || fate == AutoReject.Region || fate == AutoReject.Crosses)
+            {
+                m_BScale *= 0.75f;
+                retry = true;
+            }
+            if (retry && ++m_BAttempt < BuildAttempts)
+                done = false;
             return fate;
         }
 
         // Reroute: A* on pass k's graph from the seed down to the base. The heuristic is the pass's own route cost to the base (exact on
         // the free graph; StepCost is shared, so it is consistent). A cell within stopD of an accepted run ends the line (a merge there)
         // at an extra MergePenalty times the free route it leaves unskied. The search runs RerouteUnitPops pops per unit (its state lives
-        // in these fields) up to RerouteMaxPops in all; the free line's own merge cost bounds it. Cost scratch: m_DHard (free after stage
-        // 1b, reset to infinity by Select's first units; every touched cell is reset again in RerouteEnd).
+        // in these fields) up to RerouteMaxPops in all; the free line's own merge cost bounds it. Cost scratch: m_AG (reset to infinity by
+        // Select's first units; every touched cell is reset again in RerouteEnd). m_DHard is no scratch any more: seeds and StepCost read it.
         private int m_ASeed, m_AK, m_APops, m_AGoal;
         private float m_AStopD, m_ALimit;
 
@@ -744,7 +941,7 @@ namespace SkiResortMod.Systems
             m_AGoal = -1;
             m_AHeap.Clear();
             m_Touched.Clear();
-            m_DHard[seed] = 0f;
+            m_AG[seed] = 0f;
             m_Touched.Add(seed);
             m_AHeap.Push(dist[seed], seed);
         }
@@ -753,9 +950,9 @@ namespace SkiResortMod.Systems
         private bool RerouteStep()
         {
             int k = m_AK;
-            float[] dist = m_Dist[k], g = m_DHard;
+            float[] dist = m_Dist[k], g = m_AG;
             byte[] pred = m_Pred[k];
-            float floor = PassFloor[k], ceil = PassCeiling[k], t = m_Texel, inv2t = 1f / (2f * m_Texel), stopD = m_AStopD;
+            float floor = PassFloor[k], ceil = PassCeiling[k], hard = PassHardCeiling[k], t = m_Texel, inv2t = 1f / (2f * m_Texel), stopD = m_AStopD;
             for (int budget = RerouteUnitPops; budget > 0; budget--)
             {
                 if (!m_AHeap.Pop(out float f, out int v) || f > m_ALimit || ++m_APops > RerouteMaxPops)
@@ -776,7 +973,7 @@ namespace SkiResortMod.Systems
                     int u = (vj - DirZ[d]) * m_Nx + vi - DirX[d];
                     if (!(dist[u] < float.PositiveInfinity))
                         continue;
-                    float w = StepCost(u, v, d, floor, ceil, t, inv2t);
+                    float w = StepCost(u, v, d, floor, ceil, hard, t, inv2t);
                     if (!(w >= 0f))
                         continue;
                     float gu = gv + w + (m_DAcc[u] < stopD ? MergePenalty * dist[u] : 0f);
@@ -797,7 +994,7 @@ namespace SkiResortMod.Systems
         /// (skis over DetourFactor times the free route between the same two heights). Resets the touched cost cells.</summary>
         private int RerouteEnd()
         {
-            float[] dist = m_Dist[m_AK], g = m_DHard;
+            float[] dist = m_Dist[m_AK], g = m_AG;
             int goal = m_AGoal, seed = m_ASeed, at = -1;
             if (goal >= 0)
             {
@@ -840,8 +1037,8 @@ namespace SkiResortMod.Systems
             path = null;
             mergeInto = -1;
             int k = cand.Pass;
-            float ceil = PassCeiling[k];
-            // Centerline: decimated cells through GradePath's Catmull-Rom chain; the raw cells when smoothing leaves the corridor
+            float ceil = PassHardCeiling[k];   // C: the corridor and the smoothed centerline stop at the hard ceiling
+            // Centerline: decimated cells (DecimateM) through GradePath's Catmull-Rom chain; the raw cells when smoothing leaves the corridor
             for (int pass = 0; pass < 2 && path == null; pass++)
             {
                 int every = pass == 0 ? Math.Max(1, (int)Math.Round(DecimateM / m_Texel)) : 1;
@@ -853,12 +1050,25 @@ namespace SkiResortMod.Systems
                 GradePath p = GradePath.Build(m_PathPts, SampleM);
                 if (p == null)
                     return AutoReject.TooShort;
+                // The smoothed line cuts corners (DecimateM 25 m): it must keep what March needs at the center, or a 2 m neck breaks the
+                // rating mask (Unrated)
                 bool ok = true;
                 for (int i = 0; i < p.Count && ok; i++)
-                    ok = Cell(p.Xz[i], out int c) && (m_Flags[c] & (FOpen | FCliff)) == FOpen && m_O[c] < ceil;
+                {
+                    float toEnd = p.LengthM - p.S[i];
+                    float g = merge && toEnd < MergeTaperM ? MergeGapM : gap;
+                    ok = Cell(p.Xz[i], out int c) && (m_Flags[c] & (FOpen | FCliff)) == FOpen && m_O[c] < ceil && !(m_DAcc[c] < g) &&
+                         !(m_DEdge[c] < 0.5f * EdgeSeedMarginM);
+                }
                 if (ok || pass == 1)
                     path = p;
             }
+            // F: the smoothed centerline (the run's own line) is at least MinLengthM, not only the cell path behind it
+            float lineM = 0f;
+            for (int i = 1; i < path.Count; i++)
+                lineM += math.distance(path.Xz[i - 1], path.Xz[i]);
+            if (lineM < MinLengthM)
+                return AutoReject.TooShort;
             int n = path.Count;
             Grow(ref m_HwL, n);
             Grow(ref m_HwR, n);
@@ -936,8 +1146,9 @@ namespace SkiResortMod.Systems
             return CheckRing(ring, gap, mergeInto);
         }
 
-        /// <summary>Free half width along dir: steps of MarchStepM until a cell is not open, is cliff, is at or over the pass ceiling,
-        /// or lies within gapM of an accepted run; minus WidthMarginM, at least 1 m.</summary>
+        /// <summary>Free half width along dir: steps of MarchStepM until a cell is not open, is cliff, is at or over the pass's hard
+        /// ceiling, lies within gapM of an accepted run or within EdgeSeedMarginM / 2 of the region edge (G); minus WidthMarginM, at
+        /// least 1 m.</summary>
         private float March(float2 p, float2 dir, float maxHw, float ceil, float gapM)
         {
             float free = 0f;
@@ -945,7 +1156,7 @@ namespace SkiResortMod.Systems
             {
                 if (!Cell(p + dir * t, out int c))
                     break;
-                if ((m_Flags[c] & (FOpen | FCliff)) != FOpen || !(m_O[c] < ceil) || m_DAcc[c] < gapM)
+                if ((m_Flags[c] & (FOpen | FCliff)) != FOpen || !(m_O[c] < ceil) || m_DAcc[c] < gapM || m_DEdge[c] < 0.5f * EdgeSeedMarginM)
                     break;
                 free = t;
             }
@@ -1020,19 +1231,11 @@ namespace SkiResortMod.Systems
         private AutoReject Rate(Cand cand, float2[] ring, GradePath path, bool merge, int mergeInto, bool reachesEnd, float gap)
         {
             int n = ring.Length;
-            Grow(ref m_RateNodes, n);
-            var sampler = new SnapshotSampler(m_In.Snapshot);
-            for (int i = 0; i < n; i++)
-            {
-                var w = new float3(ring[i].x, 0f, ring[i].y);
-                w.y = sampler.Sample(w);
-                m_RateNodes[i] = w;
-            }
-            m_Result.Rated++;
-            RateStatus rs = SkiRunRater.Rate(m_RateNodes, n, m_Origin, ref sampler, m_Texel, 0, m_RateGrid, null, m_RateResult,
-                out int _, out float _, out float _);
+            // Classify the planned and filled grid (RatePlan, RateFill): the last step of SkiRunRater.Rate
+            SlopeStatus cs = SkiSlopeClassifier.Classify(m_RateGrid, m_RateResult);
+            RateStatus rs = SkiRunRater.ToRateStatus(m_RPlanStatus, cs);
             SlopeResult res = m_RateResult;
-            if (rs != RateStatus.Rated || res.Status != SlopeStatus.Ok || !res.Connected || sampler.Misses > 0)
+            if (rs != RateStatus.Rated || res.Status != SlopeStatus.Ok || !res.Connected || m_RSampler.Misses > 0)
                 return AutoReject.Unrated;
             if (res.Band == SlopeBand.Flat)
                 return AutoReject.Flat;

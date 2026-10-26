@@ -63,6 +63,7 @@ Lifts are power-line networks, so they follow power-line rules.
 
 ## Playing nice
 
-- Move It works on every building in the pack.
+- Move It is highly recommended (not required): on steep ground a lift station can sit partly in the hillside, and Move It is the way to lift it out. It works on every building in the pack.
+- Write Everywhere is recommended (not required): it writes your ski area's name on the Welcome Sign. Without it the sign shows its "SKI AREA" header over a plain name board.
 - Recoloring: stations and buildings recolor with the game's own color tool (select the object). Towers on a lift line cannot be selected, so the optional Recolor mod's painter is the way to paint them.
 - Start from a new city. The first public release makes no promise for saves from test builds.

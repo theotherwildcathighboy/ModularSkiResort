@@ -10,7 +10,13 @@ rules (right-click stepping, Build, Esc).
   node y + the shortest member's rope).
 - Pins are positions the user fixed (click on the line = add, drag a tower = move, which pins a free tower). Pins are snapped to the
   planner's sample grid (StepM: 5 m, tram 10 m), so a pin is a planner sample and `LiftTowerPlanner.Plan` keeps it exactly as a seed
-  (Plan: k = round(along / StepM)). A pin closer than MinSpanM to a station or to another pin is refused.
+  (Plan: k = round(along / StepM)). A pin closer than MinSpanM to another pin is refused, and one closer than PinEndMarginM to an end:
+  a loose or ground end (a tower) MinSpanM, a station end MinSpanM too except the tram, one step (10 m; the 11.4 m tower then stands 4 m
+  clear of the stub tip). Field test 2 refused a tram pin 19 m from the top station five times under the old 40 m at both ends. The
+  refusal names the margin (LastEndMarginM).
+- The ends know their kind (StationA / StationB, from the tool): a station end gets the planner approach floor and station-side rule, a
+  loose or ground end is a tower node. Replan plans with the engine edge slope rule (CheckEdgeSlope) between the nodes as built, the end
+  nodes at A.y / B.y (LiftTowerPlanner.md, Station ends).
 - The plan = `LiftTowerPlanner.Plan(seeds = pins)`: the fewest-towers search fills every pin-to-pin segment, members by phase for every
   tower (pinned ones included). Re-planned after every change.
 - Undo (right click): every Done edit saves the pins / removed spots before it; Undo restores the last (UndoDepth).

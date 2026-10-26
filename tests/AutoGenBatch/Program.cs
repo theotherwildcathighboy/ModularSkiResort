@@ -26,6 +26,11 @@ namespace AutoGenBatch
         private static int Main(string[] args)
         {
             CultureInfo.DefaultThreadCurrentCulture = CultureInfo.InvariantCulture;
+            if (args.Length > 0 && args[0] == "field")
+            {
+                FieldDiag();
+                return 0;
+            }
             if (args.Length > 0 && (args[0] == "diag" || args[0] == "big"))
             {
                 if (args[0] == "diag")
@@ -49,6 +54,7 @@ namespace AutoGenBatch
             CaptureTests();
             QuickRunsTests();
             FillTests();
+            FieldTests();
             Timing();
             Console.WriteLine($"SUMMARY AutoGenBatch: {s_Checks} checks, {s_Failures} failure(s)");
             Environment.ExitCode = s_Failures;
@@ -116,7 +122,7 @@ namespace AutoGenBatch
             var grid = new SlopeGrid();
             var res = new SlopeResult();
             AutoKinds allowed = input.Knobs.Kinds == AutoKinds.None ? AutoKinds.Default : input.Knobs.Kinds;
-            Check(r.Clusters.Count <= SkiRunAutoPlanner.ClusterCap(r.RegionAreaM2) + SkiRunAutoPlanner.MaxPods, name, $"{r.Clusters.Count} clusters");
+            Check(r.Clusters.Count <= SkiRunAutoPlanner.ClusterCap(r.RegionAreaM2) + SkiRunAutoPlanner.PodCap(r.RegionAreaM2), name, $"{r.Clusters.Count} clusters");
             int cap = SkiRunAutoPlanner.RunCapOf(input.Knobs, r.RegionAreaM2);
             Check(r.Runs.Count <= cap, name, $"{r.Runs.Count} runs over the cap {cap}");
             for (int a = 0; a < r.Runs.Count; a++)

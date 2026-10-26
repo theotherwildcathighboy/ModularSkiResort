@@ -4,7 +4,7 @@
 // Value getters read plain fields at 10 Hz; work runs on a button press only.
 // "Probe: grade a 40 m strip" writes a 40 m constant ramp with a 1.5 m cut at its middle, starting 5 m ahead of the camera pivot
 // along the view direction, through the tool's full apply path. 30 frames later it compares CPU heights with what it wrote;
-// 120 frames later it logs the water sim speed. "Undo last grade" restores the newest grade of the session (any, not only the probe) and deletes the cat-track run that grade built.
+// 120 frames later it logs the water sim speed. "Undo last probe grade" restores the newest probe grade of the session (built cat tracks are never on the undo stack).
 
 using System;
 using System.Collections.Generic;
@@ -41,7 +41,7 @@ namespace SkiResortMod.Systems
             });
             list.Add(new DebugUI.Button
             {
-                displayName = "Undo last grade (session; deletes the run it built)",
+                displayName = "Undo last probe grade (session)",
                 action = () => DebugAction("undo", () => UndoLastGrade("dev tab")),
             });
             list.Add(new DebugUI.Button

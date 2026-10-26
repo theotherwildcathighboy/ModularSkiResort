@@ -375,6 +375,19 @@ function run(srcDir) {
     R.tabOfDot({ kind: "chip", set: "lodge", value: "lodgeMid" }, META), R.tabOfDot(null, META)], ["runs", "lifts", "buildings", null]);
   eq("T14.9 BUILD_ITEMS covers every id once, table order = BUILD_ITEM_IDS", META.map((m) => m.id), BIND.BUILD_ITEM_IDS);
 
+  // The Runs-tab follow: a run-making tool (a Build run item, the cat track included, or Quick runs) becoming active selects Runs once.
+  const bi = (id, active) => ({ id, active, locked: false, reason: "" });
+  eq("T17.5 runToolActive: run items, cat track and Quick runs count; lifts, buildings and none do not",
+    [R.runToolActive([bi("runGroomed", true)], false), R.runToolActive([bi("runCatTrack", true)], false), R.runToolActive([], true),
+      R.runToolActive([bi("lift", true), bi("lodge", true)], false), R.runToolActive([bi("runNight", false)], false), R.runToolActive(null, undefined),
+      R.runToolActive([bi("nope", true)], false)], [true, true, true, false, false, false, false]);
+  eq("T17.6 runsTabFollow selects on the edge only, never while the tool stays active",
+    [R.runsTabFollow(false, true), R.runsTabFollow(true, true), R.runsTabFollow(true, false), R.runsTabFollow(false, false)],
+    [{ select: true, seen: true }, { select: false, seen: true }, { select: false, seen: false }, { select: false, seen: false }]);
+  const panelSrc = fs.readFileSync(path.join(srcDir, "hub", "HubPanel.tsx"), "utf8");
+  eq("T17.7 the panel mounts the follow once and resets its memory on unmount",
+    [(panelSrc.match(/<RunsTabFollow [/]>/g) || []).length, panelSrc.includes("runsTabFollow(runToolSeen.value, active)"), panelSrc.includes("runToolSeen.value = false")],
+    [1, true, true]);
   // T18 source checks over the texts and the Attraction view. (a) Snow is ALWAYS two numbers, depth in cm and run coverage in %:
   // the MOUNTAIN snow entries name both, no "Snow now" label survives, and OverviewView.tsx renders both fields. (b) No wall of
   // text: every tooltip entry (a key with "TIP") is at most 25 words; a word is a token with a letter, a digit or a {PLACEHOLDER}
@@ -681,6 +694,19 @@ function run(srcDir) {
     [/if \(!armed\) \{\s*setArmed\(true\);\s*return;/.test(runList), runList.includes("hubTriggers.deleteCatTrack(row.entity)")], [true, true]);
   eq("T31.3 the arm times out (4 s) and leaving the row disarms",
     [runList.includes("setTimeout(() => setArmed(false), 4000)"), runList.includes("onMouseLeave={() => armed && setArmed(false)}")], [true, true]);
+  // T32 (contract 19, field test 2026-10-26b) the Runs tab's Delete cat tracks chip: the catTrackDeleteMode value (off by default, C#
+  // owns it and follows the tool) and the setCatTrackDeleteMode(bool) trigger; the chip flips the C# value and is drawn on the ok panel
+  // only, beside the Quick runs chip, always (nothing moves under the mouse).
+  eq("T32.1 binding, trigger and fallback (off)",
+    [BIND.BINDING.catTrackDeleteMode, BIND.TRIGGER.setCatTrackDeleteMode, BIND.FALLBACK.catTrackDeleteMode, BIND.HUB_CONTRACT >= 19,
+      BIND.CORE_NAMES.indexOf("catTrackDeleteMode") < 0],
+    ["catTrackDeleteMode", "setCatTrackDeleteMode", false, true, true]);
+  const ctChip = read(path.join("hub", "CatTrackControls.tsx"));
+  eq("T32.2 the chip sends setCatTrackDeleteMode(!on) from the C# value and lights while on",
+    [ctChip.includes("useValue(catTrackDeleteMode$)"), ctChip.includes("hubTriggers.setCatTrackDeleteMode(!on)"), ctChip.includes("selected={on}"),
+      ctChip.includes("focusKey={FOCUS_DISABLED}")], [true, true, true, true]);
+  eq("T32.3 drawn on the ok panel's Runs tab beside Quick runs, unconditionally there",
+    [stripSrc.includes("{quick && <QuickRunsChip t={t} />}\n        {quick && <CatTrackDeleteChip t={t} />}"), /disabled=/.test(ctChip)], [true, false]);
   const hr = require("./test-history-rules").run(srcDir);
   checks += hr.checks;
   for (const f of hr.failures) failures.push(`test-history-rules ${f}`);

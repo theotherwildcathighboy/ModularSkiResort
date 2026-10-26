@@ -38,6 +38,7 @@ namespace SkiResortMod.Settings
     [SettingsUIKeyboardAction(ActToggleLiftLine)]
     [SettingsUIKeyboardAction(ActBuildLiftLine)]
     [SettingsUIKeyboardAction(ActToggleCatTrackGrade)]
+    [SettingsUIKeyboardAction(ActCatTrackDeleteMode)]
     [SettingsUIKeyboardAction(ActToggleQuickRuns)]
     public sealed class SkiResortSettings : ModSetting
     {
@@ -63,6 +64,7 @@ namespace SkiResortMod.Settings
         public const string ActToggleLiftLine = "ToggleLiftLineTool";
         public const string ActBuildLiftLine = "BuildLiftLine";
         public const string ActToggleCatTrackGrade = "ToggleCatTrackGradeTool";
+        public const string ActCatTrackDeleteMode = "CatTrackDeleteMode";
         public const string ActToggleQuickRuns = "ToggleQuickRunsTool";
 
         public const int DefaultAttractivenessScaleK = 4;
@@ -395,6 +397,12 @@ namespace SkiResortMod.Settings
         [SettingsUIKeyboardBinding(BindingKeyboard.K, ActToggleCatTrackGrade, ctrl: true, shift: true)]
         [SettingsUISection(SectionMain, GroupKeybindings)]
         public ProxyBinding ToggleCatTrackGradeToolBinding { get; set; }
+
+        /// <summary>Toggles the cat track tool's Delete mode (default Ctrl+Shift+D). Live only while that tool is open
+        /// (CatTrackGradeHotkeySystem).</summary>
+        [SettingsUIKeyboardBinding(BindingKeyboard.D, ActCatTrackDeleteMode, ctrl: true, shift: true)]
+        [SettingsUISection(SectionMain, GroupKeybindings)]
+        public ProxyBinding CatTrackDeleteModeBinding { get; set; }
 
         /// <summary>Toggles the Quick runs tool (default Ctrl+Shift+Q). Polled by QuickRunsHotkeySystem in a loaded city; inert while the
         /// QuickRunsEnabled option is off. The tool scans and builds with the BuildLiftLine key (Enter).</summary>

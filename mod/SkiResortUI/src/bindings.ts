@@ -20,7 +20,7 @@ export const GROUP = "skiResort";
  * only when C#'s `contract` equals this; on a mismatch it shows the Build strip and the tree controls (CORE only) and
  * says why.
  */
-export const HUB_CONTRACT = 18;
+export const HUB_CONTRACT = 19;
 
 /** The `contract` value while the C# binding is absent (the fallback). Real contracts start at 1. */
 export const CONTRACT_ABSENT = 0;
@@ -768,6 +768,7 @@ export const BINDING = {
   history: "history",
   liftLine: "liftLine",  // the lift-line generator
   quickRuns: "quickRuns",  // the Quick runs tool (experimental)
+  catTrackDeleteMode: "catTrackDeleteMode",  // contract 19: the cat track tool is open and in Delete mode
 } as const;
 
 /** Trigger names (UI -> C#). */
@@ -793,6 +794,7 @@ export const TRIGGER = {
   liftLineToggle: "liftLineToggle",  // the lift-line generator
   quickRunsToggle: "quickRunsToggle",  // the Quick runs tool
   quickRunsSet: "quickRunsSet",
+  setCatTrackDeleteMode: "setCatTrackDeleteMode",  // contract 19: the Runs tab's Delete cat tracks chip
 } as const;
 
 /**
@@ -855,6 +857,7 @@ export const FALLBACK = {
   history: EMPTY_HISTORY,
   liftLine: { available: false, active: false, state: "" } as LiftLineState,
   quickRuns: EMPTY_QUICK_RUNS,
+  catTrackDeleteMode: false,
 } as const;
 
 // ---- value bindings -----------------------------------------------------------------------------
@@ -876,6 +879,9 @@ export const glade$: ValueBinding<GladeState> = bindValue<GladeState>(GROUP, BIN
 export const liftLine$: ValueBinding<LiftLineState> = bindValue<LiftLineState>(GROUP, BINDING.liftLine, FALLBACK.liftLine);
 /** The Quick runs tool. Panel only, the Build strip's Runs tab and RunsView (never on a mismatch). */
 export const quickRuns$: ValueBinding<QuickRunsState> = bindValue<QuickRunsState>(GROUP, BINDING.quickRuns, FALLBACK.quickRuns);
+/** The cat track tool is open AND in Delete mode (C# owns it: closing the tool or picking another shows false). Panel only, the
+ *  Build strip's Runs tab (never on a mismatch). */
+export const catTrackDeleteMode$: ValueBinding<boolean> = bindValue<boolean>(GROUP, BINDING.catTrackDeleteMode, FALLBACK.catTrackDeleteMode);
 /** One row per sign, then the Not linked row (always last). Panel only. */
 export const resorts$: ValueBinding<readonly ResortRow[]> = bindValue<readonly ResortRow[]>(GROUP, BINDING.resorts, FALLBACK.resorts);
 /** The moving values of each `resorts` row. Panel only: read by leaf components only. */
@@ -937,6 +943,8 @@ export const hubTriggers = {
   quickRunsToggle: (): void => fire(TRIGGER.quickRunsToggle),
   /** A Quick runs knob, button or tree setting (QuickRunsToolSystem.HubSet; C# clamps every value). */
   quickRunsSet: (key: QuickRunsKey, value: number): void => fire(TRIGGER.quickRunsSet, key, Math.round(value)),
+  /** The cat track tool's Delete mode: on opens the tool if needed (C# TryActivate, then SetDeleteMode); off leaves the tool open. */
+  setCatTrackDeleteMode: (on: boolean): void => fire(TRIGGER.setCatTrackDeleteMode, on),
   /** Tree density level, clamped 1..8 here and again in C#. */
   gladeSetLevel: (level: number): void => fire(TRIGGER.gladeSetLevel, clampGladeLevel(level)),
   /** false = run interior, true = tree line. */

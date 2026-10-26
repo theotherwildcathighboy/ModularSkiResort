@@ -66,12 +66,18 @@ namespace SkiResortMod.Systems
         /// run (StationRunM: bullwheel or dock to the stub tip, the longest of the type's stations), at least MinSpanM. Seeds (pins,
         /// a line's own nodes in PlanFixed) are kept wherever they are.</summary>
         public readonly float StationClearM;
+        /// <summary>The line prefab's NetGeometryPrefab m_MaxSlopeSteepness (gamedata-mirror Ski*HV: FG 0.8, DQ 0.9, GD 1.2, tram 2.5;
+        /// 0 = no rule). The engine refuses a Temp edge whose node-to-node |dy| / xz length reaches it + 0.0005 (SteepSlope,
+        /// Game.Net/ValidationHelpers.cs:1435-1490, test :1462): a tall tower a few meters from a station is such an edge. The tool plans with it
+        /// (LiftTowerPlanner.CheckEdgeSlope); LiftLineToolSystem logs the prefab's live value next to it.</summary>
+        public readonly float MaxEdgeSlope;
 
         public LiftTowerPlanConstants(string typeId, LiftTowerMember[] ladder, float ropeBelowTopM, float carrierDropM, float floorM,
                                       float maxRopeAboveGroundM, float typicalSpanM, float maxSpanM, float minSpanM, float halfWidthM,
                                       float sagRatio, float engineElevationCapM, float stepM = 5f, float sideHillM = 2f, float convexM = 0.5f,
-                                      float stationClearM = 0f)
+                                      float stationClearM = 0f, float maxEdgeSlope = 0f)
         {
+            MaxEdgeSlope = maxEdgeSlope;
             TypeId = typeId;
             Ladder = ladder;
             RopeBelowTopM = ropeBelowTopM;
@@ -99,8 +105,27 @@ namespace SkiResortMod.Systems
         {
             return new LiftTowerPlanConstants(TypeId, Ladder, RopeBelowTopM, carrierDropM ?? CarrierDropM, floorM ?? FloorM,
                 maxRopeAboveGroundM ?? MaxRopeAboveGroundM, typicalSpanM ?? TypicalSpanM, maxSpanM ?? MaxSpanM, MinSpanM, HalfWidthM,
-                SagRatio, EngineElevationCapM, StepM, SideHillM, ConvexM, StationClearM);
+                SagRatio, EngineElevationCapM, StepM, SideHillM, ConvexM, StationClearM, MaxEdgeSlope);
         }
+
+        /// <summary>The station-side rule's exchange rate: one more line tower is worth this many meters of extra height (above the
+        /// shortest member) on the towers next to the stations (MinCost.EndRiseM). Fewest towers alone put DQ18 / DQ20 100-125 m from
+        /// both stations of an ordinary 1,200 m slope (LP-27): the long end span from a low station rope needs a tall tower, a short one
+        /// needs one tower more. 8 m buys that tower (DQ18 + DQ20 = 18 m of rise), keeps a 2-tower DQ line with one DQ14 (4 m) at 2, and
+        /// does not stand an FG8 15 m from a station to save an FG12 (LP-3, LP-17); a strict station-first order did all three. 0 = fewest
+        /// towers first, the rise only breaks ties: the tram (its towers are the rare 11.4 m wide ones and a span of up to 3 km is the
+        /// point of the type, DECISIONS 381) and the fit (LiftTowerPlanner.StationRule off: its free plan only counts towers).</summary>
+        public float TowerWorthM => TypeId == "tram" ? 0f : 8f;
+
+        /// <summary>The floor (lowest carrier point above the high side) at <paramref name="distM"/> meters from a station end: carriers
+        /// leave and enter a station at loading height (DQ: bullwheel rope 3.70 m above the platform, hang 3.30 m = 0.40 m), so the floor
+        /// ramps from 0 at the station to FloorM at StationClearM (the station approach). Without it the floor applied from the first
+        /// sample on and forced a tall tower right at every station (LP-26, field test 2026-10-26). <paramref name="atStationM"/> is the
+        /// carrier's height above the high side at the station end itself: a station sunk into the slope (no-level terraform, carriers
+        /// leaving below the ground) ramps from that negative height instead of 0, so the planner does not try to dig the rope out
+        /// of the station's own hole with a tall tower beside it (the engine refuses that edge as SteepSlope); the tool warns instead.</summary>
+        public float ApproachFloor(float distM, float atStationM = 0f) =>
+            StationClearM > 0f ? math.lerp(math.min(0f, atStationM), FloorM, math.saturate(distM / StationClearM)) : FloorM;
 
         /// <summary>A station's own rope run, meters along the line axis from where the carriers turn or dock to the HV stub
         /// tip (prefab z): |WheelLocal.z - StubTipLocalZ| on a loop station, |DockLocalA.z - StubTipLocalZ| on a shuttle station;
@@ -179,16 +204,16 @@ namespace SkiResortMod.Systems
             {
                 case "fixedGrip":
                     return new LiftTowerPlanConstants(def.Id, FixedGripLadder, FixedGripLadder[0].TopM - def.AxleM, def.HangM, 3f, 30f,
-                        60f, 90f, 10f, 3f, 0.03f, 16f, stationClearM: run);
+                        60f, 90f, 10f, 3f, 0.03f, 16f, stationClearM: run, maxEdgeSlope: 0.8f);
                 case "detachable":
                     return new LiftTowerPlanConstants(def.Id, DetachableLadder, DetachableLadder[0].TopM - def.AxleM, def.HangM, 3f, 30f,
-                        110f, 245f, 10f, 3f, 0.004f, 10f, stationClearM: run);
+                        110f, 245f, 10f, 3f, 0.004f, 10f, stationClearM: run, maxEdgeSlope: 0.9f);
                 case "gondola":
                     return new LiftTowerPlanConstants(def.Id, GondolaLadder, GondolaLadder[0].TopM - def.AxleM, def.HangM, 3f, 30f,
-                        110f, 245f, 10f, 4.1f, 0.004f, 28f, stationClearM: run);
+                        110f, 245f, 10f, 4.1f, 0.004f, 28f, stationClearM: run, maxEdgeSlope: 1.2f);
                 case "tram":
                     return new LiftTowerPlanConstants(def.Id, TramLadder, TramLadder[0].TopM - def.AxleM, def.HangM, 5f, 0f,
-                        800f, TramMaxSpanM, 40f, 7.5f, 0.004f, 30f, 10f, stationClearM: run);   // 10 m samples: a 1-3 km line stays cheap
+                        800f, TramMaxSpanM, 40f, 7.5f, 0.004f, 30f, 10f, stationClearM: run, maxEdgeSlope: 2.5f);   // 10 m samples: a 1-3 km line stays cheap
                 default:
                     return null;
             }
@@ -219,6 +244,8 @@ namespace SkiResortMod.Systems
         public float MaxRopeAboveAtM;
         public bool FloorViolated;
         public bool HeightViolated;
+        public float EdgeSlope;         // node-to-node |dy| / xz length as the engine builds the edge (0 when an end height is unknown)
+        public bool SlopeViolated;      // EdgeSlope over the line prefab's MaxEdgeSlope (only when the planner checks it)
     }
 
     public sealed class LiftTowerPlan
@@ -230,6 +257,11 @@ namespace SkiResortMod.Systems
         public float[] SampleAlongM;    // the planner's profile (copied): along, center ground, high side, per sample
         public float[] SampleCentreM;
         public float[] SampleHighM;
+        public float[] SampleFloorM;    // the floor at each sample (FloorM, ramped near a station end: LiftTowerPlanConstants.ApproachFloor)
+        public bool StationA, StationB; // the ends are stations (approach floor, station-side member rule); false = a tower node
+        /// <summary>The lowest carrier point above the high side at each end sample, with the end's own rope: a station whose rope
+        /// leaves it below the ground in front (a station sunk into the slope) reads negative, and no short tower can clear that.</summary>
+        public float EndCarrierA, EndCarrierB;
         public int LineTowers => Nodes == null ? 0 : math.max(0, Nodes.Length - 2);
 
         /// <summary>Rope y on span <paramref name="span"/> at <paramref name="alongM"/> (line meters), with the engine's sag.</summary>
@@ -245,15 +277,26 @@ namespace SkiResortMod.Systems
 
         /// <summary>Floor margin (rope - drop - high side - floor) at profile sample <paramref name="q"/> on span <paramref name="span"/>.</summary>
         public float MarginAt(int span, int q) =>
-            RopeAt(span, SampleAlongM[q]) - Constants.CarrierDropM - SampleHighM[q] - Constants.FloorM;
+            RopeAt(span, SampleAlongM[q]) - Constants.CarrierDropM - SampleHighM[q] - (SampleFloorM != null ? SampleFloorM[q] : Constants.FloorM);
         public bool Clear
         {
             get
             {
                 for (int i = 0; i < Spans.Length; i++)
-                    if (Spans[i].FloorViolated || Spans[i].HeightViolated)
+                    if (Spans[i].FloorViolated || Spans[i].HeightViolated || Spans[i].SlopeViolated)
                         return false;
                 return true;
+            }
+        }
+
+        public float MaxEdgeSlope
+        {
+            get
+            {
+                float v = 0f;
+                for (int i = 0; i < Spans.Length; i++)
+                    v = math.max(v, Spans[i].EdgeSlope);
+                return v;
             }
         }
 
@@ -294,7 +337,8 @@ namespace SkiResortMod.Systems
                       .Append(Sg(Nodes[i + 1].RopeM - n.RopeM)).Append(", lowest carrier above ground min ").Append(Sg(s.MinChairAboveGroundM))
                       .Append(" at ").Append(F(s.MinFloorMarginAtM, "F0")).Append(" m (floor margin ").Append(Sg(s.MinFloorMarginM))
                       .Append("), rope max ").Append(Sg(s.MaxRopeAboveM)).Append(" above ground at ").Append(F(s.MaxRopeAboveAtM, "F0"))
-                      .Append(" m -> ").Append(s.FloorViolated ? "FLOOR VIOLATED" : s.HeightViolated ? "MAX HEIGHT VIOLATED" : "clear").Append('\n');
+                      .Append(" m -> ").Append(s.FloorViolated ? "FLOOR VIOLATED" : s.HeightViolated ? "MAX HEIGHT VIOLATED"
+                          : s.SlopeViolated ? "EDGE TOO STEEP (" + F(s.EdgeSlope, "F2") + " > " + F(c.MaxEdgeSlope, "F2") + ")" : "clear").Append('\n');
                 }
             }
         }
@@ -534,7 +578,7 @@ namespace SkiResortMod.Systems
         private LiftTowerPlanConstants m_C;
         private float m_Length;
         private int m_N;                      // samples 0..m_N (m_N + 1 values), S[m_N] = length
-        private float[] m_S = new float[0], m_Centre = new float[0], m_High = new float[0], m_Low = new float[0];
+        private float[] m_S = new float[0], m_Centre = new float[0], m_High = new float[0], m_Low = new float[0], m_Floor = new float[0];
         private readonly List<float> m_Along = new List<float>();
         private float m_RopeA, m_RopeB;
         private bool m_UseSag = true;
@@ -549,6 +593,21 @@ namespace SkiResortMod.Systems
         /// puts a NEW tower within ForbiddenRadiusM of one (a seed there is still kept). Null / empty = none.</summary>
         public IList<float> Forbidden;
         public float ForbiddenRadiusM = 10f;
+
+        /// <summary>The ends are stations (default: both, the planner's original assumption). A station end gets the approach floor
+        /// (LiftTowerPlanConstants.ApproachFloor) and the station-side member rule (MinCost.EndRiseM, TowerWorthM); false = a loose line end or a
+        /// fresh ground node: a tower node, full floor. Set by the caller before each Plan / Fit (the lift tool from its end kinds,
+        /// LiftTowerFitSystem from the station rope lanes it found).</summary>
+        public bool StationA = true, StationB = true;
+
+        /// <summary>Lift-line tool: plan with the engine's edge slope rule (LiftTowerPlanConstants.MaxEdgeSlope) between the nodes as
+        /// they will be built (towers at ground + E(member), the ends at EndNodeYA / EndNodeYB; NaN = unknown, that end's span is not
+        /// checked). Off for the fit: a built line's edges are permanent, and the engine validates Temp edges only.</summary>
+        public bool CheckEdgeSlope;
+        /// <summary>Trade a tower for shorter towers beside the stations (LiftTowerPlanConstants.TowerWorthM). Fit turns it off for its
+        /// free plan, whose tower count says how many nodes the line needs.</summary>
+        public bool StationRule = true;
+        public float EndNodeYA = float.NaN, EndNodeYB = float.NaN;
 
         // The working node list: sample index, member (-1 station), flags. Kept sorted by sample.
         private readonly List<int> m_K = new List<int>();
@@ -651,6 +710,7 @@ namespace SkiResortMod.Systems
                 m_Centre = new float[count];
                 m_High = new float[count];
                 m_Low = new float[count];
+                m_Floor = new float[count];
             }
             float hw = m_C.HalfWidthM;
             for (int k = 0; k <= m_N; k++)
@@ -663,6 +723,17 @@ namespace SkiResortMod.Systems
                 m_Centre[k] = c;
                 m_High[k] = math.max(c, math.max(l, r));
                 m_Low[k] = math.min(c, math.min(l, r));
+            }
+            // The carrier at each station end above its high side (negative: the station is sunk, see ApproachFloor).
+            float atA = m_RopeA - m_C.CarrierDropM - m_High[0], atB = m_RopeB - m_C.CarrierDropM - m_High[m_N];
+            for (int k = 0; k <= m_N; k++)
+            {
+                float floor = m_C.FloorM;
+                if (StationA)
+                    floor = math.min(floor, m_C.ApproachFloor(m_S[k], atA));
+                if (StationB)
+                    floor = math.min(floor, m_C.ApproachFloor(m_Length - m_S[k], atB));
+                m_Floor[k] = floor;
             }
         }
 
@@ -778,7 +849,10 @@ namespace SkiResortMod.Systems
             LiftTowerPlanConstants cm = c;
             if (engineMaxSpanM > 0f && engineMaxSpanM < c.MaxSpanM)
                 cm = c.With(maxSpanM: engineMaxSpanM, typicalSpanM: math.min(c.TypicalSpanM, engineMaxSpanM));
+            bool rule = StationRule;
+            StationRule = false;   // the count the line needs is the fewest towers (TowerWorthM would add one for the stations)
             fit.Free = Plan(terrain, lengthM, ropeA, ropeB, cm);
+            StationRule = rule;
             fit.Needed = fit.Free.LineTowers;
             // Hysteresis: the members the line already carries win when they clear it as they stand. Phase (c) re-run on ground that moved a few
             // decimeters (our own carve, rounding) can pick an equally clear but different assignment (a long tram flipped between two member mixes on
@@ -894,9 +968,43 @@ namespace SkiResortMod.Systems
             if (member < 0)
                 return true;
             float rope = Rope(k, member);
-            if (rope - m_C.CarrierDropM - m_High[k] - m_C.FloorM < -Tol)
+            if (rope - m_C.CarrierDropM - m_High[k] - m_Floor[k] < -Tol)
                 return false;
             return !(m_C.MaxRopeAboveGroundM > 0f && rope - m_Centre[k] > m_C.MaxRopeAboveGroundM + Tol);
+        }
+
+        /// <summary>The planner keeps this share of MaxEdgeSlope: its node heights are the sampled ground + E, the engine's are the
+        /// node's own (a few decimeters apart on a carved or rough slope, LP-28).</summary>
+        public const float EdgeSlopeKeep = 0.97f;
+
+        /// <summary>Working node <paramref name="node"/> is a station end (member -1) that the caller marked as a station.</summary>
+        private bool StationEnd(int node) => m_M[node] < 0 && (m_K[node] == 0 ? StationA : StationB);
+
+        /// <summary>The node's height as the engine builds it: a tower at ground + E(member), an end at EndNodeYA / EndNodeYB.</summary>
+        private float NodeY(int k, int member)
+        {
+            if (member < 0)
+                return k == 0 ? EndNodeYA : EndNodeYB;
+            return m_Centre[k] + LiftTowerEdit.ElevationM(m_C, member);
+        }
+
+        /// <summary>The edge (k, mk) - (k2, mk2) passes the engine's slope rule (always true unless CheckEdgeSlope).</summary>
+        private bool SlopeOk(int k, int mk, int k2, int mk2)
+        {
+            if (!CheckEdgeSlope || !(m_C.MaxEdgeSlope > 0f))
+                return true;
+            return SlopeExcess(k, mk, k2, mk2) <= 0f;
+        }
+
+        /// <summary>Meters of |dy| above what EdgeSlopeKeep x MaxEdgeSlope allows on the edge (k, mk) - (k2, mk2); 0 when it passes or an
+        /// end height is unknown.</summary>
+        private float SlopeExcess(int k, int mk, int k2, int mk2)
+        {
+            float d = math.abs(m_S[k2] - m_S[k]);
+            float ya = NodeY(k, mk), yb = NodeY(k2, mk2);
+            if (d <= 0f || !math.isfinite(ya) || !math.isfinite(yb))
+                return 0f;
+            return math.max(0f, math.abs(yb - ya) - EdgeSlopeKeep * m_C.MaxEdgeSlope * d);
         }
 
         private bool MemberAllowed(int k, int member)
@@ -918,13 +1026,13 @@ namespace SkiResortMod.Systems
             float sag4 = 4f * m_C.SagRatio * d;
             float floorSag4 = FloorSag(d, sag4);
             float cap = m_C.MaxRopeAboveGroundM;
-            float need = m_C.CarrierDropM + m_C.FloorM;
+            float drop = m_C.CarrierDropM;
             for (int q = i + 1; q < j; q++)
             {
                 float t = (m_S[q] - m_S[i]) / d;
                 float chord = ri + (rj - ri) * t;
                 float r = chord - sag4 * t * (1f - t);
-                float fv = need + m_High[q] - (chord - floorSag4 * t * (1f - t));
+                float fv = drop + m_Floor[q] + m_High[q] - (chord - floorSag4 * t * (1f - t));
                 if (fv > worst)
                 {
                     worst = fv;
@@ -963,13 +1071,13 @@ namespace SkiResortMod.Systems
             float sag4 = 4f * m_C.SagRatio * d;
             float floorSag4 = FloorSag(d, sag4);
             float cap = m_C.MaxRopeAboveGroundM;
-            float need = m_C.CarrierDropM + m_C.FloorM;
+            float drop = m_C.CarrierDropM;
             for (int q = i + 1; q < j; q++)
             {
                 float t = (m_S[q] - m_S[i]) / d;
                 float bow = t * (1f - t);
                 // rope(t) = ri + (rj - ri) t - sag·bow  =>  rj = ri + (target - ri + sag·bow) / t
-                lo = math.max(lo, ri + (need + m_High[q] + floorSag4 * bow - ri) / t);
+                lo = math.max(lo, ri + (drop + m_Floor[q] + m_High[q] + floorSag4 * bow - ri) / t);
                 if (cap > 0f)
                     hi = math.min(hi, ri + (cap + m_Centre[q] + sag4 * bow - ri) / t);
                 if (lo > hi + Tol)
@@ -1005,14 +1113,21 @@ namespace SkiResortMod.Systems
         private struct MinCost
         {
             public int Towers;      // line towers so far
+            public float EndRiseM;  // height above the shortest member of each tower next to a station end (TowerWorthM trades it)
             public int Breaks;      // towers on the uphill sample of a convex crest (breakover rule): more is better
             public int Members;     // sum of ladder indices (fewer steps = shorter towers at the same count)
             public float SumSq;     // sum of squared span lengths (even spans at the same count and steps)
             public int Parent;      // state index (k * ladder + m), -1 = the segment's start node
 
-            public bool Better(MinCost o)
+            public bool Better(MinCost o, float towerWorthM)
             {
+                if (towerWorthM > 0f)
+                {
+                    float x = Towers * towerWorthM + EndRiseM, y = o.Towers * towerWorthM + o.EndRiseM;
+                    if (math.abs(x - y) > 1e-3f) return x < y;
+                }
                 if (Towers != o.Towers) return Towers < o.Towers;
+                if (math.abs(EndRiseM - o.EndRiseM) > 1e-3f) return EndRiseM < o.EndRiseM;
                 if (Breaks != o.Breaks) return Breaks > o.Breaks;
                 if (Members != o.Members) return Members < o.Members;
                 return SumSq < o.SumSq - 1e-3f;
@@ -1090,12 +1205,14 @@ namespace SkiResortMod.Systems
                 {
                     MinCost from;
                     float rk;
+                    int mk = m;
                     if (k == i)
                     {
                         if (m > 0)
                             break;
                         from = new MinCost { Parent = -1 };
                         rk = ri;
+                        mk = m_M[a];
                     }
                     else
                     {
@@ -1108,12 +1225,14 @@ namespace SkiResortMod.Systems
                     }
                     // To the segment's end node.
                     float dEnd = m_S[j] - m_S[k];
-                    if (k > i && j - k >= minGap && dEnd <= maxSpan && SpanInterval(k, rk, j, out float lo, out float hi) &&
-                        rj >= lo - Tol && rj <= hi + Tol)
+                    if (k > i && j - k >= minGap && dEnd <= maxSpan && SlopeOk(k, mk, j, m_M[b]) &&
+                        SpanInterval(k, rk, j, out float lo, out float hi) && rj >= lo - Tol && rj <= hi + Tol)
                     {
                         MinCost c = from;
                         c.SumSq += dEnd * dEnd;
-                        if (!endReached || c.Better(end))
+                        if (StationEnd(b))
+                            c.EndRiseM += Rise(m);
+                        if (!endReached || c.Better(end, TowerWorth))
                         {
                             end = c;
                             endReached = true;
@@ -1134,15 +1253,17 @@ namespace SkiResortMod.Systems
                                 continue;
                             if (r2 > hi2 + Tol)
                                 break;   // ropes ascend with the ladder
-                            if (!MemberAllowed(k2, m2) || !NodeOk(k2, m2))
+                            if (!MemberAllowed(k2, m2) || !NodeOk(k2, m2) || !SlopeOk(k, mk, k2, m2))
                                 continue;
                             MinCost c = from;
                             c.Towers += 1;
+                            if (k == i && StationEnd(a))
+                                c.EndRiseM += Rise(m2);
                             c.Breaks += m_UphillOfCrest[k2] ? 1 : 0;
                             c.Members += m2;
                             c.SumSq += d * d;
                             int st2 = k2 * L + m2;
-                            if (!m_Reached[st2] || c.Better(m_MinCost[st2]))
+                            if (!m_Reached[st2] || c.Better(m_MinCost[st2], TowerWorth))
                             {
                                 m_MinCost[st2] = c;
                                 m_Reached[st2] = true;
@@ -1159,12 +1280,11 @@ namespace SkiResortMod.Systems
             int added = 0;
             int state = end.Parent;
             float chordSlope = (rj - ri) / math.max(m_S[j] - m_S[i], 1e-3f);
-            float need = m_C.CarrierDropM + m_C.FloorM;
             while (state >= 0)
             {
                 int k = state / L, m = state % L;
                 float chordHere = ri + chordSlope * (m_S[k] - m_S[i]);
-                LiftPlanNodeFlags f = need + m_High[k] > chordHere ? LiftPlanNodeFlags.Shoulder
+                LiftPlanNodeFlags f = m_C.CarrierDropM + m_Floor[k] + m_High[k] > chordHere ? LiftPlanNodeFlags.Shoulder
                     : m_C.MaxRopeAboveGroundM > 0f && chordHere - m_Centre[k] > m_C.MaxRopeAboveGroundM ? LiftPlanNodeFlags.Valley
                     : LiftPlanNodeFlags.Infill;
                 Insert(k, m, f);
@@ -1301,7 +1421,7 @@ namespace SkiResortMod.Systems
                 int k = state / L, m = state % L;
                 // Shoulder: the ground pokes through the station-to-station chord here (floor); else Valley (max height).
                 float chordHere = ri + chordSlope * (m_S[k] - m_S[i]);
-                bool shoulder = m_C.CarrierDropM + m_C.FloorM + m_High[k] > chordHere;
+                bool shoulder = m_C.CarrierDropM + m_Floor[k] + m_High[k] > chordHere;
                 Insert(k, m, shoulder ? LiftPlanNodeFlags.Shoulder : LiftPlanNodeFlags.Valley);
                 added++;
                 state = m_Cost[state].Parent;
@@ -1334,7 +1454,7 @@ namespace SkiResortMod.Systems
                 float ri = Rope(i, m_M[n - 1]), rj = Rope(j, m_M[n + 1]);
                 for (int mm = 0; mm < m_C.Ladder.Length; mm++)
                 {
-                    if (!MemberAllowed(up, mm) || !NodeOk(up, mm))
+                    if (!MemberAllowed(up, mm) || !NodeOk(up, mm) || !SlopeOk(i, m_M[n - 1], up, mm) || !SlopeOk(up, mm, j, m_M[n + 1]))
                         continue;
                     float ru = Rope(up, mm);
                     if (SpanViolation(i, ri, up, ru) <= Tol && SpanViolation(up, ru, j, rj) <= Tol)
@@ -1397,6 +1517,11 @@ namespace SkiResortMod.Systems
             added += Split(at - 1, at, depth + 1);
             return added;
         }
+
+        private float Rise(int member) => m_C.Ladder[member].TopM - m_C.Ladder[0].TopM;
+
+        /// <summary>The station-side exchange rate in use (LiftTowerPlanConstants.TowerWorthM; 0 while StationRule is off).</summary>
+        private float TowerWorth => StationRule ? m_C.TowerWorthM : 0f;
 
         private int MinGap() => math.max(1, (int)math.ceil(m_C.MinSpanM / m_C.StepM - 1e-4f));
 
@@ -1647,7 +1772,8 @@ namespace SkiResortMod.Systems
             int k = m_K[node];
             for (int up = m + 1; up < m_C.Ladder.Length; up++)
             {
-                if (MemberAllowed(k, up) && NodeOk(k, up))
+                if (MemberAllowed(k, up) && NodeOk(k, up) && SlopeOk(m_K[node - 1], m_M[node - 1], k, up) &&
+                    SlopeOk(k, up, m_K[node + 1], m_M[node + 1]))
                 {
                     m_M[node] = up;
                     return true;
@@ -1660,7 +1786,11 @@ namespace SkiResortMod.Systems
         {
             float total = 0f;
             for (int s = 0; s < m_K.Count - 1; s++)
+            {
                 total += math.max(0f, SpanViolation(m_K[s], Rope(m_K[s], m_M[s]), m_K[s + 1], Rope(m_K[s + 1], m_M[s + 1])));
+                if (CheckEdgeSlope && m_C.MaxEdgeSlope > 0f)
+                    total += SlopeExcess(m_K[s], m_M[s], m_K[s + 1], m_M[s + 1]);
+            }
             return total;
         }
 
@@ -1707,7 +1837,6 @@ namespace SkiResortMod.Systems
                 };
             }
             var spans = new LiftPlanSpan[count - 1];
-            float need = m_C.CarrierDropM + m_C.FloorM;
             for (int s = 0; s < count - 1; s++)
             {
                 int i = m_K[s], j = m_K[s + 1];
@@ -1722,7 +1851,7 @@ namespace SkiResortMod.Systems
                         continue;
                     float t = d > 0f ? (m_S[q] - m_S[i]) / d : 0f;
                     float r = ri + (rj - ri) * t - sag4 * t * (1f - t);
-                    float margin = r - need - m_High[q];
+                    float margin = r - m_C.CarrierDropM - m_Floor[q] - m_High[q];
                     if (margin < span.MinFloorMarginM)
                     {
                         span.MinFloorMarginM = margin;
@@ -1743,18 +1872,26 @@ namespace SkiResortMod.Systems
                 }
                 span.FloorViolated = span.MinFloorMarginM < -Tol;
                 span.HeightViolated = m_C.MaxRopeAboveGroundM > 0f && span.MaxRopeAboveM > m_C.MaxRopeAboveGroundM + Tol;
+                float ya = NodeY(i, m_M[s]), yb = NodeY(j, m_M[s + 1]);
+                span.EdgeSlope = d > 0f && math.isfinite(ya) && math.isfinite(yb) ? math.abs(yb - ya) / d : 0f;
+                // The engine flags it at MaxSlopeSteepness + 0.0005 (ValidationHelpers.cs:1462-1463).
+                span.SlopeViolated = CheckEdgeSlope && m_C.MaxEdgeSlope > 0f && span.EdgeSlope >= m_C.MaxEdgeSlope + 0.0005f;
                 spans[s] = span;
             }
             var along = new float[m_N + 1];
             var centre = new float[m_N + 1];
             var high = new float[m_N + 1];
+            var floor = new float[m_N + 1];
             Array.Copy(m_S, along, m_N + 1);
             Array.Copy(m_Centre, centre, m_N + 1);
             Array.Copy(m_High, high, m_N + 1);
+            Array.Copy(m_Floor, floor, m_N + 1);
             return new LiftTowerPlan
             {
                 Constants = m_C, LengthM = m_Length, Nodes = nodes, Spans = spans,
-                SampleAlongM = along, SampleCentreM = centre, SampleHighM = high,
+                SampleAlongM = along, SampleCentreM = centre, SampleHighM = high, SampleFloorM = floor,
+                StationA = StationA, StationB = StationB,
+                EndCarrierA = m_RopeA - m_C.CarrierDropM - m_High[0], EndCarrierB = m_RopeB - m_C.CarrierDropM - m_High[m_N],
             };
         }
     }

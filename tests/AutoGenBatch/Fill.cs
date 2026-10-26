@@ -252,7 +252,7 @@ namespace AutoGenBatch
             }
         }
 
-        /// <summary>Diagnostic picture: gray = height (20 m contours darker), runs tinted by band with white outlines, red = clusters.</summary>
+        /// <summary>Diagnostic picture: gray = height (20 m contours darker, 50 m over 600 m of relief), cliff red-tinted, runs tinted by band with white outlines, red = clusters.</summary>
         private static void Png(string path, HeightFn f, float2[] region, AutoPlanResult r)
         {
             SkiRunAutoPlanner.BBox(region, out float2 lo, out float2 hi);
@@ -270,6 +270,7 @@ namespace AutoGenBatch
                     hmin = Math.Min(hmin, v);
                     hmax = Math.Max(hmax, v);
                 }
+            double ci = hmax - hmin > 600.0 ? 50.0 : 20.0;   // contour interval (50 m on the alpine fixtures)
             int[][] col = { new[] { 128, 128, 128 }, new[] { 40, 200, 40 }, new[] { 40, 100, 255 }, new[] { 10, 10, 10 }, new[] { 255, 40, 255 } };
             for (int j = 0; j < pz; j++)
                 for (int i = 0; i < px; i++)
@@ -277,11 +278,18 @@ namespace AutoGenBatch
                     var p = new float2(lo.x + (i + 0.5f) * m, lo.y + (j + 0.5f) * m);
                     double v = hs[j * px + i];
                     int g = (int)(90 + 140 * (v - hmin) / Math.Max(1e-6, hmax - hmin));
-                    if (Math.Floor(v / 20.0) != Math.Floor(f(p.x + m, p.y) / 20.0) || Math.Floor(v / 20.0) != Math.Floor(f(p.x, p.y + m) / 20.0))
+                    double hx = f(p.x + m, p.y), hz = f(p.x, p.y + m);
+                    if (Math.Floor(v / ci) != Math.Floor(hx / ci) || Math.Floor(v / ci) != Math.Floor(hz / ci))
                         g -= 50;
+                    bool cliff = Math.Sqrt((hx - v) * (hx - v) + (hz - v) * (hz - v)) / m >= SkiRunAutoPlanner.CliffGrade;
                     if (!GradeRaster.Inside(region, p))
                         g /= 3;
                     int cr = g, cg = g, cb = g;
+                    if (cliff)
+                    {
+                        cr = Math.Min(255, g + 90);   // cliff (point grade over 100 %): red tint
+                        cg = cb = g / 2;
+                    }
                     foreach (AutoRun run in r.Runs)
                     {
                         if (!GradeRaster.Inside(run.Ring, p))

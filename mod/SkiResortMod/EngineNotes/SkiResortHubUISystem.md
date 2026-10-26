@@ -323,6 +323,9 @@ Appended fields and bindings by contract:
   `plant`, 0 without a ready preview; the hub's tree counts line shows it, so a planting is never charged unannounced).
   Also in 18: the `deleteCatTrack` trigger (Entity; the cat track row's trash, DECISIONS 423b), queued and applied in OnUpdate through
   CatTrackGradeToolSystem.DeleteTrack.
+- 19: the `catTrackDeleteMode` value (bool: the cat track tool is open AND in Delete mode; pushed in OnUpdate, so closing the tool or
+  picking another shows it off) and the `setCatTrackDeleteMode(bool)` trigger (the Runs tab's Delete cat tracks chip: on opens the
+  tool if needed, then its Delete mode; field test 2026-10-26b), queued and applied in OnUpdate.
 
 ## Quick runs (contract 17)
 `SkiResortHubUISystem.QuickRuns.cs`. `quickRuns` is a `RawValueBinding` written by `WriteQuickRuns` (TypeBegin

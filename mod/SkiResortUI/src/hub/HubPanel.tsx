@@ -9,14 +9,14 @@
 import { useEffect, useRef } from "react";
 import { useValue } from "cs2/api";
 import { Panel } from "cs2/ui";
-import { HUB_CONTRACT, NULL_ENTITY, lifts$, resorts$, runs$, sameEntity, selectedResort$ } from "../bindings";
+import { HUB_CONTRACT, NULL_ENTITY, build$, lifts$, quickRuns$, resorts$, runs$, sameEntity, selectedResort$ } from "../bindings";
 import { LOC, useT } from "../l10n";
 import { BuildStrip, MISMATCH_FOOTER, OkFooter } from "./BuildStrip";
 import { ErrorBoundary } from "./ErrorBoundary";
 import { GuestsView } from "./GuestsView";
 import { HistoryView } from "./HistoryView";
 import { AreaList, HubHeader } from "./HubHeader";
-import { NO_FOCUS, areaListOpen$, focused$, folds$, openFold, problemsOpen$, resetHoverRun, sendHoverRun, useHubConnection, view$ } from "./hubState";
+import { NO_FOCUS, areaListOpen$, focused$, folds$, openFold, problemsOpen$, resetHoverRun, runToolSeen, sendHoverRun, useHubConnection, view$ } from "./hubState";
 import { FitContext, Pager, useViewPager } from "./fit";
 import type { HubConnection } from "./hubState";
 import { HUB_FMT, HUB_LOC } from "./hubText";
@@ -30,6 +30,7 @@ import { StartCard } from "./StartCard";
 import { StatusBlock } from "./StatusBlock";
 import { TreesFoldout } from "./TreeControls";
 import { ViewTiles } from "./ViewTiles";
+import { runToolActive, runsTabFollow } from "./hubRules";
 import { currentResort, liftsOf, resortEntries, runsOf } from "./resortData";
 import styles from "./hub.module.scss";
 
@@ -48,6 +49,21 @@ function OverlayBackdrop(): JSX.Element | null {
   return (
     <div className={styles.overlayBackdrop} onClick={() => { areaListOpen$.update(false); problemsOpen$.update(false); }} />
   );
+}
+
+/** A run-making tool (run drawing, cat track, Quick runs) becoming the active tool selects the Runs view, where its info shows; once per
+ *  activation (hubRules.runsTabFollow). Renders nothing; subscribes only here, so the panel body does not re-render on build updates. */
+function RunsTabFollow(): null {
+  const items = useValue(build$);
+  const quick = useValue(quickRuns$);
+  const active = runToolActive(items, quick?.active);
+  useEffect(() => {
+    const step = runsTabFollow(runToolSeen.value, active);
+    runToolSeen.value = step.seen;
+    if (step.select && view$.value !== "runs") view$.update("runs");
+  }, [active]);
+  useEffect(() => () => { runToolSeen.value = false; }, []);
+  return null;
 }
 
 function OkPanel({ onClose, stampNote }: HubPanelProps & { stampNote: string | null }): JSX.Element {
@@ -173,6 +189,7 @@ function OkPanel({ onClose, stampNote }: HubPanelProps & { stampNote: string | n
           {body}
           {stampNote && <div className={styles.stampNote}>{stampNote}</div>}
           <OverlayBackdrop />
+          <RunsTabFollow />
           <ErrorBoundary where="panel.areas" fallback={failed}>
             <AreaList />
           </ErrorBoundary>

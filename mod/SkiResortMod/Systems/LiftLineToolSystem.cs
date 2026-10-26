@@ -44,6 +44,7 @@ namespace SkiResortMod.Systems
         private const int TempTimeoutFrames = 30;
         private const int LooseRefreshFrames = 30;
         private const int NoticeFrames = 240;          // a refusal stays in the tooltip about 4 s
+        private const float SunkWarnM = 0.25f;         // carriers leaving a station more than this below the ground: SUNK STATION
         private static readonly UnityEngine.Color StationColor = new UnityEngine.Color(0.55f, 0.8f, 1f, 0.9f);
         private static readonly UnityEngine.Color LooseColor = new UnityEngine.Color(1.0f, 0.75f, 0.15f, 0.9f);
         private static readonly UnityEngine.Color HoverColor = new UnityEngine.Color(1f, 1f, 1f, 0.95f);
@@ -51,7 +52,7 @@ namespace SkiResortMod.Systems
         private static readonly UnityEngine.Color[] TowerColors =
         {
             new UnityEngine.Color(0.25f, 0.85f, 0.35f, 0.9f),   // clear
-            new UnityEngine.Color(0.95f, 0.2f, 0.2f, 0.95f),    // short (a span below the floor)
+            new UnityEngine.Color(0.95f, 0.2f, 0.2f, 0.95f),    // short (a span below the floor) or an edge too steep for the engine
             new UnityEngine.Color(0.7f, 0.35f, 1.0f, 0.95f),    // rope too high (a span above the max rope height)
         };
         private static readonly UnityEngine.Color[] SegColors =
@@ -137,6 +138,7 @@ namespace SkiResortMod.Systems
         private bool m_BuildRequested;
         private int m_EmitFrame, m_Frame, m_Seed = 1;
         private List<LiftLineNode> m_Emitted;
+        private LiftLineEdit m_SunkNoticed;   // the line whose sunk-station notice was shown
 
 
         protected override void OnCreate()
@@ -212,7 +214,10 @@ namespace SkiResortMod.Systems
                 }
                 m_VanillaSpans[line] = new float2(geo.m_EdgeLengthRange.max, geo.m_ElevatedLength);
                 sb.Append(def.Id).Append(' ').Append(geo.m_EdgeLengthRange.max.ToString("F0")).Append(" m (tool ")
-                  .Append(math.max(geo.m_EdgeLengthRange.max, c.MaxSpanM).ToString("F0")).Append("); ");
+                  .Append(math.max(geo.m_EdgeLengthRange.max, c.MaxSpanM).ToString("F0")).Append("), max slope ")
+                  .Append(geo.m_MaxSlopeSteepness.ToString("F2"))
+                  .Append(math.abs(geo.m_MaxSlopeSteepness - c.MaxEdgeSlope) < 1e-3f ? " = planner" : $" vs planner {c.MaxEdgeSlope:F2} MISMATCH")
+                  .Append("; ");
             }
             Mod.Log.Info($"LiftLine [spans]: line nets' max edge length (NetGeometryData.m_EdgeLengthRange.max = m_MaxPylonDistance): {sb}" +
                          "raised to the planner's max span only while the lift-line tool is open (the vanilla net tool keeps its split)");
@@ -593,7 +598,7 @@ namespace SkiResortMod.Systems
             // ground end gets the shortest member's rope on its fresh node: both keep the node formula (LiftTowerFitSystem uses it for any
             // end without a lane).
             float ropeA = EndRope(m_Base, a, out string srcA), ropeB = EndRope(end, b, out string srcB);
-            m_Edit = new LiftLineEdit(m_C, a, b, ropeA, ropeB);
+            m_Edit = new LiftLineEdit(m_C, a, b, ropeA, ropeB, m_Base.Kind == LiftLineEndKind.Station, end.Kind == LiftLineEndKind.Station);
             m_State = ToolState.Edit;
             Replan($"line {m_Type.Id} {Describe(m_Base)} -> {Describe(m_Top)}, {m_Edit.LengthM:F0} m, end ropes {ropeA:F2} ({srcA}) / " +
                    $"{ropeB:F2} ({srcB})");
@@ -877,12 +882,13 @@ namespace SkiResortMod.Systems
             }
         }
 
-        private static string Reason(LiftLineEditResult r)
+        private string Reason(LiftLineEditResult r)
         {
             switch (r)
             {
-                case LiftLineEditResult.TooCloseToStation: return "too close to an end of the line";
-                case LiftLineEditResult.TooCloseToPin: return "too close to a pinned tower";
+                case LiftLineEditResult.TooCloseToStation:
+                    return $"too close to that end of the line (keep {m_Edit?.LastEndMarginM ?? 0f:F0} m clear of it)";
+                case LiftLineEditResult.TooCloseToPin: return $"too close to a pinned tower (keep {m_C?.MinSpanM ?? 0f:F0} m between towers)";
                 case LiftLineEditResult.Unchanged: return "nothing changed";
                 case LiftLineEditResult.NoTower: return "no tower there";
                 default: return r.ToString();
@@ -912,7 +918,36 @@ namespace SkiResortMod.Systems
                 sb.Append(i == 1 ? "\n  towers: " : ", ").Append(plan.Constants.Ladder[n.Member].Name.Replace("SkiLiftTower", string.Empty)
                   .Replace("SkiTramTower", "T")).Append(" @").Append(n.AlongM.ToString("F0")).Append(edit.IsPinned(n.AlongM) ? " (pin)" : string.Empty);
             }
+            sb.Append("\n  edge slope: max ").Append(plan.MaxEdgeSlope.ToString("F2")).Append(" (the line prefab refuses ")
+              .Append(m_C.MaxEdgeSlope.ToString("F2")).Append(", SteepSlope)");
+            for (int i = 0; i < plan.Spans.Length; i++)
+                if (plan.Spans[i].SlopeViolated)
+                    sb.Append("; span ").Append(i).Append(" (").Append(plan.Nodes[i].AlongM.ToString("F0")).Append("..")
+                      .Append(plan.Nodes[i + 1].AlongM.ToString("F0")).Append(" m) TOO STEEP ").Append(plan.Spans[i].EdgeSlope.ToString("F2"));
             Say(sb.ToString());
+            WarnSunk(plan);
+        }
+
+        /// <summary>A station end whose carriers leave below the ground (the station sits in the slope: the no-level terraform keeps
+        /// the terrain; no prefab fix, DECISIONS 426: Move It recommended). Logged on every plan; the tooltip names it once per line.</summary>
+        private void WarnSunk(LiftTowerPlan plan)
+        {
+            string sunk = null;
+            if (plan.StationA && plan.EndCarrierA < -SunkWarnM)
+                sunk = $"{Describe(m_Base)} {-plan.EndCarrierA:F1} m";
+            if (plan.StationB && plan.EndCarrierB < -SunkWarnM)
+                sunk = (sunk == null ? string.Empty : sunk + ", ") + $"{Describe(m_Top)} {-plan.EndCarrierB:F1} m";
+            if (sunk == null)
+                return;
+            Mod.Log.Warn($"LiftLine [plan]: SUNK STATION — the carriers leave below the ground at {sunk} (carrier height at the stub tip vs " +
+                         "the highest ground across the line). The planner ramps the floor up from there instead of forcing a tall tower " +
+                         "beside the station; the chairs clip the slope until the first tower");
+            if (m_SunkNoticed != m_Edit)
+            {
+                m_SunkNoticed = m_Edit;
+                m_Notice = "The station sits low in the slope, so the chairs leave it below the ground. Flatter ground, or raising the station with Move It, gives a clean exit";
+                m_NoticeFrame = m_Frame;
+            }
         }
 
 
@@ -991,15 +1026,23 @@ namespace SkiResortMod.Systems
 
         private void UpdateEmitted()
         {
-            int temps = 0;
+            // Count the Temp edges this emission CREATES. A loose end or station stub also gives the existing edge at that node a Temp
+            // copy (Temp.m_Original set, no TempFlags.Create: GenerateEdgesSystem.cs:1371-1414): field test 2 counted it as planned 8 / Temp 9.
+            int temps = 0, touched = 0;
             using (var edges = m_TempEdgeQuery.ToEntityArray(Unity.Collections.Allocator.Temp))
             {
                 for (int i = 0; i < edges.Length; i++)
-                    if (EntityManager.GetComponentData<PrefabRef>(edges[i]).m_Prefab == m_LinePrefab)
+                {
+                    if (EntityManager.GetComponentData<PrefabRef>(edges[i]).m_Prefab != m_LinePrefab)
+                        continue;
+                    if ((EntityManager.GetComponentData<Temp>(edges[i]).m_Flags & TempFlags.Create) != 0)
                         temps++;
+                    else
+                        touched++;
+                }
             }
             int expected = m_Emitted.Count - 1;
-            if (temps == 0)
+            if (temps == 0 && touched == 0)
             {
                 if (m_Frame - m_EmitFrame > TempTimeoutFrames)
                 {
@@ -1014,10 +1057,12 @@ namespace SkiResortMod.Systems
             int errors = m_ErrorQuery.IsEmptyIgnoreFilter ? 0 : m_ErrorQuery.CalculateEntityCount();
             if (!GetAllowApply())
             {
-                Mod.Log.Warn($"LiftLine [build]: the game refuses the line ({errors} error(s) on the preview, {temps} Temp edge(s) of " +
-                             $"{expected}) — nothing built; back to editing. Move the towers off whatever blocks them and Build again");
-                LastMessage = $"Build refused: {errors} error(s)";
-                m_Notice = $"The game refused the line ({errors} problem(s) on the preview): move the towers off what blocks them";
+                string kinds = DescribeErrors(out string summary, out string player);
+                Mod.Log.Warn($"LiftLine [build]: the game refuses the line ({errors} error(s) on the preview: {summary}; {temps} new Temp " +
+                             $"edge(s) of {expected}, {touched} existing edge(s) touched) — nothing built; back to editing. Move the towers " +
+                             $"off whatever blocks them and Build again{kinds}");
+                LastMessage = $"Build refused: {errors} error(s), {summary}";
+                m_Notice = $"The game refused the line ({errors} problem(s): {player}): move the towers off what blocks them";
                 m_NoticeFrame = m_Frame;
                 applyMode = ApplyMode.Clear;
                 m_Deps = DestroyDefinitions(m_DefinitionQuery, m_Barrier, m_Deps);
@@ -1028,11 +1073,115 @@ namespace SkiResortMod.Systems
             m_Deps = DestroyDefinitions(m_DefinitionQuery, m_Barrier, m_Deps);
             LiftToolLines.Line reg = ToolLines.Register(m_Type.Id, m_Emitted);
             m_State = ToolState.Applying;
-            Say($"LiftLine [build]: APPLIED — {temps} Temp edge(s) (planned {expected}{(temps == expected ? string.Empty : "; MISMATCH: the fit still matches the line when every planned node is built (R-6)")}), " +
+            Say($"LiftLine [build]: APPLIED — {temps} new Temp edge(s) (planned {expected}{(temps == expected ? string.Empty : "; MISMATCH: the fit still matches the line when every planned node is built (R-6)")}" +
+                $"{(touched > 0 ? $"; {touched} existing edge(s) at an end touched" : string.Empty)}), " +
                 $"{m_Emitted.Count - 2} tower(s), {reg.Pins} pinned; registered as a tool line (the fit keeps its nodes and members); " +
                 $"{ToolLines.Count} tool line(s) this session");
             if (temps != expected)
                 Mod.Log.Info(DescribeSplits());
+        }
+
+        /// <summary>Every entity the game flagged (the Error query of ToolBaseSystem.GetAllowApply, ToolBaseSystem.cs:313, 533-540), one
+        /// line each: kind, prefab, Temp flags, along / lateral on the line, and the error types of its icons (IconElement → icon
+        /// PrefabRef → ToolErrorData.m_Error; ValidationSystem.AddIcon, ValidationSystem.cs:1747-1752) with the Target the icon names.
+        /// <paramref name="summary"/> counts per type; <paramref name="player"/> is the same in plain words. Always logged on a refusal
+        /// (the 2026-10-26 field test had five errors and no type).</summary>
+        private string DescribeErrors(out string summary, out string player)
+        {
+            var counts = new SortedDictionary<string, int>();
+            var sb = new StringBuilder();
+            using (var flagged = m_ErrorQuery.ToEntityArray(Unity.Collections.Allocator.Temp))
+            {
+                for (int i = 0; i < flagged.Length && i < 40; i++)
+                {
+                    Entity e = flagged[i];
+                    string kind = EntityManager.HasComponent<Game.Net.Edge>(e) ? "edge" : EntityManager.HasComponent<Game.Net.Node>(e) ? "node"
+                        : EntityManager.HasComponent<Game.Objects.Object>(e) ? "object" : "other";
+                    sb.Append("\n  ").Append(kind).Append(' ').Append(Fmt(e)).Append(' ').Append(PrefabName(e));
+                    if (EntityManager.TryGetComponent<Temp>(e, out var temp))
+                        sb.Append(" Temp ").Append(temp.m_Flags).Append(temp.m_Original != Entity.Null ? " of " + Fmt(temp.m_Original) : string.Empty);
+                    if (m_Edit != null && TryPosition(e, out float3 p))
+                    {
+                        float along = m_Edit.Project(p, out float lat);
+                        sb.Append(" at ").Append(along.ToString("F0")).Append(" m (lateral ").Append(lat.ToString("F1")).Append(", y ")
+                          .Append(p.y.ToString("F1")).Append(')');
+                    }
+                    if (!EntityManager.TryGetBuffer(e, true, out DynamicBuffer<Game.Notifications.IconElement> icons) || icons.Length == 0)
+                    {
+                        sb.Append(": no icon");
+                        Count(counts, "untyped");
+                        continue;
+                    }
+                    sb.Append(':');
+                    for (int k = 0; k < icons.Length; k++)
+                    {
+                        Entity icon = icons[k].m_Icon;
+                        string type = "untyped";
+                        if (EntityManager.TryGetComponent<PrefabRef>(icon, out var ipr) &&
+                            EntityManager.TryGetComponent<ToolErrorData>(ipr.m_Prefab, out var ted))
+                            type = ted.m_Error.ToString();
+                        Count(counts, type);
+                        sb.Append(' ').Append(type);
+                        if (EntityManager.TryGetComponent<Game.Common.Target>(icon, out var target) && target.m_Target != Entity.Null)
+                            sb.Append(" (with ").Append(Fmt(target.m_Target)).Append(' ').Append(PrefabName(target.m_Target)).Append(')');
+                    }
+                }
+                if (flagged.Length > 40)
+                    sb.Append("\n  ... ").Append(flagged.Length - 40).Append(" more");
+            }
+            var sum = new StringBuilder();
+            var words = new StringBuilder();
+            foreach (KeyValuePair<string, int> kv in counts)
+            {
+                sum.Append(sum.Length > 0 ? ", " : string.Empty).Append(kv.Key).Append(" x").Append(kv.Value);
+                words.Append(words.Length > 0 ? ", " : string.Empty).Append(ErrorWords(kv.Key));
+            }
+            summary = sum.Length > 0 ? sum.ToString() : "no error entity found";
+            player = words.Length > 0 ? words.ToString() : "unknown";
+            return sb.ToString();
+        }
+
+        private static void Count(SortedDictionary<string, int> counts, string key) =>
+            counts[key] = counts.TryGetValue(key, out int n) ? n + 1 : 1;
+
+        private static string ErrorWords(string type)
+        {
+            switch (type)
+            {
+                case nameof(ErrorType.SteepSlope): return "a span too steep";
+                case nameof(ErrorType.OverlapExisting): return "overlaps something";
+                case nameof(ErrorType.LongDistance): return "a span too long";
+                case nameof(ErrorType.ShortDistance): return "a span too short";
+                case nameof(ErrorType.InWater): return "in water";
+                case nameof(ErrorType.ExceedsCityLimits): return "outside the city";
+                case nameof(ErrorType.LowElevation): return "too low";
+                case nameof(ErrorType.TightCurve): return "a curve too tight";
+                default: return type;
+            }
+        }
+
+        private string PrefabName(Entity e) =>
+            EntityManager.TryGetComponent<PrefabRef>(e, out var pr) && pr.m_Prefab != Entity.Null ? m_PrefabSystem.GetPrefabName(pr.m_Prefab) : "?";
+
+        private bool TryPosition(Entity e, out float3 p)
+        {
+            if (EntityManager.TryGetComponent<Game.Net.Curve>(e, out var curve))
+            {
+                p = MathUtils.Position(curve.m_Bezier, 0.5f);
+                return true;
+            }
+            if (EntityManager.TryGetComponent<Game.Net.Node>(e, out var node))
+            {
+                p = node.m_Position;
+                return true;
+            }
+            if (EntityManager.TryGetComponent<Game.Objects.Transform>(e, out var t))
+            {
+                p = t.m_Position;
+                return true;
+            }
+            p = default;
+            return false;
         }
 
         /// <summary>The Temp nodes of this line that the tool did not emit (engine split points), each with its along from the first end,
@@ -1160,7 +1309,7 @@ namespace SkiResortMod.Systems
                 {
                     if (s < 0 || s >= plan.Spans.Length)
                         continue;
-                    if (plan.Spans[s].FloorViolated)
+                    if (plan.Spans[s].FloorViolated || plan.Spans[s].SlopeViolated)   // red: the engine refuses a too-steep edge (SteepSlope)
                         status = 1;
                     else if (plan.Spans[s].HeightViolated && status == 0)
                         status = 2;

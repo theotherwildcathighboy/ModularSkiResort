@@ -89,6 +89,9 @@ namespace LiftBatch
             foreach (string line in LiftPlannerTests.Report)
                 Console.WriteLine("PLAN  " + line);
             LiftToolInputTests.Run(Check);
+            LiftPassTests.Run(Check);
+            foreach (string line in LiftPassTests.Report)
+                Console.WriteLine("PASS  " + line);
             TowerNumberTests.Run(Check);
             LoopPaceTests.Run(Check);
 

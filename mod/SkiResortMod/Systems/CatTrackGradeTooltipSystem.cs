@@ -40,7 +40,7 @@ namespace SkiResortMod.Systems
             }
             try
             {
-                string prompt = GradeInput.Prompt(m_Tool.Step, m_Tool.Dragging, m_Tool.CanUndoGrade);
+                string prompt = m_Tool.DeleteMode ? m_Tool.DeletePrompt : GradeInput.Prompt(m_Tool.Step, m_Tool.Dragging);
                 if (!string.Equals(prompt, m_LoggedPrompt, StringComparison.Ordinal))
                 {
                     m_LoggedPrompt = prompt;
@@ -50,7 +50,7 @@ namespace SkiResortMod.Systems
                 string notice = m_Tool.Notice;
                 if (notice != null)
                     Show(m_Notice, ref m_LastNotice, notice);
-                string plan = m_Tool.Dragging ? null : m_Tool.PlanLine;
+                string plan = m_Tool.Dragging || m_Tool.DeleteMode ? null : m_Tool.PlanLine;
                 if (!string.IsNullOrEmpty(plan))
                 {
                     m_Plan.color = m_Tool.PlanOk ? TooltipColor.Success : TooltipColor.Warning;

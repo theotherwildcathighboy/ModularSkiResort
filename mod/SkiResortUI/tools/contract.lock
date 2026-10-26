@@ -2,7 +2,7 @@
 # Written by `npm run contract:lock` (tools/check-bundle.js --write-lock); checked on every build
 # (rule R3, docs/research/hub-u2-spec.md section 4.7). Do not edit by hand: change src/bindings.ts,
 # bump HUB_CONTRACT (and C#'s HubContract), run `npm run contract:lock`, review this file's diff.
-contract 18
+contract 19
 core build
 core buildStamp
 core contract
@@ -21,6 +21,7 @@ core uiError
 core uiHello
 binding build : readonly BuildItem[]
 binding buildStamp : string
+binding catTrackDeleteMode : boolean
 binding city : CityStats
 binding contract : number
 binding follow : number
@@ -53,6 +54,7 @@ trigger quickRunsSet (QuickRunsKey, number)
 trigger quickRunsToggle ()
 trigger rename (Entity, string)
 trigger selectResort (Entity)
+trigger setCatTrackDeleteMode (boolean)
 trigger setHubOpen (boolean)
 trigger setPisteMap (boolean)
 trigger toggleHub ()

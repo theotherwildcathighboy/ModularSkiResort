@@ -22,10 +22,14 @@ Same as `LiftLineToolSystem`'s:
 ## Input (GradeInput, pure)
 
 - Left click adds a point (within `PickPathM` of the track: inserts it between its two neighbors). Press on a point and drag moves it.
-- Right click steps back one action: cancel a drag, else undo the last add / insert / move, else (no point left) undo the last
-  grade made since the tool opened, else close the tool.
+- Right click and Esc both reach the tool's Cancel action while it is live (the field log of 2026-10-26b shows Esc presses logged as
+  right clicks). One step back: leave Delete mode, else cancel a drag, else undo the last add / insert / move, else close the tool.
+  A built cat track is never undone or deleted by them (built tracks are off the grade undo stack; field test 2026-10-26b).
 - The Build key (Enter, shared with the lift tool: `LiftLineHotkeySystem` keeps it live while either tool is open) grades.
-- Esc is the frontend's Back, which closes the tool (points dropped, logged).
+- Delete mode (`CatTrackDeleteMode`, default Ctrl+Shift+D, live only while the tool is open; `GradeDeleteInput`, pure): the terrain hit
+  is tested point in outline against the cat track rings (re-read every 30 frames and after a delete; the raycast stays Terrain only,
+  the default tool cannot pick a Space area either, DefaultToolSystem.cs:796-805). The first click arms a track (red outline), a second
+  click on it calls `DeleteTrack` (the hub row trash's path), a click off it disarms. Enter is refused in Delete mode.
 
 ## Solve on change, not per frame
 

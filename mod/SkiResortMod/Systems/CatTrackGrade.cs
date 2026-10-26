@@ -1053,8 +1053,6 @@ namespace SkiResortMod.Systems
         public ushort[] Before;
         public ushort[] After;
         public string Label;
-        /// <summary>The cat-track run this grade built (Entity index, version; 0 = none, e.g. the dev-tab probe). Undo deletes it.</summary>
-        public int2 Run;
         public int Bytes => (Before.Length + After.Length) * 2;
     }
 
@@ -1143,8 +1141,8 @@ namespace SkiResortMod.Systems
         None,
         CancelDrag, // a point is being dragged: it goes back where it was
         UndoEdit, // the last add / insert / move is undone (removing the last point included)
-        UndoGrade, // no point left and a grade was applied since the tool opened: the terrain goes back
         CloseTool, // nothing left: back to the default tool
+        LeaveDeleteMode, // in Delete mode: the mode goes off (nothing is deleted, the points stay)
     }
 
     /// <summary>The edit model: the clicked points and an undo stack of point snapshots (pure; the LiftLineEdit pattern).</summary>
@@ -1250,28 +1248,29 @@ namespace SkiResortMod.Systems
         public static GradeStep StepOf(int points, bool applying) =>
             applying ? GradeStep.Applying : points == 0 ? GradeStep.Empty : points == 1 ? GradeStep.OnePoint : GradeStep.Path;
 
-        public static GradeBack RightClick(GradeStep step, bool dragging, int undoDepth, int gradesThisOpening)
+        /// <summary>Right click or Esc (both reach the tool's Cancel action while it is live; the field log of 2026-10-26b shows Esc
+        /// presses logged as right clicks): leave Delete mode, else cancel a drag, else undo the last point edit, else close. It never
+        /// touches a built cat track (field test 2026-10-26b; the Quick runs rule, DECISIONS 417).</summary>
+        public static GradeBack RightClick(GradeStep step, bool dragging, int undoDepth, bool deleteMode = false)
         {
             if (step == GradeStep.Applying)
                 return GradeBack.None;
+            if (deleteMode)
+                return GradeBack.LeaveDeleteMode;
             if (dragging)
                 return GradeBack.CancelDrag;
-            if (undoDepth > 0)
-                return GradeBack.UndoEdit;
-            return gradesThisOpening > 0 ? GradeBack.UndoGrade : GradeBack.CloseTool;
+            return undoDepth > 0 ? GradeBack.UndoEdit : GradeBack.CloseTool;
         }
 
         /// <summary>The step hint: always a non-empty line naming what the next click does in this step.</summary>
-        public static string Prompt(GradeStep step, bool dragging, bool canUndoGrade)
+        public static string Prompt(GradeStep step, bool dragging)
         {
             if (dragging)
                 return "Release: put the point here · right click: cancel the move";
             switch (step)
             {
                 case GradeStep.Empty:
-                    return canUndoGrade
-                        ? "Cat track: click where the track starts · right click: undo the last track · Esc: close"
-                        : "Cat track: click where the track starts · right click: close";
+                    return "Cat track: click where the track starts · Ctrl+Shift+D: delete mode · right click: close";
                 case GradeStep.OnePoint:
                     return "Click the next point of the track · right click: back";
                 case GradeStep.Path:
@@ -1293,6 +1292,49 @@ namespace SkiResortMod.Systems
             if (prof.ShortfallM > 0f)
                 s += string.Format(CultureInfo.InvariantCulture, " · too steep: needs {0:F0} m more track (a switchback)", math.ceil(prof.ShortfallM));
             return s;
+        }
+    }
+
+    /// <summary>What one left click does in the tool's Delete mode (GradeDeleteInput.Click).</summary>
+    public enum GradeDeleteClick : byte
+    {
+        None, // off every cat track, nothing armed
+        Arm, // on a cat track that is not armed: it turns red and waits for the confirming click
+        Delete, // on the armed cat track: the confirm, the track is deleted (the hub row trash's path)
+        Disarm, // off every cat track while one is armed
+    }
+
+    /// <summary>The Delete mode rules (pure; field test 2026-10-26b): a two-click confirm on the hovered cat track; right click / Esc
+    /// only leave the mode (GradeBack.LeaveDeleteMode via RightClick) and never delete. Tracks are indexes into the picked ring list.</summary>
+    public static class GradeDeleteInput
+    {
+        public static GradeDeleteClick Click(int hovered, int armed)
+        {
+            if (hovered < 0)
+                return armed >= 0 ? GradeDeleteClick.Disarm : GradeDeleteClick.None;
+            return hovered == armed ? GradeDeleteClick.Delete : GradeDeleteClick.Arm;
+        }
+
+        /// <summary>The cat track under <paramref name="p"/>: the first ring that contains it (cat tracks cannot overlap, the game's
+        /// OverlapExisting), else -1. The tool feeds it its terrain hit: no area raycast.</summary>
+        public static int Pick(IList<float2[]> rings, float2 p)
+        {
+            for (int k = 0; rings != null && k < rings.Count; k++)
+            {
+                float2[] ring = rings[k];
+                if (ring != null && ring.Length >= 3 && GradeRaster.Inside(ring, p))
+                    return k;
+            }
+            return -1;
+        }
+
+        public static string Prompt(int hovered, int armed)
+        {
+            if (armed >= 0 && hovered == armed)
+                return "Click again to delete this cat track (the ground stays graded, no refund) · right click: leave delete mode";
+            if (hovered >= 0)
+                return "Delete mode: click the cat track to select it for deletion · right click: leave delete mode";
+            return "Delete mode: point at a cat track · right click: leave delete mode";
         }
     }
 }

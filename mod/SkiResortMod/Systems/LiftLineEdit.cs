@@ -46,6 +46,8 @@ namespace SkiResortMod.Systems
         public readonly float3 A, B;
         public readonly float RopeA, RopeB;
         public readonly float LengthM;
+        /// <summary>The ends are stations (approach floor, shortest tower by the station); false = a loose line end or open ground.</summary>
+        public readonly bool StationA, StationB;
         public LiftTowerPlan Plan { get; private set; }
         public int Revision { get; private set; }
 
@@ -54,13 +56,15 @@ namespace SkiResortMod.Systems
         private readonly List<float> m_Removed = new List<float>();   // spots a free tower was removed from (planner Forbidden)
         private readonly float2 m_Dir, m_Right;
 
-        public LiftLineEdit(LiftTowerPlanConstants c, float3 a, float3 b, float ropeA, float ropeB)
+        public LiftLineEdit(LiftTowerPlanConstants c, float3 a, float3 b, float ropeA, float ropeB, bool stationA = true, bool stationB = true)
         {
             C = c;
             A = a;
             B = b;
             RopeA = ropeA;
             RopeB = ropeB;
+            StationA = stationA;
+            StationB = stationB;
             LengthM = math.distance(a.xz, b.xz);
             m_Dir = LengthM > 1e-3f ? (b.xz - a.xz) / LengthM : new float2(0f, 1f);
             m_Right = new float2(m_Dir.y, -m_Dir.x);
@@ -71,6 +75,20 @@ namespace SkiResortMod.Systems
 
         /// <summary>No new tower within this of a removed spot: two samples (2 x StepM) or MinSpanM, whichever is larger.</summary>
         public float RemovedRadiusM => math.max(C.MinSpanM, 2f * C.StepM);
+
+        /// <summary>No pin nearer this end of the line than this. A loose or ground end is a tower: MinSpanM, the tower-to-tower minimum
+        /// (FG / DQ / GD 10 m, tram 40 m). A station end only needs the pinned tower clear of the terminal's front (the stub tip): FG /
+        /// DQ / GD 10 m as before; tram one step (10 m: the 11.4 m wide tower, SkiTramTower30 m_LegSize, then stands 4 m clear of the stub
+        /// tip). Field test 2 refused a tram pin at 1,737 m of a 1,756 m line (19 m from the top station) five times under the old
+        /// MinSpanM (40 m) at both kinds of end.</summary>
+        public float PinEndMarginM(bool stationEnd) =>
+            stationEnd && C.TypeId == "tram" ? C.StepM : math.max(C.MinSpanM, C.StepM);
+
+        public float PinMarginA => PinEndMarginM(StationA);
+        public float PinMarginB => PinEndMarginM(StationB);
+
+        /// <summary>The margin of the end that refused the last pin (TooCloseToStation), for the tool's message.</summary>
+        public float LastEndMarginM { get; private set; }
         public int LineTowers => Plan == null ? 0 : Plan.LineTowers;
 
 
@@ -103,6 +121,12 @@ namespace SkiResortMod.Systems
                 seeds.Add(new LiftPlanNode { AlongM = m_Pins[i], Member = 0, Flags = LiftPlanNodeFlags.Seed });
             m_Planner.Forbidden = m_Removed;
             m_Planner.ForbiddenRadiusM = RemovedRadiusM;
+            m_Planner.StationA = StationA;
+            m_Planner.StationB = StationB;
+            // The engine refuses an edge steeper than the line prefab allows (SteepSlope): plan the nodes as they will be built.
+            m_Planner.CheckEdgeSlope = true;
+            m_Planner.EndNodeYA = A.y;
+            m_Planner.EndNodeYB = B.y;
             Plan = m_Planner.Plan(terrain, LengthM, RopeA, RopeB, C, seeds);
             Revision++;
             return Plan;
@@ -167,14 +191,17 @@ namespace SkiResortMod.Systems
             return true;
         }
 
-        /// <summary>Pin a tower at <paramref name="alongM"/> (snapped). Refused within MinSpanM of a station or of another pin.</summary>
+        /// <summary>Pin a tower at <paramref name="alongM"/> (snapped). Refused within PinEndMarginM of an end or MinSpanM of another pin.</summary>
         public LiftLineEditResult AddPin(float alongM) => Saved(Snapshot(), AddPinExcept(alongM, float.NaN));
 
         private LiftLineEditResult AddPinExcept(float alongM, float ignore)
         {
             float s = Snap(alongM);
-            if (s < C.MinSpanM - 1e-3f || s > LengthM - C.MinSpanM + 1e-3f)
+            if (s < PinMarginA - 1e-3f || s > LengthM - PinMarginB + 1e-3f)
+            {
+                LastEndMarginM = s < PinMarginA - 1e-3f ? PinMarginA : PinMarginB;
                 return LiftLineEditResult.TooCloseToStation;
+            }
             for (int i = 0; i < m_Pins.Count; i++)
             {
                 if (!float.IsNaN(ignore) && math.abs(m_Pins[i] - ignore) < 1e-3f)

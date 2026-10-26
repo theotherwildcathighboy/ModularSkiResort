@@ -317,6 +317,20 @@ function known(n: number | undefined): n is number {
 
 export const RUN_ITEMS: ReadonlySet<BuildItemId> = new Set<BuildItemId>(["runNatural", "runGroomed", "runSnowmaking", "runNight", "runCatTrack"]);
 
+/** A run-making tool is the active tool: the run drawing tool or the cat track tool (a Build run item with active set) or the
+ *  Quick runs tool. Their info (run rows, Quick runs controls) lives on the Runs view. */
+export function runToolActive(items: readonly BuildItem[] | null | undefined, quickActive: boolean | null | undefined): boolean {
+  if (quickActive === true) return true;
+  for (const it of items ?? []) if (it && it.active === true && isBuildItemId(it.id) && RUN_ITEMS.has(it.id)) return true;
+  return false;
+}
+
+/** The Runs-tab follow: select the Runs view only on the edge inactive -> active, never while the tool stays active (the player may
+ *  have moved to another view on purpose). `seen` = the activity last seen; the caller keeps it. */
+export function runsTabFollow(seen: boolean, active: boolean): { select: boolean; seen: boolean } {
+  return { select: active && !seen, seen: active };
+}
+
 /** Footer line 1 of a tile, by the item's KIND (buildItems.ts BuildItemMeta.kind): runs with
  *  a base fee and a per-ha fee -> run; a line of any lift type with a per-km cost -> lift; anything else with a cost
  *  (sign, lodge tiers, school, patrol huts, stations) -> cost; else the name alone (an unknown kind included). */

@@ -167,13 +167,13 @@
       { label: "SkiResort.Tooltip.QUICK_POD[MidStation]", runs: 2 }], trees: true, treeLine: 1820, groundMin: 1210, groundMax: 1850,
     speciesNames: ["AlderTree01", "BirchTree01", "PineTree01", "SpruceTree01"], speciesGroups: [1, 1, 0, 0], plant: 3120, remove: 140, treesCost: 131040 });
 
-  const base = { hubOpen: false, contract: 18, buildStamp: "", showHubButton: true, build: buildItems(), glade,
+  const base = { hubOpen: false, contract: 19, buildStamp: "", showHubButton: true, build: buildItems(), glade,
     resorts: [], resortLive: [], selectedResort: NULL, runs: [], runLive: [], lifts: [], problems: [], city, pisteMap: true, follow: 0, history: [],
-    liftLine: { available: true, active: false, state: "PickBase" }, quickRuns };
+    liftLine: { available: true, active: false, state: "PickBase" }, quickRuns, catTrackDeleteMode: false };
 
   window.SkiScenarios = {
     "not connected (no C#)": Object.assign({}, base, { contract: 0, city: Object.assign({}, city, { known: false }) }),
-    "contract mismatch (DLL 17, UI 18)": Object.assign({}, base, { contract: 17, hubOpen: true }),
+    "contract mismatch (DLL 18, UI 19)": Object.assign({}, base, { contract: 18, hubOpen: true }),
     "connected, empty city": Object.assign({}, base, { hubOpen: true, build: buildItems({ locked: ["lodgeGrand", "liftTram", "baseStationTram", "topStationTram"] }) }),
     "Ash Flat (runs, lifts, problems)": Object.assign({}, base, { hubOpen: true, resorts, resortLive: [live, live2], selectedResort: SIGN, runs, runLive, lifts, problems, history,
       glade: Object.assign({}, glade, { active: true }), build: buildItems({ active: "runGroomed", built: ["school"] }) }),

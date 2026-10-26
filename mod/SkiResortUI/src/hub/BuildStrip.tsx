@@ -30,6 +30,7 @@ import {
   RUN_TYPE, sentKeyEntry,
 } from "./hubText";
 import { AssetIcon, Glyph, LocText, Tip, TipLines, cx, numArg } from "./parts";
+import { CatTrackDeleteChip } from "./CatTrackControls";
 import { QuickRunsChip } from "./QuickRunsControls";
 import type { TipLine } from "./parts";
 import { currentResort, resortEntries } from "./resortData";
@@ -351,6 +352,7 @@ function TreeToolSet({ t, quick }: { t: Translate; quick: boolean }): JSX.Elemen
       </div>
       <div className={cx(styles.pickerSet, styles.pickerSetNext)} style={{ flexGrow: 3 }}>
         {quick && <QuickRunsChip t={t} />}
+        {quick && <CatTrackDeleteChip t={t} />}
       </div>
     </>
   );

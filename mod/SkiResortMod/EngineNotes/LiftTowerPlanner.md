@@ -24,7 +24,8 @@ lanes 0.004).
   node whose high and low side differ by more than SideHillM is flagged SideHill.
 - rope(t) on a span = the straight chord between the two rope points minus the engine's sag: LaneSystem.cs:4128-4134 lowers the bezier's
   b / c by d*m_Hanging*4/3, a parabola 4*d*m_Hanging*t(1-t) (mid-span sag = d*m_Hanging).
-- floor margin(t) = rope(t) - CarrierDropM - high(t) - FloorM (>= 0 required).
+- floor margin(t) = rope(t) - CarrierDropM - high(t) - floor(t) (>= 0 required); floor(t) = FloorM, ramped near a station end (Station
+  ends below).
 - rope height(t) = rope(t) - center(t) (<= MaxRopeAboveGroundM when that is > 0; the tram has no cap).
 
 ## Phases
@@ -50,6 +51,29 @@ Fixed-grip lines put a tower just before a breakover (a convex change of slope) 
 ground becomes a Breakover: it moves one sample past the crest toward the higher ground (uphill of the crest, not onto it) with the shortest
 member that keeps both spans clear and adds no infill tower. `MinTowers` prefers the most towers on the uphill sample of a convex crest
 (`Breaks`), never at the cost of an extra tower.
+
+## Station ends, the station-side rule and the edge slope (2026-10-26 lift pass)
+Report: docs/research/lifts/lift-pass-2026-10-26.md. Tests: LiftBatch LP-26..LP-29.
+- **Approach floor.** Carriers leave a station at loading height (DQ: bullwheel rope 3.70 m above the platform, hang 3.30 m = 0.40 m), so
+  the floor at a station end ramps linearly from the carrier's own height at the end (0, or negative at a sunk station) to FloorM at
+  StationClearM (FG 12.2, DQ 25.6, GD 25.4, tram 40 m): `LiftTowerPlanConstants.ApproachFloor`. Before, FloorM applied from the first
+  sample and forced a tall tower right at every station via the NoClearance fallback (field DQ: DQ12 @10 m and DQ18 @1,015 m). Only ends
+  the caller marks as stations get it (`StationA` / `StationB`: the tool from its end kinds, the fit from the rope lanes it found); a
+  loose or ground end is a tower node with the full floor.
+- **Station-side rule.** `MinCost.EndRiseM` = the rise above the shortest member of each tower next to a station end. With
+  `TowerWorthM` > 0 (FG / DQ / GD 8 m) the search minimizes towers x TowerWorthM + EndRiseM first: one more tower buys 8 m of shorter
+  station towers (ordinary 1,200 m DQ slope: DQ18 @105 / DQ20 @1,075 with 5 towers -> DQ10 at both ends with 6). The tram has
+  TowerWorthM 0 (fewest towers first, EndRiseM breaks ties). `Fit` turns `StationRule` off for its free plan: the count the line needs is
+  the fewest towers. A strict station-first order was tried and dropped: it stood FG8s 15-20 m from stations and inflated the fit's count.
+- **Edge slope (SteepSlope).** The engine refuses a Temp edge whose node-to-node |dy| / xz length reaches the line prefab's
+  m_MaxSlopeSteepness + 0.0005, or half of it 2x that (ValidationHelpers.cs:1435-1490, test :1462; the FlattenTerrain branch at :1435
+  does not apply to lift lines). Line prefabs: SkiChairliftHV 0.8, SkiDetachableHV 0.9, SkiGondolaHV 1.2, SkiTramHV 2.5
+  (`MaxEdgeSlope`). With `CheckEdgeSlope` (the lift tool only) every MinTowers transition, the breakover move and phase (c)'s raise keep
+  |dy| <= 0.97 x MaxEdgeSlope x d between the nodes as built (towers at ground + E(member), the ends at `EndNodeYA` / `EndNodeYB`);
+  `TotalViolation` counts the excess; `Build` sets `LiftPlanSpan.EdgeSlope` / `SlopeViolated`. Off for the fit: permanent edges are not
+  validated. The legacy Anchors / Split / Infill path has no slope gate.
+- **Outputs.** `LiftTowerPlan.SampleFloorM` (MarginAt uses it), `StationA` / `StationB`, `EndCarrierA` / `EndCarrierB` (carrier at the end
+  above the high side: negative = a sunk station; the tool warns SUNK STATION), `MaxEdgeSlope`.
 
 ## Fixed node count (Fit)
 The engine's node count is fixed (equal split, CourseSplitSystem.cs:3485-3493), so `LiftTowerFitSystem` asks `Fit`:

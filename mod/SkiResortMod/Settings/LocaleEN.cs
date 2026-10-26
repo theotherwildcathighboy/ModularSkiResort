@@ -523,6 +523,18 @@ namespace SkiResortMod.Settings
                 },
                 { m_Setting.GetBindingKeyLocaleID(SkiResortSettings.ActToggleCatTrackGrade), "Toggle cat track tool" },
                 { m_Setting.GetBindingKeyHintLocaleID(SkiResortSettings.ActToggleCatTrackGrade), "Cat track tool" },
+                {
+                    m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.CatTrackDeleteModeBinding)),
+                    "Cat track tool: delete mode"
+                },
+                {
+                    m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.CatTrackDeleteModeBinding)),
+                    "Turns the cat track tool's delete mode on or off. In delete mode, click a cat track to select it and click it " +
+                    "again to delete it (the ground stays graded, no refund). Right click or Esc leaves delete mode. Only while the " +
+                    "tool is open. Default Ctrl+Shift+D."
+                },
+                { m_Setting.GetBindingKeyLocaleID(SkiResortSettings.ActCatTrackDeleteMode), "Cat track delete mode" },
+                { m_Setting.GetBindingKeyHintLocaleID(SkiResortSettings.ActCatTrackDeleteMode), "Delete mode" },
                 // The Quick runs tool
                 {
                     m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.ToggleQuickRunsToolBinding)),

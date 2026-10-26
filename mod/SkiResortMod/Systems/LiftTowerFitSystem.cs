@@ -272,6 +272,9 @@ namespace SkiResortMod.Systems
             int partialFound = 0, partialPins = 0;
             if (toolLine == null)
                 partial = m_LineTool.ToolLines.BestPartial(pts, out partialFound, out partialPins);
+            // A station end (a rope lane there) gets the approach floor; a loose end or plain node is a tower: the full floor.
+            m_Planner.StationA = laneA;
+            m_Planner.StationB = laneB;
             LiftTowerPlan before = m_Planner.PlanFixed(sampler, length, ropeA, ropeB, c, inner, oldMembers, null, assign: false);
             // The line's own members are passed in, so a line that clears as it stands is Kept unchanged (hysteresis)
             LiftTowerFit fit = m_Planner.Fit(sampler, length, ropeA, ropeB, c, inner, straight && toolLine == null, engineMax,

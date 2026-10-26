@@ -49,7 +49,7 @@ Start with the Resort Quickstart at {{DOCS_URL}}/quickstart/ and the Lifts guide
 Source code and bug reports: {{GITHUB_URL}}
 
 ## Works with
-Nothing else is required. Move It works on every building. If Tourism Overhaul, Realistic Workplaces and Households or a trip-planner mod is installed, the panel shows a notice and changes nothing in them.
+Nothing else is required, but Move It is highly recommended: lift stations sit on the slope as placed, and on steep ground they can end up partly in the hillside. Move It works on every building and station. Write Everywhere is recommended too: with it, the Welcome Sign shows your ski area's name (without it, the name board stays plain). If Tourism Overhaul, Realistic Workplaces and Households or a trip-planner mod is installed, the panel shows a notice and changes nothing in them.
 Realistic Trips replaces the game's leisure system that ski days need: with it, the resort sends no skiers of its own. Lifts, runs, snow and buildings still work.
 
 ## Credits

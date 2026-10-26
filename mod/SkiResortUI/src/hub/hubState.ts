@@ -27,6 +27,10 @@ export const view$ = bindLocalValue<HubView>("overview");
 /** The Trees foldout of the contract-mismatch panel only: expanded by default, remembered */
 export const treesOpen$ = bindLocalValue<boolean>(true);
 
+/** The activity of a run-making tool (hubRules.runToolActive) the Runs-tab follow last saw. Reset when the panel unmounts, so the
+ *  next open with a tool active (started while the hub was closed, or kept open meanwhile) selects Runs once. */
+export const runToolSeen = { value: false };
+
 /** The Build strip's tab ("lifts" | "runs" | "buildings", hubRules.BuildTab) the player last used. "" = none yet: the strip
  *  then opens on the tab the idle NEXT line points at. Survives closing the hub, a UI reload resets it. */
 export const buildTab$ = bindLocalValue<string>("");

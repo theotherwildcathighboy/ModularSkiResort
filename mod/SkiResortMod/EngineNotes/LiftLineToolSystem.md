@@ -73,6 +73,16 @@ Every tower gets a ground ring colored by its spans (green clear, red a span bel
 height = ROPE TOO HIGH), a blue inner ring when pinned, and a cross-bar at rope height sized by the member; the hovered tower is white;
 the dragged tower is a white ring at the cursor. Span lengths and the plan line are in the tooltip (`LiftLineTooltipSystem`) and in the log.
 
+## Refusal diagnosis (2026-10-26)
+A refused Build (GetAllowApply false: the `Error` query, ToolBaseSystem.cs:313, 533-540) always logs every flagged entity: edge / node /
+object, prefab, Temp flags and original, along / lateral on the line, and each icon's error type (IconElement -> icon PrefabRef ->
+ToolErrorData.m_Error; ValidationSystem.AddIcon, ValidationSystem.cs:1747-1752) with the Target the icon names, plus a per-type
+summary in the warning and the tooltip. Temp edges are counted as created (TempFlags.Create: the definition had no original) vs
+existing edges touched at an end (a Temp copy with m_Original; GenerateEdgesSystem.cs:1371-1414): field test 2's "planned 8 / Temp 9"
+was the loose end's existing edge. The plan log prints the max edge slope against the prefab's limit and any span TOO STEEP (red in the
+preview); PatchSpans logs each line prefab's live m_MaxSlopeSteepness against the planner's. A station whose carriers leave below the
+ground (EndCarrier < -0.25 m) logs SUNK STATION on every plan and shows one tooltip notice per line.
+
 ## Logs
 Silence is impossible: ARMED / patch lines per load; one line per activation, station pick, plan (towers, member mix, spans, clearance,
 pins), edit, build (courses emitted), apply (Temps, errors, registered tool line). An exception disables the tool until the next load (one

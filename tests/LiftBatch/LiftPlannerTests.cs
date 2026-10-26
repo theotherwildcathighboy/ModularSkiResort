@@ -256,16 +256,17 @@ namespace LiftBatch
             Profile p = Reconstruct(DqGully);
             LiftTowerPlanConstants c = LiftTowerPlanConstants.For("detachable");
             LiftTowerPlan plan = PlanAndReplan("LP-1", (s, l) => p.At(s), p.Length, c, p.Start, p.End);
-            // Fewest towers: one tall tower spans the gully (the previous objective built 2 x DQ16; LP-17 prints both).
-            AddReport("LP-1 DQ gully (log :628), catalog drop 3.3 + floor 3", "1 line tower, tall (>= DQ16), clear", plan);
+            // Fewest towers: one tower spans the gully (the previous objective built 2 x DQ16; LP-17 prints both). Until the 2026-10-26
+            // lift pass it had to be a DQ18: the full floor applied right up to each station; the station approach floor
+            // (LiftTowerPlanConstants.ApproachFloor) lets a DQ10 clear it.
+            AddReport("LP-1 DQ gully (log :628), catalog drop 3.3 + floor 3", "1 line tower, clear (DQ18 before the station approach floor)", plan);
             Check(plan.LineTowers == 1, W, "line towers " + plan.LineTowers + ", expected 1: " + Describe(plan));
-            Check(MaxMember(plan) >= 3, W, "no tall member (>= DQ16): " + Describe(plan));
             Check(plan.Clear, W, "a span is violated: " + Describe(plan));
 
             // The analysis' assumption: rope >= 6.0 m above the ground (2.4-2.6 m carrier + ~3 m floor).
             LiftTowerPlan plan6 = PlanAndReplan("LP-1b", (s, l) => p.At(s), p.Length, c.With(floorM: 6.0f - c.CarrierDropM), p.Start, p.End);
-            AddReport("LP-1b DQ gully, analysis' rope >= 6.0 m", "1 line tower, taller than DQ10, clear (analysis §3 row L)", plan6);
-            Check(plan6.LineTowers == 1 && plan6.Clear && MaxMember(plan6) >= 1, W + "b", Describe(plan6));
+            AddReport("LP-1b DQ gully, analysis' rope >= 6.0 m", "1 line tower, clear (analysis §3 row L; DQ14 before the station approach floor)", plan6);
+            Check(plan6.LineTowers == 1 && plan6.Clear, W + "b", Describe(plan6));
         }
 
         private static void Lp2TramPitch()
@@ -309,12 +310,17 @@ namespace LiftBatch
                 float even = length / spans;
                 AddReport("LP-4 flat " + id + " " + length.ToString("F0") + " m", spans + " spans of ~" + even.ToString("F0") + " m (max " + c.MaxSpanM.ToString("F0") + "), fewest towers, infill only", plan);
                 Check(plan.Spans.Length == spans, W, id + ": " + plan.Spans.Length + " spans, expected " + spans + ": " + Describe(plan));
-                for (int s = 0; s < plan.Spans.Length; s++)
-                    Check(math.abs(plan.Spans[s].LengthM - even) <= c.StepM + 1e-3f, W,
-                          id + " span " + (s + 1) + " " + plan.Spans[s].LengthM.ToString("F0") + " m, expected ~" + even.ToString("F0"));
                 // FG: m_Hanging 0.03 sags a 75 m span 2.25 m, so FG8s (rope 7.04) leave the chair under the 3 m floor: the flat FG line stands
-                // on FG12s (a taller member that saves a tower vs 60 m spans). DQ / tram (0.004) keep the shortest member.
+                // on FG12s (a taller member that saves a tower vs 60 m spans). DQ / tram (0.004) keep the shortest member. Since the
+                // 2026-10-26 lift pass the tower next to a station is the shortest the ground allows (MinCost.EndRiseM, TowerWorthM): the FG line puts an
+                // FG8 beside one station on a shorter first span, so its spans are no longer even (both ends cannot: 2 x 54 m + 2 x 96 m).
                 int maxMember = id == "fixedGrip" ? 1 : 0;
+                for (int s = 0; s < plan.Spans.Length; s++)
+                    Check(id == "fixedGrip" ? plan.Spans[s].LengthM <= c.MaxSpanM + 1e-3f : math.abs(plan.Spans[s].LengthM - even) <= c.StepM + 1e-3f, W,
+                          id + " span " + (s + 1) + " " + plan.Spans[s].LengthM.ToString("F0") + " m, expected ~" + even.ToString("F0"));
+                if (id == "fixedGrip")
+                    Check(plan.Nodes[1].Member == 0 || plan.Nodes[plan.Nodes.Length - 2].Member == 0, W,
+                          "fixedGrip: no FG8 next to either station: " + Describe(plan));
                 for (int i = 1; i < plan.Nodes.Length - 1; i++)
                     Check(plan.Nodes[i].Member <= maxMember && plan.Nodes[i].Flags == LiftPlanNodeFlags.Infill, W,
                           id + " node " + (i + 1) + " member " + plan.Nodes[i].Member + " flags " + plan.Nodes[i].Flags);
@@ -549,12 +555,11 @@ namespace LiftBatch
         {
             const string W = "planner/LP-12";
             // Three lines with the engine's own node count (equal split, CourseSplitSystem.cs:3485-3493): DQ gully 336 m / 90 -> 4 x 84 m
-            // (3 line towers); tram 1,160 m / 1,000 -> 2 x 580 m (1); FG dip 129 m / 60 -> 3 x 43 m (2). The DQ gully cannot be cleared
-            // with 3 line towers on spans <= 90 m (the free plan needs 4): Short, reported, and far better than before; adding a node needs
-            // a new course.
+            // (3 line towers); tram 1,160 m / 1,000 -> 2 x 580 m (1); FG dip 129 m / 60 -> 3 x 43 m (2). The DQ gully was Short with 3 line
+            // towers (the free plan needed 4) until the 2026-10-26 lift pass: the station approach floor clears it with 3 (DQ18/12/16).
             var cases = new (string Name, LogNode[] Log, string Type, float EngineMax, int Inner, bool ExpectClear)[]
             {
-                ("DQ gully", DqGully, "detachable", 90f, 3, false),
+                ("DQ gully", DqGully, "detachable", 90f, 3, true),
                 ("tram pitch", TramPitch, "tram", 1000f, 1, true),
                 ("FG dip", FgDip, "fixedGrip", 60f, 2, true),
             };
@@ -800,7 +805,10 @@ namespace LiftBatch
                 LiftTowerPlan after = PlanAndReplan("LP-17/" + ln.Name, t, p.Length, c, p.Start, p.End, ln.RopeA, ln.RopeB);
                 s_Report.Add("LP-17 " + ln.Name + " free plan | 2026-10-19 objective -> fewest towers | {" + before.MemberCounts() + "} " +
                              Describe(before) + "  ->  {" + after.MemberCounts() + "} " + Describe(after));
-                Check(after.LineTowers <= before.LineTowers, W, ln.Name + ": more towers than the 2026-10-19 objective: " + Describe(after));
+                // Since the 2026-10-26 lift pass a tower may buy shorter towers beside the stations (TowerWorthM): no worse than the
+                // 2026-10-19 plan under that objective (towers x TowerWorthM + the station towers' rise; the tram: towers).
+                Check(LiftPassTests.Score(after) <= LiftPassTests.Score(before) + 1e-3f, W, ln.Name + ": worse than the 2026-10-19 objective (" +
+                      LiftPassTests.Score(after).ToString("F1") + " vs " + LiftPassTests.Score(before).ToString("F1") + "): " + Describe(after));
                 Check(after.Clear || !before.Clear, W, ln.Name + ": the 2026-10-19 plan is clear and the new one is not: " + Describe(after));
                 if (after.LineTowers < before.LineTowers)
                 {
