@@ -183,6 +183,12 @@ namespace SkiResortMod.Systems
             // What Plant will cost (contract 18): the ready preview's Temp cost per tree times the trees to plant; 0 without a preview
             writer.PropertyName("treesCost");
             writer.Write(t.TreeCost);
+            // Why lines were dropped (contract 20): the scan's reject histogram in QuickRunsRules.RejectBuckets buckets, only when the
+            // scan has a result (a preview, or the refusal in the Region step); zeros otherwise
+            AutoPlanResult scan = t.Result;
+            bool scanned = scan.Candidates > 0 && (preview || (t.Phase == QuickRunsToolSystem.ToolPhase.Region && t.StatusKey != null));
+            writer.PropertyName("rejects");
+            WriteInts(writer, QuickRunsRules.RejectCounts(scan.Rejects), scanned);
             writer.TypeEnd();
         }
 

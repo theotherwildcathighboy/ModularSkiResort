@@ -1,6 +1,6 @@
-# LodgeRoadSystem: why roadless top-level buildings and the cat track need prefab flag writes, and what each write touches
+# LodgeRoadSystem: why roadless top-level buildings need prefab flag writes, and what each write touches
 
-Road and access flags on our building and cat-track prefab entities, written at every Game-mode load (decompile 1.6.0f1; every file cited
+Road and access flags on our building prefab entities, written at every Game-mode load (decompile 1.6.0f1; every file cited
 here is byte-identical in 1.6.2f1).
 
 ## W4: top-level roadless buildings
@@ -40,27 +40,15 @@ A building is a lodge / sign when the prefab catalog says so (LodgePrefabSet / I
 
 ## Write sites
 EntityManager.SetComponentData of vanilla BuildingData on the W4 prefab entities (ApplyRoadless; RestoreForEditor writes the game's values
-back) and of NetGeometryData on the cat track (W3). No component is added to or removed from any entity, nothing is serialized by us, no
+back). No component is added to or removed from any entity, nothing is serialized by us, no
 prefab JSON change, no Harmony, no reflection.
 
-## Near the cat track probe (W3)
-SkiCatTrack is a RoadPrefab (JSON only, ImportedData\SkiCatTrack*) with a geometry-less piece, so the road draws nothing and the terrain
-shows. Two additions:
-- W3, NetGeometryData.m_Flags on the SkiCatTrack prefab entity: clear GeometryFlags.ClipTerrain (Game.Net, 0x40000) at every Game-mode load.
-  - NetInitializeSystem.cs:1943 ORs FlattenTerrain | ClipTerrain into every RoadPrefab; the terrain system turns ClipTerrain into a +-0.3 m
-    clip slab along each lane section (TerrainSystem.cs:1136-1139, GetFlags; GenerateClipDataJob :1698-1722) that vanilla fills with the
-    road mesh. A geometry-less piece would leave that slab see-through.
-  - FlattenTerrain is kept (CatTrackClearFlatten = false): it makes the terrain follow the net cross-section (the ShiftTerrain lane flag,
-    :1140-1143), so the 3 m strip is a level bench and the lane curves sit on the ground. Cleared, a cross-slope would leave the flat lane
-    ribbon hanging above/below the sloping ground by up to 1.5 m x slope, and GroundHeightSystem / LotHeightSystem stop treating the net as
-    a flat surface (they test the same flag, GroundHeightSystem.cs:322, LotHeightSystem.cs:286). If a bench scar proves unacceptable, flip
-    CatTrackClearFlatten and re-test (then lane Y follows the net's own heights: cars may float).
-  - Read live by the terrain jobs (the prefab component is looked up at job time), so the write needs no Updated tag.
-  - One line per load: "CatTrack: prefab SkiCatTrack NetGeometryData ...". A prefab without the flag the game should have set (and no
-    earlier write by us) writes nothing and logs one WARN. Not restored for the Editor (the net is a placeable probe road; nothing in the
-    Editor uses it).
-- DUMP "Lodge [road]": per lodge / school / patrol hut, which road edge Building.m_RoadEdge holds (entity, prefab name, "= CAT TRACK" when
-  it is SkiCatTrack), the distance from the building's front point to that edge's boundary curves (the RoadConnectionSystem.CheckEdge
-  test, limit 8.4 m, RoadConnectionSystem.cs:88, :353-385; edge geometry only, node geometry ignored) and to its center curve, and, when
-  the edge is not a cat track, the nearest cat-track edge in reach (so a lodge beside a cat track that a vanilla road beat, or that the
-  Raised/Lowered rule dropped, shows).
+## DUMP "Lodge [road]"
+Per lodge / school / patrol hut: which road edge Building.m_RoadEdge holds (entity, prefab name), the distance from the building's front
+point to that edge's boundary curves (the RoadConnectionSystem.CheckEdge test, limit 8.4 m, RoadConnectionSystem.cs:88, :353-385; edge
+geometry only, node geometry ignored) and to its center curve.
+
+## Retired: W3 and the SkiCatTrack probe net (2026-10-26)
+W3 cleared ClipTerrain on the SkiCatTrack RoadPrefab (the T54 CT1 probe net). The net was retired before 1.0 (it sat in the vanilla
+Roads menu and the auto-laid net was never built), and W3 with it. The engine facts it rested on (NetInitializeSystem.cs:1943, the
+TerrainSystem clip slab :1136-1143, :1698-1722) are in this file's git history.

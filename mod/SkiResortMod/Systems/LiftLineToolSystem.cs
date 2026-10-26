@@ -1,5 +1,7 @@
 // Our own lift-line tool: click the base and top station, drag / add / remove towers in an overlay preview (the planner re-plans
 // around the user's pins), then Build: one CreationDefinition + NetCourse per planned span goes through the game's own apply path.
+// While editing, the same definitions stand as the game's own Temp preview (ghost towers and cables, error icons included),
+// re-emitted only when the plan changes (the vanilla net tool's pattern), hidden while a tower is dragged.
 // The vanilla net tool stays the fallback (LiftTowerFitSystem fits whatever it builds). The hub's lift-line tiles open THIS tool
 // with their lift type (TryActivate(why, type)); the line prefabs have UIObject m_Group null, so the hub is the only way in.
 // While open it raises the line prefabs' span limits and sets PlacementFlags.ShoreLine (restored on close). Right click is the
@@ -21,6 +23,7 @@ using Game.Prefabs;
 using Game.Rendering;
 using Game.Simulation;
 using Game.Tools;
+using Game.UI.Localization;
 using Unity.Entities;
 using Unity.Jobs;
 using Unity.Mathematics;
@@ -76,7 +79,8 @@ namespace SkiResortMod.Systems
         internal string LastMessage { get; private set; } = string.Empty;
         internal string PendingTypeName => m_Type != null ? m_Type.Id : m_Preset != null ? m_Preset.Id : string.Empty;
         internal LiftTypeDef PresetType => m_Preset;
-        internal string Notice => m_Notice != null && m_Frame - m_NoticeFrame < NoticeFrames ? m_Notice : null;
+        /// <summary>The refusal notice the tooltip shows for a few seconds (a LocaleEN SkiResort.LiftTool.* key), else null.</summary>
+        internal LocalizedString? Notice => m_Notice.HasValue && m_Frame - m_NoticeFrame < NoticeFrames ? m_Notice : null;
 
         internal LiftLineStep Step
         {
@@ -128,7 +132,7 @@ namespace SkiResortMod.Systems
         private LineEnd m_Base, m_Top;
         private readonly List<LooseEnd> m_LooseEnds = new List<LooseEnd>();
         private int m_LooseFrame = int.MinValue / 2;
-        private string m_Notice;
+        private LocalizedString? m_Notice;
         private int m_NoticeFrame;
         private float3 m_Hit;
         private bool m_HasHit;
@@ -139,6 +143,13 @@ namespace SkiResortMod.Systems
         private int m_EmitFrame, m_Frame, m_Seed = 1;
         private List<LiftLineNode> m_Emitted;
         private LiftLineEdit m_SunkNoticed;   // the line whose sunk-station notice was shown
+        // Ghost preview: the definitions of m_GhostEdit at m_GhostRevision stand (no Updated after their frame, so they generate
+        // nothing more; GenerateNodesSystem.cs:2030-2041) and their Temps render as the translucent preview (BatchInstanceSystem.cs:
+        // 446-459, 589-609; tower sub-objects copy the Temp flags, SubObjectSystem.cs:2832-2841).
+        private bool m_Ghost;
+        private LiftLineEdit m_GhostEdit;
+        private int m_GhostRevision = -1;
+        private int m_GhostEmits;
 
 
         protected override void OnCreate()
@@ -171,6 +182,11 @@ namespace SkiResortMod.Systems
             m_Disabled = m_ErrorLogged = false;
             ToolLines.Clear();
             Reset("load");
+            // A load drops the old world's Temps with it; PreDeserialize resets activeTool (ToolSystem.cs:611-614), so an open tool
+            // also gets OnStopRunning, whose clear finds no Temp (RequireForUpdate, ToolClearSystem.cs:219) and does nothing.
+            m_Ghost = false;
+            m_GhostEdit = null;
+            m_GhostRevision = -1;
             if (mode != GameMode.Game)
             {
                 Mod.Log.Info($"LiftLine [tool]: NOT ARMED (mode {mode})");
@@ -309,9 +325,15 @@ namespace SkiResortMod.Systems
             {
                 if (m_State != ToolState.PickBase)
                     Mod.Log.Info($"LiftLine [tool]: stopped with a {m_State} line — dropped (nothing built)");
+                bool temps = m_Ghost || m_State == ToolState.Emitted;
                 Reset("stopped");
+                m_Ghost = false;
+                m_GhostEdit = null;
+                m_GhostRevision = -1;
                 if (!m_DefinitionQuery.IsEmptyIgnoreFilter)
                     EntityManager.DestroyEntity(m_DefinitionQuery);
+                if (temps)
+                    ClearOwnTemps("stopped");
                 SetSpansRaised(false);
             }
             catch (Exception e)
@@ -319,6 +341,26 @@ namespace SkiResortMod.Systems
                 Fail(e, "OnStopRunning");
             }
             base.OnStopRunning();
+        }
+
+        /// <summary>Our ghost / build Temps go when the tool stops (Esc, another tool, the hub, a load), not on the next tool's first
+        /// update. Vanilla tools never clear on stop: ToolSystem.ToolUpdate disables the last tool and updates it once
+        /// (ToolSystem.cs:312-318), then the NEW tool's applyMode drives ToolOutputSystem (ToolSystem.applyMode = m_LastTool.applyMode,
+        /// ToolSystem.cs:147-155; ToolOutputSystem.cs:22-30), and a tool clears only when its own first update sets Clear
+        /// (DefaultToolSystem.cs:973-980). So we run the game's own clear here, ToolClearSystem (the ClearTool phase,
+        /// SystemOrder.cs:711): Deleted on every Temp, the hidden originals shown again (ToolClearSystem.cs:63-113). Every Temp at
+        /// this point is ours: the stop update runs before the new tool's ToolUpdate (ToolSystem.cs:312-327). Its commands play back
+        /// at the ToolOutputBarrier (SystemOrder.cs:695); a second clear by the next tool in the same frame is harmless.</summary>
+        private void ClearOwnTemps(string why)
+        {
+            ToolClearSystem clear = World.GetExistingSystemManaged<ToolClearSystem>();
+            if (clear == null)
+            {
+                Mod.Log.Warn($"LiftLine [ghost]: ToolClearSystem missing — the preview's Temps are left to the next tool ({why})");
+                return;
+            }
+            clear.Update();
+            Mod.Log.Info($"LiftLine [ghost]: preview cleared on {why} (ToolClearSystem run by the tool itself)");
         }
 
         public override PrefabBase GetPrefab() => null;
@@ -397,7 +439,7 @@ namespace SkiResortMod.Systems
                 return;
             if (m_State != ToolState.Edit || m_Edit?.Plan == null)
             {
-                Say($"LiftLine [build]: nothing to build ({m_State}) — pick both ends first", "Nothing to build yet: click both ends first");
+                Say($"LiftLine [build]: nothing to build ({m_State}) — pick both ends first", T("NOTHING_TO_BUILD"));
                 return;
             }
             m_BuildRequested = true;
@@ -438,6 +480,7 @@ namespace SkiResortMod.Systems
 
             if (m_State == ToolState.PickBase || m_State == ToolState.PickTop)
             {
+                ClearGhost("no line");
                 UpdatePick();
                 DrawPick();
                 return;
@@ -446,12 +489,46 @@ namespace SkiResortMod.Systems
             if (m_BuildRequested)
             {
                 m_BuildRequested = false;
-                EmitCourses();
+                ClearGhost(null);
+                EmitCourses(false);
                 DrawPlan();
                 return;
             }
             UpdateEdit();
+            UpdateGhost();
             DrawPlan();
+        }
+
+        /// <summary>Edit: keep the ghost on the current plan. Clear + re-emit in the same frame when the plan changed (the Temps are
+        /// recycled, GenerateNodesSystem.cs:1397-1404 / GenerateEdgesSystem.cs:675-680); nothing on an unchanged frame (NetToolSystem.cs:
+        /// 6885-6902 keeps its Temps the same way); hidden while a tower is dragged (the overlay shows the move).</summary>
+        private void UpdateGhost()
+        {
+            if (m_State != ToolState.Edit || m_Edit?.Plan == null)
+                return;
+            if (Dragging)
+            {
+                ClearGhost(null);
+                return;
+            }
+            if (m_Ghost && m_GhostEdit == m_Edit && m_GhostRevision == m_Edit.Revision)
+                return;
+            ClearGhost(null);
+            EmitCourses(true);
+        }
+
+        /// <summary>Drop the ghost: ApplyMode.Clear deletes every Temp (ToolClearSystem.cs:63-113) and the standing definitions go.</summary>
+        private void ClearGhost(string why)
+        {
+            if (!m_Ghost)
+                return;
+            applyMode = ApplyMode.Clear;
+            m_Deps = DestroyDefinitions(m_DefinitionQuery, m_Barrier, m_Deps);
+            m_Ghost = false;
+            m_GhostEdit = null;
+            m_GhostRevision = -1;
+            if (why != null)
+                Mod.Log.Info($"LiftLine [ghost]: preview cleared ({why})");
         }
 
         private bool TakeHit(ControlPoint cp)
@@ -549,7 +626,7 @@ namespace SkiResortMod.Systems
             else
             {
                 Say($"LiftLine [pick]: nothing to start from within {StationPickM:F0} m of the click (no type chosen, so open ground is " +
-                    "not offered)", "Click next to a station's line stub, or a loose end of a lift line");
+                    "not offered)", T("NO_START"));
                 return;
             }
 
@@ -560,7 +637,7 @@ namespace SkiResortMod.Systems
                 if (c == null || line == Entity.Null)
                 {
                     Say($"LiftLine [pick]: lift type {(def != null ? def.Id : "?")} has no line prefab or planner constants — not usable",
-                        "This lift type cannot be drawn yet");
+                        T("TYPE_UNUSABLE"));
                     return;
                 }
                 // The engine's edge slope rule is the line prefab's own (NetInitializeSystem copies m_MaxSlopeSteepness as is):
@@ -578,12 +655,12 @@ namespace SkiResortMod.Systems
 
             if (end.Kind != LiftLineEndKind.Ground && end.Node == m_Base.Node)
             {
-                Say("LiftLine [pick]: that is the first end — click the other one", "That is the first end: click the other one");
+                Say("LiftLine [pick]: that is the first end — click the other one", T("SAME_END"));
                 return;
             }
             if (end.Kind == LiftLineEndKind.Station && m_Base.Kind == LiftLineEndKind.Station && end.Station == m_Base.Station)
             {
-                Say("LiftLine [pick]: same station as the first end", "That is the first station: click the other one");
+                Say("LiftLine [pick]: same station as the first end", T("SAME_STATION"));
                 return;
             }
             float3 a = EndPos(m_Base), b = EndPos(end);
@@ -592,7 +669,7 @@ namespace SkiResortMod.Systems
             if (math.distance(a.xz, b.xz) < min)
             {
                 Say($"LiftLine [pick]: the ends are {math.distance(a.xz, b.xz):F0} m apart — under {min:F0} m, too short for a line",
-                    $"Too close: a line needs at least {min:F0} m");
+                    T("TOO_SHORT", ("MIN", N(min))));
                 return;
             }
             m_Top = end;
@@ -657,7 +734,7 @@ namespace SkiResortMod.Systems
             Entity line = def != null ? m_Catalog.LineEntity(def) : Entity.Null;
             if (def == null || line == Entity.Null)
             {
-                Say($"LiftLine [pick]: station {Fmt(station)} has no lift type with a line prefab — not usable", "This station cannot take a line");
+                Say($"LiftLine [pick]: station {Fmt(station)} has no lift type with a line prefab — not usable", T("STATION_UNUSABLE"));
                 return false;
             }
             if (!TryStubNode(station, st.StubTip, out Entity node))
@@ -667,7 +744,7 @@ namespace SkiResortMod.Systems
             {
                 Say($"LiftLine [pick]: station {Fmt(station)} already has its line ({lines} line edge(s) on stub node {Fmt(node)}) — refused; " +
                     "to rework a placed line, bulldoze the section and click its two loose ends",
-                    "This station already has its line. To rework part of it, bulldoze that section, then click its two loose ends");
+                    T("STATION_HAS_LINE"));
                 return false;
             }
             end = new LineEnd { Kind = LiftLineEndKind.Station, Station = station, Node = node, Pos = NodePos(node) };
@@ -697,7 +774,7 @@ namespace SkiResortMod.Systems
             }
             if (node == Entity.Null)
                 Say($"LiftLine [pick]: station {Fmt(station)} has no own net node within {StubNodeSearchM:F0} m of its stub tip " +
-                    $"({stubTip.x:F1}, {stubTip.z:F1}) — not usable (is the station's stub missing?)", "This station has no line stub");
+                    $"({stubTip.x:F1}, {stubTip.z:F1}) — not usable (is the station's stub missing?)", T("NO_STUB"));
             return node != Entity.Null;
         }
 
@@ -851,14 +928,14 @@ namespace SkiResortMod.Systems
                                 $"tower at {from:F0} m removed (dragged off the line; the others pinned; no new tower within " +
                                 $"{m_Edit.RemovedRadiusM:F0} m of it)");
                         else
-                            Say($"LiftLine [edit]: remove at {from:F0} m refused: {Reason(rr)}", "Cannot remove that tower: " + Reason(rr));
+                            Say($"LiftLine [edit]: remove at {from:F0} m refused: {Reason(rr)}", RefusedNotice(rr));
                         return;
                     }
                     LiftLineEditResult r = m_Edit.MoveTower(from, to);
                     if (r == LiftLineEditResult.Done)
                         Replan($"tower moved {from:F0} -> {to:F0} m (pinned)");
                     else if (r != LiftLineEditResult.Unchanged)
-                        Say($"LiftLine [edit]: move {from:F0} -> {to:F0} m refused: {Reason(r)}", "Cannot move the tower there: " + Reason(r));
+                        Say($"LiftLine [edit]: move {from:F0} -> {to:F0} m refused: {Reason(r)}", RefusedNotice(r));
                 }
                 return;
             }
@@ -868,7 +945,7 @@ namespace SkiResortMod.Systems
                 if (!onLine)
                 {
                     Say($"LiftLine [edit]: click {(m_HasHit ? $"{math.abs(lateral):F0} m off" : "not on the terrain")} — click within " +
-                        $"{PickLateralM:F0} m of the line", $"Click on the line (within {PickLateralM:F0} m) to add a tower");
+                        $"{PickLateralM:F0} m of the line", T("CLICK_ON_LINE"));
                     return;
                 }
                 if (m_HoverTower > 0)
@@ -882,9 +959,46 @@ namespace SkiResortMod.Systems
                 if (r == LiftLineEditResult.Done)
                     Replan($"tower added at {m_Edit.Snap(along):F0} m (pinned)");
                 else if (r != LiftLineEditResult.Unchanged)
-                    Say($"LiftLine [edit]: add at {along:F0} m refused: {Reason(r)}", "Cannot add a tower there: " + Reason(r));
+                    Say($"LiftLine [edit]: add at {along:F0} m refused: {Reason(r)}", RefusedNotice(r));
             }
         }
+
+        /// <summary>The player notice for a refused add / move / remove (LocaleEN SkiResort.LiftTool.*); null when nothing needs saying.</summary>
+        private LocalizedString? RefusedNotice(LiftLineEditResult r)
+        {
+            switch (r)
+            {
+                case LiftLineEditResult.TooCloseToStation: return T("ADD_TOO_CLOSE_END", ("M", N(m_Edit?.LastEndMarginM ?? 0f)));
+                case LiftLineEditResult.TooCloseToPin: return T("ADD_TOO_CLOSE_TOWER", ("M", N(m_C?.MinSpanM ?? 0f)));
+                case LiftLineEditResult.NoTower: return T("NO_TOWER");
+                default: return null;
+            }
+        }
+
+        /// <summary>The refused-Build notice for the error type the game flagged most (REFUSED[type], else REFUSED[Other]).</summary>
+        private static LocalizedString RefusedBuild(string type)
+        {
+            switch (type)
+            {
+                case nameof(ErrorType.SteepSlope):
+                case nameof(ErrorType.OverlapExisting):
+                case nameof(ErrorType.LongDistance):
+                case nameof(ErrorType.ShortDistance):
+                case nameof(ErrorType.InWater):
+                case nameof(ErrorType.ExceedsCityLimits):
+                    return T("REFUSED[" + type + "]");
+                default:
+                    return T("REFUSED[Other]");
+            }
+        }
+
+        internal const string LocPrefix = "SkiResort.LiftTool.";
+
+        /// <summary>A lift-tool player text: LocaleEN key SkiResort.LiftTool.<paramref name="key"/> with its {ARG} values.</summary>
+        internal static LocalizedString T(string key, params (string, ILocElement)[] args) => LocalizedString.Id(LocPrefix + key, args);
+
+        /// <summary>A whole number for a player text (meters, counts), rounded.</summary>
+        internal static ILocElement N(float v) => new LocalizedNumber<int>((int)math.round(v), "integer");
 
         private string Reason(LiftLineEditResult r)
         {
@@ -964,19 +1078,21 @@ namespace SkiResortMod.Systems
             if (m_SunkNoticed != m_Edit)
             {
                 m_SunkNoticed = m_Edit;
-                m_Notice = "The station sits low in the slope, so the chairs leave it below the ground. Flatter ground, or raising the station with Move It, gives a clean exit";
+                m_Notice = T("SUNK");
                 m_NoticeFrame = m_Frame;
             }
         }
 
 
-        private void EmitCourses()
+        /// <summary>One CreationDefinition + NetCourse per planned span. <paramref name="ghost"/>: the edit preview (the state stays Edit,
+        /// nothing is applied); else the Build emission (state Emitted, UpdateEmitted applies or refuses).</summary>
+        private void EmitCourses(bool ghost)
         {
             List<LiftLineNode> nodes = m_Edit.Emit();
             if (nodes.Count < 2 || !EndAlive(m_Base) || !EndAlive(m_Top))
             {
                 Say("LiftLine [build]: an end node is gone (station or loose end removed) — line dropped",
-                    "An end of the line is gone: click both ends again");
+                    T("END_GONE"));
                 Reset("end gone");
                 return;
             }
@@ -1017,6 +1133,16 @@ namespace SkiResortMod.Systems
                 ecb.AddComponent(e, definition);
                 ecb.AddComponent(e, course);
                 ecb.AddComponent(e, default(Updated));
+            }
+            if (ghost)
+            {
+                m_Ghost = true;
+                m_GhostEdit = m_Edit;
+                m_GhostRevision = m_Edit.Revision;
+                if (++m_GhostEmits <= 3 || m_GhostEmits % 25 == 0)
+                    Mod.Log.Info($"LiftLine [ghost]: preview #{m_GhostEmits} of plan #{m_Edit.Revision}: {nodes.Count - 1} course(s), " +
+                                 $"{nodes.Count - 2} tower(s) as Temp (the game's translucent preview, error icons included)");
+                return;
             }
             m_Emitted = nodes;
             m_EmitFrame = m_Frame;
@@ -1076,16 +1202,16 @@ namespace SkiResortMod.Systems
             int errors = m_ErrorQuery.IsEmptyIgnoreFilter ? 0 : m_ErrorQuery.CalculateEntityCount();
             if (!GetAllowApply())
             {
-                string kinds = DescribeErrors(out string summary, out string player);
+                string kinds = DescribeErrors(out string summary, out string top);
                 Mod.Log.Warn($"LiftLine [build]: the game refuses the line ({errors} error(s) on the preview: {summary}; {temps} new Temp " +
                              $"edge(s) of {expected}, {touched} existing edge(s) touched) — nothing built; back to editing. Move the towers " +
                              $"off whatever blocks them and Build again{kinds}");
                 LastMessage = $"Build refused: {errors} error(s), {summary}";
-                m_Notice = $"The game refused the line ({errors} problem(s): {player}): move the towers off what blocks them";
+                m_Notice = RefusedBuild(top);
                 m_NoticeFrame = m_Frame;
                 applyMode = ApplyMode.Clear;
                 m_Deps = DestroyDefinitions(m_DefinitionQuery, m_Barrier, m_Deps);
-                m_State = ToolState.Edit;
+                m_State = ToolState.Edit;   // the ghost comes back next frame, the game's error icons on it
                 return;
             }
             applyMode = ApplyMode.Apply;   // ToolOutputSystem.cs:22-29 -> ApplyNetSystem
@@ -1105,7 +1231,7 @@ namespace SkiResortMod.Systems
         /// PrefabRef → ToolErrorData.m_Error; ValidationSystem.AddIcon, ValidationSystem.cs:1747-1752) with the Target the icon names.
         /// <paramref name="summary"/> counts per type; <paramref name="player"/> is the same in plain words. Always logged on a refusal
         /// (the 2026-10-26 field test had five errors and no type).</summary>
-        private string DescribeErrors(out string summary, out string player)
+        private string DescribeErrors(out string summary, out string top)
         {
             var counts = new SortedDictionary<string, int>();
             var sb = new StringBuilder();
@@ -1149,14 +1275,19 @@ namespace SkiResortMod.Systems
                     sb.Append("\n  ... ").Append(flagged.Length - 40).Append(" more");
             }
             var sum = new StringBuilder();
-            var words = new StringBuilder();
+            top = string.Empty;
+            int topCount = 0;
             foreach (KeyValuePair<string, int> kv in counts)
             {
-                sum.Append(sum.Length > 0 ? ", " : string.Empty).Append(kv.Key).Append(" x").Append(kv.Value);
-                words.Append(words.Length > 0 ? ", " : string.Empty).Append(ErrorWords(kv.Key));
+                sum.Append(sum.Length > 0 ? ", " : string.Empty).Append(kv.Key).Append(" x").Append(kv.Value).Append(" (")
+                   .Append(ErrorWords(kv.Key)).Append(')');
+                if (kv.Value > topCount)
+                {
+                    top = kv.Key;
+                    topCount = kv.Value;
+                }
             }
             summary = sum.Length > 0 ? sum.ToString() : "no error entity found";
-            player = words.Length > 0 ? words.ToString() : "unknown";
             return sb.ToString();
         }
 
@@ -1370,13 +1501,20 @@ namespace SkiResortMod.Systems
             m_BuildRequested = false;
             m_Emitted = null;
             m_LooseFrame = int.MinValue / 2;
+            // A standing ghost is cleared on the next update (UpdateCore's pick branch); a built line consumed its Temps.
+            if (why == "built")
+            {
+                m_Ghost = false;
+                m_GhostEdit = null;
+                m_GhostRevision = -1;
+            }
         }
 
         /// <summary>Log a line; <paramref name="notice"/> = the short player text the tooltip shows for a few seconds (refusals).</summary>
-        private void Say(string line, string notice = null)
+        private void Say(string line, LocalizedString? notice = null)
         {
             LastMessage = line.Length > 160 ? line.Substring(0, 160) : line;
-            if (notice != null)
+            if (notice.HasValue)
             {
                 m_Notice = notice;
                 m_NoticeFrame = m_Frame;

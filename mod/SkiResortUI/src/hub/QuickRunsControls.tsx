@@ -19,7 +19,8 @@ import { GLADE_LEVEL_MAX, GLADE_LEVEL_MIN, clampGladeLevel, hubTriggers, quickRu
 import type { QuickRunsKey, QuickRunsState } from "../bindings";
 import { useT } from "../l10n";
 import type { LocEntry, Translate } from "../l10n";
-import { HUB_FMT, HUB_LOC, gladeLevelEntry, sentKeyEntry } from "./hubText";
+import { rejectSummary } from "./hubRules";
+import { HUB_FMT, HUB_LOC, QUICK_REJECT_TEXT, gladeLevelEntry, sentKeyEntry } from "./hubText";
 import { LocText, Tip, TipLines, cx, numArg } from "./parts";
 import styles from "./hub.module.scss";
 
@@ -130,6 +131,11 @@ function StepLines({ q, t }: { q: QuickRunsState; t: Translate }): JSX.Element {
     lines.push(<LocText key="region" entry={HUB_FMT.quickRegion} args={{
       N: numArg(q.corners, Unit.Integer), AREA: numArg(q.areaM2, Unit.Area), MAX: numArg(q.maxAreaM2, Unit.Area), V: numArg(q.verticalM, Unit.Length),
     }} />);
+  }
+  const dropped = q.phase === "Preview" || (q.phase === "Region" && !!q.status) ? rejectSummary(q.rejects) : null;
+  if (dropped && dropped.top.length > 0) {
+    const list = dropped.top.map((r) => String(r.n) + " " + t(QUICK_REJECT_TEXT[r.bucket])).join(", ");
+    lines.push(<LocText key="rejects" entry={HUB_FMT.quickRejects} args={{ N: numArg(dropped.total, Unit.Integer), LIST: list }} />);
   }
   if (q.phase === "Region" && q.batchRuns > 0)
     lines.push(<LocText key="batch" entry={HUB_FMT.quickBatch} args={{ N: numArg(q.batchRuns, Unit.Integer) }} />);

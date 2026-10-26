@@ -1964,9 +1964,9 @@ function readTsLiterals(ts, errors) {
 const NAMES_LINE_RE = /^\s*public const string (\w+)\s*=\s*"([^"]+)";\s*\/\/\s*(\w+Prefab)(?:,\s*item\s+(\w+))?(?:,\s*(pending))?\s*$/;
 /** One BUILD-ITEMS row; groups 1 id, 2 Names const, 3 kind, 4 lift type, 5 run kind */
 const BUILD_ITEM_LINE_RE = /^\s*new BuildItemDef\("(\w+)",\s*Names\.(\w+),\s*BuildItemKind\.(\w+),\s*"(\w*)",\s*(-?\d+)\),\s*$/;
-/** C# BuildItemKind -> its PrefabID type (SkiCatalog.TypeNameOf): Line -> PowerLinePrefab, Run -> SurfacePrefab, else BuildingPrefab */
+/** C# BuildItemKind -> its PrefabID type (SkiCatalog.TypeNameOf): Line -> PowerLinePrefab, Run -> SurfacePrefab, Fence -> NetFencePrefab, else BuildingPrefab */
 function typeNameOfKind(kind) {
-  return kind === "Line" ? "PowerLinePrefab" : kind === "Run" ? "SurfacePrefab" : "BuildingPrefab";
+  return kind === "Line" ? "PowerLinePrefab" : kind === "Run" ? "SurfacePrefab" : kind === "Fence" ? "NetFencePrefab" : "BuildingPrefab";
 }
 
 /**

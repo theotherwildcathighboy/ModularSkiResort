@@ -96,6 +96,7 @@ function shortEntry(id: BuildItemId): LocEntry {
   if (kind !== undefined) return BUILD_SHORT_RUN[kind];
   switch (kindOf(id)) {
     case "sign": return HUB_LOC.buildHintSign;
+    case "fence": return HUB_LOC.buildShortFence;
     case "lodge": return HUB_LOC.buildShortLodge;
     case "school": return HUB_LOC.buildShortSchool;
     case "patrol": return HUB_LOC.buildShortPatrol;
@@ -115,6 +116,7 @@ function longEntry(id: BuildItemId): LocEntry {
   if (kind !== undefined) return BUILD_SHORT_RUN[kind];
   switch (kindOf(id)) {
     case "sign": return HUB_LOC.buildHintSign;
+    case "fence": return HUB_LOC.buildHintFence;
     case "lodge": return HUB_LOC.buildHintLodge;
     case "school": return HUB_LOC.buildShortSchool;
     case "patrol": return HUB_LOC.buildShortPatrol;
@@ -234,6 +236,7 @@ function labelEntry(id: BuildItemId): LocEntry {
   switch (kindOf(id)) {
     case "station": return BUILD_LABEL[stationRole(id) === "top" ? "top" : "base"];
     case "line": return BUILD_LABEL.line;
+    case "fence": return BUILD_LABEL.fence;
     case "sign": return id === "signAngled" ? BUILD_LABEL.signAngled : BUILD_LABEL.sign;
     case "lodge": return LODGE_TIER[id] ?? BUILD_LABEL.lodge;
     case "school": return BUILD_LABEL.school;

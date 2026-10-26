@@ -20,7 +20,7 @@ export const GROUP = "skiResort";
  * only when C#'s `contract` equals this; on a mismatch it shows the Build strip and the tree controls (CORE only) and
  * says why.
  */
-export const HUB_CONTRACT = 19;
+export const HUB_CONTRACT = 20;
 
 /** The `contract` value while the C# binding is absent (the fallback). Real contracts start at 1. */
 export const CONTRACT_ABSENT = 0;
@@ -131,7 +131,8 @@ export type BuildItemId =
   | "baseStationDetachable" | "topStationDetachable" | "liftDetachable"
   | "baseStationGondola" | "topStationGondola" | "liftGondola"
   | "baseStationTram" | "topStationTram" | "liftTram"
-  | "runNatural" | "runGroomed" | "runSnowmaking" | "runNight" | "runCatTrack";
+  | "runNatural" | "runGroomed" | "runSnowmaking" | "runNight" | "runCatTrack"
+  | "safetyFence";
 export const BUILD_ITEM_IDS: readonly BuildItemId[] = [
   "sign", "signAngled", "lodge", "lodgeHut", "lodgeMid", "lodgeSummit", "lodgeGrand",
   "school", "patrolHut", "patrolHQ",
@@ -140,12 +141,14 @@ export const BUILD_ITEM_IDS: readonly BuildItemId[] = [
   "baseStationGondola", "topStationGondola", "liftGondola",
   "baseStationTram", "topStationTram", "liftTram",
   "runNatural", "runGroomed", "runSnowmaking", "runNight", "runCatTrack",
+  "safetyFence",
 ];
 
 /** Display only: the prefab behind each id (rule R16 compares it with the C# table row's Names.X value). */
 export const BUILD_ITEM_PREFAB: Readonly<Record<BuildItemId, string>> = {
   sign: "SkiResortGate",
   signAngled: "SkiResortGateAngled",
+  safetyFence: "SkiSafetyFence",
   lodge: "SkiAFrameDayLodge",
   lodgeHut: "SkiLodgeHut",
   lodgeMid: "SkiLodgeMid",
@@ -324,7 +327,14 @@ export interface QuickRunsState {
   /** What Plant will cost (money): the ready preview's Temp cost per tree times `plant` (exact up to one slice); 0 without a
    *  ready preview. */
   treesCost: number;
+  /** Why the scan dropped lines (contract 20): QUICK_REJECT_BUCKETS counts in this order: too short, overlap other runs, too close to the
+   *  region edge, blocked by other areas, too narrow, too twisted, too flat, other (QuickRunsRules.RejectBuckets). All 0 unless the scan has
+   *  a result (a preview, or the refusal shown in the Region step). */
+  rejects: number[];
 }
+
+/** The length of QuickRunsState.rejects (QuickRunsRules.RejectBuckets). */
+export const QUICK_REJECT_BUCKETS = 8;
 
 /** The quickRunsSet keys (QuickRunsToolSystem.HubSet). */
 export type QuickRunsKey =
@@ -828,7 +838,7 @@ const EMPTY_QUICK_RUNS: QuickRunsState = {
   progress: 0, mix: 0, density: 1, kinds: 3, runs: 0, enabled: 0, count: [0, 0, 0, 0, 0], target: [0, 0, 0, 0, 0], fee: 0, skiers: 0,
   variety: false, status: "", warnings: [], clusters: [], batchRuns: 0, notice: "", trees: false, treeLevel: GLADE_LEVEL_DEFAULT,
   treeLine: -1, groundMin: 0, groundMax: 0, group: 0, species: 0, speciesNames: [], speciesGroups: [], plant: 0, remove: 0, treesUndo: 0,
-  buildDone: 0, buildTotal: 0, planting: false, treesDone: 0, treesTotal: 0, treesCost: 0,
+  buildDone: 0, buildTotal: 0, planting: false, treesDone: 0, treesTotal: 0, treesCost: 0, rejects: [0, 0, 0, 0, 0, 0, 0, 0],
 };
 
 export const FALLBACK = {

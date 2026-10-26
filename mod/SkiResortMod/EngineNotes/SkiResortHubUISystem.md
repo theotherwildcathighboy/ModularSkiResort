@@ -326,6 +326,14 @@ Appended fields and bindings by contract:
 - 19: the `catTrackDeleteMode` value (bool: the cat track tool is open AND in Delete mode; pushed in OnUpdate, so closing the tool or
   picking another shows it off) and the `setCatTrackDeleteMode(bool)` trigger (the Runs tab's Delete cat tracks chip: on opens the
   tool if needed, then its Delete mode; field test 2026-10-26b), queued and applied in OnUpdate.
+- 20: QuickRunsState appends `rejects` (int[8]: the scan's reject histogram in the player's buckets, QuickRunsRules.RejectBuckets;
+  zeros unless the scan has a result; the Quick runs part shows the top three as "N lines dropped: ...").
+
+## Safety net fence tile (no contract change)
+The Runs tab's sixth tile, `safetyFence` (SkiCatalog item kind Fence, prefab SkiSafetyFence, PrefabID type NetFencePrefab, CatalogKind.Fence;
+both enums append-only), launches through the generic path: ApplyLaunch -> ToolSystem.ActivatePrefabTool (the net tool, drawn like a path) and
+ActiveItemIndex reads tool.GetPrefab(), like every non-lift tile. No cost or upkeep is sent (the prefab has no PlaceableObject cost): line 1 is the
+name alone. Its tile icon is the prefab's own vanilla Media/Game/Icons/Fences path (tools/preflight.ps1 accepts Media/ as well as assetdb://).
 
 ## Quick runs (contract 17)
 `SkiResortHubUISystem.QuickRuns.cs`. `quickRuns` is a `RawValueBinding` written by `WriteQuickRuns` (TypeBegin

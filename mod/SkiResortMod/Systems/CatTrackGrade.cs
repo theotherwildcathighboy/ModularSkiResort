@@ -824,29 +824,20 @@ namespace SkiResortMod.Systems
             return GradeGuardKind.None;
         }
 
-        /// <summary>Locale keys of the TooLarge, RunShape, CrossingSteep and CrossedRunBand refusals (LocaleEN); the tooltip resolves a key (IsKey) where the other
-        /// reasons are plain text.</summary>
-        public const string KeyTooLarge = "SkiResort.Tooltip.GRADE_TOO_LARGE";
-        public const string KeyRunShape = "SkiResort.Tooltip.GRADE_RUN_SHAPE";
-        public const string KeyCrossingSteep = "SkiResort.Tooltip.GRADE_CROSSING_STEEP";
-        public const string KeyCrossedRunBand = "SkiResort.Tooltip.GRADE_CROSSED_RUN_BAND";
-
-        public static bool IsKey(string text) => text != null && text.StartsWith("SkiResort.", StringComparison.Ordinal);
-
-        /// <summary>The player text of a refusal (a locale key for TooLarge, RunShape, CrossingSteep and CrossedRunBand).</summary>
-        public static string Reason(GradeGuardKind k)
+        /// <summary>The player text of a refusal (a LocaleEN SkiResort.CatTrack.* key; GradeMsg.Empty for none).</summary>
+        public static GradeMsg Reason(GradeGuardKind k)
         {
             switch (k)
             {
-                case GradeGuardKind.TooLarge: return KeyTooLarge;
-                case GradeGuardKind.RunShape: return KeyRunShape;
-                case GradeGuardKind.CrossingSteep: return KeyCrossingSteep;
-                case GradeGuardKind.CrossedRunBand: return KeyCrossedRunBand;
-                case GradeGuardKind.Lot: return "The track would grade under a building or station lot: move it clear";
-                case GradeGuardKind.LiftLine: return "The track would grade under a lift line: move it clear";
-                case GradeGuardKind.Water: return "The track would grade into water: move it clear";
-                case GradeGuardKind.OffMap: return "The track leaves the map";
-                default: return string.Empty;
+                case GradeGuardKind.TooLarge: return GradeMsg.Of("GUARD_TOO_LARGE");
+                case GradeGuardKind.RunShape: return GradeMsg.Of("GUARD_RUN_SHAPE");
+                case GradeGuardKind.CrossingSteep: return GradeMsg.Of("GUARD_CROSSING_STEEP");
+                case GradeGuardKind.CrossedRunBand: return GradeMsg.Of("GUARD_CROSSED_RUN_BAND");
+                case GradeGuardKind.Lot: return GradeMsg.Of("GUARD_LOT");
+                case GradeGuardKind.LiftLine: return GradeMsg.Of("GUARD_LIFT_LINE");
+                case GradeGuardKind.Water: return GradeMsg.Of("GUARD_WATER");
+                case GradeGuardKind.OffMap: return GradeMsg.Of("GUARD_OFF_MAP");
+                default: return GradeMsg.Empty;
             }
         }
     }
@@ -1127,6 +1118,42 @@ namespace SkiResortMod.Systems
     }
 
     /// <summary>The tool's step (CatTrackGradeToolSystem).</summary>
+    /// <summary>A player text of the cat track tool: a LocaleEN key SkiResort.CatTrack.<c>Key</c> with its whole-number {ARG} values
+    /// (meters, percents, cubic meters). Pure so GradeBatch can see which keys the tool can show; the tooltip turns it into a
+    /// LocalizedString. The log keeps the detail; a message never carries ids or log syntax.</summary>
+    public readonly struct GradeMsg
+    {
+        public const string Prefix = "SkiResort.CatTrack.";
+        public static readonly GradeMsg Empty = default;
+
+        public readonly string Key;
+        public readonly (string Name, float Value)[] Args;
+
+        private GradeMsg(string key, (string, float)[] args)
+        {
+            Key = key;
+            Args = args;
+        }
+
+        public bool IsEmpty => Key == null;
+
+        public static GradeMsg Of(string key, params (string, float)[] args) => new GradeMsg(key, args);
+
+        /// <summary>Equal messages have equal signatures (the tooltip re-sets its text only when this changes).</summary>
+        public string Signature
+        {
+            get
+            {
+                if (Key == null)
+                    return string.Empty;
+                var sb = new System.Text.StringBuilder(Key);
+                for (int i = 0; Args != null && i < Args.Length; i++)
+                    sb.Append('|').Append(Args[i].Name).Append('=').Append(((int)Math.Round(Args[i].Value)).ToString(CultureInfo.InvariantCulture));
+                return sb.ToString();
+            }
+        }
+    }
+
     public enum GradeStep : byte
     {
         Empty,
@@ -1263,21 +1290,34 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>The step hint: always a non-empty line naming what the next click does in this step.</summary>
-        public static string Prompt(GradeStep step, bool dragging)
+        public static string PromptKey(GradeStep step, bool dragging)
         {
             if (dragging)
-                return "Release: put the point here · right click: cancel the move";
+                return "PROMPT_DRAG";
             switch (step)
             {
                 case GradeStep.Empty:
-                    return "Cat track: click where the track starts · Ctrl+Shift+D or the hub's Delete cat tracks: delete mode · right click: close";
+                    return "PROMPT_EMPTY";
                 case GradeStep.OnePoint:
-                    return "Click the next point of the track · right click: back";
+                    return "PROMPT_ONE";
                 case GradeStep.Path:
-                    return "Click: add a point (on the track: insert) · drag a point: move it · right click: undo · Enter: build · Esc: close";
+                    return "PROMPT_PATH";
                 default:
-                    return "Building the cat track…";
+                    return "PROMPT_BUILDING";
             }
+        }
+
+        /// <summary>The plan line: length, steepest part against the limit, earthwork; or what is wrong in words. Whole numbers only.</summary>
+        public static GradeMsg PlanMsg(GradePath path, GradeProfile prof, GradeRaster raster, GradeParams p)
+        {
+            if (path == null || prof == null)
+                return GradeMsg.Empty;
+            float max = prof.MaxGradeAbs * 100f, limit = p.MaxGrade * 100f;
+            if (prof.ShortfallM > 0f)
+                return GradeMsg.Of("PLAN_STEEP", ("MAX", max), ("LIMIT", limit), ("SHORT", (float)Math.Ceiling(prof.ShortfallM)));
+            if (raster == null)
+                return GradeMsg.Of("PLAN_LENGTH", ("LENGTH", path.LengthM), ("MAX", max), ("LIMIT", limit));
+            return GradeMsg.Of("PLAN", ("LENGTH", path.LengthM), ("MAX", max), ("LIMIT", limit), ("CUT", raster.CutM3), ("FILL", raster.FillM3));
         }
 
         /// <summary>The profile line of the tooltip.</summary>
@@ -1328,13 +1368,13 @@ namespace SkiResortMod.Systems
             return -1;
         }
 
-        public static string Prompt(int hovered, int armed)
+        public static string PromptKey(int hovered, int armed)
         {
             if (armed >= 0 && hovered == armed)
-                return "Click again to delete this cat track (the ground stays graded, no refund) · right click: leave delete mode";
+                return "PROMPT_DEL_ARMED";
             if (hovered >= 0)
-                return "Delete mode: click the cat track to select it for deletion · right click: leave delete mode";
-            return "Delete mode: point at a cat track · right click: leave delete mode";
+                return "PROMPT_DEL_HOVER";
+            return "PROMPT_DEL_NONE";
         }
     }
 }

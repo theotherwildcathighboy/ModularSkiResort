@@ -327,7 +327,7 @@ function run(srcDir) {
   eq("T14.3 kept in the band, C# order; the mixed row's line item is the dot",
     [R.bandRowsOf([P(A, 23, 2, { buildItem: "liftDetachable" }), P(A, 24, 1, { count: 1 }), P(A, 25, 1)], A).map((p) => p.code),
       R.dotItem([P(A, 23, 2, { buildItem: "liftDetachable" })], A, true)], [[23, 24, 25], "liftDetachable"]);
-  eq("T14.4 isBuildItemId: all 27 ids", BIND.BUILD_ITEM_IDS.filter((id) => R.isBuildItemId(id)).length, 27); // includes runCatTrack and signAngled
+  eq("T14.4 isBuildItemId: all 28 ids", BIND.BUILD_ITEM_IDS.filter((id) => R.isBuildItemId(id)).length, 28); // includes runCatTrack, signAngled and safetyFence
   eq("T14.5 isBuildItemId: strangers", ["lift2", "", null, "Lodge", "liftCable"].map((id) => R.isBuildItemId(id)), [false, false, false, false, false]);
   eq("T14.6 liftTypesOf", [R.liftTypesOf([{ type: "fixedGrip" }, { type: "fixedGrip" }, { type: "" }, { type: "detachable" }, {}]), R.liftTypesOf(null)],
     [["fixedGrip", "detachable"], []]);
@@ -353,12 +353,18 @@ function run(srcDir) {
   // The Build strip's three tabs over the real BUILD_ITEMS table.
   const kindTabs = {};
   for (const m of META) kindTabs[m.id] = R.tabOfItem(m.id, META);
-  eq("T17.1 every one of the 27 items is on exactly one tab, by kind", [Object.keys(kindTabs).length, Object.values(kindTabs).filter((x) => x === null).length], [27, 0]);
-  eq("T17.2 tab sizes: 12 lifts, 5 runs, 10 buildings", [Object.values(kindTabs).filter((x) => x === "lifts").length, Object.values(kindTabs).filter((x) => x === "runs").length,
-    Object.values(kindTabs).filter((x) => x === "buildings").length], [12, 5, 10]); // the cat track is the fifth run tile; two sign tiles (straight, angled)
+  eq("T17.1 every one of the 28 items is on exactly one tab, by kind", [Object.keys(kindTabs).length, Object.values(kindTabs).filter((x) => x === null).length], [28, 0]);
+  eq("T17.2 tab sizes: 12 lifts, 6 runs, 10 buildings", [Object.values(kindTabs).filter((x) => x === "lifts").length, Object.values(kindTabs).filter((x) => x === "runs").length,
+    Object.values(kindTabs).filter((x) => x === "buildings").length], [12, 6, 10]); // the cat track is the fifth run tile, the safety fence the sixth tile of the Runs tab; two sign tiles (straight, angled)
   eq("T17.2b the cat track is a run item of kind 4 on the runs tab", [kindTabs.runCatTrack, R.runKindOfItem("runCatTrack"), R.RUN_ITEMS.has("runCatTrack")], ["runs", 4, true]);
   eq("T17.3 spot rows", [kindTabs.sign, kindTabs.lodgeGrand, kindTabs.school, kindTabs.patrolHQ, kindTabs.liftTram, kindTabs.topStationGondola, kindTabs.runNight],
     ["buildings", "buildings", "buildings", "buildings", "lifts", "lifts", "runs"]);
+  // The safety net fence (a net prefab drawn like a path) is a Runs-tab tile of its own kind, not a run item and not a lift or a building.
+  eq("T17.3b the safety fence: kind fence, Runs tab, not a run item, its own group, a Media/ icon",
+    [META.find((m) => m.id === "safetyFence").kind, kindTabs.safetyFence, R.RUN_ITEMS.has("safetyFence"), R.runKindOfItem("safetyFence"), R.tabOfKind("fence"),
+      ITEMS.BUILD_GROUPS.filter((g) => g.includes("safetyFence")).map((g) => g.length), ITEMS.BUILD_ITEM_ICON.safetyFence.startsWith("Media/"),
+      R.runToolActive([{ id: "safetyFence", active: true, locked: false, reason: "" }], false)],
+    ["fence", "runs", false, undefined, "runs", [1], true, false]);
   eq("T17.4 tabOfItem of an unknown id / null", [R.tabOfItem("nope", META), R.tabOfItem(null, META), R.tabOfKind("weird")], [null, null, null]);
   eq("T17.5 drawnTabs: FG-only city draws all three, table order", R.drawnTabs(R.visibleIds(FG_ONLY, META, NO), META), ["lifts", "runs", "buildings"]);
   eq("T17.6 drawnTabs: no lift items sent -> no Lifts tab", R.drawnTabs(R.visibleIds(sent("sign", "lodge", "runNatural"), META, NO), META), ["runs", "buildings"]);
@@ -388,6 +394,17 @@ function run(srcDir) {
   eq("T17.7 the panel mounts the follow once and resets its memory on unmount",
     [(panelSrc.match(/<RunsTabFollow [/]>/g) || []).length, panelSrc.includes("runsTabFollow(runToolSeen.value, active)"), panelSrc.includes("runToolSeen.value = false")],
     [1, true, true]);
+  // T33 (contract 20) the Quick runs "N lines dropped: A, B, C" line: the top three of the scan's reject buckets.
+  eq("T33.1 rejectSummary: top three by count, ties by bucket order, total of all",
+    [R.rejectSummary([18, 15, 9, 3, 0, 0, 1, 0]), R.rejectSummary([0, 5, 0, 5, 5, 5, 0, 0])],
+    [{ total: 46, top: [{ bucket: 0, n: 18 }, { bucket: 1, n: 15 }, { bucket: 2, n: 9 }] }, { total: 20, top: [{ bucket: 1, n: 5 }, { bucket: 3, n: 5 }, { bucket: 4, n: 5 }] }]);
+  eq("T33.2 rejectSummary: under 2 dropped lines and missing input say nothing, junk counts are skipped",
+    [R.rejectSummary([0, 0, 0, 0, 0, 0, 0, 0]), R.rejectSummary([1, 0, 0, 0, 0, 0, 0, 0]), R.rejectSummary(null), R.rejectSummary([NaN, -4, "x", 2.7, 0])],
+    [{ total: 0, top: [] }, { total: 1, top: [] }, { total: 0, top: [] }, { total: 2, top: [{ bucket: 3, n: 2 }] }]);
+  const hubTextSrc = fs.readFileSync(path.join(srcDir, "hub", "hubText.ts"), "utf8");
+  const rejectKeys = (hubTextSrc.match(/"SkiResort\.Hub\.QUICK_REJECT\[/g) || []).length;
+  eq("T33.3 one plain-word text per bucket, the binding has the field and the fallback has the zeros",
+    [rejectKeys, BIND.QUICK_REJECT_BUCKETS, BIND.FALLBACK.quickRuns.rejects.length, BIND.HUB_CONTRACT >= 20], [BIND.QUICK_REJECT_BUCKETS, 8, 8, true]);
   // T18 source checks over the texts and the Attraction view. (a) Snow is ALWAYS two numbers, depth in cm and run coverage in %:
   // the MOUNTAIN snow entries name both, no "Snow now" label survives, and OverviewView.tsx renders both fields. (b) No wall of
   // text: every tooltip entry (a key with "TIP") is at most 25 words; a word is a token with a letter, a digit or a {PLACEHOLDER}
@@ -665,8 +682,8 @@ function run(srcDir) {
       keepsSlope: !!tf && last(tf.text, "m_DontRaise") && last(tf.text, "m_DontLower") };
   };
   const drawIds = Object.keys(ITEMS.BUILDING_DRAW);
-  const buildingIds = ITEMS.BUILD_ITEMS.filter((m) => m.kind !== "line" && m.kind !== "run").map((m) => m.id);
-  eq("T29.1 BUILDING_DRAW has one row per building tile (sign, lodges, school, patrol, stations), none for lines or runs", drawIds, buildingIds);
+  const buildingIds = ITEMS.BUILD_ITEMS.filter((m) => m.kind !== "line" && m.kind !== "run" && m.kind !== "fence").map((m) => m.id);
+  eq("T29.1 BUILDING_DRAW has one row per building tile (sign, lodges, school, patrol, stations), none for lines, runs or the fence", drawIds, buildingIds);
   eq("T29.2 every BUILDING_DRAW row equals its prefab (consumption, billed upkeep, workers / SignJobs, terrain flags)",
     drawIds.filter((id) => JSON.stringify(prefabDraw(id, ITEMS.BUILDING_DRAW[id].prefab)) !== JSON.stringify(ITEMS.BUILDING_DRAW[id]))
       .map((id) => id + " prefab " + JSON.stringify(prefabDraw(id, ITEMS.BUILDING_DRAW[id].prefab))), []);

@@ -35,15 +35,23 @@ First public release. Draft notes (check against the build at upload):
 - Four lift types: fixed-grip triple chairlift, detachable quad chairlift, gondola and aerial tram. Chairs and cabins move
   along the cable; the tram shuttles two cabins.
 - One lift tool: click the base station and the top station, click the line to add a tower, drag to move one, Enter builds.
-  The tower planner fits tower heights to the terrain with the fewest towers the type allows. Towers are numbered.
+  The tower planner fits tower heights to the terrain with few towers, prefers short towers next to the stations, and
+  draws spans that are too steep in red. Towers are numbered.
 - Ski runs you draw: natural, groomed, snowmaking, night and cat track, each rated green to double black from its slope.
-- Cat track grading tool.
+- Cat track tool: lay out a track, and one key grades the ground under 25 percent and builds the cat track on it. Where it
+  crosses a run it grades up to 2 m inside the run and keeps the run's difficulty. Delete mode (Ctrl+Shift+D) and a hub trash
+  button remove a track; right click and Esc never do.
+- Quick runs (experimental): outline a slope of up to 9 km2 and get a set of runs to scan, shuffle, pick, build and undo, with
+  an optional tree filler. Ctrl+Shift+Q; it can be turned off in Options.
 - Snow-depth run system: runs open at 3 ft (91 cm) on 60 percent of the run, snow guns on snowmaking and night runs
   (October to March), powder days, seasons.
-- Welcome Sign, five lodges, Ski School, two patrol buildings.
+- Welcome Sign (set back 8 m from the road on a leveled lot, plus an angled variant), five lodges, Ski School, two patrol
+  buildings.
 - The Ski Resort panel: Attraction, Runs, Lifts, Guests, Finances and History views, a problem list and a build strip.
 - Economy: lift tickets, season passes, lessons, lodge spend, off-season half staff.
-- Works on the base game; no other mod is required.
+- Works on the base game; no other mod is required. Move It is highly recommended and Write Everywhere is recommended.
+- Known limitations: chairs carry no riders, the chairs do not sway in wind, stations can sit partly in the hillside on steep
+  ground, chairlifts and gondolas stop in summer.
 
 ## Beta notes (pre-release, not a release entry)
 Early beta builds only: the first working chairlift network (drawn line, station snapping, sagging cable) and snow-line

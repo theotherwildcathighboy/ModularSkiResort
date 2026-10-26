@@ -341,6 +341,8 @@ export const HUB_LOC = {
   buildShortTop: ["SkiResort.Hub.BUILD_SHORT[Top]", "Place at the top, facing the base station."],
   buildShortLift: ["SkiResort.Hub.BUILD_SHORT[Lift]", "Draw from station to station, one section at a time."],
   buildShortSchool: ["SkiResort.Hub.BUILD_SHORT[School]", "Teaches on green runs."],
+  buildShortFence: ["SkiResort.Hub.BUILD_SHORT[Fence]", "Draw it like a path."],
+  buildHintFence: ["SkiResort.Hub.BUILD_HINT_FENCE", "Draw it like a path to fence off a slope, mark a run edge or close a run."],
   buildShortPatrol: ["SkiResort.Hub.BUILD_SHORT[Patrol]", "Covers the steep runs nearby."],
   buildTipSchool: ["SkiResort.Hub.BUILD_TIP_SCHOOL", "Adds +12 to Runs, lifts and school while a green run counts; locals come 20 % more often."],
   buildTipPatrol: ["SkiResort.Hub.BUILD_TIP_PATROL", "Black and double-black runs within 1 km score 15 % more; runs there without a lift count at least 70 %."],
@@ -643,6 +645,7 @@ export const HUB_FMT = {
   // the Quick runs tool (QuickRunsControls.tsx); the MIX / CLUSTER / POD templates are also the tool tooltip's
   quickRegion: ["SkiResort.Hub.QUICK_REGION_LINE", "{N} corners · {AREA} of {MAX} · vertical between the corners {V}"],
   quickScanning: ["SkiResort.Hub.QUICK_SCANNING_LINE", "Scanning the slope: {P}"],
+  quickRejects: ["SkiResort.Hub.QUICK_REJECTS_LINE", "{N} lines dropped: {LIST}."],
   quickTotals: ["SkiResort.Hub.QUICK_TOTALS_LINE", "{N} of {M} runs · {FEE} · {SKIERS} skiers a day"],
   quickBatch: ["SkiResort.Hub.QUICK_BATCH_LINE", "Last build: {N} runs. Undo removes them and refunds the fee."],
   quickTreeCounts: ["SkiResort.Hub.QUICK_TREE_COUNTS", "{P} to plant · {R} to remove"],
@@ -671,6 +674,18 @@ export const RUN_STATE_TEXT: readonly LocEntry[] = [
   ["SkiResort.Hub.RUN_STATE[Closed]", "Closed"],
   ["SkiResort.Hub.RUN_STATE[Patchy]", "Patchy"],
   ["SkiResort.Hub.RUN_STATE[Open]", "Open"],
+];
+
+/* The Quick runs "lines dropped" reasons, index = QuickRunsState.rejects bucket (QuickRunsRules.RejectBuckets); read after a count: "18 too short". */
+export const QUICK_REJECT_TEXT: readonly LocEntry[] = [
+  ["SkiResort.Hub.QUICK_REJECT[TooShort]", "too short"],
+  ["SkiResort.Hub.QUICK_REJECT[Overlap]", "overlap other runs"],
+  ["SkiResort.Hub.QUICK_REJECT[Edge]", "too close to the edge"],
+  ["SkiResort.Hub.QUICK_REJECT[Blocked]", "blocked by other areas"],
+  ["SkiResort.Hub.QUICK_REJECT[Narrow]", "too narrow"],
+  ["SkiResort.Hub.QUICK_REJECT[Twisted]", "too twisted"],
+  ["SkiResort.Hub.QUICK_REJECT[Flat]", "too flat"],
+  ["SkiResort.Hub.QUICK_REJECT[Other]", "other reasons"],
 ];
 
 /* SEASON_HINT words, index = SEASON_HINT value (0 None = no text). */
@@ -755,6 +770,7 @@ export const NEXT_LINE2: Readonly<Record<NextVariant, LocEntry>> = {
 export const ASSET_NAME: Readonly<Partial<Record<BuildItemId, LocEntry>>> = {
   sign: ["Assets.NAME[SkiResortGate]", "Ski Area Welcome Sign"],
   signAngled: ["Assets.NAME[SkiResortGateAngled]", "Ski Area Welcome Sign, Angled"],
+  safetyFence: ["Assets.NAME[SkiSafetyFence]", "Safety Net Fence"],
   lodge: ["Assets.NAME[SkiAFrameDayLodge]", "A-Frame Day Lodge"],
   lodgeHut: ["Assets.NAME[SkiLodgeHut]", "Mountain Hut"],
   lodgeMid: ["Assets.NAME[SkiLodgeMid]", "Chalet Lodge"],
@@ -821,6 +837,7 @@ export const BUILD_LABEL: Readonly<Record<string, LocEntry>> = {
   line: ["SkiResort.Hub.BUILD_LABEL[Line]", "Lift line"],
   sign: ["SkiResort.Hub.BUILD_LABEL[Sign]", "Sign"],
   signAngled: ["SkiResort.Hub.BUILD_LABEL[SignAngled]", "Angled sign"],
+  fence: ["SkiResort.Hub.BUILD_LABEL[Fence]", "Fence"],
   lodge: ["SkiResort.Hub.BUILD_LABEL[Lodge]", "Lodge"],
   school: ["SkiResort.Hub.BUILD_LABEL[School]", "School"],
   patrolHut: ["SkiResort.Hub.BUILD_LABEL[PatrolHut]", "Hut"],
@@ -880,11 +897,11 @@ export const SENT_KEYS: readonly LocEntry[] = [
   ["SkiResort.Hub.QUICK_REASON[Disabled]", "Quick runs hit an error and is off until the next load. Details are in the mod log."],
   ["SkiResort.Tooltip.QUICK_STATUS[BadInput]", "The region could not be read. Draw it again."],
   ["SkiResort.Tooltip.QUICK_STATUS[TooLarge]", "The region is over the size limit shown beside it. Make it smaller."],
-  ["SkiResort.Tooltip.QUICK_STATUS[TooSmall]", "The region is too small or too narrow for a run."],
+  ["SkiResort.Tooltip.QUICK_STATUS[TooSmall]", "The region is too small for a run. Make it larger."],
   ["SkiResort.Tooltip.QUICK_STATUS[TooNarrow]", "The region is too narrow: a run needs open slope about 70 m across, clear of other areas. Make it wider."],
   ["SkiResort.Tooltip.QUICK_STATUS[Blocked]", "Most of the region is taken by other areas or by land the city does not own."],
   ["SkiResort.Tooltip.QUICK_STATUS[NoVertical]", "The region has too little vertical for ski runs."],
-  ["SkiResort.Tooltip.QUICK_STATUS[AllCliff]", "The region is mostly cliff: no run reaches the bottom."],
+  ["SkiResort.Tooltip.QUICK_STATUS[AllCliff]", "The region is mostly cliff: no run can reach the bottom. Try a gentler slope."],
   ["SkiResort.Tooltip.QUICK_STATUS[TooFlat]", "The region is too flat for ski runs."],
   ["SkiResort.Tooltip.QUICK_STATUS[NoRuns]", "No run fits this region. Try another shape or another mix."],
   ["SkiResort.Tooltip.QUICK_WARN[FewRuns]", "Fewer than 2 runs fit here."],

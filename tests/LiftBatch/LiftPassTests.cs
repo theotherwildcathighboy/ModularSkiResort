@@ -34,6 +34,7 @@ namespace LiftBatch
             Lp28EdgeSlope();
             Lp29PinMargins();
             Lp30ReviewFixes();
+            Lp31ToolText();
             s_Check = null;
         }
 
@@ -367,6 +368,72 @@ namespace LiftBatch
         private static LiftTerrainSampler Humps3(float h, float w, float len) =>
             (s, l) => 1000f + h * (math.exp(-math.pow((s - 0.25f * len) / w, 2f)) + math.exp(-math.pow((s - 0.5f * len) / w, 2f)) +
                                    math.exp(-math.pow((s - 0.75f * len) / w, 2f)));
+
+        /// <summary>LP-31: the lift tool's player text (LocaleEN SkiResort.LiftTool.*): every key the tool and its tooltip can show
+        /// exists, reads as plain sentences (at most 25 words, no em dash, no log syntax), names only the {ARG}s the code passes; the
+        /// plan and tower keys follow the plan.</summary>
+        private static void Lp31ToolText()
+        {
+            const string W = "pass/LP-31";
+            const string Prefix = "SkiResort.LiftTool.";
+            string locPath = CatalogTests.RepoFile("mod/SkiResortMod/LocaleEN.cs");
+            string toolPath = CatalogTests.RepoFile("mod/SkiResortMod/Systems/LiftLineToolSystem.cs");
+            if (!Check(locPath != null && toolPath != null, W, "LocaleEN.cs or LiftLineToolSystem.cs not found"))
+                return;
+            var loc = new Dictionary<string, string>();
+            foreach (Match m in new Regex("\\{ \"" + Regex.Escape(Prefix) + "([^\"]+)\", \"((?:[^\"\\\\]|\\\\.)*)\" \\}").Matches(File.ReadAllText(locPath)))
+                loc[m.Groups[1].Value] = m.Groups[2].Value;
+            // The keys the code shows: prompts, type names, plan / tower keys, the tool's T("...") notices and the REFUSED[type] set.
+            var used = new SortedSet<string>();
+            foreach (LiftLineStep step in Enum.GetValues(typeof(LiftLineStep)))
+                foreach (string type in new[] { null, "detachable" })
+                    foreach (bool drag in new[] { false, true })
+                        foreach (bool off in new[] { false, true })
+                            used.Add(LiftLineInput.PromptKey(step, type, drag, off && drag));
+            foreach (string t in new[] { "fixedGrip", "detachable", "gondola", "tram", "any" })
+                used.Add("TYPE[" + t + "]");
+            foreach (string k in new[] { "PLAN_CLEAR", "PLAN_LOW", "PLAN_STEEP", "PLAN_HIGH", "TOWER", "TOWER_PINNED", "TOWER_LOW" })
+                used.Add(k);
+            foreach (Match m in new Regex("\\bT\\(\"([A-Z_]+(?:\\[[A-Za-z]+\\])?)\"").Matches(File.ReadAllText(toolPath)))
+                used.Add(m.Groups[1].Value);
+            foreach (string e in new[] { "SteepSlope", "OverlapExisting", "LongDistance", "ShortDistance", "InWater", "ExceedsCityLimits", "Other" })
+                used.Add("REFUSED[" + e + "]");
+            var args = new HashSet<string> { "TYPE", "TOWERS", "LENGTH", "N", "COUNT", "HEIGHT", "CLEAR", "MIN", "M" };
+            int worst = 0;
+            foreach (string key in used)
+            {
+                if (!Check(loc.TryGetValue(key, out string text), W, Prefix + key + " is shown but missing from LocaleEN"))
+                    continue;
+                int words = text.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries).Length;
+                worst = math.max(worst, words);
+                Check(words <= 25, W, key + " has " + words + " words (at most 25): " + text);
+                Check(text.IndexOf('—') < 0 && !text.Contains("\\u2014"), W, key + " has an em dash: " + text);   // the char or its source escape
+                Check(!Regex.IsMatch(text, "\\[[a-z]+\\]|\\d+\\.\\d|LiftLine|Temp |entity|\\bspan\\(s\\)"), W, key + " reads like a log: " + text);
+                foreach (Match a in Regex.Matches(text, "\\{([A-Z]+)\\}"))
+                    Check(args.Contains(a.Groups[1].Value), W, key + " names {" + a.Groups[1].Value + "}, which the code never passes");
+            }
+            foreach (string key in loc.Keys)
+                Check(used.Contains(key), W, Prefix + key + " in LocaleEN is never shown (stale)");
+            s_Report.Add("LP-31 lift tool player text | every shown key in LocaleEN, at most 25 words, no em dash or log syntax | " + used.Count +
+                         " key(s), longest " + worst + " words");
+
+            // The plan and tower keys follow the plan: the field DQ as logged is clear; the pre-pass DQ18 next to the base is too steep.
+            LiftTowerPlanConstants c = LiftTowerPlanConstants.For("detachable");
+            LiftTerrainSampler t0 = (s, l) => DqGround(s);
+            var edit = new LiftLineEdit(c, new float3(0f, DqTopNode, 0f), new float3(DqLength, DqBaseNode, 0f), DqRopeTop, DqRopeBase);
+            LiftTowerPlan clear = edit.Replan(t0);
+            Check(LiftLineInput.PlanKey(clear, out float len) == "PLAN_CLEAR" && math.abs(len - DqLength) < 1f, W,
+                  "the clear field DQ reads " + LiftLineInput.PlanKey(clear, out _) + ", length " + len);
+            var gate = new LiftTowerPlanner { CheckEdgeSlope = true, EndNodeYA = DqTopNode, EndNodeYB = DqBaseNode };
+            LiftTowerPlan steep = gate.PlanFixed(t0, DqLength, DqRopeTop, DqRopeBase, c, new[] { 500f, 1015f }, new[] { 0, c.Ladder.Length - 1 }, null, assign: false);
+            string steepKey = LiftLineInput.PlanKey(steep, out _);
+            Check(steepKey == "PLAN_STEEP" || steepKey == "PLAN_LOW", W, "a DQ20 9 m from the base station reads " + steepKey);
+            string towerKey = LiftLineInput.TowerKey(clear, 1, false, out float h, out float cl);
+            Check(math.abs(h - c.Ladder[clear.Nodes[1].Member].TopM) < 1e-3f && cl > 0f && towerKey == "TOWER", W,
+                  "tower 1 of the clear DQ: " + towerKey + ", height " + h + ", clear " + cl);
+            s_Report.Add("LP-31 plan / tower keys | clear field DQ " + LiftLineInput.PlanKey(clear, out _) + ", tower 1 " + towerKey + " " +
+                         h.ToString("F0") + " m tall, chairs " + cl.ToString("F0") + " m up; DQ20 beside the base " + steepKey);
+        }
 
         private static float Rise(LiftTowerPlanConstants c, int member) => c.Ladder[member].TopM - c.Ladder[0].TopM;
 

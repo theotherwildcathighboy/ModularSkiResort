@@ -7,7 +7,7 @@
  */
 import type { Entity } from "cs2/utils";
 import {
-  BUILD_ITEM_IDS, LIFT_STATE, LIFT_STATUS, NEXT_STEP, PROBLEM, RESORT_STATUS, RUN_KIND, SEASON_HINT, SKI_DAY_LIMIT, SKI_DAY_STATE,
+  BUILD_ITEM_IDS, LIFT_STATE, QUICK_REJECT_BUCKETS, LIFT_STATUS, NEXT_STEP, PROBLEM, RESORT_STATUS, RUN_KIND, SEASON_HINT, SKI_DAY_LIMIT, SKI_DAY_STATE,
   TICKET_GATE, TRIP_PLANNER_UNKNOWN, entityId, sameEntity,
 } from "../bindings";
 import type {
@@ -317,6 +317,22 @@ function known(n: number | undefined): n is number {
 
 export const RUN_ITEMS: ReadonlySet<BuildItemId> = new Set<BuildItemId>(["runNatural", "runGroomed", "runSnowmaking", "runNight", "runCatTrack"]);
 
+/** The Quick runs "N lines dropped: A, B, C" line: the total of QuickRunsState.rejects and its top three buckets (n > 0, most first, ties by
+ *  bucket order). Fewer than 2 dropped lines say nothing worth a line: top is then empty. Any input answers (junk counts are 0). */
+export function rejectSummary(rejects: readonly number[] | null | undefined): { total: number; top: Array<{ bucket: number; n: number }> } {
+  const rows: Array<{ bucket: number; n: number }> = [];
+  let total = 0;
+  for (let i = 0; i < QUICK_REJECT_BUCKETS; i++) {
+    const v = rejects ? rejects[i] : 0;
+    const n = typeof v === "number" && Number.isFinite(v) && v > 0 ? Math.floor(v) : 0;
+    total += n;
+    if (n > 0) rows.push({ bucket: i, n });
+  }
+  if (total < 2) return { total, top: [] };
+  rows.sort((a, b) => b.n - a.n || a.bucket - b.bucket);
+  return { total, top: rows.slice(0, 3) };
+}
+
 /** A run-making tool is the active tool: the run drawing tool or the cat track tool (a Build run item with active set) or the
  *  Quick runs tool. Their info (run rows, Quick runs controls) lives on the Runs view. */
 export function runToolActive(items: readonly BuildItem[] | null | undefined, quickActive: boolean | null | undefined): boolean {
@@ -456,12 +472,12 @@ export type BuildTab = "lifts" | "runs" | "buildings";
 
 export const BUILD_TABS: readonly BuildTab[] = ["lifts", "runs", "buildings"];
 
-/** The tab of an item KIND: stations and lines -> lifts; runs -> runs; the sign, lodge tiers, school and patrol huts -> buildings
+/** The tab of an item KIND: stations and lines -> lifts; runs and the safety fence -> runs; the sign, lodge tiers, school and patrol huts -> buildings
  *  (null for a kind this bundle does not know). */
 export function tabOfKind(kind: string | undefined): BuildTab | null {
   switch (kind) {
     case "station": case "line": return "lifts";
-    case "run": return "runs";
+    case "run": case "fence": return "runs";
     case "sign": case "lodge": case "school": case "patrol": return "buildings";
     default: return null;
   }

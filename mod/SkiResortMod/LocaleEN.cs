@@ -234,10 +234,6 @@ namespace SkiResortMod
                 { "Assets.DESCRIPTION[SkiSignSetGate]", "The welcome sign's lettered header. The sign places it; placed alone it floats." },
                 { "Assets.NAME[SkiSignSetGrand]", "Swanky Grand Lodge Sign Set (auto-placed)" },
                 { "Assets.DESCRIPTION[SkiSignSetGrand]", "The Grand Lodge name board. The building places it; placed alone it floats." },
-                // Cat track probe: a road with no drawn surface, service vehicles and walkers only. To hide it, delete this entry and the
-                // UIObject of SkiCatTrack.Prefab.
-                { "Assets.NAME[SkiCatTrack]", "Ski Cat Track (probe)" },
-                { "Assets.DESCRIPTION[SkiCatTrack]", "An invisible service track for mountain lodges: no cars, no paving, the snow shows. Test piece." },
 
                 // --- Safety-net fence (fences/A) ------------------------------------------------------------------------------
                 // NAME / DESCRIPTION of SkiSafetyFence equal the staged SkiSafetyFence_en-US.loc byte for byte
@@ -348,19 +344,6 @@ namespace SkiResortMod
                     "No Ski Area Welcome Sign within 5 km: this run will not count until " +
                     "one is placed nearby"
                 },
-                // GradeGuards.KeyTooLarge: the grading tool refuses a track whose area is over GradeRaster.MaxTexels.
-                { "SkiResort.Tooltip.GRADE_TOO_LARGE", "This track covers too much ground to grade. Use a shorter track." },
-                // GradeGuards.KeyRunShape: the track's outline (its flat top) touches itself, so it cannot become a run.
-                { "SkiResort.Tooltip.GRADE_RUN_SHAPE", "The track's edges touch: spread the switchback legs apart or make the track narrower." },
-                // CatTrackGradeToolSystem.KeyRunRefused: the game's validation refused the run preview; nothing was graded.
-                { "SkiResort.Tooltip.CAT_TRACK_REFUSED", "The game refuses a cat track here: move it off what blocks it and press Enter again." },
-                // GradeGuards.KeyCrossingSteep: where it crosses a run, the track would still be steeper than the max grade after the up to 2 m of
-                // grading allowed inside the run.
-                { "SkiResort.Tooltip.GRADE_CROSSING_STEEP", "The track crosses a run on ground steeper than the max grade: cross it more level." },
-                // GradeGuards.KeyCrossedRunBand: even with no grading inside, the track would change the difficulty of a run it crosses.
-                { "SkiResort.Tooltip.GRADE_CROSSED_RUN_BAND", "This crossing would change the difficulty of the run it crosses: cross it somewhere else." },
-                // CatTrackGradeToolSystem.KeyRunMissing: the SkiRunCatTrackA asset did not load.
-                { "SkiResort.Tooltip.CAT_TRACK_MISSING", "The cat track asset did not load: check that the mod is installed completely." },
                 // The run's horizontal length, an IntTooltip label in front of a "length" unit value
                 // (SkiRunTooltipSystem.KeyLength).
                 { "SkiResort.Tooltip.RUN_LENGTH", "Length" },
@@ -545,6 +528,15 @@ namespace SkiResortMod
                 { "SkiResort.Hub.QUICK_SPECIES_TIP", "Step through single species. Step back past the first one for the whole group." },
                 { "SkiResort.Hub.QUICK_TREE_DENSITY", "Density" },
                 { "SkiResort.Hub.QUICK_TREE_DENSITY_TIP", "How thick the trees grow." },
+                { "SkiResort.Hub.QUICK_REJECTS_LINE", "{N} lines dropped: {LIST}." },
+                { "SkiResort.Hub.QUICK_REJECT[TooShort]", "too short" },
+                { "SkiResort.Hub.QUICK_REJECT[Overlap]", "overlap other runs" },
+                { "SkiResort.Hub.QUICK_REJECT[Edge]", "too close to the edge" },
+                { "SkiResort.Hub.QUICK_REJECT[Blocked]", "blocked by other areas" },
+                { "SkiResort.Hub.QUICK_REJECT[Narrow]", "too narrow" },
+                { "SkiResort.Hub.QUICK_REJECT[Twisted]", "too twisted" },
+                { "SkiResort.Hub.QUICK_REJECT[Flat]", "too flat" },
+                { "SkiResort.Hub.QUICK_REJECT[Other]", "other reasons" },
                 { "SkiResort.Hub.QUICK_TREE_COUNTS", "{P} to plant · {R} to remove" },
                 { "SkiResort.Hub.QUICK_TREE_COUNTS_COST", "{P} to plant · {R} to remove · costs {FEE}" },
                 { "SkiResort.Tooltip.QUICK_PROMPT[Start]", "Click the first corner of the slope you want runs on." },
@@ -576,12 +568,12 @@ namespace SkiResortMod
                 { "SkiResort.Tooltip.QUICK_POD[MidStation]", "Mid-station here: {N} runs" },
                 { "SkiResort.Tooltip.QUICK_STATUS[BadInput]", "The region could not be read. Draw it again." },
                 { "SkiResort.Tooltip.QUICK_STATUS[TooLarge]", "The region is over the size limit shown beside it. Make it smaller." },
-                { "SkiResort.Tooltip.QUICK_STATUS[TooSmall]", "The region is too small or too narrow for a run." },
+                { "SkiResort.Tooltip.QUICK_STATUS[TooSmall]", "The region is too small for a run. Make it larger." },
                 // Review F2: no usable ground EdgeSeedMarginM (35 m) inside the region and clear of other areas: 70 m across
                 { "SkiResort.Tooltip.QUICK_STATUS[TooNarrow]", "The region is too narrow: a run needs open slope about 70 m across, clear of other areas. Make it wider." },
                 { "SkiResort.Tooltip.QUICK_STATUS[Blocked]", "Most of the region is taken by other areas or by land the city does not own." },
                 { "SkiResort.Tooltip.QUICK_STATUS[NoVertical]", "The region has too little vertical for ski runs." },
-                { "SkiResort.Tooltip.QUICK_STATUS[AllCliff]", "The region is mostly cliff: no run reaches the bottom." },
+                { "SkiResort.Tooltip.QUICK_STATUS[AllCliff]", "The region is mostly cliff: no run can reach the bottom. Try a gentler slope." },
                 { "SkiResort.Tooltip.QUICK_STATUS[TooFlat]", "The region is too flat for ski runs." },
                 { "SkiResort.Tooltip.QUICK_STATUS[NoRuns]", "No run fits this region. Try another shape or another mix." },
                 { "SkiResort.Tooltip.QUICK_WARN[FewRuns]", "Fewer than 2 runs fit here." },
@@ -981,6 +973,9 @@ namespace SkiResortMod
                 { "SkiResort.Hub.BUILD_LABEL[Line]", "Lift line" },
                 { "SkiResort.Hub.BUILD_LABEL[Sign]", "Sign" },
                 { "SkiResort.Hub.BUILD_LABEL[SignAngled]", "Angled sign" },
+                { "SkiResort.Hub.BUILD_LABEL[Fence]", "Fence" },
+                { "SkiResort.Hub.BUILD_SHORT[Fence]", "Draw it like a path." },
+                { "SkiResort.Hub.BUILD_HINT_FENCE", "Draw it like a path to fence off a slope, mark a run edge or close a run." },
                 { "SkiResort.Hub.BUILD_LABEL[Lodge]", "Lodge" },
                 { "SkiResort.Hub.BUILD_LABEL[School]", "School" },
                 { "SkiResort.Hub.BUILD_LABEL[PatrolHut]", "Hut" },
@@ -1244,6 +1239,98 @@ namespace SkiResortMod
                 { "SkiResort.LiftTooltip.BULLDOZE_STUB", "Also removes the station's connection stub" },
                 { "SkiResort.LiftTooltip.BULLDOZE_COUNT", "Sections removed" },
                 { "SkiResort.LiftTooltip.BULLDOZE_LENGTH", "Length removed" },
+
+                // --- Lift line tool ----------------------------------------------------------------------------
+                // LiftLineTooltipSystem / LiftLineToolSystem through LocalizedString.Id(key, args); the log keeps the full detail. Every
+                // text: plain sentences, at most 25 words, no em dash (LiftBatch LP-31). {TYPE} = a lift type name; numbers are
+                // LocalizedNumber<int> "integer" (meters written out in the text).
+                { "SkiResort.LiftTool.PICK_FIRST_ANY", "Click a lift station or the loose end of a lift line to start. Right click closes the tool." },
+                { "SkiResort.LiftTool.PICK_FIRST", "{TYPE} line: click a station, a loose line end or open ground to start. Right click closes the tool." },
+                { "SkiResort.LiftTool.PICK_SECOND", "{TYPE} line: now click the other end. Right click goes back a step." },
+                { "SkiResort.LiftTool.EDIT", "Click the line to add a tower. Drag a tower to move it. Enter builds, right click undoes, Esc closes." },
+                { "SkiResort.LiftTool.DRAG", "Release to place the tower here. Release away from the line to remove it. Right click cancels the move." },
+                { "SkiResort.LiftTool.DRAG_OFF", "Release here to remove this tower, or move back onto the line to keep it." },
+                { "SkiResort.LiftTool.BUILDING", "Building the {TYPE} line." },
+                { "SkiResort.LiftTool.TYPE[fixedGrip]", "Fixed-grip chairlift" },
+                { "SkiResort.LiftTool.TYPE[detachable]", "Detachable chairlift" },
+                { "SkiResort.LiftTool.TYPE[gondola]", "Gondola" },
+                { "SkiResort.LiftTool.TYPE[tram]", "Aerial tram" },
+                { "SkiResort.LiftTool.TYPE[any]", "Lift" },
+                // The plan line: the whole line at a glance. The colored parts are the overlay's (red, purple).
+                { "SkiResort.LiftTool.PLAN_CLEAR", "Towers: {TOWERS}, length {LENGTH} m. The line is ready to build." },
+                { "SkiResort.LiftTool.PLAN_LOW", "Towers: {TOWERS}, length {LENGTH} m. The red part hangs too close to the ground: add a tower or move one." },
+                { "SkiResort.LiftTool.PLAN_HIGH", "Towers: {TOWERS}, length {LENGTH} m. The purple part runs too high above the ground: add a tower under it." },
+                { "SkiResort.LiftTool.PLAN_STEEP", "Towers: {TOWERS}, length {LENGTH} m. The red part is too steep for this lift: move the tower beside it, or pick flatter ends." },
+                // Over a tower: its height (the tower model's), and how high the chairs or cabins pass over the ground next to it.
+                { "SkiResort.LiftTool.TOWER", "Tower {N} of {COUNT}: {HEIGHT} m tall. Chairs and cabins pass {CLEAR} m above the ground at the tower. Drag to move it." },
+                { "SkiResort.LiftTool.TOWER_PINNED", "Tower {N} of {COUNT}: {HEIGHT} m tall, placed by you. Chairs and cabins pass {CLEAR} m above the ground at the tower." },
+                { "SkiResort.LiftTool.TOWER_LOW", "Tower {N} of {COUNT}: {HEIGHT} m tall. Chairs and cabins come too close to the ground next to it." },
+                // Notices: shown for a few seconds after a refused click.
+                { "SkiResort.LiftTool.NOTHING_TO_BUILD", "Nothing to build yet: click both ends of the line first." },
+                { "SkiResort.LiftTool.NO_START", "Click next to a station's line stub, or the loose end of a lift line." },
+                { "SkiResort.LiftTool.TYPE_UNUSABLE", "This lift type cannot be drawn yet." },
+                { "SkiResort.LiftTool.SAME_END", "That is the first end: click the other one." },
+                { "SkiResort.LiftTool.SAME_STATION", "That is the first station: click the other one." },
+                { "SkiResort.LiftTool.TOO_SHORT", "These ends are too close together: a lift line needs at least {MIN} m." },
+                { "SkiResort.LiftTool.STATION_UNUSABLE", "This station cannot take a lift line." },
+                { "SkiResort.LiftTool.STATION_HAS_LINE", "This station already has its line. To change part of it, bulldoze that section, then click its two loose ends." },
+                { "SkiResort.LiftTool.NO_STUB", "This station has no line stub to start from." },
+                { "SkiResort.LiftTool.CLICK_ON_LINE", "Click on the line itself to add a tower there." },
+                { "SkiResort.LiftTool.END_GONE", "One end of the line is gone. Click both ends again." },
+                { "SkiResort.LiftTool.SUNK", "The station sits low in the slope, so the chairs leave it below the ground. Flatter ground or raising it with Move It helps." },
+                { "SkiResort.LiftTool.ADD_TOO_CLOSE_END", "A tower cannot stand that close to the end of the line. Keep {M} m clear of it." },
+                { "SkiResort.LiftTool.ADD_TOO_CLOSE_TOWER", "A tower cannot stand that close to a tower you placed. Keep {M} m between them." },
+                { "SkiResort.LiftTool.NO_TOWER", "There is no tower there to remove." },
+                // The game refused the Build: the most common problem it flagged, in words.
+                { "SkiResort.LiftTool.REFUSED[SteepSlope]", "The game cannot build this line: part of it is too steep. Move the tower next to the red part." },
+                { "SkiResort.LiftTool.REFUSED[OverlapExisting]", "The game cannot build this line: a tower stands on something. Drag it clear and build again." },
+                { "SkiResort.LiftTool.REFUSED[LongDistance]", "The game cannot build this line: a span is too long. Add a tower and build again." },
+                { "SkiResort.LiftTool.REFUSED[ShortDistance]", "The game cannot build this line: two towers stand too close together. Move one and build again." },
+                { "SkiResort.LiftTool.REFUSED[InWater]", "The game cannot build this line: a tower stands in water. Move it to dry ground." },
+                { "SkiResort.LiftTool.REFUSED[ExceedsCityLimits]", "The game cannot build this line: part of it is outside the city's land." },
+                { "SkiResort.LiftTool.REFUSED[Other]", "The game cannot build this line here. Move the towers away from whatever blocks them and build again." },
+                // --- Cat track tool text -------------------------------------------------------------------
+                // CatTrackGradeTooltipSystem / CatTrackGradeToolSystem through LocalizedString.Id(key, args) (GradeMsg); the log keeps the full
+                // detail. Every text: plain sentences, at most 25 words, no em dash (GradeBatch GR-23). Numbers are whole numbers:
+                // LENGTH / SHORT in m, MAX / LIMIT in %, CUT / FILL in m³.
+                { "SkiResort.CatTrack.PROMPT_EMPTY", "Click where the cat track starts. Right click closes the tool. To remove a track, use Delete cat tracks in the hub." },
+                { "SkiResort.CatTrack.PROMPT_ONE", "Click the next point of the track. Right click goes back a step." },
+                { "SkiResort.CatTrack.PROMPT_PATH", "Click to add a point. Drag a point to move it. Enter builds the track, right click undoes, Esc closes." },
+                { "SkiResort.CatTrack.PROMPT_DRAG", "Release to put the point here. Right click cancels the move." },
+                { "SkiResort.CatTrack.PROMPT_BUILDING", "Building the cat track." },
+                { "SkiResort.CatTrack.PROMPT_DEL_NONE", "Delete mode: point at a cat track. Right click leaves delete mode." },
+                { "SkiResort.CatTrack.PROMPT_DEL_HOVER", "Click the cat track to select it. Click it again to delete it. Right click leaves delete mode." },
+                { "SkiResort.CatTrack.PROMPT_DEL_ARMED", "Click again to delete this cat track. The ground stays graded and the fee is not refunded. Right click leaves delete mode." },
+                { "SkiResort.CatTrack.PLAN", "Cat track: {LENGTH} m. Steepest part: {MAX} %, limit {LIMIT} %. Digs {CUT} m³ and fills {FILL} m³." },
+                { "SkiResort.CatTrack.PLAN_LENGTH", "Cat track: {LENGTH} m. Steepest part: {MAX} %, limit {LIMIT} %." },
+                { "SkiResort.CatTrack.PLAN_STEEP", "Too steep: the steepest part is {MAX} %, the limit is {LIMIT} %. Add about {SHORT} m of switchbacks." },
+                { "SkiResort.CatTrack.PLAN_BANK", "In places the hillside is steeper than the track's cut and fill slopes, so some banks stay steep." },
+                { "SkiResort.CatTrack.GUARD_TOO_LARGE", "This track covers too much ground to grade. Use a shorter track." },
+                { "SkiResort.CatTrack.GUARD_RUN_SHAPE", "The track's edges touch. Spread the switchback legs apart or make the track narrower." },
+                { "SkiResort.CatTrack.GUARD_CROSSING_STEEP", "The track crosses a run where the ground is too steep for it. Cross somewhere more level." },
+                { "SkiResort.CatTrack.GUARD_CROSSED_RUN_BAND", "This crossing would change how hard the crossed run is rated. Cross it somewhere else." },
+                { "SkiResort.CatTrack.GUARD_LOT", "The track would be graded under a building or station. Move it clear." },
+                { "SkiResort.CatTrack.GUARD_LIFT_LINE", "The track would be graded under a lift line. Move it clear." },
+                { "SkiResort.CatTrack.GUARD_WATER", "The track would be graded into water. Move it clear." },
+                { "SkiResort.CatTrack.GUARD_OFF_MAP", "The track leaves the map. Keep it inside the map." },
+                { "SkiResort.CatTrack.NEED_TWO", "Click at least two points first." },
+                { "SkiResort.CatTrack.DEL_WAIT", "Wait until the cat track is built." },
+                { "SkiResort.CatTrack.DEL_ON", "Delete mode is on. Click a cat track twice to delete it." },
+                { "SkiResort.CatTrack.DEL_OFF", "Delete mode is off." },
+                { "SkiResort.CatTrack.DEL_NO_BUILD", "Leave delete mode first. Right click leaves it." },
+                { "SkiResort.CatTrack.DEL_ARM", "Click again to delete this cat track." },
+                { "SkiResort.CatTrack.DEL_DONE", "Cat track deleted. The ground stays graded." },
+                { "SkiResort.CatTrack.NO_GRADING", "Grading is not available on this map." },
+                { "SkiResort.CatTrack.TOO_STEEP", "Too steep: the track needs about {SHORT} m more length. Add a switchback." },
+                { "SkiResort.CatTrack.RUN_MISSING", "The cat track asset did not load. Check that the mod is installed completely." },
+                { "SkiResort.CatTrack.RUN_REFUSED", "The game refuses a cat track here. Move it off what blocks it and press Enter again." },
+                { "SkiResort.CatTrack.BUILT", "Cat track built." },
+                { "SkiResort.CatTrack.TERRAIN_UNREAD", "The terrain could not be read. Try again." },
+                { "SkiResort.CatTrack.ALREADY_FITS", "The ground already fits this track." },
+                { "SkiResort.CatTrack.WRITE_FAILED", "The terrain could not be changed, so nothing was graded. Try again." },
+                { "SkiResort.CatTrack.UNDO_NONE", "There is no grade to undo." },
+                { "SkiResort.CatTrack.UNDO_GONE", "That grade can no longer be undone." },
+                { "SkiResort.CatTrack.UNDONE", "Grade undone." },
                 // SkiSnowLineTooltipSystem, the one line under the cursor while a run or the Welcome Sign is
                 // placed. {SNOW_LINE} and {GUN_LINE} are integer elevations in world meters (LocalizedNumber<int>, unit "integer");
                 // "≈" and "·" are on the UI glyph allowlist.

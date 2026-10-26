@@ -1,10 +1,10 @@
-// Road and access flags on our building and cat-track prefab entities, written at every Game-mode load (decompile 1.6.0f1; every
-// file cited here is byte-identical in 1.6.2f1). Write sites: EntityManager.SetComponentData of BuildingData / NetGeometryData
+// Road and access flags on our building prefab entities, written at every Game-mode load (decompile 1.6.0f1; every
+// file cited here is byte-identical in 1.6.2f1). Write sites: EntityManager.SetComponentData of BuildingData
 // only; no component added or removed, no prefab JSON change, no Harmony, no reflection.
 // W4: Mountain and None rows (hut, summit lodge, patrol huts) demand nothing, but their Park component sets RequireAccess
 // (BuildingInitializeSystem.cs:284-287), arming the pathfind-island warning on a lot with no road; W4 clears it. Park stays.
 // The write lasts for the app run (prefab entities live that long), so an Editor load writes the game's own values back.
-// W3: clears GeometryFlags.ClipTerrain on SkiCatTrack's NetGeometryData (a geometry-less piece would leave the clip slab see-through).
+// (W3, the terrain-clip write on the SkiCatTrack probe net, went with that prefab: retired 2026-10-26.)
 // Engine notes: EngineNotes/LodgeRoadSystem.md
 
 using System;
@@ -23,7 +23,6 @@ using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
 using BuildingFlags = Game.Prefabs.BuildingFlags;   // not Game.Buildings.BuildingFlags (the instance flags)
-using NetGeometryFlags = Game.Net.GeometryFlags;     // not Game.Areas.GeometryFlags
 
 namespace SkiResortMod.Systems
 {
@@ -43,18 +42,7 @@ namespace SkiResortMod.Systems
 
         private readonly Dictionary<Entity, Written> m_Written = new Dictionary<Entity, Written>();
 
-        private const string CatTrackType = "RoadPrefab";
-        private const string CatTrackName = "SkiCatTrack";
-        /// <summary>false = keep FlattenTerrain (cat-track-net.md risk 1, engine notes W3); true = clear both flags (a different probe).</summary>
-        private const bool CatTrackClearFlatten = false;
         private const float AccessLimitM = 8.4f;   // RoadConnectionSystem.cs:88
-
-        private EntityQuery m_EdgeQuery;                                              // road edges (cat-track search in the DUMP)
-        private Entity m_CatTrackPrefab = Entity.Null;                                // this load; Null = not imported / not found
-        private string m_CatTrackState = "not loaded";
-        /// <summary>The game's own NetGeometryData.m_Flags per prefab entity, kept for the session (prefab entities live for the
-        /// app run): a second load of the same session finds the flag already cleared and says so instead of warning.</summary>
-        private readonly Dictionary<Entity, NetGeometryFlags> m_CatTrackGameFlags = new Dictionary<Entity, NetGeometryFlags>();
 
         // Per-load state, reset at OnGameLoadingComplete. m_LodgePrefab = the first found catalog lodge, m_SignPrefab = the first found
         // catalog sign; both only gate the DUMP's "prefabs not resolved this load" line.
@@ -80,21 +68,6 @@ namespace SkiResortMod.Systems
                     ComponentType.ReadOnly<Deleted>(),
                 },
             });
-            m_EdgeQuery = GetEntityQuery(new EntityQueryDesc
-            {
-                All = new[]
-                {
-                    ComponentType.ReadOnly<Game.Net.Edge>(),
-                    ComponentType.ReadOnly<Game.Net.EdgeGeometry>(),
-                    ComponentType.ReadOnly<Game.Net.Curve>(),
-                    ComponentType.ReadOnly<PrefabRef>(),
-                },
-                None = new[]
-                {
-                    ComponentType.ReadOnly<Temp>(),
-                    ComponentType.ReadOnly<Deleted>(),
-                },
-            });
             Enabled = false;   // nothing per frame; OnGameLoadingComplete still fires (CursorAimSystem precedent)
             Mod.Log.Info("LodgeRoad: system created (the lodge prefab may connect to the road at its front: " +
                          "written at every game load; no sweep, no poll)");
@@ -105,8 +78,6 @@ namespace SkiResortMod.Systems
             base.OnGameLoadingComplete(purpose, mode);
             m_LodgePrefab = Entity.Null;
             m_SignPrefab = Entity.Null;
-            m_CatTrackPrefab = Entity.Null;
-            m_CatTrackState = "not a game (mode " + mode + ")";
             if (mode != GameMode.Game)
             {
                 m_State = "not a game (mode " + mode + ")";
@@ -135,74 +106,6 @@ namespace SkiResortMod.Systems
                 Mod.Log.Error("!!! LodgeRoad EXCEPTION — lodge road connection not applied until the next load (lodges " +
                               $"cannot be reached by guests this load):\n{e}");
             }
-            try
-            {
-                ApplyCatTrack();
-            }
-            catch (Exception e)
-            {
-                m_CatTrackState = "EXCEPTION: " + e.GetType().Name;
-                Mod.Log.Error("!!! CatTrack EXCEPTION — the SkiCatTrack prefab keeps its terrain-clip flag this load (a placed " +
-                              $"cat track may show a see-through strip):\n{e}");
-            }
-        }
-
-        /// <summary>W3 (engine notes CAT TRACK PROBE): clear ClipTerrain (and FlattenTerrain only if CatTrackClearFlatten) on the
-        /// SkiCatTrack RoadPrefab entity's NetGeometryData. One line per load. The prefab is resolved by the prefab catalog's
-        /// "extra" path (any type+name; no SkiCatalog row), so a game without the imported probe logs one Info line.</summary>
-        private void ApplyCatTrack()
-        {
-            if (!m_PrefabCatalog.TryGetPrefab(CatTrackType, CatTrackName, out Entity prefab, out PrefabBase _))
-            {
-                m_CatTrackState = "prefab " + CatTrackName + " not found (the probe is not imported)";
-                Mod.Log.Info($"CatTrack: {m_CatTrackState} — nothing written");
-                return;
-            }
-            m_CatTrackPrefab = prefab;
-            if (!EntityManager.TryGetComponent(prefab, out NetGeometryData geometry))
-            {
-                m_CatTrackState = "prefab " + CatTrackName + " has no NetGeometryData";
-                Mod.Log.Warn($"CatTrack: {m_CatTrackState} (not a net prefab?) — nothing written");
-                return;
-            }
-            NetGeometryFlags old = geometry.m_Flags;
-            NetGeometryFlags clear = NetGeometryFlags.ClipTerrain | (CatTrackClearFlatten ? NetGeometryFlags.FlattenTerrain : 0);
-            bool ours = m_CatTrackGameFlags.TryGetValue(prefab, out NetGeometryFlags gameFlags);
-            if (!ours && (old & NetGeometryFlags.ClipTerrain) == 0)
-            {
-                m_CatTrackState = $"not written: the game did not set ClipTerrain (0x{(int)old:X})";
-                Mod.Log.Warn($"CatTrack: prefab {CatTrackName} NetGeometryData.m_Flags 0x{(int)old:X} has no ClipTerrain (0x40000) — " +
-                             "nothing written; re-check NetInitializeSystem.cs:1943 after this patch");
-                return;
-            }
-            NetGeometryFlags flags = old & ~clear;
-            if (!ours)
-                m_CatTrackGameFlags[prefab] = old;
-            string keep = CatTrackClearFlatten ? "FlattenTerrain off too" : "FlattenTerrain kept";
-            string detail = $"width {geometry.m_DefaultWidth:0.##} m, max slope {geometry.m_MaxSlopeSteepness:0.##}" + RoadDetail(prefab);
-            if (flags != old)
-            {
-                geometry.m_Flags = flags;
-                EntityManager.SetComponentData(prefab, geometry);
-                m_CatTrackState = $"written 0x{(int)old:X} -> 0x{(int)flags:X}";
-                Mod.Log.Info($"CatTrack: prefab {CatTrackName} NetGeometryData.m_Flags 0x{(int)old:X} -> 0x{(int)flags:X} " +
-                             $"(ClipTerrain off, {keep}); {detail}");
-            }
-            else
-            {
-                m_CatTrackState = $"already 0x{(int)flags:X} (game 0x{(int)gameFlags:X}; written earlier this session)";
-                Mod.Log.Info($"CatTrack: prefab {CatTrackName} NetGeometryData.m_Flags already 0x{(int)flags:X} " +
-                             $"(game set 0x{(int)gameFlags:X}; written earlier this session; {keep}); {detail}");
-            }
-        }
-
-        /// <summary>"; speed … km/h, RoadData flags …" for the W3 line (RoadData.m_SpeedLimit is m/s; zoning off = no EnableZoning).</summary>
-        private string RoadDetail(Entity prefab)
-        {
-            if (!EntityManager.TryGetComponent(prefab, out RoadData road))
-                return "; no RoadData";
-            return string.Format(CultureInfo.InvariantCulture, "; speed {0:0} km/h, RoadData flags {1}, zone block {2}",
-                road.m_SpeedLimit * 3.6f, road.m_Flags, road.m_ZoneBlockPrefab == Entity.Null ? "none" : "SET");
         }
 
         protected override void OnUpdate()
@@ -457,48 +360,29 @@ namespace SkiResortMod.Systems
         }
 
 
-        /// <summary>One "Lodge [road]" engine notes (counts, the W3 state, how many SkiCatTrack edges exist) and one line per lodge /
-        /// school / patrol hut: the road edge Building.m_RoadEdge holds (entity, prefab name, "= CAT TRACK"), the distance of the
-        /// building's front point to that edge's boundary and center curves, and the nearest cat-track edge when the holding
-        /// edge is not one. Reads only; main thread, event time.</summary>
+        /// <summary>One "Lodge [road]" engine notes (counts) and one line per lodge / school / patrol hut: the road edge
+        /// Building.m_RoadEdge holds (entity, prefab name) and the distance of the building's front point to that edge's boundary
+        /// and center curves. Reads only; main thread, event time.</summary>
         private void AppendRoadDetail(StringBuilder sb, List<Entity> lodges, List<Entity> others)
         {
-            var cat = new List<Entity>(16);
-            if (m_CatTrackPrefab != Entity.Null)
-            {
-                EntityManager.CompleteDependencyBeforeRO<PrefabRef>();
-                using (var edges = m_EdgeQuery.ToEntityArray(Allocator.Temp))
-                using (var refs = m_EdgeQuery.ToComponentDataArray<PrefabRef>(Allocator.Temp))
-                {
-                    for (int i = 0; i < edges.Length; i++)
-                    {
-                        if (refs[i].m_Prefab == m_CatTrackPrefab)
-                            cat.Add(edges[i]);
-                    }
-                }
-            }
-            int viaCat = 0, viaOther = 0, none = 0;
+            int viaRoad = 0, none = 0;
             var lines = new StringBuilder();
             for (int i = 0; i < lodges.Count; i++)
-                RoadDetailLine(lines, lodges[i], "lodge", cat, ref viaCat, ref viaOther, ref none);
+                RoadDetailLine(lines, lodges[i], "lodge", ref viaRoad, ref none);
             for (int i = 0; i < others.Count; i++)
-                RoadDetailLine(lines, others[i], "school/patrol", cat, ref viaCat, ref viaOther, ref none);
-            sb.Append("  Lodge [road]: ").Append(lodges.Count + others.Count).Append(" building(s): ").Append(viaCat)
-              .Append(" via ").Append(CatTrackName).Append(", ").Append(viaOther).Append(" via other roads, ").Append(none)
-              .Append(" with no road edge; ").Append(cat.Count).Append(' ').Append(CatTrackName).Append(" edge(s) in the city; W3: ")
-              .Append(m_CatTrackState).Append('\n');
+                RoadDetailLine(lines, others[i], "school/patrol", ref viaRoad, ref none);
+            sb.Append("  Lodge [road]: ").Append(lodges.Count + others.Count).Append(" building(s): ").Append(viaRoad)
+              .Append(" via a road, ").Append(none).Append(" with no road edge").Append('\n');
             sb.Append(lines);
         }
 
-        private void RoadDetailLine(StringBuilder sb, Entity building, string what, List<Entity> cat,
-                                    ref int viaCat, ref int viaOther, ref int none)
+        private void RoadDetailLine(StringBuilder sb, Entity building, string what, ref int viaRoad, ref int none)
         {
             Entity prefab = EntityManager.TryGetComponent(building, out PrefabRef pr) ? pr.m_Prefab : Entity.Null;
             sb.Append("    Lodge [road] ").Append(what).Append(' ').Append(Ent(building)).Append(" '")
               .Append(prefab != Entity.Null ? m_PrefabSystem.GetPrefabName(prefab) : "?").Append("': ");
             bool haveFront = TryFrontPoint(building, prefab, out float3 front);
             Entity edge = RoadOf(building);
-            bool isCat = false;
             if (edge == Entity.Null)
             {
                 none++;
@@ -507,15 +391,9 @@ namespace SkiResortMod.Systems
             else
             {
                 Entity edgePrefab = EntityManager.Exists(edge) && EntityManager.TryGetComponent(edge, out PrefabRef er) ? er.m_Prefab : Entity.Null;
-                isCat = edgePrefab != Entity.Null && edgePrefab == m_CatTrackPrefab;
-                if (isCat)
-                    viaCat++;
-                else
-                    viaOther++;
+                viaRoad++;
                 sb.Append("satisfied by edge ").Append(Ent(edge)).Append(" '")
                   .Append(edgePrefab != Entity.Null ? m_PrefabSystem.GetPrefabName(edgePrefab) : "?").Append('\'');
-                if (isCat)
-                    sb.Append(" = CAT TRACK");
                 if (haveFront && EdgeDistances(edge, front, out float boundary, out float centre, out float t))
                 {
                     sb.Append(": front->boundary ").Append(F(boundary)).Append(" m (limit ").Append(F(AccessLimitM))
@@ -526,22 +404,6 @@ namespace SkiResortMod.Systems
                 if (EntityManager.TryGetComponent(edge, out Game.Net.Composition comp)
                     && EntityManager.TryGetComponent(comp.m_Edge, out Game.Prefabs.NetCompositionData cd))
                     sb.Append(", composition width ").Append(F(cd.m_Width)).Append(" m");
-            }
-            if (!isCat && cat.Count > 0 && haveFront)
-            {
-                float best = float.MaxValue;
-                Entity bestEdge = Entity.Null;
-                for (int i = 0; i < cat.Count; i++)
-                {
-                    if (EdgeDistances(cat[i], front, out float b, out float _, out float _) && b < best)
-                    {
-                        best = b;
-                        bestEdge = cat[i];
-                    }
-                }
-                if (bestEdge != Entity.Null)
-                    sb.Append("; nearest ").Append(CatTrackName).Append(" edge ").Append(Ent(bestEdge)).Append(": boundary ").Append(F(best))
-                      .Append(best < AccessLimitM ? " m (IN reach but not the holder: another road is closer, or the Raised/Lowered side rule dropped it)" : " m (out of reach)");
             }
             sb.Append('\n');
         }

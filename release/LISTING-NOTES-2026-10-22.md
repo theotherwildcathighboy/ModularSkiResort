@@ -123,3 +123,7 @@ Everything below is described in the copy as working. Do not upload until the 10
 10. **CC BY model credits.** I left the Kagelok / Wilin_Amaurea paragraph as a conditional note, as before. Confirm nothing derived from them ships in 1.0.0 (generators mention both; SOURCE.md says "nothing changed yet").
 11. **Golf Pack wording.** The Golf Pack credit says "the modular recreation idea this mod grew from". Since lodges are no longer ServiceUpgrade children, the old "same architecture" claim is gone. Does that read right to you?
 12. **PublishConfiguration.xml.** Want me to paste the short and long description into it next, or leave it to you after your edits?
+
+## Update 2026-10-26: limitations and recommended mods
+
+"Good to know" in DESCRIPTION.md now also carries: chairs do not sway in the wind; stations can sit partly in the hillside on steep ground (Move It lifts them out, DECISIONS 426); chairlifts and gondolas stop in summer when no run is open; Quick runs is experimental and can be turned off. "Getting started" step 1 mentions the set-back and angled Welcome Sign. Sources: docs-site index "Known Limitations", guides/lifts "Known Limits", release/BESTPRACTICES.md "Playing nice". Write Everywhere stays recommended, not required (DECISIONS 431). The XML copy needs `node tools/sync-listing.js` (the parent runs it).

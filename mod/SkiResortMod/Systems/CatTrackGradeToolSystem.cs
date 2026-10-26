@@ -69,14 +69,12 @@ namespace SkiResortMod.Systems
         internal GradeStep Step => GradeInput.StepOf(m_Edit.Count, m_Phase != RunPhase.Edit);
         internal bool Dragging => m_DragIndex >= 0;
         internal bool DeleteMode => m_DeleteMode;
-        internal string DeletePrompt => GradeDeleteInput.Prompt(m_DelHover, ArmedIndex);
-        internal string Notice => m_Notice != null && m_Frame - m_NoticeFrame < NoticeFrames ? m_Notice : null;
-        internal string PlanLine => m_Path != null ? GradeInput.Describe(m_Path, m_Prof, m_Raster, m_Params) : null;
+        internal string DeletePromptKey => GradeDeleteInput.PromptKey(m_DelHover, ArmedIndex);
+        internal GradeMsg Notice => !m_Notice.IsEmpty && m_Frame - m_NoticeFrame < NoticeFrames ? m_Notice : GradeMsg.Empty;
+        internal GradeMsg PlanMsg => m_Path != null ? GradeInput.PlanMsg(m_Path, m_Prof, m_Raster, m_Params) : GradeMsg.Empty;
         internal bool PlanOk => m_Prof != null && m_Prof.Feasible && m_Guard == GradeGuardKind.None && !m_CrossingPending;
-        internal string GuardLine => m_Guard != GradeGuardKind.None ? GradeGuards.Reason(m_Guard) : null;
-        internal string BankLine => m_Raster != null && m_Raster.SteepBankTexels > 0
-            ? string.Format(CultureInfo.InvariantCulture, "Steep bank: the hillside is steeper than the side slope (up to {0:F0} m)", m_Raster.MaxBankStepM)
-            : null;
+        internal GradeMsg GuardMsg => GradeGuards.Reason(m_Guard);
+        internal GradeMsg BankMsg => m_Raster != null && m_Raster.SteepBankTexels > 0 ? GradeMsg.Of("PLAN_BANK") : GradeMsg.Empty;   // the log keeps MaxBankStepM
         internal string LastPlanText { get; private set; } = "-";
         internal string LastApplyText { get; private set; } = "-";
 
@@ -121,7 +119,7 @@ namespace SkiResortMod.Systems
         private bool m_HasHit;
         private int m_HoverPoint = -1, m_DragIndex = -1;
         private float2 m_DragTo;
-        private string m_Notice;
+        private GradeMsg m_Notice;
         private int m_NoticeFrame;
         // Delete mode (field test 2026-10-26b): the cat track outlines (refreshed every DeleteRingsFrames), the hovered index and the
         // armed track (an Entity: it survives a refresh)
@@ -311,7 +309,7 @@ namespace SkiResortMod.Systems
                 return;   // a build in flight: a second Enter would queue another one
             if (m_Edit.Count < 2)
             {
-                Say("Grade [apply]: nothing to grade — click at least two points", "Click at least two points first");
+                Say("Grade [apply]: nothing to grade — click at least two points", GradeMsg.Of("NEED_TWO"));
                 return;
             }
             m_ApplyRequested = true;
@@ -326,7 +324,7 @@ namespace SkiResortMod.Systems
                 return m_DeleteMode == on;
             if (on && m_Phase != RunPhase.Edit)
             {
-                Say($"Grade [delete]: delete mode refused ({why}) — a cat track is being built", "Wait until the cat track is built");
+                Say($"Grade [delete]: delete mode refused ({why}) — a cat track is being built", GradeMsg.Of("DEL_WAIT"));
                 return false;
             }
             m_DeleteMode = on;
@@ -335,7 +333,7 @@ namespace SkiResortMod.Systems
             m_DelRingsFrame = int.MinValue;
             m_DragIndex = m_HoverPoint = -1;
             Say($"Grade [delete]: delete mode {(on ? "ON" : "off")} ({why}){(on ? " — click a cat track twice to delete it" : string.Empty)}",
-                on ? "Delete mode: click a cat track twice to delete it" : "Delete mode off");
+                on ? GradeMsg.Of("DEL_ON") : GradeMsg.Of("DEL_OFF"));
             return true;
         }
 
@@ -387,7 +385,7 @@ namespace SkiResortMod.Systems
                 if (m_ApplyRequested)
                 {
                     m_ApplyRequested = false;
-                    Say("Grade [apply]: refused in delete mode — right click leaves it, then Enter builds", "Leave delete mode to build (right click)");
+                    Say("Grade [apply]: refused in delete mode — right click leaves it, then Enter builds", GradeMsg.Of("DEL_NO_BUILD"));
                 }
                 UpdateDelete();
             }
@@ -507,7 +505,7 @@ namespace SkiResortMod.Systems
             {
                 case GradeDeleteClick.Arm:
                     m_DelArmed = m_DelTracks[m_DelHover];
-                    Say($"Grade [delete]: cat track {Describe(m_DelArmed)} selected — click it again to delete", "Click again to delete this cat track");
+                    Say($"Grade [delete]: cat track {Describe(m_DelArmed)} selected — click it again to delete", GradeMsg.Of("DEL_ARM"));
                     return;
                 case GradeDeleteClick.Disarm:
                     Say($"Grade [delete]: cat track {Describe(m_DelArmed)} deselected (click off the track)");
@@ -517,7 +515,7 @@ namespace SkiResortMod.Systems
                     Entity e = m_DelArmed;
                     m_DelArmed = Entity.Null;
                     if (DeleteTrack(e, "tool delete mode"))
-                        Say($"Grade [delete]: cat track {Describe(e)} deleted from the tool's delete mode", "Cat track deleted");
+                        Say($"Grade [delete]: cat track {Describe(e)} deleted from the tool's delete mode", GradeMsg.Of("DEL_DONE"));
                     m_DelRingsFrame = int.MinValue;   // re-read next frame: the track is gone
                     return;
             }
@@ -566,7 +564,7 @@ namespace SkiResortMod.Systems
             TerrainHeightData hd = m_TerrainSystem.GetHeightData();
             if (!hd.isCreated || !m_Writer.TryMap(out GradeMap map, out string gate))
             {
-                Say("Grade [plan]: the terrain is not ready or the heightmap gate refused — no plan", "Grading is not available on this map (see the log)");
+                Say("Grade [plan]: the terrain is not ready or the heightmap gate refused — no plan", GradeMsg.Of("NO_GRADING"));
                 return;
             }
             GradeParams p = m_Params;
@@ -906,7 +904,7 @@ namespace SkiResortMod.Systems
         {
             if (m_Path == null || m_Prof == null)
             {
-                Say("Grade [apply]: no plan", "Click at least two points first");
+                Say("Grade [apply]: no plan", GradeMsg.Of("NEED_TWO"));
                 return;
             }
             if (m_Guard != GradeGuardKind.None || m_Ring == null)
@@ -918,7 +916,7 @@ namespace SkiResortMod.Systems
             {
                 Say($"Grade [apply]: REFUSED — too steep for the {m_Params.MaxGrade * 100f:F0} % limit (max {m_Prof.MaxGradeAbs * 100f:F0} %, " +
                     $"shortfall {m_Prof.ShortfallM:F0} m)",
-                    $"Too steep: the track needs {math.ceil(m_Prof.ShortfallM):F0} m more length (add a switchback)");
+                    GradeMsg.Of("TOO_STEEP", ("SHORT", math.ceil(m_Prof.ShortfallM))));
                 return;
             }
             if (m_RunPrefab == Entity.Null)
@@ -926,7 +924,7 @@ namespace SkiResortMod.Systems
             if (m_RunPrefab == Entity.Null)
             {
                 Say($"Grade [apply]: REFUSED — the run prefab {SkiCatalog.Names.RunCatTrack} is missing this load (asset pack missing?)",
-                    KeyRunMissing);
+                    GradeMsg.Of("RUN_MISSING"));
                 return;
             }
             EmitRun(m_Ring);
@@ -954,7 +952,7 @@ namespace SkiResortMod.Systems
                 {
                     Mod.Log.Warn($"Grade [run]: no Temp area {TempTimeoutFrames} frames after the emission — nothing graded, no run built; back " +
                                  "to editing (please send the log)");
-                    BackToEdit(KeyRunRefused);
+                    BackToEdit(GradeMsg.Of("RUN_REFUSED"));
                 }
                 return;
             }
@@ -962,13 +960,13 @@ namespace SkiResortMod.Systems
             {
                 int errors = m_ErrorQuery.IsEmptyIgnoreFilter ? 0 : m_ErrorQuery.CalculateEntityCount();
                 Say($"Grade [run]: REFUSED by the game — {errors} error(s) on the run preview ({Describe(temp)}); nothing graded, back to editing");
-                BackToEdit(KeyRunRefused);
+                BackToEdit(GradeMsg.Of("RUN_REFUSED"));
                 return;
             }
             if (!ApplyCore("tool", m_Path, m_Prof, m_PlanParams ?? m_Params, temp))
             {
                 Mod.Log.Info("Grade [run]: the grade was refused (see the line above) — the run is not built");
-                BackToEdit(null);
+                BackToEdit(GradeMsg.Empty);
                 return;
             }
             applyMode = ApplyMode.Apply;   // ToolOutputSystem.cs:22-28 -> ApplyAreasSystem
@@ -979,7 +977,7 @@ namespace SkiResortMod.Systems
             m_Edit.Clear();
             ClearPlan(null);
             Say($"Grade [apply]: done — the cat-track run {Describe(temp)} applied with the grade; {points} point(s) cleared (a built track " +
-                "stays: delete it with the hub row's trash; the ground stays graded)", "Cat track built");
+                "stays: delete it with the hub row's trash; the ground stays graded)", GradeMsg.Of("BUILT"));
         }
 
         /// <summary>Applying (the frame after Apply): the run must be permanent now; one line either way.</summary>
@@ -995,14 +993,14 @@ namespace SkiResortMod.Systems
                              "the terrain is graded; undo restores it (please send the log)");
         }
 
-        private void BackToEdit(string noticeKey)
+        private void BackToEdit(GradeMsg notice)
         {
             applyMode = ApplyMode.Clear;   // ToolClearSystem deletes our Temp (ToolClearSystem.cs:101)
             m_Deps = DestroyDefinitions(m_DefinitionQuery, m_Barrier, m_Deps);
             m_Phase = RunPhase.Edit;
-            if (noticeKey != null)
+            if (!notice.IsEmpty)
             {
-                m_Notice = noticeKey;
+                m_Notice = notice;
                 m_NoticeFrame = m_Frame;
             }
         }
@@ -1023,10 +1021,6 @@ namespace SkiResortMod.Systems
 
         private static string Describe(Entity e) => $"{e.Index}:{e.Version}";
 
-        /// <summary>Locale keys of the tool's fixed notices (LocaleEN; the tooltip resolves keys, GradeGuards.IsKey).</summary>
-        private const string KeyRunRefused = "SkiResort.Tooltip.CAT_TRACK_REFUSED";
-        private const string KeyRunMissing = "SkiResort.Tooltip.CAT_TRACK_MISSING";
-
         /// <summary>Read the base rect, re-rasterize on it, guard, write, clear trees, push undo (with <paramref name="run"/>, the run
         /// this grade builds, or Null), bump the run catalog. False when refused (reason in the notice).</summary>
         private bool ApplyCore(string label, GradePath path, GradeProfile prof, GradeParams p, Entity run)
@@ -1034,7 +1028,7 @@ namespace SkiResortMod.Systems
             var sw = System.Diagnostics.Stopwatch.StartNew();
             if (!m_Writer.TryMap(out GradeMap map, out string gate))
             {
-                Say($"Grade [apply:{label}]: REFUSED — heightmap gate: {gate}", "Grading is not available on this map (see the log)");
+                Say($"Grade [apply:{label}]: REFUSED — heightmap gate: {gate}", GradeMsg.Of("NO_GRADING"));
                 return false;
             }
             if (!GradeRaster.Bounds(map, path, prof, p, out int4 rect, out float reach))
@@ -1051,7 +1045,7 @@ namespace SkiResortMod.Systems
             ushort[] before = m_Writer.Read(rect, label + " pre-image");
             if (before == null)
             {
-                Say($"Grade [apply:{label}]: REFUSED — the base heightmap could not be read", "The terrain could not be read (see the log)");
+                Say($"Grade [apply:{label}]: REFUSED — the base heightmap could not be read", GradeMsg.Of("TERRAIN_UNREAD"));
                 return false;
             }
             CollectObstacles(map, rect);
@@ -1088,7 +1082,7 @@ namespace SkiResortMod.Systems
             }
             if (changed == 0)
             {
-                Say($"Grade [apply:{label}]: nothing to change — the ground already fits", "The ground already fits this track");
+                Say($"Grade [apply:{label}]: nothing to change — the ground already fits", GradeMsg.Of("ALREADY_FITS"));
                 return false;
             }
             bool ok = m_Writer.Write(map, rect, after, label, out int mismatches);
@@ -1098,7 +1092,7 @@ namespace SkiResortMod.Systems
                 {
                     m_Writer.Write(map, rect, before, label + " restore after a failed write", out int _);
                     Say($"Grade [apply:{label}]: FAILED — the write did not land ({mismatches} texel(s)); the pre-image was written back",
-                        "The terrain write failed (see the log)");
+                        GradeMsg.Of("WRITE_FAILED"));
                     return false;
                 }
                 Mod.Log.Warn($"Grade [apply:{label}]: the verify readback failed; the write is assumed to have landed (undo kept)");
@@ -1173,25 +1167,25 @@ namespace SkiResortMod.Systems
             GradeUndoEntry e = m_Undo.Peek();
             if (e == null)
             {
-                Say($"Grade [undo]: nothing to undo ({why})", "No grade to undo");
+                Say($"Grade [undo]: nothing to undo ({why})", GradeMsg.Of("UNDO_NONE"));
                 return false;
             }
             if (!m_Writer.TryMap(out GradeMap map, out string gate))
             {
-                Say($"Grade [undo]: REFUSED — heightmap gate: {gate}", "Grading is not available on this map (see the log)");
+                Say($"Grade [undo]: REFUSED — heightmap gate: {gate}", GradeMsg.Of("NO_GRADING"));
                 return false;
             }
             var rect = new int4(e.X0, e.Z0, e.W, e.H);
             if (rect.x + rect.z > map.Res.x || rect.y + rect.w > map.Res.y)
             {
                 m_Undo.Pop();
-                Say("Grade [undo]: REFUSED — the map changed size since the grade; entry dropped", "That grade can no longer be undone");
+                Say("Grade [undo]: REFUSED — the map changed size since the grade; entry dropped", GradeMsg.Of("UNDO_GONE"));
                 return false;
             }
             ushort[] current = m_Writer.Read(rect, "undo " + e.Label);
             if (current == null)
             {
-                Say("Grade [undo]: REFUSED — the base heightmap could not be read", "The terrain could not be read (see the log)");
+                Say("Grade [undo]: REFUSED — the base heightmap could not be read", GradeMsg.Of("TERRAIN_UNREAD"));
                 return false;
             }
             ushort[] restored = GradeUndo.Restore(e, current, out int kept);
@@ -1200,7 +1194,7 @@ namespace SkiResortMod.Systems
             m_RunCatalog?.NoteTerrainChanged("grade undone");
             Say($"Grade [undo]: UNDONE ({why}) — {e.Label} grade at {HeightmapWriter.Rect(rect)}; {kept} texel(s) changed since by something " +
                 $"else were kept; verify {(mismatches == 0 ? "OK" : mismatches + " mismatch(es)")}; removed trees do not come " +
-                $"back; {m_Undo.Count} grade(s) left to undo", "Grade undone");
+                $"back; {m_Undo.Count} grade(s) left to undo", GradeMsg.Of("UNDONE"));
             return true;
         }
 
@@ -1273,7 +1267,7 @@ namespace SkiResortMod.Systems
                     m_Writer.WaterSimSpeed, p.Describe()));
                 if (!ApplyCore("probe", path, prof, p, Entity.Null))
                 {
-                    ProbeText = "refused: " + (Notice ?? "see the log");
+                    ProbeText = "refused: " + (Notice.IsEmpty ? "see the log" : Notice.Key);
                     return;
                 }
                 m_ProbeXz = path.Xz;
@@ -1461,9 +1455,11 @@ namespace SkiResortMod.Systems
             m_DrawWidth.Clear();
         }
 
-        private void Say(string line, string notice = null)
+        /// <summary>Logs <paramref name="line"/> (the detail, for the log) and shows <paramref name="notice"/> (plain words, a LocaleEN
+        /// SkiResort.CatTrack.* key) under the prompt for a few seconds.</summary>
+        private void Say(string line, GradeMsg notice = default)
         {
-            if (notice != null)
+            if (!notice.IsEmpty)
             {
                 m_Notice = notice;
                 m_NoticeFrame = m_Frame;

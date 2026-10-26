@@ -12,6 +12,9 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
+using System.IO;
+using System.Linq;
+using System.Text.RegularExpressions;
 using SkiResortMod.Systems;
 using Unity.Mathematics;
 
@@ -57,6 +60,7 @@ namespace GradeBatch
             CrossingRatings();
             FadeAndAlongside();
             InsideRuns();
+            PlayerText();
             Console.WriteLine($"SUMMARY GradeBatch: {s_Checks} checks, {s_Failures} failure(s)");
             Environment.ExitCode = s_Failures;
             return s_Failures;
@@ -159,7 +163,9 @@ namespace GradeBatch
                 red += GradeProfile.GradeClass(math.abs(s.Prof.SegGrade[i]), p.MaxGrade) == 2 ? 1 : 0;
             Check(red > 0, "GR-4 red", "the steep part shows red");
             string text = GradeInput.Describe(s.Path, s.Prof, s.Raster, p);
-            Check(text.Contains("needs") && text.Contains("switchback"), "GR-4 text", text);
+            Check(text.Contains("needs") && text.Contains("switchback"), "GR-4 text (the log line keeps the detail)", text);
+            GradeMsg msg = GradeInput.PlanMsg(s.Path, s.Prof, s.Raster, p);
+            Check(msg.Key == "PLAN_STEEP" && msg.Args.Any(a => a.Name == "SHORT" && a.Value > 0f), "GR-4 player text", msg.Signature);
         }
 
         private static void HumpHollow()
@@ -333,7 +339,7 @@ namespace GradeBatch
             Check(GradeGuards.Check(Map, s.Raster, obs, out _) == GradeGuardKind.None, "GR-10 water clear", "water 200 m off");
 
             foreach (GradeGuardKind g in new[] { GradeGuardKind.Lot, GradeGuardKind.LiftLine, GradeGuardKind.Water, GradeGuardKind.OffMap, GradeGuardKind.TooLarge })
-                Check(GradeGuards.Reason(g).Length > 10, "GR-10 reason", g.ToString());
+                Check(!GradeGuards.Reason(g).IsEmpty, "GR-10 reason", g.ToString());
         }
 
 
@@ -515,7 +521,7 @@ namespace GradeBatch
             {
                 foreach (bool drag in new[] { false, true })
                 {
-                    string pr = GradeInput.Prompt(st, drag);
+                    string pr = GradeInput.PromptKey(st, drag);
                     Check(!string.IsNullOrWhiteSpace(pr), "GR-15 prompt", $"{st} empty");
                     seen.Add(pr);
                     string low = pr.ToLowerInvariant();
@@ -524,10 +530,7 @@ namespace GradeBatch
                 }
             }
             Check(seen.Count >= 4, "GR-15 prompt per step", $"{seen.Count} distinct");
-            Check(GradeInput.Prompt(GradeStep.Path, false).Contains("Enter") && GradeInput.Prompt(GradeStep.Path, false).Contains("Esc") &&
-                  GradeInput.Prompt(GradeStep.Path, false).Contains("right click"), "GR-15 keys named", "");
-            Check(!GradeInput.Prompt(GradeStep.Empty, false).Contains("undo"), "GR-15 no undo of a built track", GradeInput.Prompt(GradeStep.Empty, false));
-            Check(GradeInput.Prompt(GradeStep.Path, true).StartsWith("Release"), "GR-15 drag prompt", "");
+            Check(GradeInput.PromptKey(GradeStep.Path, true) == "PROMPT_DRAG" && GradeInput.PromptKey(GradeStep.Empty, false) == "PROMPT_EMPTY", "GR-15 prompt keys", "");
 
             // GR-15d Delete mode (field test 2026-10-26b): right click / Esc only leave the mode, in any step but Applying, whatever is
             // placed; the two-click confirm; the pick is point in outline.
@@ -563,8 +566,81 @@ namespace GradeBatch
             Check(GradeDeleteInput.Pick(rings, new float2(105, 40)) == 1, "GR-15d pick the branch", "");
             Check(GradeDeleteInput.Pick(rings, new float2(50, 20)) == -1, "GR-15d pick outside", "");
             Check(GradeDeleteInput.Pick(null, new float2(0, 0)) == -1, "GR-15d pick no tracks", "");
-            Check(GradeDeleteInput.Prompt(0, 0).StartsWith("Click again to delete") && GradeDeleteInput.Prompt(0, -1).Contains("right click: leave") &&
-                  GradeDeleteInput.Prompt(-1, -1).Contains("right click: leave"), "GR-15d prompts", GradeDeleteInput.Prompt(0, 0));
+            Check(GradeDeleteInput.PromptKey(0, 0) == "PROMPT_DEL_ARMED" && GradeDeleteInput.PromptKey(0, -1) == "PROMPT_DEL_HOVER" &&
+                  GradeDeleteInput.PromptKey(-1, -1) == "PROMPT_DEL_NONE", "GR-15d prompts", GradeDeleteInput.PromptKey(0, 0));
+        }
+
+        private static string RepoFile(string rel)
+        {
+            for (string dir = AppContext.BaseDirectory; !string.IsNullOrEmpty(dir); dir = Path.GetDirectoryName(dir))
+            {
+                string p = Path.Combine(dir, rel.Replace('/', Path.DirectorySeparatorChar));
+                if (File.Exists(p))
+                    return p;
+            }
+            return null;
+        }
+
+        /// <summary>GR-23: the cat track tool's player text (LocaleEN SkiResort.CatTrack.*, the LP-31 idea of the lift tool): every key the tool
+        /// and its tooltip can show exists, reads as plain sentences (at most 25 words, no em dash, no log syntax, no ids), names only the
+        /// {ARG}s the code passes, and no key is stale.</summary>
+        private static void PlayerText()
+        {
+            const string W = "GR-23";
+            string locPath = RepoFile("mod/SkiResortMod/LocaleEN.cs");
+            string toolPath = RepoFile("mod/SkiResortMod/Systems/CatTrackGradeToolSystem.cs");
+            string purePath = RepoFile("mod/SkiResortMod/Systems/CatTrackGrade.cs");
+            if (!Check(locPath != null && toolPath != null && purePath != null, W, "LocaleEN.cs or the tool sources not found"))
+                return;
+            string prefix = GradeMsg.Prefix;
+            var loc = new Dictionary<string, string>();
+            foreach (Match m in new Regex("\\{ \"" + Regex.Escape(prefix) + "([^\"]+)\", \"((?:[^\"\\\\]|\\\\.)*)\" \\}").Matches(File.ReadAllText(locPath)))
+                loc[m.Groups[1].Value] = m.Groups[2].Value;
+            // The keys the code shows: every GradeMsg.Of("KEY" in the tool and the pure file, plus what the prompt functions return.
+            var used = new SortedSet<string>();
+            foreach (string path in new[] { toolPath, purePath })
+                foreach (Match m in new Regex("GradeMsg\\.Of\\(\"([A-Z_]+)\"").Matches(File.ReadAllText(path)))
+                    used.Add(m.Groups[1].Value);
+            foreach (GradeStep st in Enum.GetValues(typeof(GradeStep)))
+                foreach (bool drag in new[] { false, true })
+                    used.Add(GradeInput.PromptKey(st, drag));
+            foreach (var ha in new[] { (-1, -1), (0, -1), (0, 0), (1, 0) })
+                used.Add(GradeDeleteInput.PromptKey(ha.Item1, ha.Item2));
+            foreach (GradeGuardKind g in Enum.GetValues(typeof(GradeGuardKind)))
+                if (!GradeGuards.Reason(g).IsEmpty)
+                    used.Add(GradeGuards.Reason(g).Key);
+            var args = new HashSet<string> { "LENGTH", "MAX", "LIMIT", "CUT", "FILL", "SHORT" };
+            int worst = 0;
+            foreach (string key in used)
+            {
+                if (!Check(loc.TryGetValue(key, out string text), W, prefix + key + " is shown but missing from LocaleEN"))
+                    continue;
+                int words = text.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries).Length;
+                worst = Math.Max(worst, words);
+                Check(words <= 25, W, key + " has " + words + " words (at most 25): " + text);
+                Check(text.IndexOf('\u2014') < 0 && !text.Contains("\\u2014"), W, key + " has an em dash: " + text);
+                Check(!Regex.IsMatch(text, "\\[[A-Za-z:]+\\]|\\d+\\.\\d|Grade \\[|entity|texel|heightmap|\\bguard\\b|\\bm3\\b|\\bsee the log"), W, key + " reads like a log: " + text);
+                string low = text.ToLowerInvariant();
+                foreach (string brit in new[] { "colour", "metre", "centre", "grey" })
+                    Check(!low.Contains(brit), W, key + " is not US English: " + brit);
+                foreach (Match a in Regex.Matches(text, "\\{([A-Z]+)\\}"))
+                    Check(args.Contains(a.Groups[1].Value), W, key + " names {" + a.Groups[1].Value + "}, which the code never passes");
+            }
+            foreach (string key in loc.Keys)
+                Check(used.Contains(key), W, prefix + key + " in LocaleEN is never shown (stale)");
+            Console.WriteLine($"GR-23 cat track player text: {used.Count} key(s) shown, longest {worst} words");
+
+            // The plan line follows the plan: every arg it passes is one a text names; a gentle track reads PLAN, a steep one PLAN_STEEP.
+            var p = new GradeParams();
+            var gentle = Solve(Line(new float2(0, 0), new float2(200, 0)), xz => 900f + 0.05f * xz.x, p);
+            GradeMsg pm = GradeInput.PlanMsg(gentle.Path, gentle.Prof, gentle.Raster, p);
+            Check(pm.Key == "PLAN" && loc.TryGetValue("PLAN", out string planText) && pm.Args.All(a => planText.Contains("{" + a.Name + "}")), W + " plan", pm.Signature);
+            GradeMsg nr = GradeInput.PlanMsg(gentle.Path, gentle.Prof, null, p);
+            Check(nr.Key == "PLAN_LENGTH" && loc.TryGetValue("PLAN_LENGTH", out string lenText) && nr.Args.All(a => lenText.Contains("{" + a.Name + "}")), W + " plan, no raster", nr.Signature);
+            var steep = Solve(Line(new float2(0, 0), new float2(200, 0)), xz => 900f + 0.40f * xz.x, p);
+            GradeMsg sm = GradeInput.PlanMsg(steep.Path, steep.Prof, steep.Raster, p);
+            Check(sm.Key == "PLAN_STEEP" && loc.TryGetValue("PLAN_STEEP", out string steepText) && sm.Args.All(a => steepText.Contains("{" + a.Name + "}")), W + " plan, steep", sm.Signature);
+            Check(GradeInput.PlanMsg(null, null, null, p).IsEmpty, W + " no plan", "no path, no line");
         }
 
 

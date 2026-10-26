@@ -40,7 +40,7 @@ One input model for every lift type. The prompt at the top of the screen names w
 
 - **Start:** click a station, a loose line end or open ground; then click the other end.
 - **Add a tower:** click the line. A tower you add is pinned.
-- **Move a tower:** drag it. It is pinned where you drop it (snapped to a 5 m step, tram 10 m). Every pinned tower stays exactly where it is; the planner refits only the unpinned towers between them, and still sets every tower's height. A pin closer than 10 m (tram 40 m) to a station or another pin is refused. Pinned towers show a blue inner ring.
+- **Move a tower:** drag it. It is pinned where you drop it (snapped to a 5 m step, tram 10 m). Every pinned tower stays exactly where it is; the planner refits only the unpinned towers between them, and still sets every tower's height. A pin closer than 10 m to a station, or closer than 10 m (tram 40 m) to another pin, is refused. Pinned towers show a blue inner ring.
 - **Remove a tower:** drag it off the line and release. A pinned tower becomes unpinned; the planner puts a tower back near it only if the line needs one there.
 - **Step back:** right click undoes one action. With nothing left to undo it closes the tool.
 - **Build:** **Enter**. **Esc** closes the tool without building.
@@ -50,7 +50,8 @@ One input model for every lift type. The prompt at the top of the screen names w
   - **Red:** below the minimum. The carriers would be too low; the tower ring is red too (*short*).
   - **Violet:** the cable is more than **30 m** above the ground (chairlifts and gondolas; the tram has no limit); the tower ring is violet.
   - **Tooltip:** span lengths and the lowest carrier height; it turns to a warning while any span is red or violet. Add or move a tower to fix it. The tool does not block building a flagged line.
-- **Planner:** fits tower heights to the terrain and uses the fewest towers the lift type allows. Option *Plan lift towers*, default on.
+- **Planner:** fits tower heights to the terrain with few towers. Next to a station it prefers the shortest tower, and may add one tower to get shorter ones there. It plans within the steepest span the line allows. Option *Plan lift towers*, default on.
+- **Too steep:** a span steeper than the line type allows is drawn in red and the tower ring turns red. Add or move a tower, or change the route.
 - **Tower numbers:** every tower shows its number, counted up the line from the base station, 1 to 200, then back to 1. All chairs show the same number.
 - **Already-lined station:** refused. Bulldoze a section first, then click its two loose ends.
 
@@ -74,7 +75,7 @@ Limits per lift type:
 - **Longest tower span:** fixed-grip **90 m**, detachable **245 m**, gondola **245 m**, tram **3,000 m** (the length of the longest real free spans, such as Whistler's Peak 2 Peak). The planner adds towers to stay under it, and also wherever the sagging rope would come too close to the ground.
 - **Towers:** height follows terrain; concrete foundations; grounding matches vanilla power pylons on sensible lines. Heights come in steps: see [Lift Types](/reference/lifts/).
 - **Canyons and cliffs:** the planner puts towers where the ground rises toward the cable and uses tall towers where they let a span reach farther, so crossings take fewer towers. Carriers stay at least **3 m** above the ground (tram **5 m**); chairlift and gondola cable stays at most **30 m** above it. If no mix of tower heights clears a span, the preview shows red or violet (see Preview above): add or move a tower, or route the line elsewhere.
-- **Stations:** sit on the slope as placed; no terrain flattening. The one exception is the aerial tram's base terminal, which levels a flat pad by design. Adjust the ground with the game's terraforming, or reposition a station with Move It.
+- **Stations:** sit on the slope as placed; no terrain flattening. The one exception is the aerial tram's base terminal, which levels a flat pad by design. On steep ground a station can end up partly in the hillside, so the chairs leave it below the ground; the tool then shows a notice and still builds. Raise the station with Move It, or build on flatter ground. Adjust the ground with the game's terraforming, or reposition a station with Move It.
 
 ## Power
 

@@ -9,8 +9,8 @@
 import { BUILD_ITEM_IDS, RUN_KIND } from "../bindings";
 import type { BuildItem, BuildItemId, RunKind } from "../bindings";
 
-/** C# BuildItemKind (SkiCatalog.cs) in lower camel case: Sign, Lodge, School, Patrol, Station, Line, Run. */
-export type BuildItemKind = "sign" | "lodge" | "school" | "patrol" | "station" | "line" | "run";
+/** C# BuildItemKind (SkiCatalog.cs) in lower camel case: Sign, Lodge, School, Patrol, Station, Line, Run, Fence. */
+export type BuildItemKind = "sign" | "lodge" | "school" | "patrol" | "station" | "line" | "run" | "fence";
 
 /** One row of the ONE build-item table, as C# holds it (gate R16 compares row i with C# row i). */
 export interface BuildItemMeta {
@@ -51,6 +51,7 @@ export const BUILD_ITEMS: readonly BuildItemMeta[] = [
   { id: "runSnowmaking", kind: "run", liftType: "", runKind: 1 },
   { id: "runNight", kind: "run", liftType: "", runKind: 2 },
   { id: "runCatTrack", kind: "run", liftType: "", runKind: 4 },
+  { id: "safetyFence", kind: "fence", liftType: "", runKind: -1 },
 ];
 
 const ICON_SIGN = "assetdb://global/b0f0f5932ab14cacca5ab8afef91f6dc"; // SkiResortGate.Prefab:48
@@ -88,6 +89,8 @@ export const BUILD_ITEM_ICON: Readonly<Record<BuildItemId, string>> = {
   runSnowmaking: "assetdb://global/bc121f42eed0fd6829eacccc5b69b4f8", // SkiRunSnowmakingA.Prefab:65
   runNight: "assetdb://global/a239eef8d124c3ec467a5d8afaa7e447", // SkiRunNightA.Prefab:65
   runCatTrack: "assetdb://global/746a4b7f2c2ea595edf43d1ecc8a8520", // SkiRunCatTrackA.Prefab:65 (SkiRunCatTrackA.png)
+  // The vanilla fence icon the prefab itself carries (SkiSafetyFence.Prefab UIObject m_Icon); a Media/ path, drawn like Media/Glyphs/*.svg
+  safetyFence: "Media/Game/Icons/Fences/TallIndustrialChainLinkFence.svg",
 };
 
 /** Four groups in build order (gate R16 checks every id appears exactly once). Group 1's lodge tiers and group 3's
@@ -102,6 +105,7 @@ export const BUILD_GROUPS: ReadonlyArray<readonly BuildItemId[]> = [
     "baseStationTram", "topStationTram", "liftTram",
   ],
   ["runNatural", "runGroomed", "runSnowmaking", "runNight", "runCatTrack"],
+  ["safetyFence"],   // the Runs tab's decor: the safety net fence (a net prefab drawn like a path)
 ];
 
 /** The step number drawn on the lift tiles (stations first, then the line), for every lift type. */

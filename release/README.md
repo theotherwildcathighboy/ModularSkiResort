@@ -7,6 +7,9 @@ the game. Two build artifacts, uploaded as ONE hybrid Paradox Mods item (DECISIO
    the game's Editor publishing flow (produces the `.cok`). OPEN ITEM before first upload:
    verify our hand-made prefabs (stations, terminal towers, placeholder family, net prefabs)
    are included by the Editor's packaging — see DECISIONS.md "Packaging".
+   **Leave `ExampleBakedAlphaFence` out of the package.** `ImportedDatac030ee3ff256df91` also holds that vanilla
+   example (about 3 GB, not ours). In the Editor's package step, add only our assets (the list in
+   `tools/shipped-prefabs.json`); never select the whole folder. Check the .cok size before upload.
 2. **Code mod** (`mod/SkiResortMod`) — built via the csiimod template's
    PublishNewMod/PublishNewVersion profiles; listing metadata goes in
    `Properties/PublishConfiguration.xml`, drawing on the files here.

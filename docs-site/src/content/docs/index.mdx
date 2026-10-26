@@ -46,9 +46,9 @@ import Shot from '../../components/Shot.astro';
 1. Subscribe to **Modular Ski Resort** on Paradox Mods. *(The link goes here at the first upload.)*
 2. **Dependencies:**
    - **Required mods:** none. Everything works on the base game.
-   - **Recommended:** Move It (moves and aligns buildings and lift stations).
+   - **Highly recommended:** Move It. Lift stations sit on the slope as placed and can end up partly in the hillside; Move It lifts them out.
+   - **Recommended:** Write Everywhere. With it the Welcome Sign shows your ski area's name; without it the sign keeps its plain "SKI AREA" header over a blank name board.
    - **Optional:** Tourism Overhaul, Realistic Workplaces and Households, Realistic Path Finding and other trip-planner mods. The mod detects them for labels and adjusts nothing. Those mods are maintained by others; the author does not control their updates or their compatibility.
-   - **Optional:** Write Everywhere. If installed, the Welcome Sign shows your ski area's name.
 3. **Access:** the **Ski Resort** button at the top left. Nothing is added to the game's build menus.
 
 ## Compatibility
@@ -56,6 +56,18 @@ import Shot from '../../components/Shot.astro';
 - **Game version:** Cities: Skylines II 1.6.2f1
 - **Tested with:** Move It, Tourism Overhaul, Realistic Workplaces and Households, Realistic Path Finding (unverified)
 - **Partly incompatible:** Realistic Trips. It replaces the game's own leisure and citizen-behavior systems, which ski days need, so with it installed the resort sends no skiers of its own (the panel shows a notice). Lifts, runs, snow and the buildings still work.
+
+## Known Limitations
+
+- **Riders:** chairs and cabins move empty. Skiers are counted, not simulated.
+- **Wind:** the cable moves in the wind; the chairs do not sway with it.
+- **Chair numbers:** towers are numbered; chairs all show the same number.
+- **Stations:** no terrain flattening, so a station can sit partly in the hillside on steep ground (Move It fixes it). The aerial tram's base levels its own pad.
+- **Summer:** chairlifts and gondolas stop when no run is open. The aerial tram keeps running as sightseeing.
+- **Power:** a lift needs a low-voltage line at its base station. Do not connect city high-voltage lines to a lift (untested).
+- **Uninstall:** remove all lifts before uninstalling. What is left behind is untested.
+- **Quick runs:** experimental. It may change, and it can be turned off in Options.
+- **Saves:** start from a new city. Saves from test builds are not supported.
 
 ## Ideas, Not Promises
 

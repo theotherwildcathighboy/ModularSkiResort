@@ -19,6 +19,27 @@ namespace AutoGenBatch
             // LinkMeters is one constant (DECISIONS 405 follow-up)
             Check(SkiRunAutoPlanner.LinkMeters == LiftServedRule.LinkMeters, W, "planner LinkMeters must alias LiftServedRule.LinkMeters");
 
+            // The hub's "lines dropped" buckets (contract 20): every reason lands in one bucket or none, the sums add up
+            {
+                var hist = new int[(int)AutoReject.Count];
+                for (int i = 1; i < hist.Length; i++)
+                    hist[i] = i;   // reason i dropped i lines
+                int[] buckets = QuickRunsRules.RejectCounts(hist);
+                int dropped = 0, expected = 0;
+                for (int i = 0; i < buckets.Length; i++)
+                    dropped += buckets[i];
+                for (int i = 1; i < hist.Length; i++)
+                    if ((AutoReject)i != AutoReject.Duplicate)
+                        expected += i;
+                Check(buckets.Length == QuickRunsRules.RejectBuckets && dropped == expected, W,
+                    $"reject buckets sum {dropped}, want {expected} (every reason but Duplicate)");
+                Check(buckets[0] == (int)AutoReject.TooShort + (int)AutoReject.MergeStub && buckets[2] == (int)AutoReject.Region, W,
+                    "TooShort + MergeStub are bucket 0, Region is bucket 2");
+                Check(QuickRunsRules.RejectBucket(AutoReject.Duplicate) == -1 && QuickRunsRules.RejectBucket(AutoReject.Kept) == -1, W,
+                    "Duplicate and Kept are not drops");
+                Check(QuickRunsRules.RejectCounts(null).Length == QuickRunsRules.RejectBuckets, W, "a null histogram gives zeros");
+            }
+
             // Readout
             QuickRegionReadout r = QuickRunsRules.Readout(new[] { new float2(0, 0), new float2(10, 0) }, 0, 10, 1e6f, 4e4f);
             Check(r.State == QuickRegionState.Open, W, "2 corners read Open, got " + r.State);

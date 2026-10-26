@@ -367,6 +367,7 @@ namespace SkiResortMod.Systems
             AssertType("TypeCarrier", SkiCatalog.TypeCarrier, nameof(StaticObjectPrefab));
             AssertType("TypeBuilding", SkiCatalog.TypeBuilding, nameof(BuildingPrefab));
             AssertType("TypeSurface", SkiCatalog.TypeSurface, nameof(SurfacePrefab));
+            AssertType("TypeFence", SkiCatalog.TypeFence, nameof(NetFencePrefab));
             IReadOnlyList<string> problems = SkiCatalog.Problems;
             for (int i = 0; i < problems.Count; i++)
                 Mod.Log.Error("!!! PrefabCatalog: SkiCatalog problem — " + problems[i] +
@@ -1076,6 +1077,7 @@ namespace SkiResortMod.Systems
                 case CatalogKind.Run: return "run";
                 case CatalogKind.School: return "school";
                 case CatalogKind.Patrol: return "patrol";
+                case CatalogKind.Fence: return "fence";
                 default: return kind.ToString();
             }
         }

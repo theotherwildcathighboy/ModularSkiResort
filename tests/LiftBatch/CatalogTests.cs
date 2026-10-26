@@ -77,7 +77,7 @@ namespace LiftBatch
             }
         }
 
-        private const string L = "PowerLinePrefab", O = "StaticObjectPrefab", B = "BuildingPrefab", S = "SurfacePrefab";
+        private const string L = "PowerLinePrefab", O = "StaticObjectPrefab", B = "BuildingPrefab", S = "SurfacePrefab", F = "NetFencePrefab";
 
         /// <summary>LITERALS, NAMES-block order. Save identity: never edit a Name. All names are Expected (nothing pending).</summary>
         private static readonly NameOracle[] Frozen =
@@ -113,7 +113,8 @@ namespace LiftBatch
             new NameOracle("SkiRunGroomedA", S, CatalogKind.Run, "runGroomed", true),
             new NameOracle("SkiRunSnowmakingA", S, CatalogKind.Run, "runSnowmaking", true),
             new NameOracle("SkiRunNightA", S, CatalogKind.Run, "runNight", true),
-            new NameOracle("SkiRunCatTrackA", S, CatalogKind.Run, "runCatTrack", true), // 32 names, 27 items
+            new NameOracle("SkiRunCatTrackA", S, CatalogKind.Run, "runCatTrack", true),
+            new NameOracle("SkiSafetyFence", F, CatalogKind.Fence, "safetyFence", true), // 33 names, 28 items
         };
 
         // ================================================================== CT-1
@@ -136,7 +137,7 @@ namespace LiftBatch
         {
             const string W = "catalog-names";
             IReadOnlyList<CatalogName> all = SkiCatalog.AllPrefabNames();
-            Eq(32, all.Count, W, "AllPrefabNames().Count"); // 30 + SkiRunCatTrackA + SkiResortGateAngled
+            Eq(33, all.Count, W, "AllPrefabNames().Count"); // 30 + SkiRunCatTrackA + SkiResortGateAngled + SkiSafetyFence
             Check(ReferenceEquals(all, SkiCatalog.AllPrefabNames()), W, "AllPrefabNames() is not the cached list (allocates per call)");
             var names = new HashSet<string>(StringComparer.Ordinal);
             var items = new HashSet<string>(StringComparer.Ordinal);
@@ -167,14 +168,17 @@ namespace LiftBatch
                     case CatalogKind.Run:
                         want = "SurfacePrefab";
                         break;
+                    case CatalogKind.Fence:
+                        want = "NetFencePrefab";
+                        break;
                     default:
                         want = "?";
                         break;
                 }
                 Check(n.TypeName == want, W, at + ": kind " + n.Kind + " has type " + n.TypeName + ", want " + want);
                 Check(n.TypeName == SkiCatalog.TypeLine || n.TypeName == SkiCatalog.TypeCarrier ||
-                      n.TypeName == SkiCatalog.TypeBuilding || n.TypeName == SkiCatalog.TypeSurface, W,
-                      at + ": type " + n.TypeName + " is not one of the four");
+                      n.TypeName == SkiCatalog.TypeBuilding || n.TypeName == SkiCatalog.TypeSurface || n.TypeName == SkiCatalog.TypeFence, W,
+                      at + ": type " + n.TypeName + " is not one of the five");
                 if (n.BuildItemId != null)
                 {
                     withItem++;
@@ -183,20 +187,23 @@ namespace LiftBatch
                 if (n.Expected)
                     expected++;
             }
-            Eq(27, withItem, W, "names with a build item id (the 27 strip items: 25 + runCatTrack, T54 probe 1, + signAngled, DECISIONS 422)");
-            Eq(32, expected, W, "expected names");
+            Eq(28, withItem, W, "names with a build item id (the 28 strip items: 25 + runCatTrack, T54 probe 1, + signAngled, DECISIONS 422, + safetyFence)");
+            Eq(33, expected, W, "expected names");
             Eq(0, all.Count - expected, W, "pending names");
-            Eq(32, SkiCatalog.ExpectedNameCount, W, "ExpectedNameCount");
+            Eq(33, SkiCatalog.ExpectedNameCount, W, "ExpectedNameCount");
             Eq(0, SkiCatalog.PendingNameCount, W, "PendingNameCount");
             // The four type constants are the Game type names (the system asserts nameof() at OnCreate; literal here).
             Eq("PowerLinePrefab", SkiCatalog.TypeLine, W, "TypeLine");
             Eq("StaticObjectPrefab", SkiCatalog.TypeCarrier, W, "TypeCarrier");
             Eq("BuildingPrefab", SkiCatalog.TypeBuilding, W, "TypeBuilding");
             Eq("SurfacePrefab", SkiCatalog.TypeSurface, W, "TypeSurface");
+            Eq("NetFencePrefab", SkiCatalog.TypeFence, W, "TypeFence");
             // Append-only enums.
             Eq((byte)7, (byte)CatalogKind.School, W, "CatalogKind.School (append-only)");
             Eq((byte)8, (byte)CatalogKind.Patrol, W, "CatalogKind.Patrol (append-only)");
             Eq((byte)6, (byte)CatalogKind.Run, W, "CatalogKind.Run (append-only)");
+            Eq((byte)9, (byte)CatalogKind.Fence, W, "CatalogKind.Fence (append-only)");
+            Eq((byte)7, (byte)BuildItemKind.Fence, W, "BuildItemKind.Fence (append-only)");
             Eq((byte)1, (byte)MoverKind.Shuttle, W, "MoverKind.Shuttle");
             Eq((byte)1, (byte)ServeRuleKind.TerminalsOnly, W, "ServeRuleKind.TerminalsOnly");
             Eq((byte)2, (byte)LodgeRoadRule.None, W, "LodgeRoadRule.None");
@@ -788,6 +795,7 @@ namespace LiftBatch
             new object[] { "runSnowmaking", "SkiRunSnowmakingA", BuildItemKind.Run, "", 1 },
             new object[] { "runNight", "SkiRunNightA", BuildItemKind.Run, "", 2 },
             new object[] { "runCatTrack", "SkiRunCatTrackA", BuildItemKind.Run, "", 4 },
+            new object[] { "safetyFence", "SkiSafetyFence", BuildItemKind.Fence, "", -1 },
         };
 
         private static void BuildItems()
@@ -895,7 +903,7 @@ namespace LiftBatch
                 parsed.Add(m.Groups[1].Value + "|" + m.Groups[2].Value + "|" + (m.Groups[3].Success ? m.Groups[3].Value : "") + "|" +
                            (m.Groups[4].Success ? "pending" : ""));
             }
-            Eq(32, parsed.Count, W, "names between the markers");
+            Eq(33, parsed.Count, W, "names between the markers");
             IReadOnlyList<CatalogName> all = SkiCatalog.AllPrefabNames();
             var expected = new List<string>();
             for (int i = 0; i < all.Count; i++)
@@ -1357,6 +1365,7 @@ namespace LiftBatch
                   "StationItemOf out of range answered");
             Eq("PowerLinePrefab", SkiCatalog.TypeNameOf(BuildItemKind.Line), W, "TypeNameOf(Line)");
             Eq("SurfacePrefab", SkiCatalog.TypeNameOf(BuildItemKind.Run), W, "TypeNameOf(Run)");
+            Eq("NetFencePrefab", SkiCatalog.TypeNameOf(BuildItemKind.Fence), W, "TypeNameOf(Fence)");
             foreach (BuildItemKind k in new[] { BuildItemKind.Sign, BuildItemKind.Lodge, BuildItemKind.School, BuildItemKind.Patrol, BuildItemKind.Station })
                 Eq("BuildingPrefab", SkiCatalog.TypeNameOf(k), W, "TypeNameOf(" + k + ")");
             foreach (BuildItemDef it in SkiCatalog.BuildItems)

@@ -1,13 +1,13 @@
-// Mouse tooltip of the lift-line tool: the prompt for the current step, a refusal notice, the plan line (towers, member mix,
-// spans, clearance) and, over the line, the hovered tower or span. The overlay cannot draw text, so span lengths live here.
-// Text is LocalizedString.Value(text), never IdWithFallback(fixedId, text): the frontend's translate cache is keyed by the id
-// alone (Cities2_Data/Content/Game/UI/index.js `function dc()`), so a fixed id keeps the first text it was given. Value() has
-// a null id and renders the text itself (index.js `xc`). One INFO log line per prompt change, so a field log shows the prompt.
+// Mouse tooltip of the lift-line tool: the prompt for the current step, a refusal notice, the plan line (tower count, length and
+// what is wrong, in words) and, over a tower, its height and clearance. The overlay cannot draw text, so the height lives here.
+// Player text is a LocaleEN SkiResort.LiftTool.* key with {ARG} values (LocalizedString.Id(key, args), like SkiRunTooltipSystem);
+// never IdWithFallback(fixedId, text): the frontend's translate cache is keyed by the id alone (Cities2_Data/Content/Game/UI/index.js
+// `function dc()`), so a fixed id with changing text keeps the first text. The log keeps the full detail (LiftLineEdit.Describe).
+// One INFO log line per prompt change, so a field log shows the prompt.
 // Mod.cs: UpdateAt UITooltip (the TooltipSystemBase phase). Tooltips draw only while the mouse is not over the UI
 // (TooltipUISystem.OnUpdate: !mouseOverUI). One "!!!" ERROR disables it until the next load.
 
 using System;
-using System.Globalization;
 using Game.UI.Localization;
 using Game.UI.Tooltip;
 using Game.UI.Widgets;
@@ -19,7 +19,8 @@ namespace SkiResortMod.Systems
     {
         private LiftLineToolSystem m_Tool;
         private StringTooltip m_Prompt, m_Notice, m_Plan, m_Hover;
-        private string m_LastPrompt, m_LastNotice, m_LastPlan, m_LastHover, m_LoggedPrompt;
+        private LocalizedString m_LastPrompt, m_LastNotice, m_LastPlan, m_LastHover;
+        private string m_LoggedPrompt;
         private bool m_Disabled;
 
         protected override void OnCreate()
@@ -43,25 +44,23 @@ namespace SkiResortMod.Systems
             try
             {
                 LiftLineEdit e = m_Tool.Edit;
-                string prompt = LiftLineInput.Prompt(m_Tool.Step, m_Tool.PendingTypeName, m_Tool.Dragging);
-                if (m_Tool.DragOff)
-                    prompt = "Release here: remove this tower · move back onto the line to keep it · right click: cancel";
-                if (!string.Equals(prompt, m_LoggedPrompt, StringComparison.Ordinal))
+                string key = LiftLineInput.PromptKey(m_Tool.Step, m_Tool.PendingTypeName, m_Tool.Dragging, m_Tool.DragOff);
+                if (!string.Equals(key, m_LoggedPrompt, StringComparison.Ordinal))
                 {
-                    m_LoggedPrompt = prompt;
-                    Mod.Log.Info($"LiftLine [tooltip]: step {m_Tool.Step} — \"{prompt}\"");
+                    m_LoggedPrompt = key;
+                    Mod.Log.Info($"LiftLine [tooltip]: step {m_Tool.Step}, prompt {key}");
                 }
-                Show(m_Prompt, ref m_LastPrompt, prompt);
-                string notice = m_Tool.Notice;
-                if (notice != null)
-                    Show(m_Notice, ref m_LastNotice, notice);
+                Show(m_Prompt, ref m_LastPrompt, LiftLineToolSystem.T(key, ("TYPE", TypeText(m_Tool.PendingTypeName))));
+                LocalizedString? notice = m_Tool.Notice;
+                if (notice.HasValue)
+                    Show(m_Notice, ref m_LastNotice, notice.Value);
                 if (e?.Plan != null)
                 {
-                    Show(m_Plan, ref m_LastPlan, e.Describe());
-                    m_Plan.color = e.Plan.Clear ? TooltipColor.Success : TooltipColor.Warning;
-                    string hover = HoverText(e);
-                    if (hover != null)
-                        Show(m_Hover, ref m_LastHover, hover);
+                    Show(m_Plan, ref m_LastPlan, PlanText(e.Plan, out bool clear));
+                    m_Plan.color = clear ? TooltipColor.Success : TooltipColor.Warning;
+                    LocalizedString? hover = HoverText(e);
+                    if (hover.HasValue)
+                        Show(m_Hover, ref m_LastHover, hover.Value);
                 }
             }
             catch (Exception ex)
@@ -71,31 +70,40 @@ namespace SkiResortMod.Systems
             }
         }
 
-        private string HoverText(LiftLineEdit e)
+        /// <summary>The lift type's name for {TYPE} (TYPE[id]; TYPE[any] while no type is known).</summary>
+        private static LocalizedString TypeText(string typeId) =>
+            LocalizedString.Id(LiftLineToolSystem.LocPrefix + "TYPE[" + (LiftLineInput.KnownType(typeId) ? typeId : "any") + "]");
+
+        /// <summary>The plan line: tower count and length, and the first thing wrong in words (the overlay shows where): a span below
+        /// the floor (red), an edge too steep for the engine (red), a span above the max rope height (purple).</summary>
+        internal static LocalizedString PlanText(LiftTowerPlan plan, out bool clear)
+        {
+            string key = LiftLineInput.PlanKey(plan, out float length);
+            clear = key == "PLAN_CLEAR";
+            return LiftLineToolSystem.T(key, ("TOWERS", LiftLineToolSystem.N(plan.LineTowers)), ("LENGTH", LiftLineToolSystem.N(length)));
+        }
+
+        /// <summary>Over a tower: its number, its height (the ladder member's tower top above its base) and the lowest chair or cabin
+        /// over the ground in its two spans.</summary>
+        private LocalizedString? HoverText(LiftLineEdit e)
         {
             LiftTowerPlan plan = e.Plan;
             int t = m_Tool.HoverTower;
             if (t <= 0 || t >= plan.Nodes.Length - 1)
                 return null;
-            LiftPlanNode n = plan.Nodes[t];
-            LiftPlanSpan left = plan.Spans[t - 1], right = plan.Spans[t];
-            return plan.Constants.Ladder[n.Member].Name.Replace("SkiLiftTower", string.Empty).Replace("SkiTramTower", "T") +
-                   " at " + F(n.AlongM) + " m" + (e.IsPinned(n.AlongM) ? " (pinned)" : string.Empty) + "; spans " + F(left.LengthM) +
-                   " / " + F(right.LengthM) + " m; lowest carrier " + F1(math.min(left.MinChairAboveGroundM, right.MinChairAboveGroundM)) +
-                   " m above the ground · drag to move";
+            string key = LiftLineInput.TowerKey(plan, t, e.IsPinned(plan.Nodes[t].AlongM), out float height, out float clear);
+            return LiftLineToolSystem.T(key, ("N", LiftLineToolSystem.N(t)), ("COUNT", LiftLineToolSystem.N(plan.LineTowers)),
+                ("HEIGHT", LiftLineToolSystem.N(height)), ("CLEAR", LiftLineToolSystem.N(clear)));
         }
 
-        private void Show(StringTooltip tip, ref string last, string text)
+        private void Show(StringTooltip tip, ref LocalizedString last, LocalizedString text)
         {
-            if (!string.Equals(text, last, StringComparison.Ordinal))
+            if (!text.Equals(last))
             {
                 last = text;
-                tip.value = LocalizedString.Value(text);   // never a fixed id (the frontend caches by id)
+                tip.value = text;
             }
             AddMouseTooltip(tip);
         }
-
-        private static string F(float v) => v.ToString("F0", CultureInfo.InvariantCulture);
-        private static string F1(float v) => v.ToString("F1", CultureInfo.InvariantCulture);
     }
 }

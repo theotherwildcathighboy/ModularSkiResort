@@ -16,7 +16,7 @@ namespace SkiResortMod.Systems
     public enum StationRole : byte { Base = 0, Top = 1 }
 
     /// <summary>APPEND ONLY.</summary>
-    public enum CatalogKind : byte { Line = 0, Carrier = 1, Marker = 2, Station = 3, Lodge = 4, Sign = 5, Run = 6, School = 7, Patrol = 8 }
+    public enum CatalogKind : byte { Line = 0, Carrier = 1, Marker = 2, Station = 3, Lodge = 4, Sign = 5, Run = 6, School = 7, Patrol = 8, Fence = 9 }
 
     /// <summary>SkiPrefabCatalogSystem's next step for a query (NextAction; LiftBatch CT-10).</summary>
     public enum CatalogAction : byte { Serve = 0, Validate = 1, Resolve = 2 }
@@ -33,7 +33,7 @@ namespace SkiResortMod.Systems
     public enum LodgeRoadRule : byte { Base = 0, Mountain = 1, None = 2 }
 
     /// <summary>The build strip's item kinds (bindings.ts BuildItemMeta.kind, lower camel). APPEND ONLY.</summary>
-    public enum BuildItemKind : byte { Sign = 0, Lodge = 1, School = 2, Patrol = 3, Station = 4, Line = 5, Run = 6 }
+    public enum BuildItemKind : byte { Sign = 0, Lodge = 1, School = 2, Patrol = 3, Station = 4, Line = 5, Run = 6, Fence = 7 }
 
     /// <summary>One prefab name of the catalog: the PrefabID (type + name), its hub build item id and its Expected flag.</summary>
     public readonly struct CatalogName
@@ -467,6 +467,7 @@ namespace SkiResortMod.Systems
         public const string TypeCarrier = "StaticObjectPrefab";
         public const string TypeBuilding = "BuildingPrefab";
         public const string TypeSurface = "SurfacePrefab";
+        public const string TypeFence = "NetFencePrefab";
 
 
         /// <summary>Every prefab name, once. tools/preflight.ps1 (NAMES) and tests/LiftBatch CatalogTests (CT-8, CT-13) parse the lines
@@ -506,6 +507,7 @@ namespace SkiResortMod.Systems
             public const string RunSnowmaking = "SkiRunSnowmakingA"; // SurfacePrefab, item runSnowmaking
             public const string RunNight = "SkiRunNightA"; // SurfacePrefab, item runNight
             public const string RunCatTrack = "SkiRunCatTrackA"; // SurfacePrefab, item runCatTrack
+            public const string SafetyFence = "SkiSafetyFence"; // NetFencePrefab, item safetyFence
             // NAMES-END
         }
 
@@ -640,6 +642,7 @@ namespace SkiResortMod.Systems
             new BuildItemDef("runSnowmaking", Names.RunSnowmaking, BuildItemKind.Run, "", 1),
             new BuildItemDef("runNight", Names.RunNight, BuildItemKind.Run, "", 2),
             new BuildItemDef("runCatTrack", Names.RunCatTrack, BuildItemKind.Run, "", 4),
+            new BuildItemDef("safetyFence", Names.SafetyFence, BuildItemKind.Fence, "", -1),
             // BUILD-ITEMS-END
         };
 
@@ -843,7 +846,7 @@ namespace SkiResortMod.Systems
                     new RunDef(RunKind.CatTrack, Names.RunCatTrack, "runCatTrack"),
                 };
 
-                all = NameList(lifts, MarkerPrefab, stations, lodges, schools, patrols, signs, runs);
+                all = NameList(lifts, MarkerPrefab, stations, lodges, schools, patrols, signs, runs, new[] { Names.SafetyFence });
                 for (int i = 0; i < all.Count; i++)
                 {
                     if (all[i].Expected)
@@ -955,7 +958,7 @@ namespace SkiResortMod.Systems
         internal static List<CatalogName> NameList(IReadOnlyList<LiftTypeDef> lifts, string marker, IReadOnlyList<StationDef> stations,
                                                    IReadOnlyList<LodgeDef> lodges, IReadOnlyList<SchoolDef> schools,
                                                    IReadOnlyList<PatrolDef> patrols, IReadOnlyList<SignDef> signs,
-                                                   IReadOnlyList<RunDef> runs)
+                                                   IReadOnlyList<RunDef> runs, IReadOnlyList<string> fences = null)
         {
             var all = new List<CatalogName>(32);
             for (int i = 0; i < lifts.Count; i++)
@@ -979,6 +982,9 @@ namespace SkiResortMod.Systems
                 all.Add(new CatalogName(signs[i].Prefab, TypeBuilding, CatalogKind.Sign, signs[i].BuildItemId, signs[i].Expected));
             for (int i = 0; i < runs.Count; i++)
                 all.Add(new CatalogName(runs[i].Prefab, TypeSurface, CatalogKind.Run, runs[i].BuildItemId, true));
+            // Decor: the safety net fence is a net prefab (drawn like a path) with a hub tile of its own; the item id is "safetyFence"
+            for (int i = 0; fences != null && i < fences.Count; i++)
+                all.Add(new CatalogName(fences[i], TypeFence, CatalogKind.Fence, "safetyFence", true));
             return all;
         }
 
@@ -1290,6 +1296,7 @@ namespace SkiResortMod.Systems
                 case BuildItemKind.Station: return name == CatalogKind.Station;
                 case BuildItemKind.Line: return name == CatalogKind.Line;
                 case BuildItemKind.Run: return name == CatalogKind.Run;
+                case BuildItemKind.Fence: return name == CatalogKind.Fence;
                 default: return false;
             }
         }
@@ -1426,13 +1433,14 @@ namespace SkiResortMod.Systems
             return def != null ? def.BuildItemId : null;
         }
 
-        /// <summary>The PrefabID type of an item kind: Line → TypeLine, Run → TypeSurface, else TypeBuilding.</summary>
+        /// <summary>The PrefabID type of an item kind: Line → TypeLine, Run → TypeSurface, Fence → TypeFence, else TypeBuilding.</summary>
         public static string TypeNameOf(BuildItemKind kind)
         {
             switch (kind)
             {
                 case BuildItemKind.Line: return TypeLine;
                 case BuildItemKind.Run: return TypeSurface;
+                case BuildItemKind.Fence: return TypeFence;
                 default: return TypeBuilding;
             }
         }

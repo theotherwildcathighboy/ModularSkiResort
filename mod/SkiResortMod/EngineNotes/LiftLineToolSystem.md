@@ -71,7 +71,42 @@ Drawn into `OverlayRenderSystem.Buffer` at `ToolUpdate`, cleared every frame (Ov
 by the lowest carrier's floor margin (`LiftPlanDraw`: green >= 2 m, amber 0-2, red below the floor, violet above the max rope height).
 Every tower gets a ground ring colored by its spans (green clear, red a span below the floor = SHORT, violet a span above the max rope
 height = ROPE TOO HIGH), a blue inner ring when pinned, and a cross-bar at rope height sized by the member; the hovered tower is white;
-the dragged tower is a white ring at the cursor. Span lengths and the plan line are in the tooltip (`LiftLineTooltipSystem`) and in the log.
+the dragged tower is a white ring at the cursor. The plan line and the hovered tower's height are in the tooltip (`LiftLineTooltipSystem`);
+span lengths and member mix stay in the log.
+
+## Ghost preview (2026-10-26)
+In Edit the tool keeps the plan's courses standing as the game's own Temp preview: the translucent cable and tower models at their
+planned heights, with the game's error icons. Vanilla pattern (NetToolSystem.cs:6867-6916, ObjectToolSystem.cs:4041-4118): applyMode
+None on unchanged frames (Temps stay; ToolOutputSystem.cs:22-30), Clear + DestroyDefinitions + re-emit in one frame when the plan's
+`Revision` changes (old Temps are recycled, GenerateNodesSystem.cs:1397-1404, GenerateEdgesSystem.cs:675-680). Definitions without
+`Updated` generate nothing more (GenerateNodesSystem.cs:2030-2041; CleanUpSystem strips Updated, CleanUpSystem.cs:24-32). Temps render
+on MeshLayer.Outline (BatchInstanceSystem.cs:446-459, 589-609); tower sub-objects copy the owner's Temp flags (SubObjectSystem.cs:
+2832-2841). ValidationSystem checks only Temp + Updated (ValidationSystem.cs:1917, 1926-1930), so errors cost one pass per re-emit.
+Hidden while a tower is dragged; cleared on leaving Edit (the pick branch). Build clears the ghost and emits afresh (state Emitted,
+the old apply / refuse path); a refusal returns to Edit and the ghost comes back with its icons. Census, chair pins
+and the fit already handle Temp lift nets (the vanilla net tool makes the same). Park Manager has no Temp ghost (overlay only; its
+build is our emitted-then-apply path). Logs: `LiftLine [ghost]` (the first three previews, then every 25th).
+
+### Ghost cleanup on stop (2026-10-26)
+Every way out (Esc, another tool, the hub, a load) changes `ToolSystem.activeTool`; the next `ToolUpdate` disables our tool and updates
+it once, so `OnStopRunning` runs (ToolSystem.cs:312-318; a load gets there through PreDeserialize, activeTool = default,
+ToolSystem.cs:610-614). Vanilla does NOT clear on stop: ToolBaseSystem.OnStopRunning has no Temp code (:333-339), NetToolSystem has
+no OnStopRunning, and its Temps go only when the NEXT tool's first update sets applyMode Clear (m_ForceUpdate, ToolBaseSystem.cs:
+325-330; DefaultToolSystem.cs:973-980), because ToolSystem.applyMode is the last tool's (ToolSystem.cs:147-155) and ToolOutputSystem
+runs the ClearTool phase from it (ToolOutputSystem.cs:22-30). We do not rely on that: `OnStopRunning` destroys the standing
+definitions and, when a ghost or a Build emission was standing, runs the game's own `ToolClearSystem` itself (`ClearOwnTemps`): the
+same ClearEntitiesJob as vanilla's Clear (Deleted on every Temp, Hidden originals shown again, ToolClearSystem.cs:63-113), its
+commands on the ToolOutputBarrier, which plays back later in the same frame (UpdateAfter ToolUpdate, SystemOrder.cs:695). The stop
+update runs before the new tool's update, so every Temp then is ours; a second clear by the next tool is a no-op. With no Temp the
+system does not run (RequireForUpdate, ToolClearSystem.cs:219). `OnGameLoadingComplete` also resets the ghost fields. Log:
+`LiftLine [ghost]: preview cleared on stopped (ToolClearSystem run by the tool itself)`. Not testable in LiftBatch (no ECS world):
+owner test step in docs/research/lifts/lift-pass-2026-10-26.md section 10.
+
+## Player text (2026-10-26)
+Every tooltip and notice is a LocaleEN `SkiResort.LiftTool.*` key read through `LocalizedString.Id(key, args)` (numbers as
+LocalizedNumber<int> "integer"): `LiftLineInput.PromptKey` / `PlanKey` / `TowerKey`, `LiftLineToolSystem.T` / `RefusedNotice` /
+`RefusedBuild` (REFUSED[the error type the game flagged most]). The log keeps the detail (`Describe`, `DescribeErrors`). LiftBatch
+LP-31 gates them: every shown key exists, at most 25 words, no em dash, no log syntax, only the ARGs the code passes, no stale key.
 
 ## Refusal diagnosis (2026-10-26)
 A refused Build (GetAllowApply false: the `Error` query, ToolBaseSystem.cs:313, 533-540) always logs every flagged entity: edge / node /

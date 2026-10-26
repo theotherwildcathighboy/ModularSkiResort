@@ -373,6 +373,45 @@ namespace SkiResortMod.Systems
 
         public const AutoKinds AllKinds = AutoKinds.Groomed | AutoKinds.Natural | AutoKinds.Snowmaking | AutoKinds.Night;
 
+        /// <summary>The planner's reject histogram in the player's words (bindings.ts QuickRunsState.rejects, same order): 0 too short
+        /// (TooShort, MergeStub), 1 overlaps other runs (TopTaken, Overlap), 2 too close to the region edge (Region), 3 blocked by
+        /// other areas (Obstacle), 4 too narrow (Pinched), 5 too twisted (Crosses), 6 too flat (FlatLine, Flat), 7 other (Unrated,
+        /// RatingCap). Duplicate (the same centerline twice) and Kept are not drops.</summary>
+        public const int RejectBuckets = 8;
+
+        public static int RejectBucket(AutoReject r)
+        {
+            switch (r)
+            {
+                case AutoReject.TooShort:
+                case AutoReject.MergeStub: return 0;
+                case AutoReject.TopTaken:
+                case AutoReject.Overlap: return 1;
+                case AutoReject.Region: return 2;
+                case AutoReject.Obstacle: return 3;
+                case AutoReject.Pinched: return 4;
+                case AutoReject.Crosses: return 5;
+                case AutoReject.FlatLine:
+                case AutoReject.Flat: return 6;
+                case AutoReject.Unrated:
+                case AutoReject.RatingCap: return 7;
+                default: return -1;
+            }
+        }
+
+        /// <summary>Sums the histogram into the RejectBuckets buckets (a null or short input gives zeros).</summary>
+        public static int[] RejectCounts(int[] rejects)
+        {
+            var counts = new int[RejectBuckets];
+            for (int i = 1; rejects != null && i < rejects.Length && i < (int)AutoReject.Count; i++)
+            {
+                int b = RejectBucket((AutoReject)i);
+                if (b >= 0 && rejects[i] > 0)
+                    counts[b] += rejects[i];
+            }
+            return counts;
+        }
+
         /// <summary>The tree-line slider's value: clamped to [groundMin, groundMax + TreeLineStepM] (one step above the region's top =
         /// no tree line inside it), NaN to groundMax + TreeLineStepM.</summary>
         public static float ClampTreeLine(float h, float groundMin, float groundMax)

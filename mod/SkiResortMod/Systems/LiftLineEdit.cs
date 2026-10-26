@@ -461,7 +461,53 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>The step hint: always a non-empty line that names what the next click does in this step.</summary>
+        /// <summary>The step hint's LocaleEN key (SkiResort.LiftTool.*; {TYPE} = the lift type): what the next click does.</summary>
+        public static string PromptKey(LiftLineStep step, string typeId, bool dragging, bool dragOff)
+        {
+            switch (step)
+            {
+                case LiftLineStep.PickBase: return string.IsNullOrEmpty(typeId) ? "PICK_FIRST_ANY" : "PICK_FIRST";
+                case LiftLineStep.PickTop: return "PICK_SECOND";
+                case LiftLineStep.Edit: return dragOff ? "DRAG_OFF" : dragging ? "DRAG" : "EDIT";
+                default: return "BUILDING";
+            }
+        }
+
+        /// <summary>A lift type id with its own TYPE[id] name in LocaleEN.</summary>
+        public static bool KnownType(string typeId) =>
+            typeId == "fixedGrip" || typeId == "detachable" || typeId == "gondola" || typeId == "tram";
+
+        /// <summary>The plan line's key: the first thing wrong (a span below the floor, an edge too steep for the engine, a span above
+        /// the max rope height), else PLAN_CLEAR. <paramref name="lengthM"/> = the line's length (sum of the spans).</summary>
+        public static string PlanKey(LiftTowerPlan plan, out float lengthM)
+        {
+            bool low = false, steep = false, high = false;
+            lengthM = 0f;
+            for (int i = 0; i < plan.Spans.Length; i++)
+            {
+                low |= plan.Spans[i].FloorViolated;
+                steep |= plan.Spans[i].SlopeViolated;
+                high |= plan.Spans[i].HeightViolated;
+                lengthM += plan.Spans[i].LengthM;
+            }
+            return low ? "PLAN_LOW" : steep ? "PLAN_STEEP" : high ? "PLAN_HIGH" : "PLAN_CLEAR";
+        }
+
+        /// <summary>The hovered tower's key, its height (the ladder member's tower top above its base, as the model stands) and how
+        /// high a chair or cabin passes over the ground at the tower (rope above the base - the carrier's drop). TOWER_LOW when a span
+        /// beside it is below the floor (the span minimum is not used: at a station end the chairs are at loading height by design).</summary>
+        public static string TowerKey(LiftTowerPlan plan, int node, bool pinned, out float heightM, out float clearM)
+        {
+            LiftTowerPlanConstants c = plan.Constants;
+            int m = plan.Nodes[node].Member;
+            heightM = c.Ladder[m].TopM;
+            clearM = math.max(0f, c.RopeAboveBase(m) - c.CarrierDropM);
+            if (plan.Spans[node - 1].FloorViolated || plan.Spans[node].FloorViolated)
+                return "TOWER_LOW";
+            return pinned ? "TOWER_PINNED" : "TOWER";
+        }
+
+        /// <summary>The step hint in English for the log (the tooltip shows PromptKey's LocaleEN text).</summary>
         public static string Prompt(LiftLineStep step, string typeId, bool dragging)
         {
             string type = string.IsNullOrEmpty(typeId) ? "Lift" : TypeName(typeId);

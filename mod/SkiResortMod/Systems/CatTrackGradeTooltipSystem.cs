@@ -1,7 +1,6 @@
 // Cat track tool mouse tooltip, same pattern as LiftLineTooltipSystem. Mod.cs: UpdateAfter TempCostTooltipSystem at UITooltip.
-// Text is LocalizedString.Value(text), never a fixed id for text that carries numbers: the frontend's translate cache is keyed by id
-// alone, so a fixed id would keep the first text it was given. A fixed notice or refusal that is a locale key (GradeGuards.IsKey:
-// TooLarge, RunShape, CrossingSteep, the run notices) goes by LocalizedString.Id instead.
+// Every line is a LocaleEN key SkiResort.CatTrack.* (GradeMsg) with its whole-number {ARG} values, plain sentences for a player:
+// no ids, decimals or log syntax (the log keeps the detail; GradeBatch GR-23 gates the texts).
 // The step hint is always shown while the tool is open; a refusal (CatTrackGradeToolSystem.Notice) shows as a warning under it.
 // A "!!!" ERROR disables the system until the next load.
 
@@ -9,6 +8,7 @@ using System;
 using Game.UI.Localization;
 using Game.UI.Tooltip;
 using Game.UI.Widgets;
+using Unity.Mathematics;
 
 namespace SkiResortMod.Systems
 {
@@ -40,26 +40,26 @@ namespace SkiResortMod.Systems
             }
             try
             {
-                string prompt = m_Tool.DeleteMode ? m_Tool.DeletePrompt : GradeInput.Prompt(m_Tool.Step, m_Tool.Dragging);
-                if (!string.Equals(prompt, m_LoggedPrompt, StringComparison.Ordinal))
+                string promptKey = m_Tool.DeleteMode ? m_Tool.DeletePromptKey : GradeInput.PromptKey(m_Tool.Step, m_Tool.Dragging);
+                if (!string.Equals(promptKey, m_LoggedPrompt, StringComparison.Ordinal))
                 {
-                    m_LoggedPrompt = prompt;
-                    Mod.Log.Info($"Grade [tooltip]: step {m_Tool.Step} — \"{prompt}\"");
+                    m_LoggedPrompt = promptKey;
+                    Mod.Log.Info($"Grade [tooltip]: step {m_Tool.Step} — prompt {promptKey}");
                 }
-                Show(m_Prompt, ref m_LastPrompt, prompt);
-                string notice = m_Tool.Notice;
-                if (notice != null)
+                Show(m_Prompt, ref m_LastPrompt, GradeMsg.Of(promptKey));
+                GradeMsg notice = m_Tool.Notice;
+                if (!notice.IsEmpty)
                     Show(m_Notice, ref m_LastNotice, notice);
-                string plan = m_Tool.Dragging || m_Tool.DeleteMode ? null : m_Tool.PlanLine;
-                if (!string.IsNullOrEmpty(plan))
+                GradeMsg plan = m_Tool.Dragging || m_Tool.DeleteMode ? GradeMsg.Empty : m_Tool.PlanMsg;
+                if (!plan.IsEmpty)
                 {
                     m_Plan.color = m_Tool.PlanOk ? TooltipColor.Success : TooltipColor.Warning;
                     Show(m_Plan, ref m_LastPlan, plan);
-                    string guard = m_Tool.GuardLine;
-                    if (guard != null)
+                    GradeMsg guard = m_Tool.GuardMsg;
+                    if (!guard.IsEmpty)
                         Show(m_Guard, ref m_LastGuard, guard);
-                    string bank = m_Tool.BankLine;
-                    if (bank != null)
+                    GradeMsg bank = m_Tool.BankMsg;
+                    if (!bank.IsEmpty)
                         Show(m_Bank, ref m_LastBank, bank);
                 }
             }
@@ -70,15 +70,25 @@ namespace SkiResortMod.Systems
             }
         }
 
-        private void Show(StringTooltip tip, ref string last, string text)
+        private void Show(StringTooltip tip, ref string last, GradeMsg msg)
         {
-            if (!string.Equals(text, last, StringComparison.Ordinal))
+            string sig = msg.Signature;
+            if (!string.Equals(sig, last, StringComparison.Ordinal))
             {
-                last = text;
-                // A locale key (a fixed text) goes by id; the other lines carry numbers and stay Value.
-                tip.value = GradeGuards.IsKey(text) ? LocalizedString.Id(text) : LocalizedString.Value(text);
+                last = sig;
+                tip.value = Text(msg);
             }
             AddMouseTooltip(tip);
+        }
+
+        /// <summary>The message as a LocalizedString: the key SkiResort.CatTrack.KEY with each {ARG} as a whole number.</summary>
+        internal static LocalizedString Text(GradeMsg msg)
+        {
+            int n = msg.Args == null ? 0 : msg.Args.Length;
+            var args = new (string, ILocElement)[n];
+            for (int i = 0; i < n; i++)
+                args[i] = (msg.Args[i].Name, new LocalizedNumber<int>((int)math.round(msg.Args[i].Value), "integer"));
+            return LocalizedString.Id(GradeMsg.Prefix + msg.Key, args);
         }
     }
 }
