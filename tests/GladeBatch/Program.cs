@@ -1,4 +1,4 @@
-// GladeBatch - headless invariant tests for SkiGladePlanner, SkiGladeCompose and SkiGladeHover.
+// GladeBatch - headless invariant tests for SkiGladePlanner, SkiGladeCompose, SkiGladeHover and the tree filler (SkiGladeTreeLine, SkiGladeSpecies).
 // Run (from the ModularSkiResort root): dotnet run --project tests\GladeBatch\GladeBatch.csproj -c Release -- 200
 // Argument = number of seeds (default 200). Prints `FAIL  fixture.params/seed: msg`, report-only TIME/WARN/INFO lines and one SUMMARY.
 // Oracles are test-local and a DIFFERENT algorithm from the planner's (winding-number point-in-polygon vs crossing number, plain
@@ -83,6 +83,8 @@ namespace GladeBatch
             PrefixTests(fixtures, simRuns, seeds);
             ApplySimTests(simRuns, seeds);
             ComposeTimingReport(simRuns);
+            PinTests(fixtures, sets, simRuns);
+            FillerTests(seeds);
 
             total.Stop();
             Console.WriteLine(string.Format(CultureInfo.InvariantCulture,

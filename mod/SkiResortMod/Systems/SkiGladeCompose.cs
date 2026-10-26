@@ -1,5 +1,6 @@
 // The glade tool's apply composition: one tree-density level per layer (Level 1..8) for the run interior or the tree line. An
 // apply brings the layer to the level's tree count by planting, removing or felling, never both planting and removing / felling.
+// ComposeInput.Fill (a GladeMask) selects the tree filler layer (LayerFiller): interior semantics inside the mask, never fells.
 // Pure on purpose: usings are System, System.Collections.Generic and Unity.Mathematics only, so it also links into the net8 host tests/GladeBatch.
 // Contract: Compose(input, output[, cache]) is a pure function of `input` (a cache never changes the result). No static mutable
 // state, no Dictionary/HashSet iteration feeds the output, never logs, never throws on bad geometry or parameters; runs on re-plan
@@ -44,6 +45,9 @@ namespace SkiResortMod.Systems
         public byte Variant;
         public GladeObstacle[] Obstacles;
         public float3[][] ExclusionRings;
+        /// <summary>Non-null (with TreeLine false) = the tree filler: layer LayerFiller, interior semantics inside the planner's fill
+        /// mask, never fells (W = 0: every wild tree counts as X). Null = the glade tool, unchanged. Engine notes: FILLER.</summary>
+        public GladeMask Fill;
         /// <summary>Census minus this run's members: wild inside, band, foreign (other runs'
         /// members, owned trees). Parallel to Thinnable.</summary>
         public float3[] Existing;
@@ -297,6 +301,16 @@ namespace SkiResortMod.Systems
         /// compile time). LayerNone = no compose.</summary>
         public const byte LayerGlade = 0, LayerBelt = 1, LayerNone = 255;
 
+        /// <summary>Layer of the tree filler (Quick runs): interior semantics inside ComposeInput.Fill; identical to
+        /// SkiRunTreeMember.LayerFiller.</summary>
+        public const byte LayerFiller = 2;
+
+        /// <summary>Interior semantics (glade and filler); the tree line is the only belt layer.</summary>
+        public static bool IsInterior(byte layer)
+        {
+            return layer != LayerBelt;
+        }
+
         /// <summary>m_Variant of a v1 tag (identical to SkiRunTreeMember.VariantUnknown).</summary>
         public const byte VariantUnknown = 0xFF;
 
@@ -428,7 +442,7 @@ namespace SkiResortMod.Systems
             int capFell = caps.MaxFell > 0 ? caps.MaxFell : 0;
             int capRemove = caps.MaxRemove > 0 ? caps.MaxRemove : 0;
 
-            bool interior = output.Layer == LayerGlade;
+            bool interior = IsInterior(output.Layer);
             int t = output.Target, n = output.Inside, w = output.WildInside, x = output.FixedInside;
             int own = output.OwnInside, others = output.Other;
 
@@ -514,8 +528,9 @@ namespace SkiResortMod.Systems
         /// occupants of P and PlanKey. Returns the geometry status.</summary>
         private static GladeStatus Prepare(ComposeInput input, ComposeResult output, out float3[] occupants)
         {
-            byte layer = input.TreeLine ? LayerBelt : LayerGlade;
-            bool interior = layer == LayerGlade;
+            byte layer = input.TreeLine ? LayerBelt : input.Fill != null ? LayerFiller : LayerGlade;
+            bool interior = IsInterior(layer);
+            GladeMask fill = layer == LayerFiller ? input.Fill : null;
             output.Layer = layer;
             int level = ClampLevel(input.Level);
             output.Level = (byte)level;
@@ -542,7 +557,7 @@ namespace SkiResortMod.Systems
             pt.GladeDensity = InteriorDensity(level);
             pt.MaxPlant = 0;
             GladePlan probe = output.ProbeScratch;
-            GladeStatus geo = SkiGladePlanner.Plan(input.Ring, input.Triangles, ThinSeed, in pt, null, pos, null, null, probe);
+            GladeStatus geo = SkiGladePlanner.Plan(input.Ring, input.Triangles, ThinSeed, in pt, null, pos, null, null, fill, probe);
             if (geo != GladeStatus.Ok && geo != GladeStatus.Clamped)
                 return geo;
             var inside = new bool[pos.Length];
@@ -588,7 +603,8 @@ namespace SkiResortMod.Systems
                 bool mIn = inside[nEx + j];
                 if (mbr.Layer != layer)
                 {
-                    bool known = mbr.Layer == LayerGlade || mbr.Layer == LayerBelt;
+                    // The filler never classifies another layer's member (a glade member handed in stays an occupant and X)
+                    bool known = layer != LayerFiller && (mbr.Layer == LayerGlade || mbr.Layer == LayerBelt);
                     bool outOfRegion = known && (mbr.Layer == LayerGlade ? !mIn : mIn);
                     if (outOfRegion)
                     {
@@ -623,6 +639,12 @@ namespace SkiResortMod.Systems
                 w = 0;
                 x = 0;
                 output.WildScratch.Clear(); // the tree line never fells
+            }
+            else if (layer == LayerFiller)
+            {
+                x += w; // the filler never fells: every wild tree in the fill region is a fixed tree
+                w = 0;
+                output.WildScratch.Clear();
             }
             output.WildInside = w;
             output.FixedInside = x;
@@ -670,6 +692,8 @@ namespace SkiResortMod.Systems
         {
             if (!ring.Ok || !math.isfinite(pos.x) || !math.isfinite(pos.z))
                 return true;
+            if (layer == LayerFiller)
+                return true; // conservative: a hole or the tree line can bring any occupant next to the fill region
             if (layer == LayerGlade)
             {
                 if (inside)
@@ -695,9 +719,9 @@ namespace SkiResortMod.Systems
         private static GladeParams StreamParams(ComposeInput input, byte layer)
         {
             GladeParams pp = input.Params;
-            pp.Mode = layer == LayerGlade ? GladeMode.Glade : GladeMode.Belt;
+            pp.Mode = IsInterior(layer) ? GladeMode.Glade : GladeMode.Belt;
             pp.ThinFraction = 0f;
-            pp.GladeDensity = layer == LayerGlade ? StreamDensityPerM2 : 0f;   // stream density with headroom
+            pp.GladeDensity = IsInterior(layer) ? StreamDensityPerM2 : 0f;   // stream density with headroom
             pp.MaxPlant = 0;
             return pp;
         }
@@ -710,7 +734,7 @@ namespace SkiResortMod.Systems
             if (ps != GladeStatus.Ok && ps != GladeStatus.Clamped)
                 return ps;
             output.Slice = output.Plan.Planted.Count;
-            output.RawTarget = output.Layer == LayerGlade ? output.Plan.RawTargetGlade : output.Plan.RawTargetBelt;
+            output.RawTarget = IsInterior(output.Layer) ? output.Plan.RawTargetGlade : output.Plan.RawTargetBelt;
 
             float spacing = SafeNonNeg(input.Params.MinSpacing);
             MatchSlots(input.Own, output, spacing * 0.5);
@@ -766,7 +790,7 @@ namespace SkiResortMod.Systems
             pp.MaxPlant = m;
             uint seed = SkiGladePlanner.Seed32(input.Ring[0], VariantSalt(input.Variant));
             GladeStatus st = SkiGladePlanner.Plan(input.Ring, input.Triangles, seed, in pp, input.Obstacles,
-                occupants, null, input.ExclusionRings, plan);
+                occupants, null, input.ExclusionRings, layer == LayerFiller ? input.Fill : null, plan);
             if (st != GladeStatus.Ok && st != GladeStatus.Clamped)
                 return st;
 
@@ -776,7 +800,7 @@ namespace SkiResortMod.Systems
                 // and cut back to m.
                 pp.MaxPlant = int.MaxValue;
                 st = SkiGladePlanner.Plan(input.Ring, input.Triangles, seed, in pp, input.Obstacles,
-                    occupants, null, input.ExclusionRings, plan);
+                    occupants, null, input.ExclusionRings, layer == LayerFiller ? input.Fill : null, plan);
                 if (st != GladeStatus.Ok && st != GladeStatus.Clamped)
                     return st;
                 output.FullReplan = true;
@@ -800,7 +824,7 @@ namespace SkiResortMod.Systems
             plan.Clamped = true;
             plan.Status = GladeStatus.Clamped;
             plan.Saturated = false;
-            if (layer == LayerGlade)
+            if (IsInterior(layer))
                 plan.TargetGlade = m;
             else
                 plan.TargetBelt = m;
@@ -825,6 +849,7 @@ namespace SkiResortMod.Systems
             dst.RawTargetGlade = src.RawTargetGlade;
             dst.RawTargetBelt = src.RawTargetBelt;
             dst.Clamped = src.Clamped;
+            dst.MaskedArea = src.MaskedArea;
         }
 
         /// <summary>SlotMatched[s] = some current member lies at xz distance &lt; radius from
@@ -1124,6 +1149,10 @@ namespace SkiResortMod.Systems
                     h = U64(h, ringHashes[r]);
             }
 
+            // The fill mask: hashed only for the filler layer, so a glade key never changes.
+            if (layer == LayerFiller)
+                h = HashFill(h, input.Fill);
+
             // Occupants: order-independent (the planner's grid and its inside count are).
             ulong[] occ = keyedOccupants.ToArray();
             Array.Sort(occ);
@@ -1131,6 +1160,44 @@ namespace SkiResortMod.Systems
             for (int i = 0; i < occ.Length; i++)
                 h = U64(h, occ[i]);
             return h != 0UL ? h : 1UL;
+        }
+
+        /// <summary>Holes (order-independent, like the exclusion rings), margin, tree line, ground fingerprint and area cell.</summary>
+        private static ulong HashFill(ulong h, GladeMask m)
+        {
+            h = U32(h, 0x4C4C4946u); // "FILL"
+            if (m == null)
+                return h;
+            h = F(h, m.HoleMargin);
+            h = F(h, m.TreeLine);
+            h = F(h, m.AreaCellM);
+            h = U64(h, m.Ground != null ? m.Ground.Fingerprint : 0UL);
+            h = Byte(h, m.Ground != null ? (byte)1 : (byte)0);
+            float3[][] holes = m.Holes;
+            h = U32(h, holes != null ? (uint)holes.Length : 0xFFFFFFFFu);
+            if (holes != null && holes.Length > 0)
+            {
+                ulong[] ringHashes = new ulong[holes.Length];
+                for (int r = 0; r < holes.Length; r++)
+                {
+                    float3[] er = holes[r];
+                    ulong rh = FnvOffset64;
+                    rh = U32(rh, er != null ? (uint)er.Length : 0xFFFFFFFFu);
+                    if (er != null)
+                    {
+                        for (int i = 0; i < er.Length; i++)
+                        {
+                            rh = F(rh, er[i].x);
+                            rh = F(rh, er[i].z);
+                        }
+                    }
+                    ringHashes[r] = rh;
+                }
+                Array.Sort(ringHashes);
+                for (int r = 0; r < ringHashes.Length; r++)
+                    h = U64(h, ringHashes[r]);
+            }
+            return h;
         }
 
         private static ulong Byte(ulong h, byte b)

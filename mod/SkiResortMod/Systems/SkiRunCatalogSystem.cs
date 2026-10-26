@@ -114,6 +114,7 @@ namespace SkiResortMod.Systems
             internal ulong Key, YKey;
             internal float3 NodeTopPos;   // the highest outline node (first one on a tie), x/y/z: the lift-served test point
             internal float2[] OutlineXZ;  // every outline node (x, z), one array per run, reused across rebuilds while Key is unchanged
+            internal float[] OutlineY;    // every outline node's y, same order, reused while Key and YKey are unchanged (the downhill links)
         }
 
         /// <summary>One cached rating</summary>
@@ -339,6 +340,7 @@ namespace SkiResortMod.Systems
             public float BottomM;
             public float3 TopNode;    // the highest outline node (x, y, z), always valid: the lift-served test point
             public float2[] OutlineXZ; // every outline node (x, z) in ring order; read only (shared with the catalog row, same object until the outline moves)
+            public float[] OutlineY;   // every outline node's y, same order; read only (same object until the outline moves or its nodes are re-snapped)
             public bool Approx;
         }
 
@@ -372,6 +374,7 @@ namespace SkiResortMod.Systems
                 BottomM = row.BottomM,
                 TopNode = row.NodeTopPos,
                 OutlineXZ = row.OutlineXZ,
+                OutlineY = row.OutlineY,
                 Approx = row.Approx,
             };
             return true;
@@ -1064,6 +1067,21 @@ namespace SkiResortMod.Systems
                         for (int k = 0; k < xz.Length; k++)
                             xz[k] = nodes[k].m_Position.xz;
                         row.OutlineXZ = xz;
+                    }
+                    // Their heights for the served rule's downhill links: the same reuse, keyed on YKey too (a GroundHeightSystem re-snap
+                    // moves y only, so the xz array is kept and the height array is new: the link graph rebuilds).
+                    if (m_RowIndex.TryGetValue(row.Entity, out int prevY) && prevY >= 0 && prevY < m_Rows.Count &&
+                        m_Rows[prevY].Entity == row.Entity && m_Rows[prevY].OutlineY != null &&
+                        m_Rows[prevY].OutlineY.Length == nodes.Length && m_Rows[prevY].Key == row.Key && m_Rows[prevY].YKey == row.YKey)
+                    {
+                        row.OutlineY = m_Rows[prevY].OutlineY;
+                    }
+                    else
+                    {
+                        var y = new float[nodes.Length];
+                        for (int k = 0; k < y.Length; k++)
+                            y[k] = nodes[k].m_Position.y;
+                        row.OutlineY = y;
                     }
                 }
                 // The bound test, returning the sign (the run's resort)

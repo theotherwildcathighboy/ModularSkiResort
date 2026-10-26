@@ -92,6 +92,7 @@ Long engine and design explanations moved out of the source headers. Each note s
 - [`SkiResortStatsSystem.md`](SkiResortStatsSystem.md) -> SkiResortStatsSystem: ski-area membership, hub rebuild rules and the per-area numbers
 - [`SkiResortTourism.md`](SkiResortTourism.md) -> SkiResortTourism: the game's city tourism formula and the per-resort figures derived from it
 - [`SkiRunAreaTypeSystem.md`](SkiRunAreaTypeSystem.md) -> SkiRunAreaTypeSystem: why the cat track prefab is switched to AreaType Space
+- [`SkiRunAutoPlanner.md`](SkiRunAutoPlanner.md) -> SkiRunAutoPlanner: the Quick runs planner (field, routing, clusters and pods, junctions, refusal ladder)
 - [`SkiRunBinding.md`](SkiRunBinding.md) -> SkiRunBinding: the persisted run-to-sign link and its save-format contract
 - [`SkiRunBindingRules.md`](SkiRunBindingRules.md) -> SkiRunBindingRules: the run bind decision table and the facts it reads
 - [`SkiRunBindTriggerSystem.md`](SkiRunBindTriggerSystem.md) -> SkiRunBindTriggerSystem: why runs bind at ModificationEnd, and how signs get auto-named

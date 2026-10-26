@@ -23,11 +23,15 @@ namespace SkiResortMod.Systems
         public const byte LayerGlade = 0;
         public const byte LayerBelt = 1;
 
+        /// <summary>m_Layer of a Quick runs tree filler tree (SkiGladeCompose.LayerFiller). Region-level: m_Run is Entity.Null, which is
+        /// NOT an orphan for this layer (SkiGladeCleanupSystem keeps the tag; no run delete cascades to it).</summary>
+        public const byte LayerFiller = 2;
+
         /// <summary>m_Variant of a v1 tag (no recorded variant).</summary>
         public const byte VariantUnknown = 0xFF;
 
-        /// <summary>The run area this tree belongs to (no Owner). Null or a dead entity marks an orphan; SkiGladeCleanupSystem strips
-        /// the tag and keeps the tree.</summary>
+        /// <summary>The run area this tree belongs to (no Owner). Null or a dead entity marks an orphan (except Null on a LayerFiller
+        /// tag); SkiGladeCleanupSystem strips the tag and keeps the tree.</summary>
         public Entity m_Run;
 
         public byte m_Layer;

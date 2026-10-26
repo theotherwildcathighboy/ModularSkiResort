@@ -1,10 +1,11 @@
 // The pure, deterministic tree planner behind the Glade tool. Entities-free on purpose: usings are System,
 // System.Collections.Generic and Unity.Mathematics ONLY, so the same file is compiled into the net48 mod AND linked into the
 // net8 headless test host tests/GladeBatch. Re-derived from the vanilla systems; nothing copied from ParkManager.
-// Contract: the output is a pure function of (ring, triangles, seed, params, obstacles, existing, thinnable, exclusion rings); no
+// Contract: the output is a pure function of (ring, triangles, seed, params, obstacles, existing, thinnable, exclusion rings, fill mask); no
 // static mutable state, never logs, never throws: degenerate input gives a GladeStatus and empty output lists.
 // Layers run in a fixed order (sanitize, thin, glade, belt); each has its own salted random stream with a FIXED number of draws
 // per attempt and per accepted tree. SkiGladeCompose relies on the resulting prefix property (MaxPlant m1 is a bit-exact prefix of m2).
+// An optional GladeMask (the Quick runs tree filler: run holes + margin, tree line) narrows Thin and Glade; null = unchanged, bit for bit.
 // Engine notes: EngineNotes/SkiGladePlanner.md
 
 using System;
@@ -55,6 +56,35 @@ namespace SkiResortMod.Systems
         public float Radius;
     }
 
+    /// <summary>Ground height at an xz point (m), for the fill mask's tree line. An adapter seam: the game side wraps its own height
+    /// sampler. Must be a pure function of (x, z) for one Fingerprint; NaN = unknown (read as above the tree line: no tree).</summary>
+    public abstract class GladeHeightField
+    {
+        public abstract float HeightAt(double x, double z);
+
+        /// <summary>Changes whenever any height changes (hashed into SkiGladeCompose.PlanKey).</summary>
+        public abstract ulong Fingerprint { get; }
+    }
+
+    /// <summary>Fill mask (the Quick runs tree filler): narrows the polygon for the Thin and Glade layers to the cells that are outside
+    /// every hole by HoleMargin and, with a Ground, at or below TreeLine. The Belt layer ignores it. A null mask is the glade tool's
+    /// behavior, bit for bit (GladeBatch pin). Engine notes: EngineNotes/SkiGladePlanner.md, FILL MASK.</summary>
+    public sealed class GladeMask
+    {
+        /// <summary>Rings (run outlines) no tree stands inside or within HoleMargin of. Null entries, rings under 3 vertices and rings
+        /// with a non-finite vertex are skipped.</summary>
+        public float3[][] Holes;
+        public float HoleMargin;
+        /// <summary>Null = no tree line.</summary>
+        public GladeHeightField Ground;
+        /// <summary>Highest ground height (m) a tree may stand on; NaN or +Inf = no tree line.</summary>
+        public float TreeLine = float.PositiveInfinity;
+        /// <summary>Cell (m) of the masked-area quadrature; 0 or less = DefaultAreaCellM.</summary>
+        public float AreaCellM;
+
+        public const float DefaultAreaCellM = 2.5f;
+    }
+
     public struct PlantedTree
     {
         public float3 Position;
@@ -80,8 +110,13 @@ namespace SkiResortMod.Systems
         /// <summary>A MaxPlant budget bound a target (Status == Clamped stays as before; this flag is the explicit form of the same event).</summary>
         public bool Clamped;
 
+        /// <summary>The fill mask's share of Area (m², quadrature on a GladeMask.AreaCellM grid); = Area without a mask. The Glade
+        /// target reads it.</summary>
+        public float MaskedArea;
+
         public void Clear()
         {
+            MaskedArea = 0f;
             Planted.Clear();
             Thinned.Clear();
             Status = GladeStatus.Ok;
@@ -181,6 +216,16 @@ namespace SkiResortMod.Systems
                                        GladeObstacle[] obstaclesOrNull, float3[] existingOrNull, bool[] thinnableOrNull,
                                        float3[][] exclusionRingsOrNull, GladePlan output)
         {
+            return Plan(ring, trianglesOrNull, seed, in p, obstaclesOrNull, existingOrNull, thinnableOrNull, exclusionRingsOrNull, null,
+                output);
+        }
+
+        /// <summary>Plan with an optional fill mask (null = the overload above). The mask only adds rejection tests and changes the
+        /// Glade target's area; it consumes no random draws, so the prefix property holds with a mask too.</summary>
+        public static GladeStatus Plan(float3[] ring, int3[] trianglesOrNull, uint seed, in GladeParams p,
+                                       GladeObstacle[] obstaclesOrNull, float3[] existingOrNull, bool[] thinnableOrNull,
+                                       float3[][] exclusionRingsOrNull, GladeMask maskOrNull, GladePlan output)
+        {
             if (output == null)
                 output = new GladePlan(); // never throw; the caller simply gets nothing back
             output.Clear();
@@ -193,6 +238,8 @@ namespace SkiResortMod.Systems
                 return geo;
             }
             output.Area = (float)poly.Area;
+            output.MaskedArea = output.Area;
+            MaskSet mask = maskOrNull != null ? new MaskSet(maskOrNull) : null;
 
             Knobs k = Knobs.From(in p);
             GladeStatus status = GladeStatus.Ok;
@@ -210,6 +257,8 @@ namespace SkiResortMod.Systems
                     if (!thinnable)
                         continue;
                     if (!poly.Contains(new double2(e.x, e.z)))
+                        continue;
+                    if (mask != null && !mask.Allows(new double2(e.x, e.z)))
                         continue;
                     if (ThinSelect(e, seed, k.ThinFraction))
                     {
@@ -238,7 +287,7 @@ namespace SkiResortMod.Systems
                     continue;
                 double2 q = new double2(e.x, e.z);
                 grid.Add(q);
-                if (wantGlade && poly.Contains(q))
+                if (wantGlade && poly.Contains(q) && (mask == null || mask.Allows(q)))
                     survivorsInside++;
             }
 
@@ -249,7 +298,13 @@ namespace SkiResortMod.Systems
 
             if (wantGlade)
             {
-                double raw = math.floor(k.GladeDensity * poly.Area + 0.5) - survivorsInside;
+                double gladeArea = poly.Area;
+                if (mask != null)
+                {
+                    gladeArea = mask.Area(poly);
+                    output.MaskedArea = (float)gladeArea;
+                }
+                double raw = math.floor(k.GladeDensity * gladeArea + 0.5) - survivorsInside;
                 output.RawTargetGlade = RawToInt(raw);
                 int target = ClampTarget(raw, budget, ref status, ref output.Clamped);
                 output.TargetGlade = target;
@@ -280,6 +335,8 @@ namespace SkiResortMod.Systems
                         if (k.InnerMargin > 0f && poly.BoundaryDistanceSq(q) < (double)k.InnerMargin * k.InnerMargin)
                             continue;
                         if (exclusions.Contains(q))
+                            continue;
+                        if (mask != null && !mask.Allows(q, ref world.y))
                             continue;
                         grid.Add(q);
                         output.Planted.Add(MakeTree(ref rng, world, 0, in k, ages));
@@ -784,6 +841,139 @@ namespace SkiResortMod.Systems
                 }
             }
             return inside;
+        }
+
+        /// <summary>A GladeMask compiled for one plan: holes (with HoleMargin-expanded bounds) and the tree line. Reads its source
+        /// once; never throws.</summary>
+        private sealed class MaskSet
+        {
+            private const long MaxAreaSamples = 4000000;
+
+            private readonly List<double2[]> m_Holes = new List<double2[]>();
+            private readonly List<double4> m_Bounds = new List<double4>(); // minx, minz, maxx, maxz, already grown by the margin
+            private readonly double m_Margin, m_MarginSq;
+            private readonly GladeHeightField m_Ground;
+            private readonly float m_TreeLine;
+            private readonly double m_Cell;
+
+            public MaskSet(GladeMask m)
+            {
+                float margin = m.HoleMargin;
+                m_Margin = margin > 0f && math.isfinite(margin) ? margin : 0.0;
+                m_MarginSq = m_Margin * m_Margin;
+                bool line = m.Ground != null && math.isfinite(m.TreeLine);
+                m_Ground = line ? m.Ground : null;
+                m_TreeLine = m.TreeLine;
+                float cell = m.AreaCellM;
+                m_Cell = cell > 0f && math.isfinite(cell) ? math.max(cell, 0.25f) : GladeMask.DefaultAreaCellM;
+                float3[][] rings = m.Holes;
+                if (rings == null)
+                    return;
+                for (int r = 0; r < rings.Length; r++)
+                {
+                    float3[] src = rings[r];
+                    if (src == null || src.Length < 3)
+                        continue;
+                    bool ok = true;
+                    double2[] v = new double2[src.Length];
+                    double4 b = new double4(double.MaxValue, double.MaxValue, double.MinValue, double.MinValue);
+                    for (int i = 0; i < src.Length; i++)
+                    {
+                        if (!math.isfinite(src[i].x) || !math.isfinite(src[i].z))
+                        {
+                            ok = false;
+                            break;
+                        }
+                        v[i] = new double2(src[i].x, src[i].z);
+                        b.x = math.min(b.x, v[i].x);
+                        b.y = math.min(b.y, v[i].y);
+                        b.z = math.max(b.z, v[i].x);
+                        b.w = math.max(b.w, v[i].y);
+                    }
+                    if (!ok)
+                        continue; // a broken run outline never blocks the fill
+                    m_Holes.Add(v);
+                    m_Bounds.Add(new double4(b.x - m_Margin, b.y - m_Margin, b.z + m_Margin, b.w + m_Margin));
+                }
+            }
+
+            public bool Allows(double2 q)
+            {
+                float y = 0f;
+                return Allows(q, ref y);
+            }
+
+            /// <summary>True when q is outside every hole by the margin and (with a ground) at or below the tree line; then
+            /// <paramref name="groundY"/> is the ground height there (unchanged without a ground).</summary>
+            public bool Allows(double2 q, ref float groundY)
+            {
+                for (int r = 0; r < m_Holes.Count; r++)
+                {
+                    double4 b = m_Bounds[r];
+                    if (q.x < b.x || q.y < b.y || q.x > b.z || q.y > b.w)
+                        continue;
+                    double2[] v = m_Holes[r];
+                    if (CrossingInside(v, v.Length, q))
+                        return false;
+                    if (m_Margin > 0.0 && RingDistanceSq(v, q) < m_MarginSq)
+                        return false;
+                }
+                if (m_Ground != null)
+                {
+                    float h = m_Ground.HeightAt(q.x, q.y);
+                    if (!(h <= m_TreeLine))
+                        return false; // also NaN: unknown ground never gets a tree
+                    groundY = h;
+                }
+                return true;
+            }
+
+            /// <summary>Allowed area inside the polygon: cell centers of a grid anchored at the polygon's bounds minimum, counted when
+            /// inside and allowed, times the cell area. The cell grows when the bounds would need more than MaxAreaSamples.</summary>
+            public double Area(Polygon poly)
+            {
+                double4 bb = poly.Bounds;
+                double w = bb.z - bb.x, d = bb.w - bb.y;
+                if (!(w > 0.0) || !(d > 0.0))
+                    return 0.0;
+                double cell = m_Cell;
+                double samples = math.ceil(w / cell) * math.ceil(d / cell);
+                if (samples > MaxAreaSamples)
+                    cell *= math.sqrt(samples / MaxAreaSamples) * 1.001;
+                long nx = (long)math.ceil(w / cell), nz = (long)math.ceil(d / cell);
+                long count = 0;
+                for (long j = 0; j < nz; j++)
+                {
+                    double z = bb.y + (j + 0.5) * cell;
+                    for (long i = 0; i < nx; i++)
+                    {
+                        double2 q = new double2(bb.x + (i + 0.5) * cell, z);
+                        if (poly.Contains(q) && Allows(q))
+                            count++;
+                    }
+                }
+                return count * cell * cell;
+            }
+
+            private static double RingDistanceSq(double2[] v, double2 p)
+            {
+                double best = double.MaxValue;
+                int n = v.Length;
+                for (int i = 0; i < n; i++)
+                {
+                    double2 a = v[i];
+                    double2 ab = v[(i + 1) % n] - a;
+                    double2 ap = p - a;
+                    double len2 = ab.x * ab.x + ab.y * ab.y;
+                    double t = len2 > 0.0 ? (ap.x * ab.x + ap.y * ab.y) / len2 : 0.0;
+                    t = t < 0.0 ? 0.0 : t > 1.0 ? 1.0 : t;
+                    double2 dd = ap - t * ab;
+                    double dsq = dd.x * dd.x + dd.y * dd.y;
+                    if (dsq < best)
+                        best = dsq;
+                }
+                return best;
+            }
         }
 
         private sealed class Polygon

@@ -30,7 +30,7 @@ jobs:
         shell: pwsh
         run: |
           $failed = @()
-          foreach ($h in 'LiftBatch','ResortBatch','SlopeBatch','GladeBatch','GradeBatch','BuildingBatch','BindingBatch') {
+          foreach ($h in 'LiftBatch','ResortBatch','SlopeBatch','GladeBatch','GradeBatch','BuildingBatch','BindingBatch','AutoGenBatch') {
             Write-Host "::group::$h"
             dotnet run --project "tests/$h/$h.csproj" -c Release
             if ($LASTEXITCODE -ne 0) { $failed += $h }

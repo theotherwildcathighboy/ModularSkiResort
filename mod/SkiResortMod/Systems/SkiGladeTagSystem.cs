@@ -23,6 +23,7 @@ namespace SkiResortMod.Systems
         // tag's constants and the pure composition's constants ever drift apart.
         private const int LayerContract = 1 / ((SkiRunTreeMember.LayerGlade == SkiGladeCompose.LayerGlade &&
                                                 SkiRunTreeMember.LayerBelt == SkiGladeCompose.LayerBelt &&
+                                                SkiRunTreeMember.LayerFiller == SkiGladeCompose.LayerFiller &&
                                                 SkiRunTreeMember.VariantUnknown == SkiGladeCompose.VariantUnknown) ? 1 : 0);
 
         private ToolSystem m_ToolSystem;

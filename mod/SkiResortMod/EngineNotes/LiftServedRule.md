@@ -16,8 +16,9 @@ A run is served by lift L when:
 Both bounds are inclusive. The serving lift is the nearest; an exact tie goes to the lower EntityRef (Index, then Version). Applies to all
 four run kinds. A curved section is measured along its straight chord (error unverified).
 
-A run is also served when linked to a served run (outline nodes within LinkMeters, or overlapping outlines, same ski area; transitive):
-`AssignLinked`, `RunLinks`. Rules 1-4 decide direct service.
+A run is also served when a skier can get onto it DOWNHILL from a served run (2026-10-25): linked outlines (nodes within LinkMeters, or
+overlapping, same ski area), a junction the skiers reach, and a real part of the run below it (BelowJunction). Cat tracks carry service
+along themselves, downhill or level only. `AssignLinked`, `RunLinks`. Rules 1-4 decide direct service.
 
 ## Per lift type
 `Lift` carries Rule (ServeRuleKind as a byte), RadiusM, TopMarginM and TopXZ (the top station's HV stub tip xz, NaN when the top is not in
@@ -53,17 +54,37 @@ carriers stop; a lift is powered from its base station only (the top is never re
 ## Pure file
 `using System;`, `System.Collections.Generic`, `Unity.Mathematics` and EntityRef only (the test-host rule), plus SkiCatalog consts
 (ServeRadiusM and TopMarginM alias SkiCatalog.FixedGrip, compile-time literals; SkiCatalog.cs is linked wherever this file is). No state;
-Assign is allocation-free once its lists have grown.
+Assign is allocation-free once its lists have grown; RunLinks holds the graph and AssignLinked's scratch (one instance per caller).
 
 ## Near AssignLinked
-The served rule with run-to-run links; the attraction path and the stats path both call it, so the two cannot disagree.
+The served rule with downhill run-to-run links; the attraction path and the stats path both call it, so the two cannot disagree.
 - Runs `Assign` first: servingLift / servingDistanceM / servedCount keep their meaning (the DIRECT test of each run's top against the
   lifts; a lift's runs-served count stays direct only).
-- Then a breadth-first pass over `links` (Build it first; a graph of another size is ignored, i.e. no links). A run is SERVED when its own
-  top passes (servedRoot[i] = i, servedVia[i] = -1) or it is linked, through any chain of linked runs (each run is visited once, so the
-  chain is bounded by the run count), to a directly served run (servedRoot[i] = that directly served run, the nearest by link count, ties
-  to the lower run index; servedVia[i] = the run it was reached through, one link nearer the root). Unserved: both -1.
-- Output lists are cleared and filled; allocation-free once grown.
-- `leafRuns` (null = none) marks LEAF runs by index. A leaf may be served (directly by a lift, or through a link from a served neighbor)
-  but is never expanded by the pass: it never passes service on, so a cat track that crosses a black run does not "serve" it. A list
-  shorter than the run count reads false for the missing indices.
+- Inputs per run: the outline xz, the node heights in the same order (`RunLinks.Build(outlines, heights, areas)`; null, or another length,
+  reads as flat, y 0), the ski area id, and the cat track mask (`catTracks`, RunKindRules.IsServedLeaf = RunKind.CatTrack; null = none).
+  Node y is the area node's terrain-snapped height (GroundHeightSystem re-snaps it, AreaUtils.cs:672-677; the catalog's YKey hashes it),
+  the same data as the run top's y in rule 3. The graph is kept while every outline AND height array is the same object.
+- Contacts (`RunLinks.ContactsOf`, per direction of a link): where a skier can pass from one run to the other, with the place's height
+  on each run. Near nodes: per node of the source, the node of the target within LinkMeters a skier boards highest (the most of min(both
+  heights), a tie to the lower target node). Crossing edges: the crossing point, heights linear along each edge. A node inside the other
+  outline: that node's height on both sides (same ground). Each carries the nearest node on both runs (for the cat track walk).
+- The pass is a work list from the directly served runs (index order). Every served run carries a CAP: the highest a skier on it gets
+  (+inf for a directly served run). A contact is usable from a plain run when its height there is at most the run's cap; from a cat track
+  when its node is reached. The skier boards at p = min(height on the source, height on the target); the target's cap is
+  min(source cap, p + ClimbToleranceM), so caps never grow along a chain.
+- A plain run is served through a contact only when `BelowJunction(p, lowest node y, highest node y)`: p - lowest >= min(MinBelowM 30 m,
+  drop / BelowDropDivisor 3). A run touching a served run at its own bottom is not served; one joined mid-way is; service never flows up
+  a run past where it was entered (its cap).
+- A cat track is entered at any contact whose nearest track node is no higher than the cap; it needs no drop (it is the way across). Its
+  skiers reach every node joined to an entry through nodes no higher than that entry's cap (ClimbToleranceM 3 m above the boarding
+  height), either way along the ring and across the ribbon (walk graph: ring neighbors plus same-outline nodes within LinkMeters). A
+  directly served track is entered at its top node with cap +inf. So a track across the whole mountain serves only runs it meets below
+  (or within 3 m above) where skiers get on, and a run it meets is served by rule 1 with p at the meeting point.
+- Why a cap and not a summed climb: a summed budget restarts whenever the skier steps from the track onto a crossing run and back, so
+  it cannot be enforced; the cap can (ResortBatch cattrack/downhill D-2, the rising track). Accepted limit: a track that dips and climbs
+  back up to (not above) the entry height counts as passable.
+- servedRoot[i] = the directly served run of the chain that first reached it, servedVia[i] = the run it was first reached through
+  (breadth-first order, so with flat input the nearest by link count, ties to the lower index); unserved: both -1. Without heights every
+  contact is usable and every linked run passes: the old link rule (ServedLinkTests SL-1..8 run flat and unchanged).
+- Cost (tests/LiftBatch SL-8, 200 runs x 120 nodes, 370 links): cold Build + assign about 140 ms in the test host (the old graph: 113 ms,
+  T06); a kept graph about 0.3 ms. Output lists are cleared and filled; allocation-free once grown.

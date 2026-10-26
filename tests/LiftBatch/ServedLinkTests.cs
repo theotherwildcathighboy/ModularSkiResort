@@ -3,6 +3,9 @@
 //   SL-1..3 connectors, unserved neighbors, chains and gaps    SL-4 distance boundary (24.99 / 25 m linked, 25.01 m not;
 //   nodes are compared, not edges)    SL-5 other ski area or area id < 0 never links    SL-6 outline overlap without near nodes
 //   SL-7 no links reproduces Assign    SL-8 graph reuse, size mismatch, cycles, cost of 200 runs x 120 nodes
+// Downhill (2026-10-25): SL-1..8 pass no heights (flat terrain), which reproduces the old linking exactly. With node heights:
+//   SL-9 BelowJunction boundaries    SL-10 a run touching only at its bottom is not served    SL-11 a run joined mid-way is served,
+//   and service never flows up it past its entry    SL-12 downhill chains    SL-13 a terrain re-snap (new height array) rebuilds
 
 using System;
 using System.Collections.Generic;
@@ -27,6 +30,11 @@ namespace LiftBatch
             Sl6Overlap();
             Sl7ExistingCasesUnchanged();
             Sl8Reuse();
+            Sl9Below();
+            Sl10BottomTouch();
+            Sl11MidJoin();
+            Sl12Chain();
+            Sl13HeightReuse();
             s_Check = null;
         }
 
@@ -61,6 +69,7 @@ namespace LiftBatch
         {
             public readonly List<float3> Tops = new List<float3>();
             public readonly List<float2[]> Outlines = new List<float2[]>();
+            public readonly List<float[]> Heights = new List<float[]>();
             public readonly List<int> Areas = new List<int>();
             public readonly LiftServedRule.RunLinks Links = new LiftServedRule.RunLinks();
             public List<LiftServedRule.Lift> Lifts;
@@ -77,13 +86,22 @@ namespace LiftBatch
             {
                 Tops.Add(top);
                 Outlines.Add(outline);
+                Heights.Add(null);
                 Areas.Add(area);
                 return Tops.Count - 1;
             }
 
+            /// <summary>A run on the test mountain: node heights from Slope(z).</summary>
+            public int AddSloped(float3 top, float2[] outline)
+            {
+                int i = Add(top, outline);
+                Heights[i] = SlopeHeights(outline);
+                return i;
+            }
+
             public Scene Solve()
             {
-                Links.Build(Outlines, Areas);
+                Links.Build(Outlines, Heights, Areas);
                 LiftServedRule.AssignLinked(Tops, Links, Lifts, Chords, ServingLift, Distance, ServedCount, Root, Via);
                 return this;
             }
@@ -97,6 +115,24 @@ namespace LiftBatch
             return new[] { new float2(x0, z0), new float2(x1, z0), new float2(x1, z1), new float2(x0, z1) };
         }
 
+
+        /// <summary>The test mountain: y = 1000 - 0.5 z (a 50 % fall line toward +z; x is level).</summary>
+        private static float[] SlopeHeights(float2[] ring)
+        {
+            var y = new float[ring.Length];
+            for (int k = 0; k < ring.Length; k++)
+                y[k] = 1000f - 0.5f * ring[k].y;
+            return y;
+        }
+
+        /// <summary>y = 1000 + 0.5 z: the test mountain reversed.</summary>
+        private static float[] Reverse(float2[] ring)
+        {
+            var y = new float[ring.Length];
+            for (int k = 0; k < ring.Length; k++)
+                y[k] = 1000f + 0.5f * ring[k].y;
+            return y;
+        }
 
         private static void Sl0Constant()
         {
@@ -356,6 +392,136 @@ namespace LiftBatch
             double ms2 = (System.Diagnostics.Stopwatch.GetTimestamp() - t1) * 1000.0 / System.Diagnostics.Stopwatch.Frequency;
             Console.WriteLine(string.Format(System.Globalization.CultureInfo.InvariantCulture,
                 "INFO  served-link/SL-8 cost: same inputs again (graph kept) {0:F3} ms", ms2));
+        }
+
+        private static void Sl9Below()
+        {
+            const string W = "served-link/SL-9";
+            Eq(30f, LiftServedRule.MinBelowM, W, "MinBelowM");
+            Eq(3f, LiftServedRule.BelowDropDivisor, W, "BelowDropDivisor");
+            Eq(3f, LiftServedRule.ClimbToleranceM, W, "ClimbToleranceM");
+            // Drop 150: the need is 30 m (the cap). Inclusive.
+            Check(LiftServedRule.BelowJunction(830f, 800f, 950f), W, "drop 150, 30 m below: served");
+            Check(!LiftServedRule.BelowJunction(829.9f, 800f, 950f), W, "drop 150, 29.9 m below: not served");
+            // Drop 60: the need is a third, 20 m.
+            Check(LiftServedRule.BelowJunction(820f, 800f, 860f), W, "drop 60, 20 m below: served");
+            Check(!LiftServedRule.BelowJunction(819.9f, 800f, 860f), W, "drop 60, 19.9 m below: not served");
+            Check(!LiftServedRule.BelowJunction(800f, 800f, 860f), W, "entry at the run's bottom: not served");
+            // A flat outline (drop 0) needs nothing: the flat-terrain case of SL-1..8.
+            Check(LiftServedRule.BelowJunction(0f, 0f, 0f), W, "flat outline: served");
+            Check(!LiftServedRule.BelowJunction(float.NaN, 800f, 860f), W, "NaN entry: not served");
+        }
+
+        private static void Sl10BottomTouch()
+        {
+            const string W = "served-link/SL-10";
+            // A (served) spans z 100-200 (y 950-900). B lies ABOVE it, z -10 to 90 (y 1005-955): its bottom nodes are 10 m from A's top.
+            var s = new Scene();
+            int a = s.AddSloped(Served1, Rect(90f, 100f, 130f, 200f));
+            int b = s.AddSloped(Far, Rect(90f, -10f, 130f, 90f));
+            s.Solve();
+            Eq(1, s.Links.LinkCount, W, "A and B are still linked (the graph is geometric)");
+            Check(s.Served(a), W, "A direct");
+            Check(!s.Served(b), W, "a run touching a served run only at its own bottom is NOT served");
+            Eq(-1, s.Via[b], W, "B via");
+            // The same pair without heights (flat): served, the old rule.
+            var flat = new Scene();
+            flat.Add(Served1, Rect(90f, 100f, 130f, 200f));
+            int fb = flat.Add(Far, Rect(90f, -10f, 130f, 90f));
+            flat.Solve();
+            Check(flat.Served(fb), W, "without heights the same pair is served (flat terrain = the old linking)");
+            // B below A, touching A's bottom with its own top: served (all of it lies below the junction).
+            var down = new Scene();
+            down.AddSloped(Served1, Rect(90f, 100f, 130f, 200f));
+            int db = down.AddSloped(Far, Rect(90f, 210f, 130f, 400f));
+            down.Solve();
+            Check(down.Served(db), W, "a run hanging below a served run's bottom is served");
+        }
+
+        private static void Sl11MidJoin()
+        {
+            const string W = "served-link/SL-11";
+            // A (served): x 0-40, z 0-400 (y 1000-800). B: x 30-100, z -200 to 300 (y 1100-850): A's top corner (40, 0) lies inside B and
+            // B's left edge crosses A's top edge at (30, 0), so the entry onto B is y 1000, mid-way down B; 150 m of B lies below it.
+            var s = new Scene();
+            int a = s.AddSloped(Served1, Rect(0f, 0f, 40f, 400f));
+            int b = s.AddSloped(Far, Rect(30f, -200f, 100f, 300f));
+            // D touches B only at B's top (z -215 vs -200, 15 m): above B's entry, so service cannot flow up B into D.
+            int d = s.AddSloped(Far, Rect(30f, -260f, 100f, -215f));
+            // E touches B's bottom corner (100, 300) with its top corner (110, 300), below B's entry: x 110-150, z 300-500 (y 850-750).
+            int e = s.AddSloped(Far, Rect(110f, 300f, 150f, 500f));
+            s.Solve();
+            Eq(3, s.Links.LinkCount, W, "links A-B, B-D, B-E");
+            Check(s.Served(a), W, "A direct");
+            Check(s.Served(b), W, "a run joined mid-way (150 m below the junction) is served");
+            Eq(a, s.Via[b], W, "B via A");
+            Check(!s.Served(d), W, "service never flows UP B past its entry: D (linked at B's top only) is not served");
+            Check(s.Served(e), W, "E, joined below B's entry, is served through B");
+            Eq(b, s.Via[e], W, "E via B");
+            Eq(a, s.Root[e], W, "E root A");
+            // D is served from above: F, directly served, touches D's top (10 m).
+            var t = new Scene();
+            t.AddSloped(Served1, Rect(0f, 0f, 40f, 400f));
+            int tb = t.AddSloped(Far, Rect(30f, -200f, 100f, 300f));
+            int td = t.AddSloped(Far, Rect(30f, -260f, 100f, -215f));
+            int tf = t.AddSloped(Served2, Rect(40f, -320f, 100f, -270f));
+            t.Solve();
+            Check(t.Served(tf) && t.Served(td), W, "D served from above through F");
+            Eq(tf, t.Via[td], W, "D via F");
+            Check(t.Served(tb), W, "B served");
+        }
+
+        private static void Sl12Chain()
+        {
+            const string W = "served-link/SL-12";
+            // A (served) z 0-200 (y 1000-900). B below it, z 210-400: entry y 895 at its top, served. C beside B's top, x 60-100,
+            // z 220-260 (y 890-870): its node (60, 220) is 22.4 m from B's node (40, 210) at y 895, B's entry height: usable; C's drop
+            // 20, need 6.7, below 20: served. H touches C's bottom node (100, 260) with its top (110, 270), 14.1 m; H z 270-500.
+            var s = new Scene();
+            int a = s.AddSloped(Served1, Rect(0f, 0f, 40f, 200f));
+            int b = s.AddSloped(Far, Rect(0f, 210f, 40f, 400f));
+            int c = s.AddSloped(Far, Rect(60f, 220f, 100f, 260f));
+            int h = s.AddSloped(Far, Rect(110f, 270f, 150f, 500f));
+            s.Solve();
+            Check(s.Served(a) && s.Served(b) && s.Served(c) && s.Served(h), W, "the downhill chain A - B - C - H is served");
+            Eq(a, s.Via[b], W, "B via A");
+            Eq(b, s.Via[c], W, "C via B");
+            Eq(c, s.Via[h], W, "H via C");
+            Eq(a, s.Root[h], W, "H root A");
+            // The mountain reversed (falling toward -z): B now rises away from A and touches it at B's own bottom.
+            var up = new Scene();
+            int ua = up.Add(Served1, Rect(0f, 0f, 40f, 200f));
+            up.Heights[ua] = Reverse(up.Outlines[ua]);
+            int ub = up.Add(Far, Rect(0f, 210f, 40f, 400f));
+            up.Heights[ub] = Reverse(up.Outlines[ub]);
+            up.Solve();
+            Check(!up.Served(ub), W, "a run that rises away from the served run (bottom touch) is not served");
+        }
+
+        private static void Sl13HeightReuse()
+        {
+            const string W = "served-link/SL-13";
+            var s = new Scene();
+            s.AddSloped(Served1, Rect(90f, 100f, 130f, 200f));
+            int b = s.AddSloped(Far, Rect(90f, -10f, 130f, 90f));
+            s.Solve();
+            Eq(1, s.Links.Rebuilds, W, "first Build");
+            s.Solve();
+            Eq(1, s.Links.Rebuilds, W, "same outline and height arrays: kept");
+            Check(!s.Served(b), W, "B touches at its bottom: not served");
+            // A terrain re-snap: the catalog hands a new height array (same xz array). B now falls AWAY from A (y 950 at its z 90
+            // nodes, beside A's top at 950; 900 at z -10): the graph rebuilds and B lies below the junction.
+            var resnap = new float[s.Outlines[b].Length];
+            for (int k = 0; k < resnap.Length; k++)
+                resnap[k] = 905f + 0.5f * s.Outlines[b][k].y;
+            s.Heights[b] = resnap;
+            s.Solve();
+            Eq(2, s.Links.Rebuilds, W, "a replaced height array rebuilds");
+            Check(s.Served(b), W, "after the re-snap B lies below the junction: served");
+            // A height array of the wrong length reads as flat (no heights) for that run.
+            s.Heights[b] = new float[2];
+            s.Solve();
+            Check(s.Served(b), W, "a mismatched height array reads flat (served, as without heights)");
         }
     }
 }

@@ -2,7 +2,8 @@
 // and SkiLiftTicketSystem, via LiftCensusSystem.CopyServeLifts / ReadLiftPower; tests/LiftBatch and tests/ResortBatch link it.
 // A run is served by lift L when L's row is Complete, IsPowered(L.Power), the run's top T has T.y <= TopY + TopMarginM and its xz
 // distance to the nearest chord of L is <= ServeRadiusM (both bounds inclusive; the nearest lift serves, a tie goes to the lower
-// EntityRef). A run linked to a served run is served too (AssignLinked). TerminalsOnly lifts (tram) measure to TopXZ instead.
+// EntityRef). A run a skier gets onto DOWNHILL from a served run is served too (AssignLinked: linked outlines, a reachable junction,
+// a real part of the run below it; cat tracks carry service level or downhill). TerminalsOnly lifts (tram) measure to TopXZ instead.
 // IsPowered is the only "powered" predicate in the mod; PowerGatesService = false turns power into status only. A lift is powered
 // from its base station only. Pure file: System, System.Collections.Generic, Unity.Mathematics, EntityRef and SkiCatalog consts.
 // Engine notes: EngineNotes/LiftServedRule.md
@@ -288,25 +289,84 @@ namespace SkiResortMod.Systems
         /// <summary>Two runs of the same ski area are linked when any outline node of one lies within this many meters (xz,
         /// inclusive) of any outline node of the other, or their outlines overlap (an edge crossing, or a node inside the other's
         /// ring). 25 m: a connector is drawn from a node placed on or beside the run it leaves, so the nodes of the two outlines
-        /// meet within a brush width or two; 26 m apart is not linked (ServedLinkTests). One const, no setting.</summary>
+        /// meet within a brush width or two; 26 m apart is not linked (ServedLinkTests). One const, no setting. A cat track's own
+        /// nodes within this distance of each other are also joined for its climb walk (across the ribbon).</summary>
         public const float LinkMeters = 25f;
 
-        /// <summary>The run-to-run link graph of one recompute. Build(outlines, areas) fills a CSR adjacency; it is
-        /// SELF-VALIDATING: when the per-run outline arrays are the very same objects as at the last Build (the catalog keeps
-        /// one float2[] per run until its outline moves) and the area ids are equal, the graph is kept and no pair is tested,
-        /// so the O(n^2 x nodes) pass runs only after an outline, a binding or the run set changed, not on every soft
-        /// recompute. Allocation-free once grown. Main thread, one instance per caller.</summary>
+        /// <summary>Downhill linking: a run entered from a link is served only when at least min(MinBelowM, its drop /
+        /// BelowDropDivisor) of it lies below the entry (BelowJunction).</summary>
+        public const float MinBelowM = 30f, BelowDropDivisor = 3f;
+
+        /// <summary>How far above the place where a skier got on a run or a cat track they can still get (the cap, AssignLinked): a
+        /// junction or a track node higher than that is out of reach. 3 m covers node-height noise and a graded track's small rises;
+        /// a real climb (a cat track up the mountain) stops them. A height cap, not a sum of climbs: a summed budget would restart
+        /// at every run a track crosses (the skier steps onto the run and back), while the cap never grows along a chain.</summary>
+        public const float ClimbToleranceM = 3f;
+
+        /// <summary>Rule 1 of the downhill linking: is a real part of a run below the entry height <paramref name="entryY"/>?
+        /// entryY - minY &gt;= min(MinBelowM, (maxY - minY) / BelowDropDivisor), inclusive; minY / maxY = the run's lowest / highest
+        /// outline node. A flat outline (no heights) needs nothing. NaN fails.</summary>
+        public static bool BelowJunction(float entryY, float minY, float maxY)
+        {
+            float need = math.min(MinBelowM, (maxY - minY) / BelowDropDivisor);
+            return entryY - minY >= need;
+        }
+
+        /// <summary>One place where a skier can pass from one linked run to the other: FromY / ToY = the height of the place on each
+        /// run. On each run the place is an outline node (Node2 = -1) or lies on the edge Node - Node2 (a crossing, or a node of the
+        /// other run inside this one's ring: its nearest edge), the cat track walk's entry and exit: a track's outline is simplified
+        /// (GradeRibbon), so a straight track has nodes only at its ends and the place must reach both ends of its edge.</summary>
+        public struct Contact
+        {
+            public float FromY, ToY;
+            public int FromNode, FromNode2, ToNode, ToNode2;
+        }
+
+        /// <summary>The run-to-run link graph of one recompute. Build(outlines, heights, areas) fills a CSR adjacency and, per
+        /// direction of each link, its contacts (Contact). It is SELF-VALIDATING: when the per-run outline and height arrays are the
+        /// very same objects as at the last Build (the catalog keeps one array per run until its outline moves or its nodes are
+        /// re-snapped) and the area ids are equal, the graph is kept and no pair is tested, so the O(n^2 x nodes) pass runs only
+        /// after an outline, a height, a binding or the run set changed, not on every soft recompute. Allocation-free once grown.
+        /// Main thread, one instance per caller.</summary>
         public sealed class RunLinks
         {
             private readonly List<float2[]> m_Outlines = new List<float2[]>(32);
+            private readonly List<float[]> m_HeightsIn = new List<float[]>(32);   // the caller's arrays (the reuse test)
+            private readonly List<float[]> m_Heights = new List<float[]>(32);     // the ones read: null when absent or mismatched
             private readonly List<int> m_Areas = new List<int>(32);
             private readonly List<float4> m_Box = new List<float4>(32);   // minX, minZ, maxX, maxZ of each outline
+            private readonly List<float2> m_YRange = new List<float2>(32);   // lowest, highest node y (0, 0 without heights)
+            private readonly List<int> m_TopNode = new List<int>(32);        // the highest node (the first on a tie; 0 without heights)
+            private readonly List<int> m_NodeStart = new List<int>(33);      // run -> first slot of its nodes in the per-node lists
             private readonly List<int> m_Start = new List<int>(33);
             private readonly List<int> m_Adj = new List<int>(64);
+            private readonly List<int> m_SlotFirst = new List<int>(64);      // per adjacency slot: its contacts in m_Contacts
+            private readonly List<int> m_SlotCount = new List<int>(64);
+            private readonly List<Contact> m_Contacts = new List<Contact>(256);
             private readonly List<int> m_PairA = new List<int>(32);
             private readonly List<int> m_PairB = new List<int>(32);
+            private readonly List<int> m_PairAB = new List<int>(32);         // per pair: first contact A -> B, count, first B -> A, count
+            private readonly List<int> m_PairABn = new List<int>(32);
+            private readonly List<int> m_PairBA = new List<int>(32);
+            private readonly List<int> m_PairBAn = new List<int>(32);
             private readonly List<int> m_Fill = new List<int>(32);
-            internal readonly List<int> Queue = new List<int>(32);        // AssignLinked's BFS scratch
+            private readonly List<float> m_BestY = new List<float>(64);      // AddContacts scratch, per node of b: its best node of a
+            private readonly List<float> m_BestBoard = new List<float>(64);
+            private readonly List<int> m_BestI = new List<int>(64);
+            private readonly List<Contact> m_Back = new List<Contact>(64);  // AddContacts: the B -> A contacts until A -> B is done
+            // A cat track's walk graph (built on first use per Build): per node its neighbors' slice of m_WalkAdj
+            private readonly List<int> m_WalkFirst = new List<int>(256);
+            private readonly List<int> m_WalkCount = new List<int>(256);
+            private readonly List<int> m_WalkAdj = new List<int>(1024);
+            private readonly List<bool> m_WalkBuilt = new List<bool>(32);
+            // AssignLinked's scratch
+            internal readonly List<int> Queue = new List<int>(32);
+            internal readonly List<bool> Queued = new List<bool>(32);
+            internal readonly List<float> Cap = new List<float>(32);         // per run: the highest a skier on it gets (+inf = all of it)
+            internal readonly List<bool> Dirty = new List<bool>(32);         // per run: a cat track with new entries
+            internal readonly List<float> EntryCap = new List<float>(256);   // per node: the best cap a skier gets on with (cat tracks)
+            internal readonly List<float> NodeCap = new List<float>(256);    // per node: the cap it is reached with, -inf unreached
+            internal readonly List<int> Flood = new List<int>(64);
             private bool m_Valid;
 
             /// <summary>How many Builds recomputed the graph / kept it (diagnostics, tests).</summary>
@@ -331,31 +391,110 @@ namespace SkiResortMod.Systems
                 return m_Adj[slot];
             }
 
-            /// <summary>Builds (or keeps) the graph. outlines[i] = run i's outline nodes (xz; null or empty = no outline, never
-            /// linked); areas[i] = run i's ski area id (any int; a negative id = no area, never linked). Both lists have one
-            /// entry per run. Returns true when the graph was recomputed.</summary>
+            /// <summary>The contacts of adjacency slot <paramref name="slot"/> (the run -> the run at that slot): first index and count.</summary>
+            public void ContactsOf(int slot, out int first, out int count)
+            {
+                first = m_SlotFirst[slot];
+                count = m_SlotCount[slot];
+            }
+
+            /// <summary>Contact <paramref name="index"/> (from ContactsOf).</summary>
+            public Contact ContactAt(int index)
+            {
+                return m_Contacts[index];
+            }
+
+            /// <summary>Run <paramref name="run"/>'s lowest and highest outline node y (0, 0 without heights).</summary>
+            public float2 YRange(int run)
+            {
+                return m_YRange[run];
+            }
+
+            internal int TopNode(int run) => m_TopNode[run];
+
+            internal int NodeStart(int run) => m_NodeStart[run];
+
+            internal int NodeCount(int run) => m_NodeStart[run + 1] - m_NodeStart[run];
+
+            internal float NodeY(int run, int node)
+            {
+                float[] y = m_Heights[run];
+                return y != null ? y[node] : 0f;
+            }
+
+            /// <summary>Builds (or keeps) the graph without heights: every node at y 0, i.e. flat terrain, where the downhill rule
+            /// reduces to the plain link rule (every contact usable, every linked run served).</summary>
             public bool Build(List<float2[]> outlines, List<int> areas)
             {
+                return Build(outlines, null, areas);
+            }
+
+            /// <summary>Builds (or keeps) the graph. outlines[i] = run i's outline nodes (xz; null or empty = no outline, never
+            /// linked); heights[i] = their y in the same order (null list, null entry or another length = flat, y 0); areas[i] = run
+            /// i's ski area id (any int; a negative id = no area, never linked). One entry per run. Returns true when the graph was
+            /// recomputed.</summary>
+            public bool Build(List<float2[]> outlines, List<float[]> heights, List<int> areas)
+            {
                 int n = outlines.Count;
-                if (areas.Count != n)
-                    throw new ArgumentException("areas and outlines differ in length");
-                if (m_Valid && SameInputs(outlines, areas))
+                if (areas.Count != n || (heights != null && heights.Count != n))
+                    throw new ArgumentException("areas, heights and outlines differ in length");
+                if (m_Valid && SameInputs(outlines, heights, areas))
                 {
                     Reuses++;
                     return false;
                 }
                 Rebuilds++;
                 m_Outlines.Clear();
+                m_HeightsIn.Clear();
+                m_Heights.Clear();
                 m_Areas.Clear();
                 m_Box.Clear();
+                m_YRange.Clear();
+                m_TopNode.Clear();
+                m_NodeStart.Clear();
                 m_PairA.Clear();
                 m_PairB.Clear();
+                m_PairAB.Clear();
+                m_PairABn.Clear();
+                m_PairBA.Clear();
+                m_PairBAn.Clear();
+                m_Contacts.Clear();
+                m_WalkBuilt.Clear();
+                m_WalkAdj.Clear();
+                int nodes = 0;
                 for (int i = 0; i < n; i++)
                 {
-                    m_Outlines.Add(outlines[i]);
+                    float2[] o = outlines[i];
+                    float[] hy = heights != null ? heights[i] : null;
+                    m_Outlines.Add(o);
+                    m_HeightsIn.Add(hy);
+                    if (o == null || hy == null || hy.Length != o.Length)
+                        hy = null;
+                    m_Heights.Add(hy);
                     m_Areas.Add(areas[i]);
-                    m_Box.Add(BoxOf(outlines[i]));
+                    m_Box.Add(BoxOf(o));
+                    float lo = 0f, hi = 0f;
+                    int top = 0;
+                    if (hy != null && hy.Length > 0)
+                    {
+                        lo = hi = hy[0];
+                        for (int k = 1; k < hy.Length; k++)
+                        {
+                            if (hy[k] < lo) lo = hy[k];
+                            if (hy[k] > hi)
+                            {
+                                hi = hy[k];
+                                top = k;
+                            }
+                        }
+                    }
+                    m_YRange.Add(new float2(lo, hi));
+                    m_TopNode.Add(top);
+                    m_NodeStart.Add(nodes);
+                    nodes += o != null ? o.Length : 0;
+                    m_WalkBuilt.Add(false);
                 }
+                m_NodeStart.Add(nodes);
                 float margin = LinkMeters;
                 for (int i = 0; i < n; i++)
                 {
@@ -373,6 +512,7 @@ namespace SkiResortMod.Systems
                         {
                             m_PairA.Add(i);
                             m_PairB.Add(j);
+                            AddContacts(i, j);
                         }
                     }
                 }
@@ -392,25 +532,188 @@ namespace SkiResortMod.Systems
                     m_Fill.Add(m_Start[i]);
                 }
                 m_Adj.Clear();
+                m_SlotFirst.Clear();
+                m_SlotCount.Clear();
                 for (int k = 0; k < m_Start[n]; k++)
+                {
                     m_Adj.Add(0);
+                    m_SlotFirst.Add(0);
+                    m_SlotCount.Add(0);
+                }
                 for (int k = 0; k < m_PairA.Count; k++)
                 {
                     int a = m_PairA[k], b = m_PairB[k];
-                    m_Adj[m_Fill[a]++] = b;
-                    m_Adj[m_Fill[b]++] = a;
+                    int sa = m_Fill[a]++, sb = m_Fill[b]++;
+                    m_Adj[sa] = b;
+                    m_SlotFirst[sa] = m_PairAB[k];
+                    m_SlotCount[sa] = m_PairABn[k];
+                    m_Adj[sb] = a;
+                    m_SlotFirst[sb] = m_PairBA[k];
+                    m_SlotCount[sb] = m_PairBAn[k];
                 }
                 m_Valid = true;
                 return true;
             }
 
-            private bool SameInputs(List<float2[]> outlines, List<int> areas)
+            /// <summary>The contacts of the linked pair (i, j), appended A -> B, then B -> A (one pass over the tests fills both). Per
+            /// node of a source: the near node of the other run (within LinkMeters) a skier boards highest, i.e. the most of min(its y,
+            /// the source node's y), a tie to the lower node (on a cat track the uphill neighbor would sit above the skier's cap); per
+            /// edge crossing: the crossing point's height on each edge (linear between its nodes); per node inside the other's ring:
+            /// that node's own height on both sides (the same ground). Only nodes inside the other outline's box grown by LinkMeters
+            /// are tested (no other node is near it or inside it).</summary>
+            private void AddContacts(int i, int j)
+            {
+                float2[] a = m_Outlines[i], b = m_Outlines[j];
+                float4 ba = Grow(m_Box[i]), bb = Grow(m_Box[j]);
+                float r2 = LinkMeters * LinkMeters;
+                m_Back.Clear();
+                m_BestI.Clear();
+                m_BestY.Clear();
+                m_BestBoard.Clear();
+                for (int q = 0; q < b.Length; q++)
+                {
+                    m_BestI.Add(-1);
+                    m_BestY.Add(0f);
+                    m_BestBoard.Add(0f);
+                }
+                m_PairAB.Add(m_Contacts.Count);
+                for (int p = 0; p < a.Length; p++)
+                {
+                    if (!InBox(a[p], bb))
+                        continue;
+                    int best = -1;
+                    float ya = NodeY(i, p), bestY = 0f, bestBoard = 0f;
+                    for (int q = 0; q < b.Length; q++)
+                    {
+                        if (math.lengthsq(a[p] - b[q]) > r2)
+                            continue;
+                        float yb = NodeY(j, q), board = math.min(ya, yb);
+                        if (best < 0 || board > bestBoard || (board == bestBoard && yb < bestY))
+                        {
+                            best = q;
+                            bestY = yb;
+                            bestBoard = board;
+                        }
+                        if (m_BestI[q] < 0 || board > m_BestBoard[q] || (board == m_BestBoard[q] && ya < m_BestY[q]))
+                        {
+                            m_BestI[q] = p;
+                            m_BestY[q] = ya;
+                            m_BestBoard[q] = board;
+                        }
+                    }
+                    if (best >= 0)
+                        m_Contacts.Add(new Contact { FromY = ya, ToY = bestY, FromNode = p, FromNode2 = -1, ToNode = best, ToNode2 = -1 });
+                }
+                for (int q = 0; q < b.Length; q++)
+                {
+                    if (m_BestI[q] >= 0)
+                        m_Back.Add(new Contact { FromY = NodeY(j, q), ToY = m_BestY[q], FromNode = q, FromNode2 = -1, ToNode = m_BestI[q], ToNode2 = -1 });
+                }
+                if (a.Length >= 3 && b.Length >= 3)
+                {
+                    for (int p = 0; p < a.Length; p++)
+                    {
+                        int p1 = p + 1 < a.Length ? p + 1 : 0;
+                        if (!SpansBox(a[p], a[p1], m_Box[j]))
+                            continue;
+                        for (int q = 0; q < b.Length; q++)
+                        {
+                            int q1 = q + 1 < b.Length ? q + 1 : 0;
+                            if (!CrossAt(a[p], a[p1], b[q], b[q1], out float s, out float t))
+                                continue;
+                            float ya = math.lerp(NodeY(i, p), NodeY(i, p1), s), yb = math.lerp(NodeY(j, q), NodeY(j, q1), t);
+                            m_Contacts.Add(new Contact { FromY = ya, ToY = yb, FromNode = p, FromNode2 = p1, ToNode = q, ToNode2 = q1 });
+                            m_Back.Add(new Contact { FromY = yb, ToY = ya, FromNode = q, FromNode2 = q1, ToNode = p, ToNode2 = p1 });
+                        }
+                    }
+                    for (int p = 0; p < a.Length; p++)
+                    {
+                        if (!InBox(a[p], bb) || !InsideRing(a[p], b))
+                            continue;
+                        float y = NodeY(i, p);
+                        NearestEdge(b, a[p], out int q0, out int q1);
+                        m_Contacts.Add(new Contact { FromY = y, ToY = y, FromNode = p, FromNode2 = -1, ToNode = q0, ToNode2 = q1 });
+                        m_Back.Add(new Contact { FromY = y, ToY = y, FromNode = q0, FromNode2 = q1, ToNode = p, ToNode2 = -1 });
+                    }
+                    for (int q = 0; q < b.Length; q++)
+                    {
+                        if (!InBox(b[q], ba) || !InsideRing(b[q], a))
+                            continue;
+                        float y = NodeY(j, q);
+                        NearestEdge(a, b[q], out int p0, out int p1);
+                        m_Contacts.Add(new Contact { FromY = y, ToY = y, FromNode = p0, FromNode2 = p1, ToNode = q, ToNode2 = -1 });
+                        m_Back.Add(new Contact { FromY = y, ToY = y, FromNode = q, FromNode2 = -1, ToNode = p0, ToNode2 = p1 });
+                    }
+                }
+                m_PairABn.Add(m_Contacts.Count - m_PairAB[m_PairAB.Count - 1]);
+                m_PairBA.Add(m_Contacts.Count);
+                m_Contacts.AddRange(m_Back);
+                m_PairBAn.Add(m_Back.Count);
+            }
+
+            private static float4 Grow(float4 box)
+            {
+                return box + new float4(-LinkMeters, -LinkMeters, LinkMeters, LinkMeters);
+            }
+
+            private static bool InBox(float2 p, float4 box)
+            {
+                return p.x >= box.x && p.y >= box.y && p.x <= box.z && p.y <= box.w;
+            }
+
+            /// <summary>Does segment p0-p1's xz extent overlap the box (a crossing of the box's outline needs it)?</summary>
+            private static bool SpansBox(float2 p0, float2 p1, float4 box)
+            {
+                float2 lo = math.min(p0, p1), hi = math.max(p0, p1);
+                return !(hi.x < box.x || lo.x > box.z || hi.y < box.y || lo.y > box.w);
+            }
+
+            /// <summary>Builds run <paramref name="run"/>'s walk graph once per Build: each node joined to its two ring neighbors and
+            /// to every other node of the same outline within LinkMeters (across a cat track's ribbon).</summary>
+            internal void EnsureWalk(int run)
+            {
+                if (m_WalkBuilt[run])
+                    return;
+                m_WalkBuilt[run] = true;
+                int g0 = m_NodeStart[run], m = NodeCount(run);
+                while (m_WalkFirst.Count < m_NodeStart[m_NodeStart.Count - 1])
+                {
+                    m_WalkFirst.Add(0);
+                    m_WalkCount.Add(0);
+                }
+                float2[] o = m_Outlines[run];
+                float r2 = LinkMeters * LinkMeters;
+                for (int k = 0; k < m; k++)
+                {
+                    m_WalkFirst[g0 + k] = m_WalkAdj.Count;
+                    for (int l = 0; l < m; l++)
+                    {
+                        if (l == k)
+                            continue;
+                        bool ring = l == (k + 1) % m || k == (l + 1) % m;
+                        if (ring || math.lengthsq(o[k] - o[l]) <= r2)
+                            m_WalkAdj.Add(l);
+                    }
+                    m_WalkCount[g0 + k] = m_WalkAdj.Count - m_WalkFirst[g0 + k];
+                }
+            }
+
+            internal void WalkOf(int run, int node, out int first, out int count)
+            {
+                first = m_WalkFirst[m_NodeStart[run] + node];
+                count = m_WalkCount[m_NodeStart[run] + node];
+            }
+
+            internal int WalkAt(int index) => m_WalkAdj[index];
+
+            private bool SameInputs(List<float2[]> outlines, List<float[]> heights, List<int> areas)
             {
                 if (m_Areas.Count != outlines.Count)
                     return false;
                 for (int i = 0; i < outlines.Count; i++)
                 {
-                    if (!ReferenceEquals(m_Outlines[i], outlines[i]) || m_Areas[i] != areas[i])
+                    if (!ReferenceEquals(m_Outlines[i], outlines[i]) || m_Areas[i] != areas[i] ||
+                        !ReferenceEquals(m_HeightsIn[i], heights != null ? heights[i] : null))
                         return false;
                 }
                 return true;
@@ -427,6 +730,23 @@ namespace SkiResortMod.Systems
                     hi = math.max(hi, outline[k]);
                 }
                 return new float4(lo.x, lo.y, hi.x, hi.y);
+            }
+
+            /// <summary>The ring edge k0 - k1 nearest to p (xz; the first on a tie).</summary>
+            private static void NearestEdge(float2[] ring, float2 p, out int k0, out int k1)
+            {
+                k0 = 0;
+                float bestD = float.PositiveInfinity;
+                for (int k = 0; k < ring.Length; k++)
+                {
+                    float d = DistanceSqXZ(p, ring[k], ring[k + 1 < ring.Length ? k + 1 : 0]);
+                    if (d < bestD)
+                    {
+                        bestD = d;
+                        k0 = k;
+                    }
+                }
+                k1 = k0 + 1 < ring.Length ? k0 + 1 : 0;
             }
         }
 
@@ -472,6 +792,18 @@ namespace SkiResortMod.Systems
             return ((d1 > 0f && d2 < 0f) || (d1 < 0f && d2 > 0f)) && ((d3 > 0f && d4 < 0f) || (d3 < 0f && d4 > 0f));
         }
 
+        /// <summary>SegmentsCross with the crossing's parameters: the point is p0 + s (p1 - p0) = q0 + t (q1 - q0).</summary>
+        private static bool CrossAt(float2 p0, float2 p1, float2 q0, float2 q1, out float s, out float t)
+        {
+            float d1 = Cross(q0, q1, p0), d2 = Cross(q0, q1, p1), d3 = Cross(p0, p1, q0), d4 = Cross(p0, p1, q1);
+            s = t = 0f;
+            if (!(((d1 > 0f && d2 < 0f) || (d1 < 0f && d2 > 0f)) && ((d3 > 0f && d4 < 0f) || (d3 < 0f && d4 > 0f))))
+                return false;
+            s = d1 / (d1 - d2);
+            t = d3 / (d3 - d4);
+            return true;
+        }
+
         /// <summary>Even-odd point-in-ring test.</summary>
         private static bool InsideRing(float2 p, float2[] ring)
         {
@@ -485,53 +817,199 @@ namespace SkiResortMod.Systems
             return inside;
         }
 
-        /// <summary>The served rule with run-to-run links; the attraction and stats paths both call it, so they cannot disagree.
-        /// Runs <c>Assign</c> first (servingLift / servingDistanceM / servedCount stay DIRECT), then a breadth-first pass over
-        /// <paramref name="links"/> (Build it first; a graph of another size is ignored): a run is SERVED when its own top passes
-        /// (servedRoot[i] = i, servedVia[i] = -1) or a chain of linked runs reaches a directly served one (root = the nearest by
-        /// link count, ties to the lower index; via = the run it was reached through). Unserved: both -1. Output lists are cleared
-        /// and filled. <paramref name="leafRuns"/> (null = none) marks LEAF runs by index: a leaf may be served but never passes
-        /// service on, so a cat track crossing a black run does not "serve" it. A short list reads false for missing indices.
-        /// Details: EngineNotes/LiftServedRule.md, "Near AssignLinked".</summary>
+        /// <summary>The served rule with downhill run-to-run links; the attraction and stats paths both call it, so they cannot
+        /// disagree. Runs <c>Assign</c> first (servingLift / servingDistanceM / servedCount stay DIRECT), then a work-list pass over
+        /// <paramref name="links"/> (Build it first; a graph of another size is ignored). Every served run carries a CAP: the highest
+        /// a skier on it can get (+inf for a directly served run: its whole outline). Through a contact (ContactAt):
+        /// - from a plain run R: usable when the contact's height on R is at most R's cap; from a cat track T
+        ///   (<paramref name="catTracks"/>, null = none): usable at a node of T the skiers reach;
+        /// - the skier gets on at p = min(height on the source, height on the target) and the target's cap is
+        ///   min(source cap, p + ClimbToleranceM), so a cap never grows along a chain (no 3 m ratchet per hop);
+        /// - a plain run is served by the contact only when BelowJunction(p, its lowest, its highest node y) holds (a real part of it
+        ///   lies below); a cat track by any contact with a track node no higher than the cap (the place's node or an end of its
+        ///   edge). A cat track's skiers reach every
+        ///   node joined to an entry through nodes no higher than that entry's cap (either way along it, and across its ribbon:
+        ///   RunLinks.EnsureWalk); a directly served track is entered at its top node with cap +inf.
+        /// servedRoot = the directly served run of the chain that first reached it, servedVia = the run it was first reached through
+        /// (breadth-first from the directly served runs in index order); unserved: both -1. Without heights (flat) every contact is
+        /// usable and every linked run passes, i.e. the old link rule. Output lists are cleared and filled; allocation-free once
+        /// grown. A mask shorter than the run count reads false for the missing indices. Details: EngineNotes/LiftServedRule.md,
+        /// "Near AssignLinked".</summary>
         public static void AssignLinked(List<float3> runTops, RunLinks links, List<Lift> lifts, List<Chord> chords,
             List<int> servingLift, List<float> servingDistanceM, List<int> servedCount,
-            List<int> servedRoot, List<int> servedVia, List<bool> leafRuns = null)
+            List<int> servedRoot, List<int> servedVia, List<bool> catTracks = null)
         {
             Assign(runTops, lifts, chords, servingLift, servingDistanceM, servedCount);
             int n = runTops.Count;
             servedRoot.Clear();
             servedVia.Clear();
-            List<int> queue = links != null ? links.Queue : new List<int>(n);
-            queue.Clear();
             for (int r = 0; r < n; r++)
             {
                 servedVia.Add(-1);
-                if (servingLift[r] >= 0)
-                {
-                    servedRoot.Add(r);
-                    queue.Add(r);
-                }
-                else
-                {
-                    servedRoot.Add(-1);
-                }
+                servedRoot.Add(servingLift[r] >= 0 ? r : -1);
             }
             if (links == null || links.Count != n)
                 return;
+            List<int> queue = links.Queue;
+            List<bool> queued = links.Queued, dirty = links.Dirty;
+            List<float> cap = links.Cap, entryCap = links.EntryCap, nodeCap = links.NodeCap;
+            queue.Clear();
+            queued.Clear();
+            dirty.Clear();
+            cap.Clear();
+            entryCap.Clear();
+            nodeCap.Clear();
+            int nodes = links.NodeStart(n);
+            for (int g = 0; g < nodes; g++)
+            {
+                entryCap.Add(float.NegativeInfinity);
+                nodeCap.Add(float.NegativeInfinity);
+            }
+            for (int r = 0; r < n; r++)
+            {
+                bool direct = servingLift[r] >= 0;
+                cap.Add(direct ? float.PositiveInfinity : float.NegativeInfinity);
+                queued.Add(direct);
+                dirty.Add(false);
+                if (!direct)
+                    continue;
+                queue.Add(r);
+                if (IsTrack(catTracks, r) && links.NodeCount(r) > 0)
+                {
+                    entryCap[links.NodeStart(r) + links.TopNode(r)] = float.PositiveInfinity;
+                    dirty[r] = true;
+                }
+            }
             for (int head = 0; head < queue.Count; head++)
             {
                 int r = queue[head];
-                if (leafRuns != null && r < leafRuns.Count && leafRuns[r])
-                    continue;   // a leaf is served at most; it never serves its neighbors
+                queued[r] = false;
+                bool track = IsTrack(catTracks, r);
+                if (track && dirty[r])
+                {
+                    dirty[r] = false;
+                    Walk(links, r);
+                }
+                int g0 = links.NodeStart(r);
                 links.NeighboursOf(r, out int first, out int count);
                 for (int k = 0; k < count; k++)
                 {
-                    int m = links.Neighbour(first + k);
-                    if (servedRoot[m] >= 0)
-                        continue;
-                    servedRoot[m] = servedRoot[r];
-                    servedVia[m] = r;
-                    queue.Add(m);
+                    int slot = first + k, m = links.Neighbour(slot);
+                    bool mTrack = IsTrack(catTracks, m);
+                    float2 range = links.YRange(m);
+                    links.ContactsOf(slot, out int c0, out int cn);
+                    for (int c = c0; c < c0 + cn; c++)
+                    {
+                        Contact ct = links.ContactAt(c);
+                        // The highest a skier at the place gets: a plain run's cap, or on a track the best cap of a reached node (the
+                        // place's node or an end of its edge) that is no lower than the place
+                        float skier = cap[r];
+                        if (track)
+                        {
+                            skier = PlaceCap(nodeCap, g0 + ct.FromNode, ct.FromY);
+                            if (ct.FromNode2 >= 0)
+                                skier = math.max(skier, PlaceCap(nodeCap, g0 + ct.FromNode2, ct.FromY));
+                        }
+                        if (!(ct.FromY <= skier))
+                            continue;   // the skiers do not reach this contact on the source
+                        float p = math.min(ct.FromY, ct.ToY);
+                        float next = math.min(skier, p + ClimbToleranceM);
+                        bool changed;
+                        if (mTrack)
+                        {
+                            // Onto the track at the place's node, or at either end of its edge no higher than the cap (the place lies
+                            // between the two ends' heights, so the lower end qualifies whenever the place does)
+                            changed = Enter(links, entryCap, m, ct.ToNode, next);
+                            if (ct.ToNode2 >= 0)
+                                changed |= Enter(links, entryCap, m, ct.ToNode2, next);
+                            if (changed)
+                                dirty[m] = true;
+                        }
+                        else
+                        {
+                            changed = next > cap[m] && BelowJunction(p, range.x, range.y);
+                            if (changed)
+                                cap[m] = next;
+                        }
+                        if (!changed)
+                            continue;
+                        if (servedRoot[m] < 0)
+                        {
+                            servedRoot[m] = servedRoot[r];
+                            servedVia[m] = r;
+                        }
+                        if (!queued[m])
+                        {
+                            queued[m] = true;
+                            queue.Add(m);
+                        }
+                    }
+                }
+            }
+        }
+
+        /// <summary>Reached track node g's cap when a place at height y is no higher than it, else -inf.</summary>
+        private static float PlaceCap(List<float> nodeCap, int g, float y)
+        {
+            float c = nodeCap[g];
+            return y <= c ? c : float.NegativeInfinity;
+        }
+
+        /// <summary>Records an entry at track m's node k with cap c when the node is no higher than c and c beats its last entry.</summary>
+        private static bool Enter(RunLinks links, List<float> entryCap, int m, int k, float c)
+        {
+            int g = links.NodeStart(m) + k;
+            if (!(c > entryCap[g]) || !(links.NodeY(m, k) <= c))
+                return false;
+            entryCap[g] = c;
+            return true;
+        }
+
+        private static bool IsTrack(List<bool> catTracks, int r)
+        {
+            return catTracks != null && r < catTracks.Count && catTracks[r];
+        }
+
+        /// <summary>Cat track <paramref name="run"/>'s reached nodes from its entries (EntryCap): entries in descending cap order,
+        /// each flooding its walk graph through nodes no higher than its cap; NodeCap = the cap a node was first reached with (the
+        /// highest, by the order), -inf when unreached. A node reached from a higher cap is never re-flooded by a lower one: what the
+        /// lower cap reaches from there lies inside the higher cap's flood.</summary>
+        private static void Walk(RunLinks links, int run)
+        {
+            links.EnsureWalk(run);
+            int g0 = links.NodeStart(run), m = links.NodeCount(run);
+            List<float> entryCap = links.EntryCap, nodeCap = links.NodeCap;
+            List<int> flood = links.Flood;
+            for (int k = 0; k < m; k++)
+                nodeCap[g0 + k] = float.NegativeInfinity;
+            while (true)
+            {
+                int start = -1;
+                float c = float.NegativeInfinity;
+                for (int k = 0; k < m; k++)
+                {
+                    if (nodeCap[g0 + k] == float.NegativeInfinity && entryCap[g0 + k] > c && links.NodeY(run, k) <= entryCap[g0 + k])
+                    {
+                        c = entryCap[g0 + k];
+                        start = k;
+                    }
+                }
+                if (start < 0)
+                    return;
+                flood.Clear();
+                flood.Add(start);
+                nodeCap[g0 + start] = c;
+                for (int h = 0; h < flood.Count; h++)
+                {
+                    links.WalkOf(run, flood[h], out int first, out int count);
+                    for (int e = first; e < first + count; e++)
+                    {
+                        int v = links.WalkAt(e);
+                        if (nodeCap[g0 + v] != float.NegativeInfinity || !(links.NodeY(run, v) <= c))
+                            continue;
+                        nodeCap[g0 + v] = c;
+                        flood.Add(v);
+                    }
                 }
             }
         }

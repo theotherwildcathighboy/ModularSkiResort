@@ -41,3 +41,8 @@ the tree stays as a plain tree.
 Game mode only; run prefabs resolved with the tolerant PrefabID + name-scan resolver, cached per session; ARMED line per load;
 `m_Armed` / `m_Disabled` / `m_ErrorLogged` reset in `OnGameLoadingComplete`; one-shot "!!!" catch that disables the cascade until the
 next load (member trees then outlive their run; the next sweep strips the dangling tags).
+
+## Filler tags
+
+A `LayerFiller` tag with `m_Run == Entity.Null` (a Quick runs filler tree) is never an orphan: neither the load sweep nor the cascade
+strips it, and no run delete reaches it. The load census reports them as "filler N".

@@ -53,3 +53,9 @@ differ from the block size, giving `ComponentSerializerException` "Data size mis
   skips the block; trees then load as plain vanilla trees.
 * Never rename this type or move its namespace without `[FormerlySerializedAs]`: the type table resolves saved names through that
   attribute.
+
+## LayerFiller (Quick runs tree filler)
+
+`m_Layer = LayerFiller` (2) marks a filler tree. Filler trees are region-level: `m_Run = Entity.Null`, which `SkiGladeCleanupSystem`
+does NOT treat as an orphan for this layer (no run delete reaches them; the census line counts them as "filler"). The byte layout is
+unchanged (layer is already a byte), so no layout version bump. A non-Null `m_Run` on a filler tag is handled like any other tag.

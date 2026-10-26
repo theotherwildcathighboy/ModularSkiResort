@@ -154,3 +154,21 @@ Compose only sees the members the tool's census hands in (`SkiGladeToolSystem.Ba
 is deleted (`SkiGladeCleanupSystem` deletes every member of a deleted run): one moved far by Move It, interior members of a run
 narrowed by more than `InnerMargin` + 14.5 = 17 m, and the outer tree-line members of a run narrowed by more than 14.5 - `BeltDepth`
 = 4.5 m.
+
+## Filler (Quick runs tree filler)
+
+`ComposeInput.Fill` (a `GladeMask`) with `TreeLine = false` selects layer `LayerFiller` (2). Everything above applies with interior
+semantics (`IsInterior(layer)` = not the belt), with these differences:
+
+- The region is the polygon (the drawn Quick runs region) narrowed by the mask (run outlines + margin, tree line); T = round(D(L) x
+  MaskedArea). The probe and the stream both get the mask.
+- Never fells: W = 0 and every wild tree in the fill region counts in X, whatever `Thinnable` says. Level 1 (Clear) therefore removes
+  exactly this fill's current members: that is the filler's undo (GladeBatch `filler/compose` "FILL UNDO").
+- Own members of another layer (a run's glade or tree-line members handed in by mistake) are never classified: occupants, X when
+  inside, never removed. A glade compose (Fill null) reads a filler member the same way (unknown layer).
+- Misplaced = a filler member outside the fill region: a lowered tree line or a run drawn later over it removes those members first.
+- Every occupant is keyed (`Matters` is conservative for the filler); the mask (holes order-independent, margin, tree line, ground
+  `Fingerprint`, area cell) is hashed into PlanKey only for the filler layer, so glade / tree-line keys are unchanged.
+- A tree-line compose ignores Fill (same key with and without).
+- Species: `SkiGladeSpecies.ApplyPool` sets SpeciesCount / DominantShare; species draws come after the position, so changing the pool
+  never moves a slot (the members of the old pool are kept; only new plants use the new pool).

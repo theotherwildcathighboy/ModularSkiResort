@@ -1,6 +1,6 @@
 // Run-delete cascade for glade-tool trees: when a ski run is deleted (bulldozed, deleted by the area tool or the info panel, or
 // with its sign via SkiRunGateCascadeSystem), every tree carrying SkiRunTreeMember{m_Run = that run} is deleted with it. Every
-// deleted run of ours is logged (0 trees when none). Orphaned tags are stripped, the tree kept.
+// deleted run of ours is logged (0 trees when none). Orphaned tags are stripped, the tree kept; a Quick runs filler tag (LayerFiller, no run) is never an orphan.
 // Why our own cascade: planted trees have no Owner (see EngineNotes/SkiRunTreeMember.md), so vanilla's owner cascade cannot see them.
 // Registered in Mod.cs at Modification2: Deleted lives one frame and those phases run after the tools, so a member tree dies in the
 // same Cleanup as its run.
@@ -232,7 +232,7 @@ namespace SkiResortMod.Systems
                             Entity run = members[i].m_Run;
                             if (m_DeletedRuns.Contains(run))
                                 toDelete.Add(entities[i]);
-                            else if (IsOrphan(run))
+                            else if (!IsRegionFiller(members[i]) && IsOrphan(run))
                                 orphans.Add(entities[i]);
                         }
                     }
@@ -294,7 +294,7 @@ namespace SkiResortMod.Systems
 
             // legacy = v1 tags, m_PlanGen == 0, NOT m_Version < 2: a v1 tag re-saved by a newer build reads back as version 2 with
             // PlanGen 0 (EngineNotes/SkiRunTreeMember.md, LEGACY TEST)
-            int glade = 0, belt = 0, total = 0, legacy = 0;
+            int glade = 0, belt = 0, filler = 0, total = 0, legacy = 0;
             var orphans = new NativeList<Entity>(4, Allocator.Temp);
             m_ScratchRuns.Clear();
             try
@@ -311,6 +311,13 @@ namespace SkiResortMod.Systems
                         {
                             total++;
                             SkiRunTreeMember m = members[i];
+                            if (IsRegionFiller(m))
+                            {
+                                filler++; // region-level filler tree: no run, not an orphan
+                                if (m.m_PlanGen == 0)
+                                    legacy++;
+                                continue;
+                            }
                             if (IsOrphan(m.m_Run))
                             {
                                 orphans.Add(entities[i]);
@@ -330,7 +337,7 @@ namespace SkiResortMod.Systems
                 StripTags(orphans);
                 OrphansStrippedThisLoad += orphans.Length;
                 MembersAtLoad = total - orphans.Length;
-                LastCensus = $"{MembersAtLoad} member trees at load (glade {glade}, belt {belt}; " +
+                LastCensus = $"{MembersAtLoad} member trees at load (glade {glade}, belt {belt}, filler {filler}; " +
                              $"legacy v1 {legacy}) across {m_ScratchRuns.Count} run(s)" +
                              (orphans.Length > 0 ? $"; {orphans.Length} orphan tag(s) stripped" : "");
                 Mod.Log.Info($"Glade: cleanup census — {LastCensus}");
@@ -387,6 +394,12 @@ namespace SkiResortMod.Systems
         {
             if (orphans.Length > 0)
                 EntityManager.RemoveComponent<SkiRunTreeMember>(orphans.AsArray());
+        }
+
+        /// <summary>A Quick runs filler tree: LayerFiller with no run. Never an orphan, never reached by a run delete.</summary>
+        private static bool IsRegionFiller(SkiRunTreeMember m)
+        {
+            return m.m_Layer == SkiRunTreeMember.LayerFiller && m.m_Run == Entity.Null;
         }
 
         private bool IsOrphan(Entity run)

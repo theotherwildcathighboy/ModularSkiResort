@@ -357,6 +357,7 @@ namespace SkiResortMod.Systems
         private readonly List<float3> m_RunTops = new List<float3>(32);
         // The run-link inputs and results of AssignServedLifts (LiftServedRule.AssignLinked, the same call as the attraction path).
         private readonly List<float2[]> m_RunOutlines = new List<float2[]>(32);
+        private readonly List<float[]> m_RunHeights = new List<float[]>(32);
         private readonly List<int> m_RunAreas = new List<int>(32);
         private readonly LiftServedRule.RunLinks m_RunLinks = new LiftServedRule.RunLinks();
         private readonly List<int> m_ServedRoot = new List<int>(32);
@@ -366,7 +367,7 @@ namespace SkiResortMod.Systems
         private readonly List<int> m_ServingLift = new List<int>(32);
         private readonly List<float> m_ServingDistance = new List<float>(32);
         private readonly List<int> m_ServedCount = new List<int>(8);
-        private readonly List<bool> m_LeafRuns = new List<bool>(32); // per run row, RunKindRules.IsServedLeaf
+        private readonly List<bool> m_TrackRuns = new List<bool>(32); // per run row, RunKindRules.IsServedLeaf (the cat track mask)
         private readonly List<Efficiency> m_FactorScratch = new List<Efficiency>(8);
         private readonly List<HubProblemFactor> m_PFactors = new List<HubProblemFactor>(8);
         private readonly List<HubProblemLift> m_PLifts = new List<HubProblemLift>(8);
@@ -804,6 +805,7 @@ namespace SkiResortMod.Systems
             m_LodgeIn.Clear();
             m_RunTops.Clear();
             m_RunOutlines.Clear();
+            m_RunHeights.Clear();
             m_RunAreas.Clear();
             m_BudgetOf.Clear();
 
@@ -1418,7 +1420,8 @@ namespace SkiResortMod.Systems
                     GunWhy = (int)GunWhyOf(row.Entity, bound && (row.Kind == (int)RunKind.Snowmaking || row.Kind == (int)RunKind.Night)),
                 });
                 m_RunTops.Add(row.NodeTopPos);
-                m_RunOutlines.Add(row.OutlineXZ); // the catalog row's array, by reference (the link graph keeps while it is unchanged)
+                m_RunOutlines.Add(row.OutlineXZ); // the catalog row's arrays, by reference (the link graph keeps while they are unchanged)
+                m_RunHeights.Add(row.OutlineY);
                 m_RunAreas.Add(bound ? resort : -1);
             }
         }
@@ -1441,28 +1444,28 @@ namespace SkiResortMod.Systems
         {
             long t0 = Stopwatch.GetTimestamp();
             m_Census.CopyServeLifts(m_ServeLifts, m_Chords);
-            // The same rule call as the attraction path (a run linked to a served run is served); Served itself comes from the
-            // attraction's view, this call fills servedBy: a linked run shows the lift of the run it is served through.
-            m_RunLinks.Build(m_RunOutlines, m_RunAreas);
-            // A cat track is a leaf of the link pass (served at most, never serves a neighbor), so one that crosses a black run does not
-            // serve it.
-            m_LeafRuns.Clear();
-            bool anyLeaf = false;
+            // The same rule call as the attraction path (a run skiers get onto downhill from a served run is served); Served itself
+            // comes from the attraction's view, this call fills servedBy: a linked run shows the lift of the run it is served through.
+            m_RunLinks.Build(m_RunOutlines, m_RunHeights, m_RunAreas);
+            // Cat tracks carry service level or downhill along themselves (the track mask), so one that crosses a run below where
+            // skiers get on serves it, and one above them does not.
+            m_TrackRuns.Clear();
+            bool anyTrack = false;
             for (int i = 0; i < m_RunsNext.Count; i++)
             {
-                bool leaf = RunKindRules.IsServedLeaf(m_RunsNext[i].Kind);
-                m_LeafRuns.Add(leaf);
-                anyLeaf |= leaf;
+                bool track = RunKindRules.IsServedLeaf(m_RunsNext[i].Kind);
+                m_TrackRuns.Add(track);
+                anyTrack |= track;
             }
             LiftServedRule.AssignLinked(m_RunTops, m_RunLinks, m_ServeLifts, m_Chords, m_ServingLift, m_ServingDistance,
-                                        m_ServedCount, m_ServedRoot, m_ServedVia, anyLeaf ? m_LeafRuns : null);
+                                        m_ServedCount, m_ServedRoot, m_ServedVia, anyTrack ? m_TrackRuns : null);
             for (int i = 0; i < m_RunsNext.Count && i < m_ServingLift.Count; i++)
             {
                 RunStats r = m_RunsNext[i];
                 int root = m_ServedRoot[i];
                 int l = root >= 0 ? m_ServingLift[root] : -1;
-                // A cat track is a member since 2026-10-24: its Served comes from the attraction's view like every run's (the leaf rule
-                // runs there too), and a lift's "runs served" counts it.
+                // A cat track is a member since 2026-10-24: its Served comes from the attraction's view like every run's (the same
+                // downhill rule runs there), and a lift's "runs served" counts it.
                 if (r.Served && l >= 0 && l < m_ServeLifts.Count)
                     r.ServedBy = ToEntity(m_ServeLifts[l].Id);
                 m_RunsNext[i] = r;

@@ -72,6 +72,9 @@ Per run, cheap numbers are kept as the fallback while a run is not rated (`RunRo
 - lengthM = `(P + sqrt(max(0, P^2 - 16A))) / 4` with P = the horizontal perimeter of the node ring and A = |shoelace area|
   (`SkiSlopeClassifier.EquivalentRectLength`; exact for a constant-width band, a bowl over-reads, a diamond under-reads).
 - dropM = max - min node y (a peak or hollow inside the outline is missed; the rating replaces it).
+- OutlineXZ / OutlineY (RunRow, RunFacts): every outline node's xz / y in ring order, read in the same Node-buffer loop (no extra
+  read). OutlineXZ is kept across rebuilds while Key and the node count are unchanged; OutlineY while Key, YKey and the count are, so a
+  GroundHeightSystem re-snap hands a new height array. LiftServedRule.RunLinks keys its graph on both references (the downhill links).
 
 Bound = `SkiRunOwnershipSystem.TryGetBoundGate`; Gate = that sign (Entity.Null = not linked), the run's resort (sticky from bind time,
 re-links free only when its sign died).

@@ -80,3 +80,19 @@ budget bound one of the targets (set exactly where ClampTarget sets Status = Cla
 `ThinHash(pos, seed)` exposes the 32-bit position hash ThinSelect thresholds: `ThinSelect(pos, seed, f) == ((ThinHash(pos, seed)
 & 0xFFFF) < f * 65536)` for every finite, in-range position and 0 < f < 1 (asserted by GladeBatch `thinhash`). `SkiGladeCompose`
 ranks wild trees by it (the count rule fells an EXACT count, largest hash first).
+
+## Fill mask (Quick runs tree filler)
+
+`Plan(..., GladeMask maskOrNull, output)` is an overload; the old signature passes null and is unchanged bit for bit (GladeBatch `pin`
+digests, recorded on the pre-filler code). A mask narrows the polygon for the Thin and Glade layers only (the Belt ignores it):
+
+- Allowed(q) = outside every `Holes` ring (crossing number) and at least `HoleMargin` from its edges, and, with a `Ground`
+  (`GladeHeightField`, an adapter seam the game side implements over its own height sampler), `Ground.HeightAt(q) <= TreeLine`. NaN
+  ground reads as not allowed. A hole with a non-finite vertex is skipped (never blocks the fill).
+- Thin selects only allowed positions; survivorsInside counts only allowed ones; the Glade target uses `MaskedArea` (cell-center
+  quadrature over the polygon bounds on a `AreaCellM` grid, default 2.5 m; the cell grows past 4 M samples) instead of Area.
+- A glade dart is rejected when not allowed (last test, no draws), and an accepted one takes y = the ground height.
+- The mask consumes no random draws, so the prefix property and replay hold; an empty mask keeps the null-mask stream (GladeBatch
+  `filler/emptymask`).
+- Cost: the quadrature runs once per Plan call (compose calls Plan twice: probe + stream). 1 km2 with 14 run holes: ~90 ms per compose
+  on CoreCLR (GladeBatch TIME `filler.1000m`), 4 km2 ~190 ms (capped slice); under Mono expect more (unmeasured).

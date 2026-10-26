@@ -3,8 +3,9 @@
 // Pinned: CatTrack is 4 and appended (0..3 unchanged); since 2026-10-24 it counts minimally toward the resort (a member: Runs / RunsOpen /
 // RunsCounted, a quarter of a run its size in value and capacity, never the variety or school green, the vertical or the end of the
 // summer mode; worth 0 unless rated green), is rated Green by construction once rated (SkiRunRatingRules.CatTrackBand: the cat
-// track tool grades every track under 25 %), is a leaf for service (LiftServedRule.AssignLinked leaf mask: served through the first
-// run it crosses, serves nobody; a null / empty / all-false mask changes nothing), never gets snow injection, reads its open state
+// track tool grades every track under 25 %), passes service DOWNHILL only (LiftServedRule.AssignLinked track mask, 2026-10-25:
+// entered where it meets a served run, traveled either way while it climbs no more than ClimbToleranceM in all, serving the runs it
+// meets that fall away below; a null / empty / all-false mask changes nothing), never gets snow injection, reads its open state
 // like any member run (no Unsuitable state since 2026-10-25), carries hydrants only, and is the fifth RunDef in SkiCatalog (kind 4,
 // prefab SkiRunCatTrackA, item runCatTrack).
 // Not tested headless: that GradeBlue (25 %, SkiSlopeClassifier.cs) is where band 2 begins; tests/SlopeBatch owns BandOf.
@@ -36,6 +37,11 @@ namespace ResortBatch
         }
 
         private static bool Check(bool cond, string where, string msg) => s_Check(cond, where, msg);
+
+        private static void Eq<T>(T expected, T actual, string where, string what)
+        {
+            Check(EqualityComparer<T>.Default.Equals(expected, actual), where, what + ": expected " + expected + ", got " + actual);
+        }
 
         private static void Kinds()
         {
@@ -80,11 +86,57 @@ namespace ResortBatch
             return new[] { new float2(x0, z0), new float2(x1, z0), new float2(x1, z1), new float2(x0, z1) };
         }
 
+        /// <summary>The test mountain: y = 1000 - 0.5 z (a 50 % fall line toward +z; x is level).</summary>
+        private static float Slope(float z) => 1000f - 0.5f * z;
+
+        private static float[] SlopeHeights(float2[] ring)
+        {
+            var y = new float[ring.Length];
+            for (int k = 0; k < ring.Length; k++)
+                y[k] = Slope(ring[k].y);
+            return y;
+        }
+
+        /// <summary>A cat track ribbon along x at z = zc (half width 5 m), a node pair every 50 m from x0 to x1: the near edge forward,
+        /// the far edge back (the cat track tool's ring order). heightAt(x) gives both edges' height at x.</summary>
+        private static float2[] RibbonX(float x0, float x1, float zc, Func<float, float> heightAt, out float[] heights)
+        {
+            int m = (int)Math.Round((x1 - x0) / 50f) + 1;
+            var ring = new float2[2 * m];
+            heights = new float[2 * m];
+            for (int k = 0; k < m; k++)
+            {
+                float x = x0 + 50f * k;
+                ring[k] = new float2(x, zc - 5f);
+                ring[2 * m - 1 - k] = new float2(x, zc + 5f);
+                heights[k] = heights[2 * m - 1 - k] = heightAt(x);
+            }
+            return ring;
+        }
+
+        /// <summary>A cat track straight down the fall line along z at x = xc (half width 5 m), a node pair every 20 m, on the slope.</summary>
+        private static float2[] RibbonZ(float z0, float z1, float xc, out float[] heights, float step = 20f)
+        {
+            int m = (int)Math.Round((z1 - z0) / step) + 1;
+            var ring = new float2[2 * m];
+            heights = new float[2 * m];
+            for (int k = 0; k < m; k++)
+            {
+                float z = z0 + step * k;
+                ring[k] = new float2(xc - 5f, z);
+                ring[2 * m - 1 - k] = new float2(xc + 5f, z);
+                heights[k] = heights[2 * m - 1 - k] = Slope(z);
+            }
+            return ring;
+        }
+
         private sealed class Scene
         {
             public readonly List<float3> Tops = new List<float3>();
             public readonly List<float2[]> Outlines = new List<float2[]>();
+            public readonly List<float[]> Heights = new List<float[]>();
             public readonly List<int> Areas = new List<int>();
+            public readonly List<bool> Tracks = new List<bool>();
             public readonly LiftServedRule.RunLinks Links = new LiftServedRule.RunLinks();
             public List<LiftServedRule.Lift> Lifts;
             public List<LiftServedRule.Chord> Chords;
@@ -96,80 +148,144 @@ namespace ResortBatch
                 Lift(out Lifts, out Chords);
             }
 
-            public int Add(float3 top, float2[] outline)
+            public int Add(float3 top, float2[] outline, float[] heights = null, bool track = false)
             {
                 Tops.Add(top);
                 Outlines.Add(outline);
+                Heights.Add(heights);
                 Areas.Add(0);
+                Tracks.Add(track);
                 return Tops.Count - 1;
             }
 
-            public Scene Solve(List<bool> leaf)
+            /// <summary>A run on the test slope (heights from Slope).</summary>
+            public int AddRun(float3 top, float2[] outline) => Add(top, outline, SlopeHeights(outline));
+
+            /// <summary>A plain run crossing a track along x at z 200: x c-10..c+10, z 100-400 on the slope.</summary>
+            public int AddCrossing(float c) => AddRun(Far, Rect(c - 10f, 100f, c + 10f, 400f));
+
+            public Scene Solve() => Solve(Tracks);
+
+            public Scene Solve(List<bool> tracks)
             {
-                Links.Build(Outlines, Areas);
-                LiftServedRule.AssignLinked(Tops, Links, Lifts, Chords, ServingLift, Distance, ServedCount, Root, Via, leaf);
+                Links.Build(Outlines, Heights, Areas);
+                LiftServedRule.AssignLinked(Tops, Links, Lifts, Chords, ServingLift, Distance, ServedCount, Root, Via, tracks);
                 return this;
             }
 
             public bool Served(int i) => Root[i] >= 0;
         }
 
-        /// <summary>A: served directly, x 90-130. C: the cat track, a long strip crossing A and B. B: far east, linked to C only.</summary>
-        private static Scene Crossing(out int a, out int c, out int b)
+        /// <summary>A: served directly, x 0-40, z 0-400 on the slope. C: a flat cat track (y 900, the slope's height at z 200) along x
+        /// from -490 to 1010, entered where it crosses A. heightAt overrides the flat height.</summary>
+        private static Scene FlatTrack(out int a, out int c, Func<float, float> heightAt = null)
         {
             var s = new Scene();
-            a = s.Add(Served1, Rect(90f, 100f, 130f, 200f));
-            c = s.Add(Far, Rect(90f, 190f, 700f, 210f)); // overlaps A (z 190-200) and reaches into B
-            b = s.Add(Far, Rect(580f, 100f, 620f, 300f)); // x 580-620: more than 25 m from A, crossed by C
+            a = s.AddRun(Served1, Rect(0f, 0f, 40f, 400f));
+            float2[] ring = RibbonX(-490f, 1010f, 200f, heightAt ?? (x => 900f), out float[] y);
+            c = s.Add(Far, ring, y, track: true);
             return s;
         }
 
         private static void Leaf()
         {
-            const string W = "cattrack/leaf";
+            const string W = "cattrack/downhill";
+            Eq(3f, LiftServedRule.ClimbToleranceM, W, "ClimbToleranceM");
 
-            // The old behavior (no mask): the chain A -> C -> B serves all three.
-            Scene s = Crossing(out int a, out int c, out int b).Solve(null);
-            Check(s.Served(a) && s.Served(c) && s.Served(b), W, "without a mask the chain must serve A, C and B");
-            Check(s.Root[a] == a && s.Root[c] == a && s.Root[b] == a, W, "without a mask every root must be A");
-            Check(s.Via[c] == a && s.Via[b] == c, W, "without a mask C is reached through A and B through C");
-
-            // C is a leaf: served through A, but B is not.
-            var leafC = new List<bool> { false, true, false };
-            s = Crossing(out a, out c, out b).Solve(leafC);
+            // D-1 A flat track carries service both ways to the runs it meets (they all fall away below it).
+            Scene s = FlatTrack(out int a, out int c);
+            int east = s.AddCrossing(460f);
+            int west = s.AddCrossing(-340f);
+            s.Solve();
             Check(s.Served(a), W, "A is served directly");
-            Check(s.Served(c) && s.Root[c] == a && s.Via[c] == a, W, "the leaf C is still served, through A (root " + s.Root[c] + ", via " + s.Via[c] + ")");
-            Check(!s.Served(b) && s.Root[b] == -1 && s.Via[b] == -1, W, "B must NOT be served through the leaf (root " + s.Root[b] + ")");
+            Check(s.Served(c) && s.Root[c] == a && s.Via[c] == a, W, "the track is served, entered from A (root " + s.Root[c] + ", via " + s.Via[c] + ")");
+            Check(s.Served(east) && s.Via[east] == c && s.Root[east] == a, W, "the run east of A is served through the track");
+            Check(s.Served(west) && s.Via[west] == c, W, "the run west of A is served through the track (either direction)");
+            Eq(1, s.ServedCount[0], W, "the lift's direct count stays one run (A)");
 
-            // A directly served leaf serves no neighbor: C is served directly, A is not, B is linked to C only.
-            s = new Scene();
-            int c2 = s.Add(Served1, Rect(90f, 190f, 700f, 210f));
-            int a2 = s.Add(Far, Rect(90f, 100f, 130f, 200f)); // linked to C, not served itself
-            int b2 = s.Add(Far, Rect(580f, 100f, 620f, 300f));
-            s.Solve(new List<bool> { true, false, false });
-            Check(s.Served(c2) && s.Root[c2] == c2 && s.Via[c2] == -1, W, "a directly served leaf is its own root");
-            Check(!s.Served(a2) && !s.Served(b2), W, "a directly served leaf must serve neither neighbor");
-            s = new Scene();
-            c2 = s.Add(Served1, Rect(90f, 190f, 700f, 210f));
-            a2 = s.Add(Far, Rect(90f, 100f, 130f, 200f));
-            b2 = s.Add(Far, Rect(580f, 100f, 620f, 300f));
-            s.Solve(null);
-            Check(s.Served(a2) && s.Served(b2), W, "the same scene without a mask serves both neighbors (the old behavior)");
+            // D-2 Tolerance: a +2 m bump is crossed, a +4 m bump stops the track.
+            s = FlatTrack(out a, out c, x => x == 310f ? 902f : 900f);
+            int near = s.AddCrossing(210f);
+            int past = s.AddCrossing(460f);
+            s.Solve();
+            Check(s.Served(near) && s.Served(past), W, "a 2 m bump (under ClimbToleranceM) does not stop the track");
+            s = FlatTrack(out a, out c, x => x == 310f ? 904f : 900f);
+            near = s.AddCrossing(210f);
+            past = s.AddCrossing(460f);
+            s.Solve();
+            Check(s.Served(near), W, "a run before a 4 m bump is served");
+            Check(!s.Served(past), W, "a run past a 4 m bump is NOT served (skiers cannot climb it)");
+            // A cap, not a sum: two 2 m bumps (x 310, x 610) never take the skier 3 m above where they got on.
+            s = FlatTrack(out a, out c, x => x == 310f || x == 610f ? 902f : 900f);
+            int beyond = s.AddCrossing(810f);
+            s.Solve();
+            Check(s.Served(beyond), W, "past two separate 2 m bumps: served (never 3 m above the entry)");
+            // A track rising 1 m per node pair east of x 10 (y 900 at x 10, 903 at x 160, 904 at x 210): the skiers from A get on at
+            // about 900.6 (cap 903.6) and stop before x 210. R crosses the track at x 160 (903 m): served, and stepping from R back onto
+            // the track does not raise the cap (no 3 m ratchet per crossing run), so S at x 260 stays unserved.
+            s = FlatTrack(out a, out c, x => 900f + math.max(0f, (x - 10f) / 50f));
+            int low = s.AddCrossing(85f);
+            int r = s.AddCrossing(160f);
+            int sAbove = s.AddCrossing(260f);
+            s.Solve();
+            Check(s.Served(low) && s.Served(r), W, "runs the rising track meets within 3 m of the entry are served");
+            Check(!s.Served(sAbove), W, "a run the track meets 5 m above the entry is NOT served, crossing run R or not");
 
-            Scene none = Crossing(out _, out _, out _).Solve(null);
-            Scene empty = Crossing(out _, out _, out _).Solve(new List<bool>());
-            Scene falses = Crossing(out _, out _, out _).Solve(new List<bool> { false, false, false });
+            // D-3 A track straight down the mountain, entered half way: it serves only runs below the entry.
+            s = new Scene();
+            float2[] ring = RibbonZ(0f, 1000f, 500f, out float[] ry);
+            c = s.Add(Far, ring, ry, track: true);
+            a = s.AddRun(Served1, Rect(400f, 480f, 490f, 520f));      // touches the track's west edge at z 480-520 (y 760-740)
+            int upper = s.AddRun(Far, Rect(510f, 180f, 600f, 220f));  // meets the track at z 180-220, above the entry
+            int lower = s.AddRun(Far, Rect(510f, 780f, 600f, 900f));  // meets it at z 780 (y 610), below the entry
+            s.Solve();
+            Check(s.Served(c) && s.Via[c] == a, W, "the mountain-long track is served, entered from A");
+            Check(!s.Served(upper), W, "a run the track meets ABOVE the entry is NOT served");
+            Check(s.Served(lower) && s.Via[lower] == c, W, "a run the track meets below the entry is served through it");
+
+            // D-3b The same track as the cat track tool simplifies a straight one (GradeRibbon): four nodes, its two ends only. A crosses
+            // it at z 300-340 (y 850-830): the skiers get on between the ends and reach the lower end; the upper run's crossing (z 100,
+            // y 950) lies above them, the lower run's (z 700, y 650) below.
+            s = new Scene();
+            c = s.Add(Far, RibbonZ(0f, 1000f, 500f, out float[] sy, 1000f), sy, track: true);
+            a = s.AddRun(Served1, Rect(450f, 300f, 550f, 340f));
+            upper = s.AddRun(Far, Rect(450f, 100f, 550f, 140f));
+            lower = s.AddRun(Far, Rect(450f, 700f, 550f, 740f));
+            s.Solve();
+            Eq(4, s.Outlines[c].Length, W, "the straight track has four nodes");
+            Check(s.Served(c) && s.Via[c] == a, W, "the four-node track is entered mid-way from A");
+            Check(!s.Served(upper), W, "four-node track: the run crossing above the entry is NOT served");
+            Check(s.Served(lower) && s.Via[lower] == c, W, "four-node track: the run crossing below the entry is served through it");
+
+            // D-4 Chains: A -> track 1 -> B -> track 2 -> track 3 -> D, every hop downhill or level.
+            s = new Scene();
+            a = s.AddRun(Served1, Rect(0f, 0f, 40f, 400f));
+            int t1 = s.Add(Far, RibbonX(10f, 510f, 200f, x => 900f, out float[] y1), y1, track: true);
+            int b = s.AddRun(Far, Rect(455f, 100f, 475f, 600f));     // crosses track 1 at y ~900, falls to 700
+            int t2 = s.Add(Far, RibbonX(410f, 1010f, 500f, x => 750f, out float[] y2), y2, track: true);   // crosses B at y 750
+            int t3 = s.Add(Far, RibbonX(1010f, 1510f, 500f, x => 750f, out float[] y3), y3, track: true);  // shares track 2's end nodes
+            int d = s.AddRun(Far, Rect(1255f, 400f, 1275f, 700f));   // crosses track 3
+            s.Solve();
+            Check(s.Served(t1) && s.Served(b) && s.Served(t2) && s.Served(t3) && s.Served(d), W, "the chain A - T1 - B - T2 - T3 - D is served");
+            Check(s.Via[b] == t1 && s.Via[t2] == b && s.Via[t3] == t2 && s.Via[d] == t3, W, "each hop's via (" + s.Via[b] + ", " + s.Via[t2] + ", " +
+                  s.Via[t3] + ", " + s.Via[d] + ")");
+            Eq(a, s.Root[d], W, "D's root");
+
+            // D-5 A directly served track (its top within the lift's reach) carries service like an entered one.
+            s = new Scene();
+            c = s.Add(Served1, RibbonX(610f, 1010f, 200f, x => 900f, out float[] y5), y5, track: true);
+            int r5 = s.AddCrossing(810f);
+            s.Solve();
+            Check(s.Served(c) && s.Root[c] == c && s.Via[c] == -1, W, "a directly served track is its own root");
+            Check(s.Served(r5) && s.Via[r5] == c, W, "a directly served track serves the runs it meets");
+
+            // D-6 The mask: null, empty and all-false are the same (no track); a track mask on a plain run changes what it passes on.
+            Scene none = FlatTrack(out _, out _).Solve(null);
+            Scene empty = FlatTrack(out _, out _).Solve(new List<bool>());
+            Scene falses = FlatTrack(out _, out _).Solve(new List<bool> { false, false });
             Check(SameInts(none.Root, empty.Root) && SameInts(none.Via, empty.Via), W, "an empty mask differs from no mask");
             Check(SameInts(none.Root, falses.Root) && SameInts(none.Via, falses.Via), W, "an all-false mask differs from no mask");
             Check(SameInts(none.ServedCount, falses.ServedCount) && SameInts(none.ServingLift, falses.ServingLift), W, "the direct counts changed with a mask");
-
-            // A mask shorter than the runs reads false past its end: a one-entry mask marks A only (A served directly, a leaf: C and B
-            // stay unserved).
-            Scene shortMask = Crossing(out a, out c, out b).Solve(new List<bool> { true });
-            Check(shortMask.Served(a) && !shortMask.Served(c) && !shortMask.Served(b), W, "a short mask {true} makes A a leaf; C and B are not reached");
-            // The leaf rule changes nothing about the lift's direct count (a lift's "runs served" counts a cat track since 2026-10-24).
-            Check(leafC.Count == 3 && none.ServedCount.Count == 1 && none.ServedCount[0] == 1, W,
-                  "the direct count is Assign's, one run (A), whatever the mask");
         }
 
         private static bool SameInts(List<int> a, List<int> b)

@@ -353,16 +353,17 @@ namespace SkiResortMod.Systems
         private readonly HashSet<Entity> m_LiveLodges = new HashSet<Entity>();
         private readonly HashSet<Entity> m_LodgeClaimed = new HashSet<Entity>();
         private readonly List<float3> m_RunTops = new List<float3>(32);
-        // (LiftServedRule.AssignLinked) per run the outline xz (the catalog row's array, by reference), its area slot, and the
-        // link graph (self-validating: rebuilt only when an outline array, a slot or the run set changed). ServedRoot / ServedVia:
-        // the directly served run a run is served through, and the neighbor it was reached through (-1 none).
+        // (LiftServedRule.AssignLinked) per run the outline xz and node heights (the catalog row's arrays, by reference), its area
+        // slot, and the link graph (self-validating: rebuilt only when an outline or height array, a slot or the run set changed).
+        // ServedRoot / ServedVia: the directly served run a run is served through, and the neighbor it was reached through (-1 none).
         private readonly List<float2[]> m_RunOutlines = new List<float2[]>(32);
+        private readonly List<float[]> m_RunHeights = new List<float[]>(32);
         private readonly List<int> m_RunAreas = new List<int>(32);
         private readonly LiftServedRule.RunLinks m_RunLinks = new LiftServedRule.RunLinks();
         private readonly List<int> m_ServedRoot = new List<int>(32);
         private readonly List<int> m_ServedVia = new List<int>(32);
         private readonly List<RunRef> m_RunRefs = new List<RunRef>(32);
-        private readonly List<bool> m_LeafRuns = new List<bool>(32);   // per run ref, RunKindRules.IsServedLeaf (the cat track)
+        private readonly List<bool> m_TrackRuns = new List<bool>(32);  // per run ref, RunKindRules.IsServedLeaf (the cat track mask)
         private readonly List<LiftServedRule.Lift> m_ServeLifts = new List<LiftServedRule.Lift>(8);
         private readonly List<LiftServedRule.Chord> m_Chords = new List<LiftServedRule.Chord>(64);
         private readonly List<int> m_ServingLift = new List<int>(32);
@@ -1065,23 +1066,23 @@ namespace SkiResortMod.Systems
             if (censusArmed)
             {
                 m_Census.CopyServeLifts(m_ServeLifts, m_Chords);
-                // THE served rule with run links (a run connected to a served run is served). Links are rebuilt only when an
-                // outline array, a slot or the run set changed (RunLinks.Build keeps its graph otherwise), so the pair pass
-                // does not run on every soft recompute; the lift part (Assign) is the same cost as before.
-                m_RunLinks.Build(m_RunOutlines, m_RunAreas);
-                // A cat track is a member since 2026-10-24, so it is a leaf here too (served at most, never serves a neighbor): the
-                // same rule as SkiResortStatsSystem.AssignServedLifts.
-                m_LeafRuns.Clear();
-                bool anyLeaf = false;
+                // THE served rule with downhill run links (a run skiers get onto downhill from a served run is served). Links are
+                // rebuilt only when an outline or height array, a slot or the run set changed (RunLinks.Build keeps its graph
+                // otherwise), so the pair pass does not run on every soft recompute; the lift part (Assign) is the same cost as before.
+                m_RunLinks.Build(m_RunOutlines, m_RunHeights, m_RunAreas);
+                // Cat tracks carry service level or downhill along themselves (the track mask): the same rule as
+                // SkiResortStatsSystem.AssignServedLifts.
+                m_TrackRuns.Clear();
+                bool anyTrack = false;
                 for (int i = 0; i < m_RunRefs.Count; i++)
                 {
                     RunRef lr = m_RunRefs[i];
-                    bool leaf = RunKindRules.IsServedLeaf(next.Slots[lr.Slot].Runs[lr.Index].Kind);
-                    m_LeafRuns.Add(leaf);
-                    anyLeaf |= leaf;
+                    bool track = RunKindRules.IsServedLeaf(next.Slots[lr.Slot].Runs[lr.Index].Kind);
+                    m_TrackRuns.Add(track);
+                    anyTrack |= track;
                 }
                 LiftServedRule.AssignLinked(m_RunTops, m_RunLinks, m_ServeLifts, m_Chords, m_ServingLift, m_ServingDistance,
-                                            m_ServedCount, m_ServedRoot, m_ServedVia, anyLeaf ? m_LeafRuns : null);
+                                            m_ServedCount, m_ServedRoot, m_ServedVia, anyTrack ? m_TrackRuns : null);
             }
             else if (!m_CensusOpenLogged && m_RunRefs.Count > 0)
             {
@@ -1094,7 +1095,7 @@ namespace SkiResortMod.Systems
                 RunRef rr = m_RunRefs[i];
                 AreaSlot slot = next.Slots[rr.Slot];
                 SkiResortScore.RunInput input = slot.Runs[rr.Index];
-                input.Served = !censusArmed || m_ServedRoot[i] >= 0;  // directly served OR linked to a served run
+                input.Served = !censusArmed || m_ServedRoot[i] >= 0;  // directly served OR reached downhill from a served run
                 if (censusArmed && m_ServedVia[i] >= 0)
                 {
                     RunRef via = m_RunRefs[m_ServedVia[i]];   // same slot by construction (links never cross areas)
@@ -1569,6 +1570,7 @@ namespace SkiResortMod.Systems
         {
             m_RunTops.Clear();
             m_RunOutlines.Clear();
+            m_RunHeights.Clear();
             m_RunAreas.Clear();
             m_RunRefs.Clear();
             if (next.SlotCount == 0 || m_RunQuery.IsEmptyIgnoreFilter)
@@ -1648,10 +1650,12 @@ namespace SkiResortMod.Systems
             // The served-rule test point: the highest outline node.
             float3 top = new float3(float.NaN);
             float2[] outline = null;  // the run's outline xz for the run links (null without facts: never linked)
+            float[] heights = null;   // its node heights, same order (the downhill rule)
             if (m_Catalog.TryGetRunFacts(run, out SkiRunCatalogSystem.RunFacts facts))
             {
                 top = facts.TopNode;
                 outline = facts.OutlineXZ;
+                heights = facts.OutlineY;
             }
 
             slot.Runs.Add(input);
@@ -1659,6 +1663,7 @@ namespace SkiResortMod.Systems
             slot.ServedVia.Add(Entity.Null);
             m_RunTops.Add(top);
             m_RunOutlines.Add(outline);
+            m_RunHeights.Add(heights);
             m_RunAreas.Add(slotIndex);
             m_RunRefs.Add(new RunRef { Slot = slotIndex, Index = slot.Runs.Count - 1 });
         }
