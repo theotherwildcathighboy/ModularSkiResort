@@ -37,7 +37,7 @@ namespace SkiResortMod.Systems
 
         /// <summary>The contract number (bindings.ts HUB_CONTRACT). Bump both together whenever a binding, trigger, field or meaning
         /// changes (Engine notes: Near HubContract lists what each number appended).</summary>
-        public const int HubContract = 17;
+        public const int HubContract = 18;
 
         /// <summary>The `contract` value the UI reads as "C# absent" (bindings.ts CONTRACT_ABSENT). Pushed after the one-shot "!!!"
         /// until the next load: the UI then shows its "not connected" notice instead of launchers that do nothing.</summary>
@@ -415,6 +415,7 @@ namespace SkiResortMod.Systems
             SetPisteMap, TogglePisteMap,   // TogglePisteMap is the dev tab's only
             LiftLineToggle,
             QuickRunsToggle, QuickRunsSet,   // SkiResortHubUISystem.QuickRuns.cs
+            DeleteCatTrack,                  // contract 18: the cat track row's trash button
         }
 
         private struct Request
@@ -685,6 +686,7 @@ namespace SkiResortMod.Systems
             AddBinding(new TriggerBinding<string>(Group, "uiError", OnUiError));
             AddBinding(new TriggerBinding<string>(Group, "launch", OnLaunch));
             AddBinding(new TriggerBinding<Entity>(Group, "focusRun", OnFocusRun));
+            AddBinding(new TriggerBinding<Entity>(Group, "deleteCatTrack", OnDeleteCatTrack));
             AddBinding(new TriggerBinding(Group, "gladeToggle", OnGladeToggle));
             AddBinding(new TriggerBinding<int>(Group, "gladeSetLevel", OnGladeSetLevel));
             AddBinding(new TriggerBinding<bool>(Group, "gladeSetTreeLine", OnGladeSetTreeLine));
@@ -838,7 +840,7 @@ namespace SkiResortMod.Systems
                              "the History view only, no Demand; pushed when a stored month or the area set changed, the month " +
                              $"in progress at most every {Tuning.HistoryProgressPushS:0.#} s, HistoryProgressPushS); arrays pushed per " +
                              "stats revision (slow rows and live rows apart), logged only when a row count changes; triggers " +
-                             "toggleHub, setHubOpen, uiHello, uiError, launch, focusRun, gladeToggle, gladeSetLevel, " +
+                             "toggleHub, setHubOpen, uiHello, uiError, launch, focusRun, deleteCatTrack (contract 18), gladeToggle, gladeSetLevel, " +
                              "gladeSetTreeLine, dumpHub, selectResort, rename, focusLift, focusBuilding, uiLayout, setPisteMap " +
                              "liftLineToggle (contract 12) (queued, applied in OnUpdate, one line each; uiLayout only when changed) and hoverRun (a field " +
                              "write, validated next update, counted; first per load logged); settings " +
@@ -948,6 +950,8 @@ namespace SkiResortMod.Systems
 
         private void OnFocusRun(Entity run) =>
             Trigger("focusRun", new Request { Kind = RequestKind.Focus, Entity = run });
+        private void OnDeleteCatTrack(Entity run) =>
+            Trigger("deleteCatTrack", new Request { Kind = RequestKind.DeleteCatTrack, Entity = run });
 
         private void OnGladeToggle() => Trigger("gladeToggle", new Request { Kind = RequestKind.GladeToggle });
 
@@ -1172,6 +1176,11 @@ namespace SkiResortMod.Systems
                     break;
                 case RequestKind.QuickRunsSet:
                     ApplyQuickRunsSet(r.Text, r.Int, r.Source);
+                    break;
+                case RequestKind.DeleteCatTrack:
+                    // Applied here, in OnUpdate: never a structural change inside the binding callback (DECISIONS 418)
+                    bool deleted = m_GradeTool != null && m_GradeTool.DeleteTrack(r.Entity, "hub row" + SourceSuffix(r.Source));
+                    LastTriggerText = $"deleteCatTrack {Ent(r.Entity)}: {(deleted ? "deleted" : "refused")}";
                     break;
             }
         }

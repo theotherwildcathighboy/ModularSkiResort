@@ -24,6 +24,8 @@ namespace SkiResortMod
                 // (Overpass advances; the panel is 400 rem wide, its description box narrower: one line at 100 % [likely]).
                 { "Assets.NAME[SkiResortGate]", "Ski Area Welcome Sign" },
                 { "Assets.DESCRIPTION[SkiResortGate]", "The ski area's entrance. It opens the Ski Resort panel." },
+                { "Assets.NAME[SkiResortGateAngled]", "Ski Area Welcome Sign, Angled" },
+                { "Assets.DESCRIPTION[SkiResortGateAngled]", "The ski area's entrance, turned on its lot. It opens the Ski Resort panel." },
 
                 // --- Lodge ----------------------------------------------------------------
                 { "Assets.NAME[SkiAFrameDayLodge]", "A-Frame Day Lodge" },
@@ -352,8 +354,11 @@ namespace SkiResortMod
                 { "SkiResort.Tooltip.GRADE_RUN_SHAPE", "The track's edges touch: spread the switchback legs apart or make the track narrower." },
                 // CatTrackGradeToolSystem.KeyRunRefused: the game's validation refused the run preview; nothing was graded.
                 { "SkiResort.Tooltip.CAT_TRACK_REFUSED", "The game refuses a cat track here: move it off what blocks it and press Enter again." },
-                // GradeGuards.KeyCrossingSteep: inside a crossed run the track rides that run's ground, which is steeper than the max grade.
+                // GradeGuards.KeyCrossingSteep: where it crosses a run, the track would still be steeper than the max grade after the up to 2 m of
+                // grading allowed inside the run.
                 { "SkiResort.Tooltip.GRADE_CROSSING_STEEP", "The track crosses a run on ground steeper than the max grade: cross it more level." },
+                // GradeGuards.KeyCrossedRunBand: even with no grading inside, the track would change the difficulty of a run it crosses.
+                { "SkiResort.Tooltip.GRADE_CROSSED_RUN_BAND", "This crossing would change the difficulty of the run it crosses: cross it somewhere else." },
                 // CatTrackGradeToolSystem.KeyRunMissing: the SkiRunCatTrackA asset did not load.
                 { "SkiResort.Tooltip.CAT_TRACK_MISSING", "The cat track asset did not load: check that the mod is installed completely." },
                 // The run's horizontal length, an IntTooltip label in front of a "length" unit value
@@ -485,7 +490,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.QUICK_BUILD", "Build" },
                 { "SkiResort.Hub.QUICK_BUILD_TIP", "Build every run that is not grayed out. Refused when the city cannot pay. Large areas can take a few seconds to a minute." },
                 { "SkiResort.Hub.QUICK_UNDO", "Undo" },
-                { "SkiResort.Hub.QUICK_UNDO_TIP", "Remove the runs of the last build and refund what they cost." },
+                { "SkiResort.Hub.QUICK_UNDO_TIP", "Remove the runs of the last build and refund what they cost. Only this button does it: right click never removes built runs." },
                 { "SkiResort.Hub.QUICK_SHUFFLE", "Shuffle" },
                 { "SkiResort.Hub.QUICK_SHUFFLE_TIP", "Try another layout of the same slope." },
                 { "SkiResort.Hub.QUICK_MIX", "Mix" },
@@ -521,7 +526,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.QUICK_PLANT", "Plant" },
                 { "SkiResort.Hub.QUICK_PLANT_TIP", "Plant the trees, a few thousand at a time. Large areas can take a few seconds to a minute. Enter does the same." },
                 { "SkiResort.Hub.QUICK_TREES_UNDO", "Undo trees" },
-                { "SkiResort.Hub.QUICK_TREES_UNDO_TIP", "Remove the trees of the last planting." },
+                { "SkiResort.Hub.QUICK_TREES_UNDO_TIP", "Remove the trees of the last planting. Only this button does it: right click never removes planted trees." },
                 { "SkiResort.Hub.QUICK_TREE_LINE", "Tree line" },
                 { "SkiResort.Hub.QUICK_TREE_LINE_TIP", "Trees grow up to this height. It starts where the wild trees nearby stop." },
                 { "SkiResort.Hub.QUICK_TREE_LINE_NONE", "Above the slope" },
@@ -538,18 +543,19 @@ namespace SkiResortMod
                 { "SkiResort.Hub.QUICK_TREE_DENSITY", "Density" },
                 { "SkiResort.Hub.QUICK_TREE_DENSITY_TIP", "How thick the trees grow." },
                 { "SkiResort.Hub.QUICK_TREE_COUNTS", "{P} to plant · {R} to remove" },
+                { "SkiResort.Hub.QUICK_TREE_COUNTS_COST", "{P} to plant · {R} to remove · costs {FEE}" },
                 { "SkiResort.Tooltip.QUICK_PROMPT[Start]", "Click the first corner of the slope you want runs on." },
                 { "SkiResort.Tooltip.QUICK_PROMPT[Corners]", "Keep clicking corners. Three or more make a region." },
                 { "SkiResort.Tooltip.QUICK_PROMPT[Ready]", "Press Enter to scan the region. Drag a corner to reshape it." },
                 { "SkiResort.Tooltip.QUICK_PROMPT[Drag]", "Drag the corner and release it to place it." },
                 { "SkiResort.Tooltip.QUICK_PROMPT[Scanning]", "Scanning the slope." },
-                { "SkiResort.Tooltip.QUICK_PROMPT[Preview]", "Click a run to leave it out or take it back. Enter builds, right click goes back." },
+                { "SkiResort.Tooltip.QUICK_PROMPT[Preview]", "Click a run to leave it out or take it back. Enter builds; right click leaves the preview." },
                 { "SkiResort.Tooltip.QUICK_PROMPT[Building]", "Building the runs. Large areas can take a few seconds to a minute. Right click stops; what is built stays." },
                 { "SkiResort.Tooltip.QUICK_PROMPT[Planting]", "Planting the trees. Large areas can take a few seconds to a minute. Right click stops; what is planted stays." },
                 { "SkiResort.Tooltip.QUICK_BUILDING_PROGRESS", "Building runs {N} / {M}" },
                 { "SkiResort.Tooltip.QUICK_PLANTING_PROGRESS", "Planting trees {N} / {M}" },
                 { "SkiResort.Tooltip.QUICK_REMOVING_PROGRESS", "Removing trees {N} / {M}" },
-                { "SkiResort.Tooltip.QUICK_PROMPT[Built]", "Built. Right click undoes this build and refunds its fee." },
+                { "SkiResort.Tooltip.QUICK_PROMPT[Built]", "Built. Undo in the Ski Resort panel removes this build and refunds its fee; right click does not." },
                 { "SkiResort.Tooltip.QUICK_PROMPT[Trees]", "Tree filler: pick the tree line and species in the hub. Enter plants." },
                 { "SkiResort.Tooltip.QUICK_REGION", "Region" },
                 { "SkiResort.Tooltip.QUICK_VERTICAL", "Vertical between the corners" },
@@ -559,6 +565,7 @@ namespace SkiResortMod
                 { "SkiResort.Tooltip.QUICK_SKIERS", "Skiers a day" },
                 { "SkiResort.Tooltip.QUICK_TREES_PLANT", "Trees to plant" },
                 { "SkiResort.Tooltip.QUICK_TREES_REMOVE", "Trees to remove" },
+                { "SkiResort.Tooltip.QUICK_TREES_COST", "Planting cost" },
                 { "SkiResort.Tooltip.QUICK_TREE_LINE", "Tree line" },
                 { "SkiResort.Tooltip.QUICK_MIX", "Green {G} of {TG} · Blue {B} of {TB} · Black {K} of {TK} · Double black {D} of {TD}" },
                 { "SkiResort.Tooltip.QUICK_CLUSTER", "One lift here serves {N} runs" },
@@ -620,6 +627,10 @@ namespace SkiResortMod
                 { "SkiResort.Hub.UNLINKED_HINT", "More than 5 km from every Welcome Sign. Place a sign nearby to link them." },
                 { "SkiResort.Hub.RENAME", "Rename" },
                 { "SkiResort.Hub.RENAME_TIP", "Enter or a click elsewhere keeps the name. Esc cancels. An empty name restores the default." },
+                // The trash button of a cat track's Runs row (DECISIONS 423b): first click arms, second deletes.
+                { "SkiResort.Hub.RUN_DELETE", "Delete this cat track" },
+                { "SkiResort.Hub.RUN_DELETE_TIP", "Click, then click again to delete. The ground stays graded and the fee is not refunded." },
+                { "SkiResort.Hub.RUN_DELETE_CONFIRM", "Click again to delete this cat track." },
                 // The Overview's mountain block and receipt.
                 { "SkiResort.Hub.DIFFICULTY", "Difficulty" },
                 { "SkiResort.Hub.PENDING", "Being rated" },
@@ -645,7 +656,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.LIFT_NAME_TIP", "The name is stored on the base station, or on the top station while there is no base." },
                 { "SkiResort.Hub.LIFT_SIGN_TIP", "A lift belongs to the ski area of its base station; a run keeps the ski area it was drawn for." },
                 // Build strip.
-                { "SkiResort.Hub.BUILD_HINT_SIGN", "Starts a ski area: the runs and lifts within 5 km belong to it." },
+                { "SkiResort.Hub.BUILD_HINT_SIGN", "Starts a ski area: the runs and lifts within 5 km belong to it. Snap it to a road; it stands set back from it." },
                 { "SkiResort.Hub.BUILD_HINT_BASE", "Place at the bottom of the lift." },
                 { "SkiResort.Hub.BUILD_HINT_TOP", "Place at the top, facing the base station. A guide shows when it is straight." },
                 { "SkiResort.Hub.BUILD_HINT_LIFT", "Draw from station to station. On steep ground, redraw one section at a time." },
@@ -707,7 +718,7 @@ namespace SkiResortMod
                 // The tooltip's first line is the row ("Welcome Sign is not at a road" /
                 // "Lodge is not at a road: ..."), so "it" names the building; the fix hints: the deck side is the lot front,
                 // and the game links a road within 8.4 m of the front point.
-                { "SkiResort.Hub.PROBLEM_TIP[SignNoRoad]", "Move it so its front touches a road: staff and visitors come in from it." },
+                { "SkiResort.Hub.PROBLEM_TIP[SignNoRoad]", "Snap its front to a road: staff and visitors enter from it. It stands set back already; for an angle, use the angled sign." },
                 { "SkiResort.Hub.PROBLEM_TIP[LodgeNoRoad]", "Move it so its entrance side touches a road." },
                 // Top-level ski schools on no Welcome Sign (C# HubProblemCode SchoolsNotLinked; its row text is FMT below).
                 { "SkiResort.Hub.PROBLEM_TIP[SchoolsNotLinked]", "More than 5 km from every Welcome Sign, so they teach nobody. Place a sign nearby or move the school." },
@@ -964,6 +975,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.BUILD_LABEL[Top]", "Top station" },
                 { "SkiResort.Hub.BUILD_LABEL[Line]", "Lift line" },
                 { "SkiResort.Hub.BUILD_LABEL[Sign]", "Sign" },
+                { "SkiResort.Hub.BUILD_LABEL[SignAngled]", "Angled sign" },
                 { "SkiResort.Hub.BUILD_LABEL[Lodge]", "Lodge" },
                 { "SkiResort.Hub.BUILD_LABEL[School]", "School" },
                 { "SkiResort.Hub.BUILD_LABEL[PatrolHut]", "Hut" },

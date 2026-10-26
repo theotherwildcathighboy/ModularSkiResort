@@ -13,7 +13,7 @@ this tool feeds it a snapshot and turns its result into runs. Files: `QuickRunsT
 - `UnavailableReasonKey`: Off, then Disabled (an exception, until the next load), then NotArmed (no city loaded, run prefabs not
   resolved). Null = available.
 - Phases: Region -> Scanning -> Preview -> Emitted (-> Retry -> Emitted) -> Applying -> Region. Right click steps back one thing at a
-  time (drag, scan, preview, a fresh batch's undo, a fresh tree batch's undo, a corner edit, all corners, the batch, close).
+  time (drag, scan, preview, a corner edit, all corners, close; never a built batch or planted trees, DECISIONS 418).
 
 ## Shared emit
 `RunAreaEmit` was lifted out of `CatTrackGradeToolSystem` unchanged (behavior-preserving, every GradeBatch test unchanged):
@@ -51,7 +51,7 @@ this tool feeds it a snapshot and turns its result into runs. Files: `QuickRunsT
   `m_PaidAmount`). 150 frames after the apply the tool logs one bind line: runs bound, signs, paid, charged against the preview total.
 
 ## Undo and refund
-Undo (the hub's Undo, or right click while the batch is fresh) reads each run's `SkiRunBinding` first (`QuickRunsRules.RefundOf`:
+Undo (the hub's Undo button only; right click never undoes a built batch, DECISIONS 418) reads each run's `SkiRunBinding` first (`QuickRunsRules.RefundOf`:
 what was actually paid; an unbound run paid nothing), deletes the batch the bulldozer's way (`RunAreaEmit.DeleteLikeBulldozer`) and
 pays back the sum with `PlayerMoney.Add`. The batch list is cleared on load and when the tool closes; the bind check line survives a
 close. UNVERIFIED: an undo inside the 150-frame bind window (a run not bound yet refunds 0, and binds after its delete is queued).
@@ -78,7 +78,7 @@ close. UNVERIFIED: an undo inside the 150-frame bind window (a run not bound yet
 ## Overlay
 Candidates in the piste map's palette (`SkiPisteMapSystem.PisteFill / PisteOutline / PisteOutlineWidth`, `PisteMapRules.SolidRing /
 DashRing`): natural runs dashed, left-out runs thin gray, refused runs red; a ring on each top cluster (hover: "beginner lift",
-"mid-station", "one lift here serves N runs": pods are kept and labeled, DECISIONS 409); the region white, amber near the 1 km2 cap,
+"mid-station", "one lift here serves N runs": pods are kept and labeled, DECISIONS 409); the region white, amber near the 9 km2 cap,
 red over it; the tree-line contour in green. Pieces are cached when the preview changes; widths follow the camera zoom like the map.
 The piste map hides itself while this tool is open (`SkiPisteMapSystem.ToolHidesMap`).
 

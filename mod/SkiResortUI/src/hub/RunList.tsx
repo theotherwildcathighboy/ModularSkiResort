@@ -1,16 +1,18 @@
 /*
  * src/hub/RunList.tsx - one run row of the Runs view (RunLine) and the list header (RunHeader).
- * Row `div.runRow` (fixed 1.9 em): [fly part | pen]. The pen is a sibling Button, never nested; while a row renames, the fly part is a plain div
+ * Row `div.runRow` (fixed 1.9 em): [fly part | trash | pen]. The trash (cat tracks only; other rows keep an empty slot so the columns
+ * line up) arms on the first click and deletes on the second (hubTriggers.deleteCatTrack); leaving the row or 4 s disarm it. The pen is a
+ * sibling Button, never nested; while a row renames, the fly part is a plain div
  * with RenameField (an <input> is never inside a <button>). The state word sits in an XS StableWidth of the three translated words so the name never moves.
  * Mouse enter sends hoverRun through hubState.sendHoverRun (dedup); click -> onPick. Number columns carry the useNumberSamples widths (no jitter).
  * Memoised on the row's own RunRow / RunLive fields, lift name, focus, renaming, settings, `t`, samples, state words and the stable callbacks.
  * Width (Overpass advances): name room 167 / 201 / 224 rem at 100 / 130 / 150 % text; the ellipsis is the net, the full name is tooltip line 1.
  */
-import { memo } from "react";
+import { memo, useEffect, useState } from "react";
 import type { MouseEvent } from "react";
 import { Button } from "cs2/ui";
 import { Unit } from "cs2/l10n";
-import { OPEN_STATE, RUN_GUN_WHY, RUN_KIND } from "../bindings";
+import { OPEN_STATE, RUN_GUN_WHY, RUN_KIND, hubTriggers } from "../bindings";
 import type { RunLive, RunRow } from "../bindings";
 import type { Translate } from "../l10n";
 import { isRunKind } from "./buildItems";
@@ -127,8 +129,38 @@ function RunState({ state, words }: { state: number; words: readonly string[] })
   return <StableWidth samples={words} align="start" className={styles.runState}>{word}</StableWidth>;
 }
 
+/** The cat track row's trash: the first click arms (tinted, the tooltip asks again), the second sends deleteCatTrack; 4 s or leaving
+ *  the row disarms. A plain two-click confirm: the hub has no modal confirm. */
+function TrashButton({ row, t, armed, setArmed }: { row: RunRow; t: Translate; armed: boolean; setArmed: (on: boolean) => void }): JSX.Element {
+  useEffect(() => {
+    if (!armed) return undefined;
+    const id = setTimeout(() => setArmed(false), 4000);
+    return () => clearTimeout(id);
+  }, [armed, setArmed]);
+  return (
+    <Tip tip={<TipLines lines={[t(HUB_LOC.runDelete), armed ? t(HUB_LOC.runDeleteConfirm) : t(HUB_LOC.runDeleteTip)]} />}>
+      <Button
+        variant="icon"
+        src="Media/Glyphs/Trash.svg"
+        tinted
+        className={cx(styles.rowPen, armed && styles.rowTrashArmed)}
+        onMouseDown={keepFocus}
+        onSelect={() => {
+          if (!armed) {
+            setArmed(true);
+            return;
+          }
+          setArmed(false);
+          hubTriggers.deleteCatTrack(row.entity);
+        }}
+      />
+    </Tip>
+  );
+}
+
 function RunLineImpl(p: RunLineProps): JSX.Element {
   const { row, live, t, samples, stateWords, focused, renaming, onPick, onPen, onRename, onRenameClose } = p;
+  const [armed, setArmed] = useState(false);
   const typeName = isRunKind(row.kind) ? t(RUN_TYPE[row.kind]) : "";
   const name = row.name || typeName;
   const state = live ? live.openState : OPEN_STATE.None;
@@ -156,6 +188,7 @@ function RunLineImpl(p: RunLineProps): JSX.Element {
       className={cx(styles.runRow, focused && styles.runRowFocused, !row.bound && styles.listRowUnbound,
         state === OPEN_STATE.Closed && !renaming && styles.runRowClosed)}
       onMouseEnter={() => sendHoverRun(row.entity)}
+      onMouseLeave={() => armed && setArmed(false)}
     >
       {renaming ? (
         <div className={styles.runFly}>{inner}</div>
@@ -166,6 +199,7 @@ function RunLineImpl(p: RunLineProps): JSX.Element {
           </Button>
         </Tip>
       )}
+      {row.kind === RUN_KIND.CatTrack ? <TrashButton row={row} t={t} armed={armed} setArmed={setArmed} /> : <div className={styles.penSpacer} />}
       <Tip tip={<TipLines lines={[t(HUB_LOC.rename), t(HUB_LOC.renameTip)]} />}>
         <Button
           variant="icon"
@@ -232,6 +266,7 @@ export function RunHeader({ t, samples, pisteMap }: {
           </NumCell>
         </div>
       </Tip>
+      <div className={styles.penSpacer} />   {/* the trash column (cat tracks) */}
       <div className={styles.penSpacer} />
     </div>
   );

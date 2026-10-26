@@ -20,7 +20,7 @@ export const GROUP = "skiResort";
  * only when C#'s `contract` equals this; on a mismatch it shows the Build strip and the tree controls (CORE only) and
  * says why.
  */
-export const HUB_CONTRACT = 17;
+export const HUB_CONTRACT = 18;
 
 /** The `contract` value while the C# binding is absent (the fallback). Real contracts start at 1. */
 export const CONTRACT_ABSENT = 0;
@@ -125,7 +125,7 @@ export const SKI_DAY_LIMIT = { None: 0, Runs: 1, Lodges: 2 } as const;
  *  imported, and every item of a Shuttle lift type, are not sent); the strip draws
  *  BUILD_GROUPS. */
 export type BuildItemId =
-  | "sign" | "lodge" | "lodgeHut" | "lodgeMid" | "lodgeSummit" | "lodgeGrand"
+  | "sign" | "signAngled" | "lodge" | "lodgeHut" | "lodgeMid" | "lodgeSummit" | "lodgeGrand"
   | "school" | "patrolHut" | "patrolHQ"
   | "baseStation" | "topStation" | "lift"
   | "baseStationDetachable" | "topStationDetachable" | "liftDetachable"
@@ -133,7 +133,7 @@ export type BuildItemId =
   | "baseStationTram" | "topStationTram" | "liftTram"
   | "runNatural" | "runGroomed" | "runSnowmaking" | "runNight" | "runCatTrack";
 export const BUILD_ITEM_IDS: readonly BuildItemId[] = [
-  "sign", "lodge", "lodgeHut", "lodgeMid", "lodgeSummit", "lodgeGrand",
+  "sign", "signAngled", "lodge", "lodgeHut", "lodgeMid", "lodgeSummit", "lodgeGrand",
   "school", "patrolHut", "patrolHQ",
   "baseStation", "topStation", "lift",
   "baseStationDetachable", "topStationDetachable", "liftDetachable",
@@ -145,6 +145,7 @@ export const BUILD_ITEM_IDS: readonly BuildItemId[] = [
 /** Display only: the prefab behind each id (rule R16 compares it with the C# table row's Names.X value). */
 export const BUILD_ITEM_PREFAB: Readonly<Record<BuildItemId, string>> = {
   sign: "SkiResortGate",
+  signAngled: "SkiResortGateAngled",
   lodge: "SkiAFrameDayLodge",
   lodgeHut: "SkiLodgeHut",
   lodgeMid: "SkiLodgeMid",
@@ -252,7 +253,7 @@ export interface QuickRunsState {
   /** Region corners placed. */
   corners: number;
   areaM2: number;
-  /** The area cap (1 km2). */
+  /** The area cap (9 km2, SkiRunAutoPlanner.V1MaxAreaM2). */
   maxAreaM2: number;
   /** Top to bottom of the region. */
   verticalM: number;
@@ -320,6 +321,9 @@ export interface QuickRunsState {
    *  when neither runs. */
   treesDone: number;
   treesTotal: number;
+  /** What Plant will cost (money): the ready preview's Temp cost per tree times `plant` (exact up to one slice); 0 without a
+   *  ready preview. */
+  treesCost: number;
 }
 
 /** The quickRunsSet keys (QuickRunsToolSystem.HubSet). */
@@ -774,6 +778,7 @@ export const TRIGGER = {
   uiError: "uiError",
   launch: "launch",
   focusRun: "focusRun",
+  deleteCatTrack: "deleteCatTrack",  // contract 18: the cat track row's trash button
   gladeToggle: "gladeToggle",
   gladeSetLevel: "gladeSetLevel",
   gladeSetTreeLine: "gladeSetTreeLine",
@@ -821,7 +826,7 @@ const EMPTY_QUICK_RUNS: QuickRunsState = {
   progress: 0, mix: 0, density: 1, kinds: 3, runs: 0, enabled: 0, count: [0, 0, 0, 0, 0], target: [0, 0, 0, 0, 0], fee: 0, skiers: 0,
   variety: false, status: "", warnings: [], clusters: [], batchRuns: 0, notice: "", trees: false, treeLevel: GLADE_LEVEL_DEFAULT,
   treeLine: -1, groundMin: 0, groundMax: 0, group: 0, species: 0, speciesNames: [], speciesGroups: [], plant: 0, remove: 0, treesUndo: 0,
-  buildDone: 0, buildTotal: 0, planting: false, treesDone: 0, treesTotal: 0,
+  buildDone: 0, buildTotal: 0, planting: false, treesDone: 0, treesTotal: 0, treesCost: 0,
 };
 
 export const FALLBACK = {
@@ -921,6 +926,9 @@ export const hubTriggers = {
   launch: (id: BuildItemId): void => fire(TRIGGER.launch, id),
   /** Fly the camera to a run (zoom to fit). */
   focusRun: (run: Entity): void => fire(TRIGGER.focusRun, wire(run)),
+  /** Delete a cat track (its Runs row's trash button, after the second click): C# queues it and CatTrackGradeToolSystem.DeleteTrack
+   *  runs in the hub's update (never in the callback). The ground stays graded, no refund. */
+  deleteCatTrack: (run: Entity): void => fire(TRIGGER.deleteCatTrack, wire(run)),
   /** Tree tool on/off. */
   gladeToggle: (): void => fire(TRIGGER.gladeToggle),
   /** Lift-line generator on / off: C# LiftLineToolSystem.TryActivate("hub") / Deactivate(). */

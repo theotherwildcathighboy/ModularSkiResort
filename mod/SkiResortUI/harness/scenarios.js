@@ -154,26 +154,26 @@
 
   const glade = { available: true, active: false, level: 4, treeLine: false, reason: "" };
 
-  // The Quick runs tool (contract 17): closed by default; the "Quick runs open" case below has a preview with trees on (every row drawn).
+  // The Quick runs tool (contract 17; treesCost since 18): closed by default; the "Quick runs open" case below has a preview with trees on (every row drawn).
   const quickRuns = { available: true, active: false, reason: "", phase: "Region", corners: 0, areaM2: 0, maxAreaM2: 1000000, verticalM: 0,
     regionState: "Open", progress: 0, mix: 0, density: 1, kinds: 3, runs: 0, enabled: 0, count: [0, 0, 0, 0, 0], target: [0, 0, 0, 0, 0], fee: 0,
     skiers: 0, variety: false, status: "", warnings: [], clusters: [], batchRuns: 0, notice: "", trees: false, treeLevel: 4, treeLine: -1, groundMin: 0,
     groundMax: 0, group: 0, species: -1, speciesNames: [], speciesGroups: [], plant: 0, remove: 0, treesUndo: 0,
-    buildDone: 0, buildTotal: 0, planting: false, treesDone: 0, treesTotal: 0 };
+    buildDone: 0, buildTotal: 0, planting: false, treesDone: 0, treesTotal: 0, treesCost: 0 };
   const quickPreview = Object.assign({}, quickRuns, { active: true, phase: "Preview", corners: 6, areaM2: 812000, verticalM: 640, regionState: "Ok",
     runs: 12, enabled: 11, count: [0, 3, 5, 3, 0], target: [0, 3, 5, 3, 0], fee: 1840000, skiers: 2350, variety: true,
     warnings: ["SkiResort.Tooltip.QUICK_WARN[OverWater]", "SkiResort.Tooltip.QUICK_WARN[Renumber]", "SkiResort.Tooltip.QUICK_WARN[ChecksOff]"],
     clusters: [{ label: "SkiResort.Tooltip.QUICK_CLUSTER", runs: 7 }, { label: "SkiResort.Tooltip.QUICK_POD[Beginner]", runs: 2 },
       { label: "SkiResort.Tooltip.QUICK_POD[MidStation]", runs: 2 }], trees: true, treeLine: 1820, groundMin: 1210, groundMax: 1850,
-    speciesNames: ["AlderTree01", "BirchTree01", "PineTree01", "SpruceTree01"], speciesGroups: [1, 1, 0, 0], plant: 3120, remove: 140 });
+    speciesNames: ["AlderTree01", "BirchTree01", "PineTree01", "SpruceTree01"], speciesGroups: [1, 1, 0, 0], plant: 3120, remove: 140, treesCost: 131040 });
 
-  const base = { hubOpen: false, contract: 17, buildStamp: "", showHubButton: true, build: buildItems(), glade,
+  const base = { hubOpen: false, contract: 18, buildStamp: "", showHubButton: true, build: buildItems(), glade,
     resorts: [], resortLive: [], selectedResort: NULL, runs: [], runLive: [], lifts: [], problems: [], city, pisteMap: true, follow: 0, history: [],
     liftLine: { available: true, active: false, state: "PickBase" }, quickRuns };
 
   window.SkiScenarios = {
     "not connected (no C#)": Object.assign({}, base, { contract: 0, city: Object.assign({}, city, { known: false }) }),
-    "contract mismatch (DLL 16, UI 17)": Object.assign({}, base, { contract: 16, hubOpen: true }),
+    "contract mismatch (DLL 17, UI 18)": Object.assign({}, base, { contract: 17, hubOpen: true }),
     "connected, empty city": Object.assign({}, base, { hubOpen: true, build: buildItems({ locked: ["lodgeGrand", "liftTram", "baseStationTram", "topStationTram"] }) }),
     "Ash Flat (runs, lifts, problems)": Object.assign({}, base, { hubOpen: true, resorts, resortLive: [live, live2], selectedResort: SIGN, runs, runLive, lifts, problems, history,
       glade: Object.assign({}, glade, { active: true }), build: buildItems({ active: "runGroomed", built: ["school"] }) }),

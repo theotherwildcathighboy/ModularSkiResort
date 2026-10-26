@@ -119,7 +119,7 @@ namespace SkiResortMod.Systems
         public AutoMix Mix;
         public AutoDensity Density;
         public AutoKinds Kinds;
-        /// <summary>Run cap; 0 = the density's default (8 / 12 / 16), clamped to HardRunCap.</summary>
+        /// <summary>Run cap; 0 = the density's default (8 / 12 / 16 at 1 km2, times SkiRunAutoPlanner.AreaScale), clamped to HardRunCap.</summary>
         public int RunCap;
         /// <summary>Layout seed (SkiRunAutoPlanner.SeedOf(region, shuffle)).</summary>
         public uint Seed;
@@ -134,7 +134,7 @@ namespace SkiResortMod.Systems
         public float2[] Region;
         public List<AutoObstacle> Obstacles;
         public AutoPlanKnobs Knobs;
-        /// <summary>v1 owner ruling 1 km2; the code is tested to 4 km2 (ReadyMaxAreaM2).</summary>
+        /// <summary>Owner ruling 9 km2 (3 x 3 km, DECISIONS 419; was 1 km2 in v1).</summary>
         public float MaxAreaM2 = SkiRunAutoPlanner.V1MaxAreaM2;
         public float MinAreaM2 = SkiRunAutoPlanner.DefaultMinAreaM2;
         public float MinVerticalM = SkiRunAutoPlanner.DefaultMinVerticalM;
@@ -192,6 +192,7 @@ namespace SkiResortMod.Systems
         public float RegionAreaM2, OpenShare, UsableShare, CliffShare, SteepShare, VerticalM;
         public int Candidates, Rated;
         public readonly float[] StageMs = new float[SkiRunAutoPlanner.StageCount];
+        public readonly float[] StageMaxMs = new float[SkiRunAutoPlanner.StageCount];   // longest unit per stage (the probe names the slow stage)
         public float MaxUnitMs;
         public int Units;
         public ulong Fingerprint;
@@ -209,6 +210,7 @@ namespace SkiResortMod.Systems
             RegionAreaM2 = OpenShare = UsableShare = CliffShare = SteepShare = VerticalM = 0f;
             Candidates = Rated = 0;
             Array.Clear(StageMs, 0, StageMs.Length);
+            Array.Clear(StageMaxMs, 0, StageMaxMs.Length);
             MaxUnitMs = 0f;
             Units = 0;
             Fingerprint = 0;
@@ -218,9 +220,9 @@ namespace SkiResortMod.Systems
     public sealed partial class SkiRunAutoPlanner
     {
         // ---------------------------------------------------------------- constants (sources: design.md 3.2, FEASIBILITY 4/9)
-        public const float V1MaxAreaM2 = 1.0e6f, ReadyMaxAreaM2 = 4.0e6f;      // owner ruling: 1 km2 in v1, code ready for 4
+        public const float V1MaxAreaM2 = 9.0e6f, ReadyMaxAreaM2 = 9.0e6f;      // owner ruling 9 km2 (DECISIONS 419); the code is tested to it
         public const float DefaultMinAreaM2 = 40000f, DefaultMinVerticalM = 50f;
-        public const int MaxLatticeCells = 1 << 20;                              // scan rectangle cap (3.6 x 3.6 km at 3.5 m)
+        public const int MaxLatticeCells = 1 << 21;                              // scan rectangle cap (5 x 5 km at 3.5 m; seed keys pack 21 bits)
         public const float LatticeMarginM = 40f;                                 // 20 m windows + Dilation + bilinear reach
         public const int OffMapMarginTexels = SkiSlopeClassifier.Dilation + 2;   // keeps every rating Need node on the map
         public const float BlockedShare = 0.30f, PartlyBlockedShare = 0.60f, TooFlatShare = 0.20f, AllCliffShare = 0.60f;
@@ -235,8 +237,10 @@ namespace SkiResortMod.Systems
         public const float InBandFactor = 0.4f, SidehillCost = 2f, FlatCost = 3f, GullyCost = 0.5f, GullyAreaM2 = 20000f;
         public const float MaxClimbM = 0.5f, CatTrackCost = 1f;
         public const float TopBandM = 30f, ClusterRadiusM = 150f, ClusterSpacingM = 300f;
-        public const int MaxClusters = 3, SeedsPerClusterPass = 6;
-        public const float SeedJitterM = 10f;
+        public const int MaxClusters = 3, MaxPods = 2, SeedsPerClusterPass = 12;   // MaxClusters summits per km2 of side (ClusterCap)
+        public const float SeedJitterM = 10f, SummitJitterM = 20f, ScoreJitter = 0.4f, TopShare = 0.25f;   // Shuffle: seeded per seed
+        public const float RerouteShare = 0.7f, DetourFactor = 1.5f, MergePenalty = 1f;   // reroute when a merge keeps under 70 % of the line
+        private const int RerouteMaxPops = 48000, RerouteUnitPops = 8192;
         public const float BaseShare = 0.15f, BaseMinM = 10f, RunoutGrade = 0.12f;
         public const float MinWidthM = 15f, PinchShare = 0.30f, MinLengthM = 150f, MinDropM = 30f, MaxLengthM = 2500f;
         public const float MaxRunAreaM2 = 200000f;                               // 20 ha; and StepMultiple must stay 1
@@ -247,7 +251,8 @@ namespace SkiResortMod.Systems
         public const float JunctionReachM = 20f;                                 // node pair search; +2 x 2 m snap stays <= LinkMeters
         public const float LinkMeters = LiftServedRule.LinkMeters;               // the link rule's own constant (one source)
         public const float SurfaceClearanceM = MergeGapM, UnownedClearanceM = 0.5f, RegionClearanceM = 0.25f;
-        public const int HardRunCap = 16, MaxRatings = 48, TileCoreCells = 80;
+        public const int HardRunCap = 48, MaxRatings = 48, RatingsPerRun = 3, TileCoreCells = 80;   // caps scale with AreaScale
+        private const int MinimaxPops = 32768, RoutePops = 8192;                // heap work per unit (Mono: about 4-6 ms each)
         // Mix targets by run count, G / B / K / DB (design 3.2; Balanced is the owner's ruling)
         private static readonly float[][] MixShare =
         {
@@ -290,9 +295,13 @@ namespace SkiResortMod.Systems
 
         private byte[] m_Flags;
         private ushort[] m_Raw;
-        private float[] m_H, m_O, m_DHard, m_DAcc, m_Flow, m_Dist;
+        private float[] m_H, m_O, m_DHard, m_DAcc, m_Flow;
         private ushort[] m_M;
         private readonly byte[][] m_Pred = new byte[Passes][];
+        private readonly float[][] m_Dist = new float[Passes][];   // per pass: route cost to the base (the reroute's A* heuristic)
+        private byte[] m_APar;                                        // reroute: the step each reached cell came from
+        private int m_FlowN;
+        private bool m_Reach;
         private int[] m_Order, m_Count;
         private readonly List<int> m_Tiles = new List<int>();
 
@@ -409,6 +418,8 @@ namespace SkiResortMod.Systems
                 long t1 = System.Diagnostics.Stopwatch.GetTimestamp();
                 float ms = (float)((t1 - t0) * toMs);
                 m_Result.StageMs[stage] += ms;
+                if (ms > m_Result.StageMaxMs[stage])
+                    m_Result.StageMaxMs[stage] = ms;
                 m_Result.Units++;
                 if (ms > m_Result.MaxUnitMs)
                     m_Result.MaxUnitMs = ms;
@@ -454,6 +465,11 @@ namespace SkiResortMod.Systems
                 });
                 return true;
             }
+            // The probe counters are per scan: a re-select reports only its own stages (they used to add up across Shuffles)
+            Array.Clear(m_Result.StageMs, 0, m_Result.StageMs.Length);
+            Array.Clear(m_Result.StageMaxMs, 0, m_Result.StageMaxMs.Length);
+            m_Result.Units = 0;
+            m_Result.MaxUnitMs = 0f;
             ResetForStage(restart);
             m_Stage = restart;
             m_Cursor = m_Cursor2 = 0;
@@ -530,11 +546,14 @@ namespace SkiResortMod.Systems
             Grow(ref m_DHard, m_N);
             Grow(ref m_DAcc, m_N);
             Grow(ref m_Flow, m_N);
-            Grow(ref m_Dist, m_N);
             Grow(ref m_M, m_N);
             Grow(ref m_Order, m_N);
+            Grow(ref m_APar, m_N);
             for (int k = 0; k < Passes; k++)
+            {
                 Grow(ref m_Pred[k], m_N);
+                Grow(ref m_Dist[k], m_N);
+            }
             Grow(ref m_Count, 65537);
             m_FieldReady = false;
         }
@@ -579,35 +598,45 @@ namespace SkiResortMod.Systems
 
         private int RowsPerUnit => Math.Max(1, 65536 / Math.Max(1, m_Nx));
 
-        // Stage 0a: heights, off-map flags, region raster (first unit), then rows
+        // Stage 0a: the region raster (m_Cursor2 0: Plan; 1: its Mask in row chunks, P2: 9 km2), then heights and off-map flags in
+        // row chunks (m_Cursor2 2)
         private void UnitHeights()
         {
             HeightSnapshot snap = m_In.Snapshot;
-            if (m_Cursor == 0 && m_Cursor2 == 0)
+            if (m_Cursor2 == 0)
             {
                 Array.Clear(m_Flags, 0, m_N);
                 // Region raster with the classifier's own rule (cell center inside), on the world lattice
-                int n = Rasterize(m_Region);
                 m_RegionCells = 0;
                 m_RegionI0 = m_RegionJ0 = int.MaxValue;
                 m_RegionI1 = m_RegionJ1 = int.MinValue;
-                if (n > 0)
-                    ForEachMaskCell(c =>
-                    {
-                        m_Flags[c] |= FRegion;
-                        m_RegionCells++;
-                        int i = c % m_Nx, j = c / m_Nx;
-                        m_RegionI0 = Math.Min(m_RegionI0, i);
-                        m_RegionI1 = Math.Max(m_RegionI1, i);
-                        m_RegionJ0 = Math.Min(m_RegionJ0, j);
-                        m_RegionJ1 = Math.Max(m_RegionJ1, j);
-                    });
-                m_Cursor2 = 1;
-                if (m_RegionCells == 0)
-                {
+                m_Cursor = 0;
+                m_Cursor2 = Rasterize(m_Region) > 0 ? 1 : 2;
+                if (m_Cursor2 == 2)
                     Finish(AutoPlanStatus.TooSmall);
+                return;
+            }
+            if (m_Cursor2 == 1)
+            {
+                int gEnd = Math.Min(m_Grid.Nz, m_Cursor + Math.Max(1, 65536 / Math.Max(1, m_Grid.Nx)));
+                ForEachMaskCell(m_Cursor, gEnd, c =>
+                {
+                    m_Flags[c] |= FRegion;
+                    m_RegionCells++;
+                    int i = c % m_Nx, j = c / m_Nx;
+                    m_RegionI0 = Math.Min(m_RegionI0, i);
+                    m_RegionI1 = Math.Max(m_RegionI1, i);
+                    m_RegionJ0 = Math.Min(m_RegionJ0, j);
+                    m_RegionJ1 = Math.Max(m_RegionJ1, j);
+                });
+                m_Cursor = gEnd;
+                if (m_Cursor < m_Grid.Nz)
                     return;
-                }
+                m_Cursor = 0;
+                m_Cursor2 = 2;
+                if (m_RegionCells == 0)
+                    Finish(AutoPlanStatus.TooSmall);
+                return;
             }
             int rows = RowsPerUnit;
             int jEnd = Math.Min(m_Nz, m_Cursor + rows);
@@ -806,33 +835,54 @@ namespace SkiResortMod.Systems
 
         // Flow accumulation (gully cost): open cells in descending raw height, each passes its catchment to its steepest lower
         // neighbor (D8). Counting sort on the R16 value: O(N + 65536), deterministic (ties in cell order).
+        // Row chunks: phase 1 counts (m_Cursor2 = 1), phase 2 places (m_Cursor2 = 2); the result equals one pass over the lattice.
         private void UnitFlowSort()
         {
             int[] count = m_Count;
-            Array.Clear(count, 0, 65537);
-            int n = 0;
-            for (int c = 0; c < m_N; c++)
+            if (m_Cursor2 == 0)
             {
-                m_Flow[c] = m_Texel * m_Texel;
-                if ((m_Flags[c] & FRegion) != 0)
-                {
-                    count[65535 - m_Raw[c] + 1]++;
-                    n++;
-                }
+                Array.Clear(count, 0, 65537);
+                m_FlowN = 0;
+                m_Cursor2 = 1;
             }
-            for (int v = 1; v <= 65536; v++)
-                count[v] += count[v - 1];
-            for (int c = 0; c < m_N; c++)
+            int jEnd = Math.Min(m_Nz, m_Cursor + RowsPerUnit);
+            int c1 = jEnd * m_Nx;
+            if (m_Cursor2 == 1)
+            {
+                for (int c = m_Cursor * m_Nx; c < c1; c++)
+                {
+                    m_Flow[c] = m_Texel * m_Texel;
+                    if ((m_Flags[c] & FRegion) != 0)
+                    {
+                        count[65535 - m_Raw[c] + 1]++;
+                        m_FlowN++;
+                    }
+                }
+                m_Cursor = jEnd;
+                if (m_Cursor >= m_Nz)
+                {
+                    for (int v = 1; v <= 65536; v++)
+                        count[v] += count[v - 1];
+                    m_Cursor = 0;
+                    m_Cursor2 = 2;
+                }
+                return;
+            }
+            for (int c = m_Cursor * m_Nx; c < c1; c++)
                 if ((m_Flags[c] & FRegion) != 0)
                     m_Order[count[65535 - m_Raw[c]]++] = c;
-            m_Cursor2 = n;
-            m_Stage = Stage.FlowAccum;
-            m_Cursor = 0;
+            m_Cursor = jEnd;
+            if (m_Cursor >= m_Nz)
+            {
+                int n = m_FlowN;
+                Next(Stage.FlowAccum);
+                m_Cursor2 = n;
+            }
         }
 
         private void UnitFlowAccum()
         {
-            int end = Math.Min(m_Cursor2, m_Cursor + 65536);
+            int end = Math.Min(m_Cursor2, m_Cursor + 16384);   // random access (cache misses): a quarter of a row chunk
             for (int k = m_Cursor; k < end; k++)
             {
                 int c = m_Order[k];
@@ -860,14 +910,20 @@ namespace SkiResortMod.Systems
                 Next(Stage.Usable);
         }
 
-        // Stage 1b: open / usable / cliff flags and the field part of the refusal ladder (one pass over the region bbox)
+        // Stage 1b: open / usable / cliff flags (row chunks over the region bbox), then the field part of the refusal ladder
         private void UnitUsable()
         {
-            m_Open = m_Usable = m_Cliff = m_Steep = 0;
-            m_HMinU = m_HMinOpen = float.PositiveInfinity;
-            m_HMaxU = m_HMaxOpen = float.NegativeInfinity;
-            m_MaxDHard = 0f;
-            for (int j = m_RegionJ0; j <= m_RegionJ1; j++)
+            if (m_Cursor2 == 0)
+            {
+                m_Open = m_Usable = m_Cliff = m_Steep = 0;
+                m_HMinU = m_HMinOpen = float.PositiveInfinity;
+                m_HMaxU = m_HMaxOpen = float.NegativeInfinity;
+                m_MaxDHard = 0f;
+                m_Cursor = m_RegionJ0;
+                m_Cursor2 = 1;
+            }
+            int jEnd = Math.Min(m_RegionJ1 + 1, m_Cursor + RowsPerUnit);
+            for (int j = m_Cursor; j < jEnd; j++)
                 for (int i = m_RegionI0; i <= m_RegionI1; i++)
                 {
                     int c = j * m_Nx + i;
@@ -899,6 +955,9 @@ namespace SkiResortMod.Systems
                     }
                     m_Flags[c] = f;
                 }
+            m_Cursor = jEnd;
+            if (m_Cursor <= m_RegionJ1)
+                return;
             AutoPlanResult r = m_Result;
             float region = Math.Max(1, m_RegionCells);
             r.OpenShare = m_Open / region;
@@ -932,12 +991,33 @@ namespace SkiResortMod.Systems
         }
 
         // Stage 2: base = usable ground in the lowest BaseShare of the vertical (both feet of a ridge, the whole rim of a cone)
+        // Row chunks: phase 1 flags the base over the region bbox, phase 2 seeds the minimax queue over the lattice.
         private void UnitZones()
         {
-            float v = m_HMaxU - m_HMinU;
-            m_BaseTop = m_HMinU + Math.Max(BaseShare * v, BaseMinM);
-            m_BaseGentle = 0;
-            for (int j = m_RegionJ0; j <= m_RegionJ1; j++)
+            if (m_Cursor2 == 0)
+            {
+                float v = m_HMaxU - m_HMinU;
+                m_BaseTop = m_HMinU + Math.Max(BaseShare * v, BaseMinM);
+                m_BaseGentle = 0;
+                m_Cursor = m_RegionJ0;
+                m_Cursor2 = 1;
+            }
+            if (m_Cursor2 == 2)
+            {
+                int jEnd2 = Math.Min(m_Nz, m_Cursor + RowsPerUnit);
+                for (int c = m_Cursor * m_Nx; c < jEnd2 * m_Nx; c++)
+                {
+                    m_M[c] = MUnreached;
+                    if ((m_Flags[c] & FBase) != 0)
+                        m_Minimax.Push(Bucket(m_O[c]), c);
+                }
+                m_Cursor = jEnd2;
+                if (m_Cursor >= m_Nz)
+                    Next(Stage.Minimax);
+                return;
+            }
+            int jEnd = Math.Min(m_RegionJ1 + 1, m_Cursor + RowsPerUnit);
+            for (int j = m_Cursor; j < jEnd; j++)
                 for (int i = m_RegionI0; i <= m_RegionI1; i++)
                 {
                     int c = j * m_Nx + i;
@@ -949,16 +1029,14 @@ namespace SkiResortMod.Systems
                             m_BaseGentle++;
                     }
                 }
+            m_Cursor = jEnd;
+            if (m_Cursor <= m_RegionJ1)
+                return;
             if (m_BaseGentle == 0)
                 m_Result.Warnings |= AutoPlanWarning.NoFlatRunout;
             m_Minimax.Init(m_N);
-            for (int c = 0; c < m_N; c++)
-            {
-                m_M[c] = MUnreached;
-                if ((m_Flags[c] & FBase) != 0)
-                    m_Minimax.Push(Bucket(m_O[c]), c);
-            }
-            Next(Stage.Minimax);
+            m_Cursor = 0;
+            m_Cursor2 = 2;
         }
 
         private static int Bucket(float o) => o >= 2047f / 1024f ? 2047 : (int)(o * 1024f);
@@ -966,12 +1044,19 @@ namespace SkiResortMod.Systems
         // Stage 3: M = minimax easiest band down to the base (bucket queue over the classifier's 1/1024 buckets, 8-neighbor)
         private void UnitMinimax()
         {
-            int budget = 65536;
+            if (m_Cursor2 == 1)
+            {
+                AfterMinimax();
+                return;
+            }
+            int budget = MinimaxPops;
             while (budget-- > 0)
             {
                 if (!m_Minimax.Pop(out int key, out int c))
                 {
-                    AfterMinimax();
+                    m_Reach = false;
+                    m_Cursor = m_RegionJ0;
+                    m_Cursor2 = 1;
                     return;
                 }
                 if (m_M[c] != MUnreached)
@@ -991,24 +1076,28 @@ namespace SkiResortMod.Systems
             }
         }
 
+        // Row chunks until a reaching top cell is found
         private void AfterMinimax()
         {
             // AllCliff: no usable top cell reaches the base below the double black pass ceiling. TooFlat: almost no usable cell
             // steeper than the green floor.
             int ceiling = Bucket(PassCeiling[Passes - 1]);
             float topLine = m_HMaxU - TopBandM;
-            bool reach = false;
-            for (int j = m_RegionJ0; j <= m_RegionJ1 && !reach; j++)
+            int jEnd = Math.Min(m_RegionJ1 + 1, m_Cursor + RowsPerUnit);
+            for (int j = m_Cursor; j < jEnd && !m_Reach; j++)
                 for (int i = m_RegionI0; i <= m_RegionI1; i++)
                 {
                     int c = j * m_Nx + i;
                     if ((m_Flags[c] & (FOpen | FCliff)) == FOpen && m_H[c] >= topLine && m_M[c] < ceiling)
                     {
-                        reach = true;
+                        m_Reach = true;
                         break;
                     }
                 }
-            if (!reach)
+            m_Cursor = jEnd;
+            if (!m_Reach && m_Cursor <= m_RegionJ1)
+                return;
+            if (!m_Reach)
             {
                 Finish(AutoPlanStatus.AllCliff);
                 return;
@@ -1019,36 +1108,47 @@ namespace SkiResortMod.Systems
                 return;
             }
             m_Pass = 0;
-            StartPass();
             Next(Stage.Route);
         }
 
-        // Stage 4: one multi-source reverse Dijkstra from the base per pass (G, B, K, DB), in heap chunks
-        private void StartPass()
+        // Stage 4: one multi-source reverse Dijkstra from the base per pass (G, B, K, DB): each pass resets its arrays and pushes the
+        // base in row chunks (m_Cursor2 = 0), then pops in heap chunks (m_Cursor2 = 1)
+        private void StartPassRows()
         {
             byte[] pred = m_Pred[m_Pass];
+            float[] dist = m_Dist[m_Pass];
             float ceil = PassCeiling[m_Pass];
-            m_Heap.Clear();
-            for (int c = 0; c < m_N; c++)
+            if (m_Cursor == 0)
+                m_Heap.Clear();
+            int jEnd = Math.Min(m_Nz, m_Cursor + RowsPerUnit);
+            for (int c = m_Cursor * m_Nx; c < jEnd * m_Nx; c++)
             {
                 pred[c] = PredNone;
-                m_Dist[c] = float.PositiveInfinity;
-            }
-            for (int c = 0; c < m_N; c++)
+                dist[c] = float.PositiveInfinity;
                 if ((m_Flags[c] & FBase) != 0 && m_O[c] < ceil)
                 {
-                    m_Dist[c] = 0f;
+                    dist[c] = 0f;
                     pred[c] = PredSource;
                     m_Heap.Push(0f, c);
                 }
+            }
+            m_Cursor = jEnd;
+            if (m_Cursor >= m_Nz)
+                m_Cursor2 = 1;
         }
 
         private void UnitRoute()
         {
+            if (m_Cursor2 == 0)
+            {
+                StartPassRows();
+                return;
+            }
             byte[] pred = m_Pred[m_Pass];
+            float[] dist = m_Dist[m_Pass];
             float floor = PassFloor[m_Pass], ceil = PassCeiling[m_Pass];
             float t = m_Texel, inv2t = 1f / (2f * m_Texel);
-            int budget = 32768;
+            int budget = RoutePops;
             while (budget-- > 0)
             {
                 if (!m_Heap.Pop(out float du, out int u))
@@ -1060,11 +1160,11 @@ namespace SkiResortMod.Systems
                     }
                     else
                     {
-                        StartPass();
+                        m_Cursor = m_Cursor2 = 0;
                     }
                     return;
                 }
-                if (du > m_Dist[u])
+                if (du > dist[u])
                     continue;   // stale
                 int ui = u % m_Nx, uj = u / m_Nx;
                 for (int d = 0; d < 8; d++)
@@ -1073,37 +1173,47 @@ namespace SkiResortMod.Systems
                     if (vi < 1 || vj < 1 || vi >= m_Nx - 1 || vj >= m_Nz - 1)
                         continue;
                     int v = vj * m_Nx + vi;
-                    byte f = m_Flags[v];
-                    if ((f & (FOpen | FCliff)) != FOpen)
+                    float w = StepCost(u, v, d, floor, ceil, t, inv2t);
+                    if (!(w >= 0f))
                         continue;
-                    float o = m_O[v];
-                    if (!(o < ceil))
-                        continue;
-                    // the skier moves v -> u: no climb over MaxClimbM
-                    if (m_H[u] > m_H[v] + MaxClimbM)
-                        continue;
-                    float len = d < 4 ? t : t * Sqrt2;
-                    float dirx = -DirX[d] / (d < 4 ? 1f : Sqrt2), dirz = -DirZ[d] / (d < 4 ? 1f : Sqrt2);
-                    float gx = (m_H[v + 1] - m_H[v - 1]) * inv2t, gz = (m_H[v + m_Nx] - m_H[v - m_Nx]) * inv2t;
-                    float cross = math.abs(-gx * dirz + gz * dirx);
-                    float mult = 1f + SidehillCost * cross;
-                    if (o < SkiSlopeClassifier.GradeGreen)
-                        mult += FlatCost;
-                    if (m_Flow[v] > GullyAreaM2)
-                        mult += GullyCost * (float)Math.Log(m_Flow[v] / GullyAreaM2);
-                    if ((f & FCat) != 0)
-                        mult += CatTrackCost;
-                    if (o >= floor)
-                        mult *= InBandFactor;
-                    float dv = du + len * mult;
-                    if (dv < m_Dist[v])
+                    float dv = du + w;
+                    if (dv < dist[v])
                     {
-                        m_Dist[v] = dv;
+                        dist[v] = dv;
                         pred[v] = (byte)d;
                         m_Heap.Push(dv, v);
                     }
                 }
             }
+        }
+
+        /// <summary>Cost of the skier's step v -> u on a pass's graph, where v = u + Dir[d] (the route relaxes u -> v); -1 when the
+        /// step is not allowed (v not open, cliff, at or over the ceiling, or a climb over MaxClimbM). v must be an interior cell. The
+        /// one cost both the base routes and the per-candidate reroute use, so a route distance is an exact A* heuristic.</summary>
+        private float StepCost(int u, int v, int d, float floor, float ceil, float t, float inv2t)
+        {
+            byte f = m_Flags[v];
+            if ((f & (FOpen | FCliff)) != FOpen)
+                return -1f;
+            float o = m_O[v];
+            if (!(o < ceil))
+                return -1f;
+            if (m_H[u] > m_H[v] + MaxClimbM)
+                return -1f;
+            float len = d < 4 ? t : t * Sqrt2;
+            float dirx = -DirX[d] / (d < 4 ? 1f : Sqrt2), dirz = -DirZ[d] / (d < 4 ? 1f : Sqrt2);
+            float gx = (m_H[v + 1] - m_H[v - 1]) * inv2t, gz = (m_H[v + m_Nx] - m_H[v - m_Nx]) * inv2t;
+            float cross = math.abs(-gx * dirz + gz * dirx);
+            float mult = 1f + SidehillCost * cross;
+            if (o < SkiSlopeClassifier.GradeGreen)
+                mult += FlatCost;
+            if (m_Flow[v] > GullyAreaM2)
+                mult += GullyCost * (float)Math.Log(m_Flow[v] / GullyAreaM2);
+            if ((f & FCat) != 0)
+                mult += CatTrackCost;
+            if (o >= floor)
+                mult *= InBandFactor;
+            return len * mult;
         }
 
         private bool m_FieldReady;
@@ -1153,10 +1263,13 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Calls f for every Mask cell of m_Grid that lies on the lattice (lattice cell index).</summary>
-        private void ForEachMaskCell(Action<int> f)
+        private void ForEachMaskCell(Action<int> f) => ForEachMaskCell(0, m_Grid.Nz, f);
+
+        /// <summary>ForEachMaskCell over the grid rows [j0, j1).</summary>
+        private void ForEachMaskCell(int j0, int j1, Action<int> f)
         {
             SlopeGrid g = m_Grid;
-            for (int j = 0; j < g.Nz; j++)
+            for (int j = j0; j < j1; j++)
             {
                 int lj = g.J0 + j - m_LJ0;
                 if (lj < 0 || lj >= m_Nz)

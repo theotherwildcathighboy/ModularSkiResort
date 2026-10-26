@@ -180,6 +180,116 @@ namespace GladeBatch
             SpeciesTests();
             FillerTimingReport(1000.0);
             FillerTimingReport(2000.0);
+            FillerTimingReport(3000.0);   // the 9 km2 region cap (DECISIONS 419)
+            FillerPlantingReport(1000.0, 4);
+            FillerPlantingReport(3000.0, 4);
+            FillerPlantingReport(3000.0, 6);   // about 19,600 trees: the 15-20k planting
+            FillerCancelTests();
+        }
+
+        /// <summary>The 3000 m report fixture's compose input (level 4, slices of 2000, no members).</summary>
+        private static ComposeInput BigFillInput(double side, GladeCancel cancel)
+        {
+            double2[] region = D2(0, 0, side, 0, side, side, 0, side);
+            var offset = new double2(-4000, 2500);
+            var holes = new List<float3[]>();
+            for (double x = 40; x + 30 < side; x += 70)
+                holes.Add(MakeRing(D2(x, -20, x + 30, -20, x + 26, side + 20, x + 4, side + 20), 7, offset));
+            var ground = new TestGround { X0 = offset.x, Z0 = offset.y };
+            var mask = new GladeMask { Holes = holes.ToArray(), HoleMargin = FillMargin, Ground = ground, TreeLine = 1000f + 0.3f * (float)side };
+            return new ComposeInput { Ring = MakeRing(region, 7, offset), Params = FillParams(), Level = 4, Fill = mask,
+                Own = Array.Empty<ComposeMember>(), Cancel = cancel, Caps = new ComposeCaps { MaxPlant = 2000, MaxFell = 0, MaxRemove = TCap } };
+        }
+
+        /// <summary>GladeCancel (the Quick runs compose worker): a requested cancel ends Compose with Canceled set and caches nothing;
+        /// the same cache then composes exactly what a fresh cache composes; a null and an unrequested flag compose the same result;
+        /// a request mid-compose returns early (latency reported, not gated: timing).</summary>
+        private static void FillerCancelTests()
+        {
+            const double Side = 1000.0;
+            var cache = new GladePlanCache(4);
+            var pre = new GladeCancel();
+            pre.Request();
+            var rc = new ComposeResult();
+            SkiGladeCompose.Compose(BigFillInput(Side, pre), rc, cache);
+            s_Plans++;
+            Check(rc.Canceled, "filler/cancel", "FILL CANCEL: a requested cancel did not mark the result Canceled");
+            Check(cache.Count == 0, "filler/cancel", "FILL CANCEL: a canceled compose left " + cache.Count + " cache entr(ies)");
+
+            var a = new ComposeResult();
+            SkiGladeCompose.Compose(BigFillInput(Side, null), a, cache);
+            var b = new ComposeResult();
+            SkiGladeCompose.Compose(BigFillInput(Side, new GladeCancel()), b, new GladePlanCache(4));
+            s_Plans += 2;
+            bool same = !a.Canceled && !b.Canceled && a.Status == b.Status && a.Target == b.Target && a.PlanKey == b.PlanKey &&
+                        a.Plant.Count == b.Plant.Count && a.Plant.Count > 0;
+            for (int i = 0; same && i < a.Plant.Count; i++)
+            {
+                float3 pa = a.Plan.Planted[a.Plant[i]].Position, pb = b.Plan.Planted[b.Plant[i]].Position;
+                same = a.Plant[i] == b.Plant[i] && pa.x == pb.x && pa.y == pb.y && pa.z == pb.z;
+            }
+            Check(same, "filler/cancel", "FILL CANCEL: after a canceled compose the cache (or an unrequested flag) changed the result");
+
+            // Mid-compose: request 20 ms in on the 9 km2 fixture, report how long the worker took to stop
+            var mid = new GladeCancel();
+            var rm = new ComposeResult();
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            var task = System.Threading.Tasks.Task.Run(() => SkiGladeCompose.Compose(BigFillInput(3000.0, mid), rm, null));
+            System.Threading.Thread.Sleep(20);
+            double askedAt = sw.Elapsed.TotalMilliseconds;
+            mid.Request();
+            task.Wait();
+            double stoppedAt = sw.Elapsed.TotalMilliseconds;
+            s_Plans++;
+            Check(rm.Canceled || stoppedAt <= askedAt + 1.0, "filler/cancel", "FILL CANCEL: a mid-compose request was not seen");
+            Console.WriteLine("TIME  filler.cancel.3000m: cancel requested at " + F(askedAt) + " ms, compose returned at " + F(stoppedAt) +
+                " ms (latency " + F(stoppedAt - askedAt) + " ms, canceled " + rm.Canceled + ")");
+        }
+
+        /// <summary>The Quick runs Plant loop at the tool's numbers (slices of 2000, one GladePlanCache): compose, plant the slice,
+        /// compose again until Complete. Reports every slice's ms (the cost a worker thread takes off the main thread) and checks that the
+        /// loop converges (no slice plants twice the same slot, the last compose is Complete).</summary>
+        private static void FillerPlantingReport(double side, byte level)
+        {
+            const int SliceTrees = 2000;
+            double2[] region = D2(0, 0, side, 0, side, side, 0, side);
+            var offset = new double2(-4000, 2500);
+            float3[] ring = MakeRing(region, 7, offset);
+            var holes = new List<float3[]>();
+            for (double x = 40; x + 30 < side; x += 70)
+                holes.Add(MakeRing(D2(x, -20, x + 30, -20, x + 26, side + 20, x + 4, side + 20), 7, offset));
+            var ground = new TestGround { X0 = offset.x, Z0 = offset.y };
+            var mask = new GladeMask { Holes = holes.ToArray(), HoleMargin = FillMargin, Ground = ground, TreeLine = 1000f + 0.3f * (float)side };
+            var cache = new GladePlanCache(4);
+            ComposeMember[] own = Array.Empty<ComposeMember>();
+            var ms = new List<string>();
+            double total = 0, worst = 0;
+            int planted = 0, slices = 0, target = 0;
+            bool complete = false;
+            for (int guard = 0; guard < 40 && !complete; guard++)
+            {
+                var input = new ComposeInput { Ring = ring, Params = FillParams(), Fill = mask, Own = own, Level = level,
+                    Caps = new ComposeCaps { MaxPlant = SliceTrees, MaxFell = 0, MaxRemove = TCap } };
+                var r = new ComposeResult();
+                var sw = System.Diagnostics.Stopwatch.StartNew();
+                SkiGladeCompose.Compose(input, r, cache);
+                sw.Stop();
+                s_Plans++;
+                double t = sw.Elapsed.TotalMilliseconds;
+                total += t;
+                worst = Math.Max(worst, t);
+                ms.Add(F(t) + (r.CacheHit ? "h" : string.Empty));
+                target = r.Target;
+                complete = r.Complete;
+                if (complete || r.Plant.Count == 0)
+                    break;
+                slices++;
+                planted += r.Plant.Count;
+                own = WithPlants(own, r);
+            }
+            Check(complete, "filler/planting", "FILL PLANTING: the Plant loop did not reach Complete at " + side + " m (" + planted + " of " + target + ")");
+            Console.WriteLine("TIME  filler.planting." + (int)side + "m.L" + level + ": " + planted + " trees in " + slices + " slice(s) of " + SliceTrees + ", target " + target +
+                "; compose ms per slice [" + string.Join(", ", ms) + "] (h = plan cache hit), total " + F(total) + ", worst " + F(worst));
         }
 
         /// <summary>Report only: one level-6 filler compose (first apply, cap TCap) on a side x side region with a run every 70 m.</summary>

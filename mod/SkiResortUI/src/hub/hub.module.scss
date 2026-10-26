@@ -1927,6 +1927,12 @@
   background-color: var(--hoverColorNormal);
 }
 
+// The cat track row's trash after its first click: fully visible and tinted red until the second click, 4 s or leaving the row.
+.rowTrashArmed {
+  opacity: 1;
+  background-color: rgba(228, 78, 64, 0.85);
+}
+
 .kindNatural {
   display: flex;
   flex-direction: column;

@@ -112,12 +112,17 @@ namespace SkiResortMod.Systems
             m_StatusKey = QuickRunsRules.StatusKey(r.Status);
             m_Phase = r.Status == AutoPlanStatus.Ok ? ToolPhase.Preview : ToolPhase.Region;
             RefreshEnabled();
+            int slow = 0;   // the stage of the longest unit (StageMaxMs, P2): names what to slice next
+            for (int s = 1; s < r.StageMaxMs.Length; s++)
+                if (r.StageMaxMs[s] > r.StageMaxMs[slow])
+                    slow = s;
             LastScanText = string.Format(CultureInfo.InvariantCulture,
                 "{0}: {1} run(s) in {2} cluster(s), bands G/B/K/DB {3}/{4}/{5}/{6} (target {7}/{8}/{9}/{10}), {11} candidate(s), {12} rated; " +
-                "open {13:P0}, usable {14:P0}, cliff {15:P0}, vertical {16:F0} m; {17:F0} ms over {18} frame(s), longest unit {19:F2} ms",
+                "open {13:P0}, usable {14:P0}, cliff {15:P0}, vertical {16:F0} m; {17:F0} ms over {18} frame(s), longest unit {19:F2} ms " +
+                "(stage {20}), area {21:F2} km2",
                 r.Status, r.Runs.Count, r.Clusters.Count, r.BandCount[1], r.BandCount[2], r.BandCount[3], r.BandCount[4], r.BandTarget[1],
                 r.BandTarget[2], r.BandTarget[3], r.BandTarget[4], r.Candidates, r.Rated, r.OpenShare, r.UsableShare, r.CliffShare,
-                r.VerticalM, ms, m_ScanFrames, r.MaxUnitMs);
+                r.VerticalM, ms, m_ScanFrames, r.MaxUnitMs, slow, r.RegionAreaM2 / 1e6f);
             Say($"QuickRuns [scan]: DONE ({m_ScanWhy}) — {LastScanText}; warnings {r.Warnings}; tool warnings {m_ToolWarn}",
                 m_StatusKey);
             if (SkiResortSettings.DiagnosticsOn)
@@ -174,40 +179,92 @@ namespace SkiResortMod.Systems
                 : HeightSnapshot.Allocate(x0, z0, w, d, resX, resZ, hd.scale, hd.offset, wet: true);
             NativeArray<ushort> heights = hd.heights;
             ulong h = 14695981039346656037UL;
+            ushort[] sh = s.Heights;
             for (int l = 0; l < d; l++)
             {
-                int src = (z0 + l) * resX + x0, dst = l * w;
-                for (int k = 0; k < w; k++)
-                {
-                    ushort v = heights[src + k];
-                    s.Heights[dst + k] = v;
-                    h = (h ^ v) * 1099511628211UL;
-                }
+                // One row copy (memcpy), then the print over the managed row (P2: the 9 km2 cap's ~800k texels in one frame)
+                int dst = l * w;
+                NativeArray<ushort>.Copy(heights, (z0 + l) * resX + x0, sh, dst, w);
+                for (int k = dst; k < dst + w; k++)
+                    h = (h ^ sh[k]) * 1099511628211UL;
             }
             WaterSurfaceData<SurfaceWater> water = m_WaterSystem.GetSurfaceData(out JobHandle wdeps);
             wdeps.Complete();
             Array.Clear(s.Wet, 0, w * d);
             if (water.depths.IsCreated)
-            {
-                float texel = 1f / hd.scale.x;
-                for (int l = 0; l < d; l++)
-                {
-                    for (int k = 0; k < w; k++)
-                    {
-                        // texel (k, l) center in world: (index / scale) - offset (the snapshot's Origin + index * texel)
-                        float x = (x0 + k) * texel - hd.offset.x, z = (z0 + l) * texel - hd.offset.z;
-                        if (WaterUtils.SampleDepth(ref water, new float3(x, 0f, z)) > WetDepthM)
-                        {
-                            s.Wet[l * w + k] = 1;
-                            h = (h ^ 0xABu) * 1099511628211UL;
-                        }
-                    }
-                }
-            }
+                FillWet(ref water, s, x0, z0, w, d, 1f / hd.scale.x, hd.offset, ref h);
             m_Snap = s;
             m_SnapPrint = h;
             m_SnapMs = QuickRunsRules.MsSince(t0);
             return true;
+        }
+
+        private int[] m_WetA0 = new int[0], m_WetA1 = new int[0], m_WetB0 = new int[0], m_WetB1 = new int[0];
+        private bool[] m_WetNode = new bool[0];
+
+        /// <summary>The wet layer: WaterUtils.SampleDepth over WetDepthM at each texel center, as before, but sampled only where one of the
+        /// four water nodes the bilinear sample reads is deeper than WetDepthM less a margin (a bilinear sample never exceeds its largest
+        /// node, so every skipped texel is dry). Node indices are clamped exactly as SampleDepth clamps them (WaterUtils.cs:80-96).
+        /// P2: at the 9 km2 cap a full sample per texel would cost a long frame; dry land now costs a few table reads per texel.</summary>
+        private void FillWet(ref WaterSurfaceData<SurfaceWater> water, HeightSnapshot s, int x0, int z0, int w, int d, float texel, float3 offset,
+            ref ulong h)
+        {
+            int3 res = water.resolution;
+            float3 sc = water.scale, of = water.offset;
+            if (m_WetA0.Length < w)
+            {
+                m_WetA0 = new int[w];
+                m_WetA1 = new int[w];
+            }
+            if (m_WetB0.Length < d)
+            {
+                m_WetB0 = new int[d];
+                m_WetB1 = new int[d];
+            }
+            int a0 = int.MaxValue, a1 = int.MinValue, b0 = int.MaxValue, b1 = int.MinValue;
+            for (int k = 0; k < w; k++)
+            {
+                // texel (k, l) center in world: (index / scale) - offset (the snapshot's Origin + index * texel); ToSurfaceSpace
+                float x = (x0 + k) * texel - offset.x;
+                int f = (int)math.floor((x + of.x) * sc.x);
+                m_WetA0[k] = math.clamp(f, 0, res.x - 1);
+                m_WetA1[k] = math.clamp(f + 1, 0, res.x - 1);
+                a0 = Math.Min(a0, m_WetA0[k]);
+                a1 = Math.Max(a1, m_WetA1[k]);
+            }
+            for (int l = 0; l < d; l++)
+            {
+                float z = (z0 + l) * texel - offset.z;
+                int f = (int)math.floor((z + of.z) * sc.z);
+                m_WetB0[l] = math.clamp(f, 0, res.z - 1);
+                m_WetB1[l] = math.clamp(f + 1, 0, res.z - 1);
+                b0 = Math.Min(b0, m_WetB0[l]);
+                b1 = Math.Max(b1, m_WetB1[l]);
+            }
+            int nw = a1 - a0 + 1, nd = b1 - b0 + 1;
+            if (m_WetNode.Length < nw * nd)
+                m_WetNode = new bool[nw * nd];
+            NativeArray<SurfaceWater> depths = water.depths;
+            for (int j = 0; j < nd; j++)
+                for (int i = 0; i < nw; i++)
+                    m_WetNode[j * nw + i] = WaterUtils.ToWorldSpace(ref water, depths[(b0 + j) * res.x + a0 + i].m_Depth) > WetDepthM - 0.01f;
+            for (int l = 0; l < d; l++)
+            {
+                int r0 = (m_WetB0[l] - b0) * nw - a0, r1 = (m_WetB1[l] - b0) * nw - a0;
+                float z = (z0 + l) * texel - offset.z;
+                for (int k = 0; k < w; k++)
+                {
+                    int i0 = m_WetA0[k], i1 = m_WetA1[k];
+                    if (!m_WetNode[r0 + i0] && !m_WetNode[r0 + i1] && !m_WetNode[r1 + i0] && !m_WetNode[r1 + i1])
+                        continue;
+                    float x = (x0 + k) * texel - offset.x;
+                    if (WaterUtils.SampleDepth(ref water, new float3(x, 0f, z)) > WetDepthM)
+                    {
+                        s.Wet[l * w + k] = 1;
+                        h = (h ^ 0xABu) * 1099511628211UL;
+                    }
+                }
+            }
         }
 
         private static HeightSnapshot Reuse(HeightSnapshot s, int x0, int z0, int w, int d, int resX, int resZ, float3 scale, float3 offset)

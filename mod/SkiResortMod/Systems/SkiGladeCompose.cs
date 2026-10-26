@@ -58,6 +58,9 @@ namespace SkiResortMod.Systems
         /// <summary>Slot indices of the stream known to be validation-blocked (null = none).</summary>
         public HashSet<int> SkipSlots;
         public ComposeCaps Caps;
+        /// <summary>Null = run to the end. Set = polled by the planner and MatchSlots; a request ends Compose early with
+        /// ComposeResult.Canceled (the result is incomplete: drop it). Not part of PlanKey.</summary>
+        public GladeCancel Cancel;
     }
 
     /// <summary>Compose output. Reusable: Clear()
@@ -118,6 +121,8 @@ namespace SkiResortMod.Systems
         public bool FullForMembers;
         /// <summary>P came from the GladePlanCache.</summary>
         public bool CacheHit;
+        /// <summary>ComposeInput.Cancel stopped this compose early: every list is incomplete, use none of it.</summary>
+        public bool Canceled;
         /// <summary>Occupants handed to the planner / of which other-layer members / occupants
         /// hashed into PlanKey / of which other-layer members.</summary>
         public int Occupants, OccupantsOtherLayer, KeyedOccupants, KeyedOtherLayer;
@@ -135,6 +140,7 @@ namespace SkiResortMod.Systems
 
         public void Clear()
         {
+            Canceled = false;
             Plan.Clear();
             Fell.Clear();
             Plant.Clear();
@@ -431,6 +437,11 @@ namespace SkiResortMod.Systems
             // Probe, counts, Same / Other split, occupants and the key.
             float3[] occupants;
             GladeStatus geo = Prepare(input, output, out occupants);
+            if (output.Canceled)
+            {
+                output.Status = geo;
+                return geo;
+            }
             if (geo != GladeStatus.Ok && geo != GladeStatus.Clamped)
             {
                 output.Status = geo;
@@ -457,6 +468,11 @@ namespace SkiResortMod.Systems
             int skipCount = input.SkipSlots != null ? input.SkipSlots.Count : 0;
             int m = SatInt((long)output.Same + skipCount + want);
             GladeStatus ps = ComputeP(input, output, occupants, m, cache);
+            if (output.Canceled)
+            {
+                output.Status = ps;
+                return ps;
+            }
             if (ps != GladeStatus.Ok && ps != GladeStatus.Clamped)
                 return Degenerate(output, ps); // cannot happen after the probe validated the ring
 
@@ -471,6 +487,11 @@ namespace SkiResortMod.Systems
                 if (output.OwnUnmatched > 0 && output.PlanIsSlice)
                 {
                     ps = ComputeP(input, output, occupants, int.MaxValue, cache);
+                    if (output.Canceled)
+                    {
+                        output.Status = ps;
+                        return ps;
+                    }
                     if (ps != GladeStatus.Ok && ps != GladeStatus.Clamped)
                         return Degenerate(output, ps);
                     output.FullForMembers = true;
@@ -557,7 +578,13 @@ namespace SkiResortMod.Systems
             pt.GladeDensity = InteriorDensity(level);
             pt.MaxPlant = 0;
             GladePlan probe = output.ProbeScratch;
-            GladeStatus geo = SkiGladePlanner.Plan(input.Ring, input.Triangles, ThinSeed, in pt, null, pos, null, null, fill, probe);
+            GladeStatus geo = SkiGladePlanner.Plan(input.Ring, input.Triangles, ThinSeed, in pt, null, pos, null, null, fill, input.Cancel,
+                probe);
+            if (probe.Canceled)
+            {
+                output.Canceled = true;
+                return geo;
+            }
             if (geo != GladeStatus.Ok && geo != GladeStatus.Clamped)
                 return geo;
             var inside = new bool[pos.Length];
@@ -731,13 +758,17 @@ namespace SkiResortMod.Systems
         {
             output.RequestedSlice = m;
             GladeStatus ps = BuildP(input, output, occupants, output.Layer, m, cache);
+            if (output.Canceled)
+                return ps;
             if (ps != GladeStatus.Ok && ps != GladeStatus.Clamped)
                 return ps;
             output.Slice = output.Plan.Planted.Count;
             output.RawTarget = IsInterior(output.Layer) ? output.Plan.RawTargetGlade : output.Plan.RawTargetBelt;
 
             float spacing = SafeNonNeg(input.Params.MinSpacing);
-            MatchSlots(input.Own, output, spacing * 0.5);
+            MatchSlots(input.Own, output, spacing * 0.5, input.Cancel);
+            if (output.Canceled)
+                return ps;
 
             HashSet<int> skip = input.SkipSlots;
             int slice = output.Slice, skipped = 0, matched = 0, missing = 0;
@@ -790,7 +821,12 @@ namespace SkiResortMod.Systems
             pp.MaxPlant = m;
             uint seed = SkiGladePlanner.Seed32(input.Ring[0], VariantSalt(input.Variant));
             GladeStatus st = SkiGladePlanner.Plan(input.Ring, input.Triangles, seed, in pp, input.Obstacles,
-                occupants, null, input.ExclusionRings, layer == LayerFiller ? input.Fill : null, plan);
+                occupants, null, input.ExclusionRings, layer == LayerFiller ? input.Fill : null, input.Cancel, plan);
+            if (plan.Canceled)
+            {
+                output.Canceled = true;   // never cached: the plan is incomplete
+                return st;
+            }
             if (st != GladeStatus.Ok && st != GladeStatus.Clamped)
                 return st;
 
@@ -800,7 +836,12 @@ namespace SkiResortMod.Systems
                 // and cut back to m.
                 pp.MaxPlant = int.MaxValue;
                 st = SkiGladePlanner.Plan(input.Ring, input.Triangles, seed, in pp, input.Obstacles,
-                    occupants, null, input.ExclusionRings, layer == LayerFiller ? input.Fill : null, plan);
+                    occupants, null, input.ExclusionRings, layer == LayerFiller ? input.Fill : null, input.Cancel, plan);
+                if (plan.Canceled)
+                {
+                    output.Canceled = true;
+                    return st;
+                }
                 if (st != GladeStatus.Ok && st != GladeStatus.Clamped)
                     return st;
                 output.FullReplan = true;
@@ -855,7 +896,7 @@ namespace SkiResortMod.Systems
         /// <summary>SlotMatched[s] = some current member lies at xz distance &lt; radius from
         /// slot s; MemberSlot[k] = the slot current member k (SameScratch[k]) matches, or -1.
         /// Bucket grid over the members, cell >= radius, 3x3 query.</summary>
-        private static void MatchSlots(ComposeMember[] own, ComposeResult output, double radius)
+        private static void MatchSlots(ComposeMember[] own, ComposeResult output, double radius, GladeCancel cancel)
         {
             int slice = output.Plan.Planted.Count;
             if (output.SlotMatched.Length < slice)
@@ -891,6 +932,11 @@ namespace SkiResortMod.Systems
             }
             for (int s = 0; s < slice; s++)
             {
+                if (cancel != null && (s & 1023) == 0 && cancel.Requested)
+                {
+                    output.Canceled = true;
+                    return;
+                }
                 float3 sp = output.Plan.Planted[s].Position;
                 double cx = math.floor(sp.x / cell), cz = math.floor(sp.z / cell);
                 for (int dx = -1; dx <= 1; dx++)

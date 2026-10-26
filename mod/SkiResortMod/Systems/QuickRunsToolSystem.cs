@@ -2,7 +2,7 @@
 // scans it with the pure planner (SkiRunAutoPlanner, time-sliced over frames) and previews the proposed runs as an overlay in the piste
 // map's colors; a click leaves a run out (or puts it back); the knobs (Mix, Density, Kinds, Shuffle) live in the hub. Enter builds the
 // enabled runs in one batch (emit -> Temp -> Apply, RunAreaEmit shared with the cat track tool); a refused run is dropped and the rest
-// re-emitted once. Right click undoes the batch with a refund of exactly what the binds charged. The same tool fills the region with
+// re-emitted once. The hub's Undo removes the batch with a refund of exactly what the binds charged (never right click). The same tool fills the region with
 // trees below a tree line (the glade compose path with a fill mask, QuickRunsToolSystem.Trees.cs).
 // Skeleton is CatTrackGradeToolSystem's (a prefab-less ToolBaseSystem, point editing, emit -> Temp -> Apply, hotkey + tooltip idioms).
 // Files: this (lifecycle, input, knobs), .Scan.cs (snapshot, obstacles, planner, warnings), .Build.cs (emit, validate, apply, undo,
@@ -104,6 +104,7 @@ namespace SkiResortMod.Systems
         private QuickRegionReadout m_Readout;
         private float3 m_Hit;
         private bool m_HasHit, m_EnterRequested;
+        private readonly List<(string key, int value)> m_HubQueue = new List<(string key, int value)>();   // HubSet -> DrainHub
         private int m_HoverPoint = -1, m_DragIndex = -1;
         private float2 m_DragTo;
         private string m_Notice;
@@ -163,7 +164,7 @@ namespace SkiResortMod.Systems
             Mod.Log.Info($"QuickRuns [tool]: ARMED — '{toolID}' (experimental, DECISIONS 404; setting {(OptionOn ? "ON" : "OFF: the tool cannot open")}): " +
                          "click the corners of a region (drag one to move it, right click steps back), Enter scans it " +
                          $"(cap {SkiRunAutoPlanner.V1MaxAreaM2 / 1e6f:F0} km2), a click leaves a run out, Enter builds the enabled runs in one batch " +
-                         $"(refused when the city cannot pay the total; a refused run is dropped and the rest re-emitted once), right click undoes the " +
+                         $"(refused when the city cannot pay the total; a refused run is dropped and the rest re-emitted once), the hub's Undo (not right click) removes the " +
                          $"batch with a refund of what the binds charged; tree filler below a tree line (glade compose with a fill mask). Run prefabs: " +
                          $"{(missing == 0 ? "all found" : missing + " MISSING (those kinds are never proposed)")}; probes with Measurement diagnostics " +
                          $"{(SkiResortSettings.DiagnosticsOn ? "ON" : "off")}");
@@ -297,6 +298,7 @@ namespace SkiResortMod.Systems
                 SetActions(false, false, live);
                 if (cancelAction.WasPressedThisFrame())
                     RequestStopBuild("right click");
+                DrainHub(false);   // Stop acts; any other hub action is refused as busy
                 m_EnterRequested = false;
                 if (m_Phase == ToolPhase.Emitted)
                     UpdateEmitted();
@@ -312,6 +314,7 @@ namespace SkiResortMod.Systems
             // Undo trees: every frame is a slice's emit or Apply (UpdateTreesCycle returns true), so right click is read here
             if (RemovingTrees && cancelAction.WasPressedThisFrame())
                 StopPlanting("right click");
+            DrainHub(true);   // the hub Stop reaches a tree cycle too; other actions wait for a free frame
             if (UpdateTreesCycle())
             {
                 Draw();
@@ -323,14 +326,19 @@ namespace SkiResortMod.Systems
                 // Planting slice after slice: right click stops after the slice in flight; no other input until it ends
                 if (cancelAction.WasPressedThisFrame())
                     StopPlanting("right click");
+                DrainHub(false);
             }
             else if (m_BuildNextFrame)
             {
                 m_BuildNextFrame = false;
                 BuildFromTool("after the tree preview cleared");
             }
+            else if (cancelAction.WasPressedThisFrame() && PlantPending)
+                StopPlanting("right click");   // a Plant waiting for the tree compose job is canceled, the region stays
             else if (cancelAction.WasPressedThisFrame())
                 StepBack();
+            else if (m_HubQueue.Count > 0)
+                DrainHub(false);   // the hub buttons and knobs take the path Enter takes
             else if (m_EnterRequested)
                 Enter();
             else
@@ -385,8 +393,9 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>Right click: cancel a drag; stop a scan; leave the preview; undo a corner edit; with no corner left, undo the last
-        /// batch built in this session; with nothing left, close.</summary>
+        /// <summary>Right click: cancel a drag; stop a scan; leave the preview; undo a corner edit; clear the corners; with nothing left,
+        /// close. Never an undo of built runs or planted trees: the hub's Undo / Undo trees buttons only (field test 2026-10-25: right
+        /// click after a build undid the batch 1-2 s later, twice, and the owner thought nothing was built; DECISIONS 418).</summary>
         private void StepBack()
         {
             if (Dragging)
@@ -405,16 +414,9 @@ namespace SkiResortMod.Systems
                 DropPreview("preview left (right click): corners kept, Enter scans again");
                 return;
             }
-            if (m_BatchFresh && m_Batch.Count > 0)
-            {
-                UndoBatch("right click");
-                return;
-            }
-            if (m_TreesOn && m_TreeBatch.Count > 0 && m_TreeBatchFresh)
-            {
-                RequestTreeUndo("right click");
-                return;
-            }
+            if (m_BatchFresh || m_TreeBatchFresh)
+                Say($"QuickRuns [back]: right click after a build — the {m_Batch.Count} run(s) / {m_TreeBatch.Count} tree(s) stay " +
+                    "(Undo / Undo trees in the hub remove them)");
             if (m_Edit.UndoDepth > 0)
             {
                 m_Edit.Undo();
@@ -425,11 +427,6 @@ namespace SkiResortMod.Systems
             {
                 m_Edit.Clear();
                 RegionChanged("corners cleared (right click)");
-                return;
-            }
-            if (m_Batch.Count > 0)
-            {
-                UndoBatch("right click");
                 return;
             }
             Say("QuickRuns [back]: nothing left — tool closed (right click)");
@@ -542,12 +539,38 @@ namespace SkiResortMod.Systems
 
         // ---------------------------------------------------------------- knobs and hub actions
 
-        /// <summary>One hub action (SkiResortHubUISystem quickRunsSet(key, value), main thread, applied in the hub's update). Returns the
-        /// trigger log text. Unknown keys are logged and ignored.</summary>
+        /// <summary>One hub action (SkiResortHubUISystem quickRunsSet(key, value), main thread, in the HUB's update): only queued here.
+        /// The tool acts on it in its own OnUpdate (DrainHub), the path Enter takes: a command buffer from the hub's update throws
+        /// "Trying to create EntityCommandBuffer when it's not allowed!" (field test 2026-10-25, DECISIONS 418).</summary>
         internal string HubSet(string key, int value)
         {
             if (!IsActive)
                 return "tool not active";
+            m_HubQueue.Add((key, value));
+            return "queued";
+        }
+
+        /// <summary>The queued hub actions, in the tool's update. stopOnly: take the stop requests and leave the rest queued (a tree
+        /// Apply frame, where nothing else may run).</summary>
+        private void DrainHub(bool stopOnly)
+        {
+            if (m_HubQueue.Count == 0)
+                return;
+            var items = m_HubQueue.ToArray();
+            m_HubQueue.Clear();
+            foreach (var (key, value) in items)
+            {
+                if (stopOnly && key != "stop")
+                {
+                    m_HubQueue.Add((key, value));
+                    continue;
+                }
+                Mod.Log.Info($"QuickRuns [hub]: {key}={value} — {HubApply(key, value)}");
+            }
+        }
+
+        private string HubApply(string key, int value)
+        {
             if (key == "stop")
             {
                 RequestStopBuild("hub");
@@ -702,6 +725,7 @@ namespace SkiResortMod.Systems
             m_Phase = ToolPhase.Region;
             m_HoverPoint = m_DragIndex = -1;
             m_EnterRequested = false;
+            m_HubQueue.Clear();
             m_Notice = null;
             HoverClusterKey = null;
             Bump();

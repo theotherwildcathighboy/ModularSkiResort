@@ -10,11 +10,16 @@
 // refunds Recent trees) in slices of the glade cap MaxRemovePerApply, one Apply each ("Removing trees 4,000 / 9,000"; right click stops
 // after the slice in flight, the rest stays undoable). While the preview is on, an edit (tree line, species, level, corners) only marks
 // the plan dirty: the compose runs TreeDebounceFrames after the last edit; the planting slices, trees on and Plant re-plan at once.
+// The compose is a job (DECISIONS 419, the 9 km2 region cap): the census runs on the main thread within TreeCensusBudgetMs per frame,
+// then SkiGladeCompose.Compose (pure: no statics, its own cache, a private copy of the height snapshot) runs on a worker thread;
+// the frame it finishes clears the old preview and emits the new one (the Replan idiom). An edit during the job cancels the worker
+// (GladeCancel, polled by the planner and MatchSlots) and drops its result.
 // Engine notes: EngineNotes/QuickRunsToolSystem.md (Tree filler)
 
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Threading.Tasks;
 using Colossal.Collections;
 using Colossal.Entities;
 using Colossal.Mathematics;
@@ -39,6 +44,8 @@ namespace SkiResortMod.Systems
         internal const int FillerSliceTrees = 2000;
         /// <summary>Frames after the last edit before the preview re-composes (one compose per burst of clicks, not one per click).</summary>
         internal const int TreeDebounceFrames = 15;
+        /// <summary>Main-thread census work per frame before the compose job yields to the next frame.</summary>
+        internal const double TreeCensusBudgetMs = 3.0;
 
         /// <summary>Group chip indices the hub sends (hubText QUICK_GROUP[*]).</summary>
         internal const int GroupConifer = 0, GroupDeciduous = 1, GroupPalm = 2, GroupAll = 3;
@@ -79,7 +86,7 @@ namespace SkiResortMod.Systems
 
         private readonly ComposeInput m_TreeInput = new ComposeInput();
         private readonly ComposeResult m_TreeResult = new ComposeResult();
-        private readonly GladePlanCache m_TreeCache = new GladePlanCache(SkiGladeToolSystem.Tuning.PlanCacheEntries);
+        private GladePlanCache m_TreeCache = new GladePlanCache(SkiGladeToolSystem.Tuning.PlanCacheEntries);   // the job's while it runs
         private readonly SnapshotGround m_Ground = new SnapshotGround();
         private readonly Dictionary<ulong, HashSet<int>> m_TreeSkip = new Dictionary<ulong, HashSet<int>>();
         private readonly Dictionary<long, int> m_TreeSlots = new Dictionary<long, int>();   // planted position key -> slot (skip learning)
@@ -93,6 +100,23 @@ namespace SkiResortMod.Systems
         private bool m_Planting;   // Plant pressed: apply slice after slice until complete or stopped
         private int m_PlantStartNow, m_PlantTotal, m_PlantSlices, m_PlantPlanted, m_SliceFrame;
         private long m_PlantStartTicks, m_SliceTicks;
+        // The compose job: 0 idle, 1 census on the main thread (budgeted), 2 compose on a worker thread
+        private int m_TreeJobStage, m_TreeJobGen, m_TreeJobLaunchGen, m_TreeJobFrames, m_CensusCursor, m_WildCursor;
+        private string m_TreeJobWhy;
+        private long m_TreeJobTicks;
+        private double m_TreeJobMainMs, m_TreeJobFrameMaxMs, m_TreeJobWorkerMs;
+        private bool m_TreeJobWild;
+        private float2[] m_TreeJobRegion;
+        private float3[] m_TreeJobRing;
+        private Task<GladeStatus> m_TreeTask;
+        private GladeCancel m_TreeCancel;   // the running worker's cancel flag (a fresh one per job)
+        private int m_TreeJobGc0;           // GC.CollectionCount(0) at the job's start (Mono's GC stops every thread)
+        private readonly List<Entity> m_CensusFound = new List<Entity>(), m_WildFound = new List<Entity>();
+        private readonly List<float3> m_WildAround = new List<float3>();
+        private HeightSnapshot m_TreeSnapCopy, m_TreeSnapCopyOf;   // the worker's private copy of m_Snap (a rescan reuses m_Snap's buffers)
+        private ulong m_TreeSnapCopyPrint;
+        private EntityQuery m_TreeTempQuery;
+        private int m_TreeCostPreview, m_TreeCostPlants;   // the ready preview's Temp cost and its planted Temps (what ToolApplySystem charges)
         private SnowLineRules.Segment[] m_Contour = new SnowLineRules.Segment[2 * (ContourSide - 1) * (ContourSide - 1)];
         private int m_ContourCount;
         private float[] m_ContourHeights = new float[ContourSide * ContourSide];
@@ -122,6 +146,15 @@ namespace SkiResortMod.Systems
         internal int TreeNow => m_TreeNow;
         internal int TreeBatchCount => m_TreeBatch.Count;
         internal bool TreesReady => m_TreesPreviewReady;
+        /// <summary>A compose job is in flight (census or worker): the preview on screen is the previous plan.</summary>
+        internal bool TreesComposing => m_TreeJobStage != 0;
+        /// <summary>Plant was pressed and waits for the fresh plan (right click cancels it).</summary>
+        internal bool PlantPending => m_PlantAfterCompose && !m_Planting;
+        /// <summary>What Plant is about to cost: the ready preview's Temp cost per planted tree times the trees to plant (exact when the
+        /// whole plan fits one slice); 0 without a ready preview.</summary>
+        internal int TreeCost => m_TreeCostPlants <= 0 ? 0
+            : m_TreeCostPlants >= TreeToPlant ? m_TreeCostPreview
+            : (int)math.min(int.MaxValue, math.round((double)m_TreeCostPreview / m_TreeCostPlants * TreeToPlant));
         internal GladeStatus TreeStatus => m_TreeStatus;
 
         // IGladeTagSource (explicit: the tag system reads it in the ApplyTool phase of our Apply frame)
@@ -190,6 +223,8 @@ namespace SkiResortMod.Systems
                     FinishRemoving("stopped: trees turned off", cancelInFlight: true);
                 ClearTreePreview();
                 m_TreesOn = false;
+                m_TreeJobGen++;
+                m_PlantAfterCompose = false;   // a Plant waiting for the job goes with it
                 Say($"QuickRuns [trees]: off ({why})");
             }
             Bump();
@@ -202,6 +237,7 @@ namespace SkiResortMod.Systems
             m_TreeUndoStage = 0;
             m_Removing = m_PlantAfterCompose = false;
             m_TreesComposeNow = false;
+            m_TreeJobGen++;   // a job in flight is dropped (a worker finishes and is discarded)
             m_TreeSnapStale = m_TreeLineStale = true;
             m_TreeLineAuto = true;
             m_ContourCount = 0;
@@ -217,6 +253,7 @@ namespace SkiResortMod.Systems
             }
             m_TreesEmitPending = m_TreesPreviewReady = m_TreeApplyRequested = false;
             m_TreePlant = m_TreeRemove = 0;
+            m_TreeCostPreview = m_TreeCostPlants = 0;
         }
 
         private void RequestPlant(string why)
@@ -233,11 +270,12 @@ namespace SkiResortMod.Systems
                 Say($"QuickRuns [trees]: plant refused ({why}) — trees are being removed (Stop first)");
                 return;
             }
-            if (m_TreesDirty)
+            if (m_TreesDirty || m_TreeJobStage != 0)
             {
-                // The preview on screen is older than the last edit (debounce) or not validated yet: plant from the fresh plan
+                // The preview on screen is older than the last edit (debounce, or a compose job in flight): plant from the fresh plan
                 m_PlantAfterCompose = true;
-                MarkTreesDirty(false);
+                if (m_TreesDirty)
+                    MarkTreesDirty(false);
                 Say($"QuickRuns [trees]: plant ({why}) waits for the re-plan of the last edit");
                 return;
             }
@@ -252,13 +290,20 @@ namespace SkiResortMod.Systems
             m_PlantPlanted = m_PlantSlices = 0;
             m_PlantStartTicks = System.Diagnostics.Stopwatch.GetTimestamp();
             m_TreeApplyRequested = true;
-            Say($"QuickRuns [trees]: PLANT ({why}) — about {m_PlantTotal} tree(s) in slices of {FillerSliceTrees}; right click stops after a slice");
+            Say(string.Format(CultureInfo.InvariantCulture,
+                "QuickRuns [trees]: PLANT ({0}) — about {1} tree(s) in slices of {2}, about {3:N0} money (preview Temps: {4:N0} for {5}); " +
+                "right click stops after a slice", why, m_PlantTotal, FillerSliceTrees, TreeCost, m_TreeCostPreview, m_TreeCostPlants));
             Bump();
         }
 
         /// <summary>Right click or the hub's Stop while planting: the slice in flight finishes, no further slice is applied.</summary>
         private void StopPlanting(string why)
         {
+            if (m_PlantAfterCompose && !m_Planting)
+            {
+                m_PlantAfterCompose = false;
+                Say($"QuickRuns [trees]: the Plant waiting for the re-plan was canceled ({why})");
+            }
             if (m_Removing)
                 FinishRemoving("stopped (" + why + ")", cancelInFlight: false);   // the slice in flight still applies
             if (!m_Planting)
@@ -310,6 +355,7 @@ namespace SkiResortMod.Systems
         /// uses); they apply on the next frame (UpdateTreesCycle stage 1).</summary>
         private void EmitRemoveSlice()
         {
+            long t0 = System.Diagnostics.Stopwatch.GetTimestamp();
             applyMode = ApplyMode.Clear;
             m_Deps = DestroyDefinitions(m_DefinitionQuery, m_Barrier, m_Deps);
             EntityCommandBuffer ecb = m_Barrier.CreateCommandBuffer();
@@ -322,7 +368,7 @@ namespace SkiResortMod.Systems
             m_TreeUndoStage = 1;
             if (SkiResortSettings.DiagnosticsOn)
                 Mod.Log.Info($"QuickRuns [probe] removing slice {m_RemoveSlices + 1}: {emitted} removal(s) emitted (batch {m_RemoveCursor}..{i} of " +
-                             $"{m_TreeBatch.Count}), applying next frame");
+                             $"{m_TreeBatch.Count}) in {QuickRunsRules.MsSince(t0):F1} ms, applying next frame");
         }
 
         /// <summary>Ends an undo. The applied part leaves the batch; the rest stays undoable. <paramref name="cancelInFlight"/>: the
@@ -374,8 +420,8 @@ namespace SkiResortMod.Systems
         /// the last edit.</summary>
         private bool TreeComposeDue()
         {
-            if (!m_TreesDirty || m_Removing || m_TreeUndoStage != 0)
-                return false;
+            if (!m_TreesDirty || m_Removing || m_TreeUndoStage != 0 || m_TreeJobStage != 0)
+                return false;   // a job in flight finishes (or is dropped) first
             if (m_Planting || m_TreesComposeNow)
                 return true;
             if (m_TreesDirtyFrame <= m_TreesCleanFrame)
@@ -447,9 +493,10 @@ namespace SkiResortMod.Systems
                 Bump();
                 return true;
             }
+            StepTreeCompose();   // also with trees off: a finished worker is collected and dropped
             if (!m_TreesOn)
                 return false;
-            if (m_Planting && !m_TreesDirty && !m_TreesEmitPending && !m_TreesPreviewReady && !m_TreeApplyRequested)
+            if (m_Planting && !m_TreesDirty && m_TreeJobStage == 0 && !m_TreesEmitPending && !m_TreesPreviewReady && !m_TreeApplyRequested)
                 FinishPlanting("stopped: no plan for the next slice", false);   // the compose refused (its own notice says why)
             bool flipped = false;
             if (m_TreesEmitPending)
@@ -457,6 +504,7 @@ namespace SkiResortMod.Systems
                 m_TreesEmitPending = false;
                 m_TreesPreviewReady = true;   // last frame's definitions were generated and validated (the glade tool's ready flip)
                 flipped = true;
+                CensusTreeCost();
                 if (m_Planting)
                     m_TreeApplyRequested = true;   // the next slice applies on the next frame
                 Bump();
@@ -501,23 +549,25 @@ namespace SkiResortMod.Systems
 
         // ---------------------------------------------------------------- compose
 
-        /// <summary>Census, mask, compose, emit (the glade tool's PlanAndEmit for a region). The previous preview is cleared in the same
-        /// frame (the glade tool's Replan idiom).</summary>
+        /// <summary>Starts a compose job (census, mask, compose, emit: the glade tool's PlanAndEmit for a region). The cheap part runs
+        /// now (snapshot, species, contour grid); the census continues in StepTreeCompose within TreeCensusBudgetMs per frame, then the
+        /// compose runs on a worker thread. The preview on screen stays until the job's result replaces it in one frame (Replan idiom).</summary>
         private void ComposeTrees(string why)
         {
             m_TreesDirty = m_TreesComposeNow = false;
             m_TreesCleanFrame = m_Frame;
-            bool plantAfter = m_PlantAfterCompose;   // dropped when this compose stops early (its notice says why)
-            m_PlantAfterCompose = false;
             long t0 = System.Diagnostics.Stopwatch.GetTimestamp();
-            ClearTreePreview();
             float2[] region = CornerArray();
             if (region == null || region.Length < 3)
+            {
+                StopTreeCompose();
                 return;
+            }
             if (m_TreeSnapStale || m_Snap == null)
             {
                 if (!TakeSnapshot(region, out string failure))
                 {
+                    StopTreeCompose();
                     Say($"QuickRuns [trees]: no plan — {failure}", QuickRunsRules.StatusKey(AutoPlanStatus.BadInput));
                     return;
                 }
@@ -527,15 +577,150 @@ namespace SkiResortMod.Systems
             ResolveSpecies();
             if (m_Pool.Count == 0)
             {
+                StopTreeCompose();
                 Say($"QuickRuns [trees]: no tree species in {SpeciesText()}", NoticeKey("NO_SPECIES"));
                 return;
             }
             BuildContourGrid(region);
-            float3[] ring = Ring3(region);
-            if (m_TreeLineStale)
+            m_TreeJobRegion = region;
+            m_TreeJobRing = Ring3(region);
+            m_TreeJobWhy = why;
+            m_TreeJobWild = m_TreeLineStale;
+            m_TreeJobLaunchGen = m_TreeJobGen;
+            m_TreeJobTicks = t0;
+            m_TreeJobGc0 = GC.CollectionCount(0);
+            m_TreeJobMainMs = m_TreeJobFrameMaxMs = m_TreeJobWorkerMs = 0;
+            m_TreeJobFrames = 0;
+
+            // The census lists (static search tree, the glade tool's CensusTrees idiom); classified in StepTreeCompose
+            m_Existing.Clear();
+            m_OwnMembers.Clear();
+            m_OwnEntities.Clear();
+            m_WildAround.Clear();
+            m_CensusFound.Clear();
+            m_WildFound.Clear();
+            m_CensusCursor = m_WildCursor = 0;
+            SkiRunAutoPlanner.BBox(region, out float2 rbMin, out float2 rbMax);
+            var rb = new Bounds2(rbMin, rbMax);
+            float band = SkiGladeToolSystem.Tuning.GladeMinSpacing, around = SkiGladeTreeLine.AroundM;
+            SearchTrees(new Bounds2(rb.min - band, rb.max + band), m_CensusFound);
+            if (m_TreeJobWild)
+                SearchTrees(new Bounds2(rb.min - around, rb.max + around), m_WildFound);
+            m_TreeJobStage = 1;
+            double ms = QuickRunsRules.MsSince(t0);
+            m_TreeJobMainMs = ms;
+            StepTreeCompose(ms);   // a small region finishes its census in this frame, as before the job
+        }
+
+        /// <summary>A job dropped before it started: the preview goes (as the old compose did), a Plant waiting for it is dropped.</summary>
+        private void StopTreeCompose()
+        {
+            ClearTreePreview();
+            m_PlantAfterCompose = false;
+            if (m_Planting)
+                FinishPlanting("stopped: no plan for the next slice", false);
+        }
+
+        /// <summary>The job's result is out of date: an edit since it started (its compose follows), trees off, an undo, a load.</summary>
+        private bool TreeJobStale() =>
+            m_TreesDirty || !m_TreesOn || m_Removing || m_TreeUndoStage != 0 || m_TreeJobGen != m_TreeJobLaunchGen;
+
+        /// <summary>One frame of the compose job: census within TreeCensusBudgetMs (stage 1), then the worker launch; or the worker's
+        /// result collected (stage 2). <paramref name="spentMs"/>: main-thread time this frame already spent on the job.</summary>
+        private void StepTreeCompose(double spentMs = 0)
+        {
+            if (m_TreeJobStage == 0)
+                return;
+            if (m_TreeJobStage == 2)
+            {
+                if (!m_TreeTask.IsCompleted)
+                {
+                    if (!m_TreeCancel.Requested && TreeJobStale())
+                    {
+                        m_TreeCancel.Request();   // the worker stops at its next poll; the result is dropped when it returns
+                        if (SkiResortSettings.DiagnosticsOn)
+                            Mod.Log.Info(string.Format(CultureInfo.InvariantCulture,
+                                "QuickRuns [probe] tree compose ({0}) canceled on the worker after {1:F0} ms: out of date", m_TreeJobWhy,
+                                QuickRunsRules.MsSince(m_TreeJobTicks)));
+                    }
+                    return;
+                }
+                FinishTreeCompose();
+                return;
+            }
+            long t0 = System.Diagnostics.Stopwatch.GetTimestamp();
+            m_TreeJobFrames++;
+            if (TreeJobStale())
+            {
+                m_TreeJobStage = 0;   // its edit composes next (debounce); trees off / undo / load need none
+                if (SkiResortSettings.DiagnosticsOn)
+                    Mod.Log.Info($"QuickRuns [probe] tree compose ({m_TreeJobWhy}) dropped during the census: out of date");
+                return;
+            }
+            bool done = CensusStep(t0, TreeCensusBudgetMs - spentMs);
+            if (done)
+                LaunchTreeCompose();
+            double ms = QuickRunsRules.MsSince(t0);
+            m_TreeJobMainMs += ms;
+            m_TreeJobFrameMaxMs = math.max(m_TreeJobFrameMaxMs, ms + spentMs);
+        }
+
+        /// <summary>Classifies the census lists from the cursors until the budget is spent; true when both lists are done. The same
+        /// tests as the single-frame census (CensusRegion / WildTreesAround before the job), plus Exists: an entity may die between frames.</summary>
+        private bool CensusStep(long t0, double budgetMs)
+        {
+            float band = SkiGladeToolSystem.Tuning.GladeMinSpacing;
+            float2[] region = m_TreeJobRegion;
+            while (m_CensusCursor < m_CensusFound.Count || m_WildCursor < m_WildFound.Count)
+            {
+                for (int k = 0; k < 256 && m_CensusCursor < m_CensusFound.Count; k++)
+                {
+                    Entity e = m_CensusFound[m_CensusCursor++];
+                    if (!EntityManager.Exists(e) || EntityManager.HasComponent<Deleted>(e) ||
+                        !EntityManager.TryGetComponent(e, out Game.Objects.Transform tr))
+                        continue;
+                    float2 xz = tr.m_Position.xz;
+                    if (!GradeRaster.Inside(region, xz) && SkiRunAutoPlanner.PointRingDistance(region, xz) > band)
+                        continue;
+                    bool filler = EntityManager.TryGetComponent(e, out SkiRunTreeMember m) && m.m_Layer == SkiRunTreeMember.LayerFiller &&
+                                  m.m_Run == Entity.Null;
+                    bool fixedTree = EntityManager.HasComponent<Owner>(e) || EntityManager.HasComponent<Game.Events.OnFire>(e);
+                    if (filler && !fixedTree)
+                    {
+                        m_OwnMembers.Add(new ComposeMember { Position = tr.m_Position, Layer = m.m_Layer, Variant = m.m_Variant, PlanGen = m.m_PlanGen });
+                        m_OwnEntities.Add(e);
+                    }
+                    else
+                        m_Existing.Add(tr.m_Position);
+                }
+                if (m_CensusCursor >= m_CensusFound.Count)
+                {
+                    for (int k = 0; k < 256 && m_WildCursor < m_WildFound.Count; k++)
+                    {
+                        Entity e = m_WildFound[m_WildCursor++];
+                        if (!EntityManager.Exists(e) || EntityManager.HasComponent<SkiRunTreeMember>(e) || EntityManager.HasComponent<Owner>(e) ||
+                            EntityManager.HasComponent<Deleted>(e) || !EntityManager.TryGetComponent(e, out Game.Objects.Transform tr))
+                            continue;
+                        m_WildAround.Add(tr.m_Position);
+                    }
+                }
+                if (QuickRunsRules.MsSince(t0) >= budgetMs)
+                    break;
+            }
+            return m_CensusCursor >= m_CensusFound.Count && m_WildCursor >= m_WildFound.Count;
+        }
+
+        /// <summary>Census done: the tree line (estimate when stale), the contour, the mask and the input; then Compose on a worker
+        /// thread. The worker touches only its input, its result, the tree cache and private copies (snapshot, skip sets); the main
+        /// thread leaves them alone until the job is collected.</summary>
+        private void LaunchTreeCompose()
+        {
+            float2[] region = m_TreeJobRegion;
+            float3[] ring = m_TreeJobRing;
+            if (m_TreeJobWild)
             {
                 m_TreeLineStale = false;
-                m_TreeLineEst = SkiGladeTreeLine.Estimate(ring, WildTreesAround(region), m_GroundMin, m_GroundMax);
+                m_TreeLineEst = SkiGladeTreeLine.Estimate(ring, m_WildAround.ToArray(), m_GroundMin, m_GroundMax);
                 if (m_TreeLineAuto)
                     m_TreeLine = QuickRunsRules.ClampTreeLine(m_TreeLineEst.Height, m_GroundMin, m_GroundMax);
                 Say(string.Format(CultureInfo.InvariantCulture,
@@ -545,10 +730,9 @@ namespace SkiResortMod.Systems
             }
             March();
 
-            CensusRegion(region);
             GladeParams p = SkiGladeToolSystem.BuildParams(false, m_Pool.Count);
             SkiGladeSpecies.ApplyPool(ref p, m_Pool.Count);
-            m_Ground.Snap = m_Snap;
+            m_Ground.Snap = WorkerSnapshot();
             m_Ground.Print = m_SnapPrint;
             var mask = new GladeMask
             {
@@ -576,14 +760,87 @@ namespace SkiResortMod.Systems
                 MaxRemove = SkiGladeToolSystem.Tuning.MaxRemovePerApply,
             };
             m_TreeInput.SkipSlots = null;
-            if (m_TreeSkip.Count > 0)
+            // The skip sets are copied: OnTagged adds to them on the main thread while a worker could read them
+            Dictionary<ulong, HashSet<int>> skip = null;
+            foreach (KeyValuePair<ulong, HashSet<int>> kv in m_TreeSkip)
             {
-                ulong key = SkiGladeCompose.PlanKey(m_TreeInput);
-                if (m_TreeSkip.TryGetValue(key, out HashSet<int> known) && known.Count > 0)
-                    m_TreeInput.SkipSlots = known;
+                if (kv.Value.Count == 0)
+                    continue;
+                skip = skip ?? new Dictionary<ulong, HashSet<int>>();
+                skip[kv.Key] = new HashSet<int>(kv.Value);
             }
-            m_TreeStatus = SkiGladeCompose.Compose(m_TreeInput, m_TreeResult, m_TreeCache);
+            m_TreeCancel = new GladeCancel();
+            m_TreeInput.Cancel = m_TreeCancel;
+            ComposeInput input = m_TreeInput;
+            ComposeResult result = m_TreeResult;
+            GladePlanCache cache = m_TreeCache;
+            m_TreeJobStage = 2;
+            m_TreeTask = Task.Run(() =>
+            {
+                long w0 = System.Diagnostics.Stopwatch.GetTimestamp();
+                if (skip != null && skip.TryGetValue(SkiGladeCompose.PlanKey(input), out HashSet<int> known))
+                    input.SkipSlots = known;
+                GladeStatus st = SkiGladeCompose.Compose(input, result, cache);
+                m_TreeJobWorkerMs = QuickRunsRules.MsSince(w0);   // read after IsCompleted (the task's completion orders it)
+                return st;
+            });
+        }
+
+        /// <summary>The worker's copy of m_Snap: refreshed only while no job runs, when the scan's snapshot changed (TakeSnapshot reuses
+        /// its buffers in place, so the worker must not read m_Snap itself). Sample reads Heights and the rectangle only.</summary>
+        private HeightSnapshot WorkerSnapshot()
+        {
+            HeightSnapshot s = m_Snap;
+            if (m_TreeSnapCopy != null && ReferenceEquals(m_TreeSnapCopyOf, s) && m_TreeSnapCopyPrint == m_SnapPrint)
+                return m_TreeSnapCopy;
+            int n = s.Width * s.Depth;
+            HeightSnapshot c = m_TreeSnapCopy ?? new HeightSnapshot();
+            if (c.Heights == null || c.Heights.Length < n)
+                c.Heights = new ushort[n];
+            Array.Copy(s.Heights, c.Heights, n);
+            c.Wet = null;
+            c.X0 = s.X0;
+            c.Z0 = s.Z0;
+            c.Width = s.Width;
+            c.Depth = s.Depth;
+            c.ResX = s.ResX;
+            c.ResZ = s.ResZ;
+            c.Scale = s.Scale;
+            c.Offset = s.Offset;
+            m_TreeSnapCopy = c;
+            m_TreeSnapCopyOf = s;
+            m_TreeSnapCopyPrint = m_SnapPrint;
+            return c;
+        }
+
+        /// <summary>The worker is done: drop an out-of-date result, else clear the old preview and emit the new one in this frame.</summary>
+        private void FinishTreeCompose()
+        {
+            Task<GladeStatus> task = m_TreeTask;
+            m_TreeTask = null;
+            m_TreeJobStage = 0;
+            m_TreeJobFrames++;
+            if (task.IsFaulted)
+            {
+                Mod.Log.Error($"!!! QuickRuns [trees]: the compose failed on the worker thread — no plan:\n{task.Exception}");
+                StopTreeCompose();
+                return;
+            }
+            if (TreeJobStale() || m_TreeResult.Canceled)
+            {
+                if (SkiResortSettings.DiagnosticsOn)
+                    Mod.Log.Info(string.Format(CultureInfo.InvariantCulture,
+                        "QuickRuns [probe] tree compose ({0}) dropped after {1:F1} ms on the worker ({2}): out of date", m_TreeJobWhy,
+                        m_TreeJobWorkerMs, m_TreeResult.Canceled ? "canceled" : "ran to the end"));
+                return;   // the edit's own compose follows (TreeComposeDue); trees off / undo / load need none
+            }
+            long t0 = System.Diagnostics.Stopwatch.GetTimestamp();
+            bool plantAfter = m_PlantAfterCompose;
+            m_PlantAfterCompose = false;
+            ClearTreePreview();
+            m_TreeStatus = task.Result;
             ComposeResult r = m_TreeResult;
+            GladeMask mask = m_TreeInput.Fill;
             m_TreePlanKey = r.PlanKey;
             m_TreeTarget = r.Target;
             m_TreeNow = r.Inside;
@@ -596,7 +853,7 @@ namespace SkiResortMod.Systems
                 for (int k = 0; k < r.Remove.Count; k++)
                 {
                     int idx = r.Remove[k];
-                    if (idx >= 0 && idx < m_OwnEntities.Count &&
+                    if (idx >= 0 && idx < m_OwnEntities.Count && EntityManager.Exists(m_OwnEntities[idx]) &&
                         SkiGladeToolSystem.EmitThinDefinition(EntityManager, ecb, m_OwnEntities[idx], out float3 _))
                         removed++;
                 }
@@ -626,17 +883,53 @@ namespace SkiResortMod.Systems
             if (m_Planting && planted + removed == 0)
                 FinishPlanting(r.Complete ? "complete" : "done (" + m_TreeStatus + ")");
             m_TreesPreviewReady = false;
-            double ms = QuickRunsRules.MsSince(t0);
+            double emitMs = QuickRunsRules.MsSince(t0);
+            m_TreeJobMainMs += emitMs;
+            m_TreeJobFrameMaxMs = math.max(m_TreeJobFrameMaxMs, emitMs);
             Say(string.Format(CultureInfo.InvariantCulture,
                 "QuickRuns [trees]: plan ({0}) — status {1}, level {2}, target {3}, now {4} (wild {5}, own {6}), plant {7}, remove {8}{9}; " +
-                "{10} hole(s), tree line {11}; {12}; {13:F1} ms",
-                why, m_TreeStatus, m_TreeLevel, r.Target, r.Inside, r.WildInside, r.OwnInside, planted, removed,
+                "{10} hole(s), tree line {11}; {12}; worker {14:F1} ms, main {15:F1} ms over {16} frame(s) (worst frame {17:F1} ms, emit {18:F1}), " +
+                "gc0 +{19}; " +
+                "{13:F1} ms",
+                m_TreeJobWhy, m_TreeStatus, m_TreeLevel, r.Target, r.Inside, r.WildInside, r.OwnInside, planted, removed,
                 r.Complete ? " (complete)" : r.Clamped ? " (clamped: apply again for the rest)" : string.Empty, mask.Holes?.Length ?? 0,
                 float.IsPositiveInfinity(mask.TreeLine) ? "none" : mask.TreeLine.ToString("F0", CultureInfo.InvariantCulture) + " m",
-                SpeciesText(), ms));
+                SpeciesText(), QuickRunsRules.MsSince(m_TreeJobTicks), m_TreeJobWorkerMs, m_TreeJobMainMs, m_TreeJobFrames, m_TreeJobFrameMaxMs,
+                emitMs, GC.CollectionCount(0) - m_TreeJobGc0));
             Bump();
             if (plantAfter)
                 RequestPlant("after the re-plan");
+        }
+
+        /// <summary>The ready preview's cost: m_Cost of our non-Cancel Temps (what ToolApplySystem charges, the glade tool's
+        /// RefreshPreviewCensus) and the planted (create) Temps among them. The Temp trees are ours alone while the tool is active.</summary>
+        private void CensusTreeCost()
+        {
+            if (m_TreeTempQuery == default)
+                m_TreeTempQuery = GetEntityQuery(new EntityQueryDesc
+                {
+                    All = new[] { ComponentType.ReadOnly<Temp>(), ComponentType.ReadOnly<Game.Objects.Tree>() },
+                    None = new[] { ComponentType.ReadOnly<Deleted>() },
+                });
+            int cost = 0, plants = 0;
+            if (!m_TreeTempQuery.IsEmptyIgnoreFilter)
+            {
+                m_TreeTempQuery.CompleteDependency();
+                using (var temps = m_TreeTempQuery.ToComponentDataArray<Temp>(Allocator.Temp))
+                {
+                    for (int i = 0; i < temps.Length; i++)
+                    {
+                        Temp t = temps[i];
+                        if ((t.m_Flags & TempFlags.Cancel) != 0)
+                            continue;
+                        cost += t.m_Cost;
+                        if ((t.m_Flags & TempFlags.Delete) == 0 && t.m_Original == Entity.Null)
+                            plants++;
+                    }
+                }
+            }
+            m_TreeCostPreview = cost;
+            m_TreeCostPlants = plants;
         }
 
         private float3[] Ring3(float2[] region)
@@ -651,7 +944,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Holes: every run outline of ours in the region's bounds (existing runs and cat tracks), plus the enabled candidates
-        /// while a run preview shows (so a later build finds its ground free).</summary>
+        /// while a run preview shows (so a later build finds its ground free). Fresh arrays: the compose worker reads them.</summary>
         private float3[][] Holes(float2[] region)
         {
             var holes = new List<float3[]>();
@@ -674,86 +967,28 @@ namespace SkiResortMod.Systems
                 AutoPlanResult r = m_Planner.Result;
                 for (int i = 0; i < r.Runs.Count; i++)
                     if (IsEnabled(i) && r.Runs[i].Nodes != null)
-                        holes.Add(r.Runs[i].Nodes);
+                        holes.Add((float3[])r.Runs[i].Nodes.Clone());   // copied: the worker reads it while a rescan may replan
             }
             return holes.Count > 0 ? holes.ToArray() : null;
         }
 
-        /// <summary>Census of the region (+ GladeMinSpacing band, the glade interior's band): filler members (LayerFiller, run Null) go to
-        /// Own, every other tree to Existing (wild trees count as occupants: the filler never fells). The glade tool's CensusTrees idiom:
-        /// static search tree, IsTree mask, Overridden trees included; burning or owned filler members are fixed occupants.</summary>
-        private void CensusRegion(float2[] region)
+        private void SearchTrees(Bounds2 area, List<Entity> results)
         {
-            m_Existing.Clear();
-            m_OwnMembers.Clear();
-            m_OwnEntities.Clear();
-            float band = SkiGladeToolSystem.Tuning.GladeMinSpacing;
-            SkiRunAutoPlanner.BBox(region, out float2 rbMin, out float2 rbMax);
-            var rb = new Bounds2(rbMin, rbMax);
-            var found = new NativeList<Entity>(256, Allocator.Temp);
-            try
-            {
-                SearchTrees(new Bounds2(rb.min - band, rb.max + band), found);
-                for (int k = 0; k < found.Length; k++)
-                {
-                    Entity e = found[k];
-                    if (EntityManager.HasComponent<Deleted>(e) || !EntityManager.TryGetComponent(e, out Game.Objects.Transform tr))
-                        continue;
-                    float2 xz = tr.m_Position.xz;
-                    if (!GradeRaster.Inside(region, xz) && SkiRunAutoPlanner.PointRingDistance(region, xz) > band)
-                        continue;
-                    bool filler = EntityManager.TryGetComponent(e, out SkiRunTreeMember m) && m.m_Layer == SkiRunTreeMember.LayerFiller &&
-                                  m.m_Run == Entity.Null;
-                    bool fixedTree = EntityManager.HasComponent<Owner>(e) || EntityManager.HasComponent<Game.Events.OnFire>(e);
-                    if (filler && !fixedTree)
-                    {
-                        m_OwnMembers.Add(new ComposeMember { Position = tr.m_Position, Layer = m.m_Layer, Variant = m.m_Variant, PlanGen = m.m_PlanGen });
-                        m_OwnEntities.Add(e);
-                    }
-                    else
-                        m_Existing.Add(tr.m_Position);
-                }
-            }
-            finally
-            {
-                found.Dispose();
-            }
-        }
-
-        /// <summary>Wild trees (no member tag, no owner) within SkiGladeTreeLine.AroundM of the region: the tree line estimate's input.</summary>
-        private float3[] WildTreesAround(float2[] region)
-        {
-            SkiRunAutoPlanner.BBox(region, out float2 rbMin, out float2 rbMax);
-            var rb = new Bounds2(rbMin, rbMax);
-            float around = SkiGladeTreeLine.AroundM;
-            var found = new NativeList<Entity>(1024, Allocator.Temp);
-            var trees = new List<float3>();
-            try
-            {
-                SearchTrees(new Bounds2(rb.min - around, rb.max + around), found);
-                for (int k = 0; k < found.Length; k++)
-                {
-                    Entity e = found[k];
-                    if (EntityManager.HasComponent<SkiRunTreeMember>(e) || EntityManager.HasComponent<Owner>(e) ||
-                        EntityManager.HasComponent<Deleted>(e) || !EntityManager.TryGetComponent(e, out Game.Objects.Transform tr))
-                        continue;
-                    trees.Add(tr.m_Position);
-                }
-            }
-            finally
-            {
-                found.Dispose();
-            }
-            return trees.ToArray();
-        }
-
-        private void SearchTrees(Bounds2 area, NativeList<Entity> results)
-        {
-            // Synchronous read (the glade tool's CensusTrees idiom, SearchSystem.cs:421-425)
+            // Synchronous read (the glade tool's CensusTrees idiom, SearchSystem.cs:421-425); copied out: the census spans frames
             NativeQuadTree<Entity, QuadTreeBoundsXZ> tree = m_ObjectSearch.GetStaticSearchTree(readOnly: true, out JobHandle deps);
             deps.Complete();
-            var it = new SkiGladeToolSystem.TreeBoundsIterator { m_Bounds = area, m_UseTriangle = false, m_Results = results };
-            tree.Iterate(ref it);
+            var found = new NativeList<Entity>(1024, Allocator.Temp);
+            try
+            {
+                var it = new SkiGladeToolSystem.TreeBoundsIterator { m_Bounds = area, m_UseTriangle = false, m_Results = found };
+                tree.Iterate(ref it);
+                for (int k = 0; k < found.Length; k++)
+                    results.Add(found[k]);
+            }
+            finally
+            {
+                found.Dispose();
+            }
         }
 
 
@@ -892,8 +1127,9 @@ namespace SkiResortMod.Systems
             m_RemoveCursor = 0;
             if (why == "load")
             {
+                m_TreeJobGen++;
                 m_TreeSkip.Clear();
-                m_TreeCache.Clear();
+                m_TreeCache = new GladePlanCache(SkiGladeToolSystem.Tuning.PlanCacheEntries);   // a worker may still hold the old one
             }
         }
     }

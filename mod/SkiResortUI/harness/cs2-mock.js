@@ -105,6 +105,7 @@
     liftLineToggle: () => { const g = get("liftLine"); if (g) set("liftLine", Object.assign({}, g, { active: !g.active, state: "PickBase" })); },
     quickRunsToggle: () => { const g = get("quickRuns"); if (g && (g.available || g.active)) set("quickRuns", Object.assign({}, g, { active: !g.active })); },
     quickRunsSet: (k, v) => { const g = get("quickRuns"); if (g && ["mix", "density", "trees", "group", "species"].includes(k)) set("quickRuns", Object.assign({}, g, { [k === "trees" ? "trees" : k]: k === "trees" ? !!v : v })); },
+    deleteCatTrack: (run) => { const k = (e) => e && run && e.index === run.index && e.version === run.version; set("runs", (get("runs") || []).filter((r) => !k(r.entity))); set("runLive", (get("runLive") || []).filter((r) => !k(r.entity))); },
     gladeToggle: () => { const g = get("glade"); if (g) set("glade", Object.assign({}, g, { active: !g.active })); },
     gladeSetLevel: (level) => { const g = get("glade"); if (g) set("glade", Object.assign({}, g, { level })); },
     gladeSetTreeLine: (treeLine) => { const g = get("glade"); if (g) set("glade", Object.assign({}, g, { treeLine: !!treeLine })); },

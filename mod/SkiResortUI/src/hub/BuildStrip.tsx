@@ -233,7 +233,7 @@ function labelEntry(id: BuildItemId): LocEntry {
   switch (kindOf(id)) {
     case "station": return BUILD_LABEL[stationRole(id) === "top" ? "top" : "base"];
     case "line": return BUILD_LABEL.line;
-    case "sign": return BUILD_LABEL.sign;
+    case "sign": return id === "signAngled" ? BUILD_LABEL.signAngled : BUILD_LABEL.sign;
     case "lodge": return LODGE_TIER[id] ?? BUILD_LABEL.lodge;
     case "school": return BUILD_LABEL.school;
     case "patrol": return id === "patrolHQ" ? BUILD_LABEL.patrolHQ : BUILD_LABEL.patrolHut;

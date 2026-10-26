@@ -69,7 +69,7 @@ namespace SkiResortMod.Systems
         internal bool CanUndoGrade => m_GradesThisOpening > 0 && m_Undo.Count > 0;
         internal string Notice => m_Notice != null && m_Frame - m_NoticeFrame < NoticeFrames ? m_Notice : null;
         internal string PlanLine => m_Path != null ? GradeInput.Describe(m_Path, m_Prof, m_Raster, m_Params) : null;
-        internal bool PlanOk => m_Prof != null && m_Prof.Feasible && m_Guard == GradeGuardKind.None;
+        internal bool PlanOk => m_Prof != null && m_Prof.Feasible && m_Guard == GradeGuardKind.None && !m_CrossingPending;
         internal string GuardLine => m_Guard != GradeGuardKind.None ? GradeGuards.Reason(m_Guard) : null;
         internal string BankLine => m_Raster != null && m_Raster.SteepBankTexels > 0
             ? string.Format(CultureInfo.InvariantCulture, "Steep bank: the hillside is steeper than the side slope (up to {0:F0} m)", m_Raster.MaxBankStepM)
@@ -99,6 +99,14 @@ namespace SkiResortMod.Systems
         private GradeProfile m_Prof;
         private GradeRaster m_Raster;
         private float2[] m_Ring;   // the run outline of the current plan (GradeRibbon), null when it fails
+        private GradeParams m_PlanParams;   // the params the plan was built with (its inside allowance, DECISIONS 420)
+        // F4: the allowance step of this plan revision (one per frame), its cached Before bands and the per-step log
+        private int m_AllowanceStep, m_AllowanceRev = -1;
+        private GradeParams m_AllowanceParams;
+        private sbyte[] m_BandsBefore;
+        private bool m_CrossingPending;
+        private readonly StringBuilder m_StepText = new StringBuilder();
+        private string m_BandText;          // the last crossed-run band comparison (log)
         private GradeGuardKind m_Guard;
         private float2 m_GuardAt;
         private bool m_Dirty, m_ApplyRequested;
@@ -234,7 +242,7 @@ namespace SkiResortMod.Systems
         public override void InitializeRaycast()
         {
             base.InitializeRaycast();
-            m_ToolRaycastSystem.typeMask = TypeMask.Terrain;
+            m_ToolRaycastSystem.typeMask = TypeMask.Terrain;   // a click on an existing cat track starts a new track there (branching)
         }
 
         protected override bool GetAllowApply()
@@ -328,8 +336,8 @@ namespace SkiResortMod.Systems
             else if (m_ApplyRequested)
             {
                 m_ApplyRequested = false;
-                if (m_Dirty)
-                    Solve("before apply");
+                if (m_Dirty || m_CrossingPending)
+                    Solve("before apply", settle: true);
                 BuildFromTool();
             }
             else
@@ -427,9 +435,10 @@ namespace SkiResortMod.Systems
         }
 
 
-        private void Solve(string why)
+        private void Solve(string why, bool settle = false)
         {
             m_Dirty = false;
+            m_BandText = null;
             m_Path = null;
             m_Prof = null;
             m_Raster = null;
@@ -454,16 +463,18 @@ namespace SkiResortMod.Systems
             var ground = new float[path.Count];
             for (int i = 0; i < path.Count; i++)
                 ground[i] = TerrainUtils.SampleHeight(ref hd, new float3(path.Xz[i].x, 0f, path.Xz[i].y));
-            // The rect and the obstacles come BEFORE the profile: inside a crossed run (and its fade band) the profile is pinned to the ground
-            // (GradeProfile.Solve pinned, review fix 2026-10-25), so the bench equals the ground wherever the fade acts.
+            // The rect and the obstacles come BEFORE the profile: in a crossing's fade band the profile is held to the ground, inside a
+            // crossed run within InsideMaxM of it (GradeProfile.Solve pinTol), so the plan meets each crossed run at its own ground.
             bool haveRect = GradeRaster.Bounds(map, path, null, p, out int4 rect, out float reach);
             bool tooLarge = haveRect && GradeRaster.TooLarge(rect);
             if (haveRect && !tooLarge)
                 CollectObstacles(map, rect);
-            GradeProfile prof = GradeProfile.Solve(path, ground, p, haveRect && !tooLarge ? GradeRaster.PinMask(path, m_Obstacles.Runs, p.CrossBlendM) : null);
+            GradeProfile prof = tooLarge || !haveRect ? GradeProfile.Solve(path, ground, p) : null;
             double solveMs = sw.Elapsed.TotalMilliseconds;
 
             GradeRaster raster = null;
+            GradeParams pa = p;
+            float allowance = p.InsideMaxM;
             double rasterMs = 0, guardMs = 0;
             if (haveRect)
             {
@@ -479,17 +490,72 @@ namespace SkiResortMod.Systems
                         $"{GradeRaster.MaxTexels} texel limit; no raster built ({sw.Elapsed.TotalMilliseconds:F2} ms)");
                     return;
                 }
-                raster = GradeRaster.Build(map, rect, path, prof, p, reach, (i, j) =>
+                TerrainHeightData hdBase = hd;
+                Func<int, int, float> baseHeight = (i, j) =>
                 {
                     float2 c = map.TexelCenter(i, j);
-                    return TerrainUtils.SampleHeight(ref hd, new float3(c.x, 0f, c.y));
-                }, m_Obstacles.Runs);
+                    return TerrainUtils.SampleHeight(ref hdBase, new float3(c.x, 0f, c.y));
+                };
+                // Inside crossed runs the allowance steps down (2 m, 1 m, 0.5 m, 0) until every crossed run keeps its rated band
+                // (DECISIONS 420); none keeps it = guard CrossedRunBand. No crossing: one pass. F4 (round-2 critique): ONE step per frame
+                // while editing (the plan re-solves the next frame with the next step, m_AllowanceStep), all steps at once only when Enter
+                // needs a settled plan (settle); the Before ratings are cached per plan revision (they do not depend on the allowance).
+                bool[] entered = GradeRaster.EnteredOutlines(path, m_Obstacles.Runs);
+                bool crossing = false;
+                for (int k = 0; entered != null && k < entered.Length; k++)
+                    crossing |= entered[k];
+                if (m_AllowanceRev != m_Edit.Revision || !ReferenceEquals(m_AllowanceParams, p))
+                {
+                    m_AllowanceRev = m_Edit.Revision;
+                    m_AllowanceParams = p;
+                    m_AllowanceStep = 0;
+                    m_BandsBefore = null;
+                    m_StepText.Clear();
+                }
+                float[] steps = GradeParams.InsideAllowanceSteps;
+                bool BuildAt(float a)
+                {
+                    double t0 = sw.Elapsed.TotalMilliseconds;
+                    pa = p.Clone();
+                    pa.InsideMaxM = a;
+                    prof = GradeProfile.Solve(path, ground, pa, GradeRaster.PinTolerance(path, m_Obstacles.Runs, pa));
+                    raster = GradeRaster.Build(map, rect, path, prof, pa, reach, baseHeight, m_Obstacles.Runs);
+                    if (!crossing)
+                        return true;
+                    if (m_BandsBefore == null)
+                        m_BandsBefore = RateCrossed(map, raster, entered, false);
+                    bool kept = SameBands(m_BandsBefore, RateCrossed(map, raster, entered, true), out m_BandText);
+                    m_StepText.Append(m_StepText.Length > 0 ? "; " : string.Empty)
+                              .AppendFormat(CultureInfo.InvariantCulture, "{0:F1} m {1} {2:F0} ms", a, kept ? "kept" : "changed", sw.Elapsed.TotalMilliseconds - t0);
+                    return kept;
+                }
+                float chosen;
+                m_CrossingPending = false;
+                if (settle || !crossing)
+                    chosen = GradeRaster.ChooseInsideAllowance(BuildAt);
+                else if (BuildAt(steps[m_AllowanceStep]))
+                    chosen = steps[m_AllowanceStep];
+                else if (m_AllowanceStep + 1 < steps.Length)
+                {
+                    chosen = steps[m_AllowanceStep];
+                    m_AllowanceStep++;
+                    m_CrossingPending = true;   // try the next step next frame
+                    m_Dirty = true;
+                }
+                else
+                    chosen = -1f;
+                allowance = chosen;
                 rasterMs = sw.Elapsed.TotalMilliseconds - solveMs;
                 m_Guard = CheckGuards(map, raster, out m_GuardAt);
-                if (m_Guard == GradeGuardKind.None && CrossingSteep(map, path, ground, raster, p, out float2 steepAt))
+                if (m_Guard == GradeGuardKind.None && CrossingSteep(map, path, raster, pa, out float2 steepAt))
                 {
                     m_Guard = GradeGuardKind.CrossingSteep;
                     m_GuardAt = steepAt;
+                }
+                if (m_Guard == GradeGuardKind.None && chosen < 0f && !m_CrossingPending)
+                {
+                    m_Guard = GradeGuardKind.CrossedRunBand;
+                    m_GuardAt = path.Xz[path.Count / 2];
                 }
                 guardMs = sw.Elapsed.TotalMilliseconds - solveMs - rasterMs;
             }
@@ -513,9 +579,15 @@ namespace SkiResortMod.Systems
             m_Path = path;
             m_Prof = prof;
             m_Raster = raster;
+            m_PlanParams = pa;
             BuildDraw(path, prof, p);
             sw.Stop();
             LastPlanText = GradeInput.Describe(path, prof, raster, p);
+            if (raster != null && (raster.InsideTexels > 0 || allowance < p.InsideMaxM || m_StepText.Length > 0))
+                Say(string.Format(CultureInfo.InvariantCulture, "Grade [crossing] #{0}: inside allowance {1} (of {2:F1} m){3}; {4}; steps: {5}",
+                    m_Edit.Revision, allowance < 0f ? "none keeps the bands" : allowance.ToString("F1", CultureInfo.InvariantCulture) + " m",
+                    p.InsideMaxM, m_CrossingPending ? ", band changed: the next step runs next frame" : string.Empty, m_BandText ?? "bands not rated",
+                    m_StepText.Length > 0 ? m_StepText.ToString() : "none"));
             Say(string.Format(CultureInfo.InvariantCulture,
                 "Grade [plan] #{0} ({1}): {2} point(s), {3} — {4}; ends ground {5:F1} -> {6:F1}; max cut {7:F1} m, max fill {8:F1} m on the " +
                 "centerline; {9}; run outline {17}; guard {10}{11}; {12} ({13:F2} ms: solve {14:F2}, raster {15:F1}, guards {16:F1}, " +
@@ -627,21 +699,68 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>The two crossing guards (m_Obstacles.Runs): the GROUND under the track inside a crossed run steeper than the max grade
-        /// (the track rides it), and the FINAL surface along the track steeper than the max grade + 1 pp where a crossed outline or its fade
-        /// reaches (GradeRaster.AlongTrackSteepSample: the net behind the pins, also the only protection of a constant grade).</summary>
-        private bool CrossingSteep(GradeMap map, GradePath path, float[] ground, GradeRaster raster, GradeParams p, out float2 at)
+        /// <summary>The crossing guard (m_Obstacles.Runs): the FINAL surface along the track steeper than the max grade + 1 pp where a crossed
+        /// outline or its fade reaches (GradeRaster.AlongTrackSteepSample). Inside a run that surface is the run's ground plus the up-to-2 m
+        /// correction, so it fires only where the correction cannot reach (DECISIONS 420); also the only protection of a constant grade.</summary>
+        private bool CrossingSteep(GradeMap map, GradePath path, GradeRaster raster, GradeParams p, out float2 at)
         {
             at = default;
             if (m_Obstacles.Runs.Count == 0)
                 return false;
-            int i = GradeRaster.CrossingSteepSample(path, ground, m_Obstacles.Runs, p.MaxGrade);
-            if (i < 0)
-                i = raster.AlongTrackSteepSample(map, path, m_Obstacles.Runs, p.CrossBlendM, p.MaxGrade);
+            int i = raster.AlongTrackSteepSample(map, path, m_Obstacles.Runs, p.CrossBlendM, p.MaxGrade);
             if (i < 0)
                 return false;
             at = path.Xz[i];
             return true;
+        }
+
+        /// <summary>The rated band of each entered crossed run on the raster's Before (or After) terrain, the catalog's own rater
+        /// (SkiRunRater, the catalog's origin and texel); -3 for an outline the path does not enter or a rating that did not finish.</summary>
+        private sbyte[] RateCrossed(GradeMap map, GradeRaster r, bool[] entered, bool after)
+        {
+            var bands = new sbyte[m_Obstacles.Runs.Count];
+            TerrainHeightData hd = m_TerrainSystem.GetHeightData();
+            TerrainHeightData cpu = hd;
+            var sampler = new GradeRaster.Sampler { Map = map, R = r, After = after, Outside = w => TerrainUtils.SampleHeight(ref cpu, w) };
+            float texel = 1f / hd.scale.x;                            // as SkiRunCatalogSystem rates (TerrainSystem.cs:2619-2620)
+            var origin = new double2(-hd.offset.x, -hd.offset.z);
+            for (int k = 0; k < bands.Length; k++)
+            {
+                bands[k] = -3;
+                float2[] poly = m_Obstacles.Runs[k];
+                if (entered == null || !entered[k] || poly == null || poly.Length < 3)
+                    continue;
+                var nodes = new float3[poly.Length];
+                for (int i = 0; i < poly.Length; i++)
+                    nodes[i] = new float3(poly[i].x, sampler.Sample(new float3(poly[i].x, 0f, poly[i].y)), poly[i].y);
+                var result = new SlopeResult();
+                RateStatus st = SkiRunRater.Rate(nodes, nodes.Length, origin, ref sampler, texel, 0, new SlopeGrid(), null, result,
+                    out int _, out float _, out float _);
+                if (st == RateStatus.Rated)
+                    bands[k] = (sbyte)result.Band;
+            }
+            return bands;
+        }
+
+        private static bool SameBands(sbyte[] before, sbyte[] after, out string text)
+        {
+            var sb = new StringBuilder();
+            bool same = true;
+            for (int k = 0; k < before.Length; k++)
+            {
+                if (before[k] == -3 || after[k] == -3)
+                    continue;
+                sb.Append(sb.Length > 0 ? ", " : string.Empty).Append("run ").Append(k).Append(' ').Append((SlopeBand)before[k]);
+                if (before[k] != after[k])
+                {
+                    same = false;
+                    sb.Append(" -> ").Append((SlopeBand)after[k]);
+                }
+                else
+                    sb.Append(" kept");
+            }
+            text = sb.Length > 0 ? "crossed runs: " + sb : "no crossed run rated";
+            return same;
         }
 
         /// <summary>Water on the changed texels, then GradeGuards.Check over everything CollectObstacles found.</summary>
@@ -733,7 +852,7 @@ namespace SkiResortMod.Systems
                 BackToEdit(KeyRunRefused);
                 return;
             }
-            if (!ApplyCore("tool", m_Path, m_Prof, m_Params, temp))
+            if (!ApplyCore("tool", m_Path, m_Prof, m_PlanParams ?? m_Params, temp))
             {
                 Mod.Log.Info("Grade [run]: the grade was refused (see the line above) — the run is not built");
                 BackToEdit(null);
@@ -829,11 +948,16 @@ namespace SkiResortMod.Systems
             GradeGuardKind guard = CheckGuards(map, raster, out float2 at);
             if (guard == GradeGuardKind.None && m_Obstacles.Runs.Count > 0)
             {
-                var baseGround = new float[path.Count];
-                for (int i = 0; i < baseGround.Length; i++)
-                    baseGround[i] = raster.SampleAt(map, raster.Before, path.Xz[i]);
-                if (CrossingSteep(map, path, baseGround, raster, p, out at))
+                if (CrossingSteep(map, path, raster, p, out at))
                     guard = GradeGuardKind.CrossingSteep;
+                bool[] entered = GradeRaster.EnteredOutlines(path, m_Obstacles.Runs);
+                if (guard == GradeGuardKind.None && entered != null && Array.IndexOf(entered, true) >= 0 &&
+                    !SameBands(RateCrossed(map, raster, entered, false), RateCrossed(map, raster, entered, true), out string bands))
+                {
+                    guard = GradeGuardKind.CrossedRunBand;
+                    at = path.Xz[path.Count / 2];
+                    Mod.Log.Info($"Grade [apply:{label}]: {bands}");
+                }
             }
             if (guard != GradeGuardKind.None)
             {
@@ -969,6 +1093,28 @@ namespace SkiResortMod.Systems
             return true;
         }
 
+        private bool IsCatTrack(Entity e) =>
+            e != Entity.Null && m_RunPrefab != Entity.Null && EntityManager.Exists(e) && !EntityManager.HasComponent<Deleted>(e) &&
+            !EntityManager.HasComponent<Temp>(e) && EntityManager.TryGetComponent(e, out PrefabRef pr) && pr.m_Prefab == m_RunPrefab;
+
+        /// <summary>Deletes a cat track (the hub row's trash button, DECISIONS 423b; the game-mode bulldozer cannot pick a Space area,
+        /// BulldozeToolSystem.cs:1495-1500, RaycastJobs.cs:113): the bulldozer's end state, the ground stays as graded and no fee comes back.
+        /// Main thread, from a system update only (the hub applies its queued request in OnUpdate, never in the binding callback). False when
+        /// the entity is not a live cat track (already gone, or the index was reused).</summary>
+        public bool DeleteTrack(Entity e, string why)
+        {
+            if (m_RunPrefab == Entity.Null && m_Catalog != null)
+                m_RunPrefab = m_Catalog.EntityOf(SkiCatalog.Names.RunCatTrack);
+            if (!IsCatTrack(e))
+            {
+                Mod.Log.Info($"Grade [delete]: {Describe(e)} is not a live cat track ({why}) — nothing deleted");
+                return false;
+            }
+            RunAreaEmit.DeleteLikeBulldozer(EntityManager, e);
+            Mod.Log.Info($"Grade [delete]: DELETED cat track {Describe(e)} ({why}); the ground stays graded, no refund");
+            return true;
+        }
+
         /// <summary>Deletes the cat-track run an undone grade built: plain Deleted with Applied / Created / Updated stripped, the
         /// SkiRunGateCascadeSystem idiom (no refund: the bulldozer refunds no run fee either). Skipped when the entity is gone, already
         /// deleted, or no longer a cat track (the index was reused). Returns the log word.</summary>
@@ -977,9 +1123,8 @@ namespace SkiResortMod.Systems
             if (math.all(id == 0))
                 return "none (a grade without a run)";
             var e = new Entity { Index = id.x, Version = id.y };
-            if (!EntityManager.Exists(e) || EntityManager.HasComponent<Deleted>(e) ||
-                !EntityManager.TryGetComponent(e, out PrefabRef pr) || pr.m_Prefab != m_RunPrefab)
-                return $"{id.x}:{id.y} already gone (bulldozed?)";
+            if (!IsCatTrack(e))
+                return $"{id.x}:{id.y} already gone (deleted?)";
             RunAreaEmit.DeleteLikeBulldozer(EntityManager, e);
             return $"{id.x}:{id.y} deleted";
         }
@@ -1195,7 +1340,7 @@ namespace SkiResortMod.Systems
             m_Raster = null;
             m_Ring = null;
             m_Guard = GradeGuardKind.None;
-            m_Dirty = m_ApplyRequested = false;
+            m_Dirty = m_ApplyRequested = m_CrossingPending = false;
             m_HoverPoint = m_DragIndex = -1;
             m_DrawSeg.Clear();
             m_DrawColor.Clear();

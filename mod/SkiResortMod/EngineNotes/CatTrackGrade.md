@@ -39,6 +39,13 @@ One solve per change, never per frame.
    39.2 % along the track unpinned and unguarded (now refused: the hillside itself is steeper than the limit at the edge); a pitch 45 m
    before: 30.9 % unpinned, 18.4 % pinned (built); 4 m hollow at the edge, 12 % constant grade: 33.4 % (now 24.7 %, inside the limit); a
    track 18 m beside a run on a 30 % sidehill: 62 of 712 flat-top texels off the bench, worst 1.01 m (now 0).
+   Inside grading (DECISIONS 420, 2026-10-26): a texel inside a crossed outline is no longer kept. It gets ground + clamp(profile - ground
+   under the nearest centerline point, +-InsideMaxM 2 m) x inward fade (depth / InsideFadeM 10 m) x side fade (1 on the flat top, falling over
+   InsideSideFadeM 10 m): no bench, the cross slope stays the run's. The profile's hold becomes a tolerance band (`PinTolerance`: 0 in the
+   fade band, InsideMaxM x the inward fade inside). `CrossingSteepSample` (ground inside steeper than the limit) is gone: the final-surface net
+   decides, so a short steep bump 2 m can flatten builds (GR-22c: 37.5 % ground, 7.4 % surface). `ChooseInsideAllowance` walks
+   InsideAllowanceSteps 2 / 1 / 0.5 / 0 with a band check (the tool rates the crossed runs; GR-22b: a 40 m 23.5 % green run turns Blue at 2 m,
+   stays Green at 1 m).
 4. `GradeGuards.Check`: the changed texels (and the flat top) against the obstacles the engine half collected: building lots
    (oriented rects), lift lines (segments + clearance) and water (texels flagged wet). The first hit refuses the grade with its
    kind and place.

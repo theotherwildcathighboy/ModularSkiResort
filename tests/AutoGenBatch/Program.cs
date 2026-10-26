@@ -23,9 +23,19 @@ namespace AutoGenBatch
         private static int s_Failures;
         private static long s_Checks;
 
-        private static int Main()
+        private static int Main(string[] args)
         {
             CultureInfo.DefaultThreadCurrentCulture = CultureInfo.InvariantCulture;
+            if (args.Length > 0 && (args[0] == "diag" || args[0] == "big"))
+            {
+                if (args[0] == "diag")
+                {
+                    FillDiag();
+                    ShuffleDiag();
+                }
+                BigDiag();
+                return 0;
+            }
             SamplerTests();
             SeedTests();
             MinimaxOracle();
@@ -38,6 +48,7 @@ namespace AutoGenBatch
             Determinism();
             CaptureTests();
             QuickRunsTests();
+            FillTests();
             Timing();
             Console.WriteLine($"SUMMARY AutoGenBatch: {s_Checks} checks, {s_Failures} failure(s)");
             Environment.ExitCode = s_Failures;
@@ -105,9 +116,9 @@ namespace AutoGenBatch
             var grid = new SlopeGrid();
             var res = new SlopeResult();
             AutoKinds allowed = input.Knobs.Kinds == AutoKinds.None ? AutoKinds.Default : input.Knobs.Kinds;
-            Check(r.Clusters.Count <= SkiRunAutoPlanner.MaxClusters, name, $"{r.Clusters.Count} clusters");
-            int cap = input.Knobs.RunCap > 0 ? input.Knobs.RunCap : input.Knobs.Density == AutoDensity.Sparse ? 8 : input.Knobs.Density == AutoDensity.Dense ? 16 : 12;
-            Check(r.Runs.Count <= Math.Min(cap, SkiRunAutoPlanner.HardRunCap), name, $"{r.Runs.Count} runs over the cap {cap}");
+            Check(r.Clusters.Count <= SkiRunAutoPlanner.ClusterCap(r.RegionAreaM2) + SkiRunAutoPlanner.MaxPods, name, $"{r.Clusters.Count} clusters");
+            int cap = SkiRunAutoPlanner.RunCapOf(input.Knobs, r.RegionAreaM2);
+            Check(r.Runs.Count <= cap, name, $"{r.Runs.Count} runs over the cap {cap}");
             for (int a = 0; a < r.Runs.Count; a++)
             {
                 AutoRun run = r.Runs[a];
@@ -342,13 +353,11 @@ namespace AutoGenBatch
             small.Region = Terrain.Square(0f, 0f, 86f);   // 3 ha
             Expect("ladder 3 ha", small, AutoPlanStatus.TooSmall);
             float2[] big = Terrain.Square(0f, 0f, 550f);    // 1.21 km2
-            Expect("ladder 1.21 km2 (v1 cap)", Input(Terrain.Plane(0.3), big), AutoPlanStatus.TooLarge);
-            AutoPlanInput ready = Input(Terrain.Plane(0.3), big);
-            ready.MaxAreaM2 = SkiRunAutoPlanner.ReadyMaxAreaM2;
-            Expect("ladder 1.21 km2 (4 km2 ready)", ready, AutoPlanStatus.Ok);
-            AutoPlanInput tooBig = Input(Terrain.Plane(0.3), Terrain.Rect(-1900f, -400f, 1900f, 700f));
-            tooBig.MaxAreaM2 = SkiRunAutoPlanner.ReadyMaxAreaM2;
-            Expect("ladder 4.2 km2", tooBig, AutoPlanStatus.TooLarge);
+            Expect("ladder 1.21 km2 (9 km2 cap)", Input(Terrain.Plane(0.3), big), AutoPlanStatus.Ok);
+            AutoPlanInput hostCap = Input(Terrain.Plane(0.3), big);
+            hostCap.MaxAreaM2 = 1.0e6f;   // a host may pass a smaller cap
+            Expect("ladder 1.21 km2 (1 km2 host cap)", hostCap, AutoPlanStatus.TooLarge);
+            Expect("ladder 9.3 km2", Input(Terrain.Plane(0.3), Terrain.Rect(-1550f, -1500f, 1550f, 1500f)), AutoPlanStatus.TooLarge);
             AutoPlanInput stale = Input(Terrain.Plane(0.3), sq);
             stale.Region = Terrain.Square(800f, 0f, 450f);  // the snapshot was cut for another place
             Expect("ladder snapshot elsewhere", stale, AutoPlanStatus.BadInput);
@@ -714,11 +723,10 @@ namespace AutoGenBatch
 
         private static void Timing()
         {
-            foreach (float km2 in new[] { 1f, 4f })
+            foreach (float km2 in new[] { 1f, 4f, 9f })
             {
                 float half = 500f * (float)Math.Sqrt(km2) - 1f;
                 AutoPlanInput input = Input(Terrain.Fbm(21u, 0.30, 90.0), Terrain.Square(0f, 0f, half));
-                input.MaxAreaM2 = SkiRunAutoPlanner.ReadyMaxAreaM2;
                 var p = new SkiRunAutoPlanner();
                 var sw = System.Diagnostics.Stopwatch.StartNew();
                 p.Begin(input);

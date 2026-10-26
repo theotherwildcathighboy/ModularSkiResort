@@ -42,10 +42,18 @@ namespace SkiResortMod.Systems
         /// hillside steeper than the slope, or a very deep cut / fill) the last BlendTexels of the reach blend into the ground: a steep
         /// bank, counted and logged, never a vertical step.</summary>
         public float MaxSideM = 40f;
-        /// <summary>Crossings (2026-10-25): the grade never changes the ground inside another run's outline (the cat track rides that
-        /// run's snow there, GradeObstacles.Runs) and fades into it over this distance outside the outline, so a crossed run keeps its
-        /// terrain and its rating. 15 m: a bench step of up to ~5 m (a 20 m top across a 45 % hillside) eases in at about 1:3.</summary>
+        /// <summary>Crossings: outside another run's outline (GradeObstacles.Runs) the bench fades into the ground over this distance
+        /// before the outline, so a crossed run is met at its own ground. 15 m: a bench step of up to ~5 m (a 20 m top across a 45 %
+        /// hillside) eases in at about 1:3.</summary>
         public float CrossBlendM = 15f;
+        /// <summary>Inside a crossed run (DECISIONS 420, 2026-10-26): no bench. The ground keeps its own cross slope and only the
+        /// along-track correction (profile minus the ground under the centerline) is applied, clamped to InsideMaxM, faded in from the
+        /// run's outline over InsideFadeM and out sideways beyond the flat top over InsideSideFadeM. The tool lowers InsideMaxM along
+        /// InsideAllowanceSteps until every crossed run keeps its rated band.</summary>
+        public float InsideMaxM = 2f;
+        public float InsideFadeM = 10f;
+        public float InsideSideFadeM = 10f;
+        public static readonly float[] InsideAllowanceSteps = { 2f, 1f, 0.5f, 0f };
         public const int BlendTexels = 3;
 
         public GradeParams Clone() => (GradeParams)MemberwiseClone();
@@ -187,10 +195,11 @@ namespace SkiResortMod.Systems
         /// <summary>Extra path length the grade limit needs between the two ends (0 when feasible).</summary>
         public float ShortfallM;
 
-        /// <summary><paramref name="pinned"/> (null = none): samples held to the ground like the two ends (inside a crossed run the
-        /// track rides that run's ground, GradeRaster.PinMask). FollowGround only: a constant grade is one straight ramp by definition,
-        /// the final-surface guard (GradeRaster.AlongTrackSteepSample) is its only protection.</summary>
-        public static GradeProfile Solve(GradePath path, float[] ground, GradeParams p, bool[] pinned = null)
+        /// <summary><paramref name="pinTol"/> (null = none): per sample NaN = free, else the profile stays within that many meters of the
+        /// ground there (0 = held to the ground like the two ends: a crossing's fade band; up to InsideMaxM inside a crossed run,
+        /// GradeRaster.PinTolerance). FollowGround only: a constant grade is one straight ramp by definition, the final-surface guard
+        /// (GradeRaster.AlongTrackSteepSample) is its only protection.</summary>
+        public static GradeProfile Solve(GradePath path, float[] ground, GradeParams p, float[] pinTol = null)
         {
             int n = path.Count;
             if (ground == null || ground.Length != n)
@@ -250,19 +259,21 @@ namespace SkiResortMod.Systems
                     y[i] = math.clamp(y[i], gn - gc * (L - s), gn + gc * (L - s));
                 }
 
-                // Pinned samples (inside crossed runs): the same cones from each one, slope G. hi / lo are min / max of G-Lipschitz cones
-                // (two sweeps, O(n)), so clamping a G-limited profile between them keeps it G-limited; where two pins disagree by more than
-                // the grade allows (lo > hi, two crossings too far apart in height) the midpoint is taken and the surface guard refuses.
-                if (pinned != null && pinned.Length == n)
+                // Held samples (crossings): cones of slope G from each band [ground - tol, ground + tol]. hi / lo are min / max of
+                // G-Lipschitz cones (two sweeps, O(n)), so clamping a G-limited profile between them keeps it G-limited; where two bands
+                // disagree by more than the grade allows (lo > hi) the midpoint is taken and the surface guard refuses.
+                if (pinTol != null && pinTol.Length == n)
                 {
                     var pinHi = new float[n];
                     var pinLo = new float[n];
                     bool any = false;
                     for (int i = 0; i < n; i++)
                     {
-                        pinHi[i] = pinned[i] ? ground[i] : float.PositiveInfinity;
-                        pinLo[i] = pinned[i] ? ground[i] : float.NegativeInfinity;
-                        any |= pinned[i];
+                        bool held = !float.IsNaN(pinTol[i]);
+                        float tol = held ? math.max(0f, pinTol[i]) : 0f;
+                        pinHi[i] = held ? ground[i] + tol : float.PositiveInfinity;
+                        pinLo[i] = held ? ground[i] - tol : float.NegativeInfinity;
+                        any |= held;
                     }
                     if (any)
                     {
@@ -344,8 +355,10 @@ namespace SkiResortMod.Systems
         public float TexelAreaM2;
         /// <summary>Texels in the blend band that still moved more than 1 m (the side slope did not meet the ground: a steep bank).</summary>
         public int SteepBankTexels;
-        /// <summary>Texels inside a crossed run's outline, left as they were (GradeParams.CrossBlendM).</summary>
-        public int KeptTexels;
+        /// <summary>Texels inside a crossed run's outline left as they were, and those given the inside correction (GradeParams.InsideMaxM)
+        /// with its largest size.</summary>
+        public int KeptTexels, InsideTexels;
+        public float MaxInsideM;
         public float MaxBankStepM;
 
         public int Index(int i, int j) => (j - Z0) * W + (i - X0);
@@ -386,6 +399,7 @@ namespace SkiResortMod.Systems
             r.TexelAreaM2 = map.Cell.x * map.Cell.y;
             var bestD2 = new float[count];
             var bestY = new float[count];
+            var bestG = new float[count];   // the ground under the nearest centerline point (the inside correction is bestY - bestG)
             for (int t = 0; t < count; t++)
                 bestD2[t] = float.PositiveInfinity;
             for (int j = 0; j < r.H; j++)
@@ -399,7 +413,7 @@ namespace SkiResortMod.Systems
                 float2 lo = map.ToTexel(math.min(a, b) - reach), hi = map.ToTexel(math.max(a, b) + reach);
                 int i0 = math.max(r.X0, (int)math.floor(lo.x)), i1 = math.min(r.X0 + r.W - 1, (int)math.ceil(hi.x));
                 int j0 = math.max(r.Z0, (int)math.floor(lo.y)), j1 = math.min(r.Z0 + r.H - 1, (int)math.ceil(hi.y));
-                float ya = prof.Y[s], yb = prof.Y[s + 1];
+                float ya = prof.Y[s], yb = prof.Y[s + 1], ga = prof.Ground[s], gb = prof.Ground[s + 1];
                 for (int j = j0; j <= j1; j++)
                 {
                     for (int i = i0; i <= i1; i++)
@@ -414,6 +428,7 @@ namespace SkiResortMod.Systems
                         {
                             bestD2[t] = d2;
                             bestY[t] = math.lerp(ya, yb, u);
+                            bestG[t] = math.lerp(ga, gb, u);
                         }
                     }
                 }
@@ -460,14 +475,28 @@ namespace SkiResortMod.Systems
                 }
                 if (keepBox != null)
                 {
-                    float w = KeepWeight(map.TexelCenter(r.X0 + t % r.W, r.Z0 + t / r.W), keep, keepBox, p.CrossBlendM, keepFade);
+                    float2 c = map.TexelCenter(r.X0 + t % r.W, r.Z0 + t / r.W);
+                    float w = KeepWeight(c, keep, keepBox, p.CrossBlendM, keepFade);
                     if (w >= 1f)
                     {
-                        r.After[t] = before;   // inside a crossed run: its ground, untouched (zone 0: no guard, no count)
-                        r.KeptTexels++;
-                        continue;
+                        // Inside a crossed run: no bench. Its ground plus the along-track correction, clamped and faded (InsideMaxM).
+                        float depth = InsideDepth(c, keep, keepBox);
+                        float side = d <= hw ? 1f : math.saturate(1f - (d - hw) / math.max(1e-3f, p.InsideSideFadeM));
+                        float fadeIn = math.saturate(depth / math.max(1e-3f, p.InsideFadeM));
+                        float corr = math.clamp(y - bestG[t], -p.InsideMaxM, p.InsideMaxM) * fadeIn * side;
+                        if (math.abs(corr) < 0.5f * step)
+                        {
+                            r.After[t] = before;   // untouched (zone 0: no guard, no count)
+                            r.KeptTexels++;
+                            continue;
+                        }
+                        h = before + corr;
+                        zone = d <= hw ? (byte)2 : (byte)1;
+                        r.InsideTexels++;
+                        r.MaxInsideM = math.max(r.MaxInsideM, math.abs(corr));
                     }
-                    h = math.lerp(h, before, w);
+                    else
+                        h = math.lerp(h, before, w);
                 }
                 float dh = h - before;
                 if (math.abs(dh) < 0.5f * step)
@@ -531,23 +560,62 @@ namespace SkiResortMod.Systems
             return entered;
         }
 
-        /// <summary>The path samples inside any keep outline or inside the fade band of one the path enters (null = none): the profile is
-        /// pinned to the ground there, so the template equals the ground wherever the fade acts and the surface along the track is the
-        /// ground's own (a lerp of two equal heights). The G-limited solver then carries the approach to the fade band.</summary>
-        public static bool[] PinMask(GradePath path, IList<float2[]> keep, float blendM)
+        /// <summary>The profile's tolerance per path sample (null = no crossing): NaN = free; 0 in the fade band before an entered outline
+        /// (the template equals the ground wherever the fade acts, so the surface there is the ground's own and the G-limited solver carries
+        /// the approach); inside an outline InsideMaxM x the inward fade (InsideDepth / InsideFadeM), matching the raster's correction.</summary>
+        public static float[] PinTolerance(GradePath path, IList<float2[]> keep, GradeParams p)
         {
             if (keep == null || keep.Count == 0 || path == null)
                 return null;
-            float4[] boxes = KeepBoxes(keep, blendM);
+            float4[] boxes = KeepBoxes(keep, p.CrossBlendM);
             bool[] fade = EnteredOutlines(path, keep);
-            var mask = new bool[path.Count];
+            var tol = new float[path.Count];
             bool any = false;
             for (int i = 0; i < path.Count; i++)
             {
-                mask[i] = KeepWeight(path.Xz[i], keep, boxes, blendM, fade) > 0f;
-                any |= mask[i];
+                float w = KeepWeight(path.Xz[i], keep, boxes, p.CrossBlendM, fade);
+                if (w <= 0f)
+                {
+                    tol[i] = float.NaN;
+                    continue;
+                }
+                any = true;
+                tol[i] = w >= 1f
+                    ? p.InsideMaxM * math.saturate(InsideDepth(path.Xz[i], keep, boxes) / math.max(1e-3f, p.InsideFadeM))
+                    : 0f;
             }
-            return any ? mask : null;
+            return any ? tol : null;
+        }
+
+        /// <summary>How deep <paramref name="c"/> lies inside the keep outlines: the largest distance to the edge of an outline containing
+        /// it, or -1 outside all.</summary>
+        public static float InsideDepth(float2 c, IList<float2[]> keep, float4[] boxes)
+        {
+            float depth = -1f;
+            for (int k = 0; k < keep.Count; k++)
+            {
+                float4 b = boxes[k];
+                if (c.x < b.x || c.y < b.y || c.x > b.z || c.y > b.w)
+                    continue;
+                float2[] poly = keep[k];
+                if (poly == null || poly.Length < 3 || !Inside(poly, c))
+                    continue;
+                float d = float.PositiveInfinity;
+                for (int i = 0, j = poly.Length - 1; i < poly.Length; j = i++)
+                    d = math.min(d, GradePath.SegDistance(c, poly[j], poly[i], out float _));
+                depth = math.max(depth, d);
+            }
+            return depth;
+        }
+
+        /// <summary>The largest inside allowance (GradeParams.InsideAllowanceSteps, 2 m down to 0) whose plan keeps every crossed run's band
+        /// (<paramref name="keepsBands"/> builds and rates the plan at that allowance), or -1 when none does.</summary>
+        public static float ChooseInsideAllowance(Func<float, bool> keepsBands)
+        {
+            foreach (float a in GradeParams.InsideAllowanceSteps)
+                if (keepsBands(a))
+                    return a;
+            return -1f;
         }
 
         /// <summary>How much of the ground a texel at <paramref name="c"/> keeps: 1 inside any keep outline, else 1 - d / blendM for the
@@ -587,30 +655,32 @@ namespace SkiResortMod.Systems
             return inside;
         }
 
-        /// <summary>The first path sample whose step to the next runs inside a crossed run (both ends in one keep outline) on ground
-        /// steeper than <paramref name="maxGrade"/> (+0.5 pp), or -1. Inside a crossing the track rides the run's own ground, so that
-        /// ground must keep the grade limit (guard CrossingSteep).</summary>
-        public static int CrossingSteepSample(GradePath path, float[] ground, IList<float2[]> keep, float maxGrade)
-        {
-            if (keep == null || keep.Count == 0 || path == null)
-                return -1;
-            for (int i = 0; i < path.Count - 1; i++)
-            {
-                float ds = path.S[i + 1] - path.S[i];
-                if (ds <= 1e-4f || math.abs(ground[i + 1] - ground[i]) / ds <= maxGrade + 0.005f)
-                    continue;
-                for (int k = 0; k < keep.Count; k++)
-                {
-                    if (keep[k] != null && keep[k].Length >= 3 && Inside(keep[k], path.Xz[i]) && Inside(keep[k], path.Xz[i + 1]))
-                        return i;
-                }
-            }
-            return -1;
-        }
-
         /// <summary>Margin of the along-track surface guard over the max grade: 1 pp (the bilinear read of the raster at the path samples
         /// shows up to 0.7 pp of noise, GradeBatch GR-21).</summary>
         public const float AlongTrackSlack = 0.01f;
+
+        /// <summary>The terrain a crossed run is rated on (SkiRunRater.IHeightSampler): the raster's Before or After, bilinear, where
+        /// the raster covers the point (all four texels), <see cref="Outside"/> elsewhere (the engine half: the CPU heights; GradeBatch: the
+        /// test ground). R null = Outside everywhere. The tool's crossed-run band check and the GradeBatch rating cases share it.</summary>
+        public struct Sampler : IHeightSampler
+        {
+            public GradeMap Map;
+            public GradeRaster R;
+            public bool After;
+            public Func<float3, float> Outside;
+
+            public float Sample(float3 world)
+            {
+                if (R != null)
+                {
+                    float2 t = Map.ToTexel(world.xz);
+                    int i = (int)math.floor(t.x), j = (int)math.floor(t.y);
+                    if (i >= R.X0 && j >= R.Z0 && i + 1 < R.X0 + R.W && j + 1 < R.Z0 + R.H)
+                        return R.SampleAt(Map, After ? R.After : R.Before, world.xz);
+                }
+                return Outside(world);
+            }
+        }
 
         /// <summary>The bilinear height of <paramref name="a"/> (a raster-sized array, Before or After) at the world point.</summary>
         public float SampleAt(GradeMap map, float[] a, float2 xz)
@@ -660,7 +730,9 @@ namespace SkiResortMod.Systems
                               ? string.Format(CultureInfo.InvariantCulture, ", steep bank at {0} texel(s) (up to {1:F1} m blended over the last {2} texels)",
                                               SteepBankTexels, MaxBankStepM, GradeParams.BlendTexels)
                               : string.Empty,
-                          KeptTexels > 0 ? string.Format(CultureInfo.InvariantCulture, ", {0} texel(s) of crossed runs kept", KeptTexels) : string.Empty);
+                          KeptTexels + InsideTexels > 0
+                              ? string.Format(CultureInfo.InvariantCulture, ", crossed runs: {0} texel(s) kept, {1} corrected (max {2:F2} m)", KeptTexels, InsideTexels, MaxInsideM)
+                              : string.Empty);
     }
 
     public enum GradeGuardKind : byte
@@ -672,7 +744,8 @@ namespace SkiResortMod.Systems
         OffMap,
         TooLarge, // the rect is over GradeRaster.MaxTexels: refused before any raster is built
         RunShape, // the flat top's outline touches itself (GradeRibbon): it cannot become the cat-track run
-        CrossingSteep, // where it crosses another run the track rides that run's ground, and that ground is steeper than the max grade
+        CrossingSteep, // the final surface along the track, where a crossed run or its fade reaches, is steeper than the max grade
+        CrossedRunBand, // even with no correction inside, the grade would change a crossed run's rated band
     }
 
     /// <summary>What the engine half found in the rect (pipeline 4).</summary>
@@ -751,15 +824,16 @@ namespace SkiResortMod.Systems
             return GradeGuardKind.None;
         }
 
-        /// <summary>Locale keys of the TooLarge, RunShape and CrossingSteep refusals (LocaleEN); the tooltip resolves a key (IsKey) where the other
+        /// <summary>Locale keys of the TooLarge, RunShape, CrossingSteep and CrossedRunBand refusals (LocaleEN); the tooltip resolves a key (IsKey) where the other
         /// reasons are plain text.</summary>
         public const string KeyTooLarge = "SkiResort.Tooltip.GRADE_TOO_LARGE";
         public const string KeyRunShape = "SkiResort.Tooltip.GRADE_RUN_SHAPE";
         public const string KeyCrossingSteep = "SkiResort.Tooltip.GRADE_CROSSING_STEEP";
+        public const string KeyCrossedRunBand = "SkiResort.Tooltip.GRADE_CROSSED_RUN_BAND";
 
         public static bool IsKey(string text) => text != null && text.StartsWith("SkiResort.", StringComparison.Ordinal);
 
-        /// <summary>The player text of a refusal (a locale key for TooLarge, RunShape and CrossingSteep).</summary>
+        /// <summary>The player text of a refusal (a locale key for TooLarge, RunShape, CrossingSteep and CrossedRunBand).</summary>
         public static string Reason(GradeGuardKind k)
         {
             switch (k)
@@ -767,6 +841,7 @@ namespace SkiResortMod.Systems
                 case GradeGuardKind.TooLarge: return KeyTooLarge;
                 case GradeGuardKind.RunShape: return KeyRunShape;
                 case GradeGuardKind.CrossingSteep: return KeyCrossingSteep;
+                case GradeGuardKind.CrossedRunBand: return KeyCrossedRunBand;
                 case GradeGuardKind.Lot: return "The track would grade under a building or station lot: move it clear";
                 case GradeGuardKind.LiftLine: return "The track would grade under a lift line: move it clear";
                 case GradeGuardKind.Water: return "The track would grade into water: move it clear";

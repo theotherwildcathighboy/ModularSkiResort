@@ -108,11 +108,12 @@ namespace LiftBatch
             new NameOracle("SkiPatrolHut", B, CatalogKind.Patrol, "patrolHut", true),
             new NameOracle("SkiPatrolHQ", B, CatalogKind.Patrol, "patrolHQ", true),
             new NameOracle("SkiResortGate", B, CatalogKind.Sign, "sign", true),
+            new NameOracle("SkiResortGateAngled", B, CatalogKind.Sign, "signAngled", true), // DECISIONS 422, after its twin (table order)
             new NameOracle("SkiRunNaturalA", S, CatalogKind.Run, "runNatural", true),
             new NameOracle("SkiRunGroomedA", S, CatalogKind.Run, "runGroomed", true),
             new NameOracle("SkiRunSnowmakingA", S, CatalogKind.Run, "runSnowmaking", true),
             new NameOracle("SkiRunNightA", S, CatalogKind.Run, "runNight", true),
-            new NameOracle("SkiRunCatTrackA", S, CatalogKind.Run, "runCatTrack", true), // 31 names, 26 items
+            new NameOracle("SkiRunCatTrackA", S, CatalogKind.Run, "runCatTrack", true), // 32 names, 27 items
         };
 
         // ================================================================== CT-1
@@ -135,7 +136,7 @@ namespace LiftBatch
         {
             const string W = "catalog-names";
             IReadOnlyList<CatalogName> all = SkiCatalog.AllPrefabNames();
-            Eq(31, all.Count, W, "AllPrefabNames().Count"); // 30 + SkiRunCatTrackA
+            Eq(32, all.Count, W, "AllPrefabNames().Count"); // 30 + SkiRunCatTrackA + SkiResortGateAngled
             Check(ReferenceEquals(all, SkiCatalog.AllPrefabNames()), W, "AllPrefabNames() is not the cached list (allocates per call)");
             var names = new HashSet<string>(StringComparer.Ordinal);
             var items = new HashSet<string>(StringComparer.Ordinal);
@@ -182,10 +183,10 @@ namespace LiftBatch
                 if (n.Expected)
                     expected++;
             }
-            Eq(26, withItem, W, "names with a build item id (the 26 strip items: 25 + runCatTrack, T54 probe 1)");
-            Eq(31, expected, W, "expected names");
+            Eq(27, withItem, W, "names with a build item id (the 27 strip items: 25 + runCatTrack, T54 probe 1, + signAngled, DECISIONS 422)");
+            Eq(32, expected, W, "expected names");
             Eq(0, all.Count - expected, W, "pending names");
-            Eq(31, SkiCatalog.ExpectedNameCount, W, "ExpectedNameCount");
+            Eq(32, SkiCatalog.ExpectedNameCount, W, "ExpectedNameCount");
             Eq(0, SkiCatalog.PendingNameCount, W, "PendingNameCount");
             // The four type constants are the Game type names (the system asserts nameof() at OnCreate; literal here).
             Eq("PowerLinePrefab", SkiCatalog.TypeLine, W, "TypeLine");
@@ -618,15 +619,17 @@ namespace LiftBatch
                 Eq(LodgeRoadRule.None, p.RoadRule, W, at + "RoadRule (roadless, R9)");
                 Eq(true, p.Expected, W, at + "Expected (S1 import flip, 2026-10-13)");
             }
-            Eq(1, SkiCatalog.Signs.Count, W, "Signs.Count");
-            if (SkiCatalog.Signs.Count > 0)
+            Eq(2, SkiCatalog.Signs.Count, W, "Signs.Count (straight + angled, DECISIONS 422)");
+            string[] signPrefabs = { "SkiResortGate", "SkiResortGateAngled" }, signItems = { "sign", "signAngled" };
+            for (int s = 0; s < SkiCatalog.Signs.Count && s < signPrefabs.Length; s++)
             {
-                SignDef g = SkiCatalog.Signs[0];
-                Eq("SkiResortGate", g.Prefab, W, "sign Prefab");
-                Eq("sign", g.BuildItemId, W, "sign item");
-                // The shipped cost (SkiResortGate.Prefab:25); SkiCatalog's SignDef and the prefab both read 12,000.
-                Eq(12000, g.BuildCost, W, "sign BuildCost (R14's 12,000 since the S1 sign surgery, MUST 7)");
-                Eq(true, g.Expected, W, "sign Expected");
+                SignDef g = SkiCatalog.Signs[s];
+                string at = "sign " + s + ": ";
+                Eq(signPrefabs[s], g.Prefab, W, at + "Prefab");
+                Eq(signItems[s], g.BuildItemId, W, at + "item");
+                // The shipped cost (SkiResortGate.Prefab:25, SkiResortGateAngled.Prefab:25); SignDef and the prefab both read 12,000.
+                Eq(12000, g.BuildCost, W, at + "BuildCost (R14's 12,000 since the S1 sign surgery, MUST 7)");
+                Eq(true, g.Expected, W, at + "Expected");
             }
         }
 
@@ -759,6 +762,7 @@ namespace LiftBatch
         {
             // id, prefab, kind, lift type, run kind, strip order.
             new object[] { "sign", "SkiResortGate", BuildItemKind.Sign, "", -1 },
+            new object[] { "signAngled", "SkiResortGateAngled", BuildItemKind.Sign, "", -1 },
             new object[] { "lodge", "SkiAFrameDayLodge", BuildItemKind.Lodge, "", -1 },
             new object[] { "lodgeHut", "SkiLodgeHut", BuildItemKind.Lodge, "", -1 },
             new object[] { "lodgeMid", "SkiLodgeMid", BuildItemKind.Lodge, "", -1 },
@@ -891,7 +895,7 @@ namespace LiftBatch
                 parsed.Add(m.Groups[1].Value + "|" + m.Groups[2].Value + "|" + (m.Groups[3].Success ? m.Groups[3].Value : "") + "|" +
                            (m.Groups[4].Success ? "pending" : ""));
             }
-            Eq(31, parsed.Count, W, "names between the markers");
+            Eq(32, parsed.Count, W, "names between the markers");
             IReadOnlyList<CatalogName> all = SkiCatalog.AllPrefabNames();
             var expected = new List<string>();
             for (int i = 0; i < all.Count; i++)

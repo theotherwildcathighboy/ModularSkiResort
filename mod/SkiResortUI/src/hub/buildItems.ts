@@ -25,6 +25,7 @@ export interface BuildItemMeta {
 /** The C# BUILD-ITEMS table, row by row (strip order). */
 export const BUILD_ITEMS: readonly BuildItemMeta[] = [
   { id: "sign", kind: "sign", liftType: "", runKind: -1 },
+  { id: "signAngled", kind: "sign", liftType: "", runKind: -1 },
   { id: "lodge", kind: "lodge", liftType: "", runKind: -1 },
   { id: "lodgeHut", kind: "lodge", liftType: "", runKind: -1 },
   { id: "lodgeMid", kind: "lodge", liftType: "", runKind: -1 },
@@ -60,6 +61,7 @@ const ICON_TOP = "assetdb://global/3eb0d7b98fc9ee162816d9bb77056956"; // SkiTopS
 
 export const BUILD_ITEM_ICON: Readonly<Record<BuildItemId, string>> = {
   sign: ICON_SIGN,
+  signAngled: ICON_SIGN,   // SkiResortGateAngled.Prefab carries the same m_Icon
   lodge: ICON_LODGE,
   // SkiResortIcons/<file>.png.cid (gamedata-mirror/ImportedData/SkiResortIcons/); each prefab's m_Icon carries the same id
   lodgeHut: "assetdb://global/a5cbeffe37ecc4a08dba75e5f41721a8", // SkiLodgeHut.png
@@ -91,7 +93,7 @@ export const BUILD_ITEM_ICON: Readonly<Record<BuildItemId, string>> = {
 /** Four groups in build order (gate R16 checks every id appears exactly once). Group 1's lodge tiers and group 3's
  *  lift types are alternatives (hubRules.pickerSets): only the selected one is drawn. */
 export const BUILD_GROUPS: ReadonlyArray<readonly BuildItemId[]> = [
-  ["sign", "lodge", "lodgeHut", "lodgeMid", "lodgeSummit", "lodgeGrand"],
+  ["sign", "signAngled", "lodge", "lodgeHut", "lodgeMid", "lodgeSummit", "lodgeGrand"],
   ["school", "patrolHut", "patrolHQ"],
   [
     "baseStation", "topStation", "lift",
@@ -146,7 +148,8 @@ export interface BuildingDraw {
 /** One row per building tile, from the prefabs (gate: tools/test-hub-rules.js T22 reads every prefab and SkiCatalog's SignJobs
  *  and fails on a difference). A value 0 draws no row (as vanilla's asset panel). Lines and runs are not buildings: no row. */
 export const BUILDING_DRAW: Readonly<Partial<Record<BuildItemId, BuildingDraw>>> = {
-  sign: { prefab: "SkiResortGate", upkeep: 0, power: 0, water: 0, garbage: 0, workers: 0, keepsSlope: true },
+  sign: { prefab: "SkiResortGate", upkeep: 0, power: 0, water: 0, garbage: 0, workers: 0, keepsSlope: false },
+  signAngled: { prefab: "SkiResortGateAngled", upkeep: 0, power: 0, water: 0, garbage: 0, workers: 0, keepsSlope: false },
   lodge: { prefab: "SkiAFrameDayLodge", upkeep: 3000, power: 1500, water: 1000, garbage: 80, workers: 4, keepsSlope: false },
   lodgeHut: { prefab: "SkiLodgeHut", upkeep: 3000, power: 0, water: 0, garbage: 0, workers: 4, keepsSlope: true },
   lodgeMid: { prefab: "SkiLodgeMid", upkeep: 8000, power: 3500, water: 2300, garbage: 190, workers: 12, keepsSlope: true },

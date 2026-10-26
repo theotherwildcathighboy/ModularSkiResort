@@ -22,6 +22,7 @@
     <Compile Include="Terrain.cs" />
     <Compile Include="Captures.cs" />
     <Compile Include="QuickRunsTests.cs" />
+    <Compile Include="Fill.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiRunAutoPlanner.cs" Link="SkiRunAutoPlanner.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiRunAutoPlanner.Select.cs" Link="SkiRunAutoPlanner.Select.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiRunAutoPlanner.Kernels.cs" Link="SkiRunAutoPlanner.Kernels.cs" />

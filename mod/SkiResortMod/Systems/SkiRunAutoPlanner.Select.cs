@@ -45,6 +45,7 @@ namespace SkiResortMod.Systems
             public bool Merge, TouchesBase, OverWater, CrossesCatTrack;
             public int MergeInto;
             public double Score;
+            public float2 Lo, Hi;   // ring bounding box (prefilters CheckRing and the junction pairs)
         }
 
         private readonly List<ClusterInfo> m_Clusters = new List<ClusterInfo>();
@@ -54,10 +55,12 @@ namespace SkiResortMod.Systems
         private readonly List<int> m_Paths = new List<int>();
         private readonly HashSet<ulong> m_PathHashes = new HashSet<ulong>();
         private readonly List<Accepted> m_Accepted = new List<Accepted>();
+        private readonly DijkstraQueue m_AHeap = new DijkstraQueue();
+        private readonly List<int> m_Touched = new List<int>();
         private long[] m_SortKeys = new long[256];
         private AutoPlanWarning m_FieldWarnings;
         private readonly int[] m_Target = new int[5], m_Have = new int[5];
-        private int m_RunCap;
+        private int m_RunCap, m_MaxRatings;
 
         // Rating buffers (separate from m_Grid, which the rasterizer reuses)
         private readonly SlopeGrid m_RateGrid = new SlopeGrid();
@@ -106,140 +109,212 @@ namespace SkiResortMod.Systems
             }
         }
 
-        // ---------------------------------------------------------------- stage 5a: clusters and seeds (one unit)
+        // ---------------------------------------------------------------- stage 5a: clusters and seeds (sliced)
+        // m_Cursor2 phases: 0 setup, 1 top-cell rows, 2 one summit pick per unit, 3 pod rows, 4 one cluster's seeds per unit.
+
+        private int m_NTop, m_SummitCap, m_PodIdx, m_PodBest;
+        private readonly bool[] m_TopReach = new bool[Passes], m_PodAny = new bool[Passes];
+        private float[] m_TopD = new float[256];
 
         private void UnitSeeds()
         {
-            m_FieldWarnings = m_Result.Warnings;
-            ClearCandidates();
+            switch (m_Cursor2)
+            {
+                case 0:
+                    m_FieldWarnings = m_Result.Warnings;
+                    ClearCandidates();
+                    m_NTop = 0;
+                    m_SummitCap = ClusterCap(m_Result.RegionAreaM2);
+                    Array.Clear(m_TopReach, 0, Passes);
+                    Array.Clear(m_PodAny, 0, Passes);
+                    m_Cursor = m_RegionJ0;
+                    m_Cursor2 = 1;
+                    return;
+                case 1:
+                    TopRows();
+                    return;
+                case 2:
+                    if (!PickSummit())
+                    {
+                        m_PodIdx = 0;
+                        m_PodBest = -1;
+                        m_Cursor = m_RegionJ0;
+                        m_Cursor2 = m_PodPasses.Count > 0 ? 3 : 4;
+                        if (m_Cursor2 == 4)
+                            m_Cursor = 0;
+                    }
+                    return;
+                case 3:
+                    PodRows();
+                    return;
+                default:
+                    if (m_Cursor < m_Clusters.Count)
+                        ClusterSeeds(m_Cursor++);
+                    if (m_Cursor >= m_Clusters.Count)
+                        Next(Stage.Candidates);
+                    return;
+            }
+        }
+
+        /// <summary>Top cells (usable, in the upper TopShare of the vertical, at least TopBandM, reaching the base below the double black
+        /// ceiling) into m_Order, plus per pass whether a top cell reaches the base and whether any cell MinDropM above the base does
+        /// (the pod test). Row chunks over the region bbox.</summary>
+        private void TopRows()
+        {
             int dbCeil = Bucket(PassCeiling[Passes - 1]);
-            float topLine = m_HMaxU - TopBandM;
-            // Top cells: usable, within TopBandM of the highest usable ground, reaching the base below the double black ceiling
-            int nTop = 0;
-            for (int j = m_RegionJ0; j <= m_RegionJ1; j++)
+            float topLine = m_HMaxU - Math.Max(TopBandM, TopShare * (m_HMaxU - m_HMinU));
+            int jEnd = Math.Min(m_RegionJ1 + 1, m_Cursor + RowsPerUnit);
+            for (int j = m_Cursor; j < jEnd; j++)
                 for (int i = m_RegionI0; i <= m_RegionI1; i++)
                 {
                     int c = j * m_Nx + i;
-                    if ((m_Flags[c] & (FOpen | FCliff)) == FOpen && m_H[c] >= topLine && m_M[c] < dbCeil)
-                        m_Order[nTop++] = c;
+                    bool top = (m_Flags[c] & (FOpen | FCliff)) == FOpen && m_H[c] >= topLine && m_M[c] < dbCeil;
+                    if (top)
+                        m_Order[m_NTop++] = c;
+                    for (int p = 0; p < Passes - 1; p++)
+                        if (Reachable(p, c))
+                        {
+                            if (top)
+                                m_TopReach[p] = true;
+                            if (m_H[c] - m_BaseTop >= MinDropM)
+                                m_PodAny[p] = true;
+                        }
                 }
-            // Pods (real-world-layout.md 5): a pass (green, blue, black) that no top cell reaches gets a slot of its own at the highest
-            // ground that pass does reach: the beginner pod near the base, a blue mid-station under a steep summit. Their slots are
-            // reserved before the summit picks, easiest pass first (a resort without greens is the worse failure).
+            m_Cursor = jEnd;
+            if (m_Cursor <= m_RegionJ1)
+                return;
+            // Pods (real-world-layout.md 5): a pass (green, blue, black) that no top cell reaches gets a cluster of its own at the highest
+            // ground that pass does reach: the beginner pod near the base, a blue mid-station under a steep summit. Easiest pass first, at
+            // most MaxPods; they come on top of the summits (P2: a pod no longer takes a summit's slot).
             m_PodPasses.Clear();
             for (int p = 0; p < Passes - 1; p++)
-            {
-                bool topReaches = false;
-                for (int k = 0; k < nTop && !topReaches; k++)
-                    topReaches = Reachable(p, m_Order[k]);
-                if (!topReaches && m_PodPasses.Count < MaxClusters - 1 && PodCell(p, false) >= 0)
+                if (!m_TopReach[p] && m_PodAny[p] && m_PodPasses.Count < MaxPods)
                     m_PodPasses.Add(p);
-            }
-            // Cluster centers: the highest top cell, then farthest-point picks at least ClusterSpacingM apart
-            int first = -1;
-            for (int k = 0; k < nTop; k++)
+            Grow(ref m_TopD, Math.Max(1, m_NTop));
+            for (int k = 0; k < m_NTop; k++)
+                m_TopD[k] = float.PositiveInfinity;
+            m_Cursor2 = 2;
+        }
+
+        /// <summary>One summit: the highest top cell at least ClusterSpacingM from every cluster (a local top across the upper slope).
+        /// After the first (the true summit) the height carries a seeded jitter of SummitJitterM, so Shuffle moves the other lift tops.
+        /// m_TopD keeps each top cell's distance to the nearest cluster, updated with the newest one: one pass over the top cells per
+        /// pick. False when the cap is reached or no cell is far enough.</summary>
+        private bool PickSummit()
+        {
+            ClusterInfo last = m_Clusters.Count > 0 ? m_Clusters[m_Clusters.Count - 1] : null;
+            if (m_Clusters.Count >= m_SummitCap)
+                return false;
+            int best = -1;
+            float bestKey = float.NegativeInfinity;
+            bool first = m_Clusters.Count == 0;
+            for (int k = 0; k < m_NTop; k++)
             {
                 int c = m_Order[k];
-                if (first < 0 || m_H[c] > m_H[first])
-                    first = c;
-            }
-            if (first >= 0)
-            {
-                AddCluster(first, -1);
-                PickSummits(nTop, MaxClusters - m_PodPasses.Count);
-            }
-            foreach (int p in m_PodPasses)
-            {
-                int pod = PodCell(p, true);
-                if (pod >= 0)
-                    AddCluster(pod, p);
-            }
-            if (first >= 0)
-                PickSummits(nTop, MaxClusters);   // a reserved pod that found no room gives its slot back
-            // Seeds per cluster and pass: member cells ordered by height plus a seeded jitter, spaced one corridor plus a gap apart
-            for (int cl = 0; cl < m_Clusters.Count; cl++)
-            {
-                ClusterInfo ci = m_Clusters[cl];
-                for (int p = 0; p < Passes; p++)
+                if (last != null)
+                    m_TopD[k] = Math.Min(m_TopD[k], math.distance(CellCenter(c), last.Center));
+                if (m_TopD[k] < ClusterSpacingM)
+                    continue;
+                float key = first ? m_H[c] : m_H[c] + SummitJitterM * Jitter(m_Knobs.Seed, c, 7);
+                if (key > bestKey)
                 {
-                    int n = 0;
-                    int ri = (int)math.ceil(ClusterRadiusM / m_Texel);
-                    int ci0 = ci.Cell % m_Nx, cj0 = ci.Cell / m_Nx;
-                    Grow(ref m_SortKeys, (2 * ri + 1) * (2 * ri + 1));   // Grow does not copy: size it once, before the fill
-                    for (int j = Math.Max(m_RegionJ0, cj0 - ri); j <= Math.Min(m_RegionJ1, cj0 + ri); j++)
-                        for (int i = Math.Max(m_RegionI0, ci0 - ri); i <= Math.Min(m_RegionI1, ci0 + ri); i++)
-                        {
-                            int c = j * m_Nx + i;
-                            if (!Reachable(p, c) || m_H[c] < ci.TopY - TopBandM)
-                                continue;
-                            float d = NearestCenter(CellCenter(c), out int owner);
-                            if (owner != cl || d > ClusterRadiusM)
-                                continue;
-                            float key = m_H[c] + SeedJitterM * Jitter(m_Knobs.Seed, c, p);
-                            long q = (long)Math.Round((1.0e6 - key) * 1000.0);
-                            m_SortKeys[n++] = (q << 21) | (long)c;
-                        }
-                    Array.Sort(m_SortKeys, 0, n);
-                    float spacing = TargetWidthM[p] + NormalGapM;
-                    int start = m_Seeds.Count, ordinal = 0;
-                    for (int k = 0; k < n && ordinal < SeedsPerClusterPass; k++)
-                    {
-                        int c = (int)(m_SortKeys[k] & ((1L << 21) - 1));
-                        float2 pc = CellCenter(c);
-                        bool near = false;
-                        for (int s = start; s < m_Seeds.Count; s++)
-                            if (math.distance(CellCenter(m_Seeds[s].Cell), pc) < spacing)
-                            {
-                                near = true;
-                                break;
-                            }
-                        if (!near)
-                            m_Seeds.Add(new SeedRec { Cell = c, Cluster = cl, Pass = p, Ordinal = ordinal++ });
-                    }
+                    bestKey = key;
+                    best = c;
                 }
             }
-            Next(Stage.Candidates);
+            if (best < 0)
+                return false;
+            AddCluster(best, -1);
+            return true;
         }
 
-        /// <summary>Farthest-point summit picks among the m_Order[0, nTop) top cells, at least ClusterSpacingM from every cluster.</summary>
-        private void PickSummits(int nTop, int limit)
+        /// <summary>The current pod pass's cell: the highest cell it reaches MinDropM above the base outside every cluster's radius (row
+        /// chunks; the pods are placed one after another, each away from the ones before).</summary>
+        private void PodRows()
         {
-            while (m_Clusters.Count < limit)
-            {
-                int far = -1;
-                float farD = -1f;
-                for (int k = 0; k < nTop; k++)
-                {
-                    int c = m_Order[k];
-                    float d = NearestCenter(CellCenter(c), out int _);
-                    if (d > farD)
-                    {
-                        farD = d;
-                        far = c;
-                    }
-                }
-                if (far < 0 || farD < ClusterSpacingM)
-                    return;
-                AddCluster(far, -1);
-            }
-        }
-
-        /// <summary>The highest cell pass p reaches with MinDropM above the base; with awayFromClusters, only cells outside every
-        /// cluster's radius. -1 when there is none.</summary>
-        private int PodCell(int p, bool awayFromClusters)
-        {
-            int best = -1;
-            for (int j = m_RegionJ0; j <= m_RegionJ1; j++)
+            int p = m_PodPasses[m_PodIdx];
+            int jEnd = Math.Min(m_RegionJ1 + 1, m_Cursor + RowsPerUnit);
+            for (int j = m_Cursor; j < jEnd; j++)
                 for (int i = m_RegionI0; i <= m_RegionI1; i++)
                 {
                     int c = j * m_Nx + i;
-                    if (!Reachable(p, c) || m_H[c] - m_BaseTop < MinDropM || (best >= 0 && m_H[c] <= m_H[best]))
+                    if (!Reachable(p, c) || m_H[c] - m_BaseTop < MinDropM || (m_PodBest >= 0 && m_H[c] <= m_H[m_PodBest]))
                         continue;
-                    if (awayFromClusters && m_Clusters.Count > 0 && NearestCenter(CellCenter(c), out int _) < ClusterRadiusM)
+                    if (m_Clusters.Count > 0 && NearestCenter(CellCenter(c), out int _) < ClusterRadiusM)
                         continue;
-                    best = c;
+                    m_PodBest = c;
                 }
-            return best;
+            m_Cursor = jEnd;
+            if (m_Cursor <= m_RegionJ1)
+                return;
+            if (m_PodBest >= 0)
+                AddCluster(m_PodBest, p);
+            m_PodBest = -1;
+            m_Cursor = m_RegionJ0;
+            if (++m_PodIdx >= m_PodPasses.Count)
+            {
+                m_Cursor = 0;
+                m_Cursor2 = 4;
+            }
+        }
+
+        /// <summary>Seeds of one cluster for every pass: member cells within TopBandM of the cluster top, ordered by height plus a seeded
+        /// jitter of SeedJitterM, spaced one corridor plus a gap apart.</summary>
+        private void ClusterSeeds(int cl)
+        {
+            ClusterInfo ci = m_Clusters[cl];
+            int ri = (int)math.ceil(ClusterRadiusM / m_Texel);
+            int ci0 = ci.Cell % m_Nx, cj0 = ci.Cell / m_Nx;
+            Grow(ref m_SortKeys, (2 * ri + 1) * (2 * ri + 1));   // Grow does not copy: size it once, before the fill
+            for (int p = 0; p < Passes; p++)
+            {
+                int n = 0;
+                for (int j = Math.Max(m_RegionJ0, cj0 - ri); j <= Math.Min(m_RegionJ1, cj0 + ri); j++)
+                    for (int i = Math.Max(m_RegionI0, ci0 - ri); i <= Math.Min(m_RegionI1, ci0 + ri); i++)
+                    {
+                        int c = j * m_Nx + i;
+                        if (!Reachable(p, c) || m_H[c] < ci.TopY - TopBandM)
+                            continue;
+                        float d = NearestCenter(CellCenter(c), out int owner);
+                        if (owner != cl || d > ClusterRadiusM)
+                            continue;
+                        float key = m_H[c] + SeedJitterM * Jitter(m_Knobs.Seed, c, p);
+                        long q = (long)Math.Round((1.0e6 - key) * 1000.0);
+                        m_SortKeys[n++] = (q << 21) | (long)c;
+                    }
+                Array.Sort(m_SortKeys, 0, n);
+                float spacing = TargetWidthM[p] + NormalGapM;
+                int start = m_Seeds.Count, ordinal = 0;
+                for (int k = 0; k < n && ordinal < SeedsPerClusterPass; k++)
+                {
+                    int c = (int)(m_SortKeys[k] & ((1L << 21) - 1));
+                    float2 pc = CellCenter(c);
+                    bool near = false;
+                    for (int s = start; s < m_Seeds.Count; s++)
+                        if (math.distance(CellCenter(m_Seeds[s].Cell), pc) < spacing)
+                        {
+                            near = true;
+                            break;
+                        }
+                    if (!near)
+                        m_Seeds.Add(new SeedRec { Cell = c, Cluster = cl, Pass = p, Ordinal = ordinal++ });
+                }
+            }
+        }
+
+        /// <summary>Summit clusters for a region of this area: 3 per km2 of side, sqrt(km2) clamped to [1, 3] (the v1 ruling's 3 top
+        /// clusters at 1 km2, 9 at the 9 km2 cap). Pods come on top (MaxPods).</summary>
+        public static int ClusterCap(float areaM2) => (int)Math.Round(MaxClusters * AreaScale(areaM2));
+
+        /// <summary>sqrt(area in km2) clamped to [1, 3]: how many 1 km2 slopes fit across the region (caps scale with the width).</summary>
+        public static float AreaScale(float areaM2) => math.clamp(math.sqrt(Math.Max(0f, areaM2) / 1.0e6f), 1f, 3f);
+
+        /// <summary>The run cap: the knob's cap, else the density's (8 / 12 / 16 per 1 km2) times AreaScale, at most HardRunCap.</summary>
+        public static int RunCapOf(AutoPlanKnobs knobs, float areaM2)
+        {
+            int cap = knobs.RunCap > 0 ? knobs.RunCap
+                : (int)Math.Round((knobs.Density == AutoDensity.Sparse ? 8 : knobs.Density == AutoDensity.Dense ? 16 : 12) * AreaScale(areaM2));
+            return Math.Min(cap, HardRunCap);
         }
 
         private void AddCluster(int c, int podPass)
@@ -333,6 +408,8 @@ namespace SkiResortMod.Systems
             float area = Math.Min(len * TargetWidthM[s.Pass], MaxRunAreaM2);
             double score = SkiResortScore.SizeFactor(area) * SkiResortScore.BandValueOf(SkiResortScore.BandState.Rated, (byte)expected) *
                            (1.0 + Math.Min(1.0, Math.Max(0.0, drop / SkiResortScore.VerticalRefM)));
+            // Shuffle (P2): a seeded factor in [1 - ScoreJitter / 2, 1 + ScoreJitter / 2] changes which lines win, not only ties
+            score *= 1.0 + ScoreJitter * (Jitter(m_Knobs.Seed, s.Cell, 16 + s.Pass) - 0.5);
             m_Cands.Add(new Cand
             {
                 Id = s.Cluster * 1000 + s.Pass * 100 + s.Ordinal,
@@ -341,18 +418,63 @@ namespace SkiResortMod.Systems
             });
         }
 
-        // ---------------------------------------------------------------- stage 7: greedy selection, one candidate per unit
+        // ---------------------------------------------------------------- stage 7: greedy selection
+        // Per candidate: a pick unit (with the build when the free line needs no reroute), reroute units (RerouteUnitPops each), a build
+        // unit, a rate unit, chamfer units for an accepted run. m_SelPhase: 0 pick, 1 reroute, 2 build, 3 rate, 4 / 5 chamfer.
+
+        private Cand m_SelCand;
+        private float2[] m_PendRing;
+        private GradePath m_PendPath;
+        private bool m_PendMerge, m_PendEnd;
+        private int m_PendInto;
+        private int m_SelPhase, m_SelStart, m_SelLen, m_SelRerouted = -1;
+        private int m_ChI0, m_ChI1, m_ChJ0, m_ChJ1, m_ChRow;
+        private bool m_ChPending;
+        private bool m_SelMerge;
+        private float m_SelGap, m_SelStopD;
 
         private void UnitSelect()
         {
             if (m_Cursor == 0)
             {
-                BeginSelect();
-                m_Cursor = 1;
+                // Targets, then the accepted-run distance and the reroute's cost scratch reset in row chunks (m_Cursor2 = row)
+                if (m_Cursor2 == 0)
+                    BeginSelect();
+                int jEnd = Math.Min(m_Nz, m_Cursor2 + RowsPerUnit);
+                for (int c = m_Cursor2 * m_Nx; c < jEnd * m_Nx; c++)
+                {
+                    m_DAcc[c] = float.PositiveInfinity;
+                    m_DHard[c] = float.PositiveInfinity;
+                }
+                m_Cursor2 = jEnd;
+                if (m_Cursor2 >= m_Nz)
+                    m_Cursor = 1;
+                return;
             }
-            if (m_Accepted.Count >= m_RunCap || m_Result.Rated >= MaxRatings)
+            if (m_SelPhase == 1)
             {
-                if (m_Result.Rated >= MaxRatings)
+                if (RerouteStep())
+                    AfterReroute();
+                return;
+            }
+            if (m_SelPhase == 2)
+            {
+                EndAttempt();
+                return;
+            }
+            if (m_SelPhase == 3)
+            {
+                RatePending();
+                return;
+            }
+            if (m_SelPhase >= 4)
+            {
+                ChamferStep();
+                return;
+            }
+            if (m_Accepted.Count >= m_RunCap || m_Result.Rated >= m_MaxRatings)
+            {
+                if (m_Result.Rated >= m_MaxRatings)
                     for (int i = 0; i < m_Cands.Count; i++)
                         if (!m_Cands[i].Tried)
                             m_Result.Rejects[(int)AutoReject.RatingCap]++;
@@ -379,20 +501,19 @@ namespace SkiResortMod.Systems
                 return;
             }
             best.Tried = true;
-            AutoReject fate = Attempt(best);
-            m_Result.Rejects[(int)fate]++;
+            BeginAttempt(best);
         }
 
         private void BeginSelect()
         {
-            int cap = m_Knobs.RunCap > 0 ? m_Knobs.RunCap
-                : m_Knobs.Density == AutoDensity.Sparse ? 8 : m_Knobs.Density == AutoDensity.Dense ? 16 : 12;
-            m_RunCap = Math.Min(cap, HardRunCap);
+            DropReroute();   // a Reselect may have cut a candidate short
+            m_SelPhase = 0;
+            m_Touched.Clear();
+            m_RunCap = RunCapOf(m_Knobs, m_Result.RegionAreaM2);
+            m_MaxRatings = Math.Max(MaxRatings, RatingsPerRun * m_RunCap);
             Targets(m_Knobs.Mix, m_RunCap, m_Target);
             Array.Clear(m_Have, 0, 5);
             m_Accepted.Clear();
-            for (int c = 0; c < m_N; c++)
-                m_DAcc[c] = float.PositiveInfinity;
             m_Result.Rated = 0;
         }
 
@@ -450,26 +571,126 @@ namespace SkiResortMod.Systems
             return deficit > 0 ? 1.0 + deficit : 0.1;
         }
 
-        /// <summary>Builds, checks and rates one candidate against the accepted runs; Kept means accepted.</summary>
-        private AutoReject Attempt(Cand cand)
+        /// <summary>Phase 0 of a candidate: TopTaken, the free line's merge, and either the build (same unit) or a reroute (next units).</summary>
+        private void BeginAttempt(Cand cand)
         {
             int k = cand.Pass;
-            float width = TargetWidthM[k], gap = GapOf(m_Knobs.Density, width);
+            float gap = GapOf(m_Knobs.Density, TargetWidthM[k]);
             float stopD = gap + MinHalfWidthM;
             int seed = m_Paths[cand.PathStart];
             if (m_DAcc[seed] < stopD)
-                return AutoReject.TopTaken;
+            {
+                m_Result.Rejects[(int)AutoReject.TopTaken]++;
+                return;
+            }
             // Trail merge: stop where the centerline reaches an accepted run's gap; the end then tapers to MergeGapM
-            int len = 1;
+            int start = cand.PathStart, len = 1;
             bool merge = false;
             for (; len < cand.PathLen; len++)
-                if (m_DAcc[m_Paths[cand.PathStart + len]] < stopD)
+                if (m_DAcc[m_Paths[start + len]] < stopD)
                 {
                     merge = true;
                     break;
                 }
-            int last = m_Paths[cand.PathStart + len - 1];
-            float pathLen = PathLength(cand.PathStart, len);
+            m_SelCand = cand;
+            m_SelGap = gap;
+            m_SelStopD = stopD;
+            m_SelStart = start;
+            m_SelLen = len;
+            m_SelMerge = merge;
+            m_SelRerouted = -1;
+            // Reroute (P2): when the merge would cut the line short (the converging fall lines of natural terrain), find the pass's
+            // cheapest line around the accepted runs instead: to the base with a tree island between, or beside a run to a lower merge
+            if (merge && PathLength(start, len) < RerouteShare * cand.LengthM)
+            {
+                RerouteBegin(seed, k, stopD, m_Paths[start + len]);
+                m_SelPhase = 1;
+                return;
+            }
+            EndAttempt();
+        }
+
+        /// <summary>Phase 1 done: take the rerouted line when it is longer than the free line's merge stub.</summary>
+        private void AfterReroute()
+        {
+            int at = RerouteEnd();
+            if (at >= 0)
+            {
+                int n = m_Paths.Count - at;
+                bool merges = m_DAcc[m_Paths[m_Paths.Count - 1]] < m_SelStopD;
+                int keep = merges ? n - 1 : n;
+                m_SelRerouted = at;
+                if (PathLength(at, keep) > PathLength(m_SelStart, m_SelLen))
+                {
+                    m_SelStart = at;
+                    m_SelLen = keep;
+                    m_SelMerge = merges;
+                }
+            }
+            m_SelPhase = 2;
+        }
+
+        /// <summary>Phase 2: build and check; drop the rerouted cells; a kept ring waits for its rating unit (phase 3).</summary>
+        private void EndAttempt()
+        {
+            AutoReject fate = AttemptPath(m_SelCand, m_SelStart, m_SelLen, m_SelMerge, m_SelGap);
+            DropReroute();
+            if (fate == AutoReject.Kept)
+            {
+                m_SelPhase = 3;
+                return;
+            }
+            m_Result.Rejects[(int)fate]++;
+            m_SelPhase = 0;
+        }
+
+        /// <summary>Phase 3: rate the built ring (one SkiRunRater call, the one unit that cannot shrink); back to phase 0.</summary>
+        private void RatePending()
+        {
+            AutoReject fate = Rate(m_SelCand, m_PendRing, m_PendPath, m_PendMerge, m_PendInto, m_PendEnd, m_SelGap);
+            m_PendRing = null;
+            m_PendPath = null;
+            m_Result.Rejects[(int)fate]++;
+            m_SelPhase = m_ChPending ? 4 : 0;
+            m_ChPending = false;
+        }
+
+        /// <summary>Phases 4 and 5: the accepted run's local chamfer, forward then backward, in row chunks of the box (one pass over
+        /// consecutive rows is the same as the whole box in one call); back to phase 0.</summary>
+        private void ChamferStep()
+        {
+            int rows = Math.Max(1, 65536 / (m_ChI1 - m_ChI0 + 1));
+            if (m_SelPhase == 4)
+            {
+                int end = Math.Min(m_ChJ1, m_ChRow + rows - 1);
+                Chamfer(m_DAcc, m_Nx, m_ChI0, m_ChI1, m_ChJ0, m_ChJ1, m_ChRow, end, true, m_Texel);
+                m_ChRow = end + 1;
+                if (m_ChRow > m_ChJ1)
+                {
+                    m_ChRow = m_ChJ1;
+                    m_SelPhase = 5;
+                }
+                return;
+            }
+            int lo = Math.Max(m_ChJ0, m_ChRow - rows + 1);
+            Chamfer(m_DAcc, m_Nx, m_ChI0, m_ChI1, m_ChJ0, m_ChJ1, lo, m_ChRow, false, m_Texel);
+            m_ChRow = lo - 1;
+            if (m_ChRow < m_ChJ0)
+                m_SelPhase = 0;
+        }
+
+        private void DropReroute()
+        {
+            if (m_SelRerouted >= 0 && m_SelRerouted <= m_Paths.Count)
+                m_Paths.RemoveRange(m_SelRerouted, m_Paths.Count - m_SelRerouted);
+            m_SelRerouted = -1;
+        }
+
+        /// <summary>Builds and checks one line of a candidate against the accepted runs; Kept means a ring waits in m_Pend* for Rate.</summary>
+        private AutoReject AttemptPath(Cand cand, int start, int len, bool merge, float gap)
+        {
+            int seed = m_Paths[start], last = m_Paths[start + len - 1];
+            float pathLen = PathLength(start, len);
             if (pathLen < MinLengthM || m_H[seed] - m_H[last] < MinDropM)
                 return AutoReject.TooShort;
 
@@ -478,7 +699,7 @@ namespace SkiResortMod.Systems
             int keep = len;
             for (int attempt = 0; attempt < 4; attempt++)
             {
-                fate = BuildRing(cand, keep, merge && keep == len, gap, scale, out float2[] ring, out GradePath path, out int mergeInto);
+                fate = BuildRing(cand, start, keep, merge && keep == len, gap, scale, out float2[] ring, out GradePath path, out int mergeInto);
                 if (fate == AutoReject.Kept)
                 {
                     double area = PolygonArea(ring);
@@ -487,7 +708,12 @@ namespace SkiResortMod.Systems
                         keep = Math.Max(2, (int)(keep * Math.Min(0.95, MaxRunAreaM2 / area * 0.95)));
                         continue;
                     }
-                    return Rate(cand, ring, path, merge && keep == len, mergeInto, keep == len, gap);
+                    m_PendRing = ring;
+                    m_PendPath = path;
+                    m_PendMerge = merge && keep == len && mergeInto >= 0;
+                    m_PendInto = mergeInto;
+                    m_PendEnd = keep == len;
+                    return AutoReject.Kept;   // built; RatePending decides
                 }
                 if (fate == AutoReject.Obstacle || fate == AutoReject.Overlap || fate == AutoReject.Region || fate == AutoReject.Crosses)
                 {
@@ -497,6 +723,103 @@ namespace SkiResortMod.Systems
                 return fate;
             }
             return fate;
+        }
+
+        // Reroute: A* on pass k's graph from the seed down to the base. The heuristic is the pass's own route cost to the base (exact on
+        // the free graph; StepCost is shared, so it is consistent). A cell within stopD of an accepted run ends the line (a merge there)
+        // at an extra MergePenalty times the free route it leaves unskied. The search runs RerouteUnitPops pops per unit (its state lives
+        // in these fields) up to RerouteMaxPops in all; the free line's own merge cost bounds it. Cost scratch: m_DHard (free after stage
+        // 1b, reset to infinity by Select's first units; every touched cell is reset again in RerouteEnd).
+        private int m_ASeed, m_AK, m_APops, m_AGoal;
+        private float m_AStopD, m_ALimit;
+
+        private void RerouteBegin(int seed, int k, float stopD, int mergeCell)
+        {
+            float[] dist = m_Dist[k];
+            m_ASeed = seed;
+            m_AK = k;
+            m_AStopD = stopD;
+            m_ALimit = (dist[seed] + MergePenalty * dist[mergeCell]) * 1.0001f + 0.01f;   // the free line's own merge: an upper bound
+            m_APops = 0;
+            m_AGoal = -1;
+            m_AHeap.Clear();
+            m_Touched.Clear();
+            m_DHard[seed] = 0f;
+            m_Touched.Add(seed);
+            m_AHeap.Push(dist[seed], seed);
+        }
+
+        /// <summary>Up to RerouteUnitPops pops; true when the search ended (goal found, heap empty, bound or pop budget hit).</summary>
+        private bool RerouteStep()
+        {
+            int k = m_AK;
+            float[] dist = m_Dist[k], g = m_DHard;
+            byte[] pred = m_Pred[k];
+            float floor = PassFloor[k], ceil = PassCeiling[k], t = m_Texel, inv2t = 1f / (2f * m_Texel), stopD = m_AStopD;
+            for (int budget = RerouteUnitPops; budget > 0; budget--)
+            {
+                if (!m_AHeap.Pop(out float f, out int v) || f > m_ALimit || ++m_APops > RerouteMaxPops)
+                    return true;
+                float gv = g[v];
+                if (f > gv + dist[v])
+                    continue;   // stale
+                if (pred[v] == PredSource || m_DAcc[v] < stopD)
+                {
+                    m_AGoal = v;
+                    return true;
+                }
+                int vi = v % m_Nx, vj = v / m_Nx;
+                if (vi < 1 || vj < 1 || vi >= m_Nx - 1 || vj >= m_Nz - 1)
+                    continue;
+                for (int d = 0; d < 8; d++)
+                {
+                    int u = (vj - DirZ[d]) * m_Nx + vi - DirX[d];
+                    if (!(dist[u] < float.PositiveInfinity))
+                        continue;
+                    float w = StepCost(u, v, d, floor, ceil, t, inv2t);
+                    if (!(w >= 0f))
+                        continue;
+                    float gu = gv + w + (m_DAcc[u] < stopD ? MergePenalty * dist[u] : 0f);
+                    if (gu < g[u])
+                    {
+                        if (float.IsPositiveInfinity(g[u]))
+                            m_Touched.Add(u);
+                        g[u] = gu;
+                        m_APar[u] = (byte)d;
+                        m_AHeap.Push(gu + dist[u], u);
+                    }
+                }
+            }
+            return false;
+        }
+
+        /// <summary>Appends the found line (seed first) to m_Paths and returns its start; -1 when none was found or it is a traverse
+        /// (skis over DetourFactor times the free route between the same two heights). Resets the touched cost cells.</summary>
+        private int RerouteEnd()
+        {
+            float[] dist = m_Dist[m_AK], g = m_DHard;
+            int goal = m_AGoal, seed = m_ASeed, at = -1;
+            if (goal >= 0)
+            {
+                float travel = g[goal] - (m_DAcc[goal] < m_AStopD ? MergePenalty * dist[goal] : 0f);
+                if (travel > DetourFactor * (dist[seed] - dist[goal]) + m_Texel)
+                    goal = -1;
+            }
+            if (goal >= 0)
+            {
+                at = m_Paths.Count;
+                for (int c = goal; ; c += DirZ[m_APar[c]] * m_Nx + DirX[m_APar[c]])
+                {
+                    m_Paths.Add(c);
+                    if (c == seed)
+                        break;
+                }
+                m_Paths.Reverse(at, m_Paths.Count - at);
+            }
+            for (int i = 0; i < m_Touched.Count; i++)
+                g[m_Touched[i]] = float.PositiveInfinity;
+            m_Touched.Clear();
+            return at;
         }
 
         private float PathLength(int start, int count)
@@ -510,7 +833,7 @@ namespace SkiResortMod.Systems
             return len;
         }
 
-        private AutoReject BuildRing(Cand cand, int count, bool merge, float gap, float scale, out float2[] ring, out GradePath path,
+        private AutoReject BuildRing(Cand cand, int start, int count, bool merge, float gap, float scale, out float2[] ring, out GradePath path,
             out int mergeInto)
         {
             ring = null;
@@ -524,9 +847,9 @@ namespace SkiResortMod.Systems
                 int every = pass == 0 ? Math.Max(1, (int)Math.Round(DecimateM / m_Texel)) : 1;
                 m_PathPts.Clear();
                 for (int i = 0; i < count; i += every)
-                    m_PathPts.Add(CellCenter(m_Paths[cand.PathStart + i]));
+                    m_PathPts.Add(CellCenter(m_Paths[start + i]));
                 if ((count - 1) % every != 0)
-                    m_PathPts.Add(CellCenter(m_Paths[cand.PathStart + count - 1]));
+                    m_PathPts.Add(CellCenter(m_Paths[start + count - 1]));
                 GradePath p = GradePath.Build(m_PathPts, SampleM);
                 if (p == null)
                     return AutoReject.TooShort;
@@ -605,6 +928,10 @@ namespace SkiResortMod.Systems
                         mergeInto = a;
                     }
                 }
+                // A merge is a junction: the line stops a gap plus a half width short of the run (stopD), so a narrow ring can end
+                // farther than JunctionReachM from it. Then it is no merge and keeps the full gap (P2: a Sparse ring passed at 22.7 m).
+                if (mergeInto >= 0 && RingDistance(ring, m_Accepted[mergeInto].Ring, JunctionReachM, out _, out _, out _, out _) > JunctionReachM)
+                    mergeInto = -1;
             }
             return CheckRing(ring, gap, mergeInto);
         }
@@ -644,10 +971,13 @@ namespace SkiResortMod.Systems
                 return AutoReject.Region;
             if (!ObstaclesClear(ring, m_In.Obstacles, m_Knobs.Density))
                 return AutoReject.Obstacle;
+            BBox(ring, out float2 lo, out float2 hi);
             for (int a = 0; a < m_Accepted.Count; a++)
             {
                 Accepted acc = m_Accepted[a];
                 float need = a == mergeInto ? MergeGapM : ExactGapShare * Math.Min(gap, acc.GapM);
+                if (math.any(acc.Hi < lo - need) || math.any(acc.Lo > hi + need))
+                    continue;
                 if (RingDistance(ring, acc.Ring, need, out _, out _, out _, out _) < need)
                     return AutoReject.Overlap;
             }
@@ -712,6 +1042,7 @@ namespace SkiResortMod.Systems
                 SteepestGrade = res.SteepestGrade, DropM = res.Drop, AreaM2 = (float)PolygonArea(ring), LengthM = res.Length, TopY = res.MaxHeight,
                 BottomY = res.MinHeight, GapM = gap, Merge = merge, MergeInto = merge ? mergeInto : -1,
             };
+            BBox(ring, out acc.Lo, out acc.Hi);
             acc.Centerline = new float2[path.Count];
             Array.Copy(path.Xz, acc.Centerline, path.Count);
             // Base contact, water and cat tracks from the rating Mask (the run's own cells)
@@ -761,9 +1092,13 @@ namespace SkiResortMod.Systems
             }
             // Local chamfer: only distances under the widest gap plus the widest half width matter
             int r = (int)math.ceil((SparseGapM + 0.5f * TargetWidthM[0] + MinHalfWidthM + WidthMarginM) / m_Texel) + 2;
-            int i0 = Math.Max(0, mi0 - r), i1 = Math.Min(m_Nx - 1, mi1 + r), j0 = Math.Max(0, mj0 - r), j1 = Math.Min(m_Nz - 1, mj1 + r);
-            Chamfer(m_DAcc, m_Nx, i0, i1, j0, j1, j0, j1, true, m_Texel);
-            Chamfer(m_DAcc, m_Nx, i0, i1, j0, j1, j0, j1, false, m_Texel);
+            // The passes run in row chunks after this unit (m_SelPhase 4 and 5): a long diagonal run's box nears the lattice at 9 km2
+            m_ChI0 = Math.Max(0, mi0 - r);
+            m_ChI1 = Math.Min(m_Nx - 1, mi1 + r);
+            m_ChJ0 = Math.Max(0, mj0 - r);
+            m_ChJ1 = Math.Min(m_Nz - 1, mj1 + r);
+            m_ChRow = m_ChJ0;
+            m_ChPending = true;
             acc.Score = SkiResortScore.SizeFactor(acc.AreaM2) * SkiResortScore.BandValueOf(SkiResortScore.BandState.Rated, (byte)acc.Band) *
                         (1.0 + Math.Min(1.0, Math.Max(0.0, acc.DropM / SkiResortScore.VerticalRefM)));
             m_Accepted.Add(acc);
@@ -773,74 +1108,58 @@ namespace SkiResortMod.Systems
 
         // ---------------------------------------------------------------- stages 7b-9: junctions, kinds, clusters, warnings
 
+        // Sliced (P2: junction pairs grow with the square of the run count): m_Cursor2 0 setup, 1 one run's pairs per unit, 2 runs and
+        // junctions, 3 kinds, clusters, warnings, fingerprint.
+        private readonly List<JunctionDraft> m_Pairs = new List<JunctionDraft>(), m_ExistingPairs = new List<JunctionDraft>();
+        private int m_FinB = -1;
+        private const int FinishPairWork = 40000;   // ring edge pairs per unit (TopmostPair is |a| x |b|)
+
         private void UnitFinish()
         {
             AutoPlanResult res = m_Result;
-            res.Runs.Clear();
-            res.Junctions.Clear();
-            res.Clusters.Clear();
-            res.Warnings = m_FieldWarnings;
-            Array.Clear(res.BandCount, 0, 5);
-            Array.Copy(m_Target, res.BandTarget, 5);
             int nRuns = m_Accepted.Count;
+            if (m_Cursor2 == 0)
+            {
+                res.Runs.Clear();
+                res.Junctions.Clear();
+                res.Clusters.Clear();
+                res.Warnings = m_FieldWarnings;
+                Array.Clear(res.BandCount, 0, 5);
+                Array.Copy(m_Target, res.BandTarget, 5);
+                m_Pairs.Clear();
+                m_ExistingPairs.Clear();
+                m_FinB = -1;
+                m_Cursor = 0;
+                m_Cursor2 = 1;
+                return;
+            }
+            var sampler = new SnapshotSampler(m_In.Snapshot);
+            if (m_Cursor2 == 1)
+            {
+                if (m_Cursor < nRuns && FinishPairs(m_Cursor, ref sampler))
+                {
+                    m_Cursor++;
+                    m_FinB = -1;
+                }
+                if (m_Cursor >= nRuns)
+                    m_Cursor2 = 2;
+                return;
+            }
+            if (m_Cursor2 == 3)
+            {
+                AssignKinds(res.Runs, m_Knobs.Kinds);
+                BuildClusters(res);
+                Warn(res);
+                res.Status = res.Runs.Count > 0 ? AutoPlanStatus.Ok : AutoPlanStatus.NoRuns;
+                res.Fingerprint = Fingerprint(res);
+                m_Stage = Stage.Done;
+                return;
+            }
             var rings = new List<float2>[nRuns];
             for (int a = 0; a < nRuns; a++)
                 rings[a] = new List<float2>(m_Accepted[a].Ring);
-            var pairs = new List<JunctionDraft>();
-            var sampler = new SnapshotSampler(m_In.Snapshot);
-            // Run pairs within reach: the topmost close point pair (service flows down from there), plus the merge point
-            for (int a = 0; a < nRuns; a++)
-                for (int b = a + 1; b < nRuns; b++)
-                {
-                    float2[] ra = m_Accepted[a].Ring, rb = m_Accepted[b].Ring;
-                    if (TopmostPair(ra, rb, ref sampler, out float2 pa, out int ea, out float2 pb, out int eb))
-                        pairs.Add(new JunctionDraft { A = a, B = b, PA = pa, PB = pb, EA = ea, EB = eb });
-                    int into = m_Accepted[b].MergeInto == a ? b : m_Accepted[a].MergeInto == b ? a : -1;
-                    if (into >= 0 && RingDistance(ra, rb, JunctionReachM, out float2 qa, out float2 qb, out int fa, out int fb) <= JunctionReachM)
-                    {
-                        bool dup = pairs.Count > 0 && pairs[pairs.Count - 1].A == a && pairs[pairs.Count - 1].B == b &&
-                                   math.distance(pairs[pairs.Count - 1].PA, qa) < 2f * GradeRibbon.MinSpacingM;
-                        if (dup)
-                            pairs[pairs.Count - 1] = WithMerge(pairs[pairs.Count - 1]);
-                        else
-                            pairs.Add(new JunctionDraft { A = a, B = b, PA = qa, PB = qb, EA = fa, EB = fb, Merge = true });
-                    }
-                }
-            // Existing runs: our node at the closest point to their topmost node within reach
-            var existing = new List<JunctionDraft>();
+            List<JunctionDraft> pairs = m_Pairs, existing = m_ExistingPairs;
             List<AutoObstacle> obs = m_In.Obstacles;
-            if (obs != null)
-                for (int a = 0; a < nRuns; a++)
-                    for (int o = 0; o < obs.Count; o++)
-                    {
-                        AutoObstacle ob = obs[o];
-                        if (ob == null || ob.Kind != AutoObstacleKind.ExistingRun || ob.Ring == null || ob.Ring.Length < 3)
-                            continue;
-                        float2[] ra = m_Accepted[a].Ring;
-                        int bestV = -1, bestE = -1;
-                        float bestH = float.NegativeInfinity;
-                        float2 bestP = default;
-                        for (int v = 0; v < ob.Ring.Length; v++)
-                        {
-                            float2 q = ob.Ring[v];
-                            for (int e = 0; e < ra.Length; e++)
-                            {
-                                float d = GradePath.SegDistance(q, ra[e], ra[(e + 1) % ra.Length], out float u);
-                                if (d > JunctionReachM)
-                                    continue;
-                                float h = sampler.Sample(new float3(q.x, 0f, q.y));
-                                if (h > bestH)
-                                {
-                                    bestH = h;
-                                    bestV = v;
-                                    bestE = e;
-                                    bestP = math.lerp(ra[e], ra[(e + 1) % ra.Length], u);
-                                }
-                            }
-                        }
-                        if (bestV >= 0)
-                            existing.Add(new JunctionDraft { A = a, B = o, PA = bestP, EA = bestE, NodeB = bestV, Existing = true });
-                    }
             // Insert every node (by position, so later insertions cannot shift a recorded index), then resolve indices
             var placedA = new float2[pairs.Count + existing.Count];
             var placedB = new float2[pairs.Count];
@@ -894,12 +1213,79 @@ namespace SkiResortMod.Systems
                     DistanceM = math.distance(res.Runs[jd.A].Ring[na], obs[jd.B].Ring[jd.NodeB]),
                 });
             }
-            AssignKinds(res.Runs, m_Knobs.Kinds);
-            BuildClusters(res);
-            Warn(res);
-            res.Status = res.Runs.Count > 0 ? AutoPlanStatus.Ok : AutoPlanStatus.NoRuns;
-            res.Fingerprint = Fingerprint(res);
-            m_Stage = Stage.Done;
+            m_Cursor2 = 3;
+        }
+
+        /// <summary>Junction drafts of run a: with every later run within reach, the topmost close point pair (service flows down from
+        /// there) plus the merge point; with existing runs, our node at the closest point to their topmost node within reach. Ring
+        /// bounding boxes farther apart than JunctionReachM are skipped (no pair can be within reach). Resumable: stops after
+        /// FinishPairWork edge pairs (m_FinB = the next b) and returns false; true when run a is done.</summary>
+        private bool FinishPairs(int a, ref SnapshotSampler sampler)
+        {
+            Accepted accA = m_Accepted[a];
+            float2[] ra = accA.Ring;
+            int work = 0;
+            for (int b = m_FinB < 0 ? a + 1 : m_FinB; b < m_Accepted.Count; b++)
+            {
+                Accepted accB = m_Accepted[b];
+                if (math.any(accB.Hi < accA.Lo - JunctionReachM) || math.any(accB.Lo > accA.Hi + JunctionReachM))
+                    continue;
+                if (work > 0 && work + ra.Length * accB.Ring.Length > FinishPairWork)
+                {
+                    m_FinB = b;
+                    return false;
+                }
+                float2[] rb = accB.Ring;
+                work += ra.Length * rb.Length;
+                if (TopmostPair(ra, rb, ref sampler, out float2 pa, out int ea, out float2 pb, out int eb))
+                    m_Pairs.Add(new JunctionDraft { A = a, B = b, PA = pa, PB = pb, EA = ea, EB = eb });
+                int into = accB.MergeInto == a ? b : accA.MergeInto == b ? a : -1;
+                if (into >= 0 && RingDistance(ra, rb, JunctionReachM, out float2 qa, out float2 qb, out int fa, out int fb) <= JunctionReachM)
+                {
+                    bool dup = m_Pairs.Count > 0 && m_Pairs[m_Pairs.Count - 1].A == a && m_Pairs[m_Pairs.Count - 1].B == b &&
+                               math.distance(m_Pairs[m_Pairs.Count - 1].PA, qa) < 2f * GradeRibbon.MinSpacingM;
+                    if (dup)
+                        m_Pairs[m_Pairs.Count - 1] = WithMerge(m_Pairs[m_Pairs.Count - 1]);
+                    else
+                        m_Pairs.Add(new JunctionDraft { A = a, B = b, PA = qa, PB = qb, EA = fa, EB = fb, Merge = true });
+                }
+            }
+            List<AutoObstacle> obs = m_In.Obstacles;
+            if (obs == null)
+                return true;
+            for (int o = 0; o < obs.Count; o++)
+            {
+                AutoObstacle ob = obs[o];
+                if (ob == null || ob.Kind != AutoObstacleKind.ExistingRun || ob.Ring == null || ob.Ring.Length < 3)
+                    continue;
+                BBox(ob.Ring, out float2 olo, out float2 ohi);
+                if (math.any(ohi < accA.Lo - JunctionReachM) || math.any(olo > accA.Hi + JunctionReachM))
+                    continue;
+                int bestV = -1, bestE = -1;
+                float bestH = float.NegativeInfinity;
+                float2 bestP = default;
+                for (int v = 0; v < ob.Ring.Length; v++)
+                {
+                    float2 q = ob.Ring[v];
+                    for (int e = 0; e < ra.Length; e++)
+                    {
+                        float d = GradePath.SegDistance(q, ra[e], ra[(e + 1) % ra.Length], out float u);
+                        if (d > JunctionReachM)
+                            continue;
+                        float h = sampler.Sample(new float3(q.x, 0f, q.y));
+                        if (h > bestH)
+                        {
+                            bestH = h;
+                            bestV = v;
+                            bestE = e;
+                            bestP = math.lerp(ra[e], ra[(e + 1) % ra.Length], u);
+                        }
+                    }
+                }
+                if (bestV >= 0)
+                    m_ExistingPairs.Add(new JunctionDraft { A = a, B = o, PA = bestP, EA = bestE, NodeB = bestV, Existing = true });
+            }
+            return true;
         }
 
         private struct JunctionDraft

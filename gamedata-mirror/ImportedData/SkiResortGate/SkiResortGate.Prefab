@@ -95,8 +95,8 @@
                 },
                 "m_HeightOffset": 0,
                 "m_AdditionalSmoothAreas": null,
-                "m_DontRaise": true,
-                "m_DontLower": true
+                "m_DontRaise": false,
+                "m_DontLower": false
             },
             {
                 "$id": 8,
@@ -255,5 +255,5 @@
     "m_Circular": false,
     "m_AccessType": 0,
     "m_LotWidth": 2,
-    "m_LotDepth": 1
+    "m_LotDepth": 2
 }

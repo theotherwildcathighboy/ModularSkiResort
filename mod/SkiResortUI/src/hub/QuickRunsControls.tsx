@@ -208,6 +208,8 @@ function TreeRowsQuick({ q, t, wait }: { q: QuickRunsState; t: Translate; wait: 
               ? <LocText entry={HUB_FMT.quickPlantProgress} args={{ N: numArg(q.treesDone, Unit.Integer), M: numArg(q.treesTotal, Unit.Integer) }} />
               : treeJob(q)
               ? <LocText entry={HUB_FMT.quickRemoveProgress} args={{ N: numArg(q.treesDone, Unit.Integer), M: numArg(q.treesTotal, Unit.Integer) }} />
+              : q.treesCost > 0
+              ? <LocText entry={HUB_FMT.quickTreeCountsCost} args={{ P: numArg(q.plant, Unit.Integer), R: numArg(q.remove, Unit.Integer), FEE: numArg(q.treesCost, Unit.Money) }} />
               : <LocText entry={HUB_FMT.quickTreeCounts} args={{ P: numArg(q.plant, Unit.Integer), R: numArg(q.remove, Unit.Integer) }} />}
           </div>
         </>

@@ -75,14 +75,37 @@ refunds no run fee either). Undo writes the pre-image back only where the terrai
 the grade wrote (a later terrain-tool stroke survives). Removed trees do not come back. Nothing survives a save / load (after a
 reload the vanilla terrain tool is the only undo).
 
+## Crossed runs: inside allowance and band check (DECISIONS 420)
+
+Solve builds the plan at InsideMaxM 2 m, rates every entered crossed run with `SkiRunRater` (the catalog's origin and texel) on a sampler
+that reads the raster's Before or After where it covers the point and the CPU heights elsewhere (`PlanSampler`), and steps the allowance down
+(1, 0.5, 0) while a band differs (`GradeRaster.ChooseInsideAllowance`); none matches = guard `CrossedRunBand`. One `Grade [crossing]` line
+names the allowance and the bands. ApplyCore re-rates on the base raster with the plan's params and refuses on a change.
+
+## Delete (DECISIONS 420)
+
+The game-mode bulldozer raycasts only Lot and Surface areas (BulldozeToolSystem.cs:1497-1500; the filter is AreaUtils.GetTypeMask(m_Type),
+RaycastJobs.cs:113, AreaUtils.cs:423-430) and the cat track's type is forged to Space, so the bulldozer never hits one. Since DECISIONS 423b
+the delete is the trash button of the cat track's hub Runs row (two clicks, RunList.tsx TrashButton) -> trigger `deleteCatTrack` (contract 18)
+-> queued and applied in SkiResortHubUISystem.OnUpdate (never in the binding callback, DECISIONS 418) -> the public `DeleteTrack(entity, why)`:
+`IsCatTrack` (our prefab, live, not Temp) then RunAreaEmit.DeleteLikeBulldozer. The ground stays as graded, no refund. The tool itself raycasts
+Terrain only: a click on an existing cat track starts a new track there (branching), as before 2026-10-26.
+
+## Crossing cost (F4, round-2 critique)
+
+While editing, one allowance step per frame: Solve builds at the current step; a band change moves to the next step and marks the plan dirty
+(`m_CrossingPending`, PlanOk false meanwhile), so a hard crossing costs at most one raster per frame. The Before ratings are cached per plan
+revision and params object (`m_BandsBefore`). Enter settles all steps in one call (`Solve(.., settle)`). The `Grade [crossing]` line lists each
+step with its ms ("2.0 m changed 131 ms; 1.0 m kept 128 ms").
+
 ## Guards (never under lifts, lots or water)
 
 - Crossed runs: `CollectObstacles` reads every run of ours but cat tracks in the rect (Area + Node + PrefabRef, kind by
-  SkiRunOwnershipSystem.KindOf) BEFORE the raster; the raster keeps their ground (GradeRaster.Build keep) and the trees inside them
-  stay. A cat track over a groomed / snowmaking / night / natural run raises no game error: their AreaTypes differ (cat track forged to
+  SkiRunOwnershipSystem.KindOf) BEFORE the raster; inside them the raster applies only the limited along-track correction (DECISIONS 420)
+  and the trees inside them stay. A cat track over a groomed / snowmaking / night / natural run raises no game error: their AreaTypes differ (cat track forged to
   Space, the others Surface) and in a game neither carries PhysicalGeometry (ValidationHelpers.cs:549-553). A cat track over another
-  cat track is OverlapExisting (same type, :566-582). `CrossingSteep` when the ground under the track inside a crossed run, or the FINAL
-  surface along the track where a crossed outline or its fade reaches, is steeper than the max grade (+ 1 pp for the surface). Enter reports a
+  cat track is OverlapExisting (same type, :566-582). `CrossingSteep` when the FINAL surface along the track, where a crossed outline or its fade
+  reaches, is steeper than the max grade + 1 pp (what the 2 m inside cannot fix). Enter reports a
   guard before an infeasible profile (the pins can bend a profile that a crossing guard explains).
 - The run outline: `RunShape` when the flat top's ring touches itself (GradeRibbon, 1.5 m clearance). In a game the area validation
   checks no objects or nets for this run (`SetCollisionFlags` adds PhysicalGeometry only when markers are not ignored, AreaUtils.cs:679-688,

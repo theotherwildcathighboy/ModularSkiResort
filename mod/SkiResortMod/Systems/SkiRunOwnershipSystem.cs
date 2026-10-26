@@ -59,7 +59,16 @@ namespace SkiResortMod.Systems
         // the cat track, RunKind.CatTrack = 4 (a SurfacePrefab whose AreaType is forged to Space at load by SkiRunAreaTypeSystem so it
         // can cross other runs)
         private static readonly string[] CatTrackSurfaceNames = { "SkiRunCatTrackA" };
-        private static readonly string[] GateNames = { "SkiResortGate" };
+        // Every Welcome Sign variant is the gate (SkiCatalog.Signs: the straight sign and the angled one, DECISIONS 422).
+        private static readonly string[] GateNames = GateNamesOf(SkiCatalog.Signs);
+
+        private static string[] GateNamesOf(IReadOnlyList<SignDef> signs)
+        {
+            var names = new string[signs.Count];
+            for (int i = 0; i < names.Length; i++)
+                names[i] = signs[i].Prefab;
+            return names;
+        }
 
         /// <summary>One run's collected facts and decision (collect first, mutate after).</summary>
         private struct RunPlan
@@ -336,7 +345,7 @@ namespace SkiResortMod.Systems
                    m_CatTrackPrefabs.Contains(prefab);
         }
 
-        /// <summary>True for the Ski Area Welcome Sign BuildingPrefab entity.</summary>
+        /// <summary>True for a Ski Area Welcome Sign BuildingPrefab entity (either variant, GateNames).</summary>
         internal bool IsGatePrefab(Entity prefab)
         {
             return m_GatePrefabs.Contains(prefab);

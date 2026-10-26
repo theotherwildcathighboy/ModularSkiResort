@@ -500,6 +500,7 @@ namespace SkiResortMod.Systems
             public const string PatrolHut = "SkiPatrolHut"; // BuildingPrefab, item patrolHut
             public const string PatrolHQ = "SkiPatrolHQ"; // BuildingPrefab, item patrolHQ
             public const string Sign = "SkiResortGate"; // BuildingPrefab, item sign
+            public const string SignAngled = "SkiResortGateAngled"; // BuildingPrefab, item signAngled
             public const string RunNatural = "SkiRunNaturalA"; // SurfacePrefab, item runNatural
             public const string RunGroomed = "SkiRunGroomedA"; // SurfacePrefab, item runGroomed
             public const string RunSnowmaking = "SkiRunSnowmakingA"; // SurfacePrefab, item runSnowmaking
@@ -594,10 +595,10 @@ namespace SkiResortMod.Systems
         public static readonly IReadOnlyList<LodgeDef> Lodges;
         public static readonly IReadOnlyList<SchoolDef> Schools;   // 1 row
         public static readonly IReadOnlyList<PatrolDef> Patrols;   // 2 rows
-        public static readonly IReadOnlyList<SignDef> Signs;       // 1 row
+        public static readonly IReadOnlyList<SignDef> Signs;       // 2 rows: the straight sign and the angled one (both are the gate)
         /// <summary>Natural 3 "runNatural", Groomed 0, Snowmaking 1, Night 2 (the NAMES-block order).</summary>
         public static readonly IReadOnlyList<RunDef> Runs;
-        /// <summary>The ONE build-item table (25 rows, strip order; the BUILD-ITEMS block below).</summary>
+        /// <summary>The ONE build-item table (27 rows, strip order; the BUILD-ITEMS block below).</summary>
         public static readonly IReadOnlyList<BuildItemDef> BuildItems;
         /// <summary>The static initializer's sanity findings. EMPTY when sane. The initializer NEVER throws.</summary>
         public static readonly IReadOnlyList<string> Problems;
@@ -613,6 +614,7 @@ namespace SkiResortMod.Systems
         {
             // BUILD-ITEMS-BEGIN
             new BuildItemDef("sign", Names.Sign, BuildItemKind.Sign, "", -1),
+            new BuildItemDef("signAngled", Names.SignAngled, BuildItemKind.Sign, "", -1),
             new BuildItemDef("lodge", Names.LodgeAFrame, BuildItemKind.Lodge, "", -1),
             new BuildItemDef("lodgeHut", Names.LodgeHut, BuildItemKind.Lodge, "", -1),
             new BuildItemDef("lodgeMid", Names.LodgeMid, BuildItemKind.Lodge, "", -1),
@@ -825,7 +827,12 @@ namespace SkiResortMod.Systems
 
                 // Sign: SkiResortGate.Prefab:25 PlaceableObject m_ConstructionCost must equal this 12000 (LiftBatch CT-12 fails on any difference,
                 // and the hub writes one "[items] drift" WARN per load while the two disagree).
-                signs = new[] { new SignDef(Names.Sign, "sign", 12000, true) };
+                // The angled sign (DECISIONS 422) is the same building with the sign turned inside its lot: same cost, same gate.
+                signs = new[]
+                {
+                    new SignDef(Names.Sign, "sign", 12000, true),
+                    new SignDef(Names.SignAngled, "signAngled", 12000, true),
+                };
 
                 runs = new[]
                 {

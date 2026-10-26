@@ -319,6 +319,10 @@ Appended fields and bindings by contract:
   loses Unsuitable (3): a rated cat track is always Green (SkiRunRatingRules.CatTrackBand), so it reads Closed / Partly / Open.
 - 17: the `quickRuns` value binding (`QuickRunsState`, with `QuickRunsCluster` rows) and the triggers `quickRunsToggle` and
   `quickRunsSet(key, value)` (the experimental Quick runs tool, QuickRunsToolSystem.md).
+- 18: QuickRunsState appends `treesCost` (what Plant will cost: the ready tree preview's Temp m_Cost per planted tree times
+  `plant`, 0 without a ready preview; the hub's tree counts line shows it, so a planting is never charged unannounced).
+  Also in 18: the `deleteCatTrack` trigger (Entity; the cat track row's trash, DECISIONS 423b), queued and applied in OnUpdate through
+  CatTrackGradeToolSystem.DeleteTrack.
 
 ## Quick runs (contract 17)
 `SkiResortHubUISystem.QuickRuns.cs`. `quickRuns` is a `RawValueBinding` written by `WriteQuickRuns` (TypeBegin
@@ -328,4 +332,5 @@ empty unless the tool shows a preview. `quickRunsToggle` follows the glade toggl
 owns the gating and logs a refusal with its reason key); `quickRunsSet` calls `QuickRunsToolSystem.HubSet`, which ignores a call while
 the tool is closed and clamps every value. Each call writes one `Hub [quickRuns]` log line; the DUMP gains one `quickRuns:` line.
 `plant` is the whole slope's shortfall (TreeToPlant); buildDone / buildTotal and planting / treesDone / treesTotal carry the staged
-build's and planting's progress (totals 0 when none is in flight); the `stop` key ends either one at its next boundary.
+build's and planting's progress (totals 0 when none is in flight; Undo trees reuses treesDone / treesTotal with planting false);
+the `stop` key ends either one at its next boundary. `treesCost` (contract 18) is the planting cost the counts line shows before Plant.

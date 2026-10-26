@@ -23,7 +23,7 @@ namespace SkiResortMod.Systems
         private QuickRunsToolSystem m_Tool;
         private StringTooltip m_Prompt, m_Notice, m_Status, m_Mix, m_Cluster, m_Progress;
         private ProgressTooltip m_Region, m_Scan;
-        private IntTooltip m_Vertical, m_Runs, m_Fee, m_Skiers, m_Plant, m_Remove, m_TreeLine;
+        private IntTooltip m_Vertical, m_Runs, m_Fee, m_Skiers, m_Plant, m_Remove, m_TreeCost, m_TreeLine;
         private readonly StringTooltip[] m_Warn = new StringTooltip[MaxWarnings];
         private readonly string[] m_LastWarn = new string[MaxWarnings];
         private string m_LastPrompt, m_LastNotice, m_LastStatus, m_LastMix, m_LastCluster, m_LastProgress, m_LoggedPrompt;
@@ -47,6 +47,7 @@ namespace SkiResortMod.Systems
             m_Skiers = new IntTooltip { path = "skiQuickSkiers", label = LocalizedString.Id(P + "SKIERS"), unit = "integer" };
             m_Plant = new IntTooltip { path = "skiQuickPlant", label = LocalizedString.Id(P + "TREES_PLANT"), unit = "integer" };
             m_Remove = new IntTooltip { path = "skiQuickRemove", label = LocalizedString.Id(P + "TREES_REMOVE"), unit = "integer" };
+            m_TreeCost = new IntTooltip { path = "skiQuickTreeCost", label = LocalizedString.Id(P + "TREES_COST"), unit = "money" };
             m_TreeLine = new IntTooltip { path = "skiQuickTreeLine", label = LocalizedString.Id(P + "TREE_LINE"), unit = "length" };
             for (int i = 0; i < MaxWarnings; i++)
                 m_Warn[i] = new StringTooltip { path = "skiQuickWarn" + i, color = TooltipColor.Warning };
@@ -179,6 +180,13 @@ namespace SkiResortMod.Systems
             {
                 m_Remove.value = m_Tool.TreeRemove;
                 AddMouseTooltip(m_Remove);
+            }
+            // What Plant will cost (the fee line's money widget): before Plant only, from the ready preview's Temp cost
+            int cost = m_Tool.TreeCost;
+            if (cost > 0 && !m_Tool.Planting && !m_Tool.RemovingTrees)
+            {
+                m_TreeCost.value = cost;
+                AddMouseTooltip(m_TreeCost);
             }
             float line = m_Tool.TreeLine;
             if (!float.IsInfinity(line) && line < m_Tool.GroundMax + QuickRunsRules.TreeLineStepM)

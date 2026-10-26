@@ -56,6 +56,7 @@ namespace GradeBatch
             Ribbon();
             CrossingRatings();
             FadeAndAlongside();
+            InsideRuns();
             Console.WriteLine($"SUMMARY GradeBatch: {s_Checks} checks, {s_Failures} failure(s)");
             Environment.ExitCode = s_Failures;
             return s_Failures;
@@ -86,7 +87,7 @@ namespace GradeBatch
             var g = new float[s.Path.Count];
             for (int i = 0; i < g.Length; i++)
                 g[i] = ground(s.Path.Xz[i]);
-            s.Prof = GradeProfile.Solve(s.Path, g, p, pin ? GradeRaster.PinMask(s.Path, keep, p.CrossBlendM) : null);   // the tool's pipeline: pins inside crossed runs
+            s.Prof = GradeProfile.Solve(s.Path, g, p, pin ? GradeRaster.PinTolerance(s.Path, keep, p) : null);   // the tool's pipeline: held in the fade, within InsideMaxM inside
             if (raster && GradeRaster.Bounds(Map, s.Path, s.Prof, p, out int4 rect, out float reach))
             {
                 s.Reach = reach;
@@ -657,19 +658,13 @@ namespace GradeBatch
             Check(fail == GradeRibbonFail.None && ring.Length < 1000, "GR-19 mountain ring", $"{fail}, {ring?.Length} nodes");
         }
 
-        /// <summary>The game's terrain read for the rater, headless: bilinear over texel centers (TerrainUtils.SampleHeight's shape) of
-        /// the graded raster where it covers the texel, else the analytic ground.</summary>
+        /// <summary>The test ground read like the game's TerrainUtils.SampleHeight: bilinear over texel centers. GradeRaster.Sampler (the
+        /// tool's own) reads the raster over it.</summary>
         private struct GradedSampler : IHeightSampler
         {
             public Func<float2, float> Ground;
-            public GradeRaster R;   // null = the ground before grading
 
-            private float H(int i, int j)
-            {
-                if (R != null && i >= R.X0 && i < R.X0 + R.W && j >= R.Z0 && j < R.Z0 + R.H)
-                    return R.After[R.Index(i, j)];
-                return Ground(Map.TexelCenter(i, j));
-            }
+            private float H(int i, int j) => Ground(Map.TexelCenter(i, j));
 
             public float Sample(float3 world)
             {
@@ -682,7 +677,8 @@ namespace GradeBatch
 
         private static SlopeResult RateOn(float2[] outline, Func<float2, float> ground, GradeRaster graded, out RateStatus status)
         {
-            var sampler = new GradedSampler { Ground = ground, R = graded };
+            var bilinear = new GradedSampler { Ground = ground };   // the test ground read like TerrainUtils.SampleHeight (texel centers)
+            var sampler = new GradeRaster.Sampler { Map = Map, R = graded, After = true, Outside = w => bilinear.Sample(w) };
             var nodes = new float3[outline.Length];
             for (int i = 0; i < outline.Length; i++)
                 nodes[i] = new float3(outline[i].x, sampler.Sample(new float3(outline[i].x, 0f, outline[i].y)), outline[i].y);
@@ -701,7 +697,8 @@ namespace GradeBatch
         /// legs but up to ~29 % at a hairpin graded to 25 % (20 m windows at the bend). Measured, printed. (b) A run crossed by a 20 m
         /// track: graded straight through (no keep), a flat bench flips green 20-24 % runs to blue, blue 37 % to black, black 50 % to
         /// double black (printed); with the crossed run's outline kept (GradeRaster.Build keep, the tool's way) the run keeps its band
-        /// and its ground inside. (c) KeepWeight / Inside / CrossingSteepSample: a level traverse is fine, a diagonal down a 45 % run is not.</summary>
+        /// and its band (since DECISIONS 420 inside changes stay within InsideMaxM). (c) KeepWeight / Inside / the final-surface guard: a
+        /// level traverse is fine, a diagonal down a 45 % run is not.</summary>
         private static void CrossingRatings()
         {
             var p = new GradeParams();
@@ -734,7 +731,7 @@ namespace GradeBatch
                 Check(rsb == RateStatus.Rated && rsk == RateStatus.Rated && rk.Band == rb.Band, "GR-20b band kept",
                       $"{fall:P0}: {Rated(rb, rsb)} -> {Rated(rk, rsk)}");
                 Check(math.abs(rk.RatingGrade - rb.RatingGrade) < 0.01f, "GR-20b crux kept", $"{fall:P0}: crux {rb.RatingGrade:P1} -> {rk.RatingGrade:P1}");
-                Check(kept.Raster.KeptTexels > 0, "GR-20b kept texels", kept.Raster.Describe());
+                Check(kept.Raster.KeptTexels + kept.Raster.InsideTexels > 0, "GR-20b inside texels", kept.Raster.Describe());
                 int inside = 0, moved = 0;
                 for (int j = kept.Raster.Z0; j < kept.Raster.Z0 + kept.Raster.H; j++)
                 {
@@ -744,12 +741,12 @@ namespace GradeBatch
                             continue;
                         inside++;
                         int t = kept.Raster.Index(i, j);
-                        if (kept.Raster.After[t] != kept.Raster.Before[t] || kept.Raster.Zone[t] != 0)
+                        if (math.abs(kept.Raster.After[t] - kept.Raster.Before[t]) > p.InsideMaxM + 1e-3f)
                             moved++;
                     }
                 }
-                Check(inside > 0 && moved == 0, "GR-20b ground kept", $"{moved} of {inside} texel(s) inside the crossed run changed");
-                Check(GradeRaster.CrossingSteepSample(kept.Path, kept.Prof.Ground, new List<float2[]> { run }, p.MaxGrade) < 0,
+                Check(inside > 0 && moved == 0, "GR-20b inside within the allowance", $"{moved} of {inside} texel(s) inside the crossed run moved over {p.InsideMaxM} m");
+                Check(kept.Raster.AlongTrackSteepSample(Map, kept.Path, new List<float2[]> { run }, p.CrossBlendM, p.MaxGrade) < 0,
                       "GR-20b level crossing", "a near-level traverse is no steep crossing");
             }
 
@@ -764,8 +761,8 @@ namespace GradeBatch
             Func<float2, float> steep = xz => 1000f + 0.45f * xz.y;
             float2[] steepRun = { new float2(-30, 0), new float2(30, 0), new float2(30, 300), new float2(-30, 300) };
             var diag = Solve(Line(new float2(-150, 300), new float2(150, 0)), steep, p, true, new List<float2[]> { steepRun });
-            int at = GradeRaster.CrossingSteepSample(diag.Path, diag.Prof.Ground, new List<float2[]> { steepRun }, p.MaxGrade);
-            Check(at >= 0 && GradeRaster.Inside(steepRun, diag.Path.Xz[at]), "GR-20c steep crossing",
+            int at = diag.Raster.AlongTrackSteepSample(Map, diag.Path, new List<float2[]> { steepRun }, p.CrossBlendM, p.MaxGrade);
+            Check(at >= 0, "GR-20c steep crossing",
                   $"a diagonal down a 45 % run (ground {0.45f * 300f / math.length(new float2(300, 300)):P0} along the track) must trip CrossingSteep (sample {at})");
         }
 
@@ -791,9 +788,7 @@ namespace GradeBatch
             var g = new float[s.Path.Count];
             for (int i = 0; i < g.Length; i++)
                 g[i] = ground(s.Path.Xz[i]);
-            pl.GuardAt = GradeRaster.CrossingSteepSample(s.Path, g, keep, p.MaxGrade);
-            if (pl.GuardAt < 0)
-                pl.GuardAt = s.Raster.AlongTrackSteepSample(Map, s.Path, keep, p.CrossBlendM, p.MaxGrade);
+            pl.GuardAt = s.Raster.AlongTrackSteepSample(Map, s.Path, keep, p.CrossBlendM, p.MaxGrade);
             pl.FadeMaxGrade = FadeBandMaxGrade(s.Raster, s.Path, keep, p.CrossBlendM, out int _);
             return pl;
         }
@@ -914,6 +909,96 @@ namespace GradeBatch
             }
             Console.WriteLine($"INFO  GR-21 case 4 step across the kept outline beside the track (over the hillside's own 30 %): up to {edge:F2} m between neighboring texels");
             Check(top > 0 && off == 0, "GR-21 bench beside a run", $"{off} of {top} flat-top texels moved (worst {worst:F2} m) by a run the track never enters");
+        }
+
+        /// <summary>GR-22 (DECISIONS 420, 2026-10-26): grading INSIDE a crossed run. (a) The along-track correction is clamped to InsideMaxM:
+        /// a flat constant-grade track over a raised plateau inside a run cuts 2.0 m of a 2.0 m plateau and 2.0 m of a 2.1 m one (0.1 m stays),
+        /// half that 5 m inside the outline (the 10 m inward fade), none outside the flat top beyond the side fade; the cross slope is the
+        /// ground's (no bench). (b) The allowance steps down until the crossed run keeps its rated band: a 23.5 % green run under a raised
+        /// constant-grade track turns Blue at 2 m (crux 26 %); the chooser takes 1 m, which keeps it Green.
+        /// (c) A level traverse of 15-52 % runs keeps their bands at the full 2 m.</summary>
+        private static void InsideRuns()
+        {
+            float2[] run = { new float2(-60, -60), new float2(60, -60), new float2(60, 60), new float2(-60, 60) };
+            var keep = new List<float2[]> { run };
+            foreach (float plateau in new[] { 2.0f, 2.1f })
+            {
+                Func<float2, float> ground = xz => 1000f + (math.abs(xz.x) < 45f && math.abs(xz.y) < 45f ? plateau : 0f);
+                var pc = new GradeParams { Mode = GradeProfileMode.ConstantGrade };
+                var s = Solve(Line(new float2(-200, 0.25f), new float2(200, 0.25f)), ground, pc, true, keep);
+                float At(float x, float z)
+                {
+                    float2 t = Map.ToTexel(new float2(x, z));
+                    int i = (int)math.round(t.x), j = (int)math.round(t.y);
+                    return s.Raster.After[s.Raster.Index(i, j)] - s.Raster.Before[s.Raster.Index(i, j)];
+                }
+                float center = At(0f, 0f);
+                float edge = At(-55f, 0f);      // 5 m inside the outline: half the inward fade (ground there is the plain, no plateau)
+                float wide = At(0f, 40f);       // 30 m off the flat top: beyond the 10 m side fade
+                Console.WriteLine(string.Format(CultureInfo.InvariantCulture, "INFO  GR-22a plateau {0:F1} m inside a run: center change {1:F2} m, " +
+                    "5 m in from the edge {2:F2} m, 30 m off the track {3:F2} m; {4}", plateau, center, edge, wide, s.Raster.Describe()));
+                Check(math.abs(center + 2.0f) < 0.02f, "GR-22a clamp", $"plateau {plateau:F1} m: the center is cut {-center:F2} m, expected 2.0");
+                Check(math.abs(wide) < 1e-3f, "GR-22a side fade", $"30 m off the track nothing changes ({wide:F3} m)");
+                Check(s.Raster.MaxInsideM <= pc.InsideMaxM + 1e-4f, "GR-22a never over 2 m", $"max inside change {s.Raster.MaxInsideM:F3} m");
+            }
+            // The inward fade alone: a 2 m plateau reaching the outline's edge, cut at 5 m in (half the 10 m fade) about 1 m
+            {
+                Func<float2, float> wall = xz => 1000f + (math.abs(xz.x) < 70f && math.abs(xz.y) < 45f ? 2f : 0f);
+                var pc = new GradeParams { Mode = GradeProfileMode.ConstantGrade };
+                var s = Solve(Line(new float2(-200, 0.25f), new float2(200, 0.25f)), wall, pc, true, keep);
+                float2 t = Map.ToTexel(new float2(-55f, 0f));
+                int ti = (int)math.round(t.x), tj = (int)math.round(t.y);
+                float2 c = Map.TexelCenter(ti, tj);
+                float expect = -2f * math.saturate((60f + c.x) / pc.InsideFadeM);
+                float got = s.Raster.After[s.Raster.Index(ti, tj)] - s.Raster.Before[s.Raster.Index(ti, tj)];
+                Check(math.abs(got - expect) < 0.05f, "GR-22a inward fade", $"at x {c.x:F2} ({60f + c.x:F2} m in): {got:F2} m, expected {expect:F2} m");
+            }
+
+            // (b) a 40 m wide 23.5 % green run under a constant-grade track whose ramp rides 3-4 m above it (a 6 m mound under the track's
+            // start): the full 2 m fill along the corridor would turn the run Blue, 1 m keeps it Green
+            {
+                Func<float2, float> wobble = xz => 1000f + 0.235f * xz.y + 6f * math.saturate((-120f - xz.x) / 40f);
+                float2[] runB = { new float2(-20, -150), new float2(20, -150), new float2(20, 150), new float2(-20, 150) };
+                var keepB = new List<float2[]> { runB };
+                var track = Line(new float2(-200, 0.25f), new float2(200, 0.25f));
+                SlopeResult b0 = RateOn(runB, wobble, null, out RateStatus st0);
+                var bands = new Dictionary<float, SlopeBand>();
+                bool KeepsBand(float a)
+                {
+                    var pa = new GradeParams { InsideMaxM = a, Mode = GradeProfileMode.ConstantGrade };
+                    var sa = Solve(track, wobble, pa, true, keepB);
+                    SlopeResult ra = RateOn(runB, wobble, sa.Raster, out RateStatus sta);
+                    bands[a] = ra.Band;
+                    return sta == RateStatus.Rated && ra.Band == b0.Band;
+                }
+                bool full = KeepsBand(2f);
+                float chosen = GradeRaster.ChooseInsideAllowance(KeepsBand);
+                Console.WriteLine($"INFO  GR-22b 23.5 % green run under a raised constant-grade track: before {Rated(b0, st0)}; at 2 m {bands[2f]}; chosen allowance {chosen:F1} m " +
+                                  $"({string.Join(", ", bands)})");
+                Check(st0 == RateStatus.Rated && !full, "GR-22b the case is real", $"at 2 m the band must change ({b0.Band} -> {bands[2f]})");
+                Check(chosen >= 0f && chosen < 2f, "GR-22b reduced", $"a smaller allowance keeps the band (chosen {chosen})");
+                Check(chosen < 0f || bands[chosen] == b0.Band, "GR-22b band kept", $"chosen {chosen}: {bands[chosen]} vs {b0.Band}");
+            }
+            // (c) a level traverse of a 15 % run over a short 1.5 m bump ON the track line (37.5 % along the track): the ground inside the run is
+            // steeper than the limit, which the old rule refused ("cross it more level"); within 2 m the profile flattens it and the track builds
+            {
+                Func<float2, float> bump = xz => 1000f + 0.15f * xz.y + 1.5f * math.max(0f, 1f - math.abs(xz.x) / 4f);
+                float2[] runC = { new float2(-30, -150), new float2(30, -150), new float2(30, 150), new float2(-30, 150) };
+                var keepC = new List<float2[]> { runC };
+                var c = Plan(Line(new float2(-150, 0.25f), new float2(150, 0.25f)), bump, new GradeParams(), keepC);
+                float steepGround = 0f;
+                for (int i = 0; i < c.Path.Count - 1; i++)
+                    if (GradeRaster.Inside(runC, c.Path.Xz[i]) && GradeRaster.Inside(runC, c.Path.Xz[i + 1]))
+                        steepGround = math.max(steepGround, math.abs(c.Prof.Ground[i + 1] - c.Prof.Ground[i]) / (c.Path.S[i + 1] - c.Path.S[i]));
+                Console.WriteLine($"INFO  GR-22c bump on the track inside a 15 % run: ground up to {steepGround:P1} along the track, final surface {c.FadeMaxGrade:P1}, " +
+                                  $"guard {c.GuardAt}; {c.Raster.Describe()}");
+                Check(steepGround > 0.30f, "GR-22c the case is real", $"the ground inside must be steeper than the limit ({steepGround:P1})");
+                Check(c.GuardAt < 0 && c.FadeMaxGrade <= 0.26f, "GR-22c built inside", $"surface {c.FadeMaxGrade:P1}, guard {c.GuardAt}");
+                Check(c.Raster.InsideTexels > 0 && c.Raster.MaxInsideM <= 2f + 1e-4f, "GR-22c corrected within 2 m", c.Raster.Describe());
+            }
+            Check(GradeRaster.ChooseInsideAllowance(a => false) == -1f, "GR-22b refused", "no allowance keeps the band: -1 (guard CrossedRunBand)");
+            Check(GradeRaster.ChooseInsideAllowance(a => true) == 2f, "GR-22b full", "the first step is 2 m");
+            Check(GradeParams.InsideAllowanceSteps[GradeParams.InsideAllowanceSteps.Length - 1] == 0f, "GR-22b last step", "the last step is 0 (the old keep)");
         }
 
         private static float Area(float2[] ring)

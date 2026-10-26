@@ -180,6 +180,9 @@ namespace SkiResortMod.Systems
             writer.Write(t.RemovingTrees ? t.RemoveDone : t.PlantDone);
             writer.PropertyName("treesTotal");
             writer.Write(t.Planting ? t.PlantTotal : t.RemovingTrees ? t.RemoveTotal : 0);
+            // What Plant will cost (contract 18): the ready preview's Temp cost per tree times the trees to plant; 0 without a preview
+            writer.PropertyName("treesCost");
+            writer.Write(t.TreeCost);
             writer.TypeEnd();
         }
 

@@ -371,7 +371,7 @@ namespace SkiResortMod.Systems
             string notice = stopped ? NoticeKey("STOPPED") : m_BuildPartial ? NoticeKey("PARTIAL") : NoticeKey("BUILT");
             Say($"QuickRuns [build]: {(stopped ? "STOPPED" : m_BuildPartial ? "PARTLY BUILT" : "BUILT")} — {m_Batch.Count} of {m_BuildTotal} " +
                 $"run(s) permanent in {m_BuildChunk} chunk(s), {wall} (they bind to the nearest Ski Area Welcome Sign and pay their fees like " +
-                $"drawn runs; bind line in {BindCheckFrames} frames); right click or the hub's Undo removes the batch with a refund", notice);
+                $"drawn runs; bind line in {BindCheckFrames} frames); the hub's Undo removes the batch with a refund (right click does not)", notice);
             m_StopBuild = m_BuildPartial = false;
             Bump();
         }

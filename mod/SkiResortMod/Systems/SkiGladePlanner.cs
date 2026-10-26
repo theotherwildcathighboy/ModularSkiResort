@@ -85,6 +85,16 @@ namespace SkiResortMod.Systems
         public const float DefaultAreaCellM = 2.5f;
     }
 
+    /// <summary>Cooperative cancel for a plan / compose running on a worker thread (the Quick runs tree filler): the owner calls Request,
+    /// the planner polls between dart-throw batches and quadrature rows and stops early with GladePlan.Canceled set. A canceled plan
+    /// is incomplete: callers drop it (never cached, never emitted). Null everywhere = the uncanceled code path, unchanged.</summary>
+    public sealed class GladeCancel
+    {
+        private volatile bool m_Requested;
+        public bool Requested => m_Requested;
+        public void Request() => m_Requested = true;
+    }
+
     public struct PlantedTree
     {
         public float3 Position;
@@ -114,9 +124,13 @@ namespace SkiResortMod.Systems
         /// target reads it.</summary>
         public float MaskedArea;
 
+        /// <summary>A GladeCancel stopped this plan early: incomplete, never to be used.</summary>
+        public bool Canceled;
+
         public void Clear()
         {
             MaskedArea = 0f;
+            Canceled = false;
             Planted.Clear();
             Thinned.Clear();
             Status = GladeStatus.Ok;
@@ -226,6 +240,16 @@ namespace SkiResortMod.Systems
                                        GladeObstacle[] obstaclesOrNull, float3[] existingOrNull, bool[] thinnableOrNull,
                                        float3[][] exclusionRingsOrNull, GladeMask maskOrNull, GladePlan output)
         {
+            return Plan(ring, trianglesOrNull, seed, in p, obstaclesOrNull, existingOrNull, thinnableOrNull, exclusionRingsOrNull, maskOrNull,
+                null, output);
+        }
+
+        /// <summary>Plan with a cancel flag (null = the overload above): polled every 1024 attempts and every quadrature row; a request
+        /// ends the plan early with output.Canceled set.</summary>
+        public static GladeStatus Plan(float3[] ring, int3[] trianglesOrNull, uint seed, in GladeParams p,
+                                       GladeObstacle[] obstaclesOrNull, float3[] existingOrNull, bool[] thinnableOrNull,
+                                       float3[][] exclusionRingsOrNull, GladeMask maskOrNull, GladeCancel cancelOrNull, GladePlan output)
+        {
             if (output == null)
                 output = new GladePlan(); // never throw; the caller simply gets nothing back
             output.Clear();
@@ -301,8 +325,14 @@ namespace SkiResortMod.Systems
                 double gladeArea = poly.Area;
                 if (mask != null)
                 {
-                    gladeArea = mask.Area(poly);
+                    gladeArea = mask.Area(poly, cancelOrNull);
                     output.MaskedArea = (float)gladeArea;
+                    if (cancelOrNull != null && cancelOrNull.Requested)
+                    {
+                        output.Canceled = true;
+                        output.Status = status;
+                        return status;
+                    }
                 }
                 double raw = math.floor(k.GladeDensity * gladeArea + 0.5) - survivorsInside;
                 output.RawTargetGlade = RawToInt(raw);
@@ -316,6 +346,11 @@ namespace SkiResortMod.Systems
                     int placed = 0;
                     while (placed < target && attempts < maxAttempts)
                     {
+                        if (cancelOrNull != null && (attempts & 1023) == 0 && cancelOrNull.Requested)
+                        {
+                            output.Canceled = true;
+                            break;
+                        }
                         attempts++;
                         float uTri = rng.NextFloat();
                         float2 bary = rng.NextFloat2();
@@ -377,6 +412,11 @@ namespace SkiResortMod.Systems
                     int placed = 0;
                     while (placed < target && attempts < maxAttempts)
                     {
+                        if (cancelOrNull != null && (attempts & 1023) == 0 && cancelOrNull.Requested)
+                        {
+                            output.Canceled = true;
+                            break;
+                        }
                         attempts++;
                         float uEdge = rng.NextFloat();
                         float uT = rng.NextFloat();
@@ -930,7 +970,7 @@ namespace SkiResortMod.Systems
 
             /// <summary>Allowed area inside the polygon: cell centers of a grid anchored at the polygon's bounds minimum, counted when
             /// inside and allowed, times the cell area. The cell grows when the bounds would need more than MaxAreaSamples.</summary>
-            public double Area(Polygon poly)
+            public double Area(Polygon poly, GladeCancel cancel = null)
             {
                 double4 bb = poly.Bounds;
                 double w = bb.z - bb.x, d = bb.w - bb.y;
@@ -944,6 +984,8 @@ namespace SkiResortMod.Systems
                 long count = 0;
                 for (long j = 0; j < nz; j++)
                 {
+                    if (cancel != null && cancel.Requested)
+                        return 0.0;   // the caller sees the request and drops the plan
                     double z = bb.y + (j + 0.5) * cell;
                     for (long i = 0; i < nx; i++)
                     {
