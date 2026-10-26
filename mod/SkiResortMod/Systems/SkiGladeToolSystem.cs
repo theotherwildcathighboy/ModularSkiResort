@@ -28,7 +28,7 @@ using Unity.Mathematics;
 
 namespace SkiResortMod.Systems
 {
-    public sealed partial class SkiGladeToolSystem : ToolBaseSystem
+    public sealed partial class SkiGladeToolSystem : ToolBaseSystem, IGladeTagSource
     {
 
         /// <summary>The variant every new planting is tagged with (the layout shuffle is not reachable)</summary>
@@ -156,6 +156,13 @@ namespace SkiResortMod.Systems
 
         /// <summary>Target of the plan being applied. Valid while ApplyingRun != Null.</summary>
         public bool ApplyingTreeLine => m_ApplyingTreeLine;
+
+        // IGladeTagSource (SkiGladeTagSystem): this tool plants for a run, so an Apply frame is ApplyingRun != Null, exactly the old guard.
+        bool IGladeTagSource.ApplyingNow => ApplyingRun != Entity.Null;
+        Entity IGladeTagSource.ApplyingRun => ApplyingRun;
+        byte IGladeTagSource.ApplyingLayer => m_ApplyingLayer;
+        byte IGladeTagSource.ApplyingVariant => NewPlantingVariant;
+        void IGladeTagSource.OnTagged(Unity.Collections.NativeList<Entity> created) { }
 
         /// <summary>The last compose's counts for the planned run (tooltip "Trees now N", "Target T"); valid while PlanHasCounts. Plain fields.</summary>
         public bool PlanHasCounts;
@@ -2079,7 +2086,7 @@ namespace SkiResortMod.Systems
         /// <summary>What Compose reads: MinSpacing of the target layer (GladeMinSpacing interior, BeltMinSpacing tree line), margins,
         /// belt shape (BeltDensity stays the belt; Compose scales it by BeltFactor(L)), species, ages, AttemptsPerTree. Mode /
         /// ThinFraction / GladeDensity / MaxPlant are set consistently but not read.</summary>
-        private static GladeParams BuildParams(bool treeLine, int speciesCount)
+        internal static GladeParams BuildParams(bool treeLine, int speciesCount)
         {
             var p = new GladeParams
             {
@@ -2143,7 +2150,7 @@ namespace SkiResortMod.Systems
         /// Overridden object from the census (SearchSystem.cs:106, 138-140; OverrideSystem.cs:74-80, 132-140, 158-161 keep IsTree and
         /// clear NotOverridden), and Overridden map trees would come back as "new" wild trees once a fell un-overrode them
         /// (OverrideSystem.cs:1777-1791). Collects bounds hits; the position test runs on the main thread.</summary>
-        private struct TreeBoundsIterator : INativeQuadTreeIterator<Entity, QuadTreeBoundsXZ>,
+        internal struct TreeBoundsIterator : INativeQuadTreeIterator<Entity, QuadTreeBoundsXZ>,
             IUnsafeQuadTreeIterator<Entity, QuadTreeBoundsXZ>
         {
             public Bounds2 m_Bounds;
@@ -2289,9 +2296,19 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>Census split: this run's usable members -> Own; everything else tagged -> Existing, never thinnable</summary>
+        /// <summary>Census split: this run's usable members -> Own; Quick runs filler trees (LayerFiller) count as wild trees
+        /// (DECISIONS 415: a run drawn later over the filler can clear it); everything else tagged -> Existing, never thinnable</summary>
         private void AddMember(Entity e, float3 position, SkiRunTreeMember member, Entity run, bool inside)
         {
+            if (member.m_Layer == SkiRunTreeMember.LayerFiller)
+            {
+                bool canThin = inside && IsThinnable(e);
+                m_Candidates.Add(new Candidate { Entity = e, Position = position, Thinnable = canThin });
+                if (!inside) m_CenBand++;
+                else if (canThin) m_CenWildInside++;
+                else m_CenFixedInside++;
+                return;
+            }
             if (member.m_Run == run)
             {
                 if (!EntityManager.HasComponent<Owner>(e) && !EntityManager.HasComponent<Game.Events.OnFire>(e))
@@ -2326,8 +2343,8 @@ namespace SkiResortMod.Systems
                 return false;
             if (EntityManager.HasComponent<Game.Events.OnFire>(e))
                 return false;
-            if (EntityManager.HasComponent<SkiRunTreeMember>(e))
-                return false;
+            if (EntityManager.TryGetComponent(e, out SkiRunTreeMember member) && member.m_Layer != SkiRunTreeMember.LayerFiller)
+                return false;   // filler trees are wild (DECISIONS 415)
             return EntityManager.TryGetComponent(e, out PrefabRef pr) &&
                    EntityManager.HasComponent<TreeData>(pr.m_Prefab);
         }
@@ -2392,13 +2409,23 @@ namespace SkiResortMod.Systems
             int species = tree.Species;
             if (species < 0 || species >= m_SpeciesEntities.Count)
                 species = 0;
-            Entity prefab = m_SpeciesEntities[species];
-            float3 pos = tree.Position;
+            if (!EmitPlantDefinition(ecb, ref heightData, m_SpeciesEntities[species], m_SpeciesOffsetY[species], tree, out float3 pos))
+                return false;
+            m_EmittedSlots[PositionKey(pos)] = slot;
+            return true;
+        }
+
+        /// <summary>The planted-tree definition (EmitPlant; shared with the Quick runs tree filler). pos = the definition position (the
+        /// Temp's Transform verbatim). False for a non-finite position or rotation.</summary>
+        internal static bool EmitPlantDefinition(EntityCommandBuffer ecb, ref TerrainHeightData heightData, Entity prefab, float offsetY,
+            PlantedTree tree, out float3 pos)
+        {
+            pos = tree.Position;
             if (!math.all(math.isfinite(pos.xz)) || !math.isfinite(tree.Rotation))
                 return false;
             // SampleTransform ground branch (:1052-1055): terrain height + placement offset. Trees are not Hovering/Shoreline/Floating
             // (unverified per species; the vanilla water branches are not replicated, water hits are Optional-canceled anyway).
-            pos.y = TerrainUtils.SampleHeight(ref heightData, pos) + m_SpeciesOffsetY[species];
+            pos.y = TerrainUtils.SampleHeight(ref heightData, pos) + offsetY;
             quaternion rot = quaternion.RotateY(tree.Rotation);
 
             Entity e = ecb.CreateEntity();
@@ -2426,7 +2453,6 @@ namespace SkiResortMod.Systems
                 m_IsDecoration = true,
             });
             ecb.AddComponent(e, default(Updated));
-            m_EmittedSlots[PositionKey(pos)] = slot;
             return true;
         }
 
@@ -2435,11 +2461,14 @@ namespace SkiResortMod.Systems
         /// GenerateObjectsSystem.cs:744-746); the ObjectDefinition is mandatory (:362-388). Result: Temp{Delete|Essential}, a refund only
         /// when the original carries Recent (:1007-1014), Hidden on the original (:974-978); Apply adds Deleted to the original
         /// (ApplyObjectsSystem.cs:342-352, 484-504).</summary>
-        private bool EmitThin(EntityCommandBuffer ecb, Entity tree, out float3 position)
+        private bool EmitThin(EntityCommandBuffer ecb, Entity tree, out float3 position) => EmitThinDefinition(EntityManager, ecb, tree, out position);
+
+        /// <summary>EmitThin's body, shared with the Quick runs tree filler (its misplaced members and its undo).</summary>
+        internal static bool EmitThinDefinition(EntityManager em, EntityCommandBuffer ecb, Entity tree, out float3 position)
         {
             position = default;
-            if (!EntityManager.Exists(tree) || EntityManager.HasComponent<Deleted>(tree) ||
-                !EntityManager.TryGetComponent(tree, out Game.Objects.Transform tr))
+            if (!em.Exists(tree) || em.HasComponent<Deleted>(tree) ||
+                !em.TryGetComponent(tree, out Game.Objects.Transform tr))
                 return false;
             position = tr.m_Position;
 
@@ -2452,7 +2481,7 @@ namespace SkiResortMod.Systems
                 m_Probability = 100,
                 m_PrefabSubIndex = -1,
             };
-            if (EntityManager.TryGetComponent(tree, out Game.Objects.Elevation elevation))
+            if (em.TryGetComponent(tree, out Game.Objects.Elevation elevation))
             {
                 od.m_Elevation = elevation.m_Elevation;
                 od.m_ParentMesh = Game.Objects.ObjectUtils.GetSubParentMesh(elevation.m_Flags);
@@ -2491,7 +2520,7 @@ namespace SkiResortMod.Systems
             }
         }
 
-        private static long PositionKey(float3 p)
+        internal static long PositionKey(float3 p)
         {
             unchecked
             {

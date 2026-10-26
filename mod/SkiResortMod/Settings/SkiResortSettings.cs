@@ -38,6 +38,7 @@ namespace SkiResortMod.Settings
     [SettingsUIKeyboardAction(ActToggleLiftLine)]
     [SettingsUIKeyboardAction(ActBuildLiftLine)]
     [SettingsUIKeyboardAction(ActToggleCatTrackGrade)]
+    [SettingsUIKeyboardAction(ActToggleQuickRuns)]
     public sealed class SkiResortSettings : ModSetting
     {
         public const string SectionMain = "Main";
@@ -62,6 +63,7 @@ namespace SkiResortMod.Settings
         public const string ActToggleLiftLine = "ToggleLiftLineTool";
         public const string ActBuildLiftLine = "BuildLiftLine";
         public const string ActToggleCatTrackGrade = "ToggleCatTrackGradeTool";
+        public const string ActToggleQuickRuns = "ToggleQuickRunsTool";
 
         public const int DefaultAttractivenessScaleK = 4;
         public const int DefaultBackcountryValuePercent = 40;
@@ -321,6 +323,11 @@ namespace SkiResortMod.Settings
         [SettingsUISection(SectionMain, GroupRuns)]
         public bool CatTrackGradeConstant { get; set; }
 
+        /// <summary>The Quick runs tool (experimental, DECISIONS 404): outline a region, the planner proposes runs, Enter builds them. Off =
+        /// the tool cannot open, its key is inert and the hub button is grayed with the reason. Read live by QuickRunsToolSystem.OptionOn.</summary>
+        [SettingsUISection(SectionMain, GroupRuns)]
+        public bool QuickRunsEnabled { get; set; }
+
 
         /// <summary>Station alignment aid (guide line and offset readout while a station is placed or nudged) and the bulldozer warning
         /// on a lift (SkiStationAlignSystem + SkiLiftTooltipSystem). Read live every frame by those systems.</summary>
@@ -389,6 +396,12 @@ namespace SkiResortMod.Settings
         [SettingsUISection(SectionMain, GroupKeybindings)]
         public ProxyBinding ToggleCatTrackGradeToolBinding { get; set; }
 
+        /// <summary>Toggles the Quick runs tool (default Ctrl+Shift+Q). Polled by QuickRunsHotkeySystem in a loaded city; inert while the
+        /// QuickRunsEnabled option is off. The tool scans and builds with the BuildLiftLine key (Enter).</summary>
+        [SettingsUIKeyboardBinding(BindingKeyboard.Q, ActToggleQuickRuns, ctrl: true, shift: true)]
+        [SettingsUISection(SectionMain, GroupKeybindings)]
+        public ProxyBinding ToggleQuickRunsToolBinding { get; set; }
+
         /// <summary>Write-only button with the game's confirmation dialog (message: GetOptionWarningLocaleID, AutomaticSettings.cs:1146-1166;
         /// same pattern as GeneralSettings.resetSettings, GeneralSettings.cs:138-146). Restores every option and the key bindings to
         /// their defaults, then saves.</summary>
@@ -439,6 +452,7 @@ namespace SkiResortMod.Settings
             CatTrackGradeCutRun = 1.5f;
             CatTrackGradeFillRun = 2f;
             CatTrackGradeConstant = false;
+            QuickRunsEnabled = true;
             ShowHubButton = true;
             OpenHubOnSignSelect = true;
             LiftBuildAids = true;

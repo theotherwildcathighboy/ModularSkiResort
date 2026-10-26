@@ -1,0 +1,214 @@
+// Quick runs tool mouse tooltip, the cat track tooltip's pattern. Mod.cs: UpdateAfter TempCostTooltipSystem at UITooltip. Fixed lines go by
+// LocalizedString.Id (locale keys, root LocaleEN.cs "SkiResort.Tooltip.QUICK_*"); numbers go in number widgets with a localized label
+// (the glade tooltip's IntTooltip idiom), and the two lines that mix several numbers into a sentence (mix, cluster) fill the active
+// dictionary's template (the SkiDaySystem.ReachRowText precedent) and go by Value. The step prompt is always shown while the tool is
+// open, then the build's or the planting's progress line; refusals, notices and warnings follow under it. Zero allocation per frame except when a value changes. A "!!!" ERROR disables
+// the system until the next load.
+// Engine notes: EngineNotes/QuickRunsToolSystem.md (Tooltip)
+
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using Game.UI.Localization;
+using Game.UI.Tooltip;
+using Game.UI.Widgets;
+
+namespace SkiResortMod.Systems
+{
+    public sealed partial class QuickRunsTooltipSystem : TooltipSystemBase
+    {
+        private const string P = QuickRunsRules.TipPrefix;
+        private const int MaxWarnings = 8;
+
+        private QuickRunsToolSystem m_Tool;
+        private StringTooltip m_Prompt, m_Notice, m_Status, m_Mix, m_Cluster, m_Progress;
+        private ProgressTooltip m_Region, m_Scan;
+        private IntTooltip m_Vertical, m_Runs, m_Fee, m_Skiers, m_Plant, m_Remove, m_TreeLine;
+        private readonly StringTooltip[] m_Warn = new StringTooltip[MaxWarnings];
+        private readonly string[] m_LastWarn = new string[MaxWarnings];
+        private string m_LastPrompt, m_LastNotice, m_LastStatus, m_LastMix, m_LastCluster, m_LastProgress, m_LoggedPrompt;
+        private bool m_Disabled;
+
+        protected override void OnCreate()
+        {
+            base.OnCreate();
+            m_Tool = World.GetOrCreateSystemManaged<QuickRunsToolSystem>();
+            m_Prompt = new StringTooltip { path = "skiQuickPrompt", color = TooltipColor.Info };
+            m_Notice = new StringTooltip { path = "skiQuickNotice", color = TooltipColor.Warning };
+            m_Status = new StringTooltip { path = "skiQuickStatus", color = TooltipColor.Error };
+            m_Mix = new StringTooltip { path = "skiQuickMix", color = TooltipColor.Info };
+            m_Cluster = new StringTooltip { path = "skiQuickCluster", color = TooltipColor.Info };
+            m_Progress = new StringTooltip { path = "skiQuickProgress", color = TooltipColor.Info };
+            m_Region = new ProgressTooltip { path = "skiQuickRegion", label = LocalizedString.Id(P + "REGION"), unit = "area", omitMax = false };
+            m_Scan = new ProgressTooltip { path = "skiQuickScan", label = LocalizedString.Id(P + "SCANNING"), unit = "percentage", max = 100f };
+            m_Vertical = new IntTooltip { path = "skiQuickVertical", label = LocalizedString.Id(P + "VERTICAL"), unit = "length" };
+            m_Runs = new IntTooltip { path = "skiQuickRuns", label = LocalizedString.Id(P + "RUNS"), unit = "integer" };
+            m_Fee = new IntTooltip { path = "skiQuickFee", label = LocalizedString.Id(P + "FEE"), unit = "money" };
+            m_Skiers = new IntTooltip { path = "skiQuickSkiers", label = LocalizedString.Id(P + "SKIERS"), unit = "integer" };
+            m_Plant = new IntTooltip { path = "skiQuickPlant", label = LocalizedString.Id(P + "TREES_PLANT"), unit = "integer" };
+            m_Remove = new IntTooltip { path = "skiQuickRemove", label = LocalizedString.Id(P + "TREES_REMOVE"), unit = "integer" };
+            m_TreeLine = new IntTooltip { path = "skiQuickTreeLine", label = LocalizedString.Id(P + "TREE_LINE"), unit = "length" };
+            for (int i = 0; i < MaxWarnings; i++)
+                m_Warn[i] = new StringTooltip { path = "skiQuickWarn" + i, color = TooltipColor.Warning };
+            Mod.Log.Info($"{nameof(QuickRunsTooltipSystem)} created");
+        }
+
+        protected override void OnUpdate()
+        {
+            if (m_Disabled || !m_Tool.IsActive)
+            {
+                m_LoggedPrompt = null;
+                return;
+            }
+            try
+            {
+                string prompt = PromptKey();
+                if (!string.Equals(prompt, m_LoggedPrompt, StringComparison.Ordinal))
+                {
+                    m_LoggedPrompt = prompt;
+                    Mod.Log.Info($"QuickRuns [tooltip]: phase {m_Tool.Phase} — {prompt}");
+                }
+                Show(m_Prompt, ref m_LastPrompt, prompt);
+                string notice = m_Tool.Notice;
+                if (notice != null)
+                    Show(m_Notice, ref m_LastNotice, notice);
+
+                QuickRunsToolSystem.ToolPhase phase = m_Tool.Phase;
+                QuickRegionReadout ro = m_Tool.Readout;
+                if (phase == QuickRunsToolSystem.ToolPhase.Region && ro.State != QuickRegionState.Open)
+                {
+                    m_Region.value = ro.AreaM2;
+                    m_Region.max = m_Tool.MaxAreaM2;
+                    m_Region.color = ro.State == QuickRegionState.Over ? TooltipColor.Error
+                        : ro.State == QuickRegionState.Near || ro.State == QuickRegionState.TooSmall ? TooltipColor.Warning : TooltipColor.Info;
+                    AddMouseTooltip(m_Region);
+                    m_Vertical.value = (int)Math.Round(ro.VerticalM);
+                    AddMouseTooltip(m_Vertical);
+                }
+                // "Building runs 4 / 11", "Planting trees 2,400 / 9,000" (templates, the mix line's idiom)
+                if (m_Tool.Building)
+                    ShowValue(m_Progress, ref m_LastProgress, Template(P + "BUILDING_PROGRESS")
+                        .Replace("{N}", m_Tool.BuildDone.ToString("N0", CultureInfo.InvariantCulture))
+                        .Replace("{M}", m_Tool.BuildTotal.ToString("N0", CultureInfo.InvariantCulture)));
+                else if (m_Tool.Planting)
+                    ShowValue(m_Progress, ref m_LastProgress, Template(P + "PLANTING_PROGRESS")
+                        .Replace("{N}", m_Tool.PlantDone.ToString("N0", CultureInfo.InvariantCulture))
+                        .Replace("{M}", m_Tool.PlantTotal.ToString("N0", CultureInfo.InvariantCulture)));
+                if (phase == QuickRunsToolSystem.ToolPhase.Scanning)
+                {
+                    m_Scan.value = (float)Math.Round(m_Tool.ScanProgress * 100f);
+                    AddMouseTooltip(m_Scan);
+                }
+                string status = m_Tool.StatusKey;
+                if (status != null && phase == QuickRunsToolSystem.ToolPhase.Region)
+                    Show(m_Status, ref m_LastStatus, status);
+                if (m_Tool.HasPreview)
+                    ShowTotals();
+                if (m_Tool.TreesOn)
+                    ShowTrees();
+                IReadOnlyList<string> warnings = m_Tool.WarningKeys;
+                for (int i = 0; i < warnings.Count && i < MaxWarnings; i++)
+                    Show(m_Warn[i], ref m_LastWarn[i], warnings[i]);
+                string clusterKey = m_Tool.HoverClusterKey;
+                if (clusterKey != null)
+                {
+                    string text = Template(clusterKey).Replace("{N}", m_Tool.HoverClusterRuns.ToString());
+                    ShowValue(m_Cluster, ref m_LastCluster, text);
+                }
+            }
+            catch (Exception ex)
+            {
+                m_Disabled = true;
+                Mod.Log.Error($"!!! {nameof(QuickRunsTooltipSystem)} EXCEPTION — Quick runs tooltip disabled until the next game load:\n{ex}");
+            }
+        }
+
+        /// <summary>The step prompt key by phase (root LocaleEN QUICK_PROMPT[*]).</summary>
+        private string PromptKey()
+        {
+            if (m_Tool.Dragging)
+                return P + "PROMPT[Drag]";
+            if (m_Tool.Planting)
+                return P + "PROMPT[Planting]";
+            if (m_Tool.TreesOn && (m_Tool.Phase == QuickRunsToolSystem.ToolPhase.Region || m_Tool.Phase == QuickRunsToolSystem.ToolPhase.Preview))
+                return P + "PROMPT[Trees]";
+            switch (m_Tool.Phase)
+            {
+                case QuickRunsToolSystem.ToolPhase.Scanning:
+                    return P + "PROMPT[Scanning]";
+                case QuickRunsToolSystem.ToolPhase.Preview:
+                    return P + "PROMPT[Preview]";
+                case QuickRunsToolSystem.ToolPhase.Emitted:
+                case QuickRunsToolSystem.ToolPhase.Retry:
+                case QuickRunsToolSystem.ToolPhase.Applying:
+                    return P + "PROMPT[Building]";
+                default:
+                    if (m_Tool.CanUndoBatch && m_Tool.Corners >= 3)
+                        return P + "PROMPT[Built]";
+                    return m_Tool.Corners == 0 ? P + "PROMPT[Start]" : m_Tool.Corners < 3 ? P + "PROMPT[Corners]" : P + "PROMPT[Ready]";
+            }
+        }
+
+        private void ShowTotals()
+        {
+            QuickTotals t = m_Tool.Totals;
+            m_Runs.value = t.Enabled;
+            AddMouseTooltip(m_Runs);
+            string mix = Template(P + "MIX")
+                .Replace("{G}", t.Count[1].ToString()).Replace("{B}", t.Count[2].ToString())
+                .Replace("{K}", t.Count[3].ToString()).Replace("{D}", t.Count[4].ToString())
+                .Replace("{TG}", t.Target[1].ToString()).Replace("{TB}", t.Target[2].ToString())
+                .Replace("{TK}", t.Target[3].ToString()).Replace("{TD}", t.Target[4].ToString());
+            m_Mix.color = t.Variety ? TooltipColor.Success : TooltipColor.Info;
+            ShowValue(m_Mix, ref m_LastMix, mix);
+            m_Fee.value = (int)Math.Min(t.Fee, int.MaxValue);
+            AddMouseTooltip(m_Fee);
+            m_Skiers.value = (int)Math.Round(t.SkiersPerDay);
+            AddMouseTooltip(m_Skiers);
+        }
+
+        private void ShowTrees()
+        {
+            m_Plant.value = m_Tool.TreeToPlant;
+            AddMouseTooltip(m_Plant);
+            if (m_Tool.TreeRemove > 0)
+            {
+                m_Remove.value = m_Tool.TreeRemove;
+                AddMouseTooltip(m_Remove);
+            }
+            float line = m_Tool.TreeLine;
+            if (!float.IsInfinity(line) && line < m_Tool.GroundMax + QuickRunsRules.TreeLineStepM)
+            {
+                m_TreeLine.value = (int)Math.Round(line);
+                AddMouseTooltip(m_TreeLine);
+            }
+        }
+
+        /// <summary>The active dictionary's text for a template key (the SkiDaySystem.ReachRowText precedent); the key itself when absent.</summary>
+        private static string Template(string key)
+        {
+            var dictionary = Game.SceneFlow.GameManager.instance?.localizationManager?.activeDictionary;
+            return dictionary != null && dictionary.TryGetValue(key, out string text) && !string.IsNullOrEmpty(text) ? text : key;
+        }
+
+        private void Show(StringTooltip tip, ref string last, string text)
+        {
+            if (!string.Equals(text, last, StringComparison.Ordinal))
+            {
+                last = text;
+                tip.value = text.StartsWith("SkiResort.", StringComparison.Ordinal) ? LocalizedString.Id(text) : LocalizedString.Value(text);
+            }
+            AddMouseTooltip(tip);
+        }
+
+        private void ShowValue(StringTooltip tip, ref string last, string text)
+        {
+            if (!string.Equals(text, last, StringComparison.Ordinal))
+            {
+                last = text;
+                tip.value = LocalizedString.Value(text);
+            }
+            AddMouseTooltip(tip);
+        }
+    }
+}

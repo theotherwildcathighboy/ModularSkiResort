@@ -94,8 +94,9 @@ namespace SkiResortMod.Systems
             return kind >= (int)RunKind.Groomed && kind <= (int)RunKind.CatTrack;
         }
 
-        /// <summary>LiftServedRule.AssignLinked's leaf flag: a cat track may be served but never passes service on.</summary>
-        public static bool IsServedLeaf(int kind)
+        /// <summary>LiftServedRule's cat track mask (RunLinks.Build / AssignLinked, rule 3, DECISIONS 405): a cat track carries service
+        /// level or downhill (ClimbToleranceM) to the runs it meets lower down; it needs no drop below a junction of its own.</summary>
+        public static bool IsCatTrackLink(int kind)
         {
             return kind == (int)RunKind.CatTrack;
         }

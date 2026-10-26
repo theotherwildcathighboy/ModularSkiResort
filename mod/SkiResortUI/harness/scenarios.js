@@ -154,16 +154,40 @@
 
   const glade = { available: true, active: false, level: 4, treeLine: false, reason: "" };
 
-  const base = { hubOpen: false, contract: 16, buildStamp: "", showHubButton: true, build: buildItems(), glade,
+  // The Quick runs tool (contract 17): closed by default; the "Quick runs open" case below has a preview with trees on (every row drawn).
+  const quickRuns = { available: true, active: false, reason: "", phase: "Region", corners: 0, areaM2: 0, maxAreaM2: 1000000, verticalM: 0,
+    regionState: "Open", progress: 0, mix: 0, density: 1, kinds: 3, runs: 0, enabled: 0, count: [0, 0, 0, 0, 0], target: [0, 0, 0, 0, 0], fee: 0,
+    skiers: 0, variety: false, status: "", warnings: [], clusters: [], batchRuns: 0, notice: "", trees: false, treeLevel: 4, treeLine: -1, groundMin: 0,
+    groundMax: 0, group: 0, species: -1, speciesNames: [], speciesGroups: [], plant: 0, remove: 0, treesUndo: 0,
+    buildDone: 0, buildTotal: 0, planting: false, treesDone: 0, treesTotal: 0 };
+  const quickPreview = Object.assign({}, quickRuns, { active: true, phase: "Preview", corners: 6, areaM2: 812000, verticalM: 640, regionState: "Ok",
+    runs: 12, enabled: 11, count: [0, 3, 5, 3, 0], target: [0, 3, 5, 3, 0], fee: 1840000, skiers: 2350, variety: true,
+    warnings: ["SkiResort.Tooltip.QUICK_WARN[OverWater]", "SkiResort.Tooltip.QUICK_WARN[Renumber]", "SkiResort.Tooltip.QUICK_WARN[ChecksOff]"],
+    clusters: [{ label: "SkiResort.Tooltip.QUICK_CLUSTER", runs: 7 }, { label: "SkiResort.Tooltip.QUICK_POD[Beginner]", runs: 2 },
+      { label: "SkiResort.Tooltip.QUICK_POD[MidStation]", runs: 2 }], trees: true, treeLine: 1820, groundMin: 1210, groundMax: 1850,
+    speciesNames: ["AlderTree01", "BirchTree01", "PineTree01", "SpruceTree01"], speciesGroups: [1, 1, 0, 0], plant: 3120, remove: 140 });
+
+  const base = { hubOpen: false, contract: 17, buildStamp: "", showHubButton: true, build: buildItems(), glade,
     resorts: [], resortLive: [], selectedResort: NULL, runs: [], runLive: [], lifts: [], problems: [], city, pisteMap: true, follow: 0, history: [],
-    liftLine: { available: true, active: false, state: "PickBase" } };
+    liftLine: { available: true, active: false, state: "PickBase" }, quickRuns };
 
   window.SkiScenarios = {
     "not connected (no C#)": Object.assign({}, base, { contract: 0, city: Object.assign({}, city, { known: false }) }),
-    "contract mismatch (DLL 15, UI 16)": Object.assign({}, base, { contract: 15, hubOpen: true }),
+    "contract mismatch (DLL 16, UI 17)": Object.assign({}, base, { contract: 16, hubOpen: true }),
     "connected, empty city": Object.assign({}, base, { hubOpen: true, build: buildItems({ locked: ["lodgeGrand", "liftTram", "baseStationTram", "topStationTram"] }) }),
     "Ash Flat (runs, lifts, problems)": Object.assign({}, base, { hubOpen: true, resorts, resortLive: [live, live2], selectedResort: SIGN, runs, runLive, lifts, problems, history,
       glade: Object.assign({}, glade, { active: true }), build: buildItems({ active: "runGroomed", built: ["school"] }) }),
+    // The Quick runs tool open on a preview with the tree filler on: the Runs view draws every Quick runs row instead of the tree rows.
+    "Quick runs open, Ash Flat (runs, lifts, problems)": Object.assign({}, base, { hubOpen: true, resorts, resortLive: [live, live2], selectedResort: SIGN, runs, runLive,
+      lifts, problems, history, quickRuns: quickPreview, build: buildItems({ built: ["school"] }) }),
+    // A staged build in flight (progress line and Stop, every knob grayed), then a planting in flight (the tree counts line turns into
+    // "Planting trees 2,400 / 9,000").
+    "Quick runs building, Ash Flat (runs, lifts, problems)": Object.assign({}, base, { hubOpen: true, resorts, resortLive: [live, live2], selectedResort: SIGN, runs,
+      runLive, lifts, problems, history, quickRuns: Object.assign({}, quickPreview, { phase: "Emitted", buildDone: 4, buildTotal: 11 }),
+      build: buildItems({ built: ["school"] }) }),
+    "Quick runs planting, Ash Flat (runs, lifts, problems)": Object.assign({}, base, { hubOpen: true, resorts, resortLive: [live, live2], selectedResort: SIGN, runs,
+      runLive, lifts, problems, history, quickRuns: Object.assign({}, quickPreview, { phase: "Region", warnings: [], clusters: [], batchRuns: 11, planting: true,
+        treesDone: 2400, treesTotal: 9000, plant: 6600, treesUndo: 2400 }), build: buildItems({ built: ["school"] }) }),
     // 8 years of history, so "All" draws July-June seasons (over 60 months)
     "Ash Flat, 8 years of history": Object.assign({}, base, { hubOpen: true, resorts, resortLive: [moneyFrom(Object.assign({}, live), h8), live2], selectedResort: SIGN,
       runs, runLive, lifts, problems, history: [h8, history[1]], build: buildItems({ built: ["school"] }) }),

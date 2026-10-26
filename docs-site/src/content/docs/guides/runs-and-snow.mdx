@@ -79,6 +79,26 @@ One action: lay out the track, and **Enter** cuts and fills the ground so it nev
 - **Terrain:** trees in the corridor are removed (not inside a crossed run); the run catalog rates again after the terrain changes. Ground under buildings, in water and within **6 m** of a lift line is left alone.
 - **Options:** Options > Modular Ski Resort > Main > Runs. Max grade **5 to 25 %**, width **8 to 32 m**, cut **1 to 3**, fill **1 to 4**.
 
+## Quick Runs (Experimental)
+
+Outline a slope and the tool proposes a full set of runs for it, linked so skiers can get from one to the next. You pick which ones to keep and build them together.
+
+<Aside type="caution" title="Experimental">
+Quick runs is new and may change. Turn it off in Options > Modular Ski Resort > Main > Runs > **Quick runs (experimental)**: the tool then cannot open and its hub button is grayed with the reason.
+</Aside>
+
+- **Open:** hub **Runs** tab > **Quick runs (experimental)**, or **Ctrl+Shift+Q**. While it is open, the Runs tab shows every control as a button.
+- **Outline:** click the corners of the slope (up to **1 km²**), drag a corner to move it. The tooltip shows the size against the limit and the vertical.
+- **Scan:** **Scan** or **Enter**. A progress line runs for a moment, then the proposed runs appear in piste-map colors: natural runs dashed.
+- **Pick:** click a run to leave it out (gray) or take it back. A ring marks each spot where one lift would serve several runs; a small cluster is labeled *beginner lift* or *mid-station*.
+- **Knobs:** **Mix** (Balanced, Beginner, Expert, As the slope allows), **Runs** (Few, Normal, Many), **Kinds** (groomed and natural by default; snowmaking and night on request), **Shuffle** for another layout of the same slope.
+- **Totals:** runs kept, the mix against its target, the total fee, and skiers a day once a lift serves them.
+- **Build:** **Build** or **Enter**. Refused when the city cannot pay the total. The runs bind and pay like runs you draw. A run the game refuses turns red and is left out; the rest are built.
+- **Wait:** the runs are built a few at a time so the game keeps running smoothly, with progress in the hub and the tooltip (*Building runs 4 / 11*). Large areas can take a few seconds to a minute. **Stop** or right click stops after the runs in progress; closing the tool does the same. What is built so far stays, and **Undo** removes it.
+- **Undo:** **Undo**, or right click right after a build, removes the whole build and refunds exactly what it cost.
+- **Warnings:** a run over water, runs that will be renumbered, runs in more than one ski area, no Welcome Sign nearby, a mix the slope cannot give, and the game's checks being off (Anarchy).
+- **Trees:** **Tree filler** fills the outlined slope with trees around the runs, up to a tree line. The tree line starts where the wild trees nearby stop; move it 10 or 50 m at a time. Pick **Conifer** (default), **Deciduous**, **Palm**, **All trees** or a single species, and a density. **Plant** (or **Enter**) plants them a few thousand at a time until the slope is full (*Planting trees 2,400 / 9,000*); large areas can take a few seconds to a minute. **Stop** (in place of Plant) or right click stops after the trees in progress; what is planted stays. **Undo trees** removes them. Filler trees count as wild trees: a run drawn over them later can clear them.
+
 ## Snow Conditions
 
 Snow is measured per run from the game's snow simulation.

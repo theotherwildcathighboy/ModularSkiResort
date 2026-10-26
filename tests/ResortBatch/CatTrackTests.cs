@@ -52,12 +52,12 @@ namespace ResortBatch
             for (int k = 0; k <= 3; k++)
             {
                 Check(RunKindRules.CountsTowardResort(k), W, "kind " + k + " must count toward the resort");
-                Check(!RunKindRules.IsServedLeaf(k), W, "kind " + k + " must not be a served leaf");
+                Check(!RunKindRules.IsCatTrackLink(k), W, "kind " + k + " must not be a cat track link");
             }
             Check(RunKindRules.CountsTowardResort(4), W, "the cat track counts toward the resort (minimally, since 2026-10-24)");
             Check(Score.KindCatTrack == (byte)RunKind.CatTrack, W, "SkiResortScore.KindCatTrack == RunKind.CatTrack");
-            Check(RunKindRules.IsServedLeaf(4), W, "the cat track must be a served leaf");
-            Check(!RunKindRules.CountsTowardResort(-1) && !RunKindRules.IsServedLeaf(-1), W, "kind -1 (not ours) counts nothing and is no leaf");
+            Check(RunKindRules.IsCatTrackLink(4), W, "the cat track must be a cat track link");
+            Check(!RunKindRules.CountsTowardResort(-1) && !RunKindRules.IsCatTrackLink(-1), W, "kind -1 (not ours) counts nothing and is no cat track link");
             Check(!RunKindRules.CountsTowardResort(5), W, "an unknown kind 5 counts nothing");
             Check(RunKindRules.HasSnowInjection(0) && RunKindRules.HasSnowInjection(1) && RunKindRules.HasSnowInjection(2), W,
                   "groomed / snowmaking / night are injected");

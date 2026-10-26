@@ -1,8 +1,8 @@
 // LiftLineHotkeySystem - the lift-line tool's two keys:
 //   ToggleLiftLineTool (default Ctrl+Shift+L) -> LiftLineToolSystem.TryActivate("hotkey") / Deactivate, in a loaded city;
 //   BuildLiftLine (default Enter) -> LiftLineToolSystem.RequestBuild(), live only while the tool is active.
-// This system is the one writer of shouldBeEnabled for the Build key (live while the lift tool or the grading tool is open;
-// two writers would fight every frame). CatTrackGradeHotkeySystem reads the press for its tool.
+// This system is the one writer of shouldBeEnabled for the Build key (live while the lift tool, the grading tool or the Quick runs
+// tool is open; two writers would fight every frame). CatTrackGradeHotkeySystem and QuickRunsHotkeySystem read the press for theirs.
 // The hotkey opens the tool with no lift type (the first station or loose end sets it); the hub's line tiles open it with
 // their type (SkiResortHubUISystem.ApplyLaunch).
 // Engine notes: EngineNotes/LiftLineHotkeySystem.md
@@ -22,6 +22,7 @@ namespace SkiResortMod.Systems
 
         private LiftLineToolSystem m_Tool;
         private CatTrackGradeToolSystem m_Grade;
+        private QuickRunsToolSystem m_QuickRuns;
         private ProxyAction m_Toggle, m_Build;
         private bool m_Armed, m_Disabled, m_ErrorLogged;
         private int m_Probe = -1;
@@ -31,6 +32,7 @@ namespace SkiResortMod.Systems
             base.OnCreate();
             m_Tool = World.GetOrCreateSystemManaged<LiftLineToolSystem>();
             m_Grade = World.GetOrCreateSystemManaged<CatTrackGradeToolSystem>();
+            m_QuickRuns = World.GetOrCreateSystemManaged<QuickRunsToolSystem>();
             Mod.Log.Info($"{nameof(LiftLineHotkeySystem)} created");
         }
 
@@ -78,7 +80,7 @@ namespace SkiResortMod.Systems
                 if (gm == null || gm.isGameLoading)
                     return;
                 bool active = m_Tool.IsActive;
-                bool buildLive = active || m_Grade.IsActive;
+                bool buildLive = active || m_Grade.IsActive || m_QuickRuns.IsActive;
                 if (m_Build.shouldBeEnabled != buildLive)
                     m_Build.shouldBeEnabled = buildLive;
                 if (m_Probe > 0 && --m_Probe == 0 && !m_Toggle.enabled)

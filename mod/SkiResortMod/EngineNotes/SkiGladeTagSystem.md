@@ -73,3 +73,10 @@ the spot.
 layer/variant constants); m_Armed/m_Disabled/m_ErrorLogged and the warn-once flags reset in OnGameLoadingComplete; one-shot "!!!"
 catch that disables tagging until the next load (the tool keeps planting; those trees are simply untagged, i.e. plain trees). No
 managed allocation outside Apply frames (OnUpdate returns on the guards first).
+
+## Two sources, one tag system (DECISIONS 415, Quick runs package D)
+The planting tool is read through `IGladeTagSource` (ApplyingNow, ApplyingRun, ApplyingLayer, ApplyingVariant, OnTagged): the glade tool
+(ApplyingNow = ApplyingRun != Null, the old guard unchanged; OnTagged empty) and the Quick runs tool's tree filler (run Null,
+`LayerFiller`, variant 0; OnTagged records the planted batch for its undo and learns skip slots). Whichever is `activeTool` and reports
+its Apply frame is tagged; there is no second tag system. A filler tag (LayerFiller, no run) is never an orphan
+(SkiGladeCleanupSystem) and no run delete reaches it.

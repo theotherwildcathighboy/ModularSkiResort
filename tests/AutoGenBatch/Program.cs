@@ -18,7 +18,7 @@ using Unity.Mathematics;
 
 namespace AutoGenBatch
 {
-    internal static class Program
+    internal static partial class Program
     {
         private static int s_Failures;
         private static long s_Checks;
@@ -37,6 +37,7 @@ namespace AutoGenBatch
             Knobs();
             Determinism();
             CaptureTests();
+            QuickRunsTests();
             Timing();
             Console.WriteLine($"SUMMARY AutoGenBatch: {s_Checks} checks, {s_Failures} failure(s)");
             Environment.ExitCode = s_Failures;

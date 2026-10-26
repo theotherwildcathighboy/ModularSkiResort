@@ -21,6 +21,7 @@
     <Compile Include="Program.cs" />
     <Compile Include="Terrain.cs" />
     <Compile Include="Captures.cs" />
+    <Compile Include="QuickRunsTests.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiRunAutoPlanner.cs" Link="SkiRunAutoPlanner.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiRunAutoPlanner.Select.cs" Link="SkiRunAutoPlanner.Select.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiRunAutoPlanner.Kernels.cs" Link="SkiRunAutoPlanner.Kernels.cs" />
@@ -36,6 +37,11 @@
     <Compile Include="..\..\mod\SkiResortMod\Systems\SchoolRule.cs" Link="SchoolRule.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\PatrolRule.cs" Link="PatrolRule.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\EntityRef.cs" Link="EntityRef.cs" />
+    <!-- The Quick runs tool rules, the link rule LinkMeters aliases, the bind fees -->
+    <Compile Include="..\..\mod\SkiResortMod\Systems\QuickRunsRules.cs" Link="QuickRunsRules.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\LiftServedRule.cs" Link="LiftServedRule.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\SkiMoneyRules.cs" Link="SkiMoneyRules.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\SkiRunBindingRules.cs" Link="SkiRunBindingRules.cs" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="UnityMathematics.NoDeps" Version="1.3.2" />

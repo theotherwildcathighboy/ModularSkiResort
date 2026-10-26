@@ -412,6 +412,15 @@ namespace SkiResortMod.Settings
                     "Off: the track follows the ground and moves as little earth as the max grade allows. On: one even " +
                     "slope from end to end. Default off."
                 },
+                {
+                    m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.QuickRunsEnabled)),
+                    "Quick runs (experimental)"
+                },
+                {
+                    m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.QuickRunsEnabled)),
+                    "Outline a mountainside and the tool proposes a set of linked runs you can review, change and build in one go, " +
+                    "with an optional tree filler. Experimental. Off: the tool cannot open and its hub button is grayed. Default on."
+                },
 
                 // --- Lifts ---
                 { m_Setting.GetOptionGroupLocaleID(SkiResortSettings.GroupLifts), "Lifts" },
@@ -514,6 +523,18 @@ namespace SkiResortMod.Settings
                 },
                 { m_Setting.GetBindingKeyLocaleID(SkiResortSettings.ActToggleCatTrackGrade), "Toggle cat track tool" },
                 { m_Setting.GetBindingKeyHintLocaleID(SkiResortSettings.ActToggleCatTrackGrade), "Cat track tool" },
+                // The Quick runs tool
+                {
+                    m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.ToggleQuickRunsToolBinding)),
+                    "Quick runs tool: toggle"
+                },
+                {
+                    m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.ToggleQuickRunsToolBinding)),
+                    "Opens or closes the Quick runs tool (also a button on the hub's Runs tab): click the corners of a region, " +
+                    "Enter to scan it, click a run to leave it out, Enter to build. Inert while Quick runs is off. Default Ctrl+Shift+Q."
+                },
+                { m_Setting.GetBindingKeyLocaleID(SkiResortSettings.ActToggleQuickRuns), "Toggle Quick runs tool" },
+                { m_Setting.GetBindingKeyHintLocaleID(SkiResortSettings.ActToggleQuickRuns), "Quick runs tool" },
                 { m_Setting.GetBindingKeyLocaleID(SkiResortSettings.ActToggleGlade), "Toggle glade tool" },
                 { m_Setting.GetBindingKeyHintLocaleID(SkiResortSettings.ActToggleGlade), "Glade tool" },
                 // The two persisted actions keep their names; only the labels and descriptions change.

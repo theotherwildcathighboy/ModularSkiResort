@@ -54,3 +54,6 @@ AddBufferWriter (expected < 0.05 ms, unverified, logged); a change = one cache b
 cap, a build over `SlowBuildWarnMs` and a draw over `SlowDrawWarnMs`; the first draw of the process; `PisteMap [cost]` after
 `CostLogAfterDraws` draws of a load; a one-shot `!!!` that switches the overlay off until the next load (the hub keeps working). No
 line per frame, hover, toggle (the hub writes it) or later build (counted, in the dump).
+
+`ToolHidesMap`: the map hides while the glade tool or the Quick runs tool is open (the Quick runs preview draws runs in the map's own
+palette, `PisteFill / PisteOutline / PisteOutlineWidth`, which are internal for that reason).

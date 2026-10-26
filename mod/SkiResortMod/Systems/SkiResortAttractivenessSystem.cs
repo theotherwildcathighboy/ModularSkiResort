@@ -363,7 +363,7 @@ namespace SkiResortMod.Systems
         private readonly List<int> m_ServedRoot = new List<int>(32);
         private readonly List<int> m_ServedVia = new List<int>(32);
         private readonly List<RunRef> m_RunRefs = new List<RunRef>(32);
-        private readonly List<bool> m_TrackRuns = new List<bool>(32);  // per run ref, RunKindRules.IsServedLeaf (the cat track mask)
+        private readonly List<bool> m_TrackRuns = new List<bool>(32);  // per run ref, RunKindRules.IsCatTrackLink (the cat track mask)
         private readonly List<LiftServedRule.Lift> m_ServeLifts = new List<LiftServedRule.Lift>(8);
         private readonly List<LiftServedRule.Chord> m_Chords = new List<LiftServedRule.Chord>(64);
         private readonly List<int> m_ServingLift = new List<int>(32);
@@ -1077,7 +1077,7 @@ namespace SkiResortMod.Systems
                 for (int i = 0; i < m_RunRefs.Count; i++)
                 {
                     RunRef lr = m_RunRefs[i];
-                    bool track = RunKindRules.IsServedLeaf(next.Slots[lr.Slot].Runs[lr.Index].Kind);
+                    bool track = RunKindRules.IsCatTrackLink(next.Slots[lr.Slot].Runs[lr.Index].Kind);
                     m_TrackRuns.Add(track);
                     anyTrack |= track;
                 }

@@ -20,7 +20,7 @@ export const GROUP = "skiResort";
  * only when C#'s `contract` equals this; on a mismatch it shows the Build strip and the tree controls (CORE only) and
  * says why.
  */
-export const HUB_CONTRACT = 16;
+export const HUB_CONTRACT = 17;
 
 /** The `contract` value while the C# binding is absent (the fallback). Real contracts start at 1. */
 export const CONTRACT_ABSENT = 0;
@@ -230,6 +230,101 @@ export interface LiftLineState {
   /** LiftLineToolSystem.ToolState name: PickBase, PickTop, Edit, Emitted, Applying ("" while unknown). */
   state: string;
 }
+
+/** One top cluster of the Quick runs preview: `label` is a locale key (QUICK_POD[Beginner], QUICK_POD[MidStation], QUICK_CLUSTER). */
+export interface QuickRunsCluster {
+  label: string;
+  /** Runs the cluster's top serves. */
+  runs: number;
+}
+
+/** `quickRuns`: the Quick runs tool (QuickRunsToolSystem; experimental, Ctrl+Shift+Q). Panel only. Every count, total and the
+ *  cluster list are 0 / empty unless `phase` is Preview with a plan. */
+export interface QuickRunsState {
+  /** The tool can open: the option is on, it is armed and not disabled. */
+  available: boolean;
+  /** The tool is the active tool. */
+  active: boolean;
+  /** A locale key explaining `available == false` (SkiResort.Hub.QUICK_REASON[*]), or "". */
+  reason: string;
+  /** QuickRunsToolSystem.ToolPhase name: Region, Scanning, Preview, Emitted, Retry, Applying. */
+  phase: string;
+  /** Region corners placed. */
+  corners: number;
+  areaM2: number;
+  /** The area cap (1 km2). */
+  maxAreaM2: number;
+  /** Top to bottom of the region. */
+  verticalM: number;
+  /** QuickRegionState name: Open, TooSmall, Ok, Near, Over. */
+  regionState: string;
+  /** Scan progress 0..1 while Scanning. */
+  progress: number;
+  /** AutoMix: 0 Balanced, 1 Beginner, 2 Expert, 3 As the terrain allows. */
+  mix: number;
+  /** AutoDensity: 0 Sparse, 1 Normal, 2 Dense. */
+  density: number;
+  /** AutoKinds flags: 1 Groomed, 2 Natural, 4 Snowmaking, 8 Night. */
+  kinds: number;
+  /** Candidates in the plan. */
+  runs: number;
+  /** Candidates switched on. */
+  enabled: number;
+  /** Enabled runs by SlopeBand (0 Flat, 1 Green, 2 Blue, 3 Black, 4 Double black). */
+  count: number[];
+  /** The mix target by SlopeBand. */
+  target: number[];
+  /** Total construction fee of the enabled runs. */
+  fee: number;
+  /** Skiers a day the enabled runs hold once served. */
+  skiers: number;
+  /** The enabled runs meet the mix target. */
+  variety: boolean;
+  /** A locale key: why the last scan found nothing (QUICK_STATUS[*]), or "". */
+  status: string;
+  /** Locale keys (QUICK_WARN[*]). */
+  warnings: string[];
+  clusters: QuickRunsCluster[];
+  /** Runs of the last build that Undo removes (with a refund). */
+  batchRuns: number;
+  /** A locale key for the latest notice (QUICK_*), or "". */
+  notice: string;
+  /** The tree filler is on. */
+  trees: boolean;
+  /** Tree density level, GLADE_LEVEL_MIN..GLADE_LEVEL_MAX. */
+  treeLevel: number;
+  /** Tree line height in meters; -1 = none (trees everywhere). */
+  treeLine: number;
+  /** The region's lowest and highest ground, the tree line slider's range. */
+  groundMin: number;
+  groundMax: number;
+  /** Species group chip: 0 Conifer, 1 Deciduous, 2 Palm, 3 All trees (in force while `species` is -1). */
+  group: number;
+  /** One species: an index into speciesNames; -1 = the group. */
+  species: number;
+  /** Every tree prefab with wood, sorted. */
+  speciesNames: string[];
+  /** Each species' SkiGladeSpecies.TreeGroup (0 Conifer, 1 Deciduous, 2 Palm, 3 Bush, 4 Ungrouped). */
+  speciesGroups: number[];
+  /** Trees still to plant for the whole slope (not one slice), and trees the filler removes now. */
+  plant: number;
+  remove: number;
+  /** Planted trees Undo removes. */
+  treesUndo: number;
+  /** "Building runs N / M": runs built by the build in flight / runs it builds; buildTotal 0 when no build runs. */
+  buildDone: number;
+  buildTotal: number;
+  /** Plant pressed: slices apply until the slope is complete or Stop. */
+  planting: boolean;
+  /** "Planting trees N / M": trees planted by this planting / trees it set out to plant; treesTotal 0 when not planting. */
+  treesDone: number;
+  treesTotal: number;
+}
+
+/** The quickRunsSet keys (QuickRunsToolSystem.HubSet). */
+export type QuickRunsKey =
+  | "mix" | "density" | "kind" | "shuffle" | "scan" | "build" | "undo"
+  | "trees" | "plant" | "treesUndo" | "treeLine" | "group" | "species" | "level" | "stop";
 
 export const GLADE_LEVEL_MIN = 1;
 export const GLADE_LEVEL_MAX = 8;
@@ -667,6 +762,7 @@ export const BINDING = {
   follow: "follow",
   history: "history",
   liftLine: "liftLine",  // the lift-line generator
+  quickRuns: "quickRuns",  // the Quick runs tool (experimental)
 } as const;
 
 /** Trigger names (UI -> C#). */
@@ -689,6 +785,8 @@ export const TRIGGER = {
   setPisteMap: "setPisteMap",
   hoverRun: "hoverRun",
   liftLineToggle: "liftLineToggle",  // the lift-line generator
+  quickRunsToggle: "quickRunsToggle",  // the Quick runs tool
+  quickRunsSet: "quickRunsSet",
 } as const;
 
 /**
@@ -717,6 +815,13 @@ const EMPTY_RUN_LIVE: readonly RunLive[] = [];
 const EMPTY_LIFTS: readonly LiftRow[] = [];
 const EMPTY_PROBLEMS: readonly ProblemRow[] = [];
 const EMPTY_HISTORY: readonly HistoryArea[] = [];
+const EMPTY_QUICK_RUNS: QuickRunsState = {
+  available: false, active: false, reason: "", phase: "", corners: 0, areaM2: 0, maxAreaM2: 1000000, verticalM: 0, regionState: "Open",
+  progress: 0, mix: 0, density: 1, kinds: 3, runs: 0, enabled: 0, count: [0, 0, 0, 0, 0], target: [0, 0, 0, 0, 0], fee: 0, skiers: 0,
+  variety: false, status: "", warnings: [], clusters: [], batchRuns: 0, notice: "", trees: false, treeLevel: GLADE_LEVEL_DEFAULT,
+  treeLine: -1, groundMin: 0, groundMax: 0, group: 0, species: 0, speciesNames: [], speciesGroups: [], plant: 0, remove: 0, treesUndo: 0,
+  buildDone: 0, buildTotal: 0, planting: false, treesDone: 0, treesTotal: 0,
+};
 
 export const FALLBACK = {
   hubOpen: false,
@@ -743,6 +848,7 @@ export const FALLBACK = {
   follow: 0,
   history: EMPTY_HISTORY,
   liftLine: { available: false, active: false, state: "" } as LiftLineState,
+  quickRuns: EMPTY_QUICK_RUNS,
 } as const;
 
 // ---- value bindings -----------------------------------------------------------------------------
@@ -762,6 +868,8 @@ export const build$: ValueBinding<readonly BuildItem[]> = bindValue<readonly Bui
 export const glade$: ValueBinding<GladeState> = bindValue<GladeState>(GROUP, BINDING.glade, FALLBACK.glade);
 /** The lift-line generator. Panel only, the Build strip's Lifts tab (never on a mismatch). */
 export const liftLine$: ValueBinding<LiftLineState> = bindValue<LiftLineState>(GROUP, BINDING.liftLine, FALLBACK.liftLine);
+/** The Quick runs tool. Panel only, the Build strip's Runs tab and RunsView (never on a mismatch). */
+export const quickRuns$: ValueBinding<QuickRunsState> = bindValue<QuickRunsState>(GROUP, BINDING.quickRuns, FALLBACK.quickRuns);
 /** One row per sign, then the Not linked row (always last). Panel only. */
 export const resorts$: ValueBinding<readonly ResortRow[]> = bindValue<readonly ResortRow[]>(GROUP, BINDING.resorts, FALLBACK.resorts);
 /** The moving values of each `resorts` row. Panel only: read by leaf components only. */
@@ -816,6 +924,10 @@ export const hubTriggers = {
   gladeToggle: (): void => fire(TRIGGER.gladeToggle),
   /** Lift-line generator on / off: C# LiftLineToolSystem.TryActivate("hub") / Deactivate(). */
   liftLineToggle: (): void => fire(TRIGGER.liftLineToggle),
+  /** Quick runs tool on / off: C# QuickRunsToolSystem.TryActivate("hub") / Deactivate(); refused (and logged) while unavailable. */
+  quickRunsToggle: (): void => fire(TRIGGER.quickRunsToggle),
+  /** A Quick runs knob, button or tree setting (QuickRunsToolSystem.HubSet; C# clamps every value). */
+  quickRunsSet: (key: QuickRunsKey, value: number): void => fire(TRIGGER.quickRunsSet, key, Math.round(value)),
   /** Tree density level, clamped 1..8 here and again in C#. */
   gladeSetLevel: (level: number): void => fire(TRIGGER.gladeSetLevel, clampGladeLevel(level)),
   /** false = run interior, true = tree line. */

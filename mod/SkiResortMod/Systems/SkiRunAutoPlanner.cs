@@ -245,7 +245,7 @@ namespace SkiResortMod.Systems
         public const float ExactGapShare = 0.8f;                                 // exact distance >= 0.8 gap (raster approximations)
         public const float MergeGapM = 2f, MergeTaperM = 30f;                    // abutting is legal (ValidationHelpers.cs:575)
         public const float JunctionReachM = 20f;                                 // node pair search; +2 x 2 m snap stays <= LinkMeters
-        public const float LinkMeters = 25f;                                     // = LiftServedRule.LinkMeters (LiftServedRule.cs:292)
+        public const float LinkMeters = LiftServedRule.LinkMeters;               // the link rule's own constant (one source)
         public const float SurfaceClearanceM = MergeGapM, UnownedClearanceM = 0.5f, RegionClearanceM = 0.25f;
         public const int HardRunCap = 16, MaxRatings = 48, TileCoreCells = 80;
         // Mix targets by run count, G / B / K / DB (design 3.2; Balanced is the owner's ruling)

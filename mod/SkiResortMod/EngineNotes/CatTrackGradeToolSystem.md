@@ -99,3 +99,7 @@ reload the vanilla terrain tool is the only undo).
 
 Silence must be impossible: ARMED / NOT ARMED per load; one line per activation, point edit, solve, apply, undo and refusal; the
 heightmap writer logs each read / write; an exception disables the tool.
+
+## Shared emit (Quick runs package D)
+The run-area creation definition, the ring node's terrain y and the bulldozer-shape delete moved to `RunAreaEmit` (static, no state)
+unchanged, so the Quick runs tool builds runs with the same definition. Behavior-preserving: every GradeBatch check is unchanged.

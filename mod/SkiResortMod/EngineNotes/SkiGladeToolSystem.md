@@ -190,3 +190,10 @@ tree never ages (TreeGrowthSystem.cs:268-273) and counts no wood. y is sampled h
 (GenerateObjectsSystem.cs:1253; vanilla ObjectToolBaseSystem.SampleTransform :1040-1072, 1.6.2 :1043). The slot is recorded by xz
 key: the Temp's Transform is the definition position verbatim (:1253; reuse path :1116), which is how a canceled Temp maps back to
 its slot (skip set).
+
+## Quick runs package D (DECISIONS 415)
+- The census treats Quick runs filler trees (`LayerFiller`) as wild: a run drawn later over the filler can thin or clear them like the
+  map's own trees. Every other tagged tree stays Existing (never thinnable), as before.
+- The glade tool implements `IGladeTagSource` (SkiGladeTagSystem.md) with its old Apply-frame guard.
+- `EmitPlantDefinition`, `EmitThinDefinition` and `PositionKey` are `internal static` so the tree filler emits exactly the glade tool's
+  definitions and skip keys (no copy).

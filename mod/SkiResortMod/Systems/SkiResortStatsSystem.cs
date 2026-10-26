@@ -367,7 +367,7 @@ namespace SkiResortMod.Systems
         private readonly List<int> m_ServingLift = new List<int>(32);
         private readonly List<float> m_ServingDistance = new List<float>(32);
         private readonly List<int> m_ServedCount = new List<int>(8);
-        private readonly List<bool> m_TrackRuns = new List<bool>(32); // per run row, RunKindRules.IsServedLeaf (the cat track mask)
+        private readonly List<bool> m_TrackRuns = new List<bool>(32); // per run row, RunKindRules.IsCatTrackLink (the cat track mask)
         private readonly List<Efficiency> m_FactorScratch = new List<Efficiency>(8);
         private readonly List<HubProblemFactor> m_PFactors = new List<HubProblemFactor>(8);
         private readonly List<HubProblemLift> m_PLifts = new List<HubProblemLift>(8);
@@ -1453,7 +1453,7 @@ namespace SkiResortMod.Systems
             bool anyTrack = false;
             for (int i = 0; i < m_RunsNext.Count; i++)
             {
-                bool track = RunKindRules.IsServedLeaf(m_RunsNext[i].Kind);
+                bool track = RunKindRules.IsCatTrackLink(m_RunsNext[i].Kind);
                 m_TrackRuns.Add(track);
                 anyTrack |= track;
             }

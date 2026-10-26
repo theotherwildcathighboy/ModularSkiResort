@@ -69,7 +69,7 @@ Seeds per cluster and pass: member cells within 150 m and `TopBandM` of the clus
 
 For every run pair within `JunctionReachM` (20 m): the topmost close point pair, plus the merge point; both are inserted as ring
 vertices (`InsertNode` reuses a vertex closer than 2 m), so the pair is <= 20 + 2 x 2 m <= `LinkMeters` 25 m
-(= LiftServedRule.LinkMeters, LiftServedRule.cs:292, mirrored as a const while package A owns that file). Existing runs: our node at
+(`SkiRunAutoPlanner.LinkMeters` is an alias of LiftServedRule.LinkMeters since package D, and AutoGenBatch links LiftServedRule.cs). Existing runs: our node at
 the closest point to their highest vertex within reach. The host asserts that every pair of runs closer than 20 m has a node pair
 within 25 m.
 

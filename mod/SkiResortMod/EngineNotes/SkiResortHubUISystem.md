@@ -317,3 +317,15 @@ Appended fields and bindings by contract:
   (`CatTrackGradeToolSystem`, which grades and builds the run in one action) through ApplyLaunch and lights while it is active
   (ActiveItemIndex), the lift-line tiles' pattern, with no area-tool fallback (every cat track is tool-built). RunLive.openState
   loses Unsuitable (3): a rated cat track is always Green (SkiRunRatingRules.CatTrackBand), so it reads Closed / Partly / Open.
+- 17: the `quickRuns` value binding (`QuickRunsState`, with `QuickRunsCluster` rows) and the triggers `quickRunsToggle` and
+  `quickRunsSet(key, value)` (the experimental Quick runs tool, QuickRunsToolSystem.md).
+
+## Quick runs (contract 17)
+`SkiResortHubUISystem.QuickRuns.cs`. `quickRuns` is a `RawValueBinding` written by `WriteQuickRuns` (TypeBegin
+"SkiResortMod.QuickRunsState", rule R2), a panel binding with no Demand: `PushPanelData` updates it only while observed, and only when
+the tool's `HubRevision`, its availability or its activity moved (or on a resubscribe). Counts, totals and clusters are written as 0 /
+empty unless the tool shows a preview. `quickRunsToggle` follows the glade toggle (Deactivate when active, else TryActivate, which
+owns the gating and logs a refusal with its reason key); `quickRunsSet` calls `QuickRunsToolSystem.HubSet`, which ignores a call while
+the tool is closed and clamps every value. Each call writes one `Hub [quickRuns]` log line; the DUMP gains one `quickRuns:` line.
+`plant` is the whole slope's shortfall (TreeToPlant); buildDone / buildTotal and planting / treesDone / treesTotal carry the staged
+build's and planting's progress (totals 0 when none is in flight); the `stop` key ends either one at its next boundary.

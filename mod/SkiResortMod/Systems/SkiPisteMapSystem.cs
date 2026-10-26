@@ -1,6 +1,6 @@
-// The piste-map overlay: while the hub is open with its Piste map toggle on (and the tree tool off), the shown ski area's run
+// The piste-map overlay: while the hub is open with its Piste map toggle on (and the tree tool and the Quick runs tool off), the shown ski area's run
 // outlines are drawn draped on the terrain in their difficulty colors; natural runs are dashed, the hovered run is twice as wide.
-// Reads hub state (PisteMapVisible, ShownSign, HoveredRun), SkiGladeToolSystem.IsActive, SkiRunCatalogSystem rows and each run's
+// Reads hub state (PisteMapVisible, ShownSign, HoveredRun), SkiGladeToolSystem.IsActive, QuickRunsToolSystem.IsActive, SkiRunCatalogSystem rows and each run's
 // Game.Areas.Node buffer; no ECS write. m_Segments is written only in Build, after CompleteDraw(); the draw job reads no ECS data.
 // Phase: Rendering, UpdateBefore<SkiPisteMapSystem, Game.Rendering.OverlayRenderSystem> (Mod.cs; load-bearing: the job must be
 // registered before OverlayRenderSystem completes and clears the lists in the same frame); reads the hub state written at UIUpdate
@@ -97,9 +97,15 @@ namespace SkiResortMod.Systems
         };
         private static readonly float[] s_OutlineWidth = { 0f, 0f, 0f, 0f, 0f, Tuning.OutlineBlackM, Tuning.OutlineDoubleBlackM };
 
+        // The palette, read by the Quick runs tool's preview (one palette for the map and the preview; never written)
+        internal static UnityEngine.Color[] PisteFill => s_Fill;
+        internal static UnityEngine.Color[] PisteOutline => s_Outline;
+        internal static float[] PisteOutlineWidth => s_OutlineWidth;
+
         private SkiResortHubUISystem m_Hub;
         private SkiRunCatalogSystem m_Catalog;
         private SkiGladeToolSystem m_GladeTool;
+        private QuickRunsToolSystem m_QuickRuns;   // the map steps aside while the Quick runs preview draws in the same colors
         private OverlayRenderSystem m_Overlay;
         private CameraUpdateSystem m_Camera;
 
@@ -132,13 +138,16 @@ namespace SkiResortMod.Systems
             m_SlowBuildLogged, m_CostLogged;
         private static bool s_FirstDrawDone;   // per PROCESS (the JIT of Schedule<PisteDrawJob> is paid once)
 
+        /// <summary>The glade tool or the Quick runs tool is open: the map hides (their overlays use the same space and colors).</summary>
+        private bool ToolHidesMap => m_GladeTool.IsActive || (m_QuickRuns != null && m_QuickRuns.IsActive);
+
         private static UnityEngine.Color Rgb(int r, int g, int b, float a) => new UnityEngine.Color(r / 255f, g / 255f, b / 255f, a);
 
         /// <summary>Dev tab (10 Hz, field reads only).</summary>
         public string StateText()
         {
             bool on = m_Hub != null && m_Hub.PisteMapOn;
-            bool visible = m_Armed && !m_Disabled && m_Hub != null && m_Hub.PisteMapVisible && m_GladeTool != null && !m_GladeTool.IsActive;
+            bool visible = m_Armed && !m_Disabled && m_Hub != null && m_Hub.PisteMapVisible && m_GladeTool != null && !ToolHidesMap;
             return $"{(on ? "on" : "off")}, visible {visible}, '{m_BuiltArea}', {m_Runs} run(s), {m_Count} segment(s), draw " +
                    $"{LastDrawMs.ToString("F3", CultureInfo.InvariantCulture)}/{MaxDrawMs.ToString("F3", CultureInfo.InvariantCulture)} ms, " +
                    $"hover slot {m_HoverSlot}";
@@ -152,7 +161,7 @@ namespace SkiResortMod.Systems
                 bool hubOpen = m_Hub != null && m_Hub.IsOpen;
                 bool toggle = m_Hub != null && m_Hub.PisteMapOn;
                 bool contractOk = m_Hub != null && m_Hub.UiContractOk;
-                bool tree = m_GladeTool != null && m_GladeTool.IsActive;
+                bool tree = m_GladeTool != null && ToolHidesMap;
                 bool visible = m_Hub != null && m_Hub.PisteMapVisible && !tree;
                 Entity shown = m_Hub != null ? m_Hub.ShownSign : Entity.Null;
                 string area = m_Hub != null ? m_Hub.AreaLabel(shown) : "-";
@@ -182,6 +191,7 @@ namespace SkiResortMod.Systems
             m_Hub = World.GetOrCreateSystemManaged<SkiResortHubUISystem>();
             m_Catalog = World.GetOrCreateSystemManaged<SkiRunCatalogSystem>();
             m_GladeTool = World.GetOrCreateSystemManaged<SkiGladeToolSystem>();
+            m_QuickRuns = World.GetOrCreateSystemManaged<QuickRunsToolSystem>();
             m_Overlay = World.GetOrCreateSystemManaged<OverlayRenderSystem>();
             m_Camera = World.GetOrCreateSystemManaged<CameraUpdateSystem>();
             m_Segments = new NativeArray<PisteSegment>(Tuning.MaxSegments, Allocator.Persistent);
@@ -295,7 +305,7 @@ namespace SkiResortMod.Systems
             try
             {
                 // Guard (per frame while hidden: two bool reads and a return)
-                bool visible = m_Hub.PisteMapVisible && !m_GladeTool.IsActive;         
+                bool visible = m_Hub.PisteMapVisible && !ToolHidesMap;         
                 if (!visible)
                 {
                     m_WasVisible = false;

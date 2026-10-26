@@ -115,6 +115,9 @@ const FIELD = "Field case: 1 complete lift, 4 unfinished";
 const ASH = "Ash Flat (runs, lifts, problems)";
 const SHOTS = [
   // [file, height, params]
+  ["quick-runs-open-1080", 1080, { scenario: "Quick runs open, Ash Flat (runs, lifts, problems)", view: 1, tab: "runs" }],
+  ["quick-runs-building-1080", 1080, { scenario: "Quick runs building, Ash Flat (runs, lifts, problems)", view: 1, tab: "runs" }],
+  ["quick-runs-planting-1080", 1080, { scenario: "Quick runs planting, Ash Flat (runs, lifts, problems)", view: 1, tab: "runs" }],
   ["header-long-name-1080", 1080, { scenario: BIG, view: 0 }],
   ["attraction-field-case-1080", 1080, { scenario: FIELD, view: 0 }],
   ["attraction-fold-terrain-1080", 1080, { scenario: ASH, view: 0, fold: 0 }],

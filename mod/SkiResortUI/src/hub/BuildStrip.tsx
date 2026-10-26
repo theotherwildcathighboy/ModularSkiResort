@@ -30,6 +30,7 @@ import {
   RUN_TYPE, sentKeyEntry,
 } from "./hubText";
 import { AssetIcon, Glyph, LocText, Tip, TipLines, cx, numArg } from "./parts";
+import { QuickRunsChip } from "./QuickRunsControls";
 import type { TipLine } from "./parts";
 import { currentResort, resortEntries } from "./resortData";
 import styles from "./hub.module.scss";
@@ -46,6 +47,8 @@ export interface FooterInfo {
    * its own since 2026-10-24: the Cat track tile opens it (C# ApplyLaunch).
    */
   liftTool?: boolean;
+  /* Draw the Quick runs chip on the Runs tab (ok panel only; it reads the non-CORE quickRuns binding). */
+  quickRuns?: boolean;
 }
 
 export const MISMATCH_FOOTER: FooterInfo = { dot: null, next: "done", followName: null };
@@ -320,9 +323,9 @@ function LiftToolSet({ t }: { t: Translate }): JSX.Element {
 
 /*
  * The Runs tab's family row: the glade (tree) tool's on / off, the same trigger as the Runs view's "Tree tool" button
- * (TreeControls.tsx; reads the CORE glade binding only).
+ * (TreeControls.tsx; reads the CORE glade binding only), and on the ok panel the Quick runs chip in the slot beside it.
  */
-function TreeToolSet({ t }: { t: Translate }): JSX.Element {
+function TreeToolSet({ t, quick }: { t: Translate; quick: boolean }): JSX.Element {
   const g = useValue(glade$);
   const available = !!g?.available;
   const active = !!g?.active;
@@ -346,7 +349,9 @@ function TreeToolSet({ t }: { t: Translate }): JSX.Element {
           </Tip>
         </div>
       </div>
-      <div className={styles.pickerSet} style={{ flexGrow: 3 }} />
+      <div className={cx(styles.pickerSet, styles.pickerSetNext)} style={{ flexGrow: 3 }}>
+        {quick && <QuickRunsChip t={t} />}
+      </div>
     </>
   );
 }
@@ -466,7 +471,7 @@ export function BuildStrip({ info }: { info: FooterInfo }): JSX.Element {
           {tab === "lifts" && sets.lift.length > 0 && <PickerSetView set="lift" options={sets.lift} chosen={eff.lift} dot={dot} t={t} onPick={onPick} />}
           {tab === "lifts" && info.liftTool && <LiftToolSet t={t} />}
           {tab === "buildings" && <GroupCaptions groups={groups} t={t} />}
-          {tab === "runs" && <TreeToolSet t={t} />}
+          {tab === "runs" && <TreeToolSet t={t} quick={!!info.quickRuns} />}
         </div>
       )}
       <div className={styles.buildRow}>
@@ -543,6 +548,7 @@ export function OkFooter(): JSX.Element {
     next: nextVariant(hasSign, unlinked, l),
     followName: noticeOn && shown ? (unlinked ? t(HUB_LOC.unlinkedEntry) : shown.name) : null,
     liftTool: true, // the ok panel draws the lift generator toggle
+    quickRuns: true, // and the Quick runs chip
   };
   return <BuildStrip info={info} />;
 }

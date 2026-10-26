@@ -15,3 +15,6 @@
 ## Logs
 One ARMED / INERT line per load with the bindings; one line when an armed action is not live 120 frames after the load (probable key
 conflict); the tool logs every press it acts on.
+
+The Build key is also live while the Quick runs tool is open (`buildLive`); `QuickRunsHotkeySystem` reads the press for that tool
+(scan, build, plant) and owns its own toggle (ToggleQuickRunsTool, default Ctrl+Shift+Q, inert while the Quick runs option is off).

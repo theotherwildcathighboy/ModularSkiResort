@@ -56,3 +56,5 @@ Key bindings are plain `ModSetting` members (no `UIInputActionCollection`, no re
 - Ctrl+Alt+G vs our Alt+G: an Allow-modifiers composite gets a prohibition processor for every supported modifier the binding does
   not use (InputManager.cs:2104-2112), so Alt+G should not fire on Ctrl+Alt+G (Unity-side behavior unverified).
 - Ctrl+Shift+D was rejected: D is vanilla's camera-right key and a press would pan the camera off the run being dumped.
+
+`QuickRunsEnabled` (Runs group, default on): the experimental Quick runs tool. Off = the tool cannot open, its hotkey is inert, the hub chip is grayed with the reason (QuickRunsToolSystem.OptionOn). Key binding ToggleQuickRunsTool, default Ctrl+Shift+Q.

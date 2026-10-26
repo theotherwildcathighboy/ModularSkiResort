@@ -1,16 +1,16 @@
 /*
- * src/hub/RunsView.tsx - the Runs view: the tree tool rows, the piste-map toggle and the run list of the shown ski area.
+ * src/hub/RunsView.tsx - the Runs view: the tree tool rows (the Quick runs rows while that tool is open), the piste-map toggle and the run list of the shown ski area.
  * One list, no pager (this view and Lifts are the two that may scroll). The piste-map check box shows C#'s value (pisteMap$), never a guess:
  * a click sends setPisteMap(!value) and C# answers by pushing it. RunLine sends hoverRun on enter (dedup); leaving the list and unmounting send
  * Null once (HubPanel covers the area switch and the panel unmount). Joins: runLive by entityId (hubRules.runLiveMap), lift names by LiftRow.entity,
- * both memoised so a live push re-renders only the rows that moved. Panel file: subscribes selectedResort$, runs$, runLive$, lifts$, pisteMap$,
- * city$ (+ glade$ in TreeRows); local focused$.
+ * both memoized so a live push re-renders only the rows that moved. Panel file: subscribes selectedResort$, runs$, runLive$, lifts$, pisteMap$,
+ * city$, quickRuns$ (+ glade$ in TreeRows); local focused$.
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { RefObject } from "react";
 import { useValue } from "cs2/api";
 import { Button } from "cs2/ui";
-import { NULL_ENTITY, city$, entityId, hubTriggers, lifts$, pisteMap$, runLive$, runs$, selectedResort$ } from "../bindings";
+import { NULL_ENTITY, city$, entityId, hubTriggers, lifts$, pisteMap$, quickRuns$, runLive$, runs$, selectedResort$ } from "../bindings";
 import type { RunRow } from "../bindings";
 import { useT } from "../l10n";
 import { runLiveMap } from "./hubRules";
@@ -18,6 +18,7 @@ import { focused$, sendHoverRun } from "./hubState";
 import { HUB_LOC, RUN_STATE_TEXT } from "./hubText";
 import { CheckBox, Divider, Tip, cx, useNumberSamples } from "./parts";
 import { RunHeader, RunLine } from "./RunList";
+import { QuickRunsRows } from "./QuickRunsControls";
 import { TreeRows } from "./TreeControls";
 import { runsOf } from "./resortData";
 import styles from "./hub.module.scss";
@@ -32,6 +33,7 @@ export function RunsView({ listRef }: { listRef: RefObject<HTMLDivElement> }): J
   const pisteMap = useValue(pisteMap$);
   const city = useValue(city$);
   const focused = useValue(focused$);
+  const quick = useValue(quickRuns$);
   const [renaming, setRenaming] = useState<string | null>(null);
 
   const liveMap = useMemo(() => runLiveMap(runLive), [runLive]);
@@ -75,7 +77,7 @@ export function RunsView({ listRef }: { listRef: RefObject<HTMLDivElement> }): J
 
   return (
     <>
-      <TreeRows />
+      {quick?.active ? <QuickRunsRows /> : <TreeRows />}
       <Divider />
       <RunHeader t={t} samples={samples} pisteMap={toggle} />
       {rows.length === 0 ? (

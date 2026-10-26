@@ -710,22 +710,11 @@ namespace SkiResortMod.Systems
             EmitRun(m_Ring);
         }
 
-        /// <summary>One area creation definition (AreaToolSystem's shape for a new ownerless area, AreaToolSystem.cs:1572-1587,
-        /// 1883-1886, 1967-1968): CreationDefinition{m_Prefab} + the Node ring with the closing duplicate (GenerateAreasSystem.cs:282-291
-        /// marks the area Complete only then) + Updated. Elevation float.MinValue snaps each node to the terrain (GenerateAreasSystem.cs:
-        /// 307-316) and later to the graded terrain (GroundHeightSystem.cs:762-790 re-snaps such nodes inside OnAreaChanged's bounds).</summary>
+        /// <summary>One area creation definition (RunAreaEmit.Emit, shared with the Quick runs tool).</summary>
         private void EmitRun(float2[] ring)
         {
             TerrainHeightData hd = m_TerrainSystem.GetHeightData();
-            EntityCommandBuffer ecb = m_Barrier.CreateCommandBuffer();
-            Entity e = ecb.CreateEntity();
-            ecb.AddComponent(e, new CreationDefinition { m_Prefab = m_RunPrefab });
-            DynamicBuffer<Game.Areas.Node> nodes = ecb.AddBuffer<Game.Areas.Node>(e);
-            nodes.ResizeUninitialized(ring.Length + 1);
-            for (int i = 0; i < ring.Length; i++)
-                nodes[i] = new Game.Areas.Node(Ground(ref hd, ring[i]), float.MinValue);
-            nodes[ring.Length] = nodes[0];
-            ecb.AddComponent(e, default(Updated));
+            RunAreaEmit.Emit(m_Barrier.CreateCommandBuffer(), m_RunPrefab, ring, ref hd);
             m_Phase = RunPhase.Emitted;
             m_EmitFrame = m_Frame;
             Say($"Grade [run]: definition emitted — {ring.Length} node(s), {m_Path.LengthM:F0} m x {m_Params.TopWidthM:F0} m; waiting for the " +
@@ -940,15 +929,7 @@ namespace SkiResortMod.Systems
                 found.Dispose();
             }
             foreach (Entity e in doomed)   // structural changes after the search tree read is done
-            {
-                if (EntityManager.HasComponent<Applied>(e))
-                    EntityManager.RemoveComponent<Applied>(e);
-                if (EntityManager.HasComponent<Created>(e))
-                    EntityManager.RemoveComponent<Created>(e);
-                if (EntityManager.HasComponent<Updated>(e))
-                    EntityManager.RemoveComponent<Updated>(e);
-                EntityManager.AddComponent<Deleted>(e);
-            }
+                RunAreaEmit.DeleteLikeBulldozer(EntityManager, e);
             return doomed.Count;
         }
 
@@ -1009,13 +990,7 @@ namespace SkiResortMod.Systems
             if (!EntityManager.Exists(e) || EntityManager.HasComponent<Deleted>(e) ||
                 !EntityManager.TryGetComponent(e, out PrefabRef pr) || pr.m_Prefab != m_RunPrefab)
                 return $"{id.x}:{id.y} already gone (bulldozed?)";
-            if (EntityManager.HasComponent<Applied>(e))
-                EntityManager.RemoveComponent<Applied>(e);
-            if (EntityManager.HasComponent<Created>(e))
-                EntityManager.RemoveComponent<Created>(e);
-            if (EntityManager.HasComponent<Updated>(e))
-                EntityManager.RemoveComponent<Updated>(e);
-            EntityManager.AddComponent<Deleted>(e);
+            RunAreaEmit.DeleteLikeBulldozer(EntityManager, e);
             return $"{id.x}:{id.y} deleted";
         }
 
@@ -1197,13 +1172,7 @@ namespace SkiResortMod.Systems
                 buffer.DrawCircle(GuardColor, GuardColor, 0f, projected, ring, Ground(ref hd, m_GuardAt), 10f);
         }
 
-        private static float3 Ground(ref TerrainHeightData hd, float2 xz)
-        {
-            var p = new float3(xz.x, 0f, xz.y);
-            if (hd.isCreated)
-                p.y = TerrainUtils.SampleHeight(ref hd, p);
-            return p;
-        }
+        private static float3 Ground(ref TerrainHeightData hd, float2 xz) => RunAreaEmit.Ground(ref hd, xz);
 
 
         internal static GradeParams ReadParams()

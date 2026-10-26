@@ -46,6 +46,8 @@ Long engine and design explanations moved out of the source headers. Each note s
 - [`OffSeasonStaffSystem.md`](OffSeasonStaffSystem.md) -> OffSeasonStaffSystem: how the half-staff write interacts with the game's workplace tick
 - [`parts.tsx.md`](parts.tsx.md) -> parts.tsx: engine facts of the cs2/ui and cs2/l10n bundle that the shared hub building blocks rely on
 - [`PowerBridgeSystem.md`](PowerBridgeSystem.md) -> PowerBridgeSystem: why station stubs need a valve bootstrap to join the electricity graph
+- [`QuickRunsControls.tsx.md`](QuickRunsControls.tsx.md) -> QuickRunsControls.tsx: the Quick runs chip and the Runs view's rows while the tool is open
+- [`QuickRunsToolSystem.md`](QuickRunsToolSystem.md) -> QuickRunsToolSystem: the Quick runs tool (off switch, scan, batch build, undo with refund, tree filler, overlay, probes)
 - [`ResortBatch.CatalogGuardTests.md`](ResortBatch.CatalogGuardTests.md) -> CatalogGuardTests: what ties the prefab catalog to the rule files and the hub tip texts
 - [`ResortBatch.DensityTests.md`](ResortBatch.DensityTests.md) -> DensityTests: the Options prop density rules and the engine draw-order mirror they are checked against
 - [`ResortBatch.RunOutlineTests.md`](ResortBatch.RunOutlineTests.md) -> RunOutlineTests: the engine's area-border drawing rules the run outline mirrors

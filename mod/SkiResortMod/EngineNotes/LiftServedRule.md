@@ -61,7 +61,7 @@ The served rule with downhill run-to-run links; the attraction path and the stat
 - Runs `Assign` first: servingLift / servingDistanceM / servedCount keep their meaning (the DIRECT test of each run's top against the
   lifts; a lift's runs-served count stays direct only).
 - Inputs per run: the outline xz, the node heights in the same order (`RunLinks.Build(outlines, heights, areas)`; null, or another length,
-  reads as flat, y 0), the ski area id, and the cat track mask (`catTracks`, RunKindRules.IsServedLeaf = RunKind.CatTrack; null = none).
+  reads as flat, y 0), the ski area id, and the cat track mask (`catTracks`, RunKindRules.IsCatTrackLink = RunKind.CatTrack; null = none).
   Node y is the area node's terrain-snapped height (GroundHeightSystem re-snaps it, AreaUtils.cs:672-677; the catalog's YKey hashes it),
   the same data as the run top's y in rule 3. The graph is kept while every outline AND height array is the same object.
 - Contacts (`RunLinks.ContactsOf`, per direction of a link): where a skier can pass from one run to the other, with the place's height

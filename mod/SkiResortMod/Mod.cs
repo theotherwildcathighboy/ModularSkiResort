@@ -300,6 +300,13 @@ namespace SkiResortMod
             updateSystem.UpdateAt<CatTrackGradeHotkeySystem>(SystemUpdatePhase.UIUpdate);
             updateSystem.UpdateAfter<CatTrackGradeTooltipSystem, Game.UI.Tooltip.TempCostTooltipSystem>(SystemUpdatePhase.UITooltip);
 
+            // Quick runs tool (experimental): the cat track tool's three phases for the same reasons. ToolUpdate is load-bearing twice:
+            // its run and tree CreationDefinitions must exist before Modification1 of the same frame, and its tree Apply frame must be
+            // set before SkiGladeTagSystem reads ApplyingNow in ApplyTool. The hotkey poller also runs the bind line after a build.
+            updateSystem.UpdateAt<QuickRunsToolSystem>(SystemUpdatePhase.ToolUpdate);
+            updateSystem.UpdateAt<QuickRunsHotkeySystem>(SystemUpdatePhase.UIUpdate);
+            updateSystem.UpdateAfter<QuickRunsTooltipSystem, Game.UI.Tooltip.TempCostTooltipSystem>(SystemUpdatePhase.UITooltip);
+
             // Lift park emitter. EndFrameBarrier.CreateCommandBuffer throws at Modification4B (Game/SafeCommandBufferSystem.cs:16-23), so
             // the {Event, SubObjectsUpdated} entities are created at UIUpdate (after SystemOrder.cs:62). Without this line nothing is parked.
             updateSystem.UpdateAt<LiftParkSystem>(SystemUpdatePhase.UIUpdate);

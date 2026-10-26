@@ -37,7 +37,7 @@ namespace SkiResortMod.Systems
 
         /// <summary>The contract number (bindings.ts HUB_CONTRACT). Bump both together whenever a binding, trigger, field or meaning
         /// changes (Engine notes: Near HubContract lists what each number appended).</summary>
-        public const int HubContract = 16;
+        public const int HubContract = 17;
 
         /// <summary>The `contract` value the UI reads as "C# absent" (bindings.ts CONTRACT_ABSENT). Pushed after the one-shot "!!!"
         /// until the next load: the UI then shows its "not connected" notice instead of launchers that do nothing.</summary>
@@ -414,6 +414,7 @@ namespace SkiResortMod.Systems
             SelectResort, Rename, FocusLift, FocusBuilding, Layout,
             SetPisteMap, TogglePisteMap,   // TogglePisteMap is the dev tab's only
             LiftLineToggle,
+            QuickRunsToggle, QuickRunsSet,   // SkiResortHubUISystem.QuickRuns.cs
         }
 
         private struct Request
@@ -623,6 +624,10 @@ namespace SkiResortMod.Systems
             // Objects.SearchSystem / CameraUpdateSystem, never this system (it reads SkiRunCatalogSystem with GetExisting at load), so a
             // GetOrCreate here cannot recurse.
             m_GradeTool = World.GetOrCreateSystemManaged<CatTrackGradeToolSystem>();
+            // The Quick runs tool. Its OnCreate resolves Overlay / Terrain / Water / SkiPrefabCatalogSystem / SkiRunOwnershipSystem /
+            // Objects.SearchSystem / CameraUpdateSystem / CitySystem / NameSystem / ToolOutputBarrier, never this system, so a
+            // GetOrCreate here cannot recurse.
+            m_QuickRunsTool = World.GetOrCreateSystemManaged<QuickRunsToolSystem>();
             // m_PisteMap (DUMP only) is resolved at DUMP time with GetExistingSystemManaged: SkiPisteMapSystem's
             // OnCreate resolves THIS system, and a GetOrCreate both ways would create one inside the other's OnCreate.
             m_CitizenQuery = GetEntityQuery(new EntityQueryDesc
@@ -671,6 +676,7 @@ namespace SkiResortMod.Systems
             AddBinding(m_History);   // panel binding, no Demand
             AddBinding(m_LiftLine = new ValueBinding<HubLiftLineState>(Group, "liftLine",
                 new HubLiftLineState(false, false, "")));   // panel binding, no Demand
+            AddBinding(m_QuickRuns = new RawValueBinding(Group, "quickRuns", WriteQuickRuns));   // panel binding, no Demand
 
             // Triggers (UI → C#): bindings.ts TRIGGER.
             AddBinding(new TriggerBinding(Group, "toggleHub", OnToggleHub));
@@ -691,10 +697,12 @@ namespace SkiResortMod.Systems
             AddBinding(new TriggerBinding<bool>(Group, "setPisteMap", OnSetPisteMap));
             AddBinding(new TriggerBinding<Entity>(Group, "hoverRun", OnHoverRun));
             AddBinding(new TriggerBinding(Group, "liftLineToggle", OnLiftLineToggle));
+            AddBinding(new TriggerBinding(Group, "quickRunsToggle", OnQuickRunsToggle));
+            AddBinding(new TriggerBinding<string, int>(Group, "quickRunsSet", OnQuickRunsSet));
 
             Mod.Log.Info($"{nameof(SkiResortHubUISystem)} created — group '{Group}', contract {HubContract}, " +
-                         $"DLL stamp {s_DllStamp} (UI bundled at build: {BuildStamp.UiBundled}); 18 value bindings, " +
-                         "18 triggers");
+                         $"DLL stamp {s_DllStamp} (UI bundled at build: {BuildStamp.UiBundled}); 19 value bindings, " +
+                         "20 triggers");
         }
 
         protected override void OnGamePreload(Purpose purpose, GameMode mode)
@@ -1158,6 +1166,12 @@ namespace SkiResortMod.Systems
                     break;
                 case RequestKind.LiftLineToggle:
                     ApplyLiftLineToggle(r.Source);
+                    break;
+                case RequestKind.QuickRunsToggle:
+                    ApplyQuickRunsToggle(r.Source);
+                    break;
+                case RequestKind.QuickRunsSet:
+                    ApplyQuickRunsSet(r.Text, r.Int, r.Source);
                     break;
             }
         }
@@ -2485,6 +2499,10 @@ namespace SkiResortMod.Systems
                 m_Glade.Update(GladeNow());   // ValueBinding dedups (struct, IEquatable)
             if (m_LiftLine.active)
                 m_LiftLine.Update(LiftLineNow());   // dedups like glade
+            bool quickActive = m_QuickRuns.active;
+            if (quickActive)
+                PushQuickRuns(!m_QuickRunsWasActive);   // on the tool's HubRevision / availability / activity
+            m_QuickRunsWasActive = quickActive;
             // pisteMap / follow: ValueBinding.Update at the event (ApplyPisteMap, ApplyFollow); a subscribe
             // pushes the current value (ValueBinding.cs:24-35). Nothing per frame.
 
@@ -3987,6 +4005,7 @@ namespace SkiResortMod.Systems
             HubLiftLineState ll = LiftLineNow();
             sb.Append("  liftLine: available ").Append(ll.Available).Append(", active ").Append(ll.Active)
               .Append(", state ").Append(ll.State).Append('\n');
+            AppendQuickRunsDump(sb);
             // The stats system's own dump: every area row with its live numbers and problems, every lift row,
             // city; then the piste map's one line (written once, here).
             sb.Append("  stats rows: ").Append(m_Stats.ResortCount).Append(" resort(s), ").Append(m_Stats.ResortLiveCount)

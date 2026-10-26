@@ -2,7 +2,8 @@
 // permanent ones.
 // Registered UpdateBefore<SkiGladeTagSystem, Game.Tools.ApplyObjectsSystem> in ApplyTool: a component added to a Temp tree here
 // survives into the permanent tree (ApplyObjectsSystem.cs:670-687, Create keeps the entity).
-// Guard: our tool is activeTool, both report ApplyMode.Apply and tool.ApplyingRun != Null. Decoration is forced on planted trees.
+// Guard: one of our planting tools (IGladeTagSource: the glade tool, the Quick runs tool's tree filler) is activeTool, both report
+// ApplyMode.Apply and the source says this is its planting Apply frame. Decoration is forced on planted trees.
 // Defensive: Game mode only; a one-shot catch disables tagging until the next load; no managed allocation outside Apply frames.
 // Engine notes: EngineNotes/SkiGladeTagSystem.md
 
@@ -17,6 +18,20 @@ using Unity.Entities;
 
 namespace SkiResortMod.Systems
 {
+    /// <summary>A tool whose Apply frame plants trees this system tags (the second source of DECISIONS 415, so there is one tag system).
+    /// The glade tool: ApplyingNow = ApplyingRun != Null, a glade or belt layer. The Quick runs tool's filler: run Null, LayerFiller.</summary>
+    internal interface IGladeTagSource
+    {
+        /// <summary>This is the source's planting Apply frame (read in the ApplyTool phase of that frame).</summary>
+        bool ApplyingNow { get; }
+        /// <summary>The run the planted trees belong to; Entity.Null only for LayerFiller (region-level tags).</summary>
+        Entity ApplyingRun { get; }
+        byte ApplyingLayer { get; }
+        byte ApplyingVariant { get; }
+        /// <summary>The create-path Temps of this Apply, after tagging (the filler records them for its undo).</summary>
+        void OnTagged(NativeList<Entity> created);
+    }
+
     public sealed partial class SkiGladeTagSystem : GameSystemBase
     {
         // Compile-time contract (engine notes): division by constant zero (CS0020) if the persisted
@@ -28,6 +43,7 @@ namespace SkiResortMod.Systems
 
         private ToolSystem m_ToolSystem;
         private SkiGladeToolSystem m_Tool;
+        private QuickRunsToolSystem m_QuickRuns;   // the second source (tree filler)
         private PrefabSystem m_PrefabSystem;
 
         private EntityQuery m_TempTreeQuery;
@@ -59,6 +75,7 @@ namespace SkiResortMod.Systems
             base.OnCreate();
             m_ToolSystem = World.GetOrCreateSystemManaged<ToolSystem>();
             m_Tool = World.GetOrCreateSystemManaged<SkiGladeToolSystem>();
+            m_QuickRuns = World.GetOrCreateSystemManaged<QuickRunsToolSystem>();
             m_PrefabSystem = World.GetOrCreateSystemManaged<PrefabSystem>();
 
             // No Deleted filter (engine notes "Which Temps"): ApplyObjectsSystem's query has none either.
@@ -113,7 +130,8 @@ namespace SkiResortMod.Systems
                          "; a plan whose layer is neither tags nothing (WARN once); " +
                          "ApplyObjectsSystem.Create keeps the entity, so the tag persists (serialized; " +
                          "uninstall-safe; a pre-G2 build cannot read v2 tags); per-apply class counts " +
-                         "published for the tool's apply check; created ≠ tagged is a WARN");
+                         "published for the tool's apply check; created ≠ tagged is a WARN. Second source: the Quick runs " +
+                         "tree filler (run Null, LayerFiller=" + SkiRunTreeMember.LayerFiller + ", region-level tags)");
         }
 
         protected override void OnUpdate()
@@ -123,15 +141,18 @@ namespace SkiResortMod.Systems
                 if (m_Disabled || !m_Armed)
                     return;
 
-                // Three-way guard (engine notes): ours is the active tool, the frame is an Apply
-                // frame for ToolSystem AND for our tool, and the tool names a run.
-                if (m_ToolSystem.activeTool != m_Tool ||
+                // Three-way guard (engine notes): one of our planting tools is the active tool, the frame is an Apply
+                // frame for ToolSystem AND for that tool, and the tool says it is planting (the glade tool: it names a run).
+                ToolBaseSystem active = m_ToolSystem.activeTool;
+                IGladeTagSource source = active == m_Tool ? m_Tool : active == m_QuickRuns ? m_QuickRuns : (IGladeTagSource)null;
+                if (source == null ||
                     m_ToolSystem.applyMode != ApplyMode.Apply ||
-                    m_Tool.applyMode != ApplyMode.Apply)
+                    active.applyMode != ApplyMode.Apply)
                     return;
-                Entity run = m_Tool.ApplyingRun;
-                if (run == Entity.Null)
+                if (!source.ApplyingNow)
                     return;
+                Entity run = source.ApplyingRun;
+                bool glade = source == m_Tool;
 
                 // One classification pass in ApplyObjectsSystem's order (engine notes "Which Temps"), published whatever happens next.
                 var create = new NativeList<Entity>(64, Allocator.Temp);
@@ -147,7 +168,7 @@ namespace SkiResortMod.Systems
                     LastAlreadyDeleted = k.AlreadyDeleted;
                     LastTagged = 0;
 
-                    if (!EntityManager.Exists(run) || EntityManager.HasComponent<Deleted>(run))
+                    if (run != Entity.Null && (!EntityManager.Exists(run) || EntityManager.HasComponent<Deleted>(run)))
                     {
                         // Defensive: the run vanished between hover and apply. Plant untagged
                         // rather than write a dangling reference (cleanup would strip it anyway),
@@ -168,9 +189,13 @@ namespace SkiResortMod.Systems
                     }
 
                     // Per-plan values (valid while ApplyingRun != Null).
-                    byte layer = m_Tool.ApplyingLayer;
-                    byte variant = m_Tool.ApplyingVariant;
-                    if (layer != SkiRunTreeMember.LayerGlade && layer != SkiRunTreeMember.LayerBelt)
+                    byte layer = source.ApplyingLayer;
+                    byte variant = source.ApplyingVariant;
+                    // Glade / belt layers need a run; the filler layer is region-level (run Null) and nothing else.
+                    bool layerOk = layer == SkiRunTreeMember.LayerFiller
+                        ? run == Entity.Null
+                        : run != Entity.Null && (layer == SkiRunTreeMember.LayerGlade || layer == SkiRunTreeMember.LayerBelt);
+                    if (!layerOk)
                     {
                         // Every plan has a layer; planted Temps under any other value are unexpected. Never persist a bogus layer (engine notes): plain trees
                         // instead.
@@ -205,7 +230,8 @@ namespace SkiResortMod.Systems
                                      "apply of this layer replaces them (warned once per load)");
                     }
 
-                    TagApplyingTrees(run, layer, variant, create, k);
+                    TagApplyingTrees(run, layer, variant, create, k, glade);
+                    source.OnTagged(create);
                 }
                 finally
                 {
@@ -275,7 +301,7 @@ namespace SkiResortMod.Systems
             return k;
         }
 
-        private void TagApplyingTrees(Entity run, byte layer, byte variant, NativeList<Entity> create, Classes k)
+        private void TagApplyingTrees(Entity run, byte layer, byte variant, NativeList<Entity> create, Classes k, bool glade)
         {
             int retagged = 0;
             var toAdd = new NativeList<Entity>(create.Length > 0 ? create.Length : 1, Allocator.Temp);
@@ -327,11 +353,13 @@ namespace SkiResortMod.Systems
                         tagged++;
                 }
                 LastTagged = tagged;
-                byte level = m_Tool.ApplyingLevel;
-                LastCensus = $"tagged {tagged} trees for run {RunLabel(run)} — " +
-                             (m_Tool.ApplyingTreeLine ? "Tree line" : "Interior") +
+                byte level = glade ? m_Tool.ApplyingLevel : m_QuickRuns.ApplyingLevel;
+                LastCensus = (glade
+                                 ? $"tagged {tagged} trees for run {RunLabel(run)} — " +
+                                   (m_Tool.ApplyingTreeLine ? "Tree line" : "Interior")
+                                 : $"tagged {tagged} filler trees (Quick runs region, run Null) — Fill") +
                              $" L{level} ({SkiGladeToolSystem.LevelName(level)}), " +
-                             (layer == SkiRunTreeMember.LayerBelt ? "belt" : "glade") +
+                             (layer == SkiRunTreeMember.LayerBelt ? "belt" : layer == SkiRunTreeMember.LayerFiller ? "filler" : "glade") +
                              $" layer, variant {variant}, gen {SkiGladeCompose.PlanGeneration}, layout " +
                              $"v{SkiRunTreeMember.CurrentVersion}; ApplyObjectsSystem create path {create.Length}, " +
                              $"canceled {k.Cancelled} (not created), delete {k.Delete}, update {k.Update}, " +
