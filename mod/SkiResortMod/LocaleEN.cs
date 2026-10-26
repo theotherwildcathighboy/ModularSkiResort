@@ -577,6 +577,8 @@ namespace SkiResortMod
                 { "SkiResort.Tooltip.QUICK_STATUS[BadInput]", "The region could not be read. Draw it again." },
                 { "SkiResort.Tooltip.QUICK_STATUS[TooLarge]", "The region is over the size limit shown beside it. Make it smaller." },
                 { "SkiResort.Tooltip.QUICK_STATUS[TooSmall]", "The region is too small or too narrow for a run." },
+                // Review F2: no usable ground EdgeSeedMarginM (35 m) inside the region and clear of other areas: 70 m across
+                { "SkiResort.Tooltip.QUICK_STATUS[TooNarrow]", "The region is too narrow: a run needs open slope about 70 m across, clear of other areas. Make it wider." },
                 { "SkiResort.Tooltip.QUICK_STATUS[Blocked]", "Most of the region is taken by other areas or by land the city does not own." },
                 { "SkiResort.Tooltip.QUICK_STATUS[NoVertical]", "The region has too little vertical for ski runs." },
                 { "SkiResort.Tooltip.QUICK_STATUS[AllCliff]", "The region is mostly cliff: no run reaches the bottom." },

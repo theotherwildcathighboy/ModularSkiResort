@@ -270,8 +270,8 @@ namespace SkiResortMod.Systems
         }
 
         // D: seeds across each cluster's top band, not a disc. Seed-cell rows (m_Cursor2 4) walk the region once for every cluster:
-        // a usable cell on the 2-cell seed lattice, EdgeSeedMarginM inside the region, whose nearest cluster center is cluster k
-        // (Voronoi) and whose height lies in [TopY_k - m_SeedBand, TopY_k], joins cluster k's list for every pass that keeps its band
+        // a usable cell on the 2-cell seed lattice, EdgeSeedMarginM inside the region, joins the list of the nearest cluster k whose
+        // band [TopY_k - m_SeedBand, TopY_k] holds its height (BandOwner, review F6) for every pass that keeps its band
         // from there. Then one (cluster, pass) list per unit is sorted by height plus a seeded jitter and spaced (ClusterSeeds).
         private void BeginSeedRows()
         {
@@ -308,8 +308,8 @@ namespace SkiResortMod.Systems
                     byte bits = m_InBand[c];
                     if (bits == 0 || m_H[c] < lowest || !(m_DHard[c] >= EdgeSeedMarginM))
                         continue;
-                    NearestCenter(CellCenter(c), out int owner);
-                    if (owner < 0 || m_H[c] > m_Clusters[owner].TopY || m_H[c] < m_Clusters[owner].TopY - m_SeedBand)
+                    int owner = BandOwner(CellCenter(c), m_H[c]);
+                    if (owner < 0)
                         continue;
                     for (int p = 0; p < Passes; p++)
                     {
@@ -384,6 +384,27 @@ namespace SkiResortMod.Systems
         private void AddCluster(int c, int podPass)
         {
             m_Clusters.Add(new ClusterInfo { Cell = c, Center = CellCenter(c), TopY = m_H[c], Pod = podPass >= 0, PodPass = podPass });
+        }
+
+        /// <summary>The nearest cluster whose seed band [TopY - m_SeedBand, TopY] holds height h, or -1. Review F6: the nearest center
+        /// among ALL clusters gave a summit's band cells to a pod 150 m away, whose band lies lower, and nobody seeded there.</summary>
+        private int BandOwner(float2 p, float h)
+        {
+            int owner = -1;
+            float best = float.PositiveInfinity;
+            for (int k = 0; k < m_Clusters.Count; k++)
+            {
+                ClusterInfo ci = m_Clusters[k];
+                if (h > ci.TopY || h < ci.TopY - m_SeedBand)
+                    continue;
+                float d = math.distance(p, ci.Center);
+                if (d < best)
+                {
+                    best = d;
+                    owner = k;
+                }
+            }
+            return owner;
         }
 
         private float NearestCenter(float2 p, out int owner)
@@ -629,23 +650,20 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>Greedy order: with a mix, the mix picks the band and the score the line, so the band's own value (a black is worth
-        /// three greens) leaves the score: Score0 / BandValue x MixWeight. Without the division the long summit blacks claimed the
-        /// lower mountain before any green was tried. Terrain: the score alone.</summary>
+        /// <summary>Greedy order: with a mix, the mix picks the band and the score the line. The band under target with the lowest
+        /// fill share goes first (tiers of 1/1000 of the share, each worth 1000), then the line score Score0 / BandValue (the band's
+        /// own value, a black is worth three greens, leaves the score; the rest is SizeFactor x at most 2, far under one tier).
+        /// Bands at target come last, by line score. The old 1 + deficit weight let the summit blacks fill the cap once review F6
+        /// gave summits their own seeds (alpine 2 bowl: 5 greens of 14). Terrain: the score alone.</summary>
         private double SelectWeight(Cand c)
         {
             if (m_Knobs.Mix == AutoMix.Terrain)
                 return c.Score0;
-            return c.Score0 / SkiResortScore.BandValueOf(SkiResortScore.BandState.Rated, (byte)c.Expected) * MixWeight(c.Expected);
-        }
-
-        private double MixWeight(SlopeBand band)
-        {
-            if (m_Knobs.Mix == AutoMix.Terrain)
-                return 1.0;
-            int b = (int)band;
-            int deficit = m_Target[b] - m_Have[b];
-            return deficit > 0 ? 1.0 + deficit : 0.1;
+            double line = c.Score0 / SkiResortScore.BandValueOf(SkiResortScore.BandState.Rated, (byte)c.Expected);
+            int b = (int)c.Expected;
+            if (m_Target[b] <= m_Have[b])
+                return 0.1 * line;
+            return 1000.0 * Math.Floor(1000.0 * (1.0 - m_Have[b] / (double)m_Target[b])) + line;
         }
 
         /// <summary>Phase 0 of a candidate: TopTaken, the free line's merge, and either the build (same unit) or a reroute (next units).</summary>
@@ -867,7 +885,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>The line's own checks before any build: MinLengthM and MinDropM, and (F) a merged line must keep MergeKeepShare of
-        /// its free line or MergeKeepM, else it is a stub (TooShort).</summary>
+        /// its free line or MergeKeepM, else it is a stub (MergeStub, its own code since review F12 so a test can see it fire).</summary>
         private AutoReject LineChecks(Cand cand, int start, int len, bool merge)
         {
             int seed = m_Paths[start], last = m_Paths[start + len - 1];
@@ -875,7 +893,7 @@ namespace SkiResortMod.Systems
             if (pathLen < MinLengthM || m_H[seed] - m_H[last] < MinDropM)
                 return AutoReject.TooShort;
             if (merge && pathLen < MergeKeepShare * cand.LengthM && pathLen < MergeKeepM)
-                return AutoReject.TooShort;
+                return AutoReject.MergeStub;
             return AutoReject.Kept;
         }
 

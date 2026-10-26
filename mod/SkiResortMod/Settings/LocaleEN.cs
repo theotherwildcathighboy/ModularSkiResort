@@ -531,7 +531,7 @@ namespace SkiResortMod.Settings
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.CatTrackDeleteModeBinding)),
                     "Turns the cat track tool's delete mode on or off. In delete mode, click a cat track to select it and click it " +
                     "again to delete it (the ground stays graded, no refund). Right click or Esc leaves delete mode. Only while the " +
-                    "tool is open. Default Ctrl+Shift+D."
+                    "tool is open; the hub Runs tab's Delete cat tracks chip does the same. Default Ctrl+Shift+D."
                 },
                 { m_Setting.GetBindingKeyLocaleID(SkiResortSettings.ActCatTrackDeleteMode), "Cat track delete mode" },
                 { m_Setting.GetBindingKeyHintLocaleID(SkiResortSettings.ActCatTrackDeleteMode), "Delete mode" },

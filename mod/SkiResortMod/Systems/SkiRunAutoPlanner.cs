@@ -30,9 +30,12 @@ namespace SkiResortMod.Systems
         TooSmall,   // region under MinAreaM2, or no open spot MinHalfWidthM from every edge
         Blocked,    // under BlockedShare of the region is open (other surfaces, unowned tiles, off the map)
         NoVertical, // under MinVerticalM between the highest and lowest open ground
-        AllCliff,   // over AllCliffShare of the open ground is cliff, or no top reaches the base without cliff
+        AllCliff,   // over AllCliffShare of the open ground is cliff, or no usable ground reaches the base without cliff (minimax),
+                    // or no route keeps any pass's band from MinDropM above its sources (review F11)
         TooFlat,    // under TooFlatShare of the usable ground is steeper than the green floor
         NoRuns,     // the field was fine but no candidate survived (Rejects says why)
+        TooNarrow,  // no usable ground EdgeSeedMarginM inside the region and clear of obstacles: no seed (checked after TooSmall, and
+                    // again after the routes for the ground they reach; review F2: it used to end as NoRuns with no reject)
     }
 
     /// <summary>Preview warnings (the planner's share; the tool adds money, sign, renumbering and game-check warnings).</summary>
@@ -68,6 +71,7 @@ namespace SkiResortMod.Systems
         Unrated,     // the rater returned no rating or a broken mask
         Flat,        // rated Flat
         RatingCap,   // MaxRatings reached
+        MergeStub,   // a merged line keeps under MergeKeepShare of its free line and under MergeKeepM (review F12: was TooShort)
         Count,
     }
 
@@ -358,7 +362,8 @@ namespace SkiResortMod.Systems
         // Field statistics
         private float m_HMinU, m_HMaxU, m_HMinOpen, m_HMaxOpen, m_BaseTop, m_HReach;
         private int m_Open, m_Usable, m_Cliff, m_Steep, m_BaseGentle;
-        private float m_MaxDHard;
+        private float m_MaxDHard, m_MaxDHardU;
+        private int m_RouteReach, m_RouteSeedable, m_RouteSources;
 
         private readonly MinimaxQueue m_Minimax = new MinimaxQueue();
         private readonly DijkstraQueue m_Heap = new DijkstraQueue();
@@ -976,7 +981,7 @@ namespace SkiResortMod.Systems
                 m_Open = m_Usable = m_Cliff = m_Steep = 0;
                 m_HMinU = m_HMinOpen = float.PositiveInfinity;
                 m_HMaxU = m_HMaxOpen = float.NegativeInfinity;
-                m_MaxDHard = 0f;
+                m_MaxDHard = m_MaxDHardU = 0f;
                 m_Cursor = m_RegionJ0;
                 m_Cursor2 = 1;
             }
@@ -1006,6 +1011,7 @@ namespace SkiResortMod.Systems
                     else
                     {
                         m_Usable++;
+                        m_MaxDHardU = Math.Max(m_MaxDHardU, m_DHard[c]);
                         m_HMinU = Math.Min(m_HMinU, m_H[c]);
                         m_HMaxU = Math.Max(m_HMaxU, m_H[c]);
                         if (o >= SkiSlopeClassifier.GradeGreen)
@@ -1031,6 +1037,13 @@ namespace SkiResortMod.Systems
             if (m_MaxDHard < MinHalfWidthM)
             {
                 Finish(AutoPlanStatus.TooSmall);
+                return;
+            }
+            // F2: seeds and pods need DHard >= EdgeSeedMarginM; without one such usable cell the scan could only end in NoRuns with an
+            // empty reject histogram (a 60 m corridor down one slope, or open ground hemmed in by other surfaces)
+            if (m_Usable > 0 && m_MaxDHardU < EdgeSeedMarginM)
+            {
+                Finish(AutoPlanStatus.TooNarrow);
                 return;
             }
             if (r.VerticalM < m_In.MinVerticalM)
@@ -1169,6 +1182,7 @@ namespace SkiResortMod.Systems
                 return;
             }
             m_Pass = 0;
+            m_RouteSources = 0;
             Next(Stage.Route);
         }
 
@@ -1194,6 +1208,7 @@ namespace SkiResortMod.Systems
                     pred[c] = PredSource;
                     m_ROver[c] = (byte)(m_O[c] >= ceil ? 1 : 0);
                     m_Heap.Push(0f, c);
+                    m_RouteSources++;
                 }
             }
             m_Cursor = jEnd;
@@ -1208,6 +1223,11 @@ namespace SkiResortMod.Systems
                 StartPassRows();
                 return;
             }
+            if (m_Cursor2 == 2)
+            {
+                ReachRows();
+                return;
+            }
             byte[] pred = m_Pred[m_Pass];
             float[] dist = m_Dist[m_Pass];
             float floor = PassFloor[m_Pass], ceil = PassCeiling[m_Pass], hard = PassHardCeiling[m_Pass];
@@ -1220,8 +1240,9 @@ namespace SkiResortMod.Systems
                 {
                     if (++m_Pass >= Passes)
                     {
-                        m_FieldReady = true;
-                        Next(Stage.Seeds);
+                        m_RouteReach = m_RouteSeedable = 0;
+                        m_Cursor = m_RegionJ0;
+                        m_Cursor2 = 2;
                     }
                     else
                     {
@@ -1294,6 +1315,47 @@ namespace SkiResortMod.Systems
         }
 
         private bool m_FieldReady;
+
+        // After the last pass, row chunks over the region bbox: does any route keep its pass's band from MinDropM above that pass's
+        // sources (m_RouteReach), and does one such cell lie EdgeSeedMarginM inside (m_RouteSeedable)? AfterMinimax's reach test has no
+        // edge strip and no source limit, so it can pass where no route can seed (review F11): AllCliff, or TooNarrow, then, never a
+        // NoRuns with an empty reject histogram. The same cells PodRows and SeedRows draw from.
+        private void ReachRows()
+        {
+            int jEnd = Math.Min(m_RegionJ1 + 1, m_Cursor + RowsPerUnit);
+            for (int j = m_Cursor; j < jEnd; j++)
+                for (int i = m_RegionI0; i <= m_RegionI1; i++)
+                {
+                    int c = j * m_Nx + i;
+                    byte bits = m_InBand[c];
+                    if (bits == 0 || (m_Flags[c] & (FOpen | FCliff)) != FOpen)
+                        continue;
+                    bool reach = false;
+                    for (int p = 0; p < Passes && !reach; p++)
+                        reach = (bits & (1 << p)) != 0 && m_H[c] - SourceTop(p) >= MinDropM;
+                    if (!reach)
+                        continue;
+                    m_RouteReach++;
+                    if (m_DHard[c] >= EdgeSeedMarginM)
+                        m_RouteSeedable++;
+                }
+            m_Cursor = jEnd;
+            if (m_Cursor <= m_RegionJ1)
+                return;
+            if (m_RouteReach == 0)
+            {
+                // No source at all = the base lies within the edge strip (a narrow tongue at the bottom): narrow, not cliff
+                Finish(m_RouteSources == 0 ? AutoPlanStatus.TooNarrow : AutoPlanStatus.AllCliff);
+                return;
+            }
+            if (m_RouteSeedable == 0)
+            {
+                Finish(AutoPlanStatus.TooNarrow);
+                return;
+            }
+            m_FieldReady = true;
+            Next(Stage.Seeds);
+        }
 
         /// <summary>Highest source cell of a pass's routes (PassSourceShare of the base band).</summary>
         private float SourceTop(int pass) => m_HMinU + PassSourceShare[pass] * (m_BaseTop - m_HMinU);

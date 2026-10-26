@@ -53,25 +53,34 @@ member that keeps both spans clear and adds no infill tower. `MinTowers` prefers
 (`Breaks`), never at the cost of an extra tower.
 
 ## Station ends, the station-side rule and the edge slope (2026-10-26 lift pass)
-Report: docs/research/lifts/lift-pass-2026-10-26.md. Tests: LiftBatch LP-26..LP-29.
+Report: docs/research/lifts/lift-pass-2026-10-26.md. Tests: LiftBatch LP-26..LP-30 (LP-30: the review fixes,
+docs/research/review-153b64e-2026-10-26.md F3 / F4 / F9 / F10).
 - **Approach floor.** Carriers leave a station at loading height (DQ: bullwheel rope 3.70 m above the platform, hang 3.30 m = 0.40 m), so
   the floor at a station end ramps linearly from the carrier's own height at the end (0, or negative at a sunk station) to FloorM at
   StationClearM (FG 12.2, DQ 25.6, GD 25.4, tram 40 m): `LiftTowerPlanConstants.ApproachFloor`. Before, FloorM applied from the first
   sample and forced a tall tower right at every station via the NoClearance fallback (field DQ: DQ12 @10 m and DQ18 @1,015 m). Only ends
-  the caller marks as stations get it (`StationA` / `StationB`: the tool from its end kinds, the fit from the rope lanes it found); a
-  loose or ground end is a tower node with the full floor.
+  the caller marks as stations get it (`StationA` / `StationB`: the tool from its end kinds, the fit from the end node's Owner, a
+  station sub-net stub; every line edge has HV rope lanes at both nodes, so a lane says nothing about a station); a loose or ground end
+  is a tower node with the full floor.
 - **Station-side rule.** `MinCost.EndRiseM` = the rise above the shortest member of each tower next to a station end. With
   `TowerWorthM` > 0 (FG / DQ / GD 8 m) the search minimizes towers x TowerWorthM + EndRiseM first: one more tower buys 8 m of shorter
-  station towers (ordinary 1,200 m DQ slope: DQ18 @105 / DQ20 @1,075 with 5 towers -> DQ10 at both ends with 6). The tram has
+  station towers (ordinary 1,200 m DQ slope: DQ18 @105 / DQ20 @1,075 with 5 towers -> DQ10 at both ends with 6), at most ONE tower
+  over the fewest per line (`m_ExtraTowers`; DECISIONS 429): a segment touching a station runs the fewest-towers search first, then the
+  weighted one, and where that takes more than the budget, `SearchMin` again with the tower count in the state (exact under the cap; FG
+  over three narrow humps otherwise took 4 -> 6 towers, LP-30). Phase (c) must not undo the rule: when the search's members were clear
+  and its reset raised a tower next to a station, that tower goes back to the search's member (the whole assignment when that breaks
+  the line). The tram has
   TowerWorthM 0 (fewest towers first, EndRiseM breaks ties). `Fit` turns `StationRule` off for its free plan: the count the line needs is
   the fewest towers. A strict station-first order was tried and dropped: it stood FG8s 15-20 m from stations and inflated the fit's count.
 - **Edge slope (SteepSlope).** The engine refuses a Temp edge whose node-to-node |dy| / xz length reaches the line prefab's
   m_MaxSlopeSteepness + 0.0005, or half of it 2x that (ValidationHelpers.cs:1435-1490, test :1462; the FlattenTerrain branch at :1435
   does not apply to lift lines). Line prefabs: SkiChairliftHV 0.8, SkiDetachableHV 0.9, SkiGondolaHV 1.2, SkiTramHV 2.5
-  (`MaxEdgeSlope`). With `CheckEdgeSlope` (the lift tool only) every MinTowers transition, the breakover move and phase (c)'s raise keep
+  (`MaxEdgeSlope`, the defaults: the tool plans with the line prefab's live value, `With(maxEdgeSlope:)` at the pick). With `CheckEdgeSlope` (the lift tool only) every MinTowers transition, the breakover move and phase (c)'s raise keep
   |dy| <= 0.97 x MaxEdgeSlope x d between the nodes as built (towers at ground + E(member), the ends at `EndNodeYA` / `EndNodeYB`);
   `TotalViolation` counts the excess; `Build` sets `LiftPlanSpan.EdgeSlope` / `SlopeViolated`. Off for the fit: permanent edges are not
-  validated. The legacy Anchors / Split / Infill path has no slope gate.
+  validated. The legacy Anchors / Split / Infill path has no slope gate. A one-span segment clear for the floor runs the search when its
+  edge fails the slope rule; where no tower arrangement exists (a chord between fixed end heights steeper than the rule: towers average
+  its slope and cannot cut it) it stays one span and `Build` flags it, red in the preview.
 - **Outputs.** `LiftTowerPlan.SampleFloorM` (MarginAt uses it), `StationA` / `StationB`, `EndCarrierA` / `EndCarrierB` (carrier at the end
   above the high side: negative = a sunk station; the tool warns SUNK STATION), `MaxEdgeSlope`.
 

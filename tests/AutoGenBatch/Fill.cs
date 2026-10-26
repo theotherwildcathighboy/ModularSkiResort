@@ -124,8 +124,9 @@ namespace AutoGenBatch
                 if (best.Status == AutoPlanStatus.Ok)
                     Invariants("fill 9 km2", input, best);
                 Check(best.Runs.Count >= 30, "fill 9 km2", $"{best.Runs.Count} runs");
-                Check(best.MaxUnitMs <= 4f, "fill 9 km2", string.Format(CultureInfo.InvariantCulture, "longest unit {0:F2} ms over the 4 ms CoreCLR budget ({1})",
-                    best.MaxUnitMs, StageText(best)));
+                if (TimingChecked)
+                    Check(best.MaxUnitMs <= 4f, "fill 9 km2", string.Format(CultureInfo.InvariantCulture, "longest unit {0:F2} ms over the 4 ms CoreCLR budget ({1})",
+                        best.MaxUnitMs, StageText(best)));
                 Console.WriteLine(string.Format(CultureInfo.InvariantCulture,
                     "TIME  autogen 9 km2 Dense (CoreCLR, best of 3): {0:F0} ms, {1} units, longest unit {2:F2} ms (Mono x4-8: {3:F0}-{4:F0} ms); {5} runs",
                     bestWall, best.Units, best.MaxUnitMs, 4 * best.MaxUnitMs, 8 * best.MaxUnitMs, best.Runs.Count));

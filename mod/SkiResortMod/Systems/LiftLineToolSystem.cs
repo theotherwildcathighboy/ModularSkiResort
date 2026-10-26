@@ -563,6 +563,10 @@ namespace SkiResortMod.Systems
                         "This lift type cannot be drawn yet");
                     return;
                 }
+                // The engine's edge slope rule is the line prefab's own (NetInitializeSystem copies m_MaxSlopeSteepness as is):
+                // plan with the live value, the For() default only when the prefab has none.
+                if (EntityManager.TryGetComponent<NetGeometryData>(line, out var lineGeo) && lineGeo.m_MaxSlopeSteepness > 0f)
+                    c = c.With(maxEdgeSlope: lineGeo.m_MaxSlopeSteepness);
                 m_Type = def;
                 m_C = c;
                 m_LinePrefab = line;
@@ -909,6 +913,7 @@ namespace SkiResortMod.Systems
             LiftTowerPlan plan = edit.Replan(sampler);
             sw.Stop();
             m_Draw = LiftPlanDraw.Build(plan, s => edit.PointAt(s), _ => edit.Right);
+            MarkSteepSpans(plan, edit);
             var sb = new StringBuilder();
             sb.Append("LiftLine [plan] #").Append(edit.Revision).Append(": ").Append(why).Append(" — ").Append(edit.Describe())
               .Append("; ").Append(sw.Elapsed.TotalMilliseconds.ToString("F1")).Append(" ms");
@@ -926,6 +931,20 @@ namespace SkiResortMod.Systems
                       .Append(plan.Nodes[i + 1].AlongM.ToString("F0")).Append(" m) TOO STEEP ").Append(plan.Spans[i].EdgeSlope.ToString("F2"));
             Say(sb.ToString());
             WarnSunk(plan);
+        }
+
+        /// <summary>LiftPlanDraw colors a span by floor and height only: a span the engine will refuse as too steep (SteepSlope) is
+        /// red too, also between two stations with no tower to mark (a green preview must not end in a refused Build).</summary>
+        private void MarkSteepSpans(LiftTowerPlan plan, LiftLineEdit edit)
+        {
+            float3 start = edit.PointAt(0f);
+            for (int g = 0; g < m_Draw.SegA.Length; g++)
+            {
+                float along = math.distance(0.5f * (m_Draw.SegA[g].xz + m_Draw.SegB[g].xz), start.xz);
+                for (int s = 0; s < plan.Spans.Length; s++)
+                    if (plan.Spans[s].SlopeViolated && along >= plan.Nodes[s].AlongM && along <= plan.Nodes[s + 1].AlongM)
+                        m_Draw.SegClass[g] = 2;
+            }
         }
 
         /// <summary>A station end whose carriers leave below the ground (the station sits in the slope: the no-level terraform keeps

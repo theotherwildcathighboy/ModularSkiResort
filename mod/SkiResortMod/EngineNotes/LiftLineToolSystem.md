@@ -80,7 +80,9 @@ ToolErrorData.m_Error; ValidationSystem.AddIcon, ValidationSystem.cs:1747-1752) 
 summary in the warning and the tooltip. Temp edges are counted as created (TempFlags.Create: the definition had no original) vs
 existing edges touched at an end (a Temp copy with m_Original; GenerateEdgesSystem.cs:1371-1414): field test 2's "planned 8 / Temp 9"
 was the loose end's existing edge. The plan log prints the max edge slope against the prefab's limit and any span TOO STEEP (red in the
-preview); PatchSpans logs each line prefab's live m_MaxSlopeSteepness against the planner's. A station whose carriers leave below the
+preview: the tower rings and, via MarkSteepSpans, the span's segments, so a tower-free station-to-station span shows it too). The tool
+plans with the line prefab's live m_MaxSlopeSteepness (NetGeometryData, `With(maxEdgeSlope:)` at the pick); PatchSpans logs each line
+prefab's live value against the planner's default. A station whose carriers leave below the
 ground (EndCarrier < -0.25 m) logs SUNK STATION on every plan and shows one tooltip notice per line.
 
 ## Logs

@@ -60,6 +60,7 @@ namespace AutoGenBatch
         {
             var ic = CultureInfo.InvariantCulture;
             var phaseMax = new float[SkiRunAutoPlanner.SelectPhases];
+            int mergeStubs = 0, idleSummits = 0, summits = 0;
             for (uint seed = 1; seed <= 3; seed++)
             {
                 HeightFn f = Terrain.Alpine(seed);
@@ -80,6 +81,14 @@ namespace AutoGenBatch
                             continue;
                         Check(r.Fingerprint == r2.Fingerprint, w, "two scans differ");
                         Invariants(w, input, r);
+                        mergeStubs += r.Rejects[(int)AutoReject.MergeStub];
+                        foreach (AutoCluster cl in r.Clusters)
+                            if (!cl.Pod)
+                            {
+                                summits++;
+                                if (cl.Runs == 0)
+                                    idleSummits++;
+                            }
                         double openKm2 = r.OpenShare * r.RegionAreaM2 / 1e6;
                         double perKm2 = r.Runs.Count / Math.Max(1e-6, openKm2);
                         int greens = r.BandCount[(int)SlopeBand.Green];
@@ -118,7 +127,8 @@ namespace AutoGenBatch
                         {
                             float best = Math.Min(r.SelectPhaseMaxMs[k], r2.SelectPhaseMaxMs[k]);
                             phaseMax[k] = Math.Max(phaseMax[k], best);
-                            Check(best <= (k == 3 ? 2.0f : 1.2f), w, string.Format(ic, "Select phase {0} unit {1:F2} ms (pick/A*/build/rate/chamfer)", k, best));
+                            if (TimingChecked)
+                                Check(best <= (k == 3 ? 2.0f : 1.2f), w, string.Format(ic, "Select phase {0} unit {1:F2} ms (pick/A*/build/rate/chamfer)", k, best));
                         }
                         Console.WriteLine(string.Format(ic,
                             "INFO  {0}: {1} runs, {2:F1}/km2 open, {3}, median width {4:F0} m, shortest line {5:F0} m, nearest edge {6:F1} m, low green {7}",
@@ -126,6 +136,10 @@ namespace AutoGenBatch
                     }
                 }
             }
+            // Review F12: the merge-stub rule (LineChecks, MergeKeepShare / MergeKeepM) has its own reject code, so this fails when the
+            // rule stops firing (verified once by disabling it: 0 stubs, this check failed)
+            Check(mergeStubs > 0, "field merge stubs", "the merge-stub rule never fired on the alpine fixtures");
+            Console.WriteLine($"INFO  field alpine: {mergeStubs} merge stubs refused; {idleSummits} of {summits} summit clusters without a run");
             Console.WriteLine("TIME  field alpine Select phase max (CoreCLR, best of 2 per scan, worst scan) pick/A*/build/rate/chamfer " +
                               string.Join("/", Array.ConvertAll(phaseMax, v => v.ToString("F2", ic))) + " ms");
         }
@@ -232,6 +246,47 @@ namespace AutoGenBatch
             v.Sort();
             float Q(double p) => v[(int)Math.Round(p * (v.Count - 1))];
             return string.Format(CultureInfo.InvariantCulture, "{0:F0}/{1:F0}/{2:F0}", Q(0.25), Q(0.5), Q(0.75));
+        }
+
+        // ---------------------------------------------------------------- review 153b64e fixes (F2, F6, F11)
+
+        private static void ReviewTests()
+        {
+            // F2: a corridor down one 30 % slope. Under 70 m (2 x EdgeSeedMarginM) no cell can seed: TooNarrow up front, never NoRuns
+            // with an empty histogram (Plan asserts that for every scan of the sweep)
+            foreach (float width in new[] { 20f, 40f, 60f, 68f, 80f, 100f, 140f, 200f })
+            {
+                AutoPlanInput input = Input(Terrain.Plane(0.30), Terrain.Rect(-0.5f * width, -600f, 0.5f * width, 600f));
+                AutoPlanResult r = Plan(input);
+                string w = string.Format(CultureInfo.InvariantCulture, "review corridor {0:F0} m", width);
+                Console.WriteLine($"INFO  {w}: {r.Status}, {r.Runs.Count} runs, rejects [{Rejects(r)}]");
+                if (width <= 60f)
+                    Check(r.Status == AutoPlanStatus.TooNarrow || r.Status == AutoPlanStatus.TooSmall, w, r.Status.ToString());
+                if (width >= 140f)
+                    Check(r.Status == AutoPlanStatus.Ok, w, r.Status.ToString());
+                if (r.Status == AutoPlanStatus.Ok)
+                    Invariants(w, input, r);
+            }
+            // F2: open ground hemmed in by other surfaces: 50 m lanes between 40 m painted strips (55 % open, so not Blocked)
+            {
+                float2[] sq = Terrain.Square(0f, 0f, 450f);
+                var strips = new List<AutoObstacle>();
+                for (float x = -450f + 50f; x < 450f; x += 90f)
+                    strips.Add(new AutoObstacle { Kind = AutoObstacleKind.Surface, Ring = Terrain.Rect(x, -460f, x + 40f, 460f) });
+                AutoPlanResult r = Plan(Input(Terrain.Plane(0.30), sq, strips));
+                Check(r.Status == AutoPlanStatus.TooNarrow, "review hemmed lanes", $"{r.Status} (open {r.OpenShare:P0})");
+            }
+            // F11 / F2: a wide upper slope that drains through a 24 m tongue: the minimax reaches the base through it, but no route
+            // source lies 17.5 m inside the edge, so no route exists (was NoRuns with an empty histogram)
+            {
+                var tongue = new[]
+                {
+                    new float2(-300f, -500f), new float2(300f, -500f), new float2(300f, 100f), new float2(12f, 100f),
+                    new float2(12f, 400f), new float2(-12f, 400f), new float2(-12f, 100f), new float2(-300f, 100f),
+                };
+                AutoPlanResult r = Plan(Input(Terrain.Plane(0.30), tongue));
+                Check(r.Status == AutoPlanStatus.TooNarrow, "review base tongue", r.Status.ToString());
+            }
         }
     }
 }

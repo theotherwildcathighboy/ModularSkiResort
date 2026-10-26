@@ -41,6 +41,8 @@ namespace AutoGenBatch
                 BigDiag();
                 return 0;
             }
+            if (!TimingChecked)
+                Console.WriteLine("NOTE  Debug build: the unit-time limits (FieldTests, FillTests 9 km2) print but are not checked; run with -c Release");
             SamplerTests();
             SeedTests();
             MinimaxOracle();
@@ -55,6 +57,7 @@ namespace AutoGenBatch
             QuickRunsTests();
             FillTests();
             FieldTests();
+            ReviewTests();
             Timing();
             Console.WriteLine($"SUMMARY AutoGenBatch: {s_Checks} checks, {s_Failures} failure(s)");
             Environment.ExitCode = s_Failures;
@@ -84,7 +87,31 @@ namespace AutoGenBatch
             };
         }
 
-        private static AutoPlanResult Plan(AutoPlanInput input) => new SkiRunAutoPlanner().Run(input);
+        private static AutoPlanResult Plan(AutoPlanInput input)
+        {
+            AutoPlanResult r = new SkiRunAutoPlanner().Run(input);
+            NoRunsHasReason("plan", r);
+            return r;
+        }
+
+        /// <summary>Review F2 / F11: NoRuns promises the reject histogram says why; an empty one means a refusal was missed.</summary>
+        private static void NoRunsHasReason(string where, AutoPlanResult r)
+        {
+            if (r.Status != AutoPlanStatus.NoRuns)
+                return;
+            int total = 0;
+            for (int i = 1; i < (int)AutoReject.Count; i++)
+                total += r.Rejects[i];
+            Check(total > 0, where, "NoRuns with an empty reject histogram (no reason)");
+        }
+
+        /// <summary>Review F7: the unit-time limits are CoreCLR Release numbers; a Debug build runs the planner 1.3-1.5x slower, so
+        /// there they print without a check.</summary>
+#if DEBUG
+        private static readonly bool TimingChecked = false;   // readonly, not const: no unreachable-code warning
+#else
+        private static readonly bool TimingChecked = true;   // readonly, not const: no unreachable-code warning
+#endif
 
         private static string Mix(AutoPlanResult r) =>
             $"G{r.BandCount[1]} B{r.BandCount[2]} K{r.BandCount[3]} DB{r.BandCount[4]} (target G{r.BandTarget[1]} B{r.BandTarget[2]} K{r.BandTarget[3]} DB{r.BandTarget[4]})";

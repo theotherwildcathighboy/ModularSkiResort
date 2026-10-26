@@ -498,7 +498,7 @@ namespace SkiResortMod.Systems
         /// stays Terrain only), then the two-click confirm (GradeDeleteInput).</summary>
         private void UpdateDelete()
         {
-            if (m_Frame - m_DelRingsFrame >= DeleteRingsFrames)
+            if (m_DelRingsFrame == int.MinValue || m_Frame - m_DelRingsFrame >= DeleteRingsFrames)   // int.MinValue = stale (the subtraction would overflow)
                 ReadCatTrackRings();
             m_DelHover = m_HasHit ? GradeDeleteInput.Pick(m_DelRings, m_Hit.xz) : -1;
             if (!m_HasHit || !applyAction.WasPressedThisFrame())

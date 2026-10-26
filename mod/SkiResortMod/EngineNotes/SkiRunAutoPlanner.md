@@ -38,10 +38,10 @@ kernels, ring geometry), `.Snapshot.cs` (`HeightSnapshot`, `SnapshotSampler`).
 | FlowSort / FlowAccum | row chunk / 16 Ki cells | D8 catchment area (counting sort on R16: count rows, then place rows), the gully cost |
 | Usable, Zones | row chunks | open = region cell with `DHard >= texel + RegionClearanceM` (an outline marched from an open cell stays inside), cliff >= 100 %, base = usable ground up to `HMinU + clamp(15 % x vertical, BaseMinM 10 m, BaseMaxM 60 m)` (B: the cap keeps gentle lower ground above 60 m of relief skiable) |
 | Minimax | 32 Ki pops, then row chunks | M = easiest band down to the base (bucket queue on the classifier's 1/1024 grade buckets, 8-neighbor); `EasiestBand` serves the preview heat map. Then (A) AllCliff only when no usable cell `MinDropM` above the base has M under 80 %, at any height; `m_HReach` = the highest such cell |
-| Route | row chunks + 8 Ki pops | four reverse Dijkstra passes (C, see Routing passes). `StepCost` is shared with the reroute |
+| Route | row chunks + 8 Ki pops | four reverse Dijkstra passes (C, see Routing passes). `StepCost` is shared with the reroute. Then `ReachRows` (review F11 / F2): row chunks over the region count the usable cells some pass routes in band `MinDropM` above that pass's sources (`SourceTop`), and those `EdgeSeedMarginM` inside; none at all: AllCliff (TooNarrow when no pass had a source), none inside the margin: TooNarrow. The Minimax reach test has no edge strip and no source limit, so it can pass where no route can seed |
 | Seeds | row chunks; one summit / pod; one (cluster, pass) list | top cells, summits, pods, seed cells, seeds (below) |
 | Candidates | 8 seeds | walk each seed's predecessor chain to the base, dedupe by path hash, Expected = BandOf(the line's steepest cell), cheap score = SizeFactor x BandValue x vertical term x (1 + `ScoreJitter` x seeded jitter) |
-| Select | one phase of one candidate | greedy by `SelectWeight` = Score0 / BandValue(Expected) x MixWeight (Terrain: Score0): the mix picks the band, the score the line (with BandValue in the order, the long summit blacks claimed the lower mountain before any green was tried). Phases (`m_SelPhase`): 0 pick + merge truncation + the line checks, 1 reroute A* (4 Ki pops a unit, 12 k in all, resumable), 2 build, ONE attempt per unit (corridor march, GradeRibbon tail, exact checks; up to `BuildAttempts` 4: area shrink or 0.75 x corridor), 3 rating in three steps (node heights + the classifier's Plan; Need heights in row chunks of 64 Ki cells with FillHeights' own sampling; Classify + accept), 4 / 5 the accepted run's local chamfer of `DAcc` in row chunks |
+| Select | one phase of one candidate | greedy by `SelectWeight` (Terrain: Score0): the mix picks the band, the score the line. The band under target with the lowest fill share (have / target, in tiers of 1/1000 worth 1000 each) goes first, then the line score Score0 / BandValue(Expected) (SizeFactor x at most 2, far under one tier); bands at target come last, by line score (with BandValue in the order, the long summit blacks claimed the lower mountain before any green was tried; with the old 1 + deficit weight, the summits' own seeds after review F6 filled the cap with blacks: alpine 2 bowl Normal 5 greens of 14). Phases (`m_SelPhase`): 0 pick + merge truncation + the line checks, 1 reroute A* (4 Ki pops a unit, 12 k in all, resumable), 2 build, ONE attempt per unit (corridor march, GradeRibbon tail, exact checks; up to `BuildAttempts` 4: area shrink or 0.75 x corridor), 3 rating in three steps (node heights + the classifier's Plan; Need heights in row chunks of 64 Ki cells with FillHeights' own sampling; Classify + accept), 4 / 5 the accepted run's local chamfer of `DAcc` in row chunks |
 | Finish | setup; pairs under 40 k edge pairs; runs + junctions; kinds etc. | junctions (ring bounding boxes prefilter), existing-run links, kinds, clusters, warnings, fingerprint |
 
 Every whole-lattice pass is row-chunked (65536 cells a unit) since P2, for the 9 km2 cap. Since the quality pass (H) no Select unit
@@ -88,8 +88,9 @@ on the gentle lower slope. Clusters <= `ClusterCap + PodCap` (PodCap = 3 x MaxPo
 tool which clusters are pods.
 
 Seeds (D) across each cluster's top band, not a disc: one row-chunked pass over the region's 2-cell seed lattice puts every usable
-cell with `DHard >= EdgeSeedMarginM` (35 m) whose nearest cluster center is cluster k (Voronoi) and whose height lies in
-[TopY_k - max(`TopBandM`, 0.5 x `TopShare` x skiable vertical), TopY_k] into k's list for every pass it is in band for; then one
+cell with `DHard >= EdgeSeedMarginM` (35 m) into the list of the nearest cluster k whose top band
+[TopY_k - max(`TopBandM`, 0.5 x `TopShare` x skiable vertical), TopY_k] holds its height (`BandOwner`; review F6: with plain Voronoi a pod
+below a summit took the summit's top-band cells near it, and summits ended with no run) into k's list for every pass it is in band for; then one
 (cluster, pass) list per unit is sorted by height plus a seeded jitter (`SeedJitterM` 10 m; 20 m spread the tops so far that the
 cone's apex runs lost their junctions) and spaced one corridor width + `NormalGapM` apart (density-free: a Density re-select restarts
 at Select), at most `SeedsPerClusterPass` 24. `ClusterRadiusM` now serves only the pod exclusion.
@@ -112,7 +113,7 @@ between the same two heights is a traverse and is dropped. The rerouted line win
 ## Geometry rules
 
 - Lines (F): at least `MinLengthM` 250 m (the cell path, the smoothed centerline and a line cut back for the area cap); a merged line
-  keeps `MergeKeepShare` 40 % of its free line or `MergeKeepM` 400 m, else TooShort (the reroute runs first).
+  keeps `MergeKeepShare` 40 % of its free line or `MergeKeepM` 400 m, else MergeStub (its own reject since review F12, so the field test sees it fire; the reroute runs first).
 - Centerline: cells decimated every `DecimateM` 25 m through GradePath's Catmull-Rom chain; the raw cells when a smoothed sample is not
   open, is at the hard ceiling, inside the gap of an accepted run or within `EdgeSeedMarginM / 2` of the edge (a corner cut there left
   a 2 m neck that split the rating mask: 23 of 28 ratings Unrated on an open slope before this check).
@@ -139,9 +140,11 @@ within 25 m.
 
 ## Refusal ladder (order)
 
-BadInput, TooLarge (area or lattice), TooSmall (area), Blocked (open < 30 %), TooSmall (no open cell 7.5 m from every edge), NoVertical
-(< 50 m over open ground), AllCliff (cliff > 60 % or no usable cell `MinDropM` above the base reaching it below 80 %, at any height), TooFlat (< 20 % of usable ground >= 6 %),
-NoRuns (Rejects says why). NoSign is the tool's.
+BadInput, TooLarge (area or lattice), TooSmall (area), Blocked (open < 30 %), TooSmall (no open cell 7.5 m from every edge), TooNarrow (no usable cell
+`EdgeSeedMarginM` inside the region and clear of hard cells: no seed or pod can exist; review F2), NoVertical (< 50 m over open ground),
+AllCliff (cliff > 60 % or no usable cell `MinDropM` above the base reaching it below 80 %, at any height), TooFlat (< 20 % of usable ground >= 6 %),
+after the routes AllCliff / TooNarrow again from `ReachRows` (no routed cell above its pass's sources / none inside the margin),
+NoRuns (Rejects says why; the test host fails a NoRuns with an empty histogram). NoSign is the tool's.
 
 ## Reselect
 

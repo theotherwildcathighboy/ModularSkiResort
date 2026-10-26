@@ -68,8 +68,9 @@ namespace SkiResortMod.Systems
         public readonly float StationClearM;
         /// <summary>The line prefab's NetGeometryPrefab m_MaxSlopeSteepness (gamedata-mirror Ski*HV: FG 0.8, DQ 0.9, GD 1.2, tram 2.5;
         /// 0 = no rule). The engine refuses a Temp edge whose node-to-node |dy| / xz length reaches it + 0.0005 (SteepSlope,
-        /// Game.Net/ValidationHelpers.cs:1435-1490, test :1462): a tall tower a few meters from a station is such an edge. The tool plans with it
-        /// (LiftTowerPlanner.CheckEdgeSlope); LiftLineToolSystem logs the prefab's live value next to it.</summary>
+        /// Game.Net/ValidationHelpers.cs:1435-1490, test :1462): a tall tower a few meters from a station is such an edge. These values are the
+        /// defaults (tests, and a prefab without NetGeometryData): the tool plans with the line prefab's live value (With(maxEdgeSlope:),
+        /// LiftLineToolSystem at the pick, which logs a MISMATCH when the two differ) and checks it in LiftTowerPlanner.CheckEdgeSlope.</summary>
         public readonly float MaxEdgeSlope;
 
         public LiftTowerPlanConstants(string typeId, LiftTowerMember[] ladder, float ropeBelowTopM, float carrierDropM, float floorM,
@@ -101,11 +102,11 @@ namespace SkiResortMod.Systems
 
         /// <summary>A copy with other rules (tests and what-if questions: floor, max rope height, spans).</summary>
         public LiftTowerPlanConstants With(float? floorM = null, float? maxRopeAboveGroundM = null, float? typicalSpanM = null,
-                                           float? maxSpanM = null, float? carrierDropM = null)
+                                           float? maxSpanM = null, float? carrierDropM = null, float? maxEdgeSlope = null)
         {
             return new LiftTowerPlanConstants(TypeId, Ladder, RopeBelowTopM, carrierDropM ?? CarrierDropM, floorM ?? FloorM,
                 maxRopeAboveGroundM ?? MaxRopeAboveGroundM, typicalSpanM ?? TypicalSpanM, maxSpanM ?? MaxSpanM, MinSpanM, HalfWidthM,
-                SagRatio, EngineElevationCapM, StepM, SideHillM, ConvexM, StationClearM, MaxEdgeSlope);
+                SagRatio, EngineElevationCapM, StepM, SideHillM, ConvexM, StationClearM, maxEdgeSlope ?? MaxEdgeSlope);
         }
 
         /// <summary>The station-side rule's exchange rate: one more line tower is worth this many meters of extra height (above the
@@ -597,7 +598,7 @@ namespace SkiResortMod.Systems
         /// <summary>The ends are stations (default: both, the planner's original assumption). A station end gets the approach floor
         /// (LiftTowerPlanConstants.ApproachFloor) and the station-side member rule (MinCost.EndRiseM, TowerWorthM); false = a loose line end or a
         /// fresh ground node: a tower node, full floor. Set by the caller before each Plan / Fit (the lift tool from its end kinds,
-        /// LiftTowerFitSystem from the station rope lanes it found).</summary>
+        /// LiftTowerFitSystem from the end node's Owner: a station sub-net stub).</summary>
         public bool StationA = true, StationB = true;
 
         /// <summary>Lift-line tool: plan with the engine's edge slope rule (LiftTowerPlanConstants.MaxEdgeSlope) between the nodes as
@@ -630,6 +631,7 @@ namespace SkiResortMod.Systems
             m_K.Clear(); m_M.Clear(); m_F.Clear();
             m_K.Add(0); m_M.Add(-1); m_F.Add(LiftPlanNodeFlags.Station);
             m_K.Add(m_N); m_M.Add(-1); m_F.Add(LiftPlanNodeFlags.Station);
+            m_ExtraTowers = 1;
             if (seeds != null)
             {
                 for (int i = 0; i < seeds.Count; i++)
@@ -1172,33 +1174,30 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>Between working nodes a and b = a + 1: the arrangement with the FEWEST towers such that every span is at most
-        /// MaxSpanM and clear with its real sag (floor over the high side, max rope height), every node keeps the floor over its own
-        /// high side; then the most towers just uphill of a convex crest (breakover rule, never at the cost of a tower); then the
-        /// fewest ladder steps; then the most even spans. Exact: a shortest-path search over samples x ladder
-        /// members (states k * L + m), each span's far-end rope interval from SpanInterval (one pass per span), so a tall member
-        /// wins wherever it lets a span reach further and saves a tower. Returns the nodes added (0 when the segment is already one
-        /// clear span), -1 when no clear arrangement exists (the caller falls back to LegacySegment).</summary>
-        private int MinTowers(int a, int b)
+        /// <summary>MinTowers' search over samples x ladder members from working node a to b: the best end state under
+        /// MinCost.Better(worth). cap >= 0 adds the tower count to the state (layer t = towers so far, at most cap): exact for the
+        /// best arrangement with at most cap towers, which the plain search is not (it keeps one state per sample and member).
+        /// m_MinCost / m_Reached hold the search the walk back reads (state index t * (m_N + 1) * L + k * L + m).</summary>
+        private bool SearchMin(int a, int b, float worth, int cap, out MinCost end)
         {
-            m_UseSag = true;
             int i = m_K[a], j = m_K[b];
             float ri = Rope(i, m_M[a]), rj = Rope(j, m_M[b]);
             float maxSpan = m_C.MaxSpanM + 1e-3f;
-            if (m_S[j] - m_S[i] <= maxSpan && SpanViolation(i, ri, j, rj) <= Tol)
-                return 0;
             int L = m_C.Ladder.Length;
-            int states = (m_N + 1) * L;
+            int layers = cap >= 0 ? cap + 1 : 1, perLayer = (m_N + 1) * L;
+            int states = layers * perLayer;
             if (m_MinCost.Length < states)
                 m_MinCost = new MinCost[states];
             if (m_Reached.Length < states)
                 m_Reached = new bool[states];
-            for (int q = i * L; q < (j + 1) * L && q < states; q++)
-                m_Reached[q] = false;
+            for (int t = 0; t < layers; t++)
+                for (int q = t * perLayer + i * L; q < t * perLayer + (j + 1) * L; q++)
+                    m_Reached[q] = false;
             int minGap = MinGap();
             MarkCrests(i, j);
             bool endReached = false;
-            MinCost end = default;
+            end = default;
+            for (int t = 0; t < layers; t++)
             for (int k = i; k < j; k++)
             {
                 for (int m = 0; m < L; m++)
@@ -1208,7 +1207,7 @@ namespace SkiResortMod.Systems
                     int mk = m;
                     if (k == i)
                     {
-                        if (m > 0)
+                        if (m > 0 || t > 0)
                             break;
                         from = new MinCost { Parent = -1 };
                         rk = ri;
@@ -1216,7 +1215,7 @@ namespace SkiResortMod.Systems
                     }
                     else
                     {
-                        int st = k * L + m;
+                        int st = t * perLayer + k * L + m;
                         if (!m_Reached[st])
                             continue;
                         from = m_MinCost[st];
@@ -1232,7 +1231,7 @@ namespace SkiResortMod.Systems
                         c.SumSq += dEnd * dEnd;
                         if (StationEnd(b))
                             c.EndRiseM += Rise(m);
-                        if (!endReached || c.Better(end, TowerWorth))
+                        if (!endReached || c.Better(end, worth))
                         {
                             end = c;
                             endReached = true;
@@ -1257,13 +1256,15 @@ namespace SkiResortMod.Systems
                                 continue;
                             MinCost c = from;
                             c.Towers += 1;
+                            if (cap >= 0 && c.Towers > cap)
+                                break;
                             if (k == i && StationEnd(a))
                                 c.EndRiseM += Rise(m2);
                             c.Breaks += m_UphillOfCrest[k2] ? 1 : 0;
                             c.Members += m2;
                             c.SumSq += d * d;
-                            int st2 = k2 * L + m2;
-                            if (!m_Reached[st2] || c.Better(m_MinCost[st2], TowerWorth))
+                            int st2 = (cap >= 0 ? c.Towers : 0) * perLayer + k2 * L + m2;
+                            if (!m_Reached[st2] || c.Better(m_MinCost[st2], worth))
                             {
                                 m_MinCost[st2] = c;
                                 m_Reached[st2] = true;
@@ -1272,9 +1273,48 @@ namespace SkiResortMod.Systems
                     }
                 }
             }
-            if (!endReached)
-                return -1;
+            return endReached;
+        }
 
+        /// <summary>Between working nodes a and b = a + 1: the arrangement with the FEWEST towers such that every span is at most
+        /// MaxSpanM and clear with its real sag (floor over the high side, max rope height), every node keeps the floor over its own
+        /// high side; then the most towers just uphill of a convex crest (breakover rule, never at the cost of a tower); then the
+        /// fewest ladder steps; then the most even spans. Exact: a shortest-path search over samples x ladder
+        /// members (states k * L + m), each span's far-end rope interval from SpanInterval (one pass per span), so a tall member
+        /// wins wherever it lets a span reach further and saves a tower. With the station rule on, a segment that ends at a station
+        /// may use more towers for shorter station-side ones (TowerWorthM), at most one more than the fewest per line. Returns the
+        /// nodes added (0 when the segment is already one clear span), -1 when no clear arrangement exists (the caller falls back to LegacySegment).</summary>
+        private int MinTowers(int a, int b)
+        {
+            m_UseSag = true;
+            int i = m_K[a], j = m_K[b];
+            float ri = Rope(i, m_M[a]), rj = Rope(j, m_M[b]);
+            // One span, clear for the floor: done when the edge also passes the slope rule. Else the search; where it finds nothing
+            // (a chord between fixed end heights steeper than the rule cannot be cut by towers: their edges average the same slope),
+            // the span stays as it is and Build flags it SlopeViolated (no LegacySegment towers that fix nothing).
+            bool oneSpan = m_S[j] - m_S[i] <= m_C.MaxSpanM + 1e-3f && SpanViolation(i, ri, j, rj) <= Tol;
+            if (oneSpan && SlopeOk(i, m_M[a], j, m_M[b]))
+                return 0;
+            // The station rule (TowerWorthM) trades towers for shorter station-side towers, but buys at most ONE tower more than the
+            // fewest per line (m_ExtraTowers): the fewest-towers search first, then the weighted one; when the weighted best needs
+            // more towers than the budget allows, the search again with the tower count in the state (exact under the cap).
+            float worth = StationEnd(a) || StationEnd(b) ? TowerWorth : 0f;
+            MinCost end;
+            if (worth > 0f)
+            {
+                if (!SearchMin(a, b, 0f, -1, out MinCost fewest))
+                    return oneSpan ? 0 : -1;
+                int cap = fewest.Towers + math.max(0, m_ExtraTowers);
+                if (!SearchMin(a, b, worth, -1, out end))
+                    return -1;
+                if (end.Towers > cap && !SearchMin(a, b, worth, cap, out end))
+                    return -1;
+                m_ExtraTowers -= end.Towers - fewest.Towers;
+            }
+            else if (!SearchMin(a, b, 0f, -1, out end))
+                return oneSpan ? 0 : -1;
+
+            int L = m_C.Ladder.Length, perLayer = (m_N + 1) * L;
             // Walk back; every insert lands between a and the end node. Flags against the segment's straight chord: Shoulder (the
             // ground pokes through it), Valley (it is too high above the ground), else Infill.
             int added = 0;
@@ -1282,7 +1322,7 @@ namespace SkiResortMod.Systems
             float chordSlope = (rj - ri) / math.max(m_S[j] - m_S[i], 1e-3f);
             while (state >= 0)
             {
-                int k = state / L, m = state % L;
+                int k = (state % perLayer) / L, m = state % L;
                 float chordHere = ri + chordSlope * (m_S[k] - m_S[i]);
                 LiftPlanNodeFlags f = m_C.CarrierDropM + m_Floor[k] + m_High[k] > chordHere ? LiftPlanNodeFlags.Shoulder
                     : m_C.MaxRopeAboveGroundM > 0f && chordHere - m_Centre[k] > m_C.MaxRopeAboveGroundM ? LiftPlanNodeFlags.Valley
@@ -1523,6 +1563,9 @@ namespace SkiResortMod.Systems
         /// <summary>The station-side exchange rate in use (LiftTowerPlanConstants.TowerWorthM; 0 while StationRule is off).</summary>
         private float TowerWorth => StationRule ? m_C.TowerWorthM : 0f;
 
+        /// <summary>The towers the station rule may still add over the fewest, per line (DECISIONS 429: at most one); Plan resets it.</summary>
+        private int m_ExtraTowers;
+
         private int MinGap() => math.max(1, (int)math.ceil(m_C.MinSpanM / m_C.StepM - 1e-4f));
 
         /// <summary>Sample k is inside a station's clearance (StationClearM from either end, in meters: the grid's last step is
@@ -1761,7 +1804,29 @@ namespace SkiResortMod.Systems
             {
                 for (int i = 0; i < count; i++)
                     m_M[i] = before[i];
+                return;
             }
+            // The station rule chose the members beside the stations (a tower bought for them included): the reset above must not
+            // undo that. Where it raised one, that node goes back to the search's member; if that breaks the line, the search's
+            // whole assignment is kept (it was clear).
+            if (TowerWorth > 0f && violBefore <= Tol && count >= 3 && EndRiseOf(m_M) > EndRiseOf(before) + 1e-3f)
+            {
+                if (StationEnd(0)) m_M[1] = before[1];
+                if (StationEnd(count - 1)) m_M[count - 2] = before[count - 2];
+                if (TotalViolation() > Tol)
+                    for (int i = 0; i < count; i++)
+                        m_M[i] = before[i];
+            }
+        }
+
+        /// <summary>The station-side rise of a member assignment: Rise of the tower next to each station end.</summary>
+        private float EndRiseOf(IList<int> members)
+        {
+            int count = m_K.Count;
+            float r = 0f;
+            if (StationEnd(0) && members[1] >= 0) r += Rise(members[1]);
+            if (StationEnd(count - 1) && members[count - 2] >= 0) r += Rise(members[count - 2]);
+            return r;
         }
 
         private bool Raise(int node)

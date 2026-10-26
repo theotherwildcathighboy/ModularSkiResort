@@ -1270,7 +1270,7 @@ namespace SkiResortMod.Systems
             switch (step)
             {
                 case GradeStep.Empty:
-                    return "Cat track: click where the track starts · Ctrl+Shift+D: delete mode · right click: close";
+                    return "Cat track: click where the track starts · Ctrl+Shift+D or the hub's Delete cat tracks: delete mode · right click: close";
                 case GradeStep.OnePoint:
                     return "Click the next point of the track · right click: back";
                 case GradeStep.Path:
