@@ -22,8 +22,8 @@ namespace SkiResortMod.Systems
 
         private QuickRunsToolSystem m_Tool;
         private StringTooltip m_Prompt, m_Notice, m_Status, m_Mix, m_Cluster, m_Progress;
-        private ProgressTooltip m_Region, m_Scan;
-        private IntTooltip m_Vertical, m_Runs, m_Fee, m_Skiers, m_Plant, m_Remove, m_TreeCost, m_TreeLine;
+        private ProgressTooltip m_Scan;
+        private IntTooltip m_Region, m_RegionMax, m_Vertical, m_Runs, m_Fee, m_Skiers, m_Plant, m_Remove, m_TreeCost, m_TreeLine;
         private readonly StringTooltip[] m_Warn = new StringTooltip[MaxWarnings];
         private readonly string[] m_LastWarn = new string[MaxWarnings];
         private string m_LastPrompt, m_LastNotice, m_LastStatus, m_LastMix, m_LastCluster, m_LastProgress, m_LoggedPrompt;
@@ -39,7 +39,10 @@ namespace SkiResortMod.Systems
             m_Mix = new StringTooltip { path = "skiQuickMix", color = TooltipColor.Info };
             m_Cluster = new StringTooltip { path = "skiQuickCluster", color = TooltipColor.Info };
             m_Progress = new StringTooltip { path = "skiQuickProgress", color = TooltipColor.Info };
-            m_Region = new ProgressTooltip { path = "skiQuickRegion", label = LocalizedString.Id(P + "REGION"), unit = "area", omitMax = false };
+            // IntTooltip unit "area" like the game's area tool (AreaToolTooltipSystem.cs:78-83): the game formats m2 / km2 / acres itself. A
+            // ProgressTooltip printed the raw "2658641.75 / 9000000 <area>" (its fraction formatter has no area entry).
+            m_Region = new IntTooltip { path = "skiQuickRegion", label = LocalizedString.Id(P + "REGION"), unit = "area" };
+            m_RegionMax = new IntTooltip { path = "skiQuickRegionMax", label = LocalizedString.Id(P + "REGION_MAX"), unit = "area" };
             m_Scan = new ProgressTooltip { path = "skiQuickScan", label = LocalizedString.Id(P + "SCANNING"), unit = "percentage", max = 100f };
             m_Vertical = new IntTooltip { path = "skiQuickVertical", label = LocalizedString.Id(P + "VERTICAL"), unit = "length" };
             m_Runs = new IntTooltip { path = "skiQuickRuns", label = LocalizedString.Id(P + "RUNS"), unit = "integer" };
@@ -78,11 +81,12 @@ namespace SkiResortMod.Systems
                 QuickRegionReadout ro = m_Tool.Readout;
                 if (phase == QuickRunsToolSystem.ToolPhase.Region && ro.State != QuickRegionState.Open)
                 {
-                    m_Region.value = ro.AreaM2;
-                    m_Region.max = m_Tool.MaxAreaM2;
+                    m_Region.value = (int)Math.Round(ro.AreaM2);
                     m_Region.color = ro.State == QuickRegionState.Over ? TooltipColor.Error
                         : ro.State == QuickRegionState.Near || ro.State == QuickRegionState.TooSmall ? TooltipColor.Warning : TooltipColor.Info;
                     AddMouseTooltip(m_Region);
+                    m_RegionMax.value = (int)Math.Round(m_Tool.MaxAreaM2);
+                    AddMouseTooltip(m_RegionMax);
                     m_Vertical.value = (int)Math.Round(ro.VerticalM);
                     AddMouseTooltip(m_Vertical);
                 }

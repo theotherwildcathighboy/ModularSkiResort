@@ -46,7 +46,7 @@ namespace SkiResortMod.Systems
         private const float StubNodeSearchM = 12f;     // the station's owned net node nearest the stub tip, within this
         private const int TempTimeoutFrames = 30;
         private const int LooseRefreshFrames = 30;
-        private const int NoticeFrames = 240;          // a refusal stays in the tooltip about 4 s
+        private const float NoticeSeconds = 5f;        // a refusal stays in the tooltip this long (real time, not frames: 240 frames read 1-2.5 s at high fps)
         private const float SunkWarnM = 0.25f;         // carriers leaving a station more than this below the ground: SUNK STATION
         private static readonly UnityEngine.Color StationColor = new UnityEngine.Color(0.55f, 0.8f, 1f, 0.9f);
         private static readonly UnityEngine.Color LooseColor = new UnityEngine.Color(1.0f, 0.75f, 0.15f, 0.9f);
@@ -79,8 +79,14 @@ namespace SkiResortMod.Systems
         internal string LastMessage { get; private set; } = string.Empty;
         internal string PendingTypeName => m_Type != null ? m_Type.Id : m_Preset != null ? m_Preset.Id : string.Empty;
         internal LiftTypeDef PresetType => m_Preset;
-        /// <summary>The refusal notice the tooltip shows for a few seconds (a LocaleEN SkiResort.LiftTool.* key), else null.</summary>
-        internal LocalizedString? Notice => m_Notice.HasValue && m_Frame - m_NoticeFrame < NoticeFrames ? m_Notice : null;
+        /// <summary>The notice line of the tooltip (a LocaleEN SkiResort.LiftTool.* key), else null. A refusal shows for NoticeSeconds and wins
+        /// while live; under it two STANDING notices show for as long as the plan has the condition: SUNK STATION (an end of the plan sinks
+        /// the carriers), then the open-ground end hint (the second end is open ground).</summary>
+        internal LocalizedString? Notice =>
+            m_Notice.HasValue && UnityEngine.Time.unscaledTime - m_NoticeTime < NoticeSeconds ? m_Notice
+            : m_SunkStanding ? T("SUNK")
+            : m_Edit != null && m_Top.Kind == LiftLineEndKind.Ground ? T("OPEN_END")
+            : (LocalizedString?)null;
 
         internal LiftLineStep Step
         {
@@ -133,7 +139,7 @@ namespace SkiResortMod.Systems
         private readonly List<LooseEnd> m_LooseEnds = new List<LooseEnd>();
         private int m_LooseFrame = int.MinValue / 2;
         private LocalizedString? m_Notice;
-        private int m_NoticeFrame;
+        private float m_NoticeTime;   // UnityEngine.Time.unscaledTime of m_Notice
         private float3 m_Hit;
         private bool m_HasHit;
         private int m_HoverTower = -1, m_HoverStation = -1, m_HoverLoose = -1;
@@ -142,7 +148,7 @@ namespace SkiResortMod.Systems
         private bool m_BuildRequested;
         private int m_EmitFrame, m_Frame, m_Seed = 1;
         private List<LiftLineNode> m_Emitted;
-        private LiftLineEdit m_SunkNoticed;   // the line whose sunk-station notice was shown
+        private bool m_SunkStanding;   // the current plan has a sunk station end (WarnSunk sets it per plan, Reset clears it)
         // Ghost preview: the definitions of m_GhostEdit at m_GhostRevision stand (no Updated after their frame, so they generate
         // nothing more; GenerateNodesSystem.cs:2030-2041) and their Temps render as the translucent preview (BatchInstanceSystem.cs:
         // 446-459, 589-609; tower sub-objects copy the Temp flags, SubObjectSystem.cs:2832-2841).
@@ -359,6 +365,10 @@ namespace SkiResortMod.Systems
                 Mod.Log.Warn($"LiftLine [ghost]: ToolClearSystem missing — the preview's Temps are left to the next tool ({why})");
                 return;
             }
+            // The stopping tool updates BEFORE the ToolUpdate phase has allowed the barrier (ToolSystem.cs:312-317), and ToolClearSystem
+            // creates its command buffer from it: it threw "not allowed" on every stop with a ghost standing (field test 3, 2026-10-26).
+            // AllowUsage is public (SafeCommandBufferSystem.cs:11); the barrier shuts itself again at its next update.
+            World.GetExistingSystemManaged<ToolOutputBarrier>()?.AllowUsage();
             clear.Update();
             Mod.Log.Info($"LiftLine [ghost]: preview cleared on {why} (ToolClearSystem run by the tool itself)");
         }
@@ -673,6 +683,9 @@ namespace SkiResortMod.Systems
                 return;
             }
             m_Top = end;
+            if (end.Kind == LiftLineEndKind.Ground)
+                Say($"LiftLine [pick]: the second end is open ground ({Describe(m_Base)} -> ground): allowed, the tooltip hints that a " +
+                    "station should finish it");
             // End ropes. A station end: the height the built line's rope lane will have there, read as the fit reads it
             // (LiftLineInput.StationRope: the lowest HV sub-lane anchor of the stub node's sub-objects / its station within 30 m). A loose
             // end is a tower node at ground + E(member), whose rope is ground + TopM[member] - RopeBelowTopM = node y + RopeAboveBase(0); a
@@ -1062,7 +1075,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>A station end whose carriers leave below the ground (the station sits in the slope: the no-level terraform keeps
-        /// the terrain; no prefab fix, DECISIONS 426: Move It recommended). Logged on every plan; the tooltip names it once per line.</summary>
+        /// the terrain; no prefab fix, DECISIONS 426: Move It recommended). Logged on every plan; the tooltip keeps the notice standing while the plan has it (m_SunkStanding).</summary>
         private void WarnSunk(LiftTowerPlan plan)
         {
             string sunk = null;
@@ -1070,17 +1083,12 @@ namespace SkiResortMod.Systems
                 sunk = $"{Describe(m_Base)} {-plan.EndCarrierA:F1} m";
             if (plan.StationB && plan.EndCarrierB < -SunkWarnM)
                 sunk = (sunk == null ? string.Empty : sunk + ", ") + $"{Describe(m_Top)} {-plan.EndCarrierB:F1} m";
+            m_SunkStanding = sunk != null;
             if (sunk == null)
                 return;
             Mod.Log.Warn($"LiftLine [plan]: SUNK STATION — the carriers leave below the ground at {sunk} (carrier height at the stub tip vs " +
                          "the highest ground across the line). The planner ramps the floor up from there instead of forcing a tall tower " +
                          "beside the station; the chairs clip the slope until the first tower");
-            if (m_SunkNoticed != m_Edit)
-            {
-                m_SunkNoticed = m_Edit;
-                m_Notice = T("SUNK");
-                m_NoticeFrame = m_Frame;
-            }
         }
 
 
@@ -1208,7 +1216,7 @@ namespace SkiResortMod.Systems
                              $"off whatever blocks them and Build again{kinds}");
                 LastMessage = $"Build refused: {errors} error(s), {summary}";
                 m_Notice = RefusedBuild(top);
-                m_NoticeFrame = m_Frame;
+                m_NoticeTime = UnityEngine.Time.unscaledTime;
                 applyMode = ApplyMode.Clear;
                 m_Deps = DestroyDefinitions(m_DefinitionQuery, m_Barrier, m_Deps);
                 m_State = ToolState.Edit;   // the ghost comes back next frame, the game's error icons on it
@@ -1500,6 +1508,7 @@ namespace SkiResortMod.Systems
             m_DragOff = false;
             m_BuildRequested = false;
             m_Emitted = null;
+            m_SunkStanding = false;
             m_LooseFrame = int.MinValue / 2;
             // A standing ghost is cleared on the next update (UpdateCore's pick branch); a built line consumed its Temps.
             if (why == "built")
@@ -1517,7 +1526,7 @@ namespace SkiResortMod.Systems
             if (notice.HasValue)
             {
                 m_Notice = notice;
-                m_NoticeFrame = m_Frame;
+                m_NoticeTime = UnityEngine.Time.unscaledTime;
             }
             Mod.Log.Info(line);
         }

@@ -316,6 +316,8 @@ function known(n: number | undefined): n is number {
 }
 
 export const RUN_ITEMS: ReadonlySet<BuildItemId> = new Set<BuildItemId>(["runNatural", "runGroomed", "runSnowmaking", "runNight", "runCatTrack"]);
+/** The Build items that start the lift line tool (kind "line", buildItems.ts), one per lift type. */
+const BUILD_LINE_ITEMS: ReadonlySet<BuildItemId> = new Set<BuildItemId>(["lift", "liftDetachable", "liftGondola", "liftTram"]);
 
 /** The Quick runs "N lines dropped: A, B, C" line: the total of QuickRunsState.rejects and its top three buckets (n > 0, most first, ties by
  *  bucket order). Fewer than 2 dropped lines say nothing worth a line: top is then empty. Any input answers (junk counts are 0). */
@@ -341,10 +343,31 @@ export function runToolActive(items: readonly BuildItem[] | null | undefined, qu
   return false;
 }
 
-/** The Runs-tab follow: select the Runs view only on the edge inactive -> active, never while the tool stays active (the player may
- *  have moved to another view on purpose). `seen` = the activity last seen; the caller keeps it. */
-export function runsTabFollow(seen: boolean, active: boolean): { select: boolean; seen: boolean } {
-  return { select: active && !seen, seen: active };
+/** WHICH tool is active: "quick" (Quick runs), "lift" (the lift line tool), else the id of the active Build item ("" = none). Quick runs
+ *  and the lift tool win over a Build item, because their own tools run while the item that started them can still read active. */
+export function activeToolKey(items: readonly BuildItem[] | null | undefined, quickActive: boolean | null | undefined,
+  liftActive: boolean | null | undefined): string {
+  if (quickActive === true) return "quick";
+  if (liftActive === true) return "lift";
+  for (const it of items ?? []) if (it && it.active === true && isBuildItemId(it.id)) return it.id;
+  return "";
+}
+
+/** The Hub view a tool key shows its info on: run items, the cat track and Quick runs -> "runs"; lift line items and the lift tool ->
+ *  "lifts"; anything else (buildings, stations, fence, none) has no view of its own (null). */
+export function toolView(key: string): "runs" | "lifts" | null {
+  if (key === "quick") return "runs";
+  if (key === "lift") return "lifts";
+  if (!isBuildItemId(key)) return null;
+  if (RUN_ITEMS.has(key)) return "runs";
+  return BUILD_LINE_ITEMS.has(key) ? "lifts" : null;
+}
+
+/** The tab follow: select the active tool's view only when the tool key CHANGES to one with a view (run tool -> other run tool, run tool
+ *  -> lift tool). The same tool staying active selects nothing (the player may have left the view on purpose). `seen` = the key last
+ *  seen; the caller keeps it. */
+export function toolTabFollow(seen: string, key: string): { select: "runs" | "lifts" | null; seen: string } {
+  return { select: key !== seen ? toolView(key) : null, seen: key };
 }
 
 /** Footer line 1 of a tile, by the item's KIND (buildItems.ts BuildItemMeta.kind): runs with

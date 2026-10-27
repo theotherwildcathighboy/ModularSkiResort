@@ -1,5 +1,6 @@
 // Puts the net tool's aim plane at the tower head for our lift lines (prefab data alone cannot provide this): after prefab init it
 // rewrites NetGeometryData.m_DefaultSurfaceHeight on the line prefabs to the lift's AimHeightM (NetToolSystem line 5893 reads it).
+// Also clears GeometryFlags.FlattenTerrain on the safety net fence's NetGeometryData (PatchFenceTerrain: the fence must not grade the terrain).
 // Idempotent, once per load; pure data write on the prefab entity; no per-frame work (Enabled = false, empty OnUpdate).
 // Line names and aim heights come from SkiCatalog.Lifts (LiftTypeDef.AimHeightM per row), the prefab entity from SkiPrefabCatalogSystem.
 // A mid-session prefab replacement loses the patch until the next load (the catalog's [re-resolve] WARN shows it).
@@ -42,6 +43,7 @@ namespace SkiResortMod.Systems
             try
             {
                 PatchAimPlanes();
+                PatchFenceTerrain();
             }
             catch (Exception e)
             {
@@ -51,6 +53,29 @@ namespace SkiResortMod.Systems
 
         protected override void OnUpdate()
         {
+        }
+
+        /// <summary>The safety net fence must not grade the terrain: NetInitializeSystem sets GeometryFlags.FlattenTerrain on EVERY
+        /// NetFencePrefab (NetInitializeSystem.cs:2244; vanilla fences stand on flat lots), so a fence drawn up a slope cut a bench into it
+        /// (field test 3). Cleared on SkiSafetyFence's NetGeometryData at every load; idempotent, one log line.</summary>
+        private void PatchFenceTerrain()
+        {
+            Entity fence = m_PrefabCatalog.EntityOf(SkiCatalog.Names.SafetyFence);
+            if (fence == Entity.Null || !EntityManager.TryGetComponent(fence, out NetGeometryData geo))
+            {
+                Mod.Log.Warn($"CursorAim: fence prefab '{SkiCatalog.Names.SafetyFence}' not found or has no NetGeometryData — its " +
+                             "FlattenTerrain stays (the fence grades the terrain it crosses)");
+                return;
+            }
+            if ((geo.m_Flags & Game.Net.GeometryFlags.FlattenTerrain) == 0)
+            {
+                Mod.Log.Info($"CursorAim: fence '{SkiCatalog.Names.SafetyFence}' already has FlattenTerrain cleared");
+                return;
+            }
+            geo.m_Flags &= ~Game.Net.GeometryFlags.FlattenTerrain;
+            EntityManager.SetComponentData(fence, geo);
+            Mod.Log.Info($"CursorAim: fence '{SkiCatalog.Names.SafetyFence}' FlattenTerrain cleared (flags now {geo.m_Flags}): the fence " +
+                         "no longer grades the terrain (UNVERIFIED in game until drawn up a slope)");
         }
 
         private void PatchAimPlanes()

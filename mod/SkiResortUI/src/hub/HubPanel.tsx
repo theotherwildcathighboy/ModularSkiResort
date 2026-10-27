@@ -9,7 +9,7 @@
 import { useEffect, useRef } from "react";
 import { useValue } from "cs2/api";
 import { Panel } from "cs2/ui";
-import { HUB_CONTRACT, NULL_ENTITY, build$, lifts$, quickRuns$, resorts$, runs$, sameEntity, selectedResort$ } from "../bindings";
+import { HUB_CONTRACT, NULL_ENTITY, build$, liftLine$, lifts$, quickRuns$, resorts$, runs$, sameEntity, selectedResort$ } from "../bindings";
 import { LOC, useT } from "../l10n";
 import { BuildStrip, MISMATCH_FOOTER, OkFooter } from "./BuildStrip";
 import { ErrorBoundary } from "./ErrorBoundary";
@@ -30,7 +30,7 @@ import { StartCard } from "./StartCard";
 import { StatusBlock } from "./StatusBlock";
 import { TreesFoldout } from "./TreeControls";
 import { ViewTiles } from "./ViewTiles";
-import { runToolActive, runsTabFollow } from "./hubRules";
+import { activeToolKey, toolTabFollow } from "./hubRules";
 import { currentResort, liftsOf, resortEntries, runsOf } from "./resortData";
 import styles from "./hub.module.scss";
 
@@ -51,18 +51,20 @@ function OverlayBackdrop(): JSX.Element | null {
   );
 }
 
-/** A run-making tool (run drawing, cat track, Quick runs) becoming the active tool selects the Runs view, where its info shows; once per
- *  activation (hubRules.runsTabFollow). Renders nothing; subscribes only here, so the panel body does not re-render on build updates. */
+/** The active tool CHANGING to a run tool (run drawing, cat track, Quick runs) selects the Runs view, to a lift tool (a lift line item, the
+ *  lift tool) the Lifts view, where its info shows (hubRules.toolTabFollow). The same tool staying active selects nothing. Renders nothing;
+ *  subscribes only here, so the panel body does not re-render on build updates. */
 function RunsTabFollow(): null {
   const items = useValue(build$);
   const quick = useValue(quickRuns$);
-  const active = runToolActive(items, quick?.active);
+  const lift = useValue(liftLine$);
+  const key = activeToolKey(items, quick?.active, lift?.active);
   useEffect(() => {
-    const step = runsTabFollow(runToolSeen.value, active);
+    const step = toolTabFollow(runToolSeen.value, key);
     runToolSeen.value = step.seen;
-    if (step.select && view$.value !== "runs") view$.update("runs");
-  }, [active]);
-  useEffect(() => () => { runToolSeen.value = false; }, []);
+    if (step.select && view$.value !== step.select) view$.update(step.select);
+  }, [key]);
+  useEffect(() => () => { runToolSeen.value = ""; }, []);
   return null;
 }
 

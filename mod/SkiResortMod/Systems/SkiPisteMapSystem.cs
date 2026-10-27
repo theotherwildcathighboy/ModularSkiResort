@@ -106,6 +106,7 @@ namespace SkiResortMod.Systems
         private SkiRunCatalogSystem m_Catalog;
         private SkiGladeToolSystem m_GladeTool;
         private QuickRunsToolSystem m_QuickRuns;   // the map steps aside while the Quick runs preview draws in the same colors
+        private CatTrackGradeToolSystem m_CatGrade;   // ... and while the cat track tool is in Delete mode (its red ring)
         private OverlayRenderSystem m_Overlay;
         private CameraUpdateSystem m_Camera;
 
@@ -138,8 +139,10 @@ namespace SkiResortMod.Systems
             m_SlowBuildLogged, m_CostLogged;
         private static bool s_FirstDrawDone;   // per PROCESS (the JIT of Schedule<PisteDrawJob> is paid once)
 
-        /// <summary>The glade tool or the Quick runs tool is open: the map hides (their overlays use the same space and colors).</summary>
-        private bool ToolHidesMap => m_GladeTool.IsActive || (m_QuickRuns != null && m_QuickRuns.IsActive);
+        /// <summary>The glade tool or the Quick runs tool is open, or the cat track tool is in Delete mode: the map hides (their overlays use
+        /// the same space and colors; the map's wider green ring would cover the armed track's red ring).</summary>
+        private bool ToolHidesMap => m_GladeTool.IsActive || (m_QuickRuns != null && m_QuickRuns.IsActive) ||
+                                     (m_CatGrade != null && m_CatGrade.IsActive && m_CatGrade.DeleteMode);
 
         private static UnityEngine.Color Rgb(int r, int g, int b, float a) => new UnityEngine.Color(r / 255f, g / 255f, b / 255f, a);
 
@@ -192,6 +195,7 @@ namespace SkiResortMod.Systems
             m_Catalog = World.GetOrCreateSystemManaged<SkiRunCatalogSystem>();
             m_GladeTool = World.GetOrCreateSystemManaged<SkiGladeToolSystem>();
             m_QuickRuns = World.GetOrCreateSystemManaged<QuickRunsToolSystem>();
+            m_CatGrade = World.GetOrCreateSystemManaged<CatTrackGradeToolSystem>();
             m_Overlay = World.GetOrCreateSystemManaged<OverlayRenderSystem>();
             m_Camera = World.GetOrCreateSystemManaged<CameraUpdateSystem>();
             m_Segments = new NativeArray<PisteSegment>(Tuning.MaxSegments, Allocator.Persistent);

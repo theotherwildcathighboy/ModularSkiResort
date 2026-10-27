@@ -55,5 +55,5 @@ cap, a build over `SlowBuildWarnMs` and a draw over `SlowDrawWarnMs`; the first 
 `CostLogAfterDraws` draws of a load; a one-shot `!!!` that switches the overlay off until the next load (the hub keeps working). No
 line per frame, hover, toggle (the hub writes it) or later build (counted, in the dump).
 
-`ToolHidesMap`: the map hides while the glade tool or the Quick runs tool is open (the Quick runs preview draws runs in the map's own
+`ToolHidesMap`: the map hides while the glade tool or the Quick runs tool is open, or the cat track tool is in Delete mode (the Quick runs preview draws runs in the map's own
 palette, `PisteFill / PisteOutline / PisteOutlineWidth`, which are internal for that reason).

@@ -387,13 +387,28 @@ function run(srcDir) {
     [R.runToolActive([bi("runGroomed", true)], false), R.runToolActive([bi("runCatTrack", true)], false), R.runToolActive([], true),
       R.runToolActive([bi("lift", true), bi("lodge", true)], false), R.runToolActive([bi("runNight", false)], false), R.runToolActive(null, undefined),
       R.runToolActive([bi("nope", true)], false)], [true, true, true, false, false, false, false]);
-  eq("T17.6 runsTabFollow selects on the edge only, never while the tool stays active",
-    [R.runsTabFollow(false, true), R.runsTabFollow(true, true), R.runsTabFollow(true, false), R.runsTabFollow(false, false)],
-    [{ select: true, seen: true }, { select: false, seen: true }, { select: false, seen: false }, { select: false, seen: false }]);
+  // Field test 3: the follow is keyed on WHICH tool is active (quick > lift tool > active Build item id), not on "a run tool is on".
+  eq("T17.6a activeToolKey: Quick runs, then the lift tool, then the active Build item, else none",
+    [R.activeToolKey([bi("runGroomed", true)], true, true), R.activeToolKey([bi("runGroomed", true)], false, true), R.activeToolKey([bi("runCatTrack", true)], false, false),
+      R.activeToolKey([bi("runNight", false)], false, false), R.activeToolKey(null, undefined, undefined), R.activeToolKey([bi("nope", true)], false, false)],
+    ["quick", "lift", "runCatTrack", "", "", ""]);
+  eq("T17.6b toolView: run items, cat track, Quick runs -> runs; line items, the lift tool -> lifts; stations, buildings, fence, none -> null",
+    ["runNatural", "runCatTrack", "quick", "lift", "liftGondola", "baseStation", "lodge", "safetyFence", "", "nope"].map((k) => R.toolView(k)),
+    ["runs", "runs", "runs", "lifts", "lifts", null, null, null, null, null]);
+  eq("T17.6c toolTabFollow: none -> run tool selects Runs, run tool -> other run tool selects Runs again, run tool -> lift tool selects Lifts",
+    [R.toolTabFollow("", "runGroomed"), R.toolTabFollow("runGroomed", "runCatTrack"), R.toolTabFollow("runCatTrack", "quick"), R.toolTabFollow("quick", "lift"),
+      R.toolTabFollow("runGroomed", "liftGondola")],
+    [{ select: "runs", seen: "runGroomed" }, { select: "runs", seen: "runCatTrack" }, { select: "runs", seen: "quick" }, { select: "lifts", seen: "lift" },
+      { select: "lifts", seen: "liftGondola" }]);
+  eq("T17.6d toolTabFollow: the same tool staying active selects nothing; a tool without a view, or none, selects nothing and is remembered",
+    [R.toolTabFollow("runGroomed", "runGroomed"), R.toolTabFollow("lift", "lift"), R.toolTabFollow("lift", "baseStation"), R.toolTabFollow("runGroomed", ""),
+      R.toolTabFollow("", "")],
+    [{ select: null, seen: "runGroomed" }, { select: null, seen: "lift" }, { select: null, seen: "baseStation" }, { select: null, seen: "" }, { select: null, seen: "" }]);
   const panelSrc = fs.readFileSync(path.join(srcDir, "hub", "HubPanel.tsx"), "utf8");
-  eq("T17.7 the panel mounts the follow once and resets its memory on unmount",
-    [(panelSrc.match(/<RunsTabFollow [/]>/g) || []).length, panelSrc.includes("runsTabFollow(runToolSeen.value, active)"), panelSrc.includes("runToolSeen.value = false")],
-    [1, true, true]);
+  eq("T17.7 the panel mounts the follow once, keys it on the three tool bindings and resets its memory on unmount",
+    [(panelSrc.match(/<RunsTabFollow [/]>/g) || []).length, panelSrc.includes("activeToolKey(items, quick?.active, lift?.active)"),
+      panelSrc.includes("toolTabFollow(runToolSeen.value, key)"), panelSrc.includes('runToolSeen.value = ""')],
+    [1, true, true, true]);
   // T33 (contract 20) the Quick runs "N lines dropped: A, B, C" line: the top three of the scan's reject buckets.
   eq("T33.1 rejectSummary: top three by count, ties by bucket order, total of all",
     [R.rejectSummary([18, 15, 9, 3, 0, 0, 1, 0]), R.rejectSummary([0, 5, 0, 5, 5, 5, 0, 0])],

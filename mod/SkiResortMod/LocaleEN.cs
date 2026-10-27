@@ -552,7 +552,8 @@ namespace SkiResortMod
                 { "SkiResort.Tooltip.QUICK_REMOVING_PROGRESS", "Removing trees {N} / {M}" },
                 { "SkiResort.Tooltip.QUICK_PROMPT[Built]", "Built. Undo in the Ski Resort panel removes this build and refunds its fee; right click does not." },
                 { "SkiResort.Tooltip.QUICK_PROMPT[Trees]", "Tree filler: pick the tree line and species in the hub. Enter plants." },
-                { "SkiResort.Tooltip.QUICK_REGION", "Region" },
+                { "SkiResort.Tooltip.QUICK_REGION", "Area" },
+                { "SkiResort.Tooltip.QUICK_REGION_MAX", "Max area" },
                 { "SkiResort.Tooltip.QUICK_VERTICAL", "Vertical between the corners" },
                 { "SkiResort.Tooltip.QUICK_SCANNING", "Scanning" },
                 { "SkiResort.Tooltip.QUICK_RUNS", "Runs" },
@@ -1239,6 +1240,8 @@ namespace SkiResortMod
                 { "SkiResort.LiftTooltip.BULLDOZE_STUB", "Also removes the station's connection stub" },
                 { "SkiResort.LiftTooltip.BULLDOZE_COUNT", "Sections removed" },
                 { "SkiResort.LiftTooltip.BULLDOZE_LENGTH", "Length removed" },
+                // PowerJoinTooltipSystem: a vanilla high-voltage line dragged onto a lift is refused (red preview).
+                { "SkiResort.PowerJoin.REFUSED", "A power line cannot connect to a ski lift." },
 
                 // --- Lift line tool ----------------------------------------------------------------------------
                 // LiftLineTooltipSystem / LiftLineToolSystem through LocalizedString.Id(key, args); the log keeps the full detail. Every
@@ -1278,6 +1281,7 @@ namespace SkiResortMod
                 { "SkiResort.LiftTool.CLICK_ON_LINE", "Click on the line itself to add a tower there." },
                 { "SkiResort.LiftTool.END_GONE", "One end of the line is gone. Click both ends again." },
                 { "SkiResort.LiftTool.SUNK", "The station sits low in the slope, so the chairs leave it below the ground. Flatter ground or raising it with Move It helps." },
+                { "SkiResort.LiftTool.OPEN_END", "This end is open ground: place a station here to finish the lift." },
                 { "SkiResort.LiftTool.ADD_TOO_CLOSE_END", "A tower cannot stand that close to the end of the line. Keep {M} m clear of it." },
                 { "SkiResort.LiftTool.ADD_TOO_CLOSE_TOWER", "A tower cannot stand that close to a tower you placed. Keep {M} m between them." },
                 { "SkiResort.LiftTool.NO_TOWER", "There is no tower there to remove." },

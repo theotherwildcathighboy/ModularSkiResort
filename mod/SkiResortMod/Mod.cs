@@ -229,6 +229,12 @@ namespace SkiResortMod
             // (SystemOrder.cs:54, 74), so the attractiveness system never sees a placement; this only sets its pending flag.
             updateSystem.UpdateAt<SkiResortAttractivenessWatchSystem>(SystemUpdatePhase.ModificationEnd);
 
+            // Vanilla HV line joining a lift: refused. Anchor is load-bearing: UpdateBefore ValidationSystem.Components, which runs right
+            // after ValidationSystem (SystemOrder.cs:264-265), so we write ValidationSystem's error map after it is filled and before
+            // Components turns it into Error components (anything missing from the map loses its Error, ValidationSystem.cs:450-531).
+            // An UpdateAt would sort after Components and every Error we wrote would be stripped on the next validation.
+            updateSystem.UpdateBefore<PowerJoinRefusalSystem, Game.Tools.ValidationSystem.Components>(SystemUpdatePhase.ModificationEnd);
+
             // Slope heat-map overlay. Anchor is load-bearing: OverlayRenderSystem consumes and clears the overlay lists each frame
             // (OverlayRenderSystem.cs:781, 790), so our strips must be added BEFORE it in Rendering.
             updateSystem.UpdateBefore<SkiRunDrawFeedbackSystem, Game.Rendering.OverlayRenderSystem>(
@@ -336,6 +342,9 @@ namespace SkiResortMod
             // glade tooltip. Gated by the LiftBuildAids setting inside the system.
             updateSystem.UpdateAfter<SkiLiftTooltipSystem, Game.UI.Tooltip.TempCostTooltipSystem>(
                 SystemUpdatePhase.UITooltip);
+
+            // Power-line join refusal line. Anchor is load-bearing like the lift tooltip's: after TempCostTooltipSystem (SystemOrder.cs:911).
+            updateSystem.UpdateAfter<PowerJoinTooltipSystem, Game.UI.Tooltip.TempCostTooltipSystem>(SystemUpdatePhase.UITooltip);
 
             // Closes the Electricity infoview the lift LINE tool opens. UpdateBefore ONLY (an UpdateAt as well runs it twice per frame,
             // UpdateSystem.cs:158-176) and BEFORE InfoviewsUISystem (UIUpdate) so the vanilla binding reflects our close in the same frame.
