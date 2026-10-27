@@ -454,6 +454,16 @@ namespace SkiResortMod.Settings
                     "For field tests, off by default. Turns on extra measurements that cost a little frame time " +
                     "(a daily ski-day measurement pass and the Ctrl+Alt+G slope capture file). Leave it off for normal play. Default off."
                 },
+                {
+                    m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.PlannerOnMainThread)),
+                    "Resort Planner on the main thread"
+                },
+                {
+                    m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.PlannerOnMainThread)),
+                    "For field tests, off by default. The Resort Planner scans on a background thread; turn this on to scan on the " +
+                    "game's main thread in small steps instead (slower, same result). Use it only if a scan never finishes or the " +
+                    "log reports a scan worker error. Default off."
+                },
 
                 // --- Reset ---
                 { m_Setting.GetOptionGroupLocaleID(SkiResortSettings.GroupReset), "Reset" },

@@ -62,7 +62,7 @@ namespace SkiResortMod.Systems
         /// <summary>Enter / the hub's Build: refuse, or emit every enabled candidate.</summary>
         private void BuildFromTool(string why)
         {
-            if (m_Phase != ToolPhase.Preview || m_Planner.Result.Status != AutoPlanStatus.Ok)
+            if (m_Phase != ToolPhase.Preview || m_Published.Status != AutoPlanStatus.Ok)
             {
                 Say($"QuickRuns [build]: nothing to build ({why}) — scan a region first", NoticeKey("NEED_SCAN"));
                 return;
@@ -93,7 +93,7 @@ namespace SkiResortMod.Systems
                     QuickRunsRules.TipPrefix + "WARN[" + QuickToolWarning.MoneyShort + "]");
                 return;
             }
-            AutoPlanResult r = m_Planner.Result;
+            AutoPlanResult r = m_Published;
             m_BuildQueue.Clear();
             int noPrefab = 0;
             for (int i = 0; i < r.Runs.Count; i++)
@@ -156,7 +156,7 @@ namespace SkiResortMod.Systems
         /// <summary>One definition per run of m_EmitIdx, all in this frame.</summary>
         private void EmitBatch(string why)
         {
-            AutoPlanResult r = m_Planner.Result;
+            AutoPlanResult r = m_Published;
             TerrainHeightData hd = m_TerrainSystem.GetHeightData();
             EntityCommandBuffer ecb = m_Barrier.CreateCommandBuffer();
             m_EmitRings.Clear();
@@ -185,7 +185,7 @@ namespace SkiResortMod.Systems
             int waited = m_Frame - m_EmitFrame;
             if (temps.Count < m_EmitIdx.Count && waited <= TempTimeoutFrames)
                 return;
-            AutoPlanResult r = m_Planner.Result;
+            AutoPlanResult r = m_Published;
             var tempOf = new Entity[m_EmitIdx.Count];
             var refused = new bool[m_EmitIdx.Count];
             int unmatched = 0, unmatchedErrors = 0, errors = 0;
@@ -316,7 +316,7 @@ namespace SkiResortMod.Systems
         /// (phase Retry), or the build finishes (queue empty, or a stop was requested).</summary>
         private void FinishApplied()
         {
-            AutoPlanResult r = m_Planner.Result;
+            AutoPlanResult r = m_Published;
             int lost = 0, before = m_Batch.Count;
             for (int k = 0; k < m_AppliedTemps.Count; k++)
             {
@@ -562,7 +562,7 @@ namespace SkiResortMod.Systems
             }
             // The planner refused these for what the game also checks (an obstacle: any Surface area or an unowned tile; the region / map
             // edge; a self-crossing outline). With the game's checks off the game would have accepted them: only the pre-check stood.
-            AutoPlanResult r = m_Planner.Result;
+            AutoPlanResult r = m_Published;
             int preRefused = r.Rejects[(int)AutoReject.Obstacle] + r.Rejects[(int)AutoReject.Region] + r.Rejects[(int)AutoReject.Crosses];
             QuickGameChecks checks = GameChecks();
             Mod.Log.Info($"QuickRuns [probe] emission: {m_EmitIdx.Count} definition(s) emitted in frame {m_EmitFrame}, {temps} Temp run(s) after " +

@@ -61,7 +61,7 @@ namespace SkiResortMod.Systems
                     Piece p = m_Pieces[i];
                     buffer.DrawLine(p.Outline, p.Fill, p.OutlineWidth * k, projected, p.Seg, p.Width * k, round);
                 }
-                AutoPlanResult r = m_Planner.Result;
+                AutoPlanResult r = m_Published;
                 if (m_Phase == ToolPhase.Preview)
                     for (int c = 0; c < r.Clusters.Count; c++)
                         buffer.DrawCircle(ClusterColor, ClusterColor, 0f, projected, ring, Ground(ref hd, r.Clusters[c].Center), 2f * ClusterPickM);
@@ -113,7 +113,7 @@ namespace SkiResortMod.Systems
             m_Pieces.Clear();
             if (m_Phase != ToolPhase.Preview && m_Phase != ToolPhase.Emitted && m_Phase != ToolPhase.Retry)
                 return;
-            AutoPlanResult r = m_Planner.Result;
+            AutoPlanResult r = m_Published;
             if (r.Status != AutoPlanStatus.Ok)
                 return;
             for (int i = 0; i < r.Runs.Count && m_Pieces.Count < MaxPieces; i++)

@@ -68,12 +68,12 @@ namespace SkiResortMod.Systems
         internal int BatchRuns => m_Batch.Count;
         internal long BatchPaid => m_BatchPaidSeen;
         internal AutoPlanKnobs Knobs => m_Knobs;
-        internal bool HasPreview => m_Phase == ToolPhase.Preview && m_Planner.Result.Status == AutoPlanStatus.Ok;
+        internal bool HasPreview => m_Phase == ToolPhase.Preview && m_Published.Status == AutoPlanStatus.Ok;
         internal QuickTotals Totals => m_Totals;
         internal IReadOnlyList<string> WarningKeys => m_WarnKeys;
         internal string StatusKey => m_StatusKey;
-        internal float ScanProgress => m_Phase == ToolPhase.Scanning ? m_Planner.Progress : 0f;
-        internal AutoPlanResult Result => m_Planner.Result;
+        internal float ScanProgress => m_Phase == ToolPhase.Scanning ? m_Planner.ProgressVolatile : 0f;
+        internal AutoPlanResult Result => m_Published;
         internal QuickRegionReadout Readout => m_Readout;
         /// <summary>Mean grade of the outlined ground (0.25 = 25 %): the corner phase's sampled estimate, replaced by the scan's figure once a scan
         /// finishes; NaN with fewer than 3 corners. The site verdict (QuickRunsRules.SiteTierOf) reads it.</summary>
@@ -586,6 +586,8 @@ namespace SkiResortMod.Systems
             }
             if (Building || m_Planting)
                 return "busy: " + (Building ? "building runs" : "planting trees") + " (Stop first)";
+            if (m_Phase == ToolPhase.Scanning && ScanBlocks(key))
+                return "busy: scanning (wait for the preview, or right click to stop the scan)";
             switch (key)
             {
                 case "mix":
@@ -645,18 +647,7 @@ namespace SkiResortMod.Systems
             Say($"QuickRuns [knobs]: {name} -> {what}; {KnobsText(m_Knobs)}");
             Bump();
             if (m_Phase == ToolPhase.Preview || m_Phase == ToolPhase.Scanning)
-            {
-                if (m_Planner.Reselect(m_Knobs))
-                {
-                    m_Phase = ToolPhase.Scanning;
-                    m_ScanWhy = name;
-                    m_ScanT0 = System.Diagnostics.Stopwatch.GetTimestamp();
-                    m_ScanFrames = 0;
-                    m_Refused.Clear();
-                }
-                else
-                    BeginScan(name);
-            }
+                RescanForKnobs(name);   // Worker.cs: Reselect on the cached field when no job runs, else cancel + a full scan
             return name;
         }
 
