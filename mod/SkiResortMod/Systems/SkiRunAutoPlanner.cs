@@ -12,6 +12,8 @@
 // rating runs as SkiRunRater.Rate's own steps in separate units (Plan, Need heights in row chunks, Classify), each under 0.5 ms
 // CoreCLR on the alpine fixtures.
 // Files: SkiRunAutoPlanner.cs (API, stages 0-4), .Select.cs (stages 5-9), .Kernels.cs (field kernels, geometry), .Snapshot.cs.
+// Resort Planner (v2): .Plan.cs (every v2 type), .Terrain.cs, .Pods.cs, .Lifts.cs, .Fans.cs, .Flow.cs (one task each; A0 wrote the seams).
+// Every v2 hook in a v1 file is guarded by m_Mode == AutoPlanMode.Resort, so Mode = Runs (the default) is bit-identical to v1.
 // Engine notes: EngineNotes/SkiRunAutoPlanner.md; research: docs/research/autogen-2026-10-25/.
 
 using System;
@@ -53,6 +55,9 @@ namespace SkiResortMod.Systems
         MixShort = 128,       // fewer runs of some band than the mix target
         CrossesCatTrack = 256,// a run crosses a cat track (legal, informational)
         PartlyBlocked = 512,  // under PartlyBlockedShare of the region is open
+        NoLiftSite = 1024,    // Resort: no pod could hold a feasible lift chord (proposals empty; runs still planned for pinned lifts)
+        Download = 2048,      // Resort: at least one lift top has only a Download verdict (honest, not an error)
+        DeadEnd = 4096,       // Resort: a run bottom reaches nothing (gate: 0 expected)
     }
 
     /// <summary>Why a candidate did not become a run (histogram index in AutoPlanResult.Rejects).</summary>
@@ -128,6 +133,10 @@ namespace SkiResortMod.Systems
         public int RunCap;
         /// <summary>Layout seed (SkiRunAutoPlanner.SeedOf(region, shuffle)).</summary>
         public uint Seed;
+        /// <summary>Resort: 0 = Auto (spec 4.4), 1..9 = cap on proposed lifts. Ignored in Runs mode.</summary>
+        public int Lifts;
+        /// <summary>Resort: the way-home level the verdicts ask for (Auto = green at the base, blue above). Ignored in Runs mode.</summary>
+        public HomeLevel Home;
 
         public static AutoPlanKnobs Default(uint seed) =>
             new AutoPlanKnobs { Mix = AutoMix.Balanced, Density = AutoDensity.Normal, Kinds = AutoKinds.Default, RunCap = 0, Seed = seed };
@@ -143,6 +152,16 @@ namespace SkiResortMod.Systems
         public float MaxAreaM2 = SkiRunAutoPlanner.V1MaxAreaM2;
         public float MinAreaM2 = SkiRunAutoPlanner.DefaultMinAreaM2;
         public float MinVerticalM = SkiRunAutoPlanner.DefaultMinVerticalM;
+        /// <summary>Runs = v1 exactly (default; test host only). Resort = v2 (the tool always).</summary>
+        public AutoPlanMode Mode = AutoPlanMode.Runs;
+        /// <summary>Existing lifts touching the region (census copy), sorted by the tool (key, then xz); null = none. Resort only.</summary>
+        public List<PinnedLift> Pinned;
+        /// <summary>Road edge samples (every 25 m) and Welcome Sign spots within the region bbox + 450 m, sorted; null = none. Resort only.</summary>
+        public float2[] Access;
+        /// <summary>The tool's tree line estimate when known (SkiGladeTreeLine), NaN = unknown. Resort only.</summary>
+        public float TreeLineY = float.NaN;
+        /// <summary>Polled once per unit; null = never canceled.</summary>
+        public AutoPlanCancel Cancel;
     }
 
     /// <summary>One proposed run. Ring = the outline to emit (xz, no closing duplicate, junction nodes included: never simplify it
@@ -206,6 +225,33 @@ namespace SkiResortMod.Systems
         public readonly float[] SelectPhaseMaxMs = new float[SkiRunAutoPlanner.SelectPhases];
         public int Units;
         public ulong Fingerprint;
+        /// <summary>v2 additions (Resort mode); null in Runs mode.</summary>
+        public ResortPlan Resort;
+        /// <summary>Step returned early on Cancel: the result is incomplete and must be dropped.</summary>
+        public bool Canceled;
+
+        /// <summary>A published copy for another thread: the lists and arrays are copied, the AutoRun objects are shared (new per Finish,
+        /// never mutated afterwards), the ResortPlan is deep-copied. Call it on the worker or after the scan is done.</summary>
+        public AutoPlanResult Snapshot()
+        {
+            var c = new AutoPlanResult
+            {
+                Status = Status, Warnings = Warnings, RegionAreaM2 = RegionAreaM2, OpenShare = OpenShare, UsableShare = UsableShare,
+                CliffShare = CliffShare, SteepShare = SteepShare, VerticalM = VerticalM, MeanGrade = MeanGrade, Candidates = Candidates,
+                Rated = Rated, MaxUnitMs = MaxUnitMs, Units = Units, Fingerprint = Fingerprint, Canceled = Canceled,
+                Resort = Resort?.Copy(),
+            };
+            c.Runs.AddRange(Runs);
+            c.Junctions.AddRange(Junctions);
+            c.Clusters.AddRange(Clusters);
+            Array.Copy(BandCount, c.BandCount, BandCount.Length);
+            Array.Copy(BandTarget, c.BandTarget, BandTarget.Length);
+            Array.Copy(Rejects, c.Rejects, Rejects.Length);
+            Array.Copy(StageMs, c.StageMs, StageMs.Length);
+            Array.Copy(StageMaxMs, c.StageMaxMs, StageMaxMs.Length);
+            Array.Copy(SelectPhaseMaxMs, c.SelectPhaseMaxMs, SelectPhaseMaxMs.Length);
+            return c;
+        }
 
         /// <summary>The non-zero reject counts as "Name count, ..." ("none" when empty); log text, not player text.</summary>
         public string RejectText()
@@ -244,6 +290,8 @@ namespace SkiResortMod.Systems
             MaxUnitMs = 0f;
             Units = 0;
             Fingerprint = 0;
+            Resort = null;
+            Canceled = false;
         }
     }
 
@@ -312,13 +360,20 @@ namespace SkiResortMod.Systems
         };
 
         // ---------------------------------------------------------------- stages
-        public const int StageCount = 16;
+        public const int StageCount = 16;    // the v1 probe slots (AutoPlanResult.StageMs); the Resort-only stages have none (ResortPlan.StageMs)
+        public const int ResortStageCount = 6;   // Terrain, PodRoute, Pods, Lifts, (band) Route, Flow: the ResortPlan probe slots
+        private const int SlotTerrain = 0, SlotPodRoute = 1, SlotPods = 2, SlotLifts = 3, SlotRoute = 4, SlotFlow = 5;
         public const int SelectPhases = 5;   // stage 13's m_SelPhase as probe slots: pick, A* (reroute), build, rate, chamfer (4 and 5)
         private enum Stage
         {
-            Heights, Obstacles, Field, DistForward, DistBackward, FlowSort, FlowAccum, Usable, Zones, Minimax, Route,
-            Seeds, Candidates, Select, Finish, Done,
+            Heights, Obstacles, Field, DistForward, DistBackward, FlowSort, FlowAccum, Usable, Zones, Minimax,
+            Terrain, PodRoute, Pods, Lifts,   // Resort mode only (A3, A3, A3, A4); Minimax hands over to Terrain, Lifts hands over to Route
+            Route, Seeds, Candidates, Select, Finish, Done,
         }
+
+        /// <summary>The v1 probe slot of a stage (v1 numbering, so StageMs and Progress mean the same in both modes); -1 for the
+        /// Resort-only stages.</summary>
+        private static int StageSlot(Stage s) => s < Stage.Terrain ? (int)s : s > Stage.Lifts ? (int)s - 4 : -1;
 
         // Cell flags
         private const byte FRegion = 1, FOffMap = 2, FHard = 4, FCat = 8, FWet = 16, FOpen = 32, FCliff = 64, FBase = 128;
@@ -334,6 +389,10 @@ namespace SkiResortMod.Systems
         private Stage m_Stage = Stage.Done;
         private int m_Cursor, m_Cursor2;
         private AutoPlanKnobs m_Knobs;
+        private AutoPlanMode m_Mode;   // from the input at Begin; Resort enables every v2 hook
+        private volatile int m_ProgressMilli;   // Progress x 1000, written by the unit loop, read by ProgressVolatile from another thread
+        private readonly int[] m_RStageUnits = new int[ResortStageCount];
+        private readonly float[] m_RStageMs = new float[ResortStageCount], m_RStageMaxMs = new float[ResortStageCount];
 
         // Lattice: cell (i, j) = texel (LI0 + i, LJ0 + j); world = Origin + texel index * Texel
         private int m_LI0, m_LJ0, m_Nx, m_Nz, m_N;
@@ -345,6 +404,11 @@ namespace SkiResortMod.Systems
 
         private byte[] m_Flags;
         private ushort[] m_Raw;
+        // Resort-mode layers (Allocate, spec 4.1): 9 B per cell, never allocated in Runs mode. m_OS = the 3-texel box-smoothed grade
+        // (segmentation only), m_Band = TerrainBand, m_PadOf = pad id (255 = none), m_Ridge = ridge flag, m_PodOf = pod label / scratch
+        private float[] m_OS;
+        private byte[] m_Band, m_PadOf, m_Ridge;
+        private ushort[] m_PodOf;
         private float[] m_H, m_O, m_DHard, m_DEdge, m_DAcc, m_Flow;
         private ushort[] m_M;
         private readonly byte[][] m_Pred = new byte[Passes][];
@@ -384,12 +448,23 @@ namespace SkiResortMod.Systems
             {
                 if (m_Stage == Stage.Done)
                     return 1f;
-                float s = (float)m_Stage / (float)Stage.Done;
+                // Runs mode keeps the v1 numbering (the new stages sit between Minimax and Route in the enum)
+                float ord = m_Mode == AutoPlanMode.Resort ? (float)m_Stage : (float)StageSlot(m_Stage);
+                float done = m_Mode == AutoPlanMode.Resort ? (float)Stage.Done : (float)StageSlot(Stage.Done);
+                float s = ord / done;
                 if (m_Stage == Stage.Field && m_Tiles.Count > 0)
-                    s += (float)m_Cursor / m_Tiles.Count / (float)Stage.Done;
+                    s += (float)m_Cursor / m_Tiles.Count / done;
                 return math.saturate(s);
             }
         }
+
+        /// <summary>Progress for another thread: the worker writes it after every unit (per-mille in a volatile int), the main thread
+        /// reads it. 0 before the first unit, 1 when Done (canceled scans keep their last value).</summary>
+        public float ProgressVolatile => m_ProgressMilli * 0.001f;
+
+        /// <summary>Bytes of the Resort-mode layers currently held (0 until a Resort scan allocated them; the P-4 memory gate sums it).</summary>
+        public long ResortLayerBytes =>
+            (m_OS?.Length ?? 0) * 4L + (m_Band?.Length ?? 0) + (m_PadOf?.Length ?? 0) + (m_Ridge?.Length ?? 0) + (m_PodOf?.Length ?? 0) * 2L;
 
         // ---------------------------------------------------------------- public entry points
 
@@ -447,6 +522,9 @@ namespace SkiResortMod.Systems
         {
             m_Result.Clear();
             m_In = input;
+            m_Mode = input != null ? input.Mode : AutoPlanMode.Runs;
+            m_ProgressMilli = 0;
+            ClearResortProbe();
             m_Stage = Stage.Done;
             ClearCandidates();
             AutoPlanStatus s = Validate(input);
@@ -467,21 +545,33 @@ namespace SkiResortMod.Systems
             long start = System.Diagnostics.Stopwatch.GetTimestamp();
             do
             {
+                if (m_In != null && m_In.Cancel != null && m_In.Cancel.Requested)
+                {
+                    CancelScan();
+                    return true;
+                }
                 long t0 = System.Diagnostics.Stopwatch.GetTimestamp();
-                int stage = (int)m_Stage;
+                Stage ran = m_Stage;
+                int stage = StageSlot(ran);
                 // Read before the unit: the phase this unit runs (the reset rows at m_Cursor 0 count as pick)
                 int phase = m_Cursor == 0 ? 0 : Math.Min(m_SelPhase, SelectPhases - 1);
                 Unit();
                 long t1 = System.Diagnostics.Stopwatch.GetTimestamp();
                 float ms = (float)((t1 - t0) * toMs);
-                m_Result.StageMs[stage] += ms;
-                if (ms > m_Result.StageMaxMs[stage])
-                    m_Result.StageMaxMs[stage] = ms;
-                if (stage == (int)Stage.Select && ms > m_Result.SelectPhaseMaxMs[phase])
+                if (stage >= 0)
+                {
+                    m_Result.StageMs[stage] += ms;
+                    if (ms > m_Result.StageMaxMs[stage])
+                        m_Result.StageMaxMs[stage] = ms;
+                }
+                if (m_Mode == AutoPlanMode.Resort)
+                    AddResortUnit(ResortSlot(ran), ms);
+                if (ran == Stage.Select && ms > m_Result.SelectPhaseMaxMs[phase])
                     m_Result.SelectPhaseMaxMs[phase] = ms;
                 m_Result.Units++;
                 if (ms > m_Result.MaxUnitMs)
                     m_Result.MaxUnitMs = ms;
+                m_ProgressMilli = (int)(Progress * 1000f);
                 if (m_Stage == Stage.Done)
                     return true;
             } while ((System.Diagnostics.Stopwatch.GetTimestamp() - start) * toMs < budgetMs);
@@ -498,6 +588,46 @@ namespace SkiResortMod.Systems
             return m_Result;
         }
 
+        /// <summary>Cancel seen between units: the scan stops where it is, the result is flagged and must be dropped. The planner stays
+        /// reusable (a fresh Begin / Run clears everything); Reselect refuses until the next scan completes.</summary>
+        private void CancelScan()
+        {
+            m_Result.Canceled = true;
+            m_FieldReady = false;
+            m_Stage = Stage.Done;
+        }
+
+        // Resort probe slots: Terrain, PodRoute, Pods, Lifts, the band Route passes, Flow (recorded by UnitFinish around FinishResort)
+        private static int ResortSlot(Stage s)
+        {
+            switch (s)
+            {
+                case Stage.Terrain: return SlotTerrain;
+                case Stage.PodRoute: return SlotPodRoute;
+                case Stage.Pods: return SlotPods;
+                case Stage.Lifts: return SlotLifts;
+                case Stage.Route: return SlotRoute;
+                default: return -1;
+            }
+        }
+
+        private void AddResortUnit(int slot, float ms)
+        {
+            if (slot < 0)
+                return;
+            m_RStageUnits[slot]++;
+            m_RStageMs[slot] += ms;
+            if (ms > m_RStageMaxMs[slot])
+                m_RStageMaxMs[slot] = ms;
+        }
+
+        private void ClearResortProbe()
+        {
+            Array.Clear(m_RStageUnits, 0, m_RStageUnits.Length);
+            Array.Clear(m_RStageMs, 0, m_RStageMs.Length);
+            Array.Clear(m_RStageMaxMs, 0, m_RStageMaxMs.Length);
+        }
+
         /// <summary>Re-runs only what the knobs change on the cached field: a new seed re-seeds (stage Seeds), Mix / Density / cap
         /// re-select, Kinds only re-assigns kinds. False (nothing to do) when no field is cached (a refusal before the routing).</summary>
         public bool Reselect(AutoPlanKnobs knobs)
@@ -507,6 +637,8 @@ namespace SkiResortMod.Systems
             Stage restart;
             if (knobs.Density != m_Knobs.Density && HasExistingRuns())
                 restart = Stage.Heights;   // an existing run's clearance is the density's gap, rastered in stage 0
+            else if (m_Mode == AutoPlanMode.Resort && knobs.Lifts != m_Knobs.Lifts)
+                restart = Stage.Lifts;     // the lift skeleton changes: sources, fans and everything after it re-run (Home only re-runs Finish)
             else if (knobs.Seed != m_Knobs.Seed)
                 restart = Stage.Seeds;
             else if (knobs.Mix != m_Knobs.Mix || knobs.Density != m_Knobs.Density || knobs.RunCap != m_Knobs.RunCap)
@@ -520,7 +652,8 @@ namespace SkiResortMod.Systems
                 Begin(new AutoPlanInput
                 {
                     Snapshot = m_In.Snapshot, Region = m_In.Region, Obstacles = m_In.Obstacles, Knobs = knobs, MaxAreaM2 = m_In.MaxAreaM2,
-                    MinAreaM2 = m_In.MinAreaM2, MinVerticalM = m_In.MinVerticalM,
+                    MinAreaM2 = m_In.MinAreaM2, MinVerticalM = m_In.MinVerticalM, Mode = m_In.Mode, Pinned = m_In.Pinned,
+                    Access = m_In.Access, TreeLineY = m_In.TreeLineY, Cancel = m_In.Cancel,
                 });
                 return true;
             }
@@ -530,6 +663,7 @@ namespace SkiResortMod.Systems
             Array.Clear(m_Result.SelectPhaseMaxMs, 0, m_Result.SelectPhaseMaxMs.Length);
             m_Result.Units = 0;
             m_Result.MaxUnitMs = 0f;
+            ClearResortProbe();
             ResetForStage(restart);
             m_Stage = restart;
             m_Cursor = m_Cursor2 = 0;
@@ -619,6 +753,14 @@ namespace SkiResortMod.Systems
                 Grow(ref m_Dist[k], m_N);
             }
             Grow(ref m_Count, 65537);
+            if (m_Mode == AutoPlanMode.Resort)
+            {
+                Grow(ref m_OS, m_N);
+                Grow(ref m_Band, m_N);
+                Grow(ref m_PadOf, m_N);
+                Grow(ref m_Ridge, m_N);
+                Grow(ref m_PodOf, m_N);
+            }
             m_FieldReady = false;
         }
 
@@ -645,6 +787,10 @@ namespace SkiResortMod.Systems
                 case Stage.Usable: UnitUsable(); break;
                 case Stage.Zones: UnitZones(); break;
                 case Stage.Minimax: UnitMinimax(); break;
+                case Stage.Terrain: UnitTerrain(); break;
+                case Stage.PodRoute: UnitPodRoute(); break;
+                case Stage.Pods: UnitPods(); break;
+                case Stage.Lifts: UnitLifts(); break;
                 case Stage.Route: UnitRoute(); break;
                 case Stage.Seeds: UnitSeeds(); break;
                 case Stage.Candidates: UnitCandidates(); break;
@@ -1189,6 +1335,15 @@ namespace SkiResortMod.Systems
                 Finish(AutoPlanStatus.TooFlat);
                 return;
             }
+            if (m_Mode == AutoPlanMode.Resort)
+                Next(Stage.Terrain);
+            else
+                EnterRoute();
+        }
+
+        /// <summary>Starts the band passes (stage Route); the v1 hand-over from Minimax, in Resort mode from Lifts.</summary>
+        private void EnterRoute()
+        {
             m_Pass = 0;
             m_RouteSources = 0;
             Next(Stage.Route);
@@ -1210,7 +1365,8 @@ namespace SkiResortMod.Systems
                 pred[c] = PredNone;
                 dist[c] = float.PositiveInfinity;
                 m_InBand[c] &= clear;
-                if ((m_Flags[c] & FBase) != 0 && m_O[c] < hard && m_H[c] <= SourceTop(m_Pass) && !(m_DEdge[c] < 0.5f * EdgeSeedMarginM))
+                bool source = m_Mode == AutoPlanMode.Resort ? IsResortSource(c) : (m_Flags[c] & FBase) != 0 && m_H[c] <= SourceTop(m_Pass);
+                if (source && m_O[c] < hard && !(m_DEdge[c] < 0.5f * EdgeSeedMarginM))
                 {
                     dist[c] = 0f;
                     pred[c] = PredSource;

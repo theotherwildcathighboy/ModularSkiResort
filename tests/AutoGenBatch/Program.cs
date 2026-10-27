@@ -26,6 +26,11 @@ namespace AutoGenBatch
         private static int Main(string[] args)
         {
             CultureInfo.DefaultThreadCurrentCulture = CultureInfo.InvariantCulture;
+            if (args.Length > 0 && args[0] == "golden")
+            {
+                GoldenPrint();
+                return 0;
+            }
             if (args.Length > 0 && args[0] == "field")
             {
                 FieldDiag();
@@ -43,6 +48,8 @@ namespace AutoGenBatch
             }
             if (!TimingChecked)
                 Console.WriteLine("NOTE  Debug build: the unit-time limits (FieldTests, FillTests 9 km2) print but are not checked; run with -c Release");
+            V1GoldenTests();
+            PlanTypes();
             SamplerTests();
             SeedTests();
             MinimaxOracle();
@@ -58,6 +65,16 @@ namespace AutoGenBatch
             FillTests();
             FieldTests();
             ReviewTests();
+            HeightmapTests();
+            V2FixtureTests();
+            V2MetricsTests();
+            WorkerTests();
+            TerrainTests();
+            LiftTests();
+            FanTests();
+            FlowTests();
+            if (args.Length > 0 && args[0] == "v2")
+                V2Tests();   // the real-heightmap matrix (A1): local only, the fixtures live outside git
             Timing();
             Console.WriteLine($"SUMMARY AutoGenBatch: {s_Checks} checks, {s_Failures} failure(s)");
             Environment.ExitCode = s_Failures;

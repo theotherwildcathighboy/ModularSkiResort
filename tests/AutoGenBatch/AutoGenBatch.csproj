@@ -24,10 +24,28 @@
     <Compile Include="QuickRunsTests.cs" />
     <Compile Include="Fill.cs" />
     <Compile Include="Field.cs" />
+    <Compile Include="V1Golden.cs" />
+    <Compile Include="PlanTypes.cs" />
+    <Compile Include="Heightmap.cs" />
+    <Compile Include="V2Fixtures.cs" />
+    <Compile Include="V2Metrics.cs" />
+    <Compile Include="V2Tests.cs" />
+    <Compile Include="WorkerTests.cs" />
+    <Compile Include="TerrainTests.cs" />
+    <Compile Include="LiftTests.cs" />
+    <Compile Include="FanTests.cs" />
+    <Compile Include="FlowTests.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiRunAutoPlanner.cs" Link="SkiRunAutoPlanner.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiRunAutoPlanner.Select.cs" Link="SkiRunAutoPlanner.Select.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiRunAutoPlanner.Kernels.cs" Link="SkiRunAutoPlanner.Kernels.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiRunAutoPlanner.Snapshot.cs" Link="SkiRunAutoPlanner.Snapshot.cs" />
+    <!-- Resort Planner (v2) files: the types and one file per stage-A task (A0 wrote the stubs) -->
+    <Compile Include="..\..\mod\SkiResortMod\Systems\SkiRunAutoPlanner.Plan.cs" Link="SkiRunAutoPlanner.Plan.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\SkiRunAutoPlanner.Terrain.cs" Link="SkiRunAutoPlanner.Terrain.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\SkiRunAutoPlanner.Pods.cs" Link="SkiRunAutoPlanner.Pods.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\SkiRunAutoPlanner.Lifts.cs" Link="SkiRunAutoPlanner.Lifts.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\SkiRunAutoPlanner.Fans.cs" Link="SkiRunAutoPlanner.Fans.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\SkiRunAutoPlanner.Flow.cs" Link="SkiRunAutoPlanner.Flow.cs" />
     <!-- The rater and classifier the labels come from; GradePath / GradeRibbon for centerlines and outlines -->
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiSlopeClassifier.cs" Link="SkiSlopeClassifier.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiRunRater.cs" Link="SkiRunRater.cs" />
@@ -42,6 +60,8 @@
     <!-- The Quick runs tool rules, the link rule LinkMeters aliases, the bind fees -->
     <Compile Include="..\..\mod\SkiResortMod\Systems\QuickRunsRules.cs" Link="QuickRunsRules.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\LiftServedRule.cs" Link="LiftServedRule.cs" />
+    <!-- The tower planner the Lifts stage (A4) calls; its only dependency is SkiCatalog (linked above) -->
+    <Compile Include="..\..\mod\SkiResortMod\Systems\LiftTowerPlanner.cs" Link="LiftTowerPlanner.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiMoneyRules.cs" Link="SkiMoneyRules.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiRunBindingRules.cs" Link="SkiRunBindingRules.cs" />
   </ItemGroup>

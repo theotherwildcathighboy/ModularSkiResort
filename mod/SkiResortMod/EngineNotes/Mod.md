@@ -447,6 +447,12 @@ mesh and overlay text material, and nothing is written to the overlay buffers, s
 after the catalog's UIUpdate-phase rebuilds of the same frame, which Rendering does (SystemOrder.cs:67-68). Rendering runs paused
 included. Gated by `ShowRunNamesOnTheHill` inside the system.
 
+## Near ResortPlanLabelSystem
+
+Resort Planner plan labels (one per lift and per pod). Same rule as the run names: NO anchor to `OverlayRenderSystem` (the labels are
+`Graphics.DrawMesh` calls, nothing is written to the overlay buffers), a plain `UpdateAt` at Rendering. A stub until stage A4 of the
+Resort Planner (EngineNotes/ResortPlanner.md); registering it now keeps `Mod.cs` out of the later tasks' file lists.
+
 ## Near SkiSnowLineTooltipSystem
 
 The anchor is load-bearing like `SkiRunTooltipSystem`'s: `UITooltip` runs only from `TooltipUISystem`, which clears the mouse group

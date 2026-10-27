@@ -90,6 +90,7 @@ namespace SkiResortMod.Systems
             r.Clusters.Clear();
             r.Warnings = m_FieldWarnings;
             r.Status = AutoPlanStatus.Running;
+            r.Resort = null;
             Array.Clear(r.BandCount, 0, 5);
             if (restart <= Stage.Seeds)
             {
@@ -121,6 +122,10 @@ namespace SkiResortMod.Systems
 
         private void UnitSeeds()
         {
+            // Resort hook (A5, Fans.cs): true = the fan seeding handled this unit (it owns m_Cursor2 / Next(Stage.Candidates) and does the
+            // case 0 bookkeeping below: m_FieldWarnings, ClearCandidates); false = run the v1 seeding
+            if (m_Mode == AutoPlanMode.Resort && FanSeeds())
+                return;
             switch (m_Cursor2)
             {
                 case 0:
@@ -603,6 +608,8 @@ namespace SkiResortMod.Systems
             Array.Clear(m_Have, 0, 5);
             m_Accepted.Clear();
             m_Result.Rated = 0;
+            if (m_Mode == AutoPlanMode.Resort)
+                FanCaps();   // per-lift caps and the developable cap (A5, Fans.cs)
         }
 
         /// <summary>Run-count targets per band (largest remainder; green, blue and black get at least one when their share is
@@ -1345,6 +1352,7 @@ namespace SkiResortMod.Systems
                 res.Junctions.Clear();
                 res.Clusters.Clear();
                 res.Warnings = m_FieldWarnings;
+                res.Resort = null;
                 Array.Clear(res.BandCount, 0, 5);
                 Array.Copy(m_Target, res.BandTarget, 5);
                 m_Pairs.Clear();
@@ -1371,6 +1379,8 @@ namespace SkiResortMod.Systems
                 AssignKinds(res.Runs, m_Knobs.Kinds);
                 BuildClusters(res);
                 Warn(res);
+                if (m_Mode == AutoPlanMode.Resort)
+                    FinishResortUnit(res);
                 res.Status = res.Runs.Count > 0 ? AutoPlanStatus.Ok : AutoPlanStatus.NoRuns;
                 res.Fingerprint = Fingerprint(res);
                 m_Stage = Stage.Done;
@@ -1625,6 +1635,20 @@ namespace SkiResortMod.Systems
             }
         }
 
+        /// <summary>Resort end of Finish: FinishResort (Flow.cs, A6) builds RunPod / RunLift, the graph, verdicts, mix, site verdict, pod
+        /// clusters and the three warnings; the probe slots are copied in here so the plan always carries them.</summary>
+        private void FinishResortUnit(AutoPlanResult res)
+        {
+            long t0 = System.Diagnostics.Stopwatch.GetTimestamp();
+            FinishResort(res);
+            AddResortUnit(SlotFlow, (float)((System.Diagnostics.Stopwatch.GetTimestamp() - t0) * 1000.0 / System.Diagnostics.Stopwatch.Frequency));
+            if (res.Resort == null)
+                res.Resort = new ResortPlan();
+            Array.Copy(m_RStageUnits, res.Resort.StageUnits, ResortStageCount);
+            Array.Copy(m_RStageMs, res.Resort.StageMs, ResortStageCount);
+            Array.Copy(m_RStageMaxMs, res.Resort.StageMaxMs, ResortStageCount);
+        }
+
         private void BuildClusters(AutoPlanResult res)
         {
             int n = res.Runs.Count;
@@ -1717,6 +1741,12 @@ namespace SkiResortMod.Systems
                 h = Mix(h, (uint)jn.NodeA);
                 h = Mix(h, (uint)jn.RunB);
                 h = Mix(h, (uint)jn.NodeB);
+            }
+            // Resort: the plan folds in once it has content (the A0 stubs leave 0, so the stubbed Resort fingerprint equals the v1 one)
+            if (res.Resort != null && res.Resort.Fingerprint != 0UL)
+            {
+                h = Mix(h, (uint)res.Resort.Fingerprint);
+                h = Mix(h, (uint)(res.Resort.Fingerprint >> 32));
             }
             return h;
         }

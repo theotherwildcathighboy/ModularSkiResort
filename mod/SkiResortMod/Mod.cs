@@ -334,6 +334,10 @@ namespace SkiResortMod
             // overlay buffers). Must run after the catalog's UIUpdate rebuilds (Rendering does). Gated by ShowRunNamesOnTheHill inside.
             updateSystem.UpdateAt<SkiRunLabelSystem>(SystemUpdatePhase.Rendering);
 
+            // Resort Planner plan labels (lifts and pods; stub until stage A4). Same as the run names: NO anchor to OverlayRenderSystem
+            // (Graphics.DrawMesh labels, nothing written to the overlay buffers), plain UpdateAt at Rendering.
+            updateSystem.UpdateAt<ResortPlanLabelSystem>(SystemUpdatePhase.Rendering);
+
             // Snow-line tooltip line. Anchor is load-bearing like SkiRunTooltipSystem's; after the run tooltip so it follows the run's rows.
             // Reads SkiSnowLineOverlaySystem.Showing from the previous frame's Rendering (one frame of lag).
             updateSystem.UpdateAfter<SkiSnowLineTooltipSystem, SkiRunTooltipSystem>(SystemUpdatePhase.UITooltip);
