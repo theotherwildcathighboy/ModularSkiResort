@@ -126,7 +126,45 @@ far below its 0.40 bound. Plan time CoreCLR: 0.2-1.3 s, longest 9 km2 region Del
 (not started)
 
 ### A3 terrain + pods
-(not started)
+
+Files: `.Terrain.cs` (stage Terrain), `.Pods.cs` (stages PodRoute, Pods), `tests/AutoGenBatch/TerrainTests.cs`. Kernels.cs is untouched: the
+labeled Dijkstra is `DijkstraQueue` + `StepCost` inline in PodRoute, the labeling reuses `Root` (union-find) and `Chamfer`.
+
+- **Terrain** (row chunks; m_Cursor2 phases 0-9): m_OS = 3x3 box mean of m_O over open cells (segmentation only), m_Band, the 3x3
+  smoothed height (scratch m_Dist[1]); ridges = usable cells with no D8 inflow (m_Flow still the own cell's area) that are a strict
+  maximum of the smoothed height across one of the 4 axes; pad candidates (usable, m_OS < 0.25) unioned with their earlier 8-neighbors
+  in m_Order (the smaller root wins, so every parent is an earlier cell and one ascending pass flattens them into compact labels);
+  components of at least 0.2 ha get the inscribed-distance chamfer (scratch m_Dist[2], seeds -half a texel, the DHard convention); pads
+  = inscribed >= 9 m, at most 255 (largest kept), ids in smallest-cell order; m_PadOf.
+- **Pad = a graded site** (DECISIONS 447): `PlanPad.GradeM3 / GradeMaxM` (added to Plan.cs) = balanced cut (= fill) and the deepest
+  cut or fill to level the cheapest station's 16 x 24 m lot at the station spot (long side along x or z, the smaller). A screening
+  number; stage B grades with the cat track kernel. Station capability stays `InscribedM >= StationHalfDiagonalM[t]`.
+- **PodRoute**: sources = cells of pads with InscribedM >= 14.4 m (and m_O < 0.70, out of the edge strip), label = the pad, cost =
+  StepCost(floor 0.08, ceiling = hard 0.70); the label rides each relaxation (m_PodOf scratch, cost m_Dist[0]). A multi-source
+  Dijkstra's nearest source is the first pad on the least-cost descent.
+- **Pods** (phases 0-10): Down(P) = the label of P's lowest outside 8-neighbor carrying another label; the 80 m merge in ascending
+  MinY, root = the lower pad; pod components = 4-connected cells of one surviving pad's catchment, minus ridge cells, minus the lower
+  pad's own cells; borders (ridge cells touching two components of one pad, diagonal touches) as sorted runs into an adjacency list;
+  small components (under 2 ha or 80 m) join the neighbor with the longest summed border (ties: smaller root) or drop; statistics per
+  group; final pods need a top cell (DHard >= 35 m) at least 80 m above their lowest cell; cap round(4 x AreaScale); sort (LowerPad.MinY,
+  top cell); m_PodOf = pod id (MUnreached = none).
+- **Plan hand-over**: `TerrainPlan(plan)` copies pads and pods (fresh arrays; BandShare cloned) and is called from the FinishResort
+  stub (Flow.cs, one line A6 keeps). Pads / pods are computed before Lifts, so every Reselect except Density-with-runs keeps them.
+- **Scratch contract for A4+**: after Pods, m_Order, m_Dist[0..2] hold nothing usable (TopRows / StartPassRows rewrite them);
+  m_PadOf, m_PodOf, m_Band, m_Ridge, m_OS are final and stay valid across Reselect.
+- **Public for the host**: `BandOfGrade`, `PrimaryClassOf`, `MaxPodsOf`, `PodGrades` (S-2 oracle), `BufferBytes` (P-4), `PadCount`,
+  `PodCount`, the constants.
+- **Measured** (CoreCLR Release, Step(4 ms), unit max best of 3): 9 km2 fBm: Terrain 17 ms in 122 units (max 0.9), PodRoute 114 ms
+  in 119 (max 1.45), Pods 20 ms in 142 (max 0.6); planner buffers 51.7 MB (v2 layers 6.7 MB). Alpine 3.9 km2: 9 / 30 / 5 ms.
+- **Deviations from the spec** (also in the private handover note): summits are not computed (no stage A consumer; PickSummit's seeded
+  jitter would make the plan depend on the Seed knob, which restarts after Pods); UpperPad counts pads the pod's cells are OR touch
+  (a bench at the pod's top is its own source, never inside); the lower pad's own cells are not pod cells (else two faces draining
+  onto one pad always join through it and the ridge split never fires); 4-connected pod components; a pod without a 35 m-inside top
+  cell drops; Down(P) as above.
+- **Tests**: `Terrain` suite: two terraces 60 m apart = 2 pads / 1 pod (merge), 110 m = 2 pods (bench, UpperPad), ridge = 1 pad /
+  2 pods, a 35 % plane = no pad; invariants (S-1, S-2 recomputed from the cells, shapes) on Alpine 1-3, Alpine lower, the terraces;
+  S-3; D-1 / D-2 / D-3 on the pads and pods; P-1, P-4. `TerrainCase(id, input, expectBench, expectPods)` is the per-fixture check +
+  REPORT for A1's `-- v2` matrix (real fixtures SKIP here until A1's loader merges).
 
 ### A4 lifts + overlay
 (not started)

@@ -17,6 +17,7 @@ namespace SkiResortMod.Systems
         private void FinishResort(AutoPlanResult res)
         {
             res.Resort = new ResortPlan { TreeLineY = m_In.TreeLineY };
+            TerrainPlan(res.Resort);   // A3: pads and pods (Pods.cs); A6 keeps this line
         }
     }
 }

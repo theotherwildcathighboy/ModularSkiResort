@@ -39,6 +39,7 @@ namespace SkiResortMod.Systems
         public bool IsBase;               // touches the v1 base band (Zones) or is the lowest pad
         public bool IsBench;              // not base, MinY above the base band top
         public float AccessM;             // distance from Center to the nearest access point (road / sign); +inf when none
+        public float GradeM3, GradeMaxM;  // A3 (additive): balanced cut (= fill) to level the cheapest station lot at Center, deepest cut or fill
     }
 
     public struct PlanPod
