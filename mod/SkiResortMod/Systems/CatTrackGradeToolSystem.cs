@@ -1433,7 +1433,7 @@ namespace SkiResortMod.Systems
         }
 
         private static bool Same(GradeParams a, GradeParams b) =>
-            a.MaxGrade == b.MaxGrade && a.TopWidthM == b.TopWidthM && a.CutRun == b.CutRun && a.FillRun == b.FillRun && a.Mode == b.Mode;
+            a.MaxGrade == b.MaxGrade && a.TopWidthM == b.TopWidthM && a.CutRun == b.CutRun && a.FillRun == b.FillRun && a.Mode == b.Mode && a.NoFill == b.NoFill;
 
         private void ClearPlan(string why)
         {
