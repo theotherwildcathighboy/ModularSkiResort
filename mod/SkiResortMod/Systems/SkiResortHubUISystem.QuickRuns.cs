@@ -189,6 +189,12 @@ namespace SkiResortMod.Systems
             bool scanned = scan.Candidates > 0 && (preview || (t.Phase == QuickRunsToolSystem.ToolPhase.Region && t.StatusKey != null));
             writer.PropertyName("rejects");
             WriteInts(writer, QuickRunsRules.RejectCounts(scan.Rejects), scanned);
+            // The site verdict (contract 21): the whole percent and its tier (QuickRunsRules.SiteTier; 0 = unknown, no line)
+            int sitePct = QuickRunsRules.SitePercent(t.SiteGrade);
+            writer.PropertyName("sitePercent");
+            writer.Write(sitePct);
+            writer.PropertyName("siteTier");
+            writer.Write((int)QuickRunsRules.SiteTierOf(sitePct));
             writer.TypeEnd();
         }
 

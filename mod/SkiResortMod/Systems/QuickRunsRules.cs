@@ -114,6 +114,73 @@ namespace SkiResortMod.Systems
             return r;
         }
 
+        // ---------------------------------------------------------------- site verdict (DECISIONS 443)
+
+        /// <summary>The plain-language verdict on how steep the outlined ground is (locale QUICK_SITE[Gentle|Steep|VerySteep|Beyond]).
+        /// Unknown = no figure yet. Tiers come from the real-resort data (docs/research/quickruns-v2/data-report.md: base areas 15-57 %,
+        /// pods over 55 % have no green descent, 45-55 % rarely).</summary>
+        public enum SiteTier : byte { Unknown, Gentle, Steep, VerySteep, Beyond }
+
+        /// <summary>Lowest whole percent of each tier: Steep from 25, Very steep from 45, Beyond from 58 (57 % is the steepest real area).</summary>
+        public const int SiteSteepPct = 25, SiteVerySteepPct = 45, SiteBeyondPct = 58;
+
+        /// <summary>Mean grade (0.25 = 25 %) as the whole percent the player reads; -1 for NaN, infinity or a negative value.</summary>
+        public static int SitePercent(float meanGrade) =>
+            float.IsNaN(meanGrade) || float.IsInfinity(meanGrade) || meanGrade < 0f ? -1 : (int)Math.Round(meanGrade * 100f, MidpointRounding.AwayFromZero);
+
+        /// <summary>The tier of a whole percent (the number shown, so the label and the figure never disagree): under 25 Gentle, 25-44 Steep,
+        /// 45-57 Very steep, 58 and over Beyond; negative = Unknown.</summary>
+        public static SiteTier SiteTierOf(int pct) =>
+            pct < 0 ? SiteTier.Unknown : pct < SiteSteepPct ? SiteTier.Gentle : pct < SiteVerySteepPct ? SiteTier.Steep
+            : pct < SiteBeyondPct ? SiteTier.VerySteep : SiteTier.Beyond;
+
+        /// <summary>The locale key of a tier (tooltip prefix; the hub mirrors it in hubText.ts); null for Unknown.</summary>
+        public static string SiteKey(SiteTier tier) => tier == SiteTier.Unknown ? null : TipPrefix + "SITE[" + tier + "]";
+
+        /// <summary>Estimated mean grade of the ring before any scan: a grid of at most maxSamples points inside it (at least 10 m apart),
+        /// each the gradient magnitude of the height over a baselineM window (central differences, the same 20 m window the planner
+        /// rates with), each capped at SkiRunAutoPlanner.MeanGradeCap. NaN when no sample falls inside (a sliver) or the ring has
+        /// fewer than 3 corners.</summary>
+        public static float EstimateMeanGrade(float2[] ring, Func<float2, float> height, int maxSamples = 300, float baselineM = 20f)
+        {
+            if (ring == null || ring.Length < 3 || height == null)
+                return float.NaN;
+            float2 lo = ring[0], hi = ring[0];
+            for (int i = 1; i < ring.Length; i++)
+            {
+                lo = math.min(lo, ring[i]);
+                hi = math.max(hi, ring[i]);
+            }
+            double area = SkiRunAutoPlanner.PolygonArea(ring);
+            if (!(area > 0.0))
+                return float.NaN;
+            float step = math.max(10f, (float)Math.Sqrt(area / Math.Max(1, maxSamples)));
+            float h = 0.5f * baselineM;
+            double sum = 0.0;
+            int n = 0;
+            for (float z = lo.y + 0.5f * step; z < hi.y; z += step)
+                for (float x = lo.x + 0.5f * step; x < hi.x; x += step)
+                {
+                    if (!InsideRing(ring, new float2(x, z)))
+                        continue;
+                    float gx = (height(new float2(x + h, z)) - height(new float2(x - h, z))) / baselineM;
+                    float gz = (height(new float2(x, z + h)) - height(new float2(x, z - h))) / baselineM;
+                    sum += Math.Min(Math.Sqrt(gx * gx + gz * gz), SkiRunAutoPlanner.MeanGradeCap);
+                    n++;
+                }
+            return n > 0 ? (float)(sum / n) : float.NaN;
+        }
+
+        private static bool InsideRing(float2[] ring, float2 p)
+        {
+            bool inside = false;
+            for (int i = 0, j = ring.Length - 1; i < ring.Length; j = i++)
+                if ((ring[i].y > p.y) != (ring[j].y > p.y) &&
+                    p.x < (ring[j].x - ring[i].x) * (p.y - ring[i].y) / (ring[j].y - ring[i].y) + ring[i].x)
+                    inside = !inside;
+            return inside;
+        }
+
         /// <summary>The area-weighted centroid of a ring (xz; either winding, no closing duplicate needed): the sign check's point, nearer
         /// the bind's Geometry.m_CenterPosition than a vertex average when one end of a run is a narrow tongue (CRITIQUE F3). A ring of
         /// (nearly) zero area gives the vertex average; null or empty gives 0.</summary>

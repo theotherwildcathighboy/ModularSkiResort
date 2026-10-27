@@ -414,12 +414,12 @@ namespace SkiResortMod.Settings
                 },
                 {
                     m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.QuickRunsEnabled)),
-                    "Quick runs (experimental)"
+                    "Resort Planner (experimental)"
                 },
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.QuickRunsEnabled)),
-                    "Outline a mountainside and the tool proposes a set of linked runs you can review, change and build in one go, " +
-                    "with an optional tree filler. Experimental. Off: the tool cannot open and its hub button is grayed. Default on."
+                    "Outline a mountainside and the planner proposes a set of linked runs you can review, change and build in one go, " +
+                    "with an optional tree filler. Experimental. Off: the tool cannot open and its hub button is grayed. Default off."
                 },
 
                 // --- Lifts ---
@@ -535,18 +535,18 @@ namespace SkiResortMod.Settings
                 },
                 { m_Setting.GetBindingKeyLocaleID(SkiResortSettings.ActCatTrackDeleteMode), "Cat track delete mode" },
                 { m_Setting.GetBindingKeyHintLocaleID(SkiResortSettings.ActCatTrackDeleteMode), "Delete mode" },
-                // The Quick runs tool
+                // The Resort Planner tool (code name Quick runs)
                 {
                     m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.ToggleQuickRunsToolBinding)),
-                    "Quick runs tool: toggle"
+                    "Resort Planner: toggle"
                 },
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.ToggleQuickRunsToolBinding)),
-                    "Opens or closes the Quick runs tool (also a button on the hub's Runs tab): click the corners of a region, " +
-                    "Enter to scan it, click a run to leave it out, Enter to build. Inert while Quick runs is off. Default Ctrl+Shift+Q."
+                    "Opens or closes the Resort Planner (also a button on the hub's Runs tab): click the corners of a region, " +
+                    "Enter to scan it, click a run to leave it out, Enter to build. Inert while the Resort Planner is off. Default Ctrl+Shift+Q."
                 },
-                { m_Setting.GetBindingKeyLocaleID(SkiResortSettings.ActToggleQuickRuns), "Toggle Quick runs tool" },
-                { m_Setting.GetBindingKeyHintLocaleID(SkiResortSettings.ActToggleQuickRuns), "Quick runs tool" },
+                { m_Setting.GetBindingKeyLocaleID(SkiResortSettings.ActToggleQuickRuns), "Toggle Resort Planner" },
+                { m_Setting.GetBindingKeyHintLocaleID(SkiResortSettings.ActToggleQuickRuns), "Resort Planner" },
                 { m_Setting.GetBindingKeyLocaleID(SkiResortSettings.ActToggleGlade), "Toggle glade tool" },
                 { m_Setting.GetBindingKeyHintLocaleID(SkiResortSettings.ActToggleGlade), "Glade tool" },
                 // The two persisted actions keep their names; only the labels and descriptions change.

@@ -1,7 +1,7 @@
 # QuickRunsControls.tsx: the Quick runs tool in the hub
 
 - `QuickRunsChip`: the Build strip's Runs tab, in the slot beside the Tree tool chip, ok panel only (`FooterInfo.quickRuns`; it reads
-  the non-CORE `quickRuns` binding, so the contract-mismatch footer never draws it). Labeled "Quick runs (experimental)". While the tool
+  the non-CORE `quickRuns` binding, so the contract-mismatch footer never draws it). Labeled "Resort Planner (experimental)" (player name since DECISIONS 443; code keeps QuickRuns*). While the tool
   is unavailable the chip is disabled (grayed) and its tooltip gives C#'s reason (`quickRuns.reason`, SENT_KEYS); a click on an
   available chip opens the tool (`quickRunsToggle`), a click on the lit chip closes it. The lift generator chip's pattern.
 - `QuickRunsRows`: while the tool is open the Runs view draws these rows instead of the tree tool's (`TreeRows`): the tool button

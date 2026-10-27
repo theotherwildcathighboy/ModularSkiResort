@@ -41,7 +41,7 @@ Cities: Skylines II 1.6 (tested on 1.6.2f1). No other mod and no DLC. Start from
 - Skiers are counted, not simulated. Chairs and cabins move but carry no riders, and the chairs do not sway in the wind.
 - Stations sit on the slope as placed, so on steep ground one can end up partly in the hillside. Move It lifts it out (see Works with).
 - Chairlifts and gondolas stop in summer when no run is open. The aerial tram keeps running as sightseeing.
-- Quick runs (outline a slope, get a set of runs) is experimental and can be turned off in Options.
+- The Resort Planner (outline a slope, get a set of runs) is experimental and off by default: turn it on in Options.
 - Lifts are power-line networks and need power. Do not connect city high-voltage lines to a lift (untested).
 - Remove all lifts before uninstalling the mod. What is left behind is untested.
 - Resorts cost money all year and earn in winter. Build in steps.

@@ -54,8 +54,8 @@ namespace SkiResortMod.Systems
         public bool IsArmed => m_Armed;
         public bool IsDisabled => m_Disabled;
 
-        /// <summary>The setting (Options, Runs: "Quick runs (experimental)"); read live, null-tolerant (default on).</summary>
-        public static bool OptionOn => Mod.Settings?.QuickRunsEnabled ?? true;
+        /// <summary>The setting (Options, Runs: "Resort Planner (experimental)"); read live, null-tolerant (default off).</summary>
+        public static bool OptionOn => Mod.Settings?.QuickRunsEnabled ?? false;
 
         /// <summary>Null when the tool can open; else the hub reason key (the button stays visible, grayed with this reason).</summary>
         internal string UnavailableReasonKey => !OptionOn ? ReasonOff : m_Disabled ? ReasonDisabled : !m_Armed ? ReasonNotArmed : null;
@@ -75,6 +75,9 @@ namespace SkiResortMod.Systems
         internal float ScanProgress => m_Phase == ToolPhase.Scanning ? m_Planner.Progress : 0f;
         internal AutoPlanResult Result => m_Planner.Result;
         internal QuickRegionReadout Readout => m_Readout;
+        /// <summary>Mean grade of the outlined ground (0.25 = 25 %): the corner phase's sampled estimate, replaced by the scan's figure once a scan
+        /// finishes; NaN with fewer than 3 corners. The site verdict (QuickRunsRules.SiteTierOf) reads it.</summary>
+        internal float SiteGrade => m_SiteGrade;
         internal float MaxAreaM2 => SkiRunAutoPlanner.V1MaxAreaM2;
         /// <summary>Hover label key of the cluster under the cursor (tooltip), or null; HoverClusterRuns = its run count.</summary>
         internal string HoverClusterKey { get; private set; }
@@ -102,6 +105,7 @@ namespace SkiResortMod.Systems
         private JobHandle m_Deps;
         private readonly GradeEdit m_Edit = new GradeEdit();   // the region's corners (the cat track tool's point editor)
         private QuickRegionReadout m_Readout;
+        private float m_SiteGrade = float.NaN;
         private float3 m_Hit;
         private bool m_HasHit, m_EnterRequested;
         private readonly List<(string key, int value)> m_HubQueue = new List<(string key, int value)>();   // HubSet -> DrainHub
@@ -252,7 +256,7 @@ namespace SkiResortMod.Systems
             string reason = UnavailableReasonKey;
             if (reason != null)
             {
-                Mod.Log.Info($"QuickRuns [tool]: activation refused ({why}) — {(reason == ReasonOff ? "the Quick runs option is off" : m_Disabled ? "disabled after an exception until the next load" : "not armed (not in a game)")}");
+                Mod.Log.Info($"QuickRuns [tool]: activation refused ({why}) — {(reason == ReasonOff ? "the Resort Planner (Quick runs) option is off: turn it on in Options > Modular Ski Resort > Runs" : m_Disabled ? "disabled after an exception until the next load" : "not armed (not in a game)")}");
                 return false;
             }
             if (IsActive)
@@ -508,6 +512,7 @@ namespace SkiResortMod.Systems
             float2[] corners = CornerArray();
             float lo = float.PositiveInfinity, hi = float.NegativeInfinity;
             TerrainHeightData hd = m_TerrainSystem.GetHeightData();
+            m_SiteGrade = float.NaN;
             if (corners != null && hd.isCreated)
             {
                 for (int i = 0; i < corners.Length; i++)
@@ -516,6 +521,8 @@ namespace SkiResortMod.Systems
                     lo = math.min(lo, y);
                     hi = math.max(hi, y);
                 }
+                TerrainHeightData terrain = hd;   // a copy: a lambda cannot capture the struct by reference
+                m_SiteGrade = QuickRunsRules.EstimateMeanGrade(corners, p => RunAreaEmit.Ground(ref terrain, p).y);
             }
             m_Readout = QuickRunsRules.Readout(corners, lo, hi, SkiRunAutoPlanner.V1MaxAreaM2, SkiRunAutoPlanner.DefaultMinAreaM2);
         }
@@ -709,6 +716,7 @@ namespace SkiResortMod.Systems
             {
                 m_Edit.Clear();
                 m_Readout = default;
+                m_SiteGrade = float.NaN;
                 m_BatchFresh = false;
                 if (why == "load")
                 {

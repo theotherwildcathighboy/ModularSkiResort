@@ -7,8 +7,8 @@ this tool feeds it a snapshot and turns its result into runs. Files: `QuickRunsT
 `QuickRunsHotkeySystem.cs`; `QuickRunsTooltipSystem.cs`; the hub side in `SkiResortHubUISystem.QuickRuns.cs` (SkiResortHubUISystem.md).
 
 ## Off switch and gating
-- Setting `QuickRunsEnabled` ("Quick runs (experimental)", Options > Runs, default on). `OptionOn` reads it; off = `TryActivate` refuses
-  and logs, the hotkey is inert, the hub chip stays visible but disabled with `SkiResort.Hub.QUICK_REASON[Off]`. Turning it off while
+- Setting `QuickRunsEnabled` ("Resort Planner (experimental)", Options > Modular Ski Resort > Runs, default OFF since DECISIONS 443; `OptionOn` falls back to false when Mod.Settings is null). `OptionOn` reads it; off = `TryActivate` refuses
+  and logs, the hotkey is inert, the hub chip stays visible but disabled with `SkiResort.Hub.QUICK_REASON[Off]` ("Resort Planner is experimental and off. Turn it on in Options > Modular Ski Resort > Runs."; the hotkey path only logs the same hint). Turning it off while
   the tool is open closes the tool on its next frame.
 - `UnavailableReasonKey`: Off, then Disabled (an exception, until the next load), then NotArmed (no city loaded, run prefabs not
   resolved). Null = available.
@@ -86,7 +86,8 @@ The piste map hides itself while this tool is open (`SkiPisteMapSystem.ToolHides
 `QuickRunsTooltipSystem` (the cat track tooltip's pattern, UpdateAfter TempCostTooltipSystem): the step prompt always; region size as a
 ProgressTooltip against the cap plus vertical; scan progress; the refusal status; totals (runs, the mix template, fee, skiers a day);
 tree counts and the tree line; the build's or the planting's progress line (QUICK_BUILDING_PROGRESS / QUICK_PLANTING_PROGRESS,
-the same templates the hub uses); up to 8 warnings; the hovered cluster's line. Keys: `SkiResort.Tooltip.QUICK_*` (LocaleEN.cs).
+the same templates the hub uses); up to 8 warnings; the hovered cluster's line.
+The site verdict (DECISIONS 443): one line (`QUICK_SITE[Gentle|Steep|VerySteep|Beyond]`, "average N %") in the Region step and the preview. The mean grade is `QuickRunsRules.EstimateMeanGrade` in the corner phase (about 300 samples inside the ring, central differences over a 20 m window, capped at 200 % per sample, recomputed on every corner edit) and `AutoPlanResult.MeanGrade` after a scan (mean of the planner's 20 m cell grade over the open cells, same cap; set before the refusal ladder; logged as `mean grade` in `[scan] DONE`). Tiers by whole percent: under 25 Gentle, 25-44 Steep, 45-57 Very steep, 58+ Beyond (QuickRunsRules.SiteTierOf). Keys: `SkiResort.Tooltip.QUICK_*` (LocaleEN.cs).
 
 ## Hub
 `quickRuns` (QuickRunsState) is pushed while the panel observes it, when `HubRevision` (bumped on every visible change), availability or

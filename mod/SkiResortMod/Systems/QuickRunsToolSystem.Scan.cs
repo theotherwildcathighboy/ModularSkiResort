@@ -116,13 +116,15 @@ namespace SkiResortMod.Systems
             for (int s = 1; s < r.StageMaxMs.Length; s++)
                 if (r.StageMaxMs[s] > r.StageMaxMs[slow])
                     slow = s;
+            if (r.OpenShare > 0f)
+                m_SiteGrade = r.MeanGrade;   // the scan's figure (20 m cells over the open ground) replaces the corner phase's estimate
             LastScanText = string.Format(CultureInfo.InvariantCulture,
                 "{0}: {1} run(s) in {2} cluster(s), bands G/B/K/DB {3}/{4}/{5}/{6} (target {7}/{8}/{9}/{10}), {11} candidate(s), {12} rated; " +
-                "open {13:P0}, usable {14:P0}, cliff {15:P0}, vertical {16:F0} m; {17:F0} ms over {18} frame(s), longest unit {19:F2} ms " +
+                "open {13:P0}, usable {14:P0}, cliff {15:P0}, vertical {16:F0} m, mean grade {24:P0}; {17:F0} ms over {18} frame(s), longest unit {19:F2} ms " +
                 "(stage {20}), area {21:F2} km2, select max ms pick/A*/build/rate/chamfer {22}, rejects {{{23}}}",
                 r.Status, r.Runs.Count, r.Clusters.Count, r.BandCount[1], r.BandCount[2], r.BandCount[3], r.BandCount[4], r.BandTarget[1],
                 r.BandTarget[2], r.BandTarget[3], r.BandTarget[4], r.Candidates, r.Rated, r.OpenShare, r.UsableShare, r.CliffShare,
-                r.VerticalM, ms, m_ScanFrames, r.MaxUnitMs, slow, r.RegionAreaM2 / 1e6f, r.SelectPhaseText(), r.RejectText());
+                r.VerticalM, ms, m_ScanFrames, r.MaxUnitMs, slow, r.RegionAreaM2 / 1e6f, r.SelectPhaseText(), r.RejectText(), r.MeanGrade);
             Say($"QuickRuns [scan]: DONE ({m_ScanWhy}) — {LastScanText}; warnings {r.Warnings}; tool warnings {m_ToolWarn}",
                 m_StatusKey);
             if (SkiResortSettings.DiagnosticsOn)

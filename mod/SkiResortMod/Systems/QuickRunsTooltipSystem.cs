@@ -21,12 +21,12 @@ namespace SkiResortMod.Systems
         private const int MaxWarnings = 8;
 
         private QuickRunsToolSystem m_Tool;
-        private StringTooltip m_Prompt, m_Notice, m_Status, m_Mix, m_Cluster, m_Progress;
+        private StringTooltip m_Prompt, m_Notice, m_Status, m_Mix, m_Cluster, m_Progress, m_Site;
         private ProgressTooltip m_Scan;
         private IntTooltip m_Region, m_RegionMax, m_Vertical, m_Runs, m_Fee, m_Skiers, m_Plant, m_Remove, m_TreeCost, m_TreeLine;
         private readonly StringTooltip[] m_Warn = new StringTooltip[MaxWarnings];
         private readonly string[] m_LastWarn = new string[MaxWarnings];
-        private string m_LastPrompt, m_LastNotice, m_LastStatus, m_LastMix, m_LastCluster, m_LastProgress, m_LoggedPrompt;
+        private string m_LastPrompt, m_LastNotice, m_LastStatus, m_LastMix, m_LastCluster, m_LastProgress, m_LastSite, m_LoggedPrompt;
         private bool m_Disabled;
 
         protected override void OnCreate()
@@ -39,6 +39,7 @@ namespace SkiResortMod.Systems
             m_Mix = new StringTooltip { path = "skiQuickMix", color = TooltipColor.Info };
             m_Cluster = new StringTooltip { path = "skiQuickCluster", color = TooltipColor.Info };
             m_Progress = new StringTooltip { path = "skiQuickProgress", color = TooltipColor.Info };
+            m_Site = new StringTooltip { path = "skiQuickSite", color = TooltipColor.Info };
             // IntTooltip unit "area" like the game's area tool (AreaToolTooltipSystem.cs:78-83): the game formats m2 / km2 / acres itself. A
             // ProgressTooltip printed the raw "2658641.75 / 9000000 <area>" (its fraction formatter has no area entry).
             m_Region = new IntTooltip { path = "skiQuickRegion", label = LocalizedString.Id(P + "REGION"), unit = "area" };
@@ -90,6 +91,9 @@ namespace SkiResortMod.Systems
                     m_Vertical.value = (int)Math.Round(ro.VerticalM);
                     AddMouseTooltip(m_Vertical);
                 }
+                // The site verdict: the corner estimate in the Region step, the scan's figure after it
+                if ((phase == QuickRunsToolSystem.ToolPhase.Region && ro.State != QuickRegionState.Open) || m_Tool.HasPreview)
+                    ShowSite(m_Tool.SiteGrade);
                 // "Building runs 4 / 11", "Planting trees 2,400 / 9,000" (templates, the mix line's idiom)
                 if (m_Tool.Building)
                     ShowValue(m_Progress, ref m_LastProgress, Template(P + "BUILDING_PROGRESS")
@@ -201,6 +205,15 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>The active dictionary's text for a template key (the SkiDaySystem.ReachRowText precedent); the key itself when absent.</summary>
+        /// <summary>One line: "Steep slope (average 33 %): ..." (QUICK_SITE[*] with the whole percent); nothing while the grade is unknown.</summary>
+        private void ShowSite(float meanGrade)
+        {
+            int pct = QuickRunsRules.SitePercent(meanGrade);
+            string key = QuickRunsRules.SiteKey(QuickRunsRules.SiteTierOf(pct));
+            if (key != null)
+                ShowValue(m_Site, ref m_LastSite, Template(key).Replace("{N}", pct.ToString(CultureInfo.InvariantCulture)));
+        }
+
         private static string Template(string key)
         {
             var dictionary = Game.SceneFlow.GameManager.instance?.localizationManager?.activeDictionary;

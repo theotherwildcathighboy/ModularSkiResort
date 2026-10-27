@@ -20,7 +20,7 @@ export const GROUP = "skiResort";
  * only when C#'s `contract` equals this; on a mismatch it shows the Build strip and the tree controls (CORE only) and
  * says why.
  */
-export const HUB_CONTRACT = 20;
+export const HUB_CONTRACT = 21;
 
 /** The `contract` value while the C# binding is absent (the fallback). Real contracts start at 1. */
 export const CONTRACT_ABSENT = 0;
@@ -331,6 +331,10 @@ export interface QuickRunsState {
    *  region edge, blocked by other areas, too narrow, too twisted, too flat, other (QuickRunsRules.RejectBuckets). All 0 unless the scan has
    *  a result (a preview, or the refusal shown in the Region step). */
   rejects: number[];
+  /** The site verdict (contract 21): the region's mean terrain grade as a whole percent (the corner phase's estimate, then the scan's
+   *  figure), -1 = unknown, and its tier (QuickRunsRules.SiteTier: 0 unknown, 1 Gentle, 2 Steep, 3 Very steep, 4 Beyond any real area). */
+  sitePercent: number;
+  siteTier: number;
 }
 
 /** The length of QuickRunsState.rejects (QuickRunsRules.RejectBuckets). */
@@ -839,6 +843,7 @@ const EMPTY_QUICK_RUNS: QuickRunsState = {
   variety: false, status: "", warnings: [], clusters: [], batchRuns: 0, notice: "", trees: false, treeLevel: GLADE_LEVEL_DEFAULT,
   treeLine: -1, groundMin: 0, groundMax: 0, group: 0, species: 0, speciesNames: [], speciesGroups: [], plant: 0, remove: 0, treesUndo: 0,
   buildDone: 0, buildTotal: 0, planting: false, treesDone: 0, treesTotal: 0, treesCost: 0, rejects: [0, 0, 0, 0, 0, 0, 0, 0],
+  sitePercent: -1, siteTier: 0,
 };
 
 export const FALLBACK = {

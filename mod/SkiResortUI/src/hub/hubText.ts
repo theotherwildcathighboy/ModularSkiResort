@@ -404,14 +404,14 @@ export const HUB_LOC = {
   historyTipYoy: ["SkiResort.Hub.HISTORY_TIP[Yoy]", "The last whole month against the same month a year earlier."],
   historyTipStaff: ["SkiResort.Hub.HISTORY_TIP[Staff]", "The game's bill for buildings and wages, at the rate when the month closed."],
   historyTipChart: ["SkiResort.Hub.HISTORY_TIP[Chart]", "Point at a bar for its numbers. Faded bars are partial months; hatched slots recorded nothing."],
-  // the Quick runs tool (QuickRunsControls.tsx, BuildStrip.tsx QuickRunsChip)
-  quickTool: ["SkiResort.Hub.QUICK_TOOL", "Quick runs (experimental)"],
+  // the Resort Planner tool (code name Quick runs; QuickRunsControls.tsx, BuildStrip.tsx QuickRunsChip)
+  quickTool: ["SkiResort.Hub.QUICK_TOOL", "Resort Planner (experimental)"],
   quickToolTip: ["SkiResort.Hub.QUICK_TOOL_TIP", "Outline a slope and get a set of runs to pick from. Experimental. Ctrl+Shift+Q also opens it."],
   quickToolTipOn: ["SkiResort.Hub.QUICK_TOOL_TIP_ON", "On: click the corners of a slope on the map. Click here to close the tool."],
   catTrackDelete: ["SkiResort.Hub.CAT_TRACK_DELETE", "Delete cat tracks"],
   catTrackDeleteTip: ["SkiResort.Hub.CAT_TRACK_DELETE_TIP", "Opens the cat track tool in delete mode: click a track twice to delete it. The ground stays graded, no refund. Ctrl+Shift+D in the tool."],
   catTrackDeleteTipOn: ["SkiResort.Hub.CAT_TRACK_DELETE_TIP_ON", "On: click a cat track twice to delete it. Click here, right click or Esc to leave delete mode."],
-  quickUnavailable: ["SkiResort.Hub.QUICK_UNAVAILABLE", "Quick runs is not available right now."],
+  quickUnavailable: ["SkiResort.Hub.QUICK_UNAVAILABLE", "The Resort Planner is not available right now."],
   quickScan: ["SkiResort.Hub.QUICK_SCAN", "Scan"],
   quickScanTip: ["SkiResort.Hub.QUICK_SCAN_TIP", "Scan the outlined slope for runs. Enter does the same."],
   quickBuild: ["SkiResort.Hub.QUICK_BUILD", "Build"],
@@ -688,6 +688,15 @@ export const QUICK_REJECT_TEXT: readonly LocEntry[] = [
   ["SkiResort.Hub.QUICK_REJECT[Other]", "other reasons"],
 ];
 
+/* The site verdict (contract 21), index = QuickRunsState.siteTier - 1 (QuickRunsRules.SiteTier Gentle .. Beyond); {N} = the mean grade in percent.
+   The same text is the tool tooltip's (SkiResort.Tooltip.QUICK_SITE[*]). */
+export const QUICK_SITE_TEXT: readonly LocEntry[] = [
+  ["SkiResort.Tooltip.QUICK_SITE[Gentle]", "Gentle slope (average {N} %): good for green and blue runs."],
+  ["SkiResort.Tooltip.QUICK_SITE[Steep]", "Steep slope (average {N} %): mostly blue and black runs. Greens need the gentlest parts."],
+  ["SkiResort.Tooltip.QUICK_SITE[VerySteep]", "Very steep (average {N} %): mostly black runs, few or no greens. Gentler ground lower down suits beginners."],
+  ["SkiResort.Tooltip.QUICK_SITE[Beyond]", "Steeper than any real ski area (average {N} %): expect black and double black runs only. Look for gentler ground lower down for beginners."],
+];
+
 /* SEASON_HINT words, index = SEASON_HINT value (0 None = no text). */
 export const SEASON_HINT_TEXT: ReadonlyArray<LocEntry | null> = [
   null,
@@ -892,9 +901,9 @@ export const SENT_KEYS: readonly LocEntry[] = [
   ["SkiResort.Hub.GLADE_REASON[NoRuns]", "The ski run assets were not found: is the asset pack installed?"],
   ["SkiResort.Hub.GLADE_REASON[NoSpecies]", "No tree species to plant were found."],
   // the Quick runs tool: quickRuns.reason / status / warnings / notice
-  ["SkiResort.Hub.QUICK_REASON[Off]", "Turned off in Options: Modular Ski Resort, Quick runs (experimental)."],
+  ["SkiResort.Hub.QUICK_REASON[Off]", "Resort Planner is experimental and off. Turn it on in Options > Modular Ski Resort > Runs."],
   ["SkiResort.Hub.QUICK_REASON[NotArmed]", "Available once a city is loaded."],
-  ["SkiResort.Hub.QUICK_REASON[Disabled]", "Quick runs hit an error and is off until the next load. Details are in the mod log."],
+  ["SkiResort.Hub.QUICK_REASON[Disabled]", "The Resort Planner hit an error and is off until the next load. Details are in the mod log."],
   ["SkiResort.Tooltip.QUICK_STATUS[BadInput]", "The region could not be read. Draw it again."],
   ["SkiResort.Tooltip.QUICK_STATUS[TooLarge]", "The region is over the size limit shown beside it. Make it smaller."],
   ["SkiResort.Tooltip.QUICK_STATUS[TooSmall]", "The region is too small for a run. Make it larger."],

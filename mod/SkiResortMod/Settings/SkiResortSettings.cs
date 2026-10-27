@@ -325,8 +325,9 @@ namespace SkiResortMod.Settings
         [SettingsUISection(SectionMain, GroupRuns)]
         public bool CatTrackGradeConstant { get; set; }
 
-        /// <summary>The Quick runs tool (experimental, DECISIONS 404): outline a region, the planner proposes runs, Enter builds them. Off =
-        /// the tool cannot open, its key is inert and the hub button is grayed with the reason. Read live by QuickRunsToolSystem.OptionOn.</summary>
+        /// <summary>The Resort Planner tool (code name Quick runs; experimental, DECISIONS 404, 443): outline a region, the planner proposes
+        /// runs, Enter builds them. Off (default) = the tool cannot open, its key is inert and the hub button is grayed with the reason.
+        /// Read live by QuickRunsToolSystem.OptionOn.</summary>
         [SettingsUISection(SectionMain, GroupRuns)]
         public bool QuickRunsEnabled { get; set; }
 
@@ -404,7 +405,7 @@ namespace SkiResortMod.Settings
         [SettingsUISection(SectionMain, GroupKeybindings)]
         public ProxyBinding CatTrackDeleteModeBinding { get; set; }
 
-        /// <summary>Toggles the Quick runs tool (default Ctrl+Shift+Q). Polled by QuickRunsHotkeySystem in a loaded city; inert while the
+        /// <summary>Toggles the Resort Planner tool (default Ctrl+Shift+Q). Polled by QuickRunsHotkeySystem in a loaded city; inert while the
         /// QuickRunsEnabled option is off. The tool scans and builds with the BuildLiftLine key (Enter).</summary>
         [SettingsUIKeyboardBinding(BindingKeyboard.Q, ActToggleQuickRuns, ctrl: true, shift: true)]
         [SettingsUISection(SectionMain, GroupKeybindings)]
@@ -460,7 +461,7 @@ namespace SkiResortMod.Settings
             CatTrackGradeCutRun = 1.5f;
             CatTrackGradeFillRun = 2f;
             CatTrackGradeConstant = false;
-            QuickRunsEnabled = true;
+            QuickRunsEnabled = false;   // experimental: off until the player turns it on (DECISIONS 443)
             ShowHubButton = true;
             OpenHubOnSignSelect = true;
             LiftBuildAids = true;

@@ -328,6 +328,9 @@ Appended fields and bindings by contract:
   tool if needed, then its Delete mode; field test 2026-10-26b), queued and applied in OnUpdate.
 - 20: QuickRunsState appends `rejects` (int[8]: the scan's reject histogram in the player's buckets, QuickRunsRules.RejectBuckets;
   zeros unless the scan has a result; the Quick runs part shows the top three as "N lines dropped: ...").
+- 21: QuickRunsState appends `sitePercent` (int, the region's mean terrain grade in whole percent, -1 unknown) and `siteTier` (int, QuickRunsRules.SiteTier:
+  0 unknown, 1 Gentle, 2 Steep, 3 Very steep, 4 Beyond; DECISIONS 443). The Resort Planner part draws one plain line (hubText QUICK_SITE_TEXT) under the
+  region line and beside the mix line.
 
 ## Safety net fence tile (no contract change)
 The Runs tab's sixth tile, `safetyFence` (SkiCatalog item kind Fence, prefab SkiSafetyFence, PrefabID type NetFencePrefab, CatalogKind.Fence;

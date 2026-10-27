@@ -20,7 +20,7 @@ import type { QuickRunsKey, QuickRunsState } from "../bindings";
 import { useT } from "../l10n";
 import type { LocEntry, Translate } from "../l10n";
 import { rejectSummary } from "./hubRules";
-import { HUB_FMT, HUB_LOC, QUICK_REJECT_TEXT, gladeLevelEntry, sentKeyEntry } from "./hubText";
+import { HUB_FMT, HUB_LOC, QUICK_REJECT_TEXT, QUICK_SITE_TEXT, gladeLevelEntry, sentKeyEntry } from "./hubText";
 import { LocText, Tip, TipLines, cx, numArg } from "./parts";
 import styles from "./hub.module.scss";
 
@@ -111,6 +111,9 @@ function Caption({ text }: { text: string }): JSX.Element {
 /* The step's line: what the tool is doing and the numbers of the region or the preview. */
 function StepLines({ q, t }: { q: QuickRunsState; t: Translate }): JSX.Element {
   const lines: JSX.Element[] = [];
+  /* The site verdict: one plain line beside the mix line (Preview) or under the region line (Region step); none while the grade is unknown. */
+  const siteEntry = q.siteTier >= 1 && q.siteTier <= QUICK_SITE_TEXT.length ? QUICK_SITE_TEXT[q.siteTier - 1] : null;
+  const site = siteEntry ? <LocText key="site" entry={siteEntry} args={{ N: numArg(q.sitePercent, Unit.Integer) }} /> : null;
   if (q.phase === "Scanning") {
     lines.push(<LocText key="scan" entry={HUB_FMT.quickScanning} args={{ P: numArg(Math.round(q.progress * 100), Unit.Percentage) }} />);
   } else if (q.phase === "Preview") {
@@ -120,6 +123,7 @@ function StepLines({ q, t }: { q: QuickRunsState; t: Translate }): JSX.Element {
     const c = (i: number): JSX.Element | string => numArg(q.count[i] ?? 0, Unit.Integer);
     const g = (i: number): JSX.Element | string => numArg(q.target[i] ?? 0, Unit.Integer);
     lines.push(<LocText key="mix" entry={HUB_FMT.quickMixLine} args={{ G: c(1), B: c(2), K: c(3), D: c(4), TG: g(1), TB: g(2), TK: g(3), TD: g(4) }} />);
+    if (site) lines.push(site);
     lines.push(<>{t(HUB_LOC.quickPreviewHint)}</>);
   } else if (building(q)) {
     if (q.buildTotal > 0)
@@ -131,6 +135,7 @@ function StepLines({ q, t }: { q: QuickRunsState; t: Translate }): JSX.Element {
     lines.push(<LocText key="region" entry={HUB_FMT.quickRegion} args={{
       N: numArg(q.corners, Unit.Integer), AREA: numArg(q.areaM2, Unit.Area), MAX: numArg(q.maxAreaM2, Unit.Area), V: numArg(q.verticalM, Unit.Length),
     }} />);
+    if (site) lines.push(site);
   }
   const dropped = q.phase === "Preview" || (q.phase === "Region" && !!q.status) ? rejectSummary(q.rejects) : null;
   if (dropped && dropped.top.length > 0) {

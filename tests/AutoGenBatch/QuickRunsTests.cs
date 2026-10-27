@@ -19,6 +19,48 @@ namespace AutoGenBatch
             // LinkMeters is one constant (DECISIONS 405 follow-up)
             Check(SkiRunAutoPlanner.LinkMeters == LiftServedRule.LinkMeters, W, "planner LinkMeters must alias LiftServedRule.LinkMeters");
 
+            // The site verdict (DECISIONS 443, contract 21): tiers at the boundaries, the figure shown, the locale keys
+            {
+                var want = new (float grade, int pct, QuickRunsRules.SiteTier tier)[]
+                {
+                    (0f, 0, QuickRunsRules.SiteTier.Gentle), (0.2449f, 24, QuickRunsRules.SiteTier.Gentle),
+                    (0.25f, 25, QuickRunsRules.SiteTier.Steep), (0.4449f, 44, QuickRunsRules.SiteTier.Steep),
+                    (0.45f, 45, QuickRunsRules.SiteTier.VerySteep), (0.5749f, 57, QuickRunsRules.SiteTier.VerySteep),
+                    (0.58f, 58, QuickRunsRules.SiteTier.Beyond), (2f, 200, QuickRunsRules.SiteTier.Beyond),
+                    (float.NaN, -1, QuickRunsRules.SiteTier.Unknown), (-0.1f, -1, QuickRunsRules.SiteTier.Unknown),
+                    (float.PositiveInfinity, -1, QuickRunsRules.SiteTier.Unknown),
+                };
+                foreach (var (grade, pct, tier) in want)
+                {
+                    int got = QuickRunsRules.SitePercent(grade);
+                    Check(got == pct && QuickRunsRules.SiteTierOf(got) == tier, W, $"site verdict: grade {grade} -> {got} % / {QuickRunsRules.SiteTierOf(got)}, want {pct} % / {tier}");
+                }
+                Check(QuickRunsRules.SiteKey(QuickRunsRules.SiteTier.VerySteep) == "SkiResort.Tooltip.QUICK_SITE[VerySteep]" && QuickRunsRules.SiteKey(QuickRunsRules.SiteTier.Unknown) == null, W,
+                    "site verdict locale keys");
+
+                // The corner phase's estimate on planes of known grade (a 1 km square): exact for a plane, capped at 200 %, NaN for a sliver
+                float2[] km = Square(-500f, -500f, 1000f);
+                foreach (float g in new[] { 0.10f, 0.30f, 0.50f, 0.80f })
+                {
+                    float est = QuickRunsRules.EstimateMeanGrade(km, p => g * p.x);
+                    Check(System.Math.Abs(est - g) < 0.002f, W, $"site estimate on a {g:P0} plane: {est:P1}");
+                }
+                Check(System.Math.Abs(QuickRunsRules.EstimateMeanGrade(km, p => 5f * p.x) - SkiRunAutoPlanner.MeanGradeCap) < 1e-4f, W, "site estimate caps each sample at MeanGradeCap");
+                Check(float.IsNaN(QuickRunsRules.EstimateMeanGrade(Square(0f, 0f, 5f), p => p.x)) && float.IsNaN(QuickRunsRules.EstimateMeanGrade(new[] { new float2(0f, 0f), new float2(9f, 9f) }, p => p.x)) &&
+                    float.IsNaN(QuickRunsRules.EstimateMeanGrade(null, p => p.x)), W, "site estimate: NaN for a sliver, two corners or no ring");
+                // The sample count stays bounded (a 9 km2 square stays near 300 samples)
+                int calls = 0;
+                QuickRunsRules.EstimateMeanGrade(Square(-1500f, -1500f, 3000f), p => { calls++; return 0.3f * p.x; });
+                Check(calls > 0 && calls <= 5 * 400, W, $"site estimate sampled {calls} heights on 9 km2 (about 5 per point, 300 points)");
+
+                // The scan's figure: the planner's mean over the open ground (set even when the scan is refused later)
+                foreach (double g in new[] { 0.15, 0.30, 0.50 })
+                {
+                    AutoPlanResult scan = Plan(Input(Terrain.Plane(g), Terrain.Square(0f, 0f, 400f)));
+                    Check(System.Math.Abs(scan.MeanGrade - g) < 0.02, W, $"scan mean grade on a {g:P0} plane: {scan.MeanGrade:P1} (status {scan.Status})");
+                }
+            }
+
             // The hub's "lines dropped" buckets (contract 20): every reason lands in one bucket or none, the sums add up
             {
                 var hist = new int[(int)AutoReject.Count];

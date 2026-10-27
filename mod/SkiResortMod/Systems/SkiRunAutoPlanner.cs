@@ -195,6 +195,9 @@ namespace SkiResortMod.Systems
         public readonly int[] BandCount = new int[5], BandTarget = new int[5];
         public readonly int[] Rejects = new int[(int)AutoReject.Count];
         public float RegionAreaM2, OpenShare, UsableShare, CliffShare, SteepShare, VerticalM;
+        /// <summary>Mean terrain grade (rise over run, 0.25 = 25 %) over the open cells, each capped at SkiRunAutoPlanner.MeanGradeCap; the
+        /// site verdict (QuickRunsRules.SiteTierOf) reads it. 0 with no open cell (OpenShare 0). Set before the refusal ladder, so refused scans have it.</summary>
+        public float MeanGrade;
         public int Candidates, Rated;
         public readonly float[] StageMs = new float[SkiRunAutoPlanner.StageCount];
         public readonly float[] StageMaxMs = new float[SkiRunAutoPlanner.StageCount];   // longest unit per stage (the probe names the slow stage)
@@ -233,7 +236,7 @@ namespace SkiResortMod.Systems
             Array.Clear(BandCount, 0, BandCount.Length);
             Array.Clear(BandTarget, 0, BandTarget.Length);
             Array.Clear(Rejects, 0, Rejects.Length);
-            RegionAreaM2 = OpenShare = UsableShare = CliffShare = SteepShare = VerticalM = 0f;
+            RegionAreaM2 = OpenShare = UsableShare = CliffShare = SteepShare = VerticalM = MeanGrade = 0f;
             Candidates = Rated = 0;
             Array.Clear(StageMs, 0, StageMs.Length);
             Array.Clear(StageMaxMs, 0, StageMaxMs.Length);
@@ -254,6 +257,7 @@ namespace SkiResortMod.Systems
         public const int OffMapMarginTexels = SkiSlopeClassifier.Dilation + 2;   // keeps every rating Need node on the map
         public const float BlockedShare = 0.30f, PartlyBlockedShare = 0.60f, TooFlatShare = 0.20f, AllCliffShare = 0.60f;
         public const float CliffGrade = 1.0f;                                    // 45 deg
+        public const float MeanGradeCap = 2.0f;                                  // one cell counts at most 200 % in the region mean (a sheer face must not drown the rest)
         public const float MinHalfWidthM = 7.5f;                                 // half the 15 m pinch width
         // Routing passes G / B / K / DB. Each pass has a band [floor, ceiling) and a HARD ceiling = the next pass's ceiling (the double
         // black's is the cliff grade): a step is impossible at or over the hard ceiling, cells between the ceiling and the hard ceiling
@@ -362,6 +366,7 @@ namespace SkiResortMod.Systems
         // Field statistics
         private float m_HMinU, m_HMaxU, m_HMinOpen, m_HMaxOpen, m_BaseTop, m_HReach;
         private int m_Open, m_Usable, m_Cliff, m_Steep, m_BaseGentle;
+        private double m_GradeSum;
         private float m_MaxDHard, m_MaxDHardU;
         private int m_RouteReach, m_RouteSeedable, m_RouteSources;
 
@@ -979,6 +984,7 @@ namespace SkiResortMod.Systems
             if (m_Cursor2 == 0)
             {
                 m_Open = m_Usable = m_Cliff = m_Steep = 0;
+                m_GradeSum = 0.0;
                 m_HMinU = m_HMinOpen = float.PositiveInfinity;
                 m_HMaxU = m_HMaxOpen = float.NegativeInfinity;
                 m_MaxDHard = m_MaxDHardU = 0f;
@@ -1000,6 +1006,7 @@ namespace SkiResortMod.Systems
                         continue;
                     f |= FOpen;
                     m_Open++;
+                    m_GradeSum += Math.Min(o, MeanGradeCap);
                     m_HMinOpen = Math.Min(m_HMinOpen, m_H[c]);
                     m_HMaxOpen = Math.Max(m_HMaxOpen, m_H[c]);
                     m_MaxDHard = Math.Max(m_MaxDHard, m_DHard[c]);
@@ -1029,6 +1036,7 @@ namespace SkiResortMod.Systems
             r.CliffShare = m_Open > 0 ? m_Cliff / (float)m_Open : 0f;
             r.SteepShare = m_Usable > 0 ? m_Steep / (float)m_Usable : 0f;
             r.VerticalM = m_Open > 0 ? m_HMaxOpen - m_HMinOpen : 0f;
+            r.MeanGrade = m_Open > 0 ? (float)(m_GradeSum / m_Open) : 0f;
             if (r.OpenShare < BlockedShare)
             {
                 Finish(AutoPlanStatus.Blocked);
