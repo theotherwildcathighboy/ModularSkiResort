@@ -1,6 +1,6 @@
 // PlanTypes suite (A0): the Resort Planner (v2) seams on the stubbed hooks. Runs mode allocates nothing of v2 (V1-2); Resort mode
-// returns the v1 runs plus an empty ResortPlan carrying the probe slots, the layers are allocated, sliced Step / Reselect / cancel /
-// Snapshot behave. Checks that only hold while the hooks are stubs are named "A0 stub" and are removed by the task that fills the
+// returns the v1 runs plus a ResortPlan with pads and pods (A3) carrying the probe slots, the layers are allocated, sliced Step /
+// Reselect / cancel / Snapshot behave. Checks that only hold while the hooks are stubs are named "A0 stub" and are removed by the task that fills the
 // hook (A3-A6), never loosened.
 
 using System;
@@ -52,11 +52,16 @@ namespace AutoGenBatch
                     continue;
                 Check(rRes.Fingerprint == rRuns.Fingerprint, w, "A0 stub: Resort fingerprint differs from Runs (the stubs must not change runs)");
                 Check(rRes.Runs.Count == rRuns.Runs.Count && rRes.Warnings == rRuns.Warnings, w, "A0 stub: Resort runs / warnings differ from Runs");
-                Check(rRes.Resort.Pods.Length == 0 && rRes.Resort.Lifts.Length == 0 && rRes.Resort.Pads.Length == 0, w, "A0 stub: the plan is not empty");
+                Check(rRes.Resort.Lifts.Length == 0, w, "A0 stub: the plan has lifts");
+                // A3: pads and pods are real (Terrain / PodRoute / Pods); their invariants are the Terrain suite's
+                Check(rRes.Resort.Pads.Length > 0 && rRes.Resort.Pods.Length > 0, w,
+                      "Resort: no pads / pods (" + rRes.Resort.Pads.Length + " / " + rRes.Resort.Pods.Length + ")");
+                PlanInvariants(w, pRes, rRes);
                 Check(pRes.ResortLayerBytes >= 9L * 1000, w, "Resort layers not allocated (" + pRes.ResortLayerBytes + " B)");
                 int[] su = rRes.Resort.StageUnits;
-                Check(su[0] == 1 && su[1] == 1 && su[2] == 1 && su[3] == 1 && su[4] > 0 && su[5] == 1, w,
+                Check(su[0] > 1 && su[1] > 1 && su[2] > 1 && su[4] > 0 && su[5] == 1, w,
                       "probe slots Terrain / PodRoute / Pods / Lifts / Route / Flow = " + string.Join("/", su));
+                Check(su[3] == 1, w, "A0 stub: the Lifts stage ran " + su[3] + " units");
 
                 // Sliced Step == Run (D-2) in Resort mode, with ProgressVolatile rising
                 var sliced = new SkiRunAutoPlanner();
