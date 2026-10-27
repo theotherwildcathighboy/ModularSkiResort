@@ -1,7 +1,7 @@
 // Terrain and Pods suites (A3): terraces, ridge faces, the 80 m merge rule; S-1 (pads), S-2 (pod class), S-3 (pods present), P-1
 // (unit time of the Terrain / PodRoute / Pods stages at 9 km2), P-4 (planner buffers at 9 km2), D-1 / D-2 / D-3 on the pads and pods.
 // TerrainCase is the per-fixture check + REPORT line: the synthetic cases run here (CI); the real heightmaps run it from V2Tests (A1's
-// matrix, `-- v2`) once A1's loader is merged, and SKIP here until then.
+// matrix, `-- v2`).
 
 using System;
 using System.Collections.Generic;
@@ -85,8 +85,7 @@ namespace AutoGenBatch
             TerrainCase("Benched terraces", Input(Terraces(0.35, (66.0, 146.0), (460.0, 560.0)), region), true, true);
 
             TerrainDeterminism();
-            TerrainTiming();
-            Console.WriteLine("SKIP  Terrain real fixtures: run from V2Tests (`-- v2`) through TerrainCase once A1's heightmap loader is merged");
+            TerrainTiming();   // the real heightmaps run TerrainCase from V2Tests (`-- v2`)
         }
 
         /// <summary>A plane of the given grade falling toward +z with flat terraces over the z ranges (z0, z1).</summary>

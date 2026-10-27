@@ -135,6 +135,7 @@ namespace AutoGenBatch
             AutoPlanKnobs knobs = AutoPlanKnobs.Default(SkiRunAutoPlanner.SeedOf(c.Region, 0));
             AutoPlanInput inRuns = new AutoPlanInput { Snapshot = snap, Region = c.Region, Knobs = knobs };
             AutoPlanInput inRes = new AutoPlanInput { Snapshot = snap, Region = c.Region, Knobs = knobs, Mode = AutoPlanMode.Resort };
+            TerrainCase(c.Id, inRes, c.ExpectBench, c.Kind == FixtureKind.Synthetic);   // A3: pads / pods invariants, S-1..S-3, REPORT
 
             var pRuns = new SkiRunAutoPlanner();
             AutoPlanResult v1 = pRuns.Run(inRuns);
