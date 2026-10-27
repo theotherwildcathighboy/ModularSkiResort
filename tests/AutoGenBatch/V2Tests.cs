@@ -20,6 +20,7 @@ namespace AutoGenBatch
         private static readonly HashSet<string> V2Hard = new HashSet<string>
         {
             "V1-2", "V1-3", "V1-4", "D-1", "D-2", "D-3", "P-1", "P-2", "P-3", "P-4",
+            "S-4", "S-5", "S-6", "S-7", "P-5",   // A4
         };
 
         /// <summary>IDs that stay REPORT even when armed: SOFT in the gates table (F-8, H-5 for pinned-only plans, H-6, the bottom height).</summary>
@@ -102,7 +103,6 @@ namespace AutoGenBatch
                 Console.WriteLine("ROW   " + row);
             V2Skip("D-4", "worker equality is owned by WorkerTests (A2)");
             V2Skip("D-5", "cancel latency is owned by WorkerTests (A2)");
-            V2Skip("P-5", "no tower-plan counter on the planner until A4 (MaxTowerPlans, 50 ms per plan)");
             V2Skip("2.6 realism", "needs the real lift and run layouts per fixture ([E] / [A]); promoted by owner ruling after A5");
             Console.WriteLine();
             Console.WriteLine("GATES id | ok | FAIL | REPORT | SKIP   (HARD ids: " + string.Join(" ", V2Hard) + ")");
@@ -161,6 +161,7 @@ namespace AutoGenBatch
             }
 
             ResortPlan p = r.Resort;
+            LiftCase(c, inRes, pRes, r);   // A4: P-5, S-7 (synthetic), lift invariants, the per-region lift REPORT
             bool softFans = c.Steeper || r.MeanGrade >= 0.45f;
             var sampler = new SnapshotSampler(snap);
             var grid = new SlopeGrid();
@@ -173,11 +174,10 @@ namespace AutoGenBatch
             V2Emit(c, V2Metrics.S1Pads(p), false);
             V2Emit(c, V2Metrics.S2PodClass(p), false);
             V2Emit(c, V2Metrics.S3Pods(p, km2, c.ExpectBench), false);
-            V2Emit(c, V2Metrics.S4Lifts(p), false);
-            V2Emit(c, V2Metrics.S5LiftCount(p, km2, steepCompact, 0), c.Steeper);
+            V2Emit(c, V2Metrics.S4Lifts(p), LiftsTerrainLimited(r, false, pRes));   // A4: SOFT only where the terrain holds no lift site
+            V2Emit(c, V2Metrics.S5LiftCount(p, km2, steepCompact, 0), c.Steeper || LiftsTerrainLimited(r, true, pRes));   // A4: SOFT where every liftable pod has its lift
             V2Emit(c, V2Metrics.S6Stacking(p, c.ExpectBench && r.VerticalM > 600f), false);
             V2Emit(c, V2Metrics.S6BottomHeight(p), false);
-            Tally("S-7")[3]++;   // pinned lifts need the census; the host plans without them
             V2Emit(c, V2Metrics.F1TrailsPerLift(r, p, knobs.Density), softFans);
             V2Emit(c, V2Metrics.F2StartsNearTop(r, p), softFans);
             V2Emit(c, V2Metrics.F3EndsAtBottom(r, p), softFans);
@@ -198,9 +198,9 @@ namespace AutoGenBatch
             // P-1 is a v1 gate (synthetic 9 km2 fixtures, FillTests): one run is noisy at the millisecond (GC, JIT), so a miss is re-measured
             // once and the smaller figure counts. On the real heightmaps a miss stays REPORT (that is v1 unit time on terrain the v1 gate
             // never saw; the planner is not tuned here, DECISIONS / handover note).
-            double unitMs = r.MaxUnitMs;
+            double unitMs = UnitMsWithoutTowerPlans(r);   // A4: tower plan units are P-5's (spec 4.4: 10-44 ms each, on the worker)
             if (unitMs >= 4.0)
-                unitMs = Math.Min(unitMs, new SkiRunAutoPlanner().Run(inRes).MaxUnitMs);
+                unitMs = Math.Min(unitMs, UnitMsWithoutTowerPlans(new SkiRunAutoPlanner().Run(inRes)));
             V2Emit(c, V2Metrics.P1LongestUnit(unitMs), c.Kind != FixtureKind.Synthetic);
             if (km2 >= 3.5f)
                 V2Emit(c, V2Metrics.PWorkerTime(km2, seconds), false);

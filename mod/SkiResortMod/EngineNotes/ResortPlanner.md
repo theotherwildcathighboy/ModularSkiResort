@@ -167,7 +167,68 @@ labeled Dijkstra is `DijkstraQueue` + `StepCost` inline in PodRoute, the labelin
   REPORT for A1's `-- v2` matrix (real fixtures SKIP here until A1's loader merges).
 
 ### A4 lifts + overlay
-(not started)
+
+Files: `.Lifts.cs` (stage Lifts, `LiftPlan`), `QuickRunsToolSystem.Draw.cs` (the plan overlay, `PodAt` / `LiftAt`), `ResortPlanLabelSystem.cs`
+(world labels), `tests/AutoGenBatch/LiftTests.cs`. Line edits elsewhere: Flow.cs `FinishResort` calls `LiftPlan(res.Resort, res)` after
+`TerrainPlan` (A6 keeps the line); `V2Tests.cs` arms S-4..S-7 and P-5, calls `LiftCase` per region, the S-4 / S-5 soft argument, P-1 via
+`UnitMsWithoutTowerPlans`; PlanTypes drops the "A0 stub: the plan has lifts" check (the Lifts stage now runs one unit or more).
+
+- **Reuse**: `LiftTowerPlanner.Plan` with `LiftTowerPlanConstants.For(type)` (cached per scan), `LiftServedRule.Reaches` for Serves,
+  `SkiCatalog` station + line costs, `StationHalfDiagonalM` (A3) for lots. No second tower planner, no second served rule.
+- **Phases** (m_Cursor2): 0 setup (lists, pod values, tower constants, pinned lifts, the wanted count); 1 the pinned corridors' pod-cell
+  counts (rows); then each pinned lift takes the pod with the most cells within 150 m of its chords; 2 candidates, one pod per unit;
+  3 selection, one pick (at most one tower plan) per unit; then `EnterRoute()`.
+- **Candidates** per unserved pod and lift type: bottom = a station spot on the pod's LowerPad, top = the UpperPad's spot or TopCenter.
+  The spot walk starts at the pad Center and steps 6 m (up to 150 m) toward the other end until the station disc (center, 16 ring and
+  8 half-radius points) is on the pad. Norms: length 300-1,500 / 600-2,200 / 800-2,700 / 800-3,000 m, rise 95-512 / 95-512 / 96-781 /
+  220-888 m (FG / DQ / GD / tram, the catalog's p10-p90). A chord over max rise or max length only gets a **lowered top**: walked down
+  the chord in 10 m steps until the length is at or under the max (the float distance is checked, not the step) and the rise under
+  0.95 x max. Sunk = the end has no pad with `InscribedM >= half-diagonal` (the station sinks as today; DECISIONS 447: a pad is graded
+  terrain, never required flat).
+- **Score**: pod value = ha x DevelopableShare x `SkiResortScore.SkiersPerHa(Rated, ScoreBandOf(PrimaryClass))`; minus cost x 1e-3;
+  minus 0.5 x value per crossing of another pod's fall line (TopCenter -> LowerPad.Center); stack bonus +0.2 x value when the bottom is
+  within 300 m and 80 m of a selected lift's top. Candidates of a pod are ordered (sunk ends, type rank, top kind); the upgrade
+  (detachable before fixed grip) applies to pods in the top third by value.
+- **Selection**: lazy greedy over pods (best front candidate by static score + stack bonus; ties by pod Key). A conflict (the two station
+  lots overlap a selected lift's lots, or the chord crosses one) advances that pod without a plan. A tower plan per unit: clear =
+  `plan.Clear`, no sampler miss and MaxEdgeSlope <= 0.97 x the type cap; else the pod's next candidate (at most 3 plans per pod). Stops at the
+  wanted count, the plan cap `MaxTowerPlansOf = 3 x MaxPodsOf`, or when no pod has a candidate left; unserved pods that still had a
+  candidate when it stopped count as **capped** (so capped 0 with fewer lifts than wanted = the terrain ran out, not the selection).
+- **Tower plan inputs**: stations at both ends, `CheckEdgeSlope`, end node heights = the snapshot heights, ropes at node height +
+  `RopeAboveBase(0)` (the planner's own fallback when no station lane anchor is known). The chord sampler returns the last good
+  height on a snapshot miss and counts the miss (a miss = not clear).
+- **Count**: Auto = clamp(max(round(km2 / 2), ceil(vertical / 400)), 1, 9), minus the pinned lifts; knob 1-9 caps the proposals (pinned
+  lifts do not count against the knob). `LiftsWanted` = wanted + pinned.
+- **Pinned lifts**: a missing end (NaN) is filled from the polyline's free ends at snapshot heights; a census copy without chords stands in
+  its station chord; a lift off the map, or a row without any finite point, keeps Pod -1 and conflicts with nothing. Pinned lifts are planned around (their lots and chords conflict) and keep `Towers = -1`, no TowerXz.
+- **Keys**: proposal `Key = Fnv(pod.Key, type)`; ids pinned first, then proposals in selection order.
+- **LiftPlan** (in FinishResort): copies the lifts (TowerXz cloned), `Pods[k].Lift`, Serves (run top = its highest node,
+  `LiftServedRule.Reaches` with the type's radius / margin), StartsNearTop / EndsAtBottom (100 m), and `NoLiftSite` when nothing was
+  proposed but lifts were wanted.
+- **Reselect**: Lifts restarts at Stage.Lifts (pads / pods kept); Seed restarts at Seeds and keeps the lifts; Home at Finish.
+- **Diagnostics getters**: `TowerPlans`, `TowerPlanMs`, `TowerPlanMaxMs`, `TowerPlanLog` (pod, type, length, rise, ms, towers, clear per
+  plan), `LiftStat(k)` (candidates, norm rejects, lowered tops, tower fails, conflicts, capped pods).
+- **Overlay** (Draw.cs, from `m_Published.Resort` only, cached with the run pieces on `m_DrawDirty`): per proposed lift a dashed chord in
+  the Home verdict's piste color (white while Home is None, until A6; violet for Download), 6 m tower discs, hatched (StyleFlags.Grid)
+  station lots of the type's half-diagonal; pinned lifts get white station rings only (the game draws them); hatched white pads under
+  the stations plus the three largest unused, benches with a dashed edge (every other side of a 24-gon); a ring per pod at TopCenter in
+  its class color, replacing the v1 cluster rings when the plan has pods. Marks take at most half of `MaxPieces`; the runs get the rest.
+  Non-finite spots are skipped. `[cost]` (DiagnosticsOn): `QuickRuns [cost] plan overlay: Draw mean / max ms over 600 frames` after
+  each resort publish.
+- **Labels** (ResortPlanLabelSystem): TMP meshes as SkiRunLabelSystem, built once per published plan (reference compare), at most 64:
+  "P2: Detachable, 1.3 km, 540 m up, 7 runs" at the chord midpoint (white), "Pod B: Intermediate" at TopCenter (class color). Drawn
+  only while the quick runs tool is active in Preview. Pinned lifts get no label (the game names them; the plan has no census name).
+- **Deviations**: (1) P-1 excludes the Lifts slot (`UnitMsWithoutTowerPlans`): one Lifts unit runs one tower plan (spec 4.4: 10-44 ms),
+  P-5 bounds it. (2) P-5's 50 ms per plan is HARD on synthetic fixtures and REPORT on the real heightmaps, as P-1 (the plan cap is HARD
+  everywhere); the time is the shared tower planner's, which A4 does not tune. (3) S-4 n/a and S-5 under the band are SOFT where the
+  terrain is the limit: fewer lifts than wanted and no capped pod (`LiftsTerrainLimited`); a proposal outside the norms and a count over
+  the band stay HARD. (4) The determinism checks hash the lifts on the host (`LiftsHash`), because `ResortPlan.Fingerprint` is A6's
+  and stays 0. (5) No pinned-lift label.
+- **Measured** (`-- v2`, CoreCLR Release): tower plans 0-5 per region, 0.4-28 ms each; the one outlier is Mountain Village base 4 km2,
+  a 1,687 m detachable on pod 0 at 57.5 ms (not clear; repeats, so not GC): REPORT. Synthetic: Alpine 1-3 three lifts each (FG / DQ
+  2 / 1, two bench bottoms), Benched 3 / 2, Steep 3 / 4. Gentle base windows (Okemo / JacksonHole / Fjords / Plains 1 km2, Delta /
+  Plains 4 km2) and Snowbird / Chamonix steepest have no pod or no chord inside the norms: 0 lifts, NoLiftSite. Serves is low
+  everywhere (the runs are still v1 until A5). The per-region table is in the A4 handover note.
 
 ### A5 run fans
 (not started)

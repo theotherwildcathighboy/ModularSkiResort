@@ -18,6 +18,7 @@ namespace SkiResortMod.Systems
         {
             res.Resort = new ResortPlan { TreeLineY = m_In.TreeLineY };
             TerrainPlan(res.Resort);   // A3: pads and pods (Pods.cs); A6 keeps this line
+            LiftPlan(res.Resort, res);   // A4: the lift skeleton, Serves / near-top / at-bottom counts, NoLiftSite (Lifts.cs); A6 keeps this line
         }
     }
 }

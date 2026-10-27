@@ -52,7 +52,6 @@ namespace AutoGenBatch
                     continue;
                 Check(rRes.Fingerprint == rRuns.Fingerprint, w, "A0 stub: Resort fingerprint differs from Runs (the stubs must not change runs)");
                 Check(rRes.Runs.Count == rRuns.Runs.Count && rRes.Warnings == rRuns.Warnings, w, "A0 stub: Resort runs / warnings differ from Runs");
-                Check(rRes.Resort.Lifts.Length == 0, w, "A0 stub: the plan has lifts");
                 // A3: pads and pods are real (Terrain / PodRoute / Pods); their invariants are the Terrain suite's
                 Check(rRes.Resort.Pads.Length > 0 && rRes.Resort.Pods.Length > 0, w,
                       "Resort: no pads / pods (" + rRes.Resort.Pads.Length + " / " + rRes.Resort.Pods.Length + ")");
@@ -61,7 +60,7 @@ namespace AutoGenBatch
                 int[] su = rRes.Resort.StageUnits;
                 Check(su[0] > 1 && su[1] > 1 && su[2] > 1 && su[4] > 0 && su[5] == 1, w,
                       "probe slots Terrain / PodRoute / Pods / Lifts / Route / Flow = " + string.Join("/", su));
-                Check(su[3] == 1, w, "A0 stub: the Lifts stage ran " + su[3] + " units");
+                Check(su[3] >= 1, w, "the Lifts stage ran " + su[3] + " units");
 
                 // Sliced Step == Run (D-2) in Resort mode, with ProgressVolatile rising
                 var sliced = new SkiRunAutoPlanner();
