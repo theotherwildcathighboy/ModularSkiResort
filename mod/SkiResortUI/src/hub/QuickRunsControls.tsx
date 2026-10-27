@@ -1,8 +1,10 @@
 /*
- * src/hub/QuickRunsControls.tsx - the Quick runs tool's controls (experimental; C# QuickRunsToolSystem): the Build strip's Runs-tab chip
- * (QuickRunsChip, the lift generator chip's pattern: grayed with the reason while unavailable) and, while the tool is open, the rows at the
- * top of the Runs view in place of the tree tool's (QuickRunsRows): Scan / Build / Undo, the Mix / Runs / Kinds knobs and Shuffle, the
- * step's line (region size, scan progress, totals and mix), warnings and clusters, then the tree filler (on / off, density, tree line,
+ * src/hub/QuickRunsControls.tsx - the Resort Planner's controls (code name Quick runs; experimental; C# QuickRunsToolSystem): the Build
+ * strip's Runs-tab chip (QuickRunsChip, the lift generator chip's pattern: grayed with the reason while unavailable) and, while the tool is
+ * open, the rows at the top of the Runs view in place of the tree tool's (QuickRunsRows): Scan / Build / Undo, the Mix / Runs / Kinds knobs
+ * and Shuffle, the Lifts and Way home knobs (v2), the step's line (region size, scan progress, totals and mix, the site detail line),
+ * warnings and clusters, then the plan (v2: the plan line, one toggle row per lift with its pod's band counts and way home, then the pods
+ * without a lift; PlanRows, only while a plan shows), then the tree filler (on / off, density, tree line,
  * species group chips and the single-species stepper, Plant / Undo trees). A build runs a few runs per frame and Plant a slice of trees
  * per apply: the progress lines ("Building runs 4 / 11", "Planting trees 2,400 / 9,000") show while either is in flight, with Stop beside Undo
  * (building) or in place of Plant (planting).
@@ -16,12 +18,13 @@ import { Button } from "cs2/ui";
 import { FOCUS_DISABLED } from "cs2/input";
 import { Unit } from "cs2/l10n";
 import { GLADE_LEVEL_MAX, GLADE_LEVEL_MIN, clampGladeLevel, hubTriggers, quickRuns$ } from "../bindings";
-import type { QuickRunsKey, QuickRunsState } from "../bindings";
+import { BAND } from "../bindings";
+import type { QuickRunsKey, QuickRunsLift, QuickRunsPod, QuickRunsState } from "../bindings";
 import { useT } from "../l10n";
 import type { LocEntry, Translate } from "../l10n";
 import { rejectSummary } from "./hubRules";
-import { HUB_FMT, HUB_LOC, QUICK_REJECT_TEXT, QUICK_SITE_TEXT, gladeLevelEntry, sentKeyEntry } from "./hubText";
-import { LocText, Tip, TipLines, cx, numArg } from "./parts";
+import { HUB_FMT, HUB_LOC, LIFT_TYPE, QUICK_REJECT_TEXT, QUICK_SITE_TEXT, gladeLevelEntry, sentKeyEntry } from "./hubText";
+import { BandMarker, CheckBox, LocText, Tip, TipLines, cx, numArg } from "./parts";
 import styles from "./hub.module.scss";
 
 /* QuickRunsRules.TreeLineStepM, and the coarse step. */
@@ -34,6 +37,9 @@ const DENSITY: readonly LocEntry[] = [HUB_LOC.quickDensity0, HUB_LOC.quickDensit
 const KINDS: ReadonlyArray<[number, LocEntry]> = [
   [1, HUB_LOC.quickKindGroomed], [2, HUB_LOC.quickKindNatural], [4, HUB_LOC.quickKindSnowmaking], [8, HUB_LOC.quickKindNight],
 ];
+/* HomeLevel: 0 Auto, 1 Green, 2 Blue (the Way home knob cycles through them); QuickRunsPlanRules.MaxLifts. */
+const HOME: readonly LocEntry[] = [HUB_LOC.quickHomeAuto, HUB_LOC.quickHomeGreen, HUB_LOC.quickHomeBlue];
+const LIFTS_MAX = 9;
 const GROUPS: readonly LocEntry[] = [HUB_LOC.quickGroup0, HUB_LOC.quickGroup1, HUB_LOC.quickGroup2, HUB_LOC.quickGroup3];
 
 /* A vanilla tree species: the game's own name key for the prefab (vanilla ships one per tree), the raw prefab name as the fallback
@@ -124,6 +130,10 @@ function StepLines({ q, t }: { q: QuickRunsState; t: Translate }): JSX.Element {
     const g = (i: number): JSX.Element | string => numArg(q.target[i] ?? 0, Unit.Integer);
     lines.push(<LocText key="mix" entry={HUB_FMT.quickMixLine} args={{ G: c(1), B: c(2), K: c(3), D: c(4), TG: g(1), TB: g(2), TK: g(3), TD: g(4) }} />);
     if (site) lines.push(site);
+    if (q.plan.sitePods > 0)
+      lines.push(<LocText key="siteDetail" entry={HUB_FMT.quickSiteDetail} args={{
+        G: numArg(q.plan.siteGreenHome, Unit.Integer), PODS: numArg(q.plan.sitePods, Unit.Integer), HA: numArg(q.plan.siteBenchHa, Unit.Integer),
+      }} />);
     lines.push(<>{t(HUB_LOC.quickPreviewHint)}</>);
   } else if (building(q)) {
     if (q.buildTotal > 0)
@@ -131,6 +141,7 @@ function StepLines({ q, t }: { q: QuickRunsState; t: Translate }): JSX.Element {
     lines.push(<>{t(HUB_LOC.quickBuilding)}</>);
   } else if (q.corners < 3) {
     lines.push(<>{t(HUB_LOC.quickStart)}</>);
+    if (q.corners === 0) lines.push(<>{t(HUB_LOC.quickAroundLift)}</>);
   } else {
     lines.push(<LocText key="region" entry={HUB_FMT.quickRegion} args={{
       N: numArg(q.corners, Unit.Integer), AREA: numArg(q.areaM2, Unit.Area), MAX: numArg(q.maxAreaM2, Unit.Area), V: numArg(q.verticalM, Unit.Length),
@@ -151,13 +162,107 @@ function StepLines({ q, t }: { q: QuickRunsState; t: Translate }): JSX.Element {
       {q.status && <div className={cx(styles.quickLine, styles.warnText)}>{t(sentKeyEntry(q.status, HUB_LOC.quickUnavailable))}</div>}
       {q.notice && <div className={styles.quickLine}>{t(sentKeyEntry(q.notice, HUB_LOC.quickUnavailable))}</div>}
       {q.warnings.map((w) => <div key={w} className={cx(styles.quickLine, styles.warnText)}>{t(sentKeyEntry(w, HUB_LOC.quickUnavailable))}</div>)}
-      {q.clusters.map((c, i) => (
+      {q.pods.length === 0 && q.clusters.map((c, i) => (
         <div key={"c" + i} className={styles.quickLine}>
           {c.label === POD_BEGINNER ? <LocText entry={HUB_FMT.quickPodBeginner} args={{ N: numArg(c.runs, Unit.Integer) }} />
             : c.label === POD_MID ? <LocText entry={HUB_FMT.quickPodMid} args={{ N: numArg(c.runs, Unit.Integer) }} />
               : <LocText entry={HUB_FMT.quickCluster} args={{ N: numArg(c.runs, Unit.Integer) }} />}
         </div>
       ))}
+    </>
+  );
+}
+
+/* The enabled runs of a pod by color: green, blue, black (double black counts with black) as the map's markers with a number. */
+function BandCounts({ count }: { count: readonly number[] }): JSX.Element {
+  const items: Array<[number, number]> = [[BAND.Green, count[BAND.Green] ?? 0], [BAND.Blue, count[BAND.Blue] ?? 0],
+    [BAND.Black, (count[BAND.Black] ?? 0) + (count[BAND.DoubleBlack] ?? 0)]];
+  return (
+    <>
+      {items.map(([band, n]) => (
+        <span key={band} className={styles.planMixItem}>
+          <BandMarker band={band} />
+          {numArg(n, Unit.Integer)}
+        </span>
+      ))}
+    </>
+  );
+}
+
+/* A toggle row: a check box and two lines; the whole row is the button (Tip around Button, one focusable child per Tooltip). */
+function PlanRow({ on, tip, wait, onSelect, first, second }: {
+  on: boolean; tip: string; wait: boolean; onSelect: () => void; first: JSX.Element; second: JSX.Element;
+}): JSX.Element {
+  return (
+    <Tip tip={tip}>
+      <Button theme={{ button: cx(styles.planRow, !on && styles.planRowOff) }} disabled={wait} selected={on} onSelect={onSelect}>
+        <CheckBox on={on} />
+        <div className={styles.planRowText}>
+          <div>{first}</div>
+          <div className={styles.planRowSub}>{second}</div>
+        </div>
+      </Button>
+    </Tip>
+  );
+}
+
+function verdictText(key: string, t: Translate): string {
+  return key ? t(sentKeyEntry(key, HUB_LOC.quickUnavailable)) : "";
+}
+
+function LiftPlanRow({ l, pod, t, wait }: { l: QuickRunsLift; pod: QuickRunsPod | undefined; t: Translate; wait: boolean }): JSX.Element {
+  const type = LIFT_TYPE[l.typeKey];
+  const id = l.origin === 1 ? t(HUB_LOC.quickLiftIdPinned) : "P" + String(l.ordinal);
+  const first = (
+    <LocText entry={HUB_FMT.quickLiftLine} args={{
+      ID: id, TYPE: type ? t(type) : l.typeKey, LENGTH: numArg(l.lengthM / 1000, Unit.FloatSingleFraction),
+      RISE: numArg(Math.round(l.riseM), Unit.Integer), RUNS: numArg(l.serves, Unit.Integer),
+    }} />
+  );
+  const second = (
+    <>
+      <span className={styles.planMixItem}>{verdictText(l.homeKey, t)}</span>
+      {pod && <BandCounts count={pod.count} />}
+    </>
+  );
+  return <PlanRow on={l.on} tip={t(HUB_LOC.quickLiftTip)} wait={wait} onSelect={() => set("lift", l.key)} first={first} second={second} />;
+}
+
+function PodPlanRow({ p, t, wait }: { p: QuickRunsPod; t: Translate; wait: boolean }): JSX.Element {
+  const first = (
+    <LocText entry={HUB_FMT.quickPodLine} args={{
+      ID: p.letter, CLASS: verdictText(p.classKey, t), RUNS: numArg(p.runs, Unit.Integer), VERDICT: t(HUB_LOC.quickPodUnserved),
+    }} />
+  );
+  return <PlanRow on={p.on} tip={t(HUB_LOC.quickPodTip)} wait={wait} onSelect={() => set("pod", p.key)} first={first} second={<BandCounts count={p.count} />} />;
+}
+
+/* The plan (Resort Planner v2): the plan line, the proposal note, the honest mix, one row per lift (with its pod's band counts and way
+   home), then the pods without a lift. Nothing is drawn without a plan. */
+function PlanRows({ q, t, wait }: { q: QuickRunsState; t: Translate; wait: boolean }): JSX.Element | null {
+  if (q.phase !== "Preview" || (q.pods.length === 0 && q.planLifts.length === 0)) return null;
+  const p = q.plan;
+  const mix = p.mountainMix;
+  const mixSum = (mix[1] ?? 0) + (mix[2] ?? 0) + (mix[3] ?? 0) + (mix[4] ?? 0);
+  return (
+    <>
+      <div className={styles.quickLine}>
+        <LocText entry={HUB_FMT.quickPlanLine} args={{
+          PODS: numArg(p.pods, Unit.Integer), LIFTS: numArg(p.liftsProposed, Unit.Integer), KM: numArg(p.runKm, Unit.FloatSingleFraction),
+        }} />
+      </div>
+      {mixSum > 0 && (
+        <div className={styles.quickLine}>
+          <LocText entry={HUB_FMT.quickMixHonest} args={{
+            G: numArg(mix[1] ?? 0, Unit.Integer), B: numArg(mix[2] ?? 0, Unit.Integer), K: numArg((mix[3] ?? 0) + (mix[4] ?? 0), Unit.Integer),
+          }} />
+        </div>
+      )}
+      {p.liftsProposed > 0 && <div className={styles.quickLine}>{t(HUB_LOC.quickProposalNote)}</div>}
+      {q.planLifts.map((l) => (
+        <LiftPlanRow key={"l" + l.id} l={l} pod={q.pods.find((x) => x.id === l.pod)} t={t} wait={wait} />
+      ))}
+      {q.pods.filter((x) => x.liftId < 0).map((x) => <PodPlanRow key={"p" + x.id} p={x} t={t} wait={wait} />)}
     </>
   );
 }
@@ -270,6 +375,23 @@ export function QuickRunsRows(): JSX.Element {
           <Act key={bit} label={t(e)} tip={t(HUB_LOC.quickKindsTip)} next={i > 0} on={(q.kinds & bit) !== 0} disabled={wait} onSelect={() => set("kind", bit)} />
         ))}
       </div>
+      <div className={styles.quickRow}>
+        <Caption text="" />
+        <Act label="–" tip={t(HUB_LOC.quickLiftsTip)} disabled={wait || q.liftsKnob <= 0} onSelect={() => set("lifts", q.liftsKnob - 1)} />
+        <Tip tip={t(HUB_LOC.quickLiftsTip)}>
+          <div className={styles.stepValue}>
+            {q.liftsKnob > 0
+              ? <LocText entry={HUB_FMT.quickLiftsN} args={{ N: numArg(q.liftsKnob, Unit.Integer) }} />
+              : <LocText entry={HUB_FMT.quickLiftsAuto} args={{ N: numArg(preview ? q.plan.liftsProposed : -1, Unit.Integer) }} />}
+          </div>
+        </Tip>
+        <Act label="+" tip={t(HUB_LOC.quickLiftsTip)} disabled={wait || q.liftsKnob >= LIFTS_MAX} onSelect={() => set("lifts", q.liftsKnob + 1)} />
+      </div>
+      <div className={styles.quickRow}>
+        <Caption text="" />
+        <Act label={t(HOME[q.home] ?? HOME[0])} tip={t(HUB_LOC.quickHomeTip)} disabled={wait} onSelect={() => set("home", (q.home + 1) % HOME.length)} />
+      </div>
+      <PlanRows q={q} t={t} wait={wait} />
       <TreeRowsQuick q={q} t={t} wait={wait} />
     </>
   );

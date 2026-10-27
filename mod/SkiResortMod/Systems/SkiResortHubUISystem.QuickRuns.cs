@@ -1,7 +1,9 @@
-// The hub's side of the Quick runs tool (contract 17): the `quickRuns` value binding (bindings.ts QuickRunsState, written here from the
+// The hub's side of the Resort Planner tool (code name Quick runs; contract 17 plus the v2 plan fields, bumped at the merge to main): the `quickRuns` value binding (bindings.ts QuickRunsState, written here from the
 // tool's fields) and the two triggers, quickRunsToggle (open / close, the glade toggle's pattern) and quickRunsSet(key, value) (every
 // knob, button and tree setting: QuickRunsToolSystem.HubSet). Pushed only while the panel observes it, when the tool's HubRevision,
-// availability or activity moved (the ArrayPush idea for one struct).
+// availability or activity moved (the ArrayPush idea for one struct). Resort Planner v2 (stage A, task A7): the Lifts / Way home knobs
+// (liftsKnob, home) and, while a plan is showing, its pods, lifts and summary (pods, planLifts, plan); every one is empty or zero
+// without a plan, so a Region step writes the same binding as before plus those empty fields.
 // Engine notes: EngineNotes/SkiResortHubUISystem.md (Quick runs)
 
 using System.Collections.Generic;
@@ -195,8 +197,134 @@ namespace SkiResortMod.Systems
             writer.Write(sitePct);
             writer.PropertyName("siteTier");
             writer.Write((int)QuickRunsRules.SiteTierOf(sitePct));
+            ResortPlan plan = t.Plan;   // Resort Planner v2 (A7)
+            QuickPodRow[] rows = plan != null ? t.PodRows : new QuickPodRow[0];
+            writer.PropertyName("liftsKnob");
+            writer.Write(k.Lifts);
+            writer.PropertyName("home");
+            writer.Write((int)k.Home);
+            writer.PropertyName("pods");
+            writer.ArrayBegin((uint)rows.Length);
+            for (int i = 0; i < rows.Length; i++)
+            {
+                PlanPod pod = plan.Pods[i];
+                QuickPodRow row = rows[i];
+                writer.TypeBegin("SkiResortMod.QuickRunsPod");
+                writer.PropertyName("id");
+                writer.Write(pod.Id);
+                writer.PropertyName("key");
+                writer.Write(unchecked((int)pod.Key));
+                writer.PropertyName("letter");
+                writer.Write(QuickRunsPlanRules.Letter(pod.Id));
+                writer.PropertyName("classKey");
+                writer.Write(ClassKey(pod.PrimaryClass));
+                writer.PropertyName("runs");
+                writer.Write(row.Runs);
+                writer.PropertyName("enabledRuns");
+                writer.Write(row.Kept);
+                writer.PropertyName("count");
+                WriteInts(writer, row.Count, true);
+                writer.PropertyName("skiers");
+                writer.Write((int)System.Math.Round(row.Skiers));
+                writer.PropertyName("fee");
+                writer.Write((int)System.Math.Min(row.Fee, int.MaxValue));
+                writer.PropertyName("on");
+                writer.Write(row.On);
+                bool served = pod.Lift >= 0 && pod.Lift < plan.Lifts.Length;
+                writer.PropertyName("liftId");
+                writer.Write(served ? plan.Lifts[pod.Lift].Id : -1);
+                writer.PropertyName("homeKey");
+                writer.Write(served ? VerdictKey(plan.Lifts[pod.Lift].Home) : "");
+                writer.TypeEnd();
+            }
+            writer.ArrayEnd();
+            int lifts = plan != null ? plan.Lifts.Length : 0;
+            writer.PropertyName("planLifts");
+            writer.ArrayBegin((uint)lifts);
+            for (int i = 0; i < lifts; i++)
+            {
+                PlanLift lift = plan.Lifts[i];
+                writer.TypeBegin("SkiResortMod.QuickRunsLift");
+                writer.PropertyName("id");
+                writer.Write(lift.Id);
+                writer.PropertyName("key");
+                writer.Write(unchecked((int)lift.Key));
+                writer.PropertyName("origin");
+                writer.Write((int)lift.Origin);
+                writer.PropertyName("ordinal");
+                writer.Write(QuickRunsPlanRules.Ordinal(plan, i));
+                writer.PropertyName("typeKey");
+                writer.Write(lift.TypeIndex < SkiCatalog.Lifts.Count ? SkiCatalog.Lifts[lift.TypeIndex].Id : "");
+                writer.PropertyName("pod");
+                writer.Write(lift.Pod);
+                writer.PropertyName("lengthM");
+                writer.Write(Finite(lift.LengthM));
+                writer.PropertyName("riseM");
+                writer.Write(Finite(lift.RiseM));
+                writer.PropertyName("cost");
+                writer.Write((int)System.Math.Min(System.Math.Max(lift.Cost, 0L), int.MaxValue));
+                writer.PropertyName("serves");
+                writer.Write(lift.Serves);
+                writer.PropertyName("startsNearTop");
+                writer.Write(lift.StartsNearTop);
+                writer.PropertyName("homeKey");
+                writer.Write(VerdictKey(lift.Home));
+                writer.PropertyName("wantedKey");
+                writer.Write(WantedKey(lift.Wanted));
+                writer.PropertyName("on");
+                writer.Write(!t.IsLiftOff(lift.Key));
+                writer.TypeEnd();
+            }
+            writer.ArrayEnd();
+            int proposed = 0, pinned = 0;
+            for (int i = 0; i < lifts; i++)
+                if (plan.Lifts[i].Origin == LiftOrigin.Pinned)
+                    pinned++;
+                else
+                    proposed++;
+            writer.PropertyName("plan");
+            writer.TypeBegin("SkiResortMod.QuickRunsPlan");
+            writer.PropertyName("pods");
+            writer.Write(plan != null ? plan.Pods.Length : 0);
+            writer.PropertyName("liftsProposed");
+            writer.Write(proposed);
+            writer.PropertyName("liftsPinned");
+            writer.Write(pinned);
+            writer.PropertyName("runKm");
+            writer.Write(plan != null ? Finite(plan.RunKm) : 0f);
+            writer.PropertyName("runKmPerKm2");
+            writer.Write(plan != null ? Finite(plan.RunKmPerKm2) : 0f);
+            writer.PropertyName("deadEnds");
+            writer.Write(plan != null ? plan.DeadEnds : 0);
+            // The terrain's honest mix (run-km share per rated band, Flat..DoubleBlack) as whole percents
+            writer.PropertyName("mountainMix");
+            writer.ArrayBegin(5u);
+            for (int i = 0; i < 5; i++)
+                writer.Write(plan != null ? (int)System.Math.Round(Finite(plan.MountainMix[i]) * 100f) : 0);
+            writer.ArrayEnd();
+            // The site verdict's detail line (v1 keeps sitePercent / siteTier; Resort adds this one line): pods with a green way home,
+            // of all pods, and the largest bench in hectares
+            writer.PropertyName("sitePods");
+            writer.Write(plan != null ? plan.Site.Pods : 0);
+            writer.PropertyName("siteGreenHome");
+            writer.Write(plan != null ? plan.Site.PodsWithGreenHome : 0);
+            writer.PropertyName("siteBenchHa");
+            writer.Write(plan != null ? (int)System.Math.Round(Finite(plan.Site.LargestBenchHa)) : 0);
+            writer.TypeEnd();
             writer.TypeEnd();
         }
+
+        private static readonly string[] s_TerrainBandNames = System.Enum.GetNames(typeof(TerrainBand));
+        private static readonly string[] s_VerdictNames = System.Enum.GetNames(typeof(HomeVerdict));
+
+        private static string ClassKey(TerrainBand band) => QuickRunsRules.TipPrefix + "CLASS[" + s_TerrainBandNames[(int)band] + "]";
+
+        /// <summary>"" without a verdict (None, or a pod without a lift); else the verdict's tooltip locale key.</summary>
+        private static string VerdictKey(HomeVerdict v) => v == HomeVerdict.None ? "" : QuickRunsRules.TipPrefix + "VERDICT[" + s_VerdictNames[(int)v] + "]";
+
+        /// <summary>The level the Home knob asked for at a lift (the hub's QUICK_HOME_* text); "" while Auto is unresolved.</summary>
+        private static string WantedKey(HomeLevel w) =>
+            w == HomeLevel.Green ? "SkiResort.Hub.QUICK_HOME_GREEN" : w == HomeLevel.Blue ? "SkiResort.Hub.QUICK_HOME_BLUE" : "";
 
         private static void WriteInts(IJsonWriter writer, int[] values, bool show)
         {

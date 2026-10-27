@@ -2844,3 +2844,53 @@
 .pickerSetNext {
   margin-left: 8rem;
 }
+
+// Resort Planner v2 plan rows (QuickRunsControls.tsx PlanRows): one toggle row per lift and per pod without a lift, two small lines each
+// (the lift or pod line, then its way home and band counts); the whole row is the button, a left-out row dims.
+.planRow {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  flex-wrap: nowrap;
+  flex-shrink: 0;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 2rem 10rem 2rem 10rem;
+  font-size: var(--fontSizeXS);
+  line-height: 130%;
+  color: var(--normalTextColor);
+  background-color: rgba(0, 0, 0, 0);
+  border-radius: 3rem;
+  text-align: left;
+}
+
+.planRow:hover {
+  background-color: var(--hoverColorNormal);
+}
+
+.planRowOff {
+  opacity: 0.55;
+}
+
+.planRowText {
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+  flex-shrink: 1;
+  min-width: 0rem;
+}
+
+.planRowSub {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: wrap;
+  color: var(--textColorDimmer);
+}
+
+.planMixItem {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  margin-right: 10rem;
+}

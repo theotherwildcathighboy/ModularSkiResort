@@ -389,7 +389,7 @@ namespace SkiResortMod.Systems
             if (m_EnabledByIndex.Length != n)
                 m_EnabledByIndex = new bool[n];
             for (int i = 0; i < n; i++)
-                m_EnabledByIndex[i] = !m_OffIds.Contains(r.Runs[i].Id) && !m_Refused.Contains(r.Runs[i].Id);
+                m_EnabledByIndex[i] = !m_OffIds.Contains(r.Runs[i].Id) && !m_Refused.Contains(r.Runs[i].Id) && !PlanLeftOut(r, i);
             QuickRunsRules.Sum(n > 0 ? r : null, m_EnabledByIndex, m_Totals);
             RefreshWarnings();
             m_DrawDirty = true;
