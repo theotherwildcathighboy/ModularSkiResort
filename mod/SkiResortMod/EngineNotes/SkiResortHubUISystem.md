@@ -331,6 +331,8 @@ Appended fields and bindings by contract:
 - 21: QuickRunsState appends `sitePercent` (int, the region's mean terrain grade in whole percent, -1 unknown) and `siteTier` (int, QuickRunsRules.SiteTier:
   0 unknown, 1 Gentle, 2 Steep, 3 Very steep, 4 Beyond; DECISIONS 443). The Resort Planner part draws one plain line (hubText QUICK_SITE_TEXT) under the
   region line and beside the mix line.
+- 22: Resort Planner v2 (A7): QuickRunsState appends `pods` / `lifts` rows and `plan` (QuickRunsPlan); `quickRunsSet` gains `lifts`, `home`,
+  `pod`, `lift`. Bumped on the integration branch at the A7 merge so its gates stay green; re-bump if main takes 22 first.
 
 ## Safety net fence tile (no contract change)
 The Runs tab's sixth tile, `safetyFence` (SkiCatalog item kind Fence, prefab SkiSafetyFence, PrefabID type NetFencePrefab, CatalogKind.Fence;
