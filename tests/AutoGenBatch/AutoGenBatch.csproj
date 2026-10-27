@@ -59,6 +59,7 @@
     <Compile Include="..\..\mod\SkiResortMod\Systems\EntityRef.cs" Link="EntityRef.cs" />
     <!-- The Quick runs tool rules, the link rule LinkMeters aliases, the bind fees -->
     <Compile Include="..\..\mod\SkiResortMod\Systems\QuickRunsRules.cs" Link="QuickRunsRules.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\QuickRunsPlanRules.cs" Link="QuickRunsPlanRules.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\LiftServedRule.cs" Link="LiftServedRule.cs" />
     <!-- The tower planner the Lifts stage (A4) calls; its only dependency is SkiCatalog (linked above) -->
     <Compile Include="..\..\mod\SkiResortMod\Systems\LiftTowerPlanner.cs" Link="LiftTowerPlanner.cs" />

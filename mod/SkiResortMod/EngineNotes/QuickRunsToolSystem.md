@@ -144,6 +144,29 @@ activity moved. Every hub action is `quickRunsSet(key, value)` -> `HubSet` (mix,
 plant, treesUndo, treeLine, group, species, level, stop); C# clamps every value and logs each call. While a build or a planting is in
 flight every key but stop is refused ("busy"). Progress fields: buildDone / buildTotal, planting, treesDone / treesTotal.
 
+## Resort Planner hub side (task A7; `QuickRunsToolSystem.Plan.cs`, `QuickRunsPlanRules.cs`)
+- **Toggles**: `m_OffPods` / `m_OffLifts` hold plan keys (`PlanPod.Key`, `PlanLift.Key`), so they survive a Reselect; a new region and
+  `ResetAll` clear them. `RefreshEnabled` (Scan.cs, one added test: `&& !PlanLeftOut(r, i)`) leaves a run out when its pod is off, its pod's
+  lift is off, or the lift whose corridor seeded it is off (`ResortPlan.RunPod / RunLift`); nothing is re-planned and the totals, the fee,
+  the overlay and Build follow `m_EnabledByIndex` as for a single left-out run. Both keys are no-ops without a Resort preview.
+- **Picks** (UpdateInput, Preview): a click within 15 m of a lift chord (Bottom -> Top) toggles the lift; else a click on a run is the v1
+  toggle; else a click within 40 m of a pod's TopCenter (the cluster ring) toggles the pod. Hover (tooltip): the same picks without the click.
+- **Plan around this lift**: Region phase, no corners, a press within 30 m of a census station (`LiftCensusSystem.StationAt`) whose lift has
+  chords: the region becomes the corridor polygon of `QuickRunsPlanRules.AroundRegion` (150 m each side of the Douglas-Peucker simplified
+  chord line, 400 m past the bottom station along the terrain's fall line at the bottom, or the lift's own axis on flat ground; the half
+  width shrinks by 15 % steps until the area fits 9 km2). Right click clears those corners at once. It does NOT scan: the player presses
+  Scan or Enter. The lift becomes pinned the usual way (`CollectPinned` takes every census lift with a chord within 150 m of the region).
+  A station without a line yet logs `[around]` and the click places a corner as before.
+- **Knobs**: `lifts` / `home` are `HubApply` cases beside mix and density: they set `m_Knobs.Lifts / Home`, log through `SetKnobs`
+  (`KnobsText` names them) and take the `RescanForKnobs` path A2 wrote (Reselect on the cached field with no job running, else cancel + a
+  full scan); the `ScanBlocks` guard A2 added in HubApply is unchanged.
+- **Tooltip** (`QuickRunsTooltipSystem`): with a plan the plan line (QUICK_PLAN_LINE), the honest mix, the proposal note, the site detail
+  line; the pod or lift under the cursor gets one line (QUICK_POD_LINE / QUICK_LIFT_LINE) and the lift its verdict; the empty Region step
+  shows QUICK_AROUND_LIFT when the census has a station. Texts: A0's keys plus three A7 added (`QUICK_SITE_DETAIL`, `QUICK_LIFT_ID_PINNED` =
+  "Existing lift", `QUICK_POD_UNSERVED` = "no lift planned"); the hub mirrors them in hubText.ts.
+- **Logs**: `QuickRuns [toggle]: pod B OFF / lift P1 ON - N of M run(s) enabled, fee F`; `QuickRuns [around]: ...`;
+  `QuickRuns [hub]: lifts=3 - lifts` / `pod=... - pod B off` through DrainHub.
+
 ## Probes (Measurement diagnostics on)
 `[probe]` lines: snapshot parity (64 points, snapshot vs the game's height read), per-stage scan cost (Mono), the emission (N runs in
 one frame, validated), the Temp -> candidate mapping, the bind line per run (bound, paid), the Anarchy flag at emit, and the staged

@@ -176,4 +176,12 @@ labeled Dijkstra is `DijkstraQueue` + `StepCost` inline in PodRoute, the labelin
 (not started)
 
 ### A7 hub + tooltips
-(not started)
+Files: `QuickRunsToolSystem.cs` (header, knobs, input pick), NEW `QuickRunsToolSystem.Plan.cs` (toggles, picks, plan around), NEW pure
+`QuickRunsPlanRules.cs` (linked into AutoGenBatch; tests in `QuickRunsTests.cs`), `QuickRunsTooltipSystem.cs`,
+`SkiResortHubUISystem.QuickRuns.cs`, `bindings.ts`, `QuickRunsControls.tsx`, small additions to `hub.module.scss`, `hubText.ts`,
+`LocaleEN.cs` (three keys), `Scan.cs` (one test in `RefreshEnabled`), harness scenario + SHOTS. Details: `QuickRunsToolSystem.md` (Resort
+Planner hub side), `QuickRunsControls.tsx.md`, `SkiResortHubUISystem.md`.
+- The hub shows plan data only for a Resort preview; it reads `ResortPlan` Pods / Lifts / RunPod / RunLift / Site / MountainMix / RunKm /
+  DeadEnds as the types define them, so the rows appear as A3 (pods), A4 (lifts) and A6 (RunPod, verdicts, mix, site) merge: until A4 the
+  lift rows are empty and the pod rows (every pod "without a lift") show 0 runs until A6 fills RunPod.
+- `HubContract` is not bumped here; `contract.lock` and the harness `base.contract` follow the parent's bump.

@@ -475,6 +475,8 @@ export const HUB_LOC = {
   quickLiftTip: ["SkiResort.Hub.QUICK_LIFT_TIP", "Click to leave this lift and the runs of its pod out or take them back."],
   quickProposalNote: ["SkiResort.Tooltip.QUICK_PROPOSAL_NOTE", "Lifts are proposals: place the stations on the marked spots, then draw the line"],
   quickAroundLift: ["SkiResort.Tooltip.QUICK_AROUND_LIFT", "Click a lift station to plan runs around it"],
+  quickLiftIdPinned: ["SkiResort.Tooltip.QUICK_LIFT_ID_PINNED", "Existing lift"],
+  quickPodUnserved: ["SkiResort.Tooltip.QUICK_POD_UNSERVED", "no lift planned"],
 } as const;
 
 /* Placeholder entries: only as <LocText entry={HUB_FMT.x} args={...} /> (gate R5, R13). */
@@ -671,6 +673,7 @@ export const HUB_FMT = {
   quickMixHonest: ["SkiResort.Tooltip.QUICK_MIX_HONEST", "The mountain gives green {G} %, blue {B} %, black {K} %"],
   quickPodLine: ["SkiResort.Tooltip.QUICK_POD_LINE", "Pod {ID}: {CLASS}, {RUNS} runs, {VERDICT}"],
   quickLiftLine: ["SkiResort.Tooltip.QUICK_LIFT_LINE", "{ID}: {TYPE}, {LENGTH} km, {RISE} m up, serves {RUNS} runs"],
+  quickSiteDetail: ["SkiResort.Tooltip.QUICK_SITE_DETAIL", "Pods with a green way home: {G} of {PODS}. Largest bench: {HA} ha"],
   quickBuildProgress: ["SkiResort.Tooltip.QUICK_BUILDING_PROGRESS", "Building runs {N} / {M}"],
   quickPlantProgress: ["SkiResort.Tooltip.QUICK_PLANTING_PROGRESS", "Planting trees {N} / {M}"],
   quickRemoveProgress: ["SkiResort.Tooltip.QUICK_REMOVING_PROGRESS", "Removing trees {N} / {M}"],

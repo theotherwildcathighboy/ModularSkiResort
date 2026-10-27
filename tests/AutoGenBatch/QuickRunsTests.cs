@@ -232,6 +232,105 @@ namespace AutoGenBatch
             Check(QuickRunsRules.ChecksState(false, 2, 1) == QuickGameChecks.On, W, "two prefabs, one enabled: On (ValidationSystem keeps the enabled one)");
             Check(!QuickRunsRules.ChecksOff(QuickGameChecks.On) && QuickRunsRules.ChecksOff(QuickGameChecks.IgnoreErrors) &&
                   QuickRunsRules.ChecksOff(QuickGameChecks.OverlapDisabled) && QuickRunsRules.ChecksOff(QuickGameChecks.NoOverlapPrefab), W, "ChecksOff");
+
+            QuickRunsPlanTests();
         }
+
+        // Resort Planner v2 hub rules (QuickRunsPlanRules.cs, task A7): knob clamps, which runs a pod / lift toggle leaves out, the pod rows,
+        // the pod ring / lift chord picks and the "plan around this lift" region.
+        private static void QuickRunsPlanTests()
+        {
+            const string W = "quick-plan";
+            Check(QuickRunsPlanRules.ClampLifts(-3) == 0 && QuickRunsPlanRules.ClampLifts(0) == 0 && QuickRunsPlanRules.ClampLifts(4) == 4 &&
+                  QuickRunsPlanRules.ClampLifts(9) == 9 && QuickRunsPlanRules.ClampLifts(10) == 9, W, "Lifts knob clamps to 0 (Auto) .. 9");
+            Check(QuickRunsPlanRules.ClampHome(0) == HomeLevel.Auto && QuickRunsPlanRules.ClampHome(1) == HomeLevel.Green &&
+                  QuickRunsPlanRules.ClampHome(2) == HomeLevel.Blue && QuickRunsPlanRules.ClampHome(3) == HomeLevel.Auto &&
+                  QuickRunsPlanRules.ClampHome(-1) == HomeLevel.Auto, W, "Home knob: 0 Auto, 1 Green, 2 Blue, anything else Auto");
+            Check(QuickRunsPlanRules.Letter(0) == "A" && QuickRunsPlanRules.Letter(11) == "L" && QuickRunsPlanRules.Letter(26) == "A", W, "pod letters A.. by id");
+
+            // Two pods (A: lift 0 proposed, B: lift 1 pinned) and a third pod without a lift
+            var plan = new ResortPlan
+            {
+                Pods = new[]
+                {
+                    new PlanPod { Id = 0, Key = 100u, Lift = 0, TopCenter = new float2(0, 500) },
+                    new PlanPod { Id = 1, Key = 200u, Lift = 1, TopCenter = new float2(800, 500) },
+                    new PlanPod { Id = 2, Key = 300u, Lift = -1, TopCenter = new float2(-800, 500) },
+                },
+                Lifts = new[]
+                {
+                    new PlanLift { Id = 0, Key = 7u, Origin = LiftOrigin.Proposed, Bottom = new float3(0, 0, 0), Top = new float3(0, 100, 600), Pod = 0 },
+                    new PlanLift { Id = 1, Key = 8u, Origin = LiftOrigin.Pinned, Bottom = new float3(800, 0, 0), Top = new float3(800, 100, 600), Pod = 1 },
+                    new PlanLift { Id = 2, Key = 9u, Origin = LiftOrigin.Proposed, Bottom = new float3(float.NaN, 0, 0), Top = new float3(float.NaN, 0, 0), Pod = -1 },
+                },
+                RunPod = new[] { 0, 0, 1, 2, -1 },
+                RunLift = new[] { 0, 0, 1, -1, 0 },
+            };
+            Check(QuickRunsPlanRules.Ordinal(plan, 0) == 1 && QuickRunsPlanRules.Ordinal(plan, 2) == 2 && QuickRunsPlanRules.Ordinal(plan, 1) == 1 &&
+                  QuickRunsPlanRules.Ordinal(plan, 5) == 0, W, "lift ordinals count within the origin (P1, P2; the pinned one is its own series)");
+            var offPods = new System.Collections.Generic.HashSet<uint>();
+            var offLifts = new System.Collections.Generic.HashSet<uint>();
+            bool any = false;
+            for (int i = 0; i < 5; i++)
+                any |= QuickRunsPlanRules.LeftOut(plan, i, offPods, offLifts);
+            Check(!any, W, "nothing switched off: no run is left out");
+            offPods.Add(100u);
+            Check(QuickRunsPlanRules.LeftOut(plan, 0, offPods, offLifts) && QuickRunsPlanRules.LeftOut(plan, 1, offPods, offLifts) &&
+                  !QuickRunsPlanRules.LeftOut(plan, 2, offPods, offLifts) && !QuickRunsPlanRules.LeftOut(plan, 3, offPods, offLifts),
+                  W, "pod A off: its runs go, the other pods' stay");
+            Check(QuickRunsPlanRules.LeftOut(plan, 4, offPods, offLifts) == false, W, "pod A off: a run only seeded by lift 0 but in no pod stays (the lift is not off)");
+            offPods.Clear();
+            offLifts.Add(7u);
+            Check(QuickRunsPlanRules.LeftOut(plan, 0, offPods, offLifts) && QuickRunsPlanRules.LeftOut(plan, 1, offPods, offLifts) &&
+                  QuickRunsPlanRules.LeftOut(plan, 4, offPods, offLifts) && !QuickRunsPlanRules.LeftOut(plan, 2, offPods, offLifts),
+                  W, "lift P1 off: the runs of its pod and the runs its corridor seeded go");
+            Check(!QuickRunsPlanRules.LeftOut(null, 0, offPods, offLifts) && !QuickRunsPlanRules.LeftOut(plan, -1, offPods, offLifts) &&
+                  !QuickRunsPlanRules.LeftOut(plan, 99, offPods, offLifts), W, "no plan, a bad run index: never left out");
+
+            // Pod rows: 5 runs, run 1 switched off
+            var result = new AutoPlanResult { Resort = plan };
+            var bands = new[] { SlopeBand.Green, SlopeBand.Blue, SlopeBand.Black, SlopeBand.DoubleBlack, SlopeBand.Green };
+            for (int i = 0; i < 5; i++)
+                result.Runs.Add(new AutoRun { Id = i, Band = bands[i], Kind = RunKind.Groomed, AreaM2 = 20000f });
+            offLifts.Clear();
+            QuickPodRow[] rows = QuickRunsPlanRules.PodRows(result, new[] { true, false, true, true, true }, offPods, offLifts);
+            Check(rows.Length == 3 && rows[0].Runs == 2 && rows[0].Kept == 1 && rows[0].Count[(int)SlopeBand.Green] == 1 && rows[0].Count[(int)SlopeBand.Blue] == 0,
+                  W, $"pod A: 2 runs, 1 kept (green); got {rows[0].Runs}/{rows[0].Kept}");
+            Check(rows[1].Runs == 1 && rows[1].Kept == 1 && rows[1].Count[(int)SlopeBand.Black] == 1 && rows[2].Runs == 1 && rows[2].Count[(int)SlopeBand.DoubleBlack] == 1,
+                  W, "pods B / C: their runs and bands");
+            Check(rows[0].Fee > 0 && rows[0].Skiers > 0 && rows[0].On && rows[1].On, W, "a kept run has a fee and skiers; pods are on");
+            offLifts.Add(8u);
+            offPods.Add(300u);
+            rows = QuickRunsPlanRules.PodRows(result, null, offPods, offLifts);
+            Check(rows[0].On && !rows[1].On && !rows[2].On, W, "pod B is off because its lift is off, pod C because it is off itself");
+            Check(QuickRunsPlanRules.PodRows(new AutoPlanResult(), null, offPods, offLifts).Length == 0, W, "no plan: no pod rows");
+
+            // Picks
+            Check(QuickRunsPlanRules.NearestLift(plan, new float2(5, 300), 15f) == 0 && QuickRunsPlanRules.NearestLift(plan, new float2(795, 300), 15f) == 1 &&
+                  QuickRunsPlanRules.NearestLift(plan, new float2(300, 300), 15f) == -1, W, "a click within 15 m of a chord picks its lift, else none");
+            Check(QuickRunsPlanRules.NearestLift(plan, new float2(float.NaN, 0), 15f) == -1, W, "a lift without finite stations has no chord to hit");
+            Check(QuickRunsPlanRules.NearestPod(plan, new float2(780, 520), 40f) == 1 && QuickRunsPlanRules.NearestPod(plan, new float2(300, 500), 40f) == -1,
+                  W, "a click inside a pod ring picks the pod");
+            Check(math.abs(QuickRunsPlanRules.SegDistance(new float2(5, 700), new float2(0, 0), new float2(0, 600)) - math.sqrt(25f + 10000f)) < 1e-3f, W, "segment distance clamps to the end point");
+
+            // Plan around this lift: a straight lift from the base (0, 0) up to (0, 1000), fall line south
+            float2[] around = QuickRunsPlanRules.AroundRegion(new[] { new float2(0, 0), new float2(0, 500), new float2(0, 1000) }, new float2(0, -1), 9e6f);
+            float area = QuickRunsPlanRules.Area(around);
+            Check(around != null && math.abs(area - 300f * 1400f) < 300f * 1400f * 0.01f, W, $"corridor 300 m x (1,000 m + 400 m beyond the bottom) = 420,000 m2, got {area:F0}");
+            Check(around != null && around.Length == 4 && CatTrack_Inside(around, new float2(0, -300)) && CatTrack_Inside(around, new float2(140, 900)) &&
+                  !CatTrack_Inside(around, new float2(200, 500)) && !CatTrack_Inside(around, new float2(0, -450)) && !CatTrack_Inside(around, new float2(0, 1100)),
+                  W, "straight lift: 4 corners (collinear chord ends simplified away), the stretch below the base inside, the sides and top outside");
+            float2[] shrunk = QuickRunsPlanRules.AroundRegion(new[] { new float2(0, 0), new float2(0, 1000) }, new float2(0, -1), 100000f);
+            Check(shrunk != null && QuickRunsPlanRules.Area(shrunk) <= 100000f, W, "an area cap shrinks the corridor's half width until it fits");
+            float2[] flatDown = QuickRunsPlanRules.AroundRegion(new[] { new float2(0, 0), new float2(1000, 0) }, float2.zero, 9e6f);
+            Check(flatDown != null && CatTrack_Inside(flatDown, new float2(-300, 0)) && !CatTrack_Inside(flatDown, new float2(1100, 0)), W, "no fall line: the lift's own axis extends below the bottom");
+            Check(QuickRunsPlanRules.AroundRegion(new[] { new float2(5, 5) }, new float2(0, -1), 9e6f) == null &&
+                  QuickRunsPlanRules.AroundRegion(new[] { new float2(5, 5), new float2(5, 5.4f) }, new float2(0, -1), 9e6f) == null, W, "fewer than two distinct points: no region");
+            float2[] bent = QuickRunsPlanRules.AroundRegion(new[] { new float2(0, 0), new float2(0, 500), new float2(400, 900), new float2(400, 1400) }, new float2(0, -1), 9e6f);
+            Check(bent != null && bent.Length >= 8 && CatTrack_Inside(bent, new float2(200, 700)) && CatTrack_Inside(bent, new float2(400, 1300)),
+                  W, "a bent lift keeps its bends (Douglas-Peucker at 12 m) and the corridor follows them");
+        }
+
+        private static bool CatTrack_Inside(float2[] poly, float2 p) => GradeRaster.Inside(poly, p);
     }
 }
