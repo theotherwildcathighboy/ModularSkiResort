@@ -1729,7 +1729,9 @@ namespace SkiResortMod.Systems
             for (int b = 1; b <= 4; b++)
                 if (res.BandCount[b] < m_Target[b])
                     res.Warnings |= AutoPlanWarning.MixShort;
-            for (int c = 0; c < res.Clusters.Count; c++)
+            // Resort mode: the way home is the v2 verdict per lift (Flow.cs WaysHome, the Download warning); the v1 cluster test would
+            // fire next to it with another condition (AR-4). NoGreen stays: it reports the mix, not the way home.
+            for (int c = 0; c < res.Clusters.Count && m_Mode != AutoPlanMode.Resort; c++)
                 if (res.Clusters[c].Runs > 0 && !res.Clusters[c].HasGreen)
                     res.Warnings |= AutoPlanWarning.NoEasyWayHome;
             for (int i = 0; i < res.Runs.Count; i++)

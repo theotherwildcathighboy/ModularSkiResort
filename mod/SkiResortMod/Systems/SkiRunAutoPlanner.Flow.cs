@@ -4,13 +4,18 @@
 // (LiftPlan) and the cat track obstacles; writes only the new ResortPlan, the pod clusters and the three v2 warnings.
 // Graph nodes: pads 0..P-1, then per run i its top (P + 2i) and bottom (P + 2i + 1), then per lift l its bottom (P + 2R + 2l) and top
 // (+1). Edges (PlanEdge.Kind): 0 run (top -> bottom, its rated band); 3 link (run A's bottom inside or within LinkMeters of run B's outline,
-// or A merges into B (MergeInto: the v1 merge junction) -> B's bottom with B's band: the skier skis the rest of B; a run bottom inside or within LinkMeters of a pad's cells -> that pad; a run
+// or A merges into B (MergeInto: the v1 merge junction) -> B's bottom with B's band: the skier skis the rest of B; a run bottom with no
+// such link (a merge whose junction BuildRing dropped, or a fan line stopped at the near gap) -> the nearest run within the merge stop
+// when the outlines pass the game's own link rule (LiftServedRule.OutlinesLinked); a run bottom inside or within LinkMeters of a pad's cells -> that pad; a run
 // bottom within LinkMeters of a lift bottom -> that lift's bottom node; lift bottom <-> its BottomPad; lift top -> its TopPad; lift top ->
-// every run top within LiftNearM, the F-2 counter's radius); 1 lift (bottom -> top, uphill); 2 cat track (an existing cat track outline
-// touching two or more nodes joins them, Green, both directions). Home per lift = the minimax band over downhill paths (every kind but 1)
-// from its top to its own bottom node, its BottomPad or any base pad, ties by length (Dijkstra over (band, meters), ties by node index);
-// the verdict is that band when it is at most Wanted, else Download (spec 4.6), so Black / DoubleBlack are not set in stage A.
-// A dead end = a run bottom with no outgoing edge that is not on an existing run or cat track either.
+// every run the served rule reaches (LiftServedRule.Reaches on the run's highest outline node: the corridor and top margin, AR-3b)); 1 lift
+// (bottom -> top, uphill); 2 cat track (an existing cat track outline touching two or more nodes joins them, Green, both directions).
+// Way out (DECISIONS 451 c, AR-2): every lift bottom node, every pad holding a lift bottom, and a pad touching the v1 base band with an
+// access point (road, Welcome Sign) within its radius plus HomeAccessWalkM; ground is never a way out by itself (no lowest-pad fallback).
+// A cat track touching one of those reaches it through its edges. Home per lift = the minimax band over downhill paths (every kind but 1)
+// from its top to a way out, ties by length (Dijkstra over (band, meters), ties by node index, binary heap): that band itself
+// (DECISIONS 451 b: Green .. Double Black), Download only when no downhill path reaches a way out (a legitimate design, not an error).
+// A dead end = a run bottom with no downhill path to a way out that is not on an existing run or cat track either.
 // Pure and Entities-free (usings System, System.Collections.Generic, Unity.Mathematics only). Spec: docs/research/quickruns-v2/spec/stage-a-spec.md.
 
 using System;
@@ -24,9 +29,26 @@ namespace SkiResortMod.Systems
         public const byte EdgeRun = 0, EdgeLift = 1, EdgeCatTrack = 2, EdgeLink = 3;
         /// <summary>The region hull of the density figure is grown by this (F-7: runs + lifts + 50 m).</summary>
         public const float HullGrowM = 50f;
+        /// <summary>A base pad is a way out when an access point lies within its radius (PadRadiusM) plus this walk (AR-2).</summary>
+        public const float HomeAccessWalkM = 100f;
 
         private readonly List<PlanEdge> m_Edges = new List<PlanEdge>();
-        private readonly List<int> m_Touch = new List<int>();
+        private readonly List<int> m_Touch = new List<int>(), m_CatTouch = new List<int>();
+        private readonly List<LiftServedRule.Chord> m_ServeChords = new List<LiftServedRule.Chord>();
+        private readonly List<float2> m_HullPts = new List<float2>();
+        private readonly DescentScratch m_Descent = new DescentScratch();
+        private float2[] m_RunLo = new float2[0], m_RunHi = new float2[0];
+        private float3[] m_RunTop3 = new float3[0];
+        private double[] m_EdgeM = new double[0];
+        private bool[] m_HomeTarget = new bool[0], m_WayOut = new bool[0];
+        private int[] m_RevFirst = new int[0], m_RevAdj = new int[0], m_RevAt = new int[0], m_FlowQueue = new int[0], m_ClParent = new int[0], m_ClSize = new int[0];
+
+        /// <summary>A pad's reach radius: the larger of its inscribed distance and its equal-area disc (the host oracle uses the same).</summary>
+        public static float PadRadiusM(in PlanPad pad) => Math.Max(pad.InscribedM, (float)Math.Sqrt(pad.AreaM2 / Math.PI));
+
+        /// <summary>A base pad that is a way out by itself (AR-2): it touches the v1 base band and an access point lies within its radius
+        /// plus HomeAccessWalkM (AccessM is +inf without access points, so a plan without roads has no such pad).</summary>
+        public static bool PadIsWayOut(in PlanPad pad) => pad.TouchesBase && pad.AccessM <= PadRadiusM(pad) + HomeAccessWalkM;
 
         /// <summary>End of Finish (Resort only, after kinds, clusters and v1 warnings): pads and pods (A3), the lift skeleton (A4), then
         /// RunPod / PodRuns / RunLift, the graph, ways home, dead ends, the honest mix, the site verdict inputs, the pod clusters, the
@@ -37,8 +59,11 @@ namespace SkiResortMod.Systems
             TerrainPlan(res.Resort);   // A3: pads and pods (Pods.cs); A6 keeps this line
             LiftPlan(res.Resort, res);   // A4: the lift skeleton, Serves / near-top / at-bottom counts, NoLiftSite (Lifts.cs); A6 keeps this line
             ResortPlan plan = res.Resort;
+            PadBaseTouch(plan);
             FanRunPlan(plan, res);   // A5: RunLift = the seeding lift, RunPod / PodRuns (Fans.cs); before PodClusters, which makes Cluster the pod
             BuildGraph(plan, res);
+            HomeTargets(plan, res);
+            CountDeadEnds(plan, res);
             WaysHome(plan, res);
             MixAndHull(plan, res);
             SiteInputs(plan, res);
@@ -69,39 +94,72 @@ namespace SkiResortMod.Systems
         private static int LiftBottomNode(int pads, int runs, int lift) => pads + 2 * runs + 2 * lift;
         private static int LiftTopNode(int pads, int runs, int lift) => pads + 2 * runs + 2 * lift + 1;
 
+        /// <summary>TouchesBase per pad from the pad components (Terrain.cs keeps IsBase with its lowest-pad fallback for the S gates;
+        /// the way out never reads that fallback, DECISIONS 451 c).</summary>
+        private void PadBaseTouch(ResortPlan plan)
+        {
+            for (int k = 0; k < m_PadComps.Count; k++)
+            {
+                int pad = m_PadComps[k].Pad;
+                if (pad >= 0 && pad < plan.Pads.Length)
+                    plan.Pads[pad].TouchesBase = m_PadComps[k].Base;
+            }
+        }
+
+        /// <summary>The merge stop of a fan line (FanApproach, FanWalk): its centerline runs on to this distance from the accepted ring
+        /// (the v1 gap, at least FanNearGapM, plus the pinch half width), capped at JunctionReachM plus that half width so the end of a
+        /// ring at least MinHalfWidthM wide lies within JunctionReachM of its parent and BuildRing keeps the junction (AR-1).</summary>
+        /// <summary>NearRunLink's search radius: the merge stop's cap (JunctionReachM + MinHalfWidthM) plus a half width of slack
+        /// for the cell walk and the smoothed centerline (the host oracle uses the same constant).</summary>
+        public const float MergeLinkReachM = JunctionReachM + 2f * MinHalfWidthM;
+
+        private float FanMergeStopM(int pass) => Math.Min(FanNearGap(pass), JunctionReachM) + MinHalfWidthM;
+
         private void BuildGraph(ResortPlan plan, AutoPlanResult res)
         {
             int pads = plan.Pads.Length, runs = res.Runs.Count, lifts = plan.Lifts.Length;
             m_Edges.Clear();
-            var lo = new float2[runs];
-            var hi = new float2[runs];
+            Grow(ref m_RunLo, runs);
+            Grow(ref m_RunHi, runs);
+            Grow(ref m_RunTop3, runs);
             for (int i = 0; i < runs; i++)
             {
-                float2[] ring = res.Runs[i].Ring;
-                lo[i] = new float2(float.PositiveInfinity);
-                hi[i] = new float2(float.NegativeInfinity);
+                AutoRun run = res.Runs[i];
+                float2[] ring = run.Ring;
+                m_RunLo[i] = new float2(float.PositiveInfinity);
+                m_RunHi[i] = new float2(float.NegativeInfinity);
                 for (int k = 0; k < ring.Length; k++)
                 {
-                    lo[i] = math.min(lo[i], ring[k]);
-                    hi[i] = math.max(hi[i], ring[k]);
+                    m_RunLo[i] = math.min(m_RunLo[i], ring[k]);
+                    m_RunHi[i] = math.max(m_RunHi[i], ring[k]);
                 }
+                // the served rule's run top: the highest outline node (Lifts.cs Serves reads the same)
+                float3 top = run.Nodes != null && run.Nodes.Length > 0 ? run.Nodes[0] : new float3(float.NaN);
+                for (int v = 1; run.Nodes != null && v < run.Nodes.Length; v++)
+                    if (run.Nodes[v].y > top.y)
+                        top = run.Nodes[v];
+                m_RunTop3[i] = top;
             }
-            int dead = 0;
             for (int a = 0; a < runs; a++)
             {
                 AutoRun run = res.Runs[a];
                 int top = RunTopNode(pads, a), bottom = RunBottomNode(pads, a);
                 m_Edges.Add(new PlanEdge { From = top, To = bottom, Kind = EdgeRun, Band = run.Band, Run = a });
-                int before = m_Edges.Count;
                 float2 b = Bottom(run);
+                bool runLink = false;
                 for (int o = 0; o < runs; o++)
                 {
                     bool merge = run.Merge && run.MergeInto == o;   // the v1 merge: its junction pair is within LinkMeters (V1-3)
-                    if (o == a || (!merge && (math.any(b < lo[o] - LinkMeters) || math.any(b > hi[o] + LinkMeters))))
+                    if (o == a || (!merge && (math.any(b < m_RunLo[o] - LinkMeters) || math.any(b > m_RunHi[o] + LinkMeters))))
                         continue;
                     if (merge || OnRing(res.Runs[o].Ring, b))
+                    {
                         m_Edges.Add(new PlanEdge { From = bottom, To = RunBottomNode(pads, o), Kind = EdgeLink, Band = res.Runs[o].Band, Run = o });
+                        runLink = true;
+                    }
                 }
+                if (!runLink)
+                    NearRunLink(res, a, bottom, pads);
                 m_Touch.Clear();
                 PadsNear(b, LinkMeters, m_Touch);
                 for (int k = 0; k < m_Touch.Count; k++)
@@ -109,10 +167,10 @@ namespace SkiResortMod.Systems
                 for (int l = 0; l < lifts; l++)
                     if (Finite3(plan.Lifts[l].Bottom) && math.distance(b, plan.Lifts[l].Bottom.xz) <= LinkMeters)
                         m_Edges.Add(new PlanEdge { From = bottom, To = LiftBottomNode(pads, runs, l), Kind = EdgeLink, Band = SlopeBand.Flat, Run = -1 });
-                if (m_Edges.Count == before && !OnExistingRun(b) && !OnCatTrack(b))
-                    dead++;
             }
-            plan.DeadEnds = dead;
+            m_ServeChords.Clear();
+            for (int q = 0; q + 1 < m_LiftChords.Count; q += 2)
+                m_ServeChords.Add(new LiftServedRule.Chord { A = m_LiftChords[q], B = m_LiftChords[q + 1] });
             for (int l = 0; l < lifts; l++)
             {
                 PlanLift lift = plan.Lifts[l];
@@ -125,14 +183,124 @@ namespace SkiResortMod.Systems
                 }
                 if (lift.TopPad >= 0 && lift.TopPad < pads)
                     m_Edges.Add(new PlanEdge { From = lt, To = lift.TopPad, Kind = EdgeLink, Band = SlopeBand.Flat, Run = -1 });
-                if (!Finite3(lift.Top))
+                if (!Finite3(lift.Top) || l >= m_LiftChordFirst.Count)
                     continue;
+                LiftServedRule.Lift serve = ServeOf(lift, l);
                 for (int r = 0; r < runs; r++)
-                    if (math.distance(Top(res.Runs[r]), lift.Top.xz) <= LiftNearM)
+                    if (LiftServedRule.Reaches(m_RunTop3[r], serve, m_ServeChords, out float _))
                         m_Edges.Add(new PlanEdge { From = lt, To = RunTopNode(pads, r), Kind = EdgeLink, Band = SlopeBand.Flat, Run = -1 });
             }
             CatTrackEdges(plan, res);
             plan.Graph = m_Edges.ToArray();
+        }
+
+        /// <summary>The served rule's view of plan lift l (Lifts.cs Serves builds the same row): complete, power unknown (= powered),
+        /// its chord slice, the type's rule, radius and top margin.</summary>
+        private LiftServedRule.Lift ServeOf(in PlanLift l, int i)
+        {
+            LiftTypeDef def = l.TypeIndex < SkiCatalog.Lifts.Count ? SkiCatalog.Lifts[l.TypeIndex] : SkiCatalog.Lifts[0];
+            return new LiftServedRule.Lift
+            {
+                Complete = true, Power = LiftPower.Unknown, TopY = l.Top.y, FirstChord = m_LiftChordFirst[i] / 2,
+                ChordCount = m_LiftChordCount[i], Rule = (byte)def.ServeRule, RadiusM = def.ServeRadiusM, TopMarginM = def.TopMarginM,
+                TopXZ = l.Top.xz,
+            };
+        }
+
+        /// <summary>A run bottom with no run link: a merge line whose junction BuildRing dropped (its ring ended over JunctionReachM
+        /// from the parent), or a fan line the near gap stopped beside another run (FanMergeStopM from its outline, no Merge flag).
+        /// Link it to the nearest run whose outline lies within MergeLinkReachM of the bottom, when the two outlines pass the game's
+        /// own link rule (LiftServedRule.OutlinesLinked: a node pair within LinkMeters, crossing edges, or one inside the other), so
+        /// the graph says "linked" only where the served rule does too.</summary>
+        private void NearRunLink(AutoPlanResult res, int a, int bottom, int pads)
+        {
+            AutoRun run = res.Runs[a];
+            float2 b = Bottom(run);
+            const float reach = MergeLinkReachM;
+            int best = -1;
+            float bestD = float.PositiveInfinity;
+            for (int o = 0; o < res.Runs.Count; o++)
+            {
+                if (o == a || math.any(b < m_RunLo[o] - reach) || math.any(b > m_RunHi[o] + reach))
+                    continue;
+                float d = PointRingDistance(res.Runs[o].Ring, b);
+                if (d <= reach && d < bestD && LiftServedRule.OutlinesLinked(run.Ring, res.Runs[o].Ring))
+                {
+                    bestD = d;
+                    best = o;
+                }
+            }
+            if (best >= 0)
+                m_Edges.Add(new PlanEdge { From = bottom, To = RunBottomNode(pads, best), Kind = EdgeLink, Band = res.Runs[best].Band, Run = best });
+        }
+
+        /// <summary>The way-out nodes (DECISIONS 451 c, AR-2): every lift bottom node with a finite station, every pad holding a lift
+        /// bottom, and every base pad with access (PadIsWayOut). Shared by WaysHome and CountDeadEnds.</summary>
+        private void HomeTargets(ResortPlan plan, AutoPlanResult res)
+        {
+            int pads = plan.Pads.Length, runs = res.Runs.Count, lifts = plan.Lifts.Length, n = pads + 2 * runs + 2 * lifts;
+            Grow(ref m_HomeTarget, n);
+            Array.Clear(m_HomeTarget, 0, n);
+            for (int k = 0; k < pads; k++)
+                m_HomeTarget[k] = PadIsWayOut(plan.Pads[k]);
+            for (int l = 0; l < lifts; l++)
+            {
+                if (!Finite3(plan.Lifts[l].Bottom))
+                    continue;
+                m_HomeTarget[LiftBottomNode(pads, runs, l)] = true;
+                if (plan.Lifts[l].BottomPad >= 0 && plan.Lifts[l].BottomPad < pads)
+                    m_HomeTarget[plan.Lifts[l].BottomPad] = true;
+            }
+        }
+
+        /// <summary>Dead ends: run bottoms with no downhill path (every edge kind but lifts) to a way out, unless the bottom lies on an
+        /// existing run or cat track (the player's network beyond the plan). One reverse breadth-first pass from the way-out nodes.</summary>
+        private void CountDeadEnds(ResortPlan plan, AutoPlanResult res)
+        {
+            int pads = plan.Pads.Length, runs = res.Runs.Count, n = pads + 2 * runs + 2 * plan.Lifts.Length;
+            PlanEdge[] g = plan.Graph;
+            Grow(ref m_RevFirst, n + 1);
+            Grow(ref m_RevAt, n);
+            Grow(ref m_RevAdj, g.Length);
+            Grow(ref m_WayOut, n);
+            Grow(ref m_FlowQueue, n);
+            Array.Clear(m_RevFirst, 0, n + 1);
+            Array.Clear(m_RevAt, 0, n);
+            for (int e = 0; e < g.Length; e++)
+                if (g[e].Kind != EdgeLift)
+                    m_RevFirst[g[e].To + 1]++;
+            for (int v = 0; v < n; v++)
+                m_RevFirst[v + 1] += m_RevFirst[v];
+            for (int e = 0; e < g.Length; e++)
+                if (g[e].Kind != EdgeLift)
+                    m_RevAdj[m_RevFirst[g[e].To] + m_RevAt[g[e].To]++] = g[e].From;
+            int head = 0, tail = 0;
+            for (int v = 0; v < n; v++)
+            {
+                m_WayOut[v] = m_HomeTarget[v];
+                if (m_WayOut[v])
+                    m_FlowQueue[tail++] = v;
+            }
+            while (head < tail)
+            {
+                int v = m_FlowQueue[head++];
+                for (int k = m_RevFirst[v]; k < m_RevFirst[v + 1]; k++)
+                {
+                    int u = m_RevAdj[k];
+                    if (m_WayOut[u])
+                        continue;
+                    m_WayOut[u] = true;
+                    m_FlowQueue[tail++] = u;
+                }
+            }
+            int dead = 0;
+            for (int a = 0; a < runs; a++)
+            {
+                float2 b = Bottom(res.Runs[a]);
+                if (!m_WayOut[RunBottomNode(pads, a)] && !OnExistingRun(b) && !OnCatTrack(b))
+                    dead++;
+            }
+            plan.DeadEnds = dead;
         }
 
         /// <summary>Existing cat tracks (obstacles) touching two or more nodes join them: Green, both directions (spec 4.6). A point node
@@ -143,7 +311,7 @@ namespace SkiResortMod.Systems
             if (obs == null)
                 return;
             int pads = plan.Pads.Length, runs = res.Runs.Count, lifts = plan.Lifts.Length;
-            var touch = new List<int>();
+            List<int> touch = m_CatTouch;
             for (int o = 0; o < obs.Count; o++)
             {
                 if (obs[o].Kind != AutoObstacleKind.CatTrack || obs[o].Ring == null || obs[o].Ring.Length < 2)
@@ -227,22 +395,23 @@ namespace SkiResortMod.Systems
 
         // ---------------------------------------------------------------- ways home
 
-        /// <summary>Per lift: Wanted (the knob; Auto = Green when BottomPad is a base pad, else Blue), Home (Green / Blue when the easiest
-        /// downhill path's hardest band is at most Wanted, else Download; None for a pinned lift with neither station inside the region
-        /// box), HomeRun (the first run of the easiest path, any band; -1 none).</summary>
+        /// <summary>Per lift: Wanted (the knob; Auto = Green when BottomPad touches the v1 base band, else Blue: information and the
+        /// color, never the verdict), Home (the easiest downhill path's hardest band, Green .. DoubleBlack; Download when no downhill path
+        /// reaches a way out; None for a pinned lift with neither station inside the region box), HomeRun (the first run of the easiest
+        /// path, any band; -1 none).</summary>
         private void WaysHome(ResortPlan plan, AutoPlanResult res)
         {
             int pads = plan.Pads.Length, runs = res.Runs.Count, lifts = plan.Lifts.Length;
             int n = pads + 2 * runs + 2 * lifts;
             PlanEdge[] g = plan.Graph;
-            var meters = new double[g.Length];
+            Grow(ref m_EdgeM, g.Length);
             for (int e = 0; e < g.Length; e++)
-                meters[e] = EdgeLength(g[e], plan, res);
-            var target = new bool[n];
+                m_EdgeM[e] = EdgeLength(g[e], plan, res);
+            m_Descent.Prepare(n, g, m_EdgeM);
             for (int l = 0; l < lifts; l++)
             {
                 ref PlanLift lift = ref plan.Lifts[l];
-                bool baseBottom = lift.BottomPad >= 0 && lift.BottomPad < pads && plan.Pads[lift.BottomPad].IsBase;
+                bool baseBottom = lift.BottomPad >= 0 && lift.BottomPad < pads && plan.Pads[lift.BottomPad].TouchesBase;
                 HomeLevel wanted = m_Knobs.Home == HomeLevel.Auto ? (baseBottom ? HomeLevel.Green : HomeLevel.Blue) : m_Knobs.Home;
                 lift.Wanted = wanted;
                 lift.HomeRun = -1;
@@ -252,77 +421,170 @@ namespace SkiResortMod.Systems
                     lift.Home = HomeVerdict.None;
                     continue;
                 }
-                Array.Clear(target, 0, n);
-                for (int k = 0; k < pads; k++)
-                    target[k] = plan.Pads[k].IsBase || k == lift.BottomPad;
-                target[LiftBottomNode(pads, runs, l)] = true;
-                int easiest = EasiestDescent(n, g, meters, LiftTopNode(pads, runs, l), target, pads, out lift.HomeRun);
-                int want = wanted == HomeLevel.Green ? (int)SlopeBand.Green : (int)SlopeBand.Blue;
-                lift.Home = easiest >= 0 && Math.Max(easiest, (int)SlopeBand.Green) <= want
-                    ? (HomeVerdict)Math.Max(easiest, (int)SlopeBand.Green) : HomeVerdict.Download;
+                int easiest = m_Descent.Run(LiftTopNode(pads, runs, l), m_HomeTarget, pads, out lift.HomeRun);
+                lift.Home = easiest >= 0 ? (HomeVerdict)Math.Max(easiest, (int)SlopeBand.Green) : HomeVerdict.Download;
             }
         }
+
+        /// <summary>True when a verdict meets its Wanted level: Green, or Blue under a Blue wish (Black, Double Black and Download do not).</summary>
+        public static bool MeetsWanted(HomeVerdict home, HomeLevel wanted) =>
+            home == HomeVerdict.Green || (home == HomeVerdict.Blue && wanted == HomeLevel.Blue);
 
         /// <summary>The easiest descent on a plan graph: Dijkstra over (hardest band so far, meters) from src along every edge but lifts
         /// (Kind 1), ties by node index, until the first target node is settled. Link edges from src onto a pad (node below srcPadLimit)
         /// are skipped: getting off a lift onto its own top pad is no way home (a cat track from the top still is). Returns the hardest band (SlopeBand value) of that path, -1 = no
-        /// path; firstRun = the run of the path's first edge that carries one (-1 none).</summary>
+        /// path; firstRun = the run of the path's first edge that carries one (-1 none). One-shot form (tests); FinishResort reuses a
+        /// DescentScratch over all lifts.</summary>
         public static int EasiestDescent(int nodes, PlanEdge[] g, double[] meters, int src, bool[] target, int srcPadLimit, out int firstRun)
         {
-            firstRun = -1;
-            var first = new int[nodes + 1];
-            for (int e = 0; e < g.Length; e++)
-                if (g[e].Kind != EdgeLift)
-                    first[g[e].From + 1]++;
-            for (int v = 0; v < nodes; v++)
-                first[v + 1] += first[v];
-            var adj = new int[first[nodes]];
-            var at = new int[nodes];
-            for (int e = 0; e < g.Length; e++)
-                if (g[e].Kind != EdgeLift)
-                    adj[first[g[e].From] + at[g[e].From]++] = e;
-            var band = new int[nodes];
-            var len = new double[nodes];
-            var pred = new int[nodes];
-            var done = new bool[nodes];
-            for (int v = 0; v < nodes; v++)
+            var s = new DescentScratch();
+            s.Prepare(nodes, g, meters);
+            return s.Run(src, target, srcPadLimit, out firstRun);
+        }
+
+        /// <summary>EasiestDescent's state, Grow'd and reused (AR-17): the adjacency of every edge but lifts (built once per graph by
+        /// Prepare) and a binary heap keyed (band, meters, node), the linear scan's order exactly, so the settled sequence and the
+        /// predecessors match it (AR-7: O(E log E) instead of O(V^2) per lift).</summary>
+        public sealed class DescentScratch
+        {
+            private int[] m_First = new int[0], m_Adj = new int[0], m_At = new int[0], m_Band = new int[0], m_Pred = new int[0];
+            private int[] m_HBand = new int[0], m_HNode = new int[0];
+            private double[] m_Len = new double[0], m_HLen = new double[0];
+            private bool[] m_Done = new bool[0];
+            private PlanEdge[] m_G;
+            private double[] m_Meters;
+            private int m_Nodes, m_HN;
+
+            public void Prepare(int nodes, PlanEdge[] g, double[] meters)
             {
-                band[v] = int.MaxValue;
-                len[v] = double.PositiveInfinity;
-                pred[v] = -1;
-            }
-            band[src] = 0;
-            len[src] = 0.0;
-            while (true)
-            {
-                int u = -1;
+                m_Nodes = nodes;
+                m_G = g;
+                m_Meters = meters;
+                Grow(ref m_First, nodes + 1);
+                Grow(ref m_At, nodes);
+                Array.Clear(m_First, 0, nodes + 1);
+                Array.Clear(m_At, 0, nodes);
+                for (int e = 0; e < g.Length; e++)
+                    if (g[e].Kind != EdgeLift)
+                        m_First[g[e].From + 1]++;
                 for (int v = 0; v < nodes; v++)
-                    if (!done[v] && band[v] != int.MaxValue && (u < 0 || band[v] < band[u] || (band[v] == band[u] && len[v] < len[u])))
-                        u = v;
-                if (u < 0)
-                    return -1;
-                done[u] = true;
-                if (u != src && target[u])
+                    m_First[v + 1] += m_First[v];
+                Grow(ref m_Adj, m_First[nodes]);
+                for (int e = 0; e < g.Length; e++)
+                    if (g[e].Kind != EdgeLift)
+                        m_Adj[m_First[g[e].From] + m_At[g[e].From]++] = e;
+                Grow(ref m_Band, nodes);
+                Grow(ref m_Len, nodes);
+                Grow(ref m_Pred, nodes);
+                Grow(ref m_Done, nodes);
+                int cap = m_First[nodes] + 1;   // one push per relaxation, plus the source
+                Grow(ref m_HBand, cap);
+                Grow(ref m_HLen, cap);
+                Grow(ref m_HNode, cap);
+            }
+
+            public int Run(int src, bool[] target, int srcPadLimit, out int firstRun)
+            {
+                firstRun = -1;
+                int nodes = m_Nodes;
+                PlanEdge[] g = m_G;
+                for (int v = 0; v < nodes; v++)
                 {
-                    for (int v = u; pred[v] >= 0; v = g[pred[v]].From)
-                        if (g[pred[v]].Run >= 0)
-                            firstRun = g[pred[v]].Run;   // the last one written is the first run below src
-                    return band[u];
+                    m_Band[v] = int.MaxValue;
+                    m_Len[v] = double.PositiveInfinity;
+                    m_Pred[v] = -1;
+                    m_Done[v] = false;
                 }
-                for (int k = first[u]; k < first[u + 1]; k++)
+                m_Band[src] = 0;
+                m_Len[src] = 0.0;
+                m_HN = 0;
+                Push(0, 0.0, src);
+                while (m_HN > 0)
                 {
-                    int e = adj[k], w = g[e].To;
-                    if (done[w] || (u == src && w < srcPadLimit && g[e].Kind == EdgeLink))
-                        continue;
-                    int b = Math.Max(band[u], (int)g[e].Band);
-                    double d = len[u] + meters[e];
-                    if (b < band[w] || (b == band[w] && d < len[w]))
+                    int u = Pop();
+                    if (m_Done[u])
+                        continue;   // a stale entry: the node settled under a smaller key
+                    m_Done[u] = true;
+                    if (u != src && target[u])
                     {
-                        band[w] = b;
-                        len[w] = d;
-                        pred[w] = e;
+                        for (int v = u; m_Pred[v] >= 0; v = g[m_Pred[v]].From)
+                            if (g[m_Pred[v]].Run >= 0)
+                                firstRun = g[m_Pred[v]].Run;   // the last one written is the first run below src
+                        return m_Band[u];
+                    }
+                    for (int k = m_First[u]; k < m_First[u + 1]; k++)
+                    {
+                        int e = m_Adj[k], w = g[e].To;
+                        if (m_Done[w] || (u == src && w < srcPadLimit && g[e].Kind == EdgeLink))
+                            continue;
+                        int b = Math.Max(m_Band[u], (int)g[e].Band);
+                        double d = m_Len[u] + m_Meters[e];
+                        if (b < m_Band[w] || (b == m_Band[w] && d < m_Len[w]))
+                        {
+                            m_Band[w] = b;
+                            m_Len[w] = d;
+                            m_Pred[w] = e;
+                            Push(b, d, w);
+                        }
                     }
                 }
+                return -1;
+            }
+
+            private bool Less(int i, int j) =>
+                m_HBand[i] != m_HBand[j] ? m_HBand[i] < m_HBand[j] : m_HLen[i] != m_HLen[j] ? m_HLen[i] < m_HLen[j] : m_HNode[i] < m_HNode[j];
+
+            private void Swap(int i, int j)
+            {
+                int b = m_HBand[i], v = m_HNode[i];
+                double d = m_HLen[i];
+                m_HBand[i] = m_HBand[j];
+                m_HLen[i] = m_HLen[j];
+                m_HNode[i] = m_HNode[j];
+                m_HBand[j] = b;
+                m_HLen[j] = d;
+                m_HNode[j] = v;
+            }
+
+            private void Push(int band, double len, int node)
+            {
+                int i = m_HN++;
+                m_HBand[i] = band;
+                m_HLen[i] = len;
+                m_HNode[i] = node;
+                while (i > 0)
+                {
+                    int p = (i - 1) >> 1;
+                    if (!Less(i, p))
+                        break;
+                    Swap(i, p);
+                    i = p;
+                }
+            }
+
+            private int Pop()
+            {
+                int top = m_HNode[0];
+                m_HN--;
+                if (m_HN > 0)
+                {
+                    m_HBand[0] = m_HBand[m_HN];
+                    m_HLen[0] = m_HLen[m_HN];
+                    m_HNode[0] = m_HNode[m_HN];
+                    for (int i = 0; ;)
+                    {
+                        int l = 2 * i + 1, r = l + 1, m = i;
+                        if (l < m_HN && Less(l, m))
+                            m = l;
+                        if (r < m_HN && Less(r, m))
+                            m = r;
+                        if (m == i)
+                            break;
+                        Swap(i, m);
+                        i = m;
+                    }
+                }
+                return top;
             }
         }
 
@@ -355,7 +617,8 @@ namespace SkiResortMod.Systems
         {
             double total = 0.0;
             var km = new double[5];
-            var pts = new List<float2>();
+            List<float2> pts = m_HullPts;
+            pts.Clear();
             for (int i = 0; i < res.Runs.Count; i++)
             {
                 AutoRun run = res.Runs[i];
@@ -408,7 +671,8 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>The site verdict inputs (spec 6.2): Kind = the v1 tier of the v1 figure (QuickRunsRules.SiteTierOf of the shown
-        /// percent, so the line the player sees is v1's), plus the pods with a Green way home, the largest bench and base pad.</summary>
+        /// percent, so the line the player sees is v1's), plus the served pods and those whose verdict meets their Wanted (MeetsWanted),
+        /// the largest bench and base pad.</summary>
         private static void SiteInputs(ResortPlan plan, AutoPlanResult res)
         {
             var s = new SiteVerdict
@@ -421,14 +685,17 @@ namespace SkiResortMod.Systems
                 float ha = plan.Pads[k].AreaM2 / 1.0e4f;
                 if (plan.Pads[k].IsBench)
                     s.LargestBenchHa = Math.Max(s.LargestBenchHa, ha);
-                if (plan.Pads[k].IsBase)
+                if (plan.Pads[k].TouchesBase)
                     s.BaseBenchHa = Math.Max(s.BaseBenchHa, ha);
             }
             for (int k = 0; k < plan.Pods.Length; k++)
             {
                 int l = plan.Pods[k].Lift;
-                if (l >= 0 && l < plan.Lifts.Length && plan.Lifts[l].Home == HomeVerdict.Green)
-                    s.PodsWithGreenHome++;
+                if (l < 0 || l >= plan.Lifts.Length)
+                    continue;
+                s.PodsServed++;
+                if (MeetsWanted(plan.Lifts[l].Home, plan.Lifts[l].Wanted))
+                    s.PodsWithGreenHome++;   // AR-13: the pods whose way home meets their Wanted (the field name is kept)
             }
             plan.Site = s;
         }
@@ -436,10 +703,13 @@ namespace SkiResortMod.Systems
         /// <summary>Resort mode: Clusters carries one cluster per pod (Center = TopCenter, Pod = true, PodBand = the pod class's rated band;
         /// Runs / Linked / HasGreen over the pod's runs) and each run's Cluster is its pod (-1 = none), so the v1 readers (cluster rows,
         /// hover line) keep working on pods.</summary>
-        private static void PodClusters(ResortPlan plan, AutoPlanResult res)
+        private void PodClusters(ResortPlan plan, AutoPlanResult res)
         {
             int n = res.Runs.Count;
-            var parent = new int[n];
+            Grow(ref m_ClParent, n);
+            Grow(ref m_ClSize, Math.Max(1, n));
+            int[] parent = m_ClParent, size = m_ClSize;
+            Array.Clear(size, 0, Math.Max(1, n));
             for (int i = 0; i < n; i++)
                 parent[i] = i;
             for (int j = 0; j < res.Junctions.Count; j++)
@@ -452,7 +722,6 @@ namespace SkiResortMod.Systems
                     parent[Math.Max(a, b)] = Math.Min(a, b);
             }
             res.Clusters.Clear();
-            var size = new int[Math.Max(1, n)];
             for (int k = 0; k < plan.Pods.Length; k++)
             {
                 PlanPod pod = plan.Pods[k];
@@ -512,7 +781,7 @@ namespace SkiResortMod.Systems
                 h = Mix(h, math.asuint(d.AreaM2));
                 h = Mix(h, math.asuint(d.Center.x));
                 h = Mix(h, math.asuint(d.Center.y));
-                h = Mix(h, (d.IsBase ? 1u : 0u) | (d.IsBench ? 2u : 0u));
+                h = Mix(h, (d.IsBase ? 1u : 0u) | (d.IsBench ? 2u : 0u) | (d.TouchesBase ? 4u : 0u));
             }
             h = Mix(h, (uint)p.Pods.Length);
             for (int i = 0; i < p.Pods.Length; i++)
@@ -561,6 +830,7 @@ namespace SkiResortMod.Systems
                 h = Mix(h, math.asuint(p.MountainMix[b]));
             h = Mix(h, p.Site.Kind);
             h = Mix(h, (uint)p.Site.PodsWithGreenHome);
+            h = Mix(h, (uint)p.Site.PodsServed);
             return h == 0UL ? 1UL : h;
         }
     }

@@ -251,24 +251,41 @@ namespace AutoGenBatch
             return G("F-1", med >= lo && med <= hi && outside == 0, med, $"median {F(med)} runs per lift (want {lo}-{hi}), {outside} of {p.Lifts.Length} lifts outside 3-14");
         }
 
-        /// <summary>F-2: per lift 2-4 run tops within 100 m of its Top; at most 10 % of lifts outside.</summary>
+        /// <summary>Per lift: its runs with a top within 100 m of its Top.</summary>
+        private static int TopsNear(AutoPlanResult r, ResortPlan p, int lift)
+        {
+            int c = 0;
+            foreach (int ri in RunsOf(r, p, lift))
+                if (math.distance(Top(r.Runs[ri]), p.Lifts[lift].Top.xz) <= NearM)
+                    c++;
+            return c;
+        }
+
+        /// <summary>F-2 (armed half, calibration f): every lift has at least one of its run tops within 100 m of its Top.</summary>
         public static Gate F2StartsNearTop(AutoPlanResult r, ResortPlan p)
         {
             if (p.Lifts.Length == 0)
                 return NA("F-2", "no lifts");
+            int none = 0;
+            for (int i = 0; i < p.Lifts.Length; i++)
+                none += TopsNear(r, p, i) == 0 ? 1 : 0;
+            return G("F-2", none == 0, none, $"{none} of {p.Lifts.Length} lifts without a run top within 100 m of Top (want 0)");
+        }
+
+        /// <summary>F-2 2-4 (SOFT): per lift 2-4 run tops within 100 m of its Top; at most 10 % of lifts outside.</summary>
+        public static Gate F2TopRange(AutoPlanResult r, ResortPlan p)
+        {
+            if (p.Lifts.Length == 0)
+                return NA("F-2 2-4", "no lifts");
             int outside = 0;
             for (int i = 0; i < p.Lifts.Length; i++)
             {
-                float2 top = p.Lifts[i].Top.xz;
-                int c = 0;
-                foreach (int ri in RunsOf(r, p, i))
-                    if (math.distance(Top(r.Runs[ri]), top) <= NearM)
-                        c++;
+                int c = TopsNear(r, p, i);
                 if (c < 2 || c > 4)
                     outside++;
             }
             double share = (double)outside / p.Lifts.Length;
-            return G("F-2", share <= 0.10 + 1e-9, share, $"{outside} of {p.Lifts.Length} lifts without 2-4 run tops within 100 m of Top (want at most 10 %)");
+            return G("F-2 2-4", share <= 0.10 + 1e-9, share, $"{outside} of {p.Lifts.Length} lifts without 2-4 run tops within 100 m of Top (want at most 10 %)");
         }
 
         /// <summary>F-3: per lift 1-4 run bottoms within 100 m of its Bottom.</summary>
@@ -310,9 +327,27 @@ namespace AutoGenBatch
             return G("F-4", share >= 0.30 && share <= 0.65, share, $"{F(share * 100, "0")} % of run tops start on another run (want 30-65, target 40-60)");
         }
 
-        /// <summary>F-5: median lateral centerline spacing of neighbor runs in a pod 70-140 m; no pair under 40 m outside a merge zone
-        /// (samples within 60 m of a junction of the pair are not counted).</summary>
+        /// <summary>F-5 (armed half, calibration f): no neighbor pair in a pod closer than 40 m outside a merge zone (samples within 60 m
+        /// of a junction of the pair are not counted).</summary>
         public static Gate F5Spacing(AutoPlanResult r, ResortPlan p)
+        {
+            Spacing(r, p, out double med, out double minPair);
+            if (double.IsNaN(med))
+                return NA("F-5", "no neighbor runs inside a pod");
+            return G("F-5", minPair >= 40.0, minPair, $"closest pair {F(minPair, "0")} m outside merge zones (want 40+), median spacing {F(med, "0")} m");
+        }
+
+        /// <summary>F-5 median (SOFT): median lateral centerline spacing of neighbor runs in a pod 70-140 m.</summary>
+        public static Gate F5Median(AutoPlanResult r, ResortPlan p)
+        {
+            Spacing(r, p, out double med, out double _);
+            if (double.IsNaN(med))
+                return NA("F-5 median", "no neighbor runs inside a pod");
+            return G("F-5 median", med >= 70.0 && med <= 140.0, med, $"median spacing {F(med, "0")} m (want 70-140)");
+        }
+
+        /// <summary>The F-5 figures: median per-run neighbor spacing (NaN = no neighbor pair) and the closest pair outside merge zones.</summary>
+        private static void Spacing(AutoPlanResult r, ResortPlan p, out double medOut, out double minOut)
         {
             var perRun = new List<double>();
             double minPair = double.PositiveInfinity;
@@ -343,10 +378,8 @@ namespace AutoGenBatch
                 if (!double.IsInfinity(best))
                     perRun.Add(best);
             }
-            if (perRun.Count == 0)
-                return NA("F-5", "no neighbor runs inside a pod");
-            double med = Median(perRun);
-            return G("F-5", med >= 70.0 && med <= 140.0 && minPair >= 40.0, med, $"median spacing {F(med, "0")} m (want 70-140), closest pair {F(minPair, "0")} m outside merge zones (want 40+)");
+            medOut = perRun.Count == 0 ? double.NaN : Median(perRun);
+            minOut = minPair;
         }
 
         private static bool NearJunction(AutoPlanResult r, int a, int b, float2 s)
@@ -460,17 +493,23 @@ namespace AutoGenBatch
             return tiers == 0 ? NA("F-8", "no green, blue or black runs") : G("F-8", outside == 0, outside, $"median length / drop per tier:{text} (want inside the p25-p75 envelopes)");
         }
 
-        /// <summary>F-9: kept share of candidates over 0.40, and TopTaken + TooShort under half of all rejects.</summary>
+        /// <summary>F-9 (armed, calibration f): the v1 collapse does not come back: the kept share over the collapse rejects (runs /
+        /// (runs + TopTaken + TooShort + MergeStub)) over 0.40. Overlap and the other rejects are the fan logic working and do not count.
+        /// TopTaken + TooShort as a share of all rejects and the old kept share over every candidate are printed for reference: the
+        /// share-of-rejects half trips on 2 of 4 or 3 of 3 rejects where 85 % / 57 % of the lines are kept.</summary>
         public static Gate F9Collapse(AutoPlanResult r)
         {
             if (r.Candidates <= 0)
                 return NA("F-9", "no candidates");
-            double kept = (double)r.Runs.Count / r.Candidates;
             int all = 0;
             for (int i = 1; i < r.Rejects.Length; i++)
                 all += r.Rejects[i];
             int tt = r.Rejects[(int)AutoReject.TopTaken] + r.Rejects[(int)AutoReject.TooShort];
-            return G("F-9", kept > 0.40 && (all == 0 || tt * 2 < all), kept, $"kept {r.Runs.Count} of {r.Candidates} candidates = {F(kept * 100, "0")} % (want over 40), TopTaken + TooShort {tt} of {all} rejects (want under half)");
+            int stub = r.Rejects[(int)AutoReject.MergeStub];
+            double kept = r.Runs.Count + tt + stub > 0 ? (double)r.Runs.Count / (r.Runs.Count + tt + stub) : 0.0;
+            return G("F-9", kept > 0.40, kept,
+                     $"kept {r.Runs.Count} of {r.Runs.Count + tt + stub} (runs + TopTaken + TooShort + MergeStub) = {F(kept * 100, "0")} % (want over 40), " +
+                     $"TopTaken + TooShort {tt} of {all} rejects; {r.Runs.Count} of {r.Candidates} candidates = {F(100.0 * r.Runs.Count / r.Candidates, "0")} %");
         }
 
         /// <summary>F-10: the reported MountainMix equals the re-rated runs' run-km shares by band.</summary>
@@ -509,35 +548,37 @@ namespace AutoGenBatch
         }
 
         /// <summary>The easiest band (1 Green .. 4 DoubleBlack, 0 = Flat counts as easy) of a downhill path of runs from the lift's Top to
-        /// a base pad, the lift's own bottom pad or its bottom spot; 99 = no path. Start runs: tops within startM of Top; a run
-        /// continues into another when its bottom is inside that run's outline or within 25 m of it.</summary>
-        public static int HostHomeBand(AutoPlanResult r, ResortPlan p, int lift, int[] band, float startM = NearM)
+        /// a way out; 99 = no path. Start runs: the runs the lift's served rule reaches (HostServes, AR-3b); a run continues into another
+        /// when its bottom is inside that run's outline or within 25 m of it, when it merges into it, or (no such run: a dropped merge
+        /// junction, a line stopped at the near gap) the nearest run within MergeLinkReachM whose outline the game links (HostRunNext). Way out: HostWayOut.</summary>
+        public static int HostHomeBand(AutoPlanResult r, ResortPlan p, int lift, int[] band)
         {
             for (int level = 0; level <= 4; level++)
-                if (HostReaches(r, p, lift, band, level, startM))
+                if (HostReaches(r, p, lift, band, level))
                     return Math.Max(level, 1);
             return 99;
         }
 
-        private static bool HostReaches(AutoPlanResult r, ResortPlan p, int lift, int[] band, int maxBand, float startM)
+        private static bool HostReaches(AutoPlanResult r, ResortPlan p, int lift, int[] band, int maxBand)
         {
             PlanLift l = p.Lifts[lift];
             var seen = new bool[r.Runs.Count];
             var queue = new Queue<int>();
             for (int i = 0; i < r.Runs.Count; i++)
-                if (band[i] <= maxBand && math.distance(Top(r.Runs[i]), l.Top.xz) <= startM)
+                if (band[i] <= maxBand && HostServes(l, r.Runs[i]))
                 {
                     seen[i] = true;
                     queue.Enqueue(i);
                 }
+            var next = new List<int>();
             while (queue.Count > 0)
             {
                 int i = queue.Dequeue();
-                float2 bottom = Bottom(r.Runs[i]);
-                if (AtTarget(p, l, bottom))
+                if (HostWayOut(r, p, i))
                     return true;
-                for (int j = 0; j < r.Runs.Count; j++)
-                    if (!seen[j] && band[j] <= maxBand && OnRun(r.Runs[j], bottom))
+                HostRunNext(r, i, next);
+                foreach (int j in next)
+                    if (!seen[j] && band[j] <= maxBand)
                     {
                         seen[j] = true;
                         queue.Enqueue(j);
@@ -546,18 +587,97 @@ namespace AutoGenBatch
             return false;
         }
 
-        private static bool AtTarget(ResortPlan p, PlanLift l, float2 bottom)
+        /// <summary>The served rule on the station chord (Bottom to Top) with the lift type's radius and top margin, at the run's highest
+        /// outline node (the planner's lift top link, AR-3b; pinned lifts in the host cases have straight census chords).</summary>
+        public static bool HostServes(PlanLift l, AutoRun run)
         {
-            if (math.distance(bottom, l.Bottom.xz) <= LinkM)
-                return true;
+            if (run.Nodes == null || run.Nodes.Length == 0 || !math.all(math.isfinite(l.Top)) || !math.all(math.isfinite(l.Bottom)))
+                return false;
+            float3 top = run.Nodes[0];
+            foreach (float3 n in run.Nodes)
+                if (n.y > top.y)
+                    top = n;
+            LiftTypeDef def = l.TypeIndex < SkiCatalog.Lifts.Count ? SkiCatalog.Lifts[l.TypeIndex] : SkiCatalog.Lifts[0];
+            var serve = new LiftServedRule.Lift
+            {
+                Complete = true, Power = LiftPower.Unknown, TopY = l.Top.y, FirstChord = 0, ChordCount = 1, Rule = (byte)def.ServeRule,
+                RadiusM = def.ServeRadiusM, TopMarginM = def.TopMarginM, TopXZ = l.Top.xz,
+            };
+            var chords = new List<LiftServedRule.Chord> { new LiftServedRule.Chord { A = l.Bottom.xz, B = l.Top.xz } };
+            return LiftServedRule.Reaches(top, serve, chords, out float _);
+        }
+
+        /// <summary>The runs run i continues into downhill: bottom on (or within 25 m of) their outline, its merge target, and with no such run
+        /// (a dropped merge junction, a fan line stopped at the near gap) the nearest outline within MergeLinkReachM that the game's
+        /// link rule (LiftServedRule.OutlinesLinked) joins to it.</summary>
+        private static void HostRunNext(AutoPlanResult r, int i, List<int> into)
+        {
+            into.Clear();
+            AutoRun run = r.Runs[i];
+            float2 b = Bottom(run);
+            for (int j = 0; j < r.Runs.Count; j++)
+                if (j != i && ((run.Merge && run.MergeInto == j) || OnRun(r.Runs[j], b)))
+                    into.Add(j);
+            if (into.Count > 0)
+                return;
+            int best = -1;
+            float bestD = float.PositiveInfinity;
+            for (int j = 0; j < r.Runs.Count; j++)
+            {
+                if (j == i)
+                    continue;
+                float d = SkiRunAutoPlanner.PointRingDistance(r.Runs[j].Ring, b);
+                if (d <= SkiRunAutoPlanner.MergeLinkReachM && d < bestD && LiftServedRule.OutlinesLinked(run.Ring, r.Runs[j].Ring))
+                {
+                    bestD = d;
+                    best = j;
+                }
+            }
+            if (best >= 0)
+                into.Add(best);
+        }
+
+        /// <summary>A way out at the bottom of run i (DECISIONS 451 c, AR-2): within 25 m of a lift bottom station, or touching
+        /// (BottomTouchesPad) a pad that holds a lift bottom or is a base pad with access (SkiRunAutoPlanner.PadIsWayOut). Ground alone
+        /// never is.</summary>
+        public static bool HostWayOut(AutoPlanResult r, ResortPlan p, int i)
+        {
+            float2 bottom = Bottom(r.Runs[i]);
+            foreach (PlanLift l in p.Lifts)
+                if (math.all(math.isfinite(l.Bottom)) && math.distance(bottom, l.Bottom.xz) <= LinkM)
+                    return true;
             for (int k = 0; k < p.Pads.Length; k++)
-                if ((p.Pads[k].IsBase || k == l.BottomPad) && InPad(p.Pads[k], bottom))
+                if (WayOutPad(p, k) && BottomTouchesPad(r, p, i, k))
+                    return true;
+            return false;
+        }
+
+        /// <summary>Run i's bottom touches pad k: inside its disc + 25 m, or the plan graph's run-bottom-to-pad link (a pad cell within
+        /// 25 m: the host has no pad cell map, and a long bench reaches far past its disc). The only graph fact the H-2 / H-5 oracles
+        /// read; starts, run links, bands and the way-out set stay host-side.</summary>
+        private static bool BottomTouchesPad(AutoPlanResult r, ResortPlan p, int i, int k)
+        {
+            if (InPad(p.Pads[k], Bottom(r.Runs[i])))
+                return true;
+            int from = p.Pads.Length + 2 * i + 1;
+            foreach (PlanEdge e in p.Graph ?? Array.Empty<PlanEdge>())
+                if (e.From == from && e.To == k && e.Kind == SkiRunAutoPlanner.EdgeLink)
+                    return true;
+            return false;
+        }
+
+        private static bool WayOutPad(ResortPlan p, int k)
+        {
+            if (SkiRunAutoPlanner.PadIsWayOut(p.Pads[k]))
+                return true;
+            foreach (PlanLift l in p.Lifts)
+                if (l.BottomPad == k && math.all(math.isfinite(l.Bottom)))
                     return true;
             return false;
         }
 
         private static bool InPad(PlanPad pad, float2 pt) =>
-            math.distance(pt, pad.Center) <= Math.Max(pad.InscribedM, (float)Math.Sqrt(pad.AreaM2 / Math.PI)) + LinkM;
+            math.distance(pt, pad.Center) <= SkiRunAutoPlanner.PadRadiusM(pad) + LinkM;
 
         private static int[] Bands(AutoPlanResult r, Func<AutoRun, SlopeBand> rate)
         {
@@ -567,9 +687,9 @@ namespace AutoGenBatch
             return b;
         }
 
-        /// <summary>H-2: Home = Green / Blue only if the host finds a downhill path of runs (re-rated, links within 25 m) of that band or
-        /// easier from Top to a base pad or the lift's own bottom; Black / DoubleBlack likewise; Download only when no path at the
-        /// wanted level exists (Wanted Green, Blue, or for Auto: Green when the bottom pad is a base pad, else Blue).</summary>
+        /// <summary>H-2 (DECISIONS 451 b): the verdict is the host's easiest band: Home Green .. DoubleBlack only when the host's easiest
+        /// downhill path of runs (re-rated, served-rule starts, links within 25 m) to a way out has exactly that hardest band; Download only
+        /// when the host finds no downhill path at all. Wanted (the knob) never changes the verdict.</summary>
         public static Gate H2Honesty(AutoPlanResult r, ResortPlan p, Func<AutoRun, SlopeBand> rate)
         {
             if (p.Lifts.Length == 0)
@@ -583,15 +703,9 @@ namespace AutoGenBatch
                 if (l.Home == HomeVerdict.None)
                     continue;   // H-1's job
                 int host = HostHomeBand(r, p, i, band);
-                int wanted = l.Wanted == HomeLevel.Green ? 1 : l.Wanted == HomeLevel.Blue ? 2 :
-                             l.BottomPad >= 0 && l.BottomPad < p.Pads.Length && p.Pads[l.BottomPad].IsBase ? 1 : 2;
-                bool ok;
-                if (l.Home == HomeVerdict.Download)
-                    ok = host > wanted;
-                else
-                    ok = host <= (int)l.Home;   // HomeVerdict Green..DoubleBlack = 1..4 = SlopeBand Green..DoubleBlack
+                bool ok = l.Home == HomeVerdict.Download ? host == 99 : host == (int)l.Home;   // HomeVerdict Green..DoubleBlack = 1..4 = SlopeBand
                 if (!ok && bad++ == 0)
-                    first = $" (first: lift {l.Id} says {l.Home}, host easiest path band {(host == 99 ? "none" : ((SlopeBand)host).ToString())}, wanted band {wanted})";
+                    first = $" (first: lift {l.Id} says {l.Home}, host easiest path band {(host == 99 ? "none" : ((SlopeBand)host).ToString())}, wanted {l.Wanted})";
             }
             return G("H-2", bad == 0, bad, $"{bad} of {p.Lifts.Length} verdicts the host cannot reproduce{first}");
         }
@@ -608,21 +722,97 @@ namespace AutoGenBatch
             return G("H-3", bad == 0, bad, $"{bad} green verdicts on pods steeper than 55 % mean fan grade (want 0)");
         }
 
-        /// <summary>H-4: dead ends over run bottoms under 5 % (target 0).</summary>
+        /// <summary>H-4 (armed after AR-1, calibration a): dead ends over run bottoms under 5 % (target 0). A plan without lifts has no way
+        /// out to measure (class 1: "no way out: no lift site"); the host keeps it REPORT.</summary>
         public static Gate H4DeadEnds(AutoPlanResult r, ResortPlan p)
         {
             double share = r.Runs.Count == 0 ? 0.0 : (double)p.DeadEnds / r.Runs.Count;
+            if (p.Lifts.Length == 0)
+                return G("H-4", share < 0.05, double.NaN, $"no way out: no lift site ({p.DeadEnds} of {r.Runs.Count} run bottoms reach nothing)");
             return G("H-4", share < 0.05, p.DeadEnds, $"{p.DeadEnds} dead ends of {r.Runs.Count} run bottoms = {F(share * 100)} % (want under 5, target 0)");
         }
 
-        /// <summary>H-5 (SOFT for pinned-only plans): every pod with runs is reachable from a base pad by lifts plus downhill runs.</summary>
+        /// <summary>Host recount of the dead ends from the plan graph (AR-1 fix 3): run bottoms with no downhill path (every edge but lifts)
+        /// to a way-out node (lift bottom nodes, pads holding a lift bottom, base pads with access); obstacles are not checked (the host
+        /// cases have none). Returns the dead-end run indices.</summary>
+        public static List<int> HostDeadEnds(AutoPlanResult r, ResortPlan p)
+        {
+            int pads = p.Pads.Length, runs = r.Runs.Count, n = pads + 2 * runs + 2 * p.Lifts.Length;
+            var reach = new bool[n];
+            var rev = new List<int>[n];
+            foreach (PlanEdge e in p.Graph)
+                if (e.Kind != SkiRunAutoPlanner.EdgeLift)
+                    (rev[e.To] ??= new List<int>()).Add(e.From);
+            var queue = new Queue<int>();
+            for (int k = 0; k < pads; k++)
+                if (WayOutPad(p, k))
+                    reach[k] = true;
+            for (int l = 0; l < p.Lifts.Length; l++)
+                if (math.all(math.isfinite(p.Lifts[l].Bottom)))
+                    reach[pads + 2 * runs + 2 * l] = true;
+            for (int v = 0; v < n; v++)
+                if (reach[v])
+                    queue.Enqueue(v);
+            while (queue.Count > 0)
+            {
+                int v = queue.Dequeue();
+                if (rev[v] == null)
+                    continue;
+                foreach (int u in rev[v])
+                    if (!reach[u])
+                    {
+                        reach[u] = true;
+                        queue.Enqueue(u);
+                    }
+            }
+            var dead = new List<int>();
+            for (int i = 0; i < runs; i++)
+                if (!reach[pads + 2 * i + 1])
+                    dead.Add(i);
+            return dead;
+        }
+
+        /// <summary>One REPORT text per dead end (AR-1 fix 3: count the causes): the run's band, merge flag and MergeInto, and the
+        /// distances from its bottom to the nearest other run outline, pad (disc edge) and lift bottom station.</summary>
+        public static List<string> DeadEndLines(AutoPlanResult r, ResortPlan p, List<int> dead)
+        {
+            var lines = new List<string>();
+            foreach (int i in dead)
+            {
+                AutoRun run = r.Runs[i];
+                float2 b = Bottom(run);
+                double ring = double.PositiveInfinity, pad = double.PositiveInfinity, station = double.PositiveInfinity;
+                for (int j = 0; j < r.Runs.Count; j++)
+                    if (j != i)
+                        ring = Math.Min(ring, GradeRaster.Inside(r.Runs[j].Ring, b) ? 0.0 : SkiRunAutoPlanner.PointRingDistance(r.Runs[j].Ring, b));
+                foreach (PlanPad d in p.Pads)
+                    pad = Math.Min(pad, Math.Max(0.0, math.distance(b, d.Center) - SkiRunAutoPlanner.PadRadiusM(d)));
+                foreach (PlanLift l in p.Lifts)
+                    if (math.all(math.isfinite(l.Bottom)))
+                        station = Math.Min(station, math.distance(b, l.Bottom.xz));
+                string why = run.Merge && run.MergeInto < 0 ? "merge dropped" : run.Merge ? "merge" : station <= SkiRunAutoPlanner.SinkPadM ? "near a station" : "free end";
+                lines.Add($"run {i} {run.Band} {F(run.LengthM, "0")} m, {why} (Merge {run.Merge}, MergeInto {run.MergeInto}), nearest run {D(ring)}, pad edge {D(pad)}, lift bottom {D(station)}");
+            }
+            return lines;
+        }
+
+        private static string D(double m) => double.IsInfinity(m) ? "none" : F(m, "0") + " m";
+
+        /// <summary>H-5 (SOFT): every pod with runs is reachable from an entry by lifts plus downhill runs. Entries: base pads with access
+        /// (PadIsWayOut, AR-2); a plan whose pads all lack access (the host cases pass no roads) enters at every pad touching the base band.
+        /// Starts per lift: the runs its served rule reaches (AR-3b); a lift is reached through its bottom pad, an entry pad holding its
+        /// bottom, or a reached run bottom within 25 m of its bottom station.</summary>
         public static Gate H5Reachability(AutoPlanResult r, ResortPlan p)
         {
-            int[] band = Bands(r, null);
             var padOk = new bool[p.Pads.Length];
+            bool anyAccess = false;
+            foreach (PlanPad d in p.Pads)
+                anyAccess |= !float.IsInfinity(d.AccessM) && !float.IsNaN(d.AccessM);
             for (int i = 0; i < p.Pads.Length; i++)
-                padOk[i] = p.Pads[i].IsBase;
+                padOk[i] = anyAccess ? SkiRunAutoPlanner.PadIsWayOut(p.Pads[i]) : p.Pads[i].TouchesBase;
             var liftOk = new bool[p.Lifts.Length];
+            var liftHit = new bool[p.Lifts.Length];
+            var next = new List<int>();
             bool grew = true;
             while (grew)
             {
@@ -632,17 +822,17 @@ namespace AutoGenBatch
                     if (liftOk[i])
                         continue;
                     PlanLift l = p.Lifts[i];
-                    bool at = l.BottomPad >= 0 && l.BottomPad < padOk.Length && padOk[l.BottomPad];
+                    bool at = liftHit[i] || (l.BottomPad >= 0 && l.BottomPad < padOk.Length && padOk[l.BottomPad]);
                     for (int k = 0; k < padOk.Length && !at; k++)
                         at = padOk[k] && InPad(p.Pads[k], l.Bottom.xz);
                     if (!at)
                         continue;
                     liftOk[i] = grew = true;
-                    // every run chain from this Top: mark the pads its run bottoms reach
+                    // every run chain from this Top: mark the pads and lift bottoms its run bottoms reach
                     var seen = new bool[r.Runs.Count];
                     var queue = new Queue<int>();
                     for (int j = 0; j < r.Runs.Count; j++)
-                        if (math.distance(Top(r.Runs[j]), l.Top.xz) <= NearM)
+                        if (HostServes(l, r.Runs[j]))
                         {
                             seen[j] = true;
                             queue.Enqueue(j);
@@ -652,10 +842,14 @@ namespace AutoGenBatch
                         int j = queue.Dequeue();
                         float2 bottom = Bottom(r.Runs[j]);
                         for (int k = 0; k < padOk.Length; k++)
-                            if (!padOk[k] && InPad(p.Pads[k], bottom))
+                            if (!padOk[k] && BottomTouchesPad(r, p, j, k))
                                 padOk[k] = true;
-                        for (int m = 0; m < r.Runs.Count; m++)
-                            if (!seen[m] && OnRun(r.Runs[m], bottom))
+                        for (int m = 0; m < p.Lifts.Length; m++)
+                            if (math.all(math.isfinite(p.Lifts[m].Bottom)) && math.distance(bottom, p.Lifts[m].Bottom.xz) <= LinkM)
+                                liftHit[m] = true;
+                        HostRunNext(r, j, next);
+                        foreach (int m in next)
+                            if (!seen[m])
                             {
                                 seen[m] = true;
                                 queue.Enqueue(m);
@@ -812,7 +1006,7 @@ namespace AutoGenBatch
             Check(g.Pass == wantPass, "V2Metrics " + name, $"{g} (want pass {wantPass})");
         }
 
-        /// <summary>A straight run top -> bottom, outline 'width' wide (a rectangle), stored band, drop from the heights.</summary>
+        /// <summary>A straight run top -> bottom, outline 'width' wide (a rectangle; its nodes at topY / botY), stored band, drop from the heights.</summary>
         private static AutoRun HRun(float2 top, float2 bottom, SlopeBand band = SlopeBand.Green, float topY = 1500f, float botY = 1300f, float width = 30f)
         {
             float2 d = math.normalize(bottom - top), n = new float2(-d.y, d.x) * (width * 0.5f);
@@ -820,12 +1014,13 @@ namespace AutoGenBatch
             return new AutoRun
             {
                 Band = band, PassBand = band, Centerline = new[] { top, bottom }, Ring = new[] { top + n, bottom + n, bottom - n, top - n },
+                Nodes = new[] { new float3(top.x + n.x, topY, top.y + n.y), new float3(bottom.x + n.x, botY, bottom.y + n.y), new float3(bottom.x - n.x, botY, bottom.y - n.y), new float3(top.x - n.x, topY, top.y - n.y) },
                 LengthM = len, DropM = topY - botY, TopY = topY, BottomY = botY, AreaM2 = len * width,
             };
         }
 
         private static PlanPad HPad(float area, float grade, float inscribed, float2 center, bool isBase = false, bool isBench = false) =>
-            new PlanPad { AreaM2 = area, MeanGrade = grade, InscribedM = inscribed, Center = center, IsBase = isBase, IsBench = isBench };
+            new PlanPad { AreaM2 = area, MeanGrade = grade, InscribedM = inscribed, Center = center, IsBase = isBase, TouchesBase = isBase, IsBench = isBench };
 
         private static PlanLift HLift(byte type, float2 bottom, float2 top, float rise, float slope, int pod = 0, int bottomPad = 0, int topPad = -1,
             HomeVerdict home = HomeVerdict.Green, LiftOrigin origin = LiftOrigin.Proposed, uint key = 0) =>
@@ -983,9 +1178,11 @@ namespace AutoGenBatch
             Gate_(V2Metrics.F1TrailsPerLift(r, plan, AutoDensity.Normal), true, "F-1 six runs");
             Gate_(V2Metrics.F1TrailsPerLift(r, plan, AutoDensity.Dense), false, "F-1 Dense wants 9-12");
             Gate_(V2Metrics.F2StartsNearTop(r, plan), true, "F-2 two tops near the lift top");
+            Gate_(V2Metrics.F2TopRange(r, plan), true, "F-2 2-4 two tops near the lift top");
             Gate_(V2Metrics.F3EndsAtBottom(r, plan), true, "F-3 two bottoms at the lift bottom");
             plan.Lifts[0].Top = new float3(-3000f, 1300f, 0f);
             Gate_(V2Metrics.F2StartsNearTop(r, plan), false, "F-2 no top near");
+            Gate_(V2Metrics.F2TopRange(r, plan), false, "F-2 2-4 no top near");
             plan.Lifts[0].Top = new float3(700f, 1300f, 0f);
             plan.Lifts[0].Bottom = new float3(3000f, 1000f, 0f);
             Gate_(V2Metrics.F3EndsAtBottom(r, plan), false, "F-3 no bottom near");
@@ -1004,9 +1201,11 @@ namespace AutoGenBatch
                 sp.Runs.Add(HRun(new float2(600, -100 + 100 * i), new float2(100, -100 + 100 * i)));
             var spPlan = new ResortPlan { RunPod = new[] { 0, 0, 0 } };
             Gate_(V2Metrics.F5Spacing(sp, spPlan), true, "F-5 100 m apart");
+            Gate_(V2Metrics.F5Median(sp, spPlan), true, "F-5 median 100 m");
             for (int i = 0; i < 3; i++)
                 sp.Runs[i] = HRun(new float2(600, 30 * i), new float2(100, 30 * i));
             Gate_(V2Metrics.F5Spacing(sp, spPlan), false, "F-5 30 m apart");
+            Gate_(V2Metrics.F5Median(sp, spPlan), false, "F-5 median 30 m");
             for (int i = 0; i < 3; i++)
                 sp.Runs[i] = HRun(new float2(600, 130 * i), new float2(100, 130 * i));
             Gate_(V2Metrics.F5Spacing(sp, spPlan), true, "F-5 130 m apart");
@@ -1053,12 +1252,23 @@ namespace AutoGenBatch
             col.Rejects[(int)AutoReject.TooShort] = 5;
             col.Rejects[(int)AutoReject.Overlap] = 20;
             Gate_(V2Metrics.F9Collapse(col), true, "F-9 half kept");
-            col.Rejects[(int)AutoReject.Overlap] = 5;   // 15 of 20 rejects are TopTaken + TooShort
+            col.Rejects[(int)AutoReject.Overlap] = 5;   // 15 of 20 rejects are TopTaken + TooShort, but 50 of 65 lines are kept
+            Gate_(V2Metrics.F9Collapse(col), true, "F-9 a few TopTaken + TooShort rejects beside many runs are no collapse");
+            col.Rejects[(int)AutoReject.TopTaken] = 100;   // 50 of 155 kept
             Gate_(V2Metrics.F9Collapse(col), false, "F-9 rejects dominated by TopTaken + TooShort");
             var v1 = new AutoPlanResult { Candidates = 478 };
             for (int i = 0; i < 26; i++)
                 v1.Runs.Add(HRun(new float2(0, i), new float2(300, i)));
+            v1.Rejects[(int)AutoReject.TopTaken] = 300;
+            v1.Rejects[(int)AutoReject.TooShort] = 100;
+            v1.Rejects[(int)AutoReject.Overlap] = 52;
             Gate_(V2Metrics.F9Collapse(v1), false, "F-9 the v1 field collapse, 26 of 478");
+            var fans = new AutoPlanResult { Candidates = 43 };
+            for (int i = 0; i < 9; i++)
+                fans.Runs.Add(HRun(new float2(0, i), new float2(300, i)));
+            fans.Rejects[(int)AutoReject.Overlap] = 31;
+            fans.Rejects[(int)AutoReject.Crosses] = 3;
+            Gate_(V2Metrics.F9Collapse(fans), true, "F-9 overlap rejects are the fans working, not a collapse (9 of 43)");
 
             // F-10: green + black, 1000 m each = 50 / 50; the plan says so, a re-rate to blue disagrees
             var mix = new AutoPlanResult();
@@ -1078,9 +1288,9 @@ namespace AutoGenBatch
             Gate_(V2Metrics.H1Verdicts(plan), false, "H-1 one lift without a verdict");
             Gate_(V2Metrics.H1Verdicts(plan, l => l.Home == HomeVerdict.None), true, "H-1 skip predicate");
 
-            // H-2: lift Top (700, 0), Bottom (0, 0), base pad at the bottom; one run from the top to 20 m from the bottom
+            // H-2: lift Top (700, 0) at 1300 m, Bottom (0, 0), base pad at the bottom; one run from the top to 20 m from the bottom
             var r = new AutoPlanResult();
-            r.Runs.Add(HRun(new float2(690, 0), new float2(20, 0), SlopeBand.Green));
+            r.Runs.Add(HRun(new float2(690, 0), new float2(20, 0), SlopeBand.Green, 1300f, 1000f));
             var basePad = HPad(5000f, 0.05f, 30f, float2.zero, true);
             ResortPlan Make(HomeVerdict home, HomeLevel wanted) => new ResortPlan
             {
@@ -1094,17 +1304,39 @@ namespace AutoGenBatch
             Gate_(V2Metrics.H2Honesty(r, blue, run => SlopeBand.Blue), true, "H-2 Blue with a blue path");
             ResortPlan dl = Make(HomeVerdict.Download, HomeLevel.Auto);
             Gate_(V2Metrics.H2Honesty(r, dl, null), false, "H-2 Download although a green path exists");
-            Gate_(V2Metrics.H2Honesty(r, dl, run => SlopeBand.Black), true, "H-2 Download when only black exists (wanted green at the base pad)");
+            Gate_(V2Metrics.H2Honesty(r, dl, run => SlopeBand.Black), false, "H-2 Download although a black path exists (DECISIONS 451 b)");
+            Gate_(V2Metrics.H2Honesty(r, Make(HomeVerdict.Black, HomeLevel.Auto), run => SlopeBand.Black), true, "H-2 Black with only a black path");
+            Gate_(V2Metrics.H2Honesty(r, Make(HomeVerdict.Black, HomeLevel.Auto), null), false, "H-2 Black although a green path exists");
+            Gate_(V2Metrics.H2Honesty(r, Make(HomeVerdict.DoubleBlack, HomeLevel.Auto), run => SlopeBand.DoubleBlack), true, "H-2 Double Black with only a double black path");
+            var high = new AutoPlanResult();
+            high.Runs.Add(HRun(new float2(690, 0), new float2(20, 0), SlopeBand.Green, 1330f, 1000f));   // top 30 m over the lift top: not served
+            Gate_(V2Metrics.H2Honesty(high, Make(HomeVerdict.Download, HomeLevel.Auto), null), true, "H-2 a run top over the top margin is no start (served rule)");
+            var side = new AutoPlanResult();
+            side.Runs.Add(HRun(new float2(560, 140), new float2(20, 10), SlopeBand.Green, 1290f, 1000f));   // top 190 m from the lift top, 140 m off the chord
+            Gate_(V2Metrics.H2Honesty(side, green, null), true, "H-2 a run inside the served corridor starts the way home (AR-3b)");
+            var bench = new ResortPlan
+            {
+                Pads = new[] { HPad(2000f, 0.05f, 20f, new float2(300, 300), true) }, Lifts = new[] { HLift(1, float2.zero, new float2(700, 0), 300f, 0.5f, 0, -1, -1, HomeVerdict.Download) },
+                RunLift = new[] { 0 }, RunPod = new[] { 0 },
+            };
+            bench.Pads[0].AccessM = float.PositiveInfinity;
+            bench.Lifts[0].Bottom = new float3(-2000f, 1000f, 0f);   // the lift bottom far away: only the pad can be a way out
+            var toBench = new AutoPlanResult();
+            toBench.Runs.Add(HRun(new float2(690, 0), new float2(300, 290), SlopeBand.Green, 1300f, 1000f));
+            Gate_(V2Metrics.H2Honesty(toBench, bench, null), true, "H-2 a base pad without access is no way out (Download)");
+            bench.Pads[0].AccessM = 50f;
+            bench.Lifts[0].Home = HomeVerdict.Green;
+            Gate_(V2Metrics.H2Honesty(toBench, bench, null), true, "H-2 a base pad with a road at it is a way out (Green)");
             dl.Lifts[0].Wanted = HomeLevel.Blue;
             Gate_(V2Metrics.H2Honesty(r, dl, run => SlopeBand.Blue), false, "H-2 Download although a blue path exists at wanted blue");
             var far = new AutoPlanResult();
-            far.Runs.Add(HRun(new float2(690, 0), new float2(300, 0), SlopeBand.Green));   // ends 300 m from the bottom: no path home
+            far.Runs.Add(HRun(new float2(690, 0), new float2(300, 0), SlopeBand.Green, 1300f, 1000f));   // ends 300 m from the bottom: no path home
             Gate_(V2Metrics.H2Honesty(far, green, null), false, "H-2 Green without a path to the base pad");
             Gate_(V2Metrics.H2Honesty(far, Make(HomeVerdict.Download, HomeLevel.Auto), null), true, "H-2 Download with no path");
             // a chain: run A ends inside run B's outline, run B reaches the pad
             var chain = new AutoPlanResult();
-            chain.Runs.Add(HRun(new float2(690, 0), new float2(400, 0), SlopeBand.Green));
-            chain.Runs.Add(HRun(new float2(420, 0), new float2(20, 0), SlopeBand.Blue));
+            chain.Runs.Add(HRun(new float2(690, 0), new float2(400, 0), SlopeBand.Green, 1300f, 1150f));
+            chain.Runs.Add(HRun(new float2(420, 0), new float2(20, 0), SlopeBand.Blue, 1160f, 1000f));
             Gate_(V2Metrics.H2Honesty(chain, Make(HomeVerdict.Blue, HomeLevel.Auto), null), true, "H-2 chained runs, easiest path is blue");
             Gate_(V2Metrics.H2Honesty(chain, Make(HomeVerdict.Green, HomeLevel.Auto), null), false, "H-2 chained runs are not green all the way");
 
@@ -1129,8 +1361,8 @@ namespace AutoGenBatch
 
             // H-5: lift 0 rides from the base pad, its run ends on a bench pad; lift 1 starts on that bench pad
             var rr = new AutoPlanResult();
-            rr.Runs.Add(HRun(new float2(690, 0), new float2(520, 0), SlopeBand.Green));        // lift 0's run, ends on the bench pad at (500, 0)
-            rr.Runs.Add(HRun(new float2(1190, 0), new float2(1000, 0), SlopeBand.Blue));       // lift 1's run (top at (1200, 0))
+            rr.Runs.Add(HRun(new float2(690, 0), new float2(520, 0), SlopeBand.Green, 1300f, 1100f));   // lift 0's run, ends on the bench pad at (500, 0)
+            rr.Runs.Add(HRun(new float2(1190, 0), new float2(1000, 0), SlopeBand.Blue, 1300f, 1100f));  // lift 1's run (top at (1200, 0))
             var rp = new ResortPlan
             {
                 Pads = new[] { basePad, HPad(3000f, 0.1f, 30f, new float2(500, 0), false, true), HPad(3000f, 0.1f, 30f, new float2(5000, 0), false, true) },
