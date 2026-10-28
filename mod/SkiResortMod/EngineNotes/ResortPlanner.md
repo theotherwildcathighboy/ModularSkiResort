@@ -399,7 +399,9 @@ Runs mode is untouched (every change is in Resort-only code or behind `m_Mode`; 
   denominator (pods with a lift). The tooltip / hub wording is R3's.
 - **Gates**: F-9 is armed (V2Hard): runs / (runs + TopTaken + TooShort + MergeStub) over 40 % (Overlap rejects are the fans
   working; TopTaken + TooShort as a share of all rejects is printed only: it tripped on 2 of 4 and 3 of 3 rejects with 85 % / 57 % kept),
-  REPORT on a plan without lifts (v1 seeding, class 1) and with the A5 SOFT rule on steeper regions. H-4, F-2 and F-5 are coded to
+  and a low share fails only with TopTaken among the rejects (the v1 mechanism; Fjords base 9 km2 after the 1 ha pod bottoms keeps
+  38 % with 10 TooShort and 0 TopTaken, every fan region 68 % or more, the v1 collapse 1-19 %); REPORT on a plan without lifts (v1
+  seeding, class 1) and with the A5 SOFT rule on steeper regions. H-4, F-2 and F-5 are coded to
   their armed definitions (H-4 under 5 %, "no way out: no lift site" without lifts; F-2 at least one run top within 100 m per lift,
   "F-2 2-4" SOFT; F-5 no pair under 40 m outside a merge zone, "F-5 median" SOFT) but stay REPORT, because the first `-- v2` pass
   missed on real numbers this round cannot fix: H-4 on 27 regions (45 free ends, 25 of them over 60 m from any run, pad or station:
@@ -408,7 +410,8 @@ Runs mode is untouched (every change is in Resort-only code or behind `m_Mode`; 
   numbers hold. F-1 waits for R2's 1 ha pad change.
 - **Host oracle**: H-2 starts at the served runs (station chord, the type's radius and margin), continues through outline links,
   merges and the near-run link, ends at a way out (`HostWayOut`), and must equal the verdict (Download = no path). A run bottom
-  touches a pad inside its disc + 25 m or where the graph has the run-bottom-to-pad link (the host has no pad cell map; a long bench
+  touches a pad within 25 m of its inscribed disc (`InscribedM`: all pad, so the planner links too; the equal-area disc
+  over-reached irregular pads after the 1 ha pod bottoms and gave host-only Black paths) or where the graph has the run-bottom-to-pad link (the host has no pad cell map; a long bench
   reaches 150 m past its center on Benched1): the only graph fact H-2 / H-5 read. H-5 enters at base pads with access (every
   base-touching pad when no pad has access). `HostDeadEnds` recounts the dead ends from the graph (a FAIL when it disagrees), and
   `-- v2` prints one `REPORT dead end` line per dead end: band, length, cause (merge dropped / merge / near a station / free end),
