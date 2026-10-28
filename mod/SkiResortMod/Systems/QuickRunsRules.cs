@@ -453,7 +453,8 @@ namespace SkiResortMod.Systems
                 case AutoReject.TooShort:
                 case AutoReject.MergeStub: return 0;
                 case AutoReject.TopTaken:
-                case AutoReject.Overlap: return 1;
+                case AutoReject.Overlap:
+                case AutoReject.PodFull: return 1;   // Resort fans: the pod already holds its developable share of runs
                 case AutoReject.Region: return 2;
                 case AutoReject.Obstacle: return 3;
                 case AutoReject.Pinched: return 4;

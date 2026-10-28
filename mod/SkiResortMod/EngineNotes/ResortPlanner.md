@@ -231,7 +231,45 @@ Files: `.Lifts.cs` (stage Lifts, `LiftPlan`), `QuickRunsToolSystem.Draw.cs` (the
   everywhere (the runs are still v1 until A5). The per-region table is in the A4 handover note.
 
 ### A5 run fans
-(not started)
+
+Files: NEW `.Fans.cs` (sinks, fan seeds, the Resort pick, the merge approach, PodFull, `FanRunPlan`), `tests/AutoGenBatch/FanTests.cs`.
+Line edits elsewhere: Select.cs (all behind `FansOn`, so Runs mode is bit-identical: V1Golden green): `Cand.BranchOf`,
+`Accepted.MergeInto / BranchOf`, the `FanPick` call in UnitSelect, BeginAttempt (fan gap, no TopTaken for a branch, the merge search after
+the branch leaves its parent, `FanApproach`), AttemptStep (`PodFull`), BuildRing (branch taper, approach gap, `FanHalfWidth`), CheckRing
+(MergeGapM to the branch parent), Rate (chamfer reach `FanChamferM`), FinishPairs (a branch and its parent are a merge pair),
+FinishResortUnit (`FanRunPlan` when RunLift is not filled yet); SkiRunAutoPlanner.cs appends `AutoReject.PodFull`; QuickRunsRules.cs
+buckets PodFull with the overlaps. Tests: PlanTypes drops the two A0 stub checks; V2Tests calls `FanCase` per region, `V2Fresh` copies
+`Pinned` and V1-4 accepts Runs NoRuns -> Resort Ok (see below). V2Hard is NOT armed for F-1..F-10 (calibration, below).
+
+- **Sinks**: Route sources are each lift's BottomPad cells within `SinkPadM` 90 m of the bottom station plus a `SinkDiscM` 40 m disc, minus
+  pad cells within 60 m of any lift top (a stacked lift's top stays skiable). No lift with an open bottom: the v1 base band and v1 seeds.
+- **Seeds** (density-free reserve, so Mix / Density / RunCap Reselect at Select): tier 0 within `TopSeedM` 100 m of the top, 1 / 2 the
+  served corridor (upper third / rest), 3 the lift's own or an unserved pod above its lower third, only when the line drains to this
+  lift's bottom. 2-cell lattice, sorted by tier then height + v1 jitter, spaced 20 m, at most 80 per lift and pass, each pre-walked
+  (MakeCandidate's walk). The list unit is bounded (1,500 keys, 40 walks) for P-1.
+- **Pick** (one candidate per unit): the lift with the lowest fill; its tier-0 seeds until it has 2 top runs (none once it has 4); else the
+  v1 band-deficit order on the lift's own targets (`Targets` on `FanRunsPerLift` 5 / 7 / 10), branch x1.5, a seed draining to another
+  lift x0.8. Before a seed becomes a candidate it is re-walked against the accepted runs: inside a gap it is dropped (a tier 0-1 seed
+  next to a run becomes its branch instead), and a line whose merge would be TooShort / MergeStub is dropped. So TopTaken is 0 and the
+  v1 collapse is gone: kept share 44-79 % on 4 of 5 HARD synthetic fixtures (v1: 5-9 %).
+- **Branches**: a top run seeds branches 20-99 m below its top at once; after a lift's second run every run seeds them 100-400 m below its
+  top (every 50 m, both sides, the first cell MergeGapM + half width out). A branch keeps the near gap and must leave it within 150 m.
+- **Merge approach** (the main finding): with one sink per lift the fall lines converge radially, so a second line enters the 100 m
+  fan gap long before it meets the first, and a merge there cuts it to a stub. A line that enters a fan gap merges where it reaches the
+  near gap (`max(v1 GapOf, 26 m)`, so centerlines stay 40 m apart for F-5) if that is within `MergeApproachM` 200 m; BuildRing keeps
+  the near gap on that stretch. Tried and dropped: a greedy traverse that leads a branch out of its parent's gap (more Overlap rejects,
+  fewer runs) and SinkPadM 250 m (F-3 broke, fewer runs).
+- **Results** (Normal, synthetic, v1 -> fans): Alpine1 48 -> 14 runs [7, 3, 4] per lift, Alpine2 48 -> 9 [7, 1, 1], Alpine3 48 -> 15
+  [6, 7, 2], Benched1 44 -> 12 [3, 5, 4], Benched2 39 -> 11 [5, 6]. The `-- v2` matrix, gates passed of 55 regions (before -> after):
+  F-1 0 -> 14, F-2 0 -> 10, F-3 0 -> 44, F-4 1 -> 22, F-5 0 -> 24, F-6 0 -> 23, F-7 20 -> 31, F-9 0 -> 25; F-10 waits for A6's MountainMix.
+- **Armed**: FanTests checks F-3 and F-7 on Alpine 1-3 and Benched 1-2 (they pass everywhere there). F-1, F-2, F-4, F-5, F-6 and F-9 miss
+  on some HARD fixtures and stay REPORT: the lifts A4 places are short (7 of the 14 Alpine / Benched lifts are under 600 m, Alpine2 lift 3 is 301 m with
+  110 m rise), and converging fall lines give few independent lines per lift. The calibration questions are in the A5 handover.
+- **V1-4**: Runs mode NoRuns -> Resort Ok is accepted (NoRuns is a selection outcome, not a refusal): JacksonHole steepest 4 km2 has 0
+  v1 runs and 11 fan runs.
+- **Interface for A6**: `AutoRun.Cluster` = the lift index (one ClusterInfo per lift, Center = its top); `FanRunPlan(res.Resort, res)`
+  fills RunLift / RunPod / PodRuns / Pods[k].RunFirst / RunCount and must run after `LiftPlan`. Diagnostics: `FanReserve`, `FanDropped`,
+  `FanDropWhy(0..3)`, `FanBranchCandidates`.
 
 ### A6 way home
 (not started)

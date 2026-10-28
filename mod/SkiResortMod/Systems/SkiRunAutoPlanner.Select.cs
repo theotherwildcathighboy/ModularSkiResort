@@ -23,6 +23,7 @@ namespace SkiResortMod.Systems
             public float LengthM, DropM;
             public double Score0;
             public bool Tried;
+            public int BranchOf = -1;   // Resort fans: the accepted run this line branches off at its top (Fans.cs), -1 = none
         }
 
         private sealed class ClusterInfo
@@ -43,7 +44,7 @@ namespace SkiResortMod.Systems
             public SlopeBand Band;
             public float RatingGrade, MeanGrade, SteepestGrade, DropM, AreaM2, LengthM, TopY, BottomY, GapM;
             public bool Merge, TouchesBase, OverWater, CrossesCatTrack;
-            public int MergeInto;
+            public int MergeInto, BranchOf = -1;
             public double Score;
             public float2 Lo, Hi;   // ring bounding box (prefilters CheckRing and the junction pairs)
         }
@@ -520,7 +521,7 @@ namespace SkiResortMod.Systems
         private int m_ChI0, m_ChI1, m_ChJ0, m_ChJ1, m_ChRow;
         private bool m_ChPending;
         private bool m_SelMerge;
-        private float m_SelGap, m_SelStopD;
+        private float m_SelGap, m_SelStopD, m_SelApproach;   // m_SelApproach: A5 fan merge approach (m before the merge on the v1 gap)
 
         private void UnitSelect()
         {
@@ -559,6 +560,11 @@ namespace SkiResortMod.Systems
             if (m_SelPhase >= 4)
             {
                 ChamferStep();
+                return;
+            }
+            if (FansOn)
+            {
+                FanPick();   // Resort: one materialized fan seed per pick (A5, Fans.cs)
                 return;
             }
             if (m_Accepted.Count >= m_RunCap || m_Result.Rated >= m_MaxRatings)
@@ -677,16 +683,19 @@ namespace SkiResortMod.Systems
         private void BeginAttempt(Cand cand)
         {
             int k = cand.Pass;
-            float gap = GapOf(m_Knobs.Density, TargetWidthM[k]);
+            float gap = FansOn ? FanLineGap(k, cand.BranchOf >= 0) : GapOf(m_Knobs.Density, TargetWidthM[k]);
             float stopD = gap + MinHalfWidthM;
             int seed = m_Paths[cand.PathStart];
-            if (m_DAcc[seed] < stopD)
+            if (cand.BranchOf < 0 && m_DAcc[seed] < stopD)
             {
                 m_Result.Rejects[(int)AutoReject.TopTaken]++;
                 return;
             }
             // Trail merge: stop where the centerline reaches an accepted run's gap; the end then tapers to MergeGapM
             int start = cand.PathStart, len = 1;
+            if (cand.BranchOf >= 0)
+                while (len < cand.PathLen - 1 && m_DAcc[m_Paths[start + len]] < stopD)
+                    len++;   // a fan branch starts on its parent: the merge search begins where it leaves the parent's gap
             bool merge = false;
             for (; len < cand.PathLen; len++)
                 if (m_DAcc[m_Paths[start + len]] < stopD)
@@ -694,6 +703,9 @@ namespace SkiResortMod.Systems
                     merge = true;
                     break;
                 }
+            m_SelApproach = 0f;
+            if (merge && FansOn)
+                len = FanApproach(start, len, cand.PathLen, k, out m_SelApproach);   // A5: a converging fan line runs on to the v1 gap
             m_SelCand = cand;
             m_SelGap = gap;
             m_SelStopD = stopD;
@@ -703,7 +715,7 @@ namespace SkiResortMod.Systems
             m_SelRerouted = -1;
             // Reroute (P2): when the merge would cut the line short (the converging fall lines of natural terrain), find the pass's
             // cheapest line around the accepted runs instead: to the base with a tree island between, or beside a run to a lower merge
-            if (merge && PathLength(start, len) < RerouteShare * cand.LengthM)
+            if (merge && cand.BranchOf < 0 && PathLength(start, len) < RerouteShare * cand.LengthM)
             {
                 RerouteBegin(seed, k, stopD, m_Paths[start + len]);
                 m_SelPhase = 1;
@@ -727,6 +739,7 @@ namespace SkiResortMod.Systems
                     m_SelStart = at;
                     m_SelLen = keep;
                     m_SelMerge = merges;
+                    m_SelApproach = 0f;
                 }
             }
             BeginBuild();
@@ -927,6 +940,10 @@ namespace SkiResortMod.Systems
                     if (PathLength(start, m_BKeep) < MinLengthM)
                         return AutoReject.TooShort;   // F: a cut-back line is still at least MinLengthM
                 }
+                else if (FansOn && FanPodFull(path, area, cand.Cluster))
+                {
+                    return AutoReject.PodFull;   // A5: the pod's developable cap
+                }
                 else
                 {
                     m_PendRing = ring;
@@ -1081,7 +1098,9 @@ namespace SkiResortMod.Systems
                 for (int i = 0; i < p.Count && ok; i++)
                 {
                     float toEnd = p.LengthM - p.S[i];
-                    float g = merge && toEnd < MergeTaperM ? MergeGapM : gap;
+                    float g = merge && toEnd < MergeTaperM ? MergeGapM : merge && toEnd < m_SelApproach ? FanNearGap(k) : gap;
+                    if (cand.BranchOf >= 0)
+                        g = Math.Min(g, BranchGap(gap, p.S[i]));
                     ok = Cell(p.Xz[i], out int c) && (m_Flags[c] & (FOpen | FCliff)) == FOpen && m_O[c] < ceil && !(m_DAcc[c] < g) &&
                          !(m_DEdge[c] < 0.5f * EdgeSeedMarginM);
                 }
@@ -1098,15 +1117,20 @@ namespace SkiResortMod.Systems
             Grow(ref m_HwL, n);
             Grow(ref m_HwR, n);
             float half = 0.5f * TargetWidthM[k] * scale;
+            bool fans = FansOn, widenEnd = fans && (merge || m_Pred[k][m_Paths[start + count - 1]] == PredSource);
             int pinched = 0;
             for (int i = 0; i < n; i++)
             {
                 float toEnd = path.LengthM - path.S[i];
-                float g = merge && toEnd < MergeTaperM ? MergeGapM + (gap - MergeGapM) * toEnd / MergeTaperM : gap;
+                float ga = merge && toEnd < m_SelApproach ? FanNearGap(k) : gap;   // A5: the merge approach keeps the v1 gap
+                float g = merge && toEnd < MergeTaperM ? MergeGapM + (ga - MergeGapM) * toEnd / MergeTaperM : ga;
+                if (cand.BranchOf >= 0)
+                    g = Math.Min(g, BranchGap(gap, path.S[i]));
                 float2 t = math.normalizesafe(path.Xz[Math.Min(i + 1, n - 1)] - path.Xz[Math.Max(i - 1, 0)], new float2(1f, 0f));
                 float2 nl = new float2(-t.y, t.x);
-                m_HwL[i] = March(path.Xz[i], nl, half, ceil, g);
-                m_HwR[i] = March(path.Xz[i], -nl, half, ceil, g);
+                float hw = fans ? FanHalfWidth(k, half, toEnd, widenEnd, path.Xz[i]) : half;   // A5: bowls, merge zones
+                m_HwL[i] = March(path.Xz[i], nl, hw, ceil, g);
+                m_HwR[i] = March(path.Xz[i], -nl, hw, ceil, g);
             }
             // Conservative smoothing: each half width is the minimum of itself and its two neighbors
             for (int side = 0; side < 2; side++)
@@ -1168,7 +1192,7 @@ namespace SkiResortMod.Systems
                 if (mergeInto >= 0 && RingDistance(ring, m_Accepted[mergeInto].Ring, JunctionReachM, out _, out _, out _, out _) > JunctionReachM)
                     mergeInto = -1;
             }
-            return CheckRing(ring, gap, mergeInto);
+            return CheckRing(ring, gap, mergeInto, cand.BranchOf);
         }
 
         /// <summary>Free half width along dir: steps of MarchStepM until a cell is not open, is cliff, is at or over the pass's hard
@@ -1191,7 +1215,7 @@ namespace SkiResortMod.Systems
         /// <summary>The authoritative pre-check (skeptic: the engine is not a safety net with Anarchy on): the ring lies inside the
         /// region and the map, keeps every hard obstacle's clearance, and keeps ExactGapShare of the gap from every accepted run
         /// (MergeGapM from the run it merges into).</summary>
-        private AutoReject CheckRing(float2[] ring, float gap, int mergeInto)
+        private AutoReject CheckRing(float2[] ring, float gap, int mergeInto, int branchOf = -1)
         {
             HeightSnapshot snap = m_In.Snapshot;
             for (int i = 0; i < ring.Length; i++)
@@ -1211,7 +1235,7 @@ namespace SkiResortMod.Systems
             for (int a = 0; a < m_Accepted.Count; a++)
             {
                 Accepted acc = m_Accepted[a];
-                float need = a == mergeInto ? MergeGapM : ExactGapShare * Math.Min(gap, acc.GapM);
+                float need = a == mergeInto || a == branchOf ? MergeGapM : ExactGapShare * Math.Min(gap, acc.GapM);
                 if (math.any(acc.Hi < lo - need) || math.any(acc.Lo > hi + need))
                     continue;
                 if (RingDistance(ring, acc.Ring, need, out _, out _, out _, out _) < need)
@@ -1268,7 +1292,7 @@ namespace SkiResortMod.Systems
             {
                 Cand = cand, Ring = ring, Band = res.Band, RatingGrade = res.RatingGrade, MeanGrade = res.MeanGrade,
                 SteepestGrade = res.SteepestGrade, DropM = res.Drop, AreaM2 = (float)PolygonArea(ring), LengthM = res.Length, TopY = res.MaxHeight,
-                BottomY = res.MinHeight, GapM = gap, Merge = merge, MergeInto = merge ? mergeInto : -1,
+                BottomY = res.MinHeight, GapM = gap, Merge = merge, MergeInto = merge ? mergeInto : -1, BranchOf = cand.BranchOf,
             };
             BBox(ring, out acc.Lo, out acc.Hi);
             acc.Centerline = new float2[path.Count];
@@ -1319,7 +1343,8 @@ namespace SkiResortMod.Systems
                     }
             }
             // Local chamfer: only distances under the widest gap plus the widest half width matter
-            int r = (int)math.ceil((SparseGapM + 0.5f * TargetWidthM[0] + MinHalfWidthM + WidthMarginM) / m_Texel) + 2;
+            int r = FansOn ? (int)math.ceil(FanChamferM() / m_Texel) + 2   // A5: the fan gaps are wider than v1's
+                : (int)math.ceil((SparseGapM + 0.5f * TargetWidthM[0] + MinHalfWidthM + WidthMarginM) / m_Texel) + 2;
             // The passes run in row chunks after this unit (m_SelPhase 4 and 5): a long diagonal run's box nears the lattice at 9 km2
             m_ChI0 = Math.Max(0, mi0 - r);
             m_ChI1 = Math.Min(m_Nx - 1, mi1 + r);
@@ -1470,7 +1495,7 @@ namespace SkiResortMod.Systems
                 work += ra.Length * rb.Length;
                 if (TopmostPair(ra, rb, ref sampler, out float2 pa, out int ea, out float2 pb, out int eb))
                     m_Pairs.Add(new JunctionDraft { A = a, B = b, PA = pa, PB = pb, EA = ea, EB = eb });
-                int into = accB.MergeInto == a ? b : accA.MergeInto == b ? a : -1;
+                int into = accB.MergeInto == a || accB.BranchOf == a ? b : accA.MergeInto == b ? a : -1;   // a fan branch joins its parent: a merge pair
                 if (into >= 0 && RingDistance(ra, rb, JunctionReachM, out float2 qa, out float2 qb, out int fa, out int fb) <= JunctionReachM)
                 {
                     bool dup = m_Pairs.Count > 0 && m_Pairs[m_Pairs.Count - 1].A == a && m_Pairs[m_Pairs.Count - 1].B == b &&
@@ -1641,6 +1666,8 @@ namespace SkiResortMod.Systems
         {
             long t0 = System.Diagnostics.Stopwatch.GetTimestamp();
             FinishResort(res);
+            if (res.Resort != null && res.Resort.RunLift.Length != res.Runs.Count)
+                FanRunPlan(res.Resort, res);   // A5: RunLift / RunPod / PodRuns until FinishResort (A6) calls it itself
             AddResortUnit(SlotFlow, (float)((System.Diagnostics.Stopwatch.GetTimestamp() - t0) * 1000.0 / System.Diagnostics.Stopwatch.Frequency));
             if (res.Resort == null)
                 res.Resort = new ResortPlan();

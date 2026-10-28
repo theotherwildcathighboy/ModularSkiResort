@@ -147,7 +147,7 @@ namespace AutoGenBatch
 
             // V1-2 / V1-4: Runs mode allocates nothing of v2; Resort keeps the refusal ladder (same status as Runs)
             V2Emit(c, new Gate("V1-2", v1.Resort == null && pRuns.ResortLayerBytes == 0 && (r.Status != AutoPlanStatus.Ok || r.Resort != null), 0, "Runs mode: no ResortPlan and no v2 layers; Resort mode: a plan whenever the scan is Ok"), false);
-            V2Emit(c, new Gate("V1-4", r.Status == v1.Status, 0, $"Resort status {r.Status}, Runs status {v1.Status}"), false);
+            V2Emit(c, new Gate("V1-4", r.Status == v1.Status || (v1.Status == AutoPlanStatus.NoRuns && r.Status == AutoPlanStatus.Ok), 0, $"Resort status {r.Status}, Runs status {v1.Status}"), false);   // NoRuns is a selection outcome, not a refusal: the A5 fans may find runs v1 did not
 
             bool ok = r.Status == AutoPlanStatus.Ok && r.Resort != null;
             if (ok)
@@ -162,6 +162,7 @@ namespace AutoGenBatch
 
             ResortPlan p = r.Resort;
             LiftCase(c, inRes, pRes, r);   // A4: P-5, S-7 (synthetic), lift invariants, the per-region lift REPORT
+            FanCase(c, pRes, r, v1);   // A5: the per-region fan REPORT line
             bool softFans = c.Steeper || r.MeanGrade >= 0.45f;
             var sampler = new SnapshotSampler(snap);
             var grid = new SlopeGrid();
@@ -224,7 +225,7 @@ namespace AutoGenBatch
         {
             var input = new AutoPlanInput
             {
-                Snapshot = template.Snapshot, Region = region ?? template.Region, Obstacles = template.Obstacles, Knobs = knobs, Mode = template.Mode,
+                Snapshot = template.Snapshot, Region = region ?? template.Region, Obstacles = template.Obstacles, Knobs = knobs, Mode = template.Mode, Pinned = template.Pinned,
             };
             return new SkiRunAutoPlanner().Run(input).Fingerprint;
         }

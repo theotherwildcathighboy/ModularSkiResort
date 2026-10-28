@@ -42,7 +42,7 @@ namespace AutoGenBatch
                 Check(rRuns.Resort == null && pRuns.ResortLayerBytes == 0, w, "Runs mode allocated v2 state");
                 Check(!rRuns.Canceled && Math.Abs(pRuns.ProgressVolatile - 1f) < 1e-6f, w, "Runs: ProgressVolatile after Done = " + pRuns.ProgressVolatile);
 
-                // Resort mode, stubs: the v1 runs plus an empty plan
+                // Resort mode: a plan with pads, pods, lifts and fans
                 AutoPlanInput ri = Input(f, region);
                 ri.Mode = AutoPlanMode.Resort;
                 var pRes = new SkiRunAutoPlanner();
@@ -50,8 +50,7 @@ namespace AutoGenBatch
                 Check(rRes.Status == AutoPlanStatus.Ok && rRes.Resort != null, w, "Resort: " + rRes.Status + ", plan " + (rRes.Resort != null));
                 if (rRes.Resort == null)
                     continue;
-                Check(rRes.Fingerprint == rRuns.Fingerprint, w, "A0 stub: Resort fingerprint differs from Runs (the stubs must not change runs)");
-                Check(rRes.Runs.Count == rRuns.Runs.Count && rRes.Warnings == rRuns.Warnings, w, "A0 stub: Resort runs / warnings differ from Runs");
+                Check(rRes.Runs.Count > 0, w, "Resort: no runs");   // A5: the fans plan their own runs (the A0 "same runs as Runs" checks are gone)
                 // A3: pads and pods are real (Terrain / PodRoute / Pods); their invariants are the Terrain suite's
                 Check(rRes.Resort.Pads.Length > 0 && rRes.Resort.Pods.Length > 0, w,
                       "Resort: no pads / pods (" + rRes.Resort.Pads.Length + " / " + rRes.Resort.Pods.Length + ")");

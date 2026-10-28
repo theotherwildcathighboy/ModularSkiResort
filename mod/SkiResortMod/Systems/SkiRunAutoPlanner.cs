@@ -77,6 +77,7 @@ namespace SkiResortMod.Systems
         Flat,        // rated Flat
         RatingCap,   // MaxRatings reached
         MergeStub,   // a merged line keeps under MergeKeepShare of its free line and under MergeKeepM (review F12: was TooShort)
+        PodFull,     // Resort: the ring would take its pod past DevelopableShare x SkiableAreaM2 (spec 4.5, Fans.cs)
         Count,
     }
 
