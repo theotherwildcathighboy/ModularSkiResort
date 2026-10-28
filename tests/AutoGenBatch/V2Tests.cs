@@ -22,8 +22,9 @@ namespace AutoGenBatch
             "V1-2", "V1-3", "V1-4", "D-1", "D-2", "D-3", "P-1", "P-2", "P-3", "P-4",
             "S-4", "S-5", "S-6", "S-7", "P-5",   // A4
             "H-1", "H-2", "H-3", "H-5", "H-6", "F-10",   // A6 (H-5 / H-6 stay SOFT: V2AlwaysSoft)
-            "F-9",   // A-R round 1 (calibration f): the redefined kept share where the fans run. H-4 / F-2 / F-5 are coded to their
+            "F-9",   // A-R round 1 (calibration f): the redefined kept share where the fans run. H-4 / F-2 are coded to their
                      // armed definitions but stay REPORT: their -- v2 misses need planner work past this round (EngineNotes ResortPlanner.md)
+            "F-5",   // DECISIONS 455: the 30 m near gap; the floor is the gap plus a pinch half width outside merge and split zones
         };
 
         /// <summary>IDs that stay REPORT even when armed: SOFT in the gates table (F-8, H-5 for pinned-only plans, H-6, the bottom height).</summary>

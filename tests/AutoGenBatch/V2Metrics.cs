@@ -327,14 +327,20 @@ namespace AutoGenBatch
             return G("F-4", share >= 0.30 && share <= 0.65, share, $"{F(share * 100, "0")} % of run tops start on another run (want 30-65, target 40-60)");
         }
 
-        /// <summary>F-5 (armed half, calibration f): no neighbor pair in a pod closer than 40 m outside a merge zone (samples within 60 m
-        /// of a junction of the pair are not counted).</summary>
+        /// <summary>F-5 floor (DECISIONS 455): the planner's near gap plus a pinch half width between neighbor centerlines in a pod outside
+        /// merge and split zones (samples within 60 m of a junction of the pair, or within SplitZoneM of a run end that lies on the other run,
+        /// are not counted).</summary>
+        /// The planner keeps the gap on the distance lattice, so one heightmap texel (3.5 m) of raster tolerance comes off (34 m at the 30 m gap).
+        public static readonly double F5FloorM = Math.Floor(SkiRunAutoPlanner.FanNearGapM + SkiRunAutoPlanner.MinHalfWidthM - 3.5f);
+
+        /// <summary>F-5 merge / split zone around a run end that lies on the other run: a branch's taper plus a merge taper.</summary>
+        public const float SplitZoneM = SkiRunAutoPlanner.BranchTaperM + SkiRunAutoPlanner.MergeTaperM;
         public static Gate F5Spacing(AutoPlanResult r, ResortPlan p)
         {
             Spacing(r, p, out double med, out double minPair);
             if (double.IsNaN(med))
                 return NA("F-5", "no neighbor runs inside a pod");
-            return G("F-5", minPair >= 40.0, minPair, $"closest pair {F(minPair, "0")} m outside merge zones (want 40+), median spacing {F(med, "0")} m");
+            return G("F-5", minPair >= F5FloorM, minPair, $"closest pair {F(minPair, "0")} m outside merge and split zones (want {F(F5FloorM, "0")}+), median spacing {F(med, "0")} m");
         }
 
         /// <summary>F-5 median (SOFT): median lateral centerline spacing of neighbor runs in a pod 70-140 m.</summary>
@@ -367,7 +373,7 @@ namespace AutoGenBatch
                         double d = PolylineDistance(s, r.Runs[b].Centerline);
                         if (d > 250.0)
                             continue;
-                        if (NearJunction(r, a, b, s))
+                        if (NearJunction(r, a, b, s) || NearSplit(r.Runs[a], r.Runs[b], s))
                             continue;
                         near.Add(d);
                         minPair = Math.Min(minPair, d);
@@ -380,6 +386,23 @@ namespace AutoGenBatch
             }
             medOut = perRun.Count == 0 ? double.NaN : Median(perRun);
             minOut = minPair;
+        }
+
+        /// <summary>True when s lies within SplitZoneM of an end (top or bottom) of either run that lies on the other run (within
+        /// MergeLinkReachM of its centerline): a fan branch leaving its parent, or a line that stops beside another run.</summary>
+        private static bool NearSplit(AutoRun ra, AutoRun rb, float2 s)
+        {
+            return NearEndOn(ra, rb, s) || NearEndOn(rb, ra, s);
+        }
+
+        private static bool NearEndOn(AutoRun x, AutoRun other, float2 s)
+        {
+            float2[] cl = x.Centerline;
+            if (cl == null || cl.Length == 0)
+                return false;
+            float2 top = cl[0], bottom = cl[cl.Length - 1];
+            return (math.distance(s, top) <= SplitZoneM && PolylineDistance(top, other.Centerline) <= SkiRunAutoPlanner.MergeLinkReachM) ||
+                   (math.distance(s, bottom) <= SplitZoneM && PolylineDistance(bottom, other.Centerline) <= SkiRunAutoPlanner.MergeLinkReachM);
         }
 
         private static bool NearJunction(AutoPlanResult r, int a, int b, float2 s)

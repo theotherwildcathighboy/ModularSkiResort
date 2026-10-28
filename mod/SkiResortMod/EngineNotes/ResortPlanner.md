@@ -300,7 +300,7 @@ buckets PodFull with the overlaps. Tests: PlanTypes drops the two A0 stub checks
   top (every 50 m, both sides, the first cell MergeGapM + half width out). A branch keeps the near gap and must leave it within 150 m.
 - **Merge approach** (the main finding): with one sink per lift the fall lines converge radially, so a second line enters the 100 m
   fan gap long before it meets the first, and a merge there cuts it to a stub. A line that enters a fan gap merges where it reaches the
-  near gap (`max(v1 GapOf, 26 m)`, so centerlines stay 40 m apart for F-5) if that is within `MergeApproachM` 200 m; BuildRing keeps
+  near gap (`max(v1 GapOf, 30 m)`, DECISIONS 455; centerlines stay at least 37 m apart outside merge and split zones, F-5) if that is within `MergeApproachM` 200 m; BuildRing keeps
   the near gap on that stretch. Tried and dropped: a greedy traverse that leads a branch out of its parent's gap (more Overlap rejects,
   fewer runs) and SinkPadM 250 m (F-3 broke, fewer runs).
 - **Results** (Normal, synthetic, v1 -> fans): Alpine1 48 -> 14 runs [7, 3, 4] per lift, Alpine2 48 -> 9 [7, 1, 1], Alpine3 48 -> 15

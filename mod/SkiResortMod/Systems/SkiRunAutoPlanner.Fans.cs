@@ -42,7 +42,7 @@ namespace SkiResortMod.Systems
         public const float SinkPadM = 90f, SinkDiscM = LinkMeters, SinkTopKeepM = 60f;
         public const float BranchFromM = 100f, BranchToM = 400f, BranchStepM = 50f, BranchTaperM = 60f, BranchLeaveM = 150f, BranchSearchM = 60f;
         public const float MergeZoneM = 60f, MergeZoneWiden = 1.5f, BowlWidthM = 60f;
-        public const float MergeApproachM = 200f, FanNearGapM = 26f, FanLenSlackM = 30f, BranchTopFromM = 20f;
+        public const float MergeApproachM = 200f, FanNearGapM = 30f, FanLenSlackM = 30f, BranchTopFromM = 20f;
         public const int BranchRunsPerUnit = 2;
         /// <summary>Pick preferences inside one band tier: a branch, a seed whose route ends on the lift's own bottom.</summary>
         public const double BranchBonus = 1.5, OtherSinkFactor = 0.8;
@@ -164,8 +164,8 @@ namespace SkiResortMod.Systems
         /// <summary>Gap between neighbor runs: the density's centerline spacing minus the class width, at least the v1 Dense gap.</summary>
         private float FanGap(int pass) => Math.Max(DenseGapM, FanSpacingM[(int)m_Knobs.Density] - TargetWidthM[pass]);
 
-        /// <summary>The gap a fan line keeps on its last MergeApproachM before a merge: the v1 gap, at least FanNearGapM (neighbor centerlines
-        /// stay 40 m apart outside the merge zone, F-5).</summary>
+        /// <summary>The gap a fan line keeps on its last MergeApproachM before a merge: the v1 gap, at least FanNearGapM 30 m (DECISIONS 455;
+        /// neighbor centerlines stay at least the gap plus a pinch half width apart outside merge and split zones, F-5).</summary>
         private float FanLineGap(int pass, bool branch) => branch ? FanNearGap(pass) : FanGap(pass);
         private float FanNearGap(int pass) => Math.Max(GapOf(m_Knobs.Density, TargetWidthM[pass]), FanNearGapM);
 
