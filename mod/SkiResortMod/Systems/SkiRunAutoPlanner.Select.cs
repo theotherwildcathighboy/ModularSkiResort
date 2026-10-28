@@ -1666,8 +1666,6 @@ namespace SkiResortMod.Systems
         {
             long t0 = System.Diagnostics.Stopwatch.GetTimestamp();
             FinishResort(res);
-            if (res.Resort != null && res.Resort.RunLift.Length != res.Runs.Count)
-                FanRunPlan(res.Resort, res);   // A5: RunLift / RunPod / PodRuns until FinishResort (A6) calls it itself
             AddResortUnit(SlotFlow, (float)((System.Diagnostics.Stopwatch.GetTimestamp() - t0) * 1000.0 / System.Diagnostics.Stopwatch.Frequency));
             if (res.Resort == null)
                 res.Resort = new ResortPlan();

@@ -401,7 +401,7 @@ namespace AutoGenBatch
                 return;
             }
             PlanLift src = p.Lifts[0];
-            AutoPlanInput pi = ResortInput(input);
+            AutoPlanInput pi = new AutoPlanInput { Snapshot = input.Snapshot, Region = input.Region, Obstacles = input.Obstacles, Knobs = input.Knobs, Mode = AutoPlanMode.Resort };   // a copy: the case input stays unpinned for D-1..D-3
             pi.Pinned = new List<PinnedLift> { Pin(777u, src, src.Bottom, src.Top) };
             AutoPlanResult pr = new SkiRunAutoPlanner().Run(pi);
             V2Emit(c, pr.Resort != null ? V2Metrics.S7Pinned(pr.Resort, pi.Pinned) : new Gate("S-7", false, 1, "no plan with the pinned lift: " + pr.Status), false);

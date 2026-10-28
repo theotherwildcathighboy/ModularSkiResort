@@ -51,6 +51,7 @@ namespace AutoGenBatch
                 if (rRes.Resort == null)
                     continue;
                 Check(rRes.Runs.Count > 0, w, "Resort: no runs");   // A5: the fans plan their own runs (the A0 "same runs as Runs" checks are gone)
+                Check(rRes.Fingerprint != rRuns.Fingerprint && rRes.Resort.Fingerprint != 0UL, w, "A6: the plan fingerprint is not folded into the Resort fingerprint");
                 // A3: pads and pods are real (Terrain / PodRoute / Pods); their invariants are the Terrain suite's
                 Check(rRes.Resort.Pads.Length > 0 && rRes.Resort.Pods.Length > 0, w,
                       "Resort: no pads / pods (" + rRes.Resort.Pads.Length + " / " + rRes.Resort.Pods.Length + ")");

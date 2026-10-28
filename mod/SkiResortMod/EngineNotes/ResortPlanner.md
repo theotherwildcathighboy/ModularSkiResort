@@ -237,7 +237,7 @@ Line edits elsewhere: Select.cs (all behind `FansOn`, so Runs mode is bit-identi
 `Accepted.MergeInto / BranchOf`, the `FanPick` call in UnitSelect, BeginAttempt (fan gap, no TopTaken for a branch, the merge search after
 the branch leaves its parent, `FanApproach`), AttemptStep (`PodFull`), BuildRing (branch taper, approach gap, `FanHalfWidth`), CheckRing
 (MergeGapM to the branch parent), Rate (chamfer reach `FanChamferM`), FinishPairs (a branch and its parent are a merge pair),
-FinishResortUnit (`FanRunPlan` when RunLift is not filled yet); SkiRunAutoPlanner.cs appends `AutoReject.PodFull`; QuickRunsRules.cs
+Flow.cs `FinishResort` calls `FanRunPlan` (merge with A6); SkiRunAutoPlanner.cs appends `AutoReject.PodFull`; QuickRunsRules.cs
 buckets PodFull with the overlaps. Tests: PlanTypes drops the two A0 stub checks; V2Tests calls `FanCase` per region, `V2Fresh` copies
 `Pinned` and V1-4 accepts Runs NoRuns -> Resort Ok (see below). V2Hard is NOT armed for F-1..F-10 (calibration, below).
 
@@ -272,7 +272,53 @@ buckets PodFull with the overlaps. Tests: PlanTypes drops the two A0 stub checks
   `FanDropWhy(0..3)`, `FanBranchCandidates`.
 
 ### A6 way home
-(not started)
+
+Files: `.Flow.cs` (`FinishResort` body), `tests/AutoGenBatch/FlowTests.cs`. Line edits elsewhere: `V2Tests.cs` arms H-1, H-2, H-3,
+H-5, H-6, F-10 in `V2Hard` (H-5 / H-6 stay SOFT) and passes `p.Lifts.Length == 0` as the soft argument of H-1..H-3 (n/a without a lift
+is no miss); `PlanTypes.cs` replaces the "A0 stub" fingerprint check by "the plan fingerprint is folded in" and compares the v1 warnings
+only (the three v2 flags masked); `LiftTests.cs` `LiftCase` builds its pinned input as a copy (it set `Pinned` on the matrix's shared
+input, so D-1..D-3 compared a pinned planner against unpinned fresh runs once the plan fingerprint counted).
+
+- **Hook**: `FinishResort` (the only Finish hook, one unit, after v1 kinds / clusters / warnings) runs `TerrainPlan`, `LiftPlan` (A3 / A4
+  lines kept), then RunPod / PodRuns, RunLift, the graph, ways home, mix and hull, site inputs, pod clusters, the Download / DeadEnd
+  warnings, `ResortPlan.Fingerprint` (never 0, so `AutoPlanResult.Fingerprint` folds it; Resort and Runs fingerprints now differ).
+  Home knob Reselect = the Finish restart (A0); D-3 Home passes.
+- **RunPod / RunLift**: A5's `FanRunPlan` (Fans.cs, called from `FinishResort` right after `LiftPlan`): RunLift = the seeding lift,
+  RunPod / PodRuns / RunFirst / RunCount as in the A5 section. It runs before `PodClusters`, which then makes `AutoRun.Cluster` the
+  pod: after Finish the seeding lift is `plan.RunLift`, never `Cluster`. (A6's served-rule RunLift and top-cell RunPod were dropped
+  at the merge.)
+- **Graph** (`PlanEdge`, nodes: pads, then run top / bottom pairs, then lift bottom / top pairs): run edges (rated band); links from a
+  run bottom to run B's bottom with B's band when the bottom is inside or within `LinkMeters` of B's outline or the run merges into B
+  (`MergeInto`: v1 merge bottoms lie 25-26 m from B's outline, the junction pair is the link); bottom -> every pad with a cell within
+  25 m; bottom -> a lift bottom within 25 m; lift bottom <-> its BottomPad; lift top -> TopPad; lift top -> every run top within
+  `LiftNearM` 100 m (the F-2 radius, and the host oracle's); lift edges uphill; cat tracks (obstacle outlines) join every node they touch,
+  Green, both directions.
+- **Ways home**: `EasiestDescent` (public static, pure: Dijkstra over (hardest band, meters), ties by node index, lift edges excluded,
+  the top's link onto its own TopPad excluded: a top on a base pad still needs a run; a cat track from the top counts). Targets: the
+  lift's bottom node, its BottomPad, every base pad. Wanted = the knob (Auto: Green on a base BottomPad, else Blue). Home = the band
+  (Flat counts as Green) when at most Wanted, else Download (spec 4.6 literally: Black / DoubleBlack are never set in stage A; HomeRun
+  is kept for any path). Pinned lifts with neither station in the region box get None (no log on the worker; the tool may log it).
+- **Dead ends**: a run bottom with no outgoing edge that is not on an existing run (obstacle) or a cat track.
+- **Mix / density**: `MountainMix` = run-km share per stored band (F-10 equals the host re-rate on all 54 regions); RunKm; HullKm2 =
+  convex hull of ring vertices and lift stations grown 50 m (Steiner, the host's `HullKm2` formula); RunKmPerKm2.
+- **Site inputs**: `Kind` = `QuickRunsRules.SiteTierOf(SitePercent(MeanGrade))` (the v1 line, unchanged), MeanGrade, SteepShare, largest
+  bench pad (ha), largest base pad (`BaseBenchHa`), pods, pods whose lift has a Green verdict.
+- **Clusters**: one per pod (Center TopCenter, Pod, PodBand = `ScoreBandOf(PrimaryClass)`), plus one trailing plain cluster for runs
+  outside every pod (the V1-3 invariant: every run has a cluster); `AutoRun.Cluster` = its pod (or that trailing index).
+- **Flow suite**: hand graph (minimax beats a shorter black run, regrade flips it, length ties, no path, top-pad hop vs cat track);
+  per fixture (Alpine1 lower / full, Benched1, Steep1 = the dead-end fixture): H-1..H-3, F-10 HARD, H-4..H-6 REPORT, graph shape,
+  dead ends recounted from the graph, warnings, RunPod / PodRuns / clusters, mix, hull, site, fold, the Home knob's monotonicity; a cat
+  track from a Download lift's top to the base pad makes it Green.
+
+Measured (`-- v2`, v1-shaped runs, A5 not merged): H-1 / H-2 / H-3 45 ok, 9 n/a (no lift); F-10 54 ok; H-4 25 ok / 29 over 5 %; H-5 6 ok;
+D-1..D-3 all ok; P-1 54 ok. **Every lift is Download** (108 lifts): 76 have no run top within 100 m of their top, the rest reach only
+black / double black runs (A4's Serves is low for the same reason). Dead ends come from v1 runs ending in the base band where no pad
+lies (Steep1: 9 of 12). Both are what A5's fans (seeded at lift tops, sinks at bottom pads) change; the per-fixture table is in the
+handover note.
+
+After A5 merges: arm H-4; recheck H-2 against the host (the host oracle uses centerline bottoms and pad discs, the planner merge links
+and pad cells: a mismatch shows up as an H-2 FAIL, not silently); RunLift = the seeding lift if A5 records it; the PlanTypes "A0 stub:
+Resort runs / v1 warnings differ" check goes (A5 changes runs); H-5 and H-6 numbers for the A-R calibration.
 
 ### A7 hub + tooltips
 Files: `QuickRunsToolSystem.cs` (header, knobs, input pick), NEW `QuickRunsToolSystem.Plan.cs` (toggles, picks, plan around), NEW pure
