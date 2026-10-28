@@ -145,14 +145,14 @@ namespace SkiResortMod.Systems
             LaunchScan(input, m_PendingOnMain, false);
         }
 
-        /// <summary>A knob changed in Preview or Scanning (SetKnobs). No job running and the planner's field intact: Reselect and resume
+        /// <summary>A knob changed in Preview or Scanning (SetKnobs). No job running (a worker job in flight or a main-thread scan being stepped both count) and the planner's field intact: Reselect and resume
         /// on the worker (Reselect only sets the restart stage). Else a running job is canceled first and the region scans again with the
         /// new knobs (a canceled planner drops its field: Reselect refuses, SkiRunAutoPlanner.CancelScan).</summary>
         private void RescanForKnobs(string name)
         {
             if (m_Disabled || !PollScanJob(true))
                 return;
-            if (!ScanJobInFlight && m_PendingInput == null && m_ScanCancel != null && !m_ScanCancel.Requested && m_Planner.Reselect(m_Knobs))
+            if (!ScanJobInFlight && !m_ScanSlicing && m_PendingInput == null && m_ScanCancel != null && !m_ScanCancel.Requested && m_Planner.Reselect(m_Knobs))
             {
                 long t0 = System.Diagnostics.Stopwatch.GetTimestamp();
                 bool onMain = SkiResortSettings.PlannerOnMainThreadOn;

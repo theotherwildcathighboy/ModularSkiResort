@@ -132,7 +132,7 @@ function StepLines({ q, t }: { q: QuickRunsState; t: Translate }): JSX.Element {
     if (site) lines.push(site);
     if (q.plan.sitePods > 0)
       lines.push(<LocText key="siteDetail" entry={HUB_FMT.quickSiteDetail} args={{
-        G: numArg(q.plan.siteGreenHome, Unit.Integer), PODS: numArg(q.plan.sitePods, Unit.Integer), HA: numArg(q.plan.siteBenchHa, Unit.Integer),
+        G: numArg(q.plan.siteGreenHome, Unit.Integer), PODS: numArg(q.plan.sitePods, Unit.Integer), HA: numArg(q.plan.siteBenchHa, Unit.FloatSingleFraction),
       }} />);
     lines.push(<>{t(HUB_LOC.quickPreviewHint)}</>);
   } else if (building(q)) {
@@ -141,7 +141,7 @@ function StepLines({ q, t }: { q: QuickRunsState; t: Translate }): JSX.Element {
     lines.push(<>{t(HUB_LOC.quickBuilding)}</>);
   } else if (q.corners < 3) {
     lines.push(<>{t(HUB_LOC.quickStart)}</>);
-    if (q.corners === 0) lines.push(<>{t(HUB_LOC.quickAroundLift)}</>);
+    if (q.corners === 0 && q.canPlanAround) lines.push(<>{t(HUB_LOC.quickAroundLift)}</>);
   } else {
     lines.push(<LocText key="region" entry={HUB_FMT.quickRegion} args={{
       N: numArg(q.corners, Unit.Integer), AREA: numArg(q.areaM2, Unit.Area), MAX: numArg(q.maxAreaM2, Unit.Area), V: numArg(q.verticalM, Unit.Length),
@@ -243,7 +243,7 @@ function PlanRows({ q, t, wait }: { q: QuickRunsState; t: Translate; wait: boole
   if (q.phase !== "Preview" || (q.pods.length === 0 && q.planLifts.length === 0)) return null;
   const p = q.plan;
   const mix = p.mountainMix;
-  const mixSum = (mix[1] ?? 0) + (mix[2] ?? 0) + (mix[3] ?? 0) + (mix[4] ?? 0);
+  const mixSum = (mix[1] ?? 0) + (mix[2] ?? 0) + (mix[3] ?? 0);
   return (
     <>
       <div className={styles.quickLine}>
@@ -254,7 +254,7 @@ function PlanRows({ q, t, wait }: { q: QuickRunsState; t: Translate; wait: boole
       {mixSum > 0 && (
         <div className={styles.quickLine}>
           <LocText entry={HUB_FMT.quickMixHonest} args={{
-            G: numArg(mix[1] ?? 0, Unit.Integer), B: numArg(mix[2] ?? 0, Unit.Integer), K: numArg((mix[3] ?? 0) + (mix[4] ?? 0), Unit.Integer),
+            G: numArg(mix[1] ?? 0, Unit.Integer), B: numArg(mix[2] ?? 0, Unit.Integer), K: numArg(mix[3] ?? 0, Unit.Integer),
           }} />
         </div>
       )}

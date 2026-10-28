@@ -20,7 +20,7 @@ export const GROUP = "skiResort";
  * only when C#'s `contract` equals this; on a mismatch it shows the Build strip and the tree controls (CORE only) and
  * says why.
  */
-export const HUB_CONTRACT = 22;
+export const HUB_CONTRACT = 23;
 
 /** The `contract` value while the C# binding is absent (the fallback). Real contracts start at 1. */
 export const CONTRACT_ABSENT = 0;
@@ -187,7 +187,7 @@ export interface BuildItem {
   /** One of BUILD_ITEM_IDS (typed as string: treat an unknown id as "not for this bundle"). */
   id: string;
   /** Locked by progression, a missing prefab, no sign for an upgrade item, or already on the shown
-   *  sign (ForbidMultiple: the school; a lodge tier only if its prefab still has m_ForbidMultiple â€” the prefab flag decides until the surgery sets it false); `reason` says why. */
+   *  sign (ForbidMultiple: the school; a lodge tier only if its prefab still has m_ForbidMultiple - the prefab flag decides until the surgery sets it false); `reason` says why. */
   locked: boolean;
   /** This item's tool is the active tool (clicking it again returns to the default tool). */
   active: boolean;
@@ -301,9 +301,11 @@ export interface QuickRunsPlan {
   runKm: number;
   runKmPerKm2: number;
   deadEnds: number;
-  /** The terrain's honest mix: whole percents of the run km by rated band (0 Flat, 1 Green, 2 Blue, 3 Black, 4 Double black). */
+  /** The terrain's honest mix in whole percents of the run km: [0] Flat, [1] Green, [2] Blue, [3] Black and Double black together,
+   *  [4] always 0. [1..3] are the shares the hub and the tooltip print (one rounded value each; [3] = the rated total minus [1] and [2]). */
   mountainMix: number[];
-  /** The site verdict's detail line (sitePercent / siteTier stay the line): pods, pods with a green way home, the largest bench in ha. */
+  /** The site verdict's detail line (sitePercent / siteTier stay the line): pods a lift serves, how many of them have their way home
+   *  (the verdict meets the level asked for), the largest bench in ha (one decimal). The field keeps its stage A name. */
   sitePods: number;
   siteGreenHome: number;
   siteBenchHa: number;
@@ -322,6 +324,8 @@ export interface QuickRunsState {
   phase: string;
   /** Region corners placed. */
   corners: number;
+  /** The census knows a lift station: a click on one plans runs around it (the Region step's hint is true only then). */
+  canPlanAround: boolean;
   areaM2: number;
   /** The area cap (9 km2, SkiRunAutoPlanner.V1MaxAreaM2). */
   maxAreaM2: number;
@@ -476,7 +480,7 @@ export interface ResortLive {
   topTempC: number;
   attraction: number;
   attractionFull: number;
-  /** The first provider write after a load is held: the game keeps the saved score (show "â€¦"). */
+  /** The first provider write after a load is held: the game keeps the saved score (show "..."). */
   attractionHeld: boolean;
   lodgesActive: number;
   summer: boolean;
@@ -703,7 +707,7 @@ export interface LiftRow {
   alignKnown: boolean;
   alignOffsetM: number;
   alignYawDeg: number;
-  /** Riders per hour at 1Ã— game speed; -1 unknown. */
+  /** Riders per hour at 1x game speed; -1 unknown. */
   capacityPerHour: number;
   hasBase: boolean;
   hasTop: boolean;
@@ -914,7 +918,7 @@ const EMPTY_LIFTS: readonly LiftRow[] = [];
 const EMPTY_PROBLEMS: readonly ProblemRow[] = [];
 const EMPTY_HISTORY: readonly HistoryArea[] = [];
 const EMPTY_QUICK_RUNS: QuickRunsState = {
-  available: false, active: false, reason: "", phase: "", corners: 0, areaM2: 0, maxAreaM2: 1000000, verticalM: 0, regionState: "Open",
+  available: false, active: false, reason: "", phase: "", corners: 0, canPlanAround: false, areaM2: 0, maxAreaM2: 1000000, verticalM: 0, regionState: "Open",
   progress: 0, mix: 0, density: 1, kinds: 3, runs: 0, enabled: 0, count: [0, 0, 0, 0, 0], target: [0, 0, 0, 0, 0], fee: 0, skiers: 0,
   variety: false, status: "", warnings: [], clusters: [], batchRuns: 0, notice: "", trees: false, treeLevel: GLADE_LEVEL_DEFAULT,
   treeLine: -1, groundMin: 0, groundMax: 0, group: 0, species: 0, speciesNames: [], speciesGroups: [], plant: 0, remove: 0, treesUndo: 0,

@@ -306,8 +306,27 @@ namespace AutoGenBatch
             Check(QuickRunsPlanRules.PodRows(new AutoPlanResult(), null, offPods, offLifts).Length == 0, W, "no plan: no pod rows");
 
             // Picks
-            Check(QuickRunsPlanRules.NearestLift(plan, new float2(5, 300), 15f) == 0 && QuickRunsPlanRules.NearestLift(plan, new float2(795, 300), 15f) == 1 &&
-                  QuickRunsPlanRules.NearestLift(plan, new float2(300, 300), 15f) == -1, W, "a click within 15 m of a chord picks its lift, else none");
+            Check(QuickRunsPlanRules.NearestLift(plan, new float2(5, 300), 15f) == 0 && QuickRunsPlanRules.NearestLift(plan, new float2(300, 300), 15f) == -1,
+                  W, "a click within 15 m of a proposed chord picks its lift, else none");
+            Check(QuickRunsPlanRules.NearestLift(plan, new float2(795, 300), 15f) == -1 && QuickRunsPlanRules.NearestLift(plan, new float2(795, 5), 15f) == 1 &&
+                  QuickRunsPlanRules.NearestLift(plan, new float2(795, 595), 15f) == 1 && QuickRunsPlanRules.NearestLift(plan, new float2(760, 5), 15f) == -1,
+                  W, "a pinned lift is picked only inside its drawn station rings, not along its rope");
+            Check(QuickRunsPlanRules.PickAt(plan, null, new float2(5, 300), out int pickAt) == QuickRunsPlanRules.PlanPickKind.Lift && pickAt == 0 &&
+                  QuickRunsPlanRules.PickAt(plan, null, new float2(780, 520), out pickAt) == QuickRunsPlanRules.PlanPickKind.Pod && pickAt == 1 &&
+                  QuickRunsPlanRules.PickAt(plan, null, new float2(300, 300), out pickAt) == QuickRunsPlanRules.PlanPickKind.None && pickAt == -1,
+                  W, "one shared pick: lift chord, else pod ring, else none (runs sit between them: QuickRunsRules.Pick)");
+            var pickOffPods = new System.Collections.Generic.HashSet<uint>();
+            var pickOffLifts = new System.Collections.Generic.HashSet<uint>();
+            Check(QuickRunsPlanRules.LiftOn(plan, 0, pickOffPods, pickOffLifts) && !QuickRunsPlanRules.LiftOn(plan, 5, pickOffPods, pickOffLifts), W, "a lift reads on when neither it nor its pod is off");
+            pickOffPods.Add(100u);
+            Check(!QuickRunsPlanRules.LiftOn(plan, 0, pickOffPods, pickOffLifts) && QuickRunsPlanRules.LiftOn(plan, 1, pickOffPods, pickOffLifts), W, "a lift row reads off while its pod is off");
+            pickOffPods.Clear();
+            pickOffLifts.Add(7u);
+            Check(!QuickRunsPlanRules.LiftOn(plan, 0, pickOffPods, pickOffLifts), W, "a lift row reads off while the lift is off");
+            QuickRunsPlanRules.MixPercents(new[] { 0f, 0.034f, 0.024f, 0.026f, 0.916f }, out int mixG, out int mixB, out int mixK);
+            Check(mixG == 3 && mixB == 2 && mixK == 95 && mixG + mixB + mixK == 100, W, $"mix shares add up to the rated total ({mixG}/{mixB}/{mixK})");
+            QuickRunsPlanRules.MixPercents(new[] { 0f, 0.5f, 0.25f, 0.125f, 0.125f }, out mixG, out mixB, out mixK);
+            Check(mixG == 50 && mixB == 25 && mixK == 25, W, "mix shares: black carries double black");
             Check(QuickRunsPlanRules.NearestLift(plan, new float2(float.NaN, 0), 15f) == -1, W, "a lift without finite stations has no chord to hit");
             Check(QuickRunsPlanRules.NearestPod(plan, new float2(780, 520), 40f) == 1 && QuickRunsPlanRules.NearestPod(plan, new float2(300, 500), 40f) == -1,
                   W, "a click inside a pod ring picks the pod");
