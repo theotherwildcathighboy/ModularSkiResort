@@ -36,13 +36,51 @@ namespace SkiResortMod.Systems
 
         public const int MaxLifts = 9;
 
+        public enum PlanPickKind { None, Lift, Run, Pod }
+
+        /// <summary>The one pick hover and click share (AR-12): a proposed lift's chord (or a pinned lift's drawn station ring), else a
+        /// run, else a pod ring. index = the lift / run / pod index; -1 with None.</summary>
+        public static PlanPickKind PickAt(ResortPlan plan, IReadOnlyList<AutoRun> runs, float2 p, out int index)
+        {
+            index = NearestLift(plan, p, LiftPickM);
+            if (index >= 0)
+                return PlanPickKind.Lift;
+            index = QuickRunsRules.Pick(p, runs);
+            if (index >= 0)
+                return PlanPickKind.Run;
+            index = NearestPod(plan, p, PodPickM);
+            return index >= 0 ? PlanPickKind.Pod : PlanPickKind.None;
+        }
+
+        /// <summary>The lift row reads on only when the lift AND its pod are on (a pod switched off on the map leaves its lift row off).</summary>
+        public static bool LiftOn(ResortPlan plan, int lift, HashSet<uint> offPods, HashSet<uint> offLifts)
+        {
+            if (plan == null || lift < 0 || lift >= plan.Lifts.Length || offLifts.Contains(plan.Lifts[lift].Key))
+                return false;
+            int pod = plan.Lifts[lift].Pod;
+            return !(pod >= 0 && pod < plan.Pods.Length && offPods.Contains(plan.Pods[pod].Key));
+        }
+
+        /// <summary>The honest mix as three whole percents shared by the hub and the tooltip: green and blue rounded on their own,
+        /// black (with double black) = the rated total (rounded once) minus those two, so the three always add up to the total.</summary>
+        public static void MixPercents(float[] mix, out int green, out int blue, out int black)
+        {
+            green = blue = black = 0;
+            if (mix == null || mix.Length < 5)
+                return;
+            green = (int)Math.Round(mix[1] * 100f);
+            blue = (int)Math.Round(mix[2] * 100f);
+            int rated = (int)Math.Round((mix[1] + mix[2] + mix[3] + mix[4]) * 100f);
+            black = Math.Max(0, rated - green - blue);
+        }
+
         /// <summary>The Lifts knob: 0 = Auto, 1..MaxLifts a cap (the hub sends ints; anything else clamps).</summary>
         public static int ClampLifts(int v) => v < 0 ? 0 : v > MaxLifts ? MaxLifts : v;
 
         /// <summary>The Home knob: 0 Auto, 1 Green, 2 Blue (anything else is Auto).</summary>
         public static HomeLevel ClampHome(int v) => v >= 0 && v <= (int)HomeLevel.Blue ? (HomeLevel)v : HomeLevel.Auto;
 
-        /// <summary>"A", "B", ... by pod id (MaxPods is 12; it wraps after Z).</summary>
+        /// <summary>"A", "B", ... by pod id (MaxPods is 12; it wraps after Z). The one pod letter for the hub, tooltip and world labels.</summary>
         public static string Letter(int podId) => ((char)('A' + (podId < 0 ? 0 : podId % 26))).ToString();
 
         /// <summary>1-based place of the lift among the lifts of its origin, in lift order: "P1", "P2" ... for proposals, "Existing lift" (a
@@ -130,8 +168,9 @@ namespace SkiResortMod.Systems
             return best;
         }
 
-        /// <summary>The lift whose chord (Bottom -> Top, xz) passes within radiusM of the point (nearest), or -1; lifts without finite
-        /// stations (a pinned lift outside the last census build) have no chord to hit.</summary>
+        /// <summary>The lift under the point, or -1: a proposed lift whose chord (Bottom -> Top, xz) passes within radiusM (nearest), or a
+        /// pinned lift whose drawn station ring (the overlay draws only the rings for an existing lift, not its rope) contains the point.
+        /// Lifts without finite stations (a pinned lift outside the last census build) have nothing to hit.</summary>
         public static int NearestLift(ResortPlan plan, float2 p, float radiusM)
         {
             int best = -1;
@@ -143,7 +182,18 @@ namespace SkiResortMod.Systems
                 float2 a = plan.Lifts[i].Bottom.xz, b = plan.Lifts[i].Top.xz;
                 if (!math.all(math.isfinite(a)) || !math.all(math.isfinite(b)))
                     continue;
-                float d = SegDistance(p, a, b);
+                float d;
+                if (plan.Lifts[i].Origin == LiftOrigin.Pinned)
+                {
+                    float[] hds = SkiRunAutoPlanner.StationHalfDiagonalM;
+                    float ring = hds[Math.Min((int)plan.Lifts[i].TypeIndex, hds.Length - 1)];   // half the drawn lot
+                    d = Math.Min(math.distance(p, a), math.distance(p, b));
+                    if (d > ring)
+                        continue;
+                    d = d / ring * radiusM;   // inside the ring: ranked on the pick radius scale
+                }
+                else
+                    d = SegDistance(p, a, b);
                 if (d <= bd)
                 {
                     bd = d;

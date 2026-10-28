@@ -212,20 +212,23 @@ namespace SkiResortMod.Systems
                 .Replace("{KM}", plan.RunKm.ToString("F1", CultureInfo.InvariantCulture)));
             float[] mix = plan.MountainMix;
             if (mix[1] + mix[2] + mix[3] + mix[4] > 0f)
+            {
+                QuickRunsPlanRules.MixPercents(mix, out int mixG, out int mixB, out int mixK);   // the hub prints the same three numbers
                 ShowValue(m_Honest, ref m_LastHonest, Template(P + "MIX_HONEST")
-                    .Replace("{G}", Math.Round(mix[1] * 100f).ToString(CultureInfo.InvariantCulture))
-                    .Replace("{B}", Math.Round(mix[2] * 100f).ToString(CultureInfo.InvariantCulture))
-                    .Replace("{K}", Math.Round((mix[3] + mix[4]) * 100f).ToString(CultureInfo.InvariantCulture)));
+                    .Replace("{G}", mixG.ToString(CultureInfo.InvariantCulture))
+                    .Replace("{B}", mixB.ToString(CultureInfo.InvariantCulture))
+                    .Replace("{K}", mixK.ToString(CultureInfo.InvariantCulture)));
+            }
             if (proposed > 0)
                 Show(m_Proposal, ref m_LastProposal, P + "PROPOSAL_NOTE");
             if (plan.Site.Pods > 0)
                 ShowValue(m_SiteDetail, ref m_LastSiteDetail, Template(P + "SITE_DETAIL")
                     .Replace("{G}", plan.Site.PodsWithGreenHome.ToString(CultureInfo.InvariantCulture))
                     .Replace("{PODS}", plan.Site.Pods.ToString(CultureInfo.InvariantCulture))
-                    .Replace("{HA}", Math.Round(plan.Site.LargestBenchHa).ToString(CultureInfo.InvariantCulture)));
+                    .Replace("{HA}", plan.Site.LargestBenchHa.ToString("F1", CultureInfo.InvariantCulture)));
         }
 
-        /// <summary>The pod or lift under the cursor: "Pod B: Beginner, 4 runs, Green way home" / "P1: Detachable, 1.3 km, 540 m up, serves 7 runs"
+        /// <summary>The pod or lift under the cursor: "Pod B: Beginner, 4 run(s), Green way home" / "P1: Detachable, 1.3 km, 540 m up, reaches 7 run(s)"
         /// (then the lift's way-home verdict).</summary>
         private void ShowHoverPlan(ResortPlan plan)
         {

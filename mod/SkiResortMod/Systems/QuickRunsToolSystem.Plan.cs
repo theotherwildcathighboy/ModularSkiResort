@@ -58,6 +58,9 @@ namespace SkiResortMod.Systems
 
         internal bool IsLiftOff(uint key) => m_OffLifts.Contains(key);
 
+        /// <summary>The hub's lift row: on only when the lift and its pod are both on.</summary>
+        internal bool IsLiftOn(int lift) => QuickRunsPlanRules.LiftOn(Plan, lift, m_OffPods, m_OffLifts);
+
         private LiftCensusSystem Census()
         {
             if (m_LiftCensus == null)
@@ -96,10 +99,36 @@ namespace SkiResortMod.Systems
             }
             if (name == null)
                 return $"no {what} with key {key:X8} in this plan";
-            HashSet<uint> set = pod ? m_OffPods : m_OffLifts;
-            bool nowOn = set.Remove(key);
-            if (!nowOn)
-                set.Add(key);
+            // A row that reads off (the lift or its pod is off) switches back on whole: lift and pod both. Else the click switches the item off.
+            bool nowOn;
+            if (pod)
+            {
+                int p = PodIndex(plan, key);
+                int l = plan.Pods[p].Lift;
+                bool liftOff = l >= 0 && l < plan.Lifts.Length && m_OffLifts.Contains(plan.Lifts[l].Key);
+                nowOn = m_OffPods.Remove(key);
+                if (liftOff)
+                {
+                    m_OffLifts.Remove(plan.Lifts[l].Key);
+                    nowOn = true;
+                }
+                else if (!nowOn)
+                    m_OffPods.Add(key);
+            }
+            else
+            {
+                int l = LiftIndex(plan, key);
+                int p = plan.Lifts[l].Pod;
+                bool podOff = p >= 0 && p < plan.Pods.Length && m_OffPods.Contains(plan.Pods[p].Key);
+                nowOn = m_OffLifts.Remove(key);
+                if (podOff)
+                {
+                    m_OffPods.Remove(plan.Pods[p].Key);
+                    nowOn = true;
+                }
+                else if (!nowOn)
+                    m_OffLifts.Add(key);
+            }
             RefreshEnabled();
             Say(string.Format(CultureInfo.InvariantCulture, "QuickRuns [toggle]: {0} {1} {2} — {3} of {4} run(s) enabled, fee {5}",
                 what, name, nowOn ? "ON" : "OFF", m_Totals.Enabled, m_Totals.Runs, m_Totals.Fee));
@@ -110,40 +139,58 @@ namespace SkiResortMod.Systems
         internal static string LiftName(ResortPlan plan, int lift) =>
             (plan.Lifts[lift].Origin == LiftOrigin.Pinned ? "E" : "P") + QuickRunsPlanRules.Ordinal(plan, lift).ToString(CultureInfo.InvariantCulture);
 
-        /// <summary>A click in the Preview: a proposed chord toggles its lift, else a run (v1), else a pod ring toggles its pod.</summary>
+        private static int PodIndex(ResortPlan plan, uint key)
+        {
+            for (int i = 0; i < plan.Pods.Length; i++)
+                if (plan.Pods[i].Key == key)
+                    return i;
+            return -1;
+        }
+
+        private static int LiftIndex(ResortPlan plan, uint key)
+        {
+            for (int i = 0; i < plan.Lifts.Length; i++)
+                if (plan.Lifts[i].Key == key)
+                    return i;
+            return -1;
+        }
+
+        /// <summary>A click in the Preview toggles what the hover names (QuickRunsPlanRules.PickAt, the one shared pick): a lift (a proposed
+        /// chord, or an existing lift's station ring), else a run, else a pod ring.</summary>
         private void PreviewPick(float2 hit)
         {
             ResortPlan plan = Plan;
             if (plan != null)
             {
-                int lift = QuickRunsPlanRules.NearestLift(plan, hit, QuickRunsPlanRules.LiftPickM);
-                if (lift >= 0)
+                switch (QuickRunsPlanRules.PickAt(plan, m_Published.Runs, hit, out int at))
                 {
-                    TogglePlanKey(false, unchecked((int)plan.Lifts[lift].Key));
-                    return;
-                }
-                if (QuickRunsRules.Pick(hit, m_Published.Runs) < 0)
-                {
-                    int pod = QuickRunsPlanRules.NearestPod(plan, hit, QuickRunsPlanRules.PodPickM);
-                    if (pod >= 0)
-                    {
-                        TogglePlanKey(true, unchecked((int)plan.Pods[pod].Key));
+                    case QuickRunsPlanRules.PlanPickKind.Lift:
+                        TogglePlanKey(false, unchecked((int)plan.Lifts[at].Key));
                         return;
-                    }
+                    case QuickRunsPlanRules.PlanPickKind.Pod:
+                        TogglePlanKey(true, unchecked((int)plan.Pods[at].Key));
+                        return;
                 }
             }
             TogglePick(hit);
         }
 
+        /// <summary>The tooltip's pod / lift line: only what a click would toggle (a run under the cursor shows neither).</summary>
         private void UpdateHoverPlan()
         {
             int pod = -1, lift = -1;
             ResortPlan plan = m_Phase == ToolPhase.Preview && m_HasHit && !Dragging ? Plan : null;
             if (plan != null)
             {
-                lift = QuickRunsPlanRules.NearestLift(plan, m_Hit.xz, QuickRunsPlanRules.LiftPickM);
-                if (lift < 0)
-                    pod = QuickRunsPlanRules.NearestPod(plan, m_Hit.xz, QuickRunsPlanRules.PodPickM);
+                switch (QuickRunsPlanRules.PickAt(plan, m_Published.Runs, m_Hit.xz, out int at))
+                {
+                    case QuickRunsPlanRules.PlanPickKind.Lift:
+                        lift = at;
+                        break;
+                    case QuickRunsPlanRules.PlanPickKind.Pod:
+                        pod = at;
+                        break;
+                }
             }
             HoverPod = pod;
             HoverLift = lift;

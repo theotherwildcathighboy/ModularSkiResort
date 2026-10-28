@@ -187,7 +187,7 @@ export interface BuildItem {
   /** One of BUILD_ITEM_IDS (typed as string: treat an unknown id as "not for this bundle"). */
   id: string;
   /** Locked by progression, a missing prefab, no sign for an upgrade item, or already on the shown
-   *  sign (ForbidMultiple: the school; a lodge tier only if its prefab still has m_ForbidMultiple â€” the prefab flag decides until the surgery sets it false); `reason` says why. */
+   *  sign (ForbidMultiple: the school; a lodge tier only if its prefab still has m_ForbidMultiple - the prefab flag decides until the surgery sets it false); `reason` says why. */
   locked: boolean;
   /** This item's tool is the active tool (clicking it again returns to the default tool). */
   active: boolean;
@@ -301,9 +301,11 @@ export interface QuickRunsPlan {
   runKm: number;
   runKmPerKm2: number;
   deadEnds: number;
-  /** The terrain's honest mix: whole percents of the run km by rated band (0 Flat, 1 Green, 2 Blue, 3 Black, 4 Double black). */
+  /** The terrain's honest mix in whole percents of the run km: [0] Flat, [1] Green, [2] Blue, [3] Black and Double black together,
+   *  [4] always 0. [1..3] are the shares the hub and the tooltip print (one rounded value each; [3] = the rated total minus [1] and [2]). */
   mountainMix: number[];
-  /** The site verdict's detail line (sitePercent / siteTier stay the line): pods, pods with a green way home, the largest bench in ha. */
+  /** The site verdict's detail line (sitePercent / siteTier stay the line): pods a lift serves, how many of them have their way home
+   *  (the verdict meets the level asked for), the largest bench in ha (one decimal). The field keeps its stage A name. */
   sitePods: number;
   siteGreenHome: number;
   siteBenchHa: number;
@@ -476,7 +478,7 @@ export interface ResortLive {
   topTempC: number;
   attraction: number;
   attractionFull: number;
-  /** The first provider write after a load is held: the game keeps the saved score (show "â€¦"). */
+  /** The first provider write after a load is held: the game keeps the saved score (show "..."). */
   attractionHeld: boolean;
   lodgesActive: number;
   summer: boolean;
@@ -703,7 +705,7 @@ export interface LiftRow {
   alignKnown: boolean;
   alignOffsetM: number;
   alignYawDeg: number;
-  /** Riders per hour at 1Ã— game speed; -1 unknown. */
+  /** Riders per hour at 1x game speed; -1 unknown. */
   capacityPerHour: number;
   hasBase: boolean;
   hasTop: boolean;

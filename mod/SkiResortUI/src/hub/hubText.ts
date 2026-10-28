@@ -669,11 +669,11 @@ export const HUB_FMT = {
   // Resort Planner v2: the knob formats and the plan / pod / lift lines (the tooltip's too); {TYPE} = HUB_LOC lift type, {CLASS} / {VERDICT} = SENT_KEYS
   quickLiftsAuto: ["SkiResort.Hub.QUICK_LIFTS_AUTO", "Lifts: auto ({N})"],
   quickLiftsN: ["SkiResort.Hub.QUICK_LIFTS_N", "Lifts: {N}"],
-  quickPlanLine: ["SkiResort.Tooltip.QUICK_PLAN_LINE", "{PODS} pods, {LIFTS} lifts proposed, {KM} km of runs"],
+  quickPlanLine: ["SkiResort.Tooltip.QUICK_PLAN_LINE", "Planned: {PODS} pod(s), {LIFTS} lift(s) proposed, {KM} km of runs"],
   quickMixHonest: ["SkiResort.Tooltip.QUICK_MIX_HONEST", "The mountain gives green {G} %, blue {B} %, black {K} %"],
-  quickPodLine: ["SkiResort.Tooltip.QUICK_POD_LINE", "Pod {ID}: {CLASS}, {RUNS} runs, {VERDICT}"],
-  quickLiftLine: ["SkiResort.Tooltip.QUICK_LIFT_LINE", "{ID}: {TYPE}, {LENGTH} km, {RISE} m up, serves {RUNS} runs"],
-  quickSiteDetail: ["SkiResort.Tooltip.QUICK_SITE_DETAIL", "Pods with a green way home: {G} of {PODS}. Largest bench: {HA} ha"],
+  quickPodLine: ["SkiResort.Tooltip.QUICK_POD_LINE", "Pod {ID}: {CLASS}, {RUNS} run(s), {VERDICT}"],
+  quickLiftLine: ["SkiResort.Tooltip.QUICK_LIFT_LINE", "{ID}: {TYPE}, {LENGTH} km, {RISE} m up, reaches {RUNS} run(s)"],
+  quickSiteDetail: ["SkiResort.Tooltip.QUICK_SITE_DETAIL", "Pods with their way home: {G} of {PODS}. Largest bench: {HA} ha"],
   quickBuildProgress: ["SkiResort.Tooltip.QUICK_BUILDING_PROGRESS", "Building runs {N} / {M}"],
   quickPlantProgress: ["SkiResort.Tooltip.QUICK_PLANTING_PROGRESS", "Planting trees {N} / {M}"],
   quickRemoveProgress: ["SkiResort.Tooltip.QUICK_REMOVING_PROGRESS", "Removing trees {N} / {M}"],
@@ -970,9 +970,9 @@ export const SENT_KEYS: readonly LocEntry[] = [
   // Resort Planner v2: planLifts[].homeKey / wantedKey, pods[].homeKey / classKey, and the planner warnings
   ["SkiResort.Tooltip.QUICK_VERDICT[Green]", "Green way home"],
   ["SkiResort.Tooltip.QUICK_VERDICT[Blue]", "Blue way home"],
-  ["SkiResort.Tooltip.QUICK_VERDICT[Black]", "Only a black way home"],
-  ["SkiResort.Tooltip.QUICK_VERDICT[DoubleBlack]", "Only an expert way home"],
-  ["SkiResort.Tooltip.QUICK_VERDICT[Download]", "No easy way down: ride the lift down"],
+  ["SkiResort.Tooltip.QUICK_VERDICT[Black]", "Black only"],
+  ["SkiResort.Tooltip.QUICK_VERDICT[DoubleBlack]", "Double Black only"],
+  ["SkiResort.Tooltip.QUICK_VERDICT[Download]", "No way down on skis: ride the lift down"],
   ["SkiResort.Tooltip.QUICK_CLASS[Flat]", "Flat"],
   ["SkiResort.Tooltip.QUICK_CLASS[Marginal]", "Nearly flat"],
   ["SkiResort.Tooltip.QUICK_CLASS[Beginner]", "Beginner"],
@@ -980,9 +980,9 @@ export const SENT_KEYS: readonly LocEntry[] = [
   ["SkiResort.Tooltip.QUICK_CLASS[Advanced]", "Advanced"],
   ["SkiResort.Tooltip.QUICK_CLASS[Expert]", "Expert"],
   ["SkiResort.Tooltip.QUICK_CLASS[Cliff]", "Cliff"],
-  ["SkiResort.Tooltip.QUICK_WARN[NoLiftSite]", "No lift fits this region: the ground is too steep or too rough for a lift line."],
-  ["SkiResort.Tooltip.QUICK_WARN[Download]", "Some lift tops have no easy way down: guests ride the lift down."],
-  ["SkiResort.Tooltip.QUICK_WARN[DeadEnd]", "A run ends where nothing continues: no lift, run or flat ground."],
+  ["SkiResort.Tooltip.QUICK_WARN[NoLiftSite]", "No lift fits this region: the ground is too steep or too rough for a lift line, or has no flat spot for a station."],
+  ["SkiResort.Tooltip.QUICK_WARN[Download]", "Some lift tops have no way down on skis, so guests ride the lift down."],
+  ["SkiResort.Tooltip.QUICK_WARN[DeadEnd]", "A run ends where nothing continues: no lift, run, track or flat ground at its bottom."],
 ];
 
 export function sentKeyEntry(key: string | undefined | null, fallback: LocEntry): LocEntry {

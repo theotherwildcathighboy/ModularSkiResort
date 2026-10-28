@@ -272,7 +272,7 @@ namespace SkiResortMod.Systems
                 writer.PropertyName("wantedKey");
                 writer.Write(WantedKey(lift.Wanted));
                 writer.PropertyName("on");
-                writer.Write(!t.IsLiftOff(lift.Key));
+                writer.Write(t.IsLiftOn(i));   // the lift on AND its pod on
                 writer.TypeEnd();
             }
             writer.ArrayEnd();
@@ -296,20 +296,27 @@ namespace SkiResortMod.Systems
             writer.Write(plan != null ? Finite(plan.RunKmPerKm2) : 0f);
             writer.PropertyName("deadEnds");
             writer.Write(plan != null ? plan.DeadEnds : 0);
-            // The terrain's honest mix (run-km share per rated band, Flat..DoubleBlack) as whole percents
+            // The terrain's honest mix as whole percents: [Flat, green, blue, black and double black together, 0]. The three shown shares
+            // come from QuickRunsPlanRules.MixPercents, the same numbers the tooltip prints (one rounded value each, the last = the rest)
+            int mixG = 0, mixB = 0, mixK = 0;
+            if (plan != null)
+                QuickRunsPlanRules.MixPercents(plan.MountainMix, out mixG, out mixB, out mixK);
             writer.PropertyName("mountainMix");
             writer.ArrayBegin(5u);
-            for (int i = 0; i < 5; i++)
-                writer.Write(plan != null ? (int)System.Math.Round(Finite(plan.MountainMix[i]) * 100f) : 0);
+            writer.Write(plan != null ? (int)System.Math.Round(Finite(plan.MountainMix[0]) * 100f) : 0);
+            writer.Write(mixG);
+            writer.Write(mixB);
+            writer.Write(mixK);
+            writer.Write(0);
             writer.ArrayEnd();
-            // The site verdict's detail line (v1 keeps sitePercent / siteTier; Resort adds this one line): pods with a green way home,
-            // of all pods, and the largest bench in hectares
+            // The site verdict's detail line (v1 keeps sitePercent / siteTier; Resort adds this one line): pods whose lift meets its wanted
+            // way home (field name kept from stage A), of the pods a lift serves, and the largest bench in hectares (one decimal)
             writer.PropertyName("sitePods");
             writer.Write(plan != null ? plan.Site.Pods : 0);
             writer.PropertyName("siteGreenHome");
             writer.Write(plan != null ? plan.Site.PodsWithGreenHome : 0);
             writer.PropertyName("siteBenchHa");
-            writer.Write(plan != null ? (int)System.Math.Round(Finite(plan.Site.LargestBenchHa)) : 0);
+            writer.Write(plan != null ? (float)System.Math.Round(Finite(plan.Site.LargestBenchHa), 1) : 0f);
             writer.TypeEnd();
             writer.TypeEnd();
         }
