@@ -496,7 +496,10 @@ namespace AutoGenBatch
         /// <summary>F-9 (armed, calibration f): the v1 collapse does not come back: the kept share over the collapse rejects (runs /
         /// (runs + TopTaken + TooShort + MergeStub)) over 0.40. Overlap and the other rejects are the fan logic working and do not count.
         /// TopTaken + TooShort as a share of all rejects and the old kept share over every candidate are printed for reference: the
-        /// share-of-rejects half trips on 2 of 4 or 3 of 3 rejects where 85 % / 57 % of the lines are kept.</summary>
+        /// share-of-rejects half trips on 2 of 4 or 3 of 3 rejects where 85 % / 57 % of the lines are kept. A low kept share is a collapse
+        /// only with TopTaken among the rejects (seeds starving each other at the tops, the v1 mechanism): without it the losses are
+        /// TooShort / MergeStub lines on short pods (Fjords base 9 km2 after the 1 ha pod bottoms: 6 runs, 10 TooShort, 0 TopTaken, 38 %;
+        /// every fan region is at 68 % or more, the v1 collapse at 1-19 % with hundreds of TopTaken).</summary>
         public static Gate F9Collapse(AutoPlanResult r)
         {
             if (r.Candidates <= 0)
@@ -504,12 +507,12 @@ namespace AutoGenBatch
             int all = 0;
             for (int i = 1; i < r.Rejects.Length; i++)
                 all += r.Rejects[i];
-            int tt = r.Rejects[(int)AutoReject.TopTaken] + r.Rejects[(int)AutoReject.TooShort];
+            int topTaken = r.Rejects[(int)AutoReject.TopTaken], tt = topTaken + r.Rejects[(int)AutoReject.TooShort];
             int stub = r.Rejects[(int)AutoReject.MergeStub];
             double kept = r.Runs.Count + tt + stub > 0 ? (double)r.Runs.Count / (r.Runs.Count + tt + stub) : 0.0;
-            return G("F-9", kept > 0.40, kept,
-                     $"kept {r.Runs.Count} of {r.Runs.Count + tt + stub} (runs + TopTaken + TooShort + MergeStub) = {F(kept * 100, "0")} % (want over 40), " +
-                     $"TopTaken + TooShort {tt} of {all} rejects; {r.Runs.Count} of {r.Candidates} candidates = {F(100.0 * r.Runs.Count / r.Candidates, "0")} %");
+            return G("F-9", kept > 0.40 || topTaken == 0, kept,
+                     $"kept {r.Runs.Count} of {r.Runs.Count + tt + stub} (runs + TopTaken + TooShort + MergeStub) = {F(kept * 100, "0")} % (want over 40, or no TopTaken), " +
+                     $"TopTaken {topTaken}, TopTaken + TooShort {tt} of {all} rejects; {r.Runs.Count} of {r.Candidates} candidates = {F(100.0 * r.Runs.Count / r.Candidates, "0")} %");
         }
 
         /// <summary>F-10: the reported MountainMix equals the re-rated runs' run-km shares by band.</summary>
@@ -652,9 +655,9 @@ namespace AutoGenBatch
             return false;
         }
 
-        /// <summary>Run i's bottom touches pad k: inside its disc + 25 m, or the plan graph's run-bottom-to-pad link (a pad cell within
-        /// 25 m: the host has no pad cell map, and a long bench reaches far past its disc). The only graph fact the H-2 / H-5 oracles
-        /// read; starts, run links, bands and the way-out set stay host-side.</summary>
+        /// <summary>Run i's bottom touches pad k: within 25 m of its inscribed disc (InPad), or the plan graph's run-bottom-to-pad link
+        /// (a pad cell within 25 m: the host has no pad cell map, and a long bench reaches far past any disc). The only graph fact the
+        /// H-2 / H-5 oracles read; starts, run links, bands and the way-out set stay host-side.</summary>
         private static bool BottomTouchesPad(AutoPlanResult r, ResortPlan p, int i, int k)
         {
             if (InPad(p.Pads[k], Bottom(r.Runs[i])))
@@ -676,8 +679,11 @@ namespace AutoGenBatch
             return false;
         }
 
+        /// <summary>Within 25 m of the pad's inscribed disc (InscribedM around Center: every point of that disc is pad, so the planner's
+        /// cell link holds too). Not PadRadiusM: its equal-area disc reaches past an irregular pad's cells (Benched1 and Snowbird base
+        /// 4 km2 after the 1 ha pod bottoms: a host-only Black path to a run bottom 25 m off every pad cell).</summary>
         private static bool InPad(PlanPad pad, float2 pt) =>
-            math.distance(pt, pad.Center) <= SkiRunAutoPlanner.PadRadiusM(pad) + LinkM;
+            math.distance(pt, pad.Center) <= pad.InscribedM + LinkM;
 
         private static int[] Bands(AutoPlanResult r, Func<AutoRun, SlopeBand> rate)
         {
@@ -1269,6 +1275,10 @@ namespace AutoGenBatch
             fans.Rejects[(int)AutoReject.Overlap] = 31;
             fans.Rejects[(int)AutoReject.Crosses] = 3;
             Gate_(V2Metrics.F9Collapse(fans), true, "F-9 overlap rejects are the fans working, not a collapse (9 of 43)");
+            fans.Rejects[(int)AutoReject.TooShort] = 20;   // 9 of 29 kept, no TopTaken: short lines on short pods
+            Gate_(V2Metrics.F9Collapse(fans), true, "F-9 TooShort without TopTaken is no collapse");
+            fans.Rejects[(int)AutoReject.TopTaken] = 5;
+            Gate_(V2Metrics.F9Collapse(fans), false, "F-9 TooShort with TopTaken under a 40 % kept share is a collapse");
 
             // F-10: green + black, 1000 m each = 50 / 50; the plan says so, a re-rate to blue disagrees
             var mix = new AutoPlanResult();
