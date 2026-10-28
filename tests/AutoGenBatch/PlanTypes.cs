@@ -50,8 +50,8 @@ namespace AutoGenBatch
                 Check(rRes.Status == AutoPlanStatus.Ok && rRes.Resort != null, w, "Resort: " + rRes.Status + ", plan " + (rRes.Resort != null));
                 if (rRes.Resort == null)
                     continue;
-                Check(rRes.Fingerprint == rRuns.Fingerprint, w, "A0 stub: Resort fingerprint differs from Runs (the stubs must not change runs)");
-                Check(rRes.Runs.Count == rRuns.Runs.Count && rRes.Warnings == rRuns.Warnings, w, "A0 stub: Resort runs / warnings differ from Runs");
+                Check(rRes.Fingerprint != rRuns.Fingerprint && rRes.Resort.Fingerprint != 0UL, w, "A6: the plan fingerprint is not folded into the Resort fingerprint");
+                Check(rRes.Runs.Count == rRuns.Runs.Count && (rRes.Warnings & ~(AutoPlanWarning)7168) == rRuns.Warnings, w, "A0 stub: Resort runs / v1 warnings differ from Runs");
                 // A3: pads and pods are real (Terrain / PodRoute / Pods); their invariants are the Terrain suite's
                 Check(rRes.Resort.Pads.Length > 0 && rRes.Resort.Pods.Length > 0, w,
                       "Resort: no pads / pods (" + rRes.Resort.Pads.Length + " / " + rRes.Resort.Pods.Length + ")");

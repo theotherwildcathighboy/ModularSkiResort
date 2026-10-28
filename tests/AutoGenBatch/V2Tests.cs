@@ -21,6 +21,7 @@ namespace AutoGenBatch
         {
             "V1-2", "V1-3", "V1-4", "D-1", "D-2", "D-3", "P-1", "P-2", "P-3", "P-4",
             "S-4", "S-5", "S-6", "S-7", "P-5",   // A4
+            "H-1", "H-2", "H-3", "H-5", "H-6", "F-10",   // A6 (H-5 / H-6 stay SOFT: V2AlwaysSoft; H-4 is armed after A5: v1 runs end in the base band, not on pads)
         };
 
         /// <summary>IDs that stay REPORT even when armed: SOFT in the gates table (F-8, H-5 for pinned-only plans, H-6, the bottom height).</summary>
@@ -188,9 +189,9 @@ namespace AutoGenBatch
             V2Emit(c, V2Metrics.F8RunGeometry(r), false);
             V2Emit(c, V2Metrics.F9Collapse(r), softFans && !(c.Fixture == "Alpine" || c.Id.StartsWith("MountainVillage field", StringComparison.Ordinal)));   // F-9 is named HARD on the Alpine bowl and every MV region
             V2Emit(c, V2Metrics.F10MixHonest(r, p, rate), softFans);
-            V2Emit(c, V2Metrics.H1Verdicts(p), false);
-            V2Emit(c, V2Metrics.H2Honesty(r, p, rate), false);
-            V2Emit(c, V2Metrics.H3NoFakeGreen(p), false);
+            V2Emit(c, V2Metrics.H1Verdicts(p), p.Lifts.Length == 0);   // A6: n/a without lifts is no miss
+            V2Emit(c, V2Metrics.H2Honesty(r, p, rate), p.Lifts.Length == 0);
+            V2Emit(c, V2Metrics.H3NoFakeGreen(p), p.Lifts.Length == 0);
             V2Emit(c, V2Metrics.H4DeadEnds(r, p), false);
             V2Emit(c, V2Metrics.H5Reachability(r, p), false);
             V2Emit(c, V2Metrics.H6GreenShare(p), false);
