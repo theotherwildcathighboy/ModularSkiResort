@@ -20,7 +20,7 @@ export const GROUP = "skiResort";
  * only when C#'s `contract` equals this; on a mismatch it shows the Build strip and the tree controls (CORE only) and
  * says why.
  */
-export const HUB_CONTRACT = 22;
+export const HUB_CONTRACT = 23;
 
 /** The `contract` value while the C# binding is absent (the fallback). Real contracts start at 1. */
 export const CONTRACT_ABSENT = 0;
@@ -324,6 +324,8 @@ export interface QuickRunsState {
   phase: string;
   /** Region corners placed. */
   corners: number;
+  /** The census knows a lift station: a click on one plans runs around it (the Region step's hint is true only then). */
+  canPlanAround: boolean;
   areaM2: number;
   /** The area cap (9 km2, SkiRunAutoPlanner.V1MaxAreaM2). */
   maxAreaM2: number;
@@ -916,7 +918,7 @@ const EMPTY_LIFTS: readonly LiftRow[] = [];
 const EMPTY_PROBLEMS: readonly ProblemRow[] = [];
 const EMPTY_HISTORY: readonly HistoryArea[] = [];
 const EMPTY_QUICK_RUNS: QuickRunsState = {
-  available: false, active: false, reason: "", phase: "", corners: 0, areaM2: 0, maxAreaM2: 1000000, verticalM: 0, regionState: "Open",
+  available: false, active: false, reason: "", phase: "", corners: 0, canPlanAround: false, areaM2: 0, maxAreaM2: 1000000, verticalM: 0, regionState: "Open",
   progress: 0, mix: 0, density: 1, kinds: 3, runs: 0, enabled: 0, count: [0, 0, 0, 0, 0], target: [0, 0, 0, 0, 0], fee: 0, skiers: 0,
   variety: false, status: "", warnings: [], clusters: [], batchRuns: 0, notice: "", trees: false, treeLevel: GLADE_LEVEL_DEFAULT,
   treeLine: -1, groundMin: 0, groundMax: 0, group: 0, species: 0, speciesNames: [], speciesGroups: [], plant: 0, remove: 0, treesUndo: 0,

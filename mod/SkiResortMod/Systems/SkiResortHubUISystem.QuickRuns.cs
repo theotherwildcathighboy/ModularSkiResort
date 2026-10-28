@@ -52,7 +52,7 @@ namespace SkiResortMod.Systems
         private void PushQuickRuns(bool resubscribed)
         {
             QuickRunsToolSystem t = m_QuickRunsTool;
-            int key = t.HubRevision * 4 + (t.UnavailableReasonKey == null ? 1 : 0) + (t.IsActive ? 2 : 0);
+            int key = t.HubRevision * 8 + (t.UnavailableReasonKey == null ? 1 : 0) + (t.IsActive ? 2 : 0) + (t.CanPlanAround ? 4 : 0);
             if (!resubscribed && key == m_QuickRunsKey)
                 return;
             m_QuickRunsKey = key;
@@ -83,6 +83,10 @@ namespace SkiResortMod.Systems
             writer.Write(s_QuickPhaseNames[(int)t.Phase]);
             writer.PropertyName("corners");
             writer.Write(t.Corners);
+            // The Region step's "click a lift station" line is true only when the census knows a station (the census arms after the
+            // tool opens, so this can flip without a hub revision: PushQuickRuns folds it into its key)
+            writer.PropertyName("canPlanAround");
+            writer.Write(t.CanPlanAround);
             writer.PropertyName("areaM2");
             writer.Write(Finite(ro.AreaM2));
             writer.PropertyName("maxAreaM2");

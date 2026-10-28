@@ -141,7 +141,7 @@ function StepLines({ q, t }: { q: QuickRunsState; t: Translate }): JSX.Element {
     lines.push(<>{t(HUB_LOC.quickBuilding)}</>);
   } else if (q.corners < 3) {
     lines.push(<>{t(HUB_LOC.quickStart)}</>);
-    if (q.corners === 0) lines.push(<>{t(HUB_LOC.quickAroundLift)}</>);
+    if (q.corners === 0 && q.canPlanAround) lines.push(<>{t(HUB_LOC.quickAroundLift)}</>);
   } else {
     lines.push(<LocText key="region" entry={HUB_FMT.quickRegion} args={{
       N: numArg(q.corners, Unit.Integer), AREA: numArg(q.areaM2, Unit.Area), MAX: numArg(q.maxAreaM2, Unit.Area), V: numArg(q.verticalM, Unit.Length),
