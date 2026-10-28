@@ -69,7 +69,7 @@ namespace AutoGenBatch
             };
         }
 
-        /// <summary>Plan-side fan invariants: RunLift / RunPod / PodRuns shapes, every run seeded by a lift, the run's cluster is its lift,
+        /// <summary>Plan-side fan invariants: RunLift / RunPod / PodRuns shapes, every run seeded by a lift,
         /// no pod over its developable cap, per-lift counts within the cap, the reject histogram adds up (no candidate lost).</summary>
         private static void FanInvariants(string w, SkiRunAutoPlanner planner, AutoPlanResult r, AutoDensity density)
         {
@@ -81,8 +81,7 @@ namespace AutoGenBatch
             int podded = 0;
             for (int i = 0; i < n; i++)
             {
-                Check(p.RunLift[i] >= 0 && p.RunLift[i] < p.Lifts.Length && p.RunLift[i] == r.Runs[i].Cluster, w,
-                    $"run {i}: RunLift {p.RunLift[i]}, cluster {r.Runs[i].Cluster}, lifts {p.Lifts.Length}");
+                Check(p.RunLift[i] >= 0 && p.RunLift[i] < p.Lifts.Length, w, $"run {i}: RunLift {p.RunLift[i]}, lifts {p.Lifts.Length}");   // not Cluster: A6 makes it the pod
                 Check(p.RunPod[i] >= -1 && p.RunPod[i] < p.Pods.Length, w, $"run {i}: RunPod {p.RunPod[i]}");
                 if (p.RunPod[i] >= 0)
                     podded++;
