@@ -1,8 +1,9 @@
-// Flow suite (A6): a hand graph with a known minimax descent (EasiestDescent), then per synthetic fixture the plan graph, ways home and
-// the rest of FinishResort: H-1 to H-3 and F-10 HARD, H-4 / H-5 REPORT while the runs are v1-shaped (A5's sinks put run ends on pads;
-// the final H-* pass is after A5 merges), the graph shape, RunPod / PodRuns / pod clusters, dead ends recounted from the graph (Steep1 is
-// the dead end fixture: v1 runs end in the base band where no pad lies), the warnings, the site inputs, the Home knob, a cat track as a
-// green way home, the fingerprint fold.
+// Flow suite (A6, A-R round 1): a hand graph with a known minimax descent (EasiestDescent, also against a reference linear-scan Dijkstra
+// on a random graph), then per synthetic fixture the plan graph, ways home and the rest of FinishResort: H-1 to H-3 and F-10 HARD, H-4 to
+// H-6 REPORT (the fixtures pass no roads, so a run ending on a base pad is an honest dead end: class 4), the graph shape, RunPod / PodRuns / pod clusters, dead ends recounted from the graph (no downhill path
+// to a way out: DECISIONS 451 c), real-band verdicts (451 b: Download only without a path), the warnings, the site inputs (pods meeting
+// their Wanted, AR-13), the Home knob (Wanted changes, Home does not), a cat track to a base pad with a road as a green way home, the
+// fingerprint fold.
 
 using System;
 using System.Collections.Generic;
@@ -16,6 +17,7 @@ namespace AutoGenBatch
         private static void FlowTests()
         {
             FlowHandGraph();
+            FlowHeapEquality();
             foreach (V2Case c in V2Fixtures.Synthetic())
                 if (c.Id == "Alpine1 lower" || c.Id == "Alpine1 full" || c.Id == "Benched1 full" || c.Id == "Steep1 full")
                     FlowCase(c);
@@ -76,11 +78,94 @@ namespace AutoGenBatch
             Check(band == (int)SlopeBand.Green && run == -1, w, $"cat track from the top: band {band} (want Green)");
         }
 
-        private static AutoPlanResult FlowRun(V2Case c, HomeLevel home, List<AutoObstacle> obstacles = null)
+        /// <summary>AR-7: the heap Dijkstra settles in the linear scan's order: same band and first run as a reference O(V^2) scan (ties by
+        /// node index) on random graphs with many equal lengths, every source, two target sets.</summary>
+        private static void FlowHeapEquality()
+        {
+            const string w = "Flow heap Dijkstra";
+            var rng = new System.Random(451);
+            int bad = 0, cases = 0;
+            for (int t = 0; t < 40; t++)
+            {
+                int n = 6 + rng.Next(40), m = n + rng.Next(4 * n);
+                var g = new PlanEdge[m];
+                var meters = new double[m];
+                for (int e = 0; e < m; e++)
+                {
+                    g[e] = E(rng.Next(n), rng.Next(n), (byte)rng.Next(4), (SlopeBand)rng.Next(5), rng.Next(3) == 0 ? -1 : rng.Next(50));
+                    meters[e] = 10 * rng.Next(1, 5);   // coarse lengths: many ties
+                }
+                var target = new bool[n];
+                for (int v = 0; v < n; v++)
+                    target[v] = rng.Next(5) == 0;
+                for (int src = 0; src < n; src++)
+                {
+                    cases++;
+                    int a = SkiRunAutoPlanner.EasiestDescent(n, g, meters, src, target, 3, out int ra);
+                    int b = ReferenceDescent(n, g, meters, src, target, 3, out int rb);
+                    if ((a != b || ra != rb) && bad++ == 0)
+                        Check(false, w, $"graph {t} src {src}: heap band {a} run {ra}, reference band {b} run {rb}");
+                }
+            }
+            Check(bad == 0, w, $"{bad} of {cases} descents differ from the reference");
+        }
+
+        /// <summary>The A6 linear-scan Dijkstra, kept verbatim as the reference for the heap version.</summary>
+        private static int ReferenceDescent(int nodes, PlanEdge[] g, double[] meters, int src, bool[] target, int srcPadLimit, out int firstRun)
+        {
+            firstRun = -1;
+            var band = new int[nodes];
+            var len = new double[nodes];
+            var pred = new int[nodes];
+            var done = new bool[nodes];
+            for (int v = 0; v < nodes; v++)
+            {
+                band[v] = int.MaxValue;
+                len[v] = double.PositiveInfinity;
+                pred[v] = -1;
+            }
+            band[src] = 0;
+            len[src] = 0.0;
+            while (true)
+            {
+                int u = -1;
+                for (int v = 0; v < nodes; v++)
+                    if (!done[v] && band[v] != int.MaxValue && (u < 0 || band[v] < band[u] || (band[v] == band[u] && len[v] < len[u])))
+                        u = v;
+                if (u < 0)
+                    return -1;
+                done[u] = true;
+                if (u != src && target[u])
+                {
+                    for (int v = u; pred[v] >= 0; v = g[pred[v]].From)
+                        if (g[pred[v]].Run >= 0)
+                            firstRun = g[pred[v]].Run;
+                    return band[u];
+                }
+                for (int e = 0; e < g.Length; e++)
+                {
+                    if (g[e].From != u || g[e].Kind == SkiRunAutoPlanner.EdgeLift)
+                        continue;
+                    int x = g[e].To;
+                    if (done[x] || (u == src && x < srcPadLimit && g[e].Kind == SkiRunAutoPlanner.EdgeLink))
+                        continue;
+                    int b = Math.Max(band[u], (int)g[e].Band);
+                    double d = len[u] + meters[e];
+                    if (b < band[x] || (b == band[x] && d < len[x]))
+                    {
+                        band[x] = b;
+                        len[x] = d;
+                        pred[x] = e;
+                    }
+                }
+            }
+        }
+
+        private static AutoPlanResult FlowRun(V2Case c, HomeLevel home, List<AutoObstacle> obstacles = null, float2[] access = null)
         {
             AutoPlanKnobs knobs = AutoPlanKnobs.Default(SkiRunAutoPlanner.SeedOf(c.Region, 0));
             knobs.Home = home;
-            var input = new AutoPlanInput { Snapshot = c.Snap(), Region = c.Region, Knobs = knobs, Mode = AutoPlanMode.Resort, Obstacles = obstacles };
+            var input = new AutoPlanInput { Snapshot = c.Snap(), Region = c.Region, Knobs = knobs, Mode = AutoPlanMode.Resort, Obstacles = obstacles, Access = access };
             return new SkiRunAutoPlanner().Run(input);
         }
 
@@ -104,7 +189,7 @@ namespace AutoGenBatch
             foreach (Gate g in new[] { V2Metrics.H1Verdicts(p), V2Metrics.H2Honesty(r, p, rate), V2Metrics.H3NoFakeGreen(p), V2Metrics.F10MixHonest(r, p, rate) })
                 Check(g.Pass || (lifts == 0 && g.Id != "F-10"), w + " " + g.Id, g.Text);
             foreach (Gate g in new[] { V2Metrics.H4DeadEnds(r, p), V2Metrics.H5Reachability(r, p), V2Metrics.H6GreenShare(p) })
-                Console.WriteLine($"REPORT {g.Id} {w}: {g.Text}{(g.Pass ? " [ok]" : " [REPORT until A5 merges]")}");
+                Console.WriteLine($"REPORT {g.Id} {w}: {g.Text}{(g.Pass ? " [ok]" : " [SOFT]")}");
 
             // Graph shape: valid nodes, one run edge per run, one lift edge per lift, cat track edges only with cat tracks
             int runEdges = 0, liftEdges = 0, catEdges = 0;
@@ -123,19 +208,21 @@ namespace AutoGenBatch
             }
             Check(runEdges == runs && liftEdges == lifts && catEdges == 0, w, $"edges: {runEdges} run (want {runs}), {liftEdges} lift (want {lifts}), {catEdges} cat track (want 0)");
 
-            // Dead ends = run bottoms without an outgoing edge (no obstacles here); the warnings follow the counts
-            int dead = 0;
+            // Dead ends = run bottoms with no downhill path to a way out (no obstacles here); a run bottom without an outgoing edge is one;
+            // the warnings follow the counts
+            List<int> deadList = V2Metrics.HostDeadEnds(r, p);
+            int noEdge = 0;
             for (int i = 0; i < runs; i++)
-                dead += outDeg[pads + 2 * i + 1] == 0 ? 1 : 0;
-            Check(dead == p.DeadEnds, w, $"DeadEnds {p.DeadEnds}, graph says {dead}");
+                noEdge += outDeg[pads + 2 * i + 1] == 0 ? 1 : 0;
+            Check(deadList.Count == p.DeadEnds && noEdge <= p.DeadEnds, w, $"DeadEnds {p.DeadEnds}, graph recount {deadList.Count}, bottoms without an edge {noEdge}");
             Check(((r.Warnings & AutoPlanWarning.DeadEnd) != 0) == (p.DeadEnds > 0), w, "DeadEnd warning does not follow DeadEnds");
-            if (c.Id == "Steep1 full")
-                Check(p.DeadEnds > 0 && (r.Warnings & AutoPlanWarning.DeadEnd) != 0, w, "the dead end fixture shows no dead end");
+            foreach (string line in V2Metrics.DeadEndLines(r, p, deadList))
+                Console.WriteLine($"REPORT dead end {w}: {line}");
             bool anyDownload = false;
             foreach (PlanLift l in p.Lifts)
             {
                 anyDownload |= l.Home == HomeVerdict.Download;
-                Check(l.Home != HomeVerdict.Black && l.Home != HomeVerdict.DoubleBlack, w, $"lift {l.Id}: verdict {l.Home} above the wanted level (spec 4.6: Download)");
+                Check(l.Home != HomeVerdict.None, w, $"lift {l.Id}: no verdict");
                 Check(l.HomeRun >= -1 && l.HomeRun < runs && (l.Home == HomeVerdict.Download || l.HomeRun >= 0), w, $"lift {l.Id}: HomeRun {l.HomeRun} with {l.Home}");
             }
             Check(((r.Warnings & AutoPlanWarning.Download) != 0) == anyDownload, w, "Download warning does not follow the verdicts");
@@ -167,61 +254,78 @@ namespace AutoGenBatch
                 mix += p.MountainMix[b];
             Check(runs == 0 || Math.Abs(mix - 1f) < 1e-4f, w, "MountainMix sums to " + mix);
             Check(p.RunKm > 0f && p.HullKm2 > 0f && Math.Abs(p.RunKmPerKm2 - p.RunKm / p.HullKm2) < 1e-4f, w, $"run km {p.RunKm}, hull {p.HullKm2} km2");
-            int green = 0;
+            int met = 0, served = 0;
             foreach (PlanPod pod in p.Pods)
-                green += pod.Lift >= 0 && p.Lifts[pod.Lift].Home == HomeVerdict.Green ? 1 : 0;
+            {
+                if (pod.Lift < 0)
+                    continue;
+                served++;
+                PlanLift pl = p.Lifts[pod.Lift];
+                met += pl.Home == HomeVerdict.Green || (pl.Home == HomeVerdict.Blue && pl.Wanted == HomeLevel.Blue) ? 1 : 0;
+            }
             Check(p.Site.Kind == (byte)QuickRunsRules.SiteTierOf(QuickRunsRules.SitePercent(r.MeanGrade)) && p.Site.Pods == p.Pods.Length &&
-                  p.Site.PodsWithGreenHome == green && p.Site.MeanGrade == r.MeanGrade, w, "site inputs");
+                  p.Site.PodsWithGreenHome == met && p.Site.PodsServed == served && p.Site.MeanGrade == r.MeanGrade, w,
+                  $"site inputs: pods meeting their Wanted {p.Site.PodsWithGreenHome} (want {met}), served {p.Site.PodsServed} (want {served})");
 
             // Fingerprint fold
             AutoPlanInput runsIn = new AutoPlanInput { Snapshot = snap, Region = c.Region, Knobs = AutoPlanKnobs.Default(SkiRunAutoPlanner.SeedOf(c.Region, 0)) };
             Check(p.Fingerprint != 0UL && r.Fingerprint != new SkiRunAutoPlanner().Run(runsIn).Fingerprint, w, "the plan fingerprint is not folded in");
 
-            // Home knob: Wanted follows it; Green under the Green knob stays Green under Blue; Auto = Green on base bottoms, Blue above
+            // Home knob: Wanted follows it (Auto = Green when the bottom pad touches the base band, Blue above); the verdict does not
+            // (DECISIONS 451 b: the real band, whatever was wanted)
             AutoPlanResult rg = FlowRun(c, HomeLevel.Green), rb = FlowRun(c, HomeLevel.Blue);
             for (int i = 0; i < lifts && i < rg.Resort.Lifts.Length && i < rb.Resort.Lifts.Length; i++)
             {
                 PlanLift a = p.Lifts[i], lg = rg.Resort.Lifts[i], lb = rb.Resort.Lifts[i];
-                bool baseBottom = a.BottomPad >= 0 && p.Pads[a.BottomPad].IsBase;
+                bool baseBottom = a.BottomPad >= 0 && p.Pads[a.BottomPad].TouchesBase;
                 Check(a.Wanted == (baseBottom ? HomeLevel.Green : HomeLevel.Blue) && lg.Wanted == HomeLevel.Green && lb.Wanted == HomeLevel.Blue, w, $"lift {i}: Wanted {a.Wanted} / {lg.Wanted} / {lb.Wanted}");
-                Check(lg.Home == HomeVerdict.Green || lg.Home == HomeVerdict.Download, w, $"lift {i}: {lg.Home} under the Green knob");
-                Check(lg.Home != HomeVerdict.Green || lb.Home == HomeVerdict.Green, w, $"lift {i}: Green under the Green knob but {lb.Home} under Blue");
-                Check(lb.Home != HomeVerdict.Download || lg.Home == HomeVerdict.Download, w, $"lift {i}: Download under Blue but {lg.Home} under Green");
+                Check(lg.Home == a.Home && lb.Home == a.Home && lg.HomeRun == a.HomeRun && lb.HomeRun == a.HomeRun, w, $"lift {i}: Home {a.Home} / {lg.Home} / {lb.Home} changes with the knob");
             }
 
             var homes = new int[6];
             foreach (PlanLift l in p.Lifts)
                 homes[(int)l.Home]++;
-            Console.WriteLine($"REPORT flow {c.Id}: {lifts} lifts, home G/B/Download {homes[1]}/{homes[2]}/{homes[5]}, dead ends {p.DeadEnds} of {runs}, " +
-                              $"{p.Graph.Length} edges, green home pods {p.Site.PodsWithGreenHome} of {p.Site.Pods}, mix G {p.MountainMix[1] * 100:F0} B {p.MountainMix[2] * 100:F0} K {p.MountainMix[3] * 100:F0} DB {p.MountainMix[4] * 100:F0} %, Flow unit {p.StageMaxMs[5]:F2} ms");
+            Console.WriteLine($"REPORT flow {c.Id}: {lifts} lifts, home G/B/K/DB/Download {homes[1]}/{homes[2]}/{homes[3]}/{homes[4]}/{homes[5]}, dead ends {p.DeadEnds} of {runs}, " +
+                              $"{p.Graph.Length} edges, pods meeting their Wanted {p.Site.PodsWithGreenHome} of {p.Site.PodsServed} served, mix G {p.MountainMix[1] * 100:F0} B {p.MountainMix[2] * 100:F0} K {p.MountainMix[3] * 100:F0} DB {p.MountainMix[4] * 100:F0} %, Flow unit {p.StageMaxMs[5]:F2} ms");
         }
 
-        /// <summary>A cat track (obstacle outline) from a lift top down to the base pad is a green way home: the edges are Green, both
-        /// directions, and that lift's verdict becomes Green.</summary>
+        /// <summary>A cat track (obstacle outline) from a lift top down to a base pad with a road at it (an access point at its center,
+        /// so the pad is a way out, AR-2) is a green way home: the edges are Green, both directions, and that lift's verdict becomes Green.
+        /// The same base pad without the road is no way out. The fixture: the first synthetic full case with a lift whose verdict is not
+        /// Green and a base pad holding no lift bottom.</summary>
         private static void FlowCatTrack()
         {
             const string w = "Flow cat track";
             V2Case c = null;
-            foreach (V2Case k in V2Fixtures.Synthetic())
-                if (k.Id == "Steep1 full")
-                    c = k;
-            if (!FlowCheck(c != null, w, "no Steep1 fixture"))
-                return;
-            AutoPlanResult r0 = FlowRun(c, HomeLevel.Auto);
-            ResortPlan p0 = r0.Resort;
+            AutoPlanResult r0 = null;
+            ResortPlan p0 = null;
             int lift = -1, basePad = -1;
-            for (int i = 0; i < p0.Lifts.Length && lift < 0; i++)
-                if (p0.Lifts[i].Home == HomeVerdict.Download)
-                    lift = i;
-            for (int k = 0; k < p0.Pads.Length && basePad < 0; k++)
-                if (p0.Pads[k].IsBase)
-                    basePad = k;
-            if (!FlowCheck(lift >= 0 && basePad >= 0, w, $"Steep1 has no Download lift ({lift}) or no base pad ({basePad})"))
+            foreach (V2Case k in V2Fixtures.Synthetic())
+            {
+                if (!k.Id.EndsWith(" full", StringComparison.Ordinal))
+                    continue;
+                r0 = FlowRun(k, HomeLevel.Auto);
+                p0 = r0.Resort;
+                lift = basePad = -1;
+                for (int i = 0; p0 != null && i < p0.Lifts.Length && lift < 0; i++)
+                    if (p0.Lifts[i].Home != HomeVerdict.Green && p0.Lifts[i].Home != HomeVerdict.None)
+                        lift = i;
+                for (int q = 0; p0 != null && q < p0.Pads.Length && basePad < 0; q++)
+                    if (p0.Pads[q].TouchesBase && Array.FindIndex(p0.Lifts, l => l.BottomPad == q) < 0)
+                        basePad = q;   // a base pad holding no lift bottom: only the road makes it a way out
+                if (lift >= 0 && basePad >= 0)
+                {
+                    c = k;
+                    break;
+                }
+            }
+            if (!FlowCheck(c != null, w, "no synthetic full case has a lift without a green way home and a base pad holding no lift bottom"))
                 return;
+            Check(!SkiRunAutoPlanner.PadIsWayOut(p0.Pads[basePad]), w, "a base pad without a road counts as a way out");
             float2 a = p0.Lifts[lift].Top.xz, b = p0.Pads[basePad].Center;
             float2 n = math.normalize(new float2(b.y - a.y, a.x - b.x)) * 5f;
             var track = new AutoObstacle { Kind = AutoObstacleKind.CatTrack, Ring = new[] { a + n, b + n, b - n, a - n } };
-            AutoPlanResult r1 = FlowRun(c, HomeLevel.Auto, new List<AutoObstacle> { track });
+            AutoPlanResult r1 = FlowRun(c, HomeLevel.Auto, new List<AutoObstacle> { track }, new[] { b });
             ResortPlan p1 = r1.Resort;
             if (!FlowCheck(p1 != null && p1.Lifts.Length > lift && p1.Lifts[lift].Top.Equals(p0.Lifts[lift].Top), w, "the cat track moved the lift skeleton"))
                 return;
@@ -239,6 +343,7 @@ namespace AutoGenBatch
             foreach (long key in pairs)
                 Check(pairs.Contains(((key & 0xffffffffL) << 32) | (key >> 32)), w, "a cat track edge without its reverse");
             Check(cat >= 2 && fromTop, w, $"{cat} cat track edges, top -> base pad {fromTop}");
+            Check(SkiRunAutoPlanner.PadIsWayOut(p1.Pads[basePad]), w, "the base pad with a road at its center is no way out");
             Check(p1.Lifts[lift].Home == HomeVerdict.Green, w, $"lift {lift} with a cat track to the base: {p1.Lifts[lift].Home} (want Green)");
         }
     }

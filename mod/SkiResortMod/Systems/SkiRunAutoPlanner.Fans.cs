@@ -38,7 +38,8 @@ namespace SkiResortMod.Systems
         public const int FanTopRunsMin = 2, FanTopRunsMax = 4;
         public const float TopSeedM = 100f, FanSeedSpacingM = 20f, PodSeedShare = 1f / 3f;
         public const int SeedsPerLiftPass = 80, FanOrdinalCap = 100, FanKeysPerUnit = 1500, FanWalksPerUnit = 40;   // P-1: a seed-list unit's work
-        public const float SinkPadM = 90f, SinkDiscM = 40f, SinkTopKeepM = 60f;
+        /// <summary>SinkDiscM = LinkMeters: a route that ends in the disc off the pad links to the lift bottom (Flow.cs, AR-1; was 40 m).</summary>
+        public const float SinkPadM = 90f, SinkDiscM = LinkMeters, SinkTopKeepM = 60f;
         public const float BranchFromM = 100f, BranchToM = 400f, BranchStepM = 50f, BranchTaperM = 60f, BranchLeaveM = 150f, BranchSearchM = 60f;
         public const float MergeZoneM = 60f, MergeZoneWiden = 1.5f, BowlWidthM = 60f;
         public const float MergeApproachM = 200f, FanNearGapM = 26f, FanLenSlackM = 30f, BranchTopFromM = 20f;
@@ -76,6 +77,9 @@ namespace SkiResortMod.Systems
         private int[] m_FanOrd = new int[0], m_FanOrdBase = new int[0];
         private int[] m_FanCap = new int[0], m_FanCount = new int[0], m_FanTopHave = new int[0], m_FanTarget = new int[0], m_FanHave = new int[0];
         private float[] m_FanPodArea = new float[0];
+        private readonly int[] m_FanT = new int[5];   // FanCaps: one lift's band targets
+        private int[] m_FanPodCount = new int[0];      // FanPodOf: samples per pod
+        private bool[] m_FanDone = new bool[0];        // FanBest: lifts with no usable seed left in this pick
         private bool m_FanActive;
         private readonly int[] m_FanDropWhy = new int[4];
         private int m_FanResBase, m_FanDropped, m_FanBranches, m_FanSinks;
@@ -166,12 +170,12 @@ namespace SkiResortMod.Systems
         private float FanNearGap(int pass) => Math.Max(GapOf(m_Knobs.Density, TargetWidthM[pass]), FanNearGapM);
 
         /// <summary>Merge approach (BeginAttempt, a fan line that enters an accepted run's fan gap at path index len): when the line
-        /// reaches the v1 gap within MergeApproachM it merges there instead (fall lines to one sink converge at a shallow angle, so the fan
+        /// reaches the merge stop (FanMergeStopM: the v1 gap, capped so the junction forms) within MergeApproachM it merges there instead (fall lines to one sink converge at a shallow angle, so the fan
         /// gap alone would cut most lines to stubs); approach = the path length from the fan-gap entry to the merge (BuildRing keeps the
         /// v1 gap on it). Else the merge stays at len.</summary>
         private int FanApproach(int start, int len, int pathLen, int k, out float approach)
         {
-            float near = FanNearGap(k) + MinHalfWidthM, run = 0f;
+            float near = FanMergeStopM(k), run = 0f;
             approach = 0f;
             for (int q = len + 1; q < pathLen; q++)
             {
@@ -233,8 +237,10 @@ namespace SkiResortMod.Systems
                         m_FanKeys[k] = new List<long>();
                     m_FanKeys[k].Clear();
                 }
-                m_FanOrd = new int[lists];
-                m_FanOrdBase = new int[lists];
+                Grow(ref m_FanOrd, lists);
+                Grow(ref m_FanOrdBase, lists);
+                Array.Clear(m_FanOrd, 0, m_FanOrd.Length);
+                Array.Clear(m_FanOrdBase, 0, m_FanOrdBase.Length);
                 m_FanListK = -1;
                 m_Cursor = m_RegionJ0;
                 m_Cursor2 = 1;
@@ -379,7 +385,7 @@ namespace SkiResortMod.Systems
         {
             byte[] pred = m_Pred[p];
             float mergeLen = -1f, maxO = 0f, fanIn = -1f;
-            float stopD = FanLineGap(p, branch) + MinHalfWidthM, near = FanNearGap(p) + MinHalfWidthM, minLen = MinLengthM + FanLenSlackM;
+            float stopD = FanLineGap(p, branch) + MinHalfWidthM, near = FanMergeStopM(p), minLen = MinLengthM + FanLenSlackM;
             bool left = !branch;
             int cur = c, guard = m_N;
             len = 0f;
@@ -477,14 +483,20 @@ namespace SkiResortMod.Systems
             m_FanAccPod.Clear();
             m_FanBranched.Clear();
             int nl = m_FanLifts.Count;
-            m_FanCap = new int[nl];
-            m_FanCount = new int[nl];
-            m_FanTopHave = new int[nl];
-            m_FanTarget = new int[nl * 5];
-            m_FanHave = new int[nl * 5];
-            m_FanPodArea = new float[Math.Max(1, m_PodList.Count)];
+            Grow(ref m_FanCap, nl);
+            Grow(ref m_FanCount, nl);
+            Grow(ref m_FanTopHave, nl);
+            Grow(ref m_FanTarget, nl * 5);
+            Grow(ref m_FanHave, nl * 5);
+            Grow(ref m_FanPodArea, Math.Max(1, m_PodList.Count));
+            Array.Clear(m_FanCap, 0, nl);
+            Array.Clear(m_FanCount, 0, nl);
+            Array.Clear(m_FanTopHave, 0, nl);
+            Array.Clear(m_FanTarget, 0, nl * 5);
+            Array.Clear(m_FanHave, 0, nl * 5);
+            Array.Clear(m_FanPodArea, 0, m_FanPodArea.Length);
             int per = FanRunsPerLift[(int)m_Knobs.Density], sum = 0;
-            var t = new int[5];
+            int[] t = m_FanT;
             Array.Clear(m_Target, 0, 5);
             for (int k = 0; k < nl; k++)
             {
@@ -588,14 +600,16 @@ namespace SkiResortMod.Systems
         private int FanBest()
         {
             int nl = m_FanLifts.Count;
-            bool[] done = null;
+            Grow(ref m_FanDone, nl);
+            bool[] done = m_FanDone;
+            Array.Clear(done, 0, nl);
             while (true)
             {
                 int lift = -1;
                 double fill = double.PositiveInfinity;
                 for (int k = 0; k < nl; k++)
                 {
-                    if ((done != null && done[k]) || m_FanCap[k] == 0 || m_FanCount[k] >= m_FanCap[k])
+                    if (done[k] || m_FanCap[k] == 0 || m_FanCount[k] >= m_FanCap[k])
                         continue;
                     double f = m_FanCount[k] / (double)m_FanCap[k];
                     if (f < fill)
@@ -624,8 +638,6 @@ namespace SkiResortMod.Systems
                     }
                 if (best >= 0)
                     return best;
-                if (done == null)
-                    done = new bool[nl];
                 done[lift] = true;
             }
         }
@@ -759,7 +771,9 @@ namespace SkiResortMod.Systems
             int pods = m_PodList.Count;
             if (pods == 0 || m_PodOf == null)
                 return -1;
-            var count = new int[pods];
+            Grow(ref m_FanPodCount, pods);
+            int[] count = m_FanPodCount;
+            Array.Clear(count, 0, pods);
             for (int i = 0; i < n; i++)
                 if (Cell(pts[i], out int c) && m_PodOf[c] < pods)
                     count[m_PodOf[c]]++;

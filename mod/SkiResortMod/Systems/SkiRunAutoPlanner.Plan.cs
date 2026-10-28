@@ -23,7 +23,8 @@ namespace SkiResortMod.Systems
 
     public enum HomeVerdict : byte { None, Green, Blue, Black, DoubleBlack, Download }
 
-    /// <summary>The Home knob. Auto = Green for lifts whose bottom pad is a base pad, Blue above (Q4).</summary>
+    /// <summary>The Home knob. Auto = Green for lifts whose bottom pad touches the base band, Blue above (Q4). It sets Wanted (the
+    /// color and the warning), never the verdict (DECISIONS 451 b).</summary>
     public enum HomeLevel : byte { Auto, Green, Blue }
 
     /// <summary>Pinned = an existing lift (census) or the "plan around this lift" pick.</summary>
@@ -38,6 +39,7 @@ namespace SkiResortMod.Systems
         public float InscribedM;          // that distance; >= StationHalfDiagonalM(type) = can hold that station's lot
         public bool IsBase;               // touches the v1 base band (Zones) or is the lowest pad
         public bool IsBench;              // not base, MinY above the base band top
+        public bool TouchesBase;          // touches the v1 base band (IsBase without the lowest-pad fallback); set by FinishResort (Flow.cs)
         public float AccessM;             // distance from Center to the nearest access point (road / sign); +inf when none
         public float GradeM3, GradeMaxM;  // A3 (additive): balanced cut (= fill) to level the cheapest station lot at Center, deepest cut or fill
     }
@@ -88,7 +90,8 @@ namespace SkiResortMod.Systems
     {
         public byte Kind;                 // the v1 enum value (spec section 6.2); v2 keeps the v1 meaning
         public float MeanGrade, SteepShare, LargestBenchHa, BaseBenchHa;   // the inputs the line quotes
-        public int PodsWithGreenHome, Pods;
+        public int PodsWithGreenHome;     // served pods whose lift's verdict meets its Wanted (Green or Blue at or under it; name kept, AR-13)
+        public int PodsServed, Pods;      // pods with a lift (the line's denominator), all pods
     }
 
     /// <summary>v2 additions to AutoPlanResult (null in Runs mode). One object per scan, built on the worker.</summary>
@@ -101,7 +104,7 @@ namespace SkiResortMod.Systems
         public int[] RunPod = new int[0];     // per AutoPlanResult.Runs index: pod, -1 = none
         public int[] RunLift = new int[0];    // per run: the lift whose corridor seeded it, -1 = none
         public PlanEdge[] Graph = new PlanEdge[0];   // nodes: 0..Pads-1 pads, then run ends; see Flow.cs
-        public int DeadEnds;              // run bottoms reaching no lift bottom, base pad or run within LinkMeters
+        public int DeadEnds;              // run bottoms with no downhill path to a way out (Flow.cs: lift bottoms, their pads, base pads with access)
         public float RunKm, HullKm2, RunKmPerKm2;
         public readonly float[] MountainMix = new float[5];   // the terrain's honest mix (run-km share by rated band), Flat..DoubleBlack
         public SiteVerdict Site;          // spec section 6.2

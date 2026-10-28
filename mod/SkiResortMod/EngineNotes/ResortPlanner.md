@@ -241,7 +241,7 @@ Flow.cs `FinishResort` calls `FanRunPlan` (merge with A6); SkiRunAutoPlanner.cs 
 buckets PodFull with the overlaps. Tests: PlanTypes drops the two A0 stub checks; V2Tests calls `FanCase` per region, `V2Fresh` copies
 `Pinned` and V1-4 accepts Runs NoRuns -> Resort Ok (see below). V2Hard is NOT armed for F-1..F-10 (calibration, below).
 
-- **Sinks**: Route sources are each lift's BottomPad cells within `SinkPadM` 90 m of the bottom station plus a `SinkDiscM` 40 m disc, minus
+- **Sinks**: Route sources are each lift's BottomPad cells within `SinkPadM` 90 m of the bottom station plus a `SinkDiscM` disc (40 m; 25 m since A-R round 1), minus
   pad cells within 60 m of any lift top (a stacked lift's top stays skiable). No lift with an open bottom: the v1 base band and v1 seeds.
 - **Seeds** (density-free reserve, so Mix / Density / RunCap Reselect at Select): tier 0 within `TopSeedM` 100 m of the top, 1 / 2 the
   served corridor (upper third / rest), 3 the lift's own or an unserved pod above its lower third, only when the line drains to this
@@ -298,7 +298,8 @@ input, so D-1..D-3 compared a pinned planner against unpinned fresh runs once th
   lift's bottom node, its BottomPad, every base pad. Wanted = the knob (Auto: Green on a base BottomPad, else Blue). Home = the band
   (Flat counts as Green) when at most Wanted, else Download (spec 4.6 literally: Black / DoubleBlack are never set in stage A; HomeRun
   is kept for any path). Pinned lifts with neither station in the region box get None (no log on the worker; the tool may log it).
-- **Dead ends**: a run bottom with no outgoing edge that is not on an existing run (obstacle) or a cat track.
+- **Dead ends**: a run bottom with no outgoing edge that is not on an existing run (obstacle) or a cat track. (Superseded by A-R round 1:
+  targets, verdicts, top links and dead ends are as in that section below.)
 - **Mix / density**: `MountainMix` = run-km share per stored band (F-10 equals the host re-rate on all 54 regions); RunKm; HullKm2 =
   convex hull of ring vertices and lift stations grown 50 m (Steiner, the host's `HullKm2` formula); RunKmPerKm2.
 - **Site inputs**: `Kind` = `QuickRunsRules.SiteTierOf(SitePercent(MeanGrade))` (the v1 line, unchanged), MeanGrade, SteepShare, largest
@@ -319,6 +320,60 @@ handover note.
 After A5 merges: arm H-4; recheck H-2 against the host (the host oracle uses centerline bottoms and pad discs, the planner merge links
 and pad cells: a mismatch shows up as an H-2 FAIL, not silently); RunLift = the seeding lift if A5 records it; the PlanTypes "A0 stub:
 Resort runs / v1 warnings differ" check goes (A5 changes runs); H-5 and H-6 numbers for the A-R calibration.
+
+### A-R round 1: graph, fans, verdicts (critique AR-1..AR-4, AR-7, AR-13, AR-17)
+
+Rulings: DECISIONS 451 (b) the verdict is the real band, (c) the v1 base band is not a way out. Files: `.Flow.cs`, `.Fans.cs`, `.Plan.cs`
+(`PlanPad.TouchesBase`, `SiteVerdict.PodsServed`, comments), Select.cs `Warn` (one guard); tests `V2Metrics.cs`, `V2Tests.cs`, `FlowTests.cs`.
+Runs mode is untouched (every change is in Resort-only code or behind `m_Mode`; V1Golden green).
+
+- **Way out** (AR-2): the target set of WaysHome and of the dead-end count is every lift bottom node (pinned or proposed, finite
+  station), every pad holding a lift bottom, and a pad touching the v1 base band (`TouchesBase`, from the pad components; Terrain.cs
+  keeps `IsBase` with its lowest-pad fallback for the S gates) whose `AccessM` is within its radius (`PadRadiusM`: max(inscribed,
+  equal-area disc)) plus `HomeAccessWalkM` 100 m (`PadIsWayOut`). Existing cat tracks reach those through their graph edges. Without
+  access points (the host cases, a region with no road within 450 m) no base pad is a way out by itself. Auto Wanted = Green only when
+  the lift's bottom pad touches the base band.
+- **Verdicts** (AR-3): Home = the easiest descent's hardest band, Green .. DoubleBlack; Download only when no downhill path reaches a way
+  out. Wanted is information (and the color / warning wording, R3); it never changes Home (FlowTests: Home and HomeRun are equal under
+  Auto, Green and Blue). `MeetsWanted(home, wanted)` = Green, or Blue under a Blue wish.
+- **Lift top links** (AR-3b): lift top -> every run whose highest outline node `LiftServedRule.Reaches` accepts (the type's corridor
+  and top margin on the lift's chords; `ServeOf` builds the same row as Lifts.cs `Serves`), instead of the 100 m disc.
+- **Merge geometry** (AR-1): the fan merge stop is `FanMergeStopM` = min(near gap, `JunctionReachM`) + `MinHalfWidthM` = 27.5 m (was
+  33.5 m), so a ring at least 7.5 m wide ends within 20 m of its parent and BuildRing keeps the junction. A run bottom with no run link
+  (a merge whose junction was still dropped, or a fan line the near gap stopped beside another run without the Merge flag: 15 of the
+  45 "free end" dead ends of the first `-- v2` pass, 28-35 m from a run) links to the nearest run within `MergeLinkReachM` 35 m when
+  `LiftServedRule.OutlinesLinked` (the game's link rule) joins the outlines (`NearRunLink`). `SinkDiscM` = `LinkMeters` 25 m (was 40 m), so a route ending in the disc off the pad lies
+  within the lift-bottom link.
+- **Dead ends**: a run bottom with no downhill path (every edge but lifts) to a way out, not on an existing run or cat track: one reverse
+  breadth-first pass from the targets (`CountDeadEnds`). A run ending on a bench with no lift bottom, road or track is now a dead end.
+- **AR-4**: the v1 `NoEasyWayHome` warning is skipped in Resort mode (NoGreen stays: it reports the mix).
+- **AR-7 / AR-17**: `EasiestDescent` is a binary-heap Dijkstra keyed (band, meters, node), the linear scan's order exactly (FlowTests
+  compares it with the old scan on 40 random graphs, every source); `DescentScratch` builds the adjacency once per graph and is reused
+  for every lift. Flow and Fans per-scan arrays are Grow'd fields (graph boxes, run tops, edge meters, targets, reverse adjacency,
+  cluster parents, hull points, cat track touches; FanCaps' six arrays, FanPodOf's counts, FanBest's done flags, the seed ordinals).
+- **AR-13**: `Site.PodsWithGreenHome` (name kept) counts served pods whose lift's verdict meets its Wanted; `Site.PodsServed` is the
+  denominator (pods with a lift). The tooltip / hub wording is R3's.
+- **Gates**: F-9 is armed (V2Hard): runs / (runs + TopTaken + TooShort + MergeStub) over 40 % (Overlap rejects are the fans
+  working; TopTaken + TooShort as a share of all rejects is printed only: it tripped on 2 of 4 and 3 of 3 rejects with 85 % / 57 % kept),
+  REPORT on a plan without lifts (v1 seeding, class 1) and with the A5 SOFT rule on steeper regions. H-4, F-2 and F-5 are coded to
+  their armed definitions (H-4 under 5 %, "no way out: no lift site" without lifts; F-2 at least one run top within 100 m per lift,
+  "F-2 2-4" SOFT; F-5 no pair under 40 m outside a merge zone, "F-5 median" SOFT) but stay REPORT, because the first `-- v2` pass
+  missed on real numbers this round cannot fix: H-4 on 27 regions (45 free ends, 25 of them over 60 m from any run, pad or station:
+  sinks / stage B work), F-5 on 7 regions with 30-39 m pairs (6 of them already under 40 m before this round: the 26 m near gap
+  allows them), F-2 on one lift (Alpine2 P2, served only by a run below the top). Arming each one is one line in `V2Hard` once its
+  numbers hold. F-1 waits for R2's 1 ha pad change.
+- **Host oracle**: H-2 starts at the served runs (station chord, the type's radius and margin), continues through outline links,
+  merges and the near-run link, ends at a way out (`HostWayOut`), and must equal the verdict (Download = no path). A run bottom
+  touches a pad inside its disc + 25 m or where the graph has the run-bottom-to-pad link (the host has no pad cell map; a long bench
+  reaches 150 m past its center on Benched1): the only graph fact H-2 / H-5 read. H-5 enters at base pads with access (every
+  base-touching pad when no pad has access). `HostDeadEnds` recounts the dead ends from the graph (a FAIL when it disagrees), and
+  `-- v2` prints one `REPORT dead end` line per dead end: band, length, cause (merge dropped / merge / near a station / free end),
+  Merge / MergeInto, distances to the nearest run, pad edge and lift bottom. FlowTests keeps H-4 REPORT on the synthetic fixtures:
+  they pass no roads, so a run ending on a base pad without a lift bottom is an honest class-4 dead end there.
+- **Results** (`-- v2`, 57 regions): 0 correctness failures (3 timing misses under load: two Select-phase units, P-2 Plains base
+  4 km2 0.96 s). H-4 under 5 % on 22 regions, over on 24, "no way out: no lift site" on 9 (before: 23 / 32, the base band counted as
+  home); 58 dead ends in all: 0 "merge dropped", 42 free ends (30 over 35 m from any run), 12 merges into a free end, 4 near a
+  station. F-2 43 / 12, F-5 30 / 25, F-9 46 ok / 0 FAIL / 9 REPORT, H-2 46 ok (0 FAIL), H-5 12 / 43.
 
 ### A7 hub + tooltips
 Files: `QuickRunsToolSystem.cs` (header, knobs, input pick), NEW `QuickRunsToolSystem.Plan.cs` (toggles, picks, plan around), NEW pure

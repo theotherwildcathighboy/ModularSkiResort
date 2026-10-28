@@ -21,11 +21,13 @@ namespace AutoGenBatch
         {
             "V1-2", "V1-3", "V1-4", "D-1", "D-2", "D-3", "P-1", "P-2", "P-3", "P-4",
             "S-4", "S-5", "S-6", "S-7", "P-5",   // A4
-            "H-1", "H-2", "H-3", "H-5", "H-6", "F-10",   // A6 (H-5 / H-6 stay SOFT: V2AlwaysSoft; H-4 is armed after A5: v1 runs end in the base band, not on pads)
+            "H-1", "H-2", "H-3", "H-5", "H-6", "F-10",   // A6 (H-5 / H-6 stay SOFT: V2AlwaysSoft)
+            "F-9",   // A-R round 1 (calibration f): the redefined kept share where the fans run. H-4 / F-2 / F-5 are coded to their
+                     // armed definitions but stay REPORT: their -- v2 misses need planner work past this round (EngineNotes ResortPlanner.md)
         };
 
         /// <summary>IDs that stay REPORT even when armed: SOFT in the gates table (F-8, H-5 for pinned-only plans, H-6, the bottom height).</summary>
-        private static readonly HashSet<string> V2AlwaysSoft = new HashSet<string> { "F-8", "H-5", "H-6", "S-6 bottoms" };
+        private static readonly HashSet<string> V2AlwaysSoft = new HashSet<string> { "F-8", "H-5", "H-6", "S-6 bottoms", "F-2 2-4", "F-5 median" };
 
         /// <summary>HARD on Alpine, Benched and real fixtures under 45 % mean grade, SOFT on Steep / Mountain Village (gates 2.3 header, 2.2 S-5).</summary>
         private static readonly HashSet<string> V2SoftOnSteeper = new HashSet<string>
@@ -181,19 +183,24 @@ namespace AutoGenBatch
             V2Emit(c, V2Metrics.S6Stacking(p, c.ExpectBench && r.VerticalM > 600f), false);
             V2Emit(c, V2Metrics.S6BottomHeight(p), false);
             V2Emit(c, V2Metrics.F1TrailsPerLift(r, p, knobs.Density), softFans);
-            V2Emit(c, V2Metrics.F2StartsNearTop(r, p), softFans);
+            V2Emit(c, V2Metrics.F2StartsNearTop(r, p), softFans || p.Lifts.Length == 0);
+            V2Emit(c, V2Metrics.F2TopRange(r, p), softFans);
             V2Emit(c, V2Metrics.F3EndsAtBottom(r, p), softFans);
             V2Emit(c, V2Metrics.F4Branching(r), softFans);
-            V2Emit(c, V2Metrics.F5Spacing(r, p), softFans);
+            Gate f5 = V2Metrics.F5Spacing(r, p);
+            V2Emit(c, f5, softFans || double.IsNaN(f5.Value));   // n/a (no neighbor pair in a pod) is nothing to measure, not a miss
+            V2Emit(c, V2Metrics.F5Median(r, p), softFans);
             V2Emit(c, V2Metrics.F6PodShare(r, p), softFans);
             V2Emit(c, V2Metrics.F7Density(r, p, km2, steepCompact, knobs.Density), softFans);
             V2Emit(c, V2Metrics.F8RunGeometry(r), false);
-            V2Emit(c, V2Metrics.F9Collapse(r), softFans && !(c.Fixture == "Alpine" || c.Id.StartsWith("MountainVillage field", StringComparison.Ordinal)));   // F-9 is named HARD on the Alpine bowl and every MV region
+            V2Emit(c, V2Metrics.F9Collapse(r), (softFans && !(c.Fixture == "Alpine" || c.Id.StartsWith("MountainVillage field", StringComparison.Ordinal))) || r.Candidates <= 0 ||
+                p.Lifts.Length == 0);   // F-9 is named HARD on the Alpine bowl and every MV region; a plan without lifts seeds v1 runs (class 1), not fans
             V2Emit(c, V2Metrics.F10MixHonest(r, p, rate), softFans);
             V2Emit(c, V2Metrics.H1Verdicts(p), p.Lifts.Length == 0);   // A6: n/a without lifts is no miss
             V2Emit(c, V2Metrics.H2Honesty(r, p, rate), p.Lifts.Length == 0);
             V2Emit(c, V2Metrics.H3NoFakeGreen(p), p.Lifts.Length == 0);
-            V2Emit(c, V2Metrics.H4DeadEnds(r, p), false);
+            V2Emit(c, V2Metrics.H4DeadEnds(r, p), p.Lifts.Length == 0);   // class 1 (no lift site): "no way out", REPORT until stage B / D
+            V2DeadEnds(c, r, p);
             V2Emit(c, V2Metrics.H5Reachability(r, p), false);
             V2Emit(c, V2Metrics.H6GreenShare(p), false);
 
@@ -218,6 +225,18 @@ namespace AutoGenBatch
             double kept = r.Candidates > 0 ? 100.0 * r.Runs.Count / r.Candidates : 0.0;
             rows.Add($"{c.Id} | {r.Status} | {km2:F2} | {r.MeanGrade * 100:F0} % | {v1.Runs.Count} | {r.Runs.Count} | {r.Candidates} | {kept:F1} | {p.Pads.Length} | {p.Pods.Length} | {p.Lifts.Length} | " +
                      $"{home[1]}/{home[2]}/{home[3]}/{home[4]}/{home[5]} | {p.DeadEnds} | {seconds:F2} | {r.MaxUnitMs:F1} | {pRes.ResortLayerBytes / 1.0e6:F1}");
+        }
+
+        /// <summary>AR-1 fix 3: the host recount of the dead ends from the graph (FAIL when it disagrees with DeadEnds; the matrix has no
+        /// obstacles) and one REPORT line per dead end with its cause figures, so the next round counts causes instead of inferring them.</summary>
+        private static void V2DeadEnds(V2Case c, AutoPlanResult r, ResortPlan p)
+        {
+            List<int> dead = V2Metrics.HostDeadEnds(r, p);
+            Check(dead.Count == p.DeadEnds, "H-4 recount " + V2Where(c), $"DeadEnds {p.DeadEnds}, host graph recount {dead.Count}");
+            if (p.Lifts.Length == 0)
+                return;   // class 1: the H-4 line already says "no way out: no lift site"
+            foreach (string line in V2Metrics.DeadEndLines(r, p, dead))
+                Console.WriteLine($"REPORT dead end {V2Where(c)}: {line}");
         }
 
         // ---------------------------------------------------------------- D-1 .. D-3
