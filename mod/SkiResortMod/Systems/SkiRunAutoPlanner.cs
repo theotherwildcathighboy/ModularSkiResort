@@ -163,6 +163,9 @@ namespace SkiResortMod.Systems
         public float TreeLineY = float.NaN;
         /// <summary>Polled once per unit; null = never canceled.</summary>
         public AutoPlanCancel Cancel;
+        /// <summary>The planner is stepped on the main thread (the tool's fallback setting): the Lifts stage selects its picks without a
+        /// tower plan (PlanLift.TowersUnchecked). Resort only.</summary>
+        public bool MainThread;
     }
 
     /// <summary>One proposed run. Ring = the outline to emit (xz, no closing duplicate, junction nodes included: never simplify it
@@ -654,7 +657,7 @@ namespace SkiResortMod.Systems
                 {
                     Snapshot = m_In.Snapshot, Region = m_In.Region, Obstacles = m_In.Obstacles, Knobs = knobs, MaxAreaM2 = m_In.MaxAreaM2,
                     MinAreaM2 = m_In.MinAreaM2, MinVerticalM = m_In.MinVerticalM, Mode = m_In.Mode, Pinned = m_In.Pinned,
-                    Access = m_In.Access, TreeLineY = m_In.TreeLineY, Cancel = m_In.Cancel,
+                    Access = m_In.Access, TreeLineY = m_In.TreeLineY, Cancel = m_In.Cancel, MainThread = m_In.MainThread,
                 });
                 return true;
             }

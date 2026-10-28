@@ -7,8 +7,10 @@
 // greedy over the pods' front candidates by score (pod value + stacking bonus - cost - fall-line crossings); a pick runs its tower plan
 // (LiftTowerPlanner.Plan, the lift tool's own planner and constants, edge slope checked) in its own unit and is selected when every span
 // clears the floor and the edge slopes stay under EdgeSlopeShare x the type cap; a failed pick moves its pod to its next candidate (at most
-// PlansPerPod plans per pod, MaxTowerPlansOf per scan). A station spot is a pad (DECISIONS 447: a graded site, never "needs flat
-// ground"): a disc of the lot's half diagonal walked from the pad's Center toward the other end while it stays on the pad; an end with no
+// PlansPerPod plans per pod, MaxTowerPlansOf per scan). On the main thread (AutoPlanInput.MainThread, the fallback setting) no tower
+// plan runs: one plan is 10-60 ms CoreCLR for a detachable, several frames on Mono, so a pick is selected with its towers unchecked
+// (PlanLift.TowersUnchecked; the lift tool plans the line when it is built). A station spot is a pad (DECISIONS 447: a graded site,
+// never "needs flat ground"): a disc of the lot's half diagonal walked from the pad's Center toward the other end while it stays on the pad; an end with no
 // pad that holds the lot is flagged Sunk (the station is graded / sunk into the slope: the C1 3b rule) and still proposed.
 // Output: m_LiftList (pinned first, then proposals in selection order) and m_PodLift; FinishResort copies them into the plan (LiftPlan)
 // and counts Serves / StartsNearTop / EndsAtBottom against the final runs. Selected lifts' BottomPad cells are the band passes' sources
@@ -85,7 +87,7 @@ namespace SkiResortMod.Systems
         private readonly LiftTowerPlanConstants[] m_TowerConsts = new LiftTowerPlanConstants[4];
         private readonly ChordSampler m_ChordSampler = new ChordSampler();
         private LiftTerrainSampler m_ChordSample;
-        private int m_LiftWanted, m_LiftPinned, m_TowerPlans, m_TowerPlanCap;
+        private int m_LiftWanted, m_LiftPinned, m_TowerPlans, m_TowerPlanCap, m_TowersUnchecked;
         private float m_TowerPlanMaxMs;
         private double m_TowerPlanMs;
         private readonly int[] m_LiftStat = new int[LiftStatCount];
@@ -111,6 +113,8 @@ namespace SkiResortMod.Systems
 
         /// <summary>Tower plans run by the last Lifts stage (P-5: at most MaxTowerPlansOf), their total and longest ms.</summary>
         public int TowerPlans => m_TowerPlans;
+        /// <summary>Picks of the last Lifts stage selected without a tower plan (main thread only, AutoPlanInput.MainThread).</summary>
+        public int TowersUncheckedCount => m_TowersUnchecked;
         public float TowerPlanMaxMs => m_TowerPlanMaxMs;
         public double TowerPlanMs => m_TowerPlanMs;
         /// <summary>The lift count the last Lifts stage aimed for (knob or Auto, pinned included for Auto).</summary>
@@ -165,6 +169,7 @@ namespace SkiResortMod.Systems
             m_LiftChordCount.Clear();
             Array.Clear(m_LiftStat, 0, LiftStatCount);
             m_TowerPlans = 0;
+            m_TowersUnchecked = 0;
             m_PlanLog.Clear();
             m_TowerPlanMaxMs = 0f;
             m_TowerPlanMs = 0.0;
@@ -400,7 +405,7 @@ namespace SkiResortMod.Systems
         private bool TryCand(int k, byte t, float2 topXz, int topPad, byte topKind)
         {
             PlanPod pod = m_PodList[k];
-            float hd = StationHalfDiagonalM[t];
+            float hd = StationHalfDiagonalOf(t);
             int lower = pod.LowerPad;
             bool bottomCap = m_PadList[lower].InscribedM >= hd, topCap = topPad >= 0 && m_PadList[topPad].InscribedM >= hd;
             float2 b = bottomCap ? StationSpot(lower, hd, topXz) : m_PadList[lower].Center;
@@ -428,7 +433,7 @@ namespace SkiResortMod.Systems
         private void LoweredTop(int k, byte t)
         {
             PlanPod pod = m_PodList[k];
-            float hd = StationHalfDiagonalM[t];
+            float hd = StationHalfDiagonalOf(t);
             int lower = pod.LowerPad;
             bool bottomCap = m_PadList[lower].InscribedM >= hd;
             float2 b = bottomCap ? StationSpot(lower, hd, pod.TopCenter) : m_PadList[lower].Center;
@@ -510,6 +515,12 @@ namespace SkiResortMod.Systems
                     continue;
                 }
                 m_PodPlans[bestPod]++;
+                if (m_In.MainThread)
+                {
+                    m_TowersUnchecked++;
+                    SelectCand(pick, null, bestScore);   // the main-thread fallback: no tower plan in a frame (AR-7)
+                    return;
+                }
                 LiftTowerPlan plan = TowerPlan(pick, out bool clear);
                 if (clear)
                     SelectCand(pick, plan, bestScore);
@@ -544,11 +555,11 @@ namespace SkiResortMod.Systems
         /// a base pad of 100 ha may carry several lifts).</summary>
         private bool Conflicts(in LiftCand c)
         {
-            float hd = StationHalfDiagonalM[c.Type];
+            float hd = StationHalfDiagonalOf(c.Type);
             for (int i = 0; i < m_LiftList.Count; i++)
             {
                 PlanLift l = m_LiftList[i];
-                float ho = l.TypeIndex < StationHalfDiagonalM.Length ? StationHalfDiagonalM[l.TypeIndex] : hd;
+                float ho = l.TypeIndex < StationTypes ? StationHalfDiagonalOf(l.TypeIndex) : hd;
                 for (int e = 0; e < 2; e++)
                 {
                     float3 s = e == 0 ? l.Bottom : l.Top;
@@ -611,8 +622,8 @@ namespace SkiResortMod.Systems
             int id = m_LiftList.Count;
             float len = c.LengthM;
             float2 dir = (c.Top.xz - c.Bottom.xz) / len;
-            var towers = new float2[plan.LineTowers];
-            for (int n = 1, w = 0; n < plan.Nodes.Length - 1 && w < towers.Length; n++)
+            var towers = new float2[plan?.LineTowers ?? 0];
+            for (int n = 1, w = 0; plan != null && n < plan.Nodes.Length - 1 && w < towers.Length; n++)
                 if (!plan.Nodes[n].IsStation)
                     towers[w++] = c.Bottom.xz + dir * plan.Nodes[n].AlongM;
             m_LiftChordFirst.Add(m_LiftChords.Count);
@@ -623,7 +634,8 @@ namespace SkiResortMod.Systems
             m_LiftList.Add(new PlanLift
             {
                 Id = id, Key = Fnv(pod.Key, c.Type), Origin = LiftOrigin.Proposed, TypeIndex = c.Type, Bottom = c.Bottom, Top = c.Top,
-                LengthM = len, RiseM = c.RiseM, MaxEdgeSlope = plan.MaxEdgeSlope, Towers = plan.LineTowers, TowerXz = towers,
+                LengthM = len, RiseM = c.RiseM, MaxEdgeSlope = plan?.MaxEdgeSlope ?? 0f, Towers = plan?.LineTowers ?? -1, TowerXz = towers,
+                TowersUnchecked = plan == null,
                 Pod = c.Pod, BottomPad = c.BottomPad, TopPad = c.TopPad, TopSunk = c.TopSunk, BottomSunk = c.BottomSunk, Cost = c.Cost,
                 Home = HomeVerdict.None, HomeRun = -1, Score = score,
             });

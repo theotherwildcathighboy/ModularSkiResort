@@ -50,6 +50,32 @@ namespace AutoGenBatch
                     }
                 }
             }
+            // Two terraces 60 m and 110 m above the lower terrace (a staircase of 60 m and 50 m steps, AR-10): the 60 m terrace merges into
+            // the lower one, the 110 m terrace keeps its own pod (its drop is measured against the merged set's root, not the 60 m terrace
+            // 50 m below it), and the two short faces split by the merged terrace join across it into the lower terrace's pod
+            {
+                const string w = "Terrain two terraces 60 / 110 m";
+                ResortPlan p = TerrainRun(w, Terraces(0.35, (-14.0, 66.0), (209.0, 289.0), (460.0, 560.0)), region, out _);
+                if (p != null)
+                {
+                    Check(p.Pads.Length == 3, w, "pads " + p.Pads.Length + " (3 expected)");
+                    Check(p.Pods.Length == 2, w, "pods " + p.Pods.Length + " (2 expected: lower + 60 m terrace, and the 110 m terrace)");
+                    if (p.Pods.Length == 2 && p.Pads.Length == 3)
+                    {
+                        int lowest = 0, highest = 0;
+                        for (int k = 1; k < 3; k++)
+                        {
+                            if (p.Pads[k].MinY < p.Pads[lowest].MinY)
+                                lowest = k;
+                            if (p.Pads[k].MinY > p.Pads[highest].MinY)
+                                highest = k;
+                        }
+                        Check(p.Pods[0].LowerPad == lowest && p.Pods[1].LowerPad == highest, w,
+                              $"pods drain to pads {p.Pods[0].LowerPad} / {p.Pods[1].LowerPad}, want {lowest} / {highest}");
+                        Check(p.Pods[0].VerticalM >= 90f, w, $"the lower pod spans {p.Pods[0].VerticalM:F0} m (both steps expected, about 110 m)");
+                    }
+                }
+            }
             // A ridge: two 40 % faces (35 % down the fall line, 20 % off the crest) draining onto ONE apron pad (8 % down the fall line,
             // 20 % off the crest); the crest sits on a cell column so it is a strict maximum. One pad, two pods (one per face).
             {
@@ -69,6 +95,31 @@ namespace AutoGenBatch
                         Check(Math.Abs(a0 - a1) < 0.05f * Math.Max(a0, a1), "Terrain ridge", $"face areas {a0:F0} / {a1:F0} m2 differ by over 5 %");
                     }
                 }
+            }
+            // AR-8: PlanPad.AccessM (binary-searched x window over the sorted Access list) equals the full scan, meters to the nearest point
+            {
+                const string w = "Terrain access distance";
+                var rnd = new System.Random(7);
+                var acc = new float2[3000];
+                for (int k = 0; k < acc.Length; k++)
+                    acc[k] = new float2((float)(rnd.NextDouble() * 4000.0 - 2000.0), (float)(rnd.NextDouble() * 4000.0 - 2000.0));
+                acc[1] = acc[0];   // a duplicate x (the tool dedupes exact points; equal x with another z still occurs)
+                acc[2] = new float2(acc[0].x, acc[0].y + 30f);
+                Array.Sort(acc, (a, b) => a.x != b.x ? a.x.CompareTo(b.x) : a.y.CompareTo(b.y));
+                AutoPlanInput ai = ResortInput(Input(Terrain.Alpine(1u), Terrain.AlpineRegion(false)));
+                ai.Access = acc;
+                AutoPlanResult ar = new SkiRunAutoPlanner().Run(ai);
+                Check(ar.Resort != null && ar.Resort.Pads.Length > 0, w, "no pads");
+                int bad = 0;
+                foreach (PlanPad pad in ar.Resort?.Pads ?? new PlanPad[0])
+                {
+                    float best = float.PositiveInfinity;
+                    foreach (float2 a in acc)
+                        best = Math.Min(best, math.distance(pad.Center, a));
+                    if (pad.AccessM != best)
+                        bad++;
+                }
+                Check(bad == 0, w, $"{bad} pad(s) with an AccessM other than the full scan's");
             }
             // A plane steeper than the pad rule everywhere: no pad, no pod, the scan still runs (the v1 runs are untouched)
             {
@@ -152,8 +203,10 @@ namespace AutoGenBatch
                       $"pads {pod.LowerPad} / {pod.UpperPad}");
                 if (pod.LowerPad < 0 || pod.LowerPad >= p.Pads.Length)
                     continue;
-                Check(p.Pads[pod.LowerPad].InscribedM >= SkiRunAutoPlanner.StationHalfDiagonalM[0], w,
+                Check(p.Pads[pod.LowerPad].InscribedM >= SkiRunAutoPlanner.StationHalfDiagonalOf(0), w,
                       $"S-1: lower pad inscribed {p.Pads[pod.LowerPad].InscribedM:F1} m cannot hold the cheapest station");
+                Check(p.Pads[pod.LowerPad].AreaM2 >= SkiRunAutoPlanner.PodBottomMinAreaM2, w,
+                      $"calibration d: lower pad {p.Pads[pod.LowerPad].AreaM2:F0} m2 is under the 1 ha pod bottom");
                 Check(pod.AreaM2 >= SkiRunAutoPlanner.PodMinAreaM2 && pod.VerticalM >= SkiRunAutoPlanner.PodMinVerticalM - 1e-3f, w,
                       $"{pod.AreaM2:F0} m2, {pod.VerticalM:F0} m: under the pod minimum");
                 Check(pod.SkiableAreaM2 <= pod.AreaM2 + 1f && pod.TopY > pod.BottomY && pod.ReachM > 0f, w, "areas / heights / reach");

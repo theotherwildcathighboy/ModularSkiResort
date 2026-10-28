@@ -92,6 +92,7 @@ namespace SkiResortMod.Systems
                 Obstacles = m_Obstacles,
                 Knobs = m_Knobs,
                 Mode = AutoPlanMode.Resort,
+                MainThread = SkiResortSettings.PlannerOnMainThreadOn,   // no tower plans in a frame (AR-7)
             };
             CollectPlanContext(input, region);
             m_Refused.Clear();

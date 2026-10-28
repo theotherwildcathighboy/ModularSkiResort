@@ -130,20 +130,20 @@ far below its 0.40 bound. Plan time CoreCLR: 0.2-1.3 s, longest 9 km2 region Del
 Files: `.Terrain.cs` (stage Terrain), `.Pods.cs` (stages PodRoute, Pods), `tests/AutoGenBatch/TerrainTests.cs`. Kernels.cs is untouched: the
 labeled Dijkstra is `DijkstraQueue` + `StepCost` inline in PodRoute, the labeling reuses `Root` (union-find) and `Chamfer`.
 
-- **Terrain** (row chunks; m_Cursor2 phases 0-9): m_OS = 3x3 box mean of m_O over open cells (segmentation only), m_Band, the 3x3
+- **Terrain** (row chunks; m_Cursor2 phases 0-10): m_OS = 3x3 box mean of m_O over open cells (segmentation only), m_Band, the 3x3
   smoothed height (scratch m_Dist[1]); ridges = usable cells with no D8 inflow (m_Flow still the own cell's area) that are a strict
   maximum of the smoothed height across one of the 4 axes; pad candidates (usable, m_OS < 0.25) unioned with their earlier 8-neighbors
   in m_Order (the smaller root wins, so every parent is an earlier cell and one ascending pass flattens them into compact labels);
   components of at least 0.2 ha get the inscribed-distance chamfer (scratch m_Dist[2], seeds -half a texel, the DHard convention); pads
-  = inscribed >= 9 m, at most 255 (largest kept), ids in smallest-cell order; m_PadOf.
+  = inscribed >= 9 m, at most 255 (largest kept), ids in smallest-cell order, built 16 per unit (R2); m_PadOf.
 - **Pad = a graded site** (DECISIONS 447): `PlanPad.GradeM3 / GradeMaxM` (added to Plan.cs) = balanced cut (= fill) and the deepest
   cut or fill to level the cheapest station's 16 x 24 m lot at the station spot (long side along x or z, the smaller). A screening
-  number; stage B grades with the cat track kernel. Station capability stays `InscribedM >= StationHalfDiagonalM[t]`.
+  number; stage B grades with the cat track kernel. Station capability stays `InscribedM >= StationHalfDiagonalOf(t)`.
 - **PodRoute**: sources = cells of pads with InscribedM >= 14.4 m (and m_O < 0.70, out of the edge strip), label = the pad, cost =
   StepCost(floor 0.08, ceiling = hard 0.70); the label rides each relaxation (m_PodOf scratch, cost m_Dist[0]). A multi-source
   Dijkstra's nearest source is the first pad on the least-cost descent.
-- **Pods** (phases 0-10): Down(P) = the label of P's lowest outside 8-neighbor carrying another label; the 80 m merge in ascending
-  MinY, root = the lower pad; pod components = 4-connected cells of one surviving pad's catchment, minus ridge cells, minus the lower
+- **Pods** (as merged in A3; R2 changed Down(P), the merge, the cells and the border phases: see "A-R round R2" below): Down(P) =
+  the label of P's lowest outside 8-neighbor carrying another label; the 80 m merge in ascending MinY, root = the lower pad; pod components = 4-connected cells of one surviving pad's catchment, minus ridge cells, minus the lower
   pad's own cells; borders (ridge cells touching two components of one pad, diagonal touches) as sorted runs into an adjacency list;
   small components (under 2 ha or 80 m) join the neighbor with the longest summed border (ties: smaller root) or drop; statistics per
   group; final pods need a top cell (DHard >= 35 m) at least 80 m above their lowest cell; cap round(4 x AreaScale); sort (LowerPad.MinY,
@@ -174,7 +174,7 @@ Files: `.Lifts.cs` (stage Lifts, `LiftPlan`), `QuickRunsToolSystem.Draw.cs` (the
 `UnitMsWithoutTowerPlans`; PlanTypes drops the "A0 stub: the plan has lifts" check (the Lifts stage now runs one unit or more).
 
 - **Reuse**: `LiftTowerPlanner.Plan` with `LiftTowerPlanConstants.For(type)` (cached per scan), `LiftServedRule.Reaches` for Serves,
-  `SkiCatalog` station + line costs, `StationHalfDiagonalM` (A3) for lots. No second tower planner, no second served rule.
+  `SkiCatalog` station + line costs, `StationHalfDiagonalOf` (A3; a private array since R2) for lots. No second tower planner, no second served rule.
 - **Phases** (m_Cursor2): 0 setup (lists, pod values, tower constants, pinned lifts, the wanted count); 1 the pinned corridors' pod-cell
   counts (rows); then each pinned lift takes the pod with the most cells within 150 m of its chords; 2 candidates, one pod per unit;
   3 selection, one pick (at most one tower plan) per unit; then `EnterRoute()`.
@@ -185,7 +185,9 @@ Files: `.Lifts.cs` (stage Lifts, `LiftPlan`), `QuickRunsToolSystem.Draw.cs` (the
   the chord in 10 m steps until the length is at or under the max (the float distance is checked, not the step) and the rise under
   0.95 x max. Sunk = the end has no pad with `InscribedM >= half-diagonal` (the station sinks as today; DECISIONS 447: a pad is graded
   terrain, never required flat).
-- **Score**: pod value = ha x DevelopableShare x `SkiResortScore.SkiersPerHa(Rated, ScoreBandOf(PrimaryClass))`; minus cost x 1e-3;
+- **Score**: pod value = ha x DevelopableShare x `SkiResortScore.SkiersPerHa(Rated, ScoreBandOf(PrimaryClass))`; minus cost x 1e-3
+  (`LiftCostWeight`: NOT a tiebreaker, as the A4 handover first said: costs of 93-350 k give 93-350 points against pod values of
+  80-1,200, so cost is a real term and turns small pods negative; kept on purpose, A-R AR-27; 2e-4 would make it a tiebreaker);
   minus 0.5 x value per crossing of another pod's fall line (TopCenter -> LowerPad.Center); stack bonus +0.2 x value when the bottom is
   within 300 m and 80 m of a selected lift's top. Candidates of a pod are ordered (sunk ends, type rank, top kind); the upgrade
   (detachable before fixed grip) applies to pods in the top third by value.
@@ -229,6 +231,48 @@ Files: `.Lifts.cs` (stage Lifts, `LiftPlan`), `QuickRunsToolSystem.Draw.cs` (the
   2 / 1, two bench bottoms), Benched 3 / 2, Steep 3 / 4. Gentle base windows (Okemo / JacksonHole / Fjords / Plains 1 km2, Delta /
   Plains 4 km2) and Snowbird / Chamonix steepest have no pod or no chord inside the norms: 0 lifts, NoLiftSite. Serves is low
   everywhere (the runs are still v1 until A5). The per-region table is in the A4 handover note.
+
+### A-R round R2: terrain, pods, lifts
+
+The A-R critique's terrain / pods / lifts items (calibration d, AR-7, AR-8, AR-9, AR-10, AR-17, AR-18, AR-24, AR-27). Runs mode untouched
+(every change sits in a Resort-only stage or behind `AutoPlanInput.MainThread`); V1Golden green.
+
+- **Pod bottoms are 1 ha** (calibration d): `PadBottom` = capable (inscribed >= 14.4 m) and `AreaM2 >= PodBottomMinAreaM2` (10,000 m2).
+  Smaller capable pads are still PodRoute labels but always merge into Down(P) (they stay pads: benches, top stations); `PadMinAreaM2`
+  0.2 ha still makes a pad. The root of a merged set is its lowest pod-bottom pad (else its lowest pad); a set with no pod-bottom pad
+  yields no pod (BuildPods skips a group whose Key is not a PadBottom).
+- **Segmentation semantics** (AR-10): Down(P) only from neighbors with `h < P.MinY` (no sideways or uphill "descent"); the 80 m drop is
+  measured against the merged set's root's MaxY (a 60 m + 50 m staircase no longer chains into one pod); pod cells exclude every pad
+  whose root is the key (not only the root pad); pad cells never border (a flat pad's ridge cells no longer join its faces). New in
+  this round: a **bench link** (phase 6): components touching a bench merged into their key border through it (one incidence, each
+  to the largest of them), so a face too small for a pod still joins its neighbor across the bench. Without it the staircase case lost
+  the lower pod entirely (both 60 m and 50 m faces small and isolated). Proven by the Terrain suite's "two terraces 60 / 110 m" case
+  (3 pads, 2 pods: lower + 60 m terrace with about 110 m of vertical, and the 110 m terrace).
+- **Bounded units** (AR-9): Pods phases 0-15. Borders are stored as runs (a repeat of the last pair adds a weight), counted per smaller
+  component, scattered into buckets (counting sort, 8,192 entries per unit), each bucket sorted and folded (equal pairs summed) in
+  units of 8,192 entries, then the adjacency in units; no unit sorts the whole list. `CompRoot` halves paths. PodSmallMerge settles a
+  group with no neighbor (not rescanned until a group merges into it) and spends at most 8,192 adjacency entries per unit; the merge
+  order and result are those of the sequential loop.
+- **Pads sliced** (AR-8): Terrain phases 0-10; phase 8 orders the pads, phase 9 builds 16 per unit (lot grade, access distance).
+  `AccessDistance` binary-searches the x window of the sorted `Access` list and walks outward while the x gap is under the best
+  distance: the full scan's result (Terrain suite "access distance" compares every pad with a brute force). `PlanPad.AccessM` keeps its
+  meaning: meters from the pad's station spot to the nearest access point, +inf when none. The tool's `CollectAccess` keeps both
+  ends of every road edge and widens the 25 m step so the interior samples stay within 2,048 over all edges (the step is set by the
+  total length, so the iteration order does not matter).
+- **Main-thread fallback** (AR-7): `AutoPlanInput.MainThread` (set by the tool from the fallback setting, copied by Reselect): the Lifts
+  stage runs no tower plan and selects each pick with `PlanLift.TowersUnchecked` (Towers -1, no tower spots); `TowersUncheckedCount`
+  counts them. The worker path is unchanged. A tower plan is 1-5 ms for a fixed grip and 10-60 ms for a detachable on CoreCLR (matrix
+  P-5), several frames on Mono: no length cap would keep a detachable inside the 4 ms frame budget, so the fallback skips them all. Where
+  no worker plan failed, the main-thread run selects the same lifts (Lifts suite "main thread").
+- **Allocations / statics** (AR-17, AR-18): cached `Comparison` delegates in Terrain / Pods, a grown keep array, pooled BandShare arrays
+  (TerrainPlan clones them into the plan). `TerrainBandFloor` and `StationHalfDiagonalM` arrays are private: `TerrainBandFloorOf(b)`,
+  `StationHalfDiagonalOf(type)`, `StationTypes`; `StationHalfDiagonalM` remains as a property returning a fresh copy (the overlay
+  indexes it). AR-17's Fans / Flow allocations belong to round R1.
+- **Measured** (`-- v2`, 57 regions; the machine was under load during both runs, so the timing gates are not judged here): lifts 112
+  -> 97; under 400 m 13 -> 10, under 600 m 43 -> 30; length p10 / p50 / p90 376 / 735 / 1,500 -> 391 / 832 / 1,500 m; lift bottoms on pads
+  under 1 ha 28 -> 0. Pods drop on benched terrain (Alpine 1-3 8 -> 3 / 3 / 2, Steep1 10 -> 3, JacksonHole base 9 km2 5 -> 1); S-3 stays
+  2+ per 4 km2 wherever pods exist. S-6 median bottom moves both ways (SOFT, REPORT). Synthetic 9 km2 fBm: Pods 316 units (was 142),
+  max 0.80 ms under load.
 
 ### A5 run fans
 
