@@ -40,7 +40,7 @@ namespace SkiResortMod.Systems
         private static readonly UnityEngine.Color PinnedColor = new UnityEngine.Color(1f, 1f, 1f, 0.9f);
         private static readonly UnityEngine.Color PadColor = new UnityEngine.Color(1f, 1f, 1f, 0.3f);
         private static readonly UnityEngine.Color PadEdgeColor = new UnityEngine.Color(1f, 1f, 1f, 0.75f);
-        private const float TowerDiscM = 6f, LiftWidthM = 2.5f, LiftDashM = 24f, LiftGapM = 14f, LiftPickM = 25f;
+        private const float TowerDiscM = 6f, LiftWidthM = 2.5f, LiftDashM = 24f, LiftGapM = 14f;
         private const int UnusedPadsShown = 3, BenchEdgeSides = 24;
         private const int CostFrames = 600;   // the [cost] window after each resort publish (~10 s at 60 fps)
 
@@ -327,47 +327,6 @@ namespace SkiResortMod.Systems
         private static bool Finite(float2 v) => math.all(math.isfinite(v));
 
         private static bool Finite(float3 v) => math.all(math.isfinite(v));
-
-        /// <summary>The pod whose ring (TopCenter, ClusterPickM) holds the point, -1 none; the nearest wins (A7's pick).</summary>
-        internal int PodAt(float2 xz)
-        {
-            ResortPlan plan = m_Published.Resort;
-            int best = -1;
-            float bestD = ClusterPickM;
-            if (plan != null)
-                for (int i = 0; i < plan.Pods.Length; i++)
-                {
-                    float d = math.distance(plan.Pods[i].TopCenter, xz);
-                    if (d <= bestD)
-                    {
-                        bestD = d;
-                        best = i;
-                    }
-                }
-            return best;
-        }
-
-        /// <summary>The lift whose chord passes within LiftPickM of the point, -1 none; the nearest wins (A7's pick).</summary>
-        internal int LiftAt(float2 xz)
-        {
-            ResortPlan plan = m_Published.Resort;
-            int best = -1;
-            float bestD = LiftPickM;
-            if (plan != null)
-                for (int i = 0; i < plan.Lifts.Length; i++)
-                {
-                    float2 a = plan.Lifts[i].Bottom.xz, ab = plan.Lifts[i].Top.xz - a;
-                    float len2 = math.lengthsq(ab);
-                    float u = len2 > 1e-6f ? math.saturate(math.dot(xz - a, ab) / len2) : 0f;
-                    float d = math.distance(a + u * ab, xz);
-                    if (d <= bestD)
-                    {
-                        bestD = d;
-                        best = i;
-                    }
-                }
-            return best;
-        }
 
         private static float3 Ground(ref TerrainHeightData hd, float2 xz) => RunAreaEmit.Ground(ref hd, xz);
     }

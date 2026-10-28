@@ -168,7 +168,7 @@ labeled Dijkstra is `DijkstraQueue` + `StepCost` inline in PodRoute, the labelin
 
 ### A4 lifts + overlay
 
-Files: `.Lifts.cs` (stage Lifts, `LiftPlan`), `QuickRunsToolSystem.Draw.cs` (the plan overlay, `PodAt` / `LiftAt`), `ResortPlanLabelSystem.cs`
+Files: `.Lifts.cs` (stage Lifts, `LiftPlan`), `QuickRunsToolSystem.Draw.cs` (the plan overlay; picks use A7's `QuickRunsPlanRules.NearestPod` / `NearestLift`), `ResortPlanLabelSystem.cs`
 (world labels), `tests/AutoGenBatch/LiftTests.cs`. Line edits elsewhere: Flow.cs `FinishResort` calls `LiftPlan(res.Resort, res)` after
 `TerrainPlan` (A6 keeps the line); `V2Tests.cs` arms S-4..S-7 and P-5, calls `LiftCase` per region, the S-4 / S-5 soft argument, P-1 via
 `UnitMsWithoutTowerPlans`; PlanTypes drops the "A0 stub: the plan has lifts" check (the Lifts stage now runs one unit or more).
