@@ -449,15 +449,18 @@ namespace SkiResortMod.Systems
             return h;
         }
 
-        /// <summary>Road edge samples (every AccessStepM along each live road edge's curve) and the nearest Welcome Sign, within the region's
-        /// bounds plus AccessReachM, sorted by x then z, duplicates (shared nodes) removed. Null when none. The sign: the nearest one to the
-        /// bounds center only (SkiRunOwnershipSystem.TryNearestGateEntity), when it lies within the reach.</summary>
+        /// <summary>Road edge samples (both ends of each live road edge plus every AccessStepM along its curve, the step widened so the
+        /// interior samples stay within AccessMaxSamples over all edges) and the nearest Welcome Sign, within the region's bounds plus
+        /// AccessReachM, sorted by x then z, duplicates (shared nodes) removed. Null when none. The sign: the nearest one to the bounds
+        /// center only (SkiRunOwnershipSystem.TryNearestGateEntity), when it lies within the reach.</summary>
         private float2[] CollectAccess(float2[] region)
         {
+            const int AccessMaxSamples = 2048;   // a dense road grid by a 9 km2 region gave 6-12 k samples at 25 m (A-R AR-8)
             if (!SkiRunAutoPlanner.BBox(region, out float2 lo, out float2 hi))
                 return null;
             var box = new Bounds2(lo - AccessReachM, hi + AccessReachM);
             var points = new List<float2>();
+            var curves = new List<Game.Net.Curve>();
             if (m_NetSearch == null)
                 m_NetSearch = World.GetOrCreateSystemManaged<Game.Net.SearchSystem>();
             // Synchronous read (the glade tool's CensusTrees idiom, as SearchTrees does for the object tree)
@@ -475,18 +478,27 @@ namespace SkiResortMod.Systems
                         EntityManager.HasComponent<Deleted>(e) || EntityManager.HasComponent<Temp>(e) ||
                         !EntityManager.TryGetComponent(e, out Game.Net.Curve curve))
                         continue;
-                    int steps = math.max(1, (int)math.ceil(curve.m_Length / AccessStepM));
-                    for (int k = 0; k <= steps; k++)
-                    {
-                        float2 p = MathUtils.Position(curve.m_Bezier, k / (float)steps).xz;
-                        if (MathUtils.Intersect(box, p))
-                            points.Add(p);
-                    }
+                    curves.Add(curve);
                 }
             }
             finally
             {
                 found.Dispose();
+            }
+            // The step from the total length (the edge set, not the iteration order, decides it): ends always, interior samples capped
+            double total = 0.0;
+            for (int i = 0; i < curves.Count; i++)
+                total += curves[i].m_Length;
+            float step = (float)Math.Max(AccessStepM, total / AccessMaxSamples);
+            for (int i = 0; i < curves.Count; i++)
+            {
+                int steps = math.max(1, (int)math.ceil(curves[i].m_Length / step));
+                for (int k = 0; k <= steps; k++)
+                {
+                    float2 p = MathUtils.Position(curves[i].m_Bezier, k / (float)steps).xz;
+                    if (MathUtils.Intersect(box, p))
+                        points.Add(p);
+                }
             }
             if (m_Ownership.TryNearestGateEntity((lo + hi) * 0.5f, out Entity gate, out float _) &&
                 EntityManager.TryGetComponent(gate, out Game.Objects.Transform tr) && MathUtils.Intersect(box, tr.m_Position.xz))

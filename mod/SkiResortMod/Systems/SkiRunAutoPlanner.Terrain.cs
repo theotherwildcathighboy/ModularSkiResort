@@ -17,15 +17,30 @@ namespace SkiResortMod.Systems
     public sealed partial class SkiRunAutoPlanner
     {
         // ---------------------------------------------------------------- constants (spec 4.1; [B] 2.2, [C1] 3b)
-        /// <summary>TerrainBand floors: Marginal 6 %, Beginner 8, Intermediate 25, Advanced 45, Expert 70, Cliff 100 % (Ecosign bands).</summary>
-        public static readonly float[] TerrainBandFloor = { 0.06f, 0.08f, 0.25f, 0.45f, 0.70f, 1.00f };
+        // TerrainBand floors: Marginal 6 %, Beginner 8, Intermediate 25, Advanced 45, Expert 70, Cliff 100 % (Ecosign bands). Private
+        // (spec 4.7: no static mutable state); read through TerrainBandFloorOf.
+        private static readonly float[] s_TerrainBandFloor = { 0.06f, 0.08f, 0.25f, 0.45f, 0.70f, 1.00f };
         public const float PadMaxGrade = 0.25f, PadMinAreaM2 = 2000f, PadMinInscribedM = 9f;   // 0.2 ha; half the 16 m lot side + 1 m
         public const float PadLearningGrade = 0.08f, PadNoviceGrade = 0.15f;                    // PadKind: Flat / Learning / Novice
         public const int MaxPads = 255;                                                         // ids fit the byte layer (255 = none)
         public const byte PadNone = 255;
-        /// <summary>Station lot half-diagonals by lift type (fixed grip, detachable, gondola, tram): lots 16x24, 16x32, 24x32, 48x24 m
-        /// ([C1] table 3b; lot cell 8 m, DC/Game.Prefabs/BuildingInitializeSystem.cs:1266-1272).</summary>
-        public static readonly float[] StationHalfDiagonalM = { 14.4f, 17.9f, 20.0f, 26.8f };
+        // Station lot half-diagonals by lift type (fixed grip, detachable, gondola, tram): lots 16x24, 16x32, 24x32, 48x24 m ([C1] table
+        // 3b; lot cell 8 m, DC/Game.Prefabs/BuildingInitializeSystem.cs:1266-1272). Private: read through StationHalfDiagonalOf.
+        private static readonly float[] s_StationHalfDiagonal = { 14.4f, 17.9f, 20.0f, 26.8f };
+        public const int StationTypes = 4;
+        /// <summary>A pad holds a pod bottom (the lift's bottom terminal with its maze and queue) only with this area and the fixed grip's
+        /// half diagonal (calibration d of the A-R critique: 1 ha); smaller pads stay pads (benches, top stations) and merge into Down(P).</summary>
+        public const float PodBottomMinAreaM2 = 10000f;
+
+        /// <summary>The TerrainBand floor b (0 Marginal .. 5 Cliff); +inf past the last.</summary>
+        public static float TerrainBandFloorOf(int b) => b >= 0 && b < s_TerrainBandFloor.Length ? s_TerrainBandFloor[b] : float.PositiveInfinity;
+
+        /// <summary>The station lot half diagonal of a lift type (SkiCatalog index, clamped to 0..StationTypes - 1).</summary>
+        public static float StationHalfDiagonalOf(int type) => s_StationHalfDiagonal[Math.Max(0, Math.Min(StationTypes - 1, type))];
+
+        /// <summary>A fresh copy of the half diagonals by type for callers that index an array (the overlay); the planner reads
+        /// StationHalfDiagonalOf.</summary>
+        public static float[] StationHalfDiagonalM => (float[])s_StationHalfDiagonal.Clone();
         /// <summary>The cheapest station's lot (fixed grip, 16 x 24 m): the lot the pad's cut / fill estimate levels.</summary>
         public const float PadLotShortM = 16f, PadLotLongM = 24f;
 
@@ -33,7 +48,7 @@ namespace SkiResortMod.Systems
         public static TerrainBand BandOfGrade(float o)
         {
             int b = 0;
-            while (b < TerrainBandFloor.Length && o >= TerrainBandFloor[b])
+            while (b < s_TerrainBandFloor.Length && o >= s_TerrainBandFloor[b])
                 b++;
             return (TerrainBand)b;
         }
@@ -78,7 +93,8 @@ namespace SkiResortMod.Systems
         /// <summary>Stage Terrain (Resort only). m_Cursor2 phases: 0 setup; 1 rows: m_OS, m_Band, the smoothed height, layer reset;
         /// 2 rows: ridges and the pad-candidate union (W, NW, N, NE: every parent is an earlier cell); 3 rows: labels (one ascending
         /// flatten) and component sums; 4 chamfer seeds over the region bbox; 5 / 6 forward / backward chamfer; 7 rows: the inscribed
-        /// maximum per component; 8 one unit: the pad list; 9 rows: m_PadOf. Then PodRoute.</summary>
+        /// maximum per component; 8 one unit: the pad order; 9 PadsPerUnit pads per unit: the pad list (lot grade, access distance);
+        /// 10 rows: m_PadOf. Then PodRoute.</summary>
         private void UnitTerrain()
         {
             switch (m_Cursor2)
@@ -109,9 +125,12 @@ namespace SkiResortMod.Systems
                     TerrainInscribedRows();
                     return;
                 case 8:
-                    BuildPads();
-                    m_Cursor = m_RegionJ0;
+                    PadOrder();
+                    m_Cursor = 0;
                     m_Cursor2 = 9;
+                    return;
+                case 9:
+                    BuildPads();
                     return;
                 default:
                     TerrainPadRows();
@@ -338,9 +357,8 @@ namespace SkiResortMod.Systems
         }
 
         // Phase 8, one unit: kept components with InscribedM >= PadMinInscribedM become pads; over MaxPads the largest by area stay
-        // (ties: the smaller first cell); ids follow the smallest cell (the component order). IsBase = touches the v1 base band or is
-        // the lowest pad; IsBench = not base and its lowest cell above the base band top.
-        private void BuildPads()
+        // (ties: the smaller first cell); ids follow the smallest cell (the component order)
+        private void PadOrder()
         {
             m_PadOrder.Clear();
             m_PadFirst.Clear();
@@ -349,17 +367,33 @@ namespace SkiResortMod.Systems
                     m_PadOrder.Add(k);
             if (m_PadOrder.Count > MaxPads)
             {
-                m_PadOrder.Sort((a, b) =>
-                {
-                    int byArea = m_PadComps[b].Cells.CompareTo(m_PadComps[a].Cells);
-                    return byArea != 0 ? byArea : m_PadComps[a].First.CompareTo(m_PadComps[b].First);
-                });
+                m_PadOrder.Sort(m_ByCompArea ?? (m_ByCompArea = ByCompArea));
                 m_PadOrder.RemoveRange(MaxPads, m_PadOrder.Count - MaxPads);
-                m_PadOrder.Sort((a, b) => m_PadComps[a].First.CompareTo(m_PadComps[b].First));
+                m_PadOrder.Sort(m_ByCompFirst ?? (m_ByCompFirst = ByCompFirst));
             }
+        }
+
+        // Cached comparisons (no delegate allocation per scan, AR-17)
+        private Comparison<int> m_ByCompArea, m_ByCompFirst;
+
+        private int ByCompArea(int a, int b)
+        {
+            int byArea = m_PadComps[b].Cells.CompareTo(m_PadComps[a].Cells);
+            return byArea != 0 ? byArea : m_PadComps[a].First.CompareTo(m_PadComps[b].First);
+        }
+
+        private int ByCompFirst(int a, int b) => m_PadComps[a].First.CompareTo(m_PadComps[b].First);
+
+        /// <summary>Pads built per unit in phase 9 (each: the lot grade's two box sums and a binary-searched access window).</summary>
+        private const int PadsPerUnit = 16;
+
+        // Phase 9, PadsPerUnit pads per unit: the pad list. After the last pad: IsBase = touches the v1 base band or is the lowest pad;
+        // IsBench = not base and its lowest cell above the base band top.
+        private void BuildPads()
+        {
             float cellArea = m_Texel * m_Texel;
-            int lowest = -1;
-            for (int n = 0; n < m_PadOrder.Count; n++)
+            int end = Math.Min(m_PadOrder.Count, m_Cursor + PadsPerUnit);
+            for (int n = m_Cursor; n < end; n++)
             {
                 int k = m_PadOrder[n];
                 PadComp pc = m_PadComps[k];
@@ -379,9 +413,14 @@ namespace SkiResortMod.Systems
                     AccessM = AccessDistance(center),
                     GradeM3 = gradeM3, GradeMaxM = gradeMaxM,
                 });
-                if (lowest < 0 || pc.MinY < m_PadList[lowest].MinY)
-                    lowest = n;
             }
+            m_Cursor = end;
+            if (m_Cursor < m_PadOrder.Count)
+                return;
+            int lowest = -1;
+            for (int n = 0; n < m_PadList.Count; n++)
+                if (lowest < 0 || m_PadList[n].MinY < m_PadList[lowest].MinY)
+                    lowest = n;
             for (int n = 0; n < m_PadList.Count; n++)
             {
                 PlanPad pad = m_PadList[n];
@@ -389,6 +428,8 @@ namespace SkiResortMod.Systems
                 pad.IsBench = !pad.IsBase && pad.MinY > m_BaseTop;
                 m_PadList[n] = pad;
             }
+            m_Cursor = m_RegionJ0;
+            m_Cursor2 = 10;
         }
 
         // Phase 9, rows: the pad id layer
@@ -409,14 +450,27 @@ namespace SkiResortMod.Systems
             Next(Stage.PodRoute);
         }
 
-        /// <summary>Distance from a pad's station spot to the nearest access point (road samples, Welcome Signs); +inf when none.</summary>
+        /// <summary>Distance in meters from a pad's station spot to the nearest access point (road samples, Welcome Signs); +inf when none.
+        /// AutoPlanInput.Access is sorted by x (then z): a binary search finds the first point at or right of p.x, then the scan walks
+        /// outward both ways and stops once the x gap alone reaches the best distance (the full scan's result).</summary>
         private float AccessDistance(float2 p)
         {
             float2[] acc = m_In.Access;
             float best = float.PositiveInfinity;
-            if (acc == null)
+            if (acc == null || acc.Length == 0)
                 return best;
-            for (int k = 0; k < acc.Length; k++)
+            int lo = 0, hi = acc.Length;
+            while (lo < hi)
+            {
+                int mid = (lo + hi) >> 1;
+                if (acc[mid].x < p.x)
+                    lo = mid + 1;
+                else
+                    hi = mid;
+            }
+            for (int k = lo; k < acc.Length && acc[k].x - p.x < best; k++)
+                best = Math.Min(best, math.distance(p, acc[k]));
+            for (int k = lo - 1; k >= 0 && p.x - acc[k].x < best; k--)
                 best = Math.Min(best, math.distance(p, acc[k]));
             return best;
         }

@@ -84,6 +84,37 @@ namespace AutoGenBatch
             LiftKnobTests();
             LiftPinnedTests();
             LiftNoSiteTest();
+            LiftMainThreadTest();
+        }
+
+        /// <summary>AR-7: on the main thread (AutoPlanInput.MainThread) no tower plan runs; each pick is selected with its towers unchecked.
+        /// Where the worker run had no failed tower plan, the main-thread run selects the same lifts.</summary>
+        private static void LiftMainThreadTest()
+        {
+            const string w = "Lifts main thread";
+            AutoPlanInput input = ResortInput(Input(Terrain.Alpine(1u), Terrain.AlpineRegion()));
+            var worker = new SkiRunAutoPlanner();
+            AutoPlanResult rw = worker.Run(input);
+            AutoPlanInput mi = ResortInput(Input(Terrain.Alpine(1u), Terrain.AlpineRegion()));
+            mi.MainThread = true;
+            var main = new SkiRunAutoPlanner();
+            AutoPlanResult rm = main.Run(mi);
+            Check(rw.Resort != null && rm.Resort != null, w, "no plan");
+            if (rw.Resort == null || rm.Resort == null)
+                return;
+            Check(main.TowerPlans == 0 && main.TowersUncheckedCount == rm.Resort.Lifts.Length && rm.Resort.Lifts.Length > 0, w,
+                  $"{main.TowerPlans} tower plan(s), {main.TowersUncheckedCount} unchecked of {rm.Resort.Lifts.Length} lift(s)");
+            foreach (PlanLift l in rm.Resort.Lifts)
+                Check(l.TowersUnchecked && l.Towers == -1 && l.TowerXz != null && l.TowerXz.Length == 0, w, $"lift {l.Id} has a tower plan");
+            if (worker.LiftStat(SkiRunAutoPlanner.LiftStatTowerFail) == 0)
+            {
+                bool same = rw.Resort.Lifts.Length == rm.Resort.Lifts.Length;
+                for (int i = 0; same && i < rw.Resort.Lifts.Length; i++)
+                    same = rw.Resort.Lifts[i].Key == rm.Resort.Lifts[i].Key && rw.Resort.Lifts[i].Bottom.Equals(rm.Resort.Lifts[i].Bottom) &&
+                           rw.Resort.Lifts[i].Top.Equals(rm.Resort.Lifts[i].Top);
+                Check(same, w, "the main-thread run selected other lifts than the worker run (no tower plan failed there)");
+            }
+            Console.WriteLine($"INFO  {w}: {rm.Resort.Lifts.Length} lift(s) selected unchecked, 0 tower plans (worker: {worker.TowerPlans} plans)");
         }
 
         /// <summary>The lift invariants of one Resort result, checked on the plan alone plus an independent tower re-plan per proposal.</summary>
@@ -120,7 +151,7 @@ namespace AutoGenBatch
                 LiftTypeDef def = SkiCatalog.Lifts[l.TypeIndex];
                 long cost = def.StationCostBase + def.StationCostTop + (long)Math.Round(def.LinePerKm * (double)l.LengthM / 1000.0);
                 Check(Math.Abs(l.Cost - cost) <= 1, wl, $"cost {l.Cost}, catalog {cost}");
-                float hd = SkiRunAutoPlanner.StationHalfDiagonalM[l.TypeIndex];
+                float hd = SkiRunAutoPlanner.StationHalfDiagonalOf(l.TypeIndex);
                 Check(l.BottomSunk == !(p.Pads[l.BottomPad].InscribedM >= hd) &&
                       l.TopSunk == !(l.TopPad >= 0 && p.Pads[l.TopPad].InscribedM >= hd), wl, "Sunk flags disagree with the pads");
                 Check(l.Towers == l.TowerXz.Length && l.Towers >= 0, wl, "Towers " + l.Towers + " vs " + l.TowerXz.Length + " spots");
@@ -149,7 +180,7 @@ namespace AutoGenBatch
                 for (int j = 0; j < i; j++)
                 {
                     PlanLift o = p.Lifts[j];
-                    float ho = SkiRunAutoPlanner.StationHalfDiagonalM[Math.Min(3, (int)o.TypeIndex)];
+                    float ho = SkiRunAutoPlanner.StationHalfDiagonalOf(o.TypeIndex);
                     foreach (float3 x in new[] { l.Bottom, l.Top })
                         foreach (float3 y in new[] { o.Bottom, o.Top })
                             Check(!(math.distance(x.xz, y.xz) < hd + ho - 1e-3f), wl, $"station lot overlaps lift {j}'s");

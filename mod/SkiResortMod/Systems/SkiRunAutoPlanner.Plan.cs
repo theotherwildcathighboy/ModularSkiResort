@@ -35,7 +35,7 @@ namespace SkiResortMod.Systems
         public PadKind Kind;
         public float AreaM2, MeanGrade, MinY, MaxY;
         public float2 Center;             // the station spot: the pad cell with the largest inscribed distance (Chamfer)
-        public float InscribedM;          // that distance; >= StationHalfDiagonalM(type) = can hold that station's lot
+        public float InscribedM;          // that distance; >= StationHalfDiagonalOf(type) = can hold that station's lot
         public bool IsBase;               // touches the v1 base band (Zones) or is the lowest pad
         public bool IsBench;              // not base, MinY above the base band top
         public float AccessM;             // distance from Center to the nearest access point (road / sign); +inf when none
@@ -51,7 +51,7 @@ namespace SkiResortMod.Systems
         public float2 TopCenter;          // the highest usable spot (top station spot when UpperPad < 0)
         public float TopY, BottomY, VerticalM, ReachM, StraightGrade;
         public float AreaM2, SkiableAreaM2, DevelopableShare;   // DevelopableShare per spec section 4.2
-        public TerrainBand PrimaryClass;  // band of the steepest 30 m pitch at the pod's 80th percentile (Ecosign class)
+        public TerrainBand PrimaryClass;  // band of the 80th percentile of the skiable cells' 20 m window grade (Ecosign class)
         public float[] BandShare;         // [7] share of skiable cells per TerrainBand (allocated per pod by the planner; a struct field
                                           // cannot have an initializer in C# 9, the host LangVersion)
         public float MeanFanGrade;        // mean grade of the skiable cells (the [G] "fan steepness")
@@ -68,7 +68,8 @@ namespace SkiResortMod.Systems
         public byte TypeIndex;            // SkiCatalog lift type (fixedGrip, detachable, gondola, tram)
         public float3 Bottom, Top;        // station spots (snapshot heights)
         public float LengthM, RiseM, MaxEdgeSlope;
-        public int Towers;                // LiftTowerPlanner count; -1 = not planned (pinned lifts keep their own)
+        public int Towers;                // LiftTowerPlanner count; -1 = not planned (pinned lifts keep their own; TowersUnchecked)
+        public bool TowersUnchecked;      // a proposal selected without a tower plan (the main-thread fallback: AutoPlanInput.MainThread)
         public float2[] TowerXz;          // planned tower spots (overlay discs); empty for pinned
         public int Pod, BottomPad, TopPad;   // TopPad -1 = summit cells
         public bool TopSunk, BottomSunk;  // the station spot is steeper than 25 % (the station sinks, as today: C1 3b)

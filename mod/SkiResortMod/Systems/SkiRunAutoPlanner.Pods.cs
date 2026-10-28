@@ -55,7 +55,13 @@ namespace SkiResortMod.Systems
         }
 
         private readonly List<PodComp> m_PodComps = new List<PodComp>();
-        private readonly List<long> m_Borders = new List<long>();      // (a << 32 | b), a < b: one entry per shared border incidence
+        private readonly List<long> m_Borders = new List<long>();      // (a << 32 | b), a < b: a run of equal shared border incidences
+        private readonly List<int> m_BorderW = new List<int>();        // per m_Borders entry: its incidences
+        private int[] m_BorderCount = new int[64], m_BStart = new int[64], m_BFill = new int[64], m_BUniq = new int[64];
+        private int[] m_BorderB = new int[64], m_BorderBW = new int[64];   // bucketed by the smaller component: the other one, the weight
+        private bool[] m_Settled = new bool[64], m_PodKeep = new bool[16];
+        private readonly List<float[]> m_SharePool = new List<float[]>();   // BandShare arrays by creation order (TerrainPlan clones them)
+        private int m_PodEdges;
         private readonly List<PlanPod> m_PodList = new List<PlanPod>();
         private readonly int[] m_PadRoot = new int[MaxPads], m_PadDown = new int[MaxPads], m_PadDownCell = new int[MaxPads];
         private readonly float[] m_PadDownY = new float[MaxPads];
@@ -63,6 +69,7 @@ namespace SkiResortMod.Systems
         private int[] m_PodStat = new int[64], m_PodBands = new int[64 * 7], m_PodOfComp = new int[64];
         private double[] m_PodGrade = new double[64];
         private ulong[] m_PodPads = new ulong[64 * 4];                 // per component: the pads its cells touch (256-bit set)
+        private ulong[] m_CompBench = new ulong[64 * 4];               // per component: the benches merged into its lower pad it touches
         private int[] m_AdjStart = new int[64], m_AdjFill = new int[64], m_Adj = new int[64], m_AdjLen = new int[64];
         private int[] m_MemberNext = new int[64], m_MemberLast = new int[64], m_Acc = new int[64];
         private readonly List<int> m_PodTouched = new List<int>();
@@ -73,7 +80,11 @@ namespace SkiResortMod.Systems
         /// <summary>Pods of the last Resort scan, in id order; empty in Runs mode.</summary>
         public int PodCount => m_PodList.Count;
 
-        private bool PadCapable(int pad) => pad < m_PadList.Count && m_PadList[pad].InscribedM >= StationHalfDiagonalM[0];
+        private bool PadCapable(int pad) => pad < m_PadList.Count && m_PadList[pad].InscribedM >= StationHalfDiagonalOf(0);
+
+        /// <summary>A capable pad big enough to be a pod bottom (a lift's bottom terminal): PodBottomMinAreaM2 (1 ha). Smaller capable pads
+        /// are labels like any other but always merge into Down(P) (they stay pads: benches, top stations).</summary>
+        private bool PadBottom(int pad) => PadCapable(pad) && m_PadList[pad].AreaM2 >= PodBottomMinAreaM2;
 
         // ---------------------------------------------------------------- stage PodRoute
 
@@ -144,9 +155,11 @@ namespace SkiResortMod.Systems
 
         /// <summary>Stage Pods (Resort only). m_Cursor2 phases: 0 setup; 1 rows: each pad's lowest outside neighbor with another label
         /// (Down); 2 one unit: the 80 m merge; 3 rows: union of catchment cells (4-connected, same surviving pad, ridge cells out);
-        /// 4 rows: labels and component sums; 5 rows: shared borders (across ridge cells, and diagonal touches); 6 one unit: sort the
-        /// borders; 7: the small-component merge (one component per unit); 8 rows: pod statistics per merged group; 9 one unit: the pod
-        /// list; 10 rows: the pod id layer. Then Lifts.</summary>
+        /// 4 rows: labels and component sums; 5 rows: shared borders (across ridge cells, and diagonal touches) and the merged benches
+        /// each component touches; 6 one pad per unit: bench links; 7 one unit: border buckets; 8 chunks: scatter the borders into
+        /// buckets; 9 buckets: sort and fold each; 10 one unit: adjacency starts; 11 buckets: the adjacency; 12: the small-component
+        /// merge (bounded work per unit); 13 rows: pod statistics per merged group; 14 one unit: the pod list; 15 rows: the pod id
+        /// layer. Then Lifts.</summary>
         private void UnitPods()
         {
             switch (m_Cursor2)
@@ -154,6 +167,7 @@ namespace SkiResortMod.Systems
                 case 0:
                     m_PodComps.Clear();
                     m_Borders.Clear();
+                    m_BorderW.Clear();
                     m_PodList.Clear();
                     for (int p = 0; p < MaxPads; p++)
                     {
@@ -183,20 +197,37 @@ namespace SkiResortMod.Systems
                     PodBorderRows();
                     return;
                 case 6:
-                    PodAdjacency();
-                    m_Cursor = 0;
-                    m_Cursor2 = 7;
+                    PodBenchLinks();
                     return;
                 case 7:
-                    PodSmallMerge();
+                    PodBorderBuckets();
+                    m_Cursor = 0;
+                    m_Cursor2 = 8;
                     return;
                 case 8:
-                    PodStatRows();
+                    PodBorderScatter();
                     return;
                 case 9:
+                    PodBorderFold();
+                    return;
+                case 10:
+                    PodAdjacency();
+                    m_Cursor = 0;
+                    m_Cursor2 = 11;
+                    return;
+                case 11:
+                    PodAdjacencyFill();
+                    return;
+                case 12:
+                    PodSmallMerge();
+                    return;
+                case 13:
+                    PodStatRows();
+                    return;
+                case 14:
                     BuildPods();
                     m_Cursor = m_RegionJ0;
-                    m_Cursor2 = 10;
+                    m_Cursor2 = 15;
                     return;
                 default:
                     PodIdRows();
@@ -211,8 +242,9 @@ namespace SkiResortMod.Systems
             return l == MUnreached ? -1 : Root(m_PadRoot, l);
         }
 
-        /// <summary>A cell that belongs to a pod component: labeled, not a cell of its own lower pad (the pod is the ground ABOVE its
-        /// bottom station site: two faces draining onto one pad stay two pods), and not a ridge cell (other pads keep their ridge cells).</summary>
+        /// <summary>A cell that belongs to a pod component: labeled, not a cell of any pad merged into its own lower pad (the pod is the
+        /// ground ABOVE its bottom station site: two faces draining onto one pad, or onto a bench merged into it, stay two pods), and not
+        /// a ridge cell (other pads keep their ridge cells).</summary>
         private bool PodCell(int c)
         {
             ushort l = m_PodOf[c];
@@ -221,11 +253,12 @@ namespace SkiResortMod.Systems
             byte pad = m_PadOf[c];
             if (pad == PadNone)
                 return m_Ridge[c] == 0;
-            return pad != Root(m_PadRoot, l);
+            return Root(m_PadRoot, pad) != Root(m_PadRoot, l);
         }
 
-        // Phase 1, rows: Down(P) = the label of P's lowest outside 8-neighbor that carries another label (its descent; ties: the smaller
-        // cell). Only capable pads are labels, so Down(P) is always a possible lift bottom.
+        // Phase 1, rows: Down(P) = the label of P's lowest outside 8-neighbor below P's lowest cell that carries another label (its
+        // descent; ties: the smaller cell; a same-height or higher neighbor is never a descent). Only capable pads are labels, so Down(P)
+        // is always a station site.
         private void PodDrainRows()
         {
             int jEnd = Math.Min(m_RegionJ1 + 1, m_Cursor + RowsPerUnit);
@@ -236,6 +269,7 @@ namespace SkiResortMod.Systems
                     byte pad = m_PadOf[c];
                     if (pad == PadNone || !PadCapable(pad))
                         continue;
+                    float minY = m_PadList[pad].MinY;
                     for (int d = 0; d < 8; d++)
                     {
                         int n = c + DirZ[d] * m_Nx + DirX[d];
@@ -243,6 +277,8 @@ namespace SkiResortMod.Systems
                         if (m_PadOf[n] == pad || l == MUnreached || l == pad)
                             continue;
                         float h = m_H[n];
+                        if (!(h < minY))
+                            continue;
                         if (h < m_PadDownY[pad] || (h == m_PadDownY[pad] && n < m_PadDownCell[pad]))
                         {
                             m_PadDownY[pad] = h;
@@ -256,8 +292,10 @@ namespace SkiResortMod.Systems
                 m_Cursor2 = 2;
         }
 
-        // Phase 2: pads in ascending MinY (ties: id); P.MinY - Down(P).MaxY under PodMinVerticalM merges P into Down(P). The root of a
-        // merged set is its lowest pad (ties: the smaller id), so the survivor is the lift bottom.
+        // Phase 2: pads in ascending MinY (ties: id); P merges into Down(P) when P is not a pod bottom (PadBottom: under 1 ha) or its
+        // drop to the merged set below is under PodMinVerticalM, measured against that set's root's MaxY (a 70 m staircase of 35 m steps
+        // does not chain into one pod). The root of a merged set is its lowest pod-bottom pad (ties: the smaller id), else its lowest
+        // pad, so the survivor is the lift bottom; a set with no pod-bottom pad yields no pod (BuildPods).
         private void PodMerge()
         {
             int n = m_PadList.Count;
@@ -265,25 +303,55 @@ namespace SkiResortMod.Systems
             for (int p = 0; p < n; p++)
                 if (PadCapable(p))
                     m_PadOrder.Add(p);
-            m_PadOrder.Sort((a, b) =>
-            {
-                int byY = m_PadList[a].MinY.CompareTo(m_PadList[b].MinY);
-                return byY != 0 ? byY : a.CompareTo(b);
-            });
+            m_PadOrder.Sort(m_ByPadMinY ?? (m_ByPadMinY = ByPadMinY));
             for (int k = 0; k < m_PadOrder.Count; k++)
             {
                 int p = m_PadOrder[k], down = m_PadDown[p];
-                if (down < 0 || m_PadList[p].MinY - m_PadList[down].MaxY >= PodMinVerticalM)
+                if (down < 0)
                     continue;
                 int a = Root(m_PadRoot, p), b = Root(m_PadRoot, down);
-                if (a == b)
+                if (a == b || (PadBottom(p) && m_PadList[p].MinY - m_PadList[b].MaxY >= PodMinVerticalM))
                     continue;
-                bool aLower = m_PadList[a].MinY < m_PadList[b].MinY || (m_PadList[a].MinY == m_PadList[b].MinY && a < b);
-                if (aLower)
+                if (RootBefore(a, b))
                     m_PadRoot[b] = a;
                 else
                     m_PadRoot[a] = b;
             }
+        }
+
+        /// <summary>Pad a is the better root of a merged set than b: a pod bottom first, then the lower MinY, then the smaller id.</summary>
+        private bool RootBefore(int a, int b)
+        {
+            bool ba = PadBottom(a), bb = PadBottom(b);
+            if (ba != bb)
+                return ba;
+            float ya = m_PadList[a].MinY, yb = m_PadList[b].MinY;
+            return ya < yb || (ya == yb && a < b);
+        }
+
+        // Cached comparisons (no delegate allocation per scan, AR-17)
+        private Comparison<int> m_ByPadMinY, m_ByPodArea;
+        private Comparison<PlanPod> m_ByPodBottom;
+
+        private int ByPadMinY(int a, int b)
+        {
+            int byY = m_PadList[a].MinY.CompareTo(m_PadList[b].MinY);
+            return byY != 0 ? byY : a.CompareTo(b);
+        }
+
+        private int ByPodArea(int a, int b)
+        {
+            int byArea = m_PodList[b].SkiableAreaM2.CompareTo(m_PodList[a].SkiableAreaM2);
+            return byArea != 0 ? byArea : m_PodList[a].Id.CompareTo(m_PodList[b].Id);
+        }
+
+        private int ByPodBottom(PlanPod a, PlanPod b)
+        {
+            int byY = m_PadList[a.LowerPad].MinY.CompareTo(m_PadList[b.LowerPad].MinY);
+            if (byY != 0)
+                return byY;
+            int ta = CellOfXz(a.TopCenter), tb = CellOfXz(b.TopCenter);
+            return ta != tb ? ta.CompareTo(tb) : a.Id.CompareTo(b.Id);
         }
 
         // Phase 3, rows: union of pod cells with their W and N neighbors of the same surviving pad (4-connected: a ridge line one cell
@@ -360,6 +428,10 @@ namespace SkiResortMod.Systems
             Grow(ref m_PodGrade, nc);
             Grow(ref m_PodOfComp, nc);
             Grow(ref m_PodPads, nc * 4);
+            Grow(ref m_BorderCount, nc);
+            Array.Clear(m_BorderCount, 0, nc);
+            Grow(ref m_CompBench, nc * 4);
+            Array.Clear(m_CompBench, 0, nc * 4);
             m_Cursor = m_RegionJ0;
             m_Cursor2 = 5;
         }
@@ -368,7 +440,8 @@ namespace SkiResortMod.Systems
         private int PodCompOf(int c) => PodCell(c) ? -m_Order[c] - 1 : -1;
 
         // Phase 5, rows: a ridge cell (not a pad cell) borders every pair of distinct same-pad components among its 8 neighbors; two
-        // components touching only diagonally border too (SE and SW of each cell)
+        // components touching only diagonally border too (SE and SW of each cell); a component's cells next to a pad merged into its
+        // lower pad (not the lower pad itself) mark that bench in m_CompBench (phase 6)
         private void PodBorderRows()
         {
             Span8 seen = default;
@@ -380,6 +453,13 @@ namespace SkiResortMod.Systems
                     int k = PodCompOf(c);
                     if (k >= 0)
                     {
+                        int own = m_PodComps[k].Key;
+                        for (int d = 0; d < 8; d++)
+                        {
+                            byte pad = m_PadOf[c + DirZ[d] * m_Nx + DirX[d]];
+                            if (pad != PadNone && pad != own && PadCapable(pad) && Root(m_PadRoot, pad) == own)
+                                m_CompBench[k * 4 + (pad >> 6)] |= 1UL << (pad & 63);
+                        }
                         if (j < m_RegionJ1)
                         {
                             if (i < m_RegionI1)
@@ -389,8 +469,8 @@ namespace SkiResortMod.Systems
                         }
                         continue;
                     }
-                    if (m_PodOf[c] == MUnreached || m_Ridge[c] == 0)
-                        continue;
+                    if (m_PodOf[c] == MUnreached || m_Ridge[c] == 0 || m_PadOf[c] != PadNone)
+                        continue;   // a pad cell never borders (a flat pad's own ridge cells would join its faces)
                     int key = PodKeyOf(c);
                     seen.Count = 0;
                     for (int d = 0; d < 8; d++)
@@ -405,14 +485,52 @@ namespace SkiResortMod.Systems
                 }
             m_Cursor = jEnd;
             if (m_Cursor > m_RegionJ1)
+            {
+                m_Cursor = 0;
                 m_Cursor2 = 6;
+            }
         }
 
+        // Phase 6, one pad per unit: the components touching a bench merged into their lower pad border through it (one incidence:
+        // each links to the largest of them, ties: the smaller index). Merged-bench cells stay out of the components (two faces draining
+        // onto a bench stay two pods), but a face too small for a pod can still join its neighbor across the bench (a 60 m step under a
+        // 50 m step: both faces small, one pod together).
+        private void PodBenchLinks()
+        {
+            int p = m_Cursor++;
+            if (p >= m_PadList.Count)
+            {
+                m_Cursor2 = 7;
+                return;
+            }
+            if (!PadCapable(p) || Root(m_PadRoot, p) == p)
+                return;
+            int nc = m_PodComps.Count, word = p >> 6, big = -1;
+            ulong bit = 1UL << (p & 63);
+            for (int k = 0; k < nc; k++)
+                if ((m_CompBench[k * 4 + word] & bit) != 0 && (big < 0 || m_PodComps[k].Cells > m_PodComps[big].Cells))
+                    big = k;
+            for (int k = 0; k < nc; k++)
+                if (k != big && (m_CompBench[k * 4 + word] & bit) != 0)
+                    AddBorder(k, big);
+        }
+
+        // One incidence per call; a repeat of the last pair (runs along a row) only adds to its weight, so the list holds far fewer
+        // entries than incidences; each entry is counted under its smaller component (the bucket of phase 8)
         private void AddBorder(int a, int b)
         {
             if (b < 0 || a == b || m_PodComps[a].Key != m_PodComps[b].Key)
                 return;
-            m_Borders.Add(((long)Math.Min(a, b) << 32) | (uint)Math.Max(a, b));
+            long key = ((long)Math.Min(a, b) << 32) | (uint)Math.Max(a, b);
+            int n = m_Borders.Count;
+            if (n > 0 && m_Borders[n - 1] == key)
+            {
+                m_BorderW[n - 1]++;
+                return;
+            }
+            m_Borders.Add(key);
+            m_BorderW.Add(1);
+            m_BorderCount[Math.Min(a, b)]++;
         }
 
         /// <summary>Up to 8 distinct ints without an allocation (the ridge cell's neighbor components).</summary>
@@ -463,11 +581,23 @@ namespace SkiResortMod.Systems
             }
         }
 
+        /// <summary>The merge-group root of component k, halving the path on the way (every parent is a smaller index; roots unchanged).</summary>
         private int CompRoot(int k)
         {
-            while (m_PodComps[k].Parent != k)
-                k = m_PodComps[k].Parent;
-            return k;
+            while (true)
+            {
+                int p = m_PodComps[k].Parent;
+                if (p == k)
+                    return k;
+                int gp = m_PodComps[p].Parent;
+                if (gp != p)
+                {
+                    PodComp pc = m_PodComps[k];
+                    pc.Parent = gp;
+                    m_PodComps[k] = pc;
+                }
+                k = gp;
+            }
         }
 
         private bool PodSmall(int root)
@@ -476,27 +606,91 @@ namespace SkiResortMod.Systems
             return pc.Cells * m_Texel * m_Texel < PodMinAreaM2 || pc.MaxY - pc.MinY < PodMinVerticalM;
         }
 
-        // Phase 6, one unit: the sorted border list as runs (one per component pair, its length = the incidences) into an adjacency
-        // list per component (both directions), and one member list per merge group
+        /// <summary>Border entries (or adjacency entries) handled per unit in phases 8, 9, 11 and 12.</summary>
+        private const int BorderWorkPerUnit = 8192;
+
+        // Phase 7, one unit (O(components)): the bucket starts of the border entries by their smaller component
+        private void PodBorderBuckets()
+        {
+            int nc = m_PodComps.Count, nb = m_Borders.Count;
+            Grow(ref m_BStart, nc + 1);
+            Grow(ref m_BFill, nc);
+            Grow(ref m_BUniq, nc);
+            Grow(ref m_BorderB, nb);
+            Grow(ref m_BorderBW, nb);
+            m_BStart[0] = 0;
+            for (int k = 0; k < nc; k++)
+            {
+                m_BStart[k + 1] = m_BStart[k] + m_BorderCount[k];
+                m_BFill[k] = m_BStart[k];
+            }
+        }
+
+        // Phase 8, BorderWorkPerUnit entries per unit: each entry's larger component and weight into its bucket (a counting sort by the
+        // smaller component, so no unit sorts the whole list)
+        private void PodBorderScatter()
+        {
+            int nb = m_Borders.Count, end = Math.Min(nb, m_Cursor + BorderWorkPerUnit);
+            for (int s = m_Cursor; s < end; s++)
+            {
+                long key = m_Borders[s];
+                int at = m_BFill[(int)(key >> 32)]++;
+                m_BorderB[at] = (int)(key & 0xFFFFFFFFL);
+                m_BorderBW[at] = m_BorderW[s];
+            }
+            m_Cursor = end;
+            if (m_Cursor < nb)
+                return;
+            int nc = m_PodComps.Count;
+            Grow(ref m_AdjStart, nc + 1);
+            Array.Clear(m_AdjStart, 0, nc + 1);
+            m_PodEdges = 0;
+            m_Cursor = 0;
+            m_Cursor2 = 9;
+        }
+
+        // Phase 9, buckets until BorderWorkPerUnit entries per unit: sort the bucket by the other component, fold equal pairs (weights
+        // summed: the border length in incidences) to the bucket's front, count each pair in both components' adjacency
+        private void PodBorderFold()
+        {
+            int nc = m_PodComps.Count, work = 0;
+            while (m_Cursor < nc && work < BorderWorkPerUnit)
+            {
+                int a = m_Cursor++, s0 = m_BStart[a], len = m_BStart[a + 1] - s0, w = s0;
+                work += len + 1;
+                if (len > 1)
+                    Array.Sort(m_BorderB, m_BorderBW, s0, len);
+                for (int s = s0; s < s0 + len; s++)
+                {
+                    if (w > s0 && m_BorderB[w - 1] == m_BorderB[s])
+                    {
+                        m_BorderBW[w - 1] += m_BorderBW[s];
+                        continue;
+                    }
+                    m_BorderB[w] = m_BorderB[s];
+                    m_BorderBW[w++] = m_BorderBW[s];
+                    m_AdjStart[a + 1]++;
+                    m_AdjStart[m_BorderB[s] + 1]++;
+                    m_PodEdges++;
+                }
+                m_BUniq[a] = w - s0;
+            }
+            if (m_Cursor < nc)
+                return;
+            m_Cursor2 = 10;
+        }
+
+        // Phase 10, one unit (O(components)): the adjacency starts and one member list per merge group
         private void PodAdjacency()
         {
             int nc = m_PodComps.Count;
-            m_Borders.Sort();
-            Grow(ref m_AdjStart, nc + 1);
             Grow(ref m_AdjFill, nc);
             Grow(ref m_MemberNext, nc);
             Grow(ref m_MemberLast, nc);
             Grow(ref m_Acc, nc);
-            Array.Clear(m_AdjStart, 0, nc + 1);
+            Grow(ref m_Settled, nc);
             Array.Clear(m_Acc, 0, nc);
-            int nb = m_Borders.Count, edges = 0;
-            for (int s = 0; s < nb; s = NextRun(s))
-            {
-                long key = m_Borders[s];
-                m_AdjStart[(int)(key >> 32) + 1]++;
-                m_AdjStart[(int)(key & 0xFFFFFFFFL) + 1]++;
-                edges++;
-            }
+            Array.Clear(m_Settled, 0, nc);
             for (int k = 0; k < nc; k++)
             {
                 m_AdjStart[k + 1] += m_AdjStart[k];
@@ -504,42 +698,50 @@ namespace SkiResortMod.Systems
                 m_MemberNext[k] = -1;
                 m_MemberLast[k] = k;
             }
-            Grow(ref m_Adj, 2 * edges);
-            Grow(ref m_AdjLen, 2 * edges);
-            for (int s = 0; s < nb;)
-            {
-                long key = m_Borders[s];
-                int e = NextRun(s), len = e - s, a = (int)(key >> 32), b = (int)(key & 0xFFFFFFFFL);
-                m_Adj[m_AdjFill[a]] = b;
-                m_AdjLen[m_AdjFill[a]++] = len;
-                m_Adj[m_AdjFill[b]] = a;
-                m_AdjLen[m_AdjFill[b]++] = len;
-                s = e;
-            }
+            Grow(ref m_Adj, 2 * m_PodEdges);
+            Grow(ref m_AdjLen, 2 * m_PodEdges);
         }
 
-        private int NextRun(int s)
+        // Phase 11, buckets until BorderWorkPerUnit pairs per unit: the folded pairs into both components' adjacency
+        private void PodAdjacencyFill()
         {
-            long key = m_Borders[s];
-            int e = s + 1;
-            while (e < m_Borders.Count && m_Borders[e] == key)
-                e++;
-            return e;
+            int nc = m_PodComps.Count, work = 0;
+            while (m_Cursor < nc && work < BorderWorkPerUnit)
+            {
+                int a = m_Cursor++, s0 = m_BStart[a], n = m_BUniq[a];
+                work += n + 1;
+                for (int s = s0; s < s0 + n; s++)
+                {
+                    int b = m_BorderB[s], len = m_BorderBW[s];
+                    m_Adj[m_AdjFill[a]] = b;
+                    m_AdjLen[m_AdjFill[a]++] = len;
+                    m_Adj[m_AdjFill[b]] = a;
+                    m_AdjLen[m_AdjFill[b]++] = len;
+                }
+            }
+            if (m_Cursor < nc)
+                return;
+            m_Cursor = 0;
+            m_Cursor2 = 12;
         }
 
-        // Phase 7: components in ascending order (= smallest cell); one whose merge group is still small joins the neighbor group of the
+        // Phase 12: components in ascending order (= smallest cell); one whose merge group is still small joins the neighbor group of the
         // same pad with the longest shared border (summed over the group's members; ties: the smaller root), the smaller root wins.
-        // At most one merge or 256 checks per unit.
+        // A group found with no neighbor is settled (its adjacency is not scanned again until another group merges into it). At most
+        // one merge or BorderWorkPerUnit adjacency entries (plus one per check) per unit.
         private void PodSmallMerge()
         {
-            int nc = m_PodComps.Count;
-            for (int checks = 0; checks < 256 && m_Cursor < nc; checks++)
+            int nc = m_PodComps.Count, work = 0;
+            while (m_Cursor < nc && work < BorderWorkPerUnit)
             {
+                work++;
                 int g = CompRoot(m_Cursor++);
-                if (!PodSmall(g))
+                if (m_Settled[g] || !PodSmall(g))
                     continue;
                 m_PodTouched.Clear();
                 for (int m = g; m >= 0; m = m_MemberNext[m])
+                {
+                    work += m_AdjStart[m + 1] - m_AdjStart[m];
                     for (int e = m_AdjStart[m]; e < m_AdjStart[m + 1]; e++)
                     {
                         int o = CompRoot(m_Adj[e]);
@@ -549,6 +751,7 @@ namespace SkiResortMod.Systems
                             m_PodTouched.Add(o);
                         m_Acc[o] += m_AdjLen[e];
                     }
+                }
                 int best = -1;
                 for (int t = 0; t < m_PodTouched.Count; t++)
                 {
@@ -560,7 +763,10 @@ namespace SkiResortMod.Systems
                     m_Acc[m_PodTouched[t]] = 0;
                 m_PodTouched.Clear();
                 if (best < 0)
-                    continue;   // no neighbor of the same pad: stays small, BuildPods drops it
+                {
+                    m_Settled[g] = true;   // no neighbor of the same pad: stays small, BuildPods drops it
+                    continue;
+                }
                 int root = Math.Min(g, best), child = Math.Max(g, best);
                 PodComp r = m_PodComps[root], ch = m_PodComps[child];
                 r.Cells += ch.Cells;
@@ -571,11 +777,12 @@ namespace SkiResortMod.Systems
                 m_PodComps[child] = ch;
                 m_MemberNext[m_MemberLast[root]] = child;
                 m_MemberLast[root] = m_MemberLast[child];
+                m_Settled[root] = false;   // new members, new neighbors
                 break;
             }
             if (m_Cursor < nc)
                 return;
-            // Flatten the merge forest and clear the per-group sums for phase 8
+            // Flatten the merge forest and clear the per-group sums for phase 13
             for (int k = 0; k < nc; k++)
             {
                 PodComp pc = m_PodComps[k];
@@ -589,10 +796,10 @@ namespace SkiResortMod.Systems
             for (int k = 0; k < nc; k++)
                 m_PodStat[k * PodStatStride + 2] = -1;
             m_Cursor = m_RegionJ0;
-            m_Cursor2 = 8;
+            m_Cursor2 = 13;
         }
 
-        // Phase 8, rows: per merged group the skiable cells (under PodHardGrade), band counts, grade sum, cells above the tree line, the
+        // Phase 13, rows: per merged group the skiable cells (under PodHardGrade), band counts, grade sum, cells above the tree line, the
         // top cell (the highest with DHard >= EdgeSeedMarginM; ties: the smaller cell) and the pads its cells are or touch
         private void PodStatRows()
         {
@@ -631,11 +838,11 @@ namespace SkiResortMod.Systems
                 }
             m_Cursor = jEnd;
             if (m_Cursor > m_RegionJ1)
-                m_Cursor2 = 9;
+                m_Cursor2 = 14;
         }
 
-        // Phase 9, one unit: groups that are big enough and have a top cell PodMinVerticalM above their lowest cell become pods;
-        // ordered by (LowerPad.MinY, top cell); over MaxPodsOf the smallest by SkiableAreaM2 drop first (ties: the later pod).
+        // Phase 14, one unit: groups that drain to a pod-bottom pad (PadBottom), are big enough and have a top cell PodMinVerticalM above
+        // their lowest cell become pods; ordered by (LowerPad.MinY, top cell); over MaxPodsOf the smallest by SkiableAreaM2 drop first (ties: the later pod).
         private void BuildPods()
         {
             int nc = m_PodComps.Count;
@@ -646,7 +853,7 @@ namespace SkiResortMod.Systems
                 m_PodOfComp[g] = -1;
                 PodComp pc = m_PodComps[g];
                 int s = g * PodStatStride, top = m_PodStat[s + 2];
-                if (pc.Parent != g || PodSmall(g) || top < 0 || pc.Key < 0 || pc.Key >= m_PadList.Count)
+                if (pc.Parent != g || PodSmall(g) || top < 0 || pc.Key < 0 || pc.Key >= m_PadList.Count || !PadBottom(pc.Key))
                     continue;
                 PlanPad lower = m_PadList[pc.Key];
                 int skiable = m_PodStat[s];
@@ -655,7 +862,9 @@ namespace SkiResortMod.Systems
                     continue;   // the top cell sits EdgeSeedMarginM inside: its vertical can fall under the group's cell range
                 float2 topXz = CellCenter(top);
                 float reach = math.distance(topXz, lower.Center);
-                var share = new float[7];
+                if (m_PodList.Count == m_SharePool.Count)
+                    m_SharePool.Add(new float[7]);
+                float[] share = m_SharePool[m_PodList.Count];
                 bool smooth = false;
                 for (int b = 0; b < 7; b++)
                 {
@@ -699,12 +908,10 @@ namespace SkiResortMod.Systems
                 m_PadOrder.Clear();
                 for (int k = 0; k < m_PodList.Count; k++)
                     m_PadOrder.Add(k);
-                m_PadOrder.Sort((a, b) =>
-                {
-                    int byArea = m_PodList[b].SkiableAreaM2.CompareTo(m_PodList[a].SkiableAreaM2);
-                    return byArea != 0 ? byArea : m_PodList[a].Id.CompareTo(m_PodList[b].Id);
-                });
-                var keep = new bool[m_PodList.Count];
+                m_PadOrder.Sort(m_ByPodArea ?? (m_ByPodArea = ByPodArea));
+                Grow(ref m_PodKeep, m_PodList.Count);
+                bool[] keep = m_PodKeep;
+                Array.Clear(keep, 0, m_PodList.Count);
                 for (int k = 0; k < cap; k++)
                     keep[m_PadOrder[k]] = true;
                 int w = 0;
@@ -713,14 +920,7 @@ namespace SkiResortMod.Systems
                         m_PodList[w++] = m_PodList[k];
                 m_PodList.RemoveRange(w, m_PodList.Count - w);
             }
-            m_PodList.Sort((a, b) =>
-            {
-                int byY = m_PadList[a.LowerPad].MinY.CompareTo(m_PadList[b.LowerPad].MinY);
-                if (byY != 0)
-                    return byY;
-                int ta = CellOfXz(a.TopCenter), tb = CellOfXz(b.TopCenter);
-                return ta != tb ? ta.CompareTo(tb) : a.Id.CompareTo(b.Id);
-            });
+            m_PodList.Sort(m_ByPodBottom ?? (m_ByPodBottom = ByPodBottom));
             for (int k = 0; k < m_PodList.Count; k++)
             {
                 PlanPod pod = m_PodList[k];
@@ -732,7 +932,7 @@ namespace SkiResortMod.Systems
 
         private int CellOfXz(float2 p) => Cell(p, out int c) ? c : int.MaxValue;
 
-        // Phase 10, rows: the pod id layer (MUnreached = no pod: ridge cells, dropped components, unreached ground)
+        // Phase 15, rows: the pod id layer (MUnreached = no pod: ridge cells, dropped components, unreached ground)
         private void PodIdRows()
         {
             int jEnd = Math.Min(m_RegionJ1 + 1, m_Cursor + RowsPerUnit);
