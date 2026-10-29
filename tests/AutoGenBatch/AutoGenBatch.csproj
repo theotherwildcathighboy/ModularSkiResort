@@ -37,6 +37,7 @@
     <Compile Include="FlowTests.cs" />
     <Compile Include="RunsFirst.cs" />
     <Compile Include="RunsFirst.Lifts.cs" />
+    <Compile Include="RunsFirst.Score.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiRunAutoPlanner.cs" Link="SkiRunAutoPlanner.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiRunAutoPlanner.Select.cs" Link="SkiRunAutoPlanner.Select.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiRunAutoPlanner.Kernels.cs" Link="SkiRunAutoPlanner.Kernels.cs" />

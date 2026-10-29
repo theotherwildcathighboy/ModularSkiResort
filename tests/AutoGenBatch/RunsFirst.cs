@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Text;
 using SkiResortMod.Systems;
 using Unity.Mathematics;
@@ -69,6 +70,19 @@ namespace AutoGenBatch
 
         public static int Run(string[] args)
         {
+            // "rf-holdout <file>": writes the real-resort regions (9 km2 around each real fixture base point) as a regions file
+            if (args[0] == "rf-holdout")
+            {
+                var rows = new List<string>();
+                foreach (string name in new[] { "JacksonHole", "Whistler", "Snowbird", "Zermatt", "Chamonix", "Okemo" })
+                    foreach (V2Case c in V2Fixtures.Real(name, out _))
+                        if (c.Id.Contains("base 9 km2"))
+                            rows.Add(name.ToLowerInvariant() + " @" + name + " " + string.Join(" ", c.Region.Select(p =>
+                                p.x.ToString("F0", CultureInfo.InvariantCulture) + "," + p.y.ToString("F0", CultureInfo.InvariantCulture))));
+                File.WriteAllLines(args[1], rows);
+                Console.WriteLine($"wrote {rows.Count} holdout region(s) to {args[1]}");
+                return 0;
+            }
             string outDir = args.Length > 1 ? args[1] : "rf-out";
             Directory.CreateDirectory(outDir);
             if (!Heightmap.TryOpen("MountainVillage", out HeightmapFile file, out string why))
@@ -83,20 +97,38 @@ namespace AutoGenBatch
                 regions.Clear();
                 foreach (string row in File.ReadAllLines(args[2]))
                 {
-                    string[] t = row.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-                    if (t.Length < 4)
+                    var t = new List<string>(row.Split(' ', StringSplitOptions.RemoveEmptyEntries));
+                    // optional second token "@Fixture" (default MountainVillage)
+                    string fx = t.Count > 1 && t[1].StartsWith("@") ? t[1].Substring(1) : "MountainVillage";
+                    if (t.Count > 1 && t[1].StartsWith("@"))
+                        t.RemoveAt(1);
+                    if (t.Count < 4)
                         continue;
-                    var ring = new float2[t.Length - 1];
-                    for (int i = 1; i < t.Length; i++)
+                    var ring = new float2[t.Count - 1];
+                    for (int i = 1; i < t.Count; i++)
                     {
                         string[] xz = t[i].Split(',');
                         ring[i - 1] = new float2(float.Parse(xz[0], CultureInfo.InvariantCulture), float.Parse(xz[1], CultureInfo.InvariantCulture));
                     }
-                    regions.Add((t[0], ring));
+                    regions.Add((fx + "|" + t[0], ring));
                 }
             }
-            foreach (var (id, ring) in regions)
-                RunRegion(id, ring, file, outDir);
+            var files = new Dictionary<string, HeightmapFile> { ["MountainVillage"] = file };
+            foreach (var (key, ring) in regions)
+            {
+                int bar = key.IndexOf('|');
+                string fx = bar < 0 ? "MountainVillage" : key.Substring(0, bar), id = bar < 0 ? key : key.Substring(bar + 1);
+                if (!files.TryGetValue(fx, out HeightmapFile hf))
+                {
+                    if (!Heightmap.TryOpen(fx, out hf, out string why2))
+                    {
+                        Console.WriteLine($"SKIP RunsFirst {id}: {why2}");
+                        continue;
+                    }
+                    files[fx] = hf;
+                }
+                RunRegion(id, ring, hf, outDir);
+            }
             return 0;
         }
 
@@ -167,6 +199,39 @@ namespace AutoGenBatch
 
             WriteTable(Path.Combine(outDir, id + ".txt"), id, lines);
             WriteLifts(Path.Combine(outDir, id + ".txt"), id, lifts, lines);
+
+            // the scorecard (RunsFirst.Score.cs) reads the plan as drawn: each picked line continued down its drainage to the first lift
+            // bottom it passes (the way home the lift credit assumed), and the traverses from lift tops to line entries
+            // (or until it joins another picked line: the skier carries on along that one)
+            var plan = new ScorePlan();
+            var pickedLines = lines.FindAll(l => l.Picked);
+            foreach (Line l in pickedLines)
+            {
+                List<float2> run = l.Pts.ConvertAll(p => p.xz);
+                bool AtLift(float2 p) => lifts.Exists(lf => math.distance(lf.Bottom.xz, p) < 60f);
+                bool OnOther(float2 p) => pickedLines.Exists(o => o != l && o.Pts.Exists(q => math.distancesq(q.xz, p) < 35f * 35f));
+                if (l.Flow != null && !l.Merge && !run.Exists(AtLift) && !OnOther(run[run.Count - 1]))
+                {
+                    int k = l.Flow.FindIndex(p => AtLift(p) || OnOther(p));
+                    if (k >= 0)
+                        run.AddRange(l.Flow.GetRange(0, k + 1));
+                }
+                plan.Runs.Add(run);
+            }
+            foreach (Lift lf in lifts)
+            {
+                plan.Lifts.Add((lf.Type, lf.Bottom.xz, lf.Top.xz));
+                foreach (List<float2> tr in lf.Traverses)
+                {
+                    var t = new List<float2>(tr);
+                    t.Reverse();   // stored entry to top; skied top to entry
+                    plan.Connectors.Add(t);
+                }
+            }
+            RunsFirstScore.Result score = RunsFirstScore.Evaluate(snap, ring, plan);
+            Console.WriteLine(RunsFirstScore.Line(id, score));
+            File.AppendAllText(Path.Combine(outDir, id + ".txt"), "\n" + RunsFirstScore.Line(id, score) + "\n" +
+                string.Concat(score.Notes.Select(s => "  " + s + "\n")));
             Render(Path.Combine(outDir, id + ".png"), snap, ring, g, acc, accR, lines, v2, lifts);
         }
 
