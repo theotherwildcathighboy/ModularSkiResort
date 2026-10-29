@@ -177,5 +177,46 @@ namespace AutoGenBatch
             }
             return cleared;
         }
+
+        /// <summary>RF_CHORDDBG: per lift, the share of its chord middle on runs as scorecard v3 reads them, by element.</summary>
+        private static void ChordDebug(Grid g, Plan plan, List<Lift> lifts)
+        {
+            var els = new List<(string Name, List<float2> P, bool Own)>();
+            for (int i = 0; i < plan.Runs.Count; i++)
+            {
+                PlanRun r = plan.Runs[i];
+                bool run = !r.Graded || TrackClass(g, r.Pts).Run;
+                if (run)
+                    els.Add(($"run#{i}:{r.Kind}{(r.Graded ? "(graded)" : "")}:{GroundBand(g, r.Pts)}", Densify(r.Pts), false));
+            }
+            for (int i = 0; i < plan.Connectors.Count; i++)
+            {
+                var (run, band) = TrackClass(g, plan.Connectors[i]);
+                if (run)
+                    els.Add(($"conn#{i}:{band}{(plan.Links.Contains(plan.Connectors[i]) ? ":link" : "")}", Densify(plan.Connectors[i]), false));
+            }
+            foreach (Lift lf in lifts)
+            {
+                float2 b = lf.Bottom.xz, t = lf.Top.xz;
+                float plan2 = math.distance(b, t);
+                int n = 0, near = 0;
+                var by = new Dictionary<string, int>();
+                for (float f = 0.15f; f <= 0.85f; f += 10f / math.max(10f, plan2), n++)
+                {
+                    float2 q = math.lerp(b, t, f);
+                    bool hit = false;
+                    foreach (var e in els)
+                        if (e.P.Any(p => math.distancesq(p, q) < 400f))
+                        {
+                            hit = true;
+                            by[e.Name] = by.TryGetValue(e.Name, out int c) ? c + 1 : 1;
+                        }
+                    if (hit)
+                        near++;
+                }
+                if (n > 0 && near > 0.2f * n)
+                    Console.WriteLine($"CHORDDBG L{lf.Id} {lf.Type}: {100 * near / n}% ({string.Join(", ", by.OrderByDescending(kv => kv.Value).Select(kv => $"{kv.Key} {kv.Value}/{n}"))})");
+            }
+        }
     }
 }

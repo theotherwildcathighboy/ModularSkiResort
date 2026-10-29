@@ -329,6 +329,9 @@ namespace AutoGenBatch
             // runs left under a lift line move out beside it
             if (Environment.GetEnvironmentVariable("RF_NOCHORD") != "1")
                 RepairChords(g, plan, lifts);
+            // and the diagonal graded tracks still under a line that lies on runs are cut as green cat tracks
+            if (Environment.GetEnvironmentVariable("RF_NOCHORD") != "1" && Environment.GetEnvironmentVariable("RF_NOCHORDTRACK") != "1")
+                ClearChordTracks(g, plan, lifts);
             Tick("chords");
             // merging runs end where they crowd the run they join least: off by default since scorecard v2 stopped counting junction
             // zones as crowding (score-neutral there, and a painted run should touch the trunk it joins); RF_JUNCTION=1 turns it on
@@ -341,6 +344,8 @@ namespace AutoGenBatch
                 {
                 }
             Tick("heads");
+            if (Environment.GetEnvironmentVariable("RF_CHORDDBG") == "1")
+                ChordDebug(g, plan, lifts);
             if (Environment.GetEnvironmentVariable("RF_COVER") == "1")
             {
                 // skiable 20 m lattice points no run covers: red where a lift top's reach gets to them, orange where none does
