@@ -313,6 +313,12 @@ namespace AutoGenBatch
             if (Environment.GetEnvironmentVariable("RF_NOBRIDGE") != "1")
                 links += BridgeLifts(g, plan, lifts, km2);
             Tick("bridge");
+            // a learning pod on the green ground a base's runs leave alone, in the lift slots still free: off by default (RF_LEARNPOD=1)
+            // since it cost more than it gave (visible 97.84 -> 97.65: owner-1 gets a violation and loses cover and crowding; 80 %
+            // outlines 95.75 -> 95.97, 120 % 96.88 -> 96.62, squares unchanged)
+            if (Environment.GetEnvironmentVariable("RF_LEARNPOD") == "1")
+                AddLearningPods(g, plan, lifts, km2);
+            Tick("learning pods");
             // an easy way home from every lift's top (green cat tracks to a base or a gondola top)
             if (Environment.GetEnvironmentVariable("RF_NOWAYHOME") != "1")
                 AddWaysHome(g, plan, lifts);

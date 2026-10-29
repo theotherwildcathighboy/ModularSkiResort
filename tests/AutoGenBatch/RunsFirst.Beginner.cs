@@ -179,6 +179,64 @@ namespace AutoGenBatch
             plan.Log.Add($"beginner terrain: {ways} green way(s) down, {pods} pod(s) ({tried} base(s) without a green way home)");
         }
 
+        /// <summary>The owner's sixth rule (generous at the bottom, learning terrain where the terrain is): a base that laps green already
+        /// still gets a learning pod on the green ground its runs leave alone, while the lift budget has room (the slots held for the
+        /// beginner pods often stay free). A pod is kept only where it joins the network and the ski graph loses nothing. Returns the
+        /// pods added.</summary>
+        private static int AddLearningPods(Grid g, Plan plan, List<Lift> lifts, float km2)
+        {
+            int budget = (int)Math.Ceiling(1.5 * km2) + 2, added = 0;
+            var tried = new HashSet<int>();
+            while (lifts.Count < budget && !Late)
+            {
+                int[] rootOf = V3Bases(g, lifts, out HashSet<int> bases);
+                List<int> members = bases.OrderBy(b => b)
+                    .Select(b => Enumerable.Range(0, lifts.Count).Where(L => rootOf[L] == b).OrderBy(L => RawH(g, lifts[L].Bottom.xz)).ToList())
+                    .FirstOrDefault(m => !tried.Contains(lifts[m[0]].Id));
+                if (members == null)
+                    break;
+                tried.Add(lifts[members[0]].Id);
+                SkiGraph sg = Ski(g, plan, lifts);
+                var avoid = new PointHash();
+                foreach (PlanRun r in plan.Runs)
+                    foreach (float2 p in r.Pts)
+                        avoid.Add(p);
+                var lines = new PointHash();
+                foreach (Lift lf in lifts)
+                    for (float f = 0.15f; f <= 0.85f; f += 10f / math.max(10f, math.distance(lf.Bottom.xz, lf.Top.xz)))
+                        lines.Add(math.lerp(lf.Bottom.xz, lf.Top.xz, f));
+                EasyReach er = EasyUp(g, BaseOrigins(g, plan, lifts, members, sg), avoid, GreenWay, lines);
+                var guard = new ChordGuard(lifts);
+                foreach (PlanRun r in plan.Runs)
+                    guard.Add(r.Pts, 0, r.Pts.Count - 1);
+                SkiRead before = SkiRead.Of(g, plan, lifts);
+                int n = lifts.Count, runsBefore = plan.Runs.Count, logBefore = plan.Log.Count;
+                if (!TryPod(g, plan, lifts, members, er, avoid, guard, sg))
+                {
+                    plan.Log.RemoveRange(logBefore, plan.Log.Count - logBefore);
+                    continue;
+                }
+                SkiGraph now = Ski(g, plan, lifts);
+                SkiRead after = SkiRead.Of(g, plan, lifts);
+                bool lost = now.BestSize < before.Net + 1 || after.Green.Count(x => x) < before.Green.Count(x => x);
+                for (int L = 0; L < n && !lost; L++)
+                    lost = before.Home[L] && !after.Home[L] || before.Live[L] && !after.Live[L];
+                foreach (var kv in before.Els)
+                    if (!lost && after.Els.TryGetValue(kv.Key, out var e) && (kv.Value.Reached && !e.Reached || kv.Value.Returns && !e.Returns))
+                        lost = true;
+                if (lost)
+                {
+                    lifts.RemoveRange(n, lifts.Count - n);
+                    plan.Runs.RemoveRange(runsBefore, plan.Runs.Count - runsBefore);
+                    plan.Log.RemoveRange(logBefore, plan.Log.Count - logBefore);
+                    continue;
+                }
+                plan.Log[plan.Log.Count - 1] = plan.Log[plan.Log.Count - 1].Replace("beginner pod", "learning pod");
+                added++;
+            }
+            return added;
+        }
+
         /// <summary>Lift index -> cluster root (lift bottoms within 400 m chain together, as the scorecard's bases); bases = the
         /// roots of clusters with a bottom under lowCut.</summary>
         private static Dictionary<int, int> BaseClusters(Grid g, List<Lift> lifts, float lowCut, out HashSet<int> bases)
