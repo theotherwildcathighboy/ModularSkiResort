@@ -76,12 +76,23 @@ namespace AutoGenBatch
             return moved;
         }
 
+        /// <summary>A link search run to its end. Every cut-off lift of a round searches up from the main lifts' stations (only where its
+        /// skiers may start differs), so while the plan stays as it was the same origins and mode give the same tree.</summary>
+        private sealed class LinkSearch
+        {
+            public List<int> Origins;
+            public int Mode;
+            public EasyReach Reach;
+            public long Settled;
+        }
+
         /// <summary>Adds link routes while the lift network is split (at most a few); returns how many.</summary>
         [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         private static int LinkByRoutes(Grid g, Plan plan, List<Lift> lifts)
         {
             int added = 0;
             var tried = new HashSet<(int, int)>();
+            var done = new List<LinkSearch>();   // the searches since the plan last changed
             for (int round = 0; round < 6; round++)
             {
                 SkiGraph sg = Ski(g, plan, lifts);
@@ -95,12 +106,15 @@ namespace AutoGenBatch
                 foreach (int Y in Enumerable.Range(0, lifts.Count).Where(L => sg.Component[L] != sg.BestComponent))
                 {
                     // into Y from the main lifts, then out of Y back to them
-                    if (!main.Any(X => fwd[X].Contains(Y)) && tried.Add((-1, lifts[Y].Id)) && TryLink(g, plan, lifts, sg, main, new List<int> { Y }))
+                    if (!main.Any(X => fwd[X].Contains(Y)) && tried.Add((-1, lifts[Y].Id)) && TryLink(g, plan, lifts, sg, main, new List<int> { Y }, done))
                         any = true;
-                    else if (!main.Any(X => fwd[Y].Contains(X)) && tried.Add((lifts[Y].Id, -1)) && TryLink(g, plan, lifts, sg, new List<int> { Y }, main))
+                    else if (!main.Any(X => fwd[Y].Contains(X)) && tried.Add((lifts[Y].Id, -1)) && TryLink(g, plan, lifts, sg, new List<int> { Y }, main, done))
                         any = true;
                     if (any)
+                    {
+                        done.Clear();
                         break;
+                    }
                 }
                 if (!any)
                     break;
@@ -112,7 +126,7 @@ namespace AutoGenBatch
         /// <summary>A route from where the froms' skiers are to a bottom station of the tos: a cat track when the ground allows one,
         /// else a run (blue at most but for short stretches). False when neither search meets the froms' terrain.</summary>
         [MethodImpl(MethodImplOptions.AggressiveOptimization)]
-        private static bool TryLink(Grid g, Plan plan, List<Lift> lifts, SkiGraph sg, List<int> froms, List<int> tos)
+        private static bool TryLink(Grid g, Plan plan, List<Lift> lifts, SkiGraph sg, List<int> froms, List<int> tos, List<LinkSearch> done)
         {
             // where the skier can be: every sampled point of the elements skied from the froms' tops (in 60 m buckets)
             var at = new Dictionary<long, List<float3>>();
@@ -197,7 +211,20 @@ namespace AutoGenBatch
                     break;
                 }
                 long work = EasyWork;
-                EasyReach er = EasyUp(g, origins, avoid, mode == 0 ? CatTrack : mode == 1 ? BlueWay : BlackWay, lines);
+                LinkSearch same = done.Find(s => s.Mode == mode && s.Origins.SequenceEqual(origins));
+                EasyReach er;
+                if (same != null && same.Settled <= (long)EasyBudget - EasyWork)
+                {
+                    // the same search again would settle the same cells: its tree, charged to the budgets as if it ran
+                    er = same.Reach;
+                    EasyWork += same.Settled;
+                }
+                else
+                {
+                    er = EasyUp(g, origins, avoid, mode == 0 ? CatTrack : mode == 1 ? BlueWay : BlackWay, lines);
+                    if (EasyWork - work < (long)EasyBudget - work)   // ran to its end, not stopped by the budget
+                        done.Add(new LinkSearch { Origins = origins, Mode = mode, Reach = er, Settled = EasyWork - work });
+                }
                 LinkWork += EasyWork - work;
                 diag.Add($"{(mode == 0 ? "cat track" : mode == 1 ? "blue run" : "black run")} reach {er.Cost.Count} cell(s)");
                 foreach (int c in er.Cost.Where(kv => kv.Value > 0f && On(kv.Key)).OrderBy(kv => kv.Value).Take(12).Select(kv => kv.Key))
