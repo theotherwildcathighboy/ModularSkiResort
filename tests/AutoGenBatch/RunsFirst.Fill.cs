@@ -19,7 +19,8 @@ namespace AutoGenBatch
         private const int FillNewMin = 25;          // ... and at least this many (a hectare)
         private const float FillCrowdShare = 0.25f, FillCrowdM = 40f;   // at most this share of it within 40 m of another run (its last 150 m aside)
         private const float FillForkM = 30f;        // a fill run leaves a run or traverse within this distance, at most 3 m above it
-        private const float FillDropM = 60f, FillMinM = 250f;
+        private const float FillDropM = 60f;
+        private static readonly float FillMinM = Env("RF_FILLMIN", 130f);   // a short fill run still drops FillDropM (no stub), and its first 150 m are never crowding (scorecard v3)
         private const float FillFeedM = 110f, FillFeedShare = 0.3f;   // ... or from a straight cut-over this long at most (a share of the run)
         // a fill run must open more ground than the crowding it brings costs: the scorecard weighs coverage 15 against its 60 % target
         // and crowding 5 against a 30 % share, so a crowded 10 m sample costs about 0.67 x (lattice points / run samples) new points
