@@ -13,8 +13,17 @@
 // bottom) may run under its chord, as a learning chair does; a base is a cluster of two or more lift bottoms (or the lowest cluster
 // when none has two), so a lone low station no longer demands its own learning zone.
 //
-// Composite (0-100): served vertical 20, skiable coverage 15, lift network 15, beginner terrain at each base 15, no dead lifts 10,
-// validity 10, few stubs 5, little crowding 5, connector economy 5. Fixed contract: planners must not edit this file.
+// v3 (the owner's rules, 2026-10-29): a run is rated by the ground under it, as the game's classifier rates a painted run (85th
+// percentile of the terrain grade along it); a connector is a graded cat track (built with the grading tool, a bench across the
+// face) and is rated by its own grade along the path: up to the blue line it is a cat track (green), steeper it is a diagonal run
+// (blue or harder) and counts as a run, not as connector km. Lifts have no maximum length or rise (the mod's lift tool has none);
+// minimums and the mean-grade cap stay. A gondola or tram may cross a chair (pending an in-game check). Riding down is only on a
+// gondola or tram. Beginner terrain may be anywhere a beginner gets to from the base: up lifts whose tops have green skiing, or on a
+// gondola or tram both ways (Palisades: the learning area at mid-mountain). Every lift needs an easy way home: a green or blue route
+// from its top to a base lift's bottom, or to a gondola or tram top to ride down.
+//
+// Composite (0-100): served vertical 15, skiable coverage 10, lift network 15, beginner terrain at each base 15, easy way home 10,
+// no dead lifts 10, validity 10, few stubs 5, little crowding 5, connector economy 5. Fixed contract: planners must not edit this file.
 
 using System;
 using System.Collections.Generic;
@@ -43,7 +52,8 @@ namespace AutoGenBatch
         private const float TowerM = 20f, StationGrade = 0.40f, OnRunM = 20f;
         private const float StubDropM = 50f, CrowdM = 40f, JunctionM = 100f, CoverM = 50f, CoverTarget = 0.6f, ConnectorShare = 0.35f, BaseShare = 0.35f;
 
-        // name, length min / max (m), rise min / max (m), mean grade cap (stage-a-spec 4.4)
+        // name, length min / max (m), rise min / max (m), mean grade cap (stage-a-spec 4.4). v3: the maxima are not checked (no lift
+        // length limit in the mod); they stay as the planner's type ladder
         private static readonly (string Name, float L0, float L1, float R0, float R1, float Cap)[] Types =
         {
             ("fixed-grip", 300f, 1500f, 95f, 512f, 0.8f),
@@ -56,14 +66,15 @@ namespace AutoGenBatch
         {
             public bool Run;
             public float3[] P;
+            public bool Graded;   // a connector graded steeper than the blue line: a diagonal run
             public float Drop, Length;
             public SlopeBand Band;
         }
 
         public sealed class Result
         {
-            public float Total, Served, Coverage, Network, Beginner, DeadFree, Validity, StubFree, CrowdFree, Economy;
-            public int Lifts, Bases, BeginnerBases, Dead, Violations, ServedRuns, Runs;
+            public float Total, Served, Coverage, Network, Beginner, WayHome, DeadFree, Validity, StubFree, CrowdFree, Economy;
+            public int Lifts, Bases, BeginnerBases, WayHomeLifts, Dead, Violations, ServedRuns, Runs;
             public float[] BandKm = new float[5];
             public float ServedVerticalM, ConnectorKm;
             public List<string> Notes = new List<string>();
@@ -132,7 +143,9 @@ namespace AutoGenBatch
                     for (int k = 0; k + 3 < e.P.Length; k++)
                         ps.Add(Math.Max(0f, e.P[k].y - e.P[k + 3].y) / math.max(1f, math.distance(e.P[k].xz, e.P[k + 3].xz)));
                     ps.Sort();
-                    float rating = ps.Count > 0 ? ps[(int)(ps.Count * 0.85f)] : 0f;
+                    // the band: the ground under the run, as the game rates a painted run (a traverse across a black face is black)
+                    var gs = e.P.Select(p => Grade(p.xz)).OrderBy(x => x).ToList();
+                    float rating = gs.Count > 0 ? gs[(int)((gs.Count - 1) * 0.85f)] : 0f;
                     e.Band = SkiSlopeClassifier.BandOf(rating);
                     if (e.Band == SlopeBand.Flat)
                         e.Band = SlopeBand.Green;
@@ -166,7 +179,31 @@ namespace AutoGenBatch
                             Bad($"{name}: a 30 m pitch steeper than {ConnMaxDown} (a run, not a connector)");
                             break;
                         }
-                    r.ConnectorKm += e.Length / 1000f;
+                    // graded: rated by its own grade along the path (30 m of path, not of chord)
+                    var cum = new float[e.P.Length];
+                    for (int k = 1; k < e.P.Length; k++)
+                        cum[k] = cum[k - 1] + math.distance(e.P[k].xz, e.P[k - 1].xz);
+                    var cs = new List<float>();
+                    for (int k = 0, j = 0; k < e.P.Length; k++)
+                    {
+                        j = Math.Max(j, k);
+                        while (j < e.P.Length - 1 && cum[j] - cum[k] < 30f)
+                            j++;
+                        if (cum[j] - cum[k] >= 20f)
+                            cs.Add(Math.Max(0f, e.P[k].y - e.P[j].y) / (cum[j] - cum[k]));
+                    }
+                    cs.Sort();
+                    float along = cs.Count > 0 ? cs[(int)((cs.Count - 1) * 0.85f)] : 0f;
+                    if (along >= SkiSlopeClassifier.GradeBlue && e.Drop > 0f)
+                    {
+                        e.Run = e.Graded = true;
+                        e.Band = SkiSlopeClassifier.BandOf(along);
+                    }
+                    else
+                    {
+                        e.Band = SlopeBand.Green;
+                        r.ConnectorKm += e.Length / 1000f;
+                    }
                 }
             }
 
@@ -186,7 +223,7 @@ namespace AutoGenBatch
                 else
                 {
                     var ty = Types[ti];
-                    if (len < ty.L0 || len > ty.L1 || rise < ty.R0 || rise > ty.R1 || rise / math.max(1f, plan2) > ty.Cap)
+                    if (len < ty.L0 || rise < ty.R0 || rise / math.max(1f, plan2) > ty.Cap)
                         Bad($"{name}: {len:F0} m / {rise:F0} m up is outside {type} norms");
                 }
                 if (!InsideRing(ring, b) || !InsideRing(ring, t))
@@ -203,8 +240,9 @@ namespace AutoGenBatch
                 }
                 if (Grade(b) > StationGrade || Grade(t) > StationGrade)
                     Bad($"{name}: station on a {Math.Max(Grade(b), Grade(t)):F2} grade (max {StationGrade})");
+                bool Aerial(string ty) => ty == "gondola" || ty == "tram";
                 for (int j = 0; j < i; j++)
-                    if (SegCross(lifts[j].Bottom, lifts[j].Top, b, t))
+                    if (Aerial(type) == Aerial(lifts[j].Type) && SegCross(lifts[j].Bottom, lifts[j].Top, b, t))
                         Bad($"{name}: crosses lift {j + 1}");
                 // a chord whose middle runs along a run (not the lift's own green run, which a learning chair rides over)
                 bool Own(Elem e) => e.Band == SlopeBand.Green && math.distancesq(e.P[0].xz, t) < StartM * StartM
@@ -245,10 +283,15 @@ namespace AutoGenBatch
                         next[i].Add(j);
                 }
             }
-            var delivers = new List<int>[m];   // lift bottoms an element passes
+            var delivers = new List<int>[m];   // lift bottoms an element passes (and gondola / tram tops it ends at: ride down)
+            var atBottom = new List<int>[m];   // lift bottoms only
             for (int i = 0; i < m; i++)
             {
                 delivers[i] = new List<int>();
+                atBottom[i] = new List<int>();
+                for (int L = 0; L < lifts.Count; L++)
+                    if (els[i].P.Skip(1).Any(p => math.distancesq(p.xz, bot[L].xz) < StationM * StationM && p.y >= bot[L].y - 15f))
+                        atBottom[i].Add(L);
                 for (int L = 0; L < lifts.Count; L++)
                     if (els[i].P.Skip(1).Any(p => math.distancesq(p.xz, bot[L].xz) < StationM * StationM && p.y >= bot[L].y - 15f)
                         || ((lifts[L].Type == "gondola" || lifts[L].Type == "tram")
@@ -431,44 +474,79 @@ namespace AutoGenBatch
                 int low = Enumerable.Range(0, lifts.Count).OrderBy(L => bot[L].y).First();
                 bases[Find(baseOf, low)] = 0f;
             }
-            foreach (int B in bases.Keys.ToList())
+            bool IsAerial(int L) => lifts[L].Type == "gondola" || lifts[L].Type == "tram";
+            // elements a skier holding to bands <= max takes from lift L's top
+            var easyMemo = new Dictionary<(int, SlopeBand), HashSet<int>>();
+            HashSet<int> EasyFrom(int L, SlopeBand max)
             {
-                float credit = 0f;
-                for (int L = 0; L < lifts.Count; L++)
-                {
-                    if (Find(baseOf, L) != B)
-                        continue;
-                    foreach (int i in skied[L])
-                    {
-                        if (!els[i].Run || !returns[i])
-                            continue;
-                        bool home = Closure(i, x => next[x]).Any(k => delivers[k].Any(b => Find(baseOf, b) == B));
-                        if (!home)
-                            continue;
-                        if (els[i].Band == SlopeBand.Green)
-                            credit = 1f;
-                        else if (els[i].Band == SlopeBand.Blue)
-                            credit = Math.Max(credit, 0.5f);
-                    }
-                }
-                bases[B] = credit;
+                if (easyMemo.TryGetValue((L, max), out HashSet<int> got))
+                    return got;
+                var seen = new HashSet<int>();
+                var q = new Queue<int>();
+                for (int i = 0; i < m; i++)
+                    if (els[i].Band <= max && math.distancesq(els[i].P[0].xz, top[L].xz) < StartM * StartM && seen.Add(i))
+                        q.Enqueue(i);
+                while (q.Count > 0)
+                    foreach (int j in next[q.Dequeue()])
+                        if (els[j].Band <= max && seen.Add(j))
+                            q.Enqueue(j);
+                return easyMemo[(L, max)] = seen;
             }
+            // beginner terrain: from the base, a beginner rides lifts whose tops have skiing at their level (or a gondola / tram, both
+            // ways); credit when that skiing delivers them to a lift again (a loop they can lap), anywhere on the mountain
+            bool Learn(int B, SlopeBand max)
+            {
+                var S = new HashSet<int>();
+                var q = new Queue<int>();
+                for (int L = 0; L < lifts.Count; L++)
+                    if (Find(baseOf, L) == B && (IsAerial(L) || EasyFrom(L, max).Count > 0) && S.Add(L))
+                        q.Enqueue(L);
+                bool loop = false;
+                while (q.Count > 0)
+                {
+                    int L = q.Dequeue();
+                    foreach (int i in EasyFrom(L, max))
+                        foreach (int M in delivers[i])
+                        {
+                            loop = true;
+                            if ((IsAerial(M) || EasyFrom(M, max).Count > 0) && S.Add(M))
+                                q.Enqueue(M);
+                        }
+                }
+                return loop;
+            }
+            foreach (int B in bases.Keys.ToList())
+                bases[B] = Learn(B, SlopeBand.Green) ? 1f : Learn(B, SlopeBand.Blue) ? 0.5f : 0f;
             r.Bases = bases.Count;
             r.BeginnerBases = bases.Values.Count(v => v >= 1f);
             r.Beginner = bases.Count > 0 ? bases.Values.Average() : 0f;
 
-            r.Total = 20f * r.Served + 15f * r.Coverage + 15f * r.Network + 15f * r.Beginner + 10f * r.DeadFree + 10f * r.Validity
-                + 5f * r.StubFree + 5f * r.CrowdFree + 5f * r.Economy;
+            // ---- easy way home: from every lift's top a green or blue route (runs, cat tracks) to a base lift's bottom, or to a
+            // gondola / tram top to ride down
+            for (int L = 0; L < lifts.Count; L++)
+            {
+                HashSet<int> easy = EasyFrom(L, SlopeBand.Blue);
+                bool ok = easy.Any(i => atBottom[i].Any(M => bases.ContainsKey(Find(baseOf, M)))
+                    || delivers[i].Any(M => IsAerial(M) && !atBottom[i].Contains(M)));
+                if (ok)
+                    r.WayHomeLifts++;
+                else if (r.Notes.Count < 60)
+                    r.Notes.Add($"lift {L + 1}: no green or blue way home");
+            }
+            r.WayHome = lifts.Count > 0 ? r.WayHomeLifts / (float)lifts.Count : 0f;
+
+            r.Total = 15f * r.Served + 10f * r.Coverage + 15f * r.Network + 15f * r.Beginner + 10f * r.WayHome + 10f * r.DeadFree
+                + 10f * r.Validity + 5f * r.StubFree + 5f * r.CrowdFree + 5f * r.Economy;
             return r;
         }
 
         public static string Line(string id, Result r) => string.Format(CultureInfo.InvariantCulture,
-            "SCORE rf {0}: {1:F1} | served {2:F2} cover {3:F2} network {4:F2} beginner {5:F2} ({6}/{7} bases green) dead-free {8:F2} " +
+            "SCORE rf {0}: {1:F1} | served {2:F2} cover {3:F2} network {4:F2} beginner {5:F2} ({6}/{7} bases green) way-home {23:F2} ({24}/{14}) dead-free {8:F2} " +
             "valid {9:F2} ({10} violations) stub-free {11:F2} crowd-free {12:F2} economy {13:F2} | {14} lifts, {15}/{16} runs served, " +
             "{17:F0} m served vertical, km G/B/K/DB {18:F1}/{19:F1}/{20:F1}/{21:F1}, connectors {22:F1} km",
             id, r.Total, r.Served, r.Coverage, r.Network, r.Beginner, r.BeginnerBases, r.Bases, r.DeadFree, r.Validity, r.Violations,
             r.StubFree, r.CrowdFree, r.Economy, r.Lifts, r.ServedRuns, r.Runs, r.ServedVerticalM,
-            r.BandKm[1], r.BandKm[2], r.BandKm[3], r.BandKm[4], r.ConnectorKm);
+            r.BandKm[1], r.BandKm[2], r.BandKm[3], r.BandKm[4], r.ConnectorKm, r.WayHome, r.WayHomeLifts);
 
         private static int Find(int[] p, int i)
         {
