@@ -24,7 +24,13 @@ Gates (the pilot's lessons, made mechanical):
   P7  swatch controls: deck chroma 0.5 keeps the swatch mean within 0.01 sRGB (the palette) and cuts the mean chroma,
       normal_gain raises the tilt rms; texpass_swatch is {} with the pass off;
   P8  weather level: every recipe that opts in states texpass weather_level; lodge.assert_texpass_level raises when
-      a pass build falls below it (PIPELINE gate 316: never buy the look with weathering) and is quiet otherwise.
+      a pass build falls below it (PIPELINE gate 316: never buy the look with weathering) and is quiet otherwise;
+  P9  far set in flag-off units: texpass_tile_factors is {slate, lux_slate, timber_lap: 2} (off: {}); a plinth + lap
+      wall + slate roof through lodge's prep: the pass's UVTile is exactly 2 x the flag-off one on the pass keys'
+      faces (meters / square tile); after lodge.texpass_far_units + align_islands + split_poor_islands the UVTile and
+      the dry pack's UVUnique equal the flag-off ones bit for bit, and the sampling layer is the flag-off UVTile x 2
+      on the pass faces (the bake draws the scans at their tile on the flag-off layout; L5 packed a zero-area island
+      and L1 lost 11 % of its far px/m when the islands were split in the pass's units).
 Exit 1 on the first failure; one PASS line otherwise.
 """
 
@@ -388,6 +394,73 @@ def check_level_gate():
     ok(f"P8 weather level: {', '.join(opted)} stated; a pass build below it raises, at or above it is quiet")
 
 
+def far_layout(tp):
+    """A stone_rubble plinth, a timber_lap wall and a slate roof slab through lodge's prep, then the far set's UV steps
+    (lodge.run: texpass_far_units, align_islands, split_poor_islands, texpass_sample_layer, the dry pack)."""
+    clear()
+    TS.ensure_materials()
+    parts = K.box_part("plinth_a", (0.0, 0.0, -4.0), (4.0, 8.0, 0.0), "stone_rubble")
+    parts += K.box_part("wall_a", (0.0, 0.0, 0.0), (4.0, 8.0, 3.0), "timber_lap")
+    parts += K.box_part("roof_a", (-0.5, -0.5, 3.0), (4.5, 8.5, 3.3), "slate")
+    keys = sorted({k for _o, k in parts})
+    cs2_uv.set_density(parts, K.part_weights(parts))
+    K.strip_uv_layers(parts)
+    proj = K.projection_specs(keys)
+    cs2_bake.material_sources(proj, parts)
+    K.retile(parts, proj)
+    bpy.ops.object.select_all(action="DESELECT")
+    for o, _m in parts:
+        o.select_set(True)
+    bpy.context.view_layer.objects.active = parts[0][0]
+    bpy.ops.object.join()
+    obj = bpy.context.active_object
+    me = obj.data
+    mi = np.zeros(len(me.polygons), np.int32)
+    me.polygons.foreach_get("material_index", mi)
+    start, total = cs2_uv.face_loop_table(me)
+    order = np.concatenate([np.arange(s, s + c) for s, c in zip(start, total)])
+    loop_mi = np.empty(len(me.loops), np.int32)
+    loop_mi[order] = np.repeat(mi, total)
+    raw = cs2_uv.loop_uvs(me.uv_layers[cs2_bake.TILE_LAYER])
+    idx = lodge.texpass_far_units(obj, keys) if tp else {}
+    K.align_islands(obj)
+    K.split_poor_islands(obj)
+    if idx:
+        lodge.texpass_sample_layer(obj, idx)
+    tile = cs2_uv.loop_uvs(me.uv_layers[cs2_bake.TILE_LAYER])
+    tex = cs2_uv.loop_uvs(me.uv_layers[lodge.TEXPASS_UV]) if idx else None
+    me.uv_layers.active = me.uv_layers[cs2_bake.TILE_LAYER]
+    with K.calibrated_packer():
+        cs2_uv.pack_unique(obj, 1024, [], margin_px=8)
+    uniq = cs2_uv.loop_uvs(me.uv_layers[cs2_uv.UNIQUE_LAYER])
+    return dict(keys=keys, loop_mi=loop_mi, raw=raw, idx=idx, tile=tile, tex=tex, uniq=uniq)
+
+
+def check_far_units():
+    assert TS.texpass_version() is None and TS.texpass_tile_factors() == {}, "pass off: no tile factor"
+    off = far_layout(False)
+    TS.register_texpass("v1")
+    try:
+        fac = TS.texpass_tile_factors()
+        assert fac == {"lux_slate": 2.0, "slate": 2.0, "timber_lap": 2.0}, fac
+        on = far_layout(True)
+    finally:
+        TS.unregister_texpass()
+    assert on["keys"] == off["keys"] and np.array_equal(on["loop_mi"], off["loop_mi"])
+    f = np.ones(len(on["loop_mi"]))
+    for i, s in on["idx"].items():
+        f[on["loop_mi"] == i] = s
+    assert sorted(on["keys"][i] for i in on["idx"]) == ["slate", "timber_lap"], on["idx"]
+    assert np.array_equal(on["raw"], off["raw"] * f[:, None]), "the pass's UVTile is not exactly f x the flag-off one"
+    assert np.array_equal(on["tile"], off["tile"]), \
+        f"far UVTile after the island ops differs from flag-off (max {np.abs(on['tile'] - off['tile']).max()})"
+    assert np.array_equal(on["uniq"], off["uniq"]), \
+        f"far UVUnique differs from flag-off (max {np.abs(on['uniq'] - off['uniq']).max()})"
+    assert np.array_equal(on["tex"], off["tile"] * f[:, None]), "the sampling layer is not the flag-off UVTile x f"
+    ok(f"P9 far set: factors {fac}; UVTile x2 exactly on {int((f != 1).sum())} pass loops; island ops and the dry "
+       f"pack equal flag-off bit for bit; the sampling layer carries the pass's units")
+
+
 def main():
     check_provenance()
     check_cut_grid_and_round_trip()
@@ -397,6 +470,7 @@ def main():
     check_scale()
     check_swatch_controls()
     check_level_gate()
+    check_far_units()
     print(f"PASS test_texpass: {len(CHECKS)} checks")
 
 

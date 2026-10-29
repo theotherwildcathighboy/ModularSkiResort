@@ -2040,8 +2040,11 @@ def run(recipe, args):
             print("[lodge] tiled: R18 4096 escalation off (the far set is a LOD1/LOD2 set)")
     if args.finish:
         # pack-friendly UVTile islands (cs2_uv packs axis-aligned boxes, no rotation)
+        tp_far = texpass_far_units(obj, keys)       # --texpass: islands and pack in the flag-off units ({} when off)
         result["aligned"] = K.align_islands(obj)
         result["split_islands"] = K.split_poor_islands(obj)
+        if tp_far:
+            texpass_sample_layer(obj, tp_far)
         prebake = None
         if recipe.allow_4096 and args.tex == "auto" and not tiled:
             prebake = obj.copy()
@@ -2067,6 +2070,8 @@ def run(recipe, args):
                 specs = {k: replace(s, rough=1.0 - TS.smooth_of(k), metal=TS.metal_of(k))
                          for k, s in specs.items()}
             sources = _final_sources(specs, keys)
+            if tp_far:
+                sources = {i: replace(s, uv=TEXPASS_UV) for i, s in sources.items()}
             world = bpy.context.scene.world or bpy.data.worlds.new("World")
             bpy.context.scene.world = world
             world.light_settings.distance = AO_DISTANCE_M
@@ -2405,6 +2410,54 @@ def assert_texpass_level(name, tp, level, tris, cap):
     if level is None or int(level) > int(want):
         raise RuntimeError(f"{name}: --texpass fell to weather level {level} (recipe.texpass weather_level {want}; "
                            f"LOD0 {tris} tris, cap {cap})")
+
+
+TEXPASS_UV = "UVTileTex"
+
+
+def _scale_tile_faces(me, layer, idx, invert):
+    """Multiply (invert: divide) the loops of every face whose material index is in `idx` by idx[index] on `layer`."""
+    if not idx:
+        return
+    mi = np.zeros(len(me.polygons), np.int32)
+    me.polygons.foreach_get("material_index", mi)
+    f = np.ones(len(me.polygons))
+    for i, s in idx.items():
+        f[mi == i] = 1.0 / s if invert else s
+    start, total = cs2_uv.face_loop_table(me)
+    order = np.concatenate([np.arange(s, s + c) for s, c in zip(start, total)])
+    lay = me.uv_layers[layer]
+    uv = cs2_uv.loop_uvs(lay)
+    uv[order] *= np.repeat(f, total)[:, None]
+    cs2_uv.set_loop_uvs(lay, uv)
+
+
+def texpass_far_units(obj, keys):
+    """--texpass on the far set (LOD1 / LOD2): divide each pass key's UVTile by its tile factor
+    (cs2_tilesheet.texpass_tile_factors, a power of two: exact) so align_islands, split_poor_islands (min_box in
+    tile^2) and the unique pack see the flag-off units and the far layout stays the flag-off one. Split in the pass's
+    units, L5 packed a zero-area island and L1 lost 11 % of its far px/m. Returns {mat_index: f} ({} when off)."""
+    import cs2_tilesheet as TS
+    fac = TS.texpass_tile_factors()
+    idx = {i: fac[k] for i, k in enumerate(sorted(keys)) if k in fac}
+    _scale_tile_faces(obj.data, cs2_bake.TILE_LAYER, idx, invert=True)
+    return idx
+
+
+def texpass_sample_layer(obj, idx):
+    """The far bake's sampling layer under --texpass: UVTile after the island ops with the pass keys back in the pass's
+    units, so the bake draws the scans at their tile (rotations and whole-tile shifts carried over) while the pack
+    reads the flag-off layout. bake_unique ships UVUnique only (its step 6 drops this layer)."""
+    me = obj.data
+    src = cs2_uv.loop_uvs(me.uv_layers[cs2_bake.TILE_LAYER])
+    act = me.uv_layers.active.name if me.uv_layers.active else None
+    if me.uv_layers.get(TEXPASS_UV) is None:
+        me.uv_layers.new(name=TEXPASS_UV, do_init=False)
+    if act is not None:
+        me.uv_layers.active = me.uv_layers[act]
+    cs2_uv.set_loop_uvs(me.uv_layers[TEXPASS_UV], src)
+    _scale_tile_faces(me, TEXPASS_UV, idx, invert=False)
+    return TEXPASS_UV
 
 
 def _tiled_lod0_rollout(far, lod0, recipe, args, name, asset_dir, keys, rep, result, A_far):

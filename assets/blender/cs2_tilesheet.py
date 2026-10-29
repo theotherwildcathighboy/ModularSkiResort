@@ -440,6 +440,22 @@ def texpass_repeats():
     return {k: int(s["repeat"]) for k, s in TEXPASS[v].items() if "repeat" in s} if v else {}
 
 
+def texpass_tile_factors():
+    """{key: f} for the active pass's keys whose square tile changed, f = pre-pass square tile / pass square tile
+    ({} when off). UVTile is meters / square tile (cs2_bake.project_world_uv, cs2_bldg.retile), so a pass key's UVTile
+    is exactly f x its pre-pass UVTile; f must be a power of two (exact in float, like the repeat)."""
+    out = {}
+    for k, old in sorted(_TEXPASS_STATE["saved"].items()):
+        t0, t1 = K.square_tile_m(old), K.square_tile_m(K.BLDG_MATERIALS[k])
+        f = t0 / t1
+        if f == 1.0:
+            continue
+        if math.frexp(f)[0] != 0.5:
+            raise ValueError(f"texpass: {k} square tile {t0} -> {t1} m is not a power-of-two scale")
+        out[k] = f
+    return out
+
+
 def texpass_swatch(key):
     """{"chroma", "normal_gain"} the active pass applies to `key`'s scan in its sheet swatch ({} when off). chroma
     scales the color away from each texel's luminance (a scan's rust or lichen stains, tinted to the palette mean,
