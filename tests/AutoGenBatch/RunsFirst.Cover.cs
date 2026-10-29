@@ -113,6 +113,9 @@ namespace AutoGenBatch
             }
         }
 
+        // a coverage lift's station on a placed lift's station needs a free pad nearby (RF_COVEROWNPAD=0: off)
+        private static readonly bool OwnPads = Environment.GetEnvironmentVariable("RF_COVEROWNPAD") != "0";
+
         [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         private static int AddCoverLifts(Grid g, int[] rec, List<Lift> lifts, List<int> tops, List<bool[]> reachB, List<ulong[]> reachBits,
             List<int> bottoms, int[] latIdx, int latCount, PointHash runs, float km2, float[] slope)
@@ -291,6 +294,13 @@ namespace AutoGenBatch
                 foreach (var (gain, ti, b) in cands)
                 {
                     int t = tops[ti], bc = bottoms[b];
+                    // a station on a placed lift's station needs a pad of its own within reach (the spread moves it there)
+                    if (OwnPads && ((lifts.Exists(lf => math.distance(lf.Top.xz, g.World(t)) < LaySameSpotM + 2f) && !FreePad(g, lifts, t, false))
+                        || (lifts.Exists(lf => math.distance(lf.Bottom.xz, g.World(bc)) < LaySameSpotM + 2f) && !FreePad(g, lifts, bc, true))))
+                    {
+                        rej[0]++;
+                        continue;
+                    }
                     if (Twin(g, lifts, t, bc, CoverParallelM))
                     {
                         if (debug && Environment.GetEnvironmentVariable("RF_TWINDBG") == "1")

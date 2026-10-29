@@ -75,15 +75,40 @@ namespace AutoGenBatch
             return excess;
         }
 
+        // the spread may move a station along its own line too (RF_NOSPREADAXIS=1: off), and runs after each lift of the search and
+        // of the coverage pass (RF_NOSPREADEACH=1: off)
+        private static readonly bool SpreadAxis = Environment.GetEnvironmentVariable("RF_NOSPREADAXIS") != "1";
+        private static readonly bool SpreadEach = Environment.GetEnvironmentVariable("RF_NOSPREADEACH") != "1";
+
+        /// <summary>A flat pad 46-130 m from cell c (for a bottom no higher than c, for a top no lower) that no other station of that
+        /// end holds: where a station on another lift's station can move to.</summary>
+        private static bool FreePad(Grid g, List<Lift> lifts, int c, bool bottom)
+        {
+            float2 at = g.World(c);
+            float hAt = RawH(g, at);
+            for (float r = SpreadMinM; r <= SpreadMaxM; r += 7f)
+                for (int k = 0; k < 24; k++)
+                {
+                    float a = k * (float)Math.PI / 12f;
+                    int cc = CellOf(g, at + r * new float2((float)Math.Cos(a), (float)Math.Sin(a)));
+                    if (cc < 0 || !g.In[cc])
+                        continue;
+                    float2 p = g.World(cc);
+                    float dh = RawH(g, p) - hAt;
+                    if ((bottom ? dh > 8f : dh < -15f) || RawGrade(g, p) > StationMax
+                        || lifts.Exists(o => math.distance(bottom ? o.Bottom.xz : o.Top.xz, p) < SpreadMinM))
+                        continue;
+                    return true;
+                }
+            return false;
+        }
+
         /// <summary>Each lift its own terminal: a bottom on an earlier lift's bottom (or a top on an earlier lift's top) moves to a pad
         /// of its own 46-130 m away, the nearest first, a bottom no higher than it was (the runs come down to it) and a top no lower
         /// (its traverses leave from it); where it cannot, the earlier lift's station moves instead. A move is kept where the lift
         /// still fits (pads, norms, rope clearance, no crossing of its kind, no station under a rope), its line stays off the runs,
         /// the layout gets no worse (crowded terminals, parallel lines) and, once there is a plan, the ski graph loses nothing.
         /// Before the plan (plan null) the line is held off the picked lines instead. Returns the stations moved.</summary>
-        private static readonly bool SpreadAxis = Environment.GetEnvironmentVariable("RF_NOSPREADAXIS") != "1";
-        private static readonly bool SpreadEach = Environment.GetEnvironmentVariable("RF_NOSPREADEACH") != "1";
-
         private static int SpreadTerminals(Grid g, List<Lift> lifts, Plan plan, PointHash runs, bool bottomsOnly = false)
         {
             int moved = 0;
