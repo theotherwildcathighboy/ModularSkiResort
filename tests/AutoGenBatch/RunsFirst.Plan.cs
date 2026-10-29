@@ -311,6 +311,10 @@ namespace AutoGenBatch
             Tick("bridge");
             int fills = Environment.GetEnvironmentVariable("RF_NOFILL") == "1" ? 0 : FillCover(g, plan, lifts, cands);
             Tick("fill");
+            // runs left under a lift line move out beside it
+            if (Environment.GetEnvironmentVariable("RF_NOCHORD") != "1")
+                RepairChords(g, plan, lifts);
+            Tick("chords");
             if (Environment.GetEnvironmentVariable("RF_COVER") == "1")
             {
                 // skiable 20 m lattice points no run covers: red where a lift top's reach gets to them, orange where none does
@@ -344,7 +348,7 @@ namespace AutoGenBatch
                 // where the crowding is: each served run sample (its last 150 m aside) near another run, by where on that other run
                 SkiGraph cs = Ski(g, plan, lifts);
                 var served = Enumerable.Range(0, cs.Runs).Where(i => cs.Reached[i] && cs.Returns[i]).ToList();
-                int all = 0, ownStart = 0, nearEnd = 0, nearStart = 0, nearMid = 0;
+                int all = 0, ownStart = 0, nearEnd = 0, nearStart = 0, nearMid = 0, nearEndStation = 0, nearEndHere = 0;
                 var byKind = new Dictionary<string, int>();
                 foreach (int i in served)
                 {
@@ -374,7 +378,14 @@ namespace AutoGenBatch
                         if (k < 10)
                             ownStart++;
                         else if (hitK >= cs.P[hitJ].Length - 20)
+                        {
                             nearEnd++;
+                            float2 e = cs.P[hitJ][cs.P[hitJ].Length - 1].xz;
+                            if (lifts.Any(lf => math.distance(lf.Bottom.xz, e) < 80f))
+                                nearEndStation++;
+                            if (lifts.Any(lf => math.distance(lf.Bottom.xz, P[k].xz) < 200f))
+                                nearEndHere++;
+                        }
                         else if (hitK < 10)
                             nearStart++;
                         else
@@ -382,7 +393,7 @@ namespace AutoGenBatch
                         plan.Dots.Add((P[k].xz, 255, 0, 255));
                     }
                 }
-                Console.WriteLine($"DEBUG crowd: {all} samples, {ownStart + nearEnd + nearStart + nearMid} crowded: own first 100 m {ownStart}, by the last 200 m of another run {nearEnd}, by the first 100 m of another {nearStart}, alongside {nearMid}; by kind {string.Join(", ", byKind.Select(kv => kv.Key + " " + kv.Value))}");
+                Console.WriteLine($"DEBUG crowd: {all} samples, {ownStart + nearEnd + nearStart + nearMid} crowded: own first 100 m {ownStart}, by the last 200 m of another run {nearEnd} ({nearEndStation} of them ending at a station, {nearEndHere} within 200 m of one), by the first 100 m of another {nearStart}, alongside {nearMid}; by kind {string.Join(", ", byKind.Select(kv => kv.Key + " " + kv.Value))}");
             }
             if (Environment.GetEnvironmentVariable("RF_DEBUG") == "1")
             {

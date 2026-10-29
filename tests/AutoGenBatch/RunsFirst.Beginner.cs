@@ -83,6 +83,8 @@ namespace AutoGenBatch
             {
                 // bases as a skier sees them: lift bottoms within 400 m of each other, at least one low on the mountain
                 Dictionary<int, int> rootOf = BaseClusters(g, lifts, lowCut, out HashSet<int> bases);
+                if (Environment.GetEnvironmentVariable("RF_DEBUG") == "1" && pass == 0)
+                    Console.WriteLine($"DEBUG bases: relief {hLo:F0}-{hHi:F0}, low cut {lowCut:F0}; " + string.Join("; ", bases.Select(b => string.Join(",", rootOf.Where(kv => kv.Value == b).Select(kv => $"L{lifts[kv.Key].Id} ({RawH(g, lifts[kv.Key].Bottom.xz):F0})")))));
                 SkiGraph sg = Ski(g, plan, lifts);
                 List<int> members = null;
                 int key = -1;
