@@ -197,112 +197,255 @@ namespace AutoGenBatch
             plan.Connectors[ci] = track;
         }
 
-        /// <summary>Cuts diagonal traverse pieces as green cat tracks where a bench fits; returns the pieces regraded.</summary>
+        /// <summary>The terms of scorecard v3 a cut moves, read off the plan the way the scorecard reads it (every run taken as
+        /// served): crowding, connector economy, stubs, and coverage below its target. Gain is the score change of cutting a run
+        /// element as a green cat track of the given length.</summary>
+        private sealed class CutModel
+        {
+            public readonly List<int> Conn = new List<int>();   // per element: its connector (-1 for a plan run)
+            private readonly List<float2>[] m_D;
+            private readonly int[][] m_Count;                     // per element and counted sample: the active elements crowding it
+            private readonly List<(int E, int K)>[] m_Crowds;     // per element: the counted samples of other elements it crowds
+            private readonly List<int>[] m_Covers;                // per element: the lattice points within 50 m of it
+            private readonly int[] m_CoverCount;
+            private readonly bool[] m_Active, m_Stub;
+            private readonly float[] m_Km;
+            private int m_Pts, m_Crowded, m_Stubs, m_Runs, m_Covered;
+            private readonly int m_Skiable;
+            private float m_RunKm, m_ConnKm;
+
+            [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+            public CutModel(Grid g, Plan plan)
+            {
+                var els = new List<List<float2>>();
+                foreach (PlanRun r in plan.Runs)
+                    if (!r.Graded || TrackClass(g, r.Pts).Run)
+                    {
+                        els.Add(r.Pts);
+                        Conn.Add(-1);
+                    }
+                    else
+                        m_ConnKm += RunLength(r.Pts) / 1000f;
+                for (int ci = 0; ci < plan.Connectors.Count; ci++)
+                    if (TrackClass(g, plan.Connectors[ci]).Run)
+                    {
+                        els.Add(plan.Connectors[ci]);
+                        Conn.Add(ci);
+                    }
+                    else
+                        m_ConnKm += RunLength(plan.Connectors[ci]) / 1000f;
+                int m = els.Count;
+                m_D = new List<float2>[m];
+                m_Km = new float[m];
+                m_Stub = new bool[m];
+                m_Active = new bool[m];
+                m_Runs = m;
+                for (int e = 0; e < m; e++)
+                {
+                    m_D[e] = Densify(els[e]);
+                    m_Km[e] = RunLength(els[e]) / 1000f;
+                    m_Stub[e] = RawH(g, els[e][0]) - RawH(g, els[e][els[e].Count - 1]) < 50f;
+                    m_Active[e] = true;
+                    m_RunKm += m_Km[e];
+                    if (m_Stub[e])
+                        m_Stubs++;
+                }
+                // crowding: a sample (all but the last 150 m) within 40 m of another run, away from that run's start and end (100 m)
+                var hash = new Dictionary<long, List<(float2 P, int E)>>();
+                long Key(int cx, int cz) => ((long)cx << 32) ^ (uint)cz;
+                for (int e = 0; e < m; e++)
+                    foreach (float2 p in m_D[e])
+                    {
+                        long k = Key((int)Math.Floor(p.x / 40f), (int)Math.Floor(p.y / 40f));
+                        if (!hash.TryGetValue(k, out var l))
+                            hash[k] = l = new List<(float2, int)>();
+                        l.Add((p, e));
+                    }
+                m_Count = new int[m][];
+                m_Crowds = new List<(int, int)>[m];
+                for (int e = 0; e < m; e++)
+                    m_Crowds[e] = new List<(int, int)>();
+                var by = new List<int>();
+                for (int e = 0; e < m; e++)
+                {
+                    int n = Math.Max(0, m_D[e].Count - 15);
+                    m_Count[e] = new int[n];
+                    m_Pts += n;
+                    for (int k = 0; k < n; k++)
+                    {
+                        float2 p = m_D[e][k];
+                        int cx = (int)Math.Floor(p.x / 40f), cz = (int)Math.Floor(p.y / 40f);
+                        by.Clear();
+                        for (int dz = -1; dz <= 1; dz++)
+                            for (int dx = -1; dx <= 1; dx++)
+                                if (hash.TryGetValue(Key(cx + dx, cz + dz), out var l))
+                                    foreach (var (q, j) in l)
+                                        if (j != e && !by.Contains(j) && math.distancesq(q, p) < 1600f
+                                            && math.distancesq(m_D[j][0], p) >= 1e4f && math.distancesq(m_D[j][m_D[j].Count - 1], p) >= 1e4f)
+                                            by.Add(j);
+                        m_Count[e][k] = by.Count;
+                        if (by.Count > 0)
+                            m_Crowded++;
+                        foreach (int j in by)
+                            m_Crowds[j].Add((e, k));
+                    }
+                }
+                // coverage: the skiable 20 m lattice points within 50 m of a run
+                int s = Math.Max(1, (int)Math.Round(20f / g.CellM));
+                var lat = new Dictionary<long, List<(float2 P, int I)>>();
+                for (int z = s / 2; z < g.D; z += s)
+                    for (int x = s / 2; x < g.W; x += s)
+                    {
+                        int c = z * g.W + x;
+                        if (!g.In[c])
+                            continue;
+                        float2 p = g.World(c);
+                        float gr = RawGrade(g, p);
+                        if (gr < 0.06f || gr > 0.85f)
+                            continue;
+                        long k = Key((int)Math.Floor(p.x / 50f), (int)Math.Floor(p.y / 50f));
+                        if (!lat.TryGetValue(k, out var l))
+                            lat[k] = l = new List<(float2, int)>();
+                        l.Add((p, m_Skiable++));
+                    }
+                m_CoverCount = new int[m_Skiable];
+                m_Covers = new List<int>[m];
+                var seen = new HashSet<int>();
+                for (int e = 0; e < m; e++)
+                {
+                    seen.Clear();
+                    foreach (float2 p in m_D[e])
+                    {
+                        int cx = (int)Math.Floor(p.x / 50f), cz = (int)Math.Floor(p.y / 50f);
+                        for (int dz = -1; dz <= 1; dz++)
+                            for (int dx = -1; dx <= 1; dx++)
+                                if (lat.TryGetValue(Key(cx + dx, cz + dz), out var l))
+                                    foreach (var (q, i) in l)
+                                        if (math.distancesq(q, p) < 2500f)
+                                            seen.Add(i);
+                    }
+                    m_Covers[e] = seen.ToList();
+                    foreach (int i in m_Covers[e])
+                        if (m_CoverCount[i]++ == 0)
+                            m_Covered++;
+                }
+            }
+
+            private float Score(int pts, int crowded, int stubs, int runs, float runKm, float connKm, int covered)
+            {
+                float cf = pts > 0 ? 1f - Math.Min(1f, crowded / (float)pts / 0.3f) : 1f;
+                float ec = connKm <= 0.35f * runKm ? 1f : 0.35f * runKm / connKm;
+                float sf = runs > 0 ? 1f - stubs / (float)runs : 0f;
+                float cv = m_Skiable > 0 ? Math.Min(1f, covered / (float)m_Skiable / 0.6f) : 0f;
+                return 5f * cf + 5f * ec + 5f * sf + 10f * cv;
+            }
+
+            public string Terms() => $"crowd-free {(m_Pts > 0 ? 1f - Math.Min(1f, m_Crowded / (float)m_Pts / 0.3f) : 1f):F2} ({m_Crowded}/{m_Pts}) economy {(m_ConnKm <= 0.35f * m_RunKm ? 1f : 0.35f * m_RunKm / m_ConnKm):F2} ({m_ConnKm:F1}/{m_RunKm:F1} km) stub-free {1f - m_Stubs / (float)Math.Max(1, m_Runs):F2} ({m_Stubs}/{m_Runs}) cover {Math.Min(1f, m_Covered / (float)Math.Max(1, m_Skiable) / 0.6f):F2} ({m_Covered}/{m_Skiable})";
+
+            public float Gain(int e, float newKm)
+            {
+                int own = 0, freed = 0, lost = 0;
+                foreach (int c in m_Count[e])
+                    if (c > 0)
+                        own++;
+                foreach (var (o, k) in m_Crowds[e])
+                    if (m_Active[o] && m_Count[o][k] == 1)
+                        freed++;
+                foreach (int i in m_Covers[e])
+                    if (m_CoverCount[i] == 1)
+                        lost++;
+                return Score(m_Pts - m_Count[e].Length, m_Crowded - own - freed, m_Stubs - (m_Stub[e] ? 1 : 0), m_Runs - 1,
+                    m_RunKm - m_Km[e], m_ConnKm + newKm, m_Covered - lost) - Score(m_Pts, m_Crowded, m_Stubs, m_Runs, m_RunKm, m_ConnKm, m_Covered);
+            }
+
+            public void Cut(int e, float newKm)
+            {
+                m_Active[e] = false;
+                foreach (int c in m_Count[e])
+                    if (c > 0)
+                        m_Crowded--;
+                m_Pts -= m_Count[e].Length;
+                foreach (var (o, k) in m_Crowds[e])
+                    if (--m_Count[o][k] == 0 && m_Active[o])
+                        m_Crowded--;
+                foreach (int i in m_Covers[e])
+                    if (--m_CoverCount[i] == 0)
+                        m_Covered--;
+                if (m_Stub[e])
+                    m_Stubs--;
+                m_Runs--;
+                m_RunKm -= m_Km[e];
+                m_ConnKm += newKm;
+            }
+        }
+
+        private static readonly float RegradeMinGain = Env("RF_RGMIN", 0.02f);   // a cut that moves the score less than this stays a diagonal
+
+        /// <summary>Cuts diagonal traverse pieces as green cat tracks where a bench fits and the cut gains score (crowding, stubs and
+        /// economy against coverage, as the scorecard reads them); returns the pieces regraded.</summary>
         [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         private static int RegradeTraverses(Grid g, Plan plan, List<Lift> lifts)
         {
-            // the run samples (runs by the ground, diagonal pieces) for the crowding estimate, and the km on each side of the economy
-            var runEls = new List<(List<float2> P, int Conn)>();
-            var (connKm, runKm) = EconomyKm(g, plan);
-            foreach (PlanRun r in plan.Runs)
-                if (!r.Graded)
-                    runEls.Add((Densify(r.Pts), -1));
-            var diag = new List<int>();
-            for (int ci = 0; ci < plan.Connectors.Count; ci++)
-                if (TrackClass(g, plan.Connectors[ci]).Run)
-                {
-                    diag.Add(ci);
-                    runEls.Add((Densify(plan.Connectors[ci]), ci));
-                }
+            var model = new CutModel(g, plan);
+            var diag = Enumerable.Range(0, model.Conn.Count).Where(e => model.Conn[e] >= 0).ToList();
             if (diag.Count == 0)
                 return 0;
-            var hash = new Dictionary<long, List<(float2 P, int El)>>();
-            long Key(int cx, int cz) => ((long)cx << 32) ^ (uint)cz;
-            for (int e = 0; e < runEls.Count; e++)
-                foreach (float2 p in runEls[e].P)
-                {
-                    long k = Key((int)Math.Floor(p.x / 40f), (int)Math.Floor(p.y / 40f));
-                    if (!hash.TryGetValue(k, out var l))
-                        hash[k] = l = new List<(float2, int)>();
-                    l.Add((p, e));
-                }
-            // the samples of a piece within 40 m of another run (outside its junction zones), and of other runs within 40 m of it
-            int Crowd(int e)
-            {
-                List<float2> P = runEls[e].P;
-                var near = new HashSet<(int El, int K)>();
-                int own = 0;
-                for (int k = 0; k < P.Count; k++)
-                {
-                    int cx = (int)Math.Floor(P[k].x / 40f), cz = (int)Math.Floor(P[k].y / 40f);
-                    bool hit = false;
-                    for (int dz = -1; dz <= 1; dz++)
-                        for (int dx = -1; dx <= 1; dx++)
-                            if (hash.TryGetValue(Key(cx + dx, cz + dz), out var l))
-                                foreach (var (q, o) in l)
-                                {
-                                    if (o == e || math.distancesq(q, P[k]) >= 1600f)
-                                        continue;
-                                    List<float2> Q = runEls[o].P;
-                                    if (math.distancesq(Q[0], P[k]) >= 1e4f && math.distancesq(Q[Q.Count - 1], P[k]) >= 1e4f)
-                                        hit = true;
-                                    if (math.distancesq(P[0], q) >= 1e4f && math.distancesq(P[P.Count - 1], q) >= 1e4f)
-                                        near.Add((o, (int)Math.Round(math.distance(Q[0], q))));
-                                }
-                    if (hit)
-                        own++;
-                }
-                return own + near.Count;
-            }
-
-            // the benches for every diagonal piece, and the crowding and stubs each would clear
-            var cands = new List<(int Ci, List<float2> Direct, bool Keeps, List<float2> Routed, float Gain, float OldKm, float NewKm)>();
+            // the benches for every diagonal piece
+            var open = new List<(int El, List<float2> Direct, bool Keeps, List<float2> Routed)>();
             var tally = new int[2];
             int failed = 0, joined = 0;
             var jp = new JoinPoints(plan, lifts);
-            foreach (int ci in diag)
+            foreach (int e in diag)
             {
-                List<float2> old = plan.Connectors[ci];
-                var (direct, keeps, routed) = Benches(g, old, jp, tally);
+                var (direct, keeps, routed) = Benches(g, plan.Connectors[model.Conn[e]], jp, tally);
                 if (direct == null && routed == null)
-                {
                     failed++;
-                    continue;
-                }
-                int e = runEls.FindIndex(x => x.Conn == ci);
-                List<float3> s = Sampled(g, old);
-                bool stub = s[0].y - s[s.Count - 1].y < 50f;
-                float gain = Crowd(e) + (stub ? 40f : 0f);
-                if (gain <= 0f)
-                    continue;
-                cands.Add((ci, direct, keeps, routed, gain, RunLength(old) / 1000f, RunLength(direct ?? routed) / 1000f));
+                else
+                    open.Add((e, direct, keeps, routed));
             }
-            // the most crowding and stubs cleared per meter of new cat track first, inside the economy share; a direct bench that
-            // misses a join is kept where the ski graph loses nothing by it, else the bench routed through the joins
+            int benches = open.Count;
+            // the cut that gains the most score first, while one gains; a direct bench that misses a join is kept where the ski graph
+            // loses nothing by it, else the bench routed through the joins
             int done = 0, checkedCuts = 0, refused = 0;
-            float km = 0f;
+            float km = 0f, gained = 0f;
             SkiRead before = null;
-            foreach (var cd in cands.OrderByDescending(c => c.Gain / c.NewKm))
+            while (open.Count > 0)
             {
-                List<float2> old = plan.Connectors[cd.Ci];
+                int bi = -1;
+                float best = RegradeMinGain;
+                for (int i = 0; i < open.Count; i++)
+                {
+                    float gn = model.Gain(open[i].El, RunLength(open[i].Direct ?? open[i].Routed) / 1000f);
+                    if (gn > best)
+                    {
+                        best = gn;
+                        bi = i;
+                    }
+                }
+                if (bi < 0)
+                    break;
+                var cd = open[bi];
+                open.RemoveAt(bi);
+                int ci = model.Conn[cd.El];
+                List<float2> old = plan.Connectors[ci];
                 foreach (List<float2> tr in new[] { cd.Direct, cd.Routed })
                 {
                     if (tr == null)
                         continue;
-                    float newKm = RunLength(tr) / 1000f;
-                    if (connKm + newKm > RegradeShare * (runKm - cd.OldKm))
+                    float newKm = RunLength(tr) / 1000f, gn = model.Gain(cd.El, newKm);
+                    if (gn <= RegradeMinGain)
                         continue;
                     bool check = tr == cd.Direct && !cd.Keeps;
                     if (check && before == null)
                         before = SkiRead.Of(g, plan, lifts);
-                    plan.Connectors[cd.Ci] = tr;
+                    SwapConnector(plan, ci, tr);
                     if (check)
                     {
                         checkedCuts++;
                         SkiRead after = SkiRead.Of(g, plan, lifts);
                         if (before.Loses(after))
                         {
-                            plan.Connectors[cd.Ci] = old;
+                            SwapConnector(plan, ci, old);
                             refused++;
                             continue;
                         }
@@ -310,18 +453,17 @@ namespace AutoGenBatch
                     }
                     else
                         before = null;   // the plan changed: read it again before the next check
-                    plan.Connectors[cd.Ci] = old;
-                    SwapConnector(plan, cd.Ci, tr);
+                    model.Cut(cd.El, newKm);
                     if (tr == cd.Routed)
                         joined++;
-                    connKm += newKm;
-                    runKm -= cd.OldKm;
                     done++;
                     km += newKm;
+                    gained += gn;
                     break;
                 }
             }
-            plan.Log.Add($"regrade: {done} of {diag.Count} diagonal traverse piece(s) cut as green cat tracks ({km:F1} km; {cands.Count} had a bench), " +
+            var (connKm, runKm) = EconomyKm(g, plan);
+            plan.Log.Add($"regrade: {done} of {diag.Count} diagonal traverse piece(s) cut as green cat tracks ({km:F1} km, +{gained:F2} by the planner's read; {benches} had a bench), " +
                 $"connectors {connKm:F1} km of {runKm:F1} run km; no bench for {failed} ({tally[1]} leg(s) unreached, {tally[0]} past the search budget); " +
                 $"{checkedCuts} direct bench(es) missing a join checked on the ski graph, {refused} refused; {joined} routed through the joins");
             return done;
