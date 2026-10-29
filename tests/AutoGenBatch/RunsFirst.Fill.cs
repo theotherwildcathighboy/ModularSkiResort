@@ -22,9 +22,11 @@ namespace AutoGenBatch
         private const float FillDropM = 60f;
         private static readonly float FillMinM = Env("RF_FILLMIN", 130f);   // a short fill run still drops FillDropM (no stub); scorecard v3 rates length nowhere else
         private const float FillFeedM = 110f, FillFeedShare = 0.3f;   // ... or from a straight cut-over this long at most (a share of the run)
-        // a fill run must open more ground than the crowding it brings costs: the scorecard weighs coverage 15 against its 60 % target
-        // and crowding 5 against a 30 % share, so a crowded 10 m sample costs about 0.67 x (lattice points / run samples) new points
-        private static readonly float FillCrowdTrade = Env("RF_FTRADE", 0.67f);
+        // a fill run must open ground for the crowding it brings: the scorecard weighs coverage 10 against its 60 % target and
+        // crowding 5 against a 30 % share, so at par a crowded 10 m sample costs about 1.0 x (lattice points / run samples) new points.
+        // The fill asks a quarter of that: 0.25 against 0.67 gave visible 97.48 -> 97.53, 80 % outlines 95.33 -> 95.40, 120 %
+        // 96.10 -> 96.22, squares 95.01 -> 95.21, no region worse (1.0: 97.41 against 97.48)
+        private static readonly float FillCrowdTrade = Env("RF_FTRADE", 0.25f);
 
         /// <summary>Fall lines through open ground: from an open lattice point up the steepest ascent until it meets ground a skier is on
         /// (onNear) and down the steepest descent until it has run along a run for a few steps or reached a station; one per stretch of
