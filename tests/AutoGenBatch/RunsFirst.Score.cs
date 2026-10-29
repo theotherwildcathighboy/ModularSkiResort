@@ -5,10 +5,16 @@
 // any element it ends on (or that branches off it) within JoinM; an element that passes within StationM of a lift bottom delivers the
 // skier to that lift. A run is served when a lift top reaches it AND it delivers to some lift bottom. Lift A links to lift B when a
 // skier leaving A's top reaches B's bottom without riding another lift; the network share is the largest strongly connected set of
-// lifts over all lifts (1 = every lift can get to every other one and back).
+// lifts over all lifts (1 = every lift can get to every other one and back). A gondola or tram also carries skiers down: an element
+// ending within StationM of its top delivers to it.
+//
+// v2 (after the 2026-10-29 contest; all four entries flagged the same faults): crowding no longer counts the junction zone of two runs
+// (within JunctionM of the other run's start or end: a shared top, a branch, a merge); a lift's own green run (from its top back to its
+// bottom) may run under its chord, as a learning chair does; a base is a cluster of two or more lift bottoms (or the lowest cluster
+// when none has two), so a lone low station no longer demands its own learning zone.
 //
 // Composite (0-100): served vertical 20, skiable coverage 15, lift network 15, beginner terrain at each base 15, no dead lifts 10,
-// validity 10, few stubs 5, little crowding 5, connector economy 5. Fixed contract: contest entries must not edit this file.
+// validity 10, few stubs 5, little crowding 5, connector economy 5. Fixed contract: planners must not edit this file.
 
 using System;
 using System.Collections.Generic;
@@ -35,7 +41,7 @@ namespace AutoGenBatch
         private const float RunMaxPitch = 1.0f, RunClimbM = 10f;   // raw 3.5 m terrain: small bumps and 45-degree pitches are real
         private const float ConnMaxDown = 0.50f, ConnWindowM = 50f, ConnMaxRiseM = 4.5f;
         private const float TowerM = 20f, StationGrade = 0.40f, OnRunM = 20f;
-        private const float StubDropM = 50f, CrowdM = 40f, CoverM = 50f, CoverTarget = 0.6f, ConnectorShare = 0.35f, BaseShare = 0.35f;
+        private const float StubDropM = 50f, CrowdM = 40f, JunctionM = 100f, CoverM = 50f, CoverTarget = 0.6f, ConnectorShare = 0.35f, BaseShare = 0.35f;
 
         // name, length min / max (m), rise min / max (m), mean grade cap (stage-a-spec 4.4)
         private static readonly (string Name, float L0, float L1, float R0, float R1, float Cap)[] Types =
@@ -200,12 +206,14 @@ namespace AutoGenBatch
                 for (int j = 0; j < i; j++)
                     if (SegCross(lifts[j].Bottom, lifts[j].Top, b, t))
                         Bad($"{name}: crosses lift {j + 1}");
-                // a chord whose middle runs along a run
+                // a chord whose middle runs along a run (not the lift's own green run, which a learning chair rides over)
+                bool Own(Elem e) => e.Band == SlopeBand.Green && math.distancesq(e.P[0].xz, t) < StartM * StartM
+                    && math.distancesq(e.P[e.P.Length - 1].xz, b) < StationM * StationM;
                 int n = 0, near = 0;
                 for (float f = 0.15f; f <= 0.85f; f += SampleM / math.max(SampleM, plan2), n++)
                 {
                     float2 q = math.lerp(b, t, f);
-                    if (els.Any(e => e.Run && e.P.Any(p => math.distancesq(p.xz, q) < OnRunM * OnRunM)))
+                    if (els.Any(e => e.Run && !Own(e) && e.P.Any(p => math.distancesq(p.xz, q) < OnRunM * OnRunM)))
                         near++;
                 }
                 if (n > 0 && near > 0.3f * n)
@@ -242,8 +250,10 @@ namespace AutoGenBatch
             {
                 delivers[i] = new List<int>();
                 for (int L = 0; L < lifts.Count; L++)
-                    if (els[i].P.Skip(1).Any(p => math.distancesq(p.xz, bot[L].xz) < StationM * StationM && p.y >= bot[L].y - 15f))
-                        delivers[i].Add(L);
+                    if (els[i].P.Skip(1).Any(p => math.distancesq(p.xz, bot[L].xz) < StationM * StationM && p.y >= bot[L].y - 15f)
+                        || ((lifts[L].Type == "gondola" || lifts[L].Type == "tram")
+                            && math.distancesq(els[i].P[els[i].P.Length - 1].xz, top[L].xz) < StationM * StationM))
+                        delivers[i].Add(L);   // a gondola or tram top: the skier rides it down
             }
             // per lift: elements skied from its top, lift bottoms reached
             var skied = new HashSet<int>[lifts.Count];
@@ -380,7 +390,8 @@ namespace AutoGenBatch
                 }
             r.Coverage = skiable > 0 ? Math.Min(1f, covered / (float)skiable / CoverTarget) : 0f;
 
-            // ---- crowding: served run samples within 40 m of another served run (the last 150 m, where runs meet, excluded)
+            // ---- crowding: served run samples within 40 m of another served run (the last 150 m, where runs meet, and the junction zone
+            // within JunctionM of the other run's start or end excluded)
             int pts = 0, crowded = 0;
             foreach (int i in served)
             {
@@ -389,13 +400,16 @@ namespace AutoGenBatch
                 {
                     pts++;
                     float2 p = els[i].P[k].xz;
-                    if (served.Any(j => j != i && els[j].P.Any(q => math.distancesq(q.xz, p) < CrowdM * CrowdM)))
+                    if (served.Any(j => j != i && math.distancesq(els[j].P[0].xz, p) >= JunctionM * JunctionM
+                            && math.distancesq(els[j].P[els[j].P.Length - 1].xz, p) >= JunctionM * JunctionM
+                            && els[j].P.Any(q => math.distancesq(q.xz, p) < CrowdM * CrowdM)))
                         crowded++;
                 }
             }
             r.CrowdFree = pts > 0 ? 1f - Math.Min(1f, crowded / (float)pts / 0.3f) : 1f;
 
-            // ---- bases (lift bottoms clustered within 400 m, in the lowest 35 % of the region's relief) and their beginner terrain:
+            // ---- bases (two or more lift bottoms clustered within 400 m, in the lowest 35 % of the region's relief; the lowest such
+            // cluster when none has two) and their beginner terrain:
             // full credit when a lift at the base serves a green run back to the base, half for a blue one
             var baseOf = new int[lifts.Count];
             for (int L = 0; L < lifts.Count; L++)
@@ -406,9 +420,17 @@ namespace AutoGenBatch
                         Union(baseOf, L, M);
             float lowCut = hLo + BaseShare * (hHi - hLo);
             var bases = new Dictionary<int, float>();
+            var size = new Dictionary<int, int>();
             for (int L = 0; L < lifts.Count; L++)
-                if (bot[L].y <= lowCut)
+                size[Find(baseOf, L)] = size.TryGetValue(Find(baseOf, L), out int c) ? c + 1 : 1;
+            for (int L = 0; L < lifts.Count; L++)
+                if (bot[L].y <= lowCut && size[Find(baseOf, L)] >= 2)
                     bases[Find(baseOf, L)] = 0f;
+            if (bases.Count == 0 && lifts.Count > 0)
+            {
+                int low = Enumerable.Range(0, lifts.Count).OrderBy(L => bot[L].y).First();
+                bases[Find(baseOf, low)] = 0f;
+            }
             foreach (int B in bases.Keys.ToList())
             {
                 float credit = 0f;
