@@ -60,6 +60,96 @@ namespace AutoGenBatch
             return (false, SlopeBand.Green);
         }
 
+        private static readonly float StraightDevM = Env("RF_STRDEV", 30f);   // a straight piece stays this close to the track's own points
+
+        /// <summary>Green cat tracks pulled straight. A route search steps between cell centers and the smoothing only softens the
+        /// staircase, so a track wobbles where a cat track on the ground runs straight. Between its anchors (its ends, and its points near
+        /// where another element starts or ends, or near a lift bottom) a track takes the longest straight pieces that stay within
+        /// StraightDevM of its points, inside the region, under the blue line and within the connector rules. A track is kept only where
+        /// it still reads green, and the pass only where the ski graph loses nothing. Returns the tracks pulled straight.</summary>
+        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        private static int StraightenTracks(Grid g, Plan plan, List<Lift> lifts)
+        {
+            var ends = new List<float2>();
+            foreach (PlanRun r in plan.Runs)
+                ends.AddRange(new[] { r.Pts[0], r.Pts[r.Pts.Count - 1] });
+            foreach (List<float2> c in plan.Connectors)
+                ends.AddRange(new[] { c[0], c[c.Count - 1] });
+            SkiRead before = SkiRead.Of(g, plan, lifts);
+            var old = new List<(List<float2> C, List<float2> Pts)>();
+            float kmBefore = 0f, kmAfter = 0f;
+            foreach (List<float2> c in plan.Connectors)
+            {
+                if (c.Count < 4 || TrackClass(g, c).Run)
+                    continue;
+                var anchor = new bool[c.Count];
+                anchor[0] = anchor[c.Count - 1] = true;
+                for (int k = 1; k < c.Count - 1; k++)
+                {
+                    float2 q = c[k];
+                    anchor[k] = ends.Any(e => math.distancesq(e, q) < 50f * 50f) || lifts.Any(lf => math.distancesq(lf.Bottom.xz, q) < 70f * 70f);
+                }
+                var o = new List<float2> { c[0] };
+                for (int i = 0; i < c.Count - 1;)
+                {
+                    int j = i + 1;
+                    for (int k = i + 2; k < c.Count && !anchor[k - 1] && math.distance(c[i], c[k]) < 300f && StraightOk(g, c, i, k); k++)
+                        j = k;
+                    o.Add(c[j]);
+                    i = j;
+                }
+                if (o.Count == c.Count || !ConnectorOk(g, o) || TrackClass(g, o).Run)
+                    continue;
+                old.Add((c, c.ToList()));
+                kmBefore += RunLength(c) / 1000f;
+                kmAfter += RunLength(o) / 1000f;
+                c.Clear();
+                c.AddRange(o);
+            }
+            if (old.Count == 0)
+                return 0;
+            if (before.Loses(SkiRead.Of(g, plan, lifts)))
+            {
+                foreach (var (c, pts) in old)
+                {
+                    c.Clear();
+                    c.AddRange(pts);
+                }
+                plan.Log.Add($"straight tracks: undone ({old.Count} green cat track(s) pulled straight cost the skiing)");
+                return 0;
+            }
+            plan.Log.Add($"straight tracks: {old.Count} green cat track(s) pulled straight, {kmBefore:F1} km -> {kmAfter:F1} km");
+            return old.Count;
+        }
+
+        /// <summary>Whether track c may run straight from its point i to its point k: every point between within StraightDevM of the
+        /// piece, the piece inside the region, no 30 m pitch or 50 m climb past the connector rules, no 20-30 m of it at the blue line.</summary>
+        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        private static bool StraightOk(Grid g, List<float2> c, int i, int k)
+        {
+            for (int m = i + 1; m < k; m++)
+                if (SegDist(c[m], c[i], c[k]) > StraightDevM)
+                    return false;
+            List<float3> p = Sampled(g, new List<float2> { c[i], c[k] });
+            foreach (float3 q in p)
+            {
+                int cell = CellOf(g, q.xz);
+                if (cell < 0 || !g.In[cell] || float.IsNaN(q.y))
+                    return false;
+            }
+            for (int s = 0; s + 5 < p.Count; s++)
+                if (p[s + 5].y - p[s].y > ConnRiseMax)
+                    return false;
+            for (int s = 0; s + 2 < p.Count; s++)
+                for (int t = s + 2; t <= Math.Min(s + 3, p.Count - 1); t++)
+                {
+                    float drop = (p[s].y - p[t].y) / math.max(1f, math.distance(p[s].xz, p[t].xz));
+                    if (drop > 0.95f * SkiSlopeClassifier.GradeBlue || t == s + 3 && drop > ConnPitchMax)
+                        return false;
+                }
+            return true;
+        }
+
         /// <summary>RF_V3DBG: the plan's elements by their v3 class, and the crowded samples (the scorecard's rule, served or not) by the
         /// kinds of the two elements.</summary>
         private static void V3Debug(Grid g, Plan plan, List<Lift> lifts)

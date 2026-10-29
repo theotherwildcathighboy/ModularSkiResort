@@ -358,6 +358,10 @@ namespace AutoGenBatch
             if (Environment.GetEnvironmentVariable("RF_NOPRUNE") != "1")
                 PruneRuns(g, plan, lifts);
             Tick("prune");
+            // and the green cat tracks run straight where the ground lets them (a route search leaves them stepping between cells)
+            if (Environment.GetEnvironmentVariable("RF_NOSTRAIGHT") != "1" && !Late)
+                StraightenTracks(g, plan, lifts);
+            Tick("straight tracks");
             // merging runs end where they crowd the run they join least: off by default since scorecard v2 stopped counting junction
             // zones as crowding (score-neutral there, and a painted run should touch the trunk it joins); RF_JUNCTION=1 turns it on
             if (Environment.GetEnvironmentVariable("RF_JUNCTION") == "1")
