@@ -316,6 +316,9 @@ namespace AutoGenBatch
             if (Environment.GetEnvironmentVariable("RF_NOWAYHOME") != "1")
                 AddWaysHome(g, plan, lifts);
             Tick("way home");
+            // a lift still without a way home is a download lift: a gondola or tram
+            if (Environment.GetEnvironmentVariable("RF_NODOWNLOAD") != "1")
+                DownloadLifts(g, plan, lifts);
             // traverses at a run's grade cut as green cat tracks where a bench fits
             if (Environment.GetEnvironmentVariable("RF_NOREGRADE") != "1")
                 RegradeTraverses(g, plan, lifts);

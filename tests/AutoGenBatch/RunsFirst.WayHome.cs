@@ -123,6 +123,35 @@ namespace AutoGenBatch
             return ok;
         }
 
+        /// <summary>A lift still without an easy way home is a download lift: its riders ride it down, so it is a gondola, or a tram
+        /// where the grade needs one, when the norms fit with a margin and its chord crosses no other gondola or tram. Returns the
+        /// lifts changed.</summary>
+        private static int DownloadLifts(Grid g, Plan plan, List<Lift> lifts)
+        {
+            SkiGraph sg = Ski(g, plan, lifts);
+            int[] root = V3Bases(g, lifts, out HashSet<int> bases);
+            bool[] ok = WayHomeOk(sg, lifts, root, bases);
+            int changed = 0;
+            for (int L = 0; L < lifts.Count; L++)
+            {
+                Lift lf = lifts[L];
+                if (ok[L] || Aerial(lf.Type))
+                    continue;
+                float2 b = lf.Bottom.xz, t = lf.Top.xz;
+                float rise = RawH(g, t) - RawH(g, b), run = math.distance(b, t), len = math.sqrt(run * run + rise * rise);
+                string type = len < 810f ? null : rise >= 100f && rise / run <= 1.15f ? "gondola" : rise >= 225f && rise / run <= 2.4f ? "tram" : null;
+                if (type == null || Enumerable.Range(0, lifts.Count).Any(M => M != L && Aerial(lifts[M].Type) && SegCrossScore(lifts[M].Bottom.xz, lifts[M].Top.xz, b, t)))
+                {
+                    plan.Log.Add($"L{lf.Id} has no way home and cannot be a download lift ({lf.Type} {len:F0} m / {rise:F0} m up)");
+                    continue;
+                }
+                plan.Log.Add($"L{lf.Id} has no way home: a download lift, {lf.Type} -> {type} ({len:F0} m / {rise:F0} m up)");
+                lf.Type = type;
+                changed++;
+            }
+            return changed;
+        }
+
         /// <summary>Adds a way-home cat track from the top of every lift that has none; returns the tracks added.</summary>
         [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         private static int AddWaysHome(Grid g, Plan plan, List<Lift> lifts)
