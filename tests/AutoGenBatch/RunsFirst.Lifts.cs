@@ -312,6 +312,10 @@ namespace AutoGenBatch
             var lifts = new List<Lift>();
             float firstGain = 0f;
             var fed = new HashSet<int>();   // lifts whose bottom another lift already delivers to
+            var bans = new HashSet<long>();   // top-bottom pairs whose bottom found no pad of its own
+            var spotFails = new int[B];
+            int fails = 0;
+            bool spread = Environment.GetEnvironmentVariable("RF_NOSPREAD") != "1" && SpreadEach;
             while (lifts.Count < want)
             {
                 float best = 0f, bestOwn = 0f, bestTransfer = 0f;
@@ -320,7 +324,7 @@ namespace AutoGenBatch
                 for (int ti = 0; ti < tops.Count; ti++)
                     for (int b = 0; b < B; b++)
                     {
-                        if (excluded.Contains(b))
+                        if (excluded.Contains(b) || bans.Contains((long)ti * B + b))
                             continue;
                         int t = tops[ti], bc = bottoms[b];
                         float rise = g.H[t] - g.H[bc];
@@ -383,6 +387,28 @@ namespace AutoGenBatch
                 };
                 lift.Rise = lift.Top.y - lift.Bottom.y;
                 lift.Length = math.distance(lift.Top, lift.Bottom);
+                // a bottom on a placed lift's bottom moves to a pad of its own now, while the lines that fan out from that spot are
+                // few (once all are placed, every sideways move crosses the next line); tops wait for the coverage lifts (their index).
+                // Where no pad is free (a crowded base) the lift is not placed: the search takes the next pair
+                if (spread)
+                {
+                    var keep = lifts.ConvertAll(lf => (lf.Bottom, lf.BottomCell, lf.Top, lf.TopCell, lf.Rise, lf.Length));
+                    lifts.Add(lift);
+                    SpreadTerminals(g, lifts, null, runs, true);
+                    lifts.RemoveAt(lifts.Count - 1);
+                    if (OwnBottom && fails < OwnBottomTries && lifts.Exists(o => math.distance(o.Bottom.xz, lift.Bottom.xz) < LaySameSpotM + 2f))
+                    {
+                        for (int i = 0; i < lifts.Count; i++)
+                            (lifts[i].Bottom, lifts[i].BottomCell, lifts[i].Top, lifts[i].TopCell, lifts[i].Rise, lifts[i].Length) = keep[i];
+                        bans.Add((long)bt * B + bb);
+                        if (++spotFails[bb] >= 2)
+                            excluded.Add(bb);
+                        fails++;
+                        if (Environment.GetEnvironmentVariable("RF_DEBUG") == "1")
+                            Console.WriteLine($"DEBUG lift {lifts.Count + 1}: no pad of its own at {lift.Bottom.x:F0},{lift.Bottom.z:F0}: not placed");
+                        continue;
+                    }
+                }
                 var parent = new int[n];
                 List<int> touched = Reach(g, slope, T, dist, parent);
                 for (int li = 0; li < lines.Count; li++)
@@ -412,10 +438,6 @@ namespace AutoGenBatch
                     if (reachB[bt][lf.BottomIndex] && lift.Top.y > lf.Bottom.y + 20f)
                         fed.Add(lf.Id);
                 lifts.Add(lift);
-                // a bottom on a placed lift's bottom moves to a pad of its own now, while the lines that fan out from that spot are
-                // few (once all are placed, every sideways move crosses the next line); tops wait for the coverage lifts (their index)
-                if (Environment.GetEnvironmentVariable("RF_NOSPREAD") != "1" && SpreadEach)
-                    SpreadTerminals(g, lifts, null, runs, true);
             }
             if (Environment.GetEnvironmentVariable("RF_NOCOVERLIFT") != "1")
                 AddCoverLifts(g, rec, lifts, cTops, cReachB, cReachBits, bottoms, latIdx, latCount, runs, km2, slope);
@@ -518,6 +540,10 @@ namespace AutoGenBatch
         // scorecard v4's parallel lines are twins too (RF_PARALLELOK=1: allowed), past the lines a new one may run beside
         private static readonly bool NoParallel = Environment.GetEnvironmentVariable("RF_PARALLELOK") != "1";
         private static readonly int TransferBeside = (int)Env("RF_TRANSFERBESIDE", 1f);
+
+        // a lift of the search whose bottom finds no pad of its own is not placed, up to this many times a region (RF_OWNBOTTOM=0: off)
+        private static readonly bool OwnBottom = Environment.GetEnvironmentVariable("RF_OWNBOTTOM") != "0";
+        private static readonly int OwnBottomTries = (int)Env("RF_OWNBOTTOMTRIES", 8f);
 
         private static bool Twin(Grid g, List<Lift> lifts, int t, int b, float parallelM = 200f, string type = null, int beside = 0)
         {
