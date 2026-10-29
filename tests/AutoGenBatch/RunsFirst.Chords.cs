@@ -117,26 +117,62 @@ namespace AutoGenBatch
                     continue;
                 }
                 // kept when the line clears, no other line takes its place, and every start, join and delivery the plan had stays
-                float after = ChordShare(lf, dense);
-                bool keep = after <= ChordShareMax && lifts.Select((o, k) => shares[k] > ChordShareMax || ChordShare(o, dense) <= ChordShareMax).All(x => x);
-                SkiGraph sg = keep ? Ski(g, plan, lifts) : null;
-                for (int i = 0; keep && i < before.P.Count; i++)
-                    keep = before.Next[i].All(sg.Next[i].Contains) && before.Delivers[i].All(sg.Delivers[i].Contains) &&
-                        (!before.Reached[i] || sg.Reached[i]) && (!before.Returns[i] || sg.Returns[i]);
-                for (int L = 0; keep && L < lifts.Count; L++)
-                    keep = before.Skied[L].All(sg.Skied[L].Contains) && before.Reaches[L].All(sg.Reaches[L].Contains);
+                bool SameSkiing()
+                {
+                    SkiGraph sg = Ski(g, plan, lifts);
+                    for (int i = 0; i < before.P.Count; i++)
+                        if (!before.Next[i].All(sg.Next[i].Contains) || !before.Delivers[i].All(sg.Delivers[i].Contains) ||
+                            (before.Reached[i] && !sg.Reached[i]) || (before.Returns[i] && !sg.Returns[i]))
+                            return false;
+                    for (int L = 0; L < lifts.Count; L++)
+                        if (!before.Skied[L].All(sg.Skied[L].Contains) || !before.Reaches[L].All(sg.Reaches[L].Contains))
+                            return false;
+                    return true;
+                }
+                bool Clear(out float now)
+                {
+                    now = ChordShare(lf, dense);
+                    return now <= ChordShareMax && lifts.Select((o, k) => shares[k] > ChordShareMax || ChordShare(o, dense) <= ChordShareMax).All(x => x);
+                }
+                void Restore(int ri)
+                {
+                    plan.Runs[ri].Pts = old[ri].Pts;
+                    plan.Runs[ri].Band = old[ri].Band;
+                    dense[ri] = Densify(old[ri].Pts);
+                }
+                bool keep = Clear(out float after) && SameSkiing();
+                int kept = old.Count;
+                if (!keep && old.Count > 1)
+                {
+                    // one stretch may be what breaks a join (its end slid out of the skier's reach): each run's move is kept when the
+                    // skiing stays as it was, and the line is judged again on the moves kept
+                    var moved = old.Keys.ToDictionary(ri => ri, ri => plan.Runs[ri].Pts);
+                    foreach (int ri in moved.Keys)
+                        Restore(ri);
+                    var took = new List<int>();
+                    foreach (var kv in moved)
+                    {
+                        plan.Runs[kv.Key].Pts = kv.Value;
+                        dense[kv.Key] = Densify(kv.Value);
+                        if (SameSkiing())
+                            took.Add(kv.Key);
+                        else
+                            Restore(kv.Key);
+                    }
+                    keep = took.Count > 0 && Clear(out after);
+                    kept = took.Count;
+                    if (!keep)
+                        foreach (int ri in took)
+                            Restore(ri);
+                }
                 if (keep)
                 {
                     cleared++;
-                    plan.Log.Add($"chord repair L{lf.Id}: {old.Count} run stretch(es) moved beside the line ({share:P0} -> {after:P0} of its middle on runs)");
+                    plan.Log.Add($"chord repair L{lf.Id}: {kept} run stretch(es) moved beside the line ({share:P0} -> {after:P0} of its middle on runs)");
                     continue;
                 }
-                foreach (var kv in old)
-                {
-                    plan.Runs[kv.Key].Pts = kv.Value.Pts;
-                    plan.Runs[kv.Key].Band = kv.Value.Band;
-                    dense[kv.Key] = Densify(kv.Value.Pts);
-                }
+                foreach (int ri in old.Keys)
+                    Restore(ri);
                 plan.Log.Add($"chord repair L{lf.Id}: undone ({share:P0} -> {after:P0} of its middle on runs, or the skiing changed)");
             }
             return cleared;
