@@ -114,13 +114,37 @@ namespace AutoGenBatch
                         t.RemoveAt(1);
                     if (t.Count < 4)
                         continue;
-                    var ring = new float2[t.Count - 1];
+                    // "hole x,z x,z ..." after the outline cuts a no-go area out of the region (a cliff band): the ring becomes a
+                    // keyhole (outline, a zero-width bridge to the hole, the hole reversed, back), which every even-odd inside
+                    // test and the shoelace area already read as outline minus hole
+                    var parts = new List<List<float2>> { new List<float2>() };
                     for (int i = 1; i < t.Count; i++)
                     {
+                        if (t[i] == "hole")
+                        {
+                            parts.Add(new List<float2>());
+                            continue;
+                        }
                         string[] xz = t[i].Split(',');
-                        ring[i - 1] = new float2(float.Parse(xz[0], CultureInfo.InvariantCulture), float.Parse(xz[1], CultureInfo.InvariantCulture));
+                        parts[parts.Count - 1].Add(new float2(float.Parse(xz[0], CultureInfo.InvariantCulture), float.Parse(xz[1], CultureInfo.InvariantCulture)));
                     }
-                    regions.Add((fx + "|" + t[0], ring));
+                    var ring = new List<float2>(parts[0]);
+                    double Signed(List<float2> r)
+                    {
+                        double a = 0.0;
+                        for (int i = 0, j = r.Count - 1; i < r.Count; j = i++)
+                            a += (double)r[j].x * r[i].y - (double)r[i].x * r[j].y;
+                        return a;
+                    }
+                    foreach (List<float2> hole in parts.Skip(1).Where(h => h.Count >= 3))
+                    {
+                        if (Math.Sign(Signed(hole)) == Math.Sign(Signed(parts[0])))
+                            hole.Reverse();
+                        ring.Add(parts[0][0]);
+                        ring.AddRange(hole);
+                        ring.Add(hole[0]);
+                    }
+                    regions.Add((fx + "|" + t[0], ring.ToArray()));
                 }
             }
             var files = new Dictionary<string, HeightmapFile> { ["MountainVillage"] = file };
@@ -201,6 +225,16 @@ namespace AutoGenBatch
             Tick("lifts");
             Plan built = BuildPlan(g, rec, lines, lifts, km2r);
             Tick("plan");
+            // the village lift (from the opus-med contest entry): the longest main lift off the lowest base whose top is a hub (another
+            // lift loads within 300 m) is a gondola, a resort's main lift from the village to mid-mountain with chairs stacked above it
+            Lift village = null;
+            float lowest = lifts.Count > 0 ? lifts.Min(lf => lf.Bottom.y) : 0f;
+            foreach (Lift lf in lifts)
+                if (lf.Kind == "main" && (lf.Type == "detachable" || lf.Type == "fixed-grip") && lf.Bottom.y < lowest + 30f && lf.Length >= 1200f && lf.Length <= 2700f
+                    && lifts.Exists(o => o != lf && math.distance(o.Bottom.xz, lf.Top.xz) < 300f) && (village == null || lf.Length > village.Length))
+                    village = lf;
+            if (village != null && Environment.GetEnvironmentVariable("RF_NOVILLAGE") != "1")
+                village.Type = "gondola";
             long ms = sw.ElapsedMilliseconds;
 
             // the v2 plan of the same region, as the host replays it
@@ -852,6 +886,10 @@ namespace AutoGenBatch
 
             Canvas clean = Base(false);
             Program.WritePngRgb(Path.ChangeExtension(path, null) + "-draw.png", clean.W, clean.H, clean.Rgb);
+            // pixel -> world for the -draw.png (and either panel of <id>.png): tools/rf-pix2world.cjs reads it
+            File.WriteAllText(Path.ChangeExtension(path, null) + "-draw.map", string.Format(CultureInfo.InvariantCulture,
+                "{{\"rot\":{0},\"w\":{1},\"d\":{2},\"ox\":{3},\"oz\":{4},\"x0\":{5},\"z0\":{6},\"t\":{7},\"panelW\":{8},\"gap\":12}}\n",
+                rot, w, d, s.Origin.x, s.Origin.y, s.X0, s.Z0, t, iw));
             Canvas left = Base(true), right = Base(true);
             // left: the v2 plan (runs by band, lift chords yellow)
             foreach (AutoRun r in v2.Runs)

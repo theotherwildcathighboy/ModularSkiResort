@@ -674,11 +674,17 @@ namespace AutoGenBatch
 
         /// <summary>The cheapest lift type whose length / rise / mean grade norms fit and whose chord clears the ground (terrain at
         /// most TowerLiftM above the straight line); null when none fits. Long chairs prefer the detachable.</summary>
+        private static readonly float MaxRiseM = Env("RF_MAXRISE", 0f);
+
         private static string TypeFor(Grid g, int b, int t)
         {
             // the real ground, as the rope sees it: raw heights at the stations and every 10 m along the chord
             float3 a = new float3(g.World(b).x, g.Hr[b], g.World(b).y), c = new float3(g.World(t).x, g.Hr[t], g.World(t).y);
             float len = math.distance(a, c), rise = c.y - a.y, run = math.distance(a.xz, c.xz);
+            // optional stacking cap (from the opus-med contest entry): no lift over RF_MAXRISE m of rise. Off by default: at 560 m it
+            // halved the served vertical on alpine terrain (Chamonix 97.9 -> 93.9) and cost ft5-r4 4 points; at 700 m ft5-r2 lost 6.6
+            if (MaxRiseM > 0f && rise > MaxRiseM)
+                return null;
             for (float d = 10f; d < run - 10f; d += 10f)
             {
                 float3 p = math.lerp(a, c, d / run);

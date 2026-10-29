@@ -317,12 +317,13 @@ namespace AutoGenBatch
             if (Environment.GetEnvironmentVariable("RF_NOCHORD") != "1")
                 RepairChords(g, plan, lifts);
             Tick("chords");
-            // merging runs end where they crowd the run they join least
-            if (Environment.GetEnvironmentVariable("RF_NOJUNCTION") != "1")
+            // merging runs end where they crowd the run they join least: off by default since scorecard v2 stopped counting junction
+            // zones as crowding (score-neutral there, and a painted run should touch the trunk it joins); RF_JUNCTION=1 turns it on
+            if (Environment.GetEnvironmentVariable("RF_JUNCTION") == "1")
                 TrimJunctions(g, plan, lifts);
             Tick("junctions");
-            // and runs start where they crowd the runs beside them least
-            if (Environment.GetEnvironmentVariable("RF_NOHEAD") != "1")
+            // and runs start where they crowd the runs beside them least (off by default for the same reason; RF_HEAD=1)
+            if (Environment.GetEnvironmentVariable("RF_HEAD") == "1")
                 for (int round = 0; round < 2 && TrimHeads(g, plan, lifts) > 0; round++)
                 {
                 }
