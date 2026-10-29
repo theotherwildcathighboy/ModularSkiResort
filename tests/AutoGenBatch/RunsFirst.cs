@@ -69,7 +69,26 @@ namespace AutoGenBatch
                 Console.WriteLine("SKIP RunsFirst: " + why);
                 return 0;
             }
-            foreach (var (id, ring) in Regions)
+            // a regions file (tools/regions-from-log.js: "<id> x,z x,z ...") replaces the built-in field test 5 list
+            var regions = new List<(string, float2[])>(Regions);
+            if (args.Length > 2)
+            {
+                regions.Clear();
+                foreach (string row in File.ReadAllLines(args[2]))
+                {
+                    string[] t = row.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                    if (t.Length < 4)
+                        continue;
+                    var ring = new float2[t.Length - 1];
+                    for (int i = 1; i < t.Length; i++)
+                    {
+                        string[] xz = t[i].Split(',');
+                        ring[i - 1] = new float2(float.Parse(xz[0], CultureInfo.InvariantCulture), float.Parse(xz[1], CultureInfo.InvariantCulture));
+                    }
+                    regions.Add((t[0], ring));
+                }
+            }
+            foreach (var (id, ring) in regions)
                 RunRegion(id, ring, file, outDir);
             return 0;
         }
