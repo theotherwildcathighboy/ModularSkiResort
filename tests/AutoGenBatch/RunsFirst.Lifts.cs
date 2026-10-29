@@ -28,7 +28,8 @@ namespace AutoGenBatch
             public int Id;
             public string Type;
             public float3 Bottom, Top;
-            public int TopCell, BottomCell;
+            public int TopCell, BottomCell, TopIndex, BottomIndex;
+            public float Transfer;          // credit for delivering skiers to other lifts' bottoms (over a ridge into a bowl)
             public float Length, Rise, Gain, BottomGrade;
             public readonly List<Line> Lines = new List<Line>();
             public readonly List<List<float2>> Traverses = new List<List<float2>>();
@@ -49,7 +50,7 @@ namespace AutoGenBatch
             return x < 0 || z < 0 || x >= g.W || z >= g.D ? -1 : z * g.W + x;
         }
 
-        private static List<Lift> PlaceLifts(Grid g, int[] rec, List<Line> all, float km2)
+        private static List<Lift> PlaceLifts(Grid g, int[] rec, List<Line> all, float km2, PointHash runs)
         {
             int n = g.W * g.D;
             var lines = all.FindAll(l => l.Picked);
@@ -132,6 +133,7 @@ namespace AutoGenBatch
             int step = Math.Max(1, (int)Math.Round(TopLatticeM / g.CellM));
             var tops = new List<int>();
             var entry = new List<int[]>();
+            var reachB = new List<bool[]>();   // per top: which bottom candidates its reach touches
             var dist = new float[n];
             Array.Fill(dist, float.PositiveInfinity);
             for (int z = step / 2; z < g.D; z += step)
@@ -158,12 +160,16 @@ namespace AutoGenBatch
                             }
                         }
                     }
+                    var rb = new bool[bottoms.Count];
+                    for (int b = 0; b < bottoms.Count; b++)
+                        rb[b] = dist[bottoms[b]] < float.PositiveInfinity;
                     foreach (int c in touched)
                         dist[c] = float.PositiveInfinity;
                     if (any)
                     {
                         tops.Add(t);
                         entry.Add(e);
+                        reachB.Add(rb);
                     }
                 }
 
@@ -175,9 +181,10 @@ namespace AutoGenBatch
             int want = Math.Clamp(Math.Max((int)Math.Round(km2 / 2f), (int)Math.Ceiling(vertical / 400f)), 1, 9);
             var lifts = new List<Lift>();
             float firstGain = 0f;
+            var fed = new HashSet<int>();   // lifts whose bottom another lift already delivers to
             while (lifts.Count < want)
             {
-                float best = 0f;
+                float best = 0f, bestOwn = 0f, bestTransfer = 0f;
                 int bt = -1, bb = -1;
                 string bestType = null;
                 for (int ti = 0; ti < tops.Count; ti++)
@@ -197,14 +204,21 @@ namespace AutoGenBatch
                             if (hi - lo >= MinLapM)
                                 gain += Uncovered(covered[li], lo, hi);
                         }
-                        if (gain <= best)
+                        // the transfer: this top reaches a placed lift's bottom from above (a base lift over the ridge into a bowl)
+                        float transfer = 0f;
+                        foreach (Lift lf in lifts)
+                            if (!fed.Contains(lf.Id) && reachB[ti][lf.BottomIndex] && g.H[t] > lf.Bottom.y + 20f)
+                                transfer += 0.5f * lf.Gain;
+                        if (gain + transfer <= best)
                             continue;
-                        if (Twin(g, lifts, t, bc))
+                        if (Twin(g, lifts, t, bc) || OnRuns(g, runs, bc, t))
                             continue;
                         string type = TypeFor(g, bc, t);
-                        if (type == null || gain * Capacity(type) <= best)
+                        if (type == null || (gain + transfer) * Capacity(type) <= best)
                             continue;
-                        best = gain * Capacity(type);
+                        best = (gain + transfer) * Capacity(type);
+                        bestOwn = gain;
+                        bestTransfer = transfer;
                         bt = ti;
                         bb = b;
                         bestType = type;
@@ -216,7 +230,8 @@ namespace AutoGenBatch
                 int T = tops[bt], Bc = bottoms[bb];
                 var lift = new Lift
                 {
-                    Id = lifts.Count + 1, Type = bestType, TopCell = T, BottomCell = Bc, Gain = best,
+                    Id = lifts.Count + 1, Type = bestType, TopCell = T, BottomCell = Bc, Gain = bestOwn, Transfer = bestTransfer,
+                    TopIndex = bt, BottomIndex = bb,
                     Top = new float3(g.World(T).x, g.H[T], g.World(T).y), Bottom = new float3(g.World(Bc).x, g.H[Bc], g.World(Bc).y),
                     BottomGrade = slope[Bc],
                 };
@@ -246,6 +261,9 @@ namespace AutoGenBatch
                 }
                 foreach (int c in touched)
                     dist[c] = float.PositiveInfinity;
+                foreach (Lift lf in lifts)
+                    if (reachB[bt][lf.BottomIndex] && lift.Top.y > lf.Bottom.y + 20f)
+                        fed.Add(lf.Id);
                 lifts.Add(lift);
             }
             return lifts;
@@ -271,6 +289,17 @@ namespace AutoGenBatch
                     return true;
             }
             return false;
+        }
+
+/// <summary>A chord whose middle 70 % runs within 25 m of picked lines for over 30 % of its samples sits on a run.</summary>
+        private static bool OnRuns(Grid g, PointHash runs, int b, int t)
+        {
+            float2 a = g.World(b), c = g.World(t);
+            int n = 0, near = 0;
+            for (float s = 0.15f; s <= 0.85f; s += 20f / Math.Max(20f, math.distance(a, c)), n++)
+                if (runs.Near(math.lerp(a, c, s), 25f))
+                    near++;
+            return n > 0 && near > 0.3f * n;
         }
 
         private static float SegDist(float2 p, float2 a, float2 b)
@@ -389,14 +418,14 @@ namespace AutoGenBatch
         private static void WriteLifts(string path, string id, List<Lift> lifts, List<Line> lines)
         {
             var sb = new StringBuilder();
-            sb.AppendLine($"# lifts {id}: lift type length_m rise_m bottom_grade new_vertical_m lines(map#:band) traverses");
+            sb.AppendLine($"# lifts {id}: lift type length_m rise_m bottom_grade new_vertical_m transfer lines(map#:band) traverses");
             foreach (Lift lf in lifts)
             {
                 var ls = new List<string>();
                 foreach (Line l in lf.Lines)
                     ls.Add($"{l.Pick}:{l.Band}");
-                sb.AppendLine(string.Format(CultureInfo.InvariantCulture, "L{0} {1} {2:F0} {3:F0} {4:F2} {5:F0} [{6}] {7}",
-                    lf.Id, lf.Type, lf.Length, lf.Rise, lf.BottomGrade, lf.Gain, string.Join(" ", ls), lf.Traverses.Count));
+                sb.AppendLine(string.Format(CultureInfo.InvariantCulture, "L{0} {1} {2:F0} {3:F0} {4:F2} {5:F0} {8:F0} [{6}] {7}",
+                    lf.Id, lf.Type, lf.Length, lf.Rise, lf.BottomGrade, lf.Gain, string.Join(" ", ls), lf.Traverses.Count, lf.Transfer));
             }
             int picked = 0, unserved = 0;
             foreach (Line l in lines)
@@ -408,7 +437,7 @@ namespace AutoGenBatch
                 }
             sb.AppendLine($"# {unserved} of {picked} picked line(s) served by no lift");
             File.AppendAllText(path, sb.ToString());
-            Console.WriteLine($"REPORT rf lifts {id}: {lifts.Count} lift(s) [{string.Join(", ", lifts.ConvertAll(l => $"L{l.Id} {l.Type} {l.Length:F0} m / {l.Rise:F0} m up, {l.Lines.Count} line(s), {l.Traverses.Count} traverse(s)"))}]; {unserved} of {picked} line(s) unserved");
+            Console.WriteLine($"REPORT rf lifts {id}: {lifts.Count} lift(s) [{string.Join(", ", lifts.ConvertAll(l => $"L{l.Id} {l.Type} {l.Length:F0} m / {l.Rise:F0} m up, {l.Lines.Count} line(s), {l.Traverses.Count} traverse(s){(l.Transfer > 0 ? ", feeds another lift" : "")}"))}]; {unserved} of {picked} line(s) unserved");
         }
     }
 }

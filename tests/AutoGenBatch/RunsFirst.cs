@@ -28,11 +28,18 @@ namespace AutoGenBatch
         private const int F = 2;                  // texels per flow cell (7 m cells at 3.5 m texels)
         private const float ChannelM2 = 20000f;   // 2 ha catchment = a drainage (inverted: a spur)
         private const float StepM = 10f, PitchM = 30f;
-        private const float MaxPitch = 0.85f;     // steepest 30 m pitch a line may hold; past it the line is cut
-        private const float MinDropM = 120f, MinLengthM = 300f;
         private const float SpacingM = 60f;       // the upper 60 % of two picked lines stay this far apart
         private const float OverlapShare = 0.3f;
-        private const int MaxPicks = 30;
+        private const float MergeM = 35f;         // a picked line ends where it runs onto an earlier one (3 samples in a row this close, a trail width)
+        private const float PicksPerKm2 = 5f;     // line cap per km2 (12-80), the Normal density
+        private const float GentleLatticeM = 50f, GentleMinGrade = 0.06f, GentleMaxGrade = 0.40f;
+
+        // per family: steepest 30 m pitch the line may hold (cut there), runout grade trimmed off the bottom, min drop / length (m)
+        private static (float MaxPitch, float Runout, float MinDrop, float MinLength) Rules(string family) =>
+            family == "gentle" ? (0.40f, 0.015f, 40f, 200f) : (0.85f, 0.04f, 120f, 300f);
+
+        // beginner and intermediate vertical is scarce and worth more per meter than expert vertical
+        private static float BandWeight(SlopeBand b) => b == SlopeBand.Green ? 3f : b == SlopeBand.Blue ? 2f : 1f;
 
         private static float2 P(float x, float z) => new float2(x, z);
 
@@ -53,7 +60,7 @@ namespace AutoGenBatch
             public List<float3> Pts = new List<float3>();   // world, top to bottom, every StepM
             public float Drop, Length, Mean, Rating, Steepest, Width, Score;
             public SlopeBand Band;
-            public bool Picked;
+            public bool Picked, Merge;
             public int Pick;               // 1..N in pick order (the map label)
             public int Lift = -1;          // the lift whose lap covers most of this line
             public List<float2> Flow;      // the drainage below the line's end, to the region edge (the way back)
@@ -116,9 +123,28 @@ namespace AutoGenBatch
                 path.Reverse();   // inverted paths run low to high
                 AddLine(lines, g, path, "spur");
             }
-            Pick(lines);
+            // gentle ground: fall lines from a 50 m lattice of green / blue cells, highest first, kept down to the base
+            int gs = Math.Max(1, (int)Math.Round(GentleLatticeM / g.CellM));
+            var seeds = new List<int>();
+            for (int z = gs / 2; z < g.D; z += gs)
+                for (int x = gs / 2; x < g.W; x += gs)
+                {
+                    int c = z * g.W + x;
+                    float gr = g.In[c] ? GradeAt(g, g.World(c)) : 0f;
+                    if (g.In[c] && gr >= GentleMinGrade && gr <= GentleMaxGrade)
+                        seeds.Add(c);
+                }
+            seeds.Sort((a, b) => g.H[b].CompareTo(g.H[a]));
+            foreach (int s0 in seeds)
+            {
+                var path = new List<int>();
+                for (int c = s0; c >= 0; c = rec[c])
+                    path.Add(c);
+                AddLine(lines, g, path, "gentle");
+            }
             float km2r = (float)(SkiRunAutoPlanner.PolygonArea(ring) / 1e6);
-            List<Lift> lifts = PlaceLifts(g, rec, lines, km2r);
+            PointHash taken = Pick(lines, g, km2r);
+            List<Lift> lifts = PlaceLifts(g, rec, lines, km2r, taken);
             long ms = sw.ElapsedMilliseconds;
 
             // the v2 plan of the same region, as the host replays it
@@ -386,6 +412,7 @@ namespace AutoGenBatch
             if (pts.Count < 6)
                 return;
 
+            var rule = Rules(family);
             int per = (int)(PitchM / StepM);
             var h = new float[pts.Count];
             for (int i = 0; i < pts.Count; i++)
@@ -397,7 +424,7 @@ namespace AutoGenBatch
             // the longest run of samples whose pitches all hold, then the flat runout off the bottom
             int bestA = 0, bestB = -1, a0 = 0;
             for (int i = 0; i <= pts.Count; i++)
-                if (i == pts.Count || pitch[i] > MaxPitch)
+                if (i == pts.Count || pitch[i] > rule.MaxPitch)
                 {
                     if (i - 1 - a0 > bestB - bestA)
                     {
@@ -407,7 +434,7 @@ namespace AutoGenBatch
                     a0 = i + 1;
                 }
             int run = (int)(100f / StepM);
-            while (bestB - run > bestA && (h[bestB - run] - h[bestB]) / 100f < 0.04f)
+            while (bestB - run > bestA && (h[bestB - run] - h[bestB]) / 100f < rule.Runout)
                 bestB--;
             if (bestB - bestA < 5)
                 return;
@@ -415,21 +442,54 @@ namespace AutoGenBatch
             var l = new Line { Family = family };
             for (int i = bestA; i <= bestB; i++)
                 l.Pts.Add(new float3(pts[i].x, h[i], pts[i].y));
-            l.Length = (bestB - bestA) * StepM;
-            l.Drop = h[bestA] - h[bestB];
-            if (l.Drop < MinDropM || l.Length < MinLengthM)
+            Stats(g, l);
+            if (l.Drop < rule.MinDrop || l.Length < rule.MinLength)
                 return;
-            l.Mean = l.Drop / l.Length;
+            lines.Add(l);
+        }
+
+        /// <summary>Length, drop, mean / 85th-percentile / steepest 30 m pitch, band, corridor width and score, from Pts.</summary>
+        private static void Stats(Grid g, Line l)
+        {
+            int per = (int)(PitchM / StepM), n = l.Pts.Count;
+            l.Length = (n - 1) * StepM;
+            l.Drop = l.Pts[0].y - l.Pts[n - 1].y;
+            l.Mean = l.Length > 0f ? l.Drop / l.Length : 0f;
             var ps = new List<float>();
-            for (int i = bestA; i + per <= bestB; i++)
-                ps.Add(pitch[i]);
+            for (int i = 0; i + per < n; i++)
+                ps.Add(Math.Abs(l.Pts[i].y - l.Pts[i + per].y) / PitchM);
             ps.Sort();
             l.Rating = ps.Count > 0 ? ps[(int)(ps.Count * 0.85f)] : l.Mean;
             l.Steepest = ps.Count > 0 ? ps[ps.Count - 1] : l.Mean;
             l.Band = SkiSlopeClassifier.BandOf(l.Rating);
             l.Width = Width(g, l);
-            l.Score = l.Drop * Math.Clamp(l.Width / 40f, 0.3f, 1f);
-            lines.Add(l);
+            l.Score = l.Drop * Math.Clamp(l.Width / 40f, 0.3f, 1f) * BandWeight(l.Band);
+        }
+
+        /// <summary>Picked line points bucketed on a 60 m grid: Near(p, r) for r up to 60 m.</summary>
+        private sealed class PointHash
+        {
+            private const float Cell = 60f;
+            private readonly Dictionary<long, List<float2>> m_Cells = new Dictionary<long, List<float2>>();
+            private static long Key(int x, int z) => ((long)x << 32) ^ (uint)z;
+            public void Add(float2 p)
+            {
+                long k = Key((int)Math.Floor(p.x / Cell), (int)Math.Floor(p.y / Cell));
+                if (!m_Cells.TryGetValue(k, out List<float2> l))
+                    m_Cells[k] = l = new List<float2>();
+                l.Add(p);
+            }
+            public bool Near(float2 p, float r)
+            {
+                int cx = (int)Math.Floor(p.x / Cell), cz = (int)Math.Floor(p.y / Cell);
+                for (int dz = -1; dz <= 1; dz++)
+                    for (int dx = -1; dx <= 1; dx++)
+                        if (m_Cells.TryGetValue(Key(cx + dx, cz + dz), out List<float2> l))
+                            foreach (float2 q in l)
+                                if (math.distancesq(p, q) < r * r)
+                                    return true;
+                return false;
+            }
         }
 
         /// <summary>Median corridor width: from every third sample, step sideways until the ground turns cliff (over 0.75) or rises /
@@ -461,44 +521,71 @@ namespace AutoGenBatch
             return ws[ws.Count / 2];
         }
 
-        private static void Pick(List<Line> lines)
+        private static PointHash Pick(List<Line> lines, Grid g, float km2)
         {
             lines.Sort((a, b) => b.Score.CompareTo(a.Score));
             for (int i = 0; i < lines.Count; i++)
                 lines[i].Id = i + 1;
-            var taken = new List<float2>();
-            float best = lines.Count > 0 ? lines[0].Score : 0f;
-            int picks = 0;
+            var taken = new PointHash();
+            var best = new float[5];   // per band: "weak" is judged against lines of the same color
+            foreach (Line l in lines)
+                best[(int)l.Band] = Math.Max(best[(int)l.Band], l.Score);
+            int cap = Math.Clamp((int)Math.Round(PicksPerKm2 * km2), 12, 80), picks = 0;
             foreach (Line l in lines)
             {
-                if (picks >= MaxPicks)
+                if (picks >= cap)
                 {
                     l.Why = "cap";
                     continue;
                 }
-                if (l.Score < 0.15f * best)
+                if (l.Score < 0.15f * best[(int)l.Band])
                 {
                     l.Why = "weak";
                     continue;
                 }
-                int upper = Math.Max(1, (int)(l.Pts.Count * 0.6f)), near = 0;
+                // the merge: the line ends where it runs onto an earlier pick (the shared trunk is drawn and counted once);
+                // found first, so a line that feeds a picked trunk is judged on its own part only
+                int run = 0, end = l.Pts.Count;
+                for (int i = 3; i < l.Pts.Count; i++)
+                {
+                    run = taken.Near(l.Pts[i].xz, MergeM) ? run + 1 : 0;
+                    if (run == 3)
+                    {
+                        end = i - 1;
+                        break;
+                    }
+                }
+                if (end < 6)
+                {
+                    l.Why = "merges at once";
+                    continue;
+                }
+                int upper = Math.Max(1, (int)(end * 0.6f)), near = 0;
                 for (int i = 0; i < upper; i++)
-                    foreach (float2 t in taken)
-                        if (math.distancesq(t, l.Pts[i].xz) < SpacingM * SpacingM)
-                        {
-                            near++;
-                            break;
-                        }
+                    if (taken.Near(l.Pts[i].xz, SpacingM))
+                        near++;
                 if (near > OverlapShare * upper)
                 {
                     l.Why = "overlap";
                     continue;
+                }
+                if (end < l.Pts.Count)
+                {
+                    l.Pts.RemoveRange(end, l.Pts.Count - end);
+                    l.Merge = true;
+                    Stats(g, l);
+                    if (l.Drop < 40f)
+                    {
+                        l.Why = "merges at once";
+                        continue;
+                    }
                 }
                 l.Picked = true;
                 l.Pick = ++picks;
                 foreach (float3 p in l.Pts)
                     taken.Add(p.xz);
             }
+            return taken;
         }
 
         private static void WriteTable(string path, string id, List<Line> lines)
@@ -509,9 +596,9 @@ namespace AutoGenBatch
             {
                 float3 t = l.Pts[0], b = l.Pts[l.Pts.Count - 1];
                 sb.AppendLine(string.Format(CultureInfo.InvariantCulture,
-                    "{18} {0} {1} {2} {3} {4:F0} {5:F0} {6:F2} {7:F2} {8:F2} {9:F0} {10:F0} ({11:F0},{12:F0},{13:F0}) ({14:F0},{15:F0},{16:F0}) {17}",
+                    "{18} {0} {1}{19} {2} {3} {4:F0} {5:F0} {6:F2} {7:F2} {8:F2} {9:F0} {10:F0} ({11:F0},{12:F0},{13:F0}) ({14:F0},{15:F0},{16:F0}) {17}",
                     l.Id, l.Family, l.Picked ? "Y" : "-", l.Band, l.Drop, l.Length, l.Mean, l.Rating, l.Steepest, l.Width, l.Score,
-                    t.x, t.z, t.y, b.x, b.z, b.y, l.Why, l.Picked ? "#" + l.Pick : ""));
+                    t.x, t.z, t.y, b.x, b.z, b.y, l.Why, l.Picked ? "#" + l.Pick : "", l.Merge ? "+merge" : ""));
             }
             File.WriteAllText(path, sb.ToString());
         }
