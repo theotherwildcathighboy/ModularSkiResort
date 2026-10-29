@@ -315,6 +315,10 @@ namespace AutoGenBatch
             if (Environment.GetEnvironmentVariable("RF_NOCHORD") != "1")
                 RepairChords(g, plan, lifts);
             Tick("chords");
+            // merging runs end where they crowd the run they join least
+            if (Environment.GetEnvironmentVariable("RF_NOJUNCTION") != "1")
+                TrimJunctions(g, plan, lifts);
+            Tick("junctions");
             if (Environment.GetEnvironmentVariable("RF_COVER") == "1")
             {
                 // skiable 20 m lattice points no run covers: red where a lift top's reach gets to them, orange where none does
@@ -348,7 +352,8 @@ namespace AutoGenBatch
                 // where the crowding is: each served run sample (its last 150 m aside) near another run, by where on that other run
                 SkiGraph cs = Ski(g, plan, lifts);
                 var served = Enumerable.Range(0, cs.Runs).Where(i => cs.Reached[i] && cs.Returns[i]).ToList();
-                int all = 0, ownStart = 0, nearEnd = 0, nearStart = 0, nearMid = 0, nearEndStation = 0, nearEndHere = 0;
+                int all = 0, ownStart = 0, nearEnd = 0, nearStart = 0, nearMid = 0, nearEndStation = 0, nearEndHere = 0, atJunction = 0;
+                var endBy = new Dictionary<string, int>();
                 var byKind = new Dictionary<string, int>();
                 foreach (int i in served)
                 {
@@ -385,6 +390,10 @@ namespace AutoGenBatch
                                 nearEndStation++;
                             if (lifts.Any(lf => math.distance(lf.Bottom.xz, P[k].xz) < 200f))
                                 nearEndHere++;
+                            if (math.distance(e, P[k].xz) < 45f)
+                                atJunction++;
+                            string jk = plan.Runs[hitJ].Kind + (plan.Runs[hitJ].Src != null && plan.Runs[hitJ].Src.Merge ? "/merge" : "");
+                            endBy[jk] = endBy.TryGetValue(jk, out int w) ? w + 1 : 1;
                         }
                         else if (hitK < 10)
                             nearStart++;
@@ -393,7 +402,31 @@ namespace AutoGenBatch
                         plan.Dots.Add((P[k].xz, 255, 0, 255));
                     }
                 }
-                Console.WriteLine($"DEBUG crowd: {all} samples, {ownStart + nearEnd + nearStart + nearMid} crowded: own first 100 m {ownStart}, by the last 200 m of another run {nearEnd} ({nearEndStation} of them ending at a station, {nearEndHere} within 200 m of one), by the first 100 m of another {nearStart}, alongside {nearMid}; by kind {string.Join(", ", byKind.Select(kv => kv.Key + " " + kv.Value))}");
+                // how close merging runs end to the run they join, and how many of its samples their end crowds
+                var hist = new int[5];
+                int ends = 0, endCrowds = 0;
+                foreach (int i in served)
+                {
+                    float2 e = cs.P[i][cs.P[i].Length - 1].xz;
+                    float best = float.MaxValue;
+                    int within = 0;
+                    foreach (int j in served)
+                        if (j != i)
+                            for (int m = 0; m < cs.P[j].Length - 15; m++)
+                            {
+                                float d = math.distance(cs.P[j][m].xz, e);
+                                best = Math.Min(best, d);
+                                if (d < 40f)
+                                    within++;
+                            }
+                    if (best >= 40f)
+                        continue;
+                    ends++;
+                    endCrowds += within;
+                    hist[best < 10f ? 0 : best < 20f ? 1 : best < 30f ? 2 : best < 35f ? 3 : 4]++;
+                }
+                Console.WriteLine($"DEBUG crowd ends: {ends} run(s) end within 40 m of another run's counted samples, {endCrowds} sample(s) within 40 m of those ends; nearest <10 {hist[0]}, 10-20 {hist[1]}, 20-30 {hist[2]}, 30-35 {hist[3]}, 35-40 {hist[4]}");
+                Console.WriteLine($"DEBUG crowd: {all} samples, {ownStart + nearEnd + nearStart + nearMid} crowded: own first 100 m {ownStart}, by the last 200 m of another run {nearEnd} ({nearEndStation} of them ending at a station, {nearEndHere} within 200 m of one, {atJunction} within 45 m of its end; by its kind {string.Join(", ", endBy.Select(kv => kv.Key + " " + kv.Value))}), by the first 100 m of another {nearStart}, alongside {nearMid}; by kind {string.Join(", ", byKind.Select(kv => kv.Key + " " + kv.Value))}");
             }
             if (Environment.GetEnvironmentVariable("RF_DEBUG") == "1")
             {
