@@ -260,6 +260,26 @@ namespace AutoGenBatch
                     int t = tops[ti], bc = bottoms[b];
                     if (Twin(g, lifts, t, bc))
                     {
+                        if (debug && Environment.GetEnvironmentVariable("RF_TWINDBG") == "1")
+                        {
+                            float2 a0 = g.World(bc), a1 = g.World(t);
+                            var why = new List<string>();
+                            foreach (Lift lf in lifts)
+                            {
+                                float2 b0 = lf.Bottom.xz, b1 = lf.Top.xz;
+                                if (math.distance(a1, b1) < TwinM && math.distance(a0, b0) < TwinM)
+                                    why.Add($"twin L{lf.Id}");
+                                bool par = true;
+                                for (float s2 = 0.2f; s2 <= 0.8f && par; s2 += 0.1f)
+                                    par = SegDist(math.lerp(a0, a1, s2), b0, b1) < 200f;
+                                if (par)
+                                    why.Add($"parallel L{lf.Id}");
+                                float sh = math.min(math.min(math.distance(a0, b0), math.distance(a0, b1)), math.min(math.distance(a1, b0), math.distance(a1, b1)));
+                                if (sh > 60f && Cross(a0, a1, b0, b1))
+                                    why.Add($"cross L{lf.Id}");
+                            }
+                            Console.WriteLine($"DEBUG twin: gain {gain} top {a1.x:F0},{a1.y:F0} h {g.Hr[t]:F0} bottom {a0.x:F0},{a0.y:F0} h {g.Hr[bc]:F0}: {string.Join(", ", why)}");
+                        }
                         rej[0]++;
                         continue;
                     }

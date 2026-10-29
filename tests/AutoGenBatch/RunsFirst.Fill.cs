@@ -19,6 +19,106 @@ namespace AutoGenBatch
         private const float FillForkM = 30f;        // a fill run leaves a run or traverse within this distance, at most 3 m above it
         private const float FillDropM = 60f, FillMinM = 250f;
         private const float FillFeedM = 110f, FillFeedShare = 0.3f;   // ... or from a straight cut-over this long at most (a share of the run)
+        // a fill run must open more ground than the crowding it brings costs: the scorecard weighs coverage 15 against its 60 % target
+        // and crowding 5 against a 30 % share, so a crowded 10 m sample costs about 0.67 x (lattice points / run samples) new points
+        private static readonly float FillCrowdTrade = Env("RF_FTRADE", 0.67f);
+
+        /// <summary>Fall lines through open ground: from an open lattice point up the steepest ascent until it meets ground a skier is on
+        /// (onNear) and down the steepest descent until it has run along a run for a few steps or reached a station; one per stretch of
+        /// face (an open point near a line already traced starts none). Returned as candidates the fill judges like the picked lines.</summary>
+        private static List<Cand> FaceLines(Grid g, List<Lift> lifts, List<float2> lat, bool[] covered, PointHash runs, Func<float2, float, bool> onNear)
+        {
+            var o = new List<Cand>();
+            var traced = new PointHash();
+            int Step(int c, bool up)
+            {
+                int x = c % g.W, z = c / g.W, best = -1;
+                float bh = g.H[c];
+                for (int k = 0; k < 8; k++)
+                {
+                    int xx = x + DX[k], zz = z + DZ[k];
+                    if (xx < 0 || zz < 0 || xx >= g.W || zz >= g.D)
+                        continue;
+                    int nb = zz * g.W + xx;
+                    if (!g.In[nb] || float.IsNaN(g.Hr[nb]))
+                        continue;
+                    float d = (g.H[nb] - g.H[c]) / ((k & 1) == 1 ? 1.4142f : 1f);
+                    if (up ? d > 0.05f && g.H[nb] > bh : d < -0.05f && g.H[nb] < bh)
+                    {
+                        best = nb;
+                        bh = g.H[nb];
+                    }
+                }
+                return best;
+            }
+            for (int i = 0; i < lat.Count; i++)
+            {
+                if (covered[i] || traced.Near(lat[i], 40f))
+                    continue;
+                int c0 = CellOf(g, lat[i]);
+                if (c0 < 0)
+                    continue;
+                // up to where the skier is
+                var up = new List<int> { c0 };
+                bool found = false;
+                for (int c = c0, n = 0; n < 250; n++)
+                {
+                    float2 q = g.World(c);
+                    if (onNear(q, g.Hr[c]) || lifts.Any(lf => math.distancesq(lf.Top.xz, q) < DirectStartM * DirectStartM))
+                    {
+                        found = true;
+                        break;
+                    }
+                    c = Step(c, true);
+                    if (c < 0)
+                        break;
+                    up.Add(c);
+                }
+                if (!found || up.Count < 2)
+                    continue;
+                // down until it has run along a run for a while (the fill ends it where it runs onto one) or reaches a station
+                var cells = Enumerable.Reverse(up).ToList();
+                bool away = false;
+                for (int c = c0, n = 0, along = 0; n < 400; n++)
+                {
+                    c = Step(c, false);
+                    if (c < 0)
+                        break;
+                    cells.Add(c);
+                    float2 q = g.World(c);
+                    if (lifts.Any(lf => math.distancesq(lf.Bottom.xz, q) < 40f * 40f))
+                        break;
+                    if (!runs.Near(q, MergeM))
+                        away = true;
+                    else if (away && ++along >= 4)
+                        break;
+                }
+                List<float2> way = Polyline(g, cells, false);
+                foreach (float2 q in way)
+                    traced.Add(q);
+                if (way.Count < 20)
+                    continue;
+                var wh = way.Select(q => RawH(g, q)).ToArray();
+                int end = -1;
+                for (int k = 5; k < way.Count && end < 0; k++)
+                    foreach (Lift lf in lifts)
+                        if (math.distancesq(lf.Bottom.xz, way[k]) < 50f * 50f && wh[k] >= RawH(g, lf.Bottom.xz) - 10f)
+                        {
+                            end = k;
+                            break;
+                        }
+                int by = 0;
+                for (int L = 1; L < lifts.Count; L++)
+                    if (math.distancesq(lifts[L].Top.xz, way[0]) < math.distancesq(lifts[by].Top.xz, way[0]))
+                        by = L;
+                o.Add(new Cand
+                {
+                    L = new Line { Id = -1, Family = "face", Width = 60f, Lift = by }, Way = way, Wh = wh, LineEnd = way.Count - 1, Entry = 0, By = by,
+                    ValidEnd = way.Count - 1, End = end,
+                });
+            }
+            return o;
+        }
 
         private static int FillCover(Grid g, Plan plan, List<Lift> lifts, List<Cand> cands)
         {
@@ -90,6 +190,77 @@ namespace AutoGenBatch
                     }
                 }
             }
+            // the scorecard's crowding: served run samples every 10 m (each run's last 150 m aside) within 40 m of another run
+            var smp = new List<(float2 P, int Run, bool Tail)>();
+            var smpAt = new Dictionary<long, List<int>>();
+            var crowdedS = new List<bool>();
+            var runsH = new HeightHash();
+            int nonTail = 0, runIds = 0;
+            void AddSamples(List<float3> P)
+            {
+                int id = runIds++;
+                for (int k = 0; k < P.Count; k++)
+                {
+                    bool tail = k >= P.Count - 15;
+                    if (!smpAt.TryGetValue(Key(P[k].xz), out List<int> l))
+                        smpAt[Key(P[k].xz)] = l = new List<int>();
+                    l.Add(smp.Count);
+                    smp.Add((P[k].xz, id, tail));
+                    crowdedS.Add(false);
+                    runsH.Add(P[k]);
+                    if (!tail)
+                        nonTail++;
+                }
+            }
+            // calls f for every sample within FillCrowdM of q (any run but skip)
+            void Crowds(float2 q, int skip, Action<int> f)
+            {
+                int cx = (int)Math.Floor(q.x / 60f), cz = (int)Math.Floor(q.y / 60f);
+                for (int dz = -1; dz <= 1; dz++)
+                    for (int dx = -1; dx <= 1; dx++)
+                        if (smpAt.TryGetValue(((long)(cx + dx) << 32) ^ (uint)(cz + dz), out List<int> l))
+                            foreach (int j in l)
+                                if (smp[j].Run != skip && math.distancesq(smp[j].P, q) < FillCrowdM * FillCrowdM)
+                                    f(j);
+            }
+            for (int i = 0; i < sg.Runs; i++)
+                if (sg.Reached[i] && sg.Returns[i])
+                    AddSamples(sg.P[i].ToList());
+            for (int j = 0; j < smp.Count; j++)
+                if (!smp[j].Tail)
+                {
+                    bool hit = false;
+                    Crowds(smp[j].P, smp[j].Run, _ => hit = true);
+                    crowdedS[j] = hit;
+                }
+            var cstamp = new int[0];
+            int cstampNow = 0;
+            // the crowded samples a run along pts would add: its own (its last 150 m aside) and the ones it brings beside it
+            int CrowdCost(List<float2> pts)
+            {
+                List<float2> d = Densify(pts);
+                if (cstamp.Length < smp.Count)
+                    Array.Resize(ref cstamp, smp.Count + 1024);
+                cstampNow++;
+                int own = 0, beside = 0;
+                for (int k = 0; k < d.Count; k++)
+                {
+                    bool hit = false;
+                    Crowds(d[k], -1, j =>
+                    {
+                        hit = true;
+                        if (!smp[j].Tail && !crowdedS[j] && cstamp[j] != cstampNow)
+                        {
+                            cstamp[j] = cstampNow;
+                            beside++;
+                        }
+                    });
+                    if (hit && k < d.Count - 15)
+                        own++;
+                }
+                return own + beside;
+            }
+
             bool OnNear(float2 q, float h)
             {
                 int cx = (int)Math.Floor(q.x / 60f), cz = (int)Math.Floor(q.y / 60f);
@@ -168,7 +339,7 @@ namespace AutoGenBatch
                     }
                     else if (away && ++run == 3)
                     {
-                        end = i - 1;
+                        end = FirstContact(cd.Way, cd.Wh, st + 5, i - 1, runsH);
                         merged = true;
                         break;
                     }
@@ -216,10 +387,17 @@ namespace AutoGenBatch
                         }
                     });
                 fresh = n;
-                if (n >= FillNewMin && n >= FillNewPerM * len)
-                    return pts;
-                why[5]++;
-                return null;
+                if (n < FillNewMin || n < FillNewPerM * len)
+                {
+                    why[5]++;
+                    return null;
+                }
+                if (n < FillCrowdTrade * CrowdCost(pts) * lat.Count / Math.Max(1, nonTail))
+                {
+                    why[6]++;
+                    return null;
+                }
+                return pts;
             }
 
             // best new ground first (lazy: a line's new ground only shrinks as runs are added)
@@ -227,8 +405,16 @@ namespace AutoGenBatch
             foreach (Cand cd in cands)
                 if (!cd.L.Picked && Eval(cd, out int f0, out _) != null)
                     queue.Enqueue(cd, -f0);
+            int faceLines = 0;
+            if (Environment.GetEnvironmentVariable("RF_NOFACE") != "1")
+                foreach (Cand cd in FaceLines(g, lifts, lat, covered, runs, OnNear))
+                {
+                    faceLines++;
+                    if (Eval(cd, out int f0, out _) != null)
+                        queue.Enqueue(cd, -f0);
+                }
             if (Environment.GetEnvironmentVariable("RF_DEBUG") == "1")
-                Console.WriteLine($"DEBUG fill: {queue.Count} of {cands.Count} candidate(s); no fork {why[0]}, never leaves {why[1]}, no way home {why[2]}, short {why[3]}, crowded {why[4]}, little new ground {why[5]}");
+                Console.WriteLine($"DEBUG fill: {queue.Count} of {cands.Count} candidate(s) and {faceLines} face line(s); no fork {why[0]}, never leaves {why[1]}, no way home {why[2]}, short {why[3]}, crowded {why[4]}, little new ground {why[5]}, crowding costs more {why[6]}");
             int added = 0, opened = 0;
             float km = 0f;
             var mine = new List<PlanRun>();
@@ -260,6 +446,27 @@ namespace AutoGenBatch
                     fed++;
                 }
                 servedKm += RunLength(pts) / 1000f;
+                {
+                    List<float3> P = Sampled(g, pts);
+                    int first = smp.Count;
+                    var beside = new List<int>();
+                    var ownHit = new bool[P.Count];
+                    for (int k = 0; k < P.Count; k++)
+                    {
+                        int kk = k;
+                        Crowds(P[k].xz, -1, j =>
+                        {
+                            ownHit[kk] = true;
+                            if (!smp[j].Tail)
+                                beside.Add(j);
+                        });
+                    }
+                    foreach (int j in beside)
+                        crowdedS[j] = true;
+                    AddSamples(P);
+                    for (int k = 0; k < P.Count; k++)
+                        crowdedS[first + k] = ownHit[k] && k < P.Count - 15;
+                }
                 cd.L.Picked = true;
                 guard.Add(pts, 0, pts.Count - 1);
                 foreach (float3 p in Sampled(g, pts))
@@ -292,7 +499,8 @@ namespace AutoGenBatch
                 mine.RemoveAll(drop.Contains);
                 added -= drop.Count;
             }
-            plan.Log.Add($"coverage fill: {added} run(s) ({fed} from a cut-over), {km:F1} km over ground no run opened ({opened} lattice points; {have} of {lat.Count} skiable now open)");
+            int faces = mine.Count(r => r.Src.Family == "face");
+            plan.Log.Add($"coverage fill: {added} run(s) ({faces} down a face, {fed} from a cut-over), {km:F1} km over ground no run opened ({opened} lattice points; {have} of {lat.Count} skiable now open)");
             return added;
         }
     }

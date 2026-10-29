@@ -842,7 +842,7 @@ namespace AutoGenBatch
                 {
                     float2 p0 = fromWorld(r.Pts[0]);
                     right.Disc(p0.x, p0.y, 6f, (255, 255, 255));
-                    if (r.Src != null)
+                    if (r.Src != null && r.Src.Pick > 0)
                         Label(right, (int)p0.x + 8, (int)p0.y - 6, r.Src.Pick);
                 }
 
