@@ -320,6 +320,9 @@ namespace AutoGenBatch
             // a lift still without a way home is a download lift: a gondola or tram
             if (Environment.GetEnvironmentVariable("RF_NODOWNLOAD") != "1")
                 DownloadLifts(g, plan, lifts);
+            // a lift with neither (no way home, no download), or with no served run, goes with the skiing only it serves
+            if (Environment.GetEnvironmentVariable("RF_NODROP") != "1")
+                DropStrandedLifts(g, plan, lifts, cands);
             // traverses at a run's grade cut as green cat tracks where a bench fits
             if (Environment.GetEnvironmentVariable("RF_NOREGRADE") != "1")
                 RegradeTraverses(g, plan, lifts);

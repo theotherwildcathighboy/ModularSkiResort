@@ -154,6 +154,105 @@ namespace AutoGenBatch
             return changed;
         }
 
+        /// <summary>A lift that still has no way home and cannot be a download lift breaks the owner's first rule (every upper lift
+        /// gets a green or blue way down), and a lift with no served run is a dead lift. Each is taken out with the skiing that then
+        /// serves no one (runs and tracks no other lift's skiers reach, runs that came home only to its bottom), where the rest of the
+        /// ski graph loses nothing: every other lift keeps its way home and its served runs, the links hold (the largest linked set
+        /// loses at most the lift itself), the bases keep their share of green laps, and every element left keeps being reached and
+        /// coming home. Returns the lifts taken out.</summary>
+        private static int DropStrandedLifts(Grid g, Plan plan, List<Lift> lifts, List<Cand> cands)
+        {
+            int dropped = 0;
+            var tried = new HashSet<Lift>();
+            while (!Late)
+            {
+                SkiGraph sg = Ski(g, plan, lifts);
+                int[] root = V3Bases(g, lifts, out HashSet<int> bases);
+                bool[] ok = WayHomeOk(sg, lifts, root, bases);
+                int L = Enumerable.Range(0, lifts.Count).FirstOrDefault(i => !tried.Contains(lifts[i])
+                    && (!ok[i] || !sg.Skied[i].Any(e => sg.IsRun[e] && sg.Returns[e])), -1);
+                if (L < 0)
+                    break;
+                Lift lf = lifts[L];
+                tried.Add(lf);
+                string why = ok[L] ? "no served run" : "no way home and no download";
+                SkiRead before = SkiRead.Of(g, plan, lifts);
+                var served = new Dictionary<object, bool>();
+                for (int i = 0; i < sg.P.Count; i++)
+                    served[i < sg.Runs ? plan.Runs[i] : (object)plan.Connectors[i - sg.Runs]] = sg.Reached[i] && sg.Returns[i];
+                var (runs, conns, links) = (plan.Runs.ToList(), plan.Connectors.ToList(), plan.Links.ToList());
+                lifts.RemoveAt(L);
+                int gone = 0;
+                for (int round = 0; round < 8; round++)
+                {
+                    SkiGraph s2 = Ski(g, plan, lifts);
+                    var drop = new HashSet<object>();
+                    for (int i = 0; i < s2.P.Count; i++)
+                    {
+                        object key = i < s2.Runs ? plan.Runs[i] : (object)plan.Connectors[i - s2.Runs];
+                        if (served.TryGetValue(key, out bool was) && was && !(s2.Reached[i] && s2.Returns[i]))
+                            drop.Add(key);
+                    }
+                    if (drop.Count == 0)
+                        break;
+                    gone += drop.Count;
+                    plan.Runs.RemoveAll(r => drop.Contains(r));
+                    plan.Connectors.RemoveAll(c => drop.Contains(c));
+                    plan.Links.RemoveAll(c => drop.Contains(c));
+                }
+                SkiRead after = SkiRead.Of(g, plan, lifts);
+                bool lost = after.Net < before.Net - 1
+                    || after.Green.Count(x => x) * before.Green.Length < before.Green.Count(x => x) * after.Green.Length;
+                for (int M = 0, k = 0; M < before.Home.Length && !lost; M++)
+                    if (M != L)
+                    {
+                        lost = before.Home[M] && !after.Home[k] || before.Live[M] && !after.Live[k];
+                        k++;
+                    }
+                foreach (var kv in before.Els)
+                    if (!lost && after.Els.TryGetValue(kv.Key, out var now) && (kv.Value.Reached && !now.Reached || kv.Value.Returns && !now.Returns))
+                        lost = true;
+                if (lost)
+                {
+                    lifts.Insert(L, lf);
+                    plan.Runs.Clear();
+                    plan.Connectors.Clear();
+                    plan.Links.Clear();
+                    plan.Runs.AddRange(runs);
+                    plan.Connectors.AddRange(conns);
+                    plan.Links.AddRange(links);
+                    plan.Log.Add($"L{lf.Id} ({why}) stays: taking it out would cost the rest of the skiing");
+                    continue;
+                }
+                dropped++;
+                DropFromCands(cands, lifts, L);
+                plan.Log.Add($"L{lf.Id} taken out ({why}; {lf.Type} {lf.Length:F0} m / {lf.Rise:F0} m up), with {gone} run(s) and track(s) only it served");
+            }
+            return dropped;
+        }
+
+        /// <summary>Lift L taken out of the list: the fill's candidate lines close their per-lift entries up past it, a line it entered
+        /// takes its next highest entry (as the serve pass picks it), and a line no lift enters any more leaves the candidates.</summary>
+        private static void DropFromCands(List<Cand> cands, List<Lift> lifts, int L)
+        {
+            foreach (Cand cd in cands)
+            {
+                if (cd.EntryOf != null && L < cd.EntryOf.Length)
+                    cd.EntryOf = cd.EntryOf.Where((_, i) => i != L).ToArray();
+                if (cd.By > L)
+                    cd.By--;
+                else if (cd.By == L)
+                {
+                    (cd.Entry, cd.By) = (-1, -1);
+                    for (int M = 0; cd.EntryOf != null && M < cd.EntryOf.Length; M++)
+                        if (cd.EntryOf[M] >= 0 && (cd.Entry < 0 || cd.EntryOf[M] < cd.Entry ||
+                            (cd.EntryOf[M] == cd.Entry && math.distance(lifts[M].Top.xz, cd.Way[cd.Entry]) < math.distance(lifts[cd.By].Top.xz, cd.Way[cd.Entry]))))
+                            (cd.Entry, cd.By) = (cd.EntryOf[M], M);
+                }
+            }
+            cands.RemoveAll(cd => cd.By < 0);
+        }
+
         /// <summary>The aerial type lift L may become (gondola, or tram where the grade needs one: the norms with a margin, a chord
         /// that crosses no other gondola or tram), or null.</summary>
         private static string DownloadType(Grid g, List<Lift> lifts, int L)
