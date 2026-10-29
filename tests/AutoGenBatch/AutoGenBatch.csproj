@@ -44,6 +44,7 @@
     <Compile Include="RunsFirst.Network.cs" />
     <Compile Include="RunsFirst.Fill.cs" />
     <Compile Include="RunsFirst.Cover.cs" />
+    <Compile Include="RunsFirst.Bridge.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiRunAutoPlanner.cs" Link="SkiRunAutoPlanner.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiRunAutoPlanner.Select.cs" Link="SkiRunAutoPlanner.Select.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiRunAutoPlanner.Kernels.cs" Link="SkiRunAutoPlanner.Kernels.cs" />

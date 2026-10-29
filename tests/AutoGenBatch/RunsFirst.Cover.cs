@@ -254,14 +254,31 @@ namespace AutoGenBatch
                 if (debug)
                     Console.WriteLine($"DEBUG cover lifts: {openPts} of {latCount} lattice points unserved; {pairs} pair(s), {noInto} not reachable, {noHome} not leading home; best gain {maxGain}; {cands.Count} over the bar");
                 bool placed = false;
+                var rej = new int[4];
                 foreach (var (gain, ti, b) in cands)
                 {
                     int t = tops[ti], bc = bottoms[b];
-                    if (Twin(g, lifts, t, bc) || UnderRope(g, lifts, t, bc) || OnRuns(g, runs, bc, t))
+                    if (Twin(g, lifts, t, bc))
+                    {
+                        rej[0]++;
                         continue;
+                    }
+                    if (UnderRope(g, lifts, t, bc))
+                    {
+                        rej[1]++;
+                        continue;
+                    }
+                    if (OnRuns(g, runs, bc, t))
+                    {
+                        rej[2]++;
+                        continue;
+                    }
                     string type = TypeFor(g, bc, t);
                     if (type == null)
+                    {
+                        rej[3]++;
                         continue;
+                    }
                     var lift = new Lift
                     {
                         Id = lifts.Count + 1, Type = type, TopCell = t, BottomCell = bc, TopIndex = ti, BottomIndex = b,
@@ -284,7 +301,11 @@ namespace AutoGenBatch
                     break;
                 }
                 if (!placed)
+                {
+                    if (debug)
+                        Console.WriteLine($"DEBUG cover lifts: none placed; twin {rej[0]}, under a rope {rej[1]}, on runs {rej[2]}, no lift type fits {rej[3]}");
                     break;
+                }
             }
             return added;
         }

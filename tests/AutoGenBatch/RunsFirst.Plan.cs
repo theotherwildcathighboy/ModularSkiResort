@@ -299,6 +299,9 @@ namespace AutoGenBatch
                 // a pod's top can open a way into an area the main lifts could not get to
                 links += LinkByRoutes(g, plan, lifts);
             }
+            // an area over a saddle from where the other lifts' skiers collect: a bridge lift
+            if (Environment.GetEnvironmentVariable("RF_NOBRIDGE") != "1")
+                links += BridgeLifts(g, plan, lifts, km2);
             int fills = Environment.GetEnvironmentVariable("RF_NOFILL") == "1" ? 0 : FillCover(g, plan, lifts, cands);
             if (Environment.GetEnvironmentVariable("RF_COVER") == "1")
             {
