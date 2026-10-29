@@ -22,8 +22,17 @@
 // gondola or tram both ways (Palisades: the learning area at mid-mountain). Every lift needs an easy way home: a green or blue route
 // from its top to a base lift's bottom, or to a gondola or tram top to ride down (a gondola or tram is its own way home).
 //
-// Composite (0-100): served vertical 15, skiable coverage 10, lift network 15, beginner terrain at each base 15, easy way home 10,
-// no dead lifts 10, validity 10, few stubs 5, little crowding 5, connector economy 5. Fixed contract: planners must not edit this file.
+// v4 (the owner's review of round v3, 2026-10-29): an experts-only lift is normal, so not every lift needs an easy way home. A resort
+// strives for an intermediate way down from at least one of its peaks, but a steep area (Snowbird, Alta) may not have one: the way-home
+// term is now the share of the resort's vertical (lowest base to highest lift top) from which a skier gets home on green or blue
+// (skiing to a base lift's bottom, or to a gondola / tram top to ride down), at weight 5. New layout term (10), for what a designer
+// sees and the other terms do not: crowded terminals (more than 4 lift terminals within 300 m, 6 at a base, and two bottoms or two tops
+// on one spot), parallel lift lines (same direction within 20 degrees, 250 m apart, overlapping 40 % of the longer line), and zigzag
+// cat tracks (60-degree turns between 20 m legs, past 4 per km of green cat track plus 2).
+//
+// Composite (0-100): served vertical 10, skiable coverage 10, lift network 15, beginner terrain at each base 15, intermediate way
+// down 5, layout 10, no dead lifts 10, validity 10, few stubs 5, little crowding 5, connector economy 5. Fixed contract: planners
+// must not edit this file.
 
 using System;
 using System.Collections.Generic;
@@ -50,6 +59,7 @@ namespace AutoGenBatch
         private const float RunMaxPitch = 1.0f, RunClimbM = 10f;   // raw 3.5 m terrain: small bumps and 45-degree pitches are real
         private const float ConnMaxDown = 0.50f, ConnWindowM = 50f, ConnMaxRiseM = 4.5f;
         private const float TowerM = 20f, StationGrade = 0.40f, OnRunM = 20f;
+        private const float HubM = 300f, SameSpotM = 40f, ParallelDeg = 20f, ParallelM = 250f, ParallelShare = 0.4f, TurnDeg = 60f, TurnsPerKm = 4f;
         private const float StubDropM = 50f, CrowdM = 40f, JunctionM = 100f, CoverM = 50f, CoverTarget = 0.6f, ConnectorShare = 0.35f, BaseShare = 0.35f;
 
         // name, length min / max (m), rise min / max (m), mean grade cap (stage-a-spec 4.4). v3: the maxima are not checked (no lift
@@ -73,8 +83,8 @@ namespace AutoGenBatch
 
         public sealed class Result
         {
-            public float Total, Served, Coverage, Network, Beginner, WayHome, DeadFree, Validity, StubFree, CrowdFree, Economy;
-            public int Lifts, Bases, BeginnerBases, WayHomeLifts, Dead, Violations, ServedRuns, Runs;
+            public float Total, Served, Coverage, Network, Beginner, WayHome, Layout, DeadFree, Validity, StubFree, CrowdFree, Economy;
+            public int Lifts, Bases, BeginnerBases, WayHomeLifts, HubExcess, Parallels, SharpTurns, Dead, Violations, ServedRuns, Runs;
             public float[] BandKm = new float[5];
             public float ServedVerticalM, ConnectorKm;
             public List<string> Notes = new List<string>();
@@ -521,32 +531,128 @@ namespace AutoGenBatch
             r.BeginnerBases = bases.Values.Count(v => v >= 1f);
             r.Beginner = bases.Count > 0 ? bases.Values.Average() : 0f;
 
-            // ---- easy way home: from every lift's top a green or blue route (runs, cat tracks) to a base lift's bottom, or to a
-            // gondola / tram top to ride down (a gondola or tram is its own way home: its riders download)
+            // ---- intermediate way down (v4): the share of the resort's vertical, lowest base lift bottom to highest lift top, from which
+            // a skier gets home on green or blue (to a base lift's bottom, or to a gondola / tram top to ride down). Experts-only lifts
+            // cost nothing; WayHomeLifts counts the lifts with such a route (a gondola or tram counts as its own) for the log.
+            float baseLo = float.MaxValue, topHi = float.MinValue, easyHi = float.MinValue;
+            for (int L = 0; L < lifts.Count; L++)
+            {
+                if (bases.ContainsKey(Find(baseOf, L)))
+                    baseLo = Math.Min(baseLo, bot[L].y);
+                topHi = Math.Max(topHi, top[L].y);
+            }
             for (int L = 0; L < lifts.Count; L++)
             {
                 HashSet<int> easy = EasyFrom(L, SlopeBand.Blue);
-                bool ok = IsAerial(L) || easy.Any(i => atBottom[i].Any(M => bases.ContainsKey(Find(baseOf, M)))
+                bool ok = easy.Any(i => atBottom[i].Any(M => bases.ContainsKey(Find(baseOf, M)))
                     || delivers[i].Any(M => IsAerial(M) && !atBottom[i].Contains(M)));
                 if (ok)
+                    easyHi = Math.Max(easyHi, top[L].y);
+                if (ok || IsAerial(L))
                     r.WayHomeLifts++;
-                else if (r.Notes.Count < 60)
-                    r.Notes.Add($"lift {L + 1}: no green or blue way home");
             }
-            r.WayHome = lifts.Count > 0 ? r.WayHomeLifts / (float)lifts.Count : 0f;
+            r.WayHome = lifts.Count == 0 ? 0f : topHi - baseLo < 1f ? 1f : Math.Max(0f, Math.Min(1f, (easyHi - baseLo) / (topHi - baseLo)));
+            if (r.WayHome < 1f && r.Notes.Count < 60)
+                r.Notes.Add($"intermediate way down from {Math.Max(0f, easyHi - baseLo):F0} m of the {topHi - baseLo:F0} m vertical");
 
-            r.Total = 15f * r.Served + 10f * r.Coverage + 15f * r.Network + 15f * r.Beginner + 10f * r.WayHome + 10f * r.DeadFree
-                + 10f * r.Validity + 5f * r.StubFree + 5f * r.CrowdFree + 5f * r.Economy;
+            // ---- layout (v4): crowded terminals, parallel lift lines, zigzag cat tracks
+            var term = new List<(float2 P, bool Base)>();
+            for (int L = 0; L < lifts.Count; L++)
+            {
+                term.Add((bot[L].xz, bases.ContainsKey(Find(baseOf, L))));
+                term.Add((top[L].xz, false));
+            }
+            var hub = new int[term.Count];
+            for (int a = 0; a < term.Count; a++)
+            {
+                hub[a] = a;
+                for (int b2 = 0; b2 < a; b2++)
+                    if (math.distance(term[a].P, term[b2].P) < HubM)
+                        Union(hub, a, b2);
+            }
+            foreach (var g in Enumerable.Range(0, term.Count).GroupBy(a => Find(hub, a)))
+            {
+                int allowed = g.Any(a => term[a].Base) ? 6 : 4, n = g.Count();
+                if (n > allowed)
+                {
+                    r.HubExcess += n - allowed;
+                    if (r.Notes.Count < 60)
+                        r.Notes.Add($"{n} lift terminals within {HubM} m of ({term[g.Key].P.x:F0}, {term[g.Key].P.y:F0})");
+                }
+            }
+            // two bottoms (or two tops) on the same spot: each lift needs its own terminal (a top beside the next bottom is a transfer)
+            for (int a = 0; a < term.Count; a++)
+            {
+                int same = 0;
+                for (int b2 = a % 2; b2 < a; b2 += 2)
+                    if (math.distance(term[a].P, term[b2].P) < SameSpotM)
+                        same++;
+                if (same > 0)
+                {
+                    r.HubExcess++;
+                    if (r.Notes.Count < 60)
+                        r.Notes.Add($"lift {a / 2 + 1}: {(a % 2 == 0 ? "bottom" : "top")} on another lift's {(a % 2 == 0 ? "bottom" : "top")}");
+                }
+            }
+            for (int i = 0; i < lifts.Count; i++)
+                for (int j = 0; j < i; j++)
+                {
+                    float2 bi = bot[i].xz, di = top[i].xz - bi, bj = bot[j].xz, dj = top[j].xz - bj;
+                    float li = math.length(di), lj = math.length(dj);
+                    if (li < 1f || lj < 1f || math.dot(di / li, dj / lj) < math.cos(math.radians(ParallelDeg)))
+                        continue;
+                    // overlap measured along the longer line, separation at the overlap's middle
+                    bool iLong = li >= lj;
+                    float2 b0 = iLong ? bi : bj, u = iLong ? di / li : dj / lj, c0 = iLong ? bj : bi, c1 = iLong ? top[j].xz : top[i].xz;
+                    float lLong = Math.Max(li, lj);
+                    float s0 = math.dot(c0 - b0, u), s1 = math.dot(c1 - b0, u);
+                    float lo = Math.Max(0f, Math.Min(s0, s1)), hi = Math.Min(lLong, Math.Max(s0, s1));
+                    if (hi - lo < ParallelShare * lLong)
+                        continue;
+                    float2 mid = math.lerp(c0, c1, (0.5f * (lo + hi) - s0) / math.max(1f, s1 - s0));
+                    float2 off = mid - b0;
+                    float sep = math.abs(off.x * u.y - off.y * u.x);
+                    if (sep < ParallelM)
+                    {
+                        r.Parallels++;
+                        if (r.Notes.Count < 60)
+                            r.Notes.Add($"lifts {j + 1} and {i + 1} run parallel ({sep:F0} m apart)");
+                    }
+                }
+            float trackKm = 0f;
+            int tracks = 0;
+            foreach (Elem e in els)
+            {
+                if (e.Run)
+                    continue;   // green cat tracks only (graded diagonals became runs)
+                tracks++;
+                trackKm += e.Length / 1000f;
+                for (int k = 4; k < e.P.Length; k += 2)
+                {
+                    float2 a1 = e.P[k - 2].xz - e.P[k - 4].xz, a2 = e.P[k].xz - e.P[k - 2].xz;
+                    if (math.lengthsq(a1) < 1f || math.lengthsq(a2) < 1f)
+                        continue;
+                    if (math.dot(math.normalize(a1), math.normalize(a2)) < math.cos(math.radians(TurnDeg)))
+                        r.SharpTurns++;
+                }
+            }
+            float turnsAllowed = TurnsPerKm * trackKm + 2f;
+            float hubS = (float)Math.Exp(-r.HubExcess / 2.0), parS = (float)Math.Exp(-r.Parallels / 3.0);
+            float zigS = r.SharpTurns <= turnsAllowed ? 1f : turnsAllowed / r.SharpTurns;
+            r.Layout = (hubS + parS + zigS) / 3f;
+
+            r.Total = 10f * r.Served + 10f * r.Coverage + 15f * r.Network + 15f * r.Beginner + 5f * r.WayHome + 10f * r.Layout
+                + 10f * r.DeadFree + 10f * r.Validity + 5f * r.StubFree + 5f * r.CrowdFree + 5f * r.Economy;
             return r;
         }
 
         public static string Line(string id, Result r) => string.Format(CultureInfo.InvariantCulture,
-            "SCORE rf {0}: {1:F1} | served {2:F2} cover {3:F2} network {4:F2} beginner {5:F2} ({6}/{7} bases green) way-home {23:F2} ({24}/{14}) dead-free {8:F2} " +
+            "SCORE rf {0}: {1:F1} | served {2:F2} cover {3:F2} network {4:F2} beginner {5:F2} ({6}/{7} bases green) way-home {23:F2} ({24}/{14} lifts) layout {25:F2} ({26} hub, {27} parallel, {28} turns) dead-free {8:F2} " +
             "valid {9:F2} ({10} violations) stub-free {11:F2} crowd-free {12:F2} economy {13:F2} | {14} lifts, {15}/{16} runs served, " +
             "{17:F0} m served vertical, km G/B/K/DB {18:F1}/{19:F1}/{20:F1}/{21:F1}, connectors {22:F1} km",
             id, r.Total, r.Served, r.Coverage, r.Network, r.Beginner, r.BeginnerBases, r.Bases, r.DeadFree, r.Validity, r.Violations,
             r.StubFree, r.CrowdFree, r.Economy, r.Lifts, r.ServedRuns, r.Runs, r.ServedVerticalM,
-            r.BandKm[1], r.BandKm[2], r.BandKm[3], r.BandKm[4], r.ConnectorKm, r.WayHome, r.WayHomeLifts);
+            r.BandKm[1], r.BandKm[2], r.BandKm[3], r.BandKm[4], r.ConnectorKm, r.WayHome, r.WayHomeLifts, r.Layout, r.HubExcess, r.Parallels, r.SharpTurns);
 
         private static int Find(int[] p, int i)
         {
