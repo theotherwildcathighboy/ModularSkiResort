@@ -16,8 +16,26 @@ namespace AutoGenBatch
 {
     internal static partial class RunsFirst
     {
-        private const float RegradeStretch = 1.8f;   // a bench at most this many times the piece's length (plus 100 m)
+        private static readonly float RegradeStretch = Env("RF_RGSTRETCH", 1.8f);   // a bench at most this many times the piece's length (plus 100 m)
         private const float RegradeShare = 0.33f;    // connector km kept under this share of the run km (the scorecard's 0.35, less a margin)
+
+        /// <summary>The planner's read of the economy term: connector km (green cat tracks, graded greens) and run km (runs and
+        /// diagonal runs, all taken as served).</summary>
+        private static (float Conn, float Run) EconomyKm(Grid g, Plan plan)
+        {
+            float conn = 0f, run = 0f;
+            foreach (PlanRun r in plan.Runs)
+                if (r.Graded)
+                    conn += RunLength(r.Pts) / 1000f;
+                else
+                    run += RunLength(r.Pts) / 1000f;
+            foreach (List<float2> c in plan.Connectors)
+                if (TrackClass(g, c).Run)
+                    run += RunLength(c) / 1000f;
+                else
+                    conn += RunLength(c) / 1000f;
+            return (conn, run);
+        }
 
         /// <summary>Cuts diagonal traverse pieces as green cat tracks where a bench fits; returns the pieces regraded.</summary>
         [MethodImpl(MethodImplOptions.AggressiveOptimization)]
@@ -25,29 +43,17 @@ namespace AutoGenBatch
         {
             // the run samples (runs by the ground, diagonal pieces) for the crowding estimate, and the km on each side of the economy
             var runEls = new List<(List<float2> P, int Conn)>();
-            float runKm = 0f, connKm = 0f;
+            var (connKm, runKm) = EconomyKm(g, plan);
             foreach (PlanRun r in plan.Runs)
-            {
-                if (r.Graded)
-                {
-                    connKm += RunLength(r.Pts) / 1000f;
-                    continue;
-                }
-                runEls.Add((Densify(r.Pts), -1));
-                runKm += RunLength(r.Pts) / 1000f;
-            }
+                if (!r.Graded)
+                    runEls.Add((Densify(r.Pts), -1));
             var diag = new List<int>();
             for (int ci = 0; ci < plan.Connectors.Count; ci++)
-            {
                 if (TrackClass(g, plan.Connectors[ci]).Run)
                 {
                     diag.Add(ci);
                     runEls.Add((Densify(plan.Connectors[ci]), ci));
-                    runKm += RunLength(plan.Connectors[ci]) / 1000f;
                 }
-                else
-                    connKm += RunLength(plan.Connectors[ci]) / 1000f;
-            }
             if (diag.Count == 0)
                 return 0;
             var hash = new Dictionary<long, List<(float2 P, int El)>>();
@@ -92,6 +98,7 @@ namespace AutoGenBatch
             // a bench for every diagonal piece: uphill from its foot to its head over ground a green cat track can be graded across
             var lim = new EasyLimits(WayGreen.EdgeMax, WayGreen.SteepPitch, WayGreen.HardPitch, WayGreen.Climb, WayGreen.SteepShare, 9000f, true);
             var cands = new List<(int Ci, List<float2> Track, float Gain, float OldKm, float NewKm)>();
+            int capped = 0, unreached = 0, failed = 0;
             foreach (int ci in diag)
             {
                 List<float2> old = plan.Connectors[ci];
@@ -102,7 +109,13 @@ namespace AutoGenBatch
                 var lm = new EasyLimits(lim.EdgeMax, lim.SteepPitch, lim.HardPitch, lim.Climb, lim.SteepShare, RegradeStretch * oldM + 100f, true);
                 EasyReach er = EasyUp(g, new List<int> { foot }, new PointHash(), lm, null, 3f, head);
                 if (!er.Down.ContainsKey(head))
+                {
+                    if (EasyWork >= (long)EasyBudget)
+                        capped++;
+                    else
+                        unreached++;
                     continue;
+                }
                 List<int> cells = er.Route(head);
                 if (cells.Count < 2 || cells[cells.Count - 1] != foot)
                     continue;
@@ -118,7 +131,10 @@ namespace AutoGenBatch
                     }
                 }
                 if (track == null)
+                {
+                    failed++;
                     continue;
+                }
                 int e = runEls.FindIndex(x => x.Conn == ci);
                 List<float3> s = Sampled(g, old);
                 bool stub = s[0].y - s[s.Count - 1].y < 50f;
@@ -145,7 +161,7 @@ namespace AutoGenBatch
                 km += cd.NewKm;
             }
             plan.Log.Add($"regrade: {done} of {diag.Count} diagonal traverse piece(s) cut as green cat tracks ({km:F1} km; {cands.Count} had a bench), " +
-                $"connectors {connKm:F1} km of {runKm:F1} run km");
+                $"connectors {connKm:F1} km of {runKm:F1} run km; no bench: {unreached} unreached, {capped} past the search budget, {failed} off the connector rules");
             return done;
         }
     }

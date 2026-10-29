@@ -671,6 +671,8 @@ namespace AutoGenBatch
         // cells the easy-ground searches settled in this region's plan, and the most they may settle: on wide gentle ground one
         // search floods the whole region (a link that fails tries three of them per round), and the region must plan in seconds
         private static long EasyWork, LinkWork;
+        // a graded track may climb a little per step (a contour step on rough ground); the route's climb rule still holds it
+        private static readonly float EasyUpTol = Env("RF_UPTOL", 0.10f);
         private static readonly float EasyBudget = Env("RF_EBUDGET", 3.0e6f), LinkBudget = Env("RF_LBUDGET", 1.8e6f);
 
         /// <summary>The easy-ground search's working arrays per grid cell (Steep: meters steeper than green, Hi: the highest raw point
@@ -748,7 +750,7 @@ namespace AutoGenBatch
                     float len = g.CellM * ((k & 1) == 1 ? 1.4142f : 1f);
                     float dg = (g.H[nb] - g.H[c]) / len;   // the skier's descent from nb to c
                     float nl = er.Len[c] + len;
-                    if (dg > lim.EdgeMax || dg < -0.02f || nl > lim.MaxLen || er.Hi[c] - g.Hr[nb] > lim.Climb)
+                    if (dg > lim.EdgeMax || dg < (lim.AlongPath ? -EasyUpTol : -0.02f) || nl > lim.MaxLen || er.Hi[c] - g.Hr[nb] > lim.Climb)
                         continue;
                     bool ok = true, steep = false;
                     float2 pn = g.World(nb);

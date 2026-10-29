@@ -137,10 +137,9 @@ namespace AutoGenBatch
                 Lift lf = lifts[L];
                 if (ok[L] || Aerial(lf.Type))
                     continue;
-                float2 b = lf.Bottom.xz, t = lf.Top.xz;
-                float rise = RawH(g, t) - RawH(g, b), run = math.distance(b, t), len = math.sqrt(run * run + rise * rise);
-                string type = len < 810f ? null : rise >= 100f && rise / run <= 1.15f ? "gondola" : rise >= 225f && rise / run <= 2.4f ? "tram" : null;
-                if (type == null || Enumerable.Range(0, lifts.Count).Any(M => M != L && Aerial(lifts[M].Type) && SegCrossScore(lifts[M].Bottom.xz, lifts[M].Top.xz, b, t)))
+                float rise = RawH(g, lf.Top.xz) - RawH(g, lf.Bottom.xz), len = math.length(new float2(math.distance(lf.Bottom.xz, lf.Top.xz), rise));
+                string type = DownloadType(g, lifts, L);
+                if (type == null)
                 {
                     plan.Log.Add($"L{lf.Id} has no way home and cannot be a download lift ({lf.Type} {len:F0} m / {rise:F0} m up)");
                     continue;
@@ -150,6 +149,18 @@ namespace AutoGenBatch
                 changed++;
             }
             return changed;
+        }
+
+        /// <summary>The aerial type lift L may become (gondola, or tram where the grade needs one: the norms with a margin, a chord
+        /// that crosses no other gondola or tram), or null.</summary>
+        private static string DownloadType(Grid g, List<Lift> lifts, int L)
+        {
+            float2 b = lifts[L].Bottom.xz, t = lifts[L].Top.xz;
+            float rise = RawH(g, t) - RawH(g, b), run = math.distance(b, t), len = math.sqrt(run * run + rise * rise);
+            string type = len < 810f ? null : rise >= 100f && rise / run <= 1.15f ? "gondola" : rise >= 225f && rise / run <= 2.4f ? "tram" : null;
+            if (type == null || Enumerable.Range(0, lifts.Count).Any(M => M != L && Aerial(lifts[M].Type) && SegCrossScore(lifts[M].Bottom.xz, lifts[M].Top.xz, b, t)))
+                return null;
+            return type;
         }
 
         /// <summary>Adds a way-home cat track from the top of every lift that has none; returns the tracks added.</summary>
@@ -208,6 +219,7 @@ namespace AutoGenBatch
                     var starts = er.Cost.Where(kv => kv.Value > 0f && math.distancesq(g.World(kv.Key), top) < WayStartM * WayStartM && g.Hr[kv.Key] <= topH + 3f)
                         .OrderBy(kv => kv.Value).Take(8).Select(kv => kv.Key).ToList();
                     List<float2> track = null;
+                    List<int> trackCells = null;
                     foreach (int s in starts)
                     {
                         List<int> cells = er.Route(s);
@@ -230,14 +242,15 @@ namespace AutoGenBatch
                         }
                         if (track != null)
                         {
-                            foreach (int c in cells)
-                                used.Add(c);
+                            trackCells = cells;
                             break;
                         }
                     }
                     if (track == null)
                         continue;
                     var (run, band) = TrackClass(g, track);
+                    foreach (int c in trackCells)
+                        used.Add(c);
                     if (run)
                         guard.Add(Densify(track), 0, Densify(track).Count - 1);
                     plan.Connectors.Add(track);
