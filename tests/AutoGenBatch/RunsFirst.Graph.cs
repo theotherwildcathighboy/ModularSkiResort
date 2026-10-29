@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using Unity.Mathematics;
 
 namespace AutoGenBatch
@@ -23,6 +24,7 @@ namespace AutoGenBatch
             public int BestComponent, BestSize;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         private static SkiGraph Ski(Grid g, Plan plan, List<Lift> lifts)
         {
             var sg = new SkiGraph { Runs = plan.Runs.Count };
@@ -113,6 +115,7 @@ namespace AutoGenBatch
             return sg;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         private static HashSet<int> Closure(int start, HashSet<int>[] adj)
         {
             var seen = new HashSet<int> { start };

@@ -8,6 +8,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using SkiResortMod.Systems;
 using Unity.Mathematics;
 
@@ -59,6 +60,7 @@ namespace AutoGenBatch
             public float Value;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         private static Plan BuildPlan(Grid g, int[] rec, List<Line> lines, List<Lift> lifts, float km2)
         {
             var plan = new Plan();
@@ -482,6 +484,7 @@ namespace AutoGenBatch
         /// <summary>Where a run that merges at index end first comes within ContactM of the runs it joins: the joined run's samples
         /// near the approach count as crowded, so the run stops at first contact (no earlier than from; the joined run must have a
         /// point there no more than 4 m above, for the skier to flow on).</summary>
+        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         private static int FirstContact(List<float2> way, float[] wh, int from, int end, HeightHash joined)
         {
             int e = end;
@@ -505,6 +508,7 @@ namespace AutoGenBatch
                 l.Add(p);
             }
             /// <summary>A point within r (up to 60 m) of p no higher than maxY.</summary>
+            [MethodImpl(MethodImplOptions.AggressiveOptimization)]
             public bool NearBelow(float2 p, float r, float maxY)
             {
                 int cx = (int)Math.Floor(p.x / 60f), cz = (int)Math.Floor(p.y / 60f);
@@ -544,6 +548,7 @@ namespace AutoGenBatch
                 spent.Add(false);
             }
 
+            [MethodImpl(MethodImplOptions.AggressiveOptimization)]
             public bool Fits(List<float2> pts, int from, int to)
             {
                 for (int L = 0; L < mid.Count; L++)
@@ -554,6 +559,7 @@ namespace AutoGenBatch
 
             /// <summary>For a run added late, with all runs already in: only the lift lines it would itself bring onto (or further over)
             /// the share count; a line the serve pass already gave over to runs does not block a run elsewhere.</summary>
+            [MethodImpl(MethodImplOptions.AggressiveOptimization)]
             public bool FitsAdding(List<float2> pts, int from, int to)
             {
                 for (int L = 0; L < mid.Count; L++)
@@ -581,6 +587,7 @@ namespace AutoGenBatch
                     spent[L] |= Over(L, pts, from, to);
             }
 
+            [MethodImpl(MethodImplOptions.AggressiveOptimization)]
             private bool Over(int L, List<float2> pts, int from, int to)
             {
                 int n = 0;
@@ -597,6 +604,7 @@ namespace AutoGenBatch
                         hit[L][k] |= Near(pts, from, to, mid[L][k]);
             }
 
+            [MethodImpl(MethodImplOptions.AggressiveOptimization)]
             private static bool Near(List<float2> pts, int from, int to, float2 q)
             {
                 for (int i = from; i <= to; i++)
@@ -610,6 +618,7 @@ namespace AutoGenBatch
         /// first stretch: the skier leaves the cat track and skis on. Only the stretch clear of other runs joins (two runs leaving one
         /// fork side by side stay on the cat track until they part), and only when the joined run keeps the run rules and stays off
         /// the lift lines; the rest stays a traverse. Returns the spurs merged.</summary>
+        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         private static int MergeSpurs(Grid g, Plan plan, List<Lift> lifts)
         {
             const float clearM = 44f, minM = 30f;
@@ -682,6 +691,7 @@ namespace AutoGenBatch
 
         /// <summary>A run cut where it would climb (ends at its low point before the climb) or before a pitch over the run maximum,
         /// checked on the scorecard's 10 m sampling; null when too little is left.</summary>
+        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         private static List<float2> SanitizeRun(Grid g, List<float2> run)
         {
             if (run.Count < 2)
@@ -712,6 +722,7 @@ namespace AutoGenBatch
 
         /// <summary>Drop from the entry to end, weighted by the band (beginner and intermediate vertical is scarce) and the corridor
         /// width; a line that delivers nowhere counts half (it can still end on another run).</summary>
+        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         private static float CandValue(Grid g, Cand cd, int end)
         {
             if (end <= cd.Entry + 3)
@@ -724,6 +735,7 @@ namespace AutoGenBatch
         /// <summary>The lift network as a skier rides it: while some lifts cannot get to the main set (or it to them), a traverse from a
         /// lift top whose reach takes in the other lift's bottom station closes the gap (the ridge traverse to the bowl lift, the
         /// cat track from the upper lift to the base). The traverse trees are then emitted again. Returns the traverses added.</summary>
+        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         private static int LinkLifts(Grid g, Plan plan, List<Lift> lifts, Dictionary<int, int>[] reachOf, List<List<int>>[] need, ref int chains, ref int bad)
         {
             int added = 0;
@@ -757,6 +769,7 @@ namespace AutoGenBatch
 
         /// <summary>The shortest traverse from a top in froms to a bottom station in tos (a reach cell within 35 m of it, the top
         /// above the station), added to that lift's traverse tree; false when no top reaches any.</summary>
+        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         private static bool AddLink(Grid g, List<Lift> lifts, Dictionary<int, int>[] reachOf, List<List<int>>[] need, List<int> froms, List<int> tos)
         {
             List<int> best = null;
@@ -788,6 +801,7 @@ namespace AutoGenBatch
         }
 
         /// <summary>Cells from the reach cell under p up the parent pointers to the top (entry first).</summary>
+        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         private static List<int> PathHome(Grid g, Dictionary<int, int> reach, float2 p, int top)
         {
             var cells = new List<int>();
@@ -803,6 +817,7 @@ namespace AutoGenBatch
 
         /// <summary>One lift's traverse tree: the union of its paths (entry first, top last), cut at every node (top, entry, fork) into
         /// connectors skied from the top down; each piece checked on the raw terrain.</summary>
+        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         private static void EmitTree(Grid g, List<List<int>> need, int top, List<List<float2>> outConn, ref int chains, ref int bad)
         {
             var kids = new Dictionary<int, int>();
@@ -844,6 +859,7 @@ namespace AutoGenBatch
         }
 
         /// <summary>World points of a cell chain, smoothed (D8 zigzag) with the ends kept; reversed = from the last cell to the first.</summary>
+        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         private static List<float2> Polyline(Grid g, List<int> cells, bool reversed)
         {
             var raw = new List<float2>(cells.Count);
@@ -867,6 +883,7 @@ namespace AutoGenBatch
         }
 
         /// <summary>The scorecard's sampling: every 10 m (or less) along each segment, heights from the raw terrain.</summary>
+        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         private static List<float3> Sampled(Grid g, List<float2> pl)
         {
             var pts = new List<float3>();
@@ -875,6 +892,7 @@ namespace AutoGenBatch
             return pts;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         private static bool ConnectorOk(Grid g, List<float2> pl)
         {
             if (pl.Count < 2)
@@ -890,6 +908,7 @@ namespace AutoGenBatch
         }
 
         /// <summary>A polyline with its points at most 10 m apart (the scorecard samples every 10 m: checks see what it sees).</summary>
+        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         private static List<float2> Densify(List<float2> pl)
         {
             var o = new List<float2>(pl.Count);
@@ -905,6 +924,7 @@ namespace AutoGenBatch
         }
 
         /// <summary>The scorecard's band: the 85th percentile of the downhill 30 m pitches on the raw terrain (flat reads green).</summary>
+        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         private static SlopeBand RunBand(Grid g, List<float2> run)
         {
             List<float3> p = Sampled(g, run);

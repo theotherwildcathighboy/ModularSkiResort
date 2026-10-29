@@ -8,6 +8,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
+using System.Runtime.CompilerServices;
 using Unity.Mathematics;
 
 namespace AutoGenBatch
@@ -21,6 +22,7 @@ namespace AutoGenBatch
         private static readonly float CoverClearM = Env("RF_CCLR", 100f);          // ... its stations no closer than this to another rope
 
         /// <summary>The skiable 20 m lattice: per cell its index (-1 = not a lattice point or not skiable).</summary>
+        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         private static int[] SkiLattice(Grid g, out int count)
         {
             var idx = new int[g.W * g.D];
@@ -47,6 +49,7 @@ namespace AutoGenBatch
             private readonly Grid g;
             private readonly int s, pw, pd;
             private readonly int[] next, order, ski;
+            [MethodImpl(MethodImplOptions.AggressiveOptimization)]
             public LatticeFlow(Grid grid, int[] rec, int[] latIdx)
             {
                 g = grid;
@@ -81,6 +84,7 @@ namespace AutoGenBatch
                     order[i] = i;
                 Array.Sort(h, order);
             }
+            [MethodImpl(MethodImplOptions.AggressiveOptimization)]
             private int Pos(int c)
             {
                 int x = c % g.W, z = c / g.W;
@@ -89,6 +93,7 @@ namespace AutoGenBatch
             }
             public bool[] NewMark() => new bool[next.Length];
             /// <summary>The skiable lattice points on or below the cells, marked in the caller's buffer (one per thread).</summary>
+            [MethodImpl(MethodImplOptions.AggressiveOptimization)]
             public ulong[] Below(List<int> cells, int latCount, bool[] mark)
             {
                 Array.Clear(mark, 0, mark.Length);
@@ -105,6 +110,7 @@ namespace AutoGenBatch
             }
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         private static int AddCoverLifts(Grid g, int[] rec, List<Lift> lifts, List<int> tops, List<bool[]> reachB, List<ulong[]> reachBits,
             List<int> bottoms, int[] latIdx, int latCount, PointHash runs, float km2, float[] slope)
         {

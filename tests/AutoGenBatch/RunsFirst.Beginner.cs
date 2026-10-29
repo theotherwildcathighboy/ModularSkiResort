@@ -12,6 +12,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using SkiResortMod.Systems;
 using Unity.Mathematics;
 
@@ -56,6 +57,7 @@ namespace AutoGenBatch
             public readonly Dictionary<int, float> Len = new Dictionary<int, float>(), Cost = new Dictionary<int, float>();
             public readonly Dictionary<int, float> Steep = new Dictionary<int, float>(), Hi = new Dictionary<int, float>();
 
+            [MethodImpl(MethodImplOptions.AggressiveOptimization)]
             public List<int> Route(int c)
             {
                 var cells = new List<int>();
@@ -65,6 +67,7 @@ namespace AutoGenBatch
             }
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         private static void AddBeginnerPods(Grid g, Plan plan, List<Lift> lifts)
         {
             if (lifts.Count == 0)
@@ -201,6 +204,7 @@ namespace AutoGenBatch
         }
 
         /// <summary>Up to count station pads (raw grade under StationMax) between rMin and rMax from c, spread around it.</summary>
+        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         private static List<int> PadsNear(Grid g, int c, float rMin, float rMax, int count)
         {
             var o = new List<int>();
@@ -251,6 +255,7 @@ namespace AutoGenBatch
         /// line. why: 0 not green, 1 run rules, 2 crowds runs, 3 along a lift line. soft (0 = clean): the share of the route along other
         /// runs when over 35 % (up to 70 %), plus 1 when it lies along a lift line; a caller may still take the softest when nothing
         /// clean exists (a base without beginner terrain costs more than either).</summary>
+        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         private static List<float2> GreenRoute(Grid g, Plan plan, List<Lift> lifts, List<int> members, EasyReach er, int x, PointHash avoid, ChordGuard guard, int[] why, out float soft)
         {
             soft = 0f;
@@ -300,6 +305,7 @@ namespace AutoGenBatch
         }
 
         /// <summary>The share of a route's samples within 40 m of a run (the last 200 m, where it comes home, left out).</summary>
+        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         private static float CrowdShare(List<float2> route, PointHash avoid)
         {
             int crowd = 0, counted = 0;
@@ -319,6 +325,7 @@ namespace AutoGenBatch
 
         /// <summary>The route (top first) cut where it first comes onto a run (25 m) whose rest is green and passes a station of the
         /// base, with that run's point as its end; null when it meets none past its first 250 m or keeps under 60 m of drop.</summary>
+        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         private static List<float2> JoinRunOut(Grid g, Plan plan, List<Lift> lifts, List<int> members, List<float2> route, PointHash avoid)
         {
             float at = 0f;
@@ -446,6 +453,7 @@ namespace AutoGenBatch
             return best;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         private static bool TryPod(Grid g, Plan plan, List<Lift> lifts, List<int> members, EasyReach er, PointHash avoid, ChordGuard lines, SkiGraph before)
         {
             var bottoms = new HashSet<int>(lifts.Select(lf => lf.BottomCell));
@@ -625,6 +633,7 @@ namespace AutoGenBatch
             return false;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         private static float RunLength(List<float2> pl)
         {
             float s = 0f;
@@ -642,10 +651,11 @@ namespace AutoGenBatch
         private static long EasyWork, LinkWork;
         private static readonly float EasyBudget = Env("RF_EBUDGET", 1.8e6f), LinkBudget = Env("RF_LBUDGET", 0.6e6f);
 
+        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         private static EasyReach EasyUp(Grid g, List<int> origins, PointHash avoid, EasyLimits lim, PointHash lines = null, float linesCost = 3f)
         {
             var er = new EasyReach();
-            var pq = new PriorityQueue<int, float>();
+            var pq = new CellHeap();
             foreach (int o in origins)
             {
                 er.Down[o] = -1;

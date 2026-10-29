@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using Unity.Mathematics;
 
 namespace AutoGenBatch
@@ -26,6 +27,7 @@ namespace AutoGenBatch
         /// <summary>Fall lines through open ground: from an open lattice point up the steepest ascent until it meets ground a skier is on
         /// (onNear) and down the steepest descent until it has run along a run for a few steps or reached a station; one per stretch of
         /// face (an open point near a line already traced starts none). Returned as candidates the fill judges like the picked lines.</summary>
+        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         private static List<Cand> FaceLines(Grid g, List<Lift> lifts, List<float2> lat, bool[] covered, List<float3> onPts, List<float2> runPts)
         {
             var o = new List<Cand>();
@@ -147,6 +149,7 @@ namespace AutoGenBatch
             return o;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         private static int FillCover(Grid g, Plan plan, List<Lift> lifts, List<Cand> cands)
         {
             SkiGraph sg = Ski(g, plan, lifts);

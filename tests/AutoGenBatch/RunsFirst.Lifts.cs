@@ -9,6 +9,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Tasks;
 using Unity.Mathematics;
@@ -60,12 +61,14 @@ namespace AutoGenBatch
             ("tram", 800f, 3000f, 220f, 888f, 2.5f),
         };
 
+        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         private static int CellOf(Grid g, float2 p)
         {
             int x = (int)Math.Round((p.x - g.OX) / g.CellM), z = (int)Math.Round((p.y - g.OZ) / g.CellM);
             return x < 0 || z < 0 || x >= g.W || z >= g.D ? -1 : z * g.W + x;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         private static List<Lift> PlaceLifts(Grid g, int[] rec, List<Line> all, float km2, PointHash runs)
         {
             int n = g.W * g.D;
@@ -424,6 +427,7 @@ namespace AutoGenBatch
 
         /// <summary>Whether a lift from bottom cell c would start a new base: c in the low part of the relief, and no placed bottom
         /// within 400 m belongs to a cluster (400 m chains, as the scorecard's) that already holds a low station.</summary>
+        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         private static bool OpensBase(Grid g, List<Lift> lifts, int c, float lowCut)
         {
             float2 p = g.World(c);
@@ -448,6 +452,7 @@ namespace AutoGenBatch
 
         /// <summary>The flattest cell (raw 10 m grade) within r meters of c that a station pad may sit on, nearer cells first on a
         /// tie; -1 when none is at or under StationMax.</summary>
+        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         private static int FlatCell(Grid g, int c, float r)
         {
             int k = (int)Math.Ceiling(r / g.CellM), x0 = c % g.W, z0 = c / g.W, best = -1;
@@ -472,6 +477,7 @@ namespace AutoGenBatch
             return best;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         private static bool Twin(Grid g, List<Lift> lifts, int t, int b, float parallelM = 200f)
         {
             // a twin (both ends within TwinM), a parallel (the middle 60 % within parallelM of the placed chord), or a crossing in
@@ -496,6 +502,7 @@ namespace AutoGenBatch
 
         /// <summary>A station of the new lift under (within clearM of) a placed lift's rope, or a placed station under the new rope
         /// (away from the stations the two share).</summary>
+        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         private static bool UnderRope(Grid g, List<Lift> lifts, int t, int b, float clearM = 40f)
         {
             float2 a0 = g.World(b), a1 = g.World(t);
@@ -513,6 +520,7 @@ namespace AutoGenBatch
         }
 
         /// <summary>A chord whose middle 70 % runs within 25 m of picked lines for over 30 % of its samples sits on a run.</summary>
+        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         private static bool OnRuns(Grid g, PointHash runs, int b, int t)
         {
             float2 a = g.World(b), c = g.World(t);
@@ -523,6 +531,7 @@ namespace AutoGenBatch
             return n > 0 && near > 0.3f * n;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         private static float SegDist(float2 p, float2 a, float2 b)
         {
             float2 ab = b - a;
@@ -542,6 +551,7 @@ namespace AutoGenBatch
             return i;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         private static bool Near(Grid g, List<int> cells, int c, float m)
         {
             foreach (int o in cells)
@@ -550,6 +560,7 @@ namespace AutoGenBatch
             return false;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         private static List<float2> LinePath(Line l)
         {
             var p = new List<float2>(l.Pts.Count + l.Flow.Count);
@@ -563,10 +574,11 @@ namespace AutoGenBatch
         /// without a cliff cell, out to 1.5 km; on the raw terrain the path back holds the connector rules (no 30 m pitch over
         /// AccessRawPitch, no rise over AccessRawRise within 55 m). Returns the touched cells (the caller resets dist); parent points
         /// home.</summary>
+        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         private static List<int> Reach(Grid g, float[] slope, int t, float[] dist, int[] parent)
         {
             var touched = new List<int> { t };
-            var pq = new PriorityQueue<int, float>();
+            var pq = new CellHeap();
             dist[t] = 0f;
             parent[t] = -1;
             pq.Enqueue(t, 0f);
@@ -615,6 +627,7 @@ namespace AutoGenBatch
             return touched;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         private static float Uncovered(List<(float lo, float hi)> cov, float lo, float hi)
         {
             // length of [lo, hi] not inside any covered interval (intervals are few: one per lift)

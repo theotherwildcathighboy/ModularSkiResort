@@ -7,6 +7,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using SkiResortMod.Systems;
 using Unity.Mathematics;
 
@@ -17,6 +18,7 @@ namespace AutoGenBatch
         private static readonly float HeadForwardM = Env("RF_HFWD", 60f);   // how far a run's start may slide forward
 
         /// <summary>Moves runs' starts forward to where their first stretch crowds other runs least; returns the runs changed.</summary>
+        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         private static int TrimHeads(Grid g, Plan plan, List<Lift> lifts)
         {
             SkiGraph sg = Ski(g, plan, lifts);

@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using SkiResortMod.Systems;
 using Unity.Mathematics;
 
@@ -17,6 +18,7 @@ namespace AutoGenBatch
         private const float BridgeStartM = 140f;                     // an element starting this close to the top is skied from it
 
         /// <summary>Adds bridge lifts while the network is split and the lift budget allows; returns how many.</summary>
+        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         private static int BridgeLifts(Grid g, Plan plan, List<Lift> lifts, float km2)
         {
             int added = 0, budget = (int)Math.Ceiling(1.5 * km2) + 2;
@@ -60,6 +62,7 @@ namespace AutoGenBatch
         /// pad beside what the froms ski (no new base), a top whose run (an existing one starting near it, else a route found uphill
         /// from the tos) comes down to the tos; the lift norms, no crossing, its rope clear of other ropes and its chord off the runs.
         /// Kept only when the network grows.</summary>
+        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         private static bool TryBridge(Grid g, Plan plan, List<Lift> lifts, SkiGraph sg, List<int> froms, List<int> tos, float lowCut)
         {
             string names = string.Join("/", froms.Select(L => "L" + lifts[L].Id)) + " -> " + string.Join("/", tos.Select(L => "L" + lifts[L].Id));

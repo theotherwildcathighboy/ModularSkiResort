@@ -7,6 +7,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using SkiResortMod.Systems;
 using Unity.Mathematics;
 
@@ -17,6 +18,7 @@ namespace AutoGenBatch
         private static readonly float JunctionBackM = Env("RF_JBACK", 60f);   // how far a merging run's end may slide back
 
         /// <summary>Moves merging runs' ends back to where they crowd the run they join least; returns the runs changed.</summary>
+        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         private static int TrimJunctions(Grid g, Plan plan, List<Lift> lifts)
         {
             SkiGraph sg = Ski(g, plan, lifts);
