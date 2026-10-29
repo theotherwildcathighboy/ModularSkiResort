@@ -137,18 +137,22 @@ namespace AutoGenBatch
                     if (t >= 0 && seenT.Add(t))
                         tops.Add((t, x));
                 }
+                // a pair with a station on another lift's station (bottom on bottom, top on top) comes after every other: each lift
+                // its own terminal (scorecard v4), though the spread may still give it one where no other pair fits
                 var pairs = new List<(float Cost, int B, int Ti)>();
                 for (int ti = 0; ti < tops.Count; ti++)
                 {
                     float2 tw = g.World(tops[ti].T);
                     float th = g.Hr[tops[ti].T];
+                    bool topShared = lifts.Exists(lf => math.distance(lf.Top.xz, tw) < LaySameSpotM + 2f);
                     foreach (int b in bots)
                     {
                         float2 bw = g.World(b);
                         float d = math.distance(bw, tw), rise = th - g.Hr[b];
                         if (d < BridgeMinM || d > BridgeMaxM || rise < 95f || rise > 512f || rise / d > 0.75f)
                             continue;
-                        pairs.Add((math.sqrt(d * d + rise * rise) + 0.5f * er.Len[tops[ti].X], b, ti));
+                        bool shared = topShared || lifts.Exists(lf => math.distance(lf.Bottom.xz, bw) < LaySameSpotM + 2f);
+                        pairs.Add((math.sqrt(d * d + rise * rise) + 0.5f * er.Len[tops[ti].X] + (shared ? 1e6f : 0f), b, ti));
                     }
                 }
                 pairs.Sort((p, q) => p.Cost.CompareTo(q.Cost));
