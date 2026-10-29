@@ -16,7 +16,10 @@ namespace AutoGenBatch
     internal static partial class RunsFirst
     {
         private static readonly bool NoNewBase = Environment.GetEnvironmentVariable("RF_CNEWBASE") != "1";
-        private static readonly float CoverLiftShare = Env("RF_CLS", 0.02f);   // a coverage lift opens at least this share of the region's skiable ground
+        // a coverage lift opens at least this share of the region's skiable ground. 0.015 against 0.02 once lifts without a way home
+        // and lines left on runs could go (0fd4f15, 41163e9): visible 97.62 -> 97.64, 80 % outlines 95.40 -> 95.50, 120 % 96.22 ->
+        // 96.88, squares 95.21 -> 95.30 (small pod chairs in side bowls). 0.01 put lifts that join nothing on a square (network 0.69)
+        private static readonly float CoverLiftShare = Env("RF_CLS", 0.015f);
         private static readonly int CoverLiftMinPts = (int)Env("RF_CLM", 120f);     // ... and at least this many 20 m lattice points (11 ha)
         private static readonly float CoverParallelM = Env("RF_CPAR", 170f);       // ... and no closer than this alongside a placed lift
         private static readonly float CoverClearM = Env("RF_CCLR", 100f);          // ... its stations no closer than this to another rope
