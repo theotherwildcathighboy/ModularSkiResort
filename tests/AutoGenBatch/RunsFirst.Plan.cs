@@ -335,6 +335,10 @@ namespace AutoGenBatch
             if (Environment.GetEnvironmentVariable("RF_NOCHORD") != "1")
                 RepairChords(g, plan, lifts);
             Tick("chords");
+            // a line still on runs moves off them where its stations can (the runs stay where they are)
+            if (Environment.GetEnvironmentVariable("RF_NOCHORD") != "1" && Environment.GetEnvironmentVariable("RF_NONUDGE") != "1")
+                NudgeLines(g, plan, lifts);
+            Tick("nudge");
             // and the diagonal graded tracks still under a line that lies on runs are cut as green cat tracks
             if (Environment.GetEnvironmentVariable("RF_NOCHORD") != "1" && Environment.GetEnvironmentVariable("RF_NOCHORDTRACK") != "1")
                 ClearChordTracks(g, plan, lifts);

@@ -220,5 +220,90 @@ namespace AutoGenBatch
                     Console.WriteLine($"CHORDDBG L{lf.Id} {lf.Type}: {100 * near / n}% ({string.Join(", ", by.OrderByDescending(kv => kv.Value).Select(kv => $"{kv.Key} {kv.Value}/{n}"))})");
             }
         }
+
+        private const float NudgeMaxM = 60f;   // how far a station may move across its line
+
+        /// <summary>A lift line whose middle still lies along runs moves instead of the runs: the whole line shifted across itself, or
+        /// swung about one station, up to NudgeMaxM, the smallest move first. A move is kept where the stations stay on pads inside the
+        /// region, the rope clears the ground, the lift keeps its type's norms and crosses no lift it may not cross, the line clears
+        /// and the ski graph loses nothing (its runs still start at its top and come home to its bottom). Returns the lines moved.</summary>
+        private static int NudgeLines(Grid g, Plan plan, List<Lift> lifts)
+        {
+            int moved = 0;
+            List<(List<float2> D, int Conn, PlanRun Run, bool Green)> els = ChordEls(g, plan);
+            SkiRead before = null;
+            foreach (Lift lf in lifts)
+            {
+                if (Late)
+                    break;
+                float share = ChordShareV3(lf, els, out _);
+                if (share <= ChordShareMax)
+                    continue;
+                float2 b0 = lf.Bottom.xz, t0 = lf.Top.xz, dir = math.normalize(t0 - b0), across = new float2(-dir.y, dir.x);
+                var moves = new List<(float Cost, float2 B, float2 T)>();
+                for (float o = 20f; o <= NudgeMaxM; o += 10f)
+                    foreach (float s in new[] { o, -o })
+                    {
+                        moves.Add((o, b0 + s * across, t0 + s * across));
+                        moves.Add((o * 0.9f, b0 + s * across, t0));
+                        moves.Add((o * 0.9f, b0, t0 + s * across));
+                    }
+                moves.Sort((x, y) => x.Cost.CompareTo(y.Cost));
+                var (ob, ot, obc, otc, oRise, oLen) = (lf.Bottom, lf.Top, lf.BottomCell, lf.TopCell, lf.Rise, lf.Length);
+                void Restore()
+                {
+                    (lf.Bottom, lf.Top, lf.BottomCell, lf.TopCell, lf.Rise, lf.Length) = (ob, ot, obc, otc, oRise, oLen);
+                }
+                before ??= SkiRead.Of(g, plan, lifts);
+                foreach (var (cost, nb, nt) in moves)
+                {
+                    int cb = CellOf(g, nb), ct = CellOf(g, nt);
+                    if (cb < 0 || ct < 0 || !LineFits(g, lifts, lf, cb, ct))
+                        continue;
+                    lf.BottomCell = cb;
+                    lf.TopCell = ct;
+                    lf.Bottom = new float3(g.World(cb).x, g.H[cb], g.World(cb).y);
+                    lf.Top = new float3(g.World(ct).x, g.H[ct], g.World(ct).y);
+                    lf.Rise = lf.Top.y - lf.Bottom.y;
+                    lf.Length = math.distance(lf.Top, lf.Bottom);
+                    float now = ChordShareV3(lf, els, out _);
+                    SkiRead after = now <= ChordShareMax ? SkiRead.Of(g, plan, lifts) : null;
+                    if (after == null || before.Loses(after))
+                    {
+                        Restore();
+                        continue;
+                    }
+                    before = after;
+                    moved++;
+                    plan.Log.Add($"nudge L{lf.Id}: {(nb.Equals(b0) ? "top" : nt.Equals(t0) ? "bottom" : "line")} moved {cost / (nb.Equals(b0) || nt.Equals(t0) ? 0.9f : 1f):F0} m " +
+                        $"across ({100 * share:F0} % -> {100 * now:F0} % of its middle on runs)");
+                    break;
+                }
+            }
+            return moved;
+        }
+
+        /// <summary>Lift lf with its stations at cells b and t: pads inside the region, the type's norms as the scorecard reads them
+        /// (with a margin), the rope clear of the ground, and no crossing with another lift of its kind (chair or aerial).</summary>
+        private static bool LineFits(Grid g, List<Lift> lifts, Lift lf, int b, int t)
+        {
+            if (!g.In[b] || !g.In[t])
+                return false;
+            float2 pb = g.World(b), pt = g.World(t);
+            if (RawGrade(g, pb) > StationMax || RawGrade(g, pt) > StationMax)
+                return false;
+            float hb = RawH(g, pb), ht = RawH(g, pt), run = math.distance(pb, pt), rise = ht - hb;
+            float len = math.sqrt(run * run + rise * rise);
+            int ti = Array.FindIndex(Types, x => x.Name == lf.Type);
+            if (ti < 0 || len < Types[ti].L0 + 5f || rise < Types[ti].R0 + 2f || rise / math.max(1f, run) > Types[ti].Cap - 0.02f)
+                return false;
+            for (float d = 10f; d < run - 10f; d += 10f)
+                if (RawH(g, math.lerp(pb, pt, d / run)) - math.lerp(hb, ht, d / run) > TowerLiftM - 2f)
+                    return false;
+            foreach (Lift o in lifts)
+                if (o != lf && Aerial(o.Type) == Aerial(lf.Type) && SegCrossScore(o.Bottom.xz, o.Top.xz, pb, pt))
+                    return false;
+            return true;
+        }
     }
 }
