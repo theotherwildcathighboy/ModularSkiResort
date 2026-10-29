@@ -392,7 +392,7 @@ namespace AutoGenBatch
             }
         }
 
-        private static readonly float RegradeMinGain = Env("RF_RGMIN", 0.02f);   // a cut that moves the score less than this stays a diagonal
+        private static readonly float RegradeMinGain = Env("RF_RGMIN", 0.005f);   // a cut that moves the score less than this stays a diagonal
 
         /// <summary>Cuts diagonal traverse pieces as green cat tracks where a bench fits and the cut gains score (crowding, stubs and
         /// economy against coverage, as the scorecard reads them); returns the pieces regraded.</summary>
@@ -482,7 +482,7 @@ namespace AutoGenBatch
             return done;
         }
 
-        private static readonly float PruneMinGain = Env("RF_PRUNEMIN", 0.03f);   // a run taken out gains at least this much score
+        private static readonly float PruneMinGain = Env("RF_PRUNEMIN", 0.01f);   // a run taken out gains at least this much score
         private const int PruneReads = 40;                                         // ski graph reads the prune may spend
 
         /// <summary>Takes out the plan runs whose removal gains score as the scorecard reads the plan (a run crowded along most of its
