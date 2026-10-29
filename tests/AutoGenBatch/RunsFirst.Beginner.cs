@@ -27,8 +27,11 @@ namespace AutoGenBatch
         private readonly struct EasyLimits
         {
             public readonly float EdgeMax, SteepPitch, HardPitch, Climb, SteepShare, MaxLen;
+            // a graded track: its steep pitches are measured along the path (the scorecard rates a connector by its grade along the
+            // path), so a route may zigzag down a face steeper than any one direction of the grid allows
+            public readonly bool AlongPath;
 
-            public EasyLimits(float edgeMax, float steepPitch, float hardPitch, float climb, float steepShare, float maxLen)
+            public EasyLimits(float edgeMax, float steepPitch, float hardPitch, float climb, float steepShare, float maxLen, bool alongPath = false)
             {
                 EdgeMax = edgeMax;
                 SteepPitch = steepPitch;
@@ -36,6 +39,7 @@ namespace AutoGenBatch
                 Climb = climb;
                 SteepShare = steepShare;
                 MaxLen = maxLen;
+                AlongPath = alongPath;
             }
         }
 
@@ -91,17 +95,17 @@ namespace AutoGenBatch
             var failed = new HashSet<int>();   // bases (by their lowest lift's id) where nothing fits
             for (int pass = 0; pass < 6; pass++)
             {
-                // bases as a skier sees them: lift bottoms within 400 m of each other, at least one low on the mountain
-                Dictionary<int, int> rootOf = BaseClusters(g, lifts, lowCut, out HashSet<int> bases);
+                // bases as scorecard v3 reads them: two or more lift bottoms within 400 m low on the mountain (else the lowest lift's)
+                int[] rootOf = V3Bases(g, lifts, out HashSet<int> bases);
                 if (Environment.GetEnvironmentVariable("RF_DEBUG") == "1" && pass == 0)
-                    Console.WriteLine($"DEBUG bases: relief {hLo:F0}-{hHi:F0}, low cut {lowCut:F0}; " + string.Join("; ", bases.Select(b => string.Join(",", rootOf.Where(kv => kv.Value == b).Select(kv => $"L{lifts[kv.Key].Id} ({RawH(g, lifts[kv.Key].Bottom.xz):F0})")))));
+                    Console.WriteLine($"DEBUG bases: relief {hLo:F0}-{hHi:F0}, low cut {lowCut:F0}; " + string.Join("; ", bases.Select(b => string.Join(",", Enumerable.Range(0, lifts.Count).Where(L => rootOf[L] == b).Select(L => $"L{lifts[L].Id} ({RawH(g, lifts[L].Bottom.xz):F0})")))));
                 SkiGraph sg = Ski(g, plan, lifts);
                 List<int> members = null;
                 int key = -1;
                 foreach (int b in bases)
                 {
-                    var m = rootOf.Where(kv => kv.Value == b).Select(kv => kv.Key).OrderBy(L => RawH(g, lifts[L].Bottom.xz)).ToList();
-                    if (!failed.Contains(lifts[m[0]].Id) && !BaseHasGreen(sg, plan, m))
+                    var m = Enumerable.Range(0, lifts.Count).Where(L => rootOf[L] == b).OrderBy(L => RawH(g, lifts[L].Bottom.xz)).ToList();
+                    if (!failed.Contains(lifts[m[0]].Id) && !BaseHasGreen(sg, plan, lifts, m))
                     {
                         members = m;
                         key = lifts[m[0]].Id;
@@ -126,11 +130,31 @@ namespace AutoGenBatch
                 foreach (PlanRun r in plan.Runs)
                     guard.Add(r.Pts, 0, r.Pts.Count - 1);
                 // a clean green way down first, then a pod with its own green run, then a way down that shares its valley
-                // or a green branch lower down that leaves a run of the base; off the lift lines first, then from a top first
+                // or a green branch lower down that leaves a run of the base; off the lift lines first, then from a top first. Each is
+                // kept only when a beginner at the base then has green skiing to lap (as scorecard v3 reads it)
+                int runsBefore = plan.Runs.Count, liftsBefore = lifts.Count, logBefore = plan.Log.Count;
+                bool Laps()
+                {
+                    // the base as it stands now (a pod's bottom joins its cluster)
+                    int[] now = V3Bases(g, lifts, out _);
+                    if (BaseHasGreen(Ski(g, plan, lifts), plan, lifts, Enumerable.Range(0, lifts.Count).Where(L => now[L] == now[members[0]]).ToList()))
+                        return true;
+                    plan.Runs.RemoveRange(runsBefore, plan.Runs.Count - runsBefore);
+                    lifts.RemoveRange(liftsBefore, lifts.Count - liftsBefore);
+                    plan.Log.Add("  (undone: no green lap for the base's beginners)");
+                    failed.Add(key);
+                    return false;
+                }
                 if (TryWayDown(g, plan, lifts, members, er, avoid, guard, out PlanRun shared, out float sharedSoft))
-                    ways++;
+                {
+                    if (Laps())
+                        ways++;
+                }
                 else if (TryPod(g, plan, lifts, members, er, avoid, guard, sg))
-                    pods++;
+                {
+                    if (Laps())
+                        pods++;
+                }
                 else
                 {
                     PlanRun branch = null;
@@ -148,7 +172,8 @@ namespace AutoGenBatch
                     plan.Log.Add($"{(pick == shared ? $"green way down from L{pick.By.Id}'s top" : $"green branch home at L{lifts[members[0]].Id}'s base")}" +
                         $"{(soft >= 1f ? " (along a lift line)" : soft > 0f ? " (along other runs)" : "")}: {RunLength(pick.Pts):F0} m, " +
                         $"{RawH(g, pick.Pts[0]) - RawH(g, pick.Pts[pick.Pts.Count - 1]):F0} m down");
-                    ways++;
+                    if (Laps())
+                        ways++;
                 }
             }
             plan.Log.Add($"beginner terrain: {ways} green way(s) down, {pods} pod(s) ({tried} base(s) without a green way home)");
@@ -232,64 +257,54 @@ namespace AutoGenBatch
             return o;
         }
 
-        /// <summary>A lift of the base serves a green run whose skier ends up back at the base.</summary>
-        private static bool BaseHasGreen(SkiGraph sg, Plan plan, List<int> members)
-        {
-            var home = new HashSet<int>(members);
-            foreach (int L in members)
-                foreach (int i in sg.Skied[L])
-                {
-                    if (i >= sg.Runs || !sg.Returns[i] || plan.Runs[i].Band != SlopeBand.Green)
-                        continue;
-                    var seen = new HashSet<int> { i };
-                    var st = new Stack<int>();
-                    st.Push(i);
-                    while (st.Count > 0)
-                    {
-                        int e = st.Pop();
-                        if (sg.Delivers[e].Any(home.Contains))
-                            return true;
-                        foreach (int j in sg.Next[e])
-                            if (seen.Add(j))
-                                st.Push(j);
-                    }
-                }
-            return false;
-        }
+        /// <summary>A beginner at the base finds green skiing to lap (scorecard v3: up the base's lifts, anywhere they lead).</summary>
+        private static bool BaseHasGreen(SkiGraph sg, Plan plan, List<Lift> lifts, List<int> members) => LearnOk(sg, lifts, members, SlopeBand.Green);
 
-        /// <summary>The winding route from a reached cell down to its origin as a green run, or null when it does not hold up: the
-        /// band on the raw terrain, the run rules, mostly away from other runs (the last 200 m into the base aside) and off every lift
-        /// line. why: 0 not green, 1 run rules, 2 crowds runs, 3 along a lift line. soft (0 = clean): the share of the route along other
-        /// runs when over 35 % (up to 70 %), plus 1 when it lies along a lift line; a caller may still take the softest when nothing
-        /// clean exists (a base without beginner terrain costs more than either).</summary>
+        /// <summary>The winding route from a reached cell down to its origin as a green run, or null when it does not hold up: green by
+        /// the ground under it and the run rules, or else a green cat track the grading tool cuts (graded: the connector rules and an
+        /// along-path grade under the blue line; the winding green on steeper ground); mostly away from other runs (the last 200 m
+        /// into the base aside) and off every lift line. why: 0 not green, 1 run rules, 2 crowds runs, 3 along a lift line. soft (0 =
+        /// clean): the share of the route along other runs when over 35 % (up to 70 %), plus 1 when a run lies along a lift line; a
+        /// caller may still take the softest when nothing clean exists (a base without beginner terrain costs more than either).</summary>
         [MethodImpl(MethodImplOptions.AggressiveOptimization)]
-        private static List<float2> GreenRoute(Grid g, Plan plan, List<Lift> lifts, List<int> members, EasyReach er, int x, PointHash avoid, ChordGuard guard, int[] why, out float soft)
+        private static List<float2> GreenRoute(Grid g, Plan plan, List<Lift> lifts, List<int> members, EasyReach er, int x, PointHash avoid, ChordGuard guard, int[] why, out float soft,
+            out bool graded)
         {
             soft = 0f;
+            graded = false;
             List<int> cells = er.Route(x);
-            List<float2> route = Polyline(g, cells, false);
-            if (RunBand(g, route) != SlopeBand.Green)
+            List<float2> route = null;
+            bool green = false;
+            foreach (List<float2> pl in new[] { Polyline(g, cells, false), cells.ConvertAll(c => g.World(c)) })
             {
-                route = cells.ConvertAll(c => g.World(c));
-                if (RunBand(g, route) != SlopeBand.Green)
+                if (GroundBand(g, pl) == SlopeBand.Green)
                 {
-                    why[0]++;
-                    return null;
+                    green = true;
+                    List<float2> ok = SanitizeRun(g, pl);
+                    if (ok != null && ok.Count >= Densify(pl).Count)
+                    {
+                        route = ok;
+                        break;
+                    }
+                }
+                if (GreenTrack(g, pl))
+                {
+                    route = pl;
+                    graded = true;
+                    break;
                 }
             }
-            List<float2> ok = SanitizeRun(g, route);
-            if (ok == null || ok.Count < Densify(route).Count)
+            if (route == null)
             {
-                why[1]++;
+                why[green ? 1 : 0]++;
                 return null;
             }
-            route = ok;
             float share = CrowdShare(route, avoid);
             if (share > 0.35f)
             {
                 // a route that runs onto a run in a valley it shares can end there when that run's way on is a green run-out to the
                 // base: the skier follows it home
-                List<float2> joined = JoinRunOut(g, plan, lifts, members, route, avoid);
+                List<float2> joined = JoinRunOut(g, plan, lifts, members, route, avoid, graded);
                 if (joined != null)
                 {
                     route = joined;
@@ -303,7 +318,7 @@ namespace AutoGenBatch
                     return null;
                 soft = share;
             }
-            if (!guard.FitsAdding(route, 0, route.Count - 1))
+            if (!graded && !guard.FitsAdding(route, 0, route.Count - 1))
             {
                 why[3]++;
                 soft += 1f;
@@ -333,7 +348,7 @@ namespace AutoGenBatch
         /// <summary>The route (top first) cut where it first comes onto a run (25 m) whose rest is green and passes a station of the
         /// base, with that run's point as its end; null when it meets none past its first 250 m or keeps under 60 m of drop.</summary>
         [MethodImpl(MethodImplOptions.AggressiveOptimization)]
-        private static List<float2> JoinRunOut(Grid g, Plan plan, List<Lift> lifts, List<int> members, List<float2> route, PointHash avoid)
+        private static List<float2> JoinRunOut(Grid g, Plan plan, List<Lift> lifts, List<int> members, List<float2> route, PointHash avoid, bool graded)
         {
             float at = 0f;
             int tries = 0;
@@ -359,11 +374,13 @@ namespace AutoGenBatch
                     if (k < 0 || k > r.Pts.Count - 3)
                         continue;
                     List<float2> rest = r.Pts.GetRange(k, r.Pts.Count - k);
-                    if (!members.Any(L => rest.Skip(1).Any(p => math.distancesq(p, lifts[L].Bottom.xz) < 55f * 55f)) || RunBand(g, rest) != SlopeBand.Green)
+                    if (!members.Any(L => rest.Skip(1).Any(p => math.distancesq(p, lifts[L].Bottom.xz) < 55f * 55f))
+                        || (r.Graded ? !GreenTrack(g, r.Pts) : GroundBand(g, r.Pts) != SlopeBand.Green))
                         continue;
                     var o = route.GetRange(0, i);
                     o.Add(r.Pts[k]);
-                    if (RawH(g, o[0]) - RawH(g, o[o.Count - 1]) < 60f || SanitizeRun(g, o) is not { } sane || sane.Count < Densify(o).Count)
+                    if (RawH(g, o[0]) - RawH(g, o[o.Count - 1]) < 60f || (graded ? !GreenTrack(g, o)
+                        : GroundBand(g, o) != SlopeBand.Green || SanitizeRun(g, o) is not { } sane || sane.Count < Densify(o).Count))
                         continue;
                     return o;
                 }
@@ -385,19 +402,20 @@ namespace AutoGenBatch
                 var near = er.Cost.Where(kv => math.distancesq(g.World(kv.Key), top) < 120f * 120f).OrderBy(kv => kv.Value).Take(40).ToList();
                 foreach (var kv in near)
                 {
-                    List<float2> route = GreenRoute(g, plan, lifts, members, er, kv.Key, avoid, guard, why, out float soft);
-                    if (route == null)
+                    List<float2> route = GreenRoute(g, plan, lifts, members, er, kv.Key, avoid, guard, why, out float soft, out bool graded);
+                    // a learning run, not a transfer: a route this short would credit a hop onto the next lift
+                    if (route == null || RunLength(route) < 250f || RawH(g, route[0]) - RawH(g, route[route.Count - 1]) < 40f)
                         continue;
                     if (soft > 0f)
                     {
                         if (soft < softest)
                         {
                             softest = soft;
-                            shared = new PlanRun { Pts = route, Band = SlopeBand.Green, By = lifts[L], Kind = "beginner" };
+                            shared = new PlanRun { Pts = route, Band = SlopeBand.Green, By = lifts[L], Kind = "beginner", Graded = graded };
                         }
                         continue;
                     }
-                    plan.Runs.Add(new PlanRun { Pts = route, Band = SlopeBand.Green, By = lifts[L], Kind = "beginner" });
+                    plan.Runs.Add(new PlanRun { Pts = route, Band = SlopeBand.Green, By = lifts[L], Kind = "beginner", Graded = graded });
                     plan.Log.Add($"green way down from L{lifts[L].Id}'s top: {RunLength(route):F0} m");
                     return true;
                 }
@@ -446,11 +464,11 @@ namespace AutoGenBatch
                     continue;
                 if (++tries > 60)
                     break;
-                List<float2> route = GreenRoute(g, plan, lifts, members, er, c, avoid, guard, why, out float soft);
+                List<float2> route = GreenRoute(g, plan, lifts, members, er, c, avoid, guard, why, out float soft, out bool graded);
                 if (route == null || soft >= softest)
                     continue;
                 softest = soft;
-                best = new PlanRun { Pts = route, Band = SlopeBand.Green, By = lifts[members[0]], Kind = "beginner" };
+                best = new PlanRun { Pts = route, Band = SlopeBand.Green, By = lifts[members[0]], Kind = "beginner", Graded = graded };
                 if (soft == 0f)
                     break;
             }
@@ -561,7 +579,7 @@ namespace AutoGenBatch
                     continue;
                 }
                 var rw = new int[4];
-                List<float2> route = GreenRoute(g, plan, lifts, members, er, x, avoid, lines, rw, out float softRoute);
+                List<float2> route = GreenRoute(g, plan, lifts, members, er, x, avoid, lines, rw, out float softRoute, out bool graded);
                 if (route == null || softRoute > 0f)
                 {
                     for (int k = 0; k < 4; k++)
@@ -586,7 +604,8 @@ namespace AutoGenBatch
                         EasyReach er2 = EasyUp(g, new List<int> { er.Root[x] }, avoid, GreenWay, rope, 10f);
                         if (er2.Cost.ContainsKey(x))
                         {
-                            off = GreenRoute(g, plan, lifts, members, er2, x, avoid, lines, new int[4], out float softOff);
+                            off = GreenRoute(g, plan, lifts, members, er2, x, avoid, lines, new int[4], out float softOff, out bool gradedOff);
+                            graded = off != null ? gradedOff : graded;
                             if (off != null && (softOff > 0f || !guard.Fits(off, 0, off.Count - 1)))
                                 off = null;
                         }
@@ -605,7 +624,7 @@ namespace AutoGenBatch
                 };
                 lift.Rise = lift.Top.y - lift.Bottom.y;
                 lift.Length = math.distance(lift.Top, lift.Bottom);
-                var run = new PlanRun { Pts = route, Band = SlopeBand.Green, By = lift, Kind = "beginner" };
+                var run = new PlanRun { Pts = route, Band = SlopeBand.Green, By = lift, Kind = "beginner", Graded = graded };
                 lifts.Add(lift);
                 plan.Runs.Add(run);
                 // the network: a pod no run of the base passes would stand on its own; keep looking for one that joins it
@@ -736,7 +755,7 @@ namespace AutoGenBatch
                             float p = (g.Hr[nb] - g.Hr[a]) / math.max(1f, math.distance(g.World(a), pn));
                             if (p > lim.HardPitch)
                                 ok = false;
-                            else if (p > lim.SteepPitch && back <= 40f)
+                            else if ((lim.AlongPath ? (g.Hr[nb] - g.Hr[a]) / back : p) > lim.SteepPitch && back <= 40f)
                                 steep = true;
                         }
                         int na = er.Down[a];

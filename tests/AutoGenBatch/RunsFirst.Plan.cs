@@ -34,6 +34,7 @@ namespace AutoGenBatch
             public SlopeBand Band;
             public Lift By;                  // the lift whose traverse (or top) the run starts from
             public string Kind = "line";
+            public bool Graded;              // cut with the grading tool: handed over as a connector (rated along its path, not by the ground)
         }
 
         private sealed class Plan
@@ -311,6 +312,10 @@ namespace AutoGenBatch
             if (Environment.GetEnvironmentVariable("RF_NOBRIDGE") != "1")
                 links += BridgeLifts(g, plan, lifts, km2);
             Tick("bridge");
+            // an easy way home from every lift's top (green cat tracks to a base or a gondola top)
+            if (Environment.GetEnvironmentVariable("RF_NOWAYHOME") != "1")
+                AddWaysHome(g, plan, lifts);
+            Tick("way home");
             int fills = Environment.GetEnvironmentVariable("RF_NOFILL") == "1" ? 0 : FillCover(g, plan, lifts, cands);
             Tick("fill");
             // runs left under a lift line move out beside it

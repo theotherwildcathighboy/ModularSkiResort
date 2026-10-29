@@ -261,7 +261,7 @@ namespace AutoGenBatch
             // the scorecard (RunsFirst.Score.cs) reads the plan exactly as drawn (RunsFirst.Plan.cs)
             var plan = new ScorePlan();
             foreach (PlanRun r in built.Runs)
-                plan.Runs.Add(r.Pts);
+                (r.Graded ? plan.Connectors : plan.Runs).Add(r.Pts);
             plan.Connectors.AddRange(built.Connectors);
             foreach (Lift lf in lifts)
                 plan.Lifts.Add((lf.Type, lf.Bottom.xz, lf.Top.xz));
@@ -269,6 +269,8 @@ namespace AutoGenBatch
                 Console.WriteLine($"REPORT rf plan {id}: {s}");
             RunsFirstScore.Result score = RunsFirstScore.Evaluate(snap, ring, plan);
             Console.WriteLine(RunsFirstScore.Line(id, score));
+            if (Environment.GetEnvironmentVariable("RF_V3DBG") == "1")
+                V3Debug(g, built, lifts);
             File.AppendAllText(Path.Combine(outDir, id + ".txt"), "\n" + RunsFirstScore.Line(id, score) + "\n" +
                 string.Concat(score.Notes.Select(s => "  " + s + "\n")));
             Render(Path.Combine(outDir, id + ".png"), snap, ring, g, acc, accR, lines, v2, lifts, built);
@@ -912,20 +914,42 @@ namespace AutoGenBatch
             foreach (Line l in lines)
                 if (!l.Picked)
                     Stroke(right, Img(l, fromWorld), 0.6f, (120, 200, 210));
-            // right: the plan as the scorecard reads it (runs by their raw-terrain band, connectors dashed); picked lines no lift
-            // serves gray
+            // right: the plan as scorecard v3 reads it: runs solid by the ground under them; graded tracks dashed, a green cat track
+            // light green, a diagonal run (graded steeper than the blue line) in its band's color with a white edge; picked lines no
+            // lift serves gray
+            void Track(List<float2> tr)
+            {
+                var (run, band) = TrackClass(g, tr);
+                List<float2> pl = tr.ConvertAll(p => fromWorld(p));
+                if (run)
+                {
+                    Dashed(right, pl, 3.4f, (255, 255, 255));
+                    Dashed(right, pl, 2.2f, BandColor(band));
+                }
+                else
+                {
+                    Dashed(right, pl, 2.6f, (20, 60, 20));
+                    Dashed(right, pl, 1.6f, (150, 255, 120));
+                }
+            }
             foreach (List<float2> tr in built.Connectors)
-                Dashed(right, tr.ConvertAll(p => fromWorld(p)), 1.6f, (255, 235, 150));
+                Track(tr);
             foreach (PlanRun r in built.Runs)
             {
+                if (r.Graded)
+                {
+                    Track(r.Pts);
+                    continue;
+                }
                 List<float2> pl = r.Pts.ConvertAll(p => fromWorld(p));
                 if (r.Src != null && r.Src.Lift < 0)
                 {
                     Stroke(right, pl, 2f, (150, 150, 150));
                     continue;
                 }
-                Stroke(right, pl, 4.5f, EdgeColor(r.Band));
-                Stroke(right, pl, 3f, BandColor(r.Band));
+                SlopeBand band = GroundBand(g, r.Pts);
+                Stroke(right, pl, 4.5f, EdgeColor(band));
+                Stroke(right, pl, 3f, BandColor(band));
             }
             foreach (PlanRun r in built.Runs)
                 if (r.Src == null || r.Src.Lift >= 0)
