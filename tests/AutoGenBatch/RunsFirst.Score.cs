@@ -20,7 +20,7 @@
 // minimums and the mean-grade cap stay. A gondola or tram may cross a chair (pending an in-game check). Riding down is only on a
 // gondola or tram. Beginner terrain may be anywhere a beginner gets to from the base: up lifts whose tops have green skiing, or on a
 // gondola or tram both ways (Palisades: the learning area at mid-mountain). Every lift needs an easy way home: a green or blue route
-// from its top to a base lift's bottom, or to a gondola or tram top to ride down.
+// from its top to a base lift's bottom, or to a gondola or tram top to ride down (a gondola or tram is its own way home).
 //
 // Composite (0-100): served vertical 15, skiable coverage 10, lift network 15, beginner terrain at each base 15, easy way home 10,
 // no dead lifts 10, validity 10, few stubs 5, little crowding 5, connector economy 5. Fixed contract: planners must not edit this file.
@@ -522,11 +522,11 @@ namespace AutoGenBatch
             r.Beginner = bases.Count > 0 ? bases.Values.Average() : 0f;
 
             // ---- easy way home: from every lift's top a green or blue route (runs, cat tracks) to a base lift's bottom, or to a
-            // gondola / tram top to ride down
+            // gondola / tram top to ride down (a gondola or tram is its own way home: its riders download)
             for (int L = 0; L < lifts.Count; L++)
             {
                 HashSet<int> easy = EasyFrom(L, SlopeBand.Blue);
-                bool ok = easy.Any(i => atBottom[i].Any(M => bases.ContainsKey(Find(baseOf, M)))
+                bool ok = IsAerial(L) || easy.Any(i => atBottom[i].Any(M => bases.ContainsKey(Find(baseOf, M)))
                     || delivers[i].Any(M => IsAerial(M) && !atBottom[i].Contains(M)));
                 if (ok)
                     r.WayHomeLifts++;
