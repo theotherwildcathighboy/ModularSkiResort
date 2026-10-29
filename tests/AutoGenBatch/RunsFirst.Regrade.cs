@@ -572,13 +572,20 @@ namespace AutoGenBatch
 
         /// <summary>A diagonal piece with a stub's drop joined end to start with the piece it runs into (or that runs into it) as one
         /// graded track: the same line on the ground, read by the scorecard as one run (a run may branch off anywhere along it). Kept
-        /// where the score gains (the model) and the ski graph loses nothing. Returns the pieces merged.</summary>
+        /// where the score gains (the model), the ski graph loses nothing and no more lift lines lie on runs. Returns the pieces merged.</summary>
         private static int MergeStubPieces(Grid g, Plan plan, List<Lift> lifts)
         {
             int merged = 0, tried = 0;
             float now = new CutModel(g, plan).Total();
             SkiRead before = SkiRead.Of(g, plan, lifts);
             float Drop(List<float2> pl) => RawH(g, pl[0]) - RawH(g, pl[pl.Count - 1]);
+            // the lift lines whose middle lies on runs: a merged piece reads as one run and may lie under a line a cut track cleared
+            int Lines()
+            {
+                List<(List<float2> D, int Conn, PlanRun Run, bool Green)> els = ChordEls(g, plan);
+                return lifts.Count(lf => ChordShareV3(lf, els, out _) > ChordShareMax);
+            }
+            int lines = Lines();
             for (bool again = true; again && tried < MergeTries && !Late;)
             {
                 again = false;
@@ -603,8 +610,10 @@ namespace AutoGenBatch
                         plan.Connectors.RemoveAt(b);
                         float then = new CutModel(g, plan).Total();
                         SkiRead after = then > now + MergeMinGain ? SkiRead.Of(g, plan, lifts) : null;
-                        if (after != null && !before.Loses(after))
+                        int linesAfter = after != null && !before.Loses(after) ? Lines() : int.MaxValue;
+                        if (linesAfter <= lines)
                         {
+                            lines = linesAfter;
                             if (la >= 0)
                                 plan.Links[la] = m;
                             else if (lb >= 0)
