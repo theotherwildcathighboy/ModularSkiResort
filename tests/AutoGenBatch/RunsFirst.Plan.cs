@@ -316,6 +316,10 @@ namespace AutoGenBatch
             if (Environment.GetEnvironmentVariable("RF_NOWAYHOME") != "1")
                 AddWaysHome(g, plan, lifts);
             Tick("way home");
+            // traverses at a run's grade cut as green cat tracks where a bench fits
+            if (Environment.GetEnvironmentVariable("RF_NOREGRADE") != "1")
+                RegradeTraverses(g, plan, lifts);
+            Tick("regrade");
             int fills = Environment.GetEnvironmentVariable("RF_NOFILL") == "1" ? 0 : FillCover(g, plan, lifts, cands);
             Tick("fill");
             // runs left under a lift line move out beside it

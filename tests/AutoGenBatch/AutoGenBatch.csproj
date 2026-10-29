@@ -51,6 +51,7 @@
     <Compile Include="RunsFirst.Heap.cs" />
     <Compile Include="RunsFirst.Graded.cs" />
     <Compile Include="RunsFirst.WayHome.cs" />
+    <Compile Include="RunsFirst.Regrade.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiRunAutoPlanner.cs" Link="SkiRunAutoPlanner.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiRunAutoPlanner.Select.cs" Link="SkiRunAutoPlanner.Select.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiRunAutoPlanner.Kernels.cs" Link="SkiRunAutoPlanner.Kernels.cs" />

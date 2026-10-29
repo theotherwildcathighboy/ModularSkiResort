@@ -699,9 +699,10 @@ namespace AutoGenBatch
         /// <summary>Uphill search from the origin cells over ground an easy run can come down: per 7 m step the skier's descent is at
         /// most EasyEdgeMax (smoothed) and the climb tiny; on the raw terrain the route never climbs EasyClimbM over a point below
         /// it (the run rule's 10 m, less a margin), no ~30 m pitch exceeds EasyRawMax, and pitches over a green grade stay a small
-        /// share (the band reads the 85th percentile). Routes along other runs, or along the given lift lines, cost more.</summary>
+        /// share (the band reads the 85th percentile). Routes along other runs, or along the given lift lines, cost more. With a goal
+        /// cell the search heads for it (A*, the straight distance left as the estimate) and stops once it is settled.</summary>
         [MethodImpl(MethodImplOptions.AggressiveOptimization)]
-        private static EasyReach EasyUp(Grid g, List<int> origins, PointHash avoid, EasyLimits lim, PointHash lines = null, float linesCost = 3f)
+        private static EasyReach EasyUp(Grid g, List<int> origins, PointHash avoid, EasyLimits lim, PointHash lines = null, float linesCost = 3f, int goal = -1)
         {
             int n = g.W * g.D;
             if (s_Easy == null || s_Easy.Done.Length < n)
@@ -725,12 +726,16 @@ namespace AutoGenBatch
             }
             int settled = 0;
             long cap = (long)EasyBudget - EasyWork;   // a search past the budget stops where it is (its cheapest cells settled)
-            while (settled < cap && pq.TryDequeue(out int c, out float d))
+            float2 goalP = goal >= 0 ? g.World(goal) : 0f;
+            while (settled < cap && pq.TryDequeue(out int c, out float _))
             {
                 if (er.Done[c])
                     continue;
                 er.Done[c] = true;
                 settled++;
+                if (c == goal)
+                    break;
+                float d = er.Cost[c];
                 int x = c % g.W, z = c / g.W;
                 for (int k = 0; k < 8; k++)
                 {
@@ -782,7 +787,7 @@ namespace AutoGenBatch
                     er.Hi[nb] = Math.Max(er.Hi[c], g.Hr[nb]);
                     er.Down[nb] = c;
                     er.Root[nb] = er.Root[c];
-                    pq.Enqueue(nb, nd);
+                    pq.Enqueue(nb, goal >= 0 ? nd + math.distance(pn, goalP) : nd);
                 }
             }
             EasyWork += settled;

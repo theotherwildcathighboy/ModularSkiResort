@@ -110,6 +110,33 @@ namespace AutoGenBatch
                 }
             }
             Console.WriteLine($"V3 crowding: {crowded} of {pts} samples ({(pts > 0 ? crowded / (float)pts : 0f):P0}); " + string.Join(", ", by.OrderByDescending(kv => kv.Value).Select(kv => kv.Key + " " + kv.Value)));
+            // the graded pieces: length, drop, along-path grade, link or traverse tree, and the crowded samples they take part in
+            var links = new HashSet<List<float2>>(plan.Links);
+            var rows = new List<(int Hits, string Text)>();
+            for (int ci = 0; ci < plan.Connectors.Count; ci++)
+            {
+                int e = plan.Runs.Count + ci;
+                if (!els[e].Run)
+                    continue;
+                float3[] Q = els[e].P;
+                int hits = 0;
+                for (int i = 0; i < els.Count; i++)
+                {
+                    if (i == e || !els[i].Run)
+                        continue;
+                    float3[] P = els[i].P;
+                    for (int k = 0; k < P.Length - 15; k++)
+                        if (math.distancesq(Q[0].xz, P[k].xz) >= 1e4f && math.distancesq(Q[Q.Length - 1].xz, P[k].xz) >= 1e4f && Q.Any(q => math.distancesq(q.xz, P[k].xz) < 1600f))
+                            hits++;
+                    for (int k = 0; k < Q.Length - 15; k++)
+                        if (math.distancesq(P[0].xz, Q[k].xz) >= 1e4f && math.distancesq(P[P.Length - 1].xz, Q[k].xz) >= 1e4f && P.Any(q => math.distancesq(q.xz, Q[k].xz) < 1600f))
+                            hits++;
+                }
+                List<float2> c = plan.Connectors[ci];
+                rows.Add((hits, $"{(links.Contains(c) ? "link" : "tree")} {RunLength(c):F0} m, {Q[0].y - Q[Q.Length - 1].y:F0} m down, along {AlongGrade(g, c):F2}, crowd {hits}, from {c[0].x:F0},{c[0].y:F0} to {c[c.Count - 1].x:F0},{c[c.Count - 1].y:F0}"));
+            }
+            foreach (var row in rows.OrderByDescending(r => r.Hits).Take(Environment.GetEnvironmentVariable("RF_V3ALL") == "1" ? 999 : 12))
+                Console.WriteLine("V3 graded " + row.Text);
         }
 
         /// <summary>A route the grading tool can cut as a green cat track: the connector rules on the raw terrain and an along-path

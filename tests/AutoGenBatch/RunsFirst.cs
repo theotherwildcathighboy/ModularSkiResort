@@ -923,13 +923,15 @@ namespace AutoGenBatch
                 List<float2> pl = tr.ConvertAll(p => fromWorld(p));
                 if (run)
                 {
-                    Dashed(right, pl, 3.4f, (255, 255, 255));
-                    Dashed(right, pl, 2.2f, BandColor(band));
+                    // a diagonal run (a graded track at a run's grade): thinner than a run, striped white and its band's color
+                    Stroke(right, pl, 3.2f, (255, 255, 255));
+                    Dashed(right, pl, 1.9f, BandColor(band), 9f, 4f);
                 }
                 else
                 {
-                    Dashed(right, pl, 2.6f, (20, 60, 20));
-                    Dashed(right, pl, 1.6f, (150, 255, 120));
+                    // a green cat track: dotted
+                    Dashed(right, pl, 2.4f, (20, 60, 20), 8f, 4f);
+                    Dashed(right, pl, 1.4f, (150, 255, 120), 8f, 4f);
                 }
             }
             foreach (List<float2> tr in built.Connectors)
@@ -996,14 +998,14 @@ namespace AutoGenBatch
             return pl;
         }
 
-        private static void Dashed(Canvas cv, List<float2> pl, float r, (int, int, int) c)
+        private static void Dashed(Canvas cv, List<float2> pl, float r, (int, int, int) c, float period = 10f, float on = 6f)
         {
             float run = 0f;
             for (int i = 1; i < pl.Count; i++)
             {
                 float len = math.distance(pl[i - 1], pl[i]);
                 for (float u = 0; u <= len; u += 0.5f, run += 0.5f)
-                    if (run % 10f < 6f)
+                    if (run % period < on)
                     {
                         float2 p = math.lerp(pl[i - 1], pl[i], len > 0 ? u / len : 0);
                         cv.Disc(p.x, p.y, r, c);
