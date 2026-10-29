@@ -156,10 +156,14 @@ namespace AutoGenBatch
                 {
                     if (checks >= 4000 || skis >= 6)
                         break;
-                    checks++;
                     int t = tops[ti].T, x = tops[ti].X;
                     float2 bw = g.World(b), tw = g.World(t);
-                    if (lifts.Any(lf => SegCrossScore(lf.Bottom.xz, lf.Top.xz, bw, tw)) || UnderRope(g, lifts, t, b))
+                    // a pair across a placed lift is cheap to pass over and does not count against the checks (where the cut-off
+                    // area lies beyond other lifts, the shortest few thousand pairs all cross one)
+                    if (lifts.Any(lf => SegCrossScore(lf.Bottom.xz, lf.Top.xz, bw, tw)))
+                        continue;
+                    checks++;
+                    if (UnderRope(g, lifts, t, b))
                         continue;
                     float plan2 = math.distance(bw, tw);
                     bool apart = true;
