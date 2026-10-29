@@ -161,30 +161,40 @@ namespace AutoGenBatch
         }
 
         /// <summary>What a cut must not lose, as scorecard v3 reads the plan: each lift's way home, the elements a skier reaches and
-        /// gets back from, the lifts that link up, and each base's green skiing to lap.</summary>
+        /// gets back from, the lifts with a served run from their top, the lifts that link up, and each base's green skiing to lap.</summary>
         private sealed class SkiRead
         {
-            public bool[] Home, Reached, Returns, Green;
+            public bool[] Home, Live, Green;
+            public Dictionary<object, (bool Reached, bool Returns)> Els;   // by plan run, and by connector index (a cut keeps its index)
             public int Net;
 
             public static SkiRead Of(Grid g, Plan plan, List<Lift> lifts)
             {
                 int[] root = V3Bases(g, lifts, out HashSet<int> bases);
                 SkiGraph sg = Ski(g, plan, lifts);
+                var els = new Dictionary<object, (bool, bool)>();
+                for (int i = 0; i < sg.P.Count; i++)
+                    els[i < sg.Runs ? plan.Runs[i] : (object)(i - sg.Runs)] = (sg.Reached[i], sg.Returns[i]);
                 return new SkiRead
                 {
                     Home = WayHomeOk(sg, lifts, root, bases),
-                    Reached = sg.Reached,
-                    Returns = sg.Returns,
+                    Live = Enumerable.Range(0, lifts.Count).Select(L => sg.Skied[L].Any(i => sg.IsRun[i] && sg.Returns[i])).ToArray(),
+                    Els = els,
                     Net = sg.BestSize,
                     Green = bases.OrderBy(b => b).Select(b => BaseHasGreen(sg, plan, lifts, Enumerable.Range(0, lifts.Count).Where(L => root[L] == b).ToList())).ToArray(),
                 };
             }
 
+            /// <summary>Whether the plan read after a change lost anything this read had (an element taken out loses nothing itself).</summary>
             public bool Loses(SkiRead after)
             {
                 bool Lost(bool[] x, bool[] y) => x.Length != y.Length || x.Where((v, i) => v && !y[i]).Any();
-                return after.Net < Net || Lost(Home, after.Home) || Lost(Reached, after.Reached) || Lost(Returns, after.Returns) || Lost(Green, after.Green);
+                if (after.Net < Net || Lost(Home, after.Home) || Lost(Live, after.Live) || Lost(Green, after.Green))
+                    return true;
+                foreach (var kv in Els)
+                    if (after.Els.TryGetValue(kv.Key, out var now) && (kv.Value.Reached && !now.Reached || kv.Value.Returns && !now.Returns))
+                        return true;
+                return false;
             }
         }
 
@@ -203,6 +213,7 @@ namespace AutoGenBatch
         private sealed class CutModel
         {
             public readonly List<int> Conn = new List<int>();   // per element: its connector (-1 for a plan run)
+            public readonly List<PlanRun> Run = new List<PlanRun>();   // ... and its plan run (null for a connector)
             private readonly List<float2>[] m_D;
             private readonly int[][] m_Count;                     // per element and counted sample: the active elements crowding it
             private readonly List<(int E, int K)>[] m_Crowds;     // per element: the counted samples of other elements it crowds
@@ -223,6 +234,7 @@ namespace AutoGenBatch
                     {
                         els.Add(r.Pts);
                         Conn.Add(-1);
+                        Run.Add(r);
                     }
                     else
                         m_ConnKm += RunLength(r.Pts) / 1000f;
@@ -231,6 +243,7 @@ namespace AutoGenBatch
                     {
                         els.Add(plan.Connectors[ci]);
                         Conn.Add(ci);
+                        Run.Add(null);
                     }
                     else
                         m_ConnKm += RunLength(plan.Connectors[ci]) / 1000f;
@@ -467,6 +480,57 @@ namespace AutoGenBatch
                 $"connectors {connKm:F1} km of {runKm:F1} run km; no bench for {failed} ({tally[1]} leg(s) unreached, {tally[0]} past the search budget); " +
                 $"{checkedCuts} direct bench(es) missing a join checked on the ski graph, {refused} refused; {joined} routed through the joins");
             return done;
+        }
+
+        private static readonly float PruneMinGain = Env("RF_PRUNEMIN", 0.03f);   // a run taken out gains at least this much score
+        private const int PruneReads = 40;                                         // ski graph reads the prune may spend
+
+        /// <summary>Takes out the plan runs whose removal gains score as the scorecard reads the plan (a run crowded along most of its
+        /// length that opens little ground of its own, or a stub), the largest gain first, where the ski graph loses nothing by it.
+        /// Returns the runs taken out.</summary>
+        private static int PruneRuns(Grid g, Plan plan, List<Lift> lifts)
+        {
+            var model = new CutModel(g, plan);
+            var open = Enumerable.Range(0, model.Run.Count).Where(e => model.Run[e] != null).ToList();
+            SkiRead before = SkiRead.Of(g, plan, lifts);
+            int removed = 0, refused = 0, reads = 1;
+            float gained = 0f, km = 0f;
+            while (open.Count > 0 && reads < PruneReads)
+            {
+                int bi = -1;
+                float best = PruneMinGain;
+                for (int i = 0; i < open.Count; i++)
+                {
+                    float gn = model.Gain(open[i], 0f);
+                    if (gn > best)
+                    {
+                        best = gn;
+                        bi = i;
+                    }
+                }
+                if (bi < 0)
+                    break;
+                int e = open[bi];
+                open.RemoveAt(bi);
+                PlanRun r = model.Run[e];
+                int at = plan.Runs.IndexOf(r);
+                plan.Runs.RemoveAt(at);
+                SkiRead after = SkiRead.Of(g, plan, lifts);
+                reads++;
+                if (before.Loses(after))
+                {
+                    plan.Runs.Insert(at, r);
+                    refused++;
+                    continue;
+                }
+                before = after;
+                model.Cut(e, 0f);
+                removed++;
+                gained += best;
+                km += RunLength(r.Pts) / 1000f;
+            }
+            plan.Log.Add($"prune: {removed} run(s) taken out ({km:F1} km, +{gained:F2} by the planner's read), {refused} kept for the skiing");
+            return removed;
         }
 
         /// <summary>The runs a lift line's middle may not lie along, as scorecard v3 reads them (runs, and graded tracks steeper than

@@ -332,6 +332,10 @@ namespace AutoGenBatch
             // and the diagonal graded tracks still under a line that lies on runs are cut as green cat tracks
             if (Environment.GetEnvironmentVariable("RF_NOCHORD") != "1" && Environment.GetEnvironmentVariable("RF_NOCHORDTRACK") != "1")
                 ClearChordTracks(g, plan, lifts);
+            // runs whose crowding (or stub) costs more score than the ground they open go
+            if (Environment.GetEnvironmentVariable("RF_NOPRUNE") != "1")
+                PruneRuns(g, plan, lifts);
+            Tick("prune");
             Tick("chords");
             // merging runs end where they crowd the run they join least: off by default since scorecard v2 stopped counting junction
             // zones as crowding (score-neutral there, and a painted run should touch the trunk it joins); RF_JUNCTION=1 turns it on
