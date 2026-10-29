@@ -470,6 +470,23 @@ namespace SkiResortMod.Settings
                     m_Setting.GetOptionWarningLocaleID(nameof(SkiResortSettings.ResetToDefaults)),
                     "Reset all Modular Ski Resort options and key bindings to their defaults?"
                 },
+                {
+                    m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.DeleteAllResortContent)),
+                    "Delete all ski resort content"
+                },
+                {
+                    m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.DeleteAllResortContent)),
+                    "Removes everything Modular Ski Resort placed in this city: lifts and their towers, stations, lodges, the ski school, " +
+                    "patrol huts, Welcome Signs, ski runs, cat tracks, safety fences and the trees the glade tool or the Resort Planner " +
+                    "planted. Use it before you unsubscribe. Your own power lines, roads and buildings are not touched. Terrain graded " +
+                    "for cat tracks stays as it is, snow already on the runs melts with the weather, and felled trees do not come back. " +
+                    "If one of your power lines ends at a base station, bulldoze that last span first. This cannot be undone: save your " +
+                    "city first. Available only in a loaded city."
+                },
+                {
+                    m_Setting.GetOptionWarningLocaleID(nameof(SkiResortSettings.DeleteAllResortContent)),
+                    "Delete every lift, station, lodge, run, cat track and fence of Modular Ski Resort in this city? This cannot be undone."
+                },
 
                 // --- Key bindings (glade tool) ---
                 // Every key comes from the ModSetting helpers (ModSetting.cs:303-371): option row label / description, the binding key and

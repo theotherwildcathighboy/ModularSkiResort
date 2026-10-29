@@ -428,6 +428,21 @@ namespace SkiResortMod.Settings
             }
         }
 
+        /// <summary>Write-only button with the game's confirmation dialog: deletes every lift, station, building, run, cat track, fence
+        /// and planted tree of this mod in the loaded city (SkiDeleteAllSystem). Disabled outside a loaded Game-mode city (main menu,
+        /// Editor, loading); the request refuses there too. Not an option: nothing is saved.</summary>
+        [SettingsUIButton]
+        [SettingsUIConfirmation]
+        [SettingsUIDisableByCondition(typeof(SkiResortSettings), nameof(DeleteAllUnavailable))]
+        [SettingsUISection(SectionMain, GroupReset)]
+        public bool DeleteAllResortContent
+        {
+            set { SkiDeleteAllSystem.Request("options button"); }
+        }
+
+        /// <summary>The Delete all button's disable condition (AutomaticSettings.TryGetAction: a method with no parameters returning bool).</summary>
+        public bool DeleteAllUnavailable() => SkiDeleteAllSystem.Unavailable();
+
         public override void SetDefaults()
         {
             AttractivenessScaleK = DefaultAttractivenessScaleK;

@@ -118,6 +118,17 @@ $rows = @(
       'updateSystem\.UpdateAt<ElectricityGraphSystem>\(SystemUpdatePhase\.Deserialize\);',
       'the flow graph is rebuilt from the PREFAB on every load (SystemOrder.cs:841): a prefab capacity fix reaches old saves'),
 
+    # --- the Options button "Delete all ski resort content" (SkiDeleteAllSystem, research/delete-all-2026-10-29.md) ---
+    @('DEL-1', 'Game.Common\SystemOrder.cs',
+      'updateSystem\.UpdateAt<SubElementDeleteSystem>\(SystemUpdatePhase\.PostTool\);',
+      'SubElementDeleteSystem cascades a Deleted owner at PostTool (SystemOrder.cs:724): SkiDeleteAllSystem is anchored before it'),
+    @('DEL-2', 'Game.Objects\SubElementDeleteSystem.cs',
+      'else if \(!m_UpdatedData\.HasComponent\(subNet\.m_SubNet\)\)\s*\{\s*m_CommandBuffer\.RemoveComponent<Owner>\(unfilteredChunkIndex, subNet\.m_SubNet\);',
+      'a station stub node a foreign edge still uses loses its Owner and stays (SubElementDeleteSystem.cs:126-130); an Updated stub would keep it: the delete never tags owned nodes'),
+    @('DEL-3', 'Game.Net\ReferencesSystem.cs',
+      'CollectionUtils\.RemoveValue\(buffer, new ConnectedEdge\(edge\)\);\s*CollectionUtils\.RemoveValue\(buffer2, new ConnectedEdge\(edge\)\);',
+      'a Deleted edge leaves both nodes'' ConnectedEdge buffers (ReferencesSystem.cs:143-156): kept nodes beside a deleted lift edge stay consistent'),
+
     # --- the net tool seam our lift tool drives (CreationDefinition + NetCourse through the vanilla apply path) ---
     @('TOOL-1', 'Game.Tools\NetToolSystem.cs',
       'CreationDefinition \w+ = new CreationDefinition\s*\{\s*m_Prefab = m_NetPrefab,\s*m_SubPrefab = m_LanePrefab,\s*m_RandomSeed = \w+\.NextInt\(\)\s*\};\s*\w+\.m_Flags \|= CreationFlags\.SubElevation;\s*NetCourse \w+ = default\(NetCourse\);\s*\w+\.m_Curve = NetUtils\.StraightCurve\(',

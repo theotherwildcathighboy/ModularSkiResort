@@ -47,6 +47,8 @@
     <!-- The pure catalog the rule files above alias (SkiResortScore, SkiMoneyRules, LiftServedRule, HubRules; SkiDayRules below), and its guard. -->
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiCatalog.cs" Link="SkiCatalog.cs" />
     <Compile Include="CatalogGuardTests.cs" />
+    <Compile Include="DeleteAllTests.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\DeleteAllRules.cs" Link="DeleteAllRules.cs" />
   </ItemGroup>
   <!--
     SchoolRule.cs and PatrolRule.cs are linked ONLY when they exist, so the host builds before they do (CatalogGuardTests prints

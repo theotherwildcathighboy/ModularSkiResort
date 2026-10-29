@@ -218,6 +218,12 @@ namespace SkiResortMod
             updateSystem.UpdateBefore<SkiRunGateCascadeSystem, SkiGladeCleanupSystem>(
                 SystemUpdatePhase.Modification2);
 
+            // Options button "Delete all ski resort content". Anchor is load-bearing: PostTool BEFORE SubElementDeleteSystem, where a bulldoze's
+            // Deleted stands after ApplyTool (SystemOrder.cs:712-724), so station sub-nets, the electricity graph (Modification1) and the
+            // sub-objects cascade the same frame; PostTool runs paused or not (ToolSystem.cs:251-257).
+            updateSystem.UpdateBefore<SkiDeleteAllSystem, Game.Objects.SubElementDeleteSystem>(
+                SystemUpdatePhase.PostTool);
+
             // Run binding on draw + drawing feedback: each is gated per frame on its own setting and on the ownership system (trigger and
             // contours: IsArmed; drawing feedback: PrefabSetsReady). Registration order between the four is not load-bearing.
 

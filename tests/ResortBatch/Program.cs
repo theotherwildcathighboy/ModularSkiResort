@@ -50,6 +50,7 @@ namespace ResortBatch
             CatTrackTests.Run(Check);
             SnowGunPlumeTests.Run(Check);
             HistoryTests.Run(Check);
+            DeleteAllTests.Run(Check);
             Console.WriteLine(string.Format(CultureInfo.InvariantCulture,
                 "SUMMARY  ResortBatch checks={0} failures={1}", s_Checks, s_Failures));
             Environment.ExitCode = s_Failures;
