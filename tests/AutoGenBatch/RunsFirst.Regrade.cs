@@ -536,20 +536,20 @@ namespace AutoGenBatch
         /// <summary>The runs a lift line's middle may not lie along, as scorecard v3 reads them (runs, and graded tracks steeper than
         /// the blue line), with the connector each graded track is (-1 for a plan run) and whether it is a green run (a learning
         /// chair's own green run is not counted under its line).</summary>
-        private static List<(List<float2> D, int Conn, bool Green)> ChordEls(Grid g, Plan plan)
+        private static List<(List<float2> D, int Conn, PlanRun Run, bool Green)> ChordEls(Grid g, Plan plan)
         {
-            var els = new List<(List<float2>, int, bool)>();
+            var els = new List<(List<float2>, int, PlanRun, bool)>();
             foreach (PlanRun r in plan.Runs)
             {
                 var (run, band) = r.Graded ? TrackClass(g, r.Pts) : (true, GroundBand(g, r.Pts));
                 if (run)
-                    els.Add((Densify(r.Pts), -1, band <= SlopeBand.Green));
+                    els.Add((Densify(r.Pts), -1, r, band <= SlopeBand.Green));
             }
             for (int ci = 0; ci < plan.Connectors.Count; ci++)
             {
                 var (run, band) = TrackClass(g, plan.Connectors[ci]);
                 if (run)
-                    els.Add((Densify(plan.Connectors[ci]), ci, band <= SlopeBand.Green));
+                    els.Add((Densify(plan.Connectors[ci]), ci, null, band <= SlopeBand.Green));
             }
             return els;
         }
@@ -557,7 +557,7 @@ namespace AutoGenBatch
         /// <summary>The share of a lift chord's middle 70 % (every 10 m) within 20 m of a run as scorecard v3 reads it, and the
         /// samples each element is near.</summary>
         [MethodImpl(MethodImplOptions.AggressiveOptimization)]
-        private static float ChordShareV3(Lift lf, List<(List<float2> D, int Conn, bool Green)> els, out int[] hits)
+        private static float ChordShareV3(Lift lf, List<(List<float2> D, int Conn, PlanRun Run, bool Green)> els, out int[] hits)
         {
             float2 b = lf.Bottom.xz, t = lf.Top.xz;
             float plan2 = math.distance(b, t);
@@ -585,13 +585,17 @@ namespace AutoGenBatch
             return n > 0 ? near / (float)n : 0f;
         }
 
+        private const float ChordViolationWorth = 0.8f;   // the score a cleared line may cost elsewhere (a violation costs 0.86 to 0.95)
+
         /// <summary>A lift line whose middle still lies along runs after the chord repair: the diagonal pieces under it are cut as green
-        /// cat tracks (a cat track under a lift line is no run), the most under the line first, until it clears. Each cut is kept where
-        /// the ski graph loses nothing, and a line's cuts are undone when it does not clear. Returns the lines cleared.</summary>
+        /// cat tracks (a cat track under a lift line is no run), the most under the line first, and where that does not clear it, the
+        /// plan runs under it go, while the ground and crowding they cost (as the scorecard reads them) stay under a violation's
+        /// worth. Each change is kept where the ski graph loses nothing, and a line's changes are undone when it does not clear.
+        /// Returns the lines cleared.</summary>
         private static int ClearChordTracks(Grid g, Plan plan, List<Lift> lifts)
         {
             int cleared = 0;
-            List<(List<float2> D, int Conn, bool Green)> els = ChordEls(g, plan);
+            List<(List<float2> D, int Conn, PlanRun Run, bool Green)> els = ChordEls(g, plan);
             foreach (Lift lf in lifts)
             {
                 float share = ChordShareV3(lf, els, out int[] hits);
@@ -599,11 +603,6 @@ namespace AutoGenBatch
                     continue;
                 List<int> under = Enumerable.Range(0, els.Count).Where(i => els[i].Conn >= 0 && hits[i] > 0)
                     .OrderByDescending(i => hits[i]).Select(i => els[i].Conn).ToList();
-                if (under.Count == 0)
-                {
-                    plan.Log.Add($"chord tracks L{lf.Id}: no diagonal piece under the line ({share:P0} of its middle on runs)");
-                    continue;
-                }
                 var jp = new JoinPoints(plan, lifts);
                 SkiRead before = SkiRead.Of(g, plan, lifts);
                 var cut = new List<(int Ci, List<float2> Old)>();
@@ -632,16 +631,55 @@ namespace AutoGenBatch
                     if (now <= ChordShareMax)
                         break;
                 }
+                // the plan runs under the line, the most under it first
+                var gone = new List<(PlanRun R, int At)>();
+                float cost = 0f;
+                if (now > ChordShareMax)
+                {
+                    var model = new CutModel(g, plan);
+                    now = ChordShareV3(lf, els, out hits);
+                    List<PlanRun> runsUnder = Enumerable.Range(0, els.Count).Where(i => els[i].Run != null && hits[i] > 0)
+                        .OrderByDescending(i => hits[i]).Select(i => els[i].Run).ToList();
+                    foreach (PlanRun r in runsUnder)
+                    {
+                        int e = model.Run.IndexOf(r);
+                        if (e < 0)
+                            continue;
+                        float gn = model.Gain(e, 0f);
+                        if (cost - gn > ChordViolationWorth)
+                            continue;
+                        int at = plan.Runs.IndexOf(r);
+                        plan.Runs.RemoveAt(at);
+                        SkiRead after = SkiRead.Of(g, plan, lifts);
+                        if (before.Loses(after))
+                        {
+                            plan.Runs.Insert(at, r);
+                            continue;
+                        }
+                        before = after;
+                        model.Cut(e, 0f);
+                        cost -= gn;
+                        gone.Add((r, at));
+                        els = ChordEls(g, plan);
+                        now = ChordShareV3(lf, els, out _);
+                        if (now <= ChordShareMax)
+                            break;
+                    }
+                }
                 if (now <= ChordShareMax)
                 {
                     cleared++;
-                    plan.Log.Add($"chord tracks L{lf.Id}: {cut.Count} diagonal piece(s) under the line cut as green cat tracks ({share:P0} -> {now:P0} of its middle on runs)");
+                    plan.Log.Add($"chord tracks L{lf.Id}: {cut.Count} diagonal piece(s) under the line cut as green cat tracks, {gone.Count} run(s) under it taken out " +
+                        $"({share:P0} -> {now:P0} of its middle on runs; {cost:F2} of score elsewhere by the planner's read)");
                     continue;
                 }
+                for (int k = gone.Count - 1; k >= 0; k--)
+                    plan.Runs.Insert(gone[k].At, gone[k].R);
                 foreach (var (ci, old) in cut)
                     SwapConnector(plan, ci, old);
                 els = ChordEls(g, plan);
-                plan.Log.Add($"chord tracks L{lf.Id}: undone ({share:P0} -> {now:P0} of its middle on runs with {cut.Count} of {under.Count} diagonal piece(s) cut)");
+                plan.Log.Add($"chord tracks L{lf.Id}: undone ({share:P0} -> {now:P0} of its middle on runs with {cut.Count} of {under.Count} diagonal piece(s) cut, " +
+                    $"{gone.Count} run(s) taken out)");
             }
             return cleared;
         }
