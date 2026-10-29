@@ -226,11 +226,12 @@ namespace AutoGenBatch
         // 350 m (scorecard v4): owner-4 L7 260 m off the valley runs it lay along (visible 97.30 -> 97.41)
         private static readonly float NudgeMaxM = Env("RF_NUDGEM", 350f);
 
-        /// <summary>A lift line whose middle still lies along runs (or that crosses another lift of its kind) moves instead of the
-        /// runs: the whole line shifted across itself, or swung about one station, up to NudgeMaxM, the smallest move first. A move is
-        /// kept where the stations stay on pads inside the region, the rope clears the ground, the lift keeps its type's norms and
-        /// crosses no lift it may not cross, the line clears and the ski graph loses nothing (its runs still start at its top and come
-        /// home to its bottom). Returns the lines moved.</summary>
+        /// <summary>A lift line whose middle still lies along runs (or that crosses another lift of its kind, or runs beside another as
+        /// scorecard v4 reads a parallel) moves instead of the runs: the whole line shifted across itself, or swung about one station,
+        /// up to NudgeMaxM, the smallest move first. A move is kept where the stations stay on pads inside the region, the rope clears
+        /// the ground, the lift keeps its type's norms and crosses no lift it may not cross, the line clears, runs beside fewer lines
+        /// (beside none when it ran beside none), crowds no terminals and the ski graph loses nothing (its runs still start at its top
+        /// and come home to its bottom). Returns the lines moved.</summary>
         private static int NudgeLines(Grid g, Plan plan, List<Lift> lifts)
         {
             int moved = 0;
@@ -242,8 +243,10 @@ namespace AutoGenBatch
                     break;
                 float share = ChordShareV3(lf, els, out _);
                 bool crossing = CrossesKind(lifts, lf);
-                if (share <= ChordShareMax && !crossing)
+                int par = NoParallel ? ParallelsOf(lifts, lf, lf.Bottom.xz, lf.Top.xz) : 0;
+                if (share <= ChordShareMax && !crossing && par == 0)
                     continue;
+                int hub = HubExcess(g, lifts);
                 float2 b0 = lf.Bottom.xz, t0 = lf.Top.xz, dir = math.normalize(t0 - b0), across = new float2(-dir.y, dir.x);
                 var moves = new List<(float Cost, float2 B, float2 T)>();
                 for (float o = 20f; o <= NudgeMaxM; o += 10f)
@@ -272,7 +275,8 @@ namespace AutoGenBatch
                     lf.Rise = lf.Top.y - lf.Bottom.y;
                     lf.Length = math.distance(lf.Top, lf.Bottom);
                     float now = ChordShareV3(lf, els, out _);
-                    SkiRead after = now <= ChordShareMax ? SkiRead.Of(g, plan, lifts) : null;
+                    int parNow = NoParallel ? ParallelsOf(lifts, lf, lf.Bottom.xz, lf.Top.xz) : 0;
+                    SkiRead after = now <= ChordShareMax && (parNow == 0 || parNow < par) && HubExcess(g, lifts) <= hub ? SkiRead.Of(g, plan, lifts) : null;
                     if (after == null || before.Loses(after))
                     {
                         Restore();
@@ -281,7 +285,8 @@ namespace AutoGenBatch
                     before = after;
                     moved++;
                     plan.Log.Add($"nudge L{lf.Id}: {(nb.Equals(b0) ? "top" : nt.Equals(t0) ? "bottom" : "line")} moved {cost / (nb.Equals(b0) || nt.Equals(t0) ? 0.9f : 1f):F0} m " +
-                        $"across ({100 * share:F0} % -> {100 * now:F0} % of its middle on runs{(crossing ? "; off the line it crossed" : "")})");
+                        $"across ({100 * share:F0} % -> {100 * now:F0} % of its middle on runs{(crossing ? "; off the line it crossed" : "")}" +
+                        $"{(par > 0 ? $"; beside {parNow} line(s), was {par}" : "")})");
                     break;
                 }
             }

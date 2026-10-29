@@ -345,9 +345,9 @@ namespace AutoGenBatch
                             continue;
                         if (OnRuns(g, runs, bc, t) || AlongEdge(g, bc, t))
                             continue;
-                        // a pure transfer lift (no runs of its own, it carries skiers from one area into the next) may run beside another
+                        // a pure transfer lift (no runs of its own, it carries skiers from one area into the next) may run beside one other
                         string type = TypeFor(g, bc, t);
-                        if (type == null || (gain + transfer) * Capacity(type) <= best || Twin(g, lifts, t, bc, 200f, type, gain > 0f))
+                        if (type == null || (gain + transfer) * Capacity(type) <= best || Twin(g, lifts, t, bc, 200f, type, gain > 0f ? 0 : TransferBeside))
                             continue;
                         best = (gain + transfer) * Capacity(type);
                         bestOwn = gain;
@@ -511,11 +511,13 @@ namespace AutoGenBatch
 
         private static bool Aerial(string type) => type == "gondola" || type == "tram";
 
-        // scorecard v4's parallel lines are twins too (RF_PARALLELOK=1: allowed)
+        // scorecard v4's parallel lines are twins too (RF_PARALLELOK=1: allowed), past the lines a new one may run beside
         private static readonly bool NoParallel = Environment.GetEnvironmentVariable("RF_PARALLELOK") != "1";
+        private static readonly int TransferBeside = (int)Env("RF_TRANSFERBESIDE", 1f);
 
-        private static bool Twin(Grid g, List<Lift> lifts, int t, int b, float parallelM = 200f, string type = null, bool v4Parallel = true)
+        private static bool Twin(Grid g, List<Lift> lifts, int t, int b, float parallelM = 200f, string type = null, int beside = 0)
         {
+            int v4 = 0;
             // a twin (both ends within TwinM), a parallel (the middle 60 % within parallelM of the placed chord), or a crossing in
             // plan away from a shared station (a gondola or tram may cross a chair: the owner's rule, pending an in-game check)
             float2 a0 = g.World(b), a1 = g.World(t);
@@ -528,7 +530,7 @@ namespace AutoGenBatch
                 for (float s = 0.2f; s <= 0.8f && parallel; s += 0.1f)
                     parallel = SegDist(math.lerp(a0, a1, s), b0, b1) < parallelM;
                 // scorecard v4: side by side up one valley (a designer runs one long lift and branches from its top)
-                if (parallel || (v4Parallel && NoParallel && ParallelLines(a0, a1, b0, b1)))
+                if (parallel || (NoParallel && ParallelLines(a0, a1, b0, b1) && ++v4 > beside))
                     return true;
                 float shared = math.min(math.min(math.distance(a0, b0), math.distance(a0, b1)), math.min(math.distance(a1, b0), math.distance(a1, b1)));
                 if (shared > 60f && Cross(a0, a1, b0, b1) && (type == null || Aerial(type) == Aerial(lf.Type)))
