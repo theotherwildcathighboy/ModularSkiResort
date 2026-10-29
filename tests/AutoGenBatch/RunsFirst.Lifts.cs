@@ -19,6 +19,7 @@ namespace AutoGenBatch
         private const float AccessRawPitch = 0.42f, AccessRawRise = 3.5f;   // on the raw terrain: 30 m pitch, rise within 55 m
         private const float StationMax = 0.34f;   // raw 10 m grade a station pad may sit on (the scorecard flags over 0.40)
         private static readonly float TopLatticeM = Env("RF_LAT", 100f), ReturnM = Env("RF_RET", 150f);
+        private static readonly float ReachBudget = Env("RF_RBUDGET", 18e6f);   // cells the top lattice's reach searches may visit
         private const float MarginalShare = 0.1f;   // a lift worth less than this share of the first is marginal
         private const float HubLinkM = 150f, BenchGrade = 0.25f, MinLapM = 60f;
         private const float TowerLiftM = 20f;
@@ -174,13 +175,31 @@ namespace AutoGenBatch
             var dist = new float[n];
             Array.Fill(dist, float.PositiveInfinity);
             var scanParent = new int[n];
-            for (int z = step / 2; z < g.D; z += step)
-                for (int x = step / 2; x < g.W; x += step)
+            // the lattice in levels, coarse to fine (400 m, its centers, 200 m, its centers, 100 m): on wide gentle ground every
+            // top reaches most of the region, so a finer level is scanned only while the reach work stays in budget (a gentle
+            // 9 km2 valley would take seconds); the tops keep the lattice order
+            var lattice = new List<(int Order, int Level, int T)>();
+            for (int z = step / 2, j = 0, order = 0; z < g.D; z += step, j++)
+                for (int x = step / 2, i = 0; x < g.W; x += step, i++, order++)
                 {
                     int t = z * g.W + x;
                     if (!g.In[t] || (t = FlatCell(g, t, 30f)) < 0)
                         continue;
+                    int level = i % 4 == 0 && j % 4 == 0 ? 0 : i % 4 == 2 && j % 4 == 2 ? 1 : i % 2 == 0 && j % 2 == 0 ? 2 : i % 2 == 1 && j % 2 == 1 ? 3 : 4;
+                    lattice.Add((order, level, t));
+                }
+            var scanned = new SortedDictionary<int, (int T, int[] E, bool Any, bool[] Rb, ulong[] Bits)>();
+            long work = 0;
+            int levels = 0;
+            for (; levels < 5; levels++)
+            {
+                var at = lattice.FindAll(p => p.Level == levels);
+                if (scanned.Count > 0 && work + (double)work / scanned.Count * at.Count > ReachBudget)
+                    break;
+                foreach (var (order, _, t) in at)
+                {
                     List<int> touched = Reach(g, slope, t, dist, scanParent);
+                    work += touched.Count;
                     var e = new int[lines.Count];
                     bool any = false;
                     for (int li = 0; li < lines.Count; li++)
@@ -213,20 +232,26 @@ namespace AutoGenBatch
                     }
                     foreach (int c in touched)
                         dist[c] = float.PositiveInfinity;
-                    cTops.Add(t);
-                    if (Environment.GetEnvironmentVariable("RF_TOPS") == "1")
-                        DebugDots.Add((g.World(t), any ? 0 : 255, any ? 255 : 0, 255));
-                    cReachB.Add(rb);
-                    cReachBits.Add(bits);
-                    if (any)
-                    {
-                        tops.Add(t);
-                        entry.Add(e);
-                        reachB.Add(rb);
-                        reachBits.Add(bits);
-                    }
+                    scanned[order] = (t, e, any, rb, bits);
                 }
-
+            }
+            foreach (var (t, e, any, rb, bits) in scanned.Values)
+            {
+                cTops.Add(t);
+                if (Environment.GetEnvironmentVariable("RF_TOPS") == "1")
+                    DebugDots.Add((g.World(t), any ? 0 : 255, any ? 255 : 0, 255));
+                cReachB.Add(rb);
+                cReachBits.Add(bits);
+                if (any)
+                {
+                    tops.Add(t);
+                    entry.Add(e);
+                    reachB.Add(rb);
+                    reachBits.Add(bits);
+                }
+            }
+            if (Environment.GetEnvironmentVariable("RF_TIME") == "1")
+                Console.WriteLine($"TIME tops: {scanned.Count} of {lattice.Count} lattice tops ({levels} of 5 levels), {work} cells reached");
             Tick("tops");
             // greedy: the lift that adds the most new vertical (per line, elevation intervals already lapped don't count twice)
             var covered = new List<(float lo, float hi)>[lines.Count];
