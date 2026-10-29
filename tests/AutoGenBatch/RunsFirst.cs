@@ -283,6 +283,8 @@ namespace AutoGenBatch
             Console.WriteLine(RunsFirstScore.Line(id, score));
             if (Environment.GetEnvironmentVariable("RF_V3DBG") == "1")
                 V3Debug(g, built, lifts);
+            if (Environment.GetEnvironmentVariable("RF_TURNDBG") == "1")
+                TurnDebug(id, built);
             File.AppendAllText(Path.Combine(outDir, id + ".txt"), "\n" + RunsFirstScore.Line(id, score) + "\n" +
                 string.Concat(score.Notes.Select(s => "  " + s + "\n")));
             Render(Path.Combine(outDir, id + ".png"), snap, ring, g, acc, accR, lines, v2, lifts, built);

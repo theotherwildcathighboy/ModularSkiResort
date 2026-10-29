@@ -172,5 +172,31 @@ namespace AutoGenBatch
                 }
             return moved;
         }
+
+        /// <summary>Scorecard v4's sharp turns (60 degrees between 20 m legs) per green track, with where the track came from.</summary>
+        private static int SharpTurns(List<float2> pl)
+        {
+            List<float2> p = Densify(pl);
+            int n = 0;
+            for (int k = 4; k < p.Count; k += 2)
+            {
+                float2 a1 = p[k - 2] - p[k - 4], a2 = p[k] - p[k - 2];
+                if (math.lengthsq(a1) >= 1f && math.lengthsq(a2) >= 1f && math.dot(math.normalize(a1), math.normalize(a2)) < 0.5f)
+                    n++;
+            }
+            return n;
+        }
+
+        private static void TurnDebug(string id, Plan plan)
+        {
+            var rows = new List<(int N, string S)>();
+            foreach (PlanRun r in plan.Runs.Where(r => r.Graded))
+                rows.Add((SharpTurns(r.Pts), $"run {r.Kind} {RunLength(r.Pts):F0} m from {r.Pts[0].x:F0},{r.Pts[0].y:F0}"));
+            foreach (List<float2> c in plan.Connectors)
+                rows.Add((SharpTurns(c), $"{(plan.Links.Contains(c) ? "link/way" : "track")} {RunLength(c):F0} m from {c[0].x:F0},{c[0].y:F0} to {c[c.Count - 1].x:F0},{c[c.Count - 1].y:F0}"));
+            foreach (var (n, s) in rows.Where(x => x.N > 0).OrderByDescending(x => x.N).Take(12))
+                Console.WriteLine($"TURNS {id}: {n} {s}");
+            Console.WriteLine($"TURNS {id}: total {rows.Sum(x => x.N)} in {rows.Count} track(s)");
+        }
     }
 }

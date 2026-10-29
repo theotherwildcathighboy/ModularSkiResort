@@ -837,6 +837,8 @@ namespace AutoGenBatch
         /// it (the run rule's 10 m, less a margin), no ~30 m pitch exceeds EasyRawMax, and pitches over a green grade stay a small
         /// share (the band reads the 85th percentile). Routes along other runs, or along the given lift lines, cost more. With a goal
         /// cell the search heads for it (A*, the straight distance left as the estimate) and stops once it is settled.</summary>
+        private static readonly float TrackTurnM = Env("RF_TURNM", 40f);
+
         [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         private static EasyReach EasyUp(Grid g, List<int> origins, PointHash avoid, EasyLimits lim, PointHash lines = null, float linesCost = 3f, int goal = -1)
         {
@@ -910,6 +912,15 @@ namespace AutoGenBatch
                     if (ns > lim.SteepShare * nl + 10f)
                         continue;
                     float nd = d + len * (steep ? 4f : 1f) * (nl > 150f && avoid.NearCell(g, nb, 40f) ? 3f : 1f) * (lines != null && lines.NearCell(g, nb, 25f) ? linesCost : 1f);
+                    // a graded track: a sharp turn (past 60 degrees) costs as much as TrackTurnM more track, so of the zigzags down a
+                    // face at the same grade (all the same length) the search takes the one with the longest legs
+                    int dn = er.Down[c];
+                    if (lim.AlongPath && dn >= 0 && TrackTurnM > 0f)
+                    {
+                        int ox = dn % g.W - x, oz = dn / g.W - z;
+                        if (-DX[k] * ox - DZ[k] * oz < 0.5f * math.sqrt((DX[k] * DX[k] + DZ[k] * DZ[k]) * (ox * ox + oz * oz)))
+                            nd += TrackTurnM;
+                    }
                     if (er.Seen[nb] && nd >= er.Cost[nb])
                         continue;
                     if (!er.Seen[nb])
