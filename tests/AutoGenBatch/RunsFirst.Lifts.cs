@@ -30,6 +30,7 @@ namespace AutoGenBatch
         {
             public int Id;
             public string Type;
+            public string Kind = "main";    // main / beginner
             public float3 Bottom, Top;
             public int TopCell, BottomCell, TopIndex, BottomIndex;
             public float Transfer;          // credit for delivering skiers to other lifts' bottoms (over a ridge into a bowl)
@@ -459,12 +460,13 @@ namespace AutoGenBatch
         /// most TowerLiftM above the straight line); null when none fits. Long chairs prefer the detachable.</summary>
         private static string TypeFor(Grid g, int b, int t)
         {
-            float3 a = new float3(g.World(b).x, g.H[b], g.World(b).y), c = new float3(g.World(t).x, g.H[t], g.World(t).y);
+            // the real ground, as the rope sees it: raw heights at the stations and every 10 m along the chord
+            float3 a = new float3(g.World(b).x, g.Hr[b], g.World(b).y), c = new float3(g.World(t).x, g.Hr[t], g.World(t).y);
             float len = math.distance(a, c), rise = c.y - a.y, run = math.distance(a.xz, c.xz);
-            for (float s = 0.05f; s < 0.95f; s += 10f / Math.Max(run, 10f))
+            for (float d = 10f; d < run - 10f; d += 10f)
             {
-                float3 p = math.lerp(a, c, s);
-                if (HeightAt(g, p.xz) - p.y > TowerLiftM)
+                float3 p = math.lerp(a, c, d / run);
+                if (RawH(g, p.xz) - p.y > TowerLiftM - 2f)
                     return null;
             }
             foreach (var ty in Types)

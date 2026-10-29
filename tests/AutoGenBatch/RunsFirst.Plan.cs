@@ -21,6 +21,8 @@ namespace AutoGenBatch
         private const float DeliverM = 50f;        // a run delivers to a lift when it passes this close to the bottom station (scorecard 60 m)
         private const float MinRunDropM = 55f;     // shorter served runs read as stubs (the scorecard counts under 50 m)
         private static readonly float ServeCapPerKm2 = Env("RF_SCAP", 5f);
+        private static readonly float ChordDefer = Env("RF_CDEF", 0.35f);   // value share of a run that lies along a lift line
+        private static readonly float ChordKeep = Env("RF_CKEEP", 0.5f);    // ... kept anyway at this share of the best run's value
 
         private sealed class PlanRun
         {
@@ -161,10 +163,16 @@ namespace AutoGenBatch
                 l.Merge = false;
             }
             var chosen = new List<(Cand C, int End)>();
+            var chords = new ChordGuard(lifts);
+            // a run that would lie along a lift line waits (its value cut to ChordDefer) for the runs that don't; when it comes
+            // up again it is kept anyway and that lift line stops being guarded (one violation, not a lost trunk run)
+            var queue = new PriorityQueue<(Cand C, bool Deferred), float>();
+            float topValue = cands.Count > 0 ? cands[0].Value : 0f;
             foreach (Cand cd in cands)
+                queue.Enqueue((cd, false), -cd.Value);
+            while (picks < cap && queue.TryDequeue(out var item, out float negValue))
             {
-                if (picks >= cap)
-                    break;
+                Cand cd = item.C;
                 int end = cd.End, run = 0;
                 for (int i = cd.Entry + 3; i <= Math.Min(cd.ValidEnd, end >= 0 ? end : cd.ValidEnd); i++)
                 {
@@ -190,6 +198,20 @@ namespace AutoGenBatch
                     cd.L.Merge = false;
                     continue;
                 }
+                if (!chords.Fits(cd.Way, cd.Entry, end))
+                {
+                    cd.L.Merge = false;
+                    if (!item.Deferred)
+                    {
+                        queue.Enqueue((cd, true), negValue * ChordDefer);
+                        continue;
+                    }
+                    // worth a violation: a lift's only terrain, or one of the region's major runs
+                    if (chosen.Any(x => x.C.By == cd.By) && cd.Value < ChordKeep * topValue)
+                        continue;
+                    chords.Spend(cd.Way, cd.Entry, end);
+                }
+                chords.Add(cd.Way, cd.Entry, end);
                 chosen.Add((cd, end));
                 for (int i = cd.Entry; i <= end; i++)
                     taken.Add(cd.Way[i]);
@@ -235,6 +257,8 @@ namespace AutoGenBatch
             int chains = 0, badChains = 0;
             for (int L = 0; L < lifts.Count; L++)
                 EmitTree(g, need[L], lifts[L].TopCell, plan.Connectors, ref chains, ref badChains);
+            if (Environment.GetEnvironmentVariable("RF_NOPOD") != "1")
+                AddBeginnerPods(g, plan, lifts);
             if (Environment.GetEnvironmentVariable("RF_DEBUG") == "1")
             {
                 SkiGraph sg = Ski(g, plan, lifts);
@@ -251,6 +275,102 @@ namespace AutoGenBatch
             plan.Log.Add($"serve pass: {cands.Count} candidate(s) with a lift entry, {plan.Runs.Count} run(s) kept (cap {cap}); " +
                 $"{badChains} of {chains} traverse piece(s) fail the raw connector rules");
             return plan;
+        }
+
+        /// <summary>The middle 70 % of every lift chord, sampled every 10 m as the scorecard does: no run set may lie along more
+        /// than ChordShare of it (the scorecard flags 30 % within 20 m; a run under the lift line is fine, one along it is not).</summary>
+        private sealed class ChordGuard
+        {
+            private const float ShareMax = 0.25f, NearM = 23f;
+            private readonly List<float2[]> mid = new List<float2[]>();
+            private readonly List<bool[]> hit = new List<bool[]>();
+            private readonly List<bool> spent = new List<bool>();
+
+            public ChordGuard(List<Lift> lifts)
+            {
+                foreach (Lift lf in lifts)
+                    AddLift(lf.Bottom.xz, lf.Top.xz);
+            }
+
+            public void AddLift(float2 b, float2 t)
+            {
+                var m = new List<float2>();
+                float plan2 = math.distance(b, t);
+                for (float f = 0.15f; f <= 0.85f; f += 10f / math.max(10f, plan2))
+                    m.Add(math.lerp(b, t, f));
+                mid.Add(m.ToArray());
+                hit.Add(new bool[m.Count]);
+                spent.Add(false);
+            }
+
+            public bool Fits(List<float2> pts, int from, int to)
+            {
+                for (int L = 0; L < mid.Count; L++)
+                    if (!spent[L] && Over(L, pts, from, to))
+                        return false;
+                return true;
+            }
+
+            /// <summary>The lift lines this run takes over the share stop being guarded.</summary>
+            public void Spend(List<float2> pts, int from, int to)
+            {
+                for (int L = 0; L < mid.Count; L++)
+                    spent[L] |= Over(L, pts, from, to);
+            }
+
+            private bool Over(int L, List<float2> pts, int from, int to)
+            {
+                int n = 0;
+                for (int k = 0; k < mid[L].Length; k++)
+                    if (hit[L][k] || Near(pts, from, to, mid[L][k]))
+                        n++;
+                return n > ShareMax * mid[L].Length;
+            }
+
+            public void Add(List<float2> pts, int from, int to)
+            {
+                for (int L = 0; L < mid.Count; L++)
+                    for (int k = 0; k < mid[L].Length; k++)
+                        hit[L][k] |= Near(pts, from, to, mid[L][k]);
+            }
+
+            private static bool Near(List<float2> pts, int from, int to, float2 q)
+            {
+                for (int i = from; i <= to; i++)
+                    if (math.distancesq(pts[i], q) < NearM * NearM)
+                        return true;
+                return false;
+            }
+        }
+
+        /// <summary>A run cut where it would climb (ends at its low point before the climb) or before a pitch over the run maximum,
+        /// checked on the scorecard's 10 m sampling; null when too little is left.</summary>
+        private static List<float2> SanitizeRun(Grid g, List<float2> run)
+        {
+            if (run.Count < 2)
+                return null;
+            run = Densify(run);
+            var h = run.ConvertAll(p => RawH(g, p));
+            int end = run.Count - 1, lowAt = 0;
+            for (int i = 1; i < run.Count; i++)
+            {
+                if (float.IsNaN(h[i]) || h[i] > h[lowAt] + RunClimbMax)
+                {
+                    end = lowAt;
+                    break;
+                }
+                if (h[i] < h[lowAt])
+                    lowAt = i;
+            }
+            for (int i = 0; i + 3 <= end; i++)
+                if ((h[i] - h[i + 3]) / math.max(1f, math.distance(run[i], run[i + 3])) > RunPitchMax)
+                {
+                    end = i;
+                    break;
+                }
+            if (end < 5)
+                return null;
+            return end == run.Count - 1 ? run : run.GetRange(0, end + 1);
         }
 
         private static bool DeliversAt(Cand cd, int i, List<Lift> lifts, List<float> botH)
