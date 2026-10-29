@@ -49,13 +49,20 @@ namespace AutoGenBatch
         private const float PodRouteMaxM = 2600f, BaseShareCut = 0.35f, OriginRunM = 400f;
         private const float PodMinRise = 97f, PodMinLength = 320f, PodClearM = 18f;
 
-        /// <summary>The easy-run search tree: Down = the next cell toward the base (-1 at an origin), Root = the origin a cell's
-        /// route ends at, Len / Cost / Steep (meters steeper than green) / Hi (highest raw point) along that route.</summary>
+        /// <summary>The easy-run search tree, keyed in the order the search first reached each cell: Down = the next cell toward the
+        /// base (-1 at an origin), Root = the origin a cell's route ends at, Len / Cost along that route.</summary>
         private sealed class EasyReach
         {
-            public readonly Dictionary<int, int> Down = new Dictionary<int, int>(), Root = new Dictionary<int, int>();
-            public readonly Dictionary<int, float> Len = new Dictionary<int, float>(), Cost = new Dictionary<int, float>();
-            public readonly Dictionary<int, float> Steep = new Dictionary<int, float>(), Hi = new Dictionary<int, float>();
+            public readonly Dictionary<int, int> Down, Root;
+            public readonly Dictionary<int, float> Len, Cost;
+
+            public EasyReach(int count)
+            {
+                Down = new Dictionary<int, int>(count);
+                Root = new Dictionary<int, int>(count);
+                Len = new Dictionary<int, float>(count);
+                Cost = new Dictionary<int, float>(count);
+            }
 
             [MethodImpl(MethodImplOptions.AggressiveOptimization)]
             public List<int> Route(int c)
@@ -642,34 +649,69 @@ namespace AutoGenBatch
             return s;
         }
 
-        /// <summary>Uphill search from the origin cells over ground an easy run can come down: per 7 m step the skier's descent is at
-        /// most EasyEdgeMax (smoothed) and the climb tiny; on the raw terrain the route never climbs EasyClimbM over a point below
-        /// it (the run rule's 10 m, less a margin), no ~30 m pitch exceeds EasyRawMax, and pitches over a green grade stay a small
-        /// share (the band reads the 85th percentile). Routes along other runs, or along the given lift lines, cost more.</summary>
         // cells the easy-ground searches settled in this region's plan, and the most they may settle: on wide gentle ground one
         // search floods the whole region (a link that fails tries three of them per round), and the region must plan in seconds
         private static long EasyWork, LinkWork;
         private static readonly float EasyBudget = Env("RF_EBUDGET", 1.8e6f), LinkBudget = Env("RF_LBUDGET", 0.6e6f);
 
+        /// <summary>The easy-ground search's working arrays per grid cell (Steep: meters steeper than green, Hi: the highest raw point
+        /// along the route), clean between searches; one set serves every search (regions plan one at a time).</summary>
+        private sealed class EasyScratch
+        {
+            public readonly int[] Down, Root;
+            public readonly float[] Len, Cost, Steep, Hi;
+            public readonly bool[] Seen, Done;
+            public readonly List<int> Order = new List<int>();   // the cells in the order the search first reached them
+
+            public EasyScratch(int n)
+            {
+                Down = new int[n];
+                Root = new int[n];
+                Len = new float[n];
+                Cost = new float[n];
+                Steep = new float[n];
+                Hi = new float[n];
+                Seen = new bool[n];
+                Done = new bool[n];
+            }
+        }
+        private static EasyScratch s_Easy;
+
+        /// <summary>Uphill search from the origin cells over ground an easy run can come down: per 7 m step the skier's descent is at
+        /// most EasyEdgeMax (smoothed) and the climb tiny; on the raw terrain the route never climbs EasyClimbM over a point below
+        /// it (the run rule's 10 m, less a margin), no ~30 m pitch exceeds EasyRawMax, and pitches over a green grade stay a small
+        /// share (the band reads the 85th percentile). Routes along other runs, or along the given lift lines, cost more.</summary>
         [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         private static EasyReach EasyUp(Grid g, List<int> origins, PointHash avoid, EasyLimits lim, PointHash lines = null, float linesCost = 3f)
         {
-            var er = new EasyReach();
+            int n = g.W * g.D;
+            if (s_Easy == null || s_Easy.Done.Length < n)
+                s_Easy = new EasyScratch(n);
+            EasyScratch er = s_Easy;
+            List<int> order = er.Order;
+            order.Clear();
             var pq = new CellHeap();
             foreach (int o in origins)
             {
+                if (!er.Seen[o])
+                {
+                    er.Seen[o] = true;
+                    order.Add(o);
+                }
                 er.Down[o] = -1;
                 er.Root[o] = o;
                 er.Len[o] = er.Cost[o] = er.Steep[o] = 0f;
                 er.Hi[o] = g.Hr[o];
                 pq.Enqueue(o, 0f);
             }
-            var done = new HashSet<int>();
+            int settled = 0;
             long cap = (long)EasyBudget - EasyWork;   // a search past the budget stops where it is (its cheapest cells settled)
-            while (done.Count < cap && pq.TryDequeue(out int c, out float d))
+            while (settled < cap && pq.TryDequeue(out int c, out float d))
             {
-                if (!done.Add(c))
+                if (er.Done[c])
                     continue;
+                er.Done[c] = true;
+                settled++;
                 int x = c % g.W, z = c / g.W;
                 for (int k = 0; k < 8; k++)
                 {
@@ -677,7 +719,7 @@ namespace AutoGenBatch
                     if (xx < 0 || zz < 0 || xx >= g.W || zz >= g.D)
                         continue;
                     int nb = zz * g.W + xx;
-                    if (!g.In[nb] || done.Contains(nb) || float.IsNaN(g.Hr[nb]))
+                    if (!g.In[nb] || er.Done[nb] || float.IsNaN(g.Hr[nb]))
                         continue;
                     float len = g.CellM * ((k & 1) == 1 ? 1.4142f : 1f);
                     float dg = (g.H[nb] - g.H[c]) / len;   // the skier's descent from nb to c
@@ -708,8 +750,13 @@ namespace AutoGenBatch
                     if (ns > lim.SteepShare * nl + 10f)
                         continue;
                     float nd = d + len * (steep ? 4f : 1f) * (nl > 150f && avoid.Near(pn, 40f) ? 3f : 1f) * (lines != null && lines.Near(pn, 25f) ? linesCost : 1f);
-                    if (er.Cost.TryGetValue(nb, out float old) && nd >= old)
+                    if (er.Seen[nb] && nd >= er.Cost[nb])
                         continue;
+                    if (!er.Seen[nb])
+                    {
+                        er.Seen[nb] = true;
+                        order.Add(nb);
+                    }
                     er.Len[nb] = nl;
                     er.Cost[nb] = nd;
                     er.Steep[nb] = ns;
@@ -719,8 +766,18 @@ namespace AutoGenBatch
                     pq.Enqueue(nb, nd);
                 }
             }
-            EasyWork += done.Count;
-            return er;
+            EasyWork += settled;
+            // the tree as the maps the callers read, keyed in first-reached order; the arrays go back clean
+            var tree = new EasyReach(order.Count);
+            foreach (int c in order)
+            {
+                tree.Down[c] = er.Down[c];
+                tree.Root[c] = er.Root[c];
+                tree.Len[c] = er.Len[c];
+                tree.Cost[c] = er.Cost[c];
+                er.Seen[c] = er.Done[c] = false;
+            }
+            return tree;
         }
 
         /// <summary>The scorecard's crossing rule: chords that cross in plan away from a shared station (30 m).</summary>
