@@ -160,7 +160,7 @@ namespace AutoGenBatch
         /// ski graph loses nothing: every other lift keeps its way home and its served runs, the links hold (the largest linked set
         /// loses at most the lift itself), the bases keep their share of green laps, and every element left keeps being reached and
         /// coming home. With chords set (after the chord repairs): a lift whose line still lies along runs (the scorecard's
-        /// chord-on-run test), taken out only where every run it serves is another lift's run too. Returns the lifts taken out.</summary>
+        /// chord-on-run test) or crosses another lift of its kind, taken out only where every run it serves is another lift's run too. Returns the lifts taken out.</summary>
         private static int DropStrandedLifts(Grid g, Plan plan, List<Lift> lifts, List<Cand> cands, bool chords = false)
         {
             int dropped = 0;
@@ -173,13 +173,13 @@ namespace AutoGenBatch
                 var els = chords ? ChordEls(g, plan) : null;
                 var share = new float[lifts.Count];
                 int L = Enumerable.Range(0, lifts.Count).FirstOrDefault(i => !tried.Contains(lifts[i]) && (chords
-                    ? (share[i] = ChordShareV3(lifts[i], els, out _)) > ChordShareMax
+                    ? (share[i] = ChordShareV3(lifts[i], els, out _)) > ChordShareMax || CrossesKind(lifts, lifts[i])
                     : !ok[i] || !sg.Skied[i].Any(e => sg.IsRun[e] && sg.Returns[e])), -1);
                 if (L < 0)
                     break;
                 Lift lf = lifts[L];
                 tried.Add(lf);
-                string why = chords ? $"its line lies along runs, {100 * share[L]:F0} % of its middle" : ok[L] ? "no served run" : "no way home and no download";
+                string why = chords ? share[L] > ChordShareMax ? $"its line lies along runs, {100 * share[L]:F0} % of its middle" : "its line crosses another of its kind" : ok[L] ? "no served run" : "no way home and no download";
                 SkiRead before = SkiRead.Of(g, plan, lifts);
                 var served = new Dictionary<object, bool>();
                 for (int i = 0; i < sg.P.Count; i++)
