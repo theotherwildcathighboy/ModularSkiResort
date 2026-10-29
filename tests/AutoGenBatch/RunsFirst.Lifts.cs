@@ -343,10 +343,10 @@ namespace AutoGenBatch
                                 transfer += 0.5f * lf.Gain;
                         if (gain + transfer <= best)
                             continue;
-                        if (Twin(g, lifts, t, bc) || OnRuns(g, runs, bc, t) || AlongEdge(g, bc, t))
+                        if (OnRuns(g, runs, bc, t) || AlongEdge(g, bc, t))
                             continue;
                         string type = TypeFor(g, bc, t);
-                        if (type == null || (gain + transfer) * Capacity(type) <= best)
+                        if (type == null || (gain + transfer) * Capacity(type) <= best || Twin(g, lifts, t, bc, 200f, type))
                             continue;
                         best = (gain + transfer) * Capacity(type);
                         bestOwn = gain;
@@ -504,10 +504,12 @@ namespace AutoGenBatch
         }
         private static readonly float EdgeLiftM = Env("RF_EDGELIFT", 45f);
 
-        private static bool Twin(Grid g, List<Lift> lifts, int t, int b, float parallelM = 200f)
+        private static bool Aerial(string type) => type == "gondola" || type == "tram";
+
+        private static bool Twin(Grid g, List<Lift> lifts, int t, int b, float parallelM = 200f, string type = null)
         {
             // a twin (both ends within TwinM), a parallel (the middle 60 % within parallelM of the placed chord), or a crossing in
-            // plan away from a shared station
+            // plan away from a shared station (a gondola or tram may cross a chair: the owner's rule, pending an in-game check)
             float2 a0 = g.World(b), a1 = g.World(t);
             foreach (Lift lf in lifts)
             {
@@ -520,7 +522,7 @@ namespace AutoGenBatch
                 if (parallel)
                     return true;
                 float shared = math.min(math.min(math.distance(a0, b0), math.distance(a0, b1)), math.min(math.distance(a1, b0), math.distance(a1, b1)));
-                if (shared > 60f && Cross(a0, a1, b0, b1))
+                if (shared > 60f && Cross(a0, a1, b0, b1) && (type == null || Aerial(type) == Aerial(lf.Type)))
                     return true;
             }
             return false;
@@ -694,6 +696,11 @@ namespace AutoGenBatch
             foreach (var ty in Types)
                 if (len >= ty.L0 && len <= ty.L1 && rise >= ty.R0 && rise <= ty.R1 && rise / run <= ty.Cap)
                     return ty.Name == "fixed-grip" && len > 1000f && len >= 600f ? "detachable" : ty.Name;
+            // past the ladder's lengths and rises: no lift length limit (scorecard v3), so the aerial lift that fits the grade
+            if (len >= 800f && rise >= 220f)
+                return rise / run <= 1.2f ? "gondola" : rise / run <= 2.5f ? "tram" : null;
+            if (len >= 800f && rise >= 96f && rise / run <= 1.2f)
+                return "gondola";
             return null;
         }
 
