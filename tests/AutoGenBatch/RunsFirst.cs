@@ -32,7 +32,7 @@ namespace AutoGenBatch
         private const float SpacingM = 60f;       // the upper 60 % of two picked lines stay this far apart
         private const float OverlapShare = 0.3f;
         private const float MergeM = 35f;         // a picked line ends where it runs onto an earlier one (3 samples in a row this close, a trail width)
-        private const float PicksPerKm2 = 5f;     // line cap per km2 (12-80), the Normal density
+        private static readonly float PicksPerKm2 = Env("RF_PPK", 5f);     // line cap per km2 (12-80), the Normal density
         private const float GentleLatticeM = 50f, GentleMinGrade = 0.06f, GentleMaxGrade = 0.40f;
 
         // per family: steepest 30 m pitch the line may hold (cut there), runout grade trimmed off the bottom, min drop / length (m)

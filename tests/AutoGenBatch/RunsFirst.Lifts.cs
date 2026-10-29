@@ -123,6 +123,19 @@ namespace AutoGenBatch
                     }
                 }
 
+            // stations for the coverage lifts: flat ground on a 150 m lattice away from the other candidates (not for the main search)
+            int mainB = bottoms.Count;
+            if (Environment.GetEnvironmentVariable("RF_NOCOVERLIFT") != "1")
+            {
+                int bs = Math.Max(1, (int)Math.Round(150f / g.CellM));
+                for (int z = bs / 2; z < g.D; z += bs)
+                    for (int x = bs / 2; x < g.W; x += bs)
+                    {
+                        int c = z * g.W + x;
+                        if (g.In[c] && (c = FlatCell(g, c, 35f)) >= 0 && !Near(g, bottoms, c, 120f))
+                            bottoms.Add(c);
+                    }
+            }
             // where each line passes each bottom (first / last index along Pts + Flow; -1 = never)
             int B = bottoms.Count;
             var passFirst = new int[lines.Count, B];
@@ -149,6 +162,8 @@ namespace AutoGenBatch
             var tops = new List<int>();
             var entry = new List<int[]>();
             var reachB = new List<bool[]>();   // per top: which bottom candidates its reach touches
+            int[] latIdx = SkiLattice(g, out int latCount);
+            var reachBits = new List<ulong[]>();   // per top: the skiable lattice points its reach touches
             var dist = new float[n];
             Array.Fill(dist, float.PositiveInfinity);
             var scanParent = new int[n];
@@ -183,9 +198,14 @@ namespace AutoGenBatch
                         dist[c] = float.PositiveInfinity;
                     if (any)
                     {
+                        var bits = new ulong[(latCount + 63) / 64];
+                        foreach (int c in touched)
+                            if (latIdx[c] >= 0)
+                                bits[latIdx[c] / 64] |= 1UL << (latIdx[c] % 64);
                         tops.Add(t);
                         entry.Add(e);
                         reachB.Add(rb);
+                        reachBits.Add(bits);
                     }
                 }
 
@@ -206,6 +226,8 @@ namespace AutoGenBatch
                 }
             float lowCut = rLo + 0.35f * (rHi - rLo);
             var excluded = new HashSet<int>();   // bottom candidates a marginal lift may not use
+            for (int b = mainB; b < B; b++)
+                excluded.Add(b);
             int want = Math.Clamp(Math.Max((int)Math.Round(km2 * perKm2), (int)Math.Ceiling(vertical / 400f)), 1, (int)Math.Ceiling(1.5 * km2) + 2);
             var lifts = new List<Lift>();
             float firstGain = 0f;
@@ -254,7 +276,13 @@ namespace AutoGenBatch
                         bestType = type;
                     }
                 if (bt < 0 || (firstGain > 0f && best < stopShare * firstGain))
+                {
+                    if (Environment.GetEnvironmentVariable("RF_DEBUG") == "1")
+                        Console.WriteLine($"DEBUG lifts stop at {lifts.Count} of {want}: best {best:F0} first {firstGain:F0} (bt {bt})");
                     break;
+                }
+                if (Environment.GetEnvironmentVariable("RF_DEBUG") == "1")
+                    Console.WriteLine($"DEBUG lift {lifts.Count + 1}: {bestType} gain {bestOwn:F0} transfer {bestTransfer:F0} value {best:F0} top {g.World(tops[bt]).x:F0},{g.World(tops[bt]).y:F0} bottom {g.World(bottoms[bb]).x:F0},{g.World(bottoms[bb]).y:F0}{(firstGain > 0f && best < MarginalShare * firstGain && OpensBase(g, lifts, bottoms[bb], lowCut) ? " (marginal, opens a base: skipped)" : "")}");
                 // a marginal lift may not open a base of its own: a low station away from every other base needs its own beginner
                 // terrain and services, which a lift worth that little does not earn
                 if (firstGain > 0f && best < MarginalShare * firstGain && OpensBase(g, lifts, bottoms[bb], lowCut))
@@ -304,6 +332,8 @@ namespace AutoGenBatch
                         fed.Add(lf.Id);
                 lifts.Add(lift);
             }
+            if (Environment.GetEnvironmentVariable("RF_NOCOVERLIFT") != "1")
+                AddCoverLifts(g, rec, lifts, tops, reachB, reachBits, bottoms, latIdx, latCount, runs, km2, slope);
             return lifts;
         }
 

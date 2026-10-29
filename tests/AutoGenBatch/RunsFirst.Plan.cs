@@ -293,6 +293,35 @@ namespace AutoGenBatch
                 // a pod's top can open a way into an area the main lifts could not get to
                 links += LinkByRoutes(g, plan, lifts);
             }
+            int fills = Environment.GetEnvironmentVariable("RF_NOFILL") == "1" ? 0 : FillCover(g, plan, lifts, cands);
+            if (Environment.GetEnvironmentVariable("RF_COVER") == "1")
+            {
+                // skiable 20 m lattice points no run covers: red where a lift top's reach gets to them, orange where none does
+                var near = new PointHash();
+                foreach (PlanRun r in plan.Runs)
+                    foreach (float2 p in Densify(r.Pts))
+                        near.Add(p);
+                int inReach = 0, outReach = 0, skiable = 0;
+                for (int c = 0; c < g.W * g.D; c++)
+                {
+                    float2 p = g.World(c);
+                    if (!g.In[c] || Math.Abs(p.x % 20f) > g.CellM / 2f || Math.Abs(p.y % 20f) > g.CellM / 2f)
+                        continue;
+                    float gr = RawGrade(g, p);
+                    if (gr < 0.06f || gr > 0.85f)
+                        continue;
+                    skiable++;
+                    if (near.Near(p, 50f))
+                        continue;
+                    bool reached = reachOf.Any(d => d.ContainsKey(c));
+                    if (reached)
+                        inReach++;
+                    else
+                        outReach++;
+                    plan.Dots.Add((p, 255, reached ? 0 : 160, 0));
+                }
+                Console.WriteLine($"DEBUG cover: {skiable} skiable, {inReach} uncovered in a lift's reach, {outReach} uncovered out of every reach");
+            }
             if (Environment.GetEnvironmentVariable("RF_DEBUG") == "1")
             {
                 SkiGraph sg = Ski(g, plan, lifts);
