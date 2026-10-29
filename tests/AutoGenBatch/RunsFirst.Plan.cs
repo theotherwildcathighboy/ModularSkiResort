@@ -288,7 +288,11 @@ namespace AutoGenBatch
             }
             int spurs = Environment.GetEnvironmentVariable("RF_NOSPUR") == "1" ? 0 : MergeSpurs(g, plan, lifts);
             if (Environment.GetEnvironmentVariable("RF_NOPOD") != "1")
+            {
                 AddBeginnerPods(g, plan, lifts);
+                // a pod's top can open a way into an area the main lifts could not get to
+                links += LinkByRoutes(g, plan, lifts);
+            }
             if (Environment.GetEnvironmentVariable("RF_DEBUG") == "1")
             {
                 SkiGraph sg = Ski(g, plan, lifts);

@@ -109,7 +109,7 @@ namespace AutoGenBatch
         /// else a run (blue at most but for short stretches). False when neither search meets the froms' terrain.</summary>
         private static bool TryLink(Grid g, Plan plan, List<Lift> lifts, SkiGraph sg, List<int> froms, List<int> tos)
         {
-            // where the skier can be: every sampled point of the elements skied from the froms' tops, in 60 m buckets
+            // where the skier can be: every sampled point of the elements skied from the froms' tops (in 60 m buckets)
             var at = new Dictionary<long, List<float3>>();
             static long Key(float2 p) => ((long)Math.Floor(p.x / 60f) << 32) ^ (uint)(int)Math.Floor(p.y / 60f);
             foreach (int i in froms.SelectMany(L => sg.Skied[L]).Distinct())
@@ -120,9 +120,13 @@ namespace AutoGenBatch
                         at[k] = l = new List<float3>();
                     l.Add(p);
                 }
+            // ... or at a top of the froms: a skier starts any element within 150 m of it
+            var tops = froms.Select(L => lifts[L].Top).ToList();
             bool On(int c)
             {
                 float2 q = g.World(c);
+                if (tops.Any(t => math.distancesq(t.xz, q) < 120f * 120f && g.Hr[c] <= RawH(g, t.xz) + 4f))
+                    return true;
                 int cx = (int)Math.Floor(q.x / 60f), cz = (int)Math.Floor(q.y / 60f);
                 for (int dz = -1; dz <= 1; dz++)
                     for (int dx = -1; dx <= 1; dx++)

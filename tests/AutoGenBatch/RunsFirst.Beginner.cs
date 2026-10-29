@@ -384,6 +384,7 @@ namespace AutoGenBatch
                 .OrderBy(kv => kv.Value).Select(kv => kv.Key).ToList();
             int checkedTops = 0, netChecks = 0;
             var topsSeen = new HashSet<int>();
+            int reroutes = 0;
             var why = new int[10];
             bool dbg = Environment.GetEnvironmentVariable("RF_DEBUG") == "1";
             if (dbg)
@@ -490,8 +491,28 @@ namespace AutoGenBatch
                     guard.Add(r.Pts, 0, r.Pts.Count - 1);
                 if (!guard.Fits(route, 0, route.Count - 1))
                 {
-                    why[8]++;
-                    continue;
+                    // the route winds up under the rope: look again from the same pad, kept off it (when the other runs leave room)
+                    List<float2> off = null;
+                    if (reroutes < 8 && guard.Fits(new List<float2> { b }, 0, 0))
+                    {
+                        reroutes++;
+                        var rope = new PointHash();
+                        for (float f = 0.1f; f <= 0.9f; f += 10f / math.max(10f, plan2))
+                            rope.Add(math.lerp(b, t, f));
+                        EasyReach er2 = EasyUp(g, new List<int> { er.Root[x] }, avoid, GreenWay, rope, 10f);
+                        if (er2.Cost.ContainsKey(x))
+                        {
+                            off = GreenRoute(g, plan, lifts, members, er2, x, avoid, lines, new int[4], out float softOff);
+                            if (off != null && (softOff > 0f || !guard.Fits(off, 0, off.Count - 1)))
+                                off = null;
+                        }
+                    }
+                    if (off == null)
+                    {
+                        why[8]++;
+                        continue;
+                    }
+                    route = off;
                 }
                 var lift = new Lift
                 {
@@ -547,7 +568,7 @@ namespace AutoGenBatch
         /// most EasyEdgeMax (smoothed) and the climb tiny; on the raw terrain the route never climbs EasyClimbM over a point below
         /// it (the run rule's 10 m, less a margin), no ~30 m pitch exceeds EasyRawMax, and pitches over a green grade stay a small
         /// share (the band reads the 85th percentile). Routes along other runs, or along the given lift lines, cost more.</summary>
-        private static EasyReach EasyUp(Grid g, List<int> origins, PointHash avoid, EasyLimits lim, PointHash lines = null)
+        private static EasyReach EasyUp(Grid g, List<int> origins, PointHash avoid, EasyLimits lim, PointHash lines = null, float linesCost = 3f)
         {
             var er = new EasyReach();
             var pq = new PriorityQueue<int, float>();
@@ -601,7 +622,7 @@ namespace AutoGenBatch
                     float ns = er.Steep[c] + (steep ? len : 0f);
                     if (ns > lim.SteepShare * nl + 10f)
                         continue;
-                    float nd = d + len * (steep ? 4f : 1f) * (nl > 150f && avoid.Near(pn, 40f) ? 3f : 1f) * (lines != null && lines.Near(pn, 25f) ? 3f : 1f);
+                    float nd = d + len * (steep ? 4f : 1f) * (nl > 150f && avoid.Near(pn, 40f) ? 3f : 1f) * (lines != null && lines.Near(pn, 25f) ? linesCost : 1f);
                     if (er.Cost.TryGetValue(nb, out float old) && nd >= old)
                         continue;
                     er.Len[nb] = nl;
