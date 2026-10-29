@@ -2,9 +2,12 @@
 // grading tool that winds across whole faces from the lift's top to a base, crossing black runs as a bench where it must. The
 // planner reads the plan the way scorecard v3 does (bases, bands, a gondola or tram top a skier may ride down from) and, for every
 // lift whose top has no green or blue route home, searches uphill from where home is (the base lifts' bottoms, gondola and tram tops,
-// and every green or blue run or track already leading home) over ground a green cat track can be graded across, until it reaches
-// the lift's top. The routes share one search tree, so later tracks join earlier ones. Where no green track fits, a blue one (a
-// diagonal run); where none fits at all, the lift is a download lift, and a download lift must be a gondola or tram.
+// and every green or blue run or track already leading home) over ground a graded track can be cut across, until it reaches
+// the lift's top. The routes share one search tree, so later tracks join earlier ones. The search takes pitches up to the blue
+// line along the path, so the shortest easy route home is a blue diagonal run where it takes them (a run, not connector km: the
+// green cat tracks it saves leave the connector budget to the regrade) and a green cat track where it stays under the blue line;
+// a second search under the green limits takes the lifts the first could not serve (a blue route lying along a lift line). Where
+// none fits at all, the lift is a download lift, and a download lift must be a gondola or tram.
 
 using System;
 using System.Collections.Generic;
@@ -169,7 +172,8 @@ namespace AutoGenBatch
         {
             int added = 0, blue = 0;
             var used = new HashSet<int>();   // cells of the tracks this pass emitted (a later track ends where it meets one)
-            foreach (EasyLimits lim in new[] { WayGreen, WayBlue })
+            // blue first: visible 97.00 -> 97.48, 80 % outlines 94.80 -> 95.38, 120 % 95.30 -> 95.90 (RF_WAYGREEN1=1: green first)
+            foreach (EasyLimits lim in Environment.GetEnvironmentVariable("RF_WAYGREEN1") == "1" ? new[] { WayGreen, WayBlue } : new[] { WayBlue, WayGreen })
             {
                 SkiGraph sg = Ski(g, plan, lifts);
                 int[] root = V3Bases(g, lifts, out HashSet<int> bases);
