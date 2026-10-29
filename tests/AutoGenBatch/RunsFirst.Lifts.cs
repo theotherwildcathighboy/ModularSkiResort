@@ -19,6 +19,7 @@ namespace AutoGenBatch
         private const float AccessRawPitch = 0.42f, AccessRawRise = 3.5f;   // on the raw terrain: 30 m pitch, rise within 55 m
         private const float StationMax = 0.34f;   // raw 10 m grade a station pad may sit on (the scorecard flags over 0.40)
         private static readonly float TopLatticeM = Env("RF_LAT", 100f), ReturnM = Env("RF_RET", 150f);
+        private const float MarginalShare = 0.1f;   // a lift worth less than this share of the first is marginal
         private const float HubLinkM = 150f, BenchGrade = 0.25f, MinLapM = 60f;
         private const float TowerLiftM = 20f;
         private const float TwinM = 300f;       // a lift whose top AND bottom are this close to an existing one's is a twin, not a new lift
@@ -194,7 +195,17 @@ namespace AutoGenBatch
                 covered[li] = new List<(float, float)>();
             float vertical = hMax - hMin;
             float perKm2 = float.Parse(Environment.GetEnvironmentVariable("RF_LPK") ?? "1.1", System.Globalization.CultureInfo.InvariantCulture);
-            float stopShare = float.Parse(Environment.GetEnvironmentVariable("RF_STOP") ?? "0.1", System.Globalization.CultureInfo.InvariantCulture);
+            float stopShare = float.Parse(Environment.GetEnvironmentVariable("RF_STOP") ?? "0.05", System.Globalization.CultureInfo.InvariantCulture);
+            // the scorecard's bases: lift bottoms in the lowest 35 % of the region's (raw) relief
+            float rLo = float.MaxValue, rHi = float.MinValue;
+            for (int c = 0; c < n; c++)
+                if (g.In[c] && !float.IsNaN(g.Hr[c]))
+                {
+                    rLo = Math.Min(rLo, g.Hr[c]);
+                    rHi = Math.Max(rHi, g.Hr[c]);
+                }
+            float lowCut = rLo + 0.35f * (rHi - rLo);
+            var excluded = new HashSet<int>();   // bottom candidates a marginal lift may not use
             int want = Math.Clamp(Math.Max((int)Math.Round(km2 * perKm2), (int)Math.Ceiling(vertical / 400f)), 1, (int)Math.Ceiling(1.5 * km2) + 2);
             var lifts = new List<Lift>();
             float firstGain = 0f;
@@ -207,6 +218,8 @@ namespace AutoGenBatch
                 for (int ti = 0; ti < tops.Count; ti++)
                     for (int b = 0; b < B; b++)
                     {
+                        if (excluded.Contains(b))
+                            continue;
                         int t = tops[ti], bc = bottoms[b];
                         float rise = g.H[t] - g.H[bc];
                         if (rise < 95f)
@@ -242,6 +255,13 @@ namespace AutoGenBatch
                     }
                 if (bt < 0 || (firstGain > 0f && best < stopShare * firstGain))
                     break;
+                // a marginal lift may not open a base of its own: a low station away from every other base needs its own beginner
+                // terrain and services, which a lift worth that little does not earn
+                if (firstGain > 0f && best < MarginalShare * firstGain && OpensBase(g, lifts, bottoms[bb], lowCut))
+                {
+                    excluded.Add(bb);
+                    continue;
+                }
                 if (firstGain == 0f)
                     firstGain = best;
                 int T = tops[bt], Bc = bottoms[bb];
@@ -285,6 +305,30 @@ namespace AutoGenBatch
                 lifts.Add(lift);
             }
             return lifts;
+        }
+
+        /// <summary>Whether a lift from bottom cell c would start a new base: c in the low part of the relief, and no placed bottom
+        /// within 400 m belongs to a cluster (400 m chains, as the scorecard's) that already holds a low station.</summary>
+        private static bool OpensBase(Grid g, List<Lift> lifts, int c, float lowCut)
+        {
+            float2 p = g.World(c);
+            if (RawH(g, p) > lowCut)
+                return false;
+            var root = new int[lifts.Count];
+            for (int i = 0; i < root.Length; i++)
+                root[i] = i;
+            for (int a = 0; a < lifts.Count; a++)
+                for (int b = 0; b < a; b++)
+                    if (math.distance(lifts[a].Bottom.xz, lifts[b].Bottom.xz) < 400f)
+                        root[Root(root, a)] = Root(root, b);
+            var lowRoots = new HashSet<int>();
+            for (int L = 0; L < lifts.Count; L++)
+                if (RawH(g, lifts[L].Bottom.xz) <= lowCut)
+                    lowRoots.Add(Root(root, L));
+            for (int L = 0; L < lifts.Count; L++)
+                if (math.distance(lifts[L].Bottom.xz, p) < 400f && lowRoots.Contains(Root(root, L)))
+                    return false;
+            return true;
         }
 
         /// <summary>The flattest cell (raw 10 m grade) within r meters of c that a station pad may sit on, nearer cells first on a

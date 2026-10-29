@@ -113,18 +113,30 @@ namespace AutoGenBatch
                 foreach (PlanRun r in plan.Runs)
                     guard.Add(r.Pts, 0, r.Pts.Count - 1);
                 // a clean green way down first, then a pod with its own green run, then a way down that shares its valley
-                if (TryWayDown(g, plan, lifts, members, er, avoid, guard, out PlanRun shared))
+                // or a green branch lower down that leaves a run of the base; off the lift lines first, then from a top first
+                if (TryWayDown(g, plan, lifts, members, er, avoid, guard, out PlanRun shared, out float sharedSoft))
                     ways++;
                 else if (TryPod(g, plan, lifts, members, er, avoid, guard, sg))
                     pods++;
-                else if (shared != null)
+                else
                 {
-                    plan.Runs.Add(shared);
-                    plan.Log.Add($"green way down from L{shared.By.Id}'s top (along other runs or a lift line): {RunLength(shared.Pts):F0} m");
+                    PlanRun branch = null;
+                    float branchSoft = float.MaxValue;
+                    if (shared == null || sharedSoft >= 1f)
+                        branch = FindBranch(g, plan, lifts, members, er, avoid, guard, sg, out branchSoft);
+                    PlanRun pick = shared != null && sharedSoft < 1f ? shared : branch != null && branchSoft < 1f ? branch : shared ?? branch;
+                    if (pick == null)
+                    {
+                        failed.Add(key);
+                        continue;
+                    }
+                    float soft = pick == shared ? sharedSoft : branchSoft;
+                    plan.Runs.Add(pick);
+                    plan.Log.Add($"{(pick == shared ? $"green way down from L{pick.By.Id}'s top" : $"green branch home at L{lifts[members[0]].Id}'s base")}" +
+                        $"{(soft >= 1f ? " (along a lift line)" : soft > 0f ? " (along other runs)" : "")}: {RunLength(pick.Pts):F0} m, " +
+                        $"{RawH(g, pick.Pts[0]) - RawH(g, pick.Pts[pick.Pts.Count - 1]):F0} m down");
                     ways++;
                 }
-                else
-                    failed.Add(key);
             }
             plan.Log.Add($"beginner terrain: {ways} green way(s) down, {pods} pod(s) ({tried} base(s) without a green way home)");
         }
@@ -344,11 +356,12 @@ namespace AutoGenBatch
 
         /// <summary>A green way down from the top of a lift of the base, when the easy ground reaches it; shared = the softest one
         /// that shares its ground with other runs or a lift line (not added) when no clean one exists.</summary>
-        private static bool TryWayDown(Grid g, Plan plan, List<Lift> lifts, List<int> members, EasyReach er, PointHash avoid, ChordGuard guard, out PlanRun shared)
+        private static bool TryWayDown(Grid g, Plan plan, List<Lift> lifts, List<int> members, EasyReach er, PointHash avoid, ChordGuard guard, out PlanRun shared,
+            out float softest)
         {
             var why = new int[4];
             shared = null;
-            float softest = float.MaxValue;
+            softest = float.MaxValue;
             foreach (int L in members)
             {
                 float2 top = lifts[L].Top.xz;
@@ -375,6 +388,59 @@ namespace AutoGenBatch
             if (why.Sum() > 0)
                 plan.Log.Add($"green way down: rejected not green {why[0]}, run rules {why[1]}, crowds runs {why[2]}, along a lift line {why[3]}");
             return false;
+        }
+
+        /// <summary>For a base whose easy ground neither reaches a top nor rises the 97 m a pod needs: a green run that leaves a run
+        /// or traverse skied from a lift of the base where the easy ground meets it (30 m, not above it) and winds home, at least
+        /// 60 m down and 300 m long, the highest clean one first (else the softest; not added); whoever has come that far down skis
+        /// green the rest of the way.</summary>
+        private static PlanRun FindBranch(Grid g, Plan plan, List<Lift> lifts, List<int> members, EasyReach er, PointHash avoid, ChordGuard guard, SkiGraph sg,
+            out float softest)
+        {
+            var at = new Dictionary<long, List<float3>>();
+            static long Key(int x, int z) => ((long)x << 32) ^ (uint)z;
+            foreach (int i in members.SelectMany(L => sg.Skied[L]).Distinct())
+                foreach (float3 p in sg.P[i])
+                {
+                    long k = Key((int)Math.Floor(p.x / 60f), (int)Math.Floor(p.z / 60f));
+                    if (!at.TryGetValue(k, out List<float3> l))
+                        at[k] = l = new List<float3>();
+                    l.Add(p);
+                }
+            bool On(int c)
+            {
+                float2 q = g.World(c);
+                int cx = (int)Math.Floor(q.x / 60f), cz = (int)Math.Floor(q.y / 60f);
+                for (int dz = -1; dz <= 1; dz++)
+                    for (int dx = -1; dx <= 1; dx++)
+                        if (at.TryGetValue(Key(cx + dx, cz + dz), out List<float3> l) &&
+                            l.Any(p => math.distancesq(p.xz, q) < 30f * 30f && g.Hr[c] <= p.y + 4f))
+                            return true;
+                return false;
+            }
+            var why = new int[4];
+            PlanRun best = null;
+            softest = float.MaxValue;
+            int tries = 0;
+            foreach (int c in er.Cost.Keys.Where(c => er.Len[c] >= 300f && g.Hr[c] - g.Hr[er.Root[c]] >= 60f)
+                .OrderByDescending(c => g.Hr[c] - g.Hr[er.Root[c]]))
+            {
+                if (!On(c))
+                    continue;
+                if (++tries > 60)
+                    break;
+                List<float2> route = GreenRoute(g, plan, lifts, members, er, c, avoid, guard, why, out float soft);
+                if (route == null || soft >= softest)
+                    continue;
+                softest = soft;
+                best = new PlanRun { Pts = route, Band = SlopeBand.Green, By = lifts[members[0]], Kind = "beginner" };
+                if (soft == 0f)
+                    break;
+            }
+            if (best == null)
+                plan.Log.Add($"green branch at L{lifts[members[0]].Id}'s base: none ({tries} start(s) on the base's runs; rejected not green {why[0]}, " +
+                    $"run rules {why[1]}, crowds runs {why[2]}, along a lift line {why[3]})");
+            return best;
         }
 
         private static bool TryPod(Grid g, Plan plan, List<Lift> lifts, List<int> members, EasyReach er, PointHash avoid, ChordGuard lines, SkiGraph before)
