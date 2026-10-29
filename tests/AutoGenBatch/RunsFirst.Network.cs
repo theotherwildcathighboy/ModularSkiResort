@@ -126,8 +126,12 @@ namespace AutoGenBatch
             return added;
         }
 
+        // a link may be a graded track as a last resort (RF_NOGRADEDLINK=1: off)
+        private static readonly bool GradedLinks = Environment.GetEnvironmentVariable("RF_NOGRADEDLINK") != "1";
+
         /// <summary>A route from where the froms' skiers are to a bottom station of the tos: a cat track when the ground allows one,
-        /// else a run (blue at most but for short stretches). False when neither search meets the froms' terrain.</summary>
+        /// else a run (blue at most but for short stretches), else a track the grading tool cuts across the face (green, else a blue
+        /// diagonal), as the ways home are. False when no search meets the froms' terrain.</summary>
         [MethodImpl(MethodImplOptions.AggressiveOptimization)]
         private static bool TryLink(Grid g, Plan plan, List<Lift> lifts, SkiGraph sg, List<int> froms, List<int> tos, List<LinkSearch> done)
         {
@@ -194,10 +198,10 @@ namespace AutoGenBatch
             // over the chord share is passed over
             PointHash lines = null;
             ChordGuard guard = null;
-            foreach (int mode in new[] { 0, 1, 2 })
+            foreach (int mode in GradedLinks ? new[] { 0, 1, 2, 3, 4 } : new[] { 0, 1, 2 })
             {
-                bool asRun = mode > 0;
-                if (asRun && lines == null)
+                bool asRun = mode is 1 or 2, graded = mode > 2;
+                if ((asRun || graded) && lines == null)
                 {
                     lines = new PointHash();
                     foreach (Lift lf in lifts)
@@ -224,12 +228,12 @@ namespace AutoGenBatch
                 }
                 else
                 {
-                    er = EasyUp(g, origins, avoid, mode == 0 ? CatTrack : mode == 1 ? BlueWay : BlackWay, lines);
+                    er = EasyUp(g, origins, avoid, mode switch { 0 => CatTrack, 1 => BlueWay, 2 => BlackWay, 3 => WayGreen, _ => WayBlue }, lines);
                     if (EasyWork - work < (long)EasyBudget - work)   // ran to its end, not stopped by the budget
                         done.Add(new LinkSearch { Origins = origins, Mode = mode, Reach = er, Settled = EasyWork - work });
                 }
                 LinkWork += EasyWork - work;
-                diag.Add($"{(mode == 0 ? "cat track" : mode == 1 ? "blue run" : "black run")} reach {er.Cost.Count} cell(s)");
+                diag.Add($"{mode switch { 0 => "cat track", 1 => "blue run", 2 => "black run", 3 => "graded track", _ => "graded diagonal" }} reach {er.Cost.Count} cell(s)");
                 foreach (int c in er.Cost.Where(kv => kv.Value > 0f && On(kv.Key)).OrderBy(kv => kv.Value).Take(12).Select(kv => kv.Key))
                 {
                     List<int> cells = er.Route(c);
@@ -238,6 +242,20 @@ namespace AutoGenBatch
                     var tries = new[] { Polyline(g, cells, false), cells.ConvertAll(x => g.World(x)) };
                     foreach (List<float2> route in tries)
                     {
+                        if (graded)
+                        {
+                            if (!ConnectorOk(g, route))
+                                continue;
+                            float along = AlongGrade(g, route);
+                            if (!(along < SkiSlopeClassifier.GradeBlue - 0.01f || (mode == 4 && along < SkiSlopeClassifier.GradeBlack - 0.01f
+                                && guard.FitsAdding(Densify(route), 0, Densify(route).Count - 1))))
+                                continue;
+                            var (isRun, tBand) = TrackClass(g, route);
+                            plan.Connectors.Add(route);
+                            plan.Links.Add(route);
+                            plan.Log.Add($"link {names}: graded {(isRun ? $"{tBand} diagonal" : "green cat track")} {RunLength(route):F0} m, {RawH(g, route[0]) - RawH(g, route[route.Count - 1]):F0} m down");
+                            return true;
+                        }
                         if (!asRun)
                         {
                             if (!ConnectorOk(g, route))

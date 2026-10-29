@@ -647,9 +647,9 @@ namespace AutoGenBatch
                 int root = er.Root[x], from = -1, fail = 10;
                 List<int> froms = bottoms.Contains(root) ? PadsNear(g, root, 25f, 45f, 8) : new List<int> { root };
                 float2 b = default, t = g.World(top);
-                // or one beside any station of the base, under 30 m from it: the two share a terminal area and their ropes part there
+                // or one beside any station of the base: a terminal of its own in the same base area, its rope parting from the other's
                 foreach (int L in members)
-                    froms.AddRange(PadsNear(g, lifts[L].BottomCell, 16f, 26f, 8).Where(c => math.distance(g.World(c), lifts[L].Bottom.xz) < 29f));
+                    froms.AddRange(PadsNear(g, lifts[L].BottomCell, SpreadMinM, SpreadMinM + 14f, 8).Where(c => math.distance(g.World(c), lifts[L].Bottom.xz) < SpreadMinM + 17f));
                 froms = froms.Distinct().OrderBy(c => math.distancesq(g.World(c), t)).ToList();
                 // or a pad on the route's lower part, still at the base (lowest first)
                 List<int> along = er.Route(x);
@@ -682,7 +682,7 @@ namespace AutoGenBatch
                         fail = Math.Min(fail, 2);
                         continue;
                     }
-                    if (lifts.Any(lf => SegCrossScore(lf.Bottom.xz, lf.Top.xz, b, t)))
+                    if (lifts.Any(lf => SegCrossScore(lf.Bottom.xz, lf.Top.xz, b, t) || (NoParallel && ParallelLines(b, t, lf.Bottom.xz, lf.Top.xz))))
                     {
                         fail = Math.Min(fail, 3);
                         continue;
