@@ -172,7 +172,8 @@ namespace AutoGenBatch
             cands.Sort((a, b) => b.Value.CompareTo(a.Value));
             var taken = new PointHash();
             var takenH = new HeightHash();
-            int cap = Math.Clamp((int)Math.Round(ServeCapPerKm2 * km2), 12, 100), picks = 0;
+            // the cap per km2, and the runs of the ground each coverage lift was placed to open
+            int cap = Math.Clamp((int)Math.Round(ServeCapPerKm2 * km2), 12, 100) + (int)Math.Ceiling(ServeCapPerKm2 * lifts.Sum(lf => lf.OpensKm2)), picks = 0;
             foreach (Line l in lines)
             {
                 l.Picked = false;
@@ -394,6 +395,23 @@ namespace AutoGenBatch
                 }
                 for (int L = 0; L < lifts.Count; L++)
                     Console.WriteLine($"DEBUG L{lifts[L].Id}: reaches [{string.Join(",", sg.Reaches[L].Select(b => lifts[b].Id))}] comp {sg.Component[L]} dead {Dead(sg, L)}");
+                for (int L = 0; L < lifts.Count; L++)
+                {
+                    // which runs lie along the chord's middle (the scorecard: 30 % of the 15-85 % samples within 20 m)
+                    float2 b0 = lifts[L].Bottom.xz, t0 = lifts[L].Top.xz;
+                    float span = math.distance(b0, t0);
+                    int nS = 0;
+                    var hits = new Dictionary<int, int>();
+                    for (float f = 0.15f; f <= 0.85f; f += 10f / Math.Max(10f, span), nS++)
+                    {
+                        float2 q = math.lerp(b0, t0, f);
+                        for (int i = 0; i < plan.Runs.Count; i++)
+                            if (Densify(plan.Runs[i].Pts).Any(pp => math.distancesq(pp, q) < 400f))
+                                hits[i] = hits.TryGetValue(i, out int v) ? v + 1 : 1;
+                    }
+                    if (hits.Count > 0)
+                        Console.WriteLine($"DEBUG L{lifts[L].Id} chord ({nS} samples): " + string.Join(", ", hits.Select(kv => $"run {kv.Key} {plan.Runs[kv.Key].Kind} by L{plan.Runs[kv.Key].By?.Id} {kv.Value}")));
+                }
             }
             plan.Log.Add($"serve pass: {cands.Count} candidate(s) with a lift entry, {plan.Runs.Count} run(s) kept (cap {cap}); " +
                 $"{badChains} of {chains} traverse piece(s) fail the raw connector rules; {links} link(s) added between lifts; {spurs} spur(s) skied as the start of their run");

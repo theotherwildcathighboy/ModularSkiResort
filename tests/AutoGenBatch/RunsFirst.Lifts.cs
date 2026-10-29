@@ -35,6 +35,7 @@ namespace AutoGenBatch
             public float3 Bottom, Top;
             public int TopCell, BottomCell, TopIndex, BottomIndex;
             public float Transfer;          // credit for delivering skiers to other lifts' bottoms (over a ridge into a bowl)
+            public float OpensKm2;          // a coverage lift: the skiable ground it was placed to open
             public float Length, Rise, Gain, BottomGrade;
             public readonly List<Line> Lines = new List<Line>();
             public readonly List<List<float2>> Traverses = new List<List<float2>>();
@@ -163,7 +164,11 @@ namespace AutoGenBatch
             var entry = new List<int[]>();
             var reachB = new List<bool[]>();   // per top: which bottom candidates its reach touches
             int[] latIdx = SkiLattice(g, out int latCount);
-            var reachBits = new List<ulong[]>();   // per top: the skiable lattice points its reach touches
+            var flow = Environment.GetEnvironmentVariable("RF_NOBELOW") == "1" ? null : new LatticeFlow(g, rec, latIdx);
+            var reachBits = new List<ulong[]>();   // per top: the skiable lattice points below its reach
+            var cTops = new List<int>();           // every lattice top with a pad, picked lines in reach or not (the coverage lifts)
+            var cReachB = new List<bool[]>();
+            var cReachBits = new List<ulong[]>();
             var dist = new float[n];
             Array.Fill(dist, float.PositiveInfinity);
             var scanParent = new int[n];
@@ -194,14 +199,23 @@ namespace AutoGenBatch
                     var rb = new bool[bottoms.Count];
                     for (int b = 0; b < bottoms.Count; b++)
                         rb[b] = dist[bottoms[b]] < float.PositiveInfinity;
-                    foreach (int c in touched)
-                        dist[c] = float.PositiveInfinity;
-                    if (any)
+                    ulong[] bits;
+                    if (flow != null)
+                        bits = flow.Below(touched, latCount);
+                    else
                     {
-                        var bits = new ulong[(latCount + 63) / 64];
+                        bits = new ulong[(latCount + 63) / 64];
                         foreach (int c in touched)
                             if (latIdx[c] >= 0)
                                 bits[latIdx[c] / 64] |= 1UL << (latIdx[c] % 64);
+                    }
+                    foreach (int c in touched)
+                        dist[c] = float.PositiveInfinity;
+                    cTops.Add(t);
+                    cReachB.Add(rb);
+                    cReachBits.Add(bits);
+                    if (any)
+                    {
                         tops.Add(t);
                         entry.Add(e);
                         reachB.Add(rb);
@@ -333,7 +347,7 @@ namespace AutoGenBatch
                 lifts.Add(lift);
             }
             if (Environment.GetEnvironmentVariable("RF_NOCOVERLIFT") != "1")
-                AddCoverLifts(g, rec, lifts, tops, reachB, reachBits, bottoms, latIdx, latCount, runs, km2, slope);
+                AddCoverLifts(g, rec, lifts, cTops, cReachB, cReachBits, bottoms, latIdx, latCount, runs, km2, slope);
             if (Environment.GetEnvironmentVariable("RF_DEBUG") == "1")
                 for (int L = 0; L < lifts.Count; L++)
                 {

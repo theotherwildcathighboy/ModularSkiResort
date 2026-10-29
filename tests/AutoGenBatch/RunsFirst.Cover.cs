@@ -36,12 +36,82 @@ namespace AutoGenBatch
             return idx;
         }
 
+        /// <summary>The 20 m lattice as a drainage graph: each lattice position's next position down its fall line, highest first;
+        /// Below(cells) is the skiable lattice a skier gets to from those cells by skiing on down the fall lines.</summary>
+        private sealed class LatticeFlow
+        {
+            private readonly Grid g;
+            private readonly int s, pw, pd;
+            private readonly int[] next, order, ski;
+            private readonly bool[] mark;
+            public LatticeFlow(Grid grid, int[] rec, int[] latIdx)
+            {
+                g = grid;
+                s = Math.Max(1, (int)Math.Round(20f / g.CellM));
+                pw = (g.W - s / 2 + s - 1) / s;
+                pd = (g.D - s / 2 + s - 1) / s;
+                int m = pw * pd;
+                next = new int[m];
+                ski = new int[m];
+                mark = new bool[m];
+                var h = new float[m];
+                for (int pz = 0; pz < pd; pz++)
+                    for (int px = 0; px < pw; px++)
+                    {
+                        int pi = pz * pw + px, c = (pz * s + s / 2) * g.W + px * s + s / 2;
+                        next[pi] = -1;
+                        ski[pi] = latIdx[c];
+                        h[pi] = g.In[c] ? -g.H[c] : float.MaxValue;
+                        if (!g.In[c])
+                            continue;
+                        for (int k = 0, at = c; k < 6 * s && (at = rec[at]) >= 0; k++)
+                        {
+                            int q = Pos(at);
+                            if (q != pi)
+                            {
+                                next[pi] = q;
+                                break;
+                            }
+                        }
+                    }
+                order = new int[m];
+                for (int i = 0; i < m; i++)
+                    order[i] = i;
+                Array.Sort(h, order);
+            }
+            private int Pos(int c)
+            {
+                int x = c % g.W, z = c / g.W;
+                int px = Math.Clamp((int)Math.Round((x - s / 2) / (double)s), 0, pw - 1), pz = Math.Clamp((int)Math.Round((z - s / 2) / (double)s), 0, pd - 1);
+                return pz * pw + px;
+            }
+            public ulong[] Below(List<int> cells, int latCount)
+            {
+                Array.Clear(mark, 0, mark.Length);
+                foreach (int c in cells)
+                    mark[Pos(c)] = true;
+                foreach (int pi in order)
+                    if (mark[pi] && next[pi] >= 0)
+                        mark[next[pi]] = true;
+                var bits = new ulong[(latCount + 63) / 64];
+                for (int pi = 0; pi < mark.Length; pi++)
+                    if (mark[pi] && ski[pi] >= 0)
+                        bits[ski[pi] / 64] |= 1UL << (ski[pi] % 64);
+                return bits;
+            }
+        }
+
         private static int AddCoverLifts(Grid g, int[] rec, List<Lift> lifts, List<int> tops, List<bool[]> reachB, List<ulong[]> reachBits,
             List<int> bottoms, int[] latIdx, int latCount, PointHash runs, float km2, float[] slope)
         {
             int n = g.W * g.D, B = bottoms.Count, wb = (B + 63) / 64, wl = (latCount + 63) / 64;
+            float cellKm2 = (float)Math.Pow(Math.Max(1, (int)Math.Round(20f / g.CellM)) * g.CellM, 2) / 1e6f;   // ground per lattice point
             int budget = (int)Math.Ceiling(1.5 * km2) + 2 - 2;   // two left for the beginner pods
             if (lifts.Count == 0 || lifts.Count >= budget || B == 0)
+                return 0;
+            foreach (Lift lf in lifts)
+                lf.TopIndex = tops.IndexOf(lf.TopCell);   // from here on the index of the top in this (wider) list
+            if (lifts.Exists(lf => lf.TopIndex < 0))
                 return 0;
 
             // per cell, the bottoms its drainage passes (within ReturnM, from no more than 15 m below the station): lowest cells first
@@ -105,6 +175,32 @@ namespace AutoGenBatch
                 }
             int added = 0;
             bool debug = Environment.GetEnvironmentVariable("RF_DEBUG") == "1";
+            // a station skiers get to: a skiable lattice point within 30 m lies below a placed top
+            bool BelowPlaced(int c)
+            {
+                int x0 = c % g.W, z0 = c / g.W, k = (int)Math.Ceiling(30f / g.CellM);
+                for (int dz = -k; dz <= k; dz++)
+                    for (int dx = -k; dx <= k; dx++)
+                    {
+                        int x = x0 + dx, z = z0 + dz;
+                        if (x < 0 || z < 0 || x >= g.W || z >= g.D)
+                            continue;
+                        int i = latIdx[z * g.W + x];
+                        if (i >= 0 && (reached[i / 64] & (1UL << (i % 64))) != 0)
+                            return true;
+                    }
+                return false;
+            }
+            if (debug)
+            {
+                int hc = 0, rc = 0;
+                for (int w = 0; w < wl; w++)
+                {
+                    hc += BitOperations.PopCount(homes[w]);
+                    rc += BitOperations.PopCount(reached[w]);
+                }
+                Console.WriteLine($"DEBUG cover lifts: {latCount} skiable lattice points, {rc} below a placed top, {hc} draining past a placed bottom; {B} bottom candidate(s), {tops.Count} top(s)");
+            }
             while (lifts.Count < budget)
             {
                 var open = new ulong[wl];
@@ -132,10 +228,10 @@ namespace AutoGenBatch
                         float rise = g.H[t] - g.H[bc];
                         if (rise < 95f || rise > 888f || math.distancesq(g.World(t), g.World(bc)) > 3000f * 3000f)
                             continue;
-                        bool into = false, home = back;
+                        // skiers get to the station down the fall lines from a placed top
+                        bool into = BelowPlaced(bc), home = back;
                         foreach (Lift lf in lifts)
                         {
-                            into |= reachB[lf.TopIndex][b] || math.distancesq(lf.Bottom.xz, g.World(bc)) < 150f * 150f;
                             home |= (passes[bc * wb + lf.BottomIndex / 64] & (1UL << (lf.BottomIndex % 64))) != 0;
                         }
                         pairs++;
@@ -171,6 +267,7 @@ namespace AutoGenBatch
                         Id = lifts.Count + 1, Type = type, TopCell = t, BottomCell = bc, TopIndex = ti, BottomIndex = b,
                         Top = new float3(g.World(t).x, g.H[t], g.World(t).y), Bottom = new float3(g.World(bc).x, g.H[bc], g.World(bc).y),
                         BottomGrade = slope[bc],
+                        OpensKm2 = gain * cellKm2,
                     };
                     lift.Rise = lift.Top.y - lift.Bottom.y;
                     lift.Length = math.distance(lift.Top, lift.Bottom);
