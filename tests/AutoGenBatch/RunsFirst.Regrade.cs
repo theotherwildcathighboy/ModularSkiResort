@@ -167,6 +167,7 @@ namespace AutoGenBatch
             public bool[] Home, Live, Green;
             public Dictionary<object, (bool Reached, bool Returns)> Els;   // by plan run and connector (a piece changed or taken out is not compared)
             public int Net;
+            public float EasyHi;   // scorecard v4: the highest top an intermediate skis home from
 
             public static SkiRead Of(Grid g, Plan plan, List<Lift> lifts)
             {
@@ -181,6 +182,7 @@ namespace AutoGenBatch
                     Live = Enumerable.Range(0, lifts.Count).Select(L => sg.Skied[L].Any(i => sg.IsRun[i] && sg.Returns[i])).ToArray(),
                     Els = els,
                     Net = sg.BestSize,
+                    EasyHi = EasyHi(g, sg, lifts, root, bases),
                     Green = bases.OrderBy(b => b).Select(b => BaseHasGreen(sg, plan, lifts, Enumerable.Range(0, lifts.Count).Where(L => root[L] == b).ToList())).ToArray(),
                 };
             }
@@ -189,7 +191,7 @@ namespace AutoGenBatch
             public bool Loses(SkiRead after)
             {
                 bool Lost(bool[] x, bool[] y) => x.Length != y.Length || x.Where((v, i) => v && !y[i]).Any();
-                if (after.Net < Net || Lost(Home, after.Home) || Lost(Live, after.Live) || Lost(Green, after.Green))
+                if (after.Net < Net || after.EasyHi < EasyHi - 1f || Lost(Home, after.Home) || Lost(Live, after.Live) || Lost(Green, after.Green))
                     return true;
                 foreach (var kv in Els)
                     if (after.Els.TryGetValue(kv.Key, out var now) && (kv.Value.Reached && !now.Reached || kv.Value.Returns && !now.Returns))

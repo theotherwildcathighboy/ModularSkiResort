@@ -78,7 +78,7 @@ namespace AutoGenBatch
 
         /// <summary>Per element: it is green or blue and leads a skier who holds to green and blue home (to a base lift's bottom, or to
         /// a gondola or tram top to ride down).</summary>
-        private static bool[] HomeElements(SkiGraph sg, List<Lift> lifts, int[] root, HashSet<int> bases)
+        private static bool[] HomeElements(SkiGraph sg, List<Lift> lifts, int[] root, HashSet<int> bases, int notTop = -1)
         {
             int m = sg.P.Count;
             var home = new bool[m];
@@ -87,7 +87,7 @@ namespace AutoGenBatch
                 changed = false;
                 for (int i = 0; i < m; i++)
                     if (!home[i] && sg.Band[i] <= SlopeBand.Blue && (sg.AtBottom[i].Any(M => bases.Contains(root[M]))
-                        || sg.Delivers[i].Any(M => Aerial(lifts[M].Type) && !sg.AtBottom[i].Contains(M)) || sg.Next[i].Any(j => home[j])))
+                        || sg.Delivers[i].Any(M => M != notTop && Aerial(lifts[M].Type) && !sg.AtBottom[i].Contains(M)) || sg.Next[i].Any(j => home[j])))
                         home[i] = changed = true;
             }
             return home;
@@ -126,6 +126,32 @@ namespace AutoGenBatch
             return ok;
         }
 
+        /// <summary>Scorecard v4's way home per lift: an easy (green or blue) route from its top home, with no shortcut for a gondola or
+        /// tram (riding down from its own top is not an intermediate way down).</summary>
+        private static bool[] EasyHomeV4(SkiGraph sg, List<Lift> lifts, int[] root, HashSet<int> bases)
+        {
+            bool[] home = HomeElements(sg, lifts, root, bases);
+            var ok = new bool[lifts.Count];
+            for (int L = 0; L < lifts.Count; L++)
+                ok[L] = EasyFrom(sg, lifts, L, SlopeBand.Blue).Any(i => home[i]);
+            return ok;
+        }
+
+        /// <summary>The highest lift top (raw height) an intermediate skis home from, as scorecard v4 reads the plan (-inf: none).</summary>
+        private static float EasyHi(Grid g, SkiGraph sg, List<Lift> lifts, int[] root, HashSet<int> bases)
+        {
+            bool[] ok = EasyHomeV4(sg, lifts, root, bases);
+            float hi = float.NegativeInfinity;
+            for (int L = 0; L < lifts.Count; L++)
+                if (ok[L])
+                    hi = Math.Max(hi, RawH(g, lifts[L].Top.xz));
+            return hi;
+        }
+
+        // round v3's rule (every lift needs an easy way home: way-home tracks from every top, download gondolas, stranded lifts taken
+        // out); scorecard v4 reads experts-only lifts as normal, so it is off (RF_V3HOME=1 turns it back on)
+        private static readonly bool V3Home = Environment.GetEnvironmentVariable("RF_V3HOME") == "1";
+
         /// <summary>A lift still without an easy way home is a download lift: its riders ride it down, so it is a gondola, or a tram
         /// where the grade needs one, when the norms fit with a margin and its chord crosses no other gondola or tram. Returns the
         /// lifts changed.</summary>
@@ -138,7 +164,9 @@ namespace AutoGenBatch
             for (int L = 0; L < lifts.Count; L++)
             {
                 Lift lf = lifts[L];
-                if (ok[L] || Aerial(lf.Type))
+                // v4: an experts-only lift is normal; only a lift with no ski-out at all (nothing from its top comes back to a lift)
+                // rides down
+                if (ok[L] || Aerial(lf.Type) || !V3Home && sg.Skied[L].Any(i => sg.Returns[i]))
                     continue;
                 float rise = RawH(g, lf.Top.xz) - RawH(g, lf.Bottom.xz), len = math.length(new float2(math.distance(lf.Bottom.xz, lf.Top.xz), rise));
                 string type = DownloadType(g, lifts, L);
@@ -174,7 +202,7 @@ namespace AutoGenBatch
                 var share = new float[lifts.Count];
                 int L = Enumerable.Range(0, lifts.Count).FirstOrDefault(i => !tried.Contains(lifts[i]) && (chords
                     ? (share[i] = ChordShareV3(lifts[i], els, out _)) > ChordShareMax || CrossesKind(lifts, lifts[i])
-                    : !ok[i] || !sg.Skied[i].Any(e => sg.IsRun[e] && sg.Returns[e])), -1);
+                    : (V3Home && !ok[i]) || !sg.Skied[i].Any(e => sg.IsRun[e] && sg.Returns[e])), -1);
                 if (L < 0)
                     break;
                 Lift lf = lifts[L];
@@ -269,9 +297,23 @@ namespace AutoGenBatch
             return type;
         }
 
+        // only the way down from the peak (RF_WAYPEAK=1): the lifts below it get no way-home track of their own
+        private static readonly bool WayPeakOnly = Environment.GetEnvironmentVariable("RF_WAYPEAK") == "1";
+
+        /// <summary>The easy ways home: a track from every lift's top that has none (a gondola or tram top counts as home there, its
+        /// riders ride down), then, for scorecard v4, the way down from the peak (a gondola or tram top needs one of its own).
+        /// Returns the tracks added.</summary>
+        private static int AddWaysHome(Grid g, Plan plan, List<Lift> lifts)
+        {
+            int added = WayPeakOnly ? 0 : AddLiftWaysHome(g, plan, lifts);
+            if (!V3Home)
+                added += AddPeakWayHome(g, plan, lifts);
+            return added;
+        }
+
         /// <summary>Adds a way-home cat track from the top of every lift that has none; returns the tracks added.</summary>
         [MethodImpl(MethodImplOptions.AggressiveOptimization)]
-        private static int AddWaysHome(Grid g, Plan plan, List<Lift> lifts)
+        private static int AddLiftWaysHome(Grid g, Plan plan, List<Lift> lifts)
         {
             int added = 0, blue = 0;
             var used = new HashSet<int>();   // cells of the tracks this pass emitted (a later track ends where it meets one)
@@ -373,6 +415,111 @@ namespace AutoGenBatch
             bool[] okA = WayHomeOk(after, lifts, rootA, basesA);
             plan.Log.Add($"way home: {added} track(s) added ({blue} blue), {okA.Count(x => x)} of {lifts.Count} lift(s) with a way home" +
                 (okA.All(x => x) ? "" : $" (none from {string.Join(", ", Enumerable.Range(0, lifts.Count).Where(L => !okA[L]).Select(L => "L" + lifts[L].Id))})"));
+            return added;
+        }
+
+        /// <summary>Scorecard v4: a resort strives for an intermediate way down from at least one of its peaks. The highest lift top
+        /// without an easy way home gets one: the uphill search from home (base lift bottoms, other gondola and tram tops to ride down,
+        /// the easy skiing already leading home) takes the shortest route under the blue limits first (a blue diagonal where it takes
+        /// pitches past the blue line), then the green ones. Where none fits, the next highest top; one is enough, and the lifts below
+        /// it may stay experts-only. Returns the tracks added.</summary>
+        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        private static int AddPeakWayHome(Grid g, Plan plan, List<Lift> lifts)
+        {
+            var tried = new HashSet<Lift>();
+            int added = 0;
+            for (int round = 0; round < 6 && !Late; round++)
+            {
+                SkiGraph sg = Ski(g, plan, lifts);
+                int[] root = V3Bases(g, lifts, out HashSet<int> bases);
+                bool[] ok = EasyHomeV4(sg, lifts, root, bases);
+                float easyHi = float.NegativeInfinity;
+                for (int L = 0; L < lifts.Count; L++)
+                    if (ok[L])
+                        easyHi = Math.Max(easyHi, RawH(g, lifts[L].Top.xz));
+                int T = Enumerable.Range(0, lifts.Count).Where(L => !ok[L] && !tried.Contains(lifts[L]) && RawH(g, lifts[L].Top.xz) > easyHi + 1f)
+                    .OrderByDescending(L => RawH(g, lifts[L].Top.xz)).FirstOrDefault(-1);
+                if (T < 0)
+                    break;
+                tried.Add(lifts[T]);
+                // home, less the lift's own top: riding down from where the skier stands is not a way down
+                bool[] homeEl = HomeElements(sg, lifts, root, bases, T);
+                var origins = new List<int>();
+                for (int M = 0; M < lifts.Count; M++)
+                {
+                    if (bases.Contains(root[M]))
+                        origins.Add(lifts[M].BottomCell);
+                    if (M != T && Aerial(lifts[M].Type))
+                        origins.Add(lifts[M].TopCell);
+                }
+                for (int i = 0; i < sg.P.Count; i++)
+                    if (homeEl[i])
+                        for (int k = 0; k < sg.P[i].Length; k += 3)
+                        {
+                            int c = CellOf(g, sg.P[i][k].xz);
+                            if (c >= 0 && g.In[c] && !float.IsNaN(g.Hr[c]))
+                                origins.Add(c);
+                        }
+                origins = origins.Distinct().ToList();
+                var avoid = new PointHash();
+                foreach (PlanRun r in plan.Runs)
+                    foreach (float2 p in r.Pts)
+                        avoid.Add(p);
+                var lines = new PointHash();
+                foreach (Lift lf in lifts)
+                    for (float f = 0.15f; f <= 0.85f; f += 10f / math.max(10f, math.distance(lf.Bottom.xz, lf.Top.xz)))
+                        lines.Add(math.lerp(lf.Bottom.xz, lf.Top.xz, f));
+                var guard = new ChordGuard(lifts);
+                for (int i = 0; i < sg.P.Count; i++)
+                    if (sg.IsRun[i])
+                        guard.Add(i < sg.Runs ? plan.Runs[i].Pts : plan.Connectors[i - sg.Runs], 0, (i < sg.Runs ? plan.Runs[i].Pts : plan.Connectors[i - sg.Runs]).Count - 1);
+                float2 top = lifts[T].Top.xz;
+                float topH = RawH(g, top);
+                List<float2> track = null;
+                foreach (EasyLimits lim in new[] { WayBlue, WayGreen })
+                {
+                    EasyReach er = EasyUp(g, origins, avoid, lim, lines);
+                    var starts = er.Cost.Where(kv => kv.Value > 0f && math.distancesq(g.World(kv.Key), top) < WayStartM * WayStartM && g.Hr[kv.Key] <= topH + 3f)
+                        .OrderBy(kv => kv.Value).Take(8).Select(kv => kv.Key).ToList();
+                    foreach (int s0 in starts)
+                    {
+                        List<int> cells = er.Route(s0);
+                        if (cells.Count < 3)
+                            continue;
+                        foreach (List<float2> pl in new[] { Polyline(g, cells, false), cells.ConvertAll(c => g.World(c)) })
+                        {
+                            if (!ConnectorOk(g, pl))
+                                continue;
+                            float along = AlongGrade(g, pl);
+                            if (along < SkiSlopeClassifier.GradeBlue - 0.01f || (lim.SteepPitch > GreenRawPitch && along < SkiSlopeClassifier.GradeBlack - 0.01f
+                                && guard.FitsAdding(Densify(pl), 0, Densify(pl).Count - 1)))
+                            {
+                                track = pl;
+                                break;
+                            }
+                        }
+                        if (track != null)
+                            break;
+                    }
+                    if (track != null)
+                        break;
+                }
+                if (track == null)
+                {
+                    plan.Log.Add($"way down from the peak: none fits from L{lifts[T].Id}'s top ({topH:F0} m)");
+                    continue;
+                }
+                var (run, band) = TrackClass(g, track);
+                plan.Connectors.Add(track);
+                plan.Links.Add(track);
+                added++;
+                plan.Log.Add($"way down from the peak, L{lifts[T].Id}'s top ({topH:F0} m): {(run ? $"{band} diagonal" : "green cat track")} {RunLength(track):F0} m, " +
+                    $"{RawH(g, track[0]) - RawH(g, track[track.Count - 1]):F0} m down");
+            }
+            SkiGraph after = Ski(g, plan, lifts);
+            int[] rootA = V3Bases(g, lifts, out HashSet<int> basesA);
+            float hiA = EasyHi(g, after, lifts, rootA, basesA), topA = lifts.Count > 0 ? lifts.Max(lf => RawH(g, lf.Top.xz)) : 0f;
+            plan.Log.Add($"way down from the peak: {added} track(s) added; easy from {(float.IsNegativeInfinity(hiA) ? "no top" : $"{hiA:F0} m")} of the highest top's {topA:F0} m");
             return added;
         }
     }
