@@ -20,6 +20,9 @@ namespace AutoGenBatch
         private const float StationMax = 0.34f;   // raw 10 m grade a station pad may sit on (the scorecard flags over 0.40)
         private static readonly float TopLatticeM = Env("RF_LAT", 100f), ReturnM = Env("RF_RET", 150f);
         private static readonly float ReachBudget = Env("RF_RBUDGET", 15e6f);   // cells the top lattice's reach searches may visit
+        // a lattice point with no pad within 30 m takes the flattest pad within this reach (about half the lattice diagonal, so
+        // every pad on a steep ridge belongs to some lattice point), as a top for the coverage lifts only
+        private static readonly float PadReachM = Env("RF_PADR", 70f);
         private const float MarginalShare = 0.1f;   // a lift worth less than this share of the first is marginal
         private const float HubLinkM = 150f, BenchGrade = 0.25f, MinLapM = 60f;
         private const float TowerLiftM = 20f;
@@ -178,17 +181,23 @@ namespace AutoGenBatch
             // the lattice in levels, coarse to fine (400 m, its centers, 200 m, its centers, 100 m): on wide gentle ground every
             // top reaches most of the region, so a finer level is scanned only while the reach work stays in budget (a gentle
             // 9 km2 valley would take seconds); the tops keep the lattice order
-            var lattice = new List<(int Order, int Level, int T)>();
+            var lattice = new List<(int Order, int Level, int T, bool Far)>();
             for (int z = step / 2, j = 0, order = 0; z < g.D; z += step, j++)
                 for (int x = step / 2, i = 0; x < g.W; x += step, i++, order++)
                 {
                     int t = z * g.W + x;
-                    if (!g.In[t] || (t = FlatCell(g, t, 30f)) < 0)
+                    if (!g.In[t])
+                        continue;
+                    int pad = FlatCell(g, t, 30f);
+                    bool far = pad < 0 && PadReachM > 30f;
+                    if (far)
+                        pad = FlatCell(g, t, PadReachM);
+                    if ((t = pad) < 0)
                         continue;
                     int level = i % 4 == 0 && j % 4 == 0 ? 0 : i % 4 == 2 && j % 4 == 2 ? 1 : i % 2 == 0 && j % 2 == 0 ? 2 : i % 2 == 1 && j % 2 == 1 ? 3 : 4;
-                    lattice.Add((order, level, t));
+                    lattice.Add((order, level, t, far));
                 }
-            var scanned = new SortedDictionary<int, (int T, int[] E, bool Any, bool[] Rb, ulong[] Bits)>();
+            var scanned = new SortedDictionary<int, (int T, int[] E, bool Any, bool[] Rb, ulong[] Bits, bool Far)>();
             long work = 0;
             int levels = 0;
             for (; levels < 5; levels++)
@@ -199,7 +208,7 @@ namespace AutoGenBatch
                     Console.WriteLine($"TIME tops level {levels}: {at.Count} top(s), {projected / 1e6:F2} M cells projected");
                 if (projected > ReachBudget)
                     break;
-                foreach (var (order, _, t) in at)
+                foreach (var (order, _, t, far) in at)
                 {
                     List<int> touched = Reach(g, slope, t, dist, scanParent);
                     work += touched.Count;
@@ -235,17 +244,17 @@ namespace AutoGenBatch
                     }
                     foreach (int c in touched)
                         dist[c] = float.PositiveInfinity;
-                    scanned[order] = (t, e, any, rb, bits);
+                    scanned[order] = (t, e, any, rb, bits, far);
                 }
             }
-            foreach (var (t, e, any, rb, bits) in scanned.Values)
+            foreach (var (t, e, any, rb, bits, far) in scanned.Values)
             {
                 cTops.Add(t);
                 if (Environment.GetEnvironmentVariable("RF_TOPS") == "1")
                     DebugDots.Add((g.World(t), any ? 0 : 255, any ? 255 : 0, 255));
                 cReachB.Add(rb);
                 cReachBits.Add(bits);
-                if (any)
+                if (any && !far)
                 {
                     tops.Add(t);
                     entry.Add(e);
