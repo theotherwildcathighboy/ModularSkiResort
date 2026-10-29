@@ -43,8 +43,7 @@ namespace AutoGenBatch
             ("fixed-grip", 300f, 1500f, 95f, 512f, 0.8f),
             ("detachable", 600f, 2200f, 95f, 512f, 0.9f),
             ("gondola", 800f, 2700f, 96f, 781f, 1.2f),
-            ("tram", 800f, 3000f, 220f, 888f, 2.5f),
-            ("surface", 100f, 1200f, 10f, 300f, 0.6f),   // carpet / T-bar / platter for beginner pods
+            ("tram", 800f, 3000f, 220f, 888f, 2.5f),   // the mod has no surface lifts: a beginner pod is a fixed-grip chair
         };
 
         private sealed class Elem
@@ -212,6 +211,11 @@ namespace AutoGenBatch
                 if (n > 0 && near > 0.3f * n)
                     Bad($"{name}: {100 * near / n}% of the chord's middle lies on a run");
             }
+            // lift budget: 1.5 per km2 + 2 (Snowmass runs about 1.6 per km2 of skiable terrain)
+            double km2 = Area(ring) / 1e6;
+            int budget = (int)Math.Ceiling(1.5 * km2) + 2;
+            for (int i = budget; i < lifts.Count; i++)
+                Bad($"lift {i + 1}: over the lift budget of {budget} for {km2:F1} km2");
             r.Violations = violations;
             r.Validity = (float)Math.Exp(-violations / 10.0);
 
@@ -459,6 +463,14 @@ namespace AutoGenBatch
             if (math.distance(a, c) < 30f || math.distance(a, d) < 30f || math.distance(b, c) < 30f || math.distance(b, d) < 30f)
                 return false;   // shared stations are not a crossing
             return S(a, b, c) * S(a, b, d) < 0f && S(c, d, a) * S(c, d, b) < 0f;
+        }
+
+        private static double Area(float2[] r)
+        {
+            double a = 0.0;
+            for (int i = 0, j = r.Length - 1; i < r.Length; j = i++)
+                a += (double)r[j].x * r[i].y - (double)r[i].x * r[j].y;
+            return Math.Abs(a) * 0.5;
         }
 
         private static bool InsideRing(float2[] r, float2 p)
