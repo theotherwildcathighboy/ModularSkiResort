@@ -47,7 +47,6 @@ namespace AutoGenBatch
             private readonly Grid g;
             private readonly int s, pw, pd;
             private readonly int[] next, order, ski;
-            private readonly bool[] mark;
             public LatticeFlow(Grid grid, int[] rec, int[] latIdx)
             {
                 g = grid;
@@ -57,7 +56,6 @@ namespace AutoGenBatch
                 int m = pw * pd;
                 next = new int[m];
                 ski = new int[m];
-                mark = new bool[m];
                 var h = new float[m];
                 for (int pz = 0; pz < pd; pz++)
                     for (int px = 0; px < pw; px++)
@@ -89,7 +87,9 @@ namespace AutoGenBatch
                 int px = Math.Clamp((int)Math.Round((x - s / 2) / (double)s), 0, pw - 1), pz = Math.Clamp((int)Math.Round((z - s / 2) / (double)s), 0, pd - 1);
                 return pz * pw + px;
             }
-            public ulong[] Below(List<int> cells, int latCount)
+            public bool[] NewMark() => new bool[next.Length];
+            /// <summary>The skiable lattice points on or below the cells, marked in the caller's buffer (one per thread).</summary>
+            public ulong[] Below(List<int> cells, int latCount, bool[] mark)
             {
                 Array.Clear(mark, 0, mark.Length);
                 foreach (int c in cells)

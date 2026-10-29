@@ -5,10 +5,12 @@
 // Greedy by new vertical served; stacked lifts fall out of it (a lower lift is credited with the lower parts of long lines).
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Text;
+using System.Threading.Tasks;
 using Unity.Mathematics;
 
 namespace AutoGenBatch
@@ -23,6 +25,7 @@ namespace AutoGenBatch
         // a lattice point with no pad within 30 m takes the flattest pad within this reach (about half the lattice diagonal, so
         // every pad on a steep ridge belongs to some lattice point), as a top for the coverage lifts only
         private static readonly float PadReachM = Env("RF_PADR", 70f);
+        private static readonly int ScanThreads = Math.Max(1, (int)Env("RF_THREADS", 4f));   // threads for the top lattice's reach scan
         private const float MarginalShare = 0.1f;   // a lift worth less than this share of the first is marginal
         private const float HubLinkM = 150f, BenchGrade = 0.25f, MinLapM = 60f;
         private const float TowerLiftM = 20f;
@@ -177,7 +180,6 @@ namespace AutoGenBatch
             var cReachBits = new List<ulong[]>();
             var dist = new float[n];
             Array.Fill(dist, float.PositiveInfinity);
-            var scanParent = new int[n];
             // the lattice in levels, coarse to fine (400 m, its centers, 200 m, its centers, 100 m): on wide gentle ground every
             // top reaches most of the region, so a finer level is scanned only while the reach work stays in budget (a gentle
             // 9 km2 valley would take seconds); the tops keep the lattice order
@@ -200,6 +202,15 @@ namespace AutoGenBatch
             var scanned = new SortedDictionary<int, (int T, int[] E, bool Any, bool[] Rb, ulong[] Bits, bool Far)>();
             long work = 0;
             int levels = 0;
+            // each top's reach is independent of the others, so a level's tops are scanned on a few threads, each with its own
+            // search buffers (the plan is the same on any thread count)
+            var buffers = new ConcurrentBag<(float[] Dist, int[] Parent, bool[] Mark)>();
+            (float[] Dist, int[] Parent, bool[] Mark) NewBuffers()
+            {
+                var d = new float[n];
+                Array.Fill(d, float.PositiveInfinity);
+                return (d, new int[n], flow?.NewMark());
+            }
             for (; levels < 5; levels++)
             {
                 var at = lattice.FindAll(p => p.Level == levels);
@@ -208,43 +219,53 @@ namespace AutoGenBatch
                     Console.WriteLine($"TIME tops level {levels}: {at.Count} top(s), {projected / 1e6:F2} M cells projected");
                 if (projected > ReachBudget)
                     break;
-                foreach (var (order, _, t, far) in at)
-                {
-                    List<int> touched = Reach(g, slope, t, dist, scanParent);
-                    work += touched.Count;
-                    var e = new int[lines.Count];
-                    bool any = false;
-                    for (int li = 0; li < lines.Count; li++)
+                var found = new (int[] E, bool Any, bool[] Rb, ulong[] Bits, int Work)[at.Count];
+                Parallel.For(0, at.Count, new ParallelOptions { MaxDegreeOfParallelism = ScanThreads },
+                    () => buffers.TryTake(out var b) ? b : NewBuffers(),
+                    (i, _, buf) =>
                     {
-                        e[li] = -1;
-                        List<float3> pts = lines[li].Pts;
-                        for (int k = 0; k < pts.Count; k++)
+                        float[] reached = buf.Dist;
+                        List<int> touched = Reach(g, slope, at[i].T, reached, buf.Parent);
+                        var e = new int[lines.Count];
+                        bool any = false;
+                        for (int li = 0; li < lines.Count; li++)
                         {
-                            int c = CellOf(g, pts[k].xz);
-                            if (c >= 0 && dist[c] < float.PositiveInfinity)
+                            e[li] = -1;
+                            List<float3> pts = lines[li].Pts;
+                            for (int k = 0; k < pts.Count; k++)
                             {
-                                e[li] = k;
-                                any = true;
-                                break;
+                                int c = CellOf(g, pts[k].xz);
+                                if (c >= 0 && reached[c] < float.PositiveInfinity)
+                                {
+                                    e[li] = k;
+                                    any = true;
+                                    break;
+                                }
                             }
                         }
-                    }
-                    var rb = new bool[bottoms.Count];
-                    for (int b = 0; b < bottoms.Count; b++)
-                        rb[b] = dist[bottoms[b]] < float.PositiveInfinity;
-                    ulong[] bits;
-                    if (flow != null)
-                        bits = flow.Below(touched, latCount);
-                    else
-                    {
-                        bits = new ulong[(latCount + 63) / 64];
+                        var rb = new bool[bottoms.Count];
+                        for (int b = 0; b < bottoms.Count; b++)
+                            rb[b] = reached[bottoms[b]] < float.PositiveInfinity;
+                        ulong[] bits;
+                        if (flow != null)
+                            bits = flow.Below(touched, latCount, buf.Mark);
+                        else
+                        {
+                            bits = new ulong[(latCount + 63) / 64];
+                            foreach (int c in touched)
+                                if (latIdx[c] >= 0)
+                                    bits[latIdx[c] / 64] |= 1UL << (latIdx[c] % 64);
+                        }
                         foreach (int c in touched)
-                            if (latIdx[c] >= 0)
-                                bits[latIdx[c] / 64] |= 1UL << (latIdx[c] % 64);
-                    }
-                    foreach (int c in touched)
-                        dist[c] = float.PositiveInfinity;
-                    scanned[order] = (t, e, any, rb, bits, far);
+                            reached[c] = float.PositiveInfinity;
+                        found[i] = (e, any, rb, bits, touched.Count);
+                        return buf;
+                    },
+                    buf => buffers.Add(buf));
+                for (int i = 0; i < at.Count; i++)
+                {
+                    work += found[i].Work;
+                    scanned[at[i].Order] = (at[i].T, found[i].E, found[i].Any, found[i].Rb, found[i].Bits, at[i].Far);
                 }
             }
             foreach (var (t, e, any, rb, bits, far) in scanned.Values)
