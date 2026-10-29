@@ -346,6 +346,10 @@ namespace AutoGenBatch
             if (Environment.GetEnvironmentVariable("RF_NOCHORD") != "1" && Environment.GetEnvironmentVariable("RF_NOCHORDTRACK") != "1")
                 ClearChordTracks(g, plan, lifts);
             Tick("chord tracks");
+            // a line still on runs after all that goes, where its runs are other lifts' runs too and the skiing loses nothing else
+            if (Environment.GetEnvironmentVariable("RF_NOCHORD") != "1" && Environment.GetEnvironmentVariable("RF_NOCHORDDROP") != "1")
+                DropStrandedLifts(g, plan, lifts, cands, true);
+            Tick("chord drop");
             // a diagonal stub piece joins the piece it runs into
             if (Environment.GetEnvironmentVariable("RF_NOMERGE") != "1")
                 MergeStubPieces(g, plan, lifts);

@@ -159,8 +159,9 @@ namespace AutoGenBatch
         /// serves no one (runs and tracks no other lift's skiers reach, runs that came home only to its bottom), where the rest of the
         /// ski graph loses nothing: every other lift keeps its way home and its served runs, the links hold (the largest linked set
         /// loses at most the lift itself), the bases keep their share of green laps, and every element left keeps being reached and
-        /// coming home. Returns the lifts taken out.</summary>
-        private static int DropStrandedLifts(Grid g, Plan plan, List<Lift> lifts, List<Cand> cands)
+        /// coming home. With chords set (after the chord repairs): a lift whose line still lies along runs (the scorecard's
+        /// chord-on-run test), taken out only where every run it serves is another lift's run too. Returns the lifts taken out.</summary>
+        private static int DropStrandedLifts(Grid g, Plan plan, List<Lift> lifts, List<Cand> cands, bool chords = false)
         {
             int dropped = 0;
             var tried = new HashSet<Lift>();
@@ -169,20 +170,23 @@ namespace AutoGenBatch
                 SkiGraph sg = Ski(g, plan, lifts);
                 int[] root = V3Bases(g, lifts, out HashSet<int> bases);
                 bool[] ok = WayHomeOk(sg, lifts, root, bases);
-                int L = Enumerable.Range(0, lifts.Count).FirstOrDefault(i => !tried.Contains(lifts[i])
-                    && (!ok[i] || !sg.Skied[i].Any(e => sg.IsRun[e] && sg.Returns[e])), -1);
+                var els = chords ? ChordEls(g, plan) : null;
+                var share = new float[lifts.Count];
+                int L = Enumerable.Range(0, lifts.Count).FirstOrDefault(i => !tried.Contains(lifts[i]) && (chords
+                    ? (share[i] = ChordShareV3(lifts[i], els, out _)) > ChordShareMax
+                    : !ok[i] || !sg.Skied[i].Any(e => sg.IsRun[e] && sg.Returns[e])), -1);
                 if (L < 0)
                     break;
                 Lift lf = lifts[L];
                 tried.Add(lf);
-                string why = ok[L] ? "no served run" : "no way home and no download";
+                string why = chords ? $"its line lies along runs, {100 * share[L]:F0} % of its middle" : ok[L] ? "no served run" : "no way home and no download";
                 SkiRead before = SkiRead.Of(g, plan, lifts);
                 var served = new Dictionary<object, bool>();
                 for (int i = 0; i < sg.P.Count; i++)
                     served[i < sg.Runs ? plan.Runs[i] : (object)plan.Connectors[i - sg.Runs]] = sg.Reached[i] && sg.Returns[i];
                 var (runs, conns, links) = (plan.Runs.ToList(), plan.Connectors.ToList(), plan.Links.ToList());
                 lifts.RemoveAt(L);
-                int gone = 0;
+                int gone = 0, goneRuns = 0;
                 for (int round = 0; round < 8; round++)
                 {
                     SkiGraph s2 = Ski(g, plan, lifts);
@@ -196,12 +200,12 @@ namespace AutoGenBatch
                     if (drop.Count == 0)
                         break;
                     gone += drop.Count;
-                    plan.Runs.RemoveAll(r => drop.Contains(r));
+                    goneRuns += plan.Runs.RemoveAll(r => drop.Contains(r));
                     plan.Connectors.RemoveAll(c => drop.Contains(c));
                     plan.Links.RemoveAll(c => drop.Contains(c));
                 }
                 SkiRead after = SkiRead.Of(g, plan, lifts);
-                bool lost = after.Net < before.Net - 1
+                bool lost = chords && goneRuns > 0 || after.Net < before.Net - 1
                     || after.Green.Count(x => x) * before.Green.Length < before.Green.Count(x => x) * after.Green.Length;
                 for (int M = 0, k = 0; M < before.Home.Length && !lost; M++)
                     if (M != L)
@@ -221,7 +225,7 @@ namespace AutoGenBatch
                     plan.Runs.AddRange(runs);
                     plan.Connectors.AddRange(conns);
                     plan.Links.AddRange(links);
-                    plan.Log.Add($"L{lf.Id} ({why}) stays: taking it out would cost the rest of the skiing");
+                    plan.Log.Add($"L{lf.Id} ({why}) stays: {(chords && goneRuns > 0 ? $"{goneRuns} run(s) only it serves would go" : "taking it out would cost the rest of the skiing")}");
                     continue;
                 }
                 dropped++;
