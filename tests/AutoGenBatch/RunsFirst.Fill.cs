@@ -67,7 +67,7 @@ namespace AutoGenBatch
                     if (xx < 0 || zz < 0 || xx >= g.W || zz >= g.D)
                         continue;
                     int nb = zz * g.W + xx;
-                    if (!g.In[nb] || float.IsNaN(g.Hr[nb]))
+                    if (float.IsNaN(g.Hr[nb]))
                         continue;
                     float d = (g.H[nb] - g.H[c]) / ((k & 1) == 1 ? 1.4142f : 1f);
                     if (up ? d > 0.05f && g.H[nb] > bh : d < -0.05f && g.H[nb] < bh)
@@ -76,7 +76,8 @@ namespace AutoGenBatch
                         bh = g.H[nb];
                     }
                 }
-                return best;
+                // a fall line that leaves the region ends at its edge instead of sliding along it
+                return best >= 0 && g.In[best] ? best : -1;
             }
             for (int i = 0; i < lat.Count; i++)
             {
