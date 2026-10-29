@@ -285,6 +285,7 @@ namespace AutoGenBatch
                 links += LinkLifts(g, plan, lifts, reachOf, need, ref chains, ref badChains);
                 links += LinkByRoutes(g, plan, lifts);
             }
+            int spurs = Environment.GetEnvironmentVariable("RF_NOSPUR") == "1" ? 0 : MergeSpurs(g, plan, lifts);
             if (Environment.GetEnvironmentVariable("RF_NOPOD") != "1")
                 AddBeginnerPods(g, plan, lifts);
             if (Environment.GetEnvironmentVariable("RF_DEBUG") == "1")
@@ -311,7 +312,7 @@ namespace AutoGenBatch
                     Console.WriteLine($"DEBUG L{lifts[L].Id}: reaches [{string.Join(",", sg.Reaches[L].Select(b => lifts[b].Id))}] comp {sg.Component[L]} dead {Dead(sg, L)}");
             }
             plan.Log.Add($"serve pass: {cands.Count} candidate(s) with a lift entry, {plan.Runs.Count} run(s) kept (cap {cap}); " +
-                $"{badChains} of {chains} traverse piece(s) fail the raw connector rules; {links} link(s) added between lifts");
+                $"{badChains} of {chains} traverse piece(s) fail the raw connector rules; {links} link(s) added between lifts; {spurs} spur(s) skied as the start of their run");
             return plan;
         }
 
@@ -349,6 +350,28 @@ namespace AutoGenBatch
                 return true;
             }
 
+            /// <summary>For a run added late, with all runs already in: only the lift lines it would itself bring onto (or further over)
+            /// the share count; a line the serve pass already gave over to runs does not block a run elsewhere.</summary>
+            public bool FitsAdding(List<float2> pts, int from, int to)
+            {
+                for (int L = 0; L < mid.Count; L++)
+                {
+                    int n = 0;
+                    bool adds = false;
+                    for (int k = 0; k < mid[L].Length; k++)
+                        if (hit[L][k])
+                            n++;
+                        else if (Near(pts, from, to, mid[L][k]))
+                        {
+                            n++;
+                            adds = true;
+                        }
+                    if (adds && n > ShareMax * mid[L].Length)
+                        return false;
+                }
+                return true;
+            }
+
             /// <summary>The lift lines this run takes over the share stop being guarded.</summary>
             public void Spend(List<float2> pts, int from, int to)
             {
@@ -379,6 +402,80 @@ namespace AutoGenBatch
                         return true;
                 return false;
             }
+        }
+
+        /// <summary>The last piece of traverse into a run (from the trunk's fork down to where the run starts) is skied as the run's own
+        /// first stretch: the skier leaves the cat track and skis on. Only the stretch clear of other runs joins (two runs leaving one
+        /// fork side by side stay on the cat track until they part), and only when the joined run keeps the run rules and stays off
+        /// the lift lines; the rest stays a traverse. Returns the spurs merged.</summary>
+        private static int MergeSpurs(Grid g, Plan plan, List<Lift> lifts)
+        {
+            const float clearM = 44f, minM = 30f;
+            var guard = new ChordGuard(lifts);
+            foreach (PlanRun r in plan.Runs)
+                guard.Add(r.Pts, 0, r.Pts.Count - 1);
+            // every run's points in 60 m buckets, with the run they belong to
+            var at = new Dictionary<long, List<(float2 P, PlanRun R)>>();
+            static long Key(int x, int z) => ((long)x << 32) ^ (uint)z;
+            void Put(float2 p, PlanRun r)
+            {
+                long k = Key((int)Math.Floor(p.x / 60f), (int)Math.Floor(p.y / 60f));
+                if (!at.TryGetValue(k, out var l))
+                    at[k] = l = new List<(float2, PlanRun)>();
+                l.Add((p, r));
+            }
+            bool Crowded(float2 p, PlanRun self)
+            {
+                int cx = (int)Math.Floor(p.x / 60f), cz = (int)Math.Floor(p.y / 60f);
+                for (int dz = -1; dz <= 1; dz++)
+                    for (int dx = -1; dx <= 1; dx++)
+                        if (at.TryGetValue(Key(cx + dx, cz + dz), out var l) && l.Any(q => q.R != self && math.distancesq(q.P, p) < clearM * clearM))
+                            return true;
+                return false;
+            }
+            foreach (PlanRun r in plan.Runs)
+                foreach (float2 p in Densify(r.Pts))
+                    Put(p, r);
+            var links = new HashSet<List<float2>>(plan.Links);
+            int merged = 0;
+            foreach (PlanRun r in plan.Runs)
+            {
+                float2 entry = g.World(CellOf(g, r.Pts[0]));
+                int ci = plan.Connectors.FindIndex(c => !links.Contains(c) && math.distancesq(c[c.Count - 1], entry) < 1f);
+                if (ci < 0)
+                {
+                    if (Environment.GetEnvironmentVariable("RF_DEBUG") == "1")
+                        Console.WriteLine($"DEBUG spur: run by L{r.By?.Id} at {r.Pts[0].x:F0},{r.Pts[0].y:F0}: no traverse ends there (nearest end " +
+                            $"{plan.Connectors.Select(c => math.distance(c[c.Count - 1], r.Pts[0])).DefaultIfEmpty(-1f).Min():F0} m, top {math.distance(r.By.Top.xz, r.Pts[0]):F0} m)");
+                    continue;
+                }
+                List<float2> spur = Densify(plan.Connectors[ci]);
+                int cut = spur.Count - 1;
+                while (cut > 0 && !Crowded(spur[cut - 1], r))
+                    cut--;
+                if (RunLength(spur.GetRange(cut, spur.Count - cut)) < minM)
+                    continue;
+                var pts = spur.GetRange(cut, spur.Count - 1 - cut);
+                pts.AddRange(r.Pts);
+                List<float2> ok = SanitizeRun(g, pts);
+                if (ok == null || ok.Count < Densify(pts).Count || !guard.FitsAdding(pts, 0, spur.Count - 1 - cut))
+                {
+                    if (Environment.GetEnvironmentVariable("RF_DEBUG") == "1")
+                        Console.WriteLine($"DEBUG spur: run by L{r.By?.Id}: {(ok == null ? "no run" : ok.Count < Densify(pts).Count ? $"cut to {ok.Count}/{Densify(pts).Count}" : "lift line")}");
+                    continue;
+                }
+                guard.Add(pts, 0, spur.Count - 1 - cut);
+                for (int i = cut; i < spur.Count - 1; i++)
+                    Put(spur[i], r);
+                r.Pts = ok;
+                r.Band = RunBand(g, ok);
+                if (cut > 0)
+                    plan.Connectors[ci] = spur.GetRange(0, cut + 1);
+                else
+                    plan.Connectors.RemoveAt(ci);
+                merged++;
+            }
+            return merged;
         }
 
         /// <summary>A run cut where it would climb (ends at its low point before the climb) or before a pitch over the run maximum,

@@ -261,7 +261,7 @@ namespace AutoGenBatch
             var guard = new ChordGuard(lifts);
             foreach (PlanRun r in plan.Runs)
                 guard.Add(r.Pts, 0, r.Pts.Count - 1);
-            if (!guard.Fits(route, 0, route.Count - 1))
+            if (!guard.FitsAdding(route, 0, route.Count - 1))
             {
                 why[3]++;
                 soft = true;
