@@ -40,6 +40,7 @@ namespace AutoGenBatch
             public readonly List<List<float2>> Connectors = new List<List<float2>>();
             public readonly List<List<float2>> Links = new List<List<float2>>();   // cat tracks between lifts (not in a traverse tree)
             public readonly List<string> Log = new List<string>();
+            public readonly List<(float2 P, int R, int G, int B)> Dots = new List<(float2, int, int, int)>();   // RF_DEBUG marks for the render
         }
 
         /// <summary>A candidate line as the serve pass sees it: its way down (the line, then its drainage, points every 10 m at

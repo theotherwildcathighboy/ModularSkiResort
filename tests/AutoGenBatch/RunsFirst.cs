@@ -846,6 +846,11 @@ namespace AutoGenBatch
                         Label(right, (int)p0.x + 8, (int)p0.y - 6, r.Src.Pick);
                 }
 
+            foreach (var (p, cr, cg, cb) in built.Dots)
+            {
+                float2 q = fromWorld(p);
+                right.Disc(q.x, q.y, 2f, (cr, cg, cb));
+            }
             foreach (Lift lf in lifts)
             {
                 var pl = new List<float2> { fromWorld(lf.Bottom.xz), fromWorld(lf.Top.xz) };

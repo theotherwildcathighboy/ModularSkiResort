@@ -1,11 +1,13 @@
 // RunsFirst beginner terrain (prototype): every real base has a learning zone. For each base (lift bottoms in the low third of the
 // region) with no green way home, the planner searches uphill from the base: from its stations and from flat spots on the last
 // 400 m of the runs that come home to it, over ground an easy run can wind down (raw 30 m pitches green but for a few short
-// stretches, no climb a run may not make). If that ground reaches the top of a lift of the base, the winding route is the green
-// way down from it. Otherwise a short fixed-grip chair (the mod has no surface lifts; its norms: 300-1500 m, 95-512 m rise) goes
-// from a pad the route ends at to the cheapest point that clears the norms: flat stations, the rope clear of the ground, no
-// crossing, neither chord on a run; the winding route is its green run. A pod whose station no run of the base passes would
-// split the lift network, so one that keeps it whole wins.
+// stretches, no climb a run may not make), away from other runs and lift lines where it can. If that ground reaches the top of a
+// lift of the base, the winding route is the green way down from it (a route that runs onto a run whose rest is a green run-out
+// home may end there). Otherwise a short fixed-grip chair (the mod has no surface lifts; its norms: 300-1500 m, 95-512 m rise)
+// goes from a pad the route ends at, or one beside a station of the base, to the cheapest point that clears the norms: flat
+// stations, the rope clear of the ground, no crossing, 40 m off the other ropes, neither chord on a run; the winding route is its
+// green run. A pod whose station no run of the base passes would split the lift network, so one that keeps it whole wins. Last, a
+// green way down that shares its valley with other runs (or a lift line) beats a base with no beginner terrain at all.
 
 using System;
 using System.Collections.Generic;
@@ -101,11 +103,26 @@ namespace AutoGenBatch
                     foreach (float2 p in r.Pts)
                         avoid.Add(p);
                 List<int> origins = BaseOrigins(g, plan, lifts, members, sg);
-                EasyReach er = EasyUp(g, origins, avoid, GreenWay);
-                if (TryWayDown(g, plan, lifts, members, er, avoid))
+                // the middle of every lift line, which a green route should not follow either
+                var lines = new PointHash();
+                foreach (Lift lf in lifts)
+                    for (float f = 0.15f; f <= 0.85f; f += 10f / math.max(10f, math.distance(lf.Bottom.xz, lf.Top.xz)))
+                        lines.Add(math.lerp(lf.Bottom.xz, lf.Top.xz, f));
+                EasyReach er = EasyUp(g, origins, avoid, GreenWay, lines);
+                var guard = new ChordGuard(lifts);
+                foreach (PlanRun r in plan.Runs)
+                    guard.Add(r.Pts, 0, r.Pts.Count - 1);
+                // a clean green way down first, then a pod with its own green run, then a way down that shares its valley
+                if (TryWayDown(g, plan, lifts, members, er, avoid, guard, out PlanRun shared))
                     ways++;
-                else if (TryPod(g, plan, lifts, members, er, avoid, sg))
+                else if (TryPod(g, plan, lifts, members, er, avoid, guard, sg))
                     pods++;
+                else if (shared != null)
+                {
+                    plan.Runs.Add(shared);
+                    plan.Log.Add($"green way down from L{shared.By.Id}'s top (along other runs or a lift line): {RunLength(shared.Pts):F0} m");
+                    ways++;
+                }
                 else
                     failed.Add(key);
             }
@@ -216,11 +233,12 @@ namespace AutoGenBatch
 
         /// <summary>The winding route from a reached cell down to its origin as a green run, or null when it does not hold up: the
         /// band on the raw terrain, the run rules, mostly away from other runs (the last 200 m into the base aside) and off every lift
-        /// line. why: 0 not green, 1 run rules, 2 crowds runs, 3 along a lift line. soft: the route crowds other runs (up to 55 %)
-        /// or lies along a lift line; a caller may still take it when nothing clean exists (a lost base costs more than either).</summary>
-        private static List<float2> GreenRoute(Grid g, Plan plan, List<Lift> lifts, EasyReach er, int x, PointHash avoid, int[] why, out bool soft)
+        /// line. why: 0 not green, 1 run rules, 2 crowds runs, 3 along a lift line. soft (0 = clean): the share of the route along other
+        /// runs when over 35 % (up to 70 %), plus 1 when it lies along a lift line; a caller may still take the softest when nothing
+        /// clean exists (a base without beginner terrain costs more than either).</summary>
+        private static List<float2> GreenRoute(Grid g, Plan plan, List<Lift> lifts, List<int> members, EasyReach er, int x, PointHash avoid, ChordGuard guard, int[] why, out float soft)
         {
-            soft = false;
+            soft = 0f;
             List<int> cells = er.Route(x);
             List<float2> route = Polyline(g, cells, false);
             if (RunBand(g, route) != SlopeBand.Green)
@@ -239,6 +257,36 @@ namespace AutoGenBatch
                 return null;
             }
             route = ok;
+            float share = CrowdShare(route, avoid);
+            if (share > 0.35f)
+            {
+                // a route that runs onto a run in a valley it shares can end there when that run's way on is a green run-out to the
+                // base: the skier follows it home
+                List<float2> joined = JoinRunOut(g, plan, lifts, members, route, avoid);
+                if (joined != null)
+                {
+                    route = joined;
+                    share = CrowdShare(route, avoid);
+                }
+            }
+            if (share > 0.35f)
+            {
+                why[2]++;
+                if (share > 0.70f)
+                    return null;
+                soft = share;
+            }
+            if (!guard.FitsAdding(route, 0, route.Count - 1))
+            {
+                why[3]++;
+                soft += 1f;
+            }
+            return route;
+        }
+
+        /// <summary>The share of a route's samples within 40 m of a run (the last 200 m, where it comes home, left out).</summary>
+        private static float CrowdShare(List<float2> route, PointHash avoid)
+        {
             int crowd = 0, counted = 0;
             float along = RunLength(route), at = 0f;
             for (int i = 0; i < route.Count; i++)
@@ -251,45 +299,71 @@ namespace AutoGenBatch
                 if (avoid.Near(route[i], 40f))
                     crowd++;
             }
-            if (crowd > 0.35f * Math.Max(1, counted))
-            {
-                why[2]++;
-                if (crowd > 0.55f * Math.Max(1, counted))
-                    return null;
-                soft = true;
-            }
-            var guard = new ChordGuard(lifts);
-            foreach (PlanRun r in plan.Runs)
-                guard.Add(r.Pts, 0, r.Pts.Count - 1);
-            if (!guard.FitsAdding(route, 0, route.Count - 1))
-            {
-                why[3]++;
-                soft = true;
-            }
-            return route;
+            return crowd / (float)Math.Max(1, counted);
         }
 
-        /// <summary>A green way down from the top of a lift of the base, when the easy ground reaches it.</summary>
-        private static bool TryWayDown(Grid g, Plan plan, List<Lift> lifts, List<int> members, EasyReach er, PointHash avoid)
+        /// <summary>The route (top first) cut where it first comes onto a run (25 m) whose rest is green and passes a station of the
+        /// base, with that run's point as its end; null when it meets none past its first 250 m or keeps under 60 m of drop.</summary>
+        private static List<float2> JoinRunOut(Grid g, Plan plan, List<Lift> lifts, List<int> members, List<float2> route, PointHash avoid)
+        {
+            float at = 0f;
+            int tries = 0;
+            for (int i = 1; i < route.Count && tries < 12; i++)
+            {
+                at += math.distance(route[i - 1], route[i]);
+                if (at < 250f || !avoid.Near(route[i], 25f))
+                    continue;
+                tries++;
+                foreach (PlanRun r in plan.Runs)
+                {
+                    int k = -1;
+                    float best = 25f * 25f;
+                    for (int j = 0; j < r.Pts.Count; j++)
+                    {
+                        float d2 = math.distancesq(r.Pts[j], route[i]);
+                        if (d2 < best)
+                        {
+                            best = d2;
+                            k = j;
+                        }
+                    }
+                    if (k < 0 || k > r.Pts.Count - 3)
+                        continue;
+                    List<float2> rest = r.Pts.GetRange(k, r.Pts.Count - k);
+                    if (!members.Any(L => rest.Skip(1).Any(p => math.distancesq(p, lifts[L].Bottom.xz) < 55f * 55f)) || RunBand(g, rest) != SlopeBand.Green)
+                        continue;
+                    var o = route.GetRange(0, i);
+                    o.Add(r.Pts[k]);
+                    if (RawH(g, o[0]) - RawH(g, o[o.Count - 1]) < 60f || SanitizeRun(g, o) is not { } sane || sane.Count < Densify(o).Count)
+                        continue;
+                    return o;
+                }
+            }
+            return null;
+        }
+
+        /// <summary>A green way down from the top of a lift of the base, when the easy ground reaches it; shared = the softest one
+        /// that shares its ground with other runs or a lift line (not added) when no clean one exists.</summary>
+        private static bool TryWayDown(Grid g, Plan plan, List<Lift> lifts, List<int> members, EasyReach er, PointHash avoid, ChordGuard guard, out PlanRun shared)
         {
             var why = new int[4];
-            List<float2> second = null;
-            Lift secondBy = null;
+            shared = null;
+            float softest = float.MaxValue;
             foreach (int L in members)
             {
                 float2 top = lifts[L].Top.xz;
                 var near = er.Cost.Where(kv => math.distancesq(g.World(kv.Key), top) < 120f * 120f).OrderBy(kv => kv.Value).Take(40).ToList();
                 foreach (var kv in near)
                 {
-                    List<float2> route = GreenRoute(g, plan, lifts, er, kv.Key, avoid, why, out bool soft);
+                    List<float2> route = GreenRoute(g, plan, lifts, members, er, kv.Key, avoid, guard, why, out float soft);
                     if (route == null)
                         continue;
-                    if (soft)
+                    if (soft > 0f)
                     {
-                        if (second == null)
+                        if (soft < softest)
                         {
-                            second = route;
-                            secondBy = lifts[L];
+                            softest = soft;
+                            shared = new PlanRun { Pts = route, Band = SlopeBand.Green, By = lifts[L], Kind = "beginner" };
                         }
                         continue;
                     }
@@ -298,24 +372,24 @@ namespace AutoGenBatch
                     return true;
                 }
             }
-            if (second != null)
-            {
-                plan.Runs.Add(new PlanRun { Pts = second, Band = SlopeBand.Green, By = secondBy, Kind = "beginner" });
-                plan.Log.Add($"green way down from L{secondBy.Id}'s top (along other runs or a lift line): {RunLength(second):F0} m");
-                return true;
-            }
             if (why.Sum() > 0)
                 plan.Log.Add($"green way down: rejected not green {why[0]}, run rules {why[1]}, crowds runs {why[2]}, along a lift line {why[3]}");
             return false;
         }
 
-        private static bool TryPod(Grid g, Plan plan, List<Lift> lifts, List<int> members, EasyReach er, PointHash avoid, SkiGraph before)
+        private static bool TryPod(Grid g, Plan plan, List<Lift> lifts, List<int> members, EasyReach er, PointHash avoid, ChordGuard lines, SkiGraph before)
         {
             var bottoms = new HashSet<int>(lifts.Select(lf => lf.BottomCell));
             var cands = er.Cost.Where(kv => er.Len[kv.Key] <= PodRouteMaxM && g.Hr[kv.Key] - g.Hr[er.Root[kv.Key]] >= PodMinRise)
                 .OrderBy(kv => kv.Value).Select(kv => kv.Key).ToList();
             int checkedTops = 0, netChecks = 0;
+            var topsSeen = new HashSet<int>();
             var why = new int[10];
+            bool dbg = Environment.GetEnvironmentVariable("RF_DEBUG") == "1";
+            if (dbg)
+                foreach (int c in er.Cost.Keys)
+                    if (er.Len[c] <= PodRouteMaxM)
+                        plan.Dots.Add((g.World(c), 120, 255, 255));
             Lift fallback = null;
             PlanRun fallbackRun = null;
             float shareBefore = lifts.Count > 0 ? before.BestSize / (float)lifts.Count : 0f;
@@ -329,11 +403,17 @@ namespace AutoGenBatch
                     why[0]++;
                     continue;
                 }
+                // a top station already judged from the cheapest route to it
+                if (!topsSeen.Add(top))
+                    continue;
                 // the bottom station: the pad the route ends at, or one beside the lift station it ends at (the first that works)
                 int root = er.Root[x], from = -1, fail = 10;
                 List<int> froms = bottoms.Contains(root) ? PadsNear(g, root, 25f, 45f, 8) : new List<int> { root };
                 float2 b = default, t = g.World(top);
-                froms = froms.OrderBy(c => math.distancesq(g.World(c), t)).ToList();
+                // or one beside any station of the base, under 30 m from it: the two share a terminal area and their ropes part there
+                foreach (int L in members)
+                    froms.AddRange(PadsNear(g, lifts[L].BottomCell, 16f, 26f, 8).Where(c => math.distance(g.World(c), lifts[L].Bottom.xz) < 29f));
+                froms = froms.Distinct().OrderBy(c => math.distancesq(g.World(c), t)).ToList();
                 // or a pad on the route's lower part, still at the base (lowest first)
                 List<int> along = er.Route(x);
                 for (int i = along.Count - 1; i >= 0; i -= 6)
@@ -370,8 +450,25 @@ namespace AutoGenBatch
                         fail = Math.Min(fail, 3);
                         continue;
                     }
+                    // past its first 15 % (where it may leave a shared terminal area) the rope keeps 40 m off every other rope
+                    bool apart = true;
+                    for (float f = 0.15f; f <= 1f && apart; f += 20f / math.max(20f, plan2))
+                    {
+                        float2 q = math.lerp(b, t, f);
+                        apart = lifts.All(lf => SegDist(q, lf.Bottom.xz, lf.Top.xz) >= 40f);
+                    }
+                    if (!apart)
+                    {
+                        fail = Math.Min(fail, 3);
+                        continue;
+                    }
                     from = fc;
                     break;
+                }
+                if (dbg)
+                {
+                    var col = from >= 0 ? (0, 255, 0) : fail == 1 ? (180, 0, 255) : fail == 2 ? (255, 140, 0) : fail == 3 ? (255, 0, 0) : (128, 128, 128);
+                    plan.Dots.Add((g.World(x), col.Item1, col.Item2, col.Item3));
                 }
                 if (from < 0)
                 {
@@ -379,8 +476,8 @@ namespace AutoGenBatch
                     continue;
                 }
                 var rw = new int[4];
-                List<float2> route = GreenRoute(g, plan, lifts, er, x, avoid, rw, out bool softRoute);
-                if (route == null || softRoute)
+                List<float2> route = GreenRoute(g, plan, lifts, members, er, x, avoid, lines, rw, out float softRoute);
+                if (route == null || softRoute > 0f)
                 {
                     for (int k = 0; k < 4; k++)
                         why[4 + k] += rw[k];
@@ -449,8 +546,8 @@ namespace AutoGenBatch
         /// <summary>Uphill search from the origin cells over ground an easy run can come down: per 7 m step the skier's descent is at
         /// most EasyEdgeMax (smoothed) and the climb tiny; on the raw terrain the route never climbs EasyClimbM over a point below
         /// it (the run rule's 10 m, less a margin), no ~30 m pitch exceeds EasyRawMax, and pitches over a green grade stay a small
-        /// share (the band reads the 85th percentile). Routes along other runs cost more.</summary>
-        private static EasyReach EasyUp(Grid g, List<int> origins, PointHash avoid, EasyLimits lim)
+        /// share (the band reads the 85th percentile). Routes along other runs, or along the given lift lines, cost more.</summary>
+        private static EasyReach EasyUp(Grid g, List<int> origins, PointHash avoid, EasyLimits lim, PointHash lines = null)
         {
             var er = new EasyReach();
             var pq = new PriorityQueue<int, float>();
@@ -504,7 +601,7 @@ namespace AutoGenBatch
                     float ns = er.Steep[c] + (steep ? len : 0f);
                     if (ns > lim.SteepShare * nl + 10f)
                         continue;
-                    float nd = d + len * (steep ? 4f : 1f) * (nl > 150f && avoid.Near(pn, 40f) ? 3f : 1f);
+                    float nd = d + len * (steep ? 4f : 1f) * (nl > 150f && avoid.Near(pn, 40f) ? 3f : 1f) * (lines != null && lines.Near(pn, 25f) ? 3f : 1f);
                     if (er.Cost.TryGetValue(nb, out float old) && nd >= old)
                         continue;
                     er.Len[nb] = nl;
