@@ -222,8 +222,8 @@ namespace AutoGenBatch
         }
 
         // how far a station may move across its line: 100 m against 60 m moved three more stations 70-80 m (visible 97.64 -> 97.69,
-        // 80 % outlines 95.50 -> 95.72)
-        private const float NudgeMaxM = 100f;
+        // 80 % outlines 95.50 -> 95.72); 150 m one more, 120 m (ft5-r2 L5 off the summit station it shared: visible 97.69 -> 97.80)
+        private const float NudgeMaxM = 150f;
 
         /// <summary>A lift line whose middle still lies along runs (or that crosses another lift of its kind) moves instead of the
         /// runs: the whole line shifted across itself, or swung about one station, up to NudgeMaxM, the smallest move first. A move is
