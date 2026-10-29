@@ -65,6 +65,7 @@ namespace AutoGenBatch
         private static Plan BuildPlan(Grid g, int[] rec, List<Line> lines, List<Lift> lifts, float km2)
         {
             var plan = new Plan();
+            WayDbg = Environment.GetEnvironmentVariable("RF_WHDBG") == "1" ? (g, plan, lifts) : null;
             plan.Dots.AddRange(DebugDots);
             DebugDots.Clear();
             int n = g.W * g.D;
@@ -457,7 +458,7 @@ namespace AutoGenBatch
                     {
                         PlanRun r = plan.Runs[i];
                         Console.WriteLine($"DEBUG run #{r.Src?.Pick} by L{r.By?.Id}: reached {sg.Reached[i]} returns {sg.Returns[i]}, start {r.Pts[0].x:F0},{r.Pts[0].y:F0} " +
-                            $"end {r.Pts[r.Pts.Count - 1].x:F0},{r.Pts[r.Pts.Count - 1].y:F0} merge {r.Src?.Merge} top-dist {math.distance(r.By.Top.xz, r.Pts[0]):F0}");
+                            $"end {r.Pts[r.Pts.Count - 1].x:F0},{r.Pts[r.Pts.Count - 1].y:F0} merge {r.Src?.Merge} top-dist {(r.By != null ? math.distance(r.By.Top.xz, r.Pts[0]) : -1f):F0}");
                     }
                 for (int L = 0; L < lifts.Count && L < reachOf.Length; L++)
                 {

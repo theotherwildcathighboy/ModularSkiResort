@@ -172,7 +172,15 @@ namespace AutoGenBatch
         {
             if (Timing)
                 Console.WriteLine($"TIME {what} {Clock.ElapsedMilliseconds} ms (easy {EasyWork}, links {LinkWork})");
+            // RF_WHDBG: the lifts without a way home after each stage of the plan
+            if (WayDbg != null)
+            {
+                var (g, plan, lifts) = WayDbg.Value;
+                bool[] ok = WayHomeOk(Ski(g, plan, lifts), lifts, V3Bases(g, lifts, out HashSet<int> bases), bases);
+                Console.WriteLine($"WHDBG {what}: none from " + string.Join(" ", Enumerable.Range(0, lifts.Count).Where(L => !ok[L]).Select(L => "L" + lifts[L].Id)));
+            }
         }
+        private static (Grid, Plan, List<Lift>)? WayDbg;
 
         private static void RunRegion(string id, float2[] ring, HeightmapFile file, string outDir)
         {
