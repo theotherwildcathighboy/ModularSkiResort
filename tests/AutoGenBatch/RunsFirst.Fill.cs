@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using SkiResortMod.Systems;
 using Unity.Mathematics;
 
 namespace AutoGenBatch
@@ -147,6 +148,49 @@ namespace AutoGenBatch
                 });
             }
             return o;
+        }
+
+        private const float DiagGrade = 0.30f;   // the grade a diagonal blue run holds along its path (blue reads 0.25 to 0.40)
+
+        /// <summary>The smoothed ground's gradient at p (rise per meter along x and z).</summary>
+        private static float2 GradVec(Grid g, float2 p)
+        {
+            float e = 2f * g.CellM;
+            return new float2(HeightAt(g, p + new float2(e, 0f)) - HeightAt(g, p - new float2(e, 0f)),
+                HeightAt(g, p + new float2(0f, e)) - HeightAt(g, p - new float2(0f, e))) / (2f * e);
+        }
+
+        /// <summary>A diagonal from p across the slope to one side, holding DiagGrade down the smoothed ground (straight down where the
+        /// ground is gentler, turning at most 45 degrees per 10 m), until it comes within 30 m of a run 120 m or more on, or to a lift
+        /// bottom; null when it leaves the region, turns back on itself or runs 1.5 km.</summary>
+        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        private static List<float2> DiagonalTrace(Grid g, float2 p, int side, PointHash runs, List<Lift> lifts)
+        {
+            var pts = new List<float2> { p };
+            float2 prev = 0f;
+            for (int step = 1; step <= 150; step++)
+            {
+                float2 gr = GradVec(g, p);
+                float m = math.length(gr);
+                if (m < 0.02f)
+                    return null;
+                float2 f = -gr / m, c = side * new float2(-f.y, f.x);
+                float2 dir = m <= DiagGrade ? f : math.sqrt(1f - DiagGrade * DiagGrade / (m * m)) * c + DiagGrade / m * f;
+                if (step > 1 && math.dot(dir, prev) < 0.707f)
+                    dir = math.normalize(prev + dir);
+                prev = dir;
+                p += 10f * dir;
+                int cell = CellOf(g, p);
+                if (cell < 0 || !g.In[cell] || float.IsNaN(RawH(g, p)))
+                    return null;
+                for (int k = 0; k < pts.Count - 8; k++)
+                    if (math.distancesq(pts[k], p) < 400f)
+                        return null;
+                pts.Add(p);
+                if ((step >= 12 && runs.Near(p, 30f)) || lifts.Exists(lf => math.distancesq(lf.Bottom.xz, p) < 1600f))
+                    return pts;
+            }
+            return null;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveOptimization)]
@@ -515,7 +559,142 @@ namespace AutoGenBatch
                 opened += fresh;
                 km += RunLength(pts) / 1000f;
             }
+            // diagonal blue runs (scorecard v3): a graded track that holds a blue grade across a face opens the wedge two converging
+            // fall lines leave; from a point a skier is on it traverses down at a steady grade until it meets a run or a lift bottom
+            int diagonals = 0, traces = 0, traced = 0;
+            float diagKm = 0f;
+            var dwhy = new int[8];
+            var diagRuns = new List<PlanRun>();
+            if (Environment.GetEnvironmentVariable("RF_NODIAG") != "1" && have < 0.62f * lat.Count)
+            {
+                var dq = new PriorityQueue<List<float2>, int>();
+                var seenStart = new PointHash();
+                foreach (List<float3> l in on.Values)
+                    foreach (float3 p in l)
+                    {
+                        if (seenStart.Near(p.xz, 45f) || GradeAt(g, p.xz) < DiagGrade + 0.04f)
+                            continue;
+                        seenStart.Add(p.xz);
+                        foreach (int side in new[] { -1, 1 })
+                        {
+                            List<float2> tr = DiagonalTrace(g, p.xz, side, runs, lifts);
+                            traces++;
+                            if (tr != null)
+                                traced++;
+                            if (tr != null && DiagEval(tr, out int f0) != null)
+                                dq.Enqueue(tr, -f0);
+                        }
+                    }
+                while (dq.TryDequeue(out List<float2> tr, out _) && have < 0.62f * lat.Count)
+                {
+                    List<float2> pts = DiagEval(tr, out int fresh);
+                    if (pts == null)
+                        continue;
+                    if (dq.TryPeek(out _, out int nextKey) && fresh < -nextKey)
+                    {
+                        dq.Enqueue(tr, -fresh);
+                        continue;
+                    }
+                    var run = new PlanRun { Pts = pts, Band = SlopeBand.Blue, By = null, Kind = "diagonal", Graded = true };
+                    plan.Runs.Add(run);
+                    diagRuns.Add(run);
+                    List<float3> P = Sampled(g, pts);
+                    int first = smp.Count;
+                    var ownHit = new bool[P.Count];
+                    for (int k = 0; k < P.Count; k++)
+                    {
+                        int kk = k;
+                        Crowds(P[k].xz, -1, j =>
+                        {
+                            ownHit[kk] = true;
+                            if (!smp[j].Tail)
+                                crowdedS[j] = true;
+                        });
+                    }
+                    AddSamples(P);
+                    for (int k = 0; k < P.Count; k++)
+                        crowdedS[first + k] = ownHit[k] && k < P.Count - 15;
+                    guard.Add(pts, 0, pts.Count - 1);
+                    foreach (float3 p in P)
+                    {
+                        AddOn(p);
+                        runs.Add(p.xz);
+                        Open(p.xz);
+                    }
+                    diagonals++;
+                    if (Environment.GetEnvironmentVariable("RF_DEBUG") == "1")
+                        Console.WriteLine($"DEBUG diagonal {RunLength(pts):F0} m from {pts[0].x:F0},{pts[0].y:F0} to {pts[pts.Count - 1].x:F0},{pts[pts.Count - 1].y:F0}, {fresh} new lattice points");
+                    opened += fresh;
+                    diagKm += RunLength(pts) / 1000f;
+                }
+            }
+            if (Environment.GetEnvironmentVariable("RF_DEBUG") == "1")
+                Console.WriteLine($"DEBUG diagonals: {traces} trace(s), {traced} reached a run or station; not a run {dwhy[0]}, past blue {dwhy[1]}, connector rules {dwhy[2]}, " +
+                    $"short {dwhy[3]}, crowded {dwhy[4]}, little new ground {dwhy[5]}, crowding costs more {dwhy[6]}, lift chord {dwhy[7]}");
+            // a diagonal's case for a trail: a blue diagonal run by the scorecard's reading, within the connector rules, not a stub,
+            // opening enough new ground for its length and more than the crowding it brings costs, clear of the lift chords
+            List<float2> DiagEval(List<float2> pts, out int fresh)
+            {
+                fresh = 0;
+                var (isRun, band) = TrackClass(g, pts);
+                if (!isRun || band != SlopeBand.Blue)
+                {
+                    dwhy[isRun ? 1 : 0]++;
+                    return null;
+                }
+                if (!ConnectorOk(g, pts))
+                {
+                    dwhy[2]++;
+                    return null;
+                }
+                float len = RunLength(pts);
+                if (len < FillMinM || RawH(g, pts[0]) - RawH(g, pts[pts.Count - 1]) < FillDropM)
+                {
+                    dwhy[3]++;
+                    return null;
+                }
+                List<float2> d = Densify(pts);
+                int tail = Math.Max(1, d.Count - 15), crowded = 0;
+                for (int k = 0; k < tail; k++)
+                    if (runs.Near(d[k], FillCrowdM))
+                        crowded++;
+                if (crowded > FillCrowdShare * tail)
+                {
+                    dwhy[4]++;
+                    return null;
+                }
+                stampNow++;
+                int n = 0;
+                foreach (float2 p in d)
+                    Around(p, i =>
+                    {
+                        if (!covered[i] && stamp[i] != stampNow)
+                        {
+                            stamp[i] = stampNow;
+                            n++;
+                        }
+                    });
+                fresh = n;
+                if (n < FillNewMin || n < FillNewPerM * len)
+                {
+                    dwhy[5]++;
+                    return null;
+                }
+                if (n < FillCrowdTrade * CrowdCost(pts) * lat.Count / Math.Max(1, nonTail))
+                {
+                    dwhy[6]++;
+                    return null;
+                }
+                if (!guard.FitsAdding(pts, 0, pts.Count - 1))
+                {
+                    dwhy[7]++;
+                    return null;
+                }
+                return pts;
+            }
+
             // a fill run the ski graph does not carry back to a lift (or that no skier reaches) goes again
+            mine.AddRange(diagRuns);
             for (int round = 0; round < 3 && mine.Count > 0; round++)
             {
                 SkiGraph after = Ski(g, plan, lifts);
@@ -535,9 +714,10 @@ namespace AutoGenBatch
                 mine.RemoveAll(drop.Contains);
                 added -= drop.Count;
             }
-            int faces = mine.Count(r => r.Src.Family == "face");
-            plan.Log.Add($"coverage fill: {added} run(s) ({faces} down a face, {fed} from a cut-over), {km:F1} km over ground no run opened ({opened} lattice points; {have} of {lat.Count} skiable now open)");
-            return added;
+            int faces = mine.Count(r => r.Src != null && r.Src.Family == "face"), diagKept = mine.Count(r => r.Kind == "diagonal");
+            plan.Log.Add($"coverage fill: {mine.Count - diagKept} run(s) ({faces} down a face, {fed} from a cut-over), {km:F1} km, and {diagKept} diagonal blue run(s) " +
+                $"({diagonals} placed, {diagKm:F1} km) over ground no run opened ({opened} lattice points; {have} of {lat.Count} skiable now open)");
+            return mine.Count;
         }
     }
 }
