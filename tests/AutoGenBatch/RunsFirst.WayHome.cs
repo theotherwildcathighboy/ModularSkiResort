@@ -299,6 +299,8 @@ namespace AutoGenBatch
 
         // only the way down from the peak (RF_WAYPEAK=1): the lifts below it get no way-home track of their own
         private static readonly bool WayPeakOnly = Environment.GetEnvironmentVariable("RF_WAYPEAK") == "1";
+        // the way down from the peak is sought again after the chord drop only where it took a lift out (RF_PEAKAGAIN=1: always)
+        private static readonly bool PeakWayAgain = Environment.GetEnvironmentVariable("RF_PEAKAGAIN") == "1";
 
         /// <summary>The easy ways home: a track from every lift's top that has none (a gondola or tram top counts as home there, its
         /// riders ride down), then, for scorecard v4, the way down from the peak (a gondola or tram top needs one of its own).

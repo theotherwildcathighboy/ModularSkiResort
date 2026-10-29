@@ -355,11 +355,12 @@ namespace AutoGenBatch
                 ClearChordTracks(g, plan, lifts);
             Tick("chord tracks");
             // a line still on runs after all that goes, where its runs are other lifts' runs too and the skiing loses nothing else
+            int chordDropped = 0;
             if (Environment.GetEnvironmentVariable("RF_NOCHORD") != "1" && Environment.GetEnvironmentVariable("RF_NOCHORDDROP") != "1")
-                DropStrandedLifts(g, plan, lifts, cands, true);
+                chordDropped = DropStrandedLifts(g, plan, lifts, cands, true);
             Tick("chord drop");
             // a lift the chord drop took out may have held the way down from the peak
-            if (Environment.GetEnvironmentVariable("RF_NOWAYHOME") != "1" && !V3Home)
+            if (Environment.GetEnvironmentVariable("RF_NOWAYHOME") != "1" && !V3Home && (chordDropped > 0 || PeakWayAgain))
                 AddPeakWayHome(g, plan, lifts);
             Tick("peak way");
             // the lifts the plan added or moved (pods, bridges, nudges) get terminals of their own too
