@@ -19,7 +19,7 @@ namespace AutoGenBatch
         private const float AccessRawPitch = 0.42f, AccessRawRise = 3.5f;   // on the raw terrain: 30 m pitch, rise within 55 m
         private const float StationMax = 0.34f;   // raw 10 m grade a station pad may sit on (the scorecard flags over 0.40)
         private static readonly float TopLatticeM = Env("RF_LAT", 100f), ReturnM = Env("RF_RET", 150f);
-        private static readonly float ReachBudget = Env("RF_RBUDGET", 18e6f);   // cells the top lattice's reach searches may visit
+        private static readonly float ReachBudget = Env("RF_RBUDGET", 15e6f);   // cells the top lattice's reach searches may visit
         private const float MarginalShare = 0.1f;   // a lift worth less than this share of the first is marginal
         private const float HubLinkM = 150f, BenchGrade = 0.25f, MinLapM = 60f;
         private const float TowerLiftM = 20f;
@@ -194,7 +194,10 @@ namespace AutoGenBatch
             for (; levels < 5; levels++)
             {
                 var at = lattice.FindAll(p => p.Level == levels);
-                if (scanned.Count > 0 && work + (double)work / scanned.Count * at.Count > ReachBudget)
+                double projected = scanned.Count > 0 ? work + (double)work / scanned.Count * at.Count : 0;
+                if (Environment.GetEnvironmentVariable("RF_TIME") == "1")
+                    Console.WriteLine($"TIME tops level {levels}: {at.Count} top(s), {projected / 1e6:F2} M cells projected");
+                if (projected > ReachBudget)
                     break;
                 foreach (var (order, _, t) in at)
                 {

@@ -157,7 +157,15 @@ namespace AutoGenBatch
             foreach (int mode in new[] { 0, 1, 2 })
             {
                 bool asRun = mode > 0;
+                // the link searches share a budget: past it a link gives up (the beginner searches keep the rest)
+                if (LinkWork >= LinkBudget)
+                {
+                    diag.Add("search budget spent");
+                    break;
+                }
+                long work = EasyWork;
                 EasyReach er = EasyUp(g, origins, avoid, mode == 0 ? CatTrack : mode == 1 ? BlueWay : BlackWay);
+                LinkWork += EasyWork - work;
                 diag.Add($"{(mode == 0 ? "cat track" : mode == 1 ? "blue run" : "black run")} reach {er.Cost.Count} cell(s)");
                 foreach (int c in er.Cost.Where(kv => kv.Value > 0f && On(kv.Key)).OrderBy(kv => kv.Value).Take(12).Select(kv => kv.Key))
                 {

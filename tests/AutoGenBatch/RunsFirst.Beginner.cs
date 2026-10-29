@@ -637,6 +637,11 @@ namespace AutoGenBatch
         /// most EasyEdgeMax (smoothed) and the climb tiny; on the raw terrain the route never climbs EasyClimbM over a point below
         /// it (the run rule's 10 m, less a margin), no ~30 m pitch exceeds EasyRawMax, and pitches over a green grade stay a small
         /// share (the band reads the 85th percentile). Routes along other runs, or along the given lift lines, cost more.</summary>
+        // cells the easy-ground searches settled in this region's plan, and the most they may settle: on wide gentle ground one
+        // search floods the whole region (a link that fails tries three of them per round), and the region must plan in seconds
+        private static long EasyWork, LinkWork;
+        private static readonly float EasyBudget = Env("RF_EBUDGET", 1.8e6f), LinkBudget = Env("RF_LBUDGET", 0.6e6f);
+
         private static EasyReach EasyUp(Grid g, List<int> origins, PointHash avoid, EasyLimits lim, PointHash lines = null, float linesCost = 3f)
         {
             var er = new EasyReach();
@@ -650,7 +655,8 @@ namespace AutoGenBatch
                 pq.Enqueue(o, 0f);
             }
             var done = new HashSet<int>();
-            while (pq.TryDequeue(out int c, out float d))
+            long cap = (long)EasyBudget - EasyWork;   // a search past the budget stops where it is (its cheapest cells settled)
+            while (done.Count < cap && pq.TryDequeue(out int c, out float d))
             {
                 if (!done.Add(c))
                     continue;
@@ -703,6 +709,7 @@ namespace AutoGenBatch
                     pq.Enqueue(nb, nd);
                 }
             }
+            EasyWork += done.Count;
             return er;
         }
 

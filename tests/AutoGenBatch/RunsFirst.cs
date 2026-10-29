@@ -143,7 +143,7 @@ namespace AutoGenBatch
         private static void Tick(string what)
         {
             if (Timing)
-                Console.WriteLine($"TIME {what} {Clock.ElapsedMilliseconds} ms");
+                Console.WriteLine($"TIME {what} {Clock.ElapsedMilliseconds} ms (easy {EasyWork}, links {LinkWork})");
         }
 
         private static void RunRegion(string id, float2[] ring, HeightmapFile file, string outDir)
@@ -151,6 +151,7 @@ namespace AutoGenBatch
             HeightSnapshot snap = Heightmap.Snapshot(file, ring);
             var sw = System.Diagnostics.Stopwatch.StartNew();
             Clock = sw;
+            EasyWork = LinkWork = 0;
             Grid g = BuildGrid(snap, ring);
             int n = g.W * g.D;
             float cellsPerChannel = ChannelM2 / (g.CellM * g.CellM);
