@@ -670,13 +670,26 @@ namespace AutoGenBatch
                 List<float2> d = els[i].D;
                 counted[i] = !(els[i].Green && math.distancesq(d[0], t) < 150f * 150f && math.distancesq(d[d.Count - 1], b) < 60f * 60f);   // the scorecard's 150 m start, 60 m station
             }
+            // only the points within reach of the line's middle can be near a sample on it
+            float2 m0 = math.lerp(b, t, 0.15f), m1 = math.lerp(b, t, 0.85f);
+            var close = new List<(int I, List<float2> P)>();
+            for (int i = 0; i < els.Count; i++)
+                if (counted[i])
+                {
+                    List<float2> pts = null;
+                    foreach (float2 p in els[i].D)
+                        if (SegDist(p, m0, m1) < ChordOnRunM + 1f)
+                            (pts ??= new List<float2>()).Add(p);
+                    if (pts != null)
+                        close.Add((i, pts));
+                }
             int n = 0, near = 0;
             for (float f = 0.15f; f <= 0.85f; f += 10f / math.max(10f, plan2), n++)
             {
                 float2 q = math.lerp(b, t, f);
                 bool hit = false;
-                for (int i = 0; i < els.Count; i++)
-                    if (counted[i] && els[i].D.Any(p => math.distancesq(p, q) < ChordOnRunM * ChordOnRunM))
+                foreach (var (i, pts) in close)
+                    if (pts.Any(p => math.distancesq(p, q) < ChordOnRunM * ChordOnRunM))
                     {
                         hit = true;
                         hits[i]++;
