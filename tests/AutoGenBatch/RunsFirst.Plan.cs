@@ -356,7 +356,13 @@ namespace AutoGenBatch
             if (Environment.GetEnvironmentVariable("RF_CHORDDBG") == "1")
                 ChordDebug(g, plan, lifts);
             if (Environment.GetEnvironmentVariable("RF_MODELDBG") == "1")
-                Console.WriteLine("MODELDBG " + new CutModel(g, plan).Terms());
+            {
+                var cm = new CutModel(g, plan);
+                Console.WriteLine("MODELDBG " + cm.Terms());
+                Console.WriteLine("MODELDBG crowded: " + cm.CrowdBreakdown());
+            }
+            if (Environment.GetEnvironmentVariable("RF_COVDBG") == "1")
+                CoverDebug(g, plan, lifts);
             if (Environment.GetEnvironmentVariable("RF_COVER") == "1")
             {
                 // skiable 20 m lattice points no run covers: red where a lift top's reach gets to them, orange where none does

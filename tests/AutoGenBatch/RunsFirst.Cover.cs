@@ -116,7 +116,7 @@ namespace AutoGenBatch
         {
             int n = g.W * g.D, B = bottoms.Count, wb = (B + 63) / 64, wl = (latCount + 63) / 64;
             float cellKm2 = (float)Math.Pow(Math.Max(1, (int)Math.Round(20f / g.CellM)) * g.CellM, 2) / 1e6f;   // ground per lattice point
-            int budget = (int)Math.Ceiling(1.5 * km2) + 2 - 2;   // two left for the beginner pods
+            int budget = (int)Math.Ceiling(1.5 * km2) + 2 - (int)Env("RF_PODHOLD", 2f);   // two left for the beginner pods (RF_PODHOLD)
             float hLo = float.MaxValue, hHi = float.MinValue;
             for (int c = 0; c < g.W * g.D; c++)
                 if (g.In[c] && !float.IsNaN(g.Hr[c]))

@@ -720,5 +720,87 @@ namespace AutoGenBatch
                 $"({diagonals} placed, {diagKm:F1} km) over ground no run opened ({opened} lattice points; {have} of {lat.Count} skiable now open)");
             return mine.Count;
         }
+
+        /// <summary>RF_COVDBG: a map of the skiable ground and what the served runs cover of it, 100 m a character, +z up and +x right
+        /// ("#" all covered, "+" half or more, "." less, "o" none; A-Z a lift bottom, a-z its top).</summary>
+        private static void CoverDebug(Grid g, Plan plan, List<Lift> lifts)
+        {
+            // the elements the scorecard reads as runs (as the cut model takes them: every one served)
+            var runs = new PointHash();
+            foreach (PlanRun r in plan.Runs)
+                if (!r.Graded || TrackClass(g, r.Pts).Run)
+                    foreach (float2 p in Densify(r.Pts))
+                        runs.Add(p);
+            foreach (List<float2> c in plan.Connectors)
+                if (TrackClass(g, c).Run)
+                    foreach (float2 p in Densify(c))
+                        runs.Add(p);
+            int s = Math.Max(1, (int)Math.Round(20f / g.CellM));
+            var cells = new Dictionary<(int, int), (int Ski, int Cov)>();
+            int x0 = int.MaxValue, x1 = int.MinValue, z0 = int.MaxValue, z1 = int.MinValue, all = 0, cov = 0;
+            for (int z = s / 2; z < g.D; z += s)
+                for (int x = s / 2; x < g.W; x += s)
+                {
+                    int c = z * g.W + x;
+                    if (!g.In[c])
+                        continue;
+                    float2 p = g.World(c);
+                    int cx = (int)Math.Floor(p.x / 100f), cz = (int)Math.Floor(p.y / 100f);
+                    x0 = Math.Min(x0, cx); x1 = Math.Max(x1, cx); z0 = Math.Min(z0, cz); z1 = Math.Max(z1, cz);
+                    float gr = RawGrade(g, p);
+                    if (gr < 0.06f || gr > 0.85f)
+                        continue;
+                    bool on = runs.Near(p, 50f);
+                    cells.TryGetValue((cx, cz), out var v);
+                    cells[(cx, cz)] = (v.Ski + 1, v.Cov + (on ? 1 : 0));
+                    all++;
+                    if (on)
+                        cov++;
+                }
+            var mark = new Dictionary<(int, int), char>();
+            for (int L = 0; L < lifts.Count && L < 26; L++)
+            {
+                mark[((int)Math.Floor(lifts[L].Bottom.x / 100f), (int)Math.Floor(lifts[L].Bottom.z / 100f))] = (char)('A' + L);
+                mark[((int)Math.Floor(lifts[L].Top.x / 100f), (int)Math.Floor(lifts[L].Top.z / 100f))] = (char)('a' + L);
+            }
+            Console.WriteLine($"COVDBG {cov} of {all} skiable lattice points covered ({100f * cov / Math.Max(1, all):F0} %, the scorecard's 60 % = full credit)");
+            for (int cz = z1; cz >= z0; cz--)
+            {
+                var sb = new System.Text.StringBuilder("COVDBG ");
+                for (int cx = x0; cx <= x1; cx++)
+                {
+                    if (mark.TryGetValue((cx, cz), out char m))
+                    {
+                        sb.Append(m);
+                        continue;
+                    }
+                    cells.TryGetValue((cx, cz), out var v);
+                    sb.Append(v.Ski == 0 ? ' ' : v.Cov == v.Ski ? '#' : 2 * v.Cov >= v.Ski ? '+' : v.Cov > 0 ? '.' : 'o');
+                }
+                Console.WriteLine(sb.ToString().TrimEnd());
+            }
+            // and the height: 25 m a step above the lowest ground (0-9, then a-z)
+            float lo = float.MaxValue;
+            for (int c = 0; c < g.W * g.D; c++)
+                if (g.In[c])
+                    lo = Math.Min(lo, g.H[c]);
+            for (int cz = z1; cz >= z0; cz--)
+            {
+                var sb = new System.Text.StringBuilder("COVDBGH ");
+                for (int cx = x0; cx <= x1; cx++)
+                {
+                    float2 p = new float2(cx * 100f + 50f, cz * 100f + 50f);
+                    int c = CellOf(g, p);
+                    if (c < 0 || !g.In[c])
+                    {
+                        sb.Append(' ');
+                        continue;
+                    }
+                    int k = Math.Clamp((int)((g.H[c] - lo) / 25f), 0, 35);
+                    sb.Append(k < 10 ? (char)('0' + k) : (char)('a' + k - 10));
+                }
+                Console.WriteLine(sb.ToString().TrimEnd());
+            }
+        }
     }
 }

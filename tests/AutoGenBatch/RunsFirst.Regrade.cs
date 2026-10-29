@@ -357,6 +357,38 @@ namespace AutoGenBatch
 
             public float Total() => Score(m_Pts, m_Crowded, m_Stubs, m_Runs, m_RunKm, m_ConnKm, m_Covered);
 
+            /// <summary>RF_MODELDBG: the crowded samples by what crowds them (a fall-line run or a diagonal piece, across or alongside)
+            /// and where on the crowded element they lie.</summary>
+            public string CrowdBreakdown()
+            {
+                int m = m_D.Length;
+                var by = new List<int>[m][];
+                for (int e = 0; e < m; e++)
+                    by[e] = new List<int>[m_Count[e].Length];
+                for (int j = 0; j < m; j++)
+                    foreach (var (e, k) in m_Crowds[j])
+                        (by[e][k] ??= new List<int>()).Add(j);
+                var tally = new SortedDictionary<string, int>();
+                float2 Dir(List<float2> d, int k) => math.normalizesafe(d[Math.Min(d.Count - 1, k + 1)] - d[Math.Max(0, k - 1)]);
+                for (int e = 0; e < m; e++)
+                    for (int k = 0; k < m_Count[e].Length; k++)
+                    {
+                        if (by[e][k] == null)
+                            continue;
+                        float2 p = m_D[e][k], de = Dir(m_D[e], k);
+                        bool anyRun = by[e][k].Exists(j => Conn[j] < 0);
+                        int jj = by[e][k].First(j => !anyRun || Conn[j] < 0);
+                        int kn = 0;
+                        for (int q = 1; q < m_D[jj].Count; q++)
+                            if (math.distancesq(m_D[jj][q], p) < math.distancesq(m_D[jj][kn], p))
+                                kn = q;
+                        bool across = Math.Abs(math.dot(de, Dir(m_D[jj], kn))) < 0.7f;
+                        string key = (Conn[e] < 0 ? "run" : "diag") + " by " + (anyRun ? "run" : "diag") + (across ? " across" : " alongside") + (k < 10 ? " (its first 100 m)" : "");
+                        tally[key] = tally.TryGetValue(key, out int v) ? v + 1 : 1;
+                    }
+                return string.Join(", ", tally.Select(kv => kv.Key + " " + kv.Value));
+            }
+
             public float Gain(int e, float newKm)
             {
                 int own = 0, freed = 0, lost = 0;
