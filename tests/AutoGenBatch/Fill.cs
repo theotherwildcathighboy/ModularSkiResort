@@ -317,6 +317,8 @@ namespace AutoGenBatch
             WritePng(path, px, pz, rgb);
         }
 
+        internal static void WritePngRgb(string path, int w, int h, byte[] rgb) => WritePng(path, w, h, rgb);
+
         private static void WritePng(string path, int w, int h, byte[] rgb)
         {
             var raw = new System.IO.MemoryStream();

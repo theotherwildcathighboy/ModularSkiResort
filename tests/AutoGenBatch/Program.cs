@@ -26,6 +26,8 @@ namespace AutoGenBatch
         private static int Main(string[] args)
         {
             CultureInfo.DefaultThreadCurrentCulture = CultureInfo.InvariantCulture;
+            if (args.Length > 0 && args[0] == "rf")
+                return RunsFirst.Run(args);   // the runs-first prototype (field test 5): renders, no checks
             if (args.Length > 0 && args[0] == "golden")
             {
                 GoldenPrint();
