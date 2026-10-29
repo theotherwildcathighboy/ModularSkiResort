@@ -173,9 +173,23 @@ namespace AutoGenBatch
                     avoid.Add(p);
             string names = string.Join("/", froms.Select(L => "L" + lifts[L].Id)) + " -> " + string.Join("/", tos.Select(L => "L" + lifts[L].Id));
             var diag = new List<string>();
+            // a link run keeps off the lift lines: their middles cost more in the search, and a route that would still bring a line
+            // over the chord share is passed over
+            PointHash lines = null;
+            ChordGuard guard = null;
             foreach (int mode in new[] { 0, 1, 2 })
             {
                 bool asRun = mode > 0;
+                if (asRun && lines == null)
+                {
+                    lines = new PointHash();
+                    foreach (Lift lf in lifts)
+                        for (float f = 0.15f; f <= 0.85f; f += 10f / math.max(10f, math.distance(lf.Bottom.xz, lf.Top.xz)))
+                            lines.Add(math.lerp(lf.Bottom.xz, lf.Top.xz, f));
+                    guard = new ChordGuard(lifts);
+                    foreach (PlanRun r in plan.Runs)
+                        guard.Add(r.Pts, 0, r.Pts.Count - 1);
+                }
                 // the link searches share a budget: past it a link gives up (the beginner searches keep the rest)
                 if (LinkWork >= LinkBudget)
                 {
@@ -183,7 +197,7 @@ namespace AutoGenBatch
                     break;
                 }
                 long work = EasyWork;
-                EasyReach er = EasyUp(g, origins, avoid, mode == 0 ? CatTrack : mode == 1 ? BlueWay : BlackWay);
+                EasyReach er = EasyUp(g, origins, avoid, mode == 0 ? CatTrack : mode == 1 ? BlueWay : BlackWay, lines);
                 LinkWork += EasyWork - work;
                 diag.Add($"{(mode == 0 ? "cat track" : mode == 1 ? "blue run" : "black run")} reach {er.Cost.Count} cell(s)");
                 foreach (int c in er.Cost.Where(kv => kv.Value > 0f && On(kv.Key)).OrderBy(kv => kv.Value).Take(12).Select(kv => kv.Key))
@@ -207,7 +221,7 @@ namespace AutoGenBatch
                         if (ok == null || ok.Count < Densify(route).Count || RawH(g, ok[0]) - RawH(g, ok[ok.Count - 1]) < MinRunDropM)
                             continue;
                         SlopeBand band = RunBand(g, ok);
-                        if (band == SlopeBand.DoubleBlack || (mode == 1 && band == SlopeBand.Black))
+                        if (band == SlopeBand.DoubleBlack || (mode == 1 && band == SlopeBand.Black) || !guard.FitsAdding(ok, 0, ok.Count - 1))
                             continue;
                         plan.Runs.Add(new PlanRun { Pts = ok, Band = band, By = lifts[froms[0]], Kind = "link" });
                         plan.Log.Add($"link {names}: {band} run {RunLength(ok):F0} m, {RawH(g, ok[0]) - RawH(g, ok[ok.Count - 1]):F0} m down");
