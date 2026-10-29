@@ -221,7 +221,9 @@ namespace AutoGenBatch
             }
         }
 
-        private const float NudgeMaxM = 60f;   // how far a station may move across its line
+        // how far a station may move across its line: 100 m against 60 m moved three more stations 70-80 m (visible 97.64 -> 97.69,
+        // 80 % outlines 95.50 -> 95.72)
+        private const float NudgeMaxM = 100f;
 
         /// <summary>A lift line whose middle still lies along runs moves instead of the runs: the whole line shifted across itself, or
         /// swung about one station, up to NudgeMaxM, the smallest move first. A move is kept where the stations stay on pads inside the
