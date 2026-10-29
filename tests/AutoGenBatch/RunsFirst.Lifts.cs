@@ -15,8 +15,11 @@ namespace AutoGenBatch
 {
     internal static partial class RunsFirst
     {
-        private const float AccessRadiusM = 1500f, AccessMaxDown = 0.40f, AccessMaxUp = 0.03f, AccessCliff = 0.75f;
-        private const float TopLatticeM = 100f, ReturnM = 150f, HubLinkM = 150f, BenchGrade = 0.25f, MinLapM = 60f;
+        private const float AccessRadiusM = 1500f, AccessMaxDown = 0.35f, AccessMaxUp = 0.07f, AccessCliff = 0.75f;
+        private const float AccessRawPitch = 0.42f, AccessRawRise = 3.5f;   // on the raw terrain: 30 m pitch, rise within 55 m
+        private const float StationMax = 0.34f;   // raw 10 m grade a station pad may sit on (the scorecard flags over 0.40)
+        private static readonly float TopLatticeM = Env("RF_LAT", 100f), ReturnM = Env("RF_RET", 150f);
+        private const float HubLinkM = 150f, BenchGrade = 0.25f, MinLapM = 60f;
         private const float TowerLiftM = 20f;
         private const float TwinM = 300f;       // a lift whose top AND bottom are this close to an existing one's is a twin, not a new lift
 
@@ -33,6 +36,7 @@ namespace AutoGenBatch
             public float Length, Rise, Gain, BottomGrade;
             public readonly List<Line> Lines = new List<Line>();
             public readonly List<List<float2>> Traverses = new List<List<float2>>();
+            public readonly List<(Line Line, int Entry, List<int> Cells)> Paths = new List<(Line, int, List<int>)>();   // entry to top
         }
 
         // name, length min / max (m), rise min / max (m), mean grade cap: stage-a-spec 4.4 norms and edge caps
@@ -99,13 +103,22 @@ namespace AutoGenBatch
                 if (!low.TryGetValue(r, out int cur) || g.H[ends[i]] < g.H[cur])
                     low[r] = ends[i];
             }
-            bottoms.AddRange(low.Values);
+            foreach (int c0 in low.Values)
+            {
+                int c = FlatCell(g, c0, 35f);
+                if (c >= 0 && !bottoms.Contains(c))
+                    bottoms.Add(c);
+            }
             foreach (Line l in lines)
                 for (int i = 0; i < l.Pts.Count; i += 15)
                 {
                     int c = CellOf(g, l.Pts[i].xz);
                     if (c >= 0 && g.In[c] && slope[c] < BenchGrade && !Near(g, bottoms, c, 120f))
-                        bottoms.Add(c);
+                    {
+                        c = FlatCell(g, c, 35f);
+                        if (c >= 0)
+                            bottoms.Add(c);
+                    }
                 }
 
             // where each line passes each bottom (first / last index along Pts + Flow; -1 = never)
@@ -136,13 +149,14 @@ namespace AutoGenBatch
             var reachB = new List<bool[]>();   // per top: which bottom candidates its reach touches
             var dist = new float[n];
             Array.Fill(dist, float.PositiveInfinity);
+            var scanParent = new int[n];
             for (int z = step / 2; z < g.D; z += step)
                 for (int x = step / 2; x < g.W; x += step)
                 {
                     int t = z * g.W + x;
-                    if (!g.In[t] || slope[t] > 0.6f)
+                    if (!g.In[t] || (t = FlatCell(g, t, 30f)) < 0)
                         continue;
-                    List<int> touched = Reach(g, slope, t, dist, null);
+                    List<int> touched = Reach(g, slope, t, dist, scanParent);
                     var e = new int[lines.Count];
                     bool any = false;
                     for (int li = 0; li < lines.Count; li++)
@@ -178,7 +192,9 @@ namespace AutoGenBatch
             for (int li = 0; li < lines.Count; li++)
                 covered[li] = new List<(float, float)>();
             float vertical = hMax - hMin;
-            int want = Math.Clamp(Math.Max((int)Math.Round(km2 / 2f), (int)Math.Ceiling(vertical / 400f)), 1, 9);
+            float perKm2 = float.Parse(Environment.GetEnvironmentVariable("RF_LPK") ?? "0.5", System.Globalization.CultureInfo.InvariantCulture);
+            float stopShare = float.Parse(Environment.GetEnvironmentVariable("RF_STOP") ?? "0.1", System.Globalization.CultureInfo.InvariantCulture);
+            int want = Math.Clamp(Math.Max((int)Math.Round(km2 * perKm2), (int)Math.Ceiling(vertical / 400f)), 1, (int)Math.Ceiling(1.5 * km2) + 2);
             var lifts = new List<Lift>();
             float firstGain = 0f;
             var fed = new HashSet<int>();   // lifts whose bottom another lift already delivers to
@@ -223,7 +239,7 @@ namespace AutoGenBatch
                         bb = b;
                         bestType = type;
                     }
-                if (bt < 0 || (firstGain > 0f && best < 0.1f * firstGain))
+                if (bt < 0 || (firstGain > 0f && best < stopShare * firstGain))
                     break;
                 if (firstGain == 0f)
                     firstGain = best;
@@ -251,13 +267,14 @@ namespace AutoGenBatch
                     lift.Lines.Add(lines[li]);
                     if (lines[li].Lift < 0)
                         lines[li].Lift = lift.Id;
-                    // the traverse from the top to the entry, when it is more than a step off the station
-                    var tr = new List<float2>();
+                    // the traverse from the top to the entry (cells, entry first)
+                    var cells = new List<int>();
                     for (int c = CellOf(g, lines[li].Pts[e].xz); c >= 0 && c != T; c = parent[c])
-                        tr.Add(g.World(c));
-                    tr.Add(g.World(T));
-                    if (tr.Count * g.CellM > 150f)
-                        lift.Traverses.Add(tr);
+                        cells.Add(c);
+                    cells.Add(T);
+                    lift.Paths.Add((lines[li], e, cells));
+                    if (cells.Count * g.CellM > 150f)
+                        lift.Traverses.Add(cells.ConvertAll(c => g.World(c)));
                 }
                 foreach (int c in touched)
                     dist[c] = float.PositiveInfinity;
@@ -267,6 +284,32 @@ namespace AutoGenBatch
                 lifts.Add(lift);
             }
             return lifts;
+        }
+
+        /// <summary>The flattest cell (raw 10 m grade) within r meters of c that a station pad may sit on, nearer cells first on a
+        /// tie; -1 when none is at or under StationMax.</summary>
+        private static int FlatCell(Grid g, int c, float r)
+        {
+            int k = (int)Math.Ceiling(r / g.CellM), x0 = c % g.W, z0 = c / g.W, best = -1;
+            float bestKey = float.MaxValue;
+            for (int dz = -k; dz <= k; dz++)
+                for (int dx = -k; dx <= k; dx++)
+                {
+                    int x = x0 + dx, z = z0 + dz;
+                    if (x < 0 || z < 0 || x >= g.W || z >= g.D || dx * dx + dz * dz > k * k)
+                        continue;
+                    int cc = z * g.W + x;
+                    if (!g.In[cc])
+                        continue;
+                    float gr = RawGrade(g, g.World(cc));
+                    float key = gr + 0.004f * (dx * dx + dz * dz);
+                    if (gr <= StationMax && key < bestKey)
+                    {
+                        bestKey = key;
+                        best = cc;
+                    }
+                }
+            return best;
         }
 
         private static bool Twin(Grid g, List<Lift> lifts, int t, int b)
@@ -338,15 +381,16 @@ namespace AutoGenBatch
             return p;
         }
 
-        /// <summary>Dijkstra from a lift top over the cells a skier reaches without climbing (+3 %), without a pitch over 40 % and
-        /// without a cliff cell, out to 1.5 km. Returns the touched cells (the caller resets dist); parent (optional) points home.</summary>
+        /// <summary>Dijkstra from a lift top over the cells a skier reaches without climbing (+3 %), without a pitch over 35 % and
+        /// without a cliff cell, out to 1.5 km; on the raw terrain the path back holds the connector rules (no 30 m pitch over
+        /// AccessRawPitch, no rise over AccessRawRise within 55 m). Returns the touched cells (the caller resets dist); parent points
+        /// home.</summary>
         private static List<int> Reach(Grid g, float[] slope, int t, float[] dist, int[] parent)
         {
             var touched = new List<int> { t };
             var pq = new PriorityQueue<int, float>();
             dist[t] = 0f;
-            if (parent != null)
-                parent[t] = -1;
+            parent[t] = -1;
             pq.Enqueue(t, 0f);
             while (pq.TryDequeue(out int c, out float d))
             {
@@ -368,11 +412,25 @@ namespace AutoGenBatch
                     float nd = d + len;
                     if (nd > AccessRadiusM || nd >= dist[nb])
                         continue;
+                    // the raw path back: walk up to ~60 m of ancestors
+                    bool ok = g.Hr[nb] - g.Hr[c] <= AccessRawRise;
+                    float2 pn = g.World(nb);
+                    for (int a = c, steps = 0; ok && a >= 0 && steps < 9; a = parent[a], steps++)
+                    {
+                        float back = d - dist[a] + len;
+                        if (back > 60f)
+                            break;
+                        if (g.Hr[nb] - g.Hr[a] > AccessRawRise)
+                            ok = false;
+                        else if (back >= 20f && (g.Hr[a] - g.Hr[nb]) / math.max(1f, math.distance(g.World(a), pn)) > AccessRawPitch)
+                            ok = false;
+                    }
+                    if (!ok)
+                        continue;
                     if (float.IsPositiveInfinity(dist[nb]))
                         touched.Add(nb);
                     dist[nb] = nd;
-                    if (parent != null)
-                        parent[nb] = c;
+                    parent[nb] = c;
                     pq.Enqueue(nb, nd);
                 }
             }

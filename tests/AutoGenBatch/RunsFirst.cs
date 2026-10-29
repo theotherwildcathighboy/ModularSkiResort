@@ -44,6 +44,10 @@ namespace AutoGenBatch
 
         private static float2 P(float x, float z) => new float2(x, z);
 
+        /// <summary>Experiment knob: an environment variable as a float (the default when unset).</summary>
+        private static float Env(string name, float dflt) =>
+            float.TryParse(Environment.GetEnvironmentVariable(name), NumberStyles.Float, CultureInfo.InvariantCulture, out float v) ? v : dflt;
+
         private sealed class Grid
         {
             public int W, D;
@@ -51,6 +55,8 @@ namespace AutoGenBatch
             public double OX, OZ;          // world xz of cell (0, 0)'s center
             public float[] H;              // smoothed heights
             public bool[] In;
+            public HeightSnapshot S;       // the raw terrain: stations, traverses and runs are checked on it
+            public float[] Hr;             // raw height at each cell center
             public float2 World(int c) => new float2((float)(OX + (c % W) * CellM), (float)(OZ + (c / W) * CellM));
         }
 
@@ -177,6 +183,7 @@ namespace AutoGenBatch
             float km2r = (float)(SkiRunAutoPlanner.PolygonArea(ring) / 1e6);
             PointHash taken = Pick(lines, g, km2r);
             List<Lift> lifts = PlaceLifts(g, rec, lines, km2r, taken);
+            Plan built = BuildPlan(g, rec, lines, lifts, km2r);
             long ms = sw.ElapsedMilliseconds;
 
             // the v2 plan of the same region, as the host replays it
@@ -200,46 +207,27 @@ namespace AutoGenBatch
             WriteTable(Path.Combine(outDir, id + ".txt"), id, lines);
             WriteLifts(Path.Combine(outDir, id + ".txt"), id, lifts, lines);
 
-            // the scorecard (RunsFirst.Score.cs) reads the plan as drawn: each picked line continued down its drainage to the first lift
-            // bottom it passes (the way home the lift credit assumed), and the traverses from lift tops to line entries
-            // (or until it joins another picked line: the skier carries on along that one)
+            // the scorecard (RunsFirst.Score.cs) reads the plan exactly as drawn (RunsFirst.Plan.cs)
             var plan = new ScorePlan();
-            var pickedLines = lines.FindAll(l => l.Picked);
-            foreach (Line l in pickedLines)
-            {
-                List<float2> run = l.Pts.ConvertAll(p => p.xz);
-                bool AtLift(float2 p) => lifts.Exists(lf => math.distance(lf.Bottom.xz, p) < 60f);
-                bool OnOther(float2 p) => pickedLines.Exists(o => o != l && o.Pts.Exists(q => math.distancesq(q.xz, p) < 35f * 35f));
-                if (l.Flow != null && !l.Merge && !run.Exists(AtLift) && !OnOther(run[run.Count - 1]))
-                {
-                    int k = l.Flow.FindIndex(p => AtLift(p) || OnOther(p));
-                    if (k >= 0)
-                        run.AddRange(l.Flow.GetRange(0, k + 1));
-                }
-                plan.Runs.Add(run);
-            }
+            foreach (PlanRun r in built.Runs)
+                plan.Runs.Add(r.Pts);
+            plan.Connectors.AddRange(built.Connectors);
             foreach (Lift lf in lifts)
-            {
                 plan.Lifts.Add((lf.Type, lf.Bottom.xz, lf.Top.xz));
-                foreach (List<float2> tr in lf.Traverses)
-                {
-                    var t = new List<float2>(tr);
-                    t.Reverse();   // stored entry to top; skied top to entry
-                    plan.Connectors.Add(t);
-                }
-            }
+            foreach (string s in built.Log)
+                Console.WriteLine($"REPORT rf plan {id}: {s}");
             RunsFirstScore.Result score = RunsFirstScore.Evaluate(snap, ring, plan);
             Console.WriteLine(RunsFirstScore.Line(id, score));
             File.AppendAllText(Path.Combine(outDir, id + ".txt"), "\n" + RunsFirstScore.Line(id, score) + "\n" +
                 string.Concat(score.Notes.Select(s => "  " + s + "\n")));
-            Render(Path.Combine(outDir, id + ".png"), snap, ring, g, acc, accR, lines, v2, lifts);
+            Render(Path.Combine(outDir, id + ".png"), snap, ring, g, acc, accR, lines, v2, lifts, built);
         }
 
         // ------------------------------------------------------------------ grid and flow
 
         private static Grid BuildGrid(HeightSnapshot s, float2[] ring)
         {
-            var g = new Grid { W = s.Width / F, D = s.Depth / F, CellM = s.TexelM * F };
+            var g = new Grid { W = s.Width / F, D = s.Depth / F, CellM = s.TexelM * F, S = s };
             g.OX = s.Origin.x + (s.X0 + (F - 1) * 0.5) * s.TexelM;
             g.OZ = s.Origin.y + (s.Z0 + (F - 1) * 0.5) * s.TexelM;
             int n = g.W * g.D;
@@ -255,8 +243,12 @@ namespace AutoGenBatch
                 }
             g.H = Box(Box(raw, g.W, g.D), g.W, g.D);
             g.In = new bool[n];
+            g.Hr = new float[n];
             for (int c = 0; c < n; c++)
+            {
                 g.In[c] = Inside(ring, g.World(c));
+                g.Hr[c] = RawH(g, g.World(c));
+            }
             return g;
         }
 
@@ -441,6 +433,18 @@ namespace AutoGenBatch
             float e = g.CellM;
             float gx = (HeightAt(g, p + new float2(e, 0)) - HeightAt(g, p - new float2(e, 0))) / (2 * e);
             float gz = (HeightAt(g, p + new float2(0, e)) - HeightAt(g, p - new float2(0, e))) / (2 * e);
+            return math.sqrt(gx * gx + gz * gz);
+        }
+
+        /// <summary>Raw terrain height (the 3.5 m heightmap, as the game samples it); NaN outside the snapshot.</summary>
+        private static float RawH(Grid g, float2 p) => g.S.Sample(new float3(p.x, 0f, p.y));
+
+        /// <summary>Raw grade from a 10 m central difference: what a station pad is judged by.</summary>
+        private static float RawGrade(Grid g, float2 p)
+        {
+            const float d = 10f;
+            float gx = (RawH(g, p + new float2(d, 0f)) - RawH(g, p - new float2(d, 0f))) / (2f * d);
+            float gz = (RawH(g, p + new float2(0f, d)) - RawH(g, p - new float2(0f, d))) / (2f * d);
             return math.sqrt(gx * gx + gz * gz);
         }
 
@@ -715,7 +719,7 @@ namespace AutoGenBatch
 
         private static (int, int, int) EdgeColor(SlopeBand b) => b == SlopeBand.DoubleBlack ? (255, 150, 0) : (255, 255, 255);
 
-        private static void Render(string path, HeightSnapshot s, float2[] ring, Grid g, float[] acc, float[] accR, List<Line> lines, AutoPlanResult v2, List<Lift> lifts)
+        private static void Render(string path, HeightSnapshot s, float2[] ring, Grid g, float[] acc, float[] accR, List<Line> lines, AutoPlanResult v2, List<Lift> lifts, Plan built)
         {
             int w = s.Width, d = s.Depth;
             float t = s.TexelM;
@@ -818,27 +822,28 @@ namespace AutoGenBatch
             foreach (Line l in lines)
                 if (!l.Picked)
                     Stroke(right, Img(l, fromWorld), 0.6f, (120, 200, 210));
-            foreach (Lift lf in lifts)
-                foreach (List<float2> tr in lf.Traverses)
+            // right: the plan as the scorecard reads it (runs by their raw-terrain band, connectors dashed); picked lines no lift
+            // serves gray
+            foreach (List<float2> tr in built.Connectors)
+                Dashed(right, tr.ConvertAll(p => fromWorld(p)), 1.6f, (255, 235, 150));
+            foreach (PlanRun r in built.Runs)
+            {
+                List<float2> pl = r.Pts.ConvertAll(p => fromWorld(p));
+                if (r.Src != null && r.Src.Lift < 0)
                 {
-                    var pl = new List<float2>(tr.Count);
-                    foreach (float2 p in tr)
-                        pl.Add(fromWorld(p));
-                    Dashed(right, pl, 1.6f, (255, 235, 150));
+                    Stroke(right, pl, 2f, (150, 150, 150));
+                    continue;
                 }
-            foreach (Line l in lines)
-                if (l.Picked)
+                Stroke(right, pl, 4.5f, EdgeColor(r.Band));
+                Stroke(right, pl, 3f, BandColor(r.Band));
+            }
+            foreach (PlanRun r in built.Runs)
+                if (r.Src == null || r.Src.Lift >= 0)
                 {
-                    List<float2> pl = Img(l, fromWorld);
-                    if (l.Lift < 0)
-                    {
-                        Stroke(right, pl, 2f, (150, 150, 150));
-                        continue;
-                    }
-                    Stroke(right, pl, 4.5f, EdgeColor(l.Band));
-                    Stroke(right, pl, 3f, BandColor(l.Band));
-                    right.Disc(pl[0].x, pl[0].y, 6f, (255, 255, 255));
-                    Label(right, (int)pl[0].x + 8, (int)pl[0].y - 6, l.Pick);
+                    float2 p0 = fromWorld(r.Pts[0]);
+                    right.Disc(p0.x, p0.y, 6f, (255, 255, 255));
+                    if (r.Src != null)
+                        Label(right, (int)p0.x + 8, (int)p0.y - 6, r.Src.Pick);
                 }
 
             foreach (Lift lf in lifts)
