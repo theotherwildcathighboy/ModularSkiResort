@@ -568,6 +568,10 @@ namespace AutoGenBatch
         {
             private const float Cell = 60f;
             private readonly Dictionary<long, List<float2>> m_Cells = new Dictionary<long, List<float2>>();
+            private int m_Count;   // points added: a remembered answer holds only while the hash stays as it was
+            private Grid m_MemoGrid;
+            private int m_MemoCount;
+            private readonly Dictionary<float, sbyte[]> m_Memo = new Dictionary<float, sbyte[]>();
             private static long Key(int x, int z) => ((long)x << 32) ^ (uint)z;
             public void Add(float2 p)
             {
@@ -575,6 +579,23 @@ namespace AutoGenBatch
                 if (!m_Cells.TryGetValue(k, out List<float2> l))
                     m_Cells[k] = l = new List<float2>();
                 l.Add(p);
+                m_Count++;
+            }
+            /// <summary>Near(g.World(c), r), remembered per cell (a search asks it for the same cell from every neighbor).</summary>
+            [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+            public bool NearCell(Grid g, int c, float r)
+            {
+                if (m_MemoGrid != g || m_MemoCount != m_Count)
+                {
+                    m_Memo.Clear();
+                    m_MemoGrid = g;
+                    m_MemoCount = m_Count;
+                }
+                if (!m_Memo.TryGetValue(r, out sbyte[] memo))
+                    m_Memo[r] = memo = new sbyte[g.W * g.D];
+                if (memo[c] == 0)
+                    memo[c] = Near(g.World(c), r) ? (sbyte)1 : (sbyte)-1;
+                return memo[c] > 0;
             }
             [MethodImpl(MethodImplOptions.AggressiveOptimization)]
             public bool Near(float2 p, float r)

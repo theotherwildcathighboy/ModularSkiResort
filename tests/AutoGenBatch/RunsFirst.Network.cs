@@ -127,18 +127,33 @@ namespace AutoGenBatch
                 }
             // ... or at a top of the froms: a skier starts any element within 150 m of it
             var tops = froms.Select(L => lifts[L].Top).ToList();
+            // the cells a link may start from (within 120 m of a top and no higher than 4 m over it, or within LinkOnM of a point
+            // the skier is on and no higher than 4 m over it), marked once: a failing search reaches a few hundred thousand cells
+            bool[] on = null;
+            void Mark(float2 o, float r, float maxH)
+            {
+                int ox = (int)Math.Round((o.x - g.OX) / g.CellM), oz = (int)Math.Round((o.y - g.OZ) / g.CellM);
+                int rc = (int)Math.Ceiling(r / g.CellM) + 1;
+                for (int z = Math.Max(0, oz - rc); z <= Math.Min(g.D - 1, oz + rc); z++)
+                    for (int x = Math.Max(0, ox - rc); x <= Math.Min(g.W - 1, ox + rc); x++)
+                    {
+                        int c = z * g.W + x;
+                        if (!on[c] && math.distancesq(o, g.World(c)) < r * r && g.Hr[c] <= maxH)
+                            on[c] = true;
+                    }
+            }
             bool On(int c)
             {
-                float2 q = g.World(c);
-                if (tops.Any(t => math.distancesq(t.xz, q) < 120f * 120f && g.Hr[c] <= RawH(g, t.xz) + 4f))
-                    return true;
-                int cx = (int)Math.Floor(q.x / 60f), cz = (int)Math.Floor(q.y / 60f);
-                for (int dz = -1; dz <= 1; dz++)
-                    for (int dx = -1; dx <= 1; dx++)
-                        if (at.TryGetValue(((long)(cx + dx) << 32) ^ (uint)(cz + dz), out List<float3> l) &&
-                            l.Any(p => math.distancesq(p.xz, q) < LinkOnM * LinkOnM && g.Hr[c] <= p.y + 4f))
-                            return true;
-                return false;
+                if (on == null)
+                {
+                    on = new bool[g.W * g.D];
+                    foreach (float3 t in tops)
+                        Mark(t.xz, 120f, RawH(g, t.xz) + 4f);
+                    foreach (List<float3> l in at.Values)
+                        foreach (float3 p in l)
+                            Mark(p.xz, LinkOnM, p.y + 4f);
+                }
+                return on[c];
             }
             // where the route may end: a station of the tos, or any served run that delivers there (the skier flows on with it)
             var origins = tos.Select(Z => lifts[Z].BottomCell).Distinct().ToList();
@@ -189,7 +204,7 @@ namespace AutoGenBatch
                             return true;
                         }
                         List<float2> ok = SanitizeRun(g, route);
-                        if (ok == null || ok.Count < Densify(route).Count)
+                        if (ok == null || ok.Count < Densify(route).Count || RawH(g, ok[0]) - RawH(g, ok[ok.Count - 1]) < MinRunDropM)
                             continue;
                         SlopeBand band = RunBand(g, ok);
                         if (band == SlopeBand.DoubleBlack || (mode == 1 && band == SlopeBand.Black))

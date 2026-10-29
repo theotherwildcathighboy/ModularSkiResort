@@ -652,7 +652,7 @@ namespace AutoGenBatch
         // cells the easy-ground searches settled in this region's plan, and the most they may settle: on wide gentle ground one
         // search floods the whole region (a link that fails tries three of them per round), and the region must plan in seconds
         private static long EasyWork, LinkWork;
-        private static readonly float EasyBudget = Env("RF_EBUDGET", 1.8e6f), LinkBudget = Env("RF_LBUDGET", 0.6e6f);
+        private static readonly float EasyBudget = Env("RF_EBUDGET", 3.0e6f), LinkBudget = Env("RF_LBUDGET", 1.8e6f);
 
         /// <summary>The easy-ground search's working arrays per grid cell (Steep: meters steeper than green, Hi: the highest raw point
         /// along the route), clean between searches; one set serves every search (regions plan one at a time).</summary>
@@ -749,7 +749,7 @@ namespace AutoGenBatch
                     float ns = er.Steep[c] + (steep ? len : 0f);
                     if (ns > lim.SteepShare * nl + 10f)
                         continue;
-                    float nd = d + len * (steep ? 4f : 1f) * (nl > 150f && avoid.Near(pn, 40f) ? 3f : 1f) * (lines != null && lines.Near(pn, 25f) ? linesCost : 1f);
+                    float nd = d + len * (steep ? 4f : 1f) * (nl > 150f && avoid.NearCell(g, nb, 40f) ? 3f : 1f) * (lines != null && lines.NearCell(g, nb, 25f) ? linesCost : 1f);
                     if (er.Seen[nb] && nd >= er.Cost[nb])
                         continue;
                     if (!er.Seen[nb])
