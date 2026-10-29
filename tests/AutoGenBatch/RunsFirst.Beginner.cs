@@ -17,8 +17,32 @@ namespace AutoGenBatch
 {
     internal static partial class RunsFirst
     {
-        private const float EasyEdgeMax = 0.22f, GreenRawPitch = 0.235f, EasyRawMax = 0.40f, EasyClimbM = 7f, SteepShare = 0.08f;
-        private const float WayDownMaxM = 4500f, PodRouteMaxM = 2600f, BaseShareCut = 0.35f, OriginRunM = 400f;
+        private const float GreenRawPitch = 0.235f;
+
+        /// <summary>What an uphill route search allows on the way down: the smoothed step descent, the raw ~30 m pitch that counts as
+        /// steep and the one never allowed, the climb over any point below (meters), the steep share of the length, the length.</summary>
+        private readonly struct EasyLimits
+        {
+            public readonly float EdgeMax, SteepPitch, HardPitch, Climb, SteepShare, MaxLen;
+
+            public EasyLimits(float edgeMax, float steepPitch, float hardPitch, float climb, float steepShare, float maxLen)
+            {
+                EdgeMax = edgeMax;
+                SteepPitch = steepPitch;
+                HardPitch = hardPitch;
+                Climb = climb;
+                SteepShare = steepShare;
+                MaxLen = maxLen;
+            }
+        }
+
+        // a green run (85th percentile under 0.25, the run rule's 10 m climb less a margin); a cat track (the connector rules: no
+        // 30 m pitch over 0.50, no rise over 4.5 m); a blue run; a black run (an expert way into the next area)
+        private static readonly EasyLimits GreenWay = new EasyLimits(0.22f, GreenRawPitch, 0.40f, 7f, 0.08f, 4500f);
+        private static readonly EasyLimits CatTrack = new EasyLimits(0.30f, ConnPitchMax, ConnPitchMax, 3.5f, 1f, 1500f);
+        private static readonly EasyLimits BlueWay = new EasyLimits(0.36f, 0.38f, 0.62f, 7f, 0.08f, 3500f);
+        private static readonly EasyLimits BlackWay = new EasyLimits(0.55f, 0.58f, 0.95f, 7f, 0.10f, 3500f);
+        private const float PodRouteMaxM = 2600f, BaseShareCut = 0.35f, OriginRunM = 400f;
         private const float PodMinRise = 97f, PodMinLength = 320f, PodClearM = 18f;
 
         /// <summary>The easy-run search tree: Down = the next cell toward the base (-1 at an origin), Root = the origin a cell's
@@ -77,7 +101,7 @@ namespace AutoGenBatch
                     foreach (float2 p in r.Pts)
                         avoid.Add(p);
                 List<int> origins = BaseOrigins(g, plan, lifts, members, sg);
-                EasyReach er = EasyUp(g, origins, avoid, WayDownMaxM);
+                EasyReach er = EasyUp(g, origins, avoid, GreenWay);
                 if (TryWayDown(g, plan, lifts, members, er, avoid))
                     ways++;
                 else if (TryPod(g, plan, lifts, members, er, avoid, sg))
@@ -426,7 +450,7 @@ namespace AutoGenBatch
         /// most EasyEdgeMax (smoothed) and the climb tiny; on the raw terrain the route never climbs EasyClimbM over a point below
         /// it (the run rule's 10 m, less a margin), no ~30 m pitch exceeds EasyRawMax, and pitches over a green grade stay a small
         /// share (the band reads the 85th percentile). Routes along other runs cost more.</summary>
-        private static EasyReach EasyUp(Grid g, List<int> origins, PointHash avoid, float maxLen)
+        private static EasyReach EasyUp(Grid g, List<int> origins, PointHash avoid, EasyLimits lim)
         {
             var er = new EasyReach();
             var pq = new PriorityQueue<int, float>();
@@ -455,7 +479,7 @@ namespace AutoGenBatch
                     float len = g.CellM * ((k & 1) == 1 ? 1.4142f : 1f);
                     float dg = (g.H[nb] - g.H[c]) / len;   // the skier's descent from nb to c
                     float nl = er.Len[c] + len;
-                    if (dg > EasyEdgeMax || dg < -0.02f || nl > maxLen || er.Hi[c] - g.Hr[nb] > EasyClimbM)
+                    if (dg > lim.EdgeMax || dg < -0.02f || nl > lim.MaxLen || er.Hi[c] - g.Hr[nb] > lim.Climb)
                         continue;
                     bool ok = true, steep = false;
                     float2 pn = g.World(nb);
@@ -465,9 +489,9 @@ namespace AutoGenBatch
                         if (back >= 20f)
                         {
                             float p = (g.Hr[nb] - g.Hr[a]) / math.max(1f, math.distance(g.World(a), pn));
-                            if (p > EasyRawMax)
+                            if (p > lim.HardPitch)
                                 ok = false;
-                            else if (p > GreenRawPitch && back <= 40f)
+                            else if (p > lim.SteepPitch && back <= 40f)
                                 steep = true;
                         }
                         int na = er.Down[a];
@@ -478,7 +502,7 @@ namespace AutoGenBatch
                     if (!ok)
                         continue;
                     float ns = er.Steep[c] + (steep ? len : 0f);
-                    if (ns > SteepShare * nl + 10f)
+                    if (ns > lim.SteepShare * nl + 10f)
                         continue;
                     float nd = d + len * (steep ? 4f : 1f) * (nl > 150f && avoid.Near(pn, 40f) ? 3f : 1f);
                     if (er.Cost.TryGetValue(nb, out float old) && nd >= old)

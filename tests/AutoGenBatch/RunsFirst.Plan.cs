@@ -21,6 +21,7 @@ namespace AutoGenBatch
         private const float DeliverM = 50f;        // a run delivers to a lift when it passes this close to the bottom station (scorecard 60 m)
         private const float MinRunDropM = 55f;     // shorter served runs read as stubs (the scorecard counts under 50 m)
         private static readonly float ServeCapPerKm2 = Env("RF_SCAP", 5f);
+        private static readonly float RunOutM = Env("RF_RUNOUT", 1600f);   // how far below its first station a run may go on to others
         private static readonly float ChordDefer = Env("RF_CDEF", 0.35f);   // value share of a run that lies along a lift line
         private static readonly float ChordKeep = Env("RF_CKEEP", 0.5f);    // ... kept anyway at this share of the best run's value
 
@@ -37,6 +38,7 @@ namespace AutoGenBatch
         {
             public readonly List<PlanRun> Runs = new List<PlanRun>();
             public readonly List<List<float2>> Connectors = new List<List<float2>>();
+            public readonly List<List<float2>> Links = new List<List<float2>>();   // cat tracks between lifts (not in a traverse tree)
             public readonly List<string> Log = new List<string>();
         }
 
@@ -137,16 +139,29 @@ namespace AutoGenBatch
                     if (cd.Wh[i] < cd.Wh[lowAt])
                         lowAt = i;
                 }
-                // the end: the first lift bottom the drainage passes below the line, else the last one the line itself passes
+                // the end: through the station area of each lift bottom the way passes; below the line's own end it goes on down
+                // the drainage only while that passes other lifts' bottoms within RunOutM (a base whose stations are spread, or a
+                // valley run to the base below, links them all)
+                var passed = new HashSet<int>();
+                float beyond = -1f;
                 for (int i = cd.Entry + 5; i <= cd.ValidEnd; i++)
-                    if (DeliversAt(cd, i, lifts, botH))
-                    {
+                {
+                    bool any = false, fresh = false;
+                    for (int L = 0; L < lifts.Count; L++)
+                        if (math.distancesq(cd.Way[i], lifts[L].Bottom.xz) < DeliverM * DeliverM && cd.Wh[i] >= botH[L] - 12f)
+                        {
+                            any = true;
+                            fresh |= passed.Add(L);
+                        }
+                    if (any && (fresh || cd.End == i - 1))
                         cd.End = i;
-                        if (i >= cd.LineEnd)
-                            break;
-                    }
-                    else if (cd.End >= 0 && i > cd.LineEnd)
+                    if (beyond >= 0f)
+                        beyond += math.distance(cd.Way[i - 1], cd.Way[i]);
+                    else if (any && i >= cd.LineEnd)
+                        beyond = 0f;
+                    if (beyond > RunOutM)
                         break;
+                }
                 cd.Value = CandValue(g, cd, cd.End >= 0 ? cd.End : Math.Min(cd.LineEnd, cd.ValidEnd));
                 cands.Add(cd);
             }
@@ -257,6 +272,19 @@ namespace AutoGenBatch
             int chains = 0, badChains = 0;
             for (int L = 0; L < lifts.Count; L++)
                 EmitTree(g, need[L], lifts[L].TopCell, plan.Connectors, ref chains, ref badChains);
+            // the network: traverses and routes where lifts cannot get to each other; a station no run passes moves onto a run-out
+            int links = LinkLifts(g, plan, lifts, reachOf, need, ref chains, ref badChains);
+            links += LinkByRoutes(g, plan, lifts);
+            if (ReseatBottoms(g, plan, lifts, need) > 0)
+            {
+                plan.Connectors.Clear();
+                chains = badChains = 0;
+                for (int L = 0; L < lifts.Count; L++)
+                    EmitTree(g, need[L], lifts[L].TopCell, plan.Connectors, ref chains, ref badChains);
+                plan.Connectors.AddRange(plan.Links);
+                links += LinkLifts(g, plan, lifts, reachOf, need, ref chains, ref badChains);
+                links += LinkByRoutes(g, plan, lifts);
+            }
             if (Environment.GetEnvironmentVariable("RF_NOPOD") != "1")
                 AddBeginnerPods(g, plan, lifts);
             if (Environment.GetEnvironmentVariable("RF_DEBUG") == "1")
@@ -269,11 +297,21 @@ namespace AutoGenBatch
                         Console.WriteLine($"DEBUG run #{r.Src?.Pick} by L{r.By?.Id}: reached {sg.Reached[i]} returns {sg.Returns[i]}, start {r.Pts[0].x:F0},{r.Pts[0].y:F0} " +
                             $"end {r.Pts[r.Pts.Count - 1].x:F0},{r.Pts[r.Pts.Count - 1].y:F0} merge {r.Src?.Merge} top-dist {math.distance(r.By.Top.xz, r.Pts[0]):F0}");
                     }
+                for (int L = 0; L < lifts.Count && L < reachOf.Length; L++)
+                {
+                    float2 bp = lifts[L].Bottom.xz;
+                    float near = float.MaxValue;
+                    foreach (PlanRun r in plan.Runs)
+                        foreach (float2 p in r.Pts)
+                            near = Math.Min(near, math.distance(p, bp));
+                    var by = Enumerable.Range(0, reachOf.Length).Where(X => X != L && reachOf[X].ContainsKey(lifts[L].BottomCell)).Select(X => lifts[X].Id);
+                    Console.WriteLine($"DEBUG L{lifts[L].Id} bottom {bp.x:F0},{bp.y:F0} h {RawH(g, bp):F0} top {lifts[L].Top.x:F0},{lifts[L].Top.z:F0} h {RawH(g, lifts[L].Top.xz):F0}; nearest run point {near:F0} m; bottom in reach of [{string.Join(",", by)}]");
+                }
                 for (int L = 0; L < lifts.Count; L++)
                     Console.WriteLine($"DEBUG L{lifts[L].Id}: reaches [{string.Join(",", sg.Reaches[L].Select(b => lifts[b].Id))}] comp {sg.Component[L]} dead {Dead(sg, L)}");
             }
             plan.Log.Add($"serve pass: {cands.Count} candidate(s) with a lift entry, {plan.Runs.Count} run(s) kept (cap {cap}); " +
-                $"{badChains} of {chains} traverse piece(s) fail the raw connector rules");
+                $"{badChains} of {chains} traverse piece(s) fail the raw connector rules; {links} link(s) added between lifts");
             return plan;
         }
 
@@ -373,14 +411,6 @@ namespace AutoGenBatch
             return end == run.Count - 1 ? run : run.GetRange(0, end + 1);
         }
 
-        private static bool DeliversAt(Cand cd, int i, List<Lift> lifts, List<float> botH)
-        {
-            for (int L = 0; L < lifts.Count; L++)
-                if (math.distancesq(cd.Way[i], lifts[L].Bottom.xz) < DeliverM * DeliverM && cd.Wh[i] >= botH[L] - 12f)
-                    return true;
-            return false;
-        }
-
         /// <summary>Drop from the entry to end, weighted by the band (beginner and intermediate vertical is scarce) and the corridor
         /// width; a line that delivers nowhere counts half (it can still end on another run).</summary>
         private static float CandValue(Grid g, Cand cd, int end)
@@ -390,6 +420,72 @@ namespace AutoGenBatch
             float drop = cd.Wh[cd.Entry] - cd.Wh[end];
             SlopeBand band = RunBand(g, cd.Way.GetRange(cd.Entry, end - cd.Entry + 1));
             return Math.Max(0f, drop) * Math.Clamp(cd.L.Width / 40f, 0.3f, 1f) * BandWeight(band) * (cd.End >= 0 ? 1f : 0.5f);
+        }
+
+        /// <summary>The lift network as a skier rides it: while some lifts cannot get to the main set (or it to them), a traverse from a
+        /// lift top whose reach takes in the other lift's bottom station closes the gap (the ridge traverse to the bowl lift, the
+        /// cat track from the upper lift to the base). The traverse trees are then emitted again. Returns the traverses added.</summary>
+        private static int LinkLifts(Grid g, Plan plan, List<Lift> lifts, Dictionary<int, int>[] reachOf, List<List<int>>[] need, ref int chains, ref int bad)
+        {
+            int added = 0;
+            for (int round = 0; round < 3; round++)
+            {
+                SkiGraph sg = Ski(g, plan, lifts);
+                if (sg.BestSize >= lifts.Count)
+                    break;
+                var fwd = new HashSet<int>[lifts.Count];
+                for (int L = 0; L < lifts.Count; L++)
+                    fwd[L] = Closure(L, sg.Reaches);
+                var main = Enumerable.Range(0, lifts.Count).Where(L => sg.Component[L] == sg.BestComponent).ToList();
+                int before = added;
+                foreach (int Y in Enumerable.Range(0, lifts.Count).Where(L => sg.Component[L] != sg.BestComponent).ToList())
+                {
+                    if (!main.Any(X => fwd[X].Contains(Y)) && AddLink(g, lifts, reachOf, need, main, new List<int> { Y }))
+                        added++;
+                    if (!main.Any(X => fwd[Y].Contains(X)) && AddLink(g, lifts, reachOf, need, new List<int> { Y }, main))
+                        added++;
+                }
+                if (added == before)
+                    break;
+                plan.Connectors.Clear();
+                chains = bad = 0;
+                for (int L = 0; L < lifts.Count; L++)
+                    EmitTree(g, need[L], lifts[L].TopCell, plan.Connectors, ref chains, ref bad);
+                plan.Connectors.AddRange(plan.Links);
+            }
+            return added;
+        }
+
+        /// <summary>The shortest traverse from a top in froms to a bottom station in tos (a reach cell within 35 m of it, the top
+        /// above the station), added to that lift's traverse tree; false when no top reaches any.</summary>
+        private static bool AddLink(Grid g, List<Lift> lifts, Dictionary<int, int>[] reachOf, List<List<int>>[] need, List<int> froms, List<int> tos)
+        {
+            List<int> best = null;
+            int bestX = -1;
+            foreach (int X in froms)
+                foreach (int Z in tos)
+                {
+                    if (X == Z || lifts[X].Top.y < lifts[Z].Bottom.y + 20f)
+                        continue;
+                    int c0 = lifts[Z].BottomCell, k = (int)Math.Ceiling(35f / g.CellM);
+                    for (int dz = -k; dz <= k; dz++)
+                        for (int dx = -k; dx <= k; dx++)
+                        {
+                            int c = c0 + dz * g.W + dx;
+                            if (c < 0 || c >= g.W * g.D || !reachOf[X].ContainsKey(c) || math.distance(g.World(c), g.World(c0)) > 35f)
+                                continue;
+                            List<int> path = PathHome(g, reachOf[X], g.World(c), lifts[X].TopCell);
+                            if (best == null || path.Count < best.Count)
+                            {
+                                best = path;
+                                bestX = X;
+                            }
+                        }
+                }
+            if (best == null)
+                return false;
+            need[bestX].Add(best);
+            return true;
         }
 
         /// <summary>Cells from the reach cell under p up the parent pointers to the top (entry first).</summary>
