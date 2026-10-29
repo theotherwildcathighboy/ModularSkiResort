@@ -324,6 +324,11 @@ namespace AutoGenBatch
             if (Environment.GetEnvironmentVariable("RF_NOREGRADE") != "1")
                 RegradeTraverses(g, plan, lifts);
             Tick("regrade");
+            // a base still without green skiing to lap (the ways home and the regrade gave it none) gets a green cat track down from
+            // one of its tops
+            if (Environment.GetEnvironmentVariable("RF_NOGRADEDWAY") != "1")
+                AddGradedLearningWays(g, plan, lifts);
+            Tick("learning ways");
             int fills = Environment.GetEnvironmentVariable("RF_NOFILL") == "1" ? 0 : FillCover(g, plan, lifts, cands);
             Tick("fill");
             // runs left under a lift line move out beside it

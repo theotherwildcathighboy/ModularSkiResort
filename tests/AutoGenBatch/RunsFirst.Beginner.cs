@@ -425,6 +425,82 @@ namespace AutoGenBatch
             return false;
         }
 
+        /// <summary>For each base that still has no green skiing to lap once the ways home and the regrade are in (no green way down, pod,
+        /// way home or regraded track gives it one): a winding green the grading tool cuts (the owner's rule: a green learning run on
+        /// steep ground is a graded track), from the top of a lift of the base down to its stations. Returns the bases given one.</summary>
+        private static int AddGradedLearningWays(Grid g, Plan plan, List<Lift> lifts)
+        {
+            int added = 0, tried = 0;
+            int[] root = V3Bases(g, lifts, out HashSet<int> bases);
+            SkiGraph sg = Ski(g, plan, lifts);
+            foreach (int b in bases.OrderBy(b => b))
+            {
+                var members = Enumerable.Range(0, lifts.Count).Where(L => root[L] == b).OrderBy(L => RawH(g, lifts[L].Bottom.xz)).ToList();
+                if (BaseHasGreen(sg, plan, lifts, members))
+                    continue;
+                tried++;
+                var avoid = new PointHash();
+                foreach (PlanRun r in plan.Runs)
+                    foreach (float2 p in r.Pts)
+                        avoid.Add(p);
+                var lines = new PointHash();
+                foreach (Lift lf in lifts)
+                    for (float f = 0.15f; f <= 0.85f; f += 10f / math.max(10f, math.distance(lf.Bottom.xz, lf.Top.xz)))
+                        lines.Add(math.lerp(lf.Bottom.xz, lf.Top.xz, f));
+                int before = plan.Runs.Count;
+                if (!TryGradedWayDown(g, plan, lifts, members, avoid, lines))
+                    continue;
+                sg = Ski(g, plan, lifts);
+                if (BaseHasGreen(sg, plan, lifts, members))
+                {
+                    added++;
+                    continue;
+                }
+                plan.Runs.RemoveRange(before, plan.Runs.Count - before);
+                plan.Log.Add("  (undone: no green lap for the base's beginners)");
+                sg = Ski(g, plan, lifts);
+            }
+            if (tried > 0)
+                plan.Log.Add($"learning ways: {added} of {tried} base(s) without green skiing to lap given a graded green way down");
+            return added;
+        }
+
+        /// <summary>A green cat track from the top of a lift of the base down to its stations, searched as the ways home are (steep
+        /// pitches along the path, so it may zigzag down a face), at least 250 m long and 40 m down (a learning run, not a transfer).</summary>
+        private static bool TryGradedWayDown(Grid g, Plan plan, List<Lift> lifts, List<int> members, PointHash avoid, PointHash lines)
+        {
+            var origins = new List<int>();
+            foreach (int L in members)
+            {
+                origins.Add(lifts[L].BottomCell);
+                origins.AddRange(PadsNear(g, lifts[L].BottomCell, 25f, 45f, 8));
+            }
+            EasyReach er = EasyUp(g, origins.Distinct().ToList(), avoid, WayGreen, lines);
+            foreach (int L in members)
+            {
+                float2 top = lifts[L].Top.xz;
+                float topH = RawH(g, top);
+                var starts = er.Cost.Where(kv => kv.Value > 0f && math.distancesq(g.World(kv.Key), top) < WayStartM * WayStartM && g.Hr[kv.Key] <= topH + 3f)
+                    .OrderBy(kv => kv.Value).Take(8).Select(kv => kv.Key).ToList();
+                foreach (int s in starts)
+                {
+                    List<int> cells = er.Route(s);
+                    if (cells.Count < 3)
+                        continue;
+                    foreach (List<float2> pl in new[] { Polyline(g, cells, false), cells.ConvertAll(c => g.World(c)) })
+                    {
+                        float drop = RawH(g, pl[0]) - RawH(g, pl[pl.Count - 1]);
+                        if (!GreenTrack(g, pl) || RunLength(pl) < 250f || drop < 40f)
+                            continue;
+                        plan.Runs.Add(new PlanRun { Pts = pl, Band = SlopeBand.Green, By = lifts[L], Kind = "beginner", Graded = true });
+                        plan.Log.Add($"graded green way down from L{lifts[L].Id}'s top: {RunLength(pl):F0} m, {drop:F0} m down");
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+
         /// <summary>For a base whose easy ground neither reaches a top nor rises the 97 m a pod needs: a green run that leaves a run
         /// or traverse skied from a lift of the base where the easy ground meets it (30 m, not above it) and winds home, at least
         /// 60 m down and 300 m long, the highest clean one first (else the softest; not added); whoever has come that far down skis
