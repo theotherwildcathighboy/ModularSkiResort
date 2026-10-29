@@ -343,7 +343,7 @@ namespace AutoGenBatch
                                 transfer += 0.5f * lf.Gain;
                         if (gain + transfer <= best)
                             continue;
-                        if (Twin(g, lifts, t, bc) || OnRuns(g, runs, bc, t))
+                        if (Twin(g, lifts, t, bc) || OnRuns(g, runs, bc, t) || AlongEdge(g, bc, t))
                             continue;
                         string type = TypeFor(g, bc, t);
                         if (type == null || (gain + transfer) * Capacity(type) <= best)
@@ -478,6 +478,32 @@ namespace AutoGenBatch
         }
 
         [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        /// <summary>A lift line along the region edge: over half of its chord's middle within EdgeLiftM of ground outside the region (the
+        /// low ground a station wants often lies on the edge of a cut-out region; a designer keeps the line inside it).</summary>
+        private static bool AlongEdge(Grid g, int b, int t)
+        {
+            if (EdgeLiftM <= 0f)
+                return false;
+            float2 p0 = g.World(b), p1 = g.World(t);
+            int n = 0, near = 0;
+            for (float f = 0.2f; f <= 0.801f; f += 0.05f, n++)
+            {
+                float2 q = math.lerp(p0, p1, f);
+                for (int k = 0; k < 16; k++)
+                {
+                    float a = k * (float)Math.PI / 8f;
+                    int c = CellOf(g, q + EdgeLiftM * new float2((float)Math.Cos(a), (float)Math.Sin(a)));
+                    if (c < 0 || !g.In[c])
+                    {
+                        near++;
+                        break;
+                    }
+                }
+            }
+            return near * 2 > n;
+        }
+        private static readonly float EdgeLiftM = Env("RF_EDGELIFT", 45f);
+
         private static bool Twin(Grid g, List<Lift> lifts, int t, int b, float parallelM = 200f)
         {
             // a twin (both ends within TwinM), a parallel (the middle 60 % within parallelM of the placed chord), or a crossing in

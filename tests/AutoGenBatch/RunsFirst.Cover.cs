@@ -318,7 +318,7 @@ namespace AutoGenBatch
                         rej[1]++;
                         continue;
                     }
-                    if (OnRuns(g, runs, bc, t))
+                    if (OnRuns(g, runs, bc, t) || AlongEdge(g, bc, t))
                     {
                         rej[2]++;
                         continue;
