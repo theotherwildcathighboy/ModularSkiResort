@@ -102,11 +102,14 @@ namespace AutoGenBatch
                 for (int L = 0; L < lifts.Count; L++)
                     fwd[L] = Closure(L, sg.Reaches);
                 var main = Enumerable.Range(0, lifts.Count).Where(L => sg.Component[L] == sg.BestComponent).ToList();
+                // where the main lifts' skiers can get to: the main lifts and every lift they reach (a gondola up into a hanging
+                // valley they cannot ski back from still puts them at its top)
+                var reached = Enumerable.Range(0, lifts.Count).Where(L => main.Any(X => fwd[X].Contains(L))).ToList();
                 bool any = false;
                 foreach (int Y in Enumerable.Range(0, lifts.Count).Where(L => sg.Component[L] != sg.BestComponent))
                 {
-                    // into Y from the main lifts, then out of Y back to them
-                    if (!main.Any(X => fwd[X].Contains(Y)) && tried.Add((-1, lifts[Y].Id)) && TryLink(g, plan, lifts, sg, main, new List<int> { Y }, done))
+                    // into Y from where the main lifts' skiers get to, then out of Y back to the main lifts
+                    if (!main.Any(X => fwd[X].Contains(Y)) && tried.Add((-1, lifts[Y].Id)) && TryLink(g, plan, lifts, sg, reached, new List<int> { Y }, done))
                         any = true;
                     else if (!main.Any(X => fwd[Y].Contains(X)) && tried.Add((lifts[Y].Id, -1)) && TryLink(g, plan, lifts, sg, new List<int> { Y }, main, done))
                         any = true;
