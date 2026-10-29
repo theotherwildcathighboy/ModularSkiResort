@@ -62,6 +62,8 @@ namespace AutoGenBatch
         private static Plan BuildPlan(Grid g, int[] rec, List<Line> lines, List<Lift> lifts, float km2)
         {
             var plan = new Plan();
+            plan.Dots.AddRange(DebugDots);
+            DebugDots.Clear();
             int n = g.W * g.D;
             var slope = new float[n];
             for (int c = 0; c < n; c++)
@@ -276,6 +278,7 @@ namespace AutoGenBatch
                         need[L].Add(PathHome(g, reachOf[L], at, lifts[L].TopCell));
                 }
             }
+            Tick("serve");
             int chains = 0, badChains = 0;
             for (int L = 0; L < lifts.Count; L++)
                 EmitTree(g, need[L], lifts[L].TopCell, plan.Connectors, ref chains, ref badChains);
@@ -292,17 +295,22 @@ namespace AutoGenBatch
                 links += LinkLifts(g, plan, lifts, reachOf, need, ref chains, ref badChains);
                 links += LinkByRoutes(g, plan, lifts);
             }
+            Tick("links");
             int spurs = Environment.GetEnvironmentVariable("RF_NOSPUR") == "1" ? 0 : MergeSpurs(g, plan, lifts);
+            Tick("spurs");
             if (Environment.GetEnvironmentVariable("RF_NOPOD") != "1")
             {
                 AddBeginnerPods(g, plan, lifts);
                 // a pod's top can open a way into an area the main lifts could not get to
                 links += LinkByRoutes(g, plan, lifts);
             }
+            Tick("pods");
             // an area over a saddle from where the other lifts' skiers collect: a bridge lift
             if (Environment.GetEnvironmentVariable("RF_NOBRIDGE") != "1")
                 links += BridgeLifts(g, plan, lifts, km2);
+            Tick("bridge");
             int fills = Environment.GetEnvironmentVariable("RF_NOFILL") == "1" ? 0 : FillCover(g, plan, lifts, cands);
+            Tick("fill");
             if (Environment.GetEnvironmentVariable("RF_COVER") == "1")
             {
                 // skiable 20 m lattice points no run covers: red where a lift top's reach gets to them, orange where none does

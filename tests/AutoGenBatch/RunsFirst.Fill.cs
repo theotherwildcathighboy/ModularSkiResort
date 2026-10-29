@@ -26,10 +26,37 @@ namespace AutoGenBatch
         /// <summary>Fall lines through open ground: from an open lattice point up the steepest ascent until it meets ground a skier is on
         /// (onNear) and down the steepest descent until it has run along a run for a few steps or reached a station; one per stretch of
         /// face (an open point near a line already traced starts none). Returned as candidates the fill judges like the picked lines.</summary>
-        private static List<Cand> FaceLines(Grid g, List<Lift> lifts, List<float2> lat, bool[] covered, PointHash runs, Func<float2, float, bool> onNear)
+        private static List<Cand> FaceLines(Grid g, List<Lift> lifts, List<float2> lat, bool[] covered, List<float3> onPts, List<float2> runPts)
         {
             var o = new List<Cand>();
             var traced = new PointHash();
+            // per cell: the highest point a skier is on within FillForkM (the fork rule: at most 3 m above it), and whether a run
+            // lies within MergeM
+            int cellCount = g.W * g.D;
+            var onY = new float[cellCount];
+            Array.Fill(onY, float.NegativeInfinity);
+            var nearRun = new bool[cellCount];
+            void Stamp(float2 q, float r, Action<int> f)
+            {
+                int c = CellOf(g, q);
+                if (c < 0)
+                    return;
+                int k = (int)Math.Ceiling(r / g.CellM), x0 = c % g.W, z0 = c / g.W;
+                for (int dz = -k; dz <= k; dz++)
+                    for (int dx = -k; dx <= k; dx++)
+                    {
+                        int x = x0 + dx, z = z0 + dz;
+                        if (x >= 0 && z >= 0 && x < g.W && z < g.D && math.distancesq(g.World(z * g.W + x), q) < r * r)
+                            f(z * g.W + x);
+                    }
+            }
+            foreach (float3 q in onPts)
+                Stamp(q.xz, FillForkM, c => onY[c] = Math.Max(onY[c], q.y));
+            foreach (float2 q in runPts)
+                Stamp(q, MergeM, c => nearRun[c] = true);
+            var nearTop = new bool[cellCount];
+            foreach (Lift lf in lifts)
+                Stamp(lf.Top.xz, DirectStartM, c => nearTop[c] = true);
             int Step(int c, bool up)
             {
                 int x = c % g.W, z = c / g.W, best = -1;
@@ -63,8 +90,7 @@ namespace AutoGenBatch
                 bool found = false;
                 for (int c = c0, n = 0; n < 250; n++)
                 {
-                    float2 q = g.World(c);
-                    if (onNear(q, g.Hr[c]) || lifts.Any(lf => math.distancesq(lf.Top.xz, q) < DirectStartM * DirectStartM))
+                    if (g.Hr[c] <= onY[c] + 3f || nearTop[c])
                     {
                         found = true;
                         break;
@@ -88,7 +114,7 @@ namespace AutoGenBatch
                     float2 q = g.World(c);
                     if (lifts.Any(lf => math.distancesq(lf.Bottom.xz, q) < 40f * 40f))
                         break;
-                    if (!runs.Near(q, MergeM))
+                    if (!nearRun[c])
                         away = true;
                     else if (away && ++along >= 4)
                         break;
@@ -405,9 +431,10 @@ namespace AutoGenBatch
             foreach (Cand cd in cands)
                 if (!cd.L.Picked && Eval(cd, out int f0, out _) != null)
                     queue.Enqueue(cd, -f0);
+            Tick("fill setup");
             int faceLines = 0;
             if (Environment.GetEnvironmentVariable("RF_NOFACE") != "1")
-                foreach (Cand cd in FaceLines(g, lifts, lat, covered, runs, OnNear))
+                foreach (Cand cd in FaceLines(g, lifts, lat, covered, on.Values.SelectMany(l => l).ToList(), smp.Select(x => x.P).ToList()))
                 {
                     faceLines++;
                     if (Eval(cd, out int f0, out _) != null)
@@ -415,6 +442,7 @@ namespace AutoGenBatch
                 }
             if (Environment.GetEnvironmentVariable("RF_DEBUG") == "1")
                 Console.WriteLine($"DEBUG fill: {queue.Count} of {cands.Count} candidate(s) and {faceLines} face line(s); no fork {why[0]}, never leaves {why[1]}, no way home {why[2]}, short {why[3]}, crowded {why[4]}, little new ground {why[5]}, crowding costs more {why[6]}");
+            Tick("face lines");
             int added = 0, opened = 0;
             float km = 0f;
             var mine = new List<PlanRun>();

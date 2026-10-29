@@ -138,10 +138,19 @@ namespace AutoGenBatch
             return 0;
         }
 
+        private static System.Diagnostics.Stopwatch Clock = new System.Diagnostics.Stopwatch();
+        private static readonly bool Timing = Environment.GetEnvironmentVariable("RF_TIME") == "1";
+        private static void Tick(string what)
+        {
+            if (Timing)
+                Console.WriteLine($"TIME {what} {Clock.ElapsedMilliseconds} ms");
+        }
+
         private static void RunRegion(string id, float2[] ring, HeightmapFile file, string outDir)
         {
             HeightSnapshot snap = Heightmap.Snapshot(file, ring);
             var sw = System.Diagnostics.Stopwatch.StartNew();
+            Clock = sw;
             Grid g = BuildGrid(snap, ring);
             int n = g.W * g.D;
             float cellsPerChannel = ChannelM2 / (g.CellM * g.CellM);
@@ -181,9 +190,12 @@ namespace AutoGenBatch
                 AddLine(lines, g, path, "gentle");
             }
             float km2r = (float)(SkiRunAutoPlanner.PolygonArea(ring) / 1e6);
+            Tick("lines");
             PointHash taken = Pick(lines, g, km2r);
             List<Lift> lifts = PlaceLifts(g, rec, lines, km2r, taken);
+            Tick("lifts");
             Plan built = BuildPlan(g, rec, lines, lifts, km2r);
+            Tick("plan");
             long ms = sw.ElapsedMilliseconds;
 
             // the v2 plan of the same region, as the host replays it

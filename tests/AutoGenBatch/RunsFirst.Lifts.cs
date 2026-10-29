@@ -27,6 +27,8 @@ namespace AutoGenBatch
         // hourly capacity relative to a detachable quad (2,400 / h): a tram lap is worth a third of a chair lap to a resort
         private static float Capacity(string type) => type switch { "fixed-grip" => 0.75f, "detachable" => 1f, "gondola" => 0.8f, _ => 0.3f };   // terrain may rise this far above the straight chord (towers carry the rope over it)
 
+        private static readonly List<(float2 P, int R, int G, int B)> DebugDots = new List<(float2, int, int, int)>();   // RF_TOPS marks
+
         private sealed class Lift
         {
             public int Id;
@@ -212,6 +214,8 @@ namespace AutoGenBatch
                     foreach (int c in touched)
                         dist[c] = float.PositiveInfinity;
                     cTops.Add(t);
+                    if (Environment.GetEnvironmentVariable("RF_TOPS") == "1")
+                        DebugDots.Add((g.World(t), any ? 0 : 255, any ? 255 : 0, 255));
                     cReachB.Add(rb);
                     cReachBits.Add(bits);
                     if (any)
@@ -223,6 +227,7 @@ namespace AutoGenBatch
                     }
                 }
 
+            Tick("tops");
             // greedy: the lift that adds the most new vertical (per line, elevation intervals already lapped don't count twice)
             var covered = new List<(float lo, float hi)>[lines.Count];
             for (int li = 0; li < lines.Count; li++)
@@ -348,6 +353,7 @@ namespace AutoGenBatch
             }
             if (Environment.GetEnvironmentVariable("RF_NOCOVERLIFT") != "1")
                 AddCoverLifts(g, rec, lifts, cTops, cReachB, cReachBits, bottoms, latIdx, latCount, runs, km2, slope);
+            Tick("cover lifts");
             if (Environment.GetEnvironmentVariable("RF_DEBUG") == "1")
                 for (int L = 0; L < lifts.Count; L++)
                 {

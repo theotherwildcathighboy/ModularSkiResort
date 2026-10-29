@@ -41,6 +41,7 @@ namespace AutoGenBatch
         // a green run (85th percentile under 0.25, the run rule's 10 m climb less a margin); a cat track (the connector rules: no
         // 30 m pitch over 0.50, no rise over 4.5 m); a blue run; a black run (an expert way into the next area)
         private static readonly EasyLimits GreenWay = new EasyLimits(0.22f, GreenRawPitch, 0.40f, 7f, 0.08f, 4500f);
+        private static readonly EasyLimits GreenProbe = new EasyLimits(0.22f, GreenRawPitch, 0.40f, 7f, 0.08f, 1500f);   // green ground near a station
         private static readonly EasyLimits CatTrack = new EasyLimits(0.30f, ConnPitchMax, ConnPitchMax, 3.5f, 1f, 1500f);
         private static readonly EasyLimits BlueWay = new EasyLimits(0.36f, 0.38f, 0.62f, 7f, 0.08f, 3500f);
         private static readonly EasyLimits BlackWay = new EasyLimits(0.55f, 0.58f, 0.95f, 7f, 0.10f, 3500f);

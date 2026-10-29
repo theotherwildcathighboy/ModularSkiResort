@@ -6,6 +6,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Numerics;
 using Unity.Mathematics;
 
@@ -13,8 +14,9 @@ namespace AutoGenBatch
 {
     internal static partial class RunsFirst
     {
-        private static readonly float CoverLiftShare = Env("RF_CLS", 0.035f);   // a coverage lift opens at least this share of the region's skiable ground
-        private static readonly int CoverLiftMinPts = (int)Env("RF_CLM", 250f);     // ... and at least this many 20 m lattice points (11 ha)
+        private static readonly bool NoNewBase = Environment.GetEnvironmentVariable("RF_CNEWBASE") != "1";
+        private static readonly float CoverLiftShare = Env("RF_CLS", 0.02f);   // a coverage lift opens at least this share of the region's skiable ground
+        private static readonly int CoverLiftMinPts = (int)Env("RF_CLM", 120f);     // ... and at least this many 20 m lattice points (11 ha)
 
         /// <summary>The skiable 20 m lattice: per cell its index (-1 = not a lattice point or not skiable).</summary>
         private static int[] SkiLattice(Grid g, out int count)
@@ -107,6 +109,15 @@ namespace AutoGenBatch
             int n = g.W * g.D, B = bottoms.Count, wb = (B + 63) / 64, wl = (latCount + 63) / 64;
             float cellKm2 = (float)Math.Pow(Math.Max(1, (int)Math.Round(20f / g.CellM)) * g.CellM, 2) / 1e6f;   // ground per lattice point
             int budget = (int)Math.Ceiling(1.5 * km2) + 2 - 2;   // two left for the beginner pods
+            float hLo = float.MaxValue, hHi = float.MinValue;
+            for (int c = 0; c < g.W * g.D; c++)
+                if (g.In[c] && !float.IsNaN(g.Hr[c]))
+                {
+                    hLo = Math.Min(hLo, g.Hr[c]);
+                    hHi = Math.Max(hHi, g.Hr[c]);
+                }
+            float lowCut = hLo + BaseShareCut * (hHi - hLo);
+            var greenRise = new Dictionary<int, float>();
             if (lifts.Count == 0 || lifts.Count >= budget || B == 0)
                 return 0;
             foreach (Lift lf in lifts)
@@ -222,6 +233,7 @@ namespace AutoGenBatch
                     int baseGain = 0;
                     for (int w = 0; w < wl; w++)
                         baseGain += BitOperations.PopCount(rb[w] & open[w] & homes[w]);
+                    int tBest = 0, tInto = 0, tHome = 0, tPairs = 0;
                     for (int b = 0; b < B; b++)
                     {
                         int t = tops[ti], bc = bottoms[b];
@@ -235,10 +247,15 @@ namespace AutoGenBatch
                             home |= (passes[bc * wb + lf.BottomIndex / 64] & (1UL << (lf.BottomIndex % 64))) != 0;
                         }
                         pairs++;
+                        tPairs++;
                         if (!into)
                             noInto++;
                         if (!home)
                             noHome++;
+                        if (into)
+                            tInto++;
+                        if (home)
+                            tHome++;
                         if (!into || !home)
                             continue;
                         int gain = baseGain;
@@ -246,15 +263,20 @@ namespace AutoGenBatch
                         for (int w = 0; w < wl; w++)
                             gain += BitOperations.PopCount(rb[w] & open[w] & cb[w] & ~homes[w]);
                         maxGain = Math.Max(maxGain, gain);
+                        tBest = Math.Max(tBest, gain);
                         if (gain >= Math.Max(CoverLiftMinPts, CoverLiftShare * latCount))
                             cands.Add((gain, ti, b));
                     }
+                    if (debug && Environment.GetEnvironmentVariable("RF_TOPDBG") == "1" && baseGain >= 40)
+                        Console.WriteLine($"DEBUG cover top {g.World(tops[ti]).x:F0},{g.World(tops[ti]).y:F0} h {g.Hr[tops[ti]]:F0}: base gain {baseGain}, back {back}, best {tBest}, pairs {tPairs}, into {tInto}, home {tHome}");
                 }
                 cands.Sort((a, b) => b.Gain.CompareTo(a.Gain));
+                if (debug && Environment.GetEnvironmentVariable("RF_TOPDBG") == "1")
+                    Console.WriteLine("DEBUG cover top lines above");
                 if (debug)
                     Console.WriteLine($"DEBUG cover lifts: {openPts} of {latCount} lattice points unserved; {pairs} pair(s), {noInto} not reachable, {noHome} not leading home; best gain {maxGain}; {cands.Count} over the bar");
                 bool placed = false;
-                var rej = new int[4];
+                var rej = new int[5];
                 foreach (var (gain, ti, b) in cands)
                 {
                     int t = tops[ti], bc = bottoms[b];
@@ -293,6 +315,21 @@ namespace AutoGenBatch
                         rej[2]++;
                         continue;
                     }
+                    // a coverage lift may start a base of its own only where green ground rises a pod's height from its station (the
+                    // beginner pass needs it there)
+                    if (NoNewBase && OpensBase(g, lifts, bc, lowCut))
+                    {
+                        if (!greenRise.TryGetValue(bc, out float gr))
+                        {
+                            EasyReach er = EasyUp(g, new List<int> { bc }, new PointHash(), GreenProbe);
+                            greenRise[bc] = gr = er.Cost.Count > 0 ? er.Cost.Keys.Max(c => g.Hr[c]) - g.Hr[bc] : 0f;
+                        }
+                        if (gr < PodMinRise)
+                        {
+                            rej[4]++;
+                            continue;
+                        }
+                    }
                     string type = TypeFor(g, bc, t);
                     if (type == null)
                     {
@@ -323,7 +360,7 @@ namespace AutoGenBatch
                 if (!placed)
                 {
                     if (debug)
-                        Console.WriteLine($"DEBUG cover lifts: none placed; twin {rej[0]}, under a rope {rej[1]}, on runs {rej[2]}, no lift type fits {rej[3]}");
+                        Console.WriteLine($"DEBUG cover lifts: none placed; twin {rej[0]}, under a rope {rej[1]}, on runs {rej[2]}, no lift type fits {rej[3]}, opens a base {rej[4]}");
                     break;
                 }
             }
