@@ -213,7 +213,7 @@ namespace AutoGenBatch
                 foreach (float3 p in sg.P[i])
                 {
                     AddOn(p);
-                    if (i < sg.Runs)
+                    if (sg.IsRun[i])
                     {
                         runs.Add(p.xz);
                         Open(p.xz);
@@ -253,8 +253,8 @@ namespace AutoGenBatch
                                 if (smp[j].Run != skip && math.distancesq(smp[j].P, q) < FillCrowdM * FillCrowdM)
                                     f(j);
             }
-            for (int i = 0; i < sg.Runs; i++)
-                if (sg.Reached[i] && sg.Returns[i])
+            for (int i = 0; i < sg.P.Count; i++)
+                if (sg.IsRun[i] && sg.Reached[i] && sg.Returns[i])
                     AddSamples(sg.P[i].ToList());
             for (int j = 0; j < smp.Count; j++)
                 if (!smp[j].Tail)
@@ -333,7 +333,11 @@ namespace AutoGenBatch
                 connKm += RunLength(c) / 1000f;
             var guard = new ChordGuard(lifts);
             foreach (PlanRun r in plan.Runs)
-                guard.Add(r.Pts, 0, r.Pts.Count - 1);
+                if (!r.Graded)
+                    guard.Add(r.Pts, 0, r.Pts.Count - 1);
+            foreach (List<float2> c in plan.Connectors)
+                if (TrackClass(g, c).Run)
+                    guard.Add(c, 0, c.Count - 1);
 
             // a candidate's fill run: from where it leaves an element the skier is on, to where it runs onto a run or delivers
             var why = new int[7];
