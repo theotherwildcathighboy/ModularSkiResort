@@ -20,6 +20,7 @@ namespace AutoGenBatch
         private const float DirectStartM = 140f;   // a run starting this close to a lift top needs no traverse (the scorecard's 150 m)
         private const float DeliverM = 50f;        // a run delivers to a lift when it passes this close to the bottom station (scorecard 60 m)
         private const float MinRunDropM = 55f;     // shorter served runs read as stubs (the scorecard counts under 50 m)
+        private const float ContactM = 39f;        // a merging run ends where it first comes this close to the run it joins (the skier's 40 m)
         private static readonly float ServeCapPerKm2 = Env("RF_SCAP", 8f);
         private static readonly float RunOutM = Env("RF_RUNOUT", 1600f);   // how far below its first station a run may go on to others
         private static readonly float ChordDefer = Env("RF_CDEF", 0.35f);   // value share of a run that lies along a lift line
@@ -170,6 +171,7 @@ namespace AutoGenBatch
             // 3. the serve pick: best first; a run that runs onto an earlier one ends there (it delivers where that one does)
             cands.Sort((a, b) => b.Value.CompareTo(a.Value));
             var taken = new PointHash();
+            var takenH = new HeightHash();
             int cap = Math.Clamp((int)Math.Round(ServeCapPerKm2 * km2), 12, 100), picks = 0;
             foreach (Line l in lines)
             {
@@ -195,7 +197,7 @@ namespace AutoGenBatch
                     run = taken.Near(cd.Way[i], MergeM) ? run + 1 : 0;
                     if (run == 3)
                     {
-                        end = i - 1;
+                        end = FirstContact(cd.Way, cd.Wh, cd.Entry + 5, i - 1, takenH);
                         cd.L.Merge = true;
                         break;
                     }
@@ -230,7 +232,10 @@ namespace AutoGenBatch
                 chords.Add(cd.Way, cd.Entry, end);
                 chosen.Add((cd, end));
                 for (int i = cd.Entry; i <= end; i++)
+                {
                     taken.Add(cd.Way[i]);
+                    takenH.Add(new float3(cd.Way[i].x, cd.Wh[i], cd.Way[i].y));
+                }
                 cd.L.Picked = true;
                 cd.L.Pick = ++picks;
                 cd.L.Lift = lifts[cd.By].Id;
@@ -322,6 +327,51 @@ namespace AutoGenBatch
                 }
                 Console.WriteLine($"DEBUG cover: {skiable} skiable, {inReach} uncovered in a lift's reach, {outReach} uncovered out of every reach");
             }
+            if (Environment.GetEnvironmentVariable("RF_CROWD") == "1")
+            {
+                // where the crowding is: each served run sample (its last 150 m aside) near another run, by where on that other run
+                SkiGraph cs = Ski(g, plan, lifts);
+                var served = Enumerable.Range(0, cs.Runs).Where(i => cs.Reached[i] && cs.Returns[i]).ToList();
+                int all = 0, ownStart = 0, nearEnd = 0, nearStart = 0, nearMid = 0;
+                var byKind = new Dictionary<string, int>();
+                foreach (int i in served)
+                {
+                    float3[] P = cs.P[i];
+                    for (int k = 0; k < P.Length - 15; k++)
+                    {
+                        all++;
+                        int hitJ = -1, hitK = -1;
+                        foreach (int j in served)
+                        {
+                            if (j == i)
+                                continue;
+                            for (int m = 0; m < cs.P[j].Length; m++)
+                                if (math.distancesq(cs.P[j][m].xz, P[k].xz) < 1600f)
+                                {
+                                    hitJ = j;
+                                    hitK = m;
+                                    break;
+                                }
+                            if (hitJ >= 0)
+                                break;
+                        }
+                        if (hitJ < 0)
+                            continue;
+                        string kind = plan.Runs[i].Kind;
+                        byKind[kind] = byKind.TryGetValue(kind, out int v) ? v + 1 : 1;
+                        if (k < 10)
+                            ownStart++;
+                        else if (hitK >= cs.P[hitJ].Length - 20)
+                            nearEnd++;
+                        else if (hitK < 10)
+                            nearStart++;
+                        else
+                            nearMid++;
+                        plan.Dots.Add((P[k].xz, 255, 0, 255));
+                    }
+                }
+                Console.WriteLine($"DEBUG crowd: {all} samples, {ownStart + nearEnd + nearStart + nearMid} crowded: own first 100 m {ownStart}, by the last 200 m of another run {nearEnd}, by the first 100 m of another {nearStart}, alongside {nearMid}; by kind {string.Join(", ", byKind.Select(kv => kv.Key + " " + kv.Value))}");
+            }
             if (Environment.GetEnvironmentVariable("RF_DEBUG") == "1")
             {
                 SkiGraph sg = Ski(g, plan, lifts);
@@ -348,6 +398,45 @@ namespace AutoGenBatch
             plan.Log.Add($"serve pass: {cands.Count} candidate(s) with a lift entry, {plan.Runs.Count} run(s) kept (cap {cap}); " +
                 $"{badChains} of {chains} traverse piece(s) fail the raw connector rules; {links} link(s) added between lifts; {spurs} spur(s) skied as the start of their run");
             return plan;
+        }
+
+        /// <summary>Where a run that merges at index end first comes within ContactM of the runs it joins: the joined run's samples
+        /// near the approach count as crowded, so the run stops at first contact (no earlier than from; the joined run must have a
+        /// point there no more than 4 m above, for the skier to flow on).</summary>
+        private static int FirstContact(List<float2> way, float[] wh, int from, int end, HeightHash joined)
+        {
+            int e = end;
+            while (e - 1 >= from && joined.NearBelow(way[e - 1], ContactM, float.MaxValue))
+                e--;
+            while (e < end && !joined.NearBelow(way[e], ContactM, wh[e] + 4f))
+                e++;
+            return e;
+        }
+
+        /// <summary>Points with heights in 60 m buckets.</summary>
+        private sealed class HeightHash
+        {
+            private readonly Dictionary<long, List<float3>> m_Cells = new Dictionary<long, List<float3>>();
+            private static long Key(int x, int z) => ((long)x << 32) ^ (uint)z;
+            public void Add(float3 p)
+            {
+                long k = Key((int)Math.Floor(p.x / 60f), (int)Math.Floor(p.z / 60f));
+                if (!m_Cells.TryGetValue(k, out List<float3> l))
+                    m_Cells[k] = l = new List<float3>();
+                l.Add(p);
+            }
+            /// <summary>A point within r (up to 60 m) of p no higher than maxY.</summary>
+            public bool NearBelow(float2 p, float r, float maxY)
+            {
+                int cx = (int)Math.Floor(p.x / 60f), cz = (int)Math.Floor(p.y / 60f);
+                for (int dz = -1; dz <= 1; dz++)
+                    for (int dx = -1; dx <= 1; dx++)
+                        if (m_Cells.TryGetValue(Key(cx + dx, cz + dz), out List<float3> l))
+                            foreach (float3 q in l)
+                                if (q.y <= maxY && math.distancesq(p, q.xz) < r * r)
+                                    return true;
+                return false;
+            }
         }
 
         /// <summary>The middle 70 % of every lift chord, sampled every 10 m as the scorecard does: no run set may lie along more

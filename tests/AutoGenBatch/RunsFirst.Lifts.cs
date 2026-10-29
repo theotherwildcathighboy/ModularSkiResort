@@ -334,6 +334,13 @@ namespace AutoGenBatch
             }
             if (Environment.GetEnvironmentVariable("RF_NOCOVERLIFT") != "1")
                 AddCoverLifts(g, rec, lifts, tops, reachB, reachBits, bottoms, latIdx, latCount, runs, km2, slope);
+            if (Environment.GetEnvironmentVariable("RF_DEBUG") == "1")
+                for (int L = 0; L < lifts.Count; L++)
+                {
+                    var others = lifts.FindAll(o => o != lifts[L]);
+                    if (UnderRope(g, others, lifts[L].TopCell, lifts[L].BottomCell))
+                        Console.WriteLine($"DEBUG L{lifts[L].Id}: a station under another rope (or one under its own)");
+                }
             return lifts;
         }
 
@@ -405,6 +412,24 @@ namespace AutoGenBatch
                 float shared = math.min(math.min(math.distance(a0, b0), math.distance(a0, b1)), math.min(math.distance(a1, b0), math.distance(a1, b1)));
                 if (shared > 60f && Cross(a0, a1, b0, b1))
                     return true;
+            }
+            return false;
+        }
+
+        /// <summary>A station of the new lift under a placed lift's rope, or a placed station under the new rope (away from the
+        /// stations the two share).</summary>
+        private static bool UnderRope(Grid g, List<Lift> lifts, int t, int b)
+        {
+            float2 a0 = g.World(b), a1 = g.World(t);
+            foreach (Lift lf in lifts)
+            {
+                float2 b0 = lf.Bottom.xz, b1 = lf.Top.xz;
+                foreach (float2 st in new[] { a0, a1 })
+                    if (SegDist(st, b0, b1) < 40f && math.distance(st, b0) > 60f && math.distance(st, b1) > 60f)
+                        return true;
+                foreach (float2 st in new[] { b0, b1 })
+                    if (SegDist(st, a0, a1) < 40f && math.distance(st, a0) > 60f && math.distance(st, a1) > 60f)
+                        return true;
             }
             return false;
         }

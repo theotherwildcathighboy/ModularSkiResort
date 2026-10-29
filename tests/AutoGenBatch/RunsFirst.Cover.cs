@@ -161,7 +161,7 @@ namespace AutoGenBatch
                 foreach (var (gain, ti, b) in cands)
                 {
                     int t = tops[ti], bc = bottoms[b];
-                    if (Twin(g, lifts, t, bc) || OnRuns(g, runs, bc, t))
+                    if (Twin(g, lifts, t, bc) || UnderRope(g, lifts, t, bc) || OnRuns(g, runs, bc, t))
                         continue;
                     string type = TypeFor(g, bc, t);
                     if (type == null)
