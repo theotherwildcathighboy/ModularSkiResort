@@ -414,10 +414,10 @@ namespace AutoGenBatch
             return best;
         }
 
-        private static bool Twin(Grid g, List<Lift> lifts, int t, int b)
+        private static bool Twin(Grid g, List<Lift> lifts, int t, int b, float parallelM = 200f)
         {
-            // a twin (both ends within TwinM), a parallel (the middle 60 % within 200 m of the placed chord), or a crossing in plan
-            // away from a shared station
+            // a twin (both ends within TwinM), a parallel (the middle 60 % within parallelM of the placed chord), or a crossing in
+            // plan away from a shared station
             float2 a0 = g.World(b), a1 = g.World(t);
             foreach (Lift lf in lifts)
             {
@@ -426,7 +426,7 @@ namespace AutoGenBatch
                     return true;
                 bool parallel = true;
                 for (float s = 0.2f; s <= 0.8f && parallel; s += 0.1f)
-                    parallel = SegDist(math.lerp(a0, a1, s), b0, b1) < 200f;
+                    parallel = SegDist(math.lerp(a0, a1, s), b0, b1) < parallelM;
                 if (parallel)
                     return true;
                 float shared = math.min(math.min(math.distance(a0, b0), math.distance(a0, b1)), math.min(math.distance(a1, b0), math.distance(a1, b1)));
@@ -436,25 +436,25 @@ namespace AutoGenBatch
             return false;
         }
 
-        /// <summary>A station of the new lift under a placed lift's rope, or a placed station under the new rope (away from the
-        /// stations the two share).</summary>
-        private static bool UnderRope(Grid g, List<Lift> lifts, int t, int b)
+        /// <summary>A station of the new lift under (within clearM of) a placed lift's rope, or a placed station under the new rope
+        /// (away from the stations the two share).</summary>
+        private static bool UnderRope(Grid g, List<Lift> lifts, int t, int b, float clearM = 40f)
         {
             float2 a0 = g.World(b), a1 = g.World(t);
             foreach (Lift lf in lifts)
             {
                 float2 b0 = lf.Bottom.xz, b1 = lf.Top.xz;
                 foreach (float2 st in new[] { a0, a1 })
-                    if (SegDist(st, b0, b1) < 40f && math.distance(st, b0) > 60f && math.distance(st, b1) > 60f)
+                    if (SegDist(st, b0, b1) < clearM && math.distance(st, b0) > 60f && math.distance(st, b1) > 60f)
                         return true;
                 foreach (float2 st in new[] { b0, b1 })
-                    if (SegDist(st, a0, a1) < 40f && math.distance(st, a0) > 60f && math.distance(st, a1) > 60f)
+                    if (SegDist(st, a0, a1) < clearM && math.distance(st, a0) > 60f && math.distance(st, a1) > 60f)
                         return true;
             }
             return false;
         }
 
-/// <summary>A chord whose middle 70 % runs within 25 m of picked lines for over 30 % of its samples sits on a run.</summary>
+        /// <summary>A chord whose middle 70 % runs within 25 m of picked lines for over 30 % of its samples sits on a run.</summary>
         private static bool OnRuns(Grid g, PointHash runs, int b, int t)
         {
             float2 a = g.World(b), c = g.World(t);

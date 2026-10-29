@@ -48,7 +48,8 @@ namespace AutoGenBatch
                 {
                     string type = TypeFor(g, c, lifts[Y].TopCell);
                     float2 nb = g.World(c);
-                    if (type == null || Enumerable.Range(0, lifts.Count).Any(L => L != Y && SegCrossScore(lifts[L].Bottom.xz, lifts[L].Top.xz, nb, t)))
+                    if (type == null || Enumerable.Range(0, lifts.Count).Any(L => L != Y && SegCrossScore(lifts[L].Bottom.xz, lifts[L].Top.xz, nb, t)) ||
+                        UnderRope(g, lifts.Where((_, L) => L != Y).ToList(), lifts[Y].TopCell, c))
                         continue;
                     var guard = new ChordGuard(new List<Lift>());
                     guard.AddLift(nb, t);

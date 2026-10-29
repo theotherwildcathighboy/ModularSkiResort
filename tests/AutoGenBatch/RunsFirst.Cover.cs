@@ -17,6 +17,8 @@ namespace AutoGenBatch
         private static readonly bool NoNewBase = Environment.GetEnvironmentVariable("RF_CNEWBASE") != "1";
         private static readonly float CoverLiftShare = Env("RF_CLS", 0.02f);   // a coverage lift opens at least this share of the region's skiable ground
         private static readonly int CoverLiftMinPts = (int)Env("RF_CLM", 120f);     // ... and at least this many 20 m lattice points (11 ha)
+        private static readonly float CoverParallelM = Env("RF_CPAR", 170f);       // ... and no closer than this alongside a placed lift
+        private static readonly float CoverClearM = Env("RF_CCLR", 100f);          // ... its stations no closer than this to another rope
 
         /// <summary>The skiable 20 m lattice: per cell its index (-1 = not a lattice point or not skiable).</summary>
         private static int[] SkiLattice(Grid g, out int count)
@@ -280,7 +282,7 @@ namespace AutoGenBatch
                 foreach (var (gain, ti, b) in cands)
                 {
                     int t = tops[ti], bc = bottoms[b];
-                    if (Twin(g, lifts, t, bc))
+                    if (Twin(g, lifts, t, bc, CoverParallelM))
                     {
                         if (debug && Environment.GetEnvironmentVariable("RF_TWINDBG") == "1")
                         {
@@ -305,7 +307,7 @@ namespace AutoGenBatch
                         rej[0]++;
                         continue;
                     }
-                    if (UnderRope(g, lifts, t, bc))
+                    if (UnderRope(g, lifts, t, bc, CoverClearM))
                     {
                         rej[1]++;
                         continue;
