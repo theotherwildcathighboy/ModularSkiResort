@@ -20,7 +20,7 @@ namespace AutoGenBatch
         private const float DirectStartM = 140f;   // a run starting this close to a lift top needs no traverse (the scorecard's 150 m)
         private const float DeliverM = 50f;        // a run delivers to a lift when it passes this close to the bottom station (scorecard 60 m)
         private const float MinRunDropM = 55f;     // shorter served runs read as stubs (the scorecard counts under 50 m)
-        private static readonly float ServeCapPerKm2 = Env("RF_SCAP", 5f);
+        private static readonly float ServeCapPerKm2 = Env("RF_SCAP", 8f);
         private static readonly float RunOutM = Env("RF_RUNOUT", 1600f);   // how far below its first station a run may go on to others
         private static readonly float ChordDefer = Env("RF_CDEF", 0.35f);   // value share of a run that lies along a lift line
         private static readonly float ChordKeep = Env("RF_CKEEP", 0.5f);    // ... kept anyway at this share of the best run's value

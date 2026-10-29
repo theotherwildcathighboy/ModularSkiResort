@@ -193,7 +193,7 @@ namespace AutoGenBatch
             for (int li = 0; li < lines.Count; li++)
                 covered[li] = new List<(float, float)>();
             float vertical = hMax - hMin;
-            float perKm2 = float.Parse(Environment.GetEnvironmentVariable("RF_LPK") ?? "0.5", System.Globalization.CultureInfo.InvariantCulture);
+            float perKm2 = float.Parse(Environment.GetEnvironmentVariable("RF_LPK") ?? "1.1", System.Globalization.CultureInfo.InvariantCulture);
             float stopShare = float.Parse(Environment.GetEnvironmentVariable("RF_STOP") ?? "0.1", System.Globalization.CultureInfo.InvariantCulture);
             int want = Math.Clamp(Math.Max((int)Math.Round(km2 * perKm2), (int)Math.Ceiling(vertical / 400f)), 1, (int)Math.Ceiling(1.5 * km2) + 2);
             var lifts = new List<Lift>();

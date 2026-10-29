@@ -153,12 +153,7 @@ namespace AutoGenBatch
             {
                 bool asRun = mode > 0;
                 EasyReach er = EasyUp(g, origins, avoid, mode == 0 ? CatTrack : mode == 1 ? BlueWay : BlackWay);
-                float gap = float.MaxValue;
-                foreach (int c in er.Cost.Keys)
-                    foreach (List<float3> l in at.Values)
-                        foreach (float3 p in l)
-                            gap = Math.Min(gap, math.distance(p.xz, g.World(c)));
-                diag.Add($"{(mode == 0 ? "cat track" : mode == 1 ? "blue run" : "black run")} reach {er.Cost.Count} cell(s), {gap:F0} m short");
+                diag.Add($"{(mode == 0 ? "cat track" : mode == 1 ? "blue run" : "black run")} reach {er.Cost.Count} cell(s)");
                 foreach (int c in er.Cost.Where(kv => kv.Value > 0f && On(kv.Key)).OrderBy(kv => kv.Value).Take(12).Select(kv => kv.Key))
                 {
                     List<int> cells = er.Route(c);
