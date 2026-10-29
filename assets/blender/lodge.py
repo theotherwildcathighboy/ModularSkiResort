@@ -250,6 +250,11 @@ def parse_args(argv=None):
     ap.add_argument("--p1-gear", default="rolls", choices=("rolls", "none", "firewood"),
                     help="patrol hut P1 front gear: rolls = the six red fence rolls (letter Y), none = no rolls, "
                          "firewood = no rolls + a vanilla FirewoodPileRandom01 row on the lot")
+    # texture pass v1 (2026-10-29, docs/PIPELINE.md "Texture pass"): CC0 scans on three family swatches
+    # (cs2_tilesheet.TEXPASS, same cut grid) + each recipe's opt-in rules (recipe.texpass). A family-sheet
+    # change: build all eight and --finalize with the same flag. off = every build byte-identical.
+    ap.add_argument("--texpass", default="off", choices=("off", "v1"),
+                    help="v1 = texture pass v1 (scanned swatches + recipe.texpass rules; off = byte-identical)")
     ap.add_argument("--ppm-report", action="store_true",
                     help="manifest ppm_by_material + smooth_by_material (the T16 measure; "
                          "no effect on the maps)")
@@ -2367,6 +2372,41 @@ def finalize_family_sheet(args):
     return {"sheet": sname, "hash": lay["hash"], "owner_dir": odir, "files": files}
 
 
+def texpass_weather(W, recipe, tp):
+    """recipe.texpass rules on one weathering-ladder step (lodge.py --texpass): "grade" {"slope", "anchor_x"} = the
+    plinth's design grade in the AUTHORING frame (z = -s (a - x), falling toward -X), turned into the tiled frame
+    (orient_for_net maps (x, y) -> (y, -x): z = -s a - s y) and capped 5 cm under the lowest band top so no cut
+    reaches the plinth's z-0 contract band; "eave_h" = one under-eave band height for every side (0 = none);
+    "band_skip" = part-name prefixes that take no base band (TileWeather.band_skip)."""
+    from dataclasses import replace as _rp
+    if W is None:
+        return None
+    kw = {}
+    g = tp.get("grade")
+    if g:
+        if abs(float(getattr(recipe, "yaw_deg", 0.0) or 0.0)) > 1e-9:
+            raise ValueError(f"{recipe.key}: texpass grade is written for yaw 0")
+        s, a = float(g["slope"]), float(g["anchor_x"])
+        kw["grade"] = (-s * a, 0.0, -s, -(max(W.base_h.values()) + 0.05))
+    if "eave_h" in tp:
+        kw["eave_h"] = {k: float(tp["eave_h"]) for k in W.eave_h}
+    if tp.get("band_skip"):
+        kw["band_skip"] = tuple(tp["band_skip"])
+    return _rp(W, **kw) if kw else W
+
+
+def assert_texpass_level(name, tp, level, tris, cap):
+    """PIPELINE gate 316 under --texpass: the pass may not buy its look with weathering. recipe.texpass["weather_level"]
+    is the ladder level the flag-off build keeps; a pass build that falls below it raises (cut detail or raise the
+    cap in the ledger, never drop a level silently)."""
+    want = tp.get("weather_level") if tp else None
+    if want is None:
+        return
+    if level is None or int(level) > int(want):
+        raise RuntimeError(f"{name}: --texpass fell to weather level {level} (recipe.texpass weather_level {want}; "
+                           f"LOD0 {tris} tris, cap {cap})")
+
+
 def _tiled_lod0_rollout(far, lod0, recipe, args, name, asset_dir, keys, rep, result, A_far):
     """Rollout (docs/research/art/texture-parity-rollout-2026-10-16.md):
     - rename the far bake's maps to <name>_LOD1_* (emissive dropped: LOD0-only engine-side, DECISIONS 77)
@@ -2414,6 +2454,9 @@ def _tiled_lod0_rollout(far, lod0, recipe, args, name, asset_dir, keys, rep, res
         ladder = [TS.weather_level(int(wl))]
     else:
         ladder = [TS.weather_level(i) for i in range(6)]
+    tp = (getattr(recipe, "texpass", None) or {}) if getattr(args, "texpass", "off") != "off" else {}
+    if tp:
+        ladder = [texpass_weather(W, recipe, tp) for W in ladder]
     cap = recipe.budget.lod0_cap
     pristine = lod0.data.copy()
     tm = None
@@ -2456,6 +2499,7 @@ def _tiled_lod0_rollout(far, lod0, recipe, args, name, asset_dir, keys, rep, res
               f"(cap {cap})")
         if tm["tris_after"] <= cap:
             break
+    assert_texpass_level(name, tp, tried[-1]["level"], tm["tris_after"], cap)
     if tcfg and tcfg["seg_m"]:
         # T70 segment cuts (opt-in, A/B / --trim v2 only) pay tris. Measure them against the UNCUT strip map run through the
         # same ladder. Refuse cuts that would only fit by dropping weathering. Leave the cap to assert_budget below (the gate
@@ -2554,6 +2598,8 @@ def _tiled_lod0_rollout(far, lod0, recipe, args, name, asset_dir, keys, rep, res
         "tile_mesh": tm, "weather_ladder": tried, "ppm_by_material": ppm, "smooth_by_material": smooth,
         "weather_by_material": wstats, "lod0_tris": tris0, "seconds": round(time.perf_counter() - t0, 1),
     }
+    if tp:                                          # --texpass only (flag off: no key, the manifest is unchanged)
+        result["tiled"]["texpass"] = {"version": args.texpass, "rules": json.loads(json.dumps(tp))}
     if slots:
         result["tiled"]["slots_v2"] = slots_v2_report(recipe, layout, lod0, sdir, sname, keys, ctl_rgb)
     if trim:
@@ -2843,6 +2889,10 @@ def validate(asset_dir, name, recipe, obj, win, A, max_texture=None, subsfx="Win
 
 def main():
     args = parse_args()
+    if getattr(args, "texpass", "off") != "off":
+        # before any material is read: the far bake, the sheet layout and its hash all see the scanned sets
+        import cs2_tilesheet as TS
+        TS.register_texpass(args.texpass)
     if args.finalize:
         finalize_family_sheet(args)
         return

@@ -340,6 +340,122 @@ PALETTE_APPENDED_GLASS = tuple(GLASS_KEYS)
 SLOTS_V2_VERSION = "+slots2"
 GLASS_VERSION = "+gls1"
 
+# ---- texture pass v1 (2026-10-29, docs/PIPELINE.md "Texture pass": the L2 hut pilot) ------------------------------
+# Three family swatches move to CC0 photogrammetry scans (Poly Haven; provenance in assets/texture-sources.json). Each
+# keeps its key's cut grid (square tile x repeat == the old square tile, a power-of-two scale, so the tile UVs come out
+# bit-identical), so no building's LOD0 tris move: only sheet and far-set pixels change. A key that drew its set's
+# native color keeps the pre-pass swatch mean (target_srgb, measured on the rollout sheet), so the palette holds.
+# Inert unless register_texpass("v1") runs (lodge.py --texpass v1): flag off is byte-identical.
+TEXPASS_VERSION = "+tex1"
+TEXPASS = {
+    "v1": {
+        # 1.57 m scan at 1.2 m (x 0.76): 17 cm rough-sawn boards (WoodSiding009 drew painted 15 cm boards, tinted);
+        # normal_gain 1.6: the scan's seams read flatter than the old set's (tilt rms 10.8 -> 15.9 deg, was 14.9)
+        "timber_lap": {"set": "PHWeatheredPlankSiding", "tile_m": (1.2, 1.2), "repeat": 2, "normal_gain": 1.6},
+        # 1.5 m scan at 1.6 m (x 1.07): 20 x 14.5 cm slates (RoofingTiles003 drew 40 cm slates with scratch streaks)
+        "slate": {"set": "PHGrayRoofTiles02", "tile_m": (1.6, 1.6), "repeat": 2,
+                  "target_srgb": (0.214, 0.224, 0.215), "normal_gain": 1.3},
+        # 1.8 m scan at 1.54 m (x 0.86): 12 cm weathered deck boards; the recipes' repeat 2 stays; chroma 0.5: the
+        # scan's rust stains read orange once tinted to the palette mean
+        "deck": {"set": "PHWeatheredBrownPlanks", "tile_m": (1.54, 1.54), "chroma": 0.5, "normal_gain": 1.3},
+        # timber_shake stays WoodSiding013: it is roof shakes on L3 / L5 and wall shingles on L2, and the CC0 shake
+        # scan (Poly Haven roof_slates_02, 11 cm courses at 3.0 m) fits its 1.8 m cell only at x 0.6 (7 cm, P6 fails)
+    },
+}
+# Real-world course / board pitch (m) a pass key must show at its tile size: lap siding exposure 10-20 cm, slate and
+# tile courses 10-25 cm, deck boards 9-16 cm on center, roof shakes 12-26 cm. test_texpass P6 measures each scan
+# (row-profile autocorrelation of the Color map at texture-sources.json size_m, times tile_m / size_m).
+TEXPASS_PITCH = {"timber_lap": (0.10, 0.20), "slate": (0.10, 0.25), "deck": (0.09, 0.16), "timber_shake": (0.12, 0.26)}
+_TEXPASS_STATE = {"version": None, "saved": {}}
+
+
+def texpass_version():
+    return _TEXPASS_STATE["version"]
+
+
+def texpass_specs(version):
+    """{key: spec} of a pass, alias followers included: lux_slate draws slate's cell, so it takes slate's scan, tile
+    and mean (tile_mesh refuses an alias whose tile differs, and its far bake must draw what LOD0 draws)."""
+    specs = dict(TEXPASS[version])
+    for a, t in sorted(LAYOUTS["rollout"]["alias"].items()):
+        if t in specs and a not in specs:
+            specs[a] = {f: v for f, v in specs[t].items() if f != "repeat"}
+    return specs
+
+
+def _texpass_mat(m, s):
+    from dataclasses import replace as _rp
+    kw = {"set": s["set"], "tile_m": tuple(s["tile_m"])}
+    if "target_srgb" in s:
+        kw["target_srgb"] = tuple(s["target_srgb"])
+    return _rp(m, **kw)
+
+
+def texpass_overlay(mats):
+    """{key: BldgMat} as the active pass registers them (unchanged when off): for a registry that re-registers its
+    keys after register_texpass and compares definitions (l5_swanky_bottom.register_materials)."""
+    v = _TEXPASS_STATE["version"]
+    if not v:
+        return mats
+    specs = texpass_specs(v)
+    return {k: (_texpass_mat(m, specs[k]) if k in specs else m) for k, m in mats.items()}
+
+
+def register_texpass(version):
+    """lodge.py --texpass VERSION: swap the pass's keys' BldgMat (set, tile, palette mean) in BLDG_MATERIALS (the far
+    bake and the sheet both read it) and switch the sheet layout to the pass's repeats and hash. None / "off" restores
+    the originals (unregister_texpass); idempotent per version. Raises when a set folder lacks a map."""
+    import cs2_bake
+    if version in (None, "off"):
+        unregister_texpass()
+        return
+    if _TEXPASS_STATE["version"] == version:
+        return
+    unregister_texpass()
+    ensure_materials()                  # the lux_* followers exist (and are saved) before the swap
+    specs = texpass_specs(version)
+    for k, s in sorted(specs.items()):
+        sdir = os.path.join(cs2_bake.TEXTURE_ROOT, s["set"])
+        miss = [m for m in ("Color", "NormalGL", "Roughness")
+                if not os.path.isdir(sdir) or cs2_bake.find_set_map(sdir, m) is None]
+        if miss:
+            raise FileNotFoundError(f"texpass {version}: {s['set']} lacks {miss} under {sdir} "
+                                    f"(assets/texture-sources.json lists the downloads)")
+    for k, s in sorted(specs.items()):
+        _TEXPASS_STATE["saved"][k] = K.BLDG_MATERIALS[k]
+        K.BLDG_MATERIALS[k] = _texpass_mat(K.BLDG_MATERIALS[k], s)
+    _TEXPASS_STATE["version"] = version
+
+
+def unregister_texpass():
+    for k, old in _TEXPASS_STATE["saved"].items():
+        K.BLDG_MATERIALS[k] = old
+    _TEXPASS_STATE["saved"] = {}
+    _TEXPASS_STATE["version"] = None
+
+
+def texpass_repeats():
+    """{key: r} the active pass adds to the sheet's repeats ({} when off)."""
+    v = _TEXPASS_STATE["version"]
+    return {k: int(s["repeat"]) for k, s in TEXPASS[v].items() if "repeat" in s} if v else {}
+
+
+def texpass_swatch(key):
+    """{"chroma", "normal_gain"} the active pass applies to `key`'s scan in its sheet swatch ({} when off). chroma
+    scales the color away from each texel's luminance (a scan's rust or lichen stains, tinted to the palette mean,
+    turn loud); normal_gain scales the tangent slope (a scan's true-scale relief reads flat at game distance)."""
+    v = _TEXPASS_STATE["version"]
+    s = TEXPASS[v].get(key) if v else None
+    return {f: float(s[f]) for f in ("chroma", "normal_gain") if f in s} if s else {}
+
+
+def _normal_gain(nrm, g):
+    """0..1-encoded tangent normals with the slope (x, y) scaled by g, renormalized."""
+    n = nrm * 2.0 - 1.0
+    n[..., :2] *= g
+    n /= np.maximum(np.linalg.norm(n, axis=-1, keepdims=True), 1e-9)
+    return n * 0.5 + 0.5
+
 
 def _bt(table, k):
     """table[k], else the table entry of the key a v2 key derives from (V2_BASE)."""
@@ -500,6 +616,8 @@ def sheet_layout(A=SHEET_A, layout="rollout", repeats=None, trim=False, slots=Fa
     if cell * g != A:
         raise ValueError(f"sheet {A} not divisible by grid {g}")
     repeats = dict(repeats or {})
+    for k, r in texpass_repeats().items():          # texture pass: the scan's repeat keeps the old cut grid
+        repeats[k] = max(int(repeats.get(k, 1)), r)
     out = {"A": A, "layout": layout, "grid": g, "cell": cell, "tiles": {}, "palette": {},
            "alias": dict(spec["alias"]), "palette_extra": list(spec["palette_extra"]),
            "repeats": {k: int(v) for k, v in sorted(repeats.items())}}
@@ -605,6 +723,9 @@ def layout_hash(layout):
     if layout.get("glass") == "gls":
         d["v"] += GLASS_VERSION
         d["mats"].update({k: repr(K.BLDG_MATERIALS[k]) for k in PALETTE_APPENDED_GLASS})
+    if _TEXPASS_STATE["version"]:       # texture pass: the flag-off blob keeps its key set
+        d["v"] += TEXPASS_VERSION
+        d["texpass"] = {_TEXPASS_STATE["version"]: texpass_specs(_TEXPASS_STATE["version"])}
     blob = json.dumps(d, sort_keys=True, default=str)
     return hashlib.sha1(blob.encode("utf-8")).hexdigest()[:16]
 
@@ -646,10 +767,20 @@ def _swatch_maps(key, C, cache_dir=None, repeat=1, layout_name="probe"):
         nrm = _load(os.path.join(pf["dir"], f"{tag}_NormalGL.png"))[..., :3]
         rough = _load(os.path.join(pf["dir"], f"{tag}_Roughness.png"))[..., 0]
         lin = K.srgb_to_linear(col)
+        tps = texpass_swatch(key)                   # texture pass only ({} when off)
+        mean_lin = np.asarray(pf["mean_lin"])
+        if "chroma" in tps:
+            lum = (lin @ LUMA)[..., None]
+            lin = lum + (lin - lum) * tps["chroma"]
+            mean_lin = lin.reshape(-1, 3).mean(0)   # the target mean is met after the chroma change
+        if "normal_gain" in tps:
+            nrm = _normal_gain(nrm, tps["normal_gain"])
+        if tps:
+            info["texpass"] = tps
         if m.tint is not None:
             tint = np.asarray(K._rgb3(m.tint))
         elif m.target_srgb is not None:
-            tint = _lin(m.target_srgb) / np.maximum(np.asarray(pf["mean_lin"]), 1e-6)
+            tint = _lin(m.target_srgb) / np.maximum(mean_lin, 1e-6)
         else:
             tint = np.ones(3)
         base = lin * tint
@@ -1167,6 +1298,15 @@ class TileWeather:
     threshold_d: float = 0.9
     strip_offset: float = 0.012       # strips sit this far proud of their host face
     level: int = 0                    # fallback ladder position (weather_level), for the record
+    # texture pass (lodge.py --texpass v1, recipe.texpass["grade"]): the design grade of a plinth recipe as
+    # (z0, gx, gy, z_cap) in the tiled (oriented) frame, z_grade = min(z0 + gx x + gy y, z_cap). The base bands
+    # then measure height ABOVE THAT GRADE (the splash line follows the slope down the plinth), not above z 0,
+    # which on a 35 % slope weathered the whole plinth and a band of siding meters above the ground. z_cap keeps
+    # every band cut under the plinth's z 0 contract (no vertex in |z| <= 0.01). None = the z-0 rule.
+    grade: object = None
+    # texture pass (recipe.texpass["band_skip"]): part-name prefixes whose faces take no base band (no cut, clean):
+    # slender posts, whose concrete footings take the splash; under the grade every post foot meets the band
+    band_skip: tuple = ()
 
 
 def weather_level(level):
@@ -1230,6 +1370,13 @@ class _WeatherCtx:
             self.side.append(_side_of(self.n[i]))
             sk = swatch_key(layout, keys_t[i], weathered=True)
             self.wkey.append(sk if (sk is not None and sk.endswith(W_SUFFIX)) else None)
+        self.grade = getattr(rules, "grade", None)
+        if self.grade is not None:                  # height above the design grade, per tri
+            hv = Vw[:, 2] - self.z_grade(Vw)
+            self.hmin = np.array([hv[list(t)].min() for t in tris])
+            self.hmax = np.array([hv[list(t)].max() for t in tris])
+        skip = tuple(getattr(rules, "band_skip", ()) or ())
+        self.no_base = np.array([bool(skip) and part_name(int(p)).startswith(skip) for p in parts_t], bool)
         self.wall = np.abs(self.n[:, 2]) < 0.35
         self.roof = np.array([(self.n[i, 2] >= 0.35 and self.wkey[i] is not None and
                                _bt(W_CLASS, base_key(self.wkey[i])) in ("slate", "metal_roof")) for i in range(nt)])
@@ -1254,26 +1401,35 @@ class _WeatherCtx:
             hit = self.bvh.ray_cast(Vector(q), Vector((0, 0, 1)), 1.5)
             self.sheltered[i] = hit[0] is not None
 
+    def z_grade(self, P):
+        """Design-grade z under world points P (..., 3) (rules.grade)."""
+        z0, gx, gy, cap = self.grade
+        return np.minimum(z0 + gx * P[..., 0] + gy * P[..., 1], cap)
+
     def lines(self, i):
-        """World-z cut lines for tri i (only those strictly inside its z range)."""
+        """Cut lines for tri i as (c, kind): kind "z" = world z, "h" = height above the design grade (base
+        bands under rules.grade); only those strictly inside the tri's range of that kind."""
         R = self.rules
         if self.wkey[i] is None:
             return []
         out = []
         sd = self.side[i]
+        hk = "z" if self.grade is None else "h"
         if self.wall[i]:
             h = R.base_h.get(sd, 0.0)
-            if h > 0:
-                out.append(h)
+            if h > 0 and not self.no_base[i]:
+                out.append((h, hk))
             e = R.eave_h.get(sd, 0.0)
             if e > 0 and self.sheltered[i]:
-                out.append(self.zmax[i] - e)
+                out.append((self.zmax[i] - e, "z"))
         elif self.roof[i]:
             d = R.roof_eave_m.get(sd, 0.0)
             if d > 0:
                 rise = d * math.sqrt(max(0.0, 1.0 - self.n[i, 2] ** 2))
-                out.append(self.part_eave.get(self.parts_t[i], self.zmin[i]) + rise)
-        return [c for c in out if self.zmin[i] + 0.02 < c < self.zmax[i] - 0.02]
+                out.append((self.part_eave.get(self.parts_t[i], self.zmin[i]) + rise, "z"))
+        lo = lambda k: self.zmin[i] if k == "z" else self.hmin[i]
+        hi = lambda k: self.zmax[i] if k == "z" else self.hmax[i]
+        return [(c, k) for c, k in out if lo(k) + 0.02 < c < hi(k) - 0.02]
 
     def classify(self, i, cz, cpt):
         """'base' | 'eave' | 'roof_eave' | 'valley' | None for a piece of tri i (centroid cpt)."""
@@ -1283,7 +1439,8 @@ class _WeatherCtx:
         sd = self.side[i]
         if self.wall[i]:
             h = R.base_h.get(sd, 0.0)
-            if h > 0 and cz < h:
+            hc = cz if self.grade is None else float(cpt[2] - self.z_grade(np.asarray(cpt, np.float64)))
+            if h > 0 and hc < h and not self.no_base[i]:
                 return "base"
             e = R.eave_h.get(sd, 0.0)
             if e > 0 and self.sheltered[i] and cz > self.zmax[i] - e:
@@ -1804,6 +1961,9 @@ def tile_mesh(obj, uvtile, keys, layout, label_prefixes=(), label_ppm=LABEL_PPM,
         wctx = _WeatherCtx(Vw, tris, [keys[k] for k in fmat], fpart, part_name, layout, weather)
         for i in np.flatnonzero(is_flatp | is_strip):
             wctx.wkey[i] = None
+    # height above the design grade of a local point (base bands under weather.grade; else unused)
+    hfun = (lambda p: zfun(p) - float(wctx.z_grade(np.asarray(p, np.float64) @ Mw[:3, :3].T + Mw[:3, 3]))) \
+        if wctx is not None and wctx.grade is not None else zfun
     wcount = {}
     # -- clip ----------------------------------------------------------------------------
     vreg = {}
@@ -1884,11 +2044,12 @@ def tile_mesh(obj, uvtile, keys, layout, label_prefixes=(), label_ppm=LABEL_PPM,
             pieces, sliced = tile_pieces(recs, uv3, ti, key, ground)
             n_sliced += int(sliced)
             if wctx is not None:
-                for c in wctx.lines(ti):
+                for c, kind in wctx.lines(ti):
+                    fn = zfun if kind == "z" else hfun
                     nxt = []
                     for pc, cell in pieces:
                         for keep in (False, True):
-                            q = _clip_z(pc, zfun, c, keep)
+                            q = _clip_z(pc, fn, c, keep)
                             if len(q) >= 3:
                                 nxt.append((q, cell))
                     if len(nxt) > len(pieces):

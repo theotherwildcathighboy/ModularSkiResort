@@ -1,0 +1,32 @@
+{
+  "_about": "Provenance of the photo-scan texture sets that are not ambientCG IDs. assets/textures/ is git-ignored: download each map's url, check its md5, and save it as assets/textures/<set>/<set>_2K-PNG_<map>.png (the ambientCG naming cs2_bake.find_set_map reads). All CC0, no attribution required; credited in release/CREDITS.md and assets/LICENSE. cs2_tilesheet.TEXPASS names the sets; tests/test_texpass.py checks every name has an entry here.",
+  "sets": {
+    "PHWeatheredPlankSiding": {
+      "source": "Poly Haven", "id": "weathered_plank_siding", "page": "https://polyhaven.com/a/weathered_plank_siding",
+      "license": "CC0", "authors": {"Dimitrios Savva": "All"}, "size_m": 1.57,
+      "maps": {
+        "Color": {"url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/weathered_plank_siding/weathered_plank_siding_diff_2k.png", "md5": "3d8d62250acd106303b00f5a2fcaf724"},
+        "NormalGL": {"url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/weathered_plank_siding/weathered_plank_siding_nor_gl_2k.png", "md5": "24695e4b52958df8354115463674e13a"},
+        "Roughness": {"url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/weathered_plank_siding/weathered_plank_siding_rough_2k.png", "md5": "e90aac222710a9b00e6a2091a2e6d027"}
+      }
+    },
+    "PHGrayRoofTiles02": {
+      "source": "Poly Haven", "id": "grey_roof_tiles_02", "page": "https://polyhaven.com/a/grey_roof_tiles_02",
+      "license": "CC0", "authors": {"Rob Tuytel": "All"}, "size_m": 1.5,
+      "maps": {
+        "Color": {"url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/grey_roof_tiles_02/grey_roof_tiles_02_diff_2k.png", "md5": "011fc30f4a944e2061f912bf44778319"},
+        "NormalGL": {"url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/grey_roof_tiles_02/grey_roof_tiles_02_nor_gl_2k.png", "md5": "c27aa171b49de979acc525926feef5a0"},
+        "Roughness": {"url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/grey_roof_tiles_02/grey_roof_tiles_02_rough_2k.png", "md5": "f1fb42fdd54d05af4a900fa1dbe9fc0c"}
+      }
+    },
+    "PHWeatheredBrownPlanks": {
+      "source": "Poly Haven", "id": "weathered_brown_planks", "page": "https://polyhaven.com/a/weathered_brown_planks",
+      "license": "CC0", "authors": {"Dimitrios Savva": "Photography", "Rico Cilliers": "Processing"}, "size_m": 1.8,
+      "maps": {
+        "Color": {"url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/weathered_brown_planks/weathered_brown_planks_diff_2k.png", "md5": "16a39f77380ac5ec40a08e8911a56821"},
+        "NormalGL": {"url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/weathered_brown_planks/weathered_brown_planks_nor_gl_2k.png", "md5": "b7fa266208d57c10c329349037744311"},
+        "Roughness": {"url": "https://dl.polyhaven.org/file/ph-assets/Textures/png/2k/weathered_brown_planks/weathered_brown_planks_rough_2k.png", "md5": "275afa40d8167bf97fcbf68217a00e93"}
+      }
+    }
+  }
+}
