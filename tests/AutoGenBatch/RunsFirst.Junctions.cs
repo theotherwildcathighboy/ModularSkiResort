@@ -14,7 +14,7 @@ namespace AutoGenBatch
 {
     internal static partial class RunsFirst
     {
-        private const float JunctionBackM = 60f;   // how far a merging run's end may slide back
+        private static readonly float JunctionBackM = Env("RF_JBACK", 60f);   // how far a merging run's end may slide back
 
         /// <summary>Moves merging runs' ends back to where they crowd the run they join least; returns the runs changed.</summary>
         private static int TrimJunctions(Grid g, Plan plan, List<Lift> lifts)
