@@ -13,7 +13,7 @@ using Unity.Mathematics;
 
 namespace AutoGenBatch
 {
-    internal static class RunsFirst
+    internal static partial class RunsFirst
     {
         // the field test 5 regions, corners as the mod log printed them (docs/research/field/2026-10-28/ft5/logs)
         private static readonly (string Id, float2[] Ring)[] Regions =
@@ -55,6 +55,8 @@ namespace AutoGenBatch
             public SlopeBand Band;
             public bool Picked;
             public int Pick;               // 1..N in pick order (the map label)
+            public int Lift = -1;          // the lift whose lap covers most of this line
+            public List<float2> Flow;      // the drainage below the line's end, to the region edge (the way back)
             public string Why = "";
         }
 
@@ -96,6 +98,8 @@ namespace AutoGenBatch
                 AddLine(lines, g, path, "spur");
             }
             Pick(lines);
+            float km2r = (float)(SkiRunAutoPlanner.PolygonArea(ring) / 1e6);
+            List<Lift> lifts = PlaceLifts(g, rec, lines, km2r);
             long ms = sw.ElapsedMilliseconds;
 
             // the v2 plan of the same region, as the host replays it
@@ -117,7 +121,8 @@ namespace AutoGenBatch
                 $"{km:F1} km of runs, {ms} ms; v2 {v2.Status}: {v2.Runs.Count} run(s), {v2.Resort?.Lifts?.Length ?? 0} lift(s)");
 
             WriteTable(Path.Combine(outDir, id + ".txt"), id, lines);
-            Render(Path.Combine(outDir, id + ".png"), snap, ring, g, acc, accR, lines, v2);
+            WriteLifts(Path.Combine(outDir, id + ".txt"), id, lifts, lines);
+            Render(Path.Combine(outDir, id + ".png"), snap, ring, g, acc, accR, lines, v2, lifts);
         }
 
         // ------------------------------------------------------------------ grid and flow
@@ -539,7 +544,7 @@ namespace AutoGenBatch
 
         private static (int, int, int) EdgeColor(SlopeBand b) => b == SlopeBand.DoubleBlack ? (255, 150, 0) : (255, 255, 255);
 
-        private static void Render(string path, HeightSnapshot s, float2[] ring, Grid g, float[] acc, float[] accR, List<Line> lines, AutoPlanResult v2)
+        private static void Render(string path, HeightSnapshot s, float2[] ring, Grid g, float[] acc, float[] accR, List<Line> lines, AutoPlanResult v2, List<Lift> lifts)
         {
             int w = s.Width, d = s.Depth;
             float t = s.TexelM;
@@ -642,16 +647,41 @@ namespace AutoGenBatch
             foreach (Line l in lines)
                 if (!l.Picked)
                     Stroke(right, Img(l, fromWorld), 0.6f, (120, 200, 210));
+            foreach (Lift lf in lifts)
+                foreach (List<float2> tr in lf.Traverses)
+                {
+                    var pl = new List<float2>(tr.Count);
+                    foreach (float2 p in tr)
+                        pl.Add(fromWorld(p));
+                    Dashed(right, pl, 1.6f, (255, 235, 150));
+                }
             foreach (Line l in lines)
                 if (l.Picked)
                 {
                     List<float2> pl = Img(l, fromWorld);
+                    if (l.Lift < 0)
+                    {
+                        Stroke(right, pl, 2f, (150, 150, 150));
+                        continue;
+                    }
                     Stroke(right, pl, 4.5f, EdgeColor(l.Band));
                     Stroke(right, pl, 3f, BandColor(l.Band));
                     right.Disc(pl[0].x, pl[0].y, 6f, (255, 255, 255));
                     Label(right, (int)pl[0].x + 8, (int)pl[0].y - 6, l.Pick);
                 }
 
+            foreach (Lift lf in lifts)
+            {
+                var pl = new List<float2> { fromWorld(lf.Bottom.xz), fromWorld(lf.Top.xz) };
+                Stroke(right, pl, 3f, (0, 0, 0));
+                Stroke(right, pl, 2f, (255, 220, 0));
+                right.Disc(pl[0].x, pl[0].y, 7f, (0, 0, 0));
+                right.Disc(pl[0].x, pl[0].y, 5.5f, (255, 220, 0));
+                right.Disc(pl[1].x, pl[1].y, 7f, (0, 0, 0));
+                right.Disc(pl[1].x, pl[1].y, 5.5f, (255, 220, 0));
+                float2 mid = math.lerp(pl[0], pl[1], 0.5f);
+                Label(right, (int)mid.x + 6, (int)mid.y - 6, lf.Id, (255, 220, 0), (0, 0, 0));
+            }
             var both = new Canvas(iw * 2 + 12, ih);
             for (int y = 0; y < ih; y++)
             {
@@ -671,6 +701,21 @@ namespace AutoGenBatch
             return pl;
         }
 
+        private static void Dashed(Canvas cv, List<float2> pl, float r, (int, int, int) c)
+        {
+            float run = 0f;
+            for (int i = 1; i < pl.Count; i++)
+            {
+                float len = math.distance(pl[i - 1], pl[i]);
+                for (float u = 0; u <= len; u += 0.5f, run += 0.5f)
+                    if (run % 10f < 6f)
+                    {
+                        float2 p = math.lerp(pl[i - 1], pl[i], len > 0 ? u / len : 0);
+                        cv.Disc(p.x, p.y, r, c);
+                    }
+            }
+        }
+
         private static void Stroke(Canvas cv, List<float2> pl, float r, (int, int, int) c)
         {
             for (int i = 1; i < pl.Count; i++)
@@ -684,7 +729,9 @@ namespace AutoGenBatch
             }
         }
 
-        private static void Label(Canvas cv, int x, int y, int n)
+        private static void Label(Canvas cv, int x, int y, int n) => Label(cv, x, y, n, (0, 0, 0), (255, 255, 255));
+
+        private static void Label(Canvas cv, int x, int y, int n, (int, int, int) bg, (int, int, int) fg)
         {
             string s = n.ToString(CultureInfo.InvariantCulture);
             const int sc = 3;
@@ -695,13 +742,13 @@ namespace AutoGenBatch
                     for (int gx = -1; gx <= 3; gx++)
                         for (int py = 0; py < sc; py++)
                             for (int px = 0; px < sc; px++)
-                                cv.Set(x + k * 4 * sc + gx * sc + px, y + gy * sc + py, (0, 0, 0));
+                                cv.Set(x + k * 4 * sc + gx * sc + px, y + gy * sc + py, bg);
                 for (int gy = 0; gy < 5; gy++)
                     for (int gx = 0; gx < 3; gx++)
                         if (glyph[gy * 3 + gx] == '1')
                             for (int py = 0; py < sc; py++)
                                 for (int px = 0; px < sc; px++)
-                                    cv.Set(x + k * 4 * sc + gx * sc + px, y + gy * sc + py, (255, 255, 255));
+                                    cv.Set(x + k * 4 * sc + gx * sc + px, y + gy * sc + py, fg);
             }
         }
     }
