@@ -319,6 +319,12 @@ namespace AutoGenBatch
             if (Environment.GetEnvironmentVariable("RF_NOJUNCTION") != "1")
                 TrimJunctions(g, plan, lifts);
             Tick("junctions");
+            // and runs start where they crowd the runs beside them least
+            if (Environment.GetEnvironmentVariable("RF_NOHEAD") != "1")
+                for (int round = 0; round < 2 && TrimHeads(g, plan, lifts) > 0; round++)
+                {
+                }
+            Tick("heads");
             if (Environment.GetEnvironmentVariable("RF_COVER") == "1")
             {
                 // skiable 20 m lattice points no run covers: red where a lift top's reach gets to them, orange where none does
