@@ -168,6 +168,9 @@ namespace AutoGenBatch
 
         private static System.Diagnostics.Stopwatch Clock = new System.Diagnostics.Stopwatch();
         private static readonly bool Timing = Environment.GetEnvironmentVariable("RF_TIME") == "1";
+        // the passes after the way home refine a finished plan: past this point of a region's 5 s they stop where they are
+        private static readonly float LateMs = Env("RF_LATEMS", 4200f);
+        private static bool Late => Clock.ElapsedMilliseconds > LateMs;
         private static void Tick(string what)
         {
             if (Timing)

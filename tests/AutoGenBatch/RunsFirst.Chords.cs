@@ -42,6 +42,8 @@ namespace AutoGenBatch
             List<List<float2>> dense = plan.Runs.Select(r => Densify(r.Pts)).ToList();
             foreach (Lift lf in lifts)
             {
+                if (Late)
+                    break;
                 float share = ChordShare(lf, dense);
                 if (share <= ChordShareMax)
                     continue;

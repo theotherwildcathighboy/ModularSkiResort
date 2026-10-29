@@ -329,9 +329,11 @@ namespace AutoGenBatch
             // runs left under a lift line move out beside it
             if (Environment.GetEnvironmentVariable("RF_NOCHORD") != "1")
                 RepairChords(g, plan, lifts);
+            Tick("chords");
             // and the diagonal graded tracks still under a line that lies on runs are cut as green cat tracks
             if (Environment.GetEnvironmentVariable("RF_NOCHORD") != "1" && Environment.GetEnvironmentVariable("RF_NOCHORDTRACK") != "1")
                 ClearChordTracks(g, plan, lifts);
+            Tick("chord tracks");
             // a diagonal stub piece joins the piece it runs into
             if (Environment.GetEnvironmentVariable("RF_NOMERGE") != "1")
                 MergeStubPieces(g, plan, lifts);
@@ -340,7 +342,6 @@ namespace AutoGenBatch
             if (Environment.GetEnvironmentVariable("RF_NOPRUNE") != "1")
                 PruneRuns(g, plan, lifts);
             Tick("prune");
-            Tick("chords");
             // merging runs end where they crowd the run they join least: off by default since scorecard v2 stopped counting junction
             // zones as crowding (score-neutral there, and a painted run should touch the trunk it joins); RF_JUNCTION=1 turns it on
             if (Environment.GetEnvironmentVariable("RF_JUNCTION") == "1")

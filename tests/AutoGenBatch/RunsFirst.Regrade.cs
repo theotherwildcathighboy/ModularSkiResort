@@ -424,7 +424,7 @@ namespace AutoGenBatch
             int done = 0, checkedCuts = 0, refused = 0;
             float km = 0f, gained = 0f;
             SkiRead before = null;
-            while (open.Count > 0)
+            while (open.Count > 0 && !Late)
             {
                 int bi = -1;
                 float best = RegradeMinGain;
@@ -497,7 +497,7 @@ namespace AutoGenBatch
             SkiRead before = SkiRead.Of(g, plan, lifts);
             int removed = 0, refused = 0, reads = 1;
             float gained = 0f, km = 0f;
-            while (open.Count > 0 && reads < PruneReads)
+            while (open.Count > 0 && reads < PruneReads && !Late)
             {
                 int bi = -1;
                 float best = PruneMinGain;
@@ -547,10 +547,10 @@ namespace AutoGenBatch
             float now = new CutModel(g, plan).Total();
             SkiRead before = SkiRead.Of(g, plan, lifts);
             float Drop(List<float2> pl) => RawH(g, pl[0]) - RawH(g, pl[pl.Count - 1]);
-            for (bool again = true; again && tried < MergeTries;)
+            for (bool again = true; again && tried < MergeTries && !Late;)
             {
                 again = false;
-                for (int a = 0; a < plan.Connectors.Count && !again && tried < MergeTries; a++)
+                for (int a = 0; a < plan.Connectors.Count && !again && tried < MergeTries && !Late; a++)
                 {
                     List<float2> A = plan.Connectors[a];
                     if (Drop(A) >= 50f || !TrackClass(g, A).Run)
@@ -659,6 +659,8 @@ namespace AutoGenBatch
             List<(List<float2> D, int Conn, PlanRun Run, bool Green)> els = ChordEls(g, plan);
             foreach (Lift lf in lifts)
             {
+                if (Late)
+                    break;
                 float share = ChordShareV3(lf, els, out int[] hits);
                 if (share <= ChordShareMax)
                     continue;
