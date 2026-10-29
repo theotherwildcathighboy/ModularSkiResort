@@ -213,7 +213,8 @@ namespace AutoGenBatch
                 int n = lifts.Count, runsBefore = plan.Runs.Count, logBefore = plan.Log.Count;
                 if (!TryPod(g, plan, lifts, members, er, avoid, guard, sg))
                 {
-                    plan.Log.RemoveRange(logBefore, plan.Log.Count - logBefore);
+                    if (Environment.GetEnvironmentVariable("RF_DEBUG") != "1")
+                        plan.Log.RemoveRange(logBefore, plan.Log.Count - logBefore);
                     continue;
                 }
                 SkiGraph now = Ski(g, plan, lifts);

@@ -412,6 +412,10 @@ namespace AutoGenBatch
                     if (reachB[bt][lf.BottomIndex] && lift.Top.y > lf.Bottom.y + 20f)
                         fed.Add(lf.Id);
                 lifts.Add(lift);
+                // a bottom on a placed lift's bottom moves to a pad of its own now, while the lines that fan out from that spot are
+                // few (once all are placed, every sideways move crosses the next line); tops wait for the coverage lifts (their index)
+                if (Environment.GetEnvironmentVariable("RF_NOSPREAD") != "1" && SpreadEach)
+                    SpreadTerminals(g, lifts, null, runs, true);
             }
             if (Environment.GetEnvironmentVariable("RF_NOCOVERLIFT") != "1")
                 AddCoverLifts(g, rec, lifts, cTops, cReachB, cReachBits, bottoms, latIdx, latCount, runs, km2, slope);

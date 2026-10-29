@@ -364,6 +364,9 @@ namespace AutoGenBatch
                     }
                     if (debug)
                         Console.WriteLine($"DEBUG cover lift L{lift.Id}: {type} {lift.Length:F0} m / {lift.Rise:F0} m up opens {gain} of {latCount} lattice points");
+                    // its bottom on a placed lift's bottom moves to a pad of its own now (as in the lift search)
+                    if (Environment.GetEnvironmentVariable("RF_NOSPREAD") != "1" && SpreadEach)
+                        SpreadTerminals(g, lifts, null, runs, true);
                     added++;
                     placed = true;
                     break;

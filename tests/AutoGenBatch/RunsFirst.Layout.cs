@@ -81,7 +81,10 @@ namespace AutoGenBatch
         /// still fits (pads, norms, rope clearance, no crossing of its kind, no station under a rope), its line stays off the runs,
         /// the layout gets no worse (crowded terminals, parallel lines) and, once there is a plan, the ski graph loses nothing.
         /// Before the plan (plan null) the line is held off the picked lines instead. Returns the stations moved.</summary>
-        private static int SpreadTerminals(Grid g, List<Lift> lifts, Plan plan, PointHash runs)
+        private static readonly bool SpreadAxis = Environment.GetEnvironmentVariable("RF_NOSPREADAXIS") != "1";
+        private static readonly bool SpreadEach = Environment.GetEnvironmentVariable("RF_NOSPREADEACH") != "1";
+
+        private static int SpreadTerminals(Grid g, List<Lift> lifts, Plan plan, PointHash runs, bool bottomsOnly = false)
         {
             int moved = 0;
             SkiRead before = null;
@@ -105,6 +108,22 @@ namespace AutoGenBatch
                             continue;
                         moves.Add((math.distance(p, at) + (end == 0 ? Math.Max(0f, dh) * 4f : Math.Max(0f, -dh) * 3f), c));
                     }
+                // or along its own line, toward the other station: where lines fan out from one spot a sideways move crosses the
+                // next line, a shorter line crosses nothing new (a little more rise allowed: the station stays on its own axis)
+                if (SpreadAxis)
+                {
+                    float2 to = end == 0 ? lf.Top.xz : lf.Bottom.xz, u = math.normalize(to - at);
+                    for (float r = SpreadMinM; r <= SpreadMaxM; r += 7f)
+                    {
+                        int c = CellOf(g, at + r * u);
+                        if (c < 0 || !g.In[c] || !seen.Add(c))
+                            continue;
+                        float dh = RawH(g, g.World(c)) - hAt;
+                        if (end == 0 ? dh > 20f : dh < -25f)
+                            continue;
+                        moves.Add((r + (end == 0 ? Math.Max(0f, dh - 8f) * 4f : Math.Max(0f, -dh - 15f) * 3f), c));
+                    }
+                }
                 moves.Sort((x, y) => x.Cost.CompareTo(y.Cost));
                 var others = lifts.Where(o => o != lf).ToList();
                 int parBefore = ParallelsOf(lifts, lf, lf.Bottom.xz, lf.Top.xz), hubBefore = HubExcess(g, lifts);
@@ -112,18 +131,42 @@ namespace AutoGenBatch
                 var (ob, ot, obc, otc, oRise, oLen) = (lf.Bottom, lf.Top, lf.BottomCell, lf.TopCell, lf.Rise, lf.Length);
                 void Restore() => (lf.Bottom, lf.Top, lf.BottomCell, lf.TopCell, lf.Rise, lf.Length) = (ob, ot, obc, otc, oRise, oLen);
                 int tries = 0;
+                var why = new int[8];   // near, pad, fits, rope/cross, parallel, runs, hub/chord, skiing
                 foreach (var (cost, c) in moves)
                 {
                     float2 p = g.World(c);
                     if (others.Exists(o => math.distance(end == 0 ? o.Bottom.xz : o.Top.xz, p) < SpreadMinM))
+                    {
+                        why[0]++;
                         continue;
+                    }
                     int b = end == 0 ? c : lf.BottomCell, t = end == 0 ? lf.TopCell : c;
-                    if (RawGrade(g, p) > StationMax || !LineFits(g, lifts, lf, b, t) || UnderRope(g, others, t, b)
-                        || others.Exists(o => SegCrossScore(o.Bottom.xz, o.Top.xz, g.World(b), g.World(t))))
+                    if (RawGrade(g, p) > StationMax)
+                    {
+                        why[1]++;
                         continue;
+                    }
+                    if (!LineFits(g, lifts, lf, b, t))
+                    {
+                        why[2]++;
+                        continue;
+                    }
+                    if (UnderRope(g, others, t, b) || others.Exists(o => SegCrossScore(o.Bottom.xz, o.Top.xz, g.World(b), g.World(t))))
+                    {
+                        why[3]++;
+                        continue;
+                    }
                     float2 pb = g.World(b), pt = g.World(t);
-                    if (ParallelsOf(lifts, lf, pb, pt) > parBefore || (plan == null && OnRuns(g, runs, b, t)))
+                    if (ParallelsOf(lifts, lf, pb, pt) > parBefore)
+                    {
+                        why[4]++;
                         continue;
+                    }
+                    if (plan == null && OnRuns(g, runs, b, t))
+                    {
+                        why[5]++;
+                        continue;
+                    }
                     if (++tries > 40)
                         break;
                     if (plan != null)
@@ -142,6 +185,7 @@ namespace AutoGenBatch
                     lf.Length = math.distance(lf.Top, lf.Bottom);
                     if (HubExcess(g, lifts) >= hubBefore || (els != null && ChordShareV3(lf, els, out _) > Math.Max(ChordShareMax, shareBefore)))
                     {
+                        why[6]++;
                         Restore();
                         continue;
                     }
@@ -150,6 +194,7 @@ namespace AutoGenBatch
                         SkiRead after = SkiRead.Of(g, plan, lifts);
                         if (before.Loses(after))
                         {
+                            why[7]++;
                             Restore();
                             continue;
                         }
@@ -160,10 +205,13 @@ namespace AutoGenBatch
                         $"({RawH(g, p) - hAt:+0;-0} m)");
                     return true;
                 }
+                if (Environment.GetEnvironmentVariable("RF_DEBUG") == "1")
+                    Console.WriteLine($"DEBUG spread L{lf.Id} {(end == 0 ? "bottom" : "top")}{(plan == null ? " (before the plan)" : "")}: {moves.Count} spot(s), tries {tries}; near {why[0]}, pad {why[1]}, " +
+                        $"fits {why[2]}, rope/cross {why[3]}, parallel {why[4]}, runs {why[5]}, hub/chord {why[6]}, skiing {why[7]}");
                 return false;
             }
             for (int L = 0; L < lifts.Count; L++)
-                for (int end = 0; end < 2; end++)
+                for (int end = 0; end < (bottomsOnly ? 1 : 2); end++)
                 {
                     float2 at = end == 0 ? lifts[L].Bottom.xz : lifts[L].Top.xz;
                     int o = Enumerable.Range(0, L).FirstOrDefault(M => math.distance(end == 0 ? lifts[M].Bottom.xz : lifts[M].Top.xz, at) < LaySameSpotM + 2f, -1);
