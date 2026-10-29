@@ -165,7 +165,7 @@ namespace AutoGenBatch
         private sealed class SkiRead
         {
             public bool[] Home, Live, Green;
-            public Dictionary<object, (bool Reached, bool Returns)> Els;   // by plan run, and by connector index (a cut keeps its index)
+            public Dictionary<object, (bool Reached, bool Returns)> Els;   // by plan run and connector (a piece changed or taken out is not compared)
             public int Net;
 
             public static SkiRead Of(Grid g, Plan plan, List<Lift> lifts)
@@ -174,7 +174,7 @@ namespace AutoGenBatch
                 SkiGraph sg = Ski(g, plan, lifts);
                 var els = new Dictionary<object, (bool, bool)>();
                 for (int i = 0; i < sg.P.Count; i++)
-                    els[i < sg.Runs ? plan.Runs[i] : (object)(i - sg.Runs)] = (sg.Reached[i], sg.Returns[i]);
+                    els[i < sg.Runs ? plan.Runs[i] : (object)plan.Connectors[i - sg.Runs]] = (sg.Reached[i], sg.Returns[i]);
                 return new SkiRead
                 {
                     Home = WayHomeOk(sg, lifts, root, bases),
@@ -355,6 +355,8 @@ namespace AutoGenBatch
 
             public string Terms() => $"crowd-free {(m_Pts > 0 ? 1f - Math.Min(1f, m_Crowded / (float)m_Pts / 0.3f) : 1f):F2} ({m_Crowded}/{m_Pts}) economy {(m_ConnKm <= 0.35f * m_RunKm ? 1f : 0.35f * m_RunKm / m_ConnKm):F2} ({m_ConnKm:F1}/{m_RunKm:F1} km) stub-free {1f - m_Stubs / (float)Math.Max(1, m_Runs):F2} ({m_Stubs}/{m_Runs}) cover {Math.Min(1f, m_Covered / (float)Math.Max(1, m_Skiable) / 0.6f):F2} ({m_Covered}/{m_Skiable})";
 
+            public float Total() => Score(m_Pts, m_Crowded, m_Stubs, m_Runs, m_RunKm, m_ConnKm, m_Covered);
+
             public float Gain(int e, float newKm)
             {
                 int own = 0, freed = 0, lost = 0;
@@ -531,6 +533,65 @@ namespace AutoGenBatch
             }
             plan.Log.Add($"prune: {removed} run(s) taken out ({km:F1} km, +{gained:F2} by the planner's read), {refused} kept for the skiing");
             return removed;
+        }
+
+        private const int MergeTries = 40;              // merges the stub pass may try
+        private const float MergeMinGain = 0.005f;      // ... and the score one must gain
+
+        /// <summary>A diagonal piece with a stub's drop joined end to start with the piece it runs into (or that runs into it) as one
+        /// graded track: the same line on the ground, read by the scorecard as one run (a run may branch off anywhere along it). Kept
+        /// where the score gains (the model) and the ski graph loses nothing. Returns the pieces merged.</summary>
+        private static int MergeStubPieces(Grid g, Plan plan, List<Lift> lifts)
+        {
+            int merged = 0, tried = 0;
+            float now = new CutModel(g, plan).Total();
+            SkiRead before = SkiRead.Of(g, plan, lifts);
+            float Drop(List<float2> pl) => RawH(g, pl[0]) - RawH(g, pl[pl.Count - 1]);
+            for (bool again = true; again && tried < MergeTries;)
+            {
+                again = false;
+                for (int a = 0; a < plan.Connectors.Count && !again && tried < MergeTries; a++)
+                {
+                    List<float2> A = plan.Connectors[a];
+                    if (Drop(A) >= 50f || !TrackClass(g, A).Run)
+                        continue;
+                    for (int b = 0; b < plan.Connectors.Count && !again && tried < MergeTries; b++)
+                    {
+                        List<float2> B = plan.Connectors[b];
+                        List<float2> m = null;
+                        if (b != a && math.distancesq(A[A.Count - 1], B[0]) < 25f)
+                            m = A.Concat(B.Skip(1)).ToList();
+                        else if (b != a && math.distancesq(B[B.Count - 1], A[0]) < 25f)
+                            m = B.Concat(A.Skip(1)).ToList();
+                        if (m == null || !ConnectorOk(g, m))
+                            continue;
+                        tried++;
+                        int la = plan.Links.IndexOf(A), lb = plan.Links.IndexOf(B);
+                        plan.Connectors[a] = m;
+                        plan.Connectors.RemoveAt(b);
+                        float then = new CutModel(g, plan).Total();
+                        SkiRead after = then > now + MergeMinGain ? SkiRead.Of(g, plan, lifts) : null;
+                        if (after != null && !before.Loses(after))
+                        {
+                            if (la >= 0)
+                                plan.Links[la] = m;
+                            else if (lb >= 0)
+                                plan.Links[lb] = m;
+                            if (la >= 0 && lb >= 0)
+                                plan.Links.RemoveAt(lb);
+                            now = then;
+                            before = after;
+                            merged++;
+                            again = true;
+                            continue;
+                        }
+                        plan.Connectors.Insert(b, B);
+                        plan.Connectors[a] = A;
+                    }
+                }
+            }
+            plan.Log.Add($"stub merge: {merged} diagonal stub piece(s) joined with the piece they run into ({tried} tried)");
+            return merged;
         }
 
         /// <summary>The runs a lift line's middle may not lie along, as scorecard v3 reads them (runs, and graded tracks steeper than

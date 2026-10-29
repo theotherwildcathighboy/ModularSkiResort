@@ -332,6 +332,10 @@ namespace AutoGenBatch
             // and the diagonal graded tracks still under a line that lies on runs are cut as green cat tracks
             if (Environment.GetEnvironmentVariable("RF_NOCHORD") != "1" && Environment.GetEnvironmentVariable("RF_NOCHORDTRACK") != "1")
                 ClearChordTracks(g, plan, lifts);
+            // a diagonal stub piece joins the piece it runs into
+            if (Environment.GetEnvironmentVariable("RF_NOMERGE") != "1")
+                MergeStubPieces(g, plan, lifts);
+            Tick("merge");
             // runs whose crowding (or stub) costs more score than the ground they open go
             if (Environment.GetEnvironmentVariable("RF_NOPRUNE") != "1")
                 PruneRuns(g, plan, lifts);
