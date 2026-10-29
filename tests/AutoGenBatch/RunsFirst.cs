@@ -242,7 +242,8 @@ namespace AutoGenBatch
             float lowest = lifts.Count > 0 ? lifts.Min(lf => lf.Bottom.y) : 0f;
             foreach (Lift lf in lifts)
                 if (lf.Kind == "main" && (lf.Type == "detachable" || lf.Type == "fixed-grip") && lf.Bottom.y < lowest + 30f && lf.Length >= 1200f && lf.Length <= 2700f
-                    && lifts.Exists(o => o != lf && math.distance(o.Bottom.xz, lf.Top.xz) < 300f) && (village == null || lf.Length > village.Length))
+                    && lifts.Exists(o => o != lf && math.distance(o.Bottom.xz, lf.Top.xz) < 300f) && (village == null || lf.Length > village.Length)
+                    && !lifts.Exists(o => o != lf && Aerial(o.Type) && SegCrossScore(o.Bottom.xz, o.Top.xz, lf.Bottom.xz, lf.Top.xz)))
                     village = lf;
             if (village != null && Environment.GetEnvironmentVariable("RF_NOVILLAGE") != "1")
                 village.Type = "gondola";

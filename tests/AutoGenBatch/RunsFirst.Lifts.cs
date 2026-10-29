@@ -415,6 +415,10 @@ namespace AutoGenBatch
             if (Environment.GetEnvironmentVariable("RF_NOCOVERLIFT") != "1")
                 AddCoverLifts(g, rec, lifts, cTops, cReachB, cReachBits, bottoms, latIdx, latCount, runs, km2, slope);
             Tick("cover lifts");
+            // each lift its own terminal (scorecard v4 layout): a station on another lift's spot moves to a pad of its own
+            if (Environment.GetEnvironmentVariable("RF_NOSPREAD") != "1")
+                SpreadTerminals(g, lifts, null, runs);
+            Tick("spread");
             if (Environment.GetEnvironmentVariable("RF_DEBUG") == "1")
                 for (int L = 0; L < lifts.Count; L++)
                 {

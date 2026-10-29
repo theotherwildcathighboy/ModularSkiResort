@@ -68,6 +68,8 @@ namespace AutoGenBatch
             WayDbg = Environment.GetEnvironmentVariable("RF_WHDBG") == "1" ? (g, plan, lifts) : null;
             plan.Dots.AddRange(DebugDots);
             DebugDots.Clear();
+            plan.Log.AddRange(EarlyLog);
+            EarlyLog.Clear();
             int n = g.W * g.D;
             var slope = new float[n];
             for (int c = 0; c < n; c++)
@@ -356,6 +358,10 @@ namespace AutoGenBatch
             if (Environment.GetEnvironmentVariable("RF_NOCHORD") != "1" && Environment.GetEnvironmentVariable("RF_NOCHORDDROP") != "1")
                 DropStrandedLifts(g, plan, lifts, cands, true);
             Tick("chord drop");
+            // the lifts the plan added or moved (pods, bridges, nudges) get terminals of their own too
+            if (Environment.GetEnvironmentVariable("RF_NOSPREAD") != "1")
+                SpreadTerminals(g, lifts, plan, null);
+            Tick("spread");
             // a diagonal stub piece joins the piece it runs into
             if (Environment.GetEnvironmentVariable("RF_NOMERGE") != "1")
                 MergeStubPieces(g, plan, lifts);
