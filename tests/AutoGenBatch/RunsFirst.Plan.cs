@@ -395,6 +395,7 @@ namespace AutoGenBatch
             if (Environment.GetEnvironmentVariable("RF_NOLEARN") != "1")
                 AddLearningAreas(g, plan, lifts);
             Tick("learning areas");
+            MarkNatural(g, plan);
             if (Environment.GetEnvironmentVariable("RF_CHORDDBG") == "1")
                 ChordDebug(g, plan, lifts);
             if (Environment.GetEnvironmentVariable("RF_MODELDBG") == "1")

@@ -249,6 +249,9 @@ namespace AutoGenBatch
                 village.Type = "gondola";
             if (TypeUse == 2)
                 RetypeByUse(g, built, lifts, village);
+            // the drawn numbers follow the list, as the scorecard's notes count the lifts (passes take lifts out and add new ones)
+            for (int i = 0; i < lifts.Count; i++)
+                lifts[i].Id = i + 1;
             long ms = sw.ElapsedMilliseconds;
 
             // the v2 plan of the same region, as the host replays it
@@ -969,6 +972,13 @@ namespace AutoGenBatch
                     continue;
                 }
                 SlopeBand band = GroundBand(g, r.Pts);
+                if (r.Surface == RunKind.Natural)
+                {
+                    // a natural (ungroomed) run: dashed
+                    Dashed(right, pl, 4.5f, EdgeColor(band), 12f, 6f);
+                    Dashed(right, pl, 3f, BandColor(band), 12f, 6f);
+                    continue;
+                }
                 Stroke(right, pl, 4.5f, EdgeColor(band));
                 Stroke(right, pl, 3f, BandColor(band));
             }
@@ -989,12 +999,14 @@ namespace AutoGenBatch
             foreach (Lift lf in lifts)
             {
                 var pl = new List<float2> { fromWorld(lf.Bottom.xz), fromWorld(lf.Top.xz) };
+                // chairs yellow, a gondola cyan, a tram red, a beginner chair light green
+                (int, int, int) rope = lf.Type switch { "gondola" => (0, 220, 255), "tram" => (255, 70, 70), "beginner" => (150, 255, 120), _ => (255, 220, 0) };
                 Stroke(right, pl, 3f, (0, 0, 0));
-                Stroke(right, pl, 2f, (255, 220, 0));
+                Stroke(right, pl, 2f, rope);
                 right.Disc(pl[0].x, pl[0].y, 7f, (0, 0, 0));
-                right.Disc(pl[0].x, pl[0].y, 5.5f, (255, 220, 0));
+                right.Disc(pl[0].x, pl[0].y, 5.5f, rope);
                 right.Disc(pl[1].x, pl[1].y, 7f, (0, 0, 0));
-                right.Disc(pl[1].x, pl[1].y, 5.5f, (255, 220, 0));
+                right.Disc(pl[1].x, pl[1].y, 5.5f, rope);
                 float2 mid = math.lerp(pl[0], pl[1], 0.5f);
                 Label(right, (int)mid.x + 6, (int)mid.y - 6, lf.Id, (255, 220, 0), (0, 0, 0));
             }

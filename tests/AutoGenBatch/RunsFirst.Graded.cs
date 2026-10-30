@@ -27,6 +27,42 @@ namespace AutoGenBatch
             return b == SlopeBand.Flat ? SlopeBand.Green : b;
         }
 
+        // v5 natural runs (RF_NATURAL): 0 none, 1 double black by the ground, 2 also a black run whose ground is mostly past the
+        // double-black line (cliffs and rock: hostile ground a designer leaves ungroomed)
+        private static readonly int NaturalMode = (int)Env("RF_NATURAL", 2f);
+        private static readonly float NaturalHostile = Env("RF_NATHOSTILE", 0.4f);
+
+        /// <summary>Scorecard v5: steep ground is skied ungroomed. A run (not a graded track) rated double black by its ground, or black
+        /// with NaturalHostile of it on ground past the double-black line, is natural (the mod's RunKind.Natural). Returns the runs
+        /// marked.</summary>
+        private static int MarkNatural(Grid g, Plan plan)
+        {
+            if (NaturalMode == 0)
+                return 0;
+            int marked = 0;
+            float km = 0f;
+            foreach (PlanRun r in plan.Runs)
+            {
+                if (r.Graded || r.Pts.Count < 2)
+                    continue;
+                SlopeBand band = GroundBand(g, r.Pts);
+                bool natural = band == SlopeBand.DoubleBlack;
+                if (!natural && band == SlopeBand.Black && NaturalMode >= 2)
+                {
+                    List<float2> d = Densify(r.Pts);
+                    natural = d.Count(p => RawGrade(g, p) >= SkiSlopeClassifier.GradeDoubleBlack) >= NaturalHostile * d.Count;
+                }
+                if (natural)
+                {
+                    r.Surface = RunKind.Natural;
+                    marked++;
+                    km += RunLength(r.Pts) / 1000f;
+                }
+            }
+            plan.Log.Add($"natural runs: {marked} of {plan.Runs.Count(r => !r.Graded)} ({km:F1} km) ungroomed on steep ground");
+            return marked;
+        }
+
         /// <summary>A graded track's own grade along the path, as the scorecard rates a connector: the 85th percentile of the drop over
         /// 20-30 m of path from every 10 m sample.</summary>
         [MethodImpl(MethodImplOptions.AggressiveOptimization)]
