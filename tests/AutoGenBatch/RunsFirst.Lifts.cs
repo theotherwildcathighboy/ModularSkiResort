@@ -59,6 +59,7 @@ namespace AutoGenBatch
             ("detachable", 600f, 2200f, 95f, 512f, 0.9f),
             ("gondola", 800f, 2700f, 96f, 781f, 1.2f),
             ("tram", 800f, 3000f, 220f, 888f, 2.5f),
+            ("beginner", 150f, 1500f, 30f, 150f, 0.8f),   // scorecard v5: a learning chair, given by a pass, never by the ladder (TypeFor)
         };
 
         [MethodImpl(MethodImplOptions.AggressiveOptimization)]
@@ -735,7 +736,7 @@ namespace AutoGenBatch
                     return null;
             }
             foreach (var ty in Types)
-                if (len >= ty.L0 && len <= ty.L1 && rise >= ty.R0 && rise <= ty.R1 && rise / run <= ty.Cap)
+                if (ty.Name != "beginner" && len >= ty.L0 && len <= ty.L1 && rise >= ty.R0 && rise <= ty.R1 && rise / run <= ty.Cap)
                     return ty.Name == "fixed-grip" && len > 1000f && len >= 600f ? "detachable" : ty.Name;
             // past the ladder's lengths and rises: no lift length limit (scorecard v3), so the aerial lift that fits the grade
             if (len >= 800f && rise >= 220f)

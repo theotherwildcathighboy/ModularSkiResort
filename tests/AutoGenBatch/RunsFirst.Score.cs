@@ -30,9 +30,26 @@
 // on one spot), parallel lift lines (same direction within 20 degrees, 250 m apart, overlapping 40 % of the longer line), and zigzag
 // cat tracks (60-degree turns between 20 m legs, past 4 per km of green cat track plus 2).
 //
-// Composite (0-100): served vertical 10, skiable coverage 10, lift network 15, beginner terrain at each base 15, intermediate way
-// down 5, layout 10, no dead lifts 10, validity 10, few stubs 5, little crowding 5, connector economy 5. Fixed contract: planners
-// must not edit this file.
+// v5 (the owner's rulings on round v4, the designer critique and the real ski-area comparison, 2026-10-29): beginner terrain counts
+// green runs only (not cat tracks or graded tracks), by the km a beginner reaches from the base lifts' tops (full at 0.8 km, half at
+// 0.3 km); a beginner chair (new lift type: a fixed-grip chair from 30 m of rise and 150 m of length, up to 150 m of rise) whose top
+// has a green run adds a quarter. A run is groomed or natural (the mod's RunKind.Natural, ungroomed): a natural run must be black or
+// double black by its ground, and counts half in coverage. Fleet replaces served vertical (it read 1.00 everywhere): gondolas past
+// 1 + 1 per 6 km2 cost (a tram, and a gondola past 700 m of rise, is a trunk line and never counts), and so do thin lifts: under 150 m
+// of drop on the runs their top opens and no other lift both opens and laps, not needed by the network (taken out one by one, with the
+// thin lifts before), no green run at the top (reachability alone cannot tell: from any top a skier reaches nearly every run). Grade
+// mix: the served runs' vertical per band (a graded diagonal by the ground it crosses) against the band mix of the region's skiable
+// ground, by area. Coverage counts a 100 m lattice, a cell covered within 80 m of a served run (runs 160 m apart cover everything
+// between them, so a closer comb earns nothing more); ground past the double-black line is hostile: it is not in the coverage target,
+// groomed runs earn nothing on it, natural runs half. Layout adds stacked lines (tops together, bottoms apart, one direction), lone
+// bases (a base area with one lift where the plan has another base area) and lifts off the fall line (30 to 60 degrees), measures
+// parallel overlap against the shorter line, counts zigzags per track (graded diagonals included) and same spot at 60 m. Validity
+// adds a station under another lift's line and a natural run that is not black. Graded diagonals count half their length as
+// connector km. Dead lifts (now among the thin lifts) weigh nothing.
+//
+// Composite (0-100): fleet 10, skiable coverage 10, lift network 15, beginner terrain at each base 15, intermediate way down 5, grade
+// mix 10, layout 10, validity 10, few stubs 5, little crowding 5, connector economy 5 (served vertical and dead-free are reported at
+// weight 0). Fixed contract: planners must not edit this file.
 
 using System;
 using System.Collections.Generic;
@@ -48,7 +65,7 @@ namespace AutoGenBatch
     /// Heights in the points are ignored: the scorecard samples the terrain itself.</summary>
     internal sealed class ScorePlan
     {
-        public readonly List<List<float2>> Runs = new List<List<float2>>();
+        public readonly List<(List<float2> Pts, RunKind Kind)> Runs = new List<(List<float2>, RunKind)>();   // Groomed or Natural (v5)
         public readonly List<List<float2>> Connectors = new List<List<float2>>();   // traverses, cat tracks, way-home tracks
         public readonly List<(string Type, float2 Bottom, float2 Top)> Lifts = new List<(string, float2, float2)>();
     }
@@ -59,17 +76,33 @@ namespace AutoGenBatch
         private const float RunMaxPitch = 1.0f, RunClimbM = 10f;   // raw 3.5 m terrain: small bumps and 45-degree pitches are real
         private const float ConnMaxDown = 0.50f, ConnWindowM = 50f, ConnMaxRiseM = 4.5f;
         private const float TowerM = 20f, StationGrade = 0.40f, OnRunM = 20f;
-        private const float HubM = 300f, SameSpotM = 40f, ParallelDeg = 20f, ParallelM = 250f, ParallelShare = 0.4f, TurnDeg = 60f, TurnsPerKm = 4f;
-        private const float StubDropM = 50f, CrowdM = 40f, JunctionM = 100f, CoverM = 50f, CoverTarget = 0.6f, ConnectorShare = 0.35f, BaseShare = 0.35f;
+        private const float HubM = 300f, SameSpotM = 60f, ParallelDeg = 20f, ParallelM = 250f, ParallelShare = 0.4f, TurnDeg = 60f, TurnsPerKm = 4f;
+        private const float StubDropM = 50f, CrowdM = 40f, JunctionM = 100f, CoverTarget = 0.6f, ConnectorShare = 0.35f, BaseShare = 0.35f;
+        // v5 coverage and grade mix: a 100 m lattice; a cell is rated by the 85th percentile of the grade on a 20 m grid inside it (as
+        // a painted run is rated), skiable from the green line to RunMaxPitch, hostile past the double-black line; covered when a served
+        // run passes within CoverM of its center
+        private const float CellM = 100f, CellSubM = 20f, CoverM = 80f;
+        // v5 fleet: aerial lifts allowed = 1 + 1 per AerialKm2; a gondola past TrunkRiseM (beyond a chair's rise) is a trunk line; a lift
+        // under ThinDropM of served drop of its own is thin
+        private const float AerialKm2 = 6f, TrunkRiseM = 700f, ThinDropM = 150f;
+        // v5 layout: stacked lines (tops within StackTopM, bottoms over StackBottomM apart, directions within StackDeg); base areas (lift
+        // bottoms within BaseAreaM of each other in the lowest third of the lift-served vertical, no lift top within BaseTopM); fall line
+        // (no cost up to FallFreeDeg off the ground's mean downhill direction, full cost at FallFullDeg: drafts, to be set from real
+        // lifts); a station within RopeM of another lift's line between 10 and 90 % of it is under that rope
+        private const float StackTopM = 300f, StackBottomM = 300f, StackDeg = 30f, BaseAreaM = 300f, BaseTopM = 150f;
+        private const float FallFreeDeg = 30f, FallFullDeg = 60f, RopeM = 40f;
+        private const float BeginnerFullKm = 0.8f, BeginnerHalfKm = 0.3f, BeginnerChair = 0.25f;
 
         // name, length min / max (m), rise min / max (m), mean grade cap (stage-a-spec 4.4). v3: the maxima are not checked (no lift
-        // length limit in the mod); they stay as the planner's type ladder
+        // length limit in the mod); they stay as the planner's type ladder. v5: the beginner chair is a fixed-grip chair for a learning
+        // area, the planner's norm only (the mod's lift tool has no minimum); its rise maximum IS checked (past it, it is a chair)
         private static readonly (string Name, float L0, float L1, float R0, float R1, float Cap)[] Types =
         {
             ("fixed-grip", 300f, 1500f, 95f, 512f, 0.8f),
             ("detachable", 600f, 2200f, 95f, 512f, 0.9f),
             ("gondola", 800f, 2700f, 96f, 781f, 1.2f),
-            ("tram", 800f, 3000f, 220f, 888f, 2.5f),   // the mod has no surface lifts: a beginner pod is a fixed-grip chair
+            ("tram", 800f, 3000f, 220f, 888f, 2.5f),   // the mod has no surface lifts: a beginner pod is a chair
+            ("beginner", 150f, 1500f, 30f, 150f, 0.8f),
         };
 
         private sealed class Elem
@@ -77,16 +110,21 @@ namespace AutoGenBatch
             public bool Run;
             public float3[] P;
             public bool Graded;   // a connector graded steeper than the blue line: a diagonal run
+            public bool Natural;  // an ungroomed run (v5)
             public float Drop, Length;
-            public SlopeBand Band;
+            public SlopeBand Band;       // as skied: the ground for a run, the track's own grade for a graded connector
+            public SlopeBand GroundBand; // the ground under it (v5 grade mix: a graded diagonal across black ground counts black)
         }
 
         public sealed class Result
         {
             public float Total, Served, Coverage, Network, Beginner, WayHome, Layout, DeadFree, Validity, StubFree, CrowdFree, Economy;
+            public float Fleet, GradeMix;
             public int Lifts, Bases, BeginnerBases, WayHomeLifts, HubExcess, Parallels, SharpTurns, Dead, Violations, ServedRuns, Runs;
+            public int Aerial, AerialAllowed, Thin, Stacked, BaseAreas, LoneBases, OffFall, NaturalRuns;
             public float[] BandKm = new float[5];
-            public float ServedVerticalM, ConnectorKm;
+            public float[] MixTarget = new float[5], MixPlan = new float[5];   // shares by band (green .. double black)
+            public float ServedVerticalM, ConnectorKm, GreenRunKm, HostileShare, FallCost, CoverRaw;
             public List<string> Notes = new List<string>();
         }
 
@@ -104,9 +142,12 @@ namespace AutoGenBatch
 
             // ---- elements, resampled every 10 m on the terrain
             var els = new List<Elem>();
-            foreach (List<float2> pl in plan.Runs)
+            foreach ((List<float2> pl, RunKind kind) in plan.Runs)
                 if (pl != null && pl.Count >= 2)
+                {
                     els.Add(Make(pl, true));
+                    els[els.Count - 1].Natural = kind == RunKind.Natural;
+                }
             foreach (List<float2> pl in plan.Connectors)
                 if (pl != null && pl.Count >= 2)
                     els.Add(Make(pl, false));
@@ -154,11 +195,9 @@ namespace AutoGenBatch
                         ps.Add(Math.Max(0f, e.P[k].y - e.P[k + 3].y) / math.max(1f, math.distance(e.P[k].xz, e.P[k + 3].xz)));
                     ps.Sort();
                     // the band: the ground under the run, as the game rates a painted run (a traverse across a black face is black)
-                    var gs = e.P.Select(p => Grade(p.xz)).OrderBy(x => x).ToList();
-                    float rating = gs.Count > 0 ? gs[(int)((gs.Count - 1) * 0.85f)] : 0f;
-                    e.Band = SkiSlopeClassifier.BandOf(rating);
-                    if (e.Band == SlopeBand.Flat)
-                        e.Band = SlopeBand.Green;
+                    e.Band = e.GroundBand = GroundBand(e);
+                    if (e.Natural && e.Band < SlopeBand.Black)
+                        Bad($"{name}: a natural run on {e.Band} ground (natural runs are black or double black)");
                     if (ps.Count > 0 && ps[ps.Count - 1] > RunMaxPitch)
                         Bad($"{name}: a 30 m pitch of {ps[ps.Count - 1]:F2} (max {RunMaxPitch})");
                     float lo = float.MaxValue;
@@ -208,13 +247,22 @@ namespace AutoGenBatch
                     {
                         e.Run = e.Graded = true;
                         e.Band = SkiSlopeClassifier.BandOf(along);
+                        e.GroundBand = GroundBand(e);
+                        r.ConnectorKm += 0.5f * e.Length / 1000f;   // v5: a graded diagonal is half a connector
                     }
                     else
                     {
-                        e.Band = SlopeBand.Green;
+                        e.Band = e.GroundBand = SlopeBand.Green;
                         r.ConnectorKm += e.Length / 1000f;
                     }
                 }
+            }
+            // the ground under an element, as the game rates a painted run: 85th percentile of the terrain grade along it
+            SlopeBand GroundBand(Elem e)
+            {
+                var gs = e.P.Select(p => Grade(p.xz)).OrderBy(x => x).ToList();
+                SlopeBand band = SkiSlopeClassifier.BandOf(gs.Count > 0 ? gs[(int)((gs.Count - 1) * 0.85f)] : 0f);
+                return band == SlopeBand.Flat ? SlopeBand.Green : band;
             }
 
             var lifts = plan.Lifts;
@@ -233,7 +281,7 @@ namespace AutoGenBatch
                 else
                 {
                     var ty = Types[ti];
-                    if (len < ty.L0 || rise < ty.R0 || rise / math.max(1f, plan2) > ty.Cap)
+                    if (len < ty.L0 || rise < ty.R0 || rise / math.max(1f, plan2) > ty.Cap || (type == "beginner" && rise > ty.R1))
                         Bad($"{name}: {len:F0} m / {rise:F0} m up is outside {type} norms");
                 }
                 if (!InsideRing(ring, b) || !InsideRing(ring, t))
@@ -267,6 +315,24 @@ namespace AutoGenBatch
                 if (n > 0 && near > 0.3f * n)
                     Bad($"{name}: {100 * near / n}% of the chord's middle lies on a run");
             }
+            // v5: a station under another lift's rope (within RopeM of its line, between 10 and 90 % of its length)
+            for (int i = 0; i < lifts.Count; i++)
+                for (int j = 0; j < lifts.Count; j++)
+                {
+                    if (i == j)
+                        continue;
+                    float2 b = lifts[j].Bottom, d = lifts[j].Top - b;
+                    float l2 = math.lengthsq(d);
+                    if (l2 < 1f)
+                        continue;
+                    foreach ((float2 st, string which) in new[] { (lifts[i].Bottom, "bottom"), (lifts[i].Top, "top") })
+                    {
+                        float f = math.dot(st - b, d) / l2;
+                        float off = math.abs((st - b).x * d.y - (st - b).y * d.x) / math.sqrt(l2);
+                        if (f >= 0.1f && f <= 0.9f && off < RopeM)
+                            Bad($"lift {i + 1}: {which} {off:F0} m off lift {j + 1}'s line, under its rope");
+                    }
+                }
             // lift budget: 1.5 per km2 + 2 (Snowmass runs about 1.6 per km2 of skiable terrain)
             double km2 = Area(ring) / 1e6;
             int budget = (int)Math.Ceiling(1.5 * km2) + 2;
@@ -368,15 +434,23 @@ namespace AutoGenBatch
 
             // ---- lift network: largest strongly connected set of lifts
             r.Lifts = lifts.Count;
-            int best = 0;
-            for (int L = 0; L < lifts.Count; L++)
+            int best = BestScc(new HashSet<int>());
+            // the largest strongly connected set with the lifts in `skip` taken out
+            int BestScc(HashSet<int> skip)
             {
-                var fwd = Closure(L, x => reaches[x]);
-                int scc = 0;
-                foreach (int M in fwd)
-                    if (Closure(M, x => reaches[x]).Contains(L))
-                        scc++;
-                best = Math.Max(best, Math.Max(1, scc));
+                int top1 = 0;
+                for (int L = 0; L < lifts.Count; L++)
+                {
+                    if (skip.Contains(L))
+                        continue;
+                    var fwd = Closure(L, x => reaches[x].Where(y => !skip.Contains(y)));
+                    int scc = 0;
+                    foreach (int M in fwd)
+                        if (Closure(M, x => reaches[x].Where(y => !skip.Contains(y))).Contains(L))
+                            scc++;
+                    top1 = Math.Max(top1, Math.Max(1, scc));
+                }
+                return top1;
             }
             HashSet<int> Closure(int start, Func<int, IEnumerable<int>> adj)
             {
@@ -402,46 +476,77 @@ namespace AutoGenBatch
             float servedKm = served.Sum(i => els[i].Length) / 1000f;
             r.Economy = r.ConnectorKm <= ConnectorShare * servedKm ? 1f : ConnectorShare * servedKm / r.ConnectorKm;   // connectors past 35 % of the served run km cost
 
-            // ---- skiable coverage on a 20 m lattice
+            // ---- skiable coverage (v5): a 100 m lattice, each cell rated by the 85th percentile of the grade on a 20 m grid inside it
             float minX = ring.Min(p => p.x), maxX = ring.Max(p => p.x), minZ = ring.Min(p => p.y), maxZ = ring.Max(p => p.y);
             float hLo = float.MaxValue, hHi = float.MinValue;
-            var hash = new Dictionary<long, List<float2>>();
+            var hash = new Dictionary<long, List<(float2 P, bool Natural)>>();
             long Key(float2 p) => ((long)Math.Floor(p.x / CoverM) << 32) ^ (uint)(int)Math.Floor(p.y / CoverM);
             foreach (int i in served)
                 foreach (float3 p in els[i].P)
                 {
                     long k = Key(p.xz);
-                    if (!hash.TryGetValue(k, out List<float2> l))
-                        hash[k] = l = new List<float2>();
-                    l.Add(p.xz);
+                    if (!hash.TryGetValue(k, out List<(float2, bool)> l))
+                        hash[k] = l = new List<(float2, bool)>();
+                    l.Add((p.xz, els[i].Natural));
                 }
-            bool Covered(float2 p)
+            // a groomed and / or a natural served run passes within CoverM
+            (bool Groomed, bool Natural) Covered(float2 p)
             {
                 int cx = (int)Math.Floor(p.x / CoverM), cz = (int)Math.Floor(p.y / CoverM);
+                bool gr = false, nat = false;
                 for (int dz = -1; dz <= 1; dz++)
                     for (int dx = -1; dx <= 1; dx++)
-                        if (hash.TryGetValue(((long)(cx + dx) << 32) ^ (uint)(cz + dz), out List<float2> l) && l.Any(q => math.distancesq(q, p) < CoverM * CoverM))
-                            return true;
-                return false;
+                        if (hash.TryGetValue(((long)(cx + dx) << 32) ^ (uint)(cz + dz), out List<(float2 P, bool Natural)> l))
+                            foreach ((float2 q, bool n) in l)
+                                if (math.distancesq(q, p) < CoverM * CoverM)
+                                {
+                                    gr |= !n;
+                                    nat |= n;
+                                }
+                return (gr, nat);
             }
-            int skiable = 0, covered = 0;
-            for (float z = minZ + 10f; z < maxZ; z += 20f)
-                for (float x = minX + 10f; x < maxX; x += 20f)
+            float skiable = 0f, covered = 0f;
+            int hostile = 0, cells = 0;
+            var groundBands = new float[5];
+            for (float z = minZ + 0.5f * CellM; z - 0.5f * CellM < maxZ; z += CellM)
+                for (float x = minX + 0.5f * CellM; x - 0.5f * CellM < maxX; x += CellM)
                 {
                     var p = new float2(x, z);
-                    if (!InsideRing(ring, p))
+                    var gs = new List<float>();
+                    for (float dz = -0.5f * CellM + 0.5f * CellSubM; dz < 0.5f * CellM; dz += CellSubM)
+                        for (float dx = -0.5f * CellM + 0.5f * CellSubM; dx < 0.5f * CellM; dx += CellSubM)
+                        {
+                            var q = p + new float2(dx, dz);
+                            if (!InsideRing(ring, q))
+                                continue;
+                            float h = H(q);
+                            hLo = Math.Min(hLo, h);   // the region's relief (bases), on the 20 m grid
+                            hHi = Math.Max(hHi, h);
+                            gs.Add(Grade(q));
+                        }
+                    if (gs.Count == 0 || !InsideRing(ring, p))
                         continue;
-                    float h = H(p);
-                    hLo = Math.Min(hLo, h);
-                    hHi = Math.Max(hHi, h);
-                    float gr = Grade(p);
-                    if (gr < 0.06f || gr > 0.85f)
+                    gs.Sort();
+                    float rating = gs[(int)((gs.Count - 1) * 0.85f)];
+                    if (rating < SkiSlopeClassifier.GradeGreen || rating > RunMaxPitch)
+                        continue;   // too flat to ski, or past the steepest pitch a run may hold
+                    cells++;
+                    groundBands[(int)SkiSlopeClassifier.BandOf(rating)]++;
+                    (bool byGroomed, bool byNatural) = Covered(p);
+                    if (rating >= SkiSlopeClassifier.GradeDoubleBlack)
+                    {
+                        // hostile ground: not in the target; a groomed run earns nothing on it, a natural run half
+                        hostile++;
+                        if (byNatural)
+                            covered += 0.5f;
                         continue;
+                    }
                     skiable++;
-                    if (Covered(p))
-                        covered++;
+                    covered += byGroomed ? 1f : byNatural ? 0.5f : 0f;
                 }
-            r.Coverage = skiable > 0 ? Math.Min(1f, covered / (float)skiable / CoverTarget) : 0f;
+            r.HostileShare = cells > 0 ? hostile / (float)cells : 0f;
+            r.CoverRaw = skiable > 0f ? covered / skiable : 0f;
+            r.Coverage = Math.Min(1f, r.CoverRaw / CoverTarget);
 
             // ---- crowding: served run samples within 40 m of another served run (the last 150 m, where runs meet, and the junction zone
             // within JunctionM of the other run's start or end excluded)
@@ -502,31 +607,48 @@ namespace AutoGenBatch
                             q.Enqueue(j);
                 return easyMemo[(L, max)] = seen;
             }
-            // beginner terrain: from the base, a beginner rides lifts whose tops have skiing at their level (or a gondola / tram, both
-            // ways); credit when that skiing delivers them to a lift again (a loop they can lap), anywhere on the mountain
-            bool Learn(int B, SlopeBand max)
+            var servedSet = new HashSet<int>(served);
+            // v5: a green run, groomed and served (cat tracks, graded tracks and connectors are how a beginner moves, not learning terrain)
+            bool GreenRun(int i) => els[i].Run && !els[i].Graded && !els[i].Natural && els[i].Band == SlopeBand.Green && servedSet.Contains(i);
+            // beginner terrain: from the base, a beginner rides lifts whose tops have green skiing (or a gondola / tram, both ways); when
+            // that skiing delivers them to a lift again (a loop they can lap), the credit is the km of green runs on it (v5)
+            float LearnKm(int B)
             {
                 var S = new HashSet<int>();
                 var q = new Queue<int>();
                 for (int L = 0; L < lifts.Count; L++)
-                    if (Find(baseOf, L) == B && (IsAerial(L) || EasyFrom(L, max).Count > 0) && S.Add(L))
+                    if (Find(baseOf, L) == B && (IsAerial(L) || EasyFrom(L, SlopeBand.Green).Count > 0) && S.Add(L))
                         q.Enqueue(L);
                 bool loop = false;
+                var runs = new HashSet<int>();
                 while (q.Count > 0)
                 {
                     int L = q.Dequeue();
-                    foreach (int i in EasyFrom(L, max))
+                    foreach (int i in EasyFrom(L, SlopeBand.Green))
+                    {
+                        if (GreenRun(i))
+                            runs.Add(i);
                         foreach (int M in delivers[i])
                         {
                             loop = true;
-                            if ((IsAerial(M) || EasyFrom(M, max).Count > 0) && S.Add(M))
+                            if ((IsAerial(M) || EasyFrom(M, SlopeBand.Green).Count > 0) && S.Add(M))
                                 q.Enqueue(M);
                         }
+                    }
                 }
-                return loop;
+                return loop ? runs.Sum(i => els[i].Length) / 1000f : 0f;
             }
             foreach (int B in bases.Keys.ToList())
-                bases[B] = Learn(B, SlopeBand.Green) ? 1f : Learn(B, SlopeBand.Blue) ? 0.5f : 0f;
+            {
+                float km = LearnKm(B);
+                r.GreenRunKm += km;
+                float credit = km >= BeginnerFullKm ? 1f : km >= BeginnerHalfKm ? 0.5f : 0f;
+                if (Enumerable.Range(0, lifts.Count).Any(L => Find(baseOf, L) == B && lifts[L].Type == "beginner" && EasyFrom(L, SlopeBand.Green).Any(GreenRun)))
+                    credit += BeginnerChair;   // a learning chair with green runs from its top
+                bases[B] = Math.Min(1f, credit);
+                if (credit < 1f && r.Notes.Count < 80)
+                    r.Notes.Add($"base at lift {Enumerable.Range(0, lifts.Count).First(L => Find(baseOf, L) == B) + 1}: {km:F2} km of green runs for a beginner");
+            }
             r.Bases = bases.Count;
             r.BeginnerBases = bases.Values.Count(v => v >= 1f);
             r.Beginner = bases.Count > 0 ? bases.Values.Average() : 0f;
@@ -555,7 +677,105 @@ namespace AutoGenBatch
             if (r.WayHome < 1f && r.Notes.Count < 60)
                 r.Notes.Add($"intermediate way down from {Math.Max(0f, easyHi - baseLo):F0} m of the {topHi - baseLo:F0} m vertical");
 
-            // ---- layout (v4): crowded terminals, parallel lift lines, zigzag cat tracks
+            // ---- fleet (v5): gondolas past the area's allowance (a tram, and a gondola past TrunkRiseM of rise, is a trunk line and never
+            // counts), and thin lifts. A lift's top opens the served runs reached from it along tracks and traverses, no run in between;
+            // each opened run has one keeper, a lift that laps it (gets its skiers back to its bottom) before one that does not, the
+            // longest rise first: of two lifts to one top the shorter keeps nothing, two lifts from opposite valleys each keep their side.
+            // A lift is thin under ThinDropM of kept runs' drop, unless the network needs it (taking it out, with the thin lifts before it,
+            // shrinks the largest strongly connected set by more than those lifts), it is a beginner chair, or its top has a green run.
+            // Lifts are taken out one by one, least kept drop first: of three access lifts into one upper area, two are thin, not three
+            r.Aerial = Enumerable.Range(0, lifts.Count).Count(L => lifts[L].Type == "gondola" && top[L].y - bot[L].y <= TrunkRiseM);
+            r.AerialAllowed = 1 + (int)Math.Floor(km2 / AerialKm2);
+            float aerialS = (float)Math.Exp(-Math.Max(0, r.Aerial - r.AerialAllowed) / 1.5);
+            if (r.Aerial > r.AerialAllowed && r.Notes.Count < 80)
+                r.Notes.Add($"{r.Aerial} gondolas under {TrunkRiseM:F0} m of rise, {r.AerialAllowed} allowed for {km2:F1} km2");
+            var backTo = new HashSet<int>[m];   // the lifts a skier on element i gets back to without riding a lift
+            for (int i = 0; i < m; i++)
+            {
+                backTo[i] = new HashSet<int>();
+                var seen = new HashSet<int> { i };
+                var q = new Queue<int>();
+                q.Enqueue(i);
+                while (q.Count > 0)
+                {
+                    int x = q.Dequeue();
+                    backTo[i].UnionWith(delivers[x]);
+                    foreach (int y in next[x])
+                        if (seen.Add(y))
+                            q.Enqueue(y);
+                }
+            }
+            var opens = new HashSet<int>[lifts.Count];
+            for (int L = 0; L < lifts.Count; L++)
+            {
+                opens[L] = new HashSet<int>();
+                var seen = new HashSet<int>();
+                var q = new Queue<int>();
+                for (int i = 0; i < m; i++)
+                    if (math.distancesq(els[i].P[0].xz, top[L].xz) < StartM * StartM && seen.Add(i))
+                        q.Enqueue(i);
+                while (q.Count > 0)
+                {
+                    int x = q.Dequeue();
+                    if (els[x].Run)
+                    {
+                        if (servedSet.Contains(x))
+                            opens[L].Add(x);
+                        continue;
+                    }
+                    foreach (int y in next[x])
+                        if (seen.Add(y))
+                            q.Enqueue(y);
+                }
+            }
+            // each opened run has one keeper: of the lifts whose tops open it, one that laps it first, the longest rise first
+            var own = new float[lifts.Count];
+            foreach (int i in served)
+            {
+                int keep = -1;
+                for (int L = 0; L < lifts.Count; L++)
+                    if (opens[L].Contains(i) && (keep < 0 || (backTo[i].Contains(L), top[L].y - bot[L].y).CompareTo((backTo[i].Contains(keep), top[keep].y - bot[keep].y)) > 0))
+                        keep = L;
+                if (keep >= 0)
+                    own[keep] += Math.Max(0f, els[i].Drop);
+            }
+            var thin = new HashSet<int>();
+            foreach (int L in Enumerable.Range(0, lifts.Count).OrderBy(L => own[L]))
+            {
+                if (lifts[L].Type == "beginner" || EasyFrom(L, SlopeBand.Green).Any(GreenRun) || own[L] >= ThinDropM)
+                    continue;
+                thin.Add(L);
+                if (BestScc(thin) < best - thin.Count)
+                {
+                    thin.Remove(L);
+                    continue;
+                }
+                r.Thin++;
+                if (r.Notes.Count < 80)
+                    r.Notes.Add($"lift {L + 1}: thin ({own[L]:F0} m of served drop of its own, the network does not need it)");
+            }
+            float thinS = lifts.Count > 0 ? 1f - r.Thin / (float)lifts.Count : 0f;
+            r.Fleet = (aerialS + thinS) / 2f;
+
+            // ---- grade mix (v5): the served runs' vertical per band (a graded diagonal by the ground it crosses) against the band mix
+            // of the region's skiable ground (the 100 m cells above, hostile ground as double black)
+            float cellSum = groundBands.Sum(), dropSum = 0f;
+            var planBands = new float[5];
+            foreach (int i in served)
+            {
+                planBands[(int)els[i].GroundBand] += Math.Max(0f, els[i].Drop);
+                dropSum += Math.Max(0f, els[i].Drop);
+            }
+            float l1 = 0f;
+            for (int b = 1; b < 5; b++)
+            {
+                r.MixTarget[b] = cellSum > 0f ? groundBands[b] / cellSum : 0f;
+                r.MixPlan[b] = dropSum > 0f ? planBands[b] / dropSum : 0f;
+                l1 += Math.Abs(r.MixTarget[b] - r.MixPlan[b]);
+            }
+            r.GradeMix = dropSum > 0f && cellSum > 0f ? 1f - 0.5f * l1 : 0f;
+
+            // ---- layout (v4, v5): crowded terminals, parallel and stacked lift lines, zigzag tracks, lone bases, lifts off the fall line
             var term = new List<(float2 P, bool Base)>();
             for (int L = 0; L < lifts.Count; L++)
             {
@@ -576,7 +796,7 @@ namespace AutoGenBatch
                 if (n > allowed)
                 {
                     r.HubExcess += n - allowed;
-                    if (r.Notes.Count < 60)
+                    if (r.Notes.Count < 80)
                         r.Notes.Add($"{n} lift terminals within {HubM} m of ({term[g.Key].P.x:F0}, {term[g.Key].P.y:F0})");
                 }
             }
@@ -590,69 +810,162 @@ namespace AutoGenBatch
                 if (same > 0)
                 {
                     r.HubExcess++;
-                    if (r.Notes.Count < 60)
+                    if (r.Notes.Count < 80)
                         r.Notes.Add($"lift {a / 2 + 1}: {(a % 2 == 0 ? "bottom" : "top")} on another lift's {(a % 2 == 0 ? "bottom" : "top")}");
                 }
             }
+            // a pair of lines that run side by side (overlap against the shorter line, v5) or ride one on top of the other (stacked: tops
+            // together, bottoms apart, one direction) counts once; fans (bottoms together) are fine
+            int pairs = 0;
             for (int i = 0; i < lifts.Count; i++)
                 for (int j = 0; j < i; j++)
                 {
                     float2 bi = bot[i].xz, di = top[i].xz - bi, bj = bot[j].xz, dj = top[j].xz - bj;
                     float li = math.length(di), lj = math.length(dj);
-                    if (li < 1f || lj < 1f || math.dot(di / li, dj / lj) < math.cos(math.radians(ParallelDeg)))
+                    if (li < 1f || lj < 1f)
                         continue;
-                    // overlap measured along the longer line, separation at the overlap's middle
-                    bool iLong = li >= lj;
-                    float2 b0 = iLong ? bi : bj, u = iLong ? di / li : dj / lj, c0 = iLong ? bj : bi, c1 = iLong ? top[j].xz : top[i].xz;
-                    float lLong = Math.Max(li, lj);
-                    float s0 = math.dot(c0 - b0, u), s1 = math.dot(c1 - b0, u);
-                    float lo = Math.Max(0f, Math.Min(s0, s1)), hi = Math.Min(lLong, Math.Max(s0, s1));
-                    if (hi - lo < ParallelShare * lLong)
-                        continue;
-                    float2 mid = math.lerp(c0, c1, (0.5f * (lo + hi) - s0) / math.max(1f, s1 - s0));
-                    float2 off = mid - b0;
-                    float sep = math.abs(off.x * u.y - off.y * u.x);
-                    if (sep < ParallelM)
+                    float cos = math.dot(di / li, dj / lj);
+                    bool parallel = false, stacked = false;
+                    if (cos >= math.cos(math.radians(ParallelDeg)))
                     {
-                        r.Parallels++;
-                        if (r.Notes.Count < 60)
-                            r.Notes.Add($"lifts {j + 1} and {i + 1} run parallel ({sep:F0} m apart)");
+                        // overlap measured along the longer line against the shorter one, separation at the overlap's middle
+                        bool iLong = li >= lj;
+                        float2 b0 = iLong ? bi : bj, u = iLong ? di / li : dj / lj, c0 = iLong ? bj : bi, c1 = iLong ? top[j].xz : top[i].xz;
+                        float lLong = Math.Max(li, lj);
+                        float s0 = math.dot(c0 - b0, u), s1 = math.dot(c1 - b0, u);
+                        float lo = Math.Max(0f, Math.Min(s0, s1)), hi = Math.Min(lLong, Math.Max(s0, s1));
+                        if (hi - lo >= ParallelShare * Math.Min(li, lj))
+                        {
+                            float2 mid = math.lerp(c0, c1, (0.5f * (lo + hi) - s0) / math.max(1f, s1 - s0));
+                            float2 off = mid - b0;
+                            float sep = math.abs(off.x * u.y - off.y * u.x);
+                            if (sep < ParallelM)
+                            {
+                                parallel = true;
+                                r.Parallels++;
+                                if (r.Notes.Count < 80)
+                                    r.Notes.Add($"lifts {j + 1} and {i + 1} run parallel ({sep:F0} m apart)");
+                            }
+                        }
                     }
+                    if (cos >= math.cos(math.radians(StackDeg)) && math.distance(top[i].xz, top[j].xz) < StackTopM
+                        && math.distance(bi, bj) > StackBottomM)
+                    {
+                        stacked = true;
+                        r.Stacked++;
+                        if (r.Notes.Count < 80)
+                            r.Notes.Add($"lifts {j + 1} and {i + 1} are stacked (tops {math.distance(top[i].xz, top[j].xz):F0} m apart, one line on the other)");
+                    }
+                    if (parallel || stacked)
+                        pairs++;
                 }
-            float trackKm = 0f;
-            int tracks = 0;
+            // zigzags per track (v5): green cat tracks and graded diagonals (drawn as tracks, skied as such), each allowed 4 per km + 1
+            var zig = new List<float>();
             foreach (Elem e in els)
             {
-                if (e.Run)
-                    continue;   // green cat tracks only (graded diagonals became runs)
-                tracks++;
-                trackKm += e.Length / 1000f;
+                if (e.Run && !e.Graded)
+                    continue;
+                int turns = 0;
                 for (int k = 4; k < e.P.Length; k += 2)
                 {
                     float2 a1 = e.P[k - 2].xz - e.P[k - 4].xz, a2 = e.P[k].xz - e.P[k - 2].xz;
                     if (math.lengthsq(a1) < 1f || math.lengthsq(a2) < 1f)
                         continue;
                     if (math.dot(math.normalize(a1), math.normalize(a2)) < math.cos(math.radians(TurnDeg)))
-                        r.SharpTurns++;
+                        turns++;
+                }
+                r.SharpTurns += turns;
+                float allowedTurns = TurnsPerKm * e.Length / 1000f + 1f;
+                zig.Add(turns <= allowedTurns ? 1f : allowedTurns / turns);
+            }
+            // base areas (v5): lift bottoms within BaseAreaM of each other in the lowest third of the lift-served vertical, no lift top
+            // within BaseTopM (that is a transfer station). A base area with one lift is lone where the plan has another base area: a
+            // separate pad on the region's edge instead of a base with its lifts strung along it (whether runs from another base reach
+            // it cannot tell them apart: they reach nearly every bottom)
+            var area = new int[lifts.Count];
+            var isBase = new bool[lifts.Count];
+            if (lifts.Count > 0)
+            {
+                float vLo = bot.Min(p => p.y), vHi = top.Max(p => p.y);
+                for (int L = 0; L < lifts.Count; L++)
+                {
+                    area[L] = L;
+                    isBase[L] = bot[L].y <= vLo + (vHi - vLo) / 3f
+                        && !Enumerable.Range(0, lifts.Count).Any(M => math.distance(top[M].xz, bot[L].xz) < BaseTopM);
+                }
+                for (int L = 0; L < lifts.Count; L++)
+                    for (int M = 0; M < L; M++)
+                        if (isBase[L] && isBase[M] && math.distance(bot[L].xz, bot[M].xz) < BaseAreaM)
+                            Union(area, L, M);
+                var areas = Enumerable.Range(0, lifts.Count).Where(L => isBase[L]).GroupBy(L => Find(area, L)).ToList();
+                r.BaseAreas = areas.Count;
+                foreach (var A in areas)
+                {
+                    if (A.Count() != 1 || areas.Count < 2)
+                        continue;
+                    int L = A.First();
+                    r.LoneBases++;
+                    if (r.Notes.Count < 80)
+                        r.Notes.Add($"lift {L + 1}: a base area of its own");
                 }
             }
-            float turnsAllowed = TurnsPerKm * trackKm + 2f;
-            float hubS = (float)Math.Exp(-r.HubExcess / 2.0), parS = (float)Math.Exp(-r.Parallels / 3.0);
-            float zigS = r.SharpTurns <= turnsAllowed ? 1f : turnsAllowed / r.SharpTurns;
-            r.Layout = (hubS + parS + zigS) / 3f;
+            // fall line (v5): the angle between a lift's line and the mean uphill direction of the ground under it; no cost to
+            // FallFreeDeg, full cost at FallFullDeg. Exempt: a transfer across a ridge (bottom at another lift's top, the ground falls
+            // away past its top), and a line on ground too flat to have a fall line
+            for (int L = 0; L < lifts.Count; L++)
+            {
+                float2 b = bot[L].xz, d = top[L].xz - b;
+                float len = math.length(d);
+                if (len < 1f)
+                    continue;
+                float2 u = d / len, up = float2.zero;
+                int k = 0;
+                for (float along = 0f; along <= len; along += SampleM, k++)
+                {
+                    float2 q = b + u * along;
+                    const float dg = 10f;
+                    up += new float2(H(q + new float2(dg, 0f)) - H(q - new float2(dg, 0f)), H(q + new float2(0f, dg)) - H(q - new float2(0f, dg))) / (2f * dg);
+                }
+                up /= Math.Max(1, k);
+                if (math.length(up) < SkiSlopeClassifier.GradeGreen)
+                    continue;
+                bool transfer = Enumerable.Range(0, lifts.Count).Any(M => M != L && math.distance(top[M].xz, b) < StartM)
+                    && H(top[L].xz + u * 100f) < top[L].y - 10f;
+                if (transfer)
+                    continue;
+                float deg = math.degrees(math.acos(math.clamp(math.dot(u, math.normalize(up)), -1f, 1f)));
+                float cost = math.saturate((deg - FallFreeDeg) / (FallFullDeg - FallFreeDeg));
+                if (cost > 0f)
+                {
+                    r.OffFall++;
+                    r.FallCost += cost;
+                    if (r.Notes.Count < 80)
+                        r.Notes.Add($"lift {L + 1}: {deg:F0} degrees off the fall line");
+                }
+            }
+            float hubS = (float)Math.Exp(-r.HubExcess / 2.0), parS = (float)Math.Exp(-pairs / 3.0);
+            float zigS = zig.Count > 0 ? zig.Average() : 1f, baseS = (float)Math.Exp(-r.LoneBases / 2.0);
+            float fallS = lifts.Count > 0 ? 1f - r.FallCost / lifts.Count : 1f;
+            r.Layout = (hubS + parS + zigS + baseS + fallS) / 5f;
+            r.NaturalRuns = served.Count(i => els[i].Natural);
 
-            r.Total = 10f * r.Served + 10f * r.Coverage + 15f * r.Network + 15f * r.Beginner + 5f * r.WayHome + 10f * r.Layout
-                + 10f * r.DeadFree + 10f * r.Validity + 5f * r.StubFree + 5f * r.CrowdFree + 5f * r.Economy;
+            r.Total = 10f * r.Fleet + 10f * r.Coverage + 15f * r.Network + 15f * r.Beginner + 5f * r.WayHome + 10f * r.GradeMix
+                + 10f * r.Layout + 10f * r.Validity + 5f * r.StubFree + 5f * r.CrowdFree + 5f * r.Economy;
             return r;
         }
 
         public static string Line(string id, Result r) => string.Format(CultureInfo.InvariantCulture,
-            "SCORE rf {0}: {1:F1} | served {2:F2} cover {3:F2} network {4:F2} beginner {5:F2} ({6}/{7} bases green) way-home {23:F2} ({24}/{14} lifts) layout {25:F2} ({26} hub, {27} parallel, {28} turns) dead-free {8:F2} " +
-            "valid {9:F2} ({10} violations) stub-free {11:F2} crowd-free {12:F2} economy {13:F2} | {14} lifts, {15}/{16} runs served, " +
-            "{17:F0} m served vertical, km G/B/K/DB {18:F1}/{19:F1}/{20:F1}/{21:F1}, connectors {22:F1} km",
-            id, r.Total, r.Served, r.Coverage, r.Network, r.Beginner, r.BeginnerBases, r.Bases, r.DeadFree, r.Validity, r.Violations,
-            r.StubFree, r.CrowdFree, r.Economy, r.Lifts, r.ServedRuns, r.Runs, r.ServedVerticalM,
-            r.BandKm[1], r.BandKm[2], r.BandKm[3], r.BandKm[4], r.ConnectorKm, r.WayHome, r.WayHomeLifts, r.Layout, r.HubExcess, r.Parallels, r.SharpTurns);
+            "SCORE rf {0}: {1:F1} | fleet {2:F2} ({3}/{4} aerial, {5} thin) cover {6:F2} ({50:F2} raw, {7:F0} % hostile) network {8:F2} beginner {9:F2} ({10}/{11} bases green, {12:F2} km) " +
+            "way-home {13:F2} ({14}/{15} lifts) grade-mix {16:F2} (ground G/B/K/DB {17:F0}/{18:F0}/{19:F0}/{20:F0} %, runs {21:F0}/{22:F0}/{23:F0}/{24:F0} %) " +
+            "layout {25:F2} ({26} hub, {27} parallel, {28} stacked, {29} turns, {30}/{31} lone bases, {32} off the fall line {33:F1}) valid {34:F2} ({35} violations) " +
+            "stub-free {36:F2} crowd-free {37:F2} economy {38:F2} served {39:F2} dead-free {40:F2} | {15} lifts, {41}/{42} runs served ({43} natural), " +
+            "{44:F0} m served vertical, km G/B/K/DB {45:F1}/{46:F1}/{47:F1}/{48:F1}, connectors {49:F1} km",
+            id, r.Total, r.Fleet, r.Aerial, r.AerialAllowed, r.Thin, r.Coverage, 100f * r.HostileShare, r.Network, r.Beginner, r.BeginnerBases, r.Bases, r.GreenRunKm,
+            r.WayHome, r.WayHomeLifts, r.Lifts, r.GradeMix, 100f * r.MixTarget[1], 100f * r.MixTarget[2], 100f * r.MixTarget[3], 100f * r.MixTarget[4],
+            100f * r.MixPlan[1], 100f * r.MixPlan[2], 100f * r.MixPlan[3], 100f * r.MixPlan[4],
+            r.Layout, r.HubExcess, r.Parallels, r.Stacked, r.SharpTurns, r.LoneBases, r.BaseAreas, r.OffFall, r.FallCost, r.Validity, r.Violations,
+            r.StubFree, r.CrowdFree, r.Economy, r.Served, r.DeadFree, r.ServedRuns, r.Runs, r.NaturalRuns,
+            r.ServedVerticalM, r.BandKm[1], r.BandKm[2], r.BandKm[3], r.BandKm[4], r.ConnectorKm, r.CoverRaw);
 
         private static int Find(int[] p, int i)
         {

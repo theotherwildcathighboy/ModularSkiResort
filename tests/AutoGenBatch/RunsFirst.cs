@@ -273,7 +273,10 @@ namespace AutoGenBatch
             // the scorecard (RunsFirst.Score.cs) reads the plan exactly as drawn (RunsFirst.Plan.cs)
             var plan = new ScorePlan();
             foreach (PlanRun r in built.Runs)
-                (r.Graded ? plan.Connectors : plan.Runs).Add(r.Pts);
+                if (r.Graded)
+                    plan.Connectors.Add(r.Pts);
+                else
+                    plan.Runs.Add((r.Pts, r.Surface));
             plan.Connectors.AddRange(built.Connectors);
             foreach (Lift lf in lifts)
                 plan.Lifts.Add((lf.Type, lf.Bottom.xz, lf.Top.xz));
