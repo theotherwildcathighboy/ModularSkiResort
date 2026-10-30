@@ -16,6 +16,7 @@ namespace AutoGenBatch
     {
         private const float BridgeMinM = 250f, BridgeMaxM = 1500f;   // bridge chord in plan
         private const float BridgeStartM = 140f;                     // an element starting this close to the top is skied from it
+        private static readonly float BridgeFallW = Env("RF_BRIDGEFALL", 2f);   // a bridge 60 degrees off the fall line costs 1 + this times as much
 
         /// <summary>Adds bridge lifts while the network is split and the lift budget allows; returns how many.</summary>
         [MethodImpl(MethodImplOptions.AggressiveOptimization)]
@@ -152,7 +153,9 @@ namespace AutoGenBatch
                         if (d < BridgeMinM || d > BridgeMaxM || rise < 95f || rise > 512f || rise / d > 0.75f)
                             continue;
                         bool shared = topShared || lifts.Exists(lf => math.distance(lf.Bottom.xz, bw) < LaySameSpotM + 2f);
-                        pairs.Add((math.sqrt(d * d + rise * rise) + 0.5f * er.Len[tops[ti].X] + (shared ? 1e6f : 0f), b, ti));
+                        // v5: a bridge climbs its slope's fall line too (a sideways line costs up to 1 + BridgeFallW times as much)
+                        float fall = BridgeFallW > 0f ? 1f + BridgeFallW * FallCost(g, bw, tw, math.max(20f, d / 6f)) : 1f;
+                        pairs.Add((fall * (math.sqrt(d * d + rise * rise) + 0.5f * er.Len[tops[ti].X]) + (shared ? 1e6f : 0f), b, ti));
                     }
                 }
                 pairs.Sort((p, q) => p.Cost.CompareTo(q.Cost));

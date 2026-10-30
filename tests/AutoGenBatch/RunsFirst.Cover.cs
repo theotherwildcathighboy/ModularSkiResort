@@ -23,6 +23,7 @@ namespace AutoGenBatch
         private static readonly int CoverLiftMinPts = (int)Env("RF_CLM", 120f);     // ... and at least this many 20 m lattice points (11 ha)
         private static readonly float CoverParallelM = Env("RF_CPAR", 170f);       // ... and no closer than this alongside a placed lift
         private static readonly float CoverClearM = Env("RF_CCLR", 100f);          // ... its stations no closer than this to another rope
+        private static readonly float CoverFallW = Env("RF_COVERFALL", 0.8f);      // the share of a coverage lift's gain lost 60 degrees off the fall line
 
         /// <summary>The skiable 20 m lattice: per cell its index (-1 = not a lattice point or not skiable).</summary>
         [MethodImpl(MethodImplOptions.AggressiveOptimization)]
@@ -285,6 +286,17 @@ namespace AutoGenBatch
                         Console.WriteLine($"DEBUG cover top {g.World(tops[ti]).x:F0},{g.World(tops[ti]).y:F0} h {g.Hr[tops[ti]]:F0}: base gain {baseGain}, back {back}, best {tBest}, pairs {tPairs}, into {tInto}, home {tHome}");
                 }
                 cands.Sort((a, b) => b.Gain.CompareTo(a.Gain));
+                // v5: a coverage lift climbs its slope's fall line; the best few hundred are ranked again with a sideways line worth
+                // less (CoverFallW of its gain lost 60 degrees off the fall line)
+                if (CoverFallW > 0f && cands.Count > 1)
+                {
+                    int head = Math.Min(cands.Count, 300);
+                    var ranked = cands.GetRange(0, head)
+                        .Select(c => (c, w: c.Gain * (1f - CoverFallW * FallCost(g, g.World(bottoms[c.B]), g.World(tops[c.T]), 20f))))
+                        .OrderByDescending(x => x.w).Select(x => x.c).ToList();
+                    cands.RemoveRange(0, head);
+                    cands.InsertRange(0, ranked);
+                }
                 if (debug && Environment.GetEnvironmentVariable("RF_TOPDBG") == "1")
                     Console.WriteLine("DEBUG cover top lines above");
                 if (debug)

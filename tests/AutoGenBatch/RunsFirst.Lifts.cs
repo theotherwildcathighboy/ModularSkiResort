@@ -39,6 +39,7 @@ namespace AutoGenBatch
         private static readonly int TypeUse = (int)Env("RF_TYPEUSE", 2f);
         private static readonly float ChairMaxRise = Env("RF_CHAIRRISE", 700f), VeryLongM = Env("RF_VERYLONG", 2500f), TramRise = Env("RF_TRAMRISE", 800f);
         private static readonly float GondolaCap = Env("RF_GONDCAP", 0.6f);
+        private static readonly float LiftFallW = Env("RF_LIFTFALL", 0f);   // the share of a lift's value lost 60 degrees off the fall line (off: at 0.6 it re-picked the lifts, -2.8 visible, more lone bases)
 
         private static readonly List<(float2 P, int R, int G, int B)> DebugDots = new List<(float2, int, int, int)>();   // RF_TOPS marks
 
@@ -358,9 +359,16 @@ namespace AutoGenBatch
                             continue;
                         // a pure transfer lift (no runs of its own, it carries skiers from one area into the next) may run beside one other
                         string type = TypeFor(g, bc, t);
-                        if (type == null || (gain + transfer) * Capacity(type) <= best || Twin(g, lifts, t, bc, 200f, type, gain > 0f ? 0 : TransferBeside))
+                        if (type == null || (gain + transfer) * Capacity(type) <= best)
                             continue;
-                        best = (gain + transfer) * Capacity(type);
+                        // v5: a lift climbs its slope's fall line; one that climbs sideways across the slope is worth less (no cost to
+                        // 30 degrees off the fall line, FallW of the value at 60)
+                        float value = (gain + transfer) * Capacity(type);
+                        if (LiftFallW > 0f)
+                            value *= 1f - LiftFallW * FallCost(g, g.World(bc), g.World(t), 20f);
+                        if (value <= best || Twin(g, lifts, t, bc, 200f, type, gain > 0f ? 0 : TransferBeside))
+                            continue;
+                        best = value;
                         bestOwn = gain;
                         bestTransfer = transfer;
                         bt = ti;
