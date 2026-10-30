@@ -355,11 +355,12 @@ TEXPASS = {
         # 1.5 m scan at 1.6 m (x 1.07): 20 x 14.5 cm slates (RoofingTiles003 drew 40 cm slates with scratch streaks)
         "slate": {"set": "PHGrayRoofTiles02", "tile_m": (1.6, 1.6), "repeat": 2,
                   "target_srgb": (0.214, 0.224, 0.215), "normal_gain": 1.3},
-        # 1.8 m scan at 1.54 m (x 0.86): 12 cm weathered deck boards; the recipes' repeat 2 stays; chroma 0.5: the
-        # scan's rust stains read orange once tinted to the palette mean; flatten_m 0.15: its ~0.5 m water stains
-        # repeat every 1.54 m and drew a blotch grid on L3's 15 m deck (low-frequency CoV 0.021 -> 0.089, now 0.020)
-        "deck": {"set": "PHWeatheredBrownPlanks", "tile_m": (1.54, 1.54), "chroma": 0.5, "flatten_m": 0.15,
-                 "normal_gain": 1.3},
+        # 1.8 m scan at 1.54 m (x 0.86): 12 cm weathered deck boards; the recipes' repeat 2 stays. On L3's 15 m deck
+        # the scan repeated as a grid: its ~0.5 m water stains (flatten_m 0.15: low-frequency CoV 0.089 -> 0.012, was
+        # 0.021) and its rust specks (chroma 0.25, contrast 0.6: luminance CoV 0.287 -> 0.172, was 0.151); normal_gain
+        # 1.6 keeps the board seams legible once the albedo is calm
+        "deck": {"set": "PHWeatheredBrownPlanks", "tile_m": (1.54, 1.54), "chroma": 0.25, "flatten_m": 0.15,
+                 "contrast": 0.6, "normal_gain": 1.6},
         # timber_shake stays WoodSiding013: it is roof shakes on L3 / L5 and wall shingles on L2, and the CC0 shake
         # scan (Poly Haven roof_slates_02, 11 cm courses at 3.0 m) fits its 1.8 m cell only at x 0.6 (7 cm, P6 fails)
     },
@@ -368,8 +369,10 @@ TEXPASS = {
 # tile courses 10-25 cm, deck boards 9-16 cm on center, roof shakes 12-26 cm. test_texpass P6 measures each scan
 # (row-profile autocorrelation of the Color map at texture-sources.json size_m, times tile_m / size_m).
 TEXPASS_PITCH = {"timber_lap": (0.10, 0.20), "slate": (0.10, 0.25), "deck": (0.09, 0.16), "timber_shake": (0.12, 0.26)}
-# Swatch controls a pass key may carry (texpass_apply runs them in this order on the sheet swatch and on the far source)
-TEXPASS_CONTROLS = ("chroma", "flatten_m", "normal_gain")
+# Swatch controls a pass key may carry (texpass_apply runs them in this order on the sheet swatch and on the far source);
+# the color ones move the swatch mean, which the target_srgb tint then restores
+TEXPASS_CONTROLS = ("chroma", "flatten_m", "contrast", "normal_gain")
+TEXPASS_COLOR_CONTROLS = ("chroma", "flatten_m", "contrast")
 # Low-frequency gate (test_texpass P10): a tile repeats every tile_m, so blotches above the board / course scale read as
 # a grid. Luminance CoV after a periodic Gaussian of TEXPASS_LF_SIGMA_M may not exceed max(TEXPASS_LF_RATIO x the
 # pre-pass swatch, TEXPASS_LF_FLOOR) (measured: shipped deck 0.021 clean, v1 deck 0.089 a visible grid)
@@ -470,9 +473,10 @@ def texpass_swatch(key):
     """{control: value} (TEXPASS_CONTROLS) the active pass applies to `key`'s scan ({} when off; an alias follower
     such as lux_slate takes its target's). chroma scales the color away from each texel's luminance (a scan's rust or
     lichen stains, tinted to the palette mean, turn loud); flatten_m divides out the luminance (and roughness)
-    variation above that scale (a scan's stains repeat as a grid at the tile period); normal_gain scales the tangent
-    slope (a scan's true-scale relief reads flat at game distance). texpass_apply runs them on the sheet swatch and
-    on the far source alike, so the far set draws what LOD0 draws."""
+    variation above that scale (a scan's stains repeat as a grid at the tile period); contrast scales the luminance
+    detail round its mean (specks that repeat as a pattern on a big surface); normal_gain scales the tangent slope (a
+    scan's true-scale relief reads flat at game distance). texpass_apply runs them on the sheet swatch and on the far
+    source alike, so the far set draws what LOD0 draws."""
     v = _TEXPASS_STATE["version"]
     s = texpass_specs(v).get(key) if v else None
     return {f: float(s[f]) for f in TEXPASS_CONTROLS if f in s} if s else {}
@@ -505,16 +509,21 @@ def lf_cov(lin, ppm, sigma_m=TEXPASS_LF_SIGMA_M):
 
 def texpass_apply(tps, lin, nrm, rough, ppm):
     """One seamless scan tile (linear RGB, 0..1 normals, roughness; ppm px per meter) through a pass key's controls
-    (texpass_swatch): chroma, flatten_m, normal_gain, in that order. flatten keeps every channel's mean exactly."""
+    (texpass_swatch) in TEXPASS_CONTROLS order. flatten and contrast keep every channel's mean exactly."""
+    def keep_mean(new, old):
+        return new * (old.reshape(-1, 3).mean(0) / np.maximum(new.reshape(-1, 3).mean(0), 1e-9))
     if "chroma" in tps:
         lum = (lin @ LUMA)[..., None]
         lin = lum + (lin - lum) * tps["chroma"]
     if "flatten_m" in tps:
         sig = tps["flatten_m"] * ppm
         lum = lin @ LUMA
-        flat = lin * (lum.mean() / np.maximum(blur_periodic(lum, sig), 1e-6))[..., None]
-        lin = flat * (lin.reshape(-1, 3).mean(0) / np.maximum(flat.reshape(-1, 3).mean(0), 1e-9))
+        lin = keep_mean(lin * (lum.mean() / np.maximum(blur_periodic(lum, sig), 1e-6))[..., None], lin)
         rough = np.clip(rough - blur_periodic(rough, sig) + rough.mean(), 0.0, 1.0)
+    if "contrast" in tps:
+        lum = lin @ LUMA
+        m = lum.mean()
+        lin = keep_mean(lin * ((m + (lum - m) * tps["contrast"]) / np.maximum(lum, 1e-6))[..., None], lin)
     if "normal_gain" in tps:
         nrm = _normal_gain(nrm, tps["normal_gain"])
     return lin, nrm, rough
@@ -556,7 +565,7 @@ def texpass_far_specs(specs, info=None):
             px[..., :3] = np.clip(rgb, 0.0, 1.0)
             K._write_raw_png(os.path.join(ddir, f"{dtag}_{m}.png"), px)
         mat = K.BLDG_MATERIALS[k]
-        if mat.tint is not None or not ("chroma" in tps or "flatten_m" in tps):
+        if mat.tint is not None or not any(f in tps for f in TEXPASS_COLOR_CONTROLS):
             tint = s.tint                           # no color control: material_specs' tint holds bit for bit
         elif mat.target_srgb is not None:
             tint = tuple(float(a) / max(float(b), 1e-6) for a, b in zip(_lin(mat.target_srgb), mean_lin))
@@ -882,7 +891,7 @@ def _swatch_maps(key, C, cache_dir=None, repeat=1, layout_name="probe"):
         mean_lin = np.asarray(pf["mean_lin"])
         if tps:
             lin, nrm, rough = texpass_apply(tps, lin, nrm, rough, ppm)
-            if "chroma" in tps or "flatten_m" in tps:
+            if any(f in tps for f in TEXPASS_COLOR_CONTROLS):
                 mean_lin = lin.reshape(-1, 3).mean(0)   # the target mean is met after the color changes
             info["texpass"] = tps
         if m.tint is not None:

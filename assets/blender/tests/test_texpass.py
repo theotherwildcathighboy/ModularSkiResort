@@ -21,8 +21,9 @@ Gates (the pilot's lessons, made mechanical):
       cs2_asset.orient_for_net; eave_h overrides every side; band_skip carried; a yawed recipe raises; None stays None;
   P6  real-world scale: every pass key has a TEXPASS_PITCH range and its scan's course / board pitch (Color map row
       autocorrelation at the set's size_m) times tile_m / size_m lies in it (the 0.6 x shake scan failed this);
-  P7  swatch controls: deck chroma 0.5 + flatten_m keep the swatch mean within 0.01 sRGB (the palette) and cut the
-      mean chroma, normal_gain raises the tilt rms; texpass_swatch is {} with the pass off (alias followers too);
+  P7  swatch controls: deck chroma + flatten_m + contrast keep the swatch mean within 0.01 sRGB (the palette) and cut
+      the mean chroma and the luminance CoV, normal_gain raises the tilt rms; texpass_swatch is {} with the pass off
+      (alias followers too);
   P8  weather level: every recipe that opts in states texpass weather_level; lodge.assert_texpass_level raises when
       a pass build falls below it (PIPELINE gate 316: never buy the look with weathering) and is quiet otherwise;
   P9  far set in flag-off units: texpass_tile_factors is {slate, lux_slate, timber_lap: 2} (off: {}); a plinth + lap
@@ -372,15 +373,20 @@ def check_swatch_controls():
         n = nrm.reshape(-1, 3) * 2.0 - 1.0
         n /= np.linalg.norm(n, axis=1, keepdims=True)
         return float(np.degrees(np.sqrt(np.mean(np.arcsin(np.clip(np.hypot(n[:, 0], n[:, 1]), 0, 1)) ** 2))))
+    def lum_cov(b):
+        lum = b[:240, :240].reshape(-1, 3) @ TS.LUMA
+        return float(lum.std() / lum.mean())
     d = float(np.abs(srgb(tuned[0]) - srgb(raw[0])).max())
-    assert d < 0.01, f"chroma moved the deck mean by {d:.4f} sRGB (palette)"
+    assert d < 0.01, f"the controls moved the deck mean by {d:.4f} sRGB (palette)"
     assert chroma(tuned[0]) < 0.75 * chroma(raw[0]), (chroma(tuned[0]), chroma(raw[0]))
+    assert lum_cov(tuned[0]) < 0.75 * lum_cov(raw[0]), (lum_cov(tuned[0]), lum_cov(raw[0]))
     assert tilt(tuned[1]) > 1.15 * tilt(raw[1]), (tilt(tuned[1]), tilt(raw[1]))
     assert tuned[5].get("texpass") == {f: float(saved[f]) for f in TS.TEXPASS_CONTROLS}, tuned[5]
     assert "texpass" not in raw[5], raw[5]
     assert TS.texpass_swatch("lux_slate") == {}, "pass off: no alias control"
     ok(f"P7 swatch controls: deck mean held ({d:.4f} sRGB), chroma {chroma(raw[0]):.4f} -> {chroma(tuned[0]):.4f}, "
-       f"tilt rms {tilt(raw[1]):.1f} -> {tilt(tuned[1]):.1f} deg; off = no control")
+       f"luminance CoV {lum_cov(raw[0]):.3f} -> {lum_cov(tuned[0]):.3f}, tilt rms {tilt(raw[1]):.1f} -> "
+       f"{tilt(tuned[1]):.1f} deg; off = no control")
 
 
 def swatch_lf(key, lay):
