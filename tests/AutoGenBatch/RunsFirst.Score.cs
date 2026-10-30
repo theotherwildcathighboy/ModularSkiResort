@@ -47,6 +47,11 @@
 // adds a station under another lift's line and a natural run that is not black. Graded diagonals count half their length as
 // connector km. Dead lifts (now among the thin lifts) weigh nothing.
 //
+// v5.1 (the judge's rulings on the v5 baseline, 2026-10-29): a tram counts toward the aerial allowance like a gondola unless its rise
+// passes 700 m. Stacked lines are a validity violation (rejected), no longer a layout pair. A single-lift base area is a pod, not a lone
+// base, when a run from another base area's lift ends at its bottom. Every lift is scored against the fall line (no transfer
+// exemption). Layout weights: base consolidation 3, fall line 3, parallel lines 2, zigzag 1, crowded terminals 1 (of 10).
+//
 // Composite (0-100): fleet 10, skiable coverage 10, lift network 15, beginner terrain at each base 15, intermediate way down 5, grade
 // mix 10, layout 10, validity 10, few stubs 5, little crowding 5, connector economy 5 (served vertical and dead-free are reported at
 // weight 0). Fixed contract: planners must not edit this file.
@@ -82,13 +87,13 @@ namespace AutoGenBatch
         // a painted run is rated), skiable from the green line to RunMaxPitch, hostile past the double-black line; covered when a served
         // run passes within CoverM of its center
         private const float CellM = 100f, CellSubM = 20f, CoverM = 80f;
-        // v5 fleet: aerial lifts allowed = 1 + 1 per AerialKm2; a gondola past TrunkRiseM (beyond a chair's rise) is a trunk line; a lift
-        // under ThinDropM of served drop of its own is thin
+        // v5 fleet: aerial lifts allowed = 1 + 1 per AerialKm2; a gondola or tram past TrunkRiseM (beyond a chair's rise) is a trunk
+        // line; a lift under ThinDropM of served drop of its own is thin
         private const float AerialKm2 = 6f, TrunkRiseM = 700f, ThinDropM = 150f;
         // v5 layout: stacked lines (tops within StackTopM, bottoms over StackBottomM apart, directions within StackDeg); base areas (lift
         // bottoms within BaseAreaM of each other in the lowest third of the lift-served vertical, no lift top within BaseTopM); fall line
-        // (no cost up to FallFreeDeg off the ground's mean downhill direction, full cost at FallFullDeg: drafts, to be set from real
-        // lifts); a station within RopeM of another lift's line between 10 and 90 % of it is under that rope
+        // (no cost up to FallFreeDeg off the ground's mean downhill direction, full cost at FallFullDeg: real lifts run a median 15 and
+        // a p90 33 degrees off it); a station within RopeM of another lift's line between 10 and 90 % of it is under that rope
         private const float StackTopM = 300f, StackBottomM = 300f, StackDeg = 30f, BaseAreaM = 300f, BaseTopM = 150f;
         private const float FallFreeDeg = 30f, FallFullDeg = 60f, RopeM = 40f;
         private const float BeginnerFullKm = 0.8f, BeginnerHalfKm = 0.3f, BeginnerChair = 0.25f;
@@ -338,8 +343,6 @@ namespace AutoGenBatch
             int budget = (int)Math.Ceiling(1.5 * km2) + 2;
             for (int i = budget; i < lifts.Count; i++)
                 Bad($"lift {i + 1}: over the lift budget of {budget} for {km2:F1} km2");
-            r.Violations = violations;
-            r.Validity = (float)Math.Exp(-violations / 10.0);
 
             // ---- the skiing graph
             int m = els.Count;
@@ -677,18 +680,18 @@ namespace AutoGenBatch
             if (r.WayHome < 1f && r.Notes.Count < 60)
                 r.Notes.Add($"intermediate way down from {Math.Max(0f, easyHi - baseLo):F0} m of the {topHi - baseLo:F0} m vertical");
 
-            // ---- fleet (v5): gondolas past the area's allowance (a tram, and a gondola past TrunkRiseM of rise, is a trunk line and never
+            // ---- fleet (v5, v5.1): gondolas and trams past the area's allowance (one past TrunkRiseM of rise is a trunk line and never
             // counts), and thin lifts. A lift's top opens the served runs reached from it along tracks and traverses, no run in between;
             // each opened run has one keeper, a lift that laps it (gets its skiers back to its bottom) before one that does not, the
             // longest rise first: of two lifts to one top the shorter keeps nothing, two lifts from opposite valleys each keep their side.
             // A lift is thin under ThinDropM of kept runs' drop, unless the network needs it (taking it out, with the thin lifts before it,
             // shrinks the largest strongly connected set by more than those lifts), it is a beginner chair, or its top has a green run.
             // Lifts are taken out one by one, least kept drop first: of three access lifts into one upper area, two are thin, not three
-            r.Aerial = Enumerable.Range(0, lifts.Count).Count(L => lifts[L].Type == "gondola" && top[L].y - bot[L].y <= TrunkRiseM);
+            r.Aerial = Enumerable.Range(0, lifts.Count).Count(L => IsAerial(L) && top[L].y - bot[L].y <= TrunkRiseM);
             r.AerialAllowed = 1 + (int)Math.Floor(km2 / AerialKm2);
             float aerialS = (float)Math.Exp(-Math.Max(0, r.Aerial - r.AerialAllowed) / 1.5);
             if (r.Aerial > r.AerialAllowed && r.Notes.Count < 80)
-                r.Notes.Add($"{r.Aerial} gondolas under {TrunkRiseM:F0} m of rise, {r.AerialAllowed} allowed for {km2:F1} km2");
+                r.Notes.Add($"{r.Aerial} gondolas and trams under {TrunkRiseM:F0} m of rise, {r.AerialAllowed} allowed for {km2:F1} km2");
             var backTo = new HashSet<int>[m];   // the lifts a skier on element i gets back to without riding a lift
             for (int i = 0; i < m; i++)
             {
@@ -814,9 +817,9 @@ namespace AutoGenBatch
                         r.Notes.Add($"lift {a / 2 + 1}: {(a % 2 == 0 ? "bottom" : "top")} on another lift's {(a % 2 == 0 ? "bottom" : "top")}");
                 }
             }
-            // a pair of lines that run side by side (overlap against the shorter line, v5) or ride one on top of the other (stacked: tops
-            // together, bottoms apart, one direction) counts once; fans (bottoms together) are fine
-            int pairs = 0;
+            // a pair of lines that run side by side (overlap against the shorter line, v5) costs layout; one that rides on top of the
+            // other (stacked: tops together, bottoms apart, one direction) is a validity violation instead (v5.1); fans (bottoms
+            // together) are fine
             for (int i = 0; i < lifts.Count; i++)
                 for (int j = 0; j < i; j++)
                 {
@@ -825,7 +828,15 @@ namespace AutoGenBatch
                     if (li < 1f || lj < 1f)
                         continue;
                     float cos = math.dot(di / li, dj / lj);
-                    bool parallel = false, stacked = false;
+                    if (cos >= math.cos(math.radians(StackDeg)) && math.distance(top[i].xz, top[j].xz) < StackTopM
+                        && math.distance(bi, bj) > StackBottomM)
+                    {
+                        r.Stacked++;
+                        violations++;
+                        if (r.Notes.Count < 80)
+                            r.Notes.Add($"lifts {j + 1} and {i + 1} are stacked (tops {math.distance(top[i].xz, top[j].xz):F0} m apart, one line on the other)");
+                        continue;
+                    }
                     if (cos >= math.cos(math.radians(ParallelDeg)))
                     {
                         // overlap measured along the longer line against the shorter one, separation at the overlap's middle
@@ -841,23 +852,12 @@ namespace AutoGenBatch
                             float sep = math.abs(off.x * u.y - off.y * u.x);
                             if (sep < ParallelM)
                             {
-                                parallel = true;
                                 r.Parallels++;
                                 if (r.Notes.Count < 80)
                                     r.Notes.Add($"lifts {j + 1} and {i + 1} run parallel ({sep:F0} m apart)");
                             }
                         }
                     }
-                    if (cos >= math.cos(math.radians(StackDeg)) && math.distance(top[i].xz, top[j].xz) < StackTopM
-                        && math.distance(bi, bj) > StackBottomM)
-                    {
-                        stacked = true;
-                        r.Stacked++;
-                        if (r.Notes.Count < 80)
-                            r.Notes.Add($"lifts {j + 1} and {i + 1} are stacked (tops {math.distance(top[i].xz, top[j].xz):F0} m apart, one line on the other)");
-                    }
-                    if (parallel || stacked)
-                        pairs++;
                 }
             // zigzags per track (v5): green cat tracks and graded diagonals (drawn as tracks, skied as such), each allowed 4 per km + 1
             var zig = new List<float>();
@@ -881,7 +881,8 @@ namespace AutoGenBatch
             // base areas (v5): lift bottoms within BaseAreaM of each other in the lowest third of the lift-served vertical, no lift top
             // within BaseTopM (that is a transfer station). A base area with one lift is lone where the plan has another base area: a
             // separate pad on the region's edge instead of a base with its lifts strung along it (whether runs from another base reach
-            // it cannot tell them apart: they reach nearly every bottom)
+            // it cannot tell them apart: they reach nearly every bottom). v5.1: unless a run from another base area's lift (one its top
+            // opens) ends at its bottom: that lift is a pod
             var area = new int[lifts.Count];
             var isBase = new bool[lifts.Count];
             if (lifts.Count > 0)
@@ -904,14 +905,17 @@ namespace AutoGenBatch
                     if (A.Count() != 1 || areas.Count < 2)
                         continue;
                     int L = A.First();
+                    if (Enumerable.Range(0, lifts.Count).Any(M => isBase[M] && Find(area, M) != A.Key && opens[M].Any(i =>
+                        math.distancesq(els[i].P[els[i].P.Length - 1].xz, bot[L].xz) < StationM * StationM)))
+                        continue;
                     r.LoneBases++;
                     if (r.Notes.Count < 80)
                         r.Notes.Add($"lift {L + 1}: a base area of its own");
                 }
             }
             // fall line (v5): the angle between a lift's line and the mean uphill direction of the ground under it; no cost to
-            // FallFreeDeg, full cost at FallFullDeg. Exempt: a transfer across a ridge (bottom at another lift's top, the ground falls
-            // away past its top), and a line on ground too flat to have a fall line
+            // FallFreeDeg, full cost at FallFullDeg. Exempt: a line on ground too flat to have a fall line (v5.1: no transfer exemption,
+            // real link lifts stay near the fall line too)
             for (int L = 0; L < lifts.Count; L++)
             {
                 float2 b = bot[L].xz, d = top[L].xz - b;
@@ -929,10 +933,6 @@ namespace AutoGenBatch
                 up /= Math.Max(1, k);
                 if (math.length(up) < SkiSlopeClassifier.GradeGreen)
                     continue;
-                bool transfer = Enumerable.Range(0, lifts.Count).Any(M => M != L && math.distance(top[M].xz, b) < StartM)
-                    && H(top[L].xz + u * 100f) < top[L].y - 10f;
-                if (transfer)
-                    continue;
                 float deg = math.degrees(math.acos(math.clamp(math.dot(u, math.normalize(up)), -1f, 1f)));
                 float cost = math.saturate((deg - FallFreeDeg) / (FallFullDeg - FallFreeDeg));
                 if (cost > 0f)
@@ -943,10 +943,12 @@ namespace AutoGenBatch
                         r.Notes.Add($"lift {L + 1}: {deg:F0} degrees off the fall line");
                 }
             }
-            float hubS = (float)Math.Exp(-r.HubExcess / 2.0), parS = (float)Math.Exp(-pairs / 3.0);
+            float hubS = (float)Math.Exp(-r.HubExcess / 2.0), parS = (float)Math.Exp(-r.Parallels / 3.0);
             float zigS = zig.Count > 0 ? zig.Average() : 1f, baseS = (float)Math.Exp(-r.LoneBases / 2.0);
             float fallS = lifts.Count > 0 ? 1f - r.FallCost / lifts.Count : 1f;
-            r.Layout = (hubS + parS + zigS + baseS + fallS) / 5f;
+            r.Layout = (3f * baseS + 3f * fallS + 2f * parS + zigS + hubS) / 10f;   // v5.1 weights
+            r.Violations = violations;   // the validity checks above, and stacked pairs (v5.1)
+            r.Validity = (float)Math.Exp(-violations / 10.0);
             r.NaturalRuns = served.Count(i => els[i].Natural);
 
             r.Total = 10f * r.Fleet + 10f * r.Coverage + 15f * r.Network + 15f * r.Beginner + 5f * r.WayHome + 10f * r.GradeMix
@@ -957,7 +959,7 @@ namespace AutoGenBatch
         public static string Line(string id, Result r) => string.Format(CultureInfo.InvariantCulture,
             "SCORE rf {0}: {1:F1} | fleet {2:F2} ({3}/{4} aerial, {5} thin) cover {6:F2} ({50:F2} raw, {7:F0} % hostile) network {8:F2} beginner {9:F2} ({10}/{11} bases green, {12:F2} km) " +
             "way-home {13:F2} ({14}/{15} lifts) grade-mix {16:F2} (ground G/B/K/DB {17:F0}/{18:F0}/{19:F0}/{20:F0} %, runs {21:F0}/{22:F0}/{23:F0}/{24:F0} %) " +
-            "layout {25:F2} ({26} hub, {27} parallel, {28} stacked, {29} turns, {30}/{31} lone bases, {32} off the fall line {33:F1}) valid {34:F2} ({35} violations) " +
+            "layout {25:F2} ({26} hub, {27} parallel, {29} turns, {30}/{31} lone bases, {32} off the fall line {33:F1}) valid {34:F2} ({35} violations, {28} stacked) " +
             "stub-free {36:F2} crowd-free {37:F2} economy {38:F2} served {39:F2} dead-free {40:F2} | {15} lifts, {41}/{42} runs served ({43} natural), " +
             "{44:F0} m served vertical, km G/B/K/DB {45:F1}/{46:F1}/{47:F1}/{48:F1}, connectors {49:F1} km",
             id, r.Total, r.Fleet, r.Aerial, r.AerialAllowed, r.Thin, r.Coverage, 100f * r.HostileShare, r.Network, r.Beginner, r.BeginnerBases, r.Bases, r.GreenRunKm,
