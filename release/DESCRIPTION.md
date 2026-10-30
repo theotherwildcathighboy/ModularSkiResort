@@ -2,7 +2,7 @@
 
 *This is the listing's front page: a scan-in-30-seconds summary. The depth (numbers, every setting, troubleshooting, how it was made) lives on the docs site; the front page links to it. Every claim is traced to its source in release/LISTING-NOTES-2026-10-22.md. Sizing and structure follow docs/research/release-preview-2026-10-22.md section 4.*
 
-*Two tokens must be replaced before the PUBLIC flip and checked by `node tools/sync-listing.js --check --public`, docs/RELEASE-CHECKLIST.md section 7: `{{DOCS_URL}}` (the GitHub Pages address, no trailing slash) and `{{GITHUB_URL}}` (the repository address). Both exist only once the repository is public. The text between the two horizontal rules below is exactly what goes into LongDescription in `mod/SkiResortMod/Properties/PublishConfiguration.xml` (edit this file only, then run `node tools/sync-listing.js` to copy it; no angle brackets, ampersands or backticks inside the text, the file is XML and the page takes a small markdown subset).*
+*Four tokens must be replaced before the PUBLIC flip and checked by `node tools/sync-listing.js --check --public`, docs/RELEASE-CHECKLIST.md section 7: `{{DOCS_URL}}` (the GitHub Pages address, no trailing slash) and `{{GITHUB_URL}}` (the repository address), which exist only once the repository is public, and `{{FORUM_URL}}` / `{{DISCORD_URL}}` (the Paradox forum and Discord bug-report threads; if only one is used, delete the other's clause). The two thread tokens also stand in PublishConfiguration.xml (`ForumLink`, `ExternalLink Type="discord"`) and in docs-site `guides/troubleshooting.mdx` (Bug Reports). The text between the two horizontal rules below is exactly what goes into LongDescription in `mod/SkiResortMod/Properties/PublishConfiguration.xml` (edit this file only, then run `node tools/sync-listing.js` to copy it; no angle brackets, ampersands or backticks inside the text, the file is XML and the page takes a small markdown subset).*
 
 ---
 
@@ -12,7 +12,7 @@ Build a ski resort: drawn chairlifts, gondolas and an aerial tram, runs on the g
 
 ---
 
-**Long description** (4,337 characters as XML text; the 40 most subscribed code mods in the local cache have a median of 3,800, quartiles 2,200 to 5,900; asset packs 500 to 1,000):
+**Long description** (5,017 characters as XML text; the 40 most subscribed code mods in the local cache have a median of 3,800, quartiles 2,200 to 5,900; asset packs 500 to 1,000):
 
 ---
 
@@ -32,7 +32,7 @@ Draw chairlifts, gondolas and an aerial tram up your mountain, draw runs down it
 Cities: Skylines II 1.6 (tested on 1.6.2f1). No other mod and no DLC. Start from a new city.
 
 ## Getting started
-1. Open the Ski Resort panel. Place a Welcome Sign snapped to a road (it stands set back from it; an angled version is also offered), then a lodge near where the runs will be.
+1. Open the Ski Resort panel. Place a Welcome Sign snapped to a road (it stands set back from it). It comes straight or angled: pick one before you draw runs. Then place a lodge near where the runs will be.
 2. Pick a lift type. Place the base station, then the top station facing it, then draw the line between them. Press Enter to build.
 3. Connect a low-voltage power line to the base station.
 4. Draw runs downhill from the top station, and wait for snow.
@@ -41,15 +41,16 @@ Cities: Skylines II 1.6 (tested on 1.6.2f1). No other mod and no DLC. Start from
 - Skiers are counted, not simulated. Chairs and cabins move but carry no riders, and the chairs do not sway in the wind.
 - Stations sit on the slope as placed, so on steep ground one can end up partly in the hillside. Move It lifts it out (see Works with).
 - Chairlifts and gondolas stop in summer when no run is open. The aerial tram keeps running as sightseeing.
-- The Resort Planner (outline a slope, get a set of runs) is experimental and off by default: turn it on in Options.
+- Bulldozing a Welcome Sign also deletes every run linked to it, with the runs' glade trees, and the run fees are not refunded. To move a sign, use Relocate in its info panel: its runs stay linked.
+- The Resort Planner (outline a slope, get a set of runs) is experimental and off by default: turn it on in Options. It lays out runs only, no lifts, and on steep ground mostly black runs with few greens. Roads, buildings and lift stations inside the outline are not avoided, and its Undo ends when the tool closes.
 - Lifts are power-line networks and need power. Do not connect city high-voltage lines to a lift (untested).
-- Remove all lifts before uninstalling the mod. What is left behind is untested.
+- Before uninstalling, bulldoze your lifts and runs (or use the Delete all ski resort content button in the mod's Options), then save the city. Otherwise run paint can stay in the saved terrain, and what leftover lift pieces do is untested.
 - Resorts cost money all year and earn in winter. Build in steps.
 
 ## Guides and details
 Step-by-step guides, every number, settings and troubleshooting are on the docs site: {{DOCS_URL}}
 Start with the Resort Quickstart at {{DOCS_URL}}/quickstart/ and the Lifts guide at {{DOCS_URL}}/guides/lifts/.
-Source code and bug reports: {{GITHUB_URL}}
+Bug reports: the Paradox forum thread {{FORUM_URL}} or the Discord thread {{DISCORD_URL}}. Source code: {{GITHUB_URL}}
 
 ## Works with
 Nothing else is required, but Move It is highly recommended: lift stations sit on the slope as placed, and on steep ground they can end up partly in the hillside. Move It works on every building and station. Write Everywhere is recommended too: with it, the Welcome Sign shows your ski area's name (without it, the name board stays plain). If Tourism Overhaul, Realistic Workplaces and Households or a trip-planner mod is installed, the panel shows a notice and changes nothing in them.

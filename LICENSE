@@ -22,7 +22,7 @@ SOFTWARE.
 
 ---
 
-Scope. This licence covers the code in this repository: the C# mod (mod/), the
+Scope. This license covers the code in this repository: the C# mod (mod/), the
 Blender generators and tooling (assets/blender/, tools/), and the build scripts.
 The art assets (meshes, textures, previews and the generated import folders under
 assets/) are licensed separately under Creative Commons Attribution-NonCommercial-
@@ -30,5 +30,5 @@ ShareAlike 4.0 International (CC BY-NC-SA 4.0); see assets/LICENSE.
 
 Third-party notice. Cities: Skylines II, its modding toolchain and the game
 assemblies this mod compiles against are the property of Paradox Interactive and
-their respective owners and are not covered by this licence. No third-party code is
+their respective owners and are not covered by this license. No third-party code is
 included; design references are credited in release/CREDITS.md.

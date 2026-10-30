@@ -2348,7 +2348,7 @@ async function checkBundle({ quiet = false, buildDir = BUILD } = {}) {
   // The banner must not hinge on a third-party license comment (src/index.tsx header)
   const licence = path.join(buildDir, `${MOD.id}.mjs.LICENSE.txt`);
   const licenceText = fs.existsSync(licence) ? fs.readFileSync(licence, "utf8") : "";
-  if (!licenceText.includes(BANNER_ANCHOR)) errors.push(`banner: our "/*! ${BANNER_ANCHOR} ..." comment (src/index.tsx, on hasCSS) was not extracted - the banner now depends on a third-party licence comment`);
+  if (!licenceText.includes(BANNER_ANCHOR)) errors.push(`banner: our "/*! ${BANNER_ANCHOR} ..." comment (src/index.tsx, on hasCSS) was not extracted - the banner now depends on a third-party license comment`);
 
   if (stamp && !bundle.includes(JSON.stringify(stamp))) errors.push(`bundle: the stamp "${stamp}" is not compiled in (DefinePlugin __BUILD_STAMP__)`);
   if (/\bimport\(/.test(bundle)) errors.push("bundle: contains dynamic import() - must be ONE module");
@@ -2377,7 +2377,7 @@ async function checkBundle({ quiet = false, buildDir = BUILD } = {}) {
   const smoke = errors.length ? null : await smokeTest(mjs, errors, warnings);
 
   const kb = (p) => (fs.existsSync(p) ? (fs.statSync(p).size / 1024).toFixed(1) + " KB" : "-");
-  report.push(`bundle ${MOD.id}.mjs ${kb(mjs)}, ${MOD.id}.css ${kb(css)}, licence ${kb(path.join(buildDir, `${MOD.id}.mjs.LICENSE.txt`))}, stamp ${stamp}`);
+  report.push(`bundle ${MOD.id}.mjs ${kb(mjs)}, ${MOD.id}.css ${kb(css)}, license ${kb(path.join(buildDir, `${MOD.id}.mjs.LICENSE.txt`))}, stamp ${stamp}`);
   report.push(`banner Id=${info.id} Author=${info.author} Version=${info.versionRaw} Dependencies=[${(info.deps || []).join(",")}] Build=${info.extra.Build}`);
   report.push(`css: ${selectorCount} selector(s) checked for scoping under an .sr- class of ours`);
   report.push(`sources checked: ${srcCount} TS file(s), ${locCount} SkiResort.Hub.* locale value(s); runtime exports from ${runtime.source}`);

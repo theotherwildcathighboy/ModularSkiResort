@@ -127,3 +127,20 @@ Everything below is described in the copy as working. Do not upload until the 10
 ## Update 2026-10-26: limitations and recommended mods
 
 "Good to know" in DESCRIPTION.md now also carries: chairs do not sway in the wind; stations can sit partly in the hillside on steep ground (Move It lifts them out, DECISIONS 426); chairlifts and gondolas stop in summer when no run is open; the Resort Planner is experimental and off by default. "Getting started" step 1 mentions the set-back and angled Welcome Sign. Sources: docs-site index "Known Limitations", guides/lifts "Known Limits", release/BESTPRACTICES.md "Playing nice". Write Everywhere stays recommended, not required (DECISIONS 431). The XML copy needs `node tools/sync-listing.js` (the parent runs it).
+
+## Update 2026-10-30: release review text fixes
+
+Sources are the 1.0 release review (docs/research/release-review-2026-10-30/). "Good to know" now also carries:
+
+- **Sign bulldoze:** it deletes every run linked to the sign, with the runs' glade trees, and refunds no run fee
+  (`SkiRunGateCascadeSystem.Cascade`; runs.md B1).
+- **Relocate:** it keeps the runs linked, because the apply updates the sign entity in place (decompile 1.6.2f1:
+  `Game.UI.InGame/ActionsSection.cs:303`, `Game.Tools/ApplyObjectsSystem.cs:354-403`). Not yet tried on the sign in game:
+  runs.md in-game test 1.
+- **Resort Planner limits:** runs only, mostly black runs with few greens on steep ground, roads, buildings and lift stations
+  inside the outline not avoided, Undo ending when the tool closes (planner.md S2 to S4).
+- **Uninstall:** bulldoze lifts and runs, or use Delete all ski resort content (`SkiResortSettings.DeleteAllResortContent`),
+  then save. Run paint can stay in the saved terrain (runs.md S1).
+- **Bug reports:** the forum and Discord thread tokens, FORUM_URL and DISCORD_URL (SHIP-PLAN D3).
+
+"Getting started" step 1 now says to pick the straight or angled sign before drawing runs, because a switch is another prefab, not a relocation. Row "Remove lifts before uninstalling" above is superseded by the uninstall item.

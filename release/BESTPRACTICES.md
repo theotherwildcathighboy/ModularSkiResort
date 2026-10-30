@@ -1,10 +1,10 @@
 # Modular Ski Resort: best practices (player guide draft)
 
-*Matches the build of 2026-10-22. Sources: release/LISTING-NOTES-2026-10-22.md.*
+*A short version of the docs site's guides; for the current, complete guides and every number, see the docs site. Sources: release/LISTING-NOTES-2026-10-22.md.*
 
 ## First resort, in order
 
-1. Open the Ski Resort panel (button at the top left). On the **Buildings** tab, place the **Welcome Sign** with its front on a road.
+1. Open the Ski Resort panel (button at the top left). On the **Buildings** tab, place the **Welcome Sign** with its front on a road. Pick the straight or the angled sign now, before any runs: to move a sign later, use **Relocate** in its info panel, because bulldozing a sign deletes every run linked to it.
 2. Place a **lodge** near where the runs will be. The A-Frame Day Lodge is the cheapest with real capacity. No lodge, no attraction score.
 3. On the **Lifts** tab, pick a lift type. Place the **base station** at the bottom and the **top station** at the top, facing the base station. A guide line shows when they are straight.
 4. Click the base station with the lift tool, click the top station, then press **Enter**.
@@ -38,14 +38,14 @@ Lifts are power-line networks, so they follow power-line rules.
 - The base station acts as a transformer. Wire a **low-voltage line** into the stub at the front corner of the base station. The line carries the power up the mountain. The top station needs no hookup.
 - No power, no lift. The panel lists it as a problem.
 - **Do not connect city high-voltage lines to a lift tower or lift line.** Untested; it can break the lift.
-- **Remove all lifts before uninstalling the mod.** What leftover lift pieces do after removal is untested.
+- **Before uninstalling the mod, bulldoze your lifts and runs** (or use Options > Modular Ski Resort > Main > Reset > **Delete all ski resort content**), then save the city. Otherwise run paint can stay in the saved terrain, and what leftover lift pieces do after removal is untested.
 
 ## Runs
 
 - Draw runs from the top of a lift downhill. The rating comes from the hardest unavoidable pitch, so a flat runout does not hide a steep drop.
 - A run counts at full value only while a running lift reaches its top. Without one it counts as backcountry, at 40 percent by default.
 - Mix green, blue and black runs. A resort with all three scores more.
-- **Cat tracks** link runs across the hill. They need a slope under 25 percent. If the ground is too steep, use the **Grade cat track** tool (Runs tab, or Ctrl+Shift+K): click points up the hill and press Enter to grade the ground first, then draw the cat track on it.
+- **Cat tracks** link runs across the hill and are always green. Use the cat track tool (the **Cat track** tile on the Runs tab, or Ctrl+Shift+K): click points up the hill and press Enter. In one action it cuts and fills the ground so the track never climbs steeper than the max grade (25 percent by default), then builds the cat track on the graded strip. Delete mode (Ctrl+Shift+D while the tool is open, then click the track twice) removes a built track; the ground stays graded.
 - The **tree tool** plans glades on and around runs. Ctrl+Shift+G toggles it.
 
 ## Ski School

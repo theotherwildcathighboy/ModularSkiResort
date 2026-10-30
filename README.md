@@ -34,5 +34,6 @@ visual references for the lifts only; no geometry or texture from them ships.
 
 ## Contributing
 
-Building the code mod and the UI, the Blender toolchain, the checks to run and the comment style: see `CONTRIBUTING.md`.
-Bug reports go to the Paradox forum thread linked from the mod's page.
+Build steps: `mod/SkiResortMod/README.md` (the code mod, Build section) and `mod/SkiResortUI/README.md` (the hub UI,
+Commands section). Comment style: `CONTRIBUTING.md`.
+Bug reports go to the Paradox forum thread or the Discord thread linked from the mod's Paradox Mods page.

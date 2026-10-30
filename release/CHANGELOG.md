@@ -43,12 +43,16 @@ First public release. Draft notes (check against the build at upload):
   button remove a track; right click and Esc never do.
 - Resort Planner (experimental): outline a slope of up to 9 km2 and get a set of runs to scan, shuffle, pick, build and undo,
   with an optional tree filler. Ctrl+Shift+Q; it is off by default and is turned on in Options.
+- Safety Net Fence: orange netting on thin poles, drawn like a path from the hub's Runs tab to mark a run edge, build a
+  corral or close a slope.
 - Snow-depth run system: runs open at 3 ft (91 cm) on 60 percent of the run, snow guns on snowmaking and night runs
   (October to March), powder days, seasons.
 - Welcome Sign (set back 8 m from the road on a leveled lot, plus an angled variant), five lodges, Ski School, two patrol
   buildings.
 - The Ski Resort panel: Attraction, Runs, Lifts, Guests, Finances and History views, a problem list and a build strip.
 - Economy: lift tickets, season passes, lessons, lodge spend, off-season half staff.
+- Delete all ski resort content, a button in the mod's Options (Reset group): removes everything the mod placed in the
+  loaded city, after a confirmation, to clean a city before uninstalling. It cannot be undone.
 - Works on the base game; no other mod is required. Move It is highly recommended and Write Everywhere is recommended.
 - Known limitations: chairs carry no riders, the chairs do not sway in wind, stations can sit partly in the hillside on steep
   ground, chairlifts and gondolas stop in summer.

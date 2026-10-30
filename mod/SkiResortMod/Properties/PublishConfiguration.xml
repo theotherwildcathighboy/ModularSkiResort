@@ -23,7 +23,7 @@ Draw chairlifts, gondolas and an aerial tram up your mountain, draw runs down it
 Cities: Skylines II 1.6 (tested on 1.6.2f1). No other mod and no DLC. Start from a new city.
 
 ## Getting started
-1. Open the Ski Resort panel. Place a Welcome Sign snapped to a road (it stands set back from it; an angled version is also offered), then a lodge near where the runs will be.
+1. Open the Ski Resort panel. Place a Welcome Sign snapped to a road (it stands set back from it). It comes straight or angled: pick one before you draw runs. Then place a lodge near where the runs will be.
 2. Pick a lift type. Place the base station, then the top station facing it, then draw the line between them. Press Enter to build.
 3. Connect a low-voltage power line to the base station.
 4. Draw runs downhill from the top station, and wait for snow.
@@ -32,15 +32,16 @@ Cities: Skylines II 1.6 (tested on 1.6.2f1). No other mod and no DLC. Start from
 - Skiers are counted, not simulated. Chairs and cabins move but carry no riders, and the chairs do not sway in the wind.
 - Stations sit on the slope as placed, so on steep ground one can end up partly in the hillside. Move It lifts it out (see Works with).
 - Chairlifts and gondolas stop in summer when no run is open. The aerial tram keeps running as sightseeing.
-- The Resort Planner (outline a slope, get a set of runs) is experimental and off by default: turn it on in Options.
+- Bulldozing a Welcome Sign also deletes every run linked to it, with the runs' glade trees, and the run fees are not refunded. To move a sign, use Relocate in its info panel: its runs stay linked.
+- The Resort Planner (outline a slope, get a set of runs) is experimental and off by default: turn it on in Options. It lays out runs only, no lifts, and on steep ground mostly black runs with few greens. Roads, buildings and lift stations inside the outline are not avoided, and its Undo ends when the tool closes.
 - Lifts are power-line networks and need power. Do not connect city high-voltage lines to a lift (untested).
-- Remove all lifts before uninstalling the mod. What is left behind is untested.
+- Before uninstalling, bulldoze your lifts and runs (or use the Delete all ski resort content button in the mod's Options), then save the city. Otherwise run paint can stay in the saved terrain, and what leftover lift pieces do is untested.
 - Resorts cost money all year and earn in winter. Build in steps.
 
 ## Guides and details
 Step-by-step guides, every number, settings and troubleshooting are on the docs site: {{DOCS_URL}}
 Start with the Resort Quickstart at {{DOCS_URL}}/quickstart/ and the Lifts guide at {{DOCS_URL}}/guides/lifts/.
-Source code and bug reports: {{GITHUB_URL}}
+Bug reports: the Paradox forum thread {{FORUM_URL}} or the Discord thread {{DISCORD_URL}}. Source code: {{GITHUB_URL}}
 
 ## Works with
 Nothing else is required, but Move It is highly recommended: lift stations sit on the slope as placed, and on steep ground they can end up partly in the hillside. Move It works on every building and station. Write Everywhere is recommended too: with it, the Welcome Sign shows your ski area's name (without it, the name board stays plain). If Tourism Overhaul, Realistic Workplaces and Households or a trip-planner mod is installed, the panel shows a notice and changes nothing in them.
@@ -63,8 +64,8 @@ Realistic Trips replaces the game's leisure system that ski days need: with it, 
 	<Tag Value="Code Mod" />
 	<Tag Value="Prefab" />
 	<Tag Value="Building" />
-	<!--Link to the forum post where the mod can be discussed-->
-	<ForumLink Value="" />
+	<!--Link to the forum post where the mod can be discussed. PLACEHOLDER: the FORUM_URL token stands for the Paradox forum bug-report thread (the owner creates it). Put the thread URL in its place before the public flip, or empty the value if only Discord is used: the public gate of tools/sync-listing.js fails while any token is left. Whether the publisher accepts a token here at the unlisted upload is UNVERIFIED: if the publish refuses it, fill or empty the value first-->
+	<ForumLink Value="{{FORUM_URL}}" />
 	<!--Version of the mod. Semver MAJOR.MINOR.PATCH (RELEASE-CHECKLIST section 0); first public upload = 1.0.0-->
 	<ModVersion Value="1.0.0" />
 	<!--Recommended version of the base game. A label shown on the mod page, not a gate: the publisher only checks that it is not empty and no game code compares it. Exact patch string, as 13 live CS2 mods use (for example 1.6.2f1); the wildcard form MAJOR.MINOR.* (1.6.* is what the in-game asset publisher writes and what 770 of 1426 cached mods use) is the alternative. Bump after each CS2 patch is checked; a metadata Update fixes it without a new version-->
@@ -75,19 +76,28 @@ Realistic Trips replaces the game's leisure system that ski days need: with it, 
 	<RequiredDLC Value="" />
 	<!--Change log for new version. Single line or multi line. Supports minimal markdown subset. Source: release/CHANGELOG.md 1.0.0-->
 	<ChangeLog>
+- Save compatible with previous: n/a (first release)
+- Layout versions: Binding 1, TreeMember 2, SeasonPass 1, HistoryMonth 2, MonthInProgress 1
+- Do not load in older versions: no
+
 First public release.
+
 - Four lift types: fixed-grip triple chairlift, detachable quad chairlift, gondola and aerial tram. Chairs and cabins move along the cable; the tram shuttles two cabins.
-- One lift tool: click the base station and the top station, click the line to add a tower, drag to move one, Enter builds. The tower planner fits tower heights to the terrain with the fewest towers the type allows. Towers are numbered.
+- One lift tool: click the base station and the top station, click the line to add a tower, drag to move one, Enter builds. The tower planner fits tower heights to the terrain with few towers, prefers short towers next to the stations, and draws spans that are too steep in red. Towers are numbered.
 - Ski runs you draw: natural, groomed, snowmaking, night and cat track, each rated green to double black from its slope.
-- Cat track grading tool.
+- Cat track tool: lay out a track, and one key grades the ground under 25 percent and builds the cat track on it. Where it crosses a run it grades up to 2 m inside the run and keeps the run's difficulty. Delete mode (Ctrl+Shift+D) and a hub trash button remove a track; right click and Esc never do.
+- Resort Planner (experimental): outline a slope of up to 9 km2 and get a set of runs to scan, shuffle, pick, build and undo, with an optional tree filler. Ctrl+Shift+Q; it is off by default and is turned on in Options.
+- Safety Net Fence: orange netting on thin poles, drawn like a path from the hub's Runs tab to mark a run edge, build a corral or close a slope.
 - Snow-depth run system: runs open at 3 ft (91 cm) on 60 percent of the run, snow guns on snowmaking and night runs (October to March), powder days, seasons.
-- Welcome Sign, five lodges, Ski School, two patrol buildings.
+- Welcome Sign (set back 8 m from the road on a leveled lot, plus an angled variant), five lodges, Ski School, two patrol buildings.
 - The Ski Resort panel: Attraction, Runs, Lifts, Guests, Finances and History views, a problem list and a build strip.
 - Economy: lift tickets, season passes, lessons, lodge spend, off-season half staff.
-- Works on the base game; no other mod is required.
+- Delete all ski resort content, a button in the mod's Options (Reset group): removes everything the mod placed in the loaded city, after a confirmation, to clean a city before uninstalling. It cannot be undone.
+- Works on the base game; no other mod is required. Move It is highly recommended and Write Everywhere is recommended.
+- Known limitations: chairs carry no riders, the chairs do not sway in wind, stations can sit partly in the hillside on steep ground, chairlifts and gondolas stop in summer.
 	</ChangeLog>
-	<!--External link, can be set multiple times. supported types are "discord", "github", "youtube", "twitch", "x", "paypal", "patreon", "buymeacoffee", "kofi", "crowdin", "gitlab", "gofundme"-->
-	<ExternalLink Type="" Url="" />
+	<!--External link, can be set multiple times. supported types are "discord", "github", "youtube", "twitch", "x", "paypal", "patreon", "buymeacoffee", "kofi", "crowdin", "gitlab", "gofundme". PLACEHOLDER: the DISCORD_URL token stands for the Discord bug-report thread (the owner creates it). Put the thread URL in its place before the public flip, or delete this line if only the forum thread is used (the same gate and the same UNVERIFIED publisher behavior as ForumLink)-->
+	<ExternalLink Type="discord" Url="{{DISCORD_URL}}" />
 	<!--Supported values Public, Private, Unlisted. CASE-SENSITIVE: anything else, such as unlisted in lowercase, silently becomes Public. Unlisted for the proofreading upload; to go public change this to Public and run the Update profile (UpdatePublishedConfiguration), no new version needed-->
 	<AccessLevel Value="Unlisted" />
 </Publish>
