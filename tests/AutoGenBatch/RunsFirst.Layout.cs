@@ -39,6 +39,33 @@ namespace AutoGenBatch
             return math.abs(off.x * u.y - off.y * u.x) < LayParallelM;
         }
 
+        // scorecard v5's fall line: no cost to 30 degrees off the ground's mean downhill direction, full cost at 60
+        private const float FallFreeDeg = 30f, FallFullDeg = 60f;
+
+        /// <summary>Scorecard v5's fall-line angle of a lift line: the chord against the mean uphill gradient of the raw ground under it
+        /// (sampled every step m); 0 where that mean is under the green line (no fall line).</summary>
+        private static float FallDeg(Grid g, float2 b, float2 t, float step = 10f)
+        {
+            float2 d = t - b;
+            float len = math.length(d);
+            if (len < 1f)
+                return 0f;
+            float2 u = d / len, up = float2.zero;
+            int k = 0;
+            for (float along = 0f; along <= len; along += step, k++)
+            {
+                float2 q = b + u * along;
+                const float dg = 10f;
+                up += new float2(RawH(g, q + new float2(dg, 0f)) - RawH(g, q - new float2(dg, 0f)), RawH(g, q + new float2(0f, dg)) - RawH(g, q - new float2(0f, dg))) / (2f * dg);
+            }
+            up /= Math.Max(1, k);
+            return math.length(up) < 0.06f ? 0f : math.degrees(math.acos(math.clamp(math.dot(u, math.normalize(up)), -1f, 1f)));
+        }
+
+        /// <summary>Scorecard v5's fall-line cost of a lift line (0 to 30 degrees off, 1 from 60).</summary>
+        private static float FallCost(Grid g, float2 b, float2 t, float step = 10f) =>
+            math.saturate((FallDeg(g, b, t, step) - FallFreeDeg) / (FallFullDeg - FallFreeDeg));
+
         /// <summary>The lift pairs that run parallel as scorecard v4 reads them, with lift lf at stations b and t.</summary>
         private static int ParallelsOf(List<Lift> lifts, Lift lf, float2 b, float2 t) =>
             lifts.Count(o => o != lf && ParallelLines(b, t, o.Bottom.xz, o.Top.xz));

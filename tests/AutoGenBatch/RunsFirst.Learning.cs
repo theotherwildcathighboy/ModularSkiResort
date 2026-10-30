@@ -18,7 +18,38 @@ namespace AutoGenBatch
         private static readonly float LearnMinRise = Env("RF_LMINRISE", 32f), LearnMaxRise = Env("RF_LMAXRISE", 130f);
         private static readonly float LearnMinLen = Env("RF_LMINLEN", 180f), LearnRouteMax = Env("RF_LROUTE", 1500f);
         private const float LearnFullKm = 0.85f, LearnChairGrade = 0.45f, LearnTopM = 90f, LearnRunMinM = 200f, LearnBelowTopM = 130f;
+        private static readonly float LearnCrowd = Env("RF_LCROWD", 0.45f);
+        private static readonly float LearnFallDeg = Env("RF_LFALL", 35f);   // a learning chair climbs its slope's fall line too
         private static readonly bool LearnHigh = Environment.GetEnvironmentVariable("RF_NOLEARNHIGH") != "1";
+
+        private const float LearnChordMax = 0.25f;
+
+        /// <summary>The scorecard's chord rule: the share of a chord's middle (15-85 %, every 10 m) within 20 m of a run or connector,
+        /// a learning run from near the top back to the bottom station excepted (a learning chair rides over its own green run).
+        /// <paramref name="extra"/> are runs about to join the plan.</summary>
+        private static float ChordOnRuns(Plan plan, float2 b, float2 t, params List<float2>[] extra)
+        {
+            bool Own(List<float2> p) => math.distance(p[0], t) < 145f && math.distance(p[p.Count - 1], b) < 57f;
+            var sets = new List<List<float2>>();
+            foreach (PlanRun r in plan.Runs)
+                if (r.Pts.Count >= 2 && !(r.Kind == "learning" && Own(r.Pts)))
+                    sets.Add(Densify(r.Pts));
+            foreach (List<float2> c in plan.Connectors)
+                if (c.Count >= 2)
+                    sets.Add(Densify(c));
+            foreach (List<float2> e in extra)
+                if (e != null && e.Count >= 2 && !Own(e))
+                    sets.Add(Densify(e));
+            float plan2 = math.distance(b, t);
+            int n = 0, near = 0;
+            for (float f = 0.15f; f <= 0.85f; f += 10f / math.max(10f, plan2), n++)
+            {
+                float2 q = math.lerp(b, t, f);
+                if (sets.Any(s => s.Any(p => math.distancesq(p, q) < 23f * 23f)))
+                    near++;
+            }
+            return n > 0 ? near / (float)n : 0f;
+        }
 
         /// <summary>Pads for a learning chair's bottom station below a lift's top: green ground 160-700 m away, 35-130 m lower, off the
         /// runs.</summary>
@@ -87,7 +118,9 @@ namespace AutoGenBatch
                 float Rise(EasyReach e, int c) => g.Hr[c] - g.Hr[e.Root[c]];
                 List<int> cands = er.Cost.Where(kv => er.Len[kv.Key] <= LearnRouteMax && Rise(er, kv.Key) >= LearnMinRise && Rise(er, kv.Key) <= LearnMaxRise)
                     .OrderBy(kv => kv.Value - Math.Min(er.Len[kv.Key], 900f) + 3f * Math.Abs(Rise(er, kv.Key) - mid)).Select(kv => kv.Key).ToList();
-                if (TryLearningChair(g, plan, lifts, members, er, cands, null, avoid, guard, sg, km))
+                // on the fall line first; a learning chair across its gentle slope beats a base without one
+                if (TryLearningChair(g, plan, lifts, members, er, cands, null, avoid, guard, sg, km, LearnFallDeg)
+                    || TryLearningChair(g, plan, lifts, members, er, cands, null, avoid, guard, sg, km, 180f))
                 {
                     added++;
                     continue;
@@ -105,7 +138,8 @@ namespace AutoGenBatch
                     float2 top = lifts[L].Top.xz;
                     List<int> high = eh.Len.Keys.Where(c => eh.Len[c] <= LearnRouteMax && Rise(eh, c) >= LearnMinRise && Rise(eh, c) <= LearnMaxRise
                         && math.distancesq(g.World(c), top) < LearnBelowTopM * LearnBelowTopM).OrderByDescending(c => eh.Len[c]).ToList();
-                    if (TryLearningChair(g, plan, lifts, members, eh, high, lifts[L], avoid, guard, sg, km))
+                    if (TryLearningChair(g, plan, lifts, members, eh, high, lifts[L], avoid, guard, sg, km, LearnFallDeg)
+                        || TryLearningChair(g, plan, lifts, members, eh, high, lifts[L], avoid, guard, sg, km, 180f))
                     {
                         added++;
                         break;
@@ -149,7 +183,7 @@ namespace AutoGenBatch
         /// <summary>A beginner chair from a pad at the base to the top of an easy route up its gentle ground, the route its first green
         /// run, then more green runs from its top. The first chair that keeps the lift network whole wins; else the first that fits.</summary>
         private static bool TryLearningChair(Grid g, Plan plan, List<Lift> lifts, List<int> members, EasyReach er, List<int> cands, Lift below,
-            PointHash avoid, ChordGuard guard, SkiGraph before, float kmBefore)
+            PointHash avoid, ChordGuard guard, SkiGraph before, float kmBefore, float fallMax)
         {
             var bottoms = new HashSet<int>(lifts.Select(lf => lf.BottomCell));
             var topsSeen = new HashSet<int>();
@@ -200,7 +234,8 @@ namespace AutoGenBatch
                     float bh = g.Hr[fc], th = g.Hr[top], plan2 = math.distance(b, t);
                     rise = th - bh;
                     len = math.sqrt(plan2 * plan2 + rise * rise);
-                    if (len < LearnMinLen || rise < LearnMinRise || rise > LearnMaxRise || rise / math.max(1f, plan2) > LearnChairGrade)
+                    if (len < LearnMinLen || rise < LearnMinRise || rise > LearnMaxRise || rise / math.max(1f, plan2) > LearnChairGrade
+                        || FallDeg(g, b, t) > fallMax)
                     {
                         fail = Math.Min(fail, 1);
                         continue;
@@ -252,11 +287,25 @@ namespace AutoGenBatch
                         why[7]++;
                     continue;
                 }
-                var chord = new ChordGuard(new List<Lift>());
-                chord.AddLift(b, t);
-                foreach (PlanRun r in plan.Runs)
-                    chord.Add(r.Pts, 0, r.Pts.Count - 1);
-                if (!chord.Fits(new List<float2> { t }, 0, 0))
+                // the route ends at the chair's bottom (the chair rides over its own run); the stretch on to the base is a run of its own
+                List<float2> tail = null;
+                if (math.distance(route[route.Count - 1], b) >= 57f)
+                {
+                    int k = Enumerable.Range(1, route.Count - 1).OrderBy(i => math.distancesq(route[i], b)).First();
+                    if (math.distance(route[k], b) < 50f && k < route.Count - 1)
+                    {
+                        List<float2> rest = route.GetRange(k, route.Count - k);
+                        route = route.GetRange(0, k + 1);
+                        if (RunLength(rest) >= 80f && RawH(g, rest[0]) - RawH(g, rest[rest.Count - 1]) > 2f)
+                            tail = rest;
+                    }
+                }
+                if (RunLength(route) < 150f)
+                {
+                    why[4]++;
+                    continue;
+                }
+                if (ChordOnRuns(plan, b, t, route, tail) > LearnChordMax)
                 {
                     why[5]++;
                     continue;
@@ -269,10 +318,17 @@ namespace AutoGenBatch
                 lift.Rise = lift.Top.y - lift.Bottom.y;
                 lift.Length = math.distance(lift.Top, lift.Bottom);
                 var runs = new List<PlanRun> { new PlanRun { Pts = route, Band = SlopeBand.Green, By = lift, Kind = "learning" } };
+                if (tail != null)
+                    runs.Add(new PlanRun { Pts = tail, Band = SlopeBand.Green, By = lift, Kind = "learning" });
                 lifts.Add(lift);
                 plan.Runs.AddRange(runs);
                 // more green runs from the top while the base is short of green km, each away from the ones before
                 MoreLearningRuns(g, plan, lifts, members, lift, runs, kmBefore);
+                while (runs.Count > 1 && ChordOnRuns(plan, b, t) > LearnChordMax)
+                {
+                    plan.Runs.Remove(runs[runs.Count - 1]);
+                    runs.RemoveAt(runs.Count - 1);
+                }
                 netChecks++;
                 SkiGraph after = Ski(g, plan, lifts);
                 if (after.BestSize >= shareBefore + 1)
@@ -364,7 +420,7 @@ namespace AutoGenBatch
                         continue;
                     }
                     float rl = RunLength(route), at = 0f;
-                    int counted = 0, crowd = 0;
+                    int counted = 0, crowd = 0, close = 0;
                     for (int i = 1; i < route.Count; i++)
                     {
                         at += math.distance(route[i - 1], route[i]);
@@ -373,8 +429,12 @@ namespace AutoGenBatch
                         counted++;
                         if (avoid.Near(route[i], 40f))
                             crowd++;
+                        if (avoid.Near(route[i], 22f))
+                            close++;
                     }
-                    if (crowd > 0.2f * Math.Max(1, counted))
+                    // a learning slope is wide: a second trail may share some of it (the crowding costs less than a base without its
+                    // green km), but not lie on the first
+                    if (crowd > LearnCrowd * Math.Max(1, counted) || close > 0.15f * Math.Max(1, counted))
                     {
                         mw[5]++;
                         continue;
