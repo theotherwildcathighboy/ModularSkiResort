@@ -21,8 +21,8 @@ Gates (the pilot's lessons, made mechanical):
       cs2_asset.orient_for_net; eave_h overrides every side; band_skip carried; a yawed recipe raises; None stays None;
   P6  real-world scale: every pass key has a TEXPASS_PITCH range and its scan's course / board pitch (Color map row
       autocorrelation at the set's size_m) times tile_m / size_m lies in it (the 0.6 x shake scan failed this);
-  P7  swatch controls: deck chroma 0.5 keeps the swatch mean within 0.01 sRGB (the palette) and cuts the mean chroma,
-      normal_gain raises the tilt rms; texpass_swatch is {} with the pass off;
+  P7  swatch controls: deck chroma 0.5 + flatten_m keep the swatch mean within 0.01 sRGB (the palette) and cut the
+      mean chroma, normal_gain raises the tilt rms; texpass_swatch is {} with the pass off (alias followers too);
   P8  weather level: every recipe that opts in states texpass weather_level; lodge.assert_texpass_level raises when
       a pass build falls below it (PIPELINE gate 316: never buy the look with weathering) and is quiet otherwise;
   P9  far set in flag-off units: texpass_tile_factors is {slate, lux_slate, timber_lap: 2} (off: {}); a plinth + lap
@@ -30,7 +30,14 @@ Gates (the pilot's lessons, made mechanical):
       faces (meters / square tile); after lodge.texpass_far_units + align_islands + split_poor_islands the UVTile and
       the dry pack's UVUnique equal the flag-off ones bit for bit, and the sampling layer is the flag-off UVTile x 2
       on the pass faces (the bake draws the scans at their tile on the flag-off layout; split in the pass's units,
-      every far FBX was repacked and L1 lost 11 % of its far px/m).
+      every far FBX was repacked and L1 lost 11 % of its far px/m);
+  P10 low frequency: every pass key's sheet swatch keeps its luminance CoV after a periodic 0.2 m Gaussian (the
+      blotches that read as a grid when the tile repeats) at or under max(1.25 x the pre-pass swatch, 0.03); the deck
+      without flatten_m fails it (v1's first family round: 0.021 -> 0.089, a blotch grid on L3's 15 m deck);
+  P11 far sources: texpass_far_specs runs the same controls on the prefiltered far sources (the far bake drew the raw
+      scan): the deck's low frequency halves at least and its mean x tint stays on the palette, the normal-only keys
+      keep their color bytes and tint, lux_slate takes slate's controls, a key outside the pass and the off state are
+      untouched.
 Exit 1 on the first failure; one PASS line otherwise.
 """
 
@@ -341,11 +348,11 @@ def check_swatch_controls():
     TS.register_texpass("v1")
     try:
         spec = TS.TEXPASS["v1"]["deck"]
-        assert "chroma" in spec and "normal_gain" in spec, spec
+        assert all(f in spec for f in TS.TEXPASS_CONTROLS), spec
         tuned = TS._swatch_maps("deck", 480, repeat=2)
         saved = dict(spec)
         try:
-            for f in ("chroma", "normal_gain"):
+            for f in TS.TEXPASS_CONTROLS:
                 spec.pop(f)
             raw = TS._swatch_maps("deck", 480, repeat=2)
         finally:
@@ -369,10 +376,91 @@ def check_swatch_controls():
     assert d < 0.01, f"chroma moved the deck mean by {d:.4f} sRGB (palette)"
     assert chroma(tuned[0]) < 0.75 * chroma(raw[0]), (chroma(tuned[0]), chroma(raw[0]))
     assert tilt(tuned[1]) > 1.15 * tilt(raw[1]), (tilt(tuned[1]), tilt(raw[1]))
-    assert tuned[5].get("texpass") == {f: float(saved[f]) for f in ("chroma", "normal_gain")}, tuned[5]
+    assert tuned[5].get("texpass") == {f: float(saved[f]) for f in TS.TEXPASS_CONTROLS}, tuned[5]
     assert "texpass" not in raw[5], raw[5]
+    assert TS.texpass_swatch("lux_slate") == {}, "pass off: no alias control"
     ok(f"P7 swatch controls: deck mean held ({d:.4f} sRGB), chroma {chroma(raw[0]):.4f} -> {chroma(tuned[0]):.4f}, "
        f"tilt rms {tilt(raw[1]):.1f} -> {tilt(tuned[1]):.1f} deg; off = no control")
+
+
+def swatch_lf(key, lay):
+    """(low-frequency luminance CoV, px per meter) of one tile of `key`'s sheet swatch as `lay` cuts it."""
+    t = lay["tiles"][key]
+    C, r = t["rect_px"][2], t["repeat"]
+    base = TS._swatch_maps(key, C, repeat=r, layout_name="rollout")[0]
+    n = C // r
+    ppm = n / TS.tile_m_of(key)
+    return TS.lf_cov(base[:n, :n], ppm), ppm
+
+
+def check_low_frequency():
+    off = layout()
+    lf_off = {k: swatch_lf(k, off)[0] for k in sorted(TS.TEXPASS["v1"])}
+    rows = []
+    TS.register_texpass("v1")
+    try:
+        on = layout()
+        for k in sorted(TS.TEXPASS["v1"]):
+            lf, ppm = swatch_lf(k, on)
+            lim = max(TS.TEXPASS_LF_RATIO * lf_off[k], TS.TEXPASS_LF_FLOOR)
+            assert lf <= lim, (f"{k}: low-frequency CoV {lf:.3f} > {lim:.3f} (pre-pass {lf_off[k]:.3f}): the scan's "
+                               f"blotches repeat as a grid every tile (flatten_m)")
+            rows.append(f"{k} {lf_off[k]:.3f} -> {lf:.3f}")
+        spec = TS.TEXPASS["v1"]["deck"]
+        saved = dict(spec)
+        try:
+            spec.pop("flatten_m")
+            raw, _ = swatch_lf("deck", on)
+        finally:
+            spec.clear()
+            spec.update(saved)
+        lim = max(TS.TEXPASS_LF_RATIO * lf_off["deck"], TS.TEXPASS_LF_FLOOR)
+        assert raw > lim, f"mutation: the unflattened deck ({raw:.3f}) must fail the gate ({lim:.3f})"
+    finally:
+        TS.unregister_texpass()
+    ok(f"P10 low frequency (sigma {TS.TEXPASS_LF_SIGMA_M} m): " + ", ".join(rows) +
+       f"; the unflattened deck ({raw:.3f}) fails it")
+
+
+def check_far_sources():
+    """The far bake draws what the sheet swatch draws: texpass_far_specs runs the controls on the prefiltered far
+    sources (orange stains and flat relief came through raw before)."""
+    TS.ensure_materials()
+    keys = ["concrete", "deck", "lux_slate", "slate", "timber_lap"]
+    specs, _ = K.material_specs(keys, 6.73)
+    assert TS.texpass_far_specs(specs) is specs, "pass off: far specs unchanged"
+    TS.register_texpass("v1")
+    try:
+        specs, info = K.material_specs(keys, 6.73)
+        far = TS.texpass_far_specs(specs, info)
+        assert far["concrete"] == specs["concrete"], "a key outside the pass is untouched"
+        maps = {}
+        for k in keys[1:]:
+            src, dst = specs[k].texture_set, far[k].texture_set
+            assert dst != src and os.path.basename(dst) == os.path.basename(src) + "+v1", (k, src, dst)
+            assert info[k]["texpass"] == TS.texpass_swatch(k), info[k]
+            maps[k] = {}
+            for side, d in (("src", src), ("dst", dst)):
+                maps[k][side] = {m: TS._load(cs2_bake.find_set_map(d, m))[..., :3] for m in MAPS}
+        for k in ("slate", "timber_lap", "lux_slate"):
+            assert np.array_equal(maps[k]["src"]["Color"], maps[k]["dst"]["Color"]), f"{k}: no color control"
+            assert far[k].tint == specs[k].tint, (k, far[k].tint, specs[k].tint)
+            assert not np.array_equal(maps[k]["src"]["NormalGL"], maps[k]["dst"]["NormalGL"]), f"{k}: normal_gain"
+        assert TS.texpass_swatch("lux_slate") == TS.texpass_swatch("slate") != {}, \
+            "lux_slate draws slate's cell: its far source takes slate's controls (at its own density)"
+        dsrc, ddst = maps["deck"]["src"]["Color"], maps["deck"]["dst"]["Color"]
+        ppm = dsrc.shape[0] / specs["deck"].metres_per_tile
+        lf_src = TS.lf_cov(K.srgb_to_linear(dsrc), ppm)
+        lf_dst = TS.lf_cov(K.srgb_to_linear(ddst), ppm)
+        assert lf_dst < 0.5 * lf_src, (lf_src, lf_dst)
+        tgt = np.asarray(TS._lin(K.BLDG_MATERIALS["deck"].target_srgb))
+        got = K.srgb_to_linear(ddst).reshape(-1, 3).mean(0) * np.asarray(far["deck"].tint)
+        d = float(np.abs(np.asarray(K.linear_to_srgb(got)) - np.asarray(K.linear_to_srgb(tgt))).max())
+        assert d < 0.01, f"deck far mean x tint misses the palette by {d:.4f} sRGB"
+    finally:
+        TS.unregister_texpass()
+    ok(f"P11 far sources: deck LF {lf_src:.3f} -> {lf_dst:.3f} at {ppm:.1f} px/m, mean x tint on the palette "
+       f"({d:.4f} sRGB); slate / lux_slate / timber_lap normals gained, colors untouched; off = unchanged")
 
 
 def check_level_gate():
@@ -471,6 +559,8 @@ def main():
     check_swatch_controls()
     check_level_gate()
     check_far_units()
+    check_low_frequency()
+    check_far_sources()
     print(f"PASS test_texpass: {len(CHECKS)} checks")
 
 

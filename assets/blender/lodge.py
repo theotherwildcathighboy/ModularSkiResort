@@ -2069,6 +2069,10 @@ def run(recipe, args):
                 import cs2_tilesheet as TS
                 specs = {k: replace(s, rough=1.0 - TS.smooth_of(k), metal=TS.metal_of(k))
                          for k, s in specs.items()}
+            if getattr(args, "texpass", "off") != "off":
+                # --texpass: the pass's swatch controls on the far sources too (the far set draws what LOD0 draws)
+                import cs2_tilesheet as TS
+                specs = TS.texpass_far_specs(specs, mat_info)
             sources = _final_sources(specs, keys)
             if tp_far:
                 sources = {i: replace(s, uv=TEXPASS_UV) for i, s in sources.items()}
