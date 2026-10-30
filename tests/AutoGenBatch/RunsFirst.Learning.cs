@@ -73,6 +73,118 @@ namespace AutoGenBatch
             return o;
         }
 
+        /// <summary>Pads for a learning chair's bottom station beside an aerial lift's top: gentle ground 50-300 m away, 25 m lower to
+        /// 8 m higher (a flat cat track each way), off the runs and the lift lines.</summary>
+        private static List<int> AboveTop(Grid g, List<Lift> lifts, Lift lf, PointHash avoid)
+        {
+            var o = new List<int>();
+            float2 t = lf.Top.xz;
+            float th = RawH(g, t);
+            for (float r = 50f; r <= 300f && o.Count < 300; r += 20f)
+                for (float a = 0f; a < 2f * MathF.PI; a += 20f / r)
+                {
+                    float2 p = t + r * new float2(MathF.Cos(a), MathF.Sin(a));
+                    int c = CellOf(g, p);
+                    if (c < 0 || !g.In[c] || float.IsNaN(g.Hr[c]))
+                        continue;
+                    float dh = g.Hr[c] - th;
+                    if (dh >= -25f && dh <= 8f && RawGrade(g, g.World(c)) <= 0.22f && !avoid.Near(g.World(c), 30f)
+                        && !lifts.Any(o2 => SegDist(g.World(c), o2.Bottom.xz, o2.Top.xz) < 45f))
+                        o.Add(c);
+                }
+            return o;
+        }
+
+        /// <summary>A straight cat track between two stations where the ground allows one as the scorecard reads a connector (no climb
+        /// past 4.5 m in 50 m, no 30 m pitch past 0.5, inside the region); returns whether it was added.</summary>
+        private static bool StationTrack(Grid g, Plan plan, float2 from, float2 to)
+        {
+            float len = math.distance(from, to);
+            if (len < 20f || len > 400f)
+                return false;
+            var pts = new List<float2>();
+            int k = Math.Max(1, (int)Math.Ceiling(len / 10f));
+            for (int i = 0; i <= k; i++)
+                pts.Add(math.lerp(from, to, i / (float)k));
+            var h = pts.ConvertAll(p => RawH(g, p));
+            if (h.Any(float.IsNaN) || pts.Any(p => CellOf(g, p) < 0 || !g.In[CellOf(g, p)]))
+                return false;
+            for (int i = 0; i + 5 < h.Count; i++)
+                if (h[i + 5] - h[i] > 4f)
+                    return false;
+            for (int i = 0; i + 3 < h.Count; i++)
+                if ((h[i] - h[i + 3]) / 30f > 0.45f)
+                    return false;
+            plan.Connectors.Add(pts);
+            return true;
+        }
+
+        // off by default (RF_LEARNABOVE=1): a learning area on a green bench just above a base lift top found no site the other modes had
+        // missed on the five sets (no plan changed) and cost planning time
+        private static readonly bool LearnAbove = Environment.GetEnvironmentVariable("RF_LEARNABOVE") == "1";
+        private static readonly float AboveMs = Env("RF_ABOVEMS", 3000f);   // the search above a top only while the region is early
+        private static readonly EasyLimits LearnWayShort = new EasyLimits(0.22f, GreenRawPitch, 0.40f, 7f, 0.08f, 1600f, false, Env("RF_LGROUND", 0.235f));
+
+        // off by default (RF_LEARNCONVERT=1): turning a short base lift into the beginner chair changed no plan on the five sets
+        private static readonly bool LearnConvert = Environment.GetEnvironmentVariable("RF_LEARNCONVERT") == "1";
+
+        /// <summary>A short lift (30-150 m of rise, not aerial) whose bottom is at the base (within 390 m of a base lift's bottom) or
+        /// beside the top of the base's gondola or tram (within 300 m), with green ground from its bottom to its top, becomes a beginner
+        /// chair with up to two green runs from its top back to its bottom, where that adds green km for the base. Returns whether one
+        /// did.</summary>
+        private static bool ConvertToLearning(Grid g, Plan plan, List<Lift> lifts, List<int> members, float kmBefore)
+        {
+            var aerials = members.Where(L => Aerial(lifts[L].Type)).Select(L => lifts[L]).ToList();
+            var cands = new List<(Lift Lf, Lift Via)>();
+            foreach (Lift lf in lifts)
+            {
+                float rise = RawH(g, lf.Top.xz) - RawH(g, lf.Bottom.xz), plan2 = math.distance(lf.Bottom.xz, lf.Top.xz);
+                float len = math.sqrt(plan2 * plan2 + rise * rise);
+                if (Aerial(lf.Type) || lf.Type == "beginner" || rise < LearnMinRise || rise > 145f || len < 150f || rise / math.max(1f, plan2) > 0.75f)
+                    continue;
+                Lift via = aerials.Where(a => a != lf && math.distance(a.Top.xz, lf.Bottom.xz) < 700f).OrderBy(a => math.distance(a.Top.xz, lf.Bottom.xz)).FirstOrDefault();
+                if (via != null || members.Any(L => lifts[L] != lf && math.distance(lifts[L].Bottom.xz, lf.Bottom.xz) < 390f) || members.Contains(lifts.IndexOf(lf)))
+                    cands.Add((lf, via));
+            }
+            if (Environment.GetEnvironmentVariable("RF_CONVDBG") == "1")
+                foreach (Lift lf in lifts)
+                    plan.Log.Add($"  convert? L{lf.Id} {lf.Type} rise {RawH(g, lf.Top.xz) - RawH(g, lf.Bottom.xz):F0} plan {math.distance(lf.Bottom.xz, lf.Top.xz):F0} aerial top {(aerials.Count > 0 ? aerials.Min(x => math.distance(x.Top.xz, lf.Bottom.xz)) : -1):F0} members {string.Join("/", members.Select(L => lifts[L].Id))}");
+            plan.Log.Add($"  convert: {cands.Count} short lift(s) at the base or beside an aerial top: {string.Join(", ", cands.Select(c => $"L{c.Lf.Id}{(c.Via != null ? $" via L{c.Via.Id}" : "")}"))}");
+            foreach (var (lf, via) in cands.OrderBy(c => c.Lf.Rise))
+            {
+                var runs = new List<PlanRun>();
+                MoreLearningRuns(g, plan, lifts, members, lf, runs, kmBefore);
+                if (runs.Count == 0 || ChordOnRuns(plan, lf.Bottom.xz, lf.Top.xz) > LearnChordMax)
+                {
+                    foreach (PlanRun r in runs)
+                        plan.Runs.Remove(r);
+                    continue;
+                }
+                var tracks = new List<List<float2>>();
+                if (via != null)
+                    foreach ((float2 a, float2 b) in new[] { (via.Top.xz, lf.Bottom.xz), (lf.Bottom.xz, via.Top.xz) })
+                        if (StationTrack(g, plan, a, b))
+                            tracks.Add(plan.Connectors[plan.Connectors.Count - 1]);
+                (string type, string kind) = (lf.Type, lf.Kind);
+                (lf.Type, lf.Kind) = ("beginner", "beginner");
+                SkiGraph sg = Ski(g, plan, lifts);
+                int[] root = V3Bases(g, lifts, out HashSet<int> bases);
+                float km = LearnKm(sg, plan, lifts, Enumerable.Range(0, lifts.Count).Where(L => root[L] == root[members[0]]));
+                if (km > kmBefore + 0.05f)
+                {
+                    plan.Log.Add($"learning area: L{lf.Id} ({type} {lf.Length:F0} m / {lf.Rise:F0} m up) becomes the beginner chair, {runs.Count} green run(s) " +
+                        $"{runs.Sum(r => RunLength(r.Pts)):F0} m{(via != null ? $", {tracks.Count} cat track(s) to L{via.Id}'s top" : "")}; base {kmBefore:F2} -> {km:F2} km");
+                    return true;
+                }
+                (lf.Type, lf.Kind) = (type, kind);
+                foreach (PlanRun r in runs)
+                    plan.Runs.Remove(r);
+                foreach (List<float2> t in tracks)
+                    plan.Connectors.Remove(t);
+            }
+            return false;
+        }
+
         /// <summary>Learning areas for the bases short of green runs; returns the chairs added.</summary>
         private static int AddLearningAreas(Grid g, Plan plan, List<Lift> lifts)
         {
@@ -142,9 +254,36 @@ namespace AutoGenBatch
                         || TryLearningChair(g, plan, lifts, members, eh, high, lifts[L], avoid, guard, sg, km, 180f))
                     {
                         added++;
-                        break;
+                        goto next;
                     }
                 }
+                // or above the top of the base's gondola or tram (a summit plateau): beginners ride it up and down, the learning chair
+                // rises from beside its top station, a flat cat track each way between the two
+                if (!LearnAbove || Clock.ElapsedMilliseconds > AboveMs)
+                    continue;
+                foreach (int L in members.Where(L => Aerial(lifts[L].Type)).ToList())
+                {
+                    List<int> origins = AboveTop(g, lifts, lifts[L], avoid);
+                    if (origins.Count == 0)
+                        continue;
+                    EasyReach ea = EasyUp(g, origins, avoid, LearnWayShort, lines);
+                    List<int> up = ea.Cost.Where(kv => ea.Len[kv.Key] <= LearnRouteMax && Rise(ea, kv.Key) >= LearnMinRise && Rise(ea, kv.Key) <= LearnMaxRise)
+                        .OrderBy(kv => kv.Value - Math.Min(ea.Len[kv.Key], 900f) + 3f * Math.Abs(Rise(ea, kv.Key) - mid)).Select(kv => kv.Key).ToList();
+                    if (TryLearningChair(g, plan, lifts, members, ea, up, lifts[L], avoid, guard, sg, km, LearnFallDeg, true)
+                        || TryLearningChair(g, plan, lifts, members, ea, up, lifts[L], avoid, guard, sg, km, 180f, true))
+                    {
+                        Lift chair = lifts[lifts.Count - 1];
+                        int tracks = (StationTrack(g, plan, lifts[L].Top.xz, chair.Bottom.xz) ? 1 : 0) + (StationTrack(g, plan, chair.Bottom.xz, lifts[L].Top.xz) ? 1 : 0);
+                        plan.Log.Add($"  {tracks} cat track(s) between L{lifts[L].Id}'s top and the learning chair");
+                        added++;
+                        goto next;
+                    }
+                }
+                // or a short lift already there on green ground becomes the learning chair (at the base, or beside the top of the base's
+                // gondola or tram), with green runs from its top back to its bottom
+                if (LearnConvert && Clock.ElapsedMilliseconds <= AboveMs && ConvertToLearning(g, plan, lifts, members, km))
+                    added++;
+            next:;
             }
             if (added > 0)
                 LinkByRoutes(g, plan, lifts);
@@ -183,7 +322,7 @@ namespace AutoGenBatch
         /// <summary>A beginner chair from a pad at the base to the top of an easy route up its gentle ground, the route its first green
         /// run, then more green runs from its top. The first chair that keeps the lift network whole wins; else the first that fits.</summary>
         private static bool TryLearningChair(Grid g, Plan plan, List<Lift> lifts, List<int> members, EasyReach er, List<int> cands, Lift below,
-            PointHash avoid, ChordGuard guard, SkiGraph before, float kmBefore, float fallMax)
+            PointHash avoid, ChordGuard guard, SkiGraph before, float kmBefore, float fallMax, bool above = false)
         {
             var bottoms = new HashSet<int>(lifts.Select(lf => lf.BottomCell));
             var topsSeen = new HashSet<int>();
@@ -334,7 +473,7 @@ namespace AutoGenBatch
                 SkiGraph after = Ski(g, plan, lifts);
                 if (after.BestSize >= shareBefore + 1)
                 {
-                    plan.Log.Add($"learning area {(below != null ? $"below L{below.Id}'s top" : $"at L{lifts[members[0]].Id}'s base")}: beginner chair {len:F0} m / {rise:F0} m up, " +
+                    plan.Log.Add($"learning area {(below != null ? $"{(above ? "above" : "below")} L{below.Id}'s top" : $"at L{lifts[members[0]].Id}'s base")}: beginner chair {len:F0} m / {rise:F0} m up, " +
                         $"{runs.Count} green run(s) {runs.Sum(r => RunLength(r.Pts)):F0} m");
                     return true;
                 }
@@ -348,11 +487,11 @@ namespace AutoGenBatch
             {
                 lifts.Add(fallback.Lift);
                 plan.Runs.AddRange(fallback.Runs);
-                plan.Log.Add($"learning area {(below != null ? $"below L{below.Id}'s top" : $"at L{lifts[members[0]].Id}'s base")} (off the network): beginner chair {fallback.Lift.Length:F0} m / " +
+                plan.Log.Add($"learning area {(below != null ? $"{(above ? "above" : "below")} L{below.Id}'s top" : $"at L{lifts[members[0]].Id}'s base")} (off the network): beginner chair {fallback.Lift.Length:F0} m / " +
                     $"{fallback.Lift.Rise:F0} m up, {fallback.Runs.Count} green run(s) {fallback.Runs.Sum(r => RunLength(r.Pts)):F0} m");
                 return true;
             }
-            plan.Log.Add($"learning area {(below != null ? $"below L{below.Id}'s top" : $"at L{lifts[members[0]].Id}")}: {cands.Count} top(s) in the rise range; rejected: pad {why[0]}, norms {why[1]}, " +
+            plan.Log.Add($"learning area {(below != null ? $"{(above ? "above" : "below")} L{below.Id}'s top" : $"at L{lifts[members[0]].Id}")}: {cands.Count} top(s) in the rise range; rejected: pad {why[0]}, norms {why[1]}, " +
                 $"clearance {why[2]}, crossing / rope {why[3]}, route {why[4]} (not green {rwhy[0]}, run rules {rwhy[1]}, crowds {rwhy[2]}, lift line {rwhy[3]}, graded {why[7]}), chord on run {why[5]}, base station {why[6]}; base had {kmBefore:F2} km; easy work {EasyWork}");
             return false;
         }

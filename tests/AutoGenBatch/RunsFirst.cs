@@ -44,7 +44,73 @@ namespace AutoGenBatch
             family == "gentle" ? (0.40f, 0.015f, 40f, 200f) : (0.85f, 0.04f, 120f, 300f);
 
         // beginner and intermediate vertical is scarce and worth more per meter than expert vertical
-        private static float BandWeight(SlopeBand b) => b == SlopeBand.Green ? 3f : b == SlopeBand.Blue ? 2f : 1f;
+        private static float BandWeight(SlopeBand b) => MixW != null ? MixW[(int)b] : b == SlopeBand.Green ? 3f : b == SlopeBand.Blue ? 2f : 1f;
+
+        // v5 grade mix (RF_MIXW): weigh a band by the region's own ground (the share of its 100 m cells in the band, rated as the
+        // scorecard rates them) over the share of the candidate lines' drop in it, instead of the fixed 3 / 2 / 1. 1: lines banded by
+        // their own pitch, the weights also used for run candidates; 2: lines banded by the ground under them (the scorecard's run
+        // band), the pick only. Off: both lowered the visible grade mix (see the v5 report).
+        private static readonly int MixMode = (int)Env("RF_MIXW", 0f);
+        private static readonly float MixGreenMin = Env("RF_MIXGREEN", 1.5f);   // green keeps at least this weight (the learning areas)
+        private static float[] MixW;   // per band, for the region being planned; null: the fixed weights
+
+        /// <summary>The region's ground mix as scorecard v5 rates it: 100 m cells inside the ring, each the 85th percentile of the raw
+        /// grade on a 20 m grid inside it, skiable from the green line to a 1.0 pitch (hostile ground counts as double black).</summary>
+        private static float[] GroundMix(Grid g, float2[] ring)
+        {
+            var bands = new float[5];
+            float minX = ring.Min(p => p.x), maxX = ring.Max(p => p.x), minZ = ring.Min(p => p.y), maxZ = ring.Max(p => p.y);
+            var gs = new List<float>(25);
+            for (float z = minZ + 50f; z - 50f < maxZ; z += 100f)
+                for (float x = minX + 50f; x - 50f < maxX; x += 100f)
+                {
+                    var p = new float2(x, z);
+                    if (!Inside(ring, p))
+                        continue;
+                    gs.Clear();
+                    for (float dz = -40f; dz < 50f; dz += 20f)
+                        for (float dx = -40f; dx < 50f; dx += 20f)
+                        {
+                            var q = p + new float2(dx, dz);
+                            float gq = Inside(ring, q) ? RawGrade(g, q) : float.NaN;
+                            if (!float.IsNaN(gq))
+                                gs.Add(gq);
+                        }
+                    if (gs.Count == 0)
+                        continue;
+                    gs.Sort();
+                    float rating = gs[(int)((gs.Count - 1) * 0.85f)];
+                    if (rating >= SkiSlopeClassifier.GradeGreen && rating <= 1f)
+                        bands[(int)SkiSlopeClassifier.BandOf(rating)]++;
+                }
+            return bands;
+        }
+
+        private static void SetMixWeights(string id, Grid g, float2[] ring, List<Line> lines)
+        {
+            MixW = null;
+            if (MixMode == 0)
+                return;
+            float[] ground = GroundMix(g, ring);
+            SlopeBand[] lb = lines.Select(l => MixMode == 2 ? GroundBand(g, l.Pts.Select(p => p.xz).ToList()) : l.Band).ToArray();
+            var pool = new float[5];
+            for (int i = 0; i < lines.Count; i++)
+                pool[(int)lb[i]] += lines[i].Drop * Math.Clamp(lines[i].Width / 40f, 0.3f, 1f);
+            float gsum = ground.Sum(), psum = pool.Sum();
+            if (gsum <= 0f || psum <= 0f)
+                return;
+            var w = new float[5];
+            for (int b = 1; b < 5; b++)
+                w[b] = Math.Clamp(ground[b] / gsum / Math.Max(0.01f, pool[b] / psum), 0.3f, 3f);
+            w[(int)SlopeBand.Green] = Math.Max(w[(int)SlopeBand.Green], MixGreenMin);
+            w[0] = w[(int)SlopeBand.Green];
+            for (int i = 0; i < lines.Count; i++)
+                lines[i].Score = lines[i].Drop * Math.Clamp(lines[i].Width / 40f, 0.3f, 1f) * w[(int)lb[i]];
+            if (MixMode == 1)
+                MixW = w;
+            string Pc(float[] a, float s) => string.Join("/", Enumerable.Range(1, 4).Select(b => $"{100f * a[b] / s:F0}"));
+            Console.WriteLine($"REPORT rf {id}: mix weights G/B/K/DB {string.Join("/", w.Skip(1).Select(x => $"{x:F2}"))} (ground {Pc(ground, gsum)} %, lines {Pc(pool, psum)} %)");
+        }
 
         private static float2 P(float x, float z) => new float2(x, z);
 
@@ -231,6 +297,7 @@ namespace AutoGenBatch
             }
             float km2r = (float)(SkiRunAutoPlanner.PolygonArea(ring) / 1e6);
             Tick("lines");
+            SetMixWeights(id, g, ring, lines);
             PointHash taken = Pick(lines, g, km2r);
             List<Lift> lifts = PlaceLifts(g, rec, lines, km2r, taken);
             Tick("lifts");

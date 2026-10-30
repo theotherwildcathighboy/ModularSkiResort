@@ -50,6 +50,34 @@ namespace AutoGenBatch
                 && math.distance(bi, bj) > StackBottomMm;
         }
 
+        /// <summary>Scorecard v5's lone base, for a lift about to be placed: its bottom low (the lowest third of the lift-served vertical,
+        /// the new lift counted), no lift top within 150 m, no other low bottom within 300 m (it would be a base area of one) while
+        /// the plan has another base area, and no run from a base lift's top ending at it (a pod).</summary>
+        private static bool LoneBase(Grid g, Plan plan, List<Lift> lifts, float2 b, float2 t)
+        {
+            if (lifts.Count == 0)
+                return false;
+            float hb = RawH(g, b);
+            float vLo = Math.Min(hb, lifts.Min(lf => RawH(g, lf.Bottom.xz))), vHi = Math.Max(RawH(g, t), lifts.Max(lf => RawH(g, lf.Top.xz)));
+            float cut = vLo + (vHi - vLo) / 3f;
+            bool Low(float2 p) => RawH(g, p) <= cut && !lifts.Any(lf => math.distance(lf.Top.xz, p) < BaseTopM2) && math.distance(t, p) >= BaseTopM2;
+            if (!Low(b))
+                return false;
+            var low = lifts.Where(lf => Low(lf.Bottom.xz)).ToList();
+            if (low.Count == 0 || low.Any(lf => math.distance(lf.Bottom.xz, b) < BaseAreaM2))
+                return false;
+            // a pod: a run from a base lift's top ends at the bottom (unknown while the lifts are placed: no runs yet)
+            if (plan == null)
+                return true;
+            return !plan.Runs.Any(r => !r.Graded && r.Pts.Count >= 2 && math.distance(r.Pts[r.Pts.Count - 1], b) < 55f
+                && low.Any(lf => math.distance(lf.Top.xz, r.Pts[0]) < 150f));
+        }
+
+        private const float BaseTopM2 = 160f, BaseAreaM2 = 290f;
+        // off by default (RF_LONEBASE=1): rejecting lone-base cover lifts and bridges took 24 -> 15 lone bases but cost coverage and grade
+        // mix where those lifts open terrain (ft5-r3 94.7 -> 92.8); visible 82.59 -> 82.06
+        private static readonly bool NoLoneBase = Environment.GetEnvironmentVariable("RF_LONEBASE") == "1";
+
         private static readonly float StackDegM = Env("RF_STACKDEG", 33f), StackTopMm = Env("RF_STACKTOP", 330f), StackBottomMm = Env("RF_STACKBOT", 280f);
         private static readonly bool NoStacked = Environment.GetEnvironmentVariable("RF_STACKED") != "0";
 

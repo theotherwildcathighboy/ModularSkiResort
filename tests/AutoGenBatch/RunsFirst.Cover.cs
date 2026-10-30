@@ -363,6 +363,12 @@ namespace AutoGenBatch
                             continue;
                         }
                     }
+                    // v5: no single-lift base area on the region's edge (a lone base)
+                    if (NoLoneBase && LoneBase(g, null, lifts, g.World(bc), g.World(t)))
+                    {
+                        rej[4]++;
+                        continue;
+                    }
                     string type = TypeFor(g, bc, t);
                     if (type == null)
                     {

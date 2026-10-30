@@ -170,6 +170,8 @@ namespace AutoGenBatch
                     if (lifts.Any(lf => SegCrossScore(lf.Bottom.xz, lf.Top.xz, bw, tw) || (NoParallel && ParallelLines(bw, tw, lf.Bottom.xz, lf.Top.xz))
                         || (NoStacked && StackedLines(bw, tw, lf.Bottom.xz, lf.Top.xz))))
                         continue;
+                    if (NoLoneBase && LoneBase(g, plan, lifts, bw, tw))
+                        continue;
                     checks++;
                     if (UnderRope(g, lifts, t, b))
                         continue;
