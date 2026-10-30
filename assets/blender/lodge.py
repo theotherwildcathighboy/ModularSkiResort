@@ -2436,7 +2436,7 @@ def texpass_far_units(obj, keys):
     """--texpass on the far set (LOD1 / LOD2): divide each pass key's UVTile by its tile factor
     (cs2_tilesheet.texpass_tile_factors, a power of two: exact) so align_islands, split_poor_islands (min_box in
     tile^2) and the unique pack see the flag-off units and the far layout stays the flag-off one. Split in the pass's
-    units, L5 packed a zero-area island and L1 lost 11 % of its far px/m. Returns {mat_index: f} ({} when off)."""
+    units, every far FBX was repacked and L1 lost 11 % of its far px/m. Returns {mat_index: f} ({} when off)."""
     import cs2_tilesheet as TS
     fac = TS.texpass_tile_factors()
     idx = {i: fac[k] for i, k in enumerate(sorted(keys)) if k in fac}

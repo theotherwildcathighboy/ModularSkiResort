@@ -29,8 +29,8 @@ Gates (the pilot's lessons, made mechanical):
       wall + slate roof through lodge's prep: the pass's UVTile is exactly 2 x the flag-off one on the pass keys'
       faces (meters / square tile); after lodge.texpass_far_units + align_islands + split_poor_islands the UVTile and
       the dry pack's UVUnique equal the flag-off ones bit for bit, and the sampling layer is the flag-off UVTile x 2
-      on the pass faces (the bake draws the scans at their tile on the flag-off layout; L5 packed a zero-area island
-      and L1 lost 11 % of its far px/m when the islands were split in the pass's units).
+      on the pass faces (the bake draws the scans at their tile on the flag-off layout; split in the pass's units,
+      every far FBX was repacked and L1 lost 11 % of its far px/m).
 Exit 1 on the first failure; one PASS line otherwise.
 """
 
