@@ -10,7 +10,7 @@ mod/SkiResortMod/obj/
 mod/SkiResortMod/Library/
 # UI module (mod/SkiResortUI, Round U1): installed packages, webpack output, and the cs2/* typings
 # that tools/sync-types.js copies from the game install at build time (never committed: the
-# game's scaffold carries no licence). package-lock.json IS committed.
+# game's scaffold carries no license). package-lock.json IS committed.
 mod/SkiResortUI/node_modules/
 mod/SkiResortUI/build/
 mod/SkiResortUI/types/
@@ -24,8 +24,8 @@ tests/**/out/
 Thumbs.db
 desktop.ini
 
-# NOT ignored on purpose:
-#   mod/SkiResortMod/Textures/   — shipped mod content (runtime-loaded PNGs)
+# NOT ignored on purpose (mod/SkiResortMod/Textures/ IS ignored since 2026-08-12, below; a publish build stops
+# without its 8 PNGs, mod/SkiResortMod/SkiPublish.targets):
 #   gamedata-mirror/             — backup of hand-made prefabs from the game's
 #                                  ImportedData (tools/sync-gamedata.ps1)
 #   release/                     — listing copy + curated screenshots (not regenerable)
@@ -34,6 +34,11 @@ desktop.ini
 # the folder's README (what to keep, how to name it) is tracked.
 release/saves-by-release/*
 !release/saves-by-release/README.md
+
+# Release staging for the Editor's asset package (release review 2026-10-30, B1): the .cok (about 0.8 GB) that publish
+# builds copy into the upload (mod/SkiResortMod/SkiPublish.targets). Only the folder's README is tracked.
+mod/SkiResortMod/Package/*
+!mod/SkiResortMod/Package/README.md
 
 # Python bytecode
 __pycache__/
@@ -51,7 +56,7 @@ mod/SkiResortMod/Textures/
 
 # Third-party originals (ROUND-SPEC R20): WHITELIST - everything under assets/external
 # stays local (any extension: .blend1, .jpeg, .tga, the Sketchfab .zip ...) except each
-# assets/external/<id>/SOURCE.md (author, URL, licence, what was archived).
+# assets/external/<id>/SOURCE.md (author, URL, license, what was archived).
 assets/external/**
 !assets/external/**/
 !assets/external/*/SOURCE.md

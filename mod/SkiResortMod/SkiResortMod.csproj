@@ -331,4 +331,11 @@
 		         Text="SkiResortMod UI: ABSENT - mod\SkiResortUI\node_modules is missing (run npm ci there once). The DLL is deployed without the hub UI (build stamp $(SkiStampValue))." />
 	</Target>
 
+	<!--
+	Publish builds only (PublishNewMod / PublishNewVersion, or the dry run -p:SkiPublishDryRun=true): the Editor's .cok from
+	Package\, the Write Everywhere layouts, the profile-path strip and tools\release-check.ps1, after DeployWIP and SkiUiDeploy.
+	Imported last so its DeployWIP hook runs after SkiUiDeploy. Every other build is unchanged. Details: SkiPublish.targets.
+	-->
+	<Import Project="SkiPublish.targets" />
+
 </Project>

@@ -1,0 +1,105 @@
+<!--
+===============================================================================================
+Ski Resort publish packaging (release review 2026-10-30: B1, B2, S4). Imported last by SkiResortMod.csproj.
+
+Runs ONLY in a publish build, or in its dry run:
+  - publish build: ModPublisherCommand is set by Properties\PublishProfiles\PublishNewMod.pubxml (Publish) or
+    PublishNewVersion.pubxml (NewVersion). UpdatePublishedConfiguration.pubxml sets Update, which builds and deploys nothing
+    (NeedBuild false, Mod.targets:46), so this target never runs there.
+  - dry run: dotnet build -c Release -p:SkiPublishDryRun=true. Everything below, no upload (only the Publish target runs
+    ModPublisher, Mod.targets:146-156).
+Every other build deploys exactly what it did before. ModPublisherCommand is read in the target's condition on purpose: the SDK
+imports the .pubxml after the project body (Microsoft.NET.Sdk.BeforeCommon.targets), so a PropertyGroup condition in the csproj
+body never sees it.
+
+Why after DeployWIP: DeployWIP (Mod.targets:106-113) deletes the deploy folder and copies only $(OutDir) into it, and ModPublisher
+uploads that folder (Mod.targets:122, :148). Anything that ships but is not compiled has to be copied in afterwards
+(the pattern Mod.targets:12-19 documents). Declared after SkiUiDeploy (the csproj imports this file last), so it also runs after it.
+
+SkiPublishPackage:
+  1 stops before copying anything when: Package\ holds no .cok or several; the deploy folder has fewer than 8 Textures\*.png
+    (S4: mod\SkiResortMod\Textures is git-ignored, so a worktree or a fresh clone has none); assets\we\K45_WE\layouts is empty.
+  2 copies the one Package\*.cok to the deploy folder root (the hybrid precedent pdx_mods\98560_22 keeps its .cok beside the
+    DLL) and assets\we\K45_WE\layouts\*.wedefault.xml to K45_WE\layouts (from the repo tree only: the game-side copy in
+    ImportedData carries a personal name, assets review S1).
+  3 B2, the Windows profile path, which the publisher would upload:
+    - deletes *.pdb: the managed PDB's SourceLink map and document paths, the Burst PDB's linker paths. The game reads a PDB only
+      for line numbers in stack traces (Colossal.IO.AssetDatabase ExecutableAsset.cs:232-241); without it, traces show IL offsets.
+      bin\Release\net48 keeps both PDBs until the next Release build.
+    - deletes the mac and linux Burst libraries (DWARF source paths, the Burst temp folder). The game loads only
+      <name>_win_x86_64 (ExecutableAsset.cs:243-255).
+    - shortens the PDB path in each DLL's CodeView record to the bare file name (tools\strip-pdb-path.js). The Burst temp folder
+      is fixed under %USERPROFILE%\AppData\LocalLow (ModPostProcessor PathSet.TempDir), so no neutral path or variable avoids it.
+    The compile and the post-processor (-d included) are unchanged: the uploaded code is the code a Release build deploys.
+  4 runs tools\release-check.ps1 on the deploy folder. A FAIL fails the build, so ModPublisher never runs.
+===============================================================================================
+-->
+<Project>
+
+	<PropertyGroup>
+		<SkiRepoRoot>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\..'))</SkiRepoRoot>
+		<SkiPackageDir Condition="'$(SkiPackageDir)' == ''">$(MSBuildThisFileDirectory)Package</SkiPackageDir>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<!-- The staging folder (git-ignored, about 0.8 GB) is never a build item: only SkiPublishPackage reads it. -->
+		<None Remove="Package\**" />
+	</ItemGroup>
+
+	<Target Name="SkiPublishPackage" AfterTargets="DeployWIP"
+	        Condition="'$(NeedBuild)' == 'true' And ('$(ModPublisherCommand)' != '' Or '$(SkiPublishDryRun)' == 'true')">
+		<PropertyGroup>
+			<SkiPublishKind Condition="'$(ModPublisherCommand)' != ''">publish build ($(ModPublisherCommand))</SkiPublishKind>
+			<SkiPublishKind Condition="'$(ModPublisherCommand)' == ''">dry run (no upload)</SkiPublishKind>
+			<SkiDeployDirArg>$(DeployDir.TrimEnd('\'))</SkiDeployDirArg>
+		</PropertyGroup>
+		<Error Condition="'$(SkiDeployDirArg)' == '' Or !Exists('$(SkiDeployDirArg)')"
+		       Text="SkiResortMod $(SkiPublishKind): NOT uploaded - the toolchain's deploy folder (DeployDir) is not set or does not exist after DeployWIP." />
+		<ItemGroup>
+			<SkiCok Include="$(SkiPackageDir)\*.cok" />
+			<SkiWeLayout Include="$(SkiRepoRoot)\assets\we\K45_WE\layouts\*.wedefault.xml" />
+			<SkiDeployedTexture Include="$(DeployDir)\Textures\*.png" />
+		</ItemGroup>
+		<PropertyGroup>
+			<SkiCokCount>@(SkiCok->Count())</SkiCokCount>
+			<SkiTextureCount>@(SkiDeployedTexture->Count())</SkiTextureCount>
+		</PropertyGroup>
+		<Message Importance="high" Text="SkiResortMod $(SkiPublishKind): adding the asset package and the layouts, stripping the profile path" />
+
+		<Error Condition="'$(SkiCokCount)' == '0'"
+		       Text="SkiResortMod $(SkiPublishKind): NOT uploaded - mod\SkiResortMod\Package\ holds no .cok. Run the Editor's package step (only the prefabs of tools\shipped-prefabs.json), then move the .cok from %USERPROFILE%\AppData\LocalLow\Colossal Order\Cities Skylines II\.packages into mod\SkiResortMod\Package\ (its README.md)." />
+		<Error Condition="$(SkiCokCount) &gt; 1"
+		       Text="SkiResortMod $(SkiPublishKind): NOT uploaded - mod\SkiResortMod\Package\ holds $(SkiCokCount) .cok files (@(SkiCok->'%(Filename)%(Extension)', ', ')); keep exactly one, the package to ship." />
+		<Error Condition="$(SkiTextureCount) &lt; 8"
+		       Text="SkiResortMod $(SkiPublishKind): NOT uploaded - the deploy folder holds $(SkiTextureCount) of the 8 run textures (Textures\*.png), so every subscriber would get untextured runs. mod\SkiResortMod\Textures is git-ignored: copy the 8 PNGs there (its README.md names them) and build again." />
+		<Error Condition="'@(SkiWeLayout)' == ''"
+		       Text="SkiResortMod $(SkiPublishKind): NOT uploaded - assets\we\K45_WE\layouts holds no *.wedefault.xml (the Write Everywhere layouts the listing promises)." />
+
+		<Copy SourceFiles="@(SkiCok)" DestinationFolder="$(DeployDir)" />
+		<Copy SourceFiles="@(SkiWeLayout)" DestinationFolder="$(DeployDir)\K45_WE\layouts" />
+		<Message Importance="high" Text="SkiResortMod $(SkiPublishKind): copied @(SkiCok->'%(Filename)%(Extension)') and @(SkiWeLayout->Count()) Write Everywhere layout(s); $(SkiTextureCount) run textures in place" />
+
+		<ItemGroup>
+			<SkiStripFile Include="$(DeployDir)\*.pdb;$(DeployDir)\*_mac_x86_64.bundle;$(DeployDir)\*_linux_x86_64.so" />
+			<SkiDeployedDll Include="$(DeployDir)\*.dll" />
+		</ItemGroup>
+		<Delete Files="@(SkiStripFile)" />
+		<Message Importance="high" Text="SkiResortMod $(SkiPublishKind): removed @(SkiStripFile->'%(Filename)%(Extension)', ', ')" />
+		<!-- IgnoreExitCode + the Error below: a failure names the step, not the command line (which holds the profile path). -->
+		<Exec Command="node &quot;$(SkiRepoRoot)\tools\strip-pdb-path.js&quot; @(SkiDeployedDll->'&quot;%(FullPath)&quot;', ' ')"
+		      StandardOutputImportance="high" IgnoreStandardErrorWarningFormat="true" IgnoreExitCode="true">
+			<Output TaskParameter="ExitCode" PropertyName="SkiStripExit" />
+		</Exec>
+		<Error Condition="'$(SkiStripExit)' != '0'"
+		       Text="SkiResortMod $(SkiPublishKind): NOT uploaded - tools\strip-pdb-path.js could not shorten a DLL's PDB path (exit $(SkiStripExit); its FAILED line is above)." />
+
+		<Exec Command="powershell -NoProfile -ExecutionPolicy Bypass -File &quot;$(SkiRepoRoot)\tools\release-check.ps1&quot; -DeployDir &quot;$(SkiDeployDirArg)&quot;"
+		      StandardOutputImportance="high" IgnoreStandardErrorWarningFormat="true" IgnoreExitCode="true">
+			<Output TaskParameter="ExitCode" PropertyName="SkiReleaseCheckExit" />
+		</Exec>
+		<Error Condition="'$(SkiReleaseCheckExit)' != '0'"
+		       Text="SkiResortMod $(SkiPublishKind): NOT uploaded - tools\release-check.ps1 found a FAIL (exit $(SkiReleaseCheckExit); the FAIL lines are above)." />
+		<Message Importance="high" Text="SkiResortMod $(SkiPublishKind): the deploy folder passed tools\release-check.ps1" />
+	</Target>
+
+</Project>
