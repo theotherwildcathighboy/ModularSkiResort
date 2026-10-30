@@ -1,0 +1,59 @@
+{
+    "$id": 0,
+    "$type": "0|Game.Prefabs.RenderPrefab, Game",
+    "name": "SkiSafetyNetB_LOD1 Mesh",
+    "active": true,
+    "version": 1,
+    "m_prefabFormat": 0,
+    "components": {
+        "$id": 1,
+        "$type": "1|System.Collections.Generic.List`1[[Game.Prefabs.ComponentBase, Game]], mscorlib",
+        "$rlength": 1,
+        "$rcontent": [
+            {
+                "$id": 900,
+                "$type": "2|Game.Prefabs.CurveProperties, Game",
+                "name": "CurveProperties",
+                "active": true,
+                "m_TilingCount": 2,
+                "m_OverrideLength": 0,
+                "m_SmoothingDistance": 0,
+                "m_GeometryTiling": true,
+                "m_StraightTiling": true,
+                "m_InvertCurve": false,
+                "m_SubFlow": false,
+                "m_HangingSwaying": false
+            }
+        ]
+    },
+    "m_GeometryAsset": $fstrref:"CID:2300027c7df48a096d37592b05ce89dc",
+    "m_SurfaceAssets": {
+        "$id": 2,
+        "$type": "3|Colossal.IO.AssetDatabase.AssetReference`1[[Colossal.IO.AssetDatabase.SurfaceAsset, Colossal.IO.AssetDatabase, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null]][], Colossal.IO.AssetDatabase",
+        "$rlength": 1,
+        "$rcontent": [
+            $fstrref:"CID:f1e430df7fded05d45fcc61fc221ee58"
+        ]
+    },
+    "m_Bounds": {
+        "$type": "4|Colossal.Mathematics.Bounds3, Colossal.Mathematics",
+        "min": {
+            "$type": "5|Unity.Mathematics.float3, Unity.Mathematics",
+            "x": -0.0230000876,
+            "y": -0.1500001,
+            "z": -2
+        },
+        "max": {
+            "$type": 5,
+            "x": 0.0212132,
+            "y": 1.55,
+            "z": 2
+        }
+    },
+    "m_SurfaceArea": 10.7748737,
+    "m_IndexCount": 60,
+    "m_VertexCount": 40,
+    "m_MeshCount": 1,
+    "m_IsImpostor": false,
+    "m_ManualVTRequired": false
+}
