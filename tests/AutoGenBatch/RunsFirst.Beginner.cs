@@ -30,9 +30,14 @@ namespace AutoGenBatch
             // a graded track: its steep pitches are measured along the path (the scorecard rates a connector by its grade along the
             // path), so a route may zigzag down a face steeper than any one direction of the grid allows
             public readonly bool AlongPath;
+            // a green run (scorecard v5: rated by the ground under it): ground past GroundMax (raw 10 m grade) counts as steep, and
+            // past GroundMax + 0.15 the route does not go (0 = off)
+            public readonly float GroundMax;
 
-            public EasyLimits(float edgeMax, float steepPitch, float hardPitch, float climb, float steepShare, float maxLen, bool alongPath = false)
+            public EasyLimits(float edgeMax, float steepPitch, float hardPitch, float climb, float steepShare, float maxLen, bool alongPath = false,
+                float groundMax = 0f)
             {
+                GroundMax = groundMax;
                 EdgeMax = edgeMax;
                 SteepPitch = steepPitch;
                 HardPitch = hardPitch;
@@ -46,6 +51,7 @@ namespace AutoGenBatch
         // a green run (85th percentile under 0.25, the run rule's 10 m climb less a margin); a cat track (the connector rules: no
         // 30 m pitch over 0.50, no rise over 4.5 m); a blue run; a black run (an expert way into the next area)
         private static readonly EasyLimits GreenWay = new EasyLimits(0.22f, GreenRawPitch, 0.40f, 7f, 0.08f, 4500f);
+        private static readonly EasyLimits LearnWay = new EasyLimits(0.22f, GreenRawPitch, 0.40f, 7f, 0.08f, 4500f, false, Env("RF_LGROUND", 0.235f));
         private static readonly EasyLimits GreenProbe = new EasyLimits(0.22f, GreenRawPitch, 0.40f, 7f, 0.08f, 1500f);   // green ground near a station
         private static readonly EasyLimits CatTrack = new EasyLimits(0.30f, ConnPitchMax, ConnPitchMax, 3.5f, 1f, 1500f);
         private static readonly EasyLimits BlueWay = new EasyLimits(0.36f, 0.38f, 0.62f, 7f, 0.08f, 3500f);
@@ -909,6 +915,13 @@ namespace AutoGenBatch
                     }
                     if (!ok)
                         continue;
+                    if (lim.GroundMax > 0f)
+                    {
+                        float gr = RawGrade(g, pn);
+                        if (gr > lim.GroundMax + 0.15f)
+                            continue;
+                        steep |= gr > lim.GroundMax;
+                    }
                     float ns = er.Steep[c] + (steep ? len : 0f);
                     if (ns > lim.SteepShare * nl + 10f)
                         continue;

@@ -391,6 +391,10 @@ namespace AutoGenBatch
                 {
                 }
             Tick("heads");
+            // scorecard v5: a learning area (a beginner chair and green runs) at each base short of green runs
+            if (Environment.GetEnvironmentVariable("RF_NOLEARN") != "1")
+                AddLearningAreas(g, plan, lifts);
+            Tick("learning areas");
             if (Environment.GetEnvironmentVariable("RF_CHORDDBG") == "1")
                 ChordDebug(g, plan, lifts);
             if (Environment.GetEnvironmentVariable("RF_MODELDBG") == "1")
