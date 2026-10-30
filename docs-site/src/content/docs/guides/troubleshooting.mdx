@@ -57,6 +57,7 @@ Problem reports: include the lines around any `!!!`. Where to send them: [Bug Re
 | `Lodge [road]` | Road edge that satisfied each lodge's access. |
 | `Catalog [rate]` | Run rated, with band. |
 | `Hub [items]` | Hub build tiles disagree with the prefabs (price drift warning). |
+| `QuickRuns [scan]` | Resort Planner scan started, done or canceled, with the region, the thread it ran on and the plan. |
 
 Tickets missing from the Economy panel: check the log first, then [Economy](/guides/economy-panel/).
 
@@ -66,6 +67,7 @@ Tickets missing from the Economy panel: check the log first, then [Economy](/gui
 - **Chairs stopped.** Hub: *Lift X: chairs stopped*. The lift still counts. Log: `Lifts [state]`, `Lift [power]`.
 - **Hub button missing.** Options > Modular Ski Resort > Main > Ski Resort hub. The panel is always in the Universal Mod Panel.
 - **DLL and UI version mismatch notice.** Reinstall the mod. Building works; resort statistics stay hidden until both halves match.
+- **Resort Planner scan never finishes, or the planner is grayed after an error.** The scan runs on a background thread; a worker error turns the Resort Planner off until the next game load (hub: *The Resort Planner hit an error and is off until the next load*). Reload the save, turn on Options > Modular Ski Resort > Main > Diagnostics > **Resort Planner on the main thread** (slower, same result) and scan again. Log: `QuickRuns [scan]`.
 - **Runs gone after a Welcome Sign was bulldozed.** Bulldozing a sign deletes every run linked to it, with the runs' glade trees; run fees are not refunded. To move a sign, use **Relocate** in its info panel: its runs stay linked.
 
 ## Bug Reports

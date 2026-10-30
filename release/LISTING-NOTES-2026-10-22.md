@@ -144,3 +144,25 @@ Sources are the 1.0 release review (docs/research/release-review-2026-10-30/). "
 - **Bug reports:** the forum and Discord thread tokens, FORUM_URL and DISCORD_URL (SHIP-PLAN D3).
 
 "Getting started" step 1 now says to pick the straight or angled sign before drawing runs, because a switch is another prefab, not a relocation. Row "Remove lifts before uninstalling" above is superseded by the uninstall item.
+
+## Update 2026-10-30: Resort Planner v2 merge (d424603)
+
+The merge brought the lift-first Resort Planner (v2) to main; the text above described v1. Changed: the "Good to know" planner line
+in DESCRIPTION.md (and the XML copy), the 1.0.0 planner bullet in release/CHANGELOG.md, the docs-site changelog and the
+PublishConfiguration `<ChangeLog>`, the docs-site planner section (runs-and-snow), index, hub-panel, settings and troubleshooting.
+
+- **Removed (no longer true):** "runs only, no lifts" (the planner proposes lifts; it still builds runs only and the player
+  builds the lifts with the lift tool: `QuickRunsToolSystem.Build.cs` emits runs only); the v1 cluster rings and their
+  *beginner lift* / *mid-station* labels (Resort mode shows pods instead; the hub hides the cluster lines when pods exist);
+  "a progress line runs for a moment" (the scan runs on a worker thread, right click stops it: `QuickRunsToolSystem.Worker.cs`,
+  `StepBack`).
+- **Still true, kept:** 9 km2 cap (`SkiRunAutoPlanner.V1MaxAreaM2`), roads, buildings and lift stations not obstacles
+  (`CollectObstacles`: Surface areas, runs, unowned tiles only), Undo and Undo trees end when the tool closes (`OnStopRunning`),
+  mostly black runs on steep ground (site verdict text).
+- **New, described:** Lifts knob (auto or 1 to 9), Way home knob, the plan lines, the lift and pod rows with their toggles, the
+  way-home verdicts, plan around a built lift (150 m each side, 400 m below the base: `QuickRunsPlanRules`), the three new
+  warnings, the Diagnostics option *Resort Planner on the main thread* (off by default).
+- **Not described:** the narrow full-cut cat track profile (`GradeParams.NarrowFullCut`, `NoFill`). No mod code calls it (only
+  tests/GradeBatch), the cat track tool and its options are unchanged, and the planner grades no terrain, so a player cannot
+  see it in 1.0.
+- **Status:** V (code). The v2 hub rows, verdicts and scan cancel are B until a field test on the merged build.

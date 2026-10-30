@@ -74,11 +74,11 @@ Run drawing feedback and cosmetics.
 | Snow lances, fan guns and hydrants | 0 to 100 %, step 5, default 100 % | How many corners of snowmaking and night runs get a snow gun. Look only. |
 | Floodlight masts on night runs | 0 to 100 %, step 5, default 100 % | How many corners of night runs get a mast. Look only; night skiing does not need the masts. |
 | Snow-gun plumes | On | A vapor plume while the guns make snow. Look only. |
-| Cat track: max grade | 5 to 25 %, step 1, default 25 % | The steepest a cat track may climb. A track that cannot stay under it is refused. |
+| Cat track: max grade | 5 to 25 %, step 1, default 25 % | The steepest a cat track may climb. A track that cannot stay under it turns red and asks for more length (a switchback). |
 | Cat track: width (m) | 8 to 32, step 1, default 20 | Width of the cat track: the flat top the tool cuts and fills, and the run built on it. |
 | Cat track: cut slope | 1 to 3, step 0.5, default 1.5 | Meters out per meter down where the track cuts into the hill. Lower is steeper. |
 | Cat track: fill slope | 1 to 4, step 0.5, default 2 | Meters out per meter up where the track is built up. Lower is steeper. |
-| Resort Planner (experimental) | Off | The Resort Planner tool: outline a slope and build a proposed set of runs. Off: the tool cannot open, its key does nothing, its hub button is grayed. |
+| Resort Planner (experimental) | Off | Outline a mountainside and the planner proposes lifts and a set of linked runs around them: you review and change the plan, place the lift stations yourself, and build the runs in one go, with an optional tree filler. Off: the tool cannot open, its key does nothing, its hub button is grayed. See [Runs and Snow](/guides/runs-and-snow/#resort-planner-experimental). |
 | Cat track: constant grade | Off | Off: the track follows the ground and moves as little earth as the max grade allows. On: one even slope from end to end. |
 
 ## Lifts
@@ -97,7 +97,7 @@ Tools and diagnostics.
 | Action | Default |
 |---|---|
 | Glade tool: toggle | Ctrl+Shift+G |
-| Glade tool: next tree density (1 to 8) | Shift+G |
+| Glade tool: next tree density (1-8) | Shift+G |
 | Glade tool: interior / tree line | Alt+G |
 | Lift-line tool: toggle | Ctrl+Shift+L |
 | Lift-line tool: build | Enter. Only while the lift-line, cat track or Resort Planner tool is open. |
@@ -113,6 +113,7 @@ Field-test tooling.
 | Option | Default | What it does |
 |---|---|---|
 | Measurement diagnostics | Off | Extra measurements for field tests that cost a little frame time: a daily ski-day measurement pass and the Ctrl+Alt+G slope capture file. Leave off for normal play. |
+| Resort Planner on the main thread | Off | The Resort Planner scans on a background thread; on, it scans on the game's main thread in small steps instead (slower, same result). Use it only if a scan never finishes or the log reports a scan worker error. A worker error turns the Resort Planner off until the next game load. |
 
 ## Reset
 

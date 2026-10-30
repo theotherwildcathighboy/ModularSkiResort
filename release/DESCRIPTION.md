@@ -42,7 +42,7 @@ Cities: Skylines II 1.6 (tested on 1.6.2f1). No other mod and no DLC. Start from
 - Stations sit on the slope as placed, so on steep ground one can end up partly in the hillside. Move It lifts it out (see Works with).
 - Chairlifts and gondolas stop in summer when no run is open. The aerial tram keeps running as sightseeing.
 - Bulldozing a Welcome Sign also deletes every run linked to it, with the runs' glade trees, and the run fees are not refunded. To move a sign, use Relocate in its info panel: its runs stay linked.
-- The Resort Planner (outline a slope, get a set of runs) is experimental and off by default: turn it on in Options. It lays out runs only, no lifts, and on steep ground mostly black runs with few greens. Roads, buildings and lift stations inside the outline are not avoided, and its Undo ends when the tool closes.
+- The Resort Planner (outline a slope, get proposed lifts and a set of runs) is experimental and off by default: turn it on in Options. It builds the runs only: you build its proposed lifts yourself with the lift tool. On steep ground it plans mostly black runs with few greens. Roads, buildings and lift stations inside the outline are not avoided, and its Undo ends when the tool closes.
 - Lifts are power-line networks and need power. Do not connect city high-voltage lines to a lift (untested).
 - Before uninstalling, bulldoze your lifts and runs (or use the Delete all ski resort content button in the mod's Options), then save the city. Otherwise run paint can stay in the saved terrain, and what leftover lift pieces do is untested.
 - Resorts cost money all year and earn in winter. Build in steps.

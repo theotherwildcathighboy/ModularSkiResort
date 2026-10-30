@@ -84,28 +84,34 @@ One action: lay out the track, and **Enter** cuts and fills the ground so it nev
 
 ## Resort Planner (Experimental)
 
-Outline a slope and the tool proposes a set of runs for it, linked so skiers can get from one to the next. You pick which ones to keep and build them together.
+Outline a slope and the planner proposes lifts and a set of linked runs around them. You review and change the plan, build the proposed lifts yourself on the marked spots, and build the runs together.
 
 <Aside type="caution" title="Experimental">
 The Resort Planner is new and may change. It is off by default: turn it on in Options > Modular Ski Resort > Main > Runs > **Resort Planner (experimental)**. While it is off, the tool cannot open and its hub button is grayed with the reason.
 
-**Limits:** runs only, no lifts. On steep ground expect mostly black runs and few greens. Roads, buildings and lift stations inside the outline are not avoided. **Undo** and **Undo trees** end when the tool closes.
+**Limits:** it builds runs only; the lifts it proposes you build with the lift tool. On steep ground expect mostly black runs and few greens. Roads, buildings and lift stations inside the outline are not avoided. **Undo** and **Undo trees** end when the tool closes.
 </Aside>
 
 - **Open:** hub **Runs** tab > **Resort Planner (experimental)**, or **Ctrl+Shift+Q**. While it is open, the Runs tab shows every control as a button.
 - **Outline:** click the corners of the slope (up to **9 km²**, about 3 x 3 km), drag a corner to move it. The tooltip shows the size against the limit and the vertical. Outline open slope: roads, buildings and lift stations inside the outline are not avoided, and runs can be planned across them.
+- **Around a lift:** with no corner placed, click the station of a lift you built: the outline becomes **150 m** on each side of its line plus **400 m** below its base station. Right click clears those corners together.
 - **Site verdict:** one plain line says how steep the outlined ground is, as an average grade: gentle (under 25 %), steep (25 to 44 %), very steep (45 to 57 %) or steeper than any real ski area (58 % and up). It shows while you outline, in the tooltip and the hub, and updates after the scan.
-- **Scan:** **Scan** or **Enter**. A progress line runs for a moment (a few seconds on a large area), then the proposed runs appear in piste-map colors: natural runs dashed. Greens sit on the gentle lower slope, blues mid-mountain, blacks and double blacks high up.
+- **Scan:** **Scan** or **Enter**. The scan runs in the background, so the game keeps running, and the hub shows its progress (*Scanning the slope: 40 %*). Right click stops it. Moving a corner or changing a knob during a scan starts it again; **Build**, **Undo** and the tree buttons wait until it ends.
 - **Refused:** a scan that finds nothing says why. *Mostly cliff*: no run reaches the bottom. *Too narrow*: a run needs open slope about 70 m across, clear of other areas. *No run fits*: try another shape or another mix. Others: too flat, too little vertical, mostly taken by other areas or unowned land.
-- **Pick:** click a run to leave it out (gray) or take it back. A ring marks each spot where one lift would serve several runs; a small cluster is labeled *beginner lift* or *mid-station*.
-- **Knobs:** **Mix** (Balanced, Beginner, Expert, As the slope allows), **How many** (Few, Normal, Many; the count scales with the area), **Kinds** (groomed and natural by default; snowmaking and night on request), **Shuffle** for another layout of the same slope.
+- **The plan on the map:** each proposed lift is a dashed line with its towers and hatched station spots, colored by its way home, with a label (*P2: Detachable, 1.3 km, 540 m up, reaches 7 run(s)*). Lifts you already built in or next to the outline join the plan, with a white ring at their stations. The runs are grouped in **pods**, the runs one lift serves: a ring in the pod's terrain color, labeled *Pod B: Intermediate*. Runs show in piste-map colors, natural runs dashed.
+- **The plan in the hub:** *Planned: 6 pod(s), 3 lift(s) proposed, 12.4 km of runs*, what the mountain's ground gives by color, then one row per lift (length, rise, runs it reaches, its way home and its pod's runs by color; a lift you built reads *Existing lift*), then the pods no lift serves (*no lift planned*).
+- **Way home:** for each lift, the easiest run from its top back to a lift or the base: *Green way home*, *Blue way home*, *Black only*, *Double Black only*, or *No way down on skis: ride the lift down*.
+- **Pick:** click a run to leave it out (gray) or take it back. Click a proposed lift's line, a built lift's station ring or a pod's ring, or its row in the hub, to leave out the lift and its pod's runs (or the pod's runs) or take them back. Picking plans nothing again.
+- **Knobs:** **Lifts** (auto, or 1 to 9; changing it plans again), **Way home** (green at the base and blue above by default, or green, or blue: the easiest run each lift top should offer), **Mix** (Balanced, Beginner, Expert, As the slope allows), **How many** (Few, Normal, Many; the count scales with the area), **Kinds** (groomed and natural by default; snowmaking and night on request), **Shuffle** for another layout of the same slope.
 - **Totals:** runs kept, the mix against its target, the total fee, and skiers a day once a lift serves them.
-- **Build:** **Build** or **Enter**. Refused when the city cannot pay the total. The runs bind and pay like runs you draw. A run the game refuses turns red and is left out; the rest are built.
+- **Build:** **Build** or **Enter**. Refused when the city cannot pay the total. Only the runs are built: they bind and pay like runs you draw. A run the game refuses turns red and is left out; the rest are built.
+- **Lifts:** the proposals stay proposals. Build each one with the lift tool: place the stations on the marked spots, then draw the line. Until a lift serves them, its runs count as backcountry (see [Lift Service](#lift-service)).
 - **Wait:** the runs are built a few at a time so the game keeps running smoothly, with progress in the hub and the tooltip (*Building runs 4 / 11*). Large areas can take a few seconds to a minute. **Stop** or right click stops after the runs in progress; what is built so far stays, and **Undo** removes it. Closing the tool also stops the build; what is built stays, without Undo.
 - **Undo:** the hub's **Undo** removes the whole build and refunds exactly what it cost. Right click never removes built runs.
-- **Warnings:** a run over water, runs that will be renumbered, runs in more than one ski area, no Welcome Sign nearby, a mix the slope cannot give, and the game's checks being off (Anarchy).
+- **Warnings:** no lift fits the region, lift tops with no way down on skis, a run that ends where nothing continues, a lift top with no green way down, a run over water, runs that will be renumbered, runs in more than one ski area, no Welcome Sign nearby, a mix the slope cannot give, and the game's checks being off (Anarchy).
 - **Trees:** **Tree filler** fills the outlined slope with trees around the runs, up to a tree line. The tree line starts where the wild trees nearby stop; move it 10 or 50 m at a time. Pick **Conifer** (default), **Deciduous**, **Palm**, **All trees** or a single species, and a density. **Plant** (or **Enter**) plants them a few thousand at a time until the slope is full (*Planting trees 2,400 / 9,000*); large areas can take a few seconds to a minute. **Stop** (in place of Plant) or right click stops after the trees in progress; what is planted stays. **Undo trees** removes them. Filler trees count as wild trees: a run drawn over them later can clear them.
 - **Undo ends on close:** **Undo** and **Undo trees** work until the Resort Planner closes. After that, built runs and planted trees stay; the bulldozer removes them one at a time and refunds no run fee.
+- **Scan never ends:** see [Troubleshooting](/guides/troubleshooting/#common-cases).
 
 ## Snow Conditions
 
