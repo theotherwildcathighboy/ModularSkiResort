@@ -52,6 +52,14 @@
 // base, when a run from another base area's lift ends at its bottom. Every lift is scored against the fall line (no transfer
 // exemption). Layout weights: base consolidation 3, fall line 3, parallel lines 2, zigzag 1, crowded terminals 1 (of 10).
 //
+// v6 (round v5's report, the judge's real-layout comparison and the owner's rulings, 2026-10-30): beginner is continuous, a base's
+// credit min(1, green km / 0.8) plus the beginner chair's quarter (capped at 1), and the plan's term the mean over bases weighted by
+// each base's lift count. Grade mix leaves hostile ground out of the target (as coverage does) and the vertical of natural runs on
+// hostile ground out of the planned mix: that ground stays wild. The fall line has a band per use: chairs (and any lift that is not
+// a trunk line) 30 to 60 degrees, trunk lines (a tram, or a gondola past 700 m of rise) 45 to 75 (real lifts, median / p90: chairs
+// 13 / 28, gondolas 19 / 45, trams 23 / 53 degrees); still no transfer exemption. No planning time term: the planner has no
+// time limit, and the host prints each region's planning time.
+//
 // Composite (0-100): fleet 10, skiable coverage 10, lift network 15, beginner terrain at each base 15, intermediate way down 5, grade
 // mix 10, layout 10, validity 10, few stubs 5, little crowding 5, connector economy 5 (served vertical and dead-free are reported at
 // weight 0). Fixed contract: planners must not edit this file.
@@ -93,10 +101,11 @@ namespace AutoGenBatch
         // v5 layout: stacked lines (tops within StackTopM, bottoms over StackBottomM apart, directions within StackDeg); base areas (lift
         // bottoms within BaseAreaM of each other in the lowest third of the lift-served vertical, no lift top within BaseTopM); fall line
         // (no cost up to FallFreeDeg off the ground's mean downhill direction, full cost at FallFullDeg: real lifts run a median 15 and
-        // a p90 33 degrees off it); a station within RopeM of another lift's line between 10 and 90 % of it is under that rope
+        // a p90 33 degrees off it; v6: a trunk line from FallTrunkFreeDeg to FallTrunkFullDeg); a station within RopeM of another
+        // lift's line between 10 and 90 % of it is under that rope
         private const float StackTopM = 300f, StackBottomM = 300f, StackDeg = 30f, BaseAreaM = 300f, BaseTopM = 150f;
-        private const float FallFreeDeg = 30f, FallFullDeg = 60f, RopeM = 40f;
-        private const float BeginnerFullKm = 0.8f, BeginnerHalfKm = 0.3f, BeginnerChair = 0.25f;
+        private const float FallFreeDeg = 30f, FallFullDeg = 60f, FallTrunkFreeDeg = 45f, FallTrunkFullDeg = 75f, RopeM = 40f;
+        private const float BeginnerFullKm = 0.8f, BeginnerChair = 0.25f;   // v6: a base's credit is min(1, km / BeginnerFullKm)
 
         // name, length min / max (m), rise min / max (m), mean grade cap (stage-a-spec 4.4). v3: the maxima are not checked (no lift
         // length limit in the mod); they stay as the planner's type ladder. v5: the beginner chair is a fixed-grip chair for a learning
@@ -534,7 +543,6 @@ namespace AutoGenBatch
                     if (rating < SkiSlopeClassifier.GradeGreen || rating > RunMaxPitch)
                         continue;   // too flat to ski, or past the steepest pitch a run may hold
                     cells++;
-                    groundBands[(int)SkiSlopeClassifier.BandOf(rating)]++;
                     (bool byGroomed, bool byNatural) = Covered(p);
                     if (rating >= SkiSlopeClassifier.GradeDoubleBlack)
                     {
@@ -545,6 +553,7 @@ namespace AutoGenBatch
                         continue;
                     }
                     skiable++;
+                    groundBands[(int)SkiSlopeClassifier.BandOf(rating)]++;   // v6: the grade-mix target leaves hostile ground out too
                     covered += byGroomed ? 1f : byNatural ? 0.5f : 0f;
                 }
             r.HostileShare = cells > 0 ? hostile / (float)cells : 0f;
@@ -645,16 +654,18 @@ namespace AutoGenBatch
             {
                 float km = LearnKm(B);
                 r.GreenRunKm += km;
-                float credit = km >= BeginnerFullKm ? 1f : km >= BeginnerHalfKm ? 0.5f : 0f;
+                float credit = Math.Min(1f, km / BeginnerFullKm);   // v6: continuous (v5: half at 0.3 km, full at 0.8 km)
                 if (Enumerable.Range(0, lifts.Count).Any(L => Find(baseOf, L) == B && lifts[L].Type == "beginner" && EasyFrom(L, SlopeBand.Green).Any(GreenRun)))
                     credit += BeginnerChair;   // a learning chair with green runs from its top
                 bases[B] = Math.Min(1f, credit);
                 if (credit < 1f && r.Notes.Count < 80)
-                    r.Notes.Add($"base at lift {Enumerable.Range(0, lifts.Count).First(L => Find(baseOf, L) == B) + 1}: {km:F2} km of green runs for a beginner");
+                    r.Notes.Add($"base at lift {Enumerable.Range(0, lifts.Count).First(L => Find(baseOf, L) == B) + 1} ({size[B]} lifts): {km:F2} km of green runs for a beginner");
             }
             r.Bases = bases.Count;
             r.BeginnerBases = bases.Values.Count(v => v >= 1f);
-            r.Beginner = bases.Count > 0 ? bases.Values.Average() : 0f;
+            // v6: weighted by each base's lift count (a two-lift pad without greens costs less than the main base without greens)
+            int baseLifts = bases.Keys.Sum(B => size[B]);
+            r.Beginner = baseLifts > 0 ? bases.Sum(kv => size[kv.Key] * kv.Value) / baseLifts : 0f;
 
             // ---- intermediate way down (v4): the share of the resort's vertical, lowest base lift bottom to highest lift top, from which
             // a skier gets home on green or blue (to a base lift's bottom, or to a gondola / tram top to ride down). Experts-only lifts
@@ -751,6 +762,8 @@ namespace AutoGenBatch
                 if (BestScc(thin) < best - thin.Count)
                 {
                     thin.Remove(L);
+                    if (r.Notes.Count < 80)   // v6: a link lift is never thin; say so, so a split is visible in the notes
+                        r.Notes.Add($"lift {L + 1}: {own[L]:F0} m of served drop of its own, kept: the network needs it");
                     continue;
                 }
                 r.Thin++;
@@ -761,11 +774,14 @@ namespace AutoGenBatch
             r.Fleet = (aerialS + thinS) / 2f;
 
             // ---- grade mix (v5): the served runs' vertical per band (a graded diagonal by the ground it crosses) against the band mix
-            // of the region's skiable ground (the 100 m cells above, hostile ground as double black)
+            // of the region's skiable ground (the 100 m cells above). v6: hostile ground is out of the target (v5 counted it as double
+            // black), and a natural run on hostile ground is out of the planned mix (that ground stays wild; coverage scores it)
             float cellSum = groundBands.Sum(), dropSum = 0f;
             var planBands = new float[5];
             foreach (int i in served)
             {
+                if (els[i].Natural && els[i].GroundBand == SlopeBand.DoubleBlack)
+                    continue;
                 planBands[(int)els[i].GroundBand] += Math.Max(0f, els[i].Drop);
                 dropSum += Math.Max(0f, els[i].Drop);
             }
@@ -914,8 +930,9 @@ namespace AutoGenBatch
                 }
             }
             // fall line (v5): the angle between a lift's line and the mean uphill direction of the ground under it; no cost to
-            // FallFreeDeg, full cost at FallFullDeg. Exempt: a line on ground too flat to have a fall line (v5.1: no transfer exemption,
-            // real link lifts stay near the fall line too)
+            // FallFreeDeg, full cost at FallFullDeg; v6: a trunk line (a tram, or a gondola past TrunkRiseM) from FallTrunkFreeDeg to
+            // FallTrunkFullDeg (the relief for a line across a face; still no transfer exemption). Exempt: a line on ground too flat to
+            // have a fall line
             for (int L = 0; L < lifts.Count; L++)
             {
                 float2 b = bot[L].xz, d = top[L].xz - b;
@@ -933,14 +950,16 @@ namespace AutoGenBatch
                 up /= Math.Max(1, k);
                 if (math.length(up) < SkiSlopeClassifier.GradeGreen)
                     continue;
+                bool trunk = lifts[L].Type == "tram" || lifts[L].Type == "gondola" && top[L].y - bot[L].y > TrunkRiseM;
+                float free = trunk ? FallTrunkFreeDeg : FallFreeDeg, full = trunk ? FallTrunkFullDeg : FallFullDeg;
                 float deg = math.degrees(math.acos(math.clamp(math.dot(u, math.normalize(up)), -1f, 1f)));
-                float cost = math.saturate((deg - FallFreeDeg) / (FallFullDeg - FallFreeDeg));
+                float cost = math.saturate((deg - free) / (full - free));
                 if (cost > 0f)
                 {
                     r.OffFall++;
                     r.FallCost += cost;
                     if (r.Notes.Count < 80)
-                        r.Notes.Add($"lift {L + 1}: {deg:F0} degrees off the fall line");
+                        r.Notes.Add($"lift {L + 1}: {deg:F0} degrees off the fall line{(trunk ? " (a trunk line)" : "")}");
                 }
             }
             float hubS = (float)Math.Exp(-r.HubExcess / 2.0), parS = (float)Math.Exp(-r.Parallels / 3.0);
