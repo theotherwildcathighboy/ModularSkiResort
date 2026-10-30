@@ -1,0 +1,277 @@
+{
+  "name": "SkiSafetyNetB",
+  "written_utc": "2026-10-29T22:14:00Z",
+  "blender": "5.2.3 LTS",
+  "files": {
+    "SkiSafetyNetB.fbx": {
+      "bytes": 17068,
+      "sha1": "c71e9b6b87234bc5eb2a414236a24f0f5d612557"
+    },
+    "SkiSafetyNetB_BaseColor.png": {
+      "bytes": 154063,
+      "sha1": "6e7df1c21c7262fe9de5d7bc9f38a7cdbaf9dce6"
+    },
+    "SkiSafetyNetB_ControlMask.png": {
+      "bytes": 21428,
+      "sha1": "54b5d37f2f7bfe98c5535c20a7c9390273054cbd"
+    },
+    "SkiSafetyNetB_LOD1.fbx": {
+      "bytes": 14348,
+      "sha1": "dc8a103b5b1da184dc34b374628cfda43739b38b"
+    },
+    "SkiSafetyNetB_MaskMap.png": {
+      "bytes": 21501,
+      "sha1": "021acea4ad5be77c0941d771c7ee6c167c4acc3d"
+    },
+    "SkiSafetyNetB_Normal.png": {
+      "bytes": 20723,
+      "sha1": "b0852725f0979de48a3e16da9e57791666096fe5"
+    },
+    "settings.json": {
+      "bytes": 473,
+      "sha1": "2de5eca589904950717db0d829c34dedb682aec1"
+    }
+  },
+  "generator": "assets/blender/safety_fence_b.py",
+  "args": [
+    "--out",
+    "../import/fences/B",
+    "--export",
+    "--preview",
+    "../preview/fences/B"
+  ],
+  "research": "docs/research/fence-cutout-2026-10-29.md",
+  "kind": "hanging (lane mesh tile; cs2_validate has no lane kind: no ground rule)",
+  "lane_mesh": true,
+  "mesh_prefabs": [
+    "SkiSafetyNetB Mesh",
+    "SkiSafetyNetB_LOD1 Mesh"
+  ],
+  "material_template": "CurvedHashedCutout",
+  "surface_settings": {
+    "materialTemplate": "CurvedHashedCutout",
+    "needsAlphaClip": true,
+    "alphaCutoff": 0.54
+  },
+  "curve_properties": {
+    "tiling_count": 2,
+    "override_length_m": 0.0
+  },
+  "tile_length_m": 4.0,
+  "bays": 2,
+  "tris": {
+    "LOD0": 68,
+    "LOD1": 20
+  },
+  "caps": {
+    "LOD0": 76,
+    "LOD1": 34
+  },
+  "texture_px": 1024,
+  "maps": [
+    "BaseColor",
+    "Normal",
+    "MaskMap",
+    "ControlMask"
+  ],
+  "atlas_columns_px": {
+    "post": [
+      0,
+      64
+    ],
+    "black": [
+      64,
+      96
+    ],
+    "guard": [
+      96,
+      128
+    ],
+    "sheet": [
+      128,
+      1024
+    ]
+  },
+  "v_robust": true,
+  "alpha": {
+    "net_alpha_mean": 0.4549,
+    "net_alpha_zero_fraction": 0.5005,
+    "net_alpha_full_fraction": 0.4093,
+    "edge_row_alpha_mean": [
+      0.4385,
+      0.4389
+    ],
+    "hole_rgb_max_dev": 0.0,
+    "mirror_max_diff": 0.0
+  },
+  "texel_density_px_per_m": {
+    "sheet_across": 447.5,
+    "sheet_up_at_posts": 757.8
+  },
+  "net_pattern": {
+    "openings_per_row_per_bay": 30,
+    "row_pitch_px": 51.2,
+    "k": 0.65,
+    "superellipse_p": 1.4,
+    "cord_rows": [
+      [
+        6,
+        16
+      ],
+      [
+        1008,
+        1018
+      ]
+    ],
+    "opening_cm": [
+      4.3,
+      8.8
+    ]
+  },
+  "geometry": {
+    "post_half_m": 0.015,
+    "cap_half_m": 0.0195,
+    "post_y": [
+      -0.15,
+      1.55
+    ],
+    "cap_y": [
+      1.52,
+      1.58
+    ],
+    "post_center_after_bay_start_m": 0.02,
+    "sheet_x": 0.02,
+    "twin_offset_m": 0.003,
+    "hem_y": -0.1,
+    "lod1_post_sides": 3,
+    "top_y": 1.25,
+    "sag_m": 0.08,
+    "bulge_m": 0.02,
+    "lod1_top_y": 1.2
+  },
+  "prefab_bounds": {
+    "LOD0": {
+      "min": [
+        -0.0195,
+        -0.15,
+        -2.0
+      ],
+      "max": [
+        0.043,
+        1.58,
+        2.0
+      ],
+      "tris": 68,
+      "verts": 72,
+      "area_m2": 10.8322
+    },
+    "LOD1": {
+      "min": [
+        -0.021213,
+        -0.15,
+        -2.0
+      ],
+      "max": [
+        0.023,
+        1.55,
+        2.0
+      ],
+      "tris": 20,
+      "verts": 28,
+      "area_m2": 10.7748
+    }
+  },
+  "contracts": {
+    "LOD0": {
+      "tris": 68,
+      "verts": 72,
+      "faces": 50,
+      "bounds_prefab_m": {
+        "min": [
+          -0.0195,
+          -0.15,
+          -2.0
+        ],
+        "max": [
+          0.043,
+          1.58,
+          2.0
+        ]
+      },
+      "post_window_m": [
+        0.0005,
+        0.0395
+      ],
+      "sheet_twins": 16
+    },
+    "LOD1": {
+      "tris": 20,
+      "verts": 28,
+      "faces": 14,
+      "bounds_prefab_m": {
+        "min": [
+          -0.0212,
+          -0.15,
+          -2.0
+        ],
+        "max": [
+          0.023,
+          1.55,
+          2.0
+        ]
+      },
+      "post_window_m": [
+        0.0016,
+        0.0384
+      ],
+      "sheet_twins": 4
+    }
+  },
+  "lod_switch_formula": {
+    "switch_m": {
+      "1": 242.8
+    },
+    "cull_m": 1086.0,
+    "bias": 0.213,
+    "note": "cs2_preview.lod_switch_table (object formula); lanes may select LODs differently: unverified"
+  },
+  "settings_json": {
+    "LOD1": "Skip",
+    "sharedAssets": "LOD1 -> LOD0 maps",
+    "Surface": {
+      "materialTemplate": "CurvedHashedCutout",
+      "needsAlphaClip": true,
+      "alphaCutoff": 0.54
+    }
+  },
+  "validation": {
+    "errors": 0,
+    "warnings": 0,
+    "tris": {
+      "0": 68,
+      "1": 20
+    },
+    "tex": [
+      1024
+    ],
+    "warn_list": []
+  },
+  "end_post": "SkiNetPostA (generation A, unchanged)",
+  "previews": [
+    "assets/preview/fences/B/SkiSafetyNetB_10m_backlit.png",
+    "assets/preview/fences/B/SkiSafetyNetB_10m_front.png",
+    "assets/preview/fences/B/SkiSafetyNetB_10m_oblique.png",
+    "assets/preview/fences/B/SkiSafetyNetB_10m_oblique_posts-charcoal.png",
+    "assets/preview/fences/B/SkiSafetyNetB_10m_oblique_posts-tan.png",
+    "assets/preview/fences/B/SkiSafetyNetB_120m_oblique.png",
+    "assets/preview/fences/B/SkiSafetyNetB_2m_backlit.png",
+    "assets/preview/fences/B/SkiSafetyNetB_2m_front.png",
+    "assets/preview/fences/B/SkiSafetyNetB_2m_oblique.png",
+    "assets/preview/fences/B/SkiSafetyNetB_50m_backlit.png",
+    "assets/preview/fences/B/SkiSafetyNetB_50m_front.png",
+    "assets/preview/fences/B/SkiSafetyNetB_50m_lod1_oblique.png",
+    "assets/preview/fences/B/SkiSafetyNetB_50m_oblique.png",
+    "assets/preview/fences/B/SkiSafetyNetB_extras.png",
+    "assets/preview/fences/B/SkiSafetyNetB_sheet.png"
+  ]
+}

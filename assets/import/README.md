@@ -39,11 +39,14 @@ Export/import staging for CS2 Editor assets, organized `<category>/<generation l
   SkiResortGate's `m_Meshes` (R14). No `_Win`. Its Write Everywhere layout lives in
   `assets/we/` (data only, optional). `B/` = the shared sign sets (`SkiSignSet{Gate,Grand,Hut,
   PatrolHQ,PatrolHut,School}B`, one 2048 sheet at 300 px/m, `cs2_signset.py`).
-- **fences/** - `A/SkiSafetyNetA` (the orange safety-net fence: the 4 m lane-mesh tile the
-  vanilla curve shader repeats along a drawn fence) and `A/SkiNetPostA` (its end post), from
-  `assets/blender/safety_fence.py` (+ `safety_fence_stage.py`, the staged prefab JSON under
-  `assets/staging/prefabs/fences/`); design `docs/research/art/assets-2026-10/design/safety-fence.md`.
-  Nothing imported yet: S1 step 0 is the JSON-only probe.
+- **fences/** - `A/SkiSafetyNetA` (the first orange safety-net fence: the 4 m lane-mesh tile the
+  vanilla curve shader repeats along a drawn fence; it rendered opaque in field test 3) and
+  `A/SkiNetPostA` (its end post, still in use), from `assets/blender/safety_fence.py` (+
+  `safety_fence_stage.py`, the staged prefab JSON under `assets/staging/prefabs/fences/`); design
+  `docs/research/art/assets-2026-10/design/safety-fence.md`. `B/SkiSafetyNetB` from
+  `assets/blender/safety_fence_b.py`: the see-through net that replaces SkiSafetyNetA as the
+  SkiSafetyFence lane mesh (vanilla chain-link cutout recipe, a V-robust column atlas; research
+  `docs/research/fence-cutout-2026-10-29.md`).
 - **cabins/** - `A/SkiGondolaCabin8A` and `A/SkiTramCabinA` (`lift_cabin.py`): the gondola and
   tram carriers.
 - **tramtowers/** - `A/SkiTramTower{30,45,60}A` (`tram_tower.py`): the aerial tram's lattice
@@ -58,7 +61,8 @@ Current generation per category (nothing from the 2026-10 round is imported yet,
 chairs **M**, stations **A** (detachable, gondola, tram) and **M** (fixedgrip), towers **O**,
 tramtowers **A**, cabins **A**, lodges **B**, buildings **A**, signs **A** (welcome sign) and
 **B** (sign sets), props **A** (snow guns, floodlights, hydrant boxes, the red beacon) and **B**
-(dressing kit), probes **B** (import-behavior probes, not shipped), fences **A**, surfaces **A**.
+(dressing kit), probes **B** (import-behavior probes, not shipped), fences **B** (net) and **A**
+(end post), surfaces **A**.
 Generator `--out` paths must target the letter folder, e.g. `--out ../import/towers/N`.
 Never reuse a generation letter (the Editor mints a new mesh CID per import; hand-made
 prefabs repoint by CID — see docs/PIPELINE.md).
