@@ -72,6 +72,7 @@ namespace SkiResortMod.Settings
         public const bool DefaultEnableSnowGating = true;
         public const bool DefaultSnowGunPlumes = true;
         public const bool DefaultDiagnosticMeasurements = false;
+        public const bool DefaultPlannerOnMainThread = false;
         public const bool DefaultBookTicketsAsFees = true;
         public const int DefaultSeasonPassShare = SkiMoneyRules.PassShareDefault;
         public const int DefaultSeasonPassMultiplier = SkiMoneyRules.PassMultiplierDefault;
@@ -354,6 +355,15 @@ namespace SkiResortMod.Settings
         /// <summary>Null-tolerant read for the systems (Mod.Settings is null before OnLoad and after OnDispose)</summary>
         public static bool DiagnosticsOn => Mod.Settings?.DiagnosticMeasurements ?? DefaultDiagnosticMeasurements;
 
+        /// <summary>The Resort Planner's scan on the main thread, sliced over frames as before the worker thread (off by default): the
+        /// field-test fallback if the worker misbehaves. Same planner, same result (gate D-2). Read by QuickRunsToolSystem at each scan
+        /// launch (a running scan keeps the thread it started on).</summary>
+        [SettingsUISection(SectionMain, GroupDiagnostics)]
+        public bool PlannerOnMainThread { get; set; }
+
+        /// <summary>Null-tolerant read for the tool</summary>
+        public static bool PlannerOnMainThreadOn => Mod.Settings?.PlannerOnMainThread ?? DefaultPlannerOnMainThread;
+
         // Key bindings must stay public get+set ProxyBinding (ModSetting.cs:32-34). Defaults come from the attribute via the base
         // constructor: never assign these in SetDefaults.
 
@@ -482,6 +492,7 @@ namespace SkiResortMod.Settings
             LiftBuildAids = true;
             LiftTowerPlanner = true;
             DiagnosticMeasurements = DefaultDiagnosticMeasurements;
+            PlannerOnMainThread = DefaultPlannerOnMainThread;
             // Key bindings are deliberately absent: the base constructor generated them (ModSetting.cs:43, 56-64) before this runs
         }
     }

@@ -4,7 +4,8 @@
 // blending), guards (lot, lift line, water), undo (bit-exact pre-image, foreign edits survive, LIFO stack capped at
 // MaxEntries; entries over the texel cap refused), raster texel cap, nearest-leg template at switchbacks, map encoding,
 // edit model and input rules, cost (1.5 km path under 3 s), the default width and its earthwork (GR-18), the run outline
-// ribbon (GR-19: loops cut at tight bends, simple ring, legs too close refused).
+// ribbon (GR-19: loops cut at tight bends, simple ring, legs too close refused), the default profile unchanged by hash (GR-23), the
+// narrow full-cut profile (GR-24: no fill, 1:1 bank, tread width, grade limit, cost per m).
 // Run from the repo root: dotnet run --project tests/GradeBatch/GradeBatch.csproj -c Release
 // Prints `FAIL  where: msg` lines and one SUMMARY line; Environment.ExitCode = failures (the LiftBatch convention).
 
@@ -60,6 +61,8 @@ namespace GradeBatch
             CrossingRatings();
             FadeAndAlongside();
             InsideRuns();
+            GoldenDefaultProfile();
+            NarrowProfile();
             PlayerText();
             Console.WriteLine($"SUMMARY GradeBatch: {s_Checks} checks, {s_Failures} failure(s)");
             Environment.ExitCode = s_Failures;
@@ -1110,6 +1113,217 @@ namespace GradeBatch
             Check(GradeRaster.ChooseInsideAllowance(a => false) == -1f, "GR-22b refused", "no allowance keeps the band: -1 (guard CrossedRunBand)");
             Check(GradeRaster.ChooseInsideAllowance(a => true) == 2f, "GR-22b full", "the first step is 2 m");
             Check(GradeParams.InsideAllowanceSteps[GradeParams.InsideAllowanceSteps.Length - 1] == 0f, "GR-22b last step", "the last step is 0 (the old keep)");
+        }
+
+        /// <summary>GR-23: the default profile is untouched by the narrow full-cut option (GradeParams.NoFill). Each fixture is solved
+        /// with the default GradeParams (or the existing non-default knobs) and every output bit (ground, profile, before / after heights,
+        /// zones, volumes, counters) is hashed. The expected hashes were taken from the code BEFORE the NoFill change (main a3d2bd1), so
+        /// a difference in any default result, however small, fails here. Re-baseline only for a deliberate change of the default.</summary>
+        private static void GoldenDefaultProfile()
+        {
+            Func<float2, float> mountain = xz => 1500f + 0.28f * xz.x + 6f * math.sin(xz.y / 40f) + 3f * math.cos(xz.x / 23f);
+            Func<float2, float> sidehill = xz => 1200f + 0.12f * xz.x + 0.30f * xz.y + 2f * math.sin(xz.x / 30f);
+            Func<float2, float> hill60 = xz => 1000f + 0.6f * xz.y;
+            Func<float2, float> mound = xz => math.abs(xz.x) < 60f ? 5f : 0f;
+            Func<float2, float> ditch = xz => math.abs(xz.x) < 60f ? -5f : 0f;
+            Func<float2, float> hump = xz => 100f + 6f * math.exp(-xz.x * xz.x / 2500f);
+            Func<float2, float> bump = xz => 1000f + 0.15f * xz.y + 1.5f * math.max(0f, 1f - math.abs(xz.x) / 4f);
+            float2[] runA = { new float2(-30, -150), new float2(30, -150), new float2(30, 150), new float2(-30, 150) };
+            var keepA = new List<float2[]> { runA };
+            var sw = new List<float2>();
+            for (int i = 0; i <= 6; i++)
+                sw.Add(new float2(i * 100f, i % 2 == 0 ? 0f : 120f));
+            float2[] km = Line(new float2(0, 0), new float2(1000, 0));
+            float2[] cross = Line(new float2(-150, 0.25f), new float2(150, 0.25f));
+            float2[] wide = Line(new float2(-200, 0.25f), new float2(200, 0.25f));
+            var cases = new (string Name, IList<float2> Pts, Func<float2, float> Ground, GradeParams P, IList<float2[]> Keep)[]
+            {
+                ("mountain switchbacks, default", sw, mountain, new GradeParams(), null),
+                ("sidehill 1 km, default", km, sidehill, new GradeParams(), null),
+                ("sidehill 1 km, 8 m", km, sidehill, new GradeParams { TopWidthM = 8f }, null),
+                ("sidehill 1 km, 32 m 10 %", km, sidehill, new GradeParams { TopWidthM = 32f, MaxGrade = 0.10f }, null),
+                ("60 % sidehill", Line(new float2(0, 0), new float2(200, 0)), hill60, new GradeParams(), null),
+                ("mound cut, constant grade 8 m", wide, mound, new GradeParams { Mode = GradeProfileMode.ConstantGrade, TopWidthM = 8f }, null),
+                ("ditch fill, constant grade 8 m", wide, ditch, new GradeParams { Mode = GradeProfileMode.ConstantGrade, TopWidthM = 8f }, null),
+                ("hump 10 %, cut 1:1 fill 1:3", cross, hump, new GradeParams { MaxGrade = 0.10f, CutRun = 1f, FillRun = 3f }, null),
+                ("crossed run", cross, bump, new GradeParams(), keepA),
+            };
+            string[] expect = GoldenHashes;
+            var got = new List<string>();
+            for (int k = 0; k < cases.Length; k++)
+            {
+                var c = cases[k];
+                string h = HashSolved(Solve(c.Pts, c.Ground, c.P, true, c.Keep));
+                got.Add(h);
+                bool known = expect.Length == cases.Length;
+                Check(known && expect[k] == h, "GR-23 default unchanged", known ? $"{c.Name}: {h} vs {expect[k]}" : $"{c.Name}: {h} (no baseline)");
+            }
+            if (expect.Length != cases.Length)
+                Console.WriteLine("GOLDEN " + string.Join(", ", got.Select(x => "\"" + x + "\"")));
+        }
+
+        private static readonly string[] GoldenHashes =
+        {
+            "abb134cbd097775a", "32d5cd8a372b8d96", "5dee9d8da1069e20", "e89eda14b426811e", "bb9690017069d4d1",
+            "88b027b00c7dadf1", "4d00f23e9d6095b8", "232f8aa457aa0277", "a4c448b461db794d",
+        };
+
+        private static string HashSolved(Solved s)
+        {
+            using (var ms = new MemoryStream())
+            using (var w = new BinaryWriter(ms))
+            {
+                foreach (float f in s.Prof.Ground) w.Write(f);
+                foreach (float f in s.Prof.Y) w.Write(f);
+                foreach (float f in s.Prof.SegGrade) w.Write(f);
+                w.Write(s.Prof.MaxGradeAbs); w.Write(s.Prof.AvgGradeAbs); w.Write(s.Prof.MaxCutM); w.Write(s.Prof.MaxFillM);
+                w.Write(s.Prof.ShortfallM); w.Write(s.Prof.Feasible);
+                GradeRaster r = s.Raster;
+                w.Write(r.X0); w.Write(r.Z0); w.Write(r.W); w.Write(r.H); w.Write(r.Changed);
+                foreach (float f in r.Before) w.Write(f);
+                foreach (float f in r.After) w.Write(f);
+                w.Write(r.Zone);
+                w.Write(r.CutM3); w.Write(r.FillM3); w.Write(r.MaxCutM); w.Write(r.MaxFillM); w.Write(r.SteepBankTexels);
+                w.Write(r.KeptTexels); w.Write(r.InsideTexels); w.Write(r.MaxInsideM); w.Write(r.MaxBankStepM);
+                w.Flush();
+                using (var sha = System.Security.Cryptography.SHA256.Create())
+                    return BitConverter.ToString(sha.ComputeHash(ms.ToArray())).Replace("-", "").Substring(0, 16).ToLowerInvariant();
+            }
+        }
+
+        /// <summary>Solve a NoFill profile the way the planner calls it: the ground array is GradeProfile.LowEdgeGround.</summary>
+        private static Solved SolveNarrow(IList<float2> pts, Func<float2, float> ground, GradeParams p, IList<float2[]> keep = null)
+        {
+            var s = new Solved { Path = GradePath.Build(pts, p.SampleStepM) };
+            float[] g = GradeProfile.LowEdgeGround(s.Path, ground, 0.5f * p.TopWidthM);
+            s.Prof = GradeProfile.Solve(s.Path, g, p, GradeRaster.PinTolerance(s.Path, keep, p));
+            if (GradeRaster.Bounds(Map, s.Path, s.Prof, p, out int4 rect, out float reach))
+            {
+                s.Reach = reach;
+                s.Raster = GradeRaster.Build(Map, rect, s.Path, s.Prof, p, reach, (i, j) => ground(Map.TexelCenter(i, j)), keep);
+            }
+            return s;
+        }
+
+        /// <summary>GR-24: the narrow full-cut profile (DECISIONS 443). Parameters; the 50 % cross slope template (tread, 1:1 bank,
+        /// nothing raised, no fill volume); the unfilled count when a caller solves against the centerline ground; the grade limit on
+        /// the bench; cut-only on a hump and across a crossed run; earthwork per meter next to the default profile; time.</summary>
+        private static void NarrowProfile()
+        {
+            var np = GradeParams.NarrowFullCut();
+            Check(np.NoFill && np.TopWidthM == 10f && np.CutRun == 1f && np.MaxGrade == SkiRunRatingRules.CatTrackMaxGrade &&
+                  np.Mode == GradeProfileMode.FollowGround, "GR-24 params", np.Describe());
+            Check(GradeParams.NarrowFullCut(topWidthM: 2f).TopWidthM == GradeParams.NarrowMinTopWidthM &&
+                  GradeParams.NarrowFullCut(topWidthM: 40f).TopWidthM == GradeParams.NarrowMaxTopWidthM &&
+                  GradeParams.NarrowFullCut(0.1f, 9f).MaxGrade == 0.1f && GradeParams.NarrowFullCut(0.1f, 9f).TopWidthM == 9f,
+                  "GR-24 clamp", "8-12 m, max grade passed through");
+            Check(!new GradeParams().NoFill && new GradeParams().Describe() == "max grade 25 %, top 20.0 m, cut 1:1.5, fill 1:2.0, follow ground",
+                  "GR-24 default", new GradeParams().Describe());
+
+            // (a) 50 % cross slope (ground rises with z), the path along x at z = 0.25 (off a texel center line): level along the track
+            Func<float2, float> face50 = xz => 1000f + 0.5f * xz.y;
+            float2[] along = Line(new float2(-200, 0.25f), new float2(200, 0.25f));
+            var s = SolveNarrow(along, face50, np);
+            GradeRaster r = s.Raster;
+            float yb = 1000f + 0.5f * (0.25f - 5f);   // the bench: the lowest ground across the 10 m top (its downhill edge)
+            Check(math.abs(s.Prof.Y[s.Path.Count / 2] - yb) < 0.02f, "GR-24 bench level", $"{s.Prof.Y[s.Path.Count / 2]:F3} vs {yb:F3}");
+            Check(r.FillM3 == 0f && r.MaxFillM == 0f, "GR-24 no fill volume", r.Describe());
+            int raised = 0;
+            for (int t = 0; t < r.After.Length; t++)
+                if (r.After[t] > r.Before[t] + 1e-4f)
+                    raised++;
+            Check(raised == 0, "GR-24 nothing raised", $"{raised} texel(s) above the ground");
+            Check(r.UnfilledTopTexels == 0 && r.TopTexels > 0, "GR-24 whole top in cut", $"{r.UnfilledTopTexels} of {r.TopTexels} top texels unfilled");
+            int ti = (int)math.round(Map.ToTexel(new float2(0, 0)).x);
+            int bad = 0, tread = 0, bank = 0;
+            float worstSlope = 0f;
+            float prevH = float.NaN, prevD = float.NaN;
+            for (int tj = r.Z0; tj < r.Z0 + r.H; tj++)
+            {
+                float2 c = Map.TexelCenter(ti, tj);
+                float d = math.abs(c.y - 0.25f);
+                float before = face50(c);
+                float expect = d <= 5f ? math.min(before, yb) : (c.y > 0.25f ? math.min(before, yb + (d - 5f) / 1f) : before);
+                float got = r.After[r.Index(ti, tj)];
+                if (math.abs(got - expect) > 0.07f)
+                    bad++;
+                if (d <= 5f && math.abs(got - yb) < 0.07f)
+                    tread++;
+                // the cut bank (uphill, beyond the top, still below the ground): consecutive texels climb 1 m per m
+                bool onBank = c.y > 0.25f && d > 5f && got < before - 0.1f;
+                if (onBank)
+                {
+                    bank++;
+                    if (!float.IsNaN(prevH) && math.abs(d - prevD - Map.Cell.y) < 1e-3f)
+                        worstSlope = math.max(worstSlope, math.abs((got - prevH) / (d - prevD) - 1f));
+                    prevH = got;
+                    prevD = d;
+                }
+                else
+                    prevH = float.NaN;
+            }
+            Check(bad == 0, "GR-24 cut template", $"{bad} texel(s) off the 10 m / 1:1 / no-fill template");
+            Check(math.abs(tread * Map.Cell.y - np.TopWidthM) <= Map.Cell.y, "GR-24 tread width", $"{tread} texel(s) x {Map.Cell.y} m vs {np.TopWidthM} m");
+            Check(bank >= 2 && worstSlope < 0.02f, "GR-24 bank 1:1", $"{bank} bank texel(s), worst slope error {worstSlope:F3}");
+
+            // (b) solved against the CENTERLINE ground (a caller that skips LowEdgeGround): the downhill half of the top is not tread
+            var ctr = Solve(along, face50, np);
+            Check(ctr.Raster.FillM3 == 0f && ctr.Raster.UnfilledTopTexels > 0 && ctr.Raster.UnfilledTopTexels < ctr.Raster.TopTexels &&
+                  ctr.Raster.MaxUnfilledM > 0.5f, "GR-24 unfilled counted", ctr.Raster.Describe());
+
+            // (c) earthwork per meter on that face, narrow vs the default 20 m profile (both report cut + fill)
+            float len = s.Path.LengthM;
+            var def = Solve(along, face50, new GradeParams());
+            float narrowPerM = (r.CutM3 + r.FillM3) / len, defPerM = (def.Raster.CutM3 + def.Raster.FillM3) / len;
+            Console.WriteLine(string.Format(CultureInfo.InvariantCulture,
+                "INFO  GR-24 50 % face, {0:F0} m: narrow cut {1:F1} m3/m fill {2:F1} m3/m; default 20 m cut {3:F1} m3/m fill {4:F1} m3/m",
+                len, r.CutM3 / len, r.FillM3 / len, def.Raster.CutM3 / len, def.Raster.FillM3 / len));
+            // analytic section: tread 10 m under a 50 % face = 25 m2 (0..5 m deep), bank 1:1 meets the face 10 m out = 25 m2 more
+            Check(math.abs(narrowPerM - 50f) < 7f, "GR-24 cost per m", $"{narrowPerM:F1} m3/m vs 50 analytic");
+
+            // (d) the grade limit holds on the bench: a 12 % climb with bumps along the track, and a 40 % climb that cannot
+            Func<float2, float> climb = xz => 1000f + 0.5f * xz.y + 0.12f * xz.x + 3f * math.sin(xz.x / 25f);
+            var g1 = SolveNarrow(Line(new float2(0, 0.25f), new float2(600, 0.25f)), climb, np);
+            Check(g1.Prof.Feasible && g1.Prof.MaxGradeAbs <= 0.25f + 1e-3f, "GR-24 grade limit", $"{g1.Prof.MaxGradeAbs:P1}");
+            int above = 0;
+            for (int i = 0; i < g1.Path.Count; i++)
+                if (g1.Prof.Y[i] > g1.Prof.Ground[i] + 1e-3f)
+                    above++;
+            Check(above == 0, "GR-24 bench at or below the low edge", $"{above} sample(s) above");
+            float worstSurf = 0f;
+            for (int i = 0; i < g1.Path.Count; i++)
+                worstSurf = math.max(worstSurf, math.abs(g1.Raster.SampleAt(Map, g1.Raster.After, g1.Path.Xz[i]) - g1.Prof.Y[i]));
+            Check(worstSurf < 0.35f, "GR-24 surface = bench", $"worst centerline deviation {worstSurf:F2} m");
+            Check(g1.Raster.FillM3 == 0f, "GR-24 climb no fill", g1.Raster.Describe());
+            var steep = SolveNarrow(Line(new float2(0, 0.25f), new float2(200, 0.25f)), xz => 900f + 0.5f * xz.y + 0.40f * xz.x, np);
+            Check(!steep.Prof.Feasible && steep.Prof.ShortfallM > 0f, "GR-24 steep refused", $"shortfall {steep.Prof.ShortfallM:F1} m");
+
+            // (e) a hump on a level track (the default fills the hollows): cut only, still within the limit
+            Func<float2, float> hump = xz => 100f + 6f * math.exp(-xz.x * xz.x / 2500f) - 5f * math.exp(-(xz.x - 80f) * (xz.x - 80f) / 400f);
+            var hp = SolveNarrow(Line(new float2(-150, 0.25f), new float2(150, 0.25f)), hump, GradeParams.NarrowFullCut(0.10f));
+            Check(hp.Prof.Feasible && hp.Prof.MaxGradeAbs <= 0.10f + 1e-3f && hp.Raster.FillM3 == 0f && hp.Prof.MaxFillM <= 1e-3f, "GR-24 hump", hp.Raster.Describe());
+
+            // (f) across a crossed run nothing is raised either (the inside correction is cut-only)
+            float2[] runA = { new float2(-30, -150), new float2(30, -150), new float2(30, 150), new float2(-30, 150) };
+            var keepA = new List<float2[]> { runA };
+            Func<float2, float> bump = xz => 1000f + 0.15f * xz.y + 1.5f * math.max(0f, 1f - math.abs(xz.x) / 4f);
+            var kp = SolveNarrow(Line(new float2(-150, 0.25f), new float2(150, 0.25f)), bump, np, keepA);
+            int raisedK = 0;
+            for (int t = 0; t < kp.Raster.After.Length; t++)
+                if (kp.Raster.After[t] > kp.Raster.Before[t] + 1e-4f)
+                    raisedK++;
+            Check(raisedK == 0 && kp.Raster.FillM3 == 0f, "GR-24 crossing no fill", $"{raisedK} raised; {kp.Raster.Describe()}");
+
+            // (g) time: the 1.5 km mountain track
+            Func<float2, float> mountain = xz => 1500f + 0.28f * xz.x + 6f * math.sin(xz.y / 40f) + 3f * math.cos(xz.x / 23f);
+            var pts = new List<float2>();
+            for (int i = 0; i <= 8; i++)
+                pts.Add(new float2(i * 120f, (i % 2 == 0 ? 0f : 140f)));
+            var sw = Stopwatch.StartNew();
+            var m = SolveNarrow(pts, mountain, np);
+            sw.Stop();
+            Console.WriteLine($"INFO  GR-24 mountain {m.Path.LengthM:F0} m narrow: {sw.Elapsed.TotalMilliseconds:F0} ms; {m.Raster.Describe()}");
+            Check(sw.Elapsed.TotalMilliseconds < 3000 && m.Raster.FillM3 == 0f, "GR-24 time", $"{sw.Elapsed.TotalMilliseconds:F0} ms");
         }
 
         private static float Area(float2[] ring)

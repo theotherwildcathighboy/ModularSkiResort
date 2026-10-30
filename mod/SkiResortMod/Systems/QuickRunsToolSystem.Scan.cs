@@ -1,8 +1,9 @@
 // Quick runs tool: the scan. Copies the region's texel rectangle of the CPU heights (plus a wet layer from the water surface) into the
-// planner's HeightSnapshot once, collects the obstacles (every Surface area, our runs, unowned map tiles), and steps the planner a
-// fixed budget per frame (a progress line in the tooltip). On Enter the snapshot and the obstacles are read again: a changed world
-// re-scans instead of building a stale plan. Warnings: the planner's, then the tool's (money, renumbering, other resort, no sign,
-// game checks off).
+// back buffer of two HeightSnapshots once, collects the obstacles (every Surface area, our runs, unowned map tiles), the pinned lifts
+// and the access points, and hands a fresh input to the scan job (QuickRunsToolSystem.Worker.cs: a worker thread, or the planner
+// stepped a fixed budget per frame with the Diagnostics fallback). Every reader takes the published copy (m_Published), never the
+// planner's live result. On Enter the snapshot and the obstacles are read again: a changed world re-scans instead of building a stale
+// plan. Warnings: the planner's, then the tool's (money, renumbering, other resort, no sign, game checks off).
 // Engine notes: EngineNotes/QuickRunsToolSystem.md (Scan)
 
 using System;
@@ -29,9 +30,11 @@ namespace SkiResortMod.Systems
         private const float WetDepthM = 0.1f;   // the cat track tool's threshold
 
         private readonly SkiRunAutoPlanner m_Planner = new SkiRunAutoPlanner();
-        private readonly AutoPlanInput m_Input = new AutoPlanInput();
-        private readonly List<AutoObstacle> m_Obstacles = new List<AutoObstacle>();
-        private HeightSnapshot m_Snap;
+        private AutoPlanInput m_Input = new AutoPlanInput();                // the last launched scan's input (fresh per launch)
+        private List<AutoObstacle> m_Obstacles = new List<AutoObstacle>();    // fresh per collect: a running job reads the old list
+        private HeightSnapshot m_Snap;                                        // the latest snapshot taken (one of m_SnapBuf)
+        private readonly HeightSnapshot[] m_SnapBuf = new HeightSnapshot[2];
+        private HeightSnapshot m_PlannerSnap;                                 // the buffer the planner holds (never rewritten)
         private ulong m_SnapPrint, m_ObstaclePrint;
         private AutoPlanKnobs m_Knobs = AutoPlanKnobs.Default(0);
         private uint m_Shuffle;
@@ -57,6 +60,9 @@ namespace SkiResortMod.Systems
         {
             if (m_Phase != ToolPhase.Region && m_Phase != ToolPhase.Preview)
                 return;
+            long t0 = System.Diagnostics.Stopwatch.GetTimestamp();
+            if (m_Disabled || !PollScanJob(true))
+                return;   // a faulted job disabled the tool
             float2[] region = CornerArray();
             UpdateReadout();
             if (region == null || region.Length < 3)
@@ -78,36 +84,45 @@ namespace SkiResortMod.Systems
             }
             CollectObstacles(region);
             m_Knobs.Seed = SkiRunAutoPlanner.SeedOf(region, m_Shuffle);
-            m_Input.Snapshot = m_Snap;
-            m_Input.Region = region;
-            m_Input.Obstacles = m_Obstacles;
-            m_Input.Knobs = m_Knobs;
+            // A fresh input per scan (the planner holds it until the next launch): the tool always plans in Resort mode (DECISIONS 444)
+            var input = new AutoPlanInput
+            {
+                Snapshot = m_Snap,
+                Region = region,
+                Obstacles = m_Obstacles,
+                Knobs = m_Knobs,
+                Mode = AutoPlanMode.Resort,
+                MainThread = SkiResortSettings.PlannerOnMainThreadOn,   // no tower plans in a frame (AR-7)
+            };
+            CollectPlanContext(input, region);
             m_Refused.Clear();
             m_ScanWhy = why;
-            m_ScanT0 = System.Diagnostics.Stopwatch.GetTimestamp();
+            m_ScanT0 = t0;
             m_ScanFrames = 0;
-            AutoPlanStatus s = m_Planner.Begin(m_Input);
+            bool onMain = SkiResortSettings.PlannerOnMainThreadOn;
             Say(string.Format(CultureInfo.InvariantCulture,
-                "QuickRuns [scan]: START ({0}) — {1}; snapshot {2} x {3} texels ({4:F1} ms), {5} obstacle(s) ({6:F1} ms), {7}",
-                why, ReadoutText(), m_Snap.Width, m_Snap.Depth, m_SnapMs, m_Obstacles.Count, m_ObstacleMs, KnobsText(m_Knobs)));
+                "QuickRuns [scan]: START ({0}) — {1}; snapshot {2} x {3} texels ({4:F1} ms), {5} obstacle(s) ({6:F1} ms), {7}; " +
+                "{8} pinned lift(s), {9} access point(s) ({10:F1} ms); {11}{12}",
+                why, ReadoutText(), m_Snap.Width, m_Snap.Depth, m_SnapMs, m_Obstacles.Count, m_ObstacleMs, KnobsText(m_Knobs),
+                input.Pinned?.Count ?? 0, input.Access?.Length ?? 0, m_ContextMs, onMain ? "main thread (fallback setting)" : "worker thread",
+                ScanJobInFlight ? " (queued: the canceled scan is still stopping)" : string.Empty));
             m_Phase = ToolPhase.Scanning;
             Bump();
-            if (s != AutoPlanStatus.Running)
-                FinishScan();
+            StartScanJob(input, onMain, t0);
         }
 
+        /// <summary>Per frame while Scanning: the worker poll, or one main-thread slice with the fallback setting.</summary>
         private void StepScan()
         {
             m_ScanFrames++;
-            if (m_Planner.Step(ScanBudgetMs))
-                FinishScan();
-            else if ((m_ScanFrames & 7) == 0)
+            if (!StepScanJob() && (m_ScanFrames & 7) == 0)
                 Bump();   // the hub's progress bar
         }
 
+        /// <summary>The published result's v1 epilogue: phase, enabled flags, the DONE line. The caller has just set m_Published.</summary>
         private void FinishScan()
         {
-            AutoPlanResult r = m_Planner.Result;
+            AutoPlanResult r = m_Published;
             double ms = QuickRunsRules.MsSince(m_ScanT0);
             m_StatusKey = QuickRunsRules.StatusKey(r.Status);
             m_Phase = r.Status == AutoPlanStatus.Ok ? ToolPhase.Preview : ToolPhase.Region;
@@ -125,7 +140,8 @@ namespace SkiResortMod.Systems
                 r.Status, r.Runs.Count, r.Clusters.Count, r.BandCount[1], r.BandCount[2], r.BandCount[3], r.BandCount[4], r.BandTarget[1],
                 r.BandTarget[2], r.BandTarget[3], r.BandTarget[4], r.Candidates, r.Rated, r.OpenShare, r.UsableShare, r.CliffShare,
                 r.VerticalM, ms, m_ScanFrames, r.MaxUnitMs, slow, r.RegionAreaM2 / 1e6f, r.SelectPhaseText(), r.RejectText(), r.MeanGrade);
-            Say($"QuickRuns [scan]: DONE ({m_ScanWhy}) — {LastScanText}; warnings {r.Warnings}; tool warnings {m_ToolWarn}",
+            Say($"QuickRuns [scan]: DONE ({m_ScanWhy}) — {LastScanText}; warnings {r.Warnings}; tool warnings {m_ToolWarn}; " +
+                $"{ScanJobText()}; {PlanText(r.Resort)}",
                 m_StatusKey);
             if (SkiResortSettings.DiagnosticsOn)
                 ProbeScan(r, ms);
@@ -136,6 +152,9 @@ namespace SkiResortMod.Systems
         /// reader of the result checks the phase first.</summary>
         private void DropPreview(string why)
         {
+            if (m_Phase == ToolPhase.Scanning)
+                CancelScanJob(why ?? "preview dropped");   // a running job stops at its next unit; its result is dropped
+            PollScanJob(false);   // a job that already returned: dropped now, or its fault logged (silence impossible)
             if (m_Phase == ToolPhase.Preview || m_Phase == ToolPhase.Scanning)
                 m_Phase = ToolPhase.Region;
             m_EnabledByIndex = new bool[0];
@@ -176,9 +195,13 @@ namespace SkiResortMod.Systems
                 failure = $"the scan rectangle is {w} x {d} texels";
                 return false;
             }
-            HeightSnapshot s = m_Snap != null && m_Snap.Heights.Length >= w * d && m_Snap.Wet != null && m_Snap.Wet.Length >= w * d
-                ? Reuse(m_Snap, x0, z0, w, d, resX, resZ, hd.scale, hd.offset)
+            // The back buffer: never the one the planner holds (a running worker reads it, a Reselect reads it again)
+            int slot = m_PlannerSnap != null && ReferenceEquals(m_SnapBuf[0], m_PlannerSnap) ? 1 : 0;
+            HeightSnapshot back = m_SnapBuf[slot];
+            HeightSnapshot s = back != null && back.Heights.Length >= w * d && back.Wet != null && back.Wet.Length >= w * d
+                ? Reuse(back, x0, z0, w, d, resX, resZ, hd.scale, hd.offset)
                 : HeightSnapshot.Allocate(x0, z0, w, d, resX, resZ, hd.scale, hd.offset, wet: true);
+            m_SnapBuf[slot] = s;
             NativeArray<ushort> heights = hd.heights;
             ulong h = 14695981039346656037UL;
             ushort[] sh = s.Heights;
@@ -288,7 +311,7 @@ namespace SkiResortMod.Systems
         private void CollectObstacles(float2[] region)
         {
             long t0 = System.Diagnostics.Stopwatch.GetTimestamp();
-            m_Obstacles.Clear();
+            m_Obstacles = new List<AutoObstacle>();
             Bounds2 area = SnapBounds();
             ulong h = 14695981039346656037UL;
             using (var areas = m_AreaQuery.ToEntityArray(Allocator.Temp))
@@ -362,12 +385,12 @@ namespace SkiResortMod.Systems
         /// totals and warnings. Called after every scan, toggle and build step.</summary>
         private void RefreshEnabled()
         {
-            AutoPlanResult r = m_Planner.Result;
+            AutoPlanResult r = m_Published;
             int n = m_Phase == ToolPhase.Preview && r.Status == AutoPlanStatus.Ok ? r.Runs.Count : 0;
             if (m_EnabledByIndex.Length != n)
                 m_EnabledByIndex = new bool[n];
             for (int i = 0; i < n; i++)
-                m_EnabledByIndex[i] = !m_OffIds.Contains(r.Runs[i].Id) && !m_Refused.Contains(r.Runs[i].Id);
+                m_EnabledByIndex[i] = !m_OffIds.Contains(r.Runs[i].Id) && !m_Refused.Contains(r.Runs[i].Id) && !PlanLeftOut(r, i);
             QuickRunsRules.Sum(n > 0 ? r : null, m_EnabledByIndex, m_Totals);
             RefreshWarnings();
             m_DrawDirty = true;
@@ -376,7 +399,7 @@ namespace SkiResortMod.Systems
 
         private void TogglePick(float2 hit)
         {
-            AutoPlanResult r = m_Planner.Result;
+            AutoPlanResult r = m_Published;
             int i = QuickRunsRules.Pick(hit, r.Runs);
             if (i < 0)
             {
@@ -404,7 +427,7 @@ namespace SkiResortMod.Systems
         /// at the sign it binds to, lies lower than a new run of that kind (SkiRunCatalogSystem ordinals run by top height, descending).</summary>
         private void RefreshWarnings()
         {
-            AutoPlanResult r = m_Planner.Result;
+            AutoPlanResult r = m_Published;
             m_ToolWarn = QuickToolWarning.None;
             bool shown = m_Phase == ToolPhase.Preview && r.Status == AutoPlanStatus.Ok;
             if (shown)
@@ -512,7 +535,7 @@ namespace SkiResortMod.Systems
             int runs = 0;
             if (m_Phase == ToolPhase.Preview && m_HasHit && !Dragging)
             {
-                AutoPlanResult r = m_Planner.Result;
+                AutoPlanResult r = m_Published;
                 float best = ClusterPickM;
                 for (int c = 0; c < r.Clusters.Count; c++)
                 {

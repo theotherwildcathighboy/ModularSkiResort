@@ -331,6 +331,11 @@ Appended fields and bindings by contract:
 - 21: QuickRunsState appends `sitePercent` (int, the region's mean terrain grade in whole percent, -1 unknown) and `siteTier` (int, QuickRunsRules.SiteTier:
   0 unknown, 1 Gentle, 2 Steep, 3 Very steep, 4 Beyond; DECISIONS 443). The Resort Planner part draws one plain line (hubText QUICK_SITE_TEXT) under the
   region line and beside the mix line.
+- 22: Resort Planner v2 (A7): QuickRunsState appends `pods` / `lifts` rows and `plan` (QuickRunsPlan); `quickRunsSet` gains `lifts`, `home`,
+  `pod`, `lift`. Bumped on the integration branch at the A7 merge so its gates stay green; re-bump if main takes 22 first.
+- 23: Resort Planner v2 (R3 fix round): QuickRunsState appends `canPlanAround` (bool, the census knows a lift station: gates the Region step's
+  "click a lift station" hint); `plan.mountainMix` is [flat, green, blue, black + double black, 0] (QuickRunsPlanRules.MixPercents, same numbers as
+  the tooltip); `plan.siteBenchHa` is a float (one decimal); a lift row's `on` means the lift AND its pod are on. Unshipped, like 22: renumber at the main merge.
 
 ## Safety net fence tile (no contract change)
 The Runs tab's sixth tile, `safetyFence` (SkiCatalog item kind Fence, prefab SkiSafetyFence, PrefabID type NetFencePrefab, CatalogKind.Fence;
@@ -348,3 +353,16 @@ the tool is closed and clamps every value. Each call writes one `Hub [quickRuns]
 `plant` is the whole slope's shortfall (TreeToPlant); buildDone / buildTotal and planting / treesDone / treesTotal carry the staged
 build's and planting's progress (totals 0 when none is in flight; Undo trees reuses treesDone / treesTotal with planting false);
 the `stop` key ends either one at its next boundary. `treesCost` (contract 18) is the planting cost the counts line shows before Plant.
+
+### Resort Planner v2 fields (task A7; the contract number is bumped by the parent at the merge to main)
+`WriteQuickRuns` appends `liftsKnob`, `home` and, while a Resort preview shows (`QuickRunsToolSystem.Plan` non-null), `pods`
+(QuickRunsPod: id, key, letter, classKey, runs, enabledRuns, count[5], skiers, fee, on, liftId, homeKey), `planLifts` (QuickRunsLift: id,
+key, origin, ordinal, typeKey, pod, lengthM, riseM, cost, serves, startsNearTop, homeKey, wantedKey, on) and `plan` (QuickRunsPlan: pods,
+liftsProposed, liftsPinned, runKm, runKmPerKm2, deadEnds, mountainMix[5], sitePods, siteGreenHome, siteBenchHa); all empty / zero otherwise,
+so the tool closed or a Region step writes the old fields plus those empty ones. They sit in the same function as the state's other
+fields (rule R2 only follows one function per TypeBegin). `key` is the plan's uint FNV key written as a signed int (JSON numbers must
+fit `quickRunsSet`'s int); class and verdict texts go as locale keys (QUICK_CLASS[*], QUICK_VERDICT[*]; the hub has them in SENT_KEYS), the
+lift type as the catalog id for `LIFT_TYPE`. The pod rows come from `QuickRunsToolSystem.PodRows` (pure `QuickRunsPlanRules.PodRows`,
+cached per `HubRevision`). New `quickRunsSet` keys: `lifts` (0 Auto, 1-9), `home` (0 Auto, 1 Green, 2 Blue), `pod` and `lift` (value =
+the plan key; a toggle, refused while scanning or without a preview). The site verdict keeps `sitePercent` / `siteTier` (contract 21); the
+detail numbers (sitePods, siteGreenHome, siteBenchHa) come from `ResortPlan.Site` (A6 fills them; zero pods = no detail line).

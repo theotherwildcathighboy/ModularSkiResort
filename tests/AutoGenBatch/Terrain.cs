@@ -194,6 +194,153 @@ namespace AutoGenBatch
             ? new[] { new float2(-480f, -20f), new float2(530f, -60f), new float2(510f, 1020f), new float2(-500f, 1000f) }
             : new[] { new float2(-1020f, -1010f), new float2(990f, -1040f), new float2(1010f, 960f), new float2(-980f, 990f) };
 
+        // ---------------------------------------------------------------- v2 synthetics (A1): terraced steep ground
+        // Both are a base height function with benches cut in by a monotone height remap T(h) = h - sum_i S x mask_i(x) x W_i x F((h - L_i) / W_i):
+        // inside a bench's x window the slope drops to (1 - S) of itself over a band of W meters of height (a flat-topped cos^2 window F'),
+        // so the terrain above the bench is lowered by S x 1.5 W and noise on the bench is damped with the slope. T never reverses the
+        // height order (the slope stays at least 1 - S), so ridges, gullies and cliffs survive everywhere else.
+
+        /// <summary>A Mountain-Village-like steep synthetic over the 2.5 km square Square(0, 0, 1250): about 1,100-1,400 m of vertical,
+        /// face slope 45-55 % plus relief that puts the mean grade at 50-65 % and about 15 % of the cells over 100 %, patchy rock
+        /// bands, drainage gullies, and two benches of about 6-10 ha at 0.35 and 0.6 of the vertical. Seed moves the relief, the bands,
+        /// the gullies and the face slope.</summary>
+        public static HeightFn Steep(uint seed)
+        {
+            var rng = new Unity.Mathematics.Random(seed * 2246822519u | 1u);
+            double k = 0.35 + 0.07 * rng.NextFloat();
+            double hBase = 900.0 + 100.0 * rng.NextFloat();
+            uint sRelief = seed * 191u + 3u, sCliff = seed * 211u + 5u, sGully = seed * 233u + 9u;
+            var gx = new double[3];
+            for (int i = 0; i < 3; i++)
+                gx[i] = -700.0 + 700.0 * i + (rng.NextFloat() - 0.5) * 250.0;
+            HeightFn raw = (x, z) =>
+            {
+                double s = z - x * x / 6500.0;
+                double h = hBase + k * (1250.0 - s);
+                double a = 48.0, wl = 290.0;
+                for (int o = 0; o < 5; o++)
+                {
+                    h += a * Value(sRelief + (uint)o * 7919u, x / wl, s / (1.6 * wl));
+                    a *= 0.62;
+                    wl *= 0.5;
+                }
+                h += 1.2 * Value(sRelief + 997u, x / 20.0, z / 20.0);
+                for (int b = 0; b < 4; b++)
+                {
+                    double sc = -900.0 + 560.0 * b + 90.0 * Value(sCliff + (uint)b, x / 500.0, 0.5);
+                    double mask = Math.Max(0.0, Math.Min(1.0, 2.5 * Value(sCliff + 17u + (uint)b, x / 280.0, 3.5) + 0.35));
+                    h += mask * 30.0 * Math.Tanh((sc - s) / 11.0);
+                }
+                return h;
+            };
+            HeightFn terraced = Terraced(raw, 0.0, 1250.0, new[] { 0.35, 0.60 }, new[] { 110.0, 110.0 }, new[] { 440.0, 330.0 }, 130.0, 0.96);
+            return (x, z) =>
+            {
+                double h = terraced(x, z);
+                double s = z - x * x / 6500.0;
+                for (int i = 0; i < gx.Length; i++)
+                {
+                    double d = (x - (gx[i] + 70.0 * Value(sGully + (uint)i, s / 260.0, 0.5))) / 24.0;
+                    h -= 8.0 * Math.Exp(-d * d);
+                }
+                return h;
+            };
+        }
+
+        /// <summary>The Alpine bowl with three benches cut into its fall line (the Whistler / Revelstoke pattern: a wide shelf between two
+        /// steep faces) at 0.22, 0.42 and 0.62 of the vertical: about 35-40 ha, 22-24 ha and 10-14 ha (the top one is cut into the rim
+        /// face and cannot grow wider than that without merging with the middle one).</summary>
+        public static HeightFn Benched(uint seed) =>
+            Terraced(Alpine(seed), 0.0, 1000.0, new[] { 0.22, 0.42, 0.62 }, new[] { 170.0, 330.0, 150.0 }, new[] { 750.0, 750.0, 750.0 }, 300.0, 0.97);
+
+        /// <summary>Cuts flat-topped benches into f. frac = bench heights as fractions of the vertical along the column x = cx (z in
+        /// +-halfZ), dsM = the wanted bench depth along the fall line, hw[i] / fw = half width (per bench) and fade width of the benches along x.</summary>
+        private static HeightFn Terraced(HeightFn f, double cx, double halfZ, double[] frac, double[] dsM, double[] hw, double fw, double strength)
+        {
+            int n = (int)(2.0 * halfZ / 4.0) + 1;
+            var col = new double[n];
+            double hmin = double.MaxValue, hmax = double.MinValue;
+            for (int i = 0; i < n; i++)
+            {
+                col[i] = f(cx, -halfZ + 4.0 * i);
+                hmin = Math.Min(hmin, col[i]);
+                hmax = Math.Max(hmax, col[i]);
+            }
+            double v0 = hmax - hmin;
+            int m = frac.Length;
+            var w = new double[m];
+            for (int i = 0; i < m; i++)
+            {
+                double level = hmin + frac[i] * v0;
+                int j = 0;
+                while (j < n - 1 && col[j] > level)
+                    j++;
+                int lo = Math.Max(0, j - 37), hi = Math.Min(n - 1, j + 37);   // +-150 m around the crossing
+                double slope = Math.Max(0.1, (col[lo] - col[hi]) / (4.0 * (hi - lo)));
+                w[i] = dsM[i] * slope;
+            }
+            var t = new Terrace[m];
+            double below = 0.0;
+            for (int i = 0; i < m; i++)   // frac ascending: lowest first
+            {
+                double lost = strength * w[i] * 1.5;
+                t[i] = new Terrace(hmin + frac[i] * v0 + below + 0.5 * lost, w[i], cx, hw[i], fw, strength);
+                below += lost;
+            }
+            return (x, z) =>
+            {
+                double h = f(x, z), d = 0.0;
+                for (int i = 0; i < t.Length; i++)
+                    d += t[i].Lost(h, x);
+                return h - d;
+            };
+        }
+
+        private sealed class Terrace
+        {
+            private const int N = 1024;
+            private static readonly double[] s_F = BuildF();
+            private readonly double m_L, m_W, m_Cx, m_Hw, m_Fw, m_S;
+
+            public Terrace(double level, double width, double cx, double hw, double fw, double strength)
+            {
+                m_L = level; m_W = width; m_Cx = cx; m_Hw = hw; m_Fw = fw; m_S = strength;
+            }
+
+            /// <summary>Height removed above this bench at height h and column x: S x mask(x) x W x F((h - L) / W).</summary>
+            public double Lost(double h, double x)
+            {
+                double u = (h - m_L) / m_W;
+                if (u <= -1.0)
+                    return 0.0;
+                double f;
+                if (u >= 1.0)
+                    f = s_F[N];
+                else
+                {
+                    double p = (u + 1.0) * 0.5 * N;
+                    int i = (int)p;
+                    f = s_F[i] + (s_F[i + 1] - s_F[i]) * (p - i);
+                }
+                double d = Math.Abs(x - m_Cx), mask = d <= m_Hw ? 1.0 : d >= m_Hw + m_Fw ? 0.0 : Math.Pow(Math.Cos((d - m_Hw) / m_Fw * Math.PI * 0.5), 2.0);
+                return m_S * mask * m_W * f;
+            }
+
+            /// <summary>F(u) = integral from -1 to u of the window (1 for |v| &lt;= 0.5, cos^2 fades to 0 at |v| = 1); F(1) = 1.5.</summary>
+            private static double[] BuildF()
+            {
+                var f = new double[N + 1];
+                double step = 2.0 / N;
+                for (int i = 1; i <= N; i++)
+                {
+                    double v = -1.0 + (i - 0.5) * step, av = Math.Abs(v);
+                    double b = av <= 0.5 ? 1.0 : Math.Pow(Math.Cos((av - 0.5) * Math.PI), 2.0);
+                    f[i] = f[i - 1] + b * step;
+                }
+                return f;
+            }
+        }
+
         private static double Smooth(double e0, double e1, double v)
         {
             double t = Math.Max(0.0, Math.Min(1.0, (v - e0) / (e1 - e0)));

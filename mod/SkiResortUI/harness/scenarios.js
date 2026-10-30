@@ -159,7 +159,10 @@
     regionState: "Open", progress: 0, mix: 0, density: 1, kinds: 3, runs: 0, enabled: 0, count: [0, 0, 0, 0, 0], target: [0, 0, 0, 0, 0], fee: 0,
     skiers: 0, variety: false, status: "", warnings: [], clusters: [], batchRuns: 0, notice: "", trees: false, treeLevel: 4, treeLine: -1, groundMin: 0,
     groundMax: 0, group: 0, species: -1, speciesNames: [], speciesGroups: [], plant: 0, remove: 0, treesUndo: 0,
-    buildDone: 0, buildTotal: 0, planting: false, treesDone: 0, treesTotal: 0, treesCost: 0, rejects: [0, 0, 0, 0, 0, 0, 0, 0], sitePercent: -1, siteTier: 0 };
+    buildDone: 0, buildTotal: 0, planting: false, treesDone: 0, treesTotal: 0, treesCost: 0, rejects: [0, 0, 0, 0, 0, 0, 0, 0], sitePercent: -1, siteTier: 0,
+    // Resort Planner v2 (stage A, A7): the Lifts / Way home knobs and the plan (empty while no plan shows)
+    liftsKnob: 0, home: 0, pods: [], planLifts: [],
+    plan: { pods: 0, liftsProposed: 0, liftsPinned: 0, runKm: 0, runKmPerKm2: 0, deadEnds: 0, mountainMix: [0, 0, 0, 0, 0], sitePods: 0, siteGreenHome: 0, siteBenchHa: 0 } };
   const quickPreview = Object.assign({}, quickRuns, { active: true, phase: "Preview", corners: 6, areaM2: 812000, verticalM: 640, regionState: "Ok",
     runs: 12, enabled: 11, count: [0, 3, 5, 3, 0], target: [0, 3, 5, 3, 0], fee: 1840000, skiers: 2350, variety: true,
     warnings: ["SkiResort.Tooltip.QUICK_WARN[OverWater]", "SkiResort.Tooltip.QUICK_WARN[Renumber]", "SkiResort.Tooltip.QUICK_WARN[ChecksOff]"],
@@ -167,7 +170,23 @@
       { label: "SkiResort.Tooltip.QUICK_POD[MidStation]", runs: 2 }], trees: true, treeLine: 1820, groundMin: 1210, groundMax: 1850,
     speciesNames: ["AlderTree01", "BirchTree01", "PineTree01", "SpruceTree01"], speciesGroups: [1, 1, 0, 0], plant: 3120, remove: 140, treesCost: 131040, rejects: [18, 15, 9, 3, 0, 0, 1, 0], sitePercent: 62, siteTier: 4 });   // the longest verdict (Beyond): the layout test's worst case
 
-  const base = { hubOpen: false, contract: 21, buildStamp: "", showHubButton: true, build: buildItems(), glade,
+  // A Resort Planner plan (v2): four pods (one without a lift), two proposals and one pinned lift; the longest class / verdict texts, every
+  // pod's runs and bands, one lift switched off, the Lifts knob at Auto and Way home on Green.
+  const podRow = (id, letter, cls, runs, kept, count, liftId, homeKey, on) => ({ id, key: -1000 - id, letter, classKey: "SkiResort.Tooltip.QUICK_CLASS[" + cls + "]",
+    runs, enabledRuns: kept, count, skiers: kept * 210, fee: kept * 160000, on, liftId, homeKey });
+  const liftRow = (id, origin, ordinal, typeKey, pod, lengthM, riseM, serves, homeKey, wantedKey, on) => ({ id, key: 500 + id, origin, ordinal, typeKey, pod, lengthM, riseM,
+    cost: origin ? 0 : 2400000 + id * 300000, serves, startsNearTop: 3, homeKey, wantedKey, on });
+  const quickPlan = Object.assign({}, quickPreview, { clusters: [], trees: false, home: 1,
+    pods: [podRow(0, "A", "Beginner", 4, 4, [0, 2, 2, 0, 0], 0, "SkiResort.Tooltip.QUICK_VERDICT[Green]", true),
+      podRow(1, "B", "Intermediate", 5, 5, [0, 0, 3, 2, 0], 1, "SkiResort.Tooltip.QUICK_VERDICT[Download]", false),
+      podRow(2, "C", "Advanced", 3, 3, [0, 0, 1, 1, 1], 2, "SkiResort.Tooltip.QUICK_VERDICT[DoubleBlack]", true),
+      podRow(3, "D", "Expert", 2, 2, [0, 0, 0, 1, 1], -1, "", true)],
+    planLifts: [liftRow(0, 0, 1, "detachable", 0, 1320, 540, 7, "SkiResort.Tooltip.QUICK_VERDICT[Green]", "SkiResort.Hub.QUICK_HOME_GREEN", true),
+      liftRow(1, 0, 2, "gondola", 1, 2480, 780, 9, "SkiResort.Tooltip.QUICK_VERDICT[Download]", "SkiResort.Hub.QUICK_HOME_GREEN", false),
+      liftRow(2, 1, 1, "fixedGrip", 2, 640, 210, 4, "SkiResort.Tooltip.QUICK_VERDICT[DoubleBlack]", "SkiResort.Hub.QUICK_HOME_GREEN", true)],
+    plan: { pods: 4, liftsProposed: 2, liftsPinned: 1, runKm: 14.6, runKmPerKm2: 18.2, deadEnds: 0, mountainMix: [0, 22, 38, 40, 0], sitePods: 4, siteGreenHome: 1, siteBenchHa: 8 } });
+
+  const base = { hubOpen: false, contract: 23, buildStamp: "", showHubButton: true, build: buildItems(), glade,
     resorts: [], resortLive: [], selectedResort: NULL, runs: [], runLive: [], lifts: [], problems: [], city, pisteMap: true, follow: 0, history: [],
     liftLine: { available: true, active: false, state: "PickBase" }, quickRuns, catTrackDeleteMode: false };
 
@@ -180,6 +199,9 @@
     // The Quick runs tool open on a preview with the tree filler on: the Runs view draws every Quick runs row instead of the tree rows.
     "Quick runs open, Ash Flat (runs, lifts, problems)": Object.assign({}, base, { hubOpen: true, resorts, resortLive: [live, live2], selectedResort: SIGN, runs, runLive,
       lifts, problems, history, quickRuns: quickPreview, build: buildItems({ built: ["school"] }) }),
+    // The Resort Planner with a plan (v2): the Lifts / Way home knobs, the plan line, one toggle row per lift and the pod without a lift.
+    "Resort Planner plan, Ash Flat (runs, lifts, problems)": Object.assign({}, base, { hubOpen: true, resorts, resortLive: [live, live2], selectedResort: SIGN, runs, runLive,
+      lifts, problems, history, quickRuns: quickPlan, build: buildItems({ built: ["school"] }) }),
     // A staged build in flight (progress line and Stop, every knob grayed), then a planting in flight (the tree counts line turns into
     // "Planting trees 2,400 / 9,000").
     "Quick runs building, Ash Flat (runs, lifts, problems)": Object.assign({}, base, { hubOpen: true, resorts, resortLive: [live, live2], selectedResort: SIGN, runs,

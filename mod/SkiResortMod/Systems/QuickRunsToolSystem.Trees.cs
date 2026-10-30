@@ -964,7 +964,7 @@ namespace SkiResortMod.Systems
             }
             if (m_Phase == ToolPhase.Preview)
             {
-                AutoPlanResult r = m_Planner.Result;
+                AutoPlanResult r = m_Published;
                 for (int i = 0; i < r.Runs.Count; i++)
                     if (IsEnabled(i) && r.Runs[i].Nodes != null)
                         holes.Add((float3[])r.Runs[i].Nodes.Clone());   // copied: the worker reads it while a rescan may replan

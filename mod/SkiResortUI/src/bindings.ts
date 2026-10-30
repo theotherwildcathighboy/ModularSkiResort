@@ -20,7 +20,7 @@ export const GROUP = "skiResort";
  * only when C#'s `contract` equals this; on a mismatch it shows the Build strip and the tree controls (CORE only) and
  * says why.
  */
-export const HUB_CONTRACT = 21;
+export const HUB_CONTRACT = 23;
 
 /** The `contract` value while the C# binding is absent (the fallback). Real contracts start at 1. */
 export const CONTRACT_ABSENT = 0;
@@ -187,7 +187,7 @@ export interface BuildItem {
   /** One of BUILD_ITEM_IDS (typed as string: treat an unknown id as "not for this bundle"). */
   id: string;
   /** Locked by progression, a missing prefab, no sign for an upgrade item, or already on the shown
-   *  sign (ForbidMultiple: the school; a lodge tier only if its prefab still has m_ForbidMultiple — the prefab flag decides until the surgery sets it false); `reason` says why. */
+   *  sign (ForbidMultiple: the school; a lodge tier only if its prefab still has m_ForbidMultiple - the prefab flag decides until the surgery sets it false); `reason` says why. */
   locked: boolean;
   /** This item's tool is the active tool (clicking it again returns to the default tool). */
   active: boolean;
@@ -242,8 +242,77 @@ export interface QuickRunsCluster {
   runs: number;
 }
 
-/** `quickRuns`: the Quick runs tool (QuickRunsToolSystem; experimental, Ctrl+Shift+Q). Panel only. Every count, total and the
- *  cluster list are 0 / empty unless `phase` is Preview with a plan. */
+/** One pod of the Resort Planner's plan (SkiRunAutoPlanner.Plan.cs PlanPod + the hub's totals over its runs). Empty list unless a plan shows. */
+export interface QuickRunsPod {
+  /** Index in the plan; the UI letter is `letter` (A, B, ...). */
+  id: number;
+  /** The stable toggle key (a signed int: the plan's unsigned FNV key, sent back as is in quickRunsSet("pod", key)). */
+  key: number;
+  letter: string;
+  /** A locale key: the pod's Ecosign class (SkiResort.Tooltip.QUICK_CLASS[*]). */
+  classKey: string;
+  /** Runs in the pod, and how many are switched on (the pod, its lift and single runs count). */
+  runs: number;
+  enabledRuns: number;
+  /** Enabled runs by SlopeBand (0 Flat, 1 Green, 2 Blue, 3 Black, 4 Double black). */
+  count: number[];
+  skiers: number;
+  fee: number;
+  /** Neither the pod nor its lift is switched off. */
+  on: boolean;
+  /** PlanLift.Id of the lift serving it, -1 = unserved. */
+  liftId: number;
+  /** A locale key: the lift's way-home verdict (SkiResort.Tooltip.QUICK_VERDICT[*]), "" = none / unserved. */
+  homeKey: string;
+}
+
+/** One lift of the plan: proposed (origin 0) or an existing one planned around (origin 1, pinned). */
+export interface QuickRunsLift {
+  id: number;
+  /** The stable toggle key (signed int, as QuickRunsPod.key); quickRunsSet("lift", key). */
+  key: number;
+  /** LiftOrigin: 0 Proposed, 1 Pinned. */
+  origin: number;
+  /** 1-based place among the lifts of its origin: "P1" for a proposal, "Existing lift" for a pinned one (no number). */
+  ordinal: number;
+  /** The lift type id (SkiCatalog LiftTypeDef.Id: fixedGrip, detachable, gondola, tram) for LIFT_TYPE; "" when unknown. */
+  typeKey: string;
+  /** Plan pod index the lift serves (-1 none). */
+  pod: number;
+  lengthM: number;
+  riseM: number;
+  /** Stations plus line (SkiCatalog), 0 for a pinned lift. */
+  cost: number;
+  serves: number;
+  startsNearTop: number;
+  /** Locale key of the way-home verdict (SkiResort.Tooltip.QUICK_VERDICT[*]), "" = none. */
+  homeKey: string;
+  /** Locale key of the level the Way home knob asked for here (SkiResort.Hub.QUICK_HOME_GREEN / BLUE), "" = unresolved. */
+  wantedKey: string;
+  /** The lift is switched on (off = it and the runs of its pod are left out). */
+  on: boolean;
+}
+
+/** The plan's summary line numbers; all 0 without a plan. */
+export interface QuickRunsPlan {
+  pods: number;
+  liftsProposed: number;
+  liftsPinned: number;
+  runKm: number;
+  runKmPerKm2: number;
+  deadEnds: number;
+  /** The terrain's honest mix in whole percents of the run km: [0] Flat, [1] Green, [2] Blue, [3] Black and Double black together,
+   *  [4] always 0. [1..3] are the shares the hub and the tooltip print (one rounded value each; [3] = the rated total minus [1] and [2]). */
+  mountainMix: number[];
+  /** The site verdict's detail line (sitePercent / siteTier stay the line): pods a lift serves, how many of them have their way home
+   *  (the verdict meets the level asked for), the largest bench in ha (one decimal). The field keeps its stage A name. */
+  sitePods: number;
+  siteGreenHome: number;
+  siteBenchHa: number;
+}
+
+/** `quickRuns`: the Resort Planner tool (code name Quick runs; QuickRunsToolSystem; experimental, Ctrl+Shift+Q). Panel only. Every count,
+ *  total, the cluster list and the plan fields are 0 / empty unless `phase` is Preview with a plan. */
 export interface QuickRunsState {
   /** The tool can open: the option is on, it is armed and not disabled. */
   available: boolean;
@@ -255,6 +324,8 @@ export interface QuickRunsState {
   phase: string;
   /** Region corners placed. */
   corners: number;
+  /** The census knows a lift station: a click on one plans runs around it (the Region step's hint is true only then). */
+  canPlanAround: boolean;
   areaM2: number;
   /** The area cap (9 km2, SkiRunAutoPlanner.V1MaxAreaM2). */
   maxAreaM2: number;
@@ -335,6 +406,14 @@ export interface QuickRunsState {
    *  figure), -1 = unknown, and its tier (QuickRunsRules.SiteTier: 0 unknown, 1 Gentle, 2 Steep, 3 Very steep, 4 Beyond any real area). */
   sitePercent: number;
   siteTier: number;
+  /** The Lifts knob: 0 Auto, 1-9 a cap on the proposed lifts. */
+  liftsKnob: number;
+  /** The Way home knob (HomeLevel): 0 Auto (green at the base, blue above), 1 Green, 2 Blue. */
+  home: number;
+  /** The plan, only while a Resort preview shows. */
+  pods: QuickRunsPod[];
+  planLifts: QuickRunsLift[];
+  plan: QuickRunsPlan;
 }
 
 /** The length of QuickRunsState.rejects (QuickRunsRules.RejectBuckets). */
@@ -343,7 +422,8 @@ export const QUICK_REJECT_BUCKETS = 8;
 /** The quickRunsSet keys (QuickRunsToolSystem.HubSet). */
 export type QuickRunsKey =
   | "mix" | "density" | "kind" | "shuffle" | "scan" | "build" | "undo"
-  | "trees" | "plant" | "treesUndo" | "treeLine" | "group" | "species" | "level" | "stop";
+  | "trees" | "plant" | "treesUndo" | "treeLine" | "group" | "species" | "level" | "stop"
+  | "lifts" | "home" | "pod" | "lift";
 
 export const GLADE_LEVEL_MIN = 1;
 export const GLADE_LEVEL_MAX = 8;
@@ -400,7 +480,7 @@ export interface ResortLive {
   topTempC: number;
   attraction: number;
   attractionFull: number;
-  /** The first provider write after a load is held: the game keeps the saved score (show "…"). */
+  /** The first provider write after a load is held: the game keeps the saved score (show "..."). */
   attractionHeld: boolean;
   lodgesActive: number;
   summer: boolean;
@@ -627,7 +707,7 @@ export interface LiftRow {
   alignKnown: boolean;
   alignOffsetM: number;
   alignYawDeg: number;
-  /** Riders per hour at 1× game speed; -1 unknown. */
+  /** Riders per hour at 1x game speed; -1 unknown. */
   capacityPerHour: number;
   hasBase: boolean;
   hasTop: boolean;
@@ -838,12 +918,13 @@ const EMPTY_LIFTS: readonly LiftRow[] = [];
 const EMPTY_PROBLEMS: readonly ProblemRow[] = [];
 const EMPTY_HISTORY: readonly HistoryArea[] = [];
 const EMPTY_QUICK_RUNS: QuickRunsState = {
-  available: false, active: false, reason: "", phase: "", corners: 0, areaM2: 0, maxAreaM2: 1000000, verticalM: 0, regionState: "Open",
+  available: false, active: false, reason: "", phase: "", corners: 0, canPlanAround: false, areaM2: 0, maxAreaM2: 1000000, verticalM: 0, regionState: "Open",
   progress: 0, mix: 0, density: 1, kinds: 3, runs: 0, enabled: 0, count: [0, 0, 0, 0, 0], target: [0, 0, 0, 0, 0], fee: 0, skiers: 0,
   variety: false, status: "", warnings: [], clusters: [], batchRuns: 0, notice: "", trees: false, treeLevel: GLADE_LEVEL_DEFAULT,
   treeLine: -1, groundMin: 0, groundMax: 0, group: 0, species: 0, speciesNames: [], speciesGroups: [], plant: 0, remove: 0, treesUndo: 0,
   buildDone: 0, buildTotal: 0, planting: false, treesDone: 0, treesTotal: 0, treesCost: 0, rejects: [0, 0, 0, 0, 0, 0, 0, 0],
-  sitePercent: -1, siteTier: 0,
+  sitePercent: -1, siteTier: 0, liftsKnob: 0, home: 0, pods: [], planLifts: [],
+  plan: { pods: 0, liftsProposed: 0, liftsPinned: 0, runKm: 0, runKmPerKm2: 0, deadEnds: 0, mountainMix: [0, 0, 0, 0, 0], sitePods: 0, siteGreenHome: 0, siteBenchHa: 0 },
 };
 
 export const FALLBACK = {

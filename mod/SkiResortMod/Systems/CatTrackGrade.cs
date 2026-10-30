@@ -31,11 +31,25 @@ namespace SkiResortMod.Systems
         public const float DefaultCutRun = 1.5f;
         public const float DefaultFillRun = 2f;
 
+        /// <summary>The narrow full-cut profile (<see cref="NarrowFullCut"/>, DECISIONS 443): a ski-way bench cut into a steep face. Top
+        /// width 10 m by default (NarrowMinTopWidthM..NarrowMaxTopWidthM is what a caller may ask for), cut bank 1:1, no fill.</summary>
+        public const float NarrowTopWidthM = 10f;
+        public const float NarrowMinTopWidthM = 8f, NarrowMaxTopWidthM = 12f;
+        public const float NarrowCutRun = 1f;
+
         public float MaxGrade = DefaultMaxGrade;
         public float TopWidthM = DefaultTopWidthM;
         public float CutRun = DefaultCutRun;
         public float FillRun = DefaultFillRun;
         public GradeProfileMode Mode = GradeProfileMode.FollowGround;
+        /// <summary>Full cut, no fill (the narrow profile). The profile is the highest G-limited line at or below the ground (a cut-only
+        /// bench), the flat top is cut where the ground is above it and left at the ground where the ground falls away (the tread then ends
+        /// at the natural edge; GradeRaster.UnfilledTopTexels says how much of the top is missing), the downhill side slope is the
+        /// ground itself, nothing is ever raised. A caller solves a full-cut bench against GradeProfile.LowEdgeGround (the lowest ground
+        /// across the top), which keeps the whole top in cut: the bench sinks into the hill instead of being filled. Default false:
+        /// every other profile is exactly as before. Meaningful with FollowGround; a ConstantGrade ramp stays one straight line but
+        /// still raises nothing.</summary>
+        public bool NoFill;
         public float SampleStepM = 2f;
         public float SmoothM = 6f;
         /// <summary>The side slopes reach at most this far beyond the flat top. Where a slope has not met the ground by then (a
@@ -56,10 +70,20 @@ namespace SkiResortMod.Systems
         public static readonly float[] InsideAllowanceSteps = { 2f, 1f, 0.5f, 0f };
         public const int BlendTexels = 3;
 
+        /// <summary>The narrow full-cut profile for the planner's ski-ways (DECISIONS 443): top width <paramref name="topWidthM"/> (clamped to
+        /// NarrowMinTopWidthM..NarrowMaxTopWidthM), cut bank 1:1, no fill, the same max grade rule. Every other knob keeps its default.</summary>
+        public static GradeParams NarrowFullCut(float maxGrade = DefaultMaxGrade, float topWidthM = NarrowTopWidthM) => new GradeParams
+        {
+            MaxGrade = maxGrade,
+            TopWidthM = math.clamp(topWidthM, NarrowMinTopWidthM, NarrowMaxTopWidthM),
+            CutRun = NarrowCutRun,
+            NoFill = true,
+        };
+
         public GradeParams Clone() => (GradeParams)MemberwiseClone();
 
         public string Describe() =>
-            $"max grade {MaxGrade * 100f:F0} %, top {TopWidthM:F1} m, cut 1:{CutRun:F1}, fill 1:{FillRun:F1}, " +
+            $"max grade {MaxGrade * 100f:F0} %, top {TopWidthM:F1} m, cut 1:{CutRun:F1}, " + (NoFill ? "no fill, " : $"fill 1:{FillRun:F1}, ") +
             (Mode == GradeProfileMode.FollowGround ? "follow ground" : "constant grade");
     }
 
@@ -230,10 +254,11 @@ namespace SkiResortMod.Systems
                     up[i] = math.max(up[i], up[i + 1] - lip);
                     lo[i] = math.min(lo[i], lo[i + 1] + lip);
                 }
+                // NoFill: the highest G-limited line at or below the ground (lo), not the midpoint of the two envelopes.
                 for (int i = 0; i < n; i++)
-                    y[i] = 0.5f * (up[i] + lo[i]);
+                    y[i] = p.NoFill ? lo[i] : 0.5f * (up[i] + lo[i]);
 
-                int k = (int)math.floor(p.SmoothM / math.max(ds, 1e-3f));
+                int k =(int)math.floor(p.SmoothM / math.max(ds, 1e-3f));
                 if (k > 0)
                 {
                     // Moving average, the profile reflected point-wise about each end (y(-t) = 2 y(0) - y(t)): a straight ramp stays exact, and
@@ -247,6 +272,10 @@ namespace SkiResortMod.Systems
                         sm[i] = acc / (2 * k + 1);
                     }
                     y = sm;
+                    // NoFill: the average of lo can poke above the ground; min with lo (G-limited, at or below the ground) stays G-limited.
+                    if (p.NoFill)
+                        for (int i = 0; i < n; i++)
+                            y[i] = math.min(y[i], lo[i]);
                 }
 
                 // Pin both ends to the ground with slope cones: slope G, or the slope the two ends force when that is steeper (infeasible:
@@ -271,7 +300,7 @@ namespace SkiResortMod.Systems
                     {
                         bool held = !float.IsNaN(pinTol[i]);
                         float tol = held ? math.max(0f, pinTol[i]) : 0f;
-                        pinHi[i] = held ? ground[i] + tol : float.PositiveInfinity;
+                        pinHi[i] = held ? ground[i] + (p.NoFill ? 0f : tol) : float.PositiveInfinity;   // NoFill: a held sample may go down, never up
                         pinLo[i] = held ? ground[i] - tol : float.NegativeInfinity;
                         any |= held;
                     }
@@ -317,6 +346,29 @@ namespace SkiResortMod.Systems
             return prof;
         }
 
+        /// <summary>The ground a NoFill (full-cut) bench is solved against: per path sample the LOWEST ground across the flat top (the
+        /// centerline and the offsets at +-0.5 and +-1 half widths). A bench at or below it is in cut across its whole width, so on a
+        /// cross slope it sinks into the hill by up to slope x width instead of being filled on the downhill side; pass the result as
+        /// <c>ground</c> to <see cref="Solve"/> together with <see cref="GradeParams.NarrowFullCut"/>. The profile is then the highest
+        /// G-limited line under that envelope, so the max grade rule holds on the bench itself.</summary>
+        public static float[] LowEdgeGround(GradePath path, Func<float2, float> groundAt, float halfWidth)
+        {
+            int n = path.Count;
+            var g = new float[n];
+            for (int i = 0; i < n; i++)
+            {
+                float2 t = math.normalizesafe(path.Xz[math.min(i + 1, n - 1)] - path.Xz[math.max(i - 1, 0)], new float2(1f, 0f));
+                float2 side = new float2(-t.y, t.x) * halfWidth;
+                float low = groundAt(path.Xz[i]);
+                low = math.min(low, groundAt(path.Xz[i] + side));
+                low = math.min(low, groundAt(path.Xz[i] - side));
+                low = math.min(low, groundAt(path.Xz[i] + 0.5f * side));
+                low = math.min(low, groundAt(path.Xz[i] - 0.5f * side));
+                g[i] = low;
+            }
+            return g;
+        }
+
         private static float Reflected(float[] y, int i)
         {
             int n = y.Length;
@@ -360,6 +412,11 @@ namespace SkiResortMod.Systems
         public int KeptTexels, InsideTexels;
         public float MaxInsideM;
         public float MaxBankStepM;
+        /// <summary>Texels within the flat top's half width of the centerline, and (NoFill only) those of them left at the ground because it
+        /// lies more than half a height step below the bench, with the largest such drop. UnfilledTopTexels / TopTexels is the part of the
+        /// top that is not tread; the planner offsets the centerline into the hill until it is near 0.</summary>
+        public int TopTexels, UnfilledTopTexels;
+        public float MaxUnfilledM;
 
         public int Index(int i, int j) => (j - Z0) * W + (i - X0);
 
@@ -452,13 +509,19 @@ namespace SkiResortMod.Systems
                 byte zone;
                 if (d <= hw)
                 {
-                    h = y;
+                    r.TopTexels++;
+                    h = p.NoFill ? math.min(before, y) : y;   // NoFill: cut where the ground is above the bench, the ground itself where it falls away
+                    if (p.NoFill && before - y < -0.5f * step)
+                    {
+                        r.UnfilledTopTexels++;
+                        r.MaxUnfilledM = math.max(r.MaxUnfilledM, y - before);
+                    }
                     zone = 2;
                 }
                 else
                 {
                     float out_ = d - hw;
-                    h = before > y ? math.min(before, y + out_ / p.CutRun) : math.max(before, y - out_ / p.FillRun);
+                    h = before > y ? math.min(before, y + out_ / p.CutRun) : (p.NoFill ? before : math.max(before, y - out_ / p.FillRun));
                     zone = 1;
                     if (d > blendStart)
                     {
@@ -484,6 +547,8 @@ namespace SkiResortMod.Systems
                         float side = d <= hw ? 1f : math.saturate(1f - (d - hw) / math.max(1e-3f, p.InsideSideFadeM));
                         float fadeIn = math.saturate(depth / math.max(1e-3f, p.InsideFadeM));
                         float corr = math.clamp(y - bestG[t], -p.InsideMaxM, p.InsideMaxM) * fadeIn * side;
+                        if (p.NoFill)
+                            corr = math.min(corr, 0f);
                         if (math.abs(corr) < 0.5f * step)
                         {
                             r.After[t] = before;   // untouched (zone 0: no guard, no count)
@@ -730,9 +795,12 @@ namespace SkiResortMod.Systems
                               ? string.Format(CultureInfo.InvariantCulture, ", steep bank at {0} texel(s) (up to {1:F1} m blended over the last {2} texels)",
                                               SteepBankTexels, MaxBankStepM, GradeParams.BlendTexels)
                               : string.Empty,
-                          KeptTexels + InsideTexels > 0
+                          (KeptTexels + InsideTexels > 0
                               ? string.Format(CultureInfo.InvariantCulture, ", crossed runs: {0} texel(s) kept, {1} corrected (max {2:F2} m)", KeptTexels, InsideTexels, MaxInsideM)
-                              : string.Empty);
+                              : string.Empty) +
+                          (UnfilledTopTexels > 0
+                              ? string.Format(CultureInfo.InvariantCulture, ", no fill: {0} of {1} top texel(s) left at the ground (up to {2:F1} m below the bench)", UnfilledTopTexels, TopTexels, MaxUnfilledM)
+                              : string.Empty));
     }
 
     public enum GradeGuardKind : byte

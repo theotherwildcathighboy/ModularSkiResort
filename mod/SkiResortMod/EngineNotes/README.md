@@ -48,6 +48,7 @@ Long engine and design explanations moved out of the source headers. Each note s
 - [`PowerBridgeSystem.md`](PowerBridgeSystem.md) -> PowerBridgeSystem: why station stubs need a valve bootstrap to join the electricity graph
 - [`QuickRunsControls.tsx.md`](QuickRunsControls.tsx.md) -> QuickRunsControls.tsx: the Quick runs chip and the Runs view's rows while the tool is open
 - [`QuickRunsToolSystem.md`](QuickRunsToolSystem.md) -> QuickRunsToolSystem: the Quick runs tool (off switch, scan, batch build, undo with refund, tree filler, overlay, probes)
+- [`ResortPlanner.md`](ResortPlanner.md) -> Resort Planner (v2): modes, the stage seams and hooks, probe slots, locale keys, one section per stage-A task
 - [`ResortBatch.CatalogGuardTests.md`](ResortBatch.CatalogGuardTests.md) -> CatalogGuardTests: what ties the prefab catalog to the rule files and the hub tip texts
 - [`ResortBatch.DensityTests.md`](ResortBatch.DensityTests.md) -> DensityTests: the Options prop density rules and the engine draw-order mirror they are checked against
 - [`ResortBatch.RunOutlineTests.md`](ResortBatch.RunOutlineTests.md) -> RunOutlineTests: the engine's area-border drawing rules the run outline mirrors

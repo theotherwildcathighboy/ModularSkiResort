@@ -2,7 +2,7 @@
 # Written by `npm run contract:lock` (tools/check-bundle.js --write-lock); checked on every build
 # (rule R3, docs/research/hub-u2-spec.md section 4.7). Do not edit by hand: change src/bindings.ts,
 # bump HUB_CONTRACT (and C#'s HubContract), run `npm run contract:lock`, review this file's diff.
-contract 21
+contract 23
 core build
 core buildStamp
 core contract
@@ -160,12 +160,49 @@ shape ProblemRow.subject : Entity
 shape ProblemRow.subjectTop : Entity
 shape QuickRunsCluster.label : string
 shape QuickRunsCluster.runs : number
+shape QuickRunsLift.cost : number
+shape QuickRunsLift.homeKey : string
+shape QuickRunsLift.id : number
+shape QuickRunsLift.key : number
+shape QuickRunsLift.lengthM : number
+shape QuickRunsLift.on : boolean
+shape QuickRunsLift.ordinal : number
+shape QuickRunsLift.origin : number
+shape QuickRunsLift.pod : number
+shape QuickRunsLift.riseM : number
+shape QuickRunsLift.serves : number
+shape QuickRunsLift.startsNearTop : number
+shape QuickRunsLift.typeKey : string
+shape QuickRunsLift.wantedKey : string
+shape QuickRunsPlan.deadEnds : number
+shape QuickRunsPlan.liftsPinned : number
+shape QuickRunsPlan.liftsProposed : number
+shape QuickRunsPlan.mountainMix : number[]
+shape QuickRunsPlan.pods : number
+shape QuickRunsPlan.runKm : number
+shape QuickRunsPlan.runKmPerKm2 : number
+shape QuickRunsPlan.siteBenchHa : number
+shape QuickRunsPlan.siteGreenHome : number
+shape QuickRunsPlan.sitePods : number
+shape QuickRunsPod.classKey : string
+shape QuickRunsPod.count : number[]
+shape QuickRunsPod.enabledRuns : number
+shape QuickRunsPod.fee : number
+shape QuickRunsPod.homeKey : string
+shape QuickRunsPod.id : number
+shape QuickRunsPod.key : number
+shape QuickRunsPod.letter : string
+shape QuickRunsPod.liftId : number
+shape QuickRunsPod.on : boolean
+shape QuickRunsPod.runs : number
+shape QuickRunsPod.skiers : number
 shape QuickRunsState.active : boolean
 shape QuickRunsState.areaM2 : number
 shape QuickRunsState.available : boolean
 shape QuickRunsState.batchRuns : number
 shape QuickRunsState.buildDone : number
 shape QuickRunsState.buildTotal : number
+shape QuickRunsState.canPlanAround : boolean
 shape QuickRunsState.clusters : QuickRunsCluster[]
 shape QuickRunsState.corners : number
 shape QuickRunsState.count : number[]
@@ -175,13 +212,18 @@ shape QuickRunsState.fee : number
 shape QuickRunsState.groundMax : number
 shape QuickRunsState.groundMin : number
 shape QuickRunsState.group : number
+shape QuickRunsState.home : number
 shape QuickRunsState.kinds : number
+shape QuickRunsState.liftsKnob : number
 shape QuickRunsState.maxAreaM2 : number
 shape QuickRunsState.mix : number
 shape QuickRunsState.notice : string
 shape QuickRunsState.phase : string
+shape QuickRunsState.plan : QuickRunsPlan
+shape QuickRunsState.planLifts : QuickRunsLift[]
 shape QuickRunsState.plant : number
 shape QuickRunsState.planting : boolean
+shape QuickRunsState.pods : QuickRunsPod[]
 shape QuickRunsState.progress : number
 shape QuickRunsState.reason : string
 shape QuickRunsState.regionState : string

@@ -2,10 +2,17 @@
 // map's band colors (SkiPisteMapSystem's palette and PisteMapRules' ring pieces, so a preview looks like the runs it builds): natural
 // runs dashed, left-out runs thin gray, refused runs red; a ring on each top cluster (hover: "beginner lift" / "mid-station" / "one
 // lift here serves N runs"); the tree line's contour while trees are on. Segments are cached when the preview changes.
+// Resort mode (A4) adds the plan from m_Published.Resort, never the live planner: a dashed chord per proposed lift (colored by its
+// Home verdict, white until A6 fills it), 6 m tower discs, hatched station lots; white station rings for pinned lifts (the game draws
+// the lift itself); hatched pads under the lifts' stations plus the three largest unused (benches with a dashed edge); a ring per
+// pod in its class color in place of the v1 cluster rings. Everything shares the MaxPieces budget. Black / Double Black marks carry the
+// piste map's white edge (a black line on dark ground is invisible). The marks are cached per published plan (rebuilt on a new plan
+// reference only); a pod or lift switched off dims its marks at draw time from the off sets, so a toggle rebuilds the run pieces only.
 // Engine notes: EngineNotes/QuickRunsToolSystem.md (Overlay)
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using Colossal.Mathematics;
 using Game.Rendering;
 using Game.Simulation;
@@ -30,6 +37,14 @@ namespace SkiResortMod.Systems
         private static readonly UnityEngine.Color RefusedColor = new UnityEngine.Color(0.95f, 0.15f, 0.15f, 0.95f);
         private static readonly UnityEngine.Color ClusterColor = new UnityEngine.Color(1f, 1f, 1f, 0.7f);
         private static readonly UnityEngine.Color TreeLineColor = new UnityEngine.Color(0.35f, 0.85f, 0.45f, 0.9f);
+        private static readonly UnityEngine.Color LiftColor = new UnityEngine.Color(1f, 1f, 1f, 0.95f);   // Home None (until A6)
+        private static readonly UnityEngine.Color DownloadColor = new UnityEngine.Color(0.62f, 0.38f, 0.95f, 0.95f);
+        private static readonly UnityEngine.Color PinnedColor = new UnityEngine.Color(1f, 1f, 1f, 0.9f);
+        private static readonly UnityEngine.Color PadColor = new UnityEngine.Color(1f, 1f, 1f, 0.3f);
+        private static readonly UnityEngine.Color PadEdgeColor = new UnityEngine.Color(1f, 1f, 1f, 0.75f);
+        private const float TowerDiscM = 6f, LiftWidthM = 2.5f, LiftDashM = 24f, LiftGapM = 14f;
+        private const int UnusedPadsShown = 3, BenchEdgeSides = 24;
+        private const int CostFrames = 600;   // the [cost] window after each resort publish (~10 s at 60 fps)
 
         private struct Piece
         {
@@ -38,7 +53,26 @@ namespace SkiResortMod.Systems
             public float Width, OutlineWidth;
         }
 
+        /// <summary>One resort-plan mark: a disc at A (Size = diameter) or a dashed line A-B (Size = width), cached with the pieces.</summary>
+        private struct Mark
+        {
+            public bool Dashed, Grid;
+            public byte Owner;           // 1 = PodKey set, 2 = LiftKey set: the marks dim while that pod or lift is switched off
+            public uint PodKey, LiftKey;
+            public float3 A, B;
+            public float Size, OutlineWidth;
+            public UnityEngine.Color Fill, Outline;
+        }
+
         private readonly List<Piece> m_Pieces = new List<Piece>();
+        private readonly List<Mark> m_Marks = new List<Mark>();
+        private readonly List<int> m_PadScratch = new List<int>();
+        private int m_CostFrames;
+        private double m_CostMs, m_CostMaxMs, m_CostBuildMs, m_CostBuildMaxMs;
+        private int m_CostBuilds;
+        private ResortPlan m_MarksFor;   // the plan m_Marks were built from (reference compare: one immutable snapshot per publish)
+        private byte m_Owner;            // the owner stamped on the marks being added (BuildMarks)
+        private uint m_OwnerPod, m_OwnerLift;
         private readonly List<float3> m_RingScratch = new List<float3>(), m_PieceA = new List<float3>(), m_PieceB = new List<float3>();
         private bool m_DrawDirty = true;
 
@@ -53,7 +87,18 @@ namespace SkiResortMod.Systems
             TerrainHeightData hd = m_TerrainSystem.GetHeightData();
 
             if (m_DrawDirty)
+            {
+                long tb = System.Diagnostics.Stopwatch.GetTimestamp();
                 BuildPieces(ref hd);
+                if (m_CostFrames > 0)
+                {
+                    double bms = (System.Diagnostics.Stopwatch.GetTimestamp() - tb) * 1000.0 / System.Diagnostics.Stopwatch.Frequency;
+                    m_CostBuildMs += bms;
+                    m_CostBuildMaxMs = Math.Max(m_CostBuildMaxMs, bms);
+                    m_CostBuilds++;
+                }
+            }
+            long t0 = System.Diagnostics.Stopwatch.GetTimestamp();
             if (m_Phase == ToolPhase.Preview || m_Phase == ToolPhase.Emitted || m_Phase == ToolPhase.Retry)
             {
                 for (int i = 0; i < m_Pieces.Count; i++)
@@ -61,8 +106,10 @@ namespace SkiResortMod.Systems
                     Piece p = m_Pieces[i];
                     buffer.DrawLine(p.Outline, p.Fill, p.OutlineWidth * k, projected, p.Seg, p.Width * k, round);
                 }
-                AutoPlanResult r = m_Planner.Result;
-                if (m_Phase == ToolPhase.Preview)
+                AutoPlanResult r = m_Published;
+                if (m_Marks.Count > 0)
+                    DrawMarks(buffer, k);
+                if (m_Phase == ToolPhase.Preview && (r.Resort == null || r.Resort.Pods.Length == 0))
                     for (int c = 0; c < r.Clusters.Count; c++)
                         buffer.DrawCircle(ClusterColor, ClusterColor, 0f, projected, ring, Ground(ref hd, r.Clusters[c].Center), 2f * ClusterPickM);
             }
@@ -104,6 +151,46 @@ namespace SkiResortMod.Systems
                     buffer.DrawLine(RegionColor, RegionColor, 0f, projected, new Line3.Segment(Ground(ref hd, pts[0]), m_Hit), 0.4f * k, round);
                 buffer.DrawCircle(HoverColor, HoverColor, 0f, projected, ring, m_Hit, 3f * math.min(k, 3f));
             }
+            CostSample(t0);
+        }
+
+        private void DrawMarks(OverlayRenderSystem.Buffer buffer, float k)
+        {
+            var projected = OverlayRenderSystem.StyleFlags.Projected;
+            var grid = OverlayRenderSystem.StyleFlags.Grid | OverlayRenderSystem.StyleFlags.Projected;
+            var round = new float2(1f, 1f);
+            var dir = new float2(0f, 1f);
+            bool anyOff = m_OffPods.Count != 0 || m_OffLifts.Count != 0;
+            for (int i = 0; i < m_Marks.Count; i++)
+            {
+                Mark m = m_Marks[i];
+                if (anyOff && ((m.Owner & 1) != 0 && m_OffPods.Contains(m.PodKey) || (m.Owner & 2) != 0 && m_OffLifts.Contains(m.LiftKey)))
+                {
+                    m.Fill = Dimmed(m.Fill);
+                    m.Outline = Dimmed(m.Outline);
+                }
+                if (m.Dashed)
+                    buffer.DrawDashedLine(m.Outline, m.Fill, m.OutlineWidth * k, projected, new Line3.Segment(m.A, m.B), m.Size * k, LiftDashM * k, LiftGapM * k, round);
+                else
+                    buffer.DrawCircle(m.Outline, m.Fill, m.OutlineWidth * math.min(k, 3f), m.Grid ? grid : projected, dir, m.A, m.Size);
+            }
+        }
+
+        /// <summary>The [cost] line (diagnostics only): main-thread ms of the draw loop over the first CostFrames frames after a resort
+        /// publish, and (separately) of BuildPieces, which also runs on every toggle.</summary>
+        private void CostSample(long t0)
+        {
+            if (m_CostFrames <= 0 || !SkiResortMod.Settings.SkiResortSettings.DiagnosticsOn)
+                return;
+            double ms = (System.Diagnostics.Stopwatch.GetTimestamp() - t0) * 1000.0 / System.Diagnostics.Stopwatch.Frequency;
+            m_CostMs += ms;
+            m_CostMaxMs = Math.Max(m_CostMaxMs, ms);
+            if (--m_CostFrames > 0)
+                return;
+            Mod.Log.Info(string.Format(CultureInfo.InvariantCulture,
+                "QuickRuns [cost] plan overlay: Draw loop {0:F3} ms mean, {1:F3} ms max over {2} frames; BuildPieces {3:F3} ms total, {4:F3} ms max in {5} build(s); " +
+                "{6} run piece(s) + {7} plan mark(s) (cap {8})",
+                m_CostMs / CostFrames, m_CostMaxMs, CostFrames, m_CostBuildMs, m_CostBuildMaxMs, m_CostBuilds, m_Pieces.Count, m_Marks.Count, MaxPieces));
         }
 
         /// <summary>The candidates' outlines as ring pieces (PisteMapRules.SolidRing / DashRing), colored by state.</summary>
@@ -112,11 +199,30 @@ namespace SkiResortMod.Systems
             m_DrawDirty = false;
             m_Pieces.Clear();
             if (m_Phase != ToolPhase.Preview && m_Phase != ToolPhase.Emitted && m_Phase != ToolPhase.Retry)
+            {
+                DropMarks();
                 return;
-            AutoPlanResult r = m_Planner.Result;
+            }
+            AutoPlanResult r = m_Published;
             if (r.Status != AutoPlanStatus.Ok)
+            {
+                DropMarks();
                 return;
-            for (int i = 0; i < r.Runs.Count && m_Pieces.Count < MaxPieces; i++)
+            }
+            if (!ReferenceEquals(m_MarksFor, r.Resort))   // a new plan: rebuild the marks and open a cost window; a toggle keeps them
+            {
+                m_Marks.Clear();
+                m_MarksFor = r.Resort;
+                m_CostFrames = 0;
+                if (r.Resort != null)
+                {
+                    BuildMarks(r.Resort, ref hd);
+                    m_CostFrames = CostFrames;
+                    m_CostMs = m_CostMaxMs = m_CostBuildMs = m_CostBuildMaxMs = 0.0;
+                    m_CostBuilds = 0;
+                }
+            }
+            for (int i = 0; i < r.Runs.Count && m_Pieces.Count + m_Marks.Count < MaxPieces; i++)
             {
                 AutoRun run = r.Runs[i];
                 if (run?.Ring == null || run.Ring.Length < 3)
@@ -126,7 +232,7 @@ namespace SkiResortMod.Systems
                     m_RingScratch.Add(run.Nodes != null && v < run.Nodes.Length ? run.Nodes[v] : Ground(ref hd, run.Ring[v]));
                 m_PieceA.Clear();
                 m_PieceB.Clear();
-                int room = MaxPieces - m_Pieces.Count;
+                int room = MaxPieces - m_Pieces.Count - m_Marks.Count;
                 bool dashed = PisteMapRules.IsDashed((int)run.Kind);
                 int count = dashed
                     ? PisteMapRules.DashRing(m_RingScratch, DashM, GapM, room, m_PieceA, m_PieceB)
@@ -158,6 +264,163 @@ namespace SkiResortMod.Systems
                     });
             }
         }
+
+        /// <summary>No plan to show: no marks, no cost window (a window left open would log a stale mean).</summary>
+        private void DropMarks()
+        {
+            m_Marks.Clear();
+            m_MarksFor = null;
+            m_CostFrames = 0;
+        }
+
+        private static UnityEngine.Color Dimmed(UnityEngine.Color c) => new UnityEngine.Color(OffColor.r, OffColor.g, OffColor.b, c.a * 0.6f);
+
+        /// <summary>The resort plan's marks in draw order (pods under pads under lifts), at most half the budget so the runs keep the
+        /// rest. Non-finite spots are skipped.</summary>
+        private void BuildMarks(ResortPlan plan, ref TerrainHeightData hd)
+        {
+            int cap = MaxPieces / 2;
+            foreach (PlanPod pod in plan.Pods)
+            {
+                if (!Finite(pod.TopCenter))
+                    continue;
+                int style = (int)PisteMapRules.StyleOf(SkiRunAutoPlanner.ScoreBandOf(pod.PrimaryClass));
+                UnityEngine.Color c = SkiPisteMapSystem.PisteFill[style];
+                SetOwner(pod.Key, true, pod.Lift >= 0 && pod.Lift < plan.Lifts.Length ? plan.Lifts[pod.Lift].Key : 0u, pod.Lift >= 0 && pod.Lift < plan.Lifts.Length);
+                float3 at = Ground(ref hd, pod.TopCenter);
+                float edgeM = SkiPisteMapSystem.PisteOutlineWidth[style];
+                if (edgeM > 0f)   // black rings: a white band either side of the black one
+                {
+                    UnityEngine.Color white = SkiPisteMapSystem.PisteOutline[style];
+                    AddDisc(at, 2f * ClusterPickM, new UnityEngine.Color(c.r, c.g, c.b, 0.12f), white, 3f + 2f * edgeM, false, cap);
+                    AddDisc(at, 2f * ClusterPickM - 2f * edgeM, new UnityEngine.Color(0f, 0f, 0f, 0f), c, 3f, false, cap);
+                }
+                else
+                    AddDisc(at, 2f * ClusterPickM, new UnityEngine.Color(c.r, c.g, c.b, 0.12f), c, 3f, false, cap);
+            }
+            m_Owner = 0;
+
+            // Pads: the ones a proposed lift's station uses, then the largest unused
+            m_PadScratch.Clear();
+            foreach (PlanLift l in plan.Lifts)
+            {
+                if (l.Origin != LiftOrigin.Proposed)
+                    continue;
+                if (l.BottomPad >= 0 && l.BottomPad < plan.Pads.Length && !m_PadScratch.Contains(l.BottomPad))
+                    m_PadScratch.Add(l.BottomPad);
+                if (l.TopPad >= 0 && l.TopPad < plan.Pads.Length && !m_PadScratch.Contains(l.TopPad))
+                    m_PadScratch.Add(l.TopPad);
+            }
+            for (int n = 0; n < UnusedPadsShown; n++)
+            {
+                int best = -1;
+                for (int i = 0; i < plan.Pads.Length; i++)
+                    if (!m_PadScratch.Contains(i) && (best < 0 || plan.Pads[i].AreaM2 > plan.Pads[best].AreaM2))
+                        best = i;
+                if (best < 0)
+                    break;
+                m_PadScratch.Add(best);
+            }
+            foreach (int i in m_PadScratch)
+            {
+                PlanPad pad = plan.Pads[i];
+                if (!Finite(pad.Center) || !(pad.InscribedM > 0f))
+                    continue;
+                AddDisc(Ground(ref hd, pad.Center), 2f * pad.InscribedM, PadColor, PadEdgeColor, pad.IsBench ? 0f : 1.5f, true, cap);
+                if (pad.IsBench)
+                    for (int e = 0; e < BenchEdgeSides; e += 2)   // every other side of a 24-gon: the bench's dashed edge
+                    {
+                        float a0 = e * 2f * math.PI / BenchEdgeSides, a1 = (e + 1) * 2f * math.PI / BenchEdgeSides;
+                        float2 p0 = pad.Center + pad.InscribedM * new float2(math.cos(a0), math.sin(a0));
+                        float2 p1 = pad.Center + pad.InscribedM * new float2(math.cos(a1), math.sin(a1));
+                        AddLine(Ground(ref hd, p0), Ground(ref hd, p1), 1.2f, PadEdgeColor, cap);
+                    }
+            }
+
+            for (int li = 0; li < plan.Lifts.Length; li++)
+            {
+                PlanLift l = plan.Lifts[li];
+                if (!Finite(l.Bottom) || !Finite(l.Top))
+                    continue;
+                bool podOk = l.Pod >= 0 && l.Pod < plan.Pods.Length;
+                SetOwner(podOk ? plan.Pods[l.Pod].Key : 0u, podOk, l.Key, true);
+                float[] hds = SkiRunAutoPlanner.StationHalfDiagonalM;
+                float lot = 2f * hds[Math.Min((int)l.TypeIndex, hds.Length - 1)];
+                float3 b = Ground(ref hd, l.Bottom.xz), t = Ground(ref hd, l.Top.xz);
+                if (l.Origin == LiftOrigin.Pinned)
+                {
+                    var clear = new UnityEngine.Color(1f, 1f, 1f, 0f);
+                    AddDisc(b, lot, clear, PinnedColor, 2f, false, cap);
+                    AddDisc(t, lot, clear, PinnedColor, 2f, false, cap);
+                    continue;
+                }
+                UnityEngine.Color c = HomeColor(l.Home);
+                HomeEdge(l.Home, c, out UnityEngine.Color edge, out float edgeM);
+                AddLine(b, t, LiftWidthM, c, edge, edgeM, cap);
+                if (l.TowerXz != null)
+                    foreach (float2 xz in l.TowerXz)
+                        if (Finite(xz))
+                            AddDisc(Ground(ref hd, xz), TowerDiscM, c, edge, edgeM, false, cap);
+                var lotFill = new UnityEngine.Color(c.r, c.g, c.b, 0.45f);
+                AddDisc(b, lot, lotFill, edge, 1f + edgeM, true, cap);
+                AddDisc(t, lot, lotFill, edge, 1f + edgeM, true, cap);
+            }
+            m_Owner = 0;
+        }
+
+        private void SetOwner(uint podKey, bool hasPod, uint liftKey, bool hasLift)
+        {
+            m_Owner = (byte)((hasPod ? 1 : 0) | (hasLift ? 2 : 0));
+            m_OwnerPod = podKey;
+            m_OwnerLift = liftKey;
+        }
+
+        /// <summary>The edge of a lift's marks: the piste map's white edge for Black / Double Black (else none: the edge is the fill).</summary>
+        private static void HomeEdge(HomeVerdict h, UnityEngine.Color fill, out UnityEngine.Color edge, out float edgeM)
+        {
+            edge = fill;
+            edgeM = 0f;
+            if (h != HomeVerdict.Black && h != HomeVerdict.DoubleBlack)
+                return;
+            int style = (int)PisteMapRules.StyleOf(h == HomeVerdict.Black ? SkiResortScore.BandBlack : SkiResortScore.BandDoubleBlack);
+            edge = SkiPisteMapSystem.PisteOutline[style];
+            edgeM = SkiPisteMapSystem.PisteOutlineWidth[style];
+        }
+
+        private void AddDisc(float3 at, float diameter, UnityEngine.Color fill, UnityEngine.Color outline, float outlineWidth, bool grid, int cap)
+        {
+            if (m_Marks.Count < cap)
+                m_Marks.Add(new Mark
+                {
+                    A = at, B = at, Size = diameter, Fill = fill, Outline = outline, OutlineWidth = outlineWidth, Grid = grid,
+                    Owner = m_Owner, PodKey = m_OwnerPod, LiftKey = m_OwnerLift,
+                });
+        }
+
+        private void AddLine(float3 a, float3 b, float width, UnityEngine.Color c, int cap) => AddLine(a, b, width, c, c, 0f, cap);
+
+        private void AddLine(float3 a, float3 b, float width, UnityEngine.Color c, UnityEngine.Color edge, float edgeM, int cap)
+        {
+            if (m_Marks.Count < cap)
+                m_Marks.Add(new Mark
+                {
+                    Dashed = true, A = a, B = b, Size = width, Fill = c, Outline = edge, OutlineWidth = edgeM,
+                    Owner = m_Owner, PodKey = m_OwnerPod, LiftKey = m_OwnerLift,
+                });
+        }
+
+        private static UnityEngine.Color PisteColor(byte band) => SkiPisteMapSystem.PisteFill[(int)PisteMapRules.StyleOf(band)];
+
+        private static UnityEngine.Color HomeColor(HomeVerdict h) =>
+            h == HomeVerdict.Green ? PisteColor(SkiResortScore.BandGreen)
+            : h == HomeVerdict.Blue ? PisteColor(SkiResortScore.BandBlue)
+            : h == HomeVerdict.Black ? PisteColor(SkiResortScore.BandBlack)
+            : h == HomeVerdict.DoubleBlack ? PisteColor(SkiResortScore.BandDoubleBlack)
+            : h == HomeVerdict.Download ? DownloadColor : LiftColor;
+
+        private static bool Finite(float2 v) => math.all(math.isfinite(v));
+
+        private static bool Finite(float3 v) => math.all(math.isfinite(v));
 
         private static float3 Ground(ref TerrainHeightData hd, float2 xz) => RunAreaEmit.Ground(ref hd, xz);
     }
