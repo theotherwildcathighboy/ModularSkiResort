@@ -9,6 +9,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Tasks;
@@ -33,7 +34,11 @@ namespace AutoGenBatch
         private const float TwinM = 300f;       // a lift whose top AND bottom are this close to an existing one's is a twin, not a new lift
 
         // hourly capacity relative to a detachable quad (2,400 / h): a tram lap is worth a third of a chair lap to a resort
-        private static float Capacity(string type) => type switch { "fixed-grip" => 0.75f, "detachable" => 1f, "gondola" => 0.8f, _ => 0.3f };   // terrain may rise this far above the straight chord (towers carry the rope over it)
+        private static float Capacity(string type) => type switch { "fixed-grip" => 0.75f, "detachable" => 1f, "gondola" => GondolaCap, _ => 0.3f };   // terrain may rise this far above the straight chord (towers carry the rope over it)
+        // v5 lift type by use: 0 off, 1 in the placement (the value follows the new type), 2 a relabel of the finished plan
+        private static readonly int TypeUse = (int)Env("RF_TYPEUSE", 2f);
+        private static readonly float ChairMaxRise = Env("RF_CHAIRRISE", 700f), VeryLongM = Env("RF_VERYLONG", 2500f), TramRise = Env("RF_TRAMRISE", 800f);
+        private static readonly float GondolaCap = Env("RF_GONDCAP", 0.6f);
 
         private static readonly List<(float2 P, int R, int G, int B)> DebugDots = new List<(float2, int, int, int)>();   // RF_TOPS marks
 
@@ -45,6 +50,7 @@ namespace AutoGenBatch
             public float3 Bottom, Top;
             public int TopCell, BottomCell, TopIndex, BottomIndex;
             public float Transfer;          // credit for delivering skiers to other lifts' bottoms (over a ridge into a bowl)
+            public bool RidesDown;          // a download lift (no ski-out): a gondola or tram whatever its rise
             public float OpensKm2;          // a coverage lift: the skiable ground it was placed to open
             public float Length, Rise, Gain, BottomGrade;
             public readonly List<Line> Lines = new List<Line>();
@@ -735,6 +741,8 @@ namespace AutoGenBatch
                 if (RawH(g, p.xz) - p.y > TowerLiftM - 2f)
                     return null;
             }
+            if (TypeUse == 1)
+                return ByUse(len, rise, run);
             foreach (var ty in Types)
                 if (ty.Name != "beginner" && len >= ty.L0 && len <= ty.L1 && rise >= ty.R0 && rise <= ty.R1 && rise / run <= ty.Cap)
                     return ty.Name == "fixed-grip" && len > 1000f && len >= 600f ? "detachable" : ty.Name;
@@ -744,6 +752,69 @@ namespace AutoGenBatch
             if (len >= 800f && rise >= 96f && rise / run <= 1.2f)
                 return "gondola";
             return null;
+        }
+
+        /// <summary>v5, the type by use, not by rise: chairs to ChairMaxRise (a fixed-grip to 1000 m of length, detachable beyond), a
+        /// gondola for a very long line or a grade past a chair's, a tram for a trunk line past TramRise (base to ridge).</summary>
+        private static string ByUse(float len, float rise, float run)
+        {
+            float gr = rise / run;
+            if (rise >= 95f && rise <= ChairMaxRise && len <= VeryLongM)
+            {
+                if (len >= 300f && len <= 1000f && rise <= 512f && gr <= 0.8f)
+                    return "fixed-grip";
+                if (len >= 600f && gr <= 0.9f)
+                    return "detachable";
+            }
+            if (len < 800f || rise < 96f)
+                return null;
+            if (rise >= TramRise || gr > 1.2f)
+                return rise >= 220f && gr <= 2.5f ? "tram" : null;
+            return "gondola";
+        }
+
+        /// <summary>v5, the type by use on the finished plan (RF_TYPEUSE=2, the default): the lifts are placed as before (the ladder
+        /// by rise sets their value), then a gondola or tram that is neither the village lift nor a download lift becomes the chair
+        /// its line allows, and a gondola past TramRise a tram, where no chair line crosses it and the ski graph keeps its links and
+        /// ways home (a gondola top also takes skiers down). Returns the lifts changed.</summary>
+        private static int RetypeByUse(Grid g, Plan plan, List<Lift> lifts, Lift village)
+        {
+            int changed = 0;
+            var log = new List<string>();
+            foreach (Lift lf in lifts)
+            {
+                if (lf.Kind == "beginner" || lf == village || lf.RidesDown)
+                    continue;
+                float2 b = lf.Bottom.xz, t = lf.Top.xz;
+                float rise = RawH(g, t) - RawH(g, b), run = math.distance(b, t), len = math.sqrt(run * run + rise * rise);
+                string by = ByUse(len, rise, run);
+                if (by == null || by == lf.Type || (!Aerial(by) && !Aerial(lf.Type)))
+                    continue;
+                if (lifts.Any(o => o != lf && Aerial(o.Type) == Aerial(by) && SegCrossScore(o.Bottom.xz, o.Top.xz, b, t)))
+                {
+                    log.Add($"L{lf.Id} {lf.Type} stays (a {by} would cross a lift of its class)");
+                    continue;
+                }
+                SkiGraph before = Ski(g, plan, lifts);
+                int[] root = V3Bases(g, lifts, out HashSet<int> bases);
+                int homeBefore = WayHomeOk(before, lifts, root, bases).Count(x => x);
+                string was = lf.Type;
+                lf.Type = by;
+                SkiGraph after = Ski(g, plan, lifts);
+                root = V3Bases(g, lifts, out bases);
+                int homeAfter = WayHomeOk(after, lifts, root, bases).Count(x => x);
+                if (after.BestSize < before.BestSize || homeAfter < homeBefore)
+                {
+                    lf.Type = was;
+                    log.Add($"L{lf.Id} {was} stays (as a {by}: network {after.BestSize}/{before.BestSize}, ways home {homeAfter}/{homeBefore})");
+                    continue;
+                }
+                log.Add($"L{lf.Id} {was} -> {by} ({len:F0} m / {rise:F0} m up)");
+                changed++;
+            }
+            if (log.Count > 0)
+                plan.Log.Add("type by use: " + string.Join("; ", log));
+            return changed;
         }
 
         private static void WriteLifts(string path, string id, List<Lift> lifts, List<Line> lines)

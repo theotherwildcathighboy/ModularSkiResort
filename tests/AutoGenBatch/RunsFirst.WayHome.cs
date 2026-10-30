@@ -177,6 +177,7 @@ namespace AutoGenBatch
                 }
                 plan.Log.Add($"L{lf.Id} has no way home: a download lift, {lf.Type} -> {type} ({len:F0} m / {rise:F0} m up)");
                 lf.Type = type;
+                lf.RidesDown = true;
                 changed++;
             }
             return changed;

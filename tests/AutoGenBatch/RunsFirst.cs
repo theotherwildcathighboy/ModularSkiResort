@@ -247,6 +247,8 @@ namespace AutoGenBatch
                     village = lf;
             if (village != null && Environment.GetEnvironmentVariable("RF_NOVILLAGE") != "1")
                 village.Type = "gondola";
+            if (TypeUse == 2)
+                RetypeByUse(g, built, lifts, village);
             long ms = sw.ElapsedMilliseconds;
 
             // the v2 plan of the same region, as the host replays it
