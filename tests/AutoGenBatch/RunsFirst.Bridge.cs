@@ -164,7 +164,8 @@ namespace AutoGenBatch
                     float2 bw = g.World(b), tw = g.World(t);
                     // a pair across a placed lift is cheap to pass over and does not count against the checks (where the cut-off
                     // area lies beyond other lifts, the shortest few thousand pairs all cross one)
-                    if (lifts.Any(lf => SegCrossScore(lf.Bottom.xz, lf.Top.xz, bw, tw) || (NoParallel && ParallelLines(bw, tw, lf.Bottom.xz, lf.Top.xz))))
+                    if (lifts.Any(lf => SegCrossScore(lf.Bottom.xz, lf.Top.xz, bw, tw) || (NoParallel && ParallelLines(bw, tw, lf.Bottom.xz, lf.Top.xz))
+                        || (NoStacked && StackedLines(bw, tw, lf.Bottom.xz, lf.Top.xz))))
                         continue;
                     checks++;
                     if (UnderRope(g, lifts, t, b))

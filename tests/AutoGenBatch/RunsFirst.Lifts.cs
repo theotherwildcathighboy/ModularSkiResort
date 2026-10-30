@@ -563,6 +563,9 @@ namespace AutoGenBatch
                 float2 b0 = lf.Bottom.xz, b1 = lf.Top.xz;
                 if (math.distance(a1, b1) < TwinM && math.distance(a0, b0) < TwinM)
                     return true;
+                // scorecard v5.1: one lift riding up on another's line (tops together, bottoms apart) is rejected
+                if (NoStacked && StackedLines(a0, a1, b0, b1))
+                    return true;
                 bool parallel = true;
                 for (float s = 0.2f; s <= 0.8f && parallel; s += 0.1f)
                     parallel = SegDist(math.lerp(a0, a1, s), b0, b1) < parallelM;

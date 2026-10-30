@@ -39,6 +39,20 @@ namespace AutoGenBatch
             return math.abs(off.x * u.y - off.y * u.x) < LayParallelM;
         }
 
+        /// <summary>Scorecard v5.1's stacked lines, a validity violation: one lift riding up on another's line (tops within 300 m, bottoms
+        /// over 300 m apart, directions within 30 degrees), with a margin for the station moves of the later passes. Fans (bottoms
+        /// together) are fine.</summary>
+        private static bool StackedLines(float2 bi, float2 ti, float2 bj, float2 tj)
+        {
+            float2 di = ti - bi, dj = tj - bj;
+            float li = math.length(di), lj = math.length(dj);
+            return li >= 1f && lj >= 1f && math.dot(di / li, dj / lj) >= math.cos(math.radians(StackDegM)) && math.distance(ti, tj) < StackTopMm
+                && math.distance(bi, bj) > StackBottomMm;
+        }
+
+        private static readonly float StackDegM = Env("RF_STACKDEG", 33f), StackTopMm = Env("RF_STACKTOP", 330f), StackBottomMm = Env("RF_STACKBOT", 280f);
+        private static readonly bool NoStacked = Environment.GetEnvironmentVariable("RF_STACKED") != "0";
+
         // scorecard v5's fall line: no cost to 30 degrees off the ground's mean downhill direction, full cost at 60
         private const float FallFreeDeg = 30f, FallFullDeg = 60f;
 

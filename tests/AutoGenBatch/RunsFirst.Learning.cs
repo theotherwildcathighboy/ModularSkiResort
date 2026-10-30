@@ -251,7 +251,8 @@ namespace AutoGenBatch
                         fail = Math.Min(fail, 2);
                         continue;
                     }
-                    if (lifts.Any(lf => SegCrossScore(lf.Bottom.xz, lf.Top.xz, b, t) || ParallelLines(b, t, lf.Bottom.xz, lf.Top.xz))
+                    if (lifts.Any(lf => SegCrossScore(lf.Bottom.xz, lf.Top.xz, b, t) || ParallelLines(b, t, lf.Bottom.xz, lf.Top.xz)
+                            || StackedLines(b, t, lf.Bottom.xz, lf.Top.xz))
                         || UnderRope(g, lifts, top, fc))
                     {
                         fail = Math.Min(fail, 3);
