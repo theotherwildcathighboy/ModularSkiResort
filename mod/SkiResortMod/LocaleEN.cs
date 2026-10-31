@@ -238,7 +238,7 @@ namespace SkiResortMod
                 // (assets/blender/safety_fence_stage.py LOC_ENTRIES): both sources may load, the later one wins
                 // (LocalizationDictionary.Add overwrites), so they must agree. Change both or neither.
                 { "Assets.NAME[SkiSafetyFence]", "Safety Net Fence" },
-                { "Assets.DESCRIPTION[SkiSafetyFence]", "Orange plastic safety netting on thin poles. Draw it like a path to build corrals, mark run edges or close a slope." },
+                { "Assets.DESCRIPTION[SkiSafetyFence]", "Orange plastic safety netting on thin poles. Purely decorative." },
                 { "Assets.NAME[SkiNetPost]", "Safety Net Fence Post" },
                 { "Assets.DESCRIPTION[SkiNetPost]", "The safety net fence's end post. The fence places it by itself." },
                 { "Assets.NAME[SkiSafetyFenceLane]", "Safety Net Fence Lane (part of the fence)" },
@@ -421,7 +421,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.BUILD_EMPTY", "No building tools were reported. See SkiResortMod.Mod.log." },
                 { "SkiResort.Hub.BUILD_ACTIVE", "In use" },
                 // BUILD_HINT_LODGE: the hub shows a ski area, so the lodge goes on its sign.
-                { "SkiResort.Hub.BUILD_HINT_LODGE", "Guests start their ski day here, within 800 m of the runs." },
+                { "SkiResort.Hub.BUILD_HINT_LODGE", "Ski-day guests only use lodges within 800 m of runs or stations." },
                 { "SkiResort.Hub.LOCKED", "Not available yet" },
                 { "SkiResort.Hub.TREES_FEWER", "Fewer trees" },
                 { "SkiResort.Hub.TREES_MORE", "More trees" },
@@ -687,8 +687,6 @@ namespace SkiResortMod
                 { "SkiResort.Hub.LIFT_SIGN_TIP", "A lift belongs to the ski area of its base station; a run keeps the ski area it was drawn for." },
                 // Build strip.
                 { "SkiResort.Hub.BUILD_HINT_SIGN", "Starts a ski area: lifts and runs within 5 km join it." },
-                { "SkiResort.Hub.BUILD_HINT_TOP", "Faces the base station: a guide shows when it is straight." },
-                { "SkiResort.Hub.BUILD_HINT_LIFT", "On steep ground, redo one section at a time." },
                 // An extra TOOLTIP line of the base, top and lift tiles (the footer's two
                 // one-string lines would cut it at 130-150 % text; src/hub/BuildStrip.tsx header).
                 // The link states.
@@ -744,8 +742,6 @@ namespace SkiResortMod
                 // The tooltip's first line is the row ("Welcome Sign is not at a road" /
                 // "Lodge is not at a road: ..."), so "it" names the building; the fix hints: the deck side is the lot front,
                 // and the game links a road within 8.4 m of the front point.
-                { "SkiResort.Hub.PROBLEM_TIP[SignNoRoad]", "Staff and visitors enter from the road." },
-                { "SkiResort.Hub.PROBLEM_TIP[LodgeNoRoad]", "Staff and visitors enter from the road." },
                 // Top-level ski schools on no Welcome Sign (C# HubProblemCode SchoolsNotLinked; its row text is FMT below).
                 { "SkiResort.Hub.PROBLEM_TIP[SchoolsNotLinked]", "More than 5 km from every Welcome Sign, so they teach nobody." },
                 // 300 m is the parking census radius, 800 m the slopeside distance.
@@ -988,7 +984,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.BUILD_LABEL[Line]", "Lift line" },
                 { "SkiResort.Hub.BUILD_LABEL[Sign]", "Sign" },
                 { "SkiResort.Hub.BUILD_LABEL[Fence]", "Fence" },
-                { "SkiResort.Hub.BUILD_HINT_FENCE", "Fences a slope, marks a run edge or closes a run." },
+                { "SkiResort.Hub.BUILD_HINT_FENCE", "Decorative only." },
                 { "SkiResort.Hub.BUILD_LABEL[Lodge]", "Lodge" },
                 { "SkiResort.Hub.BUILD_LABEL[School]", "School" },
                 { "SkiResort.Hub.BUILD_LABEL[PatrolHut]", "Hut" },

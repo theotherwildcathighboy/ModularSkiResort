@@ -621,8 +621,7 @@ def loc_bytes(entries, locale_id="en-US", language="English", localized_name="En
 
 LOC_ENTRIES = (
     (f"Assets.NAME[{NET}]", "Safety Net Fence"),
-    (f"Assets.DESCRIPTION[{NET}]", "Orange plastic safety netting on thin poles. Draw it like a "
-                                    "path to build corrals, mark run edges or close a slope."),
+    (f"Assets.DESCRIPTION[{NET}]", "Orange plastic safety netting on thin poles. Purely decorative."),
 )
 
 

@@ -88,8 +88,8 @@ function Line1({ id, item, t }: { id: BuildItemId; item: BuildItem; t: Translate
 }
 
 /*
- * A tile's hint (footer line 2 and tooltip), by kind: every lift type's top / line reads the fixed-grip pair's hints; the lodges,
- * the school and the patrol huts have their own. A base station has none: a hint only says what a player cannot find by trying.
+ * A tile's hint (footer line 2 and tooltip), by kind. Stations and lift lines have none: a hint only says what a player cannot
+ * find by trying.
  */
 function hintEntry(id: BuildItemId): LocEntry | null {
   const kind = BUILD_RUN_KIND[id];
@@ -100,8 +100,7 @@ function hintEntry(id: BuildItemId): LocEntry | null {
     case "lodge": return HUB_LOC.buildHintLodge;
     case "school": return HUB_LOC.buildShortSchool;
     case "patrol": return HUB_LOC.buildShortPatrol;
-    case "station": return stationRole(id) === "top" ? HUB_LOC.buildHintTop : null;
-    default: return HUB_LOC.buildHintLift;
+    default: return null;
   }
 }
 

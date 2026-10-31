@@ -46,8 +46,7 @@ First public release. Draft notes (check against the build at upload):
   pods or lifts, set the number of lifts, the way home, the mix and the run kinds, then build the runs in one go and undo
   them; the proposed lifts you build yourself with the lift tool. The scan runs in the background with a progress line, and
   right click stops it. Optional tree filler. Ctrl+Shift+Q; it is off by default and is turned on in Options.
-- Safety Net Fence: orange netting on thin poles, drawn like a path from the hub's Runs tab to mark a run edge, build a
-  corral or close a slope.
+- Safety Net Fence: decorative orange netting on thin poles, in the hub's Runs tab.
 - Snow-depth run system: runs open at 3 ft (91 cm) on 60 percent of the run, snow guns on snowmaking and night runs
   (October to March), powder days, seasons.
 - Welcome Sign (set back 8 m from the road on a leveled lot), five lodges, Ski School, two patrol

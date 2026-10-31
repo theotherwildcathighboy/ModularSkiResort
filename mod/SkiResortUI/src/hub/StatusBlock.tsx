@@ -191,8 +191,6 @@ function problemTip(p: ProblemRow, factors: readonly ProblemRow[], live: ResortL
     case "runsUnrateable": body = t(HUB_LOC.problemTipRunsUnrateable); break;
     case "runsRating": body = t(HUB_LOC.problemTipRunsRating); break;
     case "freeLodges": body = t(HUB_LOC.problemTipFreeLodges); break;
-    case "signNoRoad": body = t(HUB_LOC.problemTipSignNoRoad); break;
-    case "lodgeNoRoad": body = t(HUB_LOC.problemTipLodgeNoRoad); break;
     case "skiDaysCannotReach": body = t(HUB_LOC.problemTipSkiDaysCannotReach); break;
     case "noParkingNearLodge": body = t(HUB_LOC.problemTipNoParkingNearLodge); break;
     case "lodgeNotSlopeside": body = t(HUB_LOC.problemTipLodgeNotSlopeside); break;
