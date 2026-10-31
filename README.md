@@ -3,8 +3,8 @@
 Build a real ski resort in CS2: draw fixed-grip and detachable chairlifts, gondolas and an
 aerial tram with one lift tool (auto-height numbered towers, a cable the chairs and cabins ride),
 start a ski area with a Welcome Sign, place standalone lodges, a Ski School and patrol buildings,
-and paint runs that the game's own snow simulation keeps open at 3 ft of snow (snow guns October
-to March) — and that melt when the snow goes. Attractiveness, tourism and a resort economy
+and paint runs that the game's own snow simulation keeps open at 3 ft of snow (snow guns from two
+months before winter to one month after) — and that melt when the snow goes. Attractiveness, tourism and a resort economy
 (tickets, passes, lessons, lodge spend) react to runs, lifts and season. Base game only.
 
 Started 2026-08-03. Working chairlift beta in 5 days; the docs site's Timeline page tells the rest.

@@ -457,6 +457,7 @@ namespace SkiResortMod.Systems
         private SkiGladeToolSystem m_GladeTool;
         private LiftLineToolSystem m_LiftLineTool;   // the Lifts tab's lift generator (public API only; the lift session owns it)
         private CatTrackGradeToolSystem m_GradeTool; // the cat track tool the Cat track tile opens (public API only)
+        private SkiCatTrackDeleteSystem m_CatTrackDelete;
         private SkiPisteMapSystem m_PisteMap;        // DUMP only
         private LodgeRoadSystem m_LodgeRoad;                  // DUMP only
         private EntityQuery m_CitizenQuery;          // DUMP only (citizens at a lodge / sign)
@@ -627,6 +628,7 @@ namespace SkiResortMod.Systems
             // Objects.SearchSystem / CameraUpdateSystem, never this system (it reads SkiRunCatalogSystem with GetExisting at load), so a
             // GetOrCreate here cannot recurse.
             m_GradeTool = World.GetOrCreateSystemManaged<CatTrackGradeToolSystem>();
+            m_CatTrackDelete = World.GetOrCreateSystemManaged<SkiCatTrackDeleteSystem>();
             // The Quick runs tool. Its OnCreate resolves Overlay / Terrain / Water / SkiPrefabCatalogSystem / SkiRunOwnershipSystem /
             // Objects.SearchSystem / CameraUpdateSystem / CitySystem / NameSystem / ToolOutputBarrier, never this system, so a
             // GetOrCreate here cannot recurse.
@@ -1185,9 +1187,9 @@ namespace SkiResortMod.Systems
                     ApplyQuickRunsSet(r.Text, r.Int, r.Source);
                     break;
                 case RequestKind.DeleteCatTrack:
-                    // Applied here, in OnUpdate: never a structural change inside the binding callback (DECISIONS 418)
-                    bool deleted = m_GradeTool != null && m_GradeTool.DeleteTrack(r.Entity, "hub row" + SourceSuffix(r.Source));
-                    LastTriggerText = $"deleteCatTrack {Ent(r.Entity)}: {(deleted ? "deleted" : "refused")}";
+                    // Queued for PostTool: a Deleted tag added here, in UIUpdate, would never reach vanilla's area search tree
+                    m_CatTrackDelete.Request(r.Entity, "hub row" + SourceSuffix(r.Source));
+                    LastTriggerText = $"deleteCatTrack {Ent(r.Entity)}: queued";
                     break;
                 case RequestKind.SetCatTrackDeleteMode:
                     ApplyCatTrackDeleteMode(r.Bool, r.Source);

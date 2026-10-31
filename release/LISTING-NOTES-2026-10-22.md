@@ -32,7 +32,7 @@ Resolved questions below: Q1 (straight to 1.0: the save line stays "start from a
 | Rating from the hardest unavoidable pitch; green / blue / black / double black; heat map + tooltip while drawing | `SkiSlopeClassifier.cs` (grade 6 / 25 / 40 / 60 %), `LocaleEN` CRUX_PITCH; setting "Show run difficulty while drawing" | V |
 | Every run opens at 3 ft (91 cm) on 60 % of the run, closes below 40 %, natural or made | `RunSnowRules.cs` (`SkiableDepthM` 0.91, `OpenAtShare` 0.60, `CloseBelowShare` 0.40); DECISIONS 350, 353 | V; **B** in game (sheet row 14) |
 | Snow comes from the game's snow simulation | CLAUDE.md (injection), `SkiSnowInjectionSystem.cs`, docs/research/run-rendering-synthesis.md | V |
-| Snowmaking and night runs have guns, keep the run at about 3 ft; guns October to March | `RunSnowRules.GunStopDepthM` (0.96), DECISIONS 353 (T133, T135) | V; **B** (sheet row 14) |
+| Snowmaking and night runs have guns, keep the run at about 3 ft; guns two months before winter to one month after | `RunSnowRules.GunStopDepthM` (0.96), DECISIONS 353 (T133, T135) | V; **B** (sheet row 14) |
 | Night runs floodlit, worth 25 % more | `SkiResortScore.NightFactor` 1.25; settings text "Floodlight masts" | V |
 | Powder day = fresh snow in the last day; more locals go | DECISIONS 353 (T134: precipitation over 24 h, mark at 4.5), `SkiDayRules.cs` | V; shader vs precipitation match is UNVERIFIED (353) |
 | Lifts stop while their ski area has no open run; tram keeps running in summer | `LiftClosedRule` in `LiftServedRule.cs`; `LiftLoopHold.cs`; DECISIONS 347 (e), 348 (e) | V; tram summer run P (342 / 350: "tram runs") |

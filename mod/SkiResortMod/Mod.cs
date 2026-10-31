@@ -224,6 +224,11 @@ namespace SkiResortMod
             updateSystem.UpdateBefore<SkiDeleteAllSystem, Game.Objects.SubElementDeleteSystem>(
                 SystemUpdatePhase.PostTool);
 
+            // The hub row's cat track delete. Same anchor, same reason: a Deleted tag added later in the frame never reaches
+            // Game.Areas.SearchSystem (Modification5), and a stale search tree entry crashes a Burst job (the system's header).
+            updateSystem.UpdateBefore<SkiCatTrackDeleteSystem, Game.Objects.SubElementDeleteSystem>(
+                SystemUpdatePhase.PostTool);
+
             // Every prefab of this mod open at each Game-mode load. Modification1 is load-bearing: vanilla's Unlock All phase, its Unlock events
             // flush through ModificationBarrier1 (SystemOrder.cs:86, :106); runs paused or not.
             updateSystem.UpdateAt<SkiUnlockSystem>(SystemUpdatePhase.Modification1);

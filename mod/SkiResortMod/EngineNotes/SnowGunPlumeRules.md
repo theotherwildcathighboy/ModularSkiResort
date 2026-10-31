@@ -11,7 +11,7 @@ never runs while the guns are stopped.
    `RunSnowRules.HalfQuantum`: MergeRowsJob treats a sub-quantum shortfall as no raise), restart only below GunStopDepthM -
    GunRestartBandM.
 3. The pack is not already that deep from natural snow (the measure clamps each texel at its own target).
-4. It is the gun season (`InGunSeason`, October to March). Without this, a high run on a warm-base night can have a few cold texels at
+4. It is the gun season (`InGunSeason`, 2 months before the climate's winter to 1 month after: October to March for a December winter, April to September for a June one). Without this, a high run on a warm-base night can have a few cold texels at
    the top while the guns could never open the run (it opens on 60 % of its texels), so they would bill and plume for nothing. Out of
    season the fold raises nothing and no plume shows; the state still steps.
 

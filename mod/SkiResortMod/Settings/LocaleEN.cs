@@ -222,7 +222,7 @@ namespace SkiResortMod.Settings
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.SnowmakingBonusCelsius)),
                     "Snow guns on snowmaking and night runs work where the air on the run is at most " +
-                    "this many degrees above freezing, from October to March, until the run has 3 ft (91 cm) of snow. " +
+                    "this many degrees above freezing, from 2 months before winter to 1 month after, until the run has 3 ft (91 cm) of snow. " +
                     "Higher means a longer season and a bigger snowmaking bill. Default 3.3 (38 F)."
                 },
                 {
@@ -523,8 +523,8 @@ namespace SkiResortMod.Settings
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.ToggleLiftLineToolBinding)),
                     "Opens or closes the lift-line tool: click a lift station, then the other station of the same lift. " +
                     "The planned towers appear (fewest towers, tall ones where they save a tower). Click on the line to " +
-                    "add a tower, drag a tower to move it (release it off the line to remove it), right click to step " +
-                    "back, then press the Build key. Esc closes the tool. Default Ctrl+Shift+L."
+                    "add a tower, drag a tower to move it (release it off the line to remove it), right click or Esc to " +
+                    "step back, then press the Build key. Default Ctrl+Shift+L."
                 },
                 { m_Setting.GetBindingKeyLocaleID(SkiResortSettings.ActToggleLiftLine), "Toggle lift-line tool" },
                 { m_Setting.GetBindingKeyHintLocaleID(SkiResortSettings.ActToggleLiftLine), "Lift-line tool" },

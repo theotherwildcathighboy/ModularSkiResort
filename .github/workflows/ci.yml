@@ -55,6 +55,8 @@ jobs:
         run: node tools/check-us-english.js
       - name: No user paths
         run: node tools/check-no-user-paths.js
+      - name: No late-phase deletes
+        run: node tools/check-ui-phase-deletes.js
       - name: Listing text matches DESCRIPTION.md
         run: node tools/sync-listing.js --check
       - name: Translation template is current

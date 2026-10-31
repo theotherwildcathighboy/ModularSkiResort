@@ -17,6 +17,24 @@ dotnet build -c Release
 That deploys to `<Mods>\SkiTestBridge`. Steam launch options: `--developerMode --uiDeveloperMode`. The mod log is
 `SkiTestBridge.log` in the game's Logs folder, and its first line says Active or Inert. To remove it, delete `<Mods>\SkiTestBridge`.
 
+### Starting the game without the launcher
+
+Only where the owner has allowed a restart. The Steam URL opens the Paradox Launcher. A direct start skips it, but needs the Steam
+variables: without them the game logs a NullReference in `AssetDatabase.PopulateFromDataSource` in a loop on a black screen.
+
+```powershell
+$env:SteamAppId="949230"; $env:SteamGameId="949230"; $env:SteamOverlayGameId="949230"; $g="C:\Program Files (x86)\Steam\steamapps\common\Cities Skylines II"; Start-Process -FilePath "$g\Cities2.exe" -WorkingDirectory $g -ArgumentList "--developerMode","--uiDeveloperMode"
+```
+
+Port 9444 opens after 1 to 2 minutes. The window then has no focus, so input does not reach it (WScript `AppActivate` returned False). Bring it forward:
+
+```powershell
+Add-Type @"
+using System;using System.Runtime.InteropServices;
+public class W{[DllImport("user32.dll")]public static extern bool SetForegroundWindow(IntPtr h);[DllImport("user32.dll")]public static extern bool ShowWindow(IntPtr h,int c);[DllImport("user32.dll")]public static extern void keybd_event(byte k,byte s,uint f,UIntPtr e);}
+"@; $h=(Get-Process Cities2).MainWindowHandle; [W]::keybd_event(0x12,0,0,[UIntPtr]::Zero); [W]::keybd_event(0x12,0,2,[UIntPtr]::Zero); [W]::ShowWindow($h,9) | Out-Null; [W]::SetForegroundWindow($h)
+```
+
 ## Keep tests fast
 
 Do not work screenshot, move, screenshot. One `game_eval` should run a whole test:
@@ -117,6 +135,8 @@ Input steps wait `after` frames afterward (default 2).
 | `waitFor` | a `dump` query plus `min` (default 1); `timeout` frames (default 1200) fails the sequence |
 | `hover`, `status`, `dump` | adds the reading to `results` |
 | `sim`, `time`, `money`, `climate`, `tool`, `unlock`, `milestone`, `demand`, `errors` | same as the ops; the reply goes to `results` |
+
+Rectangles in the area tool: the vanilla right-angle snap can pull the closing click off the first corner, so the area stays open and nothing is built (`Area.m_Flags` without `Complete`, a fifth node 0.5 m from the first). Draw test areas slightly off square.
 
 Two guards fail a sequence instead of letting it click on blindly:
 

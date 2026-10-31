@@ -204,6 +204,12 @@ namespace SkiTestBridge
             var camera = m_Camera.gamePlayController;
             if (camera == null)
                 throw new InvalidOperationException("no gameplay camera");
+            // A hub focus leaves the orbit controller active, which would ignore everything below.
+            if (m_Camera.activeCameraController != (IGameCameraController)camera)
+            {
+                camera.TryMatchPosition(m_Camera.activeCameraController);
+                m_Camera.activeCameraController = camera;
+            }
             if (args["wx"] != null)
                 camera.pivot = (Vector3)WorldPoint(args);
             if (args["zoom"] != null)

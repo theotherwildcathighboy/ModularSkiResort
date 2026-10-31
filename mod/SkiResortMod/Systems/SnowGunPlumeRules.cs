@@ -3,7 +3,7 @@
 // the bill never runs while the guns are stopped. Linked into tests/ResortBatch (SnowGunPlumeTests); `using System;` only.
 // A run's guns run only when the temperature gate passes (some cold texel), the pack is below the stop depth with hysteresis (stop at
 // GunStopDepthM, restart below GunStopDepthM - GunRestartBandM), the pack is not already that deep from natural snow, and it is the
-// gun season (InGunSeason, October to March). Plume: setting on, the run's guns running, and the gun's own elevation cold.
+// gun season (InGunSeason, around the climate's winter). Plume: setting on, the run's guns running, and the gun's own elevation cold.
 // Lease: the plume effect is enabled while EarlyDisasterWarningDuration.m_EndFrame > the sim frame (EffectControlData.cs:419-424).
 // Engine notes: EngineNotes/SnowGunPlumeRules.md
 
@@ -80,16 +80,27 @@ namespace SkiResortMod.Systems
         public const float GunSeasonEnd = 15f / 12f;
 
         /// <summary>Whether snow guns may run now. A vanilla-named season decides where it is clear ("SeasonWinter" in,
-        /// "SeasonSummer" out: a map whose winter falls in June keeps its guns); any other name uses the calendar window
-        /// October to March, the RunSnowRules.IsSpring pattern.</summary>
-        public static bool InGunSeason(string seasonName, float normalizedDate)
+        /// "SeasonSummer" out: a map whose winter falls in June keeps its guns); any other name uses the window around a
+        /// December to February winter, October to March (the overload below takes the climate's own winter).</summary>
+        public static bool InGunSeason(string seasonName, float normalizedDate) =>
+            InGunSeason(seasonName, normalizedDate, GunSeasonStart + MonthsBeforeWinter / 12f, GunSeasonEnd - MonthsAfterWinter / 12f);
+
+        /// <summary>How far the gun season reaches around the climate's winter. With a December to February winter
+        /// (SnowLineRules.WinterWindow) this is October to March; a map whose winter falls in June runs April to September.</summary>
+        public const float MonthsBeforeWinter = 2f;
+        public const float MonthsAfterWinter = 1f;
+
+        /// <summary>InGunSeason around the climate's own winter (normalized year; the end may pass 1).</summary>
+        public static bool InGunSeason(string seasonName, float normalizedDate, float winterStart, float winterEnd)
         {
             if (seasonName == "SeasonWinter")
                 return true;
             if (seasonName == "SeasonSummer")
                 return false;
-            float d = normalizedDate - (float)Math.Floor(normalizedDate);
-            return d >= GunSeasonStart || d < GunSeasonEnd - 1f;
+            float start = winterStart - MonthsBeforeWinter / 12f;
+            float span = winterEnd + MonthsAfterWinter / 12f - start;
+            float d = normalizedDate - start + 1e-5f;   // the first instant of the window stays inside it after float rounding
+            return d - (float)Math.Floor(d) < span;
         }
 
         /// <summary>RaisesThisPass inside the season only.</summary>

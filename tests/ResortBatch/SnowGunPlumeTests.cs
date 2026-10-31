@@ -177,7 +177,7 @@ namespace ResortBatch
               "T133 the 3 ft base: mean texel within one night at the gate");
             C(RunSnowRules.WindowsToGameHours(RunSnowRules.GunWindowsToReach(RunSnowRules.GunTargetDepthM, thr, thr, slow)) <= 24f, W,
               "T133 the 3 ft base: slowest texel within one game day at the gate");
-            // The gun season (October to March; a vanilla winter / summer name decides first).
+            // The gun season (October to March around a December winter; a vanilla winter / summer name decides first).
             C(S.InGunSeason("SeasonWinter", 6.5f / 12f), W, "T135 a season named winter is in, whatever the calendar (southern map)");
             C(!S.InGunSeason("SeasonSummer", 0.5f / 12f), W, "T135 a season named summer is out");
             C(!S.InGunSeason("SeasonSpring", 4.8f / 12f), W, "T135 late May (spring) is out: the 2026-10-20 guns in May");
@@ -187,6 +187,12 @@ namespace ResortBatch
             C(S.InGunSeason("SeasonAutumn", 9.0f / 12f) && S.InGunSeason("SeasonAutumn", 10.5f / 12f), W, "T135 October and November are in");
             C(S.InGunSeason("", 0.5f / 12f) && S.InGunSeason(null, 11.5f / 12f) && !S.InGunSeason(null, 6f / 12f), W,
               "T135 no season name: the calendar (January in, December in, July out)");
+            // A map whose winter is June to August: the window moves with it (field test 2026-10-31).
+            const float WS = 5f / 12f, WE = 8f / 12f;
+            C(S.InGunSeason("SeasonAutumn", 3.0f / 12f, WS, WE) && S.InGunSeason("SeasonAutumn", 4.5f / 12f, WS, WE), W, "southern winter: April and May are in");
+            C(!S.InGunSeason("SeasonAutumn", 2.5f / 12f, WS, WE), W, "southern winter: warm March is out");
+            C(S.InGunSeason("SeasonSpring", 8.5f / 12f, WS, WE) && !S.InGunSeason("SeasonSpring", 9.5f / 12f, WS, WE), W, "southern winter: September in, October out");
+            C(S.InGunSeason("SeasonSpring", 2.5f / 12f, 11f / 12f, 14f / 12f) && !S.InGunSeason("SeasonSpring", 3.5f / 12f, 11f / 12f, 14f / 12f), W, "December winter: the window wraps the year");
             C(!S.RaisesThisPass(S.GunState.Running, false) && S.RaisesThisPass(S.GunState.Running, true), W, "T135 out of season the guns raise nothing");
             C(!S.GunsRunning(S.GunState.Running, 100, false) && S.GunsRunning(S.GunState.Running, 100, true), W, "T135 out of season no gun runs (no plume)");
         }

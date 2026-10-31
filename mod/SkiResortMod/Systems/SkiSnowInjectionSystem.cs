@@ -17,6 +17,7 @@ using Game;
 using Game.Areas;
 using Game.Common;
 using Game.Prefabs;
+using Game.Prefabs.Climate;
 using Game.Simulation;
 using Game.Tools;
 using Unity.Burst;
@@ -785,6 +786,8 @@ namespace SkiResortMod.Systems
         private bool m_PassSpring;                   // this pass: the budget halves
         private bool m_PassGunSeason = true;         // this pass is in the gun season (SnowGunPlumeRules.InGunSeason)
         private int m_GunSeasonLogged = -1;          // the last season state logged (-1 none this load)
+        private float m_GunWinterStart = SnowLineRules.CalendarWinterStart;   // this climate's winter, read once per load
+        private float m_GunWinterEnd = SnowLineRules.CalendarWinterEnd;
         private float m_PassNorthSign = 1f;          // this pass: -1 for a southern latitude
         private int m_ProtectActiveRuns;             // runs in an Active spell at the last refresh: a real pass is due (no skip)
         private uint m_ProtectLastFrame;             // the frame of the last refresh that stepped the machines
@@ -1602,13 +1605,16 @@ namespace SkiResortMod.Systems
             NoteSettingChanges(margin);
             // this pass's season and hemisphere for the protection budget (a string compare and a float read).
             m_PassSpring = RunSnowRules.IsSpring(m_ClimateSystem.currentSeasonName, m_TimeSystem.normalizedDate);
-            // the gun season (October-March; a vanilla winter / summer name decides first). Out of it the guns raise,
+            // the gun season (around this climate's winter; a vanilla winter / summer name decides first). Out of it the guns raise,
             // bill and plume nothing; one line per change.
-            m_PassGunSeason = SnowGunPlumeRules.InGunSeason(m_ClimateSystem.currentSeasonName, m_TimeSystem.normalizedDate);
+            if (m_GunSeasonLogged < 0)
+                ReadGunSeasonWinter();
+            m_PassGunSeason = SnowGunPlumeRules.InGunSeason(m_ClimateSystem.currentSeasonName, m_TimeSystem.normalizedDate, m_GunWinterStart, m_GunWinterEnd);
             if (m_GunSeasonLogged != (m_PassGunSeason ? 1 : 0))
             {
                 Mod.Log.Info($"Snow [guns] season {(m_PassGunSeason ? "IN" : "OUT")} (season '{m_ClimateSystem.currentSeasonName}', date " +
-                             $"{m_TimeSystem.normalizedDate:F3}): snow guns run October to March only (T135)" +
+                             $"{m_TimeSystem.normalizedDate:F3}, winter {m_GunWinterStart:F3} to {m_GunWinterEnd:F3}): snow guns run " +
+                             $"{SnowGunPlumeRules.MonthsBeforeWinter:F0} months before winter to {SnowGunPlumeRules.MonthsAfterWinter:F0} after (T135)" +
                              (m_GunSeasonLogged < 0 ? " — first this load" : ""));
                 m_GunSeasonLogged = m_PassGunSeason ? 1 : 0;
             }
@@ -2817,6 +2823,27 @@ namespace SkiResortMod.Systems
         private static double Mean(double sum, int count)
         {
             return count > 0 ? sum / count : 0.0;
+        }
+
+        /// <summary>The current climate's winter window for the gun season (the SkiSnowLineOverlaySystem read), else December to February.</summary>
+        private void ReadGunSeasonWinter()
+        {
+            Entity climate = m_ClimateSystem.currentClimate;
+            ClimatePrefab prefab = climate != Entity.Null ? m_PrefabSystem.GetPrefab<ClimatePrefab>(climate) : null;
+            ClimateSystem.SeasonInfo[] seasons = prefab != null ? prefab.m_Seasons : null;
+            float[] starts = null;
+            int winter = -1;
+            if (seasons != null && seasons.Length > 0)
+            {
+                starts = new float[seasons.Length];
+                for (int i = 0; i < seasons.Length; i++)
+                {
+                    starts[i] = seasons[i] != null ? seasons[i].m_StartTime : 0f;
+                    if (winter < 0 && seasons[i] != null && seasons[i].name == "SeasonWinter")
+                        winter = i;
+                }
+            }
+            SnowLineRules.WinterWindow(starts, winter, out m_GunWinterStart, out m_GunWinterEnd);
         }
 
         /// <summary>Once per load: after CostPasses evaluated passes (OnUpdate), or at OnGamePreload when 8-63 ran. The rate counts

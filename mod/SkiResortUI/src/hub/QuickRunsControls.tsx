@@ -161,7 +161,7 @@ function StepLines({ q, t }: { q: QuickRunsState; t: Translate }): JSX.Element {
       {q.phase === "Region" && q.regionState === "Over" && <div className={cx(styles.quickLine, styles.warnText)}>{t(HUB_LOC.quickRegionOver)}</div>}
       {q.status && <div className={cx(styles.quickLine, styles.warnText)}>{t(sentKeyEntry(q.status, HUB_LOC.quickUnavailable))}</div>}
       {q.notice && <div className={styles.quickLine}>{t(sentKeyEntry(q.notice, HUB_LOC.quickUnavailable))}</div>}
-      {q.warnings.map((w) => <div key={w} className={cx(styles.quickLine, styles.warnText)}>{t(sentKeyEntry(w, HUB_LOC.quickUnavailable))}</div>)}
+      {q.warnings.filter((w) => w !== q.status).map((w) => <div key={w} className={cx(styles.quickLine, styles.warnText)}>{t(sentKeyEntry(w, HUB_LOC.quickUnavailable))}</div>)}
       {q.pods.length === 0 && q.clusters.map((c, i) => (
         <div key={"c" + i} className={styles.quickLine}>
           {c.label === POD_BEGINNER ? <LocText entry={HUB_FMT.quickPodBeginner} args={{ N: numArg(c.runs, Unit.Integer) }} />
@@ -283,7 +283,7 @@ function TreeRowsQuick({ q, t, wait }: { q: QuickRunsState; t: Translate; wait: 
           <>
             {treeJob(q)
               ? <Act label={t(HUB_LOC.quickStop)} tip={t(HUB_LOC.quickStopTip)} next onSelect={() => set("stop")} />
-              : <Act label={t(HUB_LOC.quickPlant)} tip={t(HUB_LOC.quickPlantTip)} next disabled={wait || q.plant <= 0} onSelect={() => set("plant")} />}
+              : <Act label={t(HUB_LOC.quickPlant)} tip={t(HUB_LOC.quickPlantTip)} next disabled={wait || (q.plant <= 0 && q.remove <= 0)} onSelect={() => set("plant")} />}
             <Act label={t(HUB_LOC.quickTreesUndo)} tip={t(HUB_LOC.quickTreesUndoTip)} next disabled={wait || q.treesUndo <= 0} onSelect={() => set("treesUndo")} />
           </>
         )}

@@ -1204,8 +1204,8 @@ namespace SkiResortMod.Systems
 
         /// <summary>Deletes a cat track (the hub row's trash button, DECISIONS 423b; the game-mode bulldozer cannot pick a Space area,
         /// BulldozeToolSystem.cs:1495-1500, RaycastJobs.cs:113): the bulldozer's end state, the ground stays as graded and no fee comes back.
-        /// Main thread, from a system update only (the hub applies its queued request in OnUpdate, never in the binding callback). False when
-        /// the entity is not a live cat track (already gone, or the index was reused).</summary>
+        /// Main thread, before Modification only: this tool's update or SkiCatTrackDeleteSystem (PostTool, the hub row), never UIUpdate. False
+        /// when the entity is not a live cat track (already gone, or the index was reused).</summary>
         public bool DeleteTrack(Entity e, string why)
         {
             if (m_RunPrefab == Entity.Null && m_Catalog != null)

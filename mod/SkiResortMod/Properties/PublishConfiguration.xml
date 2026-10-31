@@ -88,7 +88,7 @@ First public release.
 - Cat track tool: lay out a track, and one key grades the ground under 25 percent and builds the cat track on it. Where it crosses a run it grades up to 2 m inside the run and keeps the run's difficulty. Delete mode (Ctrl+Shift+D) and a hub trash button remove a track; right click and Esc never do.
 - Resort Planner (experimental): outline a slope of up to 9 km2 and the planner proposes lifts and a set of linked runs around them, grouped in pods, with each lift's way home (green, blue, black only, or ride the lift down). Leave out runs, pods or lifts, set the number of lifts, the way home, the mix and the run kinds, then build the runs in one go and undo them; the proposed lifts you build yourself with the lift tool. The scan runs in the background with a progress line, and right click stops it. Optional tree filler. Ctrl+Shift+Q; it is off by default and is turned on in Options.
 - Safety Net Fence: decorative orange netting on thin poles, in the hub's Runs tab.
-- Snow-depth run system: runs open at 3 ft (91 cm) on 60 percent of the run, snow guns on snowmaking and night runs (October to March), powder days, seasons.
+- Snow-depth run system: runs open at 3 ft (91 cm) on 60 percent of the run, snow guns on snowmaking and night runs (two months before winter to one month after), powder days, seasons.
 - Welcome Sign (set back 8 m from the road on a leveled lot), five lodges, Ski School, two patrol buildings.
 - The Ski Resort panel: Attraction, Runs, Lifts, Guests, Finances and History views, a problem list and a build strip.
 - Economy: lift tickets, season passes, lessons, lodge spend, off-season half staff.

@@ -17,12 +17,12 @@ If the panel shows a problem line ("No lift yet", "Lodge is not at a road"), cli
 ## Where to build
 
 - Snow decides everything. While you place a sign or draw a run, the game shows the average winter snow line and a fainter line below it where snow guns start to work (option, on by default). Build on or above both.
-- A run needs snow to open: 3 feet (91 cm) over 60 percent of it. Snowmaking and night runs make their own snow where it is cold enough, October through March.
+- A run needs snow to open: 3 feet (91 cm) over 60 percent of it. Snowmaking and night runs make their own snow where it is cold enough, from two months before winter to one month after.
 - A mountain with no real winter needs the option **Snow & season gating** turned off. Then every run counts as open all year.
 
 ## Lifts
 
-- **Lift tool.** Click the line to add a tower. Drag a tower to move it; it stays where you put it. Drag a tower off the line to remove it. Right click steps back one action. Enter builds. Esc closes. Ctrl+Shift+L opens the tool from the keyboard.
+- **Lift tool.** Click the line to add a tower. Drag a tower to move it; it stays where you put it. Drag a tower off the line to remove it. Right click or Esc steps back one action. Enter builds. Ctrl+Shift+L opens the tool from the keyboard.
 - **Let the planner work first.** It picks tower heights to fit the ground and uses the fewest towers the lift type allows. Move towers only where you want them. The preview colors the cable by how far it clears the ground.
 - **Steep or uneven ground.** Build one section at a time. To fix one section, bulldoze it and click its two ends again. The other sections keep their towers, cable and chairs.
 - **Pick the type for the terrain.** Steepest slope: fixed-grip 80 percent, detachable 90, gondola 120, tram 250. The tram reaches farthest between towers (up to 3,000 m with the lift tool).
@@ -36,7 +36,7 @@ Lifts are power-line networks, so they follow power-line rules.
 
 - Lift lines show in the electricity overlay as high-voltage lines.
 - The base station acts as a transformer. Wire a **low-voltage line** into the stub at the front corner of the base station. The line carries the power up the mountain. The top station needs no hookup.
-- No power, no lift. The panel lists it as a problem.
+- No power, no lift. The panel lists it as a problem. Before electricity unlocks in a new city, a lift runs without a power line.
 - **Do not connect city high-voltage lines to a lift tower or lift line.** Untested; it can break the lift.
 - **Before uninstalling the mod, bulldoze your lifts and runs** (or use Options > Modular Ski Resort > Main > Reset > **Delete all ski resort content**), then save the city. Otherwise run paint can stay in the saved terrain, and what leftover lift pieces do after removal is untested.
 
