@@ -175,6 +175,12 @@ namespace SkiResortMod.Systems
     /// <summary>The hub's pure rules. Rules: EngineNotes/HubRules.md, RULES.</summary>
     public static class HubRules
     {
+        /// <summary>Simulation frames after a load before the hub's live numbers are facts: the ski-day, snow and lodge systems run in the
+        /// simulation, so a city loaded paused has not read them yet (field test 2026-10-31: all correct within 1 s of unpausing).</summary>
+        public const uint LoadSettleFrames = 64;
+
+        public static bool FactsKnownAfterLoad(uint framesSinceLoad) => framesSinceLoad >= LoadSettleFrames;
+
         // An alias of SkiCatalog.FixedGrip.SpeedMps, as ChairPinSystem's is: one source (tests/ResortBatch CatalogGuardTests CG-1, CG-2).
         public const float ChairSpeedMps = SkiCatalog.FixedGrip.SpeedMps;
         public const float MinCountedFraction = 0.25f;  // never project tickets from less than a quarter month

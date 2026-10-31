@@ -27,7 +27,6 @@ namespace SkiTestBridge
             public JArray results = new JArray();
             public bool stopOnError;
             public int errorBaseline;
-            public bool aimedAtWorld;
             public bool done;
             public string error;
         }
@@ -121,7 +120,7 @@ namespace SkiTestBridge
                 case "move":
                     return RunMove(s, step, after);
                 case "down":
-                    RequireWorldUnderCursor(s, step);
+                    RequireWorldUnderCursor(step);
                     NativeInput.Button(ButtonOf(step), true);
                     Next(s, after);
                     return true;
@@ -132,7 +131,7 @@ namespace SkiTestBridge
                 case "click":
                     if (s.phase == 0)
                     {
-                        RequireWorldUnderCursor(s, step);
+                        RequireWorldUnderCursor(step);
                         NativeInput.Button(ButtonOf(step), true);
                         s.phase = 1;
                         s.waitFrames = (int?)step["hold"] ?? 3;
@@ -211,7 +210,7 @@ namespace SkiTestBridge
         private bool RunMove(Sequence s, JObject step, int after)
         {
             float2 target = MoveTarget(step);
-            s.aimedAtWorld = step["wx"] != null;
+            s_AimedAtWorld = step["wx"] != null;
             int frames = Math.Max(1, (int?)step["frames"] ?? 1);
             if (s.phase == 0)
             {
@@ -278,11 +277,14 @@ namespace SkiTestBridge
             return true;
         }
 
+        /// <summary>The last move aimed at a world point; it outlives its sequence, the cursor stays there.</summary>
+        private static bool s_AimedAtWorld;
+
         /// <summary>A press aimed at a world point must reach the world: a panel or dialog under the cursor would take the click instead.
         /// allowUI: true turns this off for one step.</summary>
-        private static void RequireWorldUnderCursor(Sequence s, JObject step)
+        private static void RequireWorldUnderCursor(JObject step)
         {
-            if (s.aimedAtWorld && (bool?)step["allowUI"] != true && Game.Input.InputManager.instance.mouseOverUI)
+            if (s_AimedAtWorld && (bool?)step["allowUI"] != true && Game.Input.InputManager.instance.mouseOverUI)
                 throw new InvalidOperationException("the UI is under the cursor at a world target");
         }
 

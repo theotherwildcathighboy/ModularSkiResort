@@ -417,6 +417,11 @@ namespace LiftBatch
             const string W = "lifttype-9 StubTip per row";
             float3 pos = new float3(10f, 5f, 20f);
             quaternion rot = quaternion.RotateY(math.radians(30f));   // (0, 0, 1) -> (sin 30, 0, cos 30)
+            // LineLeavesBackward: the line tool's facing-away check (field test 2026-10-31)
+            Eq(false, StationAlign.LineLeavesBackward(new float2(0f, 1f), float2.zero, new float2(5f, 100f)), "LineLeavesBackward", "other end ahead");
+            Eq(true, StationAlign.LineLeavesBackward(new float2(0f, 1f), float2.zero, new float2(5f, -100f)), "LineLeavesBackward", "other end behind");
+            Eq(true, StationAlign.LineLeavesBackward(new float2(0f, 1f), float2.zero, new float2(100f, 0f)), "LineLeavesBackward", "square to the stub");
+            Eq(false, StationAlign.LineLeavesBackward(float2.zero, float2.zero, new float2(5f, -100f)), "LineLeavesBackward", "degenerate axis");
             float3 dq = StationAlign.StubTip(pos, rot, -16f);
             float3 fg = StationAlign.StubTip(pos, rot);
             Near(10f - 8f, dq.x, 1e-4f, W, "−16: x = 10 − 16 sin 30°");

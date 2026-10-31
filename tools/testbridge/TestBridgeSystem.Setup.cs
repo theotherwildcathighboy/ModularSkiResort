@@ -97,17 +97,11 @@ namespace SkiTestBridge
             }
         }
 
-        /// <summary>When the deployed DLL was built, so a status shows at once if the game runs an old bridge.</summary>
+        /// <summary>The loaded DLL's build id, so a status shows at once if the game runs an old bridge (Assembly.Location is empty for a
+        /// mod load, so a file time is not available).</summary>
         private static string BridgeBuild()
         {
-            try
-            {
-                return File.GetLastWriteTime(typeof(Mod).Assembly.Location).ToString("yyyy-MM-dd HH:mm:ss");
-            }
-            catch (Exception)
-            {
-                return "unknown";
-            }
+            return typeof(Mod).Assembly.ManifestModule.ModuleVersionId.ToString("N").Substring(0, 8);
         }
 
         /// <summary>{prefab, mode}: the tool a player gets by picking that asset; mode is a NetToolSystem.Mode name, for roads and lines.</summary>

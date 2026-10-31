@@ -39,6 +39,13 @@ namespace SkiResortMod.Systems
                  : ParkingRoot.Street;
         }
 
+        /// <summary>A street space is on the road by definition; a space in a lot, a garage or another building needs that building
+        /// connected to a road, or no car reaches it.</summary>
+        public static bool SpaceReachable(ParkingRoot root, bool buildingOnChainHasRoad)
+        {
+            return root == ParkingRoot.Street || buildingOnChainHasRoad;
+        }
+
         /// <summary>A lane closed to outsiders: it carries an access restriction that is not our sign or lodge, and the game did not
         /// set both AllowEnter and AllowExit on it (ParkingLaneDataSystem.cs:383-398, :225-279; PathUtils.cs:1195, :1220-1225).
         /// ParkingLaneDataSystem sets the restriction to the owning building for EVERY building lane, so the two allow flags are

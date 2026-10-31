@@ -581,7 +581,7 @@ export const HUB_FMT = {
   moneyColMonthPartial: ["SkiResort.Hub.MONEY_COL_MONTH_PARTIAL", "Month of {MONTH} so far (partial)"],
   moneyTipPassesMonth: ["SkiResort.Hub.MONEY_TIP[PassesMonth]", "Sold this month so far, in the net now. Of it, the pre-season sale: {PRE}."],
   moneyTipLiftsRate: ["SkiResort.Hub.MONEY_TIP[LiftsRate]", "Booked this month so far. At today's rate: {RATE} per month."],
-  moneyTipSoFar: ["SkiResort.Hub.MONEY_TIP[SoFar]", "{RATE} per month at today's budget; {SHARE} of the month so far."],
+  moneyTipSoFar: ["SkiResort.Hub.MONEY_TIP[SoFar]", "{RATE} per month at today's staff and budget; {SHARE} of the month so far. An estimate: it moves when staff or lodges change."],
   moneyRowPasses: ["SkiResort.Hub.MONEY_ROW[Passes]", "Season passes sold this season · {N}"],
   moneyRowPassHolders: ["SkiResort.Hub.MONEY_ROW[PassHolders]", "Pass holders skiing, Month of {MONTH}"],
   /* {N} = the pre-season sale's passes (Integer) / the lessons taken this month (Integer) */
@@ -683,7 +683,7 @@ export const QUICK_REJECT_TEXT: readonly LocEntry[] = [
 /* The site verdict (contract 21), index = QuickRunsState.siteTier - 1 (QuickRunsRules.SiteTier Gentle .. Beyond); {N} = the mean grade in percent.
    The same text is the tool tooltip's (SkiResort.Tooltip.QUICK_SITE[*]). */
 export const QUICK_SITE_TEXT: readonly LocEntry[] = [
-  ["SkiResort.Tooltip.QUICK_SITE[Gentle]", "Gentle slope (average {N} %): good for green and blue runs."],
+  ["SkiResort.Tooltip.QUICK_SITE[Gentle]", "Gentle slope on average ({N} %): good for green and blue runs where it stays gentle."],
   ["SkiResort.Tooltip.QUICK_SITE[Steep]", "Steep slope (average {N} %): mostly blue and black runs. Greens need the gentlest parts."],
   ["SkiResort.Tooltip.QUICK_SITE[VerySteep]", "Very steep (average {N} %): mostly black runs, few or no greens. Gentler ground lower down suits beginners."],
   ["SkiResort.Tooltip.QUICK_SITE[Beyond]", "Steeper than any real ski area (average {N} %): expect black and double black runs only. Look for gentler ground lower down for beginners."],

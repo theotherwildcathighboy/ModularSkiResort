@@ -17,6 +17,16 @@ namespace ResortBatch
             Lanes(check);
             Garages(check);
             LacksParking(check);
+            Reachable(check);
+        }
+
+        private static void Reachable(Func<bool, string, string, bool> check)
+        {
+            const string w = "parking P7 (a lot with no road)";
+            check(SkiParkingRules.SpaceReachable(ParkingRoot.Street, false), w, "street, no building");
+            check(SkiParkingRules.SpaceReachable(ParkingRoot.ParkingBuilding, true), w, "lot on a road");
+            check(!SkiParkingRules.SpaceReachable(ParkingRoot.ParkingBuilding, false), w, "lot with no road");
+            check(!SkiParkingRules.SpaceReachable(ParkingRoot.OtherBuilding, false), w, "other building with no road");
         }
 
         private static void Constants(Func<bool, string, string, bool> check)

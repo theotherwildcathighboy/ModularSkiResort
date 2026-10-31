@@ -170,6 +170,13 @@ namespace SkiResortMod.Systems
             return math.abs(yawDeg) > FacingAwayDeg;
         }
 
+        /// <summary>The line tool's check: the other end of the line lies behind this station's stub, so the line would run back through
+        /// the building. False for a degenerate axis.</summary>
+        public static bool LineLeavesBackward(float2 stationAxis, float2 stubTipXz, float2 otherEndXz)
+        {
+            return math.lengthsq(stationAxis) > 0.25f && math.dot(stationAxis, otherEndXz - stubTipXz) <= 0f;
+        }
+
         /// <summary>The readout class of one measurement (first match wins: Straight, PartnerFacingAway, FacingAway, Numbers). An invalid
         /// measurement (a degenerate axis) shows the numbers.</summary>
         public static Readout Classify(in Result r)

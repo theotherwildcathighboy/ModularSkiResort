@@ -24,6 +24,7 @@ namespace SkiResortMod.Systems
         private const int MaxWarnings = 8;
 
         private QuickRunsToolSystem m_Tool;
+        private SkiResortHubUISystem m_Hub;
         private StringTooltip m_Prompt, m_Notice, m_Status, m_Mix, m_Cluster, m_Progress, m_Site;
         private StringTooltip m_PlanLine, m_Honest, m_Proposal, m_SiteDetail, m_Around, m_HoverPlan, m_HoverVerdict;
         private ProgressTooltip m_Scan;
@@ -38,6 +39,7 @@ namespace SkiResortMod.Systems
         {
             base.OnCreate();
             m_Tool = World.GetOrCreateSystemManaged<QuickRunsToolSystem>();
+            m_Hub = World.GetOrCreateSystemManaged<SkiResortHubUISystem>();
             m_Prompt = new StringTooltip { path = "skiQuickPrompt", color = TooltipColor.Info };
             m_Notice = new StringTooltip { path = "skiQuickNotice", color = TooltipColor.Warning };
             m_Status = new StringTooltip { path = "skiQuickStatus", color = TooltipColor.Error };
@@ -103,13 +105,15 @@ namespace SkiResortMod.Systems
                     m_Vertical.value = (int)Math.Round(ro.VerticalM);
                     AddMouseTooltip(m_Vertical);
                 }
+                // The hub's planner panel shows these lines; the cursor repeats them only with the hub closed
+                bool detail = !m_Hub.IsOpen;
                 // The site verdict: the corner estimate in the Region step, the scan's figure after it
-                if ((phase == QuickRunsToolSystem.ToolPhase.Region && ro.State != QuickRegionState.Open) || m_Tool.HasPreview)
+                if (detail && ((phase == QuickRunsToolSystem.ToolPhase.Region && ro.State != QuickRegionState.Open) || m_Tool.HasPreview))
                     ShowSite(m_Tool.SiteGrade);
                 ResortPlan plan = m_Tool.Plan;
-                if (plan != null)
+                if (detail && plan != null)
                     ShowPlan(plan);
-                if (m_Tool.CanPlanAround)
+                if (detail && m_Tool.CanPlanAround)
                     Show(m_Around, ref m_LastAround, P + "AROUND_LIFT");
                 // "Building runs 4 / 11", "Planting trees 2,400 / 9,000" (templates, the mix line's idiom)
                 if (m_Tool.Building)
@@ -130,14 +134,14 @@ namespace SkiResortMod.Systems
                     AddMouseTooltip(m_Scan);
                 }
                 string status = m_Tool.StatusKey;
-                if (status != null && phase == QuickRunsToolSystem.ToolPhase.Region)
+                if (detail && status != null && phase == QuickRunsToolSystem.ToolPhase.Region)
                     Show(m_Status, ref m_LastStatus, status);
-                if (m_Tool.HasPreview)
+                if (detail && m_Tool.HasPreview)
                     ShowTotals();
-                if (m_Tool.TreesOn)
+                if (detail && m_Tool.TreesOn)
                     ShowTrees();
                 IReadOnlyList<string> warnings = m_Tool.WarningKeys;
-                for (int i = 0; i < warnings.Count && i < MaxWarnings; i++)
+                for (int i = 0; detail && i < warnings.Count && i < MaxWarnings; i++)
                     Show(m_Warn[i], ref m_LastWarn[i], warnings[i]);
                 string clusterKey = m_Tool.HoverClusterKey;
                 if (plan != null && (m_Tool.HoverPod >= 0 || m_Tool.HoverLift >= 0))
@@ -177,7 +181,7 @@ namespace SkiResortMod.Systems
                 default:
                     if (m_Tool.CanUndoBatch && m_Tool.Corners >= 3)
                         return P + "PROMPT[Built]";
-                    return m_Tool.Corners == 0 ? P + "PROMPT[Start]" : m_Tool.Corners < 3 ? P + "PROMPT[Corners]" : !m_Tool.RegionClosed ? P + "PROMPT[Close]" : P + "PROMPT[Ready]";
+                    return m_Tool.Corners == 0 ? P + "PROMPT[Start]" : m_Tool.Corners < 3 ? P + "PROMPT[Corners]" : !m_Tool.RegionClosed ? P + "PROMPT[Close]" : m_Tool.Readout.State == QuickRegionState.Over ? P + "PROMPT[Over]" : P + "PROMPT[Ready]";
             }
         }
 

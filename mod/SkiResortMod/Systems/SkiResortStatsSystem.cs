@@ -833,6 +833,17 @@ namespace SkiResortMod.Systems
                 BuildResortRows(resorts, sAll, city);
                 BuildProblems(resorts, city);
                 City = city;
+                // Paused right after a load the simulation systems have not run: their readings are not known yet (not "Closed, no lodge").
+                if (!HubRules.FactsKnownAfterLoad(unchecked(m_Simulation.frameIndex - m_LoadFrameIndex)))
+                {
+                    for (int i = 0; i < m_ResortLiveNext.Count; i++)
+                    {
+                        ResortLiveStats blank = NotLinkedLive();
+                        blank.Sign = m_ResortLiveNext[i].Sign;
+                        m_ResortLiveNext[i] = blank;
+                    }
+                    m_ProblemsNext.Clear();
+                }
             }
             else
             {

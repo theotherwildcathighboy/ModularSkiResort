@@ -85,6 +85,7 @@ namespace SkiResortMod.Systems
         /// STATION (an end of the plan sinks the carriers), then the open-ground end hint (the second end is open ground).</summary>
         internal LocalizedString? Notice =>
             m_Notice.HasValue && UnityEngine.Time.unscaledTime - m_NoticeTime < NoticeSeconds ? m_Notice
+            : m_BackwardStanding ? T("BACKWARD")
             : m_CrossingStanding ? T("CROSSES")
             : m_SunkStanding ? T("SUNK")
             : m_Edit != null && m_Top.Kind == LiftLineEndKind.Ground ? T("OPEN_END")
@@ -151,6 +152,7 @@ namespace SkiResortMod.Systems
         private int m_EmitFrame, m_Frame, m_Seed = 1;
         private List<LiftLineNode> m_Emitted;
         private bool m_SunkStanding;   // the current plan has a sunk station end (WarnSunk sets it per plan, Reset clears it)
+        private bool m_BackwardStanding;   // a station end faces away from the line (WarnBackward sets it per plan, Reset clears it)
         private bool m_CrossingStanding;   // the current line crosses another lift (WarnCrossing sets it per plan, Reset clears it)
         // Ghost preview: the definitions of m_GhostEdit at m_GhostRevision stand (no Updated after their frame, so they generate
         // nothing more; GenerateNodesSystem.cs:2030-2041) and their Temps render as the translucent preview (BatchInstanceSystem.cs:
@@ -1110,6 +1112,24 @@ namespace SkiResortMod.Systems
             Say(sb.ToString());
             WarnSunk(plan);
             WarnCrossing(edit);
+            WarnBackward();
+        }
+
+        /// <summary>A station whose stub points away from the other end: the line runs back through the building and the game builds it
+        /// (field test 2026-10-31). Logged on every plan; the tooltip keeps the notice standing while the plan has it.</summary>
+        private void WarnBackward()
+        {
+            bool a = EndFacesAway(m_Base, m_Top), b = EndFacesAway(m_Top, m_Base);
+            m_BackwardStanding = a || b;
+            if (m_BackwardStanding)
+                Mod.Log.Warn($"LiftLine [plan]: BACKWARD — {Describe(a ? m_Base : m_Top)} faces away from the other end; the line runs back through the building");
+        }
+
+        private bool EndFacesAway(LineEnd end, LineEnd other)
+        {
+            if (end.Kind != LiftLineEndKind.Station || !EntityManager.TryGetComponent(end.Station, out Game.Objects.Transform transform))
+                return false;
+            return StationAlign.LineLeavesBackward(StationAlign.Axis(transform.m_Rotation), end.Pos.xz, other.Pos.xz);
         }
 
         /// <summary>A line crossing a built lift line: the game splits the other edge at the crossing and joins the two (engine split point,
@@ -1585,6 +1605,7 @@ namespace SkiResortMod.Systems
             m_BuildRequested = false;
             m_Emitted = null;
             m_SunkStanding = false;
+            m_BackwardStanding = false;
             m_CrossingStanding = false;
             m_LooseFrame = int.MinValue / 2;
             // A standing ghost is cleared on the next update (UpdateCore's pick branch); a built line consumed its Temps.

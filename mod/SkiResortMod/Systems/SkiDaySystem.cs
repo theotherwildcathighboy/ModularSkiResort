@@ -1514,6 +1514,8 @@ namespace SkiResortMod.Systems
         private void RunLedgerCheck()
         {
             m_LedgerCheckDue = false;
+            if (m_Areas.Length == 0 && m_VisitsClosed.Count == 0)
+                return;   // no ski area, nothing to check
             int key = m_VisitsClosedKey;
             string month = MonthText(key);
             bool armed = m_Counter != null && m_Counter.IsArmed;

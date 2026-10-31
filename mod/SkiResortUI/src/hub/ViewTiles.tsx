@@ -71,7 +71,8 @@ function tileValue(v: HubView, row: ResortRow, l: ResortLive | null, unlinked: b
       // A glyph, not a number: the tile must not subscribe `history` (only the History view does).
       return <Glyph src={HISTORY_GLYPH} className={styles.tileGlyph} />;
     default:
-      return l ? <SignedNum value={l.netMonth} unit={Unit.Money} /> : DASH;
+      // runsOpen -1 on a linked row: not known yet (paused right after a load)
+      return l && (unlinked || l.runsOpen >= 0) ? <SignedNum value={l.netMonth} unit={Unit.Money} /> : DASH;
   }
 }
 

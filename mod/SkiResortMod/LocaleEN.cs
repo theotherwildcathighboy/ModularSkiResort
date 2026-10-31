@@ -532,6 +532,7 @@ namespace SkiResortMod
                 { "SkiResort.Tooltip.QUICK_PROMPT[Corners]", "Keep clicking corners. Three or more make a region." },
                 { "SkiResort.Tooltip.QUICK_PROMPT[Close]", "Click the first corner to close the region and scan it. Enter does the same." },
                 { "SkiResort.Tooltip.QUICK_PROMPT[Ready]", "Press Enter to scan the region. Drag a corner to reshape it. Right click reopens it." },
+                { "SkiResort.Tooltip.QUICK_PROMPT[Over]", "Too big to scan. Drag a corner inward." },
                 { "SkiResort.Tooltip.QUICK_PROMPT[Drag]", "Drag the corner and release it to place it." },
                 { "SkiResort.Tooltip.QUICK_PROMPT[Scanning]", "Scanning the slope." },
                 { "SkiResort.Tooltip.QUICK_PROMPT[Preview]", "Click a run to leave it out or take it back. Enter builds; right click leaves the preview." },
@@ -555,7 +556,7 @@ namespace SkiResortMod
                 { "SkiResort.Tooltip.QUICK_TREE_LINE", "Tree line" },
                 { "SkiResort.Tooltip.QUICK_MIX", "Green {G} of {TG} · Blue {B} of {TB} · Black {K} of {TK} · Double black {D} of {TD}" },
                 // The site verdict (QuickRunsRules.SiteTier; {N} = the mean grade in percent), mirrored in hubText.ts QUICK_SITE_TEXT
-                { "SkiResort.Tooltip.QUICK_SITE[Gentle]", "Gentle slope (average {N} %): good for green and blue runs." },
+                { "SkiResort.Tooltip.QUICK_SITE[Gentle]", "Gentle slope on average ({N} %): good for green and blue runs where it stays gentle." },
                 { "SkiResort.Tooltip.QUICK_SITE[Steep]", "Steep slope (average {N} %): mostly blue and black runs. Greens need the gentlest parts." },
                 { "SkiResort.Tooltip.QUICK_SITE[VerySteep]", "Very steep (average {N} %): mostly black runs, few or no greens. Gentler ground lower down suits beginners." },
                 { "SkiResort.Tooltip.QUICK_SITE[Beyond]", "Steeper than any real ski area (average {N} %): expect black and double black runs only. Look for gentler ground lower down for beginners." },
@@ -1107,7 +1108,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.MONEY_COL_MONTH_PARTIAL", "Month of {MONTH} so far (partial)" },
                 { "SkiResort.Hub.MONEY_TIP[PassesMonth]", "Sold this month so far, in the net now. Of it, the pre-season sale: {PRE}." },
                 { "SkiResort.Hub.MONEY_TIP[LiftsRate]", "Booked this month so far. At today's rate: {RATE} per month." },
-                { "SkiResort.Hub.MONEY_TIP[SoFar]", "{RATE} per month at today's budget; {SHARE} of the month so far." },
+                { "SkiResort.Hub.MONEY_TIP[SoFar]", "{RATE} per month at today's staff and budget; {SHARE} of the month so far. An estimate: it moves when staff or lodges change." },
                 { "SkiResort.Hub.MONEY_TICKETS_PRICE", "Lift ticket price now: {PRICE}" },
                 // The price line (PCT = hubRules.priceFactorPct as a percent) and its curve tooltip line.
                 { "SkiResort.Hub.MONEY_PRICE_LINE", "Lift ticket {PRICE} · ski days {PCT}" },
@@ -1291,6 +1292,7 @@ namespace SkiResortMod
                 { "SkiResort.LiftTool.CLICK_ON_LINE", "Click on the line itself to add a tower there." },
                 { "SkiResort.LiftTool.END_GONE", "One end of the line is gone. Click both ends again." },
                 { "SkiResort.LiftTool.SUNK", "The station sits low in the slope, so the chairs leave it below the ground. Flatter ground or raising it with Move It helps." },
+                { "SkiResort.LiftTool.BACKWARD", "A station on this line faces away from it, so the line runs back through the building. Turn that station around." },
                 { "SkiResort.LiftTool.CROSSES", "This line crosses another lift. Building it joins the two at the crossing and stops the other lift's chairs." },
                 { "SkiResort.LiftTool.OPEN_END", "This end is open ground: place a station here to finish the lift." },
                 { "SkiResort.LiftTool.ADD_TOO_CLOSE_END", "A tower cannot stand that close to the end of the line. Keep {M} m clear of it." },

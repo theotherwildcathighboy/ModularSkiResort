@@ -868,9 +868,15 @@ namespace SkiResortMod.Systems
                                                      d, restricted))
                 {
                     case ParkingLaneVerdict.Count:
+                        ParkingRoot root = RootOf(lane);
+                        if (!SkiParkingRules.SpaceReachable(root, BuildingOnChainHasRoad(lane)))
+                        {
+                            r.OtherLanes++;
+                            break;
+                        }
                         int slots = math.max(0, Game.Net.NetUtils.GetParkingSlotCount(curve, parkingLane, laneData));   // NetUtils.cs:954-957
                         int parked = ParkedOn(lane);
-                        if (RootOf(lane) == ParkingRoot.Street)
+                        if (root == ParkingRoot.Street)
                         {
                             r.StreetSpaces += slots;
                             r.StreetParked += parked;
@@ -913,6 +919,21 @@ namespace SkiResortMod.Systems
 
             /// <summary>The owner walk (≤ MaxOwnerDepth): a CarParkingFacility or CarParking on the chain → a parking
             /// building; else any Building → another building's lot; else the street (DUMP split only).</summary>
+            /// <summary>Any building on the lane's owner chain has a road (an attached lot takes its parent's).</summary>
+            private bool BuildingOnChainHasRoad(Entity lane)
+            {
+                Entity e = lane;
+                for (int k = 0; k < SkiParkingRules.MaxOwnerDepth; k++)
+                {
+                    if (!Owners.TryGetComponent(e, out Owner owner) || owner.m_Owner == Entity.Null)
+                        return false;
+                    e = owner.m_Owner;
+                    if (Buildings.TryGetComponent(e, out Building building) && building.m_RoadEdge != Entity.Null)
+                        return true;
+                }
+                return false;
+            }
+
             private ParkingRoot RootOf(Entity lane)
             {
                 bool parkingBuilding = false, anyBuilding = false;
@@ -985,6 +1006,11 @@ namespace SkiResortMod.Systems
                                                            garage.m_VehicleCapacity, df, restricted))
                     {
                         case ParkingLaneVerdict.Count:
+                            if (!SkiParkingRules.SpaceReachable(ParkingRoot.ParkingBuilding, BuildingOnChainHasRoad(lane)))
+                            {
+                                r.OtherLanes++;
+                                break;
+                            }
                             r.GarageSpaces += garage.m_VehicleCapacity;
                             r.GarageParked += garage.m_VehicleCount;
                             if (r.NearestM < 0f || df < r.NearestM)

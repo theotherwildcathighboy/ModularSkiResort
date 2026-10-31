@@ -20,6 +20,10 @@ namespace ResortBatch
         public static void Run(Func<bool, string, string, bool> check)
         {
             s_Check = check;
+            // Paused right after a load: not known yet (field test 2026-10-31)
+            check(!HubRules.FactsKnownAfterLoad(0u), "load settle", "frame 0");
+            check(!HubRules.FactsKnownAfterLoad(HubRules.LoadSettleFrames - 1u), "load settle", "one short");
+            check(HubRules.FactsKnownAfterLoad(HubRules.LoadSettleFrames), "load settle", "settled");
             SectionA();
             SectionB();
             SectionC();

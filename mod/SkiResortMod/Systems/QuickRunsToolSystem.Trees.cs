@@ -131,8 +131,9 @@ namespace SkiResortMod.Systems
         internal int SpeciesPick => m_SpeciesPick;
         internal IReadOnlyList<SpeciesEntry> Species => m_Species;
         internal int TreePlant => m_TreePlant;
-        /// <summary>Trees still to plant for the target (the whole slope, not one slice); the hub's and the tooltip's count.</summary>
-        internal int TreeToPlant => math.max(m_TreePlant, m_TreeTarget - m_TreeNow);
+        /// <summary>Trees still to plant for the target (the whole slope, not one slice); the hub's and the tooltip's count. 0 once a
+        /// finished plan has nothing to do: spots the game refused leave the region short of the target for good.</summary>
+        internal int TreeToPlant => !m_Planting && m_TreeJobStage == 0 && m_TreePlant + m_TreeRemove == 0 ? 0 : math.max(m_TreePlant, m_TreeTarget - m_TreeNow);
         internal bool Planting => m_Planting;
         /// <summary>"Removing trees N / M": the undo in flight (trees removed / trees it set out to remove).</summary>
         internal bool RemovingTrees => m_Removing;

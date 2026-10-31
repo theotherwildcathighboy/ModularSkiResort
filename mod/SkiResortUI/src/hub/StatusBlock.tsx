@@ -58,7 +58,7 @@ function StatusMark({ row, live }: { row: ResortRow | null; live: ResortLive | n
 }
 
 function statusTip(row: ResortRow | null, live: ResortLive | null, city: CityStats, t: Translate, inches: boolean): JSX.Element | undefined {
-  if (!row || row.kind === 1 || !live || (row.runs | 0) <= 0) return undefined;
+  if (!row || row.kind === 1 || !live || live.runsOpen < 0 || (row.runs | 0) <= 0) return undefined;
   const seasonTip = SEASON_TIP_TEXT[live.seasonHint] ?? null;
   // The hint word one layer down when the slot shows the snow; the snow pair here when the slot shows a word instead
   const hint = statusHint(row, live);
@@ -330,7 +330,7 @@ export function StatusBlock({ statusRef, problemsRef }: {
       <div ref={problemsRef} className={cx(styles.problems, styles.problemsAnchor)}>
         {slots.map((b, i) => (
           <ProblemSlot key={i} b={b} slot={i} more={i === 2 ? more : 0} hidden={band.slice(3)} factors={factors} live={l} t={t}
-            noneLine={i === 0 && band.length === 0} popOpen={popOpen} />
+            noneLine={i === 0 && band.length === 0 && !(l && statusVariant(row, l) === "unknown")} popOpen={popOpen} />
         ))}
         {popOpen && (
           <div className={cx(styles.overlayCard, styles.overlayBelow)}>

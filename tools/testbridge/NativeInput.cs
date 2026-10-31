@@ -81,7 +81,7 @@ namespace SkiTestBridge
 
         private static readonly Dictionary<string, ushort> s_NamedKeys = new Dictionary<string, ushort>
         {
-            ["ctrl"] = 0x11, ["shift"] = 0x10, ["alt"] = 0x12, ["enter"] = 0x0D, ["esc"] = 0x1B, ["tab"] = 0x09, ["space"] = 0x20,
+            ["-"] = 0xBD, ["ctrl"] = 0x11, ["shift"] = 0x10, ["alt"] = 0x12, ["enter"] = 0x0D, ["esc"] = 0x1B, ["tab"] = 0x09, ["space"] = 0x20,
             ["backspace"] = 0x08, ["delete"] = 0x2E, ["insert"] = 0x2D, ["home"] = 0x24, ["end"] = 0x23, ["pageup"] = 0x21,
             ["pagedown"] = 0x22, ["left"] = 0x25, ["up"] = 0x26, ["right"] = 0x27, ["down"] = 0x28,
         };

@@ -2542,8 +2542,8 @@ namespace SkiResortMod.Systems
         {
             if (margin != m_LastMarginC)
             {
-                Mod.Log.Info($"Snow [margin] snowmaking margin {m_LastMarginC:F0} -> {margin:F0} C (Options: Snowmaking " +
-                             $"margin) — snow guns and night runs now work where T_local <= freezing+{margin:F0} C");
+                Mod.Log.Info($"Snow [margin] snowmaking margin {m_LastMarginC:F1} -> {margin:F1} C (Options: Snowmaking " +
+                             $"margin) — snow guns and night runs now work where T_local <= freezing+{margin:F1} C");
                 m_LastMarginC = margin;
             }
             bool gating = m_SnowLineSystem.IsSnowGatingEnabled();

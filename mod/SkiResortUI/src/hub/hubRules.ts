@@ -242,7 +242,8 @@ export type StatusVariant = "unlinked" | "unknown" | "noRuns" | "line" | "lineEs
 
 export function statusVariant(row: ResortRow | null, live: ResortLive | null): StatusVariant {
   if (row && row.kind === 1) return "unlinked";
-  if (!row || !live) return "unknown";
+  // runsOpen -1: not known yet (paused right after a load, or no result).
+  if (!row || !live || live.runsOpen < 0) return "unknown";
   if ((row.runs | 0) <= 0 || live.status === RESORT_STATUS.NoRuns) return "noRuns";
   const one = (row.runs | 0) === 1;
   // No run fully open but some partly open -> count the partly open ones, so the word
@@ -288,7 +289,7 @@ export const SEASON_HINT_WARN: readonly number[] = [SEASON_HINT.Thawing, SEASON_
  *  hint word ("season"). Nothing for the Not linked row, a sign without runs or a missing live row (the slot then stays empty).
  *  Total also for a live row without the field (undefined >= 50 is false: "season"). */
 export function statusHint(row: ResortRow | null, live: ResortLive | null): StatusHint {
-  if (!row || row.kind !== 0 || (row.runs | 0) <= 0 || !live) return "none";
+  if (!row || row.kind !== 0 || (row.runs | 0) <= 0 || !live || live.runsOpen < 0) return "none";
   if (live.skiDaysPowderPct >= POWDER_MARK_PCT) return "powder";
   // Snow on the top level, "64 cm · 88 %"; a warning hint keeps the slot.
   if (SEASON_HINT_WARN.includes(live.seasonHint)) return "warn";
