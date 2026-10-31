@@ -224,6 +224,10 @@ namespace SkiResortMod
             updateSystem.UpdateBefore<SkiDeleteAllSystem, Game.Objects.SubElementDeleteSystem>(
                 SystemUpdatePhase.PostTool);
 
+            // Every prefab of this mod open at each Game-mode load. Modification1 is load-bearing: vanilla's Unlock All phase, its Unlock events
+            // flush through ModificationBarrier1 (SystemOrder.cs:86, :106); runs paused or not.
+            updateSystem.UpdateAt<SkiUnlockSystem>(SystemUpdatePhase.Modification1);
+
             // Run binding on draw + drawing feedback: each is gated per frame on its own setting and on the ownership system (trigger and
             // contours: IsArmed; drawing feedback: PrefabSetsReady). Registration order between the four is not load-bearing.
 
