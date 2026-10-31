@@ -46,6 +46,7 @@ namespace SkiTestBridge
             m_City = World.GetOrCreateSystemManaged<CitySystem>();
             m_Prefabs = World.GetOrCreateSystemManaged<PrefabSystem>();
             AddBinding(new CallBinding<string, string>("skitest", "cmd", Command));
+            WatchErrors();
         }
 
         protected override void OnUpdate()
@@ -56,6 +57,7 @@ namespace SkiTestBridge
 
         protected override void OnDestroy()
         {
+            UnwatchErrors();
             NativeInput.ReleaseAll();
             base.OnDestroy();
         }
@@ -93,6 +95,13 @@ namespace SkiTestBridge
                 case "abort": return AbortSequence();
                 case "dump": return DumpQuery(args);
                 case "entity": return DumpEntity(args);
+                case "errors": return Errors(args);
+                case "tool": return ActivateTool(args);
+                case "prefabs": return FindPrefabs(args);
+                case "unlock": return UnlockAll();
+                case "milestone": return NextMilestone();
+                case "demand": return UnlimitedDemand();
+                case "heights": return Heights(args);
                 default: throw new ArgumentException($"unknown op '{op}'");
             }
         }
@@ -101,6 +110,8 @@ namespace SkiTestBridge
         {
             var result = new JObject
             {
+                ["bridgeBuild"] = BridgeBuild(),
+                ["errorSerial"] = ErrorSerial(),
                 ["frame"] = UnityEngine.Time.frameCount,
                 ["gameMode"] = GameManager.instance.gameMode.ToString(),
                 ["focused"] = NativeInput.FocusedGameWindow() != IntPtr.Zero,
@@ -238,9 +249,12 @@ namespace SkiTestBridge
         private JObject AddMoney(JObject args)
         {
             PlayerMoney money = EntityManager.GetComponentData<PlayerMoney>(m_City.City);
-            money.Add((int)args["add"]);
+            if (args["add"] != null)
+                money.Add((int)args["add"]);
+            if (args["unlimited"] != null)
+                money.m_Unlimited = (bool)args["unlimited"];
             EntityManager.SetComponentData(m_City.City, money);
-            return new JObject { ["money"] = money.money };
+            return new JObject { ["money"] = money.money, ["unlimited"] = money.m_Unlimited };
         }
 
         private JObject SetClimate(JObject args)

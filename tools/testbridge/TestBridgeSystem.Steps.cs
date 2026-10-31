@@ -25,6 +25,9 @@ namespace SkiTestBridge
             public Vector3 lastPosition;
             public Quaternion lastRotation;
             public JArray results = new JArray();
+            public bool stopOnError;
+            public int errorBaseline;
+            public bool aimedAtWorld;
             public bool done;
             public string error;
         }
@@ -39,7 +42,13 @@ namespace SkiTestBridge
             var steps = (JArray)args["steps"];
             if (steps == null || steps.Count == 0 || steps.Count > kMaxSteps)
                 throw new ArgumentException($"steps must hold 1 to {kMaxSteps} entries");
-            m_Sequence = new Sequence { id = m_NextSequenceId++, steps = steps };
+            m_Sequence = new Sequence
+            {
+                id = m_NextSequenceId++,
+                steps = steps,
+                stopOnError = (bool?)args["stopOnError"] ?? true,
+                errorBaseline = ErrorSerial(),
+            };
             return SequenceState();
         }
 
@@ -73,6 +82,12 @@ namespace SkiTestBridge
                 return;
             try
             {
+                // An error dialog would swallow the rest of the input, so stop on the first game error rather than click into it.
+                if (s.stopOnError && ErrorSerial() != s.errorBaseline)
+                {
+                    Finish(s, $"step {s.index}: game error: {LastErrorText()}");
+                    return;
+                }
                 if (s.waitFrames > 0)
                 {
                     s.waitFrames--;
@@ -106,6 +121,7 @@ namespace SkiTestBridge
                 case "move":
                     return RunMove(s, step, after);
                 case "down":
+                    RequireWorldUnderCursor(s, step);
                     NativeInput.Button(ButtonOf(step), true);
                     Next(s, after);
                     return true;
@@ -116,6 +132,7 @@ namespace SkiTestBridge
                 case "click":
                     if (s.phase == 0)
                     {
+                        RequireWorldUnderCursor(s, step);
                         NativeInput.Button(ButtonOf(step), true);
                         s.phase = 1;
                         s.waitFrames = (int?)step["hold"] ?? 3;
@@ -177,6 +194,11 @@ namespace SkiTestBridge
                 case "time":
                 case "money":
                 case "climate":
+                case "tool":
+                case "unlock":
+                case "milestone":
+                case "demand":
+                case "errors":
                     s.results.Add(new JObject { ["step"] = s.index, [op] = Run(op, step) });
                     Next(s, 0);
                     return true;
@@ -189,6 +211,7 @@ namespace SkiTestBridge
         private bool RunMove(Sequence s, JObject step, int after)
         {
             float2 target = MoveTarget(step);
+            s.aimedAtWorld = step["wx"] != null;
             int frames = Math.Max(1, (int?)step["frames"] ?? 1);
             if (s.phase == 0)
             {
@@ -253,6 +276,14 @@ namespace SkiTestBridge
                 throw new InvalidOperationException($"waitFor timed out with {matched} of {min} matches");
             s.waitFrames = 10;
             return true;
+        }
+
+        /// <summary>A press aimed at a world point must reach the world: a panel or dialog under the cursor would take the click instead.
+        /// allowUI: true turns this off for one step.</summary>
+        private static void RequireWorldUnderCursor(Sequence s, JObject step)
+        {
+            if (s.aimedAtWorld && (bool?)step["allowUI"] != true && Game.Input.InputManager.instance.mouseOverUI)
+                throw new InvalidOperationException("the UI is under the cursor at a world target");
         }
 
         private static string ButtonOf(JObject step)

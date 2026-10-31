@@ -45,7 +45,12 @@ Every reply is a JSON string with `ok`, and `error` when `ok` is false.
 | `camera` | optional `wx` + `wz`, `zoom`, `yaw`, `tilt` | camera state; applied on the next frames, so follow with a `settle` step |
 | `sim` | optional `speed` (0 pauses) | speed and frame index |
 | `time` | `minutes` | advances the game clock (the dev menu's `DebugAdvanceTime`) |
-| `money` | `add` | new balance |
+| `money` | optional `add`, `unlimited` | new balance |
+| `tool` | `prefab`, optional `mode` (`Straight`, `SimpleCurve`, `ComplexCurve`, `Continuous`, `Grid`, `Replace`, `Point`) | active tool; no `prefab` returns to the default tool. For setup: a test of the hub or toolbar clicks the real buttons |
+| `prefabs` | `match` (part of a name) | matching prefab names and classes |
+| `unlock`, `milestone`, `demand` | | the dev menu's Unlock all, Next MS and Unlimited demands |
+| `heights` | `x0`, `z0`, `x1`, `z1`, `step` | terrain height grid, `min`, `max`; picks test sites by slope without a screenshot |
+| `errors` | optional `clear` | game errors and exceptions since the last clear, with `serial`; includes mods whose errors never reach a dialog |
 | `climate` | any of `date`, `temperature`, `precipitation`, `cloudiness` | a number overrides, `null` hands back to the simulation |
 | `dump` | `all`, optional `none`, `show`, `limit` (default 50) | match count and rows with prefab name and the `show` components |
 | `entity` | `id` as `"index:version"`, optional `only` | component names, with values for `only` (all when absent) |
@@ -111,7 +116,18 @@ Input steps wait `after` frames afterward (default 2).
 | `settle` | waits for the camera to hold still; `timeout` frames (default 600) |
 | `waitFor` | a `dump` query plus `min` (default 1); `timeout` frames (default 1200) fails the sequence |
 | `hover`, `status`, `dump` | adds the reading to `results` |
-| `sim`, `time`, `money`, `climate` | same as the ops; the reply goes to `results` |
+| `sim`, `time`, `money`, `climate`, `tool`, `unlock`, `milestone`, `demand`, `errors` | same as the ops; the reply goes to `results` |
+
+Two guards fail a sequence instead of letting it click on blindly:
+
+- **A new game error stops it**, since an error dialog would swallow the input. Pass `stopOnError: false` on the `seq` when a known
+  error is expected, then read `errors`.
+- **A press aimed at a world point fails if UI is under the cursor.** Pass `allowUI: true` on the `click` or `down` to allow it.
+
+## Building a test city
+
+Setup does not need to be pretty: `unlock`, `money` with `unlimited`, `demand`, then roads with `tool` and real clicks, and zones with
+`tool` and a real drag. `prefabs` finds the exact names. `status.bridgeBuild` shows when the deployed bridge was built.
 
 Example: fly to a spot, click it, wait for an entity to appear, read it back.
 
