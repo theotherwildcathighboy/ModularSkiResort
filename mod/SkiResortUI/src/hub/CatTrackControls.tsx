@@ -17,7 +17,7 @@ export function CatTrackDeleteChip({ t }: { t: Translate }): JSX.Element {
   const on = !!useValue(catTrackDeleteMode$);
   return (
     <div className={cx(styles.pickerCell, styles.pickerCellNext)}>
-      <Tip tip={<TipLines lines={[t(HUB_LOC.catTrackDelete), t(on ? HUB_LOC.catTrackDeleteTipOn : HUB_LOC.catTrackDeleteTip)]} />}>
+      <Tip tip={<TipLines lines={[t(HUB_LOC.catTrackDelete), !on && t(HUB_LOC.catTrackDeleteTip)]} />}>
         <Button
           focusKey={FOCUS_DISABLED}
           theme={{ button: cx(styles.pickerChip, on && styles.pickerChipOn) }}

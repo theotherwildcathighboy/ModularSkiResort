@@ -158,7 +158,7 @@ function runClick(click: ProblemClick, p: ProblemRow): void {
   else if (click === "runsView") view$.update("runs");
 }
 
-/** The tooltip of a band row; a folded row lists its lifts, one line each, then what a click does. */
+/** The tooltip of a band row; a folded row lists its lifts, one line each. */
 function bandTip(b: BandRow, factors: readonly ProblemRow[], live: ResortLive | null, t: Translate): JSX.Element {
   if (b.group.length < 2) return problemTip(b.row, factors, live, t);
   return (
@@ -166,7 +166,6 @@ function bandTip(b: BandRow, factors: readonly ProblemRow[], live: ResortLive | 
       lines={[
         <BandText key="h" b={b} t={t} />,
         ...b.group.map((p, i) => <ProblemText key={i} p={p} t={t} />),
-        t(HUB_LOC.problemClickList),
       ]}
     />
   );
@@ -178,7 +177,6 @@ function problemTip(p: ProblemRow, factors: readonly ProblemRow[], live: ResortL
   const v = problemVariant(p);
   let body: string | JSX.Element | null = null;
   switch (v) {
-    case "unlinked": body = t(HUB_LOC.unlinkedHint); break;
     case "noLodge": body = t(HUB_LOC.problemTipNoLodge); break;
     case "lodgesAllOff": body = t(HUB_LOC.problemTipLodgesAllOff); break;
     case "lodgesSomeOff": body = t(HUB_LOC.problemTipLodgesSomeOff); break;
@@ -187,14 +185,12 @@ function problemTip(p: ProblemRow, factors: readonly ProblemRow[], live: ResortL
     case "liftSectionMissing": body = t(HUB_LOC.problemTipLiftSectionMissing); break;
     case "liftUnfinished": body = t(HUB_LOC.problemTipLiftUnfinished); break;
     case "noLift": body = <LocText entry={HUB_FMT.problemTipNoLift} args={{ PCT }} />; break;
-    case "noRuns": body = t(HUB_LOC.problemTipNoRuns); break;
     case "stationsPair": case "stationsBaseOnly": case "stationsTopOnly": body = t(HUB_LOC.problemTipStations); break;
     case "liftChairsStopped": body = t(HUB_LOC.problemTipLiftChairsStopped); break;
     case "runsUnserved": body = <LocText entry={HUB_FMT.problemTipRunsUnserved} args={{ PCT }} />; break;
     case "runsUnrateable": body = t(HUB_LOC.problemTipRunsUnrateable); break;
     case "runsRating": body = t(HUB_LOC.problemTipRunsRating); break;
     case "freeLodges": body = t(HUB_LOC.problemTipFreeLodges); break;
-    case "runsFlat": body = t(HUB_LOC.problemTipRunsFlat); break;
     case "signNoRoad": body = t(HUB_LOC.problemTipSignNoRoad); break;
     case "lodgeNoRoad": body = t(HUB_LOC.problemTipLodgeNoRoad); break;
     case "skiDaysCannotReach": body = t(HUB_LOC.problemTipSkiDaysCannotReach); break;
@@ -213,7 +209,6 @@ function problemTip(p: ProblemRow, factors: readonly ProblemRow[], live: ResortL
         : p.code === PROBLEM.LodgesAllOff ? <LocText key="g" entry={HUB_FMT.problemGainLodgesOn} args={{ A: numArg(p.ifFixed, Unit.Integer) }} />
           : null)
     : null;
-  const click = problemClick(p);
   return (
     <TipLines
       lines={[
@@ -223,7 +218,6 @@ function problemTip(p: ProblemRow, factors: readonly ProblemRow[], live: ResortL
         // The staff numbers next to the game's reasons (ResortLive jobs / jobsFilled; -1 = unknown)
         isEff && live && live.jobs >= 0 && <LocText key="s" entry={HUB_FMT.staffLine} args={{ FILLED: numArg(live.jobsFilled, Unit.Integer), JOBS: numArg(live.jobs, Unit.Integer) }} />,
         gain,
-        click === "sign" || click === "lift" ? t(HUB_LOC.problemClickFly) : click ? t(HUB_LOC.problemClickList) : null,
       ]}
     />
   );
@@ -244,8 +238,7 @@ function ProblemSlot({ b, slot, more, hidden, factors, live, t, noneLine, popOpe
   // "+N" is a button that opens the popover under the band (its tooltip still names the hidden rows)
   const moreCell = slot !== 2 ? null : more > 0 ? (
     <div className={styles.problemMore}>
-      <Tip tip={popOpen ? undefined : <TipLines lines={[t(HUB_LOC.problemMoreTip), ...hidden.map((h, i) => <BandText key={i} b={h} t={t} />),
-        t(HUB_LOC.problemMoreClick)]} />}>
+      <Tip tip={popOpen ? undefined : <TipLines lines={[t(HUB_LOC.problemMoreTip), ...hidden.map((h, i) => <BandText key={i} b={h} t={t} />)]} />}>
         <Button theme={{ button: cx(styles.problemMoreButton, popOpen && styles.problemMoreOn) }}
           onSelect={() => problemsOpen$.update(!problemsOpen$.value)}>
           <LocText entry={HUB_FMT.problemMore} args={{ N: numArg(more, Unit.Integer) }} />

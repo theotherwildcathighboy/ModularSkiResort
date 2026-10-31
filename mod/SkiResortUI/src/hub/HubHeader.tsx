@@ -81,7 +81,7 @@ function ResortCounts({ row, t }: { row: ResortRow; t: Translate }): JSX.Element
 function AreaNameButton({ name, unlinked, t }: { name: string; unlinked: boolean; t: Translate }): JSX.Element {
   const open = useValue(areaListOpen$);
   return (
-    <Tip tip={open ? undefined : <TipLines lines={[unlinked ? t(HUB_LOC.unlinkedHint) : t(HUB_LOC.resortTip)]} />}>
+    <Tip tip={open || !unlinked ? undefined : <TipLines lines={[t(HUB_LOC.unlinkedHint)]} />}>
       <Button
         focusKey={FOCUS_DISABLED}
         theme={{ button: cx(styles.areaName, open && styles.areaNameOpen) }}

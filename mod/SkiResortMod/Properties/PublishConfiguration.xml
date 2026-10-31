@@ -23,7 +23,7 @@ Draw chairlifts, gondolas and an aerial tram up your mountain, draw runs down it
 Cities: Skylines II 1.6 (tested on 1.6.2f1). No other mod and no DLC. Start from a new city.
 
 ## Getting started
-1. Open the Ski Resort panel. Place a Welcome Sign snapped to a road (it stands set back from it). It comes straight or angled: pick one before you draw runs. Then place a lodge near where the runs will be.
+1. Open the Ski Resort panel. Place a Welcome Sign snapped to a road (it stands set back from it). Then place a lodge near where the runs will be.
 2. Pick a lift type. Place the base station, then the top station facing it, then draw the line between them. Press Enter to build.
 3. Connect a low-voltage power line to the base station.
 4. Draw runs downhill from the top station, and wait for snow.
@@ -89,7 +89,7 @@ First public release.
 - Resort Planner (experimental): outline a slope of up to 9 km2 and the planner proposes lifts and a set of linked runs around them, grouped in pods, with each lift's way home (green, blue, black only, or ride the lift down). Leave out runs, pods or lifts, set the number of lifts, the way home, the mix and the run kinds, then build the runs in one go and undo them; the proposed lifts you build yourself with the lift tool. The scan runs in the background with a progress line, and right click stops it. Optional tree filler. Ctrl+Shift+Q; it is off by default and is turned on in Options.
 - Safety Net Fence: orange netting on thin poles, drawn like a path from the hub's Runs tab to mark a run edge, build a corral or close a slope.
 - Snow-depth run system: runs open at 3 ft (91 cm) on 60 percent of the run, snow guns on snowmaking and night runs (October to March), powder days, seasons.
-- Welcome Sign (set back 8 m from the road on a leveled lot, plus an angled variant), five lodges, Ski School, two patrol buildings.
+- Welcome Sign (set back 8 m from the road on a leveled lot), five lodges, Ski School, two patrol buildings.
 - The Ski Resort panel: Attraction, Runs, Lifts, Guests, Finances and History views, a problem list and a build strip.
 - Economy: lift tickets, season passes, lessons, lodge spend, off-season half staff.
 - Delete all ski resort content, a button in the mod's Options (Reset group): removes everything the mod placed in the loaded city, after a confirmation, to clean a city before uninstalling. It cannot be undone.

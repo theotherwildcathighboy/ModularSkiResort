@@ -26,7 +26,7 @@ import {
 import type { BuildTab, DotTarget, NextVariant, PickerSelection, PickerSet } from "./hubRules";
 import { buildTab$ } from "./hubState";
 import {
-  ASSET_NAME, BUILD_LABEL, BUILD_SHORT_RUN, BUILD_TAB, BUILD_TAB_TIP, DRAW_LABEL, HUB_FMT, HUB_LOC, LIFT_TYPE, LODGE_TIER, NEXT_LINE1, NEXT_LINE2,
+  ASSET_NAME, BUILD_LABEL, BUILD_SHORT_RUN, BUILD_TAB, DRAW_LABEL, HUB_FMT, HUB_LOC, LIFT_TYPE, LODGE_TIER, NEXT_LINE1, NEXT_LINE2,
   RUN_TYPE, sentKeyEntry,
 } from "./hubText";
 import { AssetIcon, Glyph, LocText, Tip, TipLines, cx, numArg } from "./parts";
@@ -88,30 +88,10 @@ function Line1({ id, item, t }: { id: BuildItemId; item: BuildItem; t: Translate
 }
 
 /*
- * The short line-2 hint of a tile, by kind: every lift type's base / top / line reads the fixed-grip pair's hints; the lodges,
- * the school and the patrol huts have their own.
+ * A tile's hint (footer line 2 and tooltip), by kind: every lift type's top / line reads the fixed-grip pair's hints; the lodges,
+ * the school and the patrol huts have their own. A base station has none: a hint only says what a player cannot find by trying.
  */
-function shortEntry(id: BuildItemId): LocEntry {
-  const kind = BUILD_RUN_KIND[id];
-  if (kind !== undefined) return BUILD_SHORT_RUN[kind];
-  switch (kindOf(id)) {
-    case "sign": return HUB_LOC.buildHintSign;
-    case "fence": return HUB_LOC.buildShortFence;
-    case "lodge": return HUB_LOC.buildShortLodge;
-    case "school": return HUB_LOC.buildShortSchool;
-    case "patrol": return HUB_LOC.buildShortPatrol;
-    case "station": return stationRole(id) === "top" ? HUB_LOC.buildShortTop : HUB_LOC.buildHintBase;
-    default: return HUB_LOC.buildShortLift;
-  }
-}
-
-function line2Text(t: Translate, id: BuildItemId, item: BuildItem): string {
-  if (item.locked) return t(sentKeyEntry(item.reason, HUB_LOC.locked));
-  if (item.hint) return t(sentKeyEntry(item.hint, shortEntry(id)));
-  return t(shortEntry(id));
-}
-
-function longEntry(id: BuildItemId): LocEntry {
+function hintEntry(id: BuildItemId): LocEntry | null {
   const kind = BUILD_RUN_KIND[id];
   if (kind !== undefined) return BUILD_SHORT_RUN[kind];
   switch (kindOf(id)) {
@@ -120,9 +100,16 @@ function longEntry(id: BuildItemId): LocEntry {
     case "lodge": return HUB_LOC.buildHintLodge;
     case "school": return HUB_LOC.buildShortSchool;
     case "patrol": return HUB_LOC.buildShortPatrol;
-    case "station": return stationRole(id) === "top" ? HUB_LOC.buildHintTop : HUB_LOC.buildHintBase;
+    case "station": return stationRole(id) === "top" ? HUB_LOC.buildHintTop : null;
     default: return HUB_LOC.buildHintLift;
   }
+}
+
+function line2Text(t: Translate, id: BuildItemId, item: BuildItem): string {
+  if (item.locked) return t(sentKeyEntry(item.reason, HUB_LOC.locked));
+  const hint = hintEntry(id);
+  if (item.hint) return t(sentKeyEntry(item.hint, hint ?? HUB_LOC.locked));
+  return hint ? t(hint) : "";
 }
 
 function onceValue(id: BuildItemId, item: BuildItem): JSX.Element | string {
@@ -171,6 +158,7 @@ function tileTip(e: OrderedBuildItem, t: Translate): JSX.Element {
   const k = kindOf(e.id);
   const draw = BUILDING_DRAW[e.id];
   const billed = !!draw && draw.upkeep > 0 && k !== "station";
+  const hint = hintEntry(e.id);
   return (
     <TipLines
       lines={[
@@ -179,7 +167,7 @@ function tileTip(e: OrderedBuildItem, t: Translate): JSX.Element {
         billed && draw ? { label: t(DRAW_LABEL.upkeep), value: numArg(draw.upkeep, Unit.MoneyPerMonth) }
           : { label: t(HUB_LOC.buildTipMonth), value: monthValue(e.id, e.item, t) },
         ...drawRows(e.id, t),
-        e.item.active ? t(HUB_LOC.buildActive) : t(longEntry(e.id)),
+        e.item.active ? t(HUB_LOC.buildActive) : hint && t(hint),
         run && t(HUB_LOC.buildTipReshape),
         e.id === "runNatural" && t(HUB_LOC.buildTipNatural),
         e.id === "runNatural" && t(HUB_LOC.buildTipTypeNatural),
@@ -202,7 +190,6 @@ function PickerSetView({ set, options, chosen, dot, t, onPick }: {
   set: PickerSet; options: readonly string[]; chosen: string; dot: DotTarget; t: Translate;
   onPick: (set: PickerSet, value: string) => void;
 }): JSX.Element {
-  const tip = t(set === "lift" ? HUB_LOC.pickerTipLiftType : HUB_LOC.pickerTipLodgeTier);
   return (
     <div className={styles.pickerSet} style={{ flexGrow: options.length }}>
       {options.map((value, i) => {
@@ -211,17 +198,15 @@ function PickerSetView({ set, options, chosen, dot, t, onPick }: {
         const dotHere = !!dot && dot.kind === "chip" && dot.set === set && dot.value === value;
         return (
           <div key={value} className={cx(styles.pickerCell, i > 0 && styles.pickerCellNext)}>
-            <Tip tip={<TipLines lines={[label, tip]} />}>
-              <Button
-                focusKey={FOCUS_DISABLED}
-                theme={{ button: cx(styles.pickerChip, on && styles.pickerChipOn) }}
-                selected={on}
-                onSelect={() => onPick(set, value)}
-              >
-                <div className={styles.pickerLabel}>{label}</div>
-                {dotHere && <div className={styles.buildHintDot} />}
-              </Button>
-            </Tip>
+            <Button
+              focusKey={FOCUS_DISABLED}
+              theme={{ button: cx(styles.pickerChip, on && styles.pickerChipOn) }}
+              selected={on}
+              onSelect={() => onPick(set, value)}
+            >
+              <div className={styles.pickerLabel}>{label}</div>
+              {dotHere && <div className={styles.buildHintDot} />}
+            </Button>
           </div>
         );
       })}
@@ -259,17 +244,15 @@ function TabBarView({ tabs, tab, dotTab, t, onTab }: {
         const on = id === tab;
         return (
           <div key={id} className={cx(styles.pickerCell, i > 0 && styles.pickerCellNext)}>
-            <Tip tip={<TipLines lines={[label, t(BUILD_TAB_TIP[id])]} />}>
-              <Button
-                focusKey={FOCUS_DISABLED}
-                theme={{ button: cx(styles.tabButton, on && styles.tabButtonOn) }}
-                selected={on}
-                onSelect={() => onTab(id)}
-              >
-                <div className={styles.tabLabel}>{label}</div>
-                {dotTab === id && !on && <div className={styles.buildHintDot} />}
-              </Button>
-            </Tip>
+            <Button
+              focusKey={FOCUS_DISABLED}
+              theme={{ button: cx(styles.tabButton, on && styles.tabButtonOn) }}
+              selected={on}
+              onSelect={() => onTab(id)}
+            >
+              <div className={styles.tabLabel}>{label}</div>
+              {dotTab === id && !on && <div className={styles.buildHintDot} />}
+            </Button>
           </div>
         );
       })}
@@ -304,7 +287,7 @@ function LiftToolSet({ t }: { t: Translate }): JSX.Element {
   const g = useValue(liftLine$);
   const available = !!g?.available;
   const active = !!g?.active;
-  const tip = active ? t(HUB_LOC.liftToolTipOn) : !available ? t(HUB_LOC.liftToolUnavailable) : t(HUB_LOC.liftToolTip);
+  const tip = active ? null : !available ? t(HUB_LOC.liftToolUnavailable) : t(HUB_LOC.liftToolTip);
   return (
     // About one chip wide (the type chips keep their room; four types = 4 : 1.1).
     <div className={cx(styles.pickerSet, styles.pickerSetNext)} style={{ flexGrow: 1.1 }}>
@@ -333,7 +316,7 @@ function TreeToolSet({ t, quick }: { t: Translate; quick: boolean }): JSX.Elemen
   const g = useValue(glade$);
   const available = !!g?.available;
   const active = !!g?.active;
-  const tip = active ? t(HUB_LOC.treeToolTipOn)
+  const tip = active ? null
     : !available ? t(sentKeyEntry(g?.reason, HUB_LOC.treesUnavailable))
       : t(HUB_LOC.treeToolTip);
   return (
@@ -450,7 +433,9 @@ export function BuildStrip({ info }: { info: FooterInfo }): JSX.Element {
     line1 = <Line1 id={lockedEntry.id} item={lockedEntry.item} t={t} />;
     line2 = t(sentKeyEntry(lockedEntry.item.reason, HUB_LOC.locked)); line2Cls = styles.buildLineLocked;
   } else {
-    line1 = <>{t(NEXT_LINE1[info.next])}</>; line2 = t(NEXT_LINE2[info.next]); line1Cls = styles.buildLineNormal;
+    const next1 = NEXT_LINE1[info.next];
+    const next2 = NEXT_LINE2[info.next];
+    line1 = <>{next1 ? t(next1) : ""}</>; line2 = next2 ? t(next2) : ""; line1Cls = styles.buildLineNormal;
   }
 
   const click = (e: OrderedBuildItem): void => {

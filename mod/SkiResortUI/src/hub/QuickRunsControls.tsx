@@ -72,7 +72,7 @@ export function QuickRunsChip({ t }: { t: Translate }): JSX.Element {
   const q = useValue(quickRuns$);
   const available = !!q?.available;
   const active = !!q?.active;
-  const tip = active ? t(HUB_LOC.quickToolTipOn)
+  const tip = active ? null
     : !available ? t(sentKeyEntry(q?.reason, HUB_LOC.quickUnavailable))
       : t(HUB_LOC.quickToolTip);
   return (
@@ -93,7 +93,7 @@ export function QuickRunsChip({ t }: { t: Translate }): JSX.Element {
 }
 
 function Act({ label, tip, on, disabled, onSelect, next }: {
-  label: string; tip: string; on?: boolean; disabled?: boolean; onSelect: () => void; next?: boolean;
+  label: string; tip?: string; on?: boolean; disabled?: boolean; onSelect: () => void; next?: boolean;
 }): JSX.Element {
   return (
     <Tip tip={tip}>
@@ -292,9 +292,9 @@ function TreeRowsQuick({ q, t, wait }: { q: QuickRunsState; t: Translate; wait: 
         <>
           <div className={styles.quickRow}>
             <Caption text={t(HUB_LOC.quickTreeDensity)} />
-            <Act label="–" tip={t(HUB_LOC.quickDensityTrees)} disabled={wait || level <= GLADE_LEVEL_MIN} onSelect={() => set("level", level - 1)} />
+            <Act label="–" disabled={wait || level <= GLADE_LEVEL_MIN} onSelect={() => set("level", level - 1)} />
             <div className={styles.stepValue}>{`${level} · ${t(gladeLevelEntry(level))}`}</div>
-            <Act label="+" tip={t(HUB_LOC.quickDensityTrees)} disabled={wait || level >= GLADE_LEVEL_MAX} onSelect={() => set("level", level + 1)} />
+            <Act label="+" disabled={wait || level >= GLADE_LEVEL_MAX} onSelect={() => set("level", level + 1)} />
           </div>
           <div className={styles.quickRow}>
             <Caption text={t(HUB_LOC.quickTreeLine)} />
@@ -309,7 +309,7 @@ function TreeRowsQuick({ q, t, wait }: { q: QuickRunsState; t: Translate; wait: 
           <div className={styles.quickRow}>
             <Caption text={t(HUB_LOC.quickSpeciesCaption)} />
             {GROUPS.map((e, i) => (
-              <Act key={i} label={t(e)} tip={t(HUB_LOC.quickGroupTip)} next={i > 0} on={q.species < 0 && q.group === i} disabled={wait}
+              <Act key={i} label={t(e)} next={i > 0} on={q.species < 0 && q.group === i} disabled={wait}
                 onSelect={() => set("group", i)} />
             ))}
           </div>
@@ -343,11 +343,9 @@ export function QuickRunsRows(): JSX.Element {
   return (
     <>
       <div className={styles.quickRow}>
-        <Tip tip={t(HUB_LOC.quickToolTipOn)}>
-          <Button variant="flat" className={cx(styles.treeToolButton, styles.buttonOn)} selected onSelect={() => hubTriggers.quickRunsToggle()}>
-            {t(HUB_LOC.quickTool)}
-          </Button>
-        </Tip>
+        <Button variant="flat" className={cx(styles.treeToolButton, styles.buttonOn)} selected onSelect={() => hubTriggers.quickRunsToggle()}>
+          {t(HUB_LOC.quickTool)}
+        </Button>
         <div className={styles.treeRowSpacer} />
         <Act label={t(HUB_LOC.quickScan)} tip={t(HUB_LOC.quickScanTip)} disabled={wait || q.corners < 3 || q.regionState === "Over"} onSelect={() => set("scan")} />
         <Act label={t(HUB_LOC.quickBuild)} tip={t(HUB_LOC.quickBuildTip)} next disabled={!preview || q.enabled <= 0} onSelect={() => set("build")} />
@@ -358,16 +356,16 @@ export function QuickRunsRows(): JSX.Element {
       <div className={styles.quickRow}>
         <Caption text={t(HUB_LOC.quickMixCaption)} />
         {MIX.map((e, i) => (
-          <Act key={i} label={t(e)} tip={t(HUB_LOC.quickMixTip)} next={i > 0} on={q.mix === i} disabled={wait} onSelect={() => set("mix", i)} />
+          <Act key={i} label={t(e)} next={i > 0} on={q.mix === i} disabled={wait} onSelect={() => set("mix", i)} />
         ))}
       </div>
       <div className={styles.quickRow}>
         <Caption text={t(HUB_LOC.quickDensityCaption)} />
         {DENSITY.map((e, i) => (
-          <Act key={i} label={t(e)} tip={t(HUB_LOC.quickDensityTip)} next={i > 0} on={q.density === i} disabled={wait} onSelect={() => set("density", i)} />
+          <Act key={i} label={t(e)} next={i > 0} on={q.density === i} disabled={wait} onSelect={() => set("density", i)} />
         ))}
         <div className={styles.treeRowSpacer} />
-        <Act label={t(HUB_LOC.quickShuffle)} tip={t(HUB_LOC.quickShuffleTip)} disabled={wait || q.corners < 3} onSelect={() => set("shuffle")} />
+        <Act label={t(HUB_LOC.quickShuffle)} disabled={wait || q.corners < 3} onSelect={() => set("shuffle")} />
       </div>
       <div className={styles.quickRow}>
         <Caption text={t(HUB_LOC.quickKindsCaption)} />

@@ -37,7 +37,7 @@ notice > the active tile > the last locked click > idle (NEXT / NEXT2 by `Resort
 <area>." holds line 1 for `FOLLOW_NOTICE_MS`; a second follow restarts the timer; unmount clears it. Nothing runs per frame.
 
 `BuildStrip` reads only the core `build` binding (and its own `pick$`), so it is also the contract-mismatch panel's footer
-(`MISMATCH_FOOTER`: no dot, idle NEXT[Done]). Everything else comes in through `info` (`FooterInfo`), built by `OkFooter` (a panel
+(`MISMATCH_FOOTER`: no dot, idle "done": an empty footer). Everything else comes in through `info` (`FooterInfo`), built by `OkFooter` (a panel
 file: `resorts$`, `selectedResort$`, `resortLive$`, `problems$`, `follow$`).
 
 ## Focus: every tile and picker chip is a Button with `focusKey={FOCUS_DISABLED}`

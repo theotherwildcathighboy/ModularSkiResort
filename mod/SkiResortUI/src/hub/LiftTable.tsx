@@ -112,7 +112,6 @@ function liftTip(row: LiftRow, partner: boolean, t: Translate): JSX.Element {
         row.alignKnown && !straight && { label: t(HUB_LOC.alignAngle), value: <Num value={row.alignYawDeg} unit={Unit.Angle} signed /> },
         row.towersRemoved > 0 && t(HUB_LOC.liftTowerRemoved),
         t(HUB_LOC.liftSignTip),
-        t(HUB_LOC.liftActions),
       ]}
     />
   );

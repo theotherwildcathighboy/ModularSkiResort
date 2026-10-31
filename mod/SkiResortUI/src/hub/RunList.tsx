@@ -116,7 +116,6 @@ function runTip(p: RunLineProps, name: string, typeName: string): JSX.Element {
           label: t(HUB_LOC.runCost),
           value: live && live.costMonth >= 0 ? <Num value={live.costMonth} unit={Unit.MoneyPerMonth} /> : "–",
         },
-        t(HUB_LOC.runActions),
       ]}
     />
   );

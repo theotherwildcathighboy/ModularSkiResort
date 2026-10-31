@@ -4,7 +4,7 @@
 
 ## First resort, in order
 
-1. Open the Ski Resort panel (button at the top left). On the **Buildings** tab, place the **Welcome Sign** with its front on a road. Pick the straight or the angled sign now, before any runs: to move a sign later, use **Relocate** in its info panel, because bulldozing a sign deletes every run linked to it.
+1. Open the Ski Resort panel (button at the top left). On the **Buildings** tab, place the **Welcome Sign** with its front on a road. To move a sign later, use **Relocate** in its info panel, because bulldozing a sign deletes every run linked to it.
 2. Place a **lodge** near where the runs will be. The A-Frame Day Lodge is the cheapest with real capacity. No lodge, no attraction score.
 3. On the **Lifts** tab, pick a lift type. Place the **base station** at the bottom and the **top station** at the top, facing the base station. A guide line shows when they are straight.
 4. Click the base station with the lift tool, click the top station, then press **Enter**.

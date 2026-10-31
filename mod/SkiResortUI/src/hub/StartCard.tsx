@@ -15,7 +15,7 @@ import { InfoLine, cx } from "./parts";
 import styles from "./hub.module.scss";
 
 const STEPS: readonly LocEntry[] = [
-  HUB_LOC.startStep1, HUB_LOC.startStep2, HUB_LOC.startStep3, HUB_LOC.startStep4, HUB_LOC.startStep5,
+  HUB_LOC.startStep1, HUB_LOC.startStep2, HUB_LOC.startStep3, HUB_LOC.startStep4,
 ];
 
 export function StartCard(): JSX.Element {

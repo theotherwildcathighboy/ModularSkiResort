@@ -50,7 +50,7 @@ First public release. Draft notes (check against the build at upload):
   corral or close a slope.
 - Snow-depth run system: runs open at 3 ft (91 cm) on 60 percent of the run, snow guns on snowmaking and night runs
   (October to March), powder days, seasons.
-- Welcome Sign (set back 8 m from the road on a leveled lot, plus an angled variant), five lodges, Ski School, two patrol
+- Welcome Sign (set back 8 m from the road on a leveled lot), five lodges, Ski School, two patrol
   buildings.
 - The Ski Resort panel: Attraction, Runs, Lifts, Guests, Finances and History views, a problem list and a build strip.
 - Economy: lift tickets, season passes, lessons, lodge spend, off-season half staff.

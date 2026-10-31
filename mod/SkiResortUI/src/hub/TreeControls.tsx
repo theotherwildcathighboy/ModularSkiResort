@@ -28,7 +28,7 @@ export function TreeRows(): JSX.Element {
   const samples: string[] = [];
   for (let l = GLADE_LEVEL_MIN; l <= GLADE_LEVEL_MAX; l++) samples.push(label(l));
 
-  const toolTip = active ? t(HUB_LOC.treeToolTipOn)
+  const toolTip = active ? undefined
     : !available ? t(sentKeyEntry(g?.reason, HUB_LOC.treesUnavailable))
       : t(HUB_LOC.treeToolTip);
 

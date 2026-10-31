@@ -476,16 +476,16 @@ function run(srcDir) {
         tile.includes("height: calc(12rem + 44rem * var(--fontScale))")],
       [true, true, true, true]);
   }
-  // The Lodge tile names its tier; the header tip. No tile says it joins the sign.
+  // The Lodge tile names its tier. No tile says it joins the sign.
   {
     const strip = fs.readFileSync(path.join(srcDir, "hub", "BuildStrip.tsx"), "utf8");
     const header = fs.readFileSync(path.join(srcDir, "hub", "HubHeader.tsx"), "utf8");
-    eq("T23.2 tier label, upgrade line, header rule", [strip.includes("LODGE_TIER[id] ?? BUILD_LABEL.lodge"),
-      (strip.match(/HUB_LOC\.buildActiveUpgrade/g) || []).length, header.includes("HUB_LOC.resortTip")], [true, 0, true]);
+    eq("T23.2 tier label, upgrade line", [strip.includes("LODGE_TIER[id] ?? BUILD_LABEL.lodge"),
+      (strip.match(/HUB_LOC\.buildActiveUpgrade/g) || []).length], [true, 0]);
   }
   // T24 the header selector. Its item counts (singular forms; the Not linked row adds its free lodges) and the source facts the
   // gate cannot see: the vanilla Dropdown with FOCUS_DISABLED, DropdownItem from the shim, picking = selectResort(entrySign), the
-  // drag guard around it, the rule tooltip and note.
+  // drag guard around it, the note.
   eq("T24.1 resortCountsVariant", [[5, 3], [1, 3], [5, 1], [1, 1], [0, 0], [1, 0], [0, 1]].map(([r, l]) => R.resortCountsVariant(r, l)),
     ["many", "runOne", "lodgeOne", "one", "many", "runOne", "lodgeOne"]);
   eq("T24.2 resortListCounts: a sign's own lodges; Not linked adds its free lodges; null and negatives read 0",
@@ -494,14 +494,14 @@ function run(srcDir) {
     [{ runs: 5, lodges: 3 }, { runs: 1, lodges: 1 }, { runs: 0, lodges: 0 }, { runs: 0, lodges: 0 }]);
   {
     // The name is a plain Button (FOCUS_DISABLED, drag guard) that opens AreaList, an overlay in the content (no Dropdown, no
-    // Portal); picking = selectResort(entrySign(r)); rule tip, note and caption (the list title) stay.
+    // Portal); picking = selectResort(entrySign(r)); note and caption (the list title) stay.
     const header = fs.readFileSync(path.join(srcDir, "hub", "HubHeader.tsx"), "utf8");
     const panel = fs.readFileSync(path.join(srcDir, "hub", "HubPanel.tsx"), "utf8");
-    eq("T24.3 T114 selector source: no Dropdown, name Button with FOCUS_DISABLED + drag guard, AreaList in the panel body, selectResort(entrySign(r)), rule tip, note, caption",
+    eq("T24.3 T114 selector source: no Dropdown, name Button with FOCUS_DISABLED + drag guard, AreaList in the panel body, selectResort(entrySign(r)), note, caption",
       [!/\bDropdown\b/.test(header.replace(/\/\*[\s\S]*?\*\//g, "")), /theme=\{\{ button: cx\(styles\.areaName/.test(header),
         /focusKey=\{FOCUS_DISABLED\}\s*\n\s*theme=\{\{ button: cx\(styles\.areaName/.test(header), header.includes("hubTriggers.selectResort(entrySign(r))"),
-        /<AreaList \/>/.test(panel), header.includes("HUB_LOC.resortTip"), header.includes("HUB_LOC.resortMenuNote"), header.includes("HUB_LOC.resortCaption")],
-      [true, true, true, true, true, true, true, true]);
+        /<AreaList \/>/.test(panel), header.includes("HUB_LOC.resortMenuNote"), header.includes("HUB_LOC.resortCaption")],
+      [true, true, true, true, true, true, true]);
   }
 
   // T26 folded per-lift band rows, the name list, the Lifts tile (built / drawn), and the source facts of "never a scrollbar"
@@ -550,8 +550,8 @@ function run(srcDir) {
     const strip = fs.readFileSync(path.join(srcDir, "hub", "BuildStrip.tsx"), "utf8");
     const status = fs.readFileSync(path.join(srcDir, "hub", "StatusBlock.tsx"), "utf8");
     eq("T25.2 school hints: never the selected-sign hint; active line plain; row 26 drawn with its FMT text and tip",
-      // Both of the school's hints are its own BUILD_SHORT[School]; no selected-sign hint exists.
-      [(strip.match(/case "school": return HUB_LOC\.buildShortSchool;/g) || []).length === 2, !strip.includes("buildHintLodgeSelected"),
+      // The school's hint is its own BUILD_SHORT[School]; no selected-sign hint exists.
+      [(strip.match(/case "school": return HUB_LOC\.buildShortSchool;/g) || []).length === 1, !strip.includes("buildHintLodgeSelected"),
         strip.includes('k === "lodge" || k === "school"'), status.includes("HUB_FMT.problemSchoolsNotLinked"), status.includes("HUB_LOC.problemTipSchoolsNotLinked")],
       [true, true, false, true, true]);
     const state = fs.readFileSync(path.join(srcDir, "hub", "hubState.ts"), "utf8");
@@ -739,6 +739,11 @@ function run(srcDir) {
       ctChip.includes("focusKey={FOCUS_DISABLED}")], [true, true, true, true]);
   eq("T32.3 drawn on the ok panel's Runs tab beside Quick runs, unconditionally there",
     [stripSrc.includes("{quick && <QuickRunsChip t={t} />}\n        {quick && <CatTrackDeleteChip t={t} />}"), /disabled=/.test(ctChip)], [true, false]);
+  // T34 hub text states what a player cannot find by trying: no how-to for a road snap, a tool's stop or a plain click (PIPELINE).
+  const obvious = /\bsnap\b|like a path|point at a (bar|tile)|click (here |again )?to (stop|close|turn|fly|open|show|list|pick)|^pick (the|a) /i;
+  const hubTuples = read(path.join("hub", "hubText.ts")).split("\n")
+    .map((l) => /\["(?:SkiResort|Assets)[^"]*", "([^"]*)"\]/.exec(l)).filter(Boolean).map((m) => m[1]);
+  eq("T34 no over-instructive hub text", [hubTuples.length > 500, hubTuples.filter((s) => obvious.test(s))], [true, []]);
   const hr = require("./test-history-rules").run(srcDir);
   checks += hr.checks;
   for (const f of hr.failures) failures.push(`test-history-rules ${f}`);

@@ -32,7 +32,7 @@ Draw chairlifts, gondolas and an aerial tram up your mountain, draw runs down it
 Cities: Skylines II 1.6 (tested on 1.6.2f1). No other mod and no DLC. Start from a new city.
 
 ## Getting started
-1. Open the Ski Resort panel. Place a Welcome Sign snapped to a road (it stands set back from it). It comes straight or angled: pick one before you draw runs. Then place a lodge near where the runs will be.
+1. Open the Ski Resort panel. Place a Welcome Sign snapped to a road (it stands set back from it). Then place a lodge near where the runs will be.
 2. Pick a lift type. Place the base station, then the top station facing it, then draw the line between them. Press Enter to build.
 3. Connect a low-voltage power line to the base station.
 4. Draw runs downhill from the top station, and wait for snow.
