@@ -125,7 +125,7 @@ export const SKI_DAY_LIMIT = { None: 0, Runs: 1, Lodges: 2 } as const;
  *  imported, and every item of a Shuttle lift type, are not sent); the strip draws
  *  BUILD_GROUPS. */
 export type BuildItemId =
-  | "sign" | "signAngled" | "lodge" | "lodgeHut" | "lodgeMid" | "lodgeSummit" | "lodgeGrand"
+  | "sign" | "lodge" | "lodgeHut" | "lodgeMid" | "lodgeSummit" | "lodgeGrand"
   | "school" | "patrolHut" | "patrolHQ"
   | "baseStation" | "topStation" | "lift"
   | "baseStationDetachable" | "topStationDetachable" | "liftDetachable"
@@ -134,7 +134,7 @@ export type BuildItemId =
   | "runNatural" | "runGroomed" | "runSnowmaking" | "runNight" | "runCatTrack"
   | "safetyFence";
 export const BUILD_ITEM_IDS: readonly BuildItemId[] = [
-  "sign", "signAngled", "lodge", "lodgeHut", "lodgeMid", "lodgeSummit", "lodgeGrand",
+  "sign", "lodge", "lodgeHut", "lodgeMid", "lodgeSummit", "lodgeGrand",
   "school", "patrolHut", "patrolHQ",
   "baseStation", "topStation", "lift",
   "baseStationDetachable", "topStationDetachable", "liftDetachable",
@@ -147,7 +147,6 @@ export const BUILD_ITEM_IDS: readonly BuildItemId[] = [
 /** Display only: the prefab behind each id (rule R16 compares it with the C# table row's Names.X value). */
 export const BUILD_ITEM_PREFAB: Readonly<Record<BuildItemId, string>> = {
   sign: "SkiResortGate",
-  signAngled: "SkiResortGateAngled",
   safetyFence: "SkiSafetyFence",
   lodge: "SkiAFrameDayLodge",
   lodgeHut: "SkiLodgeHut",

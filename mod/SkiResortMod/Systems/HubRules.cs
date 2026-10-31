@@ -257,6 +257,26 @@ namespace SkiResortMod.Systems
             return stateRunning ? RunGunWhy.TooWarm : RunGunWhy.DepthReached;
         }
 
+        /// <summary>What decides a push of the build binding. Odd multipliers only: an even factor shifts the early items out of the 32 bits
+        /// (x 496 per item once dropped all but the last 7 of 28, so a placed sign left the lodge tiles locked until another tile was
+        /// clicked). Multiplying by an odd number loses nothing, so one changed field always changes the result.</summary>
+        public static int BuildSignature(int active, byte[] reasons, int[] prices, bool[] sent, bool[] liftFlags)
+        {
+            unchecked
+            {
+                int signature = active + 1;
+                for (int i = 0; i < reasons.Length; i++)
+                {
+                    signature = signature * 31 + reasons[i];
+                    signature = signature * 31 + prices[i];
+                    signature = signature * 31 + (sent[i] ? 1 : 0);
+                }
+                for (int t = 0; t < liftFlags.Length; t++)
+                    signature = signature * 31 + (liftFlags[t] ? 1 : 0);
+                return signature;
+            }
+        }
+
         /// <summary>A run's coverage-weighted mean snow depth in whole centimeters; -1 when not measured (NaN, an
         /// estimate) or not finite.</summary>
         public static int DepthCm(float meanDepthM)

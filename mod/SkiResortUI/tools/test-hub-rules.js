@@ -327,7 +327,7 @@ function run(srcDir) {
   eq("T14.3 kept in the band, C# order; the mixed row's line item is the dot",
     [R.bandRowsOf([P(A, 23, 2, { buildItem: "liftDetachable" }), P(A, 24, 1, { count: 1 }), P(A, 25, 1)], A).map((p) => p.code),
       R.dotItem([P(A, 23, 2, { buildItem: "liftDetachable" })], A, true)], [[23, 24, 25], "liftDetachable"]);
-  eq("T14.4 isBuildItemId: all 28 ids", BIND.BUILD_ITEM_IDS.filter((id) => R.isBuildItemId(id)).length, 28); // includes runCatTrack, signAngled and safetyFence
+  eq("T14.4 isBuildItemId: all 27 ids", BIND.BUILD_ITEM_IDS.filter((id) => R.isBuildItemId(id)).length, 27); // includes runCatTrack and safetyFence
   eq("T14.5 isBuildItemId: strangers", ["lift2", "", null, "Lodge", "liftCable"].map((id) => R.isBuildItemId(id)), [false, false, false, false, false]);
   eq("T14.6 liftTypesOf", [R.liftTypesOf([{ type: "fixedGrip" }, { type: "fixedGrip" }, { type: "" }, { type: "detachable" }, {}]), R.liftTypesOf(null)],
     [["fixedGrip", "detachable"], []]);
@@ -353,9 +353,9 @@ function run(srcDir) {
   // The Build strip's three tabs over the real BUILD_ITEMS table.
   const kindTabs = {};
   for (const m of META) kindTabs[m.id] = R.tabOfItem(m.id, META);
-  eq("T17.1 every one of the 28 items is on exactly one tab, by kind", [Object.keys(kindTabs).length, Object.values(kindTabs).filter((x) => x === null).length], [28, 0]);
-  eq("T17.2 tab sizes: 12 lifts, 6 runs, 10 buildings", [Object.values(kindTabs).filter((x) => x === "lifts").length, Object.values(kindTabs).filter((x) => x === "runs").length,
-    Object.values(kindTabs).filter((x) => x === "buildings").length], [12, 6, 10]); // the cat track is the fifth run tile, the safety fence the sixth tile of the Runs tab; two sign tiles (straight, angled)
+  eq("T17.1 every one of the 27 items is on exactly one tab, by kind", [Object.keys(kindTabs).length, Object.values(kindTabs).filter((x) => x === null).length], [27, 0]);
+  eq("T17.2 tab sizes: 12 lifts, 6 runs, 9 buildings", [Object.values(kindTabs).filter((x) => x === "lifts").length, Object.values(kindTabs).filter((x) => x === "runs").length,
+    Object.values(kindTabs).filter((x) => x === "buildings").length], [12, 6, 9]); // the cat track is the fifth run tile, the safety fence the sixth tile of the Runs tab
   eq("T17.2b the cat track is a run item of kind 4 on the runs tab", [kindTabs.runCatTrack, R.runKindOfItem("runCatTrack"), R.RUN_ITEMS.has("runCatTrack")], ["runs", 4, true]);
   eq("T17.3 spot rows", [kindTabs.sign, kindTabs.lodgeGrand, kindTabs.school, kindTabs.patrolHQ, kindTabs.liftTram, kindTabs.topStationGondola, kindTabs.runNight],
     ["buildings", "buildings", "buildings", "buildings", "lifts", "lifts", "runs"]);

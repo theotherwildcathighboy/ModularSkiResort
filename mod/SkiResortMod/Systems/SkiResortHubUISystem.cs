@@ -2637,15 +2637,7 @@ namespace SkiResortMod.Systems
             }
             RefreshLiftHint();
             int active = ActiveItemIndex();
-            int signature = active + 1;   // 0..ItemCount
-            unchecked
-            {
-                // Reasons 0..5, so × 8; the sent bit and every type's hint flag join.
-                for (int i = 0; i < ItemCount; i++)
-                    signature = ((signature * 8 + m_ItemReason[i]) * 31 + m_ItemPrice[i]) * 2 + (m_ItemSent[i] ? 1 : 0);
-                for (int t = 0; t < m_LiftNoPairByType.Length; t++)
-                    signature = signature * 2 + (m_LiftNoPairByType[t] ? 1 : 0);
-            }
+            int signature = HubRules.BuildSignature(active, m_ItemReason, m_ItemPrice, m_ItemSent, m_LiftNoPairByType);
             if (rising || signature != m_BuildPushedSignature || active != m_ActiveItem)
             {
                 m_ActiveItem = active;

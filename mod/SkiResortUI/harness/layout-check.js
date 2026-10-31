@@ -60,6 +60,22 @@
       headerFits: header ? header.scrollWidth <= header.clientWidth + 1 : true,
     };
   }
+  /** Text the player cannot read whole: an element whose text is cut (scrollWidth past its box) or whose text ends past the panel's edge. */
+  function clippedText(where, out) {
+    const p = panel();
+    if (!p) return;
+    const right = p.getBoundingClientRect().right;
+    for (const e of qa("*", p)) {
+      const text = (e.textContent || "").trim();
+      if (!text || e.children.length > 0) continue;
+      const cut = getComputedStyle(e).overflowX !== "visible" && e.scrollWidth > e.clientWidth + 1;
+      const past = e.getBoundingClientRect().right > right + 1;
+      if (!cut && !past) continue;
+      const name = (String(e.className).match(/sr-([A-Za-z0-9]+)_/) || [])[1] || e.tagName;
+      const key = `${name}|${text}`;
+      if (!out.clipped[key]) out.clipped[key] = { cls: name, text, where, kind: past ? "past the panel" : "cut", over: Math.round(e.scrollWidth - e.clientWidth) };
+    }
+  }
   function tiles() { const r = q(cls("tileRow")); return r ? qa("button", r) : []; }
   function buildTabs() { const r = q(cls("tabRow")); return r ? qa("button", r) : []; }
   function folds() { const p = panel(); return p ? qa(cls("foldRow"), p) : []; }
@@ -87,6 +103,7 @@
       // A Runs / Lifts view (its full list carries listAll) may scroll; it must list every row (no pager row).
       const scrolls = !!q(cls("listAll"), panel());
       out.cases.push(Object.assign({ scenario: name, fs, view, state, scrolls }, m));
+      clippedText(`${name} x${fs} view ${view} ${state}`, out);
       if (scrolls && q(cls("pagerRow"), panel())) fail(`pager drawn on a full-list view: view ${view} ${state}`, m);
       if (!scrolls && (!m || m.overPx > 1 || m.slackRem < MIN_SLACK_REM)) fail(`overflow: view ${view} ${state}`, m);
       if (m && !m.headerFits) fail(`header overflows: view ${view} ${state}`, m);
@@ -132,7 +149,22 @@
     // Build tabs: the footer must not change the content's fit, and the Buildings tab draws every building tile.
     for (const b of buildTabs()) {
       b.click(); await settle();
-      rec(0, `build tab ${b.textContent.trim()}`, measure());
+      const tabName = b.textContent.trim();
+      rec(0, `build tab ${tabName}`, measure());
+      // The footer's two status lines change with the hovered tile: every tile, hovered in turn.
+      for (const cell of qa(cls("buildCell"))) {
+        cell.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+        await frames(2);
+        clippedText(`${name} x${fs} tab ${tabName} hover`, out);
+        for (const line of qa(cls("buildStatusLine"))) {
+          const range = document.createRange();
+          range.selectNodeContents(line);
+          const full = Math.round(range.getBoundingClientRect().width / Math.max(1, line.clientWidth) * 100);
+          if (!out.fullest[fs] || full > out.fullest[fs].full) out.fullest[fs] = { full, text: line.textContent.trim() };
+        }
+        cell.dispatchEvent(new MouseEvent("mouseout", { bubbles: true }));
+      }
+      await frames(2);
     }
     const bTab = buildTabs().find((b) => /Buildings/.test(b.textContent));
     if (bTab) {
@@ -161,7 +193,7 @@
   async function run(opts) {
     const o = opts || {};
     gameRem();
-    const out = { viewport: `${window.innerWidth}x${window.innerHeight}`, remPx: 0, cases: [], fails: [], pagers: [], buildings: [], liftsTile: [], band: [], liftTool: [] };
+    const out = { viewport: `${window.innerWidth}x${window.innerHeight}`, remPx: 0, cases: [], fails: [], pagers: [], buildings: [], liftsTile: [], band: [], liftTool: [], clipped: {}, fullest: {} };
     out.remPx = Math.round(rem() * 1000) / 1000;
     const names = o.scenarios || Object.keys(window.SkiScenarios).filter((n) => /Ash Flat \(runs|Big resort|Field case/.test(n));
     for (const name of names) for (const fs of o.scales || SCALES) {

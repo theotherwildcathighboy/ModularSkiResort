@@ -501,7 +501,6 @@ namespace SkiResortMod.Systems
             public const string PatrolHut = "SkiPatrolHut"; // BuildingPrefab, item patrolHut
             public const string PatrolHQ = "SkiPatrolHQ"; // BuildingPrefab, item patrolHQ
             public const string Sign = "SkiResortGate"; // BuildingPrefab, item sign
-            public const string SignAngled = "SkiResortGateAngled"; // BuildingPrefab, item signAngled
             public const string RunNatural = "SkiRunNaturalA"; // SurfacePrefab, item runNatural
             public const string RunGroomed = "SkiRunGroomedA"; // SurfacePrefab, item runGroomed
             public const string RunSnowmaking = "SkiRunSnowmakingA"; // SurfacePrefab, item runSnowmaking
@@ -616,7 +615,6 @@ namespace SkiResortMod.Systems
         {
             // BUILD-ITEMS-BEGIN
             new BuildItemDef("sign", Names.Sign, BuildItemKind.Sign, "", -1),
-            new BuildItemDef("signAngled", Names.SignAngled, BuildItemKind.Sign, "", -1),
             new BuildItemDef("lodge", Names.LodgeAFrame, BuildItemKind.Lodge, "", -1),
             new BuildItemDef("lodgeHut", Names.LodgeHut, BuildItemKind.Lodge, "", -1),
             new BuildItemDef("lodgeMid", Names.LodgeMid, BuildItemKind.Lodge, "", -1),
@@ -830,11 +828,9 @@ namespace SkiResortMod.Systems
 
                 // Sign: SkiResortGate.Prefab:25 PlaceableObject m_ConstructionCost must equal this 12000 (LiftBatch CT-12 fails on any difference,
                 // and the hub writes one "[items] drift" WARN per load while the two disagree).
-                // The angled sign (DECISIONS 422) is the same building with the sign turned inside its lot: same cost, same gate.
                 signs = new[]
                 {
                     new SignDef(Names.Sign, "sign", 12000, true),
-                    new SignDef(Names.SignAngled, "signAngled", 12000, true),
                 };
 
                 runs = new[]

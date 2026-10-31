@@ -6,7 +6,8 @@
 * Starts the harness (harness/serve.js on a free port), opens it at 1920x1080, 2560x1440 and 3840x2160 with the game's rem
 * rule, and runs harness/layout-check.js (window.SkiLayout.run) there: every view x fold x page x build tab x overlay at text
 * scale 1.0 and 1.25 (both CSS variables, as the game's applyTextScale sets them). FAILS (exit 1) on any case whose content
-* overflows its box (the Scrollable would show its bar), a header that does not fit, or lodge chips on the Buildings tab.
+* overflows its box (the Scrollable would show its bar), a header that does not fit, lodge chips on the Buildings tab, or text cut
+* short or running past the panel, with every build tile hovered in turn (shrink-to-fit classes and player-chosen names excepted).
 * The Runs and Lifts views are the exception: they list every row and may scroll (their list carries class listAll); for them
 * the check fails on a drawn pager row instead.
 *
@@ -26,6 +27,19 @@ const http = require("http");
 
 const ROOT = path.resolve(__dirname, "..");
 const SIZES = [[1920, 1080], [2560, 1440], [3840, 2160]];
+const PLAYER_NAMES = new Set(["areaNameText", "rowName", "overlayItemName"]);
+
+/** The hub classes whose rule carries coh-font-fit-mode: shrink, read from the stylesheet so a new one needs no list here. */
+function shrinkClasses() {
+  const set = new Set();
+  let current = "";
+  for (const line of fs.readFileSync(path.join(ROOT, "src", "hub", "hub.module.scss"), "utf8").split("\n")) {
+    const m = /^\.([A-Za-z0-9]+)\b.*\{/.exec(line);
+    if (m) current = m[1];
+    if (line.includes("coh-font-fit-mode: shrink") && current) set.add(current);
+  }
+  return set;
+}
 const BROWSERS = [
   "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
   "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe",
@@ -257,6 +271,12 @@ async function main() {
       for (const bd of r.band.filter((x) => x.fs === 1)) console.log(`  band [${bd.scenario}]: ${bd.text.join(" | ")}`);
       const sc = r.cases.filter((c) => c.scrolls && c.fs === 1 && c.overPx > 1).map((c) => `${c.scenario.split(" ")[0]} view ${c.view} +${c.overRem} rem`);
       console.log(`  full lists that scroll (text scale 1, allowed: T131): ${sc.length ? Array.from(new Set(sc)).join("; ") : "none"}`);
+      // Cut text fails unless the game shrinks that class to fit (the harness browser cannot) or it is a name the player chose (ellipsis + tooltip).
+      const shrinks = shrinkClasses();
+      const clipped = Object.values(r.clipped).filter((c) => !shrinks.has(c.cls) && !PLAYER_NAMES.has(c.cls));
+      console.log(`  cut text: ${clipped.length} real, ${Object.keys(r.clipped).length - clipped.length} allowed (shrink-to-fit classes, player names)`);
+      for (const [fs, x] of Object.entries(r.fullest)) console.log(`  fullest footer line at text scale ${fs}: ${x.full} % "${x.text}"`);
+      for (const c of clipped) r.fails.push({ scenario: c.where, what: `text cut [${c.cls}] ${c.kind} +${c.over}px: "${c.text}"` });
       for (const f of r.fails) console.log(`  FAIL ${f.scenario || ""} fs ${f.fs || ""}: ${f.what}` + (f.overRem !== undefined ? ` (over ${f.overRem} rem, slack ${f.slackRem} rem)` : ""));
       if (process.argv.includes("--verbose")) for (const c of r.cases) console.log(`    ${c.scenario.slice(0, 22)} fs ${c.fs} view ${c.view} ${c.state}: over ${c.overRem} slack ${c.slackRem} header ${c.headerRem}`);
       failures += r.fails.length;

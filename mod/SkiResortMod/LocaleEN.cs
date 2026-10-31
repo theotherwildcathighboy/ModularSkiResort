@@ -24,8 +24,6 @@ namespace SkiResortMod
                 // (Overpass advances; the panel is 400 rem wide, its description box narrower: one line at 100 % [likely]).
                 { "Assets.NAME[SkiResortGate]", "Ski Area Welcome Sign" },
                 { "Assets.DESCRIPTION[SkiResortGate]", "The ski area's entrance. It opens the Ski Resort panel." },
-                { "Assets.NAME[SkiResortGateAngled]", "Ski Area Welcome Sign, Angled" },
-                { "Assets.DESCRIPTION[SkiResortGateAngled]", "The ski area's entrance, turned on its lot. It opens the Ski Resort panel." },
 
                 // --- Lodge ----------------------------------------------------------------
                 { "Assets.NAME[SkiAFrameDayLodge]", "A-Frame Day Lodge" },
@@ -698,10 +696,10 @@ namespace SkiResortMod
                 { "SkiResort.Hub.LIFT_NAME_TIP", "The name is stored on the base station, or on the top station while there is no base." },
                 { "SkiResort.Hub.LIFT_SIGN_TIP", "A lift belongs to the ski area of its base station; a run keeps the ski area it was drawn for." },
                 // Build strip.
-                { "SkiResort.Hub.BUILD_HINT_SIGN", "Starts a ski area: the runs and lifts within 5 km belong to it. Snap it to a road; it stands set back from it." },
+                { "SkiResort.Hub.BUILD_HINT_SIGN", "Starts a ski area: lifts and runs within 5 km join it. Snap to a road." },
                 { "SkiResort.Hub.BUILD_HINT_BASE", "Place at the bottom of the lift." },
-                { "SkiResort.Hub.BUILD_HINT_TOP", "Place at the top, facing the base station. A guide shows when it is straight." },
-                { "SkiResort.Hub.BUILD_HINT_LIFT", "Draw from station to station. On steep ground, redraw one section at a time." },
+                { "SkiResort.Hub.BUILD_HINT_TOP", "Place at the top, facing the base. A guide shows when it is straight." },
+                { "SkiResort.Hub.BUILD_HINT_LIFT", "Draw station to station. On steep ground, redo one section at a time." },
                 // An extra TOOLTIP line of the base, top and lift tiles (the footer's two
                 // one-string lines would cut it at 130-150 % text; src/hub/BuildStrip.tsx header).
                 // The link states.
@@ -1017,10 +1015,9 @@ namespace SkiResortMod
                 { "SkiResort.Hub.BUILD_LABEL[Top]", "Top station" },
                 { "SkiResort.Hub.BUILD_LABEL[Line]", "Lift line" },
                 { "SkiResort.Hub.BUILD_LABEL[Sign]", "Sign" },
-                { "SkiResort.Hub.BUILD_LABEL[SignAngled]", "Angled sign" },
                 { "SkiResort.Hub.BUILD_LABEL[Fence]", "Fence" },
                 { "SkiResort.Hub.BUILD_SHORT[Fence]", "Draw it like a path." },
-                { "SkiResort.Hub.BUILD_HINT_FENCE", "Draw it like a path to fence off a slope, mark a run edge or close a run." },
+                { "SkiResort.Hub.BUILD_HINT_FENCE", "Draw it like a path: fence a slope, mark a run edge or close a run." },
                 { "SkiResort.Hub.BUILD_LABEL[Lodge]", "Lodge" },
                 { "SkiResort.Hub.BUILD_LABEL[School]", "School" },
                 { "SkiResort.Hub.BUILD_LABEL[PatrolHut]", "Hut" },

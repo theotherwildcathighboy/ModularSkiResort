@@ -119,7 +119,6 @@
     { "name": "SkiPisteFloodSource", "type": "EffectPrefab", "cid": "0fff229caa4bf7238884ed882d59fbb1", "file": "SkiPisteFloodSource/SkiPisteFloodSource.Prefab" },
     { "name": "SkiPropNone", "type": "StaticObjectPrefab", "cid": "64cb81ffcea015841f28a5b88a89c6c6", "file": "SkiPropNone/SkiPropNone.Prefab" },
     { "name": "SkiResortGate", "type": "BuildingPrefab", "cid": "4d1c1615eb1bd62b7caa7235bb671e5f", "file": "SkiResortGate/SkiResortGate.Prefab" },
-    { "name": "SkiResortGateAngled", "type": "BuildingPrefab", "cid": "91e1dee38ecbaf71a91b2cd26a8d515e", "file": "SkiResortGateAngled/SkiResortGateAngled.Prefab" },
     { "name": "SkiRunCatTrackA", "type": "SurfacePrefab", "cid": "bc13240b52814b00b4ec9506b9c0a18a", "file": "SkiRunCatTrackA/SkiRunCatTrackA.Prefab" },
     { "name": "SkiRunGroomedA", "type": "SurfacePrefab", "cid": "62784c6bbc29053b714d82ac110eac9f", "file": "SkiRunGroomedA/SkiRunGroomedA.Prefab" },
     { "name": "SkiRunNaturalA", "type": "SurfacePrefab", "cid": "f2c1a22dad2ca63bedcb7fe24c6deb46", "file": "SkiRunNaturalA/SkiRunNaturalA.Prefab" },

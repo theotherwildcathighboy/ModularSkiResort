@@ -65,7 +65,7 @@ namespace ResortBatch
             s_Check(map.TryGetValue("SkiLiftMarkerLV", out string lv) && lv == "PowerLinePrefab", "DA-1d", "SkiLiftMarkerLV is a PowerLinePrefab target");
             // Literal oracles: one of each kind
             string[] must = { "SkiChairliftHV", "SkiTramHV", "SkiLiftMarker", "SkiBaseStationBuilding", "SkiTramTopStationBuilding",
-                              "SkiLodgeGrand", "SkiSchool", "SkiPatrolHQ", "SkiResortGate", "SkiResortGateAngled", "SkiRunCatTrackA",
+                              "SkiLodgeGrand", "SkiSchool", "SkiPatrolHQ", "SkiResortGate", "SkiRunCatTrackA",
                               "SkiRunNightA", "SkiSafetyFence" };
             foreach (string m in must)
                 s_Check(map.ContainsKey(m), "DA-1e", "target " + m);
@@ -103,7 +103,7 @@ namespace ResortBatch
                 if (File.Exists(file) && Regex.IsMatch(File.ReadAllText(file), "\\|Game\\.Prefabs\\.UIObject\\b"))
                     placeable.Add(name);
             }
-            s_Check(placeable.Count >= 28, "DA-3b", $"{placeable.Count} placeable prefabs in the mirror (28 on 2026-10-29)");
+            s_Check(placeable.Count >= 27, "DA-3b", $"{placeable.Count} placeable prefabs in the mirror (27 on 2026-10-30)");
             foreach (string p in placeable)
                 s_Check(map.ContainsKey(p), "DA-3c", $"placeable {p} is a target");
             foreach (KeyValuePair<string, string> t in map)

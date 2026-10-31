@@ -31,7 +31,46 @@ namespace ResortBatch
             SectionI();
             SectionJ();
             SectionK();
+            SectionL();
             s_Check = null;
+        }
+
+        /// <summary>L: BuildSignature sees one changed field at EVERY item of a 64-item strip, first item included (a placed sign unlocks
+        /// the lodge tiles near the front of the strip), plus the active item and each lift flag; equal inputs give an equal result.</summary>
+        private static void SectionL()
+        {
+            const int N = 64;
+            var reasons = new byte[N];
+            var prices = new int[N];
+            var sent = new bool[N];
+            var flags = new bool[4];
+            for (int i = 0; i < N; i++)
+            {
+                reasons[i] = 2;
+                prices[i] = -1;
+                sent[i] = true;
+            }
+            int baseline = HubRules.BuildSignature(-1, reasons, prices, sent, flags);
+            Check(baseline == HubRules.BuildSignature(-1, reasons, prices, sent, flags), "HL-1", "equal inputs, equal signature");
+            for (int i = 0; i < N; i++)
+            {
+                reasons[i] = 0;
+                Check(HubRules.BuildSignature(-1, reasons, prices, sent, flags) != baseline, "HL-2", "reason of item " + i);
+                reasons[i] = 2;
+                prices[i] = 500;
+                Check(HubRules.BuildSignature(-1, reasons, prices, sent, flags) != baseline, "HL-3", "price of item " + i);
+                prices[i] = -1;
+                sent[i] = false;
+                Check(HubRules.BuildSignature(-1, reasons, prices, sent, flags) != baseline, "HL-4", "sent of item " + i);
+                sent[i] = true;
+            }
+            Check(HubRules.BuildSignature(0, reasons, prices, sent, flags) != baseline, "HL-5", "active item");
+            for (int t = 0; t < flags.Length; t++)
+            {
+                flags[t] = true;
+                Check(HubRules.BuildSignature(-1, reasons, prices, sent, flags) != baseline, "HL-6", "lift flag " + t);
+                flags[t] = false;
+            }
         }
 
         private static bool Check(bool cond, string where, string msg) => s_Check(cond, where, msg);
