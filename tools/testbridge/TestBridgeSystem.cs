@@ -129,7 +129,7 @@ namespace SkiTestBridge
             if (Mouse.current != null)
             {
                 Vector2 p = Mouse.current.position.ReadValue();
-                result["gameCursor"] = new JArray(Math.Round(p.x), Math.Round(Screen.height - p.y));
+                result["gameCursor"] = new JArray(Math.Round(p.x), Math.Round(Screen.height - 1 - p.y));
             }
             if (m_Tools.activeTool != null)
             {
@@ -156,7 +156,7 @@ namespace SkiTestBridge
             return new JObject
             {
                 ["world"] = Vec(world),
-                ["client"] = new JArray(Math.Round(screen.x), Math.Round(Screen.height - screen.y)),
+                ["client"] = new JArray(Math.Round(screen.x), Math.Round(Screen.height - 1 - screen.y)),
                 ["inFront"] = screen.z > 0f,
                 ["safe"] = IsSafeTarget(screen),
             };

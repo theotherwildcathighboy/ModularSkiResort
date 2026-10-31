@@ -173,6 +173,13 @@ namespace SkiTestBridge
                     return true;
                 case "waitFor":
                     return RunWaitFor(s, step);
+                case "sim":
+                case "time":
+                case "money":
+                case "climate":
+                    s.results.Add(new JObject { ["step"] = s.index, [op] = Run(op, step) });
+                    Next(s, 0);
+                    return true;
                 default:
                     throw new ArgumentException($"unknown step op '{op}'");
             }
@@ -207,7 +214,7 @@ namespace SkiTestBridge
             Vector3 screen = m_Camera.activeCamera.WorldToScreenPoint(WorldPoint(step));
             if (!IsSafeTarget(screen))
                 throw new InvalidOperationException($"world point is off screen or in the edge-scroll band: screen {screen}");
-            return new float2(screen.x, Screen.height - screen.y);
+            return new float2(screen.x, Screen.height - 1 - screen.y);
         }
 
         /// <summary>Waits until the camera has held still for a few frames, so a world target projects to where it will stay.</summary>

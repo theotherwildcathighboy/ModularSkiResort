@@ -56,7 +56,43 @@ Every reply is a JSON string with `ok`, and `error` when `ok` is false.
 Component names may be short when they match one type (`SkiRun`), else full (`Game.Objects.Transform`). An ambiguous name returns the
 candidates. `dump` leaves out `Deleted` entities unless `none` is given. Pass `none: []` to include them.
 
-Save and load need no helper: `engine.trigger("menu.saveGame", "<name>")` or the pause menu through the MCP (not yet run).
+### Save and load
+
+Use the pause menu with real clicks: Esc, Save Game, click the name field, `ctrl+a`, type the name one `key` step per letter, Save.
+Then Load Game, click the save, Load Game, Yes. Saves go to the player's last target, which may be Steam Cloud, so they show up in the
+game's list rather than under `Saves`.
+
+Do not call `engine.trigger("menu.saveGame", name)`: without the save panel open the preview texture is null, and the game throws a
+`NullReferenceException` and shows its error dialog (measured; `MenuUISystem.cs:896-902`, `GameManager.cs:947`).
+
+### Practical limits, all measured
+
+- **`game_eval` times out after 15 seconds.** Longer work keeps running in the page, but its result is lost, so start it, return, and
+  poll. Loading a small city took about 3 s.
+- **DOM rects are client pixels here** (3840 x 2160 at `devicePixelRatio` 1), so `getBoundingClientRect()` gives the click point for a
+  real `move`. `innerText` is empty in this UI; read `textContent` of leaf elements.
+- **Hub rows move as its contents change.** Read the rect in the same call as the click rather than reusing an old one.
+- **Esc goes one level.** It steps back in a tool, cancels a dialog, and opens the pause menu when nothing is left. Bulldozing a
+  building shows a Yes / No dialog, and Esc answers No.
+- **Rotate a placement by right-dragging:** `down` right, `move` 250 pixels in x (half a turn, `ObjectToolSystem.cs:3554`), `up`, `move`
+  back, `click`.
+- **The object tool's raycast is offset by the object's height** (`ObjectToolSystem.cs:3190`), so `hover.hit` lands up to a few meters
+  short of the target with the camera tilted, and the object lands there. Read the placed `Transform` for the true position.
+- Alt+F1 reaches the NVIDIA overlay. Files appear in `%USERPROFILE%\Videos\NVIDIA\Cities  Skylines II\` (two spaces), and
+  `tools\jxr2png.ps1 -Path <file> -Auto -OutDir <dir>` converts a 4K shot in about 4 s.
+
+A helper worth defining at the start of a session; it survives until the UI view reloads:
+
+```js
+window.__st = (seq) => engine.call("skitest.cmd", JSON.stringify(seq)).then(() => new Promise(r => {
+  const t0 = Date.now();
+  const poll = () => engine.call("skitest.cmd", JSON.stringify({ op: "seqStatus" })).then(s => {
+    const j = JSON.parse(s);
+    if (j.done || Date.now() - t0 > 13000) r(s); else setTimeout(poll, 100);
+  });
+  poll();
+}));
+```
 
 ### Sequence steps
 
@@ -75,6 +111,7 @@ Input steps wait `after` frames afterward (default 2).
 | `settle` | waits for the camera to hold still; `timeout` frames (default 600) |
 | `waitFor` | a `dump` query plus `min` (default 1); `timeout` frames (default 1200) fails the sequence |
 | `hover`, `status`, `dump` | adds the reading to `results` |
+| `sim`, `time`, `money`, `climate` | same as the ops; the reply goes to `results` |
 
 Example: fly to a spot, click it, wait for an entity to appear, read it back.
 

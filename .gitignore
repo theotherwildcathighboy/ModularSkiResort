@@ -5,6 +5,7 @@ assets/import/**/*.png
 assets/preview/
 
 # Build outputs
+tools/testbridge/Library/
 mod/SkiResortMod/bin/
 mod/SkiResortMod/obj/
 mod/SkiResortMod/Library/

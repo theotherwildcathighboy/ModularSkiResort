@@ -130,8 +130,9 @@ namespace SkiTestBridge
             int vw = GetSystemMetrics(kVirtualWidth);
             int vh = GetSystemMetrics(kVirtualHeight);
             var input = new INPUT { type = kMouse };
-            input.u.mi.dx = (int)(((long)(p.x - GetSystemMetrics(kVirtualX)) * 65536 + vw / 2) / vw);
-            input.u.mi.dy = (int)(((long)(p.y - GetSystemMetrics(kVirtualY)) * 65536 + vh / 2) / vh);
+            // Windows maps back with a floor, so round up or the cursor can land one pixel short (measured: 152 became 151).
+            input.u.mi.dx = (int)(((long)(p.x - GetSystemMetrics(kVirtualX)) * 65536 + vw - 1) / vw);
+            input.u.mi.dy = (int)(((long)(p.y - GetSystemMetrics(kVirtualY)) * 65536 + vh - 1) / vh);
             input.u.mi.dwFlags = kMove | kAbsolute | kVirtualDesk;
             Send(input);
         }
