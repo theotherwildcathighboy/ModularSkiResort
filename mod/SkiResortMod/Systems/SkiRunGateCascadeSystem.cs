@@ -81,6 +81,7 @@ namespace SkiResortMod.Systems
                     ComponentType.ReadOnly<Temp>(),
                 },
             });
+            CreateConfirm();
 
             Mod.Log.Info($"{nameof(SkiRunGateCascadeSystem)} created");
         }
@@ -102,6 +103,7 @@ namespace SkiResortMod.Systems
                 return;
 
             m_Armed = true;
+            WrapBulldozeConfirm();
             Mod.Log.Info("RunCascade: ARMED — Modification2 before glade cleanup: a Deleted " +
                          "(non-Temp) Ski Area Welcome Sign deletes every run whose SkiRunBinding " +
                          "points at it (plain Deleted, the vanilla owner-cascade shape, no refund), " +

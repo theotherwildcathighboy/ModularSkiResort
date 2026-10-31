@@ -52,3 +52,17 @@ reports them as paid orphans ("[orphan]" WARN); they are never deleted on an inf
 
 Game mode only; "created" line; ARMED line per load listing every constant; `m_Armed`/`m_Disabled`/`m_ErrorLogged` reset in
 `OnGameLoadingComplete`; one log line per deleted sign (zero runs included), so silence is impossible.
+
+## The warning before a bulldoze (SkiRunGateCascadeSystem.Confirm.cs)
+
+Vanilla already prompts for any non-spawnable building (`ConfirmationNeeded`, BulldozeToolSystem.cs:1594-1608), so a sign gets the generic
+"Common.DIALOG_MESSAGE[Bulldozer]" line (ToolUISystem.cs:447-450), which says nothing about its runs.
+
+* `BulldozeToolSystem.EventConfirmationRequested` is a public `Action` and `ConfirmAction` is public, so no Harmony and no reflection: the
+  chain moves into `m_VanillaConfirm` and our handler takes the field. `ToolUISystem.OnDestroy` removing its delegate then misses: harmless,
+  it only happens at world shutdown.
+* A sign with no bound run, or a preview with no sign, goes to the vanilla chain, so it is one prompt either way.
+* The tool sits in `State.Waiting` until `ConfirmAction` (BulldozeToolSystem.cs:1567-1573, 1610-1616): every path must end in a dialog. Any
+  exception falls back to the vanilla prompt.
+* The bulldozer is the only player route to a deleted sign: `ActionsSection.deletable` holds only for a District, a ServiceUpgrade or a
+  transport line (ActionsSection.cs:306), and the sign is a top-level building.

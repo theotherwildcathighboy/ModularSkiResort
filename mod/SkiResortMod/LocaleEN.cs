@@ -1379,6 +1379,9 @@ namespace SkiResortMod
                 { "SkiResort.CatTrack.UNDO_NONE", "There is no grade to undo." },
                 { "SkiResort.CatTrack.UNDO_GONE", "That grade can no longer be undone." },
                 { "SkiResort.CatTrack.UNDONE", "Grade undone." },
+                // SkiRunGateCascadeSystem.Confirm, the dialog before a Welcome Sign with bound runs is bulldozed. {COUNT} is an integer.
+                { "SkiResort.SignDelete.CONFIRM_ONE", "Bulldozing this Welcome Sign also deletes the 1 ski run linked to it, with its glade trees and border props. There is no refund and no undo. Lifts and buildings stay. To move the sign, use Relocate in its info panel. Bulldoze it?" },
+                { "SkiResort.SignDelete.CONFIRM_MANY", "Bulldozing this Welcome Sign also deletes the {COUNT} ski runs linked to it, with their glade trees and border props. There is no refund and no undo. Lifts and buildings stay. To move the sign, use Relocate in its info panel. Bulldoze it?" },
                 // SkiSnowLineTooltipSystem, the one line under the cursor while a run or the Welcome Sign is
                 // placed. {SNOW_LINE} and {GUN_LINE} are integer elevations in world meters (LocalizedNumber<int>, unit "integer");
                 // "≈" and "·" are on the UI glyph allowlist.
