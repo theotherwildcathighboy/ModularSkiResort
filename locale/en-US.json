@@ -1257,7 +1257,7 @@
   "SkiResort.CatTrack.UNDO_NONE": "There is no grade to undo.",
   "SkiResort.CatTrack.UNDO_GONE": "That grade can no longer be undone.",
   "SkiResort.CatTrack.UNDONE": "Grade undone.",
-  "SkiResort.SignDelete.CONFIRM_ONE": "Bulldozing this Welcome Sign also deletes the 1 ski run linked to it, with its glade trees and border props. There is no refund and no undo. Lifts and buildings stay. To move the sign, use Relocate in its info panel. Bulldoze it?",
-  "SkiResort.SignDelete.CONFIRM_MANY": "Bulldozing this Welcome Sign also deletes the {COUNT} ski runs linked to it, with their glade trees and border props. There is no refund and no undo. Lifts and buildings stay. To move the sign, use Relocate in its info panel. Bulldoze it?",
+  "SkiResort.SignDelete.CONFIRM_ONE": "Bulldozing this Welcome Sign also deletes the 1 ski run linked to it, with its glade trees and border props. There is no refund and no undo. Lifts and buildings stay. To move the sign, use Relocate in its info panel. To remove everything this mod placed in the city, use Delete all ski resort content in Options > Mods > Modular Ski Resort. Bulldoze it?",
+  "SkiResort.SignDelete.CONFIRM_MANY": "Bulldozing this Welcome Sign also deletes the {COUNT} ski runs linked to it, with their glade trees and border props. There is no refund and no undo. Lifts and buildings stay. To move the sign, use Relocate in its info panel. To remove everything this mod placed in the city, use Delete all ski resort content in Options > Mods > Modular Ski Resort. Bulldoze it?",
   "SkiResort.Tooltip.SNOW_LINE": "Winter snow line ≈ {SNOW_LINE} m · guns work above ≈ {GUN_LINE} m"
 }
