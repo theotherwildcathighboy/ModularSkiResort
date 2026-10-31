@@ -177,7 +177,7 @@ namespace SkiResortMod.Systems
                 default:
                     if (m_Tool.CanUndoBatch && m_Tool.Corners >= 3)
                         return P + "PROMPT[Built]";
-                    return m_Tool.Corners == 0 ? P + "PROMPT[Start]" : m_Tool.Corners < 3 ? P + "PROMPT[Corners]" : P + "PROMPT[Ready]";
+                    return m_Tool.Corners == 0 ? P + "PROMPT[Start]" : m_Tool.Corners < 3 ? P + "PROMPT[Corners]" : !m_Tool.RegionClosed ? P + "PROMPT[Close]" : P + "PROMPT[Ready]";
             }
         }
 

@@ -48,6 +48,7 @@ namespace SkiResortMod.Systems
         private const int LooseRefreshFrames = 30;
         private const float NoticeSeconds = 5f;        // a refusal stays in the tooltip this long (real time, not frames: 240 frames read 1-2.5 s at high fps)
         private const float SunkWarnM = 0.25f;         // carriers leaving a station more than this below the ground: SUNK STATION
+        private const float CrossEndMarginM = 5f;      // another lift met this close to an end of the line is the section's own joint, no crossing
         private static readonly UnityEngine.Color StationColor = new UnityEngine.Color(0.55f, 0.8f, 1f, 0.9f);
         private static readonly UnityEngine.Color LooseColor = new UnityEngine.Color(1.0f, 0.75f, 0.15f, 0.9f);
         private static readonly UnityEngine.Color HoverColor = new UnityEngine.Color(1f, 1f, 1f, 0.95f);
@@ -80,10 +81,11 @@ namespace SkiResortMod.Systems
         internal string PendingTypeName => m_Type != null ? m_Type.Id : m_Preset != null ? m_Preset.Id : string.Empty;
         internal LiftTypeDef PresetType => m_Preset;
         /// <summary>The notice line of the tooltip (a LocaleEN SkiResort.LiftTool.* key), else null. A refusal shows for NoticeSeconds and wins
-        /// while live; under it two STANDING notices show for as long as the plan has the condition: SUNK STATION (an end of the plan sinks
-        /// the carriers), then the open-ground end hint (the second end is open ground).</summary>
+        /// while live; under it three STANDING notices show for as long as the plan has the condition: the line crosses another lift, SUNK
+        /// STATION (an end of the plan sinks the carriers), then the open-ground end hint (the second end is open ground).</summary>
         internal LocalizedString? Notice =>
             m_Notice.HasValue && UnityEngine.Time.unscaledTime - m_NoticeTime < NoticeSeconds ? m_Notice
+            : m_CrossingStanding ? T("CROSSES")
             : m_SunkStanding ? T("SUNK")
             : m_Edit != null && m_Top.Kind == LiftLineEndKind.Ground ? T("OPEN_END")
             : (LocalizedString?)null;
@@ -149,6 +151,7 @@ namespace SkiResortMod.Systems
         private int m_EmitFrame, m_Frame, m_Seed = 1;
         private List<LiftLineNode> m_Emitted;
         private bool m_SunkStanding;   // the current plan has a sunk station end (WarnSunk sets it per plan, Reset clears it)
+        private bool m_CrossingStanding;   // the current line crosses another lift (WarnCrossing sets it per plan, Reset clears it)
         // Ghost preview: the definitions of m_GhostEdit at m_GhostRevision stand (no Updated after their frame, so they generate
         // nothing more; GenerateNodesSystem.cs:2030-2041) and their Temps render as the translucent preview (BatchInstanceSystem.cs:
         // 446-459, 589-609; tower sub-objects copy the Temp flags, SubObjectSystem.cs:2832-2841).
@@ -216,11 +219,59 @@ namespace SkiResortMod.Systems
 
         private readonly Dictionary<Entity, float2> m_VanillaSpans = new Dictionary<Entity, float2>();
         private bool m_SpansRaised;
+        private bool m_StationPlacing;
+
+        /// <summary>A station on the object tool: placing or relocating it makes a Temp copy of the line's end span, which vanilla's
+        /// 1.1 x max check refuses ("Distance too long") on any tool-built span over it, so the raise holds for that tool too.</summary>
+        internal void SetStationPlacing(bool placing)
+        {
+            if (m_StationPlacing == placing)
+                return;
+            m_StationPlacing = placing;
+            SetCarriersPassable(placing);
+            if (!IsActive)
+                SetSpansRaised(placing);
+        }
+
+        private readonly HashSet<Entity> m_CarriersMarked = new HashSet<Entity>();
+
+        /// <summary>A station on a line's open end: the chairs SubObjectSystem hung on that span overlap its footprint, and vanilla refuses it
+        /// ("Overlapping items"), though chairs are ours to move. GeometryFlags.Marker gives a carrier an empty collision mask in game
+        /// (ObjectUtils.GetCollisionMask, ValidationHelpers.CheckOverlap and ValidateObject both read it). Only for this window, since
+        /// the flag also lets GroundHeightSystem and the raycast treat the object as a marker.</summary>
+        private void SetCarriersPassable(bool passable)
+        {
+            if (passable)
+            {
+                foreach (Entity carrier in m_Catalog.CarrierGripTops.Keys)
+                {
+                    if (!EntityManager.TryGetComponent<ObjectGeometryData>(carrier, out var geo) ||
+                        (geo.m_Flags & Game.Objects.GeometryFlags.Marker) != 0)
+                        continue;
+                    geo.m_Flags |= Game.Objects.GeometryFlags.Marker;
+                    EntityManager.SetComponentData(carrier, geo);
+                    m_CarriersMarked.Add(carrier);
+                }
+            }
+            else
+            {
+                foreach (Entity carrier in m_CarriersMarked)
+                {
+                    if (!EntityManager.TryGetComponent<ObjectGeometryData>(carrier, out var geo))
+                        continue;
+                    geo.m_Flags &= ~Game.Objects.GeometryFlags.Marker;
+                    EntityManager.SetComponentData(carrier, geo);
+                }
+                m_CarriersMarked.Clear();
+            }
+        }
 
         /// <summary>Load: remember each lift line prefab's vanilla max edge length (see the engine notes, Span length raise).</summary>
         private void PatchSpans()
         {
             // Prefab entities outlive a city: a load while the spans were raised restores them before reading the vanilla values.
+            m_StationPlacing = false;
+            SetCarriersPassable(false);
             SetSpansRaised(false);
             m_VanillaSpans.Clear();
             var sb = new StringBuilder();
@@ -340,7 +391,7 @@ namespace SkiResortMod.Systems
                     EntityManager.DestroyEntity(m_DefinitionQuery);
                 if (temps)
                     ClearOwnTemps("stopped");
-                SetSpansRaised(false);
+                SetSpansRaised(m_StationPlacing);
             }
             catch (Exception e)
             {
@@ -939,7 +990,7 @@ namespace SkiResortMod.Systems
                         if (rr == LiftLineEditResult.Done)
                             Replan(pinned ? $"tower at {from:F0} m unpinned (dragged off the line)" :
                                 $"tower at {from:F0} m removed (dragged off the line; the others pinned; no new tower within " +
-                                $"{m_Edit.RemovedRadiusM:F0} m of it)");
+                                $"{m_Edit.RemovedRadiusM:F0} m of it unless the line has no other way)");
                         else
                             Say($"LiftLine [edit]: remove at {from:F0} m refused: {Reason(rr)}", RefusedNotice(rr));
                         return;
@@ -1058,6 +1109,31 @@ namespace SkiResortMod.Systems
                       .Append(plan.Nodes[i + 1].AlongM.ToString("F0")).Append(" m) TOO STEEP ").Append(plan.Spans[i].EdgeSlope.ToString("F2"));
             Say(sb.ToString());
             WarnSunk(plan);
+            WarnCrossing(edit);
+        }
+
+        /// <summary>A line crossing a built lift line: the game splits the other edge at the crossing and joins the two (engine split point,
+        /// field test 2026-10-31), so that lift no longer closes into a loop and its chairs stop. Building stays allowed: bulldozing the new
+        /// section merges the other lift back. Logged on every plan; the tooltip keeps the notice standing while the plan has it.</summary>
+        private void WarnCrossing(LiftLineEdit edit)
+        {
+            m_CrossingStanding = false;
+            using (var edges = m_LineEdgeQuery.ToEntityArray(Unity.Collections.Allocator.Temp))
+            {
+                for (int i = 0; i < edges.Length; i++)
+                {
+                    Entity prefab = EntityManager.GetComponentData<PrefabRef>(edges[i]).m_Prefab;
+                    if (!m_Catalog.LiftLineTypes.TryGetValue(prefab, out LiftTypeDef def))
+                        continue;
+                    Game.Net.Curve curve = EntityManager.GetComponentData<Game.Net.Curve>(edges[i]);
+                    if (!edit.Crosses(curve.m_Bezier.a.xz, curve.m_Bezier.d.xz, CrossEndMarginM))
+                        continue;
+                    m_CrossingStanding = true;
+                    Mod.Log.Warn($"LiftLine [plan]: CROSSES — the line crosses {def.Id} edge {edges[i].Index}:{edges[i].Version}; building joins them " +
+                                 "at the crossing and that lift's chairs stop until the new section is bulldozed");
+                    return;
+                }
+            }
         }
 
         /// <summary>LiftPlanDraw colors a span by floor and height only: a span the engine will refuse as too steep (SteepSlope) is
@@ -1509,6 +1585,7 @@ namespace SkiResortMod.Systems
             m_BuildRequested = false;
             m_Emitted = null;
             m_SunkStanding = false;
+            m_CrossingStanding = false;
             m_LooseFrame = int.MinValue / 2;
             // A standing ghost is cleared on the next update (UpdateCore's pick branch); a built line consumed its Temps.
             if (why == "built")

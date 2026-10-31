@@ -44,6 +44,7 @@ namespace SkiResortMod.Systems
         SkiDaysCannotReach = 20, NoParkingNearLodge = 21, LodgeNotSlopeside = 22,
         MixedLiftTypes = 23, SummitLodgeNotLiftServed = 24, SchoolNoGreenRun = 25,
         SchoolsNotLinked = 26,  // top-level ski schools on no sign, Not linked entry only
+        SkiDaysNoGuestsNear = 27,  // an open hill with almost no homes or hotels within a ski day's drive; Detail = the nearest, tenths of a km
     }
 
     /// <summary>bindings.ts SKI_DAY_STATE (gate R17): ResortLive.skiDaysState, the Guests view's state line. The hub's display
@@ -83,6 +84,7 @@ namespace SkiResortMod.Systems
         public int LodgesNoRoad;
         // Set by the stats system only while ski days are on (not Off) and the area has a view.
         public bool SkiDaysCannotReach;  // car confidence < 0.5 after ≥ 20 car claims
+        public int NoGuestsNearTenthsKm;  // SkiDayRules.NoGuestsNear on an open hill: the nearest home or hotel in tenths of a km; 0 = no row
         public int LodgesNoParking;  // ski-day lodges with 0 car spaces within 300 m
         public int LodgesNotSlopeside;  // active lodges more than 800 m from the area's runs and stations
         // The band showed the Efficiency row on this area's previous build (hysteresis state).
@@ -533,6 +535,35 @@ namespace SkiResortMod.Systems
             return !(loneBase && loneTop);
         }
 
+        /// <summary>One census row for PairLoneStations: Area = the resort row (-1 Not linked), State = the stats LIFT_STATE, Type = the
+        /// row's lift type index.</summary>
+        public struct LoneStationRow { public int Area, State; public bool HasBase, HasTop, Mixed; public byte Type; }
+
+        /// <summary>A base and a top placed with no line yet are one lift in the player's eyes, though the census makes each its own
+        /// StationsOnly row. Per area and lift type the i-th lone base goes with the i-th lone top, in row order (the HubProblems.Build
+        /// pairing). <paramref name="topOfBase"/>[k] = the row index of base row k's top, else -1. A Mixed row never pairs.</summary>
+        public static void PairLoneStations(IReadOnlyList<LoneStationRow> rows, List<int> topOfBase)
+        {
+            topOfBase.Clear();
+            int n = rows != null ? rows.Count : 0;
+            for (int k = 0; k < n; k++)
+                topOfBase.Add(-1);
+            for (int k = 0; k < n; k++)
+            {
+                LoneStationRow b = rows[k];
+                if (b.State != 4 || !b.HasBase || b.HasTop || b.Mixed)
+                    continue;
+                for (int j = 0; j < n; j++)
+                {
+                    LoneStationRow t = rows[j];
+                    if (t.State != 4 || t.HasBase || !t.HasTop || t.Mixed || t.Area != b.Area || t.Type != b.Type || topOfBase.Contains(j))
+                        continue;
+                    topOfBase[k] = j;
+                    break;
+                }
+            }
+        }
+
         /// <summary>The receipt's "Lodge base": the ladder's season value r.LodgeApplied (non-finite → 0); equal to
         /// r.LodgeBase × r.LodgeShare for A-frames (LodgeApplied = LodgeBase × 0.5 in summer exactly).
         /// LodgePart + Terrain = AOpen (= LodgeApplied + K√S).</summary>
@@ -705,8 +736,8 @@ namespace SkiResortMod.Systems
                     more: Math.Max(0, (listed > 0 ? listed : factors) - 1), ifFixed: input.AttractionFull));
             }
 
-            // 4. Lifts, in `lifts` order. The census makes every untouched station its own single-station StationsOnly row (state 4) and an
-            // Unfinished row (state 3) carries at most one station, so a placed base and a placed top are never one row. Pre-scan: the i-th
+            // 4. Lifts, in `lifts` order. The stats system already merged a lone base and a lone top of one type into one row
+            // (HubRules.PairLoneStations), so the pre-scan below finds pairs only in lists built without it. Pre-scan: the i-th
             // lone base of state 4 pairs with the i-th lone top of state 4 (one Detail 0 "draw the lift line" row, build "lift"; the other
             // station's row is not listed). The pair row sits at the row whose name the finished lift keeps (SkiResortAggregate.LiftOrdinals).
             // Pairing runs per lift type (a fixed-grip base never pairs with a detachable top: Mixed); a Mixed row does not count as an
@@ -795,13 +826,16 @@ namespace SkiResortMod.Systems
                 output.Add(Row(HubProblemCode.RunsFlat, 1, count: input.RunsFlat));
 
             // 8b. The ski-day rows. The stats system sets the inputs only while ski days are
-            // on and the area has a SkiDaySystem view. CannotReach is severity 2 (warning glyph); the two lodge rows
-            // are dim (1), counted up to the area's lodges, so a stray count never outnumbers them.
+            // on and the area has a SkiDaySystem view. CannotReach and no parking are severity 2 (warning glyph: a door
+            // with 0 spaces got 0 tourist parties in 2 months, 202 and 175 with a lot, 0 again without; DECISIONS 489);
+            // the far-lodge row is dim (1). Both lodge rows count up to the area's lodges, so a stray count never outnumbers them.
             if (input.SkiDaysCannotReach)
                 output.Add(Row(HubProblemCode.SkiDaysCannotReach, 2));
+            if (input.NoGuestsNearTenthsKm > 0)
+                output.Add(Row(HubProblemCode.SkiDaysNoGuestsNear, 2, detail: input.NoGuestsNearTenthsKm));
             int lodgesNoParking = Math.Min(input.LodgesNoParking, input.Lodges);
             if (lodgesNoParking > 0)
-                output.Add(Row(HubProblemCode.NoParkingNearLodge, 1, count: lodgesNoParking));
+                output.Add(Row(HubProblemCode.NoParkingNearLodge, 2, count: lodgesNoParking));
             int lodgesFar = Math.Min(input.LodgesNotSlopeside, input.Lodges);
             // "far from the runs" needs runs; an area without any already shows NoRuns and sends no
             // ski days (SkiDayRules.AreaStateOf).

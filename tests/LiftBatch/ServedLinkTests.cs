@@ -213,13 +213,31 @@ namespace LiftBatch
                 s.Solve();
                 Eq(linked[i], s.Served(b), W, "run " + gaps[i] + " m away served");
             }
-            // Nodes, not edges: a long edge passing 10 m from a node of the other run does not link when no node is within 25 m.
+            // A node beside the other run's long edge counts: the outlines, not only their corners.
             var t = new Scene();
             t.Add(Served1, new[] { new float2(0f, 0f), new float2(200f, 0f), new float2(200f, 10f), new float2(0f, 10f) });
             int b2 = t.Add(Far, new[] { new float2(100f, 20f), new float2(100f, 120f), new float2(110f, 120f), new float2(110f, 20f) });
-            // b2 nodes (100, 20) and (110, 20) are 10 m from a2's edge but 100 m from a2's nodes; outlines do not cross or contain.
+            // b2 nodes (100, 20) and (110, 20) are 10 m from a2's edge and 100 m from a2's nodes; outlines do not cross or contain.
             t.Solve();
-            Check(!t.Served(b2), W, "edge-near-node without a node within 25 m is not linked (nodes, not edges)");
+            Check(t.Served(b2), W, "a node 10 m from the other run's edge links, with no node within 25 m");
+            // Two runs side by side, corners staggered 50 m along a 5 m gap (measured in game: nodes alone left this unlinked).
+            var u = new Scene();
+            u.AddSloped(Served1, Rect(90f, 100f, 195f, 720f));
+            int b3 = u.AddSloped(Far, Rect(-10f, 150f, 85f, 670f));
+            u.Solve();
+            Check(u.Served(b3), W, "parallel runs 5 m apart with staggered corners link");
+            // The same pair 26 m apart stays apart.
+            var v = new Scene();
+            v.AddSloped(Served1, Rect(90f, 100f, 195f, 720f));
+            int b4 = v.AddSloped(Far, Rect(-31f, 150f, 64f, 670f));
+            v.Solve();
+            Check(!v.Served(b4), W, "parallel runs 26 m apart do not link");
+            // Side contact keeps the bottom-touch rule: on the test mountain y falls toward +z, so a run ending beside a served run's top has nothing below the entry.
+            var x = new Scene();
+            x.AddSloped(Served1, Rect(90f, 100f, 195f, 720f));
+            int b5 = x.AddSloped(Far, Rect(-10f, 30f, 85f, 105f));
+            x.Solve();
+            Check(!x.Served(b5), W, "a run that only touches a served run at its own bottom stays unserved");
         }
 
         private static void Sl5OtherArea()

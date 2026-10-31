@@ -104,7 +104,7 @@
   const WINTER = [1.0, 1.0, 0.8, 0.45, 0.15, 0.1, 0.12, 0.12, 0.15, 0.25, 0.55, 0.9];   // Jan .. Dec
   function historyOf(sign, firstKey, n, scale, opts) {
     const o = opts || {};
-    const h = { sign, firstMonthKey: firstKey, flags: [], tourists: [], residents: [], skiDays: [], ticketsPaid: [], ticketIncome: [], lodgeIncome: [],
+    const h = { sign, firstMonthKey: firstKey, seasonFirstMonth0: 6, flags: [], tourists: [], residents: [], skiDays: [], ticketsPaid: [], ticketIncome: [], lodgeIncome: [],
       passIncome: [], lessonIncome: [], liftCost: [], runCost: [], buildingsCost: [], wagesCost: [], attraction: [], snowPct: [], snowDepthCm: [] };
     const push = (m) => { for (const k of Object.keys(m)) h[k].push(m[k]); };
     for (let i = 0; i < n; i++) {
@@ -186,7 +186,7 @@
       liftRow(2, 1, 1, "fixedGrip", 2, 640, 210, 4, "SkiResort.Tooltip.QUICK_VERDICT[DoubleBlack]", "SkiResort.Hub.QUICK_HOME_GREEN", true)],
     plan: { pods: 4, liftsProposed: 2, liftsPinned: 1, runKm: 14.6, runKmPerKm2: 18.2, deadEnds: 0, mountainMix: [0, 22, 38, 40, 0], sitePods: 4, siteGreenHome: 1, siteBenchHa: 8 } });
 
-  const base = { hubOpen: false, contract: 23, buildStamp: "", showHubButton: true, build: buildItems(), glade,
+  const base = { hubOpen: false, contract: 24, buildStamp: "", showHubButton: true, build: buildItems(), glade,
     resorts: [], resortLive: [], selectedResort: NULL, runs: [], runLive: [], lifts: [], problems: [], city, pisteMap: true, follow: 0, history: [],
     liftLine: { available: true, active: false, state: "PickBase" }, quickRuns, catTrackDeleteMode: false };
 

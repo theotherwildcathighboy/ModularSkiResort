@@ -19,6 +19,19 @@ namespace AutoGenBatch
             // LinkMeters is one constant (DECISIONS 405 follow-up)
             Check(SkiRunAutoPlanner.LinkMeters == LiftServedRule.LinkMeters, W, "planner LinkMeters must alias LiftServedRule.LinkMeters");
 
+            // A click on the region: the first corner closes it, and once closed a click past it adds nothing
+            {
+                Check(QuickRunsRules.RegionClick(false, 0, -1, 0) == QuickRegionClick.AddCorner, W, "region click: first corner adds");
+                Check(QuickRunsRules.RegionClick(false, 2, 0, 2) == QuickRegionClick.DragCorner, W, "region click: two corners cannot close, the first drags");
+                Check(QuickRunsRules.RegionClick(false, 3, 0, 3) == QuickRegionClick.CloseRegion, W, "region click: first corner of 3 closes");
+                Check(QuickRunsRules.RegionClick(false, 3, 1, 3) == QuickRegionClick.DragCorner, W, "region click: another corner drags");
+                Check(QuickRunsRules.RegionClick(false, 3, -1, 3) == QuickRegionClick.AddCorner, W, "region click: open, away from it, adds");
+                Check(QuickRunsRules.RegionClick(false, 3, -1, 1) == QuickRegionClick.InsertCorner, W, "region click: open, on an edge, inserts");
+                Check(QuickRunsRules.RegionClick(true, 4, -1, 4) == QuickRegionClick.Ignore, W, "region click: closed, away from it, does nothing");
+                Check(QuickRunsRules.RegionClick(true, 4, -1, 2) == QuickRegionClick.InsertCorner, W, "region click: closed, on an edge, inserts");
+                Check(QuickRunsRules.RegionClick(true, 4, 0, 4) == QuickRegionClick.DragCorner, W, "region click: closed, the first corner drags");
+            }
+
             // The site verdict (DECISIONS 443, contract 21): tiers at the boundaries, the figure shown, the locale keys
             {
                 var want = new (float grade, int pct, QuickRunsRules.SiteTier tier)[]
@@ -179,6 +192,9 @@ namespace AutoGenBatch
             // Locale keys
             Check(QuickRunsRules.StatusKey(AutoPlanStatus.Ok) == null && QuickRunsRules.StatusKey(AutoPlanStatus.Running) == null, W, "no key for Ok / Running");
             Check(QuickRunsRules.StatusKey(AutoPlanStatus.TooFlat) == "SkiResort.Tooltip.QUICK_STATUS[TooFlat]", W, "status key shape");
+            Check(QuickRunsRules.StatusKey(AutoPlanStatus.NoVertical, true) == "SkiResort.Tooltip.QUICK_STATUS[OutsideTiles]", W, "no vertical with unowned tiles names the tiles");
+            Check(QuickRunsRules.StatusKey(AutoPlanStatus.NoVertical, false) == "SkiResort.Tooltip.QUICK_STATUS[NoVertical]", W, "no vertical on owned ground keeps its reason");
+            Check(QuickRunsRules.StatusKey(AutoPlanStatus.Ok, true) == null && QuickRunsRules.StatusKey(AutoPlanStatus.TooLarge, true) == "SkiResort.Tooltip.QUICK_STATUS[TooLarge]", W, "tiles never replace Ok or a size refusal");
             var keys = new List<string> { "stale" };
             QuickRunsRules.WarningKeys(AutoPlanWarning.OverWater | AutoPlanWarning.NoGreen, QuickToolWarning.ChecksOff | QuickToolWarning.Renumber, keys);
             Check(keys.Count == 4 && keys[0] == "SkiResort.Tooltip.QUICK_WARN[NoGreen]" && keys[1] == "SkiResort.Tooltip.QUICK_WARN[OverWater]" &&

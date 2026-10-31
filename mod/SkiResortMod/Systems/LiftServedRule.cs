@@ -287,9 +287,9 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Two runs of the same ski area are linked when any outline node of one lies within this many meters (xz,
-        /// inclusive) of any outline node of the other, or their outlines overlap (an edge crossing, or a node inside the other's
-        /// ring). 25 m: a connector is drawn from a node placed on or beside the run it leaves, so the nodes of the two outlines
-        /// meet within a brush width or two; 26 m apart is not linked (ServedLinkTests). One const, no setting. A cat track's own
+        /// inclusive) of the other's outline (a node or a point on an edge), or their outlines overlap (an edge crossing, or a node
+        /// inside the other's ring). 25 m: a connector is drawn from a node placed on or beside the run it leaves, so the two
+        /// outlines meet within a brush width or two; 26 m apart is not linked (ServedLinkTests). One const, no setting. A cat track's own
         /// nodes within this distance of each other are also joined for its climb walk (across the ribbon).</summary>
         public const float LinkMeters = 25f;
 
@@ -559,8 +559,9 @@ namespace SkiResortMod.Systems
             /// node of a source: the near node of the other run (within LinkMeters) a skier boards highest, i.e. the most of min(its y,
             /// the source node's y), a tie to the lower node (on a cat track the uphill neighbor would sit above the skier's cap); per
             /// edge crossing: the crossing point's height on each edge (linear between its nodes); per node inside the other's ring:
-            /// that node's own height on both sides (the same ground). Only nodes inside the other outline's box grown by LinkMeters
-            /// are tested (no other node is near it or inside it).</summary>
+            /// that node's own height on both sides (the same ground); per node with no near node, outside the ring and within
+            /// LinkMeters of an edge: its own height and the height of the nearest point on that edge. Only nodes inside the other
+            /// outline's box grown by LinkMeters are tested (no other node is near it or inside it).</summary>
             private void AddContacts(int i, int j)
             {
                 float2[] a = m_Outlines[i], b = m_Outlines[j];
@@ -644,11 +645,51 @@ namespace SkiResortMod.Systems
                         m_Contacts.Add(new Contact { FromY = y, ToY = y, FromNode = p0, FromNode2 = p1, ToNode = q, ToNode2 = -1 });
                         m_Back.Add(new Contact { FromY = y, ToY = y, FromNode = q, FromNode2 = -1, ToNode = p0, ToNode2 = p1 });
                     }
+                    for (int p = 0; p < a.Length; p++)
+                    {
+                        if (!InBox(a[p], bb) || InsideRing(a[p], b) || NearAnyNode(a[p], b, r2))
+                            continue;
+                        NearestEdge(b, a[p], out int q0, out int q1);
+                        if (DistanceSqXZ(a[p], b[q0], b[q1]) > r2)
+                            continue;
+                        float ya = NodeY(i, p), yb = math.lerp(NodeY(j, q0), NodeY(j, q1), EdgeParameter(a[p], b[q0], b[q1]));
+                        m_Contacts.Add(new Contact { FromY = ya, ToY = yb, FromNode = p, FromNode2 = -1, ToNode = q0, ToNode2 = q1 });
+                        m_Back.Add(new Contact { FromY = yb, ToY = ya, FromNode = q0, FromNode2 = q1, ToNode = p, ToNode2 = -1 });
+                    }
+                    for (int q = 0; q < b.Length; q++)
+                    {
+                        if (!InBox(b[q], ba) || InsideRing(b[q], a) || NearAnyNode(b[q], a, r2))
+                            continue;
+                        NearestEdge(a, b[q], out int p0, out int p1);
+                        if (DistanceSqXZ(b[q], a[p0], a[p1]) > r2)
+                            continue;
+                        float yb = NodeY(j, q), ya = math.lerp(NodeY(i, p0), NodeY(i, p1), EdgeParameter(b[q], a[p0], a[p1]));
+                        m_Contacts.Add(new Contact { FromY = ya, ToY = yb, FromNode = p0, FromNode2 = p1, ToNode = q, ToNode2 = -1 });
+                        m_Back.Add(new Contact { FromY = yb, ToY = ya, FromNode = q, FromNode2 = -1, ToNode = p0, ToNode2 = p1 });
+                    }
                 }
                 m_PairABn.Add(m_Contacts.Count - m_PairAB[m_PairAB.Count - 1]);
                 m_PairBA.Add(m_Contacts.Count);
                 m_Contacts.AddRange(m_Back);
                 m_PairBAn.Add(m_Back.Count);
+            }
+
+            private static bool NearAnyNode(float2 p, float2[] ring, float r2)
+            {
+                for (int k = 0; k < ring.Length; k++)
+                {
+                    if (math.lengthsq(p - ring[k]) <= r2)
+                        return true;
+                }
+                return false;
+            }
+
+            /// <summary>Where on segment a - b the point nearest to p lies, 0 to 1.</summary>
+            private static float EdgeParameter(float2 p, float2 a, float2 b)
+            {
+                float2 ab = b - a;
+                float len2 = math.dot(ab, ab);
+                return len2 > 0f ? math.saturate(math.dot(p - a, ab) / len2) : 0f;
             }
 
             private static float4 Grow(float4 box)
@@ -750,8 +791,8 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>Are two outlines linked? Any node of a within LinkMeters (xz, inclusive) of any node of b, or an
-        /// edge of a crosses an edge of b, or a node of a lies inside b's ring (or the reverse). Rings are implicitly closed
+        /// <summary>Are two outlines linked? Any node of a within LinkMeters (xz, inclusive) of any node or edge of b (or
+        /// the reverse), or an edge of a crosses an edge of b, or a node of a lies inside b's ring (or the reverse). Rings are implicitly closed
         /// (the last node connects to the first, as the catalog's RingMetrics reads them). Null or empty gives false.</summary>
         public static bool OutlinesLinked(float2[] a, float2[] b)
         {
@@ -773,7 +814,8 @@ namespace SkiResortMod.Systems
                 float2 a0 = a[i], a1 = a[i + 1 < a.Length ? i + 1 : 0];
                 for (int j = 0; j < b.Length; j++)
                 {
-                    if (SegmentsCross(a0, a1, b[j], b[j + 1 < b.Length ? j + 1 : 0]))
+                    float2 b0 = b[j], b1 = b[j + 1 < b.Length ? j + 1 : 0];
+                    if (SegmentsCross(a0, a1, b0, b1) || DistanceSqXZ(a0, b0, b1) <= r2 || DistanceSqXZ(b0, a0, a1) <= r2)
                         return true;
                 }
             }

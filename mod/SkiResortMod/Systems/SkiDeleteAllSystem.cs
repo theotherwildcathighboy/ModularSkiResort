@@ -212,8 +212,8 @@ namespace SkiResortMod.Systems
 
                 Mod.Log.Info(DeleteAllRules.Summary(counts) + $"; requested by {s_RequestedBy ?? "?"}");
                 if (counts[(int)DeleteKind.KeptSharedNodes] > 0)
-                    Mod.Log.Warn($"DeleteAll: {counts[(int)DeleteKind.KeptSharedNodes]} node(s) of ours kept because another line " +
-                                 "still uses them; bulldoze that span by hand before unsubscribing");
+                    Mod.Log.Info($"DeleteAll: {counts[(int)DeleteKind.KeptSharedNodes]} node(s) of ours kept because another line " +
+                                 "still uses them; each becomes a plain node of that line (Stub [plain])");
             }
             finally
             {

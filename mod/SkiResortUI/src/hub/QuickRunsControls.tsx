@@ -389,8 +389,10 @@ export function QuickRunsRows(): JSX.Element {
         <Caption text="" />
         <Act label={t(HOME[q.home] ?? HOME[0])} tip={t(HUB_LOC.quickHomeTip)} disabled={wait} onSelect={() => set("home", (q.home + 1) % HOME.length)} />
       </div>
-      <PlanRows q={q} t={t} wait={wait} />
       <TreeRowsQuick q={q} t={t} wait={wait} />
+      <div className={styles.planList}>
+        <PlanRows q={q} t={t} wait={wait} />
+      </div>
     </>
   );
 }

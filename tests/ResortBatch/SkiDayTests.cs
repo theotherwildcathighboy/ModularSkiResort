@@ -292,6 +292,11 @@ namespace ResortBatch
             Check(Rules.ClassOf(double.NaN, false, true, true) == TC.None && Rules.ClassOf(-1, false, true, true) == TC.None, w, "NaN / −1 → None");
             Check(Rules.ClassOf(0, false, false, false) == TC.Walk && Rules.ClassOf(900.01, false, true, false) == TC.Car, w, "0 → Walk; 900.01 with a car → Car");
 
+            Check(Rules.DayTripM(7) == 7000.0 && Rules.DayTripM(12) == 7000.0 && Rules.DayTripM(3) == 3000.0 && Rules.DayTripM(0) == 2000.0, w,
+                  "a ski day's drive: the reach, at most the default 7 km");
+            Check(Rules.NoGuestsNear(1680, 0) && Rules.NoGuestsNear(1680, 9) && !Rules.NoGuestsNear(1680, 10), w, "under 10 households near reads as nobody");
+            Check(!Rules.NoGuestsNear(0, 0), w, "a city with no household yet says nothing");
+            Check(Rules.TenthsKm(9500f) == 95 && Rules.TenthsKm(10f) == 1, w, "tenths of a km, at least 1");
             Check(Rules.WithinReach(7000, 7), w, "7000 m at 7 km (inclusive)");
             Check(!Rules.WithinReach(7000.01, 7), w, "7000.01 m at 7 km");
             Check(Rules.WithinReach(12000, 99), w, "reach 99 clamps to 12");

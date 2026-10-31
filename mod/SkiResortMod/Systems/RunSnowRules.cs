@@ -313,6 +313,19 @@ namespace SkiResortMod.Systems
         public const float SpringCalendarStart = 2f / 12f;   // the end of the calendar winter window (SnowLineRules): 1 March
         public const float SpringCalendarEnd = 5f / 12f;     // 1 June
 
+        /// <summary>IsSpring for a map whose winter ends at <paramref name="winterEnd"/> (normalized year; may pass 1): the fallback is the
+        /// three months after the climate's winter instead of March to May, so a June winter gets its spring in September.</summary>
+        public static bool IsSpring(string seasonName, float normalizedDate, float winterEnd)
+        {
+            if (seasonName == "SeasonSpring")
+                return true;
+            if (seasonName == "SeasonSummer" || seasonName == "SeasonAutumn" || seasonName == "SeasonWinter")
+                return false;
+            float afterWinter = normalizedDate - winterEnd;
+            afterWinter -= (float)Math.Floor(afterWinter);
+            return afterWinter < SpringCalendarEnd - SpringCalendarStart;
+        }
+
         /// <summary>Budget in game hours for a texel with this aspect factor.</summary>
         public static float EffectiveBudgetHours(bool spring, float aspectFactor)
         {
@@ -424,6 +437,16 @@ namespace SkiResortMod.Systems
         {
             float d = normalizedDate - (float)Math.Floor(normalizedDate);
             return d >= SeasonRolloverDate ? year : year - 1;
+        }
+
+        /// <summary>SnowSeasonKey on a map whose winter starts at <paramref name="winterStart"/>: the rollover keeps its distance before
+        /// winter (about 4 months, 0.6 for a December winter), so a June winter rolls over in February and never inside the snow.</summary>
+        public static int SnowSeasonKey(int year, float normalizedDate, float winterStart)
+        {
+            float rollover = winterStart - (11f / 12f - SeasonRolloverDate);   // 11 / 12: SnowLineRules.CalendarWinterStart
+            rollover -= (float)Math.Floor(rollover);
+            float d = normalizedDate - (float)Math.Floor(normalizedDate);
+            return d >= rollover ? year : year - 1;
         }
 
         /// <summary>Volume in cubic meters of a summed normalized depth gain over texels of the given area.</summary>

@@ -590,8 +590,8 @@ namespace SkiResortMod.Systems
         /// before / after replays (LiftBatch LP-17) and as the fallback where no clear arrangement exists.</summary>
         public bool LegacySpacing;
 
-        /// <summary>Lift-line tool: spots the user removed a tower from (meters along). The fewest-towers search never
-        /// puts a NEW tower within ForbiddenRadiusM of one (a seed there is still kept). Null / empty = none.</summary>
+        /// <summary>Lift-line tool: spots the user removed a tower from (meters along). The fewest-towers search puts a NEW tower
+        /// within ForbiddenRadiusM of one only where the line has no clear plan without it (a seed there is still kept). Null / empty = none.</summary>
         public IList<float> Forbidden;
         public float ForbiddenRadiusM = 10f;
 
@@ -616,7 +616,8 @@ namespace SkiResortMod.Systems
         private readonly List<LiftPlanNodeFlags> m_F = new List<LiftPlanNodeFlags>();
 
         /// <summary>Plan a line of <paramref name="lengthM"/> meters (xz) between two stations whose rope heights are given.
-        /// <paramref name="seeds"/> (optional) are kept as anchors with their members, e.g. a previous plan's nodes.</summary>
+        /// <paramref name="seeds"/> (optional) are kept as anchors with their members, e.g. a previous plan's nodes. A seed with a
+        /// member below 0 (a tool pin: the player sets where it stands, the planner how tall) gets its member from ChooseSeedMembers.</summary>
         public LiftTowerPlan Plan(LiftTerrainSampler terrain, float lengthM, float ropeA, float ropeB, LiftTowerPlanConstants c,
                                   IList<LiftPlanNode> seeds = null)
         {
@@ -632,6 +633,7 @@ namespace SkiResortMod.Systems
             m_K.Add(0); m_M.Add(-1); m_F.Add(LiftPlanNodeFlags.Station);
             m_K.Add(m_N); m_M.Add(-1); m_F.Add(LiftPlanNodeFlags.Station);
             m_ExtraTowers = 1;
+            bool chooseMembers = false;
             if (seeds != null)
             {
                 for (int i = 0; i < seeds.Count; i++)
@@ -643,19 +645,29 @@ namespace SkiResortMod.Systems
                         continue;
                     int m = math.clamp(seeds[i].Member, 0, c.Ladder.Length - 1);
                     Insert(k, m, (seeds[i].Flags & ~LiftPlanNodeFlags.Station) | LiftPlanNodeFlags.Seed);
+                    chooseMembers |= seeds[i].Member < 0;
                 }
             }
+            if (chooseMembers && !LegacySpacing)
+                ChooseSeedMembers();
 
             // (a+b) fewest towers: per segment (station to station, or between seeds) the exact search; where it finds
             // no clear arrangement, the legacy phases (a) anchors / greedy split + (b) infill minimize what is left.
             for (int i = 0; i < m_K.Count - 1; )
             {
                 int added = LegacySpacing ? -1 : MinTowers(i, i + 1);
+                if (added < 0 && !LegacySpacing && Forbidden != null && Forbidden.Count > 0)
+                {
+                    // a removed spot yields where the line has no clear plan without a tower near it (LP-32).
+                    m_IgnoreForbidden = true;
+                    added = MinTowers(i, i + 1);
+                }
                 if (added < 0 && !LegacySpacing)
                 {
                     // the station clearance yields only where the ground leaves no clear plan without a tower inside it (the
                     // 1,408 m gondola's top station sits on a crest: the ground 8 m in front of it is at station level, LP-22);
                     // such a tower is flagged NearStation.
+                    m_IgnoreForbidden = true;
                     m_NoClearance = true;
                     added = MinTowers(i, i + 1);
                     m_NoClearance = false;
@@ -663,6 +675,7 @@ namespace SkiResortMod.Systems
                         if (NearStation(m_K[q]))
                             m_F[q] |= LiftPlanNodeFlags.NearStation;
                 }
+                m_IgnoreForbidden = false;
                 if (added < 0)
                     added = LegacySegment(i);
                 i += added + 1;
@@ -1138,9 +1151,11 @@ namespace SkiResortMod.Systems
 
         private MinCost[] m_MinCost = new MinCost[0];
 
+        private bool m_IgnoreForbidden;
+
         private bool IsForbidden(int k)
         {
-            if (Forbidden == null)
+            if (Forbidden == null || m_IgnoreForbidden)
                 return false;
             for (int f = 0; f < Forbidden.Count; f++)
                 if (math.abs(m_S[k] - Forbidden[f]) < ForbiddenRadiusM - 1e-3f)
@@ -1177,6 +1192,7 @@ namespace SkiResortMod.Systems
         /// <summary>MinTowers' search over samples x ladder members from working node a to b: the best end state under
         /// MinCost.Better(worth). cap >= 0 adds the tower count to the state (layer t = towers so far, at most cap): exact for the
         /// best arrangement with at most cap towers, which the plain search is not (it keeps one state per sample and member).
+        /// Working nodes between a and b (ChooseSeedMembers) must be visited, at any member.
         /// m_MinCost / m_Reached hold the search the walk back reads (state index t * (m_N + 1) * L + k * L + m).</summary>
         private bool SearchMin(int a, int b, float worth, int cap, out MinCost end)
         {
@@ -1198,8 +1214,12 @@ namespace SkiResortMod.Systems
             bool endReached = false;
             end = default;
             for (int t = 0; t < layers; t++)
-            for (int k = i; k < j; k++)
+            for (int k = i, next = a + 1; k < j; k++)
             {
+                while (m_K[next] <= k)
+                    next++;
+                int stop = m_K[next];                  // no span passes the next working node
+                bool atNode = m_K[next - 1] == k;      // k is a working node: its span to the next one may be short (as MinTowers' one span)
                 for (int m = 0; m < L; m++)
                 {
                     MinCost from;
@@ -1224,7 +1244,7 @@ namespace SkiResortMod.Systems
                     }
                     // To the segment's end node.
                     float dEnd = m_S[j] - m_S[k];
-                    if (k > i && j - k >= minGap && dEnd <= maxSpan && SlopeOk(k, mk, j, m_M[b]) &&
+                    if (k > i && stop == j && (atNode || j - k >= minGap) && dEnd <= maxSpan && SlopeOk(k, mk, j, m_M[b]) &&
                         SpanInterval(k, rk, j, out float lo, out float hi) && rj >= lo - Tol && rj <= hi + Tol)
                     {
                         MinCost c = from;
@@ -1238,9 +1258,14 @@ namespace SkiResortMod.Systems
                         }
                     }
                     // To a tower (k2, m2).
-                    for (int k2 = k + minGap; k2 <= j - minGap && m_S[k2] - m_S[k] <= maxSpan; k2++)
+                    for (int k2 = math.min(k + minGap, stop); k2 <= stop && m_S[k2] - m_S[k] <= maxSpan; k2++)
                     {
-                        if (IsForbidden(k2) || NearStation(k2))
+                        if (k2 == stop && stop < j)
+                        {
+                            if (!atNode && k2 - k < minGap)
+                                continue;
+                        }
+                        else if (k2 > j - minGap || IsForbidden(k2) || NearStation(k2))
                             continue;
                         if (!SpanInterval(k, rk, k2, out float lo2, out float hi2))
                             continue;
@@ -1274,6 +1299,34 @@ namespace SkiResortMod.Systems
                 }
             }
             return endReached;
+        }
+
+        /// <summary>The members of seeds placed without one: one search over the whole line with every seed a node it must visit, so a
+        /// pin is as tall as the line needs and the towers between pins are the fewest. Searched span by span from a pin at its shortest
+        /// member (the old way), each span added towers only to rescue that short tower: removing one tower of three gave nine (LP-32).
+        /// Phase (c) still sets the final members. No clear plan at all: the members stay and the segments' fallback reports it.</summary>
+        private void ChooseSeedMembers()
+        {
+            m_UseSag = true;
+            int last = m_K.Count - 1;
+            bool found = SearchMin(0, last, 0f, -1, out MinCost end);
+            m_IgnoreForbidden = true;
+            if (!found)
+                found = SearchMin(0, last, 0f, -1, out end);
+            m_NoClearance = true;
+            if (!found)
+                found = SearchMin(0, last, 0f, -1, out end);
+            m_NoClearance = false;
+            m_IgnoreForbidden = false;
+            if (!found)
+                return;
+            int L = m_C.Ladder.Length;
+            for (int state = end.Parent; state >= 0; state = m_MinCost[state].Parent)
+            {
+                int at = IndexOf(state / L);
+                if (at >= 0)
+                    m_M[at] = state % L;
+            }
         }
 
         /// <summary>Between working nodes a and b = a + 1: the arrangement with the FEWEST towers such that every span is at most
@@ -1486,7 +1539,7 @@ namespace SkiResortMod.Systems
                     continue;
                 m_F[n] |= LiftPlanNodeFlags.Breakover;
                 int up = m_High[math.min(crest + 1, m_N)] >= m_High[math.max(crest - 1, 0)] ? crest + 1 : crest - 1;
-                if (up == k || up - i < minGap || j - up < minGap || NearStation(up))
+                if (up == k || up - i < minGap || j - up < minGap || NearStation(up) || IsForbidden(up))
                     continue;
                 if (InfillTowers(m_S[up] - m_S[i]) + InfillTowers(m_S[j] - m_S[up]) >
                     InfillTowers(m_S[k] - m_S[i]) + InfillTowers(m_S[j] - m_S[k]))

@@ -6,6 +6,7 @@
 // LP-30: the review of the pass (docs/research/review-153b64e-2026-10-26.md): F9 the slope gate on a span with no tower, F3 phase (c)
 // keeps the station-side members, F4 the station rule buys at most one tower. Each sweep must bind at least once; LP-26..30 were each
 // shown able to fail by breaking their rule once (lift-pass-2026-10-26.md, "Review fixes").
+// LP-32: removing a tower adds at most one (field test 2026-10-31, FIX-LIST item 24), see the profile below.
 
 using System;
 using System.Collections.Generic;
@@ -35,6 +36,8 @@ namespace LiftBatch
             Lp29PinMargins();
             Lp30ReviewFixes();
             Lp31ToolText();
+            Lp32RemoveTower();
+            Lp33Crossing();
             s_Check = null;
         }
 
@@ -433,6 +436,183 @@ namespace LiftBatch
                   "tower 1 of the clear DQ: " + towerKey + ", height " + h + ", clear " + cl);
             s_Report.Add("LP-31 plan / tower keys | clear field DQ " + LiftLineInput.PlanKey(clear, out _) + ", tower 1 " + towerKey + " " +
                          h.ToString("F0") + " m tall, chairs " + cl.ToString("F0") + " m up; DQ20 beside the base " + steepKey);
+        }
+
+        // LP-32: removing a tower never adds more than the line needs (field test 2026-10-31, FIX-LIST item 24). Gondola, both ends open
+        // ground, ground measured in game every 3.5 m from the TOP end (z -4800) toward the base: the base end node stands 1.5 m past the
+        // last sample and the top end node 0.5 m short of the first (they match the end ropes, node + 10, to 0.03 m).
+        private static readonly float[] L8Ground =
+        {
+            1549.7f, 1547.3f, 1544.9f, 1542.5f, 1540.2f, 1538.0f, 1535.8f, 1533.6f, 1531.4f, 1529.2f, 1527.0f, 1524.8f, 1522.7f, 1520.6f,
+            1518.5f, 1516.4f, 1514.4f, 1512.5f, 1510.5f, 1508.5f, 1506.7f, 1504.8f, 1502.8f, 1500.9f, 1499.0f, 1497.0f, 1495.0f, 1493.0f,
+            1491.1f, 1489.1f, 1487.2f, 1485.2f, 1483.3f, 1481.5f, 1479.6f, 1477.8f, 1476.1f, 1474.4f, 1472.7f, 1471.1f, 1469.5f, 1467.9f,
+            1466.4f, 1465.0f, 1463.5f, 1462.1f, 1460.8f, 1459.5f, 1458.4f, 1457.2f, 1456.0f, 1455.0f, 1454.0f, 1453.1f, 1452.4f, 1451.6f,
+            1451.1f, 1450.8f, 1450.5f, 1450.4f, 1450.6f, 1450.8f, 1451.4f, 1452.0f, 1452.9f, 1453.8f, 1455.0f, 1456.2f, 1457.6f, 1458.9f,
+            1460.2f, 1461.4f, 1462.5f, 1463.5f, 1464.3f, 1465.1f, 1465.8f, 1466.3f, 1466.7f, 1467.0f, 1467.2f, 1467.5f, 1467.5f, 1467.6f,
+            1467.4f, 1467.2f, 1466.9f, 1466.4f, 1465.8f, 1464.9f, 1464.0f, 1462.8f, 1461.6f, 1460.3f, 1458.8f, 1457.2f, 1455.6f, 1453.9f,
+            1452.3f, 1450.6f, 1448.9f, 1447.2f, 1445.6f, 1444.0f, 1442.3f, 1440.7f, 1439.2f, 1437.7f, 1436.2f, 1434.7f, 1433.4f, 1432.1f,
+            1430.8f, 1429.5f, 1428.1f, 1426.8f, 1425.4f, 1424.0f, 1422.6f, 1421.0f, 1419.3f, 1417.4f, 1415.3f, 1413.0f, 1410.5f, 1407.8f,
+            1405.0f, 1401.9f, 1398.6f, 1395.2f, 1391.7f, 1387.9f, 1384.0f, 1380.0f, 1376.1f, 1372.1f, 1368.0f, 1364.0f, 1360.1f, 1356.3f,
+            1352.7f, 1349.1f, 1345.7f,
+        };
+
+        private const float L8Length = 498f, L8RopeBase = 1354.21f, L8RopeTop = 1559.33f;
+
+        private static float L8At(float along)
+        {
+            float k = (L8Length + 0.5f - along) / 3.5f;
+            int i = math.clamp((int)math.floor(k), 0, L8Ground.Length - 2);
+            return L8Ground[i] + (L8Ground[i + 1] - L8Ground[i]) * (k - i);
+        }
+
+        // The profile has no side samples and the planner's floor runs over the high side (half width 4.1 m). This high side above the
+        // center, a knot every 50 m, is FITTED, not measured: on the planner before the fix it gave the field's first plan exactly
+        // (GD20 @70 / @195 / @300) and a second plan of 9 towers, GD16 x7 + GD20 x2, 8 of the 9 positions the field's (60 m for 230 m).
+        private static readonly float[] L8Side = { 0.71f, 3.76f, 3.56f, 0.87f, 2.02f, 1.81f, 5.15f, 3.73f, 3.80f, 4.03f, 3.01f };
+
+        private static float L8High(float along)
+        {
+            float q = math.clamp(along / 50f, 0f, L8Side.Length - 1.001f);
+            int i = (int)q;
+            return L8At(along) + L8Side[i] + (L8Side[i + 1] - L8Side[i]) * (q - i);
+        }
+
+        private static LiftLineEdit L8Edit() =>
+            new LiftLineEdit(LiftTowerPlanConstants.For("gondola"), new float3(0f, L8RopeBase - 10f, 0f), new float3(L8Length, L8RopeTop - 10f, 0f),
+                             L8RopeBase, L8RopeTop, false, false);
+
+        private static string Towers(LiftTowerPlan p)
+        {
+            var sb = new System.Text.StringBuilder();
+            for (int i = 1; i < p.Nodes.Length - 1; i++)
+                sb.Append(i == 1 ? string.Empty : ", ").Append(Short(p, p.Nodes[i])).Append(" @").Append(p.Nodes[i].AlongM.ToString("F0"));
+            return sb.ToString();
+        }
+
+        private static void Lp32RemoveTower()
+        {
+            const string W = "pass/LP-32";
+            const float SensibleSpanM = 30f;
+            var grounds = new (string Name, LiftTerrainSampler T)[]
+            {
+                ("field sides", (s, l) => l == 0f ? L8At(s) : L8High(s)),
+                ("center only", (s, l) => L8At(s)),
+            };
+            foreach (var g in grounds)
+            {
+                LiftLineEdit e = L8Edit();
+                LiftTowerPlan first = e.Replan(g.T);
+                string firstText = Towers(first);
+                if (g.Name == "field sides")
+                    Check(firstText == "GD20 @70, GD20 @195, GD20 @300", W, "the fitted ground no longer gives the field's first plan: " + firstText);
+                // Every tower of the first plan, one at a time: at most one more tower than before, none on the removed spot, every span sensible.
+                for (int r = 1; r < first.Nodes.Length - 1; r++)
+                {
+                    float spot = first.Nodes[r].AlongM;
+                    string label = g.Name + ", tower at " + spot.ToString("F0") + " m removed";
+                    LiftLineEdit x = L8Edit();
+                    x.Replan(g.T);
+                    Check(x.RemoveTower(spot) == LiftLineEditResult.Done, W, label + ": refused");
+                    LiftTowerPlan p = x.Replan(g.T);
+                    s_Report.Add("LP-32 " + label + " | at most one tower more than " + first.LineTowers + ", none within " + x.RemovedRadiusM.ToString("F0") +
+                                 " m of it, spans at least " + SensibleSpanM.ToString("F0") + " m | " + Towers(p) + "; " + x.Describe());
+                    Check(p.Clear, W, label + ": not clear: " + x.Describe());
+                    Check(p.LineTowers <= first.LineTowers + 1, W, label + ": " + p.LineTowers + " towers, was " + first.LineTowers + ": " + Towers(p));
+                    Check(x.TowerNear(spot, x.RemovedRadiusM - 0.01f) < 0, W, label + ": a tower inside the radius: " + Towers(p));
+                    for (int s = 0; s < p.Spans.Length; s++)
+                        Check(p.Spans[s].LengthM >= SensibleSpanM - 1e-3f, W, label + ": a span of " + p.Spans[s].LengthM.ToString("F0") + " m: " + Towers(p));
+                    for (int i = 0; i < x.Pins.Count; i++)
+                        Check(x.TowerNear(x.Pins[i], 0.01f) > 0, W, label + ": the pin at " + x.Pins[i].ToString("F0") + " m moved: " + Towers(p));
+                    // Undo gives the first plan back (the field's right click).
+                    Check(x.Undo() && Towers(x.Replan(g.T)) == firstText, W, label + ": undo: " + Towers(x.Plan));
+                }
+            }
+
+            // The field case on the planner alone: pins at 70 and 300 m, 195 m forbidden.
+            var pins = new[] { new LiftPlanNode { AlongM = 70f, Member = -1 }, new LiftPlanNode { AlongM = 300f, Member = -1 } };
+            var direct = new LiftTowerPlanner
+            {
+                Forbidden = new[] { 195f }, StationA = false, StationB = false, CheckEdgeSlope = true,
+                EndNodeYA = L8RopeBase - 10f, EndNodeYB = L8RopeTop - 10f,
+            };
+            LiftTowerPlan d = direct.Plan(grounds[0].T, L8Length, L8RopeBase, L8RopeTop, LiftTowerPlanConstants.For("gondola"), pins);
+            s_Report.Add("LP-32 pins 70 / 300, 195 forbidden, the planner alone | one or two towers between the pins | " + Towers(d));
+            Check(d.Clear && d.LineTowers <= 4, W, "pins 70 / 300, 195 forbidden: " + Towers(d));
+
+            // One spot only: the same line with a 25 m knife ridge (flanks 1.1 m per m) at 290 m. A tower must stand within 9 m of the crest for the
+            // rope to pass it, so removing the crest tower leaves the line no other way: it comes back there, and no more towers than before.
+            // (The other towers are tall pins here: with no plan under the Forbidden rule they would drop to the shortest member and buy rescue towers.)
+            LiftTerrainSampler knife = (s, l) => (l == 0f ? L8At(s) : L8High(s)) + math.max(0f, 25f - 1.1f * math.abs(s - 290f));
+            LiftLineEdit ridge = L8Edit();
+            LiftTowerPlan ridgeFirst = ridge.Replan(knife);
+            int crest = ridge.TowerNear(290f, 9f);
+            if (Check(ridgeFirst.Clear && crest > 0, W, "knife ridge: no clear first plan with a tower at the crest: " + Towers(ridgeFirst)))
+            {
+                Check(ridge.RemoveTower(ridgeFirst.Nodes[crest].AlongM) == LiftLineEditResult.Done, W, "knife ridge: remove refused");
+                LiftTowerPlan back = ridge.Replan(knife);
+                s_Report.Add("LP-32 knife ridge, the crest tower removed (" + Towers(ridgeFirst) + ") | it comes back at the crest, no more towers | " + Towers(back));
+                Check(back.Clear && back.LineTowers <= ridgeFirst.LineTowers && ridge.TowerNear(290f, 9f) > 0, W, "knife ridge: " + Towers(back));
+            }
+
+            // Every lift type on hump ground: removing any tower adds at most one (the sweep reports how often it adds one).
+            int removals = 0, oneMore = 0, moreThanOne = 0;
+            foreach (string id in new[] { "fixedGrip", "detachable", "gondola", "tram" })
+            {
+                LiftTowerPlanConstants k = LiftTowerPlanConstants.For(id);
+                float len = id == "tram" ? 2000f : id == "fixedGrip" ? 400f : 900f;
+                foreach (float grade in new[] { 0.1f, 0.35f })
+                foreach (float h in new[] { 0f, 10f, 25f })
+                foreach (float at in new[] { 0.3f, 0.6f })
+                {
+                    LiftTerrainSampler t = Hump(grade, h, at * len, 0.06f * len);
+                    float yA = t(0f, 0f), yB = t(len, 0f);
+                    float3 a = new float3(0f, yA, 0f), b = new float3(len, yB, 0f);
+                    float ra = yA + k.RopeAboveBase(0), rb = yB + k.RopeAboveBase(0);
+                    var e = new LiftLineEdit(k, a, b, ra, rb);
+                    LiftTowerPlan free = e.Replan(t);
+                    if (!free.Clear)
+                        continue;
+                    for (int r = 1; r < free.Nodes.Length - 1; r++)
+                    {
+                        var x = new LiftLineEdit(k, a, b, ra, rb);
+                        x.Replan(t);
+                        x.RemoveTower(free.Nodes[r].AlongM);
+                        LiftTowerPlan p = x.Replan(t);
+                        string label = id + " " + len.ToString("F0") + " m, grade " + grade.ToString("F2") + ", hump " + h.ToString("F0") + " m at " +
+                                       (at * len).ToString("F0") + ", tower at " + free.Nodes[r].AlongM.ToString("F0") + " m removed";
+                        removals++;
+                        Check(p.Clear, W, label + ": not clear: " + LiftPlannerTests.Describe(p));
+                        if (p.LineTowers == free.LineTowers + 1)
+                            oneMore++;
+                        else if (p.LineTowers > free.LineTowers + 1)
+                        {
+                            moreThanOne++;
+                            Check(false, W, label + ": " + p.LineTowers + " towers, was " + free.LineTowers + ": " + Towers(p));
+                        }
+                    }
+                }
+            }
+            s_Report.Add("LP-32 sweep, every lift type on hump ground | removing any tower adds at most one | " + removals + " removal(s), " + oneMore +
+                         " add one more than the plan had, " + moreThanOne + " add more");
+            Check(removals > 0, W, "the sweep removed nothing");
+        }
+
+        // LP-33: a line crossing another lift is found in plan view (field test 2026-10-31, FIX-LIST item 26); a joint at the line's own end is
+        // not a crossing. The line runs from (0,0) to (500,0) in x and z.
+        private static void Lp33Crossing()
+        {
+            const string W = "pass/LP-33";
+            LiftLineEdit e = Flat(LiftTowerPlanConstants.For("gondola"), 500f, true, true);
+            const float M = 5f;
+            Check(e.Crosses(new float2(250f, -40f), new float2(250f, 40f), M), W, "a piece square across the middle crosses");
+            Check(e.Crosses(new float2(100f, -40f), new float2(180f, 40f), M), W, "a slanted piece across crosses");
+            Check(e.Crosses(new float2(250f, 0f), new float2(250f, 40f), M), W, "a piece starting on the line joins it");
+            Check(!e.Crosses(new float2(250f, 10f), new float2(250f, 40f), M), W, "a piece stopping short does not cross");
+            Check(!e.Crosses(new float2(0f, 0f), new float2(0f, 80f), M), W, "a joint at the first end is no crossing");
+            Check(!e.Crosses(new float2(503f, -40f), new float2(503f, 40f), M), W, "a piece within the margin of the far end is no crossing");
+            Check(!e.Crosses(new float2(620f, -40f), new float2(620f, 40f), M), W, "a piece beyond the far end is no crossing");
+            Check(!e.Crosses(new float2(0f, 20f), new float2(500f, 20f), M), W, "a parallel piece never crosses");
+            s_Report.Add("LP-33 crossing another lift | found across the line, not at its own ends | 8 cases");
         }
 
         private static float Rise(LiftTowerPlanConstants c, int member) => c.Ladder[member].TopM - c.Ladder[0].TopM;

@@ -19,6 +19,7 @@ using Game.Citizens;
 using Game.Common;
 using Game.Companies;
 using Game.Events;
+using Game.Prefabs;
 using Game.Simulation;
 using Game.Tools;
 using SkiResortMod.Settings;
@@ -70,6 +71,7 @@ namespace SkiResortMod.Systems
         private SimulationSystem m_Simulation;
         private TimeSystem m_Time;
         private ClimateSystem m_Climate;
+        private PrefabSystem m_Prefabs;                      // the climate's winter (SkiClimateCalendar)
         private CitizenBehaviorSystem m_Behavior;
         private Game.UI.NameSystem m_NameSystem;
         private SkiResortAttractivenessSystem m_Attraction;
@@ -356,6 +358,16 @@ namespace SkiResortMod.Systems
             return PresaleCopy.Ready;
         }
 
+        /// <summary>The signs of the areas the ski days know, into <paramref name="signs"/> (cleared first). Main thread.</summary>
+        internal void CopyAreaSigns(System.Collections.Generic.List<Entity> signs)
+        {
+            signs.Clear();
+            if (!IsArmed)
+                return;
+            foreach (var pair in m_AreaOfSign)
+                signs.Add(pair.Key);
+        }
+
         /// <summary>The hub's trip-planner label (CityStats.tripPlanner): "" while the game's six trip systems are all on, else the known
         /// swaps' names or SkiTripSystems.UnknownLabel. Main thread.</summary>
         internal string TripPlannerLabel => m_TripLabel;
@@ -383,6 +395,7 @@ namespace SkiResortMod.Systems
             m_Simulation = World.GetOrCreateSystemManaged<SimulationSystem>();
             m_Time = World.GetOrCreateSystemManaged<TimeSystem>();
             m_Climate = World.GetOrCreateSystemManaged<ClimateSystem>();
+            m_Prefabs = World.GetOrCreateSystemManaged<PrefabSystem>();
             m_LeisureSys = World.GetOrCreateSystemManaged<LeisureSystem>();
             m_Behavior = World.GetOrCreateSystemManaged<CitizenBehaviorSystem>();
             m_TripNeededSys = World.GetOrCreateSystemManaged<TripNeededSystem>();
@@ -3237,7 +3250,7 @@ namespace SkiResortMod.Systems
                     Deleteds = m_DeletedLookup,
                     LeisureProviders = m_LeisureProviderLookup,
                     SeasonPasses = m_SeasonPassLookup,
-                    SeasonKey = SkiMoneyRules.SeasonKeyOfDate(m_Time.year, m_Time.normalizedDate),
+                    SeasonKey = SkiMoneyRules.SeasonKeyOfDate(m_Time.year, m_Time.normalizedDate, SkiClimateCalendar.SeasonFirstMonth(m_Climate, m_Prefabs)),
                     Areas = areaArray,
                     Lodges = lodgeArray,
                     Sites = siteArray,

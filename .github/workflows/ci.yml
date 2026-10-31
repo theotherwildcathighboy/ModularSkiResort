@@ -53,6 +53,8 @@ jobs:
         run: npm ci --no-audit --no-fund
       - name: US English
         run: node tools/check-us-english.js
+      - name: Stats hash covers every field
+        run: node tools/check-stats-hash.js
       - name: No user paths
         run: node tools/check-no-user-paths.js
       - name: No late-phase deletes

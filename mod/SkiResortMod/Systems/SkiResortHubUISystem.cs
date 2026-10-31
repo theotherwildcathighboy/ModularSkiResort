@@ -37,7 +37,7 @@ namespace SkiResortMod.Systems
 
         /// <summary>The contract number (bindings.ts HUB_CONTRACT). Bump both together whenever a binding, trigger, field or meaning
         /// changes (Engine notes: Near HubContract lists what each number appended).</summary>
-        public const int HubContract = 23;
+        public const int HubContract = 24;
 
         /// <summary>The `contract` value the UI reads as "C# absent" (bindings.ts CONTRACT_ABSENT). Pushed after the one-shot "!!!"
         /// until the next load: the UI then shows its "not connected" notice instead of launchers that do nothing.</summary>
@@ -439,6 +439,7 @@ namespace SkiResortMod.Systems
         private SelectedInfoUISystem m_SelectedInfo;
         private CameraUpdateSystem m_CameraUpdateSystem;
         private PrefabSystem m_PrefabSystem;
+        private Game.Simulation.ClimateSystem m_ClimateSystem;   // the ski season's first month in History (SkiClimateCalendar)
         private NameSystem m_NameSystem;
         private SkiRunOwnershipSystem m_Ownership;
         private SkiRunBindTriggerSystem m_BindTrigger;   // PickSignName (empty sign rename)
@@ -616,6 +617,7 @@ namespace SkiResortMod.Systems
             m_GuestCounter = World.GetOrCreateSystemManaged<SkiGuestCounterSystem>();
             m_SkiDays = World.GetOrCreateSystemManaged<SkiDaySystem>();
             m_Time = World.GetOrCreateSystemManaged<Game.Simulation.TimeSystem>();
+            m_ClimateSystem = World.GetOrCreateSystemManaged<Game.Simulation.ClimateSystem>();
             m_Census = World.GetOrCreateSystemManaged<LiftCensusSystem>();
             m_Attractiveness = World.GetOrCreateSystemManaged<SkiResortAttractivenessSystem>();
             m_PrefabCatalog = World.GetOrCreateSystemManaged<SkiPrefabCatalogSystem>();
@@ -1128,7 +1130,7 @@ namespace SkiResortMod.Systems
                     SetOpen(!m_HubOpen.value, $"toggle ({r.Source})");
                     break;
                 case RequestKind.SetHubOpen:
-                    SetOpen(r.Bool, r.Bool ? $"setHubOpen(true) ({r.Source})" : $"setHubOpen(false): X / Escape ({r.Source})");
+                    SetOpen(r.Bool, r.Bool ? $"setHubOpen(true) ({r.Source})" : $"setHubOpen(false): X ({r.Source})");
                     break;
                 case RequestKind.Hello:
                     ApplyHello(r);
@@ -2171,8 +2173,9 @@ namespace SkiResortMod.Systems
         {
             link = "";
             float3 at = CameraPoint();
-            bool anySign = m_Ownership.TryNearestGateEntity(at.xz, out Entity nearest, out float distance) && nearest != Entity.Null;
-            if (!anySign)
+            // TryNearestGateEntity returns false beyond the tether with the nearest sign still set: only no sign at all refuses
+            m_Ownership.TryNearestGateEntity(at.xz, out Entity nearest, out float distance);
+            if (nearest == Entity.Null)
             {
                 Mod.Log.Info($"Hub [launch] {id} refused — no Ski Area Welcome Sign in this city (place one first: it links " +
                              $"to the nearest sign within {SkiRunOwnershipSystem.TetherMeters:F0} m) ({source})");
@@ -3765,6 +3768,8 @@ namespace SkiResortMod.Systems
                 UnityWriters.Write(writer, r.Sign);
                 writer.PropertyName("firstMonthKey");
                 writer.Write(r.FirstKey);
+                writer.PropertyName("seasonFirstMonth0");
+                writer.Write(SkiClimateCalendar.SeasonFirstMonth(m_ClimateSystem, m_PrefabSystem) - 1);
                 writer.PropertyName("flags");
                 WriteHistorySeries(writer, r.Series[HsFlags]);
                 writer.PropertyName("tourists");

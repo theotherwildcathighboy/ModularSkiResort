@@ -260,6 +260,7 @@ namespace SkiResortMod.Systems
             for (int i = 0; i < region.Length; i++)
                 m_Edit.Add(region[i]);
             m_AroundRevision = m_Edit.Revision;
+            m_RegionClosed = true;
             RegionChanged(string.Format(CultureInfo.InvariantCulture, "plan around the lift from ({0:F0}, {1:F0}) to ({2:F0}, {3:F0}): {4} corners",
                 line[0].x, line[0].y, line[line.Count - 1].x, line[line.Count - 1].y, region.Length));
             return true;

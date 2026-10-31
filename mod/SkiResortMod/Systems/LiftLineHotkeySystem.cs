@@ -4,7 +4,7 @@
 // This system is the one writer of shouldBeEnabled for the Build key (live while the lift tool, the grading tool or the Quick runs
 // tool is open; two writers would fight every frame). CatTrackGradeHotkeySystem and QuickRunsHotkeySystem read the press for theirs.
 // The hotkey opens the tool with no lift type (the first station or loose end sets it); the hub's line tiles open it with
-// their type (SkiResortHubUISystem.ApplyLaunch).
+// their type (SkiResortHubUISystem.ApplyLaunch). Also tells the tool when a lift station is on the object tool (it never ticks then).
 // Engine notes: EngineNotes/LiftLineHotkeySystem.md
 
 using System;
@@ -12,6 +12,7 @@ using Colossal.Serialization.Entities;
 using Game;
 using Game.Input;
 using Game.SceneFlow;
+using Game.Tools;
 using SkiResortMod.Settings;
 
 namespace SkiResortMod.Systems
@@ -23,6 +24,8 @@ namespace SkiResortMod.Systems
         private LiftLineToolSystem m_Tool;
         private CatTrackGradeToolSystem m_Grade;
         private QuickRunsToolSystem m_QuickRuns;
+        private ToolSystem m_ToolSystem;
+        private ObjectToolSystem m_ObjectTool;
         private ProxyAction m_Toggle, m_Build;
         private bool m_Armed, m_Disabled, m_ErrorLogged;
         private int m_Probe = -1;
@@ -33,6 +36,8 @@ namespace SkiResortMod.Systems
             m_Tool = World.GetOrCreateSystemManaged<LiftLineToolSystem>();
             m_Grade = World.GetOrCreateSystemManaged<CatTrackGradeToolSystem>();
             m_QuickRuns = World.GetOrCreateSystemManaged<QuickRunsToolSystem>();
+            m_ToolSystem = World.GetOrCreateSystemManaged<ToolSystem>();
+            m_ObjectTool = World.GetOrCreateSystemManaged<ObjectToolSystem>();
             Mod.Log.Info($"{nameof(LiftLineHotkeySystem)} created");
         }
 
@@ -80,6 +85,8 @@ namespace SkiResortMod.Systems
                 if (gm == null || gm.isGameLoading)
                     return;
                 bool active = m_Tool.IsActive;
+                m_Tool.SetStationPlacing(m_ToolSystem.activeTool == m_ObjectTool && m_ObjectTool.prefab != null &&
+                                         SkiCatalog.StationByPrefab(m_ObjectTool.prefab.name) != null);
                 bool buildLive = active || m_Grade.IsActive || m_QuickRuns.IsActive;
                 if (m_Build.shouldBeEnabled != buildLive)
                     m_Build.shouldBeEnabled = buildLive;

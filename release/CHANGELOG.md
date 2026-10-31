@@ -56,7 +56,7 @@ First public release. Draft notes (check against the build at upload):
 - Delete all ski resort content, a button in the mod's Options (Reset group): removes everything the mod placed in the
   loaded city, after a confirmation, to clean a city before uninstalling. It cannot be undone.
 - Works on the base game; no other mod is required. Move It is highly recommended and Write Everywhere is recommended.
-- Known limitations: chairs carry no riders, the chairs do not sway in wind, stations can sit partly in the hillside on steep
+- Known limitations: a hill far from the city's homes and hotels gets few ski-day guests (the panel shows the distance), chairs carry no riders, the chairs do not sway in wind, stations can sit partly in the hillside on steep
   ground, chairlifts and gondolas stop in summer.
 
 ## Beta notes (pre-release, not a release entry)

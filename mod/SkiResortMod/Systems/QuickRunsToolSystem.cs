@@ -107,6 +107,8 @@ namespace SkiResortMod.Systems
         private ToolPhase m_Phase;
         private JobHandle m_Deps;
         private readonly GradeEdit m_Edit = new GradeEdit();   // the region's corners (the cat track tool's point editor)
+        private bool m_RegionClosed;   // the first corner was clicked again or a scan started: clicks past the region add nothing
+        internal bool RegionClosed => m_RegionClosed && m_Edit.Count >= 3;
         private QuickRegionReadout m_Readout;
         private float m_SiteGrade = float.NaN;
         private float3 m_Hit;
@@ -431,6 +433,13 @@ namespace SkiResortMod.Systems
                 RegionChanged("corners cleared (right click)");
                 return;
             }
+            if (RegionClosed)
+            {
+                m_RegionClosed = false;
+                Say("QuickRuns [back]: region reopened (right click): clicks add corners again");
+                Bump();
+                return;
+            }
             if (m_Edit.UndoDepth > 0)
             {
                 m_Edit.Undo();
@@ -466,7 +475,7 @@ namespace SkiResortMod.Systems
             }
             if (!m_HasHit || !applyAction.WasPressedThisFrame())
                 return;
-            if (m_HoverPoint >= 0)
+            if (m_HoverPoint >= 0 && (m_Phase != ToolPhase.Region || QuickRunsRules.RegionClick(RegionClosed, m_Edit.Count, m_HoverPoint, m_Edit.Count) == QuickRegionClick.DragCorner))
             {
                 m_DragIndex = m_HoverPoint;
                 m_DragTo = m_Edit.Points[m_HoverPoint];
@@ -482,16 +491,20 @@ namespace SkiResortMod.Systems
             if (m_Edit.Count == 0 && TryPlanAround(hit))
                 return;   // a census station: the region becomes that lift's corridor
             int index = m_Edit.InsertIndex(hit, PickCornerPathM);
-            if (index < m_Edit.Count)
+            switch (QuickRunsRules.RegionClick(RegionClosed, m_Edit.Count, m_HoverPoint, index))
             {
-                m_Edit.Insert(index, hit);
-                RegionChanged($"corner inserted as {index + 1} of {m_Edit.Count} at ({hit.x:F0}, {hit.y:F0})");
-            }
-            else
-            {
-                // Appending puts the corner on the closing edge (last -> first), which is where a click past the last corner belongs
-                m_Edit.Add(hit);
-                RegionChanged($"corner {m_Edit.Count} at ({hit.x:F0}, {hit.y:F0}, ground {m_Hit.y:F1})");
+                case QuickRegionClick.CloseRegion:
+                    BeginScan("region closed");
+                    break;
+                case QuickRegionClick.InsertCorner:
+                    m_Edit.Insert(index, hit);
+                    RegionChanged($"corner inserted as {index + 1} of {m_Edit.Count} at ({hit.x:F0}, {hit.y:F0})");
+                    break;
+                case QuickRegionClick.AddCorner:
+                    // Appending puts the corner on the closing edge (last -> first), which is where a click past the last corner belongs
+                    m_Edit.Add(hit);
+                    RegionChanged($"corner {m_Edit.Count} at ({hit.x:F0}, {hit.y:F0}, ground {m_Hit.y:F1})");
+                    break;
             }
         }
 
@@ -500,6 +513,8 @@ namespace SkiResortMod.Systems
         private void RegionChanged(string what)
         {
             bool rescan = m_Phase == ToolPhase.Preview || m_Phase == ToolPhase.Scanning;
+            if (m_Edit.Count < 3)
+                m_RegionClosed = false;
             ClearPlanToggles();   // pod / lift keys belong to one plan
             m_BatchFresh = false;
             m_TreeBatchFresh = false;
@@ -728,6 +743,7 @@ namespace SkiResortMod.Systems
             if (why != null)
             {
                 m_Edit.Clear();
+                m_RegionClosed = false;
                 ClearPlanToggles();
                 m_AroundRevision = -1;
                 m_Readout = default;

@@ -122,6 +122,9 @@ namespace ResortBatch
             s_Check(DeleteAllRules.NodeVerdict(true, false, 2, 2) == DeleteNodeVerdict.Delete, "DA-4d", "a node of ours with only our edges goes");
             s_Check(DeleteAllRules.NodeVerdict(true, false, 2, 1) == DeleteNodeVerdict.KeepShared, "DA-4e", "a node of ours a vanilla edge still uses is kept");
             s_Check(DeleteAllRules.NodeVerdict(true, false, 1, 0) == DeleteNodeVerdict.KeepShared, "DA-4f", "a node of ours on a foreign edge only is kept");
+            s_Check(DeleteAllRules.StubBecomesPlain(2, 2), "DA-4g", "a stub with only foreign edges becomes a plain node");
+            s_Check(!DeleteAllRules.StubBecomesPlain(2, 1), "DA-4h", "one of our edges on it keeps it ours (a lift line's loose end)");
+            s_Check(!DeleteAllRules.StubBecomesPlain(0, 0), "DA-4i", "no edges: nothing to become");
         }
 
         private static void ButtonGate()

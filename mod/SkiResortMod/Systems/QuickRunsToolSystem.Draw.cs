@@ -133,10 +133,11 @@ namespace SkiResortMod.Systems
             for (int i = 0; i < n; i++)
             {
                 float2 xz = i == m_DragIndex ? m_DragTo : pts[i];
-                bool hot = i == m_HoverPoint || i == m_DragIndex;
+                // The first corner stands out while clicking it would close the region; the closing edge is solid only once it is closed
+                bool hot = i == m_HoverPoint || i == m_DragIndex || (i == 0 && n >= 3 && !RegionClosed && m_Phase == ToolPhase.Region);
                 UnityEngine.Color c = hot ? HoverColor : CornerColor;
                 buffer.DrawCircle(c, c, 0f, projected, ring, Ground(ref hd, xz), (hot ? 10f : 7f) * math.min(k, 3f));
-                if (i > 0 || n >= 3)
+                if (i > 0 || RegionClosed)
                 {
                     int j = i > 0 ? i - 1 : n - 1;
                     float2 prev = j == m_DragIndex ? m_DragTo : pts[j];
@@ -144,7 +145,7 @@ namespace SkiResortMod.Systems
                 }
             }
             // Rubber band from the last and first corner to the cursor while the region is being drawn
-            if (m_Phase == ToolPhase.Region && n >= 1 && m_HasHit && !Dragging && m_HoverPoint < 0)
+            if (m_Phase == ToolPhase.Region && n >= 1 && !RegionClosed && m_HasHit && !Dragging && m_HoverPoint < 0)
             {
                 buffer.DrawLine(RegionColor, RegionColor, 0f, projected, new Line3.Segment(Ground(ref hd, pts[n - 1]), m_Hit), 0.6f * k, round);
                 if (n >= 2)

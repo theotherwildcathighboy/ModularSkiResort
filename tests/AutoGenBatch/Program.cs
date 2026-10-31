@@ -125,11 +125,12 @@ namespace AutoGenBatch
         }
 
         /// <summary>Review F7: the unit-time limits are CoreCLR Release numbers; a Debug build runs the planner 1.3-1.5x slower, so
-        /// there they print without a check.</summary>
+        /// there they print without a check. A shared CI runner is no timer either (P-5 read 57.8 ms on one, 2026-10-31), so the
+        /// limits are checked on local runs only.</summary>
 #if DEBUG
         private static readonly bool TimingChecked = false;   // readonly, not const: no unreachable-code warning
 #else
-        private static readonly bool TimingChecked = true;   // readonly, not const: no unreachable-code warning
+        private static readonly bool TimingChecked = Environment.GetEnvironmentVariable("GITHUB_ACTIONS") != "true";
 #endif
 
         private static string Mix(AutoPlanResult r) =>

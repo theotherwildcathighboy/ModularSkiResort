@@ -118,7 +118,7 @@ namespace SkiResortMod.Systems
             int passPrice = SkiMoneyRules.PassPrice(PassMultiplier, price);
             if (passPrice <= 0)
                 return false;
-            int season = SkiMoneyRules.SeasonKeyOfDate(m_TimeSystem.year, m_TimeSystem.normalizedDate);
+            int season = SkiMoneyRules.SeasonKeyOfDate(m_TimeSystem.year, m_TimeSystem.normalizedDate, SkiClimateCalendar.SeasonFirstMonth(m_ClimateSystem, m_PrefabSystem));
             foreach (var pair in m_WatchGate)
             {
                 if (pair.Value != SkiMoneyRules.TicketGate.Open)
@@ -126,6 +126,12 @@ namespace SkiResortMod.Systems
                 Entity sign = pair.Key;
                 if (m_SaleSeasonOf.TryGetValue(sign, out int done) && done == season)
                     continue;
+                // m_SaleSeasonOf is memory only: after a load the ledger (seeded from the save) says the sale already ran.
+                if (m_Counter.Ledger.TryGet(Ref(sign), out SkiResortLedger.Entry soldEntry) && SkiResortLedger.PassSeasonPreOf(soldEntry, season) > 0)
+                {
+                    m_SaleSeasonOf[sign] = season;
+                    continue;
+                }
                 long t0 = Stopwatch.GetTimestamp();
                 PresaleCopy copy = m_SkiDay.TryCopyPresaleInputs(sign, m_SaleTargets, out SkiDayPresaleInputs inputs);
                 if (copy == PresaleCopy.NotReady)

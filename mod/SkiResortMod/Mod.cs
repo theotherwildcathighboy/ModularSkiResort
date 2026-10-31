@@ -180,6 +180,8 @@ namespace SkiResortMod
             // so every pass runs on its frames, before TripNeededSystem. NEVER override GetUpdateOffset; ONE registration only. Registered
             // before SkiResortStatsSystem, so this line creates it (UpdateSystem.cs:178-181). Pause stops it; the Editor never arms it.
             updateSystem.UpdateAfter<SkiDaySystem, Game.Simulation.LeisureSystem>(SystemUpdatePhase.GameSimulation);
+            // Homes and hotels near each ski area (hub row 27): a read of the household list; not anchored.
+            updateSystem.UpdateAt<SkiReachCensusSystem>(SystemUpdatePhase.GameSimulation);
             // Lodge parking census; reads the attraction snapshot's lodge list and the lane search tree (reader handle); not anchored.
             updateSystem.UpdateAt<SkiLodgeParkingSystem>(SystemUpdatePhase.GameSimulation);
 
@@ -227,6 +229,11 @@ namespace SkiResortMod
             // The hub row's cat track delete. Same anchor, same reason: a Deleted tag added later in the frame never reaches
             // Game.Areas.SearchSystem (Modification5), and a stale search tree entry crashes a Burst job (the system's header).
             updateSystem.UpdateBefore<SkiCatTrackDeleteSystem, Game.Objects.SubElementDeleteSystem>(
+                SystemUpdatePhase.PostTool);
+
+            // A removed station's stub node that only carries a player's power line becomes a plain node of it, so the city does not need
+            // this mod for that node. Same anchor: its Updated tag has to reach the Modification phases.
+            updateSystem.UpdateBefore<SkiStubCleanupSystem, Game.Objects.SubElementDeleteSystem>(
                 SystemUpdatePhase.PostTool);
 
             // Every prefab of this mod open at each Game-mode load. Modification1 is load-bearing: vanilla's Unlock All phase, its Unlock events

@@ -158,9 +158,12 @@ namespace SkiResortMod.Systems
         public const int PassShareMax = 100;
         public const int PassShareStep = 5;
         public const int PassShareDefault = 50;   // 0 = passes off
-        /// <summary>The ski season starts with this calendar month (1..12): July. Months 7..12 belong to the year, 1..6 to the
-        /// year before, so December and the following March share a season key.</summary>
+        /// <summary>The ski season of a map with a December winter starts with this calendar month (1..12): July. Months 7..12 belong to
+        /// the year, 1..6 to the year before, so December and the following March share a season key.</summary>
         public const int SeasonFirstMonth = 7;
+        /// <summary>A season starts this many months before the climate's winter, so one winter never spans two season keys: July for a
+        /// December winter, January for a June winter.</summary>
+        public const int SeasonMonthsBeforeWinter = 5;
         /// <summary>SkiSeasonPass.Flags bit: the household was asked this season and did not buy (rolled out or could not pay).</summary>
         public const byte PassFlagDeclined = 1;
 
@@ -174,6 +177,25 @@ namespace SkiResortMod.Systems
 
         public static int SeasonKeyOfDate(int year, float normalizedDate)
             => SeasonKeyOf(year, MonthOfKey(MonthKey(year, normalizedDate)));
+
+        /// <summary>The season's first calendar month (1..12) for a winter starting at <paramref name="winterStart"/> (normalized year;
+        /// wraps; not finite reads the December winter).</summary>
+        public static int SeasonFirstMonthOf(float winterStart)
+        {
+            if (!math.isfinite(winterStart))
+                return SeasonFirstMonth;
+            float w = winterStart - math.floor(winterStart);
+            int winterMonth0 = (int)math.round(w * MonthsPerYear) % MonthsPerYear;
+            return (winterMonth0 - SeasonMonthsBeforeWinter + MonthsPerYear) % MonthsPerYear + 1;
+        }
+
+        /// <summary>SeasonKeyOf for a season starting with calendar month <paramref name="firstMonth"/> (1..12, clamped): the year from
+        /// that month on, else the year before. firstMonth 1: always the year itself.</summary>
+        public static int SeasonKeyOf(int year, int month, int firstMonth)
+            => math.clamp(month, 1, MonthsPerYear) >= math.clamp(firstMonth, 1, MonthsPerYear) ? year : year - 1;
+
+        public static int SeasonKeyOfDate(int year, float normalizedDate, int firstMonth)
+            => SeasonKeyOf(year, MonthOfKey(MonthKey(year, normalizedDate)), firstMonth);
 
         public static int ClampPassMultiplier(int v) => math.clamp(v, PassMultiplierMin, PassMultiplierMax);
         public static int ClampPassShare(int v) => math.clamp(v, 0, PassShareMax);

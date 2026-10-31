@@ -76,6 +76,7 @@ Limits per lift type:
 - **Towers:** height follows terrain; concrete foundations; grounding matches vanilla power pylons on sensible lines. Heights come in steps: see [Lift Types](/reference/lifts/).
 - **Canyons and cliffs:** the planner puts towers where the ground rises toward the cable and uses tall towers where they let a span reach farther, so crossings take fewer towers. Carriers stay at least **3 m** above the ground (tram **5 m**); chairlift and gondola cable stays at most **30 m** above it. If no mix of tower heights clears a span, the preview shows red or violet (see Preview above): add or move a tower, or route the line elsewhere.
 - **Stations:** sit on the slope as placed; no terrain flattening. The one exception is the aerial tram's base terminal, which levels a flat pad by design. On steep ground a station can end up partly in the hillside, so the chairs leave it below the ground; the tool then shows a notice and still builds. Raise the station with Move It, or build on flatter ground. Adjust the ground with the game's terraforming, or reposition a station with Move It.
+- **Crossing another lift:** the game joins two lift lines where they cross, and the other lift's chairs stop. The tool shows a notice and still builds. Bulldozing the new section merges the other lift back.
 
 ## Power
 
@@ -83,7 +84,7 @@ A lift line is a power-line network, so it behaves like one.
 
 - **Electricity overlay:** the lift line and the stations' line-side stubs are high-voltage class (that is what lets the line snap to the stations), so they draw as high-voltage lines. Only the base station's own stub is low-voltage.
 - **Base station = transformer:** wire a low-voltage line into the base station's low-voltage stub. Only the base station needs power: the top station has no consumer, and a lift counts as powered from its base. The base joins its stub to the lift line like a vanilla transformer, but the line ends at the top station, so a lift carries no city power anywhere and does not add grid capacity.
-- **City high-voltage lines:** do not connect them to a lift tower or lift line. The result is untested and can break the lift.
+- **City high-voltage lines:** they cannot join a lift tower, stub or lift line. The game refuses them with a red preview.
 
 ## Uninstall
 

@@ -675,6 +675,14 @@ namespace ResortBatch
             check(!RunSnowRules.IsSpring(null, 0.1f), W, "no season name: February is winter");
             check(RunSnowRules.IsSpring(null, 1.3f), W, "the date wraps over the year: 1.3 is 0.3");
             check(!RunSnowRules.IsSpring(null, 5f / 12f), W, "1 June is not spring (end exclusive)");
+            // The fallback follows the climate's winter end; the vanilla names still decide first.
+            check(RunSnowRules.IsSpring("MySeason", 0.72f, 8f / 12f), W, "a winter ending 1 September: late September is spring");
+            check(!RunSnowRules.IsSpring("MySeason", 0.3f, 8f / 12f), W, "a winter ending 1 September: April is not spring");
+            check(RunSnowRules.IsSpring("MySeason", 0.3f, 14f / 12f), W, "a winter ending 1 March (14 / 12): April is spring, the calendar case");
+            check(!RunSnowRules.IsSpring("SeasonWinter", 0.72f, 8f / 12f), W, "a vanilla name decides over the date");
+            check(RunSnowRules.SnowSeasonKey(2030, 0.7f, 11f / 12f) == RunSnowRules.SnowSeasonKey(2030, 0.7f) &&
+                  RunSnowRules.SnowSeasonKey(2030, 0.5f, 11f / 12f) == RunSnowRules.SnowSeasonKey(2030, 0.5f), W, "a December winter keeps the 0.6 rollover");
+            check(RunSnowRules.SnowSeasonKey(2030, 0.42f, 5f / 12f) == RunSnowRules.SnowSeasonKey(2030, 0.6f, 5f / 12f), W, "a June winter does not roll over inside the snow");
         }
 
         private static void T09Budget(Func<bool, string, string, bool> check)

@@ -109,6 +109,20 @@ namespace SkiResortMod.Systems
             return math.clamp(math.dot(d, m_Dir), 0f, LengthM);
         }
 
+        /// <summary>The line crosses the straight piece c..d, another lift's edge in plan view: the game joins the two at the crossing. A
+        /// piece met within <paramref name="endMarginM"/> of the line's ends does not count: a section drawn on from a lift meets it there.</summary>
+        public bool Crosses(float2 c, float2 d, float endMarginM)
+        {
+            float2 e = d - c;
+            float denom = m_Dir.x * e.y - m_Dir.y * e.x;
+            if (math.abs(denom) < 1e-5f)
+                return false;   // parallel
+            float2 ac = c - A.xz;
+            float along = (ac.x * e.y - ac.y * e.x) / denom;
+            float onPiece = (ac.x * m_Dir.y - ac.y * m_Dir.x) / denom;
+            return onPiece >= 0f && onPiece <= 1f && along > endMarginM && along < LengthM - endMarginM;
+        }
+
         /// <summary>The planner sample grid (pins are samples, so Plan keeps them exactly).</summary>
         public float Snap(float alongM) => math.round(alongM / C.StepM) * C.StepM;
 
@@ -118,7 +132,7 @@ namespace SkiResortMod.Systems
         {
             var seeds = new List<LiftPlanNode>(m_Pins.Count);
             for (int i = 0; i < m_Pins.Count; i++)
-                seeds.Add(new LiftPlanNode { AlongM = m_Pins[i], Member = 0, Flags = LiftPlanNodeFlags.Seed });
+                seeds.Add(new LiftPlanNode { AlongM = m_Pins[i], Member = -1, Flags = LiftPlanNodeFlags.Seed });   // the planner sets its height
             m_Planner.Forbidden = m_Removed;
             m_Planner.ForbiddenRadiusM = RemovedRadiusM;
             m_Planner.StationA = StationA;
@@ -272,7 +286,7 @@ namespace SkiResortMod.Systems
                     at++;
                 m_Pins.Insert(at, s);   // already a plan node: on the grid, spaced >= MinSpanM by the planner
             }
-            m_Removed.Add(alongM);   // the planner never puts a new tower back here (LiftTowerPlanner.Forbidden)
+            m_Removed.Add(alongM);   // no new tower back here unless the line has no other way (LiftTowerPlanner.Forbidden)
             return LiftLineEditResult.Done;
         }
 

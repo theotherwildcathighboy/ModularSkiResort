@@ -310,6 +310,18 @@ namespace ResortBatch
             check(SkiMoneyRules.SeasonKeyOfDate(2030, 0.99f) == 2030, w, "SeasonKeyOfDate(2030, 0.99) " + SkiMoneyRules.SeasonKeyOfDate(2030, 0.99f));
             check(SkiMoneyRules.SeasonKeyOfDate(2031, 0.2f) == 2030, w, "SeasonKeyOfDate(2031, 0.2) " + SkiMoneyRules.SeasonKeyOfDate(2031, 0.2f));
             check(SkiMoneyRules.SeasonKeyOfDate(2031, float.NaN) == 2030, w, "SeasonKeyOfDate(2031, NaN) reads month 1: " + SkiMoneyRules.SeasonKeyOfDate(2031, float.NaN));
+            // The season follows the climate's winter: 5 months before it, so one winter is one key.
+            check(SkiMoneyRules.SeasonFirstMonthOf(11f / 12f) == 7, w, "a December winter starts the season in July: " + SkiMoneyRules.SeasonFirstMonthOf(11f / 12f));
+            check(SkiMoneyRules.SeasonFirstMonthOf(0.417f) == 1, w, "a June winter (this map's 0.417) starts it in January: " + SkiMoneyRules.SeasonFirstMonthOf(0.417f));
+            check(SkiMoneyRules.SeasonFirstMonthOf(1f / 12f) == 9, w, "a February winter wraps back to September: " + SkiMoneyRules.SeasonFirstMonthOf(1f / 12f));
+            check(SkiMoneyRules.SeasonFirstMonthOf(float.NaN) == 7, w, "no winter reads July");
+            check(SkiMoneyRules.SeasonKeyOf(2030, 7, 7) == SkiMoneyRules.SeasonKeyOf(2030, 7) && SkiMoneyRules.SeasonKeyOf(2030, 6, 7) == SkiMoneyRules.SeasonKeyOf(2030, 6), w,
+                  "first month 7 is the July rule");
+            int first = SkiMoneyRules.SeasonFirstMonthOf(0.417f);
+            check(SkiMoneyRules.SeasonKeyOfDate(2037, 0.42f, first) == SkiMoneyRules.SeasonKeyOfDate(2037, 0.60f, first) &&
+                  SkiMoneyRules.SeasonKeyOfDate(2037, 0.60f, first) == SkiMoneyRules.SeasonKeyOfDate(2037, 0.72f, first), w,
+                  "June, July and September of a June winter are one season (bought twice before: 535 passes in July, field test)");
+            check(SkiMoneyRules.SeasonKeyOfDate(2038, 0.42f, first) == SkiMoneyRules.SeasonKeyOfDate(2037, 0.42f, first) + 1, w, "the next June is the next season");
 
             // Price: multiplier × ticket, multiplier clamped 2..10, nothing without a ticket price.
             check(SkiMoneyRules.PassPrice(4, 40) == 160, w, "PassPrice(4, 40) " + SkiMoneyRules.PassPrice(4, 40));

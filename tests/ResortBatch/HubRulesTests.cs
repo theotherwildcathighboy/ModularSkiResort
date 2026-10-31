@@ -258,6 +258,25 @@ namespace ResortBatch
             Eq(HubRules.LiftNoPair(Hints(H(4, true, false), H(4, true, false))), true, w, "LiftNoPair([(4,T,F),(4,T,F)]) two bases, no top");
             Eq(HubRules.LiftNoPair(Hints(H(0, true, true), H(4, true, false), H(0, false, true))), true, w, "LiftNoPair([(0,T,T),(4,T,F),(0,F,T)]) a complete row's top is not lone");
             Eq(HubRules.LiftNoPair(Hints(H(3, false, false), H(4, false, true))), true, w, "LiftNoPair([(3,F,F),(4,F,T)]) a line with no station, a lone top");
+
+            // PairLoneStations: a lone base and a lone top of one type in one area are one row; order, area, type and Mixed all matter.
+            var pairs = new List<int>();
+            HubRules.LoneStationRow Lone(int area, bool isBase, byte type = 0, int state = 4, bool mixed = false) =>
+                new HubRules.LoneStationRow { Area = area, State = state, HasBase = isBase, HasTop = !isBase, Type = type, Mixed = mixed };
+            string Paired(params HubRules.LoneStationRow[] rows)
+            {
+                HubRules.PairLoneStations(rows, pairs);
+                return string.Join(",", pairs);
+            }
+            Eq(Paired(), "", w, "PairLoneStations: no rows");
+            Eq(Paired(Lone(0, true), Lone(0, false)), "1,-1", w, "PairLoneStations: base then top");
+            Eq(Paired(Lone(0, false), Lone(0, true)), "-1,0", w, "PairLoneStations: top then base");
+            Eq(Paired(Lone(0, true), Lone(0, true), Lone(0, false)), "2,-1,-1", w, "PairLoneStations: two bases, one top: the first base pairs");
+            Eq(Paired(Lone(0, true), Lone(0, false), Lone(0, true), Lone(0, false)), "1,-1,3,-1", w, "PairLoneStations: two pairs, i-th with i-th");
+            Eq(Paired(Lone(0, true), Lone(1, false)), "-1,-1", w, "PairLoneStations: another area never pairs");
+            Eq(Paired(Lone(0, true, 0), Lone(0, false, 1)), "-1,-1", w, "PairLoneStations: another lift type never pairs");
+            Eq(Paired(Lone(0, true, 0, 3), Lone(0, false)), "-1,-1", w, "PairLoneStations: an unfinished line (state 3) is not a lone station");
+            Eq(Paired(Lone(0, true, 0, 4, true), Lone(0, false)), "-1,-1", w, "PairLoneStations: a Mixed row never pairs");
         }
 
         private static void Ticket(bool lastFull, long incomeLast, int paidLast, long incomeThis, int paidThis, float f,
@@ -783,6 +802,10 @@ namespace ResortBatch
             x.Lifts = Ls(L(0, true, true, true));
             x.FreeSchools = 3;
             Expect("T100e a sign's area ignores FreeSchools", x, o);
+            x = In(1, 1, 100, 1, 3);
+            x.Lifts = Ls(L(0, true, true, true));
+            x.NoGuestsNearTenthsKm = 95;
+            Expect("Row 27 nobody near: severity 2, the distance in Detail", x, o, P(HubProblemCode.SkiDaysNoGuestsNear, 2, detail: 95));
 
             // Ski-day rows 20-22 and the Efficiency hysteresis: P32-P41, 29 checks. Every case keeps one powered, complete lift unless given.
             // P32 guests cannot reach: one severity-2 row, no count.
@@ -791,8 +814,8 @@ namespace ResortBatch
             x.SkiDaysCannotReach = true;
             Expect("P32 cannot reach", x, o, P(HubProblemCode.SkiDaysCannotReach, 2));
 
-            // P33 the sort: severity 2 by code (Efficiency 4, LiftNoPower 5, SkiDaysCannotReach 20), then severity 1
-            // by code (RunsFlat 17, NoParkingNearLodge 21, LodgeNotSlopeside 22), then the Factor row.
+            // P33 the sort: severity 2 by code (Efficiency 4, LiftNoPower 5, SkiDaysCannotReach 20, NoParkingNearLodge 21),
+            // then severity 1 by code (RunsFlat 17, LodgeNotSlopeside 22), then the Factor row.
             x = In(1, 1, 50, 2, 3);
             x.Factors = Fs(F(elec, -50));
             x.Lifts = Ls(L(0, true, true, true), L(0, false, true, true));
@@ -805,8 +828,8 @@ namespace ResortBatch
                 P(HubProblemCode.Efficiency, 2, pct: 50, ifFixed: 69, factor: elec),
                 P(HubProblemCode.LiftNoPower, 2, liftIndex: 1),
                 P(HubProblemCode.SkiDaysCannotReach, 2),
+                P(HubProblemCode.NoParkingNearLodge, 2, count: 1),
                 P(HubProblemCode.RunsFlat, 1, count: 1),
-                P(HubProblemCode.NoParkingNearLodge, 1, count: 1),
                 P(HubProblemCode.LodgeNotSlopeside, 1, count: 1),
                 P(HubProblemCode.Factor, 0, pct: -50, factor: elec));
 
@@ -816,7 +839,7 @@ namespace ResortBatch
             x.LodgesNoParking = 3;
             x.LodgesNotSlopeside = 2;
             Expect("P34 counts clamp", x, o,
-                P(HubProblemCode.NoParkingNearLodge, 1, count: 1),
+                P(HubProblemCode.NoParkingNearLodge, 2, count: 1),
                 P(HubProblemCode.LodgeNotSlopeside, 1, count: 1));
 
             // P35 no lodge: min(n, 0) = 0, so only NoLodge.
@@ -1007,7 +1030,8 @@ namespace ResortBatch
             Eq((int)HubProblemCode.SummitLodgeNotLiftServed, 24, w, "HubProblemCode.SummitLodgeNotLiftServed");
             Eq((int)HubProblemCode.SchoolNoGreenRun, 25, w, "HubProblemCode.SchoolNoGreenRun");
             Eq((int)HubProblemCode.SchoolsNotLinked, 26, w, "HubProblemCode.SchoolsNotLinked");
-            Eq(Enum.GetValues(typeof(HubProblemCode)).Length, 27, w, "HubProblemCode has 27 values (append only)");
+            Eq((int)HubProblemCode.SkiDaysNoGuestsNear, 27, w, "HubProblemCode.SkiDaysNoGuestsNear");
+            Eq(Enum.GetValues(typeof(HubProblemCode)).Length, 28, w, "HubProblemCode has 28 values (append only)");
             Eq((int)HubSkiDayState.Full, 7, w, "HubSkiDayState.Full");
             Eq(Enum.GetValues(typeof(HubSkiDayState)).Length, 8, w, "HubSkiDayState has 8 values");
             Eq((int)SeasonHint.GatingOff, 6, w, "SeasonHint.GatingOff");

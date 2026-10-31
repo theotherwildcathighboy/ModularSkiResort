@@ -1,7 +1,7 @@
 /*
- * src/hub/historyRules.ts - pure rules of the History view: the whole-city sum, the range windows, the month and July-June season
+ * src/hub/historyRules.ts - pure rules of the History view: the whole-city sum, the range windows, the month and season
  * buckets, the year-on-year headline and the axis scale. No React, no binding, no text; tools/test-history-rules.js holds its oracles.
- * Month keys are C# SkiMoneyRules.MonthKey (year x 12 + month 0..11); a season is July-June keyed by the year of its July (SeasonKeyOf).
+ * Month keys are C# SkiMoneyRules.MonthKey (year x 12 + month 0..11); a season is 12 months keyed by the year of its first month (SeasonKeyOf).
  * Months before the area existed and GAP months are empty buckets (`none`), never zeros; unknown (-1) parts are left out of sums. The
  * month in progress and GAP months are left out of season averages, so a season with missing months is not drawn as a slump.
  */
@@ -14,8 +14,14 @@ export const HISTORY_RANGES: readonly HistoryRange[] = ["months12", "seasonVs", 
 export type HistoryCharts = "guests" | "money" | "both";
 export const HISTORY_CHARTS: readonly HistoryCharts[] = ["guests", "money", "both"];
 
-/** July as a calendar month 0..11 (C# SkiMoneyRules.SeasonFirstMonth 7, 1-based) */
+/** July as a calendar month 0..11 (C# SkiMoneyRules.SeasonFirstMonth 7, 1-based): a map with a December winter. */
 export const SEASON_FIRST_MONTH0 = 6;
+
+/** This map's first month of the season, from HistoryArea.seasonFirstMonth0 (C# SkiMoneyRules.SeasonFirstMonthOf). HistoryView sets it. */
+let seasonFirstMonth0 = SEASON_FIRST_MONTH0;
+export function setSeasonFirstMonth0(month0: number): void {
+  seasonFirstMonth0 = Number.isInteger(month0) && month0 >= 0 && month0 <= 11 ? month0 : SEASON_FIRST_MONTH0;
+}
 
 const PARTIAL_BITS = HISTORY_FLAG.Partial | HISTORY_FLAG.Short | HISTORY_FLAG.SnapshotMissing | HISTORY_FLAG.SkiDaysPartial |
   HISTORY_FLAG.First | HISTORY_FLAG.Current;
@@ -30,11 +36,16 @@ export function monthOfKey(key: number): number {
 }
 
 export function seasonOf(key: number): number {
-  return monthOfKey(key) >= SEASON_FIRST_MONTH0 ? yearOfKey(key) : yearOfKey(key) - 1;
+  return monthOfKey(key) >= seasonFirstMonth0 ? yearOfKey(key) : yearOfKey(key) - 1;
 }
 
 export function seasonFirstKey(season: number): number {
-  return season * 12 + SEASON_FIRST_MONTH0;
+  return season * 12 + seasonFirstMonth0;
+}
+
+/** A season that starts in January is one calendar year: its name is "2037", not "2037/38". */
+export function seasonIsOneYear(): boolean {
+  return seasonFirstMonth0 === 0;
 }
 
 export function lastKeyOf(area: HistoryArea): number {
@@ -278,7 +289,7 @@ export function sumAreas(areas: readonly HistoryArea[]): HistoryArea | null {
   const n = last - first + 1;
   const z = (): number[] => new Array<number>(n).fill(0);
   const out: HistoryArea = {
-    sign: { index: 0, version: 0 }, firstMonthKey: first, flags: z(), tourists: z(), residents: z(), skiDays: z(), ticketsPaid: z(),
+    sign: { index: 0, version: 0 }, firstMonthKey: first, seasonFirstMonth0: seasonFirstMonth0, flags: z(), tourists: z(), residents: z(), skiDays: z(), ticketsPaid: z(),
     ticketIncome: z(), lodgeIncome: z(), passIncome: z(), lessonIncome: z(), liftCost: z(), runCost: z(), buildingsCost: z(), wagesCost: z(),
     attraction: z(), snowPct: z(), snowDepthCm: z(),
   };

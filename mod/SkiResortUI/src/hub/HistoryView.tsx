@@ -20,7 +20,7 @@ import { BarChart, HISTORY_COLOR, Legend, LineStrip } from "./HistoryChart";
 import type { ChartBehind, ChartSeries, ChartSlot } from "./HistoryChart";
 import {
   HISTORY_CHARTS, HISTORY_RANGES, compareOf, effectiveRange, labelStep, linePoints, monthOfKey, netChange, niceMax, pctChange,
-  rangeEnabled, sumAreas, windowOf, yearOfKey, yearOnYear,
+  rangeEnabled, seasonIsOneYear, setSeasonFirstMonth0, sumAreas, windowOf, yearOfKey, yearOnYear,
 } from "./historyRules";
 import type { HistoryBucket, HistoryCharts, HistoryRange } from "./historyRules";
 import { historyAttraction$, historyCharts$, historyRange$, historyScope$ } from "./hubState";
@@ -62,20 +62,21 @@ function asCharts(v: string): HistoryCharts {
 
 const pad2 = (n: number): string => String(((n % 100) + 100) % 100).padStart(2, "0");
 
-/** The bucket's name: "Month of January 2027" or "Ski season 2026/27". */
+/** The bucket's name: "Month of January 2027", "Ski season 2026/27", or "Ski season 2027" where the season starts in January. */
 function bucketTitle(b: HistoryBucket, t: Translate): JSX.Element {
+  if (b.kind === "season" && seasonIsOneYear()) return <LocText entry={HUB_FMT.historySeasonYear} args={{ YEAR: String(b.key) }} />;
   if (b.kind === "season") return <LocText entry={HUB_FMT.historySeason} args={{ FROM: String(b.key), TO: pad2(b.key + 1) }} />;
   return <LocText entry={HUB_FMT.historyMonthYear} args={{ MONTH: monthName(monthOfKey(b.key), t), YEAR: String(yearOfKey(b.key)) }} />;
 }
 
-/** The axis labels: a short month (the year on January when the range spans more than a year), or "25/26" for a season. */
+/** The axis labels: a short month (the year on January when the range spans more than a year), or "25/26" ("2026" from January) for a season. */
 function axisLabels(buckets: readonly HistoryBucket[], t: Translate): string[] {
   const n = buckets.length;
   if (n === 0) return [];
   const step = labelStep(n, buckets[0].kind);
   return buckets.map((b, i) => {
     if (b.kind === "season" ? (n - 1 - i) % step !== 0 : monthOfKey(b.key) % step !== 0) return "";
-    if (b.kind === "season") return `${pad2(b.key)}/${pad2(b.key + 1)}`;
+    if (b.kind === "season") return seasonIsOneYear() ? String(b.key) : `${pad2(b.key)}/${pad2(b.key + 1)}`;
     const m = monthOfKey(b.key);
     return n > 12 && m === 0 ? String(yearOfKey(b.key)) : monthShortName(m, t);
   });
@@ -143,6 +144,7 @@ export function HistoryView(): JSX.Element {
   const t = useT();
   const samples = useNumberSamples();
   const history = useValue(history$);
+  if (history.length > 0) setSeasonFirstMonth0(history[0].seasonFirstMonth0);
   const resorts = useValue(resorts$);
   const selected = useValue(selectedResort$);
   const scope = useValue(historyScope$);

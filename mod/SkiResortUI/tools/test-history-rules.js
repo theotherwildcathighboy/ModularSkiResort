@@ -39,7 +39,7 @@ function load(srcDir, ts) {
 
 /* An area of n months from `first`; fill(i) returns overrides of the month's defaults. */
 function area(first, n, fill) {
-  const a = { sign: { index: 1, version: 1 }, firstMonthKey: first, flags: [], tourists: [], residents: [], skiDays: [], ticketsPaid: [], ticketIncome: [],
+  const a = { sign: { index: 1, version: 1 }, firstMonthKey: first, seasonFirstMonth0: 6, flags: [], tourists: [], residents: [], skiDays: [], ticketsPaid: [], ticketIncome: [],
     lodgeIncome: [], passIncome: [], lessonIncome: [], liftCost: [], runCost: [], buildingsCost: [], wagesCost: [], attraction: [], snowPct: [], snowDepthCm: [] };
   for (let i = 0; i < n; i++) {
     const m = Object.assign({ flags: 0, tourists: 0, residents: 0, skiDays: -1, ticketsPaid: 0, ticketIncome: 0, lodgeIncome: 0, passIncome: 0,
@@ -78,6 +78,13 @@ function run(srcDir) {
   const E = area(24318, 1, () => ({ flags: 128, tourists: 5 }));
 
   eq("TH1.1 seasonOf: June 2026 -> 2025, July 2026 -> 2026, January 2000 -> 1999", [R.seasonOf(24317), R.seasonOf(24318), R.seasonOf(24000)], [2025, 2026, 1999]);
+  R.setSeasonFirstMonth0(0);
+  eq("TH1.1b a June winter's season starts in January: June and July 2026 are one season, its first key January", [R.seasonOf(24317), R.seasonOf(24318), R.seasonFirstKey(2026)], [2026, 2026, 24312]);
+  eq("TH1.1d a season from January is one calendar year", R.seasonIsOneYear(), true);
+  R.setSeasonFirstMonth0(99);
+  eq("TH1.1c a bad month reads July", [R.seasonOf(24317), R.seasonOf(24318)], [2025, 2026]);
+  R.setSeasonFirstMonth0(R.SEASON_FIRST_MONTH0);
+  eq("TH1.1e a season from July spans two years", R.seasonIsOneYear(), false);
   eq("TH1.2 seasonFirstKey(2026) = July 2026; monthOfKey / yearOfKey", [R.seasonFirstKey(2026), R.monthOfKey(24317), R.yearOfKey(24317), R.monthOfKey(24000)], [24318, 5, 2026, 0]);
   eq("TH1.3 lengthOf / lastKeyOf", [R.lengthOf(A), R.lastKeyOf(A), R.lengthOf(null)], [15, 24317, 0]);
 

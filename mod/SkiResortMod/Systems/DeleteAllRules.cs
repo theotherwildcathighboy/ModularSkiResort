@@ -98,6 +98,10 @@ namespace SkiResortMod.Systems
             return deletedEdges >= edges ? DeleteNodeVerdict.Delete : DeleteNodeVerdict.KeepShared;
         }
 
+        /// <summary>SkiStubCleanupSystem: an unowned marker node becomes a plain node of the line it carries when it has edges and all of
+        /// them are foreign. One of our edges on it (a lift line's loose end at a removed station) keeps it ours.</summary>
+        public static bool StubBecomesPlain(int edges, int foreignEdges) => edges > 0 && foreignEdges >= edges;
+
         /// <summary>The button is live only in a loaded Game-mode city: not in the main menu, not in the Editor, not while loading.</summary>
         public static bool ButtonEnabled(bool gameMode, bool loading)
         {

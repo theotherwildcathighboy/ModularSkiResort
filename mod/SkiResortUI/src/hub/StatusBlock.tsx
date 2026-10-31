@@ -123,6 +123,7 @@ function ProblemText({ p, t }: { p: ProblemRow; t: Translate }): JSX.Element {
     case "signNoRoad": return <>{t(HUB_LOC.problemSignNoRoad)}</>;
     case "lodgeNoRoad": return <>{t(HUB_LOC.problemLodgeNoRoad)}</>;
     case "skiDaysCannotReach": return <>{t(HUB_LOC.problemSkiDaysCannotReach)}</>;
+    case "skiDaysNoGuestsNear": return <LocText entry={HUB_FMT.problemSkiDaysNoGuestsNear} args={{ KM: numArg(p.detail / 10, Unit.FloatSingleFraction) }} />;
     case "noParkingNearLodge": return <>{t(HUB_LOC.problemNoParkingNearLodge)}</>;
     case "lodgeNotSlopeside": return <>{t(HUB_LOC.problemLodgeNotSlopeside)}</>;
     // Codes 23-25
@@ -192,6 +193,7 @@ function problemTip(p: ProblemRow, factors: readonly ProblemRow[], live: ResortL
     case "runsRating": body = t(HUB_LOC.problemTipRunsRating); break;
     case "freeLodges": body = t(HUB_LOC.problemTipFreeLodges); break;
     case "skiDaysCannotReach": body = t(HUB_LOC.problemTipSkiDaysCannotReach); break;
+    case "skiDaysNoGuestsNear": body = t(HUB_LOC.problemTipSkiDaysNoGuestsNear); break;
     case "noParkingNearLodge": body = t(HUB_LOC.problemTipNoParkingNearLodge); break;
     case "lodgeNotSlopeside": body = t(HUB_LOC.problemTipLodgeNotSlopeside); break;
     case "mixedLiftTypes": body = t(HUB_LOC.problemTipMixedLiftTypes); break;

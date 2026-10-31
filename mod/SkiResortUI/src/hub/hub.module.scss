@@ -2845,6 +2845,16 @@
   margin-left: 8rem;
 }
 
+// The plan under the planner's knobs: a long plan scrolls here with the wheel, so it never pushes the knobs or the run list out of the panel.
+.planList {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  max-height: 200rem;
+  overflow-x: hidden;
+  overflow-y: scroll;
+}
+
 // Resort Planner v2 plan rows (QuickRunsControls.tsx PlanRows): one toggle row per lift and per pod without a lift, two small lines each
 // (the lift or pod line, then its way home and band counts); the whole row is the button, a left-out row dims.
 .planRow {

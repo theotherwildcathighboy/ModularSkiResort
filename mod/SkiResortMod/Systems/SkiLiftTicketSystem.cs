@@ -17,6 +17,7 @@ using Game;
 using Game.Buildings;
 using Game.City;
 using Game.Economy;
+using Game.Prefabs;
 using Game.Simulation;
 using Unity.Burst;
 using Unity.Collections;
@@ -73,6 +74,8 @@ namespace SkiResortMod.Systems
 
         private SimulationSystem m_SimulationSystem;
         private TimeSystem m_TimeSystem; // the midday re-arm and the [cost] clock
+        private ClimateSystem m_ClimateSystem; // with m_PrefabSystem: the ski season's first month (SkiClimateCalendar)
+        private PrefabSystem m_PrefabSystem;
         private CitySystem m_CitySystem;
         private ServiceFeeSystem m_ServiceFeeSystem;   // the fee queue (ResidentAISystem.cs:199 pattern)
         private SkiGuestCounterSystem m_Counter;
@@ -136,6 +139,8 @@ namespace SkiResortMod.Systems
             base.OnCreate();
             m_SimulationSystem = World.GetOrCreateSystemManaged<SimulationSystem>();
             m_TimeSystem = World.GetOrCreateSystemManaged<TimeSystem>();
+            m_ClimateSystem = World.GetOrCreateSystemManaged<ClimateSystem>();
+            m_PrefabSystem = World.GetOrCreateSystemManaged<PrefabSystem>();
             m_CitySystem = World.GetOrCreateSystemManaged<CitySystem>();
             m_ServiceFeeSystem = World.GetOrCreateSystemManaged<ServiceFeeSystem>();
             m_Counter = World.GetOrCreateSystemManaged<SkiGuestCounterSystem>();
@@ -584,7 +589,7 @@ namespace SkiResortMod.Systems
                 PlayerMoneys = m_PlayerMoneyLookup,
                 Passes = m_PassLookup,
                 PassWrites = m_PassWrites,
-                SeasonKey = SkiMoneyRules.SeasonKeyOfDate(m_TimeSystem.year, m_TimeSystem.normalizedDate),
+                SeasonKey = SkiMoneyRules.SeasonKeyOfDate(m_TimeSystem.year, m_TimeSystem.normalizedDate, SkiClimateCalendar.SeasonFirstMonth(m_ClimateSystem, m_PrefabSystem)),
                 PassShare = PassShare,
                 PassMultiplier = PassMultiplier,
                 LessonShare = LessonShare,

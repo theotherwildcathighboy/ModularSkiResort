@@ -69,7 +69,7 @@ export type ProblemVariant =
   | "stationsPair" | "stationsBaseOnly" | "stationsTopOnly" | "liftChairsStopped"
   | "runsUnserved" | "runsUnrateable" | "runsRating" | "freeLodges" | "runsFlat"
   | "signNoRoad" | "lodgeNoRoad"
-  | "skiDaysCannotReach" | "noParkingNearLodge" | "lodgeNotSlopeside"
+  | "skiDaysCannotReach" | "skiDaysNoGuestsNear" | "noParkingNearLodge" | "lodgeNotSlopeside"
   | "mixedLiftTypes" | "summitLodgeNotLiftServed" | "schoolNoGreenRun" | "schoolsNotLinked";
 
 export function problemVariant(p: ProblemRow): ProblemVariant | null {
@@ -102,6 +102,7 @@ export function problemVariant(p: ProblemRow): ProblemVariant | null {
     case PROBLEM.SummitLodgeNotLiftServed: return "summitLodgeNotLiftServed";
     case PROBLEM.SchoolNoGreenRun: return "schoolNoGreenRun";
     case PROBLEM.SchoolsNotLinked: return "schoolsNotLinked";
+    case PROBLEM.SkiDaysNoGuestsNear: return "skiDaysNoGuestsNear";
     default: return null;
   }
 }
@@ -148,6 +149,7 @@ export function problemClick(p: ProblemRow): ProblemClick {
     case PROBLEM.SignNoRoad: case PROBLEM.LodgeNoRoad:
     case PROBLEM.SkiDaysCannotReach: case PROBLEM.NoParkingNearLodge: case PROBLEM.LodgeNotSlopeside:
     case PROBLEM.SummitLodgeNotLiftServed: case PROBLEM.SchoolNoGreenRun: case PROBLEM.SchoolsNotLinked:
+    case PROBLEM.SkiDaysNoGuestsNear:
       return "sign";
     case PROBLEM.LiftNoPower: case PROBLEM.LiftSectionMissing: case PROBLEM.LiftUnfinished:
     case PROBLEM.StationsOnly: case PROBLEM.LiftChairsStopped: case PROBLEM.MixedLiftTypes:

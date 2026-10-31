@@ -15,6 +15,9 @@ namespace SkiResortMod.Systems
     /// Near from NearCapShare of the cap; Over above the cap (Enter refuses).</summary>
     public enum QuickRegionState : byte { Open, TooSmall, Ok, Near, Over }
 
+    /// <summary>What a click does while the region is on the map (no preview): RegionClick.</summary>
+    public enum QuickRegionClick : byte { Ignore, AddCorner, InsertCorner, CloseRegion, DragCorner }
+
     public struct QuickRegionReadout
     {
         public float AreaM2, VerticalM;
@@ -93,6 +96,18 @@ namespace SkiResortMod.Systems
         public const string TipPrefix = "SkiResort.Tooltip.QUICK_";
 
         // ---------------------------------------------------------------- region
+
+        /// <summary>A click on the map with no preview. Open: the first corner closes a region of 3 or more, other corners drag, a click on an
+        /// edge inserts, anywhere else adds. Closed: corners drag and edges insert, anywhere else does nothing, so a stray click cannot make
+        /// the outline cross itself (field test 2026-10-31). insertIndex == corners means no edge is near (GradeEdit.InsertIndex).</summary>
+        public static QuickRegionClick RegionClick(bool closed, int corners, int hoverCorner, int insertIndex)
+        {
+            if (hoverCorner >= 0)
+                return !closed && corners >= 3 && hoverCorner == 0 ? QuickRegionClick.CloseRegion : QuickRegionClick.DragCorner;
+            if (insertIndex < corners)
+                return QuickRegionClick.InsertCorner;
+            return closed ? QuickRegionClick.Ignore : QuickRegionClick.AddCorner;
+        }
 
         /// <summary>Area and vertical of the outline drawn so far. minY / maxY = the ground range under the corners (the tool samples
         /// them); the planner measures the real vertical over open ground on Enter.</summary>
@@ -398,6 +413,15 @@ namespace SkiResortMod.Systems
                 default:
                     return TipPrefix + "STATUS[" + s + "]";
             }
+        }
+
+        /// <summary>A scan that found nothing with unowned tiles in the region: those tiles count as obstacles, so the plain reason
+        /// ("too little vertical") would blame a hill the city just does not own yet.</summary>
+        public static string StatusKey(AutoPlanStatus s, bool regionHasUnownedTiles)
+        {
+            bool sayTiles = regionHasUnownedTiles &&
+                            (s == AutoPlanStatus.NoVertical || s == AutoPlanStatus.TooFlat || s == AutoPlanStatus.NoRuns);
+            return sayTiles ? TipPrefix + "STATUS[OutsideTiles]" : StatusKey(s);
         }
 
         /// <summary>Warning keys in display order (planner warnings first, by bit; then the tool's). Clears and fills keys.</summary>

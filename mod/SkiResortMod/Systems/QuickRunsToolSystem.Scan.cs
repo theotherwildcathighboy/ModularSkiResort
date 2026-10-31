@@ -70,6 +70,7 @@ namespace SkiResortMod.Systems
                 Say("QuickRuns [scan]: nothing to scan — click at least three corners", NoticeKey("NEED_CORNERS"));
                 return;
             }
+            m_RegionClosed = true;
             if (m_Readout.State == QuickRegionState.Over)
             {
                 Say($"QuickRuns [scan]: REFUSED — {ReadoutText()}", QuickRunsRules.StatusKey(AutoPlanStatus.TooLarge));
@@ -124,7 +125,7 @@ namespace SkiResortMod.Systems
         {
             AutoPlanResult r = m_Published;
             double ms = QuickRunsRules.MsSince(m_ScanT0);
-            m_StatusKey = QuickRunsRules.StatusKey(r.Status);
+            m_StatusKey = QuickRunsRules.StatusKey(r.Status, m_Obstacles != null && m_Obstacles.Exists(o => o.Kind == AutoObstacleKind.Unowned));
             m_Phase = r.Status == AutoPlanStatus.Ok ? ToolPhase.Preview : ToolPhase.Region;
             RefreshEnabled();
             int slow = 0;   // the stage of the longest unit (StageMaxMs, P2): names what to slice next

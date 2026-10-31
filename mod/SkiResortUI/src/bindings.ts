@@ -20,7 +20,7 @@ export const GROUP = "skiResort";
  * only when C#'s `contract` equals this; on a mismatch it shows the Build strip and the tree controls (CORE only) and
  * says why.
  */
-export const HUB_CONTRACT = 23;
+export const HUB_CONTRACT = 24;
 
 /** The `contract` value while the C# binding is absent (the fallback). Real contracts start at 1. */
 export const CONTRACT_ABSENT = 0;
@@ -111,6 +111,7 @@ export const PROBLEM = {
   SummitLodgeNotLiftServed: 24,  // summit-bonus lodges no working lift's top reaches (sev 1); count
   SchoolNoGreenRun: 25,  // the ski school is on but no green run counts (sev 1); subject = the top-level school
   SchoolsNotLinked: 26,  // top-level ski schools on no sign, Not linked entry (sev 1); count; subject = the first
+  SkiDaysNoGuestsNear: 27,  // an open hill with almost no homes or hotels within a ski day's drive (sev 2); detail = the nearest in tenths of a km
 } as const;
 
 /** ResortLive.skiDaysState. C# HubRules HubSkiDayState. */
@@ -796,13 +797,15 @@ export const HISTORY_FLAG = {
  * index i is month firstMonthKey + i; every array has the same length n >= 1; the last entry is the month in progress (flags & Current).
  * Money in whole credits, costs positive. Rates and point values (buildingsCost, wagesCost, attraction, snowPct, snowDepthCm) are snapshots at the
  * month's roll; for the month in progress buildings / wages are the rate x the share simulated so far. -1 = unknown in skiDays,
- * buildingsCost, wagesCost, attraction, snowPct, snowDepthCm. The view sums areas for "whole city" and buckets long ranges into July-June seasons
+ * buildingsCost, wagesCost, attraction, snowPct, snowDepthCm. The view sums areas for "whole city" and buckets long ranges into seasons
  * (src/hub/historyRules.ts). C#: SkiResortHubUISystem WriteHistory (EngineNotes/SkiResortHubUISystem.md, History binding).
  */
 export interface HistoryArea {
   sign: Entity;
   /** Month key of entry 0: year x 12 + calendar month 0..11 (C# SkiMoneyRules.MonthKey). */
   firstMonthKey: number;
+  /** The ski season's first calendar month 0..11 on this map: 5 months before the climate's winter (C# SkiMoneyRules.SeasonFirstMonthOf). */
+  seasonFirstMonth0: number;
   /** HISTORY_FLAG bits per month. */
   flags: number[];
   tourists: number[];
@@ -957,7 +960,7 @@ export const FALLBACK = {
 
 // ---- value bindings -----------------------------------------------------------------------------
 
-/** Is the hub panel open. C# owns it (launchers toggle, Escape/X close, selecting a sign opens). */
+/** Is the hub panel open. C# owns it (launchers toggle, X closes, selecting a sign opens). */
 export const hubOpen$: ValueBinding<boolean> = bindValue<boolean>(GROUP, BINDING.hubOpen, FALLBACK.hubOpen);
 /** C#'s contract number (HUB_CONTRACT on a match; CONTRACT_ABSENT when C# lacks the binding, or
  *  after the C# hub system's one-shot exception until the next load). */
@@ -1016,7 +1019,7 @@ function fire(name: string, ...args: unknown[]): void {
 export const hubTriggers = {
   /** Flip hubOpen. */
   toggleHub: (): void => fire(TRIGGER.toggleHub),
-  /** Set hubOpen (the panel's X / Escape send false). */
+  /** Set hubOpen (the panel's X sends false). */
   setHubOpen: (open: boolean): void => fire(TRIGGER.setHubOpen, open),
   /** Handshake, fired by the always-mounted HubRoot; C# logs "UI hub connected" or the mismatch. */
   uiHello: (contract: number, bundleStamp: string): void => fire(TRIGGER.uiHello, contract, bundleStamp),

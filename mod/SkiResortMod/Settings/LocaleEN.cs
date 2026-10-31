@@ -187,7 +187,7 @@ namespace SkiResortMod.Settings
                 },
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.SeasonPassShare)),
-                    "The share of resident households that buy a season pass (July to June). Each household within reach " +
+                    "The share of resident households that buy a season pass (the season starts 5 months before the map's winter). Each household within reach " +
                     "rolls once when a ski area opens for a new season, at this share times its chance of skiing there; " +
                     "households that moved in later or live farther away roll on their first visit. Holders ski free at " +
                     "the gate and go skiing more often. Tourists never buy one. 0 turns passes off. Default 50 %."

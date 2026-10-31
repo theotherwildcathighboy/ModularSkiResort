@@ -285,7 +285,9 @@ namespace SkiResortMod.Systems
         private TimeSystem m_TimeSystem;
         private CityStatisticsSystem m_CityStatistics; // the TouristIncome statistic, read once per rebuild
         private ResourceSystem m_ResourceSystem;
-        private PrefabSystem m_PrefabSystem;                 // DUMP only (notification prefab names)
+        private PrefabSystem m_PrefabSystem;                 // DUMP (notification prefab names), the climate's winter
+        private ClimateSystem m_ClimateSystem;               // the ski season's first month (SkiClimateCalendar)
+        private SkiReachCensusSystem m_ReachCensus;          // hub row 27: homes and hotels near the area
         private SkiGuestCounterSystem m_GuestCounter;
         private SkiLiftChargeSystem m_LiftCharge;
         private SkiLiftTicketSystem m_LiftTicket;            // DUMP only
@@ -345,6 +347,9 @@ namespace SkiResortMod.Systems
         private SkiResortAggregate.Agg[] m_Agg = new SkiResortAggregate.Agg[4];
         private AreaWork[] m_Work = new AreaWork[4];                                             // grown with m_Agg
         private readonly List<LiftCensus.Row> m_CensusRows = new List<LiftCensus.Row>(8);
+        private readonly List<Entity> m_RowBase = new List<Entity>(8), m_RowTop = new List<Entity>(8);   // per m_LiftsNext row, for its name
+        private readonly List<HubRules.LoneStationRow> m_LonePairIn = new List<HubRules.LoneStationRow>(8);
+        private readonly List<int> m_LonePairTop = new List<int>(8);
         private readonly List<int> m_LiftOrder = new List<int>(8);
         private readonly List<int> m_LiftOrdinals = new List<int>(8);
         private readonly Dictionary<Entity, int> m_BaseUse = new Dictionary<Entity, int>();
@@ -528,6 +533,8 @@ namespace SkiResortMod.Systems
             m_CitySystem = World.GetOrCreateSystemManaged<CitySystem>();
             m_SnowLine = World.GetOrCreateSystemManaged<SnowLineSystem>();
             m_TimeSystem = World.GetOrCreateSystemManaged<TimeSystem>();
+            m_ClimateSystem = World.GetOrCreateSystemManaged<ClimateSystem>();
+            m_ReachCensus = World.GetOrCreateSystemManaged<SkiReachCensusSystem>();
             m_CityStatistics = World.GetOrCreateSystemManaged<CityStatisticsSystem>();
             m_ResourceSystem = World.GetOrCreateSystemManaged<ResourceSystem>();
             m_PrefabSystem = World.GetOrCreateSystemManaged<PrefabSystem>();
@@ -1478,6 +1485,8 @@ namespace SkiResortMod.Systems
         private void CollectLifts(int resorts)
         {
             m_CensusRows.Clear();
+            m_RowBase.Clear();
+            m_RowTop.Clear();
             m_Census.CopyRows(m_CensusRows);
             m_CensusResort.Clear(); // census row -> resort (the area filter of SummitServed / IfLodgesOn)
             m_BaseUse.Clear();
@@ -1677,17 +1686,19 @@ namespace SkiResortMod.Systems
                     Seats = typeDef != null ? typeDef.SeatsPerCarrier : 0,
                     SpeedMps = typeDef != null ? typeDef.SpeedMps : 0f,
                 });
+                m_RowBase.Add(baseStation);
+                m_RowTop.Add(topStation);
             }
+            MergeLoneStationPairs();
 
             // Names: ordinals per resort by top height, no-top last.
             SkiResortAggregate.LiftOrdinals(m_LiftIn, m_LiftOrder, m_LiftOrdinals);
             for (int k = 0; k < m_LiftsNext.Count; k++)
             {
                 LiftStats l = m_LiftsNext[k];
-                LiftCensus.Row c = m_CensusRows[k];
                 string defaultName = LiftDefault(m_LiftOrdinals[k]);
                 // Live base's name, else an unshared live top's.
-                Entity baseE = ToEntity(c.Base), topE = ToEntity(c.Top);
+                Entity baseE = m_RowBase[k], topE = m_RowTop[k];
                 string custom = null;
                 bool fromBase = false;
                 if (IsLive(baseE) && TryCustomName(baseE, out custom))
@@ -1715,6 +1726,50 @@ namespace SkiResortMod.Systems
             }
             // Row order: by resort (Not linked last), then the name ordinal.
             SortLifts();
+        }
+
+        /// <summary>A lone base and a lone top of one lift type in one area become one row, counted as one lift (HubRules.PairLoneStations):
+        /// the top's row takes the base as its id, the shape a finished lift's row has, so it keeps the name the finished lift will carry.
+        /// The base's row leaves m_LiftsNext, m_LiftIn, m_RowBase and m_RowTop together; the census-indexed lists stay as they are.</summary>
+        private void MergeLoneStationPairs()
+        {
+            m_LonePairIn.Clear();
+            for (int k = 0; k < m_LiftsNext.Count; k++)
+            {
+                LiftStats l = m_LiftsNext[k];
+                m_LonePairIn.Add(new HubRules.LoneStationRow
+                {
+                    Area = m_LiftIn[k].Resort, State = l.State, HasBase = l.HasBase, HasTop = l.HasTop, Mixed = l.Mixed, Type = l.TypeIndex,
+                });
+            }
+            HubRules.PairLoneStations(m_LonePairIn, m_LonePairTop);
+            for (int k = m_LiftsNext.Count - 1; k >= 0; k--)
+            {
+                int top = m_LonePairTop[k];
+                if (top < 0)
+                    continue;
+                LiftStats merged = m_LiftsNext[top], lone = m_LiftsNext[k];
+                merged.Entity = lone.Entity;
+                merged.HasBase = true;
+                merged.BilledReduced |= lone.BilledReduced;
+                if (lone.CostMonth >= 0)
+                    merged.CostMonth = Math.Max(0, merged.CostMonth) + lone.CostMonth;
+                m_LiftsNext[top] = merged;
+                SkiResortAggregate.LiftIn inTop = m_LiftIn[top];
+                inTop.BaseTipY = m_LiftIn[k].BaseTipY;
+                m_LiftIn[top] = inTop;
+                m_RowBase[top] = m_RowBase[k];
+                // Every index above k is already compacted, and a top row index above k shifts with the removal: fix the pairs still to come.
+                m_LiftsNext.RemoveAt(k);
+                m_LiftIn.RemoveAt(k);
+                m_RowBase.RemoveAt(k);
+                m_RowTop.RemoveAt(k);
+                for (int b = 0; b < k; b++)
+                {
+                    if (m_LonePairTop[b] > k)
+                        m_LonePairTop[b]--;
+                }
+            }
         }
 
         /// <summary>A station entity that exists and is not being deleted (Entity.Null gives false). A census key may hold a removed
@@ -2060,7 +2115,8 @@ namespace SkiResortMod.Systems
                     live.PaidLastMonth = lastKnown ? e.Last.TicketsPaid : -1;
                     live.TicketsLastMonth = lastKnown ? ClampToInt(Math.Max(0L, e.Last.TicketIncome)) : -1;
                     // The season's sales (the ledger keeps them across month rolls) and the holders by month.
-                    int seasonKey = SkiMoneyRules.SeasonKeyOfDate(m_TimeSystem.year, m_TimeSystem.normalizedDate);
+                    int seasonKey = SkiMoneyRules.SeasonKeyOfDate(m_TimeSystem.year, m_TimeSystem.normalizedDate,
+                                                                  SkiClimateCalendar.SeasonFirstMonth(m_ClimateSystem, m_PrefabSystem));
                     live.PassesSoldSeason = SkiResortLedger.PassSeasonSoldOf(e, seasonKey);
                     live.PassIncomeSeason = ClampToInt(SkiResortLedger.PassSeasonIncomeOf(e, seasonKey));
                     live.PassHoldersThisMonth = e.This.PassHolderGuests;
@@ -2498,6 +2554,8 @@ namespace SkiResortMod.Systems
                     LodgesNoRoad = notLinked ? 0 : work.LodgesNoRoad,
                     // From SkiDaySystem's view (else false / 0 / 0).
                     SkiDaysCannotReach = skiDayRows && d.CannotReach,
+                    NoGuestsNearTenthsKm = skiDayRows && hasResult && r.RunsCounted > 0 && m_ReachCensus.TryGetReading(sign, out SkiReachCensusSystem.Reading near) &&
+                                           SkiDayRules.NoGuestsNear(near.Households, near.Near) ? SkiDayRules.TenthsKm(near.NearestM) : 0,
                     LodgesNoParking = skiDayRows ? d.LodgesNoParking : 0,
                     LodgesNotSlopeside = skiDayRows ? d.LodgesNotSlopeside : 0,
                     // Did the band show the Efficiency row on this area's previous build?
@@ -2520,7 +2578,7 @@ namespace SkiResortMod.Systems
                     // row: its census id; the lodge with the most car failures (else the sign), the first lodge with no parking, the first lodge far
                     // from the runs (lowest entity, SkiDaySystem's view); else Null.
                     Entity subject = liftRow ? lift.Entity : Entity.Null;
-                    if ((code >= 1 && code <= 4) || p.Code == HubProblemCode.SignNoRoad)
+                    if ((code >= 1 && code <= 4) || p.Code == HubProblemCode.SignNoRoad || p.Code == HubProblemCode.SkiDaysNoGuestsNear)
                         subject = sign;
                     else if (p.Code == HubProblemCode.LodgeNoRoad)
                         subject = work.LodgesNoRoad > 0 ? work.LodgeNoRoad : firstSchoolNoRoad; // a school alone
@@ -2907,6 +2965,8 @@ namespace SkiResortMod.Systems
                 h = MixB(h, r.SnowEstimated);
                 h = MixF(h, r.ValueNow);
                 h = Mix(h, (uint)r.CostMonth);
+                h = Mix(h, (uint)r.SnowDepthCm);
+                h = Mix(h, (uint)r.GunWhy);
             }
             return Mix(h, (uint)rows.Count);
         }

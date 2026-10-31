@@ -318,6 +318,21 @@ namespace SkiResortMod.Systems
         /// <summary>Straight line ≤ the reach setting (clamped 2..12 km), inclusive; NaN → false.</summary>
         public static bool WithinReach(double distanceM, int reachKm) => distanceM <= math.clamp(reachKm, ReachKmMin, ReachKmMax) * 1000.0;
 
+        /// <summary>A ski day's drive, for the hub's "nobody near" row: the reach setting, at most the default 7 km. Measured: at the 12 km
+        /// reach a hill with homes 9.5 km and more away got 1 guest sent in a month, since the trip alone takes about 6 game hours
+        /// (TravelHours at StartSpeedCar) and the chance falls with distance (DistanceFactor).</summary>
+        public static double DayTripM(int reachKm) => math.min(math.clamp(reachKm, ReachKmMin, ReachKmMax), ReachKmDefault) * 1000.0;
+
+        /// <summary>Fewer households than this within a ski day's drive read as nobody near.</summary>
+        public const int NearGuestsMin = 10;
+
+        /// <summary>An open hill can expect almost no guests: there are households in the city and hardly any near the hill. A city with no
+        /// household yet says nothing (a resort built first).</summary>
+        public static bool NoGuestsNear(int households, int near) => households > 0 && near < NearGuestsMin;
+
+        /// <summary>A distance in tenths of a km, at least 1 (the hub's Detail; 0 means no row).</summary>
+        public static int TenthsKm(float distanceM) => math.max(1, (int)math.round(distanceM / 100f));
+
         /// <summary>1 up to 1 km, then a straight line to 0 at the reach (clamped 2..12 km); NaN or
         /// negative → 0.</summary>
         public static double DistanceFactor(double distanceKm, int reachKm)

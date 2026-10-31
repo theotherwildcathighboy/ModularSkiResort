@@ -641,6 +641,10 @@ if ($usExit -ne 0) {
     $rows.Add("OK    USENGLISH $(($usOut | Select-Object -Last 1)) | $(($usSelf | Select-Object -Last 1))")
 }
 
+# ---- 12a. STATSHASH: every hub stats row field feeds its change hash (2026-10-31; DECISIONS 494) ---------------------------------
+$shOut = @(& node (Join-Path $PSScriptRoot "check-stats-hash.js") 2>&1)
+if ($LASTEXITCODE -ne 0) { $rows.Add("FAIL  STATSHASH $($shOut -join ' ')"); $failures++ } else { $rows.Add("OK    STATSHASH $(($shOut | Select-Object -Last 1))") }
+
 # ---- 12b. USERPATHS: no absolute C:\Users paths in tracked or new files (release blocker 2026-10-22; DECISIONS 377) -----
 # Generators (cs2_bldg.py, welcome_sign.py, lodge.py, cs2_review.write_pack) still write absolute paths into new manifests:
 # this gate stops them reaching a commit. Use repo-relative paths or %USERPROFILE% / %TEMP% placeholders.

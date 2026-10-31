@@ -487,7 +487,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.QUICK_KIND[Natural]", "Natural" },
                 { "SkiResort.Hub.QUICK_KIND[Snowmaking]", "Snowmaking" },
                 { "SkiResort.Hub.QUICK_KIND[Night]", "Night" },
-                { "SkiResort.Hub.QUICK_START", "Click the corners of a slope on the map, then Scan." },
+                { "SkiResort.Hub.QUICK_START", "Click the corners of a slope on the map, then the first corner again." },
                 { "SkiResort.Hub.QUICK_REGION_LINE", "{N} corners · {AREA} of {MAX} · vertical between the corners {V}" },
                 { "SkiResort.Hub.QUICK_REGION_OVER", "The region is larger than the limit shown above." },
                 { "SkiResort.Hub.QUICK_SCANNING_LINE", "Scanning the slope: {P}" },
@@ -530,7 +530,8 @@ namespace SkiResortMod
                 { "SkiResort.Hub.QUICK_TREE_COUNTS_COST", "{P} to plant · {R} to remove · costs {FEE}" },
                 { "SkiResort.Tooltip.QUICK_PROMPT[Start]", "Click the first corner of the slope you want runs on." },
                 { "SkiResort.Tooltip.QUICK_PROMPT[Corners]", "Keep clicking corners. Three or more make a region." },
-                { "SkiResort.Tooltip.QUICK_PROMPT[Ready]", "Press Enter to scan the region. Drag a corner to reshape it." },
+                { "SkiResort.Tooltip.QUICK_PROMPT[Close]", "Click the first corner to close the region and scan it. Enter does the same." },
+                { "SkiResort.Tooltip.QUICK_PROMPT[Ready]", "Press Enter to scan the region. Drag a corner to reshape it. Right click reopens it." },
                 { "SkiResort.Tooltip.QUICK_PROMPT[Drag]", "Drag the corner and release it to place it." },
                 { "SkiResort.Tooltip.QUICK_PROMPT[Scanning]", "Scanning the slope." },
                 { "SkiResort.Tooltip.QUICK_PROMPT[Preview]", "Click a run to leave it out or take it back. Enter builds; right click leaves the preview." },
@@ -562,12 +563,13 @@ namespace SkiResortMod
                 { "SkiResort.Tooltip.QUICK_POD[Beginner]", "Beginner lift here: {N} runs" },
                 { "SkiResort.Tooltip.QUICK_POD[MidStation]", "Mid-station here: {N} runs" },
                 { "SkiResort.Tooltip.QUICK_STATUS[BadInput]", "The region could not be read. Draw it again." },
-                { "SkiResort.Tooltip.QUICK_STATUS[TooLarge]", "The region is over the size limit shown beside it." },
+                { "SkiResort.Tooltip.QUICK_STATUS[TooLarge]", "The region is over the size limit shown beside it, or its corners spread wider than about 5 km by 5 km." },
                 { "SkiResort.Tooltip.QUICK_STATUS[TooSmall]", "The region is too small for a run." },
                 // Review F2: no usable ground EdgeSeedMarginM (35 m) inside the region and clear of other areas: 70 m across
                 { "SkiResort.Tooltip.QUICK_STATUS[TooNarrow]", "The region is too narrow: a run needs open slope about 70 m across, clear of other areas." },
                 { "SkiResort.Tooltip.QUICK_STATUS[Blocked]", "Most of the region is taken by other areas or by land the city does not own." },
                 { "SkiResort.Tooltip.QUICK_STATUS[NoVertical]", "The region has too little vertical for ski runs." },
+                { "SkiResort.Tooltip.QUICK_STATUS[OutsideTiles]", "Part of this region is outside the city's map tiles, and no runs can go there." },
                 { "SkiResort.Tooltip.QUICK_STATUS[AllCliff]", "The region is mostly cliff: no run can reach the bottom. Try a gentler slope." },
                 { "SkiResort.Tooltip.QUICK_STATUS[TooFlat]", "The region is too flat for ski runs." },
                 { "SkiResort.Tooltip.QUICK_STATUS[NoRuns]", "No run fits this region. Try another shape or another mix." },
@@ -720,6 +722,7 @@ namespace SkiResortMod
                 // is about ski-day guests with a car who never arrived (most never left home), not an unreachable lodge; the [reach] log
                 // line reads the row text from the active dictionary, so it follows these texts.
                 { "SkiResort.Hub.PROBLEM[SkiDaysCannotReach]", "Many ski-day guests with a car never arrive" },
+                { "SkiResort.Hub.PROBLEM[SkiDaysNoGuestsNear]", "Nearest homes and hotels are {KM} km away" },
                 { "SkiResort.Hub.PROBLEM[NoParkingNearLodge]", "No parking near the lodge" },
                 { "SkiResort.Hub.PROBLEM[LodgeNotSlopeside]", "Lodge is far from the runs" },
                 // C# HubProblemCode SchoolNoGreenRun (MixedLiftTypes and SummitLodgeNotLiftServed carry a placeholder: block (e) FMT).
@@ -728,7 +731,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.PROBLEM_TIP[LodgesAllOff]", "Switched-off lodges do not count." },
                 { "SkiResort.Hub.PROBLEM_TIP[LodgesSomeOff]", "Switched-off lodges do not count in the lodge base." },
                 // Names garbage and points at the factor rows below it.
-                { "SkiResort.Hub.PROBLEM_TIP[Efficiency]", "As in the Welcome Sign's info panel. Every cause that costs 5 % or more is listed below." },
+                { "SkiResort.Hub.PROBLEM_TIP[Efficiency]", "The Welcome Sign and its lodges, as in their info panels. Every cause that costs 5 % or more is listed below." },
                 // The lift stops, serves no run, and its upkeep is still billed (power never lowers it; no "full": the NoOpenRun quarter
                 // can still apply); power is the base station's only (CG-T8).
                 { "SkiResort.Hub.PROBLEM_TIP[LiftNoPower]", "Its base station has no electricity, so the lift stops and serves no run. Maintenance is still charged. Connect a low-voltage line." },
@@ -746,7 +749,8 @@ namespace SkiResortMod
                 { "SkiResort.Hub.PROBLEM_TIP[SchoolsNotLinked]", "More than 5 km from every Welcome Sign, so they teach nobody." },
                 // 300 m is the parking census radius, 800 m the slopeside distance.
                 { "SkiResort.Hub.PROBLEM_TIP[SkiDaysCannotReach]", "Many recent ski-day guests with a car did not reach the lodge in time. Fewer are sent until more arrive." },
-                { "SkiResort.Hub.PROBLEM_TIP[NoParkingNearLodge]", "No car spaces within 300 m of the lodge. Guests who drive need a parking lot or a street with parking." },
+                { "SkiResort.Hub.PROBLEM_TIP[SkiDaysNoGuestsNear]", "Ski-day guests come from homes and hotels, within the longest ski-day trip in Options. Beyond about 7 km few arrive in time." },
+                { "SkiResort.Hub.PROBLEM_TIP[NoParkingNearLodge]", "No car spaces within 300 m of the lodge. Tourist parties drive here, and none arrive without them." },
                 { "SkiResort.Hub.PROBLEM_TIP[LodgeNotSlopeside]", "Ski-day guests only go to a lodge within 800 m of this ski area's runs or lift stations." },
                 // C# HubProblemCode MixedLiftTypes and SummitLodgeNotLiftServed (summit-served 300 m = SkiCatalog.Ladder
                 // .SummitServedRadiusM, CG-T6), SchoolNoGreenRun (the school's green run).
@@ -952,7 +956,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.MONEY_TIP[CityIncome]", "Estimate: this ski area's share of the city's tourist draw × the game's tourist income. City income, outside the net." },
                 { "SkiResort.Hub.GUESTS_ROW[Lessons]", "Took a lesson" },
                 { "SkiResort.Hub.GUESTS_TIP[Lessons]", "Guests who took a lesson, one each." },
-                { "SkiResort.Hub.MONEY_TIP[Passes]", "Sold July to June. Holders ski free all season and come more often. Share and price: Options > Modular Ski Resort > Main > Ski area balance." },
+                { "SkiResort.Hub.MONEY_TIP[Passes]", "Sold once a season. Holders ski free all season and come more often. Share and price: Options > Modular Ski Resort > Main > Ski area balance." },
                 { "SkiResort.Hub.MONEY_ROW[PassHolders]", "Pass holders skiing, Month of {MONTH}" },
                 { "SkiResort.Hub.MONEY_TIP[PassHolders]", "Guests who came in on a season pass: no lift ticket money now." },
                 { "SkiResort.Hub.GUESTS_ROW[PassHolders]", "Came in on a season pass" },
@@ -1019,8 +1023,8 @@ namespace SkiResortMod
                 { "SkiResort.Hub.STATUS_SNOW", "{DEPTH} cm · {PCT}" },
                 { "SkiResort.Hub.STATUS_SNOW_IN", "{DEPTH} in · {PCT}" },  // US customary units
                 { "SkiResort.Hub.PROBLEM[LodgesSomeOff]", "Lodges switched off: {N}" },
-                { "SkiResort.Hub.PROBLEM[Efficiency]", "Welcome Sign at {PCT}: {REASON}" },
-                { "SkiResort.Hub.PROBLEM[EfficiencyMore]", "Welcome Sign at {PCT}: {REASON} and {N} more" },
+                { "SkiResort.Hub.PROBLEM[Efficiency]", "Ski area buildings at {PCT}: {REASON}" },
+                { "SkiResort.Hub.PROBLEM[EfficiencyMore]", "Ski area buildings at {PCT}: {REASON} and {N} more" },
                 { "SkiResort.Hub.PROBLEM[NotRunning]", "Welcome Sign not running: {REASON}" },
                 { "SkiResort.Hub.PROBLEM[NotRunningMore]", "Welcome Sign not running: {REASON} and {N} more" },
                 { "SkiResort.Hub.PROBLEM[LiftNoPower]", "{NAME} has no power" },
@@ -1139,8 +1143,8 @@ namespace SkiResortMod
                 { "SkiResort.Hub.HISTORY[RangeSeasons]", "This season vs last" },
                 { "SkiResort.Hub.HISTORY[RangeBySeason]", "By season" },
                 { "SkiResort.Hub.HISTORY_TIP[Range12]", "The last 12 months. The month in progress is the last bar." },
-                { "SkiResort.Hub.HISTORY_TIP[RangeSeasons]", "This ski season, July to June, in color. Last season's same months in gray behind it." },
-                { "SkiResort.Hub.HISTORY_TIP[RangeBySeason]", "One bar per ski season, July to June: the average month, so a season with missing months compares fairly." },
+                { "SkiResort.Hub.HISTORY_TIP[RangeSeasons]", "This ski season in color, starting 5 months before winter. Last season's same months in gray behind it." },
+                { "SkiResort.Hub.HISTORY_TIP[RangeBySeason]", "One bar per ski season, starting 5 months before winter: the average month, so a season with missing months compares fairly." },
                 { "SkiResort.Hub.HISTORY_TIP[RangeOff]", "Not enough months recorded yet." },
                 { "SkiResort.Hub.HISTORY[Guests]", "Guests" },
                 { "SkiResort.Hub.HISTORY[Finances]", "Finances" },
@@ -1174,6 +1178,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.HISTORY_TIP[Chart]", "Faded bars are partial months; hatched slots recorded nothing." },
                 { "SkiResort.Hub.HISTORY_MONTH", "Month of {MONTH} {YEAR}" },
                 { "SkiResort.Hub.HISTORY_SEASON", "Ski season {FROM}/{TO}" },
+                { "SkiResort.Hub.HISTORY_SEASON_YEAR", "Ski season {YEAR}" },
                 { "SkiResort.Hub.HISTORY_HEAD[Guests]", "Guests, {MONTH}" },
                 { "SkiResort.Hub.HISTORY_HEAD[Net]", "Net, {MONTH}" },
                 { "SkiResort.Hub.HISTORY_TIP[Before]", "Month of {MONTH} {YEAR}: {N}" },
@@ -1286,6 +1291,7 @@ namespace SkiResortMod
                 { "SkiResort.LiftTool.CLICK_ON_LINE", "Click on the line itself to add a tower there." },
                 { "SkiResort.LiftTool.END_GONE", "One end of the line is gone. Click both ends again." },
                 { "SkiResort.LiftTool.SUNK", "The station sits low in the slope, so the chairs leave it below the ground. Flatter ground or raising it with Move It helps." },
+                { "SkiResort.LiftTool.CROSSES", "This line crosses another lift. Building it joins the two at the crossing and stops the other lift's chairs." },
                 { "SkiResort.LiftTool.OPEN_END", "This end is open ground: place a station here to finish the lift." },
                 { "SkiResort.LiftTool.ADD_TOO_CLOSE_END", "A tower cannot stand that close to the end of the line. Keep {M} m clear of it." },
                 { "SkiResort.LiftTool.ADD_TOO_CLOSE_TOWER", "A tower cannot stand that close to a tower you placed. Keep {M} m between them." },
