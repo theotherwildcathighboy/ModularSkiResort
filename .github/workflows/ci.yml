@@ -59,6 +59,8 @@ jobs:
         run: node tools/check-no-user-paths.js
       - name: No late-phase deletes
         run: node tools/check-ui-phase-deletes.js
+      - name: No main-thread access to job-written components
+        run: node tools/check-main-thread-jobs.js
       - name: Listing text matches DESCRIPTION.md
         run: node tools/sync-listing.js --check
       - name: Translation template is current

@@ -100,7 +100,11 @@ namespace ResortBatch
             {
                 string name = Path.GetFileName(dir);
                 string file = Path.Combine(dir, name + ".Prefab");
-                if (File.Exists(file) && Regex.IsMatch(File.ReadAllText(file), "\\|Game\\.Prefabs\\.UIObject\\b"))
+                if (!File.Exists(file))
+                    continue;
+                string text = File.ReadAllText(file);
+                // A vehicle's UIObject is only its selected-object icon: SkiCoachSystem spawns the coach and removes it with its depot.
+                if (Regex.IsMatch(text, "\\|Game\\.Prefabs\\.UIObject\\b") && !Regex.IsMatch(text, "\\|Game\\.Prefabs\\.CarPrefab\\b"))
                     placeable.Add(name);
             }
             s_Check(placeable.Count >= 27, "DA-3b", $"{placeable.Count} placeable prefabs in the mirror (27 on 2026-10-30)");

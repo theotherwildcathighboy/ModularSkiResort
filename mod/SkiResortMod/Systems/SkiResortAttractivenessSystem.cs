@@ -20,8 +20,10 @@ using Game.Common;
 using Game.Prefabs;
 using Game.Tools;
 using SkiResortMod.Settings;
+using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
+using Unity.Jobs;
 using Unity.Mathematics;
 using static System.FormattableString;
 
@@ -2273,7 +2275,9 @@ namespace SkiResortMod.Systems
                 m_DropProvider.Clear();
             }
 
-            // The written lodges.
+            // The written lodges. The writes go through a job on Dependency: on the main thread, SetComponentData waited for every vanilla job that touches
+            // AttractivenessProvider (measured 1.45 ms per tick in a city of 355,000).
+            NativeList<ProviderWrite> writes = new NativeList<ProviderWrite>(m_Cur.WriteValues.Count + m_ZeroSigns.Count, Allocator.TempJob);
             Dictionary<Entity, int> values = m_Cur.WriteValues;
             if (values.Count > 0)
             {
@@ -2298,7 +2302,7 @@ namespace SkiResortMod.Systems
                     }
                     if (toDetected)
                         CheckDamping(lodge, pair.Value);
-                    EntityManager.SetComponentData(lodge, new AttractivenessProvider { m_Attractiveness = pair.Value });
+                    writes.Add(new ProviderWrite { Target = lodge, Value = pair.Value, OnlyIfNonzero = false });
                 }
                 if (m_ScratchEntities.Count > 0)
                 {
@@ -2319,9 +2323,46 @@ namespace SkiResortMod.Systems
             for (int i = 0; i < m_ZeroSigns.Count; i++)
             {
                 Entity sign = m_ZeroSigns[i];
-                if (EntityManager.Exists(sign) && EntityManager.TryGetComponent(sign, out AttractivenessProvider provider) &&
-                    provider.m_Attractiveness != 0)
-                    EntityManager.SetComponentData(sign, new AttractivenessProvider { m_Attractiveness = 0 });
+                if (EntityManager.Exists(sign) && EntityManager.HasComponent<AttractivenessProvider>(sign))
+                    writes.Add(new ProviderWrite { Target = sign, Value = 0, OnlyIfNonzero = true });
+            }
+
+            if (writes.Length == 0)
+            {
+                writes.Dispose();
+                return;
+            }
+            Dependency = new WriteProvidersJob
+            {
+                Writes = writes,
+                Providers = GetComponentLookup<AttractivenessProvider>(isReadOnly: false),
+            }.Schedule(Dependency);
+            writes.Dispose(Dependency);
+        }
+
+        private struct ProviderWrite
+        {
+            public Entity Target;
+            public int Value;
+            public bool OnlyIfNonzero;
+        }
+
+        /// <summary>WriteProviders' values, after this frame's vanilla writes (the system's anchor and Dependency put it there).</summary>
+        [BurstCompile]
+        private struct WriteProvidersJob : IJob
+        {
+            [ReadOnly] public NativeList<ProviderWrite> Writes;
+            public ComponentLookup<AttractivenessProvider> Providers;
+
+            public void Execute()
+            {
+                for (int i = 0; i < Writes.Length; i++)
+                {
+                    ProviderWrite write = Writes[i];
+                    if (!Providers.HasComponent(write.Target) || (write.OnlyIfNonzero && Providers[write.Target].m_Attractiveness == 0))
+                        continue;
+                    Providers[write.Target] = new AttractivenessProvider { m_Attractiveness = write.Value };
+                }
             }
         }
 

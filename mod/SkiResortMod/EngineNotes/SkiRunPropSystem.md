@@ -33,6 +33,9 @@ prefab, so the game's standard missing-asset handling applies.
 Defensive contract (house pattern): ARMED line per load, one line per bridged area, one-shot "!!!" catch that disables for the load
 only.
 
+The bridge looks only at areas tagged Created or Updated, plus one full scan after a load: a loop over every unbridged Surface area per
+frame cost 0.53 ms on a city with 31,183 of them, paused too (DECISIONS 521).
+
 ## Prop density
 
 Pure rules in `RunPropDensityRules` (tests `DensityTests`). Two Options sliders in the Runs group, `SnowGunDensityPct` ("Snow guns and

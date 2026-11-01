@@ -37,6 +37,8 @@ namespace SkiResortMod.Systems
 
         private PrefabSystem m_PrefabSystem;
         private EntityQuery m_UnbridgedAreaQuery;
+        private EntityQuery m_FreshAreaQuery;
+        private bool m_FullScanDue;
         private EntityQuery m_PrefabScanQuery;
 
         private readonly HashSet<Entity> m_RunPrefabs = new HashSet<Entity>();
@@ -103,10 +105,10 @@ namespace SkiResortMod.Systems
             m_PrefabSystem = World.GetOrCreateSystemManaged<PrefabSystem>();
 
             // Areas that could still need the bridge. The marker of a fully bridged area is PseudoRandomSeed (added last), not the SubObject
-            // buffer, so runs bridged by an earlier buffer-only version are picked up again and completed. Once done they leave the query, so
-            // steady state is empty and the early-out is near-free. Only LotPrefab adds PseudoRandomSeed (Game.Prefabs/LotPrefab.cs:37), so
-            // Game.Areas.Surface (SurfacePrefab.cs:21-23, as m_PropRunQuery below) keeps map tiles, districts and vanilla surfaces out: only a
-            // run of ours that is not yet fully bridged remains.
+            // buffer, so runs bridged by an earlier buffer-only version are picked up again and completed. Only LotPrefab adds PseudoRandomSeed
+            // (Game.Prefabs/LotPrefab.cs:37), so Game.Areas.Surface (SurfacePrefab.cs:21-23, as m_PropRunQuery below) keeps map tiles and districts out.
+            // Every vanilla surface area stays in: 31,183 in a city of 355,000, 0.53 ms per scan measured. So this whole query is scanned once after a
+            // load, and from then on only the areas of m_FreshAreaQuery.
             m_UnbridgedAreaQuery = GetEntityQuery(new EntityQueryDesc
             {
                 All = new[]
@@ -115,6 +117,28 @@ namespace SkiResortMod.Systems
                     ComponentType.ReadOnly<Game.Areas.Surface>(),
                     ComponentType.ReadOnly<PrefabRef>(),
                     ComponentType.ReadOnly<Node>(),
+                },
+                None = new[]
+                {
+                    ComponentType.ReadOnly<PseudoRandomSeed>(),
+                    ComponentType.ReadOnly<Deleted>(),
+                    ComponentType.ReadOnly<Temp>(),
+                },
+            });
+            // The same areas this frame: a drawn run carries Updated here, right before SecondaryObjectSystem.
+            m_FreshAreaQuery = GetEntityQuery(new EntityQueryDesc
+            {
+                All = new[]
+                {
+                    ComponentType.ReadOnly<Area>(),
+                    ComponentType.ReadOnly<Game.Areas.Surface>(),
+                    ComponentType.ReadOnly<PrefabRef>(),
+                    ComponentType.ReadOnly<Node>(),
+                },
+                Any = new[]
+                {
+                    ComponentType.ReadOnly<Created>(),
+                    ComponentType.ReadOnly<Updated>(),
                 },
                 None = new[]
                 {
@@ -157,6 +181,7 @@ namespace SkiResortMod.Systems
             m_Disabled = false;
             m_ErrorLogged = false;
             m_BridgedCount = 0;
+            m_FullScanDue = true;
 
             // HARD GATE: Game only — spawned props must never be baked into a map. (Prop density: at a
             // non-Game load LoadDensity only writes the base values back after a write, hygiene.)
@@ -209,12 +234,16 @@ namespace SkiResortMod.Systems
 
             try
             {
-                if (m_Disabled || !m_Armed || !ResortPresence.Present || m_UnbridgedAreaQuery.IsEmptyIgnoreFilter)
+                if (m_Disabled || !m_Armed || !ResortPresence.Present)
+                    return;
+                EntityQuery scan = m_FullScanDue ? m_UnbridgedAreaQuery : m_FreshAreaQuery;
+                m_FullScanDue = false;
+                if (scan.IsEmptyIgnoreFilter)
                     return;
 
                 // Collect first, mutate after — structural changes invalidate chunks.
                 NativeList<Entity> toBridge = default;
-                var chunks = m_UnbridgedAreaQuery.ToArchetypeChunkArray(Allocator.Temp);
+                var chunks = scan.ToArchetypeChunkArray(Allocator.Temp);
                 try
                 {
                     var entityHandle = GetEntityTypeHandle();

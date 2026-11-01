@@ -143,6 +143,9 @@ Nothing per frame (the watcher keeps its two `IsEmptyIgnoreFilter` checks); meas
 
 ## Sync points
 
+The per-tick provider writes go through `WriteProvidersJob` on `Dependency`: `EntityManager.SetComponentData` waited for every vanilla job touching
+`AttractivenessProvider`, 1.45 ms per tick in a city of 355,000 (docs/research/field/2026-11-01/PERF-BIG-CITY.md). Only `CheckDamping`, with Tourism Overhaul present, still reads on the main thread.
+
 The park walk syncs only PrefabRef's writers (`EntityManager.CompleteDependencyBeforeRO`, ParkedVehiclesSystem.cs:1732); the query
 has no Transform. Reading a Transform through EntityManager completes every job that writes Transform: CarMoveSystem,
 HumanMoveSystem and the other move systems, which run earlier in the same GameSimulation pass (SystemOrder.cs 1.6.2 :338-356,

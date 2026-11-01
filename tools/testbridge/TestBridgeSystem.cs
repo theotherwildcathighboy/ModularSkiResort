@@ -52,6 +52,7 @@ namespace SkiTestBridge
         protected override void OnUpdate()
         {
             base.OnUpdate();
+            TickPerf();
             TickSequence();
         }
 
@@ -103,6 +104,8 @@ namespace SkiTestBridge
                 case "milestone": return NextMilestone();
                 case "demand": return UnlimitedDemand();
                 case "heights": return Heights(args);
+                case "perf": return PerfCommand(args);
+                case "tiles": return UnlockTiles();
                 default: throw new ArgumentException($"unknown op '{op}'");
             }
         }

@@ -4,9 +4,11 @@
 // Phase: GameSimulation, UpdateBefore<SkiCoachSystem, TransportCarAISystem> (Mod.cs). Anchor AND interval (16) are load-bearing: same interval
 // inherits the AI's offset 1 (UpdateSystem.cs:431-436, 1.6.2f1), so the turnaround lands between navigation and the AI tick of the same frame.
 // Stateless across a save: a coach is found by its Owner's prefab; the probe carries LivePath, which the saver skips. Pause stops it; the Editor never arms it.
+// The vehicles are read in a job on the system's Dependency, never on the main thread: there, a read of a car's lane waits for that frame's navigation jobs.
 // Engine notes: EngineNotes/SkiCoachSystem.md
 
 using System.Collections.Generic;
+using System.Diagnostics;
 using Colossal.Serialization.Entities;
 using Game;
 using Game.Buildings;
@@ -19,8 +21,10 @@ using Game.Routes;
 using Game.Simulation;
 using Game.Tools;
 using Game.Vehicles;
+using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
+using Unity.Jobs;
 using Unity.Mathematics;
 
 namespace SkiResortMod.Systems
@@ -42,6 +46,9 @@ namespace SkiResortMod.Systems
         /// <summary>The first turnarounds of a load print, the rest count in the spawn line.</summary>
         private const int LoggedTurns = 4;
 
+        /// <summary>Ticks in the one `Coach [cost]` line of a load.</summary>
+        private const int CostTicks = 256;
+
         /// <summary>The depot palette's oxblood.</summary>
         private static readonly UnityEngine.Color32 CoachColor = new UnityEngine.Color32(112, 38, 36, 255);
 
@@ -62,12 +69,27 @@ namespace SkiResortMod.Systems
         private readonly List<SkiDaySystem.DepotView> m_Depots = new List<SkiDaySystem.DepotView>(2);
         private readonly Dictionary<Entity, Slot> m_Slots = new Dictionary<Entity, Slot>(2);
         private readonly Dictionary<Entity, Entity> m_LodgeOf = new Dictionary<Entity, Entity>(2);
-        private readonly HashSet<Entity> m_Driving = new HashSet<Entity>();
-        private EntityQuery m_CarPrefabQuery;
-        private Entity m_BusPrefab;
-        private bool m_Armed, m_Disabled, m_OffsetLogged;
+        private EntityQuery m_CarPrefabQuery, m_BuildingPrefabQuery;
+        private Entity m_BusPrefab, m_DepotPrefab;
+        private bool m_Armed, m_Disabled, m_OffsetLogged, m_JobInFlight;
         private int m_EmptyTicks, m_Turns, m_Spawns;
         private Unity.Mathematics.Random m_Random;
+
+        // The job's data: written on the main thread only with no job in flight.
+        private JobHandle m_JobHandle;
+        private NativeParallelHashMap<Entity, Entity> m_JobLodgeOf;
+        private NativeParallelHashSet<Entity> m_JobDriving;
+        private NativeParallelHashMap<Entity, Entity> m_JobLastTargets;
+        private NativeList<TurnRow> m_JobTurns;
+
+        private int m_CostTicks;
+        private double m_CostSumMs, m_CostMaxMs;
+        private bool m_CostLogged;
+
+        private struct TurnRow
+        {
+            public Entity Vehicle, Depot, Target;
+        }
 
         protected override void OnCreate()
         {
@@ -87,10 +109,32 @@ namespace SkiResortMod.Systems
                 None = new[] { ComponentType.ReadOnly<Deleted>(), ComponentType.ReadOnly<Temp>() },
             });
             m_CarPrefabQuery = GetEntityQuery(ComponentType.ReadOnly<CarData>(), ComponentType.ReadOnly<PrefabData>());
+            m_BuildingPrefabQuery = GetEntityQuery(ComponentType.ReadOnly<BuildingData>(), ComponentType.ReadOnly<PrefabData>());
             m_ProbeArchetype = EntityManager.CreateArchetype(ComponentType.ReadWrite<PathInformation>(), ComponentType.ReadWrite<PathElement>(),
                 ComponentType.ReadWrite<LivePath>());
             m_Random = new Unity.Mathematics.Random(0x5B05C0ACu);
+            m_JobLodgeOf = new NativeParallelHashMap<Entity, Entity>(4, Allocator.Persistent);
+            m_JobDriving = new NativeParallelHashSet<Entity>(4, Allocator.Persistent);
+            m_JobLastTargets = new NativeParallelHashMap<Entity, Entity>(4, Allocator.Persistent);
+            m_JobTurns = new NativeList<TurnRow>(4, Allocator.Persistent);
             Mod.Log.Info($"{nameof(SkiCoachSystem)} created");
+        }
+
+        protected override void OnDestroy()
+        {
+            m_JobHandle.Complete();
+            m_JobLodgeOf.Dispose();
+            m_JobDriving.Dispose();
+            m_JobLastTargets.Dispose();
+            m_JobTurns.Dispose();
+            base.OnDestroy();
+        }
+
+        protected override void OnGamePreload(Purpose purpose, GameMode mode)
+        {
+            base.OnGamePreload(purpose, mode);
+            m_JobHandle.Complete();
+            m_JobInFlight = false;
         }
 
         /// <summary>TransportCarAISystem's interval (engine notes: the turnaround).</summary>
@@ -102,21 +146,46 @@ namespace SkiResortMod.Systems
         protected override void OnGameLoadingComplete(Purpose purpose, GameMode mode)
         {
             base.OnGameLoadingComplete(purpose, mode);
+            m_JobHandle.Complete();
+            m_JobInFlight = false;
             m_Armed = mode == GameMode.Game;
             m_Disabled = false;
             m_BusPrefab = Entity.Null;
+            m_DepotPrefab = Entity.Null;
             m_OffsetLogged = false;
             m_EmptyTicks = 0;
             m_Turns = 0;
             m_Spawns = 0;
             m_Slots.Clear();
             m_LodgeOf.Clear();
+            m_CostTicks = 0;
+            m_CostSumMs = 0;
+            m_CostMaxMs = 0;
+            m_CostLogged = false;
         }
 
         protected override void OnUpdate()
         {
             if (!m_Armed || m_Disabled || !ResolvePrefabs())
                 return;
+            long t0 = Stopwatch.GetTimestamp();
+            bool tended = Tick();
+            if (tended)
+                RecordCost((Stopwatch.GetTimestamp() - t0) * 1000.0 / Stopwatch.Frequency);
+        }
+
+        /// <summary>False when there was nothing to tend.</summary>
+        private bool Tick()
+        {
+            // Last tick's job: its wait on that tick's navigation ended long ago, so this does not wait.
+            bool haveDriving = m_JobInFlight;
+            if (m_JobInFlight)
+            {
+                m_JobHandle.Complete();
+                m_JobInFlight = false;
+                HarvestJob();
+            }
+
             uint frame = m_SimulationSystem.frameIndex;
             if (!m_OffsetLogged)
             {
@@ -127,7 +196,7 @@ namespace SkiResortMod.Systems
             m_SkiDays.CopyDepots(m_Depots);
             m_EmptyTicks = m_Depots.Count == 0 ? m_EmptyTicks + 1 : 0;
             if (m_Depots.Count == 0 && m_EmptyTicks < EmptyViewTicks)
-                return;
+                return false;
 
             m_LodgeOf.Clear();
             for (int i = 0; i < m_Depots.Count; i++)
@@ -138,55 +207,147 @@ namespace SkiResortMod.Systems
                     m_LodgeOf[depot.Depot] = depot.CoachLodge;
             }
             if (m_LodgeOf.Count == 0 && m_Slots.Count == 0 && m_VehicleQuery.IsEmptyIgnoreFilter)
-                return;
+                return false;
 
-            EntityCommandBuffer commands = m_Barrier.CreateCommandBuffer();
-            TendCoaches(commands);
-            TendSpawns(commands, frame);
+            // The spawns need last tick's list of coaches: without one, a coach loaded from the save would get a twin.
+            if (haveDriving)
+                TendSpawns(m_Barrier.CreateCommandBuffer(), frame);
+            ScheduleTendCoaches();
+            return true;
         }
 
-        /// <summary>Removes coaches without a working depot, turns the others around at the end of their path.</summary>
-        private void TendCoaches(EntityCommandBuffer commands)
+        private void ScheduleTendCoaches()
         {
-            m_Driving.Clear();
-            using NativeArray<Entity> vehicles = m_VehicleQuery.ToEntityArray(Allocator.Temp);
-            for (int i = 0; i < vehicles.Length; i++)
+            m_JobLodgeOf.Clear();
+            foreach (KeyValuePair<Entity, Entity> pair in m_LodgeOf)
+                m_JobLodgeOf[pair.Key] = pair.Value;
+            m_JobDriving.Clear();
+            m_JobLastTargets.Clear();
+            m_JobTurns.Clear();
+
+            NativeList<ArchetypeChunk> chunks = m_VehicleQuery.ToArchetypeChunkListAsync(Allocator.TempJob, out JobHandle chunksHandle);
+            m_JobHandle = new TendCoachesJob
             {
-                Entity vehicle = vehicles[i];
-                if (EntityManager.GetComponentData<PrefabRef>(vehicle).m_Prefab != m_BusPrefab ||
-                    (EntityManager.GetComponentData<Game.Vehicles.PublicTransport>(vehicle).m_State & PublicTransportFlags.DummyTraffic) == 0)
-                    continue;   // a line bus
-                Entity depot = EntityManager.GetComponentData<Owner>(vehicle).m_Owner;
-                bool ownerGone = !EntityManager.Exists(depot) || EntityManager.HasComponent<Deleted>(depot);
-                if (!ownerGone && !m_LodgeOf.ContainsKey(depot) && m_PrefabSystem.GetPrefabName(EntityManager.GetComponentData<PrefabRef>(depot).m_Prefab) != SkiCatalog.Names.BusDepot)
-                    continue;   // vanilla's traffic filler
-                if (ownerGone || !m_LodgeOf.TryGetValue(depot, out Entity lodge) || !m_Driving.Add(depot))
+                Chunks = chunks,
+                EntityType = GetEntityTypeHandle(),
+                PrefabRefType = GetComponentTypeHandle<PrefabRef>(isReadOnly: true),
+                TransportType = GetComponentTypeHandle<Game.Vehicles.PublicTransport>(isReadOnly: true),
+                OwnerType = GetComponentTypeHandle<Owner>(isReadOnly: true),
+                PrefabRefs = GetComponentLookup<PrefabRef>(isReadOnly: true),
+                DeletedTags = GetComponentLookup<Deleted>(isReadOnly: true),
+                Lanes = GetComponentLookup<CarCurrentLane>(isReadOnly: false),
+                Paths = GetComponentLookup<PathOwner>(isReadOnly: false),
+                Targets = GetComponentLookup<Target>(isReadOnly: false),
+                LodgeOf = m_JobLodgeOf,
+                Driving = m_JobDriving,
+                LastTargets = m_JobLastTargets,
+                Turns = m_JobTurns,
+                Commands = m_Barrier.CreateCommandBuffer(),
+                BusPrefab = m_BusPrefab,
+                DepotPrefab = m_DepotPrefab,
+            }.Schedule(JobHandle.CombineDependencies(Dependency, chunksHandle));
+            chunks.Dispose(m_JobHandle);
+            m_Barrier.AddJobHandleForProducer(m_JobHandle);
+            Dependency = m_JobHandle;
+            m_JobInFlight = true;
+        }
+
+        private void HarvestJob()
+        {
+            using (NativeKeyValueArrays<Entity, Entity> last = m_JobLastTargets.GetKeyValueArrays(Allocator.Temp))
+            {
+                for (int i = 0; i < last.Length; i++)
                 {
-                    commands.AddComponent<Deleted>(vehicle);
-                    continue;
+                    Slot slot = m_Slots.TryGetValue(last.Keys[i], out Slot known) ? known : default;
+                    slot.LastTarget = last.Values[i];
+                    m_Slots[last.Keys[i]] = slot;
+                }
+            }
+            for (int i = 0; i < m_JobTurns.Length; i++)
+            {
+                TurnRow row = m_JobTurns[i];
+                if (++m_Turns <= LoggedTurns)
+                    Mod.Log.Info($"Coach [turn] {Fmt(row.Vehicle)} of depot {Fmt(row.Depot)} now drives to {Fmt(row.Target)}");
+            }
+        }
+
+        /// <summary>Removes coaches without a working depot, turns the others around at the end of their path. One worker, after the frame's navigation
+        /// and before the AI tick: the system's Dependency and the Lookups below put it there.</summary>
+        [BurstCompile]
+        private struct TendCoachesJob : IJob
+        {
+            [ReadOnly] public NativeList<ArchetypeChunk> Chunks;
+            [ReadOnly] public EntityTypeHandle EntityType;
+            [ReadOnly] public ComponentTypeHandle<PrefabRef> PrefabRefType;
+            [ReadOnly] public ComponentTypeHandle<Game.Vehicles.PublicTransport> TransportType;
+            [ReadOnly] public ComponentTypeHandle<Owner> OwnerType;
+            [ReadOnly] public ComponentLookup<PrefabRef> PrefabRefs;
+            [ReadOnly] public ComponentLookup<Deleted> DeletedTags;
+            public ComponentLookup<CarCurrentLane> Lanes;
+            public ComponentLookup<PathOwner> Paths;
+            public ComponentLookup<Target> Targets;
+            [ReadOnly] public NativeParallelHashMap<Entity, Entity> LodgeOf;
+            public NativeParallelHashSet<Entity> Driving;
+            public NativeParallelHashMap<Entity, Entity> LastTargets;
+            public NativeList<TurnRow> Turns;
+            public EntityCommandBuffer Commands;
+            public Entity BusPrefab, DepotPrefab;
+
+            public void Execute()
+            {
+                for (int c = 0; c < Chunks.Length; c++)
+                {
+                    ArchetypeChunk chunk = Chunks[c];
+                    NativeArray<PrefabRef> prefabs = chunk.GetNativeArray(ref PrefabRefType);
+                    NativeArray<Game.Vehicles.PublicTransport> transports = chunk.GetNativeArray(ref TransportType);
+                    for (int i = 0; i < prefabs.Length; i++)
+                    {
+                        if (prefabs[i].m_Prefab == BusPrefab && (transports[i].m_State & PublicTransportFlags.DummyTraffic) != 0)   // else a line bus
+                            TendOne(chunk.GetNativeArray(EntityType)[i], chunk.GetNativeArray(ref OwnerType)[i].m_Owner);
+                    }
+                }
+            }
+
+            private void TendOne(Entity vehicle, Entity depot)
+            {
+                bool ownerGone = !PrefabRefs.HasComponent(depot) || DeletedTags.HasComponent(depot);
+                if (!ownerGone && !LodgeOf.ContainsKey(depot) && PrefabRefs[depot].m_Prefab != DepotPrefab)
+                    return;   // vanilla's traffic filler
+                if (ownerGone || !LodgeOf.TryGetValue(depot, out Entity lodge) || !Driving.Add(depot))
+                {
+                    Commands.AddComponent<Deleted>(vehicle);
+                    return;
                 }
 
-                Target target = EntityManager.GetComponentData<Target>(vehicle);
-                Slot slot = m_Slots.TryGetValue(depot, out Slot known) ? known : default;
-                slot.LastTarget = target.m_Target;
-                m_Slots[depot] = slot;
-
-                CarCurrentLane lane = EntityManager.GetComponentData<CarCurrentLane>(vehicle);
-                PathOwner path = EntityManager.GetComponentData<PathOwner>(vehicle);
-                if ((lane.m_LaneFlags & Game.Vehicles.CarLaneFlags.EndOfPath) == 0 || (path.m_State & (PathFlags.Pending | PathFlags.Obsolete)) != 0)
-                    continue;
-                // What SetupPathfind clears when the AI repaths in this same frame: without EndOfPath the delete at
-                // TransportCarAISystem.cs:366-397 cannot fire, and RequireNewPath (:480) takes the new target.
-                VehicleUtils.SetTarget(ref path, ref target, target.m_Target == depot ? lodge : depot);
-                lane.m_LaneFlags &= ~Game.Vehicles.CarLaneFlags.EndOfPath;
-                EntityManager.SetComponentData(vehicle, path);
-                EntityManager.SetComponentData(vehicle, target);
-                EntityManager.SetComponentData(vehicle, lane);
-                slot.LastTarget = target.m_Target;
-                m_Slots[depot] = slot;
-                if (++m_Turns <= LoggedTurns)
-                    Mod.Log.Info($"Coach [turn] {Fmt(vehicle)} of depot {Fmt(depot)} now drives to {Fmt(target.m_Target)}");
+                Target target = Targets[vehicle];
+                CarCurrentLane lane = Lanes[vehicle];
+                PathOwner path = Paths[vehicle];
+                if ((lane.m_LaneFlags & Game.Vehicles.CarLaneFlags.EndOfPath) != 0 && (path.m_State & (PathFlags.Pending | PathFlags.Obsolete)) == 0)
+                {
+                    // What SetupPathfind clears when the AI repaths in this same frame: without EndOfPath the delete at
+                    // TransportCarAISystem.cs:366-397 cannot fire, and RequireNewPath (:480) takes the new target.
+                    VehicleUtils.SetTarget(ref path, ref target, target.m_Target == depot ? lodge : depot);
+                    lane.m_LaneFlags &= ~Game.Vehicles.CarLaneFlags.EndOfPath;
+                    Paths[vehicle] = path;
+                    Targets[vehicle] = target;
+                    Lanes[vehicle] = lane;
+                    Turns.Add(new TurnRow { Vehicle = vehicle, Depot = depot, Target = target.m_Target });
+                }
+                LastTargets[depot] = target.m_Target;
             }
+        }
+
+        private void RecordCost(double ms)
+        {
+            if (m_CostLogged)
+                return;
+            m_CostSumMs += ms;
+            m_CostMaxMs = System.Math.Max(m_CostMaxMs, ms);
+            if (++m_CostTicks < CostTicks)
+                return;
+            m_CostLogged = true;
+            Mod.Log.Info($"Coach [cost] main thread per tick: mean {m_CostSumMs / m_CostTicks:F3} ms, max {m_CostMaxMs:F3} ms over {m_CostTicks} ticks; " +
+                         $"{m_LodgeOf.Count} working depot(s), {m_Spawns} spawn(s), {m_Turns} turnaround(s) since the load");
         }
 
         /// <summary>A working depot without a coach: a road probe first, the vehicle on its answer. Vanilla never makes the vehicle before the path.</summary>
@@ -195,7 +356,7 @@ namespace SkiResortMod.Systems
             foreach (KeyValuePair<Entity, Entity> pair in m_LodgeOf)
             {
                 Entity depot = pair.Key, lodge = pair.Value;
-                if (m_Driving.Contains(depot))
+                if (m_JobDriving.Contains(depot))
                     continue;
                 Slot slot = m_Slots.TryGetValue(depot, out Slot known) ? known : default;
                 if (slot.Probe == Entity.Null)
@@ -311,6 +472,14 @@ namespace SkiResortMod.Systems
         {
             if (m_BusPrefab != Entity.Null)
                 return true;
+            using (NativeArray<Entity> buildings = m_BuildingPrefabQuery.ToEntityArray(Allocator.Temp))
+            {
+                for (int i = 0; i < buildings.Length && m_DepotPrefab == Entity.Null; i++)
+                {
+                    if (m_PrefabSystem.GetPrefabName(buildings[i]) == SkiCatalog.Names.BusDepot)
+                        m_DepotPrefab = buildings[i];
+                }
+            }
             using NativeArray<Entity> cars = m_CarPrefabQuery.ToEntityArray(Allocator.Temp);
             for (int i = 0; i < cars.Length && m_BusPrefab == Entity.Null; i++)
             {

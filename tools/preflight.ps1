@@ -680,6 +680,14 @@ if ($LASTEXITCODE -ne 0) {
     $rows.Add("OK    LATEDELETE $(($ldOut | Select-Object -Last 1))")
 }
 
+# ---- 12c. JOBREAD: no main-thread access to components the city's jobs write (big-city pass 2026-11-01; DECISIONS 521) --------
+$jrOut = @(& node (Join-Path $PSScriptRoot "check-main-thread-jobs.js") 2>&1)
+if ($LASTEXITCODE -ne 0) {
+    foreach ($l in $jrOut) { $rows.Add("FAIL  JOBREAD $l"); $failures++ }
+} else {
+    $rows.Add("OK    JOBREAD $(($jrOut | Select-Object -Last 1))")
+}
+
 # ---- 12c. LOCALE: locale/en-US.json (the translation template) matches the English dictionaries -------------------------------
 # tools/export-locale.js --check regenerates the file in memory from LocaleEN.cs and Settings/LocaleEN.cs and compares it with the
 # one on disk; it also fails on a duplicate key, an unreadable value or a hub text that differs from hubText.ts.

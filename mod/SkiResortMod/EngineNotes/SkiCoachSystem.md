@@ -17,6 +17,10 @@ Vanilla deletes a dummy at its path end: `VehicleUtils.PathEndReached` needs `En
 (`SystemOrder.cs:311`), then this system, then the AI (`:317`). `UpdateBefore` with the same interval inherits the offset (`UpdateSystem.cs:431-436`);
 `Coach [armed]` prints the frame's value, which must be 1.
 
+The vehicles are read in a Burst job on the system's `Dependency`, which runs after that frame's navigation and before the AI. On the main thread, a read of
+`CarCurrentLane` waits for navigation: measured 2 ms per rendered frame at 3x in a city of 355,000 (docs/research/field/2026-11-01/PERF-BIG-CITY.md). The spawns
+read the job's list of coaches on the next tick, so the first tick after a load spawns nothing and a saved coach gets no twin. `Coach [cost]`, once per load.
+
 So when the current lane has `EndOfPath`, in the same frame: `VehicleUtils.SetTarget` to the other end (Obsolete), clear `EndOfPath`. The AI then skips the delete and
 `RequireNewPath` (`:480`) calls `FindNewPath`, one entity, no pop. `SetupPathfind` clears the same flag (`VehicleUtils.cs:228`).
 

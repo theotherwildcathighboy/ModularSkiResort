@@ -63,16 +63,18 @@ Every reply is a JSON string with `ok`, and `error` when `ok` is false.
 | `project` | `wx`, `wz`, optional `wy` | client pixel; `safe` is false when off screen or in the edge-scroll band |
 | `camera` | optional `wx` + `wz`, `zoom`, `yaw`, `tilt` | camera state; applied on the next frames, so follow with a `settle` step |
 | `sim` | optional `speed` (0 pauses) | speed and frame index |
-| `time` | `minutes` | advances the game clock (the dev menu's `DebugAdvanceTime`) |
+| `time` | `minutes` | advances the game clock (the dev menu's `DebugAdvanceTime`). It skips no sim work but ages citizens: repeated jumps pile up deaths and hearse icons, so never judge city health after them |
 | `money` | optional `add`, `unlimited` | new balance |
 | `tool` | `prefab`, optional `mode` (`Straight`, `SimpleCurve`, `ComplexCurve`, `Continuous`, `Grid`, `Replace`, `Point`) | active tool; no `prefab` returns to the default tool. For setup: a test of the hub or toolbar clicks the real buttons |
 | `prefabs` | `match` (part of a name) | matching prefab names and classes |
 | `unlock`, `milestone`, `demand` | | the dev menu's Unlock all, Next MS and Unlimited demands |
+| `tiles` | | unlocks every map tile (`MapTilePurchaseSystem.UnlockMapTiles`) |
 | `heights` | `x0`, `z0`, `x1`, `z1`, `step` | terrain height grid, `min`, `max`; picks test sites by slope without a screenshot |
 | `errors` | optional `clear` | game errors and exceptions since the last clear, with `serial`; includes mods whose errors never reach a dialog |
 | `climate` | any of `date`, `temperature`, `precipitation`, `cloudiness` | a number overrides, `null` hands back to the simulation |
 | `dump` | `all`, optional `none`, `show`, `limit` (default 50) | match count and rows with prefab name and the `show` components |
 | `entity` | `id` as `"index:version"`, optional `only` | component names, with values for `only` (all when absent) |
+| `perf` | `action`: `start` (`label`), `read`, `stop`, `memory`, `modSystems` (optional `enabled`, `match` regex), `systemCost` (`samples`), `systemCostRead` | frame times (fps, mean, p50, p95, p99, max), sim frames per second and GC counts of the window; Unity memory, entity count, vsync; switches the ski mod's systems (or those matching) for an A/B on a throwaway save; times one extra run of each mod system, also on a throwaway save |
 | `seq` | `steps` | starts a sequence |
 | `seqStatus` | | `done`, `step`, `error`, `results` |
 | `abort` | | stops the sequence and releases all held input |
@@ -180,4 +182,5 @@ Then poll `seqStatus` until `done`.
   back afterward, with the game closed.
 - **It takes the real mouse while a sequence runs.** Nobody else can use the PC during input steps. Reads never touch the mouse.
 - Sequences release held buttons and keys when they end, fail or abort.
-- Not for measuring performance: `dump` builds a query and reflects on every call.
+- For performance use `perf`, never `dump`: it builds a query and reflects on every call. Same camera for both halves of an A/B, nothing
+  else heavy running, and alternate the halves so city drift averages out.
