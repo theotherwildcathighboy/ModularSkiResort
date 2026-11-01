@@ -583,6 +583,13 @@ else {
     }
     $relState = if ($shipped.released) { "released $($shipped.released)" } else { "provisional, not released" }
     $rows.Add("OK    SHIPPED   $shOk of $(@($shipped.prefabs).Count) frozen prefab(s) present with their CID ($relState; list of $($shipped.generated))")
+
+    # A building or vehicle can be selected, and its panel shows Assets.NAME[prefab]: without a string the player reads the raw key.
+    $localeText = [IO.File]::ReadAllText((Join-Path $PSScriptRoot "..\mod\SkiResortMod\LocaleEN.cs"))
+    $selectable = @($shipped.prefabs | Where-Object { $_.type -ceq "BuildingPrefab" -or $_.type -ceq "CarPrefab" })
+    $unnamed = @($selectable | Where-Object { -not $localeText.Contains("Assets.NAME[$($_.name)]") })
+    foreach ($e in $unnamed) { $rows.Add("FAIL  SHIPPED   $($e.type):$($e.name) has no Assets.NAME row in LocaleEN.cs: its panel would show the raw key"); $failures++ }
+    if ($unnamed.Count -eq 0) { $rows.Add("OK    SHIPPED   $($selectable.Count) selectable prefab(s) have a name in LocaleEN.cs") }
 }
 
 # ---- 11. EMISSIVE: no BuildingActive (72) light on an owned mesh prefab (DECISIONS 336) ------------

@@ -188,7 +188,7 @@
       liftRow(2, 1, 1, "fixedGrip", 2, 640, 210, 4, "SkiResort.Tooltip.QUICK_VERDICT[DoubleBlack]", "SkiResort.Hub.QUICK_HOME_GREEN", true)],
     plan: { pods: 4, liftsProposed: 2, liftsPinned: 1, runKm: 14.6, runKmPerKm2: 18.2, deadEnds: 0, mountainMix: [0, 22, 38, 40, 0], sitePods: 4, siteGreenHome: 1, siteBenchHa: 8 } });
 
-  const base = { hubOpen: false, contract: 25, buildStamp: "", showHubButton: true, build: buildItems(), glade,
+  const base = { hubOpen: false, contract: 27, buildStamp: "", showHubButton: true, build: buildItems(), glade,
     resorts: [], resortLive: [], selectedResort: NULL, runs: [], runLive: [], lifts: [], problems: [], city, pisteMap: true, follow: 0, history: [],
     liftLine: { available: true, active: false, state: "PickBase" }, quickRuns, catTrackDeleteMode: false };
 

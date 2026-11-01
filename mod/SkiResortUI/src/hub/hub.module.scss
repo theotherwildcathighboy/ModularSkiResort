@@ -1491,6 +1491,31 @@
   color: rgba(240, 251, 255, 0.7);
 }
 
+// -- the Ski Bus card: right of the game's selected-info panel, same top ---------------------------------
+.busCard {
+  position: absolute;
+  top: 60rem;
+  left: 418rem;
+  width: 340rem;
+  padding-bottom: 6rem;
+  background-color: rgba(24, 33, 51, 0.85);
+  border-top-left-radius: 8rem;
+  border-top-right-radius: 8rem;
+  border-bottom-left-radius: 8rem;
+  border-bottom-right-radius: 8rem;
+  color: rgba(255, 255, 255, 0.92);
+  pointer-events: none;
+}
+
+.busCardTitle {
+  padding-top: 8rem;
+  padding-bottom: 8rem;
+  padding-left: 10rem;
+  padding-right: 10rem;
+  font-size: var(--fontSizeM);
+  color: var(--accentColorNormal);
+}
+
 // -- receipt and list rows (design 5.2): the vanilla InfoRow metrics ---------------------------------
 .infoLine {
   display: flex;

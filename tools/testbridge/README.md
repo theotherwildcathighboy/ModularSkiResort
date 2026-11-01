@@ -174,7 +174,10 @@ Then poll `seqStatus` until `done`.
 ## Rules of use
 
 - **Input needs focus.** Every input step checks that the game is the foreground window and fails the sequence if not, so input cannot
-  land in another app. Bring the game forward from outside first (computer-use `open_application`).
+  land in another app. Bring the game forward from outside first with the `SetForegroundWindow` recipe above. Never computer-use
+  `open_application`: it starts a second game. Focus is lost whenever the Claude desktop app comes forward; check `status.focused`.
+- **Left-hand traffic needs a new city** (a loaded save keeps its own setting). The New Game toggle persists in `UserState.coc`, so set it
+  back afterward, with the game closed.
 - **It takes the real mouse while a sequence runs.** Nobody else can use the PC during input steps. Reads never touch the mouse.
 - Sequences release held buttons and keys when they end, fail or abort.
 - Not for measuring performance: `dump` builds a query and reflects on every call.

@@ -35,9 +35,14 @@ namespace SkiResortMod.Systems
         /// <summary>Binding group (bindings.ts GROUP).</summary>
         public const string Group = "skiResort";
 
+        /// <summary>The Ski Bus card refreshes twice a second at 60 fps.</summary>
+        private const int BusCardRefreshFrames = 30;
+        // bindings.ts BusCardStateName.
+        private const string BusCardRunning = "running", BusCardNoRoad = "noRoad", BusCardNoHillLodge = "noHillLodge", BusCardOff = "off";
+
         /// <summary>The contract number (bindings.ts HUB_CONTRACT). Bump both together whenever a binding, trigger, field or meaning
         /// changes (Engine notes: Near HubContract lists what each number appended).</summary>
-        public const int HubContract = 25;
+        public const int HubContract = 27;
 
         /// <summary>The `contract` value the UI reads as "C# absent" (bindings.ts CONTRACT_ABSENT). Pushed after the one-shot "!!!"
         /// until the next load: the UI then shows its "not connected" notice instead of launchers that do nothing.</summary>
@@ -170,6 +175,58 @@ namespace SkiResortMod.Systems
         private bool m_SentMismatchLogged;      // per load: WriteBuild's never-silent guard
         private Entity m_LockSign = Entity.Null;   // the shown sign the locks were evaluated for (a switch re-checks)
         private int m_ActiveItem = -1;
+
+        /// <summary>bindings.ts BusCardState: the card beside the game's panel for a selected coach or depot. GuestsMonth -1 = unknown,
+        /// DistanceM = straight line to the hill lodge, what the bill counts (0 = unknown), State = bindings.ts BusCardStateName.</summary>
+        public struct HubBusCardState : IJsonWritable, IEquatable<HubBusCardState>
+        {
+            public bool Shown;
+            public string Area;
+            public int GuestsMonth;
+            public int BillMonth;
+            public int DistanceM;
+            public string State;
+
+            public void Write(IJsonWriter writer)
+            {
+                writer.TypeBegin("SkiResortMod.BusCardState");
+                writer.PropertyName("shown");
+                writer.Write(Shown);
+                writer.PropertyName("area");
+                writer.Write(Area ?? "");
+                writer.PropertyName("guestsMonth");
+                writer.Write(GuestsMonth);
+                writer.PropertyName("billMonth");
+                writer.Write(BillMonth);
+                writer.PropertyName("distanceM");
+                writer.Write(DistanceM);
+                writer.PropertyName("state");
+                writer.Write(State ?? "");
+                writer.TypeEnd();
+            }
+
+            public bool Equals(HubBusCardState other)
+            {
+                return Shown == other.Shown && GuestsMonth == other.GuestsMonth && BillMonth == other.BillMonth && DistanceM == other.DistanceM &&
+                       string.Equals(Area ?? "", other.Area ?? "", StringComparison.Ordinal) &&
+                       string.Equals(State ?? "", other.State ?? "", StringComparison.Ordinal);
+            }
+
+            public override bool Equals(object obj) => obj is HubBusCardState other && Equals(other);
+
+            public override int GetHashCode()
+            {
+                unchecked
+                {
+                    int h = Shown ? 1 : 0;
+                    h = h * 31 + GuestsMonth;
+                    h = h * 31 + BillMonth;
+                    h = h * 31 + DistanceM;
+                    h = h * 31 + (Area ?? "").GetHashCode();
+                    return h * 31 + (State ?? "").GetHashCode();
+                }
+            }
+        }
 
         /// <summary>bindings.ts GladeState. Reason is a locale key constant (reference-stable).</summary>
         public struct HubGladeState : IJsonWritable, IEquatable<HubGladeState>
@@ -483,6 +540,10 @@ namespace SkiResortMod.Systems
         private ValueBinding<bool> m_CatTrackDeleteBinding;   // contract 19: the cat track tool is open AND in Delete mode
         private ValueBinding<int> m_FollowBinding;
         private RawValueBinding m_History;
+        private ValueBinding<HubBusCardState> m_BusCard;   // contract 26: always observed; costs a compare per frame until a coach or depot is selected
+        private readonly List<SkiDaySystem.DepotView> m_BusCardViews = new List<SkiDaySystem.DepotView>(2);
+        private Entity m_BusCardSelected, m_BusCardDepot;
+        private int m_BusCardTicks;
 
         /// <summary>The DLL's stamp as a runtime value (BuildStamp.Value is a const: comparing it with
         /// another constant would be a compile-time expression).</summary>
@@ -685,6 +746,7 @@ namespace SkiResortMod.Systems
                 new HubLiftLineState(false, false, "")));   // panel binding, no Demand
             AddBinding(m_QuickRuns = new RawValueBinding(Group, "quickRuns", WriteQuickRuns));   // panel binding, no Demand
             AddBinding(m_CatTrackDeleteBinding = new ValueBinding<bool>(Group, "catTrackDeleteMode", false));   // panel binding, no Demand
+            AddBinding(m_BusCard = new ValueBinding<HubBusCardState>(Group, "busCard", default));   // not a panel binding
 
             // Triggers (UI → C#): bindings.ts TRIGGER.
             AddBinding(new TriggerBinding(Group, "toggleHub", OnToggleHub));
@@ -730,6 +792,7 @@ namespace SkiResortMod.Systems
                 m_ErrorLogged = false;
                 m_Contract.Update(HubContract);   // undo HandleException's ContractAbsent (pushes only on a change)
                 m_LastSelected = Entity.Null;
+                m_BusCardSelected = m_BusCardDepot = Entity.Null;
                 m_BuildWasActive = false;
                 m_BuildPushedSignature = int.MinValue;
                 FlushPushRows();   // folded row-count lines of the last city first
@@ -2502,6 +2565,76 @@ namespace SkiResortMod.Systems
                 t.UnavailableReasonKey);
         }
 
+        /// <summary>The Ski Bus card: follows the game's selection. Hidden (a struct compare) unless a coach or a depot is selected; refreshed every
+        /// BusCardRefreshFrames while one is, so it has no per-frame work of its own.</summary>
+        private void PushBusCard()
+        {
+            Entity selected = m_BusCard.active ? m_SelectedInfo.selectedEntity : Entity.Null;
+            if (selected != m_BusCardSelected)
+            {
+                m_BusCardSelected = selected;
+                m_BusCardDepot = BusCardDepotOf(selected);
+                m_BusCardTicks = 0;
+            }
+            if (m_BusCardDepot == Entity.Null)
+            {
+                m_BusCard.Update(default);   // ValueBinding dedups (struct, IEquatable)
+                return;
+            }
+            if (--m_BusCardTicks > 0)
+                return;
+            m_BusCardTicks = BusCardRefreshFrames;
+            m_BusCard.Update(BusCardNow());
+        }
+
+        /// <summary>The depot a selected entity shows on the card: itself, or a coach's owner. Null for anything else, a vanilla bus included.</summary>
+        private Entity BusCardDepotOf(Entity selected)
+        {
+            string name = PrefabNameOf(selected);
+            if (name == SkiCatalog.Names.BusDepot)
+                return selected;
+            if (name == SkiCoachSystem.BusPrefabName && EntityManager.TryGetComponent(selected, out Owner owner) &&
+                PrefabNameOf(owner.m_Owner) == SkiCatalog.Names.BusDepot)
+                return owner.m_Owner;
+            return Entity.Null;
+        }
+
+        private HubBusCardState BusCardNow()
+        {
+            Entity depot = m_BusCardDepot;
+            if (!EntityManager.Exists(depot) || EntityManager.HasComponent<Deleted>(depot))
+                return default;
+            m_SkiDays.CopyDepots(m_BusCardViews);
+            int at = m_BusCardViews.FindIndex(v => v.Depot == depot);
+            var card = new HubBusCardState { Shown = true, GuestsMonth = -1, State = BusCardOff };
+            if (at >= 0)
+            {
+                SkiDaySystem.DepotView view = m_BusCardViews[at];
+                card.DistanceM = view.DistanceM > 0f && !float.IsInfinity(view.DistanceM) ? (int)math.round(view.DistanceM) : 0;
+                if (SkiBusRules.IsBilled(view.Verdict))
+                {
+                    card.State = BusCardRunning;
+                    card.BillMonth = (int)math.round(SkiBusRules.MonthlyBill(view.DistanceM));
+                }
+                else if (view.Verdict == SkiDayRules.LodgeReject.NoRoad)
+                    card.State = BusCardNoRoad;
+                else if (view.Verdict == SkiDayRules.LodgeReject.NoHillLodge)
+                    card.State = BusCardNoHillLodge;
+                if (m_SkiDays.TryGetArea(view.Sign, out SkiDayAreaView area))
+                    card.GuestsMonth = area.DepotArrivedThisMonth;
+                for (int i = 0; i < m_Stats.ResortCount; i++)
+                {
+                    ResortStats row = m_Stats.GetResort(i);
+                    if (row.Sign == view.Sign)
+                    {
+                        card.Area = row.Name;
+                        break;
+                    }
+                }
+            }
+            return card;
+        }
+
         /// <summary>Only for bindings JS observes (the panel is open); nothing while closed. Per frame:
         /// nine `active` reads, the Demand writes, revision compares, struct ValueBinding updates.</summary>
         private void PushPanelData()
@@ -2511,8 +2644,10 @@ namespace SkiResortMod.Systems
             bool runsActive = m_Runs.active, runLiveActive = m_RunLive.active;
             bool liftsActive = m_Lifts.active, problemsActive = m_Problems.active;
             bool cityActive = m_City.active;
+            PushBusCard();
             bool demand = buildActive || resortsActive || resortLiveActive || runsActive || runLiveActive ||
-                          liftsActive || problemsActive || cityActive;       // pisteMap and follow do NOT demand
+                          liftsActive || problemsActive || cityActive ||     // pisteMap and follow do NOT demand
+                          m_BusCardDepot != Entity.Null;                     // the card's ski area name comes from the stats rows
             m_Catalog.Demand = demand;   // catalog and stats follow every panel binding
             m_Stats.Demand = demand;
 

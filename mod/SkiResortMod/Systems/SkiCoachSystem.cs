@@ -28,7 +28,7 @@ namespace SkiResortMod.Systems
     public sealed partial class SkiCoachSystem : GameSystemBase
     {
         /// <summary>Bus01 cloned with its SKI BUS panels and out of the vanilla bus pool (m_Purposes 0, m_MaintenanceRange 0).</summary>
-        private const string BusPrefabName = "SkiCoachBus";
+        internal const string BusPrefabName = "SkiCoachBus";
 
         /// <summary>Elapsed frames before a depot whose probe found no road tries again.</summary>
         private const uint NoRoadRetryFrames = 16384;

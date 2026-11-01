@@ -20,7 +20,7 @@ export const GROUP = "skiResort";
  * only when C#'s `contract` equals this; on a mismatch it shows the Build strip and the tree controls (CORE only) and
  * says why.
  */
-export const HUB_CONTRACT = 25;
+export const HUB_CONTRACT = 27;
 
 /** The `contract` value while the C# binding is absent (the fallback). Real contracts start at 1. */
 export const CONTRACT_ABSENT = 0;
@@ -215,6 +215,23 @@ export interface BuildItem {
 }
 
 /** `glade`: the tree tool (SkiGladeToolSystem; density dial). CORE. */
+/** The coach's state on the Ski Bus card (C# BusCardRunning and its neighbors). */
+export type BusCardStateName = "running" | "noRoad" | "noHillLodge" | "off";
+
+/** The Ski Bus card beside the game's selected-info panel. Sent while a coach or a depot is selected. */
+export interface BusCardState {
+  shown: boolean;
+  /** The ski area's name, "" until the stats rows hold it or when the depot serves none. */
+  area: string;
+  /** Ski days that arrived at the area's depots this month, -1 = unknown. */
+  guestsMonth: number;
+  /** This depot's coach bill per month at today's rate, 0 while it is not billed. */
+  billMonth: number;
+  /** Straight line to the hill lodge, what the bill counts, 0 = unknown. The road route is not kept: a coach's own PathInformation reads 0 once it drives. */
+  distanceM: number;
+  state: BusCardStateName;
+}
+
 export interface GladeState {
   /** The tool is armed and can be activated. */
   available: boolean;
@@ -876,6 +893,7 @@ export const BINDING = {
   liftLine: "liftLine",  // the lift-line generator
   quickRuns: "quickRuns",  // the Quick runs tool (experimental)
   catTrackDeleteMode: "catTrackDeleteMode",  // contract 19: the cat track tool is open and in Delete mode
+  busCard: "busCard",  // contract 26: the Ski Bus card
 } as const;
 
 /** Trigger names (UI -> C#). */
@@ -967,6 +985,7 @@ export const FALLBACK = {
   liftLine: { available: false, active: false, state: "" } as LiftLineState,
   quickRuns: EMPTY_QUICK_RUNS,
   catTrackDeleteMode: false,
+  busCard: { shown: false, area: "", guestsMonth: -1, billMonth: 0, distanceM: 0, state: "off" } as BusCardState,
 } as const;
 
 // ---- value bindings -----------------------------------------------------------------------------
@@ -991,6 +1010,8 @@ export const quickRuns$: ValueBinding<QuickRunsState> = bindValue<QuickRunsState
 /** The cat track tool is open AND in Delete mode (C# owns it: closing the tool or picking another shows false). Panel only, the
  *  Build strip's Runs tab (never on a mismatch). */
 export const catTrackDeleteMode$: ValueBinding<boolean> = bindValue<boolean>(GROUP, BINDING.catTrackDeleteMode, FALLBACK.catTrackDeleteMode);
+/** The Ski Bus card. Always mounted: C# sends it only while a coach or a depot is selected. */
+export const busCard$: ValueBinding<BusCardState> = bindValue<BusCardState>(GROUP, BINDING.busCard, FALLBACK.busCard);
 /** One row per sign, then the Not linked row (always last). Panel only. */
 export const resorts$: ValueBinding<readonly ResortRow[]> = bindValue<readonly ResortRow[]>(GROUP, BINDING.resorts, FALLBACK.resorts);
 /** The moving values of each `resorts` row. Panel only: read by leaf components only. */

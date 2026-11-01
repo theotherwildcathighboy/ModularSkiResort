@@ -161,7 +161,7 @@ const PANEL_BINDINGS = new Set([
  * with the panel closed.
  */
 const ALWAYS_MOUNTED_FILES = new Set([
-  "index.tsx", "hub/HubRoot.tsx", "hub/HubLauncher.tsx", "hub/hubState.ts", "hub/ErrorBoundary.tsx",
+  "index.tsx", "hub/HubRoot.tsx", "hub/HubLauncher.tsx", "hub/hubState.ts", "hub/ErrorBoundary.tsx", "hub/BusCard.tsx",
 ]);
 const PANEL_ENTRY = "hub/HubPanel.tsx";
 const PANEL_FILES = new Set([

@@ -8,6 +8,7 @@
  */
 import type { ModRegistrar } from "cs2/modding";
 import "./base.module.scss"; // LOAD-BEARING: keeps SkiResortMod.css in existence (EngineNotes/index.tsx.md)
+import { BusCard } from "./hub/BusCard";
 import { ErrorBoundary } from "./hub/ErrorBoundary";
 import { HubFloatingButton, HubLauncherSquare } from "./hub/HubLauncher";
 import { HubRoot } from "./hub/HubRoot";
@@ -44,6 +45,15 @@ function SkiHubRoot(): JSX.Element {
   );
 }
 
+/** "Game": the Ski Bus card, beside the game's panel for a selected coach or depot. */
+function SkiBusCardRoot(): JSX.Element {
+  return (
+    <ErrorBoundary where="busCard">
+      <BusCard />
+    </ErrorBoundary>
+  );
+}
+
 const register: ModRegistrar = (moduleRegistry) => {
   try {
     try {
@@ -60,6 +70,11 @@ const register: ModRegistrar = (moduleRegistry) => {
       moduleRegistry.append("Game", SkiHubRoot);
     } catch (e) {
       queueRegistrarError("append Game", e);
+    }
+    try {
+      moduleRegistry.append("Game", SkiBusCardRoot);
+    } catch (e) {
+      queueRegistrarError("append Game busCard", e);
     }
   } catch (e) {
     try { console.error("SkiResortMod UI: registrar failed", e); } catch { /* never throw */ }

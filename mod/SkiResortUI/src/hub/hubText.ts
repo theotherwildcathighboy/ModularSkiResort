@@ -16,6 +16,15 @@ export const HUB_LOC = {
   sectionFailed: ["SkiResort.Hub.SECTION_FAILED", "This part of the panel failed. Details are in the mod log."],
   sectionTrees: ["SkiResort.Hub.SECTION[Trees]", "Trees"],
 
+  busCardTitle: ["Assets.NAME[SkiCoachBus]", "Ski Bus"],
+  busCardGuests: ["SkiResort.Hub.BUS_CARD[Guests]", "Guests by bus this month"],
+  busCardBill: ["SkiResort.Hub.BUS_CARD[Bill]", "Coach bill"],
+  busCardDistance: ["SkiResort.Hub.BUS_CARD[Distance]", "To the hill lodge, straight line"],
+  busCardStatus: ["SkiResort.Hub.BUS_CARD[Status]", "Status"],
+  busCardNoRoad: ["SkiResort.Hub.BUS_CARD[NoRoad]", "No road to the hill"],
+  busCardNoHillLodge: ["SkiResort.Hub.BUS_CARD[NoHillLodge]", "No lodge on the hill"],
+  busCardOff: ["SkiResort.Hub.BUS_CARD[Off]", "Not running"],
+
   resortPrev: ["SkiResort.Hub.RESORT_PREV", "Previous ski area"],
   resortNext: ["SkiResort.Hub.RESORT_NEXT", "Next ski area"],
   resortFly: ["SkiResort.Hub.RESORT_FLY", "Fly to the Welcome Sign"],
