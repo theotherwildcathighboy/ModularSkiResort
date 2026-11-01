@@ -25,6 +25,7 @@ Draw chairlifts, gondolas and an aerial tram up your mountain, draw runs down it
 - **Runs on real snow.** Draw natural, groomed, snowmaking, night and cat track runs. Each is rated green to double black from its hardest pitch, and opens at 3 feet (91 cm) of snow. Snow guns extend the season where it is cold enough.
 - **Seasons.** Snow melts in spring, runs close and lifts stop. The aerial tram keeps running as summer sightseeing.
 - **Lodges, Ski School and Ski Patrol.** Five lodges, a school and two patrol buildings, each following a real place.
+- **Ski Bus Depot.** A coach stop in town that brings guests to a hill too far away to draw them on its own.
 - **One panel.** The Ski Resort button (top left) opens Attraction, Runs, Lifts, Guests, Finances and History views, plus a problem list that flies you to what is wrong.
 - **A resort economy.** Lift tickets, season passes, lessons, lodge spend and running costs. A ski area's attraction score feeds the game's tourism, so a bigger resort brings more visitors.
 
@@ -43,7 +44,7 @@ Cities: Skylines II 1.6 (tested on 1.6.2f1). No other mod and no DLC. Start from
 - Chairlifts and gondolas stop in summer when no run is open. The aerial tram keeps running as sightseeing.
 - Bulldozing a Welcome Sign also deletes every run linked to it, with the runs' glade trees, and the run fees are not refunded. A warning shows the run count and asks first. To move a sign, use Relocate in its info panel: its runs stay linked.
 - The Resort Planner (outline a slope, get proposed lifts and a set of runs) is experimental and off by default: turn it on in Options. It builds the runs only: you build its proposed lifts yourself with the lift tool. On steep ground it plans mostly black runs with few greens. Roads, buildings and lift stations inside the outline are not avoided, and its Undo ends when the tool closes.
-- Lifts are power-line networks and need power. Do not connect city high-voltage lines to a lift (untested).
+- Lifts are power-line networks and need low-voltage power at the base station. The game refuses a city high-voltage line at a lift.
 - Before uninstalling, bulldoze your lifts and runs (or use the Delete all ski resort content button in the mod's Options), then save the city. Otherwise run paint can stay in the saved terrain, and what leftover lift pieces do is untested.
 - Resorts cost money all year and earn in winter. Build in steps.
 

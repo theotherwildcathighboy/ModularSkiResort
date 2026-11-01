@@ -16,6 +16,7 @@ Draw chairlifts, gondolas and an aerial tram up your mountain, draw runs down it
 - **Runs on real snow.** Draw natural, groomed, snowmaking, night and cat track runs. Each is rated green to double black from its hardest pitch, and opens at 3 feet (91 cm) of snow. Snow guns extend the season where it is cold enough.
 - **Seasons.** Snow melts in spring, runs close and lifts stop. The aerial tram keeps running as summer sightseeing.
 - **Lodges, Ski School and Ski Patrol.** Five lodges, a school and two patrol buildings, each following a real place.
+- **Ski Bus Depot.** A coach stop in town that brings guests to a hill too far away to draw them on its own.
 - **One panel.** The Ski Resort button (top left) opens Attraction, Runs, Lifts, Guests, Finances and History views, plus a problem list that flies you to what is wrong.
 - **A resort economy.** Lift tickets, season passes, lessons, lodge spend and running costs. A ski area's attraction score feeds the game's tourism, so a bigger resort brings more visitors.
 
@@ -34,7 +35,7 @@ Cities: Skylines II 1.6 (tested on 1.6.2f1). No other mod and no DLC. Start from
 - Chairlifts and gondolas stop in summer when no run is open. The aerial tram keeps running as sightseeing.
 - Bulldozing a Welcome Sign also deletes every run linked to it, with the runs' glade trees, and the run fees are not refunded. A warning shows the run count and asks first. To move a sign, use Relocate in its info panel: its runs stay linked.
 - The Resort Planner (outline a slope, get proposed lifts and a set of runs) is experimental and off by default: turn it on in Options. It builds the runs only: you build its proposed lifts yourself with the lift tool. On steep ground it plans mostly black runs with few greens. Roads, buildings and lift stations inside the outline are not avoided, and its Undo ends when the tool closes.
-- Lifts are power-line networks and need power. Do not connect city high-voltage lines to a lift (untested).
+- Lifts are power-line networks and need low-voltage power at the base station. The game refuses a city high-voltage line at a lift.
 - Before uninstalling, bulldoze your lifts and runs (or use the Delete all ski resort content button in the mod's Options), then save the city. Otherwise run paint can stay in the saved terrain, and what leftover lift pieces do is untested.
 - Resorts cost money all year and earn in winter. Build in steps.
 
@@ -58,8 +59,15 @@ Realistic Trips replaces the game's leisure system that ski days need: with it, 
 </LongDescription>
 	<!--Thumbnail-->
 	<Thumbnail Value="Properties/Thumbnail.png" />
-	<!--Screenshot, can be set multiple times. TODO: at least 4, taken in game (RELEASE-CHECKLIST section 7)-->
-	<Screenshot Value="" />
+	<!--Screenshot, can be set multiple times. In-game shots, 1920 x 1080 JPEG (RELEASE-CHECKLIST section 7)-->
+	<Screenshot Value="Properties/Screenshots/hero.jpg" />
+	<Screenshot Value="Properties/Screenshots/lift-line.jpg" />
+	<Screenshot Value="Properties/Screenshots/tram.jpg" />
+	<Screenshot Value="Properties/Screenshots/golden-hour.jpg" />
+	<Screenshot Value="Properties/Screenshots/hub.jpg" />
+	<Screenshot Value="Properties/Screenshots/run-draw.jpg" />
+	<Screenshot Value="Properties/Screenshots/night.jpg" />
+	<Screenshot Value="Properties/Screenshots/summer.jpg" />
 	<!--Tag, can be set multiple times. The publisher adds "Code Mod" by default. These three ids exist on live Paradox Mods listings (cached tag list, 1426 mods); a hybrid code plus prefab item is tagged this way. Whether the server accepts a tag outside that list is UNVERIFIED-->
 	<Tag Value="Code Mod" />
 	<Tag Value="Prefab" />
@@ -77,7 +85,7 @@ Realistic Trips replaces the game's leisure system that ski days need: with it, 
 	<!--Change log for new version. Single line or multi line. Supports minimal markdown subset. Source: release/CHANGELOG.md 1.0.0-->
 	<ChangeLog>
 - Save compatible with previous: n/a (first release)
-- Layout versions: Binding 1, TreeMember 2, SeasonPass 1, HistoryMonth 2, MonthInProgress 1
+- Layout versions: Binding 1, TreeMember 2, SeasonPass 1, HistoryMonth 2, MonthInProgress 2
 - Do not load in older versions: no
 
 First public release.
@@ -90,11 +98,12 @@ First public release.
 - Safety Net Fence: decorative orange netting on thin poles, in the hub's Runs tab.
 - Snow-depth run system: runs open at 3 ft (91 cm) on 60 percent of the run, snow guns on snowmaking and night runs (two months before winter to one month after), powder days, seasons.
 - Welcome Sign (set back 8 m from the road on a leveled lot), five lodges, Ski School, two patrol buildings.
+- Ski Bus Depot: a coach stop in town for the nearest ski area, at any distance. A home closer to it than to a lodge starts its ski day there; guests pay as at a lodge. It adds no capacity and no score, needs a lodge on the hill, and bills 1,500 a month plus 300 per km to that lodge (Finances, row Ski bus). An oxblood coach, with SKI BUS painted on it, drives between the depot and the hill. Selecting the coach or the depot shows a Ski Bus card beside the game's panel: guests by bus this month, the coach bill and the distance to the hill lodge.
 - The Ski Resort panel: Attraction, Runs, Lifts, Guests, Finances and History views, a problem list and a build strip.
 - Economy: lift tickets, season passes, lessons, lodge spend, off-season half staff.
 - Delete all ski resort content, a button in the mod's Options (Reset group): removes everything the mod placed in the loaded city, after a confirmation, to clean a city before uninstalling. It cannot be undone.
 - Works on the base game; no other mod is required. Move It is highly recommended and Write Everywhere is recommended.
-- Known limitations: chairs carry no riders, the chairs do not sway in wind, stations can sit partly in the hillside on steep ground, chairlifts and gondolas stop in summer.
+- Known limitations: a hill far from the city's homes and hotels gets few ski-day guests (the panel shows the distance), chairs carry no riders, the chairs do not sway in wind, stations can sit partly in the hillside on steep ground, chairlifts and gondolas stop in summer.
 	</ChangeLog>
 	<!--External link, can be set multiple times. supported types are "discord", "github", "youtube", "twitch", "x", "paypal", "patreon", "buymeacoffee", "kofi", "crowdin", "gitlab", "gofundme". PLACEHOLDER: the DISCORD_URL token stands for the Discord bug-report thread (the owner creates it). Put the thread URL in its place before the public flip, or delete this line if only the forum thread is used (the same gate and the same UNVERIFIED publisher behavior as ForumLink)-->
 	<ExternalLink Type="discord" Url="{{DISCORD_URL}}" />

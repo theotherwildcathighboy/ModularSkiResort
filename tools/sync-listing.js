@@ -3,6 +3,7 @@
  *
  * release/DESCRIPTION.md is the source of the listing copy; mod/SkiResortMod/Properties/PublishConfiguration.xml carries the same text in
  * <ShortDescription Value="..."/> and <LongDescription>...</LongDescription>. Copy by hand and the two drift, so this script copies it.
+ * <ChangeLog> comes the same way from release/CHANGELOG.md's newest entry (it had drifted: no depot, an old layout version).
  *   node tools/sync-listing.js            write the short and long description from DESCRIPTION.md into the XML (BOM and line endings kept)
  *   node tools/sync-listing.js --check    change nothing; exit 1 when the XML text differs from DESCRIPTION.md, or when the text holds a character
  *                                         the XML or the Paradox Mods markdown subset cannot take (< > & `), or a line starting with a space or tab
@@ -51,11 +52,30 @@ const curShort = (x.match(shortRe) || [])[1];
 if (curLong === undefined || curShort === undefined) { console.error("PublishConfiguration.xml: ShortDescription / LongDescription not found"); process.exit(2); }
 const same = curLong.trim() === long && curShort === short;
 
+// The change log: release/CHANGELOG.md's newest entry, one line per bullet, into <ChangeLog>. The docs page repeats its "Layout versions" line.
+const cl = fs.readFileSync(path.join(ROOT, "release", "CHANGELOG.md"), "utf8").replace(/\r\n/g, "\n");
+const clStart = cl.search(/^## \d+\.\d+\.\d+ \(PDX version -?\d*, (unreleased|\d{4}-\d{2}-\d{2})\)$/m);
+if (clStart < 0) { console.error("CHANGELOG.md: newest entry not found"); process.exit(2); }
+const clRest = cl.slice(clStart);
+const clEnd = clRest.indexOf("\n## ", 1);
+const log = (clEnd < 0 ? clRest : clRest.slice(0, clEnd)).split("\n").slice(1).join("\n").trim()
+  .replace(/\n[ \t]+/g, " ")
+  .replace(/ Draft notes \(check against the build at upload\):/, "");
+if (/[<>&`]/.test(log)) problems.push("change log holds one of < > & `");
+const logRe = /<ChangeLog>\n?([\s\S]*?)\n?[ \t]*<\/ChangeLog>/;
+const curLog = (x.match(logRe) || [])[1];
+if (curLog === undefined) { console.error("PublishConfiguration.xml: ChangeLog not found"); process.exit(2); }
+const sameLog = curLog.trim() === log;
+const layoutLine = (log.match(/^- Layout versions: .*$/m) || [""])[0];
+const mdx = fs.readFileSync(path.join(ROOT, "docs-site", "src", "content", "docs", "changelog.mdx"), "utf8");
+if (!layoutLine || !mdx.includes(layoutLine)) problems.push("docs-site changelog.mdx does not carry the line: " + layoutLine);
+
 const tokens = (long.match(/\{\{[A-Z_]+\}\}/g) || []).concat(x.match(/\{\{[A-Z_]+\}\}/g) || []);
 const access = (x.match(/<AccessLevel Value="([^"]*)"/) || [])[1];
 
 if (check) {
   if (!same) problems.push("PublishConfiguration.xml text differs from release/DESCRIPTION.md: run node tools/sync-listing.js");
+  if (!sameLog) problems.push("PublishConfiguration.xml ChangeLog differs from release/CHANGELOG.md: run node tools/sync-listing.js");
   if (publicGate) {
     if (tokens.length) problems.push("unresolved link tokens: " + [...new Set(tokens)].join(" "));
     if (access !== "Public") problems.push("AccessLevel is " + access + ", not Public");
@@ -71,6 +91,7 @@ if (check) {
 if (problems.length) { for (const p of problems) console.log("FAIL " + p); process.exit(1); }
 x = x.replace(longRe, () => "<LongDescription>\n" + long + "\n</LongDescription>");
 x = x.replace(shortRe, () => '<ShortDescription Value="' + short + '" />');
+x = x.replace(logRe, () => "<ChangeLog>\n" + log + "\n\t</ChangeLog>");
 if (crlf) x = x.replace(/\n/g, "\r\n");
 if (bom && x.charCodeAt(0) !== 0xFEFF) x = "﻿" + x;
 fs.writeFileSync(XML, x, "utf8");

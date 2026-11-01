@@ -35,10 +35,11 @@ function withBase(url) {
 function prefixJsxAttributes(node, ctx) {
   const attributes = node.attributes ?? [];
   const next = attributes.map((/** @type {any} */ attr) =>
-    attr.type === 'mdxJsxAttribute' && (attr.name === 'href' || attr.name === 'src') && typeof attr.value === 'string'
+    attr.type === 'mdxJsxAttribute' && (attr.name === 'href' || attr.name === 'src') && typeof attr.value === 'string' && withBase(attr.value) !== attr.value
       ? { ...attr, value: withBase(attr.value) }
       : attr,
   );
+  // Only a real change writes: Satteri refuses setProperty on a JSX node's attributes, and a relative src like <Shot src="x.jpg"> needs no prefix.
   if (next.some((/** @type {any} */ attr, /** @type {number} */ i) => attr !== attributes[i])) ctx.setProperty(node, 'attributes', next);
 }
 

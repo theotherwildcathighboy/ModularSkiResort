@@ -1,16 +1,49 @@
 ---
-// A labeled gray box standing in for a screenshot that has not been taken yet.
-// Never a mock-up: the box says what the real picture must show. Replace with a real
-// <img> (or Starlight's Image) when the shot exists; the label is the shot-list entry.
+// A real in-game screenshot from public/shots/, or, without `src`, a labeled gray box for a shot not taken yet.
+// Never a mock-up: the box says what the real picture must show, and the label doubles as the image's alt text.
+// A click opens the screenshot larger in a dialog; without JavaScript the link opens the image file itself.
 interface Props {
   label: string;
+  src?: string;
   ratio?: string;
 }
-const { label, ratio = '16 / 9' } = Astro.props;
+const { label, src, ratio = '16 / 9' } = Astro.props;
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 ---
-<figure class="shot" style={`aspect-ratio: ${ratio}`} role="img" aria-label={`Screenshot to come: ${label}`}>
-  <figcaption>
-    <strong>Screenshot to come</strong>
-    <span>{label}</span>
-  </figcaption>
-</figure>
+{src ? (
+  <a class="shot-link" href={`${base}/shots/${src}`} data-shot-zoom>
+    <img class="shot-img" src={`${base}/shots/${src}`} alt={label} width="1920" height="1080" loading="lazy" decoding="async" />
+  </a>
+) : (
+  <figure class="shot" style={`aspect-ratio: ${ratio}`} role="img" aria-label={`Screenshot to come: ${label}`}>
+    <figcaption>
+      <strong>Screenshot to come</strong>
+      <span>{label}</span>
+    </figcaption>
+  </figure>
+)}
+
+<script>
+  const links = document.querySelectorAll<HTMLAnchorElement>('[data-shot-zoom]');
+  if (links.length) {
+    const dialog = document.createElement('dialog');
+    dialog.className = 'shot-zoom';
+    dialog.innerHTML = '<button type="button" class="shot-zoom-close" aria-label="Close">&times;</button><img alt="" /><p></p>';
+    document.body.append(dialog);
+    const image = dialog.querySelector('img')!;
+    const caption = dialog.querySelector('p')!;
+    dialog.addEventListener('click', () => dialog.close());
+    dialog.addEventListener('close', () => image.removeAttribute('src'));
+    links.forEach((link) => {
+      link.addEventListener('click', (event) => {
+        if (event.ctrlKey || event.metaKey || event.shiftKey || event.button !== 0) return;
+        event.preventDefault();
+        const alt = link.querySelector('img')?.alt ?? '';
+        image.src = link.href;
+        image.alt = alt;
+        caption.textContent = alt;
+        dialog.showModal();
+      });
+    });
+  }
+</script>
