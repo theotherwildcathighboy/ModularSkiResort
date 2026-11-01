@@ -16,7 +16,7 @@ namespace SkiResortMod.Systems
     public enum StationRole : byte { Base = 0, Top = 1 }
 
     /// <summary>APPEND ONLY.</summary>
-    public enum CatalogKind : byte { Line = 0, Carrier = 1, Marker = 2, Station = 3, Lodge = 4, Sign = 5, Run = 6, School = 7, Patrol = 8, Fence = 9 }
+    public enum CatalogKind : byte { Line = 0, Carrier = 1, Marker = 2, Station = 3, Lodge = 4, Sign = 5, Run = 6, School = 7, Patrol = 8, Fence = 9, Depot = 10 }
 
     /// <summary>SkiPrefabCatalogSystem's next step for a query (NextAction; LiftBatch CT-10).</summary>
     public enum CatalogAction : byte { Serve = 0, Validate = 1, Resolve = 2 }
@@ -33,7 +33,7 @@ namespace SkiResortMod.Systems
     public enum LodgeRoadRule : byte { Base = 0, Mountain = 1, None = 2 }
 
     /// <summary>The build strip's item kinds (bindings.ts BuildItemMeta.kind, lower camel). APPEND ONLY.</summary>
-    public enum BuildItemKind : byte { Sign = 0, Lodge = 1, School = 2, Patrol = 3, Station = 4, Line = 5, Run = 6, Fence = 7 }
+    public enum BuildItemKind : byte { Sign = 0, Lodge = 1, School = 2, Patrol = 3, Station = 4, Line = 5, Run = 6, Fence = 7, Depot = 8 }
 
     /// <summary>One prefab name of the catalog: the PrefabID (type + name), its hub build item id and its Expected flag.</summary>
     public readonly struct CatalogName
@@ -369,6 +369,27 @@ namespace SkiResortMod.Systems
         }
     }
 
+    /// <summary>The Ski Bus Depot: a road-side claim target in town that adds no capacity, no score and no spend. Deliberately not a row of
+    /// Lodges: every lodge count, score weight, capacity and problem line reads that list. Jobs 0 = no Workplace (the coach bill pays the
+    /// drivers, SkiBusRules); its road comes from power / water / garbage (BuildingInitializeSystem.cs:209-300).</summary>
+    public sealed class DepotDef
+    {
+        public readonly string Prefab, BuildItemId;
+        public readonly int BuildCost, Upkeep;
+        public readonly LodgeRoadRule RoadRule;
+        public readonly bool Expected;
+
+        public DepotDef(string prefab, string buildItemId, int buildCost, int upkeep, LodgeRoadRule roadRule, bool expected)
+        {
+            Prefab = prefab;
+            BuildItemId = buildItemId;
+            BuildCost = buildCost;
+            Upkeep = upkeep;
+            RoadRule = roadRule;
+            Expected = expected;
+        }
+    }
+
     /// <summary>A ski patrol hut (both huts share one row's numbers; the HQ differs in look only).</summary>
     public sealed class PatrolDef
     {
@@ -449,8 +470,8 @@ namespace SkiResortMod.Systems
             RunKind = (sbyte)runKind;
         }
 
-        /// <summary>Lodges, school and patrol huts are ServiceUpgrades of the sign: launched through the upgrade path.</summary>
-        public bool IsUpgrade => Kind == BuildItemKind.Lodge || Kind == BuildItemKind.School || Kind == BuildItemKind.Patrol;
+        /// <summary>Lodges, school, patrol huts and the bus depot are launched through the upgrade path.</summary>
+        public bool IsUpgrade => Kind == BuildItemKind.Lodge || Kind == BuildItemKind.School || Kind == BuildItemKind.Patrol || Kind == BuildItemKind.Depot;
 
         public override string ToString()
         {
@@ -497,6 +518,7 @@ namespace SkiResortMod.Systems
             public const string LodgeMid = "SkiLodgeMid"; // BuildingPrefab, item lodgeMid
             public const string LodgeSummit = "SkiLodgeSummit"; // BuildingPrefab, item lodgeSummit
             public const string LodgeGrand = "SkiLodgeGrand"; // BuildingPrefab, item lodgeGrand
+            public const string BusDepot = "SkiBusDepot"; // BuildingPrefab, item busDepot
             public const string School = "SkiSchool"; // BuildingPrefab, item school
             public const string PatrolHut = "SkiPatrolHut"; // BuildingPrefab, item patrolHut
             public const string PatrolHQ = "SkiPatrolHQ"; // BuildingPrefab, item patrolHQ
@@ -594,12 +616,13 @@ namespace SkiResortMod.Systems
         public static readonly IReadOnlyList<StationDef> Stations;
         /// <summary>5 rows, APPEND ONLY; Lodges[0] = the A-frame forever.</summary>
         public static readonly IReadOnlyList<LodgeDef> Lodges;
+        public static readonly IReadOnlyList<DepotDef> Depots;     // 1 row
         public static readonly IReadOnlyList<SchoolDef> Schools;   // 1 row
         public static readonly IReadOnlyList<PatrolDef> Patrols;   // 2 rows
         public static readonly IReadOnlyList<SignDef> Signs;       // 2 rows: the straight sign and the angled one (both are the gate)
         /// <summary>Natural 3 "runNatural", Groomed 0, Snowmaking 1, Night 2 (the NAMES-block order).</summary>
         public static readonly IReadOnlyList<RunDef> Runs;
-        /// <summary>The ONE build-item table (27 rows, strip order; the BUILD-ITEMS block below).</summary>
+        /// <summary>The ONE build-item table (28 rows, strip order; the BUILD-ITEMS block below).</summary>
         public static readonly IReadOnlyList<BuildItemDef> BuildItems;
         /// <summary>The static initializer's sanity findings. EMPTY when sane. The initializer NEVER throws.</summary>
         public static readonly IReadOnlyList<string> Problems;
@@ -620,6 +643,7 @@ namespace SkiResortMod.Systems
             new BuildItemDef("lodgeMid", Names.LodgeMid, BuildItemKind.Lodge, "", -1),
             new BuildItemDef("lodgeSummit", Names.LodgeSummit, BuildItemKind.Lodge, "", -1),
             new BuildItemDef("lodgeGrand", Names.LodgeGrand, BuildItemKind.Lodge, "", -1),
+            new BuildItemDef("busDepot", Names.BusDepot, BuildItemKind.Depot, "", -1),
             new BuildItemDef("school", Names.School, BuildItemKind.School, "", -1),
             new BuildItemDef("patrolHut", Names.PatrolHut, BuildItemKind.Patrol, "", -1),
             new BuildItemDef("patrolHQ", Names.PatrolHQ, BuildItemKind.Patrol, "", -1),
@@ -650,6 +674,7 @@ namespace SkiResortMod.Systems
         private static readonly Dictionary<string, LiftTypeDef> s_ById = new Dictionary<string, LiftTypeDef>(StringComparer.Ordinal);
         private static readonly Dictionary<string, StationDef> s_Stations = new Dictionary<string, StationDef>(StringComparer.Ordinal);
         private static readonly Dictionary<string, LodgeDef> s_Lodges = new Dictionary<string, LodgeDef>(StringComparer.Ordinal);
+        private static readonly Dictionary<string, DepotDef> s_Depots = new Dictionary<string, DepotDef>(StringComparer.Ordinal);
         private static readonly Dictionary<string, SchoolDef> s_Schools = new Dictionary<string, SchoolDef>(StringComparer.Ordinal);
         private static readonly Dictionary<string, PatrolDef> s_Patrols = new Dictionary<string, PatrolDef>(StringComparer.Ordinal);
         private static readonly Dictionary<string, SignDef> s_Signs = new Dictionary<string, SignDef>(StringComparer.Ordinal);
@@ -666,6 +691,7 @@ namespace SkiResortMod.Systems
             LiftTypeDef[] lifts = new LiftTypeDef[0];
             StationDef[] stations = new StationDef[0];
             LodgeDef[] lodges = new LodgeDef[0];
+            DepotDef[] depots = new DepotDef[0];
             SchoolDef[] schools = new SchoolDef[0];
             PatrolDef[] patrols = new PatrolDef[0];
             SignDef[] signs = new SignDef[0];
@@ -809,6 +835,13 @@ namespace SkiResortMod.Systems
                                  luxury: true, spendMultiplier: 3.0f, roadRule: LodgeRoadRule.Base, expected: true),
                 };
 
+                // The bus depot = SkiBusDepot.Prefab: a Base road row, jobs 0, upkeep 2,000. Its mesh is a STAND-IN (the Chalet Lodge's,
+                // SkiLodgeMid's); the final art repoints only that prefab's mesh line.
+                depots = new[]
+                {
+                    new DepotDef(Names.BusDepot, "busDepot", buildCost: 60000, upkeep: 2000, roadRule: LodgeRoadRule.Base, expected: true),
+                };
+
                 // School and patrol (the school is a Base road row, patrol huts stay roadless and are not written)
                 schools = new[]
                 {
@@ -842,7 +875,7 @@ namespace SkiResortMod.Systems
                     new RunDef(RunKind.CatTrack, Names.RunCatTrack, "runCatTrack"),
                 };
 
-                all = NameList(lifts, MarkerPrefab, stations, lodges, schools, patrols, signs, runs, new[] { Names.SafetyFence });
+                all = NameList(lifts, MarkerPrefab, stations, lodges, schools, patrols, signs, runs, new[] { Names.SafetyFence }, depots);
                 for (int i = 0; i < all.Count; i++)
                 {
                     if (all[i].Expected)
@@ -872,6 +905,8 @@ namespace SkiResortMod.Systems
                 }
                 for (int i = 0; i < lodges.Length; i++)
                     AddFirst(s_Lodges, lodges[i].Prefab, lodges[i]);
+                for (int i = 0; i < depots.Length; i++)
+                    AddFirst(s_Depots, depots[i].Prefab, depots[i]);
                 for (int i = 0; i < schools.Length; i++)
                     AddFirst(s_Schools, schools[i].Prefab, schools[i]);
                 for (int i = 0; i < patrols.Length; i++)
@@ -905,6 +940,7 @@ namespace SkiResortMod.Systems
             Lifts = Array.AsReadOnly(lifts);
             Stations = Array.AsReadOnly(stations);
             Lodges = Array.AsReadOnly(lodges);
+            Depots = Array.AsReadOnly(depots);
             Schools = Array.AsReadOnly(schools);
             Patrols = Array.AsReadOnly(patrols);
             Signs = Array.AsReadOnly(signs);
@@ -949,12 +985,13 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>The name list in NAMES-block order: each lift type's line then its carriers, the marker, the stations,
-        /// the lodges, the school, the patrol huts (School and Patrol rows sit between the lodges and the sign), the sign,
+        /// the lodges, the bus depot, the school, the patrol huts (School and Patrol rows sit between the lodges and the sign), the sign,
         /// the runs. Internal: LiftBatch CT-16 builds its twin's names with it.</summary>
         internal static List<CatalogName> NameList(IReadOnlyList<LiftTypeDef> lifts, string marker, IReadOnlyList<StationDef> stations,
                                                    IReadOnlyList<LodgeDef> lodges, IReadOnlyList<SchoolDef> schools,
                                                    IReadOnlyList<PatrolDef> patrols, IReadOnlyList<SignDef> signs,
-                                                   IReadOnlyList<RunDef> runs, IReadOnlyList<string> fences = null)
+                                                   IReadOnlyList<RunDef> runs, IReadOnlyList<string> fences = null,
+                                                   IReadOnlyList<DepotDef> depots = null)
         {
             var all = new List<CatalogName>(32);
             for (int i = 0; i < lifts.Count; i++)
@@ -970,6 +1007,8 @@ namespace SkiResortMod.Systems
                 all.Add(new CatalogName(stations[i].Prefab, TypeBuilding, CatalogKind.Station, stations[i].BuildItemId, stations[i].Expected));
             for (int i = 0; i < lodges.Count; i++)
                 all.Add(new CatalogName(lodges[i].Prefab, TypeBuilding, CatalogKind.Lodge, lodges[i].BuildItemId, lodges[i].Expected));
+            for (int i = 0; depots != null && i < depots.Count; i++)
+                all.Add(new CatalogName(depots[i].Prefab, TypeBuilding, CatalogKind.Depot, depots[i].BuildItemId, depots[i].Expected));
             for (int i = 0; i < schools.Count; i++)
                 all.Add(new CatalogName(schools[i].Prefab, TypeBuilding, CatalogKind.School, schools[i].BuildItemId, schools[i].Expected));
             for (int i = 0; i < patrols.Count; i++)
@@ -1293,6 +1332,7 @@ namespace SkiResortMod.Systems
                 case BuildItemKind.Line: return name == CatalogKind.Line;
                 case BuildItemKind.Run: return name == CatalogKind.Run;
                 case BuildItemKind.Fence: return name == CatalogKind.Fence;
+                case BuildItemKind.Depot: return name == CatalogKind.Depot;
                 default: return false;
             }
         }
@@ -1344,6 +1384,11 @@ namespace SkiResortMod.Systems
             return LodgeByPrefab(name) != null;
         }
 
+        public static DepotDef DepotByPrefab(string name)
+        {
+            return !string.IsNullOrEmpty(name) && s_Depots.TryGetValue(name, out DepotDef def) ? def : null;
+        }
+
         public static SchoolDef SchoolByPrefab(string name)
         {
             return !string.IsNullOrEmpty(name) && s_Schools.TryGetValue(name, out SchoolDef def) ? def : null;
@@ -1354,10 +1399,10 @@ namespace SkiResortMod.Systems
             return !string.IsNullOrEmpty(name) && s_Patrols.TryGetValue(name, out PatrolDef def) ? def : null;
         }
 
-        /// <summary>A lodge, the school or a patrol hut: every ServiceUpgrade of the sign this catalog knows.</summary>
+        /// <summary>A lodge, the school, a patrol hut or the bus depot: every top-level building this catalog links to a sign.</summary>
         public static bool IsUpgradeBuilding(string name)
         {
-            return IsLodge(name) || SchoolByPrefab(name) != null || PatrolByPrefab(name) != null;
+            return IsLodge(name) || SchoolByPrefab(name) != null || PatrolByPrefab(name) != null || DepotByPrefab(name) != null;
         }
 
         public static bool IsSign(string name)

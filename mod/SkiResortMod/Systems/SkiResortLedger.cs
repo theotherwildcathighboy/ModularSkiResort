@@ -35,6 +35,8 @@ namespace SkiResortMod.Systems
             // The run upkeep debited from the city for this ski area's runs (whole credits; EntityRef.Null = unbound runs and runs
             // the catalog does not list yet). Booked by SkiRunUpkeepSystem.
             public long RunUpkeep;
+            // The coach bill of this ski area's bus depots (SkiBusChargeSystem), accrued like LiftCharged.
+            public double BusCharged;
             public int Guests => TouristGuests + LocalGuests;
         }
 
@@ -291,6 +293,18 @@ namespace SkiResortMod.Systems
             Revision++;
         }
 
+        /// <summary>Adds what the coach bill accrued for this ski area's depots; an amount that is not > 0 (NaN included) changes nothing.</summary>
+        public void AddBusCharge(EntityRef sign, double amount)
+        {
+            if (!(amount > 0.0) || double.IsInfinity(amount))
+                return;
+            int i = IndexOf(sign);
+            Entry e = m_Entries[i];
+            e.This.BusCharged += amount;
+            m_Entries[i] = e;
+            Revision++;
+        }
+
         /// <summary>Adds the run upkeep debited for this ski area's runs (EntityRef.Null = Not linked); an amount &lt;= 0 changes
         /// nothing (no entry is created)</summary>
         public void AddRunUpkeep(EntityRef sign, long amount)
@@ -350,6 +364,8 @@ namespace SkiResortMod.Systems
             m.Lessons += Math.Max(0, saved.Lessons);
             m.LessonIncome += Math.Max(0L, saved.LessonIncome);
             m.RunUpkeep += Math.Max(0L, saved.RunUpkeep);
+            if (saved.BusCharged > 0.0 && !double.IsInfinity(saved.BusCharged))
+                m.BusCharged += saved.BusCharged;
             e.This = m;
             if (season && passSeasonKey != NoSeason)
             {
@@ -378,7 +394,7 @@ namespace SkiResortMod.Systems
                    m.TicketsPaid <= 0 && m.TicketsUnpaid <= 0 && m.TicketsFree <= 0 && m.TicketIncome <= 0 &&
                    !(m.LiftCharged > 0.0) && m.LodgeSpends <= 0 && m.LodgeSpendIncome <= 0 && m.PassesSold <= 0 &&
                    m.PassIncome <= 0 && m.PassHolderGuests <= 0 && m.PassesPre <= 0 && m.PassIncomePre <= 0 &&
-                   m.Lessons <= 0 && m.LessonIncome <= 0 && m.RunUpkeep <= 0;
+                   m.Lessons <= 0 && m.LessonIncome <= 0 && m.RunUpkeep <= 0 && !(m.BusCharged > 0.0);
         }
 
         /// <summary>Drops entries whose sign is not live; keeps EntityRef.Null; returns how many. Order of the kept entries is unchanged.</summary>
@@ -427,6 +443,7 @@ namespace SkiResortMod.Systems
                 t.Lessons += m.Lessons;
                 t.LessonIncome += m.LessonIncome;
                 t.RunUpkeep += m.RunUpkeep;
+                t.BusCharged += m.BusCharged;
             }
             return t;
         }

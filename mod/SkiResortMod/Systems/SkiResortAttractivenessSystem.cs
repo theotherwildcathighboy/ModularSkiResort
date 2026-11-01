@@ -112,6 +112,7 @@ namespace SkiResortMod.Systems
             public readonly List<LodgeInfo> ActiveInfo = new List<LodgeInfo>(4);
             public readonly List<SkiResortScore.LodgeInput> Lodges = new List<SkiResortScore.LodgeInput>(4);
             public readonly List<Entity> PatrolEntities = new List<Entity>(2);
+            public readonly List<Entity> DepotActive = new List<Entity>(1);   // bus depots: never in Active / ActiveInfo, no score, no capacity
             public readonly List<float2> PatrolXz = new List<float2>(2);
             public readonly List<int> ServeLifts = new List<int>(8);
             public bool SchoolActive;
@@ -147,6 +148,7 @@ namespace SkiResortMod.Systems
                 ActiveInfo.Clear();
                 Lodges.Clear();
                 PatrolEntities.Clear();
+                DepotActive.Clear();
                 PatrolXz.Clear();
                 ServeLifts.Clear();
                 SchoolActive = false;
@@ -420,6 +422,9 @@ namespace SkiResortMod.Systems
         /// IsLodgePrefab per building). Main thread; do not keep it across frames (the catalog revalidates per frame).</summary>
         internal HashSet<Entity> LodgePrefabSet => m_PrefabCatalog.LodgePrefabSet;
 
+        /// <summary>The catalog's bus depot prefabs (same caveat as LodgePrefabSet).</summary>
+        internal HashSet<Entity> DepotPrefabSet => m_PrefabCatalog.DepotPrefabSet;
+
         /// <summary>Scoring runs this load: not error-disabled, a lodge prefab resolved (catalog) and the ownership
         /// system's prefab sets ready (sign set and run sets, Game mode).</summary>
         internal bool IsActive => !m_Disabled && m_PrefabCatalog.LodgeCount > 0 && m_Ownership.PrefabSetsReady;
@@ -429,10 +434,10 @@ namespace SkiResortMod.Systems
         internal bool RecomputePending => m_StructuralPending;
 
         /// <summary>A building prefab whose placement, move or removal changes a ski area: a lodge, the ski school, a
-        /// patrol hut, a lift station (the prefab catalog's) or a Welcome Sign (the sign stays the ownership registry's).</summary>
+        /// patrol hut, a bus depot, a lift station (the prefab catalog's) or a Welcome Sign (the sign stays the ownership registry's).</summary>
         internal bool IsWatchedBuildingPrefab(Entity prefab)
         {
-            // Lodge ∪ school ∪ patrol hut.
+            // Lodge ∪ school ∪ patrol hut ∪ bus depot.
             return m_PrefabCatalog.IsUpgradeBuilding(prefab) ||
                    m_PrefabCatalog.IsStation(prefab) ||
                    m_Ownership.IsGatePrefab(prefab);
@@ -629,6 +634,19 @@ namespace SkiResortMod.Systems
             {
                 for (int i = 0; i < slot.ActiveInfo.Count; i++)
                     into.Add(slot.ActiveInfo[i]);
+            }
+            return into.Count;
+        }
+
+        /// <summary>The active bus depots linked to <paramref name="sign"/> (the nearest live sign at any distance; not Inactive; NOT filtered
+        /// for Destroyed: CheckDepot does); clears <paramref name="into"/>; returns the count (0 for an unknown sign). Main thread, plain copy.</summary>
+        internal int CopyActiveDepots(Entity sign, List<Entity> into)
+        {
+            into.Clear();
+            if (m_Cur.TryGetSlot(sign, out AreaSlot slot))
+            {
+                for (int i = 0; i < slot.DepotActive.Count; i++)
+                    into.Add(slot.DepotActive[i]);
             }
             return into.Count;
         }
@@ -1203,6 +1221,7 @@ namespace SkiResortMod.Systems
                 HashSet<Entity> lodgePrefabs = m_PrefabCatalog.LodgePrefabSet;
                 HashSet<Entity> schoolPrefabs = m_PrefabCatalog.SchoolPrefabSet;
                 HashSet<Entity> patrolPrefabs = m_PrefabCatalog.PatrolPrefabSet;
+                HashSet<Entity> depotPrefabs = m_PrefabCatalog.DepotPrefabSet;
                 EntityManager.CompleteDependencyBeforeRO<PrefabRef>();
                 var entityHandle = GetEntityTypeHandle();
                 var prefabRefHandle = GetComponentTypeHandle<PrefabRef>(isReadOnly: true);
@@ -1232,6 +1251,8 @@ namespace SkiResortMod.Systems
                                 AddTopLevel(entities[i], SchoolLinkRules.KindSchool);
                             else if (!owned && patrolPrefabs.Contains(prefab))
                                 AddTopLevel(entities[i], SchoolLinkRules.KindPatrol);
+                            else if (!owned && depotPrefabs.Contains(prefab))
+                                AddTopLevel(entities[i], SchoolLinkRules.KindDepot);
                         }
                     }
                 }
@@ -1374,7 +1395,7 @@ namespace SkiResortMod.Systems
                 m_TopKindOf[id] = kind;
                 SchoolLinkRules.Link link = new SchoolLinkRules.Link { Sign = EntityRef.Null, Distance = float.PositiveInfinity };
                 if (TryCachedXz(m_TopXz, building, out float2 xz))
-                    link = SchoolLinkRules.Resolve(m_SignIndex, xz, SkiRunOwnershipSystem.TetherMeters);
+                    link = SchoolLinkRules.Resolve(m_SignIndex, xz, kind == SchoolLinkRules.KindDepot ? SchoolLinkRules.DepotMaxDistance : SkiRunOwnershipSystem.TetherMeters);
                 m_TopLinksNext[id] = link;
                 if (!link.Linked || !next.TryGetSlot(LiftCensusSystem.Ent(link.Sign), out AreaSlot slot))
                     continue;
@@ -1386,6 +1407,11 @@ namespace SkiResortMod.Systems
                 {
                     if (active)
                         slot.PatrolEntities.Add(building);
+                }
+                else if (kind == SchoolLinkRules.KindDepot)
+                {
+                    if (active)
+                        slot.DepotActive.Add(building);
                 }
                 else if (m_LiveLodges.Contains(building) && m_LodgeClaimed.Add(building))
                 {
@@ -1477,24 +1503,26 @@ namespace SkiResortMod.Systems
             m_TopKindOf.TryGetValue(c.School, out byte kind);
             if (c.Kind == SchoolLinkRules.ChangeKind.Removed)
                 m_TopKindOf.Remove(c.School);
-            string tag = kind == SchoolLinkRules.KindSchool ? "School" : kind == SchoolLinkRules.KindPatrol ? "Patrol" : "Lodge";
-            string what = (kind == SchoolLinkRules.KindSchool ? "ski school " : kind == SchoolLinkRules.KindPatrol ? "patrol hut " : "lodge ") +
+            bool depot = kind == SchoolLinkRules.KindDepot;
+            string tag = kind == SchoolLinkRules.KindSchool ? "School" : kind == SchoolLinkRules.KindPatrol ? "Patrol" : depot ? "Depot" : "Lodge";
+            string what = (kind == SchoolLinkRules.KindSchool ? "ski school " : kind == SchoolLinkRules.KindPatrol ? "patrol hut " : depot ? "bus depot " : "lodge ") +
                           IdOf(LiftCensusSystem.Ent(c.School));
-            string role = kind == SchoolLinkRules.KindSchool ? "the school" : kind == SchoolLinkRules.KindPatrol ? "the patrol hut" : "the lodge";
+            string role = kind == SchoolLinkRules.KindSchool ? "the school" : kind == SchoolLinkRules.KindPatrol ? "the patrol hut" : depot ? "the bus depot" : "the lodge";
+            string rule = depot ? "nearest sign at any distance" : "nearest sign within 5000 m";
             string at = float.IsInfinity(c.After.Distance) ? "no position or no sign"
                 : Invariant($"nearest sign {c.After.Distance:F0} m");
             switch (c.Kind)
             {
                 case SchoolLinkRules.ChangeKind.Linked:
                     Mod.Log.Info($"{tag} [link] {what} -> Welcome Sign {IdOf(LiftCensusSystem.Ent(c.After.Sign))} ({at}; top-level, " +
-                                 "nearest sign within 5000 m)");
+                                 rule + ")");
                     break;
                 case SchoolLinkRules.ChangeKind.Relinked:
                     Mod.Log.Info($"{tag} [link] {what} -> Welcome Sign {IdOf(LiftCensusSystem.Ent(c.After.Sign))} ({at}; was " +
                                  $"{IdOf(LiftCensusSystem.Ent(c.Before.Sign))}: a nearer sign takes {role})");
                     break;
                 case SchoolLinkRules.ChangeKind.Unlinked:
-                    Mod.Log.Info($"{tag} [link] {what} NOT LINKED ({at}; no Welcome Sign within 5000 m" +
+                    Mod.Log.Info($"{tag} [link] {what} NOT LINKED ({at}; no Welcome Sign{(depot ? "" : " within 5000 m")}" +
                                  (c.Before.Linked ? $", was {IdOf(LiftCensusSystem.Ent(c.Before.Sign))}" : "") +
                                  "): it counts for no ski area");
                     break;
@@ -1505,7 +1533,7 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>The published link of a TOP-LEVEL resort building (lodge, school, patrol hut; main thread, the
+        /// <summary>The published link of a TOP-LEVEL resort building (lodge, school, patrol hut, bus depot; main thread, the
         /// last recompute): true when <paramref name="building"/> is one; <paramref name="sign"/> is its Welcome Sign, Entity.Null
         /// = Not linked. False for a ServiceUpgrade child (its sign is its Owner) or anything else. For the hub (world selection,
         /// the Not linked view) and the stats system.</summary>
@@ -1519,7 +1547,7 @@ namespace SkiResortMod.Systems
             return true;
         }
 
-        /// <summary>Every top-level resort building of the last recompute (lodges, the school, patrol huts) with its
+        /// <summary>Every top-level resort building of the last recompute (lodges, the school, patrol huts, bus depots) with its
         /// sign (Entity.Null = Not linked), in the published order; both lists cleared first (the stats system's membership, jobs
         /// and cost sums; the hub's locks and Not linked count). Callers filter by PrefabRef when they need one kind.</summary>
         internal void CopyTopLevelLinks(List<Entity> buildings, List<Entity> signs)
@@ -2090,7 +2118,7 @@ namespace SkiResortMod.Systems
                 }
                 // A published LodgeInfo that changed (tier, SummitServed) moves
                 // Generation even when the score did not (e.g. SummitServed flipping in winter).
-                if (a.ActiveInfo.Count != b.ActiveInfo.Count)
+                if (a.ActiveInfo.Count != b.ActiveInfo.Count || !SameEntities(a.DepotActive, b.DepotActive))
                     return true;
                 for (int i = 0; i < a.ActiveInfo.Count; i++)
                 {
@@ -2132,7 +2160,7 @@ namespace SkiResortMod.Systems
             for (int s = 0; s < next.SlotCount; s++)
             {
                 AreaSlot a = next.Slots[s];
-                if (!cur.TryGetSlot(a.Sign, out AreaSlot b) || a.Active.Count != b.Active.Count)
+                if (!cur.TryGetSlot(a.Sign, out AreaSlot b) || a.Active.Count != b.Active.Count || !SameEntities(a.DepotActive, b.DepotActive))
                     return true;
                 for (int i = 0; i < a.Active.Count; i++)
                 {
@@ -2141,6 +2169,18 @@ namespace SkiResortMod.Systems
                 }
             }
             return false;
+        }
+
+        private static bool SameEntities(List<Entity> a, List<Entity> b)
+        {
+            if (a.Count != b.Count)
+                return false;
+            for (int i = 0; i < a.Count; i++)
+            {
+                if (a[i] != b[i])
+                    return false;
+            }
+            return true;
         }
 
         private static bool SameRun(RunScoreView a, RunScoreView b)
@@ -2351,7 +2391,7 @@ namespace SkiResortMod.Systems
                 foreach (KeyValuePair<EntityRef, SchoolLinkRules.Link> pair in m_TopLinks)
                 {
                     m_TopKindOf.TryGetValue(pair.Key, out byte kind);
-                    sb.Append("; ").Append(kind == SchoolLinkRules.KindSchool ? "school " : kind == SchoolLinkRules.KindPatrol ? "patrol " : "lodge ")
+                    sb.Append("; ").Append(kind == SchoolLinkRules.KindSchool ? "school " : kind == SchoolLinkRules.KindPatrol ? "patrol " : kind == SchoolLinkRules.KindDepot ? "bus depot " : "lodge ")
                       .Append(IdOf(LiftCensusSystem.Ent(pair.Key))).Append(" -> ")
                       .Append(pair.Value.Linked ? IdOf(LiftCensusSystem.Ent(pair.Value.Sign)) : "NOT LINKED")
                       .Append(float.IsInfinity(pair.Value.Distance) ? "" : " (" + pair.Value.Distance.ToString("F0", CultureInfo.InvariantCulture) + " m)");
@@ -2422,7 +2462,8 @@ namespace SkiResortMod.Systems
             }
             sb.Append("; school ").Append(r.SchoolActive ? "on" : "off").Append(" (").Append(slot.Schools).Append(" listed, green counted ")
               .Append(r.GreenCounted ? "y" : "n").Append(", +").Append(r.SchoolValue.ToString("0.##", ic)).Append("); patrols ")
-              .Append(slot.PatrolEntities.Count).Append(" (").Append(slot.PatrolXz.Count).Append(" with a position), runs patrolled ")
+              .Append(slot.PatrolEntities.Count).Append(" (").Append(slot.PatrolXz.Count).Append(" with a position), bus depots ")
+              .Append(slot.DepotActive.Count).Append(", runs patrolled ")
               .Append(r.RunsPatrolled).Append("; lifts value ").Append(r.LiftsValue.ToString("0.##", ic)).Append(", applied ")
               .Append(r.LiftsApplied.ToString("0.##", ic)).Append('\n');
         }
@@ -2502,9 +2543,12 @@ namespace SkiResortMod.Systems
                 else
                     pending.Add(name);
             }
-            for (int i = 0; i < SkiCatalog.Schools.Count + SkiCatalog.Patrols.Count; i++)
+            int depotRows = SkiCatalog.Depots.Count, schoolRows = SkiCatalog.Schools.Count;
+            for (int i = 0; i < depotRows + schoolRows + SkiCatalog.Patrols.Count; i++)
             {
-                string name = i < SkiCatalog.Schools.Count ? SkiCatalog.Schools[i].Prefab : SkiCatalog.Patrols[i - SkiCatalog.Schools.Count].Prefab;
+                string name = i < depotRows ? SkiCatalog.Depots[i].Prefab
+                    : i < depotRows + schoolRows ? SkiCatalog.Schools[i - depotRows].Prefab
+                    : SkiCatalog.Patrols[i - depotRows - schoolRows].Prefab;
                 if (m_PrefabCatalog.EntityOf(name) != Entity.Null)
                     upgrades.Add(name);
                 else if (SkiCatalog.IsExpected(name))

@@ -19,7 +19,7 @@ Template (copy above the newest entry):
 ```
 ## X.Y.Z (PDX version N, YYYY-MM-DD)
 - Save compatible with previous: yes
-- Layout versions: Binding 1, TreeMember 2, SeasonPass 1, HistoryMonth 2, MonthInProgress 1
+- Layout versions: Binding 1, TreeMember 2, SeasonPass 1, HistoryMonth 2, MonthInProgress 2
 - Do not load in older versions: no
 
 Notes...
@@ -27,7 +27,7 @@ Notes...
 
 ## 1.0.0 (PDX version -, unreleased)
 - Save compatible with previous: n/a (first release)
-- Layout versions: Binding 1, TreeMember 2, SeasonPass 1, HistoryMonth 2, MonthInProgress 1
+- Layout versions: Binding 1, TreeMember 2, SeasonPass 1, HistoryMonth 2, MonthInProgress 2
 - Do not load in older versions: no
 
 First public release. Draft notes (check against the build at upload):
@@ -51,6 +51,9 @@ First public release. Draft notes (check against the build at upload):
   (two months before winter to one month after), powder days, seasons.
 - Welcome Sign (set back 8 m from the road on a leveled lot), five lodges, Ski School, two patrol
   buildings.
+- Ski Bus Depot: a coach stop in town for the nearest ski area, at any distance. A home closer to it than to a lodge starts
+  its ski day there; guests pay as at a lodge. It adds no capacity and no score, needs a lodge on the hill, and bills 1,500
+  a month plus 300 per km to that lodge (Finances, row Ski bus). A coach in the resort's color drives between the depot and the hill. Placeholder model until its own art.
 - The Ski Resort panel: Attraction, Runs, Lifts, Guests, Finances and History views, a problem list and a build strip.
 - Economy: lift tickets, season passes, lessons, lodge spend, off-season half staff.
 - Delete all ski resort content, a button in the mod's Options (Reset group): removes everything the mod placed in the

@@ -6,7 +6,7 @@ $root = Split-Path -Parent $PSScriptRoot
 $mirror = Join-Path $root 'gamedata-mirror\ImportedData'
 $catalog = Get-Content (Join-Path $root 'mod\SkiResortMod\Systems\SkiCatalog.cs') -Raw
 $names = New-Object System.Collections.Generic.List[string]
-foreach ($const in 'LodgeAFrame', 'LodgeHut', 'LodgeMid', 'LodgeSummit', 'LodgeGrand', 'Sign') {
+foreach ($const in 'LodgeAFrame', 'LodgeHut', 'LodgeMid', 'LodgeSummit', 'LodgeGrand', 'BusDepot', 'Sign') {
     if ($catalog -match "public const string $const = `"([^`"]+)`"") { $names.Add($Matches[1]) }
     else { Write-Host "FAIL: SkiCatalog.Names.$const not found"; exit 1 }
 }

@@ -38,6 +38,14 @@ Ski days send skiers to a lodge, so they need one. Any tier works if it meets th
 - **Power state:** a lodge set to Inactive in its own info panel counts **0**.
 - **Off-season staff:** after **12 game hours** with no open run, lodges and the Ski School keep **half** their jobs (rounded up) until a run opens again. The jobs of the Mountain Hut and Swanky Summit Lodge, carried by the Welcome Sign, halve too. Patrol stays full. Upkeep is not reduced; setting a building Inactive cuts it to a tenth and stops its wages. Option *Half staff off-season*, default on.
 
+## Guests at a Far Hill
+
+Residents only take ski days within the ski area's reach (**7 km** by default), and the chance falls with distance. What helps a hill far from town:
+
+- **Faster access roads:** the trip has to fit before closing. Measured in one test city, in km per game hour: 2-lane highway **8.2**, small road **2.3**, gravel **1.8**.
+- **Hotels:** only tourists staying in a hotel take ski days. A city without hotels still gets tourist parties on leisure, if the lodge has parking.
+- **Parking at the lodge:** one far hill went from 0 tourists to about 200 a month with a single 41-space lot at its road-side lodge.
+
 ## Ski School
 
 <Icon name="building-school" alt="Ski School icon" /> Teaches lessons and lifts local skiing. See [Passes and Lessons](/guides/passes-and-lessons/).
@@ -54,6 +62,20 @@ Two buildings: <Icon name="building-patrol-hut" alt="Ski Patrol Hut icon" /> **S
 - **Placement:** within **5 km** of the Welcome Sign, near steep runs.
 - **Effect:** black and double-black runs within **1 km** score **15 %** more.
 - **Unserved runs:** within **1 km**, count at least **70 %** instead of **40 %**.
+
+## Ski Bus Depot
+
+A coach stop in town, placed from the hub **Buildings** tab, next to the lodges. For a hill far from the city's homes and hotels: a home closer to the depot than to any lodge starts its ski day at the depot. Costs and numbers: [Buildings](/reference/buildings/#ski-bus-depot).
+
+- **Link:** the nearest Welcome Sign at **any distance**; the only building without the **5 km** limit.
+- **Requirements:** its own road, and at least one working lodge on the hill. A Mountain Hut or Swanky Summit Lodge counts. It does not need to be near the runs.
+- **Distance:** a guest's reach, travel time and fit are measured from home to the depot, the same way as to a lodge.
+- **Guests:** arrivals count as the area's guests and pay tickets, lessons and passes as at a lodge. No lodge spend. Leisure visitors who pick the depot count and pay too.
+- **Capacity and score:** adds neither. Ski-day capacity stays set by the runs and the lodges on the hill, and the depot is in no lodge count.
+- **Coach bill:** **1,500** a month plus **300** per straight-line km to the area's nearest lodge on the hill, booked in the Finances view as *Ski bus*. A depot that cannot work bills nothing.
+- **Status codes:** *Bus depot without a road*, *Bus depot with no lodge on the hill*.
+
+A coach in the resort's color drives back and forth between the depot and the area's nearest lodge with a road. It carries nobody: it is what the bill looks like, and guests still make the trip themselves. With no road between the two, or no lodge with a road, no coach drives and the depot still works.
 
 ## Ticket Tolerance
 

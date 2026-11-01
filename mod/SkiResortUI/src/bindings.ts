@@ -20,7 +20,7 @@ export const GROUP = "skiResort";
  * only when C#'s `contract` equals this; on a mismatch it shows the Build strip and the tree controls (CORE only) and
  * says why.
  */
-export const HUB_CONTRACT = 24;
+export const HUB_CONTRACT = 25;
 
 /** The `contract` value while the C# binding is absent (the fallback). Real contracts start at 1. */
 export const CONTRACT_ABSENT = 0;
@@ -112,6 +112,8 @@ export const PROBLEM = {
   SchoolNoGreenRun: 25,  // the ski school is on but no green run counts (sev 1); subject = the top-level school
   SchoolsNotLinked: 26,  // top-level ski schools on no sign, Not linked entry (sev 1); count; subject = the first
   SkiDaysNoGuestsNear: 27,  // an open hill with almost no homes or hotels within a ski day's drive (sev 2); detail = the nearest in tenths of a km
+  DepotNoHillLodge: 28,  // a bus depot's area has no passing hill lodge (sev 1); count; subject = the first such depot
+  DepotNoRoad: 29,  // a bus depot has no road (sev 2); count; subject = the first such depot
 } as const;
 
 /** ResortLive.skiDaysState. C# HubRules HubSkiDayState. */
@@ -126,7 +128,7 @@ export const SKI_DAY_LIMIT = { None: 0, Runs: 1, Lodges: 2 } as const;
  *  imported, and every item of a Shuttle lift type, are not sent); the strip draws
  *  BUILD_GROUPS. */
 export type BuildItemId =
-  | "sign" | "lodge" | "lodgeHut" | "lodgeMid" | "lodgeSummit" | "lodgeGrand"
+  | "sign" | "lodge" | "lodgeHut" | "lodgeMid" | "lodgeSummit" | "lodgeGrand" | "busDepot"
   | "school" | "patrolHut" | "patrolHQ"
   | "baseStation" | "topStation" | "lift"
   | "baseStationDetachable" | "topStationDetachable" | "liftDetachable"
@@ -135,7 +137,7 @@ export type BuildItemId =
   | "runNatural" | "runGroomed" | "runSnowmaking" | "runNight" | "runCatTrack"
   | "safetyFence";
 export const BUILD_ITEM_IDS: readonly BuildItemId[] = [
-  "sign", "lodge", "lodgeHut", "lodgeMid", "lodgeSummit", "lodgeGrand",
+  "sign", "lodge", "lodgeHut", "lodgeMid", "lodgeSummit", "lodgeGrand", "busDepot",
   "school", "patrolHut", "patrolHQ",
   "baseStation", "topStation", "lift",
   "baseStationDetachable", "topStationDetachable", "liftDetachable",
@@ -154,6 +156,7 @@ export const BUILD_ITEM_PREFAB: Readonly<Record<BuildItemId, string>> = {
   lodgeMid: "SkiLodgeMid",
   lodgeSummit: "SkiLodgeSummit",
   lodgeGrand: "SkiLodgeGrand",
+  busDepot: "SkiBusDepot",
   school: "SkiSchool",
   patrolHut: "SkiPatrolHut",
   patrolHQ: "SkiPatrolHQ",
@@ -538,9 +541,9 @@ export interface ResortLive {
   wagesMonth: number;
   jobs: number;
   jobsFilled: number;
-  /** The one net (C# HubRules.NetMonth): this month's booked income - costs, so far; the eight rows that add up to
+  /** The one net (C# HubRules.NetMonth): this month's booked income - costs, so far; the nine rows that add up to
    *  it: ticketsThisMonth + lodgeIncomeMonth + lessonIncomeMonth + passIncomeMonth - liftChargedMonth - runCostMonth - buildingsSoFar -
-   *  wagesSoFar (each max(0, row)). Not linked: -(lift charge + run upkeep booked for Not linked). Used as sent. */
+   *  wagesSoFar - busChargedMonth (each max(0, row)). Not linked: -(lift charge + run upkeep booked for Not linked). Used as sent. */
   netMonth: number;
   /** Some term of the net is unknown (read as 0). */
   netEstimated: boolean;
@@ -625,6 +628,14 @@ export interface ResortLive {
   wagesSoFar: number;
   /** The share of the month simulated, 0..1; -1 unknown (Not linked, counter not armed). */
   monthShare: number;
+  /** The bus depots' coach bill booked this month (the Net's ninth row); busBillMonth is the rate now. */
+  busChargedMonth: number;
+  /** Active bus depots linked to this area. */
+  depots: number;
+  /** Ski days that arrived at a depot this month; -1 while ski days are off. */
+  busGuestsMonth: number;
+  /** The coach bill's rate per month now, over the depots that work. */
+  busBillMonth: number;
 }
 
 /** One run of ours: identity, rating, service, value parts. */

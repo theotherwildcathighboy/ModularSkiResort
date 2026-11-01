@@ -68,6 +68,7 @@ namespace SkiResortMod.Systems
             public const byte PathFailedAtStart = SkiDayTiming.FlagPathFailedAtStart;   // 16: the walker carried Divert{PathFailed}
             public const byte DeadlineIsClosing = SkiDayTiming.FlagDeadlineIsClosing;   // 32: the claim's deadline is the lifts' closing
             public const byte LateArrived = SkiDayTiming.FlagLateArrived;               // 64: arrived during the late watch (state 3)
+            public const byte ToDepot = SkiDayTiming.FlagToDepot;                       // 128: the claim's target is a bus depot
         }
 
         /// <summary>SkiDayClaim.Flags2 bits (the values of SkiDayTiming.Flag2…).</summary>
@@ -229,6 +230,7 @@ namespace SkiResortMod.Systems
             public int Capacity;          // SkiCatalog.Lodges[i].Capacity (skiers a day; A-frame 360)
             public int PriceTolerance;    // SkiCatalog.Lodges[i].PriceTolerance
             public byte NoRoadNeeded;     // 1 = RoadRule != Base (a mountain lodge: passes without a road, never a claim target)
+            public byte IsDepot;          // 1 = a bus depot: after the area's lodges, Capacity 0, tolerance 0, LodgeIndex -1, CheckDepot's verdict
             public short LodgeIndex;      // SkiCatalog.Lodges index (logs and DUMP only)
         }
 
@@ -243,7 +245,7 @@ namespace SkiResortMod.Systems
         /// <summary>ClaimJob's per-area result (step A values, step B counts, the first claim of the pass).</summary>
         private struct ClaimOut
         {
-            public int Pool, PoolTourists, Sent, SentWalk, SentCar, SentNoCar, SentTourists, CarsEnqueued,
+            public int Pool, PoolTourists, Sent, SentWalk, SentCar, SentNoCar, SentTourists, CarsEnqueued, SentOffDay, SentDepot,
                        CapacityPeople, TargetLodges;
             public byte State /*AreaState*/, Limit /*SkiDayLimit*/, ClaimHours, HasFirst, FirstClass, FirstKind;
             public uint ClosingFrame;
@@ -261,6 +263,7 @@ namespace SkiResortMod.Systems
         /// <summary>ResolveJob's per-area outcome counters (one extra row for orphans).</summary>
         private struct ResolveOut
         {
+            public int ArrivedDepot;   // of the arrivals, those whose claim target was a bus depot
             public int OnTheWay, OnSite, ArrivedWalk, ArrivedCar, ArrivedNoCar, ArrivedTourists, Gone,
                        Retargeted, RetargetedAtOrigin, Expired, Left, ArrivedNoLeisure;
             public double HoursWalk, HoursCar, HoursNoCar, FirstHours;
@@ -879,6 +882,8 @@ namespace SkiResortMod.Systems
                 }
                 if (c.Kind == (byte)SkiDayRules.GuestKind.Tourist)
                     ro.ArrivedTourists++;
+                if ((c.Flags & ClaimFlag.ToDepot) != 0)
+                    ro.ArrivedDepot++;
                 if (ro.HasFirst == 0)
                 {
                     ro.HasFirst = 1;
@@ -1462,6 +1467,14 @@ namespace SkiResortMod.Systems
             public int Price;
             public int LeisureInterval, BehaviorInterval, BehaviorOffset;
             public SkiDayRules.TripKnobs TripKnobs;   // the fit check's speed (FitSpeed) and stay reserve
+            // OwnDeadline's inputs, the same as ResolveJob's clock checks (LiveKnown 0: vanilla's deadline stands).
+            [ReadOnly] public ComponentLookup<Worker> Workers;
+            [ReadOnly] public ComponentLookup<Game.Citizens.Student> Students;
+            [ReadOnly] public ComponentLookup<Game.City.Population> Populations;
+            public Game.Prefabs.EconomyParameterData Economy;
+            public TimeData TimeData;
+            public Entity PopulationEntity;
+            public byte LiveKnown;
 
             public void Execute()
             {
@@ -1494,8 +1507,13 @@ namespace SkiResortMod.Systems
                 // NearestTarget and the presale copy still skip it). Without this a busy gated lodge would flap the area to NoLodge every 512
                 // frames.
                 var gated = new NativeArray<byte>(lodges, Allocator.Temp);
+                // The real lodges first, then the bus depots: a depot passes only with a passing hill lodge in its area (a mountain lodge
+                // counts; a gated lodge counts, as it stays in capacity).
+                var hillLodges = new NativeArray<int>(areaCount, Allocator.Temp);
                 for (int li = 0; li < lodges; li++)
                 {
+                    if (Lodges[li].IsDepot != 0)
+                        continue;
                     Entity l = Lodges[li].Lodge;
                     bool hasB = Buildings.TryGetComponent(l, out Building b);
                     bool hasSite = li < Sites.Length && Sites[li].HasPosition != 0;
@@ -1517,13 +1535,43 @@ namespace SkiResortMod.Systems
                         facts.LeisureTagged = true;   // would every OTHER check pass? (NoRoad, NotSlopeside still reject)
                         gated[li] = (byte)(SkiDayRules.CheckLodge(facts) == SkiDayRules.LodgeReject.None ? 1 : 0);
                     }
+                    int hillArea = Lodges[li].Area;
+                    if ((verdict == SkiDayRules.LodgeReject.None || gated[li] != 0) && hillArea >= 0 && hillArea < areaCount)
+                        hillLodges[hillArea]++;
                 }
+                for (int li = 0; li < lodges; li++)
+                {
+                    if (Lodges[li].IsDepot == 0)
+                        continue;
+                    Entity l = Lodges[li].Lodge;
+                    bool hasB = Buildings.TryGetComponent(l, out Building b);
+                    int hillArea = Lodges[li].Area;
+                    var facts = new SkiDayRules.LodgeFacts
+                    {
+                        IsLodgePrefab = true,   // from CopyActiveDepots (depot prefab, linked to a live sign)
+                        OnLiveSign = true,
+                        Active = hasB && !BuildingUtils.CheckOption(b, BuildingOption.Inactive),
+                        Destroyed = Destroyeds.HasComponent(l) || Deleteds.HasComponent(l) || !hasB,
+                        LeisureTagged = LeisureProviders.HasComponent(l),
+                        HasRoad = hasB && b.m_RoadEdge != Entity.Null,
+                    };
+                    int hills = hillArea >= 0 && hillArea < areaCount ? hillLodges[hillArea] : 0;
+                    SkiDayRules.LodgeReject verdict = SkiDayRules.CheckDepot(facts, hills);
+                    LodgeReject[li] = (byte)verdict;
+                    if (verdict == SkiDayRules.LodgeReject.NoLeisureTag)
+                    {
+                        facts.LeisureTagged = true;
+                        gated[li] = (byte)(SkiDayRules.CheckDepot(facts, hills) == SkiDayRules.LodgeReject.None ? 1 : 0);
+                    }
+                }
+                hillLodges.Dispose();
 
                 bool anyOpen = false;
                 for (int a = 0; a < areaCount; a++)
                 {
                     AreaJob aj = Areas[a];
-                    // Targets = passing Base-road lodges; capacity and tolerance = passing lodges (every one holds skiers).
+                    // Targets = passing Base-road lodges and passing bus depots; capacity and tolerance = passing lodges (every one holds
+                    // skiers; a depot's Capacity and PriceTolerance are 0, so it adds to neither: capacity stays min(runs, hill lodges)).
                     int target = 0, tolerance = 0, claimable = 0;
                     long lodgeCapacity = 0;
                     int end = math.min(aj.LodgeStart + aj.LodgeCount, lodges);
@@ -1709,11 +1757,14 @@ namespace SkiResortMod.Systems
                 bool passHolder = who == SkiDayRules.GuestKind.Resident && SeasonPasses.TryGetComponent(hh, out SkiSeasonPass pass) &&
                                   SkiMoneyRules.PassStandingOf(true, pass.m_SeasonKey, pass.m_Flags, SeasonKey) == SkiMoneyRules.PassStanding.Holder;
 
+                uint ownDeadline = OwnDeadline(e, citizen, leisure.m_LastPossibleFrame);
+
                 // The best area: one roll against the best area's chance only.
                 int bestA = -1, bestLi = -1;
                 byte bestCls = 0;
                 double bestP = 0.0, bestD = double.PositiveInfinity;
                 EntityRef bestSign = default;
+                bool bestOffDayOnly = false;   // the winner fits only with the off-day deadline (the measure)
                 bool leaving = false;
                 for (int a = 0; a < areaCount; a++)
                 {
@@ -1741,10 +1792,10 @@ namespace SkiResortMod.Systems
                     // The speed the fit check reads (arrivals only while FitUsesAllOutcomes is false: the same
                     // double as t.SpeedKmPerHour) and the stay reserve from TripKnobs (2 h by default: the same expression).
                     double hours = SkiDayRules.TravelHours(d, SkiDayRules.FitSpeed(t, TripKnobs));
-                    if (!SkiDayRules.ClaimFits(Now, leisure.m_LastPossibleFrame, co.ClosingFrame, hours, TripKnobs.StayHours))
+                    if (!SkiDayRules.ClaimFits(Now, ownDeadline, co.ClosingFrame, hours, TripKnobs.StayHours))
                     {
                         if (last)
-                            TooLate(a, cls, who, aj, d, hours, leisure.m_LastPossibleFrame, co.ClosingFrame, t, passHolder);   // measure only
+                            TooLate(a, cls, who, aj, d, hours, ownDeadline, co.ClosingFrame, t, passHolder);   // measure only
                         continue;
                     }
                     // The area's price tolerance and school factor.
@@ -1758,6 +1809,7 @@ namespace SkiResortMod.Systems
                     bestP = p;
                     bestD = d;
                     bestSign = aj.SignRef;
+                    bestOffDayOnly = !SkiDayRules.ClaimFits(Now, leisure.m_LastPossibleFrame, co.ClosingFrame, hours, TripKnobs.StayHours);
                 }
                 if (leaving && last)
                     PassStats[Stat.LeavingToday]++;
@@ -1784,9 +1836,14 @@ namespace SkiResortMod.Systems
                 }
 
                 // The claim: LeisureSystem's own two writes (LeisureSystem.cs:398-405, 1.6.2 :392-399), the
-                // deadline = min(vanilla's, closing); nothing else; no structural change.
+                // deadline = min(own, closing), own being vanilla's or bedtime on a day off; nothing else; no structural change.
                 Entity lodge = Lodges[bestLi].Lodge;
-                uint deadline = SkiDayRules.ClaimDeadline(leisure.m_LastPossibleFrame, won.ClosingFrame);
+                bool toDepot = Lodges[bestLi].IsDepot != 0;
+                if (toDepot)
+                    won.SentDepot++;
+                if (bestOffDayOnly)
+                    won.SentOffDay++;
+                uint deadline = SkiDayRules.ClaimDeadline(ownDeadline, won.ClosingFrame);
                 leisure.m_TargetAgent = lodge;
                 leisure.m_LastPossibleFrame = deadline;
                 leisures[index] = leisure;
@@ -1822,7 +1879,7 @@ namespace SkiResortMod.Systems
                     ClaimMinute = (ushort)SkiDayTiming.MinuteOfDay(TimeOfDay),
                     ClosestM = float.PositiveInfinity,
                     LodgeXz = bestLi < Sites.Length && Sites[bestLi].HasPosition != 0 ? Sites[bestLi].Xz : new float2(float.NaN, float.NaN),
-                    Flags = deadline == won.ClosingFrame ? ClaimFlag.DeadlineIsClosing : (byte)0,
+                    Flags = (byte)((deadline == won.ClosingFrame ? ClaimFlag.DeadlineIsClosing : 0) | (toDepot ? ClaimFlag.ToDepot : 0)),
                     // "not read" / "none" / "n/a"; every other new field starts at 0.
                     RemoveWhy = 255,
                     MoveReason = 255,
@@ -1876,6 +1933,23 @@ namespace SkiResortMod.Systems
             /// its last sighting (as the pool counts it) by the deadline that is too early (FitVerdict) and class, with the chance it would
             /// have had here (the same Chance call as an accepted decision). A decision refused here and sent to another area counts here
             /// too, so "expected ski days lost" is an upper bound.</summary>
+            /// <summary>The deadline the fit check and the claim read: vanilla's, raised to bedtime for a worker or student on a day off
+            /// (SkiDayRules.OffDayDeadline). IsTodayOffDay is also the student coin (StudentSystem.cs:316); worker first, as vanilla reads them.</summary>
+            private uint OwnDeadline(Entity e, Citizen z, uint vanilla)
+            {
+                if (LiveKnown == 0)
+                    return vanilla;
+                bool isWorker = Workers.TryGetComponent(e, out Worker wk);
+                bool isStudent = Students.TryGetComponent(e, out Game.Citizens.Student st);
+                if (!isWorker && !isStudent)
+                    return vanilla;
+                int population = Populations.TryGetComponent(PopulationEntity, out Game.City.Population p) ? p.m_Population : 0;
+                if (!WorkerSystem.IsTodayOffDay(z, ref Economy, Now, TimeData, population))
+                    return vanilla;
+                float2 sleep = CitizenBehaviorSystem.GetSleepTime(e, z, ref Economy, isWorker, wk, isStudent, st);
+                return SkiDayRules.OffDayDeadline(vanilla, Now, TimeOfDay, sleep.x);
+            }
+
             private void TooLate(int a, SkiDayRules.TravelClass cls, SkiDayRules.GuestKind who, in AreaJob aj, float d, double hours,
                                  uint vanillaDeadline, uint closingFrame, in SkiDayRules.ClassTrack t, bool passHolder)
             {

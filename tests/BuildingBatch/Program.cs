@@ -71,6 +71,12 @@ namespace BuildingBatch
             SchoolLinkRules.Link l3 = SchoolLinkRules.Resolve(one, new float2(5000.01f, 0f), Tether);
             Check(!l3.Linked && l3.Sign.IsNull && l3.Distance > 5000f && !float.IsInfinity(l3.Distance), "L3",
                   $"5000.01 m is out (distance kept for the log: {l3.Distance:F2})");
+            // The bus depot alone has no tether: the nearest live sign at any distance. No sign and a NaN position still mean not linked.
+            SchoolLinkRules.Link d1 = SchoolLinkRules.Resolve(two, new float2(58000f, 0f), SchoolLinkRules.DepotMaxDistance);
+            Check(d1.Linked && d1.Sign == SignB && Math.Abs(d1.Distance - 50000f) < 0.5f, "L3b", $"a depot 50 km out links to the nearest sign, {d1.Distance:F0} m");
+            Check(!SchoolLinkRules.Resolve(two, new float2(58000f, 0f), Tether).Linked, "L3c", "the same spot is out for the tethered buildings");
+            Check(!SchoolLinkRules.Resolve(new SkiResortIndex(), new float2(0f, 0f), SchoolLinkRules.DepotMaxDistance).Linked, "L3d", "a depot with no sign is not linked");
+            Check(!SchoolLinkRules.Resolve(one, new float2(float.NaN, 0f), SchoolLinkRules.DepotMaxDistance).Linked, "L3e", "a depot at NaN is not linked");
             SchoolLinkRules.Link l4 = SchoolLinkRules.Resolve(one, new float2(float.NaN, 0f), Tether);
             Check(!l4.Linked && float.IsPositiveInfinity(l4.Distance), "L4", "NaN position never links, distance +inf");
 
@@ -360,6 +366,7 @@ namespace BuildingBatch
             new Gate("SkiLodgeMid", 200, 5, false),
             new Gate("SkiLodgeSummit", 400, 0, true),
             new Gate("SkiLodgeGrand", 400, 5, false),
+            new Gate("SkiBusDepot", 60, 5, false),
             new Gate("SkiSchool", 150, 4, false),
             new Gate("SkiPatrolHut", 50, 0, true),
             new Gate("SkiPatrolHQ", 50, 0, true),
@@ -394,6 +401,8 @@ namespace BuildingBatch
             if (s != null) { cost = s.BuildCost; jobs = s.Jobs; upkeep = s.Upkeep; return true; }
             PatrolDef p = SkiCatalog.PatrolByPrefab(prefab);
             if (p != null) { cost = p.BuildCost; jobs = p.Jobs; upkeep = p.Upkeep; return true; }
+            DepotDef d = SkiCatalog.DepotByPrefab(prefab);
+            if (d != null) { cost = d.BuildCost; jobs = 0; upkeep = d.Upkeep; return true; }
             return false;
         }
 

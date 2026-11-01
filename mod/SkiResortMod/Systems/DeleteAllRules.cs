@@ -22,7 +22,7 @@ namespace SkiResortMod.Systems
     public enum DeleteKind : byte
     {
         LiftEdges = 0, LiftNodes = 1, Stations = 2, Lodges = 3, Schools = 4, Patrols = 5, Signs = 6, Runs = 7,
-        FenceEdges = 8, FenceNodes = 9, Trees = 10, SeasonPasses = 11, KeptSharedNodes = 12,
+        FenceEdges = 8, FenceNodes = 9, Trees = 10, SeasonPasses = 11, KeptSharedNodes = 12, Depots = 13,
     }
 
     public static class DeleteAllRules
@@ -31,12 +31,12 @@ namespace SkiResortMod.Systems
         /// sub-net, but a stub node detached by vanilla (a player's wire on it) keeps this prefab.</summary>
         public const string ExtraMarkerLV = "SkiLiftMarkerLV";
 
-        public const int KindCount = 13;
+        public const int KindCount = 14;
 
         private static readonly string[] s_Labels =
         {
             "lift edges", "lift nodes", "stations", "lodges", "schools", "patrol huts", "signs", "runs",
-            "fence edges", "fence nodes", "trees", "season passes removed", "shared nodes kept",
+            "fence edges", "fence nodes", "trees", "season passes removed", "shared nodes kept", "bus depots",
         };
 
         /// <summary>One prefab the button deletes: its PrefabID (type, name) and catalog kind.</summary>
@@ -77,6 +77,7 @@ namespace SkiResortMod.Systems
                 case CatalogKind.Station: counter = DeleteKind.Stations; return true;
                 case CatalogKind.Lodge: counter = DeleteKind.Lodges; return true;
                 case CatalogKind.School: counter = DeleteKind.Schools; return true;
+                case CatalogKind.Depot: counter = DeleteKind.Depots; return true;
                 case CatalogKind.Patrol: counter = DeleteKind.Patrols; return true;
                 case CatalogKind.Sign: counter = DeleteKind.Signs; return true;
                 default: counter = DeleteKind.Signs; return false;

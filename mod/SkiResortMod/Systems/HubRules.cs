@@ -45,6 +45,7 @@ namespace SkiResortMod.Systems
         MixedLiftTypes = 23, SummitLodgeNotLiftServed = 24, SchoolNoGreenRun = 25,
         SchoolsNotLinked = 26,  // top-level ski schools on no sign, Not linked entry only
         SkiDaysNoGuestsNear = 27,  // an open hill with almost no homes or hotels within a ski day's drive; Detail = the nearest, tenths of a km
+        DepotNoHillLodge = 28, DepotNoRoad = 29,  // a bus depot that cannot work: the area has no passing hill lodge / it has no road; Count
     }
 
     /// <summary>bindings.ts SKI_DAY_STATE (gate R17): ResortLive.skiDaysState, the Guests view's state line. The hub's display
@@ -87,6 +88,7 @@ namespace SkiResortMod.Systems
         public int NoGuestsNearTenthsKm;  // SkiDayRules.NoGuestsNear on an open hill: the nearest home or hotel in tenths of a km; 0 = no row
         public int LodgesNoParking;  // ski-day lodges with 0 car spaces within 300 m
         public int LodgesNotSlopeside;  // active lodges more than 800 m from the area's runs and stations
+        public int DepotsNoHillLodge, DepotsNoRoad;  // active bus depots CheckDepot rejects for these; never in a lodge count
         // The band showed the Efficiency row on this area's previous build (hysteresis state).
         public bool EfficiencyRowWasOn;
         // Active lodges whose row counts more when summit-served (MuSummit > Mu) and that no complete, powered lift top reaches
@@ -157,19 +159,20 @@ namespace SkiResortMod.Systems
     {
         public int TicketIncome, LodgeIncome, LessonIncome, PassIncome;
         public int LiftCost, RunCost, BuildingsCost, WagesCost;
+        public int BusCost;   // the bus depots' coach bill; a closed month's element holds it inside LiftCost (0 here)
 
         /// <summary>Every term unknown (−1).</summary>
         public static HubMonthMoney Unknown => new HubMonthMoney
         {
             TicketIncome = -1, LodgeIncome = -1, LessonIncome = -1, PassIncome = -1,
-            LiftCost = -1, RunCost = -1, BuildingsCost = -1, WagesCost = -1,
+            LiftCost = -1, RunCost = -1, BuildingsCost = -1, WagesCost = -1, BusCost = -1,
         };
 
         /// <summary>Σ max(0, income term).</summary>
         public long Income => (long)Math.Max(0, TicketIncome) + Math.Max(0, LodgeIncome) + Math.Max(0, LessonIncome) + Math.Max(0, PassIncome);
 
         /// <summary>Σ max(0, cost term).</summary>
-        public long Costs => (long)Math.Max(0, LiftCost) + Math.Max(0, RunCost) + Math.Max(0, BuildingsCost) + Math.Max(0, WagesCost);
+        public long Costs => (long)Math.Max(0, LiftCost) + Math.Max(0, RunCost) + Math.Max(0, BuildingsCost) + Math.Max(0, WagesCost) + Math.Max(0, BusCost);
     }
 
     /// <summary>The hub's pure rules. Rules: EngineNotes/HubRules.md, RULES.</summary>
@@ -440,7 +443,7 @@ namespace SkiResortMod.Systems
         public static int NetMonth(in HubMonthMoney m, out bool estimated)
         {
             estimated = m.TicketIncome < 0 || m.LodgeIncome < 0 || m.LessonIncome < 0 || m.PassIncome < 0 ||
-                        m.LiftCost < 0 || m.RunCost < 0 || m.BuildingsCost < 0 || m.WagesCost < 0;
+                        m.LiftCost < 0 || m.RunCost < 0 || m.BuildingsCost < 0 || m.WagesCost < 0 || m.BusCost < 0;
             return ClampInt(m.Income - m.Costs);
         }
 
@@ -457,6 +460,7 @@ namespace SkiResortMod.Systems
                 PassIncome = ClampInt(m.PassIncome),
                 LiftCost = IsFiniteD(m.LiftCharged) ? ClampInt(Math.Round(m.LiftCharged, MidpointRounding.AwayFromZero)) : 0,
                 RunCost = ClampInt(m.RunUpkeep),
+                BusCost = IsFiniteD(m.BusCharged) ? ClampInt(Math.Round(m.BusCharged, MidpointRounding.AwayFromZero)) : 0,
                 BuildingsCost = buildings < 0 ? -1 : buildings,
                 WagesCost = wages < 0 ? -1 : wages,
             };
@@ -847,6 +851,13 @@ namespace SkiResortMod.Systems
             // ski days (SkiDayRules.AreaStateOf).
             if (lodgesFar > 0 && input.Runs > 0)
                 output.Add(Row(HubProblemCode.LodgeNotSlopeside, 1, count: lodgesFar));
+
+            // 8b. A bus depot that cannot work, on its own row: never in the lodge rows above. No hill lodge is dim (the hill's own lodge rows
+            // already warn); no road stops the depot itself.
+            if (input.DepotsNoRoad > 0)
+                output.Add(Row(HubProblemCode.DepotNoRoad, 2, count: input.DepotsNoRoad));
+            if (input.DepotsNoHillLodge > 0)
+                output.Add(Row(HubProblemCode.DepotNoHillLodge, 1, count: input.DepotsNoHillLodge));
 
             // 8c. Summit lodges no working lift top reaches (they count their
             // summit-served summer share only within 300 m), counted up to the area's lodges; the ski school

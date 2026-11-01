@@ -37,7 +37,7 @@ namespace SkiResortMod.Systems
 
         /// <summary>The contract number (bindings.ts HUB_CONTRACT). Bump both together whenever a binding, trigger, field or meaning
         /// changes (Engine notes: Near HubContract lists what each number appended).</summary>
-        public const int HubContract = 24;
+        public const int HubContract = 25;
 
         /// <summary>The `contract` value the UI reads as "C# absent" (bindings.ts CONTRACT_ABSENT). Pushed after the one-shot "!!!"
         /// until the next load: the UI then shows its "not connected" notice instead of launchers that do nothing.</summary>
@@ -2192,7 +2192,9 @@ namespace SkiResortMod.Systems
                 LastTriggerText = $"launch {id} on {Ent(sign)}: refused, already built";
                 return false;
             }
-            string fate = distance <= SkiRunOwnershipSystem.TetherMeters
+            string fate = Items[item].Kind == BuildItemKind.Depot
+                ? "links to the nearest sign at any distance where placed"
+                : distance <= SkiRunOwnershipSystem.TetherMeters
                 ? "links to the nearest sign within " + SkiRunOwnershipSystem.TetherMeters.ToString("F0", CultureInfo.InvariantCulture) + " m where placed"
                 : "beyond the tether here: place it within " + SkiRunOwnershipSystem.TetherMeters.ToString("F0", CultureInfo.InvariantCulture) +
                   " m of a sign or it counts for no ski area";
@@ -2733,6 +2735,14 @@ namespace SkiResortMod.Systems
                         }
                         break;
                     }
+                    case BuildItemKind.Depot:
+                    {
+                        if (live && EntityManager.TryGetComponent(prefab, out PlaceableObjectData placeable))
+                            m_ItemCost[i] = ClampCost(placeable.m_ConstructionCost);
+                        DepotDef depot = SkiCatalog.DepotByPrefab(item.Prefab);
+                        rowCost = depot != null ? depot.BuildCost : -1;
+                        break;
+                    }
                     case BuildItemKind.Lodge:
                     case BuildItemKind.School:
                     case BuildItemKind.Patrol:
@@ -3255,6 +3265,14 @@ namespace SkiResortMod.Systems
                 writer.Write(Fin(r.WagesSoFar));
                 writer.PropertyName("monthShare");
                 writer.Write(Fin(r.MonthShare));
+                writer.PropertyName("busChargedMonth");
+                writer.Write(Fin(r.BusChargedMonth));
+                writer.PropertyName("depots");
+                writer.Write(Fin(r.Depots));
+                writer.PropertyName("busGuestsMonth");
+                writer.Write(Fin(r.BusGuestsMonth));
+                writer.PropertyName("busBillMonth");
+                writer.Write(Fin(r.BusBillMonth));
                 writer.TypeEnd();
             }
             writer.ArrayEnd();

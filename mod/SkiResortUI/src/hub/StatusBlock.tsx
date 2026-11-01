@@ -126,6 +126,8 @@ function ProblemText({ p, t }: { p: ProblemRow; t: Translate }): JSX.Element {
     case "skiDaysNoGuestsNear": return <LocText entry={HUB_FMT.problemSkiDaysNoGuestsNear} args={{ KM: numArg(p.detail / 10, Unit.FloatSingleFraction) }} />;
     case "noParkingNearLodge": return <>{t(HUB_LOC.problemNoParkingNearLodge)}</>;
     case "lodgeNotSlopeside": return <>{t(HUB_LOC.problemLodgeNotSlopeside)}</>;
+    case "depotNoHillLodge": return <>{t(HUB_LOC.problemDepotNoHillLodge)}</>;
+    case "depotNoRoad": return <>{t(HUB_LOC.problemDepotNoRoad)}</>;
     // Codes 23-25
     case "mixedLiftTypes": return <LocText entry={HUB_FMT.problemMixedLiftTypes} args={{ NAME }} />;
     case "summitLodgeNotLiftServed": return <LocText entry={HUB_FMT.problemSummitLodgeNotLiftServed} args={{ N }} />;
@@ -196,6 +198,8 @@ function problemTip(p: ProblemRow, factors: readonly ProblemRow[], live: ResortL
     case "skiDaysNoGuestsNear": body = t(HUB_LOC.problemTipSkiDaysNoGuestsNear); break;
     case "noParkingNearLodge": body = t(HUB_LOC.problemTipNoParkingNearLodge); break;
     case "lodgeNotSlopeside": body = t(HUB_LOC.problemTipLodgeNotSlopeside); break;
+    case "depotNoHillLodge": body = t(HUB_LOC.problemTipDepotNoHillLodge); break;
+    case "depotNoRoad": body = t(HUB_LOC.problemTipDepotNoRoad); break;
     case "mixedLiftTypes": body = t(HUB_LOC.problemTipMixedLiftTypes); break;
     case "summitLodgeNotLiftServed": body = t(HUB_LOC.problemTipSummitLodgeNotLiftServed); break;
     case "schoolNoGreenRun": body = t(HUB_LOC.problemTipSchoolNoGreenRun); break;

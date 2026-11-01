@@ -771,7 +771,7 @@ namespace SkiResortMod.Systems
             long passIncome = 0;
             int lessons = 0, passesPre = 0;
             long lessonIncome = 0, passIncomePre = 0;
-            double lift = 0.0, notLinked = 0.0;
+            double lift = 0.0, notLinked = 0.0, bus = 0.0;
             for (int i = 0; i < m_Ledger.Count; i++)
             {
                 SkiResortLedger.Entry e = m_Ledger.At(i);
@@ -791,6 +791,7 @@ namespace SkiResortMod.Systems
                 passesPre += m.PassesPre;
                 passIncomePre += m.PassIncomePre;
                 lift += m.LiftCharged;
+                bus += m.BusCharged;
                 Entity sign = Ent(e.Sign);
                 Mod.Log.Info($"Guests [month] {month} ski area {Fmt(e.Sign)}{NameSuffix(sign)}: {MonthBody(m)}");
             }
@@ -816,7 +817,7 @@ namespace SkiResortMod.Systems
                          $"({passesPre} +{passIncomePre} before the season) " +
                          $"with {passHolders} pass-holder guest(s), lessons {lessons} +{lessonIncome} ({feeText} of tickets, passes, lessons and " +
                          $"lodge spend booked as public transportation fees), lift charges -{lift:F0}, " +
-                         $"run upkeep {upkeepText} (whole city), " +
+                         $"ski bus -{bus:F0}, run upkeep {upkeepText} (whole city), " +
                          $"not linked lift charges -{notLinked:F0}; now picked by {parties} tourist part(ies) on the way, " +
                          $"{locals} local(s) and {tourists} tourist(s) on leisure heading to a lodge");
             }
@@ -843,7 +844,7 @@ namespace SkiResortMod.Systems
                    $"passes {m.PassesSold} sold +{m.PassIncome} ({m.PassesPre} +{m.PassIncomePre} before the season), " +
                    $"{m.PassHolderGuests} pass-holder guest(s); " +   // passes with their pre-season part, then lessons
                    $"lessons {m.Lessons} +{m.LessonIncome}; " +
-                   $"lift charges -{m.LiftCharged:F0}";
+                   $"lift charges -{m.LiftCharged:F0}; ski bus -{m.BusCharged:F0}";
         }
 
 
@@ -979,6 +980,7 @@ namespace SkiResortMod.Systems
             m_LiveSigns.Clear();
             m_ListedScratch.Clear();
             m_TargetSigns = m_TargetLodges = m_LodgesOff = m_LodgesFree = 0;
+            int targetDepots = 0;
 
             if (!m_Ownership.PrefabSetsReady)
             {
@@ -989,6 +991,7 @@ namespace SkiResortMod.Systems
             int lodgeBuildings = 0;
             // The catalog's lodge-prefab view, fetched once for this rebuild.
             HashSet<Entity> lodgePrefabs = m_Attractiveness.LodgePrefabSet;
+            HashSet<Entity> depotPrefabs = m_Attractiveness.DepotPrefabSet;
             if (!m_TargetQuery.IsEmptyIgnoreFilter)
             {
                 // Sync only what the walk reads: PrefabRef (Entity needs no sync; Building and Park only select chunks). Vanilla does the same
@@ -1030,8 +1033,21 @@ namespace SkiResortMod.Systems
                 Entity lodge = m_TopScratch[t];
                 Entity sign = m_TopSignScratch[t];
                 if (sign == Entity.Null || !m_LiveSigns.Contains(Ref(sign)) || !EntityManager.Exists(lodge) ||
-                    EntityManager.HasComponent<Deleted>(lodge) || !EntityManager.TryGetComponent(lodge, out PrefabRef pr) ||
-                    !lodgePrefabs.Contains(pr.m_Prefab) || !m_ListedScratch.Add(lodge))
+                    EntityManager.HasComponent<Deleted>(lodge) || !EntityManager.TryGetComponent(lodge, out PrefabRef pr))
+                    continue;
+                // A bus depot counts its arrivals as the area's guests: the ski days it was claimed for and, with its leisure tag, the vanilla
+                // leisure visitors who pick it. Outside the lodge counts below.
+                if (depotPrefabs.Contains(pr.m_Prefab))
+                {
+                    if (EntityManager.TryGetComponent(lodge, out Building depotBuilding) && !BuildingUtils.CheckOption(depotBuilding, BuildingOption.Inactive) &&
+                        m_TargetSign.TryAdd(lodge, sign))
+                    {
+                        targetDepots++;
+                        m_Targets.Add(lodge);
+                    }
+                    continue;
+                }
+                if (!lodgePrefabs.Contains(pr.m_Prefab) || !m_ListedScratch.Add(lodge))
                     continue;
                 if (!EntityManager.TryGetComponent(lodge, out Building building) || BuildingUtils.CheckOption(building, BuildingOption.Inactive))
                 {
@@ -1061,6 +1077,7 @@ namespace SkiResortMod.Systems
             }
             m_IdleReason = null;
             string line = $"Guests [targets] {m_TargetSigns} sign(s), {m_TargetLodges} lodge(s) counted" +
+                          (targetDepots > 0 ? $", {targetDepots} bus depot(s) counted" : "") +
                           (m_LodgesOff > 0 ? $"; out of service ignored: {m_LodgesOff}" : "") +
                           (m_LodgesFree > 0 ? $"; free-standing lodges ignored: {m_LodgesFree}" : "");
             if (line != m_LastTargetsLine)

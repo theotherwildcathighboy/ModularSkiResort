@@ -10,7 +10,7 @@ import { BUILD_ITEM_IDS, RUN_KIND } from "../bindings";
 import type { BuildItem, BuildItemId, RunKind } from "../bindings";
 
 /** C# BuildItemKind (SkiCatalog.cs) in lower camel case: Sign, Lodge, School, Patrol, Station, Line, Run, Fence. */
-export type BuildItemKind = "sign" | "lodge" | "school" | "patrol" | "station" | "line" | "run" | "fence";
+export type BuildItemKind = "sign" | "lodge" | "school" | "patrol" | "station" | "line" | "run" | "fence" | "depot";
 
 /** One row of the ONE build-item table, as C# holds it (gate R16 compares row i with C# row i). */
 export interface BuildItemMeta {
@@ -30,6 +30,7 @@ export const BUILD_ITEMS: readonly BuildItemMeta[] = [
   { id: "lodgeMid", kind: "lodge", liftType: "", runKind: -1 },
   { id: "lodgeSummit", kind: "lodge", liftType: "", runKind: -1 },
   { id: "lodgeGrand", kind: "lodge", liftType: "", runKind: -1 },
+  { id: "busDepot", kind: "depot", liftType: "", runKind: -1 },
   { id: "school", kind: "school", liftType: "", runKind: -1 },
   { id: "patrolHut", kind: "patrol", liftType: "", runKind: -1 },
   { id: "patrolHQ", kind: "patrol", liftType: "", runKind: -1 },
@@ -67,6 +68,7 @@ export const BUILD_ITEM_ICON: Readonly<Record<BuildItemId, string>> = {
   lodgeMid: "assetdb://global/d3df64753c68a935d57aff51fc52815b", // SkiLodgeMid.png
   lodgeSummit: "assetdb://global/1d6966e5716f604d124d7da9130493cd", // SkiLodgeSummit.png
   lodgeGrand: "assetdb://global/25a71e28e84f3c9ab4e7140a389daf95", // SkiLodgeGrand.png
+  busDepot: "assetdb://global/d3df64753c68a935d57aff51fc52815b", // stand-in: SkiLodgeMid.png, until the depot's own art (SkiBusDepot.Prefab UIObject m_Icon)
   school: "assetdb://global/91cfab697c3e967769f87e74ef15d585", // SkiSchool.png
   patrolHut: "assetdb://global/c5c30e4a00c458311ceb5944a68e5628", // SkiPatrolHut.png
   patrolHQ: "assetdb://global/c0fb5f466715cb377e38bf2ea57f75f8", // SkiPatrolHQ.png
@@ -93,7 +95,7 @@ export const BUILD_ITEM_ICON: Readonly<Record<BuildItemId, string>> = {
 /** Four groups in build order (gate R16 checks every id appears exactly once). Group 1's lodge tiers and group 3's
  *  lift types are alternatives (hubRules.pickerSets): only the selected one is drawn. */
 export const BUILD_GROUPS: ReadonlyArray<readonly BuildItemId[]> = [
-  ["sign", "lodge", "lodgeHut", "lodgeMid", "lodgeSummit", "lodgeGrand"],
+  ["sign", "lodge", "lodgeHut", "lodgeMid", "lodgeSummit", "lodgeGrand", "busDepot"],
   ["school", "patrolHut", "patrolHQ"],
   [
     "baseStation", "topStation", "lift",
@@ -155,6 +157,7 @@ export const BUILDING_DRAW: Readonly<Partial<Record<BuildItemId, BuildingDraw>>>
   lodgeMid: { prefab: "SkiLodgeMid", upkeep: 8000, power: 3500, water: 2300, garbage: 190, workers: 12, keepsSlope: true },
   lodgeSummit: { prefab: "SkiLodgeSummit", upkeep: 18000, power: 0, water: 0, garbage: 0, workers: 8, keepsSlope: true },
   lodgeGrand: { prefab: "SkiLodgeGrand", upkeep: 20000, power: 3500, water: 5000, garbage: 430, workers: 18, keepsSlope: false },
+  busDepot: { prefab: "SkiBusDepot", upkeep: 2000, power: 1000, water: 600, garbage: 50, workers: 0, keepsSlope: true },
   school: { prefab: "SkiSchool", upkeep: 3000, power: 2500, water: 1700, garbage: 130, workers: 4, keepsSlope: true },
   patrolHut: { prefab: "SkiPatrolHut", upkeep: 1500, power: 0, water: 0, garbage: 0, workers: 2, keepsSlope: true },
   patrolHQ: { prefab: "SkiPatrolHQ", upkeep: 1500, power: 0, water: 0, garbage: 0, workers: 2, keepsSlope: true },

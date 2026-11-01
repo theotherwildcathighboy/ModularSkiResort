@@ -75,7 +75,7 @@ namespace SkiResortMod.Systems
         public int m_LodgeIncome; // ledger LodgeSpendIncome
         public int m_PassIncome;
         public int m_LessonIncome;
-        public int m_LiftCost; // the ledger's LiftCharged rounded
+        public int m_LiftCost; // the ledger's LiftCharged + BusCharged rounded (a closed month keeps no bus column: History net stays true)
         public int m_RunCost; // the ledger's RunUpkeep (booked per area)
         public int m_BuildingsCost; // per-month rate at the roll; -1 unknown
         public int m_WagesCost; // per-month rate at the roll; -1 unknown
@@ -85,7 +85,7 @@ namespace SkiResortMod.Systems
 
         public bool IsGap => (m_Flags & HistoryFlags.Gap) != 0;
 
-        /// <summary>The element's eight Net terms, as stored (buildings / wages -1 unknown). HubRules.NetMonth over them is the
+        /// <summary>The element's eight Net terms, as stored (buildings / wages -1 unknown; the coach bill is inside LiftCost). HubRules.NetMonth over them is the
         /// month's Net, the number historyRules.ts finish() derives (income - lift - run - max(0, buildings) - max(0, wages)).</summary>
         public HubMonthMoney Money => new HubMonthMoney
         {
@@ -115,7 +115,8 @@ namespace SkiResortMod.Systems
                 m_LodgeIncome = SkiResortHistory.ClampInt(m.LodgeSpendIncome),
                 m_PassIncome = SkiResortHistory.ClampInt(m.PassIncome),
                 m_LessonIncome = SkiResortHistory.ClampInt(m.LessonIncome),
-                m_LiftCost = SkiResortHistory.RoundMoney(m.LiftCharged),
+                // The coach bill folds into the lift column: same accrual, no history layout or UI series for one small term.
+                m_LiftCost = SkiResortHistory.RoundMoney(m.LiftCharged + m.BusCharged),
                 m_RunCost = SkiResortHistory.ClampInt(m.RunUpkeep),
                 m_BuildingsCost = Unknown, m_WagesCost = Unknown, m_Attraction = Unknown, m_SnowPct = SnowUnknown, m_SnowDepthCm = Unknown,
             };
@@ -198,11 +199,14 @@ namespace SkiResortMod.Systems
     // int64 RunUpkeep - then the entry's pass season: int32 PassSeasonKey | int32 PassSeasonSold | int64 PassSeasonIncome |
     // int32 PassSeasonPre | int64 PassSeasonPreIncome.
     // = 2 + 4 + 4 + 7x4 + 8 + 8 + 4 + 8 + 4 + 8 + 4 + 4 + 8 + 4 + 8 + 8 + 4 + 4 + 8 + 4 + 8 = 142 bytes (V1Bytes).
+    // LAYOUT v2 (150 bytes): v1, then double m_Month.BusCharged (the ski bus depot's coach bill).
     public partial struct SkiResortMonthInProgress
     {
-        public const byte CurrentVersion = 1;
+        public const byte CurrentVersion = 2;
         /// <summary>Bytes of a v1 value in the save (pinned by HistoryTests).</summary>
         public const int V1Bytes = 2 + 4 + 4 + 7 * 4 + 8 + 8 + 4 + 8 + 4 + 8 + 4 + 4 + 8 + 4 + 8 + 8 + 4 + 4 + 8 + 4 + 8;
+        /// <summary>Bytes of a v2 value: v1 + double m_Month.BusCharged.</summary>
+        public const int V2Bytes = V1Bytes + 8;
 
         public const byte FlagPartial = 1; // the ledger's ThisMonthSinceLoad at the mirror (counting started partway)
         public const byte FlagByJump = 2; // ... and it started at a calendar jump (the counter's label), not at a load
@@ -261,9 +265,10 @@ namespace SkiResortMod.Systems
             w.Write(m_PassSeasonIncome);
             w.Write(m_PassSeasonPre);
             w.Write(m_PassSeasonPreIncome);
+            w.Write(m_Month.BusCharged);   // v2
         }
 
-        /// <summary>v1 layout (frozen, see engine notes).</summary>
+        /// <summary>v1 fields (frozen, see engine notes), then the v2 field when the value is v2 or newer; a v1 value reads no coach bill.</summary>
         public void ReadFrom<TReader>(ref TReader r) where TReader : IHistoryReader
         {
             r.Read(out m_Version);
@@ -294,6 +299,10 @@ namespace SkiResortMod.Systems
             r.Read(out m_PassSeasonIncome);
             r.Read(out m_PassSeasonPre);
             r.Read(out m_PassSeasonPreIncome);
+            if (m_Version >= 2)
+                r.Read(out m_Month.BusCharged);
+            else
+                m_Month.BusCharged = 0.0;
         }
     }
 

@@ -381,6 +381,15 @@ namespace ResortBatch
 
             Check(Rules.ClaimDeadline(1100000u, 1049152u) == 1049152u && Rules.ClaimDeadline(1049152u, 1100000u) == 1049152u, w,
                   "ClaimDeadline(1,100,000, 1,049,152) = 1,049,152 (either order)");
+
+            // Off-day deadline: bedtime at 0.9, 8:00 (t 1/3), now 1,000,000. Left = 0.56667 x 262,144 = 148,548.
+            uint offDay = Rules.OffDayDeadline(Now + 5000, Now, 1f / 3f, 0.9f);
+            Check(offDay >= Now + 148540 && offDay <= Now + 148556, w, "off day at 8:00, bedtime 21:36: about 148,548 frames, not 5,000");
+            Check(Rules.OffDayDeadline(Now + 200000, Now, 1f / 3f, 0.9f) == Now + 200000, w, "off day: never earlier than vanilla's");
+            uint wrapped = Rules.OffDayDeadline(Now + 5000, Now, 0.95f, 0.05f);   // 22:48, bedtime 1:12: wraps like vanilla, 0.1 of a day
+            Check(wrapped >= Now + 26200 && wrapped <= Now + 26230, w, "off day: bedtime after midnight wraps as vanilla's interval does");
+            Check(Rules.ClaimFits(Now, Rules.OffDayDeadline(Now + 5000, Now, 1f / 3f, 0.9f), Now + 81920, 2.0) &&
+                  !Rules.ClaimFits(Now, Now + 5000, Now + 81920, 2.0), w, "the raised deadline passes a trip the work-time deadline refused");
         }
 
         private static Rules.Knobs K(int locals = 25, int tourists = 50, int reach = 7, int powder = 100)

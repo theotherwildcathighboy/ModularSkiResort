@@ -78,6 +78,7 @@ namespace SkiResortMod.Systems
         {
             None = 0, NotLodge = 1, NotInstalled = 2, Inactive = 3, Destroyed = 4,
             NoLeisureTag = 5, NoRoad = 6, NotSlopeside = 7,
+            NoHillLodge = 8,   // a bus depot in an area with no passing hill lodge (CheckDepot)
         }
         public enum AreaState : byte        // the simulation's gate; the hub maps its own HubSkiDayState
         {
@@ -191,6 +192,26 @@ namespace SkiResortMod.Systems
             if (!l.HasRoad && !l.NoRoadNeeded)
                 return LodgeReject.NoRoad;
             return IsSlopeside(l.NearestRunOrStationM) ? LodgeReject.None : LodgeReject.NotSlopeside;
+        }
+
+        /// <summary>A Ski Bus Depot's verdict: CheckLodge's order with its road always required, and IsSlopeside replaced by "the area has a
+        /// passing hill lodge": <paramref name="passingHillLodges"/> counts the area's real lodges passing CheckLodge (a mountain lodge
+        /// counts; a lodge gated only by the missing leisure tag counts, as step A keeps it in capacity).</summary>
+        public static LodgeReject CheckDepot(in LodgeFacts l, int passingHillLodges)
+        {
+            if (!l.IsLodgePrefab)
+                return LodgeReject.NotLodge;
+            if (!l.OnLiveSign)
+                return LodgeReject.NotInstalled;
+            if (!l.Active)
+                return LodgeReject.Inactive;
+            if (l.Destroyed)
+                return LodgeReject.Destroyed;
+            if (!l.LeisureTagged)
+                return LodgeReject.NoLeisureTag;
+            if (!l.HasRoad)
+                return LodgeReject.NoRoad;
+            return passingHillLodges > 0 ? LodgeReject.None : LodgeReject.NoHillLodge;
         }
 
         /// <summary>xz distance from p to an axis box (Geometry.m_Bounds.xz); 0 inside. Never larger than the
@@ -440,6 +461,16 @@ namespace SkiResortMod.Systems
             double stay = math.isfinite(stayHours) && stayHours >= 0.0 ? stayHours : MinStayHours;
             double need = (travelHours + stay) * FramesPerHour;
             return need <= vanillaDeadline - now && need <= closingFrame - now;
+        }
+
+        /// <summary>A worker's or student's deadline on a day off: bedtime alone. Vanilla's leisure deadline is the earlier of bedtime
+        /// and the next work or school time with no off-day test (1.6.2 CitizenBehaviorSystem.cs:472-485), though the game's own work
+        /// and school checks skip an off day (WorkerSystem.cs:350, StudentSystem.cs:316: the same coin for both). Left until
+        /// sleepStart as CitizenBehaviorSystem.GetTimeLeftUntilInterval computes it; never earlier than vanilla's.</summary>
+        public static uint OffDayDeadline(uint vanillaDeadline, uint now, float timeOfDay, float sleepStart)
+        {
+            float left = timeOfDay < sleepStart ? sleepStart - timeOfDay : 1f - timeOfDay + sleepStart;
+            return math.max(vanillaDeadline, now + (uint)(left * TicksPerDay));
         }
 
         /// <summary>The claim's m_LastPossibleFrame: closing, never later than vanilla's.</summary>

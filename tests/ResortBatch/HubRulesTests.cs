@@ -198,6 +198,12 @@ namespace ResortBatch
             Net(Mm(-1, -1, -1, -1, -1, -1, 6000, 15000), -21000, true);                   // the ledger not counting yet
             Net(Mm(0, 0, 0, 0, 450, 99, 0, 0), -549, false);                              // Not linked: minus the booked lift + run
             Net(Mm(int.MaxValue, 0, 0, int.MaxValue, 0, 0, 0, 0), int.MaxValue, false);   // clamped up
+            HubMonthMoney busMoney = Mm(5000, 0, 0, 0, 450, 99, 0, 0);
+            busMoney.BusCost = 1500;
+            Net(busMoney, 2951, false);                                                   // the coach bill is a ninth Net term
+            busMoney.BusCost = -1;
+            Net(busMoney, 4451, true);                                                    // unknown: read 0, "≈"
+            Check(HubMonthMoney.Unknown.BusCost == -1, "hub A", "Unknown: the coach bill unknown");
             Net(Mm(0, 0, 0, 0, int.MaxValue, int.MaxValue, 0, 0), int.MinValue, false);   // clamped down
             Net(HubMonthMoney.Unknown, 0, true);
 
@@ -215,6 +221,11 @@ namespace ResortBatch
             Check(HubRules.MonthMoneyOf(lm, 0, 0).LiftCost == 0, "hub A B1", "MonthMoneyOf: NaN lift charge not 0");
             lm.LiftCharged = 2.5;
             Check(HubRules.MonthMoneyOf(lm, 0, 0).LiftCost == 3, "hub A B1", "MonthMoneyOf: 2.5 not rounded away from zero");
+            lm.BusCharged = 2.5;
+            Check(HubRules.MonthMoneyOf(lm, 0, 0).BusCost == 3 && HubRules.MonthMoneyOf(lm, 0, 0).LiftCost == 3, "hub A B1", "MonthMoneyOf: the coach bill apart from the lift charge");
+            lm.BusCharged = double.NaN;
+            Check(HubRules.MonthMoneyOf(lm, 0, 0).BusCost == 0, "hub A B1", "MonthMoneyOf: NaN coach bill not 0");
+            lm.BusCharged = 0.0;
 
             // MonthShare / RateSoFar (the rate snapshots' part of the month so far)
             Check(HubRules.MonthShare(0, 100) == 0.0 && HubRules.MonthShare(50, 200) == 0.25 && HubRules.MonthShare(300, 200) == 1.0 &&
@@ -802,6 +813,36 @@ namespace ResortBatch
             Expect("T100d Not linked: free lodges, then the unlinked schools; road inputs ignored", x, o,
                 P(HubProblemCode.FreeLodges, 1, count: 1),
                 P(HubProblemCode.SchoolsNotLinked, 1, count: 2));
+            // A bus depot that cannot work has its own rows and moves no lodge row: the rows without depots, plus these two.
+            HubProblemInput noDepot = In(2, 2, 100, 1, 3);
+            noDepot.LodgesNotSlopeside = 1;
+            var without = new List<HubProblem>();
+            HubProblems.Build(in noDepot, without);
+            HubProblemInput withDepot = noDepot;
+            withDepot.DepotsNoRoad = 1;
+            withDepot.DepotsNoHillLodge = 2;
+            var with = new List<HubProblem>();
+            HubProblems.Build(in withDepot, with);
+            int depotRows = 0, sameRows = 0;
+            foreach (HubProblem row in with)
+            {
+                if (row.Code == HubProblemCode.DepotNoRoad)
+                {
+                    depotRows++;
+                    Check(row.Severity == 2 && row.Count == 1, "hub C", "DepotNoRoad: severity 2, count 1");
+                }
+                else if (row.Code == HubProblemCode.DepotNoHillLodge)
+                {
+                    depotRows++;
+                    Check(row.Severity == 1 && row.Count == 2, "hub C", "DepotNoHillLodge: severity 1, count 2");
+                }
+                else if (without.Exists(r => r.Code == row.Code && r.Count == row.Count))
+                {
+                    sameRows++;
+                }
+            }
+            Check(depotRows == 2 && sameRows == without.Count && with.Count == without.Count + 2, "hub C",
+                  $"the depot rows add 2 and change none: {Text(without)} / {Text(with)}");
             x = In(1, 1, 100, 1, 3);
             x.Lifts = Ls(L(0, true, true, true));
             x.FreeSchools = 3;
@@ -1035,7 +1076,9 @@ namespace ResortBatch
             Eq((int)HubProblemCode.SchoolNoGreenRun, 25, w, "HubProblemCode.SchoolNoGreenRun");
             Eq((int)HubProblemCode.SchoolsNotLinked, 26, w, "HubProblemCode.SchoolsNotLinked");
             Eq((int)HubProblemCode.SkiDaysNoGuestsNear, 27, w, "HubProblemCode.SkiDaysNoGuestsNear");
-            Eq(Enum.GetValues(typeof(HubProblemCode)).Length, 28, w, "HubProblemCode has 28 values (append only)");
+            Eq((int)HubProblemCode.DepotNoHillLodge, 28, w, "HubProblemCode.DepotNoHillLodge");
+            Eq((int)HubProblemCode.DepotNoRoad, 29, w, "HubProblemCode.DepotNoRoad");
+            Eq(Enum.GetValues(typeof(HubProblemCode)).Length, 30, w, "HubProblemCode has 30 values (append only)");
             Eq((int)HubSkiDayState.Full, 7, w, "HubSkiDayState.Full");
             Eq(Enum.GetValues(typeof(HubSkiDayState)).Length, 8, w, "HubSkiDayState has 8 values");
             Eq((int)SeasonHint.GatingOff, 6, w, "SeasonHint.GatingOff");

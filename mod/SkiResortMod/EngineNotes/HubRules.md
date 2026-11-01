@@ -22,7 +22,7 @@ rule R17 of mod/SkiResortUI/tools/check-bundle.js compares each name and value w
 - **LiftStatusOf.** Stats state 0: powered `Running` / `NoPower`; state 1: powered `ChairsStopped` / `NoPower`; state 2:
   `SectionMissing`; anything else `Unfinished`. The closed overload: a complete, powered lift (state 0 or 1) held by the no-open-run
   rule (`LiftClosedRule`, the tram exempt) reads `Closed`, not `Running`.
-- **NetMonth.** The one Net of the hub, over the eight terms of `HubMonthMoney` (see ONE NET below).
+- **NetMonth.** The one Net of the hub, over the nine terms of `HubMonthMoney` (see ONE NET below).
 - **AttractionWithLodges.** The model's A with `lodges` active lodges at the same efficiency: swap the lodge base, clamp to
   0..`MaxAttraction` before rounding, `RoundToEven`. Equals `r.AOpen - r.LodgeApplied + LodgeBaseOf(n) x (summer ? SummerLodgeShare : 1)`:
   n A-frames in place of the area's applied lodge base, so a summer area with no lodge keeps its "if fixed" number (its `LodgeApplied`
@@ -61,7 +61,7 @@ rule R17 of mod/SkiResortUI/tools/check-bundle.js compares each name and value w
 ## ONE NET
 
 Every Net the hub shows (the Finances tile, the Finances view, History's months and its month in progress) is `NetMonth` over the same
-eight terms (`HubMonthMoney`), so they cannot disagree:
+nine terms (`HubMonthMoney`), so they cannot disagree:
 
 | Term | Source | Booking |
 |---|---|---|
@@ -71,6 +71,7 @@ eight terms (`HubMonthMoney`), so they cannot disagree:
 | Income: `PassIncome` | ledger PassIncome | booked this month = passes sold this month, pre-season sales included (they land in the month they were sold: "a big September is honest") |
 | Cost: `LiftCost` | ledger LiftCharged, rounded | booked this month (`SkiLiftChargeSystem`'s accrual) |
 | Cost: `RunCost` | ledger RunUpkeep | booked this month, per area (`SkiRunUpkeepSystem`) |
+| Cost: `BusCost` | ledger BusCharged, rounded | booked this month (`SkiBusChargeSystem`); a closed month's element holds it inside `LiftCost`, 0 here |
 | Cost: `BuildingsCost` | the game's upkeep formula for the sign + its lodges | rate snapshot: per month at the current service budget x `MonthShare` for the month in progress; the rate at the roll for a closed month |
 | Cost: `WagesCost` | the game's upkeep formula for the sign + its lodges | rate snapshot, as BuildingsCost |
 
@@ -80,8 +81,8 @@ Net = sum of income - sum of costs, every term < 0 (unknown) read as 0, so the r
 exactly (ResortBatch `HubRulesTests` A and `HistoryTests` H-10). Estimated (the approximation sign) = some term is unknown: the ledger
 not counting yet, or the building bill unreadable. A month counted only since a load is partial, not estimated: ResortLive's
 `thisMonthSinceLoad` carries that, as for the guests. Rounding = the history element's (`SkiResortHistoryMonth.FromLedger`: ClampInt of
-the longs, `LiftCharged` half away from zero), so a closed month's element and `MonthMoneyOf(its ledger Month)` are the same eight
-integers.
+the longs, `LiftCharged` half away from zero), so a closed month's element and `MonthMoneyOf(its ledger Month)` give the same Net (the coach bill sits in a different term, in the
+same total).
 
 ## Near HubProblems.Build, step 4 (lifts)
 

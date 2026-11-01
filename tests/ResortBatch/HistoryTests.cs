@@ -155,12 +155,12 @@ namespace ResortBatch
 
         private static void ProgressCodec()
         {
-            C(SkiResortMonthInProgress.V1Bytes == 142, "H-MP1 consts", "V1Bytes = " + SkiResortMonthInProgress.V1Bytes + " (want 142)");
-            // The month-in-progress codec copies Ledger.Month's fields BY NAME (SkiResortHistory.cs), so a 20th public field would silently
-            // not persist or seed while H-MP1's 142 bytes still pass. The saved SkiResortMonthInProgress / SkiResortHistoryMonth bytes carry
-            // exactly these 19 fields; adding one means a NEW ISerializable type (SaveLayouts.cs), never a change to the existing layouts.
+            C(SkiResortMonthInProgress.V1Bytes == 142 && SkiResortMonthInProgress.V2Bytes == 150, "H-MP1 consts", "V1Bytes = " + SkiResortMonthInProgress.V1Bytes + " (want 142), V2Bytes = " + SkiResortMonthInProgress.V2Bytes + " (want 150)");
+            // The month-in-progress codec copies Ledger.Month's fields BY NAME (SkiResortHistory.cs), so a 21st public field would silently
+            // not persist or seed while H-MP1's 150 bytes still pass. The saved SkiResortMonthInProgress bytes carry exactly these 20 fields
+            // (v2 appended BusCharged before the first release); after 1.0 adding one means a NEW ISerializable type (SaveLayouts.cs).
             int monthFields = typeof(SkiResortLedger.Month).GetFields(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance).Length;
-            C(monthFields == 19, "H-MP1 Month fields", "SkiResortLedger.Month has " + monthFields + " public instance fields (want exactly 19): " +
+            C(monthFields == 20, "H-MP1 Month fields", "SkiResortLedger.Month has " + monthFields + " public instance fields (want exactly 20): " +
               "the history element and month-in-progress codecs copy them by name, so a new field is NOT persisted or seeded until a NEW " +
               "ISerializable type carries it (save layout frozen after 1.0; see SaveLayouts.cs)");
             var month = new SkiResortLedger.Month
@@ -168,7 +168,7 @@ namespace ResortBatch
                 TouristGuests = 1, TouristParties = 2, LocalGuests = 3, TouristOnLeisure = 4, TicketsPaid = 5, TicketsUnpaid = 6,
                 TicketsFree = 7, TicketIncome = 8_000_000_000L, LiftCharged = 123.456, LodgeSpends = 9, LodgeSpendIncome = 10,
                 PassesSold = 11, PassIncome = 12, PassHolderGuests = 13, PassesPre = 14, PassIncomePre = 15, Lessons = 16,
-                LessonIncome = 17, RunUpkeep = 18,
+                LessonIncome = 17, RunUpkeep = 18, BusCharged = 24.5,
             };
             var e = new SkiResortLedger.Entry
             {
@@ -180,14 +180,14 @@ namespace ResortBatch
             C(SkiResortMonthInProgress.From(e, 1, false, false, uint.MaxValue).m_FramesSimulated == int.MaxValue, "H-MP1 frames", "clamp");
             var w = new ByteWriter { Bytes = new List<byte>() };
             p.WriteTo(ref w);
-            C(w.Bytes.Count == 142, "H-MP1 size", "wrote " + w.Bytes.Count);
-            C(w.Bytes[0] == 1 && w.Bytes[1] == 3 && w.Bytes[2] == 0xFA && w.Bytes[3] == 0x5E, "H-MP1 head", Hex(w.Bytes, 0, 6));
+            C(w.Bytes.Count == 150, "H-MP1 size", "wrote " + w.Bytes.Count);
+            C(w.Bytes[0] == 2 && w.Bytes[1] == 3 && w.Bytes[2] == 0xFA && w.Bytes[3] == 0x5E, "H-MP1 head", Hex(w.Bytes, 0, 6));
             var r = new ByteReader { Bytes = w.Bytes };
             var b = default(SkiResortMonthInProgress);
             b.ReadFrom(ref r);
-            C(r.Pos == 142, "H-MP1 read", "read " + r.Pos);
+            C(r.Pos == 150, "H-MP1 read", "read " + r.Pos);
             SkiResortLedger.Month m = b.m_Month;
-            C(b.m_Version == 1 && b.m_MonthKey == 24314 && b.m_FramesSimulated == 100_000 &&
+            C(b.m_Version == 2 && b.m_MonthKey == 24314 && b.m_FramesSimulated == 100_000 && m.BusCharged == 24.5 &&
               m.TouristGuests == 1 && m.TouristParties == 2 && m.LocalGuests == 3 && m.TouristOnLeisure == 4 && m.TicketsPaid == 5 &&
               m.TicketsUnpaid == 6 && m.TicketsFree == 7 && m.TicketIncome == 8_000_000_000L &&
               BitConverter.DoubleToInt64Bits(m.LiftCharged) == BitConverter.DoubleToInt64Bits(123.456) && m.LodgeSpends == 9 &&
@@ -197,10 +197,17 @@ namespace ResortBatch
               b.m_PassSeasonPreIncome == 22, "H-MP1 fields", "a field did not come back");
             var w2 = new ByteWriter { Bytes = new List<byte>() };
             b.WriteTo(ref w2);
-            bool same = w2.Bytes.Count == 142;
-            for (int i = 0; same && i < 142; i++)
+            bool same = w2.Bytes.Count == 150;
+            for (int i = 0; same && i < 150; i++)
                 same = w.Bytes[i] == w2.Bytes[i];
             C(same, "H-MP1 rewrite", "not byte-identical");
+            // A version 1 block stops before the coach bill and reads it as 0.
+            List<byte> v1 = w.Bytes.GetRange(0, 142);
+            v1[0] = 1;
+            var r1 = new ByteReader { Bytes = v1 };
+            var b1 = default(SkiResortMonthInProgress);
+            b1.ReadFrom(ref r1);
+            C(r1.Pos == 142 && b1.m_Version == 1 && b1.m_Month.BusCharged == 0.0 && b1.m_Month.RunUpkeep == 18, "H-MP1 v1", "read " + r1.Pos + ", bus " + b1.m_Month.BusCharged);
         }
 
 
@@ -444,6 +451,10 @@ namespace ResortBatch
             C(h.m_Version == 2 && h.m_Flags == HistoryFlags.Short && h.m_MonthKey == 24000 && h.m_Tourists == 7 && h.m_Residents == 3 &&
               h.m_TicketsPaid == 6 && h.m_TicketIncome == int.MaxValue && h.m_LodgeIncome == 11 && h.m_PassIncome == 12 &&
               h.m_LessonIncome == 13 && h.m_LiftCost == 450 && h.m_RunCost == 99, "H-9 FromLedger", $"ticket {h.m_TicketIncome}, lift {h.m_LiftCost}");
+            // A closed month has no bus column: the coach bill folds into the lift cost, so the History net stays true.
+            m.BusCharged = 100.0;
+            C(SkiResortHistoryMonth.FromLedger(m, 24000, HistoryFlags.Short).m_LiftCost == 550, "H-9 FromLedger bus", "449.5 + 100 not 550");
+            m.BusCharged = 0.0;
             C(h.m_SkiDays == -1 && h.m_BuildingsCost == -1 && h.m_WagesCost == -1 && h.m_Attraction == -1 && h.m_SnowPct == 255 &&
               h.m_SnowDepthCm == -1, "H-9 unknowns", "snapshot fields not unknown");
             C(H.RoundMoney(double.NaN) == 0 && H.RoundMoney(-2.5) == -3 && H.RoundMoney(1e12) == int.MaxValue && H.ClampInt(long.MinValue) == int.MinValue,

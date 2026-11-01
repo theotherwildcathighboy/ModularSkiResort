@@ -22,7 +22,8 @@ int32 ticketIncome | int32 lodgeIncome | int32 passIncome | int32 lessonIncome |
 int32 buildingsCost | int32 wagesCost | int32 attraction | byte snowPct | int32 snowDepthCm (v2)
 ```
 
-`SkiResortMonthInProgress`, 142 bytes: see its LAYOUT comment.
+`SkiResortMonthInProgress`, 150 bytes (v2 appended `BusCharged` before the first release; a v1 block reads it as 0): see its LAYOUT comment.
+A closed month has no bus column: `FromLedger` folds the coach bill into `m_LiftCost`, so the History net stays true and its Lifts row includes it.
 
 After 1.0 these layouts never change: no payload length is written, so an older build reading a longer element cannot skip the tail
 and reads the rest of the block shifted (and a garbage int32 becomes the buffer's element count). A new field goes in a new

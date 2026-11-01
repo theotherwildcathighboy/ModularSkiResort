@@ -120,12 +120,14 @@ namespace SkiResortMod.Systems
             public string What;   // "lodge", "school", "patrol hut" (log words)
         }
 
-        /// <summary>The rows in catalog order: every lodge, the school, the patrol huts.</summary>
+        /// <summary>The rows in catalog order: every lodge, the bus depot, the school, the patrol huts.</summary>
         private static List<RoadRow> Rows()
         {
-            var rows = new List<RoadRow>(SkiCatalog.Lodges.Count + SkiCatalog.Schools.Count + SkiCatalog.Patrols.Count);
+            var rows = new List<RoadRow>(SkiCatalog.Lodges.Count + SkiCatalog.Depots.Count + SkiCatalog.Schools.Count + SkiCatalog.Patrols.Count);
             for (int i = 0; i < SkiCatalog.Lodges.Count; i++)
                 rows.Add(new RoadRow { Prefab = SkiCatalog.Lodges[i].Prefab, Rule = SkiCatalog.Lodges[i].RoadRule, What = "lodge" });
+            for (int i = 0; i < SkiCatalog.Depots.Count; i++)
+                rows.Add(new RoadRow { Prefab = SkiCatalog.Depots[i].Prefab, Rule = SkiCatalog.Depots[i].RoadRule, What = "bus depot" });
             for (int i = 0; i < SkiCatalog.Schools.Count; i++)
                 rows.Add(new RoadRow { Prefab = SkiCatalog.Schools[i].Prefab, Rule = SkiCatalog.Schools[i].RoadRule, What = "school" });
             for (int i = 0; i < SkiCatalog.Patrols.Count; i++)

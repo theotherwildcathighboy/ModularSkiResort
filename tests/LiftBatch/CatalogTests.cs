@@ -104,6 +104,7 @@ namespace LiftBatch
             new NameOracle("SkiLodgeMid", B, CatalogKind.Lodge, "lodgeMid", true),
             new NameOracle("SkiLodgeSummit", B, CatalogKind.Lodge, "lodgeSummit", true),
             new NameOracle("SkiLodgeGrand", B, CatalogKind.Lodge, "lodgeGrand", true),
+            new NameOracle("SkiBusDepot", B, CatalogKind.Depot, "busDepot", true),
             new NameOracle("SkiSchool", B, CatalogKind.School, "school", true),
             new NameOracle("SkiPatrolHut", B, CatalogKind.Patrol, "patrolHut", true),
             new NameOracle("SkiPatrolHQ", B, CatalogKind.Patrol, "patrolHQ", true),
@@ -136,7 +137,7 @@ namespace LiftBatch
         {
             const string W = "catalog-names";
             IReadOnlyList<CatalogName> all = SkiCatalog.AllPrefabNames();
-            Eq(32, all.Count, W, "AllPrefabNames().Count"); // 30 + SkiRunCatTrackA + SkiSafetyFence
+            Eq(33, all.Count, W, "AllPrefabNames().Count"); // 30 + SkiRunCatTrackA + SkiSafetyFence + SkiBusDepot
             Check(ReferenceEquals(all, SkiCatalog.AllPrefabNames()), W, "AllPrefabNames() is not the cached list (allocates per call)");
             var names = new HashSet<string>(StringComparer.Ordinal);
             var items = new HashSet<string>(StringComparer.Ordinal);
@@ -162,6 +163,7 @@ namespace LiftBatch
                     case CatalogKind.Sign:
                     case CatalogKind.School:
                     case CatalogKind.Patrol:
+                    case CatalogKind.Depot:
                         want = "BuildingPrefab";
                         break;
                     case CatalogKind.Run:
@@ -186,10 +188,10 @@ namespace LiftBatch
                 if (n.Expected)
                     expected++;
             }
-            Eq(27, withItem, W, "names with a build item id (the 27 strip items: 25 + runCatTrack, T54 probe 1, + safetyFence)");
-            Eq(32, expected, W, "expected names");
+            Eq(28, withItem, W, "names with a build item id (the 28 strip items: 25 + runCatTrack, T54 probe 1, + safetyFence + busDepot)");
+            Eq(33, expected, W, "expected names");
             Eq(0, all.Count - expected, W, "pending names");
-            Eq(32, SkiCatalog.ExpectedNameCount, W, "ExpectedNameCount");
+            Eq(33, SkiCatalog.ExpectedNameCount, W, "ExpectedNameCount");
             Eq(0, SkiCatalog.PendingNameCount, W, "PendingNameCount");
             // The four type constants are the Game type names (the system asserts nameof() at OnCreate; literal here).
             Eq("PowerLinePrefab", SkiCatalog.TypeLine, W, "TypeLine");
@@ -203,6 +205,8 @@ namespace LiftBatch
             Eq((byte)6, (byte)CatalogKind.Run, W, "CatalogKind.Run (append-only)");
             Eq((byte)9, (byte)CatalogKind.Fence, W, "CatalogKind.Fence (append-only)");
             Eq((byte)7, (byte)BuildItemKind.Fence, W, "BuildItemKind.Fence (append-only)");
+            Eq((byte)10, (byte)CatalogKind.Depot, W, "CatalogKind.Depot (append-only)");
+            Eq((byte)8, (byte)BuildItemKind.Depot, W, "BuildItemKind.Depot (append-only)");
             Eq((byte)1, (byte)MoverKind.Shuttle, W, "MoverKind.Shuttle");
             Eq((byte)1, (byte)ServeRuleKind.TerminalsOnly, W, "ServeRuleKind.TerminalsOnly");
             Eq((byte)2, (byte)LodgeRoadRule.None, W, "LodgeRoadRule.None");
@@ -330,7 +334,7 @@ namespace LiftBatch
             RunIs("SkiRunNightA", RunKind.Night, 2, W);
             RunIs("SkiRunCatTrackA", RunKind.CatTrack, 4, W);
             foreach (string up in new[] { "SkiAFrameDayLodge", "SkiLodgeHut", "SkiLodgeMid", "SkiLodgeSummit", "SkiLodgeGrand",
-                                          "SkiSchool", "SkiPatrolHut", "SkiPatrolHQ" })
+                                          "SkiBusDepot", "SkiSchool", "SkiPatrolHut", "SkiPatrolHQ" })
                 Check(SkiCatalog.IsUpgradeBuilding(up), W, up + " is not an upgrade building");
             foreach (string notUp in new[] { "SkiResortGate", "SkiBaseStationBuilding", "SkiChairliftHV", "SkiRunGroomedA", null, "" })
                 Check(!SkiCatalog.IsUpgradeBuilding(notUp), W, (notUp ?? "null") + " reads as an upgrade building");
@@ -343,6 +347,10 @@ namespace LiftBatch
                   "null or the line is a carrier");
             Check(SkiCatalog.StationByPrefab("SkiAFrameDayLodge") == null && SkiCatalog.StationByPrefab(null) == null, W,
                   "the lodge or null is a station");
+            // The depot stands outside every lodge count: never a lodge row, a school or a patrol hut, and it answers only its own lookup.
+            Check(!SkiCatalog.IsLodge("SkiBusDepot") && SkiCatalog.LodgeByPrefab("SkiBusDepot") == null, W, "the bus depot reads as a lodge");
+            Check(SkiCatalog.SchoolByPrefab("SkiBusDepot") == null && SkiCatalog.PatrolByPrefab("SkiBusDepot") == null, W, "the bus depot reads as a school or patrol hut");
+            Check(SkiCatalog.DepotByPrefab("SkiBusDepot") != null && SkiCatalog.DepotByPrefab("SkiLodgeMid") == null && SkiCatalog.DepotByPrefab(null) == null, W, "the depot lookup");
             Check(!SkiCatalog.IsLodge("SkiResortGate") && !SkiCatalog.IsLodge("SkiSchool") && !SkiCatalog.IsLodge(null) &&
                   !SkiCatalog.IsLodge(""), W, "the sign, the school, null or empty is a lodge");
             Check(SkiCatalog.SchoolByPrefab("SkiPatrolHut") == null && SkiCatalog.PatrolByPrefab("SkiSchool") == null &&
@@ -607,6 +615,17 @@ namespace LiftBatch
                 Eq(LodgeRoadRule.Base, s.RoadRule, W, "school RoadRule (R9)");
                 Eq(true, s.Expected, W, "school Expected (S1 import flip, 2026-10-13)");
             }
+            Eq(1, SkiCatalog.Depots.Count, W, "Depots.Count");
+            if (SkiCatalog.Depots.Count > 0)
+            {
+                DepotDef depot = SkiCatalog.Depots[0];
+                Eq("SkiBusDepot", depot.Prefab, W, "depot Prefab (save identity, never rename)");
+                Eq("busDepot", depot.BuildItemId, W, "depot item");
+                Eq(60000, depot.BuildCost, W, "depot BuildCost");
+                Eq(2000, depot.Upkeep, W, "depot Upkeep");
+                Eq(LodgeRoadRule.Base, depot.RoadRule, W, "depot RoadRule (it needs its own road)");
+                Eq(true, depot.Expected, W, "depot Expected");
+            }
             Eq(2, SkiCatalog.Patrols.Count, W, "Patrols.Count");
             string[] patrolNames = { "SkiPatrolHut", "SkiPatrolHQ" }, patrolItems = { "patrolHut", "patrolHQ" };
             for (int i = 0; i < 2 && i < SkiCatalog.Patrols.Count; i++)
@@ -773,6 +792,7 @@ namespace LiftBatch
             new object[] { "lodgeMid", "SkiLodgeMid", BuildItemKind.Lodge, "", -1 },
             new object[] { "lodgeSummit", "SkiLodgeSummit", BuildItemKind.Lodge, "", -1 },
             new object[] { "lodgeGrand", "SkiLodgeGrand", BuildItemKind.Lodge, "", -1 },
+            new object[] { "busDepot", "SkiBusDepot", BuildItemKind.Depot, "", -1 },
             new object[] { "school", "SkiSchool", BuildItemKind.School, "", -1 },
             new object[] { "patrolHut", "SkiPatrolHut", BuildItemKind.Patrol, "", -1 },
             new object[] { "patrolHQ", "SkiPatrolHQ", BuildItemKind.Patrol, "", -1 },
@@ -811,7 +831,7 @@ namespace LiftBatch
                 Eq((BuildItemKind)o[2], it.Kind, W, at + "kind");
                 Eq((string)o[3], it.LiftTypeId, W, at + "lift type");
                 Eq((int)o[4], (int)it.RunKind, W, at + "run kind");
-                Eq(it.Kind == BuildItemKind.Lodge || it.Kind == BuildItemKind.School || it.Kind == BuildItemKind.Patrol, it.IsUpgrade, W, at + "IsUpgrade");
+                Eq(it.Kind == BuildItemKind.Lodge || it.Kind == BuildItemKind.School || it.Kind == BuildItemKind.Patrol || it.Kind == BuildItemKind.Depot, it.IsUpgrade, W, at + "IsUpgrade");
                 if (Check(SkiCatalog.TryGetBuildItemDef(id, out BuildItemDef byId), W, at + "TryGetBuildItemDef missed"))
                     Check(byId.Prefab == it.Prefab && byId.Kind == it.Kind, W, at + "TryGetBuildItemDef answered another row");
                 if (Check(SkiCatalog.TryGetBuildItem(id, out CatalogName n, out int kind), W, at + "TryGetBuildItem missed"))
@@ -901,7 +921,7 @@ namespace LiftBatch
                 parsed.Add(m.Groups[1].Value + "|" + m.Groups[2].Value + "|" + (m.Groups[3].Success ? m.Groups[3].Value : "") + "|" +
                            (m.Groups[4].Success ? "pending" : ""));
             }
-            Eq(32, parsed.Count, W, "names between the markers");
+            Eq(33, parsed.Count, W, "names between the markers");
             IReadOnlyList<CatalogName> all = SkiCatalog.AllPrefabNames();
             var expected = new List<string>();
             for (int i = 0; i < all.Count; i++)
@@ -1188,6 +1208,19 @@ namespace LiftBatch
                 compared++;
                 UpgradeFields(text, d.Prefab, d.BuildCost, d.ForbidMultiple, d.Jobs, d.Upkeep, W);
             }
+            foreach (DepotDef d in SkiCatalog.Depots)
+            {
+                if (!d.Expected)
+                {
+                    skipped++;
+                    continue;
+                }
+                string text = Mirror(d.Prefab, W);
+                if (text == null)
+                    continue;
+                compared++;
+                UpgradeFields(text, d.Prefab, d.BuildCost, false, 0, d.Upkeep, W);
+            }
             foreach (PatrolDef d in SkiCatalog.Patrols)
             {
                 if (!d.Expected)
@@ -1309,6 +1342,8 @@ namespace LiftBatch
                 Eq(SkiCatalog.IsExpected(d.Prefab), d.Expected, W, "school '" + d.Prefab + "' flag vs its name");
             foreach (PatrolDef d in SkiCatalog.Patrols)
                 Eq(SkiCatalog.IsExpected(d.Prefab), d.Expected, W, "patrol '" + d.Prefab + "' flag vs its name");
+            foreach (DepotDef d in SkiCatalog.Depots)
+                Eq(SkiCatalog.IsExpected(d.Prefab), d.Expected, W, "depot '" + d.Prefab + "' flag vs its name");
             foreach (SignDef d in SkiCatalog.Signs)
                 Eq(SkiCatalog.IsExpected(d.Prefab), d.Expected, W, "sign '" + d.Prefab + "' flag vs its name");
             foreach (RunDef r in SkiCatalog.Runs)
@@ -1364,7 +1399,7 @@ namespace LiftBatch
             Eq("PowerLinePrefab", SkiCatalog.TypeNameOf(BuildItemKind.Line), W, "TypeNameOf(Line)");
             Eq("SurfacePrefab", SkiCatalog.TypeNameOf(BuildItemKind.Run), W, "TypeNameOf(Run)");
             Eq("NetFencePrefab", SkiCatalog.TypeNameOf(BuildItemKind.Fence), W, "TypeNameOf(Fence)");
-            foreach (BuildItemKind k in new[] { BuildItemKind.Sign, BuildItemKind.Lodge, BuildItemKind.School, BuildItemKind.Patrol, BuildItemKind.Station })
+            foreach (BuildItemKind k in new[] { BuildItemKind.Sign, BuildItemKind.Lodge, BuildItemKind.School, BuildItemKind.Patrol, BuildItemKind.Station, BuildItemKind.Depot })
                 Eq("BuildingPrefab", SkiCatalog.TypeNameOf(k), W, "TypeNameOf(" + k + ")");
             foreach (BuildItemDef it in SkiCatalog.BuildItems)
             {

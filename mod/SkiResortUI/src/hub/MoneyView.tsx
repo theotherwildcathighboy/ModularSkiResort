@@ -1,7 +1,7 @@
 /*
  * The Money ("Finances") view: what the resort earns and costs this month, and the one net.
- * Every number is C#'s (hubRules.netRows, HubRules.NetMonth); the UI adds nothing up. The money column holds ONLY the Net's eight rows
- * (four incomes, four running costs), which add up to netMonth; an income row is hidden only while it holds no money (hubRules.netRowShown).
+ * Every number is C#'s (hubRules.netRows, HubRules.NetMonth); the UI adds nothing up. The money column holds ONLY the Net's nine rows
+ * (four incomes, five running costs), which add up to netMonth; an income row is hidden only while it holds no money (hubRules.netRowShown).
  * Costs arrive positive and are shown negated; a negative (unknown) cost shows "–", never "+". MONEY_PRICE_LINE shows the ticket price and
  * the ski-day share (priceFactorPct mirrors C# SkiDayRules.PriceFactor). RUNNING COSTS and ALSO are Folds, one open at a time.
  * Panel file (rule R11): subscribes resorts$, selectedResort$, resortLive$, city$, build$, runs$.
@@ -117,6 +117,28 @@ function LiftsRow({ row, l, build, samples, t }: {
       value={<Cell samples={samples}>{costValue(l ? l.liftChargedMonth : -1)}</Cell>}
       tip={tip}
     />
+  );
+}
+
+/** The coach bill booked this month, and the depots' fact row under it (netRowShown: a depot stands or the row holds money). */
+function BusRow({ l, city, samples, t }: { l: ResortLive | null; city: CityStats; samples: NumberSamples; t: Translate }): JSX.Element | null {
+  if (!l || !netRowShown("bus", l, city)) return null;
+  return (
+    <>
+      <InfoLine
+        sub
+        label={t(HUB_LOC.moneyRowBus)}
+        value={<Cell samples={samples}>{costValue(l.busChargedMonth)}</Cell>}
+        tip={t(HUB_LOC.moneyTipBusBooked)}
+      />
+      <SubLine>
+        <LocText entry={HUB_FMT.moneyFactBus} args={{
+          N: numArg(l.depots, Unit.Integer),
+          GUESTS: l.busGuestsMonth >= 0 ? numArg(l.busGuestsMonth, Unit.Integer) : DASH,
+          RATE: numArg(l.busBillMonth, Unit.MoneyPerMonth),
+        }} />
+      </SubLine>
+    </>
   );
 }
 
@@ -337,6 +359,7 @@ function SignMoney({ row, l, city, build, kinds, problems, samples, t }: {
       <Fold view="money" id="costs" header label={t(HUB_LOC.sectionCosts)}>
       <LiftsRow row={row} l={l} build={build} samples={samples} t={t} />
       <RunsRow l={l} kinds={kinds} samples={samples} t={t} />
+      <BusRow l={l} city={city} samples={samples} t={t} />
       <SoFarRow label={t(HUB_LOC.moneyRowBuildings)} value={l ? l.buildingsSoFar : -1} rateNow={l ? l.buildingsMonth : -1} l={l}
         rwh={city.realisticWorkplaces} samples={samples} t={t} />
       <SoFarRow label={t(HUB_LOC.moneyRowWages)} value={l ? l.wagesSoFar : -1} rateNow={l ? l.wagesMonth : -1} l={l}

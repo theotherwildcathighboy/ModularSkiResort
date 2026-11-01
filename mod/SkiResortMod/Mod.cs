@@ -176,6 +176,11 @@ namespace SkiResortMod
             // Lift running charge: the run-upkeep pattern, next to it in the frame and the log. GameSimulation:
             // pause stops the meter, the Editor never bills.
             updateSystem.UpdateAfter<SkiLiftChargeSystem, SkiRunUpkeepSystem>(SystemUpdatePhase.GameSimulation);
+            // The bus depots' coach bill: the lift charge's pattern, next to it in the frame. Pause stops it, the Editor never bills.
+            updateSystem.UpdateAfter<SkiBusChargeSystem, SkiLiftChargeSystem>(SystemUpdatePhase.GameSimulation);
+            // The depots' visual coach. Anchor AND interval (16) are load-bearing: it inherits the AI's offset and runs right before it, after navigation,
+            // so a turnaround clears EndOfPath before the AI's delete check of the same frame (EngineNotes/SkiCoachSystem.md). The Editor never arms it.
+            updateSystem.UpdateBefore<SkiCoachSystem, Game.Simulation.TransportCarAISystem>(SystemUpdatePhase.GameSimulation);
             // Ski days. Anchor AND interval (64) are load-bearing: follows LeisureSystem and inherits its offset (UpdateSystem.cs:431-436),
             // so every pass runs on its frames, before TripNeededSystem. NEVER override GetUpdateOffset; ONE registration only. Registered
             // before SkiResortStatsSystem, so this line creates it (UpdateSystem.cs:178-181). Pause stops it; the Editor never arms it.

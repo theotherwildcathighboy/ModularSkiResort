@@ -179,7 +179,7 @@ namespace SkiResortMod.Systems
         // The claim's flag bits (SkiDaySystem.Jobs.cs ClaimFlag / ClaimFlag2 use these values), repeated here so the tests can reach
         // them. FlagHeldAtHome is kept but never set (it never filled: every queued car claim had left home at our first look).
         public const byte FlagDeparted = 1, FlagHeldAtHome = 2, FlagHeldEver = 4, FlagRode = 8, FlagPathFailedAtStart = 16,
-                          FlagDeadlineIsClosing = 32, FlagLateArrived = 64;
+                          FlagDeadlineIsClosing = 32, FlagLateArrived = 64, FlagToDepot = 128;
         public const byte Flag2TurnedBack = 1, Flag2WalkerLost = 2, Flag2WalkerPathFailed = 4, Flag2VehiclePathFailed = 8;
         /// <summary>The household-need register in Flags2: need open at the last pass / at the pass before (ShiftNeed). Not markers:
         /// HasMarker reads only bits 1, 2, 4, 8 of Flags2.</summary>

@@ -101,12 +101,15 @@ namespace SkiResortMod.Systems
         // four cost rows) == NetMonth.
         public int PassIncomeMonth, PassIncomePreMonth, LodgeIncomeMonth, LiftChargedMonth, RunCostMonth, BuildingsSoFar, WagesSoFar;
         public float MonthShare;
+        // The Ski Bus Depots: BusChargedMonth = the coach bill booked this month (a ninth Net row); Depots = active depots linked here;
+        // BusGuestsMonth = ski days that arrived at a depot this month (-1 ski days off); BusBillMonth = the bill's rate now.
+        public int BusChargedMonth, Depots, BusGuestsMonth, BusBillMonth;
 
-        /// <summary>The eight terms NetMonth was computed from (-1 unknown).</summary>
+        /// <summary>The terms NetMonth was computed from (-1 unknown).</summary>
         public HubMonthMoney NetTerms => new HubMonthMoney
         {
             TicketIncome = TicketsThisMonth, LodgeIncome = LodgeIncomeMonth, LessonIncome = LessonIncomeMonth, PassIncome = PassIncomeMonth,
-            LiftCost = LiftChargedMonth, RunCost = RunCostMonth, BuildingsCost = BuildingsSoFar, WagesCost = WagesSoFar,
+            LiftCost = LiftChargedMonth, RunCost = RunCostMonth, BuildingsCost = BuildingsSoFar, WagesCost = WagesSoFar, BusCost = BusChargedMonth,
         };
     }
 
@@ -290,6 +293,7 @@ namespace SkiResortMod.Systems
         private SkiReachCensusSystem m_ReachCensus;          // hub row 27: homes and hotels near the area
         private SkiGuestCounterSystem m_GuestCounter;
         private SkiLiftChargeSystem m_LiftCharge;
+        private SkiBusChargeSystem m_BusCharge;
         private SkiLiftTicketSystem m_LiftTicket;            // DUMP only
         private CityServiceBudgetSystem m_CityServiceBudget;
         private SimulationSystem m_Simulation;
@@ -381,6 +385,7 @@ namespace SkiResortMod.Systems
         // Reused scratch (no per-recompute allocation).
         private readonly List<int> m_CensusResort = new List<int>(8);                              // census row → resort (−1 Not linked)
         private readonly List<LiftServedRule.Lift> m_AreaServeLifts = new List<LiftServedRule.Lift>(8);   // one area's lifts
+        private readonly List<Entity> m_DepotScratch = new List<Entity>(1);
         private readonly List<SkiResortAttractivenessSystem.LodgeInfo> m_LodgeInfo =
             new List<SkiResortAttractivenessSystem.LodgeInfo>(4);                                 // seam S5, one area's active lodges
         private readonly List<SkiResortScore.LodgeInput> m_LadderLodges = new List<SkiResortScore.LodgeInput>(4);   // IfLodgesOn
@@ -540,6 +545,7 @@ namespace SkiResortMod.Systems
             m_PrefabSystem = World.GetOrCreateSystemManaged<PrefabSystem>();
             m_GuestCounter = World.GetOrCreateSystemManaged<SkiGuestCounterSystem>();
             m_LiftCharge = World.GetOrCreateSystemManaged<SkiLiftChargeSystem>();
+            m_BusCharge = World.GetOrCreateSystemManaged<SkiBusChargeSystem>();
             m_LiftTicket = World.GetOrCreateSystemManaged<SkiLiftTicketSystem>();
             m_CityServiceBudget = World.GetOrCreateSystemManaged<CityServiceBudgetSystem>();
             m_Simulation = World.GetOrCreateSystemManaged<SimulationSystem>();
@@ -2207,6 +2213,10 @@ namespace SkiResortMod.Systems
                     live.LiftsBilled = charge.Lifts;
                     live.LiftsBilledReduced = charge.Reduced;
                 }
+                // The bus depots: the ski days' view when it has one; else the attraction snapshot's active depots.
+                live.Depots = has ? d.Depots : m_Attractiveness.CopyActiveDepots(sign, m_DepotScratch);
+                live.BusGuestsMonth = has ? d.DepotArrivedThisMonth : -1;
+                live.BusBillMonth = RoundToInt(Finite0(m_BusCharge.MonthlyRateOf(sign)));
                 bool gateKnown = hasResult && !v.WriteHeld;
                 live.TicketGate = (int)SkiMoneyRules.TicketGateOf(price, hasResult ? (float)r.Efficiency : 1f, gateKnown,
                     gateKnown ? r.RunsCounted : 0);
@@ -2287,6 +2297,8 @@ namespace SkiResortMod.Systems
                 SkiDaysNow = -1, SkiDaysCap = -1, SkiDaysPowderPct = -1,
                 // no ski area: no best lodge, the counts 0, the lodge spend unknown.
                 LodgeBest = "", LodgeSpendMonth = -1,
+                // no ski area: no bus depot (one links to the nearest sign at any distance).
+                BusGuestsMonth = -1,
                 // no ski area: the pass numbers unknown.
                 PassesSoldSeason = -1, PassIncomeSeason = -1, PassHoldersThisMonth = -1, PassHoldersLastMonth = -1,
                 // no ski area: the lesson, pre-season and city-income numbers unknown.
@@ -2310,6 +2322,7 @@ namespace SkiResortMod.Systems
                 HubMonthMoney m = HubRules.MonthMoneyOf(booked, 0, 0);
                 money.LiftCost = m.LiftCost;
                 money.RunCost = m.RunCost;
+                money.BusCost = m.BusCost;
             }
             SetNetRows(ref live, in money);
             live.PassIncomePreMonth = -1;
@@ -2317,7 +2330,7 @@ namespace SkiResortMod.Systems
             // the income rows and the bill are not terms of Not linked (0, known), so only an unarmed ledger makes the Net "≈"
             live.NetMonth = HubRules.NetMonth(new HubMonthMoney
             {
-                LiftCost = money.LiftCost, RunCost = money.RunCost,
+                LiftCost = money.LiftCost, RunCost = money.RunCost, BusCost = money.BusCost,
             }, out bool _);
             live.NetEstimated = !armed;
             return live;
@@ -2335,6 +2348,7 @@ namespace SkiResortMod.Systems
             live.RunCostMonth = money.RunCost;
             live.BuildingsSoFar = money.BuildingsCost;
             live.WagesSoFar = money.WagesCost;
+            live.BusChargedMonth = money.BusCost;
         }
 
         private void AddJobs(Entity building, ref int jobs, ref int filled)
@@ -2569,6 +2583,8 @@ namespace SkiResortMod.Systems
                                            SkiDayRules.NoGuestsNear(near.Households, near.Near) ? SkiDayRules.TenthsKm(near.NearestM) : 0,
                     LodgesNoParking = skiDayRows ? d.LodgesNoParking : 0,
                     LodgesNotSlopeside = skiDayRows ? d.LodgesNotSlopeside : 0,
+                    DepotsNoHillLodge = skiDayRows ? d.DepotsNoHillLodge : 0,
+                    DepotsNoRoad = skiDayRows ? d.DepotsNoRoad : 0,
                     // Did the band show the Efficiency row on this area's previous build?
                     EfficiencyRowWasOn = !notLinked && m_EffRowOn.Contains(sign),
                     // Rows 24 and 25. School: active, runs count, none of them a counted green.
@@ -2601,6 +2617,8 @@ namespace SkiResortMod.Systems
                         subject = d.FirstLodgeNoParking;
                     else if (p.Code == HubProblemCode.LodgeNotSlopeside)
                         subject = d.FirstLodgeNotSlopeside;
+                    else if (p.Code == HubProblemCode.DepotNoHillLodge || p.Code == HubProblemCode.DepotNoRoad)
+                        subject = d.FirstDepotProblem;
                     else if (p.Code == HubProblemCode.SummitLodgeNotLiftServed)
                         subject = work.SummitNotServedLodge; // the lowest such lodge
                     else if (p.Code == HubProblemCode.SchoolNoGreenRun)
@@ -2931,6 +2949,10 @@ namespace SkiResortMod.Systems
                 h = Mix(h, (uint)r.BuildingsSoFar);
                 h = Mix(h, (uint)r.WagesSoFar);
                 h = MixF(h, r.MonthShare);
+                h = Mix(h, (uint)r.BusChargedMonth);
+                h = Mix(h, (uint)r.Depots);
+                h = Mix(h, (uint)r.BusGuestsMonth);
+                h = Mix(h, (uint)r.BusBillMonth);
             }
             return Mix(h, (uint)rows.Count);
         }
@@ -3296,9 +3318,10 @@ namespace SkiResortMod.Systems
               .Append("; net rows: tickets ").Append(l.TicketsThisMonth).Append(" + lodge ").Append(l.LodgeIncomeMonth)
               .Append(" + lessons ").Append(l.LessonIncomeMonth).Append(" + passes ").Append(l.PassIncomeMonth)
               .Append(" (pre-season ").Append(l.PassIncomePreMonth).Append(") − lifts ").Append(l.LiftChargedMonth)
-              .Append(" − runs ").Append(l.RunCostMonth).Append(" − buildings ").Append(l.BuildingsSoFar).Append(" − wages ")
+              .Append(" − runs ").Append(l.RunCostMonth).Append(" − ski bus ").Append(l.BusChargedMonth).Append(" − buildings ").Append(l.BuildingsSoFar).Append(" − wages ")
               .Append(l.WagesSoFar).Append(" (month share ").Append(F(l.MonthShare, "0.###")).Append(") = ").Append(l.NetMonth)
               .Append(l.NetEstimated ? " ≈" : "")
+              .Append("; bus depots ").Append(l.Depots).Append(", guests by bus this month ").Append(l.BusGuestsMonth).Append(", bill/month ").Append(l.BusBillMonth)
               .Append("; summit lodges not lift-served ").Append(summitNotServed).Append('\n');
         }
 

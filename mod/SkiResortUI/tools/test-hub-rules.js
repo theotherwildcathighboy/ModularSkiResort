@@ -329,7 +329,7 @@ function run(srcDir) {
   eq("T14.3 kept in the band, C# order; the mixed row's line item is the dot",
     [R.bandRowsOf([P(A, 23, 2, { buildItem: "liftDetachable" }), P(A, 24, 1, { count: 1 }), P(A, 25, 1)], A).map((p) => p.code),
       R.dotItem([P(A, 23, 2, { buildItem: "liftDetachable" })], A, true)], [[23, 24, 25], "liftDetachable"]);
-  eq("T14.4 isBuildItemId: all 27 ids", BIND.BUILD_ITEM_IDS.filter((id) => R.isBuildItemId(id)).length, 27); // includes runCatTrack and safetyFence
+  eq("T14.4 isBuildItemId: all 28 ids", BIND.BUILD_ITEM_IDS.filter((id) => R.isBuildItemId(id)).length, 28); // includes runCatTrack, safetyFence and busDepot
   eq("T14.5 isBuildItemId: strangers", ["lift2", "", null, "Lodge", "liftCable"].map((id) => R.isBuildItemId(id)), [false, false, false, false, false]);
   eq("T14.6 liftTypesOf", [R.liftTypesOf([{ type: "fixedGrip" }, { type: "fixedGrip" }, { type: "" }, { type: "detachable" }, {}]), R.liftTypesOf(null)],
     [["fixedGrip", "detachable"], []]);
@@ -355,10 +355,12 @@ function run(srcDir) {
   // The Build strip's three tabs over the real BUILD_ITEMS table.
   const kindTabs = {};
   for (const m of META) kindTabs[m.id] = R.tabOfItem(m.id, META);
-  eq("T17.1 every one of the 27 items is on exactly one tab, by kind", [Object.keys(kindTabs).length, Object.values(kindTabs).filter((x) => x === null).length], [27, 0]);
+  eq("T17.1 every one of the 28 items is on exactly one tab, by kind", [Object.keys(kindTabs).length, Object.values(kindTabs).filter((x) => x === null).length], [28, 0]);
   eq("T17.2 tab sizes: 12 lifts, 6 runs, 9 buildings", [Object.values(kindTabs).filter((x) => x === "lifts").length, Object.values(kindTabs).filter((x) => x === "runs").length,
-    Object.values(kindTabs).filter((x) => x === "buildings").length], [12, 6, 9]); // the cat track is the fifth run tile, the safety fence the sixth tile of the Runs tab
+    Object.values(kindTabs).filter((x) => x === "buildings").length], [12, 6, 10]); // the cat track is the fifth run tile, the safety fence the sixth tile of the Runs tab
   eq("T17.2b the cat track is a run item of kind 4 on the runs tab", [kindTabs.runCatTrack, R.runKindOfItem("runCatTrack"), R.RUN_ITEMS.has("runCatTrack")], ["runs", 4, true]);
+  eq("T17.3a the bus depot: kind depot, Buildings tab, in the lodges' group, no picker chip", [META.find((m) => m.id === "busDepot").kind, kindTabs.busDepot, R.tabOfKind("depot"), R.optionOf("busDepot", META)],
+    ["depot", "buildings", "buildings", null]);
   eq("T17.3 spot rows", [kindTabs.sign, kindTabs.lodgeGrand, kindTabs.school, kindTabs.patrolHQ, kindTabs.liftTram, kindTabs.topStationGondola, kindTabs.runNight],
     ["buildings", "buildings", "buildings", "buildings", "lifts", "lifts", "runs"]);
   // The safety net fence (a net prefab drawn like a path) is a Runs-tab tile of its own kind, not a run item and not a lift or a building.
@@ -636,9 +638,20 @@ function run(srcDir) {
   // Σ max(0, cost); -1 reads 0); an income row is hidden only while it is 0; the harness rows satisfy the invariant and equal
   // their area's month in progress in History.
   const N8 = { ticketsThisMonth: 1000, lodgeIncomeMonth: 200, lessonIncomeMonth: 50, passIncomeMonth: 3000, liftChargedMonth: 300, runCostMonth: 100,
-    buildingsSoFar: 400, wagesSoFar: 600 };
-  eq("T22.1 netRows: the eight rows in the column's order, income +, costs -", [R.NET_ROW_IDS, R.netRows(lv(3, false, N8)).map((r) => r.sign)],
-    [["tickets", "lodge", "lessons", "passes", "lifts", "runs", "buildings", "wages"], [1, 1, 1, 1, -1, -1, -1, -1]]);
+    buildingsSoFar: 400, wagesSoFar: 600, busChargedMonth: 0 };
+  eq("T22.1 netRows: the nine rows in the column's order, income +, costs -", [R.NET_ROW_IDS, R.netRows(lv(3, false, N8)).map((r) => r.sign)],
+    [["tickets", "lodge", "lessons", "passes", "lifts", "runs", "bus", "buildings", "wages"], [1, 1, 1, 1, -1, -1, -1, -1, -1]]);
+  eq("T22.1b the coach bill is in the Net; the Ski bus row shows with a depot or with money, never otherwise",
+    [R.netRowsTotal(lv(3, false, Object.assign({}, N8, { busChargedMonth: 150 }))),
+      R.netRowShown("bus", lv(3, false, { depots: 0, busChargedMonth: 0 }), { passShare: 0 }), R.netRowShown("bus", lv(3, false, { depots: 1, busChargedMonth: 0 }), { passShare: 0 }),
+      R.netRowShown("bus", lv(3, false, { depots: 0, busChargedMonth: 9 }), { passShare: 0 })], [2700, false, true, true]);
+  // The player text repeats the coach bill's numbers: SkiBusRules.cs is the truth.
+  const busRulesCs = fs.readFileSync(path.join(csDir, "Systems", "SkiBusRules.cs"), "utf8");
+  const billOf = (name) => { const m = new RegExp(name + " = (\\d+)f").exec(busRulesCs); return m ? Number(m[1]).toLocaleString("en-US") : "?"; };
+  const billText = read(path.join("hub", "hubText.ts"));
+  eq("T22.1c the depot tips say the coach bill's numbers (1,500 / 300)",
+    [billOf("BillFixedPerMonth"), billOf("BillPerKmPerMonth"), /BUILD_TIP_DEPOT[^\n]*1,500 a month plus 300 per straight-line km/.test(billText), /BusBooked[^\n]*1,500 a month per depot plus 300 per straight-line km/.test(billText)],
+    ["1,500", "300", true, true]);
   eq("T22.2 netRowsTotal: 4250 - 1400 = 2850; an unknown row (-1) reads 0; all unknown = 0",
     [R.netRowsTotal(lv(3, false, N8)), R.netRowsTotal(lv(3, false, Object.assign({}, N8, { lodgeIncomeMonth: -1, wagesSoFar: -1 }))),
       R.netRowsTotal(lv(3, false, Object.fromEntries(Object.keys(N8).map((k) => [k, -1]))))], [2850, 3250, 0]);
@@ -662,13 +675,13 @@ function run(srcDir) {
       harnessRows.push([name, l.sign.index, R.netRowsTotal(l) === l.netMonth, h ? HR.sumRange(h, "month", last, last, last).net === l.netMonth : true]);
     }
   }
-  eq("T22.4 harness: every live row's eight rows add up to its netMonth, and its area's month in progress in History nets to the same",
+  eq("T22.4 harness: every live row's nine rows add up to its netMonth, and its area's month in progress in History nets to the same",
     harnessRows.filter((r) => !r[2] || !r[3]), []);
   const moneySrc = read(path.join("hub", "MoneyView.tsx"));
-  eq("T22.5 MoneyView draws the eight Net rows from their contract-11 fields; the season pass total sits in the Also block",
-    [["l.ticketsThisMonth", "l.lodgeIncomeMonth", "l.lessonIncomeMonth", "l.passIncomeMonth", "l.liftChargedMonth", "l.runCostMonth", "l.buildingsSoFar", "l.wagesSoFar",
+  eq("T22.5 MoneyView draws the nine Net rows from their fields; the season pass total sits in the Also block",
+    [["l.ticketsThisMonth", "l.lodgeIncomeMonth", "l.lessonIncomeMonth", "l.passIncomeMonth", "l.liftChargedMonth", "l.runCostMonth", "l.buildingsSoFar", "l.wagesSoFar", "l.busChargedMonth",
       "<AlsoBlock"].map((x) => moneySrc.includes(x)), /function AlsoBlock[\s\S]*<PassRows/.test(moneySrc), (moneySrc.match(/<PassRows /g) || []).length],
-    [[true, true, true, true, true, true, true, true, true], true, 1]);
+    [[true, true, true, true, true, true, true, true, true, true], true, 1]);
   // T29 a building tile shows what the building draws, from the prefab. BUILDING_DRAW must equal every building
   // prefab's ServiceConsumption (upkeep only where CityServiceBuilding bills it), its Workplace (or SkiCatalog's SignJobs for a roadless
   // row) and its BuildingTerraformOverride's own m_DontRaise + m_DontLower (LotHeightSystem.cs:253 keeps the slope only with both).

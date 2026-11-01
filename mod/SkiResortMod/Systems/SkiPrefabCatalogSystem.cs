@@ -90,6 +90,7 @@ namespace SkiResortMod.Systems
         private readonly HashSet<Entity> m_Lodges = new HashSet<Entity>();
         private readonly Dictionary<Entity, LodgeDef> m_LodgeDefs = new Dictionary<Entity, LodgeDef>();
         private readonly HashSet<Entity> m_Schools = new HashSet<Entity>();
+        private readonly HashSet<Entity> m_Depots = new HashSet<Entity>();
         private readonly Dictionary<Entity, SchoolDef> m_SchoolDefs = new Dictionary<Entity, SchoolDef>();
         private readonly HashSet<Entity> m_Patrols = new HashSet<Entity>();
         private readonly Dictionary<Entity, PatrolDef> m_PatrolDefs = new Dictionary<Entity, PatrolDef>();
@@ -243,6 +244,12 @@ namespace SkiResortMod.Systems
             get { EnsureFresh(); return m_LodgeDefs.Count; }
         }
 
+        /// <summary>LIVE VIEW: every FOUND bus depot prefab entity (never in the lodge set).</summary>
+        internal HashSet<Entity> DepotPrefabSet
+        {
+            get { EnsureFresh(); return m_Depots; }
+        }
+
         /// <summary>LIVE VIEW: every FOUND ski-school prefab entity.</summary>
         internal HashSet<Entity> SchoolPrefabSet
         {
@@ -273,12 +280,12 @@ namespace SkiResortMod.Systems
             get { EnsureFresh(); return m_PatrolDefs; }
         }
 
-        /// <summary>A FOUND lodge, school or patrol prefab: every ServiceUpgrade of the sign the catalog knows. For
-        /// event-time callers; a loop over every building fetches the three sets once instead.</summary>
+        /// <summary>A FOUND lodge, school, patrol or bus depot prefab: every top-level building the catalog links to a sign. For
+        /// event-time callers; a loop over every building fetches the sets once instead.</summary>
         internal bool IsUpgradeBuilding(Entity prefab)
         {
             EnsureFresh();
-            return m_Lodges.Contains(prefab) || m_Schools.Contains(prefab) || m_Patrols.Contains(prefab);
+            return m_Lodges.Contains(prefab) || m_Schools.Contains(prefab) || m_Patrols.Contains(prefab) || m_Depots.Contains(prefab);
         }
 
         internal bool IsSign(Entity prefab)
@@ -377,6 +384,7 @@ namespace SkiResortMod.Systems
                          Plural(SkiCatalog.Lifts.Count, "lift type", "lift types") + ", " +
                          Plural(SkiCatalog.Stations.Count, "station", "stations") + ", " +
                          Plural(SkiCatalog.Lodges.Count, "lodge", "lodges") + ", " +
+                         Plural(SkiCatalog.Depots.Count, "bus depot", "bus depots") + ", " +
                          Plural(SkiCatalog.Schools.Count, "school", "schools") + ", " +
                          Plural(SkiCatalog.Patrols.Count, "patrol hut", "patrol huts") + ", " +
                          Plural(SkiCatalog.Signs.Count, "sign", "signs") + ", " +
@@ -760,6 +768,13 @@ namespace SkiResortMod.Systems
                     m_LodgeDefs.Add(e, lodges[i]);
                 }
             }
+            IReadOnlyList<DepotDef> depots = SkiCatalog.Depots;
+            for (int i = 0; i < depots.Count; i++)
+            {
+                Entity e = FoundOf(depots[i].Prefab);
+                if (e != Entity.Null)
+                    m_Depots.Add(e);
+            }
             IReadOnlyList<SchoolDef> schools = SkiCatalog.Schools;
             for (int i = 0; i < schools.Count; i++)
             {
@@ -937,6 +952,12 @@ namespace SkiResortMod.Systems
                           .Append(lodge.Luxury ? ", luxury" : "")
                           .Append(", ").Append(RoadLabel(lodge.RoadRule));
                     break;
+                case CatalogKind.Depot:
+                    DepotDef depot = SkiCatalog.DepotByPrefab(s.Name);
+                    if (depot != null)
+                        sb.Append("; a ski-day target in town, no capacity, no score, coach bill ").Append(F(SkiBusRules.BillFixedPerMonth, "0"))
+                          .Append(" + ").Append(F(SkiBusRules.BillPerKmPerMonth, "0")).Append("/km a month, ").Append(RoadLabel(depot.RoadRule));
+                    break;
                 case CatalogKind.School:
                     SchoolDef school = SkiCatalog.SchoolByPrefab(s.Name);
                     if (school != null)
@@ -1027,6 +1048,7 @@ namespace SkiResortMod.Systems
             m_Lodges.Clear();
             m_LodgeDefs.Clear();
             m_Schools.Clear();
+            m_Depots.Clear();
             m_SchoolDefs.Clear();
             m_Patrols.Clear();
             m_PatrolDefs.Clear();
@@ -1076,6 +1098,7 @@ namespace SkiResortMod.Systems
                 case CatalogKind.Sign: return "sign";
                 case CatalogKind.Run: return "run";
                 case CatalogKind.School: return "school";
+                case CatalogKind.Depot: return "bus depot";
                 case CatalogKind.Patrol: return "patrol";
                 case CatalogKind.Fence: return "fence";
                 default: return kind.ToString();

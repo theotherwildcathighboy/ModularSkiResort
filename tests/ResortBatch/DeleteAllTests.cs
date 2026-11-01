@@ -136,7 +136,7 @@ namespace ResortBatch
 
         private static void KindMaps()
         {
-            CatalogKind[] buildings = { CatalogKind.Station, CatalogKind.Lodge, CatalogKind.School, CatalogKind.Patrol, CatalogKind.Sign };
+            CatalogKind[] buildings = { CatalogKind.Station, CatalogKind.Lodge, CatalogKind.School, CatalogKind.Patrol, CatalogKind.Sign, CatalogKind.Depot };
             foreach (CatalogKind k in buildings)
                 s_Check(DeleteAllRules.BuildingKindOf(k, out DeleteKind _) && !DeleteAllRules.IsNetKind(k), "DA-6a", $"{k} is a building kind");
             foreach (CatalogKind k in new[] { CatalogKind.Line, CatalogKind.Marker, CatalogKind.Fence })
@@ -144,6 +144,7 @@ namespace ResortBatch
             s_Check(!DeleteAllRules.IsNetKind(CatalogKind.Run) && !DeleteAllRules.BuildingKindOf(CatalogKind.Run, out DeleteKind _), "DA-6c", "Run is an area kind");
             s_Check(!DeleteAllRules.IsNetKind(CatalogKind.Carrier) && !DeleteAllRules.BuildingKindOf(CatalogKind.Carrier, out DeleteKind _), "DA-6d", "Carrier is no kind");
             s_Check(Enum.GetValues(typeof(DeleteKind)).Length == DeleteAllRules.KindCount, "DA-6e", "KindCount == DeleteKind values");
+            s_Check(DeleteAllRules.BuildingKindOf(CatalogKind.Depot, out DeleteKind depot) && depot == DeleteKind.Depots, "DA-6f", "a bus depot counts as a bus depot, in no lodge count");
         }
 
         private static void SummaryLine()
@@ -160,6 +161,10 @@ namespace ResortBatch
             s_Check(s.Contains("12 lift edges") && s.Contains("5 runs") && s.Contains("300 season passes removed") && s.Contains("1 shared nodes kept") &&
                     s.EndsWith("(deleted 17)", StringComparison.Ordinal), "DA-7b", "counts and total (passes / kept not deleted): " + s);
             s_Check(DeleteAllRules.Summary(null).EndsWith("(deleted 0)", StringComparison.Ordinal), "DA-7c", "null counts read as zero");
+            var d = new int[DeleteAllRules.KindCount];
+            d[(int)DeleteKind.Depots] = 2;
+            string ds = DeleteAllRules.Summary(d);
+            s_Check(ds.Contains("2 bus depots") && ds.EndsWith("(deleted 2)", StringComparison.Ordinal), "DA-7d", "depots are counted and removed: " + ds);
         }
     }
 }

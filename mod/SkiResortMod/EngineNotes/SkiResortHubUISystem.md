@@ -333,6 +333,7 @@ Appended fields and bindings by contract:
   region line and beside the mix line.
 - 22: Resort Planner v2 (A7): QuickRunsState appends `pods` / `lifts` rows and `plan` (QuickRunsPlan); `quickRunsSet` gains `lifts`, `home`,
   `pod`, `lift`. Bumped on the integration branch at the A7 merge so its gates stay green; re-bump if main takes 22 first.
+- 25: ResortLive appends `busChargedMonth`, `depots`, `busGuestsMonth`, `busBillMonth`; PROBLEM 28-29 (`DepotNoHillLodge`, `DepotNoRoad`); build item `busDepot`, kind `depot`.
 - 23: Resort Planner v2 (R3 fix round): QuickRunsState appends `canPlanAround` (bool, the census knows a lift station: gates the Region step's
   "click a lift station" hint); `plan.mountainMix` is [flat, green, blue, black + double black, 0] (QuickRunsPlanRules.MixPercents, same numbers as
   the tooltip); `plan.siteBenchHa` is a float (one decimal); a lift row's `on` means the lift AND its pod are on. Unshipped, like 22: renumber at the main merge.

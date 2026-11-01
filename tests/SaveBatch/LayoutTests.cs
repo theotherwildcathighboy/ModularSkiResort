@@ -67,6 +67,8 @@ namespace SaveBatch
                 "m_Month.PassHolderGuests:i32 m_Month.PassesPre:i32 m_Month.PassIncomePre:i64 m_Month.Lessons:i32 " +
                 "m_Month.LessonIncome:i64 m_Month.RunUpkeep:i64 m_PassSeasonKey:i32 m_PassSeasonSold:i32 " +
                 "m_PassSeasonIncome:i64 m_PassSeasonPre:i32 m_PassSeasonPreIncome:i64",
+            // The ski bus depot's coach bill (before 1.0). Ships in 1.0.0, so it is listed as shipped.
+            "SkiResortMonthInProgress v2 150 m_Month.BusCharged:f64",
         };
 
         public static void Run(Func<bool, string, string, bool> check)

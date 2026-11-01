@@ -143,6 +143,8 @@
     const i = h.flags.length - 1;
     const rows = { ticketsThisMonth: h.ticketIncome[i], lodgeIncomeMonth: h.lodgeIncome[i], lessonIncomeMonth: h.lessonIncome[i],
       passIncomeMonth: h.passIncome[i], passIncomePreMonth: 0, liftChargedMonth: h.liftCost[i], runCostMonth: h.runCost[i],
+      // One depot on the live area; the bill reads 0 booked so its rows still add up to the month in History (no bus column there).
+      busChargedMonth: 0, depots: 1, busGuestsMonth: 86, busBillMonth: 3600,
       buildingsSoFar: h.buildingsCost[i], wagesSoFar: h.wagesCost[i], monthShare: 0.45 };
     rows.netMonth = rows.ticketsThisMonth + rows.lodgeIncomeMonth + rows.lessonIncomeMonth + rows.passIncomeMonth
       - rows.liftChargedMonth - rows.runCostMonth - rows.buildingsSoFar - rows.wagesSoFar;
@@ -186,7 +188,7 @@
       liftRow(2, 1, 1, "fixedGrip", 2, 640, 210, 4, "SkiResort.Tooltip.QUICK_VERDICT[DoubleBlack]", "SkiResort.Hub.QUICK_HOME_GREEN", true)],
     plan: { pods: 4, liftsProposed: 2, liftsPinned: 1, runKm: 14.6, runKmPerKm2: 18.2, deadEnds: 0, mountainMix: [0, 22, 38, 40, 0], sitePods: 4, siteGreenHome: 1, siteBenchHa: 8 } });
 
-  const base = { hubOpen: false, contract: 24, buildStamp: "", showHubButton: true, build: buildItems(), glade,
+  const base = { hubOpen: false, contract: 25, buildStamp: "", showHubButton: true, build: buildItems(), glade,
     resorts: [], resortLive: [], selectedResort: NULL, runs: [], runLive: [], lifts: [], problems: [], city, pisteMap: true, follow: 0, history: [],
     liftLine: { available: true, active: false, state: "PickBase" }, quickRuns, catTrackDeleteMode: false };
 

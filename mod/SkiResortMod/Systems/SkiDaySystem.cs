@@ -172,6 +172,10 @@ namespace SkiResortMod.Systems
         private NativeList<ClaimOut> m_ClaimOut;
         private NativeList<ResolveOut> m_ResolveOut;           // areas + 1 (orphan row)
         private NativeList<byte> m_LodgeReject;
+        private readonly List<Entity> m_DepotScratch = new List<Entity>(2);
+        private readonly List<DepotView> m_DepotViews = new List<DepotView>(2);
+        private readonly List<float2> m_HillXzScratch = new List<float2>(4);
+        private readonly List<Entity> m_HillScratch = new List<Entity>(4);
         private NativeList<int> m_LodgeCarFails;
         private NativeList<int> m_ActiveNow;
         private NativeArray<int> m_PassStats;                   // Stat.Count
@@ -775,6 +779,7 @@ namespace SkiResortMod.Systems
             m_LodgeIndex.Clear();
             m_State.Clear();
             m_Views.Clear();
+            m_DepotViews.Clear();
             m_CarFailsByLodge.Clear();
             m_TravelingSince.Clear();
             m_OccupantsByLodge.Clear();
@@ -956,6 +961,7 @@ namespace SkiResortMod.Systems
             m_Claims.Clear();
             m_PassInFlight = m_CensusInFlight = m_NearInFlight = false;
             m_Armed = false;
+            m_DepotViews.Clear();   // no pass, no coach
             Revision++;
             return true;
         }
@@ -1154,8 +1160,10 @@ namespace SkiResortMod.Systems
                     LodgeIndex = lj.LodgeIndex,
                     Capacity = lj.Capacity,
                     NoRoadNeeded = lj.NoRoadNeeded != 0,
+                    IsDepot = lj.IsDepot != 0,
                 });
             }
+            PublishDepots();
 
             m_DumpSigns.Clear();
             bool knobsOn = m_Knobs.LocalsPct > 0 || m_Knobs.TouristsPct > 0;
@@ -1237,18 +1245,29 @@ namespace SkiResortMod.Systems
                 mem.GuestsThisHour |= ro.OnSite + ro.Following > 0; // the hourly `[near]` line
 
                 // Lodge-derived view fields (rows 21, 22; ReachLodge).
-                int notSlopeside = 0, noParking = 0, reachFails = 0;
-                Entity firstNotSlopeside = Entity.Null, firstNoParking = Entity.Null, reachLodge = Entity.Null;
+                int notSlopeside = 0, noParking = 0, reachFails = 0, depots = 0, depotsNoHill = 0, depotsNoRoad = 0;
+                Entity firstNotSlopeside = Entity.Null, firstNoParking = Entity.Null, reachLodge = Entity.Null, firstDepotProblem = Entity.Null;
                 int lodgeEnd = Math.Min(aj.LodgeStart + aj.LodgeCount, m_DumpLodges.Count);
                 for (int li = Math.Max(0, aj.LodgeStart); li < lodgeEnd; li++)
                 {
                     DumpLodge dl = m_DumpLodges[li];
-                    if (dl.Reject == (byte)SkiDayRules.LodgeReject.NotSlopeside)
+                    if (dl.IsDepot)
+                    {
+                        // A depot is in no lodge row (not slope-side, no parking). Its own row reads these.
+                        depots++;
+                        if (dl.Reject == (byte)SkiDayRules.LodgeReject.NoHillLodge)
+                            depotsNoHill++;
+                        else if (dl.Reject == (byte)SkiDayRules.LodgeReject.NoRoad)
+                            depotsNoRoad++;
+                        if (SkiBusRules.CannotWork((SkiDayRules.LodgeReject)dl.Reject))
+                            firstDepotProblem = Lower(firstDepotProblem, dl.Lodge);
+                    }
+                    else if (dl.Reject == (byte)SkiDayRules.LodgeReject.NotSlopeside)
                     {
                         notSlopeside++;
                         firstNotSlopeside = Lower(firstNotSlopeside, dl.Lodge);
                     }
-                    if (dl.Reject == (byte)SkiDayRules.LodgeReject.None && dl.ParkingKnown &&
+                    if (!dl.IsDepot && dl.Reject == (byte)SkiDayRules.LodgeReject.None && dl.ParkingKnown &&
                         SkiParkingRules.LodgeLacksParking(knobsOn, true, dl.ParkingDone, dl.CarSpaces))
                     {
                         noParking++;
@@ -1286,6 +1305,10 @@ namespace SkiResortMod.Systems
                     ReachLodge = reachLodge,
                     LodgesNoParking = noParking,
                     FirstLodgeNoParking = firstNoParking,
+                    Depots = depots,
+                    DepotsNoHillLodge = depotsNoHill,
+                    DepotsNoRoad = depotsNoRoad,
+                    FirstDepotProblem = firstDepotProblem,
                 };
                 SetMonthFields(ref view, mem);
                 if (!m_Views.TryGetValue(sign, out SkiDayAreaView old) || !view.Same(old))
@@ -1383,6 +1406,7 @@ namespace SkiResortMod.Systems
             view.SentNoCarThisMonth = mem.This.SentNoCar;
             view.ArrivedThisMonth = mem.This.Arrived;
             view.ArrivedLastMonth = m_Month.LastKnown ? mem.Last.Arrived : -1;
+            view.DepotArrivedThisMonth = mem.This.ArrivedDepot;
         }
 
         /// <summary>After a roll or a jump the month fields of the views move at once (not one pass later).</summary>
@@ -1665,6 +1689,7 @@ namespace SkiResortMod.Systems
                        ? Invariant($" (closed {m.HillClosings} time(s), the last at {ClockText(m.LastCloseMinute)} with {m.OnTheWayAtClose} on the way and ") +
                          Invariant($"{m.OnSiteAtClose} on site)")
                        : "") +
+                   Invariant($"; bus depots: sent {m.SentDepot}, arrived {m.ArrivedDepot}") +
                    Invariant($"; deadlines pulled in {m.Pulled}; powder ") +
                    (double.IsNaN(m.PowderMax) ? "-" : m.PowderMax.ToString("F2", CultureInfo.InvariantCulture)) +
                    Invariant($" at most ({m.SnowHoursAtMax} snow-hours); confidence walk {Conf(mem, SkiDayRules.TravelClass.Walk):F2} car ") +
@@ -1759,6 +1784,8 @@ namespace SkiResortMod.Systems
                     sb.Append(c > 0 ? ", " : "").Append(s_ClassWords[c]).Append(' ').Append(ci[CM.TooLateClosing + c] + ci[CM.TooLateOwn + c]);
                 sb.Append(Invariant($" | expected ski days lost ~{m.TooLateChanceSum:F0})"));
             }
+            if (m.SentOffDay > 0)
+                Group(sb).Append(Invariant($"sent only because of a day off {m.SentOffDay}"));
             // 2. pool mean chance
             if (m.Pool > 0)
                 Group(sb).Append(Invariant($"pool mean chance {m.PoolChanceSum / m.Pool:F3}"));
@@ -2830,6 +2857,75 @@ namespace SkiResortMod.Systems
 
         /// <summary>One snapshot lodge with its tier's numbers from SkiCatalog.Lodges (an out-of-range index reads the A-frame
         /// row 0, as the score does; no row at all → the A-frame values).</summary>
+        /// <summary>One active bus depot at the last applied pass: the internal read API for the coach bill, the hub and a later visual bus.
+        /// HillLodge = the area's nearest hill lodge in a straight line among those passing or gated (Null with none, or no position yet);
+        /// DistanceM = the straight-line distance to it (+inf when Null); Verdict = CheckDepot's.</summary>
+        internal struct DepotView
+        {
+            public Entity Depot, Sign, HillLodge;
+            /// <summary>The nearest passing hill lodge with a road: the coach's end. HillLodge may be a mountain lodge no bus can reach.</summary>
+            public Entity CoachLodge;
+            public float2 Xz;
+            public float DistanceM;
+            public SkiDayRules.LodgeReject Verdict;
+        }
+
+        /// <summary>Every active bus depot of the last applied pass, area order; clears <paramref name="into"/>; returns the count. Empty
+        /// while ski days are off or before the first pass: no pass, no coach. Main thread, plain copy.</summary>
+        internal int CopyDepots(List<DepotView> into)
+        {
+            into.Clear();
+            for (int i = 0; i < m_DepotViews.Count; i++)
+                into.Add(m_DepotViews[i]);
+            return into.Count;
+        }
+
+        /// <summary>m_DepotViews from this pass's m_DumpLodges. Revision of the views' fields is the caller's business: the bill reads them per
+        /// charge pass, the stats system per rebuild.</summary>
+        private void PublishDepots()
+        {
+            m_DepotViews.Clear();
+            for (int di = 0; di < m_DumpLodges.Count; di++)
+            {
+                DumpLodge depot = m_DumpLodges[di];
+                if (!depot.IsDepot || depot.Area < 0 || depot.Area >= m_Areas.Length)
+                    continue;
+                m_HillXzScratch.Clear();
+                m_HillScratch.Clear();
+                Entity coachLodge = Entity.Null;
+                float coachDistance = float.PositiveInfinity;
+                for (int li = 0; li < m_DumpLodges.Count; li++)
+                {
+                    DumpLodge hill = m_DumpLodges[li];
+                    if (hill.IsDepot || hill.Area != depot.Area || !hill.HasPosition || !SkiBusRules.IsBilled((SkiDayRules.LodgeReject)hill.Reject))
+                        continue;
+                    m_HillXzScratch.Add(hill.Xz);
+                    m_HillScratch.Add(hill.Lodge);
+                    if (depot.HasPosition && EntityManager.HasComponent<Game.Buildings.Building>(hill.Lodge) && EntityManager.GetComponentData<Game.Buildings.Building>(hill.Lodge).m_RoadEdge != Entity.Null)
+                    {
+                        float roadDistance = math.distance(depot.Xz, hill.Xz);
+                        if (roadDistance < coachDistance)
+                        {
+                            coachDistance = roadDistance;
+                            coachLodge = hill.Lodge;
+                        }
+                    }
+                }
+                float distance = float.PositiveInfinity;
+                int nearest = depot.HasPosition ? SkiBusRules.NearestIndex(depot.Xz, m_HillXzScratch, out distance) : -1;
+                m_DepotViews.Add(new DepotView
+                {
+                    Depot = depot.Lodge,
+                    Sign = m_Areas[depot.Area].Sign,
+                    HillLodge = nearest >= 0 ? m_HillScratch[nearest] : Entity.Null,
+                    CoachLodge = coachLodge,
+                    Xz = depot.Xz,
+                    DistanceM = distance,
+                    Verdict = (SkiDayRules.LodgeReject)depot.Reject,
+                });
+            }
+        }
+
         private static LodgeJob LodgeJobOf(Entity lodge, int area, in SkiResortAttractivenessSystem.LodgeInfo info)
         {
             int count = SkiCatalog.Lodges.Count;
@@ -2907,6 +3003,15 @@ namespace SkiResortMod.Systems
                         continue; // never the Welcome Sign
                     if (m_LodgeIndex.TryAdd(lodge, m_Lodges.Length))
                         m_Lodges.Add(LodgeJobOf(lodge, a, info));
+                }
+                // The bus depots join the area's contiguous lodge range after its lodges: NearestTarget, the presale and the reach census pick
+                // them up with no code of their own.
+                m_Attraction.CopyActiveDepots(sign, m_DepotScratch);
+                for (int i = 0; i < m_DepotScratch.Count; i++)
+                {
+                    Entity depot = m_DepotScratch[i];
+                    if (depot != Entity.Null && m_LodgeIndex.TryAdd(depot, m_Lodges.Length))
+                        m_Lodges.Add(new LodgeJob { Lodge = depot, Area = a, Capacity = 0, PriceTolerance = 0, NoRoadNeeded = 0, IsDepot = 1, LodgeIndex = -1 });
                 }
                 int runStart = m_SiteRuns.Length, stationStart = m_SiteStations.Length;
                 m_Attraction.CopySiteMembers(sign, m_RunScratch, m_StationScratch);
@@ -3273,6 +3378,13 @@ namespace SkiResortMod.Systems
                     BehaviorInterval = m_BehaviorInterval,
                     BehaviorOffset = m_BehaviorOffset,
                     TripKnobs = m_TripKnobs, // FitSpeed and the stay reserve (bit-identical at the defaults)
+                    Workers = m_WorkerLookup,
+                    Students = m_StudentLookup,
+                    Populations = m_PopulationLookup,
+                    Economy = live ? m_EconomyQuery.GetSingleton<Game.Prefabs.EconomyParameterData>() : default,
+                    TimeData = live ? m_TimeDataQuery.GetSingleton<Game.Common.TimeData>() : default,
+                    PopulationEntity = live ? m_PopulationQuery.GetSingletonEntity() : Entity.Null,
+                    LiveKnown = (byte)(live ? 1 : 0),
                 };
                 h = claim.Schedule(JobHandle.CombineDependencies(h, chunksHandle, reserveDeps));
                 all = h;
@@ -3696,15 +3808,22 @@ namespace SkiResortMod.Systems
             // A passing mountain lodge holds skiers but is not a ski-day (target)
             // lodge — listed apart; a tier other than the A-frame is named.
             // An A-frame-only area writes the single-tier text.
-            int targets = 0, mountain = 0;
+            int targets = 0, mountain = 0, depots = 0;
             var sb = new StringBuilder(160);
             var mountainText = new StringBuilder(0);
+            var depotText = new StringBuilder(0);
             for (int li = start; li < end; li++)
             {
                 DumpLodge dl = m_DumpLodges[li];
                 mem.LodgeVerdicts.Add(new LodgeVerdict { Lodge = dl.Lodge, Reject = dl.Reject });
                 if (dl.Reject != (byte)SkiDayRules.LodgeReject.None)
                     continue;
+                if (dl.IsDepot)
+                {
+                    depots++;
+                    depotText.Append(' ').Append(Fmt(dl.Lodge));
+                    continue;
+                }
                 StringBuilder into = dl.NoRoadNeeded ? mountainText : sb;
                 if (dl.NoRoadNeeded)
                     mountain++;
@@ -3716,14 +3835,15 @@ namespace SkiResortMod.Systems
             }
             string text = $"SkiDays [lodges] ski area {Fmt(sign)}{NameSuffix(sign)}: {targets} ski-day lodge(s){sb}" +
                           (mountain > 0 ? $"; {mountain} mountain lodge(s) holding skiers, not a ski-day target:{mountainText}" : "") +
-                          $"; not used: {end - start - targets - mountain}";
+                          (depots > 0 ? $"; {depots} bus depot(s) in town, a ski-day target, holding no skiers:{depotText}" : "") +
+                          $"; not used: {end - start - targets - mountain - depots}";
             sb.Clear();
             for (int li = start; li < end; li++)
             {
                 DumpLodge dl = m_DumpLodges[li];
                 if (dl.Reject == (byte)SkiDayRules.LodgeReject.None)
                     continue;
-                sb.Append("; lodge ").Append(Fmt(dl.Lodge)).Append(' ').Append((SkiDayRules.LodgeReject)dl.Reject);
+                sb.Append(dl.IsDepot ? "; bus depot " : "; lodge ").Append(Fmt(dl.Lodge)).Append(' ').Append((SkiDayRules.LodgeReject)dl.Reject);
                 if (dl.Reject == (byte)SkiDayRules.LodgeReject.NoLeisureTag) // counted in capacity, never claimed
                     sb.Append(" (leisure tag removed, e.g. a Tourism Overhaul gate; still counted in capacity if nothing else fails)");
                 if (dl.Reject == (byte)SkiDayRules.LodgeReject.NotSlopeside)
@@ -3928,9 +4048,9 @@ namespace SkiResortMod.Systems
                     if (dl.Area != a)
                         continue;
                     m_CarFailsByLodge.TryGetValue(dl.Lodge, out int fails);
-                    sb.Append("      lodge ").Append(Fmt(dl.Lodge)).Append(": ").Append((SkiDayRules.LodgeReject)dl.Reject)
+                    sb.Append(dl.IsDepot ? "      bus depot " : "      lodge ").Append(Fmt(dl.Lodge)).Append(": ").Append((SkiDayRules.LodgeReject)dl.Reject)
                       .Append(dl.Reject == (byte)SkiDayRules.LodgeReject.NoLeisureTag ? " (gated by Tourism Overhaul? leisure tag removed)" : "")
-                      .Append(", ").Append(TierOf(dl.LodgeIndex)).Append(' ').Append(dl.Capacity).Append(" a day")
+                      .Append(", ").Append(dl.IsDepot ? "no tier" : TierOf(dl.LodgeIndex)).Append(' ').Append(dl.Capacity).Append(" a day")
                       .Append(dl.NoRoadNeeded ? ", mountain (not a ski-day target)" : "")
                       .Append(", nearest run or station ").Append(MetresText(dl.NearestM)).Append(" m, xz (")
                       .Append(dl.HasPosition ? dl.Xz.x.ToString("F0", ic) : "-").Append(", ").Append(dl.HasPosition ? dl.Xz.y.ToString("F0", ic) : "-")
@@ -4394,7 +4514,9 @@ namespace SkiResortMod.Systems
             // The pool's chance sum and the too-late chance sum, the passes with a known powder and
             // with the "Powder day" mark, and the car claims that used the car-reserve queue.
             public double PoolChanceSum, TooLateChanceSum;
-            public int PowderMarkPasses, PowderKnownPasses, CarsEnqueued;
+            public int PowderMarkPasses, PowderKnownPasses, CarsEnqueued, SentOffDay;
+            // The claims sent to a bus depot and their arrivals (subsets of Sent / Arrived).
+            public int SentDepot, ArrivedDepot;
             // The highest capacity of the month with its limit and the clock of the first Full pass; the
             // arrivals while the hill was closed for the count, the closings (no-counted-run edges) with the last one's clock
             // and the guests on the way / on site then; the deadlines pulled in.
@@ -4416,6 +4538,9 @@ namespace SkiResortMod.Systems
                 PoolChanceSum += co.PoolChanceSum;
                 TooLateChanceSum += co.TooLateChanceSum;
                 CarsEnqueued += co.CarsEnqueued;
+                SentOffDay += co.SentOffDay;
+                SentDepot += co.SentDepot;
+                ArrivedDepot += ro.ArrivedDepot;
                 if (!double.IsNaN(powder))
                 {
                     PowderKnownPasses++;
@@ -4525,6 +4650,7 @@ namespace SkiResortMod.Systems
         private struct DumpLodge
         {
             public Entity Lodge;
+            public bool IsDepot;
             public int Area;
             public byte Reject;
             public bool HasPosition, ParkingKnown, ParkingDone;
@@ -4566,7 +4692,7 @@ namespace SkiResortMod.Systems
     /// pass while the area exists; Revision moves only when !Same.</summary>
     public struct SkiDayAreaView
     {
-        public int TargetLodges;              // lodges with CheckLodge == None
+        public int TargetLodges;              // road-side lodges with CheckLodge == None, plus depots with CheckDepot == None
         public int LodgesNotSlopeside;        // lodges whose reject is NotSlopeside (row 22)
         public Entity FirstLodgeNotSlopeside; // lowest (Index, Version); Null if none
         public bool ClaimHours;               // InClaimWindow at the last pass
@@ -4580,6 +4706,9 @@ namespace SkiResortMod.Systems
         public Entity ReachLodge;             // most car failures this load; Null allowed
         public int LodgesNoParking; // every pass
         public Entity FirstLodgeNoParking;
+        public int Depots, DepotsNoHillLodge, DepotsNoRoad;   // the area's active bus depots; those CheckDepot rejects for the hub's row
+        public Entity FirstDepotProblem;                       // lowest (Index, Version) of the two; Null if none
+        public int DepotArrivedThisMonth;                      // ski days that arrived at a depot (a subset of ArrivedThisMonth)
 
         /// <summary>Field by field; Powder via SkiDayTiming.SameBits (NaN == NaN; a != on NaN would move
         /// Revision every pass, and ValueType.Equals boxes).</summary>
@@ -4592,7 +4721,9 @@ namespace SkiResortMod.Systems
                    SentCarThisMonth == o.SentCarThisMonth && SentNoCarThisMonth == o.SentNoCarThisMonth &&
                    ArrivedThisMonth == o.ArrivedThisMonth && ArrivedLastMonth == o.ArrivedLastMonth &&
                    CannotReach == o.CannotReach && ReachLodge == o.ReachLodge && LodgesNoParking == o.LodgesNoParking &&
-                   FirstLodgeNoParking == o.FirstLodgeNoParking;
+                   FirstLodgeNoParking == o.FirstLodgeNoParking && Depots == o.Depots && DepotsNoHillLodge == o.DepotsNoHillLodge &&
+                   DepotsNoRoad == o.DepotsNoRoad && FirstDepotProblem == o.FirstDepotProblem &&
+                   DepotArrivedThisMonth == o.DepotArrivedThisMonth;
         }
     }
 }

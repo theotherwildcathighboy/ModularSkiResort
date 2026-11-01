@@ -48,6 +48,7 @@
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiCatalog.cs" Link="SkiCatalog.cs" />
     <Compile Include="CatalogGuardTests.cs" />
     <Compile Include="DeleteAllTests.cs" />
+    <Compile Include="SkiBusTests.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\DeleteAllRules.cs" Link="DeleteAllRules.cs" />
   </ItemGroup>
   <!--
@@ -78,6 +79,7 @@
     <Compile Include="SkiDayTimingTests.cs" />
     <Compile Include="ParkingTests.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiDayRules.cs" Link="SkiDayRules.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\SkiBusRules.cs" Link="SkiBusRules.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiDayTiming.cs" Link="SkiDayTiming.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiParkingRules.cs" Link="SkiParkingRules.cs" />
   </ItemGroup>

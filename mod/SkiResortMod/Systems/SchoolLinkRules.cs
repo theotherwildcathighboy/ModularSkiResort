@@ -1,8 +1,8 @@
-// Which ski area a top-level resort building (school, lodges, patrol huts) belongs to. Nothing is stored or serialized.
+// Which ski area a top-level resort building (school, lodges, patrol huts, bus depots) belongs to. Nothing is stored or serialized.
 // Rule (same as lifts): a building with no Owner belongs to the nearest live Welcome Sign within the tether
 // (SkiRunOwnershipSystem.TetherMeters, 5000 m; SkiResortIndex.TryResolve breaks ties by distance, Index, Version; 5000.00 m
 // in, 5000.01 m out; a non-finite position never links). None = not linked, counts for no area. Not sticky: a nearer new sign
-// takes the building.
+// takes the building. A bus depot stands in town, so it alone has no tether: the nearest live Welcome Sign at any distance (DepotMaxDistance).
 // Count: every school counted for an area adds 1 to Schools; SchoolActive is true when any is live and not Inactive (the
 // building's own Building.m_OptionMask). Diff logs ONE line per change (Linked, Relinked, Unlinked, Removed), stable order (Index, Version).
 // Pure file: System, System.Collections.Generic and Unity.Mathematics only (tests/BuildingBatch links it).
@@ -31,7 +31,10 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Kind of a top-level resort building (log words and count path).</summary>
-        public const byte KindLodge = 0, KindSchool = 1, KindPatrol = 2;
+        public const byte KindLodge = 0, KindSchool = 1, KindPatrol = 2, KindDepot = 3;
+
+        /// <summary>The bus depot's link range: no tether (SkiResortIndex.TryResolve takes +inf: any finite distance is within it).</summary>
+        public const float DepotMaxDistance = float.PositiveInfinity;
 
         public enum ChangeKind : byte { Linked = 0, Relinked = 1, Unlinked = 2, Removed = 3 }
 

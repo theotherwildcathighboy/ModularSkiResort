@@ -67,7 +67,8 @@ namespace SkiResortMod.Systems
                                     "m_Month.PassIncome:i64 m_Month.PassHolderGuests:i32 m_Month.PassesPre:i32 " +
                                     "m_Month.PassIncomePre:i64 m_Month.Lessons:i32 m_Month.LessonIncome:i64 m_Month.RunUpkeep:i64 " +
                                     "m_PassSeasonKey:i32 m_PassSeasonSold:i32 m_PassSeasonIncome:i64 m_PassSeasonPre:i32 " +
-                                    "m_PassSeasonPreIncome:i64")),
+                                    "m_PassSeasonPreIncome:i64"),
+                new LayoutVersion(2, 150, "m_Month.BusCharged:f64")),
         };
         // FROZEN-END
 

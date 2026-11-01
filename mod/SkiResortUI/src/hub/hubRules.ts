@@ -70,7 +70,8 @@ export type ProblemVariant =
   | "runsUnserved" | "runsUnrateable" | "runsRating" | "freeLodges" | "runsFlat"
   | "signNoRoad" | "lodgeNoRoad"
   | "skiDaysCannotReach" | "skiDaysNoGuestsNear" | "noParkingNearLodge" | "lodgeNotSlopeside"
-  | "mixedLiftTypes" | "summitLodgeNotLiftServed" | "schoolNoGreenRun" | "schoolsNotLinked";
+  | "mixedLiftTypes" | "summitLodgeNotLiftServed" | "schoolNoGreenRun" | "schoolsNotLinked"
+  | "depotNoHillLodge" | "depotNoRoad";
 
 export function problemVariant(p: ProblemRow): ProblemVariant | null {
   switch (p.code) {
@@ -103,6 +104,8 @@ export function problemVariant(p: ProblemRow): ProblemVariant | null {
     case PROBLEM.SchoolNoGreenRun: return "schoolNoGreenRun";
     case PROBLEM.SchoolsNotLinked: return "schoolsNotLinked";
     case PROBLEM.SkiDaysNoGuestsNear: return "skiDaysNoGuestsNear";
+    case PROBLEM.DepotNoHillLodge: return "depotNoHillLodge";
+    case PROBLEM.DepotNoRoad: return "depotNoRoad";
     default: return null;
   }
 }
@@ -149,7 +152,7 @@ export function problemClick(p: ProblemRow): ProblemClick {
     case PROBLEM.SignNoRoad: case PROBLEM.LodgeNoRoad:
     case PROBLEM.SkiDaysCannotReach: case PROBLEM.NoParkingNearLodge: case PROBLEM.LodgeNotSlopeside:
     case PROBLEM.SummitLodgeNotLiftServed: case PROBLEM.SchoolNoGreenRun: case PROBLEM.SchoolsNotLinked:
-    case PROBLEM.SkiDaysNoGuestsNear:
+    case PROBLEM.SkiDaysNoGuestsNear: case PROBLEM.DepotNoHillLodge: case PROBLEM.DepotNoRoad:
       return "sign";
     case PROBLEM.LiftNoPower: case PROBLEM.LiftSectionMissing: case PROBLEM.LiftUnfinished:
     case PROBLEM.StationsOnly: case PROBLEM.LiftChairsStopped: case PROBLEM.MixedLiftTypes:
@@ -498,13 +501,13 @@ export type BuildTab = "lifts" | "runs" | "buildings";
 
 export const BUILD_TABS: readonly BuildTab[] = ["lifts", "runs", "buildings"];
 
-/** The tab of an item KIND: stations and lines -> lifts; runs and the safety fence -> runs; the sign, lodge tiers, school and patrol huts -> buildings
+/** The tab of an item KIND: stations and lines -> lifts; runs and the safety fence -> runs; the sign, lodge tiers, bus depot, school and patrol huts -> buildings
  *  (null for a kind this bundle does not know). */
 export function tabOfKind(kind: string | undefined): BuildTab | null {
   switch (kind) {
     case "station": case "line": return "lifts";
     case "run": case "fence": return "runs";
-    case "sign": case "lodge": case "school": case "patrol": return "buildings";
+    case "sign": case "lodge": case "depot": case "school": case "patrol": return "buildings";
     default: return null;
   }
 }
@@ -685,8 +688,8 @@ export function cityIncomeShown(l: ResortLive | null, city: CityStats): boolean 
 /** The Net's eight rows of the month so far, in the
  *  Finances column's order, with their sign. C#'s invariant: Σ sign × max(0, value) over the eight = netMonth (an unknown row, -1, reads 0).
  *  The view draws them as sent; netRowsTotal is that sum for the tests (the UI never shows it: the Net row is netMonth as sent). */
-export type NetRowId = "tickets" | "lodge" | "lessons" | "passes" | "lifts" | "runs" | "buildings" | "wages";
-export const NET_ROW_IDS: readonly NetRowId[] = ["tickets", "lodge", "lessons", "passes", "lifts", "runs", "buildings", "wages"];
+export type NetRowId = "tickets" | "lodge" | "lessons" | "passes" | "lifts" | "runs" | "bus" | "buildings" | "wages";
+export const NET_ROW_IDS: readonly NetRowId[] = ["tickets", "lodge", "lessons", "passes", "lifts", "runs", "bus", "buildings", "wages"];
 
 export function netRows(l: ResortLive): Array<{ id: NetRowId; value: number; sign: 1 | -1 }> {
   return [
@@ -696,6 +699,7 @@ export function netRows(l: ResortLive): Array<{ id: NetRowId; value: number; sig
     { id: "passes", value: l.passIncomeMonth, sign: 1 },
     { id: "lifts", value: l.liftChargedMonth, sign: -1 },
     { id: "runs", value: l.runCostMonth, sign: -1 },
+    { id: "bus", value: l.busChargedMonth, sign: -1 },
     { id: "buildings", value: l.buildingsSoFar, sign: -1 },
     { id: "wages", value: l.wagesSoFar, sign: -1 },
   ];
@@ -715,6 +719,7 @@ export function netRowShown(id: NetRowId, l: ResortLive, city: CityStats): boole
     case "lodge": return lodgeSpendShown(l) || l.lodgeIncomeMonth > 0;
     case "lessons": return lessonsShown(l) || l.lessonIncomeMonth > 0;
     case "passes": return passesShown(l, city) || l.passIncomeMonth > 0;
+    case "bus": return l.depots > 0 || l.busChargedMonth > 0;
     default: return true;
   }
 }

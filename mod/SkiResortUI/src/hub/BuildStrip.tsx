@@ -57,7 +57,7 @@ export const MISMATCH_FOOTER: FooterInfo = { dot: null, next: "done", followName
 export const FOLLOW_NOTICE_MS = 6000;
 
 /* The Buildings-tab kinds that each draw as their own tile group. */
-const SPLIT_KINDS: readonly string[] = ["sign", "lodge", "school", "patrol"];
+const SPLIT_KINDS: readonly string[] = ["sign", "lodge", "depot", "school", "patrol"];
 
 /* The pickers' choice for the UI session (local value: nothing sent to C#; a UI reload resets it). */
 export const pick$ = bindLocalValue<PickerSelection>(NO_PICK);
@@ -98,6 +98,7 @@ function hintEntry(id: BuildItemId): LocEntry | null {
     case "sign": return HUB_LOC.buildHintSign;
     case "fence": return HUB_LOC.buildHintFence;
     case "lodge": return HUB_LOC.buildHintLodge;
+    case "depot": return HUB_LOC.buildShortDepot;
     case "school": return HUB_LOC.buildShortSchool;
     case "patrol": return HUB_LOC.buildShortPatrol;
     default: return null;
@@ -171,6 +172,7 @@ function tileTip(e: OrderedBuildItem, t: Translate): JSX.Element {
         e.id === "runNatural" && t(HUB_LOC.buildTipNatural),
         e.id === "runNatural" && t(HUB_LOC.buildTipTypeNatural),
         LUXURY_LODGES.has(e.id) && t(HUB_LOC.buildTipLuxury), // the luxury label and its price tolerance
+        k === "depot" && t(HUB_LOC.buildTipDepot),
         k === "school" && t(HUB_LOC.buildTipSchool),
         k === "patrol" && t(HUB_LOC.buildTipPatrol),
         e.item.locked && t(sentKeyEntry(e.item.reason, HUB_LOC.locked)),
@@ -223,6 +225,7 @@ function labelEntry(id: BuildItemId): LocEntry {
     case "fence": return BUILD_LABEL.fence;
     case "sign": return BUILD_LABEL.sign;
     case "lodge": return LODGE_TIER[id] ?? BUILD_LABEL.lodge;
+    case "depot": return BUILD_LABEL.depot;
     case "school": return BUILD_LABEL.school;
     case "patrol": return id === "patrolHQ" ? BUILD_LABEL.patrolHQ : BUILD_LABEL.patrolHut;
     default: return nameEntry(id);
