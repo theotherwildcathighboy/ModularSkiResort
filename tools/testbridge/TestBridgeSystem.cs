@@ -106,6 +106,7 @@ namespace SkiTestBridge
                 case "heights": return Heights(args);
                 case "perf": return PerfCommand(args);
                 case "tiles": return UnlockTiles();
+                case "pm": return PhotoMode(args);
                 default: throw new ArgumentException($"unknown op '{op}'");
             }
         }

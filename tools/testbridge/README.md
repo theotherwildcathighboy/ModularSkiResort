@@ -60,6 +60,7 @@ Every reply is a JSON string with `ok`, and `error` when `ok` is false.
 | `status` | | game mode, focus, screen, cursor, tool, camera, sim speed, date, money, climate, sequence |
 | `hover` | | cursor (Windows and game), `mouseOverUI`, active tool and prefab, what the tool raycast hit |
 | `photo` | `name`, optional `ui` | hides the UI and saves a natural-color 3840 x 2160 PNG with Photo Mode's call, HDR on or off, to `%USERPROFILE%\AppData\LocalLow\Colossal Order\Cities Skylines II\Screenshots\<name>.png`; the way to take shots |
+| `pm` | `on`, `cam`: `{x, y, z, at: [x, y, z]}` or `yaw`, `pitch`; `set`: `{id: number or null}`; `list`, `group`, `reset` | Photo Mode through the panel's own properties. `list` gives ids and ranges (`focalLength`, `lensShift`, `iso`, `Roll`, `Time of Day`, ...); null turns an override off. Leave with `on:false` before using the `camera` op |
 | `project` | `wx`, `wz`, optional `wy` | client pixel; `safe` is false when off screen or in the edge-scroll band |
 | `camera` | optional `wx` + `wz`, `zoom`, `yaw`, `tilt` | camera state; applied on the next frames, so follow with a `settle` step |
 | `sim` | optional `speed` (0 pauses) | speed and frame index |
@@ -104,6 +105,9 @@ Do not call `engine.trigger("menu.saveGame", name)`: without the save panel open
   back, `click`.
 - **The object tool's raycast is offset by the object's height** (`ObjectToolSystem.cs:3190`), so `hover.hit` lands up to a few meters
   short of the target with the camera tilted, and the object lands there. Read the placed `Transform` for the true position.
+- **A station buried or floating:** Move It, Toolbox, "To Terrain Height", with no terrain edit. Move it along its line first if it sits past a crest. A large Level brush cuts shelves; when terrain must change, brush 1 to 10 at 35 %, target from `engine.trigger("tool.setBrushHeight", worldY - seaLevel)`.
+- **`pm` op, lighting:** "Time of Day" changes the sky, not the lamps; those follow sim time (on by about 20:20). Snow guns and their plumes run at sim night only. Lifts stop outside open hours, and a lift with no power stops soon after it is built: pick a powered lift at sim day to sample chair motion.
+- **Summer shots:** deep snow at 1.4 km and above does not melt in hours at 24 C; ground below about 800 m goes bare in minutes at x8.
 - Alt+F1 reaches the NVIDIA overlay. Files appear in `%USERPROFILE%\Videos\NVIDIA\Cities  Skylines II\` (two spaces), and
   `tools\jxr2png.ps1 -Path <file> -Auto -OutDir <dir>` converts a 4K shot in about 4 s.
 
