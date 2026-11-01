@@ -63,7 +63,7 @@ Every reply is a JSON string with `ok`, and `error` when `ok` is false.
 | `project` | `wx`, `wz`, optional `wy` | client pixel; `safe` is false when off screen or in the edge-scroll band |
 | `camera` | optional `wx` + `wz`, `zoom`, `yaw`, `tilt` | camera state; applied on the next frames, so follow with a `settle` step |
 | `sim` | optional `speed` (0 pauses) | speed and frame index |
-| `time` | `minutes` | advances the game clock (the dev menu's `DebugAdvanceTime`). It skips no sim work but ages citizens: repeated jumps pile up deaths and hearse icons, so never judge city health after them |
+| `time` | `minutes` | advances the game clock (the dev menu's `DebugAdvanceTime`). Citizens age across the jump with no sim frames to serve them: repeated jumps pile up deaths and hearse icons, so never judge city health after them |
 | `money` | optional `add`, `unlimited` | new balance |
 | `tool` | `prefab`, optional `mode` (`Straight`, `SimpleCurve`, `ComplexCurve`, `Continuous`, `Grid`, `Replace`, `Point`) | active tool; no `prefab` returns to the default tool. For setup: a test of the hub or toolbar clicks the real buttons |
 | `prefabs` | `match` (part of a name) | matching prefab names and classes |
