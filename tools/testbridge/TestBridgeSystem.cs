@@ -86,6 +86,7 @@ namespace SkiTestBridge
                 case "hover": return Hover();
                 case "project": return ProjectCommand(args);
                 case "camera": SetCamera(args); return CameraState();
+                case "photo": GameManager.instance.StartCoroutine(Photo((string)args["name"] ?? "shot", (bool?)args["ui"] ?? false)); return new JObject { ["ok"] = true };
                 case "sim": return SetSimulation(args);
                 case "time": m_Time.DebugAdvanceTime((int)args["minutes"]); return TimeState();
                 case "money": return AddMoney(args);
@@ -197,6 +198,23 @@ namespace SkiTestBridge
             float marginY = Screen.height * 0.03f;
             return screen.z > 0f && screen.x > marginX && screen.x < Screen.width - marginX
                 && screen.y > marginY && screen.y < Screen.height - marginY;
+        }
+
+        // Photo Mode's capture (PhotoModeUISystem.CaptureScreenshot), so the file is what its button would save. The newest
+        // <name>.png lands in Screenshots under the game's user data folder.
+        private static System.Collections.IEnumerator Photo(string name, bool withUI)
+        {
+            var ui = GameManager.instance.userInterface;
+            if (ui != null && !withUI)
+                ui.view.enabled = false;
+            yield return new WaitForEndOfFrame();
+            Texture2D texture = Colossal.PSI.Common.PlatformManager.instance.TakeScreenshotAsTexture();
+            string folder = System.IO.Path.Combine(Application.persistentDataPath, "Screenshots");
+            System.IO.Directory.CreateDirectory(folder);
+            System.IO.File.WriteAllBytes(System.IO.Path.Combine(folder, name + ".png"), texture.EncodeToPNG());
+            UnityEngine.Object.Destroy(texture);
+            if (ui != null)
+                ui.view.enabled = true;
         }
 
         private void SetCamera(JObject args)

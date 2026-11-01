@@ -157,7 +157,7 @@ export const BUILDING_DRAW: Readonly<Partial<Record<BuildItemId, BuildingDraw>>>
   lodgeMid: { prefab: "SkiLodgeMid", upkeep: 8000, power: 3500, water: 2300, garbage: 190, workers: 12, keepsSlope: true },
   lodgeSummit: { prefab: "SkiLodgeSummit", upkeep: 18000, power: 0, water: 0, garbage: 0, workers: 8, keepsSlope: true },
   lodgeGrand: { prefab: "SkiLodgeGrand", upkeep: 20000, power: 3500, water: 5000, garbage: 430, workers: 18, keepsSlope: false },
-  busDepot: { prefab: "SkiBusDepot", upkeep: 2000, power: 1000, water: 600, garbage: 50, workers: 0, keepsSlope: true },
+  busDepot: { prefab: "SkiBusDepot", upkeep: 2000, power: 1000, water: 600, garbage: 50, workers: 0, keepsSlope: false },
   school: { prefab: "SkiSchool", upkeep: 3000, power: 2500, water: 1700, garbage: 130, workers: 4, keepsSlope: true },
   patrolHut: { prefab: "SkiPatrolHut", upkeep: 1500, power: 0, water: 0, garbage: 0, workers: 2, keepsSlope: true },
   patrolHQ: { prefab: "SkiPatrolHQ", upkeep: 1500, power: 0, water: 0, garbage: 0, workers: 2, keepsSlope: true },

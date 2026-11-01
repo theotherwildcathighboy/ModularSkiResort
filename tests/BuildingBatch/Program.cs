@@ -366,7 +366,7 @@ namespace BuildingBatch
             new Gate("SkiLodgeMid", 200, 5, false),
             new Gate("SkiLodgeSummit", 400, 0, true),
             new Gate("SkiLodgeGrand", 400, 5, false),
-            new Gate("SkiBusDepot", 60, 5, false),
+            new Gate("SkiBusDepot", 60, 3, false),
             new Gate("SkiSchool", 150, 4, false),
             new Gate("SkiPatrolHut", 50, 0, true),
             new Gate("SkiPatrolHQ", 50, 0, true),

@@ -1,4 +1,4 @@
-// The Ski Bus Depots' coach: one vanilla Bus01 per working depot, in the resort's color, driving real lanes between the depot and the
+// The Ski Bus Depots' coach: one SkiCoachBus (Bus01 with SKI BUS panels) per working depot, in the resort's color, driving real lanes between the depot and the
 // area's nearest hill lodge with a road, back and forth. A visual: DummyTraffic carries nobody, belongs to no line, bills nothing.
 // Guests, tickets and the coach bill never read it (SkiDaySystem, SkiBusChargeSystem); no citizen routes through it (DECISIONS 392 stands).
 // Phase: GameSimulation, UpdateBefore<SkiCoachSystem, TransportCarAISystem> (Mod.cs). Anchor AND interval (16) are load-bearing: same interval
@@ -27,8 +27,8 @@ namespace SkiResortMod.Systems
 {
     public sealed partial class SkiCoachSystem : GameSystemBase
     {
-        /// <summary>The vanilla bus the coach drives.</summary>
-        private const string BusPrefabName = "Bus01";
+        /// <summary>Bus01 cloned with its SKI BUS panels and out of the vanilla bus pool (m_Purposes 0, m_MaintenanceRange 0).</summary>
+        private const string BusPrefabName = "SkiCoachBus";
 
         /// <summary>Elapsed frames before a depot whose probe found no road tries again.</summary>
         private const uint NoRoadRetryFrames = 16384;

@@ -59,6 +59,7 @@ Every reply is a JSON string with `ok`, and `error` when `ok` is false.
 |---|---|---|
 | `status` | | game mode, focus, screen, cursor, tool, camera, sim speed, date, money, climate, sequence |
 | `hover` | | cursor (Windows and game), `mouseOverUI`, active tool and prefab, what the tool raycast hit |
+| `photo` | `name`, optional `ui` | hides the UI and saves a natural-color 3840 x 2160 PNG with Photo Mode's call, HDR on or off, to `%USERPROFILE%\AppData\LocalLow\Colossal Order\Cities Skylines II\Screenshots\<name>.png`; the way to take shots |
 | `project` | `wx`, `wz`, optional `wy` | client pixel; `safe` is false when off screen or in the edge-scroll band |
 | `camera` | optional `wx` + `wz`, `zoom`, `yaw`, `tilt` | camera state; applied on the next frames, so follow with a `settle` step |
 | `sim` | optional `speed` (0 pauses) | speed and frame index |
@@ -143,6 +144,10 @@ Two guards fail a sequence instead of letting it click on blindly:
 - **A new game error stops it**, since an error dialog would swallow the input. Pass `stopOnError: false` on the `seq` when a known
   error is expected, then read `errors`.
 - **A press aimed at a world point fails if UI is under the cursor.** Pass `allowUI: true` on the `click` or `down` to allow it.
+
+## Editor import
+
+Launch with `--startEditor`; the first port 9444 reply comes before the Editor is ready, so wait for "Workspace" in the UI. `helpers.js` has `__rows` and `__enter` for the file browser. Toolbar icon (1647,1968) opens the importer; Project root button (3300,134), Assets folder button (3300,220), back arrow (2947,217), `Select Directory` by `__find`, Import (3370,1992). Set Project root to the letter folder and Assets folder to the asset folder itself, so the file list shows only that asset. Never point at a letter folder that holds other assets. Result: `ImportedData\c030ee3ff256df91\<Name>\`, log `Logs\AssetPipeline.log`.
 
 ## Building a test city
 

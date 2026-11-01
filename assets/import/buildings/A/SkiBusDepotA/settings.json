@@ -1,0 +1,18 @@
+{
+  "sharedAssets": {
+    "SkiBusDepotA_LOD1_BaseColor.png": "SkiBusDepotA_BaseColor.png",
+    "SkiBusDepotA_LOD1_ControlMask.png": "SkiBusDepotA_ControlMask.png",
+    "SkiBusDepotA_LOD1_MaskMap.png": "SkiBusDepotA_MaskMap.png",
+    "SkiBusDepotA_LOD1_Normal.png": "SkiBusDepotA_Normal.png",
+    "SkiBusDepotA_LOD2_BaseColor.png": "SkiBusDepotA_BaseColor.png",
+    "SkiBusDepotA_LOD2_ControlMask.png": "SkiBusDepotA_ControlMask.png",
+    "SkiBusDepotA_LOD2_MaskMap.png": "SkiBusDepotA_MaskMap.png",
+    "SkiBusDepotA_LOD2_Normal.png": "SkiBusDepotA_Normal.png"
+  },
+  "LOD1": {
+    "mode": "Skip"
+  },
+  "LOD2": {
+    "mode": "Skip"
+  }
+}

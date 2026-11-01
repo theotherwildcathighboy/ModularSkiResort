@@ -24,6 +24,10 @@
 		<Reference Include="Colossal.Mathematics"><Private>false</Private></Reference>
 		<Reference Include="Colossal.Collections"><Private>false</Private></Reference>
 		<Reference Include="UnityEngine.CoreModule"><Private>false</Private></Reference>
+		<Reference Include="UnityEngine.ImageConversionModule"><Private>false</Private></Reference>
+		<Reference Include="Colossal.PSI.Common"><Private>false</Private></Reference>
+		<Reference Include="Colossal.UI"><Private>false</Private></Reference>
+		<Reference Include="cohtml.Net"><Private>false</Private></Reference>
 		<Reference Include="Unity.Burst"><Private>false</Private></Reference>
 		<Reference Include="Unity.Collections"><Private>false</Private></Reference>
 		<Reference Include="Unity.Entities"><Private>false</Private></Reference>

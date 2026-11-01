@@ -835,8 +835,7 @@ namespace SkiResortMod.Systems
                                  luxury: true, spendMultiplier: 3.0f, roadRule: LodgeRoadRule.Base, expected: true),
                 };
 
-                // The bus depot = SkiBusDepot.Prefab: a Base road row, jobs 0, upkeep 2,000. Its mesh is a STAND-IN (the Chalet Lodge's,
-                // SkiLodgeMid's); the final art repoints only that prefab's mesh line.
+                // The bus depot = SkiBusDepot.Prefab: a Base road row, jobs 0, upkeep 2,000, a 2 x 1 lot on mesh SkiBusDepotA.
                 depots = new[]
                 {
                     new DepotDef(Names.BusDepot, "busDepot", buildCost: 60000, upkeep: 2000, roadRule: LodgeRoadRule.Base, expected: true),

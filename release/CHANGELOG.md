@@ -53,7 +53,7 @@ First public release. Draft notes (check against the build at upload):
   buildings.
 - Ski Bus Depot: a coach stop in town for the nearest ski area, at any distance. A home closer to it than to a lodge starts
   its ski day there; guests pay as at a lodge. It adds no capacity and no score, needs a lodge on the hill, and bills 1,500
-  a month plus 300 per km to that lodge (Finances, row Ski bus). A coach in the resort's color drives between the depot and the hill. Placeholder model until its own art.
+  a month plus 300 per km to that lodge (Finances, row Ski bus). A coach in the resort's color, with SKI BUS painted on it, drives between the depot and the hill.
 - The Ski Resort panel: Attraction, Runs, Lifts, Guests, Finances and History views, a problem list and a build strip.
 - Economy: lift tickets, season passes, lessons, lodge spend, off-season half staff.
 - Delete all ski resort content, a button in the mod's Options (Reset group): removes everything the mod placed in the
