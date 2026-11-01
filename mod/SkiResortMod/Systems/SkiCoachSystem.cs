@@ -1,4 +1,4 @@
-// The Ski Bus Depots' coach: one SkiCoachBus (Bus01 with SKI BUS panels) per working depot, in the resort's color, driving real lanes between the depot and the
+// The Ski Bus Depots' coach: one SkiCoachBus (Bus01 with a decal) per working depot, in the fixed CoachColor oxblood, driving real lanes between the depot and the
 // area's nearest hill lodge with a road, back and forth. A visual: DummyTraffic carries nobody, belongs to no line, bills nothing.
 // Guests, tickets and the coach bill never read it (SkiDaySystem, SkiBusChargeSystem); no citizen routes through it (DECISIONS 392 stands).
 // Phase: GameSimulation, UpdateBefore<SkiCoachSystem, TransportCarAISystem> (Mod.cs). Anchor AND interval (16) are load-bearing: same interval

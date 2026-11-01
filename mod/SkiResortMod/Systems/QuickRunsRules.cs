@@ -66,7 +66,7 @@ namespace SkiResortMod.Systems
     public enum QuickGameChecks : byte
     {
         On,
-        OverlapDisabled,   // every OverlapExisting error prefab carries DisableInGame (a mod disabled the check: Anarchy does this)
+        OverlapDisabled,   // every OverlapExisting error prefab carries DisableInGame (a mod disabled it for the whole frame; Anarchy only does so between Modification5 and ModificationEnd: SkiOtherMods.AnarchyDetected)
         NoOverlapPrefab,   // no OverlapExisting error prefab at all: the game cannot flag an overlap
         IgnoreErrors,      // ToolSystem.ignoreErrors: errors are flagged but Apply ignores them (ToolBaseSystem.cs:533-540)
     }

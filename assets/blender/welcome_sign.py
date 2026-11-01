@@ -163,6 +163,7 @@ RAKE_FRONT_X, RAKE_BACK_X = -0.30, -0.95        # M5: front rake <= 0.15 past th
 BARGE_T = 0.03                        # flush barge (no hang below the slab)
 RIDGE_EXT = 0.05
 RIDGE_CAP = (0.10, 6.55, 6.76)        # half width, z0, z1 (top 6.76 = contract)
+RIDGE_PROUD = 0.01                    # T112: the cap stands 1 cm past the barges, so its end faces share no plane with theirs
 EMBLEM_D, EMBLEM_T, EMBLEM_SEGS = 1.50, 0.05, 24
 EMBLEM_Z = GABLE_BASE + GABLE_HALF * math.tan(math.radians(GABLE_PITCH / 2.0))   # incircle 5.4342
 EMBLEM_FACE_X = GABLE_FRONT_X + EMBLEM_T        # -0.39
@@ -389,16 +390,16 @@ def build_parts(args, fine=False):
         return GABLE_APEX + half_c + TAN30 * (-side * y_signed)
     for tag, side in (("L", -1.0), ("R", 1.0)):
         e = side * EAVE_Y
-        r = -side * RIDGE_EXT
+        r = -side * K.RIDGE_GAP     # T112: slabs cut on the vertical plane at the ridge, as the lodges (no crossed barges)
         ez, rz = centre_z(e, side), centre_z(r, side)
         P += K.roof_slab(f"sign{tag}", "X", RAKE_BACK_X, RAKE_FRONT_X, e, ez, r, rz, thick=ROOF_T,
-                         wall_line=side * GABLE_HALF, mat="timber_shake")
+                         wall_line=side * GABLE_HALF, mat="timber_shake", ridge_x=r)
         for end, (a0, a1) in (("f", (RAKE_FRONT_X, RAKE_FRONT_X + BARGE_T)),
                               ("b", (RAKE_BACK_X - BARGE_T, RAKE_BACK_X))):
             P += K.roof_slab(f"sign{tag}{end}", "X", a0, a1, e, ez, r, rz, thick=ROOF_T,
-                             mat="trim", prefix="barge_")
+                             mat="trim", prefix="barge_", ridge_x=r)
     rw, rz0, rz1 = RIDGE_CAP
-    P += K.box_part("ridge_sign", (RAKE_BACK_X - BARGE_T, -rw, rz0), (RAKE_FRONT_X + BARGE_T, rw, rz1),
+    P += K.box_part("ridge_sign", (RAKE_BACK_X - BARGE_T - RIDGE_PROUD, -rw, rz0), (RAKE_FRONT_X + BARGE_T + RIDGE_PROUD, rw, rz1),
                     "trim")
     # ---- emblem disc: front fan (band) + rim ------------------------------------------
     R = EMBLEM_D / 2

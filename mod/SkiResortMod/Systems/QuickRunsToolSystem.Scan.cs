@@ -435,7 +435,8 @@ namespace SkiResortMod.Systems
             {
                 if (!QuickRunsRules.CanPay(CityMoney(), m_Totals.Fee))
                     m_ToolWarn |= QuickToolWarning.MoneyShort;
-                if (QuickRunsRules.ChecksOff(GameChecks()))
+                // Anarchy sets DisableInGame at Modification5 and clears it at ModificationEnd every frame, so GameChecks in ToolUpdate never sees it.
+                if (QuickRunsRules.ChecksOff(GameChecks()) || SkiOtherMods.AnarchyDetected)
                     m_ToolWarn |= QuickToolWarning.ChecksOff;
                 if (m_GateOf.Length != r.Runs.Count)
                     m_GateOf = new Entity[r.Runs.Count];

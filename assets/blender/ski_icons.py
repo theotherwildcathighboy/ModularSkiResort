@@ -67,6 +67,8 @@ scene (the same sky and the same white slope falling top-left to bottom-right):
     SkiRunSnowmakingA        a bigger orange fan gun and a thicker white plume on the slope (PLUME_SPEC_T38)
     SkiRunNightA             dark navy sky, lit slope, big cream crescent, two stars, a floodlight with big amber lamps
     SkiRunCatTrackA          a level green groomed ribbon with tread marks crossing the slope and a red snowcat on it
+Later additions, each listed apart from STRIP_ORDER: SkiSafetyFence (2026-10-26) and SkiBusDepot (2026-11-01: the corten
+tower, the shed roof, the coach at the curb).
 The other 23 strip tiles regenerate byte-identical to the set installed on 2026-10-04 / 10-11. Previews:
 assets/preview/hub-icons-2026-10-17/ (make_sheet.py: old vs final at 28 px and 56 px).
 
@@ -1715,6 +1717,50 @@ def icon_patrol_hq():
     return ly
 
 
+OXBLOOD_LIT, OXBLOOD_SHADE = (138, 46, 46), (98, 30, 34)      # the depot's steel and its coach
+CORTEN_LIT, CORTEN_SHADE = (170, 92, 58), (126, 64, 44)       # the depot's sign tower
+SIGN_DARK, SIGN_RED = (40, 46, 58), (240, 92, 78)
+
+
+def icon_bus_depot():
+    """Ski Bus Depot (SkiBusDepot, art SkiBusDepotA): the corten tower with its dark sign board (red blocks for the
+    letters, no text in a tile), the oxblood shed roof over the glass and cedar back wall, and the coach at the curb,
+    which is what tells this tile from the lodges at strip size."""
+    gfn = _flat(204.0, 4.0)
+    ly = [sky()]
+    ly += far_range([(-14, 150), (52, 112), (112, 146), (172, 104), (226, 138), (270, 116)])
+    _, g = ground(gfn, 184)
+    ly.append(g)
+    ly.append(shadow(128, 208, 84, 6))
+    # the shelter behind the coach
+    ly.append(L(box(84, 96, 216, 170), WOOD_LIT))
+    ly.append(L(inter(box(84, 96, 216, 170), union(*[np.abs(Y - y) - 1.2 for y in range(104, 170, 12)])), WOOD_SHADE))
+    ly += glass_window(84, 100, 132, 170, 0.0)
+    for px in (84.0, 132.0, 214.0):
+        ly.append(L(box(px - 3.5, 92, px + 3.5, 170), OXBLOOD_SHADE))
+    roof = sd_polygon([(70.0, 80.0), (224.0, 92.0), (224.0, 103.0), (70.0, 92.0)])
+    ly.append(L(sd_polygon([(70.0, 73.0), (222.0, 85.0), (224.0, 94.0), (70.0, 82.0)]), SNOW_HI))
+    ly += two_tone(roof, left_of(150), OXBLOOD_LIT, OXBLOOD_SHADE)
+    # the tower and its sign board
+    ly += two_tone(box(38, 40, 76, 204), left_of(60), CORTEN_LIT, CORTEN_SHADE)
+    ly.append(L(box(43, 58, 71, 122, 2), SIGN_DARK))
+    for ty in (68.0, 95.0):                         # two rows of three letter blocks: SKI, BUS
+        for tx in (46.0, 54.0, 62.0):
+            ly.append(L(box(tx, ty, tx + 6.0, ty + 18.0, 1), SIGN_RED))
+    # the coach at the curb
+    bus = box(86, 134, 224, 196, 8)
+    ly += two_tone(bus, above(164), OXBLOOD_LIT, OXBLOOD_SHADE)
+    ly += glass_window(95, 143, 196, 164, 2.5, col=CAB_GLASS, hi=CAB_GLASS_HI)
+    for px in (120.0, 146.0, 172.0):
+        ly.append(L(box(px - 1.5, 143, px + 1.5, 164), OXBLOOD_SHADE))
+    ly += glass_window(202, 143, 219, 182, 2.5, col=CAB_GLASS, hi=CAB_GLASS_HI)
+    ly.append(L(box(95, 171, 196, 177), FACE))
+    for wx in (116.0, 194.0):
+        ly.append(L(sd_disk(wx, 197, 12.0), SIGN_DARK))
+        ly.append(L(sd_disk(wx, 197, 5.0), STEEL_LIT))
+    return ly
+
+
 # --- lift parts (round 2) --------------------------------------------------------------------
 def chair_dq(gx, gy, k=1.0):
     """Detachable quad chair seen from the side, grip on the cable at (gx, gy): the detachable
@@ -2207,12 +2253,14 @@ ICONS = {
     "SkiRunNightA": icon_run_night,                     # runNight
     "SkiRunCatTrackA": icon_run_cattrack,               # runCatTrack     (T38; was the groomed tile's icon)
     "SkiSafetyFence": icon_safety_fence,                # safetyFence     (2026-10-26; was the vanilla chain-link SVG)
+    "SkiBusDepot": icon_bus_depot,                      # busDepot        (2026-11-01; was the Chalet's tile)
 }
 # T38 (2026-10-17): the cat track tile is new (it had borrowed the groomed tile's icon); the 25-tile review
 # sheets and ROUND2 keep their meaning, so it is listed apart.
 T38_NEW = ["SkiRunCatTrackA"]
 FENCE_NEW = ["SkiSafetyFence"]      # 2026-10-26, listed apart for the same reason
-STRIP_ORDER = [n for n in ICONS if n not in T38_NEW + FENCE_NEW]
+DEPOT_NEW = ["SkiBusDepot"]         # 2026-11-01, listed apart for the same reason
+STRIP_ORDER = [n for n in ICONS if n not in T38_NEW + FENCE_NEW + DEPOT_NEW]
 # the nine tiles of the 2026-10-04 style-E round (reproduced byte for byte; ski_icons_sheet.py's
 # default sheet shows these)
 E1_NINE = ["SkiResortGate", "SkiAFrameDayLodge", "SkiBaseStationBuilding", "SkiTopStationBuilding",

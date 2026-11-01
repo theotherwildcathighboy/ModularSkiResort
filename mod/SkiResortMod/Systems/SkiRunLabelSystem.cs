@@ -1,5 +1,6 @@
-// The run names on the hill: each of our runs gets its name written flat on the ground at the run's center, in the piste-map
-// color of its difficulty, at the zoom range where the piste map reads, faded in and out like the district names. Default on
+// The run names on the hill: each of our runs gets its name written on the ground at the run's center, along the run and tilted with
+// the slope like a road name, never upside down (RunLabelRules.LongAxis, ReadsFlipped, TextBasis; a run with no clear direction faces the
+// camera), in the piste-map color of its difficulty, at the zoom range where the piste map reads, faded in and out like the district names. Default on
 // (option ShowRunNamesOnTheHill). Built like the vanilla district labels (own TMP mesh per run, Graphics.DrawMesh), because
 // vanilla's label paths cannot be pointed at a Surface-area run.
 // Phase: Rendering, NOT anchored to OverlayRenderSystem (nothing is written to its buffers). Rebuilt only when the catalog moved.
@@ -33,6 +34,7 @@ namespace SkiResortMod.Systems
             public const float ScaleK = 0.7f;         // x AreaUtils.CalculateLabelScale (districts are ~1.0): runs are smaller than districts
             public const float FontSize = 200f;       // = OverlayRenderSystem.GetTextRenderItems / AreaBufferSystem.UpdateLabelVertices
             public const float SizeW = 250f, SizeH = 100f;
+            public const float MinSlopeSpanM = 20f;   // half the span the slope is read over, so a tiny label does not follow one bump
             public const int MaxLabels = 512;         // a hard cap on the cache (a resort has tens of runs)
         }
 
@@ -52,7 +54,11 @@ namespace SkiResortMod.Systems
             public sbyte Band;
             public float3 Pos;          // world (x, terrain + LiftM, z)
             public float TextWidth;     // local units of the mesh (before the scale)
+            public float TextHeight;    // the same
             public float ExtentM;       // RunLabelRules.Extent of the outline
+            public bool HasAxis;        // RunLabelRules.LongAxis found a direction
+            public float2 Axis;
+            public bool Flipped;        // RunLabelRules.ReadsFlipped, kept between frames
             public int AppliedStep = -1;
             public readonly List<Part> Parts = new List<Part>(1);
         }
@@ -138,7 +144,7 @@ namespace SkiResortMod.Systems
             if (!m_Armed)
                 return;
             SkiResortMod.Settings.SkiResortSettings s = Mod.Settings;
-            Mod.Log.Info("RunLabels: ARMED — writes each run's name flat on the ground at its center (Geometry.m_CenterPosition, the " +
+            Mod.Log.Info("RunLabels: ARMED — writes each run's name on the ground along the run at its center (Geometry.m_CenterPosition, the " +
                          "district-label anchor), in the piste-map color of its band, with the game's own TextMeshPro text mesh and overlay " +
                          $"text material (option ShowRunNamesOnTheHill, now {(s == null ? "default on" : s.ShowRunNamesOnTheHill ? "on" : "off")}); " +
                          $"visible between camera zoom {RunLabelRules.ZoomHideBelowM:0} and {RunLabelRules.ZoomHideAboveM:0} m (full " +
@@ -276,6 +282,7 @@ namespace SkiResortMod.Systems
                 }
                 label.Pos = pos;
                 label.ExtentM = extent;
+                label.HasAxis = RunLabelRules.LongAxis(row.OutlineXZ, out label.Axis);
                 if (label.Parts.Count == 0 || label.Text != text || label.Band != row.Band)
                 {
                     label.Text = text;
@@ -317,7 +324,7 @@ namespace SkiResortMod.Systems
                 tmp.fontSize = Tuning.FontSize;
                 tmp.alignment = TextAlignmentOptions.Center;
                 TMP_TextInfo info = tmp.GetTextInfo(label.Text);
-                float minX = float.MaxValue, maxX = float.MinValue;
+                float minX = float.MaxValue, maxX = float.MinValue, minY = float.MaxValue, maxY = float.MinValue;
                 for (int i = 0; i < info.meshInfo.Length; i++)
                 {
                     TMP_MeshInfo mi = info.meshInfo[i];
@@ -341,6 +348,8 @@ namespace SkiResortMod.Systems
                     {
                         if (vertices[k].x < minX) minX = vertices[k].x;
                         if (vertices[k].x > maxX) maxX = vertices[k].x;
+                        if (vertices[k].y < minY) minY = vertices[k].y;
+                        if (vertices[k].y > maxY) maxY = vertices[k].y;
                     }
                     var mesh = new Mesh { name = "SkiRunLabel " + label.Text };
                     mesh.vertices = vertices;
@@ -352,6 +361,7 @@ namespace SkiResortMod.Systems
                     label.Parts.Add(new Part { Mesh = mesh, Material = material, Colours = colours, Scratch = new Color32[vc] });
                 }
                 label.TextWidth = maxX > minX ? maxX - minX : 0f;
+                label.TextHeight = maxY > minY ? maxY - minY : 0f;
                 MeshBuilds++;
             }
             finally
@@ -421,8 +431,8 @@ namespace SkiResortMod.Systems
             float3 camPos = m_Camera.position;
             float3 pivot = Pivot(camPos);
             float3 right = cam.transform.right;
-            quaternion q = AreaUtils.CalculateLabelRotation(right);                       // AreaUtils.cs:115-119
-            Quaternion rotation = new Quaternion(q.value.x, q.value.y, q.value.z, q.value.w);
+            float2 cameraRight = math.normalizesafe(right.xz, new float2(1f, 0f));
+            TerrainHeightData hd = m_Terrain.GetHeightData();
             int drawn = 0;
             for (int i = 0; i < m_Draw.Count; i++)
             {
@@ -433,7 +443,21 @@ namespace SkiResortMod.Systems
                     continue;
                 float scale = AreaUtils.CalculateLabelScale(camPos, label.Pos) * Tuning.ScaleK;   // :126-129
                 scale = RunLabelRules.FitScale(scale, label.TextWidth, label.ExtentM);
-                Matrix4x4 matrix = Matrix4x4.TRS(new Vector3(label.Pos.x, label.Pos.y, label.Pos.z), rotation, new Vector3(scale, scale, scale));
+                float halfWidth = 0.5f * label.TextWidth * scale, halfHeight = 0.5f * label.TextHeight * scale;
+                float2 direction = cameraRight;
+                if (label.HasAxis)
+                {
+                    label.Flipped = RunLabelRules.ReadsFlipped(label.Axis, cameraRight, label.Flipped);
+                    direction = label.Flipped ? -label.Axis : label.Axis;
+                }
+                float2 side = new float2(-direction.y, direction.x);
+                float slopeAlong = SlopeOver(ref hd, label.Pos, direction, math.max(halfWidth, Tuning.MinSlopeSpanM));
+                float slopeAcross = SlopeOver(ref hd, label.Pos, side, math.max(halfHeight, Tuning.MinSlopeSpanM));
+                RunLabelRules.TextBasis(direction, slopeAlong, slopeAcross, out float3 axisX, out float3 axisY, out float3 normal);
+                quaternion q = quaternion.LookRotation(-normal, axisY);                   // as AreaUtils.CalculateLabelRotation (:115-119), on the slope
+                Quaternion rotation = new Quaternion(q.value.x, q.value.y, q.value.z, q.value.w);
+                float y = ClearY(ref hd, label.Pos, axisX, axisY, halfWidth, halfHeight, Tuning.LiftM);
+                Matrix4x4 matrix = Matrix4x4.TRS(new Vector3(label.Pos.x, y, label.Pos.z), rotation, new Vector3(scale, scale, scale));
                 for (int p = 0; p < label.Parts.Count; p++)
                 {
                     Part part = label.Parts[p];
@@ -443,6 +467,28 @@ namespace SkiResortMod.Systems
             }
             LastDrawn = drawn;
             Draws++;
+        }
+
+        /// <summary>The center height that keeps the text's plane above the ground under all of it (RunLabelRules.ClearAlong); never below the anchor's own height.</summary>
+        internal static float ClearY(ref TerrainHeightData hd, float3 center, float3 axisX, float3 axisY, float halfWidth, float halfHeight, float lift)
+        {
+            float top = center.y - lift;
+            for (int i = 0; i < RunLabelRules.ClearAlong; i++)
+            {
+                float3 along = axisX * (halfWidth * RunLabelRules.ClearFraction(i, RunLabelRules.ClearAlong));
+                for (int j = 0; j < RunLabelRules.ClearAcross; j++)
+                {
+                    float3 offset = along + axisY * (halfHeight * RunLabelRules.ClearFraction(j, RunLabelRules.ClearAcross));
+                    top = math.max(top, TerrainUtils.SampleHeight(ref hd, center + offset) - offset.y);
+                }
+            }
+            return top + lift;
+        }
+
+        private static float SlopeOver(ref TerrainHeightData hd, float3 center, float2 direction, float span)
+        {
+            float3 step = new float3(direction.x, 0f, direction.y) * span;
+            return (TerrainUtils.SampleHeight(ref hd, center + step) - TerrainUtils.SampleHeight(ref hd, center - step)) / (2f * span);
         }
 
         private float3 Pivot(float3 fallback)

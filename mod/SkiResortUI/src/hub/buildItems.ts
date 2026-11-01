@@ -68,7 +68,7 @@ export const BUILD_ITEM_ICON: Readonly<Record<BuildItemId, string>> = {
   lodgeMid: "assetdb://global/d3df64753c68a935d57aff51fc52815b", // SkiLodgeMid.png
   lodgeSummit: "assetdb://global/1d6966e5716f604d124d7da9130493cd", // SkiLodgeSummit.png
   lodgeGrand: "assetdb://global/25a71e28e84f3c9ab4e7140a389daf95", // SkiLodgeGrand.png
-  busDepot: "assetdb://global/d3df64753c68a935d57aff51fc52815b", // stand-in: SkiLodgeMid.png, until the depot's own art (SkiBusDepot.Prefab UIObject m_Icon)
+  busDepot: "assetdb://global/9deaad385be65b851a036bf5fb1f7854", // SkiBusDepot.png
   school: "assetdb://global/91cfab697c3e967769f87e74ef15d585", // SkiSchool.png
   patrolHut: "assetdb://global/c5c30e4a00c458311ceb5944a68e5628", // SkiPatrolHut.png
   patrolHQ: "assetdb://global/c0fb5f466715cb377e38bf2ea57f75f8", // SkiPatrolHQ.png

@@ -48,6 +48,7 @@ namespace SkiResortMod.Systems
             public string Text;
             public float3 Pos;
             public float TextWidth;     // local units of the mesh (before the scale)
+            public float TextHeight;    // the same
             public float ExtentM;       // the chord / ring the label names
             public readonly List<Part> Parts = new List<Part>(1);
         }
@@ -234,7 +235,7 @@ namespace SkiResortMod.Systems
                 tmp.fontSize = Tuning.FontSize;
                 tmp.alignment = TextAlignmentOptions.Center;
                 TMP_TextInfo info = tmp.GetTextInfo(label.Text);
-                float minX = float.PositiveInfinity, maxX = float.NegativeInfinity;
+                float minX = float.PositiveInfinity, maxX = float.NegativeInfinity, minY = float.PositiveInfinity, maxY = float.NegativeInfinity;
                 for (int i = 0; i < info.meshInfo.Length; i++)
                 {
                     TMP_MeshInfo mi = info.meshInfo[i];
@@ -258,6 +259,8 @@ namespace SkiResortMod.Systems
                     {
                         if (vertices[k].x < minX) minX = vertices[k].x;
                         if (vertices[k].x > maxX) maxX = vertices[k].x;
+                        if (vertices[k].y < minY) minY = vertices[k].y;
+                        if (vertices[k].y > maxY) maxY = vertices[k].y;
                     }
                     var mesh = new Mesh { name = "ResortPlanLabel " + label.Text };
                     mesh.vertices = vertices;
@@ -269,6 +272,7 @@ namespace SkiResortMod.Systems
                     label.Parts.Add(new Part { Mesh = mesh, Material = material });
                 }
                 label.TextWidth = maxX > minX ? maxX - minX : 0f;
+                label.TextHeight = maxY > minY ? maxY - minY : 0f;
                 MeshBuilds++;
             }
             finally
@@ -311,12 +315,16 @@ namespace SkiResortMod.Systems
             float3 camPos = m_Camera.position;
             quaternion q = AreaUtils.CalculateLabelRotation(cam.transform.right);
             var rotation = new Quaternion(q.value.x, q.value.y, q.value.z, q.value.w);
+            float3 axisX = math.rotate(q, new float3(1f, 0f, 0f));
+            float3 axisY = math.rotate(q, new float3(0f, 1f, 0f));
+            TerrainHeightData hd = m_Terrain.GetHeightData();
             int drawn = 0;
             foreach (Label label in m_Labels)
             {
                 float scale = AreaUtils.CalculateLabelScale(camPos, label.Pos) * Tuning.ScaleK;
                 scale = RunLabelRules.FitScale(scale, label.TextWidth, label.ExtentM);
-                Matrix4x4 matrix = Matrix4x4.TRS(new Vector3(label.Pos.x, label.Pos.y, label.Pos.z), rotation, new Vector3(scale, scale, scale));
+                float y = SkiRunLabelSystem.ClearY(ref hd, label.Pos, axisX, axisY, 0.5f * label.TextWidth * scale, 0.5f * label.TextHeight * scale, Tuning.LiftM);
+                Matrix4x4 matrix = Matrix4x4.TRS(new Vector3(label.Pos.x, y, label.Pos.z), rotation, new Vector3(scale, scale, scale));
                 foreach (Part part in label.Parts)
                     Graphics.DrawMesh(part.Mesh, matrix, part.Material, 0, cam, 0, null, false, false);
                 drawn++;

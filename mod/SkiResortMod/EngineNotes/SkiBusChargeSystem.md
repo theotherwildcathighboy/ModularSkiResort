@@ -54,7 +54,6 @@ the last applied pass, area order. Nothing else is built for it yet.
 
 ## Asset
 
-`SkiBusDepot.Prefab` is hand-written and its mesh and icon are STAND-INS: `m_Mesh` and `m_Icon` are the Chalet Lodge's (SkiLodgeMid, the smallest
-road-side mesh by bounds volume), with the Chalet's lot, door markers and hangaround areas. Final art repoints only that mesh line (and the markers if the
-doors move). No vanilla bus stop is on it: `Integrated Bus Stop` is a real transport stop marker (it would join routes). Only plain
-vanilla props are used (bench, info sign, trash bin).
+`SkiBusDepot.Prefab` is hand-written around its own mesh, `SkiBusDepotA` (`assets/blender/ski_bus_depot.py`), on a 2 x 1 lot that flattens its own pad. Its icon is
+`SkiResortIcons/SkiBusDepot.png` (`assets/blender/ski_icons.py`). No vanilla bus stop is on it: `Integrated Bus Stop` is a real transport stop marker (it would join routes). Only
+plain vanilla props are used (bench, trash bin, park light, trees, rocks).

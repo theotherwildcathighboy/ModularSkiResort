@@ -29,6 +29,43 @@ namespace ResortBatch
         private static void SectionA()
         {
             const string W = "RunLabel A";
+            Check(RunLabelRules.ClearFraction(0, 5) == -1f, W, "first clearance sample is one edge of the text");
+            Check(RunLabelRules.ClearFraction(2, 5) == 0f, W, "middle clearance sample is the center");
+            Check(RunLabelRules.ClearFraction(4, 5) == 1f, W, "last clearance sample is the other edge");
+            Check(RunLabelRules.ClearFraction(0, 1) == 0f, W, "a single clearance sample is the center");
+            Check(RunLabelRules.ClearAlong >= 3 && RunLabelRules.ClearAcross >= 3, W, "clearance samples reach both edges and the middle");
+
+            // A 300 x 40 run along x: the axis is x (either sign is one axis). A 200 x 100 one is still clear; a square has no direction.
+            float2[] Rect(float l, float w) => new[] { new float2(-l / 2, -w / 2), new float2(l / 2, -w / 2), new float2(l / 2, w / 2), new float2(-l / 2, w / 2) };
+            Check(RunLabelRules.LongAxis(Rect(300f, 40f), out float2 ax) && Near(Math.Abs(ax.x), 1.0, 1e-4), W, "a long run's axis is its length");
+            Check(RunLabelRules.LongAxis(Rect(200f, 100f), out _), W, "2 to 1 has a direction");
+            Check(!RunLabelRules.LongAxis(Rect(100f, 100f), out _), W, "a square has no direction");
+            Check(!RunLabelRules.LongAxis(new[] { new float2(0f, 0f), new float2(1f, 0f) }, out _), W, "two nodes have no direction");
+            Check(!RunLabelRules.LongAxis(null, out _), W, "no outline has no direction");
+            Check(!RunLabelRules.LongAxis(new[] { new float2(float.NaN, 0f), new float2(1f, 0f), new float2(1f, 1f) }, out _), W, "NaN has no direction");
+            // The same 300 x 40 run turned 45 degrees: nodes hand-rotated, axis (0.7071, 0.7071) either sign.
+            const float C = 0.70710678f;
+            float2[] turned = new[] { new float2((-150f + 20f) * C, (-150f - 20f) * C), new float2((150f + 20f) * C, (150f - 20f) * C), new float2((150f - 20f) * C, (150f + 20f) * C), new float2((-150f - 20f) * C, (-150f + 20f) * C) };
+            Check(RunLabelRules.LongAxis(turned, out float2 ad) && Near(Math.Abs(ad.x), C, 1e-3) && Near(Math.Abs(ad.y), C, 1e-3) && ad.x * ad.y > 0f, W, "a turned run's axis turns with it");
+            // Extra nodes along one side must not pull the axis (edge-length weights).
+            float2[] dense = new[] { new float2(-150f, -20f), new float2(-100f, -20f), new float2(-50f, -20f), new float2(0f, -20f), new float2(50f, -20f), new float2(100f, -20f), new float2(150f, -20f), new float2(150f, 20f), new float2(-150f, 20f) };
+            Check(RunLabelRules.LongAxis(dense, out float2 ae) && Near(Math.Abs(ae.x), 1.0, 1e-4), W, "node spacing does not pull the axis");
+
+            float2 right = new float2(1f, 0f);
+            Check(!RunLabelRules.ReadsFlipped(new float2(1f, 0f), right, false), W, "axis along camera right reads as is");
+            Check(RunLabelRules.ReadsFlipped(new float2(-1f, 0f), right, false), W, "axis against camera right turns over");
+            Check(RunLabelRules.ReadsFlipped(new float2(-0.05f, 0.9987f), right, true), W, "just past square keeps the flipped state");
+            Check(!RunLabelRules.ReadsFlipped(new float2(-0.05f, 0.9987f), right, false), W, "just past square keeps the unflipped state");
+            Check(!RunLabelRules.ReadsFlipped(new float2(0.2f, 0.98f), right, true), W, "well past square clears the flip");
+
+            RunLabelRules.TextBasis(new float2(1f, 0f), 0f, 0f, out float3 bx, out float3 by, out float3 bn);
+            Check(Near(bx.x, 1.0, 1e-5) && Near(by.z, 1.0, 1e-5) && Near(bn.y, 1.0, 1e-5), W, "flat ground: the text lies flat, x right, y away");
+            RunLabelRules.TextBasis(new float2(1f, 0f), 1f, 0f, out float3 sx, out float3 sy, out float3 sn);
+            Check(Near(sx.x, 0.7071, 1e-3) && Near(sx.y, 0.7071, 1e-3) && Near(sy.z, 1.0, 1e-5) && Near(sn.x, -0.7071, 1e-3) && Near(sn.y, 0.7071, 1e-3), W, "45 degrees along the text tilts it and stays up");
+            RunLabelRules.TextBasis(new float2(0.6f, 0.8f), 0.4f, -0.7f, out float3 ox, out float3 oy, out float3 on);
+            Check(Near(math.dot(ox, oy), 0.0, 1e-5) && Near(math.dot(ox, on), 0.0, 1e-5) && Near(math.dot(oy, on), 0.0, 1e-5) && on.y > 0f, W, "any slope: orthonormal, normal up");
+            RunLabelRules.TextBasis(new float2(1f, 0f), 50f, 0f, out float3 cx, out _, out _);
+            Check(Near(cx.y / cx.x, RunLabelRules.MaxSlope, 1e-4), W, "a cliff clamps the tilt");
             Check(RunLabelRules.FadeAlpha(0f) == 0f, W, "zoom 0 (no camera) is hidden");
             Check(RunLabelRules.FadeAlpha(-5f) == 0f, W, "negative zoom is hidden");
             Check(RunLabelRules.FadeAlpha(float.NaN) == 0f, W, "NaN zoom is hidden");

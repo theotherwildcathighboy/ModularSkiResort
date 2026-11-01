@@ -27,6 +27,82 @@ namespace SkiResortMod.Systems
         public const float CullBaseM = 500f;
         public const float CullPerZoom = 2.5f;
 
+        // The text is rigid and the ground is not, so it rides above the highest of this grid of samples under it.
+        public const int ClearAlong = 7;
+        public const int ClearAcross = 3;
+
+        public const float AxisMinRatio = 1.5f;     // outline spread along / across: below this a run has no clear direction
+        public const float FlipMargin = 0.1f;       // the text turns over only this far past square to the camera, so it does not flicker there
+        public const float MaxSlope = 1.2f;         // rise / run of the text's plane: on a cliff it stays readable from above
+
+        /// <summary>Sample i of count as a fraction of the half extent: -1 at one edge, +1 at the other, 0 for one sample.</summary>
+        public static float ClearFraction(int i, int count)
+        {
+            return count <= 1 ? 0f : -1f + 2f * i / (count - 1);
+        }
+
+        /// <summary>The run's long direction: principal axis of the outline, weighted by edge length so node spacing does not bias it.
+        /// False for an outline with no clear direction (ratio under AxisMinRatio), under 3 nodes, or not finite.</summary>
+        public static bool LongAxis(float2[] outlineXZ, out float2 axis)
+        {
+            axis = new float2(1f, 0f);
+            if (outlineXZ == null || outlineXZ.Length < 3)
+                return false;
+            double total = 0, mx = 0, mz = 0;
+            int n = outlineXZ.Length;
+            for (int i = 0; i < n; i++)
+            {
+                float2 a = outlineXZ[i], b = outlineXZ[(i + 1) % n];
+                if (!math.all(math.isfinite(a)) || !math.all(math.isfinite(b)))
+                    return false;
+                double w = math.distance(a, b);
+                total += w;
+                mx += w * (a.x + b.x) * 0.5;
+                mz += w * (a.y + b.y) * 0.5;
+            }
+            if (!(total > 0))
+                return false;
+            mx /= total;
+            mz /= total;
+            double cxx = 0, cxz = 0, czz = 0;
+            for (int i = 0; i < n; i++)
+            {
+                float2 a = outlineXZ[i], b = outlineXZ[(i + 1) % n];
+                double w = math.distance(a, b);
+                double ax = a.x - mx, az = a.y - mz, bx = b.x - mx, bz = b.y - mz;
+                // Second moments of a straight edge from its two ends.
+                cxx += w * (ax * ax + ax * bx + bx * bx) / 3.0;
+                czz += w * (az * az + az * bz + bz * bz) / 3.0;
+                cxz += w * (2.0 * ax * az + ax * bz + bx * az + 2.0 * bx * bz) / 6.0;
+            }
+            double spread = Math.Sqrt((cxx - czz) * (cxx - czz) + 4.0 * cxz * cxz);
+            double major = (cxx + czz + spread) * 0.5, minor = (cxx + czz - spread) * 0.5;
+            if (!(major > 0) || major < AxisMinRatio * AxisMinRatio * Math.Max(minor, 0.0))
+                return false;
+            double angle = 0.5 * Math.Atan2(2.0 * cxz, cxx - czz);
+            axis = new float2((float)Math.Cos(angle), (float)Math.Sin(angle));
+            return true;
+        }
+
+        /// <summary>Whether the text runs against the axis, so it never reads upside down. Holds its state within FlipMargin of square to the camera.</summary>
+        public static bool ReadsFlipped(float2 axis, float2 cameraRight, bool flipped)
+        {
+            float d = math.dot(axis, cameraRight);
+            return flipped ? d < FlipMargin : d < -FlipMargin;
+        }
+
+        /// <summary>The text's plane from its direction on the map and the ground's rise along and across it. x runs along the text, y up the
+        /// lines of text, normal away from the ground (x = (1,0,0), flat ground: y = (0,0,1), normal = (0,1,0)).</summary>
+        public static void TextBasis(float2 direction, float slopeAlong, float slopeAcross, out float3 x, out float3 y, out float3 normal)
+        {
+            float along = math.clamp(slopeAlong, -MaxSlope, MaxSlope);
+            float across = math.clamp(slopeAcross, -MaxSlope, MaxSlope);
+            x = math.normalize(new float3(direction.x, along, direction.y));
+            float3 side = new float3(-direction.y, across, direction.x);
+            normal = math.normalize(math.cross(side, x));
+            y = math.cross(x, normal);
+        }
+
         /// <summary>Fade 0..1 by camera zoom.</summary>
         public static float FadeAlpha(float zoom)
         {

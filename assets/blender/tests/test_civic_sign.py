@@ -65,7 +65,7 @@ import cs2_asset              # noqa: E402
 import cs2_signset as SS      # noqa: E402  (fine-detail step 3d)
 import fine_detail as FD      # noqa: E402
 
-LEGACY_SIGN_HASH = "3d778a71a9ab"        # the shipped pre-pass sign (signs/A, 2026-10-11 10:03; K4 before 3d)
+LEGACY_SIGN_HASH = "6095853f501a"        # the shipped pre-pass sign (signs/A, 2026-10-11 10:03; K4 before 3d)
 
 CIV = WS.C
 QUICK = "--quick" in sys.argv
