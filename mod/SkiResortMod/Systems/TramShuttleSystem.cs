@@ -61,7 +61,7 @@ namespace SkiResortMod.Systems
             public LiftTypeDef Def;
             public CarrierDef Carrier;
             public float GripTop;   // bounds.max.y (CarrierGripTops); 0 = no usable bounds
-            public float Drop;      // GripTop − GripTopAboveRopeM; ≤ 0 = never rides (parked, WARN)
+            public float Drop;      // LiftMoverMath.CarrierDrop(GripTop, GripTopAboveRopeM); ≤ 0 = never rides (parked, WARN)
         }
         private readonly Dictionary<Entity, CarrierInfo> m_Carriers = new Dictionary<Entity, CarrierInfo>();
         private int m_CarrierGeneration = int.MinValue;
@@ -1978,7 +1978,7 @@ namespace SkiResortMod.Systems
                         Def = def,
                         Carrier = carrier,
                         GripTop = grip,
-                        Drop = grip > 0f ? grip - carrier.GripTopAboveRopeM : 0f,
+                        Drop = grip > 0f ? LiftMoverMath.CarrierDrop(grip, carrier.GripTopAboveRopeM) : 0f,
                     };
                 }
             }
@@ -2061,7 +2061,7 @@ namespace SkiResortMod.Systems
                         checks.Add($"cabin '{carrier.Prefab}' has no usable bounds");
                         continue;
                     }
-                    float d = grip - carrier.GripTopAboveRopeM;
+                    float d = LiftMoverMath.CarrierDrop(grip, carrier.GripTopAboveRopeM);
                     sb.Append(FormattableString.Invariant(
                         $"FOUND (grip-top {grip:F3} m, {carrier.GripTopAboveRopeM:F2} above the rope: hangs {d:F2} m below the track rope)"));
                     if (!(d > 0f))

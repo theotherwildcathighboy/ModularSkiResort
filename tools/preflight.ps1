@@ -31,6 +31,8 @@
 #  13. STUBNET   - every station stub marker net is wider than the widest lift line and has no lanes (T121 / T126).
 #  14. POWERFLOW - every owned lift line (PowerLinePrefab, not a MarkerNet) carries ElectricityConnection Voltage High (1),
 #                  Direction Both (3), Capacity == the vanilla Low-voltage Line's 800000 (DECISIONS 369 / R-1).
+#  12d. ALIGN    - tools/check-lift-align.js: carriers pose by LiftMoverMath.CarrierDrop (rope point, not grip top) and each loop
+#                  lift type's piece, towers and stations reference one own haul-rope lane (vanilla HV mesh, sag <= 0.01).
 #  15. LODGEPARK - every lodge tier and the Welcome Sign carry Game.Prefabs.Park (tools/check-lodge-park.ps1; the stats query
 #                  requires Game.Buildings.Park).
 #
@@ -755,6 +757,14 @@ if ($LASTEXITCODE -ne 0) {
     foreach ($l in $rpOut) { $rows.Add("FAIL  RUNPROPS $l"); $failures++ }
 } else {
     $rows.Add("OK    RUNPROPS $(($rpOut | Select-Object -Last 1))")
+}
+
+# ---- 12d. ALIGN: lift alignment gates (rope-point pin, one haul-rope lane per lift type; lift-alignment-2026-11-02 G2 / G3) ------
+$alOut = @(& node (Join-Path $PSScriptRoot "check-lift-align.js") --root $ImportedData 2>&1)
+if ($LASTEXITCODE -ne 0) {
+    foreach ($l in $alOut) { $rows.Add("FAIL  ALIGN    $l"); $failures++ }
+} else {
+    $rows.Add("OK    ALIGN    $(($alOut | Select-Object -Last 1))")
 }
 
 # ---- 12c. JOBREAD: no main-thread access to components the city's jobs write (big-city pass 2026-11-01; DECISIONS 521) --------

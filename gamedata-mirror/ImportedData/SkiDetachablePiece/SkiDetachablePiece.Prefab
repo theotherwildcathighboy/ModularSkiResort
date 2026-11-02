@@ -25,7 +25,7 @@
                             "m_Position": {
                                 "$type": "5|Unity.Mathematics.float3, Unity.Mathematics",
                                 "x": -2.6,
-                                "y": 8,
+                                "y": 8.3096,
                                 "z": 0
                             },
                             "m_FindAnchor": true
@@ -37,7 +37,7 @@
                             "m_Position": {
                                 "$type": 5,
                                 "x": 2.6,
-                                "y": 8,
+                                "y": 8.3096,
                                 "z": 0
                             },
                             "m_FindAnchor": true

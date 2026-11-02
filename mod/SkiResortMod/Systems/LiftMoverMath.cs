@@ -15,6 +15,15 @@ namespace SkiResortMod.Systems
 {
     internal static class LiftMoverMath
     {
+        /// <summary>THE carrier drop (lift alignment F5, 2026-11-02; reverses round-2 contract D8): rope point to carrier pivot. The
+        /// rope runs through the grip jaw, gripTopAboveRopeM (catalog/carriers.json grip_top_above_rope_m) below the grip top
+        /// (bounds.max.y). Every pose of a carrier on a rope uses this: the static pin, the mover, the tram. Gate: LiftBatch
+        /// CT-30 and preflight PINDROP (no other "y -= gripTop").</summary>
+        public static float CarrierDrop(float gripTop, float gripTopAboveRopeM)
+        {
+            return gripTop - gripTopAboveRopeM;
+        }
+
         // Constants (printed in the [cost] / [pace] lines; the dev tab can change the settings at runtime)
         /// <summary>The bounds-refresh travel of a near loop.</summary>
         public const double BoundsRefreshMeters = 2.0;

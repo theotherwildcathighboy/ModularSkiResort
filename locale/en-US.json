@@ -244,6 +244,8 @@
   "Assets.DESCRIPTION[SkiTramCabin]": "A large aerial tram cabin. An aerial tram has two, shuttling between its terminals.",
   "Assets.NAME[SkiLiftHaulRopeB]": "Fixed-Grip Chairlift Haul Rope (part of a lift)",
   "Assets.DESCRIPTION[SkiLiftHaulRopeB]": "The cable a fixed-grip chairlift line draws between its towers.",
+  "Assets.NAME[SkiFixedGripHaulRope]": "Fixed-Grip Chairlift Haul Rope (part of a lift)",
+  "Assets.DESCRIPTION[SkiFixedGripHaulRope]": "The cable a fixed-grip chairlift line draws between its towers.",
   "Assets.NAME[SkiDetachableHaulRope]": "Detachable Chairlift Haul Rope (part of a lift)",
   "Assets.DESCRIPTION[SkiDetachableHaulRope]": "The cable a detachable quad chairlift line draws between its towers.",
   "Assets.NAME[SkiGondolaHaulRope]": "Gondola Haul Rope (part of a lift)",

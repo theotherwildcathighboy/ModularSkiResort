@@ -160,6 +160,8 @@ namespace SkiResortMod
                 // Cable lanes (Find It lists them only with Extra Detailing Tools) and the stations' cable stubs.
                 { "Assets.NAME[SkiLiftHaulRopeB]", "Fixed-Grip Chairlift Haul Rope (part of a lift)" },
                 { "Assets.DESCRIPTION[SkiLiftHaulRopeB]", "The cable a fixed-grip chairlift line draws between its towers." },
+                { "Assets.NAME[SkiFixedGripHaulRope]", "Fixed-Grip Chairlift Haul Rope (part of a lift)" },
+                { "Assets.DESCRIPTION[SkiFixedGripHaulRope]", "The cable a fixed-grip chairlift line draws between its towers." },
                 { "Assets.NAME[SkiDetachableHaulRope]", "Detachable Chairlift Haul Rope (part of a lift)" },
                 { "Assets.DESCRIPTION[SkiDetachableHaulRope]", "The cable a detachable quad chairlift line draws between its towers." },
                 { "Assets.NAME[SkiGondolaHaulRope]", "Gondola Haul Rope (part of a lift)" },

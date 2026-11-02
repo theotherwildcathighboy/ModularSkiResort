@@ -307,7 +307,7 @@ namespace SkiResortMod.Systems
             public Entity m_Chair;
             public int m_LoopIndex;
             public double m_Offset;
-            public float m_GripTop;
+            public float m_Drop;
         }
 
         /// <summary>First <paramref name="count"/> roster chairs across loops (loop order,
@@ -325,7 +325,7 @@ namespace SkiResortMod.Systems
                         m_Chair = loop.m_Chairs[i],
                         m_LoopIndex = l,
                         m_Offset = i < loop.m_Offsets.Count ? loop.m_Offsets[i] : 0.0,
-                        m_GripTop = loop.m_GripTops[i],
+                        m_Drop = loop.m_Drops[i],
                     });
                 }
             }
@@ -363,7 +363,7 @@ namespace SkiResortMod.Systems
                         double s = (slot.m_Offset + phase) % loop.m_Length;
                         if (s < 0.0) s += loop.m_Length;
                         LiftLoopCache.Sample(loop, s, out float3 pos, out _);
-                        pos.y -= slot.m_GripTop;
+                        pos.y -= slot.m_Drop;
                         expected = $"s={s:F1} exp={Vec(pos)} d={math.distance(pos, transform.m_Position):F2}";
                     }
                 }
@@ -493,7 +493,7 @@ namespace SkiResortMod.Systems
                             m_Chair = loop.m_Chairs[i],
                             m_LoopIndex = l,
                             m_Offset = i < loop.m_Offsets.Count ? loop.m_Offsets[i] : 0.0,
-                            m_GripTop = loop.m_GripTops[i],
+                            m_Drop = loop.m_Drops[i],
                         };
                         sb.AppendLine($"    chair {Ent(slot.m_Chair)}: {DescribeChair(slot)}");
                     }

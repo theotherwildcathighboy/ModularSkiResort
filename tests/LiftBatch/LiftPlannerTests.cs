@@ -236,13 +236,13 @@ namespace LiftBatch
                     continue;
                 for (int m = 1; m < c.Ladder.Length; m++)
                     Check(c.Ladder[m].TopM > c.Ladder[m - 1].TopM, W, def.Id + " ladder not ascending at " + c.Ladder[m].Name);
-                Check(math.abs(c.RopeAboveBase(0) - def.AxleM) < 1e-4f, W, def.Id + " shortest rope " + c.RopeAboveBase(0) + " != catalog AxleM " + def.AxleM);
+                Check(math.abs(c.RopeAboveBase(0) - (def.AxleM + def.RopeSeatM)) < 1e-4f, W, def.Id + " shortest rope " + c.RopeAboveBase(0) + " != catalog AxleM + RopeSeatM " + (def.AxleM + def.RopeSeatM));
                 Check(math.abs(c.CarrierDropM - def.HangM) < 1e-4f, W, def.Id + " drop != catalog HangM");
                 if (axles.TryGetValue(def.Id, out float[] want) && Check(want.Length == c.Ladder.Length, W, def.Id + " ladder length"))
                 {
                     for (int m = 0; m < want.Length; m++)
-                        Check(math.abs(c.RopeAboveBase(m) - want[m]) < 2e-3f, W,
-                              def.Id + " " + c.Ladder[m].Name + " rope " + c.RopeAboveBase(m).ToString("F3") + " != manifest axle " + want[m]);
+                        Check(math.abs(c.RopeAboveBase(m) - (want[m] + def.RopeSeatM)) < 2e-3f, W,
+                              def.Id + " " + c.Ladder[m].Name + " rope " + c.RopeAboveBase(m).ToString("F3") + " != manifest axle " + want[m] + " + rope seat " + def.RopeSeatM);
                 }
                 Check(c.MaxRopeAboveGroundM <= 0f || c.RopeAboveBase(c.Ladder.Length - 1) <= c.MaxRopeAboveGroundM, W,
                       def.Id + " tallest member's rope above the max rope height");
@@ -310,8 +310,8 @@ namespace LiftBatch
                 float even = length / spans;
                 AddReport("LP-4 flat " + id + " " + length.ToString("F0") + " m", spans + " spans of ~" + even.ToString("F0") + " m (max " + c.MaxSpanM.ToString("F0") + "), fewest towers, infill only", plan);
                 Check(plan.Spans.Length == spans, W, id + ": " + plan.Spans.Length + " spans, expected " + spans + ": " + Describe(plan));
-                // FG: m_Hanging 0.03 sags a 75 m span 2.25 m, so FG8s (rope 7.04) leave the chair under the 3 m floor: the flat FG line stands
-                // on FG12s (a taller member that saves a tower vs 60 m spans). DQ / tram (0.004) keep the shortest member. Since the
+                // FG: at m_Hanging 0.03 a 75 m span sagged 2.25 m and the flat line stood on FG12s; at 0.01 (F3) FG8s clear the floor, and the
+                // check below still allows FG12 (member <= 1). DQ / tram (0.004) keep the shortest member. Since the
                 // 2026-10-26 lift pass the tower next to a station is the shortest the ground allows (MinCost.EndRiseM, TowerWorthM): the FG line puts an
                 // FG8 beside one station on a shorter first span, so its spans are no longer even (both ends cannot: 2 x 54 m + 2 x 96 m).
                 int maxMember = id == "fixedGrip" ? 1 : 0;
@@ -326,12 +326,13 @@ namespace LiftBatch
                           id + " node " + (i + 1) + " member " + plan.Nodes[i].Member + " flags " + plan.Nodes[i].Flags);
                 Check(plan.Clear, W, id + " violated on flat ground");
             }
-            // The FG sag finding itself: an FG8-FG8 60 m span on flat ground is below the 3 m floor, a 54 m one is not.
+            // The FG sag arithmetic: at the vanilla HV lane's 0.03 an FG8-FG8 60 m span on flat ground was below the 3 m floor; on the
+            // own FG rope lane (0.01, lift alignment F3, 2026-11-02) the longest allowed span clears it on FG8s.
             LiftTowerPlanConstants fg = LiftTowerPlanConstants.For("fixedGrip");
-            float chair60 = fg.RopeAboveBase(0) - 60f * fg.SagRatio - fg.CarrierDropM;
-            Check(chair60 < fg.FloorM && fg.RopeAboveBase(0) - 54f * fg.SagRatio - fg.CarrierDropM >= fg.FloorM, W,
-                  "FG sag arithmetic: chair at mid-span " + chair60.ToString("F2") + " m");
-            s_Report.Add("LP-4 FG sag finding | FG8-FG8 60 m on flat: chair " + chair60.ToString("F2") + " m above ground (floor 3) | " +
+            float chairMax = fg.RopeAboveBase(0) - fg.MaxSpanM * fg.SagRatio - fg.CarrierDropM;
+            Check(fg.SagRatio == 0.01f && chairMax >= fg.FloorM, W,
+                  "FG sag arithmetic: sag " + fg.SagRatio + ", chair at mid-span of a " + fg.MaxSpanM + " m FG8 span " + chairMax.ToString("F2") + " m");
+            s_Report.Add("LP-4 FG sag finding | FG8-FG8 " + fg.MaxSpanM.ToString("F0") + " m on flat: chair " + chairMax.ToString("F2") + " m above ground (floor 3) | " +
                          "FG8 needs spans <= " + ((fg.RopeAboveBase(0) - fg.CarrierDropM - fg.FloorM) / fg.SagRatio).ToString("F0") + " m");
         }
 
@@ -1367,9 +1368,10 @@ namespace LiftBatch
                     Check(win == m && math.abs(score - 1f) < 1e-5f, W,
                           def.Id + " elevation " + e.ToString("F3") + ": the engine ladder picks " + (win < 0 ? "a TIE" : c.Ladder[win].Name) +
                           " (score " + score.ToString("F3") + "), planned " + c.Ladder[m].Name);
-                    // Rope: node y (= ground + E) + the line lane y (catalog AxleM) is the planner's rope for that member.
-                    Check(math.abs(e + def.AxleM - c.RopeAboveBase(m)) < 2e-3f, W,
-                          def.Id + " " + c.Ladder[m].Name + ": ground + E + AxleM " + (e + def.AxleM).ToString("F3") + " != planner rope " + c.RopeAboveBase(m).ToString("F3"));
+                    // Rope: node y (= ground + E) + the line lane y (catalog AxleM + RopeSeatM) is the planner's rope for that member.
+                    float lane = def.AxleM + def.RopeSeatM;
+                    Check(math.abs(e + lane - c.RopeAboveBase(m)) < 2e-3f, W,
+                          def.Id + " " + c.Ladder[m].Name + ": ground + E + lane " + (e + lane).ToString("F3") + " != planner rope " + c.RopeAboveBase(m).ToString("F3"));
                     // Top-anchored placement (SubObjectSystem.cs:2464-2469, :2477-2482) stands the member on the ground.
                     Check(math.abs(LiftTowerEdit.EnginePivotAboveGround(c, m, e)) < 1e-4f, W,
                           def.Id + " " + c.Ladder[m].Name + ": pivot " + LiftTowerEdit.EnginePivotAboveGround(c, m, e).ToString("F3") + " m above the ground");

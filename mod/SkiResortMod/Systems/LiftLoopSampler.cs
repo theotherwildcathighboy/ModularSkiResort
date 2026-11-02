@@ -96,12 +96,13 @@ namespace SkiResortMod.Systems
             travelTangent = math.normalizesafe(travelTangent, new float3(0f, 0f, 1f));
         }
 
-        /// <summary>ChairPinSystem.MoveChair's pose: the grip top rides ON the cable, yaw from the travel tangent (the current
-        /// rotation is only the degenerate-tangent fallback). Returns InPlace (transform untouched) when the chair already stands
-        /// there (1 mm, |dot| &gt; 0.99999), else Moved with <paramref name="transform"/> updated.</summary>
-        public static byte Pose(float3 position, float3 travelTangent, float gripTop, ref Transform transform)
+        /// <summary>ChairPinSystem.MoveChair's pose: the rope point rides ON the cable (<paramref name="drop"/> = CarrierDrop), yaw
+        /// from the travel tangent (the current rotation is only the degenerate-tangent fallback). Returns InPlace (transform
+        /// untouched) when the chair already stands there (1 mm, |dot| &gt; 0.99999), else Moved with <paramref name="transform"/>
+        /// updated.</summary>
+        public static byte Pose(float3 position, float3 travelTangent, float drop, ref Transform transform)
         {
-            position.y -= gripTop;
+            position.y -= drop;
             quaternion rotation = NetUtils.GetNodeRotation(travelTangent, transform.m_Rotation);
             if (math.distancesq(position, transform.m_Position) < 1e-6f &&
                 math.abs(math.dot(rotation, transform.m_Rotation)) > 0.99999f)

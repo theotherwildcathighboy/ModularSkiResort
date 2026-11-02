@@ -21,7 +21,7 @@
                         {
                             "$id": 4,
                             "$type": "4|Game.Prefabs.NetLaneInfo, Game",
-                            "m_Lane": $fstrref:"UnityGUID:5d88ac45a40b30341a79535930e3b735",
+                            "m_Lane": $fstrref:"CID:2b960a16d8baac67dfe9fc181fd960f3",
                             "m_Position": {
                                 "$type": "5|Unity.Mathematics.float3, Unity.Mathematics",
                                 "x": -1.8,
@@ -33,7 +33,7 @@
                         {
                             "$id": 5,
                             "$type": 4,
-                            "m_Lane": $fstrref:"UnityGUID:5d88ac45a40b30341a79535930e3b735",
+                            "m_Lane": $fstrref:"CID:2b960a16d8baac67dfe9fc181fd960f3",
                             "m_Position": {
                                 "$type": 5,
                                 "x": 1.8,

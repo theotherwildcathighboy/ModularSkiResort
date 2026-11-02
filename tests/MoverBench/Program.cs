@@ -35,14 +35,14 @@ namespace MoverBench
         private sealed class Lift
         {
             public LiftTypeDef Type;
-            public float LineM, SpanM, SpacingM, GripTop;
+            public float LineM, SpanM, SpacingM, Drop;
         }
 
         private struct Chair
         {
             public int Loop;
             public double Offset;
-            public float GripTop;
+            public float Drop;
         }
 
         private static int Main()
@@ -75,7 +75,7 @@ namespace MoverBench
                 boxMax[l] = mx + 8f;
                 int n = loop.m_Chairs.Count;
                 for (int i = 0; i < n; i++)
-                    chairs.Add(new Chair { Loop = l, Offset = loop.m_Offsets[i], GripTop = loop.m_GripTops[i] });
+                    chairs.Add(new Chair { Loop = l, Offset = loop.m_Offsets[i], Drop = loop.m_Drops[i] });
             }
             var segs = new ArraySegments { A = flat.ToArray() };
             Chair[] chairArray = chairs.ToArray();
@@ -114,10 +114,10 @@ namespace MoverBench
         {
             LiftTypeDef fg = TypeById("fixedGrip"), dq = TypeById("detachable"), gd = TypeById("gondola");
             var lifts = new List<Lift>();
-            for (int i = 0; i < 6; i++) lifts.Add(new Lift { Type = fg, LineM = 1000f, SpanM = 60f, SpacingM = fg.SpacingM, GripTop = 2.4f });
-            for (int i = 0; i < 2; i++) lifts.Add(new Lift { Type = fg, LineM = 600f, SpanM = 60f, SpacingM = fg.SpacingM, GripTop = 2.4f });
-            for (int i = 0; i < 8; i++) lifts.Add(new Lift { Type = dq, LineM = 1200f, SpanM = 90f, SpacingM = dq.SpacingM, GripTop = 3.3f });
-            for (int i = 0; i < 4; i++) lifts.Add(new Lift { Type = gd, LineM = 2000f, SpanM = 200f, SpacingM = gd.SpacingM, GripTop = 4.5f });
+            for (int i = 0; i < 6; i++) lifts.Add(new Lift { Type = fg, LineM = 1000f, SpanM = 60f, SpacingM = fg.SpacingM, Drop = 2.4f });
+            for (int i = 0; i < 2; i++) lifts.Add(new Lift { Type = fg, LineM = 600f, SpanM = 60f, SpacingM = fg.SpacingM, Drop = 2.4f });
+            for (int i = 0; i < 8; i++) lifts.Add(new Lift { Type = dq, LineM = 1200f, SpanM = 90f, SpacingM = dq.SpacingM, Drop = 3.3f });
+            for (int i = 0; i < 4; i++) lifts.Add(new Lift { Type = gd, LineM = 2000f, SpanM = 200f, SpacingM = gd.SpacingM, Drop = 4.5f });
 
             var lanes = new List<LiftLoopCache.CableLane>();
             var stations = new List<Entity>();
@@ -192,7 +192,7 @@ namespace MoverBench
                 for (int i = 0; i < n; i++)
                 {
                     loop.m_Chairs.Add(new Entity { Index = 500000 + i, Version = 1 });
-                    loop.m_GripTops.Add(lift.GripTop);
+                    loop.m_Drops.Add(lift.Drop);
                     loop.m_Offsets.Add(i * loop.m_Length / n);
                 }
             }
@@ -218,10 +218,10 @@ namespace MoverBench
                     var before = new Transform(new float3(1f, 2f, 3f), quaternion.identity);
                     var after = before;
                     float3 pos = p0;
-                    pos.y -= ch.GripTop;
+                    pos.y -= ch.Drop;
                     quaternion rot = NetUtils.GetNodeRotation(t0, before.m_Rotation);
                     bool inPlace = math.distancesq(pos, before.m_Position) < 1e-6f && math.abs(math.dot(rot, before.m_Rotation)) > 0.99999f;
-                    byte r = LiftLoopSampler.Pose(p1, t1, ch.GripTop, ref after);
+                    byte r = LiftLoopSampler.Pose(p1, t1, ch.Drop, ref after);
                     if (inPlace != (r == LiftLoopSampler.InPlace) || (!inPlace && (!BitEq(after.m_Position, pos) || !BitEq(after.m_Rotation.value, rot.value))))
                         badPose++;
                 }
@@ -260,7 +260,7 @@ namespace MoverBench
                     LiftLoopCache.Loop loop = loops[ch.Loop];
                     double s = (ch.Offset + loop.m_SpeedMps * timeS) % loop.m_Length;
                     LiftLoopCache.Sample(loop, s, out float3 position, out float3 tangent);
-                    position.y -= ch.GripTop;
+                    position.y -= ch.Drop;
                     Transform t = transforms[c];
                     quaternion rotation = NetUtils.GetNodeRotation(tangent, t.m_Rotation);
                     if (math.distancesq(position, t.m_Position) < 1e-6f && math.abs(math.dot(rotation, t.m_Rotation)) > 0.99999f)
@@ -317,7 +317,7 @@ namespace MoverBench
             double s = (ch.Offset + (phase + loop.m_SpeedMps * 0.0)) % loop.m_Length;
             LiftLoopSampler.Sample(ref segs, segFirst[ch.Loop], loop.m_Segments.Count, s, out float3 p, out float3 tan);
             Transform t = transforms[c];
-            if (LiftLoopSampler.Pose(p, tan, ch.GripTop, ref t) == LiftLoopSampler.Moved)
+            if (LiftLoopSampler.Pose(p, tan, ch.Drop, ref t) == LiftLoopSampler.Moved)
                 transforms[c] = t;
         }
 
