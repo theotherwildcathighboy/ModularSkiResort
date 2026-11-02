@@ -178,8 +178,8 @@ namespace SkiResortMod.Settings
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.OffSeasonHalfStaff)),
                     "On: when a ski area has had no open run for half a day, its lodges and ski school keep half their " +
-                    "jobs, so half the wages, until a run opens again. Upkeep stays. To cut a closed lodge further, set it " +
-                    "Inactive in its info panel (a tenth of its upkeep, no wages). Default on."
+                    "jobs, so half the wages, until a run opens again. Upkeep stays. A deactivated lodge costs a tenth of its " +
+                    "upkeep and no wages. Default on."
                 },
                 {
                     m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.SeasonPassShare)),

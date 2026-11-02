@@ -952,11 +952,11 @@ namespace SkiResortMod
                 { "SkiResort.Hub.GUESTS_NOTE[SinceLoad]", "Counting started when you loaded the city, partway through the month." },
                 { "SkiResort.Hub.TICKETS_NOTE[Off]", "Lift tickets are off: the Lift ticket price in Options is 0." },
                 { "SkiResort.Hub.TICKETS_NOTE[NoEfficiency]", "No lift tickets now: the Welcome Sign is not running." },
-                // A running lift alone does not open the gate, and NotKnownYet also covers a new sign without a score (kept to 58
-                // characters so the one-line ticket slot shows it whole; hubText.ts holds the same text).
-                // The off-season hint: OffSeasonStaffSystem halves lodge and school staff; Inactive = vanilla upkeep x0.1, no wages,
-                // CityServiceBudgetSystem.cs:398-411.
-                { "SkiResort.Hub.TICKETS_NOTE[NothingOpen]", "No lift tickets now: no run is open. Off-season, lodges drop to half staff (Options); set one Inactive: a tenth of upkeep, no wages." },
+                // A running lift alone does not open the gate, and NotKnownYet also covers a new sign without a score (the ticket
+                // note wraps since 2026-11-02; hubText.ts holds the same text). The off-season fact: OffSeasonStaffSystem halves lodge
+                // and school staff while the Options setting is on. A deactivated lodge's cost (vanilla upkeep x0.1, no wages,
+                // CityServiceBudgetSystem.cs:398-411) left the note: its info panel shows it.
+                { "SkiResort.Hub.TICKETS_NOTE[NothingOpen]", "No lift tickets: no run is open. Off-season, lodges keep half their staff (Options)." },
                 { "SkiResort.Hub.TICKETS_NOTE[NotKnownYet]", "No lift tickets yet: runs are being checked after a load or a new sign." },
                 { "SkiResort.Hub.SECTION[Money]", "Finances" },
                 { "SkiResort.Hub.MONEY_TICKETS[Off]", "Lift tickets: off" },
