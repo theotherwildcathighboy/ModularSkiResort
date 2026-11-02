@@ -159,6 +159,8 @@ namespace SkiResortMod.Systems
                     m_Gone.Add(sign);
                     continue;
                 }
+                if (m_OffSeason.AwaitsFirstObservation(sign))
+                    continue;   // its area's off-season state after this load is not known yet: keep the saved staff
                 m_Targets.TryGetValue(LiftCensusSystem.Ref(sign), out int target);
                 bool has = EntityManager.TryGetComponent(sign, out WorkProvider wp);
                 int current = has ? wp.m_MaxWorkers : 0;

@@ -69,6 +69,15 @@ namespace SkiResortMod.Systems
             return enabled && areaOff ? HalfJobs(full) : Math.Max(0, full);
         }
 
+        /// <summary>Leave the workplaces of a building linked to this area alone for now: the area is in the attractiveness snapshot but this
+        /// load has not observed it yet (its first score waits for ratings and snow). An unobserved area reads in season, so a write would
+        /// raise the saved half staff and lay them off again seconds later; Step takes the first observation at once because the saved
+        /// staff already match it.</summary>
+        public static bool AwaitsFirstObservation(bool linked, bool areaInSnapshot, bool observed)
+        {
+            return linked && areaInSnapshot && !observed;
+        }
+
         /// <summary>Lodges and the ski school are seasonal; patrol and everything else keep their staff all year</summary>
         public static bool IsSeasonal(bool lodge, bool school)
         {

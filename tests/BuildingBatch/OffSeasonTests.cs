@@ -1,6 +1,6 @@
 // OffSeasonRules: half staffing while a building's lifts have no open run. OS1-OS3 the Step state machine (first
 // observation, 12-hour hold to off, 1-hour hold back on, wrap-safe frame clock); OS4 HalfJobs / Target and the catalog rows;
-// OS5 IsSeasonal; OS6 a 12-day calendar replay; OS7 sign jobs.
+// OS5 IsSeasonal; OS6 a 12-day calendar replay; OS7 sign jobs; OS8 no write before the first observation after a load.
 
 using System;
 using SkiResortMod.Systems;
@@ -98,6 +98,12 @@ namespace BuildingBatch
                 new[] { true, true, true }, sums);
             check(sums.TryGetValue(sign, out int sum) && sum == 6, "OS7d",
                   $"off-season sign: summit 4 + an Inactive hut 0 + patrol hut 2 = {sum} (6)");
+
+            // OS8: no write before the load's first observation of the area (field pass 2026-11-02: a carrier went 18 -> 32 -> 26 -> 18 at a load)
+            check(OffSeasonRules.AwaitsFirstObservation(true, true, false), "OS8", "linked, area in the snapshot, not observed yet: wait");
+            check(!OffSeasonRules.AwaitsFirstObservation(true, true, true) && !OffSeasonRules.AwaitsFirstObservation(false, true, false) &&
+                  !OffSeasonRules.AwaitsFirstObservation(true, false, false), "OS8b",
+                  "observed, not linked, or an area the snapshot does not hold: write (in season as before)");
         }
     }
 }

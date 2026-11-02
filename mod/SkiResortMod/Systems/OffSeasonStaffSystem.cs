@@ -61,6 +61,16 @@ namespace SkiResortMod.Systems
                    m_Areas.TryGetValue(sign, out OffSeasonState s) && s.Known && s.Off;
         }
 
+        /// <summary>A write to a building of <paramref name="sign"/>'s area waits for this load's first observation of the area
+        /// (OffSeasonRules.AwaitsFirstObservation). False while not armed or once disabled, so a failed system never freezes staff.</summary>
+        internal bool AwaitsFirstObservation(Entity sign)
+        {
+            if (!m_Armed || m_Disabled || sign == Entity.Null)
+                return false;
+            bool observed = m_Areas.TryGetValue(sign, out OffSeasonState s) && s.Known;
+            return OffSeasonRules.AwaitsFirstObservation(true, m_Attractiveness.TryGetAreaScore(sign, out _), observed);
+        }
+
         protected override void OnCreate()
         {
             base.OnCreate();
@@ -160,6 +170,8 @@ namespace SkiResortMod.Systems
                 Entity b = m_Buildings[i];
                 if (!EntityManager.Exists(b) || EntityManager.HasComponent<Deleted>(b) || EntityManager.HasComponent<Temp>(b))
                     continue;
+                if (AwaitsFirstObservation(m_Signs[i]))
+                    continue;   // its area's state after this load is not known yet: keep the saved staff
                 if (!EntityManager.TryGetComponent(b, out PrefabRef pr) || !IsSeasonal(pr.m_Prefab, out string name))
                     continue;
                 if (!EntityManager.TryGetComponent(pr.m_Prefab, out WorkplaceData wd))
