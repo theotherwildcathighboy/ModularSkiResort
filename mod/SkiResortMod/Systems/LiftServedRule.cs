@@ -237,6 +237,25 @@ namespace SkiResortMod.Systems
             return false;
         }
 
+        /// <summary>A summit lodge also counts as reached when it stands within <paramref name="radiusM"/> (inclusive) of an edge of a
+        /// served run's outline (the caller checks served; SkiCatalog.Ladder.SummitRunRadiusM = 100). A null or short outline, a non-finite
+        /// position or a radius that is not &gt;= 0 → false. Allocation-free.</summary>
+        public static bool OutlineWithin(float2 xz, float2[] outlineXZ, float radiusM)
+        {
+            if (outlineXZ == null || outlineXZ.Length < 2 || !math.all(math.isfinite(xz)) || !(radiusM >= 0f))
+                return false;
+            float r2 = radiusM * radiusM;
+            for (int i = 0; i < outlineXZ.Length; i++)
+            {
+                float2 a = outlineXZ[i], ab = outlineXZ[(i + 1) % outlineXZ.Length] - a;
+                float len2 = math.lengthsq(ab);
+                float t = len2 > 0f ? math.saturate(math.dot(xz - a, ab) / len2) : 0f;
+                if (math.lengthsq(xz - (a + ab * t)) <= r2)
+                    return true;
+            }
+            return false;
+        }
+
         /// <summary>Index of the serving lift (smallest distance, tie → lower Id), or −1.</summary>
         public static int ServingLift(float3 runTop, List<Lift> lifts, List<Chord> chords, out float distanceM)
         {

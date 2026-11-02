@@ -34,6 +34,8 @@ namespace SkiResortMod.Systems
         public const float AxisMinRatio = 1.5f;     // outline spread along / across: below this a run has no clear direction
         public const float FlipMargin = 0.1f;       // the text turns over only this far past square to the camera, so it does not flicker there
         public const float MaxSlope = 1.2f;         // rise / run of the text's plane: on a cliff it stays readable from above
+        public const float CurvedMinDegrees = 30f;  // local direction this far off the overall axis: the run counts as curved at its label
+        public const float CurvedWindowM = 40f;     // edges this near the label give the local direction
 
         /// <summary>Sample i of count as a fraction of the half extent: -1 at one edge, +1 at the other, 0 for one sample.</summary>
         public static float ClearFraction(int i, int count)
@@ -82,6 +84,81 @@ namespace SkiResortMod.Systems
             double angle = 0.5 * Math.Atan2(2.0 * cxz, cxx - czz);
             axis = new float2((float)Math.Cos(angle), (float)Math.Sin(angle));
             return true;
+        }
+
+        /// <summary>A curved run: its overall axis does not describe the ground under the label, or its center lies off the run. True gives the
+        /// spot between the two sides nearest the center and the run's direction there. False for a straight run (the local direction within
+        /// CurvedMinDegrees of a clear overall axis, center on the run), a run about as wide as it is long (width over half its extent), a bad outline.</summary>
+        public static bool CurvedAnchor(float2[] outlineXZ, float2 center, bool hasAxis, float2 axis, out float2 anchor, out float2 local)
+        {
+            anchor = center;
+            local = axis;
+            if (outlineXZ == null || outlineXZ.Length < 4 || !math.all(math.isfinite(center)))
+                return false;
+            int n = outlineXZ.Length;
+            double doubledArea = 0;
+            int nearest = -1;
+            float best = float.PositiveInfinity;
+            float2 onEdge = center;
+            for (int i = 0; i < n; i++)
+            {
+                float2 a = outlineXZ[i], b = outlineXZ[(i + 1) % n];
+                if (!math.all(math.isfinite(a)) || !math.all(math.isfinite(b)))
+                    return false;
+                doubledArea += a.x * b.y - b.x * a.y;
+                float2 p = NearestOnEdge(center, a, b);
+                float d = math.lengthsq(center - p);
+                if (d < best && math.lengthsq(b - a) > 0f)
+                {
+                    best = d;
+                    nearest = i;
+                    onEdge = p;
+                }
+            }
+            if (nearest < 0 || doubledArea == 0)
+                return false;
+            float2 along = math.normalize(outlineXZ[(nearest + 1) % n] - outlineXZ[nearest]);
+            float2 inward = doubledArea > 0 ? new float2(-along.y, along.x) : new float2(along.y, -along.x);
+            // Across the run from the nearest edge to the first edge on the other side.
+            float width = float.PositiveInfinity;
+            for (int i = 0; i < n; i++)
+            {
+                if (i == nearest)
+                    continue;
+                float2 a = outlineXZ[i], e = outlineXZ[(i + 1) % n] - a;
+                float denom = inward.x * e.y - inward.y * e.x;
+                if (denom == 0f)
+                    continue;
+                float2 w = a - onEdge;
+                float t = (w.x * e.y - w.y * e.x) / denom;
+                float u = (w.x * inward.y - w.y * inward.x) / denom;
+                if (t > 0.01f && t < width && u >= 0f && u <= 1f)
+                    width = t;
+            }
+            if (float.IsInfinity(width) || width > 0.5f * Extent(outlineXZ))
+                return false;
+            anchor = onEdge + inward * (0.5f * width);
+            // The run's direction here: the edges around the spot, all turned the same way as the nearest one, by length.
+            float2 sum = float2.zero;
+            float window2 = CurvedWindowM * CurvedWindowM;
+            for (int i = 0; i < n; i++)
+            {
+                float2 a = outlineXZ[i], b = outlineXZ[(i + 1) % n];
+                if (math.lengthsq(anchor - NearestOnEdge(anchor, a, b)) > window2)
+                    continue;
+                float2 e = b - a;
+                sum += math.dot(e, along) < 0f ? -e : e;
+            }
+            local = math.lengthsq(sum) > 0f ? math.normalize(sum) : along;
+            bool centerOn = math.lengthsq(center - anchor) <= 0.25f * width * width;
+            return !hasAxis || !centerOn || math.abs(math.dot(axis, local)) < math.cos(math.radians(CurvedMinDegrees));
+        }
+
+        private static float2 NearestOnEdge(float2 p, float2 a, float2 b)
+        {
+            float2 ab = b - a;
+            float len2 = math.lengthsq(ab);
+            return len2 > 0f ? a + ab * math.saturate(math.dot(p - a, ab) / len2) : a;
         }
 
         /// <summary>Whether the text runs against the axis, so it never reads upside down. Holds its state within FlipMargin of square to the camera.</summary>

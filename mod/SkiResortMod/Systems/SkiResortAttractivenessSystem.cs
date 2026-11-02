@@ -1808,7 +1808,7 @@ namespace SkiResortMod.Systems
             for (int s = 0; s < next.SlotCount; s++)
             {
                 AreaSlot slot = next.Slots[s];
-                BuildLodgeInputs(slot);  // tiers + SummitServed
+                BuildLodgeInputs(s, slot);  // tiers + SummitServed
                 if (!m_AreaStates.TryGetValue(slot.Sign, out AreaState state))
                 {
                     state = new AreaState();
@@ -1897,8 +1897,9 @@ namespace SkiResortMod.Systems
         /// <summary>slot.Lodges (the score's AreaInput.Lodges) from slot.ActiveInfo, with
         /// SummitServed evaluated for the rows whose summer share rises when served (μ summit &gt; μ): the lodge's xz
         /// (m_LodgeXz, read when due) within Ladder.SummitServedRadiusM of the top stub tip of a complete, powered lift
-        /// of this area (LiftServedRule.SummitServed over the area's m_ServeLifts rows). Allocation-free once grown.</summary>
-        private void BuildLodgeInputs(AreaSlot slot)
+        /// of this area (LiftServedRule.SummitServed over the area's m_ServeLifts rows), or within Ladder.SummitRunRadiusM of a served
+        /// run of this area (LiftServedRule.OutlineWithin). Allocation-free once grown.</summary>
+        private void BuildLodgeInputs(int slotIndex, AreaSlot slot)
         {
             slot.Lodges.Clear();
             bool liftsCopied = false;
@@ -1923,6 +1924,12 @@ namespace SkiResortMod.Systems
                             liftsCopied = true;
                         }
                         served = LiftServedRule.SummitServed(xz, m_AreaServeLifts, SkiCatalog.Ladder.SummitServedRadiusM);
+                        for (int r = 0; !served && r < m_RunRefs.Count && r < m_RunOutlines.Count; r++)
+                        {
+                            RunRef rr = m_RunRefs[r];
+                            served = rr.Slot == slotIndex && slot.Runs[rr.Index].Served &&
+                                     LiftServedRule.OutlineWithin(xz, m_RunOutlines[r], SkiCatalog.Ladder.SummitRunRadiusM);
+                        }
                     }
                 }
                 info.SummitServed = served;

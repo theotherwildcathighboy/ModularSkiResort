@@ -2235,6 +2235,19 @@
   text-overflow: ellipsis;
 }
 
+.startNote {
+  flex-shrink: 0;
+  height: 1.3em;
+  padding-left: 10rem;
+  padding-right: 10rem;
+  font-size: var(--fontSizeXS);
+  line-height: 130%;
+  color: var(--normalTextColor);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 // E1 fixer (e1-spec 8.9 F16): the step-1 button fits its .startStep row (1.3 em of S + 10 rem): 1.6 em of
 // S like .treeToolButton (U15), not .actionButton's 30 rem x fontScale (0.9 rem over the row at 100 %).
 // Declared after .actionButton, so it wins at equal specificity.

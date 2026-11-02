@@ -134,6 +134,7 @@ const SHOTS = [
   ["resort-planner-plan-1440-fs125", 1440, { scenario: "Resort Planner plan, Ash Flat (runs, lifts, problems)", view: 1, tab: "runs", fs: 1.25 }],
   ["quick-runs-building-1080", 1080, { scenario: "Quick runs building, Ash Flat (runs, lifts, problems)", view: 1, tab: "runs" }],
   ["quick-runs-planting-1080", 1080, { scenario: "Quick runs planting, Ash Flat (runs, lifts, problems)", view: 1, tab: "runs" }],
+  ["start-card-1080", 1080, { scenario: "connected, empty city" }],
   ["header-long-name-1080", 1080, { scenario: BIG, view: 0 }],
   ["attraction-field-case-1080", 1080, { scenario: FIELD, view: 0 }],
   ["attraction-fold-terrain-1080", 1080, { scenario: ASH, view: 0, fold: 0 }],

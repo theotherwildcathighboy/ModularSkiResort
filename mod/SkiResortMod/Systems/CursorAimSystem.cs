@@ -57,7 +57,9 @@ namespace SkiResortMod.Systems
 
         /// <summary>The safety net fence must not grade the terrain: NetInitializeSystem sets GeometryFlags.FlattenTerrain on EVERY
         /// NetFencePrefab (NetInitializeSystem.cs:2244; vanilla fences stand on flat lots), so a fence drawn up a slope cut a bench into it
-        /// (field test 3). Cleared on SkiSafetyFence's NetGeometryData at every load; idempotent, one log line.</summary>
+        /// (field test 3). Cleared on SkiSafetyFence's NetGeometryData at every load; idempotent, one log line. With no grading a long
+        /// span cuts through the hill, so m_EdgeLengthRange.max (200 m, NetInitializeSystem.cs:871) comes down to FenceMaxEdgeM: the tool
+        /// then splits the drawn course and samples the terrain for each piece (CourseSplitSystem.cs:3487-3512).</summary>
         private void PatchFenceTerrain()
         {
             Entity fence = m_PrefabCatalog.EntityOf(SkiCatalog.Names.SafetyFence);
@@ -67,16 +69,22 @@ namespace SkiResortMod.Systems
                              "FlattenTerrain stays (the fence grades the terrain it crosses)");
                 return;
             }
-            if ((geo.m_Flags & Game.Net.GeometryFlags.FlattenTerrain) == 0)
+            if ((geo.m_Flags & Game.Net.GeometryFlags.FlattenTerrain) == 0 && geo.m_EdgeLengthRange.max == FenceMaxEdgeM)
             {
-                Mod.Log.Info($"CursorAim: fence '{SkiCatalog.Names.SafetyFence}' already has FlattenTerrain cleared");
+                Mod.Log.Info($"CursorAim: fence '{SkiCatalog.Names.SafetyFence}' already has FlattenTerrain cleared and {FenceMaxEdgeM:0} m spans");
                 return;
             }
+            float oldMax = geo.m_EdgeLengthRange.max;
             geo.m_Flags &= ~Game.Net.GeometryFlags.FlattenTerrain;
+            geo.m_EdgeLengthRange.max = FenceMaxEdgeM;
+            geo.m_ElevatedLength = FenceMaxEdgeM;
             EntityManager.SetComponentData(fence, geo);
-            Mod.Log.Info($"CursorAim: fence '{SkiCatalog.Names.SafetyFence}' FlattenTerrain cleared (flags now {geo.m_Flags}): the fence " +
-                         "no longer grades the terrain (UNVERIFIED in game until drawn up a slope)");
+            Mod.Log.Info($"CursorAim: fence '{SkiCatalog.Names.SafetyFence}' FlattenTerrain cleared (flags now {geo.m_Flags}), span max " +
+                         $"{oldMax:0} -> {FenceMaxEdgeM:0} m (min {geo.m_EdgeLengthRange.min:0.#} m): the fence follows the ground without grading it " +
+                         "(UNVERIFIED in game until drawn up a slope; fences drawn before this keep their long spans)");
         }
+
+        private const float FenceMaxEdgeM = 16f;
 
         private void PatchAimPlanes()
         {

@@ -409,6 +409,15 @@ namespace LiftBatch
             l = lifts[0];
             l.Power = LiftPower.Unknown;
             Check(LiftServedRule.SummitServed(top, new List<LiftServedRule.Lift> { l }, radius), W, "power unknown counts as powered");
+
+            // A run reaches the lodge: 100 m from the outline's edge, not from its nodes. A 200 x 20 run from (0, 0) to (200, 20).
+            Eq(100f, SkiCatalog.Ladder.SummitRunRadiusM, W, "Ladder.SummitRunRadiusM");
+            var run = new[] { new float2(0f, 0f), new float2(200f, 0f), new float2(200f, 20f), new float2(0f, 20f) };
+            Check(LiftServedRule.OutlineWithin(new float2(100f, -100f), run, 100f), W, "100 m below the middle of a long edge: reached (inclusive)");
+            Check(!LiftServedRule.OutlineWithin(new float2(100f, -100.1f), run, 100f), W, "100.1 m: not reached");
+            Check(LiftServedRule.OutlineWithin(new float2(300f, 10f), run, 100f), W, "100 m past the closing edge: reached (the ring closes)");
+            Check(!LiftServedRule.OutlineWithin(new float2(100f, -50f), null, 100f), W, "no outline: not reached");
+            Check(!LiftServedRule.OutlineWithin(new float2(float.NaN, 0f), run, 100f), W, "NaN lodge position: not reached");
         }
 
 

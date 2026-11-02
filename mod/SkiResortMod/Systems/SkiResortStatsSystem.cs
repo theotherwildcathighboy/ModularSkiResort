@@ -2714,7 +2714,12 @@ namespace SkiResortMod.Systems
                     continue;
                 bool served = false;
                 if (def.MuSummit > def.Mu && EntityManager.TryGetComponent(lodge, out Game.Objects.Transform t))
+                {
                     served = LiftServedRule.SummitServed(t.m_Position.xz, m_AreaServeLifts, SkiCatalog.Ladder.SummitServedRadiusM);
+                    for (int run = 0; !served && run < m_RunOutlines.Count && run < m_RunAreas.Count && run < m_ServedRoot.Count; run++)
+                        served = m_RunAreas[run] == s && m_ServedRoot[run] >= 0 &&
+                                 LiftServedRule.OutlineWithin(t.m_Position.xz, m_RunOutlines[run], SkiCatalog.Ladder.SummitRunRadiusM);
+                }
                 m_LadderLodges.Add(new SkiResortScore.LodgeInput { LodgeIndex = def.Index, SummitServed = served });
             }
             bool summer = (r.Flags & SkiResortScore.ScoreFlags.SummerMode) != 0;

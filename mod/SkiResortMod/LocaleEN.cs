@@ -711,9 +711,12 @@ namespace SkiResortMod
                 // STATUS_WORD, SEASON_HINT, SEASON_TIP, LIFT_STATUS, RUN_TYPE, BUILD_SHORT[run kinds], NEXT, NEXT2.
                 { "SkiResort.Hub.START_TITLE", "Start a ski area" },
                 { "SkiResort.Hub.START_STEP[1]", "Place a Welcome Sign" },
-                { "SkiResort.Hub.START_STEP[2]", "Build a lodge within 800 m of the runs" },
-                { "SkiResort.Hub.START_STEP[3]", "Build a lift: two stations, then the line" },
-                { "SkiResort.Hub.START_STEP[4]", "Draw runs from the top of the lift" },
+                { "SkiResort.Hub.START_STEP[2]", "Build a lift: two stations, then the line" },
+                { "SkiResort.Hub.START_STEP[3]", "Draw runs from the top of the lift" },
+                { "SkiResort.Hub.START_STEP[4]", "Build a lodge within 800 m of the runs" },
+                { "SkiResort.Hub.START_NOTE[Lodge]", "The lodge can stand at the top or the bottom." },
+                { "SkiResort.Hub.START_NOTE[Areas]", "A city can have several ski areas, one per Welcome Sign." },
+                { "SkiResort.Hub.START_NOTE[Link]", "Runs and lifts join the nearest sign within 5 km." },
                 { "SkiResort.Hub.STATUS_NO_RUNS", "Closed · no runs yet" },
                 { "SkiResort.Hub.STATUS_UNLINKED", "No Welcome Sign within 5 km" },
                 { "SkiResort.Hub.STATUS_TIP_RULE", "Open: enough snow on 60 % of the run. Closed: under 40 %. Patchy: in between." },
@@ -771,7 +774,7 @@ namespace SkiResortMod
                 // C# HubProblemCode MixedLiftTypes and SummitLodgeNotLiftServed (summit-served 300 m = SkiCatalog.Ladder
                 // .SummitServedRadiusM, CG-T6), SchoolNoGreenRun (the school's green run).
                 { "SkiResort.Hub.PROBLEM_TIP[MixedLiftTypes]", "A line and its stations must be one lift type; until then the lift counts 0." },
-                { "SkiResort.Hub.PROBLEM_TIP[SummitLodgeNotLiftServed]", "In summer a summit lodge counts more only within 300 m of a working lift's top station." },
+                { "SkiResort.Hub.PROBLEM_TIP[SummitLodgeNotLiftServed]", "In summer a summit lodge counts more only within 300 m of a working lift's top or 100 m of a run it serves." },
                 { "SkiResort.Hub.PROBLEM_TIP[SchoolNoGreenRun]", "The ski school adds to the score only while a green run counts." },
                 { "SkiResort.Hub.PROBLEM_MORE_TIP", "Also needs attention:" },
                 { "SkiResort.Hub.TILE[Attraction]", "Attraction" },
@@ -798,7 +801,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.RECEIPT[LodgeBaseHalf]", "Lodge base, half until a run counts" },
                 { "SkiResort.Hub.RECEIPT[LodgeBaseNone]", "Lodge base, no lodge" },
                 // The lodge ladder (CG-T5: "up to <Ladder.ExtraCap>").
-                { "SkiResort.Hub.RECEIPT_TIP[LodgeBase]", "Best lodge's base plus the others' extras, up to 24 more. Half while no run counts, more for a summit lodge a lift reaches." },
+                { "SkiResort.Hub.RECEIPT_TIP[LodgeBase]", "Best lodge's base plus the others' extras, up to 24 more. Half while no run counts, more for a reachable summit lodge." },
                 { "SkiResort.Hub.RECEIPT[Terrain]", "Runs, lifts and school" },
                 { "SkiResort.Hub.RECEIPT_TIP[Runs]", "Each run's value now, from its difficulty, size, type, lift and snow. The Runs view lists them." },
                 // CG-T4: every Loop type's "<name> <ScoreValue>" in index order and the summer-share words.
@@ -1059,7 +1062,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.PROBLEM[LiftChairsStopped]", "{NAME}: chairs stopped" },
                 // C# HubProblemCode MixedLiftTypes and SummitLodgeNotLiftServed.
                 { "SkiResort.Hub.PROBLEM[MixedLiftTypes]", "{NAME} mixes lift types" },
-                { "SkiResort.Hub.PROBLEM[SummitLodgeNotLiftServed]", "Summit lodges no lift reaches: {N}" },
+                { "SkiResort.Hub.PROBLEM[SummitLodgeNotLiftServed]", "Summit lodges no lift or run reaches: {N}" },
                 { "SkiResort.Hub.PROBLEM[RunsUnserved]", "Runs unconnected to a lift: {N}" },
                 { "SkiResort.Hub.PROBLEM[RunsUnrateable]", "Runs that cannot be rated: {N}" },
                 { "SkiResort.Hub.PROBLEM[RunsRating]", "Runs being rated: {N}" },

@@ -19,6 +19,7 @@ namespace ResortBatch
             SectionC();
             SectionD();
             SectionE();
+            SectionF();
             s_Check = null;
         }
 
@@ -124,6 +125,30 @@ namespace ResortBatch
             string longName = new string('x', 40);
             Check(RunLabelRules.CleanText(longName) == new string('x', 29) + "...", W, "40 chars cut to 29 + '...' = 32");
             Check(RunLabelRules.CleanText(new string('y', 32)) == new string('y', 32), W, "exactly 32 chars is kept");
+        }
+
+        private static void SectionF()
+        {
+            const string W = "RunLabel F";
+            // A U of 20 m wide legs: its center (0, 50) lies in the notch, off the run. The label moves onto the bar, y = 10, along x.
+            var u = new[] { new float2(-60f, 0f), new float2(60f, 0f), new float2(60f, 200f), new float2(40f, 200f), new float2(40f, 20f), new float2(-40f, 20f), new float2(-40f, 200f), new float2(-60f, 200f) };
+            Check(RunLabelRules.CurvedAnchor(u, new float2(0f, 50f), false, new float2(1f, 0f), out float2 at, out float2 dir) && Near(at.x, 0.0, 1e-3) && Near(at.y, 10.0, 1e-3) && Near(Math.Abs(dir.x), 1.0, 1e-3), W, "a center off a U moves between the sides of the bar, along the bar");
+            // The same U the other way around the ring gives the same spot.
+            var back = new float2[u.Length];
+            for (int i = 0; i < u.Length; i++)
+                back[i] = u[u.Length - 1 - i];
+            Check(RunLabelRules.CurvedAnchor(back, new float2(0f, 50f), false, new float2(1f, 0f), out float2 bt, out _) && Near(bt.y, 10.0, 1e-3), W, "ring direction does not matter");
+
+            // A straight 300 x 40 run keeps its overall axis and its center.
+            var straight = new[] { new float2(-150f, -20f), new float2(150f, -20f), new float2(150f, 20f), new float2(-150f, 20f) };
+            Check(!RunLabelRules.CurvedAnchor(straight, new float2(0f, 0f), true, new float2(1f, 0f), out _, out _), W, "a straight run stays as it is");
+            // The same run with an overall axis 45 degrees off the ground under the label counts as curved.
+            Check(RunLabelRules.CurvedAnchor(straight, new float2(0f, 0f), true, new float2(0.7071f, 0.7071f), out _, out float2 sd) && Near(Math.Abs(sd.x), 1.0, 1e-3), W, "axis 45 degrees off the local direction: the local one wins");
+            // A 100 x 100 bowl is as wide as it is long: it keeps facing the camera.
+            var bowl = new[] { new float2(0f, 0f), new float2(100f, 0f), new float2(100f, 100f), new float2(0f, 100f) };
+            Check(!RunLabelRules.CurvedAnchor(bowl, new float2(50f, 50f), false, new float2(1f, 0f), out _, out _), W, "a bowl has no local direction");
+            Check(!RunLabelRules.CurvedAnchor(null, new float2(0f, 0f), false, new float2(1f, 0f), out _, out _), W, "no outline");
+            Check(!RunLabelRules.CurvedAnchor(straight, new float2(float.NaN, 0f), false, new float2(1f, 0f), out _, out _), W, "NaN center");
         }
 
         private static void SectionE()

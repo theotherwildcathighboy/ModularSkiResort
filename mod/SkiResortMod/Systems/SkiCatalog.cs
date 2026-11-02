@@ -573,6 +573,7 @@ namespace SkiResortMod.Systems
         {
             public const double ExtraCap = 24.0;           // LodgeBase = B(best) + min(Σ E(others), 24)
             public const float SummitServedRadiusM = 300f; // lodge xz within 300 m of a complete, powered lift's top stub tip
+            public const float SummitRunRadiusM = 100f;    // or within 100 m of the outline of a run a lift serves
         }
 
         /// <summary>The ski school (SchoolRule aliases these; ResortBatch CG-1).</summary>

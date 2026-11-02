@@ -1,6 +1,6 @@
 // The run names on the hill: each of our runs gets its name written on the ground at the run's center, along the run and tilted with
-// the slope like a road name, never upside down (RunLabelRules.LongAxis, ReadsFlipped, TextBasis; a run with no clear direction faces the
-// camera), in the piste-map color of its difficulty, at the zoom range where the piste map reads, faded in and out like the district names. Default on
+// the slope like a road name, never upside down (RunLabelRules.LongAxis, ReadsFlipped, TextBasis; a curved run takes its direction at the
+// label, CurvedAnchor; a run with no clear direction faces the camera), in the piste-map color of its difficulty, at the zoom range where the piste map reads, faded in and out like the district names. Default on
 // (option ShowRunNamesOnTheHill). Built like the vanilla district labels (own TMP mesh per run, Graphics.DrawMesh), because
 // vanilla's label paths cannot be pointed at a Surface-area run.
 // Phase: Rendering, NOT anchored to OverlayRenderSystem (nothing is written to its buffers). Rebuilt only when the catalog moved.
@@ -280,9 +280,16 @@ namespace SkiResortMod.Systems
                     label = new Label { Run = row.Entity };
                     m_Labels[row.Entity] = label;
                 }
+                label.HasAxis = RunLabelRules.LongAxis(row.OutlineXZ, out label.Axis);
+                if (RunLabelRules.CurvedAnchor(row.OutlineXZ, new float2(row.CenterX, row.CenterZ), label.HasAxis, label.Axis, out float2 anchor, out float2 local))
+                {
+                    pos = new float3(anchor.x, 0f, anchor.y);
+                    pos.y = TerrainUtils.SampleHeight(ref hd, pos) + Tuning.LiftM;
+                    label.HasAxis = true;
+                    label.Axis = local;
+                }
                 label.Pos = pos;
                 label.ExtentM = extent;
-                label.HasAxis = RunLabelRules.LongAxis(row.OutlineXZ, out label.Axis);
                 if (label.Parts.Count == 0 || label.Text != text || label.Band != row.Band)
                 {
                     label.Text = text;
