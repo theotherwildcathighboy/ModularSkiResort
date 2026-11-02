@@ -763,6 +763,61 @@ def fg_train_side(tag, s, y, main_z, sub_z, axle_z, n_sub, sub_span, main_span, 
     return P
 
 
+def fg_train_side_pinned(tag, s, y, main_z, sub_z, axle_z, n_sub, sub_span, main_span, sheave_r, sheave_w,
+                         pin_z, inboard, arm_t=FG_ARM_T, hanger=FG_HANGER, ins=FG_HANGER_INSET,
+                         gap=0.015, poke=0.006, pin_r=0.05):
+    """
+    The Yan rocker tree of ONE lane for a SKINNED tower (lift alignment Phase 2, lift_tower.SKINNED; DECISIONS 570).
+    The train (sub rockers, sheave arms, wheels, axle stubs, the main rocker and its sub pivots) pitches about the
+    lateral line through both rope points (z `pin_z` = axle + crown seat, travel 0), so the main rocker is centered ON
+    that line and turns on a main pin `pivot_main_<tag>` held by the hanger (fg_train_side hangs it 0.30 above the subs
+    on a fixed hanger: a pitch would tear the two apart). Lateral stack, lane outward to inward: wheels on the lane, the
+    T27 axle stubs, sub rockers + arms in the tree plane y - s * inboard (as fg_train_side with `inboard`), the main
+    rocker `gap` further in, the hanger `gap` further in again. Train and hanger never share a lateral slab, and a pitch
+    about the lateral axis keeps every lateral coordinate, so the two cannot meet; the crossarm sits above the swept
+    circle (lift_tower.skin_sweep measures both). The sub pivots run through the sub rocker and the main rocker at sub_z
+    (inside both z bands), the main pin from the hanger's inboard face through the main rocker, each pin end `poke`
+    proud. The hanger keeps fg_train_side's top (`ins` inside a carrier `arm_t` deep) and reaches pin_r + 0.04 below
+    the pin. Parts and names as fg_train_side (+ the main pin); wheels and stubs expression for expression.
+    Returns [(obj, tower material key)].
+    """
+    P = []
+    yl = y
+    yt = y - s * inboard
+    t_sub, t_main, t_hang = arm_t * 0.55, arm_t * 0.7, 0.15
+    ym = yt - s * (t_sub / 2.0 + gap + t_main / 2.0)
+    yh = ym - s * (t_main / 2.0 + gap + t_hang / 2.0)
+    h_top = main_z + hanger + arm_t / 2.0 - ins
+    h_bot = pin_z - pin_r - 0.04
+    P.append((K.add_box(f"hanger_{tag}", (0.16, t_hang, h_top - h_bot), (0.0, yh, (h_top + h_bot) / 2.0)),
+              "paint"))
+    P.append((K.add_box(f"rocker_main_{tag}", (main_span + 0.40, t_main, 0.15), (0.0, ym, pin_z)), "paint"))
+
+    def lateral_pin(name, r, a, b, x, z, segs):
+        """A pin along the gauge axis from |y| a to |y| b on this side."""
+        return K.add_cyl(name, r, b - a, (x, s * (a + b) / 2.0, z), (math.radians(90.0), 0.0, 0.0),
+                         segments=segs, caps="both")
+
+    for si in range(n_sub):
+        sx = (-main_span / 2.0 + si * (main_span / max(1, n_sub - 1))) if n_sub > 1 else 0.0
+        P.append((lateral_pin(f"pivot_{tag}_{si}", 0.045, abs(ym) - t_main / 2.0 - poke,
+                              abs(yt) + t_sub / 2.0 + poke, sx, sub_z, 6), "galv"))
+        P.append((K.add_box(f"rocker_sub_{tag}_{si}", (sub_span + 0.30, t_sub, 0.12), (sx, yt, sub_z)), "paint"))
+        for wtag, wv in (("m", -1.0), ("p", 1.0)):
+            wx = sx + wv * sub_span / 2.0
+            P.append((K.add_box(f"sheave_arm_{tag}_{si}_{wtag}", (0.09, 0.10, 0.26),
+                                (wx, yt, (sub_z + axle_z) / 2.0)), "paint"))
+            P += train_wheel(f"sheave_{tag}_{si}_{wtag}_rim", f"liner_{tag}_{si}_{wtag}", sheave_r, sheave_w,
+                             (wx, yl, axle_z))
+            y0, y1 = yt, yl - s * sheave_w / 2.0
+            P.append((K.add_cyl(f"axlecap_stub_{tag}_{si}_{wtag}", 0.035, abs(y1 - y0),
+                                (wx, (y0 + y1) / 2.0, axle_z), (math.radians(90.0), 0.0, 0.0),
+                                segments=6, caps="both"), "galv"))
+    P.append((lateral_pin(f"pivot_main_{tag}", pin_r, abs(yh) - t_hang / 2.0 - poke,
+                          abs(ym) + t_main / 2.0 + poke, 0.0, pin_z, 8), "galv"))
+    return P
+
+
 def fg_spans(sheaves, pitch, sheave_r):
     """(n_sub, sub_span, main_span) of an FG train with `sheaves` per lane (lift_tower.fg_parts)."""
     n_sub = max(1, sheaves // 2)
@@ -800,7 +855,7 @@ def _sub_pairs(n_subs):
 
 
 def dq_train(centres_of, n, axle, sheave_r, sheave_w, segs, groove, sub_y, main_y, pin_s, hanger_box,
-             hz, link=DQ_LINK, prefix="", ngon=False):
+             hz, link=DQ_LINK, prefix="", ngon=False, yoke_top=None):
     """
     The gantry sheave trains of both lanes with every carrier INBOARD of the sheaves (towers-v2 4.2, F9):
     lift_tower._dq_train's body verbatim. `centres_of(s)` = the [(x, y, z)] sheave centers of the side s
@@ -808,6 +863,8 @@ def dq_train(centres_of, n, axle, sheave_r, sheave_w, segs, groove, sub_y, main_
     pins, yoke and hanger sit at axle + their tower offsets), `sub_y` / `main_y` the |y| of the sub / main
     rocker plates and the yoke, `pin_s` the sub pins' length, `hanger_box` {x, y0, y1, z0, z1} (z about the
     axle), `hz` the hanger's top / bottom inset, `link` the lone-middle-sub link (DQ_LINK; None = none).
+    `yoke_top` (lift alignment Phase 2, lift_tower.SKINNED; None = every build above, expression for expression):
+    the yoke's top above the axle (default 0.42); its bottom stays at axle + 0.25 (the main pins and links hang there).
     Returns [(obj, tower material key)].
     """
     P = []
@@ -838,9 +895,14 @@ def dq_train(centres_of, n, axle, sheave_r, sheave_w, segs, groove, sub_y, main_
         xs_all = [h[0] for h in hang]
         dz_y = sum(h[1] for h in hang) / len(hang)
         span = (max(xs_all) - min(xs_all)) + 0.30
-        P.append((K.add_box(f"{prefix}yoke_{tag}", (span, 0.072, 0.17),
-                            ((max(xs_all) + min(xs_all)) / 2.0, s * main_y,
-                             axle + 0.335 + dz_y)), "paint"))
+        if yoke_top is None:
+            P.append((K.add_box(f"{prefix}yoke_{tag}", (span, 0.072, 0.17),
+                                ((max(xs_all) + min(xs_all)) / 2.0, s * main_y,
+                                 axle + 0.335 + dz_y)), "paint"))
+        else:
+            P.append((K.add_box(f"{prefix}yoke_{tag}", (span, 0.072, yoke_top - 0.25),
+                                ((max(xs_all) + min(xs_all)) / 2.0, s * main_y,
+                                 axle + (0.25 + yoke_top) / 2.0 + dz_y)), "paint"))
         if link is not None:
             yoke_z0 = axle + 0.335 + dz_y - 0.17 / 2.0
             for i in single:
