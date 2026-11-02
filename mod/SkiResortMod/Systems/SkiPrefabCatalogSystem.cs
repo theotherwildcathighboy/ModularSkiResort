@@ -84,6 +84,7 @@ namespace SkiResortMod.Systems
         private readonly HashSet<Entity> m_LiftLines = new HashSet<Entity>();
         private readonly Dictionary<Entity, LiftTypeDef> m_LineTypes = new Dictionary<Entity, LiftTypeDef>();
         private readonly Dictionary<Entity, float> m_CarrierGripTops = new Dictionary<Entity, float>();
+        private readonly Dictionary<Entity, float> m_CarrierDrops = new Dictionary<Entity, float>();
         private readonly Dictionary<Entity, LiftTypeDef> m_CarrierTypes = new Dictionary<Entity, LiftTypeDef>();
         private readonly HashSet<Entity> m_Stations = new HashSet<Entity>();
         private readonly Dictionary<Entity, StationDef> m_StationDefs = new Dictionary<Entity, StationDef>();
@@ -179,6 +180,13 @@ namespace SkiResortMod.Systems
         internal IReadOnlyDictionary<Entity, float> CarrierGripTops
         {
             get { EnsureFresh(); return m_CarrierGripTops; }
+        }
+
+        /// <summary>LIVE VIEW: carrier prefab entity (the CarrierGripTops keys) → rope point to pivot,
+        /// LiftMoverMath.CarrierDrop(grip top, the carrier row's GripTopAboveRopeM). The pin and the mover pose with it.</summary>
+        internal IReadOnlyDictionary<Entity, float> CarrierDrops
+        {
+            get { EnsureFresh(); return m_CarrierDrops; }
         }
 
         /// <summary>LIVE VIEW: carrier prefab entity (usable bounds only, the CarrierGripTops keys) → its lift
@@ -723,6 +731,7 @@ namespace SkiResortMod.Systems
                         if (!m_CarrierGripTops.ContainsKey(cs.Found))
                         {
                             m_CarrierGripTops.Add(cs.Found, cs.GripTop);
+                            m_CarrierDrops.Add(cs.Found, LiftMoverMath.CarrierDrop(cs.GripTop, carrier.GripTopAboveRopeM));
                             m_CarrierTypes.Add(cs.Found, def);
                         }
                         //the row is the contract (catalog/carriers.json hang_m), the runtime bounds stay the pin source.
@@ -1042,6 +1051,7 @@ namespace SkiResortMod.Systems
             m_LiftLines.Clear();
             m_LineTypes.Clear();
             m_CarrierGripTops.Clear();
+            m_CarrierDrops.Clear();
             m_CarrierTypes.Clear();
             m_Stations.Clear();
             m_StationDefs.Clear();

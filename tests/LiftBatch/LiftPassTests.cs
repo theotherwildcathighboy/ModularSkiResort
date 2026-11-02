@@ -401,7 +401,8 @@ namespace LiftBatch
                 used.Add(m.Groups[1].Value);
             foreach (string e in new[] { "SteepSlope", "OverlapExisting", "LongDistance", "ShortDistance", "InWater", "ExceedsCityLimits", "Other" })
                 used.Add("REFUSED[" + e + "]");
-            var args = new HashSet<string> { "TYPE", "TOWERS", "LENGTH", "N", "COUNT", "HEIGHT", "CLEAR", "MIN", "M" };
+            // DEG: the BEND notice's plan bend (LiftLineToolSystem.Deg).
+            var args = new HashSet<string> { "TYPE", "TOWERS", "LENGTH", "N", "COUNT", "HEIGHT", "CLEAR", "MIN", "M", "DEG" };
             int worst = 0;
             foreach (string key in used)
             {

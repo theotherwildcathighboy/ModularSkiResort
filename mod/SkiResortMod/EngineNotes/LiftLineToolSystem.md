@@ -120,6 +120,14 @@ plans with the line prefab's live m_MaxSlopeSteepness (NetGeometryData, `With(ma
 prefab's live value against the planner's default. A station whose carriers leave below the
 ground (EndCarrier < -0.25 m) logs SUNK STATION on every plan and shows one tooltip notice per line.
 
+## Bend at a loose-end joint (2026-11-02, owner verdict: warn, never refuse)
+The tool's line is straight, so it can make a plan bend only where it joins a built line at a loose end. `WarnBend` (every plan): for
+each LooseEnd end, the built lift-line edge at that node (no Owner, not Temp / Deleted), its far node, the loose end and this line's
+other end go through `LiftLineInput.JoinBendWarnDeg` (LiftAlignMath.PlanBendDeg, 0 at or under BendWarnDeg). Over it the tooltip's
+notice slot keeps `SkiResort.LiftTool.BEND` standing ({DEG} with one decimal, rounded up like the hub: `Deg` =
+LiftCensus.BendWarnTenths / 10, unit floatSingleFraction) after SUNK and before OPEN_END, and each plan logs one `BEND` WARN line.
+Build stays allowed. Bends on built lines (net tool, moved nodes) are the hub's LiftBend row (LiftCensus.md, Plan bends at towers).
+
 ## Logs
 Silence is impossible: ARMED / patch lines per load; one line per activation, station pick, plan (towers, member mix, spans, clearance,
 pins), edit, build (courses emitted), apply (Temps, errors, registered tool line). An exception disables the tool until the next load (one

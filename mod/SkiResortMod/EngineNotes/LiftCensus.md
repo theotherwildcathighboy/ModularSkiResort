@@ -88,6 +88,19 @@ map by (node, type), so each type keeps its own component and the node is a spli
   text with the node position; DUMP only) and NewSplits (the splits not yet announced since Reset: the system logs one
   "[census] split at node N: types A|B" INFO line each).
 
+## Plan bends at towers (2026-11-02, owner verdict: warn, never refuse)
+The lift tool draws straight lines; bends come from the vanilla net tool or a moved node (docs: lift-alignment-2026-11-02 C6 / F6).
+`MeasureBends` runs per component inside `MakeRow` (so per build, event-driven, never per frame) and keeps the row's sharpest plan bend:
+- Measured only at a non-station node with a tower and exactly two of the component's edges: `LiftAlignMath.PlanBendDeg(prev, node, next)`
+  over node positions (the edges' StartPos / EndPos). A station connection node, a node without a tower and a branch node are never measured.
+- The walk follows the tower number tiles (TowerNumberTileSystem.NumberPath): from the base station's connection node; a component without
+  the base from its dead end nearest the row's GapAt reference (a fragment holding the top counts from its far end, like the tiles). A branch
+  ends the walk. `BendTower` = `TowerNumberTiles.Wrap(rank)`, rank = towers walked so far, so the number matches the tower's plate.
+- Row fields `BendDeg`, `BendTower`, `BendNode`, `BendAt` are hashed (a moved tower bumps Revision, so the hub rebuilds). The state never
+  depends on a bend. `BendWarnTenths(deg)` is the hub's number: 0 at or under `LiftAlignMath.BendWarnDeg` (5), else tenths rounded up
+  (never reads 5.0). Tests: LiftBatch BendTests BT-1..BT-10.
+
 ## Pure file
 Only `using System;`, `System.Collections.Generic`, `Unity.Mathematics` (the test-host rule of tests/SlopeBatch; EntityRef.cs is the pure
-stand-in for Entity), plus SkiCatalog (pure, linked wherever this file is) for the type ids in the "mixes lift types" note.
+stand-in for Entity), plus SkiCatalog (pure, linked wherever this file is) for the type ids in the "mixes lift types" note, and the pure
+LiftAlignMath (PlanBendDeg, BendWarnDeg) and TowerNumberTiles (Wrap) for the plan bends; all three are linked into tests/LiftBatch.

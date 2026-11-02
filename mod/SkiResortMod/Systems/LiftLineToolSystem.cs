@@ -81,13 +81,16 @@ namespace SkiResortMod.Systems
         internal string PendingTypeName => m_Type != null ? m_Type.Id : m_Preset != null ? m_Preset.Id : string.Empty;
         internal LiftTypeDef PresetType => m_Preset;
         /// <summary>The notice line of the tooltip (a LocaleEN SkiResort.LiftTool.* key), else null. A refusal shows for NoticeSeconds and wins
-        /// while live; under it three STANDING notices show for as long as the plan has the condition: the line crosses another lift, SUNK
-        /// STATION (an end of the plan sinks the carriers), then the open-ground end hint (the second end is open ground).</summary>
+        /// while live; under it the STANDING notices show for as long as the plan has the condition: a station faces away, the line crosses
+        /// another lift, SUNK STATION (an end of the plan sinks the carriers), BEND (the line turns the rope by more than
+        /// LiftAlignMath.BendWarnDeg where it joins a built line at a loose end; a warning, never a refusal), then the open-ground end hint
+        /// (the second end is open ground).</summary>
         internal LocalizedString? Notice =>
             m_Notice.HasValue && UnityEngine.Time.unscaledTime - m_NoticeTime < NoticeSeconds ? m_Notice
             : m_BackwardStanding ? T("BACKWARD")
             : m_CrossingStanding ? T("CROSSES")
             : m_SunkStanding ? T("SUNK")
+            : m_BendStandingDeg > 0f ? T("BEND", ("DEG", Deg(m_BendStandingDeg)))
             : m_Edit != null && m_Top.Kind == LiftLineEndKind.Ground ? T("OPEN_END")
             : (LocalizedString?)null;
 
@@ -154,6 +157,7 @@ namespace SkiResortMod.Systems
         private bool m_SunkStanding;   // the current plan has a sunk station end (WarnSunk sets it per plan, Reset clears it)
         private bool m_BackwardStanding;   // a station end faces away from the line (WarnBackward sets it per plan, Reset clears it)
         private bool m_CrossingStanding;   // the current line crosses another lift (WarnCrossing sets it per plan, Reset clears it)
+        private float m_BendStandingDeg;   // the plan bend over the warning angle at a loose-end joint, else 0 (WarnBend per plan, Reset clears it)
         // Ghost preview: the definitions of m_GhostEdit at m_GhostRevision stand (no Updated after their frame, so they generate
         // nothing more; GenerateNodesSystem.cs:2030-2041) and their Temps render as the translucent preview (BatchInstanceSystem.cs:
         // 446-459, 589-609; tower sub-objects copy the Temp flags, SubObjectSystem.cs:2832-2841).
@@ -1063,6 +1067,10 @@ namespace SkiResortMod.Systems
         /// <summary>A lift-tool player text: LocaleEN key SkiResort.LiftTool.<paramref name="key"/> with its {ARG} values.</summary>
         internal static LocalizedString T(string key, params (string, ILocElement)[] args) => LocalizedString.Id(LocPrefix + key, args);
 
+        /// <summary>A bend for a player text: one decimal, rounded up like the hub's LiftBend row (LiftCensus.BendWarnTenths).</summary>
+        internal static ILocElement Deg(float deg) =>
+            new LocalizedNumber<float>(math.max(LiftCensus.BendWarnTenths(deg), 0) / 10f, "floatSingleFraction");
+
         /// <summary>A whole number for a player text (meters, counts), rounded.</summary>
         internal static ILocElement N(float v) => new LocalizedNumber<int>((int)math.round(v), "integer");
 
@@ -1113,6 +1121,41 @@ namespace SkiResortMod.Systems
             WarnSunk(plan);
             WarnCrossing(edit);
             WarnBackward();
+            WarnBend();
+        }
+
+        /// <summary>The line is straight, so the only plan bend the tool makes is where it joins a built line at a loose end: the built edge's
+        /// far node, the loose end and this line's other end (LiftLineInput.JoinBendWarnDeg). Over LiftAlignMath.BendWarnDeg the tooltip keeps
+        /// the BEND notice standing; building stays allowed (owner verdict 2026-11-02: warn, never refuse). The hub's LiftBend row reports
+        /// bends on built lines (LiftCensus.MeasureBends). Logged on every plan that has one.</summary>
+        private void WarnBend()
+        {
+            float a = JoinBend(m_Base, m_Top), b = JoinBend(m_Top, m_Base);
+            m_BendStandingDeg = math.max(a, b);
+            if (m_BendStandingDeg > 0f)
+                Mod.Log.Warn($"LiftLine [plan]: BEND — the rope turns {m_BendStandingDeg:F1}° at {Describe(a >= b ? m_Base : m_Top)} " +
+                             $"(warning above {LiftAlignMath.BendWarnDeg:F0}°; building stays allowed)");
+        }
+
+        private float JoinBend(LineEnd end, LineEnd other)
+        {
+            if (end.Kind != LiftLineEndKind.LooseEnd || !EntityManager.Exists(end.Node) ||
+                !EntityManager.TryGetBuffer(end.Node, true, out DynamicBuffer<Game.Net.ConnectedEdge> edges))
+                return 0f;
+            float worst = 0f;
+            for (int i = 0; i < edges.Length; i++)
+            {
+                Entity e = edges[i].m_Edge;
+                if (EntityManager.HasComponent<Owner>(e) || EntityManager.HasComponent<Deleted>(e) || EntityManager.HasComponent<Temp>(e) ||
+                    !EntityManager.TryGetComponent<PrefabRef>(e, out var pr) || !m_Catalog.LiftLineTypes.ContainsKey(pr.m_Prefab) ||
+                    !EntityManager.TryGetComponent<Game.Net.Edge>(e, out var ed))
+                    continue;
+                Entity far = ed.m_Start == end.Node ? ed.m_End : ed.m_Start;
+                if (far == end.Node || !EntityManager.TryGetComponent<Game.Net.Node>(far, out var farNode))
+                    continue;
+                worst = math.max(worst, LiftLineInput.JoinBendWarnDeg(farNode.m_Position, EndPos(end), EndPos(other)));
+            }
+            return worst;
         }
 
         /// <summary>A station whose stub points away from the other end: the line runs back through the building and the game builds it
@@ -1607,6 +1650,7 @@ namespace SkiResortMod.Systems
             m_SunkStanding = false;
             m_BackwardStanding = false;
             m_CrossingStanding = false;
+            m_BendStandingDeg = 0f;
             m_LooseFrame = int.MinValue / 2;
             // A standing ghost is cleared on the next update (UpdateCore's pick branch); a built line consumed its Temps.
             if (why == "built")

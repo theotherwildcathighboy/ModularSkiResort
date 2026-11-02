@@ -149,6 +149,9 @@ namespace SkiResortMod.Systems
         // (Unfinished), Seats / SpeedMps = the type's (0 unknown; LiftRow.seats / speedMps, the capacity and ride-time tips).
         public string Type; public byte TypeIndex; public bool Mixed;
         public int Seats; public float SpeedMps;
+        // C# only (not written to the LiftRow binding): the census row's sharpest tower bend for the LiftBend problem row. BendTenths =
+        // LiftCensus.BendWarnTenths (0 = none over LiftAlignMath.BendWarnDeg), BendTower = its tower number, BendNode = its net node.
+        public int BendTenths, BendTower; public Entity BendNode;
     }
 
     /// <summary>bindings.ts ProblemRow. Grouped by area in resorts order (ch5 §5.6).</summary>
@@ -1729,6 +1732,10 @@ namespace SkiResortMod.Systems
                     Mixed = c.Mixed,
                     Seats = typeDef != null ? typeDef.SeatsPerCarrier : 0,
                     SpeedMps = typeDef != null ? typeDef.SpeedMps : 0f,
+                    // The sharpest tower bend (census-decided; 0 = none over the warning angle).
+                    BendTenths = LiftCensus.BendWarnTenths(c.BendDeg),
+                    BendTower = c.BendTower,
+                    BendNode = ToEntity(c.BendNode),
                 });
                 m_RowBase.Add(baseStation);
                 m_RowTop.Add(topStation);
@@ -2569,6 +2576,7 @@ namespace SkiResortMod.Systems
                         // The row's type (its build items; NoType reads fixed-grip) and Mixed.
                         Type = l.TypeIndex == LiftCensus.NoType ? (byte)0 : l.TypeIndex,
                         Mixed = l.Mixed,
+                        BendTenths = l.BendTenths, BendTower = l.BendTower, // the LiftBend row
                     });
                     m_PLiftRows.Add(k);
                 }
@@ -2651,6 +2659,13 @@ namespace SkiResortMod.Systems
                         subject = work.SummitNotServedLodge; // the lowest such lodge
                     else if (p.Code == HubProblemCode.SchoolNoGreenRun)
                         subject = firstSchool != Entity.Null ? firstSchool : sign; // the school (else the sign)
+                    // LiftBend: the bent tower's node with no top, so focusLift flies to that tower (SkiResortHubUISystem.ApplyFocusLift).
+                    Entity subjectTop = liftRow ? lift.Top : Entity.Null;
+                    if (p.Code == HubProblemCode.LiftBend && lift.BendNode != Entity.Null)
+                    {
+                        subject = lift.BendNode;
+                        subjectTop = Entity.Null;
+                    }
                     if (p.Code == HubProblemCode.Efficiency)
                         m_EffRowOnNext.Add(sign); // the band shows it on this build (Not linked never has one)
                     m_ProblemsNext.Add(new ProblemStats
@@ -2659,7 +2674,7 @@ namespace SkiResortMod.Systems
                         Code = code,
                         Severity = p.Severity,
                         Subject = subject,
-                        SubjectTop = liftRow ? lift.Top : Entity.Null,
+                        SubjectTop = subjectTop,
                         Name = liftRow ? lift.Name ?? "" : "",
                         Count = p.Count,
                         Pct = p.Pct,
@@ -3072,6 +3087,9 @@ namespace SkiResortMod.Systems
                 h = Mix(h, (uint)r.TypeIndex | (r.Mixed ? 1u << 8 : 0u));
                 h = Mix(h, (uint)r.Seats);
                 h = MixF(h, r.SpeedMps);
+                h = Mix(h, (uint)r.BendTenths);
+                h = Mix(h, (uint)r.BendTower);
+                h = MixE(h, r.BendNode);
             }
             return Mix(h, (uint)rows.Count);
         }

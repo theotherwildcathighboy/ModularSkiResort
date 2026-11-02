@@ -160,6 +160,8 @@ namespace SkiResortMod
                 // Cable lanes (Find It lists them only with Extra Detailing Tools) and the stations' cable stubs.
                 { "Assets.NAME[SkiLiftHaulRopeB]", "Fixed-Grip Chairlift Haul Rope (part of a lift)" },
                 { "Assets.DESCRIPTION[SkiLiftHaulRopeB]", "The cable a fixed-grip chairlift line draws between its towers." },
+                { "Assets.NAME[SkiFixedGripHaulRope]", "Fixed-Grip Chairlift Haul Rope (part of a lift)" },
+                { "Assets.DESCRIPTION[SkiFixedGripHaulRope]", "The cable a fixed-grip chairlift line draws between its towers." },
                 { "Assets.NAME[SkiDetachableHaulRope]", "Detachable Chairlift Haul Rope (part of a lift)" },
                 { "Assets.DESCRIPTION[SkiDetachableHaulRope]", "The cable a detachable quad chairlift line draws between its towers." },
                 { "Assets.NAME[SkiGondolaHaulRope]", "Gondola Haul Rope (part of a lift)" },
@@ -772,6 +774,9 @@ namespace SkiResortMod
                 // C# HubProblemCode MixedLiftTypes and SummitLodgeNotLiftServed (summit-served 300 m = SkiCatalog.Ladder
                 // .SummitServedRadiusM, CG-T6), SchoolNoGreenRun (the school's green run).
                 { "SkiResort.Hub.PROBLEM_TIP[MixedLiftTypes]", "A line and its stations must be one lift type; until then the lift counts 0." },
+                // C# HubProblemCode LiftBend: a tower turns the line in plan by more than LiftAlignMath.BendWarnDeg (5); the train sits on the
+                // bisector, so the rope runs off its outer sheaves by half the bend (docs: lift-alignment-2026-11-02 C6). Shown only.
+                { "SkiResort.Hub.PROBLEM_TIP[LiftBend]", "Real lift lines turn 5° or less at a tower. Past that the rope runs off the outer wheels. The lift still runs and counts." },
                 { "SkiResort.Hub.PROBLEM_TIP[SummitLodgeNotLiftServed]", "In summer a summit lodge counts more only within 300 m of a working lift's top or 100 m of a run it serves." },
                 { "SkiResort.Hub.PROBLEM_TIP[SchoolNoGreenRun]", "The ski school adds to the score only while a green run counts." },
                 { "SkiResort.Hub.TILE[Attraction]", "Attraction" },
@@ -1077,6 +1082,8 @@ namespace SkiResortMod
                 { "SkiResort.Hub.PROBLEM[LiftChairsStopped]", "{NAME}: chairs stopped" },
                 // C# HubProblemCode MixedLiftTypes and SummitLodgeNotLiftServed.
                 { "SkiResort.Hub.PROBLEM[MixedLiftTypes]", "{NAME} mixes lift types" },
+                // C# HubProblemCode LiftBend: {DEG} = the bend, one decimal, rounded up; {N} = the tower number its plates show.
+                { "SkiResort.Hub.PROBLEM[LiftBend]", "{NAME}: rope turns {DEG}° at tower {N}" },
                 { "SkiResort.Hub.PROBLEM[SummitLodgeNotLiftServed]", "Summit lodges unreached: {N}" },
                 { "SkiResort.Hub.PROBLEM[NoParkingAt]", "No parking: {NAME}" },
                 { "SkiResort.Hub.PROBLEM[NoParkingAtMore]", "No parking: {NAME} +{N}" },
@@ -1331,6 +1338,8 @@ namespace SkiResortMod
                 { "SkiResort.LiftTool.SUNK", "The station sits low in the slope, so the chairs leave it below the ground. Flatter ground or raising it with Move It helps." },
                 { "SkiResort.LiftTool.BACKWARD", "A station on this line faces away from it, so the line runs back through the building. Turn that station around." },
                 { "SkiResort.LiftTool.CROSSES", "This line crosses another lift. Building it joins the two at the crossing and stops the other lift's chairs." },
+                // A loose-end joint that turns the line by more than LiftAlignMath.BendWarnDeg: a standing warning, never a refusal.
+                { "SkiResort.LiftTool.BEND", "The rope turns {DEG}° where this line joins the built one. Real lift lines turn 5° or less at a tower." },
                 { "SkiResort.LiftTool.OPEN_END", "This end is open ground: place a station here to finish the lift." },
                 { "SkiResort.LiftTool.ADD_TOO_CLOSE_END", "A tower cannot stand that close to the end of the line. Keep {M} m clear of it." },
                 { "SkiResort.LiftTool.ADD_TOO_CLOSE_TOWER", "A tower cannot stand that close to a tower you placed. Keep {M} m between them." },

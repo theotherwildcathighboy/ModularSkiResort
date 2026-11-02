@@ -1,6 +1,6 @@
 // Pins every lift-chair sub-object on its edge's cable-lane curve and moves the chairs along their loop.
 // The visible cable lane is the anchored, sagging one (LaneSystem moves its endpoints onto anchor stubs and droops it by
-// UtilityLaneData.m_Hanging), not the edge bezier SubObjectSystem spawns chairs on; each chair is re-seated so its grip top lies on it.
+// UtilityLaneData.m_Hanging), not the edge bezier SubObjectSystem spawns chairs on; each chair is re-seated so its rope point (LiftMoverMath.CarrierDrop below the grip top) lies on it.
 // Runs at Modification4B: after SubObjectSystem (2B) and LaneSystem (4), before Game.Objects.SearchSystem and PreCulling (5).
 // Never throws into the game loop; a chair with no matching cable sublane is left untouched.
 // LOG DISCIPLINE: silence must be impossible. Every way this system can fail or idle has a distinct log
@@ -102,7 +102,7 @@ namespace SkiResortMod.Systems
         // On the final edge (last tower -> station) the cable lane is not the edge curve: LaneSystem moves its endpoints onto the anchor
         // stubs (several meters past the edge node, inside the station) and rebuilds the bezier as straight-line-plus-droop, so it can
         // diverge from the chair row's spawn line near the station. Two guards, both inert on normal spans:
-        //   * MaxPinDistanceMargin: best lane farther than gripTop + margin = degenerate geometry or a wrong-side match (far lane is
+        //   * MaxPinDistanceMargin: best lane farther than drop + margin = degenerate geometry or a wrong-side match (far lane is
         //     >= ~4.3 m away): leave the chair at its vanilla spawn placement.
         //   * EndClampMeters: keep the pin parameter this far from the lane's extreme ends (no chair on an anchor stub / bullwheel point).
         // Details: EngineNotes/ChairPinSystem.md, "Near MaxPinDistanceMargin".
@@ -111,7 +111,7 @@ namespace SkiResortMod.Systems
 
         // Chairs ride the rope on every span (position and yaw from the lane curve, even near stations). Approach differences:
         //   * ApproachPinDistanceCeiling: on approach edges large divergence from the row line is expected, so the plausibility ceiling is
-        //     the wrong-side floor (~4.3 m), not gripTop+margin; the mid-span guard never fires there.
+        //     the wrong-side floor (~4.3 m), not drop+margin; the mid-span guard never fires there.
         //   * StationEndClampMeters: the anchored lane continues past the edge node onto the station's bullwheel stub inside the building;
         //     the station-side end clamp is raised so the last chair holds just outside the station face. The station side is found
         //     geometrically (nearest curve end to the station node): lane t-direction vs edge node order is not assumed.
@@ -618,7 +618,7 @@ namespace SkiResortMod.Systems
 
             // The carrier view, fetched once before the chunk loop; with the carrier -> type view (also once): Shuttle carriers (the tram's) are
             // never pinned, and each carrier's approach ceiling is its type's.
-            IReadOnlyDictionary<Entity, float> grips = m_PrefabCatalog.CarrierGripTops;
+            IReadOnlyDictionary<Entity, float> drops = m_PrefabCatalog.CarrierDrops;
             IReadOnlyDictionary<Entity, LiftTypeDef> carrierTypes = m_PrefabCatalog.CarrierTypes;
             var chairs = new NativeList<Entity>(64, Allocator.Temp);
             var chunks = query.ToArchetypeChunkArray(Allocator.Temp);
@@ -632,7 +632,7 @@ namespace SkiResortMod.Systems
                     var prefabRefs = chunks[c].GetNativeArray(ref prefabRefHandle);
                     for (int i = 0; i < entities.Length; i++)
                     {
-                        if (IsPinnable(grips, carrierTypes, prefabRefs[i].m_Prefab))
+                        if (IsPinnable(drops, carrierTypes, prefabRefs[i].m_Prefab))
                             chairs.Add(entities[i]);
                     }
                 }
@@ -643,9 +643,9 @@ namespace SkiResortMod.Systems
                     var chair = chairs[i];
                     // TryGetValue, never the indexer; always true here: the same view filtered above.
                     Entity prefab = EntityManager.GetComponentData<PrefabRef>(chair).m_Prefab;
-                    if (!grips.TryGetValue(prefab, out float gripTop))
+                    if (!drops.TryGetValue(prefab, out float drop))
                         continue;
-                    switch (TryPinChair(chair, gripTop, CeilingOf(carrierTypes, prefab), advanceDistance, tagUpdated))
+                    switch (TryPinChair(chair, drop, CeilingOf(carrierTypes, prefab), advanceDistance, tagUpdated))
                     {
                         case PinResult.Pinned: pinned++; break;
                         case PinResult.AlreadyPinned: alreadyPinned++; break;
@@ -708,7 +708,7 @@ namespace SkiResortMod.Systems
             return def != null && def.ApproachPinCeilingM > 0f ? def.ApproachPinCeilingM : ApproachPinDistanceCeiling;
         }
 
-        private PinResult TryPinChair(Entity chair, float gripTop, float approachCeiling, float advanceDistance, bool tagUpdated)
+        private PinResult TryPinChair(Entity chair, float drop, float approachCeiling, float advanceDistance, bool tagUpdated)
         {
             // Owner must be a live edge carrying sublanes; anything else (mid-demolition,
             // station oddities) → leave the chair exactly as vanilla placed it.
@@ -774,11 +774,11 @@ namespace SkiResortMod.Systems
             }
             bool isApproach = stationAtStart || stationAtEnd;
 
-            // Plausibility guard: on normal spans, farther than gripTop+margin means a wrong-side match or degenerate geometry: leave the chair
+            // Plausibility guard: on normal spans, farther than drop+margin means a wrong-side match or degenerate geometry: leave the chair
             // at spawn placement. On approach edges divergence from the row line is expected (the anchored lane dives into the station), so the
             // ceiling is the wrong-side floor instead (the carrier type's). No mid-span guard firing, no pinned/spawn zigzag.
             float distanceCeiling = isApproach ? approachCeiling
-                                               : gripTop + MaxPinDistanceMargin;
+                                               : drop + MaxPinDistanceMargin;
             if (bestDistance > distanceCeiling)
                 return PinResult.LaneTooFar;
 
@@ -833,10 +833,10 @@ namespace SkiResortMod.Systems
             if (math.dot(newForward.xz, oldForward.xz) < 0f)
                 newRotation = NetUtils.GetNodeRotation(-tangent, transform.m_Rotation);
 
-            // Grip top onto the curve: drop the pivot by the runtime-read pivot->grip-top offset. No approach blend: chairs ride the rope on every
-            // span.
+            // Rope point onto the curve: drop the pivot by LiftMoverMath.CarrierDrop (grip top minus the jaw's rope point, F5). No approach
+            // blend: chairs ride the rope on every span.
             float3 newPosition = lanePoint;
-            newPosition.y -= gripTop;
+            newPosition.y -= drop;
 
             // Idempotence short-circuit — a chair already on target (repeat load pass, second
             // event in one frame) is not rewritten and not re-tagged.
@@ -983,7 +983,7 @@ namespace SkiResortMod.Systems
             Missing
         }
 
-        private MoveResult MoveChair(Entity chair, float gripTop, LiftLoopCache.Loop loop, double s)
+        private MoveResult MoveChair(Entity chair, float drop, LiftLoopCache.Loop loop, double s)
         {
             if (!EntityManager.Exists(chair) ||
                 EntityManager.HasComponent<Deleted>(chair) ||
@@ -991,7 +991,7 @@ namespace SkiResortMod.Systems
                 return MoveResult.Missing;
 
             LiftLoopCache.Sample(loop, s, out float3 position, out float3 travelTangent);
-            position.y -= gripTop; // grip top rides on the cable
+            position.y -= drop; // the rope point rides on the cable (LiftMoverMath.CarrierDrop)
 
             // Travel-facing yaw: GetNodeRotation zeroes tangent.y (plumb hang); its second
             // argument is only the degenerate-tangent fallback. Facing the travel direction
@@ -1202,7 +1202,7 @@ namespace SkiResortMod.Systems
 
             // The carrier view, fetched once before the chunk loop; with the carrier -> type view (also once): Shuttle carriers (the tram's
             // cabins, hosted on the base station) are neither rostered nor static-pinned (counted for the dump).
-            IReadOnlyDictionary<Entity, float> grips = m_PrefabCatalog.CarrierGripTops;
+            IReadOnlyDictionary<Entity, float> drops = m_PrefabCatalog.CarrierDrops;
             IReadOnlyDictionary<Entity, LiftTypeDef> carrierTypes = m_PrefabCatalog.CarrierTypes;
             int shuttleCarriers = 0, typeMismatch = 0;
             var chairs = new NativeList<Entity>(64, Allocator.Temp);
@@ -1218,9 +1218,9 @@ namespace SkiResortMod.Systems
                     for (int i = 0; i < entities.Length; i++)
                     {
                         Entity prefab = prefabRefs[i].m_Prefab;
-                        if (IsPinnable(grips, carrierTypes, prefab))
+                        if (IsPinnable(drops, carrierTypes, prefab))
                             chairs.Add(entities[i]);
-                        else if (grips.ContainsKey(prefab))
+                        else if (drops.ContainsKey(prefab))
                             shuttleCarriers++;
                     }
                 }
@@ -1231,7 +1231,7 @@ namespace SkiResortMod.Systems
                     Entity chair = chairs[i];
                     // TryGetValue, never the indexer; always true here: the same view filtered above.
                     Entity chairPrefab = EntityManager.GetComponentData<PrefabRef>(chair).m_Prefab;
-                    if (!grips.TryGetValue(chairPrefab, out float gripTop))
+                    if (!drops.TryGetValue(chairPrefab, out float drop))
                         continue;
                     Entity owner = EntityManager.GetComponentData<Owner>(chair).m_Owner;
 
@@ -1252,7 +1252,7 @@ namespace SkiResortMod.Systems
                     if (home == null)
                     {
                         // Unclosed lift (or mid-edit state): static pin.
-                        TryPinChair(chair, gripTop, CeilingOf(carrierTypes, chairPrefab), 0f, tagUpdated: true);
+                        TryPinChair(chair, drop, CeilingOf(carrierTypes, chairPrefab), 0f, tagUpdated: true);
                         m_StaticFallbackChairs++;
                         continue;
                     }
@@ -1263,7 +1263,7 @@ namespace SkiResortMod.Systems
                         typeMismatch++;
 
                     home.m_Chairs.Add(chair);
-                    home.m_GripTops.Add(gripTop);
+                    home.m_Drops.Add(drop);
                     riding++;
 
                     if (!EntityManager.HasComponent<InterpolatedTransform>(chair))
@@ -1525,7 +1525,7 @@ namespace SkiResortMod.Systems
                     return false;
                 }
                 float3 grip = transform.m_Position;
-                grip.y += loop.m_GripTops[i];   // the grip rides on the cable
+                grip.y += loop.m_Drops[i];   // the rope point rides on the cable
                 double s = LiftLoopCache.ProjectOnOwner(loop, owner.m_Owner, grip, out float distance);
                 if (s < 0.0)
                 {
@@ -1711,8 +1711,9 @@ namespace SkiResortMod.Systems
                         continue;
                     if (shuttle)
                         shuttleFound++;
+                    float drop = m_PrefabCatalog.CarrierDrops.TryGetValue(carrier, out float d) ? d : 0f;
                     Append(chairsFound, $"'{name}' ({def.Id}{(shuttle ? ", shuttle: not pinned" : "")}, grip-top " +
-                                        $"{gripTop.ToString("F3")} m)");
+                                        $"{gripTop.ToString("F3")} m, drop {drop.ToString("F3")} m)");
                 }
                 Entity line = m_PrefabCatalog.LineEntity(def);
                 if (line != Entity.Null)

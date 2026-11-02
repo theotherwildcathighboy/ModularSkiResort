@@ -91,7 +91,7 @@ namespace SkiResortMod.Systems
         public string[] CarrierPrefabs;
         public MoverKind Mover;
         public int SeatsPerCarrier;
-        public float SpeedMps, GaugeHalfM, HangM, GripTopAboveRopeM, AxleM, AimHeightM, SpacingM, DesignSpacingM,
+        public float SpeedMps, GaugeHalfM, HangM, GripTopAboveRopeM, AxleM, RopeSeatM, AimHeightM, SpacingM, DesignSpacingM,
                      ServeRadiusM, TopMarginM, FixedPerMonth, PerKmPerMonth;
         public int LineBuildPer8m, ElevationCostPer10m, StationCostBase, StationCostTop;
         /// <summary>The shuttle profile's acceleration (m/s²) and station dwell (s); 0 / 0 on Loop types (Sanity).</summary>
@@ -145,8 +145,12 @@ namespace SkiResortMod.Systems
         public readonly float SpeedMps;
         public readonly float GaugeHalfM;                      // rope lane |x|
         public readonly float HangM;                           // carrier contract (carriers.json hang_m)
-        public readonly float GripTopAboveRopeM;               // informational (the grip top rides ON the lane)
-        public readonly float AxleM;                           // lane y on the shortest tower
+        public readonly float GripTopAboveRopeM;               // grip top to the jaw's rope point: the pose drops by LiftMoverMath.CarrierDrop
+        public readonly float AxleM;                           // sheave axle y on the shortest tower (carriers.json axle_m)
+        /// <summary>Rope lane above the axle: the rope rests on the sheave crowns (T27, lift alignment F2). DQ 0.3096 since 2026-11-02;
+        /// FG and GD stay on the axle (0) until their heads move (Phase 2 trains; GD needs its post feet raised, T27 C20). The rope
+        /// lane y on the shortest tower = AxleM + RopeSeatM (the tower planner's rope height).</summary>
+        public readonly float RopeSeatM;
         public readonly float AimHeightM;                      // CursorAim's line aim plane
         public readonly float SpacingM;                        // the line prefab's NetSubObjects m_Spacing; 0 = Shuttle
         public readonly float DesignSpacingM;                  // the ride spacing the design wants (carriers.json spacing_m)
@@ -184,6 +188,7 @@ namespace SkiResortMod.Systems
             HangM = s.HangM;
             GripTopAboveRopeM = s.GripTopAboveRopeM;
             AxleM = s.AxleM;
+            RopeSeatM = s.RopeSeatM;
             AimHeightM = s.AimHeightM;
             SpacingM = s.SpacingM;
             DesignSpacingM = s.DesignSpacingM;
@@ -726,7 +731,7 @@ namespace SkiResortMod.Systems
                         // SkiChairliftHV.Prefab:292 / :288 / :293, PlaceableNet :19; SkiLiftHaulRopeB 0.03; SkiChairliftPiece.Prefab:133. Elevation max 16
                         // equals SkiChairliftHV.Prefab:19 m_ElevationRange.max (CT-12): the FG ladder grounds exactly to 16, so 0 m of margin, and FG24
                         // stays unneeded only while ≤ 16.
-                        Envelope = new LiftEnvelope(60f, 0.8f, 0.03f, 0.03f, 6f, 16f),
+                        Envelope = new LiftEnvelope(60f, 0.8f, 0.01f, 0.01f, 6f, 16f),   // net + own rope lane 0.01 (lift alignment F3)
                         CloseElectricityView = FixedGrip.CloseElectricityView, LineExpected = true,
                     },
                     new LiftTypeSpec
@@ -736,6 +741,7 @@ namespace SkiResortMod.Systems
                         Mover = MoverKind.Loop, SeatsPerCarrier = 4, SpeedMps = 5.0f,     // carriers.json dq seats 4
                         GaugeHalfM = 2.6f, HangM = 3.3f, GripTopAboveRopeM = 0.22f,      // carriers.json dq
                         AxleM = 8.0f,                                                   // SkiLiftTowerDQ10O.manifest.json axle
+                        RopeSeatM = 0.3096f,                                            // lift_tower.rope_seat DQ: rope on the crowns (T27)
                         AimHeightM = 9.0f,                                              // SkiLiftTowerDQ10O.manifest.json catalog_handoff.AimHeightM
                         SpacingM = 22.5f, DesignSpacingM = 30f,                         // rides ≈ 31 m; design 30 m
                         ServeRule = ServeRuleKind.AlongLine, ServeRadiusM = 150f, TopMarginM = 15f,

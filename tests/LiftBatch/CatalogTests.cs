@@ -420,7 +420,7 @@ namespace LiftBatch
                 Mover = MoverKind.Loop, Seats = 3, Speed = 2.5f, Gauge = 1.8f, Hang = 2.4f, Grip = 0.08f, Axle = 7.04f, Aim = 8.0f,
                 Spacing = 8f, Design = 15f, Rule = ServeRuleKind.AlongLine, Radius = 150f, Margin = 15f, Fixed = 2500f, PerKm = 1000f,
                 Build8 = 60, Elev10 = 5, StBase = 60000, StTop = 30000, LinePerKm = 7500, Ceiling = 4.0, Value = 6, Summer = 0.25,
-                MaxPylon = 60f, Slope = 0.8f, NetH = 0.03f, LaneH = 0.03f, HMin = 6f, ElevMax = 16f, Expected = true },
+                MaxPylon = 60f, Slope = 0.8f, NetH = 0.01f, LaneH = 0.01f, HMin = 6f, ElevMax = 16f, Expected = true },
                 // ElevMax 16: SkiCatalog FixedGrip Envelope and SkiChairliftHV.Prefab:19 m_ElevationRange.max 16 landed together (the only
                 // departure from the original table).
             new LiftOracle { Id = "detachable", Line = "SkiDetachableHV", Piece = "SkiDetachablePiece", Item = "liftDetachable", Carrier = "SkiLiftChairDQ4",

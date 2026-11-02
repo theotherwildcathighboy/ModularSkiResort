@@ -2480,6 +2480,21 @@ namespace SkiResortMod.Systems
                 top = Entity.Null;
                 found = m_Census.TryGetRow(id, top, out row);
             }
+            // The LiftBend problem row sends the bent tower's node with no top (SkiResortStatsSystem): fly to that tower.
+            if (!found && top == Entity.Null && m_Census.TryGetRowOfBendNode(id, out row))
+            {
+                float3 at = row.BendAt;
+                if (!Fly(Entity.Null, at, Tuning.FocusGapZoomM, out float bendZoom, out string bendFailure))
+                {
+                    Mod.Log.Warn($"Hub [focus] lift bend {Ent(id)} refused — {bendFailure} ({source})");
+                    LastTriggerText = $"focusLift {Ent(id)}: {bendFailure}";
+                    return;
+                }
+                Mod.Log.Info($"Hub [focus] lift bend: tower {row.BendTower} node {Ent(id)} turns {row.BendDeg:F1}° → ({at.x:F0}, {at.z:F0}) " +
+                             $"zoom={bendZoom:F0} ({source})");
+                LastTriggerText = $"focusLift {Ent(id)}: the bent tower {row.BendTower}";
+                return;
+            }
             if (!found)
             {
                 Mod.Log.Info($"Hub [focus] lift refused — no lift row ({Ent(id)}, top {Ent(top)}) in the census (stale row?) " +

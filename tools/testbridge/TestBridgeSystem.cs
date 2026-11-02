@@ -112,6 +112,8 @@ namespace SkiTestBridge
                 case "offgrid": return OffGridCommand(args);
                 case "prefabFlags": return PrefabFlags(args);
                 case "autosave": return SetAutoSave(args);
+                case "u1probe": return U1ProbeCommand(args);
+                case "bone": return BoneCommand(args);
                 default: throw new ArgumentException($"unknown op '{op}'");
             }
         }

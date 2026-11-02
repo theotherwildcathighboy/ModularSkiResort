@@ -115,7 +115,7 @@
                         {
                             "$id": 8,
                             "$type": "11|Game.Prefabs.ObjectSubLaneInfo, Game",
-                            "m_LanePrefab": $fstrref:"UnityGUID:5d88ac45a40b30341a79535930e3b735",
+                            "m_LanePrefab": $fstrref:"CID:2b960a16d8baac67dfe9fc181fd960f3",
                             "m_BezierCurve": {
                                 "$type": "12|Colossal.Mathematics.Bezier4x3, Colossal.Mathematics",
                                 "a": {
@@ -157,7 +157,7 @@
                         {
                             "$id": 9,
                             "$type": 11,
-                            "m_LanePrefab": $fstrref:"UnityGUID:5d88ac45a40b30341a79535930e3b735",
+                            "m_LanePrefab": $fstrref:"CID:2b960a16d8baac67dfe9fc181fd960f3",
                             "m_BezierCurve": {
                                 "$type": 12,
                                 "a": {

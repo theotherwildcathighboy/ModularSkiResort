@@ -431,6 +431,16 @@ namespace SkiResortMod.Systems
         public static float MinLengthM(LiftTowerPlanConstants c, bool bothStations) =>
             bothStations ? 2f * c.MinSpanM : 2f * c.StepM;
 
+        /// <summary>The plan bend, degrees, the drawn line makes where it joins a built line at a loose end: <paramref name="builtFar"/> =
+        /// the built edge's other node, <paramref name="joint"/> = the loose end, <paramref name="otherEnd"/> = the drawn line's other end
+        /// (the tool's line is straight, so its first tower lies on that heading). 0 when the bend is at or under LiftAlignMath.BendWarnDeg:
+        /// the tool warns over it and never refuses (owner verdict 2026-11-02).</summary>
+        public static float JoinBendWarnDeg(float3 builtFar, float3 joint, float3 otherEnd)
+        {
+            float bend = LiftAlignMath.PlanBendDeg(builtFar, joint, otherEnd);
+            return bend > LiftAlignMath.BendWarnDeg ? bend : 0f;
+        }
+
         /// <summary>A rope-lane anchor this far (xz) from the end node or nearer belongs to this end (LiftTowerFitSystem.StationRope).</summary>
         public const float AnchorSearchM = 30f;
 

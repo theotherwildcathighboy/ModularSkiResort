@@ -14,8 +14,9 @@ no randomness, no hash order, ties broken by the sample index. Citations are the
 Constants provenance: ladder tops are the tower manifests' top_anchor_y = ObjectGeometryData m_Size.y, confirmed in game (member lists in
 the mod log). Rope offset = shortest top - catalog AxleM (lane y on the shortest tower), which equals every member's top - axle in the
 manifests (FG 1.974, DQ 1.95, GD 2.0, tram stubs 3.75). Drop = catalog HangM. Half width = piece m_Width / 2 (SkiChairliftPiece /
-SkiDetachablePiece 6, SkiGondolaPiece 8.2, SkiTramPiece 15). Sag = the net's m_Hanging (FG net SkiChairliftHV 0.03; DQ / GD / tram rope
-lanes 0.004).
+SkiDetachablePiece 6, SkiGondolaPiece 8.2, SkiTramPiece 15). Sag = the rope lane's m_Hanging (FG SkiFixedGripHaulRope 0.01 since
+lift alignment F3, 2026-11-02, with the net SkiChairliftHV at 0.01 too; it was the vanilla HV lane's 0.03; DQ / GD / tram rope lanes 0.004). Drop =
+HangM stays conservative: carriers ride the rope point since F5, GripTopAboveRopeM (0.08 / 0.22 m) higher than HangM below the rope.
 
 ## Ground model (per sample)
 - center = the ground under the line axis (the tower base: our own spawn stands on it).

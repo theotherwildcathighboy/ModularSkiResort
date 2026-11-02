@@ -69,6 +69,11 @@
     <!-- The far-loop pace, bounds cadence and lane scope. -->
     <Compile Include="..\..\mod\SkiResortMod\Systems\LiftMoverMath.cs" Link="LiftMoverMath.cs" />
     <Compile Include="LoopPaceTests.cs" />
+    <!-- lift alignment (G1 / G2): the rope-point drop and the train pitch math -->
+    <Compile Include="..\..\mod\SkiResortMod\Systems\LiftAlignMath.cs" Link="LiftAlignMath.cs" />
+    <Compile Include="AlignTests.cs" />
+    <!-- plan bends at towers (census row, hub number, tool joint): the LiftBend warning -->
+    <Compile Include="BendTests.cs" />
     <!-- The vanilla HV join refusal rule (PowerJoinRefusalSystem). -->
     <Compile Include="..\..\mod\SkiResortMod\Systems\PowerJoinRule.cs" Link="PowerJoinRule.cs" />
     <Compile Include="PowerJoinTests.cs" />

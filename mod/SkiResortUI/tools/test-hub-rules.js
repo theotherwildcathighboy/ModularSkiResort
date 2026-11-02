@@ -774,6 +774,17 @@ function run(srcDir) {
   eq("T35.3 a cat track row shows its running cost (billed by plan area while its guns can run)",
     [read(path.join("hub", "RunList.tsx")).includes("row.kind !== RUN_KIND.Natural && row.bound && {\n          label: t(HUB_LOC.runCost)")], [true]);
 
+  // T36 (owner verdict 2026-11-02: warn, never refuse) code 30 LiftBend: a dim band row naming the lift, the bend (detail = tenths) and the
+  // tower (count); its click flies to the bent tower (focusLift with the tower node as subject and no top, SkiResortHubUISystem).
+  eq("T36.1 code 30: variant liftBend, click lift, info glyph", [BIND.PROBLEM.LiftBend, R.problemVariant(P(A, 30, 1, { count: 7, detail: 124 })),
+    R.problemClick(P(A, 30, 1)), R.problemIcon(P(A, 30, 1)).tone], [30, "liftBend", "lift", "info"]);
+  {
+    const status = read(path.join("hub", "StatusBlock.tsx"));
+    eq("T36.2 row 30 drawn with its FMT text (DEG from detail / 10, N from count) and its tip",
+      [status.includes("HUB_FMT.problemLiftBend} args={{ NAME, DEG: numArg(p.detail / 10, Unit.FloatSingleFraction), N }}"),
+        status.includes("HUB_LOC.problemTipLiftBend")], [true, true]);
+  }
+
   const hr = require("./test-history-rules").run(srcDir);
   checks += hr.checks;
   for (const f of hr.failures) failures.push(`test-history-rules ${f}`);

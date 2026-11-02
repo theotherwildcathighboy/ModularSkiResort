@@ -120,7 +120,7 @@
                         {
                             "$id": 32,
                             "$type": "16|Game.Prefabs.ObjectSubLaneInfo, Game",
-                            "m_LanePrefab": $fstrref:"UnityGUID:5d88ac45a40b30341a79535930e3b735",
+                            "m_LanePrefab": $fstrref:"CID:2b960a16d8baac67dfe9fc181fd960f3",
                             "m_BezierCurve": {
                                 "$type": 10,
                                 "a": {
@@ -162,7 +162,7 @@
                         {
                             "$id": 33,
                             "$type": 16,
-                            "m_LanePrefab": $fstrref:"UnityGUID:5d88ac45a40b30341a79535930e3b735",
+                            "m_LanePrefab": $fstrref:"CID:2b960a16d8baac67dfe9fc181fd960f3",
                             "m_BezierCurve": {
                                 "$type": 10,
                                 "a": {

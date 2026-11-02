@@ -52,3 +52,8 @@ points are placed (:5482), where our tool closes instead.
 sub-objects (order 0) and of the node's owner, the station (order 2) (`FindAnchors`, Game.Net/LaneSystem.cs:2371-2416, :2441-2453;
 `FindAnchor` :4049-4071, applied :4117-4121). The fit takes the lowest rope-lane end within AnchorSearchM (30 m) of the node; the lower
 order wins when it has any within reach, and none gives the fallback (stub node + the shortest member's rope).
+
+## JoinBendWarnDeg
+`LiftLineInput.JoinBendWarnDeg(builtFar, joint, otherEnd)`: the plan bend the drawn line makes at a loose-end joint
+(`LiftAlignMath.PlanBendDeg`), or 0 at or under `LiftAlignMath.BendWarnDeg`. LiftLineToolSystem shows it as the BEND notice; LiftBatch
+BT-10 tests it.

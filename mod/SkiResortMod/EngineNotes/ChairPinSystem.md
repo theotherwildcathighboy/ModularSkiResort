@@ -1,6 +1,6 @@
 # ChairPinSystem: how lift chairs are pinned to the cable, moved along the loop, held without power and culled
 
-`ChairPinSystem` re-seats every lift-chair sub-object so its grip top lies exactly on the cable-lane bezier (no prefab-side height is
+`ChairPinSystem` re-seats every lift-chair sub-object so its rope point (the grip jaw) lies exactly on the cable-lane bezier (no prefab-side height is
 guessed) and, while `MovingChairs` is true, moves the chairs along their lift's closed loop. Engine citations are `File.cs:line`
 against the Game.dll decompile baseline 1.6.0f1.
 
@@ -31,10 +31,13 @@ All game types verified against the decompiled Game.dll.
    the one directly above it (~2.4 m) and the far lane is >= 3.6 m away, so nearest-curve-distance suffices, but hanging lanes are
    straight XZ chords, so on a curved span (sagitta > 1.8 m) the far chord can become 3D-nearest. Matching is therefore by lateral
    sign against the owner edge's curve first (SideSign), with nearest-distance only ranking same-side candidates.
-4. Grip-top-on-curve: the chair prefab's `ObjectGeometryData.m_Bounds.max.y` is the pivot->top distance of the imported mesh. The
-   Blender contract (PIPELINE section 1) makes the grip the topmost geometry with the pivot at the lowest point, so bounds.max.y is
-   exactly the pivot->grip-top distance, read at runtime per chair prefab, never hardcoded:
-   `pinnedPosition = lanePoint - (0, bounds.max.y, 0)`.
+4. Rope-point-on-curve (lift alignment F5, 2026-11-02; until then the grip TOP rode the lane, round-2 contract D8): the chair
+   prefab's `ObjectGeometryData.m_Bounds.max.y` is the pivot->top distance of the imported mesh. The Blender contract (PIPELINE
+   section 1) makes the grip the topmost geometry with the pivot at the lowest point, so bounds.max.y is exactly the pivot->grip-top
+   distance, read at runtime per chair prefab, never hardcoded. The rope runs through the jaw `GripTopAboveRopeM` below the grip top
+   (catalog/carriers.json: FG 0.08, DQ 0.22, GD 0.08, tram 0.5), so
+   `pinnedPosition = lanePoint - (0, LiftMoverMath.CarrierDrop(bounds.max.y, GripTopAboveRopeM), 0)` (the catalog's
+   `CarrierDrops` view; the tram uses the same helper).
 5. The chair hangs plumb: rotation is yaw-only from the lane tangent via `NetUtils.GetNodeRotation` (it zeroes tangent.y, as vanilla
    does for sub-objects). The two rows face opposite travel directions (authored via the prefab's local rotations), so the tangent
    sign is chosen to preserve the chair's current facing.
@@ -162,9 +165,9 @@ rebuilds the bezier as straight-line-plus-droop between the anchors. Near the st
 from the chair row's spawn line, so projecting chairs onto it gave visibly wrong positions and yaw there. Two guards, both inert on
 normal spans:
 
-- `MaxPinDistanceMargin`: a chair sits ~gripTop below its own cable (pre-pin distance ~ gripTop everywhere on normal spans, sag
-  included, because the edge curve droops with the same formula). If the best lane is farther than gripTop + margin the geometry is
-  degenerate (or a wrong-side match: the far lane is >= sqrt(3.6^2 + gripTop^2) ~ 4.3 m away, above the threshold by construction):
+- `MaxPinDistanceMargin`: a chair sits ~drop below its own cable (pre-pin distance ~ gripTop everywhere on normal spans, sag
+  included, because the edge curve droops with the same formula). If the best lane is farther than drop + margin the geometry is
+  degenerate (or a wrong-side match: the far lane is >= sqrt(3.6^2 + drop^2) ~ 4.3 m away, above the threshold by construction):
   the chair stays at its vanilla spawn placement.
 - `EndClampMeters`: keeps the pin parameter this many meters of arc away from the lane's extreme ends so no chair ever sits on an
   anchor stub / bullwheel point.
@@ -178,7 +181,7 @@ Chairs ride the rope on every span, like real carriers descending into a termina
 Blending toward the authored row pose near stations lifted chairs off the visible rope, and the rope is what the eye checks against.
 
 - `ApproachPinDistanceCeiling`: on approach edges large divergence from the row line is expected, so the plausibility ceiling is the
-  wrong-side floor (~4.3 m), not gripTop + margin. The mid-span guard never fires there, so there is no zigzag of pinned and
+  wrong-side floor (~4.3 m), not drop + margin. The mid-span guard never fires there, so there is no zigzag of pinned and
   spawn-pose chairs.
 - `StationEndClampMeters`: the anchored lane continues past the edge node onto the station's bullwheel stub inside the building; the
   station-side end clamp is raised so the last chair holds just outside the station face. The station side of the lane curve is found

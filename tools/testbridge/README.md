@@ -81,6 +81,8 @@ Every reply is a JSON string with `ok`, and `error` when `ok` is false.
 | `offgrid` | optional `add`, `remove` (ids), `clear`, `clearEvents` | prototype of switching road-only services off and on with the road edge; lists the watched buildings and every switch with its sim frame |
 | `prefabFlags` | `prefab`, optional `clear`, `set` (`BuildingFlags` names) | edits a prefab's `BuildingData.m_Flags` for this run of the game |
 | `autosave` | optional `on` | switches the autosave system for this run of the game, so a test on a save does not prune real autosaves |
+| `u1probe` | `on`, `prefab` (a line prefab), `tilt` (deg), `frames` (log lines) | lift alignment risk U1: tilts the towers of that line when they update, at Modification3 and again after AlignSystem, and logs `[U1]` lines (Align reset, lane ends vs the tilted anchors, the tilt at +1 / +2 / +30 / +300 frames). Turn it off after the test: it tilts every tower of the prefab that updates |
+| `bone` | `id`, optional `mesh` (sub-mesh index), `bone`, `rotX`, `rotY` (deg) | lists a skinned object's bones (type, rest and current pose); with `bone` and a rotation it writes that bone as rest x RotateY x RotateX and flags the skeleton for upload, as our own bone writers will. Bones exist only near the camera |
 | `seq` | `steps` | starts a sequence |
 | `seqStatus` | | `done`, `step`, `error`, `results` |
 | `abort` | | stops the sequence and releases all held input |
@@ -114,6 +116,9 @@ Do not call `engine.trigger("menu.saveGame", name)`: without the save panel open
   short of the target with the camera tilted, and the object lands there. Read the placed `Transform` for the true position.
 - **A station buried or floating:** Move It, Toolbox, "To Terrain Height", with no terrain edit. Move it along its line first if it sits past a crest. A large Level brush cuts shelves; when terrain must change, brush 1 to 10 at 35 %, target from `engine.trigger("tool.setBrushHeight", worldY - seaLevel)`.
 - **`pm` op, lighting:** "Time of Day" changes the sky, not the lamps; those follow sim time (on by about 20:20). Snow guns and their plumes run at sim night only. Lifts stop outside open hours, and a lift with no power stops soon after it is built: pick a powered lift at sim day to sample chair motion.
+- **Close shots:** the camera keeps about 8.5 m above the terrain whatever the zoom, so a pivot near the ground needs tilt 40 to 60
+  to stay on screen; read `project` for the pivot at a few tilts and keep the one nearest the screen center. The station roofs hide
+  their loading areas from above.
 - **Summer shots:** deep snow at 1.4 km and above does not melt in hours at 24 C; ground below about 800 m goes bare in minutes at x8.
 - Alt+F1 reaches the NVIDIA overlay. Files appear in `%USERPROFILE%\Videos\NVIDIA\Cities  Skylines II\` (two spaces), and
   `tools\jxr2png.ps1 -Path <file> -Auto -OutDir <dir>` converts a 4K shot in about 4 s.

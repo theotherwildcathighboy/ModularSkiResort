@@ -94,6 +94,8 @@ namespace LiftBatch
                 Console.WriteLine("PASS  " + line);
             TowerNumberTests.Run(Check);
             LoopPaceTests.Run(Check);
+            AlignTests.Run(Check);
+            BendTests.Run(Check);
             PowerJoinTests.Run(Check);
 
             Console.WriteLine(string.Format(CultureInfo.InvariantCulture,

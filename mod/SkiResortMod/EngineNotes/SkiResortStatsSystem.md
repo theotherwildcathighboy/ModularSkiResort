@@ -64,6 +64,9 @@ per-frame allocation. Cost: one building walk, one provider walk, one `CopyServe
   `CabinsHostedBy(base station)` (a tram edge carries no carriers); capacity = `HubRules.ShuttleCapacityPerHour` only while the mover is
   Running, ride time `HubRules.ShuttleRideTimeS` while a path exists. The mover has no generation counter: a path appearing or a cabin
   count moving reaches the hub within the `HeartbeatS` rebuild while the panel is open.
+- Lift bends: `LiftStats` carries C#-only `BendTenths` (`LiftCensus.BendWarnTenths` of the census row's `BendDeg`), `BendTower` and
+  `BendNode` (not written to the LiftRow binding; hashed in HashLifts, gate tools/check-stats-hash.js). They feed `HubProblemLift`; the
+  LiftBend problem row's Subject is `BendNode` and its SubjectTop Null, so the UI's focusLift click flies to that tower.
 - Every lift row that does not carry (`LiftServedRule.Carries`: complete, powered at its base station, not closed) shows capacity -1
   ("-") and is left out of the area total (`HubRules.LiftCapacityShown`). `powered` is the census's one reading of the base station (the
   top station is fed through the modeled lift line): the score's `LiftScoreView.Powered`, else `CopyServeLifts`, both through

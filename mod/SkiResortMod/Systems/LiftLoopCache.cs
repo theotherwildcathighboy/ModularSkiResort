@@ -53,7 +53,7 @@ namespace SkiResortMod.Systems
             /// this loop when their Owner is in this set.</summary>
             public readonly HashSet<Entity> m_MemberOwners = new HashSet<Entity>();
             public readonly List<Entity> m_Chairs = new List<Entity>();
-            public readonly List<float> m_GripTops = new List<float>();
+            public readonly List<float> m_Drops = new List<float>();
             public readonly List<double> m_Offsets = new List<double>();
             /// <summary>The common SkiCatalog.Lifts index of the member lanes; −1 = they span several lift types (no roster).</summary>
             public int m_TypeIndex = -1;

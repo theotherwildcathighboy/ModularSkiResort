@@ -208,6 +208,8 @@ orbit camera (`CameraUpdateSystem.orbitCameraController` / `activeCameraControll
   pivot = the point (:75-85); with no followed entity `UpdateCamera` re-clamps the pivot onto the terrain + 10 m every frame
   (:234-244, `kPivotVerticalOffset` :23). The point is the census row's `GapAt` when it has a gap (clicking a lift with a gap flies
   to the gap), else its `FocusCenter` with zoom `FocusRadius` x `FocusZoomFactor` (at least `FocusLiftMinZoomM`).
+- `focusLift(node, Null)` from the LiftBend problem row (code 30): when no row matches (id, top) and top is Null, a row whose sharpest bent
+  tower stands on that node (`LiftCensusSystem.TryGetRowOfBendNode`) flies to its `BendAt` at `FocusGapZoomM` (one `Hub [focus] lift bend` line).
 - Zoom is clamped to the orbit's `m_ZoomRange` (:25); rotation x = `FocusPitchDeg` (DebugSystemSearch.cs:634); any camera input
   releases the camera back to the gameplay controller (`EventCameraMove` → `SelectedInfoUISystem.StopFollowing`,
   SelectedInfoUISystem.cs:311, :316-341).

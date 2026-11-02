@@ -46,7 +46,7 @@ namespace SkiResortMod.Systems
         {
             public Entity Chair;
             public double Offset;
-            public float GripTop;
+            public float Drop;
             public int Loop;
         }
 
@@ -103,7 +103,7 @@ namespace SkiResortMod.Systems
                 double s = (chair.Offset + (loop.Phase + loop.Speed * ShiftS)) % loop.Length;
                 var segments = new NativeSegments { Array = Segments };
                 LiftLoopSampler.Sample(ref segments, loop.SegFirst, loop.SegCount, s, out float3 position, out float3 tangent);
-                byte result = LiftLoopSampler.Pose(position, tangent, chair.GripTop, ref transform);
+                byte result = LiftLoopSampler.Pose(position, tangent, chair.Drop, ref transform);
                 if (result == LiftLoopSampler.Moved)
                     Transforms[e] = transform;
                 Results[index] = result;
@@ -293,14 +293,14 @@ namespace SkiResortMod.Systems
                     Length = loop.m_Length,
                     Speed = loop.m_SpeedMps,
                 });
-                int n = math.min(loop.m_Chairs.Count, math.min(loop.m_Offsets.Count, loop.m_GripTops.Count));
+                int n = math.min(loop.m_Chairs.Count, math.min(loop.m_Offsets.Count, loop.m_Drops.Count));
                 for (int i = 0; i < n; i++)
                 {
                     m_JobChairs.Add(new JobChair
                     {
                         Chair = loop.m_Chairs[i],
                         Offset = loop.m_Offsets[i],
-                        GripTop = loop.m_GripTops[i],
+                        Drop = loop.m_Drops[i],
                         Loop = l,
                     });
                 }
@@ -354,7 +354,7 @@ namespace SkiResortMod.Systems
                             for (int i = 0; i < loop.m_Chairs.Count; i++)
                             {
                                 double s = (loop.m_Offsets[i] + frozen) % loop.m_Length;
-                                switch (MoveChair(loop.m_Chairs[i], loop.m_GripTops[i], loop, s))
+                                switch (MoveChair(loop.m_Chairs[i], loop.m_Drops[i], loop, s))
                                 {
                                     case MoveResult.Moved: heldWrites++; break;
                                     case MoveResult.InPlace: break;
@@ -441,7 +441,7 @@ namespace SkiResortMod.Systems
                                 double s = real
                                     ? (loop.m_Offsets[i] + phase) % loop.m_Length
                                     : (loop.m_Offsets[i] + (phase + loop.m_SpeedMps * shift)) % loop.m_Length;
-                                MoveResult r = MoveChair(loop.m_Chairs[i], loop.m_GripTops[i], loop, s);
+                                MoveResult r = MoveChair(loop.m_Chairs[i], loop.m_Drops[i], loop, s);
                                 if (!real)
                                     continue;
                                 switch (r)
