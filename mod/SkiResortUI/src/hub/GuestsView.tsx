@@ -4,7 +4,8 @@
  * Folds (Lodges, Sent, Tickets) whose populations differ by design. Fixed slots only (StableWidth cells, fixed-height note slots), so a
  * state change moves nothing. Last month is never a fake 0 (hubRules.lastMonthMark): "full" = a whole month, "partial" = counted since the
  * load, "none" = -1 shown as "–". Under the folds, always shown: one car space row per active road lodge of the area (lodgeParking$;
- * none for the Hut, the Summit or an off-road lodge), numbered per tier while the area has two of a tier; a click flies to the lodge.
+ * none for the Hut, the Summit or an off-road lodge), numbered per tier while the area has two of a tier, or named as the player renamed
+ * the lodge in the game; a click flies to the lodge.
  * Panel file: subscribes resorts$, selectedResort$, resortLive$, city$, lodgeParking$.
  */
 import { useValue } from "cs2/api";
@@ -139,21 +140,28 @@ function TripPlannerNoteText({ note, name, t }: { note: TripPlannerNote; name: s
 /*
  * One row per active road lodge of the area (LodgeParkingRow, C# order): "Car spaces at {NAME}", the count or "–" before the first
  * census. {NAME} is the tier word, or "Chalet 2" (LODGE_TIER_NUMBERED) while the area has two or more of that tier: the number is
- * C#'s, persisted on the lodge, so it stays the same across saves. A Button like a Fold row: a click flies to the lodge. No road
- * lodge: no row.
+ * C#'s, persisted on the lodge, so it stays the same across saves. A lodge the player renamed in the game shows that name instead
+ * (contract 31, `name`; C# cleans it to one line of at most 85 characters): a plain string argument, never an element (gate R19), in
+ * the player-name label class (ellipsis; the layout test allows it to be cut), and the whole row text leads the tooltip. A Button like a
+ * Fold row: a click flies to the lodge. No road lodge: no row.
  */
 function LodgeParkingLines({ rows, samples, t }: { rows: readonly LodgeParkingRow[]; samples: NumberSamples; t: Translate }): JSX.Element {
   return (
     <>
       {rows.map((r) => {
         const tier = LODGE_TIER[r.item as BuildItemId];
-        const name = !tier ? DASH
-          : r.number > 0 ? <LocText entry={HUB_FMT.lodgeTierNumbered} args={{ NAME: t(tier), N: numArg(r.number, Unit.Integer) }} />
-            : t(tier);
+        const custom = r.name !== "";
+        const name = custom ? r.name
+          : !tier ? DASH
+            : r.number > 0 ? <LocText entry={HUB_FMT.lodgeTierNumbered} args={{ NAME: t(tier), N: numArg(r.number, Unit.Integer) }} />
+              : t(tier);
+        const tip = custom
+          ? <TipLines lines={[<LocText key="n" entry={HUB_FMT.guestsRowCarSpaces} args={{ NAME: r.name }} />, t(HUB_LOC.guestsTipCarSpaces)]} />
+          : t(HUB_LOC.guestsTipCarSpaces);
         return (
-          <Tip key={`${r.lodge.index}:${r.lodge.version}`} tip={t(HUB_LOC.guestsTipCarSpaces)}>
+          <Tip key={`${r.lodge.index}:${r.lodge.version}`} tip={tip}>
             <Button theme={{ button: cx(styles.infoLine, styles.foldRow) }} onSelect={() => hubTriggers.focusBuilding(r.lodge)}>
-              <div className={styles.infoLabel}><LocText entry={HUB_FMT.guestsRowCarSpaces} args={{ NAME: name }} /></div>
+              <div className={custom ? styles.lodgeNameLabel : styles.infoLabel}><LocText entry={HUB_FMT.guestsRowCarSpaces} args={{ NAME: name }} /></div>
               <StableWidth samples={samples.count} align="end">{countCell(r.carSpaces)}</StableWidth>
             </Button>
           </Tip>

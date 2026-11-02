@@ -3,7 +3,8 @@
 // exists and stays in that area. A lodge without one, or one that joined another area, takes the lowest free number of its tier there;
 // lodges seen together take numbers in entity order (in play they arrive one at a time, so this is build order). A clash (two lodges
 // holding one number in one area) keeps it on the lower entity. Unlinked lodges get none and keep a held one untouched.
-// Pure file: System and System.Collections.Generic only (+ EntityRef). Linked into tests/BuildingBatch.
+// A lodge the player renamed (the game's NameSystem) shows that name instead (DisplayName); the number stays the fallback.
+// Pure file: System, System.Text and System.Collections.Generic only (+ EntityRef). Linked into tests/BuildingBatch.
 
 using System.Collections.Generic;
 
@@ -95,6 +96,56 @@ namespace SkiResortMod.Systems
         public static int Shown(int sameTierInArea, int number)
         {
             return sameTierInArea > 1 && number >= 1 ? number : 0;
+        }
+
+        /// <summary>Longest custom name the hub shows (UTF-16 units): the game's own rename field in the info panel title takes 85
+        /// (installed index.js, selected-info title `maxLength:85`); a longer name can only come from code. A cut name ends in an ellipsis.</summary>
+        public const int NameMaxChars = 85;
+
+        /// <summary>A lodge's custom name (NameSystem) as the hub shows it, or null for none: control characters and line or paragraph
+        /// separators become spaces, runs of white space become one, the ends are trimmed, and a name longer than NameMaxChars is cut
+        /// (never inside a surrogate pair) and ends in an ellipsis. No other escaping: the game inserts a placeholder argument as text in one
+        /// pass, so braces in a name stay literal (index.js `substitute`). Returns <paramref name="raw"/> itself when nothing changed.</summary>
+        public static string DisplayName(string raw)
+        {
+            if (raw == null)
+                return null;
+            bool clean = raw.Length > 0 && raw.Length <= NameMaxChars && !char.IsWhiteSpace(raw[0]) && !char.IsWhiteSpace(raw[raw.Length - 1]);
+            for (int i = 0; clean && i < raw.Length; i++)
+            {
+                char c = raw[i];
+                if (char.IsControl(c) || c == '\u2028' || c == '\u2029' || (char.IsWhiteSpace(c) && (c != ' ' || raw[i - 1] == ' ')))
+                    clean = false;
+            }
+            if (clean)
+                return raw;
+            var sb = new System.Text.StringBuilder(raw.Length);
+            bool space = false;
+            foreach (char c in raw)
+            {
+                if (char.IsControl(c) || char.IsWhiteSpace(c) || c == '\u2028' || c == '\u2029')
+                {
+                    space = sb.Length > 0;
+                    continue;
+                }
+                if (space)
+                    sb.Append(' ');
+                space = false;
+                sb.Append(c);
+            }
+            if (sb.Length == 0)
+                return null;
+            if (sb.Length > NameMaxChars)
+            {
+                int cut = NameMaxChars - 1;   // room for the ellipsis
+                if (char.IsHighSurrogate(sb[cut - 1]))
+                    cut--;
+                while (cut > 0 && sb[cut - 1] == ' ')
+                    cut--;
+                sb.Length = cut;
+                sb.Append('\u2026');
+            }
+            return sb.ToString();
         }
     }
 }

@@ -71,7 +71,11 @@
       const cut = getComputedStyle(e).overflowX !== "visible" && e.scrollWidth > e.clientWidth + 1;
       const past = e.getBoundingClientRect().right > right + 1;
       if (!cut && !past) continue;
-      const name = (String(e.className).match(/sr-([A-Za-z0-9]+)_/) || [])[1] || e.tagName;
+      // An unclassed leaf (the <span> a LocalizedString renders) is clipped by its nearest classed ancestor, so that class decides
+      // whether the cut is allowed (a player name in a placeholder sentence, 2026-11-02).
+      let name = (String(e.className).match(/sr-([A-Za-z0-9]+)_/) || [])[1];
+      for (let a = e.parentElement; !name && a && a !== p; a = a.parentElement) name = (String(a.className).match(/sr-([A-Za-z0-9]+)_/) || [])[1];
+      name = name || e.tagName;
       const key = `${name}|${text}`;
       if (!out.clipped[key]) out.clipped[key] = { cls: name, text, where, kind: past ? "past the panel" : "cut", over: Math.round(e.scrollWidth - e.clientWidth) };
     }

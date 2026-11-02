@@ -190,15 +190,18 @@
 
   // contract 29: the car spaces per road lodge (Guests view, under the folds): Ash Flat two lodges, the big resort four (one not counted
   // yet reads "–"); the Hut, the Summit and off-road lodges have no row. Contract 30: the big resort's two Chalets are numbered.
+  // Contract 31: a custom name shows instead of the tier word: Ash Flat's A-frame a short one, the big resort's Chalet 2 one of 84 characters
+  // (the game's rename field takes 85), so the layout test sees the longest name a player can type.
   const lodgeParking = [
-    { sign: SIGN, lodge: E(401), item: "lodgeMid", carSpaces: 124, number: 0 },
-    { sign: SIGN, lodge: E(402), item: "lodge", carSpaces: 0, number: 0 },
-    { sign: E(105), lodge: E(411), item: "lodgeGrand", carSpaces: 1260, number: 0 },
-    { sign: E(105), lodge: E(412), item: "lodgeMid", carSpaces: 86, number: 1 },
-    { sign: E(105), lodge: E(414), item: "lodgeMid", carSpaces: 1126, number: 2 },
-    { sign: E(105), lodge: E(413), item: "lodge", carSpaces: -1, number: 0 },
+    { sign: SIGN, lodge: E(401), item: "lodgeMid", carSpaces: 124, number: 0, name: "" },
+    { sign: SIGN, lodge: E(402), item: "lodge", carSpaces: 0, number: 0, name: "Eagle's Nest" },
+    { sign: E(105), lodge: E(411), item: "lodgeGrand", carSpaces: 1260, number: 0, name: "" },
+    { sign: E(105), lodge: E(412), item: "lodgeMid", carSpaces: 86, number: 1, name: "" },
+    { sign: E(105), lodge: E(414), item: "lodgeMid", carSpaces: 1126, number: 2,
+      name: "The Grand Mountain Hospitality Warming Hut and Apres Ski Lounge Above Wolverine Bowl" },
+    { sign: E(105), lodge: E(413), item: "lodge", carSpaces: -1, number: 0, name: "" },
   ];
-  const base = { hubOpen: false, contract: 30, buildStamp: "", showHubButton: true, build: buildItems(), glade,
+  const base = { hubOpen: false, contract: 31, buildStamp: "", showHubButton: true, build: buildItems(), glade,
     resorts: [], resortLive: [], selectedResort: NULL, runs: [], runLive: [], lifts: [], problems: [], city, pisteMap: true, follow: 0, history: [],
     liftLine: { available: true, active: false, state: "PickBase" }, quickRuns, catTrackDeleteMode: false, lodgeParking };
 

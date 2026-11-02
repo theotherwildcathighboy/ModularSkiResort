@@ -1554,6 +1554,19 @@
   text-overflow: ellipsis;
 }
 
+// A lodge name the player chose (Guests view car space rows): the infoLabel rules under its own class, so the layout test (test-hub-layout.js
+// PLAYER_NAMES) allows the ellipsis on it; the full row text leads the row's tooltip.
+.lodgeNameLabel {
+  flex-grow: 1;
+  flex-shrink: 1;
+  flex-basis: 0rem;
+  min-width: 0rem;
+  color: rgba(240, 251, 255, 0.7);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .infoHeader .infoLabel {
   color: var(--normalTextColor);
   text-transform: uppercase;

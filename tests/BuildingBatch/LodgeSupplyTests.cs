@@ -1,6 +1,6 @@
 // LodgeSupplyRule and the job carrier. LS1-LS3 the catalog rows and the W4 round trip; LS4-LS9 the chain walk over real RunLinks; LS10 the
-// hold; LS11-LS13 the switch's decisions and the per-building road test; LC1-LC6 the carrier rule (b1), LC7 the SignNoRoad row; LN1-LN8
-// the same-tier lodge numbers (LodgeNumberRule).
+// hold; LS11-LS13 the switch's decisions and the per-building road test; LC1-LC6 the carrier rule (b1), LC7 the SignNoRoad row; LN1-LN12
+// the same-tier lodge numbers and the custom name shown instead (LodgeNumberRule).
 
 using System;
 using System.Collections.Generic;
@@ -224,7 +224,7 @@ namespace BuildingBatch
             Numbers(check);
         }
 
-        /// <summary>LN1-LN8: LodgeNumberRule, the per-area same-tier numbers.</summary>
+        /// <summary>LN1-LN12: LodgeNumberRule, the per-area same-tier numbers and the custom name.</summary>
         private static void Numbers(Func<bool, string, string, bool> check)
         {
             EntityRef signA = new EntityRef(1, 1), signB = new EntityRef(2, 1);
@@ -272,6 +272,23 @@ namespace BuildingBatch
             check(writes.Count == 0 && shown[0] == 0, "LN8", "not linked: no write, no number shown");
             LodgeNumberRule.Assign(new[] { E(30, signA, chalet, 1, signA), E(31, signA, chalet, 2, signA), E(32, signA, chalet, 3, signA) }, writes, shown);
             check(writes.Count == 0 && shown[0] == 1 && shown[1] == 2 && shown[2] == 3, "LN8b", "three held numbers: no writes, each shown (stable across passes and loads)");
+
+            // LN9-LN12: LodgeNumberRule.DisplayName, the player's custom name as the Guests row shows it (null = the tier word and number).
+            const string plain = "Eagle's Nest {NAME} $1";
+            check(ReferenceEquals(LodgeNumberRule.DisplayName(plain), plain), "LN9", "a clean name is kept as it is, braces and $ included");
+            check(LodgeNumberRule.DisplayName(null) == null && LodgeNumberRule.DisplayName("") == null && LodgeNumberRule.DisplayName(" \t\n ") == null,
+                  "LN10", "no name, empty or white space only: null (the number shows)");
+            check(LodgeNumberRule.DisplayName("  Top\r\n\tHut \u2028 Two  ") == "Top Hut Two", "LN11", "control characters and separators become one space, ends trimmed");
+            string longName = new string('W', 120);
+            string cut = LodgeNumberRule.DisplayName(longName);
+            check(cut.Length == LodgeNumberRule.NameMaxChars && cut.EndsWith("\u2026") && cut.StartsWith("WWW"), "LN12",
+                  $"a 120-letter name is cut to {LodgeNumberRule.NameMaxChars} with an ellipsis (got {cut.Length})");
+            string pairs = new string('a', LodgeNumberRule.NameMaxChars - 2) + "\U0001F3BF\U0001F3BF";   // the cut falls inside a surrogate pair
+            string pairCut = LodgeNumberRule.DisplayName(pairs);
+            check(!char.IsHighSurrogate(pairCut[pairCut.Length - 2]) && pairCut.EndsWith("\u2026") && pairCut.Length <= LodgeNumberRule.NameMaxChars,
+                  "LN12b", "the cut never splits a surrogate pair");
+            check(LodgeNumberRule.DisplayName(new string('x', LodgeNumberRule.NameMaxChars)).Length == LodgeNumberRule.NameMaxChars, "LN12c",
+                  "a name exactly at the limit is not cut");
         }
 
         private static LodgeDef Lodge(string id)

@@ -27,7 +27,7 @@ const http = require("http");
 
 const ROOT = path.resolve(__dirname, "..");
 const SIZES = [[1920, 1080], [2560, 1440], [3840, 2160]];
-const PLAYER_NAMES = new Set(["areaNameText", "rowName", "overlayItemName"]);
+const PLAYER_NAMES = new Set(["areaNameText", "rowName", "overlayItemName", "lodgeNameLabel"]);
 
 /** The hub classes whose rule carries coh-font-fit-mode: shrink, read from the stylesheet so a new one needs no list here. */
 function shrinkClasses() {

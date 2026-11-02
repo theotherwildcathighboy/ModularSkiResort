@@ -35,3 +35,7 @@ sets the lodge base, not a building, so it stays unnumbered.
 "created"; ARMED once per load; one `LodgeNumber [assign] <tier> <id>: number N in the area of Welcome Sign <id> (had none / had M in
 another area / had M, held by a lower entity)` per number given (an old save's lodges get one line each at its first load); "!!!" once
 on a throw (numbers frozen until the next load). DUMP: passes, assigned, every shown number.
+
+## Custom names (2026-11-02, contract 31)
+
+A lodge the player renamed (the game's rename in the info panel title, `TitleSection.OnRename`, TitleSection.cs:48-52, writes `NameSystem.SetCustomName`, NameSystem.cs:214-241) shows that name in the Guests view instead of "Chalet 2"; the number stays the fallback. `LodgeNumberRule.DisplayName` cleans it (control characters and line separators to one space, trimmed, at most 85 UTF-16 units, the game's own field length; no other escaping, the game substitutes a placeholder argument as text in one pass). The hub polls `NameSystem.TryGetCustomName` (NameSystem.cs:209-212) per row each frame the Guests view observes the rows, since a rename raises nothing a system can see (`SkiResortHubUISystem.PollLodgeNames`). Tests LN9-LN12.

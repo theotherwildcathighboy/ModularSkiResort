@@ -42,7 +42,7 @@ namespace SkiResortMod.Systems
 
         /// <summary>The contract number (bindings.ts HUB_CONTRACT). Bump both together whenever a binding, trigger, field or meaning
         /// changes (Engine notes: Near HubContract lists what each number appended).</summary>
-        public const int HubContract = 30;
+        public const int HubContract = 31;
 
         /// <summary>The `contract` value the UI reads as "C# absent" (bindings.ts CONTRACT_ABSENT). Pushed after the one-shot "!!!"
         /// until the next load: the UI then shows its "not connected" notice instead of launchers that do nothing.</summary>
@@ -544,7 +544,8 @@ namespace SkiResortMod.Systems
         private ValueBinding<int> m_FollowBinding;
         private RawValueBinding m_History;
         // contract 29: the car spaces of every active road lodge (the Guests view). Rebuilt when the attraction snapshot, the parking
-        // census or the lodge numbers move; pushed only while the Guests view observes it. Contract 30: each row's shown number.
+        // census or the lodge numbers move; pushed only while the Guests view observes it. Contract 30: each row's shown number. Contract 31:
+        // the lodge's custom name (NameSystem), polled each frame while observed (PollLodgeNames: one dictionary read per row).
         private RawValueBinding m_LodgeParking;
         private SkiLodgeParkingSystem m_Parking;
         private LodgeNumberSystem m_Numbers;
@@ -562,6 +563,8 @@ namespace SkiResortMod.Systems
             public string Item;
             public int CarSpaces;   // -1: no census yet
             public int Number;      // LodgeNumberSystem.ShownNumberOf: 0 = the only lodge of its tier in the area (no number shown)
+            public string RawName;  // NameSystem's string for the lodge (the poll compares references); null = no custom name
+            public string Name;     // LodgeNumberRule.DisplayName(RawName): null = none, the tier word and number show
         }
         private ValueBinding<HubBusCardState> m_BusCard;   // contract 26: always observed; costs a compare per frame until a coach or depot is selected
         private readonly List<SkiDaySystem.DepotView> m_BusCardViews = new List<SkiDaySystem.DepotView>(2);
@@ -2715,7 +2718,10 @@ namespace SkiResortMod.Systems
             PushHistory();   // no Demand of its own
             bool lodgeParkingActive = m_LodgeParking.active;
             if (lodgeParkingActive)
+            {
                 RefreshLodgeParking();
+                PollLodgeNames();
+            }
             PushArray(m_LodgeParkingPush, lodgeParkingActive, m_LodgeParkingRevision, m_LodgeParkingRows.Count);
 
             if (cityActive)
@@ -3707,6 +3713,7 @@ namespace SkiResortMod.Systems
                         continue;
                     int i = info.LodgeIndex;
                     string item = i >= 0 && i < SkiCatalog.Lodges.Count ? SkiCatalog.Lodges[i].BuildItemId : "";
+                    string raw = m_NameSystem.TryGetCustomName(info.Lodge, out string custom) ? custom : null;
                     m_LodgeParkingRows.Add(new LodgeParkingRowData
                     {
                         Sign = sign,
@@ -3714,6 +3721,8 @@ namespace SkiResortMod.Systems
                         Item = item,
                         CarSpaces = m_Parking.TryGetParking(info.Lodge, out LodgeParking p) && p.Done ? p.CarSpaces : -1,
                         Number = m_Numbers.ShownNumberOf(info.Lodge),
+                        RawName = raw,
+                        Name = LodgeNumberRule.DisplayName(raw),
                     });
                 }
                 // Stable order inside a sign: the snapshot's lodge order follows chunk order.
@@ -3722,6 +3731,32 @@ namespace SkiResortMod.Systems
                                                                                                   : a.Lodge.Version.CompareTo(b.Lodge.Version)));
             }
             m_LodgeParkingRevision++;
+        }
+
+        /// <summary>A rename shows without a reload: the game's rename (TitleSection.OnRename, TitleSection.cs:48-52) writes NameSystem's
+        /// dictionary and raises no event this system can see, and renaming a named lodge adds no new component (NameSystem.cs:214-241). So
+        /// each frame the Guests view observes lodgeParking, every row reads its lodge's entry (NameSystem.TryGetCustomName, :209-212: one
+        /// dictionary read; an unchanged name is the same string reference) and a change pushes the rows. A handful of rows: well under a
+        /// microsecond a frame.</summary>
+        private void PollLodgeNames()
+        {
+            bool changed = false;
+            for (int i = 0; i < m_LodgeParkingRows.Count; i++)
+            {
+                LodgeParkingRowData r = m_LodgeParkingRows[i];
+                string raw = m_NameSystem.TryGetCustomName(r.Lodge, out string custom) ? custom : null;
+                if (ReferenceEquals(raw, r.RawName) || string.Equals(raw, r.RawName, StringComparison.Ordinal))
+                    continue;
+                string shown = LodgeNumberRule.DisplayName(raw);
+                Mod.Log.Info($"Hub [lodge-name] lodge {Ent(r.Lodge)}: {(r.Name == null ? "(no custom name)" : "'" + r.Name + "'")} -> " +
+                             $"{(shown == null ? "(no custom name: the tier word and number show)" : "'" + shown + "'")}");
+                r.RawName = raw;
+                r.Name = shown;
+                m_LodgeParkingRows[i] = r;
+                changed = true;
+            }
+            if (changed)
+                m_LodgeParkingRevision++;
         }
 
         /// <summary>`lodgeParking` (bindings.ts LodgeParkingRow).</summary>
@@ -3744,6 +3779,8 @@ namespace SkiResortMod.Systems
                     writer.Write(r.CarSpaces);
                     writer.PropertyName("number");
                     writer.Write(r.Number);
+                    writer.PropertyName("name");
+                    writer.Write(r.Name ?? "");
                     writer.TypeEnd();
                 }
                 writer.ArrayEnd();
