@@ -12,6 +12,7 @@ Long engine and design explanations moved out of the source headers. Each note s
 - [`ChairPinSystem.Mover.md`](ChairPinSystem.Mover.md) -> ChairPinSystem.Mover: the Burst chair move pass, its threading rules and far-loop pacing
 - [`CursorAimSystem.md`](CursorAimSystem.md) -> CursorAimSystem: why the net tool's aim plane needs NetGeometryData.m_DefaultSurfaceHeight rewritten
 - [`GladeBatch.ApplySim.md`](GladeBatch.ApplySim.md) -> GladeBatch.ApplySim: how the glade apply harness works and what it asserts
+- [`GroomerCenterline.md`](GroomerCenterline.md) -> GroomerCenterline: how a groomer's drive path comes out of a ribbon outline, and what makes a ring refused
 - [`HeightmapWriter.md`](HeightmapWriter.md) -> HeightmapWriter: why the base terrain heightmap is the layer to write, and the exact write sequence
 - [`HistoryChart.tsx.md`](HistoryChart.tsx.md) -> HistoryChart.tsx: how the History view draws its charts as inline SVG, and why
 - [`hub.module.scss.md`](hub.module.scss.md) -> hub.module.scss: the Gameface CSS rules the hub stylesheet follows, and the scrollbar-over-the-tile fix
@@ -71,6 +72,7 @@ Long engine and design explanations moved out of the source headers. Each note s
 - [`SkiGladeToolSystem.Debug.md`](SkiGladeToolSystem.Debug.md) -> SkiGladeToolSystem.Debug: how the "Ski Glades" developer-menu tab is wired
 - [`SkiGladeToolSystem.md`](SkiGladeToolSystem.md) -> SkiGladeToolSystem: how the Glade tool hovers, previews, applies and checks itself
 - [`SkiGladeTooltipSystem.md`](SkiGladeTooltipSystem.md) -> SkiGladeTooltipSystem: what the Glade tool's mouse tooltip shows and how it stays allocation-free
+- [`SkiGroomerSystem.md`](SkiGroomerSystem.md) -> SkiGroomerSystem: the groomer prop's entity shape, why it is respawned and not saved, the trip, the ground and the lifecycle
 - [`SkiGuestCounterSystem.md`](SkiGuestCounterSystem.md) -> SkiGuestCounterSystem: how ski-area guests are detected, counted once and booked into the ledger
 - [`SkiLiftChargeSystem.md`](SkiLiftChargeSystem.md) -> SkiLiftChargeSystem: how the monthly lift running charge is billed, resolved to a ski area and logged
 - [`SkiLiftTicketSystem.md`](SkiLiftTicketSystem.md) -> SkiLiftTicketSystem: how lift tickets, passes, lessons and lodge spend are charged and booked

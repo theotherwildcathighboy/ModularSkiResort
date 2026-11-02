@@ -69,6 +69,8 @@
   "Options.OPTION_DESCRIPTION[SkiResortMod.SkiResortMod.Mod.SkiResortSettings.FloodlightDensityPct]": "How many corners of night runs get a floodlight mast, in percent of the full look. Look only: snow and upkeep follow the run type, and night skiing does not need the masts. Runs already built change when you move the slider in a city; saved runs keep their look until edited. Default 100 %.",
   "Options.OPTION[SkiResortMod.SkiResortMod.Mod.SkiResortSettings.SnowGunPlumes]": "Snow-gun plumes",
   "Options.OPTION_DESCRIPTION[SkiResortMod.SkiResortMod.Mod.SkiResortSettings.SnowGunPlumes]": "Snow guns on snowmaking and night runs show a vapor plume while they make snow: cold enough at the gun and the run's snow below the depth where the guns stop. Look only: snow and upkeep do not change. Default on.",
+  "Options.OPTION[SkiResortMod.SkiResortMod.Mod.SkiResortSettings.Groomers]": "Snow groomers",
+  "Options.OPTION_DESCRIPTION[SkiResortMod.SkiResortMod.Mod.SkiResortSettings.Groomers]": "One snow groomer drives each linked cat track while the track is open. Look only: snow, rating and upkeep do not change. Default on.",
   "Options.OPTION[SkiResortMod.SkiResortMod.Mod.SkiResortSettings.CatTrackGradeMaxPct]": "Cat track: max grade",
   "Options.OPTION_DESCRIPTION[SkiResortMod.SkiResortMod.Mod.SkiResortSettings.CatTrackGradeMaxPct]": "The steepest a cat track may climb. A track that cannot stay under it turns red and asks for more length (a switchback). Default 25 %.",
   "Options.OPTION[SkiResortMod.SkiResortMod.Mod.SkiResortSettings.CatTrackWidthM]": "Cat track: width (m)",
