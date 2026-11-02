@@ -86,14 +86,16 @@ namespace SkiTestBridge
                 ProceduralAnimationProperties props = render.GetComponent<ProceduralAnimationProperties>();
                 if (props == null || props.m_Bones == null)
                     continue;
-                for (int k = 0; k < props.m_Bones.Length && k < pb.Length; k++)
+                for (int k = 0; k < props.m_Bones.Length; k++)
                     if (props.m_Bones[k].name == "Train")
-                    {
-                        mesh = j;
-                        bone = k;
-                        rest = pb[k].m_Rotation;
-                        return true;
-                    }
+                        for (int b = 0; b < pb.Length; b++)
+                            if (pb[b].m_BindIndex == k)    // the buffer is sorted by depth (MeshSystem.cs:162-164, :237)
+                            {
+                                mesh = j;
+                                bone = b;
+                                rest = pb[b].m_Rotation;
+                                return true;
+                            }
             }
             return false;
         }

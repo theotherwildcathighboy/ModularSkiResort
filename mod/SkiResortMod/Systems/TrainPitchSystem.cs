@@ -9,8 +9,11 @@
 //   TrainBoneSystem (Rendering, after InitializeBonesSystem): writes the bone. Skeletons exist only near the camera and come back at rest on
 //     every (re)allocation (InitializeBonesSystem.cs:57-70, :161-171), and vanilla never writes a None bone (ObjectInterpolateSystem
 //     AnimateStaticBone has no case for it), so a Burst job re-applies the rotation each frame where it differs.
-// The bone index comes from the mesh's ProceduralAnimationProperties by name (bone names are not kept at runtime; m_Bones order is the
-// ProceduralBone order, MeshSystem.cs:505-510); the Skeleton index is the prefab SubMesh index (ObjectInterpolateSystem.cs:344-351).
+// The bone index comes from the mesh's ProceduralAnimationProperties by name (bone names are not kept at runtime). The ProceduralBone
+// buffer is built in m_Bones order with m_BindIndex = that index (MeshSystem.cs:549-562), then sorted by hierarchy depth, parent and
+// source (InitializeMeshJob, MeshSystem.cs:162-164, :237): sibling order is not kept, so the slot is the one whose m_BindIndex matches. The
+// Bone buffer follows the sorted slots (ProceduralSkeletonSystem.GetSkinMatrices). The Skeleton index is the prefab SubMesh index
+// (ObjectInterpolateSystem.cs:344-351).
 // Never: Temp or Deleted towers (a preview stays level), towers whose prefab has no Train bone (unskinned art: nothing changes), Editor.
 // Log discipline: one line per load naming the rigged tower prefabs, one line per pass that changed anything, a one-shot "!!!" catch.
 // Mod.cs: UpdateAfter<TrainPitchSystem, LiftCensusSystem>(Modification4B); UpdateAfter<TrainBoneSystem, InitializeBonesSystem>(Rendering).
@@ -289,12 +292,14 @@ namespace SkiResortMod.Systems
                     ProceduralAnimationProperties props = render.GetComponent<ProceduralAnimationProperties>();
                     if (props == null || props.m_Bones == null || props.m_Bones.Length != bones.Length)
                         continue;
-                    for (int k = 0; k < props.m_Bones.Length; k++)
+                    for (int k = 0; k < props.m_Bones.Length && rig.SubMesh < 0; k++)
                         if (string.Equals(props.m_Bones[k].name, "Train", StringComparison.Ordinal))
-                        {
-                            rig = new Rig { SubMesh = j, Bone = k, Rest = bones[k].m_Rotation };
-                            break;
-                        }
+                            for (int b = 0; b < bones.Length; b++)
+                                if (bones[b].m_BindIndex == k)    // m_Bones index k -> the sorted buffer slot
+                                {
+                                    rig = new Rig { SubMesh = j, Bone = b, Rest = bones[b].m_Rotation };
+                                    break;
+                                }
                 }
             m_Rigs[prefab] = rig;
             if (rig.SubMesh >= 0)
