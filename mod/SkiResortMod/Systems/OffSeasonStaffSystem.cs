@@ -49,6 +49,7 @@ namespace SkiResortMod.Systems
         private readonly List<Entity> m_Signs = new List<Entity>(16);
         private readonly HashSet<Entity> m_SeenSigns = new HashSet<Entity>();
         private readonly List<Entity> m_GoneSigns = new List<Entity>(4);
+        private readonly HashSet<Entity> m_ObservedThisPoll = new HashSet<Entity>();   // areas whose first observation this poll took
 
         /// <summary>The setting, read live (on when settings are not loaded).</summary>
         internal static bool EnabledSetting => Mod.Settings?.OffSeasonHalfStaff ?? OffSeasonRules.DefaultEnabled;
@@ -147,6 +148,7 @@ namespace SkiResortMod.Systems
 
             m_Attractiveness.CopyTopLevelLinks(m_Buildings, m_Signs);
             m_SeenSigns.Clear();
+            m_ObservedThisPoll.Clear();
             for (int i = 0; i < m_Signs.Count; i++)
             {
                 Entity sign = m_Signs[i];
@@ -170,8 +172,8 @@ namespace SkiResortMod.Systems
                 Entity b = m_Buildings[i];
                 if (!EntityManager.Exists(b) || EntityManager.HasComponent<Deleted>(b) || EntityManager.HasComponent<Temp>(b))
                     continue;
-                if (AwaitsFirstObservation(m_Signs[i]))
-                    continue;   // its area's state after this load is not known yet: keep the saved staff
+                if (OffSeasonRules.HoldsLodgeWrite(AwaitsFirstObservation(m_Signs[i]), m_ObservedThisPoll.Contains(m_Signs[i])))
+                    continue;   // its area's state after this load is not known yet, or this poll took it (the carried sums predate it): keep the saved staff
                 if (!EntityManager.TryGetComponent(b, out PrefabRef pr) || !IsSeasonal(pr.m_Prefab, out string name))
                     continue;
                 if (!EntityManager.TryGetComponent(pr.m_Prefab, out WorkplaceData wd))
@@ -260,6 +262,8 @@ namespace SkiResortMod.Systems
             bool wasKnown = st.Known, wasOff = st.Off;
             OffSeasonRules.Step(ref st, v.Result.RunsCounted == 0, now);
             m_Areas[sign] = st;
+            if (!wasKnown && st.Known)
+                m_ObservedThisPoll.Add(sign);
             if (wasKnown && wasOff == st.Off)
                 return;
             Mod.Log.Info($"OffSeason [area] Welcome Sign {Id(sign)}: " +

@@ -78,6 +78,14 @@ namespace SkiResortMod.Systems
             return linked && areaInSnapshot && !observed;
         }
 
+        /// <summary>Leave a lodge of this area alone on this poll: it still awaits the first observation, or this poll took it. A carrier's
+        /// carried sum is MountainJobsSystem's last poll, taken while the area still read in season (hut, summit and chained off-road
+        /// lodges at full jobs), so a write on the observing poll would raise the saved staff and lay them off again one poll later.</summary>
+        public static bool HoldsLodgeWrite(bool awaitsFirstObservation, bool observedThisPoll)
+        {
+            return awaitsFirstObservation || observedThisPoll;
+        }
+
         /// <summary>Lodges and the ski school are seasonal; patrol and everything else keep their staff all year</summary>
         public static bool IsSeasonal(bool lodge, bool school)
         {
