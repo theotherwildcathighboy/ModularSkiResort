@@ -1097,7 +1097,11 @@ def validate_asset_folder_ex(asset_dir, name, spec=None):
                 rep.warn("texture-lod", f"LOD{lvl} has neither a sharedAssets entry nor a file "
                                         f"for {key}")
     for f in emissive:
-        rep.info("emissive", f"{f} present (LOD0 only; importer intensity 5)")
+        # The importer writes the light row (purpose 34, intensity 5) on LOD0's mesh prefab only; the LOD levels use that row
+        # (ManagedBatchSystem.cs:943-946) and glow where their own surface carries the map (SkiGroomerA in game, 2026-11-01).
+        lit = [lvl for lvl in sorted(lod_fbx) if lvl and f"{name}_LOD{lvl}_Emissive.png" in (set(shared) | present)]
+        rep.info("emissive", f"{f} present: light row on LOD0 (importer purpose 34, intensity 5); LOD levels with the map: "
+                             f"{', '.join(f'LOD{lvl}' for lvl in lit) if lit else 'none (they go dark)'}")
 
     # -- FBX round-trips
     temp_objs = []

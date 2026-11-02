@@ -128,7 +128,23 @@ def test_structure():
     # what surgery gets
     sg = G.LIGHT_SURGERY
     ok(sg["mesh_lod0_single_light"]["purpose"] == 71, "the mesh light follows the prefab's effects (purpose 71)")
-    ok(len(sg["effect_source"]) == 2 and all(len(r["cid"]) == 32 for r in sg["effect_source"]), "two effect rows with their CIDs")
+    es = sg["effect_source"]
+    ok(len(es) == 3 and all(len(r["cid"]) == 32 for r in es), "three effect rows with their CIDs")
+    ok(es[0]["effect"] == "SkiPisteFloodSource" and es[2]["effect"] == "SkiPisteFloodSource" and es[0]["cid"] == es[2]["cid"],
+       "row 0 the front flood (purpose 71 follows it), row 2 the rear flood")
+    ok(all(abs(sum(q * q for q in r["m_Rotation_xyzw"]) - 1.0) < 1e-5 for r in es), "unit rotations")
+    fa, ra = G.flood_aim_author(es[0]), G.flood_aim_author(es[2])
+    c25, s25 = math.cos(math.radians(25.0)), math.sin(math.radians(25.0))
+    ok((fa - Vector((c25, 0.0, -s25))).length < 1e-4, f"front flood aims forward, 25 degrees down {tuple(round(v, 4) for v in fa)}")
+    ok((ra - Vector((-c25, 0.0, -s25))).length < 1e-4, f"rear flood aims back, 25 degrees down {tuple(round(v, 4) for v in ra)}")
+    ok(es[2]["m_PositionOffset"][1] == es[0]["m_PositionOffset"][1] and es[2]["m_PositionOffset"][2] < min(x for x, _ in G.HOOD_PROFILE) + 0.2,
+       "rear flood at the front one's height, over the tiller hood's rear edge")
+    # every red panel outside the rear flood's 110 degree cone (half angle 55): in game the engine hood (light on the roof bar) and the
+    # tiller hood (light over the deck's rear end) both glowed like lamps
+    rp = Vector((es[2]["m_PositionOffset"][2], 0.0, es[2]["m_PositionOffset"][1]))       # game (0, y, z) -> author (z, 0, y)
+    for label, prof in (("engine hood", G.HOOD_STATIONS), ("tiller hood", G.HOOD_PROFILE)):
+        deg = min(math.degrees(ra.angle(Vector((x, 0.0, zt)) - rp)) for x, zt in prof)
+        ok(deg > 55.0 + 5.0, f"the red {label} is outside the rear flood's cone with margin (nearest {deg:.1f} degrees off its aim)")
     ok(all(2.9 <= r["m_PositionOffset"][1] and abs(r["m_PositionOffset"][0]) == 0.0 and str(r["m_PositionOffset"][0]) == "0.0" for r in sg["effect_source"]), "effect rows on the center line, in the game frame")
     co = np.array(b.V)
     ok(abs(co[:, 2].min()) < 1e-6, "lowest point on z = 0")
@@ -345,7 +361,7 @@ def test_full():
         data = json.loads(text)
         ok(abs(data["track_center_x_author_m"] - G.TRACK_CENTER_X) < 1e-9, "manifest carries the track center")
         ok("headlight" in data["lights"], "manifest carries the light positions")
-        ok(data["surgery"]["mesh_lod0_single_light"]["purpose"] == 71 and len(data["surgery"]["effect_source"]) == 2, "manifest carries the surgery rows")
+        ok(data["surgery"]["mesh_lod0_single_light"]["purpose"] == 71 and len(data["surgery"]["effect_source"]) == 3, "manifest carries the surgery rows")
         ok(data["emissive"]["map"] == f"{G.NAME}_Emissive.png" and set(data["pack"]["lit_m2"]) == {"LOD0", "LOD1", "LOD2"}, "manifest carries the Emissive map and the lit surface per level")
         # a fresh process gives the same files
         out2 = os.path.join(tmp, "B")

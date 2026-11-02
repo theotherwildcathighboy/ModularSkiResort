@@ -352,6 +352,24 @@
         "m_Intensity": 1,
         "m_ParentMesh": 0,
         "m_AnimationIndex": 0
+      },
+      {
+        "effect": "SkiPisteFloodSource",
+        "cid": "0fff229caa4bf7238884ed882d59fbb1",
+        "m_PositionOffset": [
+          0.0,
+          2.9,
+          -3.6
+        ],
+        "m_Rotation_xyzw": [
+          0.0,
+          0.976296,
+          -0.21644,
+          0.0
+        ],
+        "m_Intensity": 1,
+        "m_ParentMesh": 0,
+        "m_AnimationIndex": -1
       }
     ],
     "effect_source_curves": "one row: m_AnimationCurves[0] of vanilla EU_Snowplow01.Prefab (0.5 s), for the amber light's pulse"

@@ -836,8 +836,11 @@ def _roof(b):
     tube(b, "Antenna", "black", (0.80, -0.30, 2.79), (0.80, -0.30, 3.015), 0.016, n=3, caps=(False, False), tier="small")
 
 
+HOOD_STATIONS = [(0.60, 2.00), (0.15, 1.86), (-0.40, 1.62), (-0.95, 1.36)]   # (x, top z) of the engine hood behind the cab
+
+
 def _hood(b):
-    st = [(0.60, 2.00), (0.15, 1.86), (-0.40, 1.62), (-0.95, 1.36)]
+    st = HOOD_STATIONS
     rings = []
     for x, zt in st:
         w = 1.235 - 0.04 * (0.60 - x) / 1.55
@@ -2080,7 +2083,12 @@ VALIDATE_SPEC = {"kind": "prop", "lod0_cap": LOD0_CAP, "lod1_ratio": 0.5, "lod2_
 
 
 # The effects' lamps have no mesh, so they sit where they light best: the flood at the bar's center, the amber well above it, where it leaves no hot spot.
+# The rear flood mirrors the front one, aimed back and 25 degrees down: real rear work lights light the slope behind the tiller as well as
+# ahead. It sits at the front one's height over the tiller hood's rear edge, so every red panel is outside its 110 degree cone (in game,
+# 2026-11-01/02): on the rear roof bar it burned a hot spot on the engine hood 1 to 2 m below, and over the deck's rear end (x -2.21) it lit
+# the red tiller hood 2.5 m away at full strength, which read as an amber light bar from 350 m. From here the pool starts behind the comb.
 FLOOD_AUTHOR, AMBER_AUTHOR = (2.36, 0.0, 2.90), (BEACON_X, 0.0, 3.35)
+REAR_FLOOD_AUTHOR = (-3.60, 0.0, 2.90)
 
 
 def _game_row(p):
@@ -2092,11 +2100,15 @@ LIGHT_SURGERY = {
     "mesh_lod0_single_light": {"purpose": 71, "color": [1, 1, 1, 1], "colorOff": [0, 0, 0, 1], "intensity": 1.0, "luminance": 0, "responseTime": 0,
                                "animationIndex": -1, "materialId": 0},
     "mesh_lod1_lod2": "no EmissiveProperties: the levels use the main mesh's (ManagedBatchSystem.cs:943-946)",
+    # Row 0 stays the front flood: purpose 71 follows the first enabled effect, so row 0 must be Night-gated. Rotations are game local: the
+    # front one 25 degrees about +x (forward and down), the rear one 180 degrees about +y times that (back and down).
     "effect_source": [
         {"effect": "SkiPisteFloodSource", "cid": "0fff229caa4bf7238884ed882d59fbb1", "m_PositionOffset": _game_row(FLOOD_AUTHOR),
          "m_Rotation_xyzw": [0.21644, 0.0, 0.0, 0.976296], "m_Intensity": 1, "m_ParentMesh": 0, "m_AnimationIndex": -1},
         {"effect": "SkiSnowGunBeaconSource", "cid": "d487a21aa832aaea20c94fb8d04ac3f4", "m_PositionOffset": _game_row(AMBER_AUTHOR),
          "m_Rotation_xyzw": [0.0, 0.0, 0.0, 1.0], "m_Intensity": 1, "m_ParentMesh": 0, "m_AnimationIndex": 0},
+        {"effect": "SkiPisteFloodSource", "cid": "0fff229caa4bf7238884ed882d59fbb1", "m_PositionOffset": _game_row(REAR_FLOOD_AUTHOR),
+         "m_Rotation_xyzw": [0.0, 0.976296, -0.21644, 0.0], "m_Intensity": 1, "m_ParentMesh": 0, "m_AnimationIndex": -1},
     ],
     "effect_source_curves": "one row: m_AnimationCurves[0] of vanilla EU_Snowplow01.Prefab (0.5 s), for the amber light's pulse",
 }
@@ -2166,6 +2178,17 @@ def author_to_net(p):
     return (p[1], -p[0], p[2])
 
 
+def flood_aim_author(row):
+    """The effect's forward (game local +Z) through the row's rotation, in the author frame: game (gx, gy, gz) -> author (gz, -gx, gy)."""
+    x, y, z, w = row["m_Rotation_xyzw"]
+    v = mathutils.Quaternion((w, x, y, z)) @ Vector((0.0, 0.0, 1.0))
+    return Vector((v.z, -v.x, v.y))
+
+
+def flood_aim_net(row):
+    return Vector(author_to_net(tuple(flood_aim_author(row))))
+
+
 def _fit(cam, obj, direction, res, margin=1.02):
     """Aim at the bounding box center from `direction`, as close as the frame allows."""
     d = Vector(direction).normalized()
@@ -2233,7 +2256,8 @@ def _night_rig(rig, obj, asset_dir, label):
     moon.data.color = (0.62, 0.72, 1.0)
     P._make_ground(rig)
     P._assign(obj, P._pbr_material(rig, asset_dir, NAME, None, mat_name=f"{NAME}_Night{label}"))
-    for row, kind in zip(LIGHT_SURGERY["effect_source"], ("SPOT", "POINT")):
+    for row in LIGHT_SURGERY["effect_source"]:
+        kind = "SPOT" if row["effect"] == "SkiPisteFloodSource" else "POINT"
         gx, gy, gz = row["m_PositionOffset"]
         bpy.ops.object.light_add(type=kind, location=author_to_net((gz, -gx, gy)))
         lamp_ob = rig.track(bpy.context.active_object)
@@ -2243,8 +2267,7 @@ def _night_rig(rig, obj, asset_dir, label):
             lamp_ob.data.spot_size = math.radians(110.0)
             lamp_ob.data.spot_blend = 0.25
             lamp_ob.data.color = (1.0, 0.93, 0.83)
-            aim = Vector((0.0, -math.cos(math.radians(25.0)), -math.sin(math.radians(25.0))))
-            lamp_ob.rotation_euler = aim.to_track_quat("-Z", "Y").to_euler()
+            lamp_ob.rotation_euler = flood_aim_net(row).to_track_quat("-Z", "Y").to_euler()
         else:
             lamp_ob.data.energy = NIGHT_POINT_W
             lamp_ob.data.color = (1.0, 0.40, 0.012)
