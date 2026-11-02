@@ -5,7 +5,7 @@
 // The entity is the prefab's archetype minus Static, plus Stopped, InterpolatedTransform and LivePath: no search tree (not clickable, no panel,
 // no bulldoze, no overlap with anything), and the saver skips it. Respawned from the catalog after every load; nothing stays in a save.
 // Log discipline: one ARMED line per load, one [prefab] line (or one WARN and off), one [no path] line per track per outline, one [state] line
-// per pass that changed anything, one [cost] line per load, a one-shot "!!!" catch. The Editor never arms it.
+// per pass that changed anything, one [lights] line per day/night flip, one [cost] line per load, a one-shot "!!!" catch. The Editor never arms it.
 // Engine notes: EngineNotes/SkiGroomerSystem.md
 
 using System;
@@ -16,6 +16,7 @@ using Colossal.Mathematics;
 using Colossal.Serialization.Entities;
 using Game;
 using Game.Common;
+using Game.Effects;
 using Game.Objects;
 using Game.Prefabs;
 using Game.Rendering;
@@ -35,6 +36,10 @@ namespace SkiResortMod.Systems
     {
         /// <summary>The [cost] window: passes that wrote a pose (about 10 s at 60 fps).</summary>
         private const int CostPasses = 600;
+
+        /// <summary>Light passes after a day/night flip, the same settle as SkiNightLightSystem: 8 x 2048 sim frames outlast EffectFlagSystem's 15000-tick stagger.</summary>
+        private const int LightSettlePasses = 8;
+        private const double LightPassS = 2048.0 / 60.0;
 
         /// <summary>One bound cat track. Prop is its one slot: a track can never hold two groomers.</summary>
         private sealed class Track
@@ -109,6 +114,7 @@ namespace SkiResortMod.Systems
         private PrefabSystem m_PrefabSystem;
         private SkiRunCatalogSystem m_Catalog;
         private SkiSnowInjectionSystem m_Injection;
+        private EffectFlagSystem m_EffectFlags;
         private EntityQuery m_PrefabQuery;
 
         private ComponentLookup<Transform> m_TransformLookup;
@@ -138,6 +144,10 @@ namespace SkiResortMod.Systems
         private int m_Groomers;
         private double m_LastTimeS;
         private bool m_CapLogged;
+        private bool m_HaveNight;
+        private bool m_LastNight;
+        private int m_LightPasses;
+        private double m_NextLightS;
 
         // [cost] window and path counters, per load
         private readonly float[] m_CostRing = new float[CostPasses];
@@ -158,6 +168,7 @@ namespace SkiResortMod.Systems
             m_PrefabSystem = World.GetOrCreateSystemManaged<PrefabSystem>();
             m_Catalog = World.GetOrCreateSystemManaged<SkiRunCatalogSystem>();
             m_Injection = World.GetOrCreateSystemManaged<SkiSnowInjectionSystem>();
+            m_EffectFlags = World.GetOrCreateSystemManaged<EffectFlagSystem>();
             m_PrefabQuery = GetEntityQuery(ComponentType.ReadOnly<PrefabData>(), ComponentType.ReadOnly<ObjectData>());
             m_TransformLookup = GetComponentLookup<Transform>(isReadOnly: false);
             m_CullingLookup = GetComponentLookup<CullingInfo>(isReadOnly: false);
@@ -223,6 +234,8 @@ namespace SkiResortMod.Systems
             m_AnyPathOwed = false;
             m_LastTimeS = -1.0;
             m_CapLogged = false;
+            m_HaveNight = false;
+            m_LightPasses = 0;
             m_CostCount = 0;
             m_CostLogged = false;
             m_PosesWritten = 0L;
@@ -309,8 +322,34 @@ namespace SkiResortMod.Systems
             BuildOnePath();
             PollSeason(timeS);
             Reconcile(timeS);
+            RefreshLights(timeS);
             MoveProps(timeS, start);
             m_LastTimeS = timeS;
+        }
+
+        /// <summary>A machine's Night-gated effects are evaluated at spawn and on EffectsUpdated, nothing else (EffectControlSystem.cs:1087-1097): without this, one
+        /// spawned by day stays dark all night. The tag is structural, so it runs here before the job, and only for the passes after a flip.</summary>
+        private void RefreshLights(double timeS)
+        {
+            bool night = m_EffectFlags.GetData().m_IsNightTime;
+            if (!m_HaveNight || night != m_LastNight)
+            {
+                if (m_HaveNight)
+                    Mod.Log.Info($"Groomers [lights]: {(night ? "night" : "day")}; refreshing {m_Groomers} machine(s)");
+                m_HaveNight = true;
+                m_LastNight = night;
+                m_LightPasses = LightSettlePasses;
+                m_NextLightS = timeS;
+            }
+            if (m_LightPasses <= 0 || timeS < m_NextLightS)
+                return;
+            m_LightPasses--;
+            m_NextLightS = timeS + LightPassS;
+            for (int i = 0; i < m_Tracks.Count; i++)
+            {
+                if (m_Tracks[i].Prop != Entity.Null)
+                    EntityManager.AddComponent<EffectsUpdated>(m_Tracks[i].Prop);
+            }
         }
 
         // ---- the prefab ---------------------------------------------------------------------------------------------------------------

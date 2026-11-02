@@ -1070,7 +1070,7 @@ def validate_asset_folder_ex(asset_dir, name, spec=None):
                 rep.info("settings", f"sharedAssets[{key!r}] is an identity entry (dedicated LOD texture set)")
             else:
                 rep.warn("settings", f"sharedAssets key {key!r} also exists as a real file (shadowed)")
-        km = re.fullmatch(rf"{re.escape(name)}_LOD(\d+)_(BaseColor|Normal|MaskMap|ControlMask)\.png", key)
+        km = re.fullmatch(rf"{re.escape(name)}_LOD(\d+)_(BaseColor|Normal|MaskMap|ControlMask|Emissive)\.png", key)
         if not km:
             rep.warn("settings", f"sharedAssets key {key!r} is not a `{name}_LODn_<map>.png` name")
         elif int(km.group(1)) not in declared_lods:

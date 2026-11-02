@@ -1,0 +1,197 @@
+{
+    "$id": 0,
+    "$type": "0|Game.Prefabs.StaticObjectPrefab, Game",
+    "name": "SkiGroomerA",
+    "active": true,
+    "components": {
+        "$id": 1,
+        "$type": "1|System.Collections.Generic.List`1[[Game.Prefabs.ComponentBase, Game]], mscorlib",
+        "$rlength": 2,
+        "$rcontent": [
+            {
+                "$id": 2,
+                "$type": "2|Game.Prefabs.EditorAssetCategoryOverride, Game",
+                "name": "EditorAssetCategoryOverride",
+                "active": true,
+                "m_IncludeCategories": {
+                    "$id": 3,
+                    "$type": "3|System.String[], mscorlib",
+                    "$rlength": 1,
+                    "$rcontent": [
+                        "Ski Resort/Internal"
+                    ]
+                },
+                "m_ExcludeCategories": {
+                    "$id": 4,
+                    "$type": 3,
+                    "$rlength": 1,
+                    "$rcontent": [
+                        "FindIt"
+                    ]
+                }
+            },
+            {
+                "$id": 5,
+                "$type": "4|Game.Prefabs.EffectSource, Game",
+                "name": "EffectSource",
+                "active": true,
+                "m_Effects": {
+                    "$id": 6,
+                    "$type": "5|System.Collections.Generic.List`1[[Game.Prefabs.EffectSource+EffectSettings, Game]], mscorlib",
+                    "$rlength": 2,
+                    "$rcontent": [
+                        {
+                            "$id": 7,
+                            "$type": "6|Game.Prefabs.EffectSource+EffectSettings, Game",
+                            "m_Effect": $fstrref:"CID:0fff229caa4bf7238884ed882d59fbb1",
+                            "m_PositionOffset": { "$type": "7|Unity.Mathematics.float3, Unity.Mathematics", "x": 0, "y": 2.9, "z": 2.36 },
+                            "m_Rotation": {
+                                "$type": "8|Unity.Mathematics.quaternion, Unity.Mathematics",
+                                "value": {
+                                    "$type": "9|Unity.Mathematics.float4, Unity.Mathematics",
+                                    "x": 0.216440, "y": 0, "z": 0, "w": 0.976296
+                                }
+                            },
+                            "m_Scale": { "$type": 7, "x": 1, "y": 1, "z": 1 },
+                            "m_Intensity": 1,
+                            "m_ParentMesh": 0,
+                            "m_AnimationIndex": -1
+                        },
+                        {
+                            "$id": 8,
+                            "$type": 6,
+                            "m_Effect": $fstrref:"CID:d487a21aa832aaea20c94fb8d04ac3f4",
+                            "m_PositionOffset": { "$type": 7, "x": 0, "y": 3.35, "z": 2.18 },
+                            "m_Rotation": { "$type": 8, "value": { "$type": 9, "x": 0, "y": 0, "z": 0, "w": 1 } },
+                            "m_Scale": { "$type": 7, "x": 1, "y": 1, "z": 1 },
+                            "m_Intensity": 1,
+                            "m_ParentMesh": 0,
+                            "m_AnimationIndex": 0
+                        }
+                    ]
+                },
+                "m_AnimationCurves": {
+                    "$id": 9,
+                    "$type": "10|System.Collections.Generic.List`1[[Game.Prefabs.EffectSource+AnimationProperties, Game]], mscorlib",
+                    "$rlength": 1,
+                    "$rcontent": [
+                        {
+                            "$id": 10,
+                            "$type": "11|Game.Prefabs.EffectSource+AnimationProperties, Game",
+                            "m_Duration": 0.5,
+                            "m_Curve": {
+                                "$id": 11,
+                                "$type": "12|UnityEngine.AnimationCurve, UnityEngine.CoreModule",
+                                {
+                                    "$id": 12,
+                                    "$type": "13|UnityEngine.Keyframe[], UnityEngine.CoreModule",
+                                    "$rlength": 6,
+                                    "$rcontent": [
+                                        {
+                                            "$type": "14|UnityEngine.Keyframe, UnityEngine.CoreModule",
+                                            "ver": 1,
+                                            "m_Time": 0,
+                                            "m_Value": 0,
+                                            "m_InTangent": 0,
+                                            "m_OutTangent": 0,
+                                            "m_WeightedMode": 0,
+                                            "m_InWeight": 0.333333343,
+                                            "m_OutWeight": 0.333333343
+                                        },
+                                        {
+                                            "$type": 14,
+                                            "ver": 1,
+                                            "m_Time": 0.249,
+                                            "m_Value": 0,
+                                            "m_InTangent": 0,
+                                            "m_OutTangent": 999.998,
+                                            "m_WeightedMode": 0,
+                                            "m_InWeight": 0.333333343,
+                                            "m_OutWeight": 0.333333343
+                                        },
+                                        {
+                                            "$type": 14,
+                                            "ver": 1,
+                                            "m_Time": 0.25,
+                                            "m_Value": 1,
+                                            "m_InTangent": 999.998,
+                                            "m_OutTangent": 0,
+                                            "m_WeightedMode": 0,
+                                            "m_InWeight": 0.333333343,
+                                            "m_OutWeight": 0.333333343
+                                        },
+                                        {
+                                            "$type": 14,
+                                            "ver": 1,
+                                            "m_Time": 0.749,
+                                            "m_Value": 1,
+                                            "m_InTangent": 0,
+                                            "m_OutTangent": -1000.01288,
+                                            "m_WeightedMode": 0,
+                                            "m_InWeight": 0.333333343,
+                                            "m_OutWeight": 0.333333343
+                                        },
+                                        {
+                                            "$type": 14,
+                                            "ver": 1,
+                                            "m_Time": 0.75,
+                                            "m_Value": 0,
+                                            "m_InTangent": -1000.01288,
+                                            "m_OutTangent": 0,
+                                            "m_WeightedMode": 0,
+                                            "m_InWeight": 0.333333343,
+                                            "m_OutWeight": 0.333333343
+                                        },
+                                        {
+                                            "$type": 14,
+                                            "ver": 1,
+                                            "m_Time": 1,
+                                            "m_Value": 0,
+                                            "m_InTangent": 0,
+                                            "m_OutTangent": 1,
+                                            "m_WeightedMode": 0,
+                                            "m_InWeight": 0.333333343,
+                                            "m_OutWeight": 0.333333343
+                                        }
+                                    ]
+                                },
+                                8,
+                                8
+                            }
+                        }
+                    ]
+                }
+            }
+        ]
+    },
+    "m_Meshes": {
+        "$id": 13,
+        "$type": "15|Game.Prefabs.ObjectMeshInfo[], Game",
+        "$rlength": 1,
+        "$rcontent": [
+            {
+                "$id": 14,
+                "$type": "16|Game.Prefabs.ObjectMeshInfo, Game",
+                "m_Mesh": $fstrref:"CID:7a39a3b55b2eb0d96337cb2be71c9967",
+                "m_Position": {
+                    "$type": 7,
+                    "x": 0,
+                    "y": 0,
+                    "z": 0
+                },
+                "m_Rotation": {
+                    "$type": 8,
+                    "value": {
+                        "$type": 9,
+                        "x": 0,
+                        "y": 0,
+                        "z": 0,
+                        "w": 1
+                    }
+                },
+                "m_RequireState": 0
+            }
+        ]
+    },
+    "m_Circular": false
+}

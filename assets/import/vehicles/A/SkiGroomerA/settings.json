@@ -1,0 +1,20 @@
+{
+  "sharedAssets": {
+    "SkiGroomerA_LOD1_BaseColor.png": "SkiGroomerA_BaseColor.png",
+    "SkiGroomerA_LOD1_ControlMask.png": "SkiGroomerA_ControlMask.png",
+    "SkiGroomerA_LOD1_MaskMap.png": "SkiGroomerA_MaskMap.png",
+    "SkiGroomerA_LOD1_Normal.png": "SkiGroomerA_Normal.png",
+    "SkiGroomerA_LOD2_BaseColor.png": "SkiGroomerA_BaseColor.png",
+    "SkiGroomerA_LOD2_ControlMask.png": "SkiGroomerA_ControlMask.png",
+    "SkiGroomerA_LOD2_MaskMap.png": "SkiGroomerA_MaskMap.png",
+    "SkiGroomerA_LOD2_Normal.png": "SkiGroomerA_Normal.png",
+    "SkiGroomerA_LOD1_Emissive.png": "SkiGroomerA_Emissive.png",
+    "SkiGroomerA_LOD2_Emissive.png": "SkiGroomerA_Emissive.png"
+  },
+  "LOD1": {
+    "mode": "Skip"
+  },
+  "LOD2": {
+    "mode": "Skip"
+  }
+}
