@@ -26,6 +26,8 @@
 #                  $plength match the real array counts). Also in LANES: rope-lane m_Hanging <= 0.01 (R31).
 #  10. SHIPPED   - every (name, type, CID) of tools/shipped-prefabs.json (tools/freeze-shipped.ps1) is still an owned prefab
 #                  with that CID (FAIL otherwise); an owned non-RenderPrefab not in the list WARNs until re-frozen (T74).
+#  11b. MOVERLIGHT - the prop our code moves (GroomerRules.PrefabName) lights only through purpose 71 EffectSource, carries an
+#                  EffectSource row for it to follow, and its far surfaces carry the emissive map (SkiGroomerA, 2026-11-01).
 #  13. STUBNET   - every station stub marker net is wider than the widest lift line and has no lanes (T121 / T126).
 #  14. POWERFLOW - every owned lift line (PowerLinePrefab, not a MarkerNet) carries ElectricityConnection Voltage High (1),
 #                  Direction Both (3), Capacity == the vanilla Low-voltage Line's 800000 (DECISIONS 369 / R-1).
@@ -514,7 +516,13 @@ foreach ($p in $ownedPrefabs) {
     if (-not $isRender) {
         $idiomRows++
         $parsed = $null
-        try { $parsed = $jsonSer.DeserializeObject(($text -replace '\$fstrref:("[^"]*")', '$1')) }
+        # Odin writes a UnityEngine.AnimationCurve (an EffectSource curve, copied from vanilla EU_Snowplow01 onto SkiGroomerA) as an
+        # unnamed Keyframe[] member after "$type" and two bare wrap-mode numbers before the closing brace. Name both so the file
+        # parses and ARRLEN still counts the keyframes. A "$type" followed by ", {" never occurs in strict JSON, so nothing else matches.
+        $jsonText = $text -replace '\$fstrref:("[^"]*")', '$1'
+        $jsonText = [regex]::Replace($jsonText, '("\$type":\s*(?:"[^"]*"|\d+)),(\s*)\{(?=\s*"\$id")', '$1,$2"$$keys": {')
+        $jsonText = [regex]::Replace($jsonText, '\}(\s*),(\s*)(-?\d+),(\s*)(-?\d+)(\s*)\}', '}$1,$2"$$preWrap": $3,$4"$$postWrap": $5$6}')
+        try { $parsed = $jsonSer.DeserializeObject($jsonText) }
         catch {
             # Odin writes a UnityEngine.Color as bare numbers after its "$type" line (not strict JSON): those few files
             # are skipped and counted; any other parse failure is a real malformed prefab.
@@ -639,6 +647,67 @@ foreach ($p in $ownedPrefabs) {
     } else { $emOk++; if ($emBldg.ContainsKey($cidVal)) { $emBright++ } }
 }
 $rows.Add("OK    EMISSIVE  $emOk owned mesh prefab(s) with an emissive block, none on purpose 72; $emBright building mesh(es) at <= 1")
+
+# ---- 11b. MOVERLIGHT: a prop our code moves lights only through purpose 71 (SkiGroomerA, 2026-11-01) ------------------------
+# The groomer is a StaticObjectPrefab spawned without Static, Car or TransformFrame (EngineNotes/SkiGroomerSystem.md), so the vehicle
+# light purposes are forced to 0 (ObjectInterpolateSystem.cs:1097-1180) and 33 / 34 have no night gate (:1089-1096): the importer's
+# default 34 @ 5 glows day and night. The only night-only mesh light is 71 EffectSource, which follows the object's FIRST enabled
+# effect (:1181-1193), so the object prefab must carry an EffectSource row. The far levels keep the light only if their surfaces carry
+# the emissive map (shared through settings.json; ManagedBatchSystem.cs:943-946 lends them LOD0's light row). The moving props are
+# the names the code spawns: GroomerRules.PrefabName. docs/research/groomer-lights-2026-11-01.md section 11.
+# FAIL: any mesh light purpose other than 71 on the prop's LOD chain; a 71 light with no EffectSource row; a LOD surface without
+# _EmissiveColorMap while LOD0 has one. WARN: the named prop is not imported (the code then runs its stand-in).
+$mlRules = Join-Path $PSScriptRoot "..\mod\SkiResortMod\Systems\GroomerRules.cs"
+$mlNames = @()
+if (Test-Path -LiteralPath $mlRules) {
+    $mlNames = @([regex]::Matches([IO.File]::ReadAllText($mlRules), 'public const string PrefabName = "([^"]+)"') | ForEach-Object { $_.Groups[1].Value })
+}
+if ($mlNames.Count -eq 0) { $rows.Add("FAIL  MOVERLIGHT no PrefabName in mod/SkiResortMod/Systems/GroomerRules.cs (the gate reads the moving prop's name there)"); $failures++ }
+$mlByCid = @{}
+foreach ($p in $ownedPrefabs) {
+    $c = "$($p.FullName).cid"
+    if (Test-Path -LiteralPath $c) { $mlByCid[([IO.File]::ReadAllText($c)).Trim().ToLower()] = $p.FullName }
+}
+foreach ($mn in $mlNames) {
+    $obj = $null
+    foreach ($p in $ownedPrefabs) {
+        $t = [IO.File]::ReadAllText($p.FullName)
+        if (($t -match '^\{\s*"\$id":\s*0,\s*"\$type":\s*"0\|Game\.Prefabs\.StaticObjectPrefab,') -and ([regex]::Match($t, '(?m)^    "name":\s*"([^"]+)"').Groups[1].Value -ceq $mn)) { $obj = $t; break }
+    }
+    if ($null -eq $obj) { $rows.Add("WARN  MOVERLIGHT StaticObjectPrefab $mn not found: the code runs its stand-in"); $warnings++; continue }
+    $mm = [regex]::Match($obj, '"m_Mesh":\s*\$fstrref:"CID:([0-9a-f]{32})"')
+    $lod0 = if ($mm.Success) { $mlByCid[$mm.Groups[1].Value] } else { $null }
+    if (-not $lod0) { $rows.Add("FAIL  MOVERLIGHT ${mn}: its m_Meshes[0] does not resolve to an owned mesh prefab"); $failures++; continue }
+    $lod0Text = [IO.File]::ReadAllText($lod0)
+    $chain = @($lod0)
+    $lm = [regex]::Match($lod0Text, '(?s)"m_LodMeshes":\s*\{.*?"\$rcontent":\s*\[(.*?)\]')
+    if ($lm.Success) { foreach ($c in [regex]::Matches($lm.Groups[1].Value, 'CID:([0-9a-f]{32})')) { if ($mlByCid[$c.Groups[1].Value]) { $chain += $mlByCid[$c.Groups[1].Value] } } }
+    $bad = @(); $has71 = $false; $surfMiss = @(); $lod0Emissive = $false
+    for ($i = 0; $i -lt $chain.Count; $i++) {
+        $mt = [IO.File]::ReadAllText($chain[$i])
+        foreach ($pm in [regex]::Matches($mt, '"purpose":\s*(\d+)')) {
+            if ($pm.Groups[1].Value -eq '71') { $has71 = $true } else { $bad += "LOD$i purpose $($pm.Groups[1].Value)" }
+        }
+        foreach ($sc in [regex]::Matches(([regex]::Match($mt, '(?s)"m_SurfaceAssets":\s*\{.*?"\$rcontent":\s*\[(.*?)\]').Groups[1].Value), 'CID:([0-9a-f]{32})')) {
+            $sf = $allCidValues[$sc.Groups[1].Value]
+            if (-not $sf) { continue }   # RESOLVE reports a dangling surface
+            $surf = $sf -replace '\.cid$', ''
+            $hasMap = (Test-Path -LiteralPath $surf) -and ([Text.Encoding]::ASCII.GetString([IO.File]::ReadAllBytes($surf)).Contains("_EmissiveColorMap"))
+            if ($i -eq 0) { $lod0Emissive = $lod0Emissive -or $hasMap } elseif (-not $hasMap) { $surfMiss += "LOD$i" }
+        }
+    }
+    $effects = [regex]::Matches($obj, '"m_Effect":\s*\$fstrref:"(CID|UnityGUID):[0-9a-f]{32}"').Count
+    $rel0 = $lod0.Substring($ImportedData.Length + 1)
+    if ($bad.Count -gt 0) {
+        $rows.Add("FAIL  MOVERLIGHT ${mn}: mesh light $($bad -join ', ') on $rel0 chain - a moving prop has no Car / TransformFrame: 33 / 34 glow day and night, vehicle purposes stay 0; use 71 EffectSource (groomer-lights section 11)"); $failures++
+    } elseif ($has71 -and $effects -eq 0) {
+        $rows.Add("FAIL  MOVERLIGHT ${mn}: purpose 71 follows the first enabled effect, and the object prefab carries no EffectSource row: dark at night"); $failures++
+    } elseif ($lod0Emissive -and $surfMiss.Count -gt 0) {
+        $rows.Add("FAIL  MOVERLIGHT ${mn}: $($surfMiss -join ', ') surface without _EmissiveColorMap: the far levels go dark (share the map in settings.json and reimport under a new letter)"); $failures++
+    } else {
+        $rows.Add("OK    MOVERLIGHT ${mn}: $($chain.Count) LOD mesh(es), lights $(if ($has71) { '71 only' } else { 'none' }), $effects effect row(s), far surfaces $(if ($lod0Emissive) { 'carry the emissive map' } else { 'n/a' })")
+    }
+}
 
 # ---- 12. USENGLISH: US spelling in every player-facing text (T130, 2026-10-20; DECISIONS 350) --------------------------------
 # tools/check-us-english.js (word list inside) scans the locale sources, the hub's locale tuples, the mod's log calls and the
