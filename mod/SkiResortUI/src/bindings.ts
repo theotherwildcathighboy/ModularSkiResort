@@ -799,7 +799,7 @@ export interface LodgeParkingRow {
   carSpaces: number;
   /** Contract 30: its number among the area's lodges of its tier (LodgeNumberSystem, persisted); 0 = the only one, no number shown. */
   number: number;
-  /** Contract 31: the name the player gave the lodge in the game (NameSystem; LodgeNumberRule.DisplayName: one line, at most 85 UTF-16
+  /** Contract 31: the name the player gave the lodge in the game (NameSystem; LodgeNumberRule.DisplayName: one line, at most 64 UTF-16
    *  units, a cut name ends in "…"); "" = none, the tier word and number show. Shown instead of them; a plain string argument. */
   name: string;
 }

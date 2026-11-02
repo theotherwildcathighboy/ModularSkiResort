@@ -98,9 +98,11 @@ namespace SkiResortMod.Systems
             return sameTierInArea > 1 && number >= 1 ? number : 0;
         }
 
-        /// <summary>Longest custom name the hub shows (UTF-16 units): the game's own rename field in the info panel title takes 85
-        /// (installed index.js, selected-info title `maxLength:85`); a longer name can only come from code. A cut name ends in an ellipsis.</summary>
-        public const int NameMaxChars = 85;
+        /// <summary>Longest custom name the hub shows (UTF-16 units): the game's own rename field in the info panel title takes 64 (the
+        /// EllipsisTextInput default `maxLength:t=64` in the installed index.js; the field reads maxlength="64" in game, 2026-11-02), the same
+        /// limit as the hub's own rename (SkiResortHubUISystem RenameMaxChars). A longer name can only come from code. A cut name ends in an
+        /// ellipsis.</summary>
+        public const int NameMaxChars = 64;
 
         /// <summary>A lodge's custom name (NameSystem) as the hub shows it, or null for none: control characters and line or paragraph
         /// separators become spaces, runs of white space become one, the ends are trimmed, and a name longer than NameMaxChars is cut
