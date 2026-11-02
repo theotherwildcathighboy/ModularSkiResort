@@ -81,6 +81,7 @@ namespace SkiResortMod.Systems
         private SkiSnowInjectionSystem m_Injection;      // run open state, SnowSettled
         private SnowLineSystem m_SnowLine;               // the one snow gating read
         private Game.Simulation.TimeSystem m_Time;  // the [cost] WARN's midday re-arm and clocks
+        private Game.Simulation.SimulationSystem m_Simulation;  // the supply hold's clock (frames stop while paused)
 
         private EntityQuery m_ParkQuery;       // signs, lodges (and other parks)
         private EntityQuery m_RunQuery;        // our bound runs
@@ -124,10 +125,17 @@ namespace SkiResortMod.Systems
             public double LodgeEffSum, LodgeWeightSum;
             public int SignEfficiencyPct;  // the sign's own efficiency (before the top-level lodges fold in), DUMP
             // (MountainJobsRules header EFFICIENCY) the sign's staffing product (NotEnoughEmployees x
-            // SickEmployees x EmployeeHappiness, WorkProviderSystem.cs:279-281; the mountain buildings' jobs ride on the sign),
+            // SickEmployees x EmployeeHappiness, WorkProviderSystem.cs:279-281; the mountain buildings' jobs ride on the sign unless a road lodge carries them),
             // the sign's efficiency without it, and whether a mountain lodge took it into the top-level lodge mean.
             public float SignStaffing, SignNoStaffValue;
             public bool MountainInMean;
+            // The job carrier (MountainJobsRules): the nearest active road lodge to the sign, Entity.Null = the sign itself. The slices of the
+            // lodges whose jobs ride on it fold into the mean after the walk, when the carrier and its staffing are known.
+            public Entity Carrier;
+            public EntityRef CarrierRef;
+            public float CarrierDistance;
+            public readonly List<float> CarriedOwn = new List<float>(2);
+            public readonly List<double> CarriedWeight = new List<double>(2);
 
             public void Reset(Entity sign)
             {
@@ -159,6 +167,11 @@ namespace SkiResortMod.Systems
                 SignEfficiencyPct = 100;
                 SignStaffing = SignNoStaffValue = 1f;
                 MountainInMean = false;
+                Carrier = Entity.Null;
+                CarrierRef = EntityRef.Null;
+                CarrierDistance = float.PositiveInfinity;
+                CarriedOwn.Clear();
+                CarriedWeight.Clear();
             }
         }
 
@@ -368,6 +381,25 @@ namespace SkiResortMod.Systems
         private readonly List<int> m_ServedVia = new List<int>(32);
         private readonly List<RunRef> m_RunRefs = new List<RunRef>(32);
         private readonly List<bool> m_TrackRuns = new List<bool>(32);  // per run ref, RunKindRules.IsCatTrackLink (the cat track mask)
+        // LodgeSupplyRule: the road-optional lodges (the switch's watch list), this recompute's chain roots and off-road lodges, their lot rings
+        // (cached like m_TopXz), the raw answers (walked only when the inputs changed) and the published answers with their holds.
+        private readonly List<Entity> m_SupplyWatch = new List<Entity>(4);
+        private readonly List<Entity> m_SupplyWatchNext = new List<Entity>(4);
+        private int m_SupplyWatchRevision;
+        private readonly List<float2[]> m_RootRings = new List<float2[]>(4);
+        private readonly List<int> m_RootAreas = new List<int>(4);
+        private readonly List<Entity> m_SupplyLodges = new List<Entity>(4);
+        private readonly List<float2[]> m_SupplyRings = new List<float2[]>(4);
+        private readonly List<int> m_SupplyAreas = new List<int>(4);
+        private readonly Dictionary<Entity, float2[]> m_RingCache = new Dictionary<Entity, float2[]>();
+        private readonly Dictionary<Entity, bool> m_SupplyRaw = new Dictionary<Entity, bool>();
+        private readonly Dictionary<Entity, LodgeSupplyState> m_SupplyStates = new Dictionary<Entity, LodgeSupplyState>();
+        private readonly List<bool> m_SupplyReached = new List<bool>(32);
+        private readonly List<int> m_SupplyStack = new List<int>(32);
+        private readonly List<Entity> m_SupplyGone = new List<Entity>(2);
+        private ulong m_SupplySignature;
+        private bool m_SupplyRawKnown;
+        private int m_SupplyWalks;   // this load (DUMP)
         private readonly List<LiftServedRule.Lift> m_ServeLifts = new List<LiftServedRule.Lift>(8);
         private readonly List<LiftServedRule.Chord> m_Chords = new List<LiftServedRule.Chord>(64);
         private readonly List<int> m_ServingLift = new List<int>(32);
@@ -618,12 +650,46 @@ namespace SkiResortMod.Systems
 
         /// <summary>One ACTIVE lodge of the last recompute with its tier. LodgeIndex = SkiCatalog.Lodges index (the lodge's
         /// PrefabRef is its tier); SummitServed = within Ladder.SummitServedRadiusM of a complete, powered lift's top stub tip of
-        /// its ski area (evaluated for rows with μ summit &gt; μ; false for the others). Every active lodge counts.</summary>
+        /// its ski area (evaluated for rows with μ summit &gt; μ; false for the others). Every active lodge counts.
+        /// HasRoad = Building.m_RoadEdge set at that recompute; Supplied = the published chain answer (LodgeSupplyRule), for a
+        /// road-optional row with no road. Both are per building: the catalog row alone no longer says whether a lodge takes arrivals.</summary>
         internal struct LodgeInfo
         {
             public Entity Lodge;
             public short LodgeIndex;
             public bool SummitServed;
+            public bool HasRoad;
+            public bool Supplied;
+        }
+
+        /// <summary>++ when the list of live road-optional lodges changes, and at every load (LodgeSupplySystem re-copies; ids remap at a load).</summary>
+        internal int SupplyWatchRevision => m_SupplyWatchRevision;
+
+        /// <summary>The live road-optional lodges of the last recompute, linked to a sign or not; clears <paramref name="into"/>.</summary>
+        internal void CopySupplyWatch(List<Entity> into)
+        {
+            into.Clear();
+            for (int i = 0; i < m_SupplyWatch.Count; i++)
+                into.Add(m_SupplyWatch[i]);
+        }
+
+        /// <summary>The published chain answer with its hold (false for a lodge at a road, for any other row, for an unknown lodge). A plain
+        /// dictionary read: the switch asks every frame, the walk behind it runs only when its inputs change.</summary>
+        internal bool IsSupplied(Entity lodge)
+        {
+            return m_SupplyStates.TryGetValue(lodge, out LodgeSupplyState s) && s.Supplied;
+        }
+
+        /// <summary>This lodge has no road edge now and its chain holds: its own jobs ride on the carrier (LodgeSupplyRule.JobsLeave).</summary>
+        internal bool IsOffRoadSupplied(Entity lodge)
+        {
+            return IsSupplied(lodge) && EntityManager.TryGetComponent(lodge, out Building data) && data.m_RoadEdge == Entity.Null;
+        }
+
+        /// <summary>Who carries the area's mountain jobs: the nearest active road lodge to the sign, else <paramref name="sign"/>.</summary>
+        internal Entity CarrierOf(Entity sign)
+        {
+            return m_Cur.TryGetSlot(sign, out AreaSlot slot) && slot.Carrier != Entity.Null ? slot.Carrier : sign;
         }
 
         /// <summary>The LodgeInfo of every active lodge of <paramref name="sign"/> (AreaSlot.Active order: lodge prefab, in the park
@@ -703,6 +769,7 @@ namespace SkiResortMod.Systems
             m_Injection = World.GetOrCreateSystemManaged<SkiSnowInjectionSystem>();
             m_SnowLine = World.GetOrCreateSystemManaged<SnowLineSystem>();
             m_Time = World.GetOrCreateSystemManaged<Game.Simulation.TimeSystem>();
+            m_Simulation = World.GetOrCreateSystemManaged<Game.Simulation.SimulationSystem>();
 
             // The park-building query (signs and lodges carry Game.Buildings.Park, Park.cs:26-41). No
             // Transform (Engine notes: Sync points): the walk reads Entity and PrefabRef only; sign and
@@ -828,6 +895,15 @@ namespace SkiResortMod.Systems
             m_PausedRecomputes = 0;
             m_TopKindOf.Clear();
             m_TopLinkLines = 0;
+            m_SupplyWatch.Clear();
+            m_SupplyWatchNext.Clear();
+            m_SupplyWatchRevision++;
+            m_RingCache.Clear();
+            m_SupplyRaw.Clear();
+            m_SupplyStates.Clear();
+            m_SupplySignature = 0UL;
+            m_SupplyRawKnown = false;
+            m_SupplyWalks = 0;
             m_PositionsDue = true;   // the load's recompute is structural anyway
             m_PositionReads = m_PositionFallbacks = 0;
 
@@ -1013,6 +1089,7 @@ namespace SkiResortMod.Systems
             ulong hash = SkiRunRatingRules.FnvOffset;
             for (int s = 0; s < m_Cur.SlotCount; s++)
                 ReadSign(m_Cur.Slots[s].Sign, null, ref hash);
+            StepSupply();  // a hold that ran out between recomputes shows in the hash below
             LinkTopLevel(null, ref hash);  // the top-level buildings' on/off bits and lodge efficiency (the last walk's list)
             hash = SkiRunRatingRules.Mix(hash, unchecked((uint)m_Census.ComputePowerSignature()));
             m_PollCount++;
@@ -1068,6 +1145,7 @@ namespace SkiResortMod.Systems
                 m_LodgeXz.Clear();  // re-read when due, like m_BaseXz
                 m_PatrolXz.Clear();
                 m_TopXz.Clear();
+                m_RingCache.Clear();
             }
             ulong stateHash = SkiRunRatingRules.FnvOffset;
             m_LodgeClaimed.Clear();
@@ -1131,6 +1209,7 @@ namespace SkiResortMod.Systems
                 slot.Runs[rr.Index] = input;
             }
             next.Chords = m_Chords.Count;
+            UpdateSupply(censusArmed);
 
             // 4. Lifts (census rows with both stations live), resolved to an area.
             CollectLifts(next, readPositions);
@@ -1374,17 +1453,41 @@ namespace SkiResortMod.Systems
         private void LinkTopLevel(Snapshot next, ref ulong hash)
         {
             if (next != null)
+            {
                 m_TopLinksNext.Clear();
+                m_SupplyWatchNext.Clear();
+                m_RootRings.Clear();
+                m_RootAreas.Clear();
+                m_SupplyLodges.Clear();
+                m_SupplyRings.Clear();
+                m_SupplyAreas.Clear();
+            }
             IReadOnlyDictionary<Entity, LodgeDef> lodgeDefs = m_PrefabCatalog.LodgeDefs;
             for (int i = 0; i < m_TopLevel.Count; i++)
             {
                 Entity building = m_TopLevel[i];
                 byte kind = m_TopKind[i];
                 bool live = IsLiveUpgrade(building);   // the poll walks the last recompute's list: a removed building reads not live
-                bool active = live && EntityManager.TryGetComponent(building, out Building data) &&
-                              !BuildingUtils.CheckOption(data, BuildingOption.Inactive);
+                Building data = default;
+                bool hasData = live && EntityManager.TryGetComponent(building, out data);
+                bool active = hasData && !BuildingUtils.CheckOption(data, BuildingOption.Inactive);
+                bool hasRoad = hasData && data.m_RoadEdge != Entity.Null;
                 hash = SkiRunRatingRules.Mix(SkiRunRatingRules.Mix(SkiRunRatingRules.Mix(hash,
                     unchecked((uint)building.Index)), unchecked((uint)building.Version)), active ? 1u : 0u);
+                // A lodge's or depot's road edge and a road-optional lodge's supply: a change asks for a recompute, so ski-day targets, the
+                // parking census and the carrier follow them.
+                LodgeDef topDef = null;
+                bool optional = false, supplied = false;
+                if (kind == SchoolLinkRules.KindDepot)
+                    hash = SkiRunRatingRules.Mix(hash, hasRoad ? 1u : 0u);
+                else if (kind == SchoolLinkRules.KindLodge)
+                {
+                    if (live && EntityManager.TryGetComponent(building, out PrefabRef topRef))
+                        lodgeDefs.TryGetValue(topRef.m_Prefab, out topDef);
+                    optional = topDef != null && topDef.RoadRule == LodgeRoadRule.RoadOptional;
+                    supplied = optional && SuppliedNow(building);
+                    hash = SkiRunRatingRules.Mix(hash, (hasRoad ? 1u : 0u) | (supplied ? 2u : 0u));
+                }
                 float efficiency = 1f;
                 if (kind == SchoolLinkRules.KindLodge && active)
                 {
@@ -1399,8 +1502,12 @@ namespace SkiResortMod.Systems
                 if (TryCachedXz(m_TopXz, building, out float2 xz))
                     link = SchoolLinkRules.Resolve(m_SignIndex, xz, kind == SchoolLinkRules.KindDepot ? SchoolLinkRules.DepotMaxDistance : SkiRunOwnershipSystem.TetherMeters);
                 m_TopLinksNext[id] = link;
+                if (optional && live)
+                    m_SupplyWatchNext.Add(building);
                 if (!link.Linked || !next.TryGetSlot(LiftCensusSystem.Ent(link.Sign), out AreaSlot slot))
                     continue;
+                if (live && (kind == SchoolLinkRules.KindDepot || topDef != null))
+                    AddSupplyInputs(next, slot, building, id, link.Distance, kind == SchoolLinkRules.KindDepot, topDef, hasRoad, active);
                 if (kind == SchoolLinkRules.KindSchool)
                 {
                     SchoolLinkRules.Count(ref slot.Schools, ref slot.SchoolActive, active, live);
@@ -1426,16 +1533,25 @@ namespace SkiResortMod.Systems
                     Entity prefab = EntityManager.TryGetComponent(building, out PrefabRef prefabRef) ? prefabRef.m_Prefab : Entity.Null;
                     LodgeDef def = null;
                     bool known = prefab != Entity.Null && lodgeDefs.TryGetValue(prefab, out def);
-                    slot.ActiveInfo.Add(new LodgeInfo { Lodge = building, LodgeIndex = (short)(known ? def.Index : 0), SummitServed = false });
+                    slot.ActiveInfo.Add(new LodgeInfo
+                    {
+                        Lodge = building,
+                        LodgeIndex = (short)(known ? def.Index : 0),
+                        SummitServed = false,
+                        HasRoad = hasRoad,
+                        Supplied = supplied,
+                    });
                     // The tier base is the weight (SkiCatalog.Lodges B; the school and patrol huts weigh 0).
                     double weight = known ? def.B : 0.0;
                     efficiency = ReadLodgeEfficiency(building, slot);
-                    // A mountain lodge's jobs ride on the sign, so the sign's staffing is its slice's staffing
-                    // (MountainJobsRules; the fold below then takes the sign term without it, so it counts once).
-                    if (known && def.SignJobs > 0 && weight > 0.0)
+                    // A lodge whose jobs ride on the carrier takes the carrier's staffing for its slice, folded in below once the carrier
+                    // is known (MountainJobsRules; the fold then takes the sign term without it, so it counts once).
+                    if (known && weight > 0.0 && (def.SignJobs > 0 || LodgeSupplyRule.JobsLeave(def.RoadRule, hasRoad, supplied)))
                     {
-                        efficiency = MountainJobsRules.MountainEfficiency(efficiency, slot.SignStaffing);
+                        slot.CarriedOwn.Add(efficiency);
+                        slot.CarriedWeight.Add(weight);
                         slot.MountainInMean = true;
+                        continue;
                     }
                     slot.LodgeEffSum += weight * efficiency;
                     slot.LodgeWeightSum += weight;
@@ -1446,6 +1562,15 @@ namespace SkiResortMod.Systems
             for (int s = 0; s < next.SlotCount; s++)
             {
                 AreaSlot slot = next.Slots[s];
+                if (slot.CarriedOwn.Count > 0)
+                {
+                    float staffing = slot.Carrier != Entity.Null ? StaffingOf(slot.Carrier) : slot.SignStaffing;
+                    for (int c = 0; c < slot.CarriedOwn.Count; c++)
+                    {
+                        slot.LodgeEffSum += slot.CarriedWeight[c] * MountainJobsRules.MountainEfficiency(slot.CarriedOwn[c], staffing);
+                        slot.LodgeWeightSum += slot.CarriedWeight[c];
+                    }
+                }
                 if (!(slot.LodgeWeightSum > 0.0))
                     continue;
                 float signTerm = MountainJobsRules.SignTerm(slot.EfficiencyValue, slot.SignNoStaffValue, slot.MountainInMean);
@@ -1462,6 +1587,171 @@ namespace SkiResortMod.Systems
             m_TopLinks = m_TopLinksNext;
             m_TopLinksNext = swap;
         }
+
+        /// <summary>One lodge or depot of an area into this recompute's supply inputs and the carrier pick. A building that is destroyed or
+        /// abandoned neither roots a chain nor carries jobs. A closed (Inactive) road lodge still roots a chain, it still has its road; it
+        /// carries no jobs.</summary>
+        private void AddSupplyInputs(Snapshot next, AreaSlot slot, Entity building, EntityRef id, float distance, bool depot, LodgeDef def, bool hasRoad, bool active)
+        {
+            if (EntityManager.HasComponent<Destroyed>(building) || EntityManager.HasComponent<Abandoned>(building))
+                return;
+            bool roadLodge = !depot && LodgeSupplyRule.IsRoadLodge(def.RoadRule, hasRoad);
+            if (roadLodge && active && MountainJobsRules.BetterCarrier(distance, id, slot.CarrierDistance, slot.CarrierRef))
+            {
+                slot.Carrier = building;
+                slot.CarrierRef = id;
+                slot.CarrierDistance = distance;
+            }
+            bool root = roadLodge || (depot && hasRoad);
+            bool offRoad = !depot && !hasRoad && def.RoadRule == LodgeRoadRule.RoadOptional;
+            if (!root && !offRoad)
+                return;
+            float2[] ring = RingOf(building);
+            if (ring == null || !next.SlotOfSign.TryGetValue(slot.Sign, out int area))
+                return;
+            if (root)
+            {
+                m_RootRings.Add(ring);
+                m_RootAreas.Add(area);
+            }
+            else
+            {
+                m_SupplyLodges.Add(building);
+                m_SupplyRings.Add(ring);
+                m_SupplyAreas.Add(area);
+            }
+        }
+
+        /// <summary>A building's lot rectangle in xz (BuildingUtils.CalculateCorners; a Grand lot is 80 x 72 m, so the 25 m rule measures from
+        /// the lot, not the center), cached like m_TopXz; null without a Transform or BuildingData.</summary>
+        private float2[] RingOf(Entity building)
+        {
+            if (m_RingCache.TryGetValue(building, out float2[] ring))
+                return ring;
+            if (!EntityManager.TryGetComponent(building, out Game.Objects.Transform transform) ||
+                !EntityManager.TryGetComponent(building, out PrefabRef prefabRef) ||
+                !EntityManager.TryGetComponent(prefabRef.m_Prefab, out BuildingData buildingData))
+                return null;
+            Colossal.Mathematics.Quad3 corners = BuildingUtils.CalculateCorners(transform, buildingData.m_LotSize);
+            ring = new[] { corners.a.xz, corners.b.xz, corners.c.xz, corners.d.xz };
+            m_RingCache[building] = ring;
+            return ring;
+        }
+
+        /// <summary>The published answer of a road-optional lodge. First sight (a load, a new lodge): the shape it stands in, so a load changes
+        /// nothing until the walk has spoken; a save's off-grid lodge has no ElectricityConsumer.</summary>
+        private bool SuppliedNow(Entity lodge)
+        {
+            if (m_SupplyStates.TryGetValue(lodge, out LodgeSupplyState s))
+                return s.Supplied;
+            LodgeSupplyRule.Seed(ref s, !EntityManager.HasComponent<ElectricityConsumer>(lodge));
+            m_SupplyStates[lodge] = s;
+            return s.Supplied;
+        }
+
+        /// <summary>After the run links of this recompute: publish the watch list, walk the chains if an input changed (the links rebuilt, a track
+        /// flag, a root, a lodge's lot or area), then step every hold.</summary>
+        private void UpdateSupply(bool linksReady)
+        {
+            if (!SameEntities(m_SupplyWatch, m_SupplyWatchNext))
+            {
+                m_SupplyWatch.Clear();
+                m_SupplyWatch.AddRange(m_SupplyWatchNext);
+                m_SupplyWatchRevision++;
+                m_SupplyGone.Clear();
+                foreach (KeyValuePair<Entity, LodgeSupplyState> pair in m_SupplyStates)
+                {
+                    if (!m_SupplyWatch.Contains(pair.Key))
+                        m_SupplyGone.Add(pair.Key);
+                }
+                for (int i = 0; i < m_SupplyGone.Count; i++)
+                    m_SupplyStates.Remove(m_SupplyGone[i]);
+            }
+            if (linksReady)
+            {
+                ulong signature = SkiRunRatingRules.Mix(SkiRunRatingRules.FnvOffset, unchecked((uint)m_RunLinks.Rebuilds));
+                for (int i = 0; i < m_TrackRuns.Count; i++)
+                    signature = SkiRunRatingRules.Mix(signature, m_TrackRuns[i] ? 1u : 0u);
+                signature = MixRings(signature, m_RootRings, m_RootAreas);
+                signature = MixRings(signature, m_SupplyRings, m_SupplyAreas);
+                if (signature != m_SupplySignature || !m_SupplyRawKnown)
+                {
+                    m_SupplySignature = signature;
+                    m_SupplyWalks++;
+                    LodgeSupplyRule.Reach(m_RunOutlines, m_RunAreas, m_TrackRuns, m_RunLinks, m_RootRings, m_RootAreas, m_SupplyReached, m_SupplyStack);
+                    m_SupplyRaw.Clear();
+                    for (int i = 0; i < m_SupplyLodges.Count; i++)
+                        m_SupplyRaw[m_SupplyLodges[i]] = LodgeSupplyRule.Supplied(m_SupplyRings[i], m_SupplyAreas[i], m_RunOutlines, m_RunAreas, m_SupplyReached);
+                }
+                m_SupplyRawKnown = true;
+            }
+            StepSupply();
+        }
+
+        private static ulong MixRings(ulong hash, List<float2[]> rings, List<int> areas)
+        {
+            hash = SkiRunRatingRules.Mix(hash, unchecked((uint)rings.Count));
+            for (int i = 0; i < rings.Count; i++)
+            {
+                hash = SkiRunRatingRules.Mix(hash, unchecked((uint)areas[i]));
+                hash = SkiRunRatingRules.Mix(SkiRunRatingRules.Mix(hash, math.asuint(rings[i][0].x)), math.asuint(rings[i][0].y));
+                hash = SkiRunRatingRules.Mix(SkiRunRatingRules.Mix(hash, math.asuint(rings[i][2].x)), math.asuint(rings[i][2].y));
+            }
+            return hash;
+        }
+
+        /// <summary>One read per watched lodge: at a road it reads not supplied with no hold; off-road the raw answer goes through the hold. Before
+        /// the links are known (census not armed yet) only the first sight is seeded. Runs at every recompute and state poll.</summary>
+        private void StepSupply()
+        {
+            uint now = m_Simulation.frameIndex;
+            for (int i = 0; i < m_SupplyWatch.Count; i++)
+            {
+                Entity lodge = m_SupplyWatch[i];
+                if (!EntityManager.Exists(lodge))
+                    continue;
+                bool hasRoad = EntityManager.TryGetComponent(lodge, out Building data) && data.m_RoadEdge != Entity.Null;
+                bool saved = !EntityManager.HasComponent<ElectricityConsumer>(lodge);
+                m_SupplyStates.TryGetValue(lodge, out LodgeSupplyState s);
+                if (hasRoad)
+                    LodgeSupplyRule.AtRoad(ref s);
+                else if (m_SupplyRawKnown)
+                {
+                    m_SupplyRaw.TryGetValue(lodge, out bool raw);
+                    LodgeSupplyRule.Step(ref s, raw, now, saved);
+                }
+                else if (!s.Known)
+                    LodgeSupplyRule.Seed(ref s, saved);
+                m_SupplyStates[lodge] = s;
+            }
+        }
+
+        /// <summary>A building's staffing product (the three factors WorkProviderSystem writes, :279-281); no buffer reads 1.</summary>
+        private float StaffingOf(Entity building)
+        {
+            float staffing = 1f;
+            if (!EntityManager.TryGetBuffer(building, isReadOnly: true, out DynamicBuffer<Efficiency> factors))
+                return staffing;
+            for (int i = 0; i < factors.Length; i++)
+            {
+                Efficiency factor = factors[i];
+                if (factor.m_Factor == EfficiencyFactor.NotEnoughEmployees || factor.m_Factor == EfficiencyFactor.SickEmployees ||
+                    factor.m_Factor == EfficiencyFactor.EmployeeHappiness)
+                    staffing *= factor.m_Efficiency > 0f ? factor.m_Efficiency : 0f;
+            }
+            return staffing;
+        }
+
+        /// <summary>The DUMP's words for one lodge's supply.</summary>
+        internal string SupplyDumpOf(Entity lodge)
+        {
+            bool known = m_SupplyStates.TryGetValue(lodge, out LodgeSupplyState s);
+            m_SupplyRaw.TryGetValue(lodge, out bool raw);
+            return known ? Invariant($"raw {raw}, supplied {s.Supplied}, holding {s.Losing}") : "not seen";
+        }
+
+        /// <summary>How often the chains were walked this load (DUMP): it moves only when an input changed.</summary>
+        internal int SupplyWalks => m_SupplyWalks;
 
         /// <summary>A top-level lodge's efficiency (SkiResortScore.SignEfficiency over its own Efficiency buffer: a
         /// top-level CityServiceBuilding has one, Park.cs:27-37; none → 1). With <paramref name="slot"/> its factors below 1 are
@@ -2127,12 +2417,13 @@ namespace SkiResortMod.Systems
                 }
                 // A published LodgeInfo that changed (tier, SummitServed) moves
                 // Generation even when the score did not (e.g. SummitServed flipping in winter).
-                if (a.ActiveInfo.Count != b.ActiveInfo.Count || !SameEntities(a.DepotActive, b.DepotActive))
+                if (a.ActiveInfo.Count != b.ActiveInfo.Count || !SameEntities(a.DepotActive, b.DepotActive) || a.Carrier != b.Carrier)
                     return true;
                 for (int i = 0; i < a.ActiveInfo.Count; i++)
                 {
                     LodgeInfo x = a.ActiveInfo[i], y = b.ActiveInfo[i];
-                    if (x.Lodge != y.Lodge || x.LodgeIndex != y.LodgeIndex || x.SummitServed != y.SummitServed)
+                    if (x.Lodge != y.Lodge || x.LodgeIndex != y.LodgeIndex || x.SummitServed != y.SummitServed ||
+                        x.HasRoad != y.HasRoad || x.Supplied != y.Supplied)
                         return true;
                 }
             }
@@ -2160,8 +2451,8 @@ namespace SkiResortMod.Systems
 
         /// <summary>The published (sign, active lodges) lists differ — the slot
         /// count, a sign of <paramref name="next"/> with no slot in <paramref name="cur"/>, or a sign's Active list
-        /// in count or element order. Compared per sign through SlotOfSign, so a slot reorder (chunk order) is not
-        /// a change.</summary>
+        /// in count or element order, or an active lodge's road edge or supply (the ski-day targets and the parking census hang on
+        /// them). Compared per sign through SlotOfSign, so a slot reorder (chunk order) is not a change.</summary>
         private static bool LodgeSetChanged(Snapshot cur, Snapshot next)
         {
             if (cur.SlotCount != next.SlotCount)
@@ -2174,6 +2465,11 @@ namespace SkiResortMod.Systems
                 for (int i = 0; i < a.Active.Count; i++)
                 {
                     if (a.Active[i] != b.Active[i])
+                        return true;
+                }
+                for (int i = 0; i < a.ActiveInfo.Count && i < b.ActiveInfo.Count; i++)
+                {
+                    if (a.ActiveInfo[i].HasRoad != b.ActiveInfo[i].HasRoad || a.ActiveInfo[i].Supplied != b.ActiveInfo[i].Supplied)
                         return true;
                 }
             }
