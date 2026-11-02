@@ -1208,7 +1208,8 @@ SHARED_MAPS = ("BaseColor", "ControlMask", "MaskMap", "Normal")
 
 
 def write_settings(out_dir, name, supplied_lods=(), dedicated_texture_lods=(), *,
-                   shared_from=None, shared_maps=SHARED_MAPS, surface=None):
+                   shared_from=None, shared_maps=SHARED_MAPS, surface=None,
+                   procedural_animation=False):
     """
     Write settings.json.
 
@@ -1248,6 +1249,14 @@ def write_settings(out_dir, name, supplied_lods=(), dedicated_texture_lods=(), *
     SettingsImporter.cs:222-241) and an explicit materialTemplate replaces the template it would
     pick (SurfacePostProcessor.cs:156): the only way to give an imported LANE mesh a Curved*
     template. An empty or non-dict value raises.
+
+    `procedural_animation` (rig probe AlignRigProbeA, 2026-11-02; default False = every output
+    above, byte-identical): writes "useProceduralAnimation": true as the LAST key, for a skinned
+    FBX (export_fbx_skinned). The key is the public field Settings.useProceduralAnimation that
+    JSONImporter fills by name (Colossal.AssetPipeline 1.6.2f1 Settings.cs:387,
+    JSONImporter.cs:58). Settings.GetDefault already sets it true (Settings.cs:585) and
+    AssetImportPipeline.ImportSettings starts from that default (1.6.0f1 AssetImportPipeline.cs:355,
+    :403-406), so the key is explicit, not required; a settings.json with false turns it off.
     """
     if surface is not None and (not isinstance(surface, dict) or not surface):
         raise ValueError(f"write_settings {name}: surface must be a non-empty dict, got {surface!r}")
@@ -1273,6 +1282,8 @@ def write_settings(out_dir, name, supplied_lods=(), dedicated_texture_lods=(), *
         settings = {"sharedAssets": shared, **settings}
     if surface is not None:
         settings["Surface"] = dict(surface)
+    if procedural_animation:
+        settings["useProceduralAnimation"] = True
 
     path = os.path.join(out_dir, "settings.json")
     with open(path, "w", encoding="utf-8") as fh:
@@ -1378,3 +1389,136 @@ def export_fbx(obj, path, unit_scale=CS2_UNIT_SCALE):
         bpy.data.meshes.remove(mesh)
         obj.name = orig_name
         obj.data.name = orig_name
+
+
+# --------------------------------------------------------------------------------------
+# Skinned FBX export (procedural bones; rig probe AlignRigProbeA, 2026-11-02)
+#
+# What the game's importer needs (1.6.0f1 Game.AssetPipeline/AssetImportPipeline.cs, 1.6.2f1
+# Colossal.AssetPipeline decompile under tools/decompile/1.6.2f1-colossal/):
+# - only mesh 0 of the FBX is read (FBXImporter.cs:137, default Options.SplitSubmeshes), so one
+#   mesh object, skinned, beside its armature;
+# - BlendIndices + BlendWeight + a root bone + bind poses, else no ProceduralAnimationProperties
+#   (AssetImportPipeline.cs:2331-2358, :2377-2392); the managed side carries 4 influences per
+#   vertex (FBXImporter.cs:249-250, :358-359);
+# - bones = the skin's cluster bones: name, local position / rotation / scale, parent, bind
+#   pose (FBXImporter.cs:393-403 -> AssetImportPipeline.cs:2393-2406); Blender writes a cluster
+#   for every bone, weighted or not (io_scene_fbx export_fbx_bin.py, "rest pose data");
+# - LOD1+ get a COPY of LOD0's component (SetupLODs :2210-2217) and SkinPostProcessor remaps
+#   each LOD's indices onto the previous LOD's bones BY NAME (SkinPostProcessor.cs:168-187), so
+#   every LOD is skinned to the same armature.
+# - no animation take: an FBX clip turns the bones into PlaybackLayer0 and writes an
+#   AnimationAsset (AssetImportPipeline.cs:1977-2010, FBXImporter.cs:494-563): bake_anim=False.
+# --------------------------------------------------------------------------------------
+
+def check_skin_weights(obj, armature, max_influences=4, tol=1e-4):
+    """
+    Raise unless every vertex of `obj` is weighted to 1..max_influences bones of `armature`
+    with weights summing to 1 (+-tol), and every vertex group names a bone. Returns
+    {bone: vertex count with weight > 0}.
+    """
+    bones = {b.name for b in armature.data.bones}
+    names = {vg.index: vg.name for vg in obj.vertex_groups}
+    stray = sorted(n for n in names.values() if n not in bones)
+    if stray:
+        raise RuntimeError(f"{obj.name}: vertex groups {stray} name no bone of {armature.name}")
+    per_bone = {b: 0 for b in sorted(bones)}
+    bad = []
+    for v in obj.data.vertices:
+        ws = [(names[g.group], g.weight) for g in v.groups if g.weight > 0.0]
+        total = sum(w for _, w in ws)
+        if not ws or len(ws) > max_influences or abs(total - 1.0) > tol:
+            bad.append((v.index, len(ws), round(total, 5)))
+        for b, _ in ws:
+            per_bone[b] += 1
+    if bad:
+        raise RuntimeError(f"{obj.name}: {len(bad)} vertices not weighted 1..{max_influences} bones "
+                           f"summing to 1, first {bad[:5]}")
+    return per_bone
+
+
+def export_fbx_skinned(obj, armature, path, unit_scale=CS2_UNIT_SCALE):
+    """
+    export_fbx for a mesh skinned to an armature: the same frame (cm, Y up, every transform
+    baked: the game reads raw vertices and ignores node transforms) applied to the mesh AND the
+    armature, so the bind poses match the baked vertices. export_fbx itself is unchanged.
+
+    Authoring rule for an identity bone rest rotation in the game: the bone points UP (+Z) with
+    roll 0. The -90 deg X bake turns it onto +Y with its X axis on +X, which is the identity
+    bone frame (Blender bones run along their local Y; primary/secondary bone axes Y/X write
+    them uncorrected). The game negates FBX x on import (PIPELINE.md frame rule T: position
+    x -> -x, quaternion (qx, qy, qz, qw) -> (qx, -qy, -qz, qw)), which leaves identity alone.
+
+    The caller's mesh needs vertex groups named after the bones (check_skin_weights runs here);
+    a parent or an Armature modifier on it is ignored and rebuilt on the temporary copies.
+    """
+    check_skin_weights(obj, armature)
+    names = (obj.name, obj.data.name, armature.name, armature.data.name)
+    obj.name = obj.data.name = names[0] + "__src"
+    armature.name = armature.data.name = names[2] + "__src"
+    tmp = obj.copy()
+    tmp.data = obj.data.copy()
+    arm = armature.copy()
+    arm.data = armature.data.copy()
+    for o in (tmp, arm):
+        bpy.context.collection.objects.link(o)
+    tmp.name = tmp.data.name = names[0]
+    arm.name = arm.data.name = names[2]
+    try:
+        if bpy.context.object is not None and bpy.context.object.mode != "OBJECT":
+            bpy.ops.object.mode_set(mode="OBJECT")
+        for m in list(tmp.modifiers):
+            tmp.modifiers.remove(m)
+        for o in (tmp, arm):
+            mw = o.matrix_world.copy()
+            o.parent = None
+            o.matrix_world = mw
+            o.animation_data_clear()
+        for pb in arm.pose.bones:
+            pb.matrix_basis.identity()
+        # bake each object's own transform, then the Y-up / cm conversion (export_fbx's two steps)
+        for o in (tmp, arm):
+            bpy.ops.object.select_all(action="DESELECT")
+            o.select_set(True)
+            bpy.context.view_layer.objects.active = o
+            bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
+            o.rotation_euler = (math.radians(-90.0), 0.0, 0.0)
+            o.scale = (unit_scale, unit_scale, unit_scale)
+            bpy.ops.object.transform_apply(location=False, rotation=True, scale=True)
+        tmp.parent = arm
+        tmp.matrix_parent_inverse.identity()
+        mod = tmp.modifiers.new("Armature", type="ARMATURE")
+        mod.object = arm
+        bpy.ops.object.select_all(action="DESELECT")
+        tmp.select_set(True)
+        arm.select_set(True)
+        bpy.context.view_layer.objects.active = arm
+        bpy.ops.export_scene.fbx(
+            filepath=path,
+            use_selection=True,
+            object_types={"MESH", "ARMATURE"},
+            apply_unit_scale=False,
+            global_scale=1.0,
+            axis_forward="Y",
+            axis_up="Z",
+            use_triangles=True,
+            mesh_smooth_type="EDGE",
+            use_tspace=True,
+            add_leaf_bones=False,
+            primary_bone_axis="Y",
+            secondary_bone_axis="X",
+            use_armature_deform_only=False,
+            armature_nodetype="NULL",
+            bake_anim=False,
+            path_mode="STRIP",
+        )
+    finally:
+        for o in (tmp, arm):
+            data = o.data
+            bpy.data.objects.remove(o, do_unlink=True)
+            if isinstance(data, bpy.types.Mesh):
+                bpy.data.meshes.remove(data)
+            else:
+                bpy.data.armatures.remove(data)
+        obj.name, obj.data.name = names[0], names[1]
+        armature.name, armature.data.name = names[2], names[3]

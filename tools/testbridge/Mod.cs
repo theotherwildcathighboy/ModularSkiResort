@@ -26,6 +26,11 @@ namespace SkiTestBridge
             updateSystem.UpdateAt<TestBridgeSystem>(SystemUpdatePhase.UIUpdate);
             // Before InitializeSystem (Modification2): an Updated tag added in UIUpdate is cleaned up that same frame, unseen.
             updateSystem.UpdateAt<TestBridgeOffGridSystem>(SystemUpdatePhase.Modification1);
+            // U1 probe (TestBridgeSystem.U1.cs): idle until the u1probe op arms it.
+            updateSystem.UpdateAfter<U1ProbeM3System, Game.Objects.SubObjectReferencesSystem>(SystemUpdatePhase.Modification3);
+            updateSystem.UpdateAfter<U1ProbeM4System, Game.Objects.AlignSystem>(SystemUpdatePhase.Modification4);
+            updateSystem.UpdateBefore<U1ProbeM4System, Game.Net.LaneSystem>(SystemUpdatePhase.Modification4);
+            updateSystem.UpdateAt<U1ProbeM4BSystem>(SystemUpdatePhase.Modification4B);
             Log.Info("Active: commands on engine.call(\"skitest.cmd\", json).");
         }
 

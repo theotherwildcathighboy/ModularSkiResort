@@ -1,0 +1,222 @@
+{
+    "$id": 0,
+    "$type": "0|Game.Prefabs.RenderPrefab, Game",
+    "name": "AlignRigProbeA Mesh",
+    "active": true,
+    "version": 1,
+    "m_prefabFormat": 0,
+    "components": {
+        "$id": 1,
+        "$type": "1|System.Collections.Generic.List`1[[Game.Prefabs.ComponentBase, Game]], mscorlib",
+        "$rlength": 2,
+        "$rcontent": [
+            {
+                "$id": 2,
+                "$type": "2|Game.Prefabs.ProceduralAnimationProperties, Game",
+                "name": "ProceduralAnimationProperties",
+                "active": true,
+                "m_Bones": {
+                    "$id": 3,
+                    "$type": "3|Game.Prefabs.ProceduralAnimationProperties+BoneInfo[], Game",
+                    "$rlength": 3,
+                    "$rcontent": [
+                        {
+                            "$id": 4,
+                            "$type": "4|Game.Prefabs.ProceduralAnimationProperties+BoneInfo, Game",
+                            "name": "Root",
+                            "position": {
+                                "$type": "5|UnityEngine.Vector3, UnityEngine.CoreModule",
+                                0,
+                                0,
+                                0
+                            },
+                            "rotation": {
+                                "$type": "6|UnityEngine.Quaternion, UnityEngine.CoreModule",
+                                0,
+                                0,
+                                0,
+                                1
+                            },
+                            "scale": {
+                                "$type": 5,
+                                1,
+                                1,
+                                1
+                            },
+                            "bindPose": {
+                                "$type": "7|UnityEngine.Matrix4x4, UnityEngine.CoreModule",
+                                "m00": 1,
+                                "m10": 0,
+                                "m20": 0,
+                                "m30": 0,
+                                "m01": 0,
+                                "m11": 1,
+                                "m21": 4.371139E-08,
+                                "m31": 0,
+                                "m02": 0,
+                                "m12": -4.371139E-08,
+                                "m22": 1,
+                                "m32": 0,
+                                "m03": 0,
+                                "m13": 0,
+                                "m23": 0,
+                                "m33": 1
+                            },
+                            "parentId": -1,
+                            "m_Type": 0,
+                            "m_Speed": 0,
+                            "m_Acceleration": 0,
+                            "m_ConnectionID": 0,
+                            "m_SourceID": 0
+                        },
+                        {
+                            "$id": 5,
+                            "$type": 4,
+                            "name": "Wheel",
+                            "position": {
+                                "$type": 5,
+                                0.65,
+                                1,
+                                0
+                            },
+                            "rotation": {
+                                "$type": 6,
+                                0,
+                                0,
+                                0,
+                                1
+                            },
+                            "scale": {
+                                "$type": 5,
+                                1,
+                                1,
+                                1
+                            },
+                            "bindPose": {
+                                "$type": 7,
+                                "m00": 1,
+                                "m10": 0,
+                                "m20": 0,
+                                "m30": 0,
+                                "m01": 0,
+                                "m11": 1,
+                                "m21": 4.371139E-08,
+                                "m31": 0,
+                                "m02": 0,
+                                "m12": -4.371139E-08,
+                                "m22": 1,
+                                "m32": 0,
+                                "m03": -0.65,
+                                "m13": -1,
+                                "m23": 0,
+                                "m33": 1
+                            },
+                            "parentId": 0,
+                            "m_Type": 6,
+                            "m_Speed": 0.5,
+                            "m_Acceleration": 0.2,
+                            "m_ConnectionID": 0,
+                            "m_SourceID": 0
+                        },
+                        {
+                            "$id": 6,
+                            "$type": 4,
+                            "name": "Train",
+                            "position": {
+                                "$type": 5,
+                                -0.55,
+                                1.1,
+                                0
+                            },
+                            "rotation": {
+                                "$type": 6,
+                                5.32907052E-15,
+                                0,
+                                0,
+                                1
+                            },
+                            "scale": {
+                                "$type": 5,
+                                1,
+                                1,
+                                1
+                            },
+                            "bindPose": {
+                                "$type": 7,
+                                "m00": 1,
+                                "m10": 0,
+                                "m20": 0,
+                                "m30": 0,
+                                "m01": 0,
+                                "m11": 1,
+                                "m21": 4.371138E-08,
+                                "m31": 0,
+                                "m02": 0,
+                                "m12": -4.371138E-08,
+                                "m22": 1,
+                                "m32": 0,
+                                "m03": 0.55,
+                                "m13": -1.1,
+                                "m23": 1.11758713E-14,
+                                "m33": 1
+                            },
+                            "parentId": 0,
+                            "m_Type": 0,
+                            "m_Speed": 0,
+                            "m_Acceleration": 0,
+                            "m_ConnectionID": 0,
+                            "m_SourceID": 0
+                        }
+                    ]
+                },
+                "m_Animations": null
+            },
+            {
+                "$id": 7,
+                "$type": "8|Game.Prefabs.LodProperties, Game",
+                "name": "LodProperties",
+                "active": true,
+                "m_Bias": 0,
+                "m_ShadowBias": 0,
+                "m_LodMeshes": {
+                    "$id": 8,
+                    "$type": "9|Game.Prefabs.RenderPrefab[], Game",
+                    "$rlength": 1,
+                    "$rcontent": [
+                        $fstrref:"CID:399a0098d8d6a45b75cc15829601d004"
+                    ]
+                }
+            }
+        ]
+    },
+    "m_GeometryAsset": $fstrref:"CID:c78b6c5a3b6e885eee369df2fe0fa113",
+    "m_SurfaceAssets": {
+        "$id": 9,
+        "$type": "10|Colossal.IO.AssetDatabase.AssetReference`1[[Colossal.IO.AssetDatabase.SurfaceAsset, Colossal.IO.AssetDatabase, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null]][], Colossal.IO.AssetDatabase",
+        "$rlength": 1,
+        "$rcontent": [
+            $fstrref:"CID:e2ee55e2853cf60be0755e1def860b0a"
+        ]
+    },
+    "m_Bounds": {
+        "$type": "11|Colossal.Mathematics.Bounds3, Colossal.Mathematics",
+        "min": {
+            "$type": "12|Unity.Mathematics.float3, Unity.Mathematics",
+            "x": -0.7,
+            "y": 0,
+            "z": -0.75000006
+        },
+        "max": {
+            "$type": 12,
+            "x": 1.25,
+            "y": 1.19,
+            "z": 0.829999864
+        }
+    },
+    "m_SurfaceArea": 4.159819,
+    "m_IndexCount": 1572,
+    "m_VertexCount": 682,
+    "m_MeshCount": 1,
+    "m_IsImpostor": false,
+    "m_ManualVTRequired": false
+}

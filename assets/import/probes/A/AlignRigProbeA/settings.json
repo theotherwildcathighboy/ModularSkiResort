@@ -1,0 +1,12 @@
+{
+  "sharedAssets": {
+    "AlignRigProbeA_LOD1_BaseColor.png": "AlignRigProbeA_BaseColor.png",
+    "AlignRigProbeA_LOD1_ControlMask.png": "AlignRigProbeA_ControlMask.png",
+    "AlignRigProbeA_LOD1_MaskMap.png": "AlignRigProbeA_MaskMap.png",
+    "AlignRigProbeA_LOD1_Normal.png": "AlignRigProbeA_Normal.png"
+  },
+  "LOD1": {
+    "mode": "Skip"
+  },
+  "useProceduralAnimation": true
+}
