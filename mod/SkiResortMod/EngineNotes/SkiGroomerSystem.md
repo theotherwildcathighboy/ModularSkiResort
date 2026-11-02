@@ -64,7 +64,7 @@ A 5 x 3 grid of `TerrainUtils.SampleHeight` over 7 x 4 m, rotated with the machi
 
 ## Lights
 
-Without `Car` and `TransformFrame`, vanilla's vehicle lights are zeroed (`ObjectInterpolateSystem.cs:1097-1180`, `EffectControlData.cs:449-560`). So `SkiGroomerA`'s mesh light uses purpose `EffectSource` (`ObjectInterpolateSystem.cs:1181-1193`), which follows `effects[0]`, and row 0 is a Night-gated effect. Enable state is re-evaluated only on `Updated`, `Deleted`, `EffectsUpdated` or `BatchesUpdated` (`EffectControlSystem.cs:1087-1097`), so `RefreshLights` stamps `EffectsUpdated` at each flip of `EffectFlagSystem`'s night signal, with the settle of `SkiNightLightSystem`. The stand-in has no effects. Asset side and costs: docs/research/groomer-lights-2026-11-01.md. In game: unverified.
+Without `Car` and `TransformFrame`, vanilla's vehicle lights are zeroed (`ObjectInterpolateSystem.cs:1097-1180`, `EffectControlData.cs:449-560`). So `SkiGroomerA`'s mesh light uses purpose `EffectSource` (`ObjectInterpolateSystem.cs:1181-1193`), which follows `effects[0]`, and row 0 is a Night-gated effect. Enable state is re-evaluated only on `Updated`, `Deleted`, `EffectsUpdated` or `BatchesUpdated` (`EffectControlSystem.cs:1087-1097`), so `RefreshLights` stamps `EffectsUpdated` at each flip of `EffectFlagSystem`'s night signal, with the settle of `SkiNightLightSystem`. The stand-in has no effects. Asset side and costs: docs/research/groomer-lights-2026-11-01.md. In game (2026-11-01, `SkiGroomerA`): lit at night with `EnabledEffect` x2 and `LightState` 1, dark by day with `EnabledEffect` empty, one `[lights]` line per flip, LOD1 and LOD2 lit at 120 m and 230 m. The `Emissive` and `LightState` buffers fill only while the prop passes culling. Preflight MOVERLIGHT checks the asset side.
 
 ## Lifecycle table
 
@@ -81,7 +81,7 @@ Without `Car` and `TransformFrame`, vanilla's vehicle lights are zeroed (`Object
 
 ## Unverified
 
-Rendering and hit tests of the non-`Static` `Stopped` shape; smoothness; whether snow buries the tracks (`GroundOffsetM` is 0); the stand-in's forward axis. All on the bridge list in docs/research/groomer-mover-2026-11-01.md.
+Seen in game on 2026-11-01 with `SkiGroomerA`: the non-`Static` `Stopped` shape renders, faces its travel, sits on the snow with `GroundOffsetM` 0 (no float or sink in close shots), and costs p50 0.017 to 0.024 ms on the main thread. Still open: hit tests, smoothness over a long watch, the stand-in's forward axis. All on the bridge list in docs/research/groomer-mover-2026-11-01.md.
 
 ## Adding groomed runs later
 
