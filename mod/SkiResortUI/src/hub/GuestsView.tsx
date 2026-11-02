@@ -353,11 +353,10 @@ function SignGuests({ l, city, parking, samples, t }: {
         </Tip>
       )}
       <Divider />
+      {/* The ticket note has no tooltip: it would only repeat the note, which wraps instead of being cut (2026-11-02, DECISIONS 568). */}
       <div className={styles.noteArea}>
         {note !== null && note !== "open" ? (
-          <Tip tip={<TicketNoteText note={note} t={t} />}>
-            <div className={styles.note1}><TicketNoteText note={note} t={t} /></div>
-          </Tip>
+          <div className={styles.note1}><TicketNoteText note={note} t={t} /></div>
         ) : (
           <div className={styles.note1}>{note === null ? DASH : ""}</div>
         )}
