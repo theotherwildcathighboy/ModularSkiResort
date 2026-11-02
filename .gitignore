@@ -6,6 +6,7 @@ assets/preview/
 
 # Build outputs
 tools/testbridge/Library/
+tools/testbridge-mergetag/Library/
 mod/SkiResortMod/bin/
 mod/SkiResortMod/obj/
 mod/SkiResortMod/Library/
