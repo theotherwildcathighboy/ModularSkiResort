@@ -107,6 +107,11 @@ namespace SkiTestBridge
                 case "perf": return PerfCommand(args);
                 case "tiles": return UnlockTiles();
                 case "pm": return PhotoMode(args);
+                case "comp": return EditComponents(args);
+                case "util": return UtilityCommand(args);
+                case "offgrid": return OffGridCommand(args);
+                case "prefabFlags": return PrefabFlags(args);
+                case "autosave": return SetAutoSave(args);
                 default: throw new ArgumentException($"unknown op '{op}'");
             }
         }

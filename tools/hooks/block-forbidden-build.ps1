@@ -18,8 +18,13 @@ try {
 
 function Block([string]$why) { [Console]::Error.WriteLine("BLOCKED by CLAUDE.md 'Build & deploy': $why"); exit 2 }
 
+# A local, git-ignored marker next to this script opens the deploying build for one round, on the owner's go. Never while the game runs.
+$deployOpen = Test-Path (Join-Path $PSScriptRoot '.allow-deploy')
 if ($cmd -match '(?i)\bdotnet\s+build\b') {
-    if ($cmd -notmatch '(?i)[-/](t|target):Compile\b') {
+    $compileOnly = $cmd -match '(?i)[-/](t|target):Compile\b'
+    if ($deployOpen -and -not $compileOnly) {
+        if (Get-Process -Name Cities2 -ErrorAction SilentlyContinue) { Block "the game is running: a build would hit the locked DLL. Close it first" }
+    } elseif (-not $compileOnly) {
         Block "dotnet build without -t:Compile deploys to the Mods folder (2026-10-13). The only allowed form is exactly: dotnet build -t:Compile"
     }
     if ($cmd -match '(?i)--no-incremental|Rebuild') {

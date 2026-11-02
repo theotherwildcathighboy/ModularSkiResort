@@ -24,6 +24,8 @@ namespace SkiTestBridge
             }
             NativeInput.CheckLayout();
             updateSystem.UpdateAt<TestBridgeSystem>(SystemUpdatePhase.UIUpdate);
+            // Before InitializeSystem (Modification2): an Updated tag added in UIUpdate is cleaned up that same frame, unseen.
+            updateSystem.UpdateAt<TestBridgeOffGridSystem>(SystemUpdatePhase.Modification1);
             Log.Info("Active: commands on engine.call(\"skitest.cmd\", json).");
         }
 

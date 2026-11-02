@@ -76,6 +76,11 @@ Every reply is a JSON string with `ok`, and `error` when `ok` is false.
 | `dump` | `all`, optional `none`, `show`, `limit` (default 50) | match count and rows with prefab name and the `show` components |
 | `entity` | `id` as `"index:version"`, optional `only` | component names, with values for `only` (all when absent) |
 | `perf` | `action`: `start` (`label`), `read`, `stop`, `memory`, `modSystems` (optional `enabled`, `match` regex), `systemCost` (`samples`), `systemCostRead` | frame times (fps, mean, p50, p95, p99, max), sim frames per second and GC counts of the window; Unity memory, entity count, vsync; switches the ski mod's systems (or those matching) for an A/B on a throwaway save; times one extra run of each mod system, also on a throwaway save |
+| `comp` | `id`, optional `remove`, `add` (component names), `eff` (`{factor: value}`), `clearIcons`, `updated` | edits one entity in that order and replies with `util` |
+| `util` | `id` | a building's consumers, road edge, efficiency factors, icons by prefab name, jobs |
+| `offgrid` | optional `add`, `remove` (ids), `clear`, `clearEvents` | prototype of switching road-only services off and on with the road edge; lists the watched buildings and every switch with its sim frame |
+| `prefabFlags` | `prefab`, optional `clear`, `set` (`BuildingFlags` names) | edits a prefab's `BuildingData.m_Flags` for this run of the game |
+| `autosave` | optional `on` | switches the autosave system for this run of the game, so a test on a save does not prune real autosaves |
 | `seq` | `steps` | starts a sequence |
 | `seqStatus` | | `done`, `step`, `error`, `results` |
 | `abort` | | stops the sequence and releases all held input |
@@ -101,6 +106,8 @@ Do not call `engine.trigger("menu.saveGame", name)`: without the save panel open
 - **Hub rows move as its contents change.** Read the rect in the same call as the click rather than reusing an old one.
 - **Esc goes one level.** It steps back in a tool, cancels a dialog, and opens the pause menu when nothing is left. Bulldozing a
   building shows a Yes / No dialog, and Esc answers No.
+- **The selection panel stays closed while a toolbar menu is open.** The `tool` op with no prefab leaves the asset menu showing, a click on a building then opens nothing and `__relBtn` finds nothing. Press Esc once first.
+- **`comp` with `updated` runs too late to matter.** Commands run in UIUpdate, after the Modification phases, and `PrepareCleanUpSystem` removes the tag at the end of that frame, so no Modification system sees it (`SystemOrder.cs:50-54`). `offgrid` runs in Modification1 for this reason.
 - **Rotate a placement by right-dragging:** `down` right, `move` 250 pixels in x (half a turn, `ObjectToolSystem.cs:3554`), `up`, `move`
   back, `click`.
 - **The object tool's raycast is offset by the object's height** (`ObjectToolSystem.cs:3190`), so `hover.hit` lands up to a few meters
