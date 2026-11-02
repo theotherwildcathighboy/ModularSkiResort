@@ -16,7 +16,7 @@ import type { BuildItem, BuildItemId, RunKind } from "../bindings";
 import { useT } from "../l10n";
 import type { LocEntry, Translate } from "../l10n";
 import {
-  BUILD_ITEMS, BUILD_ITEM_ICON, BUILD_RUN_KIND, BUILD_STEP, BUILDING_DRAW, LUXURY_LODGES, buildMeta, groupBuildItems, stationRole,
+  BUILD_ITEMS, BUILD_ITEM_ICON, BUILD_RUN_KIND, BUILD_STEP, BUILDING_DRAW, LUXURY_LODGES, ROAD_OPTIONAL_LODGES, buildMeta, groupBuildItems, stationRole,
 } from "./buildItems";
 import type { OrderedBuildItem } from "./buildItems";
 import {
@@ -171,6 +171,7 @@ function tileTip(e: OrderedBuildItem, t: Translate): JSX.Element {
         run && t(HUB_LOC.buildTipReshape),
         e.id === "runNatural" && t(HUB_LOC.buildTipNatural),
         e.id === "runNatural" && t(HUB_LOC.buildTipTypeNatural),
+        ROAD_OPTIONAL_LODGES.has(e.id) && t(HUB_LOC.buildTipRoadOptional), // the cat track chain instead of city utilities
         LUXURY_LODGES.has(e.id) && t(HUB_LOC.buildTipLuxury), // the luxury label and its price tolerance
         k === "depot" && t(HUB_LOC.buildTipDepot),
         k === "school" && t(HUB_LOC.buildTipSchool),

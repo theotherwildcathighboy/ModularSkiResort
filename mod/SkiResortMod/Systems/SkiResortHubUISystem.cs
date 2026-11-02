@@ -42,7 +42,7 @@ namespace SkiResortMod.Systems
 
         /// <summary>The contract number (bindings.ts HUB_CONTRACT). Bump both together whenever a binding, trigger, field or meaning
         /// changes (Engine notes: Near HubContract lists what each number appended).</summary>
-        public const int HubContract = 28;
+        public const int HubContract = 29;
 
         /// <summary>The `contract` value the UI reads as "C# absent" (bindings.ts CONTRACT_ABSENT). Pushed after the one-shot "!!!"
         /// until the next load: the UI then shows its "not connected" notice instead of launchers that do nothing.</summary>
@@ -464,6 +464,7 @@ namespace SkiResortMod.Systems
         private readonly ArrayPush m_LiftsPush = new ArrayPush("lifts");
         private readonly ArrayPush m_ProblemsPush = new ArrayPush("problems");
         private readonly ArrayPush m_HistoryPush = new ArrayPush("history");
+        private readonly ArrayPush m_LodgeParkingPush = new ArrayPush("lodgeParking");   // contract 29
 
         private enum RequestKind : byte
         {
@@ -542,6 +543,23 @@ namespace SkiResortMod.Systems
         private ValueBinding<bool> m_CatTrackDeleteBinding;   // contract 19: the cat track tool is open AND in Delete mode
         private ValueBinding<int> m_FollowBinding;
         private RawValueBinding m_History;
+        // contract 29: the car spaces of every active road lodge (the Guests view). Rebuilt when the attraction snapshot or the parking
+        // census moves; pushed only while the Guests view observes it.
+        private RawValueBinding m_LodgeParking;
+        private SkiLodgeParkingSystem m_Parking;
+        private readonly List<LodgeParkingRowData> m_LodgeParkingRows = new List<LodgeParkingRowData>(4);
+        private readonly List<Entity> m_LodgeParkingSigns = new List<Entity>(4);
+        private readonly List<SkiResortAttractivenessSystem.LodgeInfo> m_LodgeParkingInfo = new List<SkiResortAttractivenessSystem.LodgeInfo>(4);
+        private readonly HashSet<Entity> m_LodgeParkingSeen = new HashSet<Entity>();
+        private int m_LodgeParkingSigAttract = int.MinValue, m_LodgeParkingSigCensus = int.MinValue, m_LodgeParkingRevision;
+
+        /// <summary>One bindings.ts LodgeParkingRow.</summary>
+        private struct LodgeParkingRowData
+        {
+            public Entity Sign, Lodge;
+            public string Item;
+            public int CarSpaces;   // -1: no census yet
+        }
         private ValueBinding<HubBusCardState> m_BusCard;   // contract 26: always observed; costs a compare per frame until a coach or depot is selected
         private readonly List<SkiDaySystem.DepotView> m_BusCardViews = new List<SkiDaySystem.DepotView>(2);
         private Entity m_BusCardSelected, m_BusCardDepot;
@@ -684,6 +702,7 @@ namespace SkiResortMod.Systems
             m_ClimateSystem = World.GetOrCreateSystemManaged<Game.Simulation.ClimateSystem>();
             m_Census = World.GetOrCreateSystemManaged<LiftCensusSystem>();
             m_Attractiveness = World.GetOrCreateSystemManaged<SkiResortAttractivenessSystem>();
+            m_Parking = World.GetOrCreateSystemManaged<SkiLodgeParkingSystem>();
             m_PrefabCatalog = World.GetOrCreateSystemManaged<SkiPrefabCatalogSystem>();
             m_Infoview = World.GetOrCreateSystemManaged<SkiPlacementInfoviewSystem>();
             m_GladeTool = World.GetOrCreateSystemManaged<SkiGladeToolSystem>();
@@ -724,6 +743,7 @@ namespace SkiResortMod.Systems
             m_LiftsPush.Binding = m_Lifts = new RawValueBinding(Group, "lifts", WriteLifts);
             m_ProblemsPush.Binding = m_Problems = new RawValueBinding(Group, "problems", WriteProblems);
             m_HistoryPush.Binding = m_History = new RawValueBinding(Group, "history", WriteHistory);
+            m_LodgeParkingPush.Binding = m_LodgeParking = new RawValueBinding(Group, "lodgeParking", WriteLodgeParking);
 
             // Values (C# → UI), in bindings.ts order (gate R1 needs the literals).
             AddBinding(m_HubOpen = new ValueBinding<bool>(Group, "hubOpen", false));
@@ -750,6 +770,7 @@ namespace SkiResortMod.Systems
             AddBinding(m_QuickRuns = new RawValueBinding(Group, "quickRuns", WriteQuickRuns));   // panel binding, no Demand
             AddBinding(m_CatTrackDeleteBinding = new ValueBinding<bool>(Group, "catTrackDeleteMode", false));   // panel binding, no Demand
             AddBinding(m_BusCard = new ValueBinding<HubBusCardState>(Group, "busCard", default));   // not a panel binding
+            AddBinding(m_LodgeParking);   // contract 29: panel binding (the Guests view), no Demand
 
             // Triggers (UI → C#): bindings.ts TRIGGER.
             AddBinding(new TriggerBinding(Group, "toggleHub", OnToggleHub));
@@ -809,6 +830,9 @@ namespace SkiResortMod.Systems
                 m_ProblemsPush.Reset();
                 m_HistoryPush.Reset();
                 ResetHistoryPush();   // drop the last city's rows
+                m_LodgeParkingPush.Reset();
+                m_LodgeParkingRows.Clear();
+                m_LodgeParkingSigAttract = m_LodgeParkingSigCensus = int.MinValue;
                 m_NextLockRefresh = 0f;
                 m_LockResortsRevision = int.MinValue;
                 m_LocksDirty = true;
@@ -2685,6 +2709,10 @@ namespace SkiResortMod.Systems
             PushArray(m_LiftsPush, liftsActive, m_Stats.LiftsRevision, m_Stats.LiftCount);
             PushArray(m_ProblemsPush, problemsActive, m_Stats.ProblemsRevision, m_Stats.ProblemCount);
             PushHistory();   // no Demand of its own
+            bool lodgeParkingActive = m_LodgeParking.active;
+            if (lodgeParkingActive)
+                RefreshLodgeParking();
+            PushArray(m_LodgeParkingPush, lodgeParkingActive, m_LodgeParkingRevision, m_LodgeParkingRows.Count);
 
             if (cityActive)
                 m_City.Update(m_Stats.City);   // our comparer dedups (struct, field by field)
@@ -2782,7 +2810,8 @@ namespace SkiResortMod.Systems
         private void FlushPushRows()
         {
             float now = UnityEngine.Time.realtimeSinceStartup;
-            ArrayPush[] all = { m_ResortsPush, m_ResortLivePush, m_RunsPush, m_RunLivePush, m_LiftsPush, m_ProblemsPush, m_HistoryPush };
+            ArrayPush[] all = { m_ResortsPush, m_ResortLivePush, m_RunsPush, m_RunLivePush, m_LiftsPush, m_ProblemsPush, m_HistoryPush,
+                                m_LodgeParkingPush };
             for (int i = 0; i < all.Length; i++)
             {
                 if (all[i].RowsLog.Count > 0)
@@ -3648,6 +3677,75 @@ namespace SkiResortMod.Systems
             writer.ArrayEnd();
         }
 
+        /// <summary>The lodgeParking rows: per live sign (snapshot order), its active road lodges (SkiLodgeParkingSystem.IsRoadLodge, the
+        /// census's own test) by entity index, each with its last census (-1 before the first). A lodge listed by two signs shows once, under
+        /// the first, as the census pairs it. Rebuilt only when the snapshot generation or the census revision moved.</summary>
+        private void RefreshLodgeParking()
+        {
+            int attract = m_Attractiveness.Generation, census = m_Parking.Revision;
+            if (attract == m_LodgeParkingSigAttract && census == m_LodgeParkingSigCensus)
+                return;
+            m_LodgeParkingSigAttract = attract;
+            m_LodgeParkingSigCensus = census;
+            m_LodgeParkingRows.Clear();
+            m_LodgeParkingSeen.Clear();
+            m_Attractiveness.CopySigns(m_LodgeParkingSigns);
+            for (int s = 0; s < m_LodgeParkingSigns.Count; s++)
+            {
+                Entity sign = m_LodgeParkingSigns[s];
+                int first = m_LodgeParkingRows.Count;
+                m_Attractiveness.CopyActiveLodgeInfo(sign, m_LodgeParkingInfo);
+                for (int l = 0; l < m_LodgeParkingInfo.Count; l++)
+                {
+                    SkiResortAttractivenessSystem.LodgeInfo info = m_LodgeParkingInfo[l];
+                    if (!SkiLodgeParkingSystem.IsRoadLodge(info) || !m_LodgeParkingSeen.Add(info.Lodge))
+                        continue;
+                    int i = info.LodgeIndex;
+                    string item = i >= 0 && i < SkiCatalog.Lodges.Count ? SkiCatalog.Lodges[i].BuildItemId : "";
+                    m_LodgeParkingRows.Add(new LodgeParkingRowData
+                    {
+                        Sign = sign,
+                        Lodge = info.Lodge,
+                        Item = item,
+                        CarSpaces = m_Parking.TryGetParking(info.Lodge, out LodgeParking p) && p.Done ? p.CarSpaces : -1,
+                    });
+                }
+                // Stable order inside a sign: the snapshot's lodge order follows chunk order.
+                m_LodgeParkingRows.Sort(first, m_LodgeParkingRows.Count - first,
+                    Comparer<LodgeParkingRowData>.Create((a, b) => a.Lodge.Index != b.Lodge.Index ? a.Lodge.Index.CompareTo(b.Lodge.Index)
+                                                                                                  : a.Lodge.Version.CompareTo(b.Lodge.Version)));
+            }
+            m_LodgeParkingRevision++;
+        }
+
+        /// <summary>`lodgeParking` (bindings.ts LodgeParkingRow).</summary>
+        private void WriteLodgeParking(IJsonWriter writer)
+        {
+            try
+            {
+                writer.ArrayBegin((uint)m_LodgeParkingRows.Count);
+                for (int i = 0; i < m_LodgeParkingRows.Count; i++)
+                {
+                    LodgeParkingRowData r = m_LodgeParkingRows[i];
+                    writer.TypeBegin("SkiResortMod.LodgeParkingRow");
+                    writer.PropertyName("sign");
+                    UnityWriters.Write(writer, r.Sign);
+                    writer.PropertyName("lodge");
+                    UnityWriters.Write(writer, r.Lodge);
+                    writer.PropertyName("item");
+                    writer.Write(r.Item ?? "");
+                    writer.PropertyName("carSpaces");
+                    writer.Write(r.CarSpaces);
+                    writer.TypeEnd();
+                }
+                writer.ArrayEnd();
+            }
+            catch (Exception e)
+            {
+                WriterFailed(writer, "lodgeParking", e);
+            }
+        }
+
         /// <summary>`problems` (bindings.ts ProblemRow): grouped by area in `resorts` order.</summary>
         private void WriteProblems(IJsonWriter writer)
         {
@@ -4323,6 +4421,7 @@ namespace SkiResortMod.Systems
             World.GetExistingSystemManaged<StationLvIconSystem>()?.AppendDump(sb);
             World.GetExistingSystemManaged<MountainJobsSystem>()?.AppendDump(sb);
             World.GetExistingSystemManaged<OffSeasonStaffSystem>()?.AppendDump(sb);
+            World.GetExistingSystemManaged<LodgeSupplySystem>()?.AppendDump(sb);
         }
 
         /// <summary>The lodge road system's lines (per lodge and sign: road edge; "Lodge roads: n lodge(s), c with a road"), resolved

@@ -20,7 +20,7 @@ export const GROUP = "skiResort";
  * only when C#'s `contract` equals this; on a mismatch it shows the Build strip and the tree controls (CORE only) and
  * says why.
  */
-export const HUB_CONTRACT = 28;
+export const HUB_CONTRACT = 29;
 
 /** The `contract` value while the C# binding is absent (the fallback). Real contracts start at 1. */
 export const CONTRACT_ABSENT = 0;
@@ -788,6 +788,17 @@ export interface ProblemRow {
   buildItem: string;
 }
 
+/** One active road lodge and its car spaces (contract 29; the Guests view). Rows come per sign in `resorts` order, a sign's lodges by
+ *  entity. Only lodges with a road edge that take arrivals: the Hut, the Summit and an off-road lodge have no row. */
+export interface LodgeParkingRow {
+  sign: Entity;
+  lodge: Entity;
+  /** The lodge's BuildItemId (its LODGE_TIER name). */
+  item: string;
+  /** Street, lot and garage spaces within 300 m of this lodge (SkiLodgeParkingSystem); -1 = not counted yet. */
+  carSpaces: number;
+}
+
 /** City-wide settings and session facts. */
 export interface CityStats {
   known: boolean;
@@ -905,6 +916,7 @@ export const BINDING = {
   quickRuns: "quickRuns",  // the Quick runs tool (experimental)
   catTrackDeleteMode: "catTrackDeleteMode",  // contract 19: the cat track tool is open and in Delete mode
   busCard: "busCard",  // contract 26: the Ski Bus card
+  lodgeParking: "lodgeParking",  // contract 29: car spaces per road lodge
 } as const;
 
 /** Trigger names (UI -> C#). */
@@ -961,6 +973,7 @@ const EMPTY_RUN_LIVE: readonly RunLive[] = [];
 const EMPTY_LIFTS: readonly LiftRow[] = [];
 const EMPTY_PROBLEMS: readonly ProblemRow[] = [];
 const EMPTY_HISTORY: readonly HistoryArea[] = [];
+const EMPTY_LODGE_PARKING: readonly LodgeParkingRow[] = [];
 const EMPTY_QUICK_RUNS: QuickRunsState = {
   available: false, active: false, reason: "", phase: "", corners: 0, canPlanAround: false, areaM2: 0, maxAreaM2: 1000000, verticalM: 0, regionState: "Open",
   progress: 0, mix: 0, density: 1, kinds: 3, runs: 0, enabled: 0, count: [0, 0, 0, 0, 0], target: [0, 0, 0, 0, 0], fee: 0, skiers: 0,
@@ -999,6 +1012,7 @@ export const FALLBACK = {
   quickRuns: EMPTY_QUICK_RUNS,
   catTrackDeleteMode: false,
   busCard: { shown: false, area: "", guestsMonth: -1, billMonth: 0, distanceM: 0, state: "off" } as BusCardState,
+  lodgeParking: EMPTY_LODGE_PARKING,
 } as const;
 
 // ---- value bindings -----------------------------------------------------------------------------
@@ -1039,6 +1053,8 @@ export const runLive$: ValueBinding<readonly RunLive[]> = bindValue<readonly Run
 export const lifts$: ValueBinding<readonly LiftRow[]> = bindValue<readonly LiftRow[]>(GROUP, BINDING.lifts, FALLBACK.lifts);
 /** The problems band and the efficiency factors of every area. Panel only. */
 export const problems$: ValueBinding<readonly ProblemRow[]> = bindValue<readonly ProblemRow[]>(GROUP, BINDING.problems, FALLBACK.problems);
+/** The car spaces of every active road lodge. Panel only, and only the Guests view subscribes it (no Demand). */
+export const lodgeParking$: ValueBinding<readonly LodgeParkingRow[]> = bindValue<readonly LodgeParkingRow[]>(GROUP, BINDING.lodgeParking, FALLBACK.lodgeParking);
 /** City-wide settings and session facts. Panel only. */
 export const city$: ValueBinding<CityStats> = bindValue<CityStats>(GROUP, BINDING.city, FALLBACK.city);
 /** The piste map toggle as C# holds it. Panel only. */

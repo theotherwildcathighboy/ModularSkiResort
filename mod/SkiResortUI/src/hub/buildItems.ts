@@ -128,6 +128,10 @@ export const BUILD_STEP: Readonly<Partial<Record<BuildItemId, string>>> = {
  *  Keep in step with SkiCatalog.cs by hand. */
 export const LUXURY_LODGES: ReadonlySet<BuildItemId> = new Set<BuildItemId>(["lodgeSummit", "lodgeGrand"]);
 
+/** The road-optional lodge tiers: C# SkiCatalog.Lodges rows with LodgeRoadRule.RoadOptional (A-frame, Chalet, Grand). Display only (the
+ *  tile tooltip's BUILD_TIP_ROAD_OPTIONAL line). Keep in step with SkiCatalog.cs by hand. */
+export const ROAD_OPTIONAL_LODGES: ReadonlySet<BuildItemId> = new Set<BuildItemId>(["lodge", "lodgeMid", "lodgeGrand"]);
+
 /** What a placed building draws a month, and how it meets the ground. */
 export interface BuildingDraw {
   /** The prefab (gamedata-mirror/ImportedData/<prefab>/<prefab>.Prefab), for the gate. */
@@ -141,7 +145,7 @@ export interface BuildingDraw {
   power: number;
   water: number;
   garbage: number;
-  /** Jobs: Workplace.m_Workplaces, or for a roadless building SkiCatalog's SignJobs, which the linked sign carries. */
+  /** Jobs: Workplace.m_Workplaces, or for a roadless building SkiCatalog's SignJobs, which the area's carrier holds (a road lodge, else the sign). */
   workers: number;
   /** BuildingTerraformOverride m_DontRaise AND m_DontLower: the lot keeps the terrain (LotHeightSystem.cs:253 levels it unless both
    *  are set); false = the lot is leveled (no override block, or not both flags). */
