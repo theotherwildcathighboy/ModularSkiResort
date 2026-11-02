@@ -80,7 +80,7 @@ namespace SkiResortMod.Systems
                 All = new[] { ComponentType.ReadOnly<BuildingEfficiencyParameterData>() },
                 Options = EntityQueryOptions.IncludeSystems,
             });
-            Mod.Log.Info($"{nameof(MountainJobsSystem)} created (the roadless mountain buildings' jobs on their linked Welcome Sign, DECISIONS 347 c)");
+            Mod.Log.Info($"{nameof(MountainJobsSystem)} created (the roadless mountain buildings' jobs on their area's carrier: a road lodge, else the Welcome Sign; DECISIONS 347 c)");
         }
 
         protected override void OnGameLoadingComplete(Purpose purpose, GameMode mode)
