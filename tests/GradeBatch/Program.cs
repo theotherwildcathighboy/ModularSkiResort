@@ -5,7 +5,7 @@
 // MaxEntries; entries over the texel cap refused), raster texel cap, nearest-leg template at switchbacks, map encoding,
 // edit model and input rules, cost (1.5 km path under 3 s), the default width and its earthwork (GR-18), the run outline
 // ribbon (GR-19: loops cut at tight bends, simple ring, legs too close refused), the default profile unchanged by hash (GR-23), the
-// narrow full-cut profile (GR-24: no fill, 1:1 bank, tread width, grade limit, cost per m).
+// narrow full-cut profile (GR-24: no fill, 1:1 bank, tread width, grade limit, cost per m), the groomer's centerline of a generated ribbon (GR-30).
 // Run from the repo root: dotnet run --project tests/GradeBatch/GradeBatch.csproj -c Release
 // Prints `FAIL  where: msg` lines and one SUMMARY line; Environment.ExitCode = failures (the LiftBatch convention).
 
@@ -63,6 +63,7 @@ namespace GradeBatch
             InsideRuns();
             GoldenDefaultProfile();
             NarrowProfile();
+            GroomerCenterlines();
             PlayerText();
             Console.WriteLine($"SUMMARY GradeBatch: {s_Checks} checks, {s_Failures} failure(s)");
             Environment.ExitCode = s_Failures;
@@ -712,6 +713,87 @@ namespace GradeBatch
         /// centerline inside; a hairpin tighter than the half width has its inside loop cut (the raw offsets cross, the ring does not);
         /// legs closer than the width are refused (Crosses); ring nodes keep MinSpacingM along each edge; the GR-16 mountain track at
         /// the default width has a bounded node count.</summary>
+        /// <summary>GR-30: the groomer's centerline over outlines the tool really generates: the path stays within a small distance of the
+        /// generator's own centerline (a real oracle, not a second run of the same code), keeps its length and stays deterministic.</summary>
+        private static void GroomerCenterlines()
+        {
+            const string W = "GR-30";
+            float2[][] shapes =
+            {
+                new[] { new float2(0, 0), new float2(400, 0) },
+                new[] { new float2(0, 0), new float2(120, 60), new float2(240, -40), new float2(360, 20) },
+                new[] { new float2(0, 0), new float2(200, 0), new float2(300, 80), new float2(300, 260), new float2(160, 320), new float2(0, 320) },
+                new[] { new float2(0, 0), new float2(300, 10), new float2(330, 60), new float2(300, 110), new float2(0, 120), new float2(-30, 180), new float2(0, 240), new float2(300, 250) },
+            };
+            string[] names = { "straight", "S-bend", "long bend", "switchbacks" };
+            float[] widths = { 8f, 12f, 20f, 32f };
+            int built = 0;
+            for (int sh = 0; sh < shapes.Length; sh++)
+            {
+                foreach (float width in widths)
+                {
+                    string tag = $"{W} {names[sh]} {width:0} m";
+                    GradePath gp = GradePath.Build(shapes[sh], 2f);
+                    float2[] ring = GradeRibbon.Build(gp, width * 0.5f, out GradeRibbonFail ribbonFail);
+                    if (ribbonFail != GradeRibbonFail.None)
+                    {
+                        Console.WriteLine($"INFO {tag}: the tool refuses this one ({ribbonFail}), so it can never reach the groomer");
+                        continue;
+                    }
+                    GroomerPath path = GroomerCenterline.Build(ring, out GroomerPathFail fail);
+                    if (!Check(path != null && fail == GroomerPathFail.None, tag, $"no path: {fail}"))
+                        continue;
+                    built++;
+                    float worst = 0f;
+                    for (int i = 0; i < path.Points.Length; i++)
+                    {
+                        float near = float.MaxValue;
+                        for (int k = 0; k < gp.Count - 1; k++)
+                            near = math.min(near, DistanceToSegment(path.Points[i], gp.Xz[k], gp.Xz[k + 1]));
+                        worst = math.max(worst, near);
+                    }
+                    // The moving average cuts a bend by a fraction of its window, and the outline cuts an inside bend tighter than the half width.
+                    float allowed = math.max(1.5f, width * 0.2f);
+                    Check(worst <= allowed, tag + " on center", $"{worst:F2} m off the generator's centerline, allowed {allowed:F2}");
+                    float trim = math.clamp(0.5f * width, GroomerCenterline.EndTrimMinM, GroomerCenterline.EndTrimMaxM);
+                    Check(path.LengthM >= gp.LengthM - 2f * trim - width * 2f && path.LengthM <= gp.LengthM + 1f, tag + " length",
+                        $"{path.LengthM:F1} m of {gp.LengthM:F1} m");
+                    int outside = 0;
+                    for (int i = 0; i < path.Points.Length; i++)
+                        if (!Inside(ring, path.Points[i]))
+                            outside++;
+                    Check(outside == 0, tag + " inside", $"{outside} point(s) outside");
+                    GroomerPath again = GroomerCenterline.Build(ring, out _);
+                    Check(again != null && again.Points.Length == path.Points.Length && math.all(again.Points[again.Points.Length / 2] == path.Points[path.Points.Length / 2]),
+                        tag + " deterministic", "a second build differs");
+                }
+            }
+            Check(built >= 12, W + " coverage", $"only {built} of 16 shapes reached the centerline");
+            // Cost: a long winding ribbon builds in milliseconds (one build per frame at most, in the game)
+            var winding = new List<float2>();
+            for (int i = 0; i <= 60; i++)
+                winding.Add(new float2(i * 50f, 60f * math.sin(i * 0.7f)));
+            GradePath far = GradePath.Build(winding, 2f);
+            float2[] farRing = GradeRibbon.Build(far, 10f, out GradeRibbonFail farFail);
+            if (Check(farFail == GradeRibbonFail.None, W + " long", $"{farFail}"))
+            {
+                var sw = Stopwatch.StartNew();
+                GroomerPath farPath = GroomerCenterline.Build(farRing, out GroomerPathFail fail);
+                sw.Stop();
+                Check(farPath != null, W + " long", $"{fail}");
+                Check(sw.ElapsedMilliseconds < 500, W + " long cost", $"{sw.ElapsedMilliseconds} ms for {farRing.Length} nodes");
+                Console.WriteLine($"INFO {W}: {far.LengthM:F0} m track, {farRing.Length} nodes: {sw.Elapsed.TotalMilliseconds:F1} ms");
+            }
+        }
+
+        private static float DistanceToSegment(float2 p, float2 a, float2 b)
+        {
+            float2 ab = b - a;
+            float len = math.dot(ab, ab);
+            float t = len > 0f ? math.saturate(math.dot(p - a, ab) / len) : 0f;
+            return math.distance(p, a + ab * t);
+        }
+
         private static void Ribbon()
         {
             GradePath straight = GradePath.Build(Line(new float2(0, 0), new float2(200, 0)), 2f);

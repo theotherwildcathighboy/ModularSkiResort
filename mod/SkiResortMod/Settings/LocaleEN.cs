@@ -346,6 +346,16 @@ namespace SkiResortMod.Settings
                     "the gun and the run's snow below the depth where the guns stop. Look only: snow and upkeep do not " +
                     "change. Default on."
                 },
+                // Look only; the machine never changes snow, rating or upkeep
+                {
+                    m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.Groomers)),
+                    "Snow groomers"
+                },
+                {
+                    m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.Groomers)),
+                    "One snow groomer drives each linked cat track while the track is open. Look only: snow, rating " +
+                    "and upkeep do not change. Default on."
+                },
                 // The cat track tool's knobs
                 {
                     m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.CatTrackGradeMaxPct)),

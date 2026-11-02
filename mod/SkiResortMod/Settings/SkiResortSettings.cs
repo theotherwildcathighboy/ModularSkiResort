@@ -71,6 +71,7 @@ namespace SkiResortMod.Settings
         public const int DefaultBackcountryValuePercent = 40;
         public const bool DefaultEnableSnowGating = true;
         public const bool DefaultSnowGunPlumes = true;
+        public const bool DefaultGroomers = true;
         public const bool DefaultDiagnosticMeasurements = false;
         public const bool DefaultPlannerOnMainThread = false;
         public const bool DefaultBookTicketsAsFees = true;
@@ -286,6 +287,11 @@ namespace SkiResortMod.Settings
         [SettingsUISection(SectionMain, GroupRuns)]
         public bool SnowGunPlumes { get; set; }
 
+        /// <summary>Look only: one snow groomer drives each bound cat track while it is open (SkiGroomerSystem, read every frame). Off stops and removes
+        /// them within a frame. Snow, rating and upkeep never read it.</summary>
+        [SettingsUISection(SectionMain, GroupRuns)]
+        public bool Groomers { get; set; }
+
         // Cat track tool (grades the corridor and builds the run in one action): read live by CatTrackGradeToolSystem.ReadParams
         // (clamped there; a change re-solves the open plan)
 
@@ -468,6 +474,7 @@ namespace SkiResortMod.Settings
             ShowRunNamesOnTheHill = true;
             RunOutlineSize = DefaultRunOutlineSize;
             SnowGunPlumes = DefaultSnowGunPlumes;
+            Groomers = DefaultGroomers;
             CatTrackGradeMaxPct = 25;
             CatTrackWidthM = 20;
             CatTrackGradeCutRun = 1.5f;

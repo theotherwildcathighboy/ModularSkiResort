@@ -65,6 +65,8 @@
   "Options.OPTION_DESCRIPTION[SkiResortMod.SkiResortMod.Mod.SkiResortSettings.RunOutlineSize]": "How thick the outline and corner dots are while you draw, edit or bulldoze a ski run. 0 keeps the game's thin outline. Default 8.",
   "Options.OPTION[SkiResortMod.SkiResortMod.Mod.SkiResortSettings.SnowGunPlumes]": "Snow-gun plumes",
   "Options.OPTION_DESCRIPTION[SkiResortMod.SkiResortMod.Mod.SkiResortSettings.SnowGunPlumes]": "Snow guns on snowmaking runs, night runs and cat tracks show a vapor plume while they run: cold enough at the gun and the run's snow below the depth where the guns stop. Look only: snow and upkeep do not change. Default on.",
+  "Options.OPTION[SkiResortMod.SkiResortMod.Mod.SkiResortSettings.Groomers]": "Snow groomers",
+  "Options.OPTION_DESCRIPTION[SkiResortMod.SkiResortMod.Mod.SkiResortSettings.Groomers]": "One snow groomer drives each linked cat track while the track is open. Look only: snow, rating and upkeep do not change. Default on.",
   "Options.OPTION[SkiResortMod.SkiResortMod.Mod.SkiResortSettings.CatTrackGradeMaxPct]": "Cat track: max grade",
   "Options.OPTION_DESCRIPTION[SkiResortMod.SkiResortMod.Mod.SkiResortSettings.CatTrackGradeMaxPct]": "The steepest a cat track may climb. A track that cannot stay under it turns red and asks for more length (a switchback). Default 25 %.",
   "Options.OPTION[SkiResortMod.SkiResortMod.Mod.SkiResortSettings.CatTrackWidthM]": "Cat track: width (m)",

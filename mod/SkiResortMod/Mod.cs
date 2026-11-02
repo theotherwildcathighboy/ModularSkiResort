@@ -114,6 +114,10 @@ namespace SkiResortMod
             // final, and our Transform write lands before Game.Objects.SearchSystem (Modification5) and PreCulling.
             updateSystem.UpdateAt<ChairPinSystem>(SystemUpdatePhase.Modification4B);
 
+            // Snow groomers (a prop per bound cat track). Phase is load-bearing: a Deleted tag at 4B still reaches vanilla's Modification5 systems
+            // before CleanUpSystem, and the Transform and CullingInfo write lands before PreCulling, which culls and interpolates from them.
+            updateSystem.UpdateAt<SkiGroomerSystem>(SystemUpdatePhase.Modification4B);
+
             // Power bridging: must run BEFORE ElectricityBuildingGraphSystem in the same phase so the valve we add to the station stub
             // is visible the frame a station is created/updated (its orphan gate otherwise deletes the connection).
             updateSystem.UpdateBefore<PowerBridgeSystem, Game.Simulation.ElectricityBuildingGraphSystem>(

@@ -83,6 +83,12 @@
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiDayTiming.cs" Link="SkiDayTiming.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiParkingRules.cs" Link="SkiParkingRules.cs" />
   </ItemGroup>
+  <!-- Snow groomer: trip, season gate, restraint, ground plane, smoothing, pose, centerline of hand-drawn rings. GradeBatch GR-30 runs generated ribbons. -->
+  <ItemGroup>
+    <Compile Include="GroomerTests.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\GroomerRules.cs" Link="GroomerRules.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\GroomerCenterline.cs" Link="GroomerCenterline.cs" />
+  </ItemGroup>
   <!-- Run prop density -->
   <ItemGroup>
     <Compile Include="DensityTests.cs" />
