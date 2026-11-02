@@ -8,6 +8,8 @@
 * scale 1.0 and 1.25 (both CSS variables, as the game's applyTextScale sets them). FAILS (exit 1) on any case whose content
 * overflows its box (the Scrollable would show its bar), a header that does not fit, lodge chips on the Buildings tab, or text cut
 * short or running past the panel, with every build tile hovered in turn (shrink-to-fit classes and player-chosen names excepted).
+* Before the browser runs, the stylesheet rule: the note classes (NOTE_CLASSES) wrap, and every other class that cuts text with an
+* ellipsis is a written decision (CUT_DECIDED), so a new one-line note with an ellipsis fails at once.
 * The Runs and Lifts views are the exception: they list every row and may scroll (their list carries class listAll); for them
 * the check fails on a drawn pager row instead.
 *
@@ -28,6 +30,58 @@ const http = require("http");
 const ROOT = path.resolve(__dirname, "..");
 const SIZES = [[1920, 1080], [2560, 1440], [3840, 2160]];
 const PLAYER_NAMES = new Set(["areaNameText", "rowName", "overlayItemName", "lodgeNameLabel"]);
+
+// Notes wrap, never cut (2026-11-02 round 2: the Guests view's ticket note showed half its sentence and an ellipsis in game). A note
+// class must not carry white-space: nowrap, text-overflow: ellipsis, or a fixed height with overflow hidden; it keeps a min-height.
+const NOTE_CLASSES = ["note1", "note2", "startNote", "subLine"];
+// Every other class that cuts text with an ellipsis is a decision, written here with its reason, besides the shrink-to-fit classes and
+// PLAYER_NAMES. A new ellipsis class fails until it is a note (wrap) or listed here. The cut-text check still fails any of them whose
+// text is cut in a scenario.
+const CUT_DECIDED = {
+  switcherName: "the ski area name in the switcher, a name the player chose",
+  statusText: "the header's status sentence beside its hint, one line by design",
+  statusHint: "one status word beside the status sentence (Thawing, Powder day)",
+  problemText: "a problem band row, one line each; may hold lift or run names; its tooltip has the whole text",
+  infoLabel: "a data row's label beside its value (fixed row height, pager math)",
+  infoLabelText: "a data row's label beside its value (fixed row height, pager math)",
+  flagText: "a short flag word after a row label",
+  liftLine2: "a lift row's second line (names, state) in a list of fixed rows",
+  startText: "a numbered start step beside its button",
+  buildStatusLine: "the build footer's two lines; every tile is hovered in turn and the fullest line is reported",
+};
+
+/** The top-level single-class rules of hub.module.scss: class -> rule body. */
+function styleRules() {
+  const rules = {};
+  let current = null;
+  for (const line of fs.readFileSync(path.join(ROOT, "src", "hub", "hub.module.scss"), "utf8").split(/\r?\n/)) {
+    const m = /^\.([A-Za-z0-9]+)\s*\{/.exec(line);
+    if (m) { current = m[1]; rules[current] = (rules[current] || ""); continue; }
+    if (/^\}/.test(line)) { current = null; continue; }
+    if (current) rules[current] += line + "\n";
+  }
+  return rules;
+}
+
+/** Static half of the cut-text rule: notes wrap; any other ellipsis class is decided (CUT_DECIDED, shrink, player names). */
+function styleFailures() {
+  const rules = styleRules();
+  const shrinks = shrinkClasses();
+  const fails = [];
+  for (const c of NOTE_CLASSES) {
+    const body = rules[c];
+    if (body === undefined) { fails.push(`note class .${c} is missing from hub.module.scss`); continue; }
+    if (/white-space:\s*nowrap/.test(body)) fails.push(`note class .${c} has white-space: nowrap (a note wraps)`);
+    if (/text-overflow:\s*ellipsis/.test(body)) fails.push(`note class .${c} cuts with an ellipsis (a note wraps)`);
+    if (/(^|\n)\s*height:/.test(body) && /overflow:\s*hidden/.test(body)) fails.push(`note class .${c} has a fixed height with overflow hidden (use min-height)`);
+  }
+  for (const [c, body] of Object.entries(rules)) {
+    if (!/text-overflow:\s*ellipsis/.test(body)) continue;
+    if (NOTE_CLASSES.includes(c) || shrinks.has(c) || PLAYER_NAMES.has(c) || CUT_DECIDED[c]) continue;
+    fails.push(`.${c} cuts text with an ellipsis and is undecided: make it wrap (a note) or add it to CUT_DECIDED with the reason`);
+  }
+  return fails;
+}
 
 /** The hub classes whose rule carries coh-font-fit-mode: shrink, read from the stylesheet so a new one needs no list here. */
 function shrinkClasses() {
@@ -257,7 +311,11 @@ async function main() {
         process.argv.includes("--list=t142") ? T142 : process.argv.includes("--before") ? BEFORE : SHOTS);
       return 0;
     }
-    let failures = 0;
+    const styleFails = styleFailures();
+    console.log(`test-hub-layout: stylesheet: ${NOTE_CLASSES.length} note class(es) wrap, ${Object.keys(CUT_DECIDED).length} decided ellipsis class(es), ` +
+      `${styleFails.length} failure(s)`);
+    for (const f of styleFails) console.log(`  FAIL stylesheet: ${f}`);
+    let failures = styleFails.length;
     const only = process.argv.find((a) => a.startsWith("--height="));
     for (const [w, h] of SIZES.filter(([, hh]) => !only || String(hh) === only.slice(9))) {
       await open(b, base, w, h);

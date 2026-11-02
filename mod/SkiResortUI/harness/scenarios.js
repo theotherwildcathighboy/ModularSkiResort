@@ -190,15 +190,16 @@
 
   // contract 29: the car spaces per road lodge (Guests view, under the folds): Ash Flat two lodges, the big resort four (one not counted
   // yet reads "–"); the Hut, the Summit and off-road lodges have no row. Contract 30: the big resort's two Chalets are numbered.
-  // Contract 31: a custom name shows instead of the tier word: Ash Flat's A-frame a short one, the big resort's Chalet 2 one of 84 characters
-  // (the game's rename field takes 85), so the layout test sees the longest name a player can type.
+  // Contract 31: a custom name shows instead of the tier word: Ash Flat's A-frame a short one, the big resort's Chalet 2 one of 64 characters
+  // (the game's rename field takes 64; this name was typed there in the 2026-11-02 round), so the layout test sees the longest name a
+  // player can type.
   const lodgeParking = [
     { sign: SIGN, lodge: E(401), item: "lodgeMid", carSpaces: 124, number: 0, name: "" },
     { sign: SIGN, lodge: E(402), item: "lodge", carSpaces: 0, number: 0, name: "Eagle's Nest" },
     { sign: E(105), lodge: E(411), item: "lodgeGrand", carSpaces: 1260, number: 0, name: "" },
     { sign: E(105), lodge: E(412), item: "lodgeMid", carSpaces: 86, number: 1, name: "" },
     { sign: E(105), lodge: E(414), item: "lodgeMid", carSpaces: 1126, number: 2,
-      name: "The Grand Mountain Hospitality Warming Hut and Apres Ski Lounge Above Wolverine Bowl" },
+      name: "Grand Mountain Hospitality Warming Hut and Apres Ski Lounge Inns" },
     { sign: E(105), lodge: E(413), item: "lodge", carSpaces: -1, number: 0, name: "" },
   ];
   const base = { hubOpen: false, contract: 31, buildStamp: "", showHubButton: true, build: buildItems(), glade,
@@ -275,6 +276,20 @@
   window.SkiScenarios["Big resort (long name, 30 runs, 12 lifts, 5 unfinished)"] = Object.assign({}, base, { hubOpen: true, resorts: bigResorts,
     resortLive: [bigLive, live, live2], selectedResort: BIG, runs: bigRuns.concat(runs), runLive: bigRunLive.concat(runLive), lifts: bigLifts.concat(lifts),
     problems: bigProblems.concat(problems), history: [Object.assign({}, history[0], { sign: BIG }), history[0], history[1]], build: buildItems({ built: ["school"] }) });
+  // Every note and sub-line the Guests and Finances views can show, on the tightest resort: the ticket note while no run is open, the
+  // trip planner notes (unknown, and a detected mod with a long name that blocks ski days), Tourism Overhaul's note instead of the
+  // Estimated tourists row, Realistic Workplaces' line. Notes wrap (2026-11-02 round 2: a cut note hid half its sentence), so these
+  // scenarios hold the longest note texts against "never a scrollbar" and the cut-text check.
+  window.SkiScenarios["Big resort, notes (no run open, trip planner unknown, Realistic Workplaces)"] = Object.assign({}, base, { hubOpen: true,
+    resorts: bigResorts, resortLive: [Object.assign({}, bigLive, { ticketGate: 3, runsOpen: 0, runsPartly: 0 }), live, live2], selectedResort: BIG,
+    runs: bigRuns.concat(runs), runLive: bigRunLive.concat(runLive), lifts: bigLifts.concat(lifts), problems: bigProblems.concat(problems),
+    history: [Object.assign({}, history[0], { sign: BIG }), history[0], history[1]], build: buildItems({ built: ["school"] }),
+    city: Object.assign({}, city, { tripPlanner: "?", tripPlannerBlocksSkiDays: false, realisticWorkplaces: true }) });
+  window.SkiScenarios["Big resort, notes (runs being checked, Tourism Overhaul, trip planner mod blocks ski days)"] = Object.assign({}, base, { hubOpen: true,
+    resorts: bigResorts, resortLive: [Object.assign({}, bigLive, { ticketGate: 4 }), live, live2], selectedResort: BIG,
+    runs: bigRuns.concat(runs), runLive: bigRunLive.concat(runLive), lifts: bigLifts.concat(lifts), problems: bigProblems.concat(problems),
+    history: [Object.assign({}, history[0], { sign: BIG }), history[0], history[1]], build: buildItems({ built: ["school"] }),
+    city: Object.assign({}, city, { tripPlanner: "Realistic Trips and Leisure Overhaul", tripPlannerBlocksSkiDays: true, tourismOverhaul: true }) });
   // One complete lift and four unfinished lines -> "1 / 5", one folded row "4 lifts unfinished".
   const fieldLifts = [Object.assign({}, lifts[0], { name: "Lift 1", customName: false })]
     .concat([2, 3, 4, 5].map((n) => Object.assign({}, lifts[2], { entity: E(800 + n), top: E(820 + n), name: "Lift " + n, customName: false })));

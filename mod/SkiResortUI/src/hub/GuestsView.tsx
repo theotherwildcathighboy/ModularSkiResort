@@ -141,9 +141,10 @@ function TripPlannerNoteText({ note, name, t }: { note: TripPlannerNote; name: s
  * One row per active road lodge of the area (LodgeParkingRow, C# order): "Car spaces at {NAME}", the count or "–" before the first
  * census. {NAME} is the tier word, or "Chalet 2" (LODGE_TIER_NUMBERED) while the area has two or more of that tier: the number is
  * C#'s, persisted on the lodge, so it stays the same across saves. A lodge the player renamed in the game shows that name instead
- * (contract 31, `name`; C# cleans it to one line of at most 85 characters): a plain string argument, never an element (gate R19), in
- * the player-name label class (ellipsis; the layout test allows it to be cut), and the whole row text leads the tooltip. A Button like a
- * Fold row: a click flies to the lodge. No road lodge: no row.
+ * (contract 31, `name`; C# cleans it to one line of at most 64 characters, the game's rename field length): a plain string argument,
+ * never an element (gate R19), in the player-name label class (ellipsis, as the game cuts long names in its own lists; the layout test
+ * allows it), and the whole row text leads the tooltip. A Button like a Fold row: a click flies to the lodge. It has no chevron, so
+ * lodgeRow puts its text at the plain rows' indent (10rem, not the fold's 4rem). No road lodge: no row.
  */
 function LodgeParkingLines({ rows, samples, t }: { rows: readonly LodgeParkingRow[]; samples: NumberSamples; t: Translate }): JSX.Element {
   return (
@@ -160,7 +161,7 @@ function LodgeParkingLines({ rows, samples, t }: { rows: readonly LodgeParkingRo
           : t(HUB_LOC.guestsTipCarSpaces);
         return (
           <Tip key={`${r.lodge.index}:${r.lodge.version}`} tip={tip}>
-            <Button theme={{ button: cx(styles.infoLine, styles.foldRow) }} onSelect={() => hubTriggers.focusBuilding(r.lodge)}>
+            <Button theme={{ button: cx(styles.infoLine, styles.foldRow, styles.lodgeRow) }} onSelect={() => hubTriggers.focusBuilding(r.lodge)}>
               <div className={custom ? styles.lodgeNameLabel : styles.infoLabel}><LocText entry={HUB_FMT.guestsRowCarSpaces} args={{ NAME: name }} /></div>
               <StableWidth samples={samples.count} align="end">{countCell(r.carSpaces)}</StableWidth>
             </Button>

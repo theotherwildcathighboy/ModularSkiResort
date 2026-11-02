@@ -1649,20 +1649,18 @@
   white-space: nowrap;
 }
 
+// A note under a row wraps, never cuts (2026-11-02 round 2; test-hub-layout NOTE_CLASSES): one line keeps the old height
+// (1.3em + 2rem, either box model), a longer sentence takes the lines it needs.
 .subLine {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
   flex-shrink: 0;
-  height: calc(1.3em + 2rem);
+  min-height: 1.3em;
+  padding-top: 1rem;
+  padding-bottom: 1rem;
   padding-left: 22rem;
   padding-right: 10rem;
   font-size: var(--fontSizeXS);
   line-height: 130%;
   color: rgba(240, 251, 255, 0.7);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .divider {
@@ -2178,7 +2176,9 @@
   font-size: var(--fontSizeS);
 }
 
-// -- notes: fixed slots, wrap inside (design 5.2) ----------------------------------------------------
+// -- notes: they wrap, never cut (design 5.2; 2026-11-02 round 2) -------------------------------------
+// A note keeps its slot's least height (note1 one line, note2 two) and grows for a longer sentence: a cut note hid half the ticket note
+// in game. test-hub-layout NOTE_CLASSES fails a note class with nowrap, an ellipsis or a fixed height with overflow hidden.
 .noteArea {
   display: flex;
   flex-direction: column;
@@ -2192,16 +2192,12 @@
 
 .note1 {
   flex-shrink: 0;
-  height: 1.3em;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  min-height: 1.3em;
 }
 
 .note2 {
   flex-shrink: 0;
-  height: 2.6em;
-  overflow: hidden;
+  min-height: 2.6em;
 }
 
 // -- start card (design 3.7) --------------------------------------------------------------------------
@@ -2248,17 +2244,15 @@
   text-overflow: ellipsis;
 }
 
+// A start card note wraps like every note (test-hub-layout NOTE_CLASSES).
 .startNote {
   flex-shrink: 0;
-  height: 1.3em;
+  min-height: 1.3em;
   padding-left: 10rem;
   padding-right: 10rem;
   font-size: var(--fontSizeXS);
   line-height: 130%;
   color: var(--normalTextColor);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 // E1 fixer (e1-spec 8.9 F16): the step-1 button fits its .startStep row (1.3 em of S + 10 rem): 1.6 em of
@@ -2603,6 +2597,12 @@
 
 .foldRowOpen {
   background-color: rgba(255, 255, 255, 0.04);
+}
+
+// A clickable row without a chevron (the Guests view's car space rows): the fold's button look, the plain rows' text indent. Two
+// classes, so it wins over .foldRow's 4rem whatever the rule order.
+.foldRow.lodgeRow {
+  padding-left: 10rem;
 }
 
 .foldMark {
