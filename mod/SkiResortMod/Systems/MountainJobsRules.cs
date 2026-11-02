@@ -98,6 +98,21 @@ namespace SkiResortMod.Systems
             return jobsLeft && maxWorkers <= 0 && staff == 0;
         }
 
+        /// <summary>The sign carries jobs: once this load's split is known (<paramref name="ready"/>), its target &gt; 0 (no active road lodge in
+        /// the area and at least one switched-on carried building); before that, the workplaces the save holds (a WorkProvider with
+        /// m_MaxWorkers &gt; 0).</summary>
+        public static bool SignCarriesJobs(bool ready, int target, bool hasProvider, int maxWorkers)
+        {
+            return ready ? target > 0 : hasProvider && maxWorkers > 0;
+        }
+
+        /// <summary>The hub's SignNoRoad row: the sign has no road edge AND carries jobs. Their staff are the only people who travel to the
+        /// sign, so without jobs its road changes nothing.</summary>
+        public static bool SignNoRoadRow(bool noRoad, bool carriesJobs)
+        {
+            return noRoad && carriesJobs;
+        }
+
         /// <summary>Log word list of a sign's carried jobs, e.g. "summit 8 + patrol hut 2".</summary>
         public static string Breakdown(IReadOnlyList<string> names, IReadOnlyList<int> jobs)
         {

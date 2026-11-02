@@ -44,7 +44,7 @@ rule R17 of mod/SkiResortUI/tools/check-bundle.js compares each name and value w
   chairs count and the ride time are not touched by it.
 - **HubProblems.Build.**
   - Unlinked rows only for the Not linked entry (`SchoolsNotLinked`: FreeSchools > 0 -> severity 1, count).
-  - Else lodges, then road edges: `SignNoRoad` severity 3; `LodgeNoRoad` counts `min(LodgesNoRoad, Lodges) + SchoolsNoRoad`, severity 3
+  - Else lodges, then road edges: `SignNoRoad` severity 3 (the input is true only while the sign carries jobs, SkiResortStatsSystem.md); `LodgeNoRoad` counts `min(LodgesNoRoad, Lodges) + SchoolsNoRoad`, severity 3
     only when every lodge has no road, else 1; a school alone 1.
   - Efficiency: at <= `EfficiencyProblemPct`, and kept while the band showed it on the area's previous build and the percent is still
     below `EfficiencyClearPct`. "more" = the factors listed as Factor rows - 1, or every factor - 1 when none is listed.

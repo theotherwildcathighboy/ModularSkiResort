@@ -1,5 +1,5 @@
 // LodgeSupplyRule and the job carrier. LS1-LS3 the catalog rows and the W4 round trip; LS4-LS9 the chain walk over real RunLinks; LS10 the
-// hold; LS11-LS13 the switch's decisions and the per-building road test; LC1-LC6 the carrier rule (b1).
+// hold; LS11-LS13 the switch's decisions and the per-building road test; LC1-LC6 the carrier rule (b1), LC7 the SignNoRoad row.
 
 using System;
 using System.Collections.Generic;
@@ -211,6 +211,14 @@ namespace BuildingBatch
             var rows = new Dictionary<EntityRef, int>();
             MountainJobsRules.SumBySign(new[] { new EntityRef(1, 1) }, new[] { mid }, new[] { true }, rows);
             check(rows[new EntityRef(1, 1)] == 12, "LC6", "no carrier lodge: an off-road Chalet's 12 on the sign");
+
+            // LC7: the SignNoRoad row only while the sign carries jobs.
+            check(MountainJobsRules.SignCarriesJobs(true, 12, true, 0) && !MountainJobsRules.SignCarriesJobs(true, 0, true, 16), "LC7",
+                  "once the split is known the target decides (a road lodge took the jobs: 0, staff still leaving)");
+            check(MountainJobsRules.SignCarriesJobs(false, 0, true, 16) && !MountainJobsRules.SignCarriesJobs(false, 0, false, 0) &&
+                  !MountainJobsRules.SignCarriesJobs(false, 0, true, 0), "LC7b", "before the first poll of a load: the saved workplaces");
+            check(MountainJobsRules.SignNoRoadRow(true, true) && !MountainJobsRules.SignNoRoadRow(true, false) && !MountainJobsRules.SignNoRoadRow(false, true),
+                  "LC7c", "no road and jobs: the row; no jobs or a road: none");
         }
 
         private static LodgeDef Lodge(string id)

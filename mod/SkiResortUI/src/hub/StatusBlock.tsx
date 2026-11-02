@@ -200,6 +200,7 @@ function problemTip(p: ProblemRow, factors: readonly ProblemRow[], live: ResortL
     case "lodgeNotSlopeside": body = t(HUB_LOC.problemTipLodgeNotSlopeside); break;
     case "depotNoHillLodge": body = t(HUB_LOC.problemTipDepotNoHillLodge); break;
     case "depotNoRoad": body = t(HUB_LOC.problemTipDepotNoRoad); break;
+    case "signNoRoad": body = t(HUB_LOC.problemTipSignNoRoad); break;
     case "mixedLiftTypes": body = t(HUB_LOC.problemTipMixedLiftTypes); break;
     case "summitLodgeNotLiftServed": body = t(HUB_LOC.problemTipSummitLodgeNotLiftServed); break;
     case "schoolNoGreenRun": body = t(HUB_LOC.problemTipSchoolNoGreenRun); break;

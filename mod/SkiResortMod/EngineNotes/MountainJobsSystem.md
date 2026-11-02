@@ -12,6 +12,9 @@ carrier too (`LodgeSupplyRule.JobsLeave`).
 - The sign is written here only: its target is the jobs it carries (0 while a lodge carries; the tick lays the staff off).
 - A carrier lodge's sum (`CarriedBy`) is read by `OffSeasonStaffSystem`, the one writer of a lodge's m_MaxWorkers
   (`MountainJobsRules.CarrierTarget`: own target + carried). Two writers would undo each other every poll.
+- The hub's SignNoRoad row shows only while the sign carries jobs (`SignCarriesJobs`: its target once `TargetsReady`, before that the
+  saved WorkProvider's m_MaxWorkers > 0). That is: no active road lodge in the area, and at least one switched-on Hut, Summit, patrol
+  building, or off-road lodge on a depot-only chain.
 - Re-homing: a carrier that is switched off, loses its road or is bulldozed drops out of the next recompute, the jobs move to the next
   carrier, and the game's tick lays off at the old one and hires at the new one (vanilla grace on a raise).
 - Education: the carried jobs take the carrier prefab's complexity (`EconomyUtils.CalculateNumberOfWorkplaces`, EconomyUtils.cs:1370-1400,

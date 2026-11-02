@@ -63,6 +63,15 @@ namespace SkiResortMod.Systems
         /// that, OffSeasonStaffSystem writes no lodge, so a load does not lay off a carrier's staff.</summary>
         internal bool TargetsReady => m_TargetsReady || m_Disabled;
 
+        /// <summary>The sign carries jobs (MountainJobsRules.SignCarriesJobs): its target once TargetsReady, before that the workplaces the
+        /// save holds. Read by the stats system for the SignNoRoad row.</summary>
+        internal bool SignCarriesJobs(Entity sign)
+        {
+            m_Targets.TryGetValue(LiftCensusSystem.Ref(sign), out int target);
+            bool has = EntityManager.TryGetComponent(sign, out WorkProvider wp);
+            return MountainJobsRules.SignCarriesJobs(TargetsReady, target, has, has ? wp.m_MaxWorkers : 0);
+        }
+
         protected override void OnCreate()
         {
             base.OnCreate();

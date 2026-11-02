@@ -27,7 +27,8 @@ Welcome Sign. Groups, in the order the checks run:
   mail and crime at a road only; LS13 the ski-day road check per building.
 - **LC, the job carrier** (b1, `MountainJobsRules`): LC1 the nearest lodge, ties to the lower entity; LC2 the one writer's sum (own +
   carried, off-season halves); LC3 an off-road lodge's jobs through the sign path; LC4 the area's job totals do not change; LC5 an
-  off-road lodge drops its WorkProvider only at 0 workplaces with no staff; LC6 with no carrier lodge the jobs stay on the sign.
+  off-road lodge drops its WorkProvider only at 0 workplaces with no staff; LC6 with no carrier lodge the jobs stay on the sign; LC7 the
+  SignNoRoad row only while the sign carries jobs (the target, or the saved workplaces before the first poll).
 - **P, the mirror gate per building** (gamedata-mirror, all eight: SkiAFrameDayLodge, SkiLodgeHut, SkiLodgeMid, SkiLodgeSummit,
   SkiLodgeGrand, SkiSchool, SkiPatrolHut, SkiPatrolHQ):
   1. no ServiceUpgrade;

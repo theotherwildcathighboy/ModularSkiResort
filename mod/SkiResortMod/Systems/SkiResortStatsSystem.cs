@@ -281,6 +281,7 @@ namespace SkiResortMod.Systems
         private SkiRunPropSystem m_RunProps;
         private SkiRunOwnershipSystem m_Ownership;
         private SkiResortAttractivenessSystem m_Attractiveness;
+        private MountainJobsSystem m_MountainJobs;   // the SignNoRoad row: only while the sign carries jobs
         private SkiSnowInjectionSystem m_Injection;
         private LiftCensusSystem m_Census;
         private ChairPinSystem m_ChairPin;
@@ -534,6 +535,7 @@ namespace SkiResortMod.Systems
             m_RunProps = World.GetOrCreateSystemManaged<SkiRunPropSystem>();
             m_Ownership = World.GetOrCreateSystemManaged<SkiRunOwnershipSystem>();
             m_Attractiveness = World.GetOrCreateSystemManaged<SkiResortAttractivenessSystem>();
+            m_MountainJobs = World.GetOrCreateSystemManaged<MountainJobsSystem>();
             m_Injection = World.GetOrCreateSystemManaged<SkiSnowInjectionSystem>();
             m_Census = World.GetOrCreateSystemManaged<LiftCensusSystem>();
             m_ChairPin = World.GetOrCreateSystemManaged<ChairPinSystem>();
@@ -1232,7 +1234,9 @@ namespace SkiResortMod.Systems
         /// <summary>Lodge rule: a lodge (top-level, no Owner) belongs to its published link (CopyTopLevelLinks: the attraction snapshot's
         /// nearest live sign within the tether, the score's own membership; active = its own Building.m_OptionMask); every other live
         /// lodge building is free-standing (Not linked). No lodge rows: the aggregate's LodgeIn (Score 0) and the live count of active
-        /// linked lodges. Also the per-sign SignNoRoad fact.</summary>
+        /// linked lodges. Also the per-sign SignNoRoad fact: no road edge while the sign carries jobs (MountainJobsRules.SignNoRoadRow; with
+        /// an active road lodge in the area the jobs ride on it and nobody travels to the sign). It follows MountainJobsSystem's poll, so it
+        /// may trail a road lodge by one heartbeat.</summary>
         private void CollectLodges(int resorts)
         {
             m_LodgeResort.Clear();
@@ -1246,7 +1250,7 @@ namespace SkiResortMod.Systems
             {
                 Entity sign = m_SignEntities[s];
                 if (s < resorts)
-                    m_Work[s].SignNoRoad = m_NoRoad.Contains(sign);
+                    m_Work[s].SignNoRoad = MountainJobsRules.SignNoRoadRow(m_NoRoad.Contains(sign), m_MountainJobs.SignCarriesJobs(sign));
             }
             // Lodges (top-level) by their published link.
             for (int t = 0; t < m_TopLevel.Count; t++)
