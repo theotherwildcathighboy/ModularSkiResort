@@ -188,9 +188,19 @@
       liftRow(2, 1, 1, "fixedGrip", 2, 640, 210, 4, "SkiResort.Tooltip.QUICK_VERDICT[DoubleBlack]", "SkiResort.Hub.QUICK_HOME_GREEN", true)],
     plan: { pods: 4, liftsProposed: 2, liftsPinned: 1, runKm: 14.6, runKmPerKm2: 18.2, deadEnds: 0, mountainMix: [0, 22, 38, 40, 0], sitePods: 4, siteGreenHome: 1, siteBenchHa: 8 } });
 
-  const base = { hubOpen: false, contract: 28, buildStamp: "", showHubButton: true, build: buildItems(), glade,
+  // contract 29: the car spaces per road lodge (Guests view, under the folds): Ash Flat two lodges, the big resort four (one not counted
+  // yet reads "–"); the Hut, the Summit and off-road lodges have no row. Contract 30: the big resort's two Chalets are numbered.
+  const lodgeParking = [
+    { sign: SIGN, lodge: E(401), item: "lodgeMid", carSpaces: 124, number: 0 },
+    { sign: SIGN, lodge: E(402), item: "lodge", carSpaces: 0, number: 0 },
+    { sign: E(105), lodge: E(411), item: "lodgeGrand", carSpaces: 1260, number: 0 },
+    { sign: E(105), lodge: E(412), item: "lodgeMid", carSpaces: 86, number: 1 },
+    { sign: E(105), lodge: E(414), item: "lodgeMid", carSpaces: 1126, number: 2 },
+    { sign: E(105), lodge: E(413), item: "lodge", carSpaces: -1, number: 0 },
+  ];
+  const base = { hubOpen: false, contract: 30, buildStamp: "", showHubButton: true, build: buildItems(), glade,
     resorts: [], resortLive: [], selectedResort: NULL, runs: [], runLive: [], lifts: [], problems: [], city, pisteMap: true, follow: 0, history: [],
-    liftLine: { available: true, active: false, state: "PickBase" }, quickRuns, catTrackDeleteMode: false };
+    liftLine: { available: true, active: false, state: "PickBase" }, quickRuns, catTrackDeleteMode: false, lodgeParking };
 
   window.SkiScenarios = {
     "not connected (no C#)": Object.assign({}, base, { contract: 0, city: Object.assign({}, city, { known: false }) }),

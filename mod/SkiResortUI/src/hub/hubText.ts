@@ -48,6 +48,7 @@ export const HUB_LOC = {
   startNoteLodge: ["SkiResort.Hub.START_NOTE[Lodge]", "The lodge can stand at the top or the bottom."],
   startNoteAreas: ["SkiResort.Hub.START_NOTE[Areas]", "A city can have several ski areas, one per Welcome Sign."],
   startNoteLink: ["SkiResort.Hub.START_NOTE[Link]", "Runs and lifts join the nearest sign within 5 km."],
+  startNoteParking: ["SkiResort.Hub.START_NOTE[Parking]", "Each road lodge counts its own car spaces within 300 m."],
   placeSign: ["SkiResort.Hub.PLACE_SIGN", "Place Welcome Sign"],
 
   statusNoRuns: ["SkiResort.Hub.STATUS_NO_RUNS", "Closed · no runs yet"],
@@ -71,6 +72,8 @@ export const HUB_LOC = {
   problemDepotNoRoad: ["SkiResort.Hub.PROBLEM[DepotNoRoad]", "Bus depot without a road"],
   problemTipDepotNoHillLodge: ["SkiResort.Hub.PROBLEM_TIP[DepotNoHillLodge]", "A depot sends guests only while its ski area has a working lodge on the hill; a mountain lodge counts. It bills nothing until then."],
   problemTipDepotNoRoad: ["SkiResort.Hub.PROBLEM_TIP[DepotNoRoad]", "A depot with no road sends nobody and bills nothing."],
+  /* the row shows only while the sign carries jobs (MountainJobsRules.SignNoRoadRow): no active road lodge in the area */
+  problemTipSignNoRoad: ["SkiResort.Hub.PROBLEM_TIP[SignNoRoad]", "While no switched-on lodge has a road, the Welcome Sign employs the Hut, Summit and patrol staff. Workers arrive by road."],
   problemNoParkingNearLodge: ["SkiResort.Hub.PROBLEM[NoParkingNearLodge]", "No parking near the lodge"],
   problemLodgeNotSlopeside: ["SkiResort.Hub.PROBLEM[LodgeNotSlopeside]", "Lodge is far from the runs"],
   problemSchoolNoGreenRun: ["SkiResort.Hub.PROBLEM[SchoolNoGreenRun]", "Ski school has no green run"],
@@ -272,6 +275,8 @@ export const HUB_LOC = {
   guestsRowResidents: ["SkiResort.Hub.GUESTS_ROW[Residents]", "Residents"],
   guestsRowPaid: ["SkiResort.Hub.GUESTS_ROW[Paid]", "Paid a lift ticket"],
   guestsRowTickets: ["SkiResort.Hub.GUESTS_ROW[Tickets]", "Ticket money"],
+  /* the car space rows under the folds (GuestsView LodgeParkingLines): SkiParkingRules.RadiusM, per lodge */
+  guestsTipCarSpaces: ["SkiResort.Hub.GUESTS_TIP[CarSpaces]", "Street, lot and garage spaces within 300 m of this lodge, counted for each road lodge on its own. Tourist parties drive here."],
   guestsTipTourists: ["SkiResort.Hub.GUESTS_TIP[Tourists]", "People in tourist groups that arrived at this ski area's lodges or Welcome Sign."],
   guestsTipGroups: ["SkiResort.Hub.GUESTS_TIP[Groups]", "Tourists arrive in groups; each group counts once."],
   guestsTipResidents: ["SkiResort.Hub.GUESTS_TIP[Residents]", "Residents of your city who came to a lodge for leisure."],
@@ -286,7 +291,7 @@ export const HUB_LOC = {
   skiDaysNight: ["SkiResort.Hub.SKI_DAYS[Night]", "Lifts closed for the night"],
   skiDaysFull: ["SkiResort.Hub.SKI_DAYS[Full]", "Full right now"],
   skiDaysTipOff: ["SkiResort.Hub.SKI_DAYS_TIP[Off]", "Locals who ski and Tourists who ski are both 0 in Options."],
-  skiDaysTipNoLodge: ["SkiResort.Hub.SKI_DAYS_TIP[NoLodge]", "Ski days need a switched-on lodge within 800 m of the runs or lift stations, at a road unless it is a Hut or Summit."],
+  skiDaysTipNoLodge: ["SkiResort.Hub.SKI_DAYS_TIP[NoLodge]", "Ski days need a switched-on lodge within 800 m of runs or stations. Off-road, a Hut, Summit or lodge on a cat track chain counts."],
   skiDaysTipRuns: ["SkiResort.Hub.SKI_DAYS_TIP[Runs]", "The runs set the limit: bigger and easier runs hold more skiers at once."],
   skiDaysTipLodges: ["SkiResort.Hub.SKI_DAYS_TIP[Lodges]", "The lodges set the limit: each lodge takes 360 skiers at once, more on a powder day."],
   estRowTourists: ["SkiResort.Hub.EST_ROW[Tourists]", "Estimated tourists from this ski area"],
@@ -356,6 +361,8 @@ export const HUB_LOC = {
   buildTipDepot: ["SkiResort.Hub.BUILD_TIP_DEPOT", "Coach bill: 1,500 a month plus 300 per straight-line km to the nearest lodge on the hill. It adds no capacity and no score."],
   buildTipSchool: ["SkiResort.Hub.BUILD_TIP_SCHOOL", "Adds +12 to Runs, lifts and school while a green run counts; locals come 20 % more often."],
   buildTipPatrol: ["SkiResort.Hub.BUILD_TIP_PATROL", "Black and double-black runs within 1 km score 15 % more; runs there without a lift count at least 70 %."],
+  /* the A-frame, Chalet and Grand tiles (buildItems.ts ROAD_OPTIONAL_LODGES): LodgeSupplyRule, LiftServedRule.LinkMeters */
+  buildTipRoadOptional: ["SkiResort.Hub.BUILD_TIP_ROAD_OPTIONAL", "Off-road, a cat track within 25 m chained to a road lodge or Ski Bus Depot replaces city utilities. No guests arrive there by road."],
   buildTipLuxury: ["SkiResort.Hub.BUILD_TIP_LUXURY", "Luxury lodge. Ski days stay full at a lift ticket price up to 40 higher."],
   buildTipOnce: ["SkiResort.Hub.BUILD_TIP_ONCE", "One-time"],
   buildTipMonth: ["SkiResort.Hub.BUILD_TIP_MONTH", "Per month"],
@@ -588,6 +595,10 @@ export const HUB_FMT = {
   capacityValue: ["SkiResort.Hub.CAPACITY_VALUE", "{CAP} skiers/h"],
   // "Month of {MONTH}" is the one way the hub names a month; {MONTH} = monthName(city.month), last month's = city.month - 1.
   guestsMonthThis: ["SkiResort.Hub.GUESTS_MONTH[This]", "Month of {MONTH}"],
+  /* one row per active road lodge of the area, {NAME} = its LODGE_TIER word */
+  guestsRowCarSpaces: ["SkiResort.Hub.GUESTS_ROW_FMT[CarSpaces]", "Car spaces at {NAME}"],
+  /* {NAME} = a LODGE_TIER word, {N} = the lodge's number in its area (LodgeParkingRow.number > 0: two or more of that tier there) */
+  lodgeTierNumbered: ["SkiResort.Hub.LODGE_TIER_NUMBERED", "{NAME} {N}"],
   guestsMonthLast: ["SkiResort.Hub.GUESTS_MONTH[Last]", "Month of {MONTH}"],
   /* bar 2's label while last month was counted only since the load (hubRules.lastMonthMark) */
   guestsMonthLastPartial: ["SkiResort.Hub.GUESTS_MONTH[LastPartial]", "Month of {MONTH}, partial"],

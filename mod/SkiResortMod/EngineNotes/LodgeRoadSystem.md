@@ -5,8 +5,13 @@ here is byte-identical in 1.6.2f1).
 
 ## W4: top-level roadless buildings
 Every SkiCatalog Lodges / Schools / Patrols row is a top-level building (no ServiceUpgradeData).
-- Base rows (A-frame, mid, grand, the school) are not written: the game sets RequireRoad from their demands
+- Base rows (the school, the bus depot) are not written: the game sets RequireRoad from their demands
   (BuildingInitializeSystem.cs:209-300).
+- RoadOptional rows (A-frame, mid, grand) demand utilities and workers, so the game sets RequireRoad and RequireAccess; W4 clears both
+  with no WARN (by design). Placement snapping is unaffected: it reads PlacementFlags.RoadSide (ObjectToolSystem.cs:3574-3585), and
+  RoadConnectionSystem still links a road edge (:460 only marks it not required); ValidationHelpers.cs:19 no longer refuses an off-road
+  lot. What such a lodge consumes is decided per building by LodgeSupplySystem (LodgeSupplySystem.md), which also puts back the mail
+  and crime that RequireRoad would have given a lodge at a road (InitializeSystem.cs:143-153).
 - Mountain and None rows (the hut, the summit lodge, both patrol huts) demand nothing (power / water / garbage 0, no Workplace), so the
   game sets no RequireRoad, but their Park component sets RequireAccess (BuildingInitializeSystem.cs:284-287), which arms the
   pathfind-island warning (ConnectionWarningSystem.cs:612-631) on a lot with no road and no lane.

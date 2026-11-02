@@ -229,7 +229,7 @@ namespace SkiResortMod.Systems
             public int Area;
             public int Capacity;          // SkiCatalog.Lodges[i].Capacity (skiers a day; A-frame 360)
             public int PriceTolerance;    // SkiCatalog.Lodges[i].PriceTolerance
-            public byte NoRoadNeeded;     // 1 = RoadRule != Base (a mountain lodge: passes without a road, never a claim target)
+            public byte NoRoadNeeded;     // 1 = LodgeSupplyRule.NoRoadNeeded (Hut, Summit, or off-road on a cat track chain: passes without a road, never a claim target)
             public byte IsDepot;          // 1 = a bus depot: after the area's lodges, Capacity 0, tolerance 0, LodgeIndex -1, CheckDepot's verdict
             public short LodgeIndex;      // SkiCatalog.Lodges index (logs and DUMP only)
         }

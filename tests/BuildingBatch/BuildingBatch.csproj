@@ -28,6 +28,11 @@
     <!-- Off-season half staffing, OS1-OS6. -->
     <Compile Include="..\..\mod\SkiResortMod\Systems\OffSeasonRules.cs" Link="OffSeasonRules.cs" />
     <Compile Include="OffSeasonTests.cs" />
+    <!-- Road-optional lodges and the job carrier, LS1-LS13 and LC1-LC6: the chain walks real RunLinks. -->
+    <Compile Include="..\..\mod\SkiResortMod\Systems\LodgeSupplyRule.cs" Link="LodgeSupplyRule.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\LiftServedRule.cs" Link="LiftServedRule.cs" />
+    <Compile Include="LodgeSupplyTests.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\LodgeNumberRule.cs" Link="LodgeNumberRule.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiResortScore.cs" Link="SkiResortScore.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\SchoolRule.cs" Link="SchoolRule.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\PatrolRule.cs" Link="PatrolRule.cs" />

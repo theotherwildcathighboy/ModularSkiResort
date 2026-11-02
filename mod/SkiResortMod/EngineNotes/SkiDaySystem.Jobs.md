@@ -66,12 +66,13 @@ or vanilla write changes except the deadline pull; every other lookup is `[ReadO
 
 The ladder, the mountain lodges and the school reach the jobs as plain struct fields filled on the main thread
 (`SkiDaySystem.RebuildSnapshot`, from `SkiResortAttractivenessSystem.CopyActiveLodgeInfo` and `SkiCatalog.Lodges`): no managed catalog
-row is read in a job. `LodgeJob` has `Capacity`, `PriceTolerance` and `NoRoadNeeded` (`RoadRule != Base`); `AreaJob` has `SchoolFactor`
+row is read in a job. `LodgeJob` has `Capacity`, `PriceTolerance` and `NoRoadNeeded` (`LodgeSupplyRule.NoRoadNeeded` per building: the Hut and
+Summit, or an off-road lodge on a cat track chain); `AreaJob` has `SchoolFactor`
 (`SchoolRule.DemandFactorOf`); `ClaimOut` has `PriceTolerance` and `LodgeCapacity`.
 
 - Step A: `LodgeFacts.NoRoadNeeded` from the entry; capacity = sum of `Capacity` over passing lodges (`SkiDayRules.Capacity`'s per-tier
-  overload); targets = passing lodges with a Base road rule (claims, `TargetLodges`, `AreaFacts.SkiDayLodges`, `NearestTarget`): a
-  mountain lodge holds skiers but is never a claim target; the area's `PriceTolerance` = max over passing lodges.
+  overload); targets = passing lodges that need a road (claims, `TargetLodges`, `AreaFacts.SkiDayLodges`, `NearestTarget`): a
+  mountain or off-road lodge holds skiers but is never a claim target; the area's `PriceTolerance` = max over passing lodges.
 - Step B (and `TooLate`'s measure): `Chance(..., Price, the area's PriceTolerance, aj.SchoolFactor, ...)`.
 - For an A-frame-only area every number equals the plain case (`CheckLodge` verdicts, 360 x n, tolerance 0, factor 1).
 

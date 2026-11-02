@@ -210,6 +210,7 @@ namespace LiftBatch
             Eq((byte)1, (byte)MoverKind.Shuttle, W, "MoverKind.Shuttle");
             Eq((byte)1, (byte)ServeRuleKind.TerminalsOnly, W, "ServeRuleKind.TerminalsOnly");
             Eq((byte)2, (byte)LodgeRoadRule.None, W, "LodgeRoadRule.None");
+            Eq((byte)3, (byte)LodgeRoadRule.RoadOptional, W, "LodgeRoadRule.RoadOptional");
             Eq((byte)6, (byte)BuildItemKind.Run, W, "BuildItemKind.Run (append-only)");
         }
 
@@ -562,11 +563,11 @@ namespace LiftBatch
             // limit on how many lodges a player builds. Every tier is imported, so every row is Expected.
             object[][] rows =
             {
-                new object[] { "aFrame", "SkiAFrameDayLodge", "lodge", 20.0, 4.0, 0.5, 0.5, 360, 0, 4, 40000, 3000, false, false, 1.0f, LodgeRoadRule.Base, true },
+                new object[] { "aFrame", "SkiAFrameDayLodge", "lodge", 20.0, 4.0, 0.5, 0.5, 360, 0, 4, 40000, 3000, false, false, 1.0f, LodgeRoadRule.RoadOptional, true },
                 new object[] { "hut", "SkiLodgeHut", "lodgeHut", 16.0, 4.0, 0.5, 0.75, 200, 0, 0, 50000, 3000, false, false, 1.0f, LodgeRoadRule.Mountain, true }, // jobs 0: roadless
-                new object[] { "mid", "SkiLodgeMid", "lodgeMid", 30.0, 8.0, 0.5, 0.5, 720, 20, 12, 200000, 8000, false, false, 1.5f, LodgeRoadRule.Base, true },
+                new object[] { "mid", "SkiLodgeMid", "lodgeMid", 30.0, 8.0, 0.5, 0.5, 720, 20, 12, 200000, 8000, false, false, 1.5f, LodgeRoadRule.RoadOptional, true },
                 new object[] { "summit", "SkiLodgeSummit", "lodgeSummit", 40.0, 12.0, 0.5, 1.0, 480, 40, 0, 1500000, 18000, false, true, 3.0f, LodgeRoadRule.Mountain, true }, // jobs 0: roadless
-                new object[] { "grand", "SkiLodgeGrand", "lodgeGrand", 40.0, 12.0, 0.6, 0.6, 1080, 40, 18, 1200000, 20000, false, true, 3.0f, LodgeRoadRule.Base, true },
+                new object[] { "grand", "SkiLodgeGrand", "lodgeGrand", 40.0, 12.0, 0.6, 0.6, 1080, 40, 18, 1200000, 20000, false, true, 3.0f, LodgeRoadRule.RoadOptional, true },
             };
             Eq(rows.Length, SkiCatalog.Lodges.Count, W, "Lodges.Count");
             for (int i = 0; i < rows.Length && i < SkiCatalog.Lodges.Count; i++)

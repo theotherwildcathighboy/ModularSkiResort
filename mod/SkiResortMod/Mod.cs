@@ -398,6 +398,16 @@ namespace SkiResortMod
             // hours (OffSeasonRules). Polls every 256 frames; phase NOT load-bearing (WorkProviderSystem reads m_MaxWorkers whenever it runs).
             updateSystem.UpdateAt<OffSeasonStaffSystem>(SystemUpdatePhase.GameSimulation);
 
+            // Lodge supply: the road-optional lodges' city utilities off on a cat track chain, back at a road (LodgeSupplyRule). Modification1
+            // is load-bearing: its Updated tag must reach Game.Buildings.InitializeSystem in Modification2 of the same frame (SystemOrder.cs:118,
+            // ModificationSystem.cs:19-26) before the cleanup collects it (SystemOrder.cs:50-54, PrepareCleanUpSystem.cs:48-52). ModificationSystem
+            // runs in MainLoop (SystemOrder.cs:60), so this runs paused or not.
+            updateSystem.UpdateAt<LodgeSupplySystem>(SystemUpdatePhase.Modification1);
+
+            // Lodge numbers: same-tier lodges per ski area get a persisted number (SkiLodgeNumber, LodgeNumberRule) for the hub's car space
+            // rows. Passes on a new attraction snapshot and every 256 frames; phase NOT load-bearing (the hub keys its rows on Revision).
+            updateSystem.UpdateAt<LodgeNumberSystem>(SystemUpdatePhase.GameSimulation);
+
             // Station LV icon: removes the vanilla LowVoltageNotConnected icon from a station whose LV stub has a wire (StationLvRule
             // engine notes). Phase NOT load-bearing: IconCommandSystem consumes the queued removes at ModificationEnd (SystemOrder.cs:271).
             updateSystem.UpdateAt<StationLvIconSystem>(SystemUpdatePhase.GameSimulation);

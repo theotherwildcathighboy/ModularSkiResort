@@ -28,9 +28,10 @@ namespace SkiResortMod.Systems
     /// TerminalsOnly = within the radius of the top station's stub tip (the tram).</summary>
     public enum ServeRuleKind : byte { AlongLine = 0, TerminalsOnly = 1 }
 
-    /// <summary>LodgeRoadSystem's rule per building row: Base = needs a road (today's A-frame); Mountain = no road
-    /// needed, never warned (NoRoadConnection cleared, RequireRoad off); None = not written at all (patrol huts).</summary>
-    public enum LodgeRoadRule : byte { Base = 0, Mountain = 1, None = 2 }
+    /// <summary>LodgeRoadSystem's rule per building row: Base = needs a road (the school, the depot); Mountain = no road
+    /// needed, never warned (NoRoadConnection cleared, RequireRoad off); None = not written at all (patrol huts);
+    /// RoadOptional = a road, or off-road a cat track chain to a road lodge or depot, per building (LodgeSupplyRule: A-frame, Chalet, Grand).</summary>
+    public enum LodgeRoadRule : byte { Base = 0, Mountain = 1, None = 2, RoadOptional = 3 }
 
     /// <summary>The build strip's item kinds (bindings.ts BuildItemMeta.kind, lower camel). APPEND ONLY.</summary>
     public enum BuildItemKind : byte { Sign = 0, Lodge = 1, School = 2, Patrol = 3, Station = 4, Line = 5, Run = 6, Fence = 7, Depot = 8 }
@@ -821,19 +822,19 @@ namespace SkiResortMod.Systems
                     // (vanilla leisure parks of attraction 30-40 carry 2-10 jobs).
                     new LodgeDef(0, "aFrame", Names.LodgeAFrame, "lodge", b: 20, e: 4, mu: 0.5, muSummit: 0.5, capacity: 360,
                                  priceTolerance: 0, jobs: 4, buildCost: 40000, upkeep: 3000, forbidMultiple: false,
-                                 luxury: false, spendMultiplier: 1.0f, roadRule: LodgeRoadRule.Base, expected: true),
+                                 luxury: false, spendMultiplier: 1.0f, roadRule: LodgeRoadRule.RoadOptional, expected: true),
                     new LodgeDef(1, "hut", Names.LodgeHut, "lodgeHut", b: 16, e: 4, mu: 0.5, muSummit: 0.75, capacity: 200,
                                  priceTolerance: 0, jobs: 0, buildCost: 50000, upkeep: 3000, forbidMultiple: false,
                                  luxury: false, spendMultiplier: 1.0f, roadRule: LodgeRoadRule.Mountain, expected: true, signJobs: 4),
                     new LodgeDef(2, "mid", Names.LodgeMid, "lodgeMid", b: 30, e: 8, mu: 0.5, muSummit: 0.5, capacity: 720,
                                  priceTolerance: 20, jobs: 12, buildCost: 200000, upkeep: 8000, forbidMultiple: false,
-                                 luxury: false, spendMultiplier: 1.5f, roadRule: LodgeRoadRule.Base, expected: true),
+                                 luxury: false, spendMultiplier: 1.5f, roadRule: LodgeRoadRule.RoadOptional, expected: true),
                     new LodgeDef(3, "summit", Names.LodgeSummit, "lodgeSummit", b: 40, e: 12, mu: 0.5, muSummit: 1.0, capacity: 480,
                                  priceTolerance: 40, jobs: 0, buildCost: 1500000, upkeep: 18000, forbidMultiple: false,
                                  luxury: true, spendMultiplier: 3.0f, roadRule: LodgeRoadRule.Mountain, expected: true, signJobs: 8),
                     new LodgeDef(4, "grand", Names.LodgeGrand, "lodgeGrand", b: 40, e: 12, mu: 0.6, muSummit: 0.6, capacity: 1080,
                                  priceTolerance: 40, jobs: 18, buildCost: 1200000, upkeep: 20000, forbidMultiple: false,
-                                 luxury: true, spendMultiplier: 3.0f, roadRule: LodgeRoadRule.Base, expected: true),
+                                 luxury: true, spendMultiplier: 3.0f, roadRule: LodgeRoadRule.RoadOptional, expected: true),
                 };
 
                 // The bus depot = SkiBusDepot.Prefab: a Base road row, jobs 0, upkeep 2,000, a 2 x 1 lot on mesh SkiBusDepotA.

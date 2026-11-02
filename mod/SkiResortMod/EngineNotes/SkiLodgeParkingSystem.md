@@ -8,8 +8,9 @@ In memory only, reset on load.
 
 ## Which lodges
 
-Only lodges whose SkiCatalog row has `LodgeRoadRule.Base` are counted (the ski-day targets): mountain lodges (hut, summit: roadless
-by design) and patrol huts never get a parking row, so row 21 can never name them. The tier comes from
+Only lodges with a road edge whose row takes arrivals are counted (`LodgeSupplyRule.IsRoadLodge` per building, the ski-day
+targets): mountain lodges (hut, summit: roadless by design), patrol huts and an off-road A-frame, Chalet or Grand never get a parking row,
+so row 21 can never name them. The count is per lodge; the hub's Guests view shows each road lodge's (`lodgeParking`, contract 29). The tier comes from
 `SkiResortAttractivenessSystem.CopyActiveLodgeInfo`; mountain lodges skipped by the last census are counted in the DUMP's system
 line.
 

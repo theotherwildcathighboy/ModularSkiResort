@@ -47,8 +47,10 @@ per-frame allocation. Cost: one building walk, one provider walk, one `CopyServe
   injection's per-run map) once the injection has measured a mask this load and is active; before that the mean test; an inactive
   injection reads "no gun running".
 - Road edges: the building walk reads `Building.m_RoadEdge` (set by RoadConnectionSystem.cs:551 / :606 / :634) of every live sign and
-  lodge; Entity.Null gives the SignNoRoad / LodgeNoRoad rows. LodgeNoRoad counts only lodges whose row has RoadRule Base (Hut and Summit
-  lodges are roadless by design).
+  lodge; Entity.Null gives the SignNoRoad / LodgeNoRoad rows. SignNoRoad only while the sign carries jobs
+  (`MountainJobsRules.SignNoRoadRow`, `MountainJobsSystem.SignCarriesJobs`: no active road lodge in the area and a switched-on carried
+  building; it follows the jobs poll, so it can trail a new road lodge by a heartbeat). LodgeNoRoad counts lodges with no road and no
+  cat track chain whose row needs one (`LodgeSupplyRule.CountsAsNoRoad`; Hut and Summit lodges are roadless by design).
 - Ski days: `ResortLive` carries `SkiDaySystem`'s last published view (main thread, no job sync; -1, State and Limit 0, when the system
   is absent, not armed or has no view of the sign). "Off" = both ski-day settings 0, read once per rebuild. The Efficiency row's
   hysteresis state (`m_EffRowOn`) lives here, the rule in `HubRules`. `SkiDaySystem` and `SkiLodgeParkingSystem` are resolved at each

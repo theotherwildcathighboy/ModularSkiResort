@@ -2,8 +2,12 @@
 // OffSeasonRules.cs. Phase GameSimulation, not load-bearing (WorkProviderSystem's tick reads the value whenever it runs).
 // Every PollFrames sim frames (Game mode, setting SkiResortSettings.OffSeasonHalfStaff): per Welcome Sign, OffSeasonRules.Step on
 // its released score (no released score: not stepped, reads in season); per top-level lodge / school with its own WorkProvider,
-// m_MaxWorkers = OffSeasonRules.Target. The hut's and summit lodge's jobs ride on the sign (MountainJobsSystem asks IsHalf).
+// m_MaxWorkers = OffSeasonRules.Target. The hut's and summit lodge's jobs ride on the carrier (MountainJobsSystem asks IsHalf).
 // Nothing vanilla rewrites m_MaxWorkers after the Created frame, so this re-asserts on every poll; the setting off restores all.
+// The one writer of a lodge's m_MaxWorkers: its own target plus what it carries as its area's job carrier (MountainJobsSystem.CarriedBy,
+// MountainJobsRules.CarrierTarget). An off-road lodge on a cat track chain hands its own jobs to the carrier: its target goes to 0, the
+// game's tick lays the staff off, and once no staff is listed its WorkProvider and FreeWorkplaces go (the shape the utility-switch
+// prototype measured: no worker icons, no staffing factor). Back at a road, or off the chain, the WorkProvider comes back.
 // Logs: "created", ARMED once per load, one "OffSeason [area]" per transition, one "OffSeason [staff]" per write, "!!!" once on a throw.
 // Engine notes: EngineNotes/OffSeasonStaffSystem.md
 
@@ -17,6 +21,7 @@ using Game;
 using Game.Buildings;
 using Game.Common;
 using Game.Companies;
+using Game.Notifications;
 using Game.Prefabs;
 using Game.Simulation;
 using Game.Tools;
@@ -30,8 +35,11 @@ namespace SkiResortMod.Systems
 
         private SkiPrefabCatalogSystem m_PrefabCatalog;
         private SkiResortAttractivenessSystem m_Attractiveness;
+        private MountainJobsSystem m_MountainJobs;  // what a carrier lodge carries
         private SimulationSystem m_Simulation;
+        private IconCommandSystem m_IconCommands;
         private EntityQuery m_EfficiencyParamQuery;
+        private EntityQuery m_WorkProviderParamQuery;
 
         private bool m_Armed, m_Disabled, m_ErrorLogged, m_LastEnabled;
         private int m_Frame, m_Writes, m_Polls;
@@ -58,11 +66,18 @@ namespace SkiResortMod.Systems
             base.OnCreate();
             m_PrefabCatalog = World.GetOrCreateSystemManaged<SkiPrefabCatalogSystem>();
             m_Attractiveness = World.GetOrCreateSystemManaged<SkiResortAttractivenessSystem>();
+            m_MountainJobs = World.GetOrCreateSystemManaged<MountainJobsSystem>();
             m_Simulation = World.GetOrCreateSystemManaged<SimulationSystem>();
+            m_IconCommands = World.GetOrCreateSystemManaged<IconCommandSystem>();
             // Vanilla singleton query (CityServiceWorkplaceInitializeSystem.__AssignQueries: IncludeSystems), as MountainJobsSystem
             m_EfficiencyParamQuery = GetEntityQuery(new EntityQueryDesc
             {
                 All = new[] { ComponentType.ReadOnly<BuildingEfficiencyParameterData>() },
+                Options = EntityQueryOptions.IncludeSystems,
+            });
+            m_WorkProviderParamQuery = GetEntityQuery(new EntityQueryDesc
+            {
+                All = new[] { ComponentType.ReadOnly<WorkProviderParameterData>() },
                 Options = EntityQueryOptions.IncludeSystems,
             });
             Mod.Log.Info($"{nameof(OffSeasonStaffSystem)} created (lodges and the ski school at half staff off-season)");
@@ -81,7 +96,8 @@ namespace SkiResortMod.Systems
                              $"{OffSeasonRules.HoldToOffFrames} sim frames (12 game hours) with no open run, in season after " +
                              $"{OffSeasonRules.HoldToOnFrames} (one game hour) with one; off-season the A-frame, chalet, grand lodge and " +
                              "school keep half their workplaces (rounded up) and the hut / summit jobs on the sign halve; patrol stays full; " +
-                             "upkeep is not halved (vanilla's budget formula has no honest half for it; Inactive = upkeep x0.1, no wages)");
+                             "upkeep is not halved (vanilla's budget formula has no honest half for it; Inactive = upkeep x0.1, no wages); " +
+                             "a carrier lodge's workplaces = its own plus what it carries; an off-road lodge on a cat track chain hands its own on");
         }
 
         protected override void OnUpdate()
@@ -137,6 +153,8 @@ namespace SkiResortMod.Systems
             for (int i = 0; i < m_GoneSigns.Count; i++)
                 m_Areas.Remove(m_GoneSigns[i]);
 
+            if (!m_MountainJobs.TargetsReady)
+                return;   // a carrier's sum is not known yet this load: writing its own target alone would lay the carried staff off
             for (int i = 0; i < m_Buildings.Count; i++)
             {
                 Entity b = m_Buildings[i];
@@ -144,28 +162,82 @@ namespace SkiResortMod.Systems
                     continue;
                 if (!EntityManager.TryGetComponent(b, out PrefabRef pr) || !IsSeasonal(pr.m_Prefab, out string name))
                     continue;
-                if (!EntityManager.TryGetComponent(b, out WorkProvider wp))
-                    continue;   // jobs ride on the sign (MountainJobsSystem)
                 if (!EntityManager.TryGetComponent(pr.m_Prefab, out WorkplaceData wd))
-                    continue;
+                    continue;   // no Workplace of its own: its jobs ride on the carrier (MountainJobsSystem)
                 bool off = m_Signs[i] != Entity.Null && m_Areas.TryGetValue(m_Signs[i], out OffSeasonState st) && st.Known && st.Off;
-                int target = OffSeasonRules.Target(wd.m_MaxWorkers, off, enabled);
-                if (wp.m_MaxWorkers == target)
+                bool moved = m_Attractiveness.IsOffRoadSupplied(b);   // its own jobs ride on the carrier (LodgeSupplyRule.JobsLeave)
+                int carried = m_MountainJobs.CarriedBy(b);
+                int target = MountainJobsRules.CarrierTarget(moved ? 0 : OffSeasonRules.Target(wd.m_MaxWorkers, off, enabled), carried);
+                if (!EntityManager.TryGetComponent(b, out WorkProvider wp))
+                {
+                    if (!moved && target > 0 && IsRoadOptional(pr.m_Prefab) && !EntityManager.HasComponent<Destroyed>(b) &&
+                        !EntityManager.HasComponent<Abandoned>(b))
+                        AddProvider(b, name, target, wd.m_MaxWorkers, carried);
                     continue;
-                int before = wp.m_MaxWorkers;
-                bool raise = target > before;
-                short grace = raise ? GracePeriod() : (short)0;
-                wp.m_MaxWorkers = target;
-                if (raise && grace > 0)
-                    wp.m_EfficiencyCooldown = (short)(-grace);
-                EntityManager.SetComponentData(b, wp);
-                m_Writes++;
+                }
                 int staff = EntityManager.HasBuffer<Employee>(b) ? EntityManager.GetBuffer<Employee>(b, isReadOnly: true).Length : 0;
-                Mod.Log.Info($"OffSeason [staff] {name} {Id(b)} workplaces {before} -> {target} (prefab {wd.m_MaxWorkers}, staff now {staff}; " +
-                             (raise ? $"hiring, vanilla grace {grace}" : "the game's tick lays the surplus off") +
-                             $"; ski area {(m_Signs[i] == Entity.Null ? "not linked" : Id(m_Signs[i]))} {(off ? "off-season" : "in season")}" +
-                             (enabled ? string.Empty : ", setting off") + ")");
+                if (wp.m_MaxWorkers != target)
+                {
+                    int before = wp.m_MaxWorkers;
+                    bool raise = target > before;
+                    short grace = raise ? GracePeriod() : (short)0;
+                    wp.m_MaxWorkers = target;
+                    if (raise && grace > 0)
+                        wp.m_EfficiencyCooldown = (short)(-grace);
+                    EntityManager.SetComponentData(b, wp);
+                    m_Writes++;
+                    Mod.Log.Info($"OffSeason [staff] {name} {Id(b)} workplaces {before} -> {target} (prefab {wd.m_MaxWorkers}, staff now {staff}; " +
+                                 (raise ? $"hiring, vanilla grace {grace}" : "the game's tick lays the surplus off") +
+                                 (moved ? "; own jobs moved to the carrier (off-road on a cat track chain)" : string.Empty) +
+                                 (carried > 0 ? $"; carries {carried} for its ski area" : string.Empty) +
+                                 $"; ski area {(m_Signs[i] == Entity.Null ? "not linked" : Id(m_Signs[i]))} {(off ? "off-season" : "in season")}" +
+                                 (enabled ? string.Empty : ", setting off") + ")");
+                }
+                if (MountainJobsRules.CanDropProvider(moved, wp.m_MaxWorkers, staff))
+                    DropProvider(b, name);
             }
+        }
+
+        private bool IsRoadOptional(Entity prefab)
+        {
+            return m_PrefabCatalog.LodgeDefs.TryGetValue(prefab, out LodgeDef lodge) && lodge.RoadRule == LodgeRoadRule.RoadOptional;
+        }
+
+        /// <summary>Back at a road or off the chain: the WorkProvider and Employee buffer the Created frame gave it
+        /// (CityServiceWorkplaceInitializeSystem.cs:103-121 adds them only then), with vanilla's grace, as MountainJobsSystem does for a sign.</summary>
+        private void AddProvider(Entity b, string name, int target, int prefabMax, int carried)
+        {
+            short grace = GracePeriod();
+            EntityManager.AddComponentData(b, new WorkProvider { m_MaxWorkers = target, m_EfficiencyCooldown = (short)(-grace) });
+            if (!EntityManager.HasBuffer<Employee>(b))
+                EntityManager.AddBuffer<Employee>(b);
+            m_Writes++;
+            Mod.Log.Info($"OffSeason [staff] {name} {Id(b)} WorkProvider back, workplaces {target} (prefab {prefabMax}" +
+                         (carried > 0 ? $", carries {carried}" : string.Empty) + $"; at a road or off the cat track chain; vanilla grace {grace})");
+        }
+
+        /// <summary>0 workplaces and no staff listed: WorkProvider and FreeWorkplaces go, the staffing factors read 1 and the two worker icons
+        /// are removed (WorkProviderSystem's writers of all four skip a building without WorkProvider, :232-312).</summary>
+        private void DropProvider(Entity b, string name)
+        {
+            if (!m_WorkProviderParamQuery.IsEmptyIgnoreFilter)
+            {
+                WorkProviderParameterData p = m_WorkProviderParamQuery.GetSingleton<WorkProviderParameterData>();
+                IconCommandBuffer icons = m_IconCommands.CreateCommandBuffer();
+                icons.Remove(b, p.m_UneducatedNotificationPrefab);
+                icons.Remove(b, p.m_EducatedNotificationPrefab);
+            }
+            if (EntityManager.TryGetBuffer(b, isReadOnly: false, out DynamicBuffer<Efficiency> factors))
+            {
+                BuildingUtils.SetEfficiencyFactor(factors, EfficiencyFactor.NotEnoughEmployees, 1f);
+                BuildingUtils.SetEfficiencyFactor(factors, EfficiencyFactor.SickEmployees, 1f);
+                BuildingUtils.SetEfficiencyFactor(factors, EfficiencyFactor.EmployeeHappiness, 1f);
+            }
+            EntityManager.RemoveComponent<WorkProvider>(b);
+            if (EntityManager.HasComponent<FreeWorkplaces>(b))
+                EntityManager.RemoveComponent<FreeWorkplaces>(b);
+            m_Writes++;
+            Mod.Log.Info($"OffSeason [staff] {name} {Id(b)} WorkProvider removed (0 workplaces, no staff listed; its jobs ride on the carrier)");
         }
 
         private void StepArea(Entity sign, uint now, bool enabled)
@@ -222,13 +294,22 @@ namespace SkiResortMod.Systems
             for (int i = 0; i < m_Buildings.Count; i++)
             {
                 Entity b = m_Buildings[i];
-                if (!EntityManager.Exists(b) || !EntityManager.TryGetComponent(b, out PrefabRef pr) || !IsSeasonal(pr.m_Prefab, out string name) ||
-                    !EntityManager.TryGetComponent(b, out WorkProvider wp))
+                if (!EntityManager.Exists(b) || !EntityManager.TryGetComponent(b, out PrefabRef pr) || !IsSeasonal(pr.m_Prefab, out string name))
                     continue;
                 int full = EntityManager.TryGetComponent(pr.m_Prefab, out WorkplaceData wd) ? wd.m_MaxWorkers : -1;
+                bool moved = m_Attractiveness.IsOffRoadSupplied(b);
+                int carried = m_MountainJobs.CarriedBy(b);
+                if (!EntityManager.TryGetComponent(b, out WorkProvider wp))
+                {
+                    if (moved)
+                        sb.Append(' ').Append(name).Append(' ').Append(Id(b)).Append(": no WorkProvider, own jobs on the carrier;");
+                    continue;
+                }
                 int staff = EntityManager.HasBuffer<Employee>(b) ? EntityManager.GetBuffer<Employee>(b, isReadOnly: true).Length : 0;
                 sb.Append(' ').Append(name).Append(' ').Append(Id(b)).Append(": workplaces ").Append(wp.m_MaxWorkers)
-                  .Append(" of ").Append(full).Append(", staff ").Append(staff).Append(';');
+                  .Append(" of ").Append(full).Append(", staff ").Append(staff)
+                  .Append(carried > 0 ? ", carries " + carried.ToString(CultureInfo.InvariantCulture) : string.Empty)
+                  .Append(moved ? ", own jobs on the carrier" : string.Empty).Append(';');
             }
             sb.Append('\n');
         }

@@ -284,6 +284,12 @@ namespace ResortBatch
                     luxuryTolerance = Math.Max(luxuryTolerance, d.PriceTolerance);
             }
             Contains(loc, "SkiResort.Hub.BUILD_TIP_LUXURY", W + "-t6", luxuryTolerance.ToString(CultureInfo.InvariantCulture));
+            // T6c: the road-optional lodge text states the cat track link distance, the parking texts the census radius (per lodge).
+            Contains(loc, "SkiResort.Hub.BUILD_TIP_ROAD_OPTIONAL", W + "-t6c",
+                     LiftServedRule.LinkMeters.ToString("0", CultureInfo.InvariantCulture) + " m");
+            string parkingRadius = SkiParkingRules.RadiusM.ToString("0", CultureInfo.InvariantCulture) + " m";
+            Contains(loc, "SkiResort.Hub.GUESTS_TIP[CarSpaces]", W + "-t6c", parkingRadius);
+            Contains(loc, "SkiResort.Hub.START_NOTE[Parking]", W + "-t6c", parkingRadius);
             // T6b: no text states the one-luxury-lodge-per-area rule (there is no limit on lodges), and its two keys (REASON[OneLuxury],
             // RECEIPT_TIP_LUXURY_IGNORED) are gone from the locale.
             Check(!loc.ContainsKey("SkiResort.Hub.REASON[OneLuxury]") && !loc.ContainsKey("SkiResort.Hub.RECEIPT_TIP_LUXURY_IGNORED"),

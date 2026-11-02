@@ -495,6 +495,13 @@ Lodges and the ski school keep half their workplaces while their ski area has ha
 `MountainJobsSystem` halves the hut / summit sign jobs through `IsHalf`). Polls every 256 frames. The phase is NOT load-bearing for
 the same reason as `MountainJobsSystem` (`WorkProviderSystem` reads `m_MaxWorkers` whenever it runs).
 
+## Near LodgeSupplySystem
+
+The road-optional lodges' city utilities, every frame. Modification1 is load-bearing: its `Updated` tag must reach
+`Game.Buildings.InitializeSystem` in Modification2 of the same frame (SystemOrder.cs:118; ModificationSystem.cs:19-26 runs the phases
+in order) before the cleanup collects it (SystemOrder.cs:50-54, PrepareCleanUpSystem.cs:48-52). ModificationSystem runs in MainLoop
+(SystemOrder.cs:60), so this runs paused or not. Details: LodgeSupplySystem.md.
+
 ## Near StationLvIconSystem
 
 Removes the vanilla `LowVoltageNotConnected` icon from a station whose LV stub has a wire: `ConnectionWarningSystem` counts only

@@ -3,19 +3,22 @@
  * is counted and what tickets do. Two bars on one scale (hubRules.guestBarScale, integer flex-grow via guestBarParts); the table is three
  * Folds (Lodges, Sent, Tickets) whose populations differ by design. Fixed slots only (StableWidth cells, fixed-height note slots), so a
  * state change moves nothing. Last month is never a fake 0 (hubRules.lastMonthMark): "full" = a whole month, "partial" = counted since the
- * load, "none" = -1 shown as "–". Panel file: subscribes resorts$, selectedResort$, resortLive$, city$.
+ * load, "none" = -1 shown as "–". Under the folds, always shown: one car space row per active road lodge of the area (lodgeParking$;
+ * none for the Hut, the Summit or an off-road lodge), numbered per tier while the area has two of a tier; a click flies to the lodge.
+ * Panel file: subscribes resorts$, selectedResort$, resortLive$, city$, lodgeParking$.
  */
 import { useValue } from "cs2/api";
 import { Unit } from "cs2/l10n";
-import { city$, resortLive$, resorts$, selectedResort$ } from "../bindings";
-import type { CityStats, ResortLive } from "../bindings";
+import { Button } from "cs2/ui";
+import { city$, hubTriggers, lodgeParking$, resortLive$, resorts$, sameEntity, selectedResort$ } from "../bindings";
+import type { BuildItemId, CityStats, LodgeParkingRow, ResortLive } from "../bindings";
 import { useT } from "../l10n";
 import type { Translate } from "../l10n";
 import {
   guestBarParts, guestBarScale, lastMonthMark, lessonsShown, liveOf, passesShown, skiDayLine, skiDayTip, skiDayWalk, ticketNote, tripPlannerNote,
 } from "./hubRules";
 import type { LastMonthMark, TicketNote, TripPlannerNote } from "./hubRules";
-import { HUB_FMT, HUB_LOC, allMonthNames, monthName } from "./hubText";
+import { HUB_FMT, HUB_LOC, LODGE_TIER, allMonthNames, monthName } from "./hubText";
 import {
   Divider, FlexBar, InfoLine, LocText, Num, StableWidth, SubLine, Tip, TipLines, cx, numArg, useNumberSamples,
 } from "./parts";
@@ -133,6 +136,33 @@ function TripPlannerNoteText({ note, name, t }: { note: TripPlannerNote; name: s
   }
 }
 
+/*
+ * One row per active road lodge of the area (LodgeParkingRow, C# order): "Car spaces at {NAME}", the count or "–" before the first
+ * census. {NAME} is the tier word, or "Chalet 2" (LODGE_TIER_NUMBERED) while the area has two or more of that tier: the number is
+ * C#'s, persisted on the lodge, so it stays the same across saves. A Button like a Fold row: a click flies to the lodge. No road
+ * lodge: no row.
+ */
+function LodgeParkingLines({ rows, samples, t }: { rows: readonly LodgeParkingRow[]; samples: NumberSamples; t: Translate }): JSX.Element {
+  return (
+    <>
+      {rows.map((r) => {
+        const tier = LODGE_TIER[r.item as BuildItemId];
+        const name = !tier ? DASH
+          : r.number > 0 ? <LocText entry={HUB_FMT.lodgeTierNumbered} args={{ NAME: t(tier), N: numArg(r.number, Unit.Integer) }} />
+            : t(tier);
+        return (
+          <Tip key={`${r.lodge.index}:${r.lodge.version}`} tip={t(HUB_LOC.guestsTipCarSpaces)}>
+            <Button theme={{ button: cx(styles.infoLine, styles.foldRow) }} onSelect={() => hubTriggers.focusBuilding(r.lodge)}>
+              <div className={styles.infoLabel}><LocText entry={HUB_FMT.guestsRowCarSpaces} args={{ NAME: name }} /></div>
+              <StableWidth samples={samples.count} align="end">{countCell(r.carSpaces)}</StableWidth>
+            </Button>
+          </Tip>
+        );
+      })}
+    </>
+  );
+}
+
 /* The GUESTS header with its Info glyph; the notes are its tooltip. */
 function GuestsHeader({ l, city, note, t }: { l: ResortLive | null; city: CityStats; note: TicketNote | null; t: Translate }): JSX.Element {
   return (
@@ -150,7 +180,9 @@ function GuestsHeader({ l, city, note, t }: { l: ResortLive | null; city: CitySt
   );
 }
 
-function SignGuests({ l, city, samples, t }: { l: ResortLive | null; city: CityStats; samples: NumberSamples; t: Translate }): JSX.Element {
+function SignGuests({ l, city, parking, samples, t }: {
+  l: ResortLive | null; city: CityStats; parking: readonly LodgeParkingRow[]; samples: NumberSamples; t: Translate;
+}): JSX.Element {
   // The last-month numbers show whenever C# sent them (>= 0), a since-load month marked "partial".
   const mark = lastMonthMark(l);
   const thisMonth = l ? l.guestsThisMonth : -1;
@@ -279,6 +311,7 @@ function SignGuests({ l, city, samples, t }: { l: ResortLive | null; city: CityS
       />
       </Fold>
       <Divider />
+      <LodgeParkingLines rows={parking} samples={samples} t={t} />
       {city.tourismOverhaul ? (
         <Tip tip={t(HUB_LOC.estToTip)}>
           <div className={styles.noteArea}>
@@ -320,6 +353,7 @@ export function GuestsView(): JSX.Element {
   const selected = useValue(selectedResort$);
   const live = useValue(resortLive$);
   const city = useValue(city$);
+  const parking = useValue(lodgeParking$);
 
   const cur = currentResort(resortEntries(resorts), selected);
   if (!cur.row || cur.isUnlinked) {
@@ -332,5 +366,7 @@ export function GuestsView(): JSX.Element {
       </>
     );
   }
-  return <SignGuests l={liveOf(live, cur.row.sign)} city={city} samples={samples} t={t} />;
+  const sign = cur.row.sign;
+  const rows = parking.filter((r) => sameEntity(r.sign, sign));
+  return <SignGuests l={liveOf(live, sign)} city={city} parking={rows} samples={samples} t={t} />;
 }

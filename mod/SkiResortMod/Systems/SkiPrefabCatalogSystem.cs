@@ -1112,6 +1112,7 @@ namespace SkiResortMod.Systems
                 case LodgeRoadRule.Base: return "needs a road";
                 case LodgeRoadRule.Mountain: return "mountain (no road needed)";
                 case LodgeRoadRule.None: return "roadless";
+                case LodgeRoadRule.RoadOptional: return "road, or a cat track chain";
                 default: return rule.ToString();
             }
         }
