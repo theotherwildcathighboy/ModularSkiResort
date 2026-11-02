@@ -729,7 +729,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.PROBLEM[None]", "Nothing needs your attention." },
                 { "SkiResort.Hub.PROBLEM[Unlinked]", "More than 5 km from every Welcome Sign" },
                 { "SkiResort.Hub.PROBLEM[NoLodge]", "No lodge" },
-                { "SkiResort.Hub.PROBLEM[LodgesAllOff]", "All lodges are switched off" },
+                { "SkiResort.Hub.PROBLEM[LodgesAllOff]", "All lodges are deactivated" },
                 { "SkiResort.Hub.PROBLEM[NoRuns]", "No runs yet" },
                 // The two road rows (C# HubProblemCode SignNoRoad, LodgeNoRoad).
                 { "SkiResort.Hub.PROBLEM[SignNoRoad]", "Welcome Sign is not at a road" },
@@ -746,8 +746,8 @@ namespace SkiResortMod
                 // C# HubProblemCode SchoolNoGreenRun (MixedLiftTypes and SummitLodgeNotLiftServed carry a placeholder: block (e) FMT).
                 { "SkiResort.Hub.PROBLEM[SchoolNoGreenRun]", "Ski school has no green run" },
                 { "SkiResort.Hub.PROBLEM_TIP[NoLodge]", "Ski days need any lodge within 800 m of the runs or lift stations. With no lodge, attraction is 0." },
-                { "SkiResort.Hub.PROBLEM_TIP[LodgesAllOff]", "Switched-off lodges do not count." },
-                { "SkiResort.Hub.PROBLEM_TIP[LodgesSomeOff]", "Switched-off lodges do not count in the lodge base." },
+                { "SkiResort.Hub.PROBLEM_TIP[LodgesAllOff]", "Deactivated lodges do not count." },
+                { "SkiResort.Hub.PROBLEM_TIP[LodgesSomeOff]", "Deactivated lodges do not count in the lodge base." },
                 // Names garbage and points at the factor rows below it.
                 { "SkiResort.Hub.PROBLEM_TIP[Efficiency]", "The Welcome Sign and its lodges, as in their info panels. Every cause that costs 5 % or more is listed below." },
                 // The lift stops, serves no run, and its upkeep is still billed (power never lowers it; no "full": the NoOpenRun quarter
@@ -769,7 +769,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.PROBLEM_TIP[SkiDaysCannotReach]", "Many recent ski-day guests with a car did not reach the lodge in time. Fewer are sent until more arrive." },
                 { "SkiResort.Hub.PROBLEM_TIP[DepotNoHillLodge]", "A depot sends guests only while its ski area has a working lodge on the hill; a mountain lodge counts. It bills nothing until then." },
                 { "SkiResort.Hub.PROBLEM_TIP[DepotNoRoad]", "A depot with no road sends nobody and bills nothing." },
-                { "SkiResort.Hub.PROBLEM_TIP[SignNoRoad]", "While no switched-on lodge has a road, the Welcome Sign employs the Hut, Summit and patrol staff. Workers arrive by road." },
+                { "SkiResort.Hub.PROBLEM_TIP[SignNoRoad]", "No active road lodge: the sign employs the Hut, Summit, patrol and cat track lodge staff. They come by road." },
                 { "SkiResort.Hub.PROBLEM_TIP[SkiDaysNoGuestsNear]", "Ski-day guests come from homes and hotels, within the longest ski-day trip in Options. Beyond about 7 km few arrive in time." },
                 { "SkiResort.Hub.PROBLEM_TIP[NoParkingNearLodge]", "No car spaces within 300 m of the lodge. Tourist parties drive here, and none arrive without them." },
                 { "SkiResort.Hub.PROBLEM_TIP[LodgeNotSlopeside]", "Ski-day guests only go to a lodge within 800 m of this ski area's runs or lift stations." },
@@ -822,7 +822,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.RECEIPT_TIP[Scale]", "The section total is this scale × the square root of the terms above. Attractiveness scale in Options." },
                 { "SkiResort.Hub.NO_SCHOOL", "No ski school" },
                 { "SkiResort.Hub.SCHOOL_NO_GREEN", "No green run" },
-                { "SkiResort.Hub.SCHOOL_OFF", "Switched off" },
+                { "SkiResort.Hub.SCHOOL_OFF", "Deactivated" },
                 { "SkiResort.Hub.SCHOOL_WAITING", "No run counts yet" },
                 { "SkiResort.Hub.RECEIPT_OPEN_NONE", "Runs open now: –" },
                 { "SkiResort.Hub.RECEIPT[Efficiency]", "Welcome Sign efficiency" },
@@ -937,7 +937,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.SKI_DAYS[Night]", "Lifts closed for the night" },
                 { "SkiResort.Hub.SKI_DAYS[Full]", "Full right now" },
                 { "SkiResort.Hub.SKI_DAYS_TIP[Off]", "Locals who ski and Tourists who ski are both 0 in Options." },
-                { "SkiResort.Hub.SKI_DAYS_TIP[NoLodge]", "Ski days need a switched-on lodge within 800 m of runs or stations. Off-road, a Hut, Summit or lodge on a cat track chain counts." },
+                { "SkiResort.Hub.SKI_DAYS_TIP[NoLodge]", "Ski days need an active lodge within 800 m of runs or stations. Off-road, a Hut, Summit or lodge on a cat track chain counts." },
                 { "SkiResort.Hub.SKI_DAYS_TIP[Runs]", "The runs set the limit: bigger and easier runs hold more skiers at once." },
                 { "SkiResort.Hub.SKI_DAYS_TIP[Lodges]", "The lodges set the limit: each lodge takes 360 skiers at once, more on a powder day." },
                 { "SkiResort.Hub.EST_ROW[Tourists]", "Estimated tourists from this ski area" },
@@ -945,8 +945,8 @@ namespace SkiResortMod
                 { "SkiResort.Hub.EST_TO_TIP", "Tourism Overhaul sets tourist numbers in this city, so no estimate is shown." },
                 // The Guests view's trip-planner note (no placeholder; Known / KnownOff are in the
                 // placeholder block below) and its tooltip.
-                { "SkiResort.Hub.TRIP_PLANNER_NOTE[Unknown]", "Part of the game's trip planner is switched off (another mod, or a game error), so trip times can differ." },
-                { "SkiResort.Hub.TRIP_PLANNER_NOTE[UnknownOff]", "Ski days off: the game's leisure systems are switched off (another mod, or a game error)." },
+                { "SkiResort.Hub.TRIP_PLANNER_NOTE[Unknown]", "Part of the game's trip planner is disabled (another mod, or a game error), so trip times can differ." },
+                { "SkiResort.Hub.TRIP_PLANNER_NOTE[UnknownOff]", "Ski days off: the game's leisure systems are disabled (another mod, or a game error)." },
                 { "SkiResort.Hub.TRIP_PLANNER_TIP", "Read at each city load: which of the game's trip systems are on, and which known mods are loaded. The mod log lists them." },
                 { "SkiResort.Hub.GUESTS_NOTE[Where]", "Counted when tourists arrive at this ski area's lodge or Welcome Sign, and when residents come to a lodge for leisure." },
                 { "SkiResort.Hub.GUESTS_NOTE[SinceLoad]", "Counting started when you loaded the city, partway through the month." },
@@ -1065,7 +1065,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.STATUS_TIP_POWDER", "Fresh snow at the top: powder {PCT}. More skiers come." },
                 { "SkiResort.Hub.STATUS_SNOW", "{DEPTH} cm · {PCT}" },
                 { "SkiResort.Hub.STATUS_SNOW_IN", "{DEPTH} in · {PCT}" },  // US customary units
-                { "SkiResort.Hub.PROBLEM[LodgesSomeOff]", "Lodges switched off: {N}" },
+                { "SkiResort.Hub.PROBLEM[LodgesSomeOff]", "Lodges deactivated: {N}" },
                 { "SkiResort.Hub.PROBLEM[Efficiency]", "Ski area buildings at {PCT}: {REASON}" },
                 { "SkiResort.Hub.PROBLEM[EfficiencyMore]", "Ski area buildings at {PCT}: {REASON} and {N} more" },
                 { "SkiResort.Hub.PROBLEM[NotRunning]", "Welcome Sign not running: {REASON}" },
@@ -1092,7 +1092,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.PROBLEM_TIP[RunsUnserved]", "Each counts {PCT} until a running lift reaches its top: within 150 m of the line, at most 15 m above the top station." },
                 { "SkiResort.Hub.PROBLEM_GAIN[Efficiency]", "At full efficiency the attraction would be {FULL}." },
                 { "SkiResort.Hub.PROBLEM_GAIN[Lodge]", "With a lodge, the attraction would be {A}." },
-                { "SkiResort.Hub.PROBLEM_GAIN[LodgesOn]", "With them switched on, the attraction would be {A}." },
+                { "SkiResort.Hub.PROBLEM_GAIN[LodgesOn]", "With them active, the attraction would be {A}." },
                 { "SkiResort.Hub.STAFF_LINE", "Staff: {FILLED} of {JOBS}" },
                 { "SkiResort.Hub.TILE_TIP_FULL", "At full efficiency: {N}" },
                 { "SkiResort.Hub.TILE_TIP_STAFFING", "× efficiency {PCT}" },
