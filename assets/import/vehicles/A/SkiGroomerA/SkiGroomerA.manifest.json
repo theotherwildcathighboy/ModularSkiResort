@@ -1,0 +1,377 @@
+{
+  "name": "SkiGroomerA",
+  "written_utc": "2026-11-02T07:15:00Z",
+  "blender": "5.2.3 LTS",
+  "files": {
+    "SkiGroomerA.fbx": {
+      "bytes": 356796,
+      "sha1": "3086b61af38a738912e6e46fb527366c1be0ef43"
+    },
+    "SkiGroomerA_BaseColor.png": {
+      "bytes": 446902,
+      "sha1": "0c216eea1ad52699fb84fdfb2aeacfb7408d99bd"
+    },
+    "SkiGroomerA_ControlMask.png": {
+      "bytes": 18578,
+      "sha1": "3f482da71773e1ad33f1a24a4cc5e5bf79dfe969"
+    },
+    "SkiGroomerA_Emissive.png": {
+      "bytes": 26736,
+      "sha1": "eb13e53f103d5cc67060e0b356881a33ea84b969"
+    },
+    "SkiGroomerA_LOD1.fbx": {
+      "bytes": 157100,
+      "sha1": "a3963dca0efe7ba674ef204433a041378138062e"
+    },
+    "SkiGroomerA_LOD2.fbx": {
+      "bytes": 51388,
+      "sha1": "7a132bcca3246d2185b20d73c892a29098d2129f"
+    },
+    "SkiGroomerA_MaskMap.png": {
+      "bytes": 96144,
+      "sha1": "99c0c0a53b9cf01b4c94358629b46c7249e3ff0a"
+    },
+    "SkiGroomerA_Normal.png": {
+      "bytes": 142447,
+      "sha1": "9d88f02cfc8dfc08e7eca9764b678bb4b04901de"
+    },
+    "settings.json": {
+      "bytes": 771,
+      "sha1": "7ff2113564de66bb5a8458e686770b35c1e5ba66"
+    }
+  },
+  "generator": "groomer.py",
+  "kind": "prop (moving prop, Transform written by code; also parked)",
+  "letter": "A",
+  "tris": {
+    "LOD0": 4134,
+    "LOD1": 1824,
+    "LOD2": 496
+  },
+  "lod0_cap": 5000,
+  "texture": 1024,
+  "footprint_author_m": {
+    "x": [
+      -4.46,
+      4.47
+    ],
+    "y": [
+      -2.65,
+      2.65
+    ],
+    "z": [
+      0.0,
+      3.025
+    ]
+  },
+  "track_center_x_author_m": 0.21,
+  "track_center_game_local_z_m": 0.21,
+  "lights": {
+    "beacon": {
+      "author_xyz": [
+        [
+          2.18,
+          0.7,
+          3.025
+        ],
+        [
+          2.18,
+          -0.7,
+          3.025
+        ]
+      ],
+      "game_local_xyz": [
+        [
+          -0.7,
+          3.025,
+          2.18
+        ],
+        [
+          0.7,
+          3.025,
+          2.18
+        ]
+      ]
+    },
+    "headlight": {
+      "author_xyz": [
+        [
+          2.845,
+          0.86,
+          1.06
+        ],
+        [
+          2.845,
+          -0.86,
+          1.06
+        ]
+      ],
+      "game_local_xyz": [
+        [
+          -0.86,
+          1.06,
+          2.845
+        ],
+        [
+          0.86,
+          1.06,
+          2.845
+        ]
+      ]
+    },
+    "roof_front": {
+      "author_xyz": [
+        [
+          2.322,
+          0.48,
+          2.862
+        ],
+        [
+          2.322,
+          0.68,
+          2.862
+        ],
+        [
+          2.322,
+          0.88,
+          2.862
+        ],
+        [
+          2.322,
+          -0.48,
+          2.862
+        ],
+        [
+          2.322,
+          -0.68,
+          2.862
+        ],
+        [
+          2.322,
+          -0.88,
+          2.862
+        ]
+      ],
+      "game_local_xyz": [
+        [
+          -0.48,
+          2.862,
+          2.322
+        ],
+        [
+          -0.68,
+          2.862,
+          2.322
+        ],
+        [
+          -0.88,
+          2.862,
+          2.322
+        ],
+        [
+          0.48,
+          2.862,
+          2.322
+        ],
+        [
+          0.68,
+          2.862,
+          2.322
+        ],
+        [
+          0.88,
+          2.862,
+          2.322
+        ]
+      ]
+    },
+    "roof_rear": {
+      "author_xyz": [
+        [
+          0.678,
+          0.56,
+          2.862
+        ],
+        [
+          0.678,
+          0.76,
+          2.862
+        ],
+        [
+          0.678,
+          -0.56,
+          2.862
+        ],
+        [
+          0.678,
+          -0.76,
+          2.862
+        ]
+      ],
+      "game_local_xyz": [
+        [
+          -0.56,
+          2.862,
+          0.678
+        ],
+        [
+          -0.76,
+          2.862,
+          0.678
+        ],
+        [
+          0.56,
+          2.862,
+          0.678
+        ],
+        [
+          0.76,
+          2.862,
+          0.678
+        ]
+      ]
+    },
+    "tail": {
+      "author_xyz": [
+        [
+          -2.22,
+          1.03,
+          1.08
+        ],
+        [
+          -2.22,
+          -1.03,
+          1.08
+        ]
+      ],
+      "game_local_xyz": [
+        [
+          -1.03,
+          1.08,
+          -2.22
+        ],
+        [
+          1.03,
+          1.08,
+          -2.22
+        ]
+      ]
+    }
+  },
+  "pack": {
+    "islands": 110,
+    "scale": 82.53,
+    "tier_px_per_m": {
+      "shell": 82.5,
+      "mech": 57.8,
+      "small": 86.8,
+      "hidden": 42.3,
+      "stack": 74.6,
+      "hero": 132.5,
+      "lamp": 181.3
+    },
+    "squashed": [],
+    "unfold": {
+      "islands": 151,
+      "faces": 633
+    },
+    "area_m2_all": 229.7,
+    "area_m2_unique": 89.8,
+    "painted_faces": 633,
+    "lit_m2": {
+      "LOD0": {
+        "white": 0.2996,
+        "amber": 0.1467
+      },
+      "LOD1": {
+        "white": 0.2673,
+        "amber": 0.1467
+      },
+      "LOD2": {
+        "white": 0.1394,
+        "amber": 0.058
+      }
+    }
+  },
+  "recolor": "none (ControlMask empty)",
+  "surgery": {
+    "mesh_lod0_single_light": {
+      "purpose": 71,
+      "color": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "colorOff": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "intensity": 1.0,
+      "luminance": 0,
+      "responseTime": 0,
+      "animationIndex": -1,
+      "materialId": 0
+    },
+    "mesh_lod1_lod2": "no EmissiveProperties: the levels use the main mesh's (ManagedBatchSystem.cs:943-946)",
+    "effect_source": [
+      {
+        "effect": "SkiPisteFloodSource",
+        "cid": "0fff229caa4bf7238884ed882d59fbb1",
+        "m_PositionOffset": [
+          0.0,
+          2.9,
+          2.36
+        ],
+        "m_Rotation_xyzw": [
+          0.21644,
+          0.0,
+          0.0,
+          0.976296
+        ],
+        "m_Intensity": 1,
+        "m_ParentMesh": 0,
+        "m_AnimationIndex": -1
+      },
+      {
+        "effect": "SkiSnowGunBeaconSource",
+        "cid": "d487a21aa832aaea20c94fb8d04ac3f4",
+        "m_PositionOffset": [
+          0.0,
+          3.35,
+          2.18
+        ],
+        "m_Rotation_xyzw": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "m_Intensity": 1,
+        "m_ParentMesh": 0,
+        "m_AnimationIndex": 0
+      }
+    ],
+    "effect_source_curves": "one row: m_AnimationCurves[0] of vanilla EU_Snowplow01.Prefab (0.5 s), for the amber light's pulse"
+  },
+  "emissive": {
+    "map": "SkiGroomerA_Emissive.png",
+    "white_srgb": [
+      1.0,
+      0.965,
+      0.92
+    ],
+    "amber_srgb": [
+      1.0,
+      0.698,
+      0.0
+    ],
+    "shared_by": [
+      "SkiGroomerA_LOD1",
+      "SkiGroomerA_LOD2"
+    ]
+  },
+  "axes": "author +X forward, +Y left, +Z up; game local = (-y, z, x)"
+}

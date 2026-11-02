@@ -56,13 +56,16 @@ Export/import staging for CS2 Editor assets, organized `<category>/<generation l
   action); `A.manifest.json` beside the letter folder. Import note: docs/research/lifts/tower-numbers-build-2026-10-20.md §5.2.
 - **surfaces/** - `A/SkiRunGroomedA`, `A/SkiRunSnowmakingA` (`ski_surface.py`): run-surface
   textures plus hand-made SurfacePrefab staging; see `surfaces/A/README.md`.
+- **vehicles/** - `A/SkiGroomerA` (`groomer.py`): the snow groomer the code mod drives on cat tracks, a
+  StaticObjectPrefab with a purpose 71 light (docs/PIPELINE.md section 6, "Lights on a prop our code moves");
+  `B/SkiBusDecalA`: the ski coach livery decal.
 
 Current generation per category (nothing from the 2026-10 round is imported yet, STATE section 1):
 chairs **M**, stations **A** (detachable, gondola, tram) and **M** (fixedgrip), towers **O**,
 tramtowers **A**, cabins **A**, lodges **B**, buildings **A**, signs **A** (welcome sign) and
 **B** (sign sets), props **A** (snow guns, floodlights, hydrant boxes, the red beacon) and **B**
 (dressing kit), probes **B** (import-behavior probes, not shipped), fences **B** (net) and **A**
-(end post), surfaces **A**.
+(end post), surfaces **A**, vehicles **A** (groomer) and **B** (coach decal).
 Generator `--out` paths must target the letter folder, e.g. `--out ../import/towers/N`.
 Never reuse a generation letter (the Editor mints a new mesh CID per import; hand-made
 prefabs repoint by CID — see docs/PIPELINE.md).
