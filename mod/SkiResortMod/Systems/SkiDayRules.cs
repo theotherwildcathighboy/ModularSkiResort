@@ -107,7 +107,8 @@ namespace SkiResortMod.Systems
         {
             public bool IsLodgePrefab, OnLiveSign, Active, Destroyed, LeisureTagged, HasRoad;
             public float NearestRunOrStationM;
-            /// <summary>A mountain lodge (LodgeRoadRule != Base) needs no road. false (the default) = road required.</summary>
+            /// <summary>Needs no road and takes no arrivals: the Hut and Summit, or a road-optional lodge off-road on a cat track chain
+            /// (LodgeSupplyRule.NoRoadNeeded, per building). false (the default) = road required.</summary>
             public bool NoRoadNeeded;
         }
 

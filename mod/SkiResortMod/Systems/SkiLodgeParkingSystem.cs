@@ -1,7 +1,8 @@
-// Lodge parking census: for every active Base lodge on a Welcome Sign, the car spaces within 300 m (street parking lanes, lanes and
+// Lodge parking census: for every active road lodge on a Welcome Sign, the car spaces within 300 m (street parking lanes, lanes and
 // garages of parking lots and halls; not boarding-only, bicycle, service or private spaces), counted by a Burst job over the lane
 // search tree and the parking facilities. SkiDaySystem reads it (TryGetParking, hub row 21); rules are SkiParkingRules'. In memory only.
-// Only lodges whose SkiCatalog row has LodgeRoadRule.Base count: mountain lodges and patrol huts are roadless by design.
+// Only lodges with a road edge whose row takes arrivals count (LodgeSupplyRule.IsRoadLodge, per building): the Hut, the Summit and
+// patrol huts are roadless by design, and an off-road A-frame, Chalet or Grand takes no arrivals. The count is per lodge (hub Guests view).
 // Phase: GameSimulation, UpdateAt (Mod.cs, after SkiDaySystem's line); not anchored (no frame order needed, the lane search tree is
 // read through the reader handle). A job scheduled on one tick is completed and applied on the next: the main thread never waits.
 // SkiParkingRules' flag constants are asserted against the Game.Net enums at arm time: a mismatch is one WARN, census off for the load.
@@ -128,6 +129,9 @@ namespace SkiResortMod.Systems
         private int m_CostArmDay = int.MinValue;   // SkiDayRules.DayKey of the last midday re-arm or afternoon line
         private int m_CostMeasurements;            // `Parking [cost]` lines this load
 
+
+        /// <summary>Moves whenever a lodge's census row changes, appears or goes (the hub's lodgeParking rows follow it).</summary>
+        internal int Revision => m_Revision;
 
         /// <summary>The last census of <paramref name="lodge"/> (false: no census for that lodge yet). Main thread,
         /// no job sync, managed data only. SkiDaySystem reads it every pass.</summary>
@@ -392,8 +396,8 @@ namespace SkiResortMod.Systems
                 m_TicksSince = 0;
                 long t0 = Stopwatch.GetTimestamp();
 
-                // 3. The (lodge, sign) pairs of the attraction snapshot (first sign wins, as CopyActiveLodgeInfo does): Base road lodges only
-                // (the ski-day targets); mountain lodges are counted for the DUMP and get no row.
+                // 3. The (lodge, sign) pairs of the attraction snapshot (first sign wins, as CopyActiveLodgeInfo does): road lodges only
+                // (the ski-day targets); mountain and off-road lodges are counted for the DUMP and get no row.
                 m_JobLodges.Clear();
                 m_JobSigns.Clear();
                 m_Paired.Clear();
@@ -405,7 +409,7 @@ namespace SkiResortMod.Systems
                     for (int l = 0; l < m_LodgeInfo.Count; l++)
                     {
                         SkiResortAttractivenessSystem.LodgeInfo info = m_LodgeInfo[l];
-                        if (!IsBaseRoadLodge(info.LodgeIndex))
+                        if (!IsRoadLodge(info))
                         {
                             mountain++;
                             continue;
@@ -706,19 +710,20 @@ namespace SkiResortMod.Systems
                 return;
             if (m_CensusLog.Count > 0)
                 WriteCensusSummary(UnityEngine.Time.realtimeSinceStartup);
-            // A ski area with mountain lodges only is idle too (they need no parking); the line says so.
-            Mod.Log.Info("Parking [idle]: no active lodge on a Welcome Sign — nothing counted" +
-                         (m_LastMountainSkipped > 0 ? $" ({m_LastMountainSkipped} active mountain lodge(s): roadless by design, no parking row)" : ""));
+            // A ski area with mountain or off-road lodges only is idle too (they take no arrivals); the line says so.
+            Mod.Log.Info("Parking [idle]: no active road lodge on a Welcome Sign — nothing counted" +
+                         (m_LastMountainSkipped > 0 ? $" ({m_LastMountainSkipped} active mountain or off-road lodge(s): no arrivals, no parking row)" : ""));
         }
 
-        /// <summary>A lodge row whose LodgeRoadRule is Base (a ski-day target, needs a road and parking). An out-of-range index
-        /// reads the A-frame row (Base), as the score does.</summary>
-        private static bool IsBaseRoadLodge(int lodgeIndex)
+        /// <summary>A lodge with a road edge whose row takes arrivals (LodgeSupplyRule.IsRoadLodge: a ski-day target, needs parking). Per
+        /// building: the row alone no longer says it. An out-of-range index reads the A-frame row, as the score does.</summary>
+        internal static bool IsRoadLodge(in SkiResortAttractivenessSystem.LodgeInfo info)
         {
             if (SkiCatalog.Lodges.Count == 0)
-                return true;
-            LodgeDef def = lodgeIndex >= 0 && lodgeIndex < SkiCatalog.Lodges.Count ? SkiCatalog.Lodges[lodgeIndex] : SkiCatalog.Lodges[0];
-            return def.RoadRule == LodgeRoadRule.Base;
+                return info.HasRoad;
+            int i = info.LodgeIndex;
+            LodgeDef def = i >= 0 && i < SkiCatalog.Lodges.Count ? SkiCatalog.Lodges[i] : SkiCatalog.Lodges[0];
+            return LodgeSupplyRule.IsRoadLodge(def.RoadRule, info.HasRoad);
         }
 
 

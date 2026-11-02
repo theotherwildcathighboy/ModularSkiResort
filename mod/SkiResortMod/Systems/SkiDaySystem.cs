@@ -2936,7 +2936,9 @@ namespace SkiResortMod.Systems
                 Area = area,
                 Capacity = def != null ? def.Capacity : (int)SkiDayRules.LodgeSkiersPerDay,
                 PriceTolerance = def != null ? def.PriceTolerance : 0,
-                NoRoadNeeded = (byte)(def != null && def.RoadRule != LodgeRoadRule.Base ? 1 : 0),
+                // Per building (LodgeSupplyRule.NoRoadNeeded): a road-optional lodge at a road is a target like any road lodge; off-road on a
+                // cat track chain it passes like the Hut and Summit and takes no arrivals; with neither it is rejected as before.
+                NoRoadNeeded = (byte)(def != null && LodgeSupplyRule.NoRoadNeeded(def.RoadRule, info.HasRoad, info.Supplied) ? 1 : 0),
                 LodgeIndex = (short)(def != null ? def.Index : 0),
             };
         }
@@ -3834,7 +3836,7 @@ namespace SkiResortMod.Systems
                     into.Append(' ').Append(TierOf(dl.LodgeIndex));
             }
             string text = $"SkiDays [lodges] ski area {Fmt(sign)}{NameSuffix(sign)}: {targets} ski-day lodge(s){sb}" +
-                          (mountain > 0 ? $"; {mountain} mountain lodge(s) holding skiers, not a ski-day target:{mountainText}" : "") +
+                          (mountain > 0 ? $"; {mountain} mountain or off-road lodge(s) holding skiers, not a ski-day target:{mountainText}" : "") +
                           (depots > 0 ? $"; {depots} bus depot(s) in town, a ski-day target, holding no skiers:{depotText}" : "") +
                           $"; not used: {end - start - targets - mountain - depots}";
             sb.Clear();
@@ -4051,7 +4053,7 @@ namespace SkiResortMod.Systems
                     sb.Append(dl.IsDepot ? "      bus depot " : "      lodge ").Append(Fmt(dl.Lodge)).Append(": ").Append((SkiDayRules.LodgeReject)dl.Reject)
                       .Append(dl.Reject == (byte)SkiDayRules.LodgeReject.NoLeisureTag ? " (gated by Tourism Overhaul? leisure tag removed)" : "")
                       .Append(", ").Append(dl.IsDepot ? "no tier" : TierOf(dl.LodgeIndex)).Append(' ').Append(dl.Capacity).Append(" a day")
-                      .Append(dl.NoRoadNeeded ? ", mountain (not a ski-day target)" : "")
+                      .Append(dl.NoRoadNeeded ? ", mountain or off-road (not a ski-day target)" : "")
                       .Append(", nearest run or station ").Append(MetresText(dl.NearestM)).Append(" m, xz (")
                       .Append(dl.HasPosition ? dl.Xz.x.ToString("F0", ic) : "-").Append(", ").Append(dl.HasPosition ? dl.Xz.y.ToString("F0", ic) : "-")
                       .Append("), car failures ").Append(fails).Append(", parking ")

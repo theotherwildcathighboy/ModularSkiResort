@@ -699,8 +699,8 @@ namespace SkiResortMod.Systems
                          "base hosts, state 0 with a path and a cabin on it, else 1; tram mover: " +
                          (m_Tram != null ? "registered" : "NOT registered (Shuttle rows: state 1, capacity and ride −1, chairs 0)") +
                          "; problems 23 mixed lift types, 24 summit " +
-                         "lodges not lift-served, 25 school without a counted green run; LodgeNoRoad counts lodges whose row needs " +
-                         "a road only; IfLodgesOn = the ladder with every lodge on; lodge spend in the net): ski areas = live Welcome " +
+                         "lodges not lift-served, 25 school without a counted green run; LodgeNoRoad counts lodges with no road and " +
+                         "no cat track chain whose row needs one; IfLodgesOn = the ladder with every lodge on; lodge spend in the net): ski areas = live Welcome " +
                          "Signs in (Index, Version) order + a Not linked row; runs by their bound sign (catalog Gate), lodges " +
                          "by their published link (else free-standing → Not linked), lifts and stations by the " +
                          $"nearest live sign within TetherMeters={SkiRunOwnershipSystem.TetherMeters:F0} m of the base station " +
@@ -1170,9 +1170,11 @@ namespace SkiResortMod.Systems
                         else if (lodgeDefs.TryGetValue(prefab, out LodgeDef lodgeDef))
                         {
                             m_LodgeEntities.Add(entities[i]);
-                            // Only a lodge whose row needs a road (RoadRule Base) counts toward LodgeNoRoad: a Hut or Summit lodge is roadless by design
-                            // (LodgeRoadSystem clears its NoRoadConnection).
-                            if (buildings[i].m_RoadEdge == Entity.Null && lodgeDef != null && lodgeDef.RoadRule == LodgeRoadRule.Base)
+                            // LodgeNoRoad counts a lodge with no road edge that still needs one (LodgeSupplyRule.CountsAsNoRoad, per building): a Hut
+                            // or Summit lodge is roadless by design (LodgeRoadSystem clears its NoRoadConnection), and an off-road A-frame, Chalet
+                            // or Grand on a cat track chain is supplied (the published answer, SkiResortAttractivenessSystem.IsSupplied).
+                            if (lodgeDef != null && LodgeSupplyRule.CountsAsNoRoad(lodgeDef.RoadRule, buildings[i].m_RoadEdge != Entity.Null,
+                                                                                   m_Attractiveness.IsSupplied(entities[i])))
                                 m_NoRoad.Add(entities[i]);
                         }
                     }
@@ -2110,8 +2112,9 @@ namespace SkiResortMod.Systems
                 }
                 int jobs = 0, filled = 0;
                 AddJobs(sign, ref jobs, ref filled);
-                // A linked top-level building's jobs are its own (lodges, the school). The patrol huts' and mountain lodges' jobs ride on the
-                // sign's WorkProvider (MountainJobsSystem), so AddJobs(sign) above counts them.
+                // A linked top-level building's jobs are on its own WorkProvider (lodges, the school). The patrol huts' and mountain lodges'
+                // jobs, and an off-road lodge's on a cat track chain, ride on the area's carrier (MountainJobsSystem): the nearest active road
+                // lodge, counted below with its own, else the sign, counted by AddJobs(sign) above. Each job is counted once either way.
                 for (int t = 0; t < m_TopLevel.Count; t++)
                 {
                     if (m_TopLevelSigns[t] == sign)
