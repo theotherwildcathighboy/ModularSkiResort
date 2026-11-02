@@ -162,8 +162,8 @@ function RunsRow({ l, kinds, samples, t }: { l: ResortLive | null; kinds: Readon
 }
 
 /** Buildings / wages so far = today's rate × the share of the month simulated (C#'s rows; nothing multiplied here). */
-function SoFarRow({ label, value, rateNow, l, rwh, samples, t }: {
-  label: string; value: number; rateNow: number; l: ResortLive | null; rwh: boolean; samples: NumberSamples; t: Translate;
+function SoFarRow({ label, value, rateNow, l, rwh, samples, t, extra }: {
+  label: string; value: number; rateNow: number; l: ResortLive | null; rwh: boolean; samples: NumberSamples; t: Translate; extra?: string;
 }): JSX.Element {
   return (
     <InfoLine
@@ -181,6 +181,7 @@ function SoFarRow({ label, value, rateNow, l, rwh, samples, t }: {
           FILLED: numArg(l ? l.jobsFilled : -1, Unit.Integer), JOBS: numArg(l ? l.jobs : -1, Unit.Integer),
         }} />,
         rwh && t(HUB_LOC.moneyTipRwh),
+        extra,
       ]} />}
     />
   );
@@ -363,7 +364,7 @@ function SignMoney({ row, l, city, build, kinds, problems, samples, t }: {
       <SoFarRow label={t(HUB_LOC.moneyRowBuildings)} value={l ? l.buildingsSoFar : -1} rateNow={l ? l.buildingsMonth : -1} l={l}
         rwh={city.realisticWorkplaces} samples={samples} t={t} />
       <SoFarRow label={t(HUB_LOC.moneyRowWages)} value={l ? l.wagesSoFar : -1} rateNow={l ? l.wagesMonth : -1} l={l}
-        rwh={city.realisticWorkplaces} samples={samples} t={t} />
+        rwh={city.realisticWorkplaces} samples={samples} t={t} extra={t(HUB_LOC.moneyTipOffSeason)} />
       {city.realisticWorkplaces && <SubLine tip={t(HUB_LOC.moneyTipRwh)}>{t(HUB_LOC.moneyNoteRwh)}</SubLine>}
       </Fold>
       <Divider />

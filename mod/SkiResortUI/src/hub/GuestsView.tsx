@@ -172,6 +172,12 @@ function LodgeParkingLines({ rows, samples, t }: { rows: readonly LodgeParkingRo
   );
 }
 
+/* The car space total of the area's road lodges; "–" while none is counted yet (carSpaces -1). */
+function parkingTotal(rows: readonly LodgeParkingRow[]): JSX.Element | string {
+  const known = rows.filter((r) => r.carSpaces >= 0);
+  return known.length ? countCell(known.reduce((s, r) => s + r.carSpaces, 0)) : DASH;
+}
+
 /* The GUESTS header with its Info glyph; the notes are its tooltip. */
 function GuestsHeader({ l, city, note, t }: { l: ResortLive | null; city: CityStats; note: TicketNote | null; t: Translate }): JSX.Element {
   return (
@@ -260,7 +266,7 @@ function SignGuests({ l, city, parking, samples, t }: {
         </StableWidth>
       </div>
       {/* group 1: the people at the lodges (open or not), and the note that not all of them ski. */}
-      <Fold view="guests" id="lodges" header label={t(HUB_LOC.guestsGroupLodges)}>
+      <Fold view="guests" id="lodges" header label={t(HUB_LOC.guestsGroupLodges)} tip={t(HUB_LOC.guestsNoteNeverSki)}>
       <GuestRow
         label={t(HUB_LOC.guestsRowTourists)} samples={samples}
         thisMonth={countCell(l ? l.touristsThisMonth : -1)} lastMonth={last(l?.touristsLastMonth)}
@@ -276,7 +282,6 @@ function SignGuests({ l, city, parking, samples, t }: {
         thisMonth={countCell(l ? l.residentsThisMonth : -1)} lastMonth={last(l?.residentsLastMonth)}
         tip={rowTip(t(HUB_LOC.guestsRowResidents), t(HUB_LOC.guestsTipResidents))}
       />
-      <SubLine>{t(HUB_LOC.guestsNoteNeverSki)}</SubLine>
       </Fold>
       {/* group 2: the Ski days row and its state line. */}
       <Fold view="guests" id="sent" header label={t(HUB_LOC.guestsGroupSent)}>
@@ -320,7 +325,13 @@ function SignGuests({ l, city, parking, samples, t }: {
       />
       </Fold>
       <Divider />
-      <LodgeParkingLines rows={parking} samples={samples} t={t} />
+      {/* group 4: the car spaces, one row per road lodge under one header whose value is their total ("–" before the first count). */}
+      {parking.length > 0 && (
+        <Fold view="guests" id="parking" header label={t(HUB_LOC.guestsGroupCarSpaces)} tip={t(HUB_LOC.guestsTipCarSpaces)}
+          value={parkingTotal(parking)}>
+          <LodgeParkingLines rows={parking} samples={samples} t={t} />
+        </Fold>
+      )}
       {city.tourismOverhaul ? (
         <Tip tip={t(HUB_LOC.estToTip)}>
           <div className={styles.noteArea}>

@@ -17,7 +17,7 @@ import styles from "./hub.module.scss";
 const STEPS: readonly LocEntry[] = [
   HUB_LOC.startStep1, HUB_LOC.startStep2, HUB_LOC.startStep3, HUB_LOC.startStep4,
 ];
-const NOTES: readonly LocEntry[] = [HUB_LOC.startNoteLodge, HUB_LOC.startNoteAreas, HUB_LOC.startNoteLink, HUB_LOC.startNoteParking];
+const NOTES: readonly LocEntry[] = [HUB_LOC.startNoteAreas];
 
 export function StartCard(): JSX.Element {
   const t = useT();

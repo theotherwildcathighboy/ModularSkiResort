@@ -10,8 +10,8 @@ import type { RefObject } from "react";
 import { useValue } from "cs2/api";
 import { Button } from "cs2/ui";
 import { Unit } from "cs2/l10n";
-import { PROBLEM, city$, hubTriggers, problems$, resortLive$, resorts$, selectedResort$ } from "../bindings";
-import type { CityStats, ProblemRow, ResortLive, ResortRow } from "../bindings";
+import { PROBLEM, city$, hubTriggers, lodgeParking$, problems$, resortLive$, resorts$, sameEntity, selectedResort$ } from "../bindings";
+import type { BuildItemId, CityStats, ProblemRow, ResortLive, ResortRow } from "../bindings";
 import { useT } from "../l10n";
 import type { Translate } from "../l10n";
 import {
@@ -20,7 +20,7 @@ import {
 } from "./hubRules";
 import type { BandRow, ProblemClick } from "./hubRules";
 import { problemsOpen$, view$ } from "./hubState";
-import { HUB_FMT, HUB_LOC, SEASON_HINT_TEXT, SEASON_TIP_TEXT, STATUS_WORD, factorEntry } from "./hubText";
+import { HUB_FMT, HUB_LOC, LODGE_TIER, SEASON_HINT_TEXT, SEASON_TIP_TEXT, STATUS_WORD, factorEntry } from "./hubText";
 import { Glyph, LocText, NotifIcon, Tip, TipLines, cx, depthValue, numArg, useInches } from "./parts";
 import { currentResort, resortEntries } from "./resortData";
 import styles from "./hub.module.scss";
@@ -124,7 +124,7 @@ function ProblemText({ p, t }: { p: ProblemRow; t: Translate }): JSX.Element {
     case "lodgeNoRoad": return <>{t(HUB_LOC.problemLodgeNoRoad)}</>;
     case "skiDaysCannotReach": return <>{t(HUB_LOC.problemSkiDaysCannotReach)}</>;
     case "skiDaysNoGuestsNear": return <LocText entry={HUB_FMT.problemSkiDaysNoGuestsNear} args={{ KM: numArg(p.detail / 10, Unit.FloatSingleFraction) }} />;
-    case "noParkingNearLodge": return <>{t(HUB_LOC.problemNoParkingNearLodge)}</>;
+    case "noParkingNearLodge": return <ParkingProblemText p={p} t={t} />;
     case "lodgeNotSlopeside": return <>{t(HUB_LOC.problemLodgeNotSlopeside)}</>;
     case "depotNoHillLodge": return <>{t(HUB_LOC.problemDepotNoHillLodge)}</>;
     case "depotNoRoad": return <>{t(HUB_LOC.problemDepotNoRoad)}</>;
@@ -135,6 +135,23 @@ function ProblemText({ p, t }: { p: ProblemRow; t: Translate }): JSX.Element {
     case "schoolsNotLinked": return <LocText entry={HUB_FMT.problemSchoolsNotLinked} args={{ N }} />;
     default: return <>{"–"}</>;
   }
+}
+
+/** The parking row names its lodge (C#'s subject, found in the lodgeParking rows): "No parking: Chalet 2", "+{N}" for the
+ *  other lodges without parking; the plain text until the rows arrive. */
+function ParkingProblemText({ p, t }: { p: ProblemRow; t: Translate }): JSX.Element {
+  const rows = useValue(lodgeParking$);
+  const r = rows.find((x) => sameEntity(x.lodge, p.subject));
+  if (!r) return <>{t(HUB_LOC.problemNoParkingNearLodge)}</>;
+  const tier = LODGE_TIER[r.item as BuildItemId];
+  // GuestsView's lodge name, inline so gate R19 sees every {NAME} branch
+  const NAME = r.name !== "" ? r.name
+    : !tier ? "–"
+      : r.number > 0 ? <LocText entry={HUB_FMT.lodgeTierNumbered} args={{ NAME: t(tier), N: numArg(r.number, Unit.Integer) }} />
+        : t(tier);
+  return p.count > 1
+    ? <LocText entry={HUB_FMT.problemNoParkingAtMore} args={{ NAME, N: numArg(p.count - 1, Unit.Integer) }} />
+    : <LocText entry={HUB_FMT.problemNoParkingAt} args={{ NAME }} />;
 }
 
 /** A folded band row's ONE text node ("3 lifts unfinished: Lift 3, 4, 5"); a plain row is ProblemText. */
@@ -243,7 +260,7 @@ function ProblemSlot({ b, slot, more, hidden, factors, live, t, noneLine, popOpe
   // "+N" is a button that opens the popover under the band (its tooltip still names the hidden rows)
   const moreCell = slot !== 2 ? null : more > 0 ? (
     <div className={styles.problemMore}>
-      <Tip tip={popOpen ? undefined : <TipLines lines={[t(HUB_LOC.problemMoreTip), ...hidden.map((h, i) => <BandText key={i} b={h} t={t} />)]} />}>
+      <Tip tip={popOpen ? undefined : <TipLines lines={[...hidden.map((h, i) => <BandText key={i} b={h} t={t} />)]} />}>
         <Button theme={{ button: cx(styles.problemMoreButton, popOpen && styles.problemMoreOn) }}
           onSelect={() => problemsOpen$.update(!problemsOpen$.value)}>
           <LocText entry={HUB_FMT.problemMore} args={{ N: numArg(more, Unit.Integer) }} />
@@ -339,7 +356,6 @@ export function StatusBlock({ statusRef, problemsRef }: {
         ))}
         {popOpen && (
           <div className={cx(styles.overlayCard, styles.overlayBelow)}>
-            <div className={styles.overlayTitle}>{t(HUB_LOC.problemMoreTip)}</div>
             {band.slice(3).map((b, i) => {
               const click = bandClick(b);
               const row = (

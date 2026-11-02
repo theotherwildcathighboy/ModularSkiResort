@@ -122,12 +122,13 @@ function run(srcDir) {
   eq("T3.12 clicks", [1, 4, 5, 10, 8, 9, 12, 0, 15].map((c) => R.problemClick(P(A, c, 1))), ["sign", "sign", "lift", "lift", "liftsView", "runsView", "runsView", null, null]);
   eq("T3.14 signNoRoad / lodgeNoRoad variants", [R.problemVariant(P(A, 18, 3)), R.problemVariant(P(A, 19, 2, { count: 1 }))], ["signNoRoad", "lodgeNoRoad"]);
   eq("T3.15 road rows fly to their subject", [R.problemClick(P(A, 18, 3)), R.problemClick(P(A, 19, 1))], ["sign", "sign"]);
-  eq("T3.16 road row icons", [R.problemIcon(P(A, 18, 3)), R.problemIcon(P(A, 19, 1))],
-    [{ kind: "glyph", src: "Media/Glyphs/Warning.svg", tone: "warn" }, { kind: "glyph", src: "Media/Glyphs/Info.svg", tone: "info" }]);
+  eq("T3.16 road row icons: vanilla's Road required icon", [R.problemIcon(P(A, 18, 3)), R.problemIcon(P(A, 19, 1)), R.problemIcon(P(A, 29, 2))],
+    [{ kind: "img", src: "Media/Game/Notifications/RoadNotConnected.svg" }, { kind: "img", src: "Media/Game/Notifications/RoadNotConnected.svg" },
+      { kind: "img", src: "Media/Game/Notifications/RoadNotConnected.svg" }]);
   eq("T3.17 ski-day variants", [R.problemVariant(P(A, 20, 2)), R.problemVariant(P(A, 21, 1)), R.problemVariant(P(A, 22, 1))], ["skiDaysCannotReach", "noParkingNearLodge", "lodgeNotSlopeside"]);
   eq("T3.18 ski-day rows fly to their subject", [20, 21, 22].map((c) => R.problemClick(P(A, c, 1))), ["sign", "sign", "sign"]);
   eq("T3.19 ski-day row icons", [R.problemIcon(P(A, 20, 2)), R.problemIcon(P(A, 21, 1)), R.problemIcon(P(A, 22, 1))],
-    [{ kind: "glyph", src: "Media/Glyphs/Warning.svg", tone: "warn" }, { kind: "glyph", src: "Media/Glyphs/Info.svg", tone: "info" }, { kind: "glyph", src: "Media/Glyphs/Info.svg", tone: "info" }]);
+    [{ kind: "img", src: "Media/Game/Notifications/PathfindFailed.svg" }, { kind: "img", src: "Media/Game/Icons/Parking.svg" }, { kind: "glyph", src: "Media/Glyphs/Info.svg", tone: "info" }]);
 
   // T4 status line
   const row = (runs, kind = 0) => ({ kind, runs, liftRows: 3 });
@@ -534,7 +535,7 @@ function run(srcDir) {
         /<div className=\{styles\.pagerRow\}>/.test(fit),
         (read("OverviewView.tsx").match(/<Fold\b/g) || []).length, (read("GuestsView.tsx").match(/<Fold\b/g) || []).length,
         (read("MoneyView.tsx").match(/<Fold\b/g) || []).length, /<Pager fit=\{fit\} \/>/.test(read("RunsView.tsx")), /<Pager fit=\{fit\} \/>/.test(read("LiftsView.tsx"))],
-      [true, true, true, 2, 3, 2, false, false]);
+      [true, true, true, 2, 4, 2, false, false]);
     // T27 the Lifts-tab toggle mirrors the tree tool: liftLine$ + liftLineToggle, ok panel only.
     const binds = fs.readFileSync(path.join(srcDir, "bindings.ts"), "utf8");
     eq("T27.1 lift generator: contract 12 or later (13 = T136), liftLine binding + liftLineToggle trigger, toggle on the Lifts tab only in the ok panel",

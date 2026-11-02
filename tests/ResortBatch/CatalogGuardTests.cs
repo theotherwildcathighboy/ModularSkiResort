@@ -32,7 +32,7 @@ namespace ResortBatch
             OffSeasonTexts();
         }
 
-        /// <summary>The texts of the off-season staffing: the closed-gate note names the off-season half staff and its Options setting,
+        /// <summary>The texts of the off-season staffing: the Staff wages tooltip line names the off-season half staff and its Options setting,
         /// the setting's description names a deactivated lodge's cost (a tenth of upkeep, no wages; the note carried it until DECISIONS 566);
         /// the reduced lift texts no longer say "at a quarter" flat (the tram bills half).</summary>
         private static void OffSeasonTexts()
@@ -42,9 +42,9 @@ namespace ResortBatch
             if (!Check(path != null, W, "mod/SkiResortMod/LocaleEN.cs not found"))
                 return;
             Dictionary<string, string> loc = SingleLineEntries(File.ReadAllLines(path));
-            if (Check(loc.TryGetValue("SkiResort.Hub.TICKETS_NOTE[NothingOpen]", out string note), W, "TICKETS_NOTE[NothingOpen] not single-line"))
+            if (Check(loc.TryGetValue("SkiResort.Hub.MONEY_TIP[OffSeason]", out string note), W, "MONEY_TIP[OffSeason] not single-line"))
                 Check(note.Contains("half their staff") && note.Contains("(Options)"), W,
-                      "TICKETS_NOTE[NothingOpen] = \"" + note + "\" must name the off-season half staff and its Options setting (T137 S2, DECISIONS 566)");
+                      "MONEY_TIP[OffSeason] = \"" + note + "\" must name the off-season half staff and its Options setting (T137 S2, DECISIONS 566)");
             string settings = RepoFile("mod/SkiResortMod/Settings/LocaleEN.cs");
             if (Check(settings != null, W, "mod/SkiResortMod/Settings/LocaleEN.cs not found"))
             {
@@ -300,7 +300,7 @@ namespace ResortBatch
                      LiftServedRule.LinkMeters.ToString("0", CultureInfo.InvariantCulture) + " m");
             string parkingRadius = SkiParkingRules.RadiusM.ToString("0", CultureInfo.InvariantCulture) + " m";
             Contains(loc, "SkiResort.Hub.GUESTS_TIP[CarSpaces]", W + "-t6c", parkingRadius);
-            Contains(loc, "SkiResort.Hub.START_NOTE[Parking]", W + "-t6c", parkingRadius);
+            Contains(loc, "SkiResort.Hub.PROBLEM_TIP[NoParkingNearLodge]", W + "-t6c", parkingRadius);
             // T6b: no text states the one-luxury-lodge-per-area rule (there is no limit on lodges), and its two keys (REASON[OneLuxury],
             // RECEIPT_TIP_LUXURY_IGNORED) are gone from the locale.
             Check(!loc.ContainsKey("SkiResort.Hub.REASON[OneLuxury]") && !loc.ContainsKey("SkiResort.Hub.RECEIPT_TIP_LUXURY_IGNORED"),

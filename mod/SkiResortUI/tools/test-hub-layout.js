@@ -248,6 +248,28 @@ const T142 = [
   ["tip-history-strip-snow-byseason-1080", 1080, { scenario: ASH, view: 5, click: "Attraction", clickRange: "By season", hoverPlot: 0.5 }],
 ];
 
+// 2026-11-02 intuitiveness pass: every view top-down at 1080 (the tightest window), the build tabs, the band popover, the start card and the
+// field screen that ran off the panel. `--list=intuitive` picks this list; the before / after sets are rendered from two builds.
+const F1102 = "Field 2026-11-02: closed, no lift";
+const INTUITIVE = [
+  ["01-field-guests", 1080, { scenario: F1102, view: 3 }],
+  ["01b-field-guests-car-spaces", 1080, { scenario: F1102, view: 3, fold: 3 }],
+  ["02-field-attraction", 1080, { scenario: F1102, view: 0 }],
+  ["03-field-tab-lifts", 1080, { scenario: F1102, view: 0, tab: "lifts" }],
+  ["04-attraction", 1080, { scenario: ASH, view: 0 }],
+  ["05-attraction-terrain", 1080, { scenario: ASH, view: 0, fold: 0 }],
+  ["06-runs", 1080, { scenario: ASH, view: 1 }],
+  ["07-lifts", 1080, { scenario: ASH, view: 2 }],
+  ["08-guests", 1080, { scenario: ASH, view: 3 }],
+  ["09-guests-tickets", 1080, { scenario: ASH, view: 3, fold: 2 }],
+  ["10-finances", 1080, { scenario: ASH, view: 4 }],
+  ["11-history", 1080, { scenario: ASH, view: 5 }],
+  ["12-band-popover", 1080, { scenario: BIG, view: 0, problems: 1 }],
+  ["13-tab-buildings", 1080, { scenario: ASH, view: 0, tab: "buildings" }],
+  ["14-tab-runs", 1080, { scenario: ASH, view: 0, tab: "runs" }],
+  ["15-start-card", 1080, { scenario: "connected, empty city" }],
+];
+
 async function shots(b, base, dir, list) {
   fs.mkdirSync(dir, { recursive: true });
   for (const [file, h, p0] of list) {
@@ -308,7 +330,7 @@ async function main() {
   try {
     if (shotsArg) {
       await shots(b, base, path.resolve(shotsArg.slice("--shots=".length)),
-        process.argv.includes("--list=t142") ? T142 : process.argv.includes("--before") ? BEFORE : SHOTS);
+        process.argv.includes("--list=t142") ? T142 : process.argv.includes("--list=intuitive") ? INTUITIVE : process.argv.includes("--before") ? BEFORE : SHOTS);
       return 0;
     }
     const styleFails = styleFailures();

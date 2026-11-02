@@ -129,12 +129,19 @@ export const GLYPH_INFO = "Media/Glyphs/Info.svg";
 export const GLYPH_CHECK = "Media/Glyphs/Checkmark.svg";
 export const ICON_NO_POWER = "Media/Game/Notifications/NotEnoughElectricity.svg";
 export const ICON_TURNED_OFF = "Media/Game/Notifications/TurnedOff.svg";
+/* vanilla's "Road required" notification icon, its Parking info icon and its "cannot reach" icon (pathfinding failed) */
+export const ICON_NO_ROAD = "Media/Game/Notifications/RoadNotConnected.svg";
+export const ICON_PARKING = "Media/Game/Icons/Parking.svg";
+export const ICON_CANNOT_REACH = "Media/Game/Notifications/PathfindFailed.svg";
 
 export function problemIcon(p: ProblemRow | null): ProblemIcon {
   if (!p) return { kind: "glyph", src: GLYPH_CHECK, tone: "ok" };
   if (p.code === PROBLEM.Efficiency && FACTOR_ICON[p.factor]) return { kind: "img", src: FACTOR_ICON[p.factor] };
   if (p.code === PROBLEM.LiftNoPower) return { kind: "img", src: ICON_NO_POWER };
   if (p.code === PROBLEM.LodgesAllOff || p.code === PROBLEM.LodgesSomeOff) return { kind: "img", src: ICON_TURNED_OFF };
+  if (p.code === PROBLEM.SignNoRoad || p.code === PROBLEM.LodgeNoRoad || p.code === PROBLEM.DepotNoRoad) return { kind: "img", src: ICON_NO_ROAD };
+  if (p.code === PROBLEM.NoParkingNearLodge) return { kind: "img", src: ICON_PARKING };
+  if (p.code === PROBLEM.SkiDaysCannotReach) return { kind: "img", src: ICON_CANNOT_REACH };
   if (p.severity >= 2) return { kind: "glyph", src: GLYPH_WARNING, tone: "warn" };
   return { kind: "glyph", src: GLYPH_INFO, tone: "info" };
 }

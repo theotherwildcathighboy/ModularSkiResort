@@ -298,4 +298,24 @@
     resortLive: [Object.assign({}, live, { liftsComplete: 1, liftsCounted: 1 }), live2], selectedResort: SIGN, runs, runLive, lifts: fieldLifts,
     problems: [2, 3, 4, 5].map((n) => ({ sign: SIGN, code: 7, severity: 2, subject: E(800 + n), subjectTop: E(820 + n), name: "Lift " + n, count: 1, pct: 0,
       factor: "", more: 0, detail: 0, ifFixed: -1, buildItem: "" })).concat([problems[2], problems[3], problems[4]]), history, build: buildItems({ built: ["school"] }) });
+// 2026-11-02 field screen (hub intuitiveness pass): November, one closed run, no lift yet, three road lodges, tickets not sold because
+  // no run is open; the band shows the parking warning, No lift yet and the summit lodges.
+  window.SkiScenarios["Field 2026-11-02: closed, no lift"] = Object.assign({}, base, { hubOpen: true,
+    city: Object.assign({}, city, { month: 10 }),
+    resorts: [Object.assign({}, resorts[0], { name: "Ski area 1", customName: false, runs: 1, rated: 1, flat: 0, green: 1, blue: 0, black: 0, lodges: 5, liftRows: 0, liftLengthM: 0, capacityPerHour: 0 }), resorts[1]],
+    resortLive: [Object.assign({}, live, { status: 1, runsOpen: 0, runsPartly: 0, snowPct: 0, snowDepthCm: 0, seasonHint: 5, liftsComplete: 0, liftsCounted: 0, liftsValue: 0,
+      attraction: 32, attractionFull: 34, nextStep: 2, ticketGate: 3, guestsThisMonth: 0, touristsThisMonth: 0, touristGroupsThisMonth: 0, residentsThisMonth: 0,
+      paidThisMonth: 0, guestsLastMonth: -1, skiDaysState: 2, skiDaysThisMonth: 0, skiDaysSent: 0 }), live2],
+    selectedResort: SIGN, runs: [runs[0]], runLive: [runLive[0]], lifts: [],
+    lodgeParking: [
+      { sign: SIGN, lodge: E(401), item: "lodge", carSpaces: 0, number: 1, name: "" },
+      { sign: SIGN, lodge: E(402), item: "lodgeMid", carSpaces: 0, number: 2, name: "" },
+      { sign: SIGN, lodge: E(403), item: "lodgeMid", carSpaces: 0, number: 3, name: "" },
+      { sign: SIGN, lodge: E(404), item: "lodge", carSpaces: 15, number: 2, name: "Eagle Nest" },
+    ],
+    problems: [
+      { sign: SIGN, code: 21, severity: 2, subject: E(401), subjectTop: NULL, name: "", count: 3, pct: 0, factor: "", more: 0, detail: 300, ifFixed: 0, buildItem: "" },
+      { sign: SIGN, code: 8, severity: 1, subject: NULL, subjectTop: NULL, name: "", count: 1, pct: 50, factor: "", more: 0, detail: 0, ifFixed: 0, buildItem: "lift" },
+      { sign: SIGN, code: 24, severity: 1, subject: E(405), subjectTop: NULL, name: "", count: 2, pct: 0, factor: "", more: 0, detail: 0, ifFixed: 0, buildItem: "" },
+    ], history, build: buildItems({ built: ["school"] }) });
 })();
