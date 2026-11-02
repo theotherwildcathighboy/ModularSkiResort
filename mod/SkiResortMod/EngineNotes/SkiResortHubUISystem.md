@@ -333,6 +333,7 @@ Appended fields and bindings by contract:
   region line and beside the mix line.
 - 22: Resort Planner v2 (A7): QuickRunsState appends `pods` / `lifts` rows and `plan` (QuickRunsPlan); `quickRunsSet` gains `lifts`, `home`,
   `pod`, `lift`. Bumped on the integration branch at the A7 merge so its gates stay green; re-bump if main takes 22 first.
+- 30: LodgeParkingRow `number` (LodgeNumberSystem.ShownNumberOf: the lodge's persisted number among its area's lodges of its tier, 0 while it is the only one); the rows also rebuild when LodgeNumberSystem.Revision moves.
 - 29: new binding `lodgeParking` (LodgeParkingRow: sign, lodge, item, carSpaces): per live sign, its active road lodges (`SkiLodgeParkingSystem.IsRoadLodge`) with their last census, -1 before the first; rebuilt when the snapshot generation or the census revision moves; a panel binding without Demand, read only by the Guests view (one row per lodge under the folds; a click flies to it).
 - 28: RunRow `gunSpacingM`, `lightSpacingM`; triggers `setRunGunSpacing`, `setRunLightSpacing` (Entity, int): the Runs view's prop rows act on the focused run.
 - 27: BusCardState `routeM` becomes `distanceM`, the straight line the bill counts: a coach's own PathInformation reads 0 once it drives, and a loaded coach never ran a probe.

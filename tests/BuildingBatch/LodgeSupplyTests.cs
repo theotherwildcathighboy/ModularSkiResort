@@ -1,5 +1,6 @@
 // LodgeSupplyRule and the job carrier. LS1-LS3 the catalog rows and the W4 round trip; LS4-LS9 the chain walk over real RunLinks; LS10 the
-// hold; LS11-LS13 the switch's decisions and the per-building road test; LC1-LC6 the carrier rule (b1), LC7 the SignNoRoad row.
+// hold; LS11-LS13 the switch's decisions and the per-building road test; LC1-LC6 the carrier rule (b1), LC7 the SignNoRoad row; LN1-LN8
+// the same-tier lodge numbers (LodgeNumberRule).
 
 using System;
 using System.Collections.Generic;
@@ -219,6 +220,58 @@ namespace BuildingBatch
                   !MountainJobsRules.SignCarriesJobs(false, 0, true, 0), "LC7b", "before the first poll of a load: the saved workplaces");
             check(MountainJobsRules.SignNoRoadRow(true, true) && !MountainJobsRules.SignNoRoadRow(true, false) && !MountainJobsRules.SignNoRoadRow(false, true),
                   "LC7c", "no road and jobs: the row; no jobs or a road: none");
+
+            Numbers(check);
+        }
+
+        /// <summary>LN1-LN8: LodgeNumberRule, the per-area same-tier numbers.</summary>
+        private static void Numbers(Func<bool, string, string, bool> check)
+        {
+            EntityRef signA = new EntityRef(1, 1), signB = new EntityRef(2, 1);
+            const int chalet = 2, grand = 4;
+            var writes = new List<LodgeNumberRule.Write>();
+            var shown = new List<int>();
+            LodgeNumberRule.Entry E(int lodge, EntityRef sign, int tier, int number = 0, EntityRef held = default(EntityRef)) =>
+                new LodgeNumberRule.Entry { Lodge = new EntityRef(lodge, 1), Sign = sign, Tier = tier, Has = number > 0, HeldSign = held, Number = number };
+            int NumberOf(int lodge) { foreach (LodgeNumberRule.Write w in writes) if (w.Lodge.Index == lodge) return w.Number; return 0; }
+
+            // LN1: one Chalet: numbered 1, nothing shown.
+            LodgeNumberRule.Assign(new[] { E(30, signA, chalet) }, writes, shown);
+            check(writes.Count == 1 && NumberOf(30) == 1 && shown[0] == 0, "LN1", "a lone Chalet gets 1 and shows no number");
+
+            // LN2: a second Chalet arrives: 2, both shown; the first keeps 1 (no write).
+            LodgeNumberRule.Assign(new[] { E(30, signA, chalet, 1, signA), E(31, signA, chalet) }, writes, shown);
+            check(writes.Count == 1 && NumberOf(31) == 2 && shown[0] == 1 && shown[1] == 2, "LN2", "the newcomer takes 2; Chalet 1 and Chalet 2 shown");
+
+            // LN3: entity order does not decide a held number: a lower entity built later still gets the free number.
+            LodgeNumberRule.Assign(new[] { E(40, signA, chalet, 1, signA), E(12, signA, chalet) }, writes, shown);
+            check(NumberOf(12) == 2 && shown[0] == 1 && shown[1] == 2, "LN3", "held numbers stay; the new lower entity gets 2");
+
+            // LN4: Chalet 1 bulldozed: Chalet 2 keeps 2; the next new Chalet takes the lowest free number, 1.
+            LodgeNumberRule.Assign(new[] { E(31, signA, chalet, 2, signA), E(50, signA, chalet) }, writes, shown);
+            check(writes.Count == 1 && NumberOf(50) == 1 && shown[0] == 2 && shown[1] == 1, "LN4", "2 is kept, the new one fills 1");
+            LodgeNumberRule.Assign(new[] { E(31, signA, chalet, 2, signA) }, writes, shown);
+            check(writes.Count == 0 && shown[0] == 0, "LN4b", "alone again: keeps 2, shows none");
+
+            // LN5: tiers and areas are separate counters.
+            LodgeNumberRule.Assign(new[] { E(30, signA, chalet, 1, signA), E(60, signA, grand), E(70, signB, chalet) }, writes, shown);
+            check(NumberOf(60) == 1 && NumberOf(70) == 1 && shown[0] == 0 && shown[1] == 0 && shown[2] == 0, "LN5", "one per tier and area: all 1, none shown");
+
+            // LN6: a relink to another area: numbered there again, lowest free.
+            LodgeNumberRule.Assign(new[] { E(70, signB, chalet, 1, signB), E(31, signB, chalet, 2, signA) }, writes, shown);
+            check(writes.Count == 1 && NumberOf(31) == 2 && writes[0].Sign == signB, "LN6", "Chalet 2 of area A joins area B: renumbered for B");
+            LodgeNumberRule.Assign(new[] { E(31, signB, chalet, 3, signA) }, writes, shown);
+            check(NumberOf(31) == 1, "LN6b", "alone in B: 1 there");
+
+            // LN7: a clash (two lodges hold 1 in one area): the lower entity keeps it, the other takes the lowest free.
+            LodgeNumberRule.Assign(new[] { E(31, signA, chalet, 1, signA), E(30, signA, chalet, 1, signA) }, writes, shown);
+            check(writes.Count == 1 && NumberOf(31) == 2 && shown[1] == 1 && shown[0] == 2, "LN7", "30 keeps 1, 31 becomes 2");
+
+            // LN8: an unlinked lodge gets none and keeps a held number; a stable input writes nothing.
+            LodgeNumberRule.Assign(new[] { E(31, EntityRef.Null, chalet, 2, signA) }, writes, shown);
+            check(writes.Count == 0 && shown[0] == 0, "LN8", "not linked: no write, no number shown");
+            LodgeNumberRule.Assign(new[] { E(30, signA, chalet, 1, signA), E(31, signA, chalet, 2, signA), E(32, signA, chalet, 3, signA) }, writes, shown);
+            check(writes.Count == 0 && shown[0] == 1 && shown[1] == 2 && shown[2] == 3, "LN8b", "three held numbers: no writes, each shown (stable across passes and loads)");
         }
 
         private static LodgeDef Lodge(string id)

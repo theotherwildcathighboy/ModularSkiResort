@@ -904,6 +904,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.SECTION[Guests]", "Guests" },
                 { "SkiResort.Hub.GUESTS_MONTH[This]", "Month of {MONTH}" },
                 { "SkiResort.Hub.GUESTS_ROW_FMT[CarSpaces]", "Car spaces at {NAME}" },
+                { "SkiResort.Hub.LODGE_TIER_NUMBERED", "{NAME} {N}" },
                 { "SkiResort.Hub.GUESTS_MONTH[Last]", "Month of {MONTH}" },
                 // The partial last month (bar label) and the ski-day row with its tooltip body.
                 { "SkiResort.Hub.GUESTS_MONTH[LastPartial]", "Month of {MONTH}, partial" },

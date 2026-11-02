@@ -29,6 +29,10 @@ Welcome Sign. Groups, in the order the checks run:
   carried, off-season halves); LC3 an off-road lodge's jobs through the sign path; LC4 the area's job totals do not change; LC5 an
   off-road lodge drops its WorkProvider only at 0 workplaces with no staff; LC6 with no carrier lodge the jobs stay on the sign; LC7 the
   SignNoRoad row only while the sign carries jobs (the target, or the saved workplaces before the first poll).
+- **LN, same-tier lodge numbers** (`LodgeNumberRule`): LN1 a lone lodge gets 1 and shows none; LN2 a newcomer takes 2; LN3 a held number
+  beats entity order; LN4 a bulldozed number is refilled by the next new lodge, a lone survivor keeps its number but shows none; LN5 tiers
+  and areas count apart; LN6 a relink renumbers in the new area; LN7 a clash keeps the lower entity's; LN8 unlinked lodges, and a
+  stable input writes nothing.
 - **P, the mirror gate per building** (gamedata-mirror, all eight: SkiAFrameDayLodge, SkiLodgeHut, SkiLodgeMid, SkiLodgeSummit,
   SkiLodgeGrand, SkiSchool, SkiPatrolHut, SkiPatrolHQ):
   1. no ServiceUpgrade;

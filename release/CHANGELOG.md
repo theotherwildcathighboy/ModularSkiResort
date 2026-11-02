@@ -19,7 +19,7 @@ Template (copy above the newest entry):
 ```
 ## X.Y.Z (PDX version N, YYYY-MM-DD)
 - Save compatible with previous: yes
-- Layout versions: Binding 1, TreeMember 2, SeasonPass 1, HistoryMonth 2, MonthInProgress 2, RunPropMember 1, RunPropSettings 1
+- Layout versions: Binding 1, TreeMember 2, SeasonPass 1, HistoryMonth 2, MonthInProgress 2, RunPropMember 1, RunPropSettings 1, LodgeNumber 1
 - Do not load in older versions: no
 
 Notes...
@@ -27,7 +27,7 @@ Notes...
 
 ## 1.0.0 (PDX version -, unreleased)
 - Save compatible with previous: n/a (first release)
-- Layout versions: Binding 1, TreeMember 2, SeasonPass 1, HistoryMonth 2, MonthInProgress 2, RunPropMember 1, RunPropSettings 1
+- Layout versions: Binding 1, TreeMember 2, SeasonPass 1, HistoryMonth 2, MonthInProgress 2, RunPropMember 1, RunPropSettings 1, LodgeNumber 1
 - Do not load in older versions: no
 
 First public release. Draft notes (check against the build at upload):

@@ -4,7 +4,7 @@
  * Folds (Lodges, Sent, Tickets) whose populations differ by design. Fixed slots only (StableWidth cells, fixed-height note slots), so a
  * state change moves nothing. Last month is never a fake 0 (hubRules.lastMonthMark): "full" = a whole month, "partial" = counted since the
  * load, "none" = -1 shown as "–". Under the folds, always shown: one car space row per active road lodge of the area (lodgeParking$;
- * none for the Hut, the Summit or an off-road lodge); a click flies to the lodge.
+ * none for the Hut, the Summit or an off-road lodge), numbered per tier while the area has two of a tier; a click flies to the lodge.
  * Panel file: subscribes resorts$, selectedResort$, resortLive$, city$, lodgeParking$.
  */
 import { useValue } from "cs2/api";
@@ -138,17 +138,22 @@ function TripPlannerNoteText({ note, name, t }: { note: TripPlannerNote; name: s
 
 /*
  * One row per active road lodge of the area (LodgeParkingRow, C# order): "Car spaces at {NAME}", the count or "–" before the first
- * census. A Button like a Fold row, so a click flies to the lodge (two lodges of one tier share a name). No road lodge: no row.
+ * census. {NAME} is the tier word, or "Chalet 2" (LODGE_TIER_NUMBERED) while the area has two or more of that tier: the number is
+ * C#'s, persisted on the lodge, so it stays the same across saves. A Button like a Fold row: a click flies to the lodge. No road
+ * lodge: no row.
  */
 function LodgeParkingLines({ rows, samples, t }: { rows: readonly LodgeParkingRow[]; samples: NumberSamples; t: Translate }): JSX.Element {
   return (
     <>
       {rows.map((r) => {
         const tier = LODGE_TIER[r.item as BuildItemId];
+        const name = !tier ? DASH
+          : r.number > 0 ? <LocText entry={HUB_FMT.lodgeTierNumbered} args={{ NAME: t(tier), N: numArg(r.number, Unit.Integer) }} />
+            : t(tier);
         return (
           <Tip key={`${r.lodge.index}:${r.lodge.version}`} tip={t(HUB_LOC.guestsTipCarSpaces)}>
             <Button theme={{ button: cx(styles.infoLine, styles.foldRow) }} onSelect={() => hubTriggers.focusBuilding(r.lodge)}>
-              <div className={styles.infoLabel}><LocText entry={HUB_FMT.guestsRowCarSpaces} args={{ NAME: tier ? t(tier) : DASH }} /></div>
+              <div className={styles.infoLabel}><LocText entry={HUB_FMT.guestsRowCarSpaces} args={{ NAME: name }} /></div>
               <StableWidth samples={samples.count} align="end">{countCell(r.carSpaces)}</StableWidth>
             </Button>
           </Tip>

@@ -42,7 +42,7 @@ namespace SkiResortMod.Systems
 
         /// <summary>The contract number (bindings.ts HUB_CONTRACT). Bump both together whenever a binding, trigger, field or meaning
         /// changes (Engine notes: Near HubContract lists what each number appended).</summary>
-        public const int HubContract = 29;
+        public const int HubContract = 30;
 
         /// <summary>The `contract` value the UI reads as "C# absent" (bindings.ts CONTRACT_ABSENT). Pushed after the one-shot "!!!"
         /// until the next load: the UI then shows its "not connected" notice instead of launchers that do nothing.</summary>
@@ -543,15 +543,17 @@ namespace SkiResortMod.Systems
         private ValueBinding<bool> m_CatTrackDeleteBinding;   // contract 19: the cat track tool is open AND in Delete mode
         private ValueBinding<int> m_FollowBinding;
         private RawValueBinding m_History;
-        // contract 29: the car spaces of every active road lodge (the Guests view). Rebuilt when the attraction snapshot or the parking
-        // census moves; pushed only while the Guests view observes it.
+        // contract 29: the car spaces of every active road lodge (the Guests view). Rebuilt when the attraction snapshot, the parking
+        // census or the lodge numbers move; pushed only while the Guests view observes it. Contract 30: each row's shown number.
         private RawValueBinding m_LodgeParking;
         private SkiLodgeParkingSystem m_Parking;
+        private LodgeNumberSystem m_Numbers;
         private readonly List<LodgeParkingRowData> m_LodgeParkingRows = new List<LodgeParkingRowData>(4);
         private readonly List<Entity> m_LodgeParkingSigns = new List<Entity>(4);
         private readonly List<SkiResortAttractivenessSystem.LodgeInfo> m_LodgeParkingInfo = new List<SkiResortAttractivenessSystem.LodgeInfo>(4);
         private readonly HashSet<Entity> m_LodgeParkingSeen = new HashSet<Entity>();
-        private int m_LodgeParkingSigAttract = int.MinValue, m_LodgeParkingSigCensus = int.MinValue, m_LodgeParkingRevision;
+        private int m_LodgeParkingSigAttract = int.MinValue, m_LodgeParkingSigCensus = int.MinValue, m_LodgeParkingSigNumbers = int.MinValue,
+                    m_LodgeParkingRevision;
 
         /// <summary>One bindings.ts LodgeParkingRow.</summary>
         private struct LodgeParkingRowData
@@ -559,6 +561,7 @@ namespace SkiResortMod.Systems
             public Entity Sign, Lodge;
             public string Item;
             public int CarSpaces;   // -1: no census yet
+            public int Number;      // LodgeNumberSystem.ShownNumberOf: 0 = the only lodge of its tier in the area (no number shown)
         }
         private ValueBinding<HubBusCardState> m_BusCard;   // contract 26: always observed; costs a compare per frame until a coach or depot is selected
         private readonly List<SkiDaySystem.DepotView> m_BusCardViews = new List<SkiDaySystem.DepotView>(2);
@@ -703,6 +706,7 @@ namespace SkiResortMod.Systems
             m_Census = World.GetOrCreateSystemManaged<LiftCensusSystem>();
             m_Attractiveness = World.GetOrCreateSystemManaged<SkiResortAttractivenessSystem>();
             m_Parking = World.GetOrCreateSystemManaged<SkiLodgeParkingSystem>();
+            m_Numbers = World.GetOrCreateSystemManaged<LodgeNumberSystem>();
             m_PrefabCatalog = World.GetOrCreateSystemManaged<SkiPrefabCatalogSystem>();
             m_Infoview = World.GetOrCreateSystemManaged<SkiPlacementInfoviewSystem>();
             m_GladeTool = World.GetOrCreateSystemManaged<SkiGladeToolSystem>();
@@ -832,7 +836,7 @@ namespace SkiResortMod.Systems
                 ResetHistoryPush();   // drop the last city's rows
                 m_LodgeParkingPush.Reset();
                 m_LodgeParkingRows.Clear();
-                m_LodgeParkingSigAttract = m_LodgeParkingSigCensus = int.MinValue;
+                m_LodgeParkingSigAttract = m_LodgeParkingSigCensus = m_LodgeParkingSigNumbers = int.MinValue;
                 m_NextLockRefresh = 0f;
                 m_LockResortsRevision = int.MinValue;
                 m_LocksDirty = true;
@@ -3679,14 +3683,15 @@ namespace SkiResortMod.Systems
 
         /// <summary>The lodgeParking rows: per live sign (snapshot order), its active road lodges (SkiLodgeParkingSystem.IsRoadLodge, the
         /// census's own test) by entity index, each with its last census (-1 before the first). A lodge listed by two signs shows once, under
-        /// the first, as the census pairs it. Rebuilt only when the snapshot generation or the census revision moved.</summary>
+        /// the first, as the census pairs it. Rebuilt only when the snapshot generation, the census revision or the lodge numbers moved.</summary>
         private void RefreshLodgeParking()
         {
-            int attract = m_Attractiveness.Generation, census = m_Parking.Revision;
-            if (attract == m_LodgeParkingSigAttract && census == m_LodgeParkingSigCensus)
+            int attract = m_Attractiveness.Generation, census = m_Parking.Revision, numbers = m_Numbers.Revision;
+            if (attract == m_LodgeParkingSigAttract && census == m_LodgeParkingSigCensus && numbers == m_LodgeParkingSigNumbers)
                 return;
             m_LodgeParkingSigAttract = attract;
             m_LodgeParkingSigCensus = census;
+            m_LodgeParkingSigNumbers = numbers;
             m_LodgeParkingRows.Clear();
             m_LodgeParkingSeen.Clear();
             m_Attractiveness.CopySigns(m_LodgeParkingSigns);
@@ -3708,6 +3713,7 @@ namespace SkiResortMod.Systems
                         Lodge = info.Lodge,
                         Item = item,
                         CarSpaces = m_Parking.TryGetParking(info.Lodge, out LodgeParking p) && p.Done ? p.CarSpaces : -1,
+                        Number = m_Numbers.ShownNumberOf(info.Lodge),
                     });
                 }
                 // Stable order inside a sign: the snapshot's lodge order follows chunk order.
@@ -3736,6 +3742,8 @@ namespace SkiResortMod.Systems
                     writer.Write(r.Item ?? "");
                     writer.PropertyName("carSpaces");
                     writer.Write(r.CarSpaces);
+                    writer.PropertyName("number");
+                    writer.Write(r.Number);
                     writer.TypeEnd();
                 }
                 writer.ArrayEnd();
@@ -4422,6 +4430,7 @@ namespace SkiResortMod.Systems
             World.GetExistingSystemManaged<MountainJobsSystem>()?.AppendDump(sb);
             World.GetExistingSystemManaged<OffSeasonStaffSystem>()?.AppendDump(sb);
             World.GetExistingSystemManaged<LodgeSupplySystem>()?.AppendDump(sb);
+            World.GetExistingSystemManaged<LodgeNumberSystem>()?.AppendDump(sb);
         }
 
         /// <summary>The lodge road system's lines (per lodge and sign: road edge; "Lodge roads: n lodge(s), c with a road"), resolved

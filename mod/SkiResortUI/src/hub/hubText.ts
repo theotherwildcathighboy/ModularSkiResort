@@ -597,6 +597,8 @@ export const HUB_FMT = {
   guestsMonthThis: ["SkiResort.Hub.GUESTS_MONTH[This]", "Month of {MONTH}"],
   /* one row per active road lodge of the area, {NAME} = its LODGE_TIER word */
   guestsRowCarSpaces: ["SkiResort.Hub.GUESTS_ROW_FMT[CarSpaces]", "Car spaces at {NAME}"],
+  /* {NAME} = a LODGE_TIER word, {N} = the lodge's number in its area (LodgeParkingRow.number > 0: two or more of that tier there) */
+  lodgeTierNumbered: ["SkiResort.Hub.LODGE_TIER_NUMBERED", "{NAME} {N}"],
   guestsMonthLast: ["SkiResort.Hub.GUESTS_MONTH[Last]", "Month of {MONTH}"],
   /* bar 2's label while last month was counted only since the load (hubRules.lastMonthMark) */
   guestsMonthLastPartial: ["SkiResort.Hub.GUESTS_MONTH[LastPartial]", "Month of {MONTH}, partial"],

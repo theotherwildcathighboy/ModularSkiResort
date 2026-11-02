@@ -72,6 +72,8 @@ namespace SaveBatch
             // The run prop placer's tag and per-run spacings (before 1.0). Ship in 1.0.0, so they are listed as shipped.
             "SkiRunPropMember v1 6 m_Run:entity m_Class:u8",
             "SkiRunPropSettings v1 13 m_GunSpacingM:i32 m_LightSpacingM:i32 m_AppliedKey:i32",
+            // The lodge number per ski area and tier (before 1.0). Ships in 1.0.0, so it is listed as shipped.
+            "SkiLodgeNumber v1 9 m_Sign:entity m_Number:i32",
         };
 
         public static void Run(Func<bool, string, string, bool> check)
