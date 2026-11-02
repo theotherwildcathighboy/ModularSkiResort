@@ -932,6 +932,13 @@ namespace SkiResortMod.Systems
         /// <summary>Whether the last pass was in the gun season (the run tooltip's "out of season").</summary>
         internal bool GunSeasonNow => m_PassGunSeason;
 
+        /// <summary>Whether a cat track's guns can run: bound (only bound runs are scheduled or billed, as for a gun run), the gun season and part of
+        /// the track cold enough at the day-mean temperature (SnowGunPlumeRules.TrackGunsCanRun). No state: a cat track stays out of the fold.</summary>
+        internal bool CatTrackGunsCanRun(Entity run, float bottomY, float topY)
+        {
+            return IsRunBound(run) && SnowGunPlumeRules.TrackGunsCanRun(m_PassGunSeason, EstimateShare(RunKind.CatTrack, bottomY, topY));
+        }
+
         internal bool TryGetRunGunsRunning(Entity run, out bool running)
         {
             return m_GunRunning.TryGetValue(run, out running);
@@ -3037,8 +3044,9 @@ namespace SkiResortMod.Systems
                             // after the injected chain, and only when a measurement is due. Never scheduled into the fold: no mask, decay or ramp texel, no
                             // active texels, no bill.
                             // The cat track (SkiRunCatTrackA, RunKind.CatTrack) is in none of the four sets, so it lands on this `continue`: no injection, no
-                            // measurement, no bill. A 6-12 m ribbon cannot be measured on the 14 m texel grid; GetRunSnow answers it by the day-mean estimate
-                            // (RunSnowRules.ThresholdC gives it freezing + the gun margin). Do not add its name to a set here.
+                            // measurement, no bill from a mask (SkiRunUpkeepSystem bills its plan area while CatTrackGunsCanRun). A 6-12 m ribbon cannot be measured
+                            // on the 14 m texel grid; GetRunSnow answers it by the day-mean estimate (RunSnowRules.ThresholdC gives it freezing + the gun margin).
+                            // Do not add its name to a set here.
                             if (!m_NaturalPrefabs.Contains(prefabRefs[i].m_Prefab))
                                 continue;
                             stats.NaturalTotal++;

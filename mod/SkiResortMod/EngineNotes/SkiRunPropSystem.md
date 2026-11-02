@@ -1,6 +1,7 @@
-# SkiRunPropSystem: how run borders get snow guns and fencing from the vanilla area-props spawner, and how the prop density sliders work
+# SkiRunPropSystem: the bridge on our run surfaces, the corner stop, and the placer that walks a run's border
 
-Unlocks the game's own area-props machinery for our run surfaces. Citations are the `Game.dll` 1.6.0f1 decompile baseline.
+Two parts. `SkiRunPropSystem.cs` keeps the bridge and stops vanilla's per-node border props; `SkiRunPropSystem.Placer.cs` stands the guns, hydrants and masts by distance. The walk is in
+`RunPropPlacerRules`, why the props carry a tag in `SkiRunPropMember`. Citations are the `Game.dll` 1.6.0f1 decompile baseline.
 
 ## The missing wire
 
@@ -11,9 +12,9 @@ comes from the prefab class archetype: `LotPrefab.GetArchetypeComponents` hard-a
 prefab JSON can add a runtime archetype component, so this system bridges the one missing wire.
 
 For each of our run-surface area entities whose prefab carries prefab-side sub-object entries (`AreaSubObjects` filled by
-`AreaInitializeSystem`) but whose instance lacks the runtime buffer: `AddBuffer<Game.Objects.SubObject>` + ensure `Updated`. The
-vanilla spawner does everything else the same frame: at most one prop per drawn polygon vertex (see prop density below), rotated
-along the outgoing border segment, elevation handled, self-healing on polygon edits (edits re-tag `Updated`; the buffer persists).
+`AreaInitializeSystem`) but whose instance lacks the runtime buffer: `AddBuffer<Game.Objects.SubObject>` + ensure `Updated`. Vanilla's
+spawner would place one prop per drawn polygon vertex; with the corner stop below it places none. The buffer stays because old saves' corner
+props are filed in it until the load sweep removes them, and the seed and `Surface` the bridge adds are read by the placer and `SkiRunSurfaceSystem`.
 
 ## Phase
 
@@ -36,67 +37,32 @@ only.
 The bridge looks only at areas tagged Created or Updated, plus one full scan after a load: a loop over every unbridged Surface area per
 frame cost 0.53 ms on a city with 31,183 of them, paused too (DECISIONS 521).
 
-## Prop density
+## The corner stop
 
-Pure rules in `RunPropDensityRules` (tests `DensityTests`). Two Options sliders in the Runs group, `SnowGunDensityPct` ("Snow guns and
-hydrants": snowmaking and night runs) and `FloodlightDensityPct` ("Floodlight masts on night runs"), 0-100 % step 5, default 100. Look
-only: snow and upkeep follow the run type. `SecondaryObjectSystem`'s 1.6.2 diff changes only :3499 and :3617 (no shift), and
-`AreaInitializeSystem`, `ChangedDistrict` and `CurrentDistrictSystem` are unchanged in 1.6.2.
+The run prefabs' per-corner chance, `Game.Prefabs.SubObject.m_Probability` of the `EdgePlacement` entries (filled with 100 once, `AreaInitializeSystem.cs:384-404`; passed per corner,
+`SecondaryObjectSystem.cs:3004`; rolled `NextInt(100) < chance`, `:3279`), is written to 0 at every Game load and back to the recorded value at a non-Game load (hygiene only). No Editor import,
+and the `PrefabBase` objects are not touched. Groomed and natural runs and cat tracks have no such entries.
 
-### What is written
+## The placer
 
-The runtime weight route, no prefab surgery:
+`UpdatePlacer` runs in this system's frame, before `SecondaryObjectSystem` in Modification4B:
 
-1. The run prefabs' per-corner chance, `Game.Prefabs.SubObject.m_Probability` of `SkiRunSnowmakingA`'s and `SkiRunNightA`'s border
-   entries (filled with 100 once, when the prefab entity is created, AreaInitializeSystem.cs:384-404, :398; passed on per corner,
-   SecondaryObjectSystem.cs:3004; rolled on the picked member's stream copy, :3279).
-2. The night group's member weights, `SpawnableObjectData.m_Probability` (copied from the prefab at init, ObjectInitializeSystem.cs:913,
-   1.6.2 :923; read live by the pick, SecondaryObjectSystem.cs:3258, :3262): the masts (members of the night group only) scaled by
-   m / g, the shared guns, hydrants and empty marker 0 at g = 0. Formulas and why they are exact: `RunPropDensityRules`.
+1. `CascadeDeletes`: this frame's deleted runs take their props along (`SkiRunPropMember`, The delete cascade). This runs before the presence gate: the last run of a resort must still clean up.
+2. `ResortPresence.Present` gate (fails open).
+3. `LoadSweep`, once per load on the first frame with a resort: an old save's corner props (`Secondary` with `Owner` == run) go, orphan tags go, and every run of a walked kind gets its settings and is
+   compared with what stands. Idempotent: with the chance at 0 corner props cannot come back. Runs whose key matches stay untouched.
+4. `NoteFreshRuns`: an area tagged Created or Updated gets default settings if new, then its `RingKey` is compared with `m_AppliedKey`. A match is not dirty, so a save or a vanilla re-tag costs one key.
+5. `Settle`: dirty runs wait until nothing changed for `RunPropDensityRules.SettleFrames` updates, so a slider drag rebuilds once.
+6. `StepQueue`: at most `MaxPlansPerFrame` plans and `MaxOpsPerFrame` created or deleted objects per frame. Diff first (`RunPropPlacerRules.Diff`), so unchanged stretches stay. The key is written last.
 
-Every reader of those member weights picks among one placeholder's members (SecondaryObjectSystem.cs:3258/3262,
-SubObjectSystem.cs:2345-2397, AreaUtils.cs:553-554, LaneSystem.cs:6710-6715, AreaSpawnSystem.cs:375, CreatureSpawnerSystem.cs:168-169,
-PlaceholderSystem.cs:99-103 via :196, ObjectToolBaseSystem.cs:617-627 via :684) and our members sit in our two groups only, so only
-the run-prop path reads them.
+The hub's rows call `SetSpacing` from UIUpdate: a component write and a dirty mark, nothing structural (`tools/check-run-props.js`).
 
-### When
+Lit: no lit state exists on a run. On a cat track lit means its lights slider is above Off, default Off. Unbilled: sliders never touch upkeep.
 
-Base values are recorded once per session, at the first game load and before any write (prefab entities outlive loads; the writes
-persist for the session and are never serialized: the `PrefabBase` objects are not touched). The values are written at the first update
-of every game load and after the slider pair has been still for `RunPropDensityRules.SettleFrames` updates; written back to the bases
-at a non-Game load after a write (hygiene only: no run gets props outside a game).
+Prefabs resolve by name (`PrefabID("StaticObjectPrefab", name)`), not through a run's sub-object list, so a cat track needs no `AreaSubObjects`.
 
-### Re-stamp only after a settled slider change, never at a load
+## Logs
 
-The tie-break draw of the pick (:3264) depends on each member's position in the group, and that order is the prefab-init order
-(ObjectInitializeSystem.cs:900-905, 1.6.2 :910-915), not shown stable across game sessions: a load re-stamp could reshuffle every
-saved run. So a load writes the prefab values only, and a save made at another density keeps its layout until a run is edited (any
-edit re-tags `Updated` and re-runs that run's props with the current values).
-
-The re-stamp tag is `Game.Areas.ChangedDistrict` on our propped runs:
-
-* It is in `SecondaryObjectSystem`'s owner query (:4073-4083); each entity of such a chunk is enqueued as an owner exactly as for
-  `Updated` (:750-771), connected edges are added only for net edges (:774-778), and the system removes the tag on its
-  `ModificationBarrier4B` buffer (:779; barrier :4072, buffer :4202).
-* Its only other user is its writer `CurrentDistrictSystem` (CurrentDistrictSystem.cs:235-237; grep of 1.6.0f1 and 1.6.2f1, codegen
-  registry excluded).
-* Not `Updated`: that would also wake our splat rasterize, catalog rebuild and attractiveness watcher and the vanilla area pipeline.
-  A new kind of vanilla write, on our own run entities only.
-* Fallback if a patch gives the tag another reader or drops it from that query: tag `Updated` in `StampRuns` instead (re-grep on each
-  game patch).
-* Props a re-stamp creates carry Created + Updated from their archetype (ObjectPrefab.cs:40-41), so their lights are tested at
-  creation; a re-used prop with an unchanged Transform gets no `Updated` (:3445-3452).
-
-### Phase and cost
-
-`UpdateDensity` runs first in `OnUpdate`, before the bridge, so this frame's bridging and `SecondaryObjectSystem` (right after us in
-Modification4B) already see the written values. The writes go through `EntityManager` on the main thread (a sync point on prefab data:
-applies only, never per frame). An idle frame costs two settings reads, two compares and a counter.
-
-### Logs
-
-Per Game load "Props: density ARMED - ..." or "Props: density inert: <reason>"; one apply line per write ("... runs not re-stamped
-(load: ...)" or "K run(s) re-stamped (setting change)"); a census the frame after a re-stamp with K > 0 (`SecondaryObjectSystem` has
-run, its barrier played back and `SecondaryObjectReferencesSystem`, Modification5, SystemOrder.cs:206, filed the new props); the
-write-back line at a non-Game load; two once-per-session WARNs; and its own one-shot "!!!" catch that turns density off for the load
-and leaves the bridge alone (the bridge's catch likewise never stops density).
+`Props: placer ARMED ...` or `Props: placer inert ...` per Game load; `Props: load sweep ...` once per load with what was converted; `Props [cost] placer: ...` per rebuild burst, then `Props: census ...` by the
+tag; `Props: N run(s) deleted, M placed prop(s) with them`; `Hub [props] ...` per slider step; one `!!!` per load, after which the placer stays off until the next game load (standing props stay, the bridge's
+catch and this one are separate).

@@ -13,6 +13,9 @@ The WeatherObject RequireSnow gate (SubObjectSystem.cs:3231) reads the same look
 The fix is to give the run area that component and keep it in step with the depth `SkiSnowInjectionSystem` measures
 (`SkiRunPropSystem` already adds runtime components to these same area entities).
 
+Placed props are free-standing since the run prop placer, so they have no owner to walk up to: each carries its own `Surface`, and this system writes the
+run's dress value onto every `SkiRunPropMember`-tagged prop too, cat track props included.
+
 ## Phase and interval are both load-bearing
 
 * Phase: `BatchDataSystem` refreshes `ObjectProperty.SurfaceWetness` only when `m_WetnessSystem.LastSystemVersion` moves

@@ -680,6 +680,14 @@ if ($LASTEXITCODE -ne 0) {
     $rows.Add("OK    LATEDELETE $(($ldOut | Select-Object -Last 1))")
 }
 
+# ---- 12c. RUNPROPS: the run prop placer's text rules (consumers on the tag, sliders look only, table = prefabs; 2026-11-01) ------
+$rpOut = @(& node (Join-Path $PSScriptRoot "check-run-props.js") 2>&1)
+if ($LASTEXITCODE -ne 0) {
+    foreach ($l in $rpOut) { $rows.Add("FAIL  RUNPROPS $l"); $failures++ }
+} else {
+    $rows.Add("OK    RUNPROPS $(($rpOut | Select-Object -Last 1))")
+}
+
 # ---- 12c. JOBREAD: no main-thread access to components the city's jobs write (big-city pass 2026-11-01; DECISIONS 521) --------
 $jrOut = @(& node (Join-Path $PSScriptRoot "check-main-thread-jobs.js") 2>&1)
 if ($LASTEXITCODE -ne 0) {

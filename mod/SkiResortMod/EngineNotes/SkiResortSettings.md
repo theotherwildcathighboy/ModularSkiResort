@@ -12,15 +12,6 @@ through `Mod.Settings?.X ?? DefaultX` (or a clamped `*Of` reader) because `Mod.S
 bulldozed. It does not touch `AreaGeometryData.m_SnapDistance`, so snapping (0.75 m) and the minimum corner distance (0.375 m) are
 the game's.
 
-## Prop density
-
-`SnowGunDensityPct` and `FloodlightDensityPct` are look only; snow and upkeep never read them. `SkiRunPropSystem` polls them every
-frame in a loaded city:
-
-- It writes the run prefabs' per-corner chance and the night group's member weights at every game load, and once the pair has been
-  still for `RunPropDensityRules.SettleFrames` frames.
-- It re-stamps built runs only after such a settled change, never at a load, so a save made at another density keeps its layout
-  until a run is edited.
 
 ## Ski days
 

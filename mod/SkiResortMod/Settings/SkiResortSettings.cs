@@ -280,17 +280,6 @@ namespace SkiResortMod.Settings
         [SettingsUISection(SectionMain, GroupRuns)]
         public int RunOutlineSize { get; set; }
 
-        /// <summary>Look only: share of snowmaking and night run corners with a snow gun or hydrant, in percent of the full look. Read only
-        /// by SkiRunPropSystem.</summary>
-        [SettingsUISlider(min = RunPropDensityRules.PctMin, max = RunPropDensityRules.PctMax, step = RunPropDensityRules.PctStep, unit = "percentage")]
-        [SettingsUISection(SectionMain, GroupRuns)]
-        public int SnowGunDensityPct { get; set; }
-
-        /// <summary>Look only: share of night run corners with a floodlight mast, in percent of the full look. Read only by SkiRunPropSystem.</summary>
-        [SettingsUISlider(min = RunPropDensityRules.PctMin, max = RunPropDensityRules.PctMax, step = RunPropDensityRules.PctStep, unit = "percentage")]
-        [SettingsUISection(SectionMain, GroupRuns)]
-        public int FloodlightDensityPct { get; set; }
-
         /// <summary>Look only: snow guns show a vapor plume while their run's guns are running (SnowGunPlumeRules). Read every pass (64
         /// sim frames) by SkiSnowGunPlumeSystem only; off cuts every plume within one pass. Snow, upkeep and the guns' own start / stop
         /// never read it.</summary>
@@ -478,8 +467,6 @@ namespace SkiResortMod.Settings
             ShowSnowLineWhilePlacing = true;
             ShowRunNamesOnTheHill = true;
             RunOutlineSize = DefaultRunOutlineSize;
-            SnowGunDensityPct = RunPropDensityRules.PctDefault;
-            FloodlightDensityPct = RunPropDensityRules.PctDefault;
             SnowGunPlumes = DefaultSnowGunPlumes;
             CatTrackGradeMaxPct = 25;
             CatTrackWidthM = 20;

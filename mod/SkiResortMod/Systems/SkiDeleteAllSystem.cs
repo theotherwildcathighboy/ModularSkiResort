@@ -5,7 +5,7 @@
 // Scheduling (load-bearing): UpdateBefore<SkiDeleteAllSystem, SubElementDeleteSystem>(PostTool), where a bulldoze's Deleted stands
 // after ApplyTool (Game.Common/SystemOrder.cs:712-724); PostTool runs every frame, paused included (Game.Tools/ToolSystem.cs:251-257).
 // Vanilla then cascades station sub-nets and sub-areas (SubElementDeleteSystem, PostTool), the electricity graph
-// (ElectricityGraphDeleteSystem, Modification1), sub-objects incl. towers / chairs / run props (SubObjectSystem, Modification2B),
+// (ElectricityGraphDeleteSystem, Modification1), sub-objects incl. towers / chairs (SubObjectSystem, Modification2B),
 // the number tiles (SecondaryObjectSystem, Modification4B) and the ConnectedEdge refs (Game.Net/ReferencesSystem.cs:143-156).
 // Selection is by our resolved prefab entities only (DeleteAllRules.Targets); a vanilla power line, road or building is never
 // selected, and a net node of ours that a foreign edge still uses is kept (DeleteAllRules.NodeVerdict). One summary log line.
@@ -43,6 +43,7 @@ namespace SkiResortMod.Systems
         private EntityQuery m_Buildings;
         private EntityQuery m_Areas;
         private EntityQuery m_Trees;
+        private EntityQuery m_RunProps;
         private EntityQuery m_Passes;
 
         private int m_Countdown;   // 0 = idle; 2 = tool reset this frame; 1 = delete this frame
@@ -107,6 +108,11 @@ namespace SkiResortMod.Systems
             m_Trees = GetEntityQuery(new EntityQueryDesc
             {
                 All = new[] { ComponentType.ReadOnly<SkiRunTreeMember>() },
+                None = none,
+            });
+            m_RunProps = GetEntityQuery(new EntityQueryDesc
+            {
+                All = new[] { ComponentType.ReadOnly<SkiRunPropMember>() },
                 None = none,
             });
             m_Passes = GetEntityQuery(ComponentType.ReadOnly<SkiSeasonPass>());
@@ -181,6 +187,7 @@ namespace SkiResortMod.Systems
                 CollectTopLevel(m_Buildings, buildings, counts, isArea: false);
                 CollectTopLevel(m_Areas, areas, counts, isArea: true);
                 int trees = m_Trees.CalculateEntityCount();
+                int runProps = m_RunProps.CalculateEntityCount();
                 int passes = m_Passes.CalculateEntityCount();
 
                 // 2. Delete, the vanilla owner-cascade shape (SubElementDeleteSystem.cs:78-79)
@@ -199,6 +206,18 @@ namespace SkiResortMod.Systems
                     }
                 }
                 counts[(int)DeleteKind.Trees] = trees;
+                // The placed run props (free-standing, SkiRunPropMember): selected here too, so an orphan tag cannot outlive the button
+                if (runProps > 0)
+                {
+                    using (var propArray = m_RunProps.ToEntityArray(Allocator.Temp))
+                    {
+                        var list = new NativeList<Entity>(propArray.Length, Allocator.Temp);
+                        list.AddRange(propArray);
+                        DeleteLikeOwnerCascade(list);
+                        list.Dispose();
+                    }
+                }
+                counts[(int)DeleteKind.RunProps] = runProps;
 
                 // 3. Our component on vanilla households: removed, the households stay
                 if (passes > 0)

@@ -50,8 +50,8 @@ no plume entry and are never touched.
 
 ## Scope and cadence
 
-Game mode only; guns owned (Secondary + Owner) by OUR snowmaking / night run areas, through each run's runtime SubObject buffer (the
-buffer SkiRunPropSystem bridges; vanilla SecondaryObjectSystem fills it). Nothing else on the map is written. Every
+Game mode only; the placed guns of OUR snowmaking and night runs and cat tracks, by the `SkiRunPropMember` tag (free-standing, EngineNotes/SkiRunPropMember.md). A cat track has no measured pack: its guns
+run while `SkiSnowInjectionSystem.CatTrackGunsCanRun` says so. Nothing else on the map is written. Every
 `SnowGunPlumeRules.PlumeIntervalFrames` (64) sim frames, anchored after the injection (Mod.cs; not load-bearing: the per-run flags it
 published are read, at most one window old). Cost: one pass over the guns of our runs (tens to a few hundred entities); writes only on a
 flip or a lease renewal.

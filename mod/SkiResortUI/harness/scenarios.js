@@ -44,12 +44,12 @@
 
   const SIGN = E(101), SIGN2 = E(102);
   const runs = [
-    { entity: E(201), name: "Ash Flat Meadow", kind: 0, bound: true, lengthM: 1420, dropM: 210, areaM2: 84000, sign: SIGN, ordinal: 1, customName: true, band: 1, gradePct: 15, steepestPct: 22, approx: false, member: true, served: true, servedBy: E(301), valueFull: 1.0, bandValue: 1.0, sizeFactor: 1.1, typeFactor: 1.0, servedFactor: 1.0 },
-    { entity: E(202), name: "Run 2", kind: 1, bound: true, lengthM: 2180, dropM: 480, areaM2: 126000, sign: SIGN, ordinal: 2, customName: false, band: 2, gradePct: 24, steepestPct: 38, approx: false, member: true, served: true, servedBy: E(301), valueFull: 1.6, bandValue: 1.4, sizeFactor: 1.3, typeFactor: 1.2, servedFactor: 1.0 },
-    { entity: E(203), name: "North Face", kind: 3, bound: true, lengthM: 1760, dropM: 610, areaM2: 61000, sign: SIGN, ordinal: 3, customName: true, band: 3, gradePct: 38, steepestPct: 55, approx: true, member: true, served: false, servedBy: NULL, valueFull: 1.9, bandValue: 1.8, sizeFactor: 1.0, typeFactor: 0.9, servedFactor: 0.5 },
-    { entity: E(204), name: "Run 4", kind: 2, bound: true, lengthM: 960, dropM: 140, areaM2: 38000, sign: SIGN, ordinal: 4, customName: false, band: 1, gradePct: 15, steepestPct: 19, approx: false, member: true, served: true, servedBy: E(302), valueFull: 0.8, bandValue: 1.0, sizeFactor: 0.8, typeFactor: 1.1, servedFactor: 1.0 },
-    { entity: E(205), name: "Cat Track", kind: 4, bound: true, lengthM: 2400, dropM: 90, areaM2: 24000, sign: SIGN, ordinal: 5, customName: false, band: 0, gradePct: 4, steepestPct: 8, approx: false, member: true, served: true, servedBy: E(302), valueFull: 0.2, bandValue: 0.2, sizeFactor: 1.0, typeFactor: 0.5, servedFactor: 1.0 },
-    { entity: E(206), name: "Run 6", kind: 0, bound: false, lengthM: 640, dropM: 95, areaM2: 19000, sign: NULL, ordinal: 6, customName: false, band: -1, gradePct: 0, steepestPct: 0, approx: true, member: false, served: false, servedBy: NULL, valueFull: 0, bandValue: 0, sizeFactor: 0, typeFactor: 0, servedFactor: 0 },
+    { entity: E(201), name: "Ash Flat Meadow", kind: 0, bound: true, lengthM: 1420, dropM: 210, areaM2: 84000, sign: SIGN, ordinal: 1, customName: true, band: 1, gradePct: 15, steepestPct: 22, approx: false, member: true, served: true, servedBy: E(301), valueFull: 1.0, bandValue: 1.0, sizeFactor: 1.1, typeFactor: 1.0, servedFactor: 1.0, gunSpacingM: -1, lightSpacingM: -1 },
+    { entity: E(202), name: "Run 2", kind: 1, bound: true, lengthM: 2180, dropM: 480, areaM2: 126000, sign: SIGN, ordinal: 2, customName: false, band: 2, gradePct: 24, steepestPct: 38, approx: false, member: true, served: true, servedBy: E(301), valueFull: 1.6, bandValue: 1.4, sizeFactor: 1.3, typeFactor: 1.2, servedFactor: 1.0, gunSpacingM: 50, lightSpacingM: -1 },
+    { entity: E(203), name: "North Face", kind: 3, bound: true, lengthM: 1760, dropM: 610, areaM2: 61000, sign: SIGN, ordinal: 3, customName: true, band: 3, gradePct: 38, steepestPct: 55, approx: true, member: true, served: false, servedBy: NULL, valueFull: 1.9, bandValue: 1.8, sizeFactor: 1.0, typeFactor: 0.9, servedFactor: 0.5, gunSpacingM: -1, lightSpacingM: -1 },
+    { entity: E(204), name: "Run 4", kind: 2, bound: true, lengthM: 960, dropM: 140, areaM2: 38000, sign: SIGN, ordinal: 4, customName: false, band: 1, gradePct: 15, steepestPct: 19, approx: false, member: true, served: true, servedBy: E(302), valueFull: 0.8, bandValue: 1.0, sizeFactor: 0.8, typeFactor: 1.1, servedFactor: 1.0, gunSpacingM: 90, lightSpacingM: 90 },
+    { entity: E(205), name: "Cat Track", kind: 4, bound: true, lengthM: 2400, dropM: 90, areaM2: 24000, sign: SIGN, ordinal: 5, customName: false, band: 0, gradePct: 4, steepestPct: 8, approx: false, member: true, served: true, servedBy: E(302), valueFull: 0.2, bandValue: 0.2, sizeFactor: 1.0, typeFactor: 0.5, servedFactor: 1.0, gunSpacingM: 60, lightSpacingM: 0 },
+    { entity: E(206), name: "Run 6", kind: 0, bound: false, lengthM: 640, dropM: 95, areaM2: 19000, sign: NULL, ordinal: 6, customName: false, band: -1, gradePct: 0, steepestPct: 0, approx: true, member: false, served: false, servedBy: NULL, valueFull: 0, bandValue: 0, sizeFactor: 0, typeFactor: 0, servedFactor: 0, gunSpacingM: -1, lightSpacingM: -1 },
   ];
   const runLive = [
     { entity: E(201), openState: 2, openFactor: 1.0, snowPct: 92, snowEstimated: false, valueNow: 1.0, costMonth: 4600, snowDepthCm: 180, gunWhy: 1 },
@@ -188,7 +188,7 @@
       liftRow(2, 1, 1, "fixedGrip", 2, 640, 210, 4, "SkiResort.Tooltip.QUICK_VERDICT[DoubleBlack]", "SkiResort.Hub.QUICK_HOME_GREEN", true)],
     plan: { pods: 4, liftsProposed: 2, liftsPinned: 1, runKm: 14.6, runKmPerKm2: 18.2, deadEnds: 0, mountainMix: [0, 22, 38, 40, 0], sitePods: 4, siteGreenHome: 1, siteBenchHa: 8 } });
 
-  const base = { hubOpen: false, contract: 27, buildStamp: "", showHubButton: true, build: buildItems(), glade,
+  const base = { hubOpen: false, contract: 28, buildStamp: "", showHubButton: true, build: buildItems(), glade,
     resorts: [], resortLive: [], selectedResort: NULL, runs: [], runLive: [], lifts: [], problems: [], city, pisteMap: true, follow: 0, history: [],
     liftLine: { available: true, active: false, state: "PickBase" }, quickRuns, catTrackDeleteMode: false };
 

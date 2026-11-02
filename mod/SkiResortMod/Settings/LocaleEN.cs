@@ -221,7 +221,7 @@ namespace SkiResortMod.Settings
                 },
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.SnowmakingBonusCelsius)),
-                    "Snow guns on snowmaking and night runs work where the air on the run is at most " +
+                    "Snow guns on snowmaking runs, night runs and cat tracks work where the air on the run is at most " +
                     "this many degrees above freezing, from 2 months before winter to 1 month after, until the run has 3 ft (91 cm) of snow. " +
                     "Higher means a longer season and a bigger snowmaking bill. Default 3.3 (38 F)."
                 },
@@ -335,29 +335,6 @@ namespace SkiResortMod.Settings
                     "How thick the outline and corner dots are while you draw, edit or bulldoze a ski run. " +
                     "0 keeps the game's thin outline. Default 8."
                 },
-                // Prop density: look only, labels exactly the ruling's names. "In a city; saved runs keep their look until edited", since
-                // density re-stamps only on a settled slider change, never at a load.
-                {
-                    m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.SnowGunDensityPct)),
-                    "Snow lances, fan guns and hydrants"
-                },
-                {
-                    m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.SnowGunDensityPct)),
-                    "How many corners of snowmaking and night runs get a snow lance, fan gun or hydrant, in percent of the " +
-                    "full look. Look only: snow and upkeep follow the run type. Runs already built change when " +
-                    "you move the slider in a city; saved runs keep their look until edited. Default 100 %."
-                },
-                {
-                    m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.FloodlightDensityPct)),
-                    "Floodlight masts on night runs"
-                },
-                {
-                    m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.FloodlightDensityPct)),
-                    "How many corners of night runs get a floodlight mast, in percent of the full look. Look " +
-                    "only: snow and upkeep follow the run type, and night skiing does not need the masts. Runs " +
-                    "already built change when you move the slider in a city; saved runs keep their look until " +
-                    "edited. Default 100 %."
-                },
                 // Look only; the guns' start / stop rule is not a setting
                 {
                     m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.SnowGunPlumes)),
@@ -365,7 +342,7 @@ namespace SkiResortMod.Settings
                 },
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.SnowGunPlumes)),
-                    "Snow guns on snowmaking and night runs show a vapor plume while they make snow: cold enough at " +
+                    "Snow guns on snowmaking runs, night runs and cat tracks show a vapor plume while they run: cold enough at " +
                     "the gun and the run's snow below the depth where the guns stop. Look only: snow and upkeep do not " +
                     "change. Default on."
                 },

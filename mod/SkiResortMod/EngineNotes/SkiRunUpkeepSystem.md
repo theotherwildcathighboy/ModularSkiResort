@@ -12,6 +12,10 @@ window (`SkiSnowInjectionSystem.SnowmakingActiveTexels` / `GroomedActiveTexels` 
 overlapping runs never double-bill (a texel is claimed once, see `MaskStats`). Visuals, attractiveness and money all read the same
 climate model and cannot disagree.
 
+Cat tracks have no active texels (they stay out of injection, SkiSnowInjectionSystem.cs near the mask loop) and bill by plan area at the snowmaking rate while their guns can run:
+`SnowGunPlumeRules.TrackBilledHa(area, CatTrackGunsCanRun(run, ...))`, per cataloged track. Their prop sliders never touch this: a track with its guns slider at Off still bills. `HasMaskMeasurement` is set
+before the injection's idle exits, so a resort with only cat tracks reaches the charge.
+
 ## Money
 
 Money goes to `Game.City.PlayerMoney` on the `CitySystem.City` entity (public Add/Subtract, the component every vanilla income/expense

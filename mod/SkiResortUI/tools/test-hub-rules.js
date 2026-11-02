@@ -759,6 +759,20 @@ function run(srcDir) {
   const hubTuples = read(path.join("hub", "hubText.ts")).split("\n")
     .map((l) => /\["(?:SkiResort|Assets)[^"]*", "([^"]*)"\]/.exec(l)).filter(Boolean).map((m) => m[1]);
   eq("T34 no over-instructive hub text", [hubTuples.length > 500, hubTuples.filter((s) => obvious.test(s))], [true, []]);
+  // T35 (contract 28) the Runs view's prop rows: a step under the minimum reads off, a step up from off lands on the minimum at the least, the
+  // maximum holds. Range from RunPropPlacerRules (tools/check-run-props.js compares the constants); the rows act on the focused run.
+  const step = R.runPropSpacingStep;
+  eq("T35.1 runPropSpacingStep", [step(0, 10), step(0, 50), step(20, 10), step(20, -10), step(20, -50), step(60, -50), step(70, -50), step(100, 50), step(190, 50), step(200, 10), step(200, -10)],
+    [20, 50, 30, 0, 0, 0, 20, 150, 200, 200, 190]);
+  const propRows = read(path.join("hub", "RunPropControls.tsx"));
+  const runsView = read(path.join("hub", "RunsView.tsx"));
+  eq("T35.2 the rows send the two triggers, read C#'s value and are drawn under the tree rows while Quick runs is closed, for the focused row",
+    [propRows.includes("hubTriggers.setRunGunSpacing(row.entity, m)"), propRows.includes("hubTriggers.setRunLightSpacing(row.entity, m)"), propRows.includes("row.gunSpacingM"), propRows.includes("row.lightSpacingM"),
+      /!quick\?\.active && <RunPropRows row=\{rows\.find\(\(r\) => r\.entity && entityId\(r\.entity\) === focusedId\)\} \/>/.test(runsView)],
+    [true, true, true, true, true]);
+  eq("T35.3 a cat track row shows its running cost (billed by plan area while its guns can run)",
+    [read(path.join("hub", "RunList.tsx")).includes("row.kind !== RUN_KIND.Natural && row.bound && {\n          label: t(HUB_LOC.runCost)")], [true]);
+
   const hr = require("./test-history-rules").run(srcDir);
   checks += hr.checks;
   for (const f of hr.failures) failures.push(`test-history-rules ${f}`);

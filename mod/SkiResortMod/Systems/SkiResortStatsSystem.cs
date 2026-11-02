@@ -121,6 +121,7 @@ namespace SkiResortMod.Systems
         public int Band; public float GradePct, SteepestPct; public bool Approx;
         public bool Member, Served; public Entity ServedBy;
         public float ValueFull, BandValue, SizeFactor, TypeFactor, ServedFactor;
+        public int GunSpacingM, LightSpacingM; // the run's two prop sliders: meters, 0 = off, -1 = its kind carries none
     }
 
     /// <summary>bindings.ts RunLive. Same order and count as the runs rows.</summary>
@@ -277,6 +278,7 @@ namespace SkiResortMod.Systems
         private static readonly string[] s_FactorNames = BuildFactorNames();
 
         private SkiRunCatalogSystem m_Catalog;
+        private SkiRunPropSystem m_RunProps;
         private SkiRunOwnershipSystem m_Ownership;
         private SkiResortAttractivenessSystem m_Attractiveness;
         private SkiSnowInjectionSystem m_Injection;
@@ -529,6 +531,7 @@ namespace SkiResortMod.Systems
         {
             base.OnCreate();
             m_Catalog = World.GetOrCreateSystemManaged<SkiRunCatalogSystem>();
+            m_RunProps = World.GetOrCreateSystemManaged<SkiRunPropSystem>();
             m_Ownership = World.GetOrCreateSystemManaged<SkiRunOwnershipSystem>();
             m_Attractiveness = World.GetOrCreateSystemManaged<SkiResortAttractivenessSystem>();
             m_Injection = World.GetOrCreateSystemManaged<SkiSnowInjectionSystem>();
@@ -1324,12 +1327,22 @@ namespace SkiResortMod.Systems
                 float ha = 0f, cost = 0f;
                 RunSnow snow = default;
                 // A cat track counts minimally (2026-10-24, RunKindRules): a member (RunsOpen / RunsPartly / RunValueFull / Status) and a RunIn
-                // (Runs, Rated, the difficulty bar, length, area), but never injected: no snow aggregate, no ha or cost, no TopM or gun flag, and
-                // NaN heights in its RunIn so the hub's vertical stays the score's (SkiResortScore keeps it out of the vertical too).
+                // (Runs, Rated, the difficulty bar, length, area), but never injected: no snow aggregate, no TopM, and NaN heights in its RunIn so the
+                // hub's vertical stays the score's (SkiResortScore keeps it out of the vertical too). It follows the snowmaking rules otherwise: while its
+                // guns can run it bills its plan area at the snowmaking rate, the same number SkiRunUpkeepSystem charges.
                 bool catTrack = row.Kind == (int)RunKind.CatTrack;
                 if (bound && catTrack)
                 {
                     snow = m_Injection.GetRunSnow(row.Entity, (RunKind)row.Kind, row.NodeBottomM, row.NodeTopM);   // the estimate: never injected
+                    if (m_Injection.CatTrackGunsCanRun(row.Entity, row.NodeBottomM, row.NodeTopM))
+                    {
+                        ref AreaWork work = ref m_Work[resort];
+                        ha = SnowGunPlumeRules.TrackBilledHa(row.AreaM2, true);
+                        cost = ha * SkiRunUpkeepSystem.CostPerHaMonth(RunKind.CatTrack);
+                        work.AnyGunOn = true;
+                        work.HaSnowmaking += ha;
+                        work.CostSnowmaking += cost;
+                    }
                 }
                 else if (bound)
                 {
@@ -1392,6 +1405,7 @@ namespace SkiResortMod.Systems
                     work.RunsValueFull += HubRules.RunValueFull(in part);
                 }
 
+                m_RunProps.TryGetSpacing(row.Entity, out int gunSpacing, out int lightSpacing);
                 m_RunIn.Add(new SkiResortAggregate.RunIn
                 {
                     Resort = resort,
@@ -1430,6 +1444,8 @@ namespace SkiResortMod.Systems
                     SizeFactor = member ? (float)part.SizeFactor : 0f,
                     TypeFactor = member ? (float)part.TypeFactor : 0f,
                     ServedFactor = member ? (float)part.ServedFactor : 0f,
+                    GunSpacingM = gunSpacing,
+                    LightSpacingM = lightSpacing,
                 });
                 m_RunLiveNext.Add(new RunLiveStats
                 {
@@ -1441,7 +1457,10 @@ namespace SkiResortMod.Systems
                     ValueNow = member ? (float)part.Value : 0f,
                     CostMonth = (int)Math.Round(cost, MidpointRounding.AwayFromZero),
                     SnowDepthCm = bound && snow.Source == RunSnowSource.Measured ? HubRules.DepthCm(snow.MeanDepthM) : -1,
-                    GunWhy = (int)GunWhyOf(row.Entity, bound && (row.Kind == (int)RunKind.Snowmaking || row.Kind == (int)RunKind.Night)),
+                    GunWhy = catTrack
+                        ? (int)HubRules.GunWhyOf(bound, m_SnowLine.IsSnowGatingEnabled(), m_Injection.GunSeasonNow, true, true,
+                                                 bound && m_Injection.CatTrackGunsCanRun(row.Entity, row.NodeBottomM, row.NodeTopM))
+                        : (int)GunWhyOf(row.Entity, bound && (row.Kind == (int)RunKind.Snowmaking || row.Kind == (int)RunKind.Night)),
                 });
                 m_RunTops.Add(row.NodeTopPos);
                 m_RunOutlines.Add(row.OutlineXZ); // the catalog row's arrays, by reference (the link graph keeps while they are unchanged)
@@ -2986,6 +3005,8 @@ namespace SkiResortMod.Systems
                 h = MixF(h, r.SizeFactor);
                 h = MixF(h, r.TypeFactor);
                 h = MixF(h, r.ServedFactor);
+                h = Mix(h, (uint)r.GunSpacingM);
+                h = Mix(h, (uint)r.LightSpacingM);
             }
             return Mix(h, (uint)rows.Count);
         }

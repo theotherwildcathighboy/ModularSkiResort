@@ -3,7 +3,10 @@
 // Phase and interval are both load-bearing: UpdateAfter<WetnessSystem> (the same tick as vanilla's wetness write) and interval 256
 // (an anchor's runtime offset is inherited only when the intervals are equal).
 // The value is set both ways, not clamped up: props go white as the ribbon builds and come clean as it melts.
-// Game mode only; only our run prefabs; m_Wetness and m_Dirtyness stay with vanilla. With no measured depth, vanilla is left alone.
+// Placed props are free-standing with their own Game.Objects.Surface, which vanilla's WetnessSystem writes from the climate (WetnessSystem.cs:160)
+// just before this pass; the same value goes onto them here, cat track props included (the renderer reads the entity's own Surface first,
+// BatchDataSystem.cs:795-817).
+// Game mode only; only our run prefabs and tagged props; m_Wetness and m_Dirtyness stay with vanilla. With no measured depth, vanilla is left alone.
 // Pass lines go through a LogWindow (Tuning.LogWindowS); a fold is flushed at OnGamePreload and OnDestroy.
 // Engine notes: EngineNotes/SkiRunSurfaceSystem.md
 
@@ -50,6 +53,7 @@ namespace SkiResortMod.Systems
         private PrefabSystem m_PrefabSystem;
         private SkiSnowInjectionSystem m_SnowInjectionSystem;
         private EntityQuery m_RunAreaQuery;
+        private EntityQuery m_PropQuery;
         private EntityQuery m_PrefabScanQuery;
 
         private readonly HashSet<Entity> m_RunPrefabs = new HashSet<Entity>();
@@ -78,6 +82,19 @@ namespace SkiResortMod.Systems
                     // Our runs are SurfacePrefab areas (SurfacePrefab.cs:21-23), so the 256-frame walk skips lots, districts and map tiles
                     ComponentType.ReadOnly<Game.Areas.Surface>(),
                     ComponentType.ReadOnly<PrefabRef>(),
+                },
+                None = new[]
+                {
+                    ComponentType.ReadOnly<Deleted>(),
+                    ComponentType.ReadOnly<Temp>(),
+                },
+            });
+            m_PropQuery = GetEntityQuery(new EntityQueryDesc
+            {
+                All = new[]
+                {
+                    ComponentType.ReadOnly<SkiRunPropMember>(),
+                    ComponentType.ReadWrite<Game.Objects.Surface>(),
                 },
                 None = new[]
                 {
@@ -227,6 +244,7 @@ namespace SkiResortMod.Systems
                     surface.m_AccumulatedSnow = value;
                     EntityManager.SetComponentData(area, surface);
                 }
+                int props = WritePropSnow(value);
 
                 float now = UnityEngine.Time.realtimeSinceStartup;
                 bool log = value != m_LastByte || toWrite.Length != m_LastAreaCount ||
@@ -234,7 +252,7 @@ namespace SkiResortMod.Systems
                 if (log)
                 {
                     // The source of the depth
-                    string body = $"{toWrite.Length} run area(s) -> snow {value}/255 " +
+                    string body = $"{toWrite.Length} run area(s), {props} placed prop(s) -> snow {value}/255 " +
                                   $"(mean run depth {depth:F3} m, " +
                                   $"{(source == RunDressSource.NaturalMeasured ? "natural runs" : "managed")})" +
                                   (added > 0 ? $", Game.Objects.Surface added to {added}" : "");
@@ -268,6 +286,37 @@ namespace SkiResortMod.Systems
                                   $"stack:\n{e}");
                 }
             }
+        }
+
+        /// <summary>The same value on every placed prop. Returns the prop count. WetnessSystem's job writes this component just before us.</summary>
+        private int WritePropSnow(byte value)
+        {
+            if (m_PropQuery.IsEmptyIgnoreFilter)
+                return 0;
+            EntityManager.CompleteDependencyBeforeRW<Game.Objects.Surface>();
+            int count = 0;
+            var handle = GetComponentTypeHandle<Game.Objects.Surface>(isReadOnly: false);
+            var chunks = m_PropQuery.ToArchetypeChunkArray(Allocator.Temp);
+            try
+            {
+                for (int c = 0; c < chunks.Length; c++)
+                {
+                    var surfaces = chunks[c].GetNativeArray(ref handle);
+                    for (int i = 0; i < surfaces.Length; i++)
+                    {
+                        Game.Objects.Surface surface = surfaces[i];
+                        surface.m_SnowAmount = value;
+                        surface.m_AccumulatedSnow = value;
+                        surfaces[i] = surface;
+                    }
+                    count += surfaces.Length;
+                }
+            }
+            finally
+            {
+                chunks.Dispose();
+            }
+            return count;
         }
 
         /// <summary>One line for the folded passes: how many, over how long, the snow value range, then the last pass's full line.</summary>

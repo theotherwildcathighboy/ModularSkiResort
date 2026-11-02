@@ -20,7 +20,7 @@ export const GROUP = "skiResort";
  * only when C#'s `contract` equals this; on a mismatch it shows the Build strip and the tree controls (CORE only) and
  * says why.
  */
-export const HUB_CONTRACT = 27;
+export const HUB_CONTRACT = 28;
 
 /** The `contract` value while the C# binding is absent (the fallback). Real contracts start at 1. */
 export const CONTRACT_ABSENT = 0;
@@ -445,6 +445,13 @@ export type QuickRunsKey =
   | "trees" | "plant" | "treesUndo" | "treeLine" | "group" | "species" | "level" | "stop"
   | "lifts" | "home" | "pod" | "lift";
 
+/** RunPropPlacerRules: the Runs view's prop rows, 0 = off, then min..max (tools/check-run-props.js compares them). */
+export const RUN_PROP_SPACING_OFF = 0;
+export const RUN_PROP_SPACING_MIN = 20;
+export const RUN_PROP_SPACING_MAX = 200;
+export const RUN_PROP_SPACING_STEP = 10;
+export const RUN_PROP_SPACING_STEP_COARSE = 50;
+
 export const GLADE_LEVEL_MIN = 1;
 export const GLADE_LEVEL_MAX = 8;
 /** SkiGladeCompose.DefaultLevel. */
@@ -691,6 +698,10 @@ export interface RunRow {
   sizeFactor: number;
   typeFactor: number;
   servedFactor: number;
+  /** Meters between this run's snow guns and hydrants; 0 = off, -1 = its kind carries none (contract 28). Look only. */
+  gunSpacingM: number;
+  /** Meters between this run's floodlight masts; 0 = off, -1 = its kind carries none (contract 28). Look only. */
+  lightSpacingM: number;
 }
 
 /** Per-run values that move (same order and count as `runs`, joined by `entity`). */
@@ -920,6 +931,8 @@ export const TRIGGER = {
   quickRunsToggle: "quickRunsToggle",  // the Quick runs tool
   quickRunsSet: "quickRunsSet",
   setCatTrackDeleteMode: "setCatTrackDeleteMode",  // contract 19: the Runs tab's Delete cat tracks chip
+  setRunGunSpacing: "setRunGunSpacing",  // contract 28: the Runs view's prop rows
+  setRunLightSpacing: "setRunLightSpacing",
 } as const;
 
 /**
@@ -1075,6 +1088,9 @@ export const hubTriggers = {
   quickRunsSet: (key: QuickRunsKey, value: number): void => fire(TRIGGER.quickRunsSet, key, Math.round(value)),
   /** The cat track tool's Delete mode: on opens the tool if needed (C# TryActivate, then SetDeleteMode); off leaves the tool open. */
   setCatTrackDeleteMode: (on: boolean): void => fire(TRIGGER.setCatTrackDeleteMode, on),
+  /** A run's prop spacing in meters; C# clamps to Off or 20..200 and re-places after its settle. Look only. */
+  setRunGunSpacing: (run: Entity, meters: number): void => fire(TRIGGER.setRunGunSpacing, wire(run), Math.round(meters)),
+  setRunLightSpacing: (run: Entity, meters: number): void => fire(TRIGGER.setRunLightSpacing, wire(run), Math.round(meters)),
   /** Tree density level, clamped 1..8 here and again in C#. */
   gladeSetLevel: (level: number): void => fire(TRIGGER.gladeSetLevel, clampGladeLevel(level)),
   /** false = run interior, true = tree line. */
