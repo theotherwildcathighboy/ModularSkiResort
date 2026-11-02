@@ -86,6 +86,8 @@
   <!-- Run prop density -->
   <ItemGroup>
     <Compile Include="DensityTests.cs" />
+    <Compile Include="PlacerTests.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\RunPropPlacerRules.cs" Link="RunPropPlacerRules.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\RunPropDensityRules.cs" Link="RunPropDensityRules.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiTripSystems.cs" Link="SkiTripSystems.cs" />
   </ItemGroup>

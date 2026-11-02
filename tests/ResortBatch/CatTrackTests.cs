@@ -425,23 +425,17 @@ namespace ResortBatch
             Check(groomed <= 0f && RunSnowRules.OpenMultiplier(groomed) == 0f, W, "at +2 C a groomed run's estimate is closed (share " + groomed + ")");
         }
 
+        // Guns and hydrants, masts only when lit (the full table: DensityTests; the walk: PlacerTests). Names read through ClassOf as the load sweep does.
         private static void Props()
         {
             const string W = "cattrack/props";
-            byte[] classes = { RunPropDensityRules.ClassOther, RunPropDensityRules.ClassGun, RunPropDensityRules.ClassHydrant,
-                               RunPropDensityRules.ClassMast, RunPropDensityRules.ClassEmpty };
-            foreach (byte cl in classes)
-            {
-                Check(RunPropDensityRules.PropClassAllowed((int)RunKind.CatTrack, cl) == (cl == RunPropDensityRules.ClassHydrant), W,
-                      "cat track, class " + cl + ": only hydrants are allowed");
-                for (int k = 0; k <= 3; k++)
-                    Check(RunPropDensityRules.PropClassAllowed(k, cl), W, "kind " + k + ", class " + cl + " must stay allowed");
-            }
-            Check(RunPropDensityRules.PropClassAllowed(4, RunPropDensityRules.ClassOf("SkiHydrantBox", false)), W, "SkiHydrantBox reads as a hydrant");
-            Check(RunPropDensityRules.PropClassAllowed(4, RunPropDensityRules.ClassOf("SkiHydrantBoxBare", false)), W, "SkiHydrantBoxBare reads as a hydrant");
-            Check(!RunPropDensityRules.PropClassAllowed(4, RunPropDensityRules.ClassOf("SkiPisteFloodlightTall", true)), W, "a floodlight mast is not allowed");
-            Check(!RunPropDensityRules.PropClassAllowed(4, RunPropDensityRules.ClassOf("SkiSnowFanGun", false)), W, "a gun is not allowed");
-            Check(!RunPropDensityRules.PropClassAllowed(4, RunPropDensityRules.ClassOf("SkiPropNone", false)), W, "the empty marker is not allowed");
+            int K = (int)RunKind.CatTrack;
+            Check(RunPropDensityRules.PropClassAllowed(K, RunPropDensityRules.ClassOf("SkiHydrantBox", false), false), W, "SkiHydrantBox stands on a track");
+            Check(RunPropDensityRules.PropClassAllowed(K, RunPropDensityRules.ClassOf("SkiHydrantBoxBare", false), false), W, "SkiHydrantBoxBare stands on a track");
+            Check(RunPropDensityRules.PropClassAllowed(K, RunPropDensityRules.ClassOf("SkiSnowGunFan", false), false), W, "a gun stands on a track");
+            Check(!RunPropDensityRules.PropClassAllowed(K, RunPropDensityRules.ClassOf("SkiPisteFloodlightTall", true), false), W, "no mast on a dark track");
+            Check(RunPropDensityRules.PropClassAllowed(K, RunPropDensityRules.ClassOf("SkiPisteFloodlightTall", true), true), W, "a mast on a lit track");
+            Check(!RunPropDensityRules.PropClassAllowed(K, RunPropDensityRules.ClassOf("SkiPropNone", false), true), W, "never the empty marker");
         }
 
         private static void Catalog()

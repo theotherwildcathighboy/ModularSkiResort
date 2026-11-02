@@ -69,6 +69,9 @@ namespace SaveBatch
                 "m_PassSeasonIncome:i64 m_PassSeasonPre:i32 m_PassSeasonPreIncome:i64",
             // The ski bus depot's coach bill (before 1.0). Ships in 1.0.0, so it is listed as shipped.
             "SkiResortMonthInProgress v2 150 m_Month.BusCharged:f64",
+            // The run prop placer's tag and per-run spacings (before 1.0). Ship in 1.0.0, so they are listed as shipped.
+            "SkiRunPropMember v1 6 m_Run:entity m_Class:u8",
+            "SkiRunPropSettings v1 13 m_GunSpacingM:i32 m_LightSpacingM:i32 m_AppliedKey:i32",
         };
 
         public static void Run(Func<bool, string, string, bool> check)

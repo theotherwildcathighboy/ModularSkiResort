@@ -4,7 +4,7 @@
  * a click sends setPisteMap(!value) and C# answers by pushing it. RunLine sends hoverRun on enter (dedup); leaving the list and unmounting send
  * Null once (HubPanel covers the area switch and the panel unmount). Joins: runLive by entityId (hubRules.runLiveMap), lift names by LiftRow.entity,
  * both memoized so a live push re-renders only the rows that moved. Panel file: subscribes selectedResort$, runs$, runLive$, lifts$, pisteMap$,
- * city$, quickRuns$ (+ glade$ in TreeRows); local focused$.
+ * city$, quickRuns$ (+ glade$ in TreeRows); local focused$. The prop rows (RunPropRows) act on the focused run: a click on its row picks it.
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { RefObject } from "react";
@@ -19,6 +19,7 @@ import { HUB_LOC, RUN_STATE_TEXT } from "./hubText";
 import { CheckBox, Divider, Tip, cx, useNumberSamples } from "./parts";
 import { RunHeader, RunLine } from "./RunList";
 import { QuickRunsRows } from "./QuickRunsControls";
+import { RunPropRows } from "./RunPropControls";
 import { TreeRows } from "./TreeControls";
 import { runsOf } from "./resortData";
 import styles from "./hub.module.scss";
@@ -78,6 +79,7 @@ export function RunsView({ listRef }: { listRef: RefObject<HTMLDivElement> }): J
   return (
     <>
       {quick?.active ? <QuickRunsRows /> : <TreeRows />}
+      {!quick?.active && <RunPropRows row={rows.find((r) => r.entity && entityId(r.entity) === focusedId)} />}
       <Divider />
       <RunHeader t={t} samples={samples} pisteMap={toggle} />
       {rows.length === 0 ? (

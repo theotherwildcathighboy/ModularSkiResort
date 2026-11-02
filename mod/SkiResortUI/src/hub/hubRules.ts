@@ -7,7 +7,7 @@
  */
 import type { Entity } from "cs2/utils";
 import {
-  BUILD_ITEM_IDS, LIFT_STATE, QUICK_REJECT_BUCKETS, LIFT_STATUS, NEXT_STEP, PROBLEM, RESORT_STATUS, RUN_KIND, SEASON_HINT, SKI_DAY_LIMIT, SKI_DAY_STATE,
+  BUILD_ITEM_IDS, LIFT_STATE, QUICK_REJECT_BUCKETS, RUN_PROP_SPACING_MAX, RUN_PROP_SPACING_MIN, RUN_PROP_SPACING_OFF, LIFT_STATUS, NEXT_STEP, PROBLEM, RESORT_STATUS, RUN_KIND, SEASON_HINT, SKI_DAY_LIMIT, SKI_DAY_STATE,
   TICKET_GATE, TRIP_PLANNER_UNKNOWN, entityId, sameEntity,
 } from "../bindings";
 import type {
@@ -960,4 +960,14 @@ export function schoolFlagOf(s: SchoolState): "noSchool" | "schoolNoGreen" | "sc
     case "waiting": return "schoolWaiting";
     default: return null;
   }
+}
+
+/**
+ * A prop row's next value (RunPropPlacerRules.ClampSpacing has the same range): stepping down under the minimum reads off, stepping up
+ * from off lands on the minimum at the least, the maximum holds. The row shows C#'s value; this only picks what to send.
+ */
+export function runPropSpacingStep(value: number, delta: number): number {
+  const next = value + delta;
+  if (next < RUN_PROP_SPACING_MIN) return delta < 0 ? RUN_PROP_SPACING_OFF : RUN_PROP_SPACING_MIN;
+  return Math.min(RUN_PROP_SPACING_MAX, next);
 }

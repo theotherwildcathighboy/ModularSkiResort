@@ -112,7 +112,7 @@ function runTip(p: RunLineProps, name: string, typeName: string): JSX.Element {
         rated && row.kind !== RUN_KIND.CatTrack && row.gradePct >= 0 && { label: t(HUB_LOC.cruxPitch), value: <Num value={row.gradePct} unit={Unit.PercentageSingleFraction} /> },
         rated && row.kind !== RUN_KIND.CatTrack && row.steepestPct > row.gradePct && { label: t(HUB_LOC.steepestPatch), value: <Num value={row.steepestPct} unit={Unit.PercentageSingleFraction} /> },
         { label: t(HUB_LOC.colArea), value: <LocText entry={HUB_FMT.areaHa} args={{ HA: numArg(hectares(row.areaM2), Unit.FloatSingleFraction) }} /> },
-        row.kind !== RUN_KIND.Natural && row.kind !== RUN_KIND.CatTrack && row.bound && {
+        row.kind !== RUN_KIND.Natural && row.bound && {
           label: t(HUB_LOC.runCost),
           value: live && live.costMonth >= 0 ? <Num value={live.costMonth} unit={Unit.MoneyPerMonth} /> : "–",
         },

@@ -212,6 +212,17 @@ export const HUB_LOC = {
   runCatTrackNote: ["SkiResort.Hub.RUN_CAT_TRACK_NOTE", "A cat track always rates green and counts a quarter of a run its size, in the score and the capacity."],
   runValue: ["SkiResort.Hub.RUN_VALUE", "Score value"],
   runCost: ["SkiResort.Hub.RUN_COST", "Running cost"],
+  /* the Runs view's prop rows (RunPropControls.tsx) */
+  runPropsGuns: ["SkiResort.Hub.RUN_PROPS_GUNS", "Snow guns"],
+  runPropsLights: ["SkiResort.Hub.RUN_PROPS_LIGHTS", "Lights"],
+  runPropsOff: ["SkiResort.Hub.RUN_PROPS_OFF", "Off"],
+  runPropsNone: ["SkiResort.Hub.RUN_PROPS_NONE", "No run selected"],
+  runPropsGunsTip: ["SkiResort.Hub.RUN_PROPS_GUNS_TIP", "Distance between snow guns and hydrants on this run's edge. Look only: snow and upkeep do not change."],
+  runPropsLightsTip: ["SkiResort.Hub.RUN_PROPS_LIGHTS_TIP", "Distance between floodlight masts on this run's edge. Look only: night skiing does not need them."],
+  runPropsNoGuns: ["SkiResort.Hub.RUN_PROPS_NO_GUNS", "Groomed and natural runs carry no snow guns."],
+  runPropsNoLights: ["SkiResort.Hub.RUN_PROPS_NO_LIGHTS", "Night runs and cat tracks carry floodlights."],
+  runPropsLower: ["SkiResort.Hub.RUN_PROPS_LOWER", "Closer together"],
+  runPropsHigher: ["SkiResort.Hub.RUN_PROPS_HIGHER", "Farther apart"],
   cruxPitch: ["SkiResort.Tooltip.CRUX_PITCH", "Hardest unavoidable pitch"],
   steepestPatch: ["SkiResort.Tooltip.STEEPEST_PATCH", "Steepest patch (avoidable)"],
 

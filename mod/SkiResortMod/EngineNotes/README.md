@@ -50,10 +50,11 @@ Long engine and design explanations moved out of the source headers. Each note s
 - [`QuickRunsToolSystem.md`](QuickRunsToolSystem.md) -> QuickRunsToolSystem: the Quick runs tool (off switch, scan, batch build, undo with refund, tree filler, overlay, probes)
 - [`ResortPlanner.md`](ResortPlanner.md) -> Resort Planner (v2): modes, the stage seams and hooks, probe slots, locale keys, one section per stage-A task
 - [`ResortBatch.CatalogGuardTests.md`](ResortBatch.CatalogGuardTests.md) -> CatalogGuardTests: what ties the prefab catalog to the rule files and the hub tip texts
-- [`ResortBatch.DensityTests.md`](ResortBatch.DensityTests.md) -> DensityTests: the Options prop density rules and the engine draw-order mirror they are checked against
+- [`ResortBatch.DensityTests.md`](ResortBatch.DensityTests.md) -> DensityTests: the settle rule, the prop classes and the mast aim
 - [`ResortBatch.RunOutlineTests.md`](ResortBatch.RunOutlineTests.md) -> RunOutlineTests: the engine's area-border drawing rules the run outline mirrors
 - [`RunOutlineRules.md`](RunOutlineRules.md) -> RunOutlineRules: how the run outline mirrors the game's area outline (AreaBorderRenderSystem)
-- [`RunPropDensityRules.md`](RunPropDensityRules.md) -> RunPropDensityRules: how the game picks area-corner props, the exact thinning formulas, and mast aiming
+- [`RunPropDensityRules.md`](RunPropDensityRules.md) -> RunPropDensityRules: what a run may carry, the settle rule, and mast aiming
+- [`RunPropPlacerRules.md`](RunPropPlacerRules.md) -> RunPropPlacerRules: where a run's guns, hydrants and masts stand, walked by distance along its border
 - [`SaveLayouts.md`](SaveLayouts.md) -> SaveLayouts: how to bump a persisted layout without breaking saves
 - [`Settings.LocaleEN.md`](Settings.LocaleEN.md) -> Settings/LocaleEN: which locale keys the options UI and key bindings read
 - [`ShuttleProfile.md`](ShuttleProfile.md) -> ShuttleProfile: the jig-back tram's speed profile, cycle, clock and length quantum
@@ -108,7 +109,8 @@ Long engine and design explanations moved out of the source headers. Each note s
 - [`SkiRunLabelSystem.md`](SkiRunLabelSystem.md) -> SkiRunLabelSystem: how run names are drawn flat on the ground, reusing the district-label machinery (Game.dll 1.6.0f1 baseline)
 - [`SkiRunOutlineSystem.md`](SkiRunOutlineSystem.md) -> SkiRunOutlineSystem: how the thick run outline reuses the game's area border pass, and why it never touches m_SnapDistance
 - [`SkiRunOwnershipSystem.md`](SkiRunOwnershipSystem.md) -> SkiRunOwnershipSystem: how ski runs are bound to their Welcome Sign without Owner, the decision table, the load pass and the sweep
-- [`SkiRunPropSystem.md`](SkiRunPropSystem.md) -> SkiRunPropSystem: how run borders get snow guns and fencing from the vanilla area-props spawner, and how the prop density sliders work
+- [`SkiRunPropMember.md`](SkiRunPropMember.md) -> SkiRunPropMember and SkiRunPropSettings: why placed run props carry a tag instead of Owner(run), and the save layouts
+- [`SkiRunPropSystem.md`](SkiRunPropSystem.md) -> SkiRunPropSystem: the bridge on our run surfaces, the corner stop, and the placer that walks a run's border
 - [`SkiRunRatingRules.md`](SkiRunRatingRules.md) -> SkiRunRatingRules: why the run rating cache is keyed on node x/z, how terraform re-snaps are told apart, and the queue and band rules
 - [`SkiRunSplatSystem.md`](SkiRunSplatSystem.md) -> SkiRunSplatSystem: how ski runs are painted into the terrain-material splatmap, which channel it claims and when it repaints
 - [`SkiRunSurfaceSystem.md`](SkiRunSurfaceSystem.md) -> SkiRunSurfaceSystem: why props on ski runs need Game.Objects.Surface, and why it runs right after WetnessSystem at interval 256

@@ -92,7 +92,7 @@ export function QuickRunsChip({ t }: { t: Translate }): JSX.Element {
   );
 }
 
-function Act({ label, tip, on, disabled, onSelect, next }: {
+export function Act({ label, tip, on, disabled, onSelect, next }: {
   label: string; tip?: string; on?: boolean; disabled?: boolean; onSelect: () => void; next?: boolean;
 }): JSX.Element {
   return (
@@ -110,7 +110,7 @@ function Act({ label, tip, on, disabled, onSelect, next }: {
   );
 }
 
-function Caption({ text }: { text: string }): JSX.Element {
+export function Caption({ text }: { text: string }): JSX.Element {
   return <div className={styles.quickCaption}>{text}</div>;
 }
 

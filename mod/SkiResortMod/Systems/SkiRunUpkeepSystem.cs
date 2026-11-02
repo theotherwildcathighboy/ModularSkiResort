@@ -1,7 +1,8 @@
 // SkiRunUpkeepSystem - run operating costs: snowmaking runs cost the most (guns + water + power), groomed runs a third of that (cat
 // fuel), natural terrain is free, so season length versus money is a real decision.
 // Billing: the injection system's per-type active mask (texels whose thermal gate is on at their own elevation), each run capped at
-// its plan area (BilledHa, public and pure so the hub's rows read the same number); overlapping runs never double-bill.
+// its plan area (BilledHa, public and pure so the hub's rows read the same number); overlapping runs never double-bill. A cat track is in no
+// mask: it bills its plan area at the snowmaking rate while its guns can run (SnowGunPlumeRules.TrackBilledHa). A run's prop sliders never count.
 // Money goes to Game.City.PlayerMoney (no budget-panel line item without Harmony); every debit is also booked per ski area into SkiResortLedger.
 // Charges accrue per elapsed frame between passes (wrap-safe uint math, fractional carry); the meter stops while paused.
 // Scheduling: GameSimulation, Game action mode only, anchored after SkiSnowInjectionSystem so its same-frame top-up publishes first.
@@ -52,7 +53,7 @@ namespace SkiResortMod.Systems
         private const float TicksPerDay = TimeSystem.kTicksPerDay;
 
         /// <summary>The monthly operating cost per hectare of active run surface for a run kind - the numbers Charge bills
-        /// (Tuning: groomed 150, snowmaking 500, night 800). Unknown values read 0.</summary>
+        /// (Tuning: groomed 150, snowmaking 500, night 800; a cat track follows the snowmaking rules). Unknown values read 0.</summary>
         public static int CostPerHaMonth(RunKind kind)
         {
             switch (kind)
@@ -60,6 +61,7 @@ namespace SkiResortMod.Systems
                 case RunKind.Groomed:
                     return Tuning.GroomedCostPerHaMonth;
                 case RunKind.Snowmaking:
+                case RunKind.CatTrack:
                     return Tuning.SnowmakingCostPerHaMonth;
                 case RunKind.Night:
                     return Tuning.NightCostPerHaMonth;
@@ -204,7 +206,8 @@ namespace SkiResortMod.Systems
                          $"{Tuning.GroomedCostPerHaMonth}/ha/month, night " +
                          $"{Tuning.NightCostPerHaMonth}/ha/month, billed against the " +
                          "injection system's ACTIVE thermal mask (gates off = free, summer " +
-                         "= free, natural terrain = free), each run's hectares capped at its plan area; charge pass every " +
+                         "= free, natural terrain = free), each run's hectares capped at its plan area; cat tracks by plan area at the " +
+                         "snowmaking rate while their guns can run; charge pass every " +
                          $"{Tuning.ChargeIntervalFrames} sim frames, elapsed-frame accrual " +
                          "with fractional carry; each debit split over the ski areas by their runs' billed rate (the hub's per-run rule) " +
                          "into the guest ledger; charge lines at most one per " +
@@ -261,9 +264,11 @@ namespace SkiResortMod.Systems
             float groomedHa = m_SnowInjectionSystem.GroomedActiveTexels * texelHa;
             float nightHa = m_SnowInjectionSystem.NightActiveTexels * texelHa;
             float clippedHa = ClipToPlanAreas(texelHa, ref snowmakingHa, ref groomedHa, ref nightHa);
+            float trackHa = CatTrackHa();
             float monthlyRate = snowmakingHa * Tuning.SnowmakingCostPerHaMonth
                               + groomedHa * Tuning.GroomedCostPerHaMonth
-                              + nightHa * Tuning.NightCostPerHaMonth;
+                              + nightHa * Tuning.NightCostPerHaMonth
+                              + trackHa * Tuning.SnowmakingCostPerHaMonth;
             if (monthlyRate <= 0f)
             {
                 SetIdle("no active operations — all run gates off (too warm) or no runs placed");
@@ -318,7 +323,8 @@ namespace SkiResortMod.Systems
                               $"rate {rateBucket}/month = snowmaking {snowmakingHa:F1} ha × " +
                               $"{Tuning.SnowmakingCostPerHaMonth} + groomed {groomedHa:F1} ha × " +
                               $"{Tuning.GroomedCostPerHaMonth} + night {nightHa:F1} ha × " +
-                              $"{Tuning.NightCostPerHaMonth}, balance {balance}" +
+                              $"{Tuning.NightCostPerHaMonth} + cat tracks {trackHa:F1} ha × " +
+                              $"{Tuning.SnowmakingCostPerHaMonth}, balance {balance}" +
                               (clippedHa >= 0.05f ? $" (edge texels over the runs' plan areas not billed: {clippedHa:F1} ha)" : "") +
                               (debit > 0 ? $"; booked to {m_LastSplitAreas} ski area(s)" + (m_LastSplitNotLinked > 0 ? $" + Not linked {m_LastSplitNotLinked}" : "") : "");
                 // The first line after a quiet window (or the forced restart) is written as before; the rest of a burst is folded into one summary
@@ -348,7 +354,7 @@ namespace SkiResortMod.Systems
             if (m_Counter == null || debit <= 0)
                 return;
             // Weights: the stats system's per-run rule (SkiResortStatsSystem.CollectRuns): BilledHa x CostPerHaMonth(kind) for every
-            // cataloged non-natural run with active texels, grouped by its gate. Cat tracks are in no mask (rate 0).
+            // cataloged non-natural run with active texels, grouped by its gate; a cat track's plan area while its guns can run.
             m_SplitSigns.Clear();
             double bound = 0.0, unbound = 0.0;
             int rows = m_Catalog.RowCount;
@@ -357,9 +363,19 @@ namespace SkiResortMod.Systems
                 SkiRunCatalogSystem.RunRow row = m_Catalog.GetRow(i);
                 if (row.Kind == (int)RunKind.Natural)
                     continue;
-                if (!m_SnowInjectionSystem.TryGetRunActiveTexels(row.Entity, out int texels) || texels <= 0)
-                    continue;
-                double w = (double)BilledHa(texels, texelHa, row.AreaM2) * CostPerHaMonth((RunKind)row.Kind);
+                float billedHa;
+                if (row.Kind == (int)RunKind.CatTrack)
+                {
+                    billedHa = SnowGunPlumeRules.TrackBilledHa(row.AreaM2,
+                        m_SnowInjectionSystem.CatTrackGunsCanRun(row.Entity, row.NodeBottomM, row.NodeTopM));
+                }
+                else
+                {
+                    if (!m_SnowInjectionSystem.TryGetRunActiveTexels(row.Entity, out int texels) || texels <= 0)
+                        continue;
+                    billedHa = BilledHa(texels, texelHa, row.AreaM2);
+                }
+                double w = (double)billedHa * CostPerHaMonth((RunKind)row.Kind);
                 if (!(w > 0.0) || double.IsInfinity(w))
                     continue;
                 if (row.Gate == Entity.Null)
@@ -406,6 +422,22 @@ namespace SkiResortMod.Systems
             Array.Resize(ref m_SplitWeights, size);
             Array.Resize(ref m_SplitCarry, size);
             Array.Resize(ref m_SplitParts, size);
+        }
+
+        /// <summary>The cat tracks' billed hectares: each cataloged track's plan area while its guns can run. Main thread; no allocation.</summary>
+        private float CatTrackHa()
+        {
+            float ha = 0f;
+            int rows = m_Catalog.RowCount;
+            for (int i = 0; i < rows; i++)
+            {
+                SkiRunCatalogSystem.RunRow row = m_Catalog.GetRow(i);
+                if (row.Kind != (int)RunKind.CatTrack)
+                    continue;
+                ha += SnowGunPlumeRules.TrackBilledHa(row.AreaM2,
+                    m_SnowInjectionSystem.CatTrackGunsCanRun(row.Entity, row.NodeBottomM, row.NodeTopM));
+            }
+            return ha;
         }
 
         /// <summary>Takes each cataloged run's texel hectares above its plan area off its kind's total; returns the hectares taken

@@ -128,6 +128,23 @@ namespace SkiResortMod.Systems
             return state == GunState.Running && coldTexels > 0;
         }
 
+        /// <summary>A cat track's guns: it is in no mask (the injection grid cannot measure a 6-12 m ribbon), so there is no pack and no
+        /// texel. They can run in the gun season while part of the track is cold enough: <paramref name="coldShare"/> =
+        /// RunSnowRules.EstimatedShare with the track's own threshold (freezing + the gun margin).</summary>
+        public static bool TrackGunsCanRun(bool inSeason, float coldShare)
+        {
+            return inSeason && coldShare > 0f;
+        }
+
+        /// <summary>The hectares a cat track bills while its guns can run: its plan area (m2, Geometry.m_SurfaceArea), since it has no
+        /// active texels. 0 for a plan area that is not a finite positive number.</summary>
+        public static float TrackBilledHa(float planAreaM2, bool gunsCanRun)
+        {
+            if (!gunsCanRun || float.IsNaN(planAreaM2) || float.IsInfinity(planAreaM2) || planAreaM2 <= 0f)
+                return 0f;
+            return planAreaM2 / 10000f;
+        }
+
         /// <summary>The plume of one gun. NaN temperatures read warm.</summary>
         public static bool PlumeOn(bool settingOn, bool runGunsRunning, float gunLocalC, float thresholdC)
         {

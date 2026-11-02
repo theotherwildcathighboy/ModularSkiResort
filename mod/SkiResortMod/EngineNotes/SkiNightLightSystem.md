@@ -39,7 +39,5 @@ fixes it, a single stamp at the flip would freeze most lights OFF. So after ever
 
 ## Scope
 
-Border sub-objects owned by our run areas only (Secondary + Owner, owner's prefab in the watched set). The props are found by
-walking our run areas' `SubObject` buffers (the `SkiSnowGunPlumeSystem` pattern), not by scanning every Secondary object in the
-city; a city with no resort (`ResortPresence`) or no run area returns before any query result is read. Stamping a prop with no
+Placed props of our runs only, by the `SkiRunPropMember` tag (EngineNotes/SkiRunPropMember.md); masts face inward from the placer, this system no longer turns them. A city with no resort (`ResortPresence`) or no run area returns before any query result is read. Stamping a prop with no
 effects is a no-op; per-pass cost is one batched `AddComponent`, twice per game day plus settle.

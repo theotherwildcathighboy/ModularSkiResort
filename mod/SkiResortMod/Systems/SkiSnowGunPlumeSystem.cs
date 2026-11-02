@@ -1,7 +1,8 @@
 // Snow guns show a vapor plume while their run's guns are running (EffectSource entry on the gun prefabs, driven by a lease).
 // Rule (one predicate with the injection, EngineNotes/SnowGunPlumeRules.md): Options toggle on, the run's guns ran in the injection's last
-// pass, and the gun's own elevation is cold. FanIdle, hydrants and the folded lance carry no plume entry and are never touched.
-// Scope: Game mode only; guns owned (Secondary + Owner) by OUR snowmaking / night run areas via each run's runtime SubObject buffer.
+// pass (a cat track: its guns can run, no injection there), and the gun's own elevation is cold. FanIdle, hydrants and the folded lance carry no
+// plume entry and are never touched.
+// Scope: Game mode only; the guns the placer tagged with SkiRunPropMember (snowmaking, night and cat track runs).
 // Cadence: every PlumeIntervalFrames (64) sim frames, after the injection (Mod.cs; not load-bearing: reads per-run flags).
 // Logs (silence must be impossible): ARMED / inert line per load, per-run start/stop lines, census on change, WARN once per load
 // when guns exceed the effect's m_MaxCount, and the house one-shot "!!!" catch.
@@ -23,8 +24,8 @@ namespace SkiResortMod.Systems
 {
     public sealed partial class SkiSnowGunPlumeSystem : GameSystemBase
     {
-        // The run surfaces whose border props are guns (SkiRunPropSystem's snowmaking and night groups).
-        private static readonly string[] RunSurfaceNames = { "SkiRunSnowmakingA", "SkiRunNightA" };
+        // The run surfaces whose placed props can be guns.
+        private static readonly string[] RunSurfaceNames = { "SkiRunSnowmakingA", "SkiRunNightA", SkiCatalog.Names.RunCatTrack };
 
         // The gun object prefabs that carry the plume entry (FanIdle, hydrants and SkiSnowGunLanceDown do not).
         private static readonly string[] GunNames =
@@ -42,10 +43,12 @@ namespace SkiResortMod.Systems
         private SnowLineSystem m_SnowLine;
         private SimulationSystem m_Simulation;
         private PrefabSystem m_PrefabSystem;
-        private EntityQuery m_RunQuery;
+        private SkiRunCatalogSystem m_Catalog;
+        private EntityQuery m_MemberQuery;
         private EntityQuery m_PrefabScanQuery;
 
         private readonly HashSet<Entity> m_RunPrefabs = new HashSet<Entity>();
+        private Entity m_CatTrackPrefab;
         private readonly HashSet<Entity> m_GunPrefabs = new HashSet<Entity>();
         private Entity m_PlumeEffect;
         private bool m_Resolved;
@@ -64,7 +67,12 @@ namespace SkiResortMod.Systems
         private readonly List<Entity> m_Write = new List<Entity>(64);
         private readonly List<uint> m_WriteEnd = new List<uint>(64);
         private readonly List<bool> m_WriteFlip = new List<bool>(64);
-        private readonly List<Entity> m_Subs = new List<Entity>(64);
+        private struct RunTally
+        {
+            public int On, Guns;
+            public bool Running;
+        }
+        private readonly Dictionary<Entity, RunTally> m_Tally = new Dictionary<Entity, RunTally>();
 
         protected override void OnCreate()
         {
@@ -73,16 +81,14 @@ namespace SkiResortMod.Systems
             m_SnowLine = World.GetOrCreateSystemManaged<SnowLineSystem>();
             m_Simulation = World.GetOrCreateSystemManaged<SimulationSystem>();
             m_PrefabSystem = World.GetOrCreateSystemManaged<PrefabSystem>();
-            m_RunQuery = GetEntityQuery(new EntityQueryDesc
+            m_Catalog = World.GetOrCreateSystemManaged<SkiRunCatalogSystem>();
+            m_MemberQuery = GetEntityQuery(new EntityQueryDesc
             {
                 All = new[]
                 {
-                    ComponentType.ReadOnly<Area>(),
-                    // Lots also carry SubObject (LotPrefab.cs:36); Game.Areas.Surface (SurfacePrefab.cs:21-23) keeps them out of this
-                    // per-pass ToEntityArray.
-                    ComponentType.ReadOnly<Game.Areas.Surface>(),
+                    ComponentType.ReadOnly<SkiRunPropMember>(),
                     ComponentType.ReadOnly<PrefabRef>(),
-                    ComponentType.ReadOnly<Game.Objects.SubObject>(),
+                    ComponentType.ReadOnly<Game.Objects.Transform>(),
                 },
                 None = new[]
                 {
@@ -126,7 +132,7 @@ namespace SkiResortMod.Systems
                 {
                     Mod.Log.Info("Plume: inert — " +
                                  (m_PlumeEffect == Entity.Null ? $"effect prefab '{PlumeEffectName}' not found (prefab JSON not deployed?)"
-                                  : m_RunPrefabs.Count == 0 ? "no snowmaking / night run prefab"
+                                  : m_RunPrefabs.Count == 0 ? "no snowmaking, night or cat track run prefab"
                                   : "no gun prefab carries the plume entry (prefab JSON not deployed?)") +
                                  $"; {m_GunPrefabs.Count} of {GunNames.Length} gun prefab(s) found");
                     return;
@@ -136,7 +142,7 @@ namespace SkiResortMod.Systems
                              $"({m_GunPrefabs.Count} found), {m_RunPrefabs.Count} run prefab(s) watched; a gun plumes while its " +
                              $"run's guns run (cold, pack below {RunSnowRules.GunStopDepthM:F2} m, restart below " +
                              $"{SnowGunPlumeRules.RestartBelowM:F2} m, natural snow counts) and the gun's own elevation is at or " +
-                             $"below freezing + the snowmaking margin; checked every {SnowGunPlumeRules.PlumeIntervalFrames} sim " +
+                             $"below freezing + the snowmaking margin; a cat track's guns run while it is the gun season and part of the track is cold; checked every {SnowGunPlumeRules.PlumeIntervalFrames} sim " +
                              $"frames, lease {SnowGunPlumeRules.PlumeLeaseFrames} frames; Options 'Snow-gun plumes' " +
                              $"{(ReadSetting() ? "on" : "off")}; effect cap {SnowGunPlumeRules.PlumeMaxCount} on screen");
             }
@@ -178,55 +184,43 @@ namespace SkiResortMod.Systems
             m_WriteFlip.Clear();
             int total = 0;
 
-            var runs = m_RunQuery.ToEntityArray(Allocator.Temp);
-            try
+            m_Tally.Clear();
+            using (var members = m_MemberQuery.ToEntityArray(Allocator.Temp))
+            using (var tags = m_MemberQuery.ToComponentDataArray<SkiRunPropMember>(Allocator.Temp))
             {
-                for (int r = 0; r < runs.Length; r++)
+                for (int i = 0; i < members.Length; i++)
                 {
-                    Entity run = runs[r];
-                    if (!m_RunPrefabs.Contains(EntityManager.GetComponentData<PrefabRef>(run).m_Prefab))
+                    if (tags[i].m_Class != RunPropDensityRules.ClassGun)
                         continue;
-                    m_Injection.TryGetRunGunsRunning(run, out bool running);
-                    m_Subs.Clear();
-                    var buffer = EntityManager.GetBuffer<Game.Objects.SubObject>(run, isReadOnly: true);
-                    for (int i = 0; i < buffer.Length; i++)
-                        m_Subs.Add(buffer[i].m_SubObject);
-
-                    int on = 0, guns = 0;
-                    for (int i = 0; i < m_Subs.Count; i++)
-                    {
-                        Entity gun = m_Subs[i];
-                        if (!EntityManager.Exists(gun) || !EntityManager.HasComponent<PrefabRef>(gun) ||
-                            !m_GunPrefabs.Contains(EntityManager.GetComponentData<PrefabRef>(gun).m_Prefab) ||
-                            EntityManager.HasComponent<Deleted>(gun) || EntityManager.HasComponent<Temp>(gun) ||
-                            !EntityManager.HasComponent<Game.Objects.Secondary>(gun) ||
-                            !EntityManager.HasComponent<Owner>(gun) || EntityManager.GetComponentData<Owner>(gun).m_Owner != run ||
-                            !EntityManager.HasComponent<Game.Objects.Transform>(gun))
-                            continue;
-                        guns++;
-                        float gunC = lapseAmbient -
-                                     (EntityManager.GetComponentData<Game.Objects.Transform>(gun).m_Position.y - lapseBase) * lapseScale;
-                        bool want = SnowGunPlumeRules.PlumeOn(setting, running, gunC, thresholdC);
-                        if (want)
-                            on++;
-                        bool has = EntityManager.HasComponent<Game.Buildings.EarlyDisasterWarningDuration>(gun);
-                        uint end = has ? EntityManager.GetComponentData<Game.Buildings.EarlyDisasterWarningDuration>(gun).m_EndFrame : 0u;
-                        if (!SnowGunPlumeRules.NeedsWrite(want, has, end, frame))
-                            continue;
-                        m_Write.Add(gun);
-                        m_WriteEnd.Add(want ? SnowGunPlumeRules.LeaseEnd(frame) : 0u);
-                        m_WriteFlip.Add(SnowGunPlumeRules.Flips(want, has, end, frame));
-                    }
-                    total += on;
-                    NoteRun(run, on, guns, running);
+                    Entity gun = members[i];
+                    if (!m_GunPrefabs.Contains(EntityManager.GetComponentData<PrefabRef>(gun).m_Prefab))
+                        continue;
+                    Entity run = tags[i].m_Run;
+                    if (!m_Tally.TryGetValue(run, out RunTally tally))
+                        tally = new RunTally { Running = RunGunsRunning(run) };
+                    tally.Guns++;
+                    float gunC = lapseAmbient -
+                                 (EntityManager.GetComponentData<Game.Objects.Transform>(gun).m_Position.y - lapseBase) * lapseScale;
+                    bool want = SnowGunPlumeRules.PlumeOn(setting, tally.Running, gunC, thresholdC);
+                    if (want)
+                        tally.On++;
+                    m_Tally[run] = tally;
+                    bool has = EntityManager.HasComponent<Game.Buildings.EarlyDisasterWarningDuration>(gun);
+                    uint end = has ? EntityManager.GetComponentData<Game.Buildings.EarlyDisasterWarningDuration>(gun).m_EndFrame : 0u;
+                    if (!SnowGunPlumeRules.NeedsWrite(want, has, end, frame))
+                        continue;
+                    m_Write.Add(gun);
+                    m_WriteEnd.Add(want ? SnowGunPlumeRules.LeaseEnd(frame) : 0u);
+                    m_WriteFlip.Add(SnowGunPlumeRules.Flips(want, has, end, frame));
                 }
             }
-            finally
+            foreach (KeyValuePair<Entity, RunTally> pair in m_Tally)
             {
-                runs.Dispose();
+                total += pair.Value.On;
+                NoteRun(pair.Key, pair.Value.On, pair.Value.Guns, pair.Value.Running);
             }
 
-            // Mutate after collecting (structural changes invalidate the chunks the buffers live in).
+            // Mutate after collecting (structural changes invalidate the chunks).
             int flips = 0;
             for (int i = 0; i < m_Write.Count; i++)
             {
@@ -252,6 +246,17 @@ namespace SkiResortMod.Systems
                              $"{SnowGunPlumeRules.PlumeMaxCount} and drops the rest silently (once per load)");
             }
             Census(total, flips);
+        }
+
+        /// <summary>Whether this run's guns run now: the injection's flag, or on a cat track (no injection, no texels) the can-run rule.</summary>
+        private bool RunGunsRunning(Entity run)
+        {
+            if (run == Entity.Null || !EntityManager.Exists(run) || !EntityManager.HasComponent<PrefabRef>(run))
+                return false;
+            if (EntityManager.GetComponentData<PrefabRef>(run).m_Prefab == m_CatTrackPrefab && m_CatTrackPrefab != Entity.Null)
+                return m_Catalog.TryGetRow(run, out SkiRunCatalogSystem.RunRow row) && m_Injection.CatTrackGunsCanRun(run, row.NodeBottomM, row.NodeTopM);
+            m_Injection.TryGetRunGunsRunning(run, out bool running);
+            return running;
         }
 
         /// <summary>One line when a run's plumes go from none to some or back (first time per run per load included).</summary>
@@ -309,9 +314,13 @@ namespace SkiResortMod.Systems
             {
                 Entity e = ResolvePrefab("SurfacePrefab", name);
                 if (e == Entity.Null)
+                {
                     Mod.Log.Info($"Plume: run surface prefab '{name}' not found (tolerated)");
-                else
-                    m_RunPrefabs.Add(e);
+                    continue;
+                }
+                m_RunPrefabs.Add(e);
+                if (name == SkiCatalog.Names.RunCatTrack)
+                    m_CatTrackPrefab = e;
             }
             foreach (string name in GunNames)
             {

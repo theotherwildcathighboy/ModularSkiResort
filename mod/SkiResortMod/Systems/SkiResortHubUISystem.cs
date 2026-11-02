@@ -42,7 +42,7 @@ namespace SkiResortMod.Systems
 
         /// <summary>The contract number (bindings.ts HUB_CONTRACT). Bump both together whenever a binding, trigger, field or meaning
         /// changes (Engine notes: Near HubContract lists what each number appended).</summary>
-        public const int HubContract = 27;
+        public const int HubContract = 28;
 
         /// <summary>The `contract` value the UI reads as "C# absent" (bindings.ts CONTRACT_ABSENT). Pushed after the one-shot "!!!"
         /// until the next load: the UI then shows its "not connected" notice instead of launchers that do nothing.</summary>
@@ -474,6 +474,7 @@ namespace SkiResortMod.Systems
             QuickRunsToggle, QuickRunsSet,   // SkiResortHubUISystem.QuickRuns.cs
             DeleteCatTrack,                  // contract 18: the cat track row's trash button
             SetCatTrackDeleteMode,           // contract 19: the Runs tab's Delete cat tracks chip
+            SetRunPropSpacing,               // contract 28: the Runs view's prop rows (Bool = lights, Int = meters)
         }
 
         private struct Request
@@ -490,6 +491,7 @@ namespace SkiResortMod.Systems
         private readonly Request[] m_Queue = new Request[Tuning.QueueCapacity];
         private int m_QueueCount;
 
+        private SkiRunPropSystem m_RunProps;
         private ToolSystem m_ToolSystem;
         private DefaultToolSystem m_DefaultTool;
         private ObjectToolSystem m_ObjectTool;
@@ -674,6 +676,7 @@ namespace SkiResortMod.Systems
             m_BindTrigger = World.GetOrCreateSystemManaged<SkiRunBindTriggerSystem>();
             m_Catalog = World.GetOrCreateSystemManaged<SkiRunCatalogSystem>();
             m_Stats = World.GetOrCreateSystemManaged<SkiResortStatsSystem>();
+            m_RunProps = World.GetOrCreateSystemManaged<SkiRunPropSystem>();
             m_HistorySystem = World.GetOrCreateSystemManaged<SkiResortHistorySystem>();
             m_GuestCounter = World.GetOrCreateSystemManaged<SkiGuestCounterSystem>();
             m_SkiDays = World.GetOrCreateSystemManaged<SkiDaySystem>();
@@ -771,10 +774,12 @@ namespace SkiResortMod.Systems
             AddBinding(new TriggerBinding(Group, "quickRunsToggle", OnQuickRunsToggle));
             AddBinding(new TriggerBinding<string, int>(Group, "quickRunsSet", OnQuickRunsSet));
             AddBinding(new TriggerBinding<bool>(Group, "setCatTrackDeleteMode", OnSetCatTrackDeleteMode));
+            AddBinding(new TriggerBinding<Entity, int>(Group, "setRunGunSpacing", OnSetRunGunSpacing));
+            AddBinding(new TriggerBinding<Entity, int>(Group, "setRunLightSpacing", OnSetRunLightSpacing));
 
             Mod.Log.Info($"{nameof(SkiResortHubUISystem)} created — group '{Group}', contract {HubContract}, " +
                          $"DLL stamp {s_DllStamp} (UI bundled at build: {BuildStamp.UiBundled}); 20 value bindings, " +
-                         "22 triggers");
+                         "24 triggers");
         }
 
         protected override void OnGamePreload(Purpose purpose, GameMode mode)
@@ -1043,6 +1048,12 @@ namespace SkiResortMod.Systems
         private void OnRename(Entity entity, string name) =>
             Trigger("rename", new Request { Kind = RequestKind.Rename, Entity = entity, Text = name });
 
+        private void OnSetRunGunSpacing(Entity run, int meters) =>
+            Trigger("setRunGunSpacing", new Request { Kind = RequestKind.SetRunPropSpacing, Entity = run, Bool = false, Int = meters });
+
+        private void OnSetRunLightSpacing(Entity run, int meters) =>
+            Trigger("setRunLightSpacing", new Request { Kind = RequestKind.SetRunPropSpacing, Entity = run, Bool = true, Int = meters });
+
         private void OnFocusLift(Entity entity, Entity top) =>
             Trigger("focusLift", new Request { Kind = RequestKind.FocusLift, Entity = entity, Entity2 = top });
 
@@ -1123,6 +1134,7 @@ namespace SkiResortMod.Systems
                 case RequestKind.Rename:
                 case RequestKind.FocusLift:
                 case RequestKind.FocusBuilding:
+                case RequestKind.SetRunPropSpacing:
                     return true;
                 case RequestKind.SelectResort:
                     return entity != Entity.Null;
@@ -1259,6 +1271,9 @@ namespace SkiResortMod.Systems
                 case RequestKind.SetCatTrackDeleteMode:
                     ApplyCatTrackDeleteMode(r.Bool, r.Source);
                     break;
+                case RequestKind.SetRunPropSpacing:
+                    ApplyRunPropSpacing(r.Entity, r.Bool, r.Int, r.Source);
+                    break;
             }
         }
 
@@ -1270,6 +1285,18 @@ namespace SkiResortMod.Systems
             string why = "hub chip" + SourceSuffix(source);
             bool ok = m_GradeTool != null && (!on || m_GradeTool.TryActivate(why)) && m_GradeTool.SetDeleteMode(on, why);
             LastTriggerText = $"setCatTrackDeleteMode({on}): {(ok ? "done" : "refused")}";
+        }
+
+        /// <summary>A step of the Runs view's prop rows (contract 28): a component write only, no Deleted in this phase (tools/check-run-props.js).
+        /// The placer re-places after its settle; snow and upkeep never read it.</summary>
+        private void ApplyRunPropSpacing(Entity run, bool lights, int meters, string source)
+        {
+            string what = lights ? "setRunLightSpacing" : "setRunGunSpacing";
+            bool ok = m_RunProps.SetSpacing(run, lights, meters);
+            if (ok)
+                m_Stats.RequestRebuild("hub run props");
+            Mod.Log.Info($"Hub [props] {what} {Ent(run)} {meters} m: {(ok ? "stored" : "refused")} ({source})");
+            LastTriggerText = $"{what} {Ent(run)} {meters}: {(ok ? "stored" : "refused")}";
         }
 
         private void ApplyPisteMap(bool on, string source)
@@ -3478,6 +3505,10 @@ namespace SkiResortMod.Systems
                 writer.Write(Fin(r.TypeFactor));
                 writer.PropertyName("servedFactor");
                 writer.Write(Fin(r.ServedFactor));
+                writer.PropertyName("gunSpacingM");
+                writer.Write(r.GunSpacingM);
+                writer.PropertyName("lightSpacingM");
+                writer.Write(r.LightSpacingM);
                 writer.TypeEnd();
             }
             writer.ArrayEnd();

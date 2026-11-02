@@ -333,6 +333,7 @@ Appended fields and bindings by contract:
   region line and beside the mix line.
 - 22: Resort Planner v2 (A7): QuickRunsState appends `pods` / `lifts` rows and `plan` (QuickRunsPlan); `quickRunsSet` gains `lifts`, `home`,
   `pod`, `lift`. Bumped on the integration branch at the A7 merge so its gates stay green; re-bump if main takes 22 first.
+- 28: RunRow `gunSpacingM`, `lightSpacingM`; triggers `setRunGunSpacing`, `setRunLightSpacing` (Entity, int): the Runs view's prop rows act on the focused run.
 - 27: BusCardState `routeM` becomes `distanceM`, the straight line the bill counts: a coach's own PathInformation reads 0 once it drives, and a loaded coach never ran a probe.
 - 26: new binding `busCard` (BusCardState), not a panel binding: the Ski Bus card beside the game's selected-info panel, shown while a coach or depot is selected. That selection also turns on Demand, for the ski area's name. The card is its own component at the "Game" hook, because a section inside the game's panel needs `moduleRegistry.extend` and an internal `game-ui/` path, which the gate bans.
 - 25: ResortLive appends `busChargedMonth`, `depots`, `busGuestsMonth`, `busBillMonth`; PROBLEM 28-29 (`DepotNoHillLodge`, `DepotNoRoad`); build item `busDepot`, kind `depot`.

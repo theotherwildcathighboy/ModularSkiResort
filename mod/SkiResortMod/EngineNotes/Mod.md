@@ -108,7 +108,7 @@ Tops up run-shaped snow in `SnowSystem`'s own depth buffer.
 
 Vanilla area props (`AreaSubObjects`, one border prop per polygon vertex) are lot-class-gated: `LotPrefab`'s archetype hard-adds the
 runtime `Game.Objects.SubObject` buffer the spawner queries for, `SurfacePrefab`'s does not. This system adds that buffer (and ensures
-Updated) on OUR run surfaces so the VANILLA spawner does the rest.
+Updated) on OUR run surfaces, stops the per-node props and walks the border itself (EngineNotes/SkiRunPropSystem.md).
 
 - Phase is load-bearing twice over: `SecondaryObjectSystem` consumes the Updated tag at Modification4B and Cleanup wipes the tag every
   frame, so the bridge must land earlier in the SAME frame's Modification4B; it anchors directly before the vanilla spawner (the

@@ -69,6 +69,10 @@ namespace SkiResortMod.Systems
                                     "m_PassSeasonKey:i32 m_PassSeasonSold:i32 m_PassSeasonIncome:i64 m_PassSeasonPre:i32 " +
                                     "m_PassSeasonPreIncome:i64"),
                 new LayoutVersion(2, 150, "m_Month.BusCharged:f64")),
+            new Layout("SkiRunPropMember", "RunPropMember", KindComponent,
+                new LayoutVersion(1, 6, "m_Run:entity m_Class:u8")),
+            new Layout("SkiRunPropSettings", "RunPropSettings", KindComponent,
+                new LayoutVersion(1, 13, "m_GunSpacingM:i32 m_LightSpacingM:i32 m_AppliedKey:i32")),
         };
         // FROZEN-END
 
