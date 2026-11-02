@@ -32,8 +32,9 @@ namespace ResortBatch
             OffSeasonTexts();
         }
 
-        /// <summary>The hub texts of the off-season staffing: the closed-gate note names the off-season half staff and vanilla's Inactive
-        /// (a tenth); the reduced lift texts no longer say "at a quarter" flat (the tram bills half).</summary>
+        /// <summary>The texts of the off-season staffing: the closed-gate note names the off-season half staff and its Options setting,
+        /// the setting's description names a deactivated lodge's cost (a tenth of upkeep, no wages; the note carried it until DECISIONS 566);
+        /// the reduced lift texts no longer say "at a quarter" flat (the tram bills half).</summary>
         private static void OffSeasonTexts()
         {
             const string W = "catalog-guard-t137";
@@ -42,8 +43,18 @@ namespace ResortBatch
                 return;
             Dictionary<string, string> loc = SingleLineEntries(File.ReadAllLines(path));
             if (Check(loc.TryGetValue("SkiResort.Hub.TICKETS_NOTE[NothingOpen]", out string note), W, "TICKETS_NOTE[NothingOpen] not single-line"))
-                Check(note.Contains("half staff") && note.Contains("Inactive") && note.Contains("a tenth of upkeep, no wages"), W,
-                      "TICKETS_NOTE[NothingOpen] = \"" + note + "\" must name the off-season half staff and Inactive (a tenth of upkeep, no wages: CityServiceUpkeepSystem.cs:630-633) (T137 S2)");
+                Check(note.Contains("half their staff") && note.Contains("(Options)"), W,
+                      "TICKETS_NOTE[NothingOpen] = \"" + note + "\" must name the off-season half staff and its Options setting (T137 S2, DECISIONS 566)");
+            string settings = RepoFile("mod/SkiResortMod/Settings/LocaleEN.cs");
+            if (Check(settings != null, W, "mod/SkiResortMod/Settings/LocaleEN.cs not found"))
+            {
+                // The description is a concatenation over several lines: join the pieces before the search.
+                string joined = Regex.Replace(File.ReadAllText(settings), "\"\\s*\\+\\s*\"", "");
+                Match desc = Regex.Match(joined, "GetOptionDescLocaleID\\(nameof\\(SkiResortSettings\\.OffSeasonHalfStaff\\)\\),\\s*\"([^\"]*)\"");
+                Check(desc.Success && desc.Groups[1].Value.Contains("deactivated") && desc.Groups[1].Value.Contains("a tenth of its upkeep and no wages"), W,
+                      "the OffSeasonHalfStaff description must name a deactivated lodge's cost (a tenth of its upkeep and no wages: " +
+                      "CityServiceUpkeepSystem.cs:630-633) (T137 S2, DECISIONS 566); got \"" + (desc.Success ? desc.Groups[1].Value : "(not found)") + "\"");
+            }
             foreach (string key in new[] { "SkiResort.Hub.LIFT_COST_REDUCED[NoOpenRun]", "SkiResort.Hub.LIFT_COST_REDUCED[NoPower]",
                                            "SkiResort.Hub.MONEY_TIP[Lifts]", "SkiResort.Hub.MONEY_TIP[LiftsTypes]" })
             {
