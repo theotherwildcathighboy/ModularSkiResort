@@ -31,6 +31,8 @@ namespace SkiTestBridge
             updateSystem.UpdateAfter<U1ProbeM4System, Game.Objects.AlignSystem>(SystemUpdatePhase.Modification4);
             updateSystem.UpdateBefore<U1ProbeM4System, Game.Net.LaneSystem>(SystemUpdatePhase.Modification4);
             updateSystem.UpdateAt<U1ProbeM4BSystem>(SystemUpdatePhase.Modification4B);
+            // Right after vanilla AttractionSystem on the same tick, as SkiResortAttractivenessSystem is (mprobe trace).
+            updateSystem.UpdateAfter<TestBridgeMergeProbeSystem, Game.Simulation.AttractionSystem>(SystemUpdatePhase.GameSimulation);
             Log.Info("Active: commands on engine.call(\"skitest.cmd\", json).");
         }
 

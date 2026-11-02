@@ -54,6 +54,7 @@ namespace SkiTestBridge
             base.OnUpdate();
             TickPerf();
             TickSequence();
+            TickMergeProbeUi();
         }
 
         protected override void OnDestroy()
@@ -114,6 +115,7 @@ namespace SkiTestBridge
                 case "autosave": return SetAutoSave(args);
                 case "u1probe": return U1ProbeCommand(args);
                 case "bone": return BoneCommand(args);
+                case "mprobe": return MergeProbe(args);
                 default: throw new ArgumentException($"unknown op '{op}'");
             }
         }

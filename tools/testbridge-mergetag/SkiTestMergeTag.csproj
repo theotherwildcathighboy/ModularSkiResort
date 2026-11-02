@@ -1,0 +1,47 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<!--
+	Dev-only probe for the merge-asset feature (P0, docs/research/merge-asset-into-resort-2026-11-02.md): one saved component on a
+	building the mod did not create, in its own assembly, so a save can be loaded with this mod removed. Never published.
+	Deploys to <Mods>\SkiTestMergeTag. The bridge adds and reads the component by name (mprobe op in tools/testbridge).
+	-->
+
+	<PropertyGroup>
+		<Configurations>Debug;Release</Configurations>
+		<AssemblyName>SkiTestMergeTag</AssemblyName>
+		<RootNamespace>SkiTestMergeTag</RootNamespace>
+	</PropertyGroup>
+
+	<Import Project="$([System.Environment]::GetEnvironmentVariable('CSII_TOOLPATH', 'EnvironmentVariableTarget.User'))\Mod.props" />
+	<Import Project="$([System.Environment]::GetEnvironmentVariable('CSII_TOOLPATH', 'EnvironmentVariableTarget.User'))\Mod.targets" />
+
+	<ItemGroup>
+		<Reference Include="Game"><Private>false</Private></Reference>
+		<Reference Include="Colossal.Core"><Private>false</Private></Reference>
+		<Reference Include="Colossal.Logging"><Private>false</Private></Reference>
+		<Reference Include="Colossal.IO.AssetDatabase"><Private>false</Private></Reference>
+		<Reference Include="Unity.Entities"><Private>false</Private></Reference>
+		<Reference Include="Unity.Collections"><Private>false</Private></Reference>
+		<Reference Include="Unity.Burst"><Private>false</Private></Reference>
+		<Reference Include="Unity.Mathematics"><Private>false</Private></Reference>
+		<Reference Include="Colossal.Mathematics"><Private>false</Private></Reference>
+		<Reference Include="UnityEngine.CoreModule"><Private>false</Private></Reference>
+	</ItemGroup>
+
+	<ItemGroup>
+		<Reference Update="System"><Private>false</Private></Reference>
+		<Reference Update="System.Core"><Private>false</Private></Reference>
+		<Reference Update="System.Data"><Private>false</Private></Reference>
+	</ItemGroup>
+
+	<!-- Same override as mod/SkiResortMod/SkiResortMod.csproj: ModPostProcessor targets .NET 6, this machine has .NET 8. -->
+	<Target Name="RunModPostProcessor" AfterTargets="AfterBuild" BeforeTargets="DeployWIP" Condition="'$(NeedBuild)'">
+		<Error Condition="!Exists('$(ModPostProcessorFullPath)')" Text="Post processor not found, please check the path: $(ModPostProcessorFullPath)" />
+		<Exec Command="$(ModPostProcessorArgs)" LogStandardErrorAsError="true" EnvironmentVariables="DOTNET_ROLL_FORWARD=LatestMajor" />
+	</Target>
+
+	<Target Name="SkiTestMergeTagNeverPublishes" BeforeTargets="Publish">
+		<Error Text="SkiTestMergeTag is a dev-only probe and is never published." />
+	</Target>
+
+</Project>

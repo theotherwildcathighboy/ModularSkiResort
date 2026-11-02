@@ -83,6 +83,7 @@ Every reply is a JSON string with `ok`, and `error` when `ok` is false.
 | `autosave` | optional `on` | switches the autosave system for this run of the game, so a test on a save does not prune real autosaves |
 | `u1probe` | `on`, `prefab` (a line prefab), `tilt` (deg), `frames` (log lines) | lift alignment risk U1: tilts the towers of that line when they update, at Modification3 and again after AlignSystem, and logs `[U1]` lines (Align reset, lane ends vs the tilted anchors, the tilt at +1 / +2 / +30 / +300 frames). Turn it off after the test: it tilts every tower of the prefab that updates |
 | `bone` | `id`, optional `mesh` (sub-mesh index), `bone`, `rotX`, `rotY` (deg) | lists a skinned object's bones (type, rest and current pose); with `bone` and a rotation it writes that bone as rest x RotateY x RotateX and flags the skeleton for upload, as our own bone writers will. Bones exist only near the camera |
+| `mprobe` | `action`: `tag` (`id`, `serial`, `provider`), `untag`, `list`, `trace` (`id`, `p`, `write`), `read`, `stop` | merge-asset P0 probe: tags a building with `tools/testbridge-mergetag`'s saved component; `trace` writes round(sqrt(V² + P²)) right after vanilla AttractionSystem and samples the value every frame |
 | `seq` | `steps` | starts a sequence |
 | `seqStatus` | | `done`, `step`, `error`, `results` |
 | `abort` | | stops the sequence and releases all held input |
