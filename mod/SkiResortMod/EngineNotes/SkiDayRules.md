@@ -15,7 +15,8 @@
 
 Old signatures stay bit-identical to the new one called with today's arguments (`SkiDayTests` section Y):
 
-- `LodgeFacts.NoRoadNeeded` (false = road required): a mountain lodge (`LodgeRoadRule.Mountain`) passes `CheckLodge` without a road.
+- `LodgeFacts.NoRoadNeeded` (false = road required): a mountain lodge (`LodgeRoadRule.Mountain`), or a road-optional lodge off-road on a
+  cat track chain (`LodgeSupplyRule.NoRoadNeeded`, per building), passes `CheckLodge` without a road.
 - `PriceFactor(price, tolerance)`: the lodge's `PriceTolerance` is added to the full-price threshold (mid 20, luxury 40);
   `PriceFactor(price)` = `PriceFactor(price, 0)`.
 - `Capacity(runs, lodgeCapacity, targetLodges, powder, out limit)`: the lodge side is the passing lodges' summed per-tier capacity

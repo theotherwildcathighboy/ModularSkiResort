@@ -185,9 +185,11 @@ Inactive (first sign wins, `m_LodgeClaimed`; an unlinked lodge is an orphan: no 
 
 A top-level lodge has its own Efficiency buffer (`CityServiceBuilding`); the area's efficiency = the sign's × the active top-level
 lodges' mean weighted by tier base B (`SchoolLinkRules.AreaEfficiency`; school and patrol weigh 0), the lodges' factors merged
-worst-per-factor into the area's list. The mountain lodges' jobs ride on the sign (`MountainJobsSystem`), so a mountain lodge's
-efficiency = its own × the sign's staffing product, and the sign term is then the sign without that product
-(`MountainJobsRules.SignTerm`: counted once). The poll hash mixes each top-level building's (entity, active) and a lodge's
+worst-per-factor into the area's list. The mountain lodges' jobs (and an off-road lodge's on a cat track chain) ride on the area's
+carrier (`MountainJobsSystem`): the nearest active road lodge to the sign, else the sign. Such a lodge's efficiency = its own × the
+carrier's staffing product, folded in after the walk once the carrier is known, and the sign term is then the sign without its product
+(`MountainJobsRules.SignTerm`: counted once). The same walk publishes the road-optional lodges' supply (LodgeSupplySystem.md: roots,
+chain walk, hold) and each active lodge's `HasRoad` / `Supplied` in `LodgeInfo`; both, and a depot's road edge, are in the poll hash. The poll hash mixes each top-level building's (entity, active) and a lodge's
 efficiency percent. One "School [link]" / "Lodge [link]" / "Patrol [link]" line per link change (`SchoolLinkRules.Diff`), all
 re-logged once per load. Accessors `TryGetTopLevelLink` / `CopyTopLevelLinks`.
 

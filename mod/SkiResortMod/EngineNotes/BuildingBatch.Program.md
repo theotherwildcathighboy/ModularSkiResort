@@ -15,10 +15,19 @@ Welcome Sign. Groups, in the order the checks run:
   line; stable order; an empty "before" gives one line per school (the per-load re-log).
 - **E, `SchoolLinkRules.AreaEfficiency`**: E1 no top-level lodge gives the sign's own efficiency; E2 the tier-weighted mean times the
   sign; E3 a lodge at 0 alone gives 0; E4 the sign at 0 gives 0; E5 rounding to 0.01 with a 0.01 floor; E6 the school and patrol weigh 0.
-- **J, mountain jobs on the sign** (`MountainJobsRules`, SkiCatalog SignJobs): J1 the sum over one sign; J2 a relink moves the slice;
+- **J, mountain jobs on the sign** (`MountainJobsRules`, SkiCatalog SignJobs; the carrier split is LC below): J1 the sum over one sign; J2 a relink moves the slice;
   J3 not linked, removed or sign deleted gives 0; J4 the write rule and the grace; J5 the catalog rows; J6 the efficiency slice (staffing
   counted once); J7 the four mountain buildings on one sign give 16; J8 the sign prefab keeps its Workplace block
   (`WorkProviderSystem.cs:133` needs WorkplaceData or it liquidates the staff).
+- **LS, road-optional lodges** (`LodgeSupplyRule`, LodgeSupplyTests.cs): LS1 the catalog rows (A-frame, Chalet, Grand road-optional,
+  Hut and Summit Mountain, school and depot Base, the enum appended); LS2-LS3 the W4 flag write and the Editor's way back; LS4-LS9 the
+  chain walk over real `LiftServedRule.RunLinks` (three tracks in a row, depot and road-lodge roots, no root, the 25 m edges at both
+  ends, a run in the gap, other areas); LS10 the hold (a section redo inside HoldFrames keeps the supply, a real removal lapses on time,
+  the frame counter wrapping, a save's off-grid shape at load, a road lost later); LS11-LS12 the switch's mode, Updated retag interval and
+  mail and crime at a road only; LS13 the ski-day road check per building.
+- **LC, the job carrier** (b1, `MountainJobsRules`): LC1 the nearest lodge, ties to the lower entity; LC2 the one writer's sum (own +
+  carried, off-season halves); LC3 an off-road lodge's jobs through the sign path; LC4 the area's job totals do not change; LC5 an
+  off-road lodge drops its WorkProvider only at 0 workplaces with no staff; LC6 with no carrier lodge the jobs stay on the sign.
 - **P, the mirror gate per building** (gamedata-mirror, all eight: SkiAFrameDayLodge, SkiLodgeHut, SkiLodgeMid, SkiLodgeSummit,
   SkiLodgeGrand, SkiSchool, SkiPatrolHut, SkiPatrolHQ):
   1. no ServiceUpgrade;

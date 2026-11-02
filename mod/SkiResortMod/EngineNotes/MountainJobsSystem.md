@@ -1,7 +1,22 @@
-# MountainJobsSystem: why mountain building jobs live on the Welcome Sign, and the engine path that reads them
+# MountainJobsSystem: why mountain building jobs live on a carrier (a road lodge, else the Welcome Sign), and the engine path that reads them
 
-The roadless mountain buildings' jobs live on their linked Welcome Sign (rows: hut 4, summit 8, patrol HQ 2, patrol hut 2). The pure
+The roadless mountain buildings' jobs (rows: hut 4, summit 8, patrol HQ 2, patrol hut 2) live on their area's carrier. The pure
 arithmetic is in `MountainJobsRules` (tests/BuildingBatch).
+
+## The carrier (b1)
+The carrier is the nearest active road lodge to the sign (`LodgeSupplyRule.IsRoadLodge`: a lodge row with a road edge that takes
+arrivals; a tie goes to the lower entity, `MountainJobsRules.BetterCarrier`), picked in the attraction recompute
+(`SkiResortAttractivenessSystem.CarrierOf`); with none, the sign. So staff use a real door, and a chain that touches only a depot keeps
+the staff on the sign (a depot has no jobs). An off-road lodge on a cat track chain hands its own jobs (its prefab's WorkplaceData) to the
+carrier too (`LodgeSupplyRule.JobsLeave`).
+- The sign is written here only: its target is the jobs it carries (0 while a lodge carries; the tick lays the staff off).
+- A carrier lodge's sum (`CarriedBy`) is read by `OffSeasonStaffSystem`, the one writer of a lodge's m_MaxWorkers
+  (`MountainJobsRules.CarrierTarget`: own target + carried). Two writers would undo each other every poll.
+- Re-homing: a carrier that is switched off, loses its road or is bulldozed drops out of the next recompute, the jobs move to the next
+  carrier, and the game's tick lays off at the old one and hires at the new one (vanilla grace on a raise).
+- Education: the carried jobs take the carrier prefab's complexity (`EconomyUtils.CalculateNumberOfWorkplaces`, EconomyUtils.cs:1370-1400,
+  num = 4 x complexity + level - 1, a non-spawnable building is level 1). The sign is Manual (0): 12/16 uneducated, 4/16 poorly educated.
+  The A-frame, Chalet and Grand are Simple (1): 4/16 uneducated, 8/16 poorly, 4/16 educated. Job counts do not change.
 
 ## Why the sign
 The four are top-level buildings that demand nothing: a Workplace on a top-level building sets RequireRoad
@@ -35,8 +50,9 @@ m_Workplaces 0 (BuildingBatch J8 gates it); with 0 the archetype gets no WorkPro
 Saves: WorkProvider and Employee serialize (ISerializable), so a load keeps them; the first poll re-asserts.
 
 ## Sync
-Every PollFrames simulation frames, Game mode only. Targets = SumBySign over the published top-level links (place / remove / relink / Move
-It / sign bulldozed all reach those links at the next recompute). Carriers = every sign that has a target or a WorkProvider (the load pass
+Every PollFrames simulation frames, Game mode only, after the first recompute of the load (`HasSnapshot`). Targets = SumBySign over
+the published top-level links (place / remove / relink / Move It / sign bulldozed all reach those links at the next recompute), split
+by carrier: a sign's own sum and each carrier lodge's sum (`TargetsReady` once the first split is known). Carriers = every sign that has a target or a WorkProvider (the load pass
 scans the signs once). An Inactive building carries 0. A sign that is gone drops out; no component is ever removed. A lodge's sign jobs
 (hut 4, summit 8) halve while `OffSeasonStaffSystem.IsHalf(its sign)` (off-season, setting on); patrol stays full
 (`MountainJobsRules.SignJobsFor`).

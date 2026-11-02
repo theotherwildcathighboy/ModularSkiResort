@@ -34,13 +34,15 @@ Guest entry point and capacity source. No lodge: attraction score **0**.
 Ski days send skiers to a lodge, so they need one. Any tier works if it meets the rules below. A lodge too far from the runs still counts toward attraction and still gets tourists and residents on leisure, but no ski-day guests.
 
 - **Road access:** deck side touches a road. Error state: *"Lodge is not at a road"*. Exempt: Mountain Hut and Swanky Summit Lodge (mountain sites, no road needed).
+- **Off-road A-Frame, Chalet or Grand:** with no road, a cat track within **25 m** of the lot whose chain of cat tracks reaches a lodge with a road or the Ski Bus Depot (same ski area) replaces city power, water, garbage and mail: no warnings and no utility fees. Its jobs move to the area's carrier (below). No guests arrive at it by road, and it has no parking count. With neither a road nor such a chain: *"Lodge is not at a road"*, the game's utility warnings and a lower sign efficiency. A broken chain keeps the lodge supplied for one game hour, so a cat track section can be redrawn.
 - **Services:** staff, power, water. Missing services lower sign efficiency, and attraction with it.
 - **Pipes:** highways and highway bridges carry no water or sewer pipes. A resort road cut off from town by them shows Water and Sewage notifications until a pipe joins the two networks. Gravel roads do carry pipes.
 - **Steep ground:** lodges and the Ski School keep the slope they stand on. On very steep ground the building sinks into the hillside, and the game can flag No Pedestrian Access there.
 - **Distance to runs:** ski-day guests only target a lodge within **800 m** of the ski area's runs or lift stations.
-- **Parking:** car spaces within **300 m** of the lodge (parking lot or street parking). Tourist parties drive, and none arrive at a lodge with 0 spaces. Warning state: *"No parking near the lodge"*.
+- **Parking:** car spaces within **300 m** of the lodge (parking lot or street parking), counted for each lodge with a road on its own. Tourist parties drive, and none arrive at a lodge with 0 spaces. Warning state: *"No parking near the lodge"*. The hub's **Guests** view shows each lodge's count.
 - **Power state:** a lodge set to Inactive in its own info panel counts **0**.
-- **Off-season staff:** after **12 game hours** with no open run, lodges and the Ski School keep **half** their jobs (rounded up) until a run opens again. The jobs of the Mountain Hut and Swanky Summit Lodge, carried by the Welcome Sign, halve too. Patrol stays full. Upkeep is not reduced; setting a building Inactive cuts it to a tenth and stops its wages. Option *Half staff off-season*, default on.
+- **Off-season staff:** after **12 game hours** with no open run, lodges and the Ski School keep **half** their jobs (rounded up) until a run opens again. The jobs of the Mountain Hut and Swanky Summit Lodge, carried by the area's carrier, halve too. Patrol stays full. Upkeep is not reduced; setting a building Inactive cuts it to a tenth and stops its wages. Option *Half staff off-season*, default on.
+- **Carrier:** the jobs of buildings without staff of their own (Hut, Summit, both patrol buildings, an off-road lodge on a cat track chain) sit on the active lodge with a road nearest the Welcome Sign, else on the sign. Carried jobs take the carrier's education mix.
 
 ## Guests at a Far Hill
 

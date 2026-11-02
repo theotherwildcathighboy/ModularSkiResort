@@ -41,8 +41,9 @@ Long engine and design explanations moved out of the source headers. Each note s
 - [`LiftTowerPlanner.md`](LiftTowerPlanner.md) -> LiftTowerPlanner: the planner's ground model and phases, the engine facts behind a fitted node, and the tram's 3 km span
 - [`LocaleEN.md`](LocaleEN.md) -> LocaleEN: how the English text source is keyed, gated and worded
 - [`LodgeRoadSystem.md`](LodgeRoadSystem.md) -> LodgeRoadSystem: why roadless top-level buildings and the cat track need prefab flag writes, and what each write touches
+- [`LodgeSupplySystem.md`](LodgeSupplySystem.md) -> LodgeSupplySystem: how a road-optional lodge drops and regains city utilities, and why it runs in Modification1
 - [`Mod.md`](Mod.md) -> Mod.cs: why each system runs in its update phase and anchor
-- [`MountainJobsSystem.md`](MountainJobsSystem.md) -> MountainJobsSystem: why mountain building jobs live on the Welcome Sign, and the engine path that reads them
+- [`MountainJobsSystem.md`](MountainJobsSystem.md) -> MountainJobsSystem: why mountain building jobs live on a carrier (a road lodge, else the Welcome Sign), and the engine path that reads them
 - [`OffSeasonRules.md`](OffSeasonRules.md) -> OffSeasonRules: why off-season halves staff and not upkeep
 - [`OffSeasonStaffSystem.md`](OffSeasonStaffSystem.md) -> OffSeasonStaffSystem: how the half-staff write interacts with the game's workplace tick
 - [`parts.tsx.md`](parts.tsx.md) -> parts.tsx: engine facts of the cs2/ui and cs2/l10n bundle that the shared hub building blocks rely on
