@@ -84,27 +84,13 @@ Realistic Trips replaces the game's leisure system that ski days need: with it, 
 	<RequiredDLC Value="" />
 	<!--Change log for new version. Single line or multi line. Supports minimal markdown subset. Source: release/CHANGELOG.md 1.0.0-->
 	<ChangeLog>
-- Save compatible with previous: n/a (first release)
-- Layout versions: Binding 1, TreeMember 2, SeasonPass 1, HistoryMonth 2, MonthInProgress 2, RunPropMember 1, RunPropSettings 1, LodgeNumber 1
-- Do not load in older versions: no
+- Save compatible with previous: yes
+- Layout versions: Binding 1, TreeMember 2, SeasonPass 1, HistoryMonth 2, MonthInProgress 2, RunPropMember 1, RunPropSettings 1, LodgeNumber 1, MergedLodge 1
+- Do not load in older versions: yes
 
-First public release.
+Draft notes (check against the build at upload):
 
-- Four lift types: fixed-grip triple chairlift, detachable quad chairlift, gondola and aerial tram. Chairs and cabins move along the cable; the tram shuttles two cabins.
-- One lift tool: click the base station and the top station, click the line to add a tower, drag to move one, Enter builds. The tower planner fits tower heights to the terrain with few towers, prefers short towers next to the stations, and draws spans that are too steep in red. Towers are numbered.
-- Ski runs you draw: natural, groomed, snowmaking, night and cat track, each rated green to double black from its slope.
-- Cat track tool: lay out a track, and one key grades the ground under 25 percent and builds the cat track on it. Where it crosses a run it grades up to 2 m inside the run and keeps the run's difficulty. Delete mode (Ctrl+Shift+D) and a hub trash button remove a track; right click and Esc never do.
-- Resort Planner (experimental): outline a slope of up to 9 km2 and the planner proposes lifts and a set of linked runs around them, grouped in pods, with each lift's way home (green, blue, black only, or ride the lift down). Leave out runs, pods or lifts, set the number of lifts, the way home, the mix and the run kinds, then build the runs in one go and undo them; the proposed lifts you build yourself with the lift tool. The scan runs in the background with a progress line, and right click stops it. Optional tree filler. Ctrl+Shift+Q; it is off by default and is turned on in Options.
-- Safety Net Fence: decorative orange netting on thin poles, in the hub's Runs tab.
-- Snow-depth run system: runs open at 3 ft (91 cm) on 60 percent of the run, snow guns on snowmaking and night runs (two months before winter to one month after), powder days, seasons.
-- Snow guns, hydrants and floodlights stand at a set distance along a run's edge, however its outline was drawn, with two values per run in the Runs view. Cat tracks carry guns and hydrants on one side, and pay snowmaking upkeep by plan area while their guns can run; with the gun value at Off, none, and they open on natural snow only.
-- Welcome Sign (set back 8 m from the road on a leveled lot), five lodges, Ski School, two patrol buildings.
-- Ski Bus Depot: a coach stop in town for the nearest ski area, at any distance. A home closer to it than to a lodge starts its ski day there; guests pay as at a lodge. It adds no capacity and no score, needs a lodge on the hill, and bills 1,500 a month plus 300 per km to that lodge (Finances, row Ski bus). An oxblood coach, with SKI BUS painted on it, drives between the depot and the hill. Selecting the coach or the depot shows a Ski Bus card beside the game's panel: guests by bus this month, the coach bill and the distance to the hill lodge.
-- The Ski Resort panel: Attraction, Runs, Lifts, Guests, Finances and History views, a problem list and a build strip.
-- Economy: lift tickets, season passes, lessons, lodge spend, off-season half staff.
-- Delete all ski resort content, a button in the mod's Options (Reset group): removes everything the mod placed in the loaded city, after a confirmation, to clean a city before uninstalling. It cannot be undone.
-- Works on the base game; no other mod is required. Move It is highly recommended and Write Everywhere is recommended.
-- Known limitations: a hill far from the city's homes and hotels gets few ski-day guests (the panel shows the distance), chairs carry no riders, the chairs do not sway in wind, stations can sit partly in the hillside on steep ground, chairlifts and gondolas stop in summer.
+- Merge an existing building into a ski area as a lodge: a park, landmark, signature or decor building near the runs can be merged as a lodge tier its lot allows. It keeps its own use and adds score, skier room, staff and attraction. New saved type: a save that holds a merged building must not be loaded in 1.0.0.
 	</ChangeLog>
 	<!--External link, can be set multiple times. supported types are "discord", "github", "youtube", "twitch", "x", "paypal", "patreon", "buymeacoffee", "kofi", "crowdin", "gitlab", "gofundme". PLACEHOLDER: the DISCORD_URL token stands for the Discord bug-report thread (the owner creates it). Put the thread URL in its place before the public flip, or delete this line if only the forum thread is used (the same gate and the same UNVERIFIED publisher behavior as ForumLink)-->
 	<ExternalLink Type="discord" Url="{{DISCORD_URL}}" />

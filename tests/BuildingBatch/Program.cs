@@ -43,6 +43,7 @@ namespace BuildingBatch
             MountainJobs();
             OffSeasonTests.Run(Check);
             LodgeSupplyTests.Run(Check);
+            MergeTests.Run(Check);
             foreach (Gate g in Gates)
                 PrefabGate(g);
             Console.WriteLine($"BuildingBatch: {s_Pass} passed, {s_Fail} failed");

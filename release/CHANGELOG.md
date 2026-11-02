@@ -25,6 +25,17 @@ Template (copy above the newest entry):
 Notes...
 ```
 
+## 1.1.0 (PDX version -, unreleased)
+- Save compatible with previous: yes
+- Layout versions: Binding 1, TreeMember 2, SeasonPass 1, HistoryMonth 2, MonthInProgress 2, RunPropMember 1, RunPropSettings 1, LodgeNumber 1, MergedLodge 1
+- Do not load in older versions: yes
+
+Draft notes (check against the build at upload):
+
+- Merge an existing building into a ski area as a lodge: a park, landmark, signature or decor building near the runs can be merged as
+  a lodge tier its lot allows. It keeps its own use and adds score, skier room, staff and attraction. New saved type: a save that
+  holds a merged building must not be loaded in 1.0.0.
+
 ## 1.0.0 (PDX version -, unreleased)
 - Save compatible with previous: n/a (first release)
 - Layout versions: Binding 1, TreeMember 2, SeasonPass 1, HistoryMonth 2, MonthInProgress 2, RunPropMember 1, RunPropSettings 1, LodgeNumber 1
