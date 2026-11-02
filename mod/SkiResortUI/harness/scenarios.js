@@ -202,9 +202,20 @@
       name: "Grand Mountain Hospitality Warming Hut and Apres Ski Lounge Inns" },
     { sign: E(105), lodge: E(413), item: "lodge", carSpaces: -1, number: 0, name: "" },
   ];
-  const base = { hubOpen: false, contract: 31, buildStamp: "", showHubButton: true, build: buildItems(), glade,
+  // contract 32: merged buildings (the Overview's "Merged buildings" fold): Ash Flat one counted and one too far from the runs, the big
+  // resort a counted one with a long name, and one in no area (the Not linked view). The merge card beside the info panel: a commercial
+  // signature that fits every tier but the Grand lodge, not merged yet.
+  const mergedLodges = [
+    { sign: SIGN, building: E(431), name: "Landhaus Dresden", tier: 2, state: 0, monthly: 4200 },
+    { sign: SIGN, building: E(432), name: "City Park", tier: 0, state: 2, monthly: 0 },
+    { sign: E(105), building: E(433), name: "Grand Mountain Hospitality Warming Hut and Apres Ski Lounge Inns", tier: 4, state: 0, monthly: 11500 },
+    { sign: NULL, building: E(434), name: "Botanical Garden", tier: 1, state: 1, monthly: 0 },
+  ];
+  const mergeCard = { shown: true, building: E(435), name: "Commercial Signature", area: "Ash Flat", tier: -1, allowedMask: 15, refusal: 0, state: 6,
+    outcome: 0, charge: [180000, 120000, 410000, 640000, 0], monthly: [1800, 1200, 4200, 6100, 0] };
+  const base = { hubOpen: false, contract: 32, buildStamp: "", showHubButton: true, build: buildItems(), glade,
     resorts: [], resortLive: [], selectedResort: NULL, runs: [], runLive: [], lifts: [], problems: [], city, pisteMap: true, follow: 0, history: [],
-    liftLine: { available: true, active: false, state: "PickBase" }, quickRuns, catTrackDeleteMode: false, lodgeParking };
+    liftLine: { available: true, active: false, state: "PickBase" }, quickRuns, catTrackDeleteMode: false, lodgeParking, mergedLodges, mergeCard };
 
   window.SkiScenarios = {
     "not connected (no C#)": Object.assign({}, base, { contract: 0, city: Object.assign({}, city, { known: false }) }),

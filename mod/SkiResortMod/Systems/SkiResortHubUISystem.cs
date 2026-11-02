@@ -42,7 +42,7 @@ namespace SkiResortMod.Systems
 
         /// <summary>The contract number (bindings.ts HUB_CONTRACT). Bump both together whenever a binding, trigger, field or meaning
         /// changes (Engine notes: Near HubContract lists what each number appended).</summary>
-        public const int HubContract = 31;
+        public const int HubContract = 32;
 
         /// <summary>The `contract` value the UI reads as "C# absent" (bindings.ts CONTRACT_ABSENT). Pushed after the one-shot "!!!"
         /// until the next load: the UI then shows its "not connected" notice instead of launchers that do nothing.</summary>
@@ -465,6 +465,7 @@ namespace SkiResortMod.Systems
         private readonly ArrayPush m_ProblemsPush = new ArrayPush("problems");
         private readonly ArrayPush m_HistoryPush = new ArrayPush("history");
         private readonly ArrayPush m_LodgeParkingPush = new ArrayPush("lodgeParking");   // contract 29
+        private readonly ArrayPush m_MergedPush = new ArrayPush("mergedLodges");   // contract 32
 
         private enum RequestKind : byte
         {
@@ -476,6 +477,7 @@ namespace SkiResortMod.Systems
             DeleteCatTrack,                  // contract 18: the cat track row's trash button
             SetCatTrackDeleteMode,           // contract 19: the Runs tab's Delete cat tracks chip
             SetRunPropSpacing,               // contract 28: the Runs view's prop rows (Bool = lights, Int = meters)
+            MergeBuilding, UnmergeBuilding,  // contract 32: the merge card (Int = tier); SkiResortHubUISystem.Merge.cs
         }
 
         private struct Request
@@ -751,6 +753,7 @@ namespace SkiResortMod.Systems
             m_ProblemsPush.Binding = m_Problems = new RawValueBinding(Group, "problems", WriteProblems);
             m_HistoryPush.Binding = m_History = new RawValueBinding(Group, "history", WriteHistory);
             m_LodgeParkingPush.Binding = m_LodgeParking = new RawValueBinding(Group, "lodgeParking", WriteLodgeParking);
+            m_MergedPush.Binding = m_Merged = new RawValueBinding(Group, "mergedLodges", WriteMergedLodges);   // contract 32
 
             // Values (C# → UI), in bindings.ts order (gate R1 needs the literals).
             AddBinding(m_HubOpen = new ValueBinding<bool>(Group, "hubOpen", false));
@@ -778,6 +781,8 @@ namespace SkiResortMod.Systems
             AddBinding(m_CatTrackDeleteBinding = new ValueBinding<bool>(Group, "catTrackDeleteMode", false));   // panel binding, no Demand
             AddBinding(m_BusCard = new ValueBinding<HubBusCardState>(Group, "busCard", default));   // not a panel binding
             AddBinding(m_LodgeParking);   // contract 29: panel binding (the Guests view), no Demand
+            AddBinding(m_Merged);         // contract 32: panel binding (the Overview fold), no Demand
+            AddBinding(m_MergeCard = new ValueBinding<HubMergeCardState>(Group, "mergeCard", default));   // contract 32: always observed, like busCard
 
             // Triggers (UI → C#): bindings.ts TRIGGER.
             AddBinding(new TriggerBinding(Group, "toggleHub", OnToggleHub));
@@ -787,6 +792,8 @@ namespace SkiResortMod.Systems
             AddBinding(new TriggerBinding<string>(Group, "launch", OnLaunch));
             AddBinding(new TriggerBinding<Entity>(Group, "focusRun", OnFocusRun));
             AddBinding(new TriggerBinding<Entity>(Group, "deleteCatTrack", OnDeleteCatTrack));
+            AddBinding(new TriggerBinding<Entity, int>(Group, "mergeBuilding", OnMergeBuilding));   // contract 32
+            AddBinding(new TriggerBinding<Entity>(Group, "unmergeBuilding", OnUnmergeBuilding));
             AddBinding(new TriggerBinding(Group, "gladeToggle", OnGladeToggle));
             AddBinding(new TriggerBinding<int>(Group, "gladeSetLevel", OnGladeSetLevel));
             AddBinding(new TriggerBinding<bool>(Group, "gladeSetTreeLine", OnGladeSetTreeLine));
@@ -838,6 +845,8 @@ namespace SkiResortMod.Systems
                 m_HistoryPush.Reset();
                 ResetHistoryPush();   // drop the last city's rows
                 m_LodgeParkingPush.Reset();
+                m_MergedPush.Reset();
+                ResetMergeCard();
                 m_LodgeParkingRows.Clear();
                 m_LodgeParkingSigAttract = m_LodgeParkingSigCensus = m_LodgeParkingSigNumbers = int.MinValue;
                 m_NextLockRefresh = 0f;
@@ -1165,6 +1174,8 @@ namespace SkiResortMod.Systems
                 case RequestKind.Rename:
                 case RequestKind.FocusLift:
                 case RequestKind.FocusBuilding:
+                case RequestKind.MergeBuilding:
+                case RequestKind.UnmergeBuilding:
                 case RequestKind.SetRunPropSpacing:
                     return true;
                 case RequestKind.SelectResort:
@@ -1304,6 +1315,12 @@ namespace SkiResortMod.Systems
                     break;
                 case RequestKind.SetRunPropSpacing:
                     ApplyRunPropSpacing(r.Entity, r.Bool, r.Int, r.Source);
+                    break;
+                case RequestKind.MergeBuilding:
+                    ApplyMerge(r.Entity, r.Int, r.Source);
+                    break;
+                case RequestKind.UnmergeBuilding:
+                    ApplyUnmerge(r.Entity, r.Source);
                     break;
             }
         }
@@ -2439,11 +2456,13 @@ namespace SkiResortMod.Systems
                     what = "station";
                 else if (m_PrefabCatalog.IsUpgradeBuilding(prefabRef.m_Prefab))   // The school, a patrol hut
                     what = "upgrade building";
+                else if (EntityManager.HasComponent<SkiMergedLodge>(building))   // contract 32: the Merged buildings fold
+                    what = "merged building";
             }
             if (what == null)
             {
                 Mod.Log.Info($"Hub [focus] refused — {Ent(building)} ({PrefabNameOf(building)}) is not a live sign, lodge, " +
-                             $"school, patrol hut or lift station of ours ({source})");
+                             $"school, patrol hut, lift station or merged building of ours ({source})");
                 LastTriggerText = $"focusBuilding {Ent(building)}: refused";
                 return false;
             }
@@ -2718,9 +2737,11 @@ namespace SkiResortMod.Systems
             bool liftsActive = m_Lifts.active, problemsActive = m_Problems.active;
             bool cityActive = m_City.active;
             PushBusCard();
+            PushMergeCard();
             bool demand = buildActive || resortsActive || resortLiveActive || runsActive || runLiveActive ||
                           liftsActive || problemsActive || cityActive ||     // pisteMap and follow do NOT demand
-                          m_BusCardDepot != Entity.Null;                     // the card's ski area name comes from the stats rows
+                          m_BusCardDepot != Entity.Null ||                    // the card's ski area name comes from the stats rows
+                          m_MergeCardBuilding != Entity.Null;                // the merge card too
             m_Catalog.Demand = demand;   // catalog and stats follow every panel binding
             m_Stats.Demand = demand;
 
@@ -2738,6 +2759,7 @@ namespace SkiResortMod.Systems
                 PollLodgeNames();
             }
             PushArray(m_LodgeParkingPush, lodgeParkingActive, m_LodgeParkingRevision, m_LodgeParkingRows.Count);
+            PushMerged();
 
             if (cityActive)
                 m_City.Update(m_Stats.City);   // our comparer dedups (struct, field by field)
@@ -2836,7 +2858,7 @@ namespace SkiResortMod.Systems
         {
             float now = UnityEngine.Time.realtimeSinceStartup;
             ArrayPush[] all = { m_ResortsPush, m_ResortLivePush, m_RunsPush, m_RunLivePush, m_LiftsPush, m_ProblemsPush, m_HistoryPush,
-                                m_LodgeParkingPush };
+                                m_LodgeParkingPush, m_MergedPush };
             for (int i = 0; i < all.Length; i++)
             {
                 if (all[i].RowsLog.Count > 0)

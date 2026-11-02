@@ -775,6 +775,14 @@ if ($LASTEXITCODE -ne 0) {
     $rows.Add("OK    JOBREAD $(($jrOut | Select-Object -Last 1))")
 }
 
+# ---- 12c. LODGEID: every prefab-keyed lodge lookup is reviewed for merged buildings (merge asset P1, EngineNotes/SkiMergeSystem.md) ---
+$liOut = @(& node (Join-Path $PSScriptRoot "check-lodge-identity.js") 2>&1)
+if ($LASTEXITCODE -ne 0) {
+    foreach ($l in $liOut) { $rows.Add("FAIL  LODGEID $l"); $failures++ }
+} else {
+    $rows.Add("OK    LODGEID $(($liOut | Select-Object -Last 1))")
+}
+
 # ---- 12c. LOCALE: locale/en-US.json (the translation template) matches the English dictionaries -------------------------------
 # tools/export-locale.js --check regenerates the file in memory from LocaleEN.cs and Settings/LocaleEN.cs and compares it with the
 # one on disk; it also fails on a duplicate key, an unreadable value or a hub text that differs from hubText.ts.

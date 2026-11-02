@@ -20,7 +20,7 @@ export const GROUP = "skiResort";
  * only when C#'s `contract` equals this; on a mismatch it shows the Build strip and the tree controls (CORE only) and
  * says why.
  */
-export const HUB_CONTRACT = 31;
+export const HUB_CONTRACT = 32;
 
 /** The `contract` value while the C# binding is absent (the fallback). Real contracts start at 1. */
 export const CONTRACT_ABSENT = 0;
@@ -231,6 +231,44 @@ export interface BusCardState {
   /** Straight line to the hill lodge, what the bill counts, 0 = unknown. The road route is not kept: a coach's own PathInformation reads 0 once it drives. */
   distanceM: number;
   state: BusCardStateName;
+}
+
+/** Contract 32: the merge card beside the game's selected-info panel. Sent while a merged building, or one that could be merged (a lot
+ *  too small included), is selected and the city has a ski area. Numbers: C# MergeRules.Refusal / State, SkiMergeSystem.Outcome. */
+export interface MergeCardState {
+  shown: boolean;
+  building: Entity;
+  /** The building's name as the game shows it. */
+  name: string;
+  /** The ski area it counts for, "" when none. */
+  area: string;
+  /** SkiCatalog.Lodges index of its tier; -1 = not merged. */
+  tier: number;
+  /** Bit t = tier t fits the lot. */
+  allowedMask: number;
+  /** MergeRules.Refusal: 0 none, 9 lot too small (the only refusal the card is sent for). */
+  refusal: number;
+  /** MergeRules.State: 0 counted, 1 no area, 2 too far from the runs, 3 asset changed, 4 switched off, 5 destroyed, 6 unknown. */
+  state: number;
+  /** The last action on this building: 0 none, 1 merged, 2 tier changed, 3 unmerged, 4 refused, 5 not enough money, 6 lot too small. */
+  outcome: number;
+  /** Per tier: what merging (or changing) to it costs now. */
+  charge: readonly number[];
+  /** Per tier: its monthly fee. */
+  monthly: readonly number[];
+}
+
+/** Contract 32: one merged building, any state (the Overview's Merged buildings fold). */
+export interface MergedLodgeRow {
+  /** Its ski area's sign, Entity.Null = none. */
+  sign: Entity;
+  building: Entity;
+  name: string;
+  tier: number;
+  /** MergeRules.State, as MergeCardState.state. */
+  state: number;
+  /** Its monthly fee while billed, else 0. */
+  monthly: number;
 }
 
 export interface GladeState {
@@ -923,6 +961,8 @@ export const BINDING = {
   catTrackDeleteMode: "catTrackDeleteMode",  // contract 19: the cat track tool is open and in Delete mode
   busCard: "busCard",  // contract 26: the Ski Bus card
   lodgeParking: "lodgeParking",  // contract 29: car spaces per road lodge
+  mergeCard: "mergeCard",  // contract 32: the merge card
+  mergedLodges: "mergedLodges",  // contract 32: the merged buildings
 } as const;
 
 /** Trigger names (UI -> C#). */
@@ -951,6 +991,8 @@ export const TRIGGER = {
   setCatTrackDeleteMode: "setCatTrackDeleteMode",  // contract 19: the Runs tab's Delete cat tracks chip
   setRunGunSpacing: "setRunGunSpacing",  // contract 28: the Runs view's prop rows
   setRunLightSpacing: "setRunLightSpacing",
+  mergeBuilding: "mergeBuilding",  // contract 32: the merge card's tier buttons
+  unmergeBuilding: "unmergeBuilding",
 } as const;
 
 /**
@@ -980,6 +1022,7 @@ const EMPTY_LIFTS: readonly LiftRow[] = [];
 const EMPTY_PROBLEMS: readonly ProblemRow[] = [];
 const EMPTY_HISTORY: readonly HistoryArea[] = [];
 const EMPTY_LODGE_PARKING: readonly LodgeParkingRow[] = [];
+const EMPTY_MERGED: readonly MergedLodgeRow[] = [];
 const EMPTY_QUICK_RUNS: QuickRunsState = {
   available: false, active: false, reason: "", phase: "", corners: 0, canPlanAround: false, areaM2: 0, maxAreaM2: 1000000, verticalM: 0, regionState: "Open",
   progress: 0, mix: 0, density: 1, kinds: 3, runs: 0, enabled: 0, count: [0, 0, 0, 0, 0], target: [0, 0, 0, 0, 0], fee: 0, skiers: 0,
@@ -1019,6 +1062,8 @@ export const FALLBACK = {
   catTrackDeleteMode: false,
   busCard: { shown: false, area: "", guestsMonth: -1, billMonth: 0, distanceM: 0, state: "off" } as BusCardState,
   lodgeParking: EMPTY_LODGE_PARKING,
+  mergeCard: { shown: false, building: { index: 0, version: 0 }, name: "", area: "", tier: -1, allowedMask: 0, refusal: 0, state: 6, outcome: 0, charge: [], monthly: [] } as MergeCardState,
+  mergedLodges: EMPTY_MERGED,
 } as const;
 
 // ---- value bindings -----------------------------------------------------------------------------
@@ -1045,6 +1090,10 @@ export const quickRuns$: ValueBinding<QuickRunsState> = bindValue<QuickRunsState
 export const catTrackDeleteMode$: ValueBinding<boolean> = bindValue<boolean>(GROUP, BINDING.catTrackDeleteMode, FALLBACK.catTrackDeleteMode);
 /** The Ski Bus card. Always mounted: C# sends it only while a coach or a depot is selected. */
 export const busCard$: ValueBinding<BusCardState> = bindValue<BusCardState>(GROUP, BINDING.busCard, FALLBACK.busCard);
+/** The merge card. Always mounted: C# sends it only while a building it applies to is selected. */
+export const mergeCard$: ValueBinding<MergeCardState> = bindValue<MergeCardState>(GROUP, BINDING.mergeCard, FALLBACK.mergeCard);
+/** Every merged building, any state. Panel only, and only the Overview subscribes it (no Demand). */
+export const mergedLodges$: ValueBinding<readonly MergedLodgeRow[]> = bindValue<readonly MergedLodgeRow[]>(GROUP, BINDING.mergedLodges, FALLBACK.mergedLodges);
 /** One row per sign, then the Not linked row (always last). Panel only. */
 export const resorts$: ValueBinding<readonly ResortRow[]> = bindValue<readonly ResortRow[]>(GROUP, BINDING.resorts, FALLBACK.resorts);
 /** The moving values of each `resorts` row. Panel only: read by leaf components only. */
@@ -1135,4 +1184,8 @@ export const hubTriggers = {
   setPisteMap: (on: boolean): void => fire(TRIGGER.setPisteMap, on),
   /** The hovered run (Null clears). Send through hubState.ts sendHoverRun only (dedup). */
   hoverRun: (run: Entity): void => fire(TRIGGER.hoverRun, wire(run)),
+  /** Merge a building as tier `tier`, or change a merged building's tier (C# SkiMergeSystem.Merge charges at once; refusals are logged). */
+  mergeBuilding: (building: Entity, tier: number): void => fire(TRIGGER.mergeBuilding, wire(building), Math.round(tier)),
+  /** Unmerge: the building goes back to plain; no refund. */
+  unmergeBuilding: (building: Entity): void => fire(TRIGGER.unmergeBuilding, wire(building)),
 } as const;

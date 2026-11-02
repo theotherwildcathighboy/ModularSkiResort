@@ -30,6 +30,7 @@ namespace SkiResortMod.Systems
         private SkiResortAttractivenessSystem m_Attractiveness;
         private Game.Simulation.SimulationSystem m_Simulation;   // selectedSpeed 0 = paused
         private EntityQuery m_BuildingEvents;
+        private EntityQuery m_MergedEvents;   // a merged building (SkiMergedLodge) Updated or Deleted: moved, relocated, bulldozed
         private EntityQuery m_AreaEvents;
         // While ResortPresence says no sign, run or lift of ours exists, only a CREATED building / run can start a resort (an Updated
         // or Deleted one cannot be ours), so the per-frame test looks at these Created-only queries and an ordinary city pays no
@@ -65,6 +66,12 @@ namespace SkiResortMod.Systems
                 {
                     ComponentType.ReadOnly<Temp>(),
                 },
+            });
+            m_MergedEvents = GetEntityQuery(new EntityQueryDesc
+            {
+                All = new[] { ComponentType.ReadOnly<SkiMergedLodge>() },
+                Any = new[] { ComponentType.ReadOnly<Updated>(), ComponentType.ReadOnly<Deleted>() },
+                None = new[] { ComponentType.ReadOnly<Temp>() },
             });
             m_BuildingCreated = GetEntityQuery(new EntityQueryDesc
             {
@@ -150,7 +157,7 @@ namespace SkiResortMod.Systems
                 if (gm == null || gm.isGameLoading)
                     return;
 
-                bool buildings = buildingEvents && AnyWatched(buildingQuery, areas: false);
+                bool buildings = buildingEvents && (AnyWatched(buildingQuery, areas: false) || !m_MergedEvents.IsEmptyIgnoreFilter);
                 bool runs = areaEvents && AnyWatched(areaQuery, areas: true);
                 if (!buildings && !runs)
                     return;

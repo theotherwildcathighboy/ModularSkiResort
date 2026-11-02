@@ -85,6 +85,7 @@ namespace SkiResortMod.Systems
 
         private EntityQuery m_ParkQuery;       // signs, lodges (and other parks)
         private EntityQuery m_RunQuery;        // our bound runs
+        private EntityQuery m_MergedQuery;     // merged buildings (SkiMergedLodge), any kind
 
         private bool m_Disabled;
         private bool m_ErrorLogged;
@@ -136,6 +137,9 @@ namespace SkiResortMod.Systems
             public float CarrierDistance;
             public readonly List<float> CarriedOwn = new List<float>(2);
             public readonly List<double> CarriedWeight = new List<double>(2);
+            // Merged buildings (SkiMergedLodge) linked to this sign, placed once the area's runs and lift stations are known (PlaceMerged).
+            public readonly List<MergedCandidate> MergedPending = new List<MergedCandidate>(1);
+            public readonly List<float2> StationXz = new List<float2>(8);   // this area's lift stations (base, and top when known)
 
             public void Reset(Entity sign)
             {
@@ -172,6 +176,8 @@ namespace SkiResortMod.Systems
                 CarrierDistance = float.PositiveInfinity;
                 CarriedOwn.Clear();
                 CarriedWeight.Clear();
+                MergedPending.Clear();
+                StationXz.Clear();
             }
         }
 
@@ -660,6 +666,7 @@ namespace SkiResortMod.Systems
             public bool SummitServed;
             public bool HasRoad;
             public bool Supplied;
+            public bool Merged;   // a SkiMergedLodge building: holds skiers, takes no arrivals, needs no parking, carries no jobs
         }
 
         /// <summary>++ when the list of live road-optional lodges changes, and at every load (LodgeSupplySystem re-copies; ids remap at a load).</summary>
@@ -788,6 +795,20 @@ namespace SkiResortMod.Systems
                     ComponentType.ReadOnly<Deleted>(),
                 },
             });
+            m_MergedQuery = GetEntityQuery(new EntityQueryDesc
+            {
+                All = new[]
+                {
+                    ComponentType.ReadOnly<Building>(),
+                    ComponentType.ReadOnly<PrefabRef>(),
+                    ComponentType.ReadOnly<SkiMergedLodge>(),
+                },
+                None = new[]
+                {
+                    ComponentType.ReadOnly<Temp>(),
+                    ComponentType.ReadOnly<Deleted>(),
+                },
+            });
             // The bound-run query (only our runs carry SkiRunBinding).
             m_RunQuery = GetEntityQuery(new EntityQueryDesc
             {
@@ -862,6 +883,7 @@ namespace SkiResortMod.Systems
             m_ZeroSignLogged.Clear();
             m_DampedTicks.Clear();
             m_DampedLogged.Clear();
+            ResetMerged();
             m_CensusOpenLogged = false;
             m_HeldCount = 0;
             m_StructuralPending = m_SoftPending = false;
@@ -993,7 +1015,9 @@ namespace SkiResortMod.Systems
                     Recompute(reason, structural);
                 }
 
+                m_SimTick = true;   // vanilla AttractionSystem ran this frame: a merged building on its own slice reads V now
                 WriteProviders();
+                m_SimTick = false;
                 FlushAreaLogs();
             }
             catch (Exception e)
@@ -1213,6 +1237,8 @@ namespace SkiResortMod.Systems
 
             // 4. Lifts (census rows with both stations live), resolved to an area.
             CollectLifts(next, readPositions);
+            PlaceMerged(next);
+            FoldLodgeEfficiency(next);
             stateHash = SkiRunRatingRules.Mix(stateHash, unchecked((uint)m_Census.ComputePowerSignature()));
 
             // 5. Score each area; holds; write lists; views; area logs.
@@ -1221,7 +1247,7 @@ namespace SkiResortMod.Systems
             // 6. Orphan lodges (listed by no live sign) carry no provider.
             foreach (Entity lodge in m_LiveLodges)
             {
-                if (!m_LodgeClaimed.Contains(lodge) && EntityManager.HasComponent<AttractivenessProvider>(lodge))
+                if (!m_LodgeClaimed.Contains(lodge) && !m_MergedTier.ContainsKey(lodge) && EntityManager.HasComponent<AttractivenessProvider>(lodge))
                     m_DropProvider.Add(new DropEntry { Lodge = lodge, SwitchedOff = false });
             }
 
@@ -1338,6 +1364,7 @@ namespace SkiResortMod.Systems
                     }
                 }
             }
+            CollectMerged();
             next.LiveLodges = m_LiveLodges.Count;
 
             if (!readPositions && !SignIndexMatches(next))
@@ -1477,14 +1504,19 @@ namespace SkiResortMod.Systems
                 // A lodge's or depot's road edge and a road-optional lodge's supply: a change asks for a recompute, so ski-day targets, the
                 // parking census and the carrier follow them.
                 LodgeDef topDef = null;
-                bool optional = false, supplied = false;
+                bool optional = false, supplied = false, merged = false;
                 if (kind == SchoolLinkRules.KindDepot)
                     hash = SkiRunRatingRules.Mix(hash, hasRoad ? 1u : 0u);
                 else if (kind == SchoolLinkRules.KindLodge)
                 {
                     if (live && EntityManager.TryGetComponent(building, out PrefabRef topRef))
                         lodgeDefs.TryGetValue(topRef.m_Prefab, out topDef);
-                    optional = topDef != null && topDef.RoadRule == LodgeRoadRule.RoadOptional;
+                    if (topDef == null && live)
+                    {
+                        topDef = MergedDefOf(building);
+                        merged = topDef != null;
+                    }
+                    optional = !merged && topDef != null && topDef.RoadRule == LodgeRoadRule.RoadOptional;
                     supplied = optional && SuppliedNow(building);
                     hash = SkiRunRatingRules.Mix(hash, (hasRoad ? 1u : 0u) | (supplied ? 2u : 0u));
                 }
@@ -1506,7 +1538,7 @@ namespace SkiResortMod.Systems
                     m_SupplyWatchNext.Add(building);
                 if (!link.Linked || !next.TryGetSlot(LiftCensusSystem.Ent(link.Sign), out AreaSlot slot))
                     continue;
-                if (live && (kind == SchoolLinkRules.KindDepot || topDef != null))
+                if (live && !merged && (kind == SchoolLinkRules.KindDepot || topDef != null))
                     AddSupplyInputs(next, slot, building, id, link.Distance, kind == SchoolLinkRules.KindDepot, topDef, hasRoad, active);
                 if (kind == SchoolLinkRules.KindSchool)
                 {
@@ -1521,6 +1553,20 @@ namespace SkiResortMod.Systems
                 {
                     if (active)
                         slot.DepotActive.Add(building);
+                }
+                else if (merged)
+                {
+                    // Placed after the runs and lifts are known (PlaceMerged): counted only within SlopesideMaxM of them.
+                    if (m_LodgeClaimed.Add(building))
+                        slot.MergedPending.Add(new MergedCandidate
+                        {
+                            Lodge = building,
+                            Def = topDef,
+                            Active = active,
+                            HasRoad = hasRoad,
+                            Destroyed = EntityManager.HasComponent<Destroyed>(building),
+                            Own = active ? ReadLodgeEfficiency(building, null) : 1f,
+                        });
                 }
                 else if (m_LiveLodges.Contains(building) && m_LodgeClaimed.Add(building))
                 {
@@ -1559,6 +1605,18 @@ namespace SkiResortMod.Systems
             }
             if (next == null)
                 return;
+            SchoolLinkRules.Diff(m_TopLinks, m_TopLinksNext, m_TopLinkChanges);
+            for (int i = 0; i < m_TopLinkChanges.Count; i++)
+                LogTopLink(m_TopLinkChanges[i]);
+            Dictionary<EntityRef, SchoolLinkRules.Link> swap = m_TopLinks;
+            m_TopLinks = m_TopLinksNext;
+            m_TopLinksNext = swap;
+        }
+
+        /// <summary>Each area's efficiency with its active top-level lodges folded in (SchoolLinkRules.AreaEfficiency); the lodges whose jobs
+        /// ride on the carrier take the carrier's staffing. Runs after PlaceMerged, so an area's merged lodges fold in like the others.</summary>
+        private void FoldLodgeEfficiency(Snapshot next)
+        {
             for (int s = 0; s < next.SlotCount; s++)
             {
                 AreaSlot slot = next.Slots[s];
@@ -1580,12 +1638,6 @@ namespace SkiResortMod.Systems
                 slot.Factors.Sort();      // worst first again after the lodge merge (Efficiency.CompareTo: highest first)
                 slot.Factors.Reverse();
             }
-            SchoolLinkRules.Diff(m_TopLinks, m_TopLinksNext, m_TopLinkChanges);
-            for (int i = 0; i < m_TopLinkChanges.Count; i++)
-                LogTopLink(m_TopLinkChanges[i]);
-            Dictionary<EntityRef, SchoolLinkRules.Link> swap = m_TopLinks;
-            m_TopLinks = m_TopLinksNext;
-            m_TopLinksNext = swap;
         }
 
         /// <summary>One lodge or depot of an area into this recompute's supply inputs and the carrier pick. A building that is destroyed or
@@ -2057,11 +2109,15 @@ namespace SkiResortMod.Systems
                 if (!next.TryGetSlot(sign, out AreaSlot slot))
                     continue;
 
+                slot.StationXz.Add(baseXz);   // the merged buildings' slopeside test
                 LiftPower power = LiftPower.Unknown;
                 if (aligned && m_ServeLifts[k].Id == row.Id && m_ServeLifts[k].Top == row.Top)
                 {
                     power = m_ServeLifts[k].Power;
                     slot.ServeLifts.Add(k);  // this area's lifts for SummitServed
+                    float2 topXz = m_ServeLifts[k].TopXZ;
+                    if (math.all(math.isfinite(topXz)))
+                        slot.StationXz.Add(topXz);
                 }
                 bool complete = row.State == LiftCensus.State.Complete;
                 bool powered = LiftServedRule.IsPowered(power);
@@ -2152,7 +2208,8 @@ namespace SkiResortMod.Systems
                 // A switched-off lodge carries no provider.
                 for (int i = 0; i < slot.Inactive.Count; i++)
                 {
-                    if (EntityManager.HasComponent<AttractivenessProvider>(slot.Inactive[i]))
+                    // Never a merged building's: vanilla cannot add a prefab's own provider back (MergeRules header).
+                    if (!m_MergedTier.ContainsKey(slot.Inactive[i]) && EntityManager.HasComponent<AttractivenessProvider>(slot.Inactive[i]))
                         m_DropProvider.Add(new DropEntry { Lodge = slot.Inactive[i], SwitchedOff = true });
                 }
                 // A sign carrying a provider is held at 0 (not removed).
@@ -2423,7 +2480,7 @@ namespace SkiResortMod.Systems
                 {
                     LodgeInfo x = a.ActiveInfo[i], y = b.ActiveInfo[i];
                     if (x.Lodge != y.Lodge || x.LodgeIndex != y.LodgeIndex || x.SummitServed != y.SummitServed ||
-                        x.HasRoad != y.HasRoad || x.Supplied != y.Supplied)
+                        x.HasRoad != y.HasRoad || x.Supplied != y.Supplied || x.Merged != y.Merged)
                         return true;
                 }
             }
@@ -2594,6 +2651,12 @@ namespace SkiResortMod.Systems
                         m_ScratchEntities.Add(lodge);
                         continue;
                     }
+                    if (m_MergedTier.ContainsKey(lodge))
+                    {
+                        if (TryMergedWrite(lodge, pair.Value, out ProviderWrite mergedWrite))
+                            writes.Add(mergedWrite);
+                        continue;
+                    }
                     if (!EntityManager.HasComponent<AttractivenessProvider>(lodge))
                     {
                         // The lodge now matches vanilla AttractionSystem's query; vanilla rewrites it from the
@@ -2639,6 +2702,7 @@ namespace SkiResortMod.Systems
             {
                 Writes = writes,
                 Providers = GetComponentLookup<AttractivenessProvider>(isReadOnly: false),
+                Vanilla = GetComponentLookup<SkiMergedVanillaAttraction>(isReadOnly: false),
             }.Schedule(Dependency);
             writes.Dispose(Dependency);
         }
@@ -2648,6 +2712,10 @@ namespace SkiResortMod.Systems
             public Entity Target;
             public int Value;
             public bool OnlyIfNonzero;
+            // A merged building: Value is the share P; the job writes round(sqrt(V^2 + P^2)) with V its own vanilla value, read from the
+            // provider on the tick of its own update slice (vanilla wrote it this frame), else the V cached then (MergeRules.Combine).
+            public bool Merged;
+            public bool OwnSlice;
         }
 
         /// <summary>WriteProviders' values, after this frame's vanilla writes (the system's anchor and Dependency put it there).</summary>
@@ -2656,6 +2724,7 @@ namespace SkiResortMod.Systems
         {
             [ReadOnly] public NativeList<ProviderWrite> Writes;
             public ComponentLookup<AttractivenessProvider> Providers;
+            public ComponentLookup<SkiMergedVanillaAttraction> Vanilla;
 
             public void Execute()
             {
@@ -2664,6 +2733,23 @@ namespace SkiResortMod.Systems
                     ProviderWrite write = Writes[i];
                     if (!Providers.HasComponent(write.Target) || (write.OnlyIfNonzero && Providers[write.Target].m_Attractiveness == 0))
                         continue;
+                    if (write.Merged)
+                    {
+                        if (!Vanilla.HasComponent(write.Target))
+                            continue;
+                        SkiMergedVanillaAttraction v = Vanilla[write.Target];
+                        if (write.OwnSlice)
+                        {
+                            v.m_Value = Providers[write.Target].m_Attractiveness;
+                            v.m_Known = 1;
+                            Vanilla[write.Target] = v;
+                        }
+                        if (v.m_Known == 0)
+                            continue;   // nothing written until V is known: the saved value stands
+                        double own = math.max(0, v.m_Value), share = math.max(0, write.Value);
+                        Providers[write.Target] = new AttractivenessProvider { m_Attractiveness = (int)math.round(math.sqrt(own * own + share * share)) };
+                        continue;
+                    }
                     Providers[write.Target] = new AttractivenessProvider { m_Attractiveness = write.Value };
                 }
             }

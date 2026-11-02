@@ -182,6 +182,9 @@ namespace SkiResortMod
             updateSystem.UpdateAfter<SkiLiftChargeSystem, SkiRunUpkeepSystem>(SystemUpdatePhase.GameSimulation);
             // The bus depots' coach bill: the lift charge's pattern, next to it in the frame. Pause stops it, the Editor never bills.
             updateSystem.UpdateAfter<SkiBusChargeSystem, SkiLiftChargeSystem>(SystemUpdatePhase.GameSimulation);
+            // Merged buildings (SkiMergedLodge): the monthly fee, the duplicate guard, tier lowering; the actions come from the hub. Pause stops the
+            // meter, the Editor never arms it. Not anchored.
+            updateSystem.UpdateAt<SkiMergeSystem>(SystemUpdatePhase.GameSimulation);
             // The depots' visual coach. Anchor AND interval (16) are load-bearing: it inherits the AI's offset and runs right before it, after navigation,
             // so a turnaround clears EndOfPath before the AI's delete check of the same frame (EngineNotes/SkiCoachSystem.md). The Editor never arms it.
             updateSystem.UpdateBefore<SkiCoachSystem, Game.Simulation.TransportCarAISystem>(SystemUpdatePhase.GameSimulation);

@@ -232,6 +232,7 @@ namespace SkiResortMod.Systems
             public byte NoRoadNeeded;     // 1 = LodgeSupplyRule.NoRoadNeeded (Hut, Summit, or off-road on a cat track chain: passes without a road, never a claim target)
             public byte IsDepot;          // 1 = a bus depot: after the area's lodges, Capacity 0, tolerance 0, LodgeIndex -1, CheckDepot's verdict
             public short LodgeIndex;      // SkiCatalog.Lodges index (logs and DUMP only)
+            public byte Merged;           // 1 = a merged building (SkiMergedLodge): holds skiers, never a claim target, passes the leisure tag check
         }
 
         /// <summary>SiteJob's per-lodge result, aligned with the lodge list.</summary>
@@ -1523,7 +1524,8 @@ namespace SkiResortMod.Systems
                         OnLiveSign = true,
                         Active = hasB && !BuildingUtils.CheckOption(b, BuildingOption.Inactive),   // BuildingUtils.cs:351 (=)
                         Destroyed = Destroyeds.HasComponent(l) || Deleteds.HasComponent(l) || !hasB,
-                        LeisureTagged = LeisureProviders.HasComponent(l),   // the searchable tag a TO gate removes
+                        // the searchable tag a TO gate removes; a merged building is no guest destination in v1, so it never needs one
+                        LeisureTagged = Lodges[li].Merged != 0 || LeisureProviders.HasComponent(l),
                         HasRoad = hasB && b.m_RoadEdge != Entity.Null,
                         NearestRunOrStationM = hasSite ? Sites[li].NearestRunOrStationM : float.PositiveInfinity,
                         NoRoadNeeded = Lodges[li].NoRoadNeeded != 0,   // a mountain lodge needs no road

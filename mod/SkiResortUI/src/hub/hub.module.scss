@@ -1507,6 +1507,35 @@
   pointer-events: none;
 }
 
+// -- the merge card (contract 32): the Ski Bus card's box, but it takes clicks (tier chips, Merge, Unmerge) ------------------
+.mergeCard {
+  pointer-events: auto;
+}
+
+.mergeTiers {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  padding-left: 10rem;
+  padding-right: 10rem;
+  padding-bottom: 4rem;
+}
+
+.mergeTierCell {
+  flex-grow: 1;
+  flex-basis: 0;
+  margin-right: 4rem;
+}
+
+.mergeActions {
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-end;
+  padding-top: 4rem;
+  padding-left: 10rem;
+  padding-right: 10rem;
+}
+
 .busCardTitle {
   padding-top: 8rem;
   padding-bottom: 8rem;

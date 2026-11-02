@@ -719,6 +719,8 @@ namespace SkiResortMod.Systems
         /// building: the row alone no longer says it. An out-of-range index reads the A-frame row, as the score does.</summary>
         internal static bool IsRoadLodge(in SkiResortAttractivenessSystem.LodgeInfo info)
         {
+            if (info.Merged)
+                return false;   // a merged building takes no arrivals: no parking row
             if (SkiCatalog.Lodges.Count == 0)
                 return info.HasRoad;
             int i = info.LodgeIndex;

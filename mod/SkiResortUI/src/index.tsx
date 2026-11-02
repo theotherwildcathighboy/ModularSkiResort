@@ -9,6 +9,7 @@
 import type { ModRegistrar } from "cs2/modding";
 import "./base.module.scss"; // LOAD-BEARING: keeps SkiResortMod.css in existence (EngineNotes/index.tsx.md)
 import { BusCard } from "./hub/BusCard";
+import { MergeCard } from "./hub/MergeCard";
 import { ErrorBoundary } from "./hub/ErrorBoundary";
 import { HubFloatingButton, HubLauncherSquare } from "./hub/HubLauncher";
 import { HubRoot } from "./hub/HubRoot";
@@ -54,6 +55,15 @@ function SkiBusCardRoot(): JSX.Element {
   );
 }
 
+/** "Game": the merge card (contract 32), beside the game's panel for a building that is or could be merged. */
+function SkiMergeCardRoot(): JSX.Element {
+  return (
+    <ErrorBoundary where="mergeCard">
+      <MergeCard />
+    </ErrorBoundary>
+  );
+}
+
 const register: ModRegistrar = (moduleRegistry) => {
   try {
     try {
@@ -75,6 +85,11 @@ const register: ModRegistrar = (moduleRegistry) => {
       moduleRegistry.append("Game", SkiBusCardRoot);
     } catch (e) {
       queueRegistrarError("append Game busCard", e);
+    }
+    try {
+      moduleRegistry.append("Game", SkiMergeCardRoot);
+    } catch (e) {
+      queueRegistrarError("append Game mergeCard", e);
     }
   } catch (e) {
     try { console.error("SkiResortMod UI: registrar failed", e); } catch { /* never throw */ }

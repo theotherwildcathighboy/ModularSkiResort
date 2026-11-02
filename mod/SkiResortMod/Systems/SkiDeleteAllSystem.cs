@@ -222,6 +222,8 @@ namespace SkiResortMod.Systems
                 // 3. Our component on vanilla households: removed, the households stay
                 if (passes > 0)
                     EntityManager.RemoveComponent<SkiSeasonPass>(m_Passes);
+                // Merged buildings go back to plain buildings (the buildings stay; their own log line)
+                World.GetExistingSystemManaged<SkiMergeSystem>()?.UnmergeAll();
                 counts[(int)DeleteKind.SeasonPasses] = passes;
 
                 // 4. Kept unowned nodes next to a deleted edge rebuild their geometry (SubElementDeleteSystem.cs:94-115 shape). Owned

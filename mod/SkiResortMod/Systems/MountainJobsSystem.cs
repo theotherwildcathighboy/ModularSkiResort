@@ -245,6 +245,15 @@ namespace SkiResortMod.Systems
                 name = patrol.BuildItemId == "patrolHQ" ? "patrol HQ" : "patrol hut";
                 return patrol.SignJobs;
             }
+            // A merged building counted in its area (or switched off: SignJobsFor gives 0): its tier's jobs less its own workplaces ride
+            // on the carrier (MergeRules.CarriedJobs). Its own WorkProvider is never touched.
+            if (m_Attractiveness.TryGetMergedView(building, out SkiResortAttractivenessSystem.MergedView merged) && MergeRules.InArea(merged.State) &&
+                merged.Tier >= 0 && merged.Tier < SkiCatalog.Lodges.Count)
+            {
+                LodgeDef tier = SkiCatalog.Lodges[merged.Tier];
+                name = "merged " + tier.Id;
+                return MergeRules.CarriedJobs(tier, EntityManager.TryGetComponent(pr.m_Prefab, out WorkplaceData own) ? own.m_MaxWorkers : 0);
+            }
             return 0;
         }
 
@@ -256,7 +265,8 @@ namespace SkiResortMod.Systems
             if (full <= 0)
                 return 0;
             bool inactive = EntityManager.TryGetComponent(building, out Building bld) && BuildingUtils.CheckOption(bld, BuildingOption.Inactive);
-            bool lodge = EntityManager.TryGetComponent(building, out PrefabRef pr) && m_PrefabCatalog.LodgeDefs.ContainsKey(pr.m_Prefab);
+            bool lodge = EntityManager.TryGetComponent(building, out PrefabRef pr) && m_PrefabCatalog.LodgeDefs.ContainsKey(pr.m_Prefab) ||
+                         EntityManager.HasComponent<SkiMergedLodge>(building);   // a merged lodge halves off-season like ours
             bool half = lodge && m_OffSeason.IsHalf(sign);
             int jobs = MountainJobsRules.SignJobsFor(full, inactive, lodge, half);
             if (inactive)

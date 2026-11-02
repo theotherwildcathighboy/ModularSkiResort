@@ -300,6 +300,7 @@ namespace SkiResortMod.Systems
         private SkiGuestCounterSystem m_GuestCounter;
         private SkiLiftChargeSystem m_LiftCharge;
         private SkiBusChargeSystem m_BusCharge;
+        private SkiMergeSystem m_Merge;   // the merged buildings' monthly fee (BuildingsCost)
         private SkiLiftTicketSystem m_LiftTicket;            // DUMP only
         private CityServiceBudgetSystem m_CityServiceBudget;
         private SimulationSystem m_Simulation;
@@ -348,6 +349,9 @@ namespace SkiResortMod.Systems
         private readonly HashSet<Entity> m_LodgeActive = new HashSet<Entity>();                    // listed and not Inactive
         private readonly List<Entity> m_TopLevel = new List<Entity>(8); // CopyTopLevelLinks, per rebuild (CollectLodges)
         private readonly List<Entity> m_TopLevelSigns = new List<Entity>(8); // the building's sign, Entity.Null = not linked
+        // Merged buildings in an area (MergeRules.InArea) -> tier: lodges of that tier in the counts and the ladder; never their own cost or jobs.
+        private readonly Dictionary<Entity, int> m_MergedTierOf = new Dictionary<Entity, int>();
+        private readonly List<SkiResortAttractivenessSystem.MergedView> m_MergedViews = new List<SkiResortAttractivenessSystem.MergedView>(4);
         private readonly HashSet<Entity> m_NoRoad = new HashSet<Entity>(); // signs / lodges, m_RoadEdge Null
         private readonly Dictionary<Entity, int> m_ProviderOf = new Dictionary<Entity, int>(); // our signs / lodges -> a
         private readonly HashSet<Entity> m_Ours = new HashSet<Entity>();
@@ -554,6 +558,7 @@ namespace SkiResortMod.Systems
             m_GuestCounter = World.GetOrCreateSystemManaged<SkiGuestCounterSystem>();
             m_LiftCharge = World.GetOrCreateSystemManaged<SkiLiftChargeSystem>();
             m_BusCharge = World.GetOrCreateSystemManaged<SkiBusChargeSystem>();
+            m_Merge = World.GetOrCreateSystemManaged<SkiMergeSystem>();
             m_LiftTicket = World.GetOrCreateSystemManaged<SkiLiftTicketSystem>();
             m_CityServiceBudget = World.GetOrCreateSystemManaged<CityServiceBudgetSystem>();
             m_Simulation = World.GetOrCreateSystemManaged<SimulationSystem>();
@@ -1270,6 +1275,24 @@ namespace SkiResortMod.Systems
                 if (EntityManager.TryGetComponent(lodge, out Building building) && !BuildingUtils.CheckOption(building, BuildingOption.Inactive))
                     m_LodgeActive.Add(lodge);
             }
+            // Merged buildings listed in an area join the lodge list of their sign (an Inactive one is listed, not active). Their tier
+            // counts like ours (LodgeIdentity); their own staff, upkeep and tourism stay the city's (the jobs, cost and share sums skip them).
+            m_MergedTierOf.Clear();
+            m_Attractiveness.CopyMergedViews(m_MergedViews);
+            for (int i = 0; i < m_MergedViews.Count; i++)
+            {
+                SkiResortAttractivenessSystem.MergedView view = m_MergedViews[i];
+                if (!MergeRules.InArea(view.State) || view.Sign == Entity.Null || m_LodgeResort.ContainsKey(view.Building))
+                    continue;
+                int at = m_Index.IndexOf(ToRef(view.Sign));
+                if (at < 0)
+                    continue;
+                m_MergedTierOf[view.Building] = view.Tier;
+                m_LodgeEntities.Add(view.Building);
+                m_LodgeResort[view.Building] = at;
+                if (view.State == MergeRules.State.Counted)
+                    m_LodgeActive.Add(view.Building);
+            }
 
             for (int k = 0; k < m_LodgeEntities.Count; k++)
             {
@@ -1289,6 +1312,19 @@ namespace SkiResortMod.Systems
                     m_Work[resort].LodgesNoRoad++;
                 }
             }
+        }
+
+        /// <summary>The monthly merge fees of the merged buildings billed in <paramref name="sign"/>'s area (MergeRules.Billed), this
+        /// rebuild's views.</summary>
+        private float MergedFeesOf(Entity sign)
+        {
+            float fees = 0f;
+            for (int i = 0; i < m_MergedViews.Count; i++)
+            {
+                if (m_MergedViews[i].Sign == sign && MergeRules.Billed(m_MergedViews[i].State) && EntityManager.Exists(m_MergedViews[i].Building))
+                    fees += m_Merge.MonthlyFeeOf(m_MergedViews[i].Building, m_MergedViews[i].Tier);
+            }
+            return fees;
         }
 
         /// <summary>The top-level ski schools linked to <paramref name="sign"/> (Entity.Null = linked to none) in the last
@@ -2099,8 +2135,8 @@ namespace SkiResortMod.Systems
                 for (int k = 0; k < m_LodgeEntities.Count; k++)
                 {
                     Entity lodge = m_LodgeEntities[k];
-                    if (!m_LodgeResort.TryGetValue(lodge, out int lr) || lr != s)
-                        continue;
+                    if (!m_LodgeResort.TryGetValue(lodge, out int lr) || lr != s || m_MergedTierOf.ContainsKey(lodge))
+                        continue;   // a merged building's provider holds its own tourism too: not the area's share
                     if (m_ProviderOf.TryGetValue(lodge, out int la))
                     {
                         sRes += SkiResortTourism.Term(la);
@@ -2130,7 +2166,7 @@ namespace SkiResortMod.Systems
                 // lodge, counted below with its own, else the sign, counted by AddJobs(sign) above. Each job is counted once either way.
                 for (int t = 0; t < m_TopLevel.Count; t++)
                 {
-                    if (m_TopLevelSigns[t] == sign)
+                    if (m_TopLevelSigns[t] == sign && !m_MergedTierOf.ContainsKey(m_TopLevel[t]))   // a merged building's own staff are not the resort's
                         AddJobs(m_TopLevel[t], ref jobs, ref filled);
                 }
                 live.Jobs = jobs;
@@ -2275,14 +2311,16 @@ namespace SkiResortMod.Systems
                     for (int t = 0; t < m_TopLevel.Count; t++)
                     {
                         Entity school = m_TopLevel[t];
-                        if (m_TopLevelSigns[t] != sign || !EntityManager.TryGetComponent(school, out PrefabRef schoolRef))
-                            continue;
+                        if (m_TopLevelSigns[t] != sign || m_MergedTierOf.ContainsKey(school) || !EntityManager.TryGetComponent(school, out PrefabRef schoolRef))
+                            continue;   // a merged building's own upkeep is not the resort's: its monthly merge fee is added below
                         if (BuildingCostSplit(school, schoolRef.m_Prefab, economy, resourcePrefabs, out float schoolB, out float schoolW))
                         {
                             buildingsF += schoolB;
                             wagesF += schoolW;
                         }
                     }
+                    // The merged buildings counted in this area add their monthly merge fee (SkiMergeSystem bills it, not the city budget).
+                    buildingsF += MergedFeesOf(sign);
                 }
                 live.BuildingsMonth = buildingsF >= 0f ? RoundToInt(buildingsF) : -1;
                 live.WagesMonth = wagesF >= 0f ? RoundToInt(wagesF) : -1;
@@ -2752,8 +2790,11 @@ namespace SkiResortMod.Systems
                 Entity lodge = m_LodgeEntities[i];
                 if (!m_LodgeResort.TryGetValue(lodge, out int lr) || lr != s)
                     continue;
-                if (!EntityManager.TryGetComponent(lodge, out PrefabRef pr) || !lodgeDefs.TryGetValue(pr.m_Prefab, out LodgeDef def) ||
-                    def == null)
+                if (!EntityManager.TryGetComponent(lodge, out PrefabRef pr))
+                    continue;
+                lodgeDefs.TryGetValue(pr.m_Prefab, out LodgeDef catalogRow);
+                LodgeDef def = LodgeIdentity.Resolve(catalogRow, m_MergedTierOf.TryGetValue(lodge, out int mergedTier), mergedTier, SkiCatalog.Lodges);
+                if (def == null)
                     continue;
                 bool served = false;
                 if (def.MuSummit > def.Mu && EntityManager.TryGetComponent(lodge, out Game.Objects.Transform t))

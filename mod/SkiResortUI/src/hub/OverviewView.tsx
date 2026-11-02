@@ -4,7 +4,8 @@
  * The equation "(runs + lifts [+ school]) × variety × vertical" (SkiResortScore.cs:468 S) and HubRules.Terrain = K × sqrt(S) are spelled out
  * in the total's tooltip; operators sit in fixed cells ("√" is not on the Gameface font safe list). While `attractionHeld` the game keeps the
  * saved score, so the result row and the bar show "…". ResortLive.luxuryIgnored is not read (always 0; kept on the wire for the contract).
- * Fixed heights only, so a value change never changes layout. Panel file: subscribes resorts$, selectedResort$, resortLive$, runs$, problems$, city$.
+ * Fixed heights only, so a value change never changes layout. Panel file: subscribes resorts$, selectedResort$, resortLive$, runs$, problems$, city$;
+ * its MergedFold subscribes mergedLodges$ (contract 32).
  */
 import { useValue } from "cs2/api";
 import { Unit } from "cs2/l10n";
@@ -20,6 +21,7 @@ import {
 } from "./parts";
 import { currentResort, resortEntries, runsOf } from "./resortData";
 import { Fold } from "./fit";
+import { MergedFold } from "./MergedFold";
 import styles from "./hub.module.scss";
 
 const DASH = "–";
@@ -335,6 +337,7 @@ export function OverviewView(): JSX.Element {
     return (
       <>
         <MountainSection row={row} live={l} city={city} unrateable={unrateable} t={t} />
+        <MergedFold sign={null} />
         <Divider />
         <div className={styles.noteArea}>
           <div className={styles.note2}>{t(HUB_LOC.unlinkedNote)}</div>
@@ -347,6 +350,7 @@ export function OverviewView(): JSX.Element {
       <Receipt row={row} l={l} city={city} problems={problems} build={build} t={t} />
       <Divider />
       <MountainSection row={row} live={l} city={city} unrateable={unrateable} t={t} folded />
+      <MergedFold sign={row.sign} />
     </>
   );
 }

@@ -2938,8 +2938,10 @@ namespace SkiResortMod.Systems
                 PriceTolerance = def != null ? def.PriceTolerance : 0,
                 // Per building (LodgeSupplyRule.NoRoadNeeded): a road-optional lodge at a road is a target like any road lodge; off-road on a
                 // cat track chain it passes like the Hut and Summit and takes no arrivals; with neither it is rejected as before.
-                NoRoadNeeded = (byte)(def != null && LodgeSupplyRule.NoRoadNeeded(def.RoadRule, info.HasRoad, info.Supplied) ? 1 : 0),
+                // A merged building takes no arrivals (not a guest destination in v1) and needs no road: it passes like the Hut.
+                NoRoadNeeded = (byte)(info.Merged || def != null && LodgeSupplyRule.NoRoadNeeded(def.RoadRule, info.HasRoad, info.Supplied) ? 1 : 0),
                 LodgeIndex = (short)(def != null ? def.Index : 0),
+                Merged = (byte)(info.Merged ? 1 : 0),
             };
         }
 
