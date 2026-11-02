@@ -10,6 +10,7 @@ import { isValidElement, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { Tooltip } from "cs2/ui";
 import { Unit, useLocalization } from "cs2/l10n";
+import type { LocStringRenderer, LocalizedStringProps, PropsAreEqual } from "cs2/l10n";
 import { LocalizedNumber, LocalizedString } from "../cs2shim";
 import { BAND } from "../bindings";
 import type { LocEntry } from "../l10n";
@@ -34,11 +35,25 @@ export function Num({ value, unit, signed }: { value: number; unit: Unit; signed
   return <LocalizedNumber value={value} unit={unit} signed={signed} />;
 }
 
-/** A placeholder entry ("... {N} ...") rendered through LocalizedString with its arguments.
- *  The only way to render an entry of HUB_FMT (src/l10n.ts header; gate rule 5). */
-export function LocText({ entry, args }: { entry: LocEntry; args: Record<string, string | JSX.Element> }): JSX.Element {
-  return <LocalizedString id={entry[0]} fallback={entry[1]} args={args} />;
+type LocTextProps = { entry: LocEntry; args: Record<string, string | JSX.Element> };
+
+function stringProps(p: LocTextProps): LocalizedStringProps {
+  return { id: p.entry[0], fallback: p.entry[1], args: p.args };
 }
+
+function LocTextView(p: LocTextProps): JSX.Element {
+  return <LocalizedString {...stringProps(p)} />;
+}
+
+const renderLocText: LocStringRenderer<LocTextProps> = (loc, p) => LocalizedString.renderString(loc, stringProps(p));
+const locTextPropsEqual: PropsAreEqual<LocTextProps> = (a, b) => LocalizedString.propsAreEqual(stringProps(a), stringProps(b));
+
+/** A placeholder entry ("... {N} ...") rendered through LocalizedString with its arguments.
+ *  The only way to render an entry of HUB_FMT (src/l10n.ts header; gate rule 5). It may also be an argument of another LocText:
+ *  the game turns an element argument into text through its type's renderString (index.js renderLocElement), and any other
+ *  component prints "[name/]" (the Guests view showed "Car spaces at [_i/]" for a numbered lodge), so LocText carries
+ *  LocalizedString's renderString and propsAreEqual. */
+export const LocText = Object.assign(LocTextView, { renderString: renderLocText, propsAreEqual: locTextPropsEqual });
 
 /** Join class names, skipping false/undefined (the gate allows only react) */
 export function cx(...names: Array<string | false | null | undefined>): string {

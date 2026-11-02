@@ -95,7 +95,10 @@
  *         LIFT_TYPE_IDS and src/hub/buildItems.ts BUILD_ITEMS / BUILD_GROUPS / BUILD_ITEM_ICON (checkBuildItems).
  *      R17 enum parity: eight TS const objects against their C# enums.
  *      R18 the UI rules self-test (tools/test-hub-rules.js).
- *      `node tools/check-bundle.js --contract-only` runs R1-R7, R10 and R11-R18 plus the source lint without a bundle;
+ *      R19 an element argument of <LocText> / <LocalizedString> (directly, through ?: && || ??, or one same-file variable) is a
+ *         loc component (LOC_ARG_COMPONENTS): the game renders it through its type's renderString and prints "[name/]" for any
+ *         other component (2026-11-02: "Car spaces at [_i/]" while LocText had no renderString).
+ *      `node tools/check-bundle.js --contract-only` runs R1-R7, R10 and R11-R19 plus the source lint without a bundle;
  *      `--hub-cs=`, `--catalog-cs=`, `--locale=`, `--lock=`, `--src=` and `--cs-dir=` point the checks at other files (fault
  *      tests; any override is reported as a WARNING).
  *
@@ -190,6 +193,9 @@ const ENUM_PAIRS = [
   ["SKI_DAY_STATE", "Systems/HubRules.cs", "HubSkiDayState"],
   ["SKI_DAY_LIMIT", "Systems/SkiDayRules.cs", "SkiDayLimit"],
 ];
+/** Rule R19: components the game can render as a placeholder argument (a renderString and a propsAreEqual; LocText carries
+ * LocalizedString's, src/hub/parts.tsx) */
+const LOC_ARG_COMPONENTS = new Set(["LocText", "LocalizedString", "LocalizedNumber", "LocalizedBounds", "LocalizedFraction"]);
 /** Rule R14: JSX props whose string-literal value the player reads */
 const VISIBLE_PROPS = new Set(["label", "tip", "tooltip", "tooltipLabel", "placeholder", "aria-label", "alt", "title", "text", "header"]);
 /** Rule R14: a letter in any script (an untranslated word) */
@@ -1437,7 +1443,7 @@ function checkContract(errors, warnings, report, opts = {}) {
   const fixer = lintFixerRules(ts, parsed, entryMaps, errors);
   report.push(`contract R11-R14: ${fixer.panelRefs} panel-binding reference(s) in ${PANEL_FILES.size} panel file(s); ` +
     `${fixer.hookFns} function(s) hook-order checked; ${fixer.fmtRefs} placeholder-entry reference(s); ` +
-    `${fixer.createCalls} createElement/jsx call(s); ${fixer.visible} visible JSX string(s) checked`);
+    `${fixer.createCalls} createElement/jsx call(s); ${fixer.visible} visible JSX string(s) checked; ${fixer.locArgs} placeholder element argument(s) (R19)`);
 
   const edge = lintPanelEdgeFocus(ts, parsed, errors);
   report.push(`contract R15: ${edge.edges} Panel header/footer slot(s); ${edge.buttons} focusable cs2/ui JSX element(s) ` +
@@ -1488,7 +1494,7 @@ function checkContract(errors, warnings, report, opts = {}) {
  * Returns counters for the report line.
  */
 function lintFixerRules(ts, parsed, entryMaps, errors) {
-  const out = { panelRefs: 0, hookFns: 0, fmtRefs: 0, createCalls: 0, visible: 0, alwaysMountedImports: 0 };
+  const out = { panelRefs: 0, hookFns: 0, fmtRefs: 0, createCalls: 0, visible: 0, alwaysMountedImports: 0, locArgs: 0 };
   const isHookName = (n) => /^use[A-Z0-9]/.test(n);
   const isFn = (n) => ts.isFunctionDeclaration(n) || ts.isFunctionExpression(n) || ts.isArrowFunction(n) ||
     ts.isMethodDeclaration(n) || ts.isGetAccessorDeclaration(n) || ts.isSetAccessorDeclaration(n) || ts.isConstructorDeclaration(n);
@@ -1514,6 +1520,31 @@ function lintFixerRules(ts, parsed, entryMaps, errors) {
     const panelFile = PANEL_FILES.has(relN);
     const isBindings = relN === BINDINGS_TS;
     const isRename = relN === RENAME_FIELD;
+
+    // R19: the JSX elements an argument value can evaluate to: through ?: && || ?? and parentheses, and one step through a
+    // same-file variable of that name (every declaration of the name: conservative). A call result (numArg) is not followed.
+    const declsOf = (name) => {
+      const found = [];
+      const visit = (n) => {
+        if (ts.isVariableDeclaration(n) && ts.isIdentifier(n.name) && n.name.text === name && n.initializer) found.push(n.initializer);
+        ts.forEachChild(n, visit);
+      };
+      visit(sf);
+      return found;
+    };
+    if (relN === "hub/parts.tsx" && !/export const LocText = Object\.assign\(\w+, \{ renderString: \w+, propsAreEqual: \w+ \}\)/.test(sf.text)) {
+      errors.push(`src/hub/parts.tsx: LocText must carry renderString and propsAreEqual (export const LocText = Object.assign(View, { renderString, propsAreEqual })) - R19 lets it be a placeholder argument only because of them (rule R19)`);
+    }
+    const argElements = (v, depth) => {
+      if (!v) return [];
+      if (ts.isJsxSelfClosingElement(v)) return [v];
+      if (ts.isJsxElement(v)) return [v.openingElement];
+      if (ts.isParenthesizedExpression(v)) return argElements(v.expression, depth);
+      if (ts.isConditionalExpression(v)) return [...argElements(v.whenTrue, depth), ...argElements(v.whenFalse, depth)];
+      if (ts.isBinaryExpression(v) && shortCircuit.has(v.operatorToken.kind)) return [...argElements(v.left, depth), ...argElements(v.right, depth)];
+      if (ts.isIdentifier(v) && depth < 1) return declsOf(v.text).flatMap((init) => argElements(init, depth + 1));
+      return [];
+    };
 
     // R12: one pass per function body
     const containsReturn = (node) => {
@@ -1617,6 +1648,25 @@ function lintFixerRules(ts, parsed, entryMaps, errors) {
         const ok = (ts.isPropertyAccessExpression(p) && p.expression === node) || ts.isImportSpecifier(p) || ts.isExportSpecifier(p) ||
           (ts.isVariableDeclaration(p) && p.name === node);
         if (!ok) errors.push(`${at(node)}: the placeholder map ${node.text} is used as a value (aliased or spread) - reference its entries as ${node.text}.x inside <LocText entry={...}> only (rule R13, R5 hardening)`);
+      }
+
+      // R19: an element argument of a placeholder is a loc component
+      if (ts.isJsxAttribute(node) && node.name.getText(sf) === "args" && node.initializer && ts.isJsxExpression(node.initializer)) {
+        const owner = node.parent && node.parent.parent;
+        const tag = owner && (ts.isJsxOpeningElement(owner) || ts.isJsxSelfClosingElement(owner)) ? owner.tagName.getText(sf) : "";
+        const obj = node.initializer.expression;
+        if ((tag === "LocText" || tag === "LocalizedString") && obj && ts.isObjectLiteralExpression(obj)) {
+          for (const prop of obj.properties) {
+            const v = ts.isPropertyAssignment(prop) ? prop.initializer : ts.isShorthandPropertyAssignment(prop) ? prop.name : null;
+            for (const el of argElements(v, 0)) {
+              out.locArgs++;
+              const name = el.tagName.getText(sf);
+              if (!LOC_ARG_COMPONENTS.has(name)) {
+                errors.push(`${at(el)}: <${name}> is an argument of <${tag}> at ${at(node)} - the game turns an element argument into text through its type's renderString and prints "[${name}/]" for anything else; pass a string or one of ${[...LOC_ARG_COMPONENTS].join(", ")} (rule R19)`);
+              }
+            }
+          }
+        }
       }
 
       // R14: untranslated text

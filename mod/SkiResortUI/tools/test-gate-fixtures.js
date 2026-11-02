@@ -6,6 +6,7 @@
 *   R1   a constructed binding that is never passed to AddBinding( (drop `AddBinding(m_History);`)
 *   R2   a Write(...) of the wrong value kind (a bool written for RunRow.kind, a number)
 *   R11  an always-mounted file (hub/HubRoot.tsx) importing a panel component (StatusBlock)
+*   R19  a plain element (<span>) as a LocText argument through a variable (the Guests view lodge name)
 * Nothing under mod/ or src/ is edited: the faults live only in the temp copies.
 * Usage: node tools/test-gate-fixtures.js      -> `test-gate-fixtures: N fixture(s), failures=0` (exit 0)
 */
@@ -82,6 +83,11 @@ function main() {
     fs.writeFileSync(root, 'import { StatusBlock } from "./StatusBlock";\n' + fs.readFileSync(root, "utf8"));
     const r3 = runGate(f3.cs, f3.src);
     expect(r3.code !== 0 && /always-mounted src\/hub\/HubRoot\.tsx imports from the panel file src\/hub\/StatusBlock\.tsx/.test(r3.text), `R11 fixture did not fail with the always-mounted import message (exit ${r3.code})`);
+
+    const f4 = fresh("r19");
+    edit(path.join(f4.src, "hub", "GuestsView.tsx"), "            : t(tier);", "            : <span>{t(tier)}</span>;");
+    const r4 = runGate(f4.cs, f4.src);
+    expect(r4.code !== 0 && /<span> is an argument of <LocText> .*rule R19/.test(r4.text), `R19 fixture did not fail with the loc-argument message (exit ${r4.code})`);
   } finally {
     try { fs.rmSync(tmp, { recursive: true, force: true }); } catch { /* temp dir: leave it */ }
   }
