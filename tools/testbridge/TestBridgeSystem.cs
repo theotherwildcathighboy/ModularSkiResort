@@ -114,6 +114,7 @@ namespace SkiTestBridge
                 case "autosave": return SetAutoSave(args);
                 case "u1probe": return U1ProbeCommand(args);
                 case "bone": return BoneCommand(args);
+                case "trains": return TrainsCommand(args);
                 default: throw new ArgumentException($"unknown op '{op}'");
             }
         }

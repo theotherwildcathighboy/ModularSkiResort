@@ -83,6 +83,7 @@ Every reply is a JSON string with `ok`, and `error` when `ok` is false.
 | `autosave` | optional `on` | switches the autosave system for this run of the game, so a test on a save does not prune real autosaves |
 | `u1probe` | `on`, `prefab` (a line prefab), `tilt` (deg), `frames` (log lines) | lift alignment risk U1: tilts the towers of that line when they update, at Modification3 and again after AlignSystem, and logs `[U1]` lines (Align reset, lane ends vs the tilted anchors, the tilt at +1 / +2 / +30 / +300 frames). Turn it off after the test: it tilts every tower of the prefab that updates |
 | `bone` | `id`, optional `mesh` (sub-mesh index), `bone`, `rotX`, `rotY` (deg) | lists a skinned object's bones (type, rest and current pose); with `bone` and a rotation it writes that bone as rest x RotateY x RotateX and flags the skeleton for upload, as our own bone writers will. Bones exist only near the camera |
+| `trains` | `x`, `z`, optional `r` (default 400), `maxDeg` | gate G8 of the pitched sheave trains: per line tower with a `Train` bone near (x, z), the pitch the bone shows (relative to rest, nose up along +z; null when far from the camera) against the analytic hanging-lane end slopes of the rope lanes on its anchors, and the worst difference |
 | `seq` | `steps` | starts a sequence |
 | `seqStatus` | | `done`, `step`, `error`, `results` |
 | `abort` | | stops the sequence and releases all held input |
