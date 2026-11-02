@@ -45,6 +45,7 @@ namespace SkiResortMod.Systems
         private LiftTowerFitSystem m_TowerFit;     // fits new / changed lines (writes at Modification1 of a later frame)
         private LiftTowerDiagSystem m_TowerDiag;   // read-only tower log; fed after each build, printed on DumpCensus
         private TowerNumberTileSystem m_TowerNumbers;   // per-tower number tiles; fed after each build, reconciled once quiet
+        private TrainPitchSystem m_TrainPitch;          // line towers' sheave train pitch (lift alignment Phase 2); fed after each build
 
         private EntityQuery m_EdgeProbe, m_NodeProbe, m_StationProbe, m_DeletedObjectProbe, m_DeletedLaneProbe;
         private EntityQuery m_EdgeQuery, m_StationQuery;
@@ -564,6 +565,7 @@ namespace SkiResortMod.Systems
             m_TowerDiag = World.GetOrCreateSystemManaged<LiftTowerDiagSystem>();
             m_TowerFit = World.GetOrCreateSystemManaged<LiftTowerFitSystem>();
             m_TowerNumbers = World.GetOrCreateSystemManaged<TowerNumberTileSystem>();
+            m_TrainPitch = World.GetOrCreateSystemManaged<TrainPitchSystem>();
             // The guard's clock: the simulation frame (SimulationSystem.cs:68)
             m_Simulation = World.GetOrCreateSystemManaged<Game.Simulation.SimulationSystem>();
 
@@ -1070,6 +1072,8 @@ namespace SkiResortMod.Systems
             m_TowerFit?.OnCensusBuilt(m_Edges);
             // The same edges to TowerNumberTileSystem; it renumbers and reconciles the tower number tiles once quiet
             m_TowerNumbers?.OnCensusBuilt(m_Edges);
+            // The same edges to TrainPitchSystem; it pitches the rigged towers' trains to their rope lanes
+            m_TrainPitch?.OnCensusBuilt(m_Edges);
         }
 
         private void Harvest()

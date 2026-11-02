@@ -69,6 +69,34 @@ namespace SkiResortMod.Systems
             return math.mul(yaw, quaternion.RotateX(-sign * pitchTowardNext));
         }
 
+        /// <summary>Pitch, radians, nose up along a tower's +z (<paramref name="forward"/>), that one rope lane end shows: the lane leaves
+        /// its anchor <paramref name="end"/> toward its next control point <paramref name="inner"/> (b for end a, c for end d; the end
+        /// tangent's direction). A lane on the +z side climbing away gives +, one on the -z side climbing away gives - (the rope comes down
+        /// toward +z there). The mean over a tower's lane ends is TrainPitch's bisector on the engine's own curves.</summary>
+        public static float LaneEndPitch(float3 end, float3 inner, float3 forward)
+        {
+            float3 t = inner - end;
+            float l = math.length(t.xz);
+            if (l < 1e-4f)
+                return 0f;
+            float side = math.dot(t.xz, forward.xz) >= 0f ? 1f : -1f;
+            return side * math.atan2(t.y, l);
+        }
+
+        /// <summary>The steepest rope a lift type allows, radians: atan of its envelope's SlopeMax (FG 38.7, DQ 42.0, GD 50.2 deg), the
+        /// trains' pitch limit and the G6 sweep of the tower art.</summary>
+        public static float MaxTrainPitch(float slopeMax)
+        {
+            return math.atan(slopeMax);
+        }
+
+        /// <summary>The Train bone's local rotation for a pitch nose up along the tower's +z: its rest rotation turned about the bone's own
+        /// x (nose up along +z is RotateX(-a), see PitchedRotation). The bone's origin is on the rope axis, so the rope points stay.</summary>
+        public static quaternion TrainBoneRotation(quaternion rest, float pitch)
+        {
+            return math.mul(rest, quaternion.RotateX(-pitch));
+        }
+
         /// <summary>Where a point fixed on a pitched object lands: <paramref name="pivotWorld"/> is the pin the object turns about (world),
         /// <paramref name="local"/> the point in the object's frame relative to that pin.</summary>
         public static float3 AboutPin(float3 pivotWorld, quaternion rotation, float3 local)

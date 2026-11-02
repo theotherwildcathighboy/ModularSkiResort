@@ -1,5 +1,5 @@
 // Lift alignment (docs: lift-alignment-2026-11-02, gates G1 / G2): LiftMoverMath.CarrierDrop and LiftAlignMath. Where-tags `align/...`,
-// AL-1..AL-8.
+// AL-1..AL-9.
 // Pinned: every carrier drops by its grip top minus the jaw's rope point (F5, the rope-point pin); the plan bend is the turn angle;
 // a train on a uniform slope pitches to exactly that slope, at a bend or a sag break it takes the bisector of the arriving and leaving
 // rope, clamped; the pitch sign follows the node's facing, so the train is nose up toward the higher neighbor either way; re-running
@@ -28,6 +28,7 @@ namespace LiftBatch
             Al6FacingSign();
             Al7Idempotent();
             Al8Station();
+            Al9LaneEnds();
         }
 
         private static bool Check(bool cond, string where, string msg) => s_Check(cond, where, msg);
@@ -150,6 +151,34 @@ namespace LiftBatch
             float sag = math.degrees(LiftAlignMath.StationTrainPitch(s, l, 0.004f, 1.4f));
             Check(sag < th && math.abs(math.tan(math.radians(sag)) - (math.tan(math.radians(20f)) - 0.016f)) < 1e-4f, "align/AL-8",
                   "station pitch with sag " + F(sag) + " is not the leaving slope (chord - 4h)");
+        }
+
+        // ── AL-9: Phase 2 trains: the mean of a tower's four rope lane ends is the bisector, either facing; the bone noses up ──
+        private static void Al9LaneEnds()
+        {
+            float h = 0.004f;
+            float3 p = new float3(0f, 0f, -200f), q = new float3(0f, 200f * math.tan(math.radians(20f)), 0f);
+            float3 r = new float3(0f, q.y + 200f * math.tan(math.radians(25f)), 200f);
+            float want = LiftAlignMath.TrainPitch(p, q, r, h, 1.4f);
+            foreach (float yawDeg in new[] { 0f, 180f })
+            {
+                float3 fwd = math.mul(quaternion.RotateY(math.radians(yawDeg)), new float3(0f, 0f, 1f));
+                float sum = 0f;
+                foreach (float x in new[] { -2f, 2f })
+                {
+                    float3 o = new float3(x, 0f, 0f);
+                    // arriving span p..q ends at q (end d, inner c); leaving span q..r starts at q (end a, inner b)
+                    float3 c = math.lerp(p, q, 2f / 3f) - new float3(0f, 200f * h * 4f / 3f, 0f);
+                    float3 b = math.lerp(q, r, 1f / 3f) - new float3(0f, 200f * h * 4f / 3f, 0f);
+                    sum += LiftAlignMath.LaneEndPitch(q + o, c + o, fwd) + LiftAlignMath.LaneEndPitch(q + o, b + o, fwd);
+                }
+                float got = sum / 4f * (yawDeg == 0f ? 1f : -1f);
+                Check(math.abs(got - want) < 1e-4f, "align/AL-9 yaw " + yawDeg, "lane-end mean " + F(math.degrees(got)) +
+                      " is not the bisector " + F(math.degrees(want)));
+            }
+            float3 nose = math.mul(LiftAlignMath.TrainBoneRotation(quaternion.identity, math.radians(30f)), new float3(0f, 0f, 1f));
+            Check(math.abs(nose.y - 0.5f) < 1e-5f && nose.z > 0f, "align/AL-9", "bone at +30 deg points " + nose + ", not nose up");
+            Check(math.abs(math.degrees(LiftAlignMath.MaxTrainPitch(0.8f)) - 38.66f) < 0.01f, "align/AL-9", "FG limit is not atan 0.8");
         }
     }
 }

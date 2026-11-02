@@ -315,6 +315,12 @@ namespace SkiResortMod
             // Created tile into its tower's SubObject buffer (SystemOrder.cs:206). Writes nothing while the SkiNumTile prefabs are not loaded.
             updateSystem.UpdateAfter<TowerNumberTileSystem, LiftCensusSystem>(SystemUpdatePhase.Modification4B);
 
+            // Sheave train pitch (lift alignment Phase 2). AFTER the census at 4B so the rope lanes LaneSystem built at Modification4 are
+            // this frame's; the phase must stay Modification4B or the anchor is skipped. The bone writer runs at Rendering right AFTER
+            // InitializeBonesSystem, which (re)allocates skeletons at rest, and before ProceduralUploadSystem uploads them (SystemOrder.cs:653, :689).
+            updateSystem.UpdateAfter<TrainPitchSystem, LiftCensusSystem>(SystemUpdatePhase.Modification4B);
+            updateSystem.UpdateAfter<TrainBoneSystem, Game.Rendering.InitializeBonesSystem>(SystemUpdatePhase.Rendering);
+
             // Read-only overlay of the planned towers and rope. Before OverlayRenderSystem (same reason as the piste map below).
             // Gated by the LiftBuildAids setting inside the system.
             updateSystem.UpdateBefore<LiftTowerPlanOverlaySystem, Game.Rendering.OverlayRenderSystem>(SystemUpdatePhase.Rendering);
