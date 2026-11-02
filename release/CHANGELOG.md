@@ -50,7 +50,7 @@ First public release. Draft notes (check against the build at upload):
 - Snow-depth run system: runs open at 3 ft (91 cm) on 60 percent of the run, snow guns on snowmaking and night runs
   (two months before winter to one month after), powder days, seasons.
 - Snow guns, hydrants and floodlights stand at a set distance along a run's edge, however its outline was drawn, with two values per run in the
-  Runs view. Cat tracks carry guns and hydrants on one side, and pay snowmaking upkeep by plan area while their guns can run, none with the gun value at Off.
+  Runs view. Cat tracks carry guns and hydrants on one side, and pay snowmaking upkeep by plan area while their guns can run; with the gun value at Off, none, and they open on natural snow only.
 - Welcome Sign (set back 8 m from the road on a leveled lot), five lodges, Ski School, two patrol
   buildings.
 - Ski Bus Depot: a coach stop in town for the nearest ski area, at any distance. A home closer to it than to a lodge starts

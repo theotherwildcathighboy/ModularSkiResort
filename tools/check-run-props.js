@@ -1,8 +1,9 @@
 // Gate: the run prop placer's rules a text check can hold (lessons of the 2026-11-01 placer round).
 //  R1 consumers read the tag: plume and night light select SkiRunPropMember and never Secondary, because a placed prop has no owner and an old
 //     corner prop is gone after the load sweep. Only the sweep may name Secondary.
-//  R2 look only: nothing that decides snow or upkeep reads a spacing, with one exception (DECISIONS 563): a cat track set to Off
-//     bills nothing. The bill reads that switch only through SkiRunPropSystem.CatTrackGunsOn, and every TrackBilledHa call passes it.
+//  R2 look only: nothing that decides snow or upkeep reads a spacing, with two exceptions for a cat track set to Off: it bills nothing
+//     (DECISIONS 563) and opens on natural snow only (DECISIONS 568). Both read that switch only through SkiRunPropSystem.CatTrackGunsOn:
+//     every TrackBilledHa call passes it, and the injection reads it once, in GetRunSnow, for a cat track.
 //  R3 the old Options sliders stay gone, also from the locale template.
 //  R4 the table's weights equal the prefabs' m_Probability (the mix must not drift from the assets), and the empty marker is not placed.
 //  R5 the hub's slider constants equal the rules class.
@@ -58,6 +59,11 @@ for (const f of ["SkiRunUpkeepSystem.cs", "SkiResortStatsSystem.cs"]) {
 const stats = code(read(systems, "SkiResortStatsSystem.cs"));
 need(stats.includes("trackGunsOn = catTrack && m_RunProps.CatTrackGunsOn(row.Entity)") && stats.includes("if (trackGunsOn && m_Injection.CatTrackGunsCanRun("),
      "R2 SkiResortStatsSystem.cs: the hub's track cost row is not gated by CatTrackGunsOn");
+// The second exception: the injection asks the switch once, inside GetRunSnow, for a cat track only, and passes it to the threshold.
+const injection = code(read(systems, "SkiSnowInjectionSystem.cs"));
+const getRunSnow = body(injection, "internal RunSnow GetRunSnow(") || "";
+need(injection.split("CatTrackGunsOn(").length === 2 && getRunSnow.includes("kind != RunKind.CatTrack || m_RunProps.CatTrackGunsOn(run)"),
+     "R2 SkiSnowInjectionSystem.cs: the cat track gun switch must be read once, in GetRunSnow, for a cat track only (DECISIONS 568)");
 const onBody = body(placer, "internal bool CatTrackGunsOn(") || "";
 need(onBody.includes("m_GunSpacingM") && !onBody.includes("m_LightSpacingM"), "R2 CatTrackGunsOn: must read the gun value only");
 
@@ -114,4 +120,4 @@ if (failures.length) {
   console.error("check-run-props: FAIL\n  " + failures.join("\n  "));
   process.exit(1);
 }
-console.log(`check-run-props: PASS (${props.length} table rows against the prefabs, 8 rules; cat track Off bills nothing)`);
+console.log(`check-run-props: PASS (${props.length} table rows against the prefabs, 8 rules; cat track Off bills nothing and opens on natural snow)`);

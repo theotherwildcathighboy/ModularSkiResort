@@ -57,7 +57,7 @@ and the `PrefabBase` objects are not touched. Groomed and natural runs and cat t
 
 The hub's rows call `SetSpacing` from UIUpdate: a component write and a dirty mark, nothing structural (`tools/check-run-props.js`).
 
-Lit: no lit state exists on a run. On a cat track lit means its lights slider is above Off, default Off. Unbilled: sliders never touch upkeep.
+Lit: no lit state exists on a run. On a cat track lit means its lights slider is above Off, default Off. Unbilled: sliders never touch upkeep, except a cat track's gun value at Off (no bill, DECISIONS 563; opens on natural snow only, DECISIONS 568; both through `CatTrackGunsOn`).
 
 Prefabs resolve by name (`PrefabID("StaticObjectPrefab", name)`), not through a run's sub-object list, so a cat track needs no `AreaSubObjects`.
 

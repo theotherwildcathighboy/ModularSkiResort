@@ -423,6 +423,26 @@ namespace ResortBatch
             float groomed = RunSnowRules.EstimatedShare(1000f, 1300f, 2f, RunSnowRules.ThresholdC(RunKind.Groomed, 0f, 3.3f), 1000f, 0.0065f);
             Check(cat >= 1f && RunSnowRules.OpenMultiplier(cat) == 1f, W, "at +2 C the cat track estimate is fully open (share " + cat + ")");
             Check(groomed <= 0f && RunSnowRules.OpenMultiplier(groomed) == 0f, W, "at +2 C a groomed run's estimate is closed (share " + groomed + ")");
+
+            // Guns Off (DECISIONS 568): a cat track opens on natural snow only, the natural threshold (freezing). Guns on: as above.
+            Check(RunSnowRules.ThresholdC(RunKind.CatTrack, 0f, 3.3f, true) == 3.3f, W, "guns on: freezing + the gun margin, as before");
+            Check(RunSnowRules.ThresholdC(RunKind.CatTrack, 0f, 3.3f, false) == 0f, W, "guns Off: the natural threshold, freezing");
+            Check(RunSnowRules.ThresholdC(RunKind.CatTrack, -1f, 2f, false) == RunSnowRules.ThresholdC(RunKind.Natural, -1f, 2f), W,
+                  "guns Off equals a natural run's threshold");
+            foreach (RunKind k in new[] { RunKind.Natural, RunKind.Groomed, RunKind.Snowmaking, RunKind.Night })
+                Check(RunSnowRules.ThresholdC(k, 0f, 3.3f, false) == RunSnowRules.ThresholdC(k, 0f, 3.3f) &&
+                      RunSnowRules.ThresholdC(k, 0f, 3.3f, true) == RunSnowRules.ThresholdC(k, 0f, 3.3f), W,
+                      k + ": the gun switch changes nothing (it is a cat track's only)");
+            // At +2 C day mean (between freezing and freezing + margin): guns on open, guns Off closed. At -5 C: open either way (natural snow).
+            float on = RunSnowRules.EstimatedShare(1000f, 1300f, 2f, RunSnowRules.ThresholdC(RunKind.CatTrack, 0f, 3.3f, true), 1000f, 0.0065f);
+            float off = RunSnowRules.EstimatedShare(1000f, 1300f, 2f, RunSnowRules.ThresholdC(RunKind.CatTrack, 0f, 3.3f, false), 1000f, 0.0065f);
+            float offCold = RunSnowRules.EstimatedShare(1000f, 1300f, -5f, RunSnowRules.ThresholdC(RunKind.CatTrack, 0f, 3.3f, false), 1000f, 0.0065f);
+            Check(RunSnowRules.OpenMultiplier(on) == 1f && RunSnowRules.NextState(RunSnowState.Unknown, on) == RunSnowState.Open, W,
+                  "+2 C, guns on: open (share " + on + ")");
+            Check(RunSnowRules.OpenMultiplier(off) == 0f && RunSnowRules.NextState(RunSnowState.Unknown, off) == RunSnowState.Closed, W,
+                  "+2 C, guns Off: closed, no natural snow (share " + off + ")");
+            Check(RunSnowRules.OpenMultiplier(offCold) == 1f && RunSnowRules.NextState(RunSnowState.Unknown, offCold) == RunSnowState.Open, W,
+                  "-5 C, guns Off: open on natural snow (share " + offCold + ")");
         }
 
         // Guns and hydrants, masts only when lit (the full table: DensityTests; the walk: PlacerTests). Names read through ClassOf as the load sweep does.

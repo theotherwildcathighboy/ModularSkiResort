@@ -31,7 +31,7 @@ deletes it. Plume, night light, prop snow and the census read this tag and never
 ## SkiRunPropSettings (13 bytes)
 
 On the run: `m_GunSpacingM`, `m_LightSpacingM` (0 = off, else `RunPropPlacerRules.SpacingMinM`..`SpacingMaxM`) and `m_AppliedKey`, the `RingKey` of what stands. The placer writes the key last
-in a rebuild, so a save taken mid-rebuild keeps the old key and the next load finishes the job. Look only: snow never reads it; upkeep reads only a cat track's gun value (Off = no snowmaking bill, `SkiRunPropSystem.CatTrackGunsOn`, DECISIONS 563).
+in a rebuild, so a save taken mid-rebuild keeps the old key and the next load finishes the job. Look only, except a cat track's gun value, read only through `SkiRunPropSystem.CatTrackGunsOn`: Off = no snowmaking bill (upkeep and the hub's cost row, DECISIONS 563) and an open state on natural snow only (`SkiSnowInjectionSystem.GetRunSnow` passes it to `RunSnowRules.ThresholdC`, the natural threshold, DECISIONS 568).
 
 ## The delete cascade
 

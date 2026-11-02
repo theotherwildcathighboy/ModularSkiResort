@@ -718,6 +718,7 @@ namespace SkiResortMod.Systems
         private SnowLineSystem m_SnowLineSystem;   // validated climate oracle (pull-based)
         private PrefabSystem m_PrefabSystem;
         private SkiRunOwnershipSystem m_Ownership; // the bound test (IsRunBound)
+        private SkiRunPropSystem m_RunProps;       // a cat track's gun switch (CatTrackGunsOn): Off opens on natural snow only (GetRunSnow)
 
         private EntityQuery m_RunScanQuery;        // live run polygons (prefab-filtered)
         private EntityQuery m_PrefabScanQuery;     // name-resolution fallback
@@ -1050,9 +1051,10 @@ namespace SkiResortMod.Systems
         /// (≤ 2 per wall-clock second) plus one per gating flip.</summary>
         internal int RunSnowGeneration => m_RunSnowGeneration;
 
-        /// <summary>The read for score, stats, overlay and hub: the table entry if the run is scheduled, else an on-the-spot estimate from
-        /// the caller's heights (Geometry.m_Bounds y) and kind. Gating off: Source GatingOff, State Open, Multiplier 1 (Share and depth are
-        /// still the measured or estimated values, for display). Always answers.</summary>
+        /// <summary>The read for score, stats, overlay, groomer and hub: the table entry if the run is scheduled, else an on-the-spot estimate
+        /// from the caller's heights (Geometry.m_Bounds y) and kind. A cat track (never in the table) with its snow guns Off opens on natural
+        /// snow only: the estimate with the natural threshold (DECISIONS 568). Gating off: Source GatingOff, State Open, Multiplier 1 (Share
+        /// and depth are still the measured or estimated values, for display). Always answers.</summary>
         internal RunSnow GetRunSnow(Entity run, RunKind kind, float bottomY, float topY)
         {
             if (!m_RunSnow.TryGetValue(run, out RunSnow s))
@@ -1060,7 +1062,8 @@ namespace SkiResortMod.Systems
                 // not in the table (injection disabled or not armed, run unbound or off the map,
                 // no pass yet) → the day-mean estimate with the kind's own threshold. No history: the
                 // first label uses the midpoint, the multiplier is published as is.
-                float share = EstimateShare(kind, bottomY, topY);
+                bool catTrackGunsOn = kind != RunKind.CatTrack || m_RunProps.CatTrackGunsOn(run);
+                float share = EstimateShare(kind, bottomY, topY, catTrackGunsOn);
                 s = new RunSnow
                 {
                     Kind = kind,
@@ -1165,6 +1168,7 @@ namespace SkiResortMod.Systems
             m_SnowLineSystem = World.GetOrCreateSystemManaged<SnowLineSystem>();
             m_PrefabSystem = World.GetOrCreateSystemManaged<PrefabSystem>();
             m_Ownership = World.GetOrCreateSystemManaged<SkiRunOwnershipSystem>();
+            m_RunProps = World.GetOrCreateSystemManaged<SkiRunPropSystem>();
             m_ClimateSystem = World.GetOrCreateSystemManaged<ClimateSystem>();       // the season's name
             m_PlanetarySystem = World.GetOrCreateSystemManaged<PlanetarySystem>();   // the latitude's sign
 
@@ -2134,14 +2138,15 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>The day-mean estimate with the kind's own threshold (snowmaking / night: freezing + the margin; groomed: freezing;
-        /// natural: freezing), for a run not in the table.</summary>
-        private float EstimateShare(RunKind kind, float bottomY, float topY)
+        /// <summary>The day-mean estimate with the kind's own threshold (snowmaking / night / cat track: freezing + the margin; groomed:
+        /// freezing; natural: freezing), for a run not in the table. A cat track whose guns are Off (<paramref name="catTrackGunsOn"/> false)
+        /// takes the natural threshold (DECISIONS 568); CatTrackGunsCanRun asks with the guns on, as the guns' own reach.</summary>
+        private float EstimateShare(RunKind kind, float bottomY, float topY, bool catTrackGunsOn = true)
         {
             float freezing = m_SnowLineSystem.GetFreezingTemperature();
             float margin = m_SnowLineSystem.GetSnowmakingMarginC();
             return RunSnowRules.EstimatedShare(bottomY, topY, m_SnowLineSystem.GetDayMeanTemperature(),
-                RunSnowRules.ThresholdC(kind, freezing, margin), m_SnowLineSystem.GetBaseHeight(),
+                RunSnowRules.ThresholdC(kind, freezing, margin, catTrackGunsOn), m_SnowLineSystem.GetBaseHeight(),
                 m_SnowLineSystem.GetLapsePerM());
         }
 
@@ -3045,7 +3050,8 @@ namespace SkiResortMod.Systems
                             // active texels, no bill.
                             // The cat track (SkiRunCatTrackA, RunKind.CatTrack) is in none of the four sets, so it lands on this `continue`: no injection, no
                             // measurement, no bill from a mask (SkiRunUpkeepSystem bills its plan area while CatTrackGunsCanRun). A 6-12 m ribbon cannot be measured
-                            // on the 14 m texel grid; GetRunSnow answers it by the day-mean estimate (RunSnowRules.ThresholdC gives it freezing + the gun margin).
+                            // on the 14 m texel grid; GetRunSnow answers it by the day-mean estimate (RunSnowRules.ThresholdC gives it freezing + the gun margin,
+                            // or freezing alone while its guns are Off, DECISIONS 568).
                             // Do not add its name to a set here.
                             if (!m_NaturalPrefabs.Contains(prefabRefs[i].m_Prefab))
                                 continue;

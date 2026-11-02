@@ -156,13 +156,23 @@ namespace SkiResortMod.Systems
             {
                 case RunKind.Snowmaking:
                 case RunKind.Night:
-                case RunKind.CatTrack:  // no injection: opens by the day-mean estimate with the gun margin
+                case RunKind.CatTrack:  // no injection: opens by the day-mean estimate with the gun margin (guns Off: the overload below)
                     return freezingC + snowmakingMarginC;
                 case RunKind.Groomed:
                     return freezingC + GroomedMarginC;
                 default:
                     return freezingC;
             }
+        }
+
+        /// <summary>The threshold of a run's open estimate with the cat track's gun switch: a cat track whose snow guns are Off (gun value at
+        /// Off, SkiRunPropSystem.CatTrackGunsOn) opens on natural snow only, so it takes the natural threshold, freezing (2026-11-02, owner
+        /// decision, DECISIONS 568). Guns on, and every other kind: <see cref="ThresholdC(RunKind, float, float)"/>.</summary>
+        public static float ThresholdC(RunKind kind, float freezingC, float snowmakingMarginC, bool catTrackGunsOn)
+        {
+            if (kind == RunKind.CatTrack && !catTrackGunsOn)
+                return ThresholdC(RunKind.Natural, freezingC, snowmakingMarginC);
+            return ThresholdC(kind, freezingC, snowmakingMarginC);
         }
 
         /// <summary>The slider value clamped to 0..6 °C. NaN (a hand-edited options file) → the default.</summary>
