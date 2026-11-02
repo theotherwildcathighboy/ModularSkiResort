@@ -993,7 +993,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.MONEY_ROW[Lessons]", "Lessons · {N}" },
                 { "SkiResort.Hub.MONEY_TIP[Lessons]", "Booked this month so far, one lesson per guest. Share and price: Options > Modular Ski Resort > Main > Ski area balance." },
                 { "SkiResort.Hub.MONEY_TIP[PassesPre]", "The one sale before the season opens. Part of the season's sales; in the net in the month it sold." },
-                { "SkiResort.Hub.MONEY_ROW[CityIncome]", "City tourist income ≈" },
+                { "SkiResort.Hub.MONEY_ROW[CityIncome]", "City tourist income" },
                 { "SkiResort.Hub.MONEY_TIP[CityIncome]", "Estimate: this ski area's share of the city's tourist draw × the game's tourist income. City income, outside the net." },
                 { "SkiResort.Hub.GUESTS_ROW[Lessons]", "Lessons" },
                 { "SkiResort.Hub.GUESTS_TIP[Lessons]", "Guests who took a lesson, one each." },
