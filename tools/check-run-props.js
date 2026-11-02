@@ -1,7 +1,8 @@
 // Gate: the run prop placer's rules a text check can hold (lessons of the 2026-11-01 placer round).
 //  R1 consumers read the tag: plume and night light select SkiRunPropMember and never Secondary, because a placed prop has no owner and an old
 //     corner prop is gone after the load sweep. Only the sweep may name Secondary.
-//  R2 look only: nothing that decides snow or upkeep reads a spacing.
+//  R2 look only: nothing that decides snow or upkeep reads a spacing, with one exception (DECISIONS 563): a cat track set to Off
+//     bills nothing. The bill reads that switch only through SkiRunPropSystem.CatTrackGunsOn, and every TrackBilledHa call passes it.
 //  R3 the old Options sliders stay gone, also from the locale template.
 //  R4 the table's weights equal the prefabs' m_Probability (the mix must not drift from the assets), and the empty marker is not placed.
 //  R5 the hub's slider constants equal the rules class.
@@ -31,10 +32,34 @@ need(code(placer).split("Game.Objects.Secondary").length === 2, "R1 SkiRunPropSy
 need(!/\bSecondary\b/.test(code(read(systems, "SkiRunPropSystem.cs"))), "R1 SkiRunPropSystem.cs: reads Secondary (the census counts the tag)");
 
 // R2
+const body = (text, signature) => {
+  const at = text.indexOf(signature);
+  if (at < 0) return null;
+  const open = text.indexOf("{", at);
+  let depth = 0;
+  for (let i = open; i < text.length; i++) {
+    if (text[i] === "{") depth++;
+    if (text[i] === "}" && --depth === 0) return text.slice(open, i + 1);
+  }
+  return null;
+};
 for (const f of ["SkiRunUpkeepSystem.cs", "SkiSnowInjectionSystem.cs", "RunSnowRules.cs", "SnowGunPlumeRules.cs"]) {
   const c = code(read(systems, f));
   need(!/SkiRunPropSettings|TryGetSpacing|GunSpacing|LightSpacing|RunPropPlacerRules/.test(c), `R2 ${f}: reads a prop spacing (sliders are look only)`);
 }
+// The one exception: every TrackBilledHa call passes the cat track gun switch (upkeep: CatTrackGunsOn in the call; the hub's cost row:
+// the call sits behind `trackGunsOn &&`), and CatTrackGunsOn reads the gun value only.
+for (const f of ["SkiRunUpkeepSystem.cs", "SkiResortStatsSystem.cs"]) {
+  const c = code(read(systems, f));
+  const parts = c.split("TrackBilledHa(").slice(1);
+  const gated = parts.filter((p) => p.slice(0, p.indexOf(";")).includes("CatTrackGunsOn(") || p.startsWith("row.AreaM2, true, true)")).length;
+  need(parts.length > 0 && parts.length === gated, `R2 ${f}: ${parts.length - gated} of ${parts.length} TrackBilledHa call(s) do not pass the cat track gun switch (CatTrackGunsOn)`);
+}
+const stats = code(read(systems, "SkiResortStatsSystem.cs"));
+need(stats.includes("trackGunsOn = catTrack && m_RunProps.CatTrackGunsOn(row.Entity)") && stats.includes("if (trackGunsOn && m_Injection.CatTrackGunsCanRun("),
+     "R2 SkiResortStatsSystem.cs: the hub's track cost row is not gated by CatTrackGunsOn");
+const onBody = body(placer, "internal bool CatTrackGunsOn(") || "";
+need(onBody.includes("m_GunSpacingM") && !onBody.includes("m_LightSpacingM"), "R2 CatTrackGunsOn: must read the gun value only");
 
 // R3
 for (const p of [["mod", "SkiResortMod", "Settings", "SkiResortSettings.cs"], ["mod", "SkiResortMod", "Settings", "LocaleEN.cs"], ["locale", "en-US.json"]]) {
@@ -62,17 +87,6 @@ for (const [a, b] of [["SpacingOff", "RUN_PROP_SPACING_OFF"], ["SpacingMinM", "R
 }
 
 // R6
-const body = (text, signature) => {
-  const at = text.indexOf(signature);
-  if (at < 0) return null;
-  const open = text.indexOf("{", at);
-  let depth = 0;
-  for (let i = open; i < text.length; i++) {
-    if (text[i] === "{") depth++;
-    if (text[i] === "}" && --depth === 0) return text.slice(open, i + 1);
-  }
-  return null;
-};
 const banned = /AddComponent|RemoveComponent|DestroyEntity|CreateEntity|DeleteLikeBulldozer|DeleteMembersWhere/;
 const setSpacing = body(placer, "internal bool SetSpacing(");
 need(setSpacing && !banned.test(setSpacing), "R6 SetSpacing: only a component write may run from the hub's phase");
@@ -100,4 +114,4 @@ if (failures.length) {
   console.error("check-run-props: FAIL\n  " + failures.join("\n  "));
   process.exit(1);
 }
-console.log(`check-run-props: PASS (${props.length} table rows against the prefabs, 8 rules)`);
+console.log(`check-run-props: PASS (${props.length} table rows against the prefabs, 8 rules; cat track Off bills nothing)`);

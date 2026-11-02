@@ -1335,15 +1335,17 @@ namespace SkiResortMod.Systems
                 // A cat track counts minimally (2026-10-24, RunKindRules): a member (RunsOpen / RunsPartly / RunValueFull / Status) and a RunIn
                 // (Runs, Rated, the difficulty bar, length, area), but never injected: no snow aggregate, no TopM, and NaN heights in its RunIn so the
                 // hub's vertical stays the score's (SkiResortScore keeps it out of the vertical too). It follows the snowmaking rules otherwise: while its
-                // guns can run it bills its plan area at the snowmaking rate, the same number SkiRunUpkeepSystem charges.
+                // guns can run it bills its plan area at the snowmaking rate, the same number SkiRunUpkeepSystem charges; a track whose gun value is
+                // Off has no guns: no bill, no gun line (DECISIONS 563).
                 bool catTrack = row.Kind == (int)RunKind.CatTrack;
+                bool trackGunsOn = catTrack && m_RunProps.CatTrackGunsOn(row.Entity);
                 if (bound && catTrack)
                 {
                     snow = m_Injection.GetRunSnow(row.Entity, (RunKind)row.Kind, row.NodeBottomM, row.NodeTopM);   // the estimate: never injected
-                    if (m_Injection.CatTrackGunsCanRun(row.Entity, row.NodeBottomM, row.NodeTopM))
+                    if (trackGunsOn && m_Injection.CatTrackGunsCanRun(row.Entity, row.NodeBottomM, row.NodeTopM))
                     {
                         ref AreaWork work = ref m_Work[resort];
-                        ha = SnowGunPlumeRules.TrackBilledHa(row.AreaM2, true);
+                        ha = SnowGunPlumeRules.TrackBilledHa(row.AreaM2, true, true);
                         cost = ha * SkiRunUpkeepSystem.CostPerHaMonth(RunKind.CatTrack);
                         work.AnyGunOn = true;
                         work.HaSnowmaking += ha;
@@ -1463,8 +1465,8 @@ namespace SkiResortMod.Systems
                     ValueNow = member ? (float)part.Value : 0f,
                     CostMonth = (int)Math.Round(cost, MidpointRounding.AwayFromZero),
                     SnowDepthCm = bound && snow.Source == RunSnowSource.Measured ? HubRules.DepthCm(snow.MeanDepthM) : -1,
-                    GunWhy = catTrack
-                        ? (int)HubRules.GunWhyOf(bound, m_SnowLine.IsSnowGatingEnabled(), m_Injection.GunSeasonNow, true, true,
+                    GunWhy = catTrack   // a track set to Off is not a gun run: no gun line
+                        ? (int)HubRules.GunWhyOf(bound && trackGunsOn, m_SnowLine.IsSnowGatingEnabled(), m_Injection.GunSeasonNow, true, true,
                                                  bound && m_Injection.CatTrackGunsCanRun(row.Entity, row.NodeBottomM, row.NodeTopM))
                         : (int)GunWhyOf(row.Entity, bound && (row.Kind == (int)RunKind.Snowmaking || row.Kind == (int)RunKind.Night)),
                 });

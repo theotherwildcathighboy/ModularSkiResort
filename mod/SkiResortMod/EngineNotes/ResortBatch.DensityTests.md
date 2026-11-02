@@ -14,4 +14,4 @@ headless: the ECS writes and the census.
 
 Spacing independent of node count, start node and winding; closed ring coverage with the seam; degenerate rings; one-sided straight, bent and hairpin ribbons with the side checked per prop; the two-farthest-corners
 fallback; class rules by kind and lit; mast positions and aim; `MastClearM`; the mix over 30000 slots; a frozen `Pick` sequence from an independent plain-JS run of the hash; `RingKey`; `Diff`; billing (`TrackGunsCanRun`,
-`TrackBilledHa`, `GunWhyOf` for a track).
+`TrackBilledHa` with the guns On and Off, `GunsOn`, `GunWhyOf` for a track and for a track set to Off).

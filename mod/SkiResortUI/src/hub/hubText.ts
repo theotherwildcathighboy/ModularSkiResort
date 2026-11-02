@@ -221,6 +221,8 @@ export const HUB_LOC = {
   runPropsOff: ["SkiResort.Hub.RUN_PROPS_OFF", "Off"],
   runPropsNone: ["SkiResort.Hub.RUN_PROPS_NONE", "No run selected"],
   runPropsGunsTip: ["SkiResort.Hub.RUN_PROPS_GUNS_TIP", "Distance between snow guns and hydrants on this run's edge. Look only: snow and upkeep do not change."],
+  /* a cat track: its guns at Off also stop its snowmaking bill (DECISIONS 563; SkiRunPropSystem.CatTrackGunsOn) */
+  runPropsGunsTipCatTrack: ["SkiResort.Hub.RUN_PROPS_GUNS_TIP[CatTrack]", "Distance between snow guns and hydrants on this cat track's edge. Off: no guns, no snowmaking cost."],
   runPropsLightsTip: ["SkiResort.Hub.RUN_PROPS_LIGHTS_TIP", "Distance between floodlight masts on this run's edge. Look only: night skiing does not need them."],
   runPropsNoGuns: ["SkiResort.Hub.RUN_PROPS_NO_GUNS", "Groomed and natural runs carry no snow guns."],
   runPropsNoLights: ["SkiResort.Hub.RUN_PROPS_NO_LIGHTS", "Night runs and cat tracks carry floodlights."],

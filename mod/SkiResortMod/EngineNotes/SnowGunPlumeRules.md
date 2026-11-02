@@ -5,7 +5,7 @@ Pure rules shared by the snow injection (whether a gun run's cold texels are rai
 never runs while the guns are stopped.
 
 Cat tracks: `TrackGunsCanRun` = in gun season and a cold share above 0 at the day-mean estimate (`RunSnowRules.ThresholdC` gives a track freezing + the gun margin). There is no pack to fill and nothing is raised, so
-the hub's row never reads "deep enough". `TrackBilledHa` is the plan area while they can run.
+the hub's row never reads "deep enough". `TrackBilledHa` is the plan area while they can run and the track's gun value is above Off (`gunsOn`, DECISIONS 563); 0 otherwise.
 
 ## A run's guns run only when
 

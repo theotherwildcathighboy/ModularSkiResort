@@ -2,7 +2,8 @@
 // fuel), natural terrain is free, so season length versus money is a real decision.
 // Billing: the injection system's per-type active mask (texels whose thermal gate is on at their own elevation), each run capped at
 // its plan area (BilledHa, public and pure so the hub's rows read the same number); overlapping runs never double-bill. A cat track is in no
-// mask: it bills its plan area at the snowmaking rate while its guns can run (SnowGunPlumeRules.TrackBilledHa). A run's prop sliders never count.
+// mask: it bills its plan area at the snowmaking rate while its guns can run and its gun value is above Off (SnowGunPlumeRules.TrackBilledHa,
+// SkiRunPropSystem.CatTrackGunsOn; DECISIONS 563). No other prop slider counts.
 // Money goes to Game.City.PlayerMoney (no budget-panel line item without Harmony); every debit is also booked per ski area into SkiResortLedger.
 // Charges accrue per elapsed frame between passes (wrap-safe uint math, fractional carry); the meter stops while paused.
 // Scheduling: GameSimulation, Game action mode only, anchored after SkiSnowInjectionSystem so its same-frame top-up publishes first.
@@ -99,6 +100,7 @@ namespace SkiResortMod.Systems
         private SimulationSystem m_SimulationSystem;
         private SkiSnowInjectionSystem m_SnowInjectionSystem;
         private SkiRunCatalogSystem m_Catalog;
+        private SkiRunPropSystem m_RunProps;   // a cat track's gun value: Off bills nothing (CatTrackGunsOn)
         private CitySystem m_CitySystem;
         private TimeSystem m_TimeSystem;
 
@@ -131,6 +133,7 @@ namespace SkiResortMod.Systems
             m_SimulationSystem = World.GetOrCreateSystemManaged<SimulationSystem>();
             m_SnowInjectionSystem = World.GetOrCreateSystemManaged<SkiSnowInjectionSystem>();
             m_Catalog = World.GetOrCreateSystemManaged<SkiRunCatalogSystem>();
+            m_RunProps = World.GetOrCreateSystemManaged<SkiRunPropSystem>();
             m_CitySystem = World.GetOrCreateSystemManaged<CitySystem>();
             m_TimeSystem = World.GetOrCreateSystemManaged<TimeSystem>();
             Mod.Log.Info($"{nameof(SkiRunUpkeepSystem)} created");
@@ -207,7 +210,7 @@ namespace SkiResortMod.Systems
                          $"{Tuning.NightCostPerHaMonth}/ha/month, billed against the " +
                          "injection system's ACTIVE thermal mask (gates off = free, summer " +
                          "= free, natural terrain = free), each run's hectares capped at its plan area; cat tracks by plan area at the " +
-                         "snowmaking rate while their guns can run; charge pass every " +
+                         "snowmaking rate while their guns can run and are not set to Off; charge pass every " +
                          $"{Tuning.ChargeIntervalFrames} sim frames, elapsed-frame accrual " +
                          "with fractional carry; each debit split over the ski areas by their runs' billed rate (the hub's per-run rule) " +
                          "into the guest ledger; charge lines at most one per " +
@@ -354,7 +357,7 @@ namespace SkiResortMod.Systems
             if (m_Counter == null || debit <= 0)
                 return;
             // Weights: the stats system's per-run rule (SkiResortStatsSystem.CollectRuns): BilledHa x CostPerHaMonth(kind) for every
-            // cataloged non-natural run with active texels, grouped by its gate; a cat track's plan area while its guns can run.
+            // cataloged non-natural run with active texels, grouped by its gate; a cat track's plan area while its guns can run and are on.
             m_SplitSigns.Clear();
             double bound = 0.0, unbound = 0.0;
             int rows = m_Catalog.RowCount;
@@ -367,7 +370,7 @@ namespace SkiResortMod.Systems
                 if (row.Kind == (int)RunKind.CatTrack)
                 {
                     billedHa = SnowGunPlumeRules.TrackBilledHa(row.AreaM2,
-                        m_SnowInjectionSystem.CatTrackGunsCanRun(row.Entity, row.NodeBottomM, row.NodeTopM));
+                        m_SnowInjectionSystem.CatTrackGunsCanRun(row.Entity, row.NodeBottomM, row.NodeTopM), m_RunProps.CatTrackGunsOn(row.Entity));
                 }
                 else
                 {
@@ -424,7 +427,8 @@ namespace SkiResortMod.Systems
             Array.Resize(ref m_SplitParts, size);
         }
 
-        /// <summary>The cat tracks' billed hectares: each cataloged track's plan area while its guns can run. Main thread; no allocation.</summary>
+        /// <summary>The cat tracks' billed hectares: each cataloged track's plan area while its guns can run and are not set to Off. Main
+        /// thread; no allocation.</summary>
         private float CatTrackHa()
         {
             float ha = 0f;
@@ -435,7 +439,7 @@ namespace SkiResortMod.Systems
                 if (row.Kind != (int)RunKind.CatTrack)
                     continue;
                 ha += SnowGunPlumeRules.TrackBilledHa(row.AreaM2,
-                    m_SnowInjectionSystem.CatTrackGunsCanRun(row.Entity, row.NodeBottomM, row.NodeTopM));
+                    m_SnowInjectionSystem.CatTrackGunsCanRun(row.Entity, row.NodeBottomM, row.NodeTopM), m_RunProps.CatTrackGunsOn(row.Entity));
             }
             return ha;
         }

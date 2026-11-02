@@ -136,11 +136,13 @@ namespace SkiResortMod.Systems
             return inSeason && coldShare > 0f;
         }
 
-        /// <summary>The hectares a cat track bills while its guns can run: its plan area (m2, Geometry.m_SurfaceArea), since it has no
-        /// active texels. 0 for a plan area that is not a finite positive number.</summary>
-        public static float TrackBilledHa(float planAreaM2, bool gunsCanRun)
+        /// <summary>The hectares a cat track bills while its guns can run and are on: its plan area (m2, Geometry.m_SurfaceArea), since it
+        /// has no active texels. <paramref name="gunsOn"/> = its snow gun value is above Off (SkiRunPropSystem.CatTrackGunsOn): a track
+        /// set to Off stands no gun and bills nothing (DECISIONS 563). 0 for a plan area that is not a finite positive
+        /// number.</summary>
+        public static float TrackBilledHa(float planAreaM2, bool gunsCanRun, bool gunsOn)
         {
-            if (!gunsCanRun || float.IsNaN(planAreaM2) || float.IsInfinity(planAreaM2) || planAreaM2 <= 0f)
+            if (!gunsCanRun || !gunsOn || float.IsNaN(planAreaM2) || float.IsInfinity(planAreaM2) || planAreaM2 <= 0f)
                 return 0f;
             return planAreaM2 / 10000f;
         }

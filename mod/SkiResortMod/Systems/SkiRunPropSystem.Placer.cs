@@ -249,6 +249,17 @@ namespace SkiResortMod.Systems
             return true;
         }
 
+        /// <summary>Whether a cat track's snow guns are on (its gun value above Off; the kind's default 60 m before the placer gave it
+        /// settings). The one place the bill reads a slider: SkiRunUpkeepSystem and the hub's cost row pass it to
+        /// SnowGunPlumeRules.TrackBilledHa, so a track set to Off bills nothing (DECISIONS 563). Every other kind's values stay
+        /// look only (tools/check-run-props.js R2). Main thread; one component read.</summary>
+        internal bool CatTrackGunsOn(Entity run)
+        {
+            if (run == Entity.Null || !EntityManager.Exists(run) || !EntityManager.HasComponent<SkiRunPropSettings>(run))
+                return RunPropPlacerRules.GunsOn(RunPropPlacerRules.DefaultGunSpacing((int)RunKind.CatTrack));
+            return RunPropPlacerRules.GunsOn(EntityManager.GetComponentData<SkiRunPropSettings>(run).m_GunSpacingM);
+        }
+
         /// <summary>A hub slider step. A plain component write (no structural change, nothing deleted): the placer re-places after the settle.
         /// False when the run or the kind cannot take it, or the placer is off.</summary>
         internal bool SetSpacing(Entity run, bool lights, int meters)

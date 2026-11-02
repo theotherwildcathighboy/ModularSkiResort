@@ -2,11 +2,12 @@
  * src/hub/RunPropControls.tsx - the Runs view's two prop rows: how far apart the focused run's snow guns and floodlights stand. The same rows as the
  * tree line (QuickRunsControls TreeRowsQuick): caption, -50, -10, value, +10, +50. The run is the focused row of the list; the rows always draw, so
  * the view does not jump when a run is picked. The value is C#'s (RunRow.gunSpacingM / lightSpacingM: 0 = off, -1 = the kind carries none): a click
- * sends the next value and C# answers by pushing the row. Look only: snow and upkeep never read them (tools/check-run-props.js).
+ * sends the next value and C# answers by pushing the row. Look only: snow and upkeep never read them (tools/check-run-props.js), except a cat
+ * track's guns at Off, which bill nothing (DECISIONS 563; its own tip says so).
  * Panel file: no subscription of its own; RunsView passes the row.
  */
 import { Unit } from "cs2/l10n";
-import { RUN_PROP_SPACING_MAX, RUN_PROP_SPACING_OFF, RUN_PROP_SPACING_STEP, RUN_PROP_SPACING_STEP_COARSE, hubTriggers } from "../bindings";
+import { RUN_KIND, RUN_PROP_SPACING_MAX, RUN_PROP_SPACING_OFF, RUN_PROP_SPACING_STEP, RUN_PROP_SPACING_STEP_COARSE, hubTriggers } from "../bindings";
 import type { RunRow } from "../bindings";
 import { useT } from "../l10n";
 import { runPropSpacingStep } from "./hubRules";
@@ -46,7 +47,8 @@ export function RunPropRows({ row }: { row: RunRow | undefined }): JSX.Element {
       <div className={styles.quickLine}>{row ? row.name : t(HUB_LOC.runPropsNone)}</div>
       <SpacingRow
         caption={t(HUB_LOC.runPropsGuns)}
-        tip={row && guns < 0 ? t(HUB_LOC.runPropsNoGuns) : t(HUB_LOC.runPropsGunsTip)}
+        tip={row && guns < 0 ? t(HUB_LOC.runPropsNoGuns)
+          : row && row.kind === RUN_KIND.CatTrack ? t(HUB_LOC.runPropsGunsTipCatTrack) : t(HUB_LOC.runPropsGunsTip)}
         value={guns}
         onSet={(m) => { if (row) hubTriggers.setRunGunSpacing(row.entity, m); }}
       />

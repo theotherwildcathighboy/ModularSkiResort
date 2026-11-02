@@ -1,5 +1,6 @@
 // A run's two border-prop spacings, set per run from the hub's Runs view. A persisted component: its type name and Serialize layout are a
-// save-format contract (see SaveLayouts). Look only: snow and upkeep never read it. Layout v1 (13 bytes): after the 1.0 freeze it never
+// save-format contract (see SaveLayouts). Look only: snow never reads it, and upkeep reads only a cat track's gun value at Off, which bills
+// nothing (SkiRunPropSystem.CatTrackGunsOn, DECISIONS 563). Layout v1 (13 bytes): after the 1.0 freeze it never
 // changes: new fields go in a new type. Never rename the type or move its namespace without [FormerlySerializedAs].
 // Engine notes: EngineNotes/SkiRunPropMember.md
 

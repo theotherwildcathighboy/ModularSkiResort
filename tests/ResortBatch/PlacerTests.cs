@@ -556,10 +556,19 @@ namespace ResortBatch
             Check(!S.TrackGunsCanRun(false, 1f), w, "out of season: cannot");
             Check(!S.TrackGunsCanRun(true, float.NaN), w, "a NaN share: cannot");
 
-            Check(Near(S.TrackBilledHa(24000f, true), 2.4, 1e-5), w, "24000 m2 while the guns can run: 2.4 ha");
-            Check(S.TrackBilledHa(24000f, false) == 0f, w, "guns cannot run: not billed");
-            Check(S.TrackBilledHa(0f, true) == 0f && S.TrackBilledHa(-5f, true) == 0f, w, "no plan area: not billed");
-            Check(S.TrackBilledHa(float.NaN, true) == 0f && S.TrackBilledHa(float.PositiveInfinity, true) == 0f, w, "a bad plan area: not billed");
+            Check(Near(S.TrackBilledHa(24000f, true, true), 2.4, 1e-5), w, "24000 m2 while the guns can run: 2.4 ha");
+            Check(S.TrackBilledHa(24000f, false, true) == 0f, w, "guns cannot run: not billed");
+            Check(S.TrackBilledHa(0f, true, true) == 0f && S.TrackBilledHa(-5f, true, true) == 0f, w, "no plan area: not billed");
+            Check(S.TrackBilledHa(float.NaN, true, true) == 0f && S.TrackBilledHa(float.PositiveInfinity, true, true) == 0f, w, "a bad plan area: not billed");
+
+            // DECISIONS 563: a track whose gun value is Off stands no gun and bills nothing, in season and cold or not.
+            Check(S.TrackBilledHa(24000f, true, false) == 0f, w, "guns Off, can run: not billed");
+            Check(S.TrackBilledHa(24000f, false, false) == 0f, w, "guns Off, cannot run: not billed");
+            Check(!R.GunsOn(R.SpacingOff) && R.GunsOn(R.SpacingMinM) && R.GunsOn(R.GunSpacingCatTrackM) && !R.GunsOn(-1), w,
+                  "GunsOn: Off and the none marker (-1) are off; 20 m and the 60 m default are on");
+            Check(R.GunsOn(R.DefaultGunSpacing((int)RunKind.CatTrack)), w, "a track without settings yet bills as its default (60 m, on)");
+            // The hub's gun row for a track set to Off: no line (the stats system passes gunRun = bound && guns on).
+            Check(HubRules.GunWhyOf(false, true, true, true, true, true) == RunGunWhy.None, w, "track set to Off: no gun line");
 
             // The hub's gun row for a track: the track has no pack to fill, so never "the snow is deep enough".
             foreach (bool canRun in new[] { false, true })

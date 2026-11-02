@@ -12,8 +12,9 @@ window (`SkiSnowInjectionSystem.SnowmakingActiveTexels` / `GroomedActiveTexels` 
 overlapping runs never double-bill (a texel is claimed once, see `MaskStats`). Visuals, attractiveness and money all read the same
 climate model and cannot disagree.
 
-Cat tracks have no active texels (they stay out of injection, SkiSnowInjectionSystem.cs near the mask loop) and bill by plan area at the snowmaking rate while their guns can run:
-`SnowGunPlumeRules.TrackBilledHa(area, CatTrackGunsCanRun(run, ...))`, per cataloged track. Their prop sliders never touch this: a track with its guns slider at Off still bills. `HasMaskMeasurement` is set
+Cat tracks have no active texels (they stay out of injection, SkiSnowInjectionSystem.cs near the mask loop) and bill by plan area at the snowmaking rate while their guns can run
+and are on: `SnowGunPlumeRules.TrackBilledHa(area, CatTrackGunsCanRun(run, ...), SkiRunPropSystem.CatTrackGunsOn(run))`, per cataloged track. A track whose gun value is Off
+stands no gun and bills nothing (DECISIONS 563); the hub's cost row and gun line follow the same switch. No other prop slider counts. `HasMaskMeasurement` is set
 before the injection's idle exits, so a resort with only cat tracks reaches the charge.
 
 ## Money

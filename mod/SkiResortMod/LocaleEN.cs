@@ -863,12 +863,13 @@ namespace SkiResortMod
                 { "SkiResort.Hub.RUN_CAT_TRACK_NOTE", "A cat track always rates green and counts a quarter of a run its size, in the score and the capacity." },
                 { "SkiResort.Hub.RUN_VALUE", "Score value" },
                 { "SkiResort.Hub.RUN_COST", "Running cost" },
-                // The Runs view's per-run prop spacing rows (hubText.ts runProps*). Look only: nothing here touches snow or upkeep.
+                // The Runs view's per-run prop spacing rows (hubText.ts runProps*). Look only, except a cat track's guns at Off: no snowmaking bill.
                 { "SkiResort.Hub.RUN_PROPS_GUNS", "Snow guns" },
                 { "SkiResort.Hub.RUN_PROPS_LIGHTS", "Lights" },
                 { "SkiResort.Hub.RUN_PROPS_OFF", "Off" },
                 { "SkiResort.Hub.RUN_PROPS_NONE", "No run selected" },
                 { "SkiResort.Hub.RUN_PROPS_GUNS_TIP", "Distance between snow guns and hydrants on this run's edge. Look only: snow and upkeep do not change." },
+                { "SkiResort.Hub.RUN_PROPS_GUNS_TIP[CatTrack]", "Distance between snow guns and hydrants on this cat track's edge. Off: no guns, no snowmaking cost." },
                 { "SkiResort.Hub.RUN_PROPS_LIGHTS_TIP", "Distance between floodlight masts on this run's edge. Look only: night skiing does not need them." },
                 { "SkiResort.Hub.RUN_PROPS_NO_GUNS", "Groomed and natural runs carry no snow guns." },
                 { "SkiResort.Hub.RUN_PROPS_NO_LIGHTS", "Night runs and cat tracks carry floodlights." },

@@ -243,6 +243,10 @@ namespace SkiResortMod.Systems
         /// <summary>Whether the run can be lit at all (a cat track only with lights turned up: its slider is its lit state).</summary>
         public static bool CarriesLights(int runKind) => RunPropDensityRules.PropClassAllowed(runKind, RunPropDensityRules.ClassMast, true);
 
+        /// <summary>Whether a gun value stands guns: above Off. On a cat track it also decides the snowmaking bill (Off = none;
+        /// DECISIONS 563, SkiRunPropSystem.CatTrackGunsOn); on every other kind the value is look only.</summary>
+        public static bool GunsOn(int gunSpacingM) => gunSpacingM > SpacingOff;
+
         public static int DefaultGunSpacing(int runKind)
         {
             switch (runKind)
