@@ -130,6 +130,7 @@ function ProblemText({ p, t }: { p: ProblemRow; t: Translate }): JSX.Element {
     case "depotNoRoad": return <>{t(HUB_LOC.problemDepotNoRoad)}</>;
     // Codes 23-25
     case "mixedLiftTypes": return <LocText entry={HUB_FMT.problemMixedLiftTypes} args={{ NAME }} />;
+    case "liftBend": return <LocText entry={HUB_FMT.problemLiftBend} args={{ NAME, DEG: numArg(p.detail / 10, Unit.FloatSingleFraction), N }} />;
     case "summitLodgeNotLiftServed": return <LocText entry={HUB_FMT.problemSummitLodgeNotLiftServed} args={{ N }} />;
     case "schoolNoGreenRun": return <>{t(HUB_LOC.problemSchoolNoGreenRun)}</>;
     case "schoolsNotLinked": return <LocText entry={HUB_FMT.problemSchoolsNotLinked} args={{ N }} />;
@@ -219,6 +220,7 @@ function problemTip(p: ProblemRow, factors: readonly ProblemRow[], live: ResortL
     case "depotNoRoad": body = t(HUB_LOC.problemTipDepotNoRoad); break;
     case "signNoRoad": body = t(HUB_LOC.problemTipSignNoRoad); break;
     case "mixedLiftTypes": body = t(HUB_LOC.problemTipMixedLiftTypes); break;
+    case "liftBend": body = t(HUB_LOC.problemTipLiftBend); break;
     case "summitLodgeNotLiftServed": body = t(HUB_LOC.problemTipSummitLodgeNotLiftServed); break;
     case "schoolNoGreenRun": body = t(HUB_LOC.problemTipSchoolNoGreenRun); break;
     case "schoolsNotLinked": body = t(HUB_LOC.problemTipSchoolsNotLinked); break;

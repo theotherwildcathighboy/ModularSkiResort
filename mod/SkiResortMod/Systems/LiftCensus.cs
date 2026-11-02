@@ -4,6 +4,7 @@
 // Pure file: System, System.Collections.Generic, Unity.Mathematics + SkiCatalog only (EntityRef.cs stands in for Entity).
 // A station connection node is a TERMINAL, never a connector; a station's IsBase is by PREFAB, never by height.
 // Revision increments whenever the row content changed; events are produced only from the second build after Reset.
+// Also linked: LiftAlignMath (the plan bend at a tower) and TowerNumberTiles.Wrap (the tower number a bend row names).
 // Engine notes: EngineNotes/LiftCensus.md
 
 using System;
@@ -66,6 +67,24 @@ namespace SkiResortMod.Systems
             // How many split nodes (a node shared with a line of another lift type, counted apart) this row's
             // components touch. Census/DUMP only, hashed; never bound to the hub.
             public int SplitNodes;
+            // The sharpest plan bend at a line tower of the row (MeasureBends): LiftAlignMath.PlanBendDeg at a node with a tower between
+            // two of the row's edges, never a station connection node. BendTower = that tower's number as the tower number tiles show it
+            // (from the base station; a fragment without the base counts from its dead end). 0 / Null when the row has no such tower.
+            // The hub's LiftBend row reads BendWarnTenths(BendDeg); its click flies to BendAt.
+            public float BendDeg;
+            public int BendTower;
+            public EntityRef BendNode;
+            public float3 BendAt;
+        }
+
+        /// <summary>The hub's number for a bend: tenths of a degree, rounded UP (a bend just over LiftAlignMath.BendWarnDeg never reads
+        /// 5.0); 0 when the bend is at or under BendWarnDeg (no warning: the owner's verdict is warn, never refuse).</summary>
+        public static int BendWarnTenths(float bendDeg)
+        {
+            if (!(bendDeg > LiftAlignMath.BendWarnDeg))
+                return 0;
+            int floor = (int)math.round(LiftAlignMath.BendWarnDeg * 10f) + 1;
+            return math.max(floor, (int)math.ceil(bendDeg * 10f - 1e-3f));
         }
 
         public enum EventKind : byte { SectionsDeleted, Opened, Closed, NewLine, Removed }
@@ -821,6 +840,10 @@ namespace SkiResortMod.Systems
                 }
             }
 
+            // Plan bends at the line towers, per component (the census row decides; the hub only reads the number).
+            for (int c = 0; c < comps.Count; c++)
+                MeasureBends(comps[c], edges, nodes, stations.Count, hasBase ? baseIdx : -1, reference, ref row);
+
             // Rise / horizontal / alignment
             if (hasBase && hasTop)
             {
@@ -838,6 +861,112 @@ namespace SkiResortMod.Systems
                 row.HorizontalM = chordXZ;
             }
             return row;
+        }
+
+        private struct NodeEdges
+        {
+            public int E0, E1, Count;   // the first two of the component's edges at the node, and how many there are
+            public float3 Pos;          // the node's position as an edge end
+        }
+
+        private readonly Dictionary<EntityRef, NodeEdges> m_BendAdj = new Dictionary<EntityRef, NodeEdges>();
+
+        /// <summary>Walks one component of a row in the tower number tiles' order (TowerNumberTileSystem.NumberPath) and keeps its sharpest
+        /// plan bend at a line tower in <paramref name="row"/> when it beats the row's so far (ties: the first found). Start: the base
+        /// station's connection node; a component without the base starts at its dead end (a non-station node with one edge) nearest
+        /// <paramref name="reference"/>, so a fragment holding the top counts from its far end like the tiles. A node with three or more of
+        /// the component's edges ends the walk (a lift line is a chain; nodes past a branch are not measured). Bend = LiftAlignMath.PlanBendDeg
+        /// of the previous node, the tower node and the next node, measured only at a non-station node with a tower and exactly two of the
+        /// component's edges; BendTower = TowerNumberTiles.Wrap(rank), rank = the towers walked so far. No allocation once grown.</summary>
+        private void MeasureBends(Comp comp, List<Edge> edges, List<Node> nodes, int stationCount, int baseIdx, float3 reference, ref Row row)
+        {
+            m_BendAdj.Clear();
+            for (int k = 0; k < comp.Edges.Count; k++)
+            {
+                int ei = comp.Edges[k];
+                AddBendEnd(edges[ei].Start, ei, edges[ei].StartPos);
+                AddBendEnd(edges[ei].End, ei, edges[ei].EndPos);
+            }
+
+            // The start node.
+            EntityRef start = default;
+            bool found = false, startIsBase = false;
+            float best = float.MaxValue;
+            foreach (KeyValuePair<EntityRef, NodeEdges> kv in m_BendAdj)
+            {
+                int st = StationOf(kv.Key, nodes, stationCount);
+                bool isBase = baseIdx >= 0 && st == baseIdx;
+                if (isBase)
+                {
+                    // The base's connection node wins over any dead end (lowest entity if the base has several).
+                    if (!startIsBase || kv.Key.CompareTo(start) < 0)
+                    {
+                        start = kv.Key;
+                        startIsBase = true;
+                        found = true;
+                    }
+                    continue;
+                }
+                if (startIsBase || st >= 0 || kv.Value.Count != 1)
+                    continue;
+                float d = math.distancesq(kv.Value.Pos.xz, reference.xz);
+                if (!found || d < best || (d == best && kv.Key.CompareTo(start) < 0))
+                {
+                    best = d;
+                    start = kv.Key;
+                    found = true;
+                }
+            }
+            if (!found)
+                return;   // a closed ring of line edges with no station and no dead end: nothing to number from
+
+            EntityRef cur = start;
+            float3 prevPos = default;
+            int prevEdge = -1, rank = 0;
+            for (int step = 0; step <= comp.Edges.Count; step++)
+            {
+                if (!m_BendAdj.TryGetValue(cur, out NodeEdges ne))
+                    break;
+                if (prevEdge >= 0 && ne.Count > 2)
+                    break;   // a branch
+                int next = ne.E0 != prevEdge ? ne.E0 : ne.Count >= 2 ? ne.E1 : -1;
+                if (next < 0 || next == prevEdge)
+                    break;   // the far end
+                EntityRef nextNode = edges[next].Start == cur ? edges[next].End : edges[next].Start;
+                if (nextNode == cur || !m_BendAdj.TryGetValue(nextNode, out NodeEdges nn))
+                    break;
+                if (prevEdge >= 0 && ne.Count == 2 && m_NodeIndex.TryGetValue(cur, out int ni) && nodes[ni].Station < 0 &&
+                    nodes[ni].HasTower)
+                {
+                    rank++;
+                    float bend = LiftAlignMath.PlanBendDeg(prevPos, ne.Pos, nn.Pos);
+                    if (bend > row.BendDeg)
+                    {
+                        row.BendDeg = bend;
+                        row.BendTower = TowerNumberTiles.Wrap(rank);
+                        row.BendNode = cur;
+                        row.BendAt = ne.Pos;
+                    }
+                }
+                prevPos = ne.Pos;
+                prevEdge = next;
+                cur = nextNode;
+            }
+        }
+
+        private void AddBendEnd(EntityRef node, int edge, float3 pos)
+        {
+            if (m_BendAdj.TryGetValue(node, out NodeEdges ne))
+            {
+                if (ne.Count == 1)
+                    ne.E1 = edge;
+                ne.Count++;
+            }
+            else
+            {
+                ne = new NodeEdges { E0 = edge, E1 = -1, Count = 1, Pos = pos };
+            }
+            m_BendAdj[node] = ne;
         }
 
         private void CountNode(ref Row row, EntityRef node, List<Node> nodes)
@@ -1021,6 +1150,9 @@ namespace SkiResortMod.Systems
                 h = Mix(h, Bits(r.AlignOffsetM)); h = Mix(h, Bits(r.AlignYawDeg));
                 h = Mix(h, r.Type); h = Mix(h, r.Mixed ? 1u : 0u);
                 h = Mix(h, (uint)r.SplitNodes);
+                h = Mix(h, Bits(r.BendDeg)); h = Mix(h, (uint)r.BendTower);
+                h = Mix(h, (uint)r.BendNode.Index); h = Mix(h, (uint)r.BendNode.Version);
+                h = Mix(h, Bits(r.BendAt.x)); h = Mix(h, Bits(r.BendAt.y)); h = Mix(h, Bits(r.BendAt.z));
             }
             return (int)h;
         }

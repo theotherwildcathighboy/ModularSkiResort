@@ -95,6 +95,8 @@ export const HUB_LOC = {
   problemTipNoParkingNearLodge: ["SkiResort.Hub.PROBLEM_TIP[NoParkingNearLodge]", "No car spaces within 300 m of the lodge. Tourist parties drive here, and none arrive without them."],
   problemTipLodgeNotSlopeside: ["SkiResort.Hub.PROBLEM_TIP[LodgeNotSlopeside]", "Ski-day guests only go to a lodge within 800 m of this ski area's runs or lift stations."],
   problemTipMixedLiftTypes: ["SkiResort.Hub.PROBLEM_TIP[MixedLiftTypes]", "A line and its stations must be one lift type; until then the lift counts 0."],
+  /* C# HubProblemCode LiftBend (over LiftAlignMath.BendWarnDeg, 5 deg): shown only, the lift is unchanged */
+  problemTipLiftBend: ["SkiResort.Hub.PROBLEM_TIP[LiftBend]", "Real lift lines turn 5° or less at a tower. Past that the rope runs off the outer wheels. The lift still runs and counts."],
   problemTipSummitLodgeNotLiftServed: ["SkiResort.Hub.PROBLEM_TIP[SummitLodgeNotLiftServed]", "In summer a summit lodge counts more only within 300 m of a working lift's top or 100 m of a run it serves."],
   problemTipSchoolNoGreenRun: ["SkiResort.Hub.PROBLEM_TIP[SchoolNoGreenRun]", "The ski school adds to the score only while a green run counts."],
   pagePrev: ["SkiResort.Hub.PAGE_PREV", "Previous page"],
@@ -531,6 +533,8 @@ export const HUB_FMT = {
   problemStationsTopOnly: ["SkiResort.Hub.PROBLEM[StationsTopOnly]", "{NAME}: no base station yet"],
   problemLiftChairsStopped: ["SkiResort.Hub.PROBLEM[LiftChairsStopped]", "{NAME}: chairs stopped"],
   problemMixedLiftTypes: ["SkiResort.Hub.PROBLEM[MixedLiftTypes]", "{NAME} mixes lift types"],
+  /* {DEG} = the bend in tenths shown with one decimal (detail / 10), {N} = the tower number (count) */
+  problemLiftBend: ["SkiResort.Hub.PROBLEM[LiftBend]", "{NAME}: rope turns {DEG}° at tower {N}"],
   /* the parking row when its lodge is one of the area's car space rows (lodgeParking$, hubRules.parkingLodgeOf); {NAME} = the
      player's name for it, else its LODGE_TIER word or LODGE_TIER_NUMBERED; {N} = the other lodges without parking */
   problemNoParkingAt: ["SkiResort.Hub.PROBLEM[NoParkingAt]", "No parking: {NAME}"],

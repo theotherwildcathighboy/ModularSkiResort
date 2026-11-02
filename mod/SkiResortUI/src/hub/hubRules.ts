@@ -71,7 +71,7 @@ export type ProblemVariant =
   | "signNoRoad" | "lodgeNoRoad"
   | "skiDaysCannotReach" | "skiDaysNoGuestsNear" | "noParkingNearLodge" | "lodgeNotSlopeside"
   | "mixedLiftTypes" | "summitLodgeNotLiftServed" | "schoolNoGreenRun" | "schoolsNotLinked"
-  | "depotNoHillLodge" | "depotNoRoad";
+  | "depotNoHillLodge" | "depotNoRoad" | "liftBend";
 
 export function problemVariant(p: ProblemRow): ProblemVariant | null {
   switch (p.code) {
@@ -106,6 +106,7 @@ export function problemVariant(p: ProblemRow): ProblemVariant | null {
     case PROBLEM.SkiDaysNoGuestsNear: return "skiDaysNoGuestsNear";
     case PROBLEM.DepotNoHillLodge: return "depotNoHillLodge";
     case PROBLEM.DepotNoRoad: return "depotNoRoad";
+    case PROBLEM.LiftBend: return "liftBend";
     default: return null;
   }
 }
@@ -152,7 +153,8 @@ export type ProblemClick = "sign" | "lift" | "liftsView" | "runsView" | null;
  *  LodgeNoRoad the lodge; the lodge C# names for 20-22, the sign for 20 without one;
  *  the lowest summit lodge no lift reaches for 24, the subject C# names for 25; the top-level school for 25,
  *  the first school on no sign for 26, a road-less school for 19 when no lodge is). MixedLiftTypes (23)
- *  is a lift row: its click flies to the lift (to its gap while a section is missing), like LiftUnfinished. */
+ *  is a lift row: its click flies to the lift (to its gap while a section is missing), like LiftUnfinished. LiftBend (30) sends the bent
+ *  tower's node as its subject with a null subjectTop: focusLift flies to that tower. */
 export function problemClick(p: ProblemRow): ProblemClick {
   switch (p.code) {
     case PROBLEM.NoLodge: case PROBLEM.LodgesAllOff: case PROBLEM.LodgesSomeOff: case PROBLEM.Efficiency:
@@ -162,7 +164,7 @@ export function problemClick(p: ProblemRow): ProblemClick {
     case PROBLEM.SkiDaysNoGuestsNear: case PROBLEM.DepotNoHillLodge: case PROBLEM.DepotNoRoad:
       return "sign";
     case PROBLEM.LiftNoPower: case PROBLEM.LiftSectionMissing: case PROBLEM.LiftUnfinished:
-    case PROBLEM.StationsOnly: case PROBLEM.LiftChairsStopped: case PROBLEM.MixedLiftTypes:
+    case PROBLEM.StationsOnly: case PROBLEM.LiftChairsStopped: case PROBLEM.MixedLiftTypes: case PROBLEM.LiftBend:
       return "lift";
     case PROBLEM.NoLift: return "liftsView";
     case PROBLEM.NoRuns: case PROBLEM.RunsUnserved: case PROBLEM.RunsUnrateable: case PROBLEM.RunsRating:

@@ -1018,6 +1018,29 @@ namespace ResortBatch
             if (!threw)
                 Rows("P16 null lists", o, new[] { P(HubProblemCode.NoLift, 1, pct: 0, build: "baseStation") });
 
+            // P47 lift bend (owner verdict 2026-11-02: warn, never refuse): a complete (0, 1) or open (2) row with BendTenths > 0 gets one
+            // dim row (severity 1), Count = the tower number, Detail = tenths of a degree, after the lift's own severity-2 row; an unfinished (3)
+            // or stations-only (4) row never does, nor a row whose bend the census did not flag (BendTenths 0).
+            x = In(1, 1, 100, 5, 2);
+            HubProblemLift bent = L(0, true, true, true); bent.BendTenths = 124; bent.BendTower = 7;
+            HubProblemLift bentNoPower = L(0, false, true, true); bentNoPower.BendTenths = 51; bentNoPower.BendTower = 2;
+            HubProblemLift bentOpen = L(2, true, true, true); bentOpen.BendTenths = 60; bentOpen.BendTower = 1;
+            HubProblemLift bentUnfinished = L(3, true, true, false); bentUnfinished.BendTenths = 90; bentUnfinished.BendTower = 3;
+            HubProblemLift straight = L(1, true, true, true); straight.BendTower = 4;
+            x.Lifts = Ls(bent, bentNoPower, bentOpen, bentUnfinished, straight);
+            Expect("P47 lift bend rows", x, o,
+                P(HubProblemCode.LiftNoPower, 2, liftIndex: 1),
+                P(HubProblemCode.LiftSectionMissing, 2, liftIndex: 2, build: "lift"),
+                P(HubProblemCode.LiftUnfinished, 2, liftIndex: 3, build: "lift"),
+                P(HubProblemCode.LiftChairsStopped, 1, liftIndex: 4),
+                P(HubProblemCode.LiftBend, 1, liftIndex: 0, count: 7, detail: 124),
+                P(HubProblemCode.LiftBend, 1, liftIndex: 1, count: 2, detail: 51),
+                P(HubProblemCode.LiftBend, 1, liftIndex: 2, count: 1, detail: 60));
+            // P47b a complete, running lift whose only problem is the bend: one row.
+            x = In(1, 1, 100, 1, 2);
+            x.Lifts = Ls(bent);
+            Expect("P47b a lone bend row", x, o, P(HubProblemCode.LiftBend, 1, liftIndex: 0, count: 7, detail: 124));
+
             // P17 reuse: P2 into the list, then P1 into the same list → exactly P1's rows.
             HubProblems.Build(in p2, o);
             x = In(0, 0, 100, 0, 0);
@@ -1078,7 +1101,8 @@ namespace ResortBatch
             Eq((int)HubProblemCode.SkiDaysNoGuestsNear, 27, w, "HubProblemCode.SkiDaysNoGuestsNear");
             Eq((int)HubProblemCode.DepotNoHillLodge, 28, w, "HubProblemCode.DepotNoHillLodge");
             Eq((int)HubProblemCode.DepotNoRoad, 29, w, "HubProblemCode.DepotNoRoad");
-            Eq(Enum.GetValues(typeof(HubProblemCode)).Length, 30, w, "HubProblemCode has 30 values (append only)");
+            Eq((int)HubProblemCode.LiftBend, 30, w, "HubProblemCode.LiftBend");
+            Eq(Enum.GetValues(typeof(HubProblemCode)).Length, 31, w, "HubProblemCode has 31 values (append only)");
             Eq((int)HubSkiDayState.Full, 7, w, "HubSkiDayState.Full");
             Eq(Enum.GetValues(typeof(HubSkiDayState)).Length, 8, w, "HubSkiDayState has 8 values");
             Eq((int)SeasonHint.GatingOff, 6, w, "SeasonHint.GatingOff");

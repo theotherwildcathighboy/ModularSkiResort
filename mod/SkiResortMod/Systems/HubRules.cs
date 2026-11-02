@@ -46,6 +46,7 @@ namespace SkiResortMod.Systems
         SchoolsNotLinked = 26,  // top-level ski schools on no sign, Not linked entry only
         SkiDaysNoGuestsNear = 27,  // an open hill with almost no homes or hotels within a ski day's drive; Detail = the nearest, tenths of a km
         DepotNoHillLodge = 28, DepotNoRoad = 29,  // a bus depot that cannot work: the area has no passing hill lodge / it has no road; Count
+        LiftBend = 30,  // a complete or open lift's sharpest tower bend in plan is over LiftAlignMath.BendWarnDeg; Count = the tower's number, Detail = tenths of a degree
     }
 
     /// <summary>bindings.ts SKI_DAY_STATE (gate R17): ResortLive.skiDaysState, the Guests view's state line. The hub's display
@@ -65,9 +66,10 @@ namespace SkiResortMod.Systems
 
     /// <summary>One lift row of the area in `lifts` order (State = the stats LIFT_STATE). CustomName = the row's name is a
     /// station's custom name (LiftStats.CustomName), not "Lift N". Type = the row's SkiCatalog.Lifts index (its build items;
-    /// 0 = fixed-grip, the struct default), Mixed = its component spans two lift types.</summary>
-    /// default, so every pre-Phase-B constructor keeps today's items), Mixed = its component spans two lift types.</summary>
-    public struct HubProblemLift { public int State; public bool Powered, HasBase, HasTop, CustomName; public byte Type; public bool Mixed; }
+    /// 0 = fixed-grip, the struct default, so every pre-Phase-B constructor keeps today's items), Mixed = its component spans two lift
+    /// types. BendTenths = LiftCensus.BendWarnTenths of the row's sharpest tower bend (0 = none over the warning angle; the census
+    /// decides), BendTower = that tower's number.</summary>
+    public struct HubProblemLift { public int State; public bool Powered, HasBase, HasTop, CustomName; public byte Type; public bool Mixed; public int BendTenths, BendTower; }
 
     /// <summary>The inputs of HubProblems.Build for ONE area.</summary>
     public struct HubProblemInput
@@ -819,6 +821,10 @@ namespace SkiResortMod.Systems
                         }
                         break;
                 }
+                // 4b. A complete (0, 1) or open (2) line whose sharpest tower bend in plan is over the warning angle: dim (1), a fact only
+                // (owner verdict 2026-11-02: warn, never refuse). Count = the tower's number, Detail = tenths of a degree.
+                if (l.State >= 0 && l.State <= 2 && l.BendTenths > 0)
+                    output.Add(Row(HubProblemCode.LiftBend, 1, liftIndex: k, count: l.BendTower, detail: l.BendTenths));
             }
 
             // 5-8. Lifts and runs of the area.

@@ -431,6 +431,24 @@ namespace SkiResortMod.Systems
             return false;
         }
 
+        /// <summary>The first row (row order) whose sharpest bent tower stands on <paramref name="node"/> (LiftCensus.Row.BendNode): the hub's
+        /// LiftBend row sends that node to focusLift.</summary>
+        internal bool TryGetRowOfBendNode(Entity node, out LiftCensus.Row row)
+        {
+            EntityRef n = Ref(node);
+            var rows = m_Census.Rows;
+            for (int r = 0; r < rows.Count && !n.IsNull; r++)
+            {
+                if (rows[r].BendNode == n)
+                {
+                    row = rows[r];
+                    return true;
+                }
+            }
+            row = default;
+            return false;
+        }
+
         /// <summary>The first row (row order) whose Base or Top is this station.</summary>
         internal bool TryGetRowOfStation(Entity station, out LiftCensus.Row row)
         {
@@ -1785,7 +1803,9 @@ namespace SkiResortMod.Systems
                               (row.SplitNodes > 0 ? $"[touches {row.SplitNodes} split node(s)] " : string.Empty) +
                               $"({row.TowersRemoved} missing), {row.Chairs} chair(s), {row.Gaps} gap(s){(row.HasGap ? $" at ({row.GapAt.x:F0},{row.GapAt.z:F0})" : string.Empty)}; " +
                               $"{row.LengthM:F0} m, rise {row.RiseM:F0} m, horizontal {row.HorizontalM:F0} m" +
-                              (row.AlignKnown ? $", offset {row.AlignOffsetM:F2} m, yaw {row.AlignYawDeg:F2}°" : string.Empty));
+                              (row.AlignKnown ? $", offset {row.AlignOffsetM:F2} m, yaw {row.AlignYawDeg:F2}°" : string.Empty) +
+                              (row.BendDeg > 0f ? $", sharpest bend {row.BendDeg:F1}° at tower {row.BendTower} (node {Fmt(row.BendNode)})" +
+                                                  (LiftCensus.BendWarnTenths(row.BendDeg) > 0 ? " OVER the warning angle" : string.Empty) : string.Empty));
             }
             for (int n = 0; n < m_Census.Notes.Count; n++)
                 sb.AppendLine("  note: " + m_Census.Notes[n]);

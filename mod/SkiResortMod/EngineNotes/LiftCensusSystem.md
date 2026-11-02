@@ -108,6 +108,9 @@ realtimeSinceStartup.
     quiet window is written plain (`Lift [power]: ... - no power: ...` / `... - power back ...`), the rest fold into one
     `Lift [power] N more power change(s) ...` summary per 10 s; OnUpdate writes a trailing summary (checked every frame, an int compare
     while nothing is folded, before the armed gate), and OnGamePreload / OnDestroy flush it.
+- `TryGetRowOfBendNode(node)`: the first row whose sharpest bent tower (LiftCensus.Row.BendNode) is that node; the hub's LiftBend row
+  clicks with the node (SkiResortHubUISystem.ApplyFocusLift). The DUMP row line prints the sharpest bend, its tower and node, and
+  "OVER the warning angle" past LiftAlignMath.BendWarnDeg.
 - `ComputePowerSignature`: FNV-1a (SkiRunRatingRules.Mix) of (base Index, Version, LiftPower) over the Complete rows, read now through
   ReadLiftPower. Power raises no entity event, so the attraction model and the lift charge poll this every 256 frames and compare.
 

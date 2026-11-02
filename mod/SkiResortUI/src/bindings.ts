@@ -114,6 +114,7 @@ export const PROBLEM = {
   SkiDaysNoGuestsNear: 27,  // an open hill with almost no homes or hotels within a ski day's drive (sev 2); detail = the nearest in tenths of a km
   DepotNoHillLodge: 28,  // a bus depot's area has no passing hill lodge (sev 1); count; subject = the first such depot
   DepotNoRoad: 29,  // a bus depot has no road (sev 2); count; subject = the first such depot
+  LiftBend: 30,  // a complete or open lift's sharpest tower bend in plan is over 5 deg (sev 1); count = the tower number, detail = tenths of a degree; subject = the tower's net node, subjectTop null
 } as const;
 
 /** ResortLive.skiDaysState. C# HubRules HubSkiDayState. */
