@@ -147,16 +147,17 @@ namespace SkiResortMod.Systems
             return multiplier > 0f ? RunSnowPhase.Opening : RunSnowPhase.Closed;
         }
 
-        /// <summary>The temperature at or below which a run's texels hold snow, per kind: the
-        /// injection's own gates (snowmaking and night: freezing + margin; groomed: freezing + 0), and
-        /// freezing for natural runs (the snow shader's own threshold, presumably 0 °C — UNVERIFIED).</summary>
+        /// <summary>The temperature at or below which a run's texels hold snow, per kind, while its guns make snow: the
+        /// injection's own gates (snowmaking and night: freezing + margin; groomed: freezing + 0), the same gun margin for a cat track,
+        /// and freezing for natural runs (the snow shader's own threshold, presumably 0 °C — UNVERIFIED). An open estimate does not
+        /// read this directly: <see cref="EstimateThresholdC"/> adds the gun season and the gun switch.</summary>
         public static float ThresholdC(RunKind kind, float freezingC, float snowmakingMarginC)
         {
             switch (kind)
             {
                 case RunKind.Snowmaking:
                 case RunKind.Night:
-                case RunKind.CatTrack:  // no injection: opens by the day-mean estimate with the gun margin (guns Off: the overload below)
+                case RunKind.CatTrack:  // the guns' gate (SnowGunPlumeRules.TrackGunsCanRun); no injection: it opens by the estimate below
                     return freezingC + snowmakingMarginC;
                 case RunKind.Groomed:
                     return freezingC + GroomedMarginC;
@@ -165,14 +166,36 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>The threshold of a run's open estimate with the cat track's gun switch: a cat track whose snow guns are Off (gun value at
-        /// Off, SkiRunPropSystem.CatTrackGunsOn) opens on natural snow only, so it takes the natural threshold, freezing (2026-11-02, owner
-        /// decision, DECISIONS 568). Guns on, and every other kind: <see cref="ThresholdC(RunKind, float, float)"/>.</summary>
-        public static float ThresholdC(RunKind kind, float freezingC, float snowmakingMarginC, bool catTrackGunsOn)
+        /// <summary>The kinds whose snow guns make snow: snowmaking and night runs, and the cat track, which follows the snowmaking
+        /// rules (DECISIONS 551).</summary>
+        public static bool IsGunKind(RunKind kind) => kind == RunKind.Snowmaking || kind == RunKind.Night || kind == RunKind.CatTrack;
+
+        /// <summary>Whether a run's snow guns can make snow now, one rule for snowmaking runs, night runs and cat tracks: in the gun
+        /// season (SnowGunPlumeRules.InGunSeason; out of it the injection's guns raise nothing, FoldRowsJob.GunGate through
+        /// SnowGunPlumeRules.RaisesThisPass) and with its guns on. A run's gun value is look only (tools/check-run-props.js R2), so the run
+        /// path passes <paramref name="gunsOn"/> true; a cat track passes its switch (SkiRunPropSystem.CatTrackGunsOn: Off stands no gun,
+        /// DECISIONS 563, 568). False for groomed and natural runs.</summary>
+        public static bool GunsMakeSnow(RunKind kind, bool inGunSeason, bool gunsOn) => IsGunKind(kind) && inGunSeason && gunsOn;
+
+        /// <summary>The threshold of a run's open estimate: the kind's own gate (<see cref="ThresholdC"/>) while its guns make snow, else
+        /// the natural threshold, freezing. So a snowmaking run, a night run or a cat track out of the gun season, and a cat track with its
+        /// guns Off, open on natural snow only (DECISIONS 568, 571). Groomed and natural: ThresholdC all year.</summary>
+        public static float EstimateThresholdC(RunKind kind, float freezingC, float snowmakingMarginC, bool inGunSeason, bool gunsOn)
         {
-            if (kind == RunKind.CatTrack && !catTrackGunsOn)
+            if (IsGunKind(kind) && !GunsMakeSnow(kind, inGunSeason, gunsOn))
                 return ThresholdC(RunKind.Natural, freezingC, snowmakingMarginC);
             return ThresholdC(kind, freezingC, snowmakingMarginC);
+        }
+
+        /// <summary>THE open estimate of a run or a cat track, one code path for both (SkiSnowInjectionSystem: a run in the table that could
+        /// not be measured, and GetRunSnow for a run not in the table, which is every cat track: the injection grid cannot measure a 6-12 m
+        /// ribbon, DECISIONS 551): the share of its vertical cold enough at the day-mean temperature for <see cref="EstimateThresholdC"/>.
+        /// The open state then follows from the share alone (OpenMultiplier, HubRules.OpenStateOf), the same for both.</summary>
+        public static float EstimatedRunShare(RunKind kind, float bottomY, float topY, float dayMeanC, float freezingC,
+            float snowmakingMarginC, float baseHeight, float lapsePerM, bool inGunSeason, bool gunsOn)
+        {
+            return EstimatedShare(bottomY, topY, dayMeanC, EstimateThresholdC(kind, freezingC, snowmakingMarginC, inGunSeason, gunsOn),
+                baseHeight, lapsePerM);
         }
 
         /// <summary>The slider value clamped to 0..6 °C. NaN (a hand-edited options file) → the default.</summary>

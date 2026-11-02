@@ -8,7 +8,8 @@
 //  R4 the table's weights equal the prefabs' m_Probability (the mix must not drift from the assets), and the empty marker is not placed.
 //  R5 the hub's slider constants equal the rules class.
 //  R6 a slider step from the hub is a plain component write: no delete and no structural change in the UI phase.
-//  R7 cat tracks: billed at the snowmaking rate, and kept out of injection (the prefab is in no injected set).
+//  R7 cat tracks: billed at the snowmaking rate, kept out of injection (the prefab is in no injected set), and estimated by the run rule:
+//     one RunSnowRules.EstimatedRunShare call for an unmeasured run and one for GetRunSnow, both with the pass's gun season (DECISIONS 571).
 //  R8 house style: Game mode only, ARMED line, one-shot catch, [cost] line, and the tag is added in one place.
 "use strict";
 const fs = require("fs");
@@ -106,6 +107,16 @@ need(applySpacing && !banned.test(applySpacing), "R6 ApplyRunPropSpacing: only s
 const upkeep = code(read(systems, "SkiRunUpkeepSystem.cs"));
 need(/case RunKind\.CatTrack:[\s\S]{0,120}?SnowmakingCostPerHaMonth/.test(body(upkeep, "public static int CostPerHaMonth(") || ""), "R7 CostPerHaMonth(CatTrack) is not the snowmaking rate");
 need(!/Names\.RunCatTrack/.test(code(read(systems, "SkiSnowInjectionSystem.cs"))), "R7 SkiSnowInjectionSystem.cs names the cat track prefab (tracks stay out of injection)");
+// One estimate rule for runs and cat tracks (DECISIONS 571): the table's unmeasured run and GetRunSnow's estimate (every cat track) both
+// call RunSnowRules.EstimatedRunShare with this pass's gun season; no other estimate in the injection.
+const estimates = injection.split("RunSnowRules.EstimatedRunShare(").slice(1).map((p) => p.slice(0, p.indexOf(";")));
+need(estimates.length === 2 && estimates.every((e) => e.includes("m_PassGunSeason")),
+     `R7 SkiSnowInjectionSystem.cs: ${estimates.length} RunSnowRules.EstimatedRunShare call(s), expected 2, each with m_PassGunSeason (one estimate rule for runs and cat tracks)`);
+need(!/RunSnowRules\.(EstimatedShare|ThresholdC|EstimateThresholdC)\(/.test(injection),
+     "R7 SkiSnowInjectionSystem.cs: an estimate bypasses RunSnowRules.EstimatedRunShare (runs and cat tracks must share one rule)");
+need((body(injection, "private void RefreshRunSnow(") || "").includes("RunSnowRules.EstimatedRunShare(") &&
+     (body(injection, "private float EstimateShare(") || "").includes("RunSnowRules.EstimatedRunShare("),
+     "R7 the run table (RefreshRunSnow) and GetRunSnow's estimate (EstimateShare) must both call RunSnowRules.EstimatedRunShare");
 
 // R8
 const load = body(placer, "private void LoadPlacer(") || "";
@@ -120,4 +131,4 @@ if (failures.length) {
   console.error("check-run-props: FAIL\n  " + failures.join("\n  "));
   process.exit(1);
 }
-console.log(`check-run-props: PASS (${props.length} table rows against the prefabs, 8 rules; cat track Off bills nothing and opens on natural snow)`);
+console.log(`check-run-props: PASS (${props.length} table rows against the prefabs, 8 rules; cat track Off bills nothing and opens on natural snow; runs and cat tracks share one estimate rule)`);

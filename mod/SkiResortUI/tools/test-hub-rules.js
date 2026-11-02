@@ -784,6 +784,18 @@ function run(srcDir) {
       [status.includes("HUB_FMT.problemLiftBend} args={{ NAME, DEG: numArg(p.detail / 10, Unit.FloatSingleFraction), N }}"),
         status.includes("HUB_LOC.problemTipLiftBend")], [true, true]);
   }
+  {
+    // 2026-11-02 small calls: a band row whose tooltip only repeated it has none; the CAR SPACES header names every lodge, its rows
+    // "this lodge"; the Guests tooltips name the bare month, as the bars do.
+    const status = read(path.join("hub", "StatusBlock.tsx"));
+    const guests = read(path.join("hub", "GuestsView.tsx"));
+    const text = read(path.join("hub", "hubText.ts"));
+    eq("T37.1 LodgeNoRoad band row has no tooltip; header and rows of CAR SPACES have their own tips; no 'Month of' in the Guests tips",
+      [status.includes('problemVariant(b.row) === "lodgeNoRoad" ? null : problemTip('),
+        guests.includes("tip={t(HUB_LOC.guestsTipCarSpacesAll)}"), (guests.match(/HUB_LOC\.guestsTipCarSpaces\b/g) || []).length,
+        /guestsTipPaid: \[[^\]]*"Month of/.test(text), /skiDaysTipSent: \[[^\]]*"Month of/.test(text)],
+      [true, true, 2, false, false]);
+  }
 
   const hr = require("./test-history-rules").run(srcDir);
   checks += hr.checks;

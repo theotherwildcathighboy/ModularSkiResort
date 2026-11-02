@@ -424,25 +424,105 @@ namespace ResortBatch
             Check(cat >= 1f && RunSnowRules.OpenMultiplier(cat) == 1f, W, "at +2 C the cat track estimate is fully open (share " + cat + ")");
             Check(groomed <= 0f && RunSnowRules.OpenMultiplier(groomed) == 0f, W, "at +2 C a groomed run's estimate is closed (share " + groomed + ")");
 
-            // Guns Off (DECISIONS 568): a cat track opens on natural snow only, the natural threshold (freezing). Guns on: as above.
-            Check(RunSnowRules.ThresholdC(RunKind.CatTrack, 0f, 3.3f, true) == 3.3f, W, "guns on: freezing + the gun margin, as before");
-            Check(RunSnowRules.ThresholdC(RunKind.CatTrack, 0f, 3.3f, false) == 0f, W, "guns Off: the natural threshold, freezing");
-            Check(RunSnowRules.ThresholdC(RunKind.CatTrack, -1f, 2f, false) == RunSnowRules.ThresholdC(RunKind.Natural, -1f, 2f), W,
+            // The estimate's threshold (EstimateThresholdC): the gun margin only while the guns make snow, in the gun season with the guns
+            // on (DECISIONS 568, 571); else the natural threshold (freezing).
+            Check(RunSnowRules.EstimateThresholdC(RunKind.CatTrack, 0f, 3.3f, true, true) == 3.3f, W, "in season, guns on: freezing + the gun margin");
+            Check(RunSnowRules.EstimateThresholdC(RunKind.CatTrack, 0f, 3.3f, true, false) == 0f, W, "guns Off: the natural threshold, freezing");
+            Check(RunSnowRules.EstimateThresholdC(RunKind.CatTrack, 0f, 3.3f, false, true) == 0f, W,
+                  "out of the gun season, guns on: the natural threshold (the 2026-11-02 field case opened on the margin)");
+            Check(RunSnowRules.EstimateThresholdC(RunKind.CatTrack, -1f, 2f, true, false) == RunSnowRules.ThresholdC(RunKind.Natural, -1f, 2f), W,
                   "guns Off equals a natural run's threshold");
-            foreach (RunKind k in new[] { RunKind.Natural, RunKind.Groomed, RunKind.Snowmaking, RunKind.Night })
-                Check(RunSnowRules.ThresholdC(k, 0f, 3.3f, false) == RunSnowRules.ThresholdC(k, 0f, 3.3f) &&
-                      RunSnowRules.ThresholdC(k, 0f, 3.3f, true) == RunSnowRules.ThresholdC(k, 0f, 3.3f), W,
-                      k + ": the gun switch changes nothing (it is a cat track's only)");
-            // At +2 C day mean (between freezing and freezing + margin): guns on open, guns Off closed. At -5 C: open either way (natural snow).
-            float on = RunSnowRules.EstimatedShare(1000f, 1300f, 2f, RunSnowRules.ThresholdC(RunKind.CatTrack, 0f, 3.3f, true), 1000f, 0.0065f);
-            float off = RunSnowRules.EstimatedShare(1000f, 1300f, 2f, RunSnowRules.ThresholdC(RunKind.CatTrack, 0f, 3.3f, false), 1000f, 0.0065f);
-            float offCold = RunSnowRules.EstimatedShare(1000f, 1300f, -5f, RunSnowRules.ThresholdC(RunKind.CatTrack, 0f, 3.3f, false), 1000f, 0.0065f);
+            foreach (RunKind k in new[] { RunKind.Natural, RunKind.Groomed })
+                foreach (bool season in new[] { true, false })
+                    foreach (bool guns in new[] { true, false })
+                        Check(RunSnowRules.EstimateThresholdC(k, 0f, 3.3f, season, guns) == RunSnowRules.ThresholdC(k, 0f, 3.3f), W,
+                              k + ": no guns, so neither the season nor the switch changes it (season " + season + ", guns " + guns + ")");
+            Check(!RunSnowRules.GunsMakeSnow(RunKind.Natural, true, true) && !RunSnowRules.GunsMakeSnow(RunKind.Groomed, true, true), W,
+                  "natural and groomed runs make no gun snow");
+            // At +2 C day mean (between freezing and freezing + margin): in season guns on open, guns Off closed. At -5 C: open either way.
+            float on = RunSnowRules.EstimatedRunShare(RunKind.CatTrack, 1000f, 1300f, 2f, 0f, 3.3f, 1000f, 0.0065f, true, true);
+            float off = RunSnowRules.EstimatedRunShare(RunKind.CatTrack, 1000f, 1300f, 2f, 0f, 3.3f, 1000f, 0.0065f, true, false);
+            float offCold = RunSnowRules.EstimatedRunShare(RunKind.CatTrack, 1000f, 1300f, -5f, 0f, 3.3f, 1000f, 0.0065f, true, false);
             Check(RunSnowRules.OpenMultiplier(on) == 1f && RunSnowRules.NextState(RunSnowState.Unknown, on) == RunSnowState.Open, W,
                   "+2 C, guns on: open (share " + on + ")");
             Check(RunSnowRules.OpenMultiplier(off) == 0f && RunSnowRules.NextState(RunSnowState.Unknown, off) == RunSnowState.Closed, W,
                   "+2 C, guns Off: closed, no natural snow (share " + off + ")");
             Check(RunSnowRules.OpenMultiplier(offCold) == 1f && RunSnowRules.NextState(RunSnowState.Unknown, offCold) == RunSnowState.Open, W,
                   "-5 C, guns Off: open on natural snow (share " + offCold + ")");
+            SnowParity();
+        }
+
+        /// <summary>CT-PARITY (DECISIONS 571): a cat track opens and closes exactly as a run with snowmaking. Every input of the estimate
+        /// (gun season x guns On / Off x the day-mean temperature from natural snow to warm x three run heights) gives the cat track the same
+        /// share, multiplier, hub state and label as its run: guns On = a snowmaking run (the run path passes gunsOn true, its gun value is
+        /// look only), guns Off = a run that makes no snow (natural). Both go through RunSnowRules.EstimatedRunShare, the one call
+        /// SkiSnowInjectionSystem makes for a run it could not measure and for every cat track (GetRunSnow). Oracles pin the season rule.</summary>
+        private static void SnowParity()
+        {
+            const string W = "cattrack/parity";
+            const float freezing = 0f, margin = 3.3f, baseH = 1000f, lapse = 0.0065f;
+            // -5: natural snow everywhere; 1: natural snow on the upper half; 2: none natural, the guns cover it; 4.3: the guns cover half;
+            // 9.4: warm (the field day mean at date 0.885).
+            float[] temps = { -5f, 1f, 2f, 4.3f, 9.4f };
+            float[][] heights = { new[] { 1000f, 1300f }, new[] { 1400f, 1700f }, new[] { 800f, 1000f } };
+            int cases = 0, same = 0;
+            foreach (bool season in new[] { true, false })
+                foreach (bool guns in new[] { true, false })
+                    foreach (float t in temps)
+                        foreach (float[] h in heights)
+                        {
+                            float track = RunSnowRules.EstimatedRunShare(RunKind.CatTrack, h[0], h[1], t, freezing, margin, baseH, lapse, season, guns);
+                            RunKind runKind = guns ? RunKind.Snowmaking : RunKind.Natural;
+                            float run = RunSnowRules.EstimatedRunShare(runKind, h[0], h[1], t, freezing, margin, baseH, lapse, season, true);
+                            float night = RunSnowRules.EstimatedRunShare(RunKind.Night, h[0], h[1], t, freezing, margin, baseH, lapse, season, true);
+                            float mt = RunSnowRules.OpenMultiplier(track), mr = RunSnowRules.OpenMultiplier(run);
+                            bool ok = track == run
+                                && mt == mr
+                                && HubRules.OpenStateOf(mt, true) == HubRules.OpenStateOf(mr, true)
+                                && RunSnowRules.NextState(RunSnowState.Unknown, track) == RunSnowRules.NextState(RunSnowState.Unknown, run)
+                                && RunSnowRules.NextState(RunSnowState.Open, track) == RunSnowRules.NextState(RunSnowState.Open, run)
+                                && RunSnowRules.NextState(RunSnowState.Closed, track) == RunSnowRules.NextState(RunSnowState.Closed, run)
+                                && (!guns || night == run);
+                            cases++;
+                            if (ok)
+                                same++;
+                            else
+                                Check(false, W, "season " + season + ", guns " + guns + ", " + t + " C, " + h[0] + "-" + h[1] + " m: track " + track +
+                                      " vs " + runKind + " " + run + (guns ? ", night " + night : ""));
+                        }
+            Check(cases == 60 && same == cases, W, same + " of " + cases + " cases: the cat track's share, multiplier, hub state and label equal its run's");
+
+            // Out of the gun season a snowmaking run holds natural snow only (its guns raise nothing, FoldRowsJob.GunGate): it equals a
+            // natural run at every temperature.
+            foreach (float t in temps)
+                Check(RunSnowRules.EstimatedRunShare(RunKind.Snowmaking, 1000f, 1300f, t, freezing, margin, baseH, lapse, false, true) ==
+                      RunSnowRules.EstimatedRunShare(RunKind.Natural, 1000f, 1300f, t, freezing, margin, baseH, lapse, false, true), W,
+                      "out of season, " + t + " C: a snowmaking run's estimate equals a natural run's");
+
+            // Oracles (hand values). The field case: a track high on the hill (1400-1700 m, base 300 m) at a 9.4 C day mean. Margin line
+            // 300 + (9.4 - 3.3) / 0.0065 = 1238 m: all of it cold enough for the guns; natural line 300 + 9.4 / 0.0065 = 1746 m: none.
+            float inSeason = RunSnowRules.EstimatedRunShare(RunKind.CatTrack, 1400f, 1700f, 9.4f, freezing, margin, 300f, lapse, true, true);
+            float outSeason = RunSnowRules.EstimatedRunShare(RunKind.CatTrack, 1400f, 1700f, 9.4f, freezing, margin, 300f, lapse, false, true);
+            Check(inSeason == 1f && HubRules.OpenStateOf(RunSnowRules.OpenMultiplier(inSeason), true) == RunOpenState.Open, W,
+                  "field case in the gun season, guns on: open (share " + inSeason + ")");
+            Check(outSeason == 0f && HubRules.OpenStateOf(RunSnowRules.OpenMultiplier(outSeason), true) == RunOpenState.Closed, W,
+                  "field case out of the gun season, guns on: closed, was Open 100 % (share " + outSeason + ")");
+            // 1000-1300 m at base 1000: +2 C open only in the season with the guns on; -5 C open in every case; 9.4 C closed in every case;
+            // 4.3 C in the season with the guns on: patchy (line 1153.8 m, share 0.487, multiplier 0.436).
+            foreach (bool season in new[] { true, false })
+                foreach (bool guns in new[] { true, false })
+                {
+                    float s2 = RunSnowRules.EstimatedRunShare(RunKind.CatTrack, 1000f, 1300f, 2f, freezing, margin, baseH, lapse, season, guns);
+                    float sCold = RunSnowRules.EstimatedRunShare(RunKind.CatTrack, 1000f, 1300f, -5f, freezing, margin, baseH, lapse, season, guns);
+                    float sWarm = RunSnowRules.EstimatedRunShare(RunKind.CatTrack, 1000f, 1300f, 9.4f, freezing, margin, baseH, lapse, season, guns);
+                    string c = "season " + season + ", guns " + guns;
+                    Check(s2 == (season && guns ? 1f : 0f), W, c + ", +2 C: " + (season && guns ? "open" : "closed") + " (share " + s2 + ")");
+                    Check(sCold == 1f, W, c + ", -5 C: open on natural snow (share " + sCold + ")");
+                    Check(sWarm == 0f, W, c + ", 9.4 C: closed (share " + sWarm + ")");
+                }
+            float half = RunSnowRules.EstimatedRunShare(RunKind.CatTrack, 1000f, 1300f, 4.3f, freezing, margin, baseH, lapse, true, true);
+            Check(Math.Abs(half - 0.4872f) < 0.001f && HubRules.OpenStateOf(RunSnowRules.OpenMultiplier(half), true) == RunOpenState.Partly, W,
+                  "4.3 C in the season, guns on: patchy (share " + half + ")");
         }
 
         // Guns and hydrants, masts only when lit (the full table: DensityTests; the walk: PlacerTests). Names read through ClassOf as the load sweep does.

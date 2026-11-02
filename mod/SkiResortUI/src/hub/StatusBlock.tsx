@@ -179,9 +179,10 @@ function runClick(click: ProblemClick, p: ProblemRow): void {
   else if (click === "runsView") view$.update("runs");
 }
 
-/** The tooltip of a band row; a folded row lists its lifts, one line each. */
-function bandTip(b: BandRow, factors: readonly ProblemRow[], live: ResortLive | null, t: Translate): JSX.Element {
-  if (b.group.length < 2) return problemTip(b.row, factors, live, t);
+/** The tooltip of a band row; a folded row lists its lifts, one line each. "Lodge or school: road required" has none: its row says it
+ *  all, and a tooltip would only repeat it (null: Tip draws no balloon). */
+function bandTip(b: BandRow, factors: readonly ProblemRow[], live: ResortLive | null, t: Translate): JSX.Element | null {
+  if (b.group.length < 2) return problemVariant(b.row) === "lodgeNoRoad" ? null : problemTip(b.row, factors, live, t);
   return (
     <TipLines
       lines={[

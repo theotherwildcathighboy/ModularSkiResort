@@ -934,7 +934,8 @@ namespace SkiResortMod.Systems
         internal bool GunSeasonNow => m_PassGunSeason;
 
         /// <summary>Whether a cat track's guns can run: bound (only bound runs are scheduled or billed, as for a gun run), the gun season and part of
-        /// the track cold enough at the day-mean temperature (SnowGunPlumeRules.TrackGunsCanRun). No state: a cat track stays out of the fold.</summary>
+        /// the track cold enough at the day-mean temperature (SnowGunPlumeRules.TrackGunsCanRun; asked with the guns on, so in the season the
+        /// share is the guns' own reach, freezing + the margin). No state: a cat track stays out of the fold.</summary>
         internal bool CatTrackGunsCanRun(Entity run, float bottomY, float topY)
         {
             return IsRunBound(run) && SnowGunPlumeRules.TrackGunsCanRun(m_PassGunSeason, EstimateShare(RunKind.CatTrack, bottomY, topY));
@@ -1052,18 +1053,19 @@ namespace SkiResortMod.Systems
         internal int RunSnowGeneration => m_RunSnowGeneration;
 
         /// <summary>The read for score, stats, overlay, groomer and hub: the table entry if the run is scheduled, else an on-the-spot estimate
-        /// from the caller's heights (Geometry.m_Bounds y) and kind. A cat track (never in the table) with its snow guns Off opens on natural
-        /// snow only: the estimate with the natural threshold (DECISIONS 568). Gating off: Source GatingOff, State Open, Multiplier 1 (Share
-        /// and depth are still the measured or estimated values, for display). Always answers.</summary>
+        /// from the caller's heights (Geometry.m_Bounds y) and kind, through the one estimate rule a run in the table uses too
+        /// (RunSnowRules.EstimatedRunShare). A cat track (never in the table) opens like a snowmaking run: freezing + the margin while its guns
+        /// make snow, on natural snow only out of the gun season or with its guns Off (DECISIONS 568, 571). Gating off: Source GatingOff, State
+        /// Open, Multiplier 1 (Share and depth are still the measured or estimated values, for display). Always answers.</summary>
         internal RunSnow GetRunSnow(Entity run, RunKind kind, float bottomY, float topY)
         {
             if (!m_RunSnow.TryGetValue(run, out RunSnow s))
             {
                 // not in the table (injection disabled or not armed, run unbound or off the map,
-                // no pass yet) → the day-mean estimate with the kind's own threshold. No history: the
-                // first label uses the midpoint, the multiplier is published as is.
-                bool catTrackGunsOn = kind != RunKind.CatTrack || m_RunProps.CatTrackGunsOn(run);
-                float share = EstimateShare(kind, bottomY, topY, catTrackGunsOn);
+                // no pass yet) → the day-mean estimate. A run's gun value is look only (gunsOn true); a cat track's
+                // switch decides. No history: the first label uses the midpoint, the multiplier is published as is.
+                bool gunsOn = kind != RunKind.CatTrack || m_RunProps.CatTrackGunsOn(run);
+                float share = EstimateShare(kind, bottomY, topY, gunsOn);
                 s = new RunSnow
                 {
                     Kind = kind,
@@ -2138,16 +2140,15 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>The day-mean estimate with the kind's own threshold (snowmaking / night / cat track: freezing + the margin; groomed:
-        /// freezing; natural: freezing), for a run not in the table. A cat track whose guns are Off (<paramref name="catTrackGunsOn"/> false)
-        /// takes the natural threshold (DECISIONS 568); CatTrackGunsCanRun asks with the guns on, as the guns' own reach.</summary>
-        private float EstimateShare(RunKind kind, float bottomY, float topY, bool catTrackGunsOn = true)
+        /// <summary>The day-mean estimate for a run not in the table (RunSnowRules.EstimatedRunShare, the rule RefreshRunSnow uses for a run it
+        /// could not measure): freezing + the margin while a snowmaking run, night run or cat track can make snow (this pass's gun season, and
+        /// <paramref name="gunsOn"/>: a cat track's switch, true for a run), else freezing; groomed freezing + 0. CatTrackGunsCanRun asks with
+        /// the guns on, as the guns' own reach.</summary>
+        private float EstimateShare(RunKind kind, float bottomY, float topY, bool gunsOn = true)
         {
-            float freezing = m_SnowLineSystem.GetFreezingTemperature();
-            float margin = m_SnowLineSystem.GetSnowmakingMarginC();
-            return RunSnowRules.EstimatedShare(bottomY, topY, m_SnowLineSystem.GetDayMeanTemperature(),
-                RunSnowRules.ThresholdC(kind, freezing, margin, catTrackGunsOn), m_SnowLineSystem.GetBaseHeight(),
-                m_SnowLineSystem.GetLapsePerM());
+            return RunSnowRules.EstimatedRunShare(kind, bottomY, topY, m_SnowLineSystem.GetDayMeanTemperature(),
+                m_SnowLineSystem.GetFreezingTemperature(), m_SnowLineSystem.GetSnowmakingMarginC(), m_SnowLineSystem.GetBaseHeight(),
+                m_SnowLineSystem.GetLapsePerM(), m_PassGunSeason, gunsOn);
         }
 
         /// <summary>The per-run table, once per evaluated pass (right after BuildMask, before any early return). Per run: the measured share
@@ -2213,8 +2214,10 @@ namespace SkiResortMod.Systems
                     if (float.IsNaN(dayMean))
                         dayMean = m_SnowLineSystem.GetDayMeanTemperature();
                     next.Source = RunSnowSource.Estimated;
-                    share = RunSnowRules.EstimatedShare(input.BottomY, input.TopY, dayMean,
-                        RunSnowRules.ThresholdC(input.Kind, freezing, margin), baseHeight, lapse);
+                    // GetRunSnow's rule for a cat track too: out of the gun season this pass's guns raise nothing (GunGate), so a gun run
+                    // holds natural snow only. A run's gun value is look only: gunsOn true.
+                    share = RunSnowRules.EstimatedRunShare(input.Kind, input.BottomY, input.TopY, dayMean, freezing, margin, baseHeight, lapse,
+                        m_PassGunSeason, true);
                 }
                 // The share guard's input. Measured runs only: an estimated share comes from the day-mean temperature, not from the snapshot, so a
                 // skip does not stale it.
