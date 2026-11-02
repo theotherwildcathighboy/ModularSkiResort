@@ -32,8 +32,9 @@ Nothing is saved. `LivePath` keeps the prop and its prefab reference out of the 
 5. `DropDeadTracks`, every frame: `EntityManager.Exists` and `HasComponent<Deleted>` read the archetype and wait for no job. Every delete route (bulldoze, hub trash, delete mode, delete-all) ends here on the same frame, without waiting for the catalog.
 6. `BuildOnePath`: at most one build per frame. A failure logs one `[no path]` line for that outline and the track stays without a groomer.
 7. `PollSeason`: each track every `SeasonPollS` clock seconds. `GetRunSnow` is O(1), main thread.
-8. `Reconcile`: spawns and removals, the only structural changes, all before the job.
-9. `MoveProps`: pose per machine on the main thread, one Burst `IJob` on `Dependency` writes `Transform` and `CullingInfo.m_Bounds` through `ComponentLookup`s.
+8. `Reconcile`: spawns and removals, before the job.
+9. `RefreshLights`: `EffectsUpdated` on the props for 8 passes after a day/night flip, the only other structural change, also before the job (see "Lights").
+10. `MoveProps`: pose per machine on the main thread, one Burst `IJob` on `Dependency` writes `Transform` and `CullingInfo.m_Bounds` through `ComponentLookup`s.
 
 A main-thread read or write of `Transform` would wait for every vehicle job in the city (the 2 ms lesson of docs/research/field/2026-11-01/PERF-BIG-CITY.md), so the system never touches it outside a spawn, and it never reads it at all: the pose comes from path, clock and terrain. Terrain: `TerrainSystem.GetHeightData` (`:2603-2624`) over `m_CPUHeights`, written on the main thread only (`:3557`), so a synchronous main-thread read needs no `AddCPUHeightReader`.
 
@@ -60,6 +61,10 @@ A 5 x 3 grid of `TerrainUtils.SampleHeight` over 7 x 4 m, rotated with the machi
 ## Season
 
 `SeasonStep` on `GetRunSnow(...).Share`, not `.State`, because with snow gating off `State` is always Open while `Share` stays real (`SkiSnowInjectionSystem.GetRunSnow`), and the machine must still leave in summer. Cat tracks are never in the injection's table, so the hub calls one open at or above the midpoint (`NextState(Unknown, share)`). The groomer closes at that same line, so it is never on a closed track, and reopens only at `OpenAtShare` (0.60), so a share hovering at the midpoint does not make it pop in and out. In the band 0.50 to 0.60 after a closing, the hub may say open with no machine yet.
+
+## Lights
+
+Without `Car` and `TransformFrame`, vanilla's vehicle lights are zeroed (`ObjectInterpolateSystem.cs:1097-1180`, `EffectControlData.cs:449-560`). So `SkiGroomerA`'s mesh light uses purpose `EffectSource` (`ObjectInterpolateSystem.cs:1181-1193`), which follows `effects[0]`, and row 0 is a Night-gated effect. Enable state is re-evaluated only on `Updated`, `Deleted`, `EffectsUpdated` or `BatchesUpdated` (`EffectControlSystem.cs:1087-1097`), so `RefreshLights` stamps `EffectsUpdated` at each flip of `EffectFlagSystem`'s night signal, with the settle of `SkiNightLightSystem`. The stand-in has no effects. Asset side and costs: docs/research/groomer-lights-2026-11-01.md. In game: unverified.
 
 ## Lifecycle table
 
