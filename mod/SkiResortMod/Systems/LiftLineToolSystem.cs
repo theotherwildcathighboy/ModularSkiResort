@@ -234,17 +234,24 @@ namespace SkiResortMod.Systems
             if (m_StationPlacing == placing)
                 return;
             m_StationPlacing = placing;
-            SetCarriersPassable(placing);
             if (!IsActive)
+            {
+                SetCarriersPassable(placing);
                 SetSpansRaised(placing);
+            }
         }
 
         private readonly HashSet<Entity> m_CarriersMarked = new HashSet<Entity>();
 
         /// <summary>A station on a line's open end: the chairs SubObjectSystem hung on that span overlap its footprint, and vanilla refuses it
-        /// ("Overlapping items"), though chairs are ours to move. GeometryFlags.Marker gives a carrier an empty collision mask in game
-        /// (ObjectUtils.GetCollisionMask, ValidationHelpers.CheckOverlap and ValidateObject both read it). Only for this window, since
-        /// the flag also lets GroundHeightSystem and the raycast treat the object as a marker.</summary>
+        /// ("Overlapping items"), though chairs are ours to move. The lift-line tool too: a section drawn to an existing tower (a redo of a
+        /// bulldozed middle section, an extension from a loose end) gives the touched edges, their end nodes and those towers Temp copies,
+        /// which ValidationHelpers checks against the permanent chairs; moving chairs ride through every tower and a broken line parks
+        /// them where they stand, so a chair inside a tower's bounds is a non-overridable object of another top-level owner (its edge)
+        /// and OverlapExisting refuses the build (field/2026-11-02/lifticon, DECISIONS 582). GeometryFlags.Marker gives
+        /// a carrier an empty collision mask in game (ObjectUtils.GetCollisionMask, ValidationHelpers.CheckOverlap and ValidateObject both
+        /// read it). Only while one of those tools is open, since the flag also lets GroundHeightSystem and the raycast treat the object
+        /// as a marker.</summary>
         private void SetCarriersPassable(bool passable)
         {
             if (passable)
@@ -375,6 +382,7 @@ namespace SkiResortMod.Systems
             applyMode = ApplyMode.None;
             Reset("activated");
             SetSpansRaised(true);
+            SetCarriersPassable(true);
             int stations = m_Census.StationCount;
             m_LooseFrame = int.MinValue / 2;
             Mod.Log.Info($"LiftLine [tool]: running — type {(m_Preset != null ? m_Preset.Id : "any (pick a station)")}; {stations} lift " +
@@ -398,6 +406,7 @@ namespace SkiResortMod.Systems
                 if (temps)
                     ClearOwnTemps("stopped");
                 SetSpansRaised(m_StationPlacing);
+                SetCarriersPassable(m_StationPlacing);
             }
             catch (Exception e)
             {

@@ -120,6 +120,16 @@ plans with the line prefab's live m_MaxSlopeSteepness (NetGeometryData, `With(ma
 prefab's live value against the planner's default. A station whose carriers leave below the
 ground (EndCarrier < -0.25 m) logs SUNK STATION on every plan and shows one tooltip notice per line.
 
+## Carriers passable while the tool runs (2026-11-03, DECISIONS 582)
+A line drawn to an existing tower (the redo of a bulldozed middle section, an extension from a loose end) gives the touched edges,
+their end nodes and those nodes' towers Temp copies. ValidationHelpers walks each permanent chair to its top-level owner, an edge that
+is not overridable, so a chair inside a Temp tower's bounds draws OverlapExisting (field/2026-11-02/lifticon: a Temp FG12 against two
+parked chairs about 2 m from it). Moving chairs ride through every tower and a broken line parks them where they stand, so the refusal
+depends on where chairs stopped. `SetCarriersPassable` puts GeometryFlags.Marker on the carrier prefabs (an empty collision mask,
+ObjectUtils.GetCollisionMask) for the whole tool session (OnStartRunning) and hands back to the station window (`m_StationPlacing`) in
+OnStopRunning; SetStationPlacing touches the carriers only while the tool is not running. While set, carriers also skip the raycast
+and camera collision; rendering is unchanged. Gate: check-lift-align CARRIERPASS.
+
 ## Bend at a loose-end joint (2026-11-02, owner verdict: warn, never refuse)
 The tool's line is straight, so it can make a plan bend only where it joins a built line at a loose end. `WarnBend` (every plan): for
 each LooseEnd end, the built lift-line edge at that node (no Owner, not Temp / Deleted), its far node, the loose end and this line's

@@ -11,6 +11,8 @@
 //             <= 0.01. Bug class: the FG rope sagged like a power line (12.6 deg break-over per tower).
 //   BONEROOT  every owned skinned mesh's root bone is identity (rotation 0,0,0,1, scale 1): the import gives it the FBX scene
 //             conversion and the game composes it into every skin matrix. Bug class: the rig probe drew turned and 100x.
+//   CARRIERPASS the lift-line tool keeps the carriers passable for its whole session (LiftLineToolSystem start / stop / station hooks).
+//             Bug class: re-drawing a bulldozed middle section was refused, OverlapExisting on the neighbor section's chairs.
 //
 // Usage: node tools/check-lift-align.js [--root <ImportedData dir>]   (default: gamedata-mirror/ImportedData; preflight passes the game's)
 // Exit code = number of failures. Last line: "check-lift-align: OK ..." on success.
@@ -140,9 +142,38 @@ for (const f of ownedPrefabs(root, true)) {
     }
 }
 
+// ---- CARRIERPASS ---------------------------------------------------------------------------------------------------------------
+// The carriers are passable (GeometryFlags.Marker on their prefabs, an empty collision mask) for the whole lift-line tool session, not
+// only while a station is placed: a section drawn to an existing tower gives that tower a Temp copy, validated against the permanent
+// chairs of the neighbor section, and OverlapExisting refused the redo of a bulldozed middle section (field/2026-11-02/lifticon,
+// DECISIONS 582). LiftLineToolSystem: OnStartRunning sets them passable, OnStopRunning hands back to the station window, and
+// SetStationPlacing leaves them alone while the tool runs.
+function methodBody(code, name) {
+    const at = code.search(new RegExp(`\\b${name}\\s*\\([^)]*\\)\\s*\\{`));
+    if (at < 0) return null;
+    let i = code.indexOf('{', at), depth = 0;
+    for (let j = i; j < code.length; j++) {
+        if (code[j] === '{') depth++;
+        else if (code[j] === '}' && --depth === 0) return code.slice(i, j + 1);
+    }
+    return null;
+}
+const toolFile = path.join(systems, 'LiftLineToolSystem.cs');
+const toolCode = fs.existsSync(toolFile) ? stripComments(fs.readFileSync(toolFile, 'utf8')) : '';
+const passRules = [
+    ['OnStartRunning', /SetCarriersPassable\(\s*true\s*\)/, 'sets the carriers passable for the tool session'],
+    ['OnStopRunning', /SetCarriersPassable\(\s*m_StationPlacing\s*\)/, 'hands the carriers back to the station window (SetCarriersPassable(m_StationPlacing))'],
+    ['SetStationPlacing', /if\s*\(\s*!IsActive\s*\)\s*\{[^}]*SetCarriersPassable\(\s*placing\s*\)/, 'changes the carriers only while the tool is not running'],
+];
+for (const [name, re, why] of passRules) {
+    const body = methodBody(toolCode, name);
+    if (!body) fail('CARRIERPASS', `LiftLineToolSystem.${name} not found`);
+    else if (!re.test(body)) fail('CARRIERPASS', `LiftLineToolSystem.${name} no longer ${why}: a section redo at an existing tower is refused (OverlapExisting on the neighbor's chairs)`);
+}
+
 if (failures.length) {
     for (const l of failures) console.log(l);
     process.exit(failures.length);
 }
 console.log(`check-lift-align: OK (PINDROP ${pinScanned} systems, ROPELANE ${ropeFiles} prefabs in ${groups.length} lift types, ` +
-            `BONEROOT ${skinned} skinned meshes under ${path.relative(repo, root) || root})`);
+            `BONEROOT ${skinned} skinned meshes under ${path.relative(repo, root) || root}, CARRIERPASS ${passRules.length} tool hooks)`);
