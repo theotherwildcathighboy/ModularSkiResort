@@ -187,8 +187,8 @@ namespace SkiResortMod.Systems
         /// SnowGunPlumeRules.RaisesThisPass). False for groomed and natural runs.</summary>
         public static bool GunsMakeSnow(RunFeatures f, bool inGunSeason) => f.Snowmaking && inGunSeason;
 
-        /// <summary>The kind form: <paramref name="gunsOn"/> is the switch (RunFeatures.FromKind). A run's gun value is look only
-        /// (tools/check-run-props.js R2), so the run path passes true; a cat track passes its switch (SkiRunPropSystem.CatTrackGunsOn: Off
+        /// <summary>The kind form: <paramref name="gunsOn"/> is the switch (RunFeatures.FromKind). A run's kind already says whether its
+        /// guns are on (RunFeatures.SnowKind, DECISIONS 577), so the run path passes true; a cat track passes its switch (SkiRunPropSystem.CatTrackGunsOn: Off
         /// stands no gun, DECISIONS 563, 568).</summary>
         public static bool GunsMakeSnow(RunKind kind, bool inGunSeason, bool gunsOn) => GunsMakeSnow(RunFeatures.FromKind((int)kind, gunsOn), inGunSeason);
 

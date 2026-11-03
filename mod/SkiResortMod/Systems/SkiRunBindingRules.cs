@@ -74,43 +74,82 @@ namespace SkiResortMod.Systems
         // the one rounding, so the totals are exact.
         public const int SnowmakingStepBase = SnowmakingBase - GroomedBase, SnowmakingStepPerHa = SnowmakingPerHa - GroomedPerHa;
         public const int LightsStepBase = NightBase - SnowmakingBase, LightsStepPerHa = NightPerHa - SnowmakingPerHa;
+        // R2 (DECISIONS 577): a piste starts from the natural fee and Groomed is a step too (natural + groomed step = GroomedBase / PerHa).
+        public const int GroomedStepBase = GroomedBase - NaturalBase, GroomedStepPerHa = GroomedPerHa - NaturalPerHa;
 
-        /// <summary>Unknown: -1. Cat track: CatTrackBase (its guns and lights carry no fee). Natural: NaturalBase. Groomed piste:
-        /// GroomedBase plus the snowmaking and lights steps it has.</summary>
-        public static int BaseFee(RunFeatures f)
+        // The paid-once memory (DECISIONS 577): the steps a run has paid, kept in SkiRunBinding.m_Flags beside FlagPaid (1) and
+        // FlagRestored (2). A step is charged the first time its feature is on while the run is bound and never again: turning a feature
+        // off refunds nothing, turning it back on is free. A cat track has no steps (its guns and lights carry no fee).
+        public const byte PaidGroomed = 4, PaidSnowmaking = 8, PaidLights = 16, PaidSteps = PaidGroomed | PaidSnowmaking | PaidLights;
+
+        /// <summary>The steps these features pay for: none for a cat track or an unknown run.</summary>
+        public static byte StepsOf(RunFeatures f)
+        {
+            if (!f.IsPiste)
+                return 0;
+            return (byte)((f.Groomed ? PaidGroomed : 0) | (f.Snowmaking ? PaidSnowmaking : 0) | (f.Lights ? PaidLights : 0));
+        }
+
+        /// <summary>The one-time fee base of a run of this base that has paid these steps: -1 for an unknown run, CatTrackBase for a cat
+        /// track (steps ignored), NaturalBase plus each paid step for a piste.</summary>
+        public static int BaseFeeOfSteps(RunFeatures f, byte steps)
         {
             if (!f.Known)
                 return -1;
             if (f.IsCatTrack)
                 return CatTrackBase;
-            if (!f.Groomed)
-                return NaturalBase;
-            return GroomedBase + (f.Snowmaking ? SnowmakingStepBase : 0) + (f.Lights ? LightsStepBase : 0);
+            return NaturalBase + ((steps & PaidGroomed) != 0 ? GroomedStepBase : 0) + ((steps & PaidSnowmaking) != 0 ? SnowmakingStepBase : 0) +
+                   ((steps & PaidLights) != 0 ? LightsStepBase : 0);
         }
 
-        /// <summary>Per hectare, the same cases as <see cref="BaseFee(RunFeatures)"/>.</summary>
-        public static int PerHaFee(RunFeatures f)
+        /// <summary>Per hectare, the same cases as <see cref="BaseFeeOfSteps"/>.</summary>
+        public static int PerHaFeeOfSteps(RunFeatures f, byte steps)
         {
             if (!f.Known)
                 return -1;
             if (f.IsCatTrack)
                 return CatTrackPerHa;
-            if (!f.Groomed)
-                return NaturalPerHa;
-            return GroomedPerHa + (f.Snowmaking ? SnowmakingStepPerHa : 0) + (f.Lights ? LightsStepPerHa : 0);
+            return NaturalPerHa + ((steps & PaidGroomed) != 0 ? GroomedStepPerHa : 0) + ((steps & PaidSnowmaking) != 0 ? SnowmakingStepPerHa : 0) +
+                   ((steps & PaidLights) != 0 ? LightsStepPerHa : 0);
         }
 
-        public static int Fee(RunFeatures f, float areaM2)
+        /// <summary>The fee of a run of this base with these steps paid, by plan area (the class summary's rounding).</summary>
+        public static int FeeOfSteps(RunFeatures f, byte steps, float areaM2)
         {
-            int b = BaseFee(f);
+            int b = BaseFeeOfSteps(f, steps);
             if (b < 0)
                 return -1;
             double ha = areaM2 > 0f ? areaM2 / 10000.0 : 0.0;   // NaN and negatives fail "> 0"
             if (ha > MaxAreaHa)
                 ha = MaxAreaHa;                                  // +Infinity lands here too
-            double raw = b + PerHaFee(f) * ha;
+            double raw = b + PerHaFeeOfSteps(f, steps) * ha;
             return (int)(System.Math.Floor(raw / RoundTo + 0.5) * RoundTo);
         }
+
+        /// <summary>What a bound run owes when its features change: the fee of every step it has ever had minus the fee of the steps it
+        /// had paid, at today's plan area, so a run that toggles any sequence pays exactly the fee of the most it ever had (rounded once
+        /// per charge; a reshape between two charges uses each charge's own area). Off costs nothing and refunds nothing. A spacing change
+        /// costs nothing either: the fee is by area, and how close the guns or masts stand changes no snow or light rule.
+        /// <paramref name="paid"/>: the run's paid steps (SkiRunBinding.m_Flags &amp; PaidSteps); <paramref name="nowPaid"/>: with this
+        /// change's steps added. 0 for a cat track or an unknown run.</summary>
+        public static int StepCharge(RunFeatures f, byte paid, float areaM2, out byte nowPaid)
+        {
+            paid &= PaidSteps;
+            nowPaid = (byte)(paid | StepsOf(f));
+            if (nowPaid == paid || !f.IsPiste)
+                return 0;
+            int charge = FeeOfSteps(f, nowPaid, areaM2) - FeeOfSteps(f, paid, areaM2);
+            return charge > 0 ? charge : 0;
+        }
+
+        /// <summary>Unknown: -1. Cat track: CatTrackBase (its guns and lights carry no fee). Natural: NaturalBase. Groomed piste:
+        /// GroomedBase plus the snowmaking and lights steps it has (= NaturalBase plus its steps).</summary>
+        public static int BaseFee(RunFeatures f) => BaseFeeOfSteps(f, StepsOf(f));
+
+        /// <summary>Per hectare, the same cases as <see cref="BaseFee(RunFeatures)"/>.</summary>
+        public static int PerHaFee(RunFeatures f) => PerHaFeeOfSteps(f, StepsOf(f));
+
+        public static int Fee(RunFeatures f, float areaM2) => FeeOfSteps(f, StepsOf(f), areaM2);
 
         public static int BaseFee(int kind) => BaseFee(RunFeatures.FromKind(kind));
 

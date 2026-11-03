@@ -1360,7 +1360,7 @@ namespace SkiResortMod.Systems
                     ref AreaWork work = ref m_Work[resort];
                     snow = m_Injection.GetRunSnow(row.Entity, (RunKind)row.Kind, row.NodeBottomM, row.NodeTopM);
                     work.Snow.Add(row.AreaM2, snow.Share, snow.MeanDepthM, snow.Source == RunSnowSource.Estimated);
-                    if (row.Kind == (int)RunKind.Natural)
+                    if (!row.Features.Groomed)
                     {
                         // Natural runs bill nothing: their plan area is reported apart.
                         if (IsFinite(row.AreaM2) && row.AreaM2 > 0f)
@@ -1370,13 +1370,13 @@ namespace SkiResortMod.Systems
                     {
                         // The billed hectares, capped at the run's plan area: the same number SkiRunUpkeepSystem charges.
                         ha = SkiRunUpkeepSystem.BilledHa(texels, texelHa, row.AreaM2);
-                        cost = ha * SkiRunUpkeepSystem.CostPerHaMonth((RunKind)row.Kind);
+                        cost = ha * SkiRunUpkeepRates.PerHaMonth(row.Features);   // a lit run without guns: its lights step too
                         // > 0 active texels on a gun run = its guns are gated on now (the injection's per-run map, refilled every mask pass).
                         // Attribution is first-claim in chunk order, so a gun run fully under an earlier-scheduled run, or narrower than the texel grid,
                         // can read 0 while making snow.
-                        if (row.Kind == (int)RunKind.Snowmaking || row.Kind == (int)RunKind.Night)
+                        if (row.Features.Snowmaking)
                             work.AnyGunOn = true;
-                        switch (row.Kind)
+                        switch ((int)row.Features.SnowKind)   // the injection's class: a lit run without guns books as groomed
                         {
                             case (int)RunKind.Snowmaking:
                                 work.HaSnowmaking += ha;
@@ -1394,7 +1394,7 @@ namespace SkiResortMod.Systems
                     }
                     if (IsFinite(row.TopM) && row.TopM > work.TopM)
                         work.TopM = row.TopM;
-                    if (row.Kind == (int)RunKind.Snowmaking || row.Kind == (int)RunKind.Night)
+                    if (row.Features.Snowmaking)
                         work.AnyGunRun = true;
                 }
 
@@ -1474,7 +1474,7 @@ namespace SkiResortMod.Systems
                         ? (int)HubRules.GunWhyOf(bound && trackGunsOn, m_SnowLine.IsSnowGatingEnabled(), m_Injection.GunSeasonNow,
                                                  m_Injection.GunSeasonKnown, true,
                                                  bound && m_Injection.CatTrackGunsCanRun(row.Entity, row.NodeBottomM, row.NodeTopM))
-                        : (int)GunWhyOf(row.Entity, bound && (row.Kind == (int)RunKind.Snowmaking || row.Kind == (int)RunKind.Night)),
+                        : (int)GunWhyOf(row.Entity, bound && row.Features.Snowmaking),
                 });
                 m_RunTops.Add(row.NodeTopPos);
                 m_RunOutlines.Add(row.OutlineXZ); // the catalog row's arrays, by reference (the link graph keeps while they are unchanged)

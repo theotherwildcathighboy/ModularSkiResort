@@ -109,6 +109,7 @@
   <ItemGroup>
     <Compile Include="CatTrackTests.cs" />
     <Compile Include="RunFeaturesTests.cs" />
+    <Compile Include="RunFeaturesR2Tests.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiRunBindingRules.cs" Link="SkiRunBindingRules.cs" />
   </ItemGroup>
   <!-- The guns-running predicate shared by the

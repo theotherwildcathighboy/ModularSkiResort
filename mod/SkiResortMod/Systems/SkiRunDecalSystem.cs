@@ -80,7 +80,6 @@ namespace SkiResortMod.Systems
             // the snow and the run read gray; 0.35 keeps the corduroy lane readable while the pack's white wins. The prefab tint
             // (SkiRunGroomedA m_BaseColor) was raised too; if still gray, the bake (ski_decal.py build_groomed `beige`) is the next knob.
             public const float GroomedWinterAlphaScale = 0.35f;
-            public const float SnowmakingWinterAlphaScale = 0.10f;
         }
 
         // Run surfaces, with the same tolerant name resolution as the sibling systems. SkiRunNaturalA is left out on purpose: a
@@ -98,8 +97,6 @@ namespace SkiResortMod.Systems
         private const string TexturesFolderName = "Textures";
         private const string GroomedBaseColorFile = "SkiRunDecalGroomed_BaseColor.png";
         private const string GroomedNormalFile = "SkiRunDecalGroomed_Normal.png";
-        private const string SnowmakingBaseColorFile = "SkiRunDecalSnowmaking_BaseColor.png";
-        private const string SnowmakingNormalFile = "SkiRunDecalSnowmaking_Normal.png";
         // Snow slots reuse the existing splat winter pair: one corduroy source of truth
         private const string SnowBaseColorFile = "SkiTerrainSnowCorduroy_BaseColor.png";
         private const string SnowNormalFile = "SkiTerrainSnowCorduroy_Normal.png";
@@ -239,12 +236,12 @@ namespace SkiResortMod.Systems
             {
                 new Target(GroomedPrefabName, GroomedBaseColorFile, GroomedNormalFile,
                     Tuning.GroomedWinterAlphaScale, useSnowPair: true),
-                new Target(SnowmakingPrefabName, SnowmakingBaseColorFile, SnowmakingNormalFile,
-                    Tuning.SnowmakingWinterAlphaScale, useSnowPair: false),
-                // Night runs wear snowmaking's dress: same textures, same near-clear winter alpha. A night run's snow is snowmaking snow;
-                // the run's identity comes from its floodlight masts, not a different decal.
-                new Target(NightPrefabName, SnowmakingBaseColorFile, SnowmakingNormalFile,
-                    Tuning.SnowmakingWinterAlphaScale, useSnowPair: false),
+                // Two looks (DECISIONS 577): the snowmaking and night presets are groomed runs with guns or lights on, so they wear the
+                // groomed dress; guns and masts are props, not a surface.
+                new Target(SnowmakingPrefabName, GroomedBaseColorFile, GroomedNormalFile,
+                    Tuning.GroomedWinterAlphaScale, useSnowPair: true),
+                new Target(NightPrefabName, GroomedBaseColorFile, GroomedNormalFile,
+                    Tuning.GroomedWinterAlphaScale, useSnowPair: true),
                 // The cat track reuses the groomed pair
                 new Target(CatTrackPrefabName, GroomedBaseColorFile, GroomedNormalFile,
                     Tuning.GroomedWinterAlphaScale, useSnowPair: true),

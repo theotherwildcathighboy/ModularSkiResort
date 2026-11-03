@@ -119,7 +119,7 @@ namespace SkiResortMod.Systems
         /// <summary>The features of a run kind (the parity shim). Groomed: groomed. Snowmaking: groomed + snowmaking. Night: groomed +
         /// snowmaking + lights. Natural: a piste and nothing else. Cat track: the cat track base, groomed, snowmaking while its guns are on,
         /// lights while lit. <paramref name="gunsOn"/>: a cat track's gun switch (SkiRunPropSystem.CatTrackGunsOn), or false for a gun run
-        /// whose guns may not run (a run's gun value is look only, so the run path passes true). <paramref name="lit"/>: a cat track's
+        /// whose guns may not run (a run passes true: its kind already says whether its guns are on, SnowKind, DECISIONS 577). <paramref name="lit"/>: a cat track's
         /// light spacing is above Off; runs ignore it (a night run is lit by its kind). Anything else: <see cref="Unknown"/>.</summary>
         public static RunFeatures FromKind(int kind, bool gunsOn = true, bool lit = false)
         {
@@ -133,6 +133,41 @@ namespace SkiResortMod.Systems
                 default: return Unknown;
             }
         }
+
+        /// <summary>The features of a built run (run types R2, DECISIONS 577): its prefab kind gives the base and Groomed (every piste prefab but
+        /// Natural is groomed), its spacings give the rest: Snowmaking while the gun spacing is above Off, Lights while the light spacing is
+        /// above Off (RunPropPlacerRules.SpacingOff = 0). A natural run has neither (Of drops them: both need Groomed). So the Snowmaking and
+        /// Night prefabs are presets: their default spacings (RunPropPlacerRules.DefaultGunSpacing / DefaultLightSpacing) give FromKind's
+        /// features, and a slider moves them.</summary>
+        public static RunFeatures FromSpacings(int kind, int gunSpacingM, int lightSpacingM)
+        {
+            RunFeatures k = FromKind(kind);   // the base and Groomed; Unknown stays Unknown
+            return k.Known ? Of(k.Base, k.Groomed, gunSpacingM > 0, lightSpacingM > 0) : Unknown;
+        }
+
+        /// <summary>The kind whose snow rules equal these features' (the snow rules read the base, Groomed and Snowmaking, never Lights):
+        /// cat track, natural, Night (snowmaking + lights: the injection bills it on its own counter), Snowmaking, Groomed (a lit groomed run
+        /// too); 255 for Unknown. A cat track's gun switch still travels on its own (gunsOn).</summary>
+        public RunKind SnowKind
+        {
+            get
+            {
+                if (!Known)
+                    return (RunKind)255;
+                if (Base == RunBase.CatTrack)
+                    return RunKind.CatTrack;
+                if (!Groomed)
+                    return RunKind.Natural;
+                if (Snowmaking)
+                    return Lights ? RunKind.Night : RunKind.Snowmaking;
+                return RunKind.Groomed;
+            }
+        }
+
+        /// <summary>The kind whose score answers equal these features' (SkiResortScore reads the base, Groomed and Lights, never Snowmaking):
+        /// cat track, natural, Night for any lit piste, else Groomed; 255 for Unknown. SkiResortScore.RunInput.Kind carries it. Snowmaking
+        /// is set to Lights so the snow kind lands on Night (lit) or Groomed (dark).</summary>
+        public byte ScoreKind => Known ? (byte)Of(Base, Groomed, Lights, Lights).SnowKind : (byte)255;
 
         public bool IsPiste => Known && Base == RunBase.Piste;
         public bool IsCatTrack => Known && Base == RunBase.CatTrack;

@@ -944,6 +944,10 @@ namespace SkiResortMod.Systems
         private Dictionary<Entity, bool> m_GunRunning = new Dictionary<Entity, bool>();
         private Dictionary<Entity, bool> m_GunRunningNext = new Dictionary<Entity, bool>();
         private readonly Dictionary<Entity, float> m_GunPackM = new Dictionary<Entity, float>();   // last measured pack (logs, dump)
+
+        // Re-emitted runs (SkiRunReemitSystem): the per-run state above follows the new entity, re-applied for a pass still in flight.
+        private readonly RunAliases m_RunAliases = new RunAliases();
+        private Action<Entity, Entity> m_MoveRunState;
         private int m_GunGeneration;
 
         /// <summary>++ whenever any run's guns-running flag changes or a run enters or leaves the map.</summary>
@@ -1088,8 +1092,12 @@ namespace SkiResortMod.Systems
             if (!m_RunSnow.TryGetValue(run, out RunSnow s))
             {
                 // not in the table (injection disabled or not armed, run unbound or off the map,
-                // no pass yet) → the day-mean estimate. A run's gun value is look only (gunsOn true); a cat track's
-                // switch decides. No history: the first label uses the midpoint, the multiplier is published as is.
+                // no pass yet) → the day-mean estimate. A groomed run's prefab kind becomes its snow kind (its gun slider is its
+                // Snowmaking feature, R2: RunFeatures.SnowKind); a cat track's switch travels as gunsOn. No history: the first label uses the
+                // midpoint, the multiplier is published as is.
+                RunFeatures runFeatures = m_RunProps.FeaturesOf(run, (int)kind);
+                if (runFeatures.IsPiste)
+                    kind = runFeatures.SnowKind;
                 bool gunsOn = kind != RunKind.CatTrack || m_RunProps.CatTrackGunsOn(run);
                 float share = EstimateShare(kind, bottomY, topY, gunsOn);
                 // A cat track keeps its made snow while it is not in the table (from a load to the first pass): the saved share.
@@ -1420,6 +1428,7 @@ namespace SkiResortMod.Systems
             m_LastSkipKind = TopupSkip.None;
             m_UncalmRuns = 0;
             m_DayKey = int.MinValue;         // the first pass of this load starts a day "from the load"
+            m_RunAliases.Clear();
             m_Protect.Clear();               // protection spells, the ledger and the per-texel baseline are per load
             m_Ledger.Clear();
             m_LedgerRuns.Clear();
@@ -1557,6 +1566,8 @@ namespace SkiResortMod.Systems
             {
                 if (m_Disabled || !m_Armed)
                     return;
+                if (m_RunAliases.Any)
+                    m_RunAliases.Apply(m_MoveRunState);
 
                 // Self-gated cadence off the sim frame counter (uint wrap-safe). The
                 // initial top-up fires on the very first invocation after load.
@@ -2251,7 +2262,7 @@ namespace SkiResortMod.Systems
                         dayMean = m_SnowLineSystem.GetDayMeanTemperature();
                     next.Source = RunSnowSource.Estimated;
                     // GetRunSnow's rule for a cat track too: out of the gun season this pass's guns raise nothing (GunGate), so a gun run
-                    // holds natural snow only. A run's gun value is look only: gunsOn true.
+                    // holds natural snow only. A run's guns are in its kind (publicKind, from its features): gunsOn true.
                     share = RunSnowRules.EstimatedRunShare(input.Kind, input.BottomY, input.TopY, dayMean, freezing, margin, baseHeight, lapse,
                         m_GunSeasonKnown && m_PassGunSeason, input.GunsOn);
                 }
@@ -3149,13 +3160,19 @@ namespace SkiResortMod.Systems
                     var nodeAccessor = chunks[c].GetBufferAccessor(ref nodeHandle);
                     for (int i = 0; i < prefabRefs.Length; i++)
                     {
-                        // Night first: if a night prefab ever also landed in the snowmaking set, classifying night first guarantees it can never be
-                        // mis-billed at the snowmaking rate.
-                        bool nightRun = m_NightPrefabs.Contains(prefabRefs[i].m_Prefab);
-                        bool snowmaking = !nightRun &&
-                            m_SnowmakingPrefabs.Contains(prefabRefs[i].m_Prefab);
-                        bool groomed = !nightRun && !snowmaking &&
-                            m_GroomedPrefabs.Contains(prefabRefs[i].m_Prefab);
+                        // A groomed run's class comes from its features (R2, DECISIONS 577): the prefab says groomed (any of the three groomed
+                        // prefabs, presets of the same look), the gun and light sliders say snowmaking and lights (SkiRunPropSystem.FeaturesOf).
+                        // Snowmaking + lights = the night class (snowmaking physics, the night bill); snowmaking = the snowmaking class; anything
+                        // else groomed = the groomed class (guns Off: no made snow, no snowmaking bill; a lit groomed run's lights are billed by
+                        // SkiRunUpkeepSystem on top of the groomed rate).
+                        Entity runPrefab = prefabRefs[i].m_Prefab;
+                        bool groomedPrefab = m_NightPrefabs.Contains(runPrefab) || m_SnowmakingPrefabs.Contains(runPrefab) ||
+                                             m_GroomedPrefabs.Contains(runPrefab);
+                        RunFeatures features = groomedPrefab ? m_RunProps.FeaturesOf(entities[i], m_Ownership.KindOf(runPrefab)) : RunFeatures.Unknown;
+                        bool injected = features.IsPiste && features.Groomed;   // Unknown while the ownership sets are not resolved: no bound run then
+                        bool nightRun = injected && features.Snowmaking && features.Lights;
+                        bool snowmaking = injected && features.Snowmaking && !features.Lights;
+                        bool groomed = injected && !features.Snowmaking;
                         if (!nightRun && !snowmaking && !groomed)
                         {
                             // Natural runs come last and are only recorded here (entity, Geometry heights, a signature term); they are pre-clipped and measured
@@ -3811,6 +3828,31 @@ namespace SkiResortMod.Systems
                 row.RateState == SkiRunCatalogSystem.RateRated)
                 return row.Band;
             return -1;
+        }
+
+        /// <summary>A run was re-emitted (SkiRunReemitSystem): its snow, texels, gun state, protection spell and ledger follow the new
+        /// entity, so the hub's open state and snow line read on without a gap. Main thread.</summary>
+        internal void RekeyRun(Entity from, Entity to)
+        {
+            if (m_MoveRunState == null)
+                m_MoveRunState = MoveRunState;
+            m_RunAliases.Add(from, to);
+            m_RunAliases.Apply(m_MoveRunState);
+        }
+
+        private void MoveRunState(Entity from, Entity to)
+        {
+            RunAliases.Move(m_RunSnow, from, to);
+            RunAliases.Move(m_RunSnowNext, from, to);
+            RunAliases.Move(m_RunTexels, from, to);
+            RunAliases.Move(m_RunTexelsNext, from, to);
+            RunAliases.Move(m_GunState, from, to);
+            RunAliases.Move(m_GunStateNext, from, to);
+            RunAliases.Move(m_GunRunning, from, to);
+            RunAliases.Move(m_GunRunningNext, from, to);
+            RunAliases.Move(m_GunPackM, from, to);
+            RunAliases.Move(m_Protect, from, to);
+            RunAliases.Move(m_Ledger, from, to);
         }
 
         private void ResolvePrefabSet(string[] names, HashSet<Entity> target)

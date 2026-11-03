@@ -202,9 +202,10 @@
       name: "Grand Mountain Hospitality Warming Hut and Apres Ski Lounge Inns" },
     { sign: E(105), lodge: E(413), item: "lodge", carSpaces: -1, number: 0, name: "" },
   ];
-  const base = { hubOpen: false, contract: 31, buildStamp: "", showHubButton: true, build: buildItems(), glade,
+  const base = { hubOpen: false, contract: 32, buildStamp: "", showHubButton: true, build: buildItems(), glade,
     resorts: [], resortLive: [], selectedResort: NULL, runs: [], runLive: [], lifts: [], problems: [], city, pisteMap: true, follow: 0, history: [],
-    liftLine: { available: true, active: false, state: "PickBase" }, quickRuns, catTrackDeleteMode: false, lodgeParking };
+    liftLine: { available: true, active: false, state: "PickBase" }, quickRuns, catTrackDeleteMode: false, lodgeParking,
+    runReplaced: { seq: 0, from: { index: 0, version: 0 }, to: { index: 0, version: 0 } } };
 
   window.SkiScenarios = {
     "not connected (no C#)": Object.assign({}, base, { contract: 0, city: Object.assign({}, city, { known: false }) }),

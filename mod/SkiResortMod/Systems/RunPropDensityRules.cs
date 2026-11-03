@@ -1,6 +1,6 @@
 // What a run may carry and how a settled change is timed, for the run prop placer (RunPropPlacerRules has the walk). SkiRunPropSystem calls
-// these on the main thread; tests/ResortBatch DensityTests checks them with literal values. Look only: snow (a per-texel line by run type)
-// and upkeep (SkiRunUpkeepSystem) never read a run's prop spacings.
+// these on the main thread; tests/ResortBatch DensityTests checks them with literal values. Snow and upkeep read a run's prop spacings only as
+// its Snowmaking and Lights features (SkiRunPropSystem.FeaturesOf, DECISIONS 577).
 // Pure file: `using System;` only (no Game.dll, no Unity types); linked into tests/ResortBatch. C# 9 / net48: no Math.Clamp.
 // Engine notes: EngineNotes/RunPropDensityRules.md
 

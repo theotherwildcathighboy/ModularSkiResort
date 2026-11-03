@@ -256,9 +256,12 @@ namespace SkiResortMod.Systems
             float nightHa = m_SnowInjectionSystem.NightActiveTexels * texelHa;
             float clippedHa = ClipToPlanAreas(texelHa, ref snowmakingHa, ref groomedHa, ref nightHa);
             float trackHa = CatTrackHa();
+            // A lit run without guns is in the groomed class: its lights step is billed on top (DECISIONS 577)
+            float litHa = LitGroomedHa(texelHa);
             float monthlyRate = snowmakingHa * Tuning.SnowmakingCostPerHaMonth
                               + groomedHa * Tuning.GroomedCostPerHaMonth
                               + nightHa * Tuning.NightCostPerHaMonth
+                              + litHa * SkiRunUpkeepRates.LightsStepPerHaMonth
                               + trackHa * Tuning.SnowmakingCostPerHaMonth;
             if (monthlyRate <= 0f)
             {
@@ -314,7 +317,8 @@ namespace SkiResortMod.Systems
                               $"rate {rateBucket}/month = snowmaking {snowmakingHa:F1} ha × " +
                               $"{Tuning.SnowmakingCostPerHaMonth} + groomed {groomedHa:F1} ha × " +
                               $"{Tuning.GroomedCostPerHaMonth} + night {nightHa:F1} ha × " +
-                              $"{Tuning.NightCostPerHaMonth} + cat tracks {trackHa:F1} ha × " +
+                              $"{Tuning.NightCostPerHaMonth} + lit groomed {litHa:F1} ha × " +
+                              $"{SkiRunUpkeepRates.LightsStepPerHaMonth} + cat tracks {trackHa:F1} ha × " +
                               $"{Tuning.SnowmakingCostPerHaMonth}, balance {balance}" +
                               (clippedHa >= 0.05f ? $" (edge texels over the runs' plan areas not billed: {clippedHa:F1} ha)" : "") +
                               (debit > 0 ? $"; booked to {m_LastSplitAreas} ski area(s)" + (m_LastSplitNotLinked > 0 ? $" + Not linked {m_LastSplitNotLinked}" : "") : "");
@@ -352,10 +356,10 @@ namespace SkiResortMod.Systems
             for (int i = 0; i < rows; i++)
             {
                 SkiRunCatalogSystem.RunRow row = m_Catalog.GetRow(i);
-                if (row.Kind == (int)RunKind.Natural)
+                if (!row.Features.Groomed)   // natural and unknown (a cat track is groomed)
                     continue;
                 float billedHa;
-                if (row.Kind == (int)RunKind.CatTrack)
+                if (row.Features.IsCatTrack)
                 {
                     billedHa = SnowGunPlumeRules.TrackBilledHa(row.AreaM2,
                         m_SnowInjectionSystem.CatTrackGunsCanRun(row.Entity, row.NodeBottomM, row.NodeTopM), m_RunProps.CatTrackGunsOn(row.Entity));
@@ -366,7 +370,9 @@ namespace SkiResortMod.Systems
                         continue;
                     billedHa = BilledHa(texels, texelHa, row.AreaM2);
                 }
-                double w = (double)billedHa * CostPerHaMonth((RunKind)row.Kind);
+                double w = (double)billedHa * (row.Features.IsCatTrack
+                    ? Tuning.SnowmakingCostPerHaMonth   // Charge's track rate
+                    : SkiRunUpkeepRates.PerHaMonth(row.Features));
                 if (!(w > 0.0) || double.IsInfinity(w))
                     continue;
                 if (row.Gate == Entity.Null)
@@ -451,7 +457,7 @@ namespace SkiResortMod.Systems
                 float excess = texels * texelHa - BilledHa(texels, texelHa, row.AreaM2);
                 if (!(excess > 0f))
                     continue;
-                switch (row.Kind)
+                switch ((int)row.Features.SnowKind)   // the injection's class (lights ignored)
                 {
                     case (int)RunKind.Snowmaking:
                         excess = math.min(excess, snowmakingHa);
@@ -471,6 +477,23 @@ namespace SkiResortMod.Systems
                 clipped += excess;
             }
             return clipped;
+        }
+
+        /// <summary>The billed hectares of the lit runs without guns (groomed class, lights step on top). Main thread; no allocation.</summary>
+        private float LitGroomedHa(float texelHa)
+        {
+            float ha = 0f;
+            int rows = m_Catalog.RowCount;
+            for (int i = 0; i < rows; i++)
+            {
+                SkiRunCatalogSystem.RunRow row = m_Catalog.GetRow(i);
+                RunFeatures f = row.Features;
+                if (f.Base != RunBase.Piste || !f.Lights || f.Snowmaking)
+                    continue;
+                if (m_SnowInjectionSystem.TryGetRunActiveTexels(row.Entity, out int texels) && texels > 0)
+                    ha += BilledHa(texels, texelHa, row.AreaM2);
+            }
+            return ha;
         }
 
         /// <summary>One line for the folded charge lines: how many, over how long, the debit-per-pass and rate ranges, then the last

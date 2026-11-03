@@ -1,10 +1,11 @@
 // Gate: the run prop placer's rules a text check can hold (lessons of the 2026-11-01 placer round).
 //  R1 consumers read the tag: plume and night light select SkiRunPropMember and never Secondary, because a placed prop has no owner and an old
 //     corner prop is gone after the load sweep. Only the sweep may name Secondary.
-//  R2 look only: nothing that decides snow or upkeep reads a spacing, with two exceptions for a cat track set to Off: it bills nothing
-//     (DECISIONS 563) and makes no new snow (DECISIONS 568; made snow stays until it melts, 572). Both read that switch only through SkiRunPropSystem.CatTrackGunsOn:
-//     every TrackBilledHa call passes it, and the injection reads it twice, for a cat track only: in GetRunSnow, and where BuildMask
-//     records a track for measurement (its made-snow model, run-types round).
+//  R2 features only: the sliders are the Snowmaking and Lights features (DECISIONS 577), so nothing that decides snow or upkeep reads a
+//     spacing itself: runs read features through SkiRunPropSystem.FeaturesOf (the one place a spacing becomes a feature), and a cat
+//     track's switch through CatTrackGunsOn: Off bills nothing (DECISIONS 563) and makes no new snow (568; made snow stays until it melts,
+//     572). Every TrackBilledHa call passes CatTrackGunsOn, and the injection reads it twice, for a cat track only: in GetRunSnow, and where
+//     BuildMask records a track for measurement (its made-snow model).
 //  R3 the old Options sliders stay gone, also from the locale template.
 //  R4 the table's weights equal the prefabs' m_Probability (the mix must not drift from the assets), and the empty marker is not placed.
 //  R5 the hub's slider constants equal the rules class.
@@ -13,7 +14,8 @@
 //     by the run rule: one RunSnowRules.EstimatedRunShare call for an unmeasured run and one for GetRunSnow, both with the pass's gun
 //     season once known (DECISIONS 571); a track's made snow uses only TrackGunShare and TrackColdShare, once each, in StepTrack.
 //  R8 house style: Game mode only, ARMED line, one-shot catch, [cost] line, and the tag is added in one place.
-//  R9 run types: the count of run kind names per mod file only goes down (systems move to RunFeatures in R2).
+//  R9 run types: the count of run kind names per mod file only goes down (systems move to RunFeatures in R2). One exception: the shim
+//     file EntityRef.cs rose in R2 for SnowKind, the features-to-kind bridge of the kind-keyed snow code (102 -> 95 names overall).
 "use strict";
 const fs = require("fs");
 const path = require("path");
@@ -35,6 +37,16 @@ need(code(read(systems, "SkiRunSurfaceSystem.cs")).includes("SkiRunPropMember"),
 const placer = read(systems, "SkiRunPropSystem.Placer.cs");
 need(code(placer).split("Game.Objects.Secondary").length === 2, "R1 SkiRunPropSystem.Placer.cs: Secondary belongs to the load sweep only (one use)");
 need(!/\bSecondary\b/.test(code(read(systems, "SkiRunPropSystem.cs"))), "R1 SkiRunPropSystem.cs: reads Secondary (the census counts the tag)");
+{
+  // Every piste surface that can carry a feature slider is walked, its kind from the catalog: a groomed run re-emitted by the Groomed toggle
+  // keeps its guns and lights (in game 2026-11-02, the placer had no kind for SkiRunGroomedA and stood nothing on it).
+  const ps = code(read(systems, "SkiRunPropSystem.cs"));
+  const names = (ps.match(/RunSurfaceNames\s*=\s*\{([^}]*)\}/) || [, ""])[1];
+  for (const n of ["RunGroomed", "RunSnowmaking", "RunNight", "RunCatTrack"])
+    need(names.includes(`SkiCatalog.Names.${n}`), `R2 SkiRunPropSystem.cs: RunSurfaceNames lacks SkiCatalog.Names.${n}`);
+  need(/m_RunKindOf\[prefabEntity\]\s*=\s*\(int\)SkiCatalog\.RunByPrefab\(name\)\.Kind/.test(ps),
+    "R2 SkiRunPropSystem.cs: the placer's kinds come from SkiCatalog.RunByPrefab for every run surface");
+}
 
 // R2
 const body = (text, signature) => {
@@ -50,8 +62,11 @@ const body = (text, signature) => {
 };
 for (const f of ["SkiRunUpkeepSystem.cs", "SkiSnowInjectionSystem.cs", "RunSnowRules.cs", "SnowGunPlumeRules.cs"]) {
   const c = code(read(systems, f));
-  need(!/SkiRunPropSettings|TryGetSpacing|GunSpacing|LightSpacing|RunPropPlacerRules/.test(c), `R2 ${f}: reads a prop spacing (sliders are look only)`);
+  need(!/SkiRunPropSettings|TryGetSpacing|GunSpacing|LightSpacing|RunPropPlacerRules/.test(c), `R2 ${f}: reads a prop spacing (read features: SkiRunPropSystem.FeaturesOf)`);
 }
+const featuresBody = body(placer, "internal RunFeatures FeaturesOf(") || "";
+need(featuresBody.includes("SkiRunPropSettings") && featuresBody.split("RunFeatures.FromSpacings(").length === 3,
+     "R2 FeaturesOf: must read SkiRunPropSettings and turn the spacings into features with RunFeatures.FromSpacings (with the kind defaults)");
 // The one exception: every TrackBilledHa call passes the cat track gun switch (upkeep: CatTrackGunsOn in the call; the hub's cost row:
 // the call sits behind `trackGunsOn &&`), and CatTrackGunsOn reads the gun value only.
 for (const f of ["SkiRunUpkeepSystem.cs", "SkiResortStatsSystem.cs"]) {
@@ -153,7 +168,7 @@ need(tagged.length === 1 && tagged[0] === "SkiRunPropSystem.Placer.cs", `R8 the 
 // KIND_READS_PRINT=1 prints the current counts.
 const KIND_READS = {
   "Systems/CatTrackGradeToolSystem.cs": 1,
-  "Systems/EntityRef.cs": 5,   // RunFeatures.FromKind, the shim itself
+  "Systems/EntityRef.cs": 10,   // RunFeatures.FromKind (the shim) and SnowKind (features -> the kind the snow code takes, R2, DECISIONS 577)
   "Systems/PisteMapRules.cs": 1,
   "Systems/QuickRunsToolSystem.cs": 5,
   "Systems/QuickRunsToolSystem.Scan.cs": 1,
@@ -162,14 +177,13 @@ const KIND_READS = {
   "Systems/SkiCatalog.cs": 5,
   "Systems/SkiResortAttractivenessSystem.cs": 3,
   "Systems/SkiResortScore.cs": 5,
-  "Systems/SkiResortStatsSystem.cs": 11,
+  "Systems/SkiResortStatsSystem.cs": 4,
   "Systems/SkiRunAutoPlanner.Select.cs": 8,
   "Systems/SkiRunBindingRules.cs": 5,
   "Systems/SkiRunCatalogSystem.cs": 1,
   "Systems/SkiRunOwnershipSystem.cs": 2,
-  "Systems/SkiRunPropSystem.cs": 3,
   "Systems/SkiRunPropSystem.Placer.cs": 4,
-  "Systems/SkiRunUpkeepSystem.cs": 7,
+  "Systems/SkiRunUpkeepSystem.cs": 5,
   "Systems/SkiSnowInjectionSystem.cs": 26,
 };
 const kindRe = /\bRunKind\.(Groomed|Snowmaking|Night|Natural|CatTrack)\b|\bKind(Groomed|Snowmaking|Night|Natural|CatTrack)\b/g;
