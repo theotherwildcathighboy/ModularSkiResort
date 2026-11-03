@@ -130,7 +130,7 @@ def test_structure():
     ok(sg["mesh_lod0_single_light"]["purpose"] == 71, "the mesh light follows the prefab's effects (purpose 71)")
     es = sg["effect_source"]
     ok(len(es) == 3 and all(len(r["cid"]) == 32 for r in es), "three effect rows with their CIDs")
-    ok(es[0]["effect"] == "SkiPisteFloodSource" and es[2]["effect"] == "SkiPisteFloodSource" and es[0]["cid"] == es[2]["cid"],
+    ok(es[0]["effect"] == "SkiGroomerFloodSource" and es[2]["effect"] == "SkiGroomerFloodSource" and es[0]["cid"] == es[2]["cid"],
        "row 0 the front flood (purpose 71 follows it), row 2 the rear flood")
     ok(all(abs(sum(q * q for q in r["m_Rotation_xyzw"]) - 1.0) < 1e-5 for r in es), "unit rotations")
     fa, ra = G.flood_aim_author(es[0]), G.flood_aim_author(es[2])

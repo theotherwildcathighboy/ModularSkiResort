@@ -27,7 +27,8 @@
 #  10. SHIPPED   - every (name, type, CID) of tools/shipped-prefabs.json (tools/freeze-shipped.ps1) is still an owned prefab
 #                  with that CID (FAIL otherwise); an owned non-RenderPrefab not in the list WARNs until re-frozen (T74).
 #  11b. MOVERLIGHT - the prop our code moves (GroomerRules.PrefabName) lights only through purpose 71 EffectSource, carries an
-#                  EffectSource row for it to follow, and its far surfaces carry the emissive map (SkiGroomerA, 2026-11-01).
+#                  EffectSource row for it to follow, and its far surfaces carry the emissive map (SkiGroomerA, 2026-11-01);
+#                  its owned light effects are owner-culled (m_DisableDistanceCulling false), so no pool outlives the mesh (2026-11-03).
 #  13. STUBNET   - every station stub marker net is wider than the widest lift line and has no lanes (T121 / T126).
 #  14. POWERFLOW - every owned lift line (PowerLinePrefab, not a MarkerNet) carries ElectricityConnection Voltage High (1),
 #                  Direction Both (3), Capacity == the vanilla Low-voltage Line's 800000 (DECISIONS 369 / R-1).
@@ -701,15 +702,29 @@ foreach ($mn in $mlNames) {
         }
     }
     $effects = [regex]::Matches($obj, '"m_Effect":\s*\$fstrref:"(CID|UnityGUID):[0-9a-f]{32}"').Count
+    # Its lights must end with the mesh, as vanilla vehicle lights do: an owned LightEffect with m_DisableDistanceCulling true has
+    # m_OwnerCulling false (EffectPrefab.cs:43), so EffectControlSystem.cs:215-231, :299-353 never disable it when the prop leaves
+    # NearCamera, and its pool stays lit past the culled machine (the groomer's floods showed at 7.9 km; groomer-lights-2026-11-01.md section 8).
+    $farLights = @()
+    foreach ($em in [regex]::Matches($obj, '"m_Effect":\s*\$fstrref:"CID:([0-9a-f]{32})"')) {
+        $ef = $mlByCid[$em.Groups[1].Value]
+        if (-not $ef) { continue }
+        $et = [IO.File]::ReadAllText($ef)
+        if (($et -match 'Game\.Prefabs\.Effects\.LightEffect,') -and ($et -match '"m_DisableDistanceCulling":\s*true')) {
+            $farLights += [regex]::Match($et, '(?m)^    "name":\s*"([^"]+)"').Groups[1].Value
+        }
+    }
     $rel0 = $lod0.Substring($ImportedData.Length + 1)
-    if ($bad.Count -gt 0) {
+    if ($farLights.Count -gt 0) {
+        $rows.Add("FAIL  MOVERLIGHT ${mn}: light effect(s) $(($farLights | Sort-Object -Unique) -join ', ') set m_DisableDistanceCulling true, so the light is not owner-culled and its pool outlives the culled mesh; point the row at an owned copy with false (SkiGroomerFloodSource)"); $failures++
+    } elseif ($bad.Count -gt 0) {
         $rows.Add("FAIL  MOVERLIGHT ${mn}: mesh light $($bad -join ', ') on $rel0 chain - a moving prop has no Car / TransformFrame: 33 / 34 glow day and night, vehicle purposes stay 0; use 71 EffectSource (groomer-lights section 11)"); $failures++
     } elseif ($has71 -and $effects -eq 0) {
         $rows.Add("FAIL  MOVERLIGHT ${mn}: purpose 71 follows the first enabled effect, and the object prefab carries no EffectSource row: dark at night"); $failures++
     } elseif ($lod0Emissive -and $surfMiss.Count -gt 0) {
         $rows.Add("FAIL  MOVERLIGHT ${mn}: $($surfMiss -join ', ') surface without _EmissiveColorMap: the far levels go dark (share the map in settings.json and reimport under a new letter)"); $failures++
     } else {
-        $rows.Add("OK    MOVERLIGHT ${mn}: $($chain.Count) LOD mesh(es), lights $(if ($has71) { '71 only' } else { 'none' }), $effects effect row(s), far surfaces $(if ($lod0Emissive) { 'carry the emissive map' } else { 'n/a' })")
+        $rows.Add("OK    MOVERLIGHT ${mn}: $($chain.Count) LOD mesh(es), lights $(if ($has71) { '71 only' } else { 'none' }), $effects effect row(s), owned lights owner-culled, far surfaces $(if ($lod0Emissive) { 'carry the emissive map' } else { 'n/a' })")
     }
 }
 

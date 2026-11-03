@@ -42,6 +42,10 @@ namespace SkiResortMod
                 { "Assets.DESCRIPTION[SkiBusDepot]", "A bus stop in town which will shuttle skiers who live close by to the ski resort." },
                 { "Assets.NAME[SkiCoachBus]", "Ski Bus" },
                 { "Assets.DESCRIPTION[SkiCoachBus]", "The coach between a Ski Bus Depot and the nearest lodge on the hill." },
+                // The cat track groomer (SkiGroomerSystem places it; never selectable, so the name shows in the Editor and in mods that list
+                // prefabs). Vanilla names its vehicles with the plain noun ("Snowplow").
+                { "Assets.NAME[SkiGroomerA]", "Snow Groomer" },
+                { "Assets.DESCRIPTION[SkiGroomerA]", "Grooms a cat track while it is open, with its lights on from dusk to dawn." },
                 { "Assets.NAME[SkiSchool]", "Ski School" },
                 { "Assets.DESCRIPTION[SkiSchool]", "Teaches on the green runs: the ski area scores more and locals come more often." },
                 { "Assets.NAME[SkiPatrolHut]", "Ski Patrol Hut" },
