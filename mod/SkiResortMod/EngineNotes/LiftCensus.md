@@ -108,6 +108,15 @@ hashed. A station connection node never counts. The census reads the figure of t
 calls `RequestBuild("train limits")` when its set changes, so the row follows within one coalesce window. The state never depends on it.
 Tests: LiftBatch BT-11 (and AL-11 for the figure).
 
+## Low spans (2026-11-03, owner: a fact in the hub, never a refusal)
+LiftClearanceSystem measures every lift edge's HV rope lanes (the carriers' lanes, their Curve carries the sag) against the terrain:
+carrier = rope point - `CarrierDropM`, every `StepM`, skipping `StationClearM` from a station end; an edge whose lowest carrier passes
+more than 0.1 m under `FloorM` (3 m, tram 5 m) is `Edge.Low` with `LowClearM` / `LowAt`. `MeasureBends` keeps the row's lowest
+such edge in the same walk: `LowSpan`, `LowClearM`, `LowFrom` (the last tower walked, 0 = the start station) and `LowTo` (the next
+tower walked, 0 = the walk ends first), `LowEdge`, `LowAt`, hashed. The system runs after the census, on census builds, Updated lift
+edges and every 600 frames (raised terrain updates no lift entity), at most 256 samples a frame; a changed set calls
+`RequestBuild("low spans")`. Tests: LiftBatch BT-12.
+
 ## Pure file
 Only `using System;`, `System.Collections.Generic`, `Unity.Mathematics` (the test-host rule of tests/SlopeBatch; EntityRef.cs is the pure
 stand-in for Entity), plus SkiCatalog (pure, linked wherever this file is) for the type ids in the "mixes lift types" note, and the pure

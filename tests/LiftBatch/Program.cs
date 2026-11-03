@@ -142,7 +142,7 @@ namespace LiftBatch
         {
             private struct St { public bool IsBase; public float3 Pos; public quaternion Rot; }
             private struct Nd { public float3 Pos; public int Station; public bool Tower; public float TrainOver; }
-            private struct Ed { public int A, B, Chairs; }
+            private struct Ed { public int A, B, Chairs; public bool Low; public float LowClear; }
 
             private readonly SortedDictionary<int, St> m_Stations = new SortedDictionary<int, St>();
             private readonly SortedDictionary<int, Nd> m_Nodes = new SortedDictionary<int, Nd>();
@@ -188,6 +188,16 @@ namespace LiftBatch
             public void Edge(int id, int a, int b, int chairs = 10)
             {
                 m_Edges[id] = new Ed { A = a, B = b, Chairs = chairs };
+            }
+
+            /// <summary>Edge <paramref name="id"/>'s carriers pass <paramref name="clearM"/> above the ground, under the floor (LiftClearanceSystem's
+            /// figure, LiftCensus.Edge.Low*); the low point is the edge's midpoint.</summary>
+            public void SetLow(int id, float clearM)
+            {
+                Ed e = m_Edges[id];
+                e.Low = true;
+                e.LowClear = clearM;
+                m_Edges[id] = e;
             }
 
             public void RemoveEdge(int id) => m_Edges.Remove(id);
@@ -243,6 +253,9 @@ namespace LiftBatch
                         EndPos = b.Pos,
                         LengthM = math.distance(a.Pos, b.Pos),
                         Chairs = e.Chairs,
+                        Low = e.Low,
+                        LowClearM = e.LowClear,
+                        LowAt = e.Low ? math.lerp(a.Pos, b.Pos, 0.5f) : default,
                     });
                     foreach (int n in new[] { e.A, e.B })
                     {

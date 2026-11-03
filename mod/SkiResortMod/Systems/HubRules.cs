@@ -48,6 +48,7 @@ namespace SkiResortMod.Systems
         DepotNoHillLodge = 28, DepotNoRoad = 29,  // a bus depot that cannot work: the area has no passing hill lodge / it has no road; Count
         LiftBend = 30,  // a complete or open lift's sharpest tower bend in plan is over LiftAlignMath.BendWarnDeg; Count = the tower's number, Detail = tenths of a degree
         LiftTrainLimit = 31,  // a complete or open lift has a tower whose rope goes past what its sheave train follows (a half past its pitch limit or the 40 deg break); Count = the tower's number
+        LiftLowSpan = 32,  // a complete or open lift has a span whose carriers pass under the floor (LiftClearanceSystem); Count / More = the tower numbers at its ends (0 = a station), Detail = the carriers' height above the ground in tenths (rounded down, 0 at or below it), Pct = 1 cabins / 0 chairs
     }
 
     /// <summary>bindings.ts SKI_DAY_STATE (gate R17): ResortLive.skiDaysState, the Guests view's state line. The hub's display
@@ -70,8 +71,14 @@ namespace SkiResortMod.Systems
     /// 0 = fixed-grip, the struct default, so every pre-Phase-B constructor keeps today's items), Mixed = its component spans two lift
     /// types. BendTenths = LiftCensus.BendWarnTenths of the row's sharpest tower bend (0 = none over the warning angle; the census
     /// decides), BendTower = that tower's number. TrainTower = the number of the tower whose rope goes furthest past what its sheave
-    /// train follows (LiftCensus.Row.TrainTower; 0 = every train follows its rope).</summary>
-    public struct HubProblemLift { public int State; public bool Powered, HasBase, HasTop, CustomName; public byte Type; public bool Mixed; public int BendTenths, BendTower, TrainTower; }
+    /// train follows (LiftCensus.Row.TrainTower; 0 = every train follows its rope). LowSpan = a span's carriers pass under the floor
+    /// (LiftCensus.Row.LowSpan): LowFrom / LowTo its tower numbers (0 = a station), LowTenths = LiftCensus.LowTenths of their height above
+    /// the ground, Cabins = the lift's carriers are cabins (gondola, tram), not chairs.</summary>
+    public struct HubProblemLift
+    {
+        public int State; public bool Powered, HasBase, HasTop, CustomName; public byte Type; public bool Mixed; public int BendTenths, BendTower, TrainTower;
+        public bool LowSpan, Cabins; public int LowFrom, LowTo, LowTenths;
+    }
 
     /// <summary>The inputs of HubProblems.Build for ONE area.</summary>
     public struct HubProblemInput
@@ -842,6 +849,11 @@ namespace SkiResortMod.Systems
                 // tower's number (the furthest past, LiftCensus.Row.TrainTower).
                 if (l.State >= 0 && l.State <= 2 && l.TrainTower > 0)
                     output.Add(Row(HubProblemCode.LiftTrainLimit, 1, liftIndex: k, count: l.TrainTower));
+                // 4d. The same lines with a span whose carriers pass under the floor: dim (1), a fact only. Count / More = the
+                // tower numbers at its ends (0 = a station), Detail = tenths of a meter above the ground, Pct = 1 for cabins.
+                if (l.State >= 0 && l.State <= 2 && l.LowSpan)
+                    output.Add(Row(HubProblemCode.LiftLowSpan, 1, liftIndex: k, count: l.LowFrom, more: l.LowTo, detail: l.LowTenths,
+                                   pct: l.Cabins ? 1 : 0));
             }
 
             // 5-8. Lifts and runs of the area.

@@ -46,6 +46,7 @@ namespace SkiResortMod.Systems
         private LiftTowerDiagSystem m_TowerDiag;   // read-only tower log; fed after each build, printed on DumpCensus
         private TowerNumberTileSystem m_TowerNumbers;   // per-tower number tiles; fed after each build, reconciled once quiet
         private TrainPitchSystem m_TrainPitch;          // line towers' sheave train pitch (lift alignment Phase 2); fed after each build
+        private LiftClearanceSystem m_Clearance;        // low spans (hub row LiftLowSpan); fed after each build
 
         private EntityQuery m_EdgeProbe, m_NodeProbe, m_StationProbe, m_DeletedObjectProbe, m_DeletedLaneProbe;
         private EntityQuery m_EdgeQuery, m_StationQuery;
@@ -433,6 +434,27 @@ namespace SkiResortMod.Systems
             return false;
         }
 
+        /// <summary>The first row (row order) whose lowest span is <paramref name="edge"/> (LiftCensus.Row.LowEdge): the hub's LiftLowSpan
+        /// row sends that edge to focusLift.</summary>
+        internal bool TryGetRowOfLowEdge(Entity edge, out LiftCensus.Row row)
+        {
+            EntityRef e = Ref(edge);
+            var rows = m_Census.Rows;
+            for (int r = 0; r < rows.Count && !e.IsNull; r++)
+            {
+                if (rows[r].LowSpan && rows[r].LowEdge == e)
+                {
+                    row = rows[r];
+                    return true;
+                }
+            }
+            row = default;
+            return false;
+        }
+
+        /// <summary>The node is a station's connection node (the last build's stations; LiftClearanceSystem skips the station approach).</summary>
+        internal bool IsStationNode(Entity node) => node != Entity.Null && StationOfNode(node) >= 0;
+
         /// <summary>The first row (row order) whose tower past its train's limits stands on <paramref name="node"/> (LiftCensus.Row.TrainNode):
         /// the hub's LiftTrainLimit row sends that node to focusLift.</summary>
         internal bool TryGetRowOfTrainNode(Entity node, out LiftCensus.Row row)
@@ -593,6 +615,7 @@ namespace SkiResortMod.Systems
             m_TowerFit = World.GetOrCreateSystemManaged<LiftTowerFitSystem>();
             m_TowerNumbers = World.GetOrCreateSystemManaged<TowerNumberTileSystem>();
             m_TrainPitch = World.GetOrCreateSystemManaged<TrainPitchSystem>();
+            m_Clearance = World.GetOrCreateSystemManaged<LiftClearanceSystem>();
             // The guard's clock: the simulation frame (SimulationSystem.cs:68)
             m_Simulation = World.GetOrCreateSystemManaged<Game.Simulation.SimulationSystem>();
 
@@ -1102,6 +1125,8 @@ namespace SkiResortMod.Systems
             m_TowerNumbers?.OnCensusBuilt(m_Edges);
             // The same edges to TrainPitchSystem; it pitches the rigged towers' trains to their rope lanes
             m_TrainPitch?.OnCensusBuilt(m_Edges);
+            // The same edges to LiftClearanceSystem; it measures how high the carriers pass over the ground
+            m_Clearance?.OnCensusBuilt(m_Edges);
         }
 
         private void Harvest()
@@ -1187,6 +1212,8 @@ namespace SkiResortMod.Systems
                         Curve curve = curves[i];
                         float3 a = EntityManager.TryGetComponent<Game.Net.Node>(topo.m_Start, out var na) ? na.m_Position : curve.m_Bezier.a;
                         float3 b = EntityManager.TryGetComponent<Game.Net.Node>(topo.m_End, out var nb) ? nb.m_Position : curve.m_Bezier.d;
+                        LiftClearanceSystem.Low lowSpan = default;
+                        bool low = m_Clearance != null && m_Clearance.LowEdges.TryGetValue(entities[i], out lowSpan);
                         m_Edges.Add(new LiftCensus.Edge
                         {
                             Id = Ref(entities[i]),
@@ -1197,6 +1224,9 @@ namespace SkiResortMod.Systems
                             LengthM = curve.m_Length,
                             Chairs = CountChairs(entities[i]),
                             Type = TypeByte(lineDef.Index),
+                            Low = low,
+                            LowClearM = lowSpan.ClearM,
+                            LowAt = lowSpan.At,
                         });
                         AddNode(topo.m_Start, a);
                         AddNode(topo.m_End, b);
@@ -1839,7 +1869,9 @@ namespace SkiResortMod.Systems
                               (row.AlignKnown ? $", offset {row.AlignOffsetM:F2} m, yaw {row.AlignYawDeg:F2}°" : string.Empty) +
                               (row.BendDeg > 0f ? $", sharpest bend {row.BendDeg:F1}° at tower {row.BendTower} (node {Fmt(row.BendNode)})" +
                                                   (LiftCensus.BendWarnTenths(row.BendDeg) > 0 ? " OVER the warning angle" : string.Empty) : string.Empty) +
-                              (row.TrainTower > 0 ? $", tower {row.TrainTower} (node {Fmt(row.TrainNode)}) {row.TrainOverDeg:F1}° past its train's limits" : string.Empty));
+                              (row.TrainTower > 0 ? $", tower {row.TrainTower} (node {Fmt(row.TrainNode)}) {row.TrainOverDeg:F1}° past its train's limits" : string.Empty) +
+                              (row.LowSpan ? $", carriers {row.LowClearM:F2} m above the ground between {LowEnd(row.LowFrom)} and " +
+                                             $"{LowEnd(row.LowTo)} (edge {Fmt(row.LowEdge)}) UNDER the floor" : string.Empty));
             }
             for (int n = 0; n < m_Census.Notes.Count; n++)
                 sb.AppendLine("  note: " + m_Census.Notes[n]);
@@ -1879,6 +1911,8 @@ namespace SkiResortMod.Systems
         }
 
         internal static EntityRef Ref(Entity e) => new EntityRef(e.Index, e.Version);
+        private static string LowEnd(int tower) => tower > 0 ? "tower " + tower : "a station";
+
         internal static Entity Ent(EntityRef r) => new Entity { Index = r.Index, Version = r.Version };
         private static string Fmt(Entity e) => e.Index + ":" + e.Version;
         private static string Fmt(EntityRef r) => r.Index + ":" + r.Version;

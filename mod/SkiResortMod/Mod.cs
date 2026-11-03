@@ -331,6 +331,10 @@ namespace SkiResortMod
             updateSystem.UpdateAfter<TrainPitchSystem, LiftCensusSystem>(SystemUpdatePhase.Modification4B);
             updateSystem.UpdateAfter<TrainBoneSystem, Game.Rendering.InitializeBonesSystem>(SystemUpdatePhase.Rendering);
 
+            // Low spans (hub row LiftLowSpan). AFTER the census at 4B for the same reason as the trains: the rope lanes LaneSystem built
+            // at Modification4 are this frame's; the phase must stay Modification4B or the anchor is skipped.
+            updateSystem.UpdateAfter<LiftClearanceSystem, LiftCensusSystem>(SystemUpdatePhase.Modification4B);
+
             // Read-only overlay of the planned towers and rope. Before OverlayRenderSystem (same reason as the piste map below).
             // Gated by the LiftBuildAids setting inside the system.
             updateSystem.UpdateBefore<LiftTowerPlanOverlaySystem, Game.Rendering.OverlayRenderSystem>(SystemUpdatePhase.Rendering);

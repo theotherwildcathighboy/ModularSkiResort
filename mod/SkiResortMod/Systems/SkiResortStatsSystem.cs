@@ -157,6 +157,9 @@ namespace SkiResortMod.Systems
         // The same for the LiftTrainLimit row: TrainTower = the number of the tower whose rope goes furthest past what its sheave train
         // follows (0 = none), TrainNode = its net node.
         public int TrainTower; public Entity TrainNode;
+        // The same for the LiftLowSpan row: the row's lowest span whose carriers pass under the floor (LowSpan false = none), its tower
+        // numbers (0 = a station), LowTenths = LiftCensus.LowTenths of the carriers' height above the ground, LowEdge = its net edge.
+        public bool LowSpan; public int LowFrom, LowTo, LowTenths; public Entity LowEdge;
     }
 
     /// <summary>bindings.ts ProblemRow. Grouped by area in resorts order (ch5 §5.6).</summary>
@@ -1748,6 +1751,12 @@ namespace SkiResortMod.Systems
                     // The tower past its train's limits (census-decided; 0 = every train follows its rope).
                     TrainTower = c.TrainTower,
                     TrainNode = ToEntity(c.TrainNode),
+                    // The lowest span under the floor (census-decided; LowSpan false = every span clears it).
+                    LowSpan = c.LowSpan,
+                    LowFrom = c.LowFrom,
+                    LowTo = c.LowTo,
+                    LowTenths = LiftCensus.LowTenths(c.LowClearM),
+                    LowEdge = ToEntity(c.LowEdge),
                 });
                 m_RowBase.Add(baseStation);
                 m_RowTop.Add(topStation);
@@ -2592,6 +2601,8 @@ namespace SkiResortMod.Systems
                         Mixed = l.Mixed,
                         BendTenths = l.BendTenths, BendTower = l.BendTower, // the LiftBend row
                         TrainTower = l.TrainTower,                          // the LiftTrainLimit row
+                        LowSpan = l.LowSpan, LowFrom = l.LowFrom, LowTo = l.LowTo, LowTenths = l.LowTenths,   // the LiftLowSpan row
+                        Cabins = l.Type == "gondola" || l.Type == "tram",
                     });
                     m_PLiftRows.Add(k);
                 }
@@ -2685,6 +2696,12 @@ namespace SkiResortMod.Systems
                     if (p.Code == HubProblemCode.LiftTrainLimit && lift.TrainNode != Entity.Null)
                     {
                         subject = lift.TrainNode;
+                        subjectTop = Entity.Null;
+                    }
+                    // LiftLowSpan: the low span's edge with no top, so focusLift flies to its low point.
+                    if (p.Code == HubProblemCode.LiftLowSpan && lift.LowEdge != Entity.Null)
+                    {
+                        subject = lift.LowEdge;
                         subjectTop = Entity.Null;
                     }
                     if (p.Code == HubProblemCode.Efficiency)
@@ -3116,6 +3133,11 @@ namespace SkiResortMod.Systems
                 h = MixE(h, r.BendNode);
                 h = Mix(h, (uint)r.TrainTower);
                 h = MixE(h, r.TrainNode);
+                h = Mix(h, r.LowSpan ? 1u : 0u);
+                h = Mix(h, (uint)r.LowFrom);
+                h = Mix(h, (uint)r.LowTo);
+                h = Mix(h, (uint)r.LowTenths);
+                h = MixE(h, r.LowEdge);
             }
             return Mix(h, (uint)rows.Count);
         }

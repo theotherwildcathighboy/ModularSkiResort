@@ -97,6 +97,10 @@ export const HUB_LOC = {
   problemTipMixedLiftTypes: ["SkiResort.Hub.PROBLEM_TIP[MixedLiftTypes]", "A line and its stations must be one lift type; until then the lift counts 0."],
   /* C# HubProblemCode LiftTrainLimit (LiftAlignMath.TrainOverDeg: a half past its 30 deg pitch limit or the halves past the 40 deg break):
      shown only, the lift is unchanged */
+  /* the LiftLowSpan row's {CARRIERS} (pct 1 = cabins: gondola, tram) and its tip's {WHERE} when both ends are stations */
+  carriersChairs: ["SkiResort.Hub.CARRIERS[Chairs]", "chairs"],
+  carriersCabins: ["SkiResort.Hub.CARRIERS[Cabins]", "cabins"],
+  lowSpanStations: ["SkiResort.Hub.LOW_SPAN[Stations]", "Between the stations"],
   problemTipLiftTrainLimit: ["SkiResort.Hub.PROBLEM_TIP[LiftTrainLimit]", "Sheave trains tilt 30° at most and fold 40° at most. Past that the rope leaves the end wheels. The lift still runs."],
   /* C# HubProblemCode LiftBend (over LiftAlignMath.BendWarnDeg, 5 deg): shown only, the lift is unchanged */
   problemTipLiftBend: ["SkiResort.Hub.PROBLEM_TIP[LiftBend]", "Real lift lines turn 5° or less at a tower. Past that the rope runs off the outer wheels. The lift still runs and counts."],
@@ -550,6 +554,18 @@ export const HUB_FMT = {
   problemLiftBend: ["SkiResort.Hub.PROBLEM[LiftBend]", "{NAME}: rope turns {DEG}° at tower {N}"],
   /* {N} = the number of the tower whose rope goes furthest past what its sheave train follows (count) */
   problemLiftTrainLimit: ["SkiResort.Hub.PROBLEM[LiftTrainLimit]", "{NAME}: tower {N} bends past what its wheels can follow"],
+  /* {CARRIERS} = CARRIERS[Chairs] or [Cabins], {M} = their height above the ground in tenths shown with one decimal (detail / 10); the
+     span is named in the tip (a 1080 band row fits about 49 characters) */
+  problemLiftLowSpan: ["SkiResort.Hub.PROBLEM[LiftLowSpan]", "{NAME}: {CARRIERS} pass {M} m above the ground"],
+  /* the same at or below the ground (detail 0) */
+  problemLiftLowSpanGround: ["SkiResort.Hub.PROBLEM[LiftLowSpanGround]", "{NAME}: {CARRIERS} touch the ground"],
+  /* C# HubProblemCode LiftLowSpan (LiftClearanceSystem: the planner's floor, LiftTowerPlanConstants FloorM): shown only, the lift is
+     unchanged. {WHERE} = LOW_SPAN[Towers], [Station] or [Stations] */
+  problemTipLiftLowSpan: ["SkiResort.Hub.PROBLEM_TIP[LiftLowSpan]", "{WHERE}. Planned lines keep chairs and cabins 3 m clear, tram cabins 5 m. A section redrawn with the lift tool is replanned."],
+  /* {A}, {B} = the tower numbers at the span's ends (count, more) */
+  lowSpanTowers: ["SkiResort.Hub.LOW_SPAN[Towers]", "Between towers {A} and {B}"],
+  /* {N} = the span's one tower (count or more; the other end is a station) */
+  lowSpanStation: ["SkiResort.Hub.LOW_SPAN[Station]", "Between tower {N} and the station"],
   /* the parking row when its lodge is one of the area's car space rows (lodgeParking$, hubRules.parkingLodgeOf); {NAME} = the
      player's name for it, else its LODGE_TIER word or LODGE_TIER_NUMBERED; {N} = the other lodges without parking */
   problemNoParkingAt: ["SkiResort.Hub.PROBLEM[NoParkingAt]", "No parking: {NAME}"],

@@ -207,6 +207,7 @@ const SHOTS = [
   ["runs-tab-1080", 1080, { scenario: ASH, view: 0, tab: "runs" }],                       // 2026-10-24: no grading chip (the Cat track tile opens the tool)
   ["runs-tab-1440-fs125", 1440, { scenario: ASH, view: 0, tab: "runs", fs: 1.25 }],
   ["problem-lift-bend-1080", 1080, { scenario: "Ash Flat (runs, lifts, problems), a lift bend", view: 0 }],   // code 30 LiftBend
+  ["problem-low-span-1080", 1080, { scenario: "Ash Flat (runs, lifts, problems), a low span", view: 0 }],   // code 32 LiftLowSpan
 ];
 const BEFORE = [
   ["before-attraction-field-case-1080", 1080, { scenario: FIELD, view: 0 }],

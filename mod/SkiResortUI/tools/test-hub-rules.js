@@ -796,6 +796,24 @@ function run(srcDir) {
       [status.includes("HUB_FMT.problemLiftTrainLimit} args={{ NAME, N }}"), status.includes("HUB_LOC.problemTipLiftTrainLimit")],
       [true, true]);
   }
+  // T38 code 32 LiftLowSpan: a dim band row naming the lift, its carriers (pct 1 = cabins), their height (detail tenths; 0 = touching)
+  // and the span (count / more = tower numbers, 0 = a station); its click flies to the low point (subject = the span's edge, no top).
+  eq("T38.1 code 32: variant liftLowSpan, click lift, info glyph", [BIND.PROBLEM.LiftLowSpan,
+    R.problemVariant(P(A, 32, 1, { count: 3 })), R.problemClick(P(A, 32, 1)), R.problemIcon(P(A, 32, 1)).tone],
+    [32, "liftLowSpan", "lift", "info"]);
+  {
+    const status = read(path.join("hub", "StatusBlock.tsx"));
+    eq("T38.2 row 32 drawn with its FMT texts (above / touching), its tip naming the span (towers, one station, none)",
+      [status.includes('case "liftLowSpan": return <LowSpanText p={p} t={t} NAME={NAME} />;'),
+        status.includes("HUB_FMT.lowSpanTowers} args={{ A: numArg(p.count, Unit.Integer), B: numArg(p.more, Unit.Integer) }}"),
+        status.includes("HUB_FMT.lowSpanStation} args={{ N: numArg(Math.max(p.count, p.more), Unit.Integer) }}"),
+        status.includes("t(HUB_LOC.lowSpanStations)"),
+        status.includes("HUB_FMT.problemLiftLowSpan} args={{ NAME, CARRIERS, M: numArg(p.detail / 10, Unit.FloatSingleFraction) }}"),
+        status.includes("HUB_FMT.problemLiftLowSpanGround} args={{ NAME, CARRIERS }}"),
+        status.includes("p.pct === 1 ? HUB_LOC.carriersCabins : HUB_LOC.carriersChairs"),
+        status.includes('case "liftLowSpan": body = <LowSpanTip p={p} t={t} />;') && status.includes("HUB_FMT.problemTipLiftLowSpan} args={{ WHERE }}")],
+      [true, true, true, true, true, true, true, true]);
+  }
   {
     // 2026-11-02 small calls: a band row whose tooltip only repeated it has none; the CAR SPACES header names every lodge, its rows
     // "this lodge"; the Guests tooltips name the bare month, as the bars do.

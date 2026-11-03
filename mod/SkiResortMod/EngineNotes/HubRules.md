@@ -60,6 +60,12 @@ rule R17 of mod/SkiResortUI/tools/check-bundle.js compares each name and value w
   - `LiftTrainLimit` (31, 2026-11-03): a lift row of state 0, 1 or 2 with `TrainTower` > 0 -> severity 1, count = `TrainTower` (the
     tower plate number). Text "{NAME}: tower {N} bends past what its wheels can follow"; the tip states the limits (30 deg tilt, 40 deg
     fold). Click flies to the tower (`ApplyFocusLift`, subject = `TrainNode`). Warn, never refuse.
+  - `LiftLowSpan` (32, 2026-11-03): a lift row of state 0, 1 or 2 with `LowSpan` -> severity 1, count / more = `LowFrom` / `LowTo`
+    (tower plate numbers, 0 = a station), detail = `LowTenths` (the carriers' height above the ground in tenths, rounded down, 0 at or
+    below it), pct = 1 for cabins (gondola, tram), 0 for chairs. Text "{NAME}: {CARRIERS} pass {M} m above the ground" (or "touch the
+    ground" at 0); the span is named in the tip ("Between towers {A} and {B}" / "Between tower {N} and the station" / "Between the
+    stations") because the row must fit a 1080 band line (about 49 characters). Click flies to the low point (`ApplyFocusLift`, subject =
+    `LowEdge`). Warn, never refuse. Like every row it is cut when the band is full (`MaxBandRows` counts folded rows one by one).
   - `SummitLodgesNotServed` > 0 -> `SummitLodgeNotLiftServed` (severity 1, count); `SchoolNoGreenRun` (severity 1).
   - Then a stable insertion sort by (severity descending, code ascending, insertion order), cut to `MaxBandRows`, then one Factor row
     per efficiency factor that costs at least `FactorRowMinLossPct` points (severity 0, never in the band).

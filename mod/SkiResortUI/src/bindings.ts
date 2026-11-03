@@ -119,6 +119,7 @@ export const PROBLEM = {
   DepotNoRoad: 29,  // a bus depot has no road (sev 2); count; subject = the first such depot
   LiftBend: 30,  // a complete or open lift's sharpest tower bend in plan is over 5 deg (sev 1); count = the tower number, detail = tenths of a degree; subject = the tower's net node, subjectTop null
   LiftTrainLimit: 31,  // a complete or open lift has a tower whose rope goes past what its sheave train follows (sev 1); count = the tower number; subject = the tower's net node, subjectTop null
+  LiftLowSpan: 32,  // a complete or open lift has a span whose carriers pass under the floor (sev 1); count / more = the tower numbers at its ends (0 = a station), detail = their height above the ground in tenths (0 = at or below it), pct = 1 cabins / 0 chairs; subject = the span's net edge, subjectTop null
 } as const;
 
 /** ResortLive.skiDaysState. C# HubRules HubSkiDayState. */

@@ -2607,6 +2607,21 @@ namespace SkiResortMod.Systems
                 LastTriggerText = $"focusLift {Ent(id)}: the tower {row.TrainTower} past its train's limits";
                 return;
             }
+            // The LiftLowSpan row sends the low span's edge: fly to its lowest carrier point.
+            if (!found && top == Entity.Null && m_Census.TryGetRowOfLowEdge(id, out row))
+            {
+                float3 at = row.LowAt;
+                if (!Fly(Entity.Null, at, Tuning.FocusGapZoomM, out float lowZoom, out string lowFailure))
+                {
+                    Mod.Log.Warn($"Hub [focus] lift low span {Ent(id)} refused — {lowFailure} ({source})");
+                    LastTriggerText = $"focusLift {Ent(id)}: {lowFailure}";
+                    return;
+                }
+                Mod.Log.Info($"Hub [focus] lift low span: edge {Ent(id)} between towers {row.LowFrom} and {row.LowTo} (0 = a station), " +
+                             $"carriers {row.LowClearM:F2} m above the ground → ({at.x:F0}, {at.z:F0}) zoom={lowZoom:F0} ({source})");
+                LastTriggerText = $"focusLift {Ent(id)}: the low span {row.LowFrom}-{row.LowTo}";
+                return;
+            }
             if (!found)
             {
                 Mod.Log.Info($"Hub [focus] lift refused — no lift row ({Ent(id)}, top {Ent(top)}) in the census (stale row?) " +

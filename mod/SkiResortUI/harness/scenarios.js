@@ -337,4 +337,13 @@
       { sign: SIGN, code: 30, severity: 1, subject: E(951), subjectTop: NULL, name: "Meadow Quad", count: 12, pct: -1, factor: "", more: 0, detail: 124, ifFixed: -1, buildItem: "" },
       problems[2],
     ] });
+  // Code 32 LiftLowSpan: Meadow Quad's chairs pass 1.2 m above the ground between towers 12 and 13 (the longest WHERE); a dim row
+  // in the band's second slot. subject = the span's net edge, no top (focusLift flies to the low point).
+  window.SkiScenarios["Ash Flat (runs, lifts, problems), a low span"] = Object.assign({}, base, { hubOpen: true, resorts, resortLive: [live, live2],
+    selectedResort: SIGN, runs, runLive, lifts, history, build: buildItems({ built: ["school"] }),
+    problems: [
+      problems[0],
+      { sign: SIGN, code: 32, severity: 1, subject: E(952), subjectTop: NULL, name: "Meadow Quad", count: 12, pct: 0, factor: "", more: 13, detail: 12, ifFixed: -1, buildItem: "" },
+      problems[2],
+    ] });
 })();

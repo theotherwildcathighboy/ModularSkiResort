@@ -1058,6 +1058,25 @@ namespace ResortBatch
                 P(HubProblemCode.LiftTrainLimit, 1, liftIndex: 1, count: 3),
                 P(HubProblemCode.LiftTrainLimit, 1, liftIndex: 2, count: 1));
 
+            // P49 low span: a complete (0, 1) or open (2) row with LowSpan gets one dim row (severity 1), Count / More = the tower numbers
+            // (0 = a station), Detail = tenths above the ground, Pct = 1 for cabins, 0 for chairs; after the train-limit rows (code order); an
+            // unfinished (3) row never does, nor a row whose spans all clear the floor.
+            x = In(1, 1, 100, 4, 2);
+            HubProblemLift low = L(0, true, true, true); low.LowSpan = true; low.LowFrom = 3; low.LowTo = 4; low.LowTenths = 12;
+            HubProblemLift lowCabins = L(1, true, true, true); lowCabins.LowSpan = true; lowCabins.LowFrom = 0; lowCabins.LowTo = 1;
+            lowCabins.Cabins = true; lowCabins.TrainTower = 2;
+            HubProblemLift lowOpen = L(2, true, true, true); lowOpen.LowSpan = true; lowOpen.LowFrom = 5; lowOpen.LowTo = 0; lowOpen.LowTenths = 29;
+            HubProblemLift lowUnfinished = L(3, true, true, false); lowUnfinished.LowSpan = true; lowUnfinished.LowFrom = 1; lowUnfinished.LowTo = 2;
+            x.Lifts = Ls(low, lowCabins, lowOpen, lowUnfinished);
+            Expect("P49 low span rows", x, o,
+                P(HubProblemCode.LiftSectionMissing, 2, liftIndex: 2, build: "lift"),
+                P(HubProblemCode.LiftUnfinished, 2, liftIndex: 3, build: "lift"),
+                P(HubProblemCode.LiftChairsStopped, 1, liftIndex: 1),
+                P(HubProblemCode.LiftTrainLimit, 1, liftIndex: 1, count: 2),
+                P(HubProblemCode.LiftLowSpan, 1, liftIndex: 0, count: 3, more: 4, detail: 12, pct: 0),
+                P(HubProblemCode.LiftLowSpan, 1, liftIndex: 1, count: 0, more: 1, detail: 0, pct: 1),
+                P(HubProblemCode.LiftLowSpan, 1, liftIndex: 2, count: 5, more: 0, detail: 29, pct: 0));
+
             // P17 reuse: P2 into the list, then P1 into the same list → exactly P1's rows.
             HubProblems.Build(in p2, o);
             x = In(0, 0, 100, 0, 0);
@@ -1120,7 +1139,8 @@ namespace ResortBatch
             Eq((int)HubProblemCode.DepotNoRoad, 29, w, "HubProblemCode.DepotNoRoad");
             Eq((int)HubProblemCode.LiftBend, 30, w, "HubProblemCode.LiftBend");
             Eq((int)HubProblemCode.LiftTrainLimit, 31, w, "HubProblemCode.LiftTrainLimit");
-            Eq(Enum.GetValues(typeof(HubProblemCode)).Length, 32, w, "HubProblemCode has 32 values (append only)");
+            Eq((int)HubProblemCode.LiftLowSpan, 32, w, "HubProblemCode.LiftLowSpan");
+            Eq(Enum.GetValues(typeof(HubProblemCode)).Length, 33, w, "HubProblemCode has 33 values (append only)");
             Eq((int)HubSkiDayState.Full, 7, w, "HubSkiDayState.Full");
             Eq(Enum.GetValues(typeof(HubSkiDayState)).Length, 8, w, "HubSkiDayState has 8 values");
             Eq((int)SeasonHint.GatingOff, 6, w, "SeasonHint.GatingOff");

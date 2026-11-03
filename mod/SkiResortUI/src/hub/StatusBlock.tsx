@@ -132,11 +132,31 @@ function ProblemText({ p, t }: { p: ProblemRow; t: Translate }): JSX.Element {
     case "mixedLiftTypes": return <LocText entry={HUB_FMT.problemMixedLiftTypes} args={{ NAME }} />;
     case "liftBend": return <LocText entry={HUB_FMT.problemLiftBend} args={{ NAME, DEG: numArg(p.detail / 10, Unit.FloatSingleFraction), N }} />;
     case "liftTrainLimit": return <LocText entry={HUB_FMT.problemLiftTrainLimit} args={{ NAME, N }} />;
+    case "liftLowSpan": return <LowSpanText p={p} t={t} NAME={NAME} />;
     case "summitLodgeNotLiftServed": return <LocText entry={HUB_FMT.problemSummitLodgeNotLiftServed} args={{ N }} />;
     case "schoolNoGreenRun": return <>{t(HUB_LOC.problemSchoolNoGreenRun)}</>;
     case "schoolsNotLinked": return <LocText entry={HUB_FMT.problemSchoolsNotLinked} args={{ N }} />;
     default: return <>{"–"}</>;
   }
+}
+
+/** The LiftLowSpan row: "Lift 1: chairs pass 1.2 m above the ground"; detail is the height in tenths (0 = the carriers touch the
+ *  ground), pct 1 = cabins. The tip names the span (LowSpanTip). */
+function LowSpanText({ p, t, NAME }: { p: ProblemRow; t: Translate; NAME: string }): JSX.Element {
+  const CARRIERS = t(p.pct === 1 ? HUB_LOC.carriersCabins : HUB_LOC.carriersChairs);
+  return p.detail > 0
+    ? <LocText entry={HUB_FMT.problemLiftLowSpan} args={{ NAME, CARRIERS, M: numArg(p.detail / 10, Unit.FloatSingleFraction) }} />
+    : <LocText entry={HUB_FMT.problemLiftLowSpanGround} args={{ NAME, CARRIERS }} />;
+}
+
+/** The LiftLowSpan tip: the span (count / more = its tower numbers, 0 = a station), then the planner's floor. */
+function LowSpanTip({ p, t }: { p: ProblemRow; t: Translate }): JSX.Element {
+  const WHERE = p.count > 0 && p.more > 0
+    ? <LocText entry={HUB_FMT.lowSpanTowers} args={{ A: numArg(p.count, Unit.Integer), B: numArg(p.more, Unit.Integer) }} />
+    : p.count > 0 || p.more > 0
+      ? <LocText entry={HUB_FMT.lowSpanStation} args={{ N: numArg(Math.max(p.count, p.more), Unit.Integer) }} />
+      : t(HUB_LOC.lowSpanStations);
+  return <LocText entry={HUB_FMT.problemTipLiftLowSpan} args={{ WHERE }} />;
 }
 
 /** The parking row names its lodge (C#'s subject, found in the lodgeParking rows): "No parking: Chalet 2", "+{N}" for the
@@ -230,6 +250,7 @@ function problemTip(p: ProblemRow, factors: readonly ProblemRow[], live: ResortL
     case "mixedLiftTypes": body = t(HUB_LOC.problemTipMixedLiftTypes); break;
     case "liftBend": body = t(HUB_LOC.problemTipLiftBend); break;
     case "liftTrainLimit": body = t(HUB_LOC.problemTipLiftTrainLimit); break;
+    case "liftLowSpan": body = <LowSpanTip p={p} t={t} />; break;
     case "summitLodgeNotLiftServed": body = t(HUB_LOC.problemTipSummitLodgeNotLiftServed); break;
     case "schoolNoGreenRun": body = t(HUB_LOC.problemTipSchoolNoGreenRun); break;
     case "schoolsNotLinked": body = t(HUB_LOC.problemTipSchoolsNotLinked); break;
