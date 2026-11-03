@@ -1732,7 +1732,7 @@ SKIN_GD_TALL_DENSITY = {"ladder_": 0.5, "rail_": 0.75, "post_": 0.75, "pier": 0.
 
 FG_LOD1 = ("bolt_", "ladder_rung_", "ladder_standoff_", "pivot_", "insulator_", "insulcap_",
            "post_catwalk", "kick_catwalk", "rail_catwalk_knee", "cwbrace", "stiff_", "axlecap_",
-           "gusset_", "plate_", "platerim_", "conduit_", "jbox_", "arrest_")
+           "gusset_", "plate_", "platerim_", "conduit_", "jbox_", "arrest_", "comm_")
 # M5: rail_catwalk_top is NOT deleted (it is the bounds top: LOD2 drift 0).
 # M9 asks to CONSIDER sheave_ for FG LOD2, gated on the lod-mode XOR. Measured 2026-10-11
 # on FG8: keeping the rims gives 11.9 / 11.7 % silhouette XOR at 209 / 105 m vs 15.2 /
@@ -1748,7 +1748,7 @@ DQ_RAIL_RUNS = ("deckn0", "deckn1", "deckp0", "deckp1")
 DQ_LOD1 = (("bolt_", "ladder_rung_", "ladder_standoff_", "pivot_", "post_", "kick_", "stiff_",
             "hanger_", "gantry_saddle")
            + tuple(f"rail_{r}_knee" for r in DQ_RAIL_RUNS)
-           + ("plate_", "platerim_", "conduit_", "jbox_", "arrest_", "gusset_apex"))
+           + ("plate_", "platerim_", "conduit_", "jbox_", "arrest_", "gusset_apex", "comm_"))
 # Review F5 (Revision 1): LOD2 keeps the rebuild head's A-braces (`gantry_brace` is no longer
 # deleted: ETDQ stopped reading as a flat goalpost; ingest heads carry theirs inside gantry_00)
 # and the two deck PLATES (`grate_deckn` / `grate_deckp`, top + underside quad = 4 tris each:
@@ -1777,7 +1777,9 @@ LOD2_DRIFT_RAISE = 0.02                # beyond expected + this the build fails
 # FG 3,700 -> 3,800 (lift alignment round 3): FG20 skinned builds 3,762 with the round-2 bogie bars (SKIN_FG
 # bogie_low off), 3,394 with bogie_low; unskinned FG20 3,450.
 # GD 4,800 -> 5,000 (lift alignment round 4): the skinned GD at the shipped 10 sheaves a side, GD12 4,626, GD20 4,938.
-LOD0_CAP = {"FG": 3800, "DQ": 4200, "GD": 5000}
+# DQ 4,200 -> 4,250 (family round 2026-11-03, owner: "We can raise the cap on DQ20"): the skinned DQ20 ingest builds
+# 4,234 + the 16-tri comm hanger = 4,250.
+LOD0_CAP = {"FG": 3800, "DQ": 4250, "GD": 5000}
 
 
 @dataclass(frozen=True)
@@ -2132,6 +2134,31 @@ def conduit_parts(spec, z_foot, z_top):
     jbox = _quad_part("jbox_0", _outward(quads, ((x0 + x1) / 2.0, (y0 + y1) / 2.0, (zb + zt) / 2.0)))
     return [(cond, "galv"), (jbox, "galv")], {"rho": rho, "y_back": y_back, "depth": jd,
                                                "z_foot": z_foot, "z_box": (z_jb, z_top)}
+
+
+# Family round (2026-11-03, owner: "does the middle cable attach to nothing? It's just floating"): the LV comm wire's
+# anchor (0, comm_y; line piece and tower stub, unchanged) gets a hanger on the skinned heads, as real lines hang the
+# signal cable from a bracket with a clamp. FG: an inverted U strap over the wire on the crossarm top (the wire center
+# sits comm_y - arm_top = 0.04 above it); DQ / GD: a square bar down from the gantry beam's underside to a square sleeve
+# round the wire (the wire runs through the portal window, A + 1.20, beam underside A + 1.692 / + 1.742). The clamp's
+# inside half-size clears the vanilla LV hex (r 0.060, flats 0.052). FG 6 tris, DQ / GD 16; LOD1 drops them.
+COMM_CLAMP = dict(len=0.12, half=0.07, bar=0.04, bury=0.03)
+
+
+def comm_hanger_parts(spec, steel_z):
+    """The comm wire's hanger and clamp at its anchor (0, 0, spec.comm_y), authoring frame (x travel). FG: `steel_z` is
+    the crossarm top the U strap stands on; DQ / GD: the gantry beam underside the bar hangs from (buried
+    COMM_CLAMP["bury"] in it). Galvanized, `comm_` parts."""
+    c = COMM_CLAMP
+    cz, h, ln = spec.comm_y, c["half"], c["len"]
+    if spec.family == "FG":
+        top = cz + h
+        return [(K.add_box("comm_clamp", (ln, 2.0 * h, top - steel_z), (0.0, 0.0, (steel_z + top) / 2.0),
+                           drop=("-Z", "+X", "-X")), "galv")]
+    z0, z1 = cz + h - 0.005, steel_z + c["bury"]
+    return [(K.add_box("comm_clamp", (ln, 2.0 * h, 2.0 * h), (0.0, 0.0, cz), drop=("+X", "-X")), "galv"),
+            (K.add_box("comm_hanger", (c["bar"], c["bar"], z1 - z0), (0.0, 0.0, (z0 + z1) / 2.0), drop=("+Z", "-Z")),
+             "galv")]
 
 
 def _outward(quads, centre):
@@ -3234,6 +3261,8 @@ def fg_parts(spec):
                             segments=6, caps="none"), "galv"))
         P.append((K.add_box(f"insulcap_{tag}", (0.09, 0.09, 0.04),
                             (0.0, s * 0.45, arm_top + 0.30)), "galv"))
+    if SKINNED and spec.comm_y is not None:
+        P += comm_hanger_parts(spec, arm_top)
 
     # ladder up the -X face (legacy build_ladder numbers; rungs 4-seg uncapped, detail pass 1:
     # turned 45 deg about their axis - a flat top, the square-bar rung - instead of a corner)
@@ -3560,6 +3589,8 @@ def detail_parts_dq(spec, head, info, parts):
     z1 = A + DQ_DECK + 1.0                                   # the ladder rails' top (_dq_ladder)
     P += arrest_part(lx, rung_half, spec.ladder_pitch, z1)
     info["arrest"] = {"x_rung": lx, "z": (spec.ladder_pitch, z1)}
+    if SKINNED and spec.comm_y is not None:
+        P += comm_hanger_parts(spec, A + 1.809 + head_kit(spec)["rise"] - 0.117)      # the gantry beam's underside
     return P
 
 
@@ -4089,7 +4120,8 @@ def check_gd_clearances(obj, table, spec):
     out = {"comm": [], "carrier": [], "comm_window": (float("nan"), float("nan"))}
     if spec.comm_y is not None:                  # ETGD (hosted): the station owns the comm anchor
         cz, cr = spec.comm_y, 0.10
-        out["comm"] = _zone_hits(bvh, names, pv, (-xt, -cr, cz - cr), (xt, cr, cz + cr))
+        # the family round's hanger and clamp (comm_hanger_parts) hold the wire: theirs are the only hits allowed
+        out["comm"] = _zone_hits(bvh, names, pv, (-xt, -cr, cz - cr), (xt, cr, cz + cr), allowed=("comm_",))
         # the gantry window the comm wire passes at the portal (X 0, Y 0): first structure below /
         # above it (ray casts), relative to the axle
         from mathutils import Vector

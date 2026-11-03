@@ -326,8 +326,8 @@ def k7_off():
 # K9: the family round's members (the pilots FG12 / DQ12 / GD12 / tram30 run above in full)
 FAMILY = (("FG8", None), ("FG16", None), ("FG20", None), ("DQ10", "ingest"), ("DQ14", "ingest"), ("DQ16", "ingest"),
           ("DQ18", "ingest"), ("DQ20", "ingest"), ("GD16", "rebuild"), ("GD20", "rebuild"))
-# over-cap members awaiting an owner call, at their exact LOD0 count (DQ20: 4,234 vs the DQ cap 4,200, family round)
-FAMILY_CAP_PENDING = {"DQ20": 4234}
+# over-cap members awaiting an owner call, at their exact LOD0 count (none: the owner raised the DQ cap to 4,250 for DQ20)
+FAMILY_CAP_PENDING = {}
 
 
 def k9_family(have_kagelok):
