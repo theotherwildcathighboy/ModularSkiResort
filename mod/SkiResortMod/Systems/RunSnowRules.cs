@@ -166,41 +166,45 @@ namespace SkiResortMod.Systems
         /// injection's own gates (snowmaking and night: freezing + margin; groomed: freezing + 0), the same gun margin for a cat track,
         /// and freezing for natural runs (the snow shader's own threshold, presumably 0 °C — UNVERIFIED). An open estimate does not
         /// read this directly: <see cref="EstimateThresholdC"/> adds the gun season and the gun switch.</summary>
-        public static float ThresholdC(RunKind kind, float freezingC, float snowmakingMarginC)
+        public static float ThresholdC(RunFeatures f, float freezingC, float snowmakingMarginC)
         {
-            switch (kind)
-            {
-                case RunKind.Snowmaking:
-                case RunKind.Night:
-                case RunKind.CatTrack:  // the guns' gate (SnowGunPlumeRules.TrackGunsCanRun); no injection: it opens by the estimate below
-                    return freezingC + snowmakingMarginC;
-                case RunKind.Groomed:
-                    return freezingC + GroomedMarginC;
-                default:
-                    return freezingC;
-            }
+            if (f.Snowmaking)   // a cat track too: the guns' gate (SnowGunPlumeRules.TrackGunsCanRun); no injection: it opens by the estimate below
+                return freezingC + snowmakingMarginC;
+            if (f.Groomed)
+                return freezingC + GroomedMarginC;
+            return freezingC;
         }
+
+        public static float ThresholdC(RunKind kind, float freezingC, float snowmakingMarginC) =>
+            ThresholdC(RunFeatures.FromKind((int)kind), freezingC, snowmakingMarginC);
 
         /// <summary>The kinds whose snow guns make snow: snowmaking and night runs, and the cat track, which follows the snowmaking
-        /// rules (DECISIONS 551).</summary>
-        public static bool IsGunKind(RunKind kind) => kind == RunKind.Snowmaking || kind == RunKind.Night || kind == RunKind.CatTrack;
+        /// rules (DECISIONS 551). = RunFeatures.FromKind(kind).Snowmaking.</summary>
+        public static bool IsGunKind(RunKind kind) => RunFeatures.FromKind((int)kind).Snowmaking;
 
-        /// <summary>Whether a run's snow guns can make snow now, one rule for snowmaking runs, night runs and cat tracks: in the gun
-        /// season (SnowGunPlumeRules.InGunSeason; out of it the injection's guns raise nothing, FoldRowsJob.GunGate through
-        /// SnowGunPlumeRules.RaisesThisPass) and with its guns on. A run's gun value is look only (tools/check-run-props.js R2), so the run
-        /// path passes <paramref name="gunsOn"/> true; a cat track passes its switch (SkiRunPropSystem.CatTrackGunsOn: Off stands no gun,
-        /// DECISIONS 563, 568). False for groomed and natural runs.</summary>
-        public static bool GunsMakeSnow(RunKind kind, bool inGunSeason, bool gunsOn) => IsGunKind(kind) && inGunSeason && gunsOn;
+        /// <summary>Whether a run's snow guns can make snow now, one rule for snowmaking runs, night runs and cat tracks: it has snowmaking
+        /// and it is the gun season (SnowGunPlumeRules.InGunSeason; out of it the injection's guns raise nothing, FoldRowsJob.GunGate through
+        /// SnowGunPlumeRules.RaisesThisPass). False for groomed and natural runs.</summary>
+        public static bool GunsMakeSnow(RunFeatures f, bool inGunSeason) => f.Snowmaking && inGunSeason;
 
-        /// <summary>The threshold of a run's open estimate: the kind's own gate (<see cref="ThresholdC"/>) while its guns make snow, else
-        /// the natural threshold, freezing. So a snowmaking run, a night run or a cat track out of the gun season, and a cat track with its
-        /// guns Off, open on natural snow only (DECISIONS 568, 571). Groomed and natural: ThresholdC all year.</summary>
-        public static float EstimateThresholdC(RunKind kind, float freezingC, float snowmakingMarginC, bool inGunSeason, bool gunsOn)
+        /// <summary>The kind form: <paramref name="gunsOn"/> is the switch (RunFeatures.FromKind). A run's gun value is look only
+        /// (tools/check-run-props.js R2), so the run path passes true; a cat track passes its switch (SkiRunPropSystem.CatTrackGunsOn: Off
+        /// stands no gun, DECISIONS 563, 568).</summary>
+        public static bool GunsMakeSnow(RunKind kind, bool inGunSeason, bool gunsOn) => GunsMakeSnow(RunFeatures.FromKind((int)kind, gunsOn), inGunSeason);
+
+        /// <summary>The threshold of a run's open estimate: its own gate (<see cref="ThresholdC(RunFeatures, float, float)"/>) while its guns
+        /// make snow, else freezing, the natural threshold (= the groomed one while GroomedMarginC is 0; a gun run whose switch is off has
+        /// no snowmaking feature and lands on the groomed gate). So a snowmaking run, a night run or a cat track out of the gun season, and a
+        /// cat track with its guns Off, open on natural snow only (DECISIONS 568, 571). Groomed and natural: ThresholdC all year.</summary>
+        public static float EstimateThresholdC(RunFeatures f, float freezingC, float snowmakingMarginC, bool inGunSeason)
         {
-            if (IsGunKind(kind) && !GunsMakeSnow(kind, inGunSeason, gunsOn))
-                return ThresholdC(RunKind.Natural, freezingC, snowmakingMarginC);
-            return ThresholdC(kind, freezingC, snowmakingMarginC);
+            if (f.Snowmaking && !GunsMakeSnow(f, inGunSeason))
+                return freezingC;
+            return ThresholdC(f, freezingC, snowmakingMarginC);
         }
+
+        public static float EstimateThresholdC(RunKind kind, float freezingC, float snowmakingMarginC, bool inGunSeason, bool gunsOn) =>
+            EstimateThresholdC(RunFeatures.FromKind((int)kind, gunsOn), freezingC, snowmakingMarginC, inGunSeason);
 
         /// <summary>THE open estimate of a run or a cat track, one code path for both (SkiSnowInjectionSystem: a run in the table that could
         /// not be measured, and GetRunSnow for a run not in the table, which is every cat track: the injection grid cannot measure a 6-12 m
@@ -245,10 +249,12 @@ namespace SkiResortMod.Systems
 
         /// <summary>The skiable bar of a run, in normalized depth units, by kind and band: one bar for every run, 3 ft (0.91 m),
         /// so both branches return SkiableNorm today (ExpertNaturalSkiableDepthM = SkiableDepthM).</summary>
-        public static float SkiableBarNorm(RunKind kind, int band)
+        public static float SkiableBarNorm(RunFeatures f, int band)
         {
-            return kind == RunKind.Natural && band >= ExpertBandMin ? ExpertNaturalSkiableNorm : SkiableNorm;
+            return f.IsNatural && band >= ExpertBandMin ? ExpertNaturalSkiableNorm : SkiableNorm;
         }
+
+        public static float SkiableBarNorm(RunKind kind, int band) => SkiableBarNorm(RunFeatures.FromKind((int)kind), band);
 
         /// <summary>Skiable texel with the default bar (SkiableNorm).</summary>
         public static bool IsSkiable(float depthNorm, float ownTargetNorm)

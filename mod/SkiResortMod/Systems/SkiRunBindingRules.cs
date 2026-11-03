@@ -51,7 +51,8 @@ namespace SkiResortMod.Systems
     }
 
     /// <summary>The one-time run fee by plan area: fee = base + perHa x ha, ha = clamp(areaM2 / 10,000, 0, MaxAreaHa),
-    /// rounded to the nearest RoundTo (half up). A non-positive or NaN area counts as 0 ha. Unknown kind -> -1.</summary>
+    /// rounded to the nearest RoundTo (half up). A non-positive or NaN area counts as 0 ha. Unknown kind -> -1. The int overloads
+    /// wrap the RunFeatures ones (RunFeatures.FromKind).</summary>
     public static class SkiRunFees
     {
         /// <summary>= RunKind values (BindingBatch asserts the equality)</summary>
@@ -68,42 +69,69 @@ namespace SkiResortMod.Systems
         public const double MaxAreaHa = 2000.0;
         public const int RoundTo = 10;
 
-        public static int BaseFee(int kind)
+        // The feature steps (DECISIONS 576): a groomed piste pays the groomed fee, snowmaking adds its step, lights add theirs, so
+        // groomed + snowmaking = SnowmakingBase / PerHa and + lights = NightBase / PerHa. Base and per-ha parts are summed as ints before
+        // the one rounding, so the totals are exact.
+        public const int SnowmakingStepBase = SnowmakingBase - GroomedBase, SnowmakingStepPerHa = SnowmakingPerHa - GroomedPerHa;
+        public const int LightsStepBase = NightBase - SnowmakingBase, LightsStepPerHa = NightPerHa - SnowmakingPerHa;
+
+        /// <summary>Unknown: -1. Cat track: CatTrackBase (its guns and lights carry no fee). Natural: NaturalBase. Groomed piste:
+        /// GroomedBase plus the snowmaking and lights steps it has.</summary>
+        public static int BaseFee(RunFeatures f)
         {
-            switch (kind)
-            {
-                case KindGroomed: return GroomedBase;
-                case KindSnowmaking: return SnowmakingBase;
-                case KindNight: return NightBase;
-                case KindNatural: return NaturalBase;
-                case KindCatTrack: return CatTrackBase;
-                default: return -1;
-            }
+            if (!f.Known)
+                return -1;
+            if (f.IsCatTrack)
+                return CatTrackBase;
+            if (!f.Groomed)
+                return NaturalBase;
+            return GroomedBase + (f.Snowmaking ? SnowmakingStepBase : 0) + (f.Lights ? LightsStepBase : 0);
         }
 
-        public static int PerHaFee(int kind)
+        /// <summary>Per hectare, the same cases as <see cref="BaseFee(RunFeatures)"/>.</summary>
+        public static int PerHaFee(RunFeatures f)
         {
-            switch (kind)
-            {
-                case KindGroomed: return GroomedPerHa;
-                case KindSnowmaking: return SnowmakingPerHa;
-                case KindNight: return NightPerHa;
-                case KindNatural: return NaturalPerHa;
-                case KindCatTrack: return CatTrackPerHa;
-                default: return -1;
-            }
+            if (!f.Known)
+                return -1;
+            if (f.IsCatTrack)
+                return CatTrackPerHa;
+            if (!f.Groomed)
+                return NaturalPerHa;
+            return GroomedPerHa + (f.Snowmaking ? SnowmakingStepPerHa : 0) + (f.Lights ? LightsStepPerHa : 0);
         }
 
-        public static int Fee(int kind, float areaM2)
+        public static int Fee(RunFeatures f, float areaM2)
         {
-            int b = BaseFee(kind);
+            int b = BaseFee(f);
             if (b < 0)
                 return -1;
             double ha = areaM2 > 0f ? areaM2 / 10000.0 : 0.0;   // NaN and negatives fail "> 0"
             if (ha > MaxAreaHa)
                 ha = MaxAreaHa;                                  // +Infinity lands here too
-            double raw = b + PerHaFee(kind) * ha;
+            double raw = b + PerHaFee(f) * ha;
             return (int)(System.Math.Floor(raw / RoundTo + 0.5) * RoundTo);
+        }
+
+        public static int BaseFee(int kind) => BaseFee(RunFeatures.FromKind(kind));
+
+        public static int PerHaFee(int kind) => PerHaFee(RunFeatures.FromKind(kind));
+
+        public static int Fee(int kind, float areaM2) => Fee(RunFeatures.FromKind(kind), areaM2);
+    }
+
+    /// <summary>The monthly run upkeep per billed hectare as feature steps (DECISIONS 576): a groomed run (piste or cat track) pays
+    /// GroomedPerHaMonth, snowmaking adds its step, lights add theirs; natural and unknown pay 0. So groomed 150, snowmaking 500, night 800,
+    /// and a cat track 500 with its guns on (SkiRunUpkeepSystem bills a cat track only while its guns run). SkiRunUpkeepSystem.Tuning's
+    /// totals are derived from these.</summary>
+    public static class SkiRunUpkeepRates
+    {
+        public const int GroomedPerHaMonth = 150, SnowmakingStepPerHaMonth = 350, LightsStepPerHaMonth = 300;
+
+        public static int PerHaMonth(RunFeatures f)
+        {
+            if (!f.Groomed)   // natural and unknown (Unknown is never groomed)
+                return 0;
+            return GroomedPerHaMonth + (f.Snowmaking ? SnowmakingStepPerHaMonth : 0) + (f.Lights ? LightsStepPerHaMonth : 0);
         }
     }
 }

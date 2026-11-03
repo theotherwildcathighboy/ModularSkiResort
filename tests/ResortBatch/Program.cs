@@ -49,6 +49,7 @@ namespace ResortBatch
             LadderTests.Run(Check);
             UnpoweredTests.Run(Check);
             CatTrackTests.Run(Check);
+            RunFeaturesTests.Run(Check);
             SnowGunPlumeTests.Run(Check);
             HistoryTests.Run(Check);
             DeleteAllTests.Run(Check);

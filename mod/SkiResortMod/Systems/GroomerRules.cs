@@ -111,10 +111,12 @@ namespace SkiResortMod.Systems
         // ---- the path source and the restraint rule -------------------------------------------------------------------------------
 
         /// <summary>The path source of a run kind, or null when that kind gets no groomer. Groomed runs are out of scope for now.</summary>
-        public static IGroomerPathSource SourceFor(int kind)
+        public static IGroomerPathSource SourceFor(RunFeatures f)
         {
-            return RunKindRules.IsCatTrackLink(kind) ? RibbonCenterlineSource.Instance : null;
+            return f.IsCatTrack ? RibbonCenterlineSource.Instance : null;
         }
+
+        public static IGroomerPathSource SourceFor(int kind) => SourceFor(RunFeatures.FromKind(kind));
 
         /// <summary>A groomer belongs on a run when the option is on, the run is bound to a ski area, it is in season and it has a usable path.</summary>
         public static bool Wanted(bool optionOn, bool bound, bool seasonOpen, bool hasPath)

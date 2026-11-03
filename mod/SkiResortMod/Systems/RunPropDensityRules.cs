@@ -46,21 +46,15 @@ namespace SkiResortMod.Systems
         /// <summary>Which classes the placer stands on a run kind. Snowmaking: guns and hydrants. Night: those and masts. Cat track: guns
         /// and hydrants, masts only when lit (<paramref name="lit"/> = its lights slider is above Off; no other lit state exists). Groomed and
         /// natural runs carry nothing. The empty marker is never placed: the spacing is the density.</summary>
-        public static bool PropClassAllowed(int runKind, byte propClass, bool lit)
+        public static bool PropClassAllowed(int runKind, byte propClass, bool lit) =>
+            PropClassAllowed(RunFeatures.FromKind(runKind, true, lit), propClass);
+
+        /// <summary>The feature form: guns and hydrants with snowmaking, masts with lights.</summary>
+        public static bool PropClassAllowed(RunFeatures f, byte propClass)
         {
-            if (propClass != ClassGun && propClass != ClassHydrant && propClass != ClassMast)
-                return false;
-            switch (runKind)
-            {
-                case (int)RunKind.Snowmaking:
-                    return propClass != ClassMast;
-                case (int)RunKind.Night:
-                    return true;
-                case (int)RunKind.CatTrack:
-                    return propClass != ClassMast || lit;
-                default:
-                    return false;
-            }
+            if (propClass == ClassGun || propClass == ClassHydrant)
+                return f.Snowmaking;
+            return propClass == ClassMast && f.Lights;
         }
     }
 

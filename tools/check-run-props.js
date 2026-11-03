@@ -13,6 +13,7 @@
 //     by the run rule: one RunSnowRules.EstimatedRunShare call for an unmeasured run and one for GetRunSnow, both with the pass's gun
 //     season once known (DECISIONS 571); a track's made snow uses only TrackGunShare and TrackColdShare, once each, in StepTrack.
 //  R8 house style: Game mode only, ARMED line, one-shot catch, [cost] line, and the tag is added in one place.
+//  R9 run types: the count of run kind names per mod file only goes down (systems move to RunFeatures in R2).
 "use strict";
 const fs = require("fs");
 const path = require("path");
@@ -109,7 +110,10 @@ need(applySpacing && !banned.test(applySpacing), "R6 ApplyRunPropSpacing: only s
 
 // R7
 const upkeep = code(read(systems, "SkiRunUpkeepSystem.cs"));
-need(/case RunKind\.CatTrack:[\s\S]{0,120}?SnowmakingCostPerHaMonth/.test(body(upkeep, "public static int CostPerHaMonth(") || ""), "R7 CostPerHaMonth(CatTrack) is not the snowmaking rate");
+// The rate is the feature step sum (a cat track with its guns on = groomed + snowmaking = the snowmaking rate; ResortBatch features/steps
+// pins every kind's number).
+need(upkeep.includes("public static int CostPerHaMonth(RunKind kind) => SkiRunUpkeepRates.PerHaMonth(RunFeatures.FromKind((int)kind));"),
+     "R7 CostPerHaMonth must be SkiRunUpkeepRates.PerHaMonth(RunFeatures.FromKind(kind)) (a cat track at the snowmaking rate)");
 need(!/Names\.RunCatTrack/.test(injection), "R7 SkiSnowInjectionSystem.cs names the cat track prefab through the catalog (tracks stay out of injection)");
 // The track's name lives only in the measure-only array, which is resolved only into the measure-only set.
 {
@@ -143,8 +147,64 @@ need(placer.includes("Props [cost] placer:"), "R8 no [cost] line");
 const tagged = fs.readdirSync(systems).filter((f) => f.endsWith(".cs") && code(read(systems, f)).includes("new SkiRunPropMember("));
 need(tagged.length === 1 && tagged[0] === "SkiRunPropSystem.Placer.cs", `R8 the tag is added in ${tagged.join(", ") || "no file"}, expected SkiRunPropSystem.Placer.cs alone`);
 
+// R9 run types (DECISIONS 576): the per-kind rules are wrappers over RunFeatures; a system that still names a kind (RunKind.X or a KindX
+// constant) moves to features in R2, where its behavior changes. Until then no file may name kinds more often than KIND_READS says, and a
+// file not listed may not name one at all. Lower a count when a file drops reads (the gate prints it); never raise one.
+// KIND_READS_PRINT=1 prints the current counts.
+const KIND_READS = {
+  "Systems/CatTrackGradeToolSystem.cs": 1,
+  "Systems/EntityRef.cs": 5,   // RunFeatures.FromKind, the shim itself
+  "Systems/PisteMapRules.cs": 1,
+  "Systems/QuickRunsToolSystem.cs": 5,
+  "Systems/QuickRunsToolSystem.Scan.cs": 1,
+  "Systems/RunPropPlacerRules.cs": 6,
+  "Systems/RunSnowRules.cs": 3,
+  "Systems/SkiCatalog.cs": 5,
+  "Systems/SkiResortAttractivenessSystem.cs": 3,
+  "Systems/SkiResortScore.cs": 5,
+  "Systems/SkiResortStatsSystem.cs": 11,
+  "Systems/SkiRunAutoPlanner.Select.cs": 8,
+  "Systems/SkiRunBindingRules.cs": 5,
+  "Systems/SkiRunCatalogSystem.cs": 1,
+  "Systems/SkiRunOwnershipSystem.cs": 2,
+  "Systems/SkiRunPropSystem.cs": 3,
+  "Systems/SkiRunPropSystem.Placer.cs": 4,
+  "Systems/SkiRunUpkeepSystem.cs": 7,
+  "Systems/SkiSnowInjectionSystem.cs": 26,
+};
+const kindRe = /\bRunKind\.(Groomed|Snowmaking|Night|Natural|CatTrack)\b|\bKind(Groomed|Snowmaking|Night|Natural|CatTrack)\b/g;
+const modRoot = path.join(repo, "mod", "SkiResortMod");
+const kindReads = {};
+(function walk(dir) {
+  for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+    const p = path.join(dir, e.name);
+    if (e.isDirectory()) {
+      if (e.name !== "bin" && e.name !== "obj")
+        walk(p);
+    } else if (e.name.endsWith(".cs")) {
+      const n = (code(fs.readFileSync(p, "utf8")).replace(/\/\/.*$/gm, "").match(kindRe) || []).length;
+      if (n)
+        kindReads[path.relative(modRoot, p).split(path.sep).join("/")] = n;
+    }
+  }
+})(modRoot);
+if (process.env.KIND_READS_PRINT)
+  console.log(JSON.stringify(kindReads, null, 2));
+const kindLower = [];
+for (const [f, n] of Object.entries(kindReads)) {
+  const max = KIND_READS[f] || 0;
+  need(n <= max, `R9 ${f}: names a run kind ${n} time(s), at most ${max} (use RunFeatures and the feature rules, DECISIONS 576)`);
+  if (n < max)
+    kindLower.push(`${f} ${max} -> ${n}`);
+}
+for (const f of Object.keys(KIND_READS))
+  if (!kindReads[f])
+    kindLower.push(`${f} ${KIND_READS[f]} -> 0`);
+
 if (failures.length) {
   console.error("check-run-props: FAIL\n  " + failures.join("\n  "));
   process.exit(1);
 }
-console.log(`check-run-props: PASS (${props.length} table rows against the prefabs, 8 rules; cat track Off bills nothing and makes no snow; runs and cat tracks share one estimate rule)`);
+if (kindLower.length)
+  console.log("check-run-props: lower KIND_READS (R9): " + kindLower.join(", "));
+console.log(`check-run-props: PASS (${props.length} table rows against the prefabs, 9 rules; cat track Off bills nothing and makes no snow; runs and cat tracks share one estimate rule; ${Object.values(kindReads).reduce((a, b) => a + b, 0)} kind reads in ${Object.keys(kindReads).length} files, none grew)`);

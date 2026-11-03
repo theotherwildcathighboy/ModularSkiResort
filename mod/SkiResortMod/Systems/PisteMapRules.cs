@@ -39,7 +39,10 @@ namespace SkiResortMod.Systems
             }
         }
 
-        public static bool IsDashed(int kind) => kind == KindNatural;
+        /// <summary>A natural run's outline is dashed.</summary>
+        public static bool IsDashed(RunFeatures f) => f.IsNatural;
+
+        public static bool IsDashed(int kind) => IsDashed(RunFeatures.FromKind(kind));
 
         /// <summary>!(zoom &gt; 0) gives 1; else clamp(zoom / RefZoomM, 1, MaxWidthScale).</summary>
         public static float WidthScale(float zoom)

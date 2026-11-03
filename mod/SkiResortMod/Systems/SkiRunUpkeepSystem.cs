@@ -28,13 +28,14 @@ namespace SkiResortMod.Systems
             // the day lodge's upkeep 3000/month; a mid-size resort (~40 ha of snowmaking) should read as a serious municipal line item
             // without bankrupting a town: 40 ha x 500 = 20k/month while the guns run. Groomed at roughly a third (fuel and labor, no
             // water/power). Needs field calibration before release.
-            public const int SnowmakingCostPerHaMonth = 500;
-            public const int GroomedCostPerHaMonth = 150;
+            // The totals of the feature steps in SkiRunUpkeepRates (DECISIONS 576): groomed 150, snowmaking 150 + 350 = 500.
+            public const int SnowmakingCostPerHaMonth = SkiRunUpkeepRates.GroomedPerHaMonth + SkiRunUpkeepRates.SnowmakingStepPerHaMonth;
+            public const int GroomedCostPerHaMonth = SkiRunUpkeepRates.GroomedPerHaMonth;
 
             // Night skiing: 500 snowmaking (a night run is a snowmaking run) + 100 floodlight power (piste lighting is ~10 kW/ha for
             // ~5 h/night = ~1,500 kWh/ha/month, 15-20% of snowmaking's energy) + 200 for the second staffed shift. The night premium
-            // (+300) is exactly twice the whole groomed rate: "lights plus a night shift cost two groomers."
-            public const int NightCostPerHaMonth = 800;
+            // (+300, the lights step) is exactly twice the whole groomed rate: "lights plus a night shift cost two groomers."
+            public const int NightCostPerHaMonth = SnowmakingCostPerHaMonth + SkiRunUpkeepRates.LightsStepPerHaMonth;
 
             // Charge cadence. The injection mask refreshes every 64 frames; billing at 1024 (16 top-ups) keeps PlayerMoney writes rare
             // while the elapsed-frame accrual keeps the amount exact regardless of cadence.
@@ -54,22 +55,9 @@ namespace SkiResortMod.Systems
         private const float TicksPerDay = TimeSystem.kTicksPerDay;
 
         /// <summary>The monthly operating cost per hectare of active run surface for a run kind - the numbers Charge bills
-        /// (Tuning: groomed 150, snowmaking 500, night 800; a cat track follows the snowmaking rules). Unknown values read 0.</summary>
-        public static int CostPerHaMonth(RunKind kind)
-        {
-            switch (kind)
-            {
-                case RunKind.Groomed:
-                    return Tuning.GroomedCostPerHaMonth;
-                case RunKind.Snowmaking:
-                case RunKind.CatTrack:
-                    return Tuning.SnowmakingCostPerHaMonth;
-                case RunKind.Night:
-                    return Tuning.NightCostPerHaMonth;
-                default:
-                    return 0;
-            }
-        }
+        /// (Tuning: groomed 150, snowmaking 500, night 800; a cat track follows the snowmaking rules). Unknown values read 0. A wrapper over
+        /// SkiRunUpkeepRates.PerHaMonth (RunFeatures.FromKind: a cat track with its guns on).</summary>
+        public static int CostPerHaMonth(RunKind kind) => SkiRunUpkeepRates.PerHaMonth(RunFeatures.FromKind((int)kind));
 
         /// <summary>The hectares a run is billed for: its active mask texels x the texel area in ha, never more than its plan area
         /// (m2, Geometry.m_SurfaceArea). Texels on the outline count whole, so the raw product reads a few percent over the run. A
