@@ -1762,7 +1762,8 @@ LOD2_DRIFT_RAISE = 0.02                # beyond expected + this the build fails
 # 3,970), GD 7,500 -> 4,800 (GD20 4,542). Round 1: 3,500 / 3,600 / 3,500.
 # FG 3,700 -> 3,800 (lift alignment round 3): FG20 skinned builds 3,762 with the round-2 bogie bars (SKIN_FG
 # bogie_low off), 3,394 with bogie_low; unskinned FG20 3,450.
-LOD0_CAP = {"FG": 3800, "DQ": 4200, "GD": 4800}
+# GD 4,800 -> 5,000 (lift alignment round 4): the skinned GD at the shipped 10 sheaves a side, GD12 4,626, GD20 4,938.
+LOD0_CAP = {"FG": 3800, "DQ": 4200, "GD": 5000}
 
 
 @dataclass(frozen=True)
@@ -2669,10 +2670,10 @@ SKIN_DQ = dict(gap=0.010, poke=0.006, pin_r=0.04, pin_in=2.30)
 # A + 0.2589, and the full-section yoke, SKIN_CLEVIS beam_x: a top of 0.42 meets the gantry_00 posts at a -30 pitch,
 # 3.5 mm, 0.41 clears; the mains' pins, axle + 0.195..0.255, bridge 15 mm into the yoke, C21)
 SKIN_YOKE = {"DQ": (0.24, 0.41), "GD": (0.25, 0.42)}
-# GD: sheaves a side (owner decision; built: 8 = the DQ and photo train length, two 4-wheel bogies; 12 = 4,958 tris on
-# GD12, over the 4,800 cap); the main pin
+# GD: sheaves a side (owner decision: 10, as shipped; 8 = two 4-wheel bogies, a wheel short of the walkway at each end;
+# 12 = 4,958 tris on GD12); the main pin
 # from 0.09 inside the girder end (2.69); the posts 5 mm in from the girder end, buried 5 mm in its top
-SKIN_GD = dict(sheaves=8, pin_in=2.60, post_bury=0.005, post_inset=0.005)
+SKIN_GD = dict(sheaves=10, pin_in=2.60, post_bury=0.005, post_inset=0.005)
 # round 3 clevis (cs2_sheaves.dq_train_halves clevis): the yoke plates 20 mm at the yoke slab's faces, a static 20 mm
 # tongue 6 mm off each (G6 >= 5 mm) from the head down to a r 0.075 lug on the main pin (pin r 0.04) over the train
 # center. Top: DQ ingest in the Kagelok gantry_00 slanted post (its underside A + 0.56..0.65 across the tongue slab,
@@ -2701,7 +2702,7 @@ def set_skinned(on):
 
 
 def skin_spec(spec):
-    """The spec a skinned build uses: GD at SKIN_GD["sheaves"] a side (8 default, --gd-sheaves); else `spec`."""
+    """The spec a skinned build uses: GD at SKIN_GD["sheaves"] a side (10 default as shipped, --gd-sheaves); else `spec`."""
     if SKINNED and spec.family == "GD" and spec.sheaves != SKIN_GD["sheaves"]:
         return _dataclasses.replace(spec, sheaves=SKIN_GD["sheaves"])
     return spec
