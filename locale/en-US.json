@@ -258,6 +258,8 @@
   "Assets.DESCRIPTION[SkiLiftMarker]": "A short cable end on a lift station, where the lift line connects.",
   "Assets.NAME[SkiLiftMarkerLV]": "Power Feed Wire Stub (part of a station)",
   "Assets.DESCRIPTION[SkiLiftMarkerLV]": "A short wire end at a base station's front corner, where its low-voltage power connects.",
+  "Notifications.TITLE[SkiLiftLineNeeded]": "Lift line needed",
+  "Notifications.DESCRIPTION[SkiLiftLineNeeded]": "No lift line is attached at this lift end. A lift runs only when its line reaches from the base station to the top station.",
   "Assets.NAME[SkiBeaconRed]": "Warning Beacon (Red, Blinking)",
   "Assets.DESCRIPTION[SkiBeaconRed]": "A red aircraft-warning light that blinks day and night. Tall lift towers carry one.",
   "Assets.NAME[SkiDressSkiRack_Red]": "Ski Rack, Freestanding, 10 pairs + 3 boards + 2 pole pairs (Red)",

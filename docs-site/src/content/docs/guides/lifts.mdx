@@ -82,7 +82,10 @@ Limits per lift type:
 
 A lift line is a power-line network, so it behaves like one.
 
-- **Electricity overlay:** the lift line and the stations' line-side stubs are high-voltage class (that is what lets the line snap to the stations), so they draw as high-voltage lines. Only the base station's own stub is low-voltage.
+- **Icons:** a station with no lift line, and a loose cable end, show the yellow **Lift line needed** icon; it clears when a line is attached there. The base station also shows the game's low-voltage "not connected" icon until its feed is wired. A lift shows no other electricity icon.
+- **Electricity overlay:** placing a lift line or a station does not open it. Opened by hand, it draws the lift line and the stations' line-side stubs as high-voltage lines (that is what lets the line snap to the stations), and its hover tooltip shows their power figures (engine limit). Only the base station's own stub is low-voltage.
+- **Info panel and asset menu:** a station's info panel has the game's Transformer section, and the asset menu lists transformer and power line capacities for stations and lift lines (engine limit: the game reads them from the parts that power the lift).
+- **Experience:** drawing a lift line earns the game's experience for power lines, and the experience note says so (engine limit).
 - **Base station = transformer:** wire a low-voltage line into the base station's low-voltage stub. Only the base station needs power: the top station has no consumer, and a lift counts as powered from its base. The base joins its stub to the lift line like a vanilla transformer, but the line ends at the top station, so a lift carries no city power anywhere and does not add grid capacity.
 - **City high-voltage lines:** they cannot join a lift tower, stub or lift line. The game refuses them with a red preview.
 

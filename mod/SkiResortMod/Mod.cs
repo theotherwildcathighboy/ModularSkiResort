@@ -422,6 +422,17 @@ namespace SkiResortMod
             // engine notes). Phase NOT load-bearing: IconCommandSystem consumes the queued removes at ModificationEnd (SystemOrder.cs:271).
             updateSystem.UpdateAt<StationLvIconSystem>(SystemUpdatePhase.GameSimulation);
 
+            // Lift line icon: our "needs a lift line" icon in place of the vanilla high-voltage icon. Anchor is load-bearing: AFTER
+            // ConnectionWarningSystem in ModificationEnd (SystemOrder.cs:261) and so before IconCommandSystem (:271), so our IconCommandBuffer
+            // is created after its own in the same frame and our Remove of the vanilla icon wins at playback (IconCommandSystem.cs:106-160).
+            // An UpdateAt would sort after IconCommandSystem: the vanilla icon would show for a frame each time.
+            updateSystem.UpdateAfter<LiftLineIconSystem, Game.Net.ConnectionWarningSystem>(SystemUpdatePhase.ModificationEnd);
+
+            // Lift power cues: strips the vanilla transformer / bottleneck / top-station consumer icons. Anchor is load-bearing: AFTER
+            // ElectricityStatusSystem in GameSimulation (SystemOrder.cs:448, after DispatchElectricitySystem :444) so our buffer follows
+            // both vanilla buffers on their frames (same playback rule as above).
+            updateSystem.UpdateAfter<LiftPowerCueSystem, Game.Simulation.ElectricityStatusSystem>(SystemUpdatePhase.GameSimulation);
+
             // Cat track overlap: forges AreaGeometryData.m_Type Surface -> Space on the SkiRunCatTrackA prefab at every Game-mode load so
             // a cat track can cross other runs (ValidationHelpers.cs:551 compares only the type). Disabled, OnGameLoadingComplete only.
             updateSystem.UpdateAt<SkiRunAreaTypeSystem>(SystemUpdatePhase.GameSimulation);

@@ -176,6 +176,13 @@ namespace SkiResortMod.Systems
             return def != null ? PrefabOf(def.LinePrefab) : null;
         }
 
+        /// <summary>The station's BuildingPrefab; null when MISSING (the infoview's reference compare).</summary>
+        internal PrefabBase StationPrefabBase(StationDef def)
+        {
+            EnsureFresh();
+            return def != null ? PrefabOf(def.Prefab) : null;
+        }
+
         /// <summary>LIVE VIEW: carrier prefab entity → bounds.max.y (pivot to grip top), &gt; 0 only. Use TryGetValue.</summary>
         internal IReadOnlyDictionary<Entity, float> CarrierGripTops
         {

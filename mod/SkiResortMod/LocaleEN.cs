@@ -174,6 +174,11 @@ namespace SkiResortMod
                 { "Assets.DESCRIPTION[SkiLiftMarker]", "A short cable end on a lift station, where the lift line connects." },
                 { "Assets.NAME[SkiLiftMarkerLV]", "Power Feed Wire Stub (part of a station)" },
                 { "Assets.DESCRIPTION[SkiLiftMarkerLV]", "A short wire end at a base station's front corner, where its low-voltage power connects." },
+                // The "needs a lift line" notification icon (LiftLineIconAsset, made in code): shown on a station or a loose lift end
+                // with no line attached. Keys by prefab name: TempNotificationTooltipSystem.cs:175 (TITLE); DESCRIPTION by the same
+                // scheme in the info panel's notification tooltip.
+                { "Notifications.TITLE[SkiLiftLineNeeded]", "Lift line needed" },
+                { "Notifications.DESCRIPTION[SkiLiftLineNeeded]", "No lift line is attached at this lift end. A lift runs only when its line reaches from the base station to the top station." },
                 { "Assets.NAME[SkiBeaconRed]", "Warning Beacon (Red, Blinking)" },
                 { "Assets.DESCRIPTION[SkiBeaconRed]", "A red aircraft-warning light that blinks day and night. Tall lift towers carry one." },
 
