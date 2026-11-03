@@ -19,8 +19,8 @@
 // Bone buffer follows the sorted slots (ProceduralSkeletonSystem.GetSkinMatrices). The Skeleton index is the prefab SubMesh index
 // (ObjectInterpolateSystem.cs:344-351).
 // Never: Temp or Deleted towers (a preview stays level), towers whose prefab has no train bone (unskinned art: nothing changes), Editor.
-// Log discipline: one line per rigged tower prefab per load, one line per pass that changed anything (with the towers whose break was
-// clamped), a one-shot "!!!" catch.
+// Log discipline: one line per rigged tower prefab per load, one line per pass that posed a tower or changed the rope-less count (with
+// the towers whose break was clamped), a one-shot "!!!" catch.
 // Mod.cs: UpdateAfter<TrainPitchSystem, LiftCensusSystem>(Modification4B); UpdateAfter<TrainBoneSystem, InitializeBonesSystem>(Rendering).
 
 using System;
@@ -98,7 +98,7 @@ namespace SkiResortMod.Systems
         private readonly HashSet<Entity> m_SeenNodes = new HashSet<Entity>();
         private readonly List<float3> m_Anchors = new List<float3>(8);
         private readonly List<Pending> m_Pending = new List<Pending>();
-        private int m_Passes;
+        private int m_Passes, m_LastNoRope;
 
         protected override void OnCreate()
         {
@@ -121,6 +121,7 @@ namespace SkiResortMod.Systems
             m_Edges.Clear();
             m_Rigs.Clear();
             m_Passes = 0;
+            m_LastNoRope = 0;
         }
 
         /// <summary>Called by LiftCensusSystem after each build with its line edges (main thread, no ECS read here).</summary>
@@ -255,7 +256,8 @@ namespace SkiResortMod.Systems
                     });
             }
 
-            if (m_Pending.Count > 0 || noRope > 0)
+            // A census rebuild re-runs the pass about every 40 s; a pass that posed nothing logs only when the rope-less count changed.
+            if (m_Pending.Count > 0 || noRope != m_LastNoRope)
             {
                 double ms = (Stopwatch.GetTimestamp() - t0) * 1000.0 / Stopwatch.Frequency;
                 Mod.Log.Info($"Towers [trains]: pass {m_Passes} ({why}) rigged towers {towers}, posed {m_Pending.Count} (new {added}), max |pitch| " +
@@ -263,6 +265,7 @@ namespace SkiResortMod.Systems
                              (clamped > 0 ? $", {clamped} clamped to the {LiftAlignMath.MaxHalfBreakDeg:F0} deg half-break (rope off the inner wheels)" : string.Empty) +
                              (noRope > 0 ? $", {noRope} without a rope lane on their anchors (level)" : string.Empty) + $"; {ms:F2} ms");
             }
+            m_LastNoRope = noRope;
             m_Pending.Clear();
         }
 
