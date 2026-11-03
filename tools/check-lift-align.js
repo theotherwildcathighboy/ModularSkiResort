@@ -6,8 +6,9 @@
 //             CarrierDrops. Bug class: the grip TOP rode the rope (round-2 contract D8) and the rope ran over the jaw.
 //   ROPELANE  (G3) per loop lift type, the line piece, every line tower and both stations reference ONE haul-rope lane prefab (FindAnchor
 //             matches anchors by lane prefab, LaneSystem.cs:4049, :2466-2505: a tower or station on another lane leaves the rope end
-//             unanchored), that lane is ours (never the vanilla HV lane 5d88ac45..., m_Hanging 0.03), keeps the vanilla HV cable mesh
-//             463c051d... and sags <= 0.01. Bug class: the FG rope sagged like a power line (12.6 deg break-over per tower).
+//             unanchored), that lane is ours (never the vanilla HV lane 5d88ac45..., m_Hanging 0.03), draws the vanilla LOW-voltage
+//             cable lane mesh bbb9724d... (DECISIONS 573 h: 0.12 m across; the HV mesh 463c051d... hid the sheave trains) and sags
+//             <= 0.01. Bug class: the FG rope sagged like a power line (12.6 deg break-over per tower).
 //   BONEROOT  every owned skinned mesh's root bone is identity (rotation 0,0,0,1, scale 1): the import gives it the FBX scene
 //             conversion and the game composes it into every skin matrix. Bug class: the rig probe drew turned and 100x.
 //
@@ -59,7 +60,7 @@ for (const [f, re, why] of need) {
 // ---- ROPELANE -------------------------------------------------------------------------------------------------------------------
 const VANILLA_HV_LANE = '5d88ac45a40b30341a79535930e3b735';
 const LV_WIRE = '37c8abdb015384f4e8b7ce9b5b2b6c9b';
-const HV_MESH = '463c051da8a824c4a8f2f830a5011a3e';
+const LV_MESH = 'bbb9724d6daa32241821c52b428c196c';      // the rope mesh of the FG / DQ / GD haul lanes (DECISIONS 573 h)
 const LIB = 'c030ee3ff256df91';
 const groups = [
     { type: 'fixedGrip', lane: 'SkiFixedGripHaulRope',
@@ -90,7 +91,7 @@ for (const g of groups) {
     const cid = fs.readFileSync(laneFile + '.cid', 'utf8').trim().toLowerCase();
     const hang = laneText.match(/"m_Hanging":\s*([0-9.]+)/);
     if (!hang || Number(hang[1]) > 0.01) fail('ROPELANE', `${g.lane}: m_Hanging ${hang ? hang[1] : '?'} > 0.01`);
-    if (!laneText.includes(`UnityGUID:${HV_MESH}`)) fail('ROPELANE', `${g.lane}: mesh is not the vanilla HV cable lane mesh ${HV_MESH} (ROPE-LANE INVARIANT)`);
+    if (!laneText.includes(`UnityGUID:${LV_MESH}`)) fail('ROPELANE', `${g.lane}: mesh is not the vanilla LV cable lane mesh ${LV_MESH} (ROPE-LANE INVARIANT, DECISIONS 573 h)`);
     for (const rel of g.prefabs) {
         const f = prefabFile(rel);
         if (!f) { fail('ROPELANE', `${g.type}: ${rel} not found`); continue; }

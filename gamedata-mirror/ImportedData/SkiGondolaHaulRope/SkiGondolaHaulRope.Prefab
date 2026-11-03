@@ -35,7 +35,7 @@
             {
                 "$id": 4,
                 "$type": "4|Game.Prefabs.NetLaneMeshInfo, Game",
-                "m_Mesh": $fstrref:"UnityGUID:463c051da8a824c4a8f2f830a5011a3e",
+                "m_Mesh": $fstrref:"UnityGUID:bbb9724d6daa32241821c52b428c196c",
                 "m_RequireSafe": false,
                 "m_RequireLevelCrossing": false,
                 "m_RequireEditor": false,

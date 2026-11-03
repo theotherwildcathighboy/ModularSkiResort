@@ -5199,6 +5199,19 @@ def _jsonable_layout(lay):
     return {k: conv(v) for k, v in lay.items()}
 
 
+def _repo_rel(p):
+    """A path argument as the manifest records it: repo-relative inside the repo, else as given (no home paths in
+    tracked manifests, tools/check-no-user-paths.js)."""
+    if not isinstance(p, str) or not p:
+        return p
+    a = os.path.abspath(p)
+    try:
+        r = os.path.relpath(a, REPO)
+    except ValueError:            # another drive
+        return p
+    return p if r.startswith("..") else r.replace(os.sep, "/")
+
+
 def variant_name(family, H, letter=None):
     return cs2_asset.validate_asset_name(f"{NAME_PREFIX[family]}{H}{letter or LETTER[family]}")
 
@@ -5336,7 +5349,8 @@ def run_variant(family, H, args, catalog_drift):
     density = shipped_density(t, table, A)
     cs2_validate.write_manifest(asset_dir, name, {
         "generator": "tram_tower.py", "git_sha": git_sha(), "family": family, "H": spec.H,
-        "letter": args.letter or LETTER[family], "args": {k: v for k, v in vars(args).items()},
+        "letter": args.letter or LETTER[family], "args": {k: (_repo_rel(v) if k in ("out", "preview", "review", "skin_views") else v)
+                                                         for k, v in vars(args).items()},
         "rulings": ["R27", "R28", "R30", "R31"], "contract": "design/lattice-towers.md + skeptic MC1-MC10",
         "revision": {"n": 1, "date": "2026-10-11",
                      "verdicts": "verdicts-2026-10-11.md items 7 / 8 (ref-liftblog digest 1.3-1.5)",
@@ -5451,7 +5465,8 @@ def parse_args(argv=None):
     ap.add_argument("--skinned", action="store_true",
                     help="lift alignment phase 2 (SKINNED, tram only): every LOD skinned to Root / TrainFront / TrainBack "
                          "/ TrainFrontHaul / TrainBackHaul, saddle and haul-row halves hinged on their anchor lines; "
-                         "--export needs an --out outside assets/import (nothing ships before the owner's verdict)")
+                         "--export needs an explicit --out and, inside assets/import, an explicit --letter (the import "
+                         "round's new generation letter, after the owner's preview verdict)")
     ap.add_argument("--skin-views", default=None,
                     help="with --skinned --export --finish: folder for the round 2 views (skin_views)")
     ap.add_argument("--skin-no-sweep", action="store_true",
@@ -5461,9 +5476,12 @@ def parse_args(argv=None):
         ap.error("--skinned: the tram only (the lattice gondola heads: numbers only this round)")
     if a.skin_views and not a.skinned:
         ap.error("--skin-views needs --skinned")
-    if a.skinned and a.export and (a.out is None or os.path.normcase(os.path.abspath(a.out)).startswith(
-            os.path.normcase(os.path.join(REPO, "assets", "import")))):
-        ap.error("--skinned --export writes only to an --out outside assets/import (scratch) before the owner's verdict")
+    if a.skinned and a.export and a.out is None:
+        ap.error("--skinned --export needs an explicit --out")
+    if a.skinned and a.export and a.letter is None and os.path.normcase(os.path.abspath(a.out)).startswith(
+            os.path.normcase(os.path.join(REPO, "assets", "import"))):
+        ap.error("--skinned --export into assets/import needs an explicit --letter (a new generation letter: never "
+                 "overwrite a shipped tower's art)")
     if a.height is not None and a.height not in HEIGHTS[a.family]:
         ap.error(f"--height must be one of {HEIGHTS[a.family]} for {a.family}")
     if a.saddle_l < 2.2 or a.saddle_l > 7.0:
