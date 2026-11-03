@@ -2,7 +2,7 @@
 //  R1 consumers read the tag: plume and night light select SkiRunPropMember and never Secondary, because a placed prop has no owner and an old
 //     corner prop is gone after the load sweep. Only the sweep may name Secondary.
 //  R2 look only: nothing that decides snow or upkeep reads a spacing, with two exceptions for a cat track set to Off: it bills nothing
-//     (DECISIONS 563) and opens on natural snow only (DECISIONS 568). Both read that switch only through SkiRunPropSystem.CatTrackGunsOn:
+//     (DECISIONS 563) and makes no new snow (DECISIONS 568; made snow stays until it melts, 572). Both read that switch only through SkiRunPropSystem.CatTrackGunsOn:
 //     every TrackBilledHa call passes it, and the injection reads it twice, for a cat track only: in GetRunSnow, and where BuildMask
 //     records a track for measurement (its made-snow model, run-types round).
 //  R3 the old Options sliders stay gone, also from the locale template.
@@ -147,4 +147,4 @@ if (failures.length) {
   console.error("check-run-props: FAIL\n  " + failures.join("\n  "));
   process.exit(1);
 }
-console.log(`check-run-props: PASS (${props.length} table rows against the prefabs, 8 rules; cat track Off bills nothing and opens on natural snow; runs and cat tracks share one estimate rule)`);
+console.log(`check-run-props: PASS (${props.length} table rows against the prefabs, 8 rules; cat track Off bills nothing and makes no snow; runs and cat tracks share one estimate rule)`);

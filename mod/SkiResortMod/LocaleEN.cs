@@ -869,7 +869,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.RUN_PROPS_OFF", "Off" },
                 { "SkiResort.Hub.RUN_PROPS_NONE", "No run selected" },
                 { "SkiResort.Hub.RUN_PROPS_GUNS_TIP", "Distance between snow guns and hydrants on this run's edge. Only the look changes: snow and upkeep stay the same." },
-                { "SkiResort.Hub.RUN_PROPS_GUNS_TIP[CatTrack]", "Distance between snow guns and hydrants on this cat track's edge. Off: no guns, no snowmaking cost, opens on natural snow only." },
+                { "SkiResort.Hub.RUN_PROPS_GUNS_TIP[CatTrack]", "Distance between snow guns and hydrants on this cat track's edge. Off: no guns and no snowmaking cost; snow already made stays until it melts." },
                 { "SkiResort.Hub.RUN_PROPS_LIGHTS_TIP", "Distance between floodlight masts on this run's edge. Only the look changes: night skiing does not need them." },
                 { "SkiResort.Hub.RUN_PROPS_NO_GUNS", "Groomed and natural runs carry no snow guns." },
                 { "SkiResort.Hub.RUN_PROPS_NO_LIGHTS", "Night runs and cat tracks carry floodlights." },

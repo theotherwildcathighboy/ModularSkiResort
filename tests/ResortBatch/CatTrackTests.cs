@@ -33,6 +33,7 @@ namespace ResortBatch
             Snow();
             SnowMeasure();
             LiveOpen();
+            KeepBar();
             Props();
             Catalog();
             s_Check = null;
@@ -555,7 +556,8 @@ namespace ResortBatch
 
         /// <summary>CT-MEASURE (run-types round): a cat track's own snow. The snow map under it is measured as a natural run's is
         /// (SkiSnowInjectionSystem, not headless); its guns' snow is RunSnowRules.TrackMadeSnow, raised to the snowmaking estimate, held by the
-        /// runs' protection machine at the largest run budget, melted over TrackMeltOutHours after it. Oracles are hand values.</summary>
+        /// runs' protection machine at the largest run budget, melted at a run pack's speed after it (RunMeltOutHours). Oracles are hand
+        /// values.</summary>
         private static void SnowMeasure()
         {
             const string W = "cattrack/measure";
@@ -584,7 +586,7 @@ namespace ResortBatch
                   "+2 C, season, guns on: made 100 %, nothing warm, no spell (share " + track.Share + ")");
 
             // Thaw out of the season at +2 C: no gun, no cold share, so all of it is warm. The spell holds it for the largest budget (72 h,
-            // a north face), then it melts over TrackMeltOutHours (2 h): open while the share is >= 40 % (the label from Open).
+            // a north face), then it melts as a run's pack would at +2 C (RunMeltOutHours, 3.0 h to the close line): open while >= 40 %.
             float hours = 0f, openHours = -1f;
             RunSnowState label = RunSnowState.Open;
             bool sawStart = false, sawSpent = false;
@@ -599,8 +601,9 @@ namespace ResortBatch
                     openHours = hours;
             }
             Check(sawStart && sawSpent && track.Share == 0f, W, "thaw: the spell starts, its budget is spent, the made snow melts out");
-            Check(openHours > RunSnowRules.MaxBudgetHours(false) && openHours <= RunSnowRules.MaxBudgetHours(false) + RunSnowRules.TrackMeltOutHours, W,
-                  "thaw: open for the 72 h budget plus part of the melt (closed after " + openHours + " h)");
+            Check(openHours > RunSnowRules.MaxBudgetHours(false) + RunSnowRules.RunMeltOutHours(2f) - 0.5f &&
+                  openHours <= RunSnowRules.MaxBudgetHours(false) + RunSnowRules.RunMeltOutHours(2f) + 0.5f, W,
+                  "thaw: open for the 72 h budget plus a run pack's melt to 1 ft at +2 C (closed after " + openHours + " h)");
             // At least as long as a run: the track's hold is the largest budget any run texel gets, every aspect, spring or not.
             foreach (bool spring in new[] { false, true })
                 for (float aspect = RunSnowRules.ProtectSouthFactor; aspect <= RunSnowRules.ProtectNorthFactor + 1e-4f; aspect += 0.25f)
@@ -619,7 +622,8 @@ namespace ResortBatch
                 if (label != RunSnowState.Open && springOpen < 0f)
                     springOpen = h2;
             }
-            Check(springOpen > 36f && springOpen <= 38f, W, "spring thaw: closed after the 36 h budget and part of the melt (" + springOpen + " h)");
+            Check(springOpen > 36f + RunSnowRules.RunMeltOutHours(2f) - 0.5f && springOpen <= 36f + RunSnowRules.RunMeltOutHours(2f) + 0.5f, W,
+                  "spring thaw: closed after the 36 h budget and the melt to the close line (" + springOpen + " h)");
 
             // Cold out of the season (-10 C): the cold keeps all of it, nothing is warm, it holds for any time (a run's made snow stays too).
             var cold = new RunSnowRules.TrackMadeSnow { Share = 1f };
@@ -628,12 +632,51 @@ namespace ResortBatch
                 RunSnowRules.StepTrackMadeSnow(ref cold, 6f, 0f, cCold, -10f, false, out bool _);
             Check(cold.Share == 1f && cold.Spell.State == RunSnowRules.ProtectState.Idle, W, "-10 C out of season: held 600 h, no spell");
 
-            // Too warm (12 C at the track, above ProtectMaxLocalC): no spell, it melts over TrackMeltOutHours: half after 1 h, gone after 2 h.
+            // Too warm (12 C at the track, above ProtectMaxLocalC): no spell; it melts as a run's pack would: at the close line (40 %) after
+            // RunMeltOutHours(12) = 0.50 h, gone after 1 h.
+            float m12 = RunSnowRules.RunMeltOutHours(12f);
             var warm = new RunSnowRules.TrackMadeSnow { Share = 1f };
-            RunSnowRules.StepTrackMadeSnow(ref warm, 1f, 0f, 0f, 12f, false, out bool warmStart);
-            Check(!warmStart && Math.Abs(warm.Share - 0.5f) < 1e-5f, W, "12 C: no spell, half melted after 1 h (" + warm.Share + ")");
+            RunSnowRules.StepTrackMadeSnow(ref warm, m12, 0f, 0f, 12f, false, out bool warmStart);
+            Check(!warmStart && Math.Abs(warm.Share - RunSnowRules.CloseBelowShare) < 1e-4f, W,
+                  "12 C: no spell, at the close line after " + m12 + " h (" + warm.Share + ")");
             RunSnowRules.StepTrackMadeSnow(ref warm, 1f, 0f, 0f, 12f, false, out bool _);
-            Check(warm.Share == 0f, W, "12 C: gone after 2 h");
+            Check(warm.Share == 0f, W, "12 C: gone after the next hour");
+
+            // Below freezing at the track nothing melts, even with the spell spent and the day-mean cold share under the made share.
+            var frozen = new RunSnowRules.TrackMadeSnow { Share = 1f, Spell = new RunSnowRules.ProtectRun { State = RunSnowRules.ProtectState.Spent } };
+            RunSnowRules.StepTrackMadeSnow(ref frozen, 6f, 0f, 0.2f, -1f, false, out bool _);
+            Check(frozen.Share == 1f, W, "-1 C at the track, spell spent: no melt (" + frozen.Share + ")");
+
+            // The melt-out speed: a run pack from the gun stop depth (0.96 m) to the keep bar (0.30 m), linear in the air temperature.
+            Check(Math.Abs(RunSnowRules.RunMeltOutHours(1f) - 6.04f) < 0.01f && Math.Abs(RunSnowRules.RunMeltOutHours(7f) - 0.863f) < 0.01f &&
+                  Math.Abs(RunSnowRules.RunMeltOutHours(12f) - 0.503f) < 0.01f, W,
+                  "RunMeltOutHours 1 C " + RunSnowRules.RunMeltOutHours(1f) + ", 7 C " + RunSnowRules.RunMeltOutHours(7f) + ", 12 C " +
+                  RunSnowRules.RunMeltOutHours(12f));
+            Check(float.IsPositiveInfinity(RunSnowRules.RunMeltOutHours(0f)) && float.IsPositiveInfinity(RunSnowRules.RunMeltOutHours(-5f)) &&
+                  float.IsPositiveInfinity(RunSnowRules.RunMeltOutHours(float.NaN)), W, "RunMeltOutHours: infinite at or below freezing and for NaN");
+
+            // Closes last (DECISIONS 574): a run pack at the gun stop depth, held for its texel budget (none above 10 C) and then melting to the
+            // keep bar, closes no later than a track beside it at the same air, for every aspect, spring or not.
+            foreach (float airC in new[] { 0.5f, 1f, 2f, 4f, 7f, 9.9f, 12f })
+                foreach (bool spring in new[] { false, true })
+                    for (float aspect = RunSnowRules.ProtectSouthFactor; aspect <= RunSnowRules.ProtectNorthFactor + 1e-4f; aspect += 0.5f)
+                    {
+                        float runBudget = airC <= RunSnowRules.ProtectMaxLocalC ? RunSnowRules.EffectiveBudgetHours(spring, aspect) : 0f;
+                        float runClose = runBudget + RunSnowRules.RunMeltOutHours(airC);
+                        var t = new RunSnowRules.TrackMadeSnow { Share = 1f };
+                        RunSnowState tl = RunSnowState.Open;
+                        float th = 0f, trackClose = -1f;
+                        for (int step = 0; step < 20000 && trackClose < 0f; step++)
+                        {
+                            RunSnowRules.StepTrackMadeSnow(ref t, 0.05f, 0f, 0f, airC, spring, out bool _);
+                            th += 0.05f;
+                            tl = RunSnowRules.NextState(tl, t.Share);
+                            if (tl != RunSnowState.Open)
+                                trackClose = th;
+                        }
+                        Check(trackClose >= runClose - 0.06f, W, "closes last at " + airC + " C, spring " + spring + ", aspect " + aspect +
+                              ": track " + trackClose + " h, run " + runClose + " h");
+                    }
 
             // Partly cold: made snow never melts below the cold share (the part at or below freezing), here 1 C: line 1153.8 m, 48.7 %.
             var part = new RunSnowRules.TrackMadeSnow { Share = 1f, Spell = new RunSnowRules.ProtectRun { State = RunSnowRules.ProtectState.Spent } };
@@ -665,6 +708,99 @@ namespace ResortBatch
             Check(RunSnowRules.NextState(RunSnowState.Open, 0.55f) == RunSnowState.Open &&
                   RunSnowRules.NextState(RunSnowState.Closed, 0.55f) == RunSnowState.Closed &&
                   RunSnowRules.NextState(RunSnowState.Unknown, 0.55f) == RunSnowState.Open, W, "the label's hysteresis at 55 %");
+        }
+
+        /// <summary>KEEP (DECISIONS 574): a run opens at the open bar (3 ft on 60 %) and, once open, stays open while the keep bar (1 ft)
+        /// covers 40 %; the label is RunSnowRules.MeasuredShare then NextState, as RefreshRunSnow applies them. Texels are uniform-weight here
+        /// (the fold weighs by coverage). Also MadeSnowLeads, which hides a cat track's depth line.</summary>
+        private static void KeepBar()
+        {
+            const string W = "snow/keep-bar";
+            Check(RunSnowRules.KeepNorm < RunSnowRules.SkiableNorm && Math.Abs(RunSnowRules.KeepDepthM - 0.30f) < 1e-6f, W, "the keep bar is 0.30 m, under 3 ft");
+            // One pass of the table over a pack of texel depths (m) from a label.
+            RunSnowState Pass(RunSnowState from, float[] depthsM, out float share)
+            {
+                int open = 0, keep = 0;
+                foreach (float d in depthsM)
+                {
+                    float dn = d / RunSnowRules.SnowHeightScaleM;
+                    if (RunSnowRules.IsSkiable(dn, 0f, RunSnowRules.SkiableNorm)) open++;
+                    if (RunSnowRules.IsSkiable(dn, 0f, RunSnowRules.KeepNorm)) keep++;
+                }
+                share = RunSnowRules.MeasuredShare(from, open / (float)depthsM.Length, keep / (float)depthsM.Length);
+                return RunSnowRules.NextState(from, share);
+            }
+            float[] Uniform(float d) { var a = new float[100]; for (int i = 0; i < a.Length; i++) a[i] = d; return a; }
+
+            // Build: closed until 3 ft, whatever lies under it.
+            RunSnowState s = RunSnowState.Closed;
+            float openedAt = -1f;
+            for (float d = 0f; d <= 0.961f; d += 0.01f)
+            {
+                s = Pass(s, Uniform(d), out float _);
+                if (s == RunSnowState.Open && openedAt < 0f)
+                    openedAt = d;
+            }
+            Check(Math.Abs(openedAt - 0.91f) < 0.006f, W, "build: opens at 3 ft (" + openedAt + " m)");
+            // Thaw: from the gun stop depth down, open on 0.59 m and 0.40 m (the field case), closed under 1 ft.
+            float closedAt = -1f;
+            bool openAt059 = false, openAt040 = false;
+            for (float d = 0.96f; d >= -0.001f; d -= 0.01f)
+            {
+                s = Pass(s, Uniform(d), out float _);
+                if (Math.Abs(d - 0.59f) < 0.004f) openAt059 = s == RunSnowState.Open;
+                if (Math.Abs(d - 0.40f) < 0.004f) openAt040 = s == RunSnowState.Open;
+                if (s == RunSnowState.Closed && closedAt < 0f)
+                    closedAt = d;
+            }
+            Check(openAt059 && openAt040 && closedAt < 0.30f && closedAt > 0.28f, W,
+                  "thaw: open at 0.59 m and 0.40 m, closed under 1 ft (" + closedAt + " m)");
+            // Rebuild from 0.5 m while closed: still the 3 ft rule.
+            s = RunSnowState.Closed;
+            s = Pass(s, Uniform(0.5f), out float _);
+            Check(s == RunSnowState.Closed && Pass(RunSnowState.Closed, Uniform(0.9f), out float _) == RunSnowState.Closed &&
+                  Pass(RunSnowState.Closed, Uniform(0.91f), out float _) == RunSnowState.Open, W, "closed at 0.5 m and 0.9 m: opens again only at 3 ft");
+            // Patchy texture: half the texels at 0.5 m, half bare: keep share 50 % keeps Open (>= 40 %), and opens nothing from Closed.
+            var patchy = new float[100];
+            for (int i = 0; i < 50; i++) patchy[i] = 0.5f;
+            Check(Pass(RunSnowState.Open, patchy, out float pShare) == RunSnowState.Open && Math.Abs(pShare - 0.5f) < 1e-6f &&
+                  Pass(RunSnowState.Closed, patchy, out float pc) == RunSnowState.Closed && pc == 0f, W, "half at 0.5 m: open stays open (50 %), closed stays closed (0 %)");
+            // A load: the label is not saved; Unknown reads the keep share at the midpoint, so a settled open pack stays open.
+            Check(Pass(RunSnowState.Unknown, Uniform(0.5f), out float _) == RunSnowState.Open &&
+                  Pass(RunSnowState.Unknown, Uniform(0.25f), out float _) == RunSnowState.Closed, W, "after a load: 0.5 m open, 0.25 m closed");
+            // The field case (Entry Point, spring thaw at 7 C): mean 0.59 m, 66 % at 3 ft before the pass: it now stays open.
+            var field = new float[100];
+            for (int i = 0; i < 100; i++) field[i] = i < 66 ? 0.62f : 0.53f;
+            Check(Pass(RunSnowState.Open, field, out float fShare) == RunSnowState.Open && fShare == 1f, W, "Entry Point at 0.53-0.62 m: open, 100 % on 1 ft");
+
+            // Random packs: the keep share is never below the open share, and a run that opens stays open on the same pack.
+            var rng = new System.Random(573);
+            int flips = 0;
+            for (int n = 0; n < 2000; n++)
+            {
+                var pack = new float[40];
+                for (int i = 0; i < pack.Length; i++) pack[i] = (float)rng.NextDouble() * 1.2f;
+                int open = 0, keep = 0;
+                foreach (float d in pack)
+                {
+                    if (RunSnowRules.IsSkiable(d / RunSnowRules.SnowHeightScaleM, 0f, RunSnowRules.SkiableNorm)) open++;
+                    if (RunSnowRules.IsSkiable(d / RunSnowRules.SnowHeightScaleM, 0f, RunSnowRules.KeepNorm)) keep++;
+                }
+                if (keep < open) flips++;
+                RunSnowState a = Pass(RunSnowState.Closed, pack, out float _);
+                if (a == RunSnowState.Open && Pass(a, pack, out float _) != RunSnowState.Open) flips++;
+            }
+            Check(flips == 0, W, "2000 random packs: keep share >= open share, and no flip back the pass after opening (" + flips + ")");
+            // A fringe texel counts at its own lower target for the keep bar too (the merge's fringe rule).
+            Check(RunSnowRules.IsSkiable(0.2f / 8f, 0.2f / 8f, RunSnowRules.KeepNorm) && !RunSnowRules.IsSkiable(0.19f / 8f, 0.2f / 8f, RunSnowRules.KeepNorm), W,
+                  "a 0.2 m fringe target is kept at 0.2 m");
+            Check(float.IsNaN(RunSnowRules.MeasuredShare(RunSnowState.Open, 0.5f, float.NaN)) &&
+                  float.IsNaN(RunSnowRules.MeasuredShare(RunSnowState.Closed, float.NaN, 0.5f)), W, "MeasuredShare keeps NaN");
+
+            // The depth line of a cat track hides while its made snow leads (the owner: made snow is not measured).
+            Check(RunSnowRules.MadeSnowLeads(0f, 1f) && RunSnowRules.MadeSnowLeads(float.NaN, 0.5f) && !RunSnowRules.MadeSnowLeads(0.8f, 0.8f) &&
+                  !RunSnowRules.MadeSnowLeads(0.5f, float.NaN) && !RunSnowRules.MadeSnowLeads(0.8f, RunSnowRules.TrackShare(0.8f, 0.3f)), W,
+                  "MadeSnowLeads: made above snow hides the depth, equal or snow-led shows it");
         }
 
         /// <summary>The hub's run state from the live snow read (DECISIONS 571 c): the clamp SkiResortScore applies to its open factor.</summary>

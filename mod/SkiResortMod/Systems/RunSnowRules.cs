@@ -66,9 +66,15 @@ namespace SkiResortMod.Systems
         public const float ExpertNaturalSkiableDepthM = SkiableDepthM;
         public const byte ExpertBandMin = 3;                               // = SkiResortScore.BandBlack (3 black, 4 double black)
         public const float SnowHeightScaleM = 8f;                          // = SnowSystem kSnowHeightScale
-        public const float SkiableNorm = SkiableDepthM / SnowHeightScaleM; // 0.01875
+        public const float SkiableNorm = SkiableDepthM / SnowHeightScaleM; // 0.11375
         public const float ExpertNaturalSkiableNorm = ExpertNaturalSkiableDepthM / SnowHeightScaleM;
         public const float HalfQuantum = 0.5f / 65535f;                    // = SkiSnowInjectionSystem.HalfQuantum
+        // The keep bar: an open run stays open on this much snow (MeasuredShare). TUNED (flagged to the owner): 1 ft. The open bar is the
+        // owner's 3 ft rule for opening; once open, a pack that settles or melts below 3 ft is still skiable, and a real resort closes a run
+        // when bare patches show, not when its base dips under the depth it opened on. With 3 ft alone a gun run closed in one pass of a thaw
+        // with 0.4-0.6 m of snow left on it (field/2026-11-02/cattrack-snow, DECISIONS 574).
+        public const float KeepDepthM = 0.30f;
+        public const float KeepNorm = KeepDepthM / SnowHeightScaleM;
         public const float OpenAtShare = 0.60f;
         public const float CloseBelowShare = 0.40f;
         public const float InitialOpenShare = 0.50f;   // first label of a load (no history): the band's midpoint
@@ -108,6 +114,15 @@ namespace SkiResortMod.Systems
             if (share >= OpenAtShare)
                 return 1f;
             return (share - CloseBelowShare) / (OpenAtShare - CloseBelowShare);
+        }
+
+        /// <summary>A measured run's share: a closed run counts texels at the open bar (it opens at 3 ft), an open run counts them at the
+        /// keep bar (it stays open on 1 ft), and so does the first refresh of a load (Unknown: the label is not saved, and a run that was open
+        /// on a settled pack stays open). The keep share is never below the open share (a lower bar), so the label cannot flip back the pass
+        /// after it opens. NaN in either share stays NaN.</summary>
+        public static float MeasuredShare(RunSnowState previous, float openShare, float keepShare)
+        {
+            return previous == RunSnowState.Closed ? openShare : keepShare;
         }
 
         /// <summary>Label with hysteresis. Unknown (first refresh of a load) uses the midpoint.
@@ -476,12 +491,24 @@ namespace SkiResortMod.Systems
         // ProtectBudgetHours, spring and the 10 C cut) at the largest budget any texel of a run gets (a north face), so a track keeps its
         // made snow at least as long as a run of the same heights. A cat track is groomed and gets made snow first: it closes last.
         //
-        // TUNED (flagged to the owner): what melts after the budget. A run's pack sits 0.05 m over the bar at the gun stop depth, and the
-        // game's melt (UNVERIFIED linear form, snow-injection.md 4: 2e-5 x T x 0.2 per snow tick) takes that in about 0.5 game h at 1 C and
-        // minutes at 10 C. TrackMeltOutHours = 2 lets the track's made share fall over 2 game hours instead of at once: at least the run's
-        // tail down to about 0.3 C, and never a one-pass switch on the hub. Raise it for a slower spring close.
-        public const float TrackMeltOutHours = 2f;
+        // After the budget the made share melts at the speed a run's pack does at the track's air temperature: from the gun stop depth to
+        // the keep bar in RunMeltOutHours (the game's melt as the protection rule estimates it), the track reaching its close line (40 %)
+        // when that pack reaches the keep bar. So a track closes no earlier than a run beside it in any thaw (DECISIONS 574; it replaced the
+        // flat 2 h of DECISIONS 572, which a run on the 1 ft keep bar outlasted below about 3 C). Below freezing nothing melts.
         public const float TrackWarmEpsilon = 1e-4f;   // a share difference below this is the same height
+        // The game's melt per top-up window per degree above freezing, as ProtectRaisePerTopupM's derivation estimates it (6.4 mm per
+        // window at 10 C; linear form UNVERIFIED, snow-injection.md 4): about 0.11 m per game hour at 1 C.
+        public const float MeltPerWindowPerCM = 0.00064f;
+
+        /// <summary>Game hours a run's pack takes to melt from the gun stop depth to the keep bar at <paramref name="airC"/>: about 6 h at
+        /// 1 C, 0.9 h at 7 C, 0.5 h at 12 C. Infinite at or below freezing (and for NaN).</summary>
+        public static float RunMeltOutHours(float airC)
+        {
+            if (!(airC > 0f))
+                return float.PositiveInfinity;
+            float perHourM = MeltPerWindowPerCM * airC * FramesPerGameHour / TopupIntervalFrames;
+            return (GunStopDepthM - KeepDepthM) / perHourM;
+        }
 
         /// <summary>One cat track's made snow. Runtime, mirrored to the saved SkiTrackSnow so a load keeps it.</summary>
         public struct TrackMadeSnow
@@ -509,8 +536,8 @@ namespace SkiResortMod.Systems
 
         /// <summary>One pass of a track's made snow. The guns raise it to <paramref name="gunShare"/> at once (the estimate's own speed);
         /// <paramref name="coldShare"/> (the estimate at freezing) is what the cold keeps without help. Made snow above max(gun, cold) is warm:
-        /// the protection spell holds it (Active), otherwise it melts toward that floor over TrackMeltOutHours. Returns the spell's end, as
-        /// StepProtection.</summary>
+        /// the protection spell holds it (Active), otherwise it melts toward that floor, reaching the close line (CloseBelowShare) from full
+        /// in RunMeltOutHours(trackLocalC). Returns the spell's end, as StepProtection.</summary>
         public static ProtectEnd StepTrackMadeSnow(ref TrackMadeSnow track, float dtHours, float gunShare, float coldShare, float trackLocalC,
             bool spring, out bool started)
         {
@@ -523,11 +550,21 @@ namespace SkiResortMod.Systems
             float floor = Math.Max(gunShare, coldShare);
             bool warm = track.Share > floor + TrackWarmEpsilon;
             ProtectEnd end = StepProtection(ref track.Spell, dtHours, warm, track.Share > 0f, trackLocalC, spring, out started);
-            if (warm && track.Spell.State != ProtectState.Active)
-                track.Share = Math.Max(floor, track.Share - Math.Max(0f, dtHours) / TrackMeltOutHours);
+            float meltHours = RunMeltOutHours(trackLocalC);
+            if (warm && track.Spell.State != ProtectState.Active && !float.IsPositiveInfinity(meltHours))
+                track.Share = Math.Max(floor, track.Share - Math.Max(0f, dtHours) * (1f - CloseBelowShare) / meltHours);
             if (track.Share > 1f)
                 track.Share = 1f;
             return end;
+        }
+
+        /// <summary>True when a cat track's share comes from its made snow rather than the snow under it: the track share is above the
+        /// measured or estimated share (NaN snow = nothing measured). The hub then hides the track's depth line.</summary>
+        public static bool MadeSnowLeads(float snowShare, float trackShare)
+        {
+            if (float.IsNaN(trackShare))
+                return false;
+            return float.IsNaN(snowShare) || trackShare > snowShare + TrackWarmEpsilon;
         }
 
         /// <summary>A measured or estimated cat track's share: the larger of its snow (the measured snow map under it, natural snow; or the

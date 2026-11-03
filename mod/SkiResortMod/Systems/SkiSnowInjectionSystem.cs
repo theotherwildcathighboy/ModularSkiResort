@@ -196,7 +196,7 @@ namespace SkiResortMod.Systems
             public float BottomY, TopY;     // Geometry.m_Bounds.min.y / max.y (the attraction's heights)
             public bool Measured;           // sums computed this pass from a usable snapshot
             public bool CarryOver;          // natural run with no measurement due, or no usable snapshot this pass
-            public double WhiteW, FootprintW, DepthW, ExcludedW;
+            public double WhiteW, KeepW, FootprintW, DepthW, ExcludedW;   // White at the open bar, Keep at the keep bar (RunSnowRules.MeasuredShare)
             // the fold's texel counts (injected runs; 0 for a natural run): contained, those cold enough for the guns, and
             // those a protection spell holds this pass. A warm texel = contained > cold.
             public int Contained, Cold, ProtectedTexels;
@@ -255,7 +255,7 @@ namespace SkiResortMod.Systems
             public int Contained;         // texels with Scratch > 0 (this run)
             public int Cold;              // contained texels with localT <= ThermalThresholdC (injected runs)
             public ulong FootprintHash;   // wrapping Σ RunSnowRules.Mix64((ulong)idx) over contained texels
-            public float FootprintW, WhiteW, DepthW, ExcludedW;
+            public float FootprintW, WhiteW, KeepW, DepthW, ExcludedW;
             // The pack measure over this run's cold texels with a target (Measure only), in normalized units: sum of own target and sum of
             // min(depth, own target); and the cold texels a stopped gun run held off.
             public float GunTargetW, GunPackW;
@@ -395,6 +395,8 @@ namespace SkiResortMod.Systems
                         partial.DepthW += w * dn;
                         if (RunSnowRules.IsSkiable(dn, ownValue, BarNorm))
                             partial.WhiteW += w;
+                        if (RunSnowRules.IsSkiable(dn, ownValue, RunSnowRules.KeepNorm))
+                            partial.KeepW += w;
                         // the pack measure over the texels the guns would raise (cold, with a target).
                         if (cold && ownValue > 0f)
                         {
@@ -579,6 +581,8 @@ namespace SkiResortMod.Systems
                     p.DepthW += w * dn;
                     if (RunSnowRules.IsSkiable(dn, 0f, BarNorm))
                         p.WhiteW += w;
+                    if (RunSnowRules.IsSkiable(dn, 0f, RunSnowRules.KeepNorm))
+                        p.KeepW += w;
                 }
                 Partials[r] = p;
             }
@@ -2216,7 +2220,9 @@ namespace SkiResortMod.Systems
                 float share = float.NaN;
                 if (input.Measured)
                 {
-                    share = RunSnowRules.ShareFromSums(input.WhiteW, input.FootprintW);
+                    // Opens at the open bar (3 ft), stays open on the keep bar (1 ft): RunSnowRules.MeasuredShare.
+                    share = RunSnowRules.MeasuredShare(hasPrev ? prev.State : RunSnowState.Unknown,
+                        RunSnowRules.ShareFromSums(input.WhiteW, input.FootprintW), RunSnowRules.ShareFromSums(input.KeepW, input.FootprintW));
                     if (!float.IsNaN(share))
                     {
                         next.Source = RunSnowSource.Measured;
@@ -2255,7 +2261,12 @@ namespace SkiResortMod.Systems
                 {
                     if (float.IsNaN(dayMean))
                         dayMean = m_SnowLineSystem.GetDayMeanTemperature();
+                    float snowShare = share;
                     share = StepTrack(input, share, dayMean, freezing, margin, baseHeight, lapse, protectDtHours);
+                    // The depth is the measured snow under the track; made snow has a share, not a depth (it is never on the map). While the
+                    // made share leads, the depth line would read near 0 under an open track, so it is hidden (NaN: HubRules.DepthCm -1).
+                    if (RunSnowRules.MadeSnowLeads(snowShare, share))
+                        next.MeanDepthM = float.NaN;
                 }
                 // The share guard's input. Measured runs only: an estimated share comes from the day-mean temperature, not from the snapshot, so a
                 // skip does not stale it.
@@ -2513,7 +2524,7 @@ namespace SkiResortMod.Systems
 
         /// <summary>One cat track's made snow for this refresh (RunSnowRules.StepTrackMadeSnow): seeded from its saved SkiTrackSnow on its
         /// first refresh of a load, raised by its guns (the estimate at freezing + the margin while GunsMakeSnow), held by the protection
-        /// machine at the largest run budget, melted over TrackMeltOutHours after it. Queues the saved value when it moved. Returns the
+        /// machine at the largest run budget, melted at a run pack's speed after it (RunMeltOutHours). Queues the saved value when it moved. Returns the
         /// track's share: the larger of <paramref name="snowShare"/> (measured or estimated) and the made share.</summary>
         private float StepTrack(in RunSnowInput input, float snowShare, float dayMean, float freezing, float margin, float baseHeight,
             float lapse, float dtHours)
@@ -2531,7 +2542,8 @@ namespace SkiResortMod.Systems
                 Mod.Log.Info($"Snow [track] cat track {input.Run.Index}:{input.Run.Version} made snow held: {made.Share * 100f:F0} % made, " +
                              $"guns cover {gun * 100f:F0} %, cold keeps {cold * 100f:F0} %, air at the track {trackC:F1} C; budget " +
                              $"{RunSnowRules.MaxBudgetHours(m_PassSpring):F0} game h (the largest run budget{(m_PassSpring ? ", halved: spring" : "")}), " +
-                             $"then it melts over {RunSnowRules.TrackMeltOutHours:F0} game h; none above {RunSnowRules.ProtectMaxLocalC:F0} C");
+                             $"then it melts as a run's pack would ({RunSnowRules.RunMeltOutHours(trackC):F1} game h to the close line at this " +
+                             $"air); none above {RunSnowRules.ProtectMaxLocalC:F0} C");
             else if (end != RunSnowRules.ProtectEnd.None)
                 Mod.Log.Info($"Snow [track] cat track {input.Run.Index}:{input.Run.Version} hold ended ({ProtectEndText(end)}): used " +
                              $"{made.Spell.HoursUsed:F1} game h; made {made.Share * 100f:F0} %, guns cover {gun * 100f:F0} %, cold keeps " +
@@ -3299,7 +3311,7 @@ namespace SkiResortMod.Systems
                 int newTexels = 0, newDecay = 0;
                 int contained = 0, cold = 0, held = 0, stopped = 0;
                 ulong footprintHash = 0;
-                double footprintW = 0.0, whiteW = 0.0, depthW = 0.0;
+                double footprintW = 0.0, whiteW = 0.0, keepW = 0.0, depthW = 0.0;
                 double gunTargetW = 0.0, gunPackW = 0.0;
                 for (int r = 0; r < run.Partials.Length; r++)
                 {
@@ -3313,6 +3325,7 @@ namespace SkiResortMod.Systems
                     footprintHash = unchecked(footprintHash + part.FootprintHash);
                     footprintW += part.FootprintW;
                     whiteW += part.WhiteW;
+                    keepW += part.KeepW;
                     depthW += part.DepthW;
                     gunTargetW += part.GunTargetW;
                     gunPackW += part.GunPackW;
@@ -3337,6 +3350,7 @@ namespace SkiResortMod.Systems
                     // day-mean estimate for one pass.
                     CarryOver = !snap.Usable,
                     WhiteW = whiteW,
+                    KeepW = keepW,
                     FootprintW = footprintW,
                     DepthW = depthW,
                     Contained = contained,
@@ -3504,13 +3518,14 @@ namespace SkiResortMod.Systems
             {
                 PendingRun run = pending[p];
                 int contained = 0;
-                double footprintW = 0.0, whiteW = 0.0, depthW = 0.0, excludedW = 0.0;
+                double footprintW = 0.0, whiteW = 0.0, keepW = 0.0, depthW = 0.0, excludedW = 0.0;
                 for (int r = 0; r < run.Partials.Length; r++)
                 {
                     FoldRowPartial part = run.Partials[r];
                     contained += part.Contained;
                     footprintW += part.FootprintW;
                     whiteW += part.WhiteW;
+                    keepW += part.KeepW;
                     depthW += part.DepthW;
                     excludedW += part.ExcludedW;
                 }
@@ -3525,6 +3540,7 @@ namespace SkiResortMod.Systems
                     TopY = run.TopY,
                     Measured = true,
                     WhiteW = whiteW,
+                    KeepW = keepW,
                     FootprintW = footprintW,
                     DepthW = depthW,
                     ExcludedW = excludedW,
