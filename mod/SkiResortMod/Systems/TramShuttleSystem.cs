@@ -1745,6 +1745,7 @@ namespace SkiResortMod.Systems
                             m_CabinBay[cabin] = bay;
                             parked.Pose = m_HostedScratch[bay];
                             Park(cabin, parked.Pose);
+                            ParkCarriageOf(cabin, parked.Pose);   // else it stays mid-span and blocks the redraw (field test C)
                         }
                         m_ParkedCabins.Add(parked);
                     }

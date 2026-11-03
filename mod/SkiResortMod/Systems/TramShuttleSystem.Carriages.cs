@@ -313,6 +313,17 @@ namespace SkiResortMod.Systems
                 TagUpdated(carriage);
         }
 
+        /// <summary>ParkCarriage for a cabin that rides no run (ParkTheRest): the type comes from the carriage's own prefab.</summary>
+        private void ParkCarriageOf(Entity cabin, Transform cabinPose)
+        {
+            if (!m_CarriageOf.TryGetValue(cabin, out Entity carriage) || !EntityManager.Exists(carriage) ||
+                !EntityManager.TryGetComponent(carriage, out PrefabRef prefabRef) || !IsCarriagePrefab(prefabRef.m_Prefab, out LiftTypeDef def))
+                return;
+            CarrierPose.GripOnBody(cabinPose.m_Position, cabinPose.m_Rotation, def.Pivots, out float3 position, out quaternion rotation);
+            if (WriteCarriage(carriage, position, rotation))
+                TagUpdated(carriage);
+        }
+
         /// <summary>True when the carriage moved (Write's idempotence).</summary>
         private bool WriteCarriage(Entity carriage, float3 position, quaternion rotation)
         {
