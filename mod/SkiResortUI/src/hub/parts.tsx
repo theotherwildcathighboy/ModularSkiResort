@@ -119,7 +119,7 @@ export function TipLines({ lines }: { lines: ReadonlyArray<TipLine> }): JSX.Elem
  * content sits.
  */
 export function StableWidth({ samples, align, className, children }: {
-  /** Strings, or one-text-node elements such as a <LocText> ("Month of {MONTH}" for every month) */
+  /** Strings, or one-text-node elements such as a <LocText> ("{MONTH}: {N}" for every month) */
   samples: readonly ReactNode[] | null;
   align?: "start" | "center" | "end";
   className?: string;

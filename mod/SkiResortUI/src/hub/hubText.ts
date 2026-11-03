@@ -559,9 +559,9 @@ export const HUB_FMT = {
   tileTipStaffing: ["SkiResort.Hub.TILE_TIP_STAFFING", "× efficiency {PCT}"],
   tileTipPartly: ["SkiResort.Hub.TILE_TIP_PARTLY", "Patchy: {N}"],
   tileTipUnfinished: ["SkiResort.Hub.TILE_TIP_UNFINISHED", "Not complete yet: {N}"],
-  tileTipLast: ["SkiResort.Hub.TILE_TIP_LAST", "Month of {MONTH}: {N}"],
+  tileTipLast: ["SkiResort.Hub.TILE_TIP_LAST", "{MONTH}: {N}"],
   // {MONTH} = the month's name (monthName(city.month))
-  tileTipGuests: ["SkiResort.Hub.TILE_TIP[Guests]", "Month of {MONTH}: tourists who arrived at the lodges or the Welcome Sign, and residents who visited a lodge."],
+  tileTipGuests: ["SkiResort.Hub.TILE_TIP[Guests]", "{MONTH}: tourists who arrived at the lodges or the Welcome Sign, and residents who visited a lodge."],
   scoreBarTip: ["SkiResort.Hub.SCORE_BAR_TIP", "{NOW} now, {FULL} at full efficiency, out of 200."],
   receiptTipLodges: ["SkiResort.Hub.RECEIPT_TIP_LODGES", "Lodges counted: {N}"],
   receiptTipTerrain: ["SkiResort.Hub.RECEIPT_TIP[Terrain]", "{K} is the Attractiveness scale in Options. Adding a run never lowers the total."],
@@ -630,7 +630,7 @@ export const HUB_FMT = {
   /* {NAME} = CityStats.tripPlanner, the known mod's name (hubRules.tripPlannerNote "known" / "knownOff") */
   tripPlannerNote: ["SkiResort.Hub.TRIP_PLANNER_NOTE[Known]", "Detected: {NAME}. It replaces the game's trip planner, so trip times can differ."],
   tripPlannerNoteOff: ["SkiResort.Hub.TRIP_PLANNER_NOTE[KnownOff]", "Ski days off: {NAME} replaced the game's leisure systems."],
-  moneyTicketsLast: ["SkiResort.Hub.MONEY_TICKETS[Last]", "Lift tickets, Month of {MONTH}: {N} paid"],
+  moneyTicketsLast: ["SkiResort.Hub.MONEY_TICKETS[Last]", "Lift tickets, {MONTH}: {N} paid"],
   moneyColMonth: ["SkiResort.Hub.MONEY_COL_MONTH", "{MONTH} so far"],
   moneyColMonthPartial: ["SkiResort.Hub.MONEY_COL_MONTH_PARTIAL", "{MONTH} so far, partial"],
   moneyTipPassesMonth: ["SkiResort.Hub.MONEY_TIP[PassesMonth]", "Sold this month so far, in the net now. Of it, the pre-season sale: {PRE}."],
@@ -673,12 +673,12 @@ export const HUB_FMT = {
   buildMonthLift: ["SkiResort.Hub.BUILD_MONTH_LIFT", "{BASE} per complete lift + {PERKM} per km of line"],
   follow: ["SkiResort.Hub.FOLLOW", "Now showing {NAME}."],
   // {MONTH} = monthName, {YEAR} = the game year as plain digits, {FROM}/{TO} = a season's years
-  historyMonthYear: ["SkiResort.Hub.HISTORY_MONTH", "Month of {MONTH} {YEAR}"],
+  historyMonthYear: ["SkiResort.Hub.HISTORY_MONTH", "{MONTH} {YEAR}"],
   historySeason: ["SkiResort.Hub.HISTORY_SEASON", "Ski season {FROM}/{TO}"],
   historySeasonYear: ["SkiResort.Hub.HISTORY_SEASON_YEAR", "Ski season {YEAR}"],
   historyHeadGuests: ["SkiResort.Hub.HISTORY_HEAD[Guests]", "Guests, {MONTH}"],
   historyHeadNet: ["SkiResort.Hub.HISTORY_HEAD[Net]", "Net, {MONTH}"],
-  historyTipBefore: ["SkiResort.Hub.HISTORY_TIP[Before]", "Month of {MONTH} {YEAR}: {N}"],
+  historyTipBefore: ["SkiResort.Hub.HISTORY_TIP[Before]", "{MONTH} {YEAR}: {N}"],
   historySeasonMonths: ["SkiResort.Hub.HISTORY_SEASON_MONTHS", "{N} of 12 months · the average month"],
   historyVs: ["SkiResort.Hub.HISTORY_VS", "vs {MONTH} {YEAR}"],
   // the Quick runs tool (QuickRunsControls.tsx); the MIX / CLUSTER / POD templates are also the tool tooltip's

@@ -140,6 +140,9 @@ namespace SkiResortMod.Systems
         private static readonly string[] NightSurfaceNames = { "SkiRunNightA" };
         // Natural runs are rasterized for measurement only: never injected, decayed or billed.
         private static readonly string[] NaturalSurfaceNames = { "SkiRunNaturalA" };
+        // The cat track: measured only, like a natural run (the snow map under it), never injected (DECISIONS 551). Its guns' snow is the
+        // made-snow model (RunSnowRules.StepTrackMadeSnow). Never add this name to an injected set.
+        private static readonly string[] CatTrackMeasureNames = { "SkiRunCatTrackA" };
         // The sign test lives in SkiRunOwnershipSystem (IsBound); there is no local gate-prefab set here.
 
         /// <summary>R16G16_UNorm texel as AsyncGPUReadback delivers it (the layout SnowSystem.Serialize reads back, :244-266).</summary>
@@ -172,6 +175,8 @@ namespace SkiResortMod.Systems
             // Natural runs: every live one, the bound ones recorded for measurement (a run with no on-map coverage is found at pre-clip and ends
             // up estimated), the unbound ones, and the ones measured this pass. Never part of the counts above.
             public int NaturalTotal, NaturalScheduled, NaturalUnbound, NaturalMeasured;
+            // Of those, the cat tracks (measured only, like a natural run, since the run-types round; counted in the Natural fields too).
+            public int TrackTotal, TrackScheduled;
             // Over the bound injected runs' contained texels: the cold ones (T_local <= the run's gate, counted before the edge noise), their
             // count and the wrapping sum of RunSnowRules.Mix64(texel index) (sums of the per-row fields); the dry skip's footprint test.
             public int ColdTexels, ContainedTexels;
@@ -186,7 +191,8 @@ namespace SkiResortMod.Systems
         private struct RunSnowInput
         {
             public Entity Run;
-            public RunKind Kind;            // public RunKind (0 groomed, 1 snowmaking, 2 night, 3 natural)
+            public RunKind Kind;            // public RunKind (0 groomed, 1 snowmaking, 2 night, 3 natural, 4 cat track: measured only)
+            public bool GunsOn;             // a cat track's gun switch (SkiRunPropSystem.CatTrackGunsOn); true for every run
             public float BottomY, TopY;     // Geometry.m_Bounds.min.y / max.y (the attraction's heights)
             public bool Measured;           // sums computed this pass from a usable snapshot
             public bool CarryOver;          // natural run with no measurement due, or no usable snapshot this pass
@@ -203,6 +209,8 @@ namespace SkiResortMod.Systems
             public Entity Run;
             public float BottomY, TopY;
             public float BarNorm;           // the skiable bar (31 cm when rated black or double black)
+            public RunKind Kind;            // Natural, or CatTrack (measured the same way)
+            public bool GunsOn;             // a cat track's gun switch; true for a natural run
         }
 
         /// <summary>The snapshot a pass measures from.</summary>
@@ -727,6 +735,7 @@ namespace SkiResortMod.Systems
         private readonly HashSet<Entity> m_GroomedPrefabs = new HashSet<Entity>();
         private readonly HashSet<Entity> m_NightPrefabs = new HashSet<Entity>();
         private readonly HashSet<Entity> m_NaturalPrefabs = new HashSet<Entity>();   // measured only
+        private readonly HashSet<Entity> m_TrackMeasurePrefabs = new HashSet<Entity>();   // the cat track: measured only, never injected
         private bool m_PrefabsResolved;            // session cache (PrefabSystem outlives loads)
 
         // Working buffers: created lazily on first use, kept for the session (~36 MB: 4x NativeArray<float>[1M] planes + 4 MB readback +
@@ -786,6 +795,14 @@ namespace SkiResortMod.Systems
         private readonly List<LedgerRun> m_LedgerRuns = new List<LedgerRun>();
         private bool m_PassSpring;                   // this pass: the budget halves
         private bool m_PassGunSeason = true;         // this pass is in the gun season (SnowGunPlumeRules.InGunSeason)
+        // The gun season is known only from the first evaluated pass of a load (the same idea as OffSeasonRules.AwaitsFirstObservation for
+        // lodge staff): until then the hub's gun line reads Waiting, no estimate credits the guns, and a cat track holds its saved made snow.
+        private bool m_GunSeasonKnown;
+        // Each bound cat track's made snow (RunSnowRules.TrackMadeSnow), seeded from its saved SkiTrackSnow on its first refresh of a load;
+        // swapped each refresh like the table. m_TrackSaves: the SkiTrackSnow values to write after the refresh.
+        private Dictionary<Entity, RunSnowRules.TrackMadeSnow> m_TrackMade = new Dictionary<Entity, RunSnowRules.TrackMadeSnow>();
+        private Dictionary<Entity, RunSnowRules.TrackMadeSnow> m_TrackMadeNext = new Dictionary<Entity, RunSnowRules.TrackMadeSnow>();
+        private readonly List<KeyValuePair<Entity, int>> m_TrackSaves = new List<KeyValuePair<Entity, int>>();
         private int m_GunSeasonLogged = -1;          // the last season state logged (-1 none this load)
         private float m_GunWinterStart = SnowLineRules.CalendarWinterStart;   // this climate's winter, read once per load
         private float m_GunWinterEnd = SnowLineRules.CalendarWinterEnd;
@@ -930,15 +947,20 @@ namespace SkiResortMod.Systems
 
         /// <summary>Whether the guns of <paramref name="run"/> ran in the last mask pass (SnowGunPlumeRules.GunsRunning).
         /// False when the run was not scheduled (unbound, off the map, not a gun run, injection idle or disabled).</summary>
-        /// <summary>Whether the last pass was in the gun season (the run tooltip's "out of season").</summary>
-        internal bool GunSeasonNow => m_PassGunSeason;
+        /// <summary>Whether the last pass was in the gun season (the run tooltip's "out of season"). Before the first pass of a load
+        /// (GunSeasonKnown false) this is true, so HubRules.GunWhyOf, which callers then pass stateKnown false, answers Waiting and never a
+        /// season it has not seen (the last load's value would be stale).</summary>
+        internal bool GunSeasonNow => !m_GunSeasonKnown || m_PassGunSeason;
+
+        /// <summary>False from a load to its first evaluated pass: GunSeasonNow is not observed yet (the hub's gun line waits).</summary>
+        internal bool GunSeasonKnown => m_GunSeasonKnown;
 
         /// <summary>Whether a cat track's guns can run: bound (only bound runs are scheduled or billed, as for a gun run), the gun season and part of
         /// the track cold enough at the day-mean temperature (SnowGunPlumeRules.TrackGunsCanRun; asked with the guns on, so in the season the
         /// share is the guns' own reach, freezing + the margin). No state: a cat track stays out of the fold.</summary>
         internal bool CatTrackGunsCanRun(Entity run, float bottomY, float topY)
         {
-            return IsRunBound(run) && SnowGunPlumeRules.TrackGunsCanRun(m_PassGunSeason, EstimateShare(RunKind.CatTrack, bottomY, topY));
+            return IsRunBound(run) && SnowGunPlumeRules.TrackGunsCanRun(m_GunSeasonKnown && m_PassGunSeason, EstimateShare(RunKind.CatTrack, bottomY, topY));
         }
 
         internal bool TryGetRunGunsRunning(Entity run, out bool running)
@@ -1066,6 +1088,9 @@ namespace SkiResortMod.Systems
                 // switch decides. No history: the first label uses the midpoint, the multiplier is published as is.
                 bool gunsOn = kind != RunKind.CatTrack || m_RunProps.CatTrackGunsOn(run);
                 float share = EstimateShare(kind, bottomY, topY, gunsOn);
+                // A cat track keeps its made snow while it is not in the table (from a load to the first pass): the saved share.
+                if (kind == RunKind.CatTrack && EntityManager.TryGetComponent(run, out SkiTrackSnow saved))
+                    share = RunSnowRules.TrackShare(share, saved.Share);
                 s = new RunSnow
                 {
                     Kind = kind,
@@ -1408,6 +1433,10 @@ namespace SkiResortMod.Systems
             m_RunSnowInputs.Clear();
             m_OpenChanges.Clear();
             m_NaturalRuns.Clear();
+            m_TrackMade.Clear();
+            m_TrackMadeNext.Clear();
+            m_TrackSaves.Clear();
+            m_GunSeasonKnown = false;
             m_RunSnowGeneration++;
             m_NaturalDressValid = false;
             m_NaturalDressDepthM = 0f;
@@ -1446,7 +1475,7 @@ namespace SkiResortMod.Systems
                 // armed when ANY of the four run prefab sets is non-empty (a natural-only install
                 // still measures its runs).
                 if (m_SnowmakingPrefabs.Count == 0 && m_GroomedPrefabs.Count == 0 &&
-                    m_NightPrefabs.Count == 0 && m_NaturalPrefabs.Count == 0)
+                    m_NightPrefabs.Count == 0 && m_NaturalPrefabs.Count == 0 && m_TrackMeasurePrefabs.Count == 0)
                 {
                     Mod.Log.Info("Snow: no run surface prefab present — injection inert until " +
                                  $"'{string.Join("', '", SnowmakingSurfaceNames)}' / " +
@@ -1623,6 +1652,7 @@ namespace SkiResortMod.Systems
             // the gun season (around this climate's winter; a vanilla winter / summer name decides first). Out of it the guns raise,
             // bill and plume nothing; one line per change.
             m_PassGunSeason = SnowGunPlumeRules.InGunSeason(m_ClimateSystem.currentSeasonName, m_TimeSystem.normalizedDate, m_GunWinterStart, m_GunWinterEnd);
+            m_GunSeasonKnown = true;
             if (m_GunSeasonLogged != (m_PassGunSeason ? 1 : 0))
             {
                 Mod.Log.Info($"Snow [guns] season {(m_PassGunSeason ? "IN" : "OUT")} (season '{m_ClimateSystem.currentSeasonName}', date " +
@@ -1658,7 +1688,7 @@ namespace SkiResortMod.Systems
                 // run is left).
                 MaybeRequestMeasure(frame, "only natural runs are placed", stats.NaturalScheduled, now);
                 if (stats.NaturalScheduled > 0)
-                    SetIdle($"no injected run placed — {stats.NaturalScheduled} natural run(s) measured only " +
+                    SetIdle($"no injected run placed — {stats.NaturalScheduled} natural run(s) and cat track(s) measured only " +
                             $"(async snow-map readback every {RunSnowRules.MeasureIntervalFrames} sim frames)");
                 else
                 {
@@ -2148,7 +2178,7 @@ namespace SkiResortMod.Systems
         {
             return RunSnowRules.EstimatedRunShare(kind, bottomY, topY, m_SnowLineSystem.GetDayMeanTemperature(),
                 m_SnowLineSystem.GetFreezingTemperature(), m_SnowLineSystem.GetSnowmakingMarginC(), m_SnowLineSystem.GetBaseHeight(),
-                m_SnowLineSystem.GetLapsePerM(), m_PassGunSeason, gunsOn);
+                m_SnowLineSystem.GetLapsePerM(), m_GunSeasonKnown && m_PassGunSeason, gunsOn);
         }
 
         /// <summary>The per-run table, once per evaluated pass (right after BuildMask, before any early return). Per run: the measured share
@@ -2193,7 +2223,7 @@ namespace SkiResortMod.Systems
                         next.MeanDepthM = (float)(input.DepthW / input.FootprintW * RunSnowRules.SnowHeightScaleM);
                         next.FootprintTexels = (float)input.FootprintW;
                         next.SnapshotFrame = snap.Frame;
-                        if (input.Kind == RunKind.Natural)
+                        if (input.Kind == RunKind.Natural || input.Kind == RunKind.CatTrack)
                             next.ExcludedShare = (float)(input.ExcludedW / (input.FootprintW + input.ExcludedW));
                     }
                 }
@@ -2217,7 +2247,15 @@ namespace SkiResortMod.Systems
                     // GetRunSnow's rule for a cat track too: out of the gun season this pass's guns raise nothing (GunGate), so a gun run
                     // holds natural snow only. A run's gun value is look only: gunsOn true.
                     share = RunSnowRules.EstimatedRunShare(input.Kind, input.BottomY, input.TopY, dayMean, freezing, margin, baseHeight, lapse,
-                        m_PassGunSeason, true);
+                        m_GunSeasonKnown && m_PassGunSeason, input.GunsOn);
+                }
+                // A cat track: the larger of its snow (above: the snow map under it, or the estimate) and its made snow (the guns' model,
+                // held by the runs' protection machine; RunSnowRules.StepTrackMadeSnow).
+                if (input.Kind == RunKind.CatTrack)
+                {
+                    if (float.IsNaN(dayMean))
+                        dayMean = m_SnowLineSystem.GetDayMeanTemperature();
+                    share = StepTrack(input, share, dayMean, freezing, margin, baseHeight, lapse, protectDtHours);
                 }
                 // The share guard's input. Measured runs only: an estimated share comes from the day-mean temperature, not from the snapshot, so a
                 // skip does not stale it.
@@ -2295,6 +2333,7 @@ namespace SkiResortMod.Systems
             Dictionary<Entity, RunSnow> swap = m_RunSnow;
             m_RunSnow = m_RunSnowNext;
             m_RunSnowNext = swap;
+            PublishTracks();
             if (changed)
                 m_RunSnowGeneration++;
 
@@ -2472,6 +2511,64 @@ namespace SkiResortMod.Systems
                 active++;
         }
 
+        /// <summary>One cat track's made snow for this refresh (RunSnowRules.StepTrackMadeSnow): seeded from its saved SkiTrackSnow on its
+        /// first refresh of a load, raised by its guns (the estimate at freezing + the margin while GunsMakeSnow), held by the protection
+        /// machine at the largest run budget, melted over TrackMeltOutHours after it. Queues the saved value when it moved. Returns the
+        /// track's share: the larger of <paramref name="snowShare"/> (measured or estimated) and the made share.</summary>
+        private float StepTrack(in RunSnowInput input, float snowShare, float dayMean, float freezing, float margin, float baseHeight,
+            float lapse, float dtHours)
+        {
+            bool hasSaved = EntityManager.TryGetComponent(input.Run, out SkiTrackSnow saved);
+            if (!m_TrackMade.TryGetValue(input.Run, out RunSnowRules.TrackMadeSnow made) && hasSaved)
+                made.Share = saved.Share;
+            float gun = RunSnowRules.TrackGunShare(m_GunSeasonKnown && m_PassGunSeason, input.GunsOn, input.BottomY, input.TopY, dayMean,
+                freezing, margin, baseHeight, lapse);
+            float cold = RunSnowRules.TrackColdShare(input.BottomY, input.TopY, dayMean, freezing, baseHeight, lapse);
+            float trackC = m_SnowLineSystem.GetLocalTemperature(0.5f * (input.BottomY + input.TopY));
+            float before = made.Share;
+            RunSnowRules.ProtectEnd end = RunSnowRules.StepTrackMadeSnow(ref made, dtHours, gun, cold, trackC, m_PassSpring, out bool started);
+            if (started)
+                Mod.Log.Info($"Snow [track] cat track {input.Run.Index}:{input.Run.Version} made snow held: {made.Share * 100f:F0} % made, " +
+                             $"guns cover {gun * 100f:F0} %, cold keeps {cold * 100f:F0} %, air at the track {trackC:F1} C; budget " +
+                             $"{RunSnowRules.MaxBudgetHours(m_PassSpring):F0} game h (the largest run budget{(m_PassSpring ? ", halved: spring" : "")}), " +
+                             $"then it melts over {RunSnowRules.TrackMeltOutHours:F0} game h; none above {RunSnowRules.ProtectMaxLocalC:F0} C");
+            else if (end != RunSnowRules.ProtectEnd.None)
+                Mod.Log.Info($"Snow [track] cat track {input.Run.Index}:{input.Run.Version} hold ended ({ProtectEndText(end)}): used " +
+                             $"{made.Spell.HoursUsed:F1} game h; made {made.Share * 100f:F0} %, guns cover {gun * 100f:F0} %, cold keeps " +
+                             $"{cold * 100f:F0} %, air at the track {trackC:F1} C");
+            if ((before > 0f) != (made.Share > 0f))
+                Mod.Log.Info($"Snow [track] cat track {input.Run.Index}:{input.Run.Version} made snow {(made.Share > 0f ? "made" : "gone")}: " +
+                             $"{before * 100f:F0} % -> {made.Share * 100f:F0} % (guns {(input.GunsOn ? "on" : "Off")}, season " +
+                             $"{(m_GunSeasonKnown ? (m_PassGunSeason ? "IN" : "OUT") : "unknown")}, day mean {dayMean:F1} C)");
+            m_TrackMadeNext[input.Run] = made;
+            int permille = SkiTrackSnow.ToPermille(made.Share);
+            if (!hasSaved || saved.m_MadePermille != permille)
+                m_TrackSaves.Add(new KeyValuePair<Entity, int>(input.Run, permille));
+            return RunSnowRules.TrackShare(snowShare, made.Share);
+        }
+
+        /// <summary>After a refresh: the stepped made snow replaces the old (a track no longer in the table drops out), and the moved values
+        /// are written to SkiTrackSnow (added once per track: a structural change on the main thread, at most once in its life).</summary>
+        private void PublishTracks()
+        {
+            var swapMade = m_TrackMade;
+            m_TrackMade = m_TrackMadeNext;
+            m_TrackMadeNext = swapMade;
+            m_TrackMadeNext.Clear();
+            for (int i = 0; i < m_TrackSaves.Count; i++)
+            {
+                Entity track = m_TrackSaves[i].Key;
+                if (!EntityManager.Exists(track) || EntityManager.HasComponent<Deleted>(track))
+                    continue;
+                var value = new SkiTrackSnow(m_TrackSaves[i].Value);
+                if (EntityManager.HasComponent<SkiTrackSnow>(track))
+                    EntityManager.SetComponentData(track, value);
+                else
+                    EntityManager.AddComponentData(track, value);
+            }
+            m_TrackSaves.Clear();
+        }
+
         private static string ProtectEndText(RunSnowRules.ProtectEnd end)
         {
             switch (end)
@@ -2535,7 +2632,7 @@ namespace SkiResortMod.Systems
                 case RunKind.Snowmaking: return "snowmaking";
                 case RunKind.Night: return "night";
                 case RunKind.Natural: return "natural";
-                case RunKind.CatTrack: return "cat track";   // never scheduled, only reaches here through an estimate
+                case RunKind.CatTrack: return "cat track";   // measured only, like a natural run
                 default: return "kind " + (byte)kind;
             }
         }
@@ -2960,6 +3057,7 @@ namespace SkiResortMod.Systems
             // (never MaskTexels, DecayTexels, the active counts or m_RunTexels: TryGetRunActiveTexels stays false for them).
             public RunKind PublicKind;
             public bool Natural;
+            public bool GunsOn;             // a cat track's gun switch (measure-only runs); true otherwise
             public float BottomY, TopY;
             public ushort Slot;             // 1..N in schedule order (the Owner plane value; 0 for a natural run)
             public int X0, Y0, X1, Y1;      // the run's texel bounds (the ledger job's box)
@@ -3056,9 +3154,15 @@ namespace SkiResortMod.Systems
                             // on the 14 m texel grid; GetRunSnow answers it by the day-mean estimate (RunSnowRules.ThresholdC gives it freezing + the gun margin,
                             // or freezing alone while its guns are Off, DECISIONS 568).
                             // Do not add its name to a set here.
-                            if (!m_NaturalPrefabs.Contains(prefabRefs[i].m_Prefab))
+                            // Since the run-types round the cat track is measured here too, as a natural run is (the snow map under its ribbon:
+                            // coverage-weighted over partial texels; MinFootprintTexels decides when it is too small), and its guns' snow is the
+                            // made-snow model in RefreshRunSnow. It is still never injected.
+                            bool track = m_TrackMeasurePrefabs.Contains(prefabRefs[i].m_Prefab);
+                            if (!track && !m_NaturalPrefabs.Contains(prefabRefs[i].m_Prefab))
                                 continue;
                             stats.NaturalTotal++;
+                            if (track)
+                                stats.TrackTotal++;
                             if (!IsRunBound(entities[i]))
                             {
                                 stats.NaturalUnbound++;
@@ -3067,20 +3171,27 @@ namespace SkiResortMod.Systems
                             Entity ne = entities[i];
                             Geometry ng = geometries[i];
                             stats.NaturalScheduled++;
+                            if (track)
+                                stats.TrackScheduled++;
                             // The skiable bar of a natural run (RunSnowRules.SkiableBarNorm; 0.91 m for every band today). The band comes from the catalog's row
-                            // (an unrated run reads band -1).
-                            float naturalBar = RunSnowRules.SkiableBarNorm(RunKind.Natural, NaturalBand(ne));
+                            // (an unrated run reads band -1). A cat track has the bar of every run.
+                            float naturalBar = track
+                                ? RunSnowRules.SkiableBarNorm(RunKind.CatTrack, -1)
+                                : RunSnowRules.SkiableBarNorm(RunKind.Natural, NaturalBand(ne));
                             m_NaturalRuns.Add(new NaturalRun
                             {
                                 Run = ne,
                                 BottomY = ng.m_Bounds.min.y,
                                 TopY = ng.m_Bounds.max.y,
                                 BarNorm = naturalBar,
+                                Kind = track ? RunKind.CatTrack : RunKind.Natural,
+                                GunsOn = !track || m_RunProps.CatTrackGunsOn(ne),   // the measure-only read of the switch (check-run-props R2)
                             });
                             naturalSig = unchecked(naturalSig +
                                 (RunSnowRules.Mix64(((ulong)(uint)ne.Index << 32) | (uint)ne.Version) ^
                                  RunSnowRules.Mix64(math.asuint(ng.m_SurfaceArea)) ^
-                                 RunSnowRules.Mix64(math.asuint(naturalBar))));   // a rating that lands re-measures
+                                 RunSnowRules.Mix64(math.asuint(naturalBar)) ^
+                                 RunSnowRules.Mix64(track ? 0x7472616BUL : 0UL)));   // a rating that lands re-measures; a track is its own term
                             continue;
                         }
 
@@ -3292,7 +3403,8 @@ namespace SkiResortMod.Systems
                     m_RunSnowInputs.Add(new RunSnowInput
                     {
                         Run = nr.Run,
-                        Kind = RunKind.Natural,
+                        Kind = nr.Kind,
+                        GunsOn = nr.GunsOn,
                         BottomY = nr.BottomY,
                         TopY = nr.TopY,
                         CarryOver = true,
@@ -3323,7 +3435,8 @@ namespace SkiResortMod.Systems
                         m_RunSnowInputs.Add(new RunSnowInput
                         {
                             Run = nr.Run,
-                            Kind = RunKind.Natural,
+                            Kind = nr.Kind,
+                            GunsOn = nr.GunsOn,
                             BottomY = nr.BottomY,
                             TopY = nr.TopY,
                         });
@@ -3337,7 +3450,8 @@ namespace SkiResortMod.Systems
                         Run = nr.Run,
                         Tris = tris,
                         Partials = partials,
-                        PublicKind = RunKind.Natural,
+                        PublicKind = nr.Kind,
+                        GunsOn = nr.GunsOn,
                         Natural = true,
                         BottomY = nr.BottomY,
                         TopY = nr.TopY,
@@ -3405,7 +3519,8 @@ namespace SkiResortMod.Systems
                 m_RunSnowInputs.Add(new RunSnowInput
                 {
                     Run = run.Run,
-                    Kind = RunKind.Natural,
+                    Kind = run.PublicKind,
+                    GunsOn = run.GunsOn,
                     BottomY = run.BottomY,
                     TopY = run.TopY,
                     Measured = true,
@@ -3655,6 +3770,7 @@ namespace SkiResortMod.Systems
             ResolvePrefabSet(GroomedSurfaceNames, m_GroomedPrefabs);
             ResolvePrefabSet(NightSurfaceNames, m_NightPrefabs);
             ResolvePrefabSet(NaturalSurfaceNames, m_NaturalPrefabs);   // measured only
+            ResolvePrefabSet(CatTrackMeasureNames, m_TrackMeasurePrefabs);   // measured only
         }
 
         /// <summary>A run only operates (injects, bills, scores) while bound to a live sign. SkiRunOwnershipSystem does the binding

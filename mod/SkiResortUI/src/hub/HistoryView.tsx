@@ -62,7 +62,7 @@ function asCharts(v: string): HistoryCharts {
 
 const pad2 = (n: number): string => String(((n % 100) + 100) % 100).padStart(2, "0");
 
-/** The bucket's name: "Month of January 2027", "Ski season 2026/27", or "Ski season 2027" where the season starts in January. */
+/** The bucket's name: "January 2027", "Ski season 2026/27", or "Ski season 2027" where the season starts in January. */
 function bucketTitle(b: HistoryBucket, t: Translate): JSX.Element {
   if (b.kind === "season" && seasonIsOneYear()) return <LocText entry={HUB_FMT.historySeasonYear} args={{ YEAR: String(b.key) }} />;
   if (b.kind === "season") return <LocText entry={HUB_FMT.historySeason} args={{ FROM: String(b.key), TO: pad2(b.key + 1) }} />;

@@ -75,6 +75,8 @@ namespace SkiResortMod.Systems
                 new LayoutVersion(1, 13, "m_GunSpacingM:i32 m_LightSpacingM:i32 m_AppliedKey:i32")),
             new Layout("SkiLodgeNumber", "LodgeNumber", KindComponent,
                 new LayoutVersion(1, 9, "m_Sign:entity m_Number:i32")),
+            new Layout("SkiTrackSnow", "TrackSnow", KindComponent,
+                new LayoutVersion(1, 5, "m_MadePermille:i32")),
         };
         // FROZEN-END
 

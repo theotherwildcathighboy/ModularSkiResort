@@ -790,11 +790,14 @@ function run(srcDir) {
     const status = read(path.join("hub", "StatusBlock.tsx"));
     const guests = read(path.join("hub", "GuestsView.tsx"));
     const text = read(path.join("hub", "hubText.ts"));
-    eq("T37.1 LodgeNoRoad band row has no tooltip; header and rows of CAR SPACES have their own tips; no 'Month of' in the Guests tips",
-      [status.includes('problemVariant(b.row) === "lodgeNoRoad" ? null : problemTip('),
+    // Run-types round: the unlinked, noRuns and runsFlat rows join LodgeNoRoad, and no hub text says "Month of" (tiles, tickets and
+    // history name the bare month too).
+    eq("T37.1 title-only band rows have no tooltip; header and rows of CAR SPACES have their own tips; no 'Month of' in hub text",
+      [status.includes('TITLE_ONLY_TIP: ReadonlySet<ProblemVariant> = new Set<ProblemVariant>(["lodgeNoRoad", "unlinked", "noRuns", "runsFlat"])') &&
+        status.includes("TITLE_ONLY_TIP.has(v) ? null : problemTip("),
         guests.includes("tip={t(HUB_LOC.guestsTipCarSpacesAll)}"), (guests.match(/HUB_LOC\.guestsTipCarSpaces\b/g) || []).length,
-        /guestsTipPaid: \[[^\]]*"Month of/.test(text), /skiDaysTipSent: \[[^\]]*"Month of/.test(text)],
-      [true, true, 2, false, false]);
+        /guestsTipPaid: \[[^\]]*"Month of/.test(text), /skiDaysTipSent: \[[^\]]*"Month of/.test(text), /"Month of/.test(text)],
+      [true, true, 2, false, false, false]);
   }
 
   const hr = require("./test-history-rules").run(srcDir);

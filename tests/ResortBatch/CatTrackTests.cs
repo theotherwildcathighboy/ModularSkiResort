@@ -31,6 +31,8 @@ namespace ResortBatch
             Minimal();
             GreenRule();
             Snow();
+            SnowMeasure();
+            LiveOpen();
             Props();
             Catalog();
             s_Check = null;
@@ -492,6 +494,32 @@ namespace ResortBatch
                         }
             Check(cases == 60 && same == cases, W, same + " of " + cases + " cases: the cat track's share, multiplier, hub state and label equal its run's");
 
+            // Since the run-types round the estimate is the track's floor, not its whole share: its table share is TrackShare(measured or
+            // estimated, made), and its guns' made snow starts at the snowmaking run's own estimate (TrackGunShare). So from no made snow, one
+            // refresh gives the track at least its run's share in every case, and exactly the run's when the guns cover nothing more.
+            int floorCases = 0, floorOk = 0;
+            foreach (bool season in new[] { true, false })
+                foreach (bool guns in new[] { true, false })
+                    foreach (float t in temps)
+                        foreach (float[] h in heights)
+                        {
+                            float estimate = RunSnowRules.EstimatedRunShare(RunKind.CatTrack, h[0], h[1], t, freezing, margin, baseH, lapse, season, guns);
+                            RunKind runKind = guns ? RunKind.Snowmaking : RunKind.Natural;
+                            float run = RunSnowRules.EstimatedRunShare(runKind, h[0], h[1], t, freezing, margin, baseH, lapse, season, true);
+                            var made = new RunSnowRules.TrackMadeSnow();
+                            float gun = RunSnowRules.TrackGunShare(season, guns, h[0], h[1], t, freezing, margin, baseH, lapse);
+                            float cold = RunSnowRules.TrackColdShare(h[0], h[1], t, freezing, baseH, lapse);
+                            RunSnowRules.StepTrackMadeSnow(ref made, 0f, gun, cold, t, false, out bool _);
+                            float track = RunSnowRules.TrackShare(estimate, made.Share);
+                            floorCases++;
+                            if (track >= run && track == Math.Max(run, made.Share) && made.Share == gun)
+                                floorOk++;
+                            else
+                                Check(false, W, "floor: season " + season + ", guns " + guns + ", " + t + " C, " + h[0] + "-" + h[1] + " m: track " +
+                                      track + " vs run " + run + ", made " + made.Share + ", gun " + gun);
+                        }
+            Check(floorCases == 60 && floorOk == floorCases, W, floorOk + " of " + floorCases + " cases: a track's first refresh is at least its run's share");
+
             // Out of the gun season a snowmaking run holds natural snow only (its guns raise nothing, FoldRowsJob.GunGate): it equals a
             // natural run at every temperature.
             foreach (float t in temps)
@@ -523,6 +551,133 @@ namespace ResortBatch
             float half = RunSnowRules.EstimatedRunShare(RunKind.CatTrack, 1000f, 1300f, 4.3f, freezing, margin, baseH, lapse, true, true);
             Check(Math.Abs(half - 0.4872f) < 0.001f && HubRules.OpenStateOf(RunSnowRules.OpenMultiplier(half), true) == RunOpenState.Partly, W,
                   "4.3 C in the season, guns on: patchy (share " + half + ")");
+        }
+
+        /// <summary>CT-MEASURE (run-types round): a cat track's own snow. The snow map under it is measured as a natural run's is
+        /// (SkiSnowInjectionSystem, not headless); its guns' snow is RunSnowRules.TrackMadeSnow, raised to the snowmaking estimate, held by the
+        /// runs' protection machine at the largest run budget, melted over TrackMeltOutHours after it. Oracles are hand values.</summary>
+        private static void SnowMeasure()
+        {
+            const string W = "cattrack/measure";
+            const float freezing = 0f, margin = 3.3f, baseH = 1000f, lapse = 0.0065f, lo = 1000f, hi = 1300f;
+            // The pieces are the estimate's own: the guns' share is the snowmaking estimate while they make snow, else 0; the cold share is
+            // the natural estimate.
+            foreach (float t in new[] { -5f, 1f, 2f, 4.3f, 9.4f })
+                foreach (bool season in new[] { true, false })
+                    foreach (bool guns in new[] { true, false })
+                    {
+                        float gun = RunSnowRules.TrackGunShare(season, guns, lo, hi, t, freezing, margin, baseH, lapse);
+                        float want = season && guns
+                            ? RunSnowRules.EstimatedRunShare(RunKind.Snowmaking, lo, hi, t, freezing, margin, baseH, lapse, true, true) : 0f;
+                        Check(gun == want, W, "gun share at " + t + " C, season " + season + ", guns " + guns + ": " + gun + " vs " + want);
+                    }
+                Check(RunSnowRules.TrackColdShare(lo, hi, 1f, freezing, baseH, lapse) ==
+                      RunSnowRules.EstimatedRunShare(RunKind.Natural, lo, hi, 1f, freezing, margin, baseH, lapse, true, true), W,
+                      "the cold share is a natural run's estimate");
+
+            // Build: in the season with the guns on at +2 C the guns cover all of it (line 1000 + (2 - 3.3) / 0.0065 = 800 m).
+            var track = new RunSnowRules.TrackMadeSnow();
+            float g2 = RunSnowRules.TrackGunShare(true, true, lo, hi, 2f, freezing, margin, baseH, lapse);
+            float c2 = RunSnowRules.TrackColdShare(lo, hi, 2f, freezing, baseH, lapse);
+            RunSnowRules.StepTrackMadeSnow(ref track, 0f, g2, c2, 2f, false, out bool started);
+            Check(track.Share == 1f && !started && track.Spell.State == RunSnowRules.ProtectState.Idle, W,
+                  "+2 C, season, guns on: made 100 %, nothing warm, no spell (share " + track.Share + ")");
+
+            // Thaw out of the season at +2 C: no gun, no cold share, so all of it is warm. The spell holds it for the largest budget (72 h,
+            // a north face), then it melts over TrackMeltOutHours (2 h): open while the share is >= 40 % (the label from Open).
+            float hours = 0f, openHours = -1f;
+            RunSnowState label = RunSnowState.Open;
+            bool sawStart = false, sawSpent = false;
+            for (int step = 0; step < 200; step++)
+            {
+                RunSnowRules.ProtectEnd end = RunSnowRules.StepTrackMadeSnow(ref track, 0.5f, 0f, c2, 2f, false, out bool s);
+                hours += 0.5f;
+                sawStart |= s;
+                sawSpent |= end == RunSnowRules.ProtectEnd.BudgetSpent;
+                label = RunSnowRules.NextState(label, RunSnowRules.TrackShare(c2, track.Share));
+                if (label != RunSnowState.Open && openHours < 0f)
+                    openHours = hours;
+            }
+            Check(sawStart && sawSpent && track.Share == 0f, W, "thaw: the spell starts, its budget is spent, the made snow melts out");
+            Check(openHours > RunSnowRules.MaxBudgetHours(false) && openHours <= RunSnowRules.MaxBudgetHours(false) + RunSnowRules.TrackMeltOutHours, W,
+                  "thaw: open for the 72 h budget plus part of the melt (closed after " + openHours + " h)");
+            // At least as long as a run: the track's hold is the largest budget any run texel gets, every aspect, spring or not.
+            foreach (bool spring in new[] { false, true })
+                for (float aspect = RunSnowRules.ProtectSouthFactor; aspect <= RunSnowRules.ProtectNorthFactor + 1e-4f; aspect += 0.25f)
+                    Check(RunSnowRules.MaxBudgetHours(spring) >= RunSnowRules.EffectiveBudgetHours(spring, aspect), W,
+                          "the track's hold covers a run texel's budget (spring " + spring + ", aspect " + aspect + ")");
+
+            // Spring halves the budget, as for a run: closed after 36 h + part of the melt.
+            var springTrack = new RunSnowRules.TrackMadeSnow { Share = 1f };
+            float springOpen = -1f, h2 = 0f;
+            label = RunSnowState.Open;
+            for (int step = 0; step < 120; step++)
+            {
+                RunSnowRules.StepTrackMadeSnow(ref springTrack, 0.5f, 0f, 0f, 2f, true, out bool _);
+                h2 += 0.5f;
+                label = RunSnowRules.NextState(label, springTrack.Share);
+                if (label != RunSnowState.Open && springOpen < 0f)
+                    springOpen = h2;
+            }
+            Check(springOpen > 36f && springOpen <= 38f, W, "spring thaw: closed after the 36 h budget and part of the melt (" + springOpen + " h)");
+
+            // Cold out of the season (-10 C): the cold keeps all of it, nothing is warm, it holds for any time (a run's made snow stays too).
+            var cold = new RunSnowRules.TrackMadeSnow { Share = 1f };
+            float cCold = RunSnowRules.TrackColdShare(lo, hi, -10f, freezing, baseH, lapse);
+            for (int step = 0; step < 100; step++)
+                RunSnowRules.StepTrackMadeSnow(ref cold, 6f, 0f, cCold, -10f, false, out bool _);
+            Check(cold.Share == 1f && cold.Spell.State == RunSnowRules.ProtectState.Idle, W, "-10 C out of season: held 600 h, no spell");
+
+            // Too warm (12 C at the track, above ProtectMaxLocalC): no spell, it melts over TrackMeltOutHours: half after 1 h, gone after 2 h.
+            var warm = new RunSnowRules.TrackMadeSnow { Share = 1f };
+            RunSnowRules.StepTrackMadeSnow(ref warm, 1f, 0f, 0f, 12f, false, out bool warmStart);
+            Check(!warmStart && Math.Abs(warm.Share - 0.5f) < 1e-5f, W, "12 C: no spell, half melted after 1 h (" + warm.Share + ")");
+            RunSnowRules.StepTrackMadeSnow(ref warm, 1f, 0f, 0f, 12f, false, out bool _);
+            Check(warm.Share == 0f, W, "12 C: gone after 2 h");
+
+            // Partly cold: made snow never melts below the cold share (the part at or below freezing), here 1 C: line 1153.8 m, 48.7 %.
+            var part = new RunSnowRules.TrackMadeSnow { Share = 1f, Spell = new RunSnowRules.ProtectRun { State = RunSnowRules.ProtectState.Spent } };
+            float c1 = RunSnowRules.TrackColdShare(lo, hi, 1f, freezing, baseH, lapse);
+            for (int step = 0; step < 10; step++)
+                RunSnowRules.StepTrackMadeSnow(ref part, 1f, 0f, c1, 1f, false, out bool _);
+            Check(Math.Abs(part.Share - c1) < 1e-5f && Math.Abs(c1 - 0.4872f) < 0.001f, W, "spent spell at 1 C: melts down to the cold share " + c1);
+
+            // Guns Off in the season at +2 C: the same hold as out of the season (no gun share).
+            var off = new RunSnowRules.TrackMadeSnow { Share = 1f };
+            float gOff = RunSnowRules.TrackGunShare(true, false, lo, hi, 2f, freezing, margin, baseH, lapse);
+            RunSnowRules.StepTrackMadeSnow(ref off, 1f, gOff, c2, 2f, false, out bool offStart);
+            Check(gOff == 0f && offStart && off.Share == 1f, W, "guns Off at +2 C: no gun share, the spell holds the made snow");
+
+            // The guns come back: the share is raised at once and, all cold again for ProtectRearmColdHours, the spell is Idle.
+            var back = new RunSnowRules.TrackMadeSnow { Share = 0.2f, Spell = new RunSnowRules.ProtectRun { State = RunSnowRules.ProtectState.Spent } };
+            RunSnowRules.StepTrackMadeSnow(ref back, 3f, 1f, 0f, 2f, false, out bool _);
+            Check(back.Share == 1f && back.Spell.State == RunSnowRules.ProtectState.Idle, W, "guns back: 100 % at once, the spell re-arms after 3 h cold");
+
+            // TrackShare: the larger; a NaN snow share (no measurement and no estimate) gives the made share; bad values clamp.
+            Check(RunSnowRules.TrackShare(0.3f, 0.7f) == 0.7f && RunSnowRules.TrackShare(0.8f, 0.1f) == 0.8f, W, "TrackShare is the larger");
+            Check(RunSnowRules.TrackShare(float.NaN, 0.4f) == 0.4f && RunSnowRules.TrackShare(float.NaN, float.NaN) == 0f, W, "TrackShare with NaN");
+            Check(RunSnowRules.TrackShare(1.5f, -1f) == 1f, W, "TrackShare clamps");
+            var nan = new RunSnowRules.TrackMadeSnow { Share = float.NaN };
+            RunSnowRules.StepTrackMadeSnow(ref nan, 1f, 0f, 0f, 2f, false, out bool _);
+            Check(nan.Share == 0f, W, "a NaN made share (a hand-edited save) reads 0");
+
+            // Hysteresis (b): a track in the table gets the run label: 55 % keeps Open and keeps Closed, the midpoint only from Unknown.
+            Check(RunSnowRules.NextState(RunSnowState.Open, 0.55f) == RunSnowState.Open &&
+                  RunSnowRules.NextState(RunSnowState.Closed, 0.55f) == RunSnowState.Closed &&
+                  RunSnowRules.NextState(RunSnowState.Unknown, 0.55f) == RunSnowState.Open, W, "the label's hysteresis at 55 %");
+        }
+
+        /// <summary>The hub's run state from the live snow read (DECISIONS 571 c): the clamp SkiResortScore applies to its open factor.</summary>
+        private static void LiveOpen()
+        {
+            const string W = "hub/live-open";
+            Check(HubRules.LiveOpenFactor(float.NaN) == 0.0 && HubRules.LiveOpenFactor(-0.2f) == 0.0 && HubRules.LiveOpenFactor(0f) == 0.0, W,
+                  "NaN and <= 0: 0");
+            Check(HubRules.LiveOpenFactor(0.5f) == 0.5 && HubRules.LiveOpenFactor(1f) == 1.0 && HubRules.LiveOpenFactor(1.3f) == 1.0, W, "0.5, 1, 1.3");
+            Check(HubRules.OpenStateOf(HubRules.LiveOpenFactor(RunSnowRules.OpenMultiplier(0.5f)), true) == RunOpenState.Partly &&
+                  HubRules.OpenStateOf(HubRules.LiveOpenFactor(RunSnowRules.OpenMultiplier(0.65f)), true) == RunOpenState.Open &&
+                  HubRules.OpenStateOf(HubRules.LiveOpenFactor(RunSnowRules.OpenMultiplier(0.3f)), true) == RunOpenState.Closed, W,
+                  "share 50 % Partly, 65 % Open, 30 % Closed");
         }
 
         // Guns and hydrants, masts only when lit (the full table: DensityTests; the walk: PlacerTests). Names read through ClassOf as the load sweep does.

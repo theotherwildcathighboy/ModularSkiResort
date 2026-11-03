@@ -56,7 +56,7 @@ function kindsOf(runs: readonly RunRow[]): ReadonlySet<number> {
   return s;
 }
 
-/** The FINANCES header with its Info glyph: the column is "Month of <name> so far", "(partial)" while counted since a load. */
+/** The FINANCES header with its Info glyph: the column is "<name> so far", "(partial)" while counted since a load. */
 function MoneyHeader({ l, month, samples, t }: { l: ResortLive | null; month: string; samples: NumberSamples; t: Translate }): JSX.Element {
   return (
     <InfoLine

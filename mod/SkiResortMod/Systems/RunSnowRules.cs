@@ -404,8 +404,15 @@ namespace SkiResortMod.Systems
         public static ProtectEnd StepProtection(ref ProtectRun run, float dtHours, int containedTexels, int coldTexels,
             bool packOpen, float runLocalC, bool spring, out bool started)
         {
+            return StepProtection(ref run, dtHours, containedTexels > coldTexels, packOpen, runLocalC, spring, out started);
+        }
+
+        /// <summary>The same machine with the warm test given: a run passes "some texel too warm for the guns", a cat track's made snow
+        /// "some made snow above what the cold keeps" (StepTrackMadeSnow).</summary>
+        public static ProtectEnd StepProtection(ref ProtectRun run, float dtHours, bool warm, bool packOpen, float runLocalC, bool spring,
+            out bool started)
+        {
             started = false;
-            bool warm = containedTexels > coldTexels;
             switch (run.State)
             {
                 case ProtectState.Idle:
@@ -462,6 +469,77 @@ namespace SkiResortMod.Systems
                     return ProtectEnd.None;
             }
         }
+
+        // A cat track's made snow (2026-11-02, run-types round). The injection paints no snow on a track (DECISIONS 551: a 6-12 m ribbon
+        // on the 14 m grid; the decal is the look), so the snow map under it holds natural snow only, and its guns' snow is this model: the
+        // share of its vertical the guns have covered, held by the SAME protection machine a snowmaking run's pack has (StepProtection,
+        // ProtectBudgetHours, spring and the 10 C cut) at the largest budget any texel of a run gets (a north face), so a track keeps its
+        // made snow at least as long as a run of the same heights. A cat track is groomed and gets made snow first: it closes last.
+        //
+        // TUNED (flagged to the owner): what melts after the budget. A run's pack sits 0.05 m over the bar at the gun stop depth, and the
+        // game's melt (UNVERIFIED linear form, snow-injection.md 4: 2e-5 x T x 0.2 per snow tick) takes that in about 0.5 game h at 1 C and
+        // minutes at 10 C. TrackMeltOutHours = 2 lets the track's made share fall over 2 game hours instead of at once: at least the run's
+        // tail down to about 0.3 C, and never a one-pass switch on the hub. Raise it for a slower spring close.
+        public const float TrackMeltOutHours = 2f;
+        public const float TrackWarmEpsilon = 1e-4f;   // a share difference below this is the same height
+
+        /// <summary>One cat track's made snow. Runtime, mirrored to the saved SkiTrackSnow so a load keeps it.</summary>
+        public struct TrackMadeSnow
+        {
+            public float Share;       // 0..1 of the track's vertical holding made snow (top down, as the estimate)
+            public ProtectRun Spell;  // the protection spell over it; runtime only (a load refills the budget, as for a run)
+        }
+
+        /// <summary>The share of a track's vertical its guns cover now: the estimate at freezing + the margin while they make snow (the gun
+        /// season and the switch, GunsMakeSnow), else 0.</summary>
+        public static float TrackGunShare(bool inGunSeason, bool gunsOn, float bottomY, float topY, float dayMeanC, float freezingC,
+            float snowmakingMarginC, float baseHeight, float lapsePerM)
+        {
+            if (!GunsMakeSnow(RunKind.CatTrack, inGunSeason, gunsOn))
+                return 0f;
+            return EstimatedShare(bottomY, topY, dayMeanC, ThresholdC(RunKind.CatTrack, freezingC, snowmakingMarginC), baseHeight, lapsePerM);
+        }
+
+        /// <summary>The share of a track's vertical the cold keeps without help: the estimate at the natural threshold (freezing), the
+        /// threshold an open estimate uses while no gun makes snow (EstimateThresholdC).</summary>
+        public static float TrackColdShare(float bottomY, float topY, float dayMeanC, float freezingC, float baseHeight, float lapsePerM)
+        {
+            return EstimatedShare(bottomY, topY, dayMeanC, ThresholdC(RunKind.Natural, freezingC, 0f), baseHeight, lapsePerM);
+        }
+
+        /// <summary>One pass of a track's made snow. The guns raise it to <paramref name="gunShare"/> at once (the estimate's own speed);
+        /// <paramref name="coldShare"/> (the estimate at freezing) is what the cold keeps without help. Made snow above max(gun, cold) is warm:
+        /// the protection spell holds it (Active), otherwise it melts toward that floor over TrackMeltOutHours. Returns the spell's end, as
+        /// StepProtection.</summary>
+        public static ProtectEnd StepTrackMadeSnow(ref TrackMadeSnow track, float dtHours, float gunShare, float coldShare, float trackLocalC,
+            bool spring, out bool started)
+        {
+            gunShare = Clamp01(gunShare);
+            coldShare = Clamp01(coldShare);
+            if (!(track.Share >= 0f))
+                track.Share = 0f;   // NaN from a hand-edited save
+            if (gunShare > track.Share)
+                track.Share = gunShare;
+            float floor = Math.Max(gunShare, coldShare);
+            bool warm = track.Share > floor + TrackWarmEpsilon;
+            ProtectEnd end = StepProtection(ref track.Spell, dtHours, warm, track.Share > 0f, trackLocalC, spring, out started);
+            if (warm && track.Spell.State != ProtectState.Active)
+                track.Share = Math.Max(floor, track.Share - Math.Max(0f, dtHours) / TrackMeltOutHours);
+            if (track.Share > 1f)
+                track.Share = 1f;
+            return end;
+        }
+
+        /// <summary>A measured or estimated cat track's share: the larger of its snow (the measured snow map under it, natural snow; or the
+        /// open estimate when it could not be measured) and its made snow.</summary>
+        public static float TrackShare(float snowShare, float madeShare)
+        {
+            if (float.IsNaN(snowShare))
+                return Clamp01(madeShare);
+            return Math.Max(Clamp01(snowShare), Clamp01(madeShare));
+        }
+
+        private static float Clamp01(float v) => !(v > 0f) ? 0f : v > 1f ? 1f : v;
 
         // A season runs from SeasonRolloverDate (0.6 of the year, about 1 August: no snow is made in high summer) to the next.
         public const float SeasonRolloverDate = 0.6f;
