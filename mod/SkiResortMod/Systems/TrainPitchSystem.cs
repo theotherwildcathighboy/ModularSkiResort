@@ -8,8 +8,8 @@
 //   TrainPitchSystem (Modification4B, after LiftCensusSystem): per tower with train bones, the pitches from the rope lanes the engine built
 //     (LaneSystem runs at Modification4): every lift-edge rope lane end on the tower's anchors gives its angle along the tower's +z
 //     (LiftAlignMath.LaneEndPitch); the lanes leaving toward +z average to the front pitch, those toward -z to the back pitch
-//     (LiftAlignMath.HalfPitches: each clamped to the lift type's steepest rope, the half-break to MaxHalfBreakDeg). Kept in TrainPitch and
-//     the TrainBonePose buffer (not saved: the first census of a load recomputes every tower).
+//     (LiftAlignMath.HalfPitches: each clamped to TrainPitchLimit, the type's steepest rope but at most 30 deg; the half-break to
+//     MaxHalfBreakDeg). Kept in TrainPitch and the TrainBonePose buffer (not saved: the first census of a load recomputes every tower).
 //   TrainBoneSystem (Rendering, after InitializeBonesSystem): writes the bones. Skeletons exist only near the camera and come back at rest
 //     on every (re)allocation (InitializeBonesSystem.cs:57-70, :161-171), and vanilla never writes a None bone (ObjectInterpolateSystem
 //     AnimateStaticBone has no case for it), so a Burst job re-applies the rotations each frame where they differ.
@@ -195,7 +195,7 @@ namespace SkiResortMod.Systems
                 if (ce.Type == LiftCensus.NoType || ce.Type >= SkiCatalog.Lifts.Count || !EntityManager.Exists(edge) ||
                     EntityManager.HasComponent<Deleted>(edge) || !EntityManager.TryGetComponent(edge, out Edge e))
                     continue;                             // a newer census build carries the replacement
-                float maxPitch = LiftAlignMath.MaxTrainPitch(SkiCatalog.Lifts[ce.Type].Envelope.SlopeMax);
+                float maxPitch = LiftAlignMath.TrainPitchLimit(SkiCatalog.Lifts[ce.Type].Envelope.SlopeMax);
                 for (int end = 0; end < 2; end++)
                 {
                     Entity node = end == 0 ? e.m_Start : e.m_End;

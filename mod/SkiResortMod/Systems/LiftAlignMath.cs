@@ -125,10 +125,20 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>The steepest rope a lift type allows, radians: atan of its envelope's SlopeMax (FG 38.7, DQ 42.0, GD 50.2, tram 68.2
-        /// deg), the trains' pitch limit and the G6 sweep of the tower art.</summary>
+        /// deg); the trains stop at TrainPitchLimit.</summary>
         public static float MaxTrainPitch(float slopeMax)
         {
             return math.atan(slopeMax);
+        }
+
+        /// <summary>The steepest a train half tilts, degrees, on any lift type (owner verdict 2026-11-02: "more like 30", steeper looks
+        /// absurd on an upright tower; tilted tower bodies are a later idea). Past it the rope leaves the outer wheels.</summary>
+        public const float TrainPitchLimitDeg = 30f;
+
+        /// <summary>A lift type's train pitch limit, radians: its steepest rope (MaxTrainPitch), at most TrainPitchLimitDeg.</summary>
+        public static float TrainPitchLimit(float slopeMax)
+        {
+            return math.min(MaxTrainPitch(slopeMax), math.radians(TrainPitchLimitDeg));
         }
 
         /// <summary>A train bone's local rotation for a pitch nose up along the tower's +z: its rest rotation turned about the bone's own

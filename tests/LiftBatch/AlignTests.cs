@@ -230,6 +230,11 @@ namespace LiftBatch
             Check(math.abs(f5) <= max + 1e-6f && math.abs(b5) <= max + 1e-6f && (b5 - f5) * 0.5f <= LiftAlignMath.MaxHalfBreakDeg * d + 1e-6f,
                   "align/AL-10", "steep clamp gives " + F(math.degrees(f5)) + " / " + F(math.degrees(b5)));
             Check(LiftAlignMath.MaxHalfBreakDeg == 20f, "align/AL-10", "half-break limit moved from the art's G6 sweep (20 deg)");
+            // the owner's 30 deg tilt limit on every type (FG 0.8, DQ 0.9, GD 1.2, tram 2.5 are all steeper); a flatter type keeps its own
+            foreach (float slope in new[] { 0.8f, 0.9f, 1.2f, 2.5f })
+                Check(math.abs(math.degrees(LiftAlignMath.TrainPitchLimit(slope)) - 30f) < 1e-4f, "align/AL-10 slope " + F(slope),
+                      "train limit " + F(math.degrees(LiftAlignMath.TrainPitchLimit(slope))) + ", not 30");
+            Check(math.abs(LiftAlignMath.TrainPitchLimit(0.3f) - math.atan(0.3f)) < 1e-6f, "align/AL-10", "a 16.7 deg type is not limited by its slope");
         }
     }
 }
