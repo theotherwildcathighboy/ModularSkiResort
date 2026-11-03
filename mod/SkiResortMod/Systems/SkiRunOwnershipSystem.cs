@@ -89,6 +89,7 @@ namespace SkiResortMod.Systems
         private SimulationSystem m_SimulationSystem;
         private PrefabSystem m_PrefabSystem;
         private CitySystem m_CitySystem;
+        private SkiRunPropSystem m_RunProps;   // FeaturesOf: the fee and the paid steps (R2)
 
         private EntityQuery m_RunAreaQuery;
         private EntityQuery m_GateQuery;
@@ -151,6 +152,7 @@ namespace SkiResortMod.Systems
             m_SimulationSystem = World.GetOrCreateSystemManaged<SimulationSystem>();
             m_PrefabSystem = World.GetOrCreateSystemManaged<PrefabSystem>();
             m_CitySystem = World.GetOrCreateSystemManaged<CitySystem>();
+            m_RunProps = World.GetOrCreateSystemManaged<SkiRunPropSystem>();
 
             m_RunAreaQuery = GetEntityQuery(new EntityQueryDesc
             {
@@ -494,11 +496,80 @@ namespace SkiResortMod.Systems
             return kind < 0 ? 0 : SkiRunFees.Fee(kind, areaM2);
         }
 
+        /// <summary>A built run's features (SkiRunPropSystem.FeaturesOf with this prefab's kind); Unknown for a prefab that is not ours.</summary>
+        internal RunFeatures FeaturesFor(Entity run, Entity runPrefab)
+        {
+            int kind = KindOf(runPrefab);
+            return kind < 0 ? RunFeatures.Unknown : m_RunProps.FeaturesOf(run, kind);
+        }
+
+        /// <summary>The binding flags of a run credited with the features it has now: FlagStepsKnown plus its steps (SkiRunFees.StepsOf).
+        /// The paid-once memory, DECISIONS 577.</summary>
+        private byte PaidStepFlags(Entity run, Entity runPrefab)
+        {
+            return (byte)(SkiRunBinding.FlagStepsKnown | SkiRunFees.StepsOf(FeaturesFor(run, runPrefab)));
+        }
+
+        /// <summary>A feature of a bound, paid run was turned on (a slider above Off, Groomed on by a re-emit): charge the steps it has
+        /// never paid (SkiRunFees.StepCharge) and remember them. Off costs and refunds nothing, a step paid once is free again, a cat track
+        /// and an unbound or orphaned run pay nothing here (an unbound run pays its features when it binds). Returns the charge.
+        /// <paramref name="areaM2"/>: the plan area to bill; NaN reads the run's Geometry (a re-emitted run passes its old one: the new
+        /// entity's Geometry is computed later in the frame).</summary>
+        internal int SettleFeatureSteps(Entity run, string why, float areaM2 = float.NaN)
+        {
+            if (!m_LoadPassDone || run == Entity.Null || !EntityManager.Exists(run) || !EntityManager.HasComponent<SkiRunBinding>(run) ||
+                !EntityManager.HasComponent<PrefabRef>(run) || (float.IsNaN(areaM2) && !EntityManager.HasComponent<Game.Areas.Geometry>(run)))
+                return 0;
+            SkiRunBinding b = EntityManager.GetComponentData<SkiRunBinding>(run);
+            if ((b.m_Flags & SkiRunBinding.FlagPaid) == 0 || b.m_Gate == Entity.Null)
+                return 0;
+            Entity prefab = EntityManager.GetComponentData<PrefabRef>(run).m_Prefab;
+            RunFeatures f = FeaturesFor(run, prefab);
+            float area = float.IsNaN(areaM2) ? EntityManager.GetComponentData<Game.Areas.Geometry>(run).m_SurfaceArea : areaM2;
+            int charge = SkiRunFees.StepCharge(f, b.m_Flags, area, out byte nowPaid);
+            byte flags = (byte)((b.m_Flags & ~SkiRunFees.PaidSteps) | nowPaid | SkiRunBinding.FlagStepsKnown);
+            if (flags == b.m_Flags)
+                return 0;
+            b.m_Flags = flags;
+            b.m_PaidAmount += charge;
+            EntityManager.SetComponentData(run, b);
+            m_BindGeneration++;
+            Charge(charge);
+            Mod.Log.Info($"Ownership [steps] ({why}): run {RunLabel(run, prefab)} {f} — charged {charge} " +
+                         $"(paid steps {nowPaid}, one-time total {b.m_PaidAmount})");
+            return charge;
+        }
+
+        /// <summary>Paid runs bound before the paid-once memory: credit the features they have (their kind fee paid for them). Once per
+        /// load, after the load pass; never charges.</summary>
+        private int CreditKnownSteps()
+        {
+            int credited = 0;
+            for (int p = 0; p < m_Plan.Count; p++)
+            {
+                RunPlan plan = m_Plan[p];
+                if (!EntityManager.Exists(plan.Run) || !EntityManager.HasComponent<SkiRunBinding>(plan.Run))
+                    continue;
+                SkiRunBinding b = EntityManager.GetComponentData<SkiRunBinding>(plan.Run);
+                if ((b.m_Flags & SkiRunBinding.FlagPaid) == 0 || (b.m_Flags & SkiRunBinding.FlagStepsKnown) != 0)
+                    continue;
+                b.m_Flags |= PaidStepFlags(plan.Run, plan.Prefab);
+                EntityManager.SetComponentData(plan.Run, b);
+                credited++;
+            }
+            if (credited > 0)
+                m_BindGeneration++;
+            return credited;
+        }
+
         private void RunLoadPass()
         {
             try
             {
                 LoadPass();
+                int credited = CreditKnownSteps();
+                if (credited > 0)
+                    Mod.Log.Info($"Ownership [steps] (load): {credited} paid run(s) credited with the features they have (bound before the paid-once memory)");
                 // Per-run failures were caught inside LoadPass (its line counts them): the state is understood, but stay conservative: no
                 // charges this load.
                 if (m_MigrateFailures > 0)
@@ -639,7 +710,7 @@ namespace SkiResortMod.Systems
                     {
                         Entity sign = m_Gates[plan.Nearest];
                         EntityManager.AddComponentData(plan.Run, new SkiRunBinding(sign,
-                            (byte)(SkiRunBinding.FlagPaid | SkiRunBinding.FlagRestored), 0));
+                            (byte)(SkiRunBinding.FlagPaid | SkiRunBinding.FlagRestored | PaidStepFlags(plan.Run, plan.Prefab)), 0));
                         m_BindGeneration++;
                         restored++;
                         bound++;
@@ -719,7 +790,7 @@ namespace SkiResortMod.Systems
             if (!plan.Facts.HasBinding)
             {
                 EntityManager.AddComponentData(plan.Run, new SkiRunBinding(
-                    plan.OwnerLive ? owner : Entity.Null, SkiRunBinding.FlagPaid, fee));
+                    plan.OwnerLive ? owner : Entity.Null, (byte)(SkiRunBinding.FlagPaid | PaidStepFlags(plan.Run, plan.Prefab)), fee));
                 m_BindGeneration++;
             }
             EntityManager.RemoveComponent<Owner>(plan.Run);
@@ -863,11 +934,13 @@ namespace SkiResortMod.Systems
                             break;
                         }
                         Entity sign = m_Gates[plan.Nearest];
-                        // The area fee, SkiRunFees.Fee(kind, plan area): the same function the drawing tooltip shows (SkiRunTooltipSystem).
-                        int cost = RunFeeFor(plan.Prefab, plan.AreaM2);
-                        // Binding first, synchronously; Charge right after: the only Charge call.
-                        EntityManager.AddComponentData(plan.Run,
-                            new SkiRunBinding(sign, SkiRunBinding.FlagPaid, cost));
+                        // The area fee of the run's features now, SkiRunFees.Fee(features, plan area): a preset prefab answers its kind's
+                        // features, the fee the drawing tooltip shows (SkiRunTooltipSystem). The steps paid are remembered (DECISIONS 577).
+                        RunFeatures features = FeaturesFor(plan.Run, plan.Prefab);
+                        int cost = Math.Max(0, SkiRunFees.Fee(features, plan.AreaM2));
+                        // Binding first, synchronously; Charge right after (a later feature: SettleFeatureSteps).
+                        EntityManager.AddComponentData(plan.Run, new SkiRunBinding(sign,
+                            (byte)(SkiRunBinding.FlagPaid | SkiRunBinding.FlagStepsKnown | SkiRunFees.StepsOf(features)), cost));
                         m_BindGeneration++;
                         Charge(cost);
                         chargedThisSweep += cost;
@@ -875,11 +948,10 @@ namespace SkiResortMod.Systems
                         bound++;
                         if (RunLine())
                         {
-                            int kind = KindOf(plan.Prefab);
                             Mod.Log.Info($"Ownership [bind] ({why}): run {RunLabel(plan.Run, plan.Prefab)} " +
                                          $"bound to sign {EntityLabel(sign)} {plan.NearestDist:F0} m away " +
-                                         $"— charged {cost} (one-time: {SkiRunFees.BaseFee(kind)} + " +
-                                         $"{SkiRunFees.PerHaFee(kind)}/ha × {plan.AreaM2 / 10000f:F2} ha)");
+                                         $"— charged {cost} (one-time, {features}: {SkiRunFees.BaseFee(features)} + " +
+                                         $"{SkiRunFees.PerHaFee(features)}/ha × {plan.AreaM2 / 10000f:F2} ha)");
                         }
                         break;
                     }

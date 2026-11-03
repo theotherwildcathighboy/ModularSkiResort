@@ -223,6 +223,11 @@ namespace SkiResortMod
             // not and sees the same frame's Deleted tags, after PostTool (ToolSystem.cs:257). No vanilla SubArea cascade reaches a run.
             updateSystem.UpdateAt<SkiGladeCleanupSystem>(SystemUpdatePhase.Modification2);
 
+            // The Groomed toggle's re-emit (DECISIONS 577). Modification1 is load-bearing: the new run and the old one's Deleted tag must stand
+            // before SkiGladeCleanupSystem (Modification2, it would delete the retargeted trees otherwise), the placer's cascade, the area
+            // geometry and the bind trigger (ModificationEnd) of the same frame. Runs paused too.
+            updateSystem.UpdateAt<SkiRunReemitSystem>(SystemUpdatePhase.Modification1);
+
             // Sign → runs cascade: a Deleted Welcome Sign deletes every run bound to it (SkiRunBinding.m_Gate) in the same frame.
             // Phase and anchor are load-bearing: Modification2, UpdateBefore SkiGladeCleanupSystem, so sign → runs → member trees completes
             // in one frame; if the anchor moves the cascade silently never runs.

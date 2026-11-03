@@ -9,7 +9,7 @@
 import { useEffect, useRef } from "react";
 import { useValue } from "cs2/api";
 import { Panel } from "cs2/ui";
-import { HUB_CONTRACT, NULL_ENTITY, build$, liftLine$, lifts$, quickRuns$, resorts$, runs$, sameEntity, selectedResort$ } from "../bindings";
+import { HUB_CONTRACT, NULL_ENTITY, build$, liftLine$, lifts$, quickRuns$, resorts$, runReplaced$, runs$, sameEntity, selectedResort$ } from "../bindings";
 import { LOC, useT } from "../l10n";
 import { BuildStrip, MISMATCH_FOOTER, OkFooter } from "./BuildStrip";
 import { ErrorBoundary } from "./ErrorBoundary";
@@ -117,6 +117,13 @@ function OkPanel({ onClose, stampNote }: HubPanelProps & { stampNote: string | n
     sendHoverRun(NULL_ENTITY);
     problemsOpen$.update(false);   // the popover lists the old area's rows
   }, [areaKey]);
+
+  // A re-emitted run (Groomed toggled: a new entity, DECISIONS 577): the focus follows it
+  const replaced = useValue(runReplaced$);
+  useEffect(() => {
+    const f = focused$.value;
+    if (f.kind === "run" && sameEntity(f.entity, replaced.from)) focused$.update({ kind: "run", entity: replaced.to, top: NULL_ENTITY });
+  }, [replaced.seq]);
 
   // The view pager (fit.tsx): a view still taller than the box after its folds shows its rows page by page. Runs and Lifts
   // list every row and may scroll. A view switch, a fold toggle or an area switch returns to page 1.

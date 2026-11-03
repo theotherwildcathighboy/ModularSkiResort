@@ -66,9 +66,15 @@ namespace SkiResortMod.Systems
         public const float ExpertNaturalSkiableDepthM = SkiableDepthM;
         public const byte ExpertBandMin = 3;                               // = SkiResortScore.BandBlack (3 black, 4 double black)
         public const float SnowHeightScaleM = 8f;                          // = SnowSystem kSnowHeightScale
-        public const float SkiableNorm = SkiableDepthM / SnowHeightScaleM; // 0.01875
+        public const float SkiableNorm = SkiableDepthM / SnowHeightScaleM; // 0.11375
         public const float ExpertNaturalSkiableNorm = ExpertNaturalSkiableDepthM / SnowHeightScaleM;
         public const float HalfQuantum = 0.5f / 65535f;                    // = SkiSnowInjectionSystem.HalfQuantum
+        // The keep bar: an open run stays open on this much snow (MeasuredShare). TUNED (flagged to the owner): 1 ft. The open bar is the
+        // owner's 3 ft rule for opening; once open, a pack that settles or melts below 3 ft is still skiable, and a real resort closes a run
+        // when bare patches show, not when its base dips under the depth it opened on. With 3 ft alone a gun run closed in one pass of a thaw
+        // with 0.4-0.6 m of snow left on it (field/2026-11-02/cattrack-snow, DECISIONS 574).
+        public const float KeepDepthM = 0.30f;
+        public const float KeepNorm = KeepDepthM / SnowHeightScaleM;
         public const float OpenAtShare = 0.60f;
         public const float CloseBelowShare = 0.40f;
         public const float InitialOpenShare = 0.50f;   // first label of a load (no history): the band's midpoint
@@ -110,6 +116,15 @@ namespace SkiResortMod.Systems
             return (share - CloseBelowShare) / (OpenAtShare - CloseBelowShare);
         }
 
+        /// <summary>A measured run's share: a closed run counts texels at the open bar (it opens at 3 ft), an open run counts them at the
+        /// keep bar (it stays open on 1 ft), and so does the first refresh of a load (Unknown: the label is not saved, and a run that was open
+        /// on a settled pack stays open). The keep share is never below the open share (a lower bar), so the label cannot flip back the pass
+        /// after it opens. NaN in either share stays NaN.</summary>
+        public static float MeasuredShare(RunSnowState previous, float openShare, float keepShare)
+        {
+            return previous == RunSnowState.Closed ? openShare : keepShare;
+        }
+
         /// <summary>Label with hysteresis. Unknown (first refresh of a load) uses the midpoint.
         /// NaN keeps an Open label, otherwise Closed.</summary>
         public static RunSnowState NextState(RunSnowState previous, float share)
@@ -147,32 +162,59 @@ namespace SkiResortMod.Systems
             return multiplier > 0f ? RunSnowPhase.Opening : RunSnowPhase.Closed;
         }
 
-        /// <summary>The temperature at or below which a run's texels hold snow, per kind: the
-        /// injection's own gates (snowmaking and night: freezing + margin; groomed: freezing + 0), and
-        /// freezing for natural runs (the snow shader's own threshold, presumably 0 °C — UNVERIFIED).</summary>
-        public static float ThresholdC(RunKind kind, float freezingC, float snowmakingMarginC)
+        /// <summary>The temperature at or below which a run's texels hold snow, per kind, while its guns make snow: the
+        /// injection's own gates (snowmaking and night: freezing + margin; groomed: freezing + 0), the same gun margin for a cat track,
+        /// and freezing for natural runs (the snow shader's own threshold, presumably 0 °C — UNVERIFIED). An open estimate does not
+        /// read this directly: <see cref="EstimateThresholdC"/> adds the gun season and the gun switch.</summary>
+        public static float ThresholdC(RunFeatures f, float freezingC, float snowmakingMarginC)
         {
-            switch (kind)
-            {
-                case RunKind.Snowmaking:
-                case RunKind.Night:
-                case RunKind.CatTrack:  // no injection: opens by the day-mean estimate with the gun margin (guns Off: the overload below)
-                    return freezingC + snowmakingMarginC;
-                case RunKind.Groomed:
-                    return freezingC + GroomedMarginC;
-                default:
-                    return freezingC;
-            }
+            if (f.Snowmaking)   // a cat track too: the guns' gate (SnowGunPlumeRules.TrackGunsCanRun); no injection: it opens by the estimate below
+                return freezingC + snowmakingMarginC;
+            if (f.Groomed)
+                return freezingC + GroomedMarginC;
+            return freezingC;
         }
 
-        /// <summary>The threshold of a run's open estimate with the cat track's gun switch: a cat track whose snow guns are Off (gun value at
-        /// Off, SkiRunPropSystem.CatTrackGunsOn) opens on natural snow only, so it takes the natural threshold, freezing (2026-11-02, owner
-        /// decision, DECISIONS 568). Guns on, and every other kind: <see cref="ThresholdC(RunKind, float, float)"/>.</summary>
-        public static float ThresholdC(RunKind kind, float freezingC, float snowmakingMarginC, bool catTrackGunsOn)
+        public static float ThresholdC(RunKind kind, float freezingC, float snowmakingMarginC) =>
+            ThresholdC(RunFeatures.FromKind((int)kind), freezingC, snowmakingMarginC);
+
+        /// <summary>The kinds whose snow guns make snow: snowmaking and night runs, and the cat track, which follows the snowmaking
+        /// rules (DECISIONS 551). = RunFeatures.FromKind(kind).Snowmaking.</summary>
+        public static bool IsGunKind(RunKind kind) => RunFeatures.FromKind((int)kind).Snowmaking;
+
+        /// <summary>Whether a run's snow guns can make snow now, one rule for snowmaking runs, night runs and cat tracks: it has snowmaking
+        /// and it is the gun season (SnowGunPlumeRules.InGunSeason; out of it the injection's guns raise nothing, FoldRowsJob.GunGate through
+        /// SnowGunPlumeRules.RaisesThisPass). False for groomed and natural runs.</summary>
+        public static bool GunsMakeSnow(RunFeatures f, bool inGunSeason) => f.Snowmaking && inGunSeason;
+
+        /// <summary>The kind form: <paramref name="gunsOn"/> is the switch (RunFeatures.FromKind). A run's kind already says whether its
+        /// guns are on (RunFeatures.SnowKind, DECISIONS 577), so the run path passes true; a cat track passes its switch (SkiRunPropSystem.CatTrackGunsOn: Off
+        /// stands no gun, DECISIONS 563, 568).</summary>
+        public static bool GunsMakeSnow(RunKind kind, bool inGunSeason, bool gunsOn) => GunsMakeSnow(RunFeatures.FromKind((int)kind, gunsOn), inGunSeason);
+
+        /// <summary>The threshold of a run's open estimate: its own gate (<see cref="ThresholdC(RunFeatures, float, float)"/>) while its guns
+        /// make snow, else freezing, the natural threshold (= the groomed one while GroomedMarginC is 0; a gun run whose switch is off has
+        /// no snowmaking feature and lands on the groomed gate). So a snowmaking run, a night run or a cat track out of the gun season, and a
+        /// cat track with its guns Off, open on natural snow only (DECISIONS 568, 571). Groomed and natural: ThresholdC all year.</summary>
+        public static float EstimateThresholdC(RunFeatures f, float freezingC, float snowmakingMarginC, bool inGunSeason)
         {
-            if (kind == RunKind.CatTrack && !catTrackGunsOn)
-                return ThresholdC(RunKind.Natural, freezingC, snowmakingMarginC);
-            return ThresholdC(kind, freezingC, snowmakingMarginC);
+            if (f.Snowmaking && !GunsMakeSnow(f, inGunSeason))
+                return freezingC;
+            return ThresholdC(f, freezingC, snowmakingMarginC);
+        }
+
+        public static float EstimateThresholdC(RunKind kind, float freezingC, float snowmakingMarginC, bool inGunSeason, bool gunsOn) =>
+            EstimateThresholdC(RunFeatures.FromKind((int)kind, gunsOn), freezingC, snowmakingMarginC, inGunSeason);
+
+        /// <summary>THE open estimate of a run or a cat track, one code path for both (SkiSnowInjectionSystem: a run in the table that could
+        /// not be measured, and GetRunSnow for a run not in the table, which is every cat track: the injection grid cannot measure a 6-12 m
+        /// ribbon, DECISIONS 551): the share of its vertical cold enough at the day-mean temperature for <see cref="EstimateThresholdC"/>.
+        /// The open state then follows from the share alone (OpenMultiplier, HubRules.OpenStateOf), the same for both.</summary>
+        public static float EstimatedRunShare(RunKind kind, float bottomY, float topY, float dayMeanC, float freezingC,
+            float snowmakingMarginC, float baseHeight, float lapsePerM, bool inGunSeason, bool gunsOn)
+        {
+            return EstimatedShare(bottomY, topY, dayMeanC, EstimateThresholdC(kind, freezingC, snowmakingMarginC, inGunSeason, gunsOn),
+                baseHeight, lapsePerM);
         }
 
         /// <summary>The slider value clamped to 0..6 °C. NaN (a hand-edited options file) → the default.</summary>
@@ -207,10 +249,12 @@ namespace SkiResortMod.Systems
 
         /// <summary>The skiable bar of a run, in normalized depth units, by kind and band: one bar for every run, 3 ft (0.91 m),
         /// so both branches return SkiableNorm today (ExpertNaturalSkiableDepthM = SkiableDepthM).</summary>
-        public static float SkiableBarNorm(RunKind kind, int band)
+        public static float SkiableBarNorm(RunFeatures f, int band)
         {
-            return kind == RunKind.Natural && band >= ExpertBandMin ? ExpertNaturalSkiableNorm : SkiableNorm;
+            return f.IsNatural && band >= ExpertBandMin ? ExpertNaturalSkiableNorm : SkiableNorm;
         }
+
+        public static float SkiableBarNorm(RunKind kind, int band) => SkiableBarNorm(RunFeatures.FromKind((int)kind), band);
 
         /// <summary>Skiable texel with the default bar (SkiableNorm).</summary>
         public static bool IsSkiable(float depthNorm, float ownTargetNorm)
@@ -381,8 +425,15 @@ namespace SkiResortMod.Systems
         public static ProtectEnd StepProtection(ref ProtectRun run, float dtHours, int containedTexels, int coldTexels,
             bool packOpen, float runLocalC, bool spring, out bool started)
         {
+            return StepProtection(ref run, dtHours, containedTexels > coldTexels, packOpen, runLocalC, spring, out started);
+        }
+
+        /// <summary>The same machine with the warm test given: a run passes "some texel too warm for the guns", a cat track's made snow
+        /// "some made snow above what the cold keeps" (StepTrackMadeSnow).</summary>
+        public static ProtectEnd StepProtection(ref ProtectRun run, float dtHours, bool warm, bool packOpen, float runLocalC, bool spring,
+            out bool started)
+        {
             started = false;
-            bool warm = containedTexels > coldTexels;
             switch (run.State)
             {
                 case ProtectState.Idle:
@@ -439,6 +490,99 @@ namespace SkiResortMod.Systems
                     return ProtectEnd.None;
             }
         }
+
+        // A cat track's made snow (2026-11-02, run-types round). The injection paints no snow on a track (DECISIONS 551: a 6-12 m ribbon
+        // on the 14 m grid; the decal is the look), so the snow map under it holds natural snow only, and its guns' snow is this model: the
+        // share of its vertical the guns have covered, held by the SAME protection machine a snowmaking run's pack has (StepProtection,
+        // ProtectBudgetHours, spring and the 10 C cut) at the largest budget any texel of a run gets (a north face), so a track keeps its
+        // made snow at least as long as a run of the same heights. A cat track is groomed and gets made snow first: it closes last.
+        //
+        // After the budget the made share melts at the speed a run's pack does at the track's air temperature: from the gun stop depth to
+        // the keep bar in RunMeltOutHours (the game's melt as the protection rule estimates it), the track reaching its close line (40 %)
+        // when that pack reaches the keep bar. So a track closes no earlier than a run beside it in any thaw (DECISIONS 574; it replaced the
+        // flat 2 h of DECISIONS 572, which a run on the 1 ft keep bar outlasted below about 3 C). Below freezing nothing melts.
+        public const float TrackWarmEpsilon = 1e-4f;   // a share difference below this is the same height
+        // The game's melt per top-up window per degree above freezing, as ProtectRaisePerTopupM's derivation estimates it (6.4 mm per
+        // window at 10 C; linear form UNVERIFIED, snow-injection.md 4): about 0.11 m per game hour at 1 C.
+        public const float MeltPerWindowPerCM = 0.00064f;
+
+        /// <summary>Game hours a run's pack takes to melt from the gun stop depth to the keep bar at <paramref name="airC"/>: about 6 h at
+        /// 1 C, 0.9 h at 7 C, 0.5 h at 12 C. Infinite at or below freezing (and for NaN).</summary>
+        public static float RunMeltOutHours(float airC)
+        {
+            if (!(airC > 0f))
+                return float.PositiveInfinity;
+            float perHourM = MeltPerWindowPerCM * airC * FramesPerGameHour / TopupIntervalFrames;
+            return (GunStopDepthM - KeepDepthM) / perHourM;
+        }
+
+        /// <summary>One cat track's made snow. Runtime, mirrored to the saved SkiTrackSnow so a load keeps it.</summary>
+        public struct TrackMadeSnow
+        {
+            public float Share;       // 0..1 of the track's vertical holding made snow (top down, as the estimate)
+            public ProtectRun Spell;  // the protection spell over it; runtime only (a load refills the budget, as for a run)
+        }
+
+        /// <summary>The share of a track's vertical its guns cover now: the estimate at freezing + the margin while they make snow (the gun
+        /// season and the switch, GunsMakeSnow), else 0.</summary>
+        public static float TrackGunShare(bool inGunSeason, bool gunsOn, float bottomY, float topY, float dayMeanC, float freezingC,
+            float snowmakingMarginC, float baseHeight, float lapsePerM)
+        {
+            if (!GunsMakeSnow(RunKind.CatTrack, inGunSeason, gunsOn))
+                return 0f;
+            return EstimatedShare(bottomY, topY, dayMeanC, ThresholdC(RunKind.CatTrack, freezingC, snowmakingMarginC), baseHeight, lapsePerM);
+        }
+
+        /// <summary>The share of a track's vertical the cold keeps without help: the estimate at the natural threshold (freezing), the
+        /// threshold an open estimate uses while no gun makes snow (EstimateThresholdC).</summary>
+        public static float TrackColdShare(float bottomY, float topY, float dayMeanC, float freezingC, float baseHeight, float lapsePerM)
+        {
+            return EstimatedShare(bottomY, topY, dayMeanC, ThresholdC(RunKind.Natural, freezingC, 0f), baseHeight, lapsePerM);
+        }
+
+        /// <summary>One pass of a track's made snow. The guns raise it to <paramref name="gunShare"/> at once (the estimate's own speed);
+        /// <paramref name="coldShare"/> (the estimate at freezing) is what the cold keeps without help. Made snow above max(gun, cold) is warm:
+        /// the protection spell holds it (Active), otherwise it melts toward that floor, reaching the close line (CloseBelowShare) from full
+        /// in RunMeltOutHours(trackLocalC). Returns the spell's end, as StepProtection.</summary>
+        public static ProtectEnd StepTrackMadeSnow(ref TrackMadeSnow track, float dtHours, float gunShare, float coldShare, float trackLocalC,
+            bool spring, out bool started)
+        {
+            gunShare = Clamp01(gunShare);
+            coldShare = Clamp01(coldShare);
+            if (!(track.Share >= 0f))
+                track.Share = 0f;   // NaN from a hand-edited save
+            if (gunShare > track.Share)
+                track.Share = gunShare;
+            float floor = Math.Max(gunShare, coldShare);
+            bool warm = track.Share > floor + TrackWarmEpsilon;
+            ProtectEnd end = StepProtection(ref track.Spell, dtHours, warm, track.Share > 0f, trackLocalC, spring, out started);
+            float meltHours = RunMeltOutHours(trackLocalC);
+            if (warm && track.Spell.State != ProtectState.Active && !float.IsPositiveInfinity(meltHours))
+                track.Share = Math.Max(floor, track.Share - Math.Max(0f, dtHours) * (1f - CloseBelowShare) / meltHours);
+            if (track.Share > 1f)
+                track.Share = 1f;
+            return end;
+        }
+
+        /// <summary>True when a cat track's share comes from its made snow rather than the snow under it: the track share is above the
+        /// measured or estimated share (NaN snow = nothing measured). The hub then hides the track's depth line.</summary>
+        public static bool MadeSnowLeads(float snowShare, float trackShare)
+        {
+            if (float.IsNaN(trackShare))
+                return false;
+            return float.IsNaN(snowShare) || trackShare > snowShare + TrackWarmEpsilon;
+        }
+
+        /// <summary>A measured or estimated cat track's share: the larger of its snow (the measured snow map under it, natural snow; or the
+        /// open estimate when it could not be measured) and its made snow.</summary>
+        public static float TrackShare(float snowShare, float madeShare)
+        {
+            if (float.IsNaN(snowShare))
+                return Clamp01(madeShare);
+            return Math.Max(Clamp01(snowShare), Clamp01(madeShare));
+        }
+
+        private static float Clamp01(float v) => !(v > 0f) ? 0f : v > 1f ? 1f : v;
 
         // A season runs from SeasonRolloverDate (0.6 of the year, about 1 August: no snow is made in high summer) to the next.
         public const float SeasonRolloverDate = 0.6f;

@@ -42,7 +42,7 @@ namespace SkiResortMod.Systems
 
         /// <summary>The contract number (bindings.ts HUB_CONTRACT). Bump both together whenever a binding, trigger, field or meaning
         /// changes (Engine notes: Near HubContract lists what each number appended).</summary>
-        public const int HubContract = 31;
+        public const int HubContract = 32;
 
         /// <summary>The `contract` value the UI reads as "C# absent" (bindings.ts CONTRACT_ABSENT). Pushed after the one-shot "!!!"
         /// until the next load: the UI then shows its "not connected" notice instead of launchers that do nothing.</summary>
@@ -178,6 +178,29 @@ namespace SkiResortMod.Systems
 
         /// <summary>bindings.ts BusCardState: the card beside the game's panel for a selected coach or depot. GuestsMonth -1 = unknown,
         /// DistanceM = straight line to the hill lodge, what the bill counts (0 = unknown), State = bindings.ts BusCardStateName.</summary>
+        /// <summary>Contract 32: the last re-emitted run (bindings.ts RunReplaced). Seq counts replacements this load; 0 = none.</summary>
+        public struct HubRunReplaced : IJsonWritable, IEquatable<HubRunReplaced>
+        {
+            public int Seq;
+            public Entity From, To;
+
+            public void Write(IJsonWriter writer)
+            {
+                writer.TypeBegin("SkiResortMod.RunReplaced");
+                writer.PropertyName("seq");
+                writer.Write(Seq);
+                writer.PropertyName("from");
+                UnityWriters.Write(writer, From);
+                writer.PropertyName("to");
+                UnityWriters.Write(writer, To);
+                writer.TypeEnd();
+            }
+
+            public bool Equals(HubRunReplaced other) => Seq == other.Seq && From == other.From && To == other.To;
+            public override bool Equals(object obj) => obj is HubRunReplaced o && Equals(o);
+            public override int GetHashCode() => Seq;
+        }
+
         public struct HubBusCardState : IJsonWritable, IEquatable<HubBusCardState>
         {
             public bool Shown;
@@ -476,6 +499,7 @@ namespace SkiResortMod.Systems
             DeleteCatTrack,                  // contract 18: the cat track row's trash button
             SetCatTrackDeleteMode,           // contract 19: the Runs tab's Delete cat tracks chip
             SetRunPropSpacing,               // contract 28: the Runs view's prop rows (Bool = lights, Int = meters)
+            SetRunGroomed,                   // run types R2: Groomed on (Bool) or off by a re-emit (SkiRunReemitSystem)
         }
 
         private struct Request
@@ -493,6 +517,7 @@ namespace SkiResortMod.Systems
         private int m_QueueCount;
 
         private SkiRunPropSystem m_RunProps;
+        private SkiRunReemitSystem m_Reemit;   // run types R2: the Groomed toggle
         private ToolSystem m_ToolSystem;
         private DefaultToolSystem m_DefaultTool;
         private ObjectToolSystem m_ObjectTool;
@@ -542,6 +567,11 @@ namespace SkiResortMod.Systems
         private ValueBinding<bool> m_PisteMapBinding;
         private ValueBinding<bool> m_CatTrackDeleteBinding;   // contract 19: the cat track tool is open AND in Delete mode
         private ValueBinding<int> m_FollowBinding;
+        private ValueBinding<HubRunReplaced> m_RunReplaced;   // contract 32: not a panel binding (HubPanel moves its focus)
+        private int m_RunReplacedSeq;
+        // Custom names of re-emitted runs, set here at UIUpdate: NameSystem.SetCustomName takes an EndFrameBarrier buffer, which the
+        // Modification phases may not create (SafeCommandBufferSystem.CreateCommandBuffer throws there; NameSystem.cs:236-239).
+        private readonly List<KeyValuePair<Entity, string>> m_PendingNames = new List<KeyValuePair<Entity, string>>(2);
         private RawValueBinding m_History;
         // contract 29: the car spaces of every active road lodge (the Guests view). Rebuilt when the attraction snapshot, the parking
         // census or the lodge numbers move; pushed only while the Guests view observes it. Contract 30: each row's shown number. Contract 31:
@@ -701,6 +731,7 @@ namespace SkiResortMod.Systems
             m_Catalog = World.GetOrCreateSystemManaged<SkiRunCatalogSystem>();
             m_Stats = World.GetOrCreateSystemManaged<SkiResortStatsSystem>();
             m_RunProps = World.GetOrCreateSystemManaged<SkiRunPropSystem>();
+            m_Reemit = World.GetOrCreateSystemManaged<SkiRunReemitSystem>();
             m_HistorySystem = World.GetOrCreateSystemManaged<SkiResortHistorySystem>();
             m_GuestCounter = World.GetOrCreateSystemManaged<SkiGuestCounterSystem>();
             m_SkiDays = World.GetOrCreateSystemManaged<SkiDaySystem>();
@@ -778,6 +809,7 @@ namespace SkiResortMod.Systems
             AddBinding(m_CatTrackDeleteBinding = new ValueBinding<bool>(Group, "catTrackDeleteMode", false));   // panel binding, no Demand
             AddBinding(m_BusCard = new ValueBinding<HubBusCardState>(Group, "busCard", default));   // not a panel binding
             AddBinding(m_LodgeParking);   // contract 29: panel binding (the Guests view), no Demand
+            AddBinding(m_RunReplaced = new ValueBinding<HubRunReplaced>(Group, "runReplaced", default));   // contract 32
 
             // Triggers (UI → C#): bindings.ts TRIGGER.
             AddBinding(new TriggerBinding(Group, "toggleHub", OnToggleHub));
@@ -804,10 +836,11 @@ namespace SkiResortMod.Systems
             AddBinding(new TriggerBinding<bool>(Group, "setCatTrackDeleteMode", OnSetCatTrackDeleteMode));
             AddBinding(new TriggerBinding<Entity, int>(Group, "setRunGunSpacing", OnSetRunGunSpacing));
             AddBinding(new TriggerBinding<Entity, int>(Group, "setRunLightSpacing", OnSetRunLightSpacing));
+            AddBinding(new TriggerBinding<Entity, bool>(Group, "setRunGroomed", OnSetRunGroomed));
 
             Mod.Log.Info($"{nameof(SkiResortHubUISystem)} created — group '{Group}', contract {HubContract}, " +
                          $"DLL stamp {s_DllStamp} (UI bundled at build: {BuildStamp.UiBundled}); 20 value bindings, " +
-                         "24 triggers");
+                         "25 triggers");
         }
 
         protected override void OnGamePreload(Purpose purpose, GameMode mode)
@@ -878,6 +911,8 @@ namespace SkiResortMod.Systems
                 HoverCalls = HoverAccepted = HoverRefused = 0;
                 m_FollowCount = 0;
                 m_FollowBinding.Update(0);
+                m_RunReplacedSeq = 0;
+                m_RunReplaced.Update(default);
                 FollowsSuppressedClosed = FollowsSuppressedRule = FollowsSuppressedUser = FollowsSuppressedSoon = 0;
                 m_LastFollowAt = m_LastUserSelectAt = float.NegativeInfinity;
                 m_RuleSwitchedThisPass = false;
@@ -995,8 +1030,11 @@ namespace SkiResortMod.Systems
                 {
                     m_Catalog.Demand = false;
                     m_Stats.Demand = false;
+                    m_PendingNames.Clear();
                     return;
                 }
+                if (m_PendingNames.Count > 0)
+                    ApplyPendingNames();
 
                 // One WARN per session when the UI never said hello (a float compare per frame until then).
                 if (!s_HelloSeen && !s_NoHelloWarned && s_FirstArmAt >= 0f &&
@@ -1085,6 +1123,9 @@ namespace SkiResortMod.Systems
         private void OnSetRunLightSpacing(Entity run, int meters) =>
             Trigger("setRunLightSpacing", new Request { Kind = RequestKind.SetRunPropSpacing, Entity = run, Bool = true, Int = meters });
 
+        private void OnSetRunGroomed(Entity run, bool on) =>
+            Trigger("setRunGroomed", new Request { Kind = RequestKind.SetRunGroomed, Entity = run, Bool = on });
+
         private void OnFocusLift(Entity entity, Entity top) =>
             Trigger("focusLift", new Request { Kind = RequestKind.FocusLift, Entity = entity, Entity2 = top });
 
@@ -1166,6 +1207,7 @@ namespace SkiResortMod.Systems
                 case RequestKind.FocusLift:
                 case RequestKind.FocusBuilding:
                 case RequestKind.SetRunPropSpacing:
+                case RequestKind.SetRunGroomed:
                     return true;
                 case RequestKind.SelectResort:
                     return entity != Entity.Null;
@@ -1305,7 +1347,46 @@ namespace SkiResortMod.Systems
                 case RequestKind.SetRunPropSpacing:
                     ApplyRunPropSpacing(r.Entity, r.Bool, r.Int, r.Source);
                     break;
+                case RequestKind.SetRunGroomed:
+                {
+                    string why = m_Reemit.Request(r.Entity, r.Bool);
+                    Mod.Log.Info($"Hub [groomed] setRunGroomed {Ent(r.Entity)} {r.Bool}: {why} ({r.Source})");
+                    LastTriggerText = $"setRunGroomed {Ent(r.Entity)} {r.Bool}: {why}";
+                    break;
+                }
             }
+        }
+
+        /// <summary>A run was re-emitted under a new entity (SkiRunReemitSystem, Modification1, main thread): the sign map, the world
+        /// selection and the panel's focus follow it, so no follow offer fires and the info panel stays on the run. Its custom name is set
+        /// at this system's next update (UIUpdate, the same frame).</summary>
+        internal void RunReplaced(Entity from, Entity to, string customName)
+        {
+            if (!string.IsNullOrEmpty(customName))
+                m_PendingNames.Add(new KeyValuePair<Entity, string>(to, customName));
+            if (m_RunSigns.TryGetValue(from, out Entity sign))
+            {
+                m_RunSigns.Remove(from);
+                m_RunSigns[to] = sign;
+            }
+            if (m_ToolSystem != null && m_ToolSystem.selected == from)
+            {
+                m_ToolSystem.selected = to;   // SelectedInfoUISystem.SetSelection's own write (SelectedInfoUISystem.cs:456-462)
+                m_LastSelected = to;          // the same run: no selection-change event
+            }
+            if (m_HoverRequest == from)
+                m_HoverRequest = to;
+            m_RunReplaced?.Update(new HubRunReplaced { Seq = ++m_RunReplacedSeq, From = from, To = to });
+        }
+
+        private void ApplyPendingNames()
+        {
+            foreach (KeyValuePair<Entity, string> p in m_PendingNames)
+            {
+                if (EntityManager.Exists(p.Key) && !EntityManager.HasComponent<Deleted>(p.Key))
+                    m_NameSystem.SetCustomName(p.Key, p.Value);
+            }
+            m_PendingNames.Clear();
         }
 
         /// <summary>The Runs tab's Delete cat tracks chip (contract 19): on opens the cat track tool if needed, then its Delete mode; off
@@ -1319,14 +1400,20 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>A step of the Runs view's prop rows (contract 28): a component write only, no Deleted in this phase (tools/check-run-props.js).
-        /// The placer re-places after its settle; snow and upkeep never read it.</summary>
+        /// The placer re-places after its settle. Since R2 the sliders are the Snowmaking and Lights features (DECISIONS 577): Off = no guns,
+        /// no snow, no bill; a feature turned on for the first time pays its one-time step (SettleFeatureSteps), never twice.</summary>
         private void ApplyRunPropSpacing(Entity run, bool lights, int meters, string source)
         {
             string what = lights ? "setRunLightSpacing" : "setRunGunSpacing";
             bool ok = m_RunProps.SetSpacing(run, lights, meters);
+            int charged = 0;
             if (ok)
+            {
+                charged = m_Ownership.SettleFeatureSteps(run, what);
+                m_Catalog.RequestRebuild("run features");
                 m_Stats.RequestRebuild("hub run props");
-            Mod.Log.Info($"Hub [props] {what} {Ent(run)} {meters} m: {(ok ? "stored" : "refused")} ({source})");
+            }
+            Mod.Log.Info($"Hub [props] {what} {Ent(run)} {meters} m: {(ok ? "stored" : "refused")}{(charged > 0 ? $", step charged {charged}" : "")} ({source})");
             LastTriggerText = $"{what} {Ent(run)} {meters}: {(ok ? "stored" : "refused")}";
         }
 

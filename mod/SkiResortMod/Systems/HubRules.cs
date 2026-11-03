@@ -211,6 +211,17 @@ namespace SkiResortMod.Systems
             return ResortStatus.Partly;
         }
 
+        /// <summary>The hub's open factor of a member run from the snow read it just made (RunSnow.Multiplier; 1 with gating off), clamped
+        /// as SkiResortScore clamps its open factor (NaN and below 0 to 0, above 1 to 1). The hub used the score's cached part.OpenFactor, a
+        /// value from the last attractiveness pass, so a run's state trailed its share by one pass (DECISIONS 571 c); the score keeps its
+        /// own value for ValueNow.</summary>
+        public static double LiveOpenFactor(float multiplier)
+        {
+            if (!(multiplier > 0f))
+                return 0.0;
+            return multiplier >= 1f ? 1.0 : multiplier;
+        }
+
         public static RunOpenState OpenStateOf(double openFactor, bool member)
         {
             if (!member)

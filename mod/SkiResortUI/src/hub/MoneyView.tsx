@@ -56,7 +56,7 @@ function kindsOf(runs: readonly RunRow[]): ReadonlySet<number> {
   return s;
 }
 
-/** The FINANCES header with its Info glyph: the column is "Month of <name> so far", "(partial)" while counted since a load. */
+/** The FINANCES header with its Info glyph: the column is "<name> so far", "(partial)" while counted since a load. */
 function MoneyHeader({ l, month, samples, t }: { l: ResortLive | null; month: string; samples: NumberSamples; t: Translate }): JSX.Element {
   return (
     <InfoLine
@@ -258,7 +258,8 @@ function LessonRow({ l, city, school, samples, t }: {
 }
 
 /** The resort's share of the city's tourist draw x the game's TouristIncome statistic, an estimate, in the "Also" block (not
- *  resort income, not in the net); under Tourism Overhaul the row is replaced by the same Detected note as the tourist estimate. */
+ *  resort income, not in the net); under Tourism Overhaul the row is replaced by the same Detected note as the tourist estimate.
+ *  The label carries no "≈": the mark slot shows it next to the value, as on the net row (DECISIONS 568). */
 function CityIncomeRow({ l, city, samples, t }: { l: ResortLive | null; city: CityStats; samples: NumberSamples; t: Translate }): JSX.Element | null {
   if (city.tourismOverhaul) return <SubLine tip={t(HUB_LOC.estToTip)}>{t(HUB_LOC.estToNote)}</SubLine>;
   if (!l || !cityIncomeShown(l, city)) return null;

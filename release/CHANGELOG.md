@@ -19,7 +19,7 @@ Template (copy above the newest entry):
 ```
 ## X.Y.Z (PDX version N, YYYY-MM-DD)
 - Save compatible with previous: yes
-- Layout versions: Binding 1, TreeMember 2, SeasonPass 1, HistoryMonth 2, MonthInProgress 2, RunPropMember 1, RunPropSettings 1, LodgeNumber 1
+- Layout versions: Binding 1, TreeMember 2, SeasonPass 1, HistoryMonth 2, MonthInProgress 2, RunPropMember 1, RunPropSettings 1, LodgeNumber 1, TrackSnow 1
 - Do not load in older versions: no
 
 Notes...
@@ -27,7 +27,7 @@ Notes...
 
 ## 1.0.0 (PDX version -, unreleased)
 - Save compatible with previous: n/a (first release)
-- Layout versions: Binding 1, TreeMember 2, SeasonPass 1, HistoryMonth 2, MonthInProgress 2, RunPropMember 1, RunPropSettings 1, LodgeNumber 1
+- Layout versions: Binding 1, TreeMember 2, SeasonPass 1, HistoryMonth 2, MonthInProgress 2, RunPropMember 1, RunPropSettings 1, LodgeNumber 1, TrackSnow 1
 - Do not load in older versions: no
 
 First public release. Draft notes (check against the build at upload):
@@ -47,10 +47,10 @@ First public release. Draft notes (check against the build at upload):
   them; the proposed lifts you build yourself with the lift tool. The scan runs in the background with a progress line, and
   right click stops it. Optional tree filler. Ctrl+Shift+Q; it is off by default and is turned on in Options.
 - Safety Net Fence: decorative orange netting on thin poles, in the hub's Runs tab.
-- Snow-depth run system: runs open at 3 ft (91 cm) on 60 percent of the run, snow guns on snowmaking and night runs
+- Snow-depth run system: runs open at 3 ft (91 cm) on 60 percent of the run and stay open while 1 ft covers 40 percent, snow guns on snowmaking and night runs
   (two months before winter to one month after), powder days, seasons.
 - Snow guns, hydrants and floodlights stand at a set distance along a run's edge, however its outline was drawn, with two values per run in the
-  Runs view. Cat tracks carry guns and hydrants on one side, and pay snowmaking upkeep by plan area while their guns can run; with the gun value at Off, none, and they open on natural snow only.
+  Runs view. Cat tracks carry guns and hydrants on one side, and pay snowmaking upkeep by plan area while their guns can run; with the gun value at Off, none, and snow already made stays until it melts.
 - Welcome Sign (set back 8 m from the road on a leveled lot), five lodges, Ski School, two patrol
   buildings.
 - Ski Bus Depot: a coach stop in town for the nearest ski area, at any distance. A home closer to it than to a lodge starts

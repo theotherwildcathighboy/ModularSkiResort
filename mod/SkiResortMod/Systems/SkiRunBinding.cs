@@ -31,16 +31,21 @@ namespace SkiResortMod.Systems
         /// <summary>Linked by the load pass without a charge (lost link).</summary>
         public const byte FlagRestored = 2;
 
+        /// <summary>The paid-once memory is set (DECISIONS 577): the bits SkiRunFees.PaidGroomed / PaidSnowmaking / PaidLights (4, 8, 16) are
+        /// the feature steps this run has paid. A paid run without it was bound before the memory and is credited with its features at
+        /// the next load (SkiRunOwnershipSystem.CreditKnownSteps).</summary>
+        public const byte FlagStepsKnown = 32;
+
         /// <summary>The Ski Area Welcome Sign this run belongs to. Entity.Null = a paid orphan
         /// (its sign died without our cascade, or was gone at save time): unbound for snow,
         /// bills and score, and re-links free to the nearest sign within the tether.</summary>
         public Entity m_Gate;
 
-        /// <summary>FlagPaid | FlagRestored.</summary>
+        /// <summary>FlagPaid | FlagRestored | FlagStepsKnown | the paid steps (SkiRunFees.PaidSteps).</summary>
         public byte m_Flags;
 
-        /// <summary>What this run paid at bind time; 0 when restored (FlagRestored). A charge skipped because the City has no
-        /// PlayerMoney (warned once per load) still records the cost.</summary>
+        /// <summary>What this run paid in one-time fees: at bind, plus every feature step paid later (SettleFeatureSteps); 0 when restored
+        /// (FlagRestored). A charge skipped because the City has no PlayerMoney (warned once per load) still records the cost.</summary>
         public int m_PaidAmount;
 
         /// <summary>Layout version this value was created with or loaded from. NOT written:

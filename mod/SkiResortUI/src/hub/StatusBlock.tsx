@@ -18,7 +18,7 @@ import {
   bandRowsOf, bandSlots, closedRuns, factorRowsOf, foldBandRows, liftNameList, liveOf, problemClick, problemIcon, problemVariant,
   statusHint, statusVariant, statusWord,
 } from "./hubRules";
-import type { BandRow, ProblemClick } from "./hubRules";
+import type { BandRow, ProblemClick, ProblemVariant } from "./hubRules";
 import { problemsOpen$, view$ } from "./hubState";
 import { HUB_FMT, HUB_LOC, LODGE_TIER, SEASON_HINT_TEXT, SEASON_TIP_TEXT, STATUS_WORD, factorEntry } from "./hubText";
 import { Glyph, LocText, NotifIcon, Tip, TipLines, cx, depthValue, numArg, useInches } from "./parts";
@@ -179,9 +179,16 @@ function runClick(click: ProblemClick, p: ProblemRow): void {
   else if (click === "runsView") view$.update("runs");
 }
 
-/** The tooltip of a band row; a folded row lists its lifts, one line each. */
-function bandTip(b: BandRow, factors: readonly ProblemRow[], live: ResortLive | null, t: Translate): JSX.Element {
-  if (b.group.length < 2) return problemTip(b.row, factors, live, t);
+/** The single band rows whose row says it all: problemTip has no body for them, so a tooltip would only repeat the title. */
+const TITLE_ONLY_TIP: ReadonlySet<ProblemVariant> = new Set<ProblemVariant>(["lodgeNoRoad", "unlinked", "noRuns", "runsFlat"]);
+
+/** The tooltip of a band row; a folded row lists its lifts, one line each. A TITLE_ONLY_TIP row has none (null: Tip draws no
+ *  balloon). */
+function bandTip(b: BandRow, factors: readonly ProblemRow[], live: ResortLive | null, t: Translate): JSX.Element | null {
+  if (b.group.length < 2) {
+    const v = problemVariant(b.row);
+    return v !== null && TITLE_ONLY_TIP.has(v) ? null : problemTip(b.row, factors, live, t);
+  }
   return (
     <TipLines
       lines={[

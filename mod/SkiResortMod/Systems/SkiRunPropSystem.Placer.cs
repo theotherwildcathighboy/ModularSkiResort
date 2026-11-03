@@ -185,8 +185,8 @@ namespace SkiResortMod.Systems
                              $"snowmaking {RunPropPlacerRules.GunSpacingSnowmakingM} m, night {RunPropPlacerRules.GunSpacingNightM} m, cat track " +
                              $"{RunPropPlacerRules.GunSpacingCatTrackM} m, lights night {RunPropPlacerRules.LightSpacingNightM} m, cat track off; " +
                              $"{m_CornerEntries.Count} vanilla corner entr(ies) at chance 0 ({stopped} changed); re-places {RunPropDensityRules.SettleFrames} " +
-                             $"frames after a change, at most {MaxOpsPerFrame} objects and {MaxPlansPerFrame} plans per frame (look only: snow and upkeep " +
-                             "never read a slider)");
+                             $"frames after a change, at most {MaxOpsPerFrame} objects and {MaxPlansPerFrame} plans per frame (the sliders are the Snowmaking " +
+                             "and Lights features: snow and upkeep read them through FeaturesOf)");
             }
             catch (Exception e)
             {
@@ -249,10 +249,24 @@ namespace SkiResortMod.Systems
             return true;
         }
 
+        /// <summary>THE features of a built run (R2, DECISIONS 577): <paramref name="kind"/> is its prefab kind (the caller's own
+        /// classification: catalog row, injection set, ownership KindOf), the spacings are its saved SkiRunPropSettings, or the kind's defaults
+        /// before the placer gave it settings (so a preset prefab answers its kind's features from the first frame). Every snow, bill, score
+        /// and prop decision that depends on a slider reads it through here or CatTrackGunsOn (tools/check-run-props.js R2). Main thread; one
+        /// component read.</summary>
+        internal RunFeatures FeaturesOf(Entity run, int kind)
+        {
+            if (run != Entity.Null && EntityManager.Exists(run) && EntityManager.HasComponent<SkiRunPropSettings>(run))
+            {
+                SkiRunPropSettings s = EntityManager.GetComponentData<SkiRunPropSettings>(run);
+                return RunFeatures.FromSpacings(kind, s.m_GunSpacingM, s.m_LightSpacingM);
+            }
+            return RunFeatures.FromSpacings(kind, RunPropPlacerRules.DefaultGunSpacing(kind), RunPropPlacerRules.DefaultLightSpacing(kind));
+        }
+
         /// <summary>Whether a cat track's snow guns are on (its gun value above Off; the kind's default 60 m before the placer gave it
-        /// settings). The one place the bill reads a slider: SkiRunUpkeepSystem and the hub's cost row pass it to
-        /// SnowGunPlumeRules.TrackBilledHa, so a track set to Off bills nothing (DECISIONS 563). Every other kind's values stay
-        /// look only (tools/check-run-props.js R2). Main thread; one component read.</summary>
+        /// settings) = FeaturesOf(run, CatTrack).Snowmaking. SkiRunUpkeepSystem and the hub's cost row pass it to
+        /// SnowGunPlumeRules.TrackBilledHa, so a track set to Off bills nothing (DECISIONS 563). Main thread; one component read.</summary>
         internal bool CatTrackGunsOn(Entity run)
         {
             if (run == Entity.Null || !EntityManager.Exists(run) || !EntityManager.HasComponent<SkiRunPropSettings>(run))

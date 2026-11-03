@@ -332,9 +332,10 @@ namespace SkiResortMod.Systems
                 double skiers = RunSkiersPerDay(run, part);
                 if (skiers > 0.0)
                     s_CapacityValues.Add(skiers);
-                if (run.Kind == KindNight)
+                var features = RunFeatures.FromKind(run.Kind);
+                if (CountsAsNight(features))
                     r.NightRunsCounted++;
-                if (run.Kind == KindCatTrack)
+                if (features.IsCatTrack)
                 {
                     catCounted++;
                     continue;   // no height range, no band flag (see CatTrackFactor)
@@ -533,28 +534,34 @@ namespace SkiResortMod.Systems
 
         /// <summary>Night 1.25, natural by band (0.5 / 0.75 / 1.0; unrateable or pending 0.5), cat track CatTrackFactor when rated green
         /// else 0, else 1 (groomed, snowmaking and any unknown kind).</summary>
-        public static double TypeFactorOf(byte kind, BandState state, byte band)
+        public static double TypeFactorOf(RunFeatures f, BandState state, byte band)
         {
-            switch (kind)
+            if (!f.Known)
+                return 1.0;
+            if (f.IsCatTrack)
+                return state == BandState.Rated && band == BandGreen ? CatTrackFactor : 0.0;   // unrateable or pending (or a band the catalog never sends): 0
+            if (f.IsNatural)
             {
-                case KindNight:
-                    return NightFactor;
-                case KindNatural:
-                    if (state != BandState.Rated)
-                        return NaturalUnrateableFactor; // pending: worth 0 anyway through its band
-                    switch (band)
-                    {
-                        case BandBlue: return 0.75;
-                        case BandBlack:
-                        case BandDoubleBlack: return 1.0;
-                        default: return 0.5; // Flat, Green (and an out-of-range band)
-                    }
-                case KindCatTrack:
-                    return state == BandState.Rated && band == BandGreen ? CatTrackFactor : 0.0;   // unrateable or pending (or a band the catalog never sends): 0
-                default:
-                    return 1.0;
+                if (state != BandState.Rated)
+                    return NaturalUnrateableFactor; // pending: worth 0 anyway through its band
+                switch (band)
+                {
+                    case BandBlue: return 0.75;
+                    case BandBlack:
+                    case BandDoubleBlack: return 1.0;
+                    default: return 0.5; // Flat, Green (and an out-of-range band)
+                }
             }
+            return f.Lights ? NightFactor : 1.0;
         }
+
+        public static double TypeFactorOf(byte kind, BandState state, byte band) => TypeFactorOf(RunFeatures.FromKind(kind), state, band);
+
+        /// <summary>A lit piste (the Night kind) counts toward NightRunsCounted; a lit cat track does not.</summary>
+        public static bool CountsAsNight(RunFeatures f) => f.IsPiste && f.Lights;
+
+        /// <summary>The skiers factor of RunSkiersPerDay: natural NaturalSkiersFactor, cat track CatTrackSkiersFactor, else 1.</summary>
+        public static double SkiersFactorOf(RunFeatures f) => f.IsNatural ? NaturalSkiersFactor : f.IsCatTrack ? CatTrackSkiersFactor : 1.0;
 
         /// <summary>Skiers per hectare at once: Rated green / blue / black / double black 45 / 25 / 15 / 7.5; Unrateable 15; Flat, out
         /// of range and Pending 0 (worth 0 in the score, so never a counted run).</summary>
@@ -586,7 +593,7 @@ namespace SkiResortMod.Systems
             if (!part.Counted || !(run.AreaM2 > 0.0))
                 return 0.0;
             double area = run.AreaM2 < MaxCapacityAreaM2 ? run.AreaM2 : MaxCapacityAreaM2;
-            return area / 10000.0 * SkiersPerHa(run.State, run.Band) * (run.Kind == KindNatural ? NaturalSkiersFactor : run.Kind == KindCatTrack ? CatTrackSkiersFactor : 1.0) *
+            return area / 10000.0 * SkiersPerHa(run.State, run.Band) * SkiersFactorOf(RunFeatures.FromKind(run.Kind)) *
                    part.ServedFactor * part.OpenFactor;
         }
 

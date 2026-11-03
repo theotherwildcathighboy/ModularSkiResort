@@ -90,7 +90,8 @@ namespace SkiResortMod.Systems
         {
             public Entity Entity;
             public string Name;
-            public int Kind;
+            public int Kind;             // the prefab kind (the look and the default name); behavior reads Features
+            public RunFeatures Features; // SkiRunPropSystem.FeaturesOf(Entity, Kind) at this rebuild; a slider or a Groomed toggle requests one
             public bool Bound;
             public bool CustomName;
             public int Ordinal;      // N of the default name, per (Gate, Kind), top height descending
@@ -160,6 +161,7 @@ namespace SkiResortMod.Systems
         private const string OrdinalPlaceholder = "{N}";
 
         private SkiRunOwnershipSystem m_Ownership;
+        private SkiRunPropSystem m_RunProps;
         private NameSystem m_NameSystem;
         private TerrainSystem m_TerrainSystem;
         private ToolSystem m_ToolSystem;
@@ -184,9 +186,13 @@ namespace SkiResortMod.Systems
         private Action<ToolBaseSystem> m_ToolChangedHandler;
 
         private readonly Dictionary<Entity, RunRating> m_Ratings = new Dictionary<Entity, RunRating>();
+        // A re-emitted run's custom name until NameSystem has it (RekeyRun); dropped by the next rebuild that finds it there.
+        private readonly Dictionary<Entity, string> m_CarriedNames = new Dictionary<Entity, string>();
         private readonly Queue<QueueEntry> m_Front = new Queue<QueueEntry>();
         private readonly Queue<QueueEntry> m_Back = new Queue<QueueEntry>();
         private readonly Dictionary<Entity, byte> m_Queued = new Dictionary<Entity, byte>();
+        private readonly RunAliases m_RunAliases = new RunAliases();   // re-emitted runs (SkiRunReemitSystem)
+        private Action<Entity, Entity> m_MoveRunState;
         private readonly List<Entity> m_ScratchEntities = new List<Entity>();
         private SlopeGrid m_RateGrid = new SlopeGrid();
         private SlopeResult m_RateResult = new SlopeResult();
@@ -308,6 +314,24 @@ namespace SkiResortMod.Systems
             return false;
         }
 
+        /// <summary>A run was re-emitted (SkiRunReemitSystem): its rating follows the new entity (keyed by the same nodes, so it stands;
+        /// a rating still queued is redone for the new one), and its custom name stands in until the hub writes it to NameSystem at
+        /// UIUpdate, so the Runs list never shows a default name in between. Main thread.</summary>
+        internal void RekeyRun(Entity from, Entity to, string customName)
+        {
+            if (!string.IsNullOrEmpty(customName))
+                m_CarriedNames[to] = customName;
+            if (m_MoveRunState == null)
+                m_MoveRunState = MoveRunState;
+            m_RunAliases.Add(from, to);
+            m_RunAliases.Apply(m_MoveRunState);
+        }
+
+        private void MoveRunState(Entity from, Entity to)
+        {
+            RunAliases.Move(m_Ratings, from, to);
+        }
+
         /// <summary>Rebuild on the next OnUpdate even while nobody listens (dev tab, DUMP)</summary>
         public void RequestRebuild(string why)
         {
@@ -331,6 +355,7 @@ namespace SkiResortMod.Systems
             public Entity Run;
             public Entity Gate;
             public int Kind;
+            public RunFeatures Features;
             public byte RateState;
             public sbyte Band;
             public float AreaM2;
@@ -365,6 +390,7 @@ namespace SkiResortMod.Systems
                 Run = row.Entity,
                 Gate = row.Gate,
                 Kind = row.Kind,
+                Features = row.Features,
                 RateState = row.RateState,
                 Band = row.Band,
                 AreaM2 = row.AreaM2,
@@ -406,6 +432,7 @@ namespace SkiResortMod.Systems
         {
             base.OnCreate();
             m_Ownership = World.GetOrCreateSystemManaged<SkiRunOwnershipSystem>();
+            m_RunProps = World.GetOrCreateSystemManaged<SkiRunPropSystem>();
             m_NameSystem = World.GetOrCreateSystemManaged<NameSystem>();
             m_TerrainSystem = World.GetOrCreateSystemManaged<TerrainSystem>();
             m_ToolSystem = World.GetOrCreateSystemManaged<ToolSystem>();
@@ -561,6 +588,8 @@ namespace SkiResortMod.Systems
             Demand = false;
             // Nothing of the previous city survives
             m_Ratings.Clear();
+            m_RunAliases.Clear();
+            m_CarriedNames.Clear();
             m_Front.Clear();
             m_Back.Clear();
             m_Queued.Clear();
@@ -660,6 +689,8 @@ namespace SkiResortMod.Systems
             try
             {
                 m_Frame++;
+                if (m_RunAliases.Any)
+                    m_RunAliases.Apply(m_MoveRunState);
                 // Terrain epoch: one int compare per frame, hub open or not
                 if (m_TerrainEpochDueFrame >= 0 && m_Frame >= m_TerrainEpochDueFrame)
                 {
@@ -776,6 +807,12 @@ namespace SkiResortMod.Systems
                 if (m_NameSystem.TryGetCustomName(row.Entity, out string custom) && !string.IsNullOrEmpty(custom))
                 {
                     row.Name = custom;
+                    row.CustomName = true;
+                    m_CarriedNames.Remove(row.Entity);
+                }
+                else if (m_CarriedNames.TryGetValue(row.Entity, out string carried))
+                {
+                    row.Name = carried;
                     row.CustomName = true;
                 }
                 else
@@ -934,6 +971,7 @@ namespace SkiResortMod.Systems
                 hash = SkiRunRatingRules.Mix(hash, (uint)row.Gate.Index);
                 hash = SkiRunRatingRules.Mix(hash, (uint)row.Gate.Version);
                 hash = SkiRunRatingRules.Mix(hash, (uint)row.Kind);
+                hash = SkiRunRatingRules.Mix(hash, (uint)row.Features.GetHashCode());   // a slider or a Groomed toggle is a facts change
                 hash = SkiRunRatingRules.Mix(hash, (uint)row.RateState | ((uint)(byte)row.Band << 8));
                 hash = SkiRunRatingRules.Mix(hash, math.asuint(row.AreaM2));
                 hash = SkiRunRatingRules.Mix(hash, math.asuint(row.LengthM));
@@ -1034,6 +1072,7 @@ namespace SkiResortMod.Systems
                         {
                             Entity = entities[i],
                             Kind = kind,
+                            Features = m_RunProps.FeaturesOf(entities[i], kind),
                             AreaM2 = Finite(g.m_SurfaceArea),
                             TopY = Finite(g.m_Bounds.max.y),
                             CenterX = Finite(g.m_CenterPosition.x),

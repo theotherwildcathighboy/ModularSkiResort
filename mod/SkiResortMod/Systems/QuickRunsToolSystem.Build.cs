@@ -419,6 +419,27 @@ namespace SkiResortMod.Systems
         }
 
 
+        /// <summary>A run of the batch was re-emitted (SkiRunReemitSystem): the undo and the bind line follow the new entity and prefab, so
+        /// an undo deletes the run that stands and never leaves the old one's slot to a duplicate.</summary>
+        internal void RekeyRun(Entity from, Entity to, Entity toPrefab)
+        {
+            RekeyIn(m_Batch, from, to, toPrefab);
+            RekeyIn(m_BindCheck, from, to, toPrefab);
+        }
+
+        private static void RekeyIn(List<BatchRun> list, Entity from, Entity to, Entity toPrefab)
+        {
+            for (int i = 0; i < list.Count; i++)
+            {
+                if (list[i].Run != from)
+                    continue;
+                BatchRun b = list[i];
+                b.Run = to;
+                b.Prefab = toPrefab;
+                list[i] = b;
+            }
+        }
+
         /// <summary>Delete the batch (the bulldozer's shape) and pay back what each binding recorded as paid.</summary>
         private void UndoBatch(string why)
         {

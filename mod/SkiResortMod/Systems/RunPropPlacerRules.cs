@@ -5,7 +5,7 @@
 // Canonical ring: counter-clockwise (shoelace in x,z), starting at the lexicographically smallest (x, z) vertex, so the result does not
 // depend on the start node, the winding or extra nodes on a straight side. A closed ring takes N = round(perimeter / spacing) slots at
 // perimeter / N, so the seam shows no gap. A cat track walks one side of its ribbon only (SideChain).
-// Look only: snow and upkeep never read the spacings. Pure file: System only (no Game.dll, no Unity types). C# 9 / net48.
+// Snow and upkeep read the spacings only as features (SkiRunPropSystem.FeaturesOf, DECISIONS 577). Pure file: System only (no Game.dll, no Unity types). C# 9 / net48.
 // Engine notes: EngineNotes/RunPropPlacerRules.md
 
 using System;
@@ -238,13 +238,16 @@ namespace SkiResortMod.Systems
             return (m + SpacingStepM / 2) / SpacingStepM * SpacingStepM;
         }
 
-        public static bool CarriesGuns(int runKind) => RunPropDensityRules.PropClassAllowed(runKind, RunPropDensityRules.ClassGun, false);
+        /// <summary>Whether a run of this prefab kind can have snowmaking: every groomed run and the cat track (R2, DECISIONS 577: the gun
+        /// slider is the Snowmaking feature). Natural runs cannot (snowmaking needs Groomed).</summary>
+        public static bool CarriesGuns(int runKind) => RunFeatures.FromSpacings(runKind, 1, SpacingOff).Snowmaking;
 
-        /// <summary>Whether the run can be lit at all (a cat track only with lights turned up: its slider is its lit state).</summary>
-        public static bool CarriesLights(int runKind) => RunPropDensityRules.PropClassAllowed(runKind, RunPropDensityRules.ClassMast, true);
+        /// <summary>Whether a run of this prefab kind can be lit: every groomed run and the cat track; natural runs cannot (lights need
+        /// Groomed). The light slider is the Lights feature.</summary>
+        public static bool CarriesLights(int runKind) => RunFeatures.FromSpacings(runKind, SpacingOff, 1).Lights;
 
-        /// <summary>Whether a gun value stands guns: above Off. On a cat track it also decides the snowmaking bill (Off = none;
-        /// DECISIONS 563, SkiRunPropSystem.CatTrackGunsOn); on every other kind the value is look only.</summary>
+        /// <summary>Whether a gun value stands guns: above Off. It is the run's Snowmaking feature (RunFeatures.FromSpacings): Off = no
+        /// guns, no snow, no snowmaking bill, on every run (DECISIONS 563 for the cat track, 577 for runs).</summary>
         public static bool GunsOn(int gunSpacingM) => gunSpacingM > SpacingOff;
 
         public static int DefaultGunSpacing(int runKind)
@@ -364,8 +367,9 @@ namespace SkiResortMod.Systems
                 return;
             int guns = ClampSpacing(gunSpacingM), lights = ClampSpacing(lightSpacingM);
             bool lit = lights > SpacingOff;
-            bool wantGuns = guns > SpacingOff && RunPropDensityRules.PropClassAllowed(runKind, RunPropDensityRules.ClassGun, lit);
-            bool wantMasts = lit && RunPropDensityRules.PropClassAllowed(runKind, RunPropDensityRules.ClassMast, lit);
+            RunFeatures features = RunFeatures.FromSpacings(runKind, guns, lights);
+            bool wantGuns = RunPropDensityRules.PropClassAllowed(features, RunPropDensityRules.ClassGun);
+            bool wantMasts = RunPropDensityRules.PropClassAllowed(features, RunPropDensityRules.ClassMast);
             if (!wantGuns && !wantMasts)
                 return;
 

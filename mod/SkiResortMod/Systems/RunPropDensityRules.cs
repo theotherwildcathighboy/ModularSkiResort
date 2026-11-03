@@ -1,6 +1,6 @@
 // What a run may carry and how a settled change is timed, for the run prop placer (RunPropPlacerRules has the walk). SkiRunPropSystem calls
-// these on the main thread; tests/ResortBatch DensityTests checks them with literal values. Look only: snow (a per-texel line by run type)
-// and upkeep (SkiRunUpkeepSystem) never read a run's prop spacings.
+// these on the main thread; tests/ResortBatch DensityTests checks them with literal values. Snow and upkeep read a run's prop spacings only as
+// its Snowmaking and Lights features (SkiRunPropSystem.FeaturesOf, DECISIONS 577).
 // Pure file: `using System;` only (no Game.dll, no Unity types); linked into tests/ResortBatch. C# 9 / net48: no Math.Clamp.
 // Engine notes: EngineNotes/RunPropDensityRules.md
 
@@ -46,21 +46,15 @@ namespace SkiResortMod.Systems
         /// <summary>Which classes the placer stands on a run kind. Snowmaking: guns and hydrants. Night: those and masts. Cat track: guns
         /// and hydrants, masts only when lit (<paramref name="lit"/> = its lights slider is above Off; no other lit state exists). Groomed and
         /// natural runs carry nothing. The empty marker is never placed: the spacing is the density.</summary>
-        public static bool PropClassAllowed(int runKind, byte propClass, bool lit)
+        public static bool PropClassAllowed(int runKind, byte propClass, bool lit) =>
+            PropClassAllowed(RunFeatures.FromKind(runKind, true, lit), propClass);
+
+        /// <summary>The feature form: guns and hydrants with snowmaking, masts with lights.</summary>
+        public static bool PropClassAllowed(RunFeatures f, byte propClass)
         {
-            if (propClass != ClassGun && propClass != ClassHydrant && propClass != ClassMast)
-                return false;
-            switch (runKind)
-            {
-                case (int)RunKind.Snowmaking:
-                    return propClass != ClassMast;
-                case (int)RunKind.Night:
-                    return true;
-                case (int)RunKind.CatTrack:
-                    return propClass != ClassMast || lit;
-                default:
-                    return false;
-            }
+            if (propClass == ClassGun || propClass == ClassHydrant)
+                return f.Snowmaking;
+            return propClass == ClassMast && f.Lights;
         }
     }
 

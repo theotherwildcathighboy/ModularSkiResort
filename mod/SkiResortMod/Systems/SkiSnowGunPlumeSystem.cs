@@ -2,7 +2,7 @@
 // Rule (one predicate with the injection, EngineNotes/SnowGunPlumeRules.md): Options toggle on, the run's guns ran in the injection's last
 // pass (a cat track: its guns can run, no injection there), and the gun's own elevation is cold. FanIdle, hydrants and the folded lance carry no
 // plume entry and are never touched.
-// Scope: Game mode only; the guns the placer tagged with SkiRunPropMember (snowmaking, night and cat track runs).
+// Scope: Game mode only; the guns the placer tagged with SkiRunPropMember (groomed runs with their guns on and cat tracks).
 // Cadence: every PlumeIntervalFrames (64) sim frames, after the injection (Mod.cs; not load-bearing: reads per-run flags).
 // Logs (silence must be impossible): ARMED / inert line per load, per-run start/stop lines, census on change, WARN once per load
 // when guns exceed the effect's m_MaxCount, and the house one-shot "!!!" catch.
@@ -24,8 +24,8 @@ namespace SkiResortMod.Systems
 {
     public sealed partial class SkiSnowGunPlumeSystem : GameSystemBase
     {
-        // The run surfaces whose placed props can be guns.
-        private static readonly string[] RunSurfaceNames = { "SkiRunSnowmakingA", "SkiRunNightA", SkiCatalog.Names.RunCatTrack };
+        // The run surfaces whose placed props can be guns (every groomed run with its guns on, DECISIONS 577).
+        private static readonly string[] RunSurfaceNames = { SkiCatalog.Names.RunGroomed, "SkiRunSnowmakingA", "SkiRunNightA", SkiCatalog.Names.RunCatTrack };
 
         // The gun object prefabs that carry the plume entry (FanIdle, hydrants and SkiSnowGunLanceDown do not).
         private static readonly string[] GunNames =
@@ -132,7 +132,7 @@ namespace SkiResortMod.Systems
                 {
                     Mod.Log.Info("Plume: inert — " +
                                  (m_PlumeEffect == Entity.Null ? $"effect prefab '{PlumeEffectName}' not found (prefab JSON not deployed?)"
-                                  : m_RunPrefabs.Count == 0 ? "no snowmaking, night or cat track run prefab"
+                                  : m_RunPrefabs.Count == 0 ? "no groomed, snowmaking, night or cat track run prefab"
                                   : "no gun prefab carries the plume entry (prefab JSON not deployed?)") +
                                  $"; {m_GunPrefabs.Count} of {GunNames.Length} gun prefab(s) found");
                     return;

@@ -20,7 +20,7 @@ export const GROUP = "skiResort";
  * only when C#'s `contract` equals this; on a mismatch it shows the Build strip and the tree controls (CORE only) and
  * says why.
  */
-export const HUB_CONTRACT = 31;
+export const HUB_CONTRACT = 32;
 
 /** The `contract` value while the C# binding is absent (the fallback). Real contracts start at 1. */
 export const CONTRACT_ABSENT = 0;
@@ -231,6 +231,13 @@ export interface BusCardState {
   /** Straight line to the hill lodge, what the bill counts, 0 = unknown. The road route is not kept: a coach's own PathInformation reads 0 once it drives. */
   distanceM: number;
   state: BusCardStateName;
+}
+
+/** Contract 32: a run re-emitted under a new entity (Groomed toggled, DECISIONS 577). seq counts replacements this load; 0 = none. */
+export interface RunReplaced {
+  seq: number;
+  from: Entity;
+  to: Entity;
 }
 
 export interface GladeState {
@@ -923,6 +930,7 @@ export const BINDING = {
   catTrackDeleteMode: "catTrackDeleteMode",  // contract 19: the cat track tool is open and in Delete mode
   busCard: "busCard",  // contract 26: the Ski Bus card
   lodgeParking: "lodgeParking",  // contract 29: car spaces per road lodge
+  runReplaced: "runReplaced",  // contract 32: a re-emitted run's old and new entity
 } as const;
 
 /** Trigger names (UI -> C#). */
@@ -951,6 +959,7 @@ export const TRIGGER = {
   setCatTrackDeleteMode: "setCatTrackDeleteMode",  // contract 19: the Runs tab's Delete cat tracks chip
   setRunGunSpacing: "setRunGunSpacing",  // contract 28: the Runs view's prop rows
   setRunLightSpacing: "setRunLightSpacing",
+  setRunGroomed: "setRunGroomed",  // contract 32: the Groomed feature (a re-emit)
 } as const;
 
 /**
@@ -1019,6 +1028,7 @@ export const FALLBACK = {
   catTrackDeleteMode: false,
   busCard: { shown: false, area: "", guestsMonth: -1, billMonth: 0, distanceM: 0, state: "off" } as BusCardState,
   lodgeParking: EMPTY_LODGE_PARKING,
+  runReplaced: { seq: 0, from: NULL_ENTITY, to: NULL_ENTITY } as RunReplaced,
 } as const;
 
 // ---- value bindings -----------------------------------------------------------------------------
@@ -1061,6 +1071,8 @@ export const lifts$: ValueBinding<readonly LiftRow[]> = bindValue<readonly LiftR
 export const problems$: ValueBinding<readonly ProblemRow[]> = bindValue<readonly ProblemRow[]>(GROUP, BINDING.problems, FALLBACK.problems);
 /** The car spaces of every active road lodge. Panel only, and only the Guests view subscribes it (no Demand). */
 export const lodgeParking$: ValueBinding<readonly LodgeParkingRow[]> = bindValue<readonly LodgeParkingRow[]>(GROUP, BINDING.lodgeParking, FALLBACK.lodgeParking);
+/** Contract 32: the last re-emitted run (HubPanel moves the focus to the new entity). */
+export const runReplaced$: ValueBinding<RunReplaced> = bindValue<RunReplaced>(GROUP, BINDING.runReplaced, FALLBACK.runReplaced);
 /** City-wide settings and session facts. Panel only. */
 export const city$: ValueBinding<CityStats> = bindValue<CityStats>(GROUP, BINDING.city, FALLBACK.city);
 /** The piste map toggle as C# holds it. Panel only. */
@@ -1113,6 +1125,8 @@ export const hubTriggers = {
   /** A run's prop spacing in meters; C# clamps to Off or 20..200 and re-places after its settle. Look only. */
   setRunGunSpacing: (run: Entity, meters: number): void => fire(TRIGGER.setRunGunSpacing, wire(run), Math.round(meters)),
   setRunLightSpacing: (run: Entity, meters: number): void => fire(TRIGGER.setRunLightSpacing, wire(run), Math.round(meters)),
+  /** Contract 32: Groomed on or off; C# re-emits the run under a new entity (runReplaced). */
+  setRunGroomed: (run: Entity, groomed: boolean): void => fire(TRIGGER.setRunGroomed, wire(run), groomed),
   /** Tree density level, clamped 1..8 here and again in C#. */
   gladeSetLevel: (level: number): void => fire(TRIGGER.gladeSetLevel, clampGladeLevel(level)),
   /** false = run interior, true = tree line. */

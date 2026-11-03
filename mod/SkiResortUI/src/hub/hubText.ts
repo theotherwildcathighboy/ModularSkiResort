@@ -219,8 +219,8 @@ export const HUB_LOC = {
   runPropsOff: ["SkiResort.Hub.RUN_PROPS_OFF", "Off"],
   runPropsNone: ["SkiResort.Hub.RUN_PROPS_NONE", "No run selected"],
   runPropsGunsTip: ["SkiResort.Hub.RUN_PROPS_GUNS_TIP", "Distance between snow guns and hydrants on this run's edge. Only the look changes: snow and upkeep stay the same."],
-  /* a cat track: its guns at Off also stop its snowmaking bill (DECISIONS 563; SkiRunPropSystem.CatTrackGunsOn) */
-  runPropsGunsTipCatTrack: ["SkiResort.Hub.RUN_PROPS_GUNS_TIP[CatTrack]", "Distance between snow guns and hydrants on this cat track's edge. Off: no guns, no snowmaking cost."],
+  /* a cat track: its guns at Off also stop its snowmaking bill and its made snow (DECISIONS 563, 568; SkiRunPropSystem.CatTrackGunsOn) */
+  runPropsGunsTipCatTrack: ["SkiResort.Hub.RUN_PROPS_GUNS_TIP[CatTrack]", "Distance between snow guns and hydrants on this cat track's edge. Off: no guns and no snowmaking cost; snow already made stays until it melts."],
   runPropsLightsTip: ["SkiResort.Hub.RUN_PROPS_LIGHTS_TIP", "Distance between floodlight masts on this run's edge. Only the look changes: night skiing does not need them."],
   runPropsNoGuns: ["SkiResort.Hub.RUN_PROPS_NO_GUNS", "Groomed and natural runs carry no snow guns."],
   runPropsNoLights: ["SkiResort.Hub.RUN_PROPS_NO_LIGHTS", "Night runs and cat tracks carry floodlights."],
@@ -279,6 +279,8 @@ export const HUB_LOC = {
   guestsRowTickets: ["SkiResort.Hub.GUESTS_ROW[Tickets]", "Ticket money"],
   /* the car space rows under the folds (GuestsView LodgeParkingLines): SkiParkingRules.RadiusM, per lodge */
   guestsTipCarSpaces: ["SkiResort.Hub.GUESTS_TIP[CarSpaces]", "Street, lot and garage spaces within 300 m of this lodge. Tourist parties drive here."],
+  /* the CAR SPACES fold header: its value is the total over the rows, one per active road lodge */
+  guestsTipCarSpacesAll: ["SkiResort.Hub.GUESTS_TIP[CarSpacesAll]", "Street, lot and garage spaces within 300 m of each active road lodge. Tourist parties drive here."],
   guestsTipTourists: ["SkiResort.Hub.GUESTS_TIP[Tourists]", "People in tourist groups that arrived at this ski area's lodges or Welcome Sign."],
   guestsTipGroups: ["SkiResort.Hub.GUESTS_TIP[Groups]", "Tourists arrive in groups; each group counts once."],
   guestsTipResidents: ["SkiResort.Hub.GUESTS_TIP[Residents]", "Residents of your city who came to a lodge for leisure."],
@@ -347,7 +349,7 @@ export const HUB_LOC = {
   // lessons, the pre-season sale, the city-income estimate (hidden under Tourism Overhaul: EST_TO_NOTE / EST_TO_TIP)
   moneyTipLessons: ["SkiResort.Hub.MONEY_TIP[Lessons]", "Booked this month so far, one lesson per guest. Share and price: Options > Modular Ski Resort > Main > Ski area balance."],
   moneyTipPassesPre: ["SkiResort.Hub.MONEY_TIP[PassesPre]", "The one sale before the season opens. Part of the season's sales; in the net in the month it sold."],
-  moneyRowCityIncome: ["SkiResort.Hub.MONEY_ROW[CityIncome]", "City tourist income ≈"],
+  moneyRowCityIncome: ["SkiResort.Hub.MONEY_ROW[CityIncome]", "City tourist income"],
   moneyTipCityIncome: ["SkiResort.Hub.MONEY_TIP[CityIncome]", "Estimate: this ski area's share of the city's tourist draw × the game's tourist income. City income, outside the net."],
   guestsRowLessons: ["SkiResort.Hub.GUESTS_ROW[Lessons]", "Lessons"],
   guestsTipLessons: ["SkiResort.Hub.GUESTS_TIP[Lessons]", "Guests who took a lesson, one each."],
@@ -557,9 +559,9 @@ export const HUB_FMT = {
   tileTipStaffing: ["SkiResort.Hub.TILE_TIP_STAFFING", "× efficiency {PCT}"],
   tileTipPartly: ["SkiResort.Hub.TILE_TIP_PARTLY", "Patchy: {N}"],
   tileTipUnfinished: ["SkiResort.Hub.TILE_TIP_UNFINISHED", "Not complete yet: {N}"],
-  tileTipLast: ["SkiResort.Hub.TILE_TIP_LAST", "Month of {MONTH}: {N}"],
+  tileTipLast: ["SkiResort.Hub.TILE_TIP_LAST", "{MONTH}: {N}"],
   // {MONTH} = the month's name (monthName(city.month))
-  tileTipGuests: ["SkiResort.Hub.TILE_TIP[Guests]", "Month of {MONTH}: tourists who arrived at the lodges or the Welcome Sign, and residents who visited a lodge."],
+  tileTipGuests: ["SkiResort.Hub.TILE_TIP[Guests]", "{MONTH}: tourists who arrived at the lodges or the Welcome Sign, and residents who visited a lodge."],
   scoreBarTip: ["SkiResort.Hub.SCORE_BAR_TIP", "{NOW} now, {FULL} at full efficiency, out of 200."],
   receiptTipLodges: ["SkiResort.Hub.RECEIPT_TIP_LODGES", "Lodges counted: {N}"],
   receiptTipTerrain: ["SkiResort.Hub.RECEIPT_TIP[Terrain]", "{K} is the Attractiveness scale in Options. Adding a run never lowers the total."],
@@ -603,7 +605,7 @@ export const HUB_FMT = {
   // an unpowered lift counts none
   liftCapacityTip: ["SkiResort.Hub.LIFT_CAPACITY_TIP", "{SEATS} seats per chair or cabin at {SPEED} m/s; a tram counts its stops. None without power or an open run. Riders are not simulated."],
   capacityValue: ["SkiResort.Hub.CAPACITY_VALUE", "{CAP} skiers/h"],
-  // "Month of {MONTH}" is the one way the hub names a month; {MONTH} = monthName(city.month), last month's = city.month - 1.
+  // The Guests view names a month bare, "{MONTH}" (bars, column heads and their tooltips); {MONTH} = monthName(city.month), last month's = city.month - 1.
   guestsMonthThis: ["SkiResort.Hub.GUESTS_MONTH[This]", "{MONTH}"],
   /* one row per active road lodge of the area, {NAME} = its LODGE_TIER word */
   guestsRowCarSpaces: ["SkiResort.Hub.GUESTS_ROW_FMT[CarSpaces]", "{NAME}"],
@@ -612,7 +614,7 @@ export const HUB_FMT = {
   guestsMonthLast: ["SkiResort.Hub.GUESTS_MONTH[Last]", "{MONTH}"],
   /* bar 2's label while last month was counted only since the load (hubRules.lastMonthMark) */
   guestsMonthLastPartial: ["SkiResort.Hub.GUESTS_MONTH[LastPartial]", "{MONTH} (partial)"],
-  guestsTipPaid: ["SkiResort.Hub.GUESTS_TIP[Paid]", "Month of {MONTH}: {GUESTS} guests, {PAID} paid, {HOLDERS} on a pass, {UNPAID} could not pay, {FREE} free while tickets were off or closed."],
+  guestsTipPaid: ["SkiResort.Hub.GUESTS_TIP[Paid]", "{MONTH}: {GUESTS} guests, {PAID} paid, {HOLDERS} on a pass, {UNPAID} could not pay, {FREE} free while tickets were off or closed."],
   ticketsNoteOpen: ["SkiResort.Hub.TICKETS_NOTE[Open]", "Each guest without a season pass pays {PRICE} on arrival. Set the price in Options."],
   /* both guest bars' tooltip, {MAX} = hubRules.guestBarScale */
   guestsBarScale: ["SkiResort.Hub.GUESTS_BAR_SCALE", "Full bar: {MAX} guests"],
@@ -621,14 +623,14 @@ export const HUB_FMT = {
   skiDaysRoomLodges: ["SkiResort.Hub.SKI_DAYS[RoomLodges]", "Room for {N}, lodges limit it"],
   skiDaysRoom: ["SkiResort.Hub.SKI_DAYS[Room]", "Room for {N}"],
   /* The Ski days row's tooltip: the three classes partition {SENT} ("close by" = the walk class). */
-  skiDaysTipSent: ["SkiResort.Hub.SKI_DAYS_TIP[Sent]", "Month of {MONTH}: {SENT} sent, {ARRIVED} reached a lodge"],
+  skiDaysTipSent: ["SkiResort.Hub.SKI_DAYS_TIP[Sent]", "{MONTH}: {SENT} sent, {ARRIVED} reached a lodge"],
   /* the split of the sent skiers ("close by" = the walk class, sent - car - no car) */
   skiDaysTipSplit: ["SkiResort.Hub.SKI_DAYS_TIP[Split]", "Close by {WALK} · by car {CAR} · far, no car {FAR}"],
   skiDaysTipNow: ["SkiResort.Hub.SKI_DAYS_TIP[Now]", "On the hill or on the way now: {NOW} of {CAP}"],
   /* {NAME} = CityStats.tripPlanner, the known mod's name (hubRules.tripPlannerNote "known" / "knownOff") */
   tripPlannerNote: ["SkiResort.Hub.TRIP_PLANNER_NOTE[Known]", "Detected: {NAME}. It replaces the game's trip planner, so trip times can differ."],
   tripPlannerNoteOff: ["SkiResort.Hub.TRIP_PLANNER_NOTE[KnownOff]", "Ski days off: {NAME} replaced the game's leisure systems."],
-  moneyTicketsLast: ["SkiResort.Hub.MONEY_TICKETS[Last]", "Lift tickets, Month of {MONTH}: {N} paid"],
+  moneyTicketsLast: ["SkiResort.Hub.MONEY_TICKETS[Last]", "Lift tickets, {MONTH}: {N} paid"],
   moneyColMonth: ["SkiResort.Hub.MONEY_COL_MONTH", "{MONTH} so far"],
   moneyColMonthPartial: ["SkiResort.Hub.MONEY_COL_MONTH_PARTIAL", "{MONTH} so far, partial"],
   moneyTipPassesMonth: ["SkiResort.Hub.MONEY_TIP[PassesMonth]", "Sold this month so far, in the net now. Of it, the pre-season sale: {PRE}."],
@@ -671,12 +673,12 @@ export const HUB_FMT = {
   buildMonthLift: ["SkiResort.Hub.BUILD_MONTH_LIFT", "{BASE} per complete lift + {PERKM} per km of line"],
   follow: ["SkiResort.Hub.FOLLOW", "Now showing {NAME}."],
   // {MONTH} = monthName, {YEAR} = the game year as plain digits, {FROM}/{TO} = a season's years
-  historyMonthYear: ["SkiResort.Hub.HISTORY_MONTH", "Month of {MONTH} {YEAR}"],
+  historyMonthYear: ["SkiResort.Hub.HISTORY_MONTH", "{MONTH} {YEAR}"],
   historySeason: ["SkiResort.Hub.HISTORY_SEASON", "Ski season {FROM}/{TO}"],
   historySeasonYear: ["SkiResort.Hub.HISTORY_SEASON_YEAR", "Ski season {YEAR}"],
   historyHeadGuests: ["SkiResort.Hub.HISTORY_HEAD[Guests]", "Guests, {MONTH}"],
   historyHeadNet: ["SkiResort.Hub.HISTORY_HEAD[Net]", "Net, {MONTH}"],
-  historyTipBefore: ["SkiResort.Hub.HISTORY_TIP[Before]", "Month of {MONTH} {YEAR}: {N}"],
+  historyTipBefore: ["SkiResort.Hub.HISTORY_TIP[Before]", "{MONTH} {YEAR}: {N}"],
   historySeasonMonths: ["SkiResort.Hub.HISTORY_SEASON_MONTHS", "{N} of 12 months · the average month"],
   historyVs: ["SkiResort.Hub.HISTORY_VS", "vs {MONTH} {YEAR}"],
   // the Quick runs tool (QuickRunsControls.tsx); the MIX / CLUSTER / POD templates are also the tool tooltip's

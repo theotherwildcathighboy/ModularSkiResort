@@ -74,6 +74,8 @@ namespace SaveBatch
             "SkiRunPropSettings v1 13 m_GunSpacingM:i32 m_LightSpacingM:i32 m_AppliedKey:i32",
             // The lodge number per ski area and tier (before 1.0). Ships in 1.0.0, so it is listed as shipped.
             "SkiLodgeNumber v1 9 m_Sign:entity m_Number:i32",
+            // A cat track's made snow (before 1.0). Ships in 1.0.0, so it is listed as shipped.
+            "SkiTrackSnow v1 5 m_MadePermille:i32",
         };
 
         public static void Run(Func<bool, string, string, bool> check)

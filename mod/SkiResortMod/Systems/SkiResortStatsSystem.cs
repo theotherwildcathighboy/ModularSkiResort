@@ -1360,7 +1360,7 @@ namespace SkiResortMod.Systems
                     ref AreaWork work = ref m_Work[resort];
                     snow = m_Injection.GetRunSnow(row.Entity, (RunKind)row.Kind, row.NodeBottomM, row.NodeTopM);
                     work.Snow.Add(row.AreaM2, snow.Share, snow.MeanDepthM, snow.Source == RunSnowSource.Estimated);
-                    if (row.Kind == (int)RunKind.Natural)
+                    if (!row.Features.Groomed)
                     {
                         // Natural runs bill nothing: their plan area is reported apart.
                         if (IsFinite(row.AreaM2) && row.AreaM2 > 0f)
@@ -1370,13 +1370,13 @@ namespace SkiResortMod.Systems
                     {
                         // The billed hectares, capped at the run's plan area: the same number SkiRunUpkeepSystem charges.
                         ha = SkiRunUpkeepSystem.BilledHa(texels, texelHa, row.AreaM2);
-                        cost = ha * SkiRunUpkeepSystem.CostPerHaMonth((RunKind)row.Kind);
+                        cost = ha * SkiRunUpkeepRates.PerHaMonth(row.Features);   // a lit run without guns: its lights step too
                         // > 0 active texels on a gun run = its guns are gated on now (the injection's per-run map, refilled every mask pass).
                         // Attribution is first-claim in chunk order, so a gun run fully under an earlier-scheduled run, or narrower than the texel grid,
                         // can read 0 while making snow.
-                        if (row.Kind == (int)RunKind.Snowmaking || row.Kind == (int)RunKind.Night)
+                        if (row.Features.Snowmaking)
                             work.AnyGunOn = true;
-                        switch (row.Kind)
+                        switch ((int)row.Features.SnowKind)   // the injection's class: a lit run without guns books as groomed
                         {
                             case (int)RunKind.Snowmaking:
                                 work.HaSnowmaking += ha;
@@ -1394,7 +1394,7 @@ namespace SkiResortMod.Systems
                     }
                     if (IsFinite(row.TopM) && row.TopM > work.TopM)
                         work.TopM = row.TopM;
-                    if (row.Kind == (int)RunKind.Snowmaking || row.Kind == (int)RunKind.Night)
+                    if (row.Features.Snowmaking)
                         work.AnyGunRun = true;
                 }
 
@@ -1402,16 +1402,18 @@ namespace SkiResortMod.Systems
                 // area); members are always bound.
                 SkiResortScore.RunPart part = default;
                 bool member = false, served = false;
+                double openNow = 0.0;   // the open factor from this read's snow (HubRules.LiveOpenFactor), not the score's last pass
                 if (bound && m_Attractiveness.TryGetRunScore(row.Entity, out SkiResortAttractivenessSystem.RunScoreView view) &&
                     view.Sign == row.Gate)
                 {
                     member = true;
                     part = view.Part;
                     served = view.Input.Served;
+                    openNow = HubRules.LiveOpenFactor(snow.Multiplier);
                     ref AreaWork work = ref m_Work[resort];
-                    if (part.OpenFactor >= 1.0)
+                    if (openNow >= 1.0)
                         work.RunsOpen++;
-                    else if (part.OpenFactor > 0.0)
+                    else if (openNow > 0.0)
                         work.RunsPartly++;
                     work.RunsValueFull += HubRules.RunValueFull(in part);
                 }
@@ -1461,17 +1463,18 @@ namespace SkiResortMod.Systems
                 m_RunLiveNext.Add(new RunLiveStats
                 {
                     Entity = row.Entity,
-                    OpenState = (int)HubRules.OpenStateOf(member ? part.OpenFactor : 0.0, member),
-                    OpenFactor = member ? (float)part.OpenFactor : 0f,
+                    OpenState = (int)HubRules.OpenStateOf(openNow, member),
+                    OpenFactor = (float)openNow,
                     SnowPct = bound ? HubRules.Percent(snow.Share) : -1,
                     SnowEstimated = bound && snow.Source == RunSnowSource.Estimated,
                     ValueNow = member ? (float)part.Value : 0f,
                     CostMonth = (int)Math.Round(cost, MidpointRounding.AwayFromZero),
                     SnowDepthCm = bound && snow.Source == RunSnowSource.Measured ? HubRules.DepthCm(snow.MeanDepthM) : -1,
                     GunWhy = catTrack   // a track set to Off is not a gun run: no gun line
-                        ? (int)HubRules.GunWhyOf(bound && trackGunsOn, m_SnowLine.IsSnowGatingEnabled(), m_Injection.GunSeasonNow, true, true,
+                        ? (int)HubRules.GunWhyOf(bound && trackGunsOn, m_SnowLine.IsSnowGatingEnabled(), m_Injection.GunSeasonNow,
+                                                 m_Injection.GunSeasonKnown, true,
                                                  bound && m_Injection.CatTrackGunsCanRun(row.Entity, row.NodeBottomM, row.NodeTopM))
-                        : (int)GunWhyOf(row.Entity, bound && (row.Kind == (int)RunKind.Snowmaking || row.Kind == (int)RunKind.Night)),
+                        : (int)GunWhyOf(row.Entity, bound && row.Features.Snowmaking),
                 });
                 m_RunTops.Add(row.NodeTopPos);
                 m_RunOutlines.Add(row.OutlineXZ); // the catalog row's arrays, by reference (the link graph keeps while they are unchanged)
@@ -1488,7 +1491,7 @@ namespace SkiResortMod.Systems
             bool known = m_Injection.TryGetRunGunState(run, out SnowGunPlumeRules.GunState state, out float _) &&
                          state != SnowGunPlumeRules.GunState.Unknown;
             m_Injection.TryGetRunGunsRunning(run, out bool runningNow);
-            return HubRules.GunWhyOf(true, m_SnowLine.IsSnowGatingEnabled(), m_Injection.GunSeasonNow, known,
+            return HubRules.GunWhyOf(true, m_SnowLine.IsSnowGatingEnabled(), m_Injection.GunSeasonNow, known && m_Injection.GunSeasonKnown,
                                      state == SnowGunPlumeRules.GunState.Running, runningNow);
         }
 
