@@ -1,5 +1,5 @@
 // Lift alignment (docs: lift-alignment-2026-11-02, gates G1 / G2): LiftMoverMath.CarrierDrop and LiftAlignMath. Where-tags `align/...`,
-// AL-1..AL-9.
+// AL-1..AL-10.
 // Pinned: every carrier drops by its grip top minus the jaw's rope point (F5, the rope-point pin); the plan bend is the turn angle;
 // a train on a uniform slope pitches to exactly that slope, at a bend or a sag break it takes the bisector of the arriving and leaving
 // rope, clamped; the pitch sign follows the node's facing, so the train is nose up toward the higher neighbor either way; re-running
@@ -29,6 +29,7 @@ namespace LiftBatch
             Al7Idempotent();
             Al8Station();
             Al9LaneEnds();
+            Al10Halves();
         }
 
         private static bool Check(bool cond, string where, string msg) => s_Check(cond, where, msg);
@@ -179,6 +180,56 @@ namespace LiftBatch
             float3 nose = math.mul(LiftAlignMath.TrainBoneRotation(quaternion.identity, math.radians(30f)), new float3(0f, 0f, 1f));
             Check(math.abs(nose.y - 0.5f) < 1e-5f && nose.z > 0f, "align/AL-9", "bone at +30 deg points " + nose + ", not nose up");
             Check(math.abs(math.degrees(LiftAlignMath.MaxTrainPitch(0.8f)) - 38.66f) < 0.01f, "align/AL-9", "FG limit is not atan 0.8");
+        }
+
+        // ── AL-10: articulated halves (option C): each half follows its own span's rope, either facing; break and slope clamps ──
+        private static void Al10Halves()
+        {
+            float h = 0.004f;
+            float3 p = new float3(0f, 0f, -200f), q = new float3(0f, 200f * math.tan(math.radians(30f)), 0f);
+            float3 r = new float3(0f, q.y + 200f * math.tan(math.radians(10f)), 200f);   // a 20 deg crest on a climb
+            float wantFront = math.atan(LiftAlignMath.LeaveSlope(q, r, h)), wantBack = math.atan(LiftAlignMath.ArriveSlope(p, q, h));
+            foreach (float yawDeg in new[] { 0f, 180f })
+            {
+                float3 fwd = math.mul(quaternion.RotateY(math.radians(yawDeg)), new float3(0f, 0f, 1f));
+                float sumF = 0f, sumB = 0f;
+                int nF = 0, nB = 0;
+                foreach (float x in new[] { -2f, 2f })
+                {
+                    float3 o = new float3(x, 0f, 0f);
+                    float3 c = math.lerp(p, q, 2f / 3f) - new float3(0f, 200f * h * 4f / 3f, 0f);
+                    float3 b = math.lerp(q, r, 1f / 3f) - new float3(0f, 200f * h * 4f / 3f, 0f);
+                    foreach (float3 inner in new[] { c, b })
+                    {
+                        float pitch = LiftAlignMath.LaneEndPitch(q + o, inner + o, fwd);
+                        if (LiftAlignMath.LaneEndSide(q + o, inner + o, fwd) > 0) { sumF += pitch; nF++; }
+                        else { sumB += pitch; nB++; }
+                    }
+                }
+                Check(nF == 2 && nB == 2, "align/AL-10 yaw " + yawDeg, "sides " + nF + " / " + nB + ", not 2 / 2");
+                bool clamped = LiftAlignMath.HalfPitches(sumF / nF, nF, sumB / nB, nB, 1.4f, out float f, out float k);
+                // facing 180: the tower's +z points at p, so its front half carries the p span, nose up along its own +z (sign flips)
+                float ef = yawDeg == 0f ? wantFront : -wantBack, eb = yawDeg == 0f ? wantBack : -wantFront;
+                Check(!clamped && math.abs(f - ef) < 1e-4f && math.abs(k - eb) < 1e-4f, "align/AL-10 yaw " + yawDeg,
+                      "front " + F(math.degrees(f)) + " / back " + F(math.degrees(k)) + ", expected " + F(math.degrees(ef)) + " / " +
+                      F(math.degrees(eb)));
+            }
+            float d = math.radians(1f), max = LiftAlignMath.MaxTrainPitch(0.8f);
+            // a crest of 30 deg stays; one of 50 deg clamps to +-20 about its mean
+            Check(!LiftAlignMath.HalfPitches(-15f * d, 2, 15f * d, 2, max, out float f1, out float b1) &&
+                  math.abs(f1 + 15f * d) < 1e-6f && math.abs(b1 - 15f * d) < 1e-6f, "align/AL-10", "30 deg crest moved");
+            Check(LiftAlignMath.HalfPitches(-20f * d, 2, 30f * d, 2, max, out float f2, out float b2) &&
+                  math.abs(f2 + 15f * d) < 1e-5f && math.abs(b2 - 25f * d) < 1e-5f, "align/AL-10",
+                  "50 deg crest gives " + F(math.degrees(f2)) + " / " + F(math.degrees(b2)) + ", not -15 / 25");
+            // a missing side takes the other's pitch; no rope at all is level and false
+            Check(!LiftAlignMath.HalfPitches(12f * d, 2, 0f, 0, max, out float f3, out float b3) && f3 == b3 && math.abs(f3 - 12f * d) < 1e-6f,
+                  "align/AL-10", "one-sided tower is not straight");
+            Check(!LiftAlignMath.HalfPitches(5f, 0, 5f, 0, max, out float f4, out float b4) && f4 == 0f && b4 == 0f, "align/AL-10", "no rope");
+            // the slope clamp holds after the break clamp: both halves within +-max, half-break within the limit
+            LiftAlignMath.HalfPitches(30f * d, 2, 80f * d, 2, max, out float f5, out float b5);
+            Check(math.abs(f5) <= max + 1e-6f && math.abs(b5) <= max + 1e-6f && (b5 - f5) * 0.5f <= LiftAlignMath.MaxHalfBreakDeg * d + 1e-6f,
+                  "align/AL-10", "steep clamp gives " + F(math.degrees(f5)) + " / " + F(math.degrees(b5)));
+            Check(LiftAlignMath.MaxHalfBreakDeg == 20f, "align/AL-10", "half-break limit moved from the art's G6 sweep (20 deg)");
         }
     }
 }

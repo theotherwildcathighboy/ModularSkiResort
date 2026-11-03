@@ -83,15 +83,56 @@ namespace SkiResortMod.Systems
             return side * math.atan2(t.y, l);
         }
 
-        /// <summary>The steepest rope a lift type allows, radians: atan of its envelope's SlopeMax (FG 38.7, DQ 42.0, GD 50.2 deg), the
-        /// trains' pitch limit and the G6 sweep of the tower art.</summary>
+        /// <summary>Which half of a tower's train one rope lane end feeds: +1 when the lane leaves its anchor <paramref name="end"/> toward
+        /// the tower's +z (<paramref name="forward"/>; the TrainFront bones), -1 toward -z (TrainBack). The same side test as LaneEndPitch.</summary>
+        public static int LaneEndSide(float3 end, float3 inner, float3 forward)
+        {
+            return math.dot((inner - end).xz, forward.xz) >= 0f ? 1 : -1;
+        }
+
+        /// <summary>The largest half-break, degrees, the articulated trains take: half the angle between the front and back halves (the
+        /// rope's break at the tower over 2). The tower art clears it at any pitch (G6 joint sweep: inner wheels 0.06 m further out).</summary>
+        public const float MaxHalfBreakDeg = 20f;
+
+        /// <summary>The two half-train pitches of an articulated tower (owner verdict 2026-11-02, option C: halves hinged on the main pin,
+        /// the rope corners there): <paramref name="front"/> / <paramref name="back"/> are the mean lane-end pitches (LaneEndPitch, nose up
+        /// along +z) of the ropes leaving toward +z / -z, <paramref name="nFront"/> / <paramref name="nBack"/> how many. A side without a
+        /// rope takes the other's pitch (a straight train). Each half clamps to ±<paramref name="maxPitch"/>, the half-break to
+        /// MaxHalfBreakDeg about their mean, then each half again (so both limits hold). True when the half-break was clamped; false and
+        /// zeros when neither side has a rope.</summary>
+        public static bool HalfPitches(float front, int nFront, float back, int nBack, float maxPitch, out float pFront, out float pBack)
+        {
+            pFront = pBack = 0f;
+            if (nFront == 0 && nBack == 0)
+                return false;
+            if (nFront == 0)
+                front = back;
+            else if (nBack == 0)
+                back = front;
+            front = math.clamp(front, -maxPitch, maxPitch);
+            back = math.clamp(back, -maxPitch, maxPitch);
+            float mid = 0.5f * (front + back), half = 0.5f * (back - front), limit = math.radians(MaxHalfBreakDeg);
+            bool clamped = math.abs(half) > limit;
+            if (clamped)
+            {
+                half = math.sign(half) * limit;
+                front = mid - half;
+                back = mid + half;
+            }
+            pFront = math.clamp(front, -maxPitch, maxPitch);
+            pBack = math.clamp(back, -maxPitch, maxPitch);
+            return clamped;
+        }
+
+        /// <summary>The steepest rope a lift type allows, radians: atan of its envelope's SlopeMax (FG 38.7, DQ 42.0, GD 50.2, tram 68.2
+        /// deg), the trains' pitch limit and the G6 sweep of the tower art.</summary>
         public static float MaxTrainPitch(float slopeMax)
         {
             return math.atan(slopeMax);
         }
 
-        /// <summary>The Train bone's local rotation for a pitch nose up along the tower's +z: its rest rotation turned about the bone's own
-        /// x (nose up along +z is RotateX(-a), see PitchedRotation). The bone's origin is on the rope axis, so the rope points stay.</summary>
+        /// <summary>A train bone's local rotation for a pitch nose up along the tower's +z: its rest rotation turned about the bone's own
+        /// x (nose up along +z is RotateX(-a), see PitchedRotation). The bone's origin is its rope's anchor, so the rope points stay.</summary>
         public static quaternion TrainBoneRotation(quaternion rest, float pitch)
         {
             return math.mul(rest, quaternion.RotateX(-pitch));

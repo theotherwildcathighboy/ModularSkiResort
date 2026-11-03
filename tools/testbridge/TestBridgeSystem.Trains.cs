@@ -1,10 +1,13 @@
-// Gate G8 for the pitched sheave trains (lift alignment Phase 2, docs lift-alignment-2026-11-02): per line tower whose mesh has a bone
-// named "Train", the pitch the bone shows (rotation relative to its rest, about x; nose up along the tower's +z) against an independent
-// expectation: the analytic hanging-lane end slopes (chord -/+ 4h, LaneSystem.cs:4128-4138) of every rope lane ending on the tower's
-// anchors, averaged, clamped to the lift type's limit when given. Written apart from the mod's TrainPitchSystem (which reads the lane
-// control points), so a sign or side error in either shows. Dev bridge only, never in the product.
-// Op: trains {x, z, r (default 400), maxDeg (optional clamp)} -> rows {id, prefab, pos, expectDeg, boneDeg | null, diffDeg, ends}.
+// Gate G8 for the pitched sheave trains (lift alignment Phase 2, docs lift-alignment-2026-11-02; articulated halves, owner verdict
+// 2026-11-02 option C): per line tower whose mesh has bones named "TrainFront*" / "TrainBack*", the pitch each bone shows (rotation
+// relative to its rest, about x; nose up along the tower's +z) against an independent expectation: the analytic hanging-lane end slopes
+// (chord -/+ 4h, LaneSystem.cs:4128-4138) of the rope lanes ending on the tower's anchors, averaged per side (lanes leaving toward +z feed
+// the front half, toward -z the back; one side missing takes the other's), each clamped to maxDeg, the half-break to halfBreakDeg. Written
+// apart from the mod's TrainPitchSystem (which reads the lane control points), so a sign or side error in either shows. Dev bridge only.
+// Op: trains {x, z, r (default 400), maxDeg (optional clamp), halfBreakDeg (default 20)} -> rows {id, prefab, pos, frontDeg, backDeg,
+// ends {front, back}, bones [{name, expectDeg, boneDeg | null, diffDeg | null}]}.
 
+using System.Collections.Generic;
 using Colossal.Mathematics;
 using Game.Common;
 using Game.Net;
@@ -21,16 +24,26 @@ namespace SkiTestBridge
 {
     public partial class TestBridgeSystem
     {
+        private struct TrainBoneRef
+        {
+            public string Name;
+            public bool Front;
+            public int Mesh, Bone;
+            public quaternion Rest;
+        }
+
         private JObject TrainsCommand(JObject args)
         {
             float2 at = new float2((float?)args["x"] ?? 0f, (float?)args["z"] ?? 0f);
             float r = (float?)args["r"] ?? 400f;
-            float maxDeg = (float?)args["maxDeg"] ?? 90f;
+            float max = math.radians((float?)args["maxDeg"] ?? 90f);
+            float halfBreak = math.radians((float?)args["halfBreakDeg"] ?? 20f);
             EntityQuery q = GetEntityQuery(ComponentType.ReadOnly<Game.Rendering.Skeleton>(), ComponentType.ReadOnly<Owner>(),
                                            ComponentType.ReadOnly<Transform>(), ComponentType.ReadOnly<PrefabRef>());
             NativeArray<Entity> all = q.ToEntityArray(Allocator.Temp);
             var rows = new JArray();
-            int withBone = 0, allocated = 0;
+            var rig = new List<TrainBoneRef>();
+            int withBones = 0, allocated = 0, bonesChecked = 0;
             float worst = 0f;
             try
             {
@@ -42,40 +55,63 @@ namespace SkiTestBridge
                         continue;
                     Entity node = EntityManager.GetComponentData<Owner>(e).m_Owner;
                     Entity prefab = EntityManager.GetComponentData<PrefabRef>(e).m_Prefab;
-                    if (!EntityManager.HasComponent<Node>(node) || !TrainBone(prefab, out int mesh, out int bone, out quaternion rest))
+                    rig.Clear();
+                    if (!EntityManager.HasComponent<Node>(node) || !TrainBones(prefab, rig))
                         continue;
-                    withBone++;
-                    float expect = ExpectedPitch(e, node, prefab, t, out int ends);
-                    expect = math.clamp(expect, -math.radians(maxDeg), math.radians(maxDeg));
-                    JToken boneDeg = JValue.CreateNull();
-                    JToken diff = JValue.CreateNull();
-                    if (EntityManager.TryGetBuffer(e, true, out DynamicBuffer<Game.Rendering.Skeleton> skel) && mesh < skel.Length &&
-                        !skel[mesh].m_BufferAllocation.Empty)
+                    withBones++;
+                    ExpectedPitches(node, prefab, t, out float sumF, out int nF, out float sumB, out int nB);
+                    float front = nF > 0 ? sumF / nF : nB > 0 ? sumB / nB : 0f;
+                    float back = nB > 0 ? sumB / nB : front;
+                    front = math.clamp(front, -max, max);
+                    back = math.clamp(back, -max, max);
+                    float mid = 0.5f * (front + back), half = 0.5f * (back - front);
+                    if (math.abs(half) > halfBreak)
                     {
-                        allocated++;
-                        Game.Rendering.Bone b = EntityManager.GetBuffer<Game.Rendering.Bone>(e, true)[skel[mesh].m_BoneOffset + bone];
-                        quaternion rel = math.mul(math.inverse(rest), b.m_Rotation);
-                        float pitch = -2f * math.atan2(rel.value.x, rel.value.w);   // RotateX(-a) = (sin(-a/2), 0, 0, cos(a/2))
-                        boneDeg = math.degrees(pitch);
-                        float d = math.abs(math.degrees(pitch - expect));
-                        diff = d;
-                        worst = math.max(worst, d);
+                        front = mid - math.sign(half) * halfBreak;
+                        back = mid + math.sign(half) * halfBreak;
                     }
+                    front = math.clamp(front, -max, max);
+                    back = math.clamp(back, -max, max);
+                    bool skelOk = EntityManager.TryGetBuffer(e, true, out DynamicBuffer<Game.Rendering.Skeleton> skel);
+                    bool any = false;
+                    var boneRows = new JArray();
+                    foreach (TrainBoneRef rb in rig)
+                    {
+                        float expect = rb.Front ? front : back;
+                        JToken boneDeg = JValue.CreateNull(), diff = JValue.CreateNull();
+                        if (skelOk && rb.Mesh < skel.Length && !skel[rb.Mesh].m_BufferAllocation.Empty)
+                        {
+                            any = true;
+                            bonesChecked++;
+                            Game.Rendering.Bone b = EntityManager.GetBuffer<Game.Rendering.Bone>(e, true)[skel[rb.Mesh].m_BoneOffset + rb.Bone];
+                            quaternion rel = math.mul(math.inverse(rb.Rest), b.m_Rotation);
+                            float pitch = -2f * math.atan2(rel.value.x, rel.value.w);   // RotateX(-a) = (sin(-a/2), 0, 0, cos(a/2))
+                            boneDeg = math.degrees(pitch);
+                            float d = math.abs(math.degrees(pitch - expect));
+                            diff = d;
+                            worst = math.max(worst, d);
+                        }
+                        boneRows.Add(new JObject { ["name"] = rb.Name, ["expectDeg"] = math.degrees(expect), ["boneDeg"] = boneDeg, ["diffDeg"] = diff });
+                    }
+                    if (any)
+                        allocated++;
                     rows.Add(new JObject { ["id"] = U1Probe.E(e), ["prefab"] = m_Prefabs.GetPrefabName(prefab), ["pos"] = U1Probe.V(t.m_Position),
-                        ["expectDeg"] = math.degrees(expect), ["boneDeg"] = boneDeg, ["diffDeg"] = diff, ["ends"] = ends });
+                        ["frontDeg"] = math.degrees(front), ["backDeg"] = math.degrees(back),
+                        ["ends"] = new JObject { ["front"] = nF, ["back"] = nB }, ["bones"] = boneRows });
                 }
             }
             finally
             {
                 all.Dispose();
             }
-            return new JObject { ["ok"] = true, ["towers"] = withBone, ["allocated"] = allocated, ["worstDiffDeg"] = worst, ["rows"] = rows };
+            return new JObject { ["ok"] = true, ["towers"] = withBones, ["allocated"] = allocated, ["bonesChecked"] = bonesChecked,
+                ["worstDiffDeg"] = worst, ["rows"] = rows };
         }
 
-        private bool TrainBone(Entity prefab, out int mesh, out int bone, out quaternion rest)
+        /// <summary>Every TrainFront* / TrainBack* bone of the prefab's meshes, through ProceduralBone.m_BindIndex (the buffer is sorted by
+        /// depth, MeshSystem.cs:162-164, :237).</summary>
+        private bool TrainBones(Entity prefab, List<TrainBoneRef> rig)
         {
-            mesh = bone = -1;
-            rest = quaternion.identity;
             if (!EntityManager.TryGetBuffer(prefab, true, out DynamicBuffer<SubMesh> meshes))
                 return false;
             for (int j = 0; j < meshes.Length; j++)
@@ -87,27 +123,32 @@ namespace SkiTestBridge
                 if (props == null || props.m_Bones == null)
                     continue;
                 for (int k = 0; k < props.m_Bones.Length; k++)
-                    if (props.m_Bones[k].name == "Train")
-                        for (int b = 0; b < pb.Length; b++)
-                            if (pb[b].m_BindIndex == k)    // the buffer is sorted by depth (MeshSystem.cs:162-164, :237)
-                            {
-                                mesh = j;
-                                bone = b;
-                                rest = pb[b].m_Rotation;
-                                return true;
-                            }
+                {
+                    string name = props.m_Bones[k].name ?? string.Empty;
+                    bool front = name.StartsWith("TrainFront", System.StringComparison.Ordinal);
+                    if (!front && !name.StartsWith("TrainBack", System.StringComparison.Ordinal))
+                        continue;
+                    for (int b = 0; b < pb.Length; b++)
+                        if (pb[b].m_BindIndex == k)
+                        {
+                            rig.Add(new TrainBoneRef { Name = name, Front = front, Mesh = j, Bone = b, Rest = pb[b].m_Rotation });
+                            break;
+                        }
+                }
             }
-            return false;
+            return rig.Count > 0;
         }
 
-        /// <summary>Mean, over the HV lanes ending on the tower's anchors, of the analytic end slope angle along the tower's +z.</summary>
-        private float ExpectedPitch(Entity tower, Entity node, Entity prefab, Transform t, out int ends)
+        /// <summary>Per side, over the HV lanes ending on the tower's anchors, the sum and count of the analytic end slope angles, nose up
+        /// along the tower's +z: front = lanes leaving the anchor toward +z, back = toward -z.</summary>
+        private void ExpectedPitches(Entity node, Entity prefab, Transform t, out float sumF, out int nF, out float sumB, out int nB)
         {
-            ends = 0;
+            sumF = sumB = 0f;
+            nF = nB = 0;
             if (!EntityManager.TryGetBuffer(prefab, true, out DynamicBuffer<Game.Prefabs.SubLane> anchors) ||
                 !EntityManager.TryGetBuffer(node, true, out DynamicBuffer<ConnectedEdge> edges))
-                return 0f;
-            var pts = new System.Collections.Generic.List<float3>();
+                return;
+            var pts = new List<float3>();
             for (int i = 0; i < anchors.Length; i++)
             {
                 Bezier4x3 w = ObjectUtils.LocalToWorld(t.m_Position, t.m_Rotation, anchors[i].m_Curve);
@@ -115,7 +156,6 @@ namespace SkiTestBridge
                 pts.Add(w.d);
             }
             float3 fwd = math.mul(t.m_Rotation, new float3(0f, 0f, 1f));
-            float sum = 0f;
             for (int i = 0; i < edges.Length; i++)
             {
                 if (!EntityManager.TryGetBuffer(edges[i].m_Edge, true, out DynamicBuffer<SubLane> lanes))
@@ -130,27 +170,30 @@ namespace SkiTestBridge
                     float len = math.distance(a.xz, d.xz);
                     if (len < 1e-3f)
                         continue;
-                    bool atA = Near(pts, a), atD = Near(pts, d);
-                    if (atA)
-                    {
-                        // leaving the tower toward d: slope (d - a) / L - 4h, horizontal direction d - a
-                        float ang = math.atan((d.y - a.y) / len - 4f * ud.m_Hanging);
-                        sum += math.dot(d.xz - a.xz, fwd.xz) >= 0f ? ang : -ang;
-                        ends++;
-                    }
-                    if (atD)
-                    {
-                        // leaving the tower back toward a: slope (a - d) / L - 4h by symmetry of the parabola
-                        float ang = math.atan((a.y - d.y) / len - 4f * ud.m_Hanging);
-                        sum += math.dot(a.xz - d.xz, fwd.xz) >= 0f ? ang : -ang;
-                        ends++;
-                    }
+                    // leaving a toward d: slope (d - a) / L - 4h; leaving d back toward a: (a - d) / L - 4h (the parabola is symmetric)
+                    if (Near(pts, a))
+                        Side(math.atan((d.y - a.y) / len - 4f * ud.m_Hanging), d.xz - a.xz, fwd, ref sumF, ref nF, ref sumB, ref nB);
+                    if (Near(pts, d))
+                        Side(math.atan((a.y - d.y) / len - 4f * ud.m_Hanging), a.xz - d.xz, fwd, ref sumF, ref nF, ref sumB, ref nB);
                 }
             }
-            return ends == 0 ? 0f : sum / ends;
         }
 
-        private static bool Near(System.Collections.Generic.List<float3> pts, float3 p)
+        private static void Side(float climb, float2 dir, float3 fwd, ref float sumF, ref int nF, ref float sumB, ref int nB)
+        {
+            if (math.dot(dir, fwd.xz) >= 0f)
+            {
+                sumF += climb;            // climbing away toward +z: nose up along +z
+                nF++;
+            }
+            else
+            {
+                sumB -= climb;            // climbing away toward -z: the rope comes down toward +z
+                nB++;
+            }
+        }
+
+        private static bool Near(List<float3> pts, float3 p)
         {
             foreach (float3 x in pts)
                 if (math.distance(x, p) < 0.25f)
