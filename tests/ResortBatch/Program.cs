@@ -8,6 +8,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using SkiResortMod.Systems;
 using Unity.Mathematics;
 
@@ -23,6 +24,7 @@ namespace ResortBatch
         private static int Main(string[] args)
         {
             CultureInfo.DefaultThreadCurrentCulture = CultureInfo.InvariantCulture;
+            ToRepoRoot();
             EntityRefTests();
             IndexTests();
             TourismTests();
@@ -62,6 +64,20 @@ namespace ResortBatch
             return s_Failures;
         }
 
+        /// <summary>DeleteAllTests reads repo-relative paths (tools/shipped-prefabs.json, gamedata-mirror/ImportedData): when the current
+        /// directory has no gamedata-mirror, move to the first parent of AppContext.BaseDirectory (tests/ResortBatch/bin/&lt;cfg&gt;/
+        /// net8.0/) that has one, so a run started from tests/ or mod/SkiResortUI checks the same files as one from the root.</summary>
+        private static void ToRepoRoot()
+        {
+            if (Directory.Exists("gamedata-mirror"))
+                return;
+            for (DirectoryInfo d = new DirectoryInfo(AppContext.BaseDirectory); d != null; d = d.Parent)
+                if (Directory.Exists(Path.Combine(d.FullName, "gamedata-mirror")))
+                {
+                    Directory.SetCurrentDirectory(d.FullName);
+                    return;
+                }
+        }
 
         private static void Fail(string where, string msg)
         {

@@ -50,6 +50,7 @@ namespace AutoGenBatch
             }
             if (!TimingChecked)
                 Console.WriteLine("NOTE  Debug build: the unit-time limits (FieldTests, FillTests 9 km2) print but are not checked; run with -c Release");
+            ToRepoRoot();
             V1GoldenTests();
             PlanTypes();
             SamplerTests();
@@ -84,6 +85,22 @@ namespace AutoGenBatch
         }
 
         // ---------------------------------------------------------------- plumbing
+
+        /// <summary>The captures paths are repo-relative (tests/SlopeBatch/captures): when the current directory has no gamedata-mirror,
+        /// move to the first parent of AppContext.BaseDirectory (tests/AutoGenBatch/bin/&lt;cfg&gt;/net8.0/) that has one, so a run
+        /// started from tests/ or mod/SkiResortUI checks the same files as one from the root. Only the check run moves; the rf / golden
+        /// / diag modes keep the caller's directory for their relative output paths.</summary>
+        private static void ToRepoRoot()
+        {
+            if (Directory.Exists("gamedata-mirror"))
+                return;
+            for (DirectoryInfo d = new DirectoryInfo(AppContext.BaseDirectory); d != null; d = d.Parent)
+                if (Directory.Exists(Path.Combine(d.FullName, "gamedata-mirror")))
+                {
+                    Directory.SetCurrentDirectory(d.FullName);
+                    return;
+                }
+        }
 
         private static void Check(bool ok, string where, string msg)
         {
