@@ -3,7 +3,8 @@
 # Extends validate_prefab.ps1 (which stays the single-file tool) to the whole install:
 #   1. VALIDATE  - the four single-file checks (type-table forward refs, redeclarations,
 #                  shell-mangle shapes, brace balance) over every prefab we own.
-#   2. RESOLVE   - every $fstrref:"CID:..." must exist as some .cid under ImportedData.
+#   2. RESOLVE   - every $fstrref:"CID:..." must exist as some .cid under ImportedData, or be a listed vanilla asset
+#                  CID ($VanillaAssetCids: the still rope meshes' cable geometry and surface).
 #   3. VANILLA   - every $fstrref:"UnityGUID:..." / "UnityObjectsMap:..." is listed and
 #                  checked against the known-GUID whitelist (unknown = WARN, not failure).
 #   4. CIDFILES  - every owned .cid is exactly 32 lowercase hex, no BOM, no newline.
@@ -23,7 +24,7 @@
 #   9. IDIOMS    - PIPELINE.md section 6 rules a file check can catch: HOSTED (no PillarObject on SkiLiftTerminalTower*),
 #                  SPAWN (no plain spawn marker on a ServiceUpgrade child), WEATHER (no WeatherObject on a spawnable),
 #                  NETNULL (no null m_Lane / m_Piece / m_Section), PROP (no gameplay components on scenery props), KEEP (SkiLiftTowerFG2 present), ARRLEN ($rlength /
-#                  $plength match the real array counts). Also in LANES: rope-lane m_Hanging <= 0.01 (R31).
+#                  $plength match the real array counts). Also in LANES: rope-lane m_Hanging <= its type's ceiling ($RopeSagCeiling, else 0.01).
 #  10. SHIPPED   - every (name, type, CID) of tools/shipped-prefabs.json (tools/freeze-shipped.ps1) is still an owned prefab
 #                  with that CID (FAIL otherwise); an owned non-RenderPrefab not in the list WARNs until re-frozen (T74).
 #  11b. MOVERLIGHT - the prop our code moves (GroomerRules.PrefabName) lights only through purpose 71 EffectSource, carries an
@@ -33,7 +34,7 @@
 #  14. POWERFLOW - every owned lift line (PowerLinePrefab, not a MarkerNet) carries ElectricityConnection Voltage High (1),
 #                  Direction Both (3), Capacity == the vanilla Low-voltage Line's 800000 (DECISIONS 369 / R-1).
 #  12d. ALIGN    - tools/check-lift-align.js: carriers pose by LiftMoverMath.CarrierDrop (rope point, not grip top) and each loop
-#                  lift type's piece, towers and stations reference one own haul-rope lane (vanilla HV mesh, sag <= 0.01).
+#                  lift type's piece, towers and stations reference one own haul-rope lane (vanilla LV mesh, its type's sag).
 #  12e. GAMESURFACE - tools/game-surface-check.js: the code, prefabs and vanilla references against tools/game-surface.lock, and
 #                  the lock against the decompile of its game version when that tree is beside the repo (patch readiness).
 #  15. LODGEPARK - every lodge tier and the Welcome Sign carry Game.Prefabs.Park (tools/check-lodge-park.ps1; the stats query
@@ -151,6 +152,16 @@ $KnownVanilla = @{
 # The all-zeros CID is the engine's null-asset sentinel (vanilla HV Cables Piece ships it
 # as m_GeometryAsset) - never a broken reference.
 $NullCid = "00000000000000000000000000000000"
+# Vanilla ASSET CIDs an owned prefab may reference (they live in the game's own databases, not ImportedData). The still rope
+# meshes (rope sag round, 2026-11-03) are the vanilla HV / LV cable lane mesh prefabs with swaying off: same geometry, same
+# surface. Values read from the vanilla prefab dump (%TEMP%\pltar\dump.zip: "High-voltage Cable Lane Mesh",
+# "Low-voltage Cable Lane Mesh"); field-verified 2026-11-03: the ropes draw. Add one only from the dump.
+$VanillaAssetCids = @{
+    "fca90cab9a5b6a1f8aa088fe38f1dcb3" = "High-voltage Cable Lane Mesh geometry (SkiRopeStillHVA Mesh)"
+    "5d53b43c3c4f017f458bd94a1ab1275d" = "Low-voltage Cable Lane Mesh geometry (SkiRopeStillLVA Mesh)"
+    "106cc56e9f15a135bb6ea7b99d675c2d" = "Powerline Cables surface (both still rope meshes; DECISIONS 269)"
+}
+$vanillaCidSeen = @{}
 
 # ---- collect owned files -------------------------------------------------------------
 $ownedPrefabs = New-Object System.Collections.Generic.List[object]
@@ -235,7 +246,11 @@ foreach ($p in $ownedPrefabs) {
     foreach ($m in $refRe.Matches($text)) {
         $kind = $m.Groups[1].Value; $val = $m.Groups[2].Value.ToLower()
         if ($kind -eq "CID") {
-            if (-not $allCidValues.ContainsKey($val) -and $val -ne $NullCid) { $rows.Add("FAIL  RESOLVE   $rel : unresolved CID $val"); $failures++ }
+            if ($VanillaAssetCids.ContainsKey($val)) {
+                if (-not $vanillaCidSeen.ContainsKey($val)) { $vanillaCidSeen[$val] = New-Object System.Collections.Generic.List[string] }
+                $vanillaCidSeen[$val].Add($rel)
+            }
+            elseif (-not $allCidValues.ContainsKey($val) -and $val -ne $NullCid) { $rows.Add("FAIL  RESOLVE   $rel : unresolved CID $val"); $failures++ }
         }
         else {
             if (-not $vanillaSeen.ContainsKey($val)) { $vanillaSeen[$val] = New-Object System.Collections.Generic.List[string] }
@@ -373,6 +388,10 @@ $CableLaneMeshes = @{
     "bbb9724d6daa32241821c52b428c196c" = "Low-voltage Cable Lane Mesh (CurveProperties; dump-verified, DECISIONS 243)"
 }
 $SupersededLanes = @("SkiLiftHaulRope", "SkiLiftHaulRopeB")
+# Rope sag ceilings per own rope lane (m_Hanging = mid-span sag / span; docs research rope-sag-2026-11-03: real ropes sag
+# 0.02-0.10, the tram's long spans most). Any other rope lane: 0.01.
+$RopeSagCeiling = @{ "SkiFixedGripHaulRope" = 0.02; "SkiDetachableHaulRope" = 0.025; "SkiGondolaHaulRope" = 0.025;
+                     "SkiTramTrackRope" = 0.04; "SkiTramHaulRope" = 0.04 }
 $SupersededChain = @("FixedGripChairLift", "SkiLiftSection", "SkiLiftPiece", "SkiLiftHaulRope", "SkiLiftHaulRopeB")
 $laneMeshRe = [regex]'"m_Mesh":\s*(?:\$fstrref:"(CID|UnityGUID|UnityObjectsMap):([0-9a-fA-F]{32})"|null)'
 $laneNameRe = [regex]'(?m)^ {4}"name":\s*"([^"]+)"'
@@ -407,11 +426,13 @@ foreach ($p in $ownedPrefabs) {
         else { $why.Add("m_Mesh uses $kind (unsupported for a lane mesh)") }
     }
     if ($why.Count -eq 0) {
-        # R31 / DECISIONS 243: a long-span rope lane sags 0.004, not the superseded 0.03 (at 250 m the mid-span cabin
-        # underside drops 2.0 m). Rope classes = utility type 64 (HV) and 8 (LV); the fence lane (16) is exempt.
+        # Rope sag per lift type (PIPELINE constants table; the catalog's Envelope.LaneHanging, LiftBatch CT-12): each own rope
+        # lane may sag at most its type's value, any other rope lane 0.01 (the superseded HaulRopeB 0.03 sagged like a power
+        # line). Rope classes = utility type 64 (HV) and 8 (LV); the fence lane (16) is exempt.
         $um = [regex]::Match($text, '"m_UtilityType":\s*(\d+)'); $hm = [regex]::Match($text, '"m_Hanging":\s*([0-9.]+)')
-        if ($um.Success -and $hm.Success -and (@("64", "8") -contains $um.Groups[1].Value) -and [double]::Parse($hm.Groups[1].Value, [Globalization.CultureInfo]::InvariantCulture) -gt 0.01) {
-            $rows.Add("FAIL  LANES     ${rel}: rope lane m_Hanging $($hm.Groups[1].Value) > 0.01 (R31: long-span rope lanes use 0.004; 0.03 is the superseded HaulRopeB value)"); $failures++
+        $sagCap = if ($RopeSagCeiling.ContainsKey($laneName)) { $RopeSagCeiling[$laneName] } else { 0.01 }
+        if ($um.Success -and $hm.Success -and (@("64", "8") -contains $um.Groups[1].Value) -and [double]::Parse($hm.Groups[1].Value, [Globalization.CultureInfo]::InvariantCulture) -gt $sagCap) {
+            $rows.Add("FAIL  LANES     ${rel}: rope lane m_Hanging $($hm.Groups[1].Value) > $sagCap (the per-type rope sag ceiling, PIPELINE constants table)"); $failures++
         }
         else { $rows.Add("OK    LANES     $laneName : curve-capable mesh <- $rel") }
         continue

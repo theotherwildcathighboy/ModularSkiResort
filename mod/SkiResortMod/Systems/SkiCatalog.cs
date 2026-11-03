@@ -67,7 +67,7 @@ namespace SkiResortMod.Systems
         public readonly float MaxPylonM;        // PowerLinePrefab m_MaxPylonDistance (= CourseSplit's max edge length)
         public readonly float SlopeMax;         // m_MaxSlopeSteepness
         public readonly float NetHanging;       // the line's m_Hanging
-        public readonly float LaneHanging;      // the rope lanes' m_Hanging (0.004 on long spans)
+        public readonly float LaneHanging;      // the rope lanes' m_Hanging = mid-span sag / span (= NetHanging: the terrain cut follows the rope)
         public readonly float HeightRangeMinM;  // the piece's m_HeightRange.min (clearance formula)
         public readonly float ElevationMaxM;    // PlaceableNet m_ElevationRange.max
 
@@ -732,7 +732,7 @@ namespace SkiResortMod.Systems
                         // SkiChairliftHV.Prefab:292 / :288 / :293, PlaceableNet :19; SkiLiftHaulRopeB 0.03; SkiChairliftPiece.Prefab:133. Elevation max 16
                         // equals SkiChairliftHV.Prefab:19 m_ElevationRange.max (CT-12): the FG ladder grounds exactly to 16, so 0 m of margin, and FG24
                         // stays unneeded only while ≤ 16.
-                        Envelope = new LiftEnvelope(60f, 0.8f, 0.01f, 0.01f, 6f, 16f),   // net + own rope lane 0.01 (lift alignment F3)
+                        Envelope = new LiftEnvelope(60f, 0.8f, 0.02f, 0.02f, 6f, 16f),   // net + own rope lane 0.02 (rope sag round, docs research rope-sag)
                         CloseElectricityView = FixedGrip.CloseElectricityView, LineExpected = true,
                     },
                     new LiftTypeSpec
@@ -748,7 +748,7 @@ namespace SkiResortMod.Systems
                         ServeRule = ServeRuleKind.AlongLine, ServeRadiusM = 150f, TopMarginM = 15f,
                         FixedPerMonth = 5000f, PerKmPerMonth = 2000f, LineBuildPer8m = 120, ElevationCostPer10m = 10,
                         StationCostBase = 125000, StationCostTop = 65000, ScoreValue = 15.0, SummerShare = 0.25,
-                        Envelope = new LiftEnvelope(90f, 0.9f, 0f, 0.004f, 5.8f, 10f),
+                        Envelope = new LiftEnvelope(90f, 0.9f, 0.025f, 0.025f, 5.8f, 10f),
                         CloseElectricityView = true, LineExpected = true,
                         // SkiDetachableHV and SkiLiftChairDQ4 exist game-side: line and carrier Expected, the row derived-Expected.
                         CarrierExpected = new[] { true },
@@ -766,7 +766,7 @@ namespace SkiResortMod.Systems
                         ServeRule = ServeRuleKind.AlongLine, ServeRadiusM = 150f, TopMarginM = 15f,
                         FixedPerMonth = 8000f, PerKmPerMonth = 3000f, LineBuildPer8m = 175, ElevationCostPer10m = 15,
                         StationCostBase = 190000, StationCostTop = 110000, ScoreValue = 25.0, SummerShare = 0.25,
-                        Envelope = new LiftEnvelope(250f, 1.2f, 0f, 0.004f, 6f, 28f),
+                        Envelope = new LiftEnvelope(250f, 1.2f, 0.025f, 0.025f, 6f, 28f),
                         CloseElectricityView = true, LineExpected = true,
                         // SkiGondolaHV and SkiGondolaCabin8 exist game-side: line and carrier Expected, the row derived-Expected.
                         CarrierExpected = new[] { true },
@@ -784,7 +784,7 @@ namespace SkiResortMod.Systems
                         ServeRule = ServeRuleKind.TerminalsOnly, ServeRadiusM = 300f, TopMarginM = 15f,
                         FixedPerMonth = 11000f, PerKmPerMonth = 4500f, LineBuildPer8m = 270, ElevationCostPer10m = 25,
                         StationCostBase = 300000, StationCostTop = 190000, ScoreValue = 30.0, SummerShare = 1.0,
-                        Envelope = new LiftEnvelope(1000f, 2.5f, 0f, 0.004f, 13.75f, 30f),
+                        Envelope = new LiftEnvelope(1000f, 2.5f, 0.04f, 0.04f, 13.75f, 30f),
                         CloseElectricityView = true, LineExpected = true,
                         // SkiTramCabin and SkiTramHV exist game-side: both names Expected, the row derived-Expected.
                         CarrierExpected = new[] { true },

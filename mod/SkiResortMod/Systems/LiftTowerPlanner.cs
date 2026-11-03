@@ -100,13 +100,15 @@ namespace SkiResortMod.Systems
         /// <summary>Rope height above the tower base for ladder member <paramref name="m"/>.</summary>
         public float RopeAboveBase(int m) => Ladder[m].TopM - RopeBelowTopM;
 
-        /// <summary>A copy with other rules (tests and what-if questions: floor, max rope height, spans).</summary>
+        /// <summary>A copy with other rules (tests and what-if questions: floor, max rope height, spans; sagRatio replays a line logged
+        /// at another rope sag).</summary>
         public LiftTowerPlanConstants With(float? floorM = null, float? maxRopeAboveGroundM = null, float? typicalSpanM = null,
-                                           float? maxSpanM = null, float? carrierDropM = null, float? maxEdgeSlope = null)
+                                           float? maxSpanM = null, float? carrierDropM = null, float? maxEdgeSlope = null,
+                                           float? sagRatio = null)
         {
             return new LiftTowerPlanConstants(TypeId, Ladder, RopeBelowTopM, carrierDropM ?? CarrierDropM, floorM ?? FloorM,
                 maxRopeAboveGroundM ?? MaxRopeAboveGroundM, typicalSpanM ?? TypicalSpanM, maxSpanM ?? MaxSpanM, MinSpanM, HalfWidthM,
-                SagRatio, EngineElevationCapM, StepM, SideHillM, ConvexM, StationClearM, maxEdgeSlope ?? MaxEdgeSlope);
+                sagRatio ?? SagRatio, EngineElevationCapM, StepM, SideHillM, ConvexM, StationClearM, maxEdgeSlope ?? MaxEdgeSlope);
         }
 
         /// <summary>The station-side rule's exchange rate: one more line tower is worth this many meters of extra height (above the
@@ -153,8 +155,8 @@ namespace SkiResortMod.Systems
         }
 
         // Ladder tops: the tower manifests' top_anchor_y = ObjectGeometryData m_Size.y, confirmed in game. Rope offset = shortest top -
-        // catalog AxleM + RopeSeatM (lane y on the shortest tower; the rope rests on the crowns where RopeSeatM > 0, T27). Drop = catalog HangM. Half width = piece m_Width / 2. Sag = the rope lane's m_Hanging (FG
-        // SkiFixedGripHaulRope 0.01 since lift alignment F3, 2026-11-02, was the vanilla HV lane's 0.03; DQ / GD / tram rope lanes 0.004). Per-type values: EngineNotes/LiftTowerPlanner.md
+        // catalog AxleM + RopeSeatM (lane y on the shortest tower; the rope rests on the crowns where RopeSeatM > 0, T27). Drop = catalog HangM. Half width = piece m_Width / 2. Sag = the rope lane's m_Hanging,
+        // read from the catalog (Envelope.LaneHanging; CatalogTests mirror it against the lane prefabs). Per-type values: EngineNotes/LiftTowerPlanner.md
 
         /// <summary>The tram's longest free span (Peak 2 Peak's record span is 3.03 km). Only the lift-line tool builds a span this long:
         /// while it is open the line prefab's max edge length is raised to it (LiftLineToolSystem.SetSpansRaised); the vanilla net tool
@@ -205,16 +207,16 @@ namespace SkiResortMod.Systems
             {
                 case "fixedGrip":
                     return new LiftTowerPlanConstants(def.Id, FixedGripLadder, FixedGripLadder[0].TopM - (def.AxleM + def.RopeSeatM), def.HangM, 3f, 30f,
-                        60f, 90f, 10f, 3f, 0.01f, 16f, stationClearM: run, maxEdgeSlope: 0.8f);
+                        60f, 90f, 10f, 3f, def.Envelope.LaneHanging, 16f, stationClearM: run, maxEdgeSlope: 0.8f);
                 case "detachable":
                     return new LiftTowerPlanConstants(def.Id, DetachableLadder, DetachableLadder[0].TopM - (def.AxleM + def.RopeSeatM), def.HangM, 3f, 30f,
-                        110f, 245f, 10f, 3f, 0.004f, 10f, stationClearM: run, maxEdgeSlope: 0.9f);
+                        110f, 245f, 10f, 3f, def.Envelope.LaneHanging, 10f, stationClearM: run, maxEdgeSlope: 0.9f);
                 case "gondola":
                     return new LiftTowerPlanConstants(def.Id, GondolaLadder, GondolaLadder[0].TopM - (def.AxleM + def.RopeSeatM), def.HangM, 3f, 30f,
-                        110f, 245f, 10f, 4.1f, 0.004f, 28f, stationClearM: run, maxEdgeSlope: 1.2f);
+                        110f, 245f, 10f, 4.1f, def.Envelope.LaneHanging, 28f, stationClearM: run, maxEdgeSlope: 1.2f);
                 case "tram":
                     return new LiftTowerPlanConstants(def.Id, TramLadder, TramLadder[0].TopM - (def.AxleM + def.RopeSeatM), def.HangM, 5f, 0f,
-                        800f, TramMaxSpanM, 40f, 7.5f, 0.004f, 30f, 10f, stationClearM: run, maxEdgeSlope: 2.5f);   // 10 m samples: a 1-3 km line stays cheap
+                        800f, TramMaxSpanM, 40f, 7.5f, def.Envelope.LaneHanging, 30f, 10f, stationClearM: run, maxEdgeSlope: 2.5f);   // 10 m samples: a 1-3 km line stays cheap
                 default:
                     return null;
             }

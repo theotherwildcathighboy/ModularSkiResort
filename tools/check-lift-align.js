@@ -6,9 +6,12 @@
 //             CarrierDrops. Bug class: the grip TOP rode the rope (round-2 contract D8) and the rope ran over the jaw.
 //   ROPELANE  (G3) per loop lift type, the line piece, every line tower and both stations reference ONE haul-rope lane prefab (FindAnchor
 //             matches anchors by lane prefab, LaneSystem.cs:4049, :2466-2505: a tower or station on another lane leaves the rope end
-//             unanchored), that lane is ours (never the vanilla HV lane 5d88ac45..., m_Hanging 0.03), draws the vanilla LOW-voltage
-//             cable lane mesh bbb9724d... (DECISIONS 573 h: 0.12 m across; the HV mesh 463c051d... hid the sheave trains) and sags
-//             <= 0.01. Bug class: the FG rope sagged like a power line (12.6 deg break-over per tower).
+//             unanchored), that lane is ours (never the vanilla HV lane 5d88ac45..., m_Hanging 0.03), draws the still LOW-voltage
+//             rope mesh SkiRopeStillLVA (the vanilla LV cable bbb9724d..., 0.12 m across, DECISIONS 573 h, with swaying off) and sags
+//             exactly its type's value (sag below; = the catalog Envelope.LaneHanging, LiftBatch CT-12). The tram's track rope draws
+//             SkiRopeStillHVA, its haul rope SkiRopeStillLVA, both at 0.04. Bug classes: the FG rope sagged like a power line on the vanilla
+//             HV lane (0.03, 12.6 deg break-over per tower); a swaying cable mesh (vanilla m_HangingSwaying) moves the rope away from the
+//             carriers that ride it in wind, by about the sag.
 //   BONEROOT  every owned skinned mesh's root bone is identity (rotation 0,0,0,1, scale 1): the import gives it the FBX scene
 //             conversion and the game composes it into every skin matrix. Bug class: the rig probe drew turned and 100x.
 //   CARRIERPASS the lift-line tool keeps the carriers passable for its whole session (LiftLineToolSystem start / stop / station hooks).
@@ -62,16 +65,21 @@ for (const [f, re, why] of need) {
 // ---- ROPELANE -------------------------------------------------------------------------------------------------------------------
 const VANILLA_HV_LANE = '5d88ac45a40b30341a79535930e3b735';
 const LV_WIRE = '37c8abdb015384f4e8b7ce9b5b2b6c9b';
-const LV_MESH = 'bbb9724d6daa32241821c52b428c196c';      // the rope mesh of the FG / DQ / GD haul lanes (DECISIONS 573 h)
+// Still rope meshes (rope sag round): copies of the vanilla HV / LV cable lane meshes (463c051d... / bbb9724d..., same geometry and
+// surface CIDs) with CurveProperties.m_HangingSwaying false, so the rope never sways away from its carriers. Every lift rope lane draws one.
+const STILL = {
+    hv: { name: 'SkiRopeStillHVA', geometry: 'fca90cab9a5b6a1f8aa088fe38f1dcb3' },   // the tram track rope
+    lv: { name: 'SkiRopeStillLVA', geometry: '5d53b43c3c4f017f458bd94a1ab1275d' },   // the FG / DQ / GD haul ropes, the tram haul rope
+};
 const LIB = 'c030ee3ff256df91';
 const groups = [
-    { type: 'fixedGrip', lane: 'SkiFixedGripHaulRope',
+    { type: 'fixedGrip', lane: 'SkiFixedGripHaulRope', sag: 0.02,
       prefabs: ['SkiChairliftPiece', 'SkiLiftTowerFG12', 'SkiLiftTowerFG16', 'SkiLiftTowerFG20', `${LIB}/SkiLiftTowerFG2`,
                 'SkiBaseStationBuilding', 'SkiTopStationBuilding'] },
-    { type: 'detachable', lane: 'SkiDetachableHaulRope',
+    { type: 'detachable', lane: 'SkiDetachableHaulRope', sag: 0.025,
       prefabs: ['SkiDetachablePiece', 'SkiLiftTowerDQ10', 'SkiLiftTowerDQ12', 'SkiLiftTowerDQ14', 'SkiLiftTowerDQ16', 'SkiLiftTowerDQ18',
                 'SkiLiftTowerDQ20', 'SkiDQBaseStationBuilding', 'SkiDQTopStationBuilding'] },
-    { type: 'gondola', lane: 'SkiGondolaHaulRope',
+    { type: 'gondola', lane: 'SkiGondolaHaulRope', sag: 0.025,
       prefabs: ['SkiGondolaPiece', 'SkiLiftTowerGD12', 'SkiLiftTowerGD16', 'SkiLiftTowerGD20', 'SkiGondolaLattice25', 'SkiGondolaLattice32',
                 'SkiGondolaLattice40', 'SkiGondolaBaseStationBuilding', 'SkiGondolaTopStationBuilding'] },
 ];
@@ -86,14 +94,38 @@ function prefabFile(rel) {
     return hit ? path.join(dir, hit) : null;
 }
 let ropeFiles = 0;
+// The still meshes: CurveProperties with m_HangingSwaying false (a swaying rope leaves its carriers in wind), the vanilla geometry.
+const stillCid = {};
+for (const [k, s] of Object.entries(STILL)) {
+    const f = path.join(root, s.name, `${s.name} Mesh.Prefab`);
+    if (!fs.existsSync(f)) { fail('ROPELANE', `still rope mesh ${s.name} Mesh not found under ${root}`); continue; }
+    const t = fs.readFileSync(f, 'utf8');
+    stillCid[k] = fs.readFileSync(f + '.cid', 'utf8').trim().toLowerCase();
+    if (!/Game\.Prefabs\.CurveProperties/.test(t)) fail('ROPELANE', `${s.name} Mesh: no CurveProperties (ROPE-LANE INVARIANT: the rope draws as a rigid rod)`);
+    if (!/"m_HangingSwaying":\s*false/.test(t)) fail('ROPELANE', `${s.name} Mesh: m_HangingSwaying is not false (the rope sways away from its carriers in wind)`);
+    if (!t.includes(`CID:${s.geometry}`)) fail('ROPELANE', `${s.name} Mesh: geometry is not the vanilla cable ${s.geometry}`);
+}
+const laneMeshOk = (laneText, k, lane) => {
+    if (!stillCid[k] || !laneText.includes(`CID:${stillCid[k]}`))
+        fail('ROPELANE', `${lane}: mesh is not the still ${STILL[k].name} Mesh (${stillCid[k] || '?'}): every lift rope lane draws a still rope mesh`);
+};
+// The tram's two ropes: own lanes, the type's sag, the still meshes (track = HV, haul = LV).
+for (const [lane, k] of [['SkiTramTrackRope', 'hv'], ['SkiTramHaulRope', 'lv']]) {
+    const f = prefabFile(lane);
+    if (!f) { fail('ROPELANE', `tram: lane prefab ${lane} not found under ${root}`); continue; }
+    const t = fs.readFileSync(f, 'utf8');
+    const hang = t.match(/"m_Hanging":\s*([0-9.]+)/);
+    if (!hang || Math.abs(Number(hang[1]) - 0.04) > 1e-9) fail('ROPELANE', `${lane}: m_Hanging ${hang ? hang[1] : '?'} != the tram's 0.04 (rope sag round)`);
+    laneMeshOk(t, k, lane);
+}
 for (const g of groups) {
     const laneFile = prefabFile(g.lane);
     if (!laneFile) { fail('ROPELANE', `${g.type}: lane prefab ${g.lane} not found under ${root}`); continue; }
     const laneText = fs.readFileSync(laneFile, 'utf8');
     const cid = fs.readFileSync(laneFile + '.cid', 'utf8').trim().toLowerCase();
     const hang = laneText.match(/"m_Hanging":\s*([0-9.]+)/);
-    if (!hang || Number(hang[1]) > 0.01) fail('ROPELANE', `${g.lane}: m_Hanging ${hang ? hang[1] : '?'} > 0.01`);
-    if (!laneText.includes(`UnityGUID:${LV_MESH}`)) fail('ROPELANE', `${g.lane}: mesh is not the vanilla LV cable lane mesh ${LV_MESH} (ROPE-LANE INVARIANT, DECISIONS 573 h)`);
+    if (!hang || Math.abs(Number(hang[1]) - g.sag) > 1e-9) fail('ROPELANE', `${g.lane}: m_Hanging ${hang ? hang[1] : '?'} != the type's ${g.sag} (rope sag round, docs research rope-sag-2026-11-03)`);
+    laneMeshOk(laneText, 'lv', g.lane);
     for (const rel of g.prefabs) {
         const f = prefabFile(rel);
         if (!f) { fail('ROPELANE', `${g.type}: ${rel} not found`); continue; }

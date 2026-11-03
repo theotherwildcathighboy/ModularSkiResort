@@ -251,18 +251,27 @@ namespace LiftBatch
         }
 
 
+        /// <summary>The DQ / GD / tram rope sag (m_Hanging) of every field log replayed here, before the rope sag round (2026-11-03: DQ / GD
+        /// 0.025, tram 0.04). A replay that pins the planner's choice on logged ground runs at this sag; the same ground at today's sag
+        /// is checked beside it where the result differs.</summary>
+        internal const float LoggedSag = 0.004f;
+
         private static void Lp1DetachableGully()
         {
             const string W = "planner/LP-1";
             Profile p = Reconstruct(DqGully);
-            LiftTowerPlanConstants c = LiftTowerPlanConstants.For("detachable");
+            LiftTowerPlanConstants c = LiftTowerPlanConstants.For("detachable").With(sagRatio: LoggedSag);
             LiftTowerPlan plan = PlanAndReplan("LP-1", (s, l) => p.At(s), p.Length, c, p.Start, p.End);
             // Fewest towers: one tower spans the gully (the previous objective built 2 x DQ16; LP-17 prints both). Until the 2026-10-26
             // lift pass it had to be a DQ18: the full floor applied right up to each station; the station approach floor
             // (LiftTowerPlanConstants.ApproachFloor) lets a DQ10 clear it.
-            AddReport("LP-1 DQ gully (log :628), catalog drop 3.3 + floor 3", "1 line tower, clear (DQ18 before the station approach floor)", plan);
+            AddReport("LP-1 DQ gully (log :628), catalog drop 3.3 + floor 3, logged sag 0.004", "1 line tower, clear (DQ18 before the station approach floor)", plan);
             Check(plan.LineTowers == 1, W, "line towers " + plan.LineTowers + ", expected 1: " + Describe(plan));
             Check(plan.Clear, W, "a span is violated: " + Describe(plan));
+            // Today's DQ rope (0.025) sags 4.9 m on the 196 m span: a second tower, still clear.
+            LiftTowerPlan today = PlanAndReplan("LP-1/sag", (s, l) => p.At(s), p.Length, LiftTowerPlanConstants.For("detachable"), p.Start, p.End);
+            AddReport("LP-1 DQ gully at today's sag 0.025", "2 line towers, clear", today);
+            Check(today.LineTowers == 2 && today.Clear, W, "today's sag: " + Describe(today));
 
             // The analysis' assumption: rope >= 6.0 m above the ground (2.4-2.6 m carrier + ~3 m floor).
             LiftTowerPlan plan6 = PlanAndReplan("LP-1b", (s, l) => p.At(s), p.Length, c.With(floorM: 6.0f - c.CarrierDropM), p.Start, p.End);
@@ -274,8 +283,9 @@ namespace LiftBatch
         {
             const string W = "planner/LP-2";
             Profile p = Reconstruct(TramPitch);
-            LiftTowerPlanConstants c = LiftTowerPlanConstants.For("tram");
-            // The 1,000 m span of the original replay (before DECISIONS 381) needs one tower; at the 3 km max the 1,160 m pitch is one clear span.
+            LiftTowerPlanConstants c = LiftTowerPlanConstants.For("tram").With(sagRatio: LoggedSag);
+            // The 1,000 m span of the original replay (before DECISIONS 381) needs one tower; at the 3 km max the 1,160 m pitch is one clear span
+            // on the logged 0.004 rope. Today's 0.04 rope sags 46 m there: one tower (checked after).
             LiftTowerPlan plan1k = PlanAndReplan("LP-2/1k", (s, l) => p.At(s), p.Length, c.With(maxSpanM: 1000f), p.Start, p.End);
             AddReport("LP-2 tram pitch (log :665), max span 1,000 m", "1 line tower, clear", plan1k);
             Check(plan1k.LineTowers == 1, W, "1 km max: line towers " + plan1k.LineTowers + ", expected 1: " + Describe(plan1k));
@@ -284,6 +294,9 @@ namespace LiftBatch
             AddReport("LP-2 tram pitch (log :665), max span 3,000 m", "0 line towers, one clear span", plan);
             Check(plan.LineTowers == 0, W, "line towers " + plan.LineTowers + ", expected 0: " + Describe(plan));
             Check(plan.Clear, W, "a span is violated: " + Describe(plan));
+            LiftTowerPlan today = PlanAndReplan("LP-2/sag", (s, l) => p.At(s), p.Length, LiftTowerPlanConstants.For("tram"), p.Start, p.End);
+            AddReport("LP-2 tram pitch at today's sag 0.04, max span 3,000 m", "1 line tower, clear", today);
+            Check(today.LineTowers == 1 && today.Clear, W, "today's sag: " + Describe(today));
         }
 
         private static void Lp3FixedGripDip()
@@ -301,9 +314,13 @@ namespace LiftBatch
         private static void Lp4Flat()
         {
             const string W = "planner/LP-4";
+            // The span arithmetic (fewest spans the max span allows, even) holds while the sag never limits a span: DQ and tram run at the
+            // logged 0.004 here; FG at its own 0.02. At today's DQ / tram sag the rope next to a station limits the end spans (below).
             foreach (string id in new[] { "fixedGrip", "detachable", "tram" })
             {
                 LiftTowerPlanConstants c = LiftTowerPlanConstants.For(id);
+                if (id != "fixedGrip")
+                    c = c.With(sagRatio: LoggedSag);
                 float length = id == "tram" ? 2400f : 5f * c.TypicalSpanM;
                 LiftTowerPlan plan = PlanAndReplan("LP-4/" + id, (s, l) => 1000f, length, c, 1000f, 1000f);
                 // Fewest towers: the fewest spans the max span allows, even (within one sample), on flat ground.
@@ -327,11 +344,26 @@ namespace LiftBatch
                           id + " node " + (i + 1) + " member " + plan.Nodes[i].Member + " flags " + plan.Nodes[i].Flags);
                 Check(plan.Clear, W, id + " violated on flat ground");
             }
+            // Today's DQ (0.025) and tram (0.04) on the same flat lines: the station end spans are as long as the station rope
+            // clears the floor, the middle spans up to the max span (DQ 75/200/200/75 m on DQ10-DQ18-DQ10, tram 430/770/770/430 m on T60s).
+            foreach ((string id, int towers) in new[] { ("detachable", 3), ("tram", 3) })
+            {
+                LiftTowerPlanConstants c = LiftTowerPlanConstants.For(id);
+                float length = id == "tram" ? 2400f : 5f * c.TypicalSpanM;
+                LiftTowerPlan plan = PlanAndReplan("LP-4/sag/" + id, (s, l) => 1000f, length, c, 1000f, 1000f);
+                AddReport("LP-4 flat " + id + " " + length.ToString("F0") + " m at today's sag " + c.SagRatio, towers + " line towers, infill only, clear", plan);
+                Check(plan.LineTowers == towers && plan.Clear, W, id + " today's sag: " + Describe(plan));
+                for (int i = 1; i < plan.Nodes.Length - 1; i++)
+                    Check(plan.Nodes[i].Flags == LiftPlanNodeFlags.Infill, W, id + " today's sag: node " + (i + 1) + " flags " + plan.Nodes[i].Flags);
+                for (int s = 0; s < plan.Spans.Length; s++)
+                    Check(plan.Spans[s].LengthM <= c.MaxSpanM + 1e-3f, W, id + " today's sag: span " + (s + 1) + " over the max span");
+            }
             // The FG sag arithmetic: at the vanilla HV lane's 0.03 an FG8-FG8 60 m span on flat ground was below the 3 m floor; on the
-            // own FG rope lane (0.01, lift alignment F3, 2026-11-02) the longest allowed span clears it on FG8s.
+            // own FG rope lane (0.01, lift alignment F3, 2026-11-02; 0.02 since the rope sag round) the longest allowed span clears it on
+            // FG8s (3.07 m at 90 m).
             LiftTowerPlanConstants fg = LiftTowerPlanConstants.For("fixedGrip");
             float chairMax = fg.RopeAboveBase(0) - fg.MaxSpanM * fg.SagRatio - fg.CarrierDropM;
-            Check(fg.SagRatio == 0.01f && chairMax >= fg.FloorM, W,
+            Check(fg.SagRatio == 0.02f && chairMax >= fg.FloorM, W,
                   "FG sag arithmetic: sag " + fg.SagRatio + ", chair at mid-span of a " + fg.MaxSpanM + " m FG8 span " + chairMax.ToString("F2") + " m");
             s_Report.Add("LP-4 FG sag finding | FG8-FG8 " + fg.MaxSpanM.ToString("F0") + " m on flat: chair " + chairMax.ToString("F2") + " m above ground (floor 3) | " +
                          "FG8 needs spans <= " + ((fg.RopeAboveBase(0) - fg.CarrierDropM - fg.FloorM) / fg.SagRatio).ToString("F0") + " m");
@@ -656,7 +688,8 @@ namespace LiftBatch
         private static void Lp16TramRefit()
         {
             const string W = "planner/LP-16";
-            LiftTowerPlanConstants c = LiftTowerPlanConstants.For("tram");
+            // Both lines were logged on the 0.004 tram rope (before the rope sag round): replayed at that sag, the fit must keep them.
+            LiftTowerPlanConstants c = LiftTowerPlanConstants.For("tram").With(sagRatio: LoggedSag);
             var lines = new (string Name, LogNode[] Log, int[] Members, float RopeA, float RopeB)[]
             {
                 ("tram 1605 m (edge 120310:57, log :1796)", Tram1605, Tram1605Members, 1019.18f, 1963.98f),
@@ -1282,8 +1315,8 @@ namespace LiftBatch
         /// ropes on the shortest member. (a) a 3,000 m valley 300 m deep is ONE clear span, its mid-span rope 12 m (3,000 x 0.004) under
         /// the chord, and the tool emits only the two stations; (b) the same valley with a ridge at mid-span up to station level: the bare
         /// chord clears it (+10.75 m) but the sagging rope does not (-1.25 m), so the free plan puts a tower there and the fixed fit of
-        /// the bare span is Short; (c) a 3,200 m valley needs one tower (the cap); (d) 3,000 m of flat ground needs one tower (the sag
-        /// leaves the cabin 3.75 m up, under the 5 m floor); (e) the 3 km plans stay fast.</summary>
+        /// the bare span is Short; (c) a 3,200 m valley needs one tower (the cap); (d) 3,000 m of flat ground needs three towers at the
+        /// 0.04 rope (one at the logged 0.004: its 12 m sag left the cabin 3.75 m up, under the 5 m floor); (e) the 3 km plans stay fast.</summary>
         private static void Lp25TramLongSpan()
         {
             const string W = "planner/LP-25";
@@ -1325,7 +1358,7 @@ namespace LiftBatch
             LiftTowerFit fit = s_Planner.Fit(ridge, L, rope, rope, c, new float[0], true, c.MaxSpanM, new int[0]);
             Check(fit.Mode == LiftFitMode.Short && fit.Needed >= 1, W, "fixed fit of the bare span: " + fit.Mode + ", needs " + fit.Needed);
             s_Report.Add("LP-25b bare 3,000 m span over the ridge | floor violated at 1,500 m (chord +" + chordMargin.ToString("F2") +
-                         " m, with the 12 m sag " + sagMargin.ToString("F2") + " m); fixed fit Short | " + Describe(bare) + "; fit " + fit.Mode +
+                         " m, with the " + (L * c.SagRatio).ToString("F0") + " m sag " + sagMargin.ToString("F2") + " m); fixed fit Short | " + Describe(bare) + "; fit " + fit.Mode +
                          ", needs " + fit.Needed);
 
             // (c) past the cap.
@@ -1334,10 +1367,14 @@ namespace LiftBatch
             AddReport("LP-25c tram 3,200 m valley", "1 line tower (span cap), clear", cc);
             Check(cc.LineTowers == 1 && cc.Clear, W, "3,200 m valley: " + Describe(cc));
 
-            // (d) flat: the sag alone needs a tower.
+            // (d) flat: the sag alone needs towers. At 0.04 a T60 clears the 5 m floor up to 969 m of flat span ((56.25 - 13.5 - 5) / 0.04),
+            // a station rope much less: three T60s (580/920/920/580 m). At the logged 0.004 one tower did (12 m sag, cabin 3.75 m up).
             LiftTowerPlan d = PlanAndReplan("LP-25d", (s, l) => G, L, c, G, G);
-            AddReport("LP-25d tram 3,000 m flat", "1 line tower (12 m sag leaves the cabin 3.75 m up), clear", d);
-            Check(d.LineTowers == 1 && d.Clear, W, "flat 3 km: " + Describe(d));
+            AddReport("LP-25d tram 3,000 m flat", "3 line towers (the 120 m sag), clear", d);
+            Check(d.LineTowers == 3 && d.Clear, W, "flat 3 km: " + Describe(d));
+            LiftTowerPlan dLogged = PlanAndReplan("LP-25d/logged", (s, l) => G, L, c.With(sagRatio: LoggedSag), G, G);
+            AddReport("LP-25d tram 3,000 m flat at the logged sag 0.004", "1 line tower (12 m sag leaves the cabin 3.75 m up), clear", dLogged);
+            Check(dLogged.LineTowers == 1 && dLogged.Clear, W, "flat 3 km at 0.004: " + Describe(dLogged));
 
             // (e) cost: each PlanAndReplan above is 3 plans; the tool re-plans once per edit.
             Check(msA < 1500.0 && msB < 1500.0, W, "3 km plans too slow: valley " + msA.ToString("F1") + " ms, ridge " + msB.ToString("F1") + " ms (3 plans each)");

@@ -290,5 +290,5 @@
     "m_StyleType": null,
     "m_InvertMode": 0,
     "m_MaxPylonDistance": 90,
-    "m_Hanging": 0
+    "m_Hanging": 0.025
 }

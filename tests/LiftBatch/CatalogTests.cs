@@ -420,24 +420,24 @@ namespace LiftBatch
                 Mover = MoverKind.Loop, Seats = 3, Speed = 2.5f, Gauge = 1.8f, Hang = 2.4f, Grip = 0.08f, Axle = 7.04f, Aim = 8.0f,
                 Spacing = 8f, Design = 15f, Rule = ServeRuleKind.AlongLine, Radius = 150f, Margin = 15f, Fixed = 2500f, PerKm = 1000f,
                 Build8 = 60, Elev10 = 5, StBase = 60000, StTop = 30000, LinePerKm = 7500, Ceiling = 4.0, Value = 6, Summer = 0.25,
-                MaxPylon = 60f, Slope = 0.8f, NetH = 0.01f, LaneH = 0.01f, HMin = 6f, ElevMax = 16f, Expected = true },
+                MaxPylon = 60f, Slope = 0.8f, NetH = 0.02f, LaneH = 0.02f, HMin = 6f, ElevMax = 16f, Expected = true },
                 // ElevMax 16: SkiCatalog FixedGrip Envelope and SkiChairliftHV.Prefab:19 m_ElevationRange.max 16 landed together (the only
                 // departure from the original table).
             new LiftOracle { Id = "detachable", Line = "SkiDetachableHV", Piece = "SkiDetachablePiece", Item = "liftDetachable", Carrier = "SkiLiftChairDQ4",
                 Mover = MoverKind.Loop, Seats = 4, Speed = 5.0f, Gauge = 2.6f, Hang = 3.3f, Grip = 0.22f, Axle = 8.0f, Aim = 9.0f,
                 Spacing = 22.5f, Design = 30f, Rule = ServeRuleKind.AlongLine, Radius = 150f, Margin = 15f, Fixed = 5000f, PerKm = 2000f,
                 Build8 = 120, Elev10 = 10, StBase = 125000, StTop = 65000, LinePerKm = 15000, Ceiling = 4.8, Value = 15, Summer = 0.25,
-                MaxPylon = 90f, Slope = 0.9f, NetH = 0f, LaneH = 0.004f, HMin = 5.8f, ElevMax = 10f, Expected = true },
+                MaxPylon = 90f, Slope = 0.9f, NetH = 0.025f, LaneH = 0.025f, HMin = 5.8f, ElevMax = 10f, Expected = true },
             new LiftOracle { Id = "gondola", Line = "SkiGondolaHV", Piece = "SkiGondolaPiece", Item = "liftGondola", Carrier = "SkiGondolaCabin8",
                 Mover = MoverKind.Loop, Seats = 8, Speed = 5.5f, Gauge = 3.0f, Hang = 4.5f, Grip = 0.08f, Axle = 10.0f, Aim = 11.0f,
                 Spacing = 40f /* T43 2026-10-16: was 45f */, Design = 60f, Rule = ServeRuleKind.AlongLine, Radius = 150f, Margin = 15f, Fixed = 8000f, PerKm = 3000f,
                 Build8 = 175, Elev10 = 15, StBase = 190000, StTop = 110000, LinePerKm = 21875, Ceiling = 6.0, Value = 25, Summer = 0.25,
-                MaxPylon = 250f, Slope = 1.2f, NetH = 0f, LaneH = 0.004f, HMin = 6f, ElevMax = 28f, Expected = true },
+                MaxPylon = 250f, Slope = 1.2f, NetH = 0.025f, LaneH = 0.025f, HMin = 6f, ElevMax = 28f, Expected = true },
             new LiftOracle { Id = "tram", Line = "SkiTramHV", Piece = "SkiTramPiece", Item = "liftTram", Carrier = "SkiTramCabin",
                 Mover = MoverKind.Shuttle, Seats = 100, Speed = 10.0f, Gauge = 5.5f, Hang = 10.5f, Grip = 0.5f, Axle = 26.25f, Aim = 26.25f,
                 Spacing = 0f, Design = 0f, Rule = ServeRuleKind.TerminalsOnly, Radius = 300f, Margin = 15f, Fixed = 11000f, PerKm = 4500f,
                 Build8 = 270, Elev10 = 25, StBase = 300000, StTop = 190000, LinePerKm = 33750, Ceiling = 12.0, Value = 30, Summer = 1.0,
-                MaxPylon = 1000f, Slope = 2.5f, NetH = 0f, LaneH = 0.004f, HMin = 13.75f, ElevMax = 30f, Expected = true,
+                MaxPylon = 1000f, Slope = 2.5f, NetH = 0.04f, LaneH = 0.04f, HMin = 13.75f, ElevMax = 30f, Expected = true,
                 Accel = 0.8f, Dwell = 60f },
         };
 
@@ -1147,6 +1147,15 @@ namespace LiftBatch
                     MirrorNum(line, RootField("m_MaxPylonDistance"), d.Envelope.MaxPylonM, W, d.LinePrefab + " m_MaxPylonDistance");
                     MirrorNum(line, RootField("m_MaxSlopeSteepness"), d.Envelope.SlopeMax, W, d.LinePrefab + " m_MaxSlopeSteepness");
                     MirrorNum(line, RootField("m_Hanging"), d.Envelope.NetHanging, W, d.LinePrefab + " m_Hanging");
+                    // The rope lanes sag as the net does: the engine cuts the terrain to the net's curve (+ HeightRange.min - 2), so
+                    // equal sag keeps every carrier above the cut on any span (the CT-15 clearance bound with no sag difference).
+                    Near(d.Envelope.NetHanging, d.Envelope.LaneHanging, 1e-6, W, d.Id + " rope lane m_Hanging == net m_Hanging");
+                    foreach (string lane in RopeLanes(d.Id))
+                    {
+                        string laneText = Mirror(lane, W);
+                        if (laneText != null)
+                            MirrorNum(laneText, @"""m_Hanging"":\s*(-?[0-9.]+)", d.Envelope.LaneHanging, W, lane + " m_Hanging");
+                    }
                     MirrorNum(line, @"""m_ElevationRange"":\s*\{[^{}]*?""max"":\s*(-?[0-9.]+)", d.Envelope.ElevationMaxM, W,
                               d.LinePrefab + " PlaceableNet m_ElevationRange.max");
                     int spaced = 0;
@@ -1253,6 +1262,19 @@ namespace LiftBatch
         }
 
         private const string PlaceableCost = @"\|Game\.Prefabs\.PlaceableObject, Game""[^{}]*?""m_ConstructionCost"":\s*(-?[0-9.]+)";
+
+        /// <summary>The own rope lanes of a lift type (PIPELINE constants table); each sags Envelope.LaneHanging.</summary>
+        private static string[] RopeLanes(string typeId)
+        {
+            switch (typeId)
+            {
+                case "fixedGrip": return new[] { "SkiFixedGripHaulRope" };
+                case "detachable": return new[] { "SkiDetachableHaulRope" };
+                case "gondola": return new[] { "SkiGondolaHaulRope" };
+                case "tram": return new[] { "SkiTramTrackRope", "SkiTramHaulRope" };
+                default: return new string[0];
+            }
+        }
 
         private static string RootField(string name)
         {
