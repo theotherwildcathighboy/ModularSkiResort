@@ -65,9 +65,11 @@ rule R17 of mod/SkiResortUI/tools/check-bundle.js compares each name and value w
     below it), pct = 1 for cabins (gondola, tram), 0 for chairs. Text "{NAME}: {CARRIERS} pass {M} m above the ground" (or "touch the
     ground" at 0); the span is named in the tip ("Between towers {A} and {B}" / "Between tower {N} and the station" / "Between the
     stations") because the row must fit a 1080 band line (about 49 characters). Click flies to the low point (`ApplyFocusLift`, subject =
-    `LowEdge`). Warn, never refuse. Like every row it is cut when the band is full (`MaxBandRows` counts folded rows one by one).
+    `LowEdge`). Warn, never refuse. Like every row it is cut when the band is full.
   - `SummitLodgesNotServed` > 0 -> `SummitLodgeNotLiftServed` (severity 1, count); `SchoolNoGreenRun` (severity 1).
-  - Then a stable insertion sort by (severity descending, code ascending, insertion order), cut to `MaxBandRows`, then one Factor row
+  - Then a stable insertion sort by (severity descending, code ascending, insertion order), cut to `MaxBandRows` SLOTS: the rows of a
+    `FoldedCodes` code (unfinished, no power, section missing; hubRules.ts `FOLDED_PROBLEM_CODES`, T39) are one band line, so they take
+    one slot and keep up to `MaxBandRows` rows (DECISIONS 588 f: four "No power" rows used to push a low span off the band); then one Factor row
     per efficiency factor that costs at least `FactorRowMinLossPct` points (severity 0, never in the band).
 
 ## ONE NET

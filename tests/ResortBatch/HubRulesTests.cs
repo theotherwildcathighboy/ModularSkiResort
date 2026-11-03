@@ -632,7 +632,7 @@ namespace ResortBatch
                 P(HubProblemCode.Unlinked, 3, build: "sign"),
                 P(HubProblemCode.FreeLodges, 1, count: 1));
 
-            // P11 cap
+            // P11 cap: a folded group takes one band slot and keeps at most MaxBandRows of its rows (P50)
             x = In(1, 1, 100, 12, 3);
             x.Lifts = new List<HubProblemLift>();
             for (int i = 0; i < 12; i++)
@@ -1076,6 +1076,33 @@ namespace ResortBatch
                 P(HubProblemCode.LiftLowSpan, 1, liftIndex: 0, count: 3, more: 4, detail: 12, pct: 0),
                 P(HubProblemCode.LiftLowSpan, 1, liftIndex: 1, count: 0, more: 1, detail: 0, pct: 1),
                 P(HubProblemCode.LiftLowSpan, 1, liftIndex: 2, count: 5, more: 0, detail: 29, pct: 0));
+
+            // P50 band slots (DECISIONS 588 f): the hub draws the rows of a folded code (HubRules.FoldedCodes) as ONE line, so SortAndCut
+            // counts them as one of the MaxBandRows slots and keeps every one of them. Eight slots in eleven rows (lodges off, four
+            // "No power", a missing section, an unfinished line, chairs stopped, a bend, a train limit, a low span): all kept, the low span
+            // last. The old row count cut it with the bend and the train limit. A ninth slot (a second low span) is cut, alone.
+            x = In(1, 0, 100, 8, 2);
+            var band = Ls(L(0, false, true, true), L(0, false, true, true), L(0, false, true, true), L(0, false, true, true),
+                          L(2, true, true, true), L(3, true, true, false), L(1, true, true, true), L(0, true, true, true));
+            HubProblemLift crowded = band[6]; crowded.BendTenths = 60; crowded.BendTower = 2; crowded.TrainTower = 3; band[6] = crowded;
+            HubProblemLift lowBand = band[7]; lowBand.LowSpan = true; lowBand.LowFrom = 2; lowBand.LowTo = 3; lowBand.LowTenths = 14;
+            band[7] = lowBand;
+            x.Lifts = band;
+            HubProblems.Build(in x, o);
+            Check(o.Count == 11 && o.FindAll(r => r.Code == HubProblemCode.LiftNoPower).Count == 4 &&
+                  o[o.Count - 1].Code == HubProblemCode.LiftLowSpan && o[o.Count - 1].LiftIndex == 7 &&
+                  o.Exists(r => r.Code == HubProblemCode.LiftBend) && o.Exists(r => r.Code == HubProblemCode.LiftTrainLimit),
+                  "hub C", $"P50 a folded group takes one slot: {o.Count} row(s): {Text(o)}");
+            HubProblemLift lowBand2 = L(0, true, true, true); lowBand2.LowSpan = true; lowBand2.LowFrom = 0; lowBand2.LowTo = 1;
+            band.Add(lowBand2);
+            x.Lifts = band;
+            HubProblems.Build(in x, o);
+            Check(o.Count == 11 && o.FindAll(r => r.Code == HubProblemCode.LiftNoPower).Count == 4 &&
+                  o[o.Count - 1].Code == HubProblemCode.LiftLowSpan && o[o.Count - 1].LiftIndex == 7,
+                  "hub C", $"P50 the ninth slot is cut, the folded rows stay: {o.Count} row(s): {Text(o)}");
+            Check(HubRules.IsFolded(HubProblemCode.LiftNoPower) && HubRules.IsFolded(HubProblemCode.LiftUnfinished) &&
+                  HubRules.IsFolded(HubProblemCode.LiftSectionMissing) && !HubRules.IsFolded(HubProblemCode.LiftLowSpan) &&
+                  HubRules.FoldedCodes.Length == 3, "hub C", "P50 FoldedCodes = unfinished, no power, section missing");
 
             // P17 reuse: P2 into the list, then P1 into the same list → exactly P1's rows.
             HubProblems.Build(in p2, o);

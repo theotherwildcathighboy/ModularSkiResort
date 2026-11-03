@@ -346,4 +346,14 @@
       { sign: SIGN, code: 32, severity: 1, subject: E(952), subjectTop: NULL, name: "Meadow Quad", count: 12, pct: 0, factor: "", more: 13, detail: 12, ifFixed: -1, buildItem: "" },
       problems[2],
     ] });
+
+  // DECISIONS 588 f: four lifts without power (code 5, folded into one band line) and a low span. C# SortAndCut counts the folded
+  // rows as one slot, so the dim low-span row reaches the band (it used to be cut in a crowded area).
+  const noPower = (i) => ({ sign: SIGN, code: 5, severity: 2, subject: E(960 + i), subjectTop: NULL, name: "Lift " + i, count: -1, pct: -1, factor: "", more: 0, detail: 0, ifFixed: -1, buildItem: "" });
+  window.SkiScenarios["Ash Flat (runs, lifts, problems), four lifts without power and a low span"] = Object.assign({}, base, { hubOpen: true, resorts,
+    resortLive: [live, live2], selectedResort: SIGN, runs, runLive, lifts, history, build: buildItems({ built: ["school"] }),
+    problems: [
+      noPower(1), noPower(2), noPower(3), noPower(4),
+      { sign: SIGN, code: 32, severity: 1, subject: E(952), subjectTop: NULL, name: "Lift 8", count: 0, pct: 1, factor: "", more: 1, detail: 14, ifFixed: -1, buildItem: "" },
+    ] });
 })();

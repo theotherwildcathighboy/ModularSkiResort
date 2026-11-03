@@ -815,6 +815,24 @@ function run(srcDir) {
       [true, true, true, true, true, true, true, true]);
   }
   {
+    // T39 band slots (DECISIONS 588 f): C# SortAndCut counts a folded code as ONE of MaxBandRows slots, so its folded codes must be
+    // the ones foldBandRows folds; and the C# cut of P50 (lodges off, four "No power", a missing section, an unfinished line, chairs
+    // stopped, a bend, a train limit, a low span: eight slots in eleven rows) folds to eight band rows with the low span last.
+    // the real C# beside this tool (a --src= copy run, check-bundle R18 and the gate fixtures, has no C# tree at srcDir/../..)
+    const cs = fs.readFileSync(path.join(__dirname, "..", "..", "SkiResortMod", "Systems", "HubRules.cs"), "utf8");
+    const decl = /FoldedCodes\s*=\s*\{([^}]*)\}/.exec(cs);
+    const names = decl ? decl[1].split(",").map((t) => t.trim().replace(/^HubProblemCode\./, "")).filter((t) => t !== "") : [];
+    const codes = names.map((n) => { const m = new RegExp("\\b" + n + " = (\\d+)").exec(cs); return m ? Number(m[1]) : -1; });
+    eq("T39.1 C# HubRules.FoldedCodes == FOLDED_PROBLEM_CODES", codes.slice().sort((a, b) => a - b),
+      R.FOLDED_PROBLEM_CODES.slice().sort((a, b) => a - b));
+    const L = (code, name, sev = 2) => P(A, code, sev, { name });
+    const cut = [L(2, "", 3), L(5, "Lift 1"), L(5, "Lift 2"), L(5, "Lift 3"), L(5, "Lift 4"), L(6, "Lift 5"), L(7, "Lift 6"),
+      L(11, "Lift 7", 1), L(30, "Lift 7", 1), L(31, "Lift 7", 1), L(32, "Lift 8", 1)];
+    const band = R.foldBandRows(cut);
+    eq("T39.2 the C# cut of 4 No power + 6 other rows + a low span folds to 8 band rows, No power one of them, the low span last",
+      [band.length, band[1].group.length, band[band.length - 1].row.code, R.bandSlots(band).more], [8, 4, 32, 5]);
+  }
+  {
     // 2026-11-02 small calls: a band row whose tooltip only repeated it has none; the CAR SPACES header names every lodge, its rows
     // "this lodge"; the Guests tooltips name the bare month, as the bars do.
     const status = read(path.join("hub", "StatusBlock.tsx"));

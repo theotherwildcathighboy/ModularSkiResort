@@ -202,6 +202,13 @@ namespace SkiResortMod.Systems
         public const int EfficiencyClearPct = 95;  // a shown Efficiency row stays until this (98 flapped)
         public const int FactorRowMinLossPct = 5;  // a Factor row only from a 5-point loss
         public const int MaxBandRows = 8;
+
+        /// <summary>The codes the hub folds into one band line when two or more rows share them; SortAndCut counts such a group as one
+        /// of the MaxBandRows slots. Mirror of hubRules.ts FOLDED_PROBLEM_CODES (tools/test-hub-rules.js T39 compares the two).</summary>
+        public static readonly HubProblemCode[] FoldedCodes =
+            { HubProblemCode.LiftUnfinished, HubProblemCode.LiftNoPower, HubProblemCode.LiftSectionMissing };
+
+        public static bool IsFolded(HubProblemCode code) => System.Array.IndexOf(FoldedCodes, code) >= 0;
         // An alias of the documented hand copy in SkiCatalog.FixedGrip.LinePerKm (60 per 8 m piece × 125 pieces per km, ground
         // level) (CG-1).
         public const int LiftLinePerKm = SkiCatalog.FixedGrip.LinePerKm;
@@ -997,7 +1004,11 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Stable insertion sort by (severity descending, code ascending); equal keys keep their
-        /// insertion order. Then the band is cut to MaxBandRows.</summary>
+        /// insertion order. Then the band is cut to MaxBandRows SLOTS: the hub draws every row of a HubRules.FoldedCodes code as one
+        /// line (hubRules.ts foldBandRows), so such a code takes one slot however many rows it has; it keeps up to MaxBandRows of its
+        /// rows (the line and its tip name them; the cap bounds the tip, as the old row cut did). Rows of one code are adjacent after
+        /// the sort. The cut used to count rows: four "No power" rows took four slots and pushed a low-span row off the band
+        /// (DECISIONS 588 f).</summary>
         private static void SortAndCut(List<HubProblem> rows)
         {
             for (int i = 1; i < rows.Count; i++)
@@ -1011,8 +1022,17 @@ namespace SkiResortMod.Systems
                 }
                 rows[j + 1] = x;
             }
-            if (rows.Count > HubRules.MaxBandRows)
-                rows.RemoveRange(HubRules.MaxBandRows, rows.Count - HubRules.MaxBandRows);
+            int slots = 0, inGroup = 0, kept = 0;
+            for (int i = 0; i < rows.Count; i++)
+            {
+                bool sameFold = i > 0 && rows[i].Code == rows[i - 1].Code && HubRules.IsFolded(rows[i].Code);
+                inGroup = sameFold ? inGroup + 1 : 1;
+                if (!sameFold && ++slots > HubRules.MaxBandRows)
+                    break;
+                if (inGroup <= HubRules.MaxBandRows)
+                    rows[kept++] = rows[i];
+            }
+            rows.RemoveRange(kept, rows.Count - kept);
         }
 
         /// <summary>True when <paramref name="a"/> sorts strictly after <paramref name="b"/>.</summary>
