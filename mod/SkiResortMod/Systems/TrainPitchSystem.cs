@@ -10,6 +10,9 @@
 //     (LiftAlignMath.LaneEndPitch); the lanes leaving toward +z average to the front pitch, those toward -z to the back pitch
 //     (LiftAlignMath.HalfPitches: each clamped to TrainPitchLimit, the type's steepest rope but at most 30 deg; the half-break to
 //     MaxHalfBreakDeg). Kept in TrainPitch and the TrainBonePose buffer (not saved: the first census of a load recomputes every tower).
+//   Train limits (hub row LiftTrainLimit, 2026-11-03): the same pass measures every line tower with anchors, rigged or not, by how far its
+//     rope asks past those limits (LiftAlignMath.TrainOverDeg on the unclamped pitches); a tower over TrainWarnDeg enters TrainOver. When
+//     that set changes the pass asks LiftCensusSystem for a coalesced build, which reads it into LiftCensus.Node.TrainOverDeg.
 //   TrainBoneSystem (Rendering, after InitializeBonesSystem): writes the bones. Skeletons exist only near the camera and come back at rest
 //     on every (re)allocation (InitializeBonesSystem.cs:57-70, :161-171), and vanilla never writes a None bone (ObjectInterpolateSystem
 //     AnimateStaticBone has no case for it), so a Burst job re-applies the rotations each frame where they differ.
@@ -99,11 +102,20 @@ namespace SkiResortMod.Systems
         private readonly List<float3> m_Anchors = new List<float3>(8);
         private readonly List<Pending> m_Pending = new List<Pending>();
         private int m_Passes, m_LastNoRope;
+        // Per line node, the degrees its tower's rope asks past the train limits (LiftAlignMath.TrainOverDeg over TrainWarnDeg), for every
+        // line tower with anchors, rigged or not; LiftCensusSystem reads it into LiftCensus.Node.TrainOverDeg (the hub's LiftTrainLimit).
+        private Dictionary<Entity, float> m_Over = new Dictionary<Entity, float>();
+        private Dictionary<Entity, float> m_OverNext = new Dictionary<Entity, float>();
+        private LiftCensusSystem m_Census;
+
+        /// <summary>The line nodes whose tower's rope goes past what its train follows, and by how many degrees (last pass).</summary>
+        internal IReadOnlyDictionary<Entity, float> TrainOver => m_Over;
 
         protected override void OnCreate()
         {
             base.OnCreate();
             m_PrefabSystem = World.GetOrCreateSystemManaged<PrefabSystem>();
+            m_Census = World.GetOrCreateSystemManaged<LiftCensusSystem>();
             m_UpdatedEdges = GetEntityQuery(new EntityQueryDesc
             {
                 All = new[] { ComponentType.ReadOnly<Edge>(), ComponentType.ReadOnly<Updated>(), ComponentType.ReadOnly<PrefabRef>() },
@@ -122,6 +134,7 @@ namespace SkiResortMod.Systems
             m_Rigs.Clear();
             m_Passes = 0;
             m_LastNoRope = 0;
+            m_Over.Clear();
         }
 
         /// <summary>Called by LiftCensusSystem after each build with its line edges (main thread, no ECS read here).</summary>
@@ -186,6 +199,7 @@ namespace SkiResortMod.Systems
             m_Passes++;
             m_SeenNodes.Clear();
             m_Pending.Clear();
+            m_OverNext.Clear();
             int towers = 0, noRope = 0, clamped = 0;
             float maxDeg = 0f, maxHalfBreakDeg = 0f;
             // Read everything first; the component adds below are structural changes, which would invalidate the node buffers read here.
@@ -208,11 +222,15 @@ namespace SkiResortMod.Systems
                         if (EntityManager.HasComponent<Temp>(tower) || EntityManager.HasComponent<Deleted>(tower) ||
                             !EntityManager.TryGetComponent(tower, out PrefabRef pr) || !EntityManager.TryGetComponent(tower, out Transform t))
                             continue;
+                        bool roped = PitchesAt(node, pr.m_Prefab, t, maxPitch, out float front, out float back, out bool wasClamped,
+                            out float over);
+                        if (roped && over > LiftAlignMath.TrainWarnDeg)
+                            m_OverNext[node] = m_OverNext.TryGetValue(node, out float o) ? math.max(o, over) : over;
                         List<RigBone> rig = RigOf(pr.m_Prefab);
                         if (rig == null)
                             continue;
                         towers++;
-                        if (!PitchesAt(node, pr.m_Prefab, t, maxPitch, out float front, out float back, out bool wasClamped))
+                        if (!roped)
                         {
                             noRope++;
                             continue;
@@ -267,14 +285,54 @@ namespace SkiResortMod.Systems
             }
             m_LastNoRope = noRope;
             m_Pending.Clear();
+
+            // The towers past their train's limits: when the set or a tower's figure changed, log it and have the census re-measure, so
+            // the hub's LiftTrainLimit row follows the trains within one coalesce window (the census reads m_Over at its harvest).
+            if (!SameOver(m_Over, m_OverNext))
+            {
+                (m_Over, m_OverNext) = (m_OverNext, m_Over);
+                float worst = 0f;
+                foreach (float v in m_Over.Values)
+                    worst = math.max(worst, v);
+                Mod.Log.Info($"Towers [trains]: {m_Over.Count} line tower(s) whose rope goes past what the train follows (a half past " +
+                             $"its pitch limit or the {2f * LiftAlignMath.MaxHalfBreakDeg:F0} deg break), worst {worst:F1} deg over" +
+                             (m_Over.Count > 0 ? $"; nodes {string.Join(", ", OverNodes())}" : string.Empty) + " (hub: LiftTrainLimit)");
+                m_Census?.RequestBuild("train limits");
+            }
+        }
+
+        private static bool SameOver(Dictionary<Entity, float> a, Dictionary<Entity, float> b)
+        {
+            if (a.Count != b.Count)
+                return false;
+            foreach (KeyValuePair<Entity, float> kv in a)
+                if (!b.TryGetValue(kv.Key, out float v) || math.abs(v - kv.Value) >= 0.05f)
+                    return false;
+            return true;
+        }
+
+        private IEnumerable<string> OverNodes()
+        {
+            int n = 0;
+            foreach (KeyValuePair<Entity, float> kv in m_Over)
+            {
+                if (n++ == 8)
+                {
+                    yield return $"+{m_Over.Count - 8} more";
+                    yield break;
+                }
+                yield return $"{kv.Key.Index}:{kv.Key.Version} {kv.Value:F1}";
+            }
         }
 
         /// <summary>The half-train pitches from the rope lane ends on the tower's anchors (LiftAlignMath.HalfPitches); false when no lane end
         /// sits on an anchor.</summary>
-        private bool PitchesAt(Entity node, Entity towerPrefab, Transform t, float maxPitch, out float front, out float back, out bool clamped)
+        private bool PitchesAt(Entity node, Entity towerPrefab, Transform t, float maxPitch, out float front, out float back, out bool clamped,
+            out float over)
         {
             front = back = 0f;
             clamped = false;
+            over = 0f;
             m_Anchors.Clear();
             if (!EntityManager.TryGetBuffer(towerPrefab, true, out DynamicBuffer<Game.Prefabs.SubLane> anchors) ||
                 !EntityManager.TryGetBuffer(node, true, out DynamicBuffer<ConnectedEdge> edges))
@@ -306,7 +364,9 @@ namespace SkiResortMod.Systems
             }
             if (nF + nB == 0)
                 return false;
-            clamped = LiftAlignMath.HalfPitches(nF > 0 ? sumF / nF : 0f, nF, nB > 0 ? sumB / nB : 0f, nB, maxPitch, out front, out back);
+            float meanF = nF > 0 ? sumF / nF : 0f, meanB = nB > 0 ? sumB / nB : 0f;
+            over = LiftAlignMath.TrainOverDeg(meanF, nF, meanB, nB, maxPitch);
+            clamped = LiftAlignMath.HalfPitches(meanF, nF, meanB, nB, maxPitch, out front, out back);
             return true;
         }
 

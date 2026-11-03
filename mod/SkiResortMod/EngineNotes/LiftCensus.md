@@ -100,6 +100,14 @@ The lift tool draws straight lines; bends come from the vanilla net tool or a mo
   depends on a bend. `BendWarnTenths(deg)` is the hub's number: 0 at or under `LiftAlignMath.BendWarnDeg` (5), else tenths rounded up
   (never reads 5.0). Tests: LiftBatch BendTests BT-1..BT-10.
 
+## Train limits at towers (2026-11-03, owner: a fact in the hub, never a refusal)
+`MeasureBends` keeps, in the same tower walk, the tower whose rope asks most past what its sheave train follows: `Node.TrainOverDeg` is
+TrainPitchSystem's figure (`LiftAlignMath.TrainOverDeg`, kept only over `TrainWarnDeg` 0.5), read by LiftCensusSystem.AddNode from
+`TrainPitchSystem.TrainOver`. Row fields `TrainOverDeg`, `TrainTower` (the plate number, like `BendTower`), `TrainNode`, `TrainAt`,
+hashed. A station connection node never counts. The census reads the figure of the last train pass; TrainPitchSystem runs after it and
+calls `RequestBuild("train limits")` when its set changes, so the row follows within one coalesce window. The state never depends on it.
+Tests: LiftBatch BT-11 (and AL-11 for the figure).
+
 ## Pure file
 Only `using System;`, `System.Collections.Generic`, `Unity.Mathematics` (the test-host rule of tests/SlopeBatch; EntityRef.cs is the pure
 stand-in for Entity), plus SkiCatalog (pure, linked wherever this file is) for the type ids in the "mixes lift types" note, and the pure

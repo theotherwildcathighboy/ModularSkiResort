@@ -154,6 +154,9 @@ namespace SkiResortMod.Systems
         // C# only (not written to the LiftRow binding): the census row's sharpest tower bend for the LiftBend problem row. BendTenths =
         // LiftCensus.BendWarnTenths (0 = none over LiftAlignMath.BendWarnDeg), BendTower = its tower number, BendNode = its net node.
         public int BendTenths, BendTower; public Entity BendNode;
+        // The same for the LiftTrainLimit row: TrainTower = the number of the tower whose rope goes furthest past what its sheave train
+        // follows (0 = none), TrainNode = its net node.
+        public int TrainTower; public Entity TrainNode;
     }
 
     /// <summary>bindings.ts ProblemRow. Grouped by area in resorts order (ch5 §5.6).</summary>
@@ -1742,6 +1745,9 @@ namespace SkiResortMod.Systems
                     BendTenths = LiftCensus.BendWarnTenths(c.BendDeg),
                     BendTower = c.BendTower,
                     BendNode = ToEntity(c.BendNode),
+                    // The tower past its train's limits (census-decided; 0 = every train follows its rope).
+                    TrainTower = c.TrainTower,
+                    TrainNode = ToEntity(c.TrainNode),
                 });
                 m_RowBase.Add(baseStation);
                 m_RowTop.Add(topStation);
@@ -2585,6 +2591,7 @@ namespace SkiResortMod.Systems
                         Type = l.TypeIndex == LiftCensus.NoType ? (byte)0 : l.TypeIndex,
                         Mixed = l.Mixed,
                         BendTenths = l.BendTenths, BendTower = l.BendTower, // the LiftBend row
+                        TrainTower = l.TrainTower,                          // the LiftTrainLimit row
                     });
                     m_PLiftRows.Add(k);
                 }
@@ -2672,6 +2679,12 @@ namespace SkiResortMod.Systems
                     if (p.Code == HubProblemCode.LiftBend && lift.BendNode != Entity.Null)
                     {
                         subject = lift.BendNode;
+                        subjectTop = Entity.Null;
+                    }
+                    // LiftTrainLimit: the same with the tower past its train's limits.
+                    if (p.Code == HubProblemCode.LiftTrainLimit && lift.TrainNode != Entity.Null)
+                    {
+                        subject = lift.TrainNode;
                         subjectTop = Entity.Null;
                     }
                     if (p.Code == HubProblemCode.Efficiency)
@@ -3101,6 +3114,8 @@ namespace SkiResortMod.Systems
                 h = Mix(h, (uint)r.BendTenths);
                 h = Mix(h, (uint)r.BendTower);
                 h = MixE(h, r.BendNode);
+                h = Mix(h, (uint)r.TrainTower);
+                h = MixE(h, r.TrainNode);
             }
             return Mix(h, (uint)rows.Count);
         }

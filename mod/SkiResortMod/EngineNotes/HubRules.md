@@ -57,6 +57,9 @@ rule R17 of mod/SkiResortUI/tools/check-bundle.js compares each name and value w
   - `LiftBend` (30, 2026-11-02): a lift row of state 0, 1 or 2 (complete or open) with `BendTenths` > 0 -> severity 1, count = `BendTower`,
     detail = `BendTenths`. The census decides the threshold (`LiftCensus.BendWarnTenths`: over `LiftAlignMath.BendWarnDeg`), so this pure
     file needs no Unity.Mathematics. Warn, never refuse: the row changes nothing else. A Mixed row never reaches it (it is Unfinished).
+  - `LiftTrainLimit` (31, 2026-11-03): a lift row of state 0, 1 or 2 with `TrainTower` > 0 -> severity 1, count = `TrainTower` (the
+    tower plate number). Text "{NAME}: tower {N} bends past what its wheels can follow"; the tip states the limits (30 deg tilt, 40 deg
+    fold). Click flies to the tower (`ApplyFocusLift`, subject = `TrainNode`). Warn, never refuse.
   - `SummitLodgesNotServed` > 0 -> `SummitLodgeNotLiftServed` (severity 1, count); `SchoolNoGreenRun` (severity 1).
   - Then a stable insertion sort by (severity descending, code ascending, insertion order), cut to `MaxBandRows`, then one Factor row
     per efficiency factor that costs at least `FactorRowMinLossPct` points (severity 0, never in the band).

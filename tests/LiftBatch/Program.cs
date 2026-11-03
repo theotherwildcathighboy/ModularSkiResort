@@ -141,7 +141,7 @@ namespace LiftBatch
         internal sealed class World
         {
             private struct St { public bool IsBase; public float3 Pos; public quaternion Rot; }
-            private struct Nd { public float3 Pos; public int Station; public bool Tower; }
+            private struct Nd { public float3 Pos; public int Station; public bool Tower; public float TrainOver; }
             private struct Ed { public int A, B, Chairs; }
 
             private readonly SortedDictionary<int, St> m_Stations = new SortedDictionary<int, St>();
@@ -168,6 +168,14 @@ namespace LiftBatch
             public void Node(int id, float3 pos, int station = 0, bool tower = true)
             {
                 m_Nodes[id] = new Nd { Pos = pos, Station = station, Tower = station == 0 && tower };
+            }
+
+            /// <summary>The degrees node <paramref name="node"/>'s tower rope asks past its train (TrainPitchSystem's figure, LiftCensus.Node.TrainOverDeg).</summary>
+            public void SetTrainOver(int node, float deg)
+            {
+                Nd n = m_Nodes[node];
+                n.TrainOver = deg;
+                m_Nodes[node] = n;
             }
 
             public void SetTower(int node, bool tower)
@@ -248,6 +256,7 @@ namespace LiftBatch
                             Station = si,
                             HasTower = nd.Tower,
                             Position = nd.Pos,
+                            TrainOverDeg = nd.TrainOver,
                         });
                     }
                 }

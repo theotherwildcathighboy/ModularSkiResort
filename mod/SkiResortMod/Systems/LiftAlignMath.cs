@@ -124,6 +124,27 @@ namespace SkiResortMod.Systems
             return clamped;
         }
 
+        /// <summary>How far, degrees, the rope at a tower asks more of its train than HalfPitches gives: the larger of a half's pitch past
+        /// <paramref name="maxPitch"/> and the half-break past MaxHalfBreakDeg, both from the unclamped pitches (inputs as HalfPitches;
+        /// a side without a rope takes the other's pitch). 0 when the train follows the rope, or when neither side has a rope. The hub's
+        /// LiftTrainLimit row (TrainWarnDeg).</summary>
+        public static float TrainOverDeg(float front, int nFront, float back, int nBack, float maxPitch)
+        {
+            if (nFront == 0 && nBack == 0)
+                return 0f;
+            if (nFront == 0)
+                front = back;
+            else if (nBack == 0)
+                back = front;
+            float pitch = math.max(math.abs(front), math.abs(back)) - maxPitch;
+            float halfBreak = 0.5f * math.abs(back - front) - math.radians(MaxHalfBreakDeg);
+            return math.max(0f, math.degrees(math.max(pitch, halfBreak)));
+        }
+
+        /// <summary>The hub warns about a tower's train only past this many degrees over its limits (TrainOverDeg): rounding and rope
+        /// sag noise at a tower right at a limit never raise the row.</summary>
+        public const float TrainWarnDeg = 0.5f;
+
         /// <summary>The steepest rope a lift type allows, radians: atan of its envelope's SlopeMax (FG 38.7, DQ 42.0, GD 50.2, tram 68.2
         /// deg); the trains stop at TrainPitchLimit.</summary>
         public static float MaxTrainPitch(float slopeMax)

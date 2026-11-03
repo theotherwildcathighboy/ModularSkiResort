@@ -71,7 +71,7 @@ export type ProblemVariant =
   | "signNoRoad" | "lodgeNoRoad"
   | "skiDaysCannotReach" | "skiDaysNoGuestsNear" | "noParkingNearLodge" | "lodgeNotSlopeside"
   | "mixedLiftTypes" | "summitLodgeNotLiftServed" | "schoolNoGreenRun" | "schoolsNotLinked"
-  | "depotNoHillLodge" | "depotNoRoad" | "liftBend";
+  | "depotNoHillLodge" | "depotNoRoad" | "liftBend" | "liftTrainLimit";
 
 export function problemVariant(p: ProblemRow): ProblemVariant | null {
   switch (p.code) {
@@ -107,6 +107,7 @@ export function problemVariant(p: ProblemRow): ProblemVariant | null {
     case PROBLEM.DepotNoHillLodge: return "depotNoHillLodge";
     case PROBLEM.DepotNoRoad: return "depotNoRoad";
     case PROBLEM.LiftBend: return "liftBend";
+    case PROBLEM.LiftTrainLimit: return "liftTrainLimit";
     default: return null;
   }
 }
@@ -154,7 +155,7 @@ export type ProblemClick = "sign" | "lift" | "liftsView" | "runsView" | null;
  *  the lowest summit lodge no lift reaches for 24, the subject C# names for 25; the top-level school for 25,
  *  the first school on no sign for 26, a road-less school for 19 when no lodge is). MixedLiftTypes (23)
  *  is a lift row: its click flies to the lift (to its gap while a section is missing), like LiftUnfinished. LiftBend (30) sends the bent
- *  tower's node as its subject with a null subjectTop: focusLift flies to that tower. */
+ *  tower's node as its subject with a null subjectTop: focusLift flies to that tower; LiftTrainLimit (31) the same with its tower. */
 export function problemClick(p: ProblemRow): ProblemClick {
   switch (p.code) {
     case PROBLEM.NoLodge: case PROBLEM.LodgesAllOff: case PROBLEM.LodgesSomeOff: case PROBLEM.Efficiency:
@@ -165,6 +166,7 @@ export function problemClick(p: ProblemRow): ProblemClick {
       return "sign";
     case PROBLEM.LiftNoPower: case PROBLEM.LiftSectionMissing: case PROBLEM.LiftUnfinished:
     case PROBLEM.StationsOnly: case PROBLEM.LiftChairsStopped: case PROBLEM.MixedLiftTypes: case PROBLEM.LiftBend:
+    case PROBLEM.LiftTrainLimit:
       return "lift";
     case PROBLEM.NoLift: return "liftsView";
     case PROBLEM.NoRuns: case PROBLEM.RunsUnserved: case PROBLEM.RunsUnrateable: case PROBLEM.RunsRating:

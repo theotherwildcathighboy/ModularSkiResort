@@ -47,6 +47,7 @@ namespace SkiResortMod.Systems
         SkiDaysNoGuestsNear = 27,  // an open hill with almost no homes or hotels within a ski day's drive; Detail = the nearest, tenths of a km
         DepotNoHillLodge = 28, DepotNoRoad = 29,  // a bus depot that cannot work: the area has no passing hill lodge / it has no road; Count
         LiftBend = 30,  // a complete or open lift's sharpest tower bend in plan is over LiftAlignMath.BendWarnDeg; Count = the tower's number, Detail = tenths of a degree
+        LiftTrainLimit = 31,  // a complete or open lift has a tower whose rope goes past what its sheave train follows (a half past its pitch limit or the 40 deg break); Count = the tower's number
     }
 
     /// <summary>bindings.ts SKI_DAY_STATE (gate R17): ResortLive.skiDaysState, the Guests view's state line. The hub's display
@@ -68,8 +69,9 @@ namespace SkiResortMod.Systems
     /// station's custom name (LiftStats.CustomName), not "Lift N". Type = the row's SkiCatalog.Lifts index (its build items;
     /// 0 = fixed-grip, the struct default, so every pre-Phase-B constructor keeps today's items), Mixed = its component spans two lift
     /// types. BendTenths = LiftCensus.BendWarnTenths of the row's sharpest tower bend (0 = none over the warning angle; the census
-    /// decides), BendTower = that tower's number.</summary>
-    public struct HubProblemLift { public int State; public bool Powered, HasBase, HasTop, CustomName; public byte Type; public bool Mixed; public int BendTenths, BendTower; }
+    /// decides), BendTower = that tower's number. TrainTower = the number of the tower whose rope goes furthest past what its sheave
+    /// train follows (LiftCensus.Row.TrainTower; 0 = every train follows its rope).</summary>
+    public struct HubProblemLift { public int State; public bool Powered, HasBase, HasTop, CustomName; public byte Type; public bool Mixed; public int BendTenths, BendTower, TrainTower; }
 
     /// <summary>The inputs of HubProblems.Build for ONE area.</summary>
     public struct HubProblemInput
@@ -836,6 +838,10 @@ namespace SkiResortMod.Systems
                 // (owner verdict 2026-11-02: warn, never refuse). Count = the tower's number, Detail = tenths of a degree.
                 if (l.State >= 0 && l.State <= 2 && l.BendTenths > 0)
                     output.Add(Row(HubProblemCode.LiftBend, 1, liftIndex: k, count: l.BendTower, detail: l.BendTenths));
+                // 4c. The same lines with a tower whose rope goes past what its sheave train follows: dim (1), a fact only. Count = the
+                // tower's number (the furthest past, LiftCensus.Row.TrainTower).
+                if (l.State >= 0 && l.State <= 2 && l.TrainTower > 0)
+                    output.Add(Row(HubProblemCode.LiftTrainLimit, 1, liftIndex: k, count: l.TrainTower));
             }
 
             // 5-8. Lifts and runs of the area.

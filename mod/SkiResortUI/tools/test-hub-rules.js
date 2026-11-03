@@ -785,6 +785,17 @@ function run(srcDir) {
       [status.includes("HUB_FMT.problemLiftBend} args={{ NAME, DEG: numArg(p.detail / 10, Unit.FloatSingleFraction), N }}"),
         status.includes("HUB_LOC.problemTipLiftBend")], [true, true]);
   }
+  // T37 code 31 LiftTrainLimit: a dim band row naming the lift and the tower (count) whose rope goes past what its sheave train follows;
+  // its click flies to that tower like LiftBend (subject = the tower node, no top).
+  eq("T37.1 code 31: variant liftTrainLimit, click lift, info glyph", [BIND.PROBLEM.LiftTrainLimit,
+    R.problemVariant(P(A, 31, 1, { count: 7 })), R.problemClick(P(A, 31, 1)), R.problemIcon(P(A, 31, 1)).tone],
+    [31, "liftTrainLimit", "lift", "info"]);
+  {
+    const status = read(path.join("hub", "StatusBlock.tsx"));
+    eq("T37.2 row 31 drawn with its FMT text (N from count) and its tip",
+      [status.includes("HUB_FMT.problemLiftTrainLimit} args={{ NAME, N }}"), status.includes("HUB_LOC.problemTipLiftTrainLimit")],
+      [true, true]);
+  }
   {
     // 2026-11-02 small calls: a band row whose tooltip only repeated it has none; the CAR SPACES header names every lodge, its rows
     // "this lodge"; the Guests tooltips name the bare month, as the bars do.

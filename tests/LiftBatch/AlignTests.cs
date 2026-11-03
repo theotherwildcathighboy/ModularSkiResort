@@ -30,6 +30,7 @@ namespace LiftBatch
             Al8Station();
             Al9LaneEnds();
             Al10Halves();
+            Al11TrainOver();
         }
 
         private static bool Check(bool cond, string where, string msg) => s_Check(cond, where, msg);
@@ -183,6 +184,26 @@ namespace LiftBatch
         }
 
         // ── AL-10: articulated halves (option C): each half follows its own span's rope, either facing; break and slope clamps ──
+        private static void Al11TrainOver()
+        {
+            const string W = "align/AL-11 train over";
+            float d = math.radians(1f), max = LiftAlignMath.TrainPitchLimit(0.8f);   // 30 deg
+            // Inside both limits: 0 (a 40 deg break exactly, halves at 20 / -20; a 30 deg slope exactly).
+            Check(LiftAlignMath.TrainOverDeg(-20f * d, 2, 20f * d, 2, max) < 1e-3f, W, "a 40 deg break is within");
+            Check(LiftAlignMath.TrainOverDeg(30f * d, 2, 30f * d, 2, max) < 1e-3f, W, "a 30 deg straight slope is within");
+            // The break: halves -25 / 25 = 50 deg apart, 5 over the 20 deg half-break.
+            Check(math.abs(LiftAlignMath.TrainOverDeg(-25f * d, 2, 25f * d, 2, max) - 5f) < 1e-3f, W, "50 deg break is 5 over");
+            // The pitch: 36 deg straight, 6 over 30; with a break too, the larger counts (34 / 10: pitch 4 over, half-break 12 within).
+            Check(math.abs(LiftAlignMath.TrainOverDeg(36f * d, 1, 36f * d, 1, max) - 6f) < 1e-3f, W, "36 deg slope is 6 over");
+            Check(math.abs(LiftAlignMath.TrainOverDeg(10f * d, 1, 34f * d, 1, max) - 4f) < 1e-3f, W, "34 deg half is 4 over");
+            // Unclamped inputs: HalfPitches clamps a 70 deg break to 40, TrainOverDeg still reports 15 over.
+            Check(math.abs(LiftAlignMath.TrainOverDeg(-35f * d, 2, 35f * d, 2, max) - 15f) < 1e-3f, W, "70 deg break is 15 over");
+            // One side only: the other takes its pitch (a straight train); no rope: 0.
+            Check(math.abs(LiftAlignMath.TrainOverDeg(40f * d, 1, 0f, 0, max) - 10f) < 1e-3f, W, "one-sided 40 deg is 10 over");
+            Check(LiftAlignMath.TrainOverDeg(1f, 0, 1f, 0, max) == 0f, W, "no rope is 0");
+            Check(LiftAlignMath.TrainWarnDeg > 0f && LiftAlignMath.TrainWarnDeg < 1f, W, "warn margin out of (0, 1) deg");
+        }
+
         private static void Al10Halves()
         {
             float h = 0.004f;

@@ -31,6 +31,7 @@ namespace LiftBatch
             Bt8StationNodeNeverMeasured();
             Bt9Revision();
             Bt10ToolJoint();
+            Bt11TrainLimit();
         }
 
         private static LiftCensus.Row Only(Program.World w, string where)
@@ -152,6 +153,34 @@ namespace LiftBatch
             Check(r.BendNode == Program.R(201), W, "the sharpest measured node is tower 1, got " + r.BendNode);
             float atTower1 = LiftAlignMath.PlanBendDeg(w.Tip(1), TowerPos(w, 201, 40f), TowerPos(w, 202, 0f));
             Check(math.abs(r.BendDeg - atTower1) < 1e-3f, W, $"BendDeg {r.BendDeg:F2} = tower 1's {atTower1:F2}");
+        }
+
+        private static void Bt11TrainLimit()
+        {
+            const string W = "bend/BT-11 train limit";
+            // No tower past its train: nothing. Two past: the row names the one furthest past, numbered like the bend (tile order).
+            Program.World w = Program.StraightLift();
+            LiftCensus.Row r = Only(w, W);
+            Check(r.TrainTower == 0 && r.TrainNode.IsNull && r.TrainOverDeg == 0f, W, "no train past its limits on a straight line");
+            w.SetTrainOver(202, 3f);
+            w.SetTrainOver(204, 7.5f);
+            r = Only(w, W);
+            Check(r.TrainTower == 4 && r.TrainNode == Program.R(204), W, $"tower 4 / node 204 (7.5 over), got {r.TrainTower} / {r.TrainNode}");
+            Check(math.abs(r.TrainOverDeg - 7.5f) < 1e-6f, W, "TrainOverDeg 7.5, got " + r.TrainOverDeg);
+            Check(math.distance(r.TrainAt, TowerPos(w, 204, 0f)) < 1e-3f, W, "TrainAt = the tower node");
+            Check(r.State == LiftCensus.State.Complete && r.BendTower == 0 || r.BendDeg < 1e-3f, W, "a train limit changes neither state nor bend");
+            // A station connection node is never a line tower, whatever its figure.
+            Program.World s = Program.StraightLift();
+            s.SetTrainOver(200, 9f);
+            r = Only(s, W);
+            Check(r.TrainTower == 0, W, "the base stub node counted, tower " + r.TrainTower);
+            // The row's signature moves with the figure (the hub refreshes).
+            Program.World a = Program.StraightLift();
+            a.Build();
+            int rev = a.Census.Revision;
+            a.SetTrainOver(203, 2f);
+            a.Build();
+            Check(a.Census.Revision != rev, W, "a tower going past its train's limits does not bump Revision");
         }
 
         private static void Bt9Revision()

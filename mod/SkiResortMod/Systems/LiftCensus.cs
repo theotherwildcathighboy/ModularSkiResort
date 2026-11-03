@@ -38,6 +38,9 @@ namespace SkiResortMod.Systems
             public int Station;
             public bool HasTower;
             public float3 Position;
+            // Degrees the tower's rope asks past what its sheave train follows (TrainPitchSystem: LiftAlignMath.TrainOverDeg over
+            // TrainWarnDeg, the last pass); 0 = it follows, or no tower / no rope on its anchors.
+            public float TrainOverDeg;
         }
 
         public struct Station
@@ -75,6 +78,13 @@ namespace SkiResortMod.Systems
             public int BendTower;
             public EntityRef BendNode;
             public float3 BendAt;
+            // The line tower of the row (MeasureBends' walk, same numbering) whose rope goes furthest past what its sheave train follows
+            // (Node.TrainOverDeg > 0): TrainOverDeg its degrees, TrainTower its number, TrainNode / TrainAt its node. 0 / Null when every
+            // train follows its rope. The hub's LiftTrainLimit row reads it; its click flies to TrainAt.
+            public float TrainOverDeg;
+            public int TrainTower;
+            public EntityRef TrainNode;
+            public float3 TrainAt;
         }
 
         /// <summary>The hub's number for a bend: tenths of a degree, rounded UP (a bend just over LiftAlignMath.BendWarnDeg never reads
@@ -939,6 +949,14 @@ namespace SkiResortMod.Systems
                     nodes[ni].HasTower)
                 {
                     rank++;
+                    float over = nodes[ni].TrainOverDeg;
+                    if (over > row.TrainOverDeg)
+                    {
+                        row.TrainOverDeg = over;
+                        row.TrainTower = TowerNumberTiles.Wrap(rank);
+                        row.TrainNode = cur;
+                        row.TrainAt = ne.Pos;
+                    }
                     float bend = LiftAlignMath.PlanBendDeg(prevPos, ne.Pos, nn.Pos);
                     if (bend > row.BendDeg)
                     {
@@ -1153,6 +1171,9 @@ namespace SkiResortMod.Systems
                 h = Mix(h, Bits(r.BendDeg)); h = Mix(h, (uint)r.BendTower);
                 h = Mix(h, (uint)r.BendNode.Index); h = Mix(h, (uint)r.BendNode.Version);
                 h = Mix(h, Bits(r.BendAt.x)); h = Mix(h, Bits(r.BendAt.y)); h = Mix(h, Bits(r.BendAt.z));
+                h = Mix(h, Bits(r.TrainOverDeg)); h = Mix(h, (uint)r.TrainTower);
+                h = Mix(h, (uint)r.TrainNode.Index); h = Mix(h, (uint)r.TrainNode.Version);
+                h = Mix(h, Bits(r.TrainAt.x)); h = Mix(h, Bits(r.TrainAt.y)); h = Mix(h, Bits(r.TrainAt.z));
             }
             return (int)h;
         }

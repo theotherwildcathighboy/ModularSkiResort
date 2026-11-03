@@ -2592,6 +2592,21 @@ namespace SkiResortMod.Systems
                 LastTriggerText = $"focusLift {Ent(id)}: the bent tower {row.BendTower}";
                 return;
             }
+            // The LiftTrainLimit row sends the tower's node the same way.
+            if (!found && top == Entity.Null && m_Census.TryGetRowOfTrainNode(id, out row))
+            {
+                float3 at = row.TrainAt;
+                if (!Fly(Entity.Null, at, Tuning.FocusGapZoomM, out float trainZoom, out string trainFailure))
+                {
+                    Mod.Log.Warn($"Hub [focus] lift train limit {Ent(id)} refused — {trainFailure} ({source})");
+                    LastTriggerText = $"focusLift {Ent(id)}: {trainFailure}";
+                    return;
+                }
+                Mod.Log.Info($"Hub [focus] lift train limit: tower {row.TrainTower} node {Ent(id)} {row.TrainOverDeg:F1}° past its train → " +
+                             $"({at.x:F0}, {at.z:F0}) zoom={trainZoom:F0} ({source})");
+                LastTriggerText = $"focusLift {Ent(id)}: the tower {row.TrainTower} past its train's limits";
+                return;
+            }
             if (!found)
             {
                 Mod.Log.Info($"Hub [focus] lift refused — no lift row ({Ent(id)}, top {Ent(top)}) in the census (stale row?) " +

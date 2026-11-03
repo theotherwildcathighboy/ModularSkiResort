@@ -81,6 +81,7 @@ namespace SkiResortMod.Systems
         private long m_LastBuildFrame;
         private bool m_InitialBuild;
         private bool m_CoalescePending;
+        private string m_RequestedWhy;   // RequestBuild's reason, for the next coalesced build
 
         private readonly Dictionary<Entity, Transform> m_StationTransforms = new Dictionary<Entity, Transform>();
 
@@ -432,6 +433,24 @@ namespace SkiResortMod.Systems
             return false;
         }
 
+        /// <summary>The first row (row order) whose tower past its train's limits stands on <paramref name="node"/> (LiftCensus.Row.TrainNode):
+        /// the hub's LiftTrainLimit row sends that node to focusLift.</summary>
+        internal bool TryGetRowOfTrainNode(Entity node, out LiftCensus.Row row)
+        {
+            EntityRef n = Ref(node);
+            var rows = m_Census.Rows;
+            for (int r = 0; r < rows.Count && !n.IsNull; r++)
+            {
+                if (rows[r].TrainNode == n)
+                {
+                    row = rows[r];
+                    return true;
+                }
+            }
+            row = default;
+            return false;
+        }
+
         /// <summary>The first row (row order) whose sharpest bent tower stands on <paramref name="node"/> (LiftCensus.Row.BendNode): the hub's
         /// LiftBend row sends that node to focusLift.</summary>
         internal bool TryGetRowOfBendNode(Entity node, out LiftCensus.Row row)
@@ -538,6 +557,14 @@ namespace SkiResortMod.Systems
         internal Entity ParkQueueAt(int i) => m_ParkQueue[i];
 
         /// <summary>Called by LiftParkSystem (UIUpdate, same frame) after it created the events.</summary>
+        /// <summary>A build within the coalesce window (TrainPitchSystem: the towers past their train's limits changed after the census
+        /// that fed it, so the rows re-measure them).</summary>
+        internal void RequestBuild(string why)
+        {
+            m_CoalescePending = true;
+            m_RequestedWhy = why;
+        }
+
         internal void OnParkFlushed(int created)
         {
             if (created > 0)
@@ -755,7 +782,7 @@ namespace SkiResortMod.Systems
                     if (coalesced)
                         m_CoalescePending = true;
                     if (m_CoalescePending && m_Frame - m_LastBuildFrame >= CoalesceFrames)
-                        BuildCensus(why ?? "coalesced edits", baseline: false);
+                        BuildCensus(why ?? m_RequestedWhy ?? "coalesced edits", baseline: false);
                     else if (m_Frame - m_LastBuildFrame >= WatchdogFrames && m_Census.Rows.Count > 0)
                         BuildCensus("watchdog", baseline: false);
                 }
@@ -1035,6 +1062,7 @@ namespace SkiResortMod.Systems
             m_Census.Build(m_Edges, m_Nodes, m_Stations, m_Events);
             m_LastBuildFrame = m_Frame;
             m_CoalescePending = false;
+            m_RequestedWhy = null;
             Builds++;
             LastBuildMs = (float)((Stopwatch.GetTimestamp() - t0) * 1000.0 / Stopwatch.Frequency);
             bool newMax = LastBuildMs > MaxBuildMs;
@@ -1191,6 +1219,7 @@ namespace SkiResortMod.Systems
                 Station = StationOfNode(node),
                 HasTower = HasTower(node),
                 Position = position,
+                TrainOverDeg = m_TrainPitch != null && m_TrainPitch.TrainOver.TryGetValue(node, out float over) ? over : 0f,
             });
         }
 
@@ -1809,7 +1838,8 @@ namespace SkiResortMod.Systems
                               $"{row.LengthM:F0} m, rise {row.RiseM:F0} m, horizontal {row.HorizontalM:F0} m" +
                               (row.AlignKnown ? $", offset {row.AlignOffsetM:F2} m, yaw {row.AlignYawDeg:F2}°" : string.Empty) +
                               (row.BendDeg > 0f ? $", sharpest bend {row.BendDeg:F1}° at tower {row.BendTower} (node {Fmt(row.BendNode)})" +
-                                                  (LiftCensus.BendWarnTenths(row.BendDeg) > 0 ? " OVER the warning angle" : string.Empty) : string.Empty));
+                                                  (LiftCensus.BendWarnTenths(row.BendDeg) > 0 ? " OVER the warning angle" : string.Empty) : string.Empty) +
+                              (row.TrainTower > 0 ? $", tower {row.TrainTower} (node {Fmt(row.TrainNode)}) {row.TrainOverDeg:F1}° past its train's limits" : string.Empty));
             }
             for (int n = 0; n < m_Census.Notes.Count; n++)
                 sb.AppendLine("  note: " + m_Census.Notes[n]);

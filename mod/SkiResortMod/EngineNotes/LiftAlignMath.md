@@ -23,6 +23,12 @@ the code does about it. No Game or Entities type, so `tests/LiftBatch` links it 
 - `AboutPin(pivot, rotation, local)`: a point fixed on the pitched object, relative to the pin it turns about. With the rope anchors on
   the train and the pin on the rope line the pitch is exact (no crown drift).
 
+## Train limits
+- `TrainOverDeg(front, nF, back, nB, max)`: degrees the rope asks past the train, from the UNclamped half pitches (HalfPitches'
+  inputs): the larger of a half's pitch past `max` (TrainPitchLimit, 30 deg at most) and the half-break past `MaxHalfBreakDeg` (20 deg
+  per half, 40 between the halves). 0 within both, or with no rope. `TrainWarnDeg` 0.5: the hub's LiftTrainLimit threshold, so a tower
+  sitting right at a limit never raises it. Tests: LiftBatch AL-11.
+
 ## Plan bends
 - `PlanBendDeg(prev, node, next)`: the turn angle in plan, 0 = straight. The tower's train sits on the bisector, so the rope meets it
   at half the bend on each side; at 5 deg the outer sheaves are off by FG 0.034 / DQ 0.090 / GD 0.122 m. `BendWarnDeg` = 5: the lift

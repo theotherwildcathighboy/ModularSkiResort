@@ -990,6 +990,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.PROBLEM_TIP[MixedLiftTypes]", "A line and its stations must be one lift type; until then the lift counts 0." },
                 // C# HubProblemCode LiftBend: a tower turns the line in plan by more than LiftAlignMath.BendWarnDeg (5); the train sits on the
                 // bisector, so the rope runs off its outer sheaves by half the bend (docs: lift-alignment-2026-11-02 C6). Shown only.
+                { "SkiResort.Hub.PROBLEM_TIP[LiftTrainLimit]", "Sheave trains tilt 30° at most and fold 40° at most. Past that the rope leaves the end wheels. The lift still runs." },
                 { "SkiResort.Hub.PROBLEM_TIP[LiftBend]", "Real lift lines turn 5° or less at a tower. Past that the rope runs off the outer wheels. The lift still runs and counts." },
                 { "SkiResort.Hub.PROBLEM_TIP[SummitLodgeNotLiftServed]", "In summer a summit lodge counts more only within 300 m of a working lift's top or 100 m of a run it serves." },
                 { "SkiResort.Hub.PROBLEM_TIP[SchoolNoGreenRun]", "The ski school adds to the score only while a green run counts." },
@@ -1307,6 +1308,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.PROBLEM[MixedLiftTypes]", "{NAME} mixes lift types" },
                 // C# HubProblemCode LiftBend: {DEG} = the bend, one decimal, rounded up; {N} = the tower number its plates show.
                 { "SkiResort.Hub.PROBLEM[LiftBend]", "{NAME}: rope turns {DEG}° at tower {N}" },
+                { "SkiResort.Hub.PROBLEM[LiftTrainLimit]", "{NAME}: tower {N} bends past what its wheels can follow" },
                 { "SkiResort.Hub.PROBLEM[SummitLodgeNotLiftServed]", "Summit lodges unreached: {N}" },
                 { "SkiResort.Hub.PROBLEM[NoParkingAt]", "No parking: {NAME}" },
                 { "SkiResort.Hub.PROBLEM[NoParkingAtMore]", "No parking: {NAME} +{N}" },
