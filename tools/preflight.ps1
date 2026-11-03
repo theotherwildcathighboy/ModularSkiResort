@@ -33,6 +33,8 @@
 #                  Direction Both (3), Capacity == the vanilla Low-voltage Line's 800000 (DECISIONS 369 / R-1).
 #  12d. ALIGN    - tools/check-lift-align.js: carriers pose by LiftMoverMath.CarrierDrop (rope point, not grip top) and each loop
 #                  lift type's piece, towers and stations reference one own haul-rope lane (vanilla HV mesh, sag <= 0.01).
+#  12e. GAMESURFACE - tools/game-surface-check.js: the code, prefabs and vanilla references against tools/game-surface.lock, and
+#                  the lock against the decompile of its game version when that tree is beside the repo (patch readiness).
 #  15. LODGEPARK - every lodge tier and the Welcome Sign carry Game.Prefabs.Park (tools/check-lodge-park.ps1; the stats query
 #                  requires Game.Buildings.Park).
 #
@@ -773,6 +775,20 @@ if ($LASTEXITCODE -ne 0) {
     foreach ($l in $jrOut) { $rows.Add("FAIL  JOBREAD $l"); $failures++ }
 } else {
     $rows.Add("OK    JOBREAD $(($jrOut | Select-Object -Last 1))")
+}
+
+# ---- 12e. GAMESURFACE: the mod's whole dependency on Game.dll against tools/game-surface.lock (patch readiness, 2026-11-03) ------
+# Types, field layouts, enum numbers, vanilla anchors, prefab fields, vanilla references and the tested-version strings. With no
+# decompile beside the repo it runs the code-against-lock half only. Patch-day steps: docs/PIPELINE.md section 7.
+$gsSelf = @(& node (Join-Path $PSScriptRoot "game-surface-check.js") --self-test 2>&1)
+if ($LASTEXITCODE -ne 0) { foreach ($l in $gsSelf) { $rows.Add("FAIL  GAMESURFACE self-test: $l"); $failures++ } }
+$gsOut = @(& node (Join-Path $PSScriptRoot "game-surface-check.js") 2>&1)
+if ($LASTEXITCODE -ne 0) {
+    $gsFails = @($gsOut | Where-Object { "$_" -like "FAIL*" })
+    if ($gsFails.Count -eq 0) { $gsFails = @($gsOut | Select-Object -Last 1) }
+    foreach ($l in $gsFails) { $rows.Add("FAIL  GAMESURFACE $($l -replace '^FAIL\s+', '')"); $failures++ }
+} else {
+    $rows.Add("OK    GAMESURFACE $(($gsOut | Select-Object -Last 1))")
 }
 
 # ---- 12c. LOCALE: locale/en-US.json (the translation template) matches the English dictionaries -------------------------------

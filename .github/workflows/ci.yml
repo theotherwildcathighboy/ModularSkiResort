@@ -65,6 +65,10 @@ jobs:
         run: node tools/check-lift-align.js
       - name: No main-thread access to job-written components
         run: node tools/check-main-thread-jobs.js
+      - name: Game surface matches its lock (code half; no decompile in CI)
+        run: |
+          node tools/game-surface-check.js --self-test
+          node tools/game-surface-check.js
       - name: Listing text matches DESCRIPTION.md
         run: node tools/sync-listing.js --check
       - name: Translation template is current

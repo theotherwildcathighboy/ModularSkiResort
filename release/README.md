@@ -37,7 +37,7 @@ PowerShell at the repo root, game closed except for step 1.
    Expected: `PASS` (every hand-made prefab is inside), then about 0.8 (the shipped closure is 785 MB). Near 3 means the whole
    library was packaged: package again. Details: `mod/SkiResortMod/Package/README.md`.
 2. **Dry run** (no upload): `cd mod\SkiResortMod; dotnet build -c Release -p:SkiPublishDryRun=true` does everything the
-   publish build does except the upload. Expected near the end: `SUMMARY: ALL 7 CHECKS PASS`. Do not play on that deploy (a
+   publish build does except the upload. Expected near the end: `SUMMARY: ALL 8 CHECKS PASS`. Do not play on that deploy (a
    `.cok` beside ImportedData is untested): a plain `dotnet build` restores the normal deploy.
 3. **Publish**: `dotnet publish -c Release -p:PublishProfile=PublishNewMod` in `mod/SkiResortMod` (later versions:
    `PublishNewVersion`). The build compiles and deploys; DeployWIP empties the deploy folder first, so nothing put there by hand
@@ -75,4 +75,4 @@ Normal builds (`dotnet build`) deploy what they always did: no `.cok`, no layout
 - [ ] Code mod: PublishConfiguration.xml matches DESCRIPTION.md
 - [ ] Packaging: `node tools\check-cok.js` PASS on the `.cok` in `mod/SkiResortMod/Package/` (hand-made prefabs inside),
       about 0.8 GB; after the upload, the same check on the downloaded `.cok`
-- [ ] Dry run: `tools/release-check.ps1` prints `SUMMARY: ALL 7 CHECKS PASS` (the publish build runs it again)
+- [ ] Dry run: `tools/release-check.ps1` prints `SUMMARY: ALL 8 CHECKS PASS` (the publish build runs it again)

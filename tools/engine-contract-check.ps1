@@ -1,4 +1,6 @@
-# engine-contract-check.ps1 - the engine internals the lift code stands on, as (file, regex) pairs (R-5, DECISIONS 369).
+# engine-contract-check.ps1 - the engine internals the mod's meaning stands on, as (file, regex) pairs (R-5, DECISIONS 369).
+# Its sibling tools/game-surface-check.js freezes the shape (types, field layouts, enum numbers, anchors, prefab fields, reading list); these rows
+# pin the behavior a shape cannot show. Both run on patch day, docs/PIPELINE.md section 7.
 #
 # WHY. The lifts lean on about thirty private details of Game.dll: how a chair gets drawn, how a sub-object is spawned,
 # how the rope lanes anchor to stubs, which net flags the power-line class forces, how the electricity graph reads a prefab.
@@ -18,20 +20,25 @@
 #
 # USAGE.  powershell -NoProfile -ExecutionPolicy Bypass -File tools\engine-contract-check.ps1 [-Decompile <folder>] [-Quiet]
 #   -Systems    the lift systems folder for section B (default mod\SkiResortMod\Systems; a test hook)
-#   -Decompile  a decompile root that holds Game.Net\, Game.Objects\ ... (default: tools\decompile\1.6.2f1 under ClaudeProjects,
-#               the installed game; the citation baseline 1.6.0f1 must also pass, it is what the file:line cites mean).
+#   -Decompile  a decompile root that holds Game.Net\, Game.Objects\ ... (default: tools\decompile\<version> under ClaudeProjects, with the
+#               version from the lock's version line, the one place it is written; the citation baseline 1.6.0f1 must also pass, it is
+#               what the file:line cites mean).
 # EXIT. 0 = every signature found and the Owner audit clean; otherwise the number of missing signatures + Owner findings
 #       (2 and a message if the decompile folder or a source folder is not there). Read-only: writes nothing, deploys nothing.
 # Maintenance: a new engine dependency = one more row here in the same round as the code that needs it (CLAUDE.md "lessons
 # must become gates"). The PIPELINE.md Gates table ("engine contract") says so too.
 
 param(
-    [string]$Decompile = (Join-Path $PSScriptRoot "..\..\tools\decompile\1.6.2f1"),
+    [string]$Decompile = "",
     [string]$Systems = (Join-Path $PSScriptRoot "..\mod\SkiResortMod\Systems"),
     [switch]$Quiet
 )
 
 $ErrorActionPreference = "Stop"
+if (-not $Decompile) {
+    $lockVersion = (Select-String -Path (Join-Path $PSScriptRoot "game-surface.lock") -Pattern '^version (\S+)' | Select-Object -First 1).Matches[0].Groups[1].Value
+    $Decompile = Join-Path $PSScriptRoot "..\..\tools\decompile\$lockVersion"
+}
 if (-not (Test-Path $Decompile)) { Write-Output "FATAL: decompile folder not found: $Decompile"; exit 2 }
 $Decompile = (Resolve-Path $Decompile).Path
 
@@ -180,6 +187,58 @@ $rows = @(
     @('ELE-11', 'Game.Prefabs\ElectricityConnection.cs',
       'public Voltage m_Voltage;\s*public FlowDirection m_Direction = FlowDirection\.Both;\s*public int m_Capacity;',
       'the prefab fields the POWERFLOW preflight rule pins (Low = 0, High = 1)'),
+
+    # --- snow: SkiSnowInjectionSystem writes into the vanilla snow textures, and they go into the save ---
+    @('SNOW-1', 'Game.Simulation\SnowSystem.cs', 'private const int kTexSize = 1024;',
+      'the snow texture is 1024 square: the injection''s texel math; its [buffer] guard (SkiSnowInjectionSystem) turns a change into a skipped write, not a bad one'),
+    @('SNOW-2', 'Game.Simulation\SnowSystem.cs', 'private const float kSnowHeightScale = 8f;',
+      'the meters a snow unit means: run depth, the decal dress and the props'' snow all read through it'),
+    @('SNOW-3', 'Game.Simulation\SnowSystem.cs', 'public RenderTexture SnowDepth',
+      'how the injection finds the current side of the flip-flop texture'),
+    @('SNOW-4', 'Game.Simulation\SnowSystem.cs', 'AsyncGPUReadback\.RequestIntoNativeArray\(ref \w+, m_SnowHeights\[Read\]\);',
+      'the save reads the Read side: an injection on the wrong side vanishes on the next load'),
+    @('SNOW-5', 'Game.Simulation\SnowSystem.cs', 'm_LoadKernelR16G16_UNorm',
+      'the snow texture format the injection writes (R16G16_UNorm; the same guard)'),
+
+    # --- run paint: SkiRunSplatSystem paints through the terrain material system ---
+    @('SPLAT-1', 'Game.Rendering\TerrainMaterialSystem.cs', 'public \w+ UserSplatmap\b',
+      'the playable-area splat map a run is painted on'),
+    @('SPLAT-2', 'Game.Rendering\TerrainMaterialSystem.cs', 'public \w+ UserSplatmapWorld\b',
+      'the world splat map a run outside the playable area reads'),
+    @('SPLAT-3', 'Game.Rendering\TerrainMaterialSystem.cs', 'public void ApplyBrush\(',
+      'the paint call: a removed brush path stops all run paint'),
+    @('SPLAT-4', 'Game.Rendering\TerrainMaterialSystem.cs', 'public Entity currentTerrainRenderSettings',
+      'the settings entity the run paint swaps in at load'),
+
+    # --- terrain and leisure: cat track grading and the ski day ---
+    @('TERR-1', 'Game.Simulation\TerrainSystem.cs', 'm_AsyncGPUReadback\.Request\(m_HeightmapCascade',
+      'the heightmap readback that makes graded terrain visible to CPU height queries'),
+    @('TERR-2', 'Game.Simulation\TerrainSystem.cs', 'public TerrainHeightData GetHeightData\(bool waitForPending = false\)',
+      'what FoldRowsJob and the slope rater hold'),
+    @('LEIS-1', 'Game.Simulation\CitizenBehaviorSystem.cs', '\(uint\)\(\w+ \* 262144f\);\s*Leisure \w+ = new Leisure\s*\{\s*m_LastPossibleFrame = m_SimulationFrame \+ \w+',
+      'a citizen''s leisure window in frames (262144 a day): the ski day claims a citizen through this component'),
+    @('LEIS-2', 'Game.Simulation\LeisureSystem.cs', 'return 262144 / kUpdatePerDay;',
+      'the frames-per-day number copied into SkiDaySystem''s timing'),
+    @('ATT-1', 'Game.Simulation\AttractionSystem.cs', 'public override int GetUpdateInterval\(SystemUpdatePhase phase\)\s*\{\s*return 16;',
+      'the 16-frame cycle SkiResortAttractivenessSystem must land after to win'),
+    @('ATT-2', 'Game.Simulation\AttractionSystem.cs', 'AttractivenessProvider \w+ = new AttractivenessProvider',
+      'the vanilla write our value overrides'),
+
+    # --- overlay and tools: the drawing jobs and the abstract members our subclasses implement (one more abstract member is a TypeLoadException) ---
+    @('OVR-1', 'Game.Rendering\OverlayRenderSystem.cs', 'public Buffer GetBuffer\(out JobHandle dependencies\)',
+      'the Burst drawing jobs hold this Buffer by value (GAMESURFACE row OverlayRenderSystem.Buffer)'),
+    @('OVR-2', 'Game.Rendering\OverlayRenderSystem.cs', 'public void AddBufferWriter\(JobHandle handle\)',
+      'how a drawing job hands its handle back: without it the buffer is read while the job writes'),
+    @('OVR-3', 'Game.Rendering\OverlayRenderSystem.cs', 'public void DrawCircle\(Color outlineColor, Color fillColor, float outlineWidth, StyleFlags styleFlags, float2 direction, float3 position, float diameter\)',
+      'the last argument is a diameter: it is compiled into our Burst library'),
+    @('TOOL-1', 'Game.Tools\ToolBaseSystem.cs', 'public abstract string toolID', 'implemented by the four tool systems'),
+    @('TOOL-2', 'Game.Tools\ToolBaseSystem.cs', 'public abstract PrefabBase GetPrefab\(\);', 'implemented by the four tool systems'),
+    @('TOOL-3', 'Game.Tools\ToolBaseSystem.cs', 'public abstract bool TrySetPrefab\(PrefabBase prefab\);', 'implemented by the four tool systems'),
+    @('TT-1', 'Game.UI.Tooltip\TooltipSystemBase.cs', 'protected void AddMouseTooltip\(IWidget \w+\)', 'used by the eight tooltip systems'),
+
+    # --- update order: the ANCHORS rule of tools/game-surface-check.js stands on this ---
+    @('ORD-1', 'Game\UpdateSystem.cs', 'if \(\w+\.m_Phase == \w+\.m_Phase\)',
+      'an anchor walks only rows of its own phase: why a system anchored across phases never runs, with no log line (GAMESURFACE ANCHORS)'),
 
     # --- object bounds churn behind the 2 m chair refresh, and the save identity ---
     @('OBJ-1', 'Game.Objects\UpdateCollectSystem.cs',

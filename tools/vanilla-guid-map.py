@@ -4,8 +4,11 @@
 # Read-only. Run with Blender's python: "C:\Program Files (x86)\Steam\steamapps\common\Blender\5.2\python\bin\python.exe" -I tools\vanilla-guid-map.py
 # Writes docs/research/field/2026-10-13/guid-harvest.json (the S1 targets) and vanilla-guid-map.json (all 47,432).
 # Edit the "targets" list for a new harvest; validate against the known GUIDs printed first.
+# Patch day: -I tools\vanilla-guid-map.py --out=<file> writes only the map, for node tools/game-surface-check.js --guid-map=<file>.
+# The asserts below stop on a new SerializedFile version: a game patch on another Unity, not a missing GUID.
 
-import mmap, struct, re, json, collections
+import mmap, struct, re, json, collections, sys
+outArg = next((a[6:] for a in sys.argv[1:] if a.startswith("--out=")), None)
 fp = r"C:\Program Files (x86)\Steam\steamapps\common\Cities Skylines II\Cities2_Data\resources.assets"
 f = open(fp, "rb"); mm = mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ)
 # --- SerializedFile v22 header ---
@@ -70,6 +73,10 @@ print("mapped", len(g2n), "missing", missing)
 known = {"ec48568022d46c1448c6620d95f993c1":"ParkSign placeholder","cfc12fde01d9da24b86ddedd657eaae1":"WallLightShortRangeRandom01","fb4247f7a6f75b1478d9dd01ac88ce86":"BarrelRandom01","4010d5851d69dbb418c62e6bd4d19759":"PowerLinePole01 Placeholder","95cbbe17c442dc940be6e7986155c05d":"ElectricalBox placeholder (rejected)","5d88ac45a40b30341a79535930e3b735":"HV cable lane"}
 print("--- validation ---")
 for g, l in known.items(): print("   %-36s -> %r" % (l, g2n.get(g)))
+if outArg:
+    json.dump(dict(sorted(g2n.items())), open(outArg, "w"), indent=0)
+    print("written %s (%d entries)" % (outArg, len(g2n)))
+    sys.exit(0)
 n2g = collections.defaultdict(list)
 for g, n in g2n.items(): n2g[n].append(g)
 targets = ["FlagPole01","FlagPole02","SportParkFlag01","SportParkTrainingCone02","CampgroundBench02","ElectricalBox01","ElectricalBox02","CampgroundFireplace01","CampgroundFireplace02","CampgroundFireplace03"]
