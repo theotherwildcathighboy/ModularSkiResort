@@ -1,5 +1,5 @@
 // Tests for the pure LiftTowerPlanner on measured profiles replayed from field logs and on synthetic ground (where-tags `planner/...`,
-// LP-0..LP-25). Pinned: every lift type has planner constants and each member's rope = its manifest axle; the DQ gully, tram pitch and
+// LP-0..LP-25). Pinned: every lift type has planner constants and each member's rope = its manifest lane y (axle + crown seat); the DQ gully, tram pitch and
 // FG dip replays end with every span clear; flat ground gets infill only; walls, side-hill (the high side governs) and breakover knees
 // are respected; Fit (fixed node count) is Kept / Moved / Short as designed and a fitted line re-fits to itself (write-once guarantee).
 // Replay terrain: ground at each node = the log's `terrain`; between nodes the four chord samples at 20/40/60/80 % give ground =
@@ -221,12 +221,13 @@ namespace LiftBatch
         private static void Lp0Constants()
         {
             const string W = "planner/LP-0";
-            var axles = new Dictionary<string, float[]>
+            // The rope lane y per member, independent of the catalog seat: a seat typo fails here, not only in game.
+            var lanes = new Dictionary<string, float[]>
             {
-                { "fixedGrip", new[] { 7.04f, 11.04f, 15.04f, 19.04f } }, // SkiLiftTowerFG8O/12O/16O/20O manifests "axle"
-                { "detachable", new[] { 8f, 10f, 12f, 14f, 16f, 18f } }, // SkiLiftTowerDQ10O..DQ20O manifests "axle"
-                { "gondola", new[] { 10f, 14f, 18f } }, // SkiLiftTowerGD12O/16O/20O manifests "axle"
-                { "tram", new[] { 26.25f, 41.25f, 56.25f } }, // SkiTramTower30A/45A/60A manifests stubs pos y
+                { "fixedGrip", new[] { 7.2726f, 11.2726f, 15.2726f, 19.2726f } }, // SkiLiftTowerFG8Q/12R/16Q/20Q manifests rope_on_crown.lane_y_new
+                { "detachable", new[] { 8.2589f, 10.2589f, 12.2589f, 14.2589f, 16.2589f, 18.2589f } }, // SkiLiftTowerDQ10Q/12R/14Q..20Q, same field
+                { "gondola", new[] { 10.284f, 14.284f, 18.284f } }, // SkiLiftTowerGD12R/16Q/20Q, same field
+                { "tram", new[] { 26.25f, 41.25f, 56.25f } }, // SkiTramTower30A/45A/60A manifests stubs pos y (no seat)
             };
             for (int t = 0; t < SkiCatalog.Lifts.Count; t++)
             {
@@ -238,11 +239,11 @@ namespace LiftBatch
                     Check(c.Ladder[m].TopM > c.Ladder[m - 1].TopM, W, def.Id + " ladder not ascending at " + c.Ladder[m].Name);
                 Check(math.abs(c.RopeAboveBase(0) - (def.AxleM + def.RopeSeatM)) < 1e-4f, W, def.Id + " shortest rope " + c.RopeAboveBase(0) + " != catalog AxleM + RopeSeatM " + (def.AxleM + def.RopeSeatM));
                 Check(math.abs(c.CarrierDropM - def.HangM) < 1e-4f, W, def.Id + " drop != catalog HangM");
-                if (axles.TryGetValue(def.Id, out float[] want) && Check(want.Length == c.Ladder.Length, W, def.Id + " ladder length"))
+                if (lanes.TryGetValue(def.Id, out float[] want) && Check(want.Length == c.Ladder.Length, W, def.Id + " ladder length"))
                 {
                     for (int m = 0; m < want.Length; m++)
-                        Check(math.abs(c.RopeAboveBase(m) - (want[m] + def.RopeSeatM)) < 2e-3f, W,
-                              def.Id + " " + c.Ladder[m].Name + " rope " + c.RopeAboveBase(m).ToString("F3") + " != manifest axle " + want[m] + " + rope seat " + def.RopeSeatM);
+                        Check(math.abs(c.RopeAboveBase(m) - want[m]) < 2e-3f, W,
+                              def.Id + " " + c.Ladder[m].Name + " rope " + c.RopeAboveBase(m).ToString("F3") + " != manifest lane y " + want[m]);
                 }
                 Check(c.MaxRopeAboveGroundM <= 0f || c.RopeAboveBase(c.Ladder.Length - 1) <= c.MaxRopeAboveGroundM, W,
                       def.Id + " tallest member's rope above the max rope height");

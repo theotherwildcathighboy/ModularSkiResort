@@ -147,8 +147,8 @@ namespace SkiResortMod.Systems
         public readonly float HangM;                           // carrier contract (carriers.json hang_m)
         public readonly float GripTopAboveRopeM;               // grip top to the jaw's rope point: the pose drops by LiftMoverMath.CarrierDrop
         public readonly float AxleM;                           // sheave axle y on the shortest tower (carriers.json axle_m)
-        /// <summary>Rope lane above the axle: the rope rests on the sheave crowns (T27, lift alignment F2). DQ 0.3096 since 2026-11-02;
-        /// FG and GD stay on the axle (0) until their heads move (Phase 2 trains; GD needs its post feet raised, T27 C20). The rope
+        /// <summary>Rope lane above the axle: the rope rests on the sheave crowns (T27, lift alignment F2). Since the family round
+        /// (Q / R, 2026-11-03; vanilla LV cable on the v2 wheels): FG 0.2326, DQ 0.2589, GD 0.284; the tram rides its stubs (0). The rope
         /// lane y on the shortest tower = AxleM + RopeSeatM (the tower planner's rope height).</summary>
         public readonly float RopeSeatM;
         public readonly float AimHeightM;                      // CursorAim's line aim plane
@@ -565,6 +565,7 @@ namespace SkiResortMod.Systems
             public const float GripTopAboveRopeM = 0.08f;  // lift_chair.py:78 GRIP_TOP_Z = carriers.json tr grip_top_above_rope_m
             public const float GaugeHalfM = 1.8f;          // the haul-rope lanes at x ±1.8 (carriers.json tr lane_x_m)
             public const float AxleM = 7.04f;              // carriers.json tr axle_m
+            public const float RopeSeatM = 0.2326f;        // SkiLiftTowerFG*Q manifests rope_on_crown.seat (T27)
             public const double SummerShare = 0.25;        // summer share (lambda)
             public const int LineBuildPer8m = 60;          // SkiChairliftPiece.Prefab:65 m_ConstructionCost
         }
@@ -720,7 +721,7 @@ namespace SkiResortMod.Systems
                         LineItemId = FixedGrip.BuildItemId, CarrierPrefabs = new[] { Names.CarrierFixedGrip },
                         Mover = MoverKind.Loop, SeatsPerCarrier = FixedGrip.SeatsPerCarrier, SpeedMps = FixedGrip.SpeedMps,
                         GaugeHalfM = FixedGrip.GaugeHalfM, HangM = FixedGrip.HangM, GripTopAboveRopeM = FixedGrip.GripTopAboveRopeM,
-                        AxleM = FixedGrip.AxleM, AimHeightM = FixedGrip.AimHeightM, SpacingM = FixedGrip.SpacingM,
+                        AxleM = FixedGrip.AxleM, RopeSeatM = FixedGrip.RopeSeatM, AimHeightM = FixedGrip.AimHeightM, SpacingM = FixedGrip.SpacingM,
                         DesignSpacingM = FixedGrip.DesignSpacingM, ServeRule = ServeRuleKind.AlongLine,
                         ServeRadiusM = FixedGrip.ServeRadiusM, TopMarginM = FixedGrip.TopMarginM,
                         FixedPerMonth = FixedGrip.FixedPerMonth, PerKmPerMonth = FixedGrip.PerKmPerMonth,
@@ -741,7 +742,7 @@ namespace SkiResortMod.Systems
                         Mover = MoverKind.Loop, SeatsPerCarrier = 4, SpeedMps = 5.0f,     // carriers.json dq seats 4
                         GaugeHalfM = 2.6f, HangM = 3.3f, GripTopAboveRopeM = 0.22f,      // carriers.json dq
                         AxleM = 8.0f,                                                   // SkiLiftTowerDQ10O.manifest.json axle
-                        RopeSeatM = 0.3096f,                                            // lift_tower.rope_seat DQ: rope on the crowns (T27)
+                        RopeSeatM = 0.2589f,                                            // SkiLiftTowerDQ*Q manifests rope_on_crown.seat (T27)
                         AimHeightM = 9.0f,                                              // SkiLiftTowerDQ10O.manifest.json catalog_handoff.AimHeightM
                         SpacingM = 22.5f, DesignSpacingM = 30f,                         // rides ≈ 31 m; design 30 m
                         ServeRule = ServeRuleKind.AlongLine, ServeRadiusM = 150f, TopMarginM = 15f,
@@ -759,7 +760,8 @@ namespace SkiResortMod.Systems
                         Mover = MoverKind.Loop, SeatsPerCarrier = 8, SpeedMps = 5.5f,     // carriers.json gd8
                         GaugeHalfM = 3.0f, HangM = 4.5f, GripTopAboveRopeM = 0.08f,      // carriers.json gd8 (cabin lens)
                         AxleM = 10.0f,
-                        AimHeightM = 11.0f,                                             // axle 10 / comm 11.2
+                        RopeSeatM = 0.284f,                                             // SkiLiftTowerGD*Q manifests rope_on_crown.seat (T27)
+                        AimHeightM = 11.0f,                                            // axle 10 / comm 11.2
                         SpacingM = 40f, DesignSpacingM = 60f,                           // rides ≈ 60 m; design 60 m. SpacingM mirrors SkiGondolaHV m_Spacing (140 m edges spawn 3 cabins, not 2)
                         ServeRule = ServeRuleKind.AlongLine, ServeRadiusM = 150f, TopMarginM = 15f,
                         FixedPerMonth = 8000f, PerKmPerMonth = 3000f, LineBuildPer8m = 175, ElevationCostPer10m = 15,
