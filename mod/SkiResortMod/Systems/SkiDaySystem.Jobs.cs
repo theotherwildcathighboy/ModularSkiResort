@@ -456,8 +456,6 @@ namespace SkiResortMod.Systems
             [ReadOnly] public ComponentLookup<Game.Objects.OutsideConnection> OutsideConnections;
             [ReadOnly] public ComponentLookup<Game.City.Population> Populations;
             [ReadOnly] public ComponentLookup<Game.Creatures.Resident> Residents;
-            public Game.Prefabs.EconomyParameterData Economy;
-            public TimeData TimeData;
             public Entity PopulationEntity;
             public byte LiveKnown;
             public int FollowingLast, FollowCap;
@@ -478,6 +476,9 @@ namespace SkiResortMod.Systems
             public float TimeOfDay;                              // TimeSystem.normalizedTime (as ClaimJob gets it)
             public byte ScanKnown;                               // the guest counter is armed and has scanned this load
             public uint ScanFrame, ScanInterval, PassInterval;   // its last leisure scan, its scan interval, ours
+            // Vanilla structs held by value go last: a game patch that resizes one shifts only these two (DECISIONS 581 e).
+            public Game.Prefabs.EconomyParameterData Economy;
+            public TimeData TimeData;
 
             /// <summary>No measure row (the measure arrays are smaller than one row): every index built on it is negative
             /// and MeasureWrite skips it.</summary>
@@ -1471,10 +1472,11 @@ namespace SkiResortMod.Systems
             [ReadOnly] public ComponentLookup<Worker> Workers;
             [ReadOnly] public ComponentLookup<Game.Citizens.Student> Students;
             [ReadOnly] public ComponentLookup<Game.City.Population> Populations;
-            public Game.Prefabs.EconomyParameterData Economy;
-            public TimeData TimeData;
             public Entity PopulationEntity;
             public byte LiveKnown;
+            // Vanilla structs held by value go last: a game patch that resizes one shifts only these two (DECISIONS 581 e).
+            public Game.Prefabs.EconomyParameterData Economy;
+            public TimeData TimeData;
 
             public void Execute()
             {
