@@ -128,7 +128,11 @@ parked chairs about 2 m from it). Moving chairs ride through every tower and a b
 depends on where chairs stopped. `SetCarriersPassable` puts GeometryFlags.Marker on the carrier prefabs (an empty collision mask,
 ObjectUtils.GetCollisionMask) for the whole tool session (OnStartRunning) and hands back to the station window (`m_StationPlacing`) in
 OnStopRunning; SetStationPlacing touches the carriers only while the tool is not running. While set, carriers also skip the raycast
-and camera collision; rendering is unchanged. Gate: check-lift-align CARRIERPASS.
+and camera collision; rendering is unchanged. Since the carrier grip round a carrier is two objects: the body (a carrier,
+`CarrierGripTops`) and its grip (`GripTypes`: SkiLiftChair4Grip, SkiTramCarriage, ...), which is not a carrier. The grips get the flag
+too: without it the bridge check of the section delete (2026-11-03, F1) was refused next to riding chairs, OverlapExisting on the grips
+against the neighbor sections' Temp copies (12 SkiLiftChair4Grip on one FG section; a SkiTramCarriage on the tram's 46 m span). Gate:
+check-lift-align CARRIERPASS (4 rules, the last one the grip list).
 
 ## Bend at a loose-end joint (2026-11-02, owner verdict: warn, never refuse)
 The tool's line is straight, so it can make a plan bend only where it joins a built line at a loose end. `WarnBend` (every plan): for
@@ -137,6 +141,40 @@ other end go through `LiftLineInput.JoinBendWarnDeg` (LiftAlignMath.PlanBendDeg,
 notice slot keeps `SkiResort.LiftTool.BEND` standing ({DEG} with one decimal, rounded up like the hub: `Deg` =
 LiftCensus.BendWarnTenths / 10, unit floatSingleFraction) after SUNK and before OPEN_END, and each plan logs one `BEND` WARN line.
 Build stays allowed. Bends on built lines (net tool, moved nodes) are the hub's LiftBend row (LiftCensus.md, Plan bends at towers).
+
+## Section delete by the rope (2026-11-03, DECISIONS 591, F1)
+The vanilla bulldozer tests a lift edge only on its sheet, EdgeGeometry + the composition's m_SurfaceHeight.max (Game.Net/
+RaycastJobs.cs:437-460), never the rope lanes: 9.9 m above the rope mid-span on a 473 m tram span, about 13 m at 1 km
+(docs/research/tram-bulldoze-hitbox-2026-11-03.md). So in the first pick step (`LiftLineToolSystem.Sections.cs`) the tool aims at what
+the player sees and removes the section under the cursor:
+- Rope cache: per lift-line edge (census `CopyLineOwners`, else the tool's edge query) every SubLane with UtilityLane and HV or LV
+  UtilityLaneData, its Curve (the hanging curve, LaneSystem.cs:4128-4138) as a polyline (`LiftRopePick.AddRope`, 10 m steps, 8 to 64
+  segments). Rebuilt when the census rebuilt and at least every 120 frames while picking; never per frame.
+- Pick (`LiftRopePick.Pick`, pure, LiftBatch RP-1..RP-9): the cursor line is the tool raycast's own
+  (`ToolRaycastSystem.CalculateRaycastLine`, ToolRaycastSystem.cs:69-78); per rope the closest polyline point; it counts within
+  max(1 m, camera distance x tan(fov / 2) x 0.025), about 13 px at 1080p (vanilla lanes use 1 %, RaycastJobs.cs:793, :813-816), and
+  not behind the terrain hit. Best miss / tolerance wins; within 0.15 of it the rope nearer the camera wins. Boxes cull first: 20 of
+  8000 segments tested, about 0.1 ms (RP-9). The type filter is WantType (a hub tile limits it to that type).
+- Fallback: no rope near, the vanilla Net raycast of the previous frame on the same line (its own RaycastSystem context,
+  AddInput / GetResult, RaycastSystem.cs:770-803; TypeMask.Net, OnGround | Overground as the bulldozer, BulldozeToolSystem.cs:1460-1469;
+  layer PowerlineHigh, matched by ConnectLayers, RaycastJobs.cs:562-563; a node hit on an edge's end goes to that edge,
+  BulldozeToolSystem.cs:1656-1658). It only names a section the rope cache holds.
+- Priority: a loose end, or a station that can still take a line, keeps its click (the redraw starts there); a station that already has
+  its line yields to the rope.
+- Delete: the definition BulldozeToolSystem.AddEntity writes for an unowned edge (BulldozeToolSystem.cs:731-780): CreationDefinition
+  {m_Original = edge, CreationFlags.Delete} + Updated + a NetCourse of the edge's curve and its two nodes (m_FixedIndex -1, no
+  OwnerDefinition). GenerateEdgesSystem makes the Temp with TempFlags.Delete (GenerateEdgesSystem.cs:1371-1376): the game's own
+  delete preview, standing while the section is hovered (Clear + destroy + emit only when the hover changes). A click applies once
+  that Temp exists: base `GetAllowApply` (no Error, original not deleted; ToolBaseSystem.cs:533-540), applyMode Apply for one frame and
+  the definition destroyed, as BulldozeToolSystem.Apply (:1618-1640). ApplyNetSystem deletes the edge and pays the refund
+  (CostSystem.cs:189, ApplyNetSystem.cs:662-664); both end nodes stay with their other sections, so the gap is redrawn from its two
+  loose ends. No preview within 30 frames of the click, or a refusal: `SECTION_REFUSED` notice and a WARN.
+- Overlay: the hovered section's ropes in red (width a quarter of the tolerance); the tooltip shows `SECTION` (type and the
+  horizontal length, as the plan line counts a span).
+- Neighbors: like the bulldozer's delete, the sections at both end nodes get Temp copies and are validated, so a solid object on
+  them refuses the delete; the carriers and their grips are passable while the tool runs (Carriers passable, above).
+- Logs: `LiftLine [section] rope cache ...` on change, one `hover` line per new section (miss, tolerance, camera distance, rope point;
+  or "by the vanilla sheet fallback"), 40 in full then every 25th, and one `DELETED` line per removal.
 
 ## Logs
 Silence is impossible: ARMED / patch lines per load; one line per activation, station pick, plan (towers, member mix, spans, clearance,

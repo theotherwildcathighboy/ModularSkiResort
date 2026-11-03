@@ -1544,8 +1544,8 @@ namespace SkiResortMod
                 // LiftLineTooltipSystem / LiftLineToolSystem through LocalizedString.Id(key, args); the log keeps the full detail. Every
                 // text: plain sentences, at most 25 words, no em dash (LiftBatch LP-31). {TYPE} = a lift type name; numbers are
                 // LocalizedNumber<int> "integer" (meters written out in the text).
-                { "SkiResort.LiftTool.PICK_FIRST_ANY", "Click a lift station or the loose end of a lift line to start. Right click closes the tool." },
-                { "SkiResort.LiftTool.PICK_FIRST", "{TYPE} line: click a station, a loose line end or open ground to start. Right click closes the tool." },
+                { "SkiResort.LiftTool.PICK_FIRST_ANY", "Click a lift station or a loose line end to start. Click a rope to remove its section. Right click closes the tool." },
+                { "SkiResort.LiftTool.PICK_FIRST", "{TYPE} line: click a station, loose end or open ground to start. Click a rope to remove its section. Right click closes the tool." },
                 { "SkiResort.LiftTool.PICK_SECOND", "{TYPE} line: now click the other end. Right click goes back a step." },
                 { "SkiResort.LiftTool.EDIT", "Click the line to add a tower. Drag a tower to move it. Enter builds. Right click or Esc goes back a step." },
                 { "SkiResort.LiftTool.DRAG", "Release to place the tower here. Release away from the line to remove it. Right click cancels the move." },
@@ -1573,7 +1573,7 @@ namespace SkiResortMod
                 { "SkiResort.LiftTool.SAME_STATION", "That is the first station: click the other one." },
                 { "SkiResort.LiftTool.TOO_SHORT", "These ends are too close together: a lift line needs at least {MIN} m." },
                 { "SkiResort.LiftTool.STATION_UNUSABLE", "This station cannot take a lift line." },
-                { "SkiResort.LiftTool.STATION_HAS_LINE", "This station already has its line. To change part of it, bulldoze that section, then click its two loose ends." },
+                { "SkiResort.LiftTool.STATION_HAS_LINE", "This station already has its line. To change part of it, click that section's rope to remove it, then click its two loose ends." },
                 { "SkiResort.LiftTool.NO_STUB", "This station has no line stub to start from." },
                 { "SkiResort.LiftTool.CLICK_ON_LINE", "Click on the line itself to add a tower there." },
                 { "SkiResort.LiftTool.END_GONE", "One end of the line is gone. Click both ends again." },
@@ -1586,6 +1586,8 @@ namespace SkiResortMod
                 { "SkiResort.LiftTool.ADD_TOO_CLOSE_END", "A tower cannot stand that close to the end of the line. Keep {M} m clear of it." },
                 { "SkiResort.LiftTool.ADD_TOO_CLOSE_TOWER", "A tower cannot stand that close to a tower you placed. Keep {M} m between them." },
                 { "SkiResort.LiftTool.NO_TOWER", "There is no tower there to remove." },
+                { "SkiResort.LiftTool.SECTION", "{TYPE} section, {LENGTH} m: click to remove it. The rest of the line stays." },
+                { "SkiResort.LiftTool.SECTION_REFUSED", "The game cannot remove this section right now." },
                 // The game refused the Build: the most common problem it flagged, in words.
                 { "SkiResort.LiftTool.REFUSED[SteepSlope]", "The game cannot build this line: part of it is too steep. Move the tower next to the red part." },
                 { "SkiResort.LiftTool.REFUSED[OverlapExisting]", "The game cannot build this line: a tower stands on something. Drag it clear and build again." },

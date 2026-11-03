@@ -382,6 +382,13 @@ namespace LiftBatch
             const string Prefix = "SkiResort.LiftTool.";
             string locPath = CatalogTests.RepoFile("mod/SkiResortMod/LocaleEN.cs");
             string toolPath = CatalogTests.RepoFile("mod/SkiResortMod/Systems/LiftLineToolSystem.cs");
+            // The tool's partials (LiftLineToolSystem.*.cs, e.g. the section delete) and its tooltip show keys too.
+            var codePaths = new List<string>();
+            if (toolPath != null)
+            {
+                codePaths.AddRange(Directory.GetFiles(Path.GetDirectoryName(toolPath), "LiftLineToolSystem*.cs"));
+                codePaths.Add(Path.Combine(Path.GetDirectoryName(toolPath), "LiftLineTooltipSystem.cs"));
+            }
             if (!Check(locPath != null && toolPath != null, W, "LocaleEN.cs or LiftLineToolSystem.cs not found"))
                 return;
             var loc = new Dictionary<string, string>();
@@ -398,8 +405,9 @@ namespace LiftBatch
                 used.Add("TYPE[" + t + "]");
             foreach (string k in new[] { "PLAN_CLEAR", "PLAN_LOW", "PLAN_STEEP", "PLAN_HIGH", "TOWER", "TOWER_PINNED", "TOWER_LOW" })
                 used.Add(k);
-            foreach (Match m in new Regex("\\bT\\(\"([A-Z_]+(?:\\[[A-Za-z]+\\])?)\"").Matches(File.ReadAllText(toolPath)))
-                used.Add(m.Groups[1].Value);
+            foreach (string path in codePaths)
+                foreach (Match m in new Regex("\\bT\\(\"([A-Z_]+(?:\\[[A-Za-z]+\\])?)\"").Matches(File.ReadAllText(path)))
+                    used.Add(m.Groups[1].Value);
             foreach (string e in new[] { "SteepSlope", "OverlapExisting", "LongDistance", "ShortDistance", "InWater", "ExceedsCityLimits", "Other" })
                 used.Add("REFUSED[" + e + "]");
             // DEG: the BEND notice's plan bend (LiftLineToolSystem.Deg).

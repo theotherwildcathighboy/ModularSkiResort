@@ -14,8 +14,9 @@
 //             carriers that ride it in wind, by about the sag.
 //   BONEROOT  every owned skinned mesh's root bone is identity (rotation 0,0,0,1, scale 1): the import gives it the FBX scene
 //             conversion and the game composes it into every skin matrix. Bug class: the rig probe drew turned and 100x.
-//   CARRIERPASS the lift-line tool keeps the carriers passable for its whole session (LiftLineToolSystem start / stop / station hooks).
-//             Bug class: re-drawing a bulldozed middle section was refused, OverlapExisting on the neighbor section's chairs.
+//   CARRIERPASS the lift-line tool keeps the carriers and their grips passable for its whole session (LiftLineToolSystem start / stop /
+//             station hooks, the grip list). Bug class: re-drawing a bulldozed middle section was refused, OverlapExisting on the
+//             neighbor section's chairs; a section delete next to riding chairs, OverlapExisting on their grips.
 //
 // Usage: node tools/check-lift-align.js [--root <ImportedData dir>]   (default: gamedata-mirror/ImportedData; preflight passes the game's)
 // Exit code = number of failures. Last line: "check-lift-align: OK ..." on success.
@@ -196,6 +197,9 @@ const passRules = [
     ['OnStartRunning', /SetCarriersPassable\(\s*true\s*\)/, 'sets the carriers passable for the tool session'],
     ['OnStopRunning', /SetCarriersPassable\(\s*m_StationPlacing\s*\)/, 'hands the carriers back to the station window (SetCarriersPassable(m_StationPlacing))'],
     ['SetStationPlacing', /if\s*\(\s*!IsActive\s*\)\s*\{[^}]*SetCarriersPassable\(\s*placing\s*\)/, 'changes the carriers only while the tool is not running'],
+    // The grips of a split carrier are separate objects, not carriers: they need the flag too (bridge 2026-11-03, F1: a section
+    // delete next to riding chairs was refused, OverlapExisting on SkiLiftChair4Grip / SkiTramCarriage).
+    ['SetCarriersPassable', /GripTypes\.Keys/, 'marks the grips of split carriers (m_Catalog.GripTypes) as well as the carriers'],
 ];
 for (const [name, re, why] of passRules) {
     const body = methodBody(toolCode, name);

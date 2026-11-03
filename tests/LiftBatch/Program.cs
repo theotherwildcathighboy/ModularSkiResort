@@ -99,6 +99,7 @@ namespace LiftBatch
             BendTests.Run(Check);
             PowerJoinTests.Run(Check);
             LiftIconTests.Run(Check);
+            RopePickTests.Run(Check);
 
             Console.WriteLine(string.Format(CultureInfo.InvariantCulture,
                 "SUMMARY  LiftBatch checks={0} failures={1}", s_Checks, s_Failures));

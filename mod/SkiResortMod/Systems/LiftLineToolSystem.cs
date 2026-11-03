@@ -187,6 +187,7 @@ namespace SkiResortMod.Systems
                 All = new[] { ComponentType.ReadOnly<Game.Net.Edge>(), ComponentType.ReadOnly<PrefabRef>() },
                 None = new[] { ComponentType.ReadOnly<Deleted>(), ComponentType.ReadOnly<Temp>(), ComponentType.ReadOnly<Owner>() },
             });
+            CreateSections();   // the section delete by the rope (LiftLineToolSystem.Sections.cs)
             Mod.Log.Info($"{nameof(LiftLineToolSystem)} created");
         }
 
@@ -197,6 +198,7 @@ namespace SkiResortMod.Systems
             m_Disabled = m_ErrorLogged = false;
             ToolLines.Clear();
             Reset("load");
+            ResetSections(true);
             // A load drops the old world's Temps with it; PreDeserialize resets activeTool (ToolSystem.cs:611-614), so an open tool
             // also gets OnStopRunning, whose clear finds no Temp (RequireForUpdate, ToolClearSystem.cs:219) and does nothing.
             m_Ghost = false;
@@ -251,20 +253,17 @@ namespace SkiResortMod.Systems
         /// and OverlapExisting refuses the build (field/2026-11-02/lifticon, DECISIONS 582). GeometryFlags.Marker gives
         /// a carrier an empty collision mask in game (ObjectUtils.GetCollisionMask, ValidationHelpers.CheckOverlap and ValidateObject both
         /// read it). Only while one of those tools is open, since the flag also lets GroundHeightSystem and the raycast treat the object
-        /// as a marker.</summary>
+        /// as a marker. The grips of a split carrier (the carrier grip round: SkiLiftChair4Grip, SkiTramCarriage, ...) are separate
+        /// objects on the same rope and not carriers (CarrierGripTops leaves them out), so they are marked too: without them a section
+        /// delete or redo next to a riding chair was refused, OverlapExisting on the grip (bridge, 2026-11-03, F1).</summary>
         private void SetCarriersPassable(bool passable)
         {
             if (passable)
             {
                 foreach (Entity carrier in m_Catalog.CarrierGripTops.Keys)
-                {
-                    if (!EntityManager.TryGetComponent<ObjectGeometryData>(carrier, out var geo) ||
-                        (geo.m_Flags & Game.Objects.GeometryFlags.Marker) != 0)
-                        continue;
-                    geo.m_Flags |= Game.Objects.GeometryFlags.Marker;
-                    EntityManager.SetComponentData(carrier, geo);
-                    m_CarriersMarked.Add(carrier);
-                }
+                    MarkPassable(carrier);
+                foreach (Entity grip in m_Catalog.GripTypes.Keys)
+                    MarkPassable(grip);
             }
             else
             {
@@ -277,6 +276,15 @@ namespace SkiResortMod.Systems
                 }
                 m_CarriersMarked.Clear();
             }
+        }
+
+        private void MarkPassable(Entity prefab)
+        {
+            if (!EntityManager.TryGetComponent<ObjectGeometryData>(prefab, out var geo) || (geo.m_Flags & Game.Objects.GeometryFlags.Marker) != 0)
+                return;
+            geo.m_Flags |= Game.Objects.GeometryFlags.Marker;
+            EntityManager.SetComponentData(prefab, geo);
+            m_CarriersMarked.Add(prefab);
         }
 
         /// <summary>Load: remember each lift line prefab's vanilla max edge length (see the engine notes, Span length raise).</summary>
@@ -396,8 +404,9 @@ namespace SkiResortMod.Systems
             {
                 if (m_State != ToolState.PickBase)
                     Mod.Log.Info($"LiftLine [tool]: stopped with a {m_State} line — dropped (nothing built)");
-                bool temps = m_Ghost || m_State == ToolState.Emitted;
+                bool temps = m_Ghost || m_State == ToolState.Emitted || m_DelEdge != Entity.Null || m_DelPending != Entity.Null;
                 Reset("stopped");
+                ResetSections(false);
                 m_Ghost = false;
                 m_GhostEdit = null;
                 m_GhostRevision = -1;
@@ -557,7 +566,7 @@ namespace SkiResortMod.Systems
             if (m_State == ToolState.PickBase || m_State == ToolState.PickTop)
             {
                 ClearGhost("no line");
-                UpdatePick();
+                UpdatePick(live);
                 DrawPick();
                 return;
             }
@@ -668,11 +677,27 @@ namespace SkiResortMod.Systems
         /// <summary>The lift type a pick must have: the first end's once it is placed, else the hub tile's (null = any).</summary>
         private LiftTypeDef WantType => m_State == ToolState.PickTop ? m_Type : m_Preset;
 
-        private void UpdatePick()
+        private void UpdatePick(bool live)
         {
             RefreshLooseEnds();
             LiftTypeDef want = WantType;
             HoverEnd(want);
+            if (m_State == ToolState.PickBase)
+            {
+                // First step: a rope under the cursor names a built section; a click removes it (LiftLineToolSystem.Sections.cs).
+                UpdateSection(want, live);
+                if (SectionHovered && applyAction.WasPressedThisFrame())
+                    ClickSection();
+                if (!UpdatePendingDelete())
+                    SyncSectionPreview();
+                if (SectionHovered || m_DelPending != Entity.Null)
+                    return;
+            }
+            else
+            {
+                ResetSectionHover();
+                ClearSectionPreview("first end picked");
+            }
             if (!m_HasHit || !applyAction.WasPressedThisFrame())
                 return;
 
@@ -822,7 +847,7 @@ namespace SkiResortMod.Systems
             if (lines > 0)
             {
                 Say($"LiftLine [pick]: station {Fmt(station)} already has its line ({lines} line edge(s) on stub node {Fmt(node)}) — refused; " +
-                    "to rework a placed line, bulldoze the section and click its two loose ends",
+                    "to rework a placed line, click a section's rope to remove it, then click its two loose ends",
                     T("STATION_HAS_LINE"));
                 return false;
             }
@@ -832,7 +857,7 @@ namespace SkiResortMod.Systems
 
         /// <summary>The station's own net node nearest its stub tip (the node the vanilla net tool snaps a line to: the station-owned
         /// stub node, LiftCensusSystem.StationOfNode), from its SubNet buffer.</summary>
-        private bool TryStubNode(Entity station, float3 stubTip, out Entity node)
+        private bool TryStubNode(Entity station, float3 stubTip, out Entity node, bool quiet = false)
         {
             node = Entity.Null;
             float best = StubNodeSearchM;
@@ -851,7 +876,7 @@ namespace SkiResortMod.Systems
                     }
                 }
             }
-            if (node == Entity.Null)
+            if (node == Entity.Null && !quiet)
                 Say($"LiftLine [pick]: station {Fmt(station)} has no own net node within {StubNodeSearchM:F0} m of its stub tip " +
                     $"({stubTip.x:F1}, {stubTip.z:F1}) — not usable (is the station's stub missing?)", T("NO_STUB"));
             return node != Entity.Null;
@@ -1576,7 +1601,8 @@ namespace SkiResortMod.Systems
                 UnityEngine.Color c = i == m_HoverLoose ? HoverColor : LooseColor;
                 buffer.DrawCircle(c, c, 0f, OverlayRenderSystem.StyleFlags.Projected, ring, le.Pos, i == m_HoverLoose ? 8f : 5f);
             }
-            bool onGround = m_HasHit && want != null && m_HoverStation < 0 && m_HoverLoose < 0;
+            DrawSection(buffer);   // the section a click removes (first step only)
+            bool onGround = m_HasHit && want != null && m_HoverStation < 0 && m_HoverLoose < 0 && !SectionHovered;
             if (onGround)   // open ground takes a fresh end here
                 buffer.DrawCircle(HoverColor, HoverColor, 0f, OverlayRenderSystem.StyleFlags.Projected, ring, m_Hit, 4f);
             if (m_State == ToolState.PickTop && m_HasHit)
@@ -1652,6 +1678,7 @@ namespace SkiResortMod.Systems
             m_LinePrefab = Entity.Null;
             m_Base = m_Top = default;
             m_HoverTower = m_HoverStation = m_HoverLoose = -1;
+            ResetSectionHover();   // a standing section preview is cleared by the next pick update (or by OnStopRunning)
             m_DragFrom = m_DragTo = float.NaN;
             m_DragOff = false;
             m_BuildRequested = false;

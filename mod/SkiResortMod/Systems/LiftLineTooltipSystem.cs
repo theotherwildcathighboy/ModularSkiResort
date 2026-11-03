@@ -1,5 +1,6 @@
 // Mouse tooltip of the lift-line tool: the prompt for the current step, a refusal notice, the plan line (tower count, length and
-// what is wrong, in words) and, over a tower, its height and clearance. The overlay cannot draw text, so the height lives here.
+// what is wrong, in words), over a tower its height and clearance, and over a built section's rope (first step) the section a click
+// removes. The overlay cannot draw text, so the height lives here.
 // Player text is a LocaleEN SkiResort.LiftTool.* key with {ARG} values (LocalizedString.Id(key, args), like SkiRunTooltipSystem);
 // never IdWithFallback(fixedId, text): the frontend's translate cache is keyed by the id alone (Cities2_Data/Content/Game/UI/index.js
 // `function dc()`), so a fixed id with changing text keeps the first text. The log keeps the full detail (LiftLineEdit.Describe).
@@ -54,6 +55,9 @@ namespace SkiResortMod.Systems
                 LocalizedString? notice = m_Tool.Notice;
                 if (notice.HasValue)
                     Show(m_Notice, ref m_LastNotice, notice.Value);
+                if (m_Tool.Step == LiftLineStep.PickBase && m_Tool.SectionHovered)   // the section a click removes (the rope pick)
+                    Show(m_Hover, ref m_LastHover, LiftLineToolSystem.T("SECTION", ("TYPE", TypeText(m_Tool.HoverSectionTypeId)),
+                        ("LENGTH", LiftLineToolSystem.N(m_Tool.HoverSectionLengthM))));
                 if (e?.Plan != null)
                 {
                     Show(m_Plan, ref m_LastPlan, PlanText(e.Plan, out bool clear));

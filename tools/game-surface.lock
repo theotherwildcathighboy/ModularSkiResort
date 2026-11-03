@@ -110,6 +110,7 @@ type Game.Common.Applied struct eca5a7bf6d
 type Game.Common.BatchesUpdated struct b39801ce7b
 type Game.Common.BoundsMask enum 47a3db94e4 burst:w:SkiGroomerSystem Debug=1 NormalLayers=2 PipelineLayer=4 SubPipelineLayer=8 WaterwayLayer=16 IsTree=32 OccupyZone=64 NotOverridden=128 NotWalkThrough=256 HasLot=512 AllLayers=30
 type Game.Common.CleanUpSystem class 22bcb5d99d
+type Game.Common.CollisionMask enum 2f5b69e20a OnGround=1 Overground=2 Underground=4 ExclusiveGround=8
 type Game.Common.Created struct f870e42a25
 type Game.Common.Deleted struct 8e708784d1 burst:w:ChairPinSystem,SkiCoachSystem,SkiDaySystem,SkiGroomerSystem,SkiLodgeParkingSystem
 type Game.Common.Destroyed struct 5660f6bf3f burst:r:SkiDaySystem,SkiLodgeParkingSystem m_Event:Entity m_Cleared:float
@@ -127,6 +128,7 @@ type Game.Common.QuadTreeBoundsXZ struct 4827c1d17d burst:r:SkiLodgeParkingSyste
 type Game.Common.RandomSeed struct 9c704970e0 m_Seed:uint
 type Game.Common.RaycastFlags enum 5f69cdc16d DebugDisable=1 UIDisable=2 ToolDisable=4 FreeCameraDisable=8 ElevateOffset=16 SubElements=32 Placeholders=64 Markers=128 NoMainElements=256 UpgradeIsMain=512 OutsideConnections=1024 Outside=2048 Cargo=4096 Passenger=8192 Decals=16384 EditorContainers=32768 SubBuildings=65536 PartialSurface=131072 BuildingLots=262144 IgnoreSecondary=524288
 type Game.Common.RaycastHit struct 1a50deee23 m_HitEntity:Entity m_Position:float3 m_HitPosition:float3 m_HitDirection:float3 m_CellIndex:int2 m_NormalizedDistance:float m_CurvePosition:float
+type Game.Common.RaycastInput struct 24b58aea57 m_Line:Line3.Segment m_Offset:float3 m_Owner:Entity m_TypeMask:TypeMask m_Flags:RaycastFlags m_CollisionMask:CollisionMask m_NetLayerMask:Layer m_AreaTypeMask:AreaTypeMask m_RouteType:RouteType m_TransportType:TransportType m_IconLayerMask:IconLayerMask m_UtilityTypeMask:UtilityTypes
 type Game.Common.RaycastResult struct c41f959b76 m_Hit:RaycastHit m_Owner:Entity
 type Game.Common.RaycastSystem class 2e12f4ca36
 type Game.Common.SystemOrder class bb29c32e97
@@ -188,6 +190,7 @@ type Game.Net.ConnectedNode struct 794dd42048 m_Node:Entity m_CurvePosition:floa
 type Game.Net.ConnectionLane struct 39b5a443ce burst:r:SkiLodgeParkingSystem m_AccessRestriction:Entity m_Flags:ConnectionLaneFlags m_TrackTypes:TrackTypes m_RoadTypes:RoadTypes
 type Game.Net.ConnectionLaneFlags enum f123c8055c burst:r:SkiLodgeParkingSystem Start=1 Distance=2 Outside=4 SecondaryStart=8 SecondaryEnd=16 Road=32 Track=64 Pedestrian=128 Parking=256 AllowMiddle=512 AllowCargo=1024 Airway=2048 Inside=4096 Area=8192 Disabled=16384 AllowEnter=32768 AllowExit=65536 NoRestriction=131072
 type Game.Net.ConnectionWarningSystem class b248946e24
+type Game.Net.CostSystem class 3e2210a645
 type Game.Net.Curve struct b1603e2672 burst:r:SkiLodgeParkingSystem m_Bezier:Bezier4x3 m_Length:float
 type Game.Net.Edge struct 53f3d73e35 m_Start:Entity m_End:Entity
 type Game.Net.EdgeGeometry struct 0897d7e493 m_Start:Segment m_End:Segment m_Bounds:Bounds3
@@ -233,6 +236,7 @@ type Game.Notifications.IconCommandBuffer struct 2627b9d57c m_BufferIndex:int
 type Game.Notifications.IconCommandSystem class 4e099faeef
 type Game.Notifications.IconElement struct 560db6c410 m_Icon:Entity
 type Game.Notifications.IconFlags enum d43d16fa16 Unique=1 IgnoreTarget=2 TargetLocation=4 OnTop=8 SecondaryLocation=16 CustomLocation=32
+type Game.Notifications.IconLayerMask enum 4953af737e None=0 Default=1 Marker=2 Transaction=4
 type Game.Notifications.IconPriority enum 91dfcc5158 Min=0 Info=10 Problem=50 Warning=100 MajorProblem=150 Error=200 FatalProblem=250 Max=byte.MaxValue
 type Game.Notifications.RaycastJobs class 82d3289dbe
 type Game.Objects.ActivityLocation struct 62cbfd104a
@@ -441,6 +445,7 @@ type Game.Rendering.Skeleton struct a66af6d7f6 burst:w:TrainBoneSystem m_BufferA
 type Game.Rendering.TerrainMaterialSystem class 313d4eec91
 type Game.Rendering.UndergroundPass class 2eaa51639c
 type Game.Rendering.UndergroundViewSystem class ef72630ff5
+type Game.Rendering.Viewer class 61c2e21eb0
 type Game.Routes.CarParking struct 10a21b7a4e burst:r:SkiLodgeParkingSystem
 type Game.Routes.Color struct 58f62b4d05 m_Color:Color32
 type Game.Routes.InitializeSystem class 93852051f6
@@ -448,6 +453,7 @@ type Game.Routes.LivePath struct c85c32c878
 type Game.Routes.Position struct 7ad4eac721 burst:r:SkiDaySystem m_Position:float3
 type Game.Routes.RaycastJobs class 2965754f9c
 type Game.Routes.ReferencesSystem class 72201a2b4c
+type Game.Routes.RouteType enum 2e21841c73 None=-1 TransportLine=0 WorkRoute=1 Count=2
 type Game.Routes.SearchSystem class 5bb453c634
 type Game.Routes.SegmentCurveSystem class 7e4dbcc527
 type Game.Routes.TakeoffLocation struct b5840309b4 m_AccessRestriction:Entity m_Flags:TakeoffLocationFlags
