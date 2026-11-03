@@ -1,0 +1,803 @@
+{
+  "name": "SkiGondolaCabin8B",
+  "written_utc": "2026-11-03T20:15:14Z",
+  "blender": "5.2.3 LTS",
+  "files": {
+    "SkiGondolaCabin8B.fbx": {
+      "bytes": 191660,
+      "sha1": "5d59c2c854c096395e9faf1dc8a3fbb12fadf951"
+    },
+    "SkiGondolaCabin8B_BaseColor.png": {
+      "bytes": 1171125,
+      "sha1": "6c544a725ff1f93f2f5435eed8a71aeef618fe19"
+    },
+    "SkiGondolaCabin8B_ControlMask.png": {
+      "bytes": 128089,
+      "sha1": "ee8e58654450234be4bd1ce5e98d89db1d2c824f"
+    },
+    "SkiGondolaCabin8B_LOD1.fbx": {
+      "bytes": 88028,
+      "sha1": "d6cb144f15cedc928ad569d5898e7928472d6ec4"
+    },
+    "SkiGondolaCabin8B_LOD2.fbx": {
+      "bytes": 31964,
+      "sha1": "ddb520852db1b34d44bda89377fe3c97e080aae1"
+    },
+    "SkiGondolaCabin8B_MaskMap.png": {
+      "bytes": 529724,
+      "sha1": "a02b99bb11b69922386c87d20a170ac3abe42a73"
+    },
+    "SkiGondolaCabin8B_Normal.png": {
+      "bytes": 233480,
+      "sha1": "c2deed4586913ffb714961ffacc9f438a45fcfd4"
+    },
+    "settings.json": {
+      "bytes": 735,
+      "sha1": "9fa23bcf234b252570668c90fb3bd589e978db00"
+    }
+  },
+  "generator": "lift_cabin.py",
+  "args": {
+    "kind": "gondola",
+    "out": "assets/import/cabins/B",
+    "export": true,
+    "name": null,
+    "source": "%USERPROFILE%/Documents/ClaudeProjects/ModularSkiResort/assets/external/wilin-gondola/source/gondola.fbx",
+    "carriers": "catalog/carriers.json",
+    "finish": true,
+    "draft": false,
+    "lods": true,
+    "verify": true,
+    "preview": "assets/preview/carrier-split/rig",
+    "review": null,
+    "plate_number": "27",
+    "outboard": "-Y",
+    "lod2": "proxy",
+    "hang": 10.5,
+    "split": true,
+    "ab": "",
+    "no_validate": false
+  },
+  "kind": "hanging",
+  "carrier": "gondola",
+  "role": "body",
+  "quality": "finish",
+  "texture_px": 2048,
+  "tris": {
+    "LOD0": 1956,
+    "LOD1": 900,
+    "LOD2": 188
+  },
+  "budget": {
+    "role": "body",
+    "LOD0": 1956,
+    "LOD0_cap": 1964,
+    "LOD1_ratio": 0.46,
+    "LOD2": 188,
+    "LOD2_cap": 188,
+    "ok": true
+  },
+  "contract": {
+    "hang_m": 4.5,
+    "rope_m": 4.42,
+    "grip_top_above_rope_m": 0.08,
+    "outboard": "-Y",
+    "body_m": [
+      2.3,
+      2.1,
+      2.4
+    ],
+    "wilin_mount_m": [
+      1.217,
+      1.267,
+      0.56
+    ],
+    "door_plug": {
+      "loops": 3,
+      "tris": 17
+    }
+  },
+  "contracts_held": {
+    "LOD0": [
+      "G1",
+      "G3",
+      "G4",
+      "G5",
+      "G6",
+      "G8",
+      "G9",
+      "G9",
+      "G9",
+      "G11",
+      "G12"
+    ],
+    "LOD1": [
+      "G1",
+      "G3",
+      "G4",
+      "G5",
+      "G6",
+      "G8",
+      "G9",
+      "G9"
+    ],
+    "LOD2": [
+      "G1",
+      "G3",
+      "G4",
+      "G5",
+      "G6",
+      "G8"
+    ]
+  },
+  "bounds_authoring_m": {
+    "min": [
+      -1.18,
+      -1.094,
+      0.0
+    ],
+    "max": [
+      1.18,
+      1.0499,
+      3.9765
+    ]
+  },
+  "density_px_per_m": {
+    "median": 94.7,
+    "min": 31.6,
+    "max": 1100.0
+  },
+  "density_hero_px_per_m": {
+    "body_": 154.0,
+    "doorbody_": 154.0,
+    "doortrim_": 205.1,
+    "hanger_": 157.8,
+    "logo_": 699.7,
+    "roof_": 173.6,
+    "trim_": 205.1
+  },
+  "stamp_layout": {
+    "A": 2048,
+    "margin_px": 32.0,
+    "logo_px": 400,
+    "logo_ppm": {
+      "logo_front": 714.3,
+      "logo_back": 714.3
+    },
+    "logo_vs_shipped": 4.21,
+    "plate_ppm": 1100.0,
+    "plate_px": [
+      220.0,
+      143.0
+    ],
+    "fill_turned": 30,
+    "fill_ppm": 154.0,
+    "fill_islands": 38,
+    "fill_region_px": [
+      1308.0,
+      440.0
+    ],
+    "groups": [],
+    "rects": [
+      [
+        0.0,
+        0.77344,
+        0.86914,
+        1.0
+      ],
+      [
+        0.86914,
+        0.90674,
+        1.0,
+        1.0
+      ]
+    ],
+    "band_v": [
+      0.0,
+      0.76844
+    ],
+    "prestretch_v": 1.30134,
+    "pinned_faces": 252,
+    "stripe1_px": 464.0,
+    "reserved_restored": 2
+  },
+  "revision": "Revision 1 (verdicts 2026-10-11 items 6 / 9): soft-edged rebuild, CAD-tell cleanup, pinned >= 4x logo square; Revision 1b (2026-10-11): geometry defects C1-C4 fixed (cap triangulation, closed shell, 2 mm insets), G11 / G12 / T12 + cap_check contracts; nitpick A3 (2026-10-13): the whole cabin mirrored across y = 0 - stalk, carriage, grip and doors on authoring -Y = the carrier's RIGHT = OUTBOARD on the stations' spin (catalog/carriers.json gd8 outboard -Y); exact mirror, look / tris / hang 4.50 / door openings unchanged",
+  "lod_switch": {
+    "switch_m": {
+      "1": 52.9,
+      "2": 115.8
+    },
+    "cull_m": 1588.0,
+    "bias": 0.215,
+    "area_m2": 34.1,
+    "lod_factor": 652.0,
+    "status": "formula prediction until the SkiProbeLodA verdict [U]"
+  },
+  "catalog": {
+    "catalog": "catalog/carriers.json",
+    "row": "gd8",
+    "generator_row": {
+      "object_prefab": "SkiGondolaCabin8",
+      "mesh_base": "SkiGondolaCabin8",
+      "line_prefab": "SkiGondolaHV",
+      "lift_type": "gondola",
+      "seats": 8,
+      "hang_m": 4.5,
+      "grip_top_above_rope_m": 0.08,
+      "lane_x_m": 3.0,
+      "axle_m": 10.0,
+      "spacing_m": 60.0,
+      "speed_mps": 5.5,
+      "bounds_lat_m": [
+        -1.05,
+        1.1
+      ],
+      "bounds_travel_half_m": 1.18,
+      "outboard": "-X",
+      "facing": "travel",
+      "lane_hanging_max": 0.004
+    },
+    "drift": [],
+    "compared": [
+      "hang_m",
+      "grip_top_above_rope_m",
+      "lane_x_m",
+      "axle_m",
+      "bounds_lat_m",
+      "bounds_travel_half_m",
+      "lane_hanging_max"
+    ],
+    "outboard": {
+      "catalog": "-Y",
+      "build": "-Y",
+      "agree": true
+    }
+  },
+  "clearance": {
+    "rows": [
+      {
+        "span_m": 60.0,
+        "h_lane": 0.03,
+        "lane_sag_m": 1.8,
+        "underside_above_chord_mid_m": 3.7,
+        "heightrange_min_max": 5.2,
+        "static_guard_trips": true
+      },
+      {
+        "span_m": 60.0,
+        "h_lane": 0.004,
+        "lane_sag_m": 0.24,
+        "underside_above_chord_mid_m": 5.26,
+        "heightrange_min_max": 6.76,
+        "static_guard_trips": false
+      },
+      {
+        "span_m": 120.0,
+        "h_lane": 0.03,
+        "lane_sag_m": 3.6,
+        "underside_above_chord_mid_m": 1.9,
+        "heightrange_min_max": 3.4,
+        "static_guard_trips": true
+      },
+      {
+        "span_m": 120.0,
+        "h_lane": 0.004,
+        "lane_sag_m": 0.48,
+        "underside_above_chord_mid_m": 5.02,
+        "heightrange_min_max": 6.52,
+        "static_guard_trips": false
+      },
+      {
+        "span_m": 250.0,
+        "h_lane": 0.03,
+        "lane_sag_m": 7.5,
+        "underside_above_chord_mid_m": -2.0,
+        "heightrange_min_max": -0.5,
+        "static_guard_trips": true
+      },
+      {
+        "span_m": 250.0,
+        "h_lane": 0.004,
+        "lane_sag_m": 1.0,
+        "underside_above_chord_mid_m": 4.5,
+        "heightrange_min_max": 6.0,
+        "static_guard_trips": false
+      }
+    ],
+    "note": "underside(mid) = chord + axle - hang - span x h_lane (ChairPin puts the grip top ON the lane); carving: cut ceiling edgeY + min - 2 <= underside - 0.5 -> min <= 7.0 - span x h_lane; 250 m spans need h_lane <= ~0.004 (shipped SkiLiftHaulRopeB m_Hanging 0.03, SkiLiftHaulRopeB.Prefab:24; R31)"
+  },
+  "prefab_numbers": {
+    "mesh": "SkiGondolaCabin8B",
+    "role": "body",
+    "pivots": {
+      "frame_note": "authoring = (x travel, y lateral, z up); prefab = (x lateral, y up, z travel) = FBX raw / prefab-local; outboard authoring -Y = prefab -X",
+      "grip_origin_in_assembled_m": [
+        0.0,
+        0.0,
+        3.8465
+      ],
+      "body_origin_in_assembled_m": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "grip_rope_point_m": {
+        "authoring": [
+          0.0,
+          0.0,
+          0.5735
+        ],
+        "prefab": [
+          0.0,
+          0.5735,
+          0.0
+        ]
+      },
+      "grip_pin_center_m": {
+        "authoring": [
+          0.0,
+          -0.655,
+          0.07
+        ],
+        "prefab": [
+          -0.655,
+          0.07,
+          0.0
+        ]
+      },
+      "body_pin_center_m": {
+        "authoring": [
+          0.0,
+          -0.655,
+          3.9165
+        ],
+        "prefab": [
+          -0.655,
+          3.9165,
+          0.0
+        ]
+      },
+      "hang_m": 4.5,
+      "grip_top_above_rope_m": 0.08,
+      "pin_axis": "lateral (authoring y = prefab x)"
+    },
+    "note": "split body: the one-piece prefab numbers (UtilityObject, NetSubObjects) stay with the SkiGondolaCabin8A manifest; the code places the body from the pivots"
+  },
+  "code_consequences": [
+    "ChairPrefabNames += \"SkiGondolaCabin8\" (ChairPinSystem.cs:174 family)",
+    "ChairPin moving mode resolves only \"SkiChairliftHV\" (ChairPinSystem.cs:303, :1640): add the gondola net or it gets no moving cabins (skeptic M3)",
+    "seats / speed per type (ChairPinSystem.cs:157, :165, :174)",
+    "F7 approach ceiling per type = gripTop + 1.5 (ChairPinSystem.cs:256, :279); the absolute 4.0 < 4.5 trips LaneTooFar on approach edges; mid-span lane sag > 1.5 m trips the static guard too",
+    "rope = hang_m - grip_top_above_rope_m (4.42); ChairPin puts the grip top ON the lane (:1040) so cabins hang 0.08 low until it reads the field (invisible)",
+    "carrier count per type from code (finding 9: EvenSpacing spawns nothing at 72 m on 60 m edges); prefab m_Spacing is only a spawn floor",
+    "R31: own rope-lane prefab with m_Hanging ~0.004 for 250 m spans; carving envelope includes span x h_lane (clearance_rows)"
+  ],
+  "rulings": [
+    "R5 hang 4.50",
+    "R8 painted glass",
+    "R18 1024",
+    "C4 outboard -Y (nitpick A3: the carrier's right on the stations' spin)",
+    "C5 rope 4.42",
+    "C6 LOD2 proxy",
+    "C7 LOD1 <= 0.48",
+    "MC2 G5 centroid",
+    "MC3 one UVMap",
+    "MC4 lane sag rows",
+    "MC6 numeric fixes",
+    "R31 lanes"
+  ],
+  "ingest": {
+    "source": "../ModularSkiResort/assets/external/wilin-gondola/source/gondola.fbx",
+    "subtree_meshes": 35,
+    "dropped": {
+      "cabin_fasteners": 20,
+      "doors": 2,
+      "footstep": 8,
+      "box_top": 2
+    },
+    "dropped_tris": 1332,
+    "shell_raw_tris": 739,
+    "scale": 27.0,
+    "clean_tris": {
+      "shell": 571,
+      "door_l": 114,
+      "door_r": 114
+    },
+    "shell_bbox": [
+      [
+        -1.15,
+        -1.0499,
+        0.0
+      ],
+      [
+        1.15,
+        1.0499,
+        2.4001
+      ]
+    ],
+    "door_l_bbox": [
+      [
+        -0.4021,
+        0.8423,
+        0.0101
+      ],
+      [
+        0.0011,
+        1.091,
+        2.324
+      ]
+    ],
+    "door_r_bbox": [
+      [
+        0.0024,
+        0.8423,
+        0.0101
+      ],
+      [
+        0.4055,
+        1.091,
+        2.324
+      ]
+    ],
+    "plug_loops": 3,
+    "plug_loop_edges": [
+      4,
+      4,
+      15
+    ],
+    "plug_tris": 17,
+    "plug_boundary_after": 0,
+    "plug_nonmanifold_after": 0,
+    "split_tris": {
+      "body_": 227,
+      "doorbody_": 24,
+      "doorglass_": 32,
+      "doorhw_": 4,
+      "doorplug_": 17,
+      "doortrim_": 168,
+      "glass_": 72,
+      "hw_": 34,
+      "roof_": 8,
+      "trim_": 230
+    },
+    "uv_before": [
+      [
+        "map1"
+      ]
+    ],
+    "soften": {
+      "bevels": {
+        "frames": {
+          "edges": 80,
+          "width_m": 0.012,
+          "segments": 1
+        },
+        "crown": {
+          "edges": 10,
+          "width_m": 0.07,
+          "segments": 3
+        },
+        "skirt": {
+          "edges": 32,
+          "width_m": 0.05,
+          "segments": 2
+        },
+        "foot_reseated": {
+          "verts": 27,
+          "lift_m": 0.00092
+        }
+      },
+      "faces_before": 373,
+      "nonmanifold_before": 0,
+      "welded_coincident": 1,
+      "open_after": 0,
+      "nonmanifold_after": 0,
+      "shell_tris_after": 1024,
+      "part_tris": {
+        "trim_shell": 241,
+        "glass_shell": 217,
+        "body_shell": 407,
+        "hw_shell": 58,
+        "roof_shell": 48,
+        "doorplug_shell": 53
+      }
+    },
+    "door_reveal": {
+      "l": {
+        "x_before": [
+          -0.4021,
+          0.0011
+        ],
+        "scale_x": 0.93055,
+        "handle_y_face": 1.0569,
+        "handle_offset": 0.0251
+      },
+      "r": {
+        "x_before": [
+          0.0024,
+          0.4055
+        ],
+        "scale_x": 0.93055,
+        "handle_y_face": 1.0569,
+        "handle_offset": 0.0251
+      }
+    },
+    "uv_after": {
+      "trim_shell": [
+        "UVMap"
+      ],
+      "glass_shell": [
+        "UVMap"
+      ],
+      "body_shell": [
+        "UVMap"
+      ],
+      "hw_shell": [
+        "UVMap"
+      ],
+      "roof_shell": [
+        "UVMap"
+      ],
+      "doorplug_shell": [
+        "UVMap"
+      ],
+      "doorbody_l": [
+        "UVMap"
+      ],
+      "doortrim_l": [
+        "UVMap"
+      ],
+      "doorglass_l": [
+        "UVMap"
+      ],
+      "doorhw_l": [
+        "UVMap"
+      ],
+      "doorbody_r": [
+        "UVMap"
+      ],
+      "doortrim_r": [
+        "UVMap"
+      ],
+      "doorglass_r": [
+        "UVMap"
+      ],
+      "doorhw_r": [
+        "UVMap"
+      ]
+    },
+    "plug_tris_shipped": 53,
+    "logo_fit": {
+      "logo_front": {
+        "coef": [
+          0.88672,
+          -1e-05,
+          0.2932
+        ],
+        "max_residual": 0.01131,
+        "offset": 0.01531
+      },
+      "logo_back": {
+        "coef": [
+          -0.88672,
+          1e-05,
+          -0.2932
+        ],
+        "max_residual": 0.01131,
+        "offset": 0.01531
+      }
+    }
+  },
+  "credit": "\"Ski gongola and lift station detailed drafts\" by Wilin_Amaurea (https://sketchfab.com/3d-models/ski-gongola-and-lift-station-detailed-drafts-a8fabd3e955643a2a9e9f09bd46635db), CC BY 4.0; modified (re-scaled, re-topologised, re-UV'd, re-textured)",
+  "geometry_hashes": {
+    "LOD0": "527cb48ec4aa3646",
+    "LOD1": "5e0cb451f7060ad9",
+    "LOD2": "ba61ae8733b1f789"
+  },
+  "split": {
+    "pair": "SkiGondolaCabin8B + SkiGondolaCabin8GripB",
+    "body": "SkiGondolaCabin8B",
+    "grip": "SkiGondolaCabin8GripB",
+    "pivots": {
+      "frame_note": "authoring = (x travel, y lateral, z up); prefab = (x lateral, y up, z travel) = FBX raw / prefab-local; outboard authoring -Y = prefab -X",
+      "grip_origin_in_assembled_m": [
+        0.0,
+        0.0,
+        3.8465
+      ],
+      "body_origin_in_assembled_m": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "grip_rope_point_m": {
+        "authoring": [
+          0.0,
+          0.0,
+          0.5735
+        ],
+        "prefab": [
+          0.0,
+          0.5735,
+          0.0
+        ]
+      },
+      "grip_pin_center_m": {
+        "authoring": [
+          0.0,
+          -0.655,
+          0.07
+        ],
+        "prefab": [
+          -0.655,
+          0.07,
+          0.0
+        ]
+      },
+      "body_pin_center_m": {
+        "authoring": [
+          0.0,
+          -0.655,
+          3.9165
+        ],
+        "prefab": [
+          -0.655,
+          3.9165,
+          0.0
+        ]
+      },
+      "hang_m": 4.5,
+      "grip_top_above_rope_m": 0.08,
+      "pin_axis": "lateral (authoring y = prefab x)"
+    },
+    "S1_rejoin": {
+      "old_vertices_checked": 1758,
+      "old_vertices_in_joint_zone": 92,
+      "new_vertices_checked": 1758,
+      "new_vertices_in_joint_zone": 208,
+      "max_old_to_new_mm": 0.0,
+      "max_new_to_old_mm": 0.0,
+      "joint_zone_r_m": 0.22,
+      "tol_mm": 2.0
+    },
+    "S2_S3_sweep": {
+      "poses": 57,
+      "pitch_deg": [
+        -45.0,
+        45.0,
+        5.0
+      ],
+      "fore_aft_deg": [
+        -3.0,
+        3.0
+      ],
+      "pin_rel_deg": [
+        -48.0,
+        48.0
+      ],
+      "roll_deg": [
+        0.0,
+        0.0
+      ],
+      "assembly_roll_note": "cross-wind sway = grip + body rolled together about the rope point (chairs / gondola <= 8 deg, tram <= 2 deg about the track rope): nothing turns at the pin, no joint check",
+      "clash_poses": 0,
+      "first_clashes": [],
+      "gap_mm_min": 3.5,
+      "gap_mm_max": 3.5,
+      "gap_max_at": [
+        -45.0,
+        -3.0,
+        "hanger_cheek_0"
+      ],
+      "gap_limit_mm": 5.0,
+      "slot_floor_mm": [
+        3.5,
+        7.87
+      ]
+    },
+    "tallies": {
+      "one_piece_lod0": 2556,
+      "body_lod0": 1964,
+      "grip_lod0": 768,
+      "pin_detail": 176
+    },
+    "joint": {
+      "pin": [
+        0.0,
+        -0.655,
+        3.9165
+      ],
+      "z_cut": 3.7665,
+      "r_arm": 0.08499789699505061,
+      "grip_z0": 3.8464999198913574
+    },
+    "joint_design": {
+      "head_bot": 3.98,
+      "head_top": 4.06,
+      "head_r": 0.03,
+      "knuckle_r": 0.06,
+      "knuckle_segs": [
+        8,
+        4
+      ],
+      "neck_len": 0.15,
+      "neck_taper": 0.06,
+      "neck_r": 0.045,
+      "cheek_t": 0.018,
+      "cheek_r": 0.07,
+      "cheek_bury": 0.015,
+      "pin_r": 0.026,
+      "pin_len": 0.014,
+      "r_x": 0.22,
+      "grip_tex": 512,
+      "grip_margin": 8,
+      "pin_detail": 176,
+      "pin_detail_lod2": 20,
+      "roller_segs": 16,
+      "segs_detail": 144,
+      "cap_raise": 48
+    },
+    "pair_tris": {
+      "LOD0": 2724,
+      "LOD1": 1248,
+      "LOD2": 224
+    },
+    "pair_budget": {
+      "LOD0": 2724,
+      "LOD0_cap": 2724,
+      "brief_cap": 2676,
+      "cap_raise": 48,
+      "LOD0_band": [
+        2100,
+        2724
+      ],
+      "projection": 2740,
+      "pin_detail": 176,
+      "segs_detail": 144,
+      "pin_detail_lod2": 20,
+      "LOD1_ratio": 0.458,
+      "LOD2": 224,
+      "LOD2_cap": 270,
+      "ok": true
+    },
+    "pair_contracts_held": {
+      "LOD0": [
+        "G1",
+        "G2",
+        "G3",
+        "G4",
+        "G5",
+        "G6",
+        "G8",
+        "G9",
+        "G9",
+        "G9",
+        "G10",
+        "G11",
+        "G12"
+      ],
+      "LOD1": [
+        "G1",
+        "G2",
+        "G3",
+        "G4",
+        "G5",
+        "G6",
+        "G8",
+        "G9",
+        "G9",
+        "G10"
+      ],
+      "LOD2": [
+        "G1",
+        "G2",
+        "G3",
+        "G4",
+        "G5",
+        "G6",
+        "G8",
+        "G10"
+      ]
+    }
+  }
+}

@@ -778,10 +778,10 @@ namespace SkiResortMod.Systems
                         Envelope = new LiftEnvelope(60f, 0.8f, 0.02f, 0.02f, 6f, 16f),   // net + own rope lane 0.02 (rope sag round, docs research rope-sag)
                         CloseElectricityView = FixedGrip.CloseElectricityView, LineExpected = true,
                         // Pivots of the split meshes (lift_chair.py --split, SkiLiftChair6N + SkiLiftChair6GripN; prefab frame x lateral,
-                        // y up, z travel): the pin 0.114 below the rope and 0.104 behind it (the FG yoke trails the jaw). Rigid offset
-                        // 2.2059 + 0.1691 - 0.055 = 2.32 = hang - grip top (CT-17).
+                        // y up, z travel; round 3: the clevis centered under the jaw block, F4a cast jaws): the pin 0.1405 straight below
+                        // the rope. Rigid offset 2.1795 + 0.1955 - 0.055 = 2.32 = hang - grip top (CT-17).
                         GripPrefab = Names.GripFixedGrip, GripExpected = false,
-                        Pivots = new CarrierPivots(new float3(0f, 0.1691f, 0f), new float3(0f, 0.055f, -0.1036f), new float3(0f, 2.2059f, -0.1036f)),
+                        Pivots = new CarrierPivots(new float3(0f, 0.1955f, 0f), new float3(0f, 0.055f, 0f), new float3(0f, 2.1795f, 0f)),
                     },
                     new LiftTypeSpec
                     {

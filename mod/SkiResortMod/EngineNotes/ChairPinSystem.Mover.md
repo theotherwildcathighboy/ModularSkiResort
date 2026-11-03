@@ -80,7 +80,7 @@ against the 1.6.2f1 decompile.
   static pass applies the same rule per pass), the second body keeps the rigid pose.
 - **Prefab contract for the grip rows** (so vanilla's spawn pose is already the assembled carrier): each grip row copies its carrier
   row's flags (EvenSpacing), m_Position.x (the side), m_Position.z (the spacing: the slot count follows it) and rotation, and its
-  m_Position.y = the carrier row's y + (BodyPin.y - GripPin.y), the rigid grip offset (FG 2.1509, DQ 2.7645, GD 3.8465
+  m_Position.y = the carrier row's y + (BodyPin.y - GripPin.y), the rigid grip offset (FG 2.1245, DQ 2.7645, GD 3.8465
   on the build's pivots, build.md). One carrier row and one grip row per side.
 - **Grips are not carriers**: never in CarrierGripTops, no census, no count, no hold row, no seeding of their own (a seeded body takes
   its rope point from its grip's jaw when it has one, `RopePointOfGrip`: exact under any swing). DeleteAllRules skips the kind.
