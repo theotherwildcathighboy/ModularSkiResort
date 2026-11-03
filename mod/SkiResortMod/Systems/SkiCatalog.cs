@@ -542,16 +542,16 @@ namespace SkiResortMod.Systems
             // NAMES-BEGIN
             public const string LineFixedGrip = "SkiChairliftHV"; // PowerLinePrefab, item lift
             public const string CarrierFixedGrip = "SkiLiftChair4"; // StaticObjectPrefab
-            public const string GripFixedGrip = "SkiLiftChair4Grip"; // StaticObjectPrefab, pending
+            public const string GripFixedGrip = "SkiLiftChair4Grip"; // StaticObjectPrefab
             public const string LineDetachable = "SkiDetachableHV"; // PowerLinePrefab, item liftDetachable
             public const string CarrierDetachable = "SkiLiftChairDQ4"; // StaticObjectPrefab
-            public const string GripDetachable = "SkiLiftChairDQ4Grip"; // StaticObjectPrefab, pending
+            public const string GripDetachable = "SkiLiftChairDQ4Grip"; // StaticObjectPrefab
             public const string LineGondola = "SkiGondolaHV"; // PowerLinePrefab, item liftGondola
             public const string CarrierGondola = "SkiGondolaCabin8"; // StaticObjectPrefab
-            public const string GripGondola = "SkiGondolaCabin8Grip"; // StaticObjectPrefab, pending
+            public const string GripGondola = "SkiGondolaCabin8Grip"; // StaticObjectPrefab
             public const string LineTram = "SkiTramHV"; // PowerLinePrefab, item liftTram
             public const string CarrierTram = "SkiTramCabin"; // StaticObjectPrefab
-            public const string GripTram = "SkiTramCarriage"; // StaticObjectPrefab, pending
+            public const string GripTram = "SkiTramCarriage"; // StaticObjectPrefab
             public const string Marker = "SkiLiftMarker"; // PowerLinePrefab
             public const string StationFixedGripBase = "SkiBaseStationBuilding"; // BuildingPrefab, item baseStation
             public const string StationFixedGripTop = "SkiTopStationBuilding"; // BuildingPrefab, item topStation
@@ -780,7 +780,7 @@ namespace SkiResortMod.Systems
                         // Pivots of the split meshes (lift_chair.py --split, SkiLiftChair6N + SkiLiftChair6GripN; prefab frame x lateral,
                         // y up, z travel; round 3: the clevis centered under the jaw block, F4a cast jaws): the pin 0.1405 straight below
                         // the rope. Rigid offset 2.1795 + 0.1955 - 0.055 = 2.32 = hang - grip top (CT-17).
-                        GripPrefab = Names.GripFixedGrip, GripExpected = false,
+                        GripPrefab = Names.GripFixedGrip, GripExpected = true,
                         Pivots = new CarrierPivots(new float3(0f, 0.1955f, 0f), new float3(0f, 0.055f, 0f), new float3(0f, 2.1795f, 0f)),
                     },
                     new LiftTypeSpec
@@ -802,7 +802,7 @@ namespace SkiResortMod.Systems
                         CarrierExpected = new[] { true },
                         // Pivots of the split meshes (SkiLiftChairDQ4N + SkiLiftChairDQ4GripN): the pin 0.258 below the rope on the
                         // outboard C-hanger (x -0.2459, authoring -Y). Rigid offset 2.8225 + 0.3155 - 0.058 = 3.08 (CT-17).
-                        GripPrefab = Names.GripDetachable, GripExpected = false,
+                        GripPrefab = Names.GripDetachable, GripExpected = true,
                         Pivots = new CarrierPivots(new float3(0f, 0.3155f, 0f), new float3(-0.2459f, 0.058f, 0f), new float3(-0.2459f, 2.8225f, 0f)),
                     },
                     new LiftTypeSpec
@@ -824,7 +824,7 @@ namespace SkiResortMod.Systems
                         CarrierExpected = new[] { true },
                         // Pivots of the split meshes (lift_cabin.py --split, SkiGondolaCabin8B + SkiGondolaCabin8GripB): the pin 0.504 below
                         // the rope on the outboard hanger (x -0.655). Rigid offset 3.9165 + 0.5735 - 0.07 = 4.42 (CT-17).
-                        GripPrefab = Names.GripGondola, GripExpected = false,
+                        GripPrefab = Names.GripGondola, GripExpected = true,
                         Pivots = new CarrierPivots(new float3(0f, 0.5735f, 0f), new float3(-0.655f, 0.07f, 0f), new float3(-0.655f, 3.9165f, 0f)),
                     },
                     new LiftTypeSpec
@@ -850,7 +850,7 @@ namespace SkiResortMod.Systems
                         // under the carriage head, K = 10.2565 above the cabin's lowest vertex (was hang - 0.12 = 10.38; carriers.json
                         // pivot_k_m follows), 0.2565 ABOVE the track-rope contact. Rigid offset 10.2565 + 0.478 - 0.7345 = 10.0 (CT-17).
                         // The carriage is the grip: hosted by the base station like the cabin.
-                        GripPrefab = Names.GripTram, GripExpected = false,
+                        GripPrefab = Names.GripTram, GripExpected = true,
                         Pivots = new CarrierPivots(new float3(0f, 0.478f, 0f), new float3(0f, 0.7345f, 0f), new float3(0f, 10.2565f, 0f)),
                     },
                 };

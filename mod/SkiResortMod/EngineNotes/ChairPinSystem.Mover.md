@@ -80,8 +80,10 @@ against the 1.6.2f1 decompile.
   static pass applies the same rule per pass), the second body keeps the rigid pose.
 - **Prefab contract for the grip rows** (so vanilla's spawn pose is already the assembled carrier): each grip row copies its carrier
   row's flags (EvenSpacing), m_Position.x (the side), m_Position.z (the spacing: the slot count follows it) and rotation, and its
-  m_Position.y = the carrier row's y + (BodyPin.y - GripPin.y), the rigid grip offset (FG 2.1245, DQ 2.7645, GD 3.8465
-  on the build's pivots, build.md). One carrier row and one grip row per side.
+  m_Position.y = the carrier row's y + (BodyPin.y - GripPin.y) - (body bounds max y - grip bounds max y): the rows are
+  AnchorTop, and vanilla lowers each object by its OWN bounds max y (SubObjectSystem.cs:2477-2482 in 1.6.0f1). On the build's
+  pivots and meshes: FG 2.1245 - 1.956, DQ 2.7645 - 2.341, GD 3.8465 - 3.323 (rows at 7.3185 / 8.9831 / 10.6335). One carrier
+  row and one grip row per side.
 - **Grips are not carriers**: never in CarrierGripTops, no census, no count, no hold row, no seeding of their own (a seeded body takes
   its rope point from its grip's jaw when it has one, `RopePointOfGrip`: exact under any swing). DeleteAllRules skips the kind.
 - **Enrollment**: InterpolatedTransform + one Updated, exactly like a chair (vanilla creates the grip without it; an entity CREATED with
