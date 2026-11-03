@@ -6,10 +6,13 @@ haul-row halves on their own anchor bones).
 
 Each build RAISES unless:
 
-  K1  G6 held (cs2_skin.sweep over cs2_skin.joint_grid(theta_max): both halves in {-t, -t/2, 0, t/2, t} with
-      |front - back| <= 40, plus the +-20 deg half-breaks at every mean): no overlap half vs head / half vs half,
-      clearance >= SKIN_CLEAR_MIN, the main-pin gap <= SKIN_PIN_GAP_MAX, the rope runs clear, every half's rope seated
-      on all its crowns (SEAT_GAP) at every pose; the pose count is the grid's;
+  K1  G6 held (cs2_skin.sweep over cs2_skin.joint_grid(theta_max), theta_max = min(type max slope, TILT_CAP 30) = 30
+      for every family: both halves in {-30, -15, 0, 15, 30} with |front - back| <= 40, plus the +-20 deg half-breaks
+      at every mean): no overlap half vs head / half vs half, clearance >= SKIN_CLEAR_MIN, the main-pin gap <=
+      SKIN_PIN_GAP_MAX, the rope runs clear, every half's rope seated on all its crowns (SEAT_GAP) at every pose; the
+      pose count is the grid's; the round 3 hardware: DQ / GD a static clevis tongue `hanger_<side>_t` (Root) per
+      lane, FG the bogie bars at axle height (no sheave arms) when SKIN_FG bogie_low, the tram's rocker frame (pin
+      block, two legs, bearer, pin boss) per lane;
   K2  every level (LOD0, LOD1, LOD2) skinned: vertex groups exactly the bones, every vertex 1.0 on one bone
       (cs2_asset.check_skin_weights), both main halves non-empty at LOD0;
   K3  the rig: Root at the origin, every half bone under Root at its pivot with the up / roll 0 rest; the
@@ -77,6 +80,29 @@ def build_lift(key, head, sweep=True):
     finally:
         LT.skin_sweep = real
     return info["spec"], t, table, info
+
+
+def k1_round3_lift(spec, t, table, info):
+    """Round 3 hardware and the tilt clamp (K1): theta_max = min(type max, TILT_CAP); DQ / GD the static clevis tongue
+    per lane between the yoke plates; FG with bogie_low no sheave arms and every bogie bar centered on the axle."""
+    fam = spec.family
+    want_t = min(LT.SKIN_TYPE_MAX_SLOPE[fam], cs2_skin.TILT_CAP)
+    if LT.SKIN_THETA_MAX[fam] != want_t or want_t != 30.0:
+        _fail(f"{spec.key} K1: theta_max {LT.SKIN_THETA_MAX[fam]} (want min(type max, {cs2_skin.TILT_CAP}) = 30)")
+    pb = info["skin_part_bone"]
+    if fam in ("DQ", "GD"):
+        tongues = [f"hanger_{s}_t" for s in ("n", "p")]
+        if any(n not in table or n in pb for n in tongues):
+            _fail(f"{spec.key} K1: clevis tongues {tongues} missing or not static ({[n for n in tongues if n in pb]})")
+    if fam == "FG" and LT.SKIN_FG.get("bogie_low"):
+        cen = cs2_skin.part_centroids(t, table)
+        arms = [n for n in table if n.startswith("sheave_arm_")]
+        off = {n: round(float((c[1][2] + c[2][2]) / 2.0 - spec.axle), 4) for n, c in cen.items()
+               if n.startswith("rocker_sub_") and abs((c[1][2] + c[2][2]) / 2.0 - spec.axle) > 1e-4}
+        if arms or off:
+            _fail(f"{spec.key} K1: bogie_low with sheave arms {arms[:4]} or bars off the axle {off}")
+    print(f"[skin] K1 {spec.key} round 3: theta_max {LT.SKIN_THETA_MAX[fam]}"
+          + (", clevis tongues static" if fam in ("DQ", "GD") else ", bogie bars on the axle, no sheave arms"))
 
 
 def k1_lift(spec, info):
@@ -164,7 +190,12 @@ def build_tram(sweep=True):
     return spec, t, table, parts, pb, rep
 
 
-def k1_tram(spec, rep, pb):
+def k1_tram(spec, rep, pb, table):
+    if TT.SKIN_TRAM["theta_max"] != min(TT.SKIN_TRAM["type_max_slope"], cs2_skin.TILT_CAP):
+        _fail(f"tram K1: theta_max {TT.SKIN_TRAM['theta_max']} (want min(type max, {cs2_skin.TILT_CAP}))")
+    rocker = [f"sbrk_{s}_{p}" for s in ("n", "p") for p in ("k", "kl0", "kl1", "kb", "kp")]
+    if any(n not in table or n in pb for n in rocker):
+        _fail(f"tram K1: rocker frame parts missing or not static {[n for n in rocker if n not in table or n in pb]}")
     want = len(cs2_skin.joint_grid(TT.SKIN_TRAM["theta_max"]))
     if len(rep["poses"]) != want or rep["failed"]:
         _fail(f"tram K1: {len(rep['poses'])} poses (grid {want}), failed {rep['failed']}")
@@ -273,6 +304,7 @@ def main():
             continue
         spec, t, table, info = build_lift(key, head)
         k1_lift(spec, info)
+        k1_round3_lift(spec, t, table, info)
         h1 = _hash(t, table)
         k2_k4_lift(spec, t, table, info)
         if key == "FG12":
@@ -282,7 +314,7 @@ def main():
             print(f"[skin] K5 {key}: deterministic ({h1[:12]})")
         done.append(spec.key)
     spec, t, table, parts, pb, rep = build_tram()
-    k1_tram(spec, rep, pb)
+    k1_tram(spec, rep, pb, table)
     h1 = _hash(t, table)
     k2_k4_tram(spec, t, table, parts, pb)
     _s, t2, table2, *_r = build_tram(sweep=False)

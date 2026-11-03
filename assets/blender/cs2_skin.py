@@ -37,6 +37,14 @@ import numpy as np
 BONE_LEN = 0.25
 FRONT_SIGN_NET = -1.0           # net-frame travel sign of the game +z half (see the module docstring)
 HALF_BREAK_MAX = 20.0           # deg: |front - back| / 2 clamp (the code's; the art clears it)
+# deg: every family's half clamps to min(the type's max slope, TILT_CAP): a train pitched much past 30 deg reads absurd
+# on an upright tower (tilted tower bodies are a later step); the joint grid runs to that clamp
+TILT_CAP = 30.0
+
+
+def theta_max(type_max):
+    """The half clamp (deg) of a type whose planner max slope is `type_max`: min(type_max, TILT_CAP)."""
+    return min(float(type_max), TILT_CAP)
 SEAT_GAP = (-0.001, 0.002)      # m: rope underside over each crown, contact, not inside (lift_tower.SKIN_SEAT_GAP)
 
 
@@ -256,11 +264,12 @@ def joint_grid(tmax, brk=HALF_BREAK_MAX):
     return out
 
 
-def rope_run(lane_x, piv, theta_deg, sign, length, r=0.100, start=0.0):
+def rope_run(lane_x, piv, theta_deg, sign, length, r=0.100, start=0.0, drop=0.0):
     """(verts, faces) of a hexagonal rope prism (circumradius r, corners on the lateral axis = flats top / bottom: the
     vanilla HV cable) from `start` m to `length` m out of the pivot piv = (y, z) along net y * sign, at lateral x =
-    lane_x, the run turned theta about the pivot."""
-    ring = [(lane_x + r * math.cos(a), r * math.sin(a)) for a in (math.radians(60.0 * k) for k in range(6))]
+    lane_x, the run turned theta about the pivot. `drop` (previews only; 0 = the game's rope on the lane) lowers the
+    axis that far below the pivot line in the half's frame: a real-diameter stand-in seated in the groove."""
+    ring = [(lane_x + r * math.cos(a), r * math.sin(a) - drop) for a in (math.radians(60.0 * k) for k in range(6))]
     verts = []
     for d in (start, length):
         verts += [(x, piv[0] + sign * d, piv[1] + z) for x, z in ring]

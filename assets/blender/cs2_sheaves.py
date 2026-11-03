@@ -48,6 +48,8 @@ DP1_CHAMFER = 0.012                    # FG / ET rocker_sub_ + sheave_arm_ long 
 FG_ARM_T = 0.22                        # crossarm depth (the hanger reaches into it)
 FG_HANGER, FG_MAIN_TO_SUB, FG_SUB_TO_AXLE = 0.40, 0.30, 0.26     # axle = mast - 0.96
 FG_HANGER_INSET = 0.005                # M4: hanger top 5 mm inside the crossarm (DP1_INSET fg_hanger_top)
+FG_BOGIE_LOW_BELOW = 0.07              # fg_train_side_halves bogie_low: main plates' bottom under the axle (pin r 0.045)
+FG_BOGIE_LOW_INNER = 0.12              # ... and their bottom edge from this far inboard of the bogie pivot (drop_plate x1)
 FG_SHEAVE = dict(r=0.20, w=0.13, pitch=0.52)                     # lift_tower._fg_spec
 # DQ gantry train (towers-v2 section 4.2, F9, Revision 1c)
 DQ_SUB_Y = 2.512                       # F9: 2.517 moved 5 mm inboard (outer face 2.545)
@@ -185,40 +187,38 @@ def wheel_tris(n_bosses):
 def wheel_materials(factory=dict):
     """{WHEEL_KEY: factory(**WHEEL_MATERIAL)} under v2, {} under v1 (a v1 material table stays byte-identical).
     `factory` = the generator's MaterialSpec class (or dict for lift_tower's dict table). With the wheel dress on, the
-    hub-cap and wheel-rubber keys as well."""
+    wheel-rubber key as well."""
     if not wheels_v2():
         return {}
     out = {WHEEL_KEY: factory(**WHEEL_MATERIAL)}
     if wheel_dress():
-        out.update({WHEEL_HUB_KEY: factory(**WHEEL_HUB_MATERIAL), WHEEL_RUBBER_KEY: factory(**WHEEL_RUBBER_MATERIAL)})
+        out[WHEEL_RUBBER_KEY] = factory(**WHEEL_RUBBER_MATERIAL)
     return out
 
 
 def wheel_roles(role="none"):
     """{WHEEL_KEY: role} for a weather role table under v2 ({} under v1): the wheel is clean steel on every asset (the
-    families' weather intensities differ; one wheel must look the same everywhere). Dress on: its two keys as well."""
+    families' weather intensities differ; one wheel must look the same everywhere). Dress on: the rubber key as well."""
     if not wheels_v2():
         return {}
-    return {k: role for k in ((WHEEL_KEY, WHEEL_HUB_KEY, WHEEL_RUBBER_KEY) if wheel_dress() else (WHEEL_KEY,))}
+    return {k: role for k in ((WHEEL_KEY, WHEEL_RUBBER_KEY) if wheel_dress() else (WHEEL_KEY,))}
 
 
-# -- Lift alignment round 2 (2026-11-02), the wheel DRESS: the owner judged the pilot's wheel "less good looking" than
-# the shipped one; the brief keeps the mesh (<= 120 tris) and improves the read at 0 extra tris, by material only:
-# the seen hub bosses (the hub parts cull_hidden_bosses splits off) take a signal-red hub-cap paint, the groove liner a
-# darker, rougher wheel rubber (the groove reads as a shaded channel between the steel discs, with the bake's AO), and
-# lift_tower's relief adds a recessed sidewall ring at the disc edge (tower_detail_specs). Off (default) = every
-# shipped bake unchanged; set_wheel_dress(True) before any part is built (lift_tower / tram_tower --wheel-dress).
+# -- The wheel DRESS (lift alignment, 0 extra tris, material and relief only; the mesh stays <= 120 tris): the groove
+# liner takes a darker, rougher wheel rubber (the groove reads as a shaded channel between the steel discs, with the
+# bake's AO), and lift_tower's relief adds two rings on each disc face (tower_detail_specs): a recessed web ring and a
+# raised shoulder lip out to the crest, whose 1-texel outer rim draws a crisp bright edge at the groove shoulder. The
+# hub caps stay the shipped wheel steel at the shipped size. Off = every v1 / unskinned bake unchanged; the CLIs turn it
+# on for skinned builds (lift_tower / tram_tower --wheel-dress / --no-wheel-dress); set_wheel_dress before any part.
 WHEEL_DRESS = False
-WHEEL_HUB_KEY = "wheelhub"
 WHEEL_RUBBER_KEY = "wheelrubber"
-# signal red hub paint (sRGB ~0.68 / 0.20 / 0.19; vanilla painted band, metal 0 like paint), smoothness 0.55
-WHEEL_HUB_MATERIAL = dict(albedo=(0.42, 0.035, 0.030), metal=0.0, rough=0.45, projection="box")
 # wheel rubber: sRGB ~0.14 (the towers' rubber 0.035 linear = sRGB 0.21 read gray beside the 0.58 steel), rough 0.90
 WHEEL_RUBBER_MATERIAL = dict(albedo=(0.016, 0.016, 0.017), metal=0.0, rough=0.90, projection="box")
-# x r: the recessed web ring on each disc (lift_tower normal-map mark). 0.26 r = 5.8 cm on DQ's 0.223 m wheel, 3.0
-# texels at DQ12's 52 px/m: the bake skips (and DT-C8 fails) a mark under 2 texels, so it holds down to ~35 px/m;
-# 0.16 r skipped all 32 DQ12 rings (1.86 texels)
-WHEEL_DRESS_RING = dict(r_in=0.60, r_out=0.86, h=-0.004)
+# x r: the two relief rings on each disc face (lift_tower normal-map marks). The bake skips (and DT-C8 fails) a ring
+# under 2 texels wide: the 0.20 r lip is 4.5 cm on DQ's 0.223 m wheel, 2.3 texels at DQ12's 52 px/m (holds down to
+# ~45 px/m); the 0.24 r web ring 2.8 texels
+WHEEL_DRESS_RINGS = (dict(r_in=0.52, r_out=0.76, h=-0.004),     # recessed web ring
+                     dict(r_in=0.80, r_out=1.00, h=0.003))      # raised shoulder lip to the crest
 
 
 def set_wheel_dress(on):
@@ -233,12 +233,10 @@ def wheel_dress():
 
 
 def dress_key(obj, key):
-    """The material key a part takes under the wheel dress: a wheel's liner WHEEL_RUBBER_KEY, a wheel's hub part
-    WHEEL_HUB_KEY, anything else `key` (dress off: always `key`)."""
+    """The material key a part takes under the wheel dress: a wheel's liner WHEEL_RUBBER_KEY, anything else (the hub
+    parts included: shipped wheel steel) `key` (dress off: always `key`)."""
     if not wheel_dress():
         return key
-    if obj.get("cs2_wheel_hub"):
-        return WHEEL_HUB_KEY
     if obj.get("cs2_wheel") and obj.name in {l for _d, l, *_r in WHEEL_LOG}:
         return WHEEL_RUBBER_KEY
     return key
@@ -730,7 +728,7 @@ def cull_hidden_bosses(parts, label=""):
     print(f"[sheaves] {label} hub bosses kept (seen): {n['-+']} wheels both faces, {n['-'] + n['+']} one face, "
           f"{n['']} none; {sum(len(v) for v in kept_all.values())} bosses x {WHEEL_BOSS_TRIS} tris in the hub "
           f"parts (hidden = >= {BOSS_HIDDEN['share']:.0%} of the rays blocked within {BOSS_HIDDEN['dist']} m)")
-    if wheel_dress():           # the wheel dress: every wheel liner on the wheel rubber (the hubs keyed above)
+    if wheel_dress():           # the wheel dress: every wheel liner on the wheel rubber
         for i, (o, k) in enumerate(parts):
             parts[i] = (o, dress_key(o, k))
     return kept_all
@@ -910,9 +908,80 @@ def lug_plate(name, xp, zc, r, z0, z1, x_far, ya, yb, segs=5):
     return _new_part(name, bm)
 
 
+def drop_plate(name, zc, r, z0, x1, x_far, ya, yb, step_deg=36.0):
+    """
+    A main-rocker half plate that drops from its pin to a lower pivot (lift alignment round 3, FG bogies at axle
+    height): in the travel / height plane (x, z) between lateral y = ya .. yb (signed, ya < yb), a round lug of radius
+    r about the pin (0, zc), the top edge at zc + r out to x_far, the far end down to z0, the bottom edge from x_far
+    back to x1, then a straight edge tangent to the lug circle (the lug arc from that tangent point under and around
+    the pin to its top, facets <= step_deg). Convex; the plate passes the pin by r only (cs2_skin.bones_by_travel's
+    lug margin). Box-projected "UVMap".
+    """
+    d = 1.0 if x_far > 0.0 else -1.0
+    qx, qz = abs(x1), z0 - zc
+    L = math.hypot(qx, qz)
+    if not (0.0 < qx < abs(x_far) and qz < -r and L > r):
+        raise ValueError(f"{name}: need 0 < |x1| < |x_far| and z0 below the lug ({x1}, {z0}, r {r})")
+    th0 = math.atan2(qz, qx) - math.acos(r / L)              # the tangent point (clockwise onto the circle)
+    th1 = math.pi / 2.0 - 2.0 * math.pi                      # the lug's top, clockwise from th0
+    n = max(2, int(math.ceil(math.degrees(th0 - th1) / step_deg - 1e-9)))
+    arc = [(r * math.cos(th0 + (th1 - th0) * k / n), zc + r * math.sin(th0 + (th1 - th0) * k / n)) for k in range(n + 1)]
+    prof = [(abs(x_far), zc + r), (abs(x_far), z0), (qx, z0)] + arc
+    prof = [(d * x, z) for x, z in prof]
+    bm = bmesh.new()
+    layer = bm.loops.layers.uv.new("UVMap")
+    lo = [bm.verts.new((x, ya, z)) for x, z in prof]
+    hi = [bm.verts.new((x, yb, z)) for x, z in prof]
+    m = len(prof)
+    bm.faces.new(lo)
+    bm.faces.new(hi[::-1])
+    for k in range(m):
+        bm.faces.new((lo[k], lo[(k + 1) % m], hi[(k + 1) % m], hi[k]))
+    bm.normal_update()
+    cen = mathutils.Vector((d * abs(x_far) / 2.0, (ya + yb) / 2.0, (zc + z0) / 2.0))
+    for f in bm.faces:
+        if f.normal.dot(f.calc_center_median() - cen) < 0.0:
+            f.normal_flip()
+    bm.normal_update()
+    cs2_asset.canonical_order_bmesh(bm)
+    _box_uv_bm(bm, layer)
+    return _new_part(name, bm)
+
+
+def hanger_tongue(name, zc, r, z_top, hw_top, ya, yb, segs=6):
+    """
+    A static hanger tongue in the travel / height plane (x, z) between lateral y = ya .. yb (signed, ya < yb): from its
+    top edge z_top (+-hw_top, buried in the head: no top face) down to a ROUND lug of radius r about the main pin at
+    (0, zc) (a semicircle in `segs` facets, under the 45 deg bevel limit). hw_top >= r (convex). Box-projected
+    "UVMap". Lift alignment phase 2 round 3: the two yoke halves straddle it, one plate each side (the clevis).
+    """
+    if hw_top < r - 1e-9 or z_top <= zc:
+        raise ValueError(f"{name}: hw_top {hw_top} < r {r} or top {z_top} under the pin {zc}")
+    arc = [(r * math.cos(-math.pi * k / segs), zc + r * math.sin(-math.pi * k / segs)) for k in range(segs + 1)]
+    prof = [(hw_top, z_top)] + arc + [(-hw_top, z_top)]      # clockwise seen from +y; the last edge = the top
+    bm = bmesh.new()
+    layer = bm.loops.layers.uv.new("UVMap")
+    lo = [bm.verts.new((x, ya, z)) for x, z in prof]
+    hi = [bm.verts.new((x, yb, z)) for x, z in prof]
+    n = len(prof)
+    bm.faces.new(lo)
+    bm.faces.new(hi[::-1])
+    for k in range(n - 1):
+        bm.faces.new((lo[k], lo[k + 1], hi[k + 1], hi[k]))
+    bm.normal_update()
+    cen = mathutils.Vector((0.0, (ya + yb) / 2.0, (zc + z_top) / 2.0))
+    for f in bm.faces:
+        if f.normal.dot(f.calc_center_median() - cen) < 0.0:
+            f.normal_flip()
+    bm.normal_update()
+    cs2_asset.canonical_order_bmesh(bm)
+    _box_uv_bm(bm, layer)
+    return _new_part(name, bm)
+
+
 def fg_train_side_halves(tag, s, y, main_z, sub_z, axle_z, sub_span, main_half, sheave_r, sheave_w, pin_z, inboard,
                          shift, arm_t=FG_ARM_T, hanger=FG_HANGER, ins=FG_HANGER_INSET, gap=0.015, poke=0.006,
-                         pin_r=0.05, lap_gap=0.010):
+                         pin_r=0.05, lap_gap=0.010, bogie_low=False):
     """
     The Yan rocker tree of ONE lane as two HALF trains hinged on the main pin (lift alignment phase 2 round 2, the
     articulation design note option C). Each half = one 2-wheel bogie (sub rocker, its pivot, two sheave arms, two
@@ -923,7 +992,11 @@ def fg_train_side_halves(tag, s, y, main_z, sub_z, axle_z, sub_span, main_half, 
     plate outboard): the main slab of fg_train_side_pinned (t_main = arm_t 0.7) holds both plates, so the hanger,
     the sub rockers and the wheels keep the pilot's lateral stack. Each sub pivot runs from its own half's plate out
     through the sub rocker (the back pivot crosses the front plate's slab far from that plate's lug). The hanger and
-    the main pin are the static head (Root). Returns [(obj, tower material key)].
+    the main pin are the static head (Root). `bogie_low` (round 3): each bogie bar sits at AXLE height between its
+    wheel pair (the wheels on their axle stubs from the bar, no sheave arms), its pivot through the bar at the axle, and
+    the main-rocker plates drop to it (drop_plate: the round lug on the main pin, a bottom edge FG_BOGIE_LOW_BELOW
+    under the axle from FG_BOGIE_LOW_INNER inboard of the pivot out, an edge tangent to the lug between).
+    Returns [(obj, tower material key)].
     """
     P = []
     yl = y
@@ -944,19 +1017,26 @@ def fg_train_side_halves(tag, s, y, main_z, sub_z, axle_z, sub_span, main_half, 
         return K.add_cyl(name, r, b - a, (x, s * (a + b) / 2.0, z), (math.radians(90.0), 0.0, 0.0),
                          segments=segs, caps="both")
     h = 0.075
+    zs = axle_z if bogie_low else sub_z
     for si, (half, hs) in enumerate((("b", -1.0), ("f", 1.0))):
         sx = hs * (main_half + shift)
         g0, g1 = slab[half]
         ya, yb = sorted((s * g0, s * g1))
-        P.append((lug_plate(f"rocker_main_{tag}_{half}", 0.0, pin_z, h, pin_z - h, pin_z + h,
-                            hs * (main_half + shift + 0.20), ya, yb), "paint"))
-        P.append((lateral_pin(f"pivot_{tag}_{si}", 0.045, g0 - poke, abs(yt) + t_sub / 2.0 + poke, sx, sub_z, 6),
+        if bogie_low:       # the plate drops from its lug on the main pin to the bogie pivot at the axle
+            P.append((drop_plate(f"rocker_main_{tag}_{half}", pin_z, h, axle_z - FG_BOGIE_LOW_BELOW,
+                                 hs * (main_half + shift - FG_BOGIE_LOW_INNER), hs * (main_half + shift + 0.20), ya, yb),
+                      "paint"))
+        else:
+            P.append((lug_plate(f"rocker_main_{tag}_{half}", 0.0, pin_z, h, pin_z - h, pin_z + h,
+                                hs * (main_half + shift + 0.20), ya, yb), "paint"))
+        P.append((lateral_pin(f"pivot_{tag}_{si}", 0.045, g0 - poke, abs(yt) + t_sub / 2.0 + poke, sx, zs, 6),
                   "galv"))
-        P.append((K.add_box(f"rocker_sub_{tag}_{si}", (sub_span + 0.30, t_sub, 0.12), (sx, yt, sub_z)), "paint"))
+        P.append((K.add_box(f"rocker_sub_{tag}_{si}", (sub_span + 0.30, t_sub, 0.12), (sx, yt, zs)), "paint"))
         for wtag, wv in (("m", -1.0), ("p", 1.0)):
             wx = sx + wv * sub_span / 2.0
-            P.append((K.add_box(f"sheave_arm_{tag}_{si}_{wtag}", (0.09, 0.10, 0.26),
-                                (wx, yt, (sub_z + axle_z) / 2.0)), "paint"))
+            if not bogie_low:
+                P.append((K.add_box(f"sheave_arm_{tag}_{si}_{wtag}", (0.09, 0.10, 0.26),
+                                    (wx, yt, (sub_z + axle_z) / 2.0)), "paint"))
             P += train_wheel(f"sheave_{tag}_{si}_{wtag}_rim", f"liner_{tag}_{si}_{wtag}", sheave_r, sheave_w,
                              (wx, yl, axle_z))
             y0, y1 = yt, yl - s * sheave_w / 2.0
@@ -969,7 +1049,7 @@ def fg_train_side_halves(tag, s, y, main_z, sub_z, axle_z, sub_span, main_half, 
 
 
 def dq_train_halves(centres_of, n, axle, sheave_r, sheave_w, segs, groove, sub_y, main_y, pin_s, hanger_box, hz,
-                    pin_z, yoke_top, shift, link=DQ_LINK, ngon=False, lap_gap=0.010, yoke_t=0.072):
+                    pin_z, yoke_top, shift, link=DQ_LINK, ngon=False, lap_gap=0.010, yoke_t=0.072, clevis=None):
     """
     The gantry trains (DQ / GD) of both lanes as two HALF trains per lane hinged on the main pin (lift alignment phase
     2 round 2, option C). dq_train's parts and section numbers (the expressions where they apply), with:
@@ -982,11 +1062,20 @@ def dq_train_halves(centres_of, n, axle, sheave_r, sheave_w, segs, groove, sub_y
         yoke slab) and `yoke_<tag>_b` (inboard), `lap_gap` apart, each from its round lug on the main pin (lug_plate,
         r = the pin's reach to the yoke bottom) out to its mains / links + 0.15, bottom axle + 0.25 (the mains' pins and
         the links hang there, C21), top axle + yoke_top;
-      - the hanger box as given (the caller cuts it short of the yoke).
+      - the hanger box as given (the caller cuts it short of the yoke);
+      - `clevis` (round 3; dict plate_t, gap, r, top_z, top_hw): the yoke plates thin to plate_t at the yoke slab's
+        outer faces and a static tongue `hanger_<tag>_t` (Root) fills the middle (yoke_t - 2 (plate_t + gap) thick,
+        `gap` off each plate) from top_z in the head down to a round lug of radius r about the main pin
+        (hanger_tongue): the two halves' plates straddle it, a clevis on the pin over the train center.
     The main pin is the caller's (lift_tower._dq_train). Returns [(obj, tower material key)].
     """
     P = []
     t_p = (yoke_t - lap_gap) / 2.0
+    if clevis is not None:
+        t_p = clevis["plate_t"]
+        t_g = yoke_t - 2.0 * (t_p + clevis["gap"])
+        if t_g <= 0.0:
+            raise ValueError(f"dq_train_halves: clevis plates {t_p} + gaps {clevis['gap']} leave no tongue in {yoke_t}")
     for tag, s in (("n", -1.0), ("p", 1.0)):
         raw = centres_of(s)
         if any(abs(z - raw[0][2]) > 1e-9 for _x, _y, z in raw):
@@ -1031,6 +1120,10 @@ def dq_train_halves(centres_of, n, axle, sheave_r, sheave_w, segs, groove, sub_y
             z1 = axle + yoke_top
             r = max(pin_z - yz0, z1 - pin_z)
             P.append((lug_plate(f"yoke_{tag}_{half}", 0.0, pin_z, r, yz0, z1, hs * (far + 0.15), ya, yb), "paint"))
+        if clevis is not None:
+            ya, yb = sorted((s * (main_y - t_g / 2.0), s * (main_y + t_g / 2.0)))
+            P.append((hanger_tongue(f"hanger_{tag}_t", pin_z, clevis["r"], clevis["top_z"], clevis["top_hw"], ya, yb,
+                                    segs=clevis.get("segs", 6)), "paint"))
         hb = hanger_box
         P.append((K.add_box(f"hanger_{tag}", (hb["x"], hb["y1"] - hb["y0"], hb["z1"] - hb["z0"] - 2.0 * hz),
                             (0.0, s * (hb["y0"] + hb["y1"]) / 2.0, axle + (hb["z0"] + hb["z1"]) / 2.0)), "paint"))

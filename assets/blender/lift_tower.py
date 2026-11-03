@@ -1755,7 +1755,9 @@ LOD2_DRIFT_RAISE = 0.02                # beyond expected + this the build fails
 # seen hub boss: FG 120 both faces seen, DQ / GD 98 inboard face behind the sub rocker) -> every cap reset to
 # max(the round-1 cap, the smallest 100 with >= 5 % headroom): FG 4,600 -> 3,700 (FG20 3,450), DQ 6,400 -> 4,200 (DQ20
 # 3,970), GD 7,500 -> 4,800 (GD20 4,542). Round 1: 3,500 / 3,600 / 3,500.
-LOD0_CAP = {"FG": 3700, "DQ": 4200, "GD": 4800}
+# FG 3,700 -> 3,800 (lift alignment round 3): FG20 skinned builds 3,762 with the round-2 bogie bars (SKIN_FG
+# bogie_low off), 3,394 with bogie_low; unskinned FG20 3,450.
+LOD0_CAP = {"FG": 3800, "DQ": 4200, "GD": 4800}
 
 
 @dataclass(frozen=True)
@@ -2596,8 +2598,11 @@ def rope_on_crown_block(spec):
 # importer copies LOD0's ProceduralAnimationProperties onto each LOD: 1.6.0f1 AssetImportPipeline.SetupLODs
 # :2196-2218). SKINNED implies the rope on the crowns (T27, set_rope_on_crown): the pivot line is lane_y(spec, True).
 # Head recipes (SKIN_HEADS):
-#   FG Yan     cs2_sheaves.fg_train_side_halves: a half = one 2-wheel bogie on its main-rocker half (lug_plate); the
-#              two halves lap on the main pin `pivot_main_<side>`, held by the hanger one lateral slab inboard.
+#   FG Yan     cs2_sheaves.fg_train_side_halves: a half = one 2-wheel bogie on its main-rocker half; the two halves
+#              lap on the main pin `pivot_main_<side>`, held by the hanger one lateral slab inboard. SKIN_FG
+#              bogie_low (round 3): the bogie bar sits at AXLE height between its wheel pair (wheels on axle stubs from
+#              the bar, no sheave arms) and the main-rocker half is a drop_plate from its lug on the main pin down to
+#              the bogie pivot; off = round 2 (lug_plate at the pin, bars at rope height on sheave arms).
 #   DQ ingest  cs2_sheaves.dq_train_halves: a half = one 4-wheel bogie (two 2-wheel bogies on a main rocker) on its
 #              yoke half `yoke_<side>_f|b`; the Kagelok girder end and the hanger cut SKIN_DQ["gap"] short of the
 #              yoke, a main pin through all three, the yoke's top at pin + SKIN_DQ["yoke_above_pin"] (under the
@@ -2606,6 +2611,9 @@ def rope_on_crown_block(spec):
 #              put a bogie on the pin); the gantry posts land on the girder ends (they came down onto the yoke, and with
 #              the rope on the crowns through the rope: the T27 C20 head-rule item), the hanger cut short of the yoke,
 #              the main pin from inside the girder end (SKIN_GD["pin_in"]).
+#   DQ / GD clevis (round 3, SKIN_CLEVIS via skin_clevis): the yoke halves thin to plate_t at the yoke slab's outer
+#              faces and a static tongue `hanger_<side>_t` (Root) fills the middle from the head down to a round lug
+#              on the main pin between the inner wheels: both halves' plates straddle it (a clevis on the pin).
 # Each half's bogies move SKIN_HALF_SHIFT out along the train, so the two inner wheels clear at a 20 deg half-break
 # phi: 2 (x cos phi - d sin phi) - 2 r >= SKIN_CLEAR_MIN (x the inner wheel center, d the crown seat, r the wheel).
 # G6 (skin_sweep -> cs2_skin.sweep): the joint grid cs2_skin.joint_grid(theta_max); per pose no BVH overlap half vs
@@ -2614,7 +2622,9 @@ def rope_on_crown_block(spec):
 # head and the non-wheel train parts and seated on every crown of its half (SKIN_SEAT_GAP).
 SKINNED = False
 SKIN_BONES = ("Root", "TrainFront", "TrainBack")
-SKIN_THETA_MAX = {"FG": 38.7, "DQ": 42.0, "GD": 50.2}     # deg, research G6 (the planner's max slope per type)
+SKIN_TYPE_MAX_SLOPE = {"FG": 38.7, "DQ": 42.0, "GD": 50.2}     # deg, research G6 (the planner's max slope per type)
+# deg, each half's clamp: min(type max slope, cs2_skin.TILT_CAP 30) = 30 for every family
+SKIN_THETA_MAX = {f: cs2_skin.theta_max(a) for f, a in SKIN_TYPE_MAX_SLOPE.items()}
 _SKIN_GANTRY = ("rocker_", "pivot_", "yoke_", "sheave_", "liner_")
 SKIN_TRAIN = {"FG": ("rocker_main_", "rocker_sub_", "pivot_", "sheave_", "liner_", "axlecap_"),
               "DQ": _SKIN_GANTRY, "GD": _SKIN_GANTRY}
@@ -2628,7 +2638,8 @@ SKIN_LAP_GAP = 0.010                    # m between the two halves' lap plates o
 # FG lap plates' bevel segments (FG_BEVEL gives the shipped box rocker 2: 108 tris; a 2-segment lug plate is 124, x 4 =
 # +280 on the cap-tight FG; 1 segment = 70 a plate)
 SKIN_PLATE_BEVEL = {"FG": 1}
-SKIN_FG = dict(gap=0.015, poke=0.006, pin_r=0.05)          # cs2_sheaves.fg_train_side_halves
+SKIN_FG = dict(gap=0.015, poke=0.006, pin_r=0.05,           # cs2_sheaves.fg_train_side_halves
+               bogie_low=True)      # round 3: the bogie bars at axle height between their wheels (no sheave arms)
 # DQ: pin from inside the girder end (|y| 2.30); the yoke's top 0.05 over the pin (was 0.11): the Kagelok gantry's
 # slanted posts rise from the girder end top (A + 0.43) outboard through the yoke's slab (|y| 2.404..2.476 at
 # A + 0.47..1.42), and at 42 deg the yoke's swept top over the posts' +-0.09 travel band reaches pin + (top + 0.09
@@ -2638,10 +2649,18 @@ SKIN_DQ = dict(gap=0.010, poke=0.006, pin_r=0.04, pin_in=2.30, yoke_above_pin=0.
 # GD12, over the 4,800 cap); the main pin
 # from 0.09 inside the girder end (2.69); the posts 5 mm in from the girder end, buried 5 mm in its top
 SKIN_GD = dict(sheaves=8, pin_in=2.60, post_bury=0.005, post_inset=0.005)
+# round 3 clevis (cs2_sheaves.dq_train_halves clevis): the yoke plates 20 mm at the yoke slab's faces, a static 20 mm
+# tongue 6 mm off each (G6 >= 5 mm) from the head down to a r 0.075 lug on the main pin (pin r 0.04) over the train
+# center. Top: DQ ingest in the Kagelok gantry_00 slanted post (its underside A + 0.56..0.65 across the tongue slab,
+# A + 1.15 its top side: probed), GD 0.03 into the gantry beam (bottom A + 1.692 + rise)
+SKIN_CLEVIS = dict(plate_t=0.020, gap=0.006, r=0.075, dq_top=0.70, dq_top_hw=0.075, gd_bury=0.03, gd_top_hw=0.12)
 SKIN_CLEAR_MIN = 0.005                  # m, half vs head and half vs half at every pose
 SKIN_PIN_GAP_MAX = 0.005                # m, main-pin joint opening over the sweep (G6)
 SKIN_ROPE_RUN = 1.0                     # m of rope past a half's outer wheel in the rope check
 SKIN_SEAT_GAP = cs2_skin.SEAT_GAP       # m, the rope's underside over each crown: contact, not inside
+# round 3: the preview renders' rope stand-in at a real rope's diameter, 0.10 x the sheave's (FG 40 / DQ 45 / GD 50 mm),
+# seated in the groove: the HV cable mesh (0.20 m, 44-50 % of the wheel) hid every bogie part in the side views
+SKIN_PREVIEW_ROPE = 0.10
 
 
 def set_skinned(on):
@@ -2716,16 +2735,27 @@ def build_skin_armature(spec, name):
         raise TowerContractError(str(e))
 
 
-def skin_rope_runs(spec, pose, run=None, start=0.0):
+def preview_rope(spec):
+    """(radius, drop below the pivot line) of the PREVIEW rope stand-in: a real rope (diameter SKIN_PREVIEW_ROPE x the
+    sheave's) with its axis at the groove bottom + its radius. Previews only: the game draws the lane's vanilla HV
+    cable mesh (VANILLA_HV_ROPE, r 0.100 = 0.20 m across) on the lane, and G6 checks that one."""
+    rt = SKIN_PREVIEW_ROPE * spec.sheave_r
+    d = crown_seat(spec) - (spec.sheave_r - spec_groove(spec) + rt)      # the HV seat minus the real rope's axis height
+    return rt, round(-d if spec.kind == "compression" else d, 6)
+
+
+def skin_rope_runs(spec, pose, run=None, start=0.0, preview=False):
     """[(verts, faces)]: the vanilla HV rope (hexagon r 0.100) as the game draws it at a tower: per lane one straight
-    run per half from the pivot outward, at that half's pitch (cs2_skin.rope_run). Net frame."""
+    run per half from the pivot outward, at that half's pitch (cs2_skin.rope_run). Net frame. preview=True: the
+    real-diameter stand-in seated in the groove (preview_rope) instead, for the renders."""
     zp = lane_y(spec, True)
     ext = skin_half_extent(spec) + (SKIN_ROPE_RUN if run is None else run)
+    r, drop = preview_rope(spec) if preview else (VANILLA_HV_ROPE["r"], 0.0)
     out = []
     for side in (-1.0, 1.0):
         for b, sign in (("TrainFront", cs2_skin.FRONT_SIGN_NET), ("TrainBack", -cs2_skin.FRONT_SIGN_NET)):
             out.append(cs2_skin.rope_run(side * spec.gauge / 2.0, (0.0, zp), pose.get(b, 0.0), sign, ext,
-                                         r=VANILLA_HV_ROPE["r"], start=start))
+                                         r=r, start=start, drop=drop))
     return out
 
 
@@ -2794,16 +2824,17 @@ def skin_sweep(obj, table, spec, part_bone):
 def skin_views(spec):
     """Round 2 previews: [(label, pose {bone: deg}, render_tower_views dicts)] in the net frame (X lateral, -Y = game
     forward = TrainFront). Level: the head from the front, the side, 3/4, above and below, and the whole tower 3/4; then
-    the +X lane's train close up along the lateral axis (the pivot axis: pitches read true), 3/4, and the lap joint on
-    the main pin from inboard, at a uniform slope (front = back), a crest like the owner's photo (front +15 / back -15:
-    a 30 deg break), the 20 deg half-break limit (+20 / -20), the steep limit (front theta_max, back theta_max - 40) and
-    a dip (-15 / +15). Distances fit the head / train to a 50 mm lens at 1300 x 1000 (half-width 15.6 / 50)."""
+    the +X lane's train close up along the lateral axis (the pivot axis: pitches read true), 3/4, and the joint on the
+    main pin (FG from inboard, DQ / GD from outboard), at the uniform slope limit (front = back = theta_max), a crest
+    like the photo (front +15 / back -15: a 30 deg break), the 20 deg half-break limit (+20 / -20), the steep limit
+    (front theta_max, back theta_max - 40) and a dip (-15 / +15). Distances fit the head / train to a 50 mm lens at
+    1300 x 1000 (half-width 15.6 / 50)."""
     zp = lane_y(spec, True)
     k = 50.0 / 15.6
     head_w = spec.gauge / 2.0 + 0.7
     train = skin_half_extent(spec)
     tmax = SKIN_THETA_MAX[spec.family]
-    slope = round(tmax / 2.0, 1)
+    slope = round(tmax, 1)
     hd = (0.0, 0.0, zp - 0.35)
     tc = (spec.gauge / 2.0, 0.0, zp - 0.10)
     jx = spec.gauge / 2.0 - (0.45 if spec.family == "FG" else 0.25)
@@ -2815,8 +2846,13 @@ def skin_views(spec):
         return dict(name=f"skin_train_34_{tag}", dir=(1.0, -0.9, 0.30), target=tc, lens=50.0, dist=(train + 0.45) * k * 0.9)
 
     def joint(tag):
-        return dict(name=f"skin_joint_{tag}", dir=(-1.0, -0.30, 0.22), lens=50.0, dist=1.9,
-                    target=(jx, 0.0, zp - 0.10))
+        if spec.family == "FG":
+            return dict(name=f"skin_joint_{tag}", dir=(-1.0, -0.30, 0.22), lens=50.0, dist=1.9,
+                        target=(jx, 0.0, zp - 0.10))
+        # round 3: DQ / GD from outboard of the rope (inboard sits in the walkway truss), slightly above the crowns,
+        # on the inner wheel pair and the clevis on the main pin between them
+        return dict(name=f"skin_joint_{tag}", dir=(1.0, -0.35, 0.18), lens=50.0, dist=2.1,
+                    target=(spec.gauge / 2.0 - 0.08, 0.0, zp - 0.12))
     return [
         ("level", {}, [dict(name="skin_head_front", dir=(0.0, -1.0, 0.12), target=hd, lens=50.0, dist=head_w * k),
                        dict(name="skin_head_side", dir=(1.0, 0.0, 0.10), target=hd, lens=50.0, dist=(train + 0.8) * k),
@@ -2859,7 +2895,7 @@ def render_skin_views(t, arm, spec, asset_dir, name, out_dir, views=None):
             objs = [cs2_skin.posed_copy(t, arm, pose, {b: piv for b in SKIN_BONES[1:]}, f"{name}Pose")]
         except cs2_skin.SkinError as e:
             raise TowerContractError(str(e))
-        for v, f in skin_rope_runs(spec, pose, run=2.0):
+        for v, f in skin_rope_runs(spec, pose, run=2.0, preview=True):
             me = bpy.data.meshes.new(f"{name}Rope")
             me.from_pydata(v, [], f)
             me.materials.append(mat)
@@ -3308,6 +3344,16 @@ def _dq_ladder(spec):
     return P
 
 
+def skin_clevis(spec):
+    """The clevis dict for cs2_sheaves.dq_train_halves (SKIN_CLEVIS): the tongue's top in the head by family."""
+    C = SKIN_CLEVIS
+    if spec.family == "GD":
+        top, hw = spec.axle + 1.692 + head_kit(spec)["rise"] + C["gd_bury"], C["gd_top_hw"]
+    else:
+        top, hw = spec.axle + C["dq_top"], C["dq_top_hw"]
+    return dict(plate_t=C["plate_t"], gap=C["gap"], r=C["r"], top_z=round(top, 6), top_hw=hw)
+
+
 def _dq_train(spec):
     """Sheave trains with every carrier INBOARD of the sheaves (section 4.2, F9). GD: carriers
     and hangers at head_kit cdy (lane - 0.098 / - 0.17 / - 0.20..- 0.31), the lattice's
@@ -3332,7 +3378,7 @@ def _dq_train(spec):
                           DP1_INSET["dq_hanger_z"], pin_z=lane_y(spec, True),
                           yoke_top=round(lane_y(spec, True) - spec.axle + SKIN_DQ["yoke_above_pin"], 6),
                           shift=SKIN_HALF_SHIFT[spec.family], link=DQ_LINK, ngon=sheave_ngon(spec),
-                          lap_gap=SKIN_LAP_GAP)
+                          lap_gap=SKIN_LAP_GAP, clevis=skin_clevis(spec))
     # the main pin on the rope line (travel 0, crown lane y), from inside the girder end (SKIN_DQ / SKIN_GD pin_in)
     # through the hanger and the yoke, its outboard end `poke` proud of the yoke
     a = SKIN_GD["pin_in"] if spec.family == "GD" else SKIN_DQ["pin_in"]
@@ -4402,11 +4448,11 @@ def detail_marks(spec, pv, frame="net"):
                 cc = [float(c[k] + sg * e[k] * spec.sheave_w / 2.0) for k in range(3)]
                 hub.append(M("ring", tuple(cc), u=(0.0, 0.0, 1.0), v=tuple(e if ti != 2 else (1.0, 0.0, 0.0)),
                              n=tuple(sg * x for x in e), r_in=0.0, r_out=R["hub"]["r"], h=R["hub"]["h"]))
-                if S.wheel_dress():     # round 2 wheel dress: a recessed sidewall ring at the disc edge
-                    D_ = S.WHEEL_DRESS_RING
-                    dress.append(M("ring", tuple(cc), u=(0.0, 0.0, 1.0), v=tuple(e if ti != 2 else (1.0, 0.0, 0.0)),
-                                   n=tuple(sg * x for x in e), r_in=D_["r_in"] * spec.sheave_r,
-                                   r_out=D_["r_out"] * spec.sheave_r, h=D_["h"]))
+                if S.wheel_dress():     # the wheel dress: a recessed web ring and a raised shoulder lip per disc face
+                    for D_ in S.WHEEL_DRESS_RINGS:
+                        dress.append(M("ring", tuple(cc), u=(0.0, 0.0, 1.0), v=tuple(e if ti != 2 else (1.0, 0.0, 0.0)),
+                                       n=tuple(sg * x for x in e), r_in=D_["r_in"] * spec.sheave_r,
+                                       r_out=D_["r_out"] * spec.sheave_r, h=D_["h"]))
     out["sheave_rims"] = tuple(hub)
     out["sheave_dress"] = tuple(dress)          # empty unless the wheel dress is on
     return out
@@ -4451,7 +4497,7 @@ def tower_detail_specs(spec=None, pv=None, frame="net"):
             for nm in sorted(pv):
                 if nm.startswith("sheave_") and nm.endswith("_rim"):
                     out[nm] = D(marks=mk["sheave_rims"] + mk["sheave_dress"])
-        elif mk["sheave_dress"]:    # the wheel dress on a v2 wheel: only its sidewall ring is a mark
+        elif mk["sheave_dress"]:    # the wheel dress on a v2 wheel: only its two disc-face rings are marks
             for nm in sorted(pv):
                 if nm.startswith("sheave_") and nm.endswith("_rim"):
                     out[nm] = D(marks=mk["sheave_dress"])
@@ -5466,9 +5512,9 @@ def parse_args_v2(argv):
     ap.add_argument("--rope-on-crown", dest="rope_on_crown", action="store_true",
                     help="T27 preview flag (ROPE_ON_CROWN): the manifest hands the lane on the sheave crown to the "
                          "surgery and the carrier contracts sweep there; the mesh is unchanged")
-    ap.add_argument("--wheel-dress", action="store_true",
-                    help="lift alignment round 2: the wheel dress (red hub caps, dark wheel rubber in the groove, a "
-                         "recessed sidewall ring; cs2_sheaves.WHEEL_DRESS) - the same mesh, 0 extra tris")
+    ap.add_argument("--wheel-dress", dest="wheel_dress", action=argparse.BooleanOptionalAction, default=None,
+                    help="the wheel dress (dark wheel rubber in the groove, a recessed web ring and a raised shoulder "
+                         "lip; cs2_sheaves.WHEEL_DRESS) - the same mesh, 0 extra tris; default: on with --skinned")
     ap.add_argument("--wheels", choices=("v1", "v2"), default="v2",
                     help="T62 sheave wheel generation: v2 (default) = cs2_sheaves.wheel, the 16-segment grooved wheel "
                          "(round 3) on every head; v1 = the pre-T62 per-family wheels, byte-identical")
@@ -5487,7 +5533,8 @@ def main_v2(argv):
     t0 = time.perf_counter()
     args = parse_args_v2(argv)
     S.set_wheels(args.wheels)          # T62: before any part is built
-    S.set_wheel_dress(args.wheel_dress)   # round 2: the wheel dress (materials + a relief ring, 0 tris)
+    # the wheel dress (materials + relief rings, 0 tris): on by default for skinned builds, unskinned stay as shipped
+    S.set_wheel_dress(args.skinned if args.wheel_dress is None else args.wheel_dress)
     if args.rope_on_crown:
         set_rope_on_crown(True)        # T27: lanes on the crowns; the compression terminal heads (ETDQ / ETGD) rise
     if args.skinned:

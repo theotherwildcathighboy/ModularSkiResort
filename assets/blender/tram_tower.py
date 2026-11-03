@@ -384,8 +384,9 @@ TRAM_LOD2_CAP = 500        # RS section 4 far cap: raise (skeptic MC5); the per-
 # per lane the saddle splits into two halves hinged on the track rope's anchor line (TrainFront / TrainBack, pivot
 # (0, z0)) and the haul row into two halves hinged on the haul anchor line (TrainFrontHaul / TrainBackHaul, pivot
 # (0, z0 - 0.40)): haul option (b), each rope seats exactly at any slope. The halves are the box girder cut at a
-# V-notch through the pivot line; a static tapered cheek plate one slab OUTBOARD of the saddle (on a low central arm
-# that passes under the halves' swept radius) carries them: a lap joint, separate lateral slabs never collide (a pitch
+# V-notch through the pivot line; a static frame one slab OUTBOARD of the saddle (on a low central arm that passes under
+# the halves' swept radius; round 2 a tapered cheek plate, round 3 an open rocker frame: pin block, two inclined legs,
+# a bearer, a pin boss) carries them: a lap joint, separate lateral slabs never collide (a pitch
 # about the lateral axis keeps lateral coordinates). The haul halves tie to the saddle's inboard web through lap plates
 # one slab inboard (tolerant: they slide 2 x 0.40 sin(t / 2) over the web, never into it). The seat posts and the arms
 # / knees out to the lane go (they sat in the swept slab). (Round 2 first try: an inverted-U channel over a kingpost
@@ -393,13 +394,17 @@ TRAM_LOD2_CAP = 500        # RS section 4 far cap: raise (skeptic MC5); the per-
 SKINNED = False
 SKIN_BONES = ("Root", "TrainFront", "TrainBack", "TrainFrontHaul", "TrainBackHaul")
 SKIN_TRAM = dict(
-    theta_max=68.2,            # deg: the planner's tram max slope (each half clamps to it)
+    type_max_slope=68.2,       # deg: the planner's tram max slope
+    theta_max=cs2_skin.theta_max(68.2),   # deg: each half's clamp, min(type max slope, cs2_skin.TILT_CAP 30)
     rope_h_hv=0.0866,          # the vanilla HV cable hexagon's bottom flat (lift_tower.VANILLA_HV_ROPE h): saddle top
     rope_h_lv=0.0520,          # the LV cable's (VANILLA_LV_ROPE h): the haul rope's underside
     notch_deg=22.0,            # V-notch: each inner end face this far off the vertical (> the 20 deg half-break)
     end_gap=0.010,             # each inner end face this far off the radial plane through the pivot
-    cheek_gap=0.010, cheek_t=0.08, cheek_dz=-0.15, cheek_hw_top=0.22, cheek_hw_bot=0.55,  # outboard cheek plate:
-                               # |u| 0.21..0.29, top 0.15 under the rope axis (the carriage band starts at dz -0.05)
+    cheek_gap=0.010, cheek_t=0.08,   # the outboard rocker frame's slab: |u| 0.21..0.29 off the lane
+    # round 3 rocker frame (build_skin_rocker, replaces the round 2 tapered cheek): pin block top 0.15 under the rope
+    # axis (the carriage band starts at dz -0.05), legs 0.12 wide from x +-0.06 in the block to +-0.50 on a bearer
+    rock_top_dz=-0.15, rock_block_h=0.21, rock_block_hw=0.13, rock_leg_w=0.12, rock_leg_top_x=0.06,
+    rock_leg_foot_x=0.50, rock_base_h=0.12, rock_base_hw=0.62, rock_pin_r=0.06, rock_pin_out=0.035, rock_leg_inset=0.005,
     arm_y0=3.50, arm_dz0=-2.45, arm_y1=5.85, arm_dz1=-2.95, arm_w=0.30,  # central arm: head bottom chord -> under the
                                # cheek, below the halves' 2.62 m swept radius where it crosses the saddle / haul slabs
     outer_arm_y=4.40,          # the outer arms (x +-1.5) end inboard of the cabin's inner upright band (lane - 1.08)
@@ -410,6 +415,8 @@ SKIN_TRAM = dict(
 SKIN_CLEAR_MIN = 0.005         # m (cs2_skin G6, as lift_tower)
 SKIN_PIN_GAP_MAX = 0.005
 SKIN_ROPE_RUN = 1.0            # m of rope past a half's outer end in the rope check
+# round 3: the preview renders' rope stand-ins at real diameters (track 60 mm, haul 40 mm), seated on the crowns
+SKIN_PREVIEW_ROPE = dict(track_r=0.030, haul_r=0.020)
 
 # --------------------------------------------------------------------------------------
 # Gondola lattice constants (section 4.2 + the GD head of this module)
@@ -2120,29 +2127,10 @@ def saddle_half_part(name, spec, y_c, sign, liner):
     return body, _link(liner, lb)
 
 
-def taper_post(name, y_c, t, z_bot, z_top, hw_bot, hw_top):
-    """A plate t thick (lateral) tapering in travel from +-hw_bot at z_bot to +-hw_top at z_top (the cheek); the bottom
-    face (buried in the arm) not built; box UVs in meters."""
-    bm = bmesh.new()
-    lay = bm.loops.layers.uv.new("UVMap")
-    v = {}
-    for zi, (z, hw) in enumerate(((z_bot, hw_bot), (z_top, hw_top))):
-        for xi, x in enumerate((-hw, hw)):
-            for yi, y in enumerate((y_c - t / 2.0, y_c + t / 2.0)):
-                v[(xi, yi, zi)] = bm.verts.new((x, y, z))
-    for q in (((0, 0, 1), (1, 0, 1), (1, 1, 1), (0, 1, 1)),          # top
-              ((0, 0, 0), (1, 0, 0), (1, 0, 1), (0, 0, 1)),          # -y
-              ((1, 1, 0), (0, 1, 0), (0, 1, 1), (1, 1, 1)),          # +y
-              ((1, 0, 0), (1, 1, 0), (1, 1, 1), (1, 0, 1)),          # +x
-              ((0, 1, 0), (0, 0, 0), (0, 0, 1), (0, 1, 1))):         # -x
-        bm.faces.new([v[k] for k in q])
-    cs2_sheaves._box_uv_bm(bm, lay)
-    return _link(name, bm)
-
-
 def build_skin_saddle(P, spec, s, tag):
-    """SKINNED head of one lane: the two saddle halves, the outboard cheek plate on the central arm, the outer arms cut
-    back to outer_arm_y (they carry the hanger posts) and the knee braces to knee_y; no seat posts."""
+    """SKINNED head of one lane: the two saddle halves, the outboard rocker frame on the central arm (build_skin_rocker;
+    round 2: a tapered cheek plate), the outer arms cut back to outer_arm_y (they carry the hanger posts) and the knee
+    braces to knee_y; no seat posts."""
     K = SKIN_TRAM
     z0, hx, hy, hw = spec.z0, HEAD["x"], HEAD["y"], HEAD["w"]
     zb = z0 + HEAD["bot_dz"]
@@ -2169,8 +2157,56 @@ def build_skin_saddle(P, spec, s, tag):
     u0 = SADDLE["w"] / 2.0 + K["cheek_gap"]
     yc = TRAM["lane_y"] + u0 + K["cheek_t"] / 2.0
     zk0 = min(arm_top(yc - K["cheek_t"] / 2.0), arm_top(yc + K["cheek_t"] / 2.0)) - 0.005
-    P.add(taper_post(f"sbrk_{tag}_k", s * yc, K["cheek_t"], zk0, z0 + K["cheek_dz"], K["cheek_hw_bot"],
-                     K["cheek_hw_top"]), "paint")
+    build_skin_rocker(P, spec, s, tag, yc, zk0)
+
+
+def xz_plate(name, poly, y_c, t, skip=()):
+    """A plate t thick (lateral, centered on y_c) of the convex x-z polygon `poly` [(x, z)]: both broad faces plus the
+    edge faces poly[k] -> poly[k + 1] for k not in `skip` (buried ends); normals away from the centroid, box UVs in m."""
+    bm = bmesh.new()
+    lay = bm.loops.layers.uv.new("UVMap")
+    n = len(poly)
+    lo = [bm.verts.new((x, y_c - t / 2.0, z)) for x, z in poly]
+    hi = [bm.verts.new((x, y_c + t / 2.0, z)) for x, z in poly]
+    faces = [bm.faces.new(lo), bm.faces.new(hi)]
+    faces += [bm.faces.new((lo[k], lo[(k + 1) % n], hi[(k + 1) % n], hi[k])) for k in range(n) if k not in skip]
+    c = sum((v.co for v in lo + hi), Vector()) / (2 * n)
+    bm.normal_update()
+    for f in faces:
+        if f.normal.dot(f.calc_center_median() - c) < 0.0:
+            f.normal_flip()
+    bm.normal_update()
+    cs2_sheaves._box_uv_bm(bm, lay)
+    return _link(name, bm)
+
+
+def build_skin_rocker(P, spec, s, tag, yc, z_arm):
+    """Round 3: the static rocker frame of one lane in the cheek's outboard slab (cheek_gap off the saddle's outboard
+    face, cheek_t thick): a pin block under the pivot (top rock_top_dz: the carriage band starts at dz -0.05), two
+    inclined plate legs from it down to a bearer across the central arm, a pin boss on the outboard face. Open between
+    and beside the legs: the saddle halves show at every pitch (the round 2 wedge hid 83 % of a half at 68.2 deg).
+    The pin marks the rocker; the halves turn about the rope axis rock_top_dz + rock_block_h / 2 above it (Root)."""
+    K = SKIN_TRAM
+    z0, t, yo = spec.z0, K["cheek_t"], s * yc
+    zt = z0 + K["rock_top_dz"]
+    zp = zt - K["rock_block_h"] / 2.0
+    bw, lw, ax, fx = K["rock_block_hw"], K["rock_leg_w"], K["rock_leg_top_x"], K["rock_leg_foot_x"]
+    zb1 = z_arm + K["rock_base_h"]
+    zf = (z_arm + zb1) / 2.0
+    P.add(xz_plate(f"sbrk_{tag}_k", [(-bw, zt - K["rock_block_h"]), (bw, zt - K["rock_block_h"]), (bw, zt), (-bw, zt)],
+                   yo, t), "paint")
+    for kk, k in enumerate((-1.0, 1.0)):
+        a, f = Vector((k * ax, 0.0, zp)), Vector((k * fx, 0.0, zf))
+        d = (f - a).normalized()
+        nrm = Vector((-d.z, 0.0, d.x)) * (lw / 2.0)
+        quad = [(p.x, p.z) for p in (a - nrm, f - nrm, f + nrm, a + nrm)]
+        # both ends buried; inset_t thinner than the block and the bearer (no coplanar broad faces: DT-C3)
+        P.add(xz_plate(f"sbrk_{tag}_kl{kk}", quad, yo, t - 2.0 * K["rock_leg_inset"], skip=(1, 3)), "paint")
+    hb = K["rock_base_hw"]
+    P.add(xz_plate(f"sbrk_{tag}_kb", [(-hb, z_arm), (hb, z_arm), (hb, zb1), (-hb, zb1)], yo, t), "paint")
+    y_out = yc + t / 2.0 + K["rock_pin_out"]
+    P.add(cs2_kit.add_cyl(f"sbrk_{tag}_kp", K["rock_pin_r"], y_out - yc, (0.0, s * (yc + y_out) / 2.0, zp),
+                          (math.radians(90.0), 0.0, 0.0), segments=8, caps="bottom" if s > 0 else "top"), "paint")
 
 
 def build_skin_haul_row(P, spec, s, tag, axle):
@@ -2262,20 +2298,32 @@ def skin_extents(spec):
     return spec.saddle_l / 2.0, max(ROLLER["x"]) + ROLLER["r"]
 
 
-def skin_rope_runs(spec, pose, run=None, start=0.0):
+def preview_ropes():
+    """{False: track, True: haul} -> (radius, drop below the anchor line) of the PREVIEW rope stand-ins (round 3): real
+    diameters (SKIN_PREVIEW_ROPE) seated on the saddle top / in the roller groove. Previews only: the game draws the
+    vanilla HV / LV cable meshes on the lanes, and G6 checks those."""
+    rt, rh = SKIN_PREVIEW_ROPE["track_r"], SKIN_PREVIEW_ROPE["haul_r"]
+    W = cs2_sheaves.wheel_profile(ROLLER["r"], ROLLER["w"])
+    return {False: (rt, round(SKIN_TRAM["rope_h_hv"] - rt, 6)),
+            True: (rh, round(haul_seat() - (ROLLER["r"] - W["gd"] + rh), 6))}
+
+
+def skin_rope_runs(spec, pose, run=None, start=0.0, preview=False):
     """[(verts, faces)] net frame: per lane and half the track rope (HV hexagon r 0.100) from the track anchor and the
-    haul rope (LV hexagon r 0.060) from the haul anchor, each a straight run at its half's pitch (cs2_skin.rope_run)."""
+    haul rope (LV hexagon r 0.060) from the haul anchor, each a straight run at its half's pitch (cs2_skin.rope_run).
+    preview=True: the real-diameter stand-ins seated on the crowns (preview_ropes) instead, for the renders."""
     run = SKIN_ROPE_RUN if run is None else run
     et, eh = skin_extents(spec)
     p = skin_pivots(spec)
+    pr = preview_ropes() if preview else {False: (TRAM["rope_r_hv"], 0.0), True: (TRAM["rope_r_lv"], 0.0)}
     out = []
     for side in (-1.0, 1.0):
         for b, sign in (("TrainFront", cs2_skin.FRONT_SIGN_NET), ("TrainBack", -cs2_skin.FRONT_SIGN_NET)):
             out.append(cs2_skin.rope_run(side * TRAM["lane_y"], p[b], pose.get(b, 0.0), sign, et + run,
-                                         r=TRAM["rope_r_hv"], start=start))
+                                         r=pr[False][0], start=start, drop=pr[False][1]))
             hb = b + "Haul"
             out.append(cs2_skin.rope_run(side * TRAM["haul_y"], p[hb], pose.get(hb, 0.0), sign, eh + run,
-                                         r=TRAM["rope_r_lv"], start=start))
+                                         r=pr[True][0], start=start, drop=pr[True][1]))
     return out
 
 
@@ -2370,9 +2418,9 @@ def skin_rope_reach(obj, table, spec, part_bone, run=4.0, step=0.5):
 
 def skin_views(spec):
     """Tram previews: [(label, pose, render views)] in the net frame (X lateral, -Y = game forward = the Front halves).
-    The +X lane's saddle and haul row: level 3/4 of the head, the crest like the owner's photo (front +15 / back -15)
-    side and 3/4 close-ups, from below at the crest (the kingpost in the channel), the steepest uniform slope (both
-    halves at theta_max), the 20 deg half-break limit, a steep crest (theta_max / theta_max - 40)."""
+    The +X lane's saddle and haul row: level 3/4 of the head, the crest like the photo (front +15 / back -15) side and
+    3/4 close-ups, from below at the crest, the uniform slope limit (both halves at theta_max, 30 deg), the 20 deg
+    half-break limit, a steep crest (theta_max / theta_max - 40); the rocker pin from outboard (joint views)."""
     z0 = spec.z0
     k = 50.0 / 15.6
     tm = SKIN_TRAM["theta_max"]
@@ -2383,15 +2431,19 @@ def skin_views(spec):
 
     def q34(tag, d=1.0):
         return dict(name=f"skin_34_{tag}", dir=(1.0, -0.9, 0.30), target=tc, lens=50.0, dist=3.0 * k * d)
+
+    def joint(tag):       # round 3: outboard of the rope, on the rocker pin and the halves' V-notch
+        return dict(name=f"skin_joint_{tag}", dir=(1.0, -0.35, 0.12), lens=50.0, dist=3.0,
+                    target=(TRAM["lane_y"] + 0.20, 0.0, z0 + SKIN_TRAM["rock_top_dz"] - 0.25))
     return [
         ("level", skin_pose(0.0, 0.0), [dict(name="skin_head_34", dir=(1.0, -1.1, 0.35), target=(0.0, 0.0, z0 - 0.4),
-                                             lens=35.0, dist=7.5 * 35.0 / 15.6), side("level")]),
-        ("crest30", skin_pose(15.0, -15.0), [side("crest30"), q34("crest30"),
+                                             lens=35.0, dist=7.5 * 35.0 / 15.6), side("level"), joint("level")]),
+        ("crest30", skin_pose(15.0, -15.0), [side("crest30"), q34("crest30"), joint("crest30"),
                                              dict(name="skin_under_crest30", dir=(0.55, -0.35, -1.0), lens=35.0,
                                                   dist=4.2, target=(TRAM["lane_y"], 0.0, z0 - 0.8), ground=False)]),
         ("limit40", skin_pose(20.0, -20.0), [side("limit40")]),
         (f"slope{tm:g}", skin_pose(tm, tm), [side(f"slope{tm:g}", 1.15), q34(f"slope{tm:g}", 1.2)]),
-        ("steep", skin_pose(tm, round(tm - 40.0, 3)), [side("steep", 1.15)]),
+        ("steep", skin_pose(tm, round(tm - 40.0, 3)), [side("steep", 1.15), joint("steep")]),
     ]
 
 
@@ -2412,7 +2464,7 @@ def render_skin_views(t, arm, spec, asset_dir, name, out_dir, views=None):
             objs = [cs2_skin.posed_copy(t, arm, pose, piv, f"{name}Pose")]
         except cs2_skin.SkinError as e:
             raise ContractError(f"skin: {e}")
-        for v, f in skin_rope_runs(spec, pose, run=2.5):
+        for v, f in skin_rope_runs(spec, pose, run=2.5, preview=True):
             me = bpy.data.meshes.new(f"{name}Rope")
             me.from_pydata(v, [], f)
             me.materials.append(mat)
@@ -5385,8 +5437,8 @@ def parse_args(argv=None):
                     help="gondola: omit the ground-to-platform ladder system (on by default since Revision 1)")
     ap.add_argument("--lattice-ladder", action="store_true", help="deprecated no-op (the ladder is the default)")
     ap.add_argument("--no-validate", action="store_true")
-    ap.add_argument("--wheel-dress", action="store_true",
-                    help="lift alignment round 2: the wheel dress (red hub caps, dark wheel rubber; cs2_sheaves.WHEEL_DRESS)")
+    ap.add_argument("--wheel-dress", dest="wheel_dress", action=argparse.BooleanOptionalAction, default=None,
+                    help="the wheel dress (dark wheel rubber; cs2_sheaves.WHEEL_DRESS); default: on with --skinned")
     ap.add_argument("--wheels", choices=("v1", "v2"), default="v2",
                     help="T62 sheave wheel generation: v2 (default) = cs2_sheaves.wheel (round 3: the 16-segment "
                          "grooved wheel) on the haul rollers and the lattice GD head; v1 = the pre-T62 sheave_lite wheels byte for byte")
@@ -5418,7 +5470,8 @@ def parse_args(argv=None):
 def main():
     args = parse_args()
     cs2_sheaves.set_wheels(args.wheels)      # T62: before any part is built
-    cs2_sheaves.set_wheel_dress(args.wheel_dress)   # round 2: the wheel dress (materials only on the tram, 0 tris)
+    # the wheel dress (materials only on the tram, 0 tris): on by default for skinned builds
+    cs2_sheaves.set_wheel_dress(args.skinned if args.wheel_dress is None else args.wheel_dress)
     set_skinned(args.skinned)                # phase 2: before any part is built
     _rows, drift = load_catalog()
     if args.lineup:
