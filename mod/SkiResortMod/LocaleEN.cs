@@ -1081,7 +1081,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.RUN_PROPS_GUNS_TIP", "Distance between snow guns on this run's edge. Off: no guns, no made snow and no snowmaking upkeep." },
                 { "SkiResort.Hub.RUN_PROPS_GUNS_TIP[CatTrack]", "Distance between snow guns and hydrants on this cat track's edge. Off: no guns and no snowmaking cost; snow already made stays until it melts." },
                 { "SkiResort.Hub.RUN_PROPS_LIGHTS_TIP", "Distance between floodlight masts on this run's edge. Lit runs stay open in the evening. Off: no lights and no lighting upkeep." },
-                { "SkiResort.Hub.RUN_PROPS_LIGHTS_TIP[CatTrack]", "Distance between floodlight masts on this cat track's edge. Only the look changes." },
+                { "SkiResort.Hub.RUN_PROPS_LIGHTS_TIP[CatTrack]", "Distance between floodlight masts on this cat track's edge. Lit tracks pay lighting upkeep in the snow season. Off: no lights and no lighting upkeep." },
                 { "SkiResort.Hub.RUN_PROPS_GROOMED", "Groomed" },
                 { "SkiResort.Hub.DRAW_RUN_TITLE", "New run" },
                 { "SkiResort.Hub.RUN_PROPS_ON", "On" },

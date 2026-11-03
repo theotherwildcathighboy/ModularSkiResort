@@ -17,6 +17,9 @@
 //  R9 run types: the count of run kind names per mod file only goes down (systems move to RunFeatures in R2). One exception: the shim
 //     file EntityRef.cs rose in R2 for SnowKind, the features-to-kind bridge of the kind-keyed snow code (102 -> 95 names overall; R3
 //     billed upkeep by feature: 89).
+//  R10 cat track lights bill (DECISIONS 579): every place that bills a cat track (the charge, its per-area split, the hub's rows) adds
+//     SkiRunUpkeepRates.TrackLitHa at the lights rate, with the same season gate its guns use (CatTrackGunsCanRun), and the charge's
+//     monthly rate includes it.
 "use strict";
 const fs = require("fs");
 const path = require("path");
@@ -77,7 +80,8 @@ for (const f of ["SkiRunUpkeepSystem.cs", "SkiResortStatsSystem.cs"]) {
   need(parts.length > 0 && parts.length === gated, `R2 ${f}: ${parts.length - gated} of ${parts.length} TrackBilledHa call(s) do not pass the cat track gun switch (CatTrackGunsOn)`);
 }
 const stats = code(read(systems, "SkiResortStatsSystem.cs"));
-need(stats.includes("trackGunsOn = catTrack && m_RunProps.CatTrackGunsOn(row.Entity)") && stats.includes("if (trackGunsOn && m_Injection.CatTrackGunsCanRun("),
+need(stats.includes("trackGunsOn = catTrack && m_RunProps.CatTrackGunsOn(row.Entity)") &&
+     stats.includes("trackInSeason = m_Injection.CatTrackGunsCanRun(") && stats.includes("if (trackGunsOn && trackInSeason)"),
      "R2 SkiResortStatsSystem.cs: the hub's track cost row is not gated by CatTrackGunsOn");
 // The second exception: the injection asks the switch twice, for a cat track only: inside GetRunSnow (passed to the threshold) and where
 // BuildMask records a track for measurement (passed to the made-snow model).
@@ -86,6 +90,14 @@ const getRunSnow = body(injection, "internal RunSnow GetRunSnow(") || "";
 need(injection.split("CatTrackGunsOn(").length === 3 && getRunSnow.includes("kind != RunKind.CatTrack || m_RunProps.CatTrackGunsOn(run)") &&
      injection.includes("GunsOn = !track || m_RunProps.CatTrackGunsOn(ne),"),
      "R2 SkiSnowInjectionSystem.cs: the cat track gun switch must be read twice, in GetRunSnow and the track's measure record, for a cat track only (DECISIONS 568)");
+// R10: cat track lights bill wherever a cat track bills.
+const upkeepLit = code(read(systems, "SkiRunUpkeepSystem.cs"));
+const litCalls = (c) => c.split("SkiRunUpkeepRates.TrackLitHa(row.Features, row.AreaM2, inSeason)").length - 1;
+need(litCalls(upkeepLit) === 2 && upkeepLit.split("inSeason = m_SnowInjectionSystem.CatTrackGunsCanRun(").length - 1 === 2,
+     "R10 SkiRunUpkeepSystem.cs: CatTrackHa and the per-area split must each add TrackLitHa with the track's season gate (DECISIONS 579)");
+need(upkeepLit.includes("trackLitHa * SkiRunUpkeepRates.LightsStepPerHaMonth"), "R10 SkiRunUpkeepSystem.cs: the monthly rate must include the cat track lights");
+need(stats.includes("SkiRunUpkeepRates.TrackLitHa(row.Features, row.AreaM2, trackInSeason)") && stats.includes("work.CostLights += litHa * SkiRunUpkeepRates.LightsStepPerHaMonth"),
+     "R10 SkiResortStatsSystem.cs: the hub's Lights row must include the cat track lights (TrackLitHa)");
 const onBody = body(placer, "internal bool CatTrackGunsOn(") || "";
 need(onBody.includes("m_GunSpacingM") && !onBody.includes("m_LightSpacingM"), "R2 CatTrackGunsOn: must read the gun value only");
 
@@ -222,4 +234,4 @@ if (failures.length) {
 }
 if (kindLower.length)
   console.log("check-run-props: lower KIND_READS (R9): " + kindLower.join(", "));
-console.log(`check-run-props: PASS (${props.length} table rows against the prefabs, 9 rules; cat track Off bills nothing and makes no snow; runs and cat tracks share one estimate rule; ${Object.values(kindReads).reduce((a, b) => a + b, 0)} kind reads in ${Object.keys(kindReads).length} files, none grew)`);
+console.log(`check-run-props: PASS (${props.length} table rows against the prefabs, 10 rules; cat track Off bills nothing and makes no snow; runs and cat tracks share one estimate rule; ${Object.values(kindReads).reduce((a, b) => a + b, 0)} kind reads in ${Object.keys(kindReads).length} files, none grew)`);

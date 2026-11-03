@@ -19,7 +19,10 @@ here. Visuals, attractiveness and money all read the same climate model and cann
 
 Cat tracks have no active texels (they stay out of injection, SkiSnowInjectionSystem.cs near the mask loop) and bill by plan area at the snowmaking rate while their guns can run
 and are on: `SnowGunPlumeRules.TrackBilledHa(area, CatTrackGunsCanRun(run, ...), SkiRunPropSystem.CatTrackGunsOn(run))`, per cataloged track. A track whose gun value is Off
-stands no gun and bills nothing (DECISIONS 563); the hub's cost row and gun line follow the same switch. No other prop slider counts. `HasMaskMeasurement` is set
+stands no gun and bills nothing (DECISIONS 563); the hub's cost row and gun line follow the same switch. A lit track adds the lights rate (300)
+on its plan area while `CatTrackGunsCanRun` (its season gate), whatever its gun switch: `SkiRunUpkeepRates.TrackLitHa`, in the charge, the
+per-area split and the hub's Lights row (DECISIONS 579; before it, cat track lights were look only and unbilled; gate check-run-props R10).
+No other prop slider counts. `HasMaskMeasurement` is set
 before the injection's idle exits, so a resort with only cat tracks reaches the charge.
 
 ## Money

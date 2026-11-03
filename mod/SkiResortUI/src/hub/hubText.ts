@@ -222,7 +222,7 @@ export const HUB_LOC = {
   /* a cat track: its guns at Off also stop its snowmaking bill and its made snow (DECISIONS 563, 568; SkiRunPropSystem.CatTrackGunsOn) */
   runPropsGunsTipCatTrack: ["SkiResort.Hub.RUN_PROPS_GUNS_TIP[CatTrack]", "Distance between snow guns and hydrants on this cat track's edge. Off: no guns and no snowmaking cost; snow already made stays until it melts."],
   runPropsLightsTip: ["SkiResort.Hub.RUN_PROPS_LIGHTS_TIP", "Distance between floodlight masts on this run's edge. Lit runs stay open in the evening. Off: no lights and no lighting upkeep."],
-  runPropsLightsTipCatTrack: ["SkiResort.Hub.RUN_PROPS_LIGHTS_TIP[CatTrack]", "Distance between floodlight masts on this cat track's edge. Only the look changes."],
+  runPropsLightsTipCatTrack: ["SkiResort.Hub.RUN_PROPS_LIGHTS_TIP[CatTrack]", "Distance between floodlight masts on this cat track's edge. Lit tracks pay lighting upkeep in the snow season. Off: no lights and no lighting upkeep."],
   /* run types R3: the Groomed row (a re-emit, DECISIONS 577) and the paid-once note (RunRow.paidSteps) */
   runPropsGroomed: ["SkiResort.Hub.RUN_PROPS_GROOMED", "Groomed"],
   drawRunTitle: ["SkiResort.Hub.DRAW_RUN_TITLE", "New run"],

@@ -200,6 +200,17 @@ namespace SkiResortMod.Systems
             return u;
         }
 
+        /// <summary>A cat track's lit hectares (R3 follow-up, DECISIONS 579): its plan area (m2) while it is lit and its season is on
+        /// (<paramref name="inSeason"/> = SkiSnowInjectionSystem.CatTrackGunsCanRun: the gun season and part of the track cold enough), at
+        /// LightsStepPerHaMonth, whatever its gun switch. The track has no texels, so the plan area stands in, as for its guns
+        /// (SnowGunPlumeRules.TrackBilledHa). 0 for a piste, an unlit track or a plan area that is not a finite positive number.</summary>
+        public static float TrackLitHa(RunFeatures f, float planAreaM2, bool inSeason)
+        {
+            if (!f.IsCatTrack || !f.Lights || !inSeason || float.IsNaN(planAreaM2) || float.IsInfinity(planAreaM2) || planAreaM2 <= 0f)
+                return 0f;
+            return planAreaM2 / 10000f;
+        }
+
         private static float Finite0(float v) => float.IsNaN(v) || float.IsInfinity(v) || v < 0f ? 0f : v;
     }
 

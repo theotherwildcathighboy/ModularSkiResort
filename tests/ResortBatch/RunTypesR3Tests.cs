@@ -262,6 +262,27 @@ namespace ResortBatch
             Check(Near(odd.GroomedHa, 2f) && Near(odd.SnowmakingHa, 2f), W, "covered below the snow hectares reads as the snow hectares");
             Check(SkiRunUpkeepRates.PisteUpkeep(gun, float.NaN, float.PositiveInfinity).Total == 0f &&
                   SkiRunUpkeepRates.PisteUpkeep(gun, -1f, -1f).Total == 0f, W, "NaN, infinite and negative hectares bill 0");
+
+            // Cat track lights (DECISIONS 579): plan area at the lights rate in the track's season, whatever its gun switch.
+            const string T = "upkeep/cat track lights";
+            RunFeatures litTrack = RunFeatures.Of(RunBase.CatTrack, true, false, true);
+            RunFeatures litGunTrack = RunFeatures.Of(RunBase.CatTrack, true, true, true);
+            Check(Near(SkiRunUpkeepRates.TrackLitHa(litTrack, 20000f, true), 2f) &&
+                  Near(SkiRunUpkeepRates.TrackLitHa(litGunTrack, 20000f, true), 2f), T, "a lit track in its season bills its 2 ha plan area, guns on or off");
+            Check(SkiRunUpkeepRates.TrackLitHa(litTrack, 20000f, false) == 0f &&
+                  SkiRunUpkeepRates.TrackLitHa(RunFeatures.Of(RunBase.CatTrack, true, true, false), 20000f, true) == 0f &&
+                  SkiRunUpkeepRates.TrackLitHa(night, 20000f, true) == 0f && SkiRunUpkeepRates.TrackLitHa(RunFeatures.Unknown, 20000f, true) == 0f, T,
+                  "out of season, unlit, a lit piste (PisteUpkeep bills it) and unknown: 0");
+            Check(SkiRunUpkeepRates.TrackLitHa(litTrack, float.NaN, true) == 0f && SkiRunUpkeepRates.TrackLitHa(litTrack, float.PositiveInfinity, true) == 0f &&
+                  SkiRunUpkeepRates.TrackLitHa(litTrack, -5f, true) == 0f, T, "NaN, infinite and negative plan areas bill 0");
+            // Parity row: a lit track with its guns running bills what a night piste of its size bills with guns on every hectare
+            // (guns 150 + 350, lights 300 = PerHaMonth); the upkeep system's track rate is Groomed + Snowmaking step.
+            float track = SnowGunPlumeRules.TrackBilledHa(20000f, true, true) *
+                          (SkiRunUpkeepRates.GroomedPerHaMonth + SkiRunUpkeepRates.SnowmakingStepPerHaMonth) +
+                          SkiRunUpkeepRates.TrackLitHa(litGunTrack, 20000f, true) * SkiRunUpkeepRates.LightsStepPerHaMonth;
+            Check(Near(track, SkiRunUpkeepRates.PerHaMonth(litGunTrack) * 2f) &&
+                  Near(track, SkiRunUpkeepRates.PisteUpkeep(night, 2f, 2f).Total), T,
+                  "a lit gun track (2 ha) = PerHaMonth x ha = a night piste with guns on every hectare: " + track);
         }
 
         private static bool Near(float a, float b) => Math.Abs(a - b) <= 1e-3f * Math.Max(1f, Math.Abs(b));

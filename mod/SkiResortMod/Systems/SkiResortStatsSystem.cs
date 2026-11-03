@@ -1340,17 +1340,27 @@ namespace SkiResortMod.Systems
                 // (Runs, Rated, the difficulty bar, length, area), but never injected: no snow aggregate, no TopM, and NaN heights in its RunIn so the
                 // hub's vertical stays the score's (SkiResortScore keeps it out of the vertical too). It follows the snowmaking rules otherwise: while its
                 // guns can run it bills its plan area at the snowmaking rate, the same number SkiRunUpkeepSystem charges; a track whose gun value is
-                // Off has no guns: no bill, no gun line (DECISIONS 563).
+                // Off has no guns: no bill, no gun line (DECISIONS 563). A lit track adds the lights rate on its plan area in its season, whatever
+                // its gun switch, in the Lights row (SkiRunUpkeepRates.TrackLitHa, DECISIONS 579).
                 bool catTrack = row.Kind == (int)RunKind.CatTrack;
                 bool trackGunsOn = catTrack && m_RunProps.CatTrackGunsOn(row.Entity);
                 if (bound && catTrack)
                 {
                     snow = m_Injection.GetRunSnow(row.Entity, (RunKind)row.Kind, row.NodeBottomM, row.NodeTopM);   // the estimate: never injected
-                    if (trackGunsOn && m_Injection.CatTrackGunsCanRun(row.Entity, row.NodeBottomM, row.NodeTopM))
+                    bool trackInSeason = m_Injection.CatTrackGunsCanRun(row.Entity, row.NodeBottomM, row.NodeTopM);
+                    float litHa = SkiRunUpkeepRates.TrackLitHa(row.Features, row.AreaM2, trackInSeason);
+                    if (litHa > 0f)
+                    {
+                        ref AreaWork work = ref m_Work[resort];
+                        cost += litHa * SkiRunUpkeepRates.LightsStepPerHaMonth;
+                        work.HaLit += litHa;
+                        work.CostLights += litHa * SkiRunUpkeepRates.LightsStepPerHaMonth;
+                    }
+                    if (trackGunsOn && trackInSeason)
                     {
                         ref AreaWork work = ref m_Work[resort];
                         ha = SnowGunPlumeRules.TrackBilledHa(row.AreaM2, true, true);
-                        cost = ha * SkiRunUpkeepSystem.CostPerHaMonth(RunKind.CatTrack);
+                        cost += ha * SkiRunUpkeepSystem.CostPerHaMonth(RunKind.CatTrack);
                         work.AnyGunOn = true;
                         work.HaCatTracks += ha;
                         work.CostCatTracks += cost;
