@@ -769,7 +769,8 @@ function run(srcDir) {
   const runsView = read(path.join("hub", "RunsView.tsx"));
   eq("T35.2 the rows send the two triggers, read C#'s value and are drawn under the tree rows while Quick runs is closed, for the focused row",
     [propRows.includes("hubTriggers.setRunGunSpacing(row.entity, m)"), propRows.includes("hubTriggers.setRunLightSpacing(row.entity, m)"), propRows.includes("row.gunSpacingM"), propRows.includes("row.lightSpacingM"),
-      /!quick\?\.active && <RunPropRows row=\{rows\.find\(\(r\) => r\.entity && entityId\(r\.entity\) === focusedId\)\} \/>/.test(runsView)],
+      // contract 33: the Run tile's option row takes their place while a run is drawn
+      /!quick\?\.active && \(draw\.active \? <DrawRunRows draw=\{draw\} \/>\s*: <RunPropRows row=\{rows\.find\(\(r\) => r\.entity && entityId\(r\.entity\) === focusedId\)\} \/>\)/.test(runsView)],
     [true, true, true, true, true]);
   eq("T35.3 a cat track row shows its running cost (billed by plan area while its guns can run)",
     [read(path.join("hub", "RunList.tsx")).includes("row.kind !== RUN_KIND.Natural && row.bound && {\n          label: t(HUB_LOC.runCost)")], [true]);

@@ -448,19 +448,12 @@ namespace SkiResortMod.Systems
 
         public static AutoDensity ClampDensity(int v) => v >= 0 && v <= (int)AutoDensity.Dense ? (AutoDensity)v : AutoDensity.Normal;
 
-        /// <summary>Kinds bit set; at least one kind stays on (an empty set falls back to the default).</summary>
-        public static AutoKinds ClampKinds(int v)
-        {
-            var k = (AutoKinds)(v & (int)AllKinds);
-            return k == AutoKinds.None ? AutoKinds.Default : k;
-        }
+        /// <summary>Kinds bit set. Since run types R3 (DECISIONS 578) Groomed is always on: the hub's three feature chips are the other
+        /// bits (Natural = leave black runs natural, Snowmaking = snowmaking near the base, Night = light the two lowest).</summary>
+        public static AutoKinds ClampKinds(int v) => (AutoKinds)(v & (int)AllKinds) | AutoKinds.Groomed;
 
-        /// <summary>Flip one kind; refusing to clear the last one.</summary>
-        public static AutoKinds ToggleKind(AutoKinds kinds, AutoKinds kind)
-        {
-            AutoKinds next = ClampKinds((int)kinds) ^ (kind & AllKinds);
-            return next == AutoKinds.None ? ClampKinds((int)kinds) : next;
-        }
+        /// <summary>Flip one feature chip; Groomed cannot be turned off.</summary>
+        public static AutoKinds ToggleKind(AutoKinds kinds, AutoKinds kind) => ClampKinds((int)(ClampKinds((int)kinds) ^ (kind & AllKinds & ~AutoKinds.Groomed)));
 
         public const AutoKinds AllKinds = AutoKinds.Groomed | AutoKinds.Natural | AutoKinds.Snowmaking | AutoKinds.Night;
 

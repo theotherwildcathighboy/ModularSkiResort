@@ -295,6 +295,26 @@ namespace SkiResortMod.Systems
             return true;
         }
 
+        /// <summary>A new run's features chosen before it stood (Quick runs' snowmaking and lit runs, the draw row, run types R3): both
+        /// sliders at once, added when the placer has not given the run its defaults yet. The caller settles the steps
+        /// (SkiRunOwnershipSystem.SettleFeatureSteps; an unbound run pays them when it binds). False for a run the placer does not walk.</summary>
+        internal bool SeedSpacing(Entity run, int gunM, int lightM)
+        {
+            if (!EntityManager.Exists(run) || EntityManager.HasComponent<Deleted>(run) || !EntityManager.HasComponent<PrefabRef>(run) ||
+                !m_RunKindOf.TryGetValue(EntityManager.GetComponentData<PrefabRef>(run).m_Prefab, out int kind))
+                return false;
+            var settings = new SkiRunPropSettings(
+                RunPropPlacerRules.CarriesGuns(kind) ? RunPropPlacerRules.ClampSpacing(gunM) : RunPropPlacerRules.SpacingOff,
+                RunPropPlacerRules.CarriesLights(kind) ? RunPropPlacerRules.ClampSpacing(lightM) : RunPropPlacerRules.SpacingOff);
+            if (EntityManager.HasComponent<SkiRunPropSettings>(run))
+                EntityManager.SetComponentData(run, settings);
+            else
+                EntityManager.AddComponentData(run, settings);
+            if (m_PlacerLive && !m_PlacerDisabled)
+                NoteRun(run, kind, settings);
+            return true;
+        }
+
         // --- Deletes -------------------------------------------------------------------------------------------------------------------
 
         /// <summary>This frame's deleted runs take their props along: every delete path ends in a Deleted tag on the area, and props deleted

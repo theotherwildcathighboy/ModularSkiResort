@@ -3,7 +3,7 @@
 // setRunGroomed trigger and done here, main thread: a new area entity from the target prefab's archetype with the old ring and Area flags
 // (GenerateAreasSystem.cs:259-345 for a permanent creation, Applied as ApplyAreasSystem.cs:272 adds it), then the old one deleted the
 // bulldozer's way. Everything else carries over: the binding (no new bind fee: the bind trigger only takes runs without one), the prop
-// sliders (the placer re-places on the new run; the old props cascade with the old run), the custom name, the glade trees (retargeted
+// sliders (the placer re-places on the new run; the old props cascade with the old run), the custom name, the trail name (SkiRunName), the glade trees (retargeted
 // before SkiGladeCleanupSystem's Modification2 pass), and the run-keyed runtime state of the injection, the catalog, the score, the hub and
 // the Quick runs undo. A step the run has never paid (Groomed on) is charged once through SkiRunOwnershipSystem.SettleFeatureSteps.
 // The surface redraws, so the run may flash for a frame: the game itself draws an area that changes type the same way.
@@ -170,6 +170,7 @@ namespace SkiResortMod.Systems
             bool hasBinding = EntityManager.TryGetComponent(run, out SkiRunBinding binding);
             bool hasProps = EntityManager.TryGetComponent(run, out SkiRunPropSettings props);
             bool hasSeed = EntityManager.TryGetComponent(run, out PseudoRandomSeed seed);
+            bool hasTrailName = EntityManager.TryGetComponent(run, out SkiRunName trailName);
             m_NameSystem.TryGetCustomName(run, out string customName);
 
             // The new run: the target prefab's archetype carries Created and Updated (AreaPrefab.cs:47-48).
@@ -192,6 +193,8 @@ namespace SkiResortMod.Systems
             EntityManager.AddComponent<Applied>(neu);
             if (hasBinding)
                 EntityManager.AddComponentData(neu, binding);
+            if (hasTrailName)
+                EntityManager.AddComponentData(neu, trailName);   // before SkiRunNameSystem (ModificationEnd) could give it another
             if (hasProps)
             {
                 props.m_AppliedKey = 0;   // nothing stands on the new run yet: the placer re-places

@@ -20,7 +20,7 @@ export const GROUP = "skiResort";
  * only when C#'s `contract` equals this; on a mismatch it shows the Build strip and the tree controls (CORE only) and
  * says why.
  */
-export const HUB_CONTRACT = 32;
+export const HUB_CONTRACT = 33;
 
 /** The `contract` value while the C# binding is absent (the fallback). Real contracts start at 1. */
 export const CONTRACT_ABSENT = 0;
@@ -67,6 +67,9 @@ function wire(e: Entity | null | undefined): Entity {
 /** Run type. C# RunKind (EntityRef.cs): append only, never renumbered. */
 export type RunKind = 0 | 1 | 2 | 3 | 4;
 export const RUN_KIND = { Groomed: 0, Snowmaking: 1, Night: 2, Natural: 3, CatTrack: 4 } as const;
+
+/** RunRow.paidSteps bits (C#: SkiRunFees.PaidGroomed / PaidSnowmaking / PaidLights; contract 33). */
+export const RUN_PAID = { Groomed: 4, Snowmaking: 8, Lights: 16 } as const;
 
 /** RunRow.band: -2 cannot be rated (final for the current outline and terrain), -1 not
  *  rated yet, 0 Flat .. 4 DoubleBlack (C#: SkiRunRatingRules.RowBand; literal ints, no enum). */
@@ -213,6 +216,17 @@ export interface BuildItem {
   monthlyPerHa?: number;
   /** Line items: running cost per km of line a month (the type's row); -1 others. */
   monthlyPerKm?: number;
+  /** The Run tile only (contract 33): Groomed off pays the natural fee and nothing a month; snow guns and lights each add a one-time
+   *  step (base + per ha) and an upkeep step per ha a month; -1 on every other item (C# writes every field on every BuildItem: one shape
+   *  per __Type, see SkiResortHubUISystem). */
+  naturalPrice?: number;
+  naturalPerHa?: number;
+  gunsPrice?: number;
+  gunsPerHa?: number;
+  gunsMonthlyPerHa?: number;
+  lightsPrice?: number;
+  lightsPerHa?: number;
+  lightsMonthlyPerHa?: number;
 }
 
 /** `glade`: the tree tool (SkiGladeToolSystem; density dial). CORE. */
@@ -238,6 +252,15 @@ export interface RunReplaced {
   seq: number;
   from: Entity;
   to: Entity;
+}
+
+/** Contract 33: the Run tile's option row (run types R3). Active while the area tool draws one of our pistes; groomed picks the look it
+ *  draws, the spacings are the sliders a new groomed run starts with (0 = off). */
+export interface DrawRun {
+  active: boolean;
+  groomed: boolean;
+  gunSpacingM: number;
+  lightSpacingM: number;
 }
 
 export interface GladeState {
@@ -559,13 +582,19 @@ export interface ResortLive {
   ticketIncomeMonth: number;
   ticketPaidMonth: number;
   ticketIncomeEstimated: boolean;
-  costGroomedMonth: number;
+  /** Run upkeep a month by feature at today's rate (contract 33; SkiRunUpkeepRates.PisteUpkeep): grooming and lights on a groomed run's
+   *  hectares with snow (a gun run's at depth too), snowmaking only where its guns make snow, cat tracks by plan area while their guns
+   *  run. */
+  costGroomingMonth: number;
   costSnowmakingMonth: number;
-  costNightMonth: number;
+  costLightsMonth: number;
+  costCatTracksMonth: number;
+  /** Their hectares; natural runs by plan area (billed nothing). */
   haNatural: number;
   haGroomed: number;
   haSnowmaking: number;
-  haNight: number;
+  haLit: number;
+  haCatTracks: number;
   liftCostMonth: number;
   liftsBilled: number;
   liftsBilledReduced: number;
@@ -706,10 +735,13 @@ export interface RunRow {
   sizeFactor: number;
   typeFactor: number;
   servedFactor: number;
-  /** Meters between this run's snow guns and hydrants; 0 = off, -1 = its kind carries none (contract 28). Look only. */
+  /** Meters between this run's snow guns and hydrants; 0 = off (no guns, no made snow, no bill), -1 = it carries none (a natural run:
+   *  snow guns need Groomed) (contract 28; the Snowmaking feature since R2). */
   gunSpacingM: number;
-  /** Meters between this run's floodlight masts; 0 = off, -1 = its kind carries none (contract 28). Look only. */
+  /** Meters between this run's floodlight masts; 0 = off, -1 = it carries none (a natural run) (contract 28; the Lights feature since R2). */
   lightSpacingM: number;
+  /** The one-time steps this run has paid (RUN_PAID bits; contract 33): turning a paid feature on again is free. */
+  paidSteps: number;
 }
 
 /** Per-run values that move (same order and count as `runs`, joined by `entity`). */
@@ -931,6 +963,7 @@ export const BINDING = {
   busCard: "busCard",  // contract 26: the Ski Bus card
   lodgeParking: "lodgeParking",  // contract 29: car spaces per road lodge
   runReplaced: "runReplaced",  // contract 32: a re-emitted run's old and new entity
+  drawRun: "drawRun",  // contract 33: the Run tile's option row
 } as const;
 
 /** Trigger names (UI -> C#). */
@@ -960,6 +993,7 @@ export const TRIGGER = {
   setRunGunSpacing: "setRunGunSpacing",  // contract 28: the Runs view's prop rows
   setRunLightSpacing: "setRunLightSpacing",
   setRunGroomed: "setRunGroomed",  // contract 32: the Groomed feature (a re-emit)
+  setDrawRun: "setDrawRun",  // contract 33: the Run tile's option row (key, value)
 } as const;
 
 /**
@@ -1029,6 +1063,7 @@ export const FALLBACK = {
   busCard: { shown: false, area: "", guestsMonth: -1, billMonth: 0, distanceM: 0, state: "off" } as BusCardState,
   lodgeParking: EMPTY_LODGE_PARKING,
   runReplaced: { seq: 0, from: NULL_ENTITY, to: NULL_ENTITY } as RunReplaced,
+  drawRun: { active: false, groomed: true, gunSpacingM: 0, lightSpacingM: 0 } as DrawRun,
 } as const;
 
 // ---- value bindings -----------------------------------------------------------------------------
@@ -1073,6 +1108,8 @@ export const problems$: ValueBinding<readonly ProblemRow[]> = bindValue<readonly
 export const lodgeParking$: ValueBinding<readonly LodgeParkingRow[]> = bindValue<readonly LodgeParkingRow[]>(GROUP, BINDING.lodgeParking, FALLBACK.lodgeParking);
 /** Contract 32: the last re-emitted run (HubPanel moves the focus to the new entity). */
 export const runReplaced$: ValueBinding<RunReplaced> = bindValue<RunReplaced>(GROUP, BINDING.runReplaced, FALLBACK.runReplaced);
+/** Contract 33: the Run tile's option row (the Runs view shows it while a run is drawn). */
+export const drawRun$: ValueBinding<DrawRun> = bindValue<DrawRun>(GROUP, BINDING.drawRun, FALLBACK.drawRun);
 /** City-wide settings and session facts. Panel only. */
 export const city$: ValueBinding<CityStats> = bindValue<CityStats>(GROUP, BINDING.city, FALLBACK.city);
 /** The piste map toggle as C# holds it. Panel only. */
@@ -1127,6 +1164,8 @@ export const hubTriggers = {
   setRunLightSpacing: (run: Entity, meters: number): void => fire(TRIGGER.setRunLightSpacing, wire(run), Math.round(meters)),
   /** Contract 32: Groomed on or off; C# re-emits the run under a new entity (runReplaced). */
   setRunGroomed: (run: Entity, groomed: boolean): void => fire(TRIGGER.setRunGroomed, wire(run), groomed),
+  /** Contract 33: the Run tile's option row: "groomed" 0 / 1, "guns" and "lights" meters (0 = off). */
+  setDrawRun: (key: "groomed" | "guns" | "lights", value: number): void => fire(TRIGGER.setDrawRun, key, value),
   /** Tree density level, clamped 1..8 here and again in C#. */
   gladeSetLevel: (level: number): void => fire(TRIGGER.gladeSetLevel, clampGladeLevel(level)),
   /** false = run interior, true = tree line. */

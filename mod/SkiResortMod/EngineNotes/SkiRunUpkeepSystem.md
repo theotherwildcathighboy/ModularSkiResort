@@ -6,11 +6,16 @@ is a real decision.
 
 ## Billing
 
-The billable base is the injection system's per-type active mask, texels whose thermal gate is on at their own elevation this top-up
-window (`SkiSnowInjectionSystem.SnowmakingActiveTexels` / `GroomedActiveTexels` x `TexelAreaM2`), each run capped at its plan area
-(see Plan-area cap). Guns bill while guns can run, groomers while grooming holds, summer is free because the gates are off, and
-overlapping runs never double-bill (a texel is claimed once, see `MaskStats`). Visuals, attractiveness and money all read the same
-climate model and cannot disagree.
+Per run and by feature (R3, DECISIONS 578), one rule for the charge, its per-area booking and the hub's rows:
+`SkiSnowInjectionSystem.PisteUpkeep(run, features, planArea)` -> `SkiRunUpkeepRates.PisteUpkeep`. Its inputs are the run's active
+texels (the mask texels it claimed first this window: cold, gate on) and its stopped texels (a gun run's cold texels held off while its
+guns stopped at depth, `RunStoppedTexels`, first mark only), each turned into hectares and capped at the plan area (`BilledHa`).
+Grooming (150) and lights (+300) bill active + stopped hectares; snowmaking (+350) only the active hectares of a run with guns on. So a
+gun run at depth keeps paying its grooming (the R2 open item: before R3 it billed nothing that pass while a gun-off run paid 150) and
+pays snowmaking only while its guns raise snow. With guns running on every cold texel the sum equals the R2 per-hectare rate. Summer is
+free because the gates are off; first claim across runs keeps overlaps from double-billing (a stopped texel under a later running run
+can count for both, capped by each run's plan area). The global per-class counters (`SnowmakingActiveTexels` etc.) are no longer read
+here. Visuals, attractiveness and money all read the same climate model and cannot disagree.
 
 Cat tracks have no active texels (they stay out of injection, SkiSnowInjectionSystem.cs near the mask loop) and bill by plan area at the snowmaking rate while their guns can run
 and are on: `SnowGunPlumeRules.TrackBilledHa(area, CatTrackGunsCanRun(run, ...), SkiRunPropSystem.CatTrackGunsOn(run))`, per cataloged track. A track whose gun value is Off

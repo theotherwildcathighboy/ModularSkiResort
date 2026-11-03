@@ -107,6 +107,12 @@
     setCatTrackDeleteMode: (on) => set("catTrackDeleteMode", !!on),
     setRunGunSpacing: (run, m) => set("runs", (get("runs") || []).map((r) => (r.entity && run && r.entity.index === run.index ? Object.assign({}, r, { gunSpacingM: m }) : r))),
     setRunLightSpacing: (run, m) => set("runs", (get("runs") || []).map((r) => (r.entity && run && r.entity.index === run.index ? Object.assign({}, r, { lightSpacingM: m }) : r))),
+    // run types R3: a natural run carries no sliders (-1); a groomed one gets them back at Off, and the Groomed step is paid once
+    setRunGroomed: (run, on) => set("runs", (get("runs") || []).map((r) => (r.entity && run && r.entity.index === run.index && r.kind !== 4
+      ? Object.assign({}, r, { kind: on ? 0 : 3, gunSpacingM: on ? 0 : -1, lightSpacingM: on ? 0 : -1, paidSteps: on ? (r.paidSteps | 4) : r.paidSteps }) : r))),
+    // contract 33: the Run tile's option row
+    setDrawRun: (k, v) => { const g = get("drawRun"); if (g && ["groomed", "guns", "lights"].includes(k)) set("drawRun", Object.assign({}, g,
+      k === "groomed" ? { groomed: !!v } : k === "guns" ? { gunSpacingM: v } : { lightSpacingM: v })); },
     quickRunsSet: (k, v) => { const g = get("quickRuns"); if (g && ["mix", "density", "trees", "group", "species", "lifts", "home"].includes(k)) set("quickRuns", Object.assign({}, g, { [k === "trees" ? "trees" : k]: k === "trees" ? !!v : v })); },
     deleteCatTrack: (run) => { const k = (e) => e && run && e.index === run.index && e.version === run.version; set("runs", (get("runs") || []).filter((r) => !k(r.entity))); set("runLive", (get("runLive") || []).filter((r) => !k(r.entity))); },
     gladeToggle: () => { const g = get("glade"); if (g) set("glade", Object.assign({}, g, { active: !g.active })); },
@@ -115,6 +121,8 @@
     launch: (id) => {
       const items = get("build") || [];
       set("build", items.map((it) => Object.assign({}, it, { active: it.id === id ? !it.active : false })));
+      const d = get("drawRun"), now = (get("build") || []).some((it) => it.id === "runGroomed" && it.active);
+      if (d) set("drawRun", Object.assign({}, d, { active: now }));
     },
     rename: (entity, name) => {
       const nm = String(name || "").trim().slice(0, 64);

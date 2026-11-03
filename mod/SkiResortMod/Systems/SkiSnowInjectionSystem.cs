@@ -260,6 +260,8 @@ namespace SkiResortMod.Systems
             // min(depth, own target); and the cold texels a stopped gun run held off.
             public float GunTargetW, GunPackW;
             public int Stopped;
+            // The stopped texels this run marked first (no other run's target or mark there): its grooming and lights bill on them (R3).
+            public int StoppedClaimed;
         }
 
         private struct MergeRowPartial
@@ -480,12 +482,16 @@ namespace SkiResortMod.Systems
                     float value = EdgeValue(blurred, sumFine, tx, ty);
                     if (value <= 0f)
                         return 0f;
-                    // guns stopped (pack at the stop depth, or not measured yet): no mask target, no raise, no bill.
+                    // guns stopped (pack at the stop depth, or not measured yet): no mask target, no raise, no snowmaking bill (the grooming and
+                    // lights steps still bill these texels: m_RunStopped, SkiRunUpkeepRates.PisteUpkeep; DECISIONS 578).
                     // The stopped mark only on a texel no other run claimed (a running run's chill, >= 0, overwrites it).
                     if (GunGate)
                     {
                         if (Mask[idx] == 0f && RampMask[idx] == 0f)
+                        {
                             RampMask[idx] = StoppedMark;
+                            partial.StoppedClaimed++;
+                        }
                         partial.Stopped++;
                         return value;
                     }
@@ -930,6 +936,10 @@ namespace SkiResortMod.Systems
         // chain.Complete()).
         private Dictionary<Entity, int> m_RunTexels = new Dictionary<Entity, int>();
         private Dictionary<Entity, int> m_RunTexelsNext = new Dictionary<Entity, int>();
+        // Beside it, a gun run's cold texels held off while its guns are stopped (first mark only), refilled and swapped with it: the
+        // texels its grooming and lights still bill (R3, DECISIONS 578). Absent = none.
+        private Dictionary<Entity, int> m_RunStopped = new Dictionary<Entity, int>();
+        private Dictionary<Entity, int> m_RunStoppedNext = new Dictionary<Entity, int>();
         private int m_RunTexelGeneration;
 
         /// <summary>++ only when the per-run active-texel map's content changed.</summary>
@@ -1051,6 +1061,27 @@ namespace SkiResortMod.Systems
         internal bool TryGetRunActiveTexels(Entity run, out int texels)
         {
             return m_RunTexels.TryGetValue(run, out texels);
+        }
+
+        /// <summary>The cold texels <paramref name="run"/> held off in the last mask pass because its guns are stopped (first mark only; 0 for
+        /// a run whose guns run, a run without guns, or one not scheduled). Its grooming and lights bill them (SkiRunUpkeepRates.PisteUpkeep).</summary>
+        internal int RunStoppedTexels(Entity run)
+        {
+            return m_RunStopped.TryGetValue(run, out int texels) ? texels : 0;
+        }
+
+        /// <summary>The hectares a piste is billed for by feature (SkiRunUpkeepRates.PisteUpkeep): its active texels for snowmaking, those plus
+        /// its stopped texels for grooming and lights, each capped at its plan area (SkiRunUpkeepSystem.BilledHa). The one rule the upkeep
+        /// charge, its per-area booking and the hub's rows read. Main thread.</summary>
+        internal RunUpkeep PisteUpkeep(Entity run, RunFeatures f, float planAreaM2)
+        {
+            float texelHa = TexelAreaM2 / 10000f;
+            int active = m_RunTexels.TryGetValue(run, out int a) ? a : 0;
+            int stopped = RunStoppedTexels(run);
+            if (active <= 0 && stopped <= 0)
+                return default;
+            return SkiRunUpkeepRates.PisteUpkeep(f, SkiRunUpkeepSystem.BilledHa(active, texelHa, planAreaM2),
+                SkiRunUpkeepSystem.BilledHa(active + stopped, texelHa, planAreaM2));
         }
 
         // Run snow, open state, the estimate. Main thread only, O(1) (a dictionary lookup, or for an estimate a handful of float operations
@@ -1391,6 +1422,8 @@ namespace SkiResortMod.Systems
             m_TopupLog.Reset();           // flushed in OnGamePreload; nothing carries over
             m_RunTexels.Clear();          // the previous city's runs are gone
             m_RunTexelsNext.Clear();
+            m_RunStopped.Clear();
+            m_RunStoppedNext.Clear();
             ClearGuns();                  // likewise their guns (Unknown again: no raise or plume before a measurement)
             m_RunTexelGeneration++;
 
@@ -3320,13 +3353,14 @@ namespace SkiResortMod.Systems
             // run -> texel map, plus each run's own measurement (float per row, double per run) and the footprint count, cold count and hash
             // over all bound injected runs.
             m_RunTexelsNext.Clear();
+            m_RunStoppedNext.Clear();
             m_GunStateNext.Clear();
             m_GunRunningNext.Clear();
             for (int p = 0; p < pending.Count; p++)
             {
                 PendingRun run = pending[p];
                 int newTexels = 0, newDecay = 0;
-                int contained = 0, cold = 0, held = 0, stopped = 0;
+                int contained = 0, cold = 0, held = 0, stopped = 0, stoppedClaimed = 0;
                 ulong footprintHash = 0;
                 double footprintW = 0.0, whiteW = 0.0, keepW = 0.0, depthW = 0.0;
                 double gunTargetW = 0.0, gunPackW = 0.0;
@@ -3339,6 +3373,7 @@ namespace SkiResortMod.Systems
                     cold += part.Cold;
                     held += part.Protected;
                     stopped += part.Stopped;
+                    stoppedClaimed += part.StoppedClaimed;
                     footprintHash = unchecked(footprintHash + part.FootprintHash);
                     footprintW += part.FootprintW;
                     whiteW += part.WhiteW;
@@ -3375,6 +3410,8 @@ namespace SkiResortMod.Systems
                     ProtectedTexels = held,
                 });
                 m_RunTexelsNext[run.Run] = newTexels;
+                if (stoppedClaimed > 0)
+                    m_RunStoppedNext[run.Run] = stoppedClaimed;
                 m_LedgerRuns.Add(new LedgerRun
                 {
                     Run = run.Run, Kind = run.PublicKind, Slot = run.Slot,
@@ -3601,23 +3638,27 @@ namespace SkiResortMod.Systems
 
         /// <summary>Swaps the freshly reduced run -> texel map in and bumps RunTexelGeneration only when its content differs from the
         /// previous pass (count, a key or any value). O(runs), no allocation once both dictionaries have grown.</summary>
+        private static bool Differs(Dictionary<Entity, int> next, Dictionary<Entity, int> now)
+        {
+            if (next.Count != now.Count)
+                return true;
+            foreach (var pair in next)
+            {
+                if (!now.TryGetValue(pair.Key, out int old) || old != pair.Value)
+                    return true;
+            }
+            return false;
+        }
+
         private void PublishRunTexels()
         {
-            bool changed = m_RunTexelsNext.Count != m_RunTexels.Count;
-            if (!changed)
-            {
-                foreach (var pair in m_RunTexelsNext)
-                {
-                    if (!m_RunTexels.TryGetValue(pair.Key, out int old) || old != pair.Value)
-                    {
-                        changed = true;
-                        break;
-                    }
-                }
-            }
+            bool changed = Differs(m_RunTexelsNext, m_RunTexels) || Differs(m_RunStoppedNext, m_RunStopped);
             Dictionary<Entity, int> swap = m_RunTexels;
             m_RunTexels = m_RunTexelsNext;
             m_RunTexelsNext = swap;
+            swap = m_RunStopped;
+            m_RunStopped = m_RunStoppedNext;
+            m_RunStoppedNext = swap;
             if (changed)
                 m_RunTexelGeneration++;
         }
@@ -3846,6 +3887,8 @@ namespace SkiResortMod.Systems
             RunAliases.Move(m_RunSnowNext, from, to);
             RunAliases.Move(m_RunTexels, from, to);
             RunAliases.Move(m_RunTexelsNext, from, to);
+            RunAliases.Move(m_RunStopped, from, to);
+            RunAliases.Move(m_RunStoppedNext, from, to);
             RunAliases.Move(m_GunState, from, to);
             RunAliases.Move(m_GunStateNext, from, to);
             RunAliases.Move(m_GunRunning, from, to);

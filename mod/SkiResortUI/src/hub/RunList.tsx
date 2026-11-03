@@ -18,7 +18,7 @@ import type { Translate } from "../l10n";
 import { isRunKind } from "./buildItems";
 import { hectares } from "./hubRules";
 import { sendHoverRun } from "./hubState";
-import { HUB_FMT, HUB_LOC, RUN_TYPE, bandEntry } from "./hubText";
+import { HUB_FMT, HUB_LOC, bandEntry, runFeaturesEntry } from "./hubText";
 import { BandMarker, KindStripe, LocText, Num, NumCell, StableWidth, Tip, TipLines, cx, numArg } from "./parts";
 import type { NumberSamples } from "./parts";
 import { RenameField } from "./RenameField";
@@ -160,7 +160,7 @@ function TrashButton({ row, t, armed, setArmed }: { row: RunRow; t: Translate; a
 function RunLineImpl(p: RunLineProps): JSX.Element {
   const { row, live, t, samples, stateWords, focused, renaming, onPick, onPen, onRename, onRenameClose } = p;
   const [armed, setArmed] = useState(false);
-  const typeName = isRunKind(row.kind) ? t(RUN_TYPE[row.kind]) : "";
+  const typeName = isRunKind(row.kind) ? t(runFeaturesEntry(row.kind, row.gunSpacingM, row.lightSpacingM)) : "";
   const name = row.name || typeName;
   const state = live ? live.openState : OPEN_STATE.None;
   const inner = (

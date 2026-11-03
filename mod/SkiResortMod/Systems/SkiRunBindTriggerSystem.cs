@@ -42,6 +42,8 @@ namespace SkiResortMod.Systems
         private const int AutoNameMaxN = 10000;
 
         private SkiRunOwnershipSystem m_Ownership;
+        private SkiResortHubUISystem m_Hub;
+        private SkiRunPropSystem m_RunProps;
         private NameSystem m_NameSystem;
         private EntityQuery m_NewRuns;
         private EntityQuery m_ChangedGates;
@@ -84,6 +86,8 @@ namespace SkiResortMod.Systems
         {
             base.OnCreate();
             m_Ownership = World.GetOrCreateSystemManaged<SkiRunOwnershipSystem>();
+            m_Hub = World.GetOrCreateSystemManaged<SkiResortHubUISystem>();
+            m_RunProps = World.GetOrCreateSystemManaged<SkiRunPropSystem>();
             m_NameSystem = World.GetOrCreateSystemManaged<NameSystem>();
             m_FormatOrdinal = n => FormatOrdinal(m_Template, n);
             // Auto-name: every live building (signs are filtered by PrefabRef in managed code).
@@ -226,6 +230,11 @@ namespace SkiResortMod.Systems
                     m_Ownership.SweepNow(ReasonLoadPassRetry);   // clears the request (or disables binding on a throw)
                     return;
                 }
+
+                // Run types R3: a run drawn with the Run tile's option row starts with its sliders, before any bind charges its fee (the
+                // steps are in it), whether or not bind-on-draw is on.
+                if (!m_NewRuns.IsEmptyIgnoreFilter && m_Hub.TryGetDrawSeed(out int seedGunM, out int seedLightM))
+                    SeedDrawnRuns(seedGunM, seedLightM);
 
                 if (!BindOnDrawEnabled())
                     return;
@@ -476,6 +485,21 @@ namespace SkiResortMod.Systems
         /// EntityQuery.CompleteDependency would also wait on every in-flight writer of
         /// Building/Transform/Area/Geometry/Created/Updated
         /// (CompleteDependenciesNoChecks(ReaderTypes, WriterTypes)), so do not add it.</summary>
+        /// <summary>The option row's sliders on every groomed piste drawn this frame (SkiRunPropSystem.SeedSpacing).</summary>
+        private void SeedDrawnRuns(int gunM, int lightM)
+        {
+            using (var runs = m_NewRuns.ToEntityArray(Allocator.Temp))
+            using (var prefabRefs = m_NewRuns.ToComponentDataArray<PrefabRef>(Allocator.Temp))
+            {
+                for (int i = 0; i < runs.Length; i++)
+                {
+                    RunFeatures f = RunFeatures.FromKind(m_Ownership.KindOf(prefabRefs[i].m_Prefab));
+                    if (f.IsPiste && f.Groomed && m_RunProps.SeedSpacing(runs[i], gunM, lightM))
+                        Mod.Log.Info($"Hub [draw] new run {runs[i].Index}:{runs[i].Version} starts with guns {gunM} m, lights {lightM} m");
+                }
+            }
+        }
+
         private bool AnyRunPrefab(EntityQuery query)
         {
             using (var prefabRefs = query.ToComponentDataArray<PrefabRef>(Allocator.Temp))

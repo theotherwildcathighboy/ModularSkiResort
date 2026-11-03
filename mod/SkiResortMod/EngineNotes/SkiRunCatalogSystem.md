@@ -79,9 +79,12 @@ Per run, cheap numbers are kept as the fallback while a run is not rated (`RunRo
 Bound = `SkiRunOwnershipSystem.TryGetBoundGate`; Gate = that sign (Entity.Null = not linked), the run's resort (sticky from bind time,
 re-links free only when its sign died).
 
-Names: a custom name from `NameSystem.TryGetCustomName` (NameSystem.cs:209-212) wins; otherwise "Groomed run N" etc. from the active
-dictionary's `SkiResort.Hub.RUN_DEFAULT[<kind>]` with "{N}" replaced (NameSystem.cs:250), English if the key is missing. N counts per
-(Gate, kind), ordered by `Geometry.m_Bounds.max.y` descending, then center x, z, entity index/version (numbers shift when a run above is
+Names: a custom name from `NameSystem.TryGetCustomName` (NameSystem.cs:209-212) wins, then a re-emitted run's carried custom name; a
+run then shows its trail name (`SkiRunName.m_Index`, given by SkiRunNameSystem once the run is rated, the active dictionary's
+`SkiResort.RUN_NAME:<index>`, R3 DECISIONS 578), in its form (`m_Form`: `RUN_NAME_FORM[Upper]` / `[Lower]` with "{NAME}" replaced;
+cached per index and form), and only without one (pool full, not given yet) "Run N" from `SkiResort.Hub.RUN_DEFAULT[Run]` or, for a
+cat track, "Cat track N" from `RUN_DEFAULT[CatTrack]`. "{N}" is replaced (NameSystem.cs:250), English if the key is missing. N counts per
+(Gate, piste / cat track), ordered by `Geometry.m_Bounds.max.y` descending, then center x, z, entity index/version (numbers shift when a run above is
 added or removed, accepted); formatted names are cached per (kind, N), dropped when the dictionary changes
 (`LocalizationManager.onActiveDictionaryChanged`, AreaBufferSystem.cs:661).
 

@@ -1,6 +1,6 @@
 ---
 title: Runs and Snow
-description: Run drawing, difficulty rating, run types with fees and upkeep, and the snow conditions for open, patchy and closed.
+description: Run drawing, difficulty rating, run features with fees and upkeep, and the snow conditions for open, patchy and closed.
 ---
 
 import { Aside, Tabs, TabItem } from '@astrojs/starlight/components';
@@ -33,28 +33,30 @@ Rating = slope of the **hardest unavoidable pitch**: the crux of the easiest lin
 - **Reshaped run:** keeps its last rating during re-rating.
 - **Size factor:** bigger runs are worth more, with diminishing returns: **1** at 2 ha, about **1.4** at 8 ha, the cap **2** at about 56 ha. Under 1 ha it falls in proportion to the area. Worked values: [Attraction Formula](/reference/attraction/#size-factor).
 
-## Run Types
+## Run Features
+
+One **Run** tile draws every run; a row under it sets the next run's features: **Groomed** (On or Off), **Snow guns** and **Lights** (Off, or the distance between them; both need Groomed). A built run changes them in the Runs view, for the run selected in the list. The hub's run list names each run's features (*Groomed, snowmaking, lit*).
 
 <Tabs>
   <TabItem label="Natural">
     <Icon name="run-natural" alt="Natural run icon" />
-    **Surface:** none drawn (visible on the **piste map**). Opens on natural snow only.
+    **Groomed off.** **Surface:** none drawn (visible on the **piste map**). Opens on natural snow only.
     **Value:** green ×**0.5**, blue ×**0.75**, black ×**1**. **Build fee:** 500 + 250 per ha. **Upkeep:** none.
   </TabItem>
   <TabItem label="Groomed">
     <Icon name="run-groomed" alt="Groomed run icon" />
     **Surface:** groomed snow. **Value:** full when open.
-    **Build fee:** 2,000 + 1,000 per ha. **Upkeep:** 150 per ha per month while snow-covered.
+    **Build fee:** 2,000 + 1,000 per ha. **Upkeep:** 150 per ha per month while snow-covered, also while its snow guns are stopped because the snow is deep enough.
   </TabItem>
-  <TabItem label="Snowmaking">
-    <Icon name="run-snowmaking" alt="Snowmaking run icon" />
-    **Surface:** groomed, plus snow guns (lances, fan guns, hydrants) where the air is cold enough.
-    **Build fee:** 4,000 + 4,000 per ha. **Upkeep:** 500 per ha per month while snow-covered.
+  <TabItem label="Snow guns">
+    <Icon name="run-snowmaking" alt="Snow guns icon" />
+    **Adds:** snow guns (lances, fan guns, hydrants) where the air is cold enough: the run opens earlier and stays open longer.
+    **Build fee:** +2,000 + 3,000 per ha. **Upkeep:** +350 per ha per month where the guns make snow.
   </TabItem>
-  <TabItem label="Night">
-    <Icon name="run-night" alt="Night run icon" />
-    **Surface:** snowmaking plus floodlights. **Value:** ×**1.25** of groomed.
-    **Build fee:** 6,000 + 7,000 per ha. **Upkeep:** 800 per ha per month while snow-covered.
+  <TabItem label="Lights">
+    <Icon name="run-night" alt="Lights icon" />
+    **Adds:** floodlights. **Value:** ×**1.25** of groomed.
+    **Build fee:** +2,000 + 3,000 per ha. **Upkeep:** +300 per ha per month while snow-covered.
   </TabItem>
   <TabItem label="Cat track">
     <Icon name="run-cat-track" alt="Cat track icon" />
@@ -63,6 +65,10 @@ Rating = slope of the **hardest unavoidable pitch**: the crux of the easiest lin
     **Slope limit:** built with the cat track tool below, which grades the ground to stay under **25 %**, so a cat track is always green. Crosses other runs without changing them.
   </TabItem>
 </Tabs>
+
+- **Paid once:** a feature's fee is charged the first time it is on, by the run's area. Turning it off refunds nothing; turning it on again is free. Changing a distance is free.
+- **Groomed on a built run:** the run's surface is redrawn, so it may flash for a moment, as the game does with any area that changes type. Everything else carries over: its name, its ski area, its snow guns and lights, its trees.
+- **Names:** a new run gets a trail name from a list of **200** that fits it: a black run a *Chute* or a *Wall*, a green a *Meadow* or a *Lane*, a run through trees a *Glade*, a cat track a *Road* or a *Way*. A run near the top or the bottom of its ski area may be *Upper …* or *Lower …*. No two runs share a name while one is free; after that, *Run N*. The name comes once the run is rated, stays through reshaping and reloads, and a rename wins.
 
 Reshaping a run: no extra cost.
 
@@ -103,7 +109,7 @@ The Resort Planner is new and may change. It is off by default: turn it on in Op
 - **The plan in the hub:** *Planned: 6 pod(s), 3 lift(s) proposed, 12.4 km of runs*, what the mountain's ground gives by color, then one row per lift (length, rise, runs it reaches, its way home and its pod's runs by color; a lift you built reads *Existing lift*), then the pods no lift serves (*no lift planned*).
 - **Way home:** for each lift, the easiest run from its top back to a lift or the base: *Green way home*, *Blue way home*, *Black only*, *Double Black only*, or *No way down on skis: ride the lift down*.
 - **Pick:** click a run to leave it out (gray) or take it back. Click a proposed lift's line, a built lift's station ring or a pod's ring, or its row in the hub, to leave out the lift and its pod's runs (or the pod's runs) or take them back. Picking plans nothing again.
-- **Knobs:** **Lifts** (auto, or 1 to 9; changing it plans again), **Way home** (green at the base and blue above by default, or green, or blue: the easiest run each lift top should offer), **Mix** (Balanced, Beginner, Expert, As the slope allows), **How many** (Few, Normal, Many; the count scales with the area), **Kinds** (groomed and natural by default; snowmaking and night on request), **Shuffle** for another layout of the same slope.
+- **Knobs:** **Lifts** (auto, or 1 to 9; changing it plans again), **Way home** (green at the base and blue above by default, or green, or blue: the easiest run each lift top should offer), **Mix** (Balanced, Beginner, Expert, As the slope allows), **How many** (Few, Normal, Many; the count scales with the area), **Features** (every run groomed by default; *Leave black runs natural*, *Snowmaking near the base* for green runs that reach the base, *Light the two lowest* for up to two base runs, blue or easier, which also get snow guns), **Shuffle** for another layout of the same slope.
 - **Totals:** runs kept, the mix against its target, the total fee, and skiers a day once a lift serves them.
 - **Build:** **Build** or **Enter**. Refused when the city cannot pay the total. Only the runs are built: they bind and pay like runs you draw. A run the game refuses turns red and is left out; the rest are built.
 - **Lifts:** the proposals stay proposals. Build each one with the lift tool: place the stations on the marked spots, then draw the line. Until a lift serves them, its runs count as backcountry (see [Lift Service](#lift-service)).
@@ -121,8 +127,8 @@ Snow is measured per run from the game's snow simulation.
 - **Open:** at least **91 cm** of snow on **60 %** of the run. One bar for every run: natural or made, every rating.
 - **Patchy:** between open and closed. Counts part of its value.
 - **Closed:** an open run stays open while **30 cm** of snow covers **40 %** of it, then closes. A closed run opens again at **91 cm**.
-- **Snow guns:** snowmaking runs, night runs and cat tracks, where air temperature is at most **3.3 °C** above freezing (option *Snowmaking margin*). Higher margin: longer season, higher snowmaking bill.
-- **Edge props:** guns, hydrants and floodlights stand along a run's edge at a set distance, however its outline was drawn. Each run has its own two values in the Runs view, for the run selected in the list, Off or **20** to **200 m**: snow guns **50 m** on a snowmaking run, **90 m** on a night run, **60 m** on a cat track; lights **90 m** on a night run, Off on a cat track. Look only: snow and upkeep do not change, except on a cat track whose snow guns are set to Off (no upkeep, no new snow). Each one is a separate object you can bulldoze; it stays gone until the outline or a value changes.
+- **Snow guns:** runs and cat tracks with snow guns on, where air temperature is at most **3.3 °C** above freezing (option *Snowmaking margin*). Higher margin: longer season, higher snowmaking bill.
+- **Edge props:** guns, hydrants and floodlights stand along a run's edge at a set distance, however its outline was drawn: Off or **20** to **200 m**, per run, in the Runs view for the run selected in the list. A new run starts with the values of the row under the Run tile; a cat track starts with snow guns at **60 m** and lights Off. Snow guns Off: no guns, no made snow, no snowmaking upkeep (snow already made stays until it melts). Lights Off: no lights, no lighting upkeep. On a cat track the lights are look only. Each one is a separate object you can bulldoze; it stays gone until the outline or a value changes.
 - **Gun depth:** the guns start when the run falls under **91 cm** and stop at **96 cm**, so the run stays open between restarts.
 - **Gun season:** from **2 months before winter to 1 month after**, which is October 1 to April 1 when winter is December to February; no guns, no bill and no plume outside it. Where the game's own season reads Winter the guns run, and where it reads Summer they do not, whatever the date.
 - **Cat tracks:** the snow under the track is measured like a natural run's, plus the snow its guns made. Made snow lasts through a warm spell as long as on the best-kept run, up to **72** game hours (**36** in spring, none above **10 °C**), then melts as fast as a run's snow does (about **6** game hours at **1 °C**, under **1** at **7 °C**), so a cat track closes last. A save keeps it.

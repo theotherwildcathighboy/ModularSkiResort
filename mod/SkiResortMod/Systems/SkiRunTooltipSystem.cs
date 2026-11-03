@@ -49,6 +49,7 @@ namespace SkiResortMod.Systems
         private AreaToolSystem m_AreaTool;
         private SkiRunDrawFeedbackSystem m_Feedback;
         private CitySystem m_CitySystem; // moneyAmount for the fee row's color (CitySystem.cs:31)
+        private SkiResortHubUISystem m_Hub; // the Run tile's draw row: the sliders a new run starts with (TryGetDrawSeed)
 
         private StringTooltip m_Grade;
         private IntTooltip m_Pitch; // crux (RatingGrade), path kept as "skiRunPitch"
@@ -78,6 +79,7 @@ namespace SkiResortMod.Systems
             m_AreaTool = World.GetOrCreateSystemManaged<AreaToolSystem>();
             m_Feedback = World.GetOrCreateSystemManaged<SkiRunDrawFeedbackSystem>();
             m_CitySystem = World.GetOrCreateSystemManaged<CitySystem>();
+            m_Hub = World.GetOrCreateSystemManaged<SkiResortHubUISystem>();
 
             m_Grade = new StringTooltip
             {
@@ -284,11 +286,15 @@ namespace SkiResortMod.Systems
                     }
                 }
 
-                // Run fee: SkiRunFees.Fee, the function the bind charges, of the kind and the plan area; Error color when the city has less
-                // money (TempCostTooltipSystem.cs:79-82). value / color assignments allocate nothing.
+                // Run fee: SkiRunFees.Fee, the function the bind charges, of the kind and the plan area, with the draw row's sliders on a
+                // groomed piste (SkiRunBindTriggerSystem.SeedDrawnRuns seeds them before the bind); Error color when the city has less money
+                // (TempCostTooltipSystem.cs:79-82). value / color assignments allocate nothing.
                 if (fee)
                 {
-                    int value = SkiRunFees.Fee(kind, areaM2);
+                    RunFeatures drawn = RunFeatures.FromKind(kind);
+                    if (drawn.IsPiste && drawn.Groomed && m_Hub.TryGetDrawSeed(out int gunM, out int lightM))
+                        drawn = RunFeatures.FromSpacings(kind, gunM, lightM);
+                    int value = SkiRunFees.Fee(drawn, areaM2);
                     if (value >= 0)
                     {
                         m_Fee.value = value;

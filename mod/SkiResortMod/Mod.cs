@@ -261,6 +261,11 @@ namespace SkiResortMod
             // A plain UpdateAt sorts after every vanilla Modification system, so the run's geometry is final; the bind raises no tag.
             updateSystem.UpdateAt<SkiRunBindTriggerSystem>(SystemUpdatePhase.ModificationEnd);
 
+            // Trail names: a new piste gets a stored random unused name (SkiRunName, R3 DECISIONS 578). ModificationEnd: MainLoop, paused or not,
+            // with the frame's Created tag still on (after SkiRunReemitSystem's Modification1 copy, so a toggled run keeps its pick); NOT
+            // load-bearing for other systems (the catalog rebuilds on request).
+            updateSystem.UpdateAt<SkiRunNameSystem>(SystemUpdatePhase.ModificationEnd);
+
             // Lodge-score watcher. ModificationEnd is load-bearing: CleanUpSystem strips Created/Updated at Cleanup, BEFORE GameSimulation
             // (SystemOrder.cs:54, 74), so the attractiveness system never sees a placement; this only sets its pending flag.
             updateSystem.UpdateAt<SkiResortAttractivenessWatchSystem>(SystemUpdatePhase.ModificationEnd);

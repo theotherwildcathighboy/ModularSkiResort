@@ -15,7 +15,8 @@
 //     season once known (DECISIONS 571); a track's made snow uses only TrackGunShare and TrackColdShare, once each, in StepTrack.
 //  R8 house style: Game mode only, ARMED line, one-shot catch, [cost] line, and the tag is added in one place.
 //  R9 run types: the count of run kind names per mod file only goes down (systems move to RunFeatures in R2). One exception: the shim
-//     file EntityRef.cs rose in R2 for SnowKind, the features-to-kind bridge of the kind-keyed snow code (102 -> 95 names overall).
+//     file EntityRef.cs rose in R2 for SnowKind, the features-to-kind bridge of the kind-keyed snow code (102 -> 95 names overall; R3
+//     billed upkeep by feature: 89).
 "use strict";
 const fs = require("fs");
 const path = require("path");
@@ -177,13 +178,13 @@ const KIND_READS = {
   "Systems/SkiCatalog.cs": 5,
   "Systems/SkiResortAttractivenessSystem.cs": 3,
   "Systems/SkiResortScore.cs": 5,
-  "Systems/SkiResortStatsSystem.cs": 4,
+  "Systems/SkiResortStatsSystem.cs": 2,
   "Systems/SkiRunAutoPlanner.Select.cs": 8,
   "Systems/SkiRunBindingRules.cs": 5,
   "Systems/SkiRunCatalogSystem.cs": 1,
   "Systems/SkiRunOwnershipSystem.cs": 2,
   "Systems/SkiRunPropSystem.Placer.cs": 4,
-  "Systems/SkiRunUpkeepSystem.cs": 5,
+  "Systems/SkiRunUpkeepSystem.cs": 1,
   "Systems/SkiSnowInjectionSystem.cs": 26,
 };
 const kindRe = /\bRunKind\.(Groomed|Snowmaking|Night|Natural|CatTrack)\b|\bKind(Groomed|Snowmaking|Night|Natural|CatTrack)\b/g;
