@@ -1,9 +1,10 @@
 // Pure rules behind the lift's notification icons (LiftLineIconSystem, LiftPowerCueSystem). System only; tests/LiftBatch LI-1..LI-3.
 // Lifts are built on the power-line net class, so vanilla treats them as high-voltage lines and their stations as transformers. The rule:
-// a lift shows no vanilla electricity cue except the base station's own power ones (its "low voltage not connected" icon and its
-// consumer warnings: the base takes the lift's power from its low-voltage feed like any building). The top station shows none: its power
-// comes through the lift line, so the line icon is its only cue. The vanilla "high voltage not connected" icon becomes our own "needs a
-// lift line" icon on the same attach points:
+// a lift shows no vanilla electricity icon except the base station's "low voltage not connected" icon (the base takes the lift's power
+// from its low-voltage feed, and that wire is the one power step a player has to make). The base's consumer warnings (no electricity,
+// bottleneck) go too: with no feed they repeat the low-voltage icon, and a city short of power reads in the hub's lift status. The top
+// station shows none: its power comes through the lift line, so the line icon is its only cue. The vanilla "high voltage not connected"
+// icon becomes our own "needs a lift line" icon on the same attach points:
 //  - a station: its lift stub nodes (the SkiLiftMarker sub-net, the nodes ConnectionWarningSystem targets, ConnectionWarningSystem.cs:
 //    2355-2401) with no lift edge from outside the station;
 //  - a loose lift end: a lift node outside any station with exactly one lift edge (vanilla's own "connected once" test on the node,
@@ -56,10 +57,10 @@ namespace SkiResortMod.Systems
             return hasIcon ? LineIconAction.Clear : LineIconAction.None;
         }
 
-        /// <summary>True when the vanilla icon is removed from that owner. Kept: the base station's low-voltage icon and its consumer
-        /// warnings (its own power). Removed: every high-voltage cue, the transformer-building cues a station carries only because it is
-        /// built as a transformer (a plain consumer gets its bottleneck warning from DispatchElectricitySystem alone), and the top
-        /// station's consumer warnings (its power comes through the line).</summary>
+        /// <summary>True when the vanilla icon is removed from that owner. Kept: the base station's low-voltage icon, and Other (not an
+        /// electricity cue). Removed: every high-voltage cue, the transformer-building cues a station carries only because it is built
+        /// as a transformer, and both stations' consumer warnings (no electricity, building bottleneck). Lift nodes and edges never carry
+        /// the station-only cues, so those stay false there.</summary>
         public static bool Strips(LiftIconOwner owner, VanillaPowerIcon icon)
         {
             bool station = owner == LiftIconOwner.BaseStation || owner == LiftIconOwner.TopStation;
@@ -70,10 +71,9 @@ namespace SkiResortMod.Systems
                     return true;
                 case VanillaPowerIcon.Transformer:
                 case VanillaPowerIcon.NotEnoughProduction:
-                    return station;
                 case VanillaPowerIcon.NoElectricity:
                 case VanillaPowerIcon.BuildingBottleneck:
-                    return owner == LiftIconOwner.TopStation;
+                    return station;
                 default:
                     return false;
             }

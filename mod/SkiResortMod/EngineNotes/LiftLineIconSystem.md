@@ -4,8 +4,9 @@ Engine citations are `Game.X/File.cs:line` in tools/decompile/1.6.0f1.
 
 ## Rule (2026-11-02)
 
-A lift shows no vanilla electricity cue except the base station's own power: its "low voltage not connected" icon while its feed is
-not wired, and the consumer warnings any building shows (no electricity, building bottleneck). The vanilla "high voltage not
+A lift shows no vanilla electricity icon except the base station's "low voltage not connected" icon while its feed is not wired.
+The base's consumer warnings (no electricity, building bottleneck) go too: with no feed they repeat the low-voltage icon, and a city
+short of power reads in the hub's lift status (LiftServedRule reads the flag, never the icon). The vanilla "high voltage not
 connected" icon is replaced by our own "Lift line needed" icon (`SkiLiftLineNeeded`) on the same attach points. The placement
 infoview is closed for every lift line and station tool (SkiPlacementInfoviewSystem.md). Pure rules: `LiftLineIconRule`
 (tests/LiftBatch LI-1..LI-4).
@@ -23,14 +24,13 @@ treats them as high-voltage lines and transformers and shows the player power-gr
 | "Low voltage not connected" icon on the base station | ConnectionWarningSystem.cs:2366 | kept (StationLvIconSystem only clears it when the feed IS wired, a vanilla false positive) |
 | Transformer bottleneck, not enough production, bottleneck icons on a station | ElectricityStatusSystem.cs:131-134 (`BuildingNotificationJob`) | removed: LiftPowerCueSystem |
 | Bottleneck icon on a lift line edge | ElectricityStatusSystem.cs:66 (`NetEdgeNotificationJob`) | removed: LiftPowerCueSystem |
-| No electricity, building bottleneck icons on a base station | DispatchElectricitySystem.cs:141-142 | kept (the base's own power, like any building) |
-| The same on a top station | DispatchElectricitySystem.cs:141-142 | removed: LiftPowerCueSystem (its power comes through the line) |
+| No electricity, building bottleneck icons on a base or top station | DispatchElectricitySystem.cs:141-142 | removed: LiftPowerCueSystem (the flags stay; the hub reads them) |
 | Transformer section in a station's info panel | TransformerSection.cs:82 (`Game.Buildings.Transformer`) | engine limit, accepted: hiding it needs a UI override of a vanilla section or removing `Transformer`, which the power path (PowerBridgeSystem) needs |
 | Asset menu properties: transformer capacity / input / output on a station, power line capacity on a lift line | PrefabUISystem.cs:863-955, binders at :1598-1601 | engine limit, accepted: the binders read `TransformerData` and the net's voltage layers, both load-bearing for power |
 | Electricity infoview drawing lift lines as high-voltage lines (when the player opens it) | the Electricity infomodes color power lanes by flow | engine limit, accepted; a mod-owned "Lifts" view is the way out (docs/research/lifts/lifts-infoview-feasibility-2026-11-02.md) |
 | Electricity hover tooltip on a lift line or station (only inside that view, default tool) | RaycastElectricityTooltipSystem.cs:168, :172-247 | engine limit, accepted: it is a vanilla system for every power line |
 | XP popup naming "Power line" for a drawn lift line | NetXPSystem.cs:76-110, :203; MilestoneUISystem.cs:359-368 | engine limit, accepted: the only lever is `PlaceableNetData.m_XPReward` = 0, which removes the lift's XP |
-| Lift line upkeep billed to the Electricity service | CityServiceBudgetSystem.cs:566-582 (the line's `ServiceObjectData`, the vanilla HV line's Electricity service) | see the field results (RESULTS.md): a cost only when the line's pieces carry upkeep |
+| Lift line upkeep billed to the Electricity service | CityServiceBudgetSystem.cs:566-582 (the line's `ServiceObjectData`, the vanilla HV line's Electricity service) | open, not changed: moving it is a money change to the line prefabs (`GetUpkeepCost` = round(length / 8) x the pieces' upkeep); not measured in game |
 
 ## LiftLineIconSystem: the same-frame override
 
@@ -87,7 +87,7 @@ gate is `updateIndex & (interval - 1) == offset` with `SimulationSystem.frameInd
 LiftPowerCueSystem is `UpdateAfter<_, ElectricityStatusSystem>(GameSimulation)`, runs every simulation frame and acts only when
 `frameIndex & 127` is 126 or 127 (plus once after a load), queueing Removes in a buffer created after both vanilla buffers: the same
 same-frame override. DispatchElectricitySystem writes only on a flag change (SetWarning, :144-157), so a Remove on its frames is
-enough. When the net bottleneck and building bottleneck prefabs are one prefab, stations keep it (the base's consumer cue).
+enough. Every station cue goes, so the net and building bottleneck prefabs may be one prefab without a special case.
 
 ## Logs and DUMP
 

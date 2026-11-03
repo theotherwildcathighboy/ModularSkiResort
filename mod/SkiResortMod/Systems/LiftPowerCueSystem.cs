@@ -1,8 +1,8 @@
 // Strips the vanilla electricity warning icons that lifts carry only because they are built as high-voltage lines and transformers
 // (LiftLineIconRule.Strips): on every station the transformer cues ElectricityStatusSystem writes (transformer bottleneck, not enough
-// production, bottleneck: BuildingNotificationJob, ElectricityStatusSystem.cs:131-134); on every lift line edge the net bottleneck cue
-// (NetEdgeNotificationJob, :66); on a top station the consumer cues DispatchElectricitySystem writes (no electricity, bottleneck:
-// :141-142), since its power comes through the line. Kept: the base station's own consumer cues and its low-voltage icon.
+// production, bottleneck: BuildingNotificationJob, ElectricityStatusSystem.cs:131-134) and the consumer cues DispatchElectricitySystem
+// writes (no electricity, building bottleneck: :141-142); on every lift line edge the net bottleneck cue (NetEdgeNotificationJob, :66).
+// Kept: the base station's low-voltage icon, the one vanilla electricity icon a lift shows (ConnectionWarningSystem, not touched here).
 // Both vanilla systems run once every 128 simulation frames, DispatchElectricitySystem at offset 126 and ElectricityStatusSystem at
 // 127 (DispatchElectricitySystem.cs:222-230, ElectricityStatusSystem.cs:195-203), in GameSimulation (SystemOrder.cs:444, :448), and
 // queue their icons in IconCommandBuffers played back at ModificationEnd. This system runs every simulation frame right after
@@ -79,16 +79,11 @@ namespace SkiResortMod.Systems
                 return;
             }
             m_Icons = m_ElectricityConfigQuery.GetSingleton<ElectricityParameterData>();
-            Mod.Log.Info("LiftPowerCue: ARMED — strips from stations the transformer, not-enough-production and bottleneck warnings, from " +
-                         "top stations the no-electricity and building-bottleneck warnings, from lift lines the bottleneck warning, on " +
-                         $"the frames DispatchElectricitySystem ({DispatchOffset}) and ElectricityStatusSystem ({StatusOffset}) of " +
-                         $"{VanillaInterval} write them; the base station keeps its own power warnings and its low-voltage icon" +
-                         (SameBottleneck ? "; the bottleneck prefabs are one prefab, so stations keep it (the base's consumer cue)" : ""));
+            Mod.Log.Info("LiftPowerCue: ARMED — strips from base and top stations the transformer, not-enough-production, bottleneck, " +
+                         "no-electricity and building-bottleneck warnings, from lift lines the bottleneck warning, on the frames " +
+                         $"DispatchElectricitySystem ({DispatchOffset}) and ElectricityStatusSystem ({StatusOffset}) of {VanillaInterval} " +
+                         "write them; the base station keeps only its low-voltage icon");
         }
-
-        /// <summary>When the net and the building bottleneck icons are one prefab, a station Remove would also take the base's own
-        /// consumer cue: then only edges lose it.</summary>
-        private bool SameBottleneck => m_Icons.m_BottleneckNotificationPrefab == m_Icons.m_BuildingBottleneckNotificationPrefab;
 
         protected override void OnUpdate()
         {
@@ -142,8 +137,7 @@ namespace SkiResortMod.Systems
                     {
                         Strip(icb, station, owner, VanillaPowerIcon.Transformer, m_Icons.m_TransformerNotificationPrefab);
                         Strip(icb, station, owner, VanillaPowerIcon.NotEnoughProduction, m_Icons.m_NotEnoughProductionNotificationPrefab);
-                        if (!SameBottleneck)
-                            Strip(icb, station, owner, VanillaPowerIcon.Bottleneck, m_Icons.m_BottleneckNotificationPrefab);
+                        Strip(icb, station, owner, VanillaPowerIcon.Bottleneck, m_Icons.m_BottleneckNotificationPrefab);
                     }
                     if (dispatch)
                     {
@@ -190,7 +184,7 @@ namespace SkiResortMod.Systems
             sb.Append("  lift power cues: armed ").Append(m_Armed).Append(", disabled ").Append(m_Disabled)
               .Append("; dispatch passes ").Append(m_DispatchPasses).Append(", status passes ").Append(m_StatusPasses)
               .Append(", station removes queued ").Append(m_StationRemoves).Append(", edge removes queued ").Append(m_EdgeRemoves)
-              .Append(m_Armed && SameBottleneck ? "; bottleneck prefabs shared (stations keep it)" : "").Append('\n');
+              .Append('\n');
         }
     }
 }

@@ -66,9 +66,9 @@ namespace LiftBatch
             Eq("none", LiftLineIconRule.Describe(LineIconAction.None), w, "Describe none");
         }
 
-        /// <summary>The whole table: the only kept cues are the base station's low-voltage icon and its consumer warnings; Other is
-        /// never touched; nothing at all survives on a top station, a lift node or a lift edge except LV not connected (which vanilla
-        /// never puts there) and Other.</summary>
+        /// <summary>The whole table: the only kept cue is the base station's low-voltage icon; Other is never touched; the station-only
+        /// cues (transformer, not enough production, no electricity, building bottleneck) go from both stations and are left alone on lift
+        /// nodes and edges (vanilla never puts them there).</summary>
         private static void Li4Strips()
         {
             const string w = "lift-icon/LI-4";
@@ -84,8 +84,6 @@ namespace LiftBatch
                             break;
                         case VanillaPowerIcon.NoElectricity:
                         case VanillaPowerIcon.BuildingBottleneck:
-                            expected = owner == LiftIconOwner.TopStation;
-                            break;
                         case VanillaPowerIcon.Transformer:
                         case VanillaPowerIcon.NotEnoughProduction:
                             expected = owner == LiftIconOwner.BaseStation || owner == LiftIconOwner.TopStation;
@@ -99,6 +97,9 @@ namespace LiftBatch
             // The rule the system is built on, stated directly.
             Check(!LiftLineIconRule.Strips(LiftIconOwner.BaseStation, VanillaPowerIcon.LowVoltageNotConnected), w,
                   "the base station keeps its low-voltage icon");
+            Check(LiftLineIconRule.Strips(LiftIconOwner.BaseStation, VanillaPowerIcon.NoElectricity) &&
+                  LiftLineIconRule.Strips(LiftIconOwner.BaseStation, VanillaPowerIcon.BuildingBottleneck), w,
+                  "the base station's consumer warnings go (only the low-voltage icon stays)");
             Check(LiftLineIconRule.Strips(LiftIconOwner.BaseStation, VanillaPowerIcon.HighVoltageNotConnected) &&
                   LiftLineIconRule.Strips(LiftIconOwner.TopStation, VanillaPowerIcon.HighVoltageNotConnected) &&
                   LiftLineIconRule.Strips(LiftIconOwner.LiftNode, VanillaPowerIcon.HighVoltageNotConnected), w,
