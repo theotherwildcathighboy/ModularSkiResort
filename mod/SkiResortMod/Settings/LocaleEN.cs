@@ -430,6 +430,14 @@ namespace SkiResortMod.Settings
                     "After you draw or change a lift line, its towers are raised and moved along the line so the chairs " +
                     "and cabins stay at least 3 m above the ground (trams 5 m). Off: the towers stay where the game puts them. Default on."
                 },
+                {
+                    m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.AnimatedLiftCarriers)),
+                    "Animated lift carriers"
+                },
+                {
+                    m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.AnimatedLiftCarriers)),
+                    "Grips follow the slope of the rope, and chairs and cabins swing in the wind. Off: they hang level and still. Default on."
+                },
 
                 // --- Diagnostics ---
                 { m_Setting.GetOptionGroupLocaleID(SkiResortSettings.GroupDiagnostics), "Diagnostics" },

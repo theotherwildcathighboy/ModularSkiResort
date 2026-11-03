@@ -1,4 +1,4 @@
-// CatalogTests - the pure prefab catalog SkiCatalog.cs (where-tags `catalog-...`, CT-1..CT-16): row, name and station oracles as literals;
+// CatalogTests - the pure prefab catalog SkiCatalog.cs (where-tags `catalog-...`, CT-1..CT-17; CT-17 = the grips and pivots): row, name and station oracles as literals;
 // the NAMES / BUILD-ITEMS blocks read as TEXT with tools/preflight.ps1 section 7's regex; catalog/carriers.json and gamedata-mirror drift;
 // the resolver-lifetime decision table (NextAction); the static sanity rules (CheckRows) on a hand-made twin.
 // CT-4 is the FROZEN-NAME ORACLE: every name is a literal because names are save identity (PrefabSystem.Serialize writes type + name,
@@ -41,6 +41,7 @@ namespace LiftBatch
             ItemsPerType();
             Arithmetic();
             SanityTwin();
+            GripRows();
         }
 
         private static bool Check(bool cond, string where, string msg)
@@ -79,17 +80,22 @@ namespace LiftBatch
 
         private const string L = "PowerLinePrefab", O = "StaticObjectPrefab", B = "BuildingPrefab", S = "SurfacePrefab", F = "NetFencePrefab";
 
-        /// <summary>LITERALS, NAMES-block order. Save identity: never edit a Name. All names are Expected (nothing pending).</summary>
+        /// <summary>LITERALS, NAMES-block order. Save identity: never edit a Name. Every name is Expected but the four grips (the carrier grip
+        /// round, 2026-11-03: pending until the prefab surgery makes them; flip the NAMES token and the row flag in one edit).</summary>
         private static readonly NameOracle[] Frozen =
         {
             new NameOracle("SkiChairliftHV", L, CatalogKind.Line, "lift", true),
             new NameOracle("SkiLiftChair4", O, CatalogKind.Carrier, null, true),
+            new NameOracle("SkiLiftChair4Grip", O, CatalogKind.Grip, null, false),   // the carrier grip round: pending until surgery
             new NameOracle("SkiDetachableHV", L, CatalogKind.Line, "liftDetachable", true),
             new NameOracle("SkiLiftChairDQ4", O, CatalogKind.Carrier, null, true),
+            new NameOracle("SkiLiftChairDQ4Grip", O, CatalogKind.Grip, null, false),
             new NameOracle("SkiGondolaHV", L, CatalogKind.Line, "liftGondola", true),
             new NameOracle("SkiGondolaCabin8", O, CatalogKind.Carrier, null, true),
+            new NameOracle("SkiGondolaCabin8Grip", O, CatalogKind.Grip, null, false),
             new NameOracle("SkiTramHV", L, CatalogKind.Line, "liftTram", true),
             new NameOracle("SkiTramCabin", O, CatalogKind.Carrier, null, true),
+            new NameOracle("SkiTramCarriage", O, CatalogKind.Grip, null, false),
             new NameOracle("SkiLiftMarker", L, CatalogKind.Marker, null, true),
             new NameOracle("SkiBaseStationBuilding", B, CatalogKind.Station, "baseStation", true),
             new NameOracle("SkiTopStationBuilding", B, CatalogKind.Station, "topStation", true),
@@ -114,7 +120,7 @@ namespace LiftBatch
             new NameOracle("SkiRunSnowmakingA", S, CatalogKind.Run, "runSnowmaking", true),
             new NameOracle("SkiRunNightA", S, CatalogKind.Run, "runNight", true),
             new NameOracle("SkiRunCatTrackA", S, CatalogKind.Run, "runCatTrack", true),
-            new NameOracle("SkiSafetyFence", F, CatalogKind.Fence, "safetyFence", true), // 32 names, 27 items
+            new NameOracle("SkiSafetyFence", F, CatalogKind.Fence, "safetyFence", true), // 37 names (4 grips pending), 28 items
         };
 
         // ================================================================== CT-1
@@ -137,7 +143,7 @@ namespace LiftBatch
         {
             const string W = "catalog-names";
             IReadOnlyList<CatalogName> all = SkiCatalog.AllPrefabNames();
-            Eq(33, all.Count, W, "AllPrefabNames().Count"); // 30 + SkiRunCatTrackA + SkiSafetyFence + SkiBusDepot
+            Eq(37, all.Count, W, "AllPrefabNames().Count"); // 30 + SkiRunCatTrackA + SkiSafetyFence + SkiBusDepot + 4 grips
             Check(ReferenceEquals(all, SkiCatalog.AllPrefabNames()), W, "AllPrefabNames() is not the cached list (allocates per call)");
             var names = new HashSet<string>(StringComparer.Ordinal);
             var items = new HashSet<string>(StringComparer.Ordinal);
@@ -156,6 +162,7 @@ namespace LiftBatch
                         want = "PowerLinePrefab";
                         break;
                     case CatalogKind.Carrier:
+                    case CatalogKind.Grip:
                         want = "StaticObjectPrefab";
                         break;
                     case CatalogKind.Station:
@@ -190,9 +197,9 @@ namespace LiftBatch
             }
             Eq(28, withItem, W, "names with a build item id (the 28 strip items: 25 + runCatTrack, T54 probe 1, + safetyFence + busDepot)");
             Eq(33, expected, W, "expected names");
-            Eq(0, all.Count - expected, W, "pending names");
+            Eq(4, all.Count - expected, W, "pending names (the four grips)");
             Eq(33, SkiCatalog.ExpectedNameCount, W, "ExpectedNameCount");
-            Eq(0, SkiCatalog.PendingNameCount, W, "PendingNameCount");
+            Eq(4, SkiCatalog.PendingNameCount, W, "PendingNameCount");
             // The four type constants are the Game type names (the system asserts nameof() at OnCreate; literal here).
             Eq("PowerLinePrefab", SkiCatalog.TypeLine, W, "TypeLine");
             Eq("StaticObjectPrefab", SkiCatalog.TypeCarrier, W, "TypeCarrier");
@@ -206,6 +213,7 @@ namespace LiftBatch
             Eq((byte)9, (byte)CatalogKind.Fence, W, "CatalogKind.Fence (append-only)");
             Eq((byte)7, (byte)BuildItemKind.Fence, W, "BuildItemKind.Fence (append-only)");
             Eq((byte)10, (byte)CatalogKind.Depot, W, "CatalogKind.Depot (append-only)");
+            Eq((byte)11, (byte)CatalogKind.Grip, W, "CatalogKind.Grip (append-only)");
             Eq((byte)8, (byte)BuildItemKind.Depot, W, "BuildItemKind.Depot (append-only)");
             Eq((byte)1, (byte)MoverKind.Shuttle, W, "MoverKind.Shuttle");
             Eq((byte)1, (byte)ServeRuleKind.TerminalsOnly, W, "ServeRuleKind.TerminalsOnly");
@@ -922,7 +930,7 @@ namespace LiftBatch
                 parsed.Add(m.Groups[1].Value + "|" + m.Groups[2].Value + "|" + (m.Groups[3].Success ? m.Groups[3].Value : "") + "|" +
                            (m.Groups[4].Success ? "pending" : ""));
             }
-            Eq(33, parsed.Count, W, "names between the markers");
+            Eq(37, parsed.Count, W, "names between the markers");
             IReadOnlyList<CatalogName> all = SkiCatalog.AllPrefabNames();
             var expected = new List<string>();
             for (int i = 0; i < all.Count; i++)
@@ -1344,7 +1352,7 @@ namespace LiftBatch
                     Check(n.Pending == !entry.Expected, W, "'" + n.Name + "': NAMES token " + (n.Pending ? "pending" : "(none)") +
                           " but its row flag says Expected = " + entry.Expected + " (flip both in one edit)");
             }
-            Eq(0, pending, W, "pending tokens in the NAMES block (0 since the S1 lift flip, 2026-10-13; 5 after the first S1 flip, 19 before)");
+            Eq(4, pending, W, "pending tokens in the NAMES block (the four grips since 2026-11-03; 0 since the S1 lift flip, 2026-10-13; 5 after the first S1 flip, 19 before)");
             // Each row's Expected is derived from its names.
             foreach (LiftTypeDef d in SkiCatalog.Lifts)
             {
@@ -1355,6 +1363,8 @@ namespace LiftBatch
                     all &= c.Expected;
                 }
                 Eq(SkiCatalog.IsExpected(d.LinePrefab), d.LineExpected, W, "lift type '" + d.Id + "' LineExpected vs its line name");
+                if (d.GripPrefab != null)
+                    Eq(SkiCatalog.IsExpected(d.GripPrefab), d.GripExpected, W, "lift type '" + d.Id + "' GripExpected vs its grip name");
                 Eq(all, d.Expected, W, "lift type '" + d.Id + "' Expected == line and every carrier expected");
             }
             foreach (StationDef s in SkiCatalog.Stations)
@@ -1779,6 +1789,48 @@ namespace LiftBatch
                 }
             }
             return Math.Min(j, s.Length);
+        }
+
+        // ================================================================== CT-17
+
+        /// <summary>The carrier grip round (2026-11-03): every lift type names its grip (pending until the prefab surgery, flagged
+        /// like a NAMES token), the grip resolves back to its type and is no carrier, and the pivots are a valid base-pivot set whose
+        /// rigid offset is (0, HangM - GripTopAboveRopeM, 0): zero pitch and zero swing put the split carrier exactly where the
+        /// one-piece carrier stood. The numbers are PROVISIONAL until the asset build report; this row then pins the reported ones.</summary>
+        private static void GripRows()
+        {
+            const string W = "catalog-grips";
+            string[] grips = { "SkiLiftChair4Grip", "SkiLiftChairDQ4Grip", "SkiGondolaCabin8Grip", "SkiTramCarriage" };
+            Eq(grips.Length, SkiCatalog.Lifts.Count, W, "one grip per lift type");
+            for (int i = 0; i < SkiCatalog.Lifts.Count && i < grips.Length; i++)
+            {
+                LiftTypeDef d = SkiCatalog.Lifts[i];
+                string at = "type '" + d.Id + "'";
+                Eq(grips[i], d.GripPrefab, W, at + " GripPrefab");
+                Check(ReferenceEquals(d, SkiCatalog.ByGripPrefab(grips[i])), W, at + ": ByGripPrefab does not answer the row");
+                Check(SkiCatalog.ByCarrierPrefab(grips[i]) == null, W, at + ": the grip resolves as a carrier (grips are no carriers)");
+                Check(!d.GripExpected && !SkiCatalog.IsExpected(grips[i]), W, at + ": the grip is Expected before the surgery made it");
+                Check(SkiCatalog.TryGetName(grips[i], out CatalogName n) && n.Kind == CatalogKind.Grip && n.TypeName == SkiCatalog.TypeCarrier,
+                      W, at + ": the grip's catalog name is not a StaticObjectPrefab of kind Grip");
+                // The derived row flag ignores the grip (a pending grip never hides a shipped lift type).
+                Check(d.Expected, W, at + ": a pending grip made the row un-Expected");
+
+                CarrierPivots p = d.Pivots;
+                float3 rigid = p.RigidOffset;
+                float drop = d.HangM - d.GripTopAboveRopeM;
+                Near(0.0, rigid.x, 1e-3, W, at + " rigid offset x (the rope point straight above the body origin)");
+                Near(0.0, rigid.z, 1e-3, W, at + " rigid offset z");
+                Near(drop, rigid.y, 1e-3, W, at + " rigid offset y = HangM - GripTopAboveRopeM");
+                Near(drop, p.RigidDrop, 1e-3, W, at + " RigidDrop");
+                // Base-pivot meshes: nothing below the origin, so the rope point, the pin and the body pin are at y >= 0; the body pin
+                // is the body's top region (well above half the drop); the grip is small (its rope point and pin within 1 m of its base).
+                Check(p.GripRope.y >= 0f && p.GripPin.y >= 0f && p.BodyPin.y > 0.5f * drop, W,
+                      at + ": a pivot below its mesh's base (GripRope.y " + p.GripRope.y + ", GripPin.y " + p.GripPin.y + ", BodyPin.y " + p.BodyPin.y + ")");
+                Check(p.GripRope.y <= 1f && p.GripPin.y <= 1f, W, at + ": a grip pivot more than 1 m above the grip's base");
+                // The pendulum frequency stays in the range a hanging carrier has (0.5 to 4 rad/s).
+                float omega = CarrierPose.Omega(p.BodyPin.y);
+                Check(omega > 0.5f && omega < 4f, W, at + ": omega " + omega + " rad/s");
+            }
         }
     }
 }

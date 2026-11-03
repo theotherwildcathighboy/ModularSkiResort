@@ -95,6 +95,7 @@ namespace LiftBatch
             TowerNumberTests.Run(Check);
             LoopPaceTests.Run(Check);
             AlignTests.Run(Check);
+            CarrierPoseTests.Run(Check);
             BendTests.Run(Check);
             PowerJoinTests.Run(Check);
             LiftIconTests.Run(Check);

@@ -106,6 +106,43 @@ no OnGround flag, ObjectInitializeSystem.cs:711-730). It equals vanilla's own pl
 ULP). At worst the next re-host's Transform.Equals test (:2607, 1.6.2 :2610) fails: one SetComponent + Updated per re-host, and this
 system re-parks the cabin the same frame.
 
+## Carriages (the carrier grip round, TramShuttleSystem.Carriages.cs)
+
+The tram's carrier splits like a chair's: the CARRIAGE (trolley + hanger head) is the grip, the CABIN (hanger + cabin) the body. Catalog:
+`SkiTramCarriage`, kind Grip, pending until the art import; `run.Def.Pivots` (the split build's, SkiCatalog: the pin 0.2565 above the
+track-rope contact, 10.2565 above the cabin's lowest vertex).
+
+- **Hosting**: the carriage is a second ObjectSubObjects entry of the base station per cabin entry (T138 option A, prefab surgery after
+  the import), so `HarvestCarriages` finds it in `HarvestCabins`' own query (Owner = the station). No carriage entries yet (or the
+  prefab missing) = every cabin keeps today's rigid pose; a split tram with a riding cabin but no carriage logs one INFO per load.
+- **Pairing**: carriage i with cabin i = the assignment of the base's carriages to its cabins with the least summed xz distance (2 x 2:
+  both tried; more: greedy nearest). A carriage hangs its cabin straight below it and the two bays are a track gauge apart, so the
+  pairing holds whatever the entity order. It is recomputed from positions at every rebuild, so FindOldSubObject's
+  nearest-by-position reuse (which may swap a carriage's bay independently of its old cabin's) never matters. It follows AssignCabins:
+  `Run.Carriage` is parallel to run.Cabin (chain A, chain B) and lives ON the Run, never keyed by the base station: a base that starts
+  two lines has a winner and a cabin-less loser Run, and the loser must not clear the winner's carriages.
+- **Prefab contract**: each carriage entry copies its cabin entry's rotation and x / z, with y = the cabin entry's y + (BodyPin.y -
+  GripPin.y) (9.522 on the build's pivots), so the hosted (parked) pose is already the assembled carrier.
+- **Enrollment**: like the cabins (InterpolatedTransform after Created + one Updated, `EnrollCarriages` at FillRun); the bounds tags
+  cover the carriage.
+- **On the path** (`PlaceSplitOnPath`): one sample; yaw = `NetUtils.GetNodeRotation(-t_up, the parked rotation)` as PlaceOnPath (no
+  180-degree turn at a reversal); `CarrierPose.Pose` with the travel tangent t_up: the carriage takes the track rope's pitch, the cabin
+  hangs plumb from the pin. The cabin's position equals today's rigid pose at zero swing (CP-1), so the dock alignment above (rope
+  16.00 - 10.00 = pivot 6.00) is unchanged.
+- **Swing**: the chairs' convention (EngineNotes/ChairPinSystem.Mover.md, "Pose"): the roll turns carriage AND cabin together about
+  the track-rope point and the rope tangent (one lateral pin, no cardan; the carriage stays along the rope), the fore-aft turns the cabin alone about the pin. The tram's limits
+  (`CarrierPose.Limits(pivots, shuttle: true)`): the roll at most 2 deg (0.35 m at the cabin floor, 10 m below the rope), at half the
+  fore-aft amplitude (gain 1/6 against ForeAftShare 1/3: the long hanger damps it; LiftBatch CP-5, CP-6, CP-18). Zero on the dock runs
+  (the station track: s < BaseRunM or s > L - TopRunM, "guided"), ramped in after them over R = max(10 m, 2 s x speed) (tram: 20 m);
+  the sway argument is the path distance s (continuous through a reversal and a hold).
+  Wind: one `CarrierWind` per base station, sampled at the path's middle (`PollTramWind`, the same synchronous `GetMap` / `GetWind`
+  read as ChairPinSystem's, CellMapSystem.cs:154-158, WindSystem.cs:68-80) every 512 render frames, on the pass after a rebuild, and at
+  once while a split run's wind is unknown (before the pass poses: the first sample is the start value; a late one blends in from zero,
+  LiftBatch CP-17); stamped only when something was sampled. Blended over 4 s. A read failure: one "!!!" ERROR per load, the cabins
+  keep their last wind.
+- **Parked** (`ParkCarriage` = `CarrierPose.GripOnBody`, CP-16): the cabin's hosted pose and the carriage assembled above it, position =
+  cabin + R x (BodyPin - GripPin), the cabin's rotation: no pitch, no swing, the parked picture of the one-piece cabin.
+- **Toggle off** ("Animated lift carriers"): the carriage stays level, no swing (the rigid pose split in two).
 ## Scheduling (Mod.cs; load-bearing)
 
 `UpdateAfter<TramShuttleSystem, LiftCensusSystem>(Modification4B)`: census -> this -> ChairPinSystem (UpdateSystem.cs:178-181,

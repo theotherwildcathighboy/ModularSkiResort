@@ -86,6 +86,7 @@ namespace SkiResortMod.Systems
         private readonly Dictionary<Entity, float> m_CarrierGripTops = new Dictionary<Entity, float>();
         private readonly Dictionary<Entity, float> m_CarrierDrops = new Dictionary<Entity, float>();
         private readonly Dictionary<Entity, LiftTypeDef> m_CarrierTypes = new Dictionary<Entity, LiftTypeDef>();
+        private readonly Dictionary<Entity, LiftTypeDef> m_GripTypes = new Dictionary<Entity, LiftTypeDef>();
         private readonly HashSet<Entity> m_Stations = new HashSet<Entity>();
         private readonly Dictionary<Entity, StationDef> m_StationDefs = new Dictionary<Entity, StationDef>();
         private readonly HashSet<Entity> m_Lodges = new HashSet<Entity>();
@@ -118,6 +119,7 @@ namespace SkiResortMod.Systems
         private bool m_PendingFoundLogged;       // this load
         private readonly HashSet<string> m_NoBoundsWarned = new HashSet<string>(StringComparer.Ordinal);   // this load
         private readonly HashSet<string> m_HangWarned = new HashSet<string>(StringComparer.Ordinal);       // this load
+        private readonly HashSet<string> m_SplitLogged = new HashSet<string>(StringComparer.Ordinal);      // this load
 
         /// <summary>++ per resolution; consumers that cache derived state compare it.</summary>
         internal int Generation
@@ -201,6 +203,14 @@ namespace SkiResortMod.Systems
         internal IReadOnlyDictionary<Entity, LiftTypeDef> CarrierTypes
         {
             get { EnsureFresh(); return m_CarrierTypes; }
+        }
+
+        /// <summary>LIVE VIEW: grip prefab entity (the carrier grip round; FOUND grips only) → its lift type row. A type with a found grip is
+        /// SPLIT: its carriers are bodies whose CarrierGripTops / CarrierDrops come from the pivots (BuildViews), and ChairPinSystem /
+        /// TramShuttleSystem pair each body with its grip. Grips are NOT carriers: never in CarrierGripTops (roster, census, counts).</summary>
+        internal IReadOnlyDictionary<Entity, LiftTypeDef> GripTypes
+        {
+            get { EnsureFresh(); return m_GripTypes; }
         }
 
         /// <summary>The lift marker (stub) PowerLinePrefab entity; Entity.Null when MISSING.</summary>
@@ -429,6 +439,7 @@ namespace SkiResortMod.Systems
                 m_PendingFoundLogged = false;
                 m_NoBoundsWarned.Clear();
                 m_HangWarned.Clear();
+            m_SplitLogged.Clear();
                 m_Loads++;
             }
             catch (Exception e)
@@ -721,6 +732,13 @@ namespace SkiResortMod.Systems
                     if (!m_LineTypes.ContainsKey(line))
                         m_LineTypes.Add(line, def);
                 }
+                // The carrier grip round: a FOUND grip prefab makes the type SPLIT (the surgery that makes the grip also gives the carrier
+                // its body mesh). A split carrier's bounds end at the pin, not at the grip top, so its views come from the pivots: the
+                // assembled grip top = RigidDrop + GripTopAboveRopeM (CT-17: = HangM), the drop = RigidDrop; no hang-drift check.
+                NameSlot gripSlot = def.GripPrefab != null ? SlotOf(def.GripPrefab) : null;
+                bool split = gripSlot != null && gripSlot.Found != Entity.Null;
+                if (split && !m_GripTypes.ContainsKey(gripSlot.Found))
+                    m_GripTypes.Add(gripSlot.Found, def);
                 for (int c = 0; c < def.Carriers.Count; c++)
                 {
                     CarrierDef carrier = def.Carriers[c];
@@ -734,6 +752,21 @@ namespace SkiResortMod.Systems
                     // PIPELINE §1). Read at runtime so future carrier meshes re-derive automatically.
                     if (EntityManager.TryGetComponent(cs.Found, out ObjectGeometryData geometry) && geometry.m_Bounds.max.y > 0f)
                     {
+                        if (split)
+                        {
+                            cs.GripTop = def.Pivots.RigidDrop + carrier.GripTopAboveRopeM;
+                            if (!m_CarrierGripTops.ContainsKey(cs.Found))
+                            {
+                                m_CarrierGripTops.Add(cs.Found, cs.GripTop);
+                                m_CarrierDrops.Add(cs.Found, def.Pivots.RigidDrop);
+                                m_CarrierTypes.Add(cs.Found, def);
+                            }
+                            if (m_SplitLogged.Add(cs.Name))
+                                Mod.Log.Info($"PrefabCatalog: carrier '{cs.Name}' is SPLIT (grip '{def.GripPrefab}' found): body bounds top " +
+                                             $"{F(geometry.m_Bounds.max.y, "0.000")} m, drop {F(def.Pivots.RigidDrop, "0.000")} m from the pivots " +
+                                             $"(body pin {F(def.Pivots.BodyPin.y, "0.000")} m)");
+                            continue;
+                        }
                         cs.GripTop = geometry.m_Bounds.max.y;
                         if (!m_CarrierGripTops.ContainsKey(cs.Found))
                         {
@@ -949,6 +982,11 @@ namespace SkiResortMod.Systems
                             sb.Append(" — DIFFERS");
                     }
                     break;
+                case CatalogKind.Grip:
+                    LiftTypeDef gripOwner = SkiCatalog.ByGripPrefab(s.Name);
+                    if (gripOwner != null)
+                        sb.Append("; ").Append(gripOwner.Id).Append(", split: drop ").Append(F(gripOwner.Pivots.RigidDrop, "0.000")).Append(" m");
+                    break;
                 case CatalogKind.Station:
                     StationDef st = SkiCatalog.StationByPrefab(s.Name);
                     if (st != null)
@@ -1060,6 +1098,7 @@ namespace SkiResortMod.Systems
             m_CarrierGripTops.Clear();
             m_CarrierDrops.Clear();
             m_CarrierTypes.Clear();
+            m_GripTypes.Clear();
             m_Stations.Clear();
             m_StationDefs.Clear();
             m_Lodges.Clear();
@@ -1109,6 +1148,7 @@ namespace SkiResortMod.Systems
             {
                 case CatalogKind.Line: return "line";
                 case CatalogKind.Carrier: return "carrier";
+                case CatalogKind.Grip: return "grip";
                 case CatalogKind.Marker: return "marker";
                 case CatalogKind.Station: return "station";
                 case CatalogKind.Lodge: return "lodge";

@@ -84,6 +84,8 @@
   "Options.OPTION_DESCRIPTION[SkiResortMod.SkiResortMod.Mod.SkiResortSettings.LiftBuildAids]": "Guide line and offset readout while placing a station; a warning on the bulldozer showing what a click on a lift removes. Default on.",
   "Options.OPTION[SkiResortMod.SkiResortMod.Mod.SkiResortSettings.LiftTowerPlanner]": "Plan lift towers",
   "Options.OPTION_DESCRIPTION[SkiResortMod.SkiResortMod.Mod.SkiResortSettings.LiftTowerPlanner]": "After you draw or change a lift line, its towers are raised and moved along the line so the chairs and cabins stay at least 3 m above the ground (trams 5 m). Off: the towers stay where the game puts them. Default on.",
+  "Options.OPTION[SkiResortMod.SkiResortMod.Mod.SkiResortSettings.AnimatedLiftCarriers]": "Animated lift carriers",
+  "Options.OPTION_DESCRIPTION[SkiResortMod.SkiResortMod.Mod.SkiResortSettings.AnimatedLiftCarriers]": "Grips follow the slope of the rope, and chairs and cabins swing in the wind. Off: they hang level and still. Default on.",
   "Options.GROUP[SkiResortMod.SkiResortMod.Mod.Diagnostics]": "Diagnostics",
   "Options.OPTION[SkiResortMod.SkiResortMod.Mod.SkiResortSettings.DiagnosticMeasurements]": "Measurement diagnostics",
   "Options.OPTION_DESCRIPTION[SkiResortMod.SkiResortMod.Mod.SkiResortSettings.DiagnosticMeasurements]": "For field tests, off by default. Turns on extra measurements that cost a little frame time (a daily ski-day measurement pass and the Ctrl+Alt+G slope capture file). Leave it off for normal play. Default off.",

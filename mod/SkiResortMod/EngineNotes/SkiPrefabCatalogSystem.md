@@ -62,6 +62,12 @@ the first catalog call of a frame, and every call that hands out a view is such 
 cannot be invalidated within the frame. Consumer rule: fetch the view once, before the chunk loop; use `TryGetValue` / `Contains`
 inside it, never a per-entity member call in a loop over every building.
 
+`GripTypes` (the carrier grip round): grip prefab entity -> its LiftTypeDef, filled only for the grips FOUND this load. A type in it
+is SPLIT: its carrier is a body (ChairPinSystem / TramShuttleSystem pose body + grip, EngineNotes/ChairPinSystem.Mover.md "Grips and
+swing"), and its CarrierDrops / virtual grip top come from the catalog pivots (`CarrierPivots.RigidDrop`, + GripTopAboveRopeM),
+not from the body mesh's bounds (the body alone is shorter than the one-piece carrier; the hang-drift WARN is skipped for it). One
+INFO per type per load names the split. A grip is never in `CarrierGripTops` / `CarrierTypes`.
+
 ## Log contract
 
 Silence must be impossible (ChairPinSystem header):

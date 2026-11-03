@@ -27,6 +27,8 @@
     <Compile Include="..\..\mod\SkiResortMod\Systems\LiftLoopCache.cs" Link="LiftLoopCache.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\LiftLoopTopology.cs" Link="LiftLoopTopology.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\LiftLoopSampler.cs" Link="LiftLoopSampler.cs" />
+    <!-- the carrier grip round: the two-object pose and the swing (B-5) -->
+    <Compile Include="..\..\mod\SkiResortMod\Systems\CarrierPose.cs" Link="CarrierPose.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\LiftMoverMath.cs" Link="LiftMoverMath.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\ShuttleProfile.cs" Link="ShuttleProfile.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiCatalog.cs" Link="SkiCatalog.cs" />

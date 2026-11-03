@@ -74,6 +74,7 @@ namespace SkiResortMod.Settings
         public const bool DefaultGroomers = true;
         public const bool DefaultDiagnosticMeasurements = false;
         public const bool DefaultPlannerOnMainThread = false;
+        public const bool DefaultAnimatedLiftCarriers = true;
         public const bool DefaultBookTicketsAsFees = true;
         public const int DefaultSeasonPassShare = SkiMoneyRules.PassShareDefault;
         public const int DefaultSeasonPassMultiplier = SkiMoneyRules.PassMultiplierDefault;
@@ -339,6 +340,15 @@ namespace SkiResortMod.Settings
         [SettingsUISection(SectionMain, GroupLifts)]
         public bool LiftTowerPlanner { get; set; }
 
+        /// <summary>The carrier grip round: on, each split carrier's grip pitches with the rope and its body (chair or cabin) swings in the
+        /// wind (CarrierPose); off, the grip keeps the level yaw-only pose and the body hangs rigid (nothing else changes). Lift types whose
+        /// grip prefab is not in the game are rigid either way. Read live by ChairPinSystem and TramShuttleSystem (one read per pass).</summary>
+        [SettingsUISection(SectionMain, GroupLifts)]
+        public bool AnimatedLiftCarriers { get; set; }
+
+        /// <summary>Null-tolerant read for the movers</summary>
+        public static bool AnimatedLiftCarriersOn => Mod.Settings?.AnimatedLiftCarriers ?? DefaultAnimatedLiftCarriers;
+
 
         /// <summary>Measurement scaffolding for field tests, off by default and for every player: the midday measurement re-arm and the
         /// measure-only ResidentAI pass in SkiDaySystem / SkiGuestCounterSystem / SkiLodgeParkingSystem (they force main-thread syncs
@@ -485,6 +495,7 @@ namespace SkiResortMod.Settings
             OpenHubOnSignSelect = true;
             LiftBuildAids = true;
             LiftTowerPlanner = true;
+            AnimatedLiftCarriers = DefaultAnimatedLiftCarriers;
             DiagnosticMeasurements = DefaultDiagnosticMeasurements;
             PlannerOnMainThread = DefaultPlannerOnMainThread;
             // Key bindings are deliberately absent: the base constructor generated them (ModSetting.cs:43, 56-64) before this runs

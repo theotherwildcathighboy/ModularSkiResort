@@ -46,6 +46,8 @@ namespace SkiResortMod.Systems
                     : "unresolved (no game loaded yet)";
             }));
             list.Add(Val("Chair prefabs resolved", () => m_PrefabCatalog.CarrierGripTops.Count));
+            list.Add(Val("Grips: split types / paired / unpaired / enrolled (last rebuild)", () =>
+                $"{m_PrefabCatalog.GripTypes.Count} / {m_DiagGripsPaired} / {m_DiagGripsUnpaired} / {m_DiagGripEnrolled}, animated {(AnimatedOn ? "on" : "off")}"));
             list.Add(Val("Prefab catalog load / generation", () => $"{m_PrefabCatalog.Loads} / {m_PrefabCatalog.Generation}"));
             list.Add(Val("System enabled", () => Enabled));
             list.Add(Val("Disabled by exception", () => m_Disabled));
@@ -412,7 +414,7 @@ namespace SkiResortMod.Systems
                 sb.AppendLine($"  cache dirty={m_LoopCacheDirty} cooldown={m_RebuildCooldown} retries={m_EmptyRosterRetries} " +
                               $"rebuilds={m_DiagRebuilds} lastRebuildFrame={m_DiagLastRebuildFrame} " +
                               $"lanesMatched={m_DiagLanesMatched} lanesTotal={m_DiagLaneTotal} stations={m_DiagStations} " +
-                              $"chairsMatched={m_DiagChairsMatched} enrolled={m_DiagEnrolled} staticFallback={m_StaticFallbackChairs} " +
+                              $"chairsMatched={m_DiagChairsMatched} enrolled={m_DiagEnrolled} gripsPaired={m_DiagGripsPaired} gripsUnpaired={m_DiagGripsUnpaired} staticFallback={m_StaticFallbackChairs} " +
                               $"hadLanes={m_LastBuildHadLanes}");
                 sb.AppendLine($"  chains={m_LoopCache.m_ChainCount} unclosed={m_LoopCache.m_UnclosedChainCount} loops={m_LoopCache.m_Loops.Count} " +
                               $"signature=\"{m_LastBuildSignature ?? "-"}\"");

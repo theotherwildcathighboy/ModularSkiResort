@@ -37,6 +37,17 @@ Every NAME carries its own Expected flag. false = "pending": the prefab is desig
   never reads repo files), LiftBatch CT-11 compares the two.
 - tests/ResortBatch CatalogGuardTests: alias == row == const, and the locale texts against these numbers.
 
+## Grips and pivots (the carrier grip round)
+Each lift type names a GRIP prefab (`GripPrefab`, kind Grip = 11, its own Expected flag `GripExpected`, pending until the art
+import) and the split carrier's pivots (`CarrierPivots`, prefab-local meters, base-pivot meshes: GripRope = the rope point in the grip's
+frame, GripPin = the pin center in the grip's frame, BodyPin = the pin center in the body's frame). `RigidOffset` = BodyPin + GripRope -
+GripPin is the rope point in the body's frame at zero pitch and swing; it must equal (0, HangM - GripTopAboveRopeM, 0) (LiftBatch
+CT-17), the one-piece carrier's rigid drop. A grip is not a carrier (never in the carrier views, DeleteAllRules skips the kind), and the
+row's `Expected` does not include the grip: a pending grip never makes a lift type pending. The pivots are the split build's
+(lift_chair.py / lift_cabin.py --split, its build.md; the source comments on each row give the meshes and the CT-17 sum); the proposed
+carriers.json fields are `grip_rope_m`, `grip_pin_m`, `body_pin_m` per carrier (CT-11 would then compare them). The pivots also set each
+type's roll limits (`CarrierPose.Limits`: the lever ratio |BodyPin.xy| / |RigidOffset.xy|, LiftBatch CP-18).
+
 ## The static constructor never throws
 A TypeInitializationException would take down every system that touches the class. Every sanity finding goes to `Problems`, which
 `SkiPrefabCatalogSystem.OnCreate` logs as "!!!" and LiftBatch CT-1 fails on. Nothing allocates after the static constructor.

@@ -9,9 +9,9 @@
     UnityMathematics.NoDeps 1.3.2 matches the toolchain's com.unity.mathematics@1.3.2.
     The loop cache's GEOMETRY needs Game types (Colossal.Mathematics, PathNode, Entity) and is not tested here; its topology pass is
     the pure LiftLoopTopology.cs (LoopCacheTests.cs). SkiCatalog (pure) is linked because StationAlign and LiftServedRule alias it;
-    CatalogTests.cs holds CT-1 to CT-16 (sanity, frozen-name oracle, NAMES and hub-literal text parses, resolver lifetime, the
+    CatalogTests.cs holds CT-1 to CT-17 (sanity, frozen-name oracle, NAMES and hub-literal text parses, resolver lifetime, the
     carriers.json parse CT-11 with System.Text.Json, the gamedata-mirror drift CT-12, pending tokens CT-13, the BUILD-ITEMS table
-    CT-14, EvenSpacing CT-15 and its sanity twin CT-16); LiftTypeTests.cs holds LT-1 to LT-10. PowerGateTests.cs (PG-0 to PG-4)
+    CT-14, EvenSpacing CT-15, its sanity twin CT-16 and the grips / pivots CT-17); LiftTypeTests.cs holds LT-1 to LT-10. PowerGateTests.cs (PG-0 to PG-4)
     and LoopHoldTests.cs (LH-1 to LH-4) cover the pure LiftLoopHold.cs.
   -->
   <PropertyGroup>
@@ -72,6 +72,9 @@
     <!-- lift alignment (G1 / G2): the rope-point drop and the train pitch math -->
     <Compile Include="..\..\mod\SkiResortMod\Systems\LiftAlignMath.cs" Link="LiftAlignMath.cs" />
     <Compile Include="AlignTests.cs" />
+    <!-- the carrier grip round: the two-object carrier pose (grip + body), the swing and the pairing math (CP-1..CP-14) -->
+    <Compile Include="..\..\mod\SkiResortMod\Systems\CarrierPose.cs" Link="CarrierPose.cs" />
+    <Compile Include="CarrierPoseTests.cs" />
     <!-- plan bends at towers (census row, hub number, tool joint): the LiftBend warning -->
     <Compile Include="BendTests.cs" />
     <!-- The vanilla HV join refusal rule (PowerJoinRefusalSystem). -->

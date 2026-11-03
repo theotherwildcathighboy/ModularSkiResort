@@ -6,6 +6,9 @@
 //   B-1 correctness: LiftLoopSampler.Sample on the flat arrays == LiftLoopCache.Sample bit for bit, and Pose == MoveChair's pose, for
 //       every chair at three clocks (Burst may contract float ops differently); B-2 / B-3 the managed per-chair pass vs the flat
 //       MoveChairsJob kernel (p50 / p95 / max over 600 passes; one thread, then Parallel.For batch 64); B-4 pace: four camera scenarios.
+//   B-5 the carrier grip round (the brief's "B-2 case", numbered on): 2,000 carriers with grips + swing through the split kernel
+//       (one sample, two Transforms) vs the rigid kernel on the same carriers, and its correctness (toggle off == the rigid pose,
+//       grip axis along the rope, zero swing on guided segments, the free-run marks).
 
 using System;
 using System.Collections.Generic;
@@ -30,6 +33,13 @@ namespace MoverBench
         {
             public FlatSegment[] A;
             public FlatSegment Get(int index) => A[index];
+        }
+
+        private struct ArrayStore : IFlatSegmentStore
+        {
+            public FlatSegment[] A;
+            public FlatSegment Get(int index) => A[index];
+            public void Set(int index, FlatSegment value) => A[index] = value;
         }
 
         private sealed class Lift
@@ -85,6 +95,7 @@ namespace MoverBench
             B1Correctness(loops, chairArray, segs, segFirst);
             B2B3Timing(loops, chairArray, segs, segFirst);
             B4Pace(loops, chairArray, boxMin, boxMax);
+            B5Grips(loops, chairArray, segs, segFirst);
 
             Console.WriteLine($"SUMMARY  MoverBench checks={s_Checks} failures={s_Failures}");
             Environment.ExitCode = s_Failures;
@@ -321,15 +332,177 @@ namespace MoverBench
                 transforms[c] = t;
         }
 
+        // ---- B-5: the carrier grip round ----
+
+        /// <summary>The per-loop swing inputs (ChairPinSystem.SwingInputs' twin).</summary>
+        private struct LoopSwing
+        {
+            public CarrierPivots Pivots;
+            public SwingLimits Limits;
+            public float Omega, RampM, Speed;
+        }
+
+        /// <summary>The step-0 wind sample (SampleWind at the field-test city, units UNVERIFIED).</summary>
+        private static readonly float2 BenchWind = new float2(0.31f, 0.05f);
+
+        private static void B5Grips(List<LiftLoopCache.Loop> loops, Chair[] chairs, ArraySegments segs, int[] segFirst)
+        {
+            const string W = "bench/B-5";
+            // The free-run marks, as EnsureMoverArrays sets them.
+            var store = new ArrayStore { A = (FlatSegment[])segs.A.Clone() };
+            var swingOf = new LoopSwing[loops.Count];
+            int guidedSegs = 0, loopsWithoutGuided = 0;
+            for (int l = 0; l < loops.Count; l++)
+            {
+                int count = loops[l].m_Segments.Count;
+                LiftLoopSampler.MarkRuns(ref store, segFirst[l], count);
+                int g = 0;
+                for (int s = 0; s < count; s++)
+                    g += store.A[segFirst[l] + s].Guided;
+                guidedSegs += g;
+                if (g == 0)
+                    loopsWithoutGuided++;
+                LiftTypeDef def = SkiCatalog.LiftByIndex(loops[l].m_TypeIndex);
+                CarrierPivots pv = def != null ? def.Pivots : default;
+                swingOf[l] = new LoopSwing
+                {
+                    Pivots = pv,
+                    Limits = def != null ? CarrierPose.Limits(pv, def.Mover == MoverKind.Shuttle) : default,
+                    Omega = CarrierPose.Omega(pv.BodyPin.y),
+                    RampM = CarrierPose.RampM((float)loops[l].m_SpeedMps),
+                    Speed = (float)loops[l].m_SpeedMps,
+                };
+            }
+            Check(loopsWithoutGuided == 0, W, $"{loopsWithoutGuided} loop(s) without a guided segment (arcs / terminal runs)");
+            var marked = new ArraySegments { A = store.A };
+            int n = Math.Min(2000, chairs.Length);
+
+            // Correctness at three clocks: toggle off == the rigid pose (1e-4 m), the grip axis along the rope (0.1 deg), no swing on a
+            // guided segment, the swing within the clamps.
+            int badRigid = 0, badAxis = 0, badJoint = 0, badGuided = 0, badClamp = 0, onGuided = 0, compared = 0, rolled = 0;
+            foreach (double timeS in new[] { 0.0, 1234.5678, 7.16e7 / 3.0 })
+            {
+                for (int c = 0; c < n; c++)
+                {
+                    Chair ch = chairs[c];
+                    LiftLoopCache.Loop loop = loops[ch.Loop];
+                    LoopSwing ls = swingOf[ch.Loop];
+                    double s = LiftMoverMath.LoopPosition(ch.Offset, loop.m_SpeedMps, timeS, loop.m_Length);
+                    LiftLoopSampler.Sample(ref marked, segFirst[ch.Loop], loop.m_Segments.Count, s, out float3 p, out float3 tan,
+                                           out int seg, out float d);
+                    quaternion yaw = NetUtils.GetNodeRotation(tan, quaternion.identity);
+                    FlatSegment f = marked.A[seg];
+                    float2 ramp = CarrierPose.Ramp(CarrierPose.DistanceToGuided(f.Guided != 0, d, f.Length, f.RunBefore, f.RunAfter), ls.RampM);
+                    float2 swing = CarrierPose.Swing(BenchWind, yaw, CarrierPose.SwayArg(s, ls.Omega, ls.Speed, CarrierPose.SeedPhase((uint)c)), ramp, ls.Limits);
+                    compared++;
+                    if (f.Guided != 0)
+                    {
+                        onGuided++;
+                        if (swing.x != 0f || swing.y != 0f)
+                            badGuided++;
+                    }
+                    if (math.abs(swing.x) > ls.Limits.MaxRoll || math.abs(swing.y) > CarrierPose.MaxForeAft)
+                        badClamp++;
+                    CarrierPose.Pose(p, tan, yaw, ls.Pivots, false, float2.zero, out _, out _, out float3 rigidBody, out quaternion rigidRot);
+                    var t = new Transform(new float3(1f, 2f, 3f), quaternion.identity);
+                    LiftLoopSampler.Pose(p, tan, ls.Pivots.RigidDrop, ref t);
+                    if (math.distance(rigidBody, t.m_Position) > 1e-4f || math.abs(math.dot(rigidRot, t.m_Rotation)) < 0.99999f)
+                        badRigid++;
+                    // Under the full swing: the grip's axis stays along the rope (the roll turns about the rope tangent) and the pin
+                    // joint holds (1 mm: city coordinates, a float step of 0.1 mm or more).
+                    CarrierPose.Pose(p, tan, yaw, ls.Pivots, true, swing, out float3 gripPos, out quaternion gripRot, out float3 bodyPos,
+                                     out quaternion bodyRot);
+                    float3 fwd = math.rotate(gripRot, new float3(0f, 0f, 1f));
+                    if (math.degrees(math.acos(math.clamp(math.abs(math.dot(fwd, math.normalize(tan))), 0f, 1f))) > 0.1f)
+                        badAxis++;
+                    if (CarrierPose.PinGap(gripPos, gripRot, bodyPos, bodyRot, ls.Pivots) > 1e-3f)
+                        badJoint++;
+                    if (swing.x != 0f)
+                        rolled++;
+                }
+            }
+            Check(badRigid == 0, W, $"{badRigid} of {compared} toggle-off bodies off the rigid pose");
+            Check(badAxis == 0 && rolled > 0, W, $"{badAxis} of {compared} grips off the rope axis by more than 0.1 deg ({rolled} rolled)");
+            Check(badJoint == 0, W, $"{badJoint} of {compared} pin joints open by more than 1 mm under the swing");
+            Check(badGuided == 0 && onGuided > 0, W, $"{badGuided} of {onGuided} carriers on a guided segment swing");
+            Check(badClamp == 0, W, $"{badClamp} swings over the clamps");
+            Console.WriteLine($"INFO  {W}: {compared} split poses checked ({onGuided} on guided segments, {guidedSegs} guided segment(s) " +
+                              $"over {loops.Count} loops)");
+
+            // Timing: the rigid kernel vs the split kernel (grips + swing) on the same n carriers.
+            var bodies = new Transform[n];
+            var grips = new Transform[n];
+            var samples = new float[Passes];
+            double dt = 1.0 / 60.0, clock = 9000.0;
+            for (int pass = -Warmup; pass < Passes; pass++)
+            {
+                clock += dt;
+                long t0 = Stopwatch.GetTimestamp();
+                for (int c = 0; c < n; c++)
+                    Kernel(ref segs, loops, segFirst, chairs, bodies, c, clock);
+                if (pass >= 0)
+                    samples[pass] = Ms(t0);
+            }
+            float rigidP50 = Report($"B-5 rigid (today's kernel, {n} carriers, one thread, JIT)", samples, n);
+            for (int pass = -Warmup; pass < Passes; pass++)
+            {
+                clock += dt;
+                long t0 = Stopwatch.GetTimestamp();
+                for (int c = 0; c < n; c++)
+                    SplitKernel(ref marked, loops, segFirst, chairs, swingOf, bodies, grips, c, clock);
+                if (pass >= 0)
+                    samples[pass] = Ms(t0);
+            }
+            float splitP50 = Report($"B-5 split (grips + swing: one sample, two Transforms, {n} carriers, one thread, JIT)", samples, n);
+
+            // The plan's budget (carrier-pivot-swing-plan section 4): grips + swing may add <= 0.5 ms of worker time at 2,000 carriers on
+            // the mid-range estimate = this machine's single-thread time x MidRangeFactor (UNVERIFIED factor). Scaled to 2,000 when the
+            // resort has fewer carriers. JIT, not Burst: conservative. The main-thread half (<= 0.1 ms: the wind poll, the grip tags) has
+            // no bench twin; the in-game [cost] line measures it.
+            const float MidRangeFactor = 2f, WorkerBudgetMs = 0.5f;
+            float addedMs = math.max(0f, splitP50 - rigidP50) * (2000f / n) * MidRangeFactor;
+            Check(addedMs <= WorkerBudgetMs, W, string.Format(CultureInfo.InvariantCulture,
+                "grips + swing add {0:F3} ms of worker time at 2,000 carriers on the mid-range estimate (budget {1:F1} ms)", addedMs, WorkerBudgetMs));
+            Console.WriteLine(string.Format(CultureInfo.InvariantCulture,
+                "BENCH B-5 budget: grips + swing add {0:F3} ms per pass at 2,000 carriers on the mid-range estimate (x{1:F0}; budget {2:F1} ms worker)",
+                addedMs, MidRangeFactor, WorkerBudgetMs));
+        }
+
+        /// <summary>MoveChairsJob.Execute's split branch (ChairPinSystem.Mover.cs), minus the ECS lookups.</summary>
+        private static void SplitKernel(ref ArraySegments segs, List<LiftLoopCache.Loop> loops, int[] segFirst, Chair[] chairs,
+            LoopSwing[] swingOf, Transform[] bodies, Transform[] grips, int c, double timeS)
+        {
+            Chair ch = chairs[c];
+            LiftLoopCache.Loop loop = loops[ch.Loop];
+            LoopSwing ls = swingOf[ch.Loop];
+            double s = (ch.Offset + loop.m_SpeedMps * timeS) % loop.m_Length;
+            LiftLoopSampler.Sample(ref segs, segFirst[ch.Loop], loop.m_Segments.Count, s, out float3 p, out float3 tan, out int seg, out float d);
+            Transform body = bodies[c];
+            quaternion yaw = NetUtils.GetNodeRotation(tan, body.m_Rotation);
+            FlatSegment f = segs.A[seg];
+            float2 ramp = CarrierPose.Ramp(CarrierPose.DistanceToGuided(f.Guided != 0, d, f.Length, f.RunBefore, f.RunAfter), ls.RampM);
+            float2 swing = float2.zero;
+            if (ramp.x > 0f || ramp.y > 0f)
+                swing = CarrierPose.Swing(BenchWind, yaw, CarrierPose.SwayArg(s, ls.Omega, ls.Speed, 0.37f * c), ramp, ls.Limits);
+            CarrierPose.Pose(p, tan, yaw, ls.Pivots, true, swing, out float3 gp, out quaternion gr, out float3 bp, out quaternion br);
+            if (LiftLoopSampler.Write(bp, br, ref body) == LiftLoopSampler.Moved)
+                bodies[c] = body;
+            Transform grip = grips[c];
+            if (LiftLoopSampler.Write(gp, gr, ref grip) == LiftLoopSampler.Moved)
+                grips[c] = grip;
+        }
+
         private static float Ms(long t0) => (float)((Stopwatch.GetTimestamp() - t0) * 1000.0 / Stopwatch.Frequency);
 
-        private static void Report(string what, float[] samples, int chairs)
+        /// <summary>Prints one BENCH line; returns the p50 (ms).</summary>
+        private static float Report(string what, float[] samples, int chairs)
         {
             var scratch = new List<float>();
             LiftMoverMath.Percentiles(samples, samples.Length, scratch, out float p50, out float p95, out float max);
             Console.WriteLine(string.Format(CultureInfo.InvariantCulture,
                 "BENCH {0}: p50 {1:F3} / p95 {2:F3} / max {3:F3} ms per pass over {4} chairs ({5:F3} us/chair at p50)",
                 what, p50, p95, max, chairs, p50 * 1000.0 / chairs));
+            return p50;
         }
 
         private static void B4Pace(List<LiftLoopCache.Loop> loops, Chair[] chairs, float3[] boxMin, float3[] boxMax)

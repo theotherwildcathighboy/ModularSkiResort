@@ -78,7 +78,19 @@ $rows = @(
     @('SUB-5', 'Game.Objects\SubObjectSystem.cs',
       'case PillarType\.Standalone:\s*flags \|= SubObjectFlags\.AnchorTop;\s*flags \|= SubObjectFlags\.OnGround;\s*break;[\s\S]{0,400}?\.m_Bounds\.max\.y -= \w+\.m_PlacementOffset\.y;\s*\w+\.m_Position\.y -= \w+\.m_Bounds\.max\.y;',
       'a standalone tower is top-anchored: pivot = node y + spec y - member top (SubObjectSystem.cs:2464-2469; PIPELINE row 339)'),
-
+    @('SUB-6', 'Game.Objects\SubObjectSystem.cs',
+      'int \w+ = \w+ \* \w+\.Length \+ \w+;\s*CreateSubObject\(jobIndex, ref random, ref subRandom,',
+      'an EvenSpacing sub-object''s align index = slot x row count + row (SubObjectSystem.cs:1751): ChairPinSystem pairs a carrier body with its grip by (edge, slot, side) from it (carrier grip round)'),
+    @('SUB-7', 'Game.Objects\SubObjectSystem.cs',
+      'm_CommandBuffer\.AddComponent\(jobIndex, entity, new Aligned\(\(ushort\)alignIndex\)\);',
+      'the align index is stored as Aligned.m_SubObjectIndex on the new sub-object (SubObjectSystem.cs:2894): what the grip pairing reads'),
+    # --- wind (the carrier swing reads the map on the main thread) ---
+    @('WIND-1', 'Game.Simulation\WindSystem.cs',
+      'public static readonly int kUpdateInterval = 512;[\s\S]*?public static Wind GetWind\(float3 position, NativeArray<Wind> windMap\)\s*\{\s*int2 cell = CellMapSystem<Wind>\.GetCell\(',
+      'the wind map changes every 512 frames and GetWind is the bilinear map sample (WindSystem.cs:45, :69-80): ChairPinSystem / TramShuttleSystem poll it at that cadence for the carrier swing'),
+    @('WIND-2', 'Game.Simulation\CellMapSystem.cs',
+      'public NativeArray<T> GetMap\(bool readOnly, out JobHandle dependencies\)\s*\{\s*dependencies = \(readOnly \? m_WriteDependencies',
+      'GetMap(readOnly) hands out the writers'' handle (CellMapSystem.cs:154-158): the swing completes it and reads synchronously, so it needs no AddReader'),
     # --- rope lanes: the anchor rewrite that closes the cable loop on a station stub, and sag ---
     @('LANE-1', 'Game.Net\LaneSystem.cs',
       'private bool FindAnchor\(ref float3 position, ref PathNode pathNode, Entity prefab, NativeList<LaneAnchor> anchors\)\s*\{[\s\S]{0,900}?if \(value\.m_Prefab == prefab\)[\s\S]{0,300}?position = value\.m_Position;\s*pathNode = value\.m_PathNode;',
