@@ -10,7 +10,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { RefObject } from "react";
 import { useValue } from "cs2/api";
 import { Button } from "cs2/ui";
-import { NULL_ENTITY, city$, entityId, hubTriggers, lifts$, pisteMap$, quickRuns$, runLive$, runs$, selectedResort$ } from "../bindings";
+import { NULL_ENTITY, city$, drawRun$, entityId, hubTriggers, lifts$, pisteMap$, quickRuns$, runLive$, runs$, selectedResort$ } from "../bindings";
 import type { RunRow } from "../bindings";
 import { useT } from "../l10n";
 import { runLiveMap } from "./hubRules";
@@ -19,7 +19,7 @@ import { HUB_LOC, RUN_STATE_TEXT } from "./hubText";
 import { CheckBox, Divider, Tip, cx, useNumberSamples } from "./parts";
 import { RunHeader, RunLine } from "./RunList";
 import { QuickRunsRows } from "./QuickRunsControls";
-import { RunPropRows } from "./RunPropControls";
+import { DrawRunRows, RunPropRows } from "./RunPropControls";
 import { TreeRows } from "./TreeControls";
 import { runsOf } from "./resortData";
 import styles from "./hub.module.scss";
@@ -35,6 +35,7 @@ export function RunsView({ listRef }: { listRef: RefObject<HTMLDivElement> }): J
   const city = useValue(city$);
   const focused = useValue(focused$);
   const quick = useValue(quickRuns$);
+  const draw = useValue(drawRun$);
   const [renaming, setRenaming] = useState<string | null>(null);
 
   const liveMap = useMemo(() => runLiveMap(runLive), [runLive]);
@@ -79,7 +80,8 @@ export function RunsView({ listRef }: { listRef: RefObject<HTMLDivElement> }): J
   return (
     <>
       {quick?.active ? <QuickRunsRows /> : <TreeRows />}
-      {!quick?.active && <RunPropRows row={rows.find((r) => r.entity && entityId(r.entity) === focusedId)} />}
+      {!quick?.active && (draw.active ? <DrawRunRows draw={draw} />
+        : <RunPropRows row={rows.find((r) => r.entity && entityId(r.entity) === focusedId)} />)}
       <Divider />
       <RunHeader t={t} samples={samples} pisteMap={toggle} />
       {rows.length === 0 ? (

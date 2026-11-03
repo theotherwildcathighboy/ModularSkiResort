@@ -172,5 +172,53 @@ namespace SkiResortMod.Systems
                 return 0;
             return GroomedPerHaMonth + (f.Snowmaking ? SnowmakingStepPerHaMonth : 0) + (f.Lights ? LightsStepPerHaMonth : 0);
         }
+
+        /// <summary>One piste's monthly upkeep by feature (R3, DECISIONS 578), the one rule SkiRunUpkeepSystem charges and the hub
+        /// shows. <paramref name="snowHa"/>: the billed hectares on which its guns make snow now (the injection's active mask), or the cold
+        /// hectares of a run without guns; <paramref name="coveredHa"/>: those plus the cold hectares of a gun run whose guns stopped at
+        /// depth (both capped at the plan area by the caller). Grooming and lights bill the covered hectares, snowmaking only the
+        /// hectares its guns raise: a gun run at depth still pays its grooming. Natural, unknown and cat tracks: zero (a cat track bills
+        /// by plan area elsewhere, SnowGunPlumeRules.TrackBilledHa).</summary>
+        public static RunUpkeep PisteUpkeep(RunFeatures f, float snowHa, float coveredHa)
+        {
+            RunUpkeep u = default;
+            if (!f.IsPiste || !f.Groomed)
+                return u;
+            float covered = Finite0(coveredHa > snowHa ? coveredHa : snowHa);
+            u.GroomedHa = covered;
+            u.Grooming = covered * GroomedPerHaMonth;
+            if (f.Snowmaking)
+            {
+                u.SnowmakingHa = Finite0(snowHa);
+                u.Snowmaking = u.SnowmakingHa * SnowmakingStepPerHaMonth;
+            }
+            if (f.Lights)
+            {
+                u.LitHa = covered;
+                u.Lights = covered * LightsStepPerHaMonth;
+            }
+            return u;
+        }
+
+        /// <summary>A cat track's lit hectares (R3 follow-up, DECISIONS 579): its plan area (m2) while it is lit and its season is on
+        /// (<paramref name="inSeason"/> = SkiSnowInjectionSystem.CatTrackGunsCanRun: the gun season and part of the track cold enough), at
+        /// LightsStepPerHaMonth, whatever its gun switch. The track has no texels, so the plan area stands in, as for its guns
+        /// (SnowGunPlumeRules.TrackBilledHa). 0 for a piste, an unlit track or a plan area that is not a finite positive number.</summary>
+        public static float TrackLitHa(RunFeatures f, float planAreaM2, bool inSeason)
+        {
+            if (!f.IsCatTrack || !f.Lights || !inSeason || float.IsNaN(planAreaM2) || float.IsInfinity(planAreaM2) || planAreaM2 <= 0f)
+                return 0f;
+            return planAreaM2 / 10000f;
+        }
+
+        private static float Finite0(float v) => float.IsNaN(v) || float.IsInfinity(v) || v < 0f ? 0f : v;
+    }
+
+    /// <summary>A piste's monthly upkeep split by feature (SkiRunUpkeepRates.PisteUpkeep): hectares and money per month.</summary>
+    public struct RunUpkeep
+    {
+        public float GroomedHa, SnowmakingHa, LitHa;
+        public float Grooming, Snowmaking, Lights;
+        public float Total => Grooming + Snowmaking + Lights;
     }
 }

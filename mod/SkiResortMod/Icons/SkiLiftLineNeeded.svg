@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg width="100%" height="100%" viewBox="0 0 128 128" version="1.1" xmlns="http://www.w3.org/2000/svg" style="fill-rule:evenodd;clip-rule:evenodd;stroke-linejoin:round;stroke-miterlimit:2;">
+    <!-- "Lift line needed": the vanilla warning diamond (same frame and yellow as PowerlineDisconnected.svg) with a
+         chairlift tower. The haul rope comes in from the left carrying a chair, passes the sheaves, and ends in a loose
+         hanging end on the right. Grays and oranges are the vanilla warning-icon palette. -->
+    <g transform="matrix(0.976563,0,0,0.976563,1.5,1.5)">
+        <path d="M64,0L128,64L64,128L0,64L64,0Z" style="fill:rgb(255,184,14);"/>
+        <clipPath id="_clip1">
+            <path d="M64,0L128,64L64,128L0,64L64,0Z"/>
+        </clipPath>
+        <g clip-path="url(#_clip1)">
+            <!-- ground shadow -->
+            <ellipse cx="66" cy="97" rx="19.5" ry="9" style="fill:rgb(63,63,63);"/>
+            <!-- tower post: tapered tube, lit left face, shaded right face, rounded foot -->
+            <path d="M59,96L66,97L66,38.5L61.5,38Z" style="fill:rgb(159,159,159);"/>
+            <path d="M66,97L73,96L70.5,38L66,38.5Z" style="fill:rgb(104,104,104);"/>
+            <ellipse cx="66" cy="96.4" rx="7" ry="2.4" style="fill:rgb(84,84,84);"/>
+            <!-- cross arm (sheave assembly): front face and lit top face -->
+            <path d="M42,33L88,33L88,39L42,39Z" style="fill:rgb(104,104,104);"/>
+            <path d="M42,33L88,33L90,30.5L44,30.5Z" style="fill:rgb(159,159,159);"/>
+            <!-- sheaves (rope wheels) under the arm ends -->
+            <circle cx="46" cy="42.5" r="4.6" style="fill:rgb(63,63,63);"/>
+            <circle cx="46" cy="42.5" r="1.8" style="fill:rgb(159,159,159);"/>
+            <circle cx="84" cy="42.5" r="4.6" style="fill:rgb(63,63,63);"/>
+            <circle cx="84" cy="42.5" r="1.8" style="fill:rgb(159,159,159);"/>
+            <!-- haul rope: sags in from the left edge, runs under the sheaves -->
+            <path d="M4,54Q26,47.5 46,46.1L84,46.1" style="fill:none;stroke:rgb(63,63,63);stroke-width:3.4px;stroke-linecap:round;"/>
+            <!-- loose end: past the right sheave the rope sags and hangs free -->
+            <path d="M84,46.1C93,46.1 98,51.5 98.5,59C99,66.5 96,72 92.5,75" style="fill:none;stroke:rgb(63,63,63);stroke-width:3.4px;stroke-linecap:round;"/>
+            <circle cx="92" cy="75.5" r="3" style="fill:rgb(63,63,63);"/>
+            <!-- chair on the rope, side view: hanger, frame, cushions -->
+            <path d="M25.5,48L29,48L29,61L25.5,61Z" style="fill:rgb(63,63,63);"/>
+            <path d="M22,59L27.5,59L27.5,73L43,73L43,78L22,78Z" style="fill:rgb(63,63,63);"/>
+            <path d="M22.8,59.8L26.7,59.8L26.7,73L22.8,73Z" style="fill:rgb(169,90,30);"/>
+            <path d="M22.8,73.8L42.2,73.8L42.2,77.2L22.8,77.2Z" style="fill:rgb(197,109,42);"/>
+        </g>
+    </g>
+</svg>

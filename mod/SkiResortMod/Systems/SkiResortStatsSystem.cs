@@ -61,8 +61,9 @@ namespace SkiResortMod.Systems
                    PaidThisMonth, UnpaidThisMonth, FreeThisMonth, TicketsThisMonth;
         public int GuestsLastMonth, TouristsLastMonth, TouristGroupsLastMonth, ResidentsLastMonth, PaidLastMonth, TicketsLastMonth;
         public int TicketGate, TicketIncomeMonth, TicketPaidMonth; public bool TicketIncomeEstimated;
-        public int CostGroomedMonth, CostSnowmakingMonth, CostNightMonth;
-        public float HaNatural, HaGroomed, HaSnowmaking, HaNight;
+        // Run upkeep rates by feature (R3, DECISIONS 578; SkiRunUpkeepRates.PisteUpkeep) and their hectares.
+        public int CostGroomingMonth, CostSnowmakingMonth, CostLightsMonth, CostCatTracksMonth;
+        public float HaNatural, HaGroomed, HaSnowmaking, HaLit, HaCatTracks;
         public int LiftCostMonth, LiftsBilled, LiftsBilledReduced;
         public int BuildingsMonth, WagesMonth, Jobs, JobsFilled;
         public int NetMonth; public bool NetEstimated;
@@ -95,7 +96,7 @@ namespace SkiResortMod.Systems
         // already sent (TicketsThisMonth and LessonIncomeMonth are the ticket and lesson rows). PassIncomeMonth = credits of passes SOLD
         // at the area this month, pre-season sales included; PassIncomePreMonth = the pre-season part of it (a subset); LodgeIncomeMonth
         // = lodge spend booked this month (LodgeSpendMonth keeps the last-month / projected rule); LiftChargedMonth / RunCostMonth = the
-        // lift charge / run upkeep booked this month (LiftCostMonth / CostGroomedMonth ... stay the rates); BuildingsSoFar / WagesSoFar
+        // lift charge / run upkeep booked this month (LiftCostMonth / CostGroomingMonth ... stay the rates); BuildingsSoFar / WagesSoFar
         // = BuildingsMonth / WagesMonth x MonthShare (HubRules.RateSoFar); MonthShare = the share of the month simulated (0..1, -1
         // unknown). -1 unknown, as the other numbers. Invariant (HubRulesTests): sum of max(0, the four income rows) - sum of max(0, the
         // four cost rows) == NetMonth.
@@ -122,6 +123,7 @@ namespace SkiResortMod.Systems
         public bool Member, Served; public Entity ServedBy;
         public float ValueFull, BandValue, SizeFactor, TypeFactor, ServedFactor;
         public int GunSpacingM, LightSpacingM; // the run's two prop sliders: meters, 0 = off, -1 = its kind carries none
+        public int PaidSteps;                  // the one-time steps this run has paid (SkiRunFees.PaidSteps bits of its binding): on again is free
     }
 
     /// <summary>bindings.ts RunLive. Same order and count as the runs rows.</summary>
@@ -413,8 +415,8 @@ namespace SkiResortMod.Systems
             public float TopM;                 // −∞ = none
             public bool AnyGunRun;             // a bound snowmaking or night run
             public bool AnyGunOn; // a bound snowmaking or night run with gun-gated texels at the last mask pass
-            public float CostGroomed, CostSnowmaking, CostNight; // per month, float sums
-            public float HaNatural, HaGroomed, HaSnowmaking, HaNight;
+            public float CostGrooming, CostSnowmaking, CostLights, CostCatTracks; // per month, float sums
+            public float HaNatural, HaGroomed, HaSnowmaking, HaLit, HaCatTracks;
             public float Capacity; public bool AnyCapacity;
             // Building.m_RoadEdge Null on the sign; the area's lodges with a Null edge and the one with the lowest (Index, Version):
             // LodgeNoRoad's subject, stable across chunk order.
@@ -1324,7 +1326,6 @@ namespace SkiResortMod.Systems
         /// <summary>Identity, membership and run parts, snow, costs, the run tops for the served rule, and the per-area sums.</summary>
         private void CollectRuns(int resorts)
         {
-            float texelHa = m_Injection.TexelAreaM2 / 10000f;
             int count = m_Catalog.RowCount;
             for (int i = 0; i < count; i++)
             {
@@ -1339,20 +1340,30 @@ namespace SkiResortMod.Systems
                 // (Runs, Rated, the difficulty bar, length, area), but never injected: no snow aggregate, no TopM, and NaN heights in its RunIn so the
                 // hub's vertical stays the score's (SkiResortScore keeps it out of the vertical too). It follows the snowmaking rules otherwise: while its
                 // guns can run it bills its plan area at the snowmaking rate, the same number SkiRunUpkeepSystem charges; a track whose gun value is
-                // Off has no guns: no bill, no gun line (DECISIONS 563).
+                // Off has no guns: no bill, no gun line (DECISIONS 563). A lit track adds the lights rate on its plan area in its season, whatever
+                // its gun switch, in the Lights row (SkiRunUpkeepRates.TrackLitHa, DECISIONS 579).
                 bool catTrack = row.Kind == (int)RunKind.CatTrack;
                 bool trackGunsOn = catTrack && m_RunProps.CatTrackGunsOn(row.Entity);
                 if (bound && catTrack)
                 {
                     snow = m_Injection.GetRunSnow(row.Entity, (RunKind)row.Kind, row.NodeBottomM, row.NodeTopM);   // the estimate: never injected
-                    if (trackGunsOn && m_Injection.CatTrackGunsCanRun(row.Entity, row.NodeBottomM, row.NodeTopM))
+                    bool trackInSeason = m_Injection.CatTrackGunsCanRun(row.Entity, row.NodeBottomM, row.NodeTopM);
+                    float litHa = SkiRunUpkeepRates.TrackLitHa(row.Features, row.AreaM2, trackInSeason);
+                    if (litHa > 0f)
+                    {
+                        ref AreaWork work = ref m_Work[resort];
+                        cost += litHa * SkiRunUpkeepRates.LightsStepPerHaMonth;
+                        work.HaLit += litHa;
+                        work.CostLights += litHa * SkiRunUpkeepRates.LightsStepPerHaMonth;
+                    }
+                    if (trackGunsOn && trackInSeason)
                     {
                         ref AreaWork work = ref m_Work[resort];
                         ha = SnowGunPlumeRules.TrackBilledHa(row.AreaM2, true, true);
-                        cost = ha * SkiRunUpkeepSystem.CostPerHaMonth(RunKind.CatTrack);
+                        cost += ha * SkiRunUpkeepSystem.CostPerHaMonth(RunKind.CatTrack);
                         work.AnyGunOn = true;
-                        work.HaSnowmaking += ha;
-                        work.CostSnowmaking += cost;
+                        work.HaCatTracks += ha;
+                        work.CostCatTracks += cost;
                     }
                 }
                 else if (bound)
@@ -1366,31 +1377,22 @@ namespace SkiResortMod.Systems
                         if (IsFinite(row.AreaM2) && row.AreaM2 > 0f)
                             work.HaNatural += row.AreaM2 / 10000f;
                     }
-                    else if (m_Injection.TryGetRunActiveTexels(row.Entity, out int texels) && texels > 0)
+                    else
                     {
-                        // The billed hectares, capped at the run's plan area: the same number SkiRunUpkeepSystem charges.
-                        ha = SkiRunUpkeepSystem.BilledHa(texels, texelHa, row.AreaM2);
-                        cost = ha * SkiRunUpkeepRates.PerHaMonth(row.Features);   // a lit run without guns: its lights step too
-                        // > 0 active texels on a gun run = its guns are gated on now (the injection's per-run map, refilled every mask pass).
-                        // Attribution is first-claim in chunk order, so a gun run fully under an earlier-scheduled run, or narrower than the texel grid,
-                        // can read 0 while making snow.
-                        if (row.Features.Snowmaking)
+                        // By feature, capped at the run's plan area: the one rule SkiRunUpkeepSystem charges (SkiSnowInjectionSystem.PisteUpkeep).
+                        // Grooming and lights bill a gun run's texels at depth too; snowmaking only where its guns make snow. Attribution is
+                        // first-claim in chunk order, so a run fully under an earlier-scheduled run, or narrower than the texel grid, can read 0.
+                        RunUpkeep u = m_Injection.PisteUpkeep(row.Entity, row.Features, row.AreaM2);
+                        ha = u.GroomedHa;
+                        cost = u.Total;
+                        if (row.Features.Snowmaking && u.SnowmakingHa > 0f)
                             work.AnyGunOn = true;
-                        switch ((int)row.Features.SnowKind)   // the injection's class: a lit run without guns books as groomed
-                        {
-                            case (int)RunKind.Snowmaking:
-                                work.HaSnowmaking += ha;
-                                work.CostSnowmaking += cost;
-                                break;
-                            case (int)RunKind.Night:
-                                work.HaNight += ha;
-                                work.CostNight += cost;
-                                break;
-                            default:
-                                work.HaGroomed += ha;
-                                work.CostGroomed += cost;
-                                break;
-                        }
+                        work.HaGroomed += u.GroomedHa;
+                        work.HaSnowmaking += u.SnowmakingHa;
+                        work.HaLit += u.LitHa;
+                        work.CostGrooming += u.Grooming;
+                        work.CostSnowmaking += u.Snowmaking;
+                        work.CostLights += u.Lights;
                     }
                     if (IsFinite(row.TopM) && row.TopM > work.TopM)
                         work.TopM = row.TopM;
@@ -1459,6 +1461,7 @@ namespace SkiResortMod.Systems
                     ServedFactor = member ? (float)part.ServedFactor : 0f,
                     GunSpacingM = gunSpacing,
                     LightSpacingM = lightSpacing,
+                    PaidSteps = EntityManager.TryGetComponent(row.Entity, out SkiRunBinding binding) ? binding.m_Flags & SkiRunFees.PaidSteps : 0,
                 });
                 m_RunLiveNext.Add(new RunLiveStats
                 {
@@ -2260,13 +2263,15 @@ namespace SkiResortMod.Systems
                     gateKnown ? r.RunsCounted : 0);
 
                 // Run costs and hectares (float sums, rounded once).
-                live.CostGroomedMonth = RoundToInt(work.CostGroomed);
+                live.CostGroomingMonth = RoundToInt(work.CostGrooming);
                 live.CostSnowmakingMonth = RoundToInt(work.CostSnowmaking);
-                live.CostNightMonth = RoundToInt(work.CostNight);
+                live.CostLightsMonth = RoundToInt(work.CostLights);
+                live.CostCatTracksMonth = RoundToInt(work.CostCatTracks);
                 live.HaNatural = work.HaNatural;
                 live.HaGroomed = work.HaGroomed;
                 live.HaSnowmaking = work.HaSnowmaking;
-                live.HaNight = work.HaNight;
+                live.HaLit = work.HaLit;
+                live.HaCatTracks = work.HaCatTracks;
 
                 // Buildings and wages (game formula at the current service budget), then the net.
                 float buildingsF = -1f, wagesF = -1f;
@@ -2948,13 +2953,15 @@ namespace SkiResortMod.Systems
                 h = Mix(h, (uint)r.TicketIncomeMonth);
                 h = Mix(h, (uint)r.TicketPaidMonth);
                 h = MixB(h, r.TicketIncomeEstimated);
-                h = Mix(h, (uint)r.CostGroomedMonth);
+                h = Mix(h, (uint)r.CostGroomingMonth);
                 h = Mix(h, (uint)r.CostSnowmakingMonth);
-                h = Mix(h, (uint)r.CostNightMonth);
+                h = Mix(h, (uint)r.CostLightsMonth);
+                h = Mix(h, (uint)r.CostCatTracksMonth);
                 h = MixF(h, r.HaNatural);
                 h = MixF(h, r.HaGroomed);
                 h = MixF(h, r.HaSnowmaking);
-                h = MixF(h, r.HaNight);
+                h = MixF(h, r.HaLit);
+                h = MixF(h, r.HaCatTracks);
                 h = Mix(h, (uint)r.LiftCostMonth);
                 h = Mix(h, (uint)r.LiftsBilled);
                 h = Mix(h, (uint)r.LiftsBilledReduced);
@@ -3034,6 +3041,7 @@ namespace SkiResortMod.Systems
                 h = MixF(h, r.ServedFactor);
                 h = Mix(h, (uint)r.GunSpacingM);
                 h = Mix(h, (uint)r.LightSpacingM);
+                h = Mix(h, (uint)r.PaidSteps);
             }
             return Mix(h, (uint)rows.Count);
         }
@@ -3295,9 +3303,10 @@ namespace SkiResortMod.Systems
                   : "not counted")
               .Append(", tickets/month ").Append(l.TicketIncomeMonth).Append(l.TicketIncomeEstimated ? " ≈" : "")
               .Append(" (paid ").Append(l.TicketPaidMonth).Append("), gate ").Append(GateName(l.TicketGate))
-              .Append("; runs ").Append(l.CostGroomedMonth).Append('/').Append(l.CostSnowmakingMonth).Append('/').Append(l.CostNightMonth)
-              .Append(" (").Append(F(l.HaGroomed, "F1")).Append('/').Append(F(l.HaSnowmaking, "F1")).Append('/').Append(F(l.HaNight, "F1"))
-              .Append(" ha with snow; natural ").Append(F(l.HaNatural, "F1")).Append(" ha), lifts ").Append(l.LiftCostMonth)
+              .Append("; runs grooming/snowmaking/lights/cat tracks ").Append(l.CostGroomingMonth).Append('/').Append(l.CostSnowmakingMonth)
+              .Append('/').Append(l.CostLightsMonth).Append('/').Append(l.CostCatTracksMonth)
+              .Append(" (").Append(F(l.HaGroomed, "F1")).Append('/').Append(F(l.HaSnowmaking, "F1")).Append('/').Append(F(l.HaLit, "F1"))
+              .Append('/').Append(F(l.HaCatTracks, "F1")).Append(" ha; natural ").Append(F(l.HaNatural, "F1")).Append(" ha), lifts ").Append(l.LiftCostMonth)
               .Append(" (").Append(l.LiftsBilled).Append(" billed, ").Append(l.LiftsBilledReduced).Append(" at 25 %), buildings ")
               .Append(l.BuildingsMonth).Append(", wages ").Append(l.WagesMonth).Append(", jobs ").Append(l.JobsFilled).Append('/')
               .Append(l.Jobs).Append(", net ").Append(l.NetMonth).Append(l.NetEstimated ? " ≈" : "").Append('\n');

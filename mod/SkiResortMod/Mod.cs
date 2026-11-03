@@ -261,6 +261,11 @@ namespace SkiResortMod
             // A plain UpdateAt sorts after every vanilla Modification system, so the run's geometry is final; the bind raises no tag.
             updateSystem.UpdateAt<SkiRunBindTriggerSystem>(SystemUpdatePhase.ModificationEnd);
 
+            // Trail names: a new piste gets a stored random unused name (SkiRunName, R3 DECISIONS 578). ModificationEnd: MainLoop, paused or not,
+            // with the frame's Created tag still on (after SkiRunReemitSystem's Modification1 copy, so a toggled run keeps its pick); NOT
+            // load-bearing for other systems (the catalog rebuilds on request).
+            updateSystem.UpdateAt<SkiRunNameSystem>(SystemUpdatePhase.ModificationEnd);
+
             // Lodge-score watcher. ModificationEnd is load-bearing: CleanUpSystem strips Created/Updated at Cleanup, BEFORE GameSimulation
             // (SystemOrder.cs:54, 74), so the attractiveness system never sees a placement; this only sets its pending flag.
             updateSystem.UpdateAt<SkiResortAttractivenessWatchSystem>(SystemUpdatePhase.ModificationEnd);
@@ -422,6 +427,17 @@ namespace SkiResortMod
             // Station LV icon: removes the vanilla LowVoltageNotConnected icon from a station whose LV stub has a wire (StationLvRule
             // engine notes). Phase NOT load-bearing: IconCommandSystem consumes the queued removes at ModificationEnd (SystemOrder.cs:271).
             updateSystem.UpdateAt<StationLvIconSystem>(SystemUpdatePhase.GameSimulation);
+
+            // Lift line icon: our "needs a lift line" icon in place of the vanilla high-voltage icon. Anchor is load-bearing: AFTER
+            // ConnectionWarningSystem in ModificationEnd (SystemOrder.cs:261) and so before IconCommandSystem (:271), so our IconCommandBuffer
+            // is created after its own in the same frame and our Remove of the vanilla icon wins at playback (IconCommandSystem.cs:106-160).
+            // An UpdateAt would sort after IconCommandSystem: the vanilla icon would show for a frame each time.
+            updateSystem.UpdateAfter<LiftLineIconSystem, Game.Net.ConnectionWarningSystem>(SystemUpdatePhase.ModificationEnd);
+
+            // Lift power cues: strips the vanilla transformer / bottleneck / top-station consumer icons. Anchor is load-bearing: AFTER
+            // ElectricityStatusSystem in GameSimulation (SystemOrder.cs:448, after DispatchElectricitySystem :444) so our buffer follows
+            // both vanilla buffers on their frames (same playback rule as above).
+            updateSystem.UpdateAfter<LiftPowerCueSystem, Game.Simulation.ElectricityStatusSystem>(SystemUpdatePhase.GameSimulation);
 
             // Cat track overlap: forges AreaGeometryData.m_Type Surface -> Space on the SkiRunCatTrackA prefab at every Game-mode load so
             // a cat track can cross other runs (ValidationHelpers.cs:551 compares only the type). Disabled, OnGameLoadingComplete only.

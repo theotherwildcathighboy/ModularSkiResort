@@ -11,7 +11,7 @@
   const IDS = ["sign", "lodge", "lodgeHut", "lodgeMid", "lodgeSummit", "lodgeGrand", "school", "patrolHut", "patrolHQ",
     "baseStation", "topStation", "lift", "baseStationDetachable", "topStationDetachable", "liftDetachable",
     "baseStationGondola", "topStationGondola", "liftGondola", "baseStationTram", "topStationTram", "liftTram",
-    "runNatural", "runGroomed", "runSnowmaking", "runNight", "runCatTrack"];
+    "runGroomed", "runCatTrack"];   // run types R3: the Run tile draws every piste; runNatural / runSnowmaking / runNight are not sent
   function buildItems(opts) {
     const o = opts || {};
     return IDS.map((id) => {
@@ -20,9 +20,13 @@
       // C# locks a ForbidMultiple upgrade already on the shown sign with REASON[AlreadyBuilt] (the school; hubRules.schoolBuiltOf)
       if (o.built && o.built.includes(id)) { it.locked = true; it.reason = "SkiResort.Hub.REASON[AlreadyBuilt]"; }
       if (id.startsWith("run")) {
-        it.price = { runNatural: 0, runGroomed: 120, runSnowmaking: 180, runNight: 160, runCatTrack: 60 }[id];
-        it.pricePerHa = { runNatural: 0, runGroomed: 450, runSnowmaking: 900, runNight: 700, runCatTrack: 200 }[id];
-        it.monthlyPerHa = { runNatural: 0, runGroomed: 55, runSnowmaking: 140, runNight: 95, runCatTrack: 20 }[id];
+        it.price = { runGroomed: 2000, runCatTrack: 2000 }[id];
+        it.pricePerHa = { runGroomed: 1000, runCatTrack: 1000 }[id];
+        it.monthlyPerHa = { runGroomed: 150, runCatTrack: 500 }[id];
+        // contract 33: the Run tile's options (SkiRunFees / SkiRunUpkeepRates steps)
+        Object.assign(it, { naturalPrice: -1, naturalPerHa: -1, gunsPrice: -1, gunsPerHa: -1, gunsMonthlyPerHa: -1, lightsPrice: -1, lightsPerHa: -1, lightsMonthlyPerHa: -1 });
+        if (id === "runGroomed") Object.assign(it, { naturalPrice: 500, naturalPerHa: 250, gunsPrice: 2000, gunsPerHa: 3000, gunsMonthlyPerHa: 350,
+          lightsPrice: 2000, lightsPerHa: 3000, lightsMonthlyPerHa: 300 });
       } else if (id.startsWith("lift")) {
         it.costPerKm = { lift: 180000, liftDetachable: 420000, liftGondola: 650000, liftTram: 900000 }[id];
         it.monthly = { lift: 1200, liftDetachable: 2600, liftGondola: 3800, liftTram: 5200 }[id];
@@ -44,12 +48,12 @@
 
   const SIGN = E(101), SIGN2 = E(102);
   const runs = [
-    { entity: E(201), name: "Ash Flat Meadow", kind: 0, bound: true, lengthM: 1420, dropM: 210, areaM2: 84000, sign: SIGN, ordinal: 1, customName: true, band: 1, gradePct: 15, steepestPct: 22, approx: false, member: true, served: true, servedBy: E(301), valueFull: 1.0, bandValue: 1.0, sizeFactor: 1.1, typeFactor: 1.0, servedFactor: 1.0, gunSpacingM: -1, lightSpacingM: -1 },
-    { entity: E(202), name: "Run 2", kind: 1, bound: true, lengthM: 2180, dropM: 480, areaM2: 126000, sign: SIGN, ordinal: 2, customName: false, band: 2, gradePct: 24, steepestPct: 38, approx: false, member: true, served: true, servedBy: E(301), valueFull: 1.6, bandValue: 1.4, sizeFactor: 1.3, typeFactor: 1.2, servedFactor: 1.0, gunSpacingM: 50, lightSpacingM: -1 },
-    { entity: E(203), name: "North Face", kind: 3, bound: true, lengthM: 1760, dropM: 610, areaM2: 61000, sign: SIGN, ordinal: 3, customName: true, band: 3, gradePct: 38, steepestPct: 55, approx: true, member: true, served: false, servedBy: NULL, valueFull: 1.9, bandValue: 1.8, sizeFactor: 1.0, typeFactor: 0.9, servedFactor: 0.5, gunSpacingM: -1, lightSpacingM: -1 },
-    { entity: E(204), name: "Run 4", kind: 2, bound: true, lengthM: 960, dropM: 140, areaM2: 38000, sign: SIGN, ordinal: 4, customName: false, band: 1, gradePct: 15, steepestPct: 19, approx: false, member: true, served: true, servedBy: E(302), valueFull: 0.8, bandValue: 1.0, sizeFactor: 0.8, typeFactor: 1.1, servedFactor: 1.0, gunSpacingM: 90, lightSpacingM: 90 },
-    { entity: E(205), name: "Cat Track", kind: 4, bound: true, lengthM: 2400, dropM: 90, areaM2: 24000, sign: SIGN, ordinal: 5, customName: false, band: 0, gradePct: 4, steepestPct: 8, approx: false, member: true, served: true, servedBy: E(302), valueFull: 0.2, bandValue: 0.2, sizeFactor: 1.0, typeFactor: 0.5, servedFactor: 1.0, gunSpacingM: 60, lightSpacingM: 0 },
-    { entity: E(206), name: "Run 6", kind: 0, bound: false, lengthM: 640, dropM: 95, areaM2: 19000, sign: NULL, ordinal: 6, customName: false, band: -1, gradePct: 0, steepestPct: 0, approx: true, member: false, served: false, servedBy: NULL, valueFull: 0, bandValue: 0, sizeFactor: 0, typeFactor: 0, servedFactor: 0, gunSpacingM: -1, lightSpacingM: -1 },
+    { entity: E(201), name: "Ash Flat Meadow", kind: 0, bound: true, lengthM: 1420, dropM: 210, areaM2: 84000, sign: SIGN, ordinal: 1, customName: true, band: 1, gradePct: 15, steepestPct: 22, approx: false, member: true, served: true, servedBy: E(301), valueFull: 1.0, bandValue: 1.0, sizeFactor: 1.1, typeFactor: 1.0, servedFactor: 1.0, gunSpacingM: 0, lightSpacingM: 0, paidSteps: 4 },
+    { entity: E(202), name: "Run 2", kind: 1, bound: true, lengthM: 2180, dropM: 480, areaM2: 126000, sign: SIGN, ordinal: 2, customName: false, band: 2, gradePct: 24, steepestPct: 38, approx: false, member: true, served: true, servedBy: E(301), valueFull: 1.6, bandValue: 1.4, sizeFactor: 1.3, typeFactor: 1.2, servedFactor: 1.0, gunSpacingM: 50, lightSpacingM: 0, paidSteps: 12 },
+    { entity: E(203), name: "North Face", kind: 3, bound: true, lengthM: 1760, dropM: 610, areaM2: 61000, sign: SIGN, ordinal: 3, customName: true, band: 3, gradePct: 38, steepestPct: 55, approx: true, member: true, served: false, servedBy: NULL, valueFull: 1.9, bandValue: 1.8, sizeFactor: 1.0, typeFactor: 0.9, servedFactor: 0.5, gunSpacingM: -1, lightSpacingM: -1, paidSteps: 0 },
+    { entity: E(204), name: "Run 4", kind: 2, bound: true, lengthM: 960, dropM: 140, areaM2: 38000, sign: SIGN, ordinal: 4, customName: false, band: 1, gradePct: 15, steepestPct: 19, approx: false, member: true, served: true, servedBy: E(302), valueFull: 0.8, bandValue: 1.0, sizeFactor: 0.8, typeFactor: 1.1, servedFactor: 1.0, gunSpacingM: 90, lightSpacingM: 90, paidSteps: 28 },
+    { entity: E(205), name: "Cat Track", kind: 4, bound: true, lengthM: 2400, dropM: 90, areaM2: 24000, sign: SIGN, ordinal: 5, customName: false, band: 0, gradePct: 4, steepestPct: 8, approx: false, member: true, served: true, servedBy: E(302), valueFull: 0.2, bandValue: 0.2, sizeFactor: 1.0, typeFactor: 0.5, servedFactor: 1.0, gunSpacingM: 60, lightSpacingM: 0, paidSteps: 0 },
+    { entity: E(206), name: "Run 6", kind: 0, bound: false, lengthM: 640, dropM: 95, areaM2: 19000, sign: NULL, ordinal: 6, customName: false, band: -1, gradePct: 0, steepestPct: 0, approx: true, member: false, served: false, servedBy: NULL, valueFull: 0, bandValue: 0, sizeFactor: 0, typeFactor: 0, servedFactor: 0, gunSpacingM: 0, lightSpacingM: 0, paidSteps: 0 },
   ];
   const runLive = [
     { entity: E(201), openState: 2, openFactor: 1.0, snowPct: 92, snowEstimated: false, valueNow: 1.0, costMonth: 4600, snowDepthCm: 180, gunWhy: 1 },
@@ -81,7 +85,7 @@
     guestsThisMonth: 3860, touristsThisMonth: 2410, touristGroupsThisMonth: 640, residentsThisMonth: 1450, paidThisMonth: 3300, unpaidThisMonth: 360, freeThisMonth: 200, ticketsThisMonth: 3300,
     guestsLastMonth: 5120, touristsLastMonth: 3300, touristGroupsLastMonth: 880, residentsLastMonth: 1820, paidLastMonth: 4500, ticketsLastMonth: 4500,
     ticketGate: 0, ticketIncomeMonth: 214500, ticketPaidMonth: 3300, ticketIncomeEstimated: false,
-    costGroomedMonth: 8200, costSnowmakingMonth: 17600, costNightMonth: 3600, haNatural: 6.1, haGroomed: 10.3, haSnowmaking: 12.6, haNight: 3.8,
+    costGroomingMonth: 4000, costSnowmakingMonth: 5700, costLightsMonth: 1100, costCatTracksMonth: 1000, haNatural: 6.1, haGroomed: 26.7, haSnowmaking: 16.4, haLit: 3.8, haCatTracks: 2.0,
     liftCostMonth: 5500, liftsBilled: 2, liftsBilledReduced: 1, buildingsMonth: 9800, wagesMonth: 31200, jobs: 64, jobsFilled: 58,
     netMonth: 138600, netEstimated: false,
     skiDaysState: 6, skiDaysThisMonth: 2410, skiDaysLastMonth: 3300, skiDaysSent: 2600, skiDaysSentCar: 1900, skiDaysSentNoCar: 700, skiDaysNow: 310, skiDaysCap: 480, skiDaysLimit: 2, skiDaysPowderPct: 35,
@@ -202,10 +206,11 @@
       name: "Grand Mountain Hospitality Warming Hut and Apres Ski Lounge Inns" },
     { sign: E(105), lodge: E(413), item: "lodge", carSpaces: -1, number: 0, name: "" },
   ];
-  const base = { hubOpen: false, contract: 32, buildStamp: "", showHubButton: true, build: buildItems(), glade,
+  const base = { hubOpen: false, contract: 33, buildStamp: "", showHubButton: true, build: buildItems(), glade,
     resorts: [], resortLive: [], selectedResort: NULL, runs: [], runLive: [], lifts: [], problems: [], city, pisteMap: true, follow: 0, history: [],
     liftLine: { available: true, active: false, state: "PickBase" }, quickRuns, catTrackDeleteMode: false, lodgeParking,
-    runReplaced: { seq: 0, from: { index: 0, version: 0 }, to: { index: 0, version: 0 } } };
+    runReplaced: { seq: 0, from: { index: 0, version: 0 }, to: { index: 0, version: 0 } },
+    drawRun: { active: false, groomed: true, gunSpacingM: 0, lightSpacingM: 0 } };
 
   window.SkiScenarios = {
     "not connected (no C#)": Object.assign({}, base, { contract: 0, city: Object.assign({}, city, { known: false }) }),
@@ -213,6 +218,10 @@
     "connected, empty city": Object.assign({}, base, { hubOpen: true, build: buildItems({ locked: ["lodgeGrand", "liftTram", "baseStationTram", "topStationTram"] }) }),
     "Ash Flat (runs, lifts, problems)": Object.assign({}, base, { hubOpen: true, resorts, resortLive: [live, live2], selectedResort: SIGN, runs, runLive, lifts, problems, history,
       glade: Object.assign({}, glade, { active: true }), build: buildItems({ active: "runGroomed", built: ["school"] }) }),
+    // Drawing a run (contract 33): the Run tile active, its option row (Groomed on, guns every 60 m, lights Off) in place of the run panel.
+    "Drawing a run, Ash Flat (runs, lifts, problems)": Object.assign({}, base, { hubOpen: true, resorts, resortLive: [live, live2], selectedResort: SIGN, runs, runLive,
+      lifts, problems, history, build: buildItems({ active: "runGroomed", built: ["school"] }),
+      drawRun: { active: true, groomed: true, gunSpacingM: 60, lightSpacingM: 0 } }),
     // The Quick runs tool open on a preview with the tree filler on: the Runs view draws every Quick runs row instead of the tree rows.
     "Quick runs open, Ash Flat (runs, lifts, problems)": Object.assign({}, base, { hubOpen: true, resorts, resortLive: [live, live2], selectedResort: SIGN, runs, runLive,
       lifts, problems, history, quickRuns: quickPreview, build: buildItems({ built: ["school"] }) }),

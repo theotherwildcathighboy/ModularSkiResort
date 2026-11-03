@@ -77,6 +77,10 @@
     <!-- The vanilla HV join refusal rule (PowerJoinRefusalSystem). -->
     <Compile Include="..\..\mod\SkiResortMod\Systems\PowerJoinRule.cs" Link="PowerJoinRule.cs" />
     <Compile Include="PowerJoinTests.cs" />
+    <!-- The lift's notification icon rules and the icon texture codec (LiftLineIconSystem, LiftPowerCueSystem, LiftLineIconAsset). -->
+    <Compile Include="..\..\mod\SkiResortMod\Systems\LiftLineIconRule.cs" Link="LiftLineIconRule.cs" />
+    <Compile Include="..\..\mod\SkiResortMod\Systems\IconTextureCodec.cs" Link="IconTextureCodec.cs" />
+    <Compile Include="LiftIconTests.cs" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="UnityMathematics.NoDeps" Version="1.3.2" />

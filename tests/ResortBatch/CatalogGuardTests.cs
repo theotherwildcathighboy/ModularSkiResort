@@ -442,7 +442,7 @@ namespace ResortBatch
 
         /// <summary>Every single-line `{ "key", "value" },` entry (first one wins), with \" and \\ unescaped. Multi-line
         /// entries (`"a" + "b"` over several lines) are not read: the guarded keys must stay single-line.</summary>
-        private static Dictionary<string, string> SingleLineEntries(string[] lines)
+        internal static Dictionary<string, string> SingleLineEntries(string[] lines)
         {
             var rx = new Regex(@"^\s*\{\s*""((?:[^""\\]|\\.)*)""\s*,\s*""((?:[^""\\]|\\.)*)""\s*\}\s*,?\s*$");
             var map = new Dictionary<string, string>(StringComparer.Ordinal);
@@ -481,7 +481,7 @@ namespace ResortBatch
         /// <summary>A repo file: the current directory first (the documented run is from the ModularSkiResort root), then walking up
         /// from AppContext.BaseDirectory (tests/ResortBatch/bin/&lt;cfg&gt;/net8.0/). null when not found (the caller writes ONE
         /// FAIL).</summary>
-        private static string RepoFile(string rel)
+        internal static string RepoFile(string rel)
         {
             string native = rel.Replace('/', Path.DirectorySeparatorChar);
             string p = Path.Combine(Directory.GetCurrentDirectory(), native);

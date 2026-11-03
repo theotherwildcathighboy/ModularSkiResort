@@ -76,6 +76,8 @@ namespace SaveBatch
             "SkiLodgeNumber v1 9 m_Sign:entity m_Number:i32",
             // A cat track's made snow (before 1.0). Ships in 1.0.0, so it is listed as shipped.
             "SkiTrackSnow v1 5 m_MadePermille:i32",
+            // A run's trail name pick and its Upper / Lower form (R3, before 1.0). Ships in 1.0.0, so it is listed as shipped.
+            "SkiRunName v1 6 m_Index:i32 m_Form:u8",
         };
 
         public static void Run(Func<bool, string, string, bool> check)

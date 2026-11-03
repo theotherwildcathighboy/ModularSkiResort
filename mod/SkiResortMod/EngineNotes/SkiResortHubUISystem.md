@@ -66,6 +66,11 @@ double/string), `ValueBinding<T>(group, name, initial, IWriter<T> writer = null,
   string). Every TypeBegin name is "SkiResortMod.<TS interface>" (the UI ignores `__Type`). An Entity is written {index, version}
   (UnityWriters.cs:17-25) and `TriggerBinding<Entity>` reads that shape back (UnityReaders.cs:19-27). Numbers go through `Fin()`: a
   non-finite float or double is sent as 0 and counted (one WARN per load): one NaN must not break the UI's JSON.
+- **One shape per TypeBegin name (engine fact, in game, R3 DECISIONS 578).** Objects written under the same TypeBegin name must carry
+  the same properties in the same order. R3 first wrote the Run tile's eight step fields (`naturalPrice` ... `lightsMonthlyPerHa`) on
+  the Run BuildItem only: the game process exited the frame the hub opened, with no log line, no crash report and no WER entry
+  (bisected over 8 launches: drawRun alone was fine, the conditional fields alone killed it). Fix: every BuildItem writes every field,
+  -1 where it does not apply, and the UI tests `>= 0`. Never put a PropertyName inside a condition in a TypeBegin writer.
 - Every number of the stats structs is written through the `Fin` overloads (int / float / double) and enum-like fields (kind, state,
   band, season) are cast to int, so this file compiles whatever numeric type the stats structs pick.
 - A trigger exception is caught by the binding and logged to the vanilla UI log, not ours (TriggerBinding.cs:21-31, :58-69, :87-99),
@@ -335,6 +340,13 @@ Appended fields and bindings by contract:
   region line and beside the mix line.
 - 22: Resort Planner v2 (A7): QuickRunsState appends `pods` / `lifts` rows and `plan` (QuickRunsPlan); `quickRunsSet` gains `lifts`, `home`,
   `pod`, `lift`. Bumped on the integration branch at the A7 merge so its gates stay green; re-bump if main takes 22 first.
+- 33: run types R3 (DECISIONS 578). `drawRun` {active, groomed, gunSpacingM, lightSpacingM}: the Run tile's option row, active while the
+  Run tile's tool is open; trigger `setDrawRun`(key, value) with "groomed" (re-activates the area tool on the natural or groomed prefab),
+  "guns", "lights"; SkiRunBindTriggerSystem seeds the sliders onto a run drawn groomed before its bind charge. The Run tile (`runGroomed`)
+  draws every piste; `runNatural`, `runSnowmaking`, `runNight` are no longer sent. The Run tile's BuildItem carries its step prices
+  (`naturalPrice`/`PerHa`, `guns*`, `lights*`). RunRow `paidSteps` (RUN_PAID bits). ResortLive's run costs by feature:
+  `costGroomingMonth`, `costSnowmakingMonth`, `costLightsMonth`, `costCatTracksMonth` and `haNatural`, `haGroomed`, `haSnowmaking`,
+  `haLit`, `haCatTracks` (replacing the per-kind groomed / snowmaking / night fields).
 - 32: `runReplaced` {seq, from, to}: the last run re-emitted under a new entity (SkiRunReemitSystem, the Groomed toggle, DECISIONS 577); seq counts replacements this load, 0 = none. HubPanel moves a focused run row from `from` to `to`; C# moves the world selection (`ToolSystem.selected`, SelectedInfoUISystem.cs:456-462 is the same plain write), the hover request and the bind-notice sign map itself (`RunReplaced`). Trigger `setRunGroomed`(run, groomed) queues the re-emit; the UI control comes with run types R3.
 - 31: LodgeParkingRow `name`: the lodge's custom name from the game's NameSystem (`TryGetCustomName`, NameSystem.cs:209-212), cleaned by `LodgeNumberRule.DisplayName` (one line, at most 64 UTF-16 units, the game's own rename field length; a cut name ends in an ellipsis), "" = none. The UI shows it instead of the tier word and number, as a plain string argument (check-bundle R19), in the `lodgeNameLabel` class the layout test allows to cut. A rename has no event: the game's rename (TitleSection.cs:48-52) only writes NameSystem's dictionary, so `PollLodgeNames` reads each row's entry every frame while the Guests view observes `lodgeParking` (one dictionary read per row; an unchanged name is the same string reference) and logs `Hub [lodge-name]` on a change.
 - 30: LodgeParkingRow `number` (LodgeNumberSystem.ShownNumberOf: the lodge's persisted number among its area's lodges of its tier, 0 while it is the only one); the rows also rebuild when LodgeNumberSystem.Revision moves.

@@ -141,6 +141,13 @@
 		<None Include="Textures\**\*.png" CopyToOutputDirectory="PreserveNewest" />
 	</ItemGroup>
 
+	<!-- Notification icons made in code (LiftLineIconAsset): the PNG is the world icon's pixels, the SVG the info panel's icon
+	     (coui://ui-mods/SkiResortMod-icons/...: the folder name is unique because coui://ui-mods/ is ONE host shared by every
+	     mod folder, ModManager.cs:468-479). Copied to $(OutDir)\SkiResortMod-icons, deployed with the rest of OutDir. -->
+	<ItemGroup>
+		<None Include="Icons\*.svg;Icons\*.png" Link="SkiResortMod-icons\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+	</ItemGroup>
+
 	<!--
 	The toolchain's ModPostProcessor.exe targets the .NET 6 runtime, which is not installed on
 	this machine (only .NET 8 is). Its runtimeconfig.json has no rollForward policy, so the run

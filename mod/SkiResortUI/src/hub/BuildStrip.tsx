@@ -66,6 +66,7 @@ export const pick$ = bindLocalValue<PickerSelection>(NO_PICK);
 const KIND_STRIPE = ["stripeGroomed", "stripeSnowmaking", "stripeNight", "stripeNight", "stripeCatTrack"] as const;
 
 function nameEntry(id: BuildItemId): LocEntry {
+  if (id === "runGroomed") return BUILD_LABEL.run0; // the Run tile draws every piste (R3)
   const kind = BUILD_RUN_KIND[id];
   if (kind !== undefined) return RUN_TYPE[kind];
   return ASSET_NAME[id] ?? HUB_LOC.locked;
@@ -153,6 +154,18 @@ function drawRows(id: BuildItemId, t: Translate): TipLine[] {
   ];
 }
 
+/* The Run tile's options (R3, DECISIONS 578): Groomed off, then the snow guns and lights steps, each paid once per run. */
+function runStepRows(item: BuildItem, t: Translate): TipLine[] {
+  const n = (v: number | undefined, unit: Unit) => numArg(v ?? -1, unit);
+  if (!((item.naturalPrice ?? -1) >= 0)) return [];
+  return [
+    { label: t(HUB_LOC.buildTipGroomedOff), value: <LocText entry={HUB_FMT.buildStepNatural} args={{ FEE: n(item.naturalPrice, Unit.Money), PERHA: n(item.naturalPerHa, Unit.Money) }} /> },
+    { label: t(HUB_LOC.runPropsGuns), value: <LocText entry={HUB_FMT.buildStepAdd} args={{ FEE: n(item.gunsPrice, Unit.Money), PERHA: n(item.gunsPerHa, Unit.Money), RATE: n(item.gunsMonthlyPerHa, Unit.Money) }} /> },
+    { label: t(HUB_LOC.runPropsLights), value: <LocText entry={HUB_FMT.buildStepAdd} args={{ FEE: n(item.lightsPrice, Unit.Money), PERHA: n(item.lightsPerHa, Unit.Money), RATE: n(item.lightsMonthlyPerHa, Unit.Money) }} /> },
+    t(HUB_LOC.buildTipStepsOnce),
+  ];
+}
+
 function tileTip(e: OrderedBuildItem, t: Translate): JSX.Element {
   const run = BUILD_RUN_KIND[e.id] !== undefined;
   const k = kindOf(e.id);
@@ -169,8 +182,7 @@ function tileTip(e: OrderedBuildItem, t: Translate): JSX.Element {
         ...drawRows(e.id, t),
         e.item.active ? t(HUB_LOC.buildActive) : hint && t(hint),
         run && t(HUB_LOC.buildTipReshape),
-        e.id === "runNatural" && t(HUB_LOC.buildTipNatural),
-        e.id === "runNatural" && t(HUB_LOC.buildTipTypeNatural),
+        ...runStepRows(e.item, t),
         ROAD_OPTIONAL_LODGES.has(e.id) && t(HUB_LOC.buildTipRoadOptional), // the cat track chain instead of city utilities
         LUXURY_LODGES.has(e.id) && t(HUB_LOC.buildTipLuxury), // the luxury label and its price tolerance
         k === "depot" && t(HUB_LOC.buildTipDepot),

@@ -42,7 +42,7 @@ namespace SkiResortMod.Systems
 
         /// <summary>The contract number (bindings.ts HUB_CONTRACT). Bump both together whenever a binding, trigger, field or meaning
         /// changes (Engine notes: Near HubContract lists what each number appended).</summary>
-        public const int HubContract = 32;
+        public const int HubContract = 33;
 
         /// <summary>The `contract` value the UI reads as "C# absent" (bindings.ts CONTRACT_ABSENT). Pushed after the one-shot "!!!"
         /// until the next load: the UI then shows its "not connected" notice instead of launchers that do nothing.</summary>
@@ -500,6 +500,7 @@ namespace SkiResortMod.Systems
             SetCatTrackDeleteMode,           // contract 19: the Runs tab's Delete cat tracks chip
             SetRunPropSpacing,               // contract 28: the Runs view's prop rows (Bool = lights, Int = meters)
             SetRunGroomed,                   // run types R2: Groomed on (Bool) or off by a re-emit (SkiRunReemitSystem)
+            SetDrawRun,                      // contract 33: the Run tile's option row (Text = key, Int = value)
         }
 
         private struct Request
@@ -810,6 +811,8 @@ namespace SkiResortMod.Systems
             AddBinding(m_BusCard = new ValueBinding<HubBusCardState>(Group, "busCard", default));   // not a panel binding
             AddBinding(m_LodgeParking);   // contract 29: panel binding (the Guests view), no Demand
             AddBinding(m_RunReplaced = new ValueBinding<HubRunReplaced>(Group, "runReplaced", default));   // contract 32
+            AddBinding(m_DrawRunBinding = new ValueBinding<HubDrawRun>(Group, "drawRun",
+                new HubDrawRun { Groomed = true }));   // contract 33: the Run tile's option row (.DrawRun.cs)
 
             // Triggers (UI → C#): bindings.ts TRIGGER.
             AddBinding(new TriggerBinding(Group, "toggleHub", OnToggleHub));
@@ -837,6 +840,7 @@ namespace SkiResortMod.Systems
             AddBinding(new TriggerBinding<Entity, int>(Group, "setRunGunSpacing", OnSetRunGunSpacing));
             AddBinding(new TriggerBinding<Entity, int>(Group, "setRunLightSpacing", OnSetRunLightSpacing));
             AddBinding(new TriggerBinding<Entity, bool>(Group, "setRunGroomed", OnSetRunGroomed));
+            AddBinding(new TriggerBinding<string, int>(Group, "setDrawRun", OnSetDrawRun));
 
             Mod.Log.Info($"{nameof(SkiResortHubUISystem)} created — group '{Group}', contract {HubContract}, " +
                          $"DLL stamp {s_DllStamp} (UI bundled at build: {BuildStamp.UiBundled}); 20 value bindings, " +
@@ -1126,6 +1130,9 @@ namespace SkiResortMod.Systems
         private void OnSetRunGroomed(Entity run, bool on) =>
             Trigger("setRunGroomed", new Request { Kind = RequestKind.SetRunGroomed, Entity = run, Bool = on });
 
+        private void OnSetDrawRun(string key, int value) =>
+            Trigger("setDrawRun", new Request { Kind = RequestKind.SetDrawRun, Text = key, Int = value });
+
         private void OnFocusLift(Entity entity, Entity top) =>
             Trigger("focusLift", new Request { Kind = RequestKind.FocusLift, Entity = entity, Entity2 = top });
 
@@ -1354,6 +1361,9 @@ namespace SkiResortMod.Systems
                     LastTriggerText = $"setRunGroomed {Ent(r.Entity)} {r.Bool}: {why}";
                     break;
                 }
+                case RequestKind.SetDrawRun:
+                    ApplyDrawRun(r.Text, r.Int, r.Source);
+                    break;
             }
         }
 
@@ -2261,7 +2271,7 @@ namespace SkiResortMod.Systems
                 LastTriggerText = $"launch '{shown}': unknown id";
                 return;
             }
-            PrefabBase prefab = m_ItemPrefab[item];
+            PrefabBase prefab = DrawPrefab(item, m_ItemPrefab[item]);   // the Run tile draws the natural look while Groomed is off
             if (prefab == null)
             {
                 // A pending item that is MISSING is never sent, so only the dev tab (every id) or an
@@ -2946,13 +2956,14 @@ namespace SkiResortMod.Systems
                 m_LockSign = m_SelectedResort;
             }
             RefreshLiftHint();
-            int active = ActiveItemIndex();
+            int active = StripItem(ActiveItemIndex());
             int signature = HubRules.BuildSignature(active, m_ItemReason, m_ItemPrice, m_ItemSent, m_LiftNoPairByType);
             if (rising || signature != m_BuildPushedSignature || active != m_ActiveItem)
             {
                 m_ActiveItem = active;
                 m_BuildPushedSignature = signature;
                 m_Build.Update();
+                PushDrawRun();
             }
         }
 
@@ -3259,6 +3270,27 @@ namespace SkiResortMod.Systems
                 writer.Write(m_ItemMonthlyPerHa[i]);
                 writer.PropertyName("monthlyPerKm");
                 writer.Write(m_ItemMonthlyPerKm[i]);
+                // The Run tile's step prices (contract 33, R3): Groomed off pays the natural fee and no upkeep; snow guns and lights each add
+                // their one-time step and their upkeep step (SkiRunFees, SkiRunUpkeepRates); -1 on every other item. Written on EVERY item:
+                // a "SkiResortMod.BuildItem" whose fields differ from its siblings' killed the game the frame the hub opened (Gameface, no
+                // log or report; in game R3, DECISIONS 578), so every object of one __Type keeps one shape.
+                bool steps = Items[i].Id == RunItemId && m_ItemPrice[i] >= 0;
+                writer.PropertyName("naturalPrice");
+                writer.Write(steps ? SkiRunFees.NaturalBase : -1);
+                writer.PropertyName("naturalPerHa");
+                writer.Write(steps ? SkiRunFees.NaturalPerHa : -1);
+                writer.PropertyName("gunsPrice");
+                writer.Write(steps ? SkiRunFees.SnowmakingStepBase : -1);
+                writer.PropertyName("gunsPerHa");
+                writer.Write(steps ? SkiRunFees.SnowmakingStepPerHa : -1);
+                writer.PropertyName("gunsMonthlyPerHa");
+                writer.Write(steps ? SkiRunUpkeepRates.SnowmakingStepPerHaMonth : -1);
+                writer.PropertyName("lightsPrice");
+                writer.Write(steps ? SkiRunFees.LightsStepBase : -1);
+                writer.PropertyName("lightsPerHa");
+                writer.Write(steps ? SkiRunFees.LightsStepPerHa : -1);
+                writer.PropertyName("lightsMonthlyPerHa");
+                writer.Write(steps ? SkiRunUpkeepRates.LightsStepPerHaMonth : -1);
                 writer.TypeEnd();
             }
             writer.ArrayEnd();
@@ -3459,20 +3491,24 @@ namespace SkiResortMod.Systems
                 writer.Write(Fin(r.TicketPaidMonth));
                 writer.PropertyName("ticketIncomeEstimated");
                 writer.Write(r.TicketIncomeEstimated);
-                writer.PropertyName("costGroomedMonth");
-                writer.Write(Fin(r.CostGroomedMonth));
+                writer.PropertyName("costGroomingMonth");
+                writer.Write(Fin(r.CostGroomingMonth));
                 writer.PropertyName("costSnowmakingMonth");
                 writer.Write(Fin(r.CostSnowmakingMonth));
-                writer.PropertyName("costNightMonth");
-                writer.Write(Fin(r.CostNightMonth));
+                writer.PropertyName("costLightsMonth");
+                writer.Write(Fin(r.CostLightsMonth));
+                writer.PropertyName("costCatTracksMonth");
+                writer.Write(Fin(r.CostCatTracksMonth));
                 writer.PropertyName("haNatural");
                 writer.Write(Fin(r.HaNatural));
                 writer.PropertyName("haGroomed");
                 writer.Write(Fin(r.HaGroomed));
                 writer.PropertyName("haSnowmaking");
                 writer.Write(Fin(r.HaSnowmaking));
-                writer.PropertyName("haNight");
-                writer.Write(Fin(r.HaNight));
+                writer.PropertyName("haLit");
+                writer.Write(Fin(r.HaLit));
+                writer.PropertyName("haCatTracks");
+                writer.Write(Fin(r.HaCatTracks));
                 writer.PropertyName("liftCostMonth");
                 writer.Write(Fin(r.LiftCostMonth));
                 writer.PropertyName("liftsBilled");
@@ -3650,6 +3686,8 @@ namespace SkiResortMod.Systems
                 writer.Write(r.GunSpacingM);
                 writer.PropertyName("lightSpacingM");
                 writer.Write(r.LightSpacingM);
+                writer.PropertyName("paidSteps");
+                writer.Write(r.PaidSteps);
                 writer.TypeEnd();
             }
             writer.ArrayEnd();
@@ -4280,7 +4318,7 @@ namespace SkiResortMod.Systems
                 LiftTypeDef type = s_ItemTypeIndex[i] >= 0 ? SkiCatalog.LiftByIndex(s_ItemTypeIndex[i]) : null;
                 bool shuttle = type != null && type.Mover == MoverKind.Shuttle;
                 // The rule for every item: sent when (expected name or found), plus "a Shuttle item needs the tram mover registered".
-                m_ItemSent[i] = (expectedName || found) && (!shuttle || tramMoverRegistered);
+                m_ItemSent[i] = (expectedName || found) && (!shuttle || tramMoverRegistered) && !IsRetiredRunItem(item.Id);   // + R3: two run tiles
                 if (m_ItemSent[i])
                     sent++;
                 if (expectedName)
@@ -4566,6 +4604,8 @@ namespace SkiResortMod.Systems
             sb.Append('\n');
             // The station LV icon state and the mountain jobs on the signs.
             World.GetExistingSystemManaged<StationLvIconSystem>()?.AppendDump(sb);
+            World.GetExistingSystemManaged<LiftLineIconSystem>()?.AppendDump(sb);
+            World.GetExistingSystemManaged<LiftPowerCueSystem>()?.AppendDump(sb);
             World.GetExistingSystemManaged<MountainJobsSystem>()?.AppendDump(sb);
             World.GetExistingSystemManaged<OffSeasonStaffSystem>()?.AppendDump(sb);
             World.GetExistingSystemManaged<LodgeSupplySystem>()?.AppendDump(sb);

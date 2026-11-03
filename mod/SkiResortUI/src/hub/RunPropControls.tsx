@@ -1,14 +1,15 @@
 /*
- * src/hub/RunPropControls.tsx - the Runs view's two prop rows: how far apart the focused run's snow guns and floodlights stand. The same rows as the
- * tree line (QuickRunsControls TreeRowsQuick): caption, -50, -10, value, +10, +50. The run is the focused row of the list; the rows always draw, so
- * the view does not jump when a run is picked. The value is C#'s (RunRow.gunSpacingM / lightSpacingM: 0 = off, -1 = the kind carries none): a click
- * sends the next value and C# answers by pushing the row. Look only: snow and upkeep never read them (tools/check-run-props.js), except a cat
- * track's guns at Off, which bill nothing (DECISIONS 563; its own tip says so).
+ * src/hub/RunPropControls.tsx - the Runs view's feature rows for the focused run (run types R3, DECISIONS 578): Groomed (on / off, a re-emit),
+ * then how far apart its snow guns and floodlights stand. The slider rows are the tree line's (QuickRunsControls TreeRowsQuick): caption, -50,
+ * -10, value, +10, +50. The run is the focused row of the list; the rows always draw, so the view does not jump when a run is picked. The values
+ * are C#'s (RunRow.gunSpacingM / lightSpacingM: 0 = off, -1 = it carries none, a natural run): a click sends the next value and C# answers by
+ * pushing the row. The sliders are the Snowmaking and Lights features (DECISIONS 577): Off = no guns, no made snow, no bill. Each tip says
+ * whether turning the feature on pays its one-time step or is free again (RunRow.paidSteps). A cat track has no Groomed row.
  * Panel file: no subscription of its own; RunsView passes the row.
  */
 import { Unit } from "cs2/l10n";
-import { RUN_KIND, RUN_PROP_SPACING_MAX, RUN_PROP_SPACING_OFF, RUN_PROP_SPACING_STEP, RUN_PROP_SPACING_STEP_COARSE, hubTriggers } from "../bindings";
-import type { RunRow } from "../bindings";
+import { RUN_KIND, RUN_PAID, RUN_PROP_SPACING_MAX, RUN_PROP_SPACING_OFF, RUN_PROP_SPACING_STEP, RUN_PROP_SPACING_STEP_COARSE, hubTriggers } from "../bindings";
+import type { DrawRun, RunRow } from "../bindings";
 import { useT } from "../l10n";
 import { runPropSpacingStep } from "./hubRules";
 import { HUB_LOC } from "./hubText";
@@ -38,23 +39,78 @@ function SpacingRow({ caption, tip, value, onSet }: { caption: string; tip: stri
   );
 }
 
+/* The Run tile's option row while a run is drawn (contract 33): the same three rows, for the run about to be drawn. */
+export function DrawRunRows({ draw }: { draw: DrawRun }): JSX.Element {
+  const t = useT();
+  const tip = (base: string): string => `${base} ${t(HUB_LOC.runPropsUnpaid)}`;
+  const groomedTip = tip(t(HUB_LOC.runPropsGroomedTip));
+  return (
+    <>
+      <div className={styles.quickLine}>{t(HUB_LOC.drawRunTitle)}</div>
+      <div className={styles.quickRow}>
+        <Caption text={t(HUB_LOC.runPropsGroomed)} />
+        <Act label={t(HUB_LOC.runPropsOn)} tip={groomedTip} on={draw.groomed} onSelect={() => hubTriggers.setDrawRun("groomed", 1)} />
+        <Act label={t(HUB_LOC.runPropsOff)} tip={groomedTip} next on={!draw.groomed} onSelect={() => hubTriggers.setDrawRun("groomed", 0)} />
+      </div>
+      <SpacingRow
+        caption={t(HUB_LOC.runPropsGuns)}
+        tip={draw.groomed ? tip(t(HUB_LOC.runPropsGunsTip)) : t(HUB_LOC.runPropsNeedsGroomed)}
+        value={draw.groomed ? draw.gunSpacingM : -1}
+        onSet={(m) => hubTriggers.setDrawRun("guns", m)}
+      />
+      <SpacingRow
+        caption={t(HUB_LOC.runPropsLights)}
+        tip={draw.groomed ? tip(t(HUB_LOC.runPropsLightsTip)) : t(HUB_LOC.runPropsNeedsGroomed)}
+        value={draw.groomed ? draw.lightSpacingM : -1}
+        onSet={(m) => hubTriggers.setDrawRun("lights", m)}
+      />
+    </>
+  );
+}
+
+function GroomedRow({ row }: { row: RunRow | undefined }): JSX.Element {
+  const t = useT();
+  const piste = !!row && row.kind !== RUN_KIND.CatTrack;
+  const groomed = piste && row.kind !== RUN_KIND.Natural;
+  const tip = !row ? t(HUB_LOC.runPropsGroomedTip) : `${t(HUB_LOC.runPropsGroomedTip)} ${paidNote(t, row, RUN_PAID.Groomed)}`;
+  return (
+    <div className={styles.quickRow}>
+      <Caption text={t(HUB_LOC.runPropsGroomed)} />
+      <Act label={t(HUB_LOC.runPropsOn)} tip={tip} on={groomed} disabled={!piste}
+        onSelect={() => { if (row) hubTriggers.setRunGroomed(row.entity, true); }} />
+      <Act label={t(HUB_LOC.runPropsOff)} tip={tip} next on={piste && !groomed} disabled={!piste}
+        onSelect={() => { if (row) hubTriggers.setRunGroomed(row.entity, false); }} />
+    </div>
+  );
+}
+
+/* The paid-once note of a feature: free again once its step is paid, else its first time on pays a step. A cat track pays its fee once at bind
+ * and nothing per feature (SkiRunFees), so its sliders say nothing about fees. */
+function paidNote(t: ReturnType<typeof useT>, row: RunRow, bit: number): string {
+  return (row.paidSteps & bit) !== 0 ? t(HUB_LOC.runPropsPaid) : t(HUB_LOC.runPropsUnpaid);
+}
+
 export function RunPropRows({ row }: { row: RunRow | undefined }): JSX.Element {
   const t = useT();
   const guns = row ? row.gunSpacingM : -1;
   const lights = row ? row.lightSpacingM : -1;
+  const catTrack = !!row && row.kind === RUN_KIND.CatTrack;
+  const withNote = (base: string, bit: number): string => (row && !catTrack ? `${base} ${paidNote(t, row, bit)}` : base);
   return (
     <>
       <div className={styles.quickLine}>{row ? row.name : t(HUB_LOC.runPropsNone)}</div>
+      {!catTrack && <GroomedRow row={row} />}
       <SpacingRow
         caption={t(HUB_LOC.runPropsGuns)}
-        tip={row && guns < 0 ? t(HUB_LOC.runPropsNoGuns)
-          : row && row.kind === RUN_KIND.CatTrack ? t(HUB_LOC.runPropsGunsTipCatTrack) : t(HUB_LOC.runPropsGunsTip)}
+        tip={row && guns < 0 ? t(HUB_LOC.runPropsNeedsGroomed)
+          : catTrack ? t(HUB_LOC.runPropsGunsTipCatTrack) : withNote(t(HUB_LOC.runPropsGunsTip), RUN_PAID.Snowmaking)}
         value={guns}
         onSet={(m) => { if (row) hubTriggers.setRunGunSpacing(row.entity, m); }}
       />
       <SpacingRow
         caption={t(HUB_LOC.runPropsLights)}
-        tip={row && lights < 0 ? t(HUB_LOC.runPropsNoLights) : t(HUB_LOC.runPropsLightsTip)}
+        tip={row && lights < 0 ? t(HUB_LOC.runPropsNeedsGroomed)
+          : catTrack ? t(HUB_LOC.runPropsLightsTipCatTrack) : withNote(t(HUB_LOC.runPropsLightsTip), RUN_PAID.Lights)}
         value={lights}
         onSet={(m) => { if (row) hubTriggers.setRunLightSpacing(row.entity, m); }}
       />
