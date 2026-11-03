@@ -161,6 +161,7 @@ import cs2_uv        # noqa: E402
 import cs2_compose   # noqa: E402
 import cs2_validate  # noqa: E402
 import cs2_sheaves   # noqa: E402  (T62: the one sheave wheel, cs2_sheaves.wheel)
+import cs2_skin      # noqa: E402  (lift alignment phase 2: the half-train rig and G6)
 
 REPO = os.path.normpath(os.path.join(HERE, "..", ".."))
 CATALOG = os.path.join(REPO, "catalog", "carriers.json")
@@ -378,6 +379,37 @@ LADDER_ASYM = ("rung_", "lrail_", "bskt_", "grate_bskt", "arrest_")   # C11 exem
 # the round-1 cap)
 TRAM_BUDGET = {30: (4000, 5800, 1900, 450), 45: (5200, 6900, 2400, 470), 60: (6500, 8000, 2800, 500)}
 TRAM_LOD2_CAP = 500        # RS section 4 far cap: raise (skeptic MC5); the per-variant value warns
+
+# Lift alignment phase 2, round 2 (SKINNED; cs2_skin, docs/research/field/2026-11-02/liftalign/articulation-design-note.md):
+# per lane the saddle splits into two halves hinged on the track rope's anchor line (TrainFront / TrainBack, pivot
+# (0, z0)) and the haul row into two halves hinged on the haul anchor line (TrainFrontHaul / TrainBackHaul, pivot
+# (0, z0 - 0.40)): haul option (b), each rope seats exactly at any slope. The halves are the box girder cut at a
+# V-notch through the pivot line; a static tapered cheek plate one slab OUTBOARD of the saddle (on a low central arm
+# that passes under the halves' swept radius) carries them: a lap joint, separate lateral slabs never collide (a pitch
+# about the lateral axis keeps lateral coordinates). The haul halves tie to the saddle's inboard web through lap plates
+# one slab inboard (tolerant: they slide 2 x 0.40 sin(t / 2) over the web, never into it). The seat posts and the arms
+# / knees out to the lane go (they sat in the swept slab). (Round 2 first try: an inverted-U channel over a kingpost
+# inside it cost +156 tris at LOD2, 612 > the 500 cap.)
+SKINNED = False
+SKIN_BONES = ("Root", "TrainFront", "TrainBack", "TrainFrontHaul", "TrainBackHaul")
+SKIN_TRAM = dict(
+    theta_max=68.2,            # deg: the planner's tram max slope (each half clamps to it)
+    rope_h_hv=0.0866,          # the vanilla HV cable hexagon's bottom flat (lift_tower.VANILLA_HV_ROPE h): saddle top
+    rope_h_lv=0.0520,          # the LV cable's (VANILLA_LV_ROPE h): the haul rope's underside
+    notch_deg=22.0,            # V-notch: each inner end face this far off the vertical (> the 20 deg half-break)
+    end_gap=0.010,             # each inner end face this far off the radial plane through the pivot
+    cheek_gap=0.010, cheek_t=0.08, cheek_dz=-0.15, cheek_hw_top=0.22, cheek_hw_bot=0.55,  # outboard cheek plate:
+                               # |u| 0.21..0.29, top 0.15 under the rope axis (the carriage band starts at dz -0.05)
+    arm_y0=3.50, arm_dz0=-2.45, arm_y1=5.85, arm_dz1=-2.95, arm_w=0.30,  # central arm: head bottom chord -> under the
+                               # cheek, below the halves' 2.62 m swept radius where it crosses the saddle / haul slabs
+    outer_arm_y=4.40,          # the outer arms (x +-1.5) end inboard of the cabin's inner upright band (lane - 1.08)
+    knee_y=4.25,               # the knee braces end under the arm at the hanger posts
+    bar_gap=0.11,              # haul bar halves start this far off x 0 (the bottom corners clear the 20 deg break)
+    tie_x=1.10, plate=(0.14, 0.03, 0.14), plate_gap=0.010,   # haul tie lap plate (x, y, z), off the inboard web face
+)
+SKIN_CLEAR_MIN = 0.005         # m (cs2_skin G6, as lift_tower)
+SKIN_PIN_GAP_MAX = 0.005
+SKIN_ROPE_RUN = 1.0            # m of rope past a half's outer end in the rope check
 
 # --------------------------------------------------------------------------------------
 # Gondola lattice constants (section 4.2 + the GD head of this module)
@@ -1704,16 +1736,51 @@ def tram_layout(spec):
             "flare_deg": math.degrees(math.atan(slope)), "alpha": alpha}
 
 
+def kink(spec):
+    """The rope's end slope at the tower the head is built to: spec.s0 (the level kinked lane, R31); 0 when SKINNED
+    (each half seats its own straight span from the anchor; at rest both are level)."""
+    return 0.0 if SKINNED else spec.s0
+
+
+def saddle_top0(spec):
+    """Saddle crown top: the rope radius under the track rope axis; SKINNED: the vanilla HV hexagon's bottom flat
+    (h 0.0866), so the rope seats on the liner (cs2_skin seat gate) instead of riding 13 mm above it."""
+    return spec.z0 - (SKIN_TRAM["rope_h_hv"] if SKINNED else TRAM["rope_r_hv"])
+
+
+def haul_seat():
+    """SKINNED: the haul rope axis above a roller axle with the vanilla LV hexagon on the v2 wheel (lift_tower.rope_seat:
+    the larger of the bottom flat's corners on the groove flanks and the slanted faces on the flange crests)."""
+    R, h = TRAM["rope_r_lv"], SKIN_TRAM["rope_h_lv"]
+    W = cs2_sheaves.wheel_profile(ROLLER["r"], ROLLER["w"])
+    hw = W["hc"]
+    yb = min(R / 2.0, hw)
+    seat = ROLLER["r"] - W["gd"] * (1.0 - yb / hw) + h
+    if R / 2.0 < hw < R:
+        seat = max(seat, ROLLER["r"] + h * (R - hw) / (R / 2.0))
+    elif hw <= R / 2.0:
+        seat = max(seat, ROLLER["r"] + h)
+    return seat
+
+
+def haul_axle(spec, x):
+    """A haul roller's axle z at travel x: crest on the level kinked haul-rope bottom line (C4); SKINNED: the rope seated
+    (haul_seat) on a straight level line."""
+    if SKINNED:
+        return spec.z0 + TRAM["haul_dz"] - haul_seat()
+    return spec.z0 + TRAM["haul_dz"] - TRAM["rope_r_lv"] - spec.s0 * abs(x) - ROLLER["r"]
+
+
 def saddle_profile(spec):
     """Top line (x, z) of a saddle girder: the rope underside of the level kinked lane for |x| <= xc
     (MC3: never above the rope), then a parabolic lead-out to `tip` extra drop at the ends, so the
     girder reads curved in elevation (V8b; P2P-33, JH-15). 7 sections: -L2, -xm, -xc, 0, xc, xm, L2."""
     L2, xc, tip = spec.saddle_l / 2.0, SADDLE["xc"], SADDLE["tip"]
-    top0 = spec.z0 - TRAM["rope_r_hv"]
+    top0 = saddle_top0(spec)
     xm = (xc + L2) / 2.0
     pts = []
     for x in (-L2, -xm, -xc, 0.0, xc, xm, L2):
-        z = top0 - spec.s0 * abs(x)
+        z = top0 - kink(spec) * abs(x)
         if abs(x) > xc + 1e-9:
             z -= tip * ((abs(x) - xc) / (L2 - xc)) ** 2
         pts.append((x, z))
@@ -1817,6 +1884,10 @@ def build_tram_head(P, spec):
     arm_top = z0 - 1.20
     for s, tag in ((1, "p"), (-1, "n")):
         ly = s * TRAM["lane_y"]
+        if SKINNED:
+            build_skin_saddle(P, spec, s, tag)
+            build_haul_row(P, spec, s, tag)
+            continue
         # detail pass 1 (Q8): the girder in tower steel, its top face (the rope seat) a rubber liner
         body, liner = saddle_part(f"saddle_{tag}", ly, prof, sw, sd, liner=f"saddle_liner_{tag}")
         P.add(body, "paint")
@@ -1866,7 +1937,9 @@ def build_haul_row(P, spec, s, tag):
     yh = s * TRAM["haul_y"]
 
     def axle(x):
-        return spec.z0 + TRAM["haul_dz"] - TRAM["rope_r_lv"] - spec.s0 * abs(x) - R["r"]
+        return haul_axle(spec, x)
+    if SKINNED:
+        return build_skin_haul_row(P, spec, s, tag, axle)
     for kk, x in enumerate(R["x"]):
         # detail pass 1 (design 5.1): the V flanks (the rope faces) split off as rubber liners
         sh, ln = _haul_wheel(f"haulroll_{tag}_{kk}", f"haulroll_liner_{tag}_{kk}", (x, yh, axle(x)))
@@ -1947,6 +2020,482 @@ def build_cranes(P, spec):
         P.box(f"cranehook_b{tag}", (0.18, 0.18, 0.22), (0.0, yh, zh + 0.11), mat="crane")
         P.box(f"cranewinch_{tag}", (0.40, 0.34, 0.50), (0.0, s * (C["y"] - C["col_r"] - 0.17), z0 + 0.65),
               mat="galv")
+
+
+# --------------------------------------------------------------------------------------
+# Lift alignment phase 2 (SKINNED): saddle halves, kingpost, haul halves; the rig and G6
+# --------------------------------------------------------------------------------------
+
+def set_skinned(on):
+    """Set SKINNED before any part is built (off = every unskinned build byte-identical)."""
+    global SKINNED
+    SKINNED = bool(on)
+
+
+def skin_saddle_top(spec, x):
+    """A half's top line at travel x: the crown flat (each half seats its own straight rope) out to xc, then the
+    parabolic lead-out to `tip` extra drop at the ends (V8b)."""
+    L2, xc, tip = spec.saddle_l / 2.0, SADDLE["xc"], SADDLE["tip"]
+    z = saddle_top0(spec)
+    if abs(x) > xc + 1e-9:
+        z -= tip * ((abs(x) - xc) / (L2 - xc)) ** 2
+    return z
+
+
+def skin_notch_x(spec, z):
+    """|x| of a half's inner end face at height z: the V-notch plane notch_deg off the vertical through the pivot line,
+    moved end_gap off it along its normal (two halves clear each other up to a 2 x (notch_deg - 20) margin at the
+    40 deg break)."""
+    K = SKIN_TRAM
+    phi = math.radians(K["notch_deg"])
+    return K["end_gap"] / math.cos(phi) + (spec.z0 - z) * math.tan(phi)
+
+
+def saddle_half_part(name, spec, y_c, sign, liner):
+    """One saddle half (sign +1 front = authoring +x, -1 back): the box girder (saddle_part's section, width 0.40, depth
+    0.70) from the inner V-notch end through xc and the lead-out middle to the tip (the crown flat to xc: each half
+    seats its own straight rope), capped at both ends. The top face (the rope seat) is its own part `liner` (rubber),
+    welded at the join (saddle_part's split)."""
+    w2, d = SADDLE["w"] / 2.0, SADDLE["d"]
+    L2, xc = spec.saddle_l / 2.0, SADDLE["xc"]
+    xm = (xc + L2) / 2.0
+    us = (-w2, -w2, w2, w2)
+
+    def ring(x_abs, inner=False):
+        T = skin_saddle_top(spec, 0.0 if inner else x_abs)
+        zs = (T, T - d, T - d, T)
+        return [Vector((sign * (skin_notch_x(spec, z) if inner else x_abs), y_c + u, z)) for u, z in zip(us, zs)]
+    rings = [ring(None, True), ring(xc), ring(xm), ring(L2)]
+    if sign < 0:
+        rings = rings[::-1]                 # rings in +x order: outward faces (saddle_part's corner order)
+    perim = 2.0 * (2.0 * w2 + d)
+    acc = [0.0, d, d + 2.0 * w2, 2.0 * d + 2.0 * w2, perim]
+    # the slanted V-notch ring's corners sit off its centroid along travel: their strip v takes that offset (as
+    # prism's plane-cut ends, _sweep vcorr) so the first span keeps its aspect (DT-C5)
+    ii = 0 if sign > 0 else len(rings) - 1
+    cen = sum(rings[ii], Vector()) / len(rings[ii])
+    off = [(c - cen).dot(XV) for c in rings[ii]]
+    vs = [[0.0] * 4 for _ in rings]
+    ve = [[0.0] * 4 for _ in rings]
+    (vs if sign > 0 else ve)[ii] = off
+    body = _sweep(name, rings, [a / perim for a in acc], perim, "none", (), None, vcorr=(vs, ve))
+    bm = bmesh.new()
+    bm.from_mesh(body.data)
+    uv = bm.loops.layers.uv["UVMap"]
+    bm.verts.ensure_lookup_table()
+    n = len(rings[0])
+    for j, end, off in ((0, False, 2.0), (len(rings) - 1, True, 4.0)):
+        r = [bm.verts[j * n + k] for k in range(n)]
+        c = sum((v.co for v in r), Vector()) / n
+        b = (r[1].co - r[0].co)
+        b = (b - YV * b.dot(YV)).normalized()
+        f = bm.faces.new(r if end else r[::-1])          # (0, 1, 2, 3) faces +x: the end cap
+        for lp in f.loops:
+            dv = lp.vert.co - c
+            lp[uv].uv = (dv.dot(YV) / perim + off, dv.dot(b) / perim)
+    bm.normal_update()
+    top = [f for f in bm.faces if f.normal.z > 0.5 and abs(f.normal.y) < 0.5
+           and len(f.verts) == 4 and all(abs(abs(v.co.y - y_c) - w2) < 1e-6 for v in f.verts)]
+    if len(top) != len(rings) - 1:
+        bm.free()
+        raise ContractError(f"{name}: liner split found {len(top)} top faces, want {len(rings) - 1}")
+    lb = bmesh.new()
+    luv = lb.loops.layers.uv.new("UVMap")
+    vmap = {}
+    for f in top:
+        vs = []
+        for lp in f.loops:
+            key = tuple(round(c_, 7) for c_ in lp.vert.co)
+            if key not in vmap:
+                vmap[key] = lb.verts.new(lp.vert.co)
+            vs.append(vmap[key])
+        nf = lb.faces.new(vs)
+        for lp_new, lp_old in zip(nf.loops, f.loops):
+            lp_new[luv].uv = lp_old[uv].uv
+    bmesh.ops.delete(bm, geom=top, context="FACES")
+    bm.to_mesh(body.data)
+    bm.free()
+    body.data.update()
+    lb.normal_update()
+    return body, _link(liner, lb)
+
+
+def taper_post(name, y_c, t, z_bot, z_top, hw_bot, hw_top):
+    """A plate t thick (lateral) tapering in travel from +-hw_bot at z_bot to +-hw_top at z_top (the cheek); the bottom
+    face (buried in the arm) not built; box UVs in meters."""
+    bm = bmesh.new()
+    lay = bm.loops.layers.uv.new("UVMap")
+    v = {}
+    for zi, (z, hw) in enumerate(((z_bot, hw_bot), (z_top, hw_top))):
+        for xi, x in enumerate((-hw, hw)):
+            for yi, y in enumerate((y_c - t / 2.0, y_c + t / 2.0)):
+                v[(xi, yi, zi)] = bm.verts.new((x, y, z))
+    for q in (((0, 0, 1), (1, 0, 1), (1, 1, 1), (0, 1, 1)),          # top
+              ((0, 0, 0), (1, 0, 0), (1, 0, 1), (0, 0, 1)),          # -y
+              ((1, 1, 0), (0, 1, 0), (0, 1, 1), (1, 1, 1)),          # +y
+              ((1, 0, 0), (1, 1, 0), (1, 1, 1), (1, 0, 1)),          # +x
+              ((0, 1, 0), (0, 0, 0), (0, 0, 1), (0, 1, 1))):         # -x
+        bm.faces.new([v[k] for k in q])
+    cs2_sheaves._box_uv_bm(bm, lay)
+    return _link(name, bm)
+
+
+def build_skin_saddle(P, spec, s, tag):
+    """SKINNED head of one lane: the two saddle halves, the outboard cheek plate on the central arm, the outer arms cut
+    back to outer_arm_y (they carry the hanger posts) and the knee braces to knee_y; no seat posts."""
+    K = SKIN_TRAM
+    z0, hx, hy, hw = spec.z0, HEAD["x"], HEAD["y"], HEAD["w"]
+    zb = z0 + HEAD["bot_dz"]
+    ly = s * TRAM["lane_y"]
+    for hs, ht in ((1, "f"), (-1, "b")):
+        body, liner = saddle_half_part(f"saddle_{tag}_{ht}", spec, ly, hs, f"saddle_liner_{tag}_{ht}")
+        P.add(body, "paint")
+        P.add(liner, "rubber")
+    for kk, x in enumerate((hx, -hx)):
+        P.member(f"sbrkarm_{tag}_{kk}", [(x, s * (hy + hw / 2), z0 - 1.35), (x, s * K["outer_arm_y"], z0 - 1.35)],
+                 0.30, hint=ZV, caps="end")
+    for kk, x in enumerate((hx, -hx)):
+        P.member(f"sbrk_{tag}_{2 + kk}", [(x, s * hy, zb), (x, s * K["knee_y"], z0 - 1.50)], 0.20, hint=XV,
+                 end_planes=(None, ZV))
+    a0 = Vector((0.0, s * K["arm_y0"], z0 + K["arm_dz0"]))
+    a1 = Vector((0.0, s * K["arm_y1"], z0 + K["arm_dz1"]))
+    P.member(f"sbrk_{tag}_c", [a0, a1], K["arm_w"], hint=ZV, caps="end")
+    tdir = (a1 - a0).normalized()
+    up = (ZV - tdir * ZV.dot(tdir)).normalized()
+
+    def arm_top(y_abs):           # the arm's top face at |y| (its faces are square to `up`)
+        f = (y_abs - K["arm_y0"]) / (K["arm_y1"] - K["arm_y0"])
+        return a0.lerp(a1, f).z + K["arm_w"] / 2.0 / up.z
+    u0 = SADDLE["w"] / 2.0 + K["cheek_gap"]
+    yc = TRAM["lane_y"] + u0 + K["cheek_t"] / 2.0
+    zk0 = min(arm_top(yc - K["cheek_t"] / 2.0), arm_top(yc + K["cheek_t"] / 2.0)) - 0.005
+    P.add(taper_post(f"sbrk_{tag}_k", s * yc, K["cheek_t"], zk0, z0 + K["cheek_dz"], K["cheek_hw_bot"],
+                     K["cheek_hw_top"]), "paint")
+
+
+def build_skin_haul_row(P, spec, s, tag, axle):
+    """SKINNED haul row of one lane, haul option (b): the 8 rollers as built (4 a half), the carrier bar split into two
+    straight halves from +-bar_gap, one tie a half at +-tie_x ending in a lap plate one slab inboard of the saddle's
+    inboard web (plate_gap off its face): the haul halves turn about the haul anchor, the saddle halves about the track
+    anchor 0.40 above, so the plate slides 2 x 0.40 sin(t / 2) over the web (in the half's frame +-0.40 sin t along
+    travel, 0.40 (1 - cos t) up) and never into it."""
+    K, R = SKIN_TRAM, ROLLER
+    yh = s * TRAM["haul_y"]
+    for kk, x in enumerate(R["x"]):
+        sh, ln = _haul_wheel(f"haulroll_{tag}_{kk}", f"haulroll_liner_{tag}_{kk}", (x, yh, axle(x)))
+        P.add(sh, cs2_sheaves.wheel_key("galv"))
+        P.add(ln, "rubber")
+    yb = s * (TRAM["haul_y"] - R["bar_dy"])
+    xe = max(R["x"]) + R["r"]
+    y0 = yb + s * (R["bar_w"] / 2.0 - DP1["tie_short"])
+    y_web = TRAM["lane_y"] - SADDLE["w"] / 2.0
+    py, pt = y_web - K["plate_gap"] - K["plate"][1] / 2.0, K["plate"][1]
+    for hs, ht in ((1, "f"), (-1, "b")):
+        xa, xb = (K["bar_gap"], xe) if hs > 0 else (-xe, -K["bar_gap"])
+        P.member(f"haulroll_bar_{tag}_{ht}", [(xa, yb, axle(xa)), (xb, yb, axle(xb))], R["bar_w"], hint=ZV,
+                 caps="both")
+        x = hs * K["tie_x"]
+        P.member(f"haulroll_tie_{tag}_{ht}", [(x, y0, axle(x)), (x, s * (py - pt / 2.0 + 0.005), axle(x))],
+                 R["tie_w"], hint=ZV)
+        P.box(f"haulroll_tiep_{tag}_{ht}", K["plate"], (x, s * py, axle(x)))
+
+
+def skin_pivots(spec):
+    """Net-frame (y, z) of each half bone's pivot: the track anchor line (rope axis z0) for the saddle halves, the haul
+    anchor line 0.40 below for the haul halves (the lateral lines through both lanes' rope points)."""
+    zt, zh = spec.z0, spec.z0 + TRAM["haul_dz"]
+    return {"TrainFront": (0.0, zt), "TrainBack": (0.0, zt), "TrainFrontHaul": (0.0, zh), "TrainBackHaul": (0.0, zh)}
+
+
+def skin_heads(spec):
+    """{bone: net-frame head} in SKIN_BONES order (Root at the origin; game head = (-x, z, -y) of these)."""
+    p = skin_pivots(spec)
+    out = {"Root": (0.0, 0.0, 0.0)}
+    out.update({b: (0.0, p[b][0], p[b][1]) for b in SKIN_BONES[1:]})
+    return out
+
+
+def skin_pose(front, back):
+    """The pose dict for rope pitches front / back (deg): the haul ropes run parallel to the track ropes (both anchors
+    on every tower 0.40 apart), so each haul half takes its saddle half's pitch."""
+    return {"TrainFront": front, "TrainBack": back, "TrainFrontHaul": front, "TrainBackHaul": back}
+
+
+def skin_part_bones(obj, table):
+    """{part: bone} on the joined NET-frame LOD0 by travel side (cs2_skin.bones_by_travel): saddle_* on TrainFront /
+    TrainBack, haulroll_* on TrainFrontHaul / TrainBackHaul; held to the builders' names (the _f halves, built at
+    authoring +x, ride the Front bones = game +z: the build-time axis test). Raises ContractError."""
+    import re
+    try:
+        pb = cs2_skin.bones_by_travel(obj, table, lambda n: n.startswith("saddle_"), "TrainFront", "TrainBack")
+        pb.update(cs2_skin.bones_by_travel(obj, table, lambda n: n.startswith("haulroll_"), "TrainFrontHaul",
+                                           "TrainBackHaul"))
+    except cs2_skin.SkinError as e:
+        raise ContractError(f"skin: {e}")
+    named = {n: n.endswith("_f") for n in pb if re.match(r"^(saddle|saddle_liner|haulroll_bar|haulroll_tie|"
+                                                           r"haulroll_tiep)_[np]_[fb]$", n)}
+    bad = {n: pb[n] for n, f in named.items() if pb[n].startswith("TrainFront") != f}
+    cnt = {b: sum(1 for v in pb.values() if v == b) for b in SKIN_BONES[1:]}
+    if bad or len(named) != 20 or cnt["TrainFront"] != cnt["TrainBack"] or cnt["TrainFrontHaul"] != cnt["TrainBackHaul"]:
+        raise ContractError(f"skin: halves by travel side vs names (the _f halves on the Front bones = game +z): "
+                            f"{len(named)} named parts (want 20), mismatched {bad}, parts {cnt}")
+    return pb
+
+
+def skin_assign(obj, table, part_bone):
+    """Vertex groups SKIN_BONES on `obj` (LOD0 or a LOD copy), every vertex 1.0 on its part's bone."""
+    try:
+        return cs2_skin.assign(obj, table, part_bone, list(SKIN_BONES))
+    except cs2_skin.SkinError as e:
+        raise ContractError(f"skin: {e}")
+
+
+def build_skin_armature(spec, name):
+    try:
+        return cs2_skin.build_armature(name, skin_heads(spec))
+    except cs2_skin.SkinError as e:
+        raise ContractError(f"skin: {e}")
+
+
+def skin_extents(spec):
+    """m from the pivot to the outer end of a saddle half / a haul half along travel."""
+    return spec.saddle_l / 2.0, max(ROLLER["x"]) + ROLLER["r"]
+
+
+def skin_rope_runs(spec, pose, run=None, start=0.0):
+    """[(verts, faces)] net frame: per lane and half the track rope (HV hexagon r 0.100) from the track anchor and the
+    haul rope (LV hexagon r 0.060) from the haul anchor, each a straight run at its half's pitch (cs2_skin.rope_run)."""
+    run = SKIN_ROPE_RUN if run is None else run
+    et, eh = skin_extents(spec)
+    p = skin_pivots(spec)
+    out = []
+    for side in (-1.0, 1.0):
+        for b, sign in (("TrainFront", cs2_skin.FRONT_SIGN_NET), ("TrainBack", -cs2_skin.FRONT_SIGN_NET)):
+            out.append(cs2_skin.rope_run(side * TRAM["lane_y"], p[b], pose.get(b, 0.0), sign, et + run,
+                                         r=TRAM["rope_r_hv"], start=start))
+            hb = b + "Haul"
+            out.append(cs2_skin.rope_run(side * TRAM["haul_y"], p[hb], pose.get(hb, 0.0), sign, eh + run,
+                                         r=TRAM["rope_r_lv"], start=start))
+    return out
+
+
+def _skin_crown(n):
+    """The rope's crowns (exempt vs the rope; the seat rays hit them): the saddle halves and the haul wheels."""
+    return n.startswith("saddle_") or (n.startswith("haulroll_") and not n.startswith(("haulroll_bar", "haulroll_tie")))
+
+
+def skin_sweep(obj, table, spec, part_bone, tmax=None, gate=True, label=None):
+    """G6 on the joined net-frame LOD0 (cs2_skin.sweep over cs2_skin.joint_grid(tmax), haul halves at their saddle
+    halves' pitch); gate=True raises ContractError on a failed gate after logging every pose. Returns the report (m)."""
+    tmax = SKIN_TRAM["theta_max"] if tmax is None else tmax
+    label = label or f"tram{spec.H}"
+    bones = list(SKIN_BONES)
+    try:
+        names, fb, _vb = cs2_skin.face_bones(obj, table, part_bone, bones)
+    except cs2_skin.SkinError as e:
+        raise ContractError(f"skin: {e}")
+    co = cs2_skin.coords(obj)
+    polys = [tuple(p.vertices) for p in obj.data.polygons]
+    pivots = skin_pivots(spec)
+    poses = [skin_pose(f, b) for f, b in cs2_skin.joint_grid(tmax)]
+    fx = np.array([co[list(p), 0].mean() for p in polys])
+    wf = {}
+    for bi, b in enumerate(bones[1:], start=1):
+        for side in (-1.0, 1.0):
+            wf[(b, side)] = [i for i, n in enumerate(names) if _skin_crown(n) and fb[i] == bi and np.sign(fx[i]) == side]
+    et, eh = skin_extents(spec)
+    rope = {False: (TRAM["lane_y"], et + 0.30, TRAM["rope_r_hv"], SKIN_TRAM["rope_h_hv"]),
+            True: (TRAM["haul_y"], eh + 0.30, TRAM["rope_r_lv"], SKIN_TRAM["rope_h_lv"])}
+
+    def seats(pc, ang):
+        out = {}
+        for b in bones[1:]:
+            sign = cs2_skin.FRONT_SIGN_NET if b.startswith("TrainFront") else -cs2_skin.FRONT_SIGN_NET
+            ly, ext, R, h = rope[b.endswith("Haul")]
+            for side in (-1.0, 1.0):
+                out[f"{b}_{'n' if side < 0 else 'p'}"] = cs2_skin.seat_half(
+                    pc, polys, wf[(b, side)], pivots[b], ang.get(b, 0.0), side * ly, sign, ext, R, h)
+        return out
+    rep = cs2_skin.sweep(co, polys, names, fb, bones, pivots, poses, pins=lambda n: False, lugs={},
+                         wheels=_skin_crown, ropes=lambda ang: skin_rope_runs(spec, ang), seats=seats,
+                         clear_min=SKIN_CLEAR_MIN, pin_gap_max=SKIN_PIN_GAP_MAX, label=label)
+    seat0 = seats(co, {})
+    gaps = [g for runs in seat0.values() for _d, g in runs]
+    n_tops = sum(len(r) for r in seat0.values())
+    print(f"[tram_tower] G6 [{label}] {len(poses)} poses (theta_max {tmax}, half-break <= {cs2_skin.HALF_BREAK_MAX}); "
+          f"min clearance {rep['min_clear']['m'] * 1000:.1f} mm at {rep['min_clear']['pose']} "
+          f"({' / '.join(str(n) for n in rep['min_clear']['parts'] or [])}); rest seat {n_tops} crowns "
+          f"{min(gaps) * 1000:.2f}..{max(gaps) * 1000:.2f} mm")
+    rep["failed"] = None
+    try:
+        cs2_skin.check_rows(rep["poses"], label, SKIN_CLEAR_MIN, SKIN_PIN_GAP_MAX, seat_tops=n_tops,
+                            seat_gap=cs2_skin.SEAT_GAP)
+    except cs2_skin.SkinError as e:
+        rep["failed"] = str(e)
+        if gate:
+            raise ContractError(f"skin: {e}")
+    if rep["failed"] is None:
+        print(f"[tram_tower] ok [{label}] G6 joint sweep: {len(poses)} poses, no overlap, clearance >= "
+              f"{SKIN_CLEAR_MIN * 1000:.0f} mm, every half's rope clear and seated on all {n_tops} crowns")
+    rep.update({"pivots_net": {b: [0.0, p[0], p[1]] for b, p in pivots.items()}, "theta_max_deg": tmax,
+                "half_break_max_deg": cs2_skin.HALF_BREAK_MAX, "seat_rest_m": seat0, "seat_tops": n_tops,
+                "train_parts": {b: sorted(n for n, v in part_bone.items() if v == b) for b in bones[1:]},
+                "verts": int(len(co))})
+    return rep
+
+
+def skin_rope_reach(obj, table, spec, part_bone, run=4.0, step=0.5):
+    """The steepest uniform slope (front = back, deg, in `step`s up to theta_max, both signs) at which every rope, drawn
+    `run` m past its half (the game draws it on to the next tower), still clears the static tower (Root): the tower
+    body itself does not tilt (out of scope), so past this the rope clips the upper frame whatever the halves do.
+    Returns {"clear_to_deg", "first_hit": {deg, parts}}."""
+    from mathutils.bvhtree import BVHTree
+    names, fb, _vb = cs2_skin.face_bones(obj, table, part_bone, list(SKIN_BONES))
+    co = cs2_skin.coords(obj)
+    polys = [tuple(p.vertices) for p in obj.data.polygons]
+    root = [i for i in range(len(polys)) if fb[i] == 0]
+    tree = BVHTree.FromPolygons([tuple(v) for v in co], [polys[i] for i in root], epsilon=0.0)
+    a = 0.0
+    while a <= SKIN_TRAM["theta_max"] + 1e-9:
+        for sgn in (1.0, -1.0):
+            hits = set()
+            for rv, rf in skin_rope_runs(spec, skin_pose(sgn * a, sgn * a), run=run):
+                hits |= {names[root[j]] for _i, j in BVHTree.FromPolygons(rv, rf, epsilon=0.0).overlap(tree)}
+            if hits:
+                return {"clear_to_deg": round(a - step, 2), "run_m": run,
+                        "first_hit": {"deg": round(sgn * a, 2), "parts": sorted(hits)[:8]}}
+        a += step
+    return {"clear_to_deg": SKIN_TRAM["theta_max"], "run_m": run, "first_hit": None}
+
+
+def skin_views(spec):
+    """Tram previews: [(label, pose, render views)] in the net frame (X lateral, -Y = game forward = the Front halves).
+    The +X lane's saddle and haul row: level 3/4 of the head, the crest like the owner's photo (front +15 / back -15)
+    side and 3/4 close-ups, from below at the crest (the kingpost in the channel), the steepest uniform slope (both
+    halves at theta_max), the 20 deg half-break limit, a steep crest (theta_max / theta_max - 40)."""
+    z0 = spec.z0
+    k = 50.0 / 15.6
+    tm = SKIN_TRAM["theta_max"]
+    tc = (TRAM["lane_y"], 0.0, z0 - 0.6)
+
+    def side(tag, d=1.0):
+        return dict(name=f"skin_side_{tag}", dir=(1.0, 0.0, 0.06), target=tc, lens=50.0, dist=3.4 * k * d)
+
+    def q34(tag, d=1.0):
+        return dict(name=f"skin_34_{tag}", dir=(1.0, -0.9, 0.30), target=tc, lens=50.0, dist=3.0 * k * d)
+    return [
+        ("level", skin_pose(0.0, 0.0), [dict(name="skin_head_34", dir=(1.0, -1.1, 0.35), target=(0.0, 0.0, z0 - 0.4),
+                                             lens=35.0, dist=7.5 * 35.0 / 15.6), side("level")]),
+        ("crest30", skin_pose(15.0, -15.0), [side("crest30"), q34("crest30"),
+                                             dict(name="skin_under_crest30", dir=(0.55, -0.35, -1.0), lens=35.0,
+                                                  dist=4.2, target=(TRAM["lane_y"], 0.0, z0 - 0.8), ground=False)]),
+        ("limit40", skin_pose(20.0, -20.0), [side("limit40")]),
+        (f"slope{tm:g}", skin_pose(tm, tm), [side(f"slope{tm:g}", 1.15), q34(f"slope{tm:g}", 1.2)]),
+        ("steep", skin_pose(tm, round(tm - 40.0, 3)), [side("steep", 1.15)]),
+    ]
+
+
+def render_skin_views(t, arm, spec, asset_dir, name, out_dir, views=None):
+    """skin_views through lift_tower.render_tower_views (the baked maps, its round 2 light SKIN_LIGHT): per pose one
+    posed copy (cs2_skin.posed_copy, held to the sweep's pose) with each half's ropes (dark steel) as extras."""
+    import lift_tower
+    mat = bpy.data.materials.new(name + "_PreviewRope")
+    mat.use_nodes = True
+    bsdf = next(n for n in mat.node_tree.nodes if n.type == "BSDF_PRINCIPLED")
+    bsdf.inputs["Base Color"].default_value = (0.03, 0.03, 0.03, 1.0)
+    bsdf.inputs["Metallic"].default_value = 0.7
+    bsdf.inputs["Roughness"].default_value = 0.45
+    piv = skin_pivots(spec)
+    written = []
+    for _label, pose, vv in (views or skin_views(spec)):
+        try:
+            objs = [cs2_skin.posed_copy(t, arm, pose, piv, f"{name}Pose")]
+        except cs2_skin.SkinError as e:
+            raise ContractError(f"skin: {e}")
+        for v, f in skin_rope_runs(spec, pose, run=2.5):
+            me = bpy.data.meshes.new(f"{name}Rope")
+            me.from_pydata(v, [], f)
+            me.materials.append(mat)
+            objs.append(bpy.data.objects.new(me.name, me))
+            bpy.context.collection.objects.link(objs[-1])
+        try:
+            written += lift_tower.render_tower_views(objs[0], asset_dir, name, out_dir, vv, extras=objs[1:],
+                                                     light=lift_tower.SKIN_LIGHT)
+        finally:
+            for ob in objs:
+                me = ob.data
+                bpy.data.objects.remove(ob, do_unlink=True)
+                bpy.data.meshes.remove(me)
+    bpy.data.materials.remove(mat)
+    return written
+
+
+def _skin_check(ok, label, detail=""):
+    if not ok:
+        raise ContractError(f"{label} {detail}")
+    print(f"[tram_tower] ok {label}")
+
+
+def skin_roundtrip(asset_dir, name, levels, spec):
+    """cs2_skin.roundtrip: the raw FBX the game reads holds the five bones at skin_heads, identity rests, one bone per
+    vertex, and the axis test (TrainFront* at raw z > 0 = game +z)."""
+    return cs2_skin.roundtrip(asset_dir, name, levels, skin_heads(spec), _skin_check, f"tram{spec.H}")
+
+
+def skin_stage(t, lods, table, spec, name, sweep=True):
+    """SKINNED, after the LOD chain (every level in the net frame, identity transforms): part -> bone, the rig, the
+    weights on every level (cs2_asset.check_skin_weights), G6 on LOD0 and the rope reach. Returns (arm, report)."""
+    for o in [t] + lods:
+        if o.matrix_world != Matrix.Identity(4):
+            raise ContractError(f"{name}: a level carries an object transform; the rig assumes none")
+    pb = skin_part_bones(t, table)
+    arm = build_skin_armature(spec, name + "Rig")
+    rep = {"weights": {str(i): skin_assign(o, table, pb) for i, o in enumerate([t] + lods)}}
+    for o in [t] + lods:
+        cs2_asset.check_skin_weights(o, arm)
+    print(f"[tram_tower] skin: heads (net) {skin_heads(spec)}; weights per level {rep['weights']}")
+    if sweep:
+        rep["g6"] = skin_sweep(t, table, spec, pb)
+        rep["rope_reach"] = skin_rope_reach(t, table, spec, pb)
+        print(f"[tram_tower] rope reach (uniform slope, {rep['rope_reach']['run_m']} m past each half): clear to "
+              f"{rep['rope_reach']['clear_to_deg']} deg, first hit {rep['rope_reach']['first_hit']}")
+    rep["part_bone"] = pb
+    return arm, rep
+
+
+SKIN_AXIS = {
+    "game_plus_z": "net -Y = authoring +X (TrainFront / TrainFrontHaul = the halves built at authoring +x: saddle_<lane>_f, "
+                   "haulroll_bar_<lane>_f, ...)",
+    "chain": ["cs2_asset.orient_for_net (cs2_asset.py:40): (x, y, z) -> (y, -x, z), authoring +X -> net -Y",
+              "cs2_asset.export_fbx_skinned (cs2_asset.py:1484-1487): -90 deg about X baked, (x, y, z) -> (x, z, -y) "
+              "x 100 cm: net -Y -> file +z",
+              "the game negates FBX x on import (docs/PIPELINE.md frame rule T): game = (-x_net, z_net, -y_net)"],
+    "tests": ["skin_part_bones: the _f halves ride the Front bones by travel side (build time)",
+              "cs2_skin.roundtrip: every exported level's TrainFront* group bbox center at raw z > 0, TrainBack* < 0",
+              "tests/test_tower_skinned.py (the axis test)"],
+}
+
+
+def skin_manifest_block(spec, skin):
+    """Manifest `skin` (SKINNED only)."""
+    p = skin_pivots(spec)
+    g6 = skin.get("g6") or {}
+    return {"rule": "lift alignment phase 2 round 2 (option C): the saddle halves on TrainFront / TrainBack (pivot = the "
+                    "track rope anchor line), the haul halves on TrainFrontHaul / TrainBackHaul (pivot = the haul anchor "
+                    "line 0.40 below, haul option b); each Front bone pitched by its rope toward game +z, each Back bone "
+                    "toward -z, about local X (+ lowers the game +z end), clamped to theta_max, half-break to 20 deg",
+            "bones": {b: {"parent": None if b == "Root" else "Root",
+                          "head_game": [0.0, 0.0, 0.0] if b == "Root" else [0.0, p[b][1], 0.0],
+                          "rest_rotation": [0, 0, 0, 1]} for b in SKIN_BONES},
+            "axis": SKIN_AXIS, "theta_max_deg": SKIN_TRAM["theta_max"], "half_break_max_deg": cs2_skin.HALF_BREAK_MAX,
+            "design": {k: v for k, v in SKIN_TRAM.items()},
+            "g6": {k: g6.get(k) for k in ("poses", "min_clear", "seat_rest_m", "seat_tops", "failed")},
+            "rope_reach": skin.get("rope_reach"), "weights": skin.get("weights"), "roundtrip": skin.get("roundtrip"),
+            "train_parts": g6.get("train_parts"),
+            "surgery": ["every LOD prefab: the root bone m_Rotation (0, 0, 0, 1), m_Scale (1, 1, 1) (gate BONEROOT)",
+                        "the four half bones m_Type 0; names through ProceduralBone.m_BindIndex",
+                        "LOD0 / LOD1 / LOD2 FBXs skinned (the haul halves are empty groups at LOD1 / LOD2: the rollers "
+                        "leave at LOD1); settings.json useProceduralAnimation"]}
 
 
 def _interp_profile(prof, x):
@@ -2161,8 +2710,8 @@ def check_c10(parts, family):
         pre = prefix_of(obj.name)
         if pre is None:
             bad.append(f"{obj.name}: no PREFIX_TABLE entry")
-        elif (cs2_sheaves.wheel_key(pre[1]) if ((obj.get("cs2_wheel") or obj.get("cs2_wheel_hub")) and pre[1] == "galv")
-              else pre[1]) != mat:
+        elif cs2_sheaves.dress_key(obj, cs2_sheaves.wheel_key(pre[1]) if ((obj.get("cs2_wheel") or obj.get("cs2_wheel_hub"))
+                                                                         and pre[1] == "galv") else pre[1]) != mat:
             # T62 round 2: a stamped wheel's discs take cs2_sheaves.WHEEL_KEY (the table's galv under v1)
             bad.append(f"{obj.name}: material {mat} != table {pre[1]}")
         if obj.name.startswith(l1) and obj.name.startswith(extra2):
@@ -2412,7 +2961,48 @@ def check_contracts(t, table, spec, parts, frame="authoring"):
     return rep, mv
 
 
+def _check_skin_tram_head(mv, spec):
+    """SKINNED C3 / C4: per lane both saddle halves on the lane (width 0.40), their liners' top line = the crown flat
+    (the HV hexagon's bottom flat on the level rope) inside xc, the tips at tip below it, nothing above the level rope;
+    the inner ends a V-notch apart; every haul roller's crest at the seated LV rope (haul_axle + r)."""
+    z0 = spec.z0
+    out = {"z_rope": round(z0, 4), "haul_z": round(z0 + TRAM["haul_dz"], 4), "skinned": True}
+    xc, L2 = SADDLE["xc"], spec.saddle_l / 2
+    top0 = saddle_top0(spec)
+    sad = {}
+    for tag, s in (("p", 1), ("n", -1)):
+        sv = np.concatenate([mv.verts(f"saddle_{tag}_{h}") for h in ("f", "b")])
+        yc = (sv[:, 1].min() + sv[:, 1].max()) / 2
+        _close(yc, s * TRAM["lane_y"], 1e-3, "C3", f"saddle_{tag} lane y")
+        _close(sv[:, 1].max() - sv[:, 1].min(), SADDLE["w"], 1e-3, "C3", f"saddle_{tag} width")
+        if sv[:, 2].max() > top0 + 1e-4:
+            _fail("C3", f"saddle_{tag} halves rise {sv[:, 2].max() - top0:.4f} m over the crown flat")
+        for h, hs in (("f", 1), ("b", -1)):
+            lv = mv.verts(f"saddle_liner_{tag}_{h}")
+            for x, z in zip(lv[:, 0], lv[:, 2]):
+                want = skin_saddle_top(spec, x) if abs(x) > skin_notch_x(spec, top0) + 1e-6 else top0
+                if abs(z - want) > 1e-3:
+                    _fail("C3", f"saddle_liner_{tag}_{h} top {z:.4f} at x {x:.3f}, want {want:.4f}")
+            if np.sign(lv[:, 0]).min() != hs or np.sign(lv[:, 0]).max() != hs:
+                _fail("C3", f"saddle_liner_{tag}_{h} crosses x 0 (the halves meet at the V-notch)")
+        inner = min(np.abs(mv.verts(f"saddle_liner_{tag}_{h}")[:, 0]).min() for h in ("f", "b"))
+        _close(inner, skin_notch_x(spec, top0), 1e-4, "C3", f"saddle_{tag} inner crown end")
+        sad[tag] = {"crown": round(top0, 4), "tip": round(skin_saddle_top(spec, L2), 4), "lane_y": round(yc, 4),
+                    "notch_top_x": round(inner, 4), "flat_to_x": xc}
+        for kk, x in enumerate(ROLLER["x"]):
+            rv = mv.verts(f"haulroll_{tag}_{kk}")
+            _close(rv[:, 2].max(), haul_axle(spec, x) + ROLLER["r"], 5e-3, "C4", f"haulroll_{tag}_{kk} top")
+            _close((rv[:, 1].min() + rv[:, 1].max()) / 2, s * TRAM["haul_y"], 1e-3, "C4",
+                   f"haulroll_{tag}_{kk} y")
+    out["saddles"] = sad
+    out["haul_seat_m"] = round(haul_seat(), 5)
+    out["lanes"] = {"hv_y": TRAM["lane_y"], "lv_haul_y": TRAM["haul_y"], "lv_haul_dz": TRAM["haul_dz"]}
+    return out
+
+
 def _check_tram_head(mv, spec):
+    if SKINNED:
+        return _check_skin_tram_head(mv, spec)
     z0, s0 = spec.z0, spec.s0
     out = {"z_rope": round(z0, 4), "haul_z": round(z0 + TRAM["haul_dz"], 4)}
     prof = saddle_profile(spec)
@@ -2786,7 +3376,7 @@ def _rope_corridors(mv, spec):
         sides = (1, -1) if y > 0 else (1,)
         worst = 9.0
         for s in sides:
-            zr = spec.z0 + dz - spec.s0 * np.abs(V[:, 0])
+            zr = spec.z0 + dz - kink(spec) * np.abs(V[:, 0])
             d = np.hypot(V[:, 1] - s * y, V[:, 2] - zr)
             near = np.nonzero((d < r - 0.002) & (np.abs(V[:, 0]) < 12.0))[0]
             if near.size:
@@ -3075,7 +3665,7 @@ def detail_part_counts(spec, lay, parts):
     if spec.family == "tram":
         c["collar_"] = c["collarcap_"] = 4 * len(lay.get("collar_rings") or ())
         c["haulroll_liner"] = 2 * len(ROLLER["x"])
-        c["saddle_liner"] = 2
+        c["saddle_liner"] = 4 if SKINNED else 2        # SKINNED: two halves a lane
         c["beacon_"] = 2 if spec.beacon else 0
     else:
         c["sheave_liner"] = 2 * spec.n_sheaves
@@ -3241,7 +3831,7 @@ def grade_sweep(mv, parts, spec, g_step=0.01):
     g_max = TRAM["slope_max"] if spec.family == "tram" else GD["slope_max"]
     support = ROPE_SUPPORT[spec.family]
     is_sup = np.array([n.startswith(support) for n in names])
-    s0, z0, tol = spec.s0, spec.z0, SWEEP_TOL
+    s0, z0, tol = kink(spec), spec.z0, SWEEP_TOL
     x, y, z = P[:, 0], P[:, 1], P[:, 2]
     pitched = PITCHED_BOXES.get(spec.family, ())
     pre, pre_ok = [], []
@@ -4593,12 +5183,17 @@ def run_variant(family, H, args, catalog_drift):
     if not args.export:
         lods = make_lods(t, name, table, parts, family, n1, n2) if args.lods else []
         c9 = check_c9(t, lods, spec)
+        skin = None
+        if SKINNED:
+            arm, skin = skin_stage(t, lods, table, spec, name, sweep=not getattr(args, "skin_no_sweep", False))
+            bpy.data.objects.remove(arm, do_unlink=True)
         for l in lods:
             me = l.data
             bpy.data.objects.remove(l, do_unlink=True)
             bpy.data.meshes.remove(me)
         print(f"PASS tram_tower (dry run): {name} tris {c9['tris']} drift {c9['drift_m']}")
-        return {"name": name, "tris": c9["tris"], "g_clear": sweep, "dry_run": True}
+        return {"name": name, "tris": c9["tris"], "g_clear": sweep, "dry_run": True, "skin": skin,
+                "contracts": rep_a}
     if not args.finish:
         raise ContractError("--export needs --finish (the shipped textures come from the bake)")
     out_root = os.path.abspath(args.out or DEFAULT_OUT[family])
@@ -4633,7 +5228,8 @@ def run_variant(family, H, args, catalog_drift):
                                 ao_samples=int(args.ao_samples), post_compose=hook,
                                 emissive=bool(args.beacon), src_uv="UVMap", share=hardware_share(t, table))
     dp1_tex = check_dp1_texture(spec, inner, hook if hook is not inner else None, A, relief)
-    cs2_asset.export_fbx(t, os.path.join(asset_dir, f"{name}.fbx"))
+    if not SKINNED:                 # SKINNED: every level exported skinned after the LOD chain (skin_stage)
+        cs2_asset.export_fbx(t, os.path.join(asset_dir, f"{name}.fbx"))
     lods = []
     if args.lods:
         lods = make_lods(t, name, table, parts, family, n1, n2)
@@ -4651,8 +5247,19 @@ def run_variant(family, H, args, catalog_drift):
         _close(_mvk.V[:, 2].max(), float(spec.H), 1e-3, "C1", f"LOD{k} bounds top")
         _close(_mvk.V[:, 2].min(), -(PIER_TR if family == "tram" else PIER_GD), 1e-4, "C2",
                f"LOD{k} bounds bottom")
-        cs2_asset.export_fbx(lod, os.path.join(asset_dir, f"{name}_LOD{k}.fbx"))
-    cs2_asset.write_settings(asset_dir, name, supplied_lods=tuple(range(1, len(lods) + 1)))
+        if not SKINNED:
+            cs2_asset.export_fbx(lod, os.path.join(asset_dir, f"{name}_LOD{k}.fbx"))
+    arm, skin = None, None
+    if SKINNED:
+        arm, skin = skin_stage(t, lods, table, spec, name)
+        cs2_asset.export_fbx_skinned(t, arm, os.path.join(asset_dir, f"{name}.fbx"))
+        for k, lod in enumerate(lods, start=1):
+            cs2_asset.export_fbx_skinned(lod, arm, os.path.join(asset_dir, f"{name}_LOD{k}.fbx"))
+        cs2_asset.write_settings(asset_dir, name, supplied_lods=tuple(range(1, len(lods) + 1)),
+                                 procedural_animation=True)
+        skin["roundtrip"] = skin_roundtrip(asset_dir, name, len(lods), spec)
+    else:
+        cs2_asset.write_settings(asset_dir, name, supplied_lods=tuple(range(1, len(lods) + 1)))
     tint = {"R": SLOT1_TINT[family]}
     previews = []
     if not args.no_preview:
@@ -4664,6 +5271,8 @@ def run_variant(family, H, args, catalog_drift):
                                         views=cs2_preview.DEFAULT_VIEWS, lods=lods or None, tint=tint)
         t.data.materials.clear()
         previews += render_details(t, lods, asset_dir, name, prev, spec, tint, ladder=parts.ladder)
+    if SKINNED and getattr(args, "skin_views", None):
+        previews += render_skin_views(t, arm, spec, asset_dir, name, os.path.abspath(args.skin_views))
     import cs2_preview
     lo, hi = _vbounds(t)
     area = float(cs2_uv.face_world_areas(t.data).sum())
@@ -4706,6 +5315,7 @@ def run_variant(family, H, args, catalog_drift):
                         "ledger_lod0": c9["tris"][0], "relief_prefixes": sorted(k for k, v in relief.items() if v.active())},
         "weather": weather_report(hook) if hook is not inner else None,
         "night_subobjects": night_rows(spec, t, table),
+        **({"skin": skin_manifest_block(spec, skin)} if SKINNED else {}),
     })
     if not args.no_validate:
         t.name, t.data.name = name + "Src", name + "Src"
@@ -4775,12 +5385,29 @@ def parse_args(argv=None):
                     help="gondola: omit the ground-to-platform ladder system (on by default since Revision 1)")
     ap.add_argument("--lattice-ladder", action="store_true", help="deprecated no-op (the ladder is the default)")
     ap.add_argument("--no-validate", action="store_true")
+    ap.add_argument("--wheel-dress", action="store_true",
+                    help="lift alignment round 2: the wheel dress (red hub caps, dark wheel rubber; cs2_sheaves.WHEEL_DRESS)")
     ap.add_argument("--wheels", choices=("v1", "v2"), default="v2",
                     help="T62 sheave wheel generation: v2 (default) = cs2_sheaves.wheel (round 3: the 16-segment "
                          "grooved wheel) on the haul rollers and the lattice GD head; v1 = the pre-T62 sheave_lite wheels byte for byte")
     ap.add_argument("--lineup", action="store_true",
                     help="only re-render the family lineup from the exported asset folders")
+    ap.add_argument("--skinned", action="store_true",
+                    help="lift alignment phase 2 (SKINNED, tram only): every LOD skinned to Root / TrainFront / TrainBack "
+                         "/ TrainFrontHaul / TrainBackHaul, saddle and haul-row halves hinged on their anchor lines; "
+                         "--export needs an --out outside assets/import (nothing ships before the owner's verdict)")
+    ap.add_argument("--skin-views", default=None,
+                    help="with --skinned --export --finish: folder for the round 2 views (skin_views)")
+    ap.add_argument("--skin-no-sweep", action="store_true",
+                    help="with --skinned (dry run): the rig and weights only, no G6 (tri studies)")
     a = ap.parse_args(argv)
+    if a.skinned and a.family != "tram":
+        ap.error("--skinned: the tram only (the lattice gondola heads: numbers only this round)")
+    if a.skin_views and not a.skinned:
+        ap.error("--skin-views needs --skinned")
+    if a.skinned and a.export and (a.out is None or os.path.normcase(os.path.abspath(a.out)).startswith(
+            os.path.normcase(os.path.join(REPO, "assets", "import")))):
+        ap.error("--skinned --export writes only to an --out outside assets/import (scratch) before the owner's verdict")
     if a.height is not None and a.height not in HEIGHTS[a.family]:
         ap.error(f"--height must be one of {HEIGHTS[a.family]} for {a.family}")
     if a.saddle_l < 2.2 or a.saddle_l > 7.0:
@@ -4791,6 +5418,8 @@ def parse_args(argv=None):
 def main():
     args = parse_args()
     cs2_sheaves.set_wheels(args.wheels)      # T62: before any part is built
+    cs2_sheaves.set_wheel_dress(args.wheel_dress)   # round 2: the wheel dress (materials only on the tram, 0 tris)
+    set_skinned(args.skinned)                # phase 2: before any part is built
     _rows, drift = load_catalog()
     if args.lineup:
         clear_scene()

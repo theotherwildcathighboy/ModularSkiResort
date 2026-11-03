@@ -1481,6 +1481,7 @@ import cs2_compose  # noqa: E402
 import cs2_sheaves as S  # noqa: E402
 from cs2_sheaves import (_box_uv_bm, _new_part, lite_sheave, lite_sheave_parts, _unit,  # noqa: E402,F401
                          chamfer_long_edges, _sub_pairs)
+import cs2_skin  # noqa: E402  (lift alignment phase 2 round 2: the half-train rig, weights and G6 sweep)
 # cs2_bake / cs2_preview / cs2_review / cs2_validate / cs2_ingest are imported inside the
 # functions that use them: cs2_preview imports lift_tower at module level.
 
@@ -2439,6 +2440,10 @@ def girder_box(spec):
 
 def hanger_box(spec):
     if spec.family == "GD":
+        if SKINNED:
+            # lift alignment phase 2 round 2: as DQ below, the hanger stops SKIN_DQ["gap"] short of the yoke (2.794)
+            return dict(DQ_HANGER, y0=round(DQ_HANGER["y0"] + GD_CAR_DY, 6),
+                        y1=round(DQ_MAIN_Y + GD_CAR_DY - 0.072 / 2.0 - SKIN_DQ["gap"], 6))
         return dict(DQ_HANGER, y0=round(DQ_HANGER["y0"] + GD_CAR_DY, 6),
                     y1=round(DQ_HANGER["y1"] + GD_CAR_DY, 6))
     if SKINNED:
@@ -2579,434 +2584,289 @@ def rope_on_crown_block(spec):
             "mesh_changes": False}
 
 
-# -- LIFT ALIGNMENT PHASE 2: SKINNED TOWERS (2026-11-02, DECISIONS 570; docs/research/lift-alignment-2026-11-02.md) ---
-# The sheave trains pitch with the rope. The tower mesh is SKINNED to two bones, `Root` (everything static) and `Train`
-# (both sheave trains), and the mod rotates Train about its local X (the lateral axis) by the rope's pitch at the tower.
-# Train's head lies on the line through BOTH rope points (net frame (0, 0, crown lane y) = game (0, rope y, 0)), so a
-# pitch leaves both rope points, and with them the tower's rope-lane anchors, where they are. A bone pointing up with
-# roll 0 imports with an identity rest rotation (cs2_asset.export_fbx_skinned, rig probe AlignRigProbeA); a positive
-# rotation about local X lowers the train's game +Z end (the probe's "nose-down" at +20 / +45 deg). Every vertex is
-# weighted 1.0 to the bone of its faces' part (skin_bone; a vertex shared by a train face and a head face raises) on
-# EVERY LOD: the importer copies LOD0's ProceduralAnimationProperties onto each LOD mesh (1.6.0f1
-# AssetImportPipeline.SetupLODs :2196-2218), so an unskinned LOD2 would carry bones it has no weights for.
-# SKINNED implies the rope on the crowns (T27, set_rope_on_crown): the pivot is the crown line, lane_y(spec, True).
-# Head recipes (SKIN_HEADS): FG Yan = cs2_sheaves.fg_train_side_pinned (main rocker centered on the rope line, turning
-# on a main pin held by a hanger one lateral slab inboard); DQ ingest = the Kagelok girder end (|y| 2.491, through the
-# yoke) and the hanger both cut back SKIN_DQ["gap"] short of the yoke (|y| 2.394), a main pin `pivot_main_<side>`
-# through all three, the yoke's top lowered under the gantry's slanted posts (SKIN_DQ["yoke_above_pin"]). The DQ
-# rebuild / GD gantries bring posts down onto the yoke (the GD C20 item, T27): no recipe yet, a skinned build refuses.
-# G6 (skin_sweep): the train posed at 0, +-theta_max / 2, +-theta_max (SKIN_THETA_MAX = the family's max line slope)
-# has no BVH face overlap with the head and a vertex-to-surface clearance >= SKIN_CLEAR_MIN (the main pin and the train
-# lug it runs through are the one exempt pair), the main-pin joint opens <= SKIN_PIN_GAP_MAX, the vanilla rope on that
-# pitch misses the head and the train's non-wheel parts, and the rope rests on every wheel top (skin_crown_seat).
+# -- LIFT ALIGNMENT PHASE 2: SKINNED TOWERS, HINGED HALF TRAINS (round 2, 2026-11-02; cs2_skin; the articulation
+# design note option C, docs/research/field/2026-11-02/liftalign/articulation-design-note.md) ------------------------
+# CS2 draws each span's rope straight to the tower's anchor, so over a train the rope CORNERS at the anchor. Each lane's
+# train is two HALF trains hinged on the main pin, which lies on the lateral line through both rope points (net frame
+# (x, 0, crown lane y)). Bones (cs2_skin module docstring, the contract): `Root` (static), `TrainFront` = the halves on
+# the game +z side (authoring +X = net -Y: cs2_skin.FRONT_SIGN_NET), `TrainBack` = the -z side, both heads on that
+# line at net (0, 0, crown lane y), up, roll 0, children of Root. Our code pitches TrainFront by the rope leaving toward
+# +z and TrainBack by the rope toward -z (+ lowers the game +z end), each clamped to SKIN_THETA_MAX, the half-break
+# |front - back| / 2 to cs2_skin.HALF_BREAK_MAX (20 deg). Every vertex weighs 1.0 on its part's bone on EVERY LOD (the
+# importer copies LOD0's ProceduralAnimationProperties onto each LOD: 1.6.0f1 AssetImportPipeline.SetupLODs
+# :2196-2218). SKINNED implies the rope on the crowns (T27, set_rope_on_crown): the pivot line is lane_y(spec, True).
+# Head recipes (SKIN_HEADS):
+#   FG Yan     cs2_sheaves.fg_train_side_halves: a half = one 2-wheel bogie on its main-rocker half (lug_plate); the
+#              two halves lap on the main pin `pivot_main_<side>`, held by the hanger one lateral slab inboard.
+#   DQ ingest  cs2_sheaves.dq_train_halves: a half = one 4-wheel bogie (two 2-wheel bogies on a main rocker) on its
+#              yoke half `yoke_<side>_f|b`; the Kagelok girder end and the hanger cut SKIN_DQ["gap"] short of the
+#              yoke, a main pin through all three, the yoke's top at pin + SKIN_DQ["yoke_above_pin"] (under the
+#              gantry's slanted posts).
+#   GD rebuild dq_train_halves at SKIN_GD["sheaves"] a side (skin_spec: a half takes whole bogies, and GD12's 10 a side
+#              put a bogie on the pin); the gantry posts land on the girder ends (they came down onto the yoke, and with
+#              the rope on the crowns through the rope: the T27 C20 head-rule item), the hanger cut short of the yoke,
+#              the main pin from inside the girder end (SKIN_GD["pin_in"]).
+# Each half's bogies move SKIN_HALF_SHIFT out along the train, so the two inner wheels clear at a 20 deg half-break
+# phi: 2 (x cos phi - d sin phi) - 2 r >= SKIN_CLEAR_MIN (x the inner wheel center, d the crown seat, r the wheel).
+# G6 (skin_sweep -> cs2_skin.sweep): the joint grid cs2_skin.joint_grid(theta_max); per pose no BVH overlap half vs
+# head and half vs half, clearance >= SKIN_CLEAR_MIN (the main pins vs the lugs they run through exempt), the pin joint
+# opening <= SKIN_PIN_GAP_MAX, each half's rope (a straight run from its pivot at its pitch, both lanes) clear of the
+# head and the non-wheel train parts and seated on every crown of its half (SKIN_SEAT_GAP).
 SKINNED = False
-SKIN_BONES = ("Root", "Train")
-SKIN_BONE_LEN = 0.25
+SKIN_BONES = ("Root", "TrainFront", "TrainBack")
 SKIN_THETA_MAX = {"FG": 38.7, "DQ": 42.0, "GD": 50.2}     # deg, research G6 (the planner's max slope per type)
+_SKIN_GANTRY = ("rocker_", "pivot_", "yoke_", "sheave_", "liner_")
 SKIN_TRAIN = {"FG": ("rocker_main_", "rocker_sub_", "pivot_", "sheave_", "liner_", "axlecap_"),
-              "DQ": ("rocker_", "pivot_", "yoke_", "sheave_", "liner_")}
-SKIN_ROOT_FIRST = ("pivot_main_",)      # the main pin belongs to its hanger: the train turns on it
-SKIN_LUG = {"FG": "rocker_main_", "DQ": "yoke_"}          # the train part the main pin runs through
-SKIN_HEADS = {"FG": ("yan",), "DQ": ("ingest",)}
-SKIN_FG = dict(gap=0.015, poke=0.006, pin_r=0.05)          # cs2_sheaves.fg_train_side_pinned
+              "DQ": _SKIN_GANTRY, "GD": _SKIN_GANTRY}
+SKIN_ROOT_FIRST = ("pivot_main_",)      # the main pin belongs to its hanger: both halves turn on it
+SKIN_LUG = {"FG": "rocker_main_", "DQ": "yoke_", "GD": "yoke_"}     # the train parts the main pin runs through
+SKIN_HEADS = {"FG": ("yan",), "DQ": ("ingest",), "GD": ("rebuild",)}
+# m each half's bogies move out along the train: the inner-wheel clearance above at phi 20 deg is FG 11 mm (the design
+# note's 0.06 leaves FG 8 mm inside), DQ 9 mm, GD 21 mm (GD 0.07 would leave 2 mm: under SKIN_CLEAR_MIN)
+SKIN_HALF_SHIFT = {"FG": 0.07, "DQ": 0.06, "GD": 0.09}
+SKIN_LAP_GAP = 0.010                    # m between the two halves' lap plates on the main pin (each its own slab)
+# FG lap plates' bevel segments (FG_BEVEL gives the shipped box rocker 2: 108 tris; a 2-segment lug plate is 124, x 4 =
+# +280 on the cap-tight FG; 1 segment = 70 a plate)
+SKIN_PLATE_BEVEL = {"FG": 1}
+SKIN_FG = dict(gap=0.015, poke=0.006, pin_r=0.05)          # cs2_sheaves.fg_train_side_halves
 # DQ: pin from inside the girder end (|y| 2.30); the yoke's top 0.05 over the pin (was 0.11): the Kagelok gantry's
 # slanted posts rise from the girder end top (A + 0.43) outboard through the yoke's slab (|y| 2.404..2.476 at
 # A + 0.47..1.42), and at 42 deg the yoke's swept top over the posts' +-0.09 travel band reaches pin + (top + 0.09
 # sin 42) / cos 42 = A + 0.53 with the 0.11 top (measured: 8 face overlaps), A + 0.458 with 0.05
 SKIN_DQ = dict(gap=0.010, poke=0.006, pin_r=0.04, pin_in=2.30, yoke_above_pin=0.05)
-SKIN_CLEAR_MIN = 0.005                  # m, train vs head at every pose
+# GD: sheaves a side (owner decision; built: 8 = the DQ and photo train length, two 4-wheel bogies; 12 = 4,958 tris on
+# GD12, over the 4,800 cap); the main pin
+# from 0.09 inside the girder end (2.69); the posts 5 mm in from the girder end, buried 5 mm in its top
+SKIN_GD = dict(sheaves=8, pin_in=2.60, post_bury=0.005, post_inset=0.005)
+SKIN_CLEAR_MIN = 0.005                  # m, half vs head and half vs half at every pose
 SKIN_PIN_GAP_MAX = 0.005                # m, main-pin joint opening over the sweep (G6)
-SKIN_ROPE_RUN = 1.0                     # m of rope past the train's end sheaves in the rope check
+SKIN_ROPE_RUN = 1.0                     # m of rope past a half's outer wheel in the rope check
+SKIN_SEAT_GAP = cs2_skin.SEAT_GAP       # m, the rope's underside over each crown: contact, not inside
 
 
 def set_skinned(on):
     """Set SKINNED (before any part is built); on also puts the rope on the crowns (set_rope_on_crown(True)), whose
-    line the Train bone pivots on. Off leaves the crown flag as it is."""
+    line the half bones pivot on. Off leaves the crown flag as it is."""
     global SKINNED
     SKINNED = bool(on)
     if SKINNED:
         set_rope_on_crown(True)
 
 
+def skin_spec(spec):
+    """The spec a skinned build uses: GD at SKIN_GD["sheaves"] a side (each half whole bogies); else `spec`."""
+    if SKINNED and spec.family == "GD" and spec.sheaves != SKIN_GD["sheaves"]:
+        return _dataclasses.replace(spec, sheaves=SKIN_GD["sheaves"])
+    return spec
+
+
 def skin_pivot(spec):
-    """Net-frame head of the Train bone: on the lateral line through both rope points (game (0, crown lane y, 0))."""
-    return (0.0, 0.0, lane_y(spec, True))
+    """Net-frame (y, z) of both half bones' pivot: the lateral line through both rope points (game (x, crown y, 0))."""
+    return (0.0, lane_y(spec, True))
 
 
-def skin_bone(name, family):
-    """The bone a part rides on: Train for the family's train prefixes (the main pin excepted), else Root."""
-    return "Train" if name.startswith(SKIN_TRAIN[family]) and not name.startswith(SKIN_ROOT_FIRST) else "Root"
+def skin_heads(spec):
+    """{bone: net-frame head} in SKIN_BONES order: Root at the origin, both halves on the pivot line at x 0."""
+    zp = lane_y(spec, True)
+    return {"Root": (0.0, 0.0, 0.0), "TrainFront": (0.0, 0.0, zp), "TrainBack": (0.0, 0.0, zp)}
 
 
-def skin_rotate(co, theta_deg, zp):
-    """(N, 3) net-frame coordinates turned theta about +X through (0, 0, zp) (Matrix.Rotation(theta, 'X'))."""
-    t = math.radians(theta_deg)
-    c, s = math.cos(t), math.sin(t)
-    out = np.array(co, dtype=np.float64, copy=True)
-    y, z = out[:, 1].copy(), out[:, 2] - zp
-    out[:, 1] = c * y - s * z
-    out[:, 2] = s * y + c * z + zp
-    return out
+def skin_half_extent(spec):
+    """m from the pivot to a half's outer wheel tip along travel (the bogies moved SKIN_HALF_SHIFT out)."""
+    sh = SKIN_HALF_SHIFT[spec.family]
+    if spec.family == "FG":
+        _n, sub_span, main_span = S.fg_spans(spec.sheaves, spec.pitch, spec.sheave_r)
+        return main_span / 2.0 + sh + sub_span / 2.0 + spec.sheave_r
+    return (spec.sheaves - 1) * spec.pitch / 2.0 + sh + spec.sheave_r
 
 
-def _skin_faces(obj, table, family):
-    """(per-polygon part names, per-polygon bone index 0 Root / 1 Train, per-vertex bone index). Raises when a vertex
-    is used by faces of both bones; a vertex no face uses rides on Root."""
-    me = obj.data
-    npoly = len(me.polygons)
-    part = np.zeros(npoly, dtype=np.int32)
-    me.attributes["part"].data.foreach_get("value", part)
-    names = [table[q - 1] for q in part]
-    fb = np.array([SKIN_BONES.index(skin_bone(n, family)) for n in names], dtype=np.int8)
-    start = np.empty(npoly, dtype=np.int32)
-    total = np.empty(npoly, dtype=np.int32)
-    me.polygons.foreach_get("loop_start", start)
-    me.polygons.foreach_get("loop_total", total)
-    lv = np.empty(len(me.loops), dtype=np.int32)
-    me.loops.foreach_get("vertex_index", lv)
-    order = np.concatenate([np.arange(a, a + n) for a, n in zip(start, total)]) if npoly else lv
-    lb = np.repeat(fb, total)
-    vl = lv[order]
-    seen = np.zeros((len(me.vertices), 2), dtype=bool)
-    seen[vl, lb] = True
-    mixed = np.nonzero(seen.all(axis=1))[0]
-    if len(mixed):
-        raise TowerContractError(f"{obj.name}: {len(mixed)} vertices shared by a train face and a head face "
-                                 f"(first {mixed[:5].tolist()}): the train must be its own islands")
-    return names, fb, seen[:, 1].astype(np.int8)
+def skin_part_bones(obj, table, spec):
+    """{train part: TrainFront | TrainBack} on the joined NET-frame LOD0 by travel side (cs2_skin.bones_by_travel),
+    held to the builders' names: `rocker_main_<side>_f` / `yoke_<side>_f` (built at authoring +X) ride TrainFront, the
+    `_b` plates TrainBack. That is the axis record's build-time test (authoring +X -> net -Y -> game +z). Raises."""
+    import re
+    fam = spec.family
+    pb = cs2_skin.bones_by_travel(
+        obj, table, lambda n: n.startswith(SKIN_TRAIN[fam]) and not n.startswith(SKIN_ROOT_FIRST),
+        "TrainFront", "TrainBack")
+    named = {n: ("TrainFront" if n.endswith("_f") else "TrainBack") for n in pb
+             if re.match(r"^(rocker_main|yoke)_[np]_[fb]$", n)}
+    bad = {n: (pb[n], w) for n, w in named.items() if pb[n] != w}
+    cnt = {b: sum(1 for v in pb.values() if v == b) for b in SKIN_BONES[1:]}
+    _check(not bad and len(named) == 4 and cnt["TrainFront"] == cnt["TrainBack"] > 0,
+           f"[{spec.key}] skin: the halves by travel side (the _f lap plates on TrainFront = game +z, the _b on "
+           f"TrainBack), equal part counts", f"({len(named)} plates, mismatched {bad}, parts {cnt})")
+    return pb
 
 
-def skin_assign(obj, table, family):
-    """Vertex groups Root / Train on `obj` (LOD0 or a LOD copy: the 'part' face attribute survives the chain), every
-    vertex weight 1.0 on its bone (cs2_asset.check_skin_weights holds). Returns {bone: vertex count}."""
-    _names, _fb, vb = _skin_faces(obj, table, family)
-    for vg in list(obj.vertex_groups):
-        obj.vertex_groups.remove(vg)
-    out = {}
-    for i, b in enumerate(SKIN_BONES):
-        vg = obj.vertex_groups.new(name=b)
-        idx = np.nonzero(vb == i)[0].tolist()
-        if idx:
-            vg.add(idx, 1.0, "REPLACE")
-        out[b] = len(idx)
-    return out
+def skin_assign(obj, table, part_bone):
+    """Vertex groups Root / TrainFront / TrainBack on `obj` (LOD0 or a LOD copy: the 'part' face attribute survives
+    the chain), every vertex weight 1.0 on its bone (cs2_asset.check_skin_weights holds). Returns {bone: vertices}."""
+    try:
+        return cs2_skin.assign(obj, table, part_bone, list(SKIN_BONES))
+    except cs2_skin.SkinError as e:
+        raise TowerContractError(str(e))
 
 
 def build_skin_armature(spec, name):
-    """The two-bone rig in the net frame (the joined tower's): Root at the origin, Train at skin_pivot(spec), both
-    pointing up (+Z) with roll 0 (identity rest rotation in the game, PIPELINE "Skinned (procedural-bone) assets"),
-    Train parented to Root. Returns the armature object."""
-    arm_data = bpy.data.armatures.new(name)
-    arm = bpy.data.objects.new(name, arm_data)
-    bpy.context.collection.objects.link(arm)
-    bpy.ops.object.select_all(action="DESELECT")
-    arm.select_set(True)
-    bpy.context.view_layer.objects.active = arm
-    bpy.ops.object.mode_set(mode="EDIT")
-    heads = {"Root": (0.0, 0.0, 0.0), "Train": skin_pivot(spec)}
-    root = None
-    for b in SKIN_BONES:
-        h = heads[b]
-        eb = arm_data.edit_bones.new(b)
-        eb.head = h
-        eb.tail = (h[0], h[1], h[2] + SKIN_BONE_LEN)
-        eb.roll = 0.0
-        eb.use_deform = True
-        if root is None:
-            root = eb
-        else:
-            eb.parent = root
-            eb.use_connect = False
-    bpy.ops.object.mode_set(mode="OBJECT")
-    want = mathutils.Matrix.Rotation(math.radians(90.0), 4, "X").to_quaternion()
-    for b in arm_data.bones:
-        if b.matrix_local.to_quaternion().rotation_difference(want).angle > 1e-4:
-            raise TowerContractError(f"{name}: bone {b.name} rest is not the up / roll 0 frame")
-    return arm
+    """The three-bone rig in the net frame (the joined tower's): cs2_skin.build_armature at skin_heads."""
+    try:
+        return cs2_skin.build_armature(name, skin_heads(spec))
+    except cs2_skin.SkinError as e:
+        raise TowerContractError(str(e))
 
 
-def skin_pose(arm, theta_deg):
-    """Pose Train theta about its local X (= the net X axis through its head; the game's local X after rule T)."""
-    pb = arm.pose.bones["Train"]
-    pb.rotation_mode = "XYZ"
-    pb.rotation_euler = (math.radians(theta_deg), 0.0, 0.0)
-    bpy.context.view_layer.update()
-
-
-def rope_prism(spec, side, theta_deg, run=None):
-    """(verts, faces) of the vanilla HV rope (hexagon r 0.100, corners on the gauge axis = flats top / bottom) along the
-    rope line of lane `side` (-1 / +1) pitched theta about the pivot: through the rope point (side x gauge / 2, 0,
-    crown lane y), from the train's end sheave + `run` on both sides. Net frame."""
+def skin_rope_runs(spec, pose, run=None, start=0.0):
+    """[(verts, faces)]: the vanilla HV rope (hexagon r 0.100) as the game draws it at a tower: per lane one straight
+    run per half from the pivot outward, at that half's pitch (cs2_skin.rope_run). Net frame."""
     zp = lane_y(spec, True)
-    half = (spec.sheaves - 1) * spec.pitch / 2.0 + spec.sheave_r + (SKIN_ROPE_RUN if run is None else run)
-    r = VANILLA_HV_ROPE["r"]
-    ring = [(side * spec.gauge / 2.0 + r * math.cos(a), r * math.sin(a))
-            for a in (math.radians(60.0 * k) for k in range(6))]
-    verts = []
-    for yy in (-half, half):
-        verts += [(x, yy, zp + z) for x, z in ring]
-    co = skin_rotate(np.array(verts), theta_deg, zp)
-    faces = [tuple(range(5, -1, -1)), tuple(range(6, 12))]
-    faces += [(k, (k + 1) % 6, 6 + (k + 1) % 6, 6 + k) for k in range(6)]
-    return [tuple(v) for v in co], faces
-
-
-SKIN_SEAT_GAP = (-0.001, 0.002)          # m, the rope's underside over each wheel top at rest: contact, not inside
-
-
-def skin_crown_seat(co, polys, names, spec, step=0.004, nx=21):
-    """T27 seat on the BUILT wheels (G6): rays straight down through the vanilla rope's underside (the bottom flat
-    +-R/2 at lane y - h, the slanted faces up to +-R) onto the wheel parts (sheave_ / liner_) at rest, along each lane's
-    rope line every `step` m of travel. Per lane, per wheel top (a run of hits) the smallest gap rope underside - wheel
-    surface (m; ~0 = the rope rests on that crown, < 0 = the wheel stands into the rope). The rope line runs through
-    the pivot, so a pitch carries rope and wheels together: rest is every pose."""
-    from mathutils.bvhtree import BVHTree
-    ids = [i for i, n in enumerate(names) if n.startswith(("sheave_", "liner_"))]
-    tree = BVHTree.FromPolygons([tuple(v) for v in co], [polys[i] for i in ids], epsilon=0.0)
-    zp = lane_y(spec, True)
-    R, h = VANILLA_HV_ROPE["r"], VANILLA_HV_ROPE["h"]
-    half = (spec.sheaves - 1) * spec.pitch / 2.0 + spec.sheave_r + 0.5
-    down = mathutils.Vector((0.0, 0.0, -1.0))
-    out = {}
+    ext = skin_half_extent(spec) + (SKIN_ROPE_RUN if run is None else run)
+    out = []
     for side in (-1.0, 1.0):
-        lane = side * spec.gauge / 2.0
-        runs, cur = [], None
-        for y in np.arange(-half, half, step):
-            g = None
-            for dx in np.linspace(-R, R, nx):
-                hit = tree.ray_cast(mathutils.Vector((lane + dx, y, zp + 0.5)), down, 2.0)
-                if hit[0] is not None:
-                    gg = zp - h * min(1.0, (R - abs(dx)) / (R / 2.0)) - hit[0].z
-                    g = gg if g is None else min(g, gg)
-            if g is None:
-                cur = None
-            elif cur is None or g < cur[1]:
-                if cur is None:
-                    runs.append([float(y), g])
-                    cur = runs[-1]
-                cur[0], cur[1] = float(y), g
-        out["n" if side < 0 else "p"] = [(round(y, 3), round(g, 5)) for y, g in runs]
+        for b, sign in (("TrainFront", cs2_skin.FRONT_SIGN_NET), ("TrainBack", -cs2_skin.FRONT_SIGN_NET)):
+            out.append(cs2_skin.rope_run(side * spec.gauge / 2.0, (0.0, zp), pose.get(b, 0.0), sign, ext,
+                                         r=VANILLA_HV_ROPE["r"], start=start))
     return out
 
 
-def skin_sweep(obj, table, spec, angles=None):
-    """
-    G6 on the joined net-frame LOD0: the train (skin_bone Train) posed about the pivot line at each angle (deg; default
-    0, +-theta_max / 2, +-theta_max). Per pose: BVH face overlaps train vs head (the main pin vs the lug it runs through
-    exempt), the vertex-to-surface clearance both ways (the nearest train / head part pair), the main-pin joint opening
-    2 d sin(theta / 2) for the pin axis d off the pivot line, the pin's embed margin in the posed lug (axis to the
-    nearest lug face minus pin r), and the vanilla rope on that pitch (rope_prism, both lanes) vs every head part and
-    every train part but the wheels it rides (sheave_ / liner_). Raises TowerContractError on a failed gate; returns
-    the report (meters)."""
-    from mathutils.bvhtree import BVHTree
+def skin_sweep(obj, table, spec, part_bone):
+    """G6 on the joined net-frame LOD0 (cs2_skin.sweep over cs2_skin.joint_grid(theta_max)); raises TowerContractError
+    on a failed gate after logging every pose. Returns the report (meters)."""
     fam = spec.family
     zp = lane_y(spec, True)
     tmax = SKIN_THETA_MAX[fam]
-    angles = list(angles) if angles is not None else [0.0, tmax / 2.0, -tmax / 2.0, tmax, -tmax]
-    names, fb, vb = _skin_faces(obj, table, fam)
-    co = _coords(obj)
+    bones = list(SKIN_BONES)
+    try:
+        names, fb, _vb = cs2_skin.face_bones(obj, table, part_bone, bones)
+    except cs2_skin.SkinError as e:
+        raise TowerContractError(str(e))
+    co = cs2_skin.coords(obj)
     polys = [tuple(p.vertices) for p in obj.data.polygons]
-    lug = SKIN_LUG[fam]
-    grp = {"t_lug": [], "t_rest": [], "h_pin": [], "h_rest": [], "t_ride": []}
-    for i, (nm, b) in enumerate(zip(names, fb)):
-        if b:
-            grp["t_lug" if nm.startswith(lug) else "t_rest"].append(i)
-            if not nm.startswith(("sheave_", "liner_")):
-                grp["t_ride"].append(i)
-        else:
-            grp["h_pin" if nm.startswith(SKIN_ROOT_FIRST) else "h_rest"].append(i)
-    if not grp["h_pin"] or not grp["t_lug"]:
-        raise TowerContractError(f"[{spec.key}] G6: no main pin / no {lug} lug in the skinned build")
-
-    def bvh(c, ids):
-        return BVHTree.FromPolygons([tuple(v) for v in c], [polys[i] for i in ids], epsilon=0.0)
-
-    def verts_of(ids):
-        return np.unique(np.concatenate([np.array(polys[i]) for i in ids]))
-
-    h_all = bvh(co, grp["h_pin"] + grp["h_rest"])
-    h_rest = bvh(co, grp["h_rest"])
-    h_all_ids = grp["h_pin"] + grp["h_rest"]
-    v_tl, v_tr = verts_of(grp["t_lug"]), verts_of(grp["t_rest"])
-    v_hp, v_hr = verts_of(grp["h_pin"]), verts_of(grp["h_rest"])
-    train_v = np.nonzero(vb == 1)[0]
-    v_ride = verts_of(grp["t_ride"])
-    # main pins: axis = bbox center in (travel, z) per pin part; the pivot line is (y 0, z zp)
-    pins = {}
-    for i in grp["h_pin"]:
-        pins.setdefault(names[i], set()).update(polys[i])
-    pin_rep = {}
-    for nm, vs in sorted(pins.items()):
-        pc = co[np.array(sorted(vs))]
-        lo, hi = pc.min(axis=0), pc.max(axis=0)
-        c = (lo + hi) / 2.0
-        pin_rep[nm] = {"axis_net": [round(float(c[1]), 5), round(float(c[2]), 5)],
-                       "offset_m": float(math.hypot(c[1], c[2] - zp)),
-                       "r": float(max(hi[1] - lo[1], hi[2] - lo[2]) / 2.0), "x": (float(lo[0]), float(hi[0])),
-                       "centre": c}
-    rows = []
-    for th in angles:
-        pc = co.copy()
-        pc[train_v] = skin_rotate(co[train_v], th, zp)
-        t_rest, t_lug = bvh(pc, grp["t_rest"]), bvh(pc, grp["t_lug"])
-        # every train vertex vs the head surfaces and every head vertex vs the posed train surfaces: an upper bound
-        # where two edges pass closest (vertex-face cannot see edge-edge), and the BVH overlap catches any crossing
-        t_all = bvh(pc, grp["t_rest"] + grp["t_lug"])
-        t_all_ids = grp["t_rest"] + grp["t_lug"]
-        ov = [(grp["t_rest"][a], h_all_ids[b]) for a, b in t_rest.overlap(h_all)]
-        ov += [(grp["t_lug"][a], grp["h_rest"][b]) for a, b in t_lug.overlap(h_rest)]
-        best = (9.0, None, None)
-        for vs, tree, ids, posed in ((v_tr, h_all, h_all_ids, True), (v_tl, h_rest, grp["h_rest"], True),
-                                     (v_hr, t_all, t_all_ids, False), (v_hp, t_rest, grp["t_rest"], False)):
-            src = pc if posed else co
-            for v in vs:
-                hit = tree.find_nearest(mathutils.Vector(src[v]))
-                if hit[0] is not None and hit[3] < best[0]:
-                    best = (hit[3], int(v), ids[hit[2]])
-        vname = None
-        if best[1] is not None:
-            vname = next((names[i] for i in range(len(polys)) if best[1] in polys[i]), None)
-        pair = sorted([vname, names[best[2]]] if best[2] is not None else [vname],
-                      key=lambda n: skin_bone(n, fam) != "Train")
-        # main pins: joint opening, and the pin's embed in its lug = the pin axis carried back into the lug's rest frame
-        # (turned -theta about the pivot line) to the nearest edge of the lug's rest (travel, z) section, minus pin r
-        gaps, embeds = [], []
-        for nm, p in pin_rep.items():
-            gaps.append(2.0 * p["offset_m"] * math.sin(math.radians(abs(th)) / 2.0))
-            side = 1.0 if p["centre"][0] > 0 else -1.0
-            lv = co[v_tl]
-            lv = lv[(np.sign(lv[:, 0]) == side) & (lv[:, 0] >= p["x"][0]) & (lv[:, 0] <= p["x"][1])]
-            if not len(lv):
-                raise TowerContractError(f"[{spec.key}] G6: {nm} does not run through a {lug} lug")
-            c = skin_rotate(np.array([p["centre"]]), -th, zp)[0]
-            lo, hi = lv.min(axis=0), lv.max(axis=0)
-            embeds.append(min(c[1] - lo[1], hi[1] - c[1], c[2] - lo[2], hi[2] - c[2]) - p["r"])
-        # the rope at this pitch vs the head and the non-wheel train parts
-        rope_ov, rope_clear = 0, 9.0
-        t_ride = bvh(pc, grp["t_ride"])
+    piv = skin_pivot(spec)
+    pivots = {b: piv for b in bones[1:]}
+    poses = [{"TrainFront": f, "TrainBack": b} for f, b in cs2_skin.joint_grid(tmax)]
+    is_wheel = lambda n: n.startswith(("sheave_", "liner_"))       # noqa: E731
+    fx = np.array([co[list(p), 0].mean() for p in polys])
+    wf = {}
+    for b in bones[1:]:
         for side in (-1.0, 1.0):
-            rv, rf = rope_prism(spec, side, th)
-            rt = BVHTree.FromPolygons(rv, rf, epsilon=0.0)
-            rope_ov += len(rt.overlap(h_all)) + len(rt.overlap(t_ride))
-            near = np.concatenate([co[np.concatenate([v_hr, v_hp])], pc[v_ride]])
-            near = near[np.abs(near[:, 0] - side * spec.gauge / 2.0) < 0.6]
-            for v in near:
-                hit = rt.find_nearest(mathutils.Vector(v))
-                if hit[0] is not None:
-                    rope_clear = min(rope_clear, hit[3])
-        rows.append({"theta": th, "overlaps": len(ov), "overlap_pairs": sorted({(names[a], names[b]) for a, b in ov})[:6],
-                     "clear_m": round(best[0], 5), "nearest": pair, "pin_gap_m": round(max(gaps), 6),
-                     "pin_embed_m": round(min(embeds), 5), "rope_overlaps": rope_ov,
-                     "rope_clear_m": round(rope_clear, 5)})
-        r = rows[-1]
-        print(f"[tower2] G6 [{spec.key}] pitch {th:+6.2f} deg: overlaps {r['overlaps']}, clearance "
-              f"{r['clear_m'] * 1000:.1f} mm ({' / '.join(str(n) for n in r['nearest'])}), main-pin gap "
-              f"{r['pin_gap_m'] * 1000:.2f} mm, pin embed {r['pin_embed_m'] * 1000:.1f} mm, rope overlaps "
-              f"{r['rope_overlaps']} clear {r['rope_clear_m'] * 1000:.1f} mm")
-    seat = skin_crown_seat(co, polys, names, spec)
-    gaps = [g for runs in seat.values() for _y, g in runs]
-    print(f"[tower2] G6 [{spec.key}] rope seat on the crowns (lane y {zp}): {len(gaps)} wheel tops, gap "
+            wf[(b, side)] = [i for i, n in enumerate(names) if is_wheel(n) and bones[fb[i]] == b
+                             and np.sign(fx[i]) == side]
+    ext = skin_half_extent(spec) + 0.30
+    R, h = VANILLA_HV_ROPE["r"], VANILLA_HV_ROPE["h"]
+
+    def seats(pc, ang):
+        out = {}
+        for b, sign in (("TrainFront", cs2_skin.FRONT_SIGN_NET), ("TrainBack", -cs2_skin.FRONT_SIGN_NET)):
+            for side in (-1.0, 1.0):
+                out[f"{b}_{'n' if side < 0 else 'p'}"] = cs2_skin.seat_half(
+                    pc, polys, wf[(b, side)], piv, ang.get(b, 0.0), side * spec.gauge / 2.0, sign, ext, R, h)
+        return out
+    lug = SKIN_LUG[fam]
+    rep = cs2_skin.sweep(co, polys, names, fb, bones, pivots, poses,
+                         pins=lambda n: n.startswith(SKIN_ROOT_FIRST),
+                         lugs={b: (lambda n: n.startswith(lug)) for b in bones[1:]},
+                         wheels=is_wheel, ropes=lambda ang: skin_rope_runs(spec, ang), seats=seats,
+                         clear_min=SKIN_CLEAR_MIN, pin_gap_max=SKIN_PIN_GAP_MAX, label=spec.key)
+    seat0 = seats(co, {})
+    gaps = [g for runs in seat0.values() for _d, g in runs]
+    print(f"[tower2] G6 [{spec.key}] {len(poses)} poses (theta_max {tmax}, half-break <= {cs2_skin.HALF_BREAK_MAX}); "
+          f"min clearance {rep['min_clear']['m'] * 1000:.1f} mm at {rep['min_clear']['pose']} "
+          f"({' / '.join(str(n) for n in rep['min_clear']['parts'] or [])}); rest seat {len(gaps)} crowns "
           f"{min(gaps) * 1000:.2f}..{max(gaps) * 1000:.2f} mm")
-    train_parts = sorted({n for n, b in zip(names, fb) if b})
-    rep = {"pivot_net": [0.0, 0.0, zp], "pivot_game": [0.0, zp, 0.0],
-           "rope_points_game": [[-spec.gauge / 2.0, zp, 0.0], [spec.gauge / 2.0, zp, 0.0]],
-           "crown_seat": crown_seat(spec), "seat_gaps_m": seat, "theta_max_deg": tmax, "poses": rows,
-           "pins": {n: {k: (round(v, 6) if isinstance(v, float) else v) for k, v in p.items() if k != "centre"}
-                    for n, p in pin_rep.items()},
-           "train_parts": train_parts, "train_verts": int(len(train_v)), "verts": int(len(co))}
-    _check(len(gaps) == 2 * spec.sheaves and SKIN_SEAT_GAP[0] <= min(gaps) and max(gaps) <= SKIN_SEAT_GAP[1],
-           f"[{spec.key}] G6 the rope rests on every crown ({2 * spec.sheaves} wheel tops, gap "
-           f"{SKIN_SEAT_GAP[0] * 1000:.0f}..{SKIN_SEAT_GAP[1] * 1000:.0f} mm)",
-           f"({len(gaps)} tops, {min(gaps) * 1000:.2f}..{max(gaps) * 1000:.2f} mm)")
-    for r in rows:
-        _check(r["overlaps"] == 0 and r["clear_m"] >= SKIN_CLEAR_MIN,
-               f"[{spec.key}] G6 train vs head at {r['theta']:+.2f} deg: no overlap, clearance >= "
-               f"{SKIN_CLEAR_MIN * 1000:.0f} mm", f"({r['overlaps']} overlaps {r['overlap_pairs'][:3]}, "
-               f"{r['clear_m'] * 1000:.1f} mm {r['nearest']})")
-        _check(r["pin_gap_m"] <= SKIN_PIN_GAP_MAX and r["pin_embed_m"] > 0.0,
-               f"[{spec.key}] G6 main-pin gap <= {SKIN_PIN_GAP_MAX * 1000:.0f} mm, pin inside its lug at "
-               f"{r['theta']:+.2f} deg", f"({r['pin_gap_m'] * 1000:.2f} mm, embed {r['pin_embed_m'] * 1000:.1f} mm)")
-        _check(r["rope_overlaps"] == 0, f"[{spec.key}] G6 rope on the crowns clear of the head and the train's "
-               f"non-wheel parts at {r['theta']:+.2f} deg", f"({r['rope_clear_m'] * 1000:.1f} mm)")
+    try:
+        cs2_skin.check_rows(rep["poses"], spec.key, SKIN_CLEAR_MIN, SKIN_PIN_GAP_MAX, seat_tops=2 * spec.sheaves,
+                            seat_gap=SKIN_SEAT_GAP)
+    except cs2_skin.SkinError as e:
+        raise TowerContractError(str(e))
+    print(f"[tower2] ok [{spec.key}] G6 joint sweep: {len(poses)} poses, no overlap, clearance >= "
+          f"{SKIN_CLEAR_MIN * 1000:.0f} mm, pin gap <= {SKIN_PIN_GAP_MAX * 1000:.0f} mm, both halves' ropes clear and "
+          f"seated on all {2 * spec.sheaves} crowns")
+    rep.update({"pivot_net": [0.0, piv[0], piv[1]], "pivot_game": [0.0, zp, 0.0], "theta_max_deg": tmax,
+                "half_break_max_deg": cs2_skin.HALF_BREAK_MAX, "half_shift_m": SKIN_HALF_SHIFT[fam],
+                "rope_points_game": [[-spec.gauge / 2.0, zp, 0.0], [spec.gauge / 2.0, zp, 0.0]],
+                "crown_seat": crown_seat(spec), "seat_rest_m": seat0, "sheaves": spec.sheaves,
+                "train_parts": {b: sorted(n for n, v in part_bone.items() if v == b) for b in bones[1:]},
+                "verts": int(len(co))})
     return rep
 
 
-def skin_posed_copy(t, arm, theta_deg, spec, name):
-    """A new mesh object: `t` (vertex groups from skin_assign) deformed by `arm` with Train posed theta (an Armature
-    modifier, evaluated), so a preview shows what the skin does. Raises unless that is skin_rotate on the Train
-    vertices (the pose G6 measured) and the Root vertices stay, to 0.1 mm."""
-    skin_pose(arm, theta_deg)
-    tmp = t.copy()
-    bpy.context.collection.objects.link(tmp)
-    mod = tmp.modifiers.new("Armature", type="ARMATURE")
-    mod.object = arm
-    me = bpy.data.meshes.new_from_object(tmp.evaluated_get(bpy.context.evaluated_depsgraph_get()))
-    bpy.data.objects.remove(tmp, do_unlink=True)
-    skin_pose(arm, 0.0)
-    ob = bpy.data.objects.new(name, me)
-    bpy.context.collection.objects.link(ob)
-    co, got = _coords(t), _coords(ob)
-    gi = t.vertex_groups["Train"].index
-    tv = np.array([any(g.group == gi and g.weight > 0.0 for g in v.groups) for v in t.data.vertices])
-    want = co.copy()
-    want[tv] = skin_rotate(co[tv], theta_deg, lane_y(spec, True))
-    err = float(np.abs(got - want).max()) if len(got) == len(co) else 9.0
-    if err > 1e-4:
-        raise TowerContractError(f"{name}: the armature pose at {theta_deg} deg is not the G6 pose (max {err:.5f} m)")
-    return ob
-
-
 def skin_views(spec):
-    """Phase 2 previews: [(pitch deg, render_tower_views dicts)] in the net frame (X lateral, -Y = game forward). Pitch 0:
-    the head from the front, the side, 3/4 and above, and the whole tower 3/4; then the +X train close up along the
-    lateral axis (the pivot axis: the pitch reads true), 3/4, and its main-pin joint from the inboard front, at 0 and
-    +-theta_max. Distances fit the head / train to the frame (50 mm lens at 1300 x 1000: half-width 15.6 / 50 of the
-    distance)."""
+    """Round 2 previews: [(label, pose {bone: deg}, render_tower_views dicts)] in the net frame (X lateral, -Y = game
+    forward = TrainFront). Level: the head from the front, the side, 3/4, above and below, and the whole tower 3/4; then
+    the +X lane's train close up along the lateral axis (the pivot axis: pitches read true), 3/4, and the lap joint on
+    the main pin from inboard, at a uniform slope (front = back), a crest like the owner's photo (front +15 / back -15:
+    a 30 deg break), the 20 deg half-break limit (+20 / -20), the steep limit (front theta_max, back theta_max - 40) and
+    a dip (-15 / +15). Distances fit the head / train to a 50 mm lens at 1300 x 1000 (half-width 15.6 / 50)."""
     zp = lane_y(spec, True)
     k = 50.0 / 15.6
     head_w = spec.gauge / 2.0 + 0.7
-    train = (spec.sheaves - 1) * spec.pitch / 2.0 + spec.sheave_r
+    train = skin_half_extent(spec)
+    tmax = SKIN_THETA_MAX[spec.family]
+    slope = round(tmax / 2.0, 1)
     hd = (0.0, 0.0, zp - 0.35)
-    out = [(0.0, [dict(name="skin_head_front", dir=(0.0, -1.0, 0.12), target=hd, lens=50.0, dist=head_w * k),
-                  dict(name="skin_head_side", dir=(1.0, 0.0, 0.10), target=hd, lens=50.0, dist=(train + 0.8) * k),
-                  dict(name="skin_head_34", dir=(1.0, -1.1, 0.35), target=hd, lens=50.0, dist=head_w * k),
-                  dict(name="skin_head_top", dir=(0.0, -0.25, 1.0), target=(0.0, 0.0, zp), lens=50.0,
-                       dist=max(head_w, train + 0.5) * k),
-                  dict(name="skin_tower_34", dir=(1.0, -1.1, 0.30), target=(0.0, 0.0, spec.top / 2.0), lens=35.0,
-                       dist=(spec.top / 2.0 + 1.0) * 35.0 / 12.0)])]
     tc = (spec.gauge / 2.0, 0.0, zp - 0.10)
-    for th in (0.0, SKIN_THETA_MAX[spec.family], -SKIN_THETA_MAX[spec.family]):
-        tag = "0" if th == 0.0 else f"{th:+.1f}"
-        out.append((th, [dict(name=f"skin_train_side_pitch{tag}", dir=(1.0, 0.0, 0.05), target=tc, lens=50.0,
-                              dist=(train + 0.45) * k),
-                         dict(name=f"skin_train_34_pitch{tag}", dir=(1.0, -0.9, 0.30), target=tc, lens=50.0,
-                              dist=(train + 0.45) * k * 0.9),
-                         dict(name=f"skin_joint_pitch{tag}", dir=(-0.45, -1.0, 0.35), lens=50.0, dist=2.0,
-                              target=(spec.gauge / 2.0 - 0.25, 0.0, zp - 0.05))]))
-    return out
+    jx = spec.gauge / 2.0 - (0.45 if spec.family == "FG" else 0.25)
+
+    def side(tag, d=1.0):
+        return dict(name=f"skin_train_side_{tag}", dir=(1.0, 0.0, 0.05), target=tc, lens=50.0, dist=(train + 0.45) * k * d)
+
+    def q34(tag):
+        return dict(name=f"skin_train_34_{tag}", dir=(1.0, -0.9, 0.30), target=tc, lens=50.0, dist=(train + 0.45) * k * 0.9)
+
+    def joint(tag):
+        return dict(name=f"skin_joint_{tag}", dir=(-1.0, -0.30, 0.22), lens=50.0, dist=1.9,
+                    target=(jx, 0.0, zp - 0.10))
+    return [
+        ("level", {}, [dict(name="skin_head_front", dir=(0.0, -1.0, 0.12), target=hd, lens=50.0, dist=head_w * k),
+                       dict(name="skin_head_side", dir=(1.0, 0.0, 0.10), target=hd, lens=50.0, dist=(train + 0.8) * k),
+                       dict(name="skin_head_34", dir=(1.0, -1.1, 0.35), target=hd, lens=50.0, dist=head_w * k),
+                       dict(name="skin_head_top", dir=(0.0, -0.25, 1.0), target=(0.0, 0.0, zp), lens=50.0,
+                            dist=max(head_w, train + 0.5) * k),
+                       dict(name="skin_head_under", dir=(0.25, -0.35, -1.0), target=(0.0, 0.0, zp - 0.2), lens=35.0,
+                            dist=4.0, ground=False),
+                       dict(name="skin_tower_34", dir=(1.0, -1.1, 0.30), target=(0.0, 0.0, spec.top / 2.0), lens=35.0,
+                            dist=(spec.top / 2.0 + 1.0) * 35.0 / 12.0),
+                       side("level"), joint("level")]),
+        (f"slope{slope:g}", {"TrainFront": slope, "TrainBack": slope}, [side(f"slope{slope:g}"), q34(f"slope{slope:g}")]),
+        ("crest30", {"TrainFront": 15.0, "TrainBack": -15.0}, [side("crest30"), q34("crest30"), joint("crest30")]),
+        ("limit40", {"TrainFront": 20.0, "TrainBack": -20.0}, [side("limit40"), joint("limit40")]),
+        ("steep", {"TrainFront": tmax, "TrainBack": round(tmax - 40.0, 3)}, [side("steep", 1.1)]),
+        ("dip30", {"TrainFront": -15.0, "TrainBack": 15.0}, [side("dip30"), q34("dip30")]),
+    ]
 
 
-def render_skin_views(t, arm, spec, asset_dir, name, out_dir):
-    """skin_views through render_tower_views (the baked maps): per pitch one posed copy (skin_posed_copy) with the
-    vanilla rope through both rope points at that pitch (rope_prism, dark steel) as extras. Returns the PNG paths."""
+# The round 2 preview light (render_tower_views `light`): the pilot's noon from 55 deg over a snow-white ground read flat
+# and pale; a lower key sun from the camera side over a gray ground keeps the bounce down and draws the grooves
+SKIN_LIGHT = dict(elevation_deg=32.0, sun_energy=4.5, azimuth_deg=-40.0, ground_albedo=0.30,
+                  look="AgX - Medium High Contrast")
+
+
+def render_skin_views(t, arm, spec, asset_dir, name, out_dir, views=None):
+    """skin_views through render_tower_views (the baked maps) in SKIN_LIGHT: per pose one posed copy (cs2_skin.posed_copy:
+    the armature's result, held to the sweep's pose) with each half's rope as the game draws it (skin_rope_runs, dark
+    steel) as extras. Returns the PNG paths."""
     mat = bpy.data.materials.new(name + "_PreviewRope")
     mat.use_nodes = True
     bsdf = next(n for n in mat.node_tree.nodes if n.type == "BSDF_PRINCIPLED")
     bsdf.inputs["Base Color"].default_value = (0.03, 0.03, 0.03, 1.0)
     bsdf.inputs["Metallic"].default_value = 0.7
     bsdf.inputs["Roughness"].default_value = 0.45
+    piv = skin_pivot(spec)
     written = []
-    for th, views in skin_views(spec):
-        objs = [skin_posed_copy(t, arm, th, spec, f"{name}Pose")]
-        for side in (-1.0, 1.0):
-            v, f = rope_prism(spec, side, th)
+    for _label, pose, vv in (views or skin_views(spec)):
+        try:
+            objs = [cs2_skin.posed_copy(t, arm, pose, {b: piv for b in SKIN_BONES[1:]}, f"{name}Pose")]
+        except cs2_skin.SkinError as e:
+            raise TowerContractError(str(e))
+        for v, f in skin_rope_runs(spec, pose, run=2.0):
             me = bpy.data.meshes.new(f"{name}Rope")
             me.from_pydata(v, [], f)
             me.materials.append(mat)
             objs.append(bpy.data.objects.new(me.name, me))
             bpy.context.collection.objects.link(objs[-1])
         try:
-            written += render_tower_views(objs[0], asset_dir, name, out_dir, views, extras=objs[1:])
+            written += render_tower_views(objs[0], asset_dir, name, out_dir, vv, extras=objs[1:], light=SKIN_LIGHT)
         finally:
             for ob in objs:
                 me = ob.data
@@ -3017,60 +2877,63 @@ def render_skin_views(t, arm, spec, asset_dir, name, out_dir):
 
 
 def skin_roundtrip(asset_dir, name, levels, spec):
-    """Re-import every exported level (rig_probe.roundtrip: the raw file frame the game reads) and hold the rig to the
-    design: bones exactly Root / Train, Train under Root at (0, lane y x 100, 0) cm, every rest rotation identity, every
-    vertex on exactly one bone. Removes what the import made. Returns {level: {file, verts, groups, train_local_cm}}."""
-    import rig_probe
-    zp = lane_y(spec, True)
-    out = {}
-    for i in range(levels + 1):
-        fn = f"{name}.fbx" if i == 0 else f"{name}_LOD{i}.fbx"
-        before = {c: set(getattr(bpy.data, c).keys()) for c in ("objects", "meshes", "armatures", "materials", "images")}
-        try:
-            rep, _arm, _me = rig_probe.roundtrip(os.path.join(asset_dir, fn))
-        finally:
-            for c in ("objects", "meshes", "armatures", "materials", "images"):
-                coll = getattr(bpy.data, c)
-                for n in [n for n in coll.keys() if n not in before[c]]:
-                    coll.remove(coll[n])
-        bones = {b["name"]: b for b in rep["bones"]}
-        tr = bones.get("Train", {})
-        m = rep["mesh"]
-        ok = (sorted(bones) == sorted(SKIN_BONES) and tr.get("parent") == "Root"
-              and max(abs(a - b) for a, b in zip(tr["local_pos"], (0.0, zp * 100.0, 0.0))) <= 0.05
-              and max(abs(a) for a in bones["Root"]["local_pos"]) <= 0.05
-              and all(abs(abs(b["local_rot_xyzw"][3]) - 1.0) <= 1e-5 for b in bones.values())
-              and m["unweighted_verts"] == 0 and m["multi_bone_verts"] == 0)
-        _check(ok, f"[{spec.key}] G6 {fn} round trip: bones Root / Train, Train at (0, {zp * 100:.2f}, 0) cm, identity "
-               f"rests, one bone per vertex", f"({[(b['name'], b['parent'], b['local_pos'], b['local_rot_xyzw']) for b in rep['bones']]}"
-               f", unweighted {m['unweighted_verts']}, multi {m['multi_bone_verts']})")
-        out[str(i)] = {"file": fn, "verts": m["verts"], "tris": m["tris"],
-                       "groups": {g: v["verts"] for g, v in m["groups"].items()}, "train_local_cm": tr["local_pos"]}
-    return out
+    """Re-import every exported level (cs2_skin.roundtrip: the raw file frame the game reads) and hold the rig to the
+    design: bones exactly SKIN_BONES at skin_heads, identity rests, one bone per vertex, and the axis test (TrainFront
+    at raw z > 0 = game +z). Returns {level: {...}}."""
+    return cs2_skin.roundtrip(asset_dir, name, levels, skin_heads(spec), _check, spec.key)
+
+
+# The axis record (manifest skin.axis): every link of authoring +X -> game +z, cited
+SKIN_AXIS = {
+    "game_plus_z": "net -Y = authoring +X (TrainFront = the halves built at authoring +X: rocker_main_<side>_f, "
+                   "yoke_<side>_f)",
+    "chain": ["cs2_asset.orient_for_net (cs2_asset.py:40): (x, y, z) -> (y, -x, z), authoring +X -> net -Y",
+              "cs2_asset.export_fbx_skinned (cs2_asset.py:1484-1487): -90 deg about X baked, (x, y, z) -> (x, z, -y) "
+              "x 100 cm: net -Y -> file +z",
+              "the game negates FBX x on import (docs/PIPELINE.md frame rule T): game = (-x_net, z_net, -y_net)"],
+    "tests": ["skin_part_bones: the _f plates ride TrainFront by travel side (build time)",
+              "cs2_skin.roundtrip: every exported level's TrainFront group bbox center at raw z > 0, TrainBack < 0",
+              "tests/test_tower_skinned.py K8 (the axis test)"],
+}
 
 
 def skin_manifest_block(spec, skin):
-    """Manifest `skin` (SKINNED only): the rig, G6, the weights, the round trip and the import surgery."""
+    """Manifest `skin` (SKINNED only): the rig, the axis record, G6, the weights, the round trip and the surgery."""
     zp = lane_y(spec, True)
-    return {"rule": "lift alignment phase 2 (DECISIONS 570): skinned to Root / Train; our code pitches Train about its "
-                    "local X by the rope's pitch at the tower (+ lowers the train's game +Z end)",
+    return {"rule": "lift alignment phase 2 round 2 (articulation design note, option C): skinned to Root / TrainFront "
+                    "/ TrainBack; our code pitches TrainFront by the rope leaving toward game +z and TrainBack by the "
+                    "rope toward -z, about each bone's local X (+ lowers the game +z end), each clamped to theta_max, "
+                    "the half-break |front - back| / 2 to 20 deg",
             "bones": {"Root": {"parent": None, "head_game": [0.0, 0.0, 0.0]},
-                      "Train": {"parent": "Root", "head_game": [0.0, zp, 0.0], "rest_rotation": [0, 0, 0, 1]}},
+                      "TrainFront": {"parent": "Root", "head_game": [0.0, zp, 0.0], "rest_rotation": [0, 0, 0, 1],
+                                     "side": "game +z"},
+                      "TrainBack": {"parent": "Root", "head_game": [0.0, zp, 0.0], "rest_rotation": [0, 0, 0, 1],
+                                    "side": "game -z"}},
+            "axis": SKIN_AXIS,
             "rope_points_game": skin["rope_points_game"], "lane_y": zp, "crown_seat": skin["crown_seat"],
-            "theta_max_deg": skin["theta_max_deg"],
-            "g6": {k: skin[k] for k in ("poses", "pins", "seat_gaps_m")},
+            "theta_max_deg": skin["theta_max_deg"], "half_break_max_deg": skin["half_break_max_deg"],
+            "half_shift_m": skin["half_shift_m"], "sheaves": skin["sheaves"],
+            "g6": {"poses": skin["poses"], "min_clear": skin["min_clear"], "seat_rest_m": skin["seat_rest_m"]},
             "train_parts": skin["train_parts"], "weights": skin.get("weights"), "roundtrip": skin.get("roundtrip"),
             "mesh_changes": {
-                "FG": "cs2_sheaves.fg_train_side_pinned: the T27 inboard tree (FG_CROWN_INBOARD) with axle stubs; the "
-                      "main rocker centered on the rope line, turning on a main pin held by the hanger one slab inboard",
-                "DQ": "the hanger and the Kagelok girder end cut back to |y| 2.394 (SKIN_DQ gap short of the yoke); a "
-                      "main pin from |y| 2.30 through hanger, girder end and yoke; the yoke top lowered to pin + 0.05 "
-                      "under the gantry's slanted posts"}[spec.family],
+                "FG": "cs2_sheaves.fg_train_side_halves: per lane two 2-wheel bogies, each on its main-rocker half "
+                      "(lug plates lapping on the main pin, the front plate outboard), the bogies "
+                      f"{SKIN_HALF_SHIFT['FG']} m further out; the hanger one slab inboard holds the main pin",
+                "DQ": "cs2_sheaves.dq_train_halves: per lane two 4-wheel bogies on the yoke halves (lug plates lapping on "
+                      f"the main pin), every sheave {SKIN_HALF_SHIFT['DQ']} m further out; the hanger and the Kagelok "
+                      "girder end cut back to |y| 2.394 (SKIN_DQ gap short of the yoke); a main pin from |y| 2.30 "
+                      "through hanger, girder end and yoke; the yoke top at pin + 0.05 under the gantry's slanted posts",
+                "GD": f"cs2_sheaves.dq_train_halves at {SKIN_GD['sheaves']} sheaves a side: per lane two halves (a "
+                      "4-wheel bogie on a main rocker + a 2-wheel bogie on a link at 12; one 4-wheel bogie at 8) on the "
+                      f"yoke halves, every sheave {SKIN_HALF_SHIFT['GD']} m further out; the gantry posts land on the "
+                      "girder ends (inboard of the yoke and the rope); the hanger cut short of the yoke; a main pin from "
+                      "inside the girder end through hanger and yoke"}[spec.family],
             "surgery": [
                 "after EVERY import, every LOD prefab: the root bone (parentId -1) m_Rotation (0, 0, 0, 1) and m_Scale "
                 "(1, 1, 1) (the import gives it -90 deg X / scale 100; gate BONEROOT)",
-                "Train: m_Type 0 (None); our code writes its Bone m_Rotation = rest x pitch about local X and sets "
-                "Skeleton.m_CurrentUpdated (PIPELINE 'Skinned (procedural-bone) assets')",
+                "TrainFront / TrainBack: m_Type 0 (None); our code writes each Bone m_Rotation = rest x pitch about "
+                "local X and sets Skeleton.m_CurrentUpdated (PIPELINE 'Skinned (procedural-bone) assets'); bone names "
+                "map through ProceduralBone.m_BindIndex (the engine re-sorts bones by hierarchy depth)",
                 "LOD0 / LOD1 / LOD2 FBXs are all skinned (SetupLODs copies LOD0's ProceduralAnimationProperties to "
                 "every LOD); settings.json useProceduralAnimation",
                 f"rope-lane anchors at the crown lane (+-{spec.gauge / 2.0}, {zp}, 0) (T27, phase 1)"]}
@@ -3234,11 +3097,14 @@ def fg_parts(spec):
     for tag, s in (("n", -1.0), ("p", 1.0)):
         y = s * spec.gauge / 2.0
         if SKINNED:
-            # lift alignment Phase 2: the main rocker on the rope line, on a main pin from a hanger one slab inboard
-            P += S.fg_train_side_pinned(tag, s, y, main_z, sub_z, axle_z, n_sub, sub_span, main_span,
+            # lift alignment phase 2 round 2: two half trains (a 2-wheel bogie each) lapping on the main pin on the
+            # rope line, held by a hanger one slab inboard
+            if n_sub != 2:
+                raise TowerContractError(f"{spec.key}: the FG half trains take 2 bogies a lane (got {n_sub})")
+            P += S.fg_train_side_halves(tag, s, y, main_z, sub_z, axle_z, sub_span, main_span / 2.0,
                                         spec.sheave_r, spec.sheave_w, pin_z=lane_y(spec, True),
-                                        inboard=FG_CROWN_INBOARD, arm_t=FG_ARM_T, hanger=FG_HANGER, ins=ins,
-                                        **SKIN_FG)
+                                        inboard=FG_CROWN_INBOARD, shift=SKIN_HALF_SHIFT["FG"], arm_t=FG_ARM_T,
+                                        hanger=FG_HANGER, ins=ins, lap_gap=SKIN_LAP_GAP, **SKIN_FG)
             continue
         # the Yan rocker tree of this lane: cs2_sheaves.fg_train_side (this loop's body, moved verbatim)
         P += S.fg_train_side(tag, s, y, main_z, sub_z, axle_z, n_sub, sub_span, main_span,
@@ -3323,8 +3189,10 @@ DQ_BEVEL = {"rocker_main_": 1, "rocker_link_": 1, "gantry_beam": 2, "gantry_gird
 # --------------------------------------------------------------------------------------
 
 def dq_deck_length(spec):
-    """Deck length L = max(4.30, train + 0.20); train = rim tip to rim tip [K, D]."""
+    """Deck length L = max(4.30, train + 0.20); train = rim tip to rim tip [K, D] (SKINNED: + the two halves' shift)."""
     train = (spec.sheaves - 1) * spec.pitch + 2.0 * spec.sheave_r
+    if SKINNED:
+        train += 2.0 * SKIN_HALF_SHIFT[spec.family]
     return max(4.30, train + 0.20)
 
 
@@ -3347,11 +3215,19 @@ def _gantry_rebuild(spec):
               "paint"))
     pb = DP1_INSET["gd_post_bottom"]          # M4: post bottom 5 mm above the yoke's bottom face
     for tag, s in (("n", -1.0), ("p", 1.0)):
-        # detail pass 1: the post top is hidden under the beam (design 1.4: dropped)
-        P.append((K.add_box(f"gantry_post_{tag}", (0.18, 0.198, 1.442 + rise - pb),
-                            (0.0, s * (2.51 + dy), A + 0.25 + 0.721 + rise / 2.0 + pb / 2.0),
-                            drop=("+Z",)), "paint"))
         g = girder_box(spec)
+        if SKINNED and spec.family == "GD":
+            # lift alignment phase 2 round 2: the post lands on the girder end (outboard face SKIN_GD post_inset in from
+            # it, buried post_bury in its top), inboard of the yoke the half trains pitch in: it came down onto the
+            # yoke at |y| 2.811..3.009, through the rope on the crowns (lane 3.0, the T27 C20 head-rule item)
+            yo, z0, z1 = g["y1"] - SKIN_GD["post_inset"], A + g["z1"] - SKIN_GD["post_bury"], A + 1.692 + rise
+            P.append((K.add_box(f"gantry_post_{tag}", (0.18, 0.198, z1 - z0), (0.0, s * (yo - 0.099), (z0 + z1) / 2.0),
+                                drop=("+Z", "-Z")), "paint"))
+        else:
+            # detail pass 1: the post top is hidden under the beam (design 1.4: dropped)
+            P.append((K.add_box(f"gantry_post_{tag}", (0.18, 0.198, 1.442 + rise - pb),
+                                (0.0, s * (2.51 + dy), A + 0.25 + 0.721 + rise / 2.0 + pb / 2.0),
+                                drop=("+Z",)), "paint"))
         # the girder's inner end is hidden on the saddle's face (DQ / ETDQ; GD has no saddle)
         inner = (("+Y",) if s < 0 else ("-Y",)) if spec.family != "GD" else ()
         P.append((K.add_box(f"gantry_girder_{tag}", (g["x"], g["y1"] - g["y0"], g["z1"] - g["z0"]),
@@ -3446,17 +3322,24 @@ def _dq_train(spec):
     sub_y, main_y = DQ_SUB_Y + cdy, DQ_MAIN_Y + cdy
     # cs2_sheaves.dq_train = this function's body, moved verbatim; THIS module's globals (DQ_SUB_Y, DQ_LINK,
     # DP1_INSET, head_kit / hanger_box) are passed at call time, so the tests' constant patches still apply
-    skin = {"yoke_top": round(lane_y(spec, True) - spec.axle + SKIN_DQ["yoke_above_pin"], 6)} if SKINNED else {}
-    P = S.dq_train(lambda s: dq_sheave_centres(spec, s), n, spec.axle, spec.sheave_r, spec.sheave_w,
-                   sheave_segs(spec), sheave_groove(spec), sub_y, main_y, kit["pin_s"], hanger_box(spec),
-                   DP1_INSET["dq_hanger_z"], link=DQ_LINK, ngon=sheave_ngon(spec), **skin)
-    if SKINNED:
-        # lift alignment Phase 2: the main pin on the rope line (travel 0, crown lane y), from inside the girder end
-        # (SKIN_DQ pin_in) through the hanger and the yoke, its outboard end `poke` proud of the yoke
-        a, b = SKIN_DQ["pin_in"], main_y + 0.072 / 2.0 + SKIN_DQ["poke"]
-        for tag, s in (("n", -1.0), ("p", 1.0)):
-            P.append((K.add_cyl(f"pivot_main_{tag}", SKIN_DQ["pin_r"], b - a, (0.0, s * (a + b) / 2.0, lane_y(spec, True)),
-                                (math.radians(90.0), 0.0, 0.0), segments=8, caps="both"), "galv"))
+    if not SKINNED:
+        return S.dq_train(lambda s: dq_sheave_centres(spec, s), n, spec.axle, spec.sheave_r, spec.sheave_w,
+                          sheave_segs(spec), sheave_groove(spec), sub_y, main_y, kit["pin_s"], hanger_box(spec),
+                          DP1_INSET["dq_hanger_z"], link=DQ_LINK, ngon=sheave_ngon(spec))
+    # lift alignment phase 2 round 2: two half trains a lane on the yoke halves, lapping on the main pin
+    P = S.dq_train_halves(lambda s: dq_sheave_centres(spec, s), n, spec.axle, spec.sheave_r, spec.sheave_w,
+                          sheave_segs(spec), sheave_groove(spec), sub_y, main_y, kit["pin_s"], hanger_box(spec),
+                          DP1_INSET["dq_hanger_z"], pin_z=lane_y(spec, True),
+                          yoke_top=round(lane_y(spec, True) - spec.axle + SKIN_DQ["yoke_above_pin"], 6),
+                          shift=SKIN_HALF_SHIFT[spec.family], link=DQ_LINK, ngon=sheave_ngon(spec),
+                          lap_gap=SKIN_LAP_GAP)
+    # the main pin on the rope line (travel 0, crown lane y), from inside the girder end (SKIN_DQ / SKIN_GD pin_in)
+    # through the hanger and the yoke, its outboard end `poke` proud of the yoke
+    a = SKIN_GD["pin_in"] if spec.family == "GD" else SKIN_DQ["pin_in"]
+    b = main_y + 0.072 / 2.0 + SKIN_DQ["poke"]
+    for tag, s in (("n", -1.0), ("p", 1.0)):
+        P.append((K.add_cyl(f"pivot_main_{tag}", SKIN_DQ["pin_r"], b - a, (0.0, s * (a + b) / 2.0, lane_y(spec, True)),
+                            (math.radians(90.0), 0.0, 0.0), segments=8, caps="both"), "galv"))
     return P
 
 
@@ -3832,12 +3715,15 @@ def build_tower_v2(spec, head=None, finish=True, kagelok=None, name=None):
     head = head or ("yan" if spec.family == "FG" else spec.heads[0])
     if head not in spec.heads:
         raise ValueError(f"{spec.key}: --head {head!r} not allowed (heads {spec.heads})")
+    spec = skin_spec(spec)            # SKINNED GD: SKIN_GD sheaves a side (info["spec"] hands it back)
     if SKINNED and (head not in SKIN_HEADS.get(spec.family, ()) or spec.kind != "support" or not S.wheels_v2()):
         raise TowerContractError(f"{spec.key}: no skinned recipe for the {spec.family} {head} {spec.kind} head "
                                  f"(SKIN_HEADS {SKIN_HEADS}, support heads, v2 wheels)")
     if spec.family == "FG":
         parts, info = fg_parts(spec)
         bevel = FG_BEVEL
+        if SKINNED:      # the half trains' lap plates (rocker_main_<side>_f|b): SKIN_PLATE_BEVEL segments
+            bevel = dict(FG_BEVEL, **{f"rocker_main_{tg}_": SKIN_PLATE_BEVEL["FG"] for tg in ("n", "p")})
     else:
         parts, info = dq_parts(spec, head, kagelok)
         bevel = DQ_BEVEL
@@ -3880,7 +3766,9 @@ def build_tower_v2(spec, head=None, finish=True, kagelok=None, name=None):
     info["contracts_net"] = assert_tower_contracts(t, spec, "net", head)
     info["parts"] = len(table)
     if SKINNED:
-        info["skin"] = skin_sweep(t, table, spec)          # G6 on the net-frame LOD0 (raises on a failed gate)
+        info["spec"] = spec
+        info["skin_part_bone"] = skin_part_bones(t, table, spec)     # the halves by travel side (+ the axis test)
+        info["skin"] = skin_sweep(t, table, spec, info["skin_part_bone"])   # G6 (raises on a failed gate)
     return t, table, sources, info
 
 
@@ -4153,9 +4041,19 @@ def check_sub_hangers(pv, spec, frame="authoring"):
     def fail(label, detail):
         raise TowerContractError(f"[{spec.key}] C21 {label} FAILED {detail}")
 
+    def yoke_of(tag, lug):
+        """The yoke a lug hangs from: `yoke_<tag>`, or (the skinned half trains, lift alignment phase 2 round 2) the
+        half plate `yoke_<tag>_f|b` on the lug's travel side, its lateral band the two lapping plates together (a
+        main / link spans the whole yoke slab)."""
+        if f"yoke_{tag}" in pv:
+            return box(f"yoke_{tag}")
+        plates = [box(f"yoke_{tag}_{h}") for h in ("f", "b")]
+        lc = sum(lug["t"]) / 2.0
+        mine = next(p for p in plates if (sum(p["t"]) / 2.0) * lc > 0.0)
+        return dict(mine, g=(min(p["g"][0] for p in plates), max(p["g"][1] for p in plates)))
+
     out = {"pins": 0, "main": 0, "link": 0, "bury": [], "poke": []}
     for tag in ("n", "p"):
-        yoke = box(f"yoke_{tag}")
         pins = sorted(n for n in pv if n.startswith(f"pivot_{tag}_s"))
         subs = sorted(n for n in pv if n.startswith(f"rocker_sub_{tag}_"))
         if len(pins) != len(subs) or len(subs) != spec.sheaves // 2:
@@ -4177,6 +4075,7 @@ def check_sub_hangers(pv, spec, frame="authoring"):
                      f"{pin['t'][0]:+.3f}..{pin['t'][1]:+.3f}, z {pin['z'][0]:.3f}..{pin['z'][1]:.3f}: "
                      f"{'the inboard end is in air' if not hit else 'ambiguous'})")
             ln, lug = hit[0], box(hit[0])
+            yoke = yoke_of(tag, lug)
             out["poke"] += [pin["g"][1] - sub["g"][1], lug["g"][0] - pin["g"][0]]
             if ln.startswith("rocker_link_"):
                 bury = lug["z"][1] - yoke["z"][0]
@@ -4277,8 +4176,10 @@ def assert_tower_contracts(obj, spec, frame, head):
         # outboard axle caps (lane + 0.065 + 0.02 = 1.885) set the lateral extent; T62 round 2 v2: the wheels' outboard
         # hub bosses (lane + w / 2 + 0.10 r = 1.885), the same number
         lat_ship = 1.885 if ROPE_ON_CROWN else 1.91
-        _check(abs(res["lateral"] - lat_ship) <= 0.01 and abs(res["travel"] - 0.97) <= 0.01,
-               f"{tag} FG lateral / travel extents +-1.91 / +-0.97 (shipped N)",
+        # lift alignment phase 2 round 2: the half trains' bogies sit SKIN_HALF_SHIFT further out along travel
+        trav = 0.97 + (SKIN_HALF_SHIFT["FG"] if SKINNED else 0.0)
+        _check(abs(res["lateral"] - lat_ship) <= 0.01 and abs(res["travel"] - trav) <= 0.01,
+               f"{tag} FG lateral / travel extents +-1.91 / +-{trav:.2f} (shipped N)",
                f"({res['lateral']:.4f} / {res['travel']:.4f})")
     # C8 crash pad clearance
     cp = np.concatenate([pv["crashpad"], pv["crashpad_outer"]])
@@ -4491,6 +4392,7 @@ def detail_marks(spec, pv, frame="net"):
                            bolt_r=R["boltring"][spec.family], h=0.004))
     out["stiff_"] = tuple(rings)
     hub = []
+    dress = []
     e = [0.0, 0.0, 0.0]
     e[gi] = 1.0
     for nm in sorted(pv):
@@ -4500,7 +4402,13 @@ def detail_marks(spec, pv, frame="net"):
                 cc = [float(c[k] + sg * e[k] * spec.sheave_w / 2.0) for k in range(3)]
                 hub.append(M("ring", tuple(cc), u=(0.0, 0.0, 1.0), v=tuple(e if ti != 2 else (1.0, 0.0, 0.0)),
                              n=tuple(sg * x for x in e), r_in=0.0, r_out=R["hub"]["r"], h=R["hub"]["h"]))
+                if S.wheel_dress():     # round 2 wheel dress: a recessed sidewall ring at the disc edge
+                    D_ = S.WHEEL_DRESS_RING
+                    dress.append(M("ring", tuple(cc), u=(0.0, 0.0, 1.0), v=tuple(e if ti != 2 else (1.0, 0.0, 0.0)),
+                                   n=tuple(sg * x for x in e), r_in=D_["r_in"] * spec.sheave_r,
+                                   r_out=D_["r_out"] * spec.sheave_r, h=D_["h"]))
     out["sheave_rims"] = tuple(hub)
+    out["sheave_dress"] = tuple(dress)          # empty unless the wheel dress is on
     return out
 
 
@@ -4542,7 +4450,11 @@ def tower_detail_specs(spec=None, pv=None, frame="net"):
         if not S.wheels_v2():       # T62 round 2: the v2 wheel's hub is the geometric boss (no normal-map ring)
             for nm in sorted(pv):
                 if nm.startswith("sheave_") and nm.endswith("_rim"):
-                    out[nm] = D(marks=mk["sheave_rims"])
+                    out[nm] = D(marks=mk["sheave_rims"] + mk["sheave_dress"])
+        elif mk["sheave_dress"]:    # the wheel dress on a v2 wheel: only its sidewall ring is a mark
+            for nm in sorted(pv):
+                if nm.startswith("sheave_") and nm.endswith("_rim"):
+                    out[nm] = D(marks=mk["sheave_dress"])
     return out
 
 
@@ -5159,7 +5071,7 @@ def weather_spec(spec, name, intensity):
     return CW.WeatherSpec.preset(
         "tower", name, intensity=intensity, slot_wear="free", snow=0.0,
         mat_roles_extra=(("paint", "paint_steel"), ("pad", "pad"), (LINER_KEY, "none"), (PLATE_KEY, "none"))
-        + (((S.WHEEL_KEY, "none"),) if S.wheels_v2() else ()),     # T62 round 2: one clean wheel on every family
+        + tuple(S.wheel_roles().items()),     # T62 round 2: one clean wheel on every family (+ the dress keys)
         overrides=(("pivot_", PW(role="galv", rust_source=True)),
                    ("axlecap_", PW(role="galv", rust_source=True)),
                    ("stiff_", PW(rust_source=True)),
@@ -5329,13 +5241,15 @@ def tower_views(spec):
     return v
 
 
-def render_tower_views(t, asset_dir, name, out_dir, views, resolution=(1300, 1000), extras=()):
+def render_tower_views(t, asset_dir, name, out_dir, views, resolution=(1300, 1000), extras=(), light=None):
     """
     M6: cs2_preview.preview frames whole-object views only (direction, auto distance), so
     the targeted closeups (target, lens, fixed distance, pier bounce light) run here on the
     same rig pieces (Nishita noon, pbr material from the shipped maps, slot tints). The
     rig restores the scene. Files: <name>_view_<view>.png. `extras` (phase 2 skinned views:
-    the ropes) render beside `t` with their own materials (default none = as before).
+    the ropes) render beside `t` with their own materials (default none = as before). `light` (phase 2 round 2,
+    SKIN_LIGHT; None = the noon rig as before): {elevation_deg, sun_energy, azimuth_deg (the sun's direction turned
+    about Z from the sky's), ground_albedo, look (the AgX look)}.
     """
     import cs2_preview as P
     os.makedirs(out_dir, exist_ok=True)
@@ -5346,8 +5260,17 @@ def render_tower_views(t, asset_dir, name, out_dir, views, resolution=(1300, 100
     try:
         cam = P._make_camera(rig)
         sc = rig.scene
-        P._make_world(rig, **P.NOON)
+        if light is None:
+            P._make_world(rig, **P.NOON)
+        else:
+            _w, sun = P._make_world(rig, light["elevation_deg"], light["sun_energy"])
+            sun.rotation_euler = (mathutils.Matrix.Rotation(math.radians(light.get("azimuth_deg", 0.0)), 3, "Z")
+                                  @ sun.rotation_euler.to_matrix()).to_euler()
         gnd = P._make_ground(rig)
+        if light is not None and "ground_albedo" in light:
+            gb = next(n for n in gnd.data.materials[0].node_tree.nodes if n.type == "BSDF_PRINCIPLED")
+            a = light["ground_albedo"]
+            gb.inputs["Base Color"].default_value = (a, a, a, 1.0)
         P._assign(t, P._pbr_material(rig, asset_dir, name, None))
         bounce = None
         for v in views:
@@ -5365,7 +5288,7 @@ def render_tower_views(t, asset_dir, name, out_dir, views, resolution=(1300, 100
             elif bounce is not None:
                 bounce.hide_render = True
             path = os.path.join(out_dir, f"{name}_view_{v['name']}.png")
-            written.append(P._render(rig, path, engine="EEVEE"))
+            written.append(P._render(rig, path, engine="EEVEE", look=(light or {}).get("look", "None")))
             print(f"[tower2] view -> {path}")
     finally:
         rig.restore()
@@ -5543,15 +5466,19 @@ def parse_args_v2(argv):
     ap.add_argument("--rope-on-crown", dest="rope_on_crown", action="store_true",
                     help="T27 preview flag (ROPE_ON_CROWN): the manifest hands the lane on the sheave crown to the "
                          "surgery and the carrier contracts sweep there; the mesh is unchanged")
+    ap.add_argument("--wheel-dress", action="store_true",
+                    help="lift alignment round 2: the wheel dress (red hub caps, dark wheel rubber in the groove, a "
+                         "recessed sidewall ring; cs2_sheaves.WHEEL_DRESS) - the same mesh, 0 extra tris")
     ap.add_argument("--wheels", choices=("v1", "v2"), default="v2",
                     help="T62 sheave wheel generation: v2 (default) = cs2_sheaves.wheel, the 16-segment grooved wheel "
                          "(round 3) on every head; v1 = the pre-T62 per-family wheels, byte-identical")
     ap.add_argument("--skinned", action="store_true",
-                    help="lift alignment phase 2 (SKINNED): every LOD skinned to Root / Train, the sheave trains "
-                         "pitching about the rope line; implies --rope-on-crown; FG Yan / DQ ingest heads only")
+                    help="lift alignment phase 2 (SKINNED): every LOD skinned to Root / TrainFront / TrainBack, two half "
+                         "trains a lane hinged on the rope line; implies --rope-on-crown; FG Yan / DQ ingest / GD "
+                         "rebuild heads only")
     ap.add_argument("--skin-views", default=None,
-                    help="with --skinned: folder for the head views at pitch 0 and the train close-ups at 0 and "
-                         "+-theta_max, the rope drawn (needs the finish)")
+                    help="with --skinned: folder for the round 2 views (skin_views: level, slope, crest, the 20 deg "
+                         "limit, steep, dip), each half's rope drawn (needs the finish)")
     return ap.parse_args(argv)
 
 
@@ -5560,13 +5487,14 @@ def main_v2(argv):
     t0 = time.perf_counter()
     args = parse_args_v2(argv)
     S.set_wheels(args.wheels)          # T62: before any part is built
+    S.set_wheel_dress(args.wheel_dress)   # round 2: the wheel dress (materials + a relief ring, 0 tris)
     if args.rope_on_crown:
         set_rope_on_crown(True)        # T27: lanes on the crowns; the compression terminal heads (ETDQ / ETGD) rise
     if args.skinned:
         set_skinned(True)              # phase 2: the pinned trains, the rope on the crowns (the Train pivot line)
     elif args.skin_views:
         raise SystemExit("--skin-views needs --skinned")
-    spec = VARIANTS[args.variant]
+    spec = skin_spec(VARIANTS[args.variant])      # SKINNED GD: SKIN_GD sheaves a side
     if args.head is not None and spec.family == "FG":
         raise SystemExit(f"--head applies to DQ variants only ({spec.key} is FG)")
     head = args.head or ("yan" if spec.family == "FG" else spec.heads[0])
@@ -5641,10 +5569,12 @@ def main_v2(argv):
         if any(o.matrix_world != mathutils.Matrix.Identity(4) for o in [t] + lods):
             raise TowerContractError(f"{name}: a level carries an object transform; the rig assumes none")
         arm = build_skin_armature(spec, name + "Rig")
-        info["skin"]["weights"] = {str(i): skin_assign(o, table, spec.family) for i, o in enumerate([t] + lods)}
+        info["skin"]["weights"] = {str(i): skin_assign(o, table, info["skin_part_bone"])
+                                   for i, o in enumerate([t] + lods)}
         for o in [t] + lods:
             cs2_asset.check_skin_weights(o, arm)
-        print(f"[tower2] skin: Train head game (0, {lane_y(spec, True)}, 0); weights per level {info['skin']['weights']}")
+        print(f"[tower2] skin: TrainFront / TrainBack heads game (0, {lane_y(spec, True)}, 0); weights per level "
+              f"{info['skin']['weights']}")
     if not args.finish:
         print(f"[tower2] --no-finish: geometry, contracts and LOD chain only; nothing exported")
         print(f"PASS lift_tower v2 (no finish): {name} tris {budget['tris']}")

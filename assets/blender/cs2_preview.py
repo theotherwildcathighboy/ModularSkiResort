@@ -380,8 +380,9 @@ def _frame(cam, obj, direction, resolution):
     lift_tower.frame_camera(cam, obj, mathutils.Vector(direction), resolution)
 
 
-def _render(rig, path, engine="EEVEE", transparent=False, view_transform="AgX"):
-    """Render one frame; EEVEE failures fall back to Cycles CPU (16 samples)."""
+def _render(rig, path, engine="EEVEE", transparent=False, view_transform="AgX", look="None"):
+    """Render one frame; EEVEE failures fall back to Cycles CPU (16 samples). `look`: the view look (None = flat AgX;
+    lift_tower.SKIN_LIGHT asks for a contrast look; an unknown name falls back to None)."""
     sc = rig.scene
     sc.render.image_settings.file_format = "PNG"
     sc.render.image_settings.color_mode = "RGBA"
@@ -392,6 +393,11 @@ def _render(rig, path, engine="EEVEE", transparent=False, view_transform="AgX"):
         sc.view_settings.look = "None"
     except TypeError:
         pass
+    if look != "None":
+        try:
+            sc.view_settings.look = look
+        except TypeError:
+            print(f"[preview] view look {look!r} unknown; None")
     sc.render.filepath = path
     if engine == "WORKBENCH":
         _set_engine(sc, "BLENDER_WORKBENCH")
