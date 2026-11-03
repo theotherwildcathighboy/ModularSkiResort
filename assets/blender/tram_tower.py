@@ -2443,7 +2443,10 @@ def skin_views(spec):
                                              lens=35.0, dist=7.5 * 35.0 / 15.6), side("level"), joint("level")]),
         ("crest30", skin_pose(15.0, -15.0), [side("crest30"), q34("crest30"), joint("crest30"),
                                              dict(name="skin_under_crest30", dir=(0.55, -0.35, -1.0), lens=35.0,
-                                                  dist=4.2, target=(TRAM["lane_y"], 0.0, z0 - 0.8), ground=False)]),
+                                                  dist=4.2, target=(TRAM["lane_y"], 0.0, z0 - 0.8), ground=False),
+                                             # family round: the whole head on the crest (the owner's crest shot)
+                                             dict(name="skin_head_34_crest30", dir=(1.0, -1.1, 0.35),
+                                                  target=(0.0, 0.0, z0 - 0.4), lens=35.0, dist=7.5 * 35.0 / 15.6)]),
         ("limit40", skin_pose(20.0, -20.0), [side("limit40")]),
         (f"slope{tm:g}", skin_pose(tm, tm), [side(f"slope{tm:g}", 1.15), q34(f"slope{tm:g}", 1.2)]),
         ("steep", skin_pose(tm, round(tm - 40.0, 3)), [side("steep", 1.15), joint("steep")]),

@@ -27,7 +27,11 @@ Each build RAISES unless:
       yoke from 0.10 m (SKIN_CLEVIS dq_beam_x 0.20: at a 30 deg pitch the beam meets the static tongue); a flipped
       travel sign (cs2_skin.FRONT_SIGN_NET +1) trips the build-time axis test
       (skin_part_bones: the _f halves must ride TrainFront); seat_half refuses ray counts that miss the rope's corners;
-  K7  off is off: unskinned FG12 and tram30 carry no main pin / saddle halves, no `skin` report, no vertex groups.
+  K7  off is off: unskinned FG12 and tram30 carry no main pin / saddle halves, no `skin` report, no vertex groups;
+  K9  the family (2026-11-03): every other line tower (FG8 / FG16 / FG20, DQ10..DQ20 ingest, GD16 / GD20 rebuild at 10 a
+      side, tram 45 / 60) builds skinned with G6 held over the same grid (the K1 rows and the round 3-4 hardware) and
+      LOD0 at or under its cap; FAMILY_CAP_PENDING lists an over-cap member awaiting an owner call at its exact count
+      (any growth fails); the tall GD (top >= 16) carry lift_tower.SKIN_GD_TALL_DENSITY, GD12 does not.
 
 The DQ12 cases need the gitignored Kagelok .blend; when it is absent they SKIP with a printed line.
 
@@ -201,11 +205,11 @@ def _export_roundtrip(t, lods, arm, roundtrip):
 # tram
 # --------------------------------------------------------------------------------------
 
-def build_tram(sweep=True):
+def build_tram(sweep=True, height=30):
     TT.set_skinned(True)
     TT.clear_scene()
-    t, table, spec, parts, lay, _s = TT.build_variant("tram", 30)
-    t.name = "SkiTramTower30A"
+    t, table, spec, parts, lay, _s = TT.build_variant("tram", height)
+    t.name = f"SkiTramTower{height}A"
     TT.check_contracts(t, table, spec, parts, "authoring")
     cs2_asset.orient_for_net(t)
     TT.check_contracts(t, table, spec, parts, "net")
@@ -319,6 +323,51 @@ def k7_off():
     print(f"[skin] K7 unskinned FG12 / tram30: no main pin, no halves, no skin report, no vertex groups")
 
 
+# K9: the family round's members (the pilots FG12 / DQ12 / GD12 / tram30 run above in full)
+FAMILY = (("FG8", None), ("FG16", None), ("FG20", None), ("DQ10", "ingest"), ("DQ14", "ingest"), ("DQ16", "ingest"),
+          ("DQ18", "ingest"), ("DQ20", "ingest"), ("GD16", "rebuild"), ("GD20", "rebuild"))
+# over-cap members awaiting an owner call, at their exact LOD0 count (DQ20: 4,234 vs the DQ cap 4,200, family round)
+FAMILY_CAP_PENDING = {"DQ20": 4234}
+
+
+def k9_family(have_kagelok):
+    done = []
+    for key, head in FAMILY:
+        if head == "ingest" and not have_kagelok:
+            print(f"[skin] K9 SKIP {key} ingest: Kagelok .blend absent")
+            continue
+        spec, t, table, info = build_lift(key, head)
+        k1_lift(spec, info)
+        k1_round3_lift(spec, t, table, info)
+        n = cs2_asset.tri_count(t)
+        if key in FAMILY_CAP_PENDING:
+            if n != FAMILY_CAP_PENDING[key]:
+                _fail(f"K9 {key}: LOD0 {n}, the pending owner call is for exactly {FAMILY_CAP_PENDING[key]}")
+        elif n > spec.cap:
+            _fail(f"K9 {key}: LOD0 {n} over the cap {spec.cap}")
+        tall = spec.family == "GD" and spec.top >= 16.0
+        tab = LT.density_table(spec)
+        if tall != all(tab.get(k) == v for k, v in LT.SKIN_GD_TALL_DENSITY.items()):
+            _fail(f"K9 {key}: SKIN_GD_TALL_DENSITY applied {not tall} (tall GD only)")
+        if spec.family == "GD" and spec.sheaves != 10:
+            _fail(f"K9 {key}: {spec.sheaves} sheaves a side (want 10, as shipped)")
+        done.append(f"{key} {n}/{spec.cap}")
+    tab12 = LT.density_table(LT.skin_spec(LT.VARIANTS["GD12"]))
+    if any(tab12.get(k) == v for k, v in LT.SKIN_GD_TALL_DENSITY.items() if k != "gantry_girder_"):
+        _fail("K9: GD12 picked up the tall GD density table")
+    for h in (45, 60):
+        spec, t, table, parts, pb, rep = build_tram(height=h)
+        want = len(cs2_skin.joint_grid(TT.SKIN_TRAM["theta_max"]))
+        if len(rep["poses"]) != want or rep["failed"]:
+            _fail(f"K9 tram{h}: {len(rep['poses'])} poses (grid {want}), failed {rep['failed']}")
+        n, cap = cs2_asset.tri_count(t), TT.TRAM_BUDGET[h][1]
+        if n > cap:
+            _fail(f"K9 tram{h}: LOD0 {n} over the cap {cap}")
+        done.append(f"tram{h} {n}/{cap}")
+    print(f"[skin] K9 family: G6 held, LOD0 vs cap {done}; pending owner calls {FAMILY_CAP_PENDING}")
+    return done
+
+
 def main():
     t0 = time.perf_counter()
     have_k = os.path.isfile(LT.KAGELOK_BLEND)
@@ -349,6 +398,7 @@ def main():
     done.append("tram30")
     k6_negatives(have_k)
     k7_off()
+    done += k9_family(have_k)
     print(f"PASS test_tower_skinned: {done} skinned (G6 joint sweep, three skinned levels, round trip + axis test, "
           f"determinism), negatives, off is off ({time.perf_counter() - t0:.0f} s)")
 

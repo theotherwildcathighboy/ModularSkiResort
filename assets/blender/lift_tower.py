@@ -1713,7 +1713,21 @@ def density_table(spec):
     # gantry girders' bolts fell under the 2-texel floor (1.98, DT-C8); the girders take 1.6 there (SKINNED only)
     if SKINNED and spec.family == "GD" and spec.sheaves >= 10:
         t["gantry_girder_"] = 1.6
+        if spec.top >= 16.0:
+            t.update(SKIN_GD_TALL_DENSITY)
     return t
+
+
+# family round (2026-11-03): the skinned GD16 / GD20 at 10 a side pack a 1024 atlas the GD12 table does not fit: GD20 lost
+# 219 of 239 edge rounds, every mast weld band and boltring (DT-C8; the clevis tongue at 1.69 texels, the yokes 1.85,
+# everything else 1.98-2.0) and both plates fell to 272 / 297 px/m (DT-C7: glyph 38 / 42 < 44). Measured fix (probe, atlas
+# cost = area x w^2): the plain long parts give texels (ladder 0.75 -> 0.5, deck rails / posts 1.0 -> 0.75, the buried pier
+# 0.25 -> 0.15, conduit 0.75 -> 0.5), the train hardware, the mast bands and the deck grates take them (yoke 1.75, hanger /
+# tongue 1.8, main rockers 1.65, girders 1.75, mast 1.08, grates 1.35, plates 11.2): GD20 / GD16 draw every relief feature,
+# plates 325 / 337 px/m (glyph 46 / 47). GD12 (imported, Q) keeps its table.
+SKIN_GD_TALL_DENSITY = {"ladder_": 0.5, "rail_": 0.75, "post_": 0.75, "pier": 0.15, "conduit_": 0.5, "yoke_": 1.75,
+                        "hanger_": 1.8, "rocker_main_": 1.65, "gantry_girder_": 1.75, "plate_": 11.2, "mast": 1.08,
+                        "grate_": 1.35}
 
 
 FG_LOD1 = ("bolt_", "ladder_rung_", "ladder_standoff_", "pivot_", "insulator_", "insulcap_",
@@ -2895,7 +2909,11 @@ def skin_views(spec):
                             dist=(spec.top / 2.0 + 1.0) * 35.0 / 12.0),
                        side("level"), joint("level")]),
         (f"slope{slope:g}", {"TrainFront": slope, "TrainBack": slope}, [side(f"slope{slope:g}"), q34(f"slope{slope:g}")]),
-        ("crest30", {"TrainFront": 15.0, "TrainBack": -15.0}, [side("crest30"), q34("crest30"), joint("crest30")]),
+        # family round: the whole head on the crest, both lanes' halves seated (the owner's crest shot)
+        ("crest30", {"TrainFront": 15.0, "TrainBack": -15.0},
+         [side("crest30"), q34("crest30"), joint("crest30"),
+          dict(name="skin_head_34_crest30", dir=(1.0, -1.1, 0.35), target=hd, lens=50.0,
+               dist=max(head_w, train + 0.5) * k * 1.1)]),
         ("limit40", {"TrainFront": 20.0, "TrainBack": -20.0}, [side("limit40"), joint("limit40")]),
         ("steep", {"TrainFront": tmax, "TrainBack": round(tmax - 40.0, 3)}, [side("steep", 1.1)]),
         ("dip30", {"TrainFront": -15.0, "TrainBack": 15.0}, [side("dip30"), q34("dip30")]),
