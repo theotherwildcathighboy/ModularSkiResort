@@ -405,8 +405,11 @@ SKIN_TRAM = dict(
     # axis (the carriage band starts at dz -0.05), legs 0.12 wide from x +-0.06 in the block to +-0.50 on a bearer
     rock_top_dz=-0.15, rock_block_h=0.21, rock_block_hw=0.13, rock_leg_w=0.12, rock_leg_top_x=0.06,
     rock_leg_foot_x=0.50, rock_base_h=0.12, rock_base_hw=0.62, rock_pin_r=0.06, rock_pin_out=0.035, rock_leg_inset=0.005,
-    arm_y0=3.50, arm_dz0=-2.45, arm_y1=5.85, arm_dz1=-2.95, arm_w=0.30,  # central arm: head bottom chord -> under the
-                               # cheek, below the halves' 2.62 m swept radius where it crosses the saddle / haul slabs
+    # central arm = the crossbeam under the saddle (round 4; rounds 2-3 ran it from the head's BOTTOM chord to dz -2.95
+    # under the halves' whole 2.62 m swept radius: 2.4 m rocker legs): from the head's top chord (y 3.40, dz -1.35) to
+    # 5 mm inside the rocker frame's outboard face, dz -1.55 there; at |x| <= 0.15 it crosses the saddle / haul slabs
+    # right under the pivots, below every half's sweep (G6), and the rocker legs shorten to ~1.1 m
+    arm_y0=3.50, arm_dz0=-1.35, arm_y1=5.785, arm_dz1=-1.55, arm_w=0.30,
     outer_arm_y=4.40,          # the outer arms (x +-1.5) end inboard of the cabin's inner upright band (lane - 1.08)
     knee_y=4.25,               # the knee braces end under the arm at the hanger posts
     bar_gap=0.11,              # haul bar halves start this far off x 0 (the bottom corners clear the 20 deg break)
@@ -2147,7 +2150,7 @@ def build_skin_saddle(P, spec, s, tag):
                  end_planes=(None, ZV))
     a0 = Vector((0.0, s * K["arm_y0"], z0 + K["arm_dz0"]))
     a1 = Vector((0.0, s * K["arm_y1"], z0 + K["arm_dz1"]))
-    P.member(f"sbrk_{tag}_c", [a0, a1], K["arm_w"], hint=ZV, caps="end")
+    P.member(f"sbrk_{tag}_c", [a0, a1], K["arm_w"], hint=ZV, caps="both")    # 0.30 on the 0.20 chord: closed
     tdir = (a1 - a0).normalized()
     up = (ZV - tdir * ZV.dot(tdir)).normalized()
 
@@ -2449,7 +2452,8 @@ def skin_views(spec):
 
 def render_skin_views(t, arm, spec, asset_dir, name, out_dir, views=None):
     """skin_views through lift_tower.render_tower_views (the baked maps, its round 2 light SKIN_LIGHT): per pose one
-    posed copy (cs2_skin.posed_copy, held to the sweep's pose) with each half's ropes (dark steel) as extras."""
+    posed copy (cs2_skin.posed_copy, held to the sweep's pose) with each half's ropes as the game draws them
+    (skin_rope_runs: HV track, LV haul on their anchors; round 4 drops the thin stand-ins; dark steel) as extras."""
     import lift_tower
     mat = bpy.data.materials.new(name + "_PreviewRope")
     mat.use_nodes = True
@@ -2464,7 +2468,7 @@ def render_skin_views(t, arm, spec, asset_dir, name, out_dir, views=None):
             objs = [cs2_skin.posed_copy(t, arm, pose, piv, f"{name}Pose")]
         except cs2_skin.SkinError as e:
             raise ContractError(f"skin: {e}")
-        for v, f in skin_rope_runs(spec, pose, run=2.5, preview=True):
+        for v, f in skin_rope_runs(spec, pose, run=2.5):
             me = bpy.data.meshes.new(f"{name}Rope")
             me.from_pydata(v, [], f)
             me.materials.append(mat)

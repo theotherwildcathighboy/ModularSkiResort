@@ -1709,6 +1709,10 @@ def density_table(spec):
     # T62 round 3: the seen hub bosses (cs2_sheaves.hub_name parts, 0.1 r tall) at the base weight, not the rims' 1.5:
     # their developed islands (true area, round 3) otherwise took atlas from the galv hardware (FG8 DT-C9 0.0275 < 0.0276)
     t["sheave_hub"] = 1.0
+    # lift alignment round 4: a skinned GD at 10 a side (--gd-sheaves 10, 213 parts) packs the atlas tighter and the
+    # gantry girders' bolts fell under the 2-texel floor (1.98, DT-C8); the girders take 1.6 there (SKINNED only)
+    if SKINNED and spec.family == "GD" and spec.sheaves >= 10:
+        t["gantry_girder_"] = 1.6
     return t
 
 
@@ -1723,7 +1727,8 @@ FG_LOD1 = ("bolt_", "ladder_rung_", "ladder_standoff_", "pivot_", "insulator_", 
 # MUST-CHANGE, so the rims are deleted (drift 0). DQ deletes them too (M9 MUST; measured
 # neutral there: 10.9 / 10.5 % deleted vs 10.8 / 11.3 % kept).
 FG_LOD2 = FG_LOD1 + ("sheave_", "rocker_sub_", "liftpost_", "liftbar", "grate_",
-                     "tipdeflector", "ladder_rail_", "flange_", "hanger_", "liner_")
+                     "tipdeflector", "ladder_rail_", "flange_", "hanger_", "liner_",
+                     "yoke_")       # skinned FG only (round 4 yoke straps): they leave with the hanger
 FG_KEEP = ("pad", "pier", "mast", "crossarm", "rocker_main_", "rail_catwalk_top", "crashpad")
 DQ_RAIL_RUNS = ("deckn0", "deckn1", "deckp0", "deckp1")
 DQ_LOD1 = (("bolt_", "ladder_rung_", "ladder_standoff_", "pivot_", "post_", "kick_", "stiff_",
@@ -2494,13 +2499,18 @@ def sheave_ngon(spec):
 # Playtest items 25 / 27: "the cable passes straight through pulleys/rollers". The shipped contract (D6) puts
 # the LANE on the sheave AXLE, so the vanilla rope drawn on the lane runs through the wheel centers. ROPE_ON_CROWN True =
 # the lane rides the train: a SUPPORT head (rope above the sheaves: every line tower, ET62 / ET68) lane = axle + seat, a
-# COMPRESSION head (ETDQ / ETGD, rope under) lane = axle - seat, seat = rope_seat() (the vanilla HV cable hexagon resting
-# in the groove). The tower MESH does not change with the flag: only the lane numbers the manifest hands to the surgery
-# (piece m_Lanes y, station HV sub-lane anchors, chair / cabin NetSubObjects y) and the rope height the carrier contracts
-# (C18 hanger column, C20 gondola carrier) sweep at. False (default) = every shipped tower build, byte for byte.
+# COMPRESSION head (ETDQ / ETGD, rope under) lane = axle - seat, seat = rope_seat() (the lane's vanilla cable hexagon
+# resting in the groove: LANE_ROPE). The tower MESH does not change with the flag: only the lane numbers the manifest
+# hands to the surgery (piece m_Lanes y, station HV sub-lane anchors, chair / cabin NetSubObjects y) and the rope
+# height the carrier contracts (C18 hanger column, C20 gondola carrier) sweep at. False (default) = every shipped
+# tower build, byte for byte.
 ROPE_ON_CROWN = False
 VANILLA_HV_ROPE = dict(r=0.100, h=0.0866)   # High-voltage Cable Lane Mesh m_Bounds x +-0.100, y +-0.0866 (hexagon, flats
 VANILLA_LV_ROPE = dict(r=0.060, h=0.0520)
+# the cable the FG / DQ / GD rope lanes draw (lift alignment round 4, decision 2026-11-02: the vanilla LOW-voltage
+# cable mesh bbb9724d instead of the HV one; no new rope mesh): crown_seat seats it, G6 sweeps and seats it, the
+# game-rope previews draw it (rounds 1-3 and T27 seated the HV hexagon: FG 0.2833 / DQ 0.3096 / GD 0.3366)
+LANE_ROPE = VANILLA_LV_ROPE
 # the FG / ET (Yan) carrier tree hangs IN the lane plane (cs2_sheaves.fg_train_side): sub rocker axle + 0.20..0.32,
 # sheave arms from the axle up to it, so a rope on the crown (axle + 0.19..0.37) would run through them; under T27 the
 # tree moves inboard by the rope half-width 0.10 + the main rocker half-width 0.077 + 0.023 clear = 0.20 and each sheave
@@ -2537,10 +2547,10 @@ def wheel_chamfer(r, w):
     return S.wheel_profile(r, w)["c"] if S.wheels_v2() else 0.0
 
 
-def crown_seat(spec):
-    """rope_seat for this tower's head, mm-rounded (v1: FG 0.278, DQ 0.310, GD 0.337; T62 v2 chamfered crests: FG 0.2833,
-    DQ / GD unchanged - their crests stay outside the rope's 0.05 bottom half-flat)."""
-    return round(rope_seat(spec.sheave_r, spec.sheave_w, spec_groove(spec),
+def crown_seat(spec, rope=None):
+    """rope_seat of `rope` (default LANE_ROPE, the LV cable) for this tower's head, 0.1 mm-rounded. The HV hexagon
+    (rounds 1-3, T27): v1 FG 0.278, DQ 0.310, GD 0.337; T62 v2 chamfered crests FG 0.2833, DQ / GD unchanged."""
+    return round(rope_seat(spec.sheave_r, spec.sheave_w, spec_groove(spec), rope=LANE_ROPE if rope is None else rope,
                            chamfer=wheel_chamfer(spec.sheave_r, spec.sheave_w)), 4)
 
 
@@ -2582,7 +2592,8 @@ def rope_on_crown_block(spec):
             "kind": spec.kind, "axle": spec.axle, "sheave_r": spec.sheave_r, "sheave_w": spec.sheave_w,
             "groove": round(spec_groove(spec), 4), "seat": crown_seat(spec), "lane_y_old": spec.axle,
             "lane_y_new": lane_y(spec, True), "delta": round(lane_y(spec, True) - spec.axle, 4),
-            "rope": "vanilla HV cable mesh hexagon r 0.100 / h 0.0866",
+            "rope": f"vanilla LV cable mesh hexagon r {LANE_ROPE['r']} / h {LANE_ROPE['h']} (round 4; was HV r 0.100 / "
+                    "h 0.0866)",
             "mesh_changes": False}
 
 
@@ -2599,21 +2610,28 @@ def rope_on_crown_block(spec):
 # :2196-2218). SKINNED implies the rope on the crowns (T27, set_rope_on_crown): the pivot line is lane_y(spec, True).
 # Head recipes (SKIN_HEADS):
 #   FG Yan     cs2_sheaves.fg_train_side_halves: a half = one 2-wheel bogie on its main-rocker half; the two halves
-#              lap on the main pin `pivot_main_<side>`, held by the hanger one lateral slab inboard. SKIN_FG
+#              lap on the main pin `pivot_main_<side>`, held by the hanger one lateral slab inboard. SKIN_FG beam
+#              (round 4, the default): the shipped three tiers - a half main beam at the shipped height (mast - 0.40,
+#              0.28 over the pin) on a yoke strap `yoke_<side>_f|b` rising from the main pin, the bogie pivots floating
+#              between beam and bar as shipped, the bars at rope height on sheave arms, all inboard of the wheels.
 #              bogie_low (round 3): the bogie bar sits at AXLE height between its wheel pair (wheels on axle stubs from
 #              the bar, no sheave arms) and the main-rocker half is a drop_plate from its lug on the main pin down to
-#              the bogie pivot; off = round 2 (lug_plate at the pin, bars at rope height on sheave arms).
+#              the bogie pivot; both off = round 2 (lug_plate at the pin, bars at rope height on sheave arms).
 #   DQ ingest  cs2_sheaves.dq_train_halves: a half = one 4-wheel bogie (two 2-wheel bogies on a main rocker) on its
 #              yoke half `yoke_<side>_f|b`; the Kagelok girder end and the hanger cut SKIN_DQ["gap"] short of the
-#              yoke, a main pin through all three, the yoke's top at pin + SKIN_DQ["yoke_above_pin"] (under the
+#              yoke, a main pin through all three, the yoke's band SKIN_YOKE (its top under the
 #              gantry's slanted posts).
-#   GD rebuild dq_train_halves at SKIN_GD["sheaves"] a side (skin_spec: a half takes whole bogies, and GD12's 10 a side
-#              put a bogie on the pin); the gantry posts land on the girder ends (they came down onto the yoke, and with
-#              the rope on the crowns through the rope: the T27 C20 head-rule item), the hanger cut short of the yoke,
+#   GD rebuild dq_train_halves at SKIN_GD["sheaves"] a side (skin_spec; the shipped 10 a side has a 2-wheel bogie on
+#              the pin: with --gd-sheaves 10 each half pairs its 5 wheels from the outer end, a 4-wheel bogie + the
+#              inner wheel on a 1-wheel sub hung on a link); the gantry posts land on the girder ends (they came
+#              down onto the yoke, and with the rope on the crowns through the rope: the T27 C20 head-rule item), the
+#              hanger cut short of the yoke,
 #              the main pin from inside the girder end (SKIN_GD["pin_in"]).
 #   DQ / GD clevis (round 3, SKIN_CLEVIS via skin_clevis): the yoke halves thin to plate_t at the yoke slab's outer
 #              faces and a static tongue `hanger_<side>_t` (Root) fills the middle from the head down to a round lug
 #              on the main pin between the inner wheels: both halves' plates straddle it (a clevis on the pin).
+#              Round 4: the plates are only the cheeks on the pin; from beam_x out each half is the shipped full yoke
+#              section (0.072 thick), a second shell of the yoke part.
 # Each half's bogies move SKIN_HALF_SHIFT out along the train, so the two inner wheels clear at a 20 deg half-break
 # phi: 2 (x cos phi - d sin phi) - 2 r >= SKIN_CLEAR_MIN (x the inner wheel center, d the crown seat, r the wheel).
 # G6 (skin_sweep -> cs2_skin.sweep): the joint grid cs2_skin.joint_grid(theta_max); per pose no BVH overlap half vs
@@ -2626,10 +2644,11 @@ SKIN_TYPE_MAX_SLOPE = {"FG": 38.7, "DQ": 42.0, "GD": 50.2}     # deg, research G
 # deg, each half's clamp: min(type max slope, cs2_skin.TILT_CAP 30) = 30 for every family
 SKIN_THETA_MAX = {f: cs2_skin.theta_max(a) for f, a in SKIN_TYPE_MAX_SLOPE.items()}
 _SKIN_GANTRY = ("rocker_", "pivot_", "yoke_", "sheave_", "liner_")
-SKIN_TRAIN = {"FG": ("rocker_main_", "rocker_sub_", "pivot_", "sheave_", "liner_", "axlecap_"),
+SKIN_TRAIN = {"FG": ("rocker_main_", "rocker_sub_", "pivot_", "sheave_", "liner_", "axlecap_", "yoke_"),
               "DQ": _SKIN_GANTRY, "GD": _SKIN_GANTRY}
 SKIN_ROOT_FIRST = ("pivot_main_",)      # the main pin belongs to its hanger: both halves turn on it
-SKIN_LUG = {"FG": "rocker_main_", "DQ": "yoke_", "GD": "yoke_"}     # the train parts the main pin runs through
+# the train parts the main pin runs through (FG: the round 2 / 3 lap plates, the round 4 yoke straps)
+SKIN_LUG = {"FG": ("rocker_main_", "yoke_"), "DQ": "yoke_", "GD": "yoke_"}
 SKIN_HEADS = {"FG": ("yan",), "DQ": ("ingest",), "GD": ("rebuild",)}
 # m each half's bogies move out along the train: the inner-wheel clearance above at phi 20 deg is FG 11 mm (the design
 # note's 0.06 leaves FG 8 mm inside), DQ 9 mm, GD 21 mm (GD 0.07 would leave 2 mm: under SKIN_CLEAR_MIN)
@@ -2639,12 +2658,17 @@ SKIN_LAP_GAP = 0.010                    # m between the two halves' lap plates o
 # +280 on the cap-tight FG; 1 segment = 70 a plate)
 SKIN_PLATE_BEVEL = {"FG": 1}
 SKIN_FG = dict(gap=0.015, poke=0.006, pin_r=0.05,           # cs2_sheaves.fg_train_side_halves
-               bogie_low=True)      # round 3: the bogie bars at axle height between their wheels (no sheave arms)
-# DQ: pin from inside the girder end (|y| 2.30); the yoke's top 0.05 over the pin (was 0.11): the Kagelok gantry's
-# slanted posts rise from the girder end top (A + 0.43) outboard through the yoke's slab (|y| 2.404..2.476 at
-# A + 0.47..1.42), and at 42 deg the yoke's swept top over the posts' +-0.09 travel band reaches pin + (top + 0.09
-# sin 42) / cos 42 = A + 0.53 with the 0.11 top (measured: 8 face overlaps), A + 0.458 with 0.05
-SKIN_DQ = dict(gap=0.010, poke=0.006, pin_r=0.04, pin_in=2.30, yoke_above_pin=0.05)
+               bogie_low=False,     # round 3: the bogie bars at axle height between their wheels (no sheave arms)
+               beam=True)           # round 4: the shipped three tiers (half beams on yoke straps, stubs, bars)
+# DQ: pin from inside the girder end (|y| 2.30)
+SKIN_DQ = dict(gap=0.010, poke=0.006, pin_r=0.04, pin_in=2.30)
+# the yoke halves' band (bottom, top), axle-relative (cs2_sheaves.dq_train_halves yoke_bot / yoke_top). Shipped
+# dq_train: 0.25..0.42 (0.17 deep). Rounds 2-3 had the top at pin + 0.05 (DQ A + 0.36) for the 42 deg tilt: the
+# Kagelok gantry's slanted posts cross the yoke's slab (|y| 2.404..2.476) from A + 0.47 up. Round 4, at the 30 deg cap:
+# GD keeps the shipped band; DQ keeps the shipped 0.17 depth 0.01 lower (G6 measured with the LV lane rope, pin at
+# A + 0.2589, and the full-section yoke, SKIN_CLEVIS beam_x: a top of 0.42 meets the gantry_00 posts at a -30 pitch,
+# 3.5 mm, 0.41 clears; the mains' pins, axle + 0.195..0.255, bridge 15 mm into the yoke, C21)
+SKIN_YOKE = {"DQ": (0.24, 0.41), "GD": (0.25, 0.42)}
 # GD: sheaves a side (owner decision; built: 8 = the DQ and photo train length, two 4-wheel bogies; 12 = 4,958 tris on
 # GD12, over the 4,800 cap); the main pin
 # from 0.09 inside the girder end (2.69); the posts 5 mm in from the girder end, buried 5 mm in its top
@@ -2653,7 +2677,11 @@ SKIN_GD = dict(sheaves=8, pin_in=2.60, post_bury=0.005, post_inset=0.005)
 # tongue 6 mm off each (G6 >= 5 mm) from the head down to a r 0.075 lug on the main pin (pin r 0.04) over the train
 # center. Top: DQ ingest in the Kagelok gantry_00 slanted post (its underside A + 0.56..0.65 across the tongue slab,
 # A + 1.15 its top side: probed), GD 0.03 into the gantry beam (bottom A + 1.692 + rise)
-SKIN_CLEVIS = dict(plate_t=0.020, gap=0.006, r=0.075, dq_top=0.70, dq_top_hw=0.075, gd_bury=0.03, gd_top_hw=0.12)
+SKIN_CLEVIS = dict(plate_t=0.020, gap=0.006, r=0.075, dq_top=0.70, dq_top_hw=0.075, gd_bury=0.03, gd_top_hw=0.12,
+                   # round 4: each half the shipped full yoke section (0.072) from beam_x out, a cheek on the pin
+                   # inside it. The beam's inner top corner at a 30 deg pitch: 0.866 x - 0.5 (top - pin) >= the
+                   # tongue's half width + 5 mm: DQ >= 0.168, GD >= 0.223 (the tongue's top half width)
+                   dq_beam_x=0.20, gd_beam_x=0.25)
 SKIN_CLEAR_MIN = 0.005                  # m, half vs head and half vs half at every pose
 SKIN_PIN_GAP_MAX = 0.005                # m, main-pin joint opening over the sweep (G6)
 SKIN_ROPE_RUN = 1.0                     # m of rope past a half's outer wheel in the rope check
@@ -2673,7 +2701,7 @@ def set_skinned(on):
 
 
 def skin_spec(spec):
-    """The spec a skinned build uses: GD at SKIN_GD["sheaves"] a side (each half whole bogies); else `spec`."""
+    """The spec a skinned build uses: GD at SKIN_GD["sheaves"] a side (8 default, --gd-sheaves); else `spec`."""
     if SKINNED and spec.family == "GD" and spec.sheaves != SKIN_GD["sheaves"]:
         return _dataclasses.replace(spec, sheaves=SKIN_GD["sheaves"])
     return spec
@@ -2712,7 +2740,8 @@ def skin_part_bones(obj, table, spec):
              if re.match(r"^(rocker_main|yoke)_[np]_[fb]$", n)}
     bad = {n: (pb[n], w) for n, w in named.items() if pb[n] != w}
     cnt = {b: sum(1 for v in pb.values() if v == b) for b in SKIN_BONES[1:]}
-    _check(not bad and len(named) == 4 and cnt["TrainFront"] == cnt["TrainBack"] > 0,
+    want = 8 if fam == "FG" and SKIN_FG.get("beam") else 4      # FG round 4: the half beams + their yoke straps
+    _check(not bad and len(named) == want and cnt["TrainFront"] == cnt["TrainBack"] > 0,
            f"[{spec.key}] skin: the halves by travel side (the _f lap plates on TrainFront = game +z, the _b on "
            f"TrainBack), equal part counts", f"({len(named)} plates, mismatched {bad}, parts {cnt})")
     return pb
@@ -2737,20 +2766,20 @@ def build_skin_armature(spec, name):
 
 def preview_rope(spec):
     """(radius, drop below the pivot line) of the PREVIEW rope stand-in: a real rope (diameter SKIN_PREVIEW_ROPE x the
-    sheave's) with its axis at the groove bottom + its radius. Previews only: the game draws the lane's vanilla HV
-    cable mesh (VANILLA_HV_ROPE, r 0.100 = 0.20 m across) on the lane, and G6 checks that one."""
+    sheave's) with its axis at the groove bottom + its radius. Previews only (round 3; round 4 renders the game rope):
+    the game draws the lane's vanilla cable mesh (LANE_ROPE: LV, r 0.060) on the lane, and G6 checks that one."""
     rt = SKIN_PREVIEW_ROPE * spec.sheave_r
-    d = crown_seat(spec) - (spec.sheave_r - spec_groove(spec) + rt)      # the HV seat minus the real rope's axis height
+    d = crown_seat(spec) - (spec.sheave_r - spec_groove(spec) + rt)      # the lane seat minus the real rope's axis
     return rt, round(-d if spec.kind == "compression" else d, 6)
 
 
 def skin_rope_runs(spec, pose, run=None, start=0.0, preview=False):
-    """[(verts, faces)]: the vanilla HV rope (hexagon r 0.100) as the game draws it at a tower: per lane one straight
-    run per half from the pivot outward, at that half's pitch (cs2_skin.rope_run). Net frame. preview=True: the
-    real-diameter stand-in seated in the groove (preview_rope) instead, for the renders."""
+    """[(verts, faces)]: the lane's vanilla cable (LANE_ROPE, the LV hexagon r 0.060) as the game draws it at a tower:
+    per lane one straight run per half from the pivot outward, at that half's pitch (cs2_skin.rope_run). Net frame.
+    preview=True: the round 3 real-diameter stand-in seated in the groove (preview_rope) instead."""
     zp = lane_y(spec, True)
     ext = skin_half_extent(spec) + (SKIN_ROPE_RUN if run is None else run)
-    r, drop = preview_rope(spec) if preview else (VANILLA_HV_ROPE["r"], 0.0)
+    r, drop = preview_rope(spec) if preview else (LANE_ROPE["r"], 0.0)
     out = []
     for side in (-1.0, 1.0):
         for b, sign in (("TrainFront", cs2_skin.FRONT_SIGN_NET), ("TrainBack", -cs2_skin.FRONT_SIGN_NET)):
@@ -2783,7 +2812,7 @@ def skin_sweep(obj, table, spec, part_bone):
             wf[(b, side)] = [i for i, n in enumerate(names) if is_wheel(n) and bones[fb[i]] == b
                              and np.sign(fx[i]) == side]
     ext = skin_half_extent(spec) + 0.30
-    R, h = VANILLA_HV_ROPE["r"], VANILLA_HV_ROPE["h"]
+    R, h = LANE_ROPE["r"], LANE_ROPE["h"]
 
     def seats(pc, ang):
         out = {}
@@ -2880,8 +2909,9 @@ SKIN_LIGHT = dict(elevation_deg=32.0, sun_energy=4.5, azimuth_deg=-40.0, ground_
 
 def render_skin_views(t, arm, spec, asset_dir, name, out_dir, views=None):
     """skin_views through render_tower_views (the baked maps) in SKIN_LIGHT: per pose one posed copy (cs2_skin.posed_copy:
-    the armature's result, held to the sweep's pose) with each half's rope as the game draws it (skin_rope_runs, dark
-    steel) as extras. Returns the PNG paths."""
+    the armature's result, held to the sweep's pose) with each half's rope as the game draws it (skin_rope_runs: the
+    lane's LV cable on the crowns, dark steel; round 4 drops the round 3 thin stand-in) and the LV comm wire on its
+    anchor (0, comm_y), each half's run at that half's pitch, as extras. Returns the PNG paths."""
     mat = bpy.data.materials.new(name + "_PreviewRope")
     mat.use_nodes = True
     bsdf = next(n for n in mat.node_tree.nodes if n.type == "BSDF_PRINCIPLED")
@@ -2895,7 +2925,12 @@ def render_skin_views(t, arm, spec, asset_dir, name, out_dir, views=None):
             objs = [cs2_skin.posed_copy(t, arm, pose, {b: piv for b in SKIN_BONES[1:]}, f"{name}Pose")]
         except cs2_skin.SkinError as e:
             raise TowerContractError(str(e))
-        for v, f in skin_rope_runs(spec, pose, run=2.0, preview=True):
+        runs = skin_rope_runs(spec, pose, run=2.0)
+        if spec.comm_y is not None:
+            ext = skin_half_extent(spec) + 2.0
+            runs += [cs2_skin.rope_run(0.0, (0.0, spec.comm_y), pose.get(b, 0.0), sign, ext, r=VANILLA_LV_ROPE["r"])
+                     for b, sign in (("TrainFront", cs2_skin.FRONT_SIGN_NET), ("TrainBack", -cs2_skin.FRONT_SIGN_NET))]
+        for v, f in runs:
             me = bpy.data.meshes.new(f"{name}Rope")
             me.from_pydata(v, [], f)
             me.materials.append(mat)
@@ -2953,14 +2988,21 @@ def skin_manifest_block(spec, skin):
             "train_parts": skin["train_parts"], "weights": skin.get("weights"), "roundtrip": skin.get("roundtrip"),
             "mesh_changes": {
                 "FG": "cs2_sheaves.fg_train_side_halves: per lane two 2-wheel bogies, each on its main-rocker half "
-                      "(lug plates lapping on the main pin, the front plate outboard), the bogies "
-                      f"{SKIN_HALF_SHIFT['FG']} m further out; the hanger one slab inboard holds the main pin",
+                      + ("(a half beam at the shipped height on a yoke strap rising from the main pin, the two halves "
+                         "lapping, the front outboard; the bogie pivots between beam and bar as shipped)"
+                         if SKIN_FG.get("beam") else
+                         "(lug plates lapping on the main pin, the front plate outboard)")
+                      + f", the bogies {SKIN_HALF_SHIFT['FG']} m further out; the hanger one slab inboard holds the "
+                      "main pin",
                 "DQ": "cs2_sheaves.dq_train_halves: per lane two 4-wheel bogies on the yoke halves (lug plates lapping on "
                       f"the main pin), every sheave {SKIN_HALF_SHIFT['DQ']} m further out; the hanger and the Kagelok "
                       "girder end cut back to |y| 2.394 (SKIN_DQ gap short of the yoke); a main pin from |y| 2.30 "
-                      "through hanger, girder end and yoke; the yoke top at pin + 0.05 under the gantry's slanted posts",
+                      "through hanger, girder end and yoke; the yoke halves at axle + "
+                      f"{SKIN_YOKE['DQ'][0]}..{SKIN_YOKE['DQ'][1]} (the shipped 0.17 depth and 0.072 section from "
+                      f"{SKIN_CLEVIS['dq_beam_x']} m out, cheeks on the pin) under the gantry's slanted posts",
                 "GD": f"cs2_sheaves.dq_train_halves at {SKIN_GD['sheaves']} sheaves a side: per lane two halves (a "
-                      "4-wheel bogie on a main rocker + a 2-wheel bogie on a link at 12; one 4-wheel bogie at 8) on the "
+                      "4-wheel bogie on a main rocker + a 2-wheel bogie on a link at 12, + a 1-wheel sub on a link at "
+                      "10; one 4-wheel bogie at 8) on the "
                       f"yoke halves, every sheave {SKIN_HALF_SHIFT['GD']} m further out; the gantry posts land on the "
                       "girder ends (inboard of the yoke and the rope); the hanger cut short of the yoke; a main pin from "
                       "inside the girder end through hanger and yoke"}[spec.family],
@@ -3348,10 +3390,10 @@ def skin_clevis(spec):
     """The clevis dict for cs2_sheaves.dq_train_halves (SKIN_CLEVIS): the tongue's top in the head by family."""
     C = SKIN_CLEVIS
     if spec.family == "GD":
-        top, hw = spec.axle + 1.692 + head_kit(spec)["rise"] + C["gd_bury"], C["gd_top_hw"]
+        top, hw, bx = spec.axle + 1.692 + head_kit(spec)["rise"] + C["gd_bury"], C["gd_top_hw"], C["gd_beam_x"]
     else:
-        top, hw = spec.axle + C["dq_top"], C["dq_top_hw"]
-    return dict(plate_t=C["plate_t"], gap=C["gap"], r=C["r"], top_z=round(top, 6), top_hw=hw)
+        top, hw, bx = spec.axle + C["dq_top"], C["dq_top_hw"], C["dq_beam_x"]
+    return dict(plate_t=C["plate_t"], gap=C["gap"], r=C["r"], top_z=round(top, 6), top_hw=hw, beam_x=bx)
 
 
 def _dq_train(spec):
@@ -3376,7 +3418,7 @@ def _dq_train(spec):
     P = S.dq_train_halves(lambda s: dq_sheave_centres(spec, s), n, spec.axle, spec.sheave_r, spec.sheave_w,
                           sheave_segs(spec), sheave_groove(spec), sub_y, main_y, kit["pin_s"], hanger_box(spec),
                           DP1_INSET["dq_hanger_z"], pin_z=lane_y(spec, True),
-                          yoke_top=round(lane_y(spec, True) - spec.axle + SKIN_DQ["yoke_above_pin"], 6),
+                          yoke_top=SKIN_YOKE[spec.family][1], yoke_bot=SKIN_YOKE[spec.family][0],
                           shift=SKIN_HALF_SHIFT[spec.family], link=DQ_LINK, ngon=sheave_ngon(spec),
                           lap_gap=SKIN_LAP_GAP, clevis=skin_clevis(spec))
     # the main pin on the rope line (travel 0, crown lane y), from inside the girder end (SKIN_DQ / SKIN_GD pin_in)
@@ -4099,12 +4141,14 @@ def check_sub_hangers(pv, spec, frame="authoring"):
         return dict(mine, g=(min(p["g"][0] for p in plates), max(p["g"][1] for p in plates)))
 
     out = {"pins": 0, "main": 0, "link": 0, "bury": [], "poke": []}
+    # the skinned half trains pair each half's wheels on its own: an odd count a half adds a 1-wheel sub (GD 10 a side)
+    want = 2 * math.ceil(spec.sheaves / 4) if SKINNED else spec.sheaves // 2
     for tag in ("n", "p"):
         pins = sorted(n for n in pv if n.startswith(f"pivot_{tag}_s"))
         subs = sorted(n for n in pv if n.startswith(f"rocker_sub_{tag}_"))
-        if len(pins) != len(subs) or len(subs) != spec.sheaves // 2:
+        if len(pins) != len(subs) or len(subs) != want:
             fail(f"one pivot pin per sub-rocker ({tag})",
-                 f"({len(pins)} pins, {len(subs)} subs, want {spec.sheaves // 2})")
+                 f"({len(pins)} pins, {len(subs)} subs, want {want})")
         lugs = sorted(n for n in pv if n.startswith((f"rocker_main_{tag}_", f"rocker_link_{tag}_")))
         for pn in pins:
             j = pn[len(f"pivot_{tag}_s"):]
@@ -5525,6 +5569,9 @@ def parse_args_v2(argv):
     ap.add_argument("--skin-views", default=None,
                     help="with --skinned: folder for the round 2 views (skin_views: level, slope, crest, the 20 deg "
                          "limit, steep, dip), each half's rope drawn (needs the finish)")
+    ap.add_argument("--gd-sheaves", dest="gd_sheaves", type=int, choices=(8, 10, 12), default=None,
+                    help="with --skinned: GD sheaves a side (SKIN_GD sheaves, default 8); 10 = the shipped count, each "
+                         "half a 4-wheel bogie + its inner wheel on a 1-wheel rocker hung on a link")
     return ap.parse_args(argv)
 
 
@@ -5539,8 +5586,10 @@ def main_v2(argv):
         set_rope_on_crown(True)        # T27: lanes on the crowns; the compression terminal heads (ETDQ / ETGD) rise
     if args.skinned:
         set_skinned(True)              # phase 2: the pinned trains, the rope on the crowns (the Train pivot line)
-    elif args.skin_views:
-        raise SystemExit("--skin-views needs --skinned")
+    elif args.skin_views or args.gd_sheaves:
+        raise SystemExit("--skin-views / --gd-sheaves need --skinned")
+    if args.gd_sheaves:
+        SKIN_GD["sheaves"] = args.gd_sheaves      # round 4: the GD 10-a-side option (the default stays 8)
     spec = skin_spec(VARIANTS[args.variant])      # SKINNED GD: SKIN_GD sheaves a side
     if args.head is not None and spec.family == "FG":
         raise SystemExit(f"--head applies to DQ variants only ({spec.key} is FG)")

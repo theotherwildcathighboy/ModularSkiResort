@@ -50,11 +50,21 @@ FG_HANGER, FG_MAIN_TO_SUB, FG_SUB_TO_AXLE = 0.40, 0.30, 0.26     # axle = mast -
 FG_HANGER_INSET = 0.005                # M4: hanger top 5 mm inside the crossarm (DP1_INSET fg_hanger_top)
 FG_BOGIE_LOW_BELOW = 0.07              # fg_train_side_halves bogie_low: main plates' bottom under the axle (pin r 0.045)
 FG_BOGIE_LOW_INNER = 0.12              # ... and their bottom edge from this far inboard of the bogie pivot (drop_plate x1)
+# fg_train_side_halves beam (round 4, the shipped three tiers): each half main beam's inner end this far past the main
+# pin (under cs2_skin.bones_by_travel's 0.15 lug margin: the two half beams overlap over the pin, one lap slab each),
+# and its yoke strap: a lug plate of radius r on the main pin, rising at `ang` deg to its far end centered on the beam's
+# center line, inset 5 mm a side in its beam's lap slab (DT-C3: no coplanar faces with the beam it is buried in)
+FG_BEAM_LAP = 0.10
+FG_YOKE = dict(r=0.075, ang=60.0, inset=0.005, segs=5)
 FG_SHEAVE = dict(r=0.20, w=0.13, pitch=0.52)                     # lift_tower._fg_spec
 # DQ gantry train (towers-v2 section 4.2, F9, Revision 1c)
 DQ_SUB_Y = 2.512                       # F9: 2.517 moved 5 mm inboard (outer face 2.545)
 DQ_MAIN_Y = 2.44
 DQ_LINK = dict(w=0.15, t=0.072, below=0.10, bury=0.02)   # None = the pre-Revision-1c build (test)
+DQ_LINK_INSET = 0.005                  # dq_train_halves with the clevis: the link 5 mm in from the yoke slab's faces
+DQ_CHEEK_INSET = 0.005                 # clevis beam_x: the cheek in from the slab face / band (no coplanar face, DT-C3)
+DQ_CHEEK_LAP = 0.03                    # m the cheek runs into its half's full-section beam
+DQ_SUB_SINGLE_L = 0.40                 # dq_train_halves: a 1-wheel sub (an odd wheel count a half, GD 10 a side)
 DQ_HANGER = dict(y0=2.30, y1=2.41, z0=0.25, z1=0.42, x=0.15)
 DQ_HANGER_Z_INSET = 0.005              # M4: top / bottom 5 mm inside the yoke's faces (DP1_INSET dq_hanger_z)
 DQ_SHEAVE = dict(r=0.223, w=0.10, pitch=0.59)                    # lift_tower._dq_spec
@@ -869,14 +879,17 @@ def fg_train_side_pinned(tag, s, y, main_z, sub_z, axle_z, n_sub, sub_span, main
     return P
 
 
-def lug_plate(name, xp, zc, r, z0, z1, x_far, ya, yb, segs=5):
+def lug_plate(name, xp, zc, r, z0, z1, x_far, ya, yb, segs=5, rot=0.0, beam=None):
     """
     A flat link plate in the travel / height plane (x, z), between lateral y = ya .. yb (signed, ya < yb), from its
     pin at (xp, zc) to its square far end at x_far, z0 .. z1, with a ROUND lug end around the pin: an arc of radius r
     about (xp, zc) on the side away from x_far, from the bottom edge to the top edge (r >= max(zc - z0, z1 - zc); a
     plate symmetric about its pin gets a semicircle). `segs` arc segments (5: 36 deg facets, under the 45 deg bevel
-    limit, so the lug reads round). Box-projected "UVMap". Lift alignment phase 2, round 2 (hinged half trains): the
-    two halves' plates lap on the shared main pin, each in its own lateral slab, so a relative pitch never meets.
+    limit, so the lug reads round). `rot` (radians, + raises the +x side) turns the whole profile about the pin (round
+    4: the FG yoke straps rise from the main pin to their half beams). `beam` (x0, x1, y0, y1, z0, z1; round 4, the
+    DQ / GD clevis) adds an axis-aligned box as a second shell of the same part. Box-projected "UVMap". Lift alignment
+    phase 2, round 2 (hinged half trains): the two halves' plates lap on the shared main pin, each in its own lateral
+    slab, so a relative pitch never meets.
     """
     if r < max(zc - z0, z1 - zc) - 1e-9:
         raise ValueError(f"{name}: lug r {r} < the plate's reach from the pin ({zc - z0:.4f} / {z1 - zc:.4f})")
@@ -888,6 +901,12 @@ def lug_plate(name, xp, zc, r, z0, z1, x_far, ya, yb, segs=5):
     prof = [(x_far, z0)] + arc + [(x_far, z1)]
     if d < 0.0:
         prof = prof[::-1]
+    cx, cz = (xp + x_far) / 2.0, (z0 + z1) / 2.0
+    if rot:
+        c, sn = math.cos(rot), math.sin(rot)
+        turn = lambda x, z: (xp + c * (x - xp) - sn * (z - zc), zc + sn * (x - xp) + c * (z - zc))  # noqa: E731
+        prof = [turn(x, z) for x, z in prof]
+        cx, cz = turn(cx, cz)
     bm = bmesh.new()
     layer = bm.loops.layers.uv.new("UVMap")
     lo = [bm.verts.new((x, ya, z)) for x, z in prof]
@@ -898,10 +917,22 @@ def lug_plate(name, xp, zc, r, z0, z1, x_far, ya, yb, segs=5):
     for k in range(n):
         bm.faces.new((lo[k], lo[(k + 1) % n], hi[(k + 1) % n], hi[k]))
     bm.normal_update()
-    cen = mathutils.Vector(((xp + x_far) / 2.0, (ya + yb) / 2.0, (z0 + z1) / 2.0))
+    cen = mathutils.Vector((cx, (ya + yb) / 2.0, cz))
     for f in bm.faces:
         if f.normal.dot(f.calc_center_median() - cen) < 0.0:
             f.normal_flip()
+    if beam is not None:
+        # round 4 (DQ / GD clevis): the half's full-section beam, a second closed shell in this part (x0, x1, y0, y1,
+        # z0, z1); the plate runs into it with every face inset (no shared vertex, no coplanar face)
+        bx0, bx1, by0, by1, bz0, bz1 = beam
+        bv = [bm.verts.new((x, y, z)) for x in (bx0, bx1) for y in (by0, by1) for z in (bz0, bz1)]
+        box = [bm.faces.new([bv[i] for i in q])
+               for q in ((0, 1, 3, 2), (4, 6, 7, 5), (0, 4, 5, 1), (2, 3, 7, 6), (0, 2, 6, 4), (1, 5, 7, 3))]
+        bm.normal_update()
+        bc = mathutils.Vector(((bx0 + bx1) / 2.0, (by0 + by1) / 2.0, (bz0 + bz1) / 2.0))
+        for f in box:
+            if f.normal.dot(f.calc_center_median() - bc) < 0.0:
+                f.normal_flip()
     bm.normal_update()
     cs2_asset.canonical_order_bmesh(bm)
     _box_uv_bm(bm, layer)
@@ -981,7 +1012,7 @@ def hanger_tongue(name, zc, r, z_top, hw_top, ya, yb, segs=6):
 
 def fg_train_side_halves(tag, s, y, main_z, sub_z, axle_z, sub_span, main_half, sheave_r, sheave_w, pin_z, inboard,
                          shift, arm_t=FG_ARM_T, hanger=FG_HANGER, ins=FG_HANGER_INSET, gap=0.015, poke=0.006,
-                         pin_r=0.05, lap_gap=0.010, bogie_low=False):
+                         pin_r=0.05, lap_gap=0.010, bogie_low=False, beam=False):
     """
     The Yan rocker tree of ONE lane as two HALF trains hinged on the main pin (lift alignment phase 2 round 2, the
     articulation design note option C). Each half = one 2-wheel bogie (sub rocker, its pivot, two sheave arms, two
@@ -995,7 +1026,12 @@ def fg_train_side_halves(tag, s, y, main_z, sub_z, axle_z, sub_span, main_half, 
     the main pin are the static head (Root). `bogie_low` (round 3): each bogie bar sits at AXLE height between its
     wheel pair (the wheels on their axle stubs from the bar, no sheave arms), its pivot through the bar at the axle, and
     the main-rocker plates drop to it (drop_plate: the round lug on the main pin, a bottom edge FG_BOGIE_LOW_BELOW
-    under the axle from FG_BOGIE_LOW_INNER inboard of the pivot out, an edge tangent to the lug between).
+    under the axle from FG_BOGIE_LOW_INNER inboard of the pivot out, an edge tangent to the lug between). `beam`
+    (round 4, the shipped three tiers; overrides bogie_low): each main-rocker half is a box beam at the shipped height
+    main_z (fg_train_side's section, t_p thick in its lap slab) from FG_BEAM_LAP past the pin out to the shipped end,
+    carried on the main pin by a yoke strap `yoke_<tag>_f|b` (FG_YOKE: a lug plate rising from the pin into the beam);
+    the bogie pivots float between beam and bogie bar at (main_z + sub_z) / 2 as fg_train_side's, the bars at sub_z
+    on sheave arms. Bars, arms and stubs stay in the tree plane inboard of the wheels.
     Returns [(obj, tower material key)].
     """
     P = []
@@ -1017,19 +1053,35 @@ def fg_train_side_halves(tag, s, y, main_z, sub_z, axle_z, sub_span, main_half, 
         return K.add_cyl(name, r, b - a, (x, s * (a + b) / 2.0, z), (math.radians(90.0), 0.0, 0.0),
                          segments=segs, caps="both")
     h = 0.075
+    if beam:
+        bogie_low = False
     zs = axle_z if bogie_low else sub_z
+    zp = (main_z + sub_z) / 2.0 if beam else zs           # the bogie pivot: shipped mid height with the beam
     for si, (half, hs) in enumerate((("b", -1.0), ("f", 1.0))):
         sx = hs * (main_half + shift)
         g0, g1 = slab[half]
         ya, yb = sorted((s * g0, s * g1))
-        if bogie_low:       # the plate drops from its lug on the main pin to the bogie pivot at the axle
+        if beam:            # the half beam at the shipped height, on the main pin through its rising yoke strap
+            x_in, x_out = -hs * FG_BEAM_LAP, hs * (main_half + shift + 0.20)
+            P.append((K.add_box(f"rocker_main_{tag}_{half}", (abs(x_out - x_in), t_p, 0.15),
+                                ((x_in + x_out) / 2.0, s * (g0 + g1) / 2.0, main_z)), "paint"))
+            yk = FG_YOKE
+            ang = math.radians(yk["ang"])
+            ln = (main_z - pin_z) / math.sin(ang)
+            for zc in (-1.0, 1.0):          # both far corners inside the beam (10 mm), the strap buried in it
+                zk = ln * math.sin(ang) + zc * yk["r"] * math.cos(ang) - main_z + pin_z
+                if abs(zk) > 0.075 - 0.010:
+                    raise ValueError(f"fg_train_side_halves: yoke strap corner {zk:+.3f} off the beam's center line")
+            P.append((lug_plate(f"yoke_{tag}_{half}", 0.0, pin_z, yk["r"], pin_z - yk["r"], pin_z + yk["r"], hs * ln,
+                                ya + yk["inset"], yb - yk["inset"], segs=yk["segs"], rot=hs * ang), "paint"))
+        elif bogie_low:     # the plate drops from its lug on the main pin to the bogie pivot at the axle
             P.append((drop_plate(f"rocker_main_{tag}_{half}", pin_z, h, axle_z - FG_BOGIE_LOW_BELOW,
                                  hs * (main_half + shift - FG_BOGIE_LOW_INNER), hs * (main_half + shift + 0.20), ya, yb),
                       "paint"))
         else:
             P.append((lug_plate(f"rocker_main_{tag}_{half}", 0.0, pin_z, h, pin_z - h, pin_z + h,
                                 hs * (main_half + shift + 0.20), ya, yb), "paint"))
-        P.append((lateral_pin(f"pivot_{tag}_{si}", 0.045, g0 - poke, abs(yt) + t_sub / 2.0 + poke, sx, zs, 6),
+        P.append((lateral_pin(f"pivot_{tag}_{si}", 0.045, g0 - poke, abs(yt) + t_sub / 2.0 + poke, sx, zp, 6),
                   "galv"))
         P.append((K.add_box(f"rocker_sub_{tag}_{si}", (sub_span + 0.30, t_sub, 0.12), (sx, yt, zs)), "paint"))
         for wtag, wv in (("m", -1.0), ("p", 1.0)):
@@ -1049,24 +1101,30 @@ def fg_train_side_halves(tag, s, y, main_z, sub_z, axle_z, sub_span, main_half, 
 
 
 def dq_train_halves(centres_of, n, axle, sheave_r, sheave_w, segs, groove, sub_y, main_y, pin_s, hanger_box, hz,
-                    pin_z, yoke_top, shift, link=DQ_LINK, ngon=False, lap_gap=0.010, yoke_t=0.072, clevis=None):
+                    pin_z, yoke_top, shift, link=DQ_LINK, ngon=False, lap_gap=0.010, yoke_t=0.072, clevis=None,
+                    yoke_bot=0.25):
     """
     The gantry trains (DQ / GD) of both lanes as two HALF trains per lane hinged on the main pin (lift alignment phase
     2 round 2, option C). dq_train's parts and section numbers (the expressions where they apply), with:
       - every sheave moved `shift` out along the train (x + sign(x) shift): the inner wheels clear to a 20 deg
         half-break; sag must be 0 (each half's rope is straight: the crowns lie on one line through the pin);
-      - per half its subs from the pin outward: an even count pairs (0, 1), (2, 3) ... on main rockers (DQ: one
-        4-wheel bogie a half), an odd count pairs from the OUTER end and hangs the innermost sub on a link (GD 12 a
-        side: a 4-wheel bogie + a 2-wheel bogie on a link); sub / main / link numbering as dq_train (travel order);
+      - per half its wheels paired into subs from the OUTER end; an odd wheel count leaves the innermost wheel on a
+        1-wheel sub (DQ_SUB_SINGLE_L long; round 4, GD 10 a side: 5 wheels a half). Per half its subs from the pin
+        outward: an even count pairs (0, 1), (2, 3) ... on main rockers (DQ: one 4-wheel bogie a half), an odd count
+        pairs from the OUTER end and hangs the innermost sub on a link (GD 12 a side: a 4-wheel bogie + a 2-wheel
+        bogie on a link; GD 10: a 4-wheel bogie + the 1-wheel sub on a link); sub / main / link numbering as dq_train
+        (travel order); with the clevis the links are DQ_LINK_INSET in from the yoke slab's faces;
       - the yoke split into two plates `yoke_<tag>_f` (authoring +X = game +z, TrainFront, the OUTBOARD half of the
         yoke slab) and `yoke_<tag>_b` (inboard), `lap_gap` apart, each from its round lug on the main pin (lug_plate,
-        r = the pin's reach to the yoke bottom) out to its mains / links + 0.15, bottom axle + 0.25 (the mains' pins and
-        the links hang there, C21), top axle + yoke_top;
+        r = the pin's reach to the yoke bottom) out to its mains / links + 0.15, bottom axle + yoke_bot (0.25 as
+        dq_train: the mains' pins and the links hang there, C21), top axle + yoke_top;
       - the hanger box as given (the caller cuts it short of the yoke);
       - `clevis` (round 3; dict plate_t, gap, r, top_z, top_hw): the yoke plates thin to plate_t at the yoke slab's
         outer faces and a static tongue `hanger_<tag>_t` (Root) fills the middle (yoke_t - 2 (plate_t + gap) thick,
         `gap` off each plate) from top_z in the head down to a round lug of radius r about the main pin
-        (hanger_tongue): the two halves' plates straddle it, a clevis on the pin over the train center.
+        (hanger_tongue): the two halves' plates straddle it, a clevis on the pin over the train center. With
+        clevis["beam_x"] (round 4) a plate is only the cheek on the pin: from beam_x out its half is the shipped full
+        yoke section (yoke_t thick, the band deep), a second shell of the same part.
     The main pin is the caller's (lift_tower._dq_train). Returns [(obj, tower material key)].
     """
     P = []
@@ -1084,10 +1142,17 @@ def dq_train_halves(centres_of, n, axle, sheave_r, sheave_w, segs, groove, sub_y
         for k, (xk, yk, zk) in enumerate(cents):
             P += train_wheel(f"sheave_{tag}_{k}_rim", f"liner_{tag}_{k}", sheave_r, sheave_w, (xk, yk, zk),
                              segs=segs, groove=groove, ngon=ngon)
-        subs = [((cents[2 * j][0] + cents[2 * j + 1][0]) / 2.0, (cents[2 * j][2] + cents[2 * j + 1][2]) / 2.0)
-                for j in range(n // 2)]
-        for j, (xs, zs) in enumerate(subs):
-            P.append((K.add_box(f"rocker_sub_{tag}_{j}", (0.81, 0.066, 0.25), (xs, s * sub_y, zs)), "paint"))
+        # per half its wheels paired from the outer end (an odd count leaves the innermost wheel on a 1-wheel sub);
+        # numbered in travel order: an even count per half is (0, 1), (2, 3) ... as dq_train
+        groups = []
+        for hs in (-1.0, 1.0):
+            mine = sorted((k for k, c in enumerate(cents) if c[0] * hs > 0.0), key=lambda k: -abs(cents[k][0]))
+            groups += [tuple(sorted(mine[q:q + 2])) for q in range(0, len(mine), 2)]
+        groups.sort(key=lambda g: cents[g[0]][0])
+        subs = [(sum(cents[k][0] for k in g) / len(g), sum(cents[k][2] for k in g) / len(g)) for g in groups]
+        for j, ((xs, zs), g) in enumerate(zip(subs, groups)):
+            ln = 0.81 if len(g) == 2 else DQ_SUB_SINGLE_L
+            P.append((K.add_box(f"rocker_sub_{tag}_{j}", (ln, 0.066, 0.25), (xs, s * sub_y, zs)), "paint"))
             P.append((K.add_cyl(f"pivot_{tag}_s{j}", 0.03, pin_s, (xs, s * (sub_y + main_y) / 2.0, zs),
                                 (math.radians(90.0), 0.0, 0.0), segments=6, caps="none"), "galv"))
         pairs, single = [], []
@@ -1105,21 +1170,39 @@ def dq_train_halves(centres_of, n, axle, sheave_r, sheave_w, segs, groove, sub_y
                       "paint"))
             P.append((K.add_cyl(f"pivot_{tag}_m{m}", 0.03, 0.14, (xm, s * main_y, axle + 0.225 + dzm),
                                 (math.radians(90.0), 0.0, 0.0), segments=6, caps="none"), "galv"))
-        yz0 = axle + 0.25
+        yz0 = axle + yoke_bot
         if link is not None:
+            # with the clevis the link is buried in a 20 mm yoke plate at the slab's face: 5 mm in a side (DT-C3)
+            lt = link["t"] - (2.0 * DQ_LINK_INSET if clevis is not None else 0.0)
             for i in single:
                 xs, zs = subs[i]
                 z0, z1 = zs - link["below"], yz0 + link["bury"]
-                P.append((K.add_box(f"rocker_link_{tag}_{i}", (link["w"], link["t"], z1 - z0),
+                P.append((K.add_box(f"rocker_link_{tag}_{i}", (link["w"], lt, z1 - z0),
                                     (xs, s * main_y, (z0 + z1) / 2.0)), "paint"))
         for half, hs in (("b", -1.0), ("f", 1.0)):
             far = max(abs(x) for x in [xm for xm, _d in mains] + [subs[i][0] for i in single] if x * hs > 0.0)
             g0, g1 = ((main_y + yoke_t / 2.0 - t_p, main_y + yoke_t / 2.0) if half == "f"
                       else (main_y - yoke_t / 2.0, main_y - yoke_t / 2.0 + t_p))
-            ya, yb = sorted((s * g0, s * g1))
             z1 = axle + yoke_top
-            r = max(pin_z - yz0, z1 - pin_z)
-            P.append((lug_plate(f"yoke_{tag}_{half}", 0.0, pin_z, r, yz0, z1, hs * (far + 0.15), ya, yb), "paint"))
+            bx = clevis.get("beam_x") if clevis is not None else None
+            if bx is None:
+                ya, yb = sorted((s * g0, s * g1))
+                r = max(pin_z - yz0, z1 - pin_z)
+                P.append((lug_plate(f"yoke_{tag}_{half}", 0.0, pin_z, r, yz0, z1, hs * (far + 0.15), ya, yb),
+                          "paint"))
+                continue
+            # round 4: the shipped full-section yoke (yoke_t x the band) from beam_x out, and on the pin a cheek
+            # DQ_CHEEK_INSET in from the slab face, the top and the bottom (its tongue-side face kept: the gap stays),
+            # running DQ_CHEEK_LAP into the beam: one part, two shells
+            ci = DQ_CHEEK_INSET
+            c0, c1 = (g0, g1 - ci) if half == "f" else (g0 + ci, g1)
+            ya, yb = sorted((s * c0, s * c1))
+            sa, sb = sorted((s * (main_y - yoke_t / 2.0), s * (main_y + yoke_t / 2.0)))
+            xa, xb = sorted((hs * bx, hs * (far + 0.15)))
+            cz0, cz1 = yz0 + ci, z1 - ci
+            r = max(pin_z - cz0, cz1 - pin_z)
+            P.append((lug_plate(f"yoke_{tag}_{half}", 0.0, pin_z, r, cz0, cz1, hs * (bx + DQ_CHEEK_LAP), ya, yb,
+                                beam=(xa, xb, sa, sb, yz0, z1)), "paint"))
         if clevis is not None:
             ya, yb = sorted((s * (main_y - t_g / 2.0), s * (main_y + t_g / 2.0)))
             P.append((hanger_tongue(f"hanger_{tag}_t", pin_z, clevis["r"], clevis["top_z"], clevis["top_hw"], ya, yb,

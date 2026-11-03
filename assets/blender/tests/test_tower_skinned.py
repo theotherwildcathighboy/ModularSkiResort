@@ -11,8 +11,9 @@ Each build RAISES unless:
       at every mean): no overlap half vs head / half vs half, clearance >= SKIN_CLEAR_MIN, the main-pin gap <=
       SKIN_PIN_GAP_MAX, the rope runs clear, every half's rope seated on all its crowns (SEAT_GAP) at every pose; the
       pose count is the grid's; the round 3 hardware: DQ / GD a static clevis tongue `hanger_<side>_t` (Root) per
-      lane, FG the bogie bars at axle height (no sheave arms) when SKIN_FG bogie_low, the tram's rocker frame (pin
-      block, two legs, bearer, pin boss) per lane;
+      lane, FG (SKIN_FG beam, round 4) the half beams at the shipped height on yoke straps with the sheave arms and
+      nothing outboard of a wheel's inboard face (bogie_low: the bars at axle height, no sheave arms), the tram's
+      rocker frame (pin block, two legs, bearer, pin boss, crossbeam) per lane;
   K2  every level (LOD0, LOD1, LOD2) skinned: vertex groups exactly the bones, every vertex 1.0 on one bone
       (cs2_asset.check_skin_weights), both main halves non-empty at LOD0;
   K3  the rig: Root at the origin, every half bone under Root at its pivot with the up / roll 0 rest; the
@@ -22,8 +23,9 @@ Each build RAISES unless:
       every TrainFront* group's bbox center at z > 0 and every TrainBack* group's at z < 0 (game +z = net -Y =
       authoring +X: cs2_asset.py:40, :1484-1487, PIPELINE rule T);
   K5  deterministic (two skinned builds hash alike: vertices, faces, part table);
-  K6  negatives: a skinned DQ12 rebuild head refuses (no recipe); G6 fails on the DQ12 yoke at its unskinned top
-      (yoke_above_pin 0.11); a flipped travel sign (cs2_skin.FRONT_SIGN_NET +1) trips the build-time axis test
+  K6  negatives: a skinned DQ12 rebuild head refuses (no recipe); G6 fails on the DQ12 clevis with the full-section
+      yoke from 0.10 m (SKIN_CLEVIS dq_beam_x 0.20: at a 30 deg pitch the beam meets the static tongue); a flipped
+      travel sign (cs2_skin.FRONT_SIGN_NET +1) trips the build-time axis test
       (skin_part_bones: the _f halves must ride TrainFront); seat_half refuses ray counts that miss the rope's corners;
   K7  off is off: unskinned FG12 and tram30 carry no main pin / saddle halves, no `skin` report, no vertex groups.
 
@@ -83,8 +85,10 @@ def build_lift(key, head, sweep=True):
 
 
 def k1_round3_lift(spec, t, table, info):
-    """Round 3 hardware and the tilt clamp (K1): theta_max = min(type max, TILT_CAP); DQ / GD the static clevis tongue
-    per lane between the yoke plates; FG with bogie_low no sheave arms and every bogie bar centered on the axle."""
+    """Round 3-4 hardware and the tilt clamp (K1): theta_max = min(type max, TILT_CAP); DQ / GD the static clevis tongue
+    per lane between the yoke plates; FG beam (round 4) the half beams at the shipped height on their yoke straps, the
+    sheave arms, nothing of the train or hanger outboard of a wheel's inboard face; FG bogie_low (round 3) no sheave
+    arms and every bogie bar centered on the axle."""
     fam = spec.family
     want_t = min(LT.SKIN_TYPE_MAX_SLOPE[fam], cs2_skin.TILT_CAP)
     if LT.SKIN_THETA_MAX[fam] != want_t or want_t != 30.0:
@@ -94,15 +98,35 @@ def k1_round3_lift(spec, t, table, info):
         tongues = [f"hanger_{s}_t" for s in ("n", "p")]
         if any(n not in table or n in pb for n in tongues):
             _fail(f"{spec.key} K1: clevis tongues {tongues} missing or not static ({[n for n in tongues if n in pb]})")
-    if fam == "FG" and LT.SKIN_FG.get("bogie_low"):
+    txt = ", clevis tongues static"
+    if fam == "FG" and LT.SKIN_FG.get("beam"):
+        # round 4, the shipped three tiers: the half beams at the shipped height (mast - 0.40), a yoke strap per half
+        # on the main pin, the sheave arms back, every train part and hanger inboard of the wheels' inboard faces
+        cen = cs2_skin.part_centroids(t, table)
+        zc = {n: float((c[1][2] + c[2][2]) / 2.0) for n, c in cen.items()}
+        main_z = spec.tube_top - LT.FG_HANGER
+        halves = [f"{p}_{s}_{h}" for p in ("rocker_main", "yoke") for s in ("n", "p") for h in ("f", "b")]
+        missing = [n for n in halves if n not in pb]
+        off = {n: round(zc[n] - main_z, 4) for n in halves[:4] if n in zc and abs(zc[n] - main_z) > 1e-4}
+        arms = [n for n in table if n.startswith("sheave_arm_")]
+        face = spec.gauge / 2.0 - spec.sheave_w / 2.0
+        out = {n: round(float(max(abs(c[1][0]), abs(c[2][0]))), 4) for n, c in cen.items()
+               if (n in pb or n.startswith(("hanger_", "pivot_main_"))) and not n.startswith(("sheave_", "liner_"))
+               and max(abs(c[1][0]), abs(c[2][0])) > face + 1e-4}
+        if missing or off or len(arms) != 2 * spec.sheaves or out:
+            _fail(f"{spec.key} K1: beam layout - halves missing {missing}, beams off mast - {LT.FG_HANGER} {off}, "
+                  f"{len(arms)} sheave arms (want {2 * spec.sheaves}), outboard of the wheel faces {out}")
+        txt = (f", half beams at mast - {LT.FG_HANGER} on yoke straps, {len(arms)} sheave arms, nothing outboard of "
+               f"the wheel faces (|x| <= {face})")
+    elif fam == "FG" and LT.SKIN_FG.get("bogie_low"):
         cen = cs2_skin.part_centroids(t, table)
         arms = [n for n in table if n.startswith("sheave_arm_")]
         off = {n: round(float((c[1][2] + c[2][2]) / 2.0 - spec.axle), 4) for n, c in cen.items()
                if n.startswith("rocker_sub_") and abs((c[1][2] + c[2][2]) / 2.0 - spec.axle) > 1e-4}
         if arms or off:
             _fail(f"{spec.key} K1: bogie_low with sheave arms {arms[:4]} or bars off the axle {off}")
-    print(f"[skin] K1 {spec.key} round 3: theta_max {LT.SKIN_THETA_MAX[fam]}"
-          + (", clevis tongues static" if fam in ("DQ", "GD") else ", bogie bars on the axle, no sheave arms"))
+        txt = ", bogie bars on the axle, no sheave arms"
+    print(f"[skin] K1 {spec.key} round 3-4: theta_max {LT.SKIN_THETA_MAX[fam]}" + txt)
 
 
 def k1_lift(spec, info):
@@ -193,9 +217,11 @@ def build_tram(sweep=True):
 def k1_tram(spec, rep, pb, table):
     if TT.SKIN_TRAM["theta_max"] != min(TT.SKIN_TRAM["type_max_slope"], cs2_skin.TILT_CAP):
         _fail(f"tram K1: theta_max {TT.SKIN_TRAM['theta_max']} (want min(type max, {cs2_skin.TILT_CAP}))")
-    rocker = [f"sbrk_{s}_{p}" for s in ("n", "p") for p in ("k", "kl0", "kl1", "kb", "kp")]
+    rocker = [f"sbrk_{s}_{p}" for s in ("n", "p") for p in ("k", "kl0", "kl1", "kb", "kp", "c")]
     if any(n not in table or n in pb for n in rocker):
         _fail(f"tram K1: rocker frame parts missing or not static {[n for n in rocker if n not in table or n in pb]}")
+    if not (TT.SKIN_TRAM["arm_dz1"] >= -1.6 and TT.SKIN_TRAM["arm_dz0"] == TT.HEAD["top_dz"]):
+        _fail(f"tram K1: the crossbeam (sbrk_<side>_c) off the head's top chord / below dz -1.6 ({TT.SKIN_TRAM})")
     want = len(cs2_skin.joint_grid(TT.SKIN_TRAM["theta_max"]))
     if len(rep["poses"]) != want or rep["failed"]:
         _fail(f"tram K1: {len(rep['poses'])} poses (grid {want}), failed {rep['failed']}")
@@ -248,17 +274,16 @@ def k6_negatives(have_kagelok):
             print(f"[skin] K6 DQ12 rebuild head refused: {str(e)[:90]}")
         else:
             _fail("K6: a skinned DQ12 rebuild head built")
-        old = dict(LT.SKIN_DQ)
-        LT.SKIN_DQ["yoke_above_pin"] = 0.11
+        old = LT.SKIN_CLEVIS["dq_beam_x"]
+        LT.SKIN_CLEVIS["dq_beam_x"] = 0.10
         try:
             build_lift("DQ12", "ingest")
         except LT.TowerContractError as e:
-            print(f"[skin] K6 the unskinned yoke top fails G6: {str(e)[:110]}")
+            print(f"[skin] K6 the full-section yoke from 0.10 m fails G6: {str(e)[:110]}")
         else:
-            _fail("K6: G6 passed the DQ12 yoke at its unskinned top")
+            _fail("K6: G6 passed the DQ12 full-section yoke from 0.10 m (it meets the tongue at 30 deg)")
         finally:
-            LT.SKIN_DQ.clear()
-            LT.SKIN_DQ.update(old)
+            LT.SKIN_CLEVIS["dq_beam_x"] = old
     old = cs2_skin.FRONT_SIGN_NET
     cs2_skin.FRONT_SIGN_NET = -old
     try:
