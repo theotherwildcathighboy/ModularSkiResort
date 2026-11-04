@@ -1420,7 +1420,7 @@
   },
   "prefab_contract": {
     "source": "gamedata-mirror/ImportedData/SkiBaseStationBuilding/SkiBaseStationBuilding.Prefab",
-    "source_sha256": "5ac45acfd5072375717009412207345aa800790f363b4d4e4ded61eb72d373e5",
+    "source_sha256": "c706cc4c31a26e400558034ceea736763ccc82d172fc077be038bbb5179ff3e0",
     "repoint": {
       "m_Meshes[0].m_Mesh_from": "$fstrref:CID:8808c7b7ec2c4336edc50e51ef1557c5",
       "m_Meshes[0].m_Mesh_to": "<the M mesh's CID, written by the importer>",
@@ -1586,7 +1586,7 @@
               "$rcontent": [
                 {
                   "$type": "16|Game.Prefabs.ObjectSubLaneInfo, Game",
-                  "m_LanePrefab": "$fstrref:UnityGUID:5d88ac45a40b30341a79535930e3b735",
+                  "m_LanePrefab": "$fstrref:CID:2b960a16d8baac67dfe9fc181fd960f3",
                   "m_BezierCurve": {
                     "$type": 10,
                     "a": {
@@ -1627,7 +1627,7 @@
                 },
                 {
                   "$type": 16,
-                  "m_LanePrefab": "$fstrref:UnityGUID:5d88ac45a40b30341a79535930e3b735",
+                  "m_LanePrefab": "$fstrref:CID:2b960a16d8baac67dfe9fc181fd960f3",
                   "m_BezierCurve": {
                     "$type": 10,
                     "a": {
@@ -2029,7 +2029,7 @@
         }
       ]
     },
-    "frozen_sha256": "66c960be465ba5fc1b507aaef882bef7fac8ecdde29ad5793ac748709eb25a07",
+    "frozen_sha256": "3b41c5e12990f730f9e1f481026596f578aad2cbe47639bda77b9ce42b79a57a",
     "code": {
       "WheelLocal_game": [
         0.0,
@@ -2083,9 +2083,14 @@
       ]
     ],
     "refrozen": {
-      "utc": "2026-10-24T18:44:57Z",
-      "why": "baseline re-frozen from the deployed prefab after the 2026-10-19/20 surgeries; the FBX / mesh files are unchanged (T144)",
-      "previous_source_sha256": "099fd9b53342c7f0994ddd76538ac01d6d3cad72867b22c9a7c0252ebe5ad584"
+      "utc": "2026-11-04T09:33:57Z",
+      "why": "baseline re-frozen from the deployed prefab after lift alignment phase 1 (2026-11-02, 7fe59ae): the two HV sub-lanes now name the FG station's own rope lane SkiFixedGripHaulRope (CID 2b960a16...) instead of the vanilla HV lane (UnityGUID 5d88ac45...); no other frozen field changed; the FBX / mesh files are unchanged",
+      "previous_source_sha256": "5ac45acfd5072375717009412207345aa800790f363b4d4e4ded61eb72d373e5",
+      "earlier": {
+        "utc": "2026-10-24T18:44:57Z",
+        "why": "baseline re-frozen from the deployed prefab after the 2026-10-19/20 surgeries; the FBX / mesh files are unchanged (T144)",
+        "previous_source_sha256": "099fd9b53342c7f0994ddd76538ac01d6d3cad72867b22c9a7c0252ebe5ad584"
+      }
     }
   },
   "bounds": {
