@@ -100,6 +100,26 @@ namespace SkiResortMod.Systems
         /// <summary>Chains with a missing or identical terminal station (the caller adds the pairs' failures).</summary>
         public int UnclosedChainCount;
 
+        /// <summary>The order that sorts a station list by entity (Index, then Version): <paramref name="order"/>[k] is the position in
+        /// <paramref name="stationIndex"/> / <paramref name="stationVersion"/> of the k-th smallest station. A harvest lists stations in
+        /// chunk order, which moves when a station changes archetype (an icon clear removing IconElement) without any census revision;
+        /// the station indices that the pair notes and the rebuild signature print follow the list order, so a reordered list reads as a
+        /// changed shuttle set. Sorted by entity, the same set always gives the same indices. Entities are unique; equal keys (a bad
+        /// caller) keep list order, so the result is always a total order.</summary>
+        public static void SortedStationOrder(IList<int> stationIndex, IList<int> stationVersion, List<int> order)
+        {
+            order.Clear();
+            for (int i = 0; i < stationIndex.Count; i++)
+                order.Add(i);
+            order.Sort((a, b) =>
+            {
+                int c = stationIndex[a].CompareTo(stationIndex[b]);
+                if (c == 0)
+                    c = stationVersion[a].CompareTo(stationVersion[b]);
+                return c != 0 ? c : a.CompareTo(b);
+            });
+        }
+
         public void Clear()
         {
             Chains.Clear();
