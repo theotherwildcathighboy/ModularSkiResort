@@ -120,6 +120,11 @@ namespace SkiResortMod.Systems
         /// Member is a ladder index.</summary>
         public readonly LiftTowerTwin[] Twins;
 
+        /// <summary>The hard / soft rope pitch caps at a tower, degrees (LiftAlignMath.PitchCapDeg / PitchSoftDeg by TypeId; DECISIONS
+        /// 600). The angle pass repairs a tower whose pitch (LiftAlignMath.ChordPitchDeg) is past the hard cap like one past its bend
+        /// cap; +infinity = no pitch rule (tests: the plans as before the cap).</summary>
+        public readonly float PitchCapDeg, PitchSoftDeg;
+
         /// <summary>Set once per game load (LiftTowerFitSystem.OnGameLoadingComplete): true for a twin prefab name the game has loaded.
         /// For(def) drops the others, so a build without the twin prefabs plans the support heads only (a missing twin would leave the
         /// node raised by E with the support member spawned 0.2-0.6 m above the ground). Null = every twin (tests).</summary>
@@ -235,8 +240,11 @@ namespace SkiResortMod.Systems
                                       float maxRopeAboveGroundM, float typicalSpanM, float maxSpanM, float minSpanM, float halfWidthM,
                                       float sagRatio, float engineElevationCapM, float stepM = 5f, float sideHillM = 2f, float convexM = 0.5f,
                                       float stationClearM = 0f, float maxEdgeSlope = 0f, int supportWheels = 0, int holdWheels = 0,
-                                      int comboWheels = 0, int breakWheels = 0, LiftTowerTwin[] twins = null)
+                                      int comboWheels = 0, int breakWheels = 0, LiftTowerTwin[] twins = null, float pitchCapDeg = float.NaN,
+                                      float pitchSoftDeg = float.NaN)
         {
+            PitchCapDeg = float.IsNaN(pitchCapDeg) ? LiftAlignMath.PitchCapDeg(typeId) : pitchCapDeg;
+            PitchSoftDeg = float.IsNaN(pitchSoftDeg) ? LiftAlignMath.PitchSoftDeg(typeId) : pitchSoftDeg;
             MaxEdgeSlope = maxEdgeSlope;
             SupportWheels = supportWheels;
             HoldWheels = holdWheels;
@@ -291,12 +299,13 @@ namespace SkiResortMod.Systems
         /// at another rope sag).</summary>
         public LiftTowerPlanConstants With(float? floorM = null, float? maxRopeAboveGroundM = null, float? typicalSpanM = null,
                                            float? maxSpanM = null, float? carrierDropM = null, float? maxEdgeSlope = null,
-                                           float? sagRatio = null, LiftTowerTwin[] twins = null)
+                                           float? sagRatio = null, LiftTowerTwin[] twins = null, float? pitchCapDeg = null,
+                                           float? pitchSoftDeg = null)
         {
             return new LiftTowerPlanConstants(TypeId, Ladder, RopeBelowTopM, carrierDropM ?? CarrierDropM, floorM ?? FloorM,
                 maxRopeAboveGroundM ?? MaxRopeAboveGroundM, typicalSpanM ?? TypicalSpanM, maxSpanM ?? MaxSpanM, MinSpanM, HalfWidthM,
                 sagRatio ?? SagRatio, EngineElevationCapM, StepM, SideHillM, ConvexM, StationClearM, maxEdgeSlope ?? MaxEdgeSlope,
-                SupportWheels, HoldWheels, ComboWheels, BreakWheels, twins ?? Twins);
+                SupportWheels, HoldWheels, ComboWheels, BreakWheels, twins ?? Twins, pitchCapDeg ?? PitchCapDeg, pitchSoftDeg ?? PitchSoftDeg);
         }
 
         /// <summary>The station-side rule's exchange rate: one more line tower is worth this many meters of extra height (above the
@@ -490,6 +499,12 @@ namespace SkiResortMod.Systems
         public LiftTrainKind Kind;      // ClassifyTrain(tight, heavy); None without trains (tram) or angles
         public float CapDeg;            // the cap of the train the tower carries (LiftTowerPlanConstants.CapDeg(Kind, Head)); +inf without trains
         public LiftTowerHead Head;      // the placed head: Line or a twin of Member (LiftTowerPlanner.AssignHeads); Line on stations and the tram
+        // Pitch and lean (DECISIONS 600), set by Build on every tower node with both neighbors' rope points (HasPitch):
+        public bool HasPitch;
+        public float PitchDeg;          // LiftAlignMath.ChordPitchDeg on the plumb rope points, up toward B = +
+        public float LeanDeg;           // LiftAlignMath.LeanDeg (>= 0; the top leans downhill, toward the lower neighbor)
+        public float AnchorAlongM;      // the leaned tower's rope anchor (LiftAlignMath.LeanedAnchor; = AlongM / RopeM unleaned and at stations):
+        public float AnchorRopeM;       //   the spans hang from here (Build, RopeAt)
     }
 
     public struct LiftPlanSpan
@@ -569,19 +584,80 @@ namespace SkiResortMod.Systems
             {
                 if (!Clear)
                     return "VIOLATED";
-                int over = OverCapTowers;
-                return over == 0 ? "clear" : "spans clear, " + over + " tower(s) OVER CAP";
+                string angles = AngleFaults();
+                return angles.Length == 0 ? "clear" : "spans clear, " + angles;
             }
         }
 
-        /// <summary>", but N tower(s) OVER CAP" when a tower is past its cap, else empty: for the log lines that report the spans.</summary>
+        /// <summary>", but N tower(s) OVER CAP" / "TOO STEEP" when a tower is past its bend or pitch cap, else empty: for the log lines
+        /// that report the spans.</summary>
         public string OverCapNote
         {
             get
             {
-                int over = OverCapTowers;
-                return over == 0 ? string.Empty : ", but " + over + " tower(s) OVER CAP";
+                string angles = AngleFaults();
+                return angles.Length == 0 ? string.Empty : ", but " + angles;
             }
+        }
+
+        /// <summary>"N tower(s) OVER CAP" and / or "N tower(s) TOO STEEP (pitch past P deg)", or empty.</summary>
+        private string AngleFaults()
+        {
+            int over = OverCapTowers, steep = TooSteepTowers;
+            string a = over == 0 ? string.Empty : over + " tower(s) OVER CAP";
+            if (steep > 0)
+                a += (a.Length > 0 ? ", " : string.Empty) + steep + " tower(s) TOO STEEP (pitch past " + F(Constants.PitchCapDeg, "F0") + " deg)";
+            return a;
+        }
+
+        /// <summary>Tower node <paramref name="i"/> has its pitch judged and the rope runs through it steeper than the type's hard pitch
+        /// cap (LiftTowerPlanConstants.PitchCapDeg, by more than AngleTolDeg; DECISIONS 600): the lift tool's "too steep" tower.</summary>
+        public bool IsTooSteep(int i) =>
+            Nodes[i].HasPitch && Nodes[i].Member >= 0 && math.abs(Nodes[i].PitchDeg) > Constants.PitchCapDeg + AngleTolDeg;
+
+        /// <summary>Towers whose pitch is past the type's hard pitch cap (IsTooSteep).</summary>
+        public int TooSteepTowers
+        {
+            get
+            {
+                int n = 0;
+                for (int i = 0; i < Nodes.Length; i++)
+                    if (IsTooSteep(i))
+                        n++;
+                return n;
+            }
+        }
+
+        /// <summary>The steepest |pitch| and the largest lean over the plan's towers, degrees, and how many towers lean.</summary>
+        public void PitchStats(out float maxPitchDeg, out float maxLeanDeg, out int leaning)
+        {
+            maxPitchDeg = maxLeanDeg = 0f;
+            leaning = 0;
+            for (int i = 0; i < Nodes.Length; i++)
+            {
+                if (!Nodes[i].HasPitch || Nodes[i].Member < 0)
+                    continue;
+                maxPitchDeg = math.max(maxPitchDeg, math.abs(Nodes[i].PitchDeg));
+                maxLeanDeg = math.max(maxLeanDeg, Nodes[i].LeanDeg);
+                if (Nodes[i].LeanDeg > 0f)
+                    leaning++;
+            }
+        }
+
+        /// <summary>One tower's pitch and lean for the plan dump: "pitch +31.2, lean 11.2 (anchor -3.5 m along, -0.2 m)" ("TOO STEEP"
+        /// past the hard cap).</summary>
+        public string PitchText(int i)
+        {
+            LiftPlanNode n = Nodes[i];
+            if (!n.HasPitch)
+                return "pitch n/a";
+            var sb = new StringBuilder();
+            sb.Append("pitch ").Append(Sg(n.PitchDeg)).Append(", lean ").Append(F(n.LeanDeg, "F1"));
+            if (n.LeanDeg > 0f)
+                sb.Append(" (anchor ").Append(Sg(n.AnchorAlongM - n.AlongM)).Append(" m along, ").Append(Sg(n.AnchorRopeM - n.RopeM)).Append(" m)");
+            if (IsTooSteep(i))
+                sb.Append(" TOO STEEP ").Append(F(Constants.PitchCapDeg, "F0"));
+            return sb.ToString();
         }
 
         /// <summary>A deflection this little past its cap is at the cap (float noise between the pass and Build).</summary>
@@ -646,15 +722,16 @@ namespace SkiResortMod.Systems
             return sb.ToString();
         }
 
-        /// <summary>Rope y on span <paramref name="span"/> at <paramref name="alongM"/> (line meters), with the engine's sag.</summary>
+        /// <summary>Rope y on span <paramref name="span"/> at <paramref name="alongM"/> (line meters), with the engine's sag, hung from the
+        /// two towers' (leaned) rope anchors (AnchorAlongM / AnchorRopeM).</summary>
         public float RopeAt(int span, float alongM)
         {
             LiftPlanNode a = Nodes[span], b = Nodes[span + 1];
-            float d = b.AlongM - a.AlongM;
+            float d = b.AnchorAlongM - a.AnchorAlongM;
             if (d <= 0f)
-                return a.RopeM;
-            float t = math.saturate((alongM - a.AlongM) / d);
-            return a.RopeM + (b.RopeM - a.RopeM) * t - 4f * Constants.SagRatio * d * t * (1f - t);
+                return a.AnchorRopeM;
+            float t = math.saturate((alongM - a.AnchorAlongM) / d);
+            return a.AnchorRopeM + (b.AnchorRopeM - a.AnchorRopeM) * t - 4f * Constants.SagRatio * d * t * (1f - t);
         }
 
         /// <summary>Floor margin (rope - drop - high side - floor) at profile sample <paramref name="q"/> on span <paramref name="span"/>.</summary>
@@ -721,8 +798,8 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>Every span clear and no tower over its cap.</summary>
-        public bool Sound => Clear && OverCapTowers == 0;
+        /// <summary>Every span clear, no tower over its cap and none too steep (IsTooSteep).</summary>
+        public bool Sound => Clear && OverCapTowers == 0 && TooSteepTowers == 0;
 
         /// <summary>Null when <paramref name="plan"/> is no worse than <paramref name="built"/> on any axis (floor margin, violated
         /// spans, towers over their cap, the worst excess over a cap); else the axes it is worse on (FIX-LIST 52).</summary>
@@ -737,6 +814,8 @@ namespace SkiResortMod.Systems
             built.KindCounts(out _, out _, out _, out _, out int overB);
             if (overP > overB)
                 why.Add("towers over cap " + overB + " -> " + overP);
+            if (plan.TooSteepTowers > built.TooSteepTowers)
+                why.Add("towers too steep " + built.TooSteepTowers + " -> " + plan.TooSteepTowers);
             if (plan.MaxCapExcessDeg > built.MaxCapExcessDeg + AngleTolDeg)
                 why.Add("worst excess over a cap " + Sg(built.MaxCapExcessDeg) + " -> " + Sg(plan.MaxCapExcessDeg) + " deg");
             return why.Count == 0 ? null : string.Join(", ", why);
@@ -763,7 +842,8 @@ namespace SkiResortMod.Systems
                   .Append(", high side ").Append(Sg(n.HighSideM - n.GroundM)).Append(", low side ").Append(Sg(n.LowSideM - n.GroundM))
                   .Append(", ").Append(n.IsStation ? "station" : "member " + c.NameOf(n.Member, n.Head) + " (top " + F(c.TopOf(n.Member, n.Head), "F2") + ")")
                   .Append(", rope y ").Append(F(n.RopeM, "F2")).Append(" (").Append(Sg(n.RopeM - n.GroundM)).Append(" above ground)")
-                  .Append(" [").Append(FlagText(n.Flags)).Append("]").Append(n.HasAngles ? ", " + AngleText(i) : string.Empty).Append('\n');
+                  .Append(" [").Append(FlagText(n.Flags)).Append("]").Append(n.HasAngles ? ", " + AngleText(i) : string.Empty)
+                  .Append(n.HasPitch && !n.IsStation ? ", " + PitchText(i) : string.Empty).Append('\n');
                 if (i < Spans.Length)
                 {
                     LiftPlanSpan s = Spans[i];
@@ -1296,6 +1376,8 @@ namespace SkiResortMod.Systems
             {
                 nodes[i] = p.Nodes[n - 1 - i];
                 nodes[i].AlongM = len - nodes[i].AlongM;
+                nodes[i].AnchorAlongM = len - nodes[i].AnchorAlongM;
+                nodes[i].PitchDeg = -nodes[i].PitchDeg;   // up toward the caller's B
             }
             int sc = p.Spans.Length;
             var spans = new LiftPlanSpan[sc];
@@ -1400,13 +1482,15 @@ namespace SkiResortMod.Systems
             AssignMembers();
 
             // (d) rope angles: breakover / hold-down pairs (tool plans only; Build sets every node's angles and kind).
-            if (Pairs && c.HasTrains)
+            if (Pairs && (c.HasTrains || math.isfinite(c.PitchCapDeg)))
             {
                 long t0 = System.Diagnostics.Stopwatch.GetTimestamp();
                 AnglePass();
                 m_AnglesMs = (System.Diagnostics.Stopwatch.GetTimestamp() - t0) * 1000.0 / System.Diagnostics.Stopwatch.Frequency;
             }
 
+            // (e) lean: a span the leaned anchors leave short gets a taller tower.
+            LeanPass();
             return Build();
         }
 
@@ -1549,6 +1633,8 @@ namespace SkiResortMod.Systems
             {
                 AssignMembers();
             }
+            if (spares != null || assign)
+                LeanPass();
             return Build();
         }
 
@@ -2836,6 +2922,122 @@ namespace SkiResortMod.Systems
             return false;
         }
 
+        // Lean (DECISIONS 600): a tower whose rope pitch is past LiftAlignMath.LeanFreeDeg leans downhill about its foot, so its rope anchor
+        // moves downhill and a little lower (LiftAlignMath.LeanedAnchor). Pitch and lean are judged on the plumb rope points (the search,
+        // the angle pass and the game's TowerLeanSystem all use them, so the lean never feeds back into itself); the spans hang from the
+        // leaned anchors (Build), and LeanPass raises a tower where only the lean leaves a span short.
+
+        /// <summary>Working node <paramref name="n"/>'s rope pitch (ChordPitchDeg on the plumb rope points); false at a station end or a
+        /// line end without its outer point.</summary>
+        private bool PitchAt(int n, out float pitchDeg)
+        {
+            pitchDeg = 0f;
+            if (!Around(n, out float sP, out float rP, out float sN, out float rN))
+                return false;
+            pitchDeg = LiftAlignMath.ChordPitchDeg(sP, rP, NodeS(n), NodeR(n), sN, rN);
+            return true;
+        }
+
+        /// <summary>Working node <paramref name="n"/>'s rope anchor (leaned when it is a tower whose pitch leans it; the node's own rope
+        /// point at the ends: their rope is given).</summary>
+        private void AnchorOf(int n, out float s, out float r)
+        {
+            s = NodeS(n);
+            r = NodeR(n);
+            if (m_M[n] < 0 || !PitchAt(n, out float pitch))
+                return;
+            float lean = LiftAlignMath.LeanDeg(m_C.TypeId, pitch);
+            if (lean > 0f)
+                LiftAlignMath.LeanedAnchor(s, m_Centre[m_K[n]], r, pitch, lean, out s, out r);
+        }
+
+        /// <summary>The floor shortfall of working span <paramref name="span"/> hung from the two nodes' leaned anchors (the floor is
+        /// judged on the leaned rope; the max rope height stays on the plumb rope points, as the search judged it: a lean lowers the
+        /// anchor over its own foot, and the few meters it moves the anchor downhill only lift a steep chord over the foot of a cliff
+        /// past a rule that is about rope height over the tower, LP-5).</summary>
+        private float LeanedSpanViolation(int span)
+        {
+            AnchorOf(span, out float sa, out float ra);
+            AnchorOf(span + 1, out float sb, out float rb);
+            int i = m_K[span], j = m_K[span + 1];
+            float d = sb - sa;
+            if (d <= 0f)
+                return 0f;
+            float sag4 = 4f * m_C.SagRatio * d, worst = float.NegativeInfinity;
+            for (int q = i + 1; q < j; q++)
+            {
+                if (m_S[q] < sa - 1e-3f || m_S[q] > sb + 1e-3f)
+                    continue;   // under a leaned head: the tower, not the rope, overhangs there
+                float t = math.saturate((m_S[q] - sa) / d);
+                float r = ra + (rb - ra) * t - sag4 * t * (1f - t);
+                worst = math.max(worst, m_C.CarrierDropM + m_Floor[q] + m_High[q] - r);
+            }
+            return float.IsNegativeInfinity(worst) ? 0f : worst;
+        }
+
+        /// <summary>Where a lean leaves a span short that the plumb towers cleared (or worse than they did), the leaned end tower takes the
+        /// next taller member that keeps its node and edges (Raise); the other end when it cannot. A raise is kept only when it lowers
+        /// the summed leaned violation of the spans it touches (the lean of a taller tower moves its anchor further; a taller rope can
+        /// pass the max rope height). Stops when no raise helps.</summary>
+        private void LeanPass()
+        {
+            int guard = m_K.Count * m_C.Ladder.Length + 4;
+            while (guard-- > 0)
+            {
+                int worst = -1;
+                float worstV = Tol;
+                for (int s = 0; s < m_K.Count - 1; s++)
+                {
+                    float v = LeanedSpanViolation(s);
+                    if (v <= Tol)
+                        continue;
+                    float plumb = math.max(0f, SpanViolation(m_K[s], NodeR(s), m_K[s + 1], NodeR(s + 1)));
+                    if (v > plumb + Tol && v - plumb > worstV)
+                    {
+                        worstV = v - plumb;
+                        worst = s;
+                    }
+                }
+                if (worst < 0)
+                    return;
+                bool aLeans = m_M[worst] >= 0 && PitchAt(worst, out float pa) && LiftAlignMath.LeanDeg(m_C.TypeId, pa) > 0f;
+                int first = aLeans ? worst : worst + 1, second = first == worst ? worst + 1 : worst;
+                if (!StepHelps(first, +1) && !StepHelps(second, +1))
+                    return;
+            }
+        }
+
+        /// <summary>Summed positive leaned violation of the spans within two of working node <paramref name="n"/> (a raise changes its
+        /// neighbors' pitch and lean too).</summary>
+        private float LeanedAround(int n)
+        {
+            float v = 0f;
+            for (int s = math.max(0, n - 2); s <= math.min(m_K.Count - 2, n + 1); s++)
+                v += math.max(0f, LeanedSpanViolation(s)) + math.max(0f, SpanViolation(m_K[s], NodeR(s), m_K[s + 1], NodeR(s + 1)));
+            return v;
+        }
+
+        /// <summary>Working node <paramref name="n"/> one ladder step taller (<paramref name="dir"/> +1) or shorter (-1) at a time, to the
+        /// first member that keeps its node and both edges and lowers LeanedAround(n); else the member is restored. LeanPass uses +1
+        /// only (a shorter step broke LP-5 idempotence: the search is lean-unaware).</summary>
+        private bool StepHelps(int n, int dir)
+        {
+            if (n <= 0 || n >= m_K.Count - 1 || m_M[n] < 0)
+                return false;
+            int m0 = m_M[n], k = m_K[n];
+            float before = LeanedAround(n);
+            for (int m = m0 + dir; m >= 0 && m < m_C.Ladder.Length; m += dir)
+            {
+                if (!MemberAllowed(k, m) || !NodeOk(k, m) || !SlopeOk(m_K[n - 1], m_M[n - 1], k, m) || !SlopeOk(k, m, m_K[n + 1], m_M[n + 1]))
+                    continue;
+                m_M[n] = m;
+                if (LeanedAround(n) < before - Tol)
+                    return true;
+            }
+            m_M[n] = m0;
+            return false;
+        }
+
         private float TotalViolation()
         {
             float total = 0f;
@@ -2929,11 +3131,12 @@ namespace SkiResortMod.Systems
             m_AngleWork++;
             float3 p = RopePoint(sP, rP), q = RopePoint(s, r), n = RopePoint(sN, rN);
             d = LiftAlignMath.DeflectionDeg(p, q, n, m_C.SagRatio);
+            float pitchOver = math.abs(LiftAlignMath.ChordPitchDeg(sP, rP, s, r, sN, rN)) - m_C.PitchCapDeg;
             float ad = math.abs(d);
             if (ad <= m_MinCap)
-                return ad - m_MinCap;
+                return math.max(ad - m_MinCap, pitchOver);
             LiftAlignMath.LoadCaseDeflections(p, q, n, m_C.SagRatio, out float tight, out float heavy);
-            return ad - m_C.CapDeg(LiftAlignMath.ClassifyTrain(tight, heavy));
+            return math.max(ad - m_C.CapDeg(LiftAlignMath.ClassifyTrain(tight, heavy)), pitchOver);
         }
 
         /// <summary>The rope points beside working node <paramref name="n"/>: false when it is not judged (a station end, or a line end
@@ -3192,7 +3395,9 @@ namespace SkiResortMod.Systems
                 }
             }
 
-            // (b) pair / partner / re-member (only when no single fix exists: a single adds no tower and ranks first)
+            // (b) pair / partner / re-member (only when no single fix exists: a single adds no tower and ranks first). The tram has no
+            // bend cap, so only its pitch cap brings it here: a pair on a shoulder is the one place it takes a short span (DECISIONS 600:
+            // TS-1 shoulders, 9 lines, +11 towers; its long spans elsewhere are untouched).
             if (best.Kind == 0)
             {
                 Array.Clear(leftOk, 0, leftOk.Length);
@@ -3398,9 +3603,25 @@ namespace SkiResortMod.Systems
                 }
             }
 
+            // (c) a longer span (the last resort): a free tower is dropped when the span over its spot is fine (clear, within MaxSpanM and
+            // the edge slope rule) and neither neighbor is pushed further past its caps.
+            if (best.Kind == 0 && !fixedNode && n > 0 && n < last && SpanFine(m_K[n - 1], m_M[n - 1], m_K[n + 1], m_M[n + 1]))
+            {
+                bool ok = true;
+                if (Around(n - 1, out float sP, out float rP, out _, out _))
+                    ok = Over(sP, rP, NodeS(n - 1), NodeR(n - 1), NodeS(n + 1), NodeR(n + 1), out _) <= math.max(0f, BeforeOver(n - 1)) + LiftTowerPlan.AngleTolDeg;
+                if (ok && Around(n + 1, out _, out _, out float sN, out float rN))
+                    ok = Over(NodeS(n - 1), NodeR(n - 1), NodeS(n + 1), NodeR(n + 1), sN, rN, out _) <= math.max(0f, BeforeOver(n + 1)) + LiftTowerPlan.AngleTolDeg;
+                if (ok)
+                    best = new AngleFix { Kind = 6, Towers = -1 };
+                else
+                    rej.Neighbor++;
+            }
+
             string at = (isEnd ? "end " : "p") + NoteNode(n) + " at " + NoteAt(s0) + " m (" +
                         (m0 >= 0 ? Short(m_C.Ladder[m0].Name) : "line end") + (fixedNode && !isEnd ? ", pinned / seed" : string.Empty) + "): d " +
-                        LiftTowerPlan.Sg(d0) + ", " + LiftTowerPlan.F(over0, "F1") + " past its cap";
+                        LiftTowerPlan.Sg(d0) + (PitchAt(n, out float p0) ? ", pitch " + LiftTowerPlan.Sg(m_FromB ? -p0 : p0) : string.Empty) + ", " +
+                        LiftTowerPlan.F(over0, "F1") + " past its cap" + (m_C.HasTrains ? string.Empty : " (pitch)");
             LiftPlanNodeFlags pairFlags = (m_F[n] & ~LiftPlanNodeFlags.Seed & ~LiftPlanNodeFlags.Station) | LiftPlanNodeFlags.Pair;
             switch (best.Kind)
             {
@@ -3476,6 +3697,12 @@ namespace SkiResortMod.Systems
                     m_AngleNotes.Add(at + " -> the fixed pair re-membered " + Short(m_C.Ladder[best.M1].Name) + " + " +
                                      Short(m_C.Ladder[best.M2].Name) + ", d " + LiftTowerPlan.Sg(best.D1) + " / " + LiftTowerPlan.Sg(best.D2));
                     break;
+                case 6:
+                    m_K.RemoveAt(n);
+                    m_M.RemoveAt(n);
+                    m_F.RemoveAt(n);
+                    m_AngleNotes.Add(at + " -> DROPPED, one longer span over its spot");
+                    break;
                 default:
                     m_F[n] |= LiftPlanNodeFlags.OverCap;
                     m_AngleNotes.Add(at + " -> NO REPAIR, the tower stays (" + RejText(rej) + ")");
@@ -3542,6 +3769,51 @@ namespace SkiResortMod.Systems
                 nodes[i].Kind = LiftTrainKind.None;
                 nodes[i].CapDeg = float.PositiveInfinity;
                 nodes[i].BareDeg = LiftAlignMath.DeflectionDeg(p, q, n, h * LiftAlignMath.BareSagScale);
+            }
+        }
+
+        /// <summary>Build's pitch and lean on the output nodes (DECISIONS 600): every node's anchor starts at its rope point; a tower
+        /// node with both neighbors' rope points (an end: its outer point) gets its pitch (ChordPitchDeg), its lean (LiftAlignMath.LeanDeg)
+        /// and the leaned anchor (foot = the ground under it).</summary>
+        private void SetLeans(LiftPlanNode[] nodes)
+        {
+            int last = nodes.Length - 1;
+            for (int i = 0; i <= last; i++)
+            {
+                nodes[i].AnchorAlongM = nodes[i].AlongM;
+                nodes[i].AnchorRopeM = nodes[i].RopeM;
+                nodes[i].HasPitch = false;
+                nodes[i].PitchDeg = nodes[i].LeanDeg = 0f;
+                if (last < 1)
+                    continue;
+                float sP, rP, sN, rN;
+                if (i == 0)
+                {
+                    if (!OuterA) continue;
+                    sP = -EndOuterDistA; rP = EndOuterRopeA;
+                }
+                else
+                {
+                    sP = nodes[i - 1].AlongM; rP = nodes[i - 1].RopeM;
+                }
+                if (i == last)
+                {
+                    if (!OuterB) continue;
+                    sN = m_Length + EndOuterDistB; rN = EndOuterRopeB;
+                }
+                else
+                {
+                    sN = nodes[i + 1].AlongM; rN = nodes[i + 1].RopeM;
+                }
+                nodes[i].HasPitch = true;
+                nodes[i].PitchDeg = LiftAlignMath.ChordPitchDeg(sP, rP, nodes[i].AlongM, nodes[i].RopeM, sN, rN);
+                if (nodes[i].Member < 0)
+                    continue;   // a line end: its rope is given (a junction tower leans in game; the plan keeps its point)
+                float lean = LiftAlignMath.LeanDeg(m_C.TypeId, nodes[i].PitchDeg);
+                nodes[i].LeanDeg = lean;
+                if (lean > 0f)
+                    LiftAlignMath.LeanedAnchor(nodes[i].AlongM, nodes[i].GroundM, nodes[i].RopeM, nodes[i].PitchDeg, lean,
+                        out nodes[i].AnchorAlongM, out nodes[i].AnchorRopeM);
             }
         }
 
@@ -3743,20 +4015,25 @@ namespace SkiResortMod.Systems
             }
             SetAngles(nodes);
             AssignHeads(nodes);
+            SetLeans(nodes);
             var spans = new LiftPlanSpan[count - 1];
             for (int s = 0; s < count - 1; s++)
             {
                 int i = m_K[s], j = m_K[s + 1];
-                float ri = nodes[s].RopeM, rj = nodes[s + 1].RopeM;
+                // the rope hangs from the (leaned) anchors; the span length stays node to node (the engine's edge)
+                float ri = nodes[s].AnchorRopeM, rj = nodes[s + 1].AnchorRopeM;
+                float sa = nodes[s].AnchorAlongM, ds = nodes[s + 1].AnchorAlongM - sa;
                 float d = m_S[j] - m_S[i];
-                float sag4 = 4f * m_C.SagRatio * d;
+                float sag4 = 4f * m_C.SagRatio * ds;
                 var span = new LiftPlanSpan { LengthM = d, MinFloorMarginM = float.PositiveInfinity, MaxRopeAboveM = float.NegativeInfinity };
                 for (int q = i; q <= j; q++)
                 {
                     // Station ends are not judged (their rope height is given); tower ends are (the carrier passes over the node).
                     if ((q == i && nodes[s].IsStation) || (q == j && nodes[s + 1].IsStation))
                         continue;
-                    float t = d > 0f ? (m_S[q] - m_S[i]) / d : 0f;
+                    if (m_S[q] < sa - 1e-3f || m_S[q] > sa + ds + 1e-3f)
+                        continue;   // under a leaned head (between its foot and its anchor): the tower overhangs there, not the rope
+                    float t = ds > 0f ? math.saturate((m_S[q] - sa) / ds) : 0f;
                     float r = ri + (rj - ri) * t - sag4 * t * (1f - t);
                     float margin = r - m_C.CarrierDropM - m_Floor[q] - m_High[q];
                     if (margin < span.MinFloorMarginM)
@@ -3765,7 +4042,9 @@ namespace SkiResortMod.Systems
                         span.MinFloorMarginAtM = m_S[q] - m_S[i];
                         span.MinChairAboveGroundM = r - m_C.CarrierDropM - m_High[q];
                     }
-                    float above = r - m_Centre[q];
+                    // the max rope height on the plumb chord, as the search judged it (LeanedSpanViolation)
+                    float tp = d > 0f ? (m_S[q] - m_S[i]) / d : 0f;
+                    float above = nodes[s].RopeM + (nodes[s + 1].RopeM - nodes[s].RopeM) * tp - 4f * m_C.SagRatio * d * tp * (1f - tp) - m_Centre[q];
                     if (above > span.MaxRopeAboveM)
                     {
                         span.MaxRopeAboveM = above;

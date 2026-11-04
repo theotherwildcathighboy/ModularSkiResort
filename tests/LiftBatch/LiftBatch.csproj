@@ -90,6 +90,7 @@
     <!-- Breakover pairs and train kinds (phase B1): RopeAngles, the caps, the planner's pair repair, kinds with hysteresis (AL-12..14, BO, HD, CO). -->
     <Compile Include="BreakoverTests.cs" />
     <Compile Include="TramSaddleTests.cs" />
+    <Compile Include="PitchCapTests.cs" />
     <!-- The same line gives the same plan from either end (planner-direction): the planner works from the lower rope and mirrors (DR). -->
     <Compile Include="DirectionTests.cs" />
     <!-- No clear plan: the fewest towers with the least shortfall, not the legacy scatter; the twins never make a plan worse (FB). -->

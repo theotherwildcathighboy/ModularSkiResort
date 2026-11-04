@@ -85,6 +85,131 @@ namespace SkiResortMod.Systems
             return math.clamp(0.5f * (inAngle + outAngle), -maxPitch, maxPitch);
         }
 
+        // ── Rope pitch at a tower (DECISIONS 600; docs research/steep-angles-real-lifts-2026-11-04.md sections 2, 5.1) ───────────
+
+        /// <summary>The rope's pitch through a tower, degrees, up toward next = +: the mean of the two adjacent chords' angles (prev ->
+        /// node and node -> next, (along, rope y) points). Unlike the bend (DeflectionDeg) a pair or a taller tower barely changes it:
+        /// it follows the ground. A zero-length chord takes the other's angle.</summary>
+        public static float ChordPitchDeg(float sP, float rP, float s, float r, float sN, float rN)
+        {
+            float dl = s - sP, dr = sN - s;
+            float a = math.abs(dl) < 1e-4f ? float.NaN : math.atan((r - rP) / dl);
+            float b = math.abs(dr) < 1e-4f ? float.NaN : math.atan((rN - r) / dr);
+            if (math.isnan(a)) a = math.isnan(b) ? 0f : b;
+            if (math.isnan(b)) b = a;
+            return math.degrees(0.5f * (a + b));
+        }
+
+        /// <summary>The hard pitch cap per lift type, degrees: the steepest real line maxima (research steep-angles section 5.1): FG 38
+        /// (Pic des Tentes 72 %, Tete de Balme 77 %), DQ 40 and GD 40 (Lai Alv 79 %, Grand Massif 81 %), tram 55 (Loen 54, Schilthorn
+        /// 57.9). Past it the planner repairs (shift, member, pair) and the lift tool warns "too steep". +infinity for an unknown type.</summary>
+        public static float PitchCapDeg(string typeId)
+        {
+            switch (typeId)
+            {
+                case "fixedGrip": return 38f;
+                case "detachable": return 40f;
+                case "gondola": return 40f;
+                case "tram": return 55f;
+                default: return float.PositiveInfinity;
+            }
+        }
+
+        /// <summary>The soft pitch cap per lift type, degrees (research section 5.1, the value the planner prefers): FG 36, DQ 38, GD 39,
+        /// tram 45. +infinity for an unknown type.</summary>
+        public static float PitchSoftDeg(string typeId)
+        {
+            switch (typeId)
+            {
+                case "fixedGrip": return 36f;
+                case "detachable": return 38f;
+                case "gondola": return 39f;
+                case "tram": return 45f;
+                default: return float.PositiveInfinity;
+            }
+        }
+
+        // ── Mast lean (DECISIONS 600; spike tilted-towers-2026-11-04 option A; research steep-angles section 5.3) ─────────────────
+
+        /// <summary>The head (DQ / GD Head bone) and the FG trains' mean pitch relative to the mast, at most, degrees: a visual choice
+        /// (research section 5.3: "do not exceed 25 deg head tilt relative to the mast"; 20 keeps the 594 trunnion inside its swept wedge).</summary>
+        public const float HeadRelMaxDeg = 20f;
+
+        /// <summary>HeadRelMaxDeg in radians: the headed towers' head clamp (HeadPitch / HeadedHalfPitches headMax), relative to the mast.</summary>
+        public static float HeadRelMax => math.radians(HeadRelMaxDeg);
+
+        /// <summary>A tower's mast pitch, radians nose up along its +z, read from its rotation (0 for a plumb, yaw-only tower; LeanRotation's
+        /// signed lean for a leaned one). TrainPitchSystem subtracts it from the absolute lane-end pitches: the bones are local to the mast.</summary>
+        public static float MastPitch(quaternion rotation)
+        {
+            float3 f = math.mul(rotation, new float3(0f, 0f, 1f));
+            return math.atan2(f.y, math.length(f.xz));
+        }
+
+        /// <summary>The steepest mast lean, degrees: FG / DQ / GD 20 (sourced range 10-18 deg measured, +-40 RM), tram 25 (Sandia 18,
+        /// Loen "strongly overhanging"). A visual choice.</summary>
+        public const float MaxLeanDeg = 20f, TramMaxLeanDeg = 25f;
+
+        /// <summary>The pitch the head alone follows before the mast leans, degrees: HeadRelMaxDeg for the train lifts, the tram saddle's
+        /// TrainPitchLimitDeg (the letter C halves) for the tram.</summary>
+        public static float LeanFreeDeg(string typeId) => typeId == "tram" ? TrainPitchLimitDeg : HeadRelMaxDeg;
+
+        /// <summary>The type's MaxLeanDeg (TramMaxLeanDeg for the tram).</summary>
+        public static float MaxLeanDegOf(string typeId) => typeId == "tram" ? TramMaxLeanDeg : MaxLeanDeg;
+
+        /// <summary>How the lean follows the pitch (THE lean rule; the owner judges the look from previews, so it is one switch).
+        /// HeadFirst (default): lean = clamp(|pitch| - LeanFreeDeg, 0, max lean): a mast leans only where the head alone cannot
+        /// follow the rope. Proportional: lean = |pitch| x LeanShare, at most the max lean (every pitched tower leans a little).</summary>
+        public enum LeanRule : byte
+        {
+            HeadFirst,
+            Proportional,
+        }
+
+        /// <summary>The lean rule in force (LeanDeg).</summary>
+        public const LeanRule Rule = LeanRule.HeadFirst;
+
+        /// <summary>LeanRule.Proportional's share of the pitch.</summary>
+        public const float LeanShare = 0.5f;
+
+        /// <summary>The mast lean, degrees (&gt;= 0, the top leans downhill: toward the lower of the two chords' ends), of a
+        /// <paramref name="typeId"/> tower whose rope pitch is <paramref name="pitchDeg"/> (ChordPitchDeg, either sign).</summary>
+        public static float LeanDeg(string typeId, float pitchDeg)
+        {
+            float p = math.abs(pitchDeg), max = MaxLeanDegOf(typeId);
+            if (!math.isfinite(p))
+                return 0f;
+            return Rule == LeanRule.Proportional ? math.min(p * LeanShare, max) : math.clamp(p - LeanFreeDeg(typeId), 0f, max);
+        }
+
+        /// <summary>The rope anchor of a leaned tower in the line's (along, y) plane: the mast turns about its foot (<paramref
+        /// name="along"/>, <paramref name="footY"/>), so the anchor <paramref name="ropeY"/> - footY above it moves downhill (against the
+        /// sign of <paramref name="pitchDeg"/>, up toward +along = +) by that height x sin(lean) and drops by height x (1 - cos(lean))
+        /// (spike tilted-towers-2026-11-04 section 1.2: the head shift yA sin(lean)).</summary>
+        public static void LeanedAnchor(float along, float footY, float ropeY, float pitchDeg, float leanDeg, out float anchorAlong,
+            out float anchorY)
+        {
+            float h = ropeY - footY, a = math.radians(leanDeg);
+            float sign = pitchDeg > 0f ? 1f : pitchDeg < 0f ? -1f : 0f;
+            anchorAlong = along - sign * h * math.sin(a);
+            anchorY = footY + h * math.cos(a);
+        }
+
+        /// <summary>The leaned tower's rotation: the node yaw <paramref name="yaw"/> pitched about its local x so the mast top leans by
+        /// <paramref name="leanDeg"/> downhill, where <paramref name="pitchAlongZ"/> is the rope's pitch (degrees, nose up along the
+        /// tower's +z). A rope rising toward +z leans the top toward -z: the mast is turned nose up along +z by the lean
+        /// (PitchedRotation's convention, RotateX(-a) = nose up along +z).</summary>
+        public static quaternion LeanRotation(quaternion yaw, float pitchAlongZ, float leanDeg)
+        {
+            float a = math.radians(leanDeg) * (pitchAlongZ > 0f ? 1f : pitchAlongZ < 0f ? -1f : 0f);
+            return math.mul(yaw, quaternion.RotateX(-a));
+        }
+
+        /// <summary>The lean, radians nose up along the tower's +z, that LeanRotation applied (the signed mast pitch the bones are
+        /// relative to).</summary>
+        public static float SignedLean(float pitchAlongZ, float leanDeg) =>
+            math.radians(leanDeg) * (pitchAlongZ > 0f ? 1f : pitchAlongZ < 0f ? -1f : 0f);
+
         // ── Breakover / hold-down (docs/research/breakover-holddown-plan-2026-11-03.md, section 2.2) ─────────────────────────────
 
         /// <summary>The largest rope deflection one roller may take, degrees: 0.07 rad (D.M. 8 March 1999, fixed-grip and detachable
@@ -317,8 +442,9 @@ namespace SkiResortMod.Systems
 
         /// <summary>The head pitch of a headed tower (DQ / GD, DECISIONS 594; spike tilted-towers-2026-11-04 option B): the whole head
         /// (gantry, deck, trains) turns about the trains' pivot line to the bisector of its ropes, the mean of the front and back lane-end
-        /// pitches (inputs as HalfPitches; a side without a rope takes the other's pitch), clamped to ±<paramref name="headMax"/> (the
-        /// type's steepest rope, MaxTrainPitch). 0 when neither side has a rope.</summary>
+        /// pitches (inputs as HalfPitches, relative to the mast; a side without a rope takes the other's pitch), clamped to
+        /// ±<paramref name="headMax"/> (HeadRelMax since DECISIONS 600: the mast leans for the rest; 594 used the type's steepest rope).
+        /// 0 when neither side has a rope.</summary>
         public static float HeadPitch(float front, int nFront, float back, int nBack, float headMax)
         {
             if (nFront == 0 && nBack == 0)
@@ -331,8 +457,8 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>HalfPitches for a headed tower: the head at HeadPitch, each half at its rope's pitch clamped to the head ±
-        /// MaxHalfBreakDeg (no absolute TrainPitchLimit: the head carries the slope). The halves stay absolute pitches (the Head bone is
-        /// their sibling on the same pivot). True when a half was clamped; false and zeros when neither side has a rope.</summary>
+        /// MaxHalfBreakDeg (no TrainPitchLimit: the head carries the slope). Inputs and outputs are relative to the mast (the Head bone and
+        /// the halves are siblings on the same pivot). True when a half was clamped; false and zeros when neither side has a rope.</summary>
         public static bool HeadedHalfPitches(float front, int nFront, float back, int nBack, float headMax, out float head, out float pFront,
             out float pBack)
         {

@@ -142,6 +142,29 @@ ground becomes a Breakover: it moves one sample past the crest toward the higher
 member that keeps both spans clear and adds no infill tower. `MinTowers` prefers the most towers on the uphill sample of a convex crest
 (`Breaks`), never at the cost of an extra tower.
 
+### Pitch cap and mast lean (DECISIONS 600)
+- **Pitch** = the rope's slope through one tower, `LiftAlignMath.ChordPitchDeg`: the mean of the angles of its two chords (plumb rope
+  point to plumb rope point, no sag). Per tower, never per line.
+- **Hard cap** `LiftTowerPlanConstants.PitchCapDeg` (FG 38, DQ 40, GD 40, tram 55; research steep-angles-real-lifts section 5.1).
+  `Over()` in the angle pass is max(bend past its cap, pitch past the pitch cap), so the pass repairs a steep tower like a bent one:
+  (a) a shift within AngleShiftM with any member, (b) a pair on the shoulder (the tram too: only its pitch cap brings it to the pass,
+  and it has no partner / pull candidates), (c) dropping the tower when the span over its spot stays fine (a longer span). The pass
+  now runs whenever Pairs is on and the cap is finite (the tram included). Still over: `LiftTowerPlan.IsTooSteep`, `TooSteepTowers`,
+  the Verdict / OverCapNote "N tower(s) TOO STEEP (pitch past P deg)", not Sound, the lift tool's PLAN_PITCH / TOWER_PITCH and a red
+  tower (FIX-LIST 55's mechanism).
+- **Soft caps** `PitchSoftDeg` (36 / 38 / 39 / 45) are stored and logged only: no search cost uses them.
+- **Lean**: `SetLeans` (Build) gives every judged tower `PitchDeg`, `LeanDeg` (LiftAlignMath.LeanDeg) and the leaned anchor
+  `AnchorAlongM` / `AnchorRopeM` (LiftAlignMath.LeanedAnchor, foot pivot). Pitch is judged on the plumb rope points, so the lean
+  never feeds back into itself. The spans hang from the anchors (Build, `RopeAt`, the overlay): the floor is judged on the leaned
+  rope, samples between a tower's foot and its anchor are skipped (the tower overhangs there); the max rope height stays on the plumb
+  chord, as the search judged it (a lean only shifts a steep chord a few meters downhill, LP-5's wall).
+- **LeanPass** (after the angle pass, and in PlanFixed when it assigns): where the leaned floor is short and the plumb one was not, the
+  leaned end tower (else the other end) steps one member taller at a time while that lowers the summed leaned + plumb violation of
+  its spans. Raise-only: a lower step broke LP-5 idempotence (the search is lean-unaware).
+- Mirrored plans (from B) negate `PitchDeg` and mirror `AnchorAlongM`. The plan dump prints "pitch +P, lean L (anchor ... m along,
+  ... m)" per tower (`PitchText`).
+- Gates: LiftBatch PC-0 (bite measurement), PC-1..PC-6 (PitchCapTests.cs); docs research/pitch-cap-bite-2026-11-04.md.
+
 ## Direction: the same plan from either end (planner-direction-2026-11-04)
 The phases work in one direction, and every tie and remainder resolves toward the end they start from: the sample grid starts there
 and its short last step lands at the other end (`MinGap` counts samples, so the fallback can stand a tower StepM + remainder from the

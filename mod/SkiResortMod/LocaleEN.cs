@@ -1600,11 +1600,14 @@ namespace SkiResortMod
                 { "SkiResort.LiftTool.PLAN_STEEP", "Towers: {TOWERS}, length {LENGTH} m. The red part is too steep for this lift: move the tower beside it, or pick flatter ends." },
                 // FIX-LIST 55: every span clears, but a tower's rope bends past its sheave train's cap (the red tower).
                 { "SkiResort.LiftTool.PLAN_TRAIN", "Towers: {TOWERS}, length {LENGTH} m. The rope bends past what the red tower's wheels can follow: move it or the end. The lift still runs." },
+                // DECISIONS 600: every span clears, but the rope runs through a tower steeper than the type's pitch cap (the red tower).
+                { "SkiResort.LiftTool.PLAN_PITCH", "Towers: {TOWERS}, length {LENGTH} m. {TYPE}: the rope runs through the red tower steeper than {CAP}°, too steep for this type. The lift still runs." },
                 // Over a tower: its height (the tower model's), and how high the chairs or cabins pass over the ground next to it.
                 { "SkiResort.LiftTool.TOWER", "Tower {N} of {COUNT}: {HEIGHT} m tall. Chairs and cabins pass {CLEAR} m above the ground at the tower. Drag to move it." },
                 { "SkiResort.LiftTool.TOWER_PINNED", "Tower {N} of {COUNT}: {HEIGHT} m tall, placed by you. Chairs and cabins pass {CLEAR} m above the ground at the tower." },
                 { "SkiResort.LiftTool.TOWER_LOW", "Tower {N} of {COUNT}: {HEIGHT} m tall. Chairs and cabins come too close to the ground next to it." },
                 { "SkiResort.LiftTool.TOWER_TRAIN", "Tower {N} of {COUNT}: {HEIGHT} m tall. The rope bends {DEG}° here, past the {CAP}° its wheels can follow." },
+                { "SkiResort.LiftTool.TOWER_PITCH", "Tower {N} of {COUNT}: {HEIGHT} m tall. The rope runs through it at {DEG}°, steeper than {CAP}°: too steep for this lift type." },
                 // Notices: shown for a few seconds after a refused click.
                 { "SkiResort.LiftTool.NOTHING_TO_BUILD", "Nothing to build yet: click both ends of the line first." },
                 { "SkiResort.LiftTool.NO_START", "Click next to a station's line stub, or the loose end of a lift line." },

@@ -80,12 +80,14 @@ namespace SkiResortMod.Systems
 
         /// <summary>The plan line: tower count and length, and the first thing wrong in words (the overlay shows where): a span below
         /// the floor (red), an edge too steep for the engine (red), a span above the max rope height (purple), a tower whose rope bends
-        /// past its sheave train's cap (red tower, PLAN_TRAIN). Green (Success) only for PLAN_CLEAR, a Sound plan.</summary>
+        /// past its sheave train's cap (red tower, PLAN_TRAIN), a tower the rope runs through steeper than the type's pitch cap (red
+        /// tower, PLAN_PITCH). Green (Success) only for PLAN_CLEAR, a Sound plan.</summary>
         internal static LocalizedString PlanText(LiftTowerPlan plan, out bool clear)
         {
             string key = LiftLineInput.PlanKey(plan, out float length);
             clear = key == "PLAN_CLEAR";
-            return LiftLineToolSystem.T(key, ("TOWERS", LiftLineToolSystem.N(plan.LineTowers)), ("LENGTH", LiftLineToolSystem.N(length)));
+            return LiftLineToolSystem.T(key, ("TOWERS", LiftLineToolSystem.N(plan.LineTowers)), ("LENGTH", LiftLineToolSystem.N(length)),
+                ("TYPE", TypeText(plan.Constants.TypeId)), ("CAP", LiftLineToolSystem.N(plan.Constants.PitchCapDeg)));
         }
 
         /// <summary>Over a tower: its number, its height (the ladder member's tower top above its base) and the lowest chair or cabin

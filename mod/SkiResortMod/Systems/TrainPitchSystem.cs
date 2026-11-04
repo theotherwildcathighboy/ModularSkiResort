@@ -3,8 +3,8 @@
 // The trains are articulated (owner verdict 2026-11-02, option C): two half-trains hinged on the main pin, which lies on the anchor, each
 // pitched to its own span's rope. The tower mesh is skinned with bones "TrainFront*" (the half on the tower's +z side) and "TrainBack*"
 // (-z); each bone's origin is the anchor its rope corners at (a second rope on the same half, the tram's haul rope, gets its own bone,
-// e.g. "TrainFrontHaul"). The pitch is visual only: the tower Transform stays yaw-only (AlignSystem resets it on every node update) and the
-// rope lanes keep anchoring on the prefab's sub-lane ends, which the bones turn about.
+// e.g. "TrainFrontHaul"). The pitch is visual only: the tower Transform stays yaw-only (AlignSystem resets it on every node update) unless
+// TowerLeanSystem leans it (DECISIONS 600), and the rope lanes keep anchoring on the prefab's sub-lane ends, which the bones turn about.
 //   TrainPitchSystem (Modification4B, after LiftCensusSystem): per tower with train bones, the pitches from the rope lanes the engine built
 //     (LaneSystem runs at Modification4): every lift-edge rope lane end on the tower's anchors gives its angle along the tower's +z
 //     (LiftAlignMath.LaneEndPitch); the lanes leaving toward +z average to the front pitch, those toward -z to the back pitch
@@ -26,9 +26,13 @@
 // (ObjectInterpolateSystem.cs:344-351).
 //   Head (DECISIONS 594, spike tilted-towers-2026-11-04 option B): a DQ / GD mesh with a bone named "Head*" (child of Root, origin on the
 //     same pivot line as the halves) is headed: the head (gantry, deck, trains' carrier) turns to LiftAlignMath.HeadPitch, the bisector
-//     of the ropes clamped to the type's steepest rope (MaxTrainPitch: DQ 42.0, GD 50.2), and the halves to the head +-
-//     MaxHalfBreakDeg (HeadedHalfPitches, no 30 deg cap); its train limit is HeadedTrainOverDeg. The halves keep absolute pitches (Head
-//     is their sibling). A pose change re-arms TowerNumberTileSystem, which poses the tiles (and the GD beacon) through the head.
+//     of the ropes clamped to +-HeadRelMaxDeg (20) relative to the mast (DECISIONS 600; 594's MaxTrainPitch head limits DQ 42.0 /
+//     GD 50.2 went), and the halves to the head +- MaxHalfBreakDeg (HeadedHalfPitches); its train limit is HeadedTrainOverDeg. Head
+//     and halves are siblings on the mast. A pose change re-arms TowerNumberTileSystem, which poses the tiles (and the GD beacon)
+//     through the head.
+//   Mast lean (DECISIONS 600): TowerLeanSystem leans a steep tower's mast about its foot. Every bone is local to the mast, so the pass
+//     takes the mast's pitch (LiftAlignMath.MastPitch of the tower rotation; 0 on a plumb tower) off the absolute lane-end pitches
+//     before every limit above: the train limits and the hub row are relative to the mast.
 // Never: Temp or Deleted towers (a preview stays level), towers whose prefab has no train bone (unskinned art: nothing changes), Editor.
 // Log discipline: one line per rigged tower prefab per load, one line per pass that posed a tower or changed the rope-less count (with
 // the towers whose break was clamped), a one-shot "!!!" catch.
@@ -218,7 +222,7 @@ namespace SkiResortMod.Systems
             m_Pending.Clear();
             m_OverNext.Clear();
             int towers = 0, noRope = 0, clamped = 0, headed = 0, headsPosed = 0;
-            float maxDeg = 0f, maxHalfBreakDeg = 0f, maxHeadDeg = 0f;
+            float maxDeg = 0f, maxHalfBreakDeg = 0f, maxHeadDeg = 0f, maxLeanDeg = 0f;
             // Read everything first; the component adds below are structural changes, which would invalidate the node buffers read here.
             for (int i = 0; i < m_Edges.Count; i++)
             {
@@ -228,7 +232,7 @@ namespace SkiResortMod.Systems
                     EntityManager.HasComponent<Deleted>(edge) || !EntityManager.TryGetComponent(edge, out Edge e))
                     continue;                             // a newer census build carries the replacement
                 float slopeMax = SkiCatalog.Lifts[ce.Type].Envelope.SlopeMax;
-                float headMax = LiftAlignMath.MaxTrainPitch(slopeMax);
+                float headMax = LiftAlignMath.HeadRelMax;   // relative to the (leaned) mast, DECISIONS 600 (594's MaxTrainPitch went)
                 for (int end = 0; end < 2; end++)
                 {
                     Entity node = end == 0 ? e.m_Start : e.m_End;
@@ -241,6 +245,11 @@ namespace SkiResortMod.Systems
                             !EntityManager.TryGetComponent(tower, out PrefabRef pr) || !EntityManager.TryGetComponent(tower, out Transform t))
                             continue;
                         bool roped = RopeAt(node, pr.m_Prefab, t, out float meanF, out int nF, out float meanB, out int nB);
+                        // The bones are local to the mast: a leaned tower (TowerLeanSystem) takes its lean off the absolute rope pitches.
+                        float mast = LiftAlignMath.MastPitch(t.m_Rotation);
+                        meanF -= mast;
+                        meanB -= mast;
+                        maxLeanDeg = math.max(maxLeanDeg, math.degrees(math.abs(mast)));
                         List<RigBone> rig = RigOf(pr.m_Prefab);
                         int headBone = HeadOf(rig);
                         LiftAlignMath.TrainLimits(slopeMax, rig != null && m_WideTram.Contains(pr.m_Prefab), out float maxPitch,
@@ -327,7 +336,8 @@ namespace SkiResortMod.Systems
             {
                 double ms = (Stopwatch.GetTimestamp() - t0) * 1000.0 / Stopwatch.Frequency;
                 Mod.Log.Info($"Towers [trains]: pass {m_Passes} ({why}) rigged towers {towers}, posed {m_Pending.Count} (new {added}), max |pitch| " +
-                             $"{maxDeg:F1} deg, max half-break {maxHalfBreakDeg:F1} deg" +
+                             $"{maxDeg:F1} deg (relative to the mast), max half-break {maxHalfBreakDeg:F1} deg" +
+                             (maxLeanDeg > 0.05f ? $", max mast lean {maxLeanDeg:F1} deg" : string.Empty) +
                              (headed > 0 ? $", headed {headed} (max |head| {maxHeadDeg:F1} deg)" : string.Empty) +
                              (clamped > 0 ? $", {clamped} clamped to their half-break limit ({LiftAlignMath.MaxHalfBreakDeg:F0} deg, wide tram " +
                                             $"saddles {LiftAlignMath.TramHalfBreakMaxDeg:F0}: the rope leaves the inner wheels or the saddle)" : string.Empty) +

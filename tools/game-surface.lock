@@ -240,6 +240,7 @@ type Game.Notifications.IconLayerMask enum 4953af737e None=0 Default=1 Marker=2 
 type Game.Notifications.IconPriority enum 91dfcc5158 Min=0 Info=10 Problem=50 Warning=100 MajorProblem=150 Error=200 FatalProblem=250 Max=byte.MaxValue
 type Game.Notifications.RaycastJobs class 82d3289dbe
 type Game.Objects.ActivityLocation struct 62cbfd104a
+type Game.Objects.AlignSystem class 9d76312a0a
 type Game.Objects.Aligned struct 8bf7c2c6c6 m_SubObjectIndex:ushort
 type Game.Objects.Decoration struct b5557caa3d
 type Game.Objects.DestroySystem class 72d3323f63
@@ -711,6 +712,7 @@ anchor SkiStationAlignSystem before Game.Rendering.OverlayRenderSystem Rendering
 anchor SkiStubCleanupSystem before Game.Objects.SubElementDeleteSystem PostTool
 anchor StationFacingRefusalSystem before Game.Tools.ValidationSystem.Components ModificationEnd
 anchor StationFacingTooltipSystem after Game.UI.Tooltip.TempCostTooltipSystem UITooltip
+anchor TowerLeanSystem after Game.Objects.AlignSystem Modification4
 anchor TrainBoneSystem after Game.Rendering.InitializeBonesSystem Rendering
 guid UnityGUID:024ff26a34d89b241b55fd5ea12c5dcc m_Object
 guid UnityGUID:03b1510ce391829409b4f09a7bffaa49 m_Object

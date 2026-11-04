@@ -363,7 +363,7 @@ namespace LiftBatch
                     // BO-1's lines (a ground break past one train's reach, inside a pair's), on and off the grid
                     World w = id == "fixedGrip" ? new World { Label = "FG crest 0.20 -> 0.05 (no twins)", C = c, L = 400f + extra, H = Crest(0.20f, 200f, 0.05f, 0f) }
                         : id == "detachable" ? new World { Label = "DQ crest 0.60 -> 0.05", C = c, L = 1000f + extra, H = Crest(0.60f, 500f, 0.05f, 0f) }
-                        : new World { Label = "GD crest 0.90 -> 0.10", C = c, L = 1000f + extra, H = Crest(0.90f, 500f, 0.10f, 0f) };
+                        : new World { Label = "GD crest 0.90 -> 0.10", C = BreakoverTests.NoPitchCap(c), L = 1000f + extra, H = Crest(0.90f, 500f, 0.10f, 0f) };
                     w.Label += ", " + F(w.L, "F1") + " m";
                     LiftLineEdit ef = Edit(w, false, out LiftTerrainSampler fa, out LiftTerrainSampler fb);
                     LiftLineEdit eb = Edit(w, true, out LiftTerrainSampler ba, out LiftTerrainSampler bb);

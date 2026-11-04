@@ -128,6 +128,11 @@ namespace SkiResortMod
             updateSystem.UpdateBefore<LiftReconnectSystem, Game.Net.LaneSystem>(
                 SystemUpdatePhase.Modification4);
 
+            // Mast lean (DECISIONS 600). AFTER Game.Objects.AlignSystem in Modification4, which re-derives a node tower's Transform
+            // yaw-only on every Updated (AlignSystem.cs:153-160), and so before LaneSystem (SystemOrder.cs:153, :155), which hangs the
+            // ropes from the leaned anchors in the same frame. Any other slot shows a plumb frame or ropes on the old anchors.
+            updateSystem.UpdateAfter<TowerLeanSystem, Game.Objects.AlignSystem>(SystemUpdatePhase.Modification4);
+
             // Cursor aim plane: rewrites the prefab's NetGeometryData.m_DefaultSurfaceHeight.max (the NetToolSystem ray offset) once per
             // load; data only, disabled, OnGameLoadingComplete only (like SnowLineSystem).
             updateSystem.UpdateAt<CursorAimSystem>(SystemUpdatePhase.GameSimulation);

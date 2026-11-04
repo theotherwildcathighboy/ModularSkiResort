@@ -35,6 +35,15 @@ namespace LiftBatch
                 return s_Failures;
             }
 
+            if (Environment.GetEnvironmentVariable("LIFTBATCH_ONLY") == "pitch")
+            {
+                PitchCapTests.Run(Check);
+                foreach (string line in PitchCapTests.Report)
+                    Console.WriteLine("PITCH " + line);
+                Console.WriteLine("SUMMARY  LiftBatch (PC only) checks=" + s_Checks + " failures=" + s_Failures);
+                return s_Failures;
+            }
+
             CensusStraightLift();
             CensusMiddleSectionDeletedAndRedrawn();
             CensusApproachSectionDeleted();
@@ -115,6 +124,10 @@ namespace LiftBatch
             TramSaddleTests.Run(Check);
             foreach (string line in TramSaddleTests.Report)
                 Console.WriteLine("SADDL " + line);
+            PitchCapTests.Run(Check);
+            foreach (string line in PitchCapTests.Report)
+                if (!line.StartsWith("PC-0 row", StringComparison.Ordinal))   // the per-line rows: LIFTBATCH_ONLY=pitch
+                    Console.WriteLine("PITCH " + line);
             DirectionTests.Run(Check);
             foreach (string line in DirectionTests.Report)
                 Console.WriteLine("DIR   " + line);

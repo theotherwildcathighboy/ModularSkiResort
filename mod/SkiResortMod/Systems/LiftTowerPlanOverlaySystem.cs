@@ -51,7 +51,8 @@ namespace SkiResortMod.Systems
                 LiftPlanNode node = plan.Nodes[i];
                 float3 p = xzAt(node.AlongM);
                 d.Base[i] = new float3(p.x, node.GroundM, p.z);
-                d.Rope[i] = new float3(p.x, node.RopeM, p.z);
+                float3 pa = xzAt(node.AnchorAlongM);   // the (leaned) rope anchor, DECISIONS 600
+                d.Rope[i] = new float3(pa.x, node.AnchorRopeM, pa.z);
                 d.Right[i] = rightAt(node.AlongM);
                 d.IsStation[i] = node.IsStation;
                 d.Member[i] = node.Member;

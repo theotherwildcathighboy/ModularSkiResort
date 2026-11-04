@@ -1709,7 +1709,7 @@ namespace SkiResortMod.Systems
                     else if (plan.Spans[s].HeightViolated && status == 0)
                         status = 2;
                 }
-                if (plan.IsOverCap(i))   // red: the rope bends past its sheave train's cap (FIX-LIST 55; the tooltip says so on hover)
+                if (plan.IsOverCap(i) || plan.IsTooSteep(i))   // red: past its sheave train's cap (FIX-LIST 55) or its pitch cap (600)
                     status = 1;
                 bool hover = i == m_HoverTower && !Dragging;
                 UnityEngine.Color tc = hover ? HoverColor : TowerColors[status];

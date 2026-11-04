@@ -65,6 +65,10 @@ namespace LiftBatch
         /// FG judged at its line cap 16 (the B1 pair cases).</summary>
         internal static LiftTowerPlanConstants WithoutTwins(string id) => LiftTowerPlanConstants.For(id).With(twins: new LiftTowerTwin[0]);
 
+        /// <summary>The constants without the pitch cap (DECISIONS 600): the bend tests on faces steeper than the cap.</summary>
+        internal static LiftTowerPlanConstants NoPitchCap(LiftTowerPlanConstants c) =>
+            c.With(pitchCapDeg: float.PositiveInfinity, pitchSoftDeg: float.PositiveInfinity);
+
         // ── AL-12: RopeAngles ─────────────────────────────────────────────────────────────────────────────────────────────────
         private static void Al12RopeAngles()
         {
@@ -275,7 +279,8 @@ namespace LiftBatch
             {
                 case "fixedGrip": l = new Line { Label = "FG crest 0.20 -> 0.05 (no twins)", C = WithoutTwins(id), T = Crest(0.20f, 200f, 0.05f, 200f), Length = 400f, Break = 200f }; break;
                 case "detachable": l = new Line { Label = "DQ crest 0.60 -> 0.05", C = c, T = Crest(0.60f, 500f, 0.05f, 500f), Length = 1000f, Break = 500f }; break;
-                default: l = new Line { Label = "GD crest 0.90 -> 0.10", C = c, T = Crest(0.90f, 500f, 0.10f, 500f), Length = 1000f, Break = 500f }; break;
+                // the 0.90 face (42 deg) is past the GD pitch cap (40, DECISIONS 600): the pitch repair is PC-1's; here the bend repair alone
+                default: l = new Line { Label = "GD crest 0.90 -> 0.10", C = NoPitchCap(c), T = Crest(0.90f, 500f, 0.10f, 500f), Length = 1000f, Break = 500f }; break;
             }
             s_Crests[id] = l;
             return l;
@@ -381,7 +386,8 @@ namespace LiftBatch
             int singles = 0, pairs = 0, none = 0, flagged = 0, lines = 0;
             foreach (string id in ChairTypes)
             {
-                LiftTowerPlanConstants c = LiftTowerPlanConstants.For(id);
+                // the bend sweep: the GD faces reach 1.1 (47.7 deg), past the GD pitch cap, whose repair is PC-1's to judge
+                LiftTowerPlanConstants c = NoPitchCap(LiftTowerPlanConstants.For(id));
                 float gmax = id == "fixedGrip" ? 0.4f : id == "detachable" ? 0.8f : 1.1f;
                 for (float g1 = 0.05f; g1 <= gmax + 1e-3f; g1 += 0.05f)
                 foreach (float g2 in new[] { -0.1f, 0f, 0.05f })
