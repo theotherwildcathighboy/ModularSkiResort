@@ -6,6 +6,11 @@ line, identity rest, as the halves): the head (gantry, deck, rails, hangers, pla
 of the two halves (TrainPitchSystem: LiftAlignMath.HeadPitch, clamped to the type's planner max, DQ 42.0 / GD 50.2), the
 halves to head +- 20. The ladder, its landings, the mast and the pad stay on Root.
 
+Letters (HEAD_RANGES, --letter): S = the 594 round (a plumb mast, the head to the planner max); T = the tower-lean round
+(default): the mast leans up to 20 deg and the planner caps the rope pitch at 40, so the head turns +-20 and each half
++-40 relative to the mast. T is S's geometry with the cut-outs sized for that range: the head's swept envelope (mast top,
+Hold grab extensions) at +-20, the comm wedge (arrest rail, H1) at 40; G6 and the grip clearance sweep rel_grid.
+
 The art this needs (all on the member's shipped atlas: 0 MB, lift_tower.twin_apply_atlas + a fitted island per new part):
 - trunnion: two Root cheeks on the mast's flange plate carry two Root stub pins on the pivot line; the head's hubs
   sleeve them (Head lugs), webs carry the hubs up to a cross-head in two halves (`gantry_trunnion_yoke_n/p`, slotted
@@ -52,7 +57,15 @@ import cs2_skin  # noqa: E402
 import lift_tower as LT  # noqa: E402
 import cs2_kit as K  # noqa: E402
 
-HEAD_LETTER = "S"                       # the round's mesh letter (tower letters in use: J..R; twins A)
+HEAD_LETTER = "T"                       # the round's mesh letter (tower letters in use: J..R; twins A; S = DECISIONS 594)
+# The head's range per letter (deg, relative to the mast; None = the type's planner max, SKIN_TYPE_MAX_SLOPE):
+#   S (DECISIONS 594): a plumb mast, the head to the planner max (DQ 42 / GD 50.2), every half too.
+#   T (the tower-lean round): the mast leans up to 20 deg and the planner caps the rope pitch (the mean of the two chords)
+#     at 40 (DQ, GD), so the head turns at most +-20 relative to the mast (40 - 20) and each half at most head +- the
+#     half-break (20) = +-40 relative to the mast; the comm wire spans the same nodes, so it too stays within 40.
+HEAD_RANGES = {"S": dict(head=None, halves=None), "T": dict(head=20.0, halves=40.0)}
+HEAD_REL_MAX = HEAD_RANGES[HEAD_LETTER]["head"]
+HALF_REL_MAX = HEAD_RANGES[HEAD_LETTER]["halves"]
 HEAD_BONE = "Head"
 HEAD_BONES = ("Root", "TrainFront", "TrainBack", HEAD_BONE)
 HEAD_MEMBERS = ("DQ10", "DQ12", "DQ14", "DQ16", "DQ18", "DQ20", "GD12", "GD16", "GD20")
@@ -93,10 +106,31 @@ def type_max(fam):
     return LT.SKIN_TYPE_MAX_SLOPE[fam]
 
 
+def use_letter(letter):
+    """Switch the round's letter and with it the head's range (HEAD_RANGES)."""
+    global HEAD_LETTER, HEAD_REL_MAX, HALF_REL_MAX
+    if letter not in HEAD_RANGES:
+        raise SystemExit(f"unknown head letter {letter} (known {sorted(HEAD_RANGES)})")
+    HEAD_LETTER = letter
+    HEAD_REL_MAX = HEAD_RANGES[letter]["head"]
+    HALF_REL_MAX = HEAD_RANGES[letter]["halves"]
+
+
+def head_max(fam):
+    """The head's limit relative to the mast (deg)."""
+    return type_max(fam) if HEAD_REL_MAX is None else min(HEAD_REL_MAX, type_max(fam))
+
+
+def half_max(fam):
+    """Each half's (and the comm wire's) limit relative to the mast (deg)."""
+    return type_max(fam) if HALF_REL_MAX is None else min(HALF_REL_MAX, type_max(fam))
+
+
 def cone_z(fam, za, travel):
-    """The comm wire's underside over a point `travel` m out of its anchor (height za), at the type's steepest pitch
-    (the vanilla LV hexagon, flats top / bottom: its bottom flat h / cos below the axis), minus CONE_MARGIN."""
-    a = math.radians(type_max(fam))
+    """The comm wire's underside over a point `travel` m out of its anchor (height za), at the steepest pitch relative
+    to the mast (half_max; the vanilla LV hexagon, flats top / bottom: its bottom flat h / cos below the axis), minus
+    CONE_MARGIN."""
+    a = math.radians(half_max(fam))
     return za - abs(travel) * math.tan(a) - LT.LANE_ROPE["h"] / math.cos(a) - CONE_MARGIN
 
 
@@ -552,12 +586,27 @@ def head_part_bones(t, table, spec):
 
 # -- G6 with the head -----------------------------------------------------------------------------------------------------
 
+def rel_grid(hmax, brk, tmax):
+    """[(front, back)] deg relative to the mast (T): the head (the mean) over {-hmax, -hmax / 2, 0, hmax / 2, hmax},
+    the half-break over {-brk, -brk / 2, 0, brk / 2, brk} at each, each half clamped to +-tmax. Deterministic order."""
+    out = []
+    for m in (-hmax, -hmax / 2.0, 0.0, hmax / 2.0, hmax):
+        for d in (-brk, -brk / 2.0, 0.0, brk / 2.0, brk):
+            p = (round(max(-tmax, min(tmax, m + d)), 4), round(max(-tmax, min(tmax, m - d)), 4))
+            if p not in out:
+                out.append(p)
+    return out
+
+
 def head_grid(tw, tmax=None):
-    """[{TrainFront, TrainBack, Head}] deg: cs2_skin.joint_grid(type max) (Hold: the concave half), Head = the mean."""
+    """[{TrainFront, TrainBack, Head}] deg (Hold: the concave half), Head = the mean. S: cs2_skin.joint_grid(type max);
+    T: rel_grid(head_max, half-break, half_max), the poses a leaned mast meets."""
     fam = tw["twin"].family
-    tmax = type_max(fam) if tmax is None else tmax
     brk = LT.TWIN_HALF_BREAK.get(tw["kind"], cs2_skin.HALF_BREAK_MAX)
-    grid = cs2_skin.joint_grid(tmax, brk)
+    if HEAD_REL_MAX is None or tmax is not None:
+        grid = cs2_skin.joint_grid(type_max(fam) if tmax is None else tmax, brk)
+    else:
+        grid = rel_grid(head_max(fam), brk, half_max(fam))
     if LT.TWIN_CONCAVE_ONLY.get(tw["kind"], False):
         grid = [(f, b) for f, b in grid if f - b <= 1e-9]
     return [{"TrainFront": f, "TrainBack": b, HEAD_BONE: round((f + b) / 2.0, 4)} for f, b in grid]
@@ -636,7 +685,7 @@ def headed_sweep(obj, table, tw, part_bone, poses=None, label=None, gate=True):
         bad = str(e)
     rep["failed"] = bad
     mc = rep["min_clear"]
-    print(f"[head] G6 [{label or spec.key}] {len(poses)} poses (type max {type_max(fam)}, Head = mean): min clearance "
+    print(f"[head] G6 [{label or spec.key}] {len(poses)} poses (letter {HEAD_LETTER}: head {head_max(fam)} / halves {half_max(fam)} rel mast, Head = mean): min clearance "
           f"{mc['m'] * 1000:.1f} mm at {mc['pose']} ({' / '.join(str(n) for n in mc['parts'] or [])}); "
           f"{'FAIL ' + bad[:300] if bad else 'pass'}")
     if bad and gate:
@@ -688,7 +737,7 @@ def negative(t, table, tw, pb):
     raised. Their hold-down train reaches no head part at +-max on every key (GD Hold measured clean, v2), and v1's GD
     Hold negative failed only on the comm wire crossing the level girder on the pivot line, which the post removed."""
     fam = tw["twin"].family
-    tm = type_max(fam)
+    tm = type_max(fam)          # the planner max on every letter: at T the GD halves at +-40 with a level head still clear
     poses = [{"TrainFront": s * tm, "TrainBack": s * tm, HEAD_BONE: 0.0} for s in (1.0, -1.0)]
     rep = headed_sweep(t, table, tw, pb, poses=poses, label=f"{tw['key']} negative (head level)", gate=False)
     if tw["kind"] != "Hold":
@@ -774,6 +823,8 @@ def montage(paths_grid, out_path, gap=12):
 
 
 def preview_angles(fam):
+    if HEAD_REL_MAX is not None:
+        return (0.0, head_max(fam) / 2.0, head_max(fam))
     return (0.0, 20.0, 42.0 if fam == "DQ" else 50.0)
 
 
@@ -814,7 +865,7 @@ def key_previews(t, arm, lods, tw, asset_dir, name, raw, ref=None):
     for a in preview_angles(fam):
         pose = {"TrainFront": a, "TrainBack": a, HEAD_BONE: a}
         out["lineup"][a] = rp(t, arm, spec, pose, asset_dir, name, raw, lineup_views(tw, a))
-    tm = type_max(fam)
+    tm = head_max(fam)
     pose = {"TrainFront": tm, "TrainBack": tm, HEAD_BONE: tm}
     rest = {"TrainFront": 0.0, "TrainBack": 0.0, HEAD_BONE: 0.0}
     out["masttop"] = (rp(t, arm, spec, rest, asset_dir, name, raw, masttop_views(tw, "p0"))
@@ -946,7 +997,8 @@ def run_key(key, out, preview=None, keep_ref=False):
            "atlas": dict(arep, exact=info["atlas_map"]["exact"], donor=info["atlas_map"]["donor"],
                          fitted=info["atlas_map"]["fitted"], textures_added_mb=0.0),
            "head_transform": info["head_transform"],
-           "g6": {"poses": len(sk["poses"]), "min_clear": sk["min_clear"], "type_max_deg": type_max(fam),
+           "g6": {"poses": len(sk["poses"]), "min_clear": sk["min_clear"], "type_max_deg": type_max(fam), "letter": HEAD_LETTER,
+                  "head_max_deg": head_max(fam), "half_max_deg": half_max(fam),
                   "worst_rope_clear_m": min(r["rope_clear_m"] for r in sk["poses"]),
                   "max_pin_gap_m": max(r["pin_gap_m"] for r in sk["poses"])},
            "negative": neg, "bounds": hb, "head_under_top_to_deg": fits_to,
@@ -970,6 +1022,8 @@ def parse(argv):
     ap.add_argument("--preview", default=None, help="preview folder (raw frames under <preview>/raw)")
     ap.add_argument("--lineup", default=None, help="also the family lineup sheets <preview>/<this>_side.png / _q34.png")
     ap.add_argument("--report", default=None)
+    ap.add_argument("--letter", default=HEAD_LETTER, help=f"the head range by letter ({sorted(HEAD_RANGES)}; default "
+                    f"{HEAD_LETTER})")
     ap.add_argument("--masttop", default=None, help="comma keys: the mast top / ladder sheet <preview>/masttop_ladder.png "
                     "from their raw frames (rows: keys; columns: 3/4 rest, ladder rest, ladder type max, 3/4 type max)")
     return ap.parse_args(argv)
@@ -978,6 +1032,7 @@ def parse(argv):
 def main_cli():
     argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
     args = parse(argv)
+    use_letter(args.letter)
     out = os.path.abspath(args.out)
     if os.path.normcase(out).startswith(os.path.normcase(os.path.join(LT._REPO, "assets", "import"))):
         raise SystemExit("--out is in the shipping tree assets/import: this round exports nothing")
@@ -1017,7 +1072,7 @@ def main_cli():
         grid = []
         for k in args.masttop.split(","):
             tw = headed_spec(k)
-            tm = int(round(type_max(tw["twin"].family)))
+            tm = int(round(head_max(tw["twin"].family)))
             raw = os.path.join(args.preview, "raw")
             grid.append([os.path.join(raw, f"{head_name(tw)}_view_{v}.png")
                          for v in ("masttop_p0", "ladder_p0", f"ladder_p{tm}", f"masttop_p{tm}")])

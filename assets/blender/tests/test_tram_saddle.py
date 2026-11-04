@@ -10,7 +10,9 @@ Each case RAISES unless:
        clearance >= 5 mm, every rope clear and seated on all 20 crowns), G6 at the planner's TS-1 poses (clamped as the
        code clamps them), the rope reach (clear to 60), the negative (C's geometry at the D grid fails G6), C9 budgets
        (the 5 % cap rule), the code's limits (LiftAlignMath.TramSaddlePitchLimitDeg / TramHalfBreakMaxDeg) = the art's;
-       and the TS-1 coverage: D follows >= 200 of the 242 towers, C 108.
+       and the TS-1 coverage: D follows >= 200 of the 242 towers, C 108. The tower-lean round adds: G6 at the lean grid
+       (tram_saddle.lean_grid: the saddle's mean to +-30 relative to a leaned mast, the half-break to +-30) and at the
+       TS-1 towers under the 55 deg pitch cap relative to the least lean (tram_saddle.lean_rows).
   SD2  the hooks' defaults rebuild C: tram_tower.SKIN_TRAM = the shipped C manifest's skin design on every key the
        manifest has; half_break 20, joint_d None, roller_out 0 (D's values live in tram_saddle.D_DESIGN only).
   SD3  deterministic: two D builds hash alike (vertices, loops, part table).
@@ -44,6 +46,9 @@ def sd1(H, out):
         _fail(f"SD1 tram{H}: G6 {g6['poses']} poses (grid {want}), seat tops {g6['seat_tops']}, failed {g6['failed']}")
     if rep["g6_planner"]["failed"]:
         _fail(f"SD1 tram{H}: planner poses {rep['g6_planner']}")
+    lean = rep["g6_lean"]
+    if lean["grid_failed"] or lean["planner_failed"] or lean["grid_poses"] != len(TS.lean_grid()):
+        _fail(f"SD1 tram{H}: lean poses {lean}")
     cov = rep["coverage"]
     if cov["D"]["inside"] < 200 or cov["C"]["inside"] != 108 or cov["towers"] != 242:
         _fail(f"SD1 tram{H}: coverage {cov}")
@@ -51,7 +56,9 @@ def sd1(H, out):
         _fail(f"SD1 tram{H}: textures {rep['textures_added_mb']} MB, negative {rep.get('negative')}")
     print(f"[saddle-test] SD1 tram{H}: LOD0/1/2 {rep['tris']}, G6 {g6['poses']} poses min "
           f"{g6['min_clear']['m'] * 1000:.1f} mm, planner {rep['g6_planner']['poses']} poses, reach "
-          f"{rep['rope_reach']['clear_to_deg']}, coverage C {cov['C']['inside']} / D {cov['D']['inside']}, raised "
+          f"{rep['rope_reach']['clear_to_deg']}, coverage C {cov['C']['inside']} / D {cov['D']['inside']}, lean grid "
+          f"{lean['grid_poses']} poses min {lean['grid_min_clear']['m'] * 1000:.1f} mm, lean planner {lean['planner_poses']} "
+          f"poses ({lean['planner_towers']} towers), raised "
           f"{rep['budget']['raised']}")
     return rep
 

@@ -562,16 +562,22 @@ def kind_poses(fam, kind, art=False):
     cases (breakover-holddown-plan 2.2): support (members, Break) only where d(h / 1.4) >= +1 deg, so the drawn fold is
     convex, up to the art fold 2 x 20 (field: FG towers by a low ground end reach it); Hold only where d(1.5625 h) <= -1
     deg, concave to the art fold; push-pull (Combo) between, its drawn |d| under 7.3 deg: COMBO_FOLD. DQ / GD (headed,
-    DECISIONS 594): the grid to the planner max (SKIN_TYPE_MAX_SLOPE, DQ 42 / GD 50.2) with Head = (front + back) / 2.
+    DECISIONS 594): the grid to the planner max (SKIN_TYPE_MAX_SLOPE, DQ 42 / GD 50.2) with Head = (front + back) / 2;
+    at the lean letter (lift_head T) lift_head.rel_grid: the head to +-20 and each half to +-40 relative to the mast.
     art=True: the whole G6 grid both ways (report only)."""
     headed = fam in HEADED
     tmax = LT.SKIN_TYPE_MAX_SLOPE[fam] if headed else LT.SKIN_THETA_MAX[fam]
     if kind == "support":
-        grid = cs2_skin.joint_grid(tmax)
+        brk = cs2_skin.HALF_BREAK_MAX
     elif kind == "Combo" and not art:
-        grid = cs2_skin.joint_grid(tmax, COMBO_FOLD[fam] / 2.0)
+        brk = COMBO_FOLD[fam] / 2.0
     else:
-        grid = cs2_skin.joint_grid(tmax, LT.TWIN_HALF_BREAK[kind])
+        brk = LT.TWIN_HALF_BREAK[kind]
+    if headed and LH.HEAD_REL_MAX is not None:
+        # the tower-lean letters (T): the head to +-head_max relative to the leaned mast, each half to +-half_max
+        grid = LH.rel_grid(LH.head_max(fam), brk, LH.half_max(fam))
+    else:
+        grid = cs2_skin.joint_grid(tmax, brk)
     if not art:
         side = {"support": 1, "Break": 1, "Hold": -1, "Combo": 0}[kind]
         grid = [(f, b) for f, b in grid if side == 0 or side * (f - b) >= -1e-9]
@@ -714,6 +720,8 @@ def parse(argv):
     ap.add_argument("--entry", action="store_true", help="also sweep ETDQ / ETGD at rest (report only)")
     ap.add_argument("--art", action="store_true",
                     help="report only: every train over its whole G6 grid, both fold directions (exits 0)")
+    ap.add_argument("--head-letter", dest="head_letter", default=LH.HEAD_LETTER,
+                    help=f"the DQ / GD head range by lift_head letter (default {LH.HEAD_LETTER})")
     return ap.parse_args(argv)
 
 
@@ -723,6 +731,9 @@ def main():
     argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
     args = parse(argv)
     ART = args.art
+    LH.use_letter(args.head_letter)
+    print(f"[grip] DQ / GD heads at letter {LH.HEAD_LETTER} (head / halves rel mast: {LH.HEAD_REL_MAX} / {LH.HALF_REL_MAX}; "
+          "None = the planner max)")
     S.set_wheels("v2")
     S.set_wheel_dress(True)
     LT.set_skinned(True)
@@ -767,9 +778,11 @@ def main():
     if bad:
         _fail(f"{len(bad)} of {len(gated)} trains fail the grip gate: {[r['train'] for r in bad]}")
     print(f"PASS test_grip_clearance: {len(gated)} trains x their kind's poses x 2 lanes x 2 travel directions, W1 (rims / "
-          f"liners touch only the jaw band +-{ENV} m) and W2 (every other part 0 overlap, >= {CLEAR} m); DQ / GD headed "
-          f"to the planner max (DQ {LT.SKIN_TYPE_MAX_SLOPE['DQ']:g} / GD {LT.SKIN_TYPE_MAX_SLOPE['GD']:g} deg, Head = "
-          f"the mean) ({time.perf_counter() - t0:.0f} s)")
+          f"liners touch only the jaw band +-{ENV} m) and W2 (every other part 0 overlap, >= {CLEAR} m); DQ / GD headed, "
+          + (f"letter {LH.HEAD_LETTER}: head +-{LH.HEAD_REL_MAX:g} / halves +-{LH.HALF_REL_MAX:g} rel mast"
+             if LH.HEAD_REL_MAX is not None else
+             f"to the planner max (DQ {LT.SKIN_TYPE_MAX_SLOPE['DQ']:g} / GD {LT.SKIN_TYPE_MAX_SLOPE['GD']:g} deg)")
+          + f", Head = the mean ({time.perf_counter() - t0:.0f} s)")
 
 
 if __name__ == "__main__":

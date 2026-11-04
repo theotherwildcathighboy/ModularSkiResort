@@ -55,6 +55,12 @@ C_LIMITS = (TT.SKIN_TRAM["theta_max"], TT.SKIN_TRAM["half_break"])     # the shi
 C_DESIGN = dict(TT.SKIN_TRAM)
 D_DESIGN = dict(theta_max=SADDLE_MAX, half_break=HALF_BREAK, notch_deg=32.0, joint_d=0.45, bar_gap=0.20,
                 roller_out=0.10, arm_dz1=-2.40)
+# The tower-lean round: the tram mast leans up to LEAN_MAX and the planner caps the rope pitch (the mean of the two
+# chords) at PITCH_CAP, so the saddle's mean stays within MEAN_REL_MAX = PITCH_CAP - LEAN_MAX (30) of the mast and each half
+# within that +- the half-break (30): one half reaches 60 relative to the mast at the cap corner (mean 55, half-break 30,
+# lean 25), so D's whole range stays needed (a letter E with C's crossbeam failed at those poses: tower-lean build.md).
+PITCH_CAP, LEAN_MAX = 55.0, 25.0           # deg: LiftAlignMath.PitchCapDeg("tram"), the tram mast's max lean
+MEAN_REL_MAX = PITCH_CAP - LEAN_MAX        # deg: the saddle's mean relative to the mast (the code must clamp it there)
 CAP_RULE = 0.05                 # a LOD0 / LOD2 overage up to 5 % raises the cap in-round (recorded); more is an owner call
 POSES = os.path.join(os.path.dirname(os.path.abspath(__file__)), "tests", "data", "tram_saddle_poses.json")
 ALIGN_CS = os.path.join(_REPO, "mod", "SkiResortMod", "Systems", "LiftAlignMath.cs")
@@ -77,6 +83,28 @@ def use(design):
     TT.SKIN_TRAM.update(C_DESIGN)
     if design == LETTER:
         TT.SKIN_TRAM.update(D_DESIGN)
+
+
+def lean_grid():
+    """[(front, back)] Blender deg relative to a leaned mast: the mean over +-MEAN_REL_MAX, the half-break over
+    +-HALF_BREAK (lift_head.rel_grid), each half clamped to SADDLE_MAX."""
+    import lift_head
+    return lift_head.rel_grid(MEAN_REL_MAX, HALF_BREAK, SADDLE_MAX)
+
+
+def lean_rows(rows, rule="min"):
+    """TS-1 rows (code deg) relative to a leaned mast: towers past PITCH_CAP drop (the planner repairs them now). rule
+    "min": the least lean that brings the mean within MEAN_REL_MAX (max(0, |mean| - 30): the worst case for the art);
+    "max": the mast takes the mean up to LEAN_MAX."""
+    out = []
+    for lab, f, b in rows:
+        m = 0.5 * (f + b)
+        if abs(m) > PITCH_CAP + 1e-9:
+            continue
+        lean = min(LEAN_MAX, max(0.0, abs(m) - MEAN_REL_MAX) if rule == "min" else abs(m))
+        lean = math.copysign(lean, m)
+        out.append((lab, f - lean, b - lean))
+    return out
 
 
 def code_limits():
@@ -450,6 +478,12 @@ def run_height(H, out, preview=None, before_after=False, negative=False):
         f"clear to {sk['rope_reach']['clear_to_deg']} deg (>= {SADDLE_MAX:g}), first hit {sk['rope_reach']['first_hit']}")
     pairs = blender_pairs(rows, SADDLE_MAX, HALF_BREAK)
     pl = TT.skin_sweep(t, table, spec, sk["part_bone"], pairs=pairs, label=f"tram{H}D planner")
+    # the tower-lean round: the poses relative to a leaned mast (lean grid; the TS-1 towers under the 55 deg cap, the
+    # least lean) are inside D's grid; gated all the same
+    lg = TT.skin_sweep(t, table, spec, sk["part_bone"], pairs=lean_grid(), label=f"tram{H}D lean grid")
+    lrows = lean_rows(rows)
+    lp = TT.skin_sweep(t, table, spec, sk["part_bone"], pairs=blender_pairs(lrows, SADDLE_MAX, HALF_BREAK),
+                       label=f"tram{H}D lean planner")
     lim = code_limits()
     _ok(lim == (SADDLE_MAX, HALF_BREAK), "the code's tram limits = the art's",
         f"(LiftAlignMath {lim}, art {(SADDLE_MAX, HALF_BREAK)})")
@@ -463,6 +497,12 @@ def run_height(H, out, preview=None, before_after=False, negative=False):
         "g6": {"poses": len(sk["g6"]["poses"]), "min_clear": sk["g6"]["min_clear"], "seat_tops": sk["g6"]["seat_tops"],
                "failed": sk["g6"]["failed"]},
         "g6_planner": {"poses": len(pl["poses"]), "min_clear": pl["min_clear"], "failed": pl["failed"]},
+        "g6_lean": {"grid_poses": len(lg["poses"]), "grid_min_clear": lg["min_clear"], "grid_failed": lg["failed"],
+                    "planner_towers": len(lrows), "planner_poses": len(lp["poses"]), "planner_min_clear": lp["min_clear"],
+                    "planner_failed": lp["failed"],
+                    "coverage": {r: {"C": rope_offsets(lean_rows(rows, r), *C_LIMITS, spec.saddle_l / 2.0)[0],
+                                     "D": rope_offsets(lean_rows(rows, r), SADDLE_MAX, HALF_BREAK,
+                                                       spec.saddle_l / 2.0)[0]} for r in ("min", "max")}},
         "rope_reach": sk["rope_reach"], "weights": sk["weights"],
         "coverage": {"towers": len(rows),
                      "C": {"limits": list(C_LIMITS), "inside": cov_c[0], "worst": list(cov_c[1])},
