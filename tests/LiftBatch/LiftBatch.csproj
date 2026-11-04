@@ -87,6 +87,8 @@
     <!-- The lift tool's section pick by the rope (DECISIONS 591, F1): ray vs rope polyline within a screen-space tolerance. -->
     <Compile Include="..\..\mod\SkiResortMod\Systems\LiftRopePick.cs" Link="LiftRopePick.cs" />
     <Compile Include="RopePickTests.cs" />
+    <!-- Breakover pairs and train kinds (phase B1): RopeAngles, the caps, the planner's pair repair, kinds with hysteresis (AL-12..14, BO, HD, CO). -->
+    <Compile Include="BreakoverTests.cs" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="UnityMathematics.NoDeps" Version="1.3.2" />

@@ -3,8 +3,10 @@
 // randomness, no hash order, ties broken by the sample index.
 // Input: a terrain sampler (along-line meters from station A, lateral meters), the line length, the two stations' rope heights,
 // LiftTowerPlanConstants for the lift type and optional seed nodes (kept as anchors, so re-planning a plan is a fixed point).
-// Phases: (a) anchors by exact shortest-path search, (b) even infill, (c) member elevation, (d) output. Fit asks the fixed
-// node-count variants for LiftTowerFitSystem. Rope sag is the engine's parabola 4*d*m_Hanging*t(1-t) (LaneSystem.cs:4128-4134).
+// Phases: (a) anchors by exact shortest-path search, (b) even infill, (c) member elevation, (d) rope angles (breakover / hold-down
+// pairs in the tool's plans only, LiftAlignMath.RopeAngles), then the output (every judged node's deflection and train kind). Fit asks
+// the fixed node-count variants for LiftTowerFitSystem and never adds a tower. Rope sag is the engine's parabola 4*d*m_Hanging*t(1-t)
+// (LaneSystem.cs:4128-4134).
 // Engine notes: EngineNotes/LiftTowerPlanner.md
 
 using System;
@@ -43,6 +45,8 @@ namespace SkiResortMod.Systems
         SideHill = 32,    // high side - low side > SideHillM (the engine ladder would score the uphill side, cmin)
         Seed = 64,        // given by the caller (re-plan)
         NearStation = 128, // a planner tower inside the station clearance, placed only because no clear plan exists without it
+        Pair = 256,       // phase (d): one of two towers 10-40 m apart sharing a rope deflection one train could not take (not Breakover)
+        OverCap = 512,    // phase (d): the rope deflection is past the train's cap and no repair was found (the reason is logged)
     }
 
     public sealed class LiftTowerPlanConstants
@@ -73,12 +77,43 @@ namespace SkiResortMod.Systems
         /// LiftLineToolSystem at the pick, which logs a MISMATCH when the two differ) and checks it in LiftTowerPlanner.CheckEdgeSlope.</summary>
         public readonly float MaxEdgeSlope;
 
+        /// <summary>Wheels per sheave train of the type's line towers, per kind (breakover-holddown-plan-2026-11-03, section 2.2; the
+        /// generator's trains: lift_tower.py _fg_spec sheaves 4, DQ 8, SKIN_GD 10; hold-down FG 4 / DQ 8 / GD 8 as the ETGD head;
+        /// push-pull per side FG 2S2C, DQ / GD 4S4C). 0 = no sheave train (the tram's saddles): no cap, no pairs, no kinds.</summary>
+        public readonly int SupportWheels, HoldWheels, ComboWheels;
+
+        /// <summary>A breakover pair's towers stand at least this far apart: the type's MinSpanM (10 m). A visual choice (no source gives
+        /// a pair spacing).</summary>
+        public float PairMinM => MinSpanM;
+
+        /// <summary>A breakover pair's towers stand at most this far apart. A visual choice (no source gives a pair spacing): close
+        /// enough to read as a pair (liftblog photos: two towers almost touching at a crest).</summary>
+        public const float PairMaxM = 40f;
+
+        /// <summary>Towers per breakover group: 2 (pairs only; groups of 3 are not planned).</summary>
+        public const int MaxGroup = 2;
+
+        /// <summary>How far a single tower may slide (meters) when a shifted tower alone brings its rope under the cap.</summary>
+        public const float AngleShiftM = 20f;
+
+        /// <summary>The type has sheave trains (the chairs and the gondola; not the tram).</summary>
+        public bool HasTrains => SupportWheels > 0;
+
+        /// <summary>The cap, degrees, of this type's <paramref name="kind"/> train (LiftAlignMath.TrainCapDeg: wheels x 4 deg, at most
+        /// the 40 deg art fold): FG 16 / 16 / 8, DQ 32 / 32 / 16, GD 40 / 32 / 16 (support / hold-down / push-pull); +infinity without trains.</summary>
+        public float CapDeg(LiftTrainKind kind) =>
+            LiftAlignMath.TrainCapDeg(kind == LiftTrainKind.HoldDown ? HoldWheels : kind == LiftTrainKind.PushPull ? ComboWheels : SupportWheels);
+
         public LiftTowerPlanConstants(string typeId, LiftTowerMember[] ladder, float ropeBelowTopM, float carrierDropM, float floorM,
                                       float maxRopeAboveGroundM, float typicalSpanM, float maxSpanM, float minSpanM, float halfWidthM,
                                       float sagRatio, float engineElevationCapM, float stepM = 5f, float sideHillM = 2f, float convexM = 0.5f,
-                                      float stationClearM = 0f, float maxEdgeSlope = 0f)
+                                      float stationClearM = 0f, float maxEdgeSlope = 0f, int supportWheels = 0, int holdWheels = 0,
+                                      int comboWheels = 0)
         {
             MaxEdgeSlope = maxEdgeSlope;
+            SupportWheels = supportWheels;
+            HoldWheels = holdWheels;
+            ComboWheels = comboWheels;
             TypeId = typeId;
             Ladder = ladder;
             RopeBelowTopM = ropeBelowTopM;
@@ -108,7 +143,8 @@ namespace SkiResortMod.Systems
         {
             return new LiftTowerPlanConstants(TypeId, Ladder, RopeBelowTopM, carrierDropM ?? CarrierDropM, floorM ?? FloorM,
                 maxRopeAboveGroundM ?? MaxRopeAboveGroundM, typicalSpanM ?? TypicalSpanM, maxSpanM ?? MaxSpanM, MinSpanM, HalfWidthM,
-                sagRatio ?? SagRatio, EngineElevationCapM, StepM, SideHillM, ConvexM, StationClearM, maxEdgeSlope ?? MaxEdgeSlope);
+                sagRatio ?? SagRatio, EngineElevationCapM, StepM, SideHillM, ConvexM, StationClearM, maxEdgeSlope ?? MaxEdgeSlope,
+                SupportWheels, HoldWheels, ComboWheels);
         }
 
         /// <summary>The station-side rule's exchange rate: one more line tower is worth this many meters of extra height (above the
@@ -207,13 +243,16 @@ namespace SkiResortMod.Systems
             {
                 case "fixedGrip":
                     return new LiftTowerPlanConstants(def.Id, FixedGripLadder, FixedGripLadder[0].TopM - (def.AxleM + def.RopeSeatM), def.HangM, 3f, 30f,
-                        60f, 90f, 10f, 3f, def.Envelope.LaneHanging, 16f, stationClearM: run, maxEdgeSlope: 0.8f);
+                        60f, 90f, 10f, 3f, def.Envelope.LaneHanging, 16f, stationClearM: run, maxEdgeSlope: 0.8f,
+                        supportWheels: 4, holdWheels: 4, comboWheels: 2);
                 case "detachable":
                     return new LiftTowerPlanConstants(def.Id, DetachableLadder, DetachableLadder[0].TopM - (def.AxleM + def.RopeSeatM), def.HangM, 3f, 30f,
-                        110f, 245f, 10f, 3f, def.Envelope.LaneHanging, 10f, stationClearM: run, maxEdgeSlope: 0.9f);
+                        110f, 245f, 10f, 3f, def.Envelope.LaneHanging, 10f, stationClearM: run, maxEdgeSlope: 0.9f,
+                        supportWheels: 8, holdWheels: 8, comboWheels: 4);
                 case "gondola":
                     return new LiftTowerPlanConstants(def.Id, GondolaLadder, GondolaLadder[0].TopM - (def.AxleM + def.RopeSeatM), def.HangM, 3f, 30f,
-                        110f, 245f, 10f, 4.1f, def.Envelope.LaneHanging, 28f, stationClearM: run, maxEdgeSlope: 1.2f);
+                        110f, 245f, 10f, 4.1f, def.Envelope.LaneHanging, 28f, stationClearM: run, maxEdgeSlope: 1.2f,
+                        supportWheels: 10, holdWheels: 8, comboWheels: 4);
                 case "tram":
                     return new LiftTowerPlanConstants(def.Id, TramLadder, TramLadder[0].TopM - (def.AxleM + def.RopeSeatM), def.HangM, 5f, 0f,
                         800f, TramMaxSpanM, 40f, 7.5f, def.Envelope.LaneHanging, 30f, 10f, stationClearM: run, maxEdgeSlope: 2.5f);   // 10 m samples: a 1-3 km line stays cheap
@@ -235,6 +274,14 @@ namespace SkiResortMod.Systems
         public float RopeM;             // world y of the rope at the node
         public LiftPlanNodeFlags Flags;
         public bool IsStation => (Flags & LiftPlanNodeFlags.Station) != 0;
+        // Phase (d) rope angles (LiftAlignMath.RopeAngles on the planner's rope points): set by Build on every plan.
+        public bool HasAngles;          // judged: a line tower, or a line end joining a built line (the planner's EndOuter point)
+        public float DeflectionDeg;     // in - out on the drawn rope (h): + convex (support), - concave (hold-down)
+        public float TightDeg;          // the tight load case, h x LiftAlignMath.TightSagScale
+        public float HeavyDeg;          // the heavy load case, h x LiftAlignMath.HeavySagScale
+        public float BareDeg;           // the tram's bare track rope, h x LiftAlignMath.BareSagScale (trams only; 0 otherwise)
+        public LiftTrainKind Kind;      // ClassifyTrain(tight, heavy); None without trains (tram) or angles
+        public float CapDeg;            // the cap of that kind's train (LiftTowerPlanConstants.CapDeg); +inf without trains
     }
 
     public struct LiftPlanSpan
@@ -266,6 +313,89 @@ namespace SkiResortMod.Systems
         /// leaves it below the ground in front (a station sunk into the slope) reads negative, and no short tower can clear that.</summary>
         public float EndCarrierA, EndCarrierB;
         public int LineTowers => Nodes == null ? 0 : math.max(0, Nodes.Length - 2);
+
+        /// <summary>Phase (d): wall time of the angle pass (pairs) in ms, its deterministic work count (candidate evaluations, the cost
+        /// gate) and one note per repair tried (what was over its cap and what the pass did).</summary>
+        public double AnglesMs;
+        public long AngleWork;
+        public List<string> AngleNotes = new List<string>();
+
+        /// <summary>Towers per kind among the judged nodes, pairs (towers flagged Pair) and towers still over their cap.</summary>
+        public void KindCounts(out int support, out int holdDown, out int pushPull, out int pairTowers, out int overCap)
+        {
+            support = holdDown = pushPull = pairTowers = overCap = 0;
+            for (int i = 0; i < Nodes.Length; i++)
+            {
+                LiftPlanNode n = Nodes[i];
+                if ((n.Flags & LiftPlanNodeFlags.Pair) != 0) pairTowers++;
+                if (!n.HasAngles)
+                    continue;
+                if (n.Kind == LiftTrainKind.Support) support++;
+                else if (n.Kind == LiftTrainKind.HoldDown) holdDown++;
+                else if (n.Kind == LiftTrainKind.PushPull) pushPull++;
+                if (math.abs(n.DeflectionDeg) > n.CapDeg + AngleTolDeg) overCap++;
+            }
+        }
+
+        /// <summary>A deflection this little past its cap is at the cap (float noise between the pass and Build).</summary>
+        public const float AngleTolDeg = 0.01f;
+
+        /// <summary>The angle summary for "LiftLine [plan]" / "Towers [angles]": kinds, pairs, the worst support and hold-down
+        /// deflection against its cap.</summary>
+        public string AngleSummary()
+        {
+            KindCounts(out int s, out int h, out int p, out int pairs, out int over);
+            float worstS = 0f, capS = float.PositiveInfinity, worstH = 0f, capH = float.PositiveInfinity;
+            bool any = false;
+            for (int i = 0; i < Nodes.Length; i++)
+            {
+                LiftPlanNode n = Nodes[i];
+                if (!n.HasAngles)
+                    continue;
+                any = true;
+                if (n.DeflectionDeg > worstS) { worstS = n.DeflectionDeg; capS = n.CapDeg; }
+                if (n.DeflectionDeg < worstH) { worstH = n.DeflectionDeg; capH = n.CapDeg; }
+            }
+            if (!any)
+                return "no tower judged";
+            if (!Constants.HasTrains)
+            {
+                // the tram: saddles; the bare-rope breakover rule (14.4.4) is logged, never planned
+                int lift = 0;
+                for (int i = 0; i < Nodes.Length; i++)
+                    if (Nodes[i].HasAngles && Nodes[i].BareDeg < LiftAlignMath.SaddleMinBreakDeg)
+                        lift++;
+                return "saddles: worst d " + Sg(worstS) + " / " + Sg(worstH) + " deg; bare-rope breakover under " +
+                       F(LiftAlignMath.SaddleMinBreakDeg, "F2") + " deg at " + lift + " tower(s) (logged only)";
+            }
+            return "support " + s + ", hold-down " + h + ", push-pull " + p + "; pair towers " + pairs + ", over cap " + over +
+                   "; worst support d " + Sg(worstS) + (worstS > 0f ? " / cap " + F(capS, "F0") : string.Empty) +
+                   ", worst hold-down d " + Sg(worstH) + (worstH < 0f ? " / cap " + F(capH, "F0") : string.Empty);
+        }
+
+        /// <summary>One tower's angle text: "d +12.3 (tight +9.1 / heavy +17.0) S [pair]" (tram: "d +8.0 (bare +6.1) saddle").</summary>
+        public string AngleText(int i)
+        {
+            LiftPlanNode n = Nodes[i];
+            if (!n.HasAngles)
+                return "d n/a";
+            var sb = new StringBuilder();
+            sb.Append("d ").Append(Sg(n.DeflectionDeg));
+            if (!Constants.HasTrains)
+            {
+                sb.Append(" (bare ").Append(Sg(n.BareDeg)).Append(n.BareDeg < LiftAlignMath.SaddleMinBreakDeg ? ", UNDER " + F(LiftAlignMath.SaddleMinBreakDeg, "F2") : string.Empty)
+                  .Append(") saddle");
+            }
+            else
+            {
+                sb.Append(" (tight ").Append(Sg(n.TightDeg)).Append(" / heavy ").Append(Sg(n.HeavyDeg)).Append(") ").Append(LiftAlignMath.KindLetter(n.Kind));
+                if (math.abs(n.DeflectionDeg) > n.CapDeg + AngleTolDeg)
+                    sb.Append(" OVER CAP ").Append(F(n.CapDeg, "F0"));
+            }
+            if ((n.Flags & LiftPlanNodeFlags.Pair) != 0)
+                sb.Append(" [pair]");
+            return sb.ToString();
+        }
 
         /// <summary>Rope y on span <paramref name="span"/> at <paramref name="alongM"/> (line meters), with the engine's sag.</summary>
         public float RopeAt(int span, float alongM)
@@ -332,7 +462,7 @@ namespace SkiResortMod.Systems
                   .Append(", high side ").Append(Sg(n.HighSideM - n.GroundM)).Append(", low side ").Append(Sg(n.LowSideM - n.GroundM))
                   .Append(", ").Append(n.IsStation ? "station" : "member " + c.Ladder[n.Member].Name + " (top " + F(c.Ladder[n.Member].TopM, "F2") + ")")
                   .Append(", rope y ").Append(F(n.RopeM, "F2")).Append(" (").Append(Sg(n.RopeM - n.GroundM)).Append(" above ground)")
-                  .Append(" [").Append(FlagText(n.Flags)).Append("]\n");
+                  .Append(" [").Append(FlagText(n.Flags)).Append("]").Append(n.HasAngles ? ", " + AngleText(i) : string.Empty).Append('\n');
                 if (i < Spans.Length)
                 {
                     LiftPlanSpan s = Spans[i];
@@ -378,6 +508,8 @@ namespace SkiResortMod.Systems
             if ((f & LiftPlanNodeFlags.Infill) != 0) sb.Append("infill,");
             if ((f & LiftPlanNodeFlags.SideHill) != 0) sb.Append("side-hill,");
             if ((f & LiftPlanNodeFlags.NearStation) != 0) sb.Append("near-station,");
+            if ((f & LiftPlanNodeFlags.Pair) != 0) sb.Append("pair,");
+            if ((f & LiftPlanNodeFlags.OverCap) != 0) sb.Append("over-cap,");
             sb.Length--;
             return sb.ToString();
         }
@@ -612,6 +744,18 @@ namespace SkiResortMod.Systems
         public bool StationRule = true;
         public float EndNodeYA = float.NaN, EndNodeYB = float.NaN;
 
+        /// <summary>Phase (d) breakover / hold-down pairs (breakover-holddown-plan-2026-11-03, section 2.3): a tower whose rope deflection
+        /// is past its train's cap is shifted (within AngleShiftM, any member) or replaced by a pair PairMinM..PairMaxM apart. The lift-line
+        /// tool's plans only (LiftLineEdit.Replan); off by default, and Fit forces it off for its free plan, so the fit never adds a tower
+        /// (it keeps the engine's node count) and Fit.Needed is unchanged. No effect on a type without trains (the tram). Kinds and angles
+        /// are set on every plan by Build.</summary>
+        public bool Pairs;
+
+        /// <summary>A non-station end that joins a built line (a loose end): the built neighbor's rope point beyond it, as the xz distance
+        /// from the end node and the rope y there, so the junction tower is judged too (NaN = unknown: that end is not judged). The tool sets
+        /// them before each Plan; the fit never does (its path ends are stations or open line ends).</summary>
+        public float EndOuterDistA = float.NaN, EndOuterRopeA = float.NaN, EndOuterDistB = float.NaN, EndOuterRopeB = float.NaN;
+
         // The working node list: sample index, member (-1 station), flags. Kept sorted by sample.
         private readonly List<int> m_K = new List<int>();
         private readonly List<int> m_M = new List<int>();
@@ -629,6 +773,7 @@ namespace SkiResortMod.Systems
             m_Length = math.max(lengthM, 0.1f);
             m_RopeA = ropeA;
             m_RopeB = ropeB;
+            ResetAngles();
             Sample(terrain);
 
             m_K.Clear(); m_M.Clear(); m_F.Clear();
@@ -685,6 +830,14 @@ namespace SkiResortMod.Systems
 
             // (c) elevation.
             AssignMembers();
+
+            // (d) rope angles: breakover / hold-down pairs (tool plans only; Build sets every node's angles and kind).
+            if (Pairs && c.HasTrains)
+            {
+                long t0 = System.Diagnostics.Stopwatch.GetTimestamp();
+                AnglePass();
+                m_AnglesMs = (System.Diagnostics.Stopwatch.GetTimestamp() - t0) * 1000.0 / System.Diagnostics.Stopwatch.Frequency;
+            }
 
             return Build();
         }
@@ -794,6 +947,7 @@ namespace SkiResortMod.Systems
             m_Length = math.max(lengthM, 0.1f);
             m_RopeA = ropeA;
             m_RopeB = ropeB;
+            ResetAngles();
             Sample(terrain, innerAlongM);
             m_K.Clear(); m_M.Clear(); m_F.Clear();
             m_K.Add(0); m_M.Add(-1); m_F.Add(LiftPlanNodeFlags.Station);
@@ -866,10 +1020,12 @@ namespace SkiResortMod.Systems
             LiftTowerPlanConstants cm = c;
             if (engineMaxSpanM > 0f && engineMaxSpanM < c.MaxSpanM)
                 cm = c.With(maxSpanM: engineMaxSpanM, typicalSpanM: math.min(c.TypicalSpanM, engineMaxSpanM));
-            bool rule = StationRule;
+            bool rule = StationRule, pairs = Pairs;
             StationRule = false;   // the count the line needs is the fewest towers (TowerWorthM would add one for the stations)
+            Pairs = false;         // the fit never adds a tower: no breakover pairs in the count it compares with the line's
             fit.Free = Plan(terrain, lengthM, ropeA, ropeB, cm);
             StationRule = rule;
+            Pairs = pairs;
             fit.Needed = fit.Free.LineTowers;
             // Hysteresis: the members the line already carries win when they clear it as they stand. Phase (c) re-run on ground that moved a few
             // decimeters (our own carve, rounding) can pick an equally clear but different assignment (a long tram flipped between two member mixes on
@@ -1914,6 +2070,692 @@ namespace SkiResortMod.Systems
             return total;
         }
 
+        // (d) rope angles: breakover / hold-down pairs (breakover-holddown-plan-2026-11-03, section 2.3). A local post-pass like
+        // BreakoverPass: the deflection at a tower needs both neighbors, so an exact search would carry the previous node in its state.
+
+        private readonly List<string> m_AngleNotes = new List<string>();
+        private long m_AngleWork;
+        private double m_AnglesMs;
+        private float m_MinCap;
+        private float[] m_BeforeOver = new float[0];
+
+        private void ResetAngles()
+        {
+            m_AngleNotes.Clear();
+            m_AngleWork = 0;
+            m_AnglesMs = 0;
+        }
+
+        private bool OuterA => !StationA && math.isfinite(EndOuterDistA) && math.isfinite(EndOuterRopeA) && EndOuterDistA > 1e-3f;
+        private bool OuterB => !StationB && math.isfinite(EndOuterDistB) && math.isfinite(EndOuterRopeB) && EndOuterDistB > 1e-3f;
+
+        private float NodeS(int n) => m_S[m_K[n]];
+        private float NodeR(int n) => Rope(m_K[n], m_M[n]);
+
+        /// <summary>Working node n stands as a tower: every inner node, a line end only where it joins a built line (not a station).</summary>
+        private bool IsTower(int n)
+        {
+            int last = m_K.Count - 1;
+            if (n < 0 || n > last) return false;
+            if (n == 0) return !StationA;
+            if (n == last) return !StationB;
+            return true;
+        }
+
+        /// <summary>A fixed working node: a line end, or a pin / seed tower (the player's spot).</summary>
+        private bool IsFixed(int n) => n == 0 || n == m_K.Count - 1 || (m_F[n] & LiftPlanNodeFlags.Seed) != 0;
+
+        private readonly float[] m_GroupBuf = new float[6];
+
+        /// <summary>True when the touched towers at <paramref name="sA"/> (and <paramref name="sB"/> when <paramref name="two"/>), between the
+        /// unchanged working nodes <paramref name="iL"/> and <paramref name="iR"/> (-1: none), would stand in a group of more than MaxGroup
+        /// consecutive towers PairMaxM or nearer apart: pairs, never threes. Station ends are not towers.</summary>
+        private bool Grouped(int iL, float sA, float sB, bool two, int iR)
+        {
+            float[] s = m_GroupBuf;
+            int c = 0;
+            if (iL >= 0 && IsTower(iL))
+            {
+                if (IsTower(iL - 1)) s[c++] = NodeS(iL - 1);
+                s[c++] = NodeS(iL);
+            }
+            int t0 = c;
+            s[c++] = sA;
+            if (two) s[c++] = sB;
+            int t1 = c - 1;
+            if (iR >= 0 && IsTower(iR))
+            {
+                s[c++] = NodeS(iR);
+                if (IsTower(iR + 1)) s[c++] = NodeS(iR + 1);
+            }
+            int start = 0;
+            for (int i = 1; i <= c; i++)
+            {
+                if (i < c && s[i] - s[i - 1] <= LiftTowerPlanConstants.PairMaxM + 1e-3f)
+                    continue;
+                // the run start .. i - 1
+                if (i - start > LiftTowerPlanConstants.MaxGroup && start <= t1 && i - 1 >= t0)
+                    return true;
+                start = i;
+            }
+            return false;
+        }
+
+        private static float3 RopePoint(float alongM, float ropeY) => new float3(0f, ropeY, alongM);
+
+        /// <summary>How far, degrees, the rope at a tower with these rope points (along, y) is past its train's cap (&lt;= 0 = within),
+        /// and its deflection. A deflection under every cap of the type skips the load cases.</summary>
+        private float Over(float sP, float rP, float s, float r, float sN, float rN, out float d)
+        {
+            m_AngleWork++;
+            float3 p = RopePoint(sP, rP), q = RopePoint(s, r), n = RopePoint(sN, rN);
+            d = LiftAlignMath.DeflectionDeg(p, q, n, m_C.SagRatio);
+            float ad = math.abs(d);
+            if (ad <= m_MinCap)
+                return ad - m_MinCap;
+            LiftAlignMath.LoadCaseDeflections(p, q, n, m_C.SagRatio, out float tight, out float heavy);
+            return ad - m_C.CapDeg(LiftAlignMath.ClassifyTrain(tight, heavy));
+        }
+
+        /// <summary>The rope points beside working node <paramref name="n"/>: false when it is not judged (a station end, or a line end
+        /// without its built neighbor's point).</summary>
+        private bool Around(int n, out float sP, out float rP, out float sN, out float rN)
+        {
+            int last = m_K.Count - 1;
+            sP = rP = sN = rN = 0f;
+            if (n < 0 || n > last || last < 1)
+                return false;
+            if (n == 0)
+            {
+                if (!OuterA)
+                    return false;
+                sP = -EndOuterDistA;
+                rP = EndOuterRopeA;
+            }
+            else
+            {
+                sP = NodeS(n - 1);
+                rP = NodeR(n - 1);
+            }
+            if (n == last)
+            {
+                if (!OuterB)
+                    return false;
+                sN = m_Length + EndOuterDistB;
+                rN = EndOuterRopeB;
+            }
+            else
+            {
+                sN = NodeS(n + 1);
+                rN = NodeR(n + 1);
+            }
+            return true;
+        }
+
+        private float OverAt(int n, out float d)
+        {
+            d = 0f;
+            if (!Around(n, out float sP, out float rP, out float sN, out float rN))
+                return float.NegativeInfinity;
+            return Over(sP, rP, NodeS(n), NodeR(n), sN, rN, out d);
+        }
+
+        /// <summary>The worst tower over its cap first, re-evaluated after every change, at most one repair per original tower (towers a
+        /// repair creates are final). Ties go to the lower index.</summary>
+        private void AnglePass()
+        {
+            m_UseSag = true;
+            m_MinCap = math.min(m_C.CapDeg(LiftTrainKind.Support), math.min(m_C.CapDeg(LiftTrainKind.HoldDown), m_C.CapDeg(LiftTrainKind.PushPull)));
+            var done = new List<int>();   // sample indices handled: repaired, created by a repair, or found unrepairable
+            for (int guard = 2 * m_K.Count + 8; guard > 0; guard--)
+            {
+                int worst = -1;
+                float worstOver = LiftTowerPlan.AngleTolDeg, worstD = 0f;
+                for (int n = 0; n < m_K.Count; n++)
+                {
+                    if (done.Contains(m_K[n]))
+                        continue;
+                    float over = OverAt(n, out float d);
+                    if (over > worstOver + 1e-4f)
+                    {
+                        worstOver = over;
+                        worstD = d;
+                        worst = n;
+                    }
+                }
+                if (worst < 0)
+                    break;
+                done.Add(m_K[worst]);
+                Repair(worst, worstD, worstOver, done);
+            }
+        }
+
+        private struct AngleRej
+        {
+            public int Station, Removed, Span, Cap, Neighbor, Group;
+            public bool Pin;
+        }
+
+        /// <summary>One candidate repair. Kind 1 single (node n to (K1, M1)), 2 pair (n -> (K1, M1) + new (K2, M2)), 3 partner (n keeps its
+        /// spot with member M1, new (K2, M2)), 4 re-member (n gets M1, working node K2 gets M2; two fixed towers PairMaxM or nearer),
+        /// 5 pull (fixed n gets M1, its free neighbor, working node K1, moves to (K2, M2) as the partner).</summary>
+        private struct AngleFix
+        {
+            public int Kind, Towers, Steps, K1, M1, K2, M2;
+            public float MaxD, GapM, DistM, D1, D2;
+
+            /// <summary>Rank: fewer towers; fewer ladder steps; smaller max |d|; shorter spacing (reads as a pair); nearer the old spot.
+            /// A tie keeps the earlier candidate (ascending sample, then member: deterministic).</summary>
+            public bool Better(AngleFix o)
+            {
+                if (o.Kind == 0) return true;
+                if (Towers != o.Towers) return Towers < o.Towers;
+                if (Steps != o.Steps) return Steps < o.Steps;
+                if (math.abs(MaxD - o.MaxD) > 1e-3f) return MaxD < o.MaxD;
+                if (math.abs(GapM - o.GapM) > 1e-3f) return GapM < o.GapM;
+                return DistM < o.DistM - 1e-3f;
+            }
+        }
+
+        /// <summary>The span (k, mk) -> (k2, mk2) as the planner builds it: within MaxSpanM, clear with its sag and within the edge slope rule.</summary>
+        private bool SpanFine(int k, int mk, int k2, int mk2)
+        {
+            if (m_S[k2] - m_S[k] > m_C.MaxSpanM + 1e-3f || k2 <= k)
+                return false;
+            return SpanViolation(k, Rope(k, mk), k2, Rope(k2, mk2)) <= Tol && SlopeOk(k, mk, k2, mk2);
+        }
+
+        /// <summary>A neighbor's over-cap before the repair (cached per working index for one repair).</summary>
+        private float BeforeOver(int q)
+        {
+            if (!math.isnan(m_BeforeOver[q]))
+                return m_BeforeOver[q];
+            float v = OverAt(q, out _);
+            m_BeforeOver[q] = v;
+            return v;
+        }
+
+        /// <summary>Judges a local change: touched towers T1 = (kA, mA) [and T2 = (kB, mB)], in line order, between the unchanged working
+        /// nodes iL (-1: T1 is the A end, its left point the outer A point) and iR (-1: the last T is the B end, outer B). A member of -1
+        /// is a line end (its rope fixed). True when every touched span is fine, the touched towers are within their caps and the
+        /// unchanged neighbors are pushed no further past theirs. <paramref name="leftOk"/> / <paramref name="rightOk"/> cache the outer
+        /// spans per (k, m) (0 unknown, 1 fine, 2 not).</summary>
+        private bool Judge(int iL, int iR, int nT, int kA, int mA, int kB, int mB, sbyte[] leftOk, sbyte[] rightOk, ref AngleRej rej,
+                           out float dA, out float dB)
+        {
+            dA = dB = 0f;
+            int L = m_C.Ladder.Length;
+            int kLast = nT == 2 ? kB : kA, mLast = nT == 2 ? mB : mA;
+            // spans
+            if (iL >= 0)
+            {
+                int c = kA * L + mA;
+                if (leftOk[c] == 0)
+                    leftOk[c] = (sbyte)(SpanFine(m_K[iL], m_M[iL], kA, mA) ? 1 : 2);
+                if (leftOk[c] == 2) { rej.Span++; return false; }
+            }
+            if (iR >= 0 && mLast >= 0)
+            {
+                int c = kLast * L + mLast;
+                if (rightOk[c] == 0)
+                    rightOk[c] = (sbyte)(SpanFine(kLast, mLast, m_K[iR], m_M[iR]) ? 1 : 2);
+                if (rightOk[c] == 2) { rej.Span++; return false; }
+            }
+            else if (iR >= 0 && !SpanFine(kLast, mLast, m_K[iR], m_M[iR]))
+            {
+                rej.Span++;
+                return false;
+            }
+            if (nT == 2 && !SpanFine(kA, mA, kB, mB)) { rej.Span++; return false; }
+            // points
+            float sL, rL, sR, rR;
+            if (iL >= 0) { sL = NodeS(iL); rL = NodeR(iL); }
+            else { sL = -EndOuterDistA; rL = EndOuterRopeA; }
+            if (iR >= 0) { sR = NodeS(iR); rR = NodeR(iR); }
+            else { sR = m_Length + EndOuterDistB; rR = EndOuterRopeB; }
+            float sA = m_S[kA], rA = Rope(kA, mA), sB = nT == 2 ? m_S[kB] : sR, rB = nT == 2 ? Rope(kB, mB) : rR;
+            // the touched towers' caps (an end without its outer point is not judged)
+            bool judgeA = iL >= 0 || OuterA;
+            if (judgeA && Over(sL, rL, sA, rA, sB, rB, out dA) > LiftTowerPlan.AngleTolDeg) { rej.Cap++; return false; }
+            if (nT == 2)
+            {
+                bool judgeB = iR >= 0 || OuterB;
+                if (judgeB && Over(sA, rA, sB, rB, sR, rR, out dB) > LiftTowerPlan.AngleTolDeg) { rej.Cap++; return false; }
+            }
+            // the unchanged neighbors
+            float sT = nT == 2 ? sB : sA, rT = nT == 2 ? rB : rA;
+            if (iL >= 0 && Around(iL, out float sP, out float rP, out _, out _) &&
+                Over(sP, rP, sL, rL, sA, rA, out _) > math.max(0f, BeforeOver(iL)) + LiftTowerPlan.AngleTolDeg)
+            {
+                rej.Neighbor++;
+                return false;
+            }
+            if (iR >= 0 && Around(iR, out _, out _, out float sN, out float rN) &&
+                Over(sT, rT, sR, rR, sN, rN, out _) > math.max(0f, BeforeOver(iR)) + LiftTowerPlan.AngleTolDeg)
+            {
+                rej.Neighbor++;
+                return false;
+            }
+            return true;
+        }
+
+        private int MemberSum()
+        {
+            int s = 0;
+            for (int i = 0; i < m_M.Count; i++)
+                s += math.max(0, m_M[i]);
+            return s;
+        }
+
+        /// <summary>Repairs working node <paramref name="n"/> (deflection <paramref name="d0"/>, <paramref name="over0"/> past its cap):
+        /// the cheapest feasible of (a) the tower shifted within AngleShiftM with any member, or into a fixed neighbor's partner window
+        /// (a pin or a seed keeps its spot and only changes member); (b) a free tower replaced by a pair PairMinM..PairMaxM apart
+        /// that straddles its spot or stands within AngleShiftM of it; a fixed tower (a pin, a seed, the junction end) keeps its spot
+        /// and its free neighbor moves in as its partner (no tower added) or a new free partner stands beside it, unless a fixed
+        /// neighbor stands PairMaxM or nearer (two pins 10 m apart are the player's choice: only their members change).
+        /// No candidate may leave three towers in a row PairMaxM or nearer apart (MaxGroup). None feasible: flagged OverCap, logged
+        /// with the reasons.</summary>
+        private void Repair(int n, float d0, float over0, List<int> done)
+        {
+            int count = m_K.Count, last = count - 1, L = m_C.Ladder.Length;
+            if (m_BeforeOver.Length < count + 2)
+                m_BeforeOver = new float[count + 8];
+            for (int i = 0; i < m_BeforeOver.Length; i++)
+                m_BeforeOver[i] = float.NaN;
+            int k0 = m_K[n], m0 = m_M[n];
+            float s0 = m_S[k0];
+            bool isEnd = n == 0 || n == last;
+            bool fixedNode = isEnd || (m_F[n] & LiftPlanNodeFlags.Seed) != 0;
+            int baseSteps = MemberSum() - math.max(0, m0);
+            int minGap = MinGap();
+            int pairMaxS = (int)math.floor(LiftTowerPlanConstants.PairMaxM / m_C.StepM + 1e-4f);
+            int pairMinS = math.max(1, (int)math.ceil(m_C.PairMinM / m_C.StepM - 1e-4f));
+            var rej = new AngleRej();
+            var best = new AngleFix();
+            int cache = (m_N + 1) * L;
+            var leftOk = new sbyte[cache];
+            var rightOk = new sbyte[cache];
+
+            // (a) single: shifted (free) or re-membered in place (fixed). A free tower PairMaxM or nearer to a fixed tower (a pin, a
+            // seed, the junction end) may also move anywhere in that tower's partner window (PairMinM..PairMaxM on its side): the
+            // free planner's filler beside a pin becomes the pin's partner instead of a third tower beside a new pair.
+            if (!isEnd)
+            {
+                int shift = fixedNode ? 0 : (int)math.floor(LiftTowerPlanConstants.AngleShiftM / m_C.StepM + 1e-4f);
+                int kLo = math.max(m_K[n - 1] + minGap, k0 - shift), kHi = math.min(m_K[n + 1] - minGap, k0 + shift);
+                if (fixedNode)
+                    kLo = kHi = k0;
+                else
+                {
+                    if (IsFixed(n - 1) && IsTower(n - 1) && s0 - NodeS(n - 1) <= LiftTowerPlanConstants.PairMaxM + 1e-3f)
+                        kHi = math.max(kHi, math.min(m_K[n + 1] - minGap, m_K[n - 1] + pairMaxS));
+                    if (IsFixed(n + 1) && IsTower(n + 1) && NodeS(n + 1) - s0 <= LiftTowerPlanConstants.PairMaxM + 1e-3f)
+                        kLo = math.min(kLo, math.max(m_K[n - 1] + minGap, m_K[n + 1] - pairMaxS));
+                }
+                for (int k = kLo; k <= kHi; k++)
+                {
+                    if (k != k0 && NearStation(k)) { rej.Station++; continue; }
+                    if (k != k0 && IsForbidden(k)) { rej.Removed++; continue; }
+                    if (k != k0 && Grouped(n - 1, m_S[k], 0f, false, n + 1)) { rej.Group++; continue; }
+                    for (int m = 0; m < L; m++)
+                    {
+                        if (!MemberAllowed(k, m) || !NodeOk(k, m)) { rej.Span++; continue; }
+                        var c = new AngleFix { Kind = 1, Towers = 0, Steps = baseSteps + m, K1 = k, M1 = m, DistM = math.abs(m_S[k] - s0) };
+                        if (best.Kind != 0 && c.Steps > best.Steps)
+                            break;   // members ascend: every later member has more steps
+                        if (!Judge(n - 1, n + 1, 1, k, m, 0, 0, leftOk, rightOk, ref rej, out float dA, out _))
+                            continue;
+                        c.MaxD = math.abs(dA);
+                        c.D1 = dA;
+                        if (c.Better(best))
+                            best = c;
+                    }
+                }
+            }
+
+            // (b) pair / partner / re-member (only when no single fix exists: a single adds no tower and ranks first)
+            if (best.Kind == 0)
+            {
+                Array.Clear(leftOk, 0, leftOk.Length);
+                Array.Clear(rightOk, 0, rightOk.Length);
+                if (!fixedNode)
+                {
+                    // the pair stands within AngleShiftM of the old spot (it straddles it, or lies beside it: the planner's tall single
+                    // often stands past the ground's break, where clearance put it)
+                    int shiftS = (int)math.floor(LiftTowerPlanConstants.AngleShiftM / m_C.StepM + 1e-4f);
+                    int kLo = math.max(m_K[n - 1] + minGap, k0 - pairMaxS), kHi1 = math.min(m_K[n + 1] - minGap - pairMinS, k0 + shiftS);
+                    for (int k1 = kLo; k1 <= kHi1; k1++)
+                    {
+                        if (k1 != k0 && NearStation(k1)) { rej.Station++; continue; }
+                        if (k1 != k0 && IsForbidden(k1)) { rej.Removed++; continue; }
+                        int k2Lo = math.max(k0 - shiftS, k1 + pairMinS), k2Hi = math.min(m_K[n + 1] - minGap, k1 + pairMaxS);
+                        for (int k2 = k2Lo; k2 <= k2Hi; k2++)
+                        {
+                            float gap = m_S[k2] - m_S[k1];
+                            if (k2 == k1 || gap < m_C.PairMinM - 1e-3f || gap > LiftTowerPlanConstants.PairMaxM + 1e-3f)
+                                continue;
+                            if (k2 != k0 && NearStation(k2)) { rej.Station++; continue; }
+                            if (k2 != k0 && IsForbidden(k2)) { rej.Removed++; continue; }
+                            if (Grouped(n - 1, m_S[k1], m_S[k2], true, n + 1)) { rej.Group++; continue; }
+                            for (int m1 = 0; m1 < L; m1++)
+                            {
+                                if (!MemberAllowed(k1, m1) || !NodeOk(k1, m1)) { rej.Span++; continue; }
+                                for (int m2 = 0; m2 < L; m2++)
+                                {
+                                    if (!MemberAllowed(k2, m2) || !NodeOk(k2, m2)) { rej.Span++; continue; }
+                                    var c = new AngleFix
+                                    {
+                                        Kind = 2, Towers = 1, Steps = baseSteps + m1 + m2, K1 = k1, M1 = m1, K2 = k2, M2 = m2, GapM = gap,
+                                        DistM = math.abs(0.5f * (m_S[k1] + m_S[k2]) - s0),
+                                    };
+                                    if (best.Kind != 0 && c.Steps > best.Steps)
+                                        break;   // members ascend: every later m2 has more steps
+                                    if (!Judge(n - 1, n + 1, 2, k1, m1, k2, m2, leftOk, rightOk, ref rej, out float dA, out float dB))
+                                        continue;
+                                    c.MaxD = math.max(math.abs(dA), math.abs(dB));
+                                    c.D1 = dA;
+                                    c.D2 = dB;
+                                    if (c.Better(best))
+                                        best = c;
+                                }
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    // A fixed neighbor (pin / seed tower) PairMaxM or nearer: the two are the player's pair, judged and re-membered only.
+                    for (int side = -1; side <= 1; side += 2)
+                    {
+                        int q = n + side;
+                        if (q <= 0 || q >= last || (m_F[q] & LiftPlanNodeFlags.Seed) == 0 ||
+                            math.abs(m_S[m_K[q]] - s0) > LiftTowerPlanConstants.PairMaxM + 1e-3f)
+                            continue;
+                        rej.Pin = true;
+                        if (isEnd)
+                            continue;
+                        int lo = side > 0 ? n : q, hi = side > 0 ? q : n;
+                        int iL = lo - 1, iR = hi + 1;
+                        Array.Clear(leftOk, 0, leftOk.Length);
+                        Array.Clear(rightOk, 0, rightOk.Length);
+                        int stepsQ = baseSteps - math.max(0, m_M[q]);
+                        for (int ma = 0; ma < L; ma++)
+                        {
+                            if (!MemberAllowed(m_K[lo], ma) || !NodeOk(m_K[lo], ma)) continue;
+                            for (int mb = 0; mb < L; mb++)
+                            {
+                                if (!MemberAllowed(m_K[hi], mb) || !NodeOk(m_K[hi], mb)) continue;
+                                int mn = side > 0 ? ma : mb, mq = side > 0 ? mb : ma;
+                                var c = new AngleFix
+                                {
+                                    Kind = 4, Towers = 0, Steps = stepsQ + ma + mb, M1 = mn, K2 = q, M2 = mq,
+                                    GapM = math.abs(m_S[m_K[q]] - s0),
+                                };
+                                if (best.Kind != 0 && c.Steps > best.Steps)
+                                    break;
+                                if (!Judge(iL, iR >= count ? -1 : iR, 2, m_K[lo], ma, m_K[hi], mb, leftOk, rightOk, ref rej, out float dA, out float dB))
+                                    continue;
+                                c.MaxD = math.max(math.abs(dA), math.abs(dB));
+                                c.D1 = side > 0 ? dA : dB;
+                                c.D2 = side > 0 ? dB : dA;
+                                if (c.Better(best))
+                                    best = c;
+                            }
+                        }
+                    }
+                    if (!rej.Pin)
+                    {
+                        // Pull: the free neighbor moves into the fixed tower's partner window with any member (no tower added).
+                        for (int side = -1; side <= 1; side += 2)
+                        {
+                            int q = n + side, far = q + side;
+                            if (q <= 0 || q >= last || IsFixed(q) || far < 0 || far > last)
+                                continue;
+                            Array.Clear(leftOk, 0, leftOk.Length);
+                            Array.Clear(rightOk, 0, rightOk.Length);
+                            int kLo = side > 0 ? k0 + pairMinS : math.max(m_K[far] + minGap, k0 - pairMaxS);
+                            int kHi = side > 0 ? math.min(m_K[far] - minGap, k0 + pairMaxS) : k0 - pairMinS;
+                            int mnLo = isEnd ? -1 : 0, mnHi = isEnd ? -1 : L - 1;
+                            int stepsQ = baseSteps - math.max(0, m_M[q]);
+                            for (int k = kLo; k <= kHi; k++)
+                            {
+                                float gap = math.abs(m_S[k] - s0);
+                                if (gap < m_C.PairMinM - 1e-3f || gap > LiftTowerPlanConstants.PairMaxM + 1e-3f)
+                                    continue;
+                                if (NearStation(k)) { rej.Station++; continue; }
+                                if (IsForbidden(k)) { rej.Removed++; continue; }
+                                if (side > 0 ? Grouped(n - 1, s0, m_S[k], true, far) : Grouped(far, m_S[k], s0, true, n == last ? -1 : n + 1))
+                                {
+                                    rej.Group++;
+                                    continue;
+                                }
+                                for (int mn = mnLo; mn <= mnHi; mn++)
+                                {
+                                    if (mn >= 0 && (!MemberAllowed(k0, mn) || !NodeOk(k0, mn))) continue;
+                                    for (int mp = 0; mp < L; mp++)
+                                    {
+                                        if (!MemberAllowed(k, mp) || !NodeOk(k, mp)) { rej.Span++; continue; }
+                                        var c = new AngleFix
+                                        {
+                                            Kind = 5, Towers = 0, Steps = stepsQ + math.max(0, mn) + mp, K1 = q, M1 = mn, K2 = k, M2 = mp, GapM = gap,
+                                            DistM = math.abs(m_S[k] - NodeS(q)),
+                                        };
+                                        if (best.Kind != 0 && c.Steps > best.Steps)
+                                            break;
+                                        bool ok;
+                                        float dN, dP;
+                                        if (side > 0)
+                                            ok = Judge(n - 1, far, 2, k0, mn, k, mp, leftOk, rightOk, ref rej, out dN, out dP);
+                                        else
+                                            ok = Judge(far, n == last ? -1 : n + 1, 2, k, mp, k0, mn, leftOk, rightOk, ref rej, out dP, out dN);
+                                        if (!ok)
+                                            continue;
+                                        c.MaxD = math.max(math.abs(dN), math.abs(dP));
+                                        c.D1 = dN;
+                                        c.D2 = dP;
+                                        if (c.Better(best))
+                                            best = c;
+                                    }
+                                }
+                            }
+                        }
+                        for (int side = -1; side <= 1; side += 2)
+                        {
+                            int q = n + side;   // the neighbor on that side: the partner stands between n and q
+                            if (q < 0 || q > last)
+                                continue;
+                            Array.Clear(leftOk, 0, leftOk.Length);
+                            Array.Clear(rightOk, 0, rightOk.Length);
+                            int kLo = side > 0 ? k0 + pairMinS : math.max(m_K[q] + minGap, k0 - pairMaxS);
+                            int kHi = side > 0 ? math.min(m_K[q] - minGap, k0 + pairMaxS) : k0 - pairMinS;
+                            int mnLo = isEnd ? -1 : 0, mnHi = isEnd ? -1 : L - 1;
+                            for (int k = kLo; k <= kHi; k++)
+                            {
+                                float gap = math.abs(m_S[k] - s0);
+                                if (gap < m_C.PairMinM - 1e-3f || gap > LiftTowerPlanConstants.PairMaxM + 1e-3f)
+                                    continue;
+                                if (NearStation(k)) { rej.Station++; continue; }
+                                if (IsForbidden(k)) { rej.Removed++; continue; }
+                                if (side > 0 ? Grouped(n - 1, s0, m_S[k], true, q) : Grouped(q, m_S[k], s0, true, n == last ? -1 : n + 1))
+                                {
+                                    rej.Group++;
+                                    continue;
+                                }
+                                for (int mn = mnLo; mn <= mnHi; mn++)
+                                {
+                                    if (mn >= 0 && (!MemberAllowed(k0, mn) || !NodeOk(k0, mn))) continue;
+                                    for (int mp = 0; mp < L; mp++)
+                                    {
+                                        if (!MemberAllowed(k, mp) || !NodeOk(k, mp)) { rej.Span++; continue; }
+                                        var c = new AngleFix
+                                        {
+                                            Kind = 3, Towers = 1, Steps = baseSteps + math.max(0, mn) + mp, M1 = mn, K2 = k, M2 = mp, GapM = gap,
+                                            DistM = 0.5f * gap,
+                                        };
+                                        if (best.Kind != 0 && c.Steps > best.Steps)
+                                            break;
+                                        bool ok;
+                                        float dN, dP;
+                                        if (side > 0)
+                                        {
+                                            ok = Judge(n - 1, q, 2, k0, mn, k, mp, leftOk, rightOk, ref rej, out dN, out dP);
+                                        }
+                                        else
+                                        {
+                                            ok = Judge(q, n == last ? -1 : n + 1, 2, k, mp, k0, mn, leftOk, rightOk, ref rej, out dP, out dN);
+                                        }
+                                        if (!ok)
+                                            continue;
+                                        c.MaxD = math.max(math.abs(dN), math.abs(dP));
+                                        c.D1 = dN;
+                                        c.D2 = dP;
+                                        if (c.Better(best))
+                                            best = c;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            string at = (isEnd ? "end " : "p") + (n + 1) + " at " + LiftTowerPlan.F(s0, "F0") + " m (" +
+                        (m0 >= 0 ? Short(m_C.Ladder[m0].Name) : "line end") + (fixedNode && !isEnd ? ", pinned / seed" : string.Empty) + "): d " +
+                        LiftTowerPlan.Sg(d0) + ", " + LiftTowerPlan.F(over0, "F1") + " past its cap";
+            LiftPlanNodeFlags pairFlags = (m_F[n] & ~LiftPlanNodeFlags.Seed & ~LiftPlanNodeFlags.Station) | LiftPlanNodeFlags.Pair;
+            switch (best.Kind)
+            {
+                case 1:
+                {
+                    m_K[n] = best.K1;
+                    m_M[n] = best.M1;
+                    done.Add(best.K1);
+                    // a shift next to a tower PairMaxM or nearer makes the two a pair
+                    string with = string.Empty;
+                    for (int side = -1; side <= 1; side += 2)
+                    {
+                        int q = n + side;
+                        if (best.K1 == k0 || !IsTower(q) || math.abs(NodeS(q) - m_S[best.K1]) > LiftTowerPlanConstants.PairMaxM + 1e-3f)
+                            continue;
+                        m_F[n] |= LiftPlanNodeFlags.Pair;
+                        m_F[q] |= LiftPlanNodeFlags.Pair;
+                        with = ", the partner of the " + (IsFixed(q) ? "fixed " : string.Empty) + "tower at " + LiftTowerPlan.F(NodeS(q), "F0") + " m";
+                    }
+                    m_AngleNotes.Add(at + " -> " + (best.K1 == k0 ? "member " : "shifted to " + LiftTowerPlan.F(m_S[best.K1], "F0") + " m, ") +
+                                     Short(m_C.Ladder[best.M1].Name) + ", d " + LiftTowerPlan.Sg(best.D1) + with);
+                    break;
+                }
+                case 2:
+                    m_K[n] = best.K1;
+                    m_M[n] = best.M1;
+                    m_F[n] = pairFlags;
+                    Insert(best.K2, best.M2, pairFlags);
+                    done.Add(best.K1);
+                    done.Add(best.K2);
+                    m_AngleNotes.Add(at + " -> PAIR " + LiftTowerPlan.F(m_S[best.K1], "F0") + " / " + LiftTowerPlan.F(m_S[best.K2], "F0") + " m (" +
+                                     LiftTowerPlan.F(best.GapM, "F0") + " m apart) " + Short(m_C.Ladder[best.M1].Name) + " + " +
+                                     Short(m_C.Ladder[best.M2].Name) + ", d " + LiftTowerPlan.Sg(best.D1) + " / " + LiftTowerPlan.Sg(best.D2));
+                    break;
+                case 3:
+                    if (best.M1 >= 0)
+                        m_M[n] = best.M1;
+                    m_F[n] |= LiftPlanNodeFlags.Pair;
+                    Insert(best.K2, best.M2, LiftPlanNodeFlags.Infill | LiftPlanNodeFlags.Pair);
+                    done.Add(best.K2);
+                    m_AngleNotes.Add(at + " -> PARTNER at " + LiftTowerPlan.F(m_S[best.K2], "F0") + " m (" + LiftTowerPlan.F(best.GapM, "F0") +
+                                     " m away) " + Short(m_C.Ladder[best.M2].Name) + (best.M1 >= 0 ? ", the fixed tower " + Short(m_C.Ladder[best.M1].Name) : string.Empty) +
+                                     ", d " + LiftTowerPlan.Sg(best.D1) + " / " + LiftTowerPlan.Sg(best.D2));
+                    break;
+                case 5:
+                {
+                    float from = NodeS(best.K1);
+                    if (best.M1 >= 0)
+                        m_M[n] = best.M1;
+                    m_K[best.K1] = best.K2;
+                    m_M[best.K1] = best.M2;
+                    m_F[n] |= LiftPlanNodeFlags.Pair;
+                    m_F[best.K1] = (m_F[best.K1] & ~LiftPlanNodeFlags.Seed) | LiftPlanNodeFlags.Pair;
+                    done.Add(best.K2);
+                    m_AngleNotes.Add(at + " -> PULLED the tower at " + LiftTowerPlan.F(from, "F0") + " m to " + LiftTowerPlan.F(m_S[best.K2], "F0") +
+                                     " m as its partner (" + LiftTowerPlan.F(best.GapM, "F0") + " m away) " + Short(m_C.Ladder[best.M2].Name) +
+                                     (best.M1 >= 0 ? ", the fixed tower " + Short(m_C.Ladder[best.M1].Name) : string.Empty) +
+                                     ", d " + LiftTowerPlan.Sg(best.D1) + " / " + LiftTowerPlan.Sg(best.D2));
+                    break;
+                }
+                case 4:
+                    m_M[n] = best.M1;
+                    m_M[best.K2] = best.M2;
+                    m_F[n] |= LiftPlanNodeFlags.Pair;
+                    m_F[best.K2] |= LiftPlanNodeFlags.Pair;
+                    done.Add(m_K[best.K2]);
+                    m_AngleNotes.Add(at + " -> the fixed pair re-membered " + Short(m_C.Ladder[best.M1].Name) + " + " +
+                                     Short(m_C.Ladder[best.M2].Name) + ", d " + LiftTowerPlan.Sg(best.D1) + " / " + LiftTowerPlan.Sg(best.D2));
+                    break;
+                default:
+                    m_F[n] |= LiftPlanNodeFlags.OverCap;
+                    m_AngleNotes.Add(at + " -> NO REPAIR, the tower stays (" + RejText(rej) + ")");
+                    break;
+            }
+        }
+
+        private static string RejText(AngleRej r)
+        {
+            var sb = new StringBuilder();
+            if (r.Pin) sb.Append("a pinned tower beside it PairMaxM or nearer: the player's pair, members only; ");
+            sb.Append("candidates refused: ").Append(r.Cap).Append(" over a cap, ").Append(r.Span).Append(" no clear span, ")
+              .Append(r.Neighbor).Append(" a neighbor pushed past its cap, ").Append(r.Station).Append(" station clearance, ")
+              .Append(r.Removed).Append(" removed spot, ").Append(r.Group).Append(" a group of three");
+            return sb.ToString();
+        }
+
+        private static string Short(string member) => member.Replace("SkiLiftTower", string.Empty).Replace("SkiTramTower", "T");
+
+        /// <summary>Build's phase (d) numbers on the output nodes: deflection, load cases, kind and cap of every judged node.</summary>
+        private void SetAngles(LiftPlanNode[] nodes)
+        {
+            int last = nodes.Length - 1;
+            for (int i = 0; i <= last; i++)
+            {
+                if (last < 1)
+                    break;
+                float sP, rP, sN, rN;
+                if (i == 0)
+                {
+                    if (!OuterA) continue;
+                    sP = -EndOuterDistA; rP = EndOuterRopeA;
+                }
+                else
+                {
+                    sP = nodes[i - 1].AlongM; rP = nodes[i - 1].RopeM;
+                }
+                if (i == last)
+                {
+                    if (!OuterB) continue;
+                    sN = m_Length + EndOuterDistB; rN = EndOuterRopeB;
+                }
+                else
+                {
+                    sN = nodes[i + 1].AlongM; rN = nodes[i + 1].RopeM;
+                }
+                float3 p = RopePoint(sP, rP), q = RopePoint(nodes[i].AlongM, nodes[i].RopeM), n = RopePoint(sN, rN);
+                float h = m_C.SagRatio;
+                nodes[i].HasAngles = true;
+                nodes[i].DeflectionDeg = LiftAlignMath.DeflectionDeg(p, q, n, h);
+                LiftAlignMath.LoadCaseDeflections(p, q, n, h, out nodes[i].TightDeg, out nodes[i].HeavyDeg);
+                if (m_C.HasTrains)
+                {
+                    nodes[i].Kind = LiftAlignMath.ClassifyTrain(nodes[i].TightDeg, nodes[i].HeavyDeg);
+                    nodes[i].CapDeg = m_C.CapDeg(nodes[i].Kind);
+                }
+                else
+                {
+                    nodes[i].Kind = LiftTrainKind.None;
+                    nodes[i].CapDeg = float.PositiveInfinity;
+                    nodes[i].BareDeg = LiftAlignMath.DeflectionDeg(p, q, n, h * LiftAlignMath.BareSagScale);
+                }
+            }
+        }
+
         // Working list + output
 
         private int IndexOf(int k)
@@ -1956,6 +2798,7 @@ namespace SkiResortMod.Systems
                     Flags = f,
                 };
             }
+            SetAngles(nodes);
             var spans = new LiftPlanSpan[count - 1];
             for (int s = 0; s < count - 1; s++)
             {
@@ -2012,6 +2855,7 @@ namespace SkiResortMod.Systems
                 SampleAlongM = along, SampleCentreM = centre, SampleHighM = high, SampleFloorM = floor,
                 StationA = StationA, StationB = StationB,
                 EndCarrierA = m_RopeA - m_C.CarrierDropM - m_High[0], EndCarrierB = m_RopeB - m_C.CarrierDropM - m_High[m_N],
+                AnglesMs = m_AnglesMs, AngleWork = m_AngleWork, AngleNotes = new List<string>(m_AngleNotes),
             };
         }
     }

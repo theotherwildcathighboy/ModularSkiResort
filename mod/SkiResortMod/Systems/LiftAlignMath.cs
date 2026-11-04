@@ -10,6 +10,17 @@ using Unity.Mathematics;
 
 namespace SkiResortMod.Systems
 {
+    /// <summary>The sheave train a line tower needs (breakover-holddown-plan-2026-11-03, section 2.2): None = no train judged (a
+    /// station end, a tram saddle, an end without a neighbor), Support (the rope presses down), HoldDown (it pulls up: the train sits
+    /// over the rope), PushPull (the load reverses between load cases: wheels on both sides).</summary>
+    public enum LiftTrainKind : byte
+    {
+        None,
+        Support,
+        HoldDown,
+        PushPull,
+    }
+
     internal static class LiftAlignMath
     {
         /// <summary>Plan bend above which the lift tool and the hub warn (owner verdict 2026-11-02: warn, never refuse). Real lines turn
@@ -42,15 +53,111 @@ namespace SkiResortMod.Systems
             return l < 1e-4f ? 0f : (d.y - a.y) / l + 4f * hanging;
         }
 
+        /// <summary>THE rope angles at a tower (the one place they are computed: the train pitch, the breakover / hold-down pass of the
+        /// tower planner and the tilt round all call it). <paramref name="prev"/> / <paramref name="node"/> / <paramref name="next"/> are
+        /// the rope points (rope lane y at the anchors; x / z in the plan, the distance between them is the xz length), in line order.
+        /// <paramref name="inAngle"/> = atan of the slope the rope ARRIVES at the node with (chord + 4h), <paramref name="outAngle"/> =
+        /// atan of the slope it LEAVES with toward next (chord - 4h), radians, both measured along prev -> next (up = +).</summary>
+        public static void RopeAngles(float3 prev, float3 node, float3 next, float hanging, out float inAngle, out float outAngle)
+        {
+            inAngle = math.atan(ArriveSlope(prev, node, hanging));
+            outAngle = math.atan(LeaveSlope(node, next, hanging));
+        }
+
+        /// <summary>The rope's deflection at the tower, degrees: in - out (RopeAngles). &gt; 0 convex (a crest: the rope presses DOWN on
+        /// support wheels), &lt; 0 concave (a dip: it pulls UP, a hold-down train). The same either way along the line. On level ground
+        /// with equal neighbors it is the engine's sag kink 2 atan(4h) (FG 9.15, DQ / GD 11.42, tram 18.18 deg); on a uniform slope g it
+        /// is atan(g + 4h) - atan(g - 4h), a little less.</summary>
+        public static float DeflectionDeg(float3 prev, float3 node, float3 next, float hanging)
+        {
+            RopeAngles(prev, node, next, hanging, out float a, out float b);
+            return math.degrees(a - b);
+        }
+
         /// <summary>Train pitch, radians, nose UP toward <paramref name="next"/>, at a line node <paramref name="node"/> whose rope points
         /// (the axle or crown points of the neighbors) are <paramref name="prev"/> and <paramref name="next"/>: the bisector of the
-        /// arriving and leaving rope angles, clamped to ±<paramref name="maxPitch"/>. A straight uniform slope gives exactly that slope.</summary>
+        /// arriving and leaving rope angles (RopeAngles), clamped to ±<paramref name="maxPitch"/>. A straight uniform slope gives exactly
+        /// that slope.</summary>
         public static float TrainPitch(float3 prev, float3 node, float3 next, float hanging, float maxPitch)
         {
-            float inAngle = math.atan(ArriveSlope(prev, node, hanging));
-            float outAngle = math.atan(LeaveSlope(node, next, hanging));
+            RopeAngles(prev, node, next, hanging, out float inAngle, out float outAngle);
             return math.clamp(0.5f * (inAngle + outAngle), -maxPitch, maxPitch);
         }
+
+        // ── Breakover / hold-down (docs/research/breakover-holddown-plan-2026-11-03.md, section 2.2) ─────────────────────────────
+
+        /// <summary>The largest rope deflection one roller may take, degrees: 0.07 rad (D.M. 8 March 1999, fixed-grip and detachable
+        /// chairlifts, 3.18.3: support and hold-down rollers alike, worst steady load case). A train's cap is its wheels x this.</summary>
+        public const float PerWheelMaxDeg = 4.0f;
+
+        /// <summary>The least deflection, degrees, that keeps a roller pressed: derived from 500 N per roller (decree 16 November 2012,
+        /// 14.6.4) at an assumed 120-300 kN haul-rope tension (4 x 500 / 120 kN = 0.95, 8 x 500 / 300 kN = 0.76 deg); the tension is
+        /// unsourced for our types.</summary>
+        public const float MinPressDeg = 1.0f;
+
+        /// <summary>Sag scale of the TIGHT load case (+40 % rope tension, 14.6.4: a support tower in a dip must keep the rope): sag is
+        /// load over tension, so h / 1.4.</summary>
+        public const float TightSagScale = 1f / 1.4f;
+
+        /// <summary>Sag scale of the HEAVY load case (-20 % tension and +25 % payload, 14.6.4: a hold-down tower must keep the rope):
+        /// 1.25 / 0.8 = 1.5625 h (conservative: the whole weight scaled, not only the payload).</summary>
+        public const float HeavySagScale = 1.5625f;
+
+        /// <summary>A tower keeps its kind while that kind is still valid within this many degrees (the fit's re-classification after a
+        /// terrain nudge or a re-fit never flips a head back and forth).</summary>
+        public const float KindHystDeg = 0.25f;
+
+        /// <summary>Tram line saddles: the bare track rope must break over a line saddle by at least 0.02 rad (decree 16 November 2012,
+        /// 14.4.4); under it the saddle may lift. Logged only (trams are scoped out of pairs and hold-down).</summary>
+        public const float SaddleMinBreakDeg = 1.15f;
+
+        /// <summary>Sag scale of the tram's bare track rope (no cabin on the span): an assumption of the plan (section 2.6), logged only.</summary>
+        public const float BareSagScale = 0.75f;
+
+        /// <summary>The cap, degrees, of a sheave train with <paramref name="wheels"/> wheels: wheels x PerWheelMaxDeg, at most the art's
+        /// fold 2 x MaxHalfBreakDeg (40). No wheels (a tram saddle) = no cap (+infinity).</summary>
+        public static float TrainCapDeg(int wheels) =>
+            wheels <= 0 ? float.PositiveInfinity : math.min(wheels * PerWheelMaxDeg, 2f * MaxHalfBreakDeg);
+
+        /// <summary>The deflection of the two load cases (RopeAngles at h x TightSagScale and h x HeavySagScale), degrees.</summary>
+        public static void LoadCaseDeflections(float3 prev, float3 node, float3 next, float hanging, out float tightDeg, out float heavyDeg)
+        {
+            tightDeg = DeflectionDeg(prev, node, next, hanging * TightSagScale);
+            heavyDeg = DeflectionDeg(prev, node, next, hanging * HeavySagScale);
+        }
+
+        /// <summary>A tower's sheave-train kind from the two load-case deflections (degrees): Support when the rope still presses in the
+        /// tight case (tight &gt;= +MinPressDeg); HoldDown when it still lifts in the heavy case (heavy &lt;= -MinPressDeg); else PushPull
+        /// (the load reverses between the cases: wheels on both sides). The deflection grows with the sag, so tight &lt; heavy and the
+        /// first two never both hold. <paramref name="previous"/> (None = unknown): the tower keeps that kind while it is still valid
+        /// within KindHystDeg.</summary>
+        public static LiftTrainKind ClassifyTrain(float tightDeg, float heavyDeg, LiftTrainKind previous = LiftTrainKind.None)
+        {
+            switch (previous)
+            {
+                case LiftTrainKind.Support:
+                    if (tightDeg >= MinPressDeg - KindHystDeg)
+                        return LiftTrainKind.Support;
+                    break;
+                case LiftTrainKind.HoldDown:
+                    if (heavyDeg <= -MinPressDeg + KindHystDeg)
+                        return LiftTrainKind.HoldDown;
+                    break;
+                case LiftTrainKind.PushPull:
+                    if (tightDeg < MinPressDeg + KindHystDeg && heavyDeg > -MinPressDeg - KindHystDeg)
+                        return LiftTrainKind.PushPull;
+                    break;
+            }
+            if (tightDeg >= MinPressDeg)
+                return LiftTrainKind.Support;
+            if (heavyDeg <= -MinPressDeg)
+                return LiftTrainKind.HoldDown;
+            return LiftTrainKind.PushPull;
+        }
+
+        /// <summary>One letter for the logs: S support, H hold-down, P push-pull, - none.</summary>
+        public static char KindLetter(LiftTrainKind k) =>
+            k == LiftTrainKind.Support ? 'S' : k == LiftTrainKind.HoldDown ? 'H' : k == LiftTrainKind.PushPull ? 'P' : '-';
 
         /// <summary>Pitch, radians, nose up toward the line, of a station's line-side train: the angle of the first span's rope where it
         /// meets the station anchor <paramref name="station"/>, coming from (or going to) the first line rope point <paramref name="line"/>.</summary>

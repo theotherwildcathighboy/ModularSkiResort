@@ -784,9 +784,40 @@ namespace SkiResortMod.Systems
             // end without a lane).
             float ropeA = EndRope(m_Base, a, out string srcA), ropeB = EndRope(end, b, out string srcB);
             m_Edit = new LiftLineEdit(m_C, a, b, ropeA, ropeB, m_Base.Kind == LiftLineEndKind.Station, end.Kind == LiftLineEndKind.Station);
+            // A loose end is a tower of the built line: its rope deflection is judged with the built neighbor's rope point beyond it.
+            string outerA = OuterPoint(m_Base, a, out m_Edit.OuterDistA, out m_Edit.OuterRopeA);
+            string outerB = OuterPoint(end, b, out m_Edit.OuterDistB, out m_Edit.OuterRopeB);
             m_State = ToolState.Edit;
             Replan($"line {m_Type.Id} {Describe(m_Base)} -> {Describe(m_Top)}, {m_Edit.LengthM:F0} m, end ropes {ropeA:F2} ({srcA}) / " +
-                   $"{ropeB:F2} ({srcB})");
+                   $"{ropeB:F2} ({srcB}){outerA}{outerB}");
+        }
+
+        /// <summary>The built neighbor's rope point beyond a loose end (the far node of its one built lift-line edge): xz distance from
+        /// the end and rope y (a station stub: its rope lane anchor, as EndRope; a tower node: node y + the shortest member's rope, the
+        /// node formula). NaN for a station or ground end, or when no built edge is found. Returns a log fragment.</summary>
+        private string OuterPoint(LineEnd end, float3 endPos, out float dist, out float rope)
+        {
+            dist = rope = float.NaN;
+            if (end.Kind != LiftLineEndKind.LooseEnd || !EntityManager.Exists(end.Node) ||
+                !EntityManager.TryGetBuffer(end.Node, true, out DynamicBuffer<Game.Net.ConnectedEdge> edges))
+                return string.Empty;
+            for (int i = 0; i < edges.Length; i++)
+            {
+                Entity e = edges[i].m_Edge;
+                if (EntityManager.HasComponent<Owner>(e) || EntityManager.HasComponent<Deleted>(e) || EntityManager.HasComponent<Temp>(e) ||
+                    !EntityManager.TryGetComponent<PrefabRef>(e, out var pr) || !m_Catalog.LiftLineTypes.ContainsKey(pr.m_Prefab) ||
+                    !EntityManager.TryGetComponent<Game.Net.Edge>(e, out var ed))
+                    continue;
+                Entity far = ed.m_Start == end.Node ? ed.m_End : ed.m_Start;
+                if (far == end.Node || !EntityManager.TryGetComponent<Game.Net.Node>(far, out var farNode))
+                    continue;
+                dist = math.distance(farNode.m_Position.xz, endPos.xz);
+                bool station = EntityManager.HasComponent<Owner>(far);
+                rope = EndRope(new LineEnd { Kind = station ? LiftLineEndKind.Station : LiftLineEndKind.LooseEnd, Node = far, Pos = farNode.m_Position },
+                               farNode.m_Position, out string src);
+                return $"; junction at {Describe(end)}: built neighbor {Fmt(far)} {dist:F0} m beyond, rope {rope:F2} ({src})";
+            }
+            return string.Empty;
         }
 
         /// <summary>The station or loose end under the cursor (the nearer of the two, each within its pick radius, of the wanted type).
@@ -1138,13 +1169,22 @@ namespace SkiResortMod.Systems
             MarkSteepSpans(plan, edit);
             var sb = new StringBuilder();
             sb.Append("LiftLine [plan] #").Append(edit.Revision).Append(": ").Append(why).Append(" — ").Append(edit.Describe())
-              .Append("; ").Append(sw.Elapsed.TotalMilliseconds.ToString("F1")).Append(" ms");
+              .Append("; ").Append(sw.Elapsed.TotalMilliseconds.ToString("F1")).Append(" ms (angles ").Append(plan.AnglesMs.ToString("F2"))
+              .Append(" ms, work ").Append(plan.AngleWork).Append("; ").Append(plan.AngleSummary()).Append(')');
             for (int i = 1; i < plan.Nodes.Length - 1; i++)
             {
                 LiftPlanNode n = plan.Nodes[i];
                 sb.Append(i == 1 ? "\n  towers: " : ", ").Append(plan.Constants.Ladder[n.Member].Name.Replace("SkiLiftTower", string.Empty)
-                  .Replace("SkiTramTower", "T")).Append(" @").Append(n.AlongM.ToString("F0")).Append(edit.IsPinned(n.AlongM) ? " (pin)" : string.Empty);
+                  .Replace("SkiTramTower", "T")).Append(" @").Append(n.AlongM.ToString("F0")).Append(edit.IsPinned(n.AlongM) ? " (pin)" : string.Empty)
+                  .Append(' ').Append(plan.AngleText(i));
             }
+            int lastNode = plan.Nodes.Length - 1;
+            if (plan.Nodes[0].HasAngles)
+                sb.Append("\n  junction A: ").Append(plan.AngleText(0));
+            if (lastNode > 0 && plan.Nodes[lastNode].HasAngles)
+                sb.Append("\n  junction B: ").Append(plan.AngleText(lastNode));
+            for (int i = 0; i < plan.AngleNotes.Count; i++)
+                sb.Append("\n  angles: ").Append(plan.AngleNotes[i]);
             sb.Append("\n  edge slope: max ").Append(plan.MaxEdgeSlope.ToString("F2")).Append(" (the line prefab refuses ")
               .Append(m_C.MaxEdgeSlope.ToString("F2")).Append(", SteepSlope)");
             for (int i = 0; i < plan.Spans.Length; i++)

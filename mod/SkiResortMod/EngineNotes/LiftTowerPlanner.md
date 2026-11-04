@@ -14,8 +14,8 @@ no randomness, no hash order, ties broken by the sample index. Citations are the
 Constants provenance: ladder tops are the tower manifests' top_anchor_y = ObjectGeometryData m_Size.y, confirmed in game (member lists in
 the mod log). Rope offset = shortest top - catalog AxleM (lane y on the shortest tower), which equals every member's top - axle in the
 manifests (FG 1.974, DQ 1.95, GD 2.0, tram stubs 3.75). Drop = catalog HangM. Half width = piece m_Width / 2 (SkiChairliftPiece /
-SkiDetachablePiece 6, SkiGondolaPiece 8.2, SkiTramPiece 15). Sag = the rope lane's m_Hanging (FG SkiFixedGripHaulRope 0.01 since
-lift alignment F3, 2026-11-02, with the net SkiChairliftHV at 0.01 too; it was the vanilla HV lane's 0.03; DQ / GD / tram rope lanes 0.004). Drop =
+SkiDetachablePiece 6, SkiGondolaPiece 8.2, SkiTramPiece 15). Sag = the rope lane's m_Hanging = the catalog's Envelope.LaneHanging (FG
+SkiFixedGripHaulRope 0.02, DQ / GD 0.025, tram 0.04 since the rope sag round; FG was 0.01 and the others 0.004 before it). Drop =
 HangM stays conservative: carriers ride the rope point since F5, GripTopAboveRopeM (0.08 / 0.22 m) higher than HangM below the rope.
 
 ## Ground model (per sample)
@@ -44,8 +44,26 @@ HangM stays conservative: carriers ride the rope point since F5, GripTopAboveRop
   violation, the end nearer the worst sample (the other end if that one is at the top of the ladder or is a station) goes up one member.
   Members whose rope is above MaxRopeAboveGroundM are never used. If (c) leaves a violation that the (a) / (b) members did not have, the
   (a) / (b) members are kept.
-- (d) Output: ordered nodes (along, ground, high side, member, rope y, flags) plus the per-span clearance profile; `AppendLog` writes a
-  "Towers [plan]" block in the "Towers [nodes]" format of `LiftTowerDiagSystem` so the two compare line by line.
+- (d) Rope angles (breakover / hold-down pairs, tool plans only: `Pairs`, set by `LiftLineEdit.Replan`): a local post-pass after (c).
+  The tower whose rope deflection (`LiftAlignMath.DeflectionDeg`, sag h) is furthest past its train's cap goes first, re-evaluated
+  after every change, one repair per original tower. Candidates, cheapest first (fewer towers, fewer ladder steps, smaller max
+  |deflection|, shorter spacing, nearer the old spot): (1) the tower shifted within AngleShiftM 20 m with any member, or, beside a
+  fixed tower (a pin, a seed, the junction end) PairMaxM or nearer, anywhere in that tower's partner window; a fixed tower only
+  changes member; (2) a free tower replaced by a pair PairMinM..PairMaxM (10..40 m) apart within 20 m of its spot; a fixed tower keeps
+  its spot and (5) pulls its free neighbor in as its partner or (3) gets a new free partner; two fixed towers 40 m or nearer are the
+  player's pair, (4) re-membered only. Every candidate keeps its spans clear (sag, edge slope, MaxSpanM), the station clearance and
+  the removed spots, both touched towers within their caps, the untouched neighbors no further past theirs, and never leaves three
+  towers in a row 40 m or nearer apart (MaxGroup 2). Nothing feasible: the tower stays, flagged OverCap, and the note names the
+  refusals per reason. A line end joining a built line is judged against that line's far node rope point (`EndOuterDistA` /
+  `EndOuterRopeA`, B likewise, from `LiftLineToolSystem.OuterPoint`). The angle pass judges deterministic work (`AngleWork`,
+  rope-angle evaluations: LiftBatch CO-1 bounds it) and reports its wall time (`AnglesMs`): 0.001 ms on an ordinary 1.2 km DQ,
+  0.17 ms on a 2 km DQ with three sharp crests. Practical reach found by LiftBatch (BO-1, BO-2): DQ pairs a 28 deg ground chord
+  change (0.60 -> 0.05), GD 36 deg (0.90 -> 0.10); FG only about 8.5 deg (its 4 m ladder steps and 90 m max span; the plan
+  estimated 13.9), so sharper FG crests stay single and flagged.
+- (e) Output: ordered nodes (along, ground, high side, member, rope y, flags) plus the per-span clearance profile, and on every
+  judged node (every plan, the fit's included) the deflection, the two load cases, the train kind and the cap (`SetAngles`);
+  `AppendLog` writes a "Towers [plan]" block in the "Towers [nodes]" format of `LiftTowerDiagSystem` so the two compare line by
+  line, each tower with its angle text ("d +12.3 (tight +9.1 / heavy +17.0) S [pair]", "OVER CAP" when flagged).
 
 ### Breakover rule
 Fixed-grip lines put a tower just before a breakover (a convex change of slope) so the rope follows the profile. So a Shoulder on convex
@@ -90,6 +108,10 @@ The engine's node count is fixed (equal split, CourseSplitSystem.cs:3485-3493), 
 1. `PlanFixed` = phase (c) only at the line's own nodes (each node gets its own profile sample);
 2. else, on a straight line, the free plan with spans capped at the engine's max edge length, spare nodes at the longest spans' midpoints;
 3. else Short (the better of the two, plus the tower count the line would need).
+
+The fit never adds a tower: it forces `Pairs` off for its free plan (Needed unchanged, LiftBatch HD-5). It logs the train kinds per
+tower with hysteresis (`LiftTowerFitSystem` keeps the last kind per node entity in memory only, cleared on load) as a
+"Towers [angles]" line when a kind appears or changes; phase B1 changes no tower head.
 
 Hysteresis: the members the line already carries win when they clear it as they stand. Phase (c) re-run on ground that moved a few
 decimeters (our own carve, rounding) can pick an equally clear but different assignment (a 1,223 m tram flipped between two member mixes on

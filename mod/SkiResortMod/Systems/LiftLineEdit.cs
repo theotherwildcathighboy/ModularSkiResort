@@ -127,9 +127,20 @@ namespace SkiResortMod.Systems
         public float Snap(float alongM) => math.round(alongM / C.StepM) * C.StepM;
 
 
-        /// <summary>Re-plan with the pins as seeds (the fewest-towers objective fills between them).</summary>
+        /// <summary>A loose end joining a built line: the built neighbor's rope point beyond end A / B (xz distance from the end node,
+        /// rope y there; NaN = unknown, that end is not judged), so the planner judges the junction tower's rope deflection and may give it
+        /// a partner inside this section (breakover-holddown-plan-2026-11-03, section 2.3 step 1). The tool sets them after the pick.</summary>
+        public float OuterDistA = float.NaN, OuterRopeA = float.NaN, OuterDistB = float.NaN, OuterRopeB = float.NaN;
+
+        /// <summary>Re-plan with the pins as seeds (the fewest-towers objective fills between them), then the breakover / hold-down
+        /// pairs (LiftTowerPlanner.Pairs: tool plans only; partners are Free nodes, pins never move).</summary>
         public LiftTowerPlan Replan(LiftTerrainSampler terrain)
         {
+            m_Planner.Pairs = true;
+            m_Planner.EndOuterDistA = OuterDistA;
+            m_Planner.EndOuterRopeA = OuterRopeA;
+            m_Planner.EndOuterDistB = OuterDistB;
+            m_Planner.EndOuterRopeB = OuterRopeB;
             var seeds = new List<LiftPlanNode>(m_Pins.Count);
             for (int i = 0; i < m_Pins.Count; i++)
                 seeds.Add(new LiftPlanNode { AlongM = m_Pins[i], Member = -1, Flags = LiftPlanNodeFlags.Seed });   // the planner sets its height

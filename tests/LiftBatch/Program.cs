@@ -100,6 +100,9 @@ namespace LiftBatch
             PowerJoinTests.Run(Check);
             LiftIconTests.Run(Check);
             RopePickTests.Run(Check);
+            BreakoverTests.Run(Check);
+            foreach (string line in BreakoverTests.Report)
+                Console.WriteLine("ANGLE " + line);
 
             Console.WriteLine(string.Format(CultureInfo.InvariantCulture,
                 "SUMMARY  LiftBatch checks={0} failures={1}", s_Checks, s_Failures));

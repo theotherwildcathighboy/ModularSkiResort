@@ -82,6 +82,8 @@
     <Compile Include="..\..\mod\SkiResortMod\Systems\LiftServedRule.cs" Link="LiftServedRule.cs" />
     <!-- The tower planner the Lifts stage (A4) calls; its only dependency is SkiCatalog (linked above) -->
     <Compile Include="..\..\mod\SkiResortMod\Systems\LiftTowerPlanner.cs" Link="LiftTowerPlanner.cs" />
+    <!-- the planner's phase (d) rope angles (LiftAlignMath.RopeAngles, the train kinds) -->
+    <Compile Include="..\..\mod\SkiResortMod\Systems\LiftAlignMath.cs" Link="LiftAlignMath.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiMoneyRules.cs" Link="SkiMoneyRules.cs" />
     <Compile Include="..\..\mod\SkiResortMod\Systems\SkiRunBindingRules.cs" Link="SkiRunBindingRules.cs" />
   </ItemGroup>

@@ -42,6 +42,10 @@ namespace SkiResortMod.Systems
         private readonly HashSet<uint> m_Seen = new HashSet<uint>();
         private readonly List<List<LiftCensus.Edge>> m_Pending = new List<List<LiftCensus.Edge>>();
         private readonly Dictionary<Entity, int2> m_Writes = new Dictionary<Entity, int2>();   // first inner node -> (count, first frame)
+        // Each line tower's train kind as last classified (breakover-holddown-plan-2026-11-03, phase B1: computed and logged only, no
+        // head change): the hysteresis input (LiftAlignMath.KindHystDeg) and the "Towers [angles]" change detector. In session only,
+        // never saved; cleared per load.
+        private readonly Dictionary<Entity, LiftTrainKind> m_Kinds = new Dictionary<Entity, LiftTrainKind>();
         private int m_Fitted, m_Written, m_Short;
 
         protected override void OnCreate()
@@ -62,6 +66,7 @@ namespace SkiResortMod.Systems
             m_Seen.Clear();
             m_Pending.Clear();
             m_Writes.Clear();
+            m_Kinds.Clear();
             m_Fitted = m_Written = m_Short = 0;
             if (m_Armed)
                 Mod.Log.Info($"Towers [fit]: ARMED — fits new / changed lift lines {SettleFrames} quiet census updates after the edit " +
@@ -299,6 +304,7 @@ namespace SkiResortMod.Systems
                              "not written");
                 return;
             }
+            LogKinds(head, path, plan, c);
 
             var targets = new Target[n - 2];
             int writes = 0;
@@ -373,7 +379,8 @@ namespace SkiResortMod.Systems
                       .Append(Short(c.Ladder[t.NewMember].Name)).Append(", elevation ").Append(F(LiftTowerEdit.ElevationM(c, t.NewMember), "F2"))
                       .Append(", node y ").Append(F(t.Old.y, "F2")).Append(" -> ").Append(F(t.New.y, "F2")).Append(" (ground ").Append(F(pn.GroundM, "F2"))
                       .Append(", high side ").Append(Sg(pn.HighSideM - pn.GroundM)).Append("), rope y ").Append(F(pn.RopeM, "F2"))
-                      .Append(" [").Append(LiftTowerPlan.FlagText(pn.Flags)).Append(']').Append(t.Write ? string.Empty : " (unchanged)").Append('\n');
+                      .Append(" [").Append(LiftTowerPlan.FlagText(pn.Flags)).Append(']').Append(t.Write ? string.Empty : " (unchanged)")
+                      .Append(", ").Append(plan.AngleText(i)).Append('\n');
                 }
                 if (i < n - 1)
                 {
@@ -406,6 +413,48 @@ namespace SkiResortMod.Systems
             m_Written++;
         }
 
+
+        /// <summary>The line towers' train kinds (support / hold-down / push-pull from the two load cases, LiftAlignMath.ClassifyTrain with
+        /// the kind each had before as the hysteresis input): logged as one "Towers [angles]" line when any kind is new or changed. Phase B1
+        /// of the breakover / hold-down round: computed and logged only, nothing written (the heads come with the art round). The tram's
+        /// saddles get their deflections and the bare-rope breakover check (14.4.4), logged only.</summary>
+        private void LogKinds(string head, List<LiftTowerDiagSystem.Hop> path, LiftTowerPlan plan, LiftTowerPlanConstants c)
+        {
+            int n = path.Count;
+            int changed = 0, s = 0, h = 0, p = 0, over = 0, under = 0;
+            var sb = new StringBuilder(512);
+            for (int i = 1; i < n - 1; i++)
+            {
+                LiftPlanNode pn = plan.Nodes[i];
+                Entity node = path[i].Node;
+                bool had = m_Kinds.TryGetValue(node, out LiftTrainKind before);
+                LiftTrainKind kind = pn.HasAngles && c.HasTrains
+                    ? LiftAlignMath.ClassifyTrain(pn.TightDeg, pn.HeavyDeg, had ? before : LiftTrainKind.None) : LiftTrainKind.None;
+                if (!had || kind != before)
+                    changed++;
+                m_Kinds[node] = kind;
+                if (kind == LiftTrainKind.Support) s++;
+                else if (kind == LiftTrainKind.HoldDown) h++;
+                else if (kind == LiftTrainKind.PushPull) p++;
+                float cap = c.CapDeg(kind == LiftTrainKind.None ? LiftTrainKind.Support : kind);
+                if (pn.HasAngles && c.HasTrains && math.abs(pn.DeflectionDeg) > cap + LiftTowerPlan.AngleTolDeg) over++;
+                if (pn.HasAngles && !c.HasTrains && pn.BareDeg < LiftAlignMath.SaddleMinBreakDeg) under++;
+                sb.Append(i == 1 ? string.Empty : ", ").Append('t').Append(i + 1).Append(' ').Append(F(pn.AlongM, "F0")).Append(" m ")
+                  .Append(Short(c.Ladder[pn.Member].Name)).Append(" d ").Append(Sg(pn.DeflectionDeg));
+                if (c.HasTrains)
+                    sb.Append(" (").Append(Sg(pn.TightDeg)).Append(" / ").Append(Sg(pn.HeavyDeg)).Append(") ").Append(LiftAlignMath.KindLetter(kind))
+                      .Append(had && kind != before ? " (was " + LiftAlignMath.KindLetter(before) + ")" : string.Empty);
+                else
+                    sb.Append(" (bare ").Append(Sg(pn.BareDeg)).Append(')');
+            }
+            if (changed == 0)
+                return;
+            string counts = c.HasTrains
+                ? $"support {s}, hold-down {h}, push-pull {p}, over cap {over}"
+                : $"tram saddles: bare-rope breakover under {LiftAlignMath.SaddleMinBreakDeg:F2} deg at {under} tower(s)";
+            Mod.Log.Info($"Towers [angles]: {head} — {changed} new or changed kind(s), logged only (no head change this round); {counts}; " +
+                         $"d = in - out (tight / heavy load case), S / H / P: {sb}");
+        }
 
         private void Write(List<LiftTowerDiagSystem.Hop> path, Target[] targets, float hanging)
         {
