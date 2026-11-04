@@ -206,6 +206,11 @@ decimeters (our own carve, rounding) can pick an equally clear but different ass
 every re-fit); a clear line is final. `LiftTowerEdit` holds the engine-side numbers (node elevation per member, the vanilla score /
 top-anchored placement replica, the power-line edge curve). Tests: LiftBatch LP-11..LP-15.
 
+Never worse over a built line (FIX-LIST 52): `ToWrite(asBuilt, fit, built)` is the plan the fit writes. Over a built line an unsound plan
+(`LiftTowerPlan.Sound`: every span clear and no tower over its cap) is written only when `LiftTowerPlan.WorseThan(plan, asBuilt)` finds it
+no worse on every axis: min floor margin (`WorseMarginTolM` 0.05 m), `ViolatedSpans`, towers over cap, `MaxCapExcessDeg`. Null = keep the
+line as built (LiftTowerFitSystem.md). Test: LiftBatch EI-52.
+
 ## LiftTowerEdit: the engine-side numbers of a fitted node (LP-15)
 A tower node is raised so that the vanilla placeholder ladder spawns exactly the planned member on the ground:
 - node y = center ground + E, `Game.Net.Elevation` = (E, E), E = TopM[member] - TopM[0].

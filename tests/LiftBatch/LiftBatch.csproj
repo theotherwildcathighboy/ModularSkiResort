@@ -93,6 +93,8 @@
     <Compile Include="DirectionTests.cs" />
     <!-- No clear plan: the fewest towers with the least shortfall, not the legacy scatter; the twins never make a plan worse (FB). -->
     <Compile Include="FallbackTests.cs" />
+    <!-- The Eishain-Niedertal pass defects (FIX-LIST 48-52): station ends read back after a load, the station rope anchors, planner cost (EI). -->
+    <Compile Include="EishainTests.cs" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="UnityMathematics.NoDeps" Version="1.3.2" />

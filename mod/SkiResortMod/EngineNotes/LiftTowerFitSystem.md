@@ -27,15 +27,35 @@ census and ChairPinSystem 4B) and `CleanUpSystem` wipes the tag at the end of th
 lost.
 
 ## Trigger and guard
-`LiftCensusSystem.BuildCensus` calls `OnCensusBuilt(edges)` after every build (load baseline included). A component whose signature
-(`LiftTowerDiagSystem.Signature`: edge ids + node positions) is new is queued and fitted once the census has been quiet for SettleFrames
+`LiftCensusSystem.BuildCensus` calls `OnCensusBuilt(edges, nodes)` after every build (load baseline included). A component whose key
+(`LiftTowerDiagSystem.Signature`: edge ids + node positions, XOR its station connection nodes, `LiftCensus.Node.Station`) is new is queued
+and fitted once the census has been quiet for SettleFrames
 updates (a drag keeps resetting the timer). The fit is a fixed point (LiftBatch LP-13): the build it causes queues the line again and the
 re-fit writes nothing ("already fitted"). Guard: a line written MaxWrites times within GuardFrames is left alone with a WARN.
+The station ends are in the key because a station attached line-first (its stub course reuses the line's unowned end node,
+LiftReconnectSystem.md) changes no edge and no node position: without them the line was fitted in session as ground-ended and only
+re-fitted after the next load, against the station's lower rope anchor (FIX-LIST 52).
 
 ## Ground
 The terrain sampler is `LiftTowerEdit.UncutSampler`. A sample at this line's own cut ceiling (edge y + composition height range min +
 terrain offset, `TerrainSystem.AddSegment`) is our trench, so the plane through the uncut ground beside it stands in; otherwise towers
 stand in the trenches of a vanilla line drawn on the ground and keep round pits around them.
+
+## Station ends
+An end is a station end (approach floor, `LiftTowerPlanner.StationA/B`) by the census rule `LiftCensusSystem.IsStationNode`
+(`StationOfNode`: the node's Owner or owner's owner is a station, or, line-first, a station-owned stub edge is in its ConnectedEdge buffer),
+or any owned node. Owner alone (before FIX-LIST 52) read a line-first end as a ground end in session and as a station after a load. The
+end rope is the lowest end point of the end edge's HV sub-lanes (`StationRope`), which with a station attached is the station's own anchor.
+
+## Never worse over a built line (FIX-LIST 52)
+A line is BUILT when every inner node's Elevation is exactly (E, E) of the member and head `MemberOf` reads from it, with evidence (a node
+raised above E 0, or every node classified this session); an engine line on the ground or the tool's fresh nodes are not. Over a built
+line the fit writes its plan only when it is sound (every span clear, no tower over its cap) or no worse than the line as it stands (the
+"before" plan: its own members and heads, `HeadsAsGiven`) on every axis: floor margin (0.05 m), violated spans, towers over cap, worst
+excess over a cap (`LiftTowerPlanner.ToWrite`, `LiftTowerPlan.WorseThan`). Otherwise one WARN "KEPT AS BUILT" with both plans and the
+axes, and nothing is written. Field case: the Eishain FG line read -1.7 m after a load (stations attached line-first under ground-end
+ropes) and the Short fit wrote FG20BreakA at d +47.2, over its cap (LiftBatch EI-52). Trade-off: a built line that is floor-violated stays
+so when every better arrangement puts a tower over its cap; the WARN names it, and the tool's per-section redo is the remedy.
 
 ## Moved
 The free plan's own members travel with its nodes, spares get the shortest clearing member (`LiftTowerPlanner.Fit`); a standing line within
@@ -61,5 +81,5 @@ load (n of 16 loaded, a WARN naming the missing ones), and a build without them 
 ## Logs
 Silence is impossible: one ARMED line per load; per fitted line a "Towers [fit]" block (per tower: position, member, elevation, rope before
 to after; per span: length, lowest carrier over the high side, max rope above ground) plus one "Towers [fit summary]"; "already fitted" one
-line; Short = WARN with the tower count the line needs; skips (branched / bent with a non-plain node / no constants) one Info line each;
-an exception disables the system until the next load.
+line; Short = WARN with the tower count the line needs; KEPT AS BUILT = WARN (above); skips (branched / bent with a non-plain node / no
+constants) one Info line each; an exception disables the system until the next load.

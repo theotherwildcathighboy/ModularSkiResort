@@ -631,6 +631,63 @@ namespace SkiResortMod.Systems
             }
         }
 
+        /// <summary>Spans violated (floor, max rope height or edge slope).</summary>
+        public int ViolatedSpans
+        {
+            get
+            {
+                int v = 0;
+                for (int i = 0; i < Spans.Length; i++)
+                    if (Spans[i].FloorViolated || Spans[i].HeightViolated || Spans[i].SlopeViolated)
+                        v++;
+                return v;
+            }
+        }
+
+        /// <summary>The worst deflection past its cap among the judged towers, deg (0 = every one within its cap).</summary>
+        public float MaxCapExcessDeg
+        {
+            get
+            {
+                float v = 0f;
+                for (int i = 0; i < Nodes.Length; i++)
+                    if (Nodes[i].HasAngles)
+                        v = math.max(v, math.abs(Nodes[i].DeflectionDeg) - Nodes[i].CapDeg);
+                return v;
+            }
+        }
+
+        /// <summary>Every span clear and no tower over its cap.</summary>
+        public bool Sound
+        {
+            get
+            {
+                KindCounts(out _, out _, out _, out _, out int over);
+                return Clear && over == 0;
+            }
+        }
+
+        /// <summary>Null when <paramref name="plan"/> is no worse than <paramref name="built"/> on any axis (floor margin, violated
+        /// spans, towers over their cap, the worst excess over a cap); else the axes it is worse on (FIX-LIST 52).</summary>
+        public static string WorseThan(LiftTowerPlan plan, LiftTowerPlan built)
+        {
+            var why = new List<string>(4);
+            if (plan.MinFloorMarginM < built.MinFloorMarginM - WorseMarginTolM)
+                why.Add("floor margin " + Sg(built.MinFloorMarginM) + " -> " + Sg(plan.MinFloorMarginM) + " m");
+            if (plan.ViolatedSpans > built.ViolatedSpans)
+                why.Add("violated spans " + built.ViolatedSpans + " -> " + plan.ViolatedSpans);
+            plan.KindCounts(out _, out _, out _, out _, out int overP);
+            built.KindCounts(out _, out _, out _, out _, out int overB);
+            if (overP > overB)
+                why.Add("towers over cap " + overB + " -> " + overP);
+            if (plan.MaxCapExcessDeg > built.MaxCapExcessDeg + AngleTolDeg)
+                why.Add("worst excess over a cap " + Sg(built.MaxCapExcessDeg) + " -> " + Sg(plan.MaxCapExcessDeg) + " deg");
+            return why.Count == 0 ? null : string.Join(", ", why);
+        }
+
+        /// <summary>A floor margin this much lower is the same margin (the 5 / 10 m sample grid, float noise).</summary>
+        public const float WorseMarginTolM = 0.05f;
+
         /// <summary>The "Towers [plan]" block (the "Towers [nodes]" node/span layout of LiftTowerDiagSystem). <paramref name="header"/>
         /// is the text after "Towers [plan]: " on the first line; the caller appends the planned-vs-actual numbers there.</summary>
         public void AppendLog(StringBuilder sb, string header)
@@ -1598,6 +1655,20 @@ namespace SkiResortMod.Systems
                 if (p.Spans[i].HeightViolated || p.Spans[i].MinFloorMarginM < -KeepTolM)
                     return false;
             return true;
+        }
+
+        /// <summary>The plan the fit writes over a line (FIX-LIST 52): the fit's plan, except over a BUILT line (its nodes carry the
+        /// exact elevations of a fit, so <paramref name="asBuilt"/> is the line as it stands, its own members and heads) when that plan
+        /// is not sound (a span violated or a tower over its cap) and worse than the line on any axis (LiftTowerPlan.WorseThan): then
+        /// null, nothing is written, and <paramref name="worse"/> says why. A sound plan is always written; a line the engine or the tool
+        /// just built (not <paramref name="built"/>) always takes the fit.</summary>
+        public static LiftTowerPlan ToWrite(LiftTowerPlan asBuilt, LiftTowerFit fit, bool built, out string worse)
+        {
+            worse = null;
+            if (!built || asBuilt == null || fit.Plan.Sound)
+                return fit.Plan;
+            worse = LiftTowerPlan.WorseThan(fit.Plan, asBuilt);
+            return worse == null ? fit.Plan : null;
         }
 
         // Span evaluation

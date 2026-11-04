@@ -36,11 +36,13 @@ namespace SkiResortMod.Systems
         private TerrainSystem m_TerrainSystem;
         private LiftLineToolSystem m_LineTool;
         private PrefabSystem m_PrefabSystem;
+        private LiftCensusSystem m_Census;
         private readonly LiftTowerPlanner m_Planner = new LiftTowerPlanner();
 
         private bool m_Armed, m_Disabled, m_ErrorLogged, m_OffLogged;
         private int m_Frame, m_LastQueueFrame;
         private readonly HashSet<uint> m_Seen = new HashSet<uint>();
+        private readonly HashSet<EntityRef> m_StationNodes = new HashSet<EntityRef>();   // the last census build's station connection nodes
         private readonly List<List<LiftCensus.Edge>> m_Pending = new List<List<LiftCensus.Edge>>();
         private readonly Dictionary<Entity, int2> m_Writes = new Dictionary<Entity, int2>();   // first inner node -> (count, first frame)
         // Each line tower's train kind as last classified (breakover-holddown-plan-2026-11-03, phase B1: computed and logged only, no
@@ -56,6 +58,7 @@ namespace SkiResortMod.Systems
             m_TerrainSystem = World.GetOrCreateSystemManaged<TerrainSystem>();
             m_LineTool = World.GetOrCreateSystemManaged<LiftLineToolSystem>();
             m_PrefabSystem = World.GetOrCreateSystemManaged<PrefabSystem>();
+            m_Census = World.GetOrCreateSystemManaged<LiftCensusSystem>();
             Mod.Log.Info($"{nameof(LiftTowerFitSystem)} created");
         }
 
@@ -103,17 +106,24 @@ namespace SkiResortMod.Systems
                              "their support head");
         }
 
-        /// <summary>Called by LiftCensusSystem after each build with its line edges (main thread, no ECS read here).</summary>
-        internal void OnCensusBuilt(List<LiftCensus.Edge> edges)
+        /// <summary>Called by LiftCensusSystem after each build with its line edges and nodes (main thread, no ECS read here). The key
+        /// of a line is its edges and node positions plus which of its nodes are station connections (LiftCensus.Node.Station): a
+        /// station attached line-first to a built line changes no edge or node, but changes the line's ends, so it is re-fitted in
+        /// session as after a load (FIX-LIST 52).</summary>
+        internal void OnCensusBuilt(List<LiftCensus.Edge> edges, List<LiftCensus.Node> nodes)
         {
             if (!m_Armed || m_Disabled)
                 return;
             try
             {
+                m_StationNodes.Clear();
+                for (int i = 0; i < nodes.Count; i++)
+                    if (nodes[i].Station >= 0)
+                        m_StationNodes.Add(nodes[i].Id);
                 List<List<LiftCensus.Edge>> comps = LiftTowerDiagSystem.Components(new List<LiftCensus.Edge>(edges));
                 for (int c = 0; c < comps.Count; c++)
                 {
-                    if (m_Seen.Add(LiftTowerDiagSystem.Signature(comps[c])))
+                    if (m_Seen.Add(LiftTowerDiagSystem.Signature(comps[c]) ^ StationKey(comps[c])))
                     {
                         m_Pending.Add(comps[c]);
                         m_LastQueueFrame = m_Frame;
@@ -124,6 +134,20 @@ namespace SkiResortMod.Systems
             {
                 Fail(e);
             }
+        }
+
+        /// <summary>The station ends of a line, hashed (0 = none): the node index of every station connection node it touches.</summary>
+        private uint StationKey(List<LiftCensus.Edge> comp)
+        {
+            uint k = 0;
+            for (int i = 0; i < comp.Count; i++)
+            {
+                if (m_StationNodes.Contains(comp[i].Start))
+                    k += ((uint)comp[i].Start.Index + 1u) * 2246822519u;
+                if (m_StationNodes.Contains(comp[i].End))
+                    k += ((uint)comp[i].End.Index + 1u) * 3266489917u;
+            }
+            return k;
         }
 
         protected override void OnUpdate()
@@ -311,11 +335,12 @@ namespace SkiResortMod.Systems
             int partialFound = 0, partialPins = 0;
             if (toolLine == null)
                 partial = m_LineTool.ToolLines.BestPartial(pts, out partialFound, out partialPins);
-            // A station end gets the approach floor; a loose end or plain node is a tower: the full floor. Station-ness is the end
-            // node's Owner (a station's sub-net stub, the node the tool's StationEnd / TryStubNode picks): every line edge has HV rope
+            // A station end gets the approach floor; a loose end or plain node is a tower: the full floor. Every line edge has HV rope
             // lanes ending at both its nodes, so a rope lane (laneA / laneB) says only where the rope height came from.
-            m_Planner.StationA = EntityManager.HasComponent<Owner>(path[0].Node);
-            m_Planner.StationB = EntityManager.HasComponent<Owner>(path[n - 1].Node);
+            // The census rule (LiftCensusSystem.StationOfNode), so a line-first station (its stub course reuses the line's UNOWNED end
+            // node) is a station end in session as after a load (FIX-LIST 52: Owner alone read a ground end in session, a station after it).
+            m_Planner.StationA = IsStationEnd(path[0].Node);
+            m_Planner.StationB = IsStationEnd(path[n - 1].Node);
             // Kinds and heads with hysteresis: every plan at the line's own node positions starts from the kinds and heads it carries.
             m_Planner.PreviousKinds = oldKinds;
             m_Planner.PreviousHeads = oldHeads;
@@ -352,6 +377,20 @@ namespace SkiResortMod.Systems
             {
                 Mod.Log.Warn($"Towers [fit]: {head} — the fit returned {plan.Nodes.Length} nodes for {n} (two nodes in one {c.StepM:F0} m sample?): " +
                              "not written");
+                return;
+            }
+            // Never a worse plan over a built line (FIX-LIST 52): a line whose every inner node carries a fit's exact elevation is the
+            // line as built (before = its own members and heads, read back by MemberOf); an unsound fit worse on any axis is not written.
+            bool built = Built(path, c, oldMembers, oldHeads);
+            if (LiftTowerPlanner.ToWrite(before, fit, built, out string worse) == null)
+            {
+                before.KindCounts(out _, out _, out _, out _, out int overB);
+                plan.KindCounts(out _, out _, out _, out _, out int overP);
+                Mod.Log.Warn($"Towers [fit]: {head} — KEPT AS BUILT: the line as it stands has min floor margin {Sg(before.MinFloorMarginM)} m " +
+                             $"({before.ViolatedSpans} span(s) violated, {overB} tower(s) over cap; station ends {(m_Planner.StationA ? "base" : "-")}/" +
+                             $"{(m_Planner.StationB ? "top" : "-")}, ropes y {F(ropeA, "F2")} / {F(ropeB, "F2")}); the best fit ({fit.Mode}: " +
+                             $"{Sg(plan.MinFloorMarginM)} m, {overP} over cap, members {{{plan.MemberCounts()}}}, twin heads {{{plan.HeadCounts()}}}) " +
+                             $"is worse on {worse}: nothing written");
                 return;
             }
             LogKinds(head, path, plan, c, oldHeads);
@@ -632,6 +671,29 @@ namespace SkiResortMod.Systems
             }
             return off;
         }
+
+        /// <summary>The line as a fit built it (FIX-LIST 52): every inner node's Game.Net.Elevation is exactly (E, E) of the member and
+        /// head MemberOf reads from it, and the evidence is not all zero (a node raised to a member or twin, or every node classified
+        /// this session): an engine-drawn line on the ground (no Elevation) or the tool's fresh nodes (engine elevations such as
+        /// (7.93, 0)) are not built and always take the fit.</summary>
+        private bool Built(List<LiftTowerDiagSystem.Hop> path, LiftTowerPlanConstants c, int[] members, LiftTowerHead[] heads)
+        {
+            bool raised = false, known = true;
+            for (int i = 1; i < path.Count - 1; i++)
+            {
+                float e = LiftTowerEdit.ElevationM(c, members[i - 1], heads[i - 1]);
+                if (ElevationOff(path[i].Node, e))
+                    return false;
+                raised |= e > 0f;
+                known &= m_Kinds.ContainsKey(path[i].Node);
+            }
+            return raised || known;
+        }
+
+        /// <summary>A station's connection node by the census rule (LiftCensusSystem.IsStationNode: stations-first the station-owned
+        /// stub node, line-first the line's own node with the station's stub edge on it), else any owned node.</summary>
+        private bool IsStationEnd(Entity node) =>
+            (m_Census != null && m_Census.IsStationNode(node)) || EntityManager.HasComponent<Owner>(node);
 
         /// <summary>True when the node's Game.Net.Elevation is not exactly (E, E) for E = <paramref name="e"/> (0 = no component or
         /// (0, 0)), within 0.05 m.</summary>
