@@ -14,6 +14,7 @@ Run (headless only - generator code never runs in the live Blender, R10):
         [--finish | --draft] [--lods] [--verify] [--preview [DIR]] [--review [DIR]]
         [--plate-number 27] [--outboard=+Y|--outboard=-Y] [--lod2 proxy|decimate] (gondola)
         [--hang 10.50|7.00] [--split]                                         (tram)
+        [--split --envelope [--remap-from assets/import/cabins/B]]            (gondola, B2 v2)
         [--ab DIR] [--no-validate]
 
     Shipping: --kind gondola --finish --lods --verify --export --preview --review
@@ -2748,12 +2749,14 @@ def gondola_contracts(obj, level, outboard=None, single_quads=True, role="whole"
     elif len(g):
         top = g[np.abs(g[:, 2] - g[:, 2].max()) < 1e-4]
         ty = sgn * top[:, 1]                       # outboard-positive lateral
-        ok = (top[:, 0].min() <= -0.149 and top[:, 0].max() >= 0.149 and ty.min() <= -0.039
+        # --envelope: the 0.08 top starts outboard of the chamfer; the jaw still reaches y -0.04
+        t_in = GD_ENVELOPE["u_top"] if ENVELOPE else -0.04
+        ok = (top[:, 0].min() <= -0.149 and top[:, 0].max() >= 0.149 and ty.min() <= t_in + 0.001
               and ty.max() >= 0.299 and abs(g[:, 2].max() - hang) <= 1e-4
-              and g[:, 2].min() < rope)
+              and g[:, 2].min() < rope and (sgn * g[:, 1]).min() <= -0.039)
         c.check("G2", ok, f"grip top face x {top[:, 0].min():+.3f}..{top[:, 0].max():+.3f} "
-                          f"y(outboard+) {ty.min():+.3f}..{ty.max():+.3f} at z {g[:, 2].max():.4f}; "
-                          f"rope point (0, 0, {rope:.3f}) under it")
+                          f"y(outboard+) {ty.min():+.3f}..{ty.max():+.3f} at z {g[:, 2].max():.4f}, jaw "
+                          f"from y {(sgn * g[:, 1]).min():+.3f}; rope point (0, 0, {rope:.3f}) under it")
     else:
         c.check("G2", False, "no grip_ faces")
     shell = m.verts_of(("body_", "glass_", "trim_"))
@@ -2787,6 +2790,20 @@ def gondola_contracts(obj, level, outboard=None, single_quads=True, role="whole"
             f"|x| {np.abs(m.co[:, 0]).max():.3f} <= {ex['x']}, y {m.co[:, 1].min():+.3f}.."
             f"{m.co[:, 1].max():+.3f} in [{ylo}, {yhi}]")
     c.check("G8", z.min() >= z_lo - 1e-4, f"min z {z.min():.5f}")
+    if ENVELOPE:
+        # G13 (B2 v2, GD_ENVELOPE): no face within the wheels' reach (down to rope - z_bot) passes
+        # rope +- z inboard of u_in; the jaw inside the band is the only part the liners touch
+        E = GD_ENVELOPE
+        u = sgn * m.co[:, 1]
+        bad = 0
+        for f in m.faces:
+            vs = list(f)
+            dz = m.co[vs, 2] - rope
+            if dz.max() >= -E["z_bot"] and np.abs(dz).max() > E["z"] + 1e-4 \
+                    and u[vs].min() < E["u_in"] - 1e-4:
+                bad += 1
+        c.check("G13", bad == 0, f"envelope: {bad} faces reach past rope +-{E['z']} inboard of y(outboard+) "
+                                 f"{E['u_in']} (wheel reach rope -{E['z_bot']})")
     if role == "grip":
         pass
     elif single_quads:
@@ -4153,8 +4170,8 @@ def render_previews(obj, asset_dir, name, prev_dir, lods, kind, ab, sets, detail
 # One asset: bake, export, LODs, contracts, manifest, validate, verify, preview, review
 # ======================================================================================
 
-def asset_dir_for(args, name):
-    root = os.path.abspath(args.out) if args.export else DRAFT_ROOT
+def asset_dir_for(args, name, root=None):
+    root = root or (os.path.abspath(args.out) if args.export else DRAFT_ROOT)
     d = os.path.join(root, name)
     os.makedirs(d, exist_ok=True)
     for f in os.listdir(d):                     # a rebuild never inherits stale files
@@ -4174,7 +4191,7 @@ def finish_asset(args, cfg, obj, sources, result):
     # draft: A // 64 (4 px at 256) - cs2_uv's default floor of 16 px is a 1/16 FRACTION
     # margin at 256 and ~400 islands cannot fit (measured: pack left UVs up to 8.3)
     margin = cfg["margin"] if quality == "finish" else max(2, A // 64)
-    asset_dir = asset_dir_for(args, name)
+    asset_dir = asset_dir_for(args, name, cfg.get("out_root"))
     result["asset_dir"] = asset_dir
     result["quality"] = quality
     result["texture_px"] = A
@@ -4183,23 +4200,29 @@ def finish_asset(args, cfg, obj, sources, result):
     result["contracts"] = contracts
     result["shipped_uv_before_bake"] = sorted(l.name for l in obj.data.uv_layers)
 
-    hook, post_rep = make_post_compose(obj, cfg, quality, cfg["stamps"], cfg.get("plate"))
-    layout = stamp_layout(obj, cfg, A, margin)
-    reserved = ()
-    if layout is not None:
-        reserved = layout["reserved"]
-        sources = pin_sources(sources, layout["materials"])
-        result["stamp_layout"] = layout["info"]
-    bake = cs2_bake.bake_unique(obj, asset_dir, name, A, sources, reserved=reserved,
-                                margin_px=margin, ao_samples=ao, post_compose=hook,
-                                src_uv="UVMap")
-    if layout is not None:
-        result["stamp_layout"]["reserved_restored"] = len(bake.get("reserved_restored") or [])
-    result["bake"] = {"A": A, "ao_samples": ao, "margin_px": bake["margin_px"],
-                      "uncovered_texels": bake["uncovered_texels"], "files": bake["files"],
-                      "materials": {str(k): {kk: v.get(kk) for kk in ("faces", "slot", "texels")}
-                                    for k, v in bake["materials"].items()},
-                      "seconds": {k: round(v, 1) for k, v in bake["seconds"].items()}}
+    if cfg.get("remap"):
+        # --envelope (GD_ENVELOPE): no bake - gondola_shipped_uvs put the shipped atlas on this mesh
+        post_rep = {}
+        result["bake"] = dict({k: v for k, v in cfg["remap"].items() if k != "dir"}, A=A,
+                              files=_copy_shipped_maps(cfg["remap"], asset_dir, name), textures_added_mb=0.0)
+    else:
+        hook, post_rep = make_post_compose(obj, cfg, quality, cfg["stamps"], cfg.get("plate"))
+        layout = stamp_layout(obj, cfg, A, margin)
+        reserved = ()
+        if layout is not None:
+            reserved = layout["reserved"]
+            sources = pin_sources(sources, layout["materials"])
+            result["stamp_layout"] = layout["info"]
+        bake = cs2_bake.bake_unique(obj, asset_dir, name, A, sources, reserved=reserved,
+                                    margin_px=margin, ao_samples=ao, post_compose=hook,
+                                    src_uv="UVMap")
+        if layout is not None:
+            result["stamp_layout"]["reserved_restored"] = len(bake.get("reserved_restored") or [])
+        result["bake"] = {"A": A, "ao_samples": ao, "margin_px": bake["margin_px"],
+                          "uncovered_texels": bake["uncovered_texels"], "files": bake["files"],
+                          "materials": {str(k): {kk: v.get(kk) for kk in ("faces", "slot", "texels")}
+                                        for k, v in bake["materials"].items()},
+                          "seconds": {k: round(v, 1) for k, v in bake["seconds"].items()}}
     result["post"] = post_rep
     me = obj.data
     result["shipped_uv"] = [l.name for l in me.uv_layers]
@@ -4478,6 +4501,240 @@ G_SPLIT = dict(
     body_caps=(1964, 188), grip_caps=(768, 36),     # (LOD0, LOD2) tallies = the cs2_validate caps
 )
 
+#: B2 v2 grip passage (--envelope with --split, 2026-11-03; refs/SOURCES.md "Grip passage under
+#: compression": Poma US4441430 / US4691643 - the sheave liners roll over the grip's smooth jaw, never
+#: its body). The tower gate's rule: inside the GD wheel span plus margin (outboard-positive lateral
+#: u < u_in) nothing of the carrier reaches more than z above or below the rope center, down to the
+#: wheel bottoms (z_bot under it). The jaw bar's top drops 0.08 -> 0.06 there and a 45 deg chamfer
+#: (u_in .. u_top) climbs back to the 0.08 top outboard (C5 grip_top_above_rope stays). The cut and
+#: the move run on the rebuilt LOD0 after the SHIPPED B atlas is read onto it (gondola_shipped_uvs):
+#: no bake, 0 MB added. tris / lod2_tris = what the edit adds (asserted): two cuts on the top, one on
+#: the underside, both end caps re-filled as an inboard and an outboard piece; LOD2 = the grip box
+#: split into the outboard box + a jaw box. New letter for the grip only; the body stays B.
+GD_ENVELOPE = dict(z=0.06, z_bot=0.54, u_in=0.09, u_top=0.11, letter="C", tris=12, lod2_tris=10)
+ENVELOPE = False                    # run() sets it from --envelope
+SPLIT_MAPS = ("BaseColor", "Normal", "MaskMap", "ControlMask")
+
+
+def gondola_shipped_uvs(obj, fbx):
+    """--envelope: the shipped LOD0's atlas read onto `obj`, its rebuild (same code path, before any
+    envelope edit): every FBX triangle lands on the rebuilt polygon holding its three corners (positions
+    within 0.2 mm; coincident vertices of touching parts resolved by the triangle's normal), each
+    corner's UV onto that polygon's loop. Leaves one UV layer UVUnique, no materials, no color
+    attributes (what bake_unique leaves). Returns the match numbers."""
+    from mathutils.kdtree import KDTree
+    me = obj.data
+    mw = obj.matrix_world
+    rco = np.array([tuple(mw @ v.co) for v in me.vertices], dtype=np.float64)
+    kd = KDTree(len(rco))
+    for i, c in enumerate(rco):
+        kd.insert(c, i)
+    kd.balance()
+    before = set(bpy.data.objects)
+    bpy.ops.import_scene.fbx(filepath=fbx)
+    new = [o for o in bpy.data.objects if o not in before]
+    try:
+        imp = next(o for o in new if o.type == "MESH")
+        imw = imp.matrix_world
+        ico = np.array([tuple(imw @ v.co) for v in imp.data.vertices], dtype=np.float64)
+        best = None
+        for cand in (ico, np.c_[ico[:, 0] / 100.0, ico[:, 2] / 100.0, ico[:, 1] / 100.0],
+                     np.c_[ico[:, 0] / 100.0, -ico[:, 2] / 100.0, ico[:, 1] / 100.0]):
+            err = max(kd.find(tuple(p))[2] for p in cand[:: max(1, len(cand) // 200)])
+            if best is None or err < best[0]:
+                best = (err, cand)
+        mp = best[1]
+        tol = 2e-4
+        near = [[j for _c, j, _d in kd.find_range(tuple(p), tol)] for p in mp]
+        worst = max(kd.find(tuple(p))[2] for p in mp)
+        if any(not c for c in near):
+            raise RuntimeError(f"remap {obj.name}: the rebuild does not match {os.path.basename(fbx)} "
+                               f"({len(rco)} / {len(ico)} vertices, worst {worst * 1000:.3f} mm)")
+        vpolys = [[] for _ in range(len(rco))]
+        for p in me.polygons:
+            for v in p.vertices:
+                vpolys[v].append(p.index)
+        R3 = mw.to_3x3()
+        pn = np.array([tuple((R3 @ p.normal).normalized()) for p in me.polygons], dtype=np.float64)
+        uv_in = imp.data.uv_layers.get(cs2_uv.UNIQUE_LAYER) or imp.data.uv_layers[0]
+        uv = np.full((len(me.loops), 2), np.nan)
+        amb = conflict = lost = 0
+        for tri in imp.data.polygons:
+            lis = list(tri.loop_indices)
+            vis = [imp.data.loops[li].vertex_index for li in lis]
+            corners = [near[v] for v in vis]
+            polys = set.intersection(*({pp for v in c for pp in vpolys[v]} for c in corners))
+            if len(polys) > 1:
+                P = mp[vis]
+                n = np.cross(P[1] - P[0], P[2] - P[0])
+                n = n / max(np.linalg.norm(n), 1e-12)
+                polys = {pi for pi in polys if abs(float(pn[pi] @ n)) > 0.99} or polys
+                amb += len(polys) > 1
+            if not polys:
+                lost += 1
+                continue
+            pi = min(polys)
+            loops = {me.loops[li].vertex_index: li for li in me.polygons[pi].loop_indices}
+            for li, c in zip(lis, corners):
+                dst = next((loops[v] for v in c if v in loops), None)
+                if dst is None:
+                    continue
+                u = tuple(uv_in.data[li].uv)
+                if not np.isnan(uv[dst, 0]) and np.abs(uv[dst] - u).max() > 1e-5:
+                    conflict += 1
+                uv[dst] = u
+        missing = int(np.isnan(uv[:, 0]).sum())
+        if missing or conflict or lost:
+            raise RuntimeError(f"remap {obj.name}: {missing} loops without a shipped UV, {conflict} "
+                               f"conflicts, {lost} unplaced / {amb} ambiguous triangles")
+    finally:
+        for o in new:
+            m = o.data if o.type == "MESH" else None
+            bpy.data.objects.remove(o, do_unlink=True)
+            if m is not None and m.users == 0:
+                bpy.data.meshes.remove(m)
+    lay = me.uv_layers.get(cs2_uv.UNIQUE_LAYER) or me.uv_layers.new(name=cs2_uv.UNIQUE_LAYER)
+    lay.data.foreach_set("uv", uv.astype(np.float32).reshape(-1))
+    for nm in [l.name for l in me.uv_layers if l.name != cs2_uv.UNIQUE_LAYER]:
+        me.uv_layers.remove(me.uv_layers[nm])
+    me.uv_layers[cs2_uv.UNIQUE_LAYER].active = True
+    me.uv_layers[cs2_uv.UNIQUE_LAYER].active_render = True
+    me.materials.clear()
+    for nm in [a.name for a in me.color_attributes]:
+        me.color_attributes.remove(me.color_attributes[nm])
+    me.update()
+    return {"remap_from": os.path.splitext(os.path.basename(fbx))[0],
+            "worst_vertex_mm": round(worst * 1000.0, 4), "ambiguous_tris": amb}
+
+
+def gondola_envelope_jaw(obj, outboard, rope_z):
+    """--envelope on the grip LOD0 (net frame, base pivot; rope_z = the rope center there): cut the
+    grip_body prism's top at u_in and u_top and its underside at u_in, re-fill both end caps as an
+    inboard and an outboard piece, then lower the top inboard of u_in to rope_z + z (the u_in .. u_top
+    strip becomes the chamfer). Every loop UV comes from its face's plane -> UV map fitted BEFORE the
+    cut and the move (affine per face: atlas islands are similarity images of the planar faces), so
+    the shipped texels stay put. Returns the tris added."""
+    E = GD_ENVELOPE
+    sgn = 1.0 if outboard == "+Y" else -1.0         # net x = authoring y; u = outboard-positive lateral
+    me = obj.data
+    pid = json.loads(me[PART_TABLE_PROP]).index("grip_body") + 1
+    t0 = cs2_asset.tri_count(obj)
+    bm = bmesh.new()
+    bm.from_mesh(me)
+    src = bm.faces.layers.int.new("env_src")          # first: a new layer drops element references
+    play = bm.faces.layers.int["part"]
+    uvl = bm.loops.layers.uv[cs2_uv.UNIQUE_LAYER]
+    jaw = [f for f in bm.faces if f[play] == pid]
+    bm.normal_update()
+
+    def u_of(v):
+        return sgn * v.co.x
+
+    def plane_map(faces, n):
+        ax = [a for a in range(3) if a != int(np.argmax(np.abs(n)))]   # drop the normal's main axis
+        P = np.array([(l.vert.co[ax[0]], l.vert.co[ax[1]], 1.0) for f in faces for l in f.loops])
+        U = np.array([tuple(l[uvl].uv) for f in faces for l in f.loops])
+        M = np.linalg.lstsq(P, U, rcond=None)[0]
+        res = float(np.abs(P @ M - U).max())
+        if res > 1e-4:
+            raise RuntimeError(f"envelope: grip_body UVs are not one affine map per face (residual "
+                               f"{res:.2e})")
+        return ax, M
+
+    def put_uv(f, fmap):
+        ax, M = fmap
+        for l in f.loops:
+            l[uvl].uv = tuple(np.array((l.vert.co[ax[0]], l.vert.co[ax[1]], 1.0)) @ M)
+
+    caps = [f for f in jaw if abs(f.normal.y) > 0.99]    # net y = travel: the prism's end caps
+    cap_y = sorted({round(f.verts[0].co.y, 5) for f in caps})
+    cap = {}
+    for y in cap_y:
+        fs = [f for f in caps if abs(f.verts[0].co.y - y) < 1e-5]
+        cap[y] = (plane_map(fs, (0.0, 1.0, 0.0)), 1.0 if fs[0].normal.y > 0.0 else -1.0, fs[0])
+    smap = {}
+    for i, f in enumerate((f for f in jaw if f not in caps), start=1):
+        f[src] = i
+        smap[i] = plane_map([f], f.normal)
+    protos = {y: (c[2].smooth, c[2].material_index) for y, c in cap.items()}
+    bmesh.ops.delete(bm, geom=caps, context="FACES_ONLY")
+    ztop = max(v.co.z for f in bm.faces if f[play] == pid for v in f.verts)
+
+    def cut(u, top_only):
+        fs = [f for f in bm.faces if f[play] == pid
+              and min(map(u_of, f.verts)) < u - 1e-6 and max(map(u_of, f.verts)) > u + 1e-6
+              and (not top_only or all(abs(v.co.z - ztop) < 1e-6 for v in f.verts))]
+        geom = list(set(fs) | {e for f in fs for e in f.edges} | {v for f in fs for v in f.verts})
+        bmesh.ops.bisect_plane(bm, geom=geom, dist=1e-7, plane_co=(sgn * u, 0.0, 0.0),
+                               plane_no=(1.0, 0.0, 0.0))
+
+    n_strip = len(smap)
+    cut(E["u_in"], False)
+    cut(E["u_top"], True)
+    strip = [f for f in bm.faces if f[play] == pid]
+    if len(strip) != n_strip + 3 or not all(f[src] for f in strip):
+        raise RuntimeError(f"envelope: the cuts left {len(strip)} grip_body strip faces (want "
+                           f"{n_strip} + 3, each tagged with its source face)")
+    for f in bm.faces:
+        if f[src]:
+            put_uv(f, smap[f[src]])
+    new_caps = []
+    for y, (cmap, sign, _f) in cap.items():
+        ring_v = {v for f in bm.faces if f[play] == pid for v in f.verts if abs(v.co.y - y) < 1e-5}
+        adj = collections.defaultdict(list)
+        for e in bm.edges:
+            if e.is_boundary and all(v in ring_v for v in e.verts):
+                a, b = e.verts
+                adj[a].append(b)
+                adj[b].append(a)
+        if any(len(n) != 2 for n in adj.values()) or len(adj) != len(ring_v):
+            raise RuntimeError(f"envelope: cap y {y:+.3f} outline is not one loop")
+        ring = [next(iter(adj))]
+        prev = None
+        while True:
+            nxt = next(w for w in adj[ring[-1]] if w is not prev)
+            if nxt is ring[0]:
+                break
+            prev = ring[-1]
+            ring.append(nxt)
+        cuts = [k for k, v in enumerate(ring) if abs(u_of(v) - E["u_in"]) < 1e-6]
+        if len(ring) != len(ring_v) or len(cuts) != 2:
+            raise RuntimeError(f"envelope: cap y {y:+.3f} ring {len(ring)} / {len(ring_v)} vertices, "
+                               f"{len(cuts)} on u {E['u_in']}")
+        i, j = cuts
+        for arc in (ring[i:j + 1], ring[j:] + ring[:i + 1]):
+            f = bm.faces.new(arc)
+            f[play], f[src] = pid, 0
+            f.smooth, f.material_index = protos[y]
+            f.normal_update()
+            if f.normal.y * sign < 0.0:
+                f.normal_flip()
+            put_uv(f, cmap)
+            new_caps.append(f)
+    low = {v for f in bm.faces if f[play] == pid for v in f.verts
+           if abs(v.co.z - ztop) < 1e-6 and u_of(v) <= E["u_in"] + 1e-6}
+    if any(g[play] != pid for v in low for g in v.link_faces):
+        raise RuntimeError("envelope: a lowered jaw vertex is welded to another part")
+    for v in low:
+        v.co.z = rope_z + E["z"]
+    triangulate_caps(bm, new_caps, "envelope jaw")
+    bm.faces.layers.int.remove(src)
+    bm.to_mesh(me)
+    bm.free()
+    me.update()
+    cs2_asset.shade_by_angle(obj, SHADE_ANGLE)
+    return cs2_asset.tri_count(obj) - t0
+
+
+def _copy_shipped_maps(remap, asset_dir, name):
+    """--envelope: the shipped map set copied under the new mesh name (the importer finds maps by it)."""
+    out = []
+    for s in SPLIT_MAPS:
+        dst = os.path.join(asset_dir, f"{name}_{s}.png")
+        shutil.copyfile(os.path.join(remap["dir"], f"{remap['remap_from']}_{s}.png"), dst)
+        out.append(os.path.basename(dst))
+    return out
+
 
 def gondola_split_parts(parts, outboard):
     """The joint on the finished (mirrored) gondola parts, ASSEMBLED frame. Returns (body, grip, old,
@@ -4599,9 +4856,18 @@ def gondola_split_proxy(lod0, name, outboard, joint, role):
         dz = 0.0
     else:
         z0, z1 = joint["grip_z0"], 4.16 + 0.02
-        parts = [(cs2_kit.add_box("carframe_proxy", (1.10, 0.42, 0.12), (0.0, 0.50, 4.22)), None),
-                 (cs2_kit.add_box("grip_proxy", (0.30, 0.34, 0.20), (0.0, 0.13, 4.40)), None),
-                 (cs2_kit.add_box("hanger_yokeproxy", (0.18, 0.19, z1 - z0),
+        if ENVELOPE:
+            # GD_ENVELOPE: the outboard box keeps the 0.08 top; the jaw box (the LOD0 bar's underside
+            # 4.44 up to the envelope, 1 cm into the outboard box, that face dropped) passes the wheels
+            ui, zj = GD_ENVELOPE["u_in"], G["rope"] + GD_ENVELOPE["z"]
+            grip = [(cs2_kit.add_box("grip_proxy", (0.30, 0.30 - ui, 0.20), (0.0, 0.5 * (0.30 + ui), 4.40)),
+                     None),
+                    (cs2_kit.add_box("grip_proxyjaw", (0.30, ui + 0.05, zj - 4.44),
+                                     (0.0, 0.5 * (ui + 0.01 - 0.04), 0.5 * (zj + 4.44)), drop=("+Y",)), None)]
+        else:
+            grip = [(cs2_kit.add_box("grip_proxy", (0.30, 0.34, 0.20), (0.0, 0.13, 4.40)), None)]
+        parts = [(cs2_kit.add_box("carframe_proxy", (1.10, 0.42, 0.12), (0.0, 0.50, 4.22)), None)] + grip + \
+                [(cs2_kit.add_box("hanger_yokeproxy", (0.18, 0.19, z1 - z0),
                                   (0.0, yb, 0.5 * (z0 + z1))), None)]
         mapping = {"carframe_proxy": "carframe_", "grip_proxy": "grip_",
                    "hanger_yokeproxy": "hanger_head"}
@@ -4644,6 +4910,8 @@ def _budget_gondola_pair(tris):
     """The pair (body + grip) against the one-piece budget + the pin detail (BRIEF 'Budgets')."""
     pd, pd2 = G_SPLIT["pin_detail"], G_SPLIT["pin_detail_lod2"]
     sd, cr = G_SPLIT["segs_detail"], G_SPLIT["cap_raise"]
+    if ENVELOPE:                       # the jaw cut: +12 on 2676 (+2.2 % with the 48), rule <= 5 %
+        cr, pd2 = cr + GD_ENVELOPE["tris"], pd2 + GD_ENVELOPE["lod2_tris"]
     t0 = tris[0]
     brief_cap = G["lod0_cap"] + pd
     if cr > 0.05 * brief_cap:
@@ -4684,7 +4952,9 @@ def run_gondola_split(args):
     3 LODs and its own map set. S1 / S2 / S3 on the parts; every G contract on the joined pair at every
     LOD, the role contracts on each mesh."""
     J = G_SPLIT
-    nb, ng = (cs2_asset.validate_asset_name(n) for n in SPLIT_NAMES["gondola"])
+    shipped = SPLIT_NAMES["gondola"]
+    names = (shipped[0], shipped[1][:-1] + GD_ENVELOPE["letter"]) if ENVELOPE else shipped
+    nb, ng = (cs2_asset.validate_asset_name(n) for n in names)
     for n in (nb, ng):
         _lint(n)
     catalog = catalog_drift("gondola", args.carriers, outboard=args.outboard)
@@ -4731,6 +5001,18 @@ def run_gondola_split(args):
         lo = min(v.co.z for v in o.data.vertices)
         if abs(lo) > 1e-5:
             raise RuntimeError(f"{o.name}: base pivot broken, lowest z {lo:.6f}")
+    remap = {}
+    if ENVELOPE:                       # GD_ENVELOPE: the shipped atlas first, then the jaw edit
+        src_dir = os.path.abspath(args.remap_from)
+        for o, sn in ((ob, shipped[0]), (og, shipped[1])):
+            remap[o.name] = dict(gondola_shipped_uvs(o, os.path.join(src_dir, sn, sn + ".fbx")),
+                                 dir=os.path.join(src_dir, sn))
+        added = gondola_envelope_jaw(og, args.outboard, G["rope"] - gz0)
+        print(f"[envelope] {ng}: jaw cut + lowered, +{added} tris; remap "
+              f"{ {k: v['worst_vertex_mm'] for k, v in remap.items()} } mm worst")
+        if added != GD_ENVELOPE["tris"]:
+            raise RuntimeError(f"envelope: the jaw edit added {added} tris (GD_ENVELOPE tris "
+                               f"{GD_ENVELOPE['tris']})")
     pair0 = split_pair_copy(ob, og, gz0, nb + "Pair0")
     try:
         pair_rows = {0: gondola_contracts(pair0, 0, args.outboard, single_quads=True)}
@@ -4741,6 +5023,10 @@ def run_gondola_split(args):
                   "pivots": pivots, "S1_rejoin": s1, "S2_S3_sweep": s23,
                   "tallies": measured, "joint": {k: joint[k] for k in ("pin", "z_cut", "r_arm", "grip_z0")},
                   "joint_design": {k: v for k, v in J.items() if not k.endswith(("caps", "prefixes"))}}
+    gcaps = J["grip_caps"]
+    if ENVELOPE:
+        gcaps = (gcaps[0] + GD_ENVELOPE["tris"], gcaps[1] + GD_ENVELOPE["lod2_tris"])
+        split_info["envelope"] = dict(GD_ENVELOPE, replaces=shipped[1])
 
     results = []
     zb = (0.0, pz + R)
@@ -4766,15 +5052,19 @@ def run_gondola_split(args):
     cfg_g = _gondola_cfg(args, ng, c_grip, lambda o, nm: gondola_split_proxy(o, nm, args.outboard,
                                                                               joint, "grip"))
     cfg_g.update(role="grip", z_range=zg, keep_lods=True, tex=J["grip_tex"], margin=J["grip_margin"],
-                 lod0_cap=J["grip_caps"][0], lod2_cap=J["grip_caps"][1],
+                 lod0_cap=gcaps[0], lod2_cap=gcaps[1],
                  lod1_delete=G["lod1_delete"] + ("hanger_pin_",), lod1_protect=("grip_", "hanger_"),
-                 budget=lambda tr: _budget_split_mesh("gondola", "grip", tr, J["grip_caps"]),
+                 budget=lambda tr: _budget_split_mesh("gondola", "grip", tr, gcaps),
                  stamps={}, stamp=None, plate=None, logo_view=None, detail_z=0.0,
                  hero=("hanger_", "carframe_", "grip_", "spring_"),
                  ropes=[(0.0, G["rope"] - gz0, HV_ROPE_R, 2.0)], credit=None,
                  prefab_numbers={"mesh": ng, "role": "grip", "pivots": pivots,
                                  "note": "split grip: base pivot = the cheek bottom; the rope point "
                                          "and the pin are relative to it"})
+    if ENVELOPE:                       # no bake; the unchanged body goes to _unchanged/ (pair LODs only)
+        cfg_b.update(remap=remap[nb], out_root=os.path.join(os.path.abspath(args.out), "_unchanged"))
+        cfg_g.update(remap=remap[ng], manifest_extra={"envelope": dict(
+            GD_ENVELOPE, remap={k: v for k, v in remap[ng].items() if k != "dir"})})
     for nm, obj, src, cfg, table in ((nb, ob, src_b, cfg_b, table_b), (ng, og, src_g, cfg_g, table_g)):
         res = {"name": nm, "kind": "gondola", "role": cfg["role"], "catalog": catalog,
                "clearance": clearance, "parts": len(table)}
@@ -5144,6 +5434,11 @@ def parse_args(argv):
     ap.add_argument("--hang", type=float, default=CARRIERS["tram"]["hang_m"])
     ap.add_argument("--split", action="store_true",
                     help="carrier split (2026-11-03): body + grip meshes, letter B (both kinds)")
+    ap.add_argument("--envelope", action="store_true",
+                    help="with --split (gondola): the B2 v2 grip passage (GD_ENVELOPE): grip letter C, "
+                         "the shipped B atlas remapped, no bake")
+    ap.add_argument("--remap-from", default=DEFAULT_SPLIT_OUT,
+                    help="--envelope: the letter folder holding the shipped split meshes and maps")
     ap.add_argument("--ab", default=DEFAULT_AB)
     ap.add_argument("--no-validate", action="store_true")
     args = ap.parse_args(argv)
@@ -5157,12 +5452,16 @@ def parse_args(argv):
         ap.error("--split builds the SPLIT_NAMES pair with the proxy LOD2 (no --name / --lod2 decimate)")
     if args.kind == "tram" and (args.outboard != "+Y" or args.lod2 != "proxy"):
         ap.error("--outboard / --lod2 are gondola options (the tram is symmetric, R29)")
+    if args.envelope and (args.kind != "gondola" or not args.split):
+        ap.error("--envelope is a gondola --split option")
     return args
 
 
 def run(argv):
     """Build one kind; returns a list of per-asset result dicts. Clears the scene first."""
+    global ENVELOPE
     args = parse_args(argv)
+    ENVELOPE = bool(args.envelope)
     if not bpy.app.background:
         raise RuntimeError("lift_cabin runs headless only (ROUND-SPEC R10)")
     clear_scene()

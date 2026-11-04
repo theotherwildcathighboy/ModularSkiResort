@@ -1648,8 +1648,12 @@ def check_contracts(obj, style, row, level, hanger_offset=HANGER_OFFSET, info=No
         _fail("C2", lv, f"vertices at the top belong to {sorted(table[i - 1] for i in top_parts)}")
     res["C2"] = f"top owned by {style.grip_part}"
 
-    # C3 rope point inside the grip part's bbox; dq jaw sits on the rope (LOD0/1)
-    gv = _verts_of_parts(obj, gid)
+    # C3 rope point inside the grip part's bbox; dq jaw sits on the rope (LOD0/1). ENVELOPE: the grip
+    # part is outboard of the wheels, the jaw beside it (ENVELOPE_JAW) holds the rope: their union
+    cid = set(gid)
+    if ENVELOPE and style.key in ENVELOPE_JAW:
+        cid |= _part_ids(table, ENVELOPE_JAW[style.key], exact=True)
+    gv = _verts_of_parts(obj, cid)
     g = a[gv]
     gl, gh = g.min(axis=0), g.max(axis=0)
     if not (gl[0] <= 0.0 <= gh[0] and gl[1] <= 0.0 <= gh[1] and gl[2] <= rope <= gh[2]):
@@ -3241,6 +3245,12 @@ def parse_args(argv=None):
     ap.add_argument("--split", action="store_true",
                     help="tr / dq: build the GRIP and BODY meshes (<base>Grip<letter> + <base><letter>, "
                          "default letter " + SPLIT_LETTER + "; carrier split 2026-11-03), finish + LODs always")
+    ap.add_argument("--envelope", action="store_true",
+                    help="with --split: the jaw envelope (ENVELOPE_*; default letter " + ENVELOPE_LETTER + "): no "
+                         "bake, the shipped " + SPLIT_LETTER + " atlas remapped; only the changed meshes are written")
+    ap.add_argument("--remap-from", default=None,
+                    help="--envelope: the shipped split letter folder (default assets/import/chairs/"
+                         + SPLIT_LETTER + ")")
     return ap.parse_args(argv)
 
 
@@ -3259,7 +3269,12 @@ def _resolve(args):
         raise ValueError(f"carrier {st.carrier!r} seats {row['seats']} != style {st.seats}")
     if args.split and st.key not in SPLIT_PLAN:
         raise ValueError(f"--split: style {st.key!r} has no split (tr / dq)")
-    letter = args.letter or (SPLIT_LETTER if args.split else st.letter)
+    if getattr(args, "envelope", False):
+        if not args.split:
+            raise ValueError("--envelope needs --split")
+        global ENVELOPE
+        ENVELOPE = True
+    letter = args.letter or (ENVELOPE_LETTER if ENVELOPE else SPLIT_LETTER if args.split else st.letter)
     name = cs2_asset.validate_asset_name(args.name or f"{st.base}{letter}")
     import cs2_validate
     rep = cs2_validate._Report(name)
@@ -3519,21 +3534,164 @@ SPLIT_PLAN = {
            "pin_detail_lod2": 18},         # yoke box 10 + knuckle 8
 }
 
+# --------------------------------------------------------------------------------------
+# Jaw envelope (breakover-twins round, v2, 2026-11-03): split only, --envelope, generation O.
+# Every carrier passes every tower train under tests/test_grip_clearance.py: a tower wheel's rim /
+# liner may touch ONLY the grip's smooth jaw envelope (|z| <= ENVELOPE_Z about the rope center),
+# hubs / bosses / axle caps never, every other tower part keeps CARRIER_CLEAR_M. Real trains pass
+# grips that way: the closed jaws sit nearly flush with the rope and stand a limited, smooth amount
+# above it, and the sheave battery rocks as it rides over them (Poma US4441430, US4691643;
+# docs/research/art/breakover-twins-2026-11/refs/SOURCES.md "Grip passage under compression").
+# So everything taller than the jaw sits OUTBOARD (authoring -Y) of the widest wheel and its boss:
+#   tr  the clamp block (the mesh top, rope + GRIP_TOP_Z), the spring housing, the clevis, the pin
+#       and the J-stem's straight top run move out to y ENVELOPE_TR["block_y"]; the plate stays ON
+#       the rope as the jaw (crown lowered into the envelope) and reaches out into the block; the
+#       stem's V -> U span also leans back to the seat's center line, below the wheels
+#   dq  the carriage (body, comb, lever, springs, running wheels, axles) moves out by
+#       ENVELOPE_DQ["dy"] over the C-hanger's vertical run; the jaw bar stays on the rope and reaches
+#       out to the running wheels, the stub axles reach back into it; the hanger's top bend is drawn
+#       into the carriage. No dq pin moves: the dq body is unchanged (keeps its letter).
+# Topology is unchanged part for part, so the shipped atlas maps on loop for loop (split_shipped_uvs:
+# no bake, 0 MB added); only vertex positions move. LOD2 adds a jaw proxy (C3 holds the rope point in
+# grip part + jaw: ENVELOPE_JAW).
+# --------------------------------------------------------------------------------------
+ENVELOPE = False                    # --envelope (split only)
+ENVELOPE_LETTER = "O"
+ENVELOPE_Z = 0.06                   # m: the jaw band about the rope center the wheels may roll over
+ENVELOPE_TR = {"block_y": -0.200,   # clamp block + clevis + pin + stem top run center (FG wheel 0.065 + boss)
+               "block_w": 0.090, "block_z": (-0.060, GRIP_TOP_Z), "crown": 0.060,
+               "plate_y": (-0.165, 0.040),        # the jaw plate: on the rope, 1 cm into the block
+               "spring_axis_y": -0.100,           # spring housing turned 180 deg about z: outboard of the block
+               "slope_deg": 34.0}                 # V -> U in the travel plane (38 centered): the leaned span keeps
+                                                  # |VU| <= |TV|, |UP4| (the even S, fillets meet)
+ENVELOPE_DQ = {"dy": -0.250,        # carriage shift (running wheels' inboard face 0.152 -> -0.098)
+               "jaw_y_out": -0.105,               # jaw bar: from 1 cm proud inboard (0.04) out into the wheels
+               "axle_y_in": -0.095,               # stub axles' inboard ends: back into the jaw bar
+               "arm_y0": -0.235, "arm_k": 0.04,   # hanger top bend (z > rope + arm_z_min): drawn into the body
+               "arm_z_min": -0.030}
+ENVELOPE_ROLES = {"tr": ("body", "grip"), "dq": ("grip",)}    # the meshes the envelope changes (new letter)
+ENVELOPE_JAW = {"tr": "gripjaw", "dq": "jaw_rope"}             # C3: the jaw beside the grip part
+#: C15 (every split mesh, every LOD): lift_tower's wheel half width + 4 cm (FG 0.065, DQ 0.05) and the
+#: wheel bottoms under the rope (FG 0.433, DQ 0.482) + margin; jaw_x = the outboard end of the jaw
+#: (LOD1 snap window)
+ENVELOPE_GATE = {"tr": {"xlim": 0.105, "z_bot": 0.47, "jaw_x": ENVELOPE_TR["plate_y"][0]},
+                 "dq": {"xlim": 0.09, "z_bot": 0.49, "jaw_x": ENVELOPE_DQ["jaw_y_out"]}}
 
-def tr_split_stem_points(oz, back_top_z):
+
+def _envelope_lod_snap(lod, key, rope_z):
+    """ENVELOPE LOD1: collapse decimation flattens the jaw's lowered crown arc a few mm ABOVE the band
+    (the tr plate came out at rope + 0.062); jaw vertices (net x >= jaw_x) within 1 cm over the band
+    snap back onto it. Returns the count and the largest move."""
+    me = lod.data
+    co = np.empty(len(me.vertices) * 3)
+    me.vertices.foreach_get("co", co)
+    co = co.reshape(-1, 3)
+    top = rope_z + ENVELOPE_Z
+    hit = (co[:, 0] >= ENVELOPE_GATE[key]["jaw_x"] - 1e-4) & (co[:, 2] > top + 1e-6) & (co[:, 2] <= top + 0.01)
+    mv = float((co[hit, 2] - top).max()) if hit.any() else 0.0
+    co[hit, 2] = top
+    me.vertices.foreach_set("co", co.reshape(-1))
+    me.update()
+    return f"{int(hit.sum())} jaw vertices snapped onto rope + {ENVELOPE_Z} (max {mv * 1000:.1f} mm)"
+
+
+def check_envelope(obj, key, rope_z, label):
+    """C15 (ENVELOPE, net frame: x lateral, -x outboard, z up; rope_z = the rope center in this mesh):
+    every face's part beyond the jaw band (|z - rope| > ENVELOPE_Z) and within the wheels' reach
+    (z - rope > -z_bot) lies outboard of x -xlim. Exact: each triangle is clipped to those slabs, so a
+    face that only straddles the reach line is judged by its part above it."""
+    g = ENVELOPE_GATE[key]
+    me = obj.data
+    co = np.empty(len(me.vertices) * 3)
+    me.vertices.foreach_get("co", co)
+    co = co.reshape(-1, 3)
+    me.calc_loop_triangles()
+    tri = np.empty(len(me.loop_triangles) * 3, dtype=np.int64)
+    me.loop_triangles.foreach_get("vertices", tri)
+    T = co[tri.reshape(-1, 3)]
+    T[:, :, 2] -= rope_z
+
+    def clip(poly, k, c, keep_above):
+        out = []
+        for i in range(len(poly)):
+            a, b = poly[i], poly[(i + 1) % len(poly)]
+            ia, ib = (a[k] >= c) == keep_above, (b[k] >= c) == keep_above
+            if ia:
+                out.append(a)
+            if ia != ib:
+                out.append(a + (b - a) * ((c - a[k]) / (b[k] - a[k])))
+        return out
+
+    bad, worst = 0, -9.0
+    eps = 1e-4
+    for t in T:
+        if t[:, 0].max() <= -g["xlim"] + 1e-6 or t[:, 2].max() < -g["z_bot"]:
+            continue
+        pts = clip(list(t), 2, ENVELOPE_Z + eps, True)
+        lo = clip(clip(list(t), 2, -ENVELOPE_Z - eps, False), 2, -g["z_bot"], True)
+        xs = [p[0] for p in pts + lo]
+        if xs and max(xs) > -g["xlim"] + 1e-6:
+            bad += 1
+            worst = max(worst, max(xs))
+    if bad:
+        raise ContractError(f"CONTRACT C15 BROKEN ({label}): {bad} triangles pass rope +-{ENVELOPE_Z} "
+                            f"inboard of x -{g['xlim']} within the wheels' reach (rope -{g['z_bot']}); "
+                            f"worst x {worst:+.4f}")
+    return f"0 faces past rope +-{ENVELOPE_Z} inboard of x -{g['xlim']} (reach rope -{g['z_bot']})"
+
+
+def split_plan(key):
+    """SPLIT_PLAN[key], with the envelope's LOD2 jaw proxy (+10 tris, pin_detail_lod2) when ENVELOPE."""
+    plan = SPLIT_PLAN[key]
+    if not ENVELOPE:
+        return plan
+    gp = list(plan["grip_proxy"])
+    gp.insert(1, (ENVELOPE_JAW[key], 10))
+    return dict(plan, grip_proxy=tuple(gp), pin_detail_lod2=plan["pin_detail_lod2"] + 10)
+
+
+def _dq_envelope(parts, row):
+    """ENVELOPE dq edits on the build-frame parts (before the S1 copies): vertex moves only."""
+    E = ENVELOPE_DQ
+    rope = float(row["hang_m"]) - float(row["grip_top_above_rope_m"])
+    carriage = ("gripbody", "comb", "lever_", "spring_", "wheel_", "axle_")
+    bpy.context.view_layer.update()
+    for o, _q in parts:
+        n = o.name
+        if not (n.startswith(carriage) or n in ("jaw_rope", "tube_hanger")):
+            continue
+        CS.bake_transform(o)
+        for v in o.data.vertices:
+            if n.startswith(carriage):
+                v.co.y += E["dy"]
+                if n.startswith("axle_") and v.co.y > E["axle_y_in"] - 0.035:
+                    v.co.y = E["axle_y_in"]
+            elif n == "jaw_rope":
+                if v.co.y < 0.0:
+                    v.co.y = E["jaw_y_out"]
+            elif v.co.z - rope > E["arm_z_min"] and v.co.y > E["arm_y0"]:
+                v.co.y = E["arm_y0"] + (v.co.y - E["arm_y0"]) * E["arm_k"]
+        o.data.update()
+    return parts
+
+
+def tr_split_stem_points(oz, back_top_z, lat=0.0):
     """The split tr J-stem (round 3): the one-piece stem's top and bottom points (stem_points), the
     top run straight DOWN to V (x of the top point, TR_SPLIT_STEM v_z) under the jaw block, one span at
     slope_deg to U on the vertical run (x of the bottom point), then down into the clamp block. Raises
-    unless both fillets can be |VU| / 2 (they meet: |TV| and |UP4| >= |VU|). Rope frame offset by oz."""
+    unless both fillets can be |VU| / 2 (they meet: |TV| and |UP4| >= |VU|). Rope frame offset by oz.
+    lat (ENVELOPE): T and V at lateral y `lat` (outboard of the wheels), U back on the center line."""
     old = stem_points(oz, back_top_z, top_dz=TR_STEM_TOP_DZ)
     (tx, _ty, tz), (bx, _by, bz) = old[0], old[-1]
     vz = oz + TR_SPLIT_STEM["v_z"]
-    a = math.radians(TR_SPLIT_STEM["slope_deg"])
+    a = math.radians(ENVELOPE_TR["slope_deg"] if lat else TR_SPLIT_STEM["slope_deg"])
     uz = vz - abs(tx - bx) * math.tan(a)
-    L = abs(tx - bx) / math.cos(a)
+    L = abs(tx - bx) / math.cos(a) if not lat else math.sqrt((tx - bx) ** 2 + lat ** 2 + (vz - uz) ** 2)
     if not (tz - vz >= L and uz - bz >= L):
         raise RuntimeError(f"tr split stem: |TV| {tz - vz:.4f}, |UP4| {uz - bz:.4f} < |VU| {L:.4f}: "
                            f"the fillets would not meet")
+    if lat:
+        return [(tx, lat, tz), (tx, lat, vz), (bx, 0.0, uz), old[-1]]
     return [old[0], (tx, 0.0, vz), (bx, 0.0, uz), old[-1]]
 
 
@@ -3557,8 +3715,20 @@ def _tr_split_rebuild(parts):
         if o.name == "grip":
             _remove_objects([o])
             bl, bw, bz0, bz1 = g["box"]
-            box = K.add_box("grip_box", (bl, bw, bz1 - bz0), (0.0, 0.0, 0.5 * (bz0 + bz1)))
-            plate = add_profile_slab("grip_plate", g["plate"], g["plate_w"], (0.0, 0.0, 0.0), relief="geo")
+            if ENVELOPE:
+                # the clamp block outboard (the mesh top), the plate ON the rope inside the envelope and
+                # reaching into the block: the jaw the wheels roll over (Poma US4441430)
+                E = ENVELOPE_TR
+                bz0, bz1 = E["block_z"]
+                box = K.add_box("grip_box", (bl, E["block_w"], bz1 - bz0),
+                                (0.0, E["block_y"], 0.5 * (bz0 + bz1)))
+                prof = [(x, E["crown"] if abs(z - GRIP_TOP_Z) < 1e-9 else z) for x, z in g["plate"]]
+                py0, py1 = E["plate_y"]
+                plate = add_profile_slab("grip_plate", prof, py1 - py0, (0.0, 0.5 * (py0 + py1), 0.0),
+                                         relief="geo")
+            else:
+                box = K.add_box("grip_box", (bl, bw, bz1 - bz0), (0.0, 0.0, 0.5 * (bz0 + bz1)))
+                plate = add_profile_slab("grip_plate", g["plate"], g["plate_w"], (0.0, 0.0, 0.0), relief="geo")
             for x in (box, plate):
                 CS.bake_transform(x)
             bpy.ops.object.select_all(action="DESELECT")
@@ -3569,10 +3739,18 @@ def _tr_split_rebuild(parts):
             o = bpy.context.active_object
             o.name = o.data.name = "grip"
             o["relief"] = "geo"                            # one casting: no painted bolt heads
+        elif ENVELOPE and o.name == "gripspring":
+            # the spring housing turned 180 deg about z: from the jaw's inboard side to the block's outboard
+            CS.bake_transform(o)
+            yc = ENVELOPE_TR["spring_axis_y"]
+            for v in o.data.vertices:
+                v.co.x, v.co.y = -v.co.x, 2.0 * yc - v.co.y
+            o.data.update()
         elif o.name == "tube_stem":
             relief = o.get("relief", "geo")
             _remove_objects([o])
-            o = K.tube_along("tube_stem", tr_split_stem_points(0.0, _tr_back_top()), p.hanger_radius,
+            lat = ENVELOPE_TR["block_y"] if ENVELOPE else 0.0
+            o = K.tube_along("tube_stem", tr_split_stem_points(0.0, _tr_back_top(), lat=lat), p.hanger_radius,
                              segments=8, caps="none", bend_rings=TR_SPLIT_STEM["bend_rings"])
             if o["rings"] != TR_SPLIT_STEM_RINGS:
                 raise RuntimeError(f"tr split stem: {o['rings']} rings, want {TR_SPLIT_STEM_RINGS}")
@@ -3625,7 +3803,7 @@ def split_alignment(style_key, body_parts, grip_parts, joint):
         return 0.5 * (V.min(axis=0) + V.max(axis=0))
 
     pin = np.asarray(joint["pin"], dtype=np.float64)
-    block_c = bbox_c(verts(by["grip"]))
+    block_c = bbox_c(_tr_block_verts(verts(by["grip"])))
     clevis = [n for n in by if n == "gripbridge" or n.startswith(("gripcheek_", "grippin_"))]
     if len(clevis) != 5:
         raise RuntimeError(f"ALIGN tr: clevis parts {sorted(clevis)}, want the bridge + 2 cheeks + 2 pin ends")
@@ -3686,6 +3864,14 @@ def split_alignment(style_key, body_parts, grip_parts, joint):
     if bad:
         raise RuntimeError(f"ALIGN tr BROKEN: {'; '.join(bad)} | {rep}")
     return rep
+
+
+def _tr_block_verts(V):
+    """The tr jaw BLOCK's vertices of the "grip" part (build frame): all of it, or with ENVELOPE the clamp
+    block outboard (the plate's edge buried in it included): the SPLIT_ALIGN reference stays the block."""
+    if not ENVELOPE:
+        return V
+    return V[V[:, 1] <= ENVELOPE_TR["block_y"] + ENVELOPE_TR["block_w"] / 2.0 + 1e-6]
 
 
 def split_names(style, letter):
@@ -3796,6 +3982,8 @@ def build_split_parts(style, row, hanger_offset=HANGER_OFFSET):
         raise RuntimeError(f"C9 part tally ({style.key}): built vs contract {bad}")
     if style.key == "dq":
         parts = _resegment_wheels(parts)
+        if ENVELOPE:
+            parts = _dq_envelope(parts, row)
     else:
         parts = _tr_split_rebuild(parts)
     bpy.context.view_layer.update()
@@ -3808,8 +3996,9 @@ def build_split_parts(style, row, hanger_offset=HANGER_OFFSET):
     hang = float(row["hang_m"])
     rope = hang - float(row["grip_top_above_rope_m"])
     if style.key == "tr":
+        lat = ENVELOPE_TR["block_y"] if ENVELOPE else 0.0
         s0, s1 = (np.array(p, dtype=np.float64)
-                  for p in tr_split_stem_points(0.0, _tr_back_top())[:2])
+                  for p in tr_split_stem_points(0.0, _tr_back_top(), lat=lat)[:2])
         stem = by["tube_stem"][0]
         V = np.array([tuple(stem.matrix_world @ v.co) for v in stem.data.vertices])
         top_ring = V[np.linalg.norm(V - s0, axis=1) < 0.06]
@@ -3818,30 +4007,31 @@ def build_split_parts(style, row, hanger_offset=HANGER_OFFSET):
         d = (s1 - s0) / np.linalg.norm(s1 - s0)           # straight down (the vertical top run)
         # the pin under the jaw block's center (round 3), R + c under the bridge plate
         bV = np.array([tuple(by["grip"][0].matrix_world @ v.co) for v in by["grip"][0].data.vertices])
+        bV = _tr_block_verts(bV)
         bc = 0.5 * (bV.min(axis=0) + bV.max(axis=0))
         z_b = J["bridge_bottom"]
         pin = np.array((bc[0], bc[1], z_b - R - c), dtype=np.float64)
         if np.linalg.norm(np.cross(pin - s0, d)) > 1e-6:
             raise RuntimeError(f"split tr: the pin {pin.round(4)} is off the stem's top run {s0} + t {d.round(4)}")
-        s2 = np.array(tr_split_stem_points(0.0, _tr_back_top())[2], dtype=np.float64)
+        s2 = np.array(tr_split_stem_points(0.0, _tr_back_top(), lat=lat)[2], dtype=np.float64)
         bend_top = s1[2] + 0.5 * min(np.linalg.norm(s1 - s0), np.linalg.norm(s2 - s1))  # V fillet start
         if not bend_top < pin[2] - rc:
             raise RuntimeError(f"split tr: the stem bends at z {bend_top:.4f}, inside the clevis (cheek "
                                f"bottom {pin[2] - rc:.4f}): the top run must leave it straight")
         CS.cut_part(stem, pin, -d)
         knuck = CS.knuckle("knuckle", pin, R, J["knuckle_segs"], meridian_xz=(-d[2], d[0]))
-        px, pz = float(pin[0]), float(pin[2])
+        px, py, pz = float(pin[0]), float(pin[1]), float(pin[2])      # py 0 (ENVELOPE: the block's y)
         hx = rc + J["bridge_x_over"]
         bx0, bx1 = px - hx, px + hx
         bridge = K.add_box("gripbridge", (bx1 - bx0, 2.0 * (y_out + J["over"]), J["bridge_top"] - z_b),
-                           ((bx0 + bx1) / 2.0, 0.0, (z_b + J["bridge_top"]) / 2.0))
+                           ((bx0 + bx1) / 2.0, py, (z_b + J["bridge_top"]) / 2.0))
         bridge["relief"] = "map:bolts"
         prof = CS.plate_profile(px - rc, px + rc, J["cheek_top"], (px, pz), rc)
         new_grip = [(bridge, QUAD_GALV),
-                    (CS.slab_y("gripcheek_0", prof, -y_out, -y_in), QUAD_GALV),
-                    (CS.slab_y("gripcheek_1", prof, y_in, y_out), QUAD_GALV),
-                    (CS.pin_end("grippin_0", -y_out, (px, pz), J["pin_r"], J["pin_len"], -1.0), QUAD_GALV),
-                    (CS.pin_end("grippin_1", y_out, (px, pz), J["pin_r"], J["pin_len"], 1.0), QUAD_GALV)]
+                    (CS.slab_y("gripcheek_0", prof, py - y_out, py - y_in), QUAD_GALV),
+                    (CS.slab_y("gripcheek_1", prof, py + y_in, py + y_out), QUAD_GALV),
+                    (CS.pin_end("grippin_0", py - y_out, (px, pz), J["pin_r"], J["pin_len"], -1.0), QUAD_GALV),
+                    (CS.pin_end("grippin_1", py + y_out, (px, pz), J["pin_r"], J["pin_len"], 1.0), QUAD_GALV)]
         removed = [by[n][0] for n in ("gripplate_0", "gripplate_1")]
         joint = {"cheeks": ["gripcheek_0", "gripcheek_1"], "floor": ["gripbridge"],
                  "old_skip": ("old_gripplate_",),
@@ -3981,7 +4171,7 @@ def split_proxy_parts(style, row, joint, body_top, hanger_offset=HANGER_OFFSET):
         p = tr_params()
         oz = hang - GRIP_TOP_Z
         back_top = _tr_back_top(oz)
-        pts = tr_split_stem_points(oz, back_top)          # round 3: the straight-down top run
+        pts = tr_split_stem_points(oz, back_top, lat=py)  # round 3: the straight-down top run
         pts[0] = (px, py, pz)
         old_stem, old_grip = by["tube_stem"][0], by["grip"][0]
         _remove_objects([old_stem, old_grip])
@@ -3990,13 +4180,22 @@ def split_proxy_parts(style, row, joint, body_top, hanger_offset=HANGER_OFFSET):
         # with LOD0's), as deep as _proxy_parts'
         jx = [x for x, _z in TR_SPLIT_GRIP["plate"]]
         gl, gw, gh = max(jx) - min(jx), TR_SPLIT_GRIP["box"][1], GRIP_TOP_Z + 0.070
-        gbox = K.add_box("grip", (gl, gw, gh), (0.0, 0.0, oz + GRIP_TOP_Z - gh / 2.0), drop=("-Z",))
+        gy = ENVELOPE_TR["block_y"] if ENVELOPE else 0.0
+        if ENVELOPE:
+            gw = ENVELOPE_TR["block_w"]
+        gbox = K.add_box("grip", (gl, gw, gh), (0.0, gy, oz + GRIP_TOP_Z - gh / 2.0), drop=("-Z",))
         g_lo = oz + GRIP_TOP_Z - gh                         # the proxy grip box's underside
         hx = rc + J["bridge_x_over"]
         x0, x1 = px - hx, px + hx
         yoke = K.add_box("gripyoke", (x1 - x0, 2.0 * y_out, (g_lo + 0.010) - (pz - rc)),
-                         ((x0 + x1) / 2.0, 0.0, ((g_lo + 0.010) + (pz - rc)) / 2.0), drop=("+Z",))
+                         ((x0 + x1) / 2.0, py, ((g_lo + 0.010) + (pz - rc)) / 2.0), drop=("+Z",))
         grip = [(gbox, lambda n: ("grip", "gripjaw")), (yoke, lambda n: ("gripbridge", "gripcheek_"))]
+        if ENVELOPE:                                        # the jaw plate on the rope, inside the envelope
+            E = ENVELOPE_TR
+            p0 = TR_SPLIT_GRIP["plate"][0][1]
+            jaw = K.add_box("gripjaw", (gl, E["plate_y"][1] - E["plate_y"][0], E["crown"] - p0),
+                            (0.0, 0.5 * sum(E["plate_y"]), oz + 0.5 * (p0 + E["crown"])), drop=("-Z",))
+            grip.insert(1, (jaw, lambda n: ("grip",)))
         body = [(_add_octa("knuckle", (px, py, pz), J["knuckle_r"], body_top), lambda n: ("knuckle",)),
                 (stem, lambda n: ("tube_stem",)), by["seatblock"], by["backblock"]]
     else:
@@ -4014,6 +4213,18 @@ def split_proxy_parts(style, row, joint, body_top, hanger_offset=HANGER_OFFSET):
         yoke = K.add_box("hangeryoke", (2.0 * hx, 2.0 * y_out, (g_lo + 0.010) - (pz - rc)),
                          (px, py, ((g_lo + 0.010) + (pz - rc)) / 2.0), drop=("+Z",))
         grip = [by["gripbody"], (yoke, lambda n: ("hangerhead", "hangercheek_"))]
+        if ENVELOPE:                                        # the carriage outboard, the jaw bar on the rope
+            gb = by["gripbody"][0]
+            CS.bake_transform(gb)
+            for v in gb.data.vertices:
+                v.co.y += ENVELOPE_DQ["dy"]
+            gb.data.update()
+            jl, _jw, jh = DQ_GRIP["jaw"]
+            y0, y1 = ENVELOPE_DQ["jaw_y_out"], DQ_GRIP["jaw"][1] / 2.0
+            rope = hang - float(row["grip_top_above_rope_m"])
+            jaw = K.add_box("jaw_rope", (jl, y1 - y0, jh), (0.0, 0.5 * (y0 + y1),
+                                                            rope + DQ_GRIP["jaw_dz"] + jh / 2.0), drop=("-Z",))
+            grip.insert(1, (jaw, lambda n: ("jaw_rope",)))
         body = [(_add_octa("knuckle", (px, py, pz), J["knuckle_r"], body_top), lambda n: ("knuckle",)),
                 (hz, lambda n: ("tube_hanger",))] + [by[n] for n in (
                     "hooptop", "hoopside_0", "hoopside_1", "seatblock", "backblock", "restraint",
@@ -4068,16 +4279,146 @@ def _split_tally(parts):
     return tuple((o.name, cs2_asset.tri_count(o)) for o, _q in parts)
 
 
+SPLIT_MAPS = ("BaseColor", "Normal", "MaskMap", "ControlMask")
+
+
+def split_shipped_uvs(st, row, ho, src_dir):
+    """
+    The shipped split meshes' atlas, read onto a rebuild of them (ENVELOPE off: the shipping code path
+    through _assemble): every FBX triangle's three vertices land on one rebuilt polygon (positions match
+    within 0.2 mm), each corner's UV onto that polygon's loop. Returns {role: {"name", "dir", "parts"
+    (part per polygon), "counts" (loops per polygon), "uv" (n_loops, 2), "worst_mm", "ambiguous"}}.
+    The envelope build moves vertices only, so its polygons line up one for one (_apply_shipped_uvs).
+    """
+    global ENVELOPE
+    from mathutils.kdtree import KDTree
+    keep = ENVELOPE
+    ENVELOPE = False
+    out = {}
+    try:
+        clear_scene()
+        body_parts, grip_parts, old, _joint = build_split_parts(st, row, ho)
+        _remove_objects([o for o, _q in old])
+        names = split_names(st, SPLIT_LETTER)
+        density = dict(st.density, **SPLIT_DENSITY[st.key])
+        gt = _split_tally(grip_parts)
+        for role, parts, name in (("body", body_parts, names[0]), ("grip", grip_parts, names[1])):
+            flat = tuple(n for n in FLAT_PARTS.get(st.key, ()) if n in gt_names(gt)) if role == "grip" else ()
+            obj, tab = _assemble(parts, name, density, density_w=True, flat_parts=flat)
+            fbx = os.path.join(src_dir, name, name + ".fbx")
+            before = set(bpy.data.objects)
+            bpy.ops.import_scene.fbx(filepath=fbx)
+            new = [o for o in bpy.data.objects if o not in before]
+            imp = next(o for o in new if o.type == "MESH")
+            mw = imp.matrix_world.copy()
+            ico = np.array([tuple(mw @ v.co) for v in imp.data.vertices], dtype=np.float64)
+            me = obj.data
+            rco = np.array([tuple(obj.matrix_world @ v.co) for v in me.vertices], dtype=np.float64)
+            kd = KDTree(len(rco))
+            for i, c in enumerate(rco):
+                kd.insert(c, i)
+            kd.balance()
+            best = None
+            for cand in (ico, np.c_[ico[:, 0] / 100.0, ico[:, 2] / 100.0, ico[:, 1] / 100.0],
+                         np.c_[ico[:, 0] / 100.0, -ico[:, 2] / 100.0, ico[:, 1] / 100.0]):
+                err = max(kd.find(tuple(p))[2] for p in cand[:: max(1, len(cand) // 200)])
+                if best is None or err < best[0]:
+                    best = (err, cand)
+            mp = best[1]
+            vmap = np.empty(len(mp), dtype=np.int64)
+            dmax = 0.0
+            for i, p in enumerate(mp):
+                _c, j, d = kd.find(tuple(p))
+                vmap[i], dmax = j, max(dmax, d)
+            if dmax > 2e-4:
+                raise ContractError(f"remap {name}: the rebuild does not match its shipped LOD0 "
+                                    f"({len(rco)} / {len(ico)} vertices, worst {dmax * 1000:.3f} mm)")
+            vpolys = {}
+            for p in me.polygons:
+                for v in p.vertices:
+                    vpolys.setdefault(v, set()).add(p.index)
+            uv_in = imp.data.uv_layers.get("UVUnique") or imp.data.uv_layers[0]
+            uv = np.full((len(me.loops), 2), np.nan)
+            loops_of = {p.index: {me.loops[li].vertex_index: li for li in p.loop_indices} for p in me.polygons}
+            amb = conflict = 0
+            for tri in imp.data.polygons:
+                vs = [int(vmap[imp.data.loops[li].vertex_index]) for li in tri.loop_indices]
+                cand = set.intersection(*(vpolys.get(v, set()) for v in vs))
+                if len(cand) != 1:
+                    amb += 1
+                    if not cand:
+                        continue
+                pi = min(cand)
+                for li, v in zip(tri.loop_indices, vs):
+                    dst = loops_of[pi].get(v)
+                    if dst is None:
+                        continue
+                    u = tuple(uv_in.data[li].uv)
+                    if not np.isnan(uv[dst, 0]) and np.abs(uv[dst] - u).max() > 1e-5:
+                        conflict += 1
+                    uv[dst] = u
+            missing = int(np.isnan(uv[:, 0]).sum())
+            if missing or conflict:
+                raise ContractError(f"remap {name}: {missing} loops without a shipped UV, {conflict} conflicts "
+                                    f"({amb} ambiguous triangles)")
+            fp = face_parts(obj)
+            out[role] = {"name": name, "dir": os.path.join(src_dir, name), "parts": list(fp),
+                         "counts": [p.loop_total for p in me.polygons], "uv": uv,
+                         "worst_mm": round(dmax * 1000.0, 4), "ambiguous": amb}
+            _remove_objects(new)
+        clear_scene()
+    finally:
+        ENVELOPE = keep
+    return out
+
+
+def _apply_shipped_uvs(obj, ref):
+    """The shipped atlas (split_shipped_uvs) onto an envelope mesh, polygon for polygon: same part per
+    polygon, same loops per polygon (vertex moves only), else raises. One UV layer UVUnique, no material
+    slots (what bake_unique leaves)."""
+    me = obj.data
+    fp = face_parts(obj)
+    counts = [p.loop_total for p in me.polygons]
+    if list(fp) != ref["parts"] or counts != ref["counts"]:
+        bad = sum(1 for a, b in zip(fp, ref["parts"]) if a != b)
+        raise ContractError(f"remap {obj.name}: topology differs from {ref['name']} ({len(counts)} / "
+                            f"{len(ref['counts'])} polygons, {bad} part mismatches): the envelope may move "
+                            f"vertices only")
+    lay = me.uv_layers.new(name="UVUnique", do_init=False)
+    flat = ref["uv"].reshape(-1)
+    lay.data.foreach_set("uv", flat.astype(np.float32))
+    for l in [l for l in me.uv_layers if l.name != "UVUnique"]:
+        me.uv_layers.remove(l)
+    me.uv_layers["UVUnique"].active = True
+    me.uv_layers["UVUnique"].active_render = True
+    me.materials.clear()
+    me.update()
+
+
 def _main_split(args, st, row, letter):
     """--split: the GRIP and BODY meshes (see the section comment above), each with the full
-    finish / LOD / verify / validate / manifest path of the one-piece build."""
+    finish / LOD / verify / validate / manifest path of the one-piece build. ENVELOPE (--envelope):
+    no bake; the shipped atlas mapped onto the moved vertices (split_shipped_uvs, 0 MB added), and only
+    the meshes the envelope changes (ENVELOPE_ROLES) get the new letter and files."""
     if st.key not in SPLIT_PLAN:
         raise ValueError(f"--split: style {st.key!r} has no split")
-    plan = SPLIT_PLAN[st.key]
+    plan = split_plan(st.key)
     ho = HANGER_OFFSET if args.hanger_offset is None else float(args.hanger_offset)
     hang = float(row["hang_m"])
     gtar = float(row["grip_top_above_rope_m"])
     body_name, grip_name = split_names(st, letter)
+    remap = None
+    write_role = {"body": True, "grip": True}
+    if ENVELOPE:
+        src = os.path.abspath(args.remap_from or os.path.join(HERE, "..", "import", "chairs", SPLIT_LETTER))
+        remap = split_shipped_uvs(st, row, ho, src)
+        old_body, old_grip = split_names(st, SPLIT_LETTER)
+        write_role = {r: r in ENVELOPE_ROLES[st.key] for r in write_role}
+        body_name = body_name if write_role["body"] else old_body
+        grip_name = grip_name if write_role["grip"] else old_grip
+        print(f"[split] ENVELOPE {st.key}: remap from {src}: " + "; ".join(
+            f"{r} {v['name']} worst {v['worst_mm']} mm, {v['ambiguous']} ambiguous" for r, v in remap.items())
+              + f"; writes {[r for r, w in write_role.items() if w]}")
     clear_scene()
 
     body_parts, grip_parts, old, joint = build_split_parts(st, row, ho)
@@ -4123,6 +4464,9 @@ def _main_split(args, st, row, letter):
     body, btab = _assemble(body_parts, body_name, density, density_w=True)
     grip, gtab = _assemble(grip_parts, grip_name, density, density_w=True,
                            flat_parts=tuple(n for n in FLAT_PARTS.get(st.key, ()) if n in gt_names(gt)))
+    if remap is not None:
+        _apply_shipped_uvs(body, remap["body"])
+        _apply_shipped_uvs(grip, remap["grip"])
     pst = split_pair_style(st, plan)
     meshes = {
         "body": {"obj": body, "name": body_name, "table": btab, "h": body_h, "z0": 0.0,
@@ -4164,6 +4508,22 @@ def _main_split(args, st, row, letter):
         for role, m in meshes.items():
             obj, name = m["obj"], m["name"]
             asset_dir = os.path.join(os.path.abspath(args.out), name)
+            if remap is not None:
+                m["dir"] = asset_dir
+                if not write_role[role]:
+                    continue                              # unchanged by the envelope: keeps its shipped files
+                os.makedirs(asset_dir, exist_ok=True)
+                ref = remap[role]
+                for x in SPLIT_MAPS:                      # the shipped maps under the new name (0 MB in game:
+                    shutil.copyfile(os.path.join(ref["dir"], f"{ref['name']}_{x}.png"),   # same files)
+                                    os.path.join(asset_dir, f"{name}_{x}.png"))
+                m["bake"] = {"remap_from": ref["name"], "worst_vertex_mm": ref["worst_mm"],
+                             "ambiguous_tris": ref["ambiguous"], "textures_added_mb": 0.0}
+                m["contracts"]["finish"] = check_finished_maps(obj, m["info"], asset_dir, name, FINISH_ATLAS,
+                                                               plate_required=m["plate"])
+                print(f"[split] {name}: remapped onto {ref['name']}'s atlas: {m['contracts']['finish']['C12']}")
+                cs2_asset.export_fbx(obj, os.path.join(asset_dir, f"{name}.fbx"))
+                continue
             os.makedirs(asset_dir, exist_ok=True)
             m["dir"] = asset_dir
             work_dir = os.path.join(work_root, name)
@@ -4194,6 +4554,9 @@ def _main_split(args, st, row, letter):
             l1 = cs2_asset.make_lod_chain(obj, name, (m["lod1"],), (m["lod1_del"],),
                                           min_tris=min(60, m["lod1"]))[0]
             pin_height(l1, 0.0, m["h"])
+            rope_z = m["h"] - gtar if role == "grip" else hang - gtar     # the rope center in this mesh
+            if ENVELOPE and role == "grip":
+                m["contracts"]["envelope_LOD1"] = _envelope_lod_snap(l1, st.key, rope_z)
             ptally = tuple((o.name, cs2_asset.tri_count(o)) for o, _c in prox)
             if m["proxy"] is None or tuple(m["proxy"]) != ptally:
                 raise RuntimeError(f"LOD2 split proxy tally ({name}): built {ptally}, contract {m['proxy']}")
@@ -4201,6 +4564,10 @@ def _main_split(args, st, row, letter):
             lods[role] = [l1, l2]
             for k, lod in enumerate(lods[role], start=1):
                 m["contracts"][f"pivot_LOD{k}"] = _check_base_pivot(lod, m["h"], lod.name)
+            if ENVELOPE:
+                for k, lod in enumerate([obj, l1, l2]):
+                    m["contracts"][f"C15_LOD{k}"] = check_envelope(lod, st.key, rope_z, f"{name} LOD{k}")
+                    print(f"[split] C15 {name} LOD{k}: {m['contracts'][f'C15_LOD{k}']}")
             n0 = m["info"]["lod0_tris"]
             n1 = cs2_asset.tri_count(l1)
             if n1 > 0.5 * n0:
@@ -4217,6 +4584,8 @@ def _main_split(args, st, row, letter):
 
         for role, m in meshes.items():
             obj, name, asset_dir = m["obj"], m["name"], m["dir"]
+            if not write_role[role]:
+                continue
             for lod in lods[role]:
                 cs2_asset.export_fbx(lod, os.path.join(asset_dir, f"{lod.name}.fbx"))
             cs2_asset.write_settings(asset_dir, name, supplied_lods=(1, 2))
@@ -4271,6 +4640,8 @@ def _main_split(args, st, row, letter):
                 "contracts": m["contracts"], "lod_switch": switch, "density": density_rep,
                 "bake": m["bake"], "lod2": "proxy", "verify": verify, "validation": validation,
                 "split": split, "hanger_offset_m": ho if st.key == "dq" else None,
+                "envelope": ({"z_m": ENVELOPE_Z, **({"tr": ENVELOPE_TR, "dq": ENVELOPE_DQ}[st.key])}
+                             if ENVELOPE else None),
                 "args": CS.manifest_args(args, REPO_ROOT)})
             results[name] = {"tris": tri_levels, "validation": validation, "verify": verify,
                              "dir": asset_dir}

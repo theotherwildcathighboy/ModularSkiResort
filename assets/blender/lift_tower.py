@@ -5570,6 +5570,1209 @@ def etgd_prefab_block(spec, name, info):
     }
 
 
+# ======================================================================================
+# Breakover / hold-down twins (art phase B2, 2026-11-03; docs/research/breakover-holddown-plan-2026-11-03.md
+# section 3, build log docs/research/art/breakover-twins-2026-11/build.md)
+# ======================================================================================
+# A twin is one more member of its support member's placeholder (plan 3.4): the SAME mast, pad, ladder, comm hanger and
+# rope anchors (lane y and comm y equal the support member's), its own train kind and its own bounds top, unique by >=
+# TWIN_TOP_GAP in the placeholder, so the vanilla height score picks it when the planner writes E = top - ladder[0] top.
+#   Hold  - every wheel ON the rope (compression): the support's half trains mirrored about the rope line, so the
+#           rockers / yokes ride under the wheels and the main pin stays on the rope line (the hinge of both halves).
+#           DQ / GD raise the head by 2 x crown seat (the ETDQ / ETGD compression recipe: the wheels keep their place in
+#           the gantry, the rope runs under them; the mast grows, the comm wire and the lanes stay); FG keeps its
+#           crossarm (the wheels tuck under it, the rope 1.5 wheel diameters below the crossarm's underside).
+#   Combo - push-pull (FG 2S2C, DQ / GD 4S4C): per half the inner wheels under the rope (support) and the outer ones
+#           over it (compression) on the half's frame on the main pin. DQ / GD raise the head by 1 x crown seat, the
+#           main rocker of each half sheared from the support bogie up to the compression bogie.
+#   Break - FG only (plan idea Z, owner go 2026-11-03): the 8-wheel support train, each half beam carrying two bogies.
+# FG tops: the lifting frame (liftposts + liftbar) rises to TWIN_FG_TOP_DZ over the catwalk rail (the hold-down and
+# breakover heads of the references carry tall lifting frames, refs/SOURCES.md fg_holddown).
+# Textures (owner rule 2026-11-03: "New towers should re uses existing textures if able"): NO bake. Every twin part takes
+# its UVs from the SHIPPED support member's atlas (TWIN_ATLAS): the member is rebuilt through the shipping code path
+# (the same geometry, vertex for vertex), its shipped LOD0 FBX's UVUnique is read onto it triangle by triangle, and each
+# twin part copies its namesake's loops BEFORE it is mirrored / moved / stretched (copies take their source's), so the
+# twin mesh maps onto the member's BaseColor / Normal / MaskMap / ControlMask as they ship.
+TWIN_MEMBERS = {"Hold": ("FG8", "FG12", "DQ10", "DQ12", "GD12", "GD16"),
+                "Combo": ("FG8", "FG12", "DQ10", "DQ12", "GD12", "GD16"),
+                "Break": ("FG8", "FG12", "FG16", "FG20")}
+TWINS = {f"{m}{k}": (m, k) for k, ms in TWIN_MEMBERS.items() for m in ms}
+TWIN_SPEC_KIND = {"Hold": "compression", "Combo": "pushpull", "Break": "support"}
+# the shipped member whose atlas a twin reuses (assets/import/towers/<letter>/<name>; DECISIONS 586: Q family, R pilots)
+TWIN_ATLAS = {"FG8": "Q/SkiLiftTowerFG8Q", "FG12": "R/SkiLiftTowerFG12R", "FG16": "Q/SkiLiftTowerFG16Q",
+              "FG20": "Q/SkiLiftTowerFG20Q", "DQ10": "Q/SkiLiftTowerDQ10Q", "DQ12": "R/SkiLiftTowerDQ12R",
+              "GD12": "R/SkiLiftTowerGD12R", "GD16": "Q/SkiLiftTowerGD16Q"}
+TWIN_HEAD = {"FG": "yan", "DQ": "ingest", "GD": "rebuild"}
+TWIN_GD_SHEAVES = {"atlas": 10, "twin": 8}      # shipped GD members 10 a side; Hold / Combo at the ETGD count (plan 3.3)
+# DQ / GD head raise, x crown seat. v2 (critic MUST-1, 2026-11-03): the Hold train is TRANSLATED (frame above the
+# wheels as on the member, the rope below bare). The critic's 3 seats (deck to rope ~1.5 wheel diameters) do not fit:
+# the comm wire stays at the placeholder's comm y and the mast top would cross it (GD12 tube top 10.50 + 3 x 0.284 =
+# 11.35 against comm 11.20, C19 measured); 2 seats keep the mast under the wire's zone and the train exactly the
+# member's relative to its head
+TWIN_HEAD_SEATS = {"Hold": 2.0, "Combo": 1.0, "Break": 0.0}
+# FG head raise (m): 0 for every kind: the FG comm wire rides on the crossarm top (FG8 comm 8.15, arm top 8.11) at the
+# shared placeholder's comm y, so the FG head cannot rise. The FG Hold frame goes BESIDE the wheels instead (TWIN_FG_BAND)
+TWIN_FG_HEAD_DZ = {"Hold": 0.0, "Combo": 0.0, "Break": 0.0}
+TWIN_FG_TOP_DZ = {"Hold": 0.20, "Combo": 0.35, "Break": 0.50}  # FG lifting frame top over the catwalk rail (= the top)
+# FG Hold v2 (critic MUST-1): the member's three-tier frame (bars, bogie pins, half beams: 0.63 m over the axle) does not
+# fit over the wheels under the crossarm (underside 0.617 over the rope) at G6's 30 deg uniform pitch, so it is laid in
+# the band beside the wheels, inboard, between the rope and the wheel tops: bars `bar` over the axle, the bogie pins
+# `pin` over the bars, the half beams centered on the pins (top 0.44, the member's 0.40); the arms shrink from the axle to
+# the bars, the straps reach from the beams down to the main pin on the rope line. Nothing under the rope.
+TWIN_FG_BAND = dict(bar=0.07, pin=0.06)
+TWIN_FG_BREAK_BEAM = 0.20               # m, the Break half beam's depth (critic SHOULD-4: ~0.5 wheel dia; was 0.15)
+# DQ / GD Hold v2: the yokes' lug ends shear down to the main pin on the rope line (full within YOKE_LUG of the pivot,
+# none beyond YOKE_RAMP); the static tongue moves inboard of the yoke slab (TWIN_TONGUE_GAP off its inner face) so the
+# halves, whose frame now rides 2 seats over the pivot, never swing into it at G6's 30 deg uniform pitch
+TWIN_YOKE_LUG, TWIN_YOKE_RAMP = 0.10, 0.30
+TWIN_TONGUE_GAP = 0.010
+TWIN_TOP_GAP = 0.10                     # m, plan 3.4 gate LADDER (LiftTowerFitSystem.MemberOf matches at 0.05)
+LINE_ELEVATION_MAX = {"FG": 16.0, "DQ": 10.0, "GD": 28.0}       # m_ElevationRange.max of the line prefabs (plan 3.4)
+TWIN_BREAK_CAP = 5400                   # owner 2026-11-03 (v2): the Break kind's LOD0 cap, all four FG members
+TWIN_BREAK_CAP_X = 1.15                 # the B2 first estimate (4,370), superseded by TWIN_BREAK_CAP
+TWIN_CAP_RAISE = 1.05                   # DECISIONS 585: up to 5 % over, raise in-round; beyond: stop and report
+TWIN_HALF_BREAK = {"Hold": 20.0, "Combo": 20.0, "Break": 16.0}  # G6 half-break limit (Break: 8 wheels x 4 / 2)
+TWIN_CONCAVE_ONLY = {"Hold": True, "Combo": False, "Break": False}
+TWIN_UV = "UVUnique"
+TWIN_COMM_CLEAR = 0.12                  # m under the comm wire's axis: check_gd_clearances' C19 zone r 0.10 + 0.02
+
+
+def twin_cap(fam, kind):
+    return TWIN_BREAK_CAP if kind == "Break" else LOD0_CAP[fam]
+
+
+def twin_head_dz(base, kind):
+    """m the twin's head (and the train built with it) rises over the member's: FG TWIN_FG_HEAD_DZ, DQ / GD
+    TWIN_HEAD_SEATS x crown seat."""
+    if base.family == "FG":
+        return TWIN_FG_HEAD_DZ[kind]
+    return round(TWIN_HEAD_SEATS[kind] * crown_seat(base), 6)
+
+
+def twin_top(key):
+    """The twin's bounds top (pure: no build): FG member top + head raise + TWIN_FG_TOP_DZ (the lifting frame), DQ / GD
+    member top + the head raise."""
+    m, kind = TWINS[key]
+    base = VARIANTS[m]
+    dz = twin_head_dz(base, kind)
+    if base.family == "FG":
+        return round(base.top + dz + TWIN_FG_TOP_DZ[kind], 6)
+    return round(base.top + dz, 6)
+
+
+def ladder_top0(fam):
+    """Top(ladder[0]): the shortest line member's top (the line NetSubObjects spec y)."""
+    return min(s.top for s in VARIANTS.values() if s.family == fam and s.role == "line")
+
+
+def twin_family_tops(fam):
+    """[(key, top)] of every line member, lattice (GD) and twin in the family placeholder."""
+    rows = [(s.key, s.top) for s in VARIANTS.values() if s.family == fam and s.role == "line"]
+    if fam == "GD":
+        rows += [(k, float(top)) for k, top, *_r in GD_LATTICE]
+    rows += [(k, twin_top(k)) for k, (m, _kind) in TWINS.items() if VARIANTS[m].family == fam]
+    return sorted(rows, key=lambda r: r[1])
+
+
+def twin_spec(key):
+    """{key, member, kind, base, build, twin, seat, lane, dz}: `build` = the spec the head is built at (DQ / GD raised by
+    the head raise, FG the member), `twin` = the twin's spec (kind, wheel axle, top, sheaves, cap; lane_y(twin) = the
+    member's lane). Sets SKIN_GD sheaves to the twin count (GD)."""
+    member, kind = TWINS[key]
+    fam = VARIANTS[member].family
+    if fam == "GD":
+        SKIN_GD["sheaves"] = TWIN_GD_SHEAVES["twin"]
+    base = skin_spec(VARIANTS[member])
+    seat, lane = crown_seat(base), lane_y(base, True)
+    if fam != "FG" and kind == "Break":
+        raise TowerContractError(f"{key}: Break twins are FG only")
+    dz = twin_head_dz(base, kind)
+    build = base if dz == 0.0 else _dataclasses.replace(
+        base, axle=round(base.axle + dz, 6), tube_top=round(base.tube_top + dz, 6), top=round(base.top + dz, 6))
+    axle = round(lane + seat, 6) if kind == "Hold" else base.axle
+    twin = _dataclasses.replace(base, key=key, kind=TWIN_SPEC_KIND[kind], axle=axle, tube_top=build.tube_top,
+                                top=twin_top(key), sheaves=8 if kind == "Break" else base.sheaves,
+                                cap=twin_cap(fam, kind))
+    if abs(lane_y(twin, True) - lane) > 1e-4:
+        raise TowerContractError(f"{key}: twin lane {lane_y(twin, True)} != member lane {lane}")
+    return {"key": key, "member": member, "kind": kind, "base": base, "build": build, "twin": twin, "seat": seat,
+            "lane": lane, "dz": dz}
+
+
+# -- the atlas: the shipped member's UVs, per part ------------------------------------------------------------------
+
+def twin_atlas(member, head, keep_ref=False):
+    """Rebuild the shipped member `member` (SKINNED, the shipping code path, no finish) and read its shipped LOD0's
+    UVUnique onto it: every FBX triangle's three vertices land on one rebuilt polygon (vertex positions match to
+    1e-4 m), each corner's UV onto that polygon's loop. Returns ({part: {"counts": [loops per polygon],
+    "uv": [(u, v) per loop]}}, report, the rebuilt member object or None). The part order is the canonical one
+    (tag_parts) the join keeps."""
+    from mathutils.kdtree import KDTree
+    fam = VARIANTS[member].family
+    if fam == "GD":
+        SKIN_GD["sheaves"] = TWIN_GD_SHEAVES["atlas"]
+    spec = skin_spec(VARIANTS[member])
+    folder = os.path.join(_REPO, "assets", "import", "towers", *TWIN_ATLAS[member].split("/"))
+    name = os.path.basename(folder)
+    clear_scene()
+    t, table, _src, _info = build_tower_v2(spec, head, finish=False, name=name)
+    before = set(bpy.data.objects)
+    bpy.ops.import_scene.fbx(filepath=os.path.join(folder, name + ".fbx"))
+    new = [o for o in bpy.data.objects if o not in before]
+    imp = next(o for o in new if o.type == "MESH")
+    mw = imp.matrix_world.copy()
+    ico = np.array([tuple(mw @ v.co) for v in imp.data.vertices], dtype=np.float64)
+    me = t.data
+    rco = _coords(t)
+    kd = KDTree(len(rco))
+    for i, c in enumerate(rco):
+        kd.insert(c, i)
+    kd.balance()
+    best = None
+    for sg in (1.0, -1.0):
+        mp = np.c_[ico[:, 0] / 100.0, sg * ico[:, 2] / 100.0, ico[:, 1] / 100.0]
+        err = max(kd.find(tuple(p))[2] for p in mp[:: max(1, len(mp) // 200)])
+        if best is None or err < best[0]:
+            best = (err, sg, mp)
+    _err, sg, mp = best
+    vmap = np.empty(len(mp), dtype=np.int64)
+    dmax = 0.0
+    for i, p in enumerate(mp):
+        _c, j, d = kd.find(tuple(p))
+        vmap[i], dmax = j, max(dmax, d)
+    _check(dmax <= 2e-4 and len(rco) == len(ico), f"[{member}] atlas: the rebuilt member matches its shipped LOD0",
+           f"({len(rco)} / {len(ico)} vertices, worst {dmax * 1000:.3f} mm)")
+    vpolys = {}
+    for p in me.polygons:
+        for v in p.vertices:
+            vpolys.setdefault(v, set()).add(p.index)
+    uv_in = imp.data.uv_layers.get(TWIN_UV) or imp.data.uv_layers[0]
+    uv = np.full((len(me.loops), 2), np.nan)
+    loops_of = {p.index: {me.loops[li].vertex_index: li for li in p.loop_indices} for p in me.polygons}
+    amb = conflict = 0
+    for tri in imp.data.polygons:
+        vs = [int(vmap[imp.data.loops[li].vertex_index]) for li in tri.loop_indices]
+        cand = set.intersection(*(vpolys.get(v, set()) for v in vs))
+        if len(cand) != 1:
+            amb += 1
+            if not cand:
+                continue
+        pi = min(cand)
+        for li, v in zip(tri.loop_indices, vs):
+            dst = loops_of[pi].get(v)
+            u = tuple(uv_in.data[li].uv)
+            if dst is None:
+                continue
+            if not np.isnan(uv[dst, 0]) and np.abs(uv[dst] - u).max() > 1e-5:
+                conflict += 1
+            uv[dst] = u
+    missing = int(np.isnan(uv[:, 0]).sum())
+    _check(missing == 0 and conflict == 0, f"[{member}] atlas: every rebuilt loop has one shipped UV",
+           f"({missing} loops missing, {conflict} conflicts, {amb} ambiguous triangles)")
+    part = np.zeros(len(me.polygons), dtype=np.int32)
+    me.attributes["part"].data.foreach_get("value", part)
+    atlas = {}
+    for p in me.polygons:
+        a = atlas.setdefault(table[part[p.index] - 1], {"counts": [], "uv": [], "normals": []})
+        a["counts"].append(p.loop_total)
+        a["uv"] += [tuple(uv[li]) for li in p.loop_indices]
+        n = p.normal
+        a["normals"].append((-n.y, n.x, n.z))       # net -> authoring (orient_for_net: (x, y, z) -> (y, -x, z))
+    for o in new:
+        bpy.data.objects.remove(o, do_unlink=True)
+    rep = {"member": member, "mesh": name, "folder": TWIN_ATLAS[member], "parts": len(atlas), "verts": len(rco),
+           "worst_vertex_mm": round(dmax * 1000.0, 4), "fbx_lateral_sign": sg, "ambiguous_tris": amb}
+    if keep_ref:
+        lay = me.uv_layers.get(TWIN_UV) or me.uv_layers.new(name=TWIN_UV)
+        for li in range(len(me.loops)):
+            lay.data[li].uv = uv[li]
+        for l in [l for l in me.uv_layers if l.name != TWIN_UV]:
+            me.uv_layers.remove(l)
+        return atlas, rep, t
+    bpy.data.objects.remove(t, do_unlink=True)
+    return atlas, rep, None
+
+
+def _stem(name):
+    import re
+    return re.sub(r"\d+", "#", name)
+
+
+def twin_apply_atlas(parts, atlas):
+    """Every part (canonical order first, as tag_parts will) gets TWIN_UV loops from the atlas: its namesake when the
+    polygon / loop counts match, else a same-stem part (digits ignored: an extra ladder rung, a GD 8-wheel train's sub
+    from the shipped 10-wheel one) with the same counts, else (logged) its own box UVs fitted into the bbox of a
+    same-stem part's island. Returns {"exact": n, "donor": {part: donor}, "fitted": {part: donor}}."""
+    rep = {"exact": 0, "donor": {}, "fitted": {}, "normal_mismatch": {}}
+    for o, _k in parts:
+        cs2_asset.canonical_order(o)
+        me = o.data
+        counts = [p.loop_total for p in me.polygons]
+        nrm = np.array([tuple(p.normal) for p in me.polygons]) if len(me.polygons) else np.zeros((0, 3))
+
+        def bad_normals(n):
+            return int((np.einsum("ij,ij->i", nrm, np.array(atlas[n]["normals"])) < 0.9).sum())
+        src = o.name if o.name in atlas and atlas[o.name]["counts"] == counts else None
+        if src is None:
+            same = sorted((bad_normals(n), n) for n, a in atlas.items()
+                          if _stem(n) == _stem(o.name) and a["counts"] == counts)
+            src = same[0][1] if same else None
+            if src:
+                rep["donor"][o.name] = src
+        else:
+            rep["exact"] += 1
+        if src is not None and bad_normals(src):
+            rep["normal_mismatch"][o.name] = bad_normals(src)       # face order differs from the donor's: logged
+        lay = me.uv_layers.get(TWIN_UV) or me.uv_layers.new(name=TWIN_UV, do_init=False)
+        if src is not None:
+            uvs = atlas[src]["uv"]
+            k = 0
+            for p in me.polygons:
+                for li in p.loop_indices:
+                    lay.data[li].uv = uvs[k]
+                    k += 1
+            continue
+        pool = sorted(n for n in atlas if _stem(n) == _stem(o.name)) or sorted(
+            n for n in atlas if n.split("_")[0] == o.name.split("_")[0])
+        if not pool:
+            raise TowerContractError(f"{o.name}: no atlas part to map onto (no namesake, no same-stem part)")
+        don = pool[0]
+        a = np.array(atlas[don]["uv"])
+        lo, hi = a.min(axis=0), a.max(axis=0)
+        own = me.uv_layers.get("UVMap")
+        b = np.array([tuple(own.data[li].uv) for li in range(len(me.loops))]) if own else np.zeros((len(me.loops), 2))
+        blo, bhi = b.min(axis=0), b.max(axis=0)
+        span = np.where(bhi - blo > 1e-9, bhi - blo, 1.0)
+        f = lo + (hi - lo) * (0.1 + 0.8 * (b - blo) / span)
+        for li in range(len(me.loops)):
+            lay.data[li].uv = tuple(f[li])
+        rep["fitted"][o.name] = don
+    return rep
+
+
+# -- the kinds: geometry on the transformed, atlas-mapped parts (authoring frame, z up, x travel) -------------------
+
+def _bm_edit(obj, fn, flip=False):
+    """Run fn(bm) on obj's mesh; flip=True reverses every face and puts each loop's TWIN_UV back on its vertex."""
+    bm = bmesh.new()
+    bm.from_mesh(obj.data)
+    lay = bm.loops.layers.uv.get(TWIN_UV)
+    keep = {}
+    bm.faces.index_update()
+    bm.verts.index_update()
+    if flip and lay is not None:
+        for f in bm.faces:
+            for l in f.loops:
+                keep[(f.index, l.vert.index)] = tuple(l[lay].uv)
+    fn(bm)
+    if flip:
+        bmesh.ops.reverse_faces(bm, faces=bm.faces[:])
+        if lay is not None:
+            bm.faces.index_update()
+            bm.verts.index_update()
+            for f in bm.faces:
+                for l in f.loops:
+                    l[lay].uv = keep[(f.index, l.vert.index)]
+    bm.to_mesh(obj.data)
+    bm.free()
+    obj.data.update()
+
+
+def _mirror_z(obj, zc):
+    def fn(bm):
+        for v in bm.verts:
+            v.co.z = 2.0 * zc - v.co.z
+    _bm_edit(obj, fn, flip=True)
+
+
+def _move(obj, dx=0.0, dz=0.0, where=None):
+    def fn(bm):
+        for v in bm.verts:
+            if where is None or where(v.co):
+                v.co.x += dx
+                v.co.z += dz
+    _bm_edit(obj, fn)
+
+
+def _copy_part(obj, name):
+    o = obj.copy()
+    o.data = obj.data.copy()
+    o.name = name
+    o.data.name = name
+    for c in obj.users_collection:
+        c.objects.link(o)
+    return o
+
+
+def _wheel_liner(disc):
+    lin = {d: l for d, l, *_r in S.WHEEL_LOG}
+    return lin.get(disc)
+
+
+def _wheel_names(disc):
+    """The parts of one wheel: discs, its seen-boss hub, its liner."""
+    return [disc, S.hub_name(disc), _wheel_liner(disc)]
+
+
+def _fg_wheel_group(tag, si, w):
+    disc = f"sheave_{tag}_{si}_{w}_rim"
+    return [f"sheave_arm_{tag}_{si}_{w}", f"axlecap_stub_{tag}_{si}_{w}"] + _wheel_names(disc)
+
+
+def _rename_bogie(n, tag, si, sj):
+    import re
+    return re.sub(rf"(_|hub){tag}_{si}(_|$)", rf"\g<1>{tag}_{sj}\g<2>", n)
+
+
+def twin_transform(parts, tw, info):
+    """The kind's geometry on the atlas-mapped support parts (see the section header). Returns (parts, report)."""
+    kind, spec, build = tw["kind"], tw["twin"], tw["build"]
+    fam = spec.family
+    lane, seat = tw["lane"], tw["seat"]
+    by = {o.name: (o, k) for o, k in parts}
+    rep = {"mirrored": [], "moved": [], "copied": [], "stretched": [], "sheared": []}
+
+    def train(n):
+        return n.startswith(SKIN_TRAIN[fam]) and not n.startswith(SKIN_ROOT_FIRST)
+
+    def mirror(n, zc):
+        if n in by:
+            _mirror_z(by[n][0], zc)
+            rep["mirrored"].append(n)
+    def zr(n):
+        zs = [v.co.z for v in by[n][0].data.vertices]
+        return min(zs), max(zs)
+
+    def remap(n, f):
+        """z -> f(x, z) on every vertex of part n."""
+        def fn(bm):
+            for v in bm.verts:
+                v.co.z = f(v.co.x, v.co.z)
+        _bm_edit(by[n][0], fn)
+    if fam == "FG":
+        if kind == "Hold":
+            # v2 (critic MUST-1, "translate, do not mirror"): the wheels 2 seats up onto the rope, the frame in the band
+            # beside them (TWIN_FG_BAND, see the constant); the main pin and the static hanger stay on the rope line
+            up = 2.0 * seat
+            axle = lane + seat
+            names = [o.name for o, _k in parts if train(o.name)]
+            bars = [n for n in names if n.startswith("rocker_sub_")]
+            b0 = {n: zr(n) for n in bars}
+            bar_c = {n: (a + b) / 2.0 for n, (a, b) in b0.items()}
+            bar_new = axle + TWIN_FG_BAND["bar"]
+            pin_new = bar_new + TWIN_FG_BAND["pin"]
+            d_bar = bar_new - float(np.mean(list(bar_c.values())))
+            pins = [n for n in names if n.startswith("pivot_")]
+            d_pin = pin_new - float(np.mean([sum(zr(n)) / 2.0 for n in pins]))
+            beams = [n for n in names if n.startswith("rocker_main_")]
+            d_beam = pin_new - float(np.mean([sum(zr(n)) / 2.0 for n in beams]))
+            for n in names:
+                if n.startswith(("sheave_arm_",)):
+                    z0, z1 = zr(n)
+                    a0, a1 = z0 + up, z1 + d_bar
+                    remap(n, lambda x, z, z0=z0, z1=z1, a0=a0, a1=a1: a0 + (z - z0) * (a1 - a0) / (z1 - z0))
+                    rep["stretched"].append(n)
+                elif n.startswith(("sheave_", "liner_", "axlecap_")):
+                    _move(by[n][0], dz=up)
+                    rep["moved"].append(n)
+                elif n in bars:
+                    _move(by[n][0], dz=d_bar)
+                    rep["moved"].append(n)
+                elif n in pins:
+                    _move(by[n][0], dz=d_pin)
+                    rep["moved"].append(n)
+                elif n in beams:
+                    _move(by[n][0], dz=d_beam)
+                    rep["moved"].append(n)
+                elif n.startswith("yoke_"):
+                    z0, z1 = zr(n)
+                    zl = lane + SKIN_FG["pin_r"] + 0.03            # the lug (on the main pin) stays
+                    remap(n, lambda x, z, zl=zl, z1=z1: z + d_beam * min(1.0, max(0.0, (z - zl) / (z1 - zl))))
+                    rep["stretched"].append(n)
+                else:
+                    raise TowerContractError(f"{spec.key}: FG Hold v2 has no rule for train part {n}")
+            rep["fg_band"] = {"bar_center": round(bar_new - lane, 4), "pin_center": round(pin_new - lane, 4),
+                              "d_bar": round(d_bar, 4), "d_pin": round(d_pin, 4), "d_beam": round(d_beam, 4)}
+        elif kind == "Combo":
+            for tag in ("n", "p"):
+                for si, w in ((0, "m"), (1, "p")):          # the outer wheel of each half's bogie
+                    for n in _fg_wheel_group(tag, si, w):
+                        mirror(n, lane)
+        elif kind == "Break":
+            _n, _sub_span, pitch = S.fg_spans(4, build.pitch, build.sheave_r)     # 1.02: the bogie pitch along a beam
+            sh = SKIN_HALF_SHIFT["FG"]
+            main_half = S.fg_spans(build.sheaves, build.pitch, build.sheave_r)[2] / 2.0
+            for tag in ("n", "p"):
+                for si, hs, half in ((0, -1.0, "b"), (1, 1.0, "f")):
+                    grp = [f"rocker_sub_{tag}_{si}", f"pivot_{tag}_{si}"] + [
+                        n for w in ("m", "p") for n in _fg_wheel_group(tag, si, w)]
+                    for n in grp:
+                        if n not in by:
+                            continue
+                        nn = _rename_bogie(n, tag, si, si + 2)
+                        o = _copy_part(by[n][0], nn)
+                        _move(o, dx=hs * pitch)
+                        parts.append((o, by[n][1]))
+                        rep["copied"].append(nn)
+                        if n.endswith("_rim"):
+                            r, wd = float(o.get("cs2_wheel_r", build.sheave_r)), float(o.get("cs2_wheel_w", build.sheave_w))
+                            S.WHEEL_LOG.append((nn, _rename_bogie(_wheel_liner(n), tag, si, si + 2), r, wd,
+                                                int(S.WHEEL_SEGS), True))
+                    beam = by[f"rocker_main_{tag}_{half}"][0]
+                    xs = hs * (main_half + sh)                  # the shipped bogie pivot: the beam's outer end moves out
+                    _move(beam, dx=hs * pitch, where=lambda c, xs=xs, hs=hs: hs * c.x > hs * xs)
+                    rep["stretched"].append(beam.name)
+                    # v2 (critic SHOULD-4): the stretched beam deepened to TWIN_FG_BREAK_BEAM, its bottom lowered (top
+                    # kept: the crossarm clearance at G6's uniform pitch is the member's), 0 tris
+                    z0, z1 = zr(beam.name)
+                    remap(beam.name, lambda x, z, z0=z0, z1=z1: z + (z1 - TWIN_FG_BREAK_BEAM - z0)
+                          if z < (z0 + z1) / 2.0 else z)
+                    rep.setdefault("beam_depth", {})[beam.name] = [round(z1 - z0, 4), TWIN_FG_BREAK_BEAM]
+        # the lifting frame sets the twin's top
+        arm_top = build.tube_top + FG_ARM_T / 2.0
+        bar = by["liftbar"][0]
+        d = spec.top - max(v.co.z for v in bar.data.vertices)
+        _move(bar, dz=d)
+        for tag in ("n", "p"):
+            _move(by[f"liftpost_{tag}"][0], dz=d, where=lambda c: c.z > arm_top + 0.31)
+        rep["stretched"] += ["liftbar", "liftpost_n", "liftpost_p"]
+        rep["lift_frame_dz"] = round(d, 4)
+        return parts, rep
+    # DQ / GD: the head was built at build.axle (the support train with it); the clevis tongue's lug follows the pin
+    A2 = build.axle
+    pin_old = lane_y(build, True)
+    r_lug = SKIN_CLEVIS["r"]
+
+    def tongue_to(pin_new):
+        for tag in ("n", "p"):
+            o = by[f"hanger_{tag}_t"][0]
+            _move(o, dz=pin_new - pin_old, where=lambda c: c.z <= pin_old + r_lug + 1e-6)
+            rep["stretched"].append(o.name)
+    # the comm wire stays at the member's comm y while the head rises: the ladder's fall-arrest channel (y 0, up to deck
+    # + 1.0) would run through it on a Hold (DQ +0.52, GD +0.57); it stops TWIN_COMM_CLEAR under the wire's zone
+    zc = build.comm_y - TWIN_COMM_CLEAR if build.comm_y is not None else None
+    if zc is not None and "arrest_0" in by and max(v.co.z for v in by["arrest_0"][0].data.vertices) > zc:
+        def clip(bm):
+            for v in bm.verts:
+                v.co.z = min(v.co.z, zc)
+        _bm_edit(by["arrest_0"][0], clip)
+        rep["arrest_top_clipped_to"] = round(zc, 4)
+    moving = [o.name for o, _k in parts if train(o.name) or o.name.startswith(SKIN_ROOT_FIRST)]
+    if kind == "Hold":
+        # v2 (critic MUST-1, "translate, do not mirror"): the head was built TWIN_HEAD_SEATS up; the train comes down
+        # to the wheels-on-the-rope height (2 seats over the member's) with its frame over the wheels as on the member,
+        # the main pin to the rope line (the halves' hinge, G6), the yokes' lug ends sheared down to it, the tongue
+        # moved inboard of the yoke slab and stretched to the pin. Under the rope: nothing but the pin's lug.
+        d_train = 2.0 * seat - tw["dz"]
+        for n in moving:
+            if n.startswith(SKIN_ROOT_FIRST):
+                _move(by[n][0], dz=lane - pin_old)
+            else:
+                _move(by[n][0], dz=d_train)
+            rep["moved"].append(n)
+        for o, _k in parts:
+            n = o.name
+            if not n.startswith("yoke_"):
+                continue
+            hs = 1.0 if n.endswith("_f") else -1.0              # authoring +x = TrainFront
+            L, R = TWIN_YOKE_LUG, TWIN_YOKE_RAMP
+            remap(n, lambda x, z, hs=hs, L=L, R=R: z - 2.0 * seat * min(1.0, max(0.0, (R - hs * x) / (R - L))))
+            rep["stretched"].append(n)
+        for tag in ("n", "p"):
+            yk = [v.co.y for o, _k in parts if o.name.startswith(f"yoke_{tag}_") for v in o.data.vertices]
+            inner = min(abs(y) for y in yk)
+            t = by[f"hanger_{tag}_t"][0]
+            d = (inner - TWIN_TONGUE_GAP) - max(abs(v.co.y) for v in t.data.vertices)
+
+            def fn(bm, d=d):
+                for v in bm.verts:
+                    v.co.y += d if v.co.y > 0.0 else -d             # |y| + d: d < 0 moves it inboard
+            _bm_edit(t, fn)
+            rep.setdefault("tongue_inboard_m", {})[t.name] = round(-d, 4)
+        tongue_to(lane)
+        return parts, rep
+    # Combo: the train back to the member's axle (support row), the outer bogie of each half over the rope
+    for n in moving:
+        _move(by[n][0], dz=-tw["dz"])
+        rep["moved"].append(n)
+    tongue_to(lane)
+    pv = {o.name: np.array([tuple(v.co) for v in o.data.vertices]) for o, _k in parts}
+    cen = {n: (v.min(axis=0) + v.max(axis=0)) / 2.0 for n, v in pv.items()}
+    import re
+    half_pitch = spec.pitch / 2.0 + 0.01
+    for tag in ("n", "p"):
+        subs = sorted((n for n in pv if re.match(rf"^rocker_sub_{tag}_\d+$", n)), key=lambda n: cen[n][0])
+        mains = [n for n in pv if re.match(rf"^rocker_main_{tag}_\d+$", n)]
+        for hs in (-1.0, 1.0):
+            mine = sorted((n for n in subs if cen[n][0] * hs > 0.0), key=lambda n: abs(cen[n][0]))
+            if len(mine) != 2:
+                raise TowerContractError(f"{spec.key}: Combo wants two 2-wheel bogies a half (got {mine})")
+            inner, outer = mine
+            xo, xi = cen[outer][0], cen[inner][0]
+            j = outer.rsplit("_", 1)[1]
+            wheels = [n for n in pv if re.match(rf"^sheave_{tag}_\d+_rim$", n) and abs(cen[n][0] - xo) <= half_pitch]
+            if len(wheels) != 2:
+                raise TowerContractError(f"{spec.key}: Combo outer bogie {outer} wheels {wheels}")
+            for n in [outer, f"pivot_{tag}_s{j}"] + [p for w in wheels for p in _wheel_names(w)]:
+                mirror(n, lane)
+            for m in mains:
+                if cen[m][0] * hs > 0.0:
+                    a, b = abs(xi), abs(xo)
+                    o = by[m][0]
+
+                    def fn(bm, a=a, b=b, hs=hs):
+                        for v in bm.verts:
+                            f = min(1.0, max(0.0, (hs * v.co.x - a) / (b - a)))
+                            v.co.z += 2.0 * seat * f
+                    _bm_edit(o, fn)
+                    rep["sheared"].append(m)
+    return parts, rep
+
+
+# -- the build ------------------------------------------------------------------------------------------------------
+
+def build_twin(tw, head, atlas, name):
+    """The twin in the scene: the member's parts at tw["build"] -> bevel -> transforms -> detail_post -> the atlas UVs ->
+    the kind (twin_transform) -> tag_parts -> join -> remove_doubles -> part table -> shade -> twin contracts (authoring)
+    -> orient_for_net -> twin contracts (net) -> skin bones -> G6 (twin_sweep). Returns (obj, table, info)."""
+    spec, build = tw["twin"], tw["build"]
+    if build.family == "FG":
+        parts, info = fg_parts(build)
+        bevel = dict(FG_BEVEL, **{f"rocker_main_{tg}_": SKIN_PLATE_BEVEL["FG"] for tg in ("n", "p")})
+    else:
+        parts, info = dq_parts(build, head, KAGELOK_BLEND)
+        bevel = DQ_BEVEL
+    info["head"] = head
+    _bevel(parts, bevel)
+    _apply_transforms(parts)
+    info["detail_post"] = detail_post(parts, build, info)
+    check_c10(parts, build)
+    info["atlas_map"] = twin_apply_atlas(parts, atlas)
+    parts, info["twin_transform"] = twin_transform(parts, tw, info)
+    l1, l2 = lod_prefixes(spec)
+    keep = FG_KEEP if spec.family == "FG" else DQ_KEEP
+    known = tuple(density_table(spec)) + l1 + l2 + keep
+    names = [o.name for o, _k in parts]
+    _check(len(set(names)) == len(names) and all(n.startswith(known) for n in names),
+           f"[{spec.key}] T0 part names unique and in the DENSITY / LOD / keep tables")
+    info["part_material"] = {o.name: k for o, k in parts}
+    table = cs2_asset.tag_parts(parts)
+    bpy.ops.object.select_all(action="DESELECT")
+    for o, _k in parts:
+        o.select_set(True)
+    bpy.context.view_layer.objects.active = parts[0][0]
+    bpy.ops.object.join()
+    t = bpy.context.active_object
+    t.name = t.data.name = name
+    for lay in [l for l in t.data.uv_layers if l.name != TWIN_UV]:
+        t.data.uv_layers.remove(lay)
+    t.data.uv_layers[TWIN_UV].active = True
+    t.data.uv_layers[TWIN_UV].active_render = True
+    bm = bmesh.new()
+    bm.from_mesh(t.data)
+    bmesh.ops.remove_doubles(bm, verts=bm.verts[:], dist=0.0005)
+    bm.to_mesh(t.data)
+    bm.free()
+    t.data.update()
+    cs2_asset.store_part_table(t, table)
+    cs2_asset.shade_by_angle(t, SHADE_ANGLE_V2, weighted=True)
+    info["contracts_authoring"] = assert_twin_contracts(t, tw, "authoring")
+    cs2_asset.orient_for_net(t)
+    info["contracts_net"] = assert_twin_contracts(t, tw, "net")
+    info["parts"] = len(table)
+    info["skin_part_bone"] = skin_part_bones(t, table, spec)
+    info["skin"] = twin_sweep(t, table, tw, info["skin_part_bone"])
+    return t, table, info
+
+
+def assert_twin_contracts(obj, tw, frame):
+    """The twin's contract (plan 3.4 / 3.5) on the joined LOD0. Raises on a failure."""
+    spec, base, kind = tw["twin"], tw["base"], tw["kind"]
+    fam = spec.family
+    table = json.loads(obj.data[cs2_asset.PART_TABLE_PROP])
+    pv = part_vertices(obj, table)
+    co = _coords(obj)
+    ti, ts, gi = _frame_axes(frame)
+    tag = f"[{spec.key} {frame}]"
+    lane, seat = tw["lane"], tw["seat"]
+    res = {}
+    sc = sheave_centres(pv, frame)
+    _check(len(sc) == 2 * spec.sheaves, f"{tag} T1 wheel count", f"({len(sc)} = 2 x {spec.sheaves})")
+    up = [c for c in sc if c[3] > lane]
+    dn = [c for c in sc if c[3] < lane]
+    want_up = {"Hold": 2 * spec.sheaves, "Combo": spec.sheaves, "Break": 0}[kind]
+    _check(len(up) == want_up and len(up) + len(dn) == len(sc), f"{tag} T1 {want_up} wheels over the rope",
+           f"({len(up)} over, {len(dn)} under)")
+    err = max([abs(c[3] - (lane + seat)) for c in up] + [abs(c[3] - (lane - seat)) for c in dn])
+    _check(err <= 1e-4, f"{tag} T2 every crown on the rope line {lane} (axle = lane -+ seat {seat})",
+           f"(worst {err:.2e})")
+    worst = max(abs(abs(c[2]) - spec.gauge / 2.0) for c in sc)
+    _check(worst <= 1e-4, f"{tag} T2 every wheel on its lane +-{spec.gauge / 2.0}", f"(worst {worst:.2e})")
+    zmax, zmin = float(co[:, 2].max()), float(co[:, 2].min())
+    _check(abs(zmax - spec.top) <= 2e-4, f"{tag} T3 bounds top = twin top {spec.top}", f"({zmax:.4f})")
+    others = [(k, t) for k, t in twin_family_tops(fam) if k != spec.key]
+    near = min(others, key=lambda r: abs(r[1] - zmax))
+    gap = abs(near[1] - zmax)
+    _check(gap >= TWIN_TOP_GAP - 1e-6, f"{tag} T3 top unique in {PLACEHOLDER[fam]} by >= {TWIN_TOP_GAP}",
+           f"(nearest {near[0]} {near[1]}: {gap:.4f})")
+    e = round(spec.top - ladder_top0(fam), 6)
+    _check(e <= LINE_ELEVATION_MAX[fam] + 1e-9, f"{tag} T3 E = top - ladder[0] top <= m_ElevationRange.max "
+           f"{LINE_ELEVATION_MAX[fam]}", f"({e})")
+    _check(abs(zmin + spec.pier) <= 1e-4, f"{tag} C4 bounds min = -pier {spec.pier}", f"({zmin:.5f})")
+    m = pv["mast"]
+    mc = (m.min(axis=0) + m.max(axis=0)) / 2.0
+    _check(abs(mc[0]) <= 1e-4 and abs(mc[1]) <= 1e-4 and abs(pv["pad"][:, 2].max() - 0.15) <= 1e-4,
+           f"{tag} C5 mast centered, pad top 0.15")
+    same = (abs(lane_y(spec, True) - lane_y(base, True)) < 1e-9 and spec.comm_y == base.comm_y
+            and spec.gauge == base.gauge and spec.pier == base.pier and spec.pad == base.pad)
+    _check(same, f"{tag} T4 anchors = the member's (lane y {lane}, comm y {base.comm_y}, gauge, pier, pad)")
+    res.update({"top": zmax, "min": zmin, "E": e, "top_gap": round(gap, 4), "top_nearest": near[0],
+                "lane_y": lane, "comm_y": base.comm_y, "wheels_over": len(up), "wheels_under": len(dn),
+                "lateral": float(np.abs(co[:, gi]).max()), "travel": float(np.abs(co[:, ti]).max())})
+    if frame != "authoring" or fam not in GANTRY_FAMILIES:
+        return res
+    guard = ("rocker_", "yoke_", "pivot_", "hanger_", "post_", "rail_", "kick_", "gantry_")
+    pts = np.concatenate([v for n, v in pv.items() if n.startswith(guard)])
+    hits = 0
+    for _nm, tr, gg, zz in sc:
+        ax = np.abs(pts[:, gi] - gg) < spec.sheave_w / 2.0 + 1e-3
+        rad = np.hypot(pts[:, ti] * ts - tr, pts[:, 2] - zz)
+        hits += int((ax & (rad < spec.sheave_r + 0.005)).sum())
+    _check(hits == 0, f"{tag} C9 no carrier/post/rail vertex in a sheave rim cylinder", f"({hits} hits)")
+    res["C18"] = check_hanger_column(obj, table, spec)
+    _check(not res["C18"]["column"] and not res["C18"]["gantry"], f"{tag} C18 hanger column clear",
+           f"({res['C18']['column'][:4]} {res['C18']['gantry'][:4]})")
+    if fam == "DQ" and spec.comm_y is not None:          # C19's comm zone, DQ too (the head rises past the wire)
+        from mathutils.bvhtree import BVHTree
+        part = np.zeros(len(obj.data.polygons), dtype=np.int32)
+        obj.data.attributes["part"].data.foreach_get("value", part)
+        bvh = BVHTree.FromPolygons([tuple(v) for v in co], [tuple(p.vertices) for p in obj.data.polygons],
+                                   epsilon=0.0)
+        xt, cz, cr = float(np.abs(co[:, 0]).max()) + 0.5, spec.comm_y, 0.10
+        hits = _zone_hits(bvh, [table[q - 1] for q in part], pv, (-xt, -cr, cz - cr), (xt, cr, cz + cr),
+                          allowed=("comm_",))
+        _check(not hits, f"{tag} C19 comm LV at {cz} clear (DQ twin)", f"(hits {hits[:4]})")
+    if fam == "GD":
+        gd = check_gd_clearances(obj, table, spec)
+        res["C19_C20"] = gd
+        _check(not gd["comm"], f"{tag} C19 comm LV at {spec.comm_y} clear", f"(hits {gd['comm'][:4]})")
+        # C20 (gondola carrier boxes + head rule) is recorded, not raised: the hold-down wheels sit where the carrier's
+        # grip passes (the grip study measures it), see build.md
+        res["C20_hits"] = sorted({h for _s, _b, h in gd["carrier"]})
+    return res
+
+
+def twin_sweep(obj, table, tw, part_bone):
+    """G6 for a twin: skin_sweep's gates on the kind's grid (Hold: the concave half of cs2_skin.joint_grid, Combo / Break
+    the whole grid at TWIN_HALF_BREAK), every crown seated: support crowns by skin_sweep's downward rays, compression
+    crowns by the same rays in the pose mirrored about the pivot line (cs2_skin.seat_half unchanged)."""
+    spec, kind = tw["twin"], tw["kind"]
+    fam = spec.family
+    zp = lane_y(spec, True)
+    tmax = SKIN_THETA_MAX[fam]
+    brk = TWIN_HALF_BREAK[kind]
+    bones = list(SKIN_BONES)
+    try:
+        names, fb, _vb = cs2_skin.face_bones(obj, table, part_bone, bones)
+    except cs2_skin.SkinError as e:
+        raise TowerContractError(str(e))
+    co = cs2_skin.coords(obj)
+    polys = [tuple(p.vertices) for p in obj.data.polygons]
+    piv = skin_pivot(spec)
+    pivots = {b: piv for b in bones[1:]}
+    grid = cs2_skin.joint_grid(tmax, brk)
+    if TWIN_CONCAVE_ONLY[kind]:
+        grid = [(f, b) for f, b in grid if f - b <= 1e-9]           # front < back: a dip (skin_views dip30)
+    poses = [{"TrainFront": f, "TrainBack": b} for f, b in grid]
+    is_wheel = lambda n: n.startswith(("sheave_", "liner_"))       # noqa: E731
+    fx = np.array([co[list(p), 0].mean() for p in polys])
+    fz = {}
+    for i, n in enumerate(names):
+        if is_wheel(n):
+            fz.setdefault(n, []).append(i)
+    over = {n: float(np.mean([co[list(polys[i]), 2].mean() for i in ids])) > zp for n, ids in fz.items()}
+    wf = {}
+    for b in bones[1:]:
+        for side in (-1.0, 1.0):
+            for up in (False, True):
+                wf[(b, side, up)] = [i for i, n in enumerate(names) if is_wheel(n) and bones[fb[i]] == b
+                                     and np.sign(fx[i]) == side and over[n] == up]
+    ext = skin_half_extent(spec) + 0.30
+    R, h = LANE_ROPE["r"], LANE_ROPE["h"]
+
+    def seats(pc, ang):
+        out = {}
+        pm = pc.copy()
+        pm[:, 2] = 2.0 * zp - pm[:, 2]
+        for b, sign in (("TrainFront", cs2_skin.FRONT_SIGN_NET), ("TrainBack", -cs2_skin.FRONT_SIGN_NET)):
+            for side in (-1.0, 1.0):
+                k = f"{b}_{'n' if side < 0 else 'p'}"
+                out[k] = cs2_skin.seat_half(pc, polys, wf[(b, side, False)], piv, ang.get(b, 0.0),
+                                            side * spec.gauge / 2.0, sign, ext, R, h)
+                out[k + "_c"] = cs2_skin.seat_half(pm, polys, wf[(b, side, True)], piv, -ang.get(b, 0.0),
+                                                   side * spec.gauge / 2.0, sign, ext, R, h)
+        return out
+    lug = SKIN_LUG[fam]
+    rep = cs2_skin.sweep(co, polys, names, fb, bones, pivots, poses,
+                         pins=lambda n: n.startswith(SKIN_ROOT_FIRST),
+                         lugs={b: (lambda n: n.startswith(lug)) for b in bones[1:]},
+                         wheels=is_wheel, ropes=lambda ang: skin_rope_runs(spec, ang), seats=seats,
+                         clear_min=SKIN_CLEAR_MIN, pin_gap_max=SKIN_PIN_GAP_MAX, label=spec.key)
+    seat0 = seats(co, {})
+    gaps = [g for runs in seat0.values() for _d, g in runs]
+    print(f"[twin] G6 [{spec.key}] {len(poses)} poses ({'concave' if TWIN_CONCAVE_ONLY[kind] else 'both ways'}, "
+          f"theta_max {tmax}, half-break <= {brk}); min clearance {rep['min_clear']['m'] * 1000:.1f} mm at "
+          f"{rep['min_clear']['pose']} ({' / '.join(str(n) for n in rep['min_clear']['parts'] or [])}); rest seat "
+          f"{len(gaps)} crowns {min(gaps) * 1000:.2f}..{max(gaps) * 1000:.2f} mm")
+    try:
+        cs2_skin.check_rows(rep["poses"], spec.key, SKIN_CLEAR_MIN, SKIN_PIN_GAP_MAX, seat_tops=2 * spec.sheaves,
+                            seat_gap=SKIN_SEAT_GAP)
+    except cs2_skin.SkinError as e:
+        raise TowerContractError(str(e))
+    print(f"[twin] ok [{spec.key}] G6 joint sweep: {len(poses)} poses, no overlap, clearance >= "
+          f"{SKIN_CLEAR_MIN * 1000:.0f} mm, pin gap <= {SKIN_PIN_GAP_MAX * 1000:.0f} mm, ropes clear, all "
+          f"{2 * spec.sheaves} crowns seated ({sum(1 for v in over.values() if v)} compression wheel parts)")
+    rep.update({"pivot_game": [0.0, zp, 0.0], "theta_max_deg": tmax, "half_break_max_deg": brk,
+                "concave_only": TWIN_CONCAVE_ONLY[kind], "crown_seat": crown_seat(spec), "seat_rest_m": seat0,
+                "sheaves": spec.sheaves, "verts": int(len(co)),
+                "train_parts": {b: sorted(n for n, v in part_bone.items() if v == b) for b in bones[1:]}})
+    return rep
+
+
+TWIN_FG_LOD2_KEEP = ("liftpost_", "liftbar")      # FG twins: the lifting frame IS the top (no LOD2 drift)
+
+
+def twin_lod_chain(t, name, spec):
+    """lod_chain_v2 with one twin change: FG keeps its lifting frame (liftposts + liftbar, 3 boxes) at LOD2, since it sets
+    the twin's top (the support member drops it at LOD2: its top is the catwalk rail)."""
+    l1p, l2p = lod_prefixes(spec)
+    if spec.family == "FG":
+        l2p = tuple(p for p in l2p if p not in TWIN_FG_LOD2_KEEP)
+    return cs2_asset.make_lod_chain(t, name, targets=(spec.lod1, spec.lod2), delete_prefixes=(l1p, l2p), tol=LOD_TOL,
+                                    shade_angle=SHADE_ANGLE_V2, fixed=S.lod_fixed())
+
+
+def twin_budgets(t, lods, tw, over_cap_ok=False):
+    """C11 / C12 for a twin: LOD0 <= the cap (a <= 5 % overage raises the cap in-round, DECISIONS 585; more raises,
+    or with over_cap_ok (previews for the owner's cap call only) is recorded as `over_cap`), LOD1 <= 50 % LOD0 and its
+    top drift <= 0.01, LOD2 <= family target x 1.10, every level tri-only."""
+    spec = tw["twin"]
+    n0 = cs2_asset.tri_count(t)
+    cap = spec.cap
+    out = {"tris": {0: n0}, "cap": cap, "cap_raised_to": None, "over_cap": None, "drift": {}}
+    if n0 > cap * TWIN_CAP_RAISE and over_cap_ok:
+        out["over_cap"] = {"lod0": n0, "cap": cap, "over_pct": round(100.0 * (n0 / cap - 1.0), 1),
+                           "note": "more than 5 % over: the owner's call (previews only, nothing exported)"}
+        print(f"[twin] STOP-REPORT [{spec.key}] C11 LOD0 {n0} is {n0 / cap - 1:.1%} over the cap {cap} (> "
+              f"{TWIN_CAP_RAISE - 1:.0%}): built for previews only, the cap is the owner's call")
+    elif n0 > cap:
+        if n0 > cap * TWIN_CAP_RAISE:
+            raise TowerContractError(f"[{spec.key}] C11 LOD0 {n0} is {n0 / cap - 1:.1%} over the cap {cap}: more than "
+                                     f"{TWIN_CAP_RAISE - 1:.0%} - stop and report")
+        out["cap_raised_to"] = int(math.ceil(n0 / 10.0) * 10)
+        print(f"[twin] NOTE [{spec.key}] C11 LOD0 {n0} over the cap {cap} by {n0 / cap - 1:.1%}: cap raised in-round "
+              f"to {out['cap_raised_to']} (DECISIONS 585)")
+    else:
+        print(f"[twin] ok [{spec.key}] C11 LOD0 {n0} <= cap {cap}")
+    zt = max(v.co.z for v in t.data.vertices)
+    for level, lod in enumerate(lods, start=1):
+        n = cs2_asset.tri_count(lod)
+        out["tris"][level] = n
+        _check(all(len(p.vertices) == 3 for p in lod.data.polygons), f"[{spec.key}] C12 LOD{level} tri-only")
+        drift = zt - max(v.co.z for v in lod.data.vertices)
+        out["drift"][level] = round(drift, 5)
+        if level == 1:
+            _check(n <= 0.5 * n0, f"[{spec.key}] C11 LOD1 <= 50 % LOD0", f"({n} <= {0.5 * n0:.0f})")
+            _check(abs(drift) <= 0.01, f"[{spec.key}] C12 LOD1 bounds-top drift <= 0.01", f"({drift:.4f} m)")
+        else:
+            _check(n <= spec.lod2 * 1.10, f"[{spec.key}] C11 LOD2 <= target x 1.10", f"({n} <= {spec.lod2 * 1.1:.0f})")
+    return out
+
+
+# -- previews ---------------------------------------------------------------------------------------------------------
+
+def twin_cameras(member):
+    """The family-shared cameras of a member's lineup (support, Hold, Combo, Break: the same frame for all): the family
+    preview camera (skin_views head_34 / head_side directions, 50 mm) aimed at the rope height, framed to the widest
+    twin; and the whole-tower 3/4 of the LOD strip (skin_tower_34)."""
+    base = VARIANTS[member]
+    zp = lane_y(base, True)
+    k = 50.0 / 15.6
+    fam = base.family
+    train = 2.06 if fam == "FG" else (base.sheaves - 1) * base.pitch / 2.0 + SKIN_HALF_SHIFT[fam] + base.sheave_r
+    if fam == "GD":
+        train = (TWIN_GD_SHEAVES["atlas"] - 1) * base.pitch / 2.0 + SKIN_HALF_SHIFT[fam] + base.sheave_r
+    head_w = base.gauge / 2.0 + 0.7
+    tgt = (0.0, 0.0, zp + 0.55)
+    top = max(twin_top(k_) for k_, (m, _kn) in TWINS.items() if m == member)
+    return {"lineup_34": dict(name="lineup_34", dir=(1.0, -1.1, 0.35), target=tgt, lens=50.0, dist=head_w * k * 1.2),
+            "lineup_side": dict(name="lineup_side", dir=(1.0, 0.0, 0.10), target=tgt, lens=50.0,
+                                dist=(train + 0.8) * k),
+            "tower_34": dict(name="tower_34", dir=(1.0, -1.1, 0.30), target=(0.0, 0.0, top / 2.0), lens=35.0,
+                             dist=(top / 2.0 + 1.0) * 35.0 / 12.0)}
+
+
+def twin_fold_views(tw):
+    """[(label, pose, views)] of the train close-ups (plan 3.6 item 2): the level train, then the kind's folds (fold =
+    front - back, the rope's turn at the tower: Hold -10 / -20 concave, Combo +-8, Break +12 / +16 convex) and the
+    sweep's limit, each from the side along the pivot axis and 3/4, the rope drawn as the game draws it."""
+    spec, kind = tw["twin"], tw["kind"]
+    zp = lane_y(spec, True)
+    k = 50.0 / 15.6
+    train = skin_half_extent(spec)
+    tc = (spec.gauge / 2.0, 0.0, zp + 0.05)
+    lim = 2.0 * TWIN_HALF_BREAK[kind]
+    folds = {"Hold": (-10.0, -20.0, -lim), "Combo": (8.0, -8.0, lim, -lim), "Break": (12.0, 16.0, lim)}[kind]
+
+    def side(tag):
+        return dict(name=f"train_side_{tag}", dir=(1.0, 0.0, 0.05), target=tc, lens=50.0, dist=(train + 0.45) * k)
+
+    def q34(tag):
+        return dict(name=f"train_34_{tag}", dir=(1.0, -0.9, 0.30), target=tc, lens=50.0, dist=(train + 0.45) * k * 0.9)
+    out = [("level", {}, [side("level"), q34("level")])]
+    for f in folds:
+        tag = f"fold{'p' if f > 0 else 'm'}{abs(f):g}"
+        out.append((tag, {"TrainFront": f / 2.0, "TrainBack": -f / 2.0}, [side(tag), q34(tag)]))
+    return out
+
+
+def stage_textures(member, asset_dir, name):
+    """Preview staging only: the member's shipped maps under the twin's name in the scratch asset folder (the renderer
+    reads <dir>/<name>_<map>.png). Nothing is baked; the twin mesh maps onto these exact files."""
+    import shutil
+    src = os.path.join(_REPO, "assets", "import", "towers", *TWIN_ATLAS[member].split("/"))
+    sname = os.path.basename(src)
+    os.makedirs(asset_dir, exist_ok=True)
+    for m in ("BaseColor", "Normal", "MaskMap", "ControlMask"):
+        p = os.path.join(src, f"{sname}_{m}.png")
+        if os.path.exists(p):
+            shutil.copyfile(p, os.path.join(asset_dir, f"{name}_{m}.png"))
+    return sname
+
+
+TWIN_CARRIERS = None        # --carriers: a carriers.json-shaped file whose rows may name their FBX ("fbx": {"grip": {"lod0"}})
+
+
+def _grip_object(fam, tower_sign):
+    """The carrier's split grip mesh (catalog/carriers.json split rows: tr / dq / gd8, or TWIN_CARRIERS) in the towers'
+    net frame, its rope point at the origin; a plain dark material (contact study). Returns (obj, row)."""
+    with open(TWIN_CARRIERS or os.path.join(_REPO, "catalog", "carriers.json"), encoding="utf-8") as f:
+        cat = json.load(f)
+    rows = cat.get("carriers", cat)
+    key = {"FG": "tr", "DQ": "dq", "GD": "gd8"}[fam]
+    row = rows[key] if isinstance(rows, dict) else next(r for r in rows if r.get("key") == key or r.get("id") == key)
+    sp = row["split"]
+    sub = {"FG": "chairs", "DQ": "chairs", "GD": "cabins"}[fam]
+    found = ((row.get("fbx") or {}).get("grip") or {}).get("lod0")
+    for root, _dirs, files in ([] if found else os.walk(os.path.join(_REPO, "assets", "import", sub))):
+        if sp["grip_mesh"] + ".fbx" in files:
+            found = os.path.join(root, sp["grip_mesh"] + ".fbx")
+    before = set(bpy.data.objects)
+    bpy.ops.import_scene.fbx(filepath=found)
+    new = [o for o in bpy.data.objects if o not in before]
+    g = next(o for o in new if o.type == "MESH")
+    mw = g.matrix_world.copy()
+    co = [mw @ v.co for v in g.data.vertices]
+    for o in new:
+        if o is not g:
+            bpy.data.objects.remove(o, do_unlink=True)
+    g.parent = None
+    g.matrix_world = mathutils.Matrix.Identity(4)
+    rope = sp["grip_rope_m"]
+    for v, c in zip(g.data.vertices, co):
+        v.co = (c.x / 100.0 - rope[0], tower_sign * c.z / 100.0 - rope[2], c.y / 100.0 - rope[1])
+    g.data.update()
+    mat = bpy.data.materials.new("GripStudy")
+    mat.use_nodes = True
+    bsdf = next(n for n in mat.node_tree.nodes if n.type == "BSDF_PRINCIPLED")
+    bsdf.inputs["Base Color"].default_value = (0.55, 0.12, 0.08, 1.0)
+    bsdf.inputs["Roughness"].default_value = 0.5
+    g.data.materials.clear()
+    g.data.materials.append(mat)
+    g.name = "GripStudy"
+    fbx = os.path.relpath(found, _REPO) if os.path.normcase(found).startswith(os.path.normcase(_REPO)) \
+        else os.path.basename(found)
+    return g, {"mesh": sp["grip_mesh"], "fbx": fbx, "grip_rope_m": rope,
+               "grip_top_above_rope_m": row.get("grip_top_above_rope_m")}
+
+
+def grip_pass(t, spec, grip, lane_x, step=0.02, parts_of=None):
+    """The carrier grip passing the train on one lane at rest: the grip's rope point slides along the rope (net -Y =
+    travel) at lane_x every `step` m over the train; at each stop the tower faces its triangles cross (by part) and the
+    smallest drop / lateral shift that clears them (5 mm steps, up to 0.40 m). Returns the study (meters)."""
+    from mathutils.bvhtree import BVHTree
+    table = json.loads(t.data[cs2_asset.PART_TABLE_PROP])
+    part = np.zeros(len(t.data.polygons), dtype=np.int32)
+    t.data.attributes["part"].data.foreach_get("value", part)
+    tco = _coords(t)
+    tpolys = [tuple(p.vertices) for p in t.data.polygons]
+    tb = BVHTree.FromPolygons([tuple(v) for v in tco], tpolys, epsilon=0.0)
+    gco = _coords(grip)
+    gpolys = [tuple(p.vertices) for p in grip.data.polygons]
+    zp = lane_y(spec, True)
+    ext = skin_half_extent(spec) + 0.3
+
+    def hits(dx, dy, dz):
+        c = gco + np.array([lane_x + dx, dy, zp + dz])
+        gb = BVHTree.FromPolygons([tuple(v) for v in c], gpolys, epsilon=0.0)
+        return {table[part[j] - 1] for _i, j in gb.overlap(tb)}
+    is_wheel = lambda n: n.startswith(("sheave_n_", "sheave_p_", "sheave_hub", "liner_"))     # noqa: E731
+    pz = {n: float((v[:, 2].min() + v[:, 2].max()) / 2.0) for n, v in part_vertices(t, table).items() if is_wheel(n)}
+    over = lambda n: is_wheel(n) and pz[n] > zp                 # noqa: E731  compression wheels (over the rope)
+    under = lambda n: is_wheel(n) and pz[n] <= zp               # noqa: E731  support wheels
+    steps = np.arange(0.005, 0.405, 0.005)
+
+    def clear(y, dx_of, dz_of, only):
+        """The smallest offset (5 mm steps to 0.40) that leaves no `only` part hit; None beyond 0.40."""
+        for d in steps:
+            if not [p for p in hits(dx_of(d), y, dz_of(d)) if only(p)]:
+                return round(float(d), 3)
+        return None
+    rows = []
+    for y in np.arange(-ext, ext + 1e-9, step):
+        y = float(y)
+        hp = hits(0.0, y, 0.0)
+        if not hp:
+            continue
+        row = {"y": round(y, 3), "parts": sorted(hp)}
+        # the wheels' clip: how far the grip must move away from them (down from wheels over the rope, up from under)
+        if any(over(p) for p in hp):
+            row["wheel_clip_down_m"] = clear(y, lambda d: 0.0, lambda d: -d, over)
+        if any(under(p) for p in hp):
+            row["wheel_clip_up_m"] = clear(y, lambda d: 0.0, lambda d: d, under)
+        row["outboard_shift_to_clear_m"] = clear(y, lambda d: math.copysign(d, lane_x), lambda d: 0.0, lambda p: True)
+        rows.append(row)
+    by_class = {}
+    for r in rows:
+        for p in r["parts"]:
+            by_class.setdefault("wheel" if is_wheel(p) else p.split("_")[0], set()).add(p)
+
+    def worst(key):
+        v = [r[key] if r[key] is not None else 0.41 for r in rows if key in r]
+        return round(max(v), 3) if v else 0.0
+    g = gco
+    return {"lane_x": lane_x, "step_m": step, "stops_hit": len(rows), "stops": int(round(2 * ext / step)) + 1,
+            "grip_box_about_rope_m": {"lateral": [round(float(g[:, 0].min()), 3), round(float(g[:, 0].max()), 3)],
+                                      "travel": [round(float(g[:, 1].min()), 3), round(float(g[:, 1].max()), 3)],
+                                      "up": [round(float(g[:, 2].min()), 3), round(float(g[:, 2].max()), 3)]},
+            "wheel_stops": sum(1 for r in rows if "wheel_clip_down_m" in r or "wheel_clip_up_m" in r),
+            "wheel_stops_over": sum(1 for r in rows if "wheel_clip_down_m" in r),
+            "wheel_stops_under": sum(1 for r in rows if "wheel_clip_up_m" in r),
+            "worst_wheel_clip_down_m": worst("wheel_clip_down_m"), "worst_wheel_clip_up_m": worst("wheel_clip_up_m"),
+            "worst_outboard_shift_m": worst("outboard_shift_to_clear_m"),
+            "parts_hit": {k: sorted(v) for k, v in sorted(by_class.items())}, "rows": rows}
+
+
+def render_twin_previews(t, arm, lods, tw, asset_dir, name, out_dir, ref=None, grip_fam=None):
+    """Plan 3.6 per twin: the lineup frames (family camera), the train close-ups at the kind's folds with the rope, the LOD
+    strip frames; with `ref` (the rebuilt member, the Hold build) the member's own lineup frames; with grip_fam the grip
+    under the Hold train. Returns {group: [paths]}."""
+    spec = tw["twin"]
+    cams = twin_cameras(tw["member"])
+    out = {"lineup": [], "closeup": [], "lod": [], "grip": []}
+    raw = os.path.join(out_dir, "raw")
+
+    def with_ropes(obj, adir, nm, views):
+        ropes = _rope_objects(spec, nm)
+        try:
+            return render_tower_views(obj, adir, nm, raw, views, extras=ropes, light=SKIN_LIGHT)
+        finally:
+            for ob in ropes:
+                me = ob.data
+                bpy.data.objects.remove(ob, do_unlink=True)
+                bpy.data.meshes.remove(me)
+    out["lineup"] += with_ropes(t, asset_dir, name, [cams["lineup_34"], cams["lineup_side"]])
+    out["closeup"] += render_skin_views(t, arm, spec, asset_dir, name, raw, views=twin_fold_views(tw))
+    for level, ob in enumerate([t] + list(lods)):
+        v = dict(cams["tower_34"], name=f"lod{level}_34")
+        out["lod"] += render_tower_views(ob, asset_dir, name, raw, [v], light=SKIN_LIGHT)
+    if ref is not None:
+        rname = ref.name
+        rdir = os.path.join(os.path.dirname(asset_dir), rname)
+        stage_textures(tw["member"], rdir, rname)
+        ref.hide_render = False
+        out["lineup"] += with_ropes(ref, rdir, rname, [cams["lineup_34"], cams["lineup_side"]])
+    return out
+
+
+def twin_grip_study(t, ref, tw, asset_dir, name, out_dir):
+    """Plan 3.6 item 3 / open question 9: the carrier grip past the twin's train (and, for comparison, the member's
+    support train): the pass study on the n lane (its outboard = net -X = the grip's authoring -Y, lift_chair.py "OUTBOARD
+    side") and one frame with the grip at the innermost compression wheel (else the innermost wheel)."""
+    spec, fam = tw["twin"], tw["twin"].family
+    sign = tw.get("fbx_sign", 1.0)
+    grip, row = _grip_object(fam, sign)
+    lane_x = -spec.gauge / 2.0           # the n lane: the carrier's outboard (authoring -Y) faces away from the mast
+    res = {"grip": row, "hold": grip_pass(t, spec, grip, lane_x)}
+    if ref is not None:
+        rspec = tw["base"]
+        if fam == "GD":
+            rspec = _dataclasses.replace(rspec, sheaves=TWIN_GD_SHEAVES["atlas"])
+        res["support"] = grip_pass(ref, rspec, grip, lane_x)
+    # one frame: the grip's rope point under the innermost front wheel of that lane
+    table = json.loads(t.data[cs2_asset.PART_TABLE_PROP])
+    pv = part_vertices(t, table)
+    sc = [c for c in sheave_centres(pv, "net") if c[2] < 0.0]
+    over = [c for c in sc if c[3] > lane_y(spec, True)]          # a compression wheel when the twin has one
+    inner = min(over or sc, key=lambda c: abs(c[1]))
+    gy = -inner[1]                         # sheave_centres travel = -net y
+    for v in grip.data.vertices:
+        v.co.x += lane_x
+        v.co.y += gy
+        v.co.z += lane_y(spec, True)
+    grip.data.update()
+    zp = lane_y(spec, True)
+    view = dict(name="grip_under_wheel", dir=(-1.0, -0.25, 0.10), target=(lane_x, gy, zp + 0.05), lens=50.0, dist=2.2)
+    view2 = dict(name="grip_under_wheel_34", dir=(-1.0, -0.8, 0.45), target=(lane_x, gy, zp + 0.05), lens=50.0, dist=2.6)
+    ropes = _rope_objects(spec, name)
+    try:
+        res["frames"] = render_tower_views(t, asset_dir, name, os.path.join(out_dir, "raw"), [view, view2],
+                                           extras=[grip] + ropes, light=SKIN_LIGHT)
+    finally:
+        for ob in ropes:
+            me = ob.data
+            bpy.data.objects.remove(ob, do_unlink=True)
+            bpy.data.meshes.remove(me)
+    res["frame_y"] = round(gy, 4)
+    bpy.data.objects.remove(grip, do_unlink=True)
+    return res
+
+
+def _rope_objects(spec, name, pose=None):
+    """The lane ropes at a pose (render_skin_views' dark steel, the game's LV cable on the crowns) as scene objects."""
+    mat = bpy.data.materials.get(name + "_TwinRope") or bpy.data.materials.new(name + "_TwinRope")
+    mat.use_nodes = True
+    bsdf = next(n for n in mat.node_tree.nodes if n.type == "BSDF_PRINCIPLED")
+    bsdf.inputs["Base Color"].default_value = (0.03, 0.03, 0.03, 1.0)
+    bsdf.inputs["Metallic"].default_value = 0.7
+    bsdf.inputs["Roughness"].default_value = 0.45
+    objs = []
+    for v, f in skin_rope_runs(spec, pose or {}, run=2.0):
+        me = bpy.data.meshes.new(f"{name}Rope")
+        me.from_pydata(v, [], f)
+        me.materials.append(mat)
+        objs.append(bpy.data.objects.new(me.name, me))
+        bpy.context.collection.objects.link(objs[-1])
+    return objs
+
+
+def parse_args_twin(argv):
+    ap = argparse.ArgumentParser(prog="lift_tower.py --twin (B2 twins)")
+    ap.add_argument("--twin", required=True, choices=sorted(TWINS))
+    ap.add_argument("--out", required=True, help="scratch folder; the twin's work folder = <out>/<Name>")
+    ap.add_argument("--letter", default="A")
+    ap.add_argument("--preview", default=None, help="preview folder (raw frames under <preview>/raw)")
+    ap.add_argument("--member-frames", action="store_true", help="also render the member's lineup frames")
+    ap.add_argument("--grip", action="store_true",
+                    help="the grip study vs the member's support train (the frame at the innermost compression wheel)")
+    ap.add_argument("--over-cap-previews", action="store_true",
+                    help="a LOD0 more than 5 %% over its cap is recorded (manifest over_cap), not raised: previews for "
+                         "the owner's cap call only")
+    ap.add_argument("--carriers", default=None,
+                    help="--grip: a carriers.json-shaped file (rows may name their grip FBX: a round's carriers before "
+                         "their import); default catalog/carriers.json")
+    return ap.parse_args(argv)
+
+
+def main_twin(argv):
+    import time
+    t0 = time.perf_counter()
+    args = parse_args_twin(argv)
+    global TWIN_CARRIERS
+    TWIN_CARRIERS = args.carriers
+    S.set_wheels("v2")
+    S.set_wheel_dress(True)
+    set_skinned(True)
+    member, kind = TWINS[args.twin]
+    fam = VARIANTS[member].family
+    head = TWIN_HEAD[fam]
+    out = os.path.abspath(args.out)
+    if os.path.normcase(out).startswith(os.path.normcase(os.path.join(_REPO, "assets", "import"))):
+        raise SystemExit("--twin builds never write into the shipping tree (no export this round)")
+    keep_ref = bool(args.member_frames or args.grip)
+    atlas, arep, ref = twin_atlas(member, head, keep_ref=keep_ref)
+    print(f"[twin] atlas {arep}")
+    tw = twin_spec(args.twin)
+    tw["fbx_sign"] = arep["fbx_lateral_sign"]
+    spec = tw["twin"]
+    name = cs2_asset.validate_asset_name(f"{spec.name_stem}{args.letter}")
+    asset_dir = os.path.join(out, name)
+    os.makedirs(asset_dir, exist_ok=True)
+    if ref is not None:
+        ref.hide_render = True
+    # the member's object stays in the scene for the studies; the twin builds beside it (the part objects are new)
+    t, table, info = build_twin(tw, head, atlas, name)
+    n0 = cs2_asset.tri_count(t)
+    print(f"[twin] {name}: {kind} of {member} ({spec.kind}), {len(table)} parts, LOD0 {n0} tris, wheel axle "
+          f"{spec.axle}, lane {tw['lane']}, top {spec.top}, E {info['contracts_net']['E']}")
+    lods = twin_lod_chain(t, name, spec)
+    bud = twin_budgets(t, lods, tw, over_cap_ok=args.over_cap_previews)
+    if any(o.matrix_world != mathutils.Matrix.Identity(4) for o in [t] + lods):
+        raise TowerContractError(f"{name}: a level carries an object transform; the rig assumes none")
+    arm = build_skin_armature(spec, f"{name}Rig")
+    weights = {}
+    for level, ob in enumerate([t] + list(lods[:1])):          # LOD0 + LOD1 rigged; LOD2 rigid at rest
+        weights[str(level)] = skin_assign(ob, table, info["skin_part_bone"])
+        cs2_asset.check_skin_weights(ob, arm)
+    frames = {}
+    grip = None
+    if args.preview:
+        stage = stage_textures(member, asset_dir, name)
+        frames = render_twin_previews(t, arm, lods, tw, asset_dir, name, args.preview,
+                                      ref=ref if args.member_frames else None)
+        if args.grip:
+            grip = twin_grip_study(t, ref, tw, asset_dir, name, args.preview)
+            frames["grip"] = grip["frames"]
+    else:
+        stage = None
+    base = tw["base"]
+    part = np.zeros(len(t.data.polygons), dtype=np.int32)
+    t.data.attributes["part"].data.foreach_get("value", part)
+    lt = np.zeros(len(t.data.polygons), dtype=np.int32)
+    t.data.polygons.foreach_get("loop_total", lt)
+    ptris = {}
+    for q, n in zip(part, lt):
+        ptris[table[q - 1]] = ptris.get(table[q - 1], 0) + int(n) - 2
+    added = {}
+    import re
+    for n in info["twin_transform"].get("copied", []):
+        c = re.sub(r"_?hub[np]_\d+.*$", "_hub", re.sub(r"_[np]_\d+.*$", "", n))
+        added[c] = added.get(c, 0) + ptris.get(n, 0)
+    rep = {"name": name, "twin": args.twin, "twin_kind": kind, "kind": spec.kind, "twin_of": member,
+           "tris_added_by_class": added or None, "tris_added": sum(added.values()) if added else 0,
+           "twin_of_prefab": MEMBER_PREFAB.get(member, f"SkiLiftTower{member}"),
+           "twin_of_mesh": os.path.basename(TWIN_ATLAS[member]), "placeholder": PLACEHOLDER[fam],
+           "generator": "lift_tower.py --twin (B2 v2, uncommitted on carrier-grip @ 5f13b28)",
+           "head": head, "head_raise_m": tw["dz"], "sheaves_per_side": spec.sheaves,
+           "wheel_axle": spec.axle, "top_anchor_y": spec.top, "E_m": info["contracts_net"]["E"],
+           "top_gap_m": info["contracts_net"]["top_gap"], "top_nearest": info["contracts_net"]["top_nearest"],
+           "rope_on_crown": {"lane_y_new": tw["lane"], "seat": tw["seat"], "kind": spec.kind,
+                             "member_lane_y": lane_y(base, True)},
+           "comm_lv_y": base.comm_y, "member_comm_lv_y": base.comm_y,
+           "tris": bud["tris"], "cap": bud["cap"], "cap_raised_to": bud["cap_raised_to"], "over_cap": bud["over_cap"],
+           "lod_drift_top_m": bud["drift"],
+           "bounds_m": {"min_z": info["contracts_net"]["min"], "max_z": info["contracts_net"]["top"],
+                        "lateral": info["contracts_net"]["lateral"], "travel": info["contracts_net"]["travel"]},
+           "atlas": dict(arep, exact=info["atlas_map"]["exact"], donor=info["atlas_map"]["donor"],
+                         fitted=info["atlas_map"]["fitted"], textures_added_mb=0.0, staged_for_preview=stage),
+           "twin_transform": info["twin_transform"],
+           "skin": {"weights": weights, "g6_poses": len(info["skin"]["poses"]),
+                    "min_clear": info["skin"]["min_clear"], "half_break_max_deg": info["skin"]["half_break_max_deg"],
+                    "concave_only": info["skin"]["concave_only"], "lod2": "rigid at rest (all Root)"},
+           "contracts": {k: v for k, v in info["contracts_authoring"].items() if k in ("C18", "C20_hits")},
+           "grip": grip and {k: v for k, v in grip.items() if k != "frames"},
+           "frames": frames, "seconds": round(time.perf_counter() - t0, 1)}
+    with open(os.path.join(asset_dir, f"{name}.twin.json"), "w", encoding="utf-8", newline="\n") as f:
+        json.dump(rep, f, indent=1, default=lambda o: o if not isinstance(o, (np.floating, np.integer)) else o.item())
+    if args.preview:
+        os.makedirs(args.preview, exist_ok=True)
+        with open(os.path.join(args.preview, "raw", f"{name}.twin.json"), "w", encoding="utf-8", newline="\n") as f:
+            json.dump(rep, f, indent=1, default=lambda o: o if not isinstance(o, (np.floating, np.integer)) else o.item())
+    print(f"[twin] done {name}: LOD0/1/2 {bud['tris']}, top {spec.top}, E {rep['E_m']}, lane {tw['lane']} (member "
+          f"{lane_y(base, True)}), {rep['seconds']} s")
+    return 0
+
+
 # --------------------------------------------------------------------------------------
 # Entry point (v2)
 # --------------------------------------------------------------------------------------
@@ -5907,7 +7110,10 @@ def _entry():
         main()
         return
     try:
-        main_v2(argv)
+        if "--twin" in argv:            # B2 breakover / hold-down twins (previews only, no export)
+            main_twin(argv)
+        else:
+            main_v2(argv)
     except SystemExit:
         raise
     except Exception:  # noqa: BLE001 - unambiguous exit status for the harness
