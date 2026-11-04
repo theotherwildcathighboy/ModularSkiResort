@@ -709,6 +709,8 @@ anchor SkiSnowInjectionSystem after Game.Simulation.SnowSystem GameSimulation in
 anchor SkiSnowLineOverlaySystem before Game.Rendering.OverlayRenderSystem Rendering
 anchor SkiStationAlignSystem before Game.Rendering.OverlayRenderSystem Rendering
 anchor SkiStubCleanupSystem before Game.Objects.SubElementDeleteSystem PostTool
+anchor StationFacingRefusalSystem before Game.Tools.ValidationSystem.Components ModificationEnd
+anchor StationFacingTooltipSystem after Game.UI.Tooltip.TempCostTooltipSystem UITooltip
 anchor TrainBoneSystem after Game.Rendering.InitializeBonesSystem Rendering
 guid UnityGUID:024ff26a34d89b241b55fd5ea12c5dcc m_Object
 guid UnityGUID:03b1510ce391829409b4f09a7bffaa49 m_Object

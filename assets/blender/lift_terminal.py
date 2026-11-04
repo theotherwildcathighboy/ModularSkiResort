@@ -1152,6 +1152,7 @@ SKICATALOG_CS = os.path.join(REPO_M, "mod", "SkiResortMod", "Systems", "SkiCatal
 GAMEDATA_M = os.path.join(REPO_M, "gamedata-mirror", "ImportedData")
 IMPORT_M = os.path.join(REPO_M, "assets", "import")
 CHAIR_M_DIR = os.path.join(IMPORT_M, "chairs", "M", "SkiLiftChair6M")
+FG_ROPE_LANE = "SkiFixedGripHaulRope"   # the FG stations' own haul-rope lane prefab (lift alignment F3, 2026-11-02)
 GEN_M = "lift_terminal.py (generation M)"
 FG_SEATS_DIGITS = "3"            # carriers.json tr seats (the plate number, as the DQ's "4")
 
@@ -3422,7 +3423,15 @@ def m1_frozen(kind):
             bad.append(f"carriers tr {k} {tr[k]} != generator {v}")
     # the deployed prefab: HV sub-lane ends, stub tip, hosted tower pose
     lanes = _comp(frozen, "ObjectSubLanes")["m_SubLanes"]["$rcontent"]
-    hv = [l for l in lanes if "5d88ac45" in l["m_LanePrefab"]]
+    # the HV sub-lanes name the FG station's OWN rope lane (SkiFixedGripHaulRope, lift alignment F3, 2026-11-02; the
+    # deployed prefab carries its CID). The filter used to be the vanilla HV GUID "5d88ac45": after F3 it matched no
+    # lane and the anchor check below passed vacuously, so it keys on the lane's CID (read from the mirror) and an
+    # empty or short match is a failure, never a pass.
+    with open(os.path.join(GAMEDATA_M, FG_ROPE_LANE, FG_ROPE_LANE + ".Prefab.cid"), "r", encoding="utf-8") as fh:
+        fg_lane_cid = fh.read().strip()
+    hv = [l for l in lanes if fg_lane_cid in l["m_LanePrefab"]]
+    if len(hv) != 2:
+        bad.append(f"{len(hv)} HV sub-lanes name {FG_ROPE_LANE} (CID {fg_lane_cid}), expected 2 (one per lane x)")
     s0 = M_SPECS_SHIPPED[kind]          # T27: the deployed anchors (= spec unless M_ROPE_ON_CROWN)
     for l in hv:
         a, d_ = l["m_BezierCurve"]["a"], l["m_BezierCurve"]["d"]

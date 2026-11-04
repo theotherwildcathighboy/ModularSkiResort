@@ -288,6 +288,16 @@ namespace SkiResortMod.Systems
         /// 0 on every station but the tram base, whose lot is 6 x 3: a CS2 lot is centered on the prefab origin, so the building sits 4 m
         /// off the origin (+4.00 in the game frame).</summary>
         public readonly float StubTipLocalX;
+        /// <summary>The line rope's anchor, prefab-local y: the lowest end point of the station's HV rope sub-lanes (the point
+        /// LaneSystem.FindAnchor joins the line's rope lane to). The stub tip is at y 0, so on level ground the built line's rope sits
+        /// this high above the stub node. FG base 5.84 / top 5.24, DQ 3.70, gondola 4.85, tram 16.00 (track rope); NaN = unknown. LiftBatch
+        /// EI-48 compares it with the mirror (FIX-LIST 48).</summary>
+        public readonly float RopeAnchorLocalY;
+        /// <summary>The lot's front edge, prefab-local z (lot depth cells x 4): vanilla stands every building on the terrain THERE
+        /// (PlacementFlags.RoadSide on every BuildingData building, BuildingInitializeSystem.cs:1131-1133; ObjectToolSystem.CalculateHeight
+        /// :1621-1625 at BuildingUtils.CalculateFrontPosition :88-92), FrontLocalZ - StubTipLocalZ from the stub tip (FG / tram 24 m, DQ /
+        /// gondola 32 m). NaN = unknown.</summary>
+        public readonly float FrontLocalZ;
 
         /// <summary>LiftTypeIndex −1 (unknown). The catalog's own rows use the overload below; this one exists for hand-made rows (tests).</summary>
         public StationDef(string prefab, StationRole role, string liftTypeId, float3 wheelLocal, float stubTipLocalZ,
@@ -316,7 +326,8 @@ namespace SkiResortMod.Systems
         /// <summary>The full row with the line axis off the prefab origin (StubTipLocalX; the tram base).</summary>
         public StationDef(string prefab, StationRole role, string liftTypeId, float3 wheelLocal, float stubTipLocalZ,
                           int buildCost, string buildItemId, bool expected, int liftTypeIndex,
-                          float3 dockLocalA, float3 dockLocalB, bool hostsCarriers, float stubTipLocalX)
+                          float3 dockLocalA, float3 dockLocalB, bool hostsCarriers, float stubTipLocalX,
+                          float ropeAnchorLocalY = float.NaN, float frontLocalZ = float.NaN)
         {
             Prefab = prefab;
             Role = role;
@@ -331,6 +342,8 @@ namespace SkiResortMod.Systems
             DockLocalB = dockLocalB;
             HostsCarriers = hostsCarriers;
             StubTipLocalX = stubTipLocalX;
+            RopeAnchorLocalY = ropeAnchorLocalY;
+            FrontLocalZ = frontLocalZ;
         }
     }
 
@@ -869,20 +882,20 @@ namespace SkiResortMod.Systems
                 {
                     // Per-row stub tip. The DQ / gondola / tram rows are Expected (prefabs game-side and mirrored; CT-12 costs 125,000 / 65,000 /
                     // 190,000 / 110,000 / 300,000 / 190,000 equal the mirror).
-                    Station(lifts, Names.StationFixedGripBase, StationRole.Base, FixedGrip.Id, new float3(0f, 3.55f, 0.2f), StubTipLocalZ, 60000, "baseStation", true),
-                    Station(lifts, Names.StationFixedGripTop, StationRole.Top, FixedGrip.Id, new float3(0f, 3.75f, 0f), StubTipLocalZ, 30000, "topStation", true),
-                    Station(lifts, Names.StationDetachableBase, StationRole.Base, "detachable", new float3(0f, 3.70f, 9.60f), -16f, 125000, "baseStationDetachable", true),
-                    Station(lifts, Names.StationDetachableTop, StationRole.Top, "detachable", new float3(0f, 3.70f, 5.60f), -16f, 65000, "topStationDetachable", true),
-                    Station(lifts, Names.StationGondolaBase, StationRole.Base, "gondola", new float3(0f, 4.85f, 9.40f), -16f, 190000, "baseStationGondola", true),
-                    Station(lifts, Names.StationGondolaTop, StationRole.Top, "gondola", new float3(0f, 4.85f, 5.40f), -16f, 110000, "topStationGondola", true),
+                    Station(lifts, Names.StationFixedGripBase, StationRole.Base, FixedGrip.Id, new float3(0f, 3.55f, 0.2f), StubTipLocalZ, 60000, "baseStation", true, 5.84f, 12f),
+                    Station(lifts, Names.StationFixedGripTop, StationRole.Top, FixedGrip.Id, new float3(0f, 3.75f, 0f), StubTipLocalZ, 30000, "topStation", true, 5.24f, 12f),
+                    Station(lifts, Names.StationDetachableBase, StationRole.Base, "detachable", new float3(0f, 3.70f, 9.60f), -16f, 125000, "baseStationDetachable", true, 3.70f, 16f),
+                    Station(lifts, Names.StationDetachableTop, StationRole.Top, "detachable", new float3(0f, 3.70f, 5.60f), -16f, 65000, "topStationDetachable", true, 3.70f, 16f),
+                    Station(lifts, Names.StationGondolaBase, StationRole.Base, "gondola", new float3(0f, 4.85f, 9.40f), -16f, 190000, "baseStationGondola", true, 4.85f, 16f),
+                    Station(lifts, Names.StationGondolaTop, StationRole.Top, "gondola", new float3(0f, 4.85f, 5.40f), -16f, 110000, "topStationGondola", true, 4.85f, 16f),
                     // The tram's two docks at the track rope (SkiTram{Base,Top}StationA.manifest.json prefab_contract.docks[0..1].rope; levels
                     // identical on base and top); the base hosts the cabins. The base's lot is 6 x 3 (the new cell on the clock-tower side), so its
                     // building sits 4 m off the origin: in the game frame the line axis is at prefab x +4.00 and the docks A / B are (9.50 / -1.50) =
                     // hosted cabin entries 0 / 1 (A = the +X bay, B = the -X bay); the top is unchanged.
                     Station(lifts, Names.StationTramBase, StationRole.Base, "tram", new float3(nan, nan, nan), -12f, 300000, "baseStationTram", true,
-                            new float3(9.50f, 16.00f, -5.50f), new float3(-1.50f, 16.00f, -5.50f), true, 4.00f),
+                            new float3(9.50f, 16.00f, -5.50f), new float3(-1.50f, 16.00f, -5.50f), true, 4.00f, 16.00f, 12f),
                     Station(lifts, Names.StationTramTop, StationRole.Top, "tram", new float3(nan, nan, nan), -12f, 190000, "topStationTram", true,
-                            new float3(-5.50f, 16.00f, -5.50f), new float3(5.50f, 16.00f, -5.50f), false),
+                            new float3(-5.50f, 16.00f, -5.50f), new float3(5.50f, 16.00f, -5.50f), false, 0f, 16.00f, 12f),
                 };
 
                 // Lodge ladder. Jobs / BuildCost / Upkeep are informational (the prefab is the truth; CT-12 compares an expected row). Every row is
@@ -1030,16 +1043,17 @@ namespace SkiResortMod.Systems
         }
 
         private static StationDef Station(LiftTypeDef[] lifts, string prefab, StationRole role, string liftTypeId, float3 wheel,
-                                          float stubTipLocalZ, int buildCost, string item, bool expected)
+                                          float stubTipLocalZ, int buildCost, string item, bool expected, float ropeAnchorY, float frontZ)
         {
             return Station(lifts, prefab, role, liftTypeId, wheel, stubTipLocalZ, buildCost, item, expected,
-                           new float3(float.NaN), new float3(float.NaN), false);
+                           new float3(float.NaN), new float3(float.NaN), false, 0f, ropeAnchorY, frontZ);
         }
 
         /// <summary>A row with docks and the carrier-host flag, and the line axis x (StationDef.StubTipLocalX, 0 unless given).</summary>
         private static StationDef Station(LiftTypeDef[] lifts, string prefab, StationRole role, string liftTypeId, float3 wheel,
                                           float stubTipLocalZ, int buildCost, string item, bool expected,
-                                          float3 dockLocalA, float3 dockLocalB, bool hostsCarriers, float stubTipLocalX = 0f)
+                                          float3 dockLocalA, float3 dockLocalB, bool hostsCarriers, float stubTipLocalX = 0f,
+                                          float ropeAnchorY = float.NaN, float frontZ = float.NaN)
         {
             int index = -1;
             for (int i = 0; i < lifts.Length; i++)
@@ -1051,7 +1065,7 @@ namespace SkiResortMod.Systems
                 }
             }
             return new StationDef(prefab, role, liftTypeId, wheel, stubTipLocalZ, buildCost, item, expected, index,
-                                  dockLocalA, dockLocalB, hostsCarriers, stubTipLocalX);
+                                  dockLocalA, dockLocalB, hostsCarriers, stubTipLocalX, ropeAnchorY, frontZ);
         }
 
         private static void AddFirst<T>(Dictionary<string, T> map, string key, T value)

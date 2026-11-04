@@ -38,7 +38,9 @@ HangM stays conservative: carriers ride the rope point since F5, GripTopAboveRop
   (which put far too many towers on a 40 m wall): fewest towers (anchors + the infill (b) will add), then fewest anchors, shortest members,
   anchors nearest the worst-intrusion sample. The floor test ignores the sag on spans (b) will split (their sub-spans sag far less) and keeps
   it on spans (b) leaves whole (FloorSag). Anchor spans <= 3 x MaxSpanM. If no clear arrangement exists, the greedy split (`Split`) minimizes
-  what is left. Flags: Shoulder (the ground pokes through the chord), Valley (max height), Breakover.
+  what is left. Flags: Shoulder (the ground pokes through the chord), Valley (max height), Breakover. In `PlanCore` this legacy path
+  only runs after the exact search failed three times (as is, removed spots allowed, the station clearance allowed); where it does not
+  leave the segment clear either, the soft search replaces it (see "No clear plan" below).
 - (b) Infill: a span between anchors gets max(ceil(len / MaxSpanM), round(len / TypicalSpanM)) sub-spans: first at the equal-spacing
   samples, else each infill node slides inside +-half a sub-span of its spot to the clear spot with the shortest member, nearest the spot.
   No sub-span exceeds MaxSpanM or 1.5 x TypicalSpanM - StepM (so a re-plan rounds it to one span: idempotence). If no arrangement is clear,
@@ -88,6 +90,51 @@ the ones the game has not loaded, so a build without the twin prefabs plans supp
 - `HeadsAsGiven` evaluates the given heads (the fit's "before" of a line as it stands).
 - The rope at a twin is `RopeAboveBase(member)`: its lanes are the member's (manifest rope_on_crown lane_y_new = member_lane_y; the
   LADDER gate compares the prefabs' anchors). The span and slope checks use the node y of the head (`NodeY(k, node)`).
+- Rope above the NODE (`LiftTowerEdit.RopeAboveNodeM`, 2026-11-04, DECISIONS 592 u). A lane anchor is object-local (`LaneSystem.FindAnchors`:
+  `ObjectUtils.LocalToWorld(transform, sub-lane point)`, LaneSystem.cs:2371-2416), so the rope stands at the tower pivot + the member's lane y,
+  never at node y + a fixed offset: rope = ground + RopeAboveBase(member) = node y + RopeAboveBase(member) - E(member, head). A Line head is
+  RopeAboveBase(0) for every member (E(m) = Top(m) - Top(0)); a twin is lower by Top(twin) - Top(member) (0.15 to 0.57 m in the tables)
+  because its node is raised by its own, taller top. The lane-less end rope (lift tool `EndRope`, the fit's `ropeA` /
+  `ropeB` fallback, the diag plan) reads the node's Elevation, MemberOf gives (member, head) and this helper gives the offset
+  (`LiftTowerDiagSystem.RopeAboveNode` is the one entity-side reader). LiftBatch HD-7 checks it against the engine winner's anchor at all 29 heads.
+
+### No clear plan: the soft search (planner-fallback-2026-11-04)
+Field case (B2 bridge run): a plan-only FG line with ground ends planned 16 towers, 13 of them 10 m apart, VIOLATED, where B1 had
+planned 5 clear. Cause: ground inside a ground end's tower-free zone (`NearStation` uses StationClearM at BOTH ends, also at a ground or
+loose end) that the end's fixed rope cannot clear. Every exact search fails, `Anchors` fails, and the greedy `Split` scattered towers
+along the whole segment. Not caused by the twins: B1's code gives 17 towers on the same ground (LiftBatch FB-1). The game's terrain
+samples come from the height cascade and differ a little between sessions, so the same line planned clean in B1's run.
+- **Rule.** After `LegacySegment`, `SegmentClear` checks the result (every span's floor and max height with the sag, every tower node,
+  and with CheckEdgeSlope the engine's own edge limit MaxEdgeSlope + 0.0005). Clear: kept (LP-27's knoll keeps its legacy plan).
+  Not clear: `SoftInsteadOfLegacy` takes the legacy nodes out and runs `MinTowers` once more with `m_Soft` (removed spots allowed, the
+  station clearance kept): a span or a node short of the floor is allowed and its shortfall (m) is added to `MinCost.Viol`, which ranks
+  before every other cost (additive, so the search stays exact). Max rope height, the edge slope rule, MaxSpanM, MinGap and the
+  station clearance stay hard. Result: the least summed shortfall, then the fewest towers, as usual. Nothing found: the legacy nodes go back.
+  `Fit`'s free plan goes through `Plan`, so its count on such a line follows (no scatter count); `LegacySpacing` keeps the old path.
+- **Cost.** `SearchMin<TMode>` takes the mode as a struct type argument, so the strict search the JIT compiles has no soft branches.
+  Warm, full-opt (.NET 8, tiered compilation off): DQ 1.2 km 17.0 vs 16.9 ms, DQ 2 km 28.0-28.5 vs 27.6-27.8 ms, the same as before.
+  With .NET's default tiered PGO, LiftBatch's single-run numbers swing about 10 % either way (not a cost of the change). A soft
+  segment costs more than the legacy split: on 877 random noisy lines that reach it, 9.8 ms on average (max 76) vs 3.9 ms. Lines with
+  a clear plan never run it and plan bit-identically.
+- **Order (FIX-LIST 49, `FallbackSegment`).** `Anchors` first; anchors found: the infill, `SegmentClear`, and the soft search only
+  when that is not clear (as above). No anchors: the soft search FIRST and the greedy `Split` + infill only where it finds nothing.
+  The split was computed and thrown away whenever the soft search answered; a split plus infill was never clear where `Anchors`
+  found none (0 of 66 segments in LiftBatch and AutoGenBatch; the one clear legacy result, LP-27's knoll, comes from `Anchors`), and
+  every LiftBatch plan is unchanged. Cost of a VIOLATED steep DQ plan (EI-49, the Eishain 760 m site stacked, a bump the end may not
+  clear): 2,280 m 140 -> 115-118 ms, 1,520 m 81-87 -> 73-77 ms, 760 m unchanged (36-45 ms, noise). Where the rest goes (2,280 m): strict
+  search 12 ms, the station-clearance retry 12 ms, `Anchors` 41 ms (fails), soft fewest 25 ms, soft weighted 25 ms. A clear 2,280 m
+  DQ plan is 23-25 ms. In game about 5-10x (the 760 m site: 40.9 ms logged vs 4.3-8.1 ms here): ~50 ms per click on a 2 km DQ line
+  needs the exact search itself 4-5x faster (per-segment interval tables or a hull over the span constraints; not done).
+- **Quality** (the same 877 lines, soft vs the legacy plan): the legacy plan had an edge the engine refuses (SteepSlope, no slope gate)
+  on 491; the soft plan fixes all 491 and adds none. Of the other 386, the soft plan has more summed span shortfall (> 0.05 m) on 11,
+  each with about a third of the towers (7-8 vs 20-26: the legacy scatter bought 0.2-1.1 m). The field line with a 6 m bump 5 m from
+  end B: 6 towers, only the end span short (-0.39 m, unavoidable from B's fixed rope), with and without twins (FB-1).
+- **Gate (FB-3).** Twins vs `WithoutTwins` on 408 lines (the DR-1 shapes, the 192-line direction sweep with stations or ground ends,
+  FG / DQ / GD crests and dips, the field line with bumps): never VIOLATED with twins where the line without is clear, and the tower
+  count rises at most by the extra pairs the Break cap 32 makes. FB-2: with Pairs off, the twins change only heads (a twin head may
+  take the nearest member with that twin, HD-3).
+- **JIT note.** An in-game planner cost line that includes the first exercise of a code path (the first `Repair` of a session) includes
+  its JIT: the B2 FG dip's "angles 3.58 ms" was cold (warm 0.19-0.33 ms).
 
 ### Breakover rule
 Fixed-grip lines put a tower just before a breakover (a convex change of slope) so the rope follows the profile. So a Shoulder on convex
@@ -127,9 +174,10 @@ docs/research/review-153b64e-2026-10-26.md F3 / F4 / F9 / F10).
   the floor at a station end ramps linearly from the carrier's own height at the end (0, or negative at a sunk station) to FloorM at
   StationClearM (FG 12.2, DQ 25.6, GD 25.4, tram 40 m): `LiftTowerPlanConstants.ApproachFloor`. Before, FloorM applied from the first
   sample and forced a tall tower right at every station via the NoClearance fallback (field DQ: DQ12 @10 m and DQ18 @1,015 m). Only ends
-  the caller marks as stations get it (`StationA` / `StationB`: the tool from its end kinds, the fit from the end node's Owner, a
-  station sub-net stub; every line edge has HV rope lanes at both nodes, so a lane says nothing about a station); a loose or ground end
-  is a tower node with the full floor.
+  the caller marks as stations get it (`StationA` / `StationB`: the tool from its end kinds, a ground end included since FIX-LIST 48;
+  the fit by the census rule `LiftCensusSystem.IsStationNode` since FIX-LIST 52; every line edge has HV rope lanes at both nodes, so a
+  lane says nothing about a station); a loose end is a tower node with the full floor. The tower-free zone (`NearStation`, StationClearM) still applies at a loose or ground end;
+  only the NoClearance retry lifts it.
 - **Station-side rule.** `MinCost.EndRiseM` = the rise above the shortest member of each tower next to a station end. With
   `TowerWorthM` > 0 (FG / DQ / GD 8 m) the search minimizes towers x TowerWorthM + EndRiseM first: one more tower buys 8 m of shorter
   station towers (ordinary 1,200 m DQ slope: DQ18 @105 / DQ20 @1,075 with 5 towers -> DQ10 at both ends with 6), at most ONE tower
@@ -151,6 +199,19 @@ docs/research/review-153b64e-2026-10-26.md F3 / F4 / F9 / F10).
   its slope and cannot cut it) it stays one span and `Build` flags it, red in the preview.
 - **Outputs.** `LiftTowerPlan.SampleFloorM` (MarginAt uses it), `StationA` / `StationB`, `EndCarrierA` / `EndCarrierB` (carrier at the end
   above the high side: negative = a sunk station; the tool warns SUNK STATION), `MaxEdgeSlope`.
+- **Verdict (FIX-LIST 55).** `Clear` is spans only (floor, max height, edge slope); `Sound` adds "no tower over its cap"
+  (`IsOverCap(i)`, `OverCapTowers`). Every plan-level text uses `Verdict` ("clear" only when sound, "spans clear, N tower(s) OVER CAP",
+  "VIOLATED") or appends `OverCapNote` to "every span clear" (the fit and diag summaries), so no log line calls an over-cap plan clear.
+
+## Station rope anchors (FIX-LIST 48)
+A station's rope sits at its own HV rope sub-lane anchor, not at a tower's rope. Prefab-local y of the lowest anchor
+(`StationDef.RopeAnchorLocalY`, the stub tip at y 0), against the shortest tower's rope (`RopeAboveBase(0)`): FG base 5.84 / top 5.24
+(tower 7.27), DQ 3.70 (8.26), gondola 4.85 (10.28), tram 16.00 (26.25; the track rope, UtilityType HV; the haul rope is LV). Every
+station anchor is LOWER, by 1.4 to 10.3 m. `StationEndRope(station, nodeY, frontGroundY)` = the lowest of the tower rope, the level
+anchor and the anchor over the lot front (`StationDef.FrontLocalZ` = lot depth x 4, where vanilla stands the building): the lift tool's
+ground ends (LiftLineEdit.md) and the auto planner's station ends (`SkiRunAutoPlanner.TowerPlan`, level only) plan with it. A slope
+still moves a placed station: the Eishain FG base stood 5.1 m below its level anchor, the DQ base 26.3 m above it. Gate: LiftBatch EI-48
+compares every catalog row with the mirror's station prefab (anchor, lot depth, stub tip) and checks the anchor is below the tower rope.
 
 ## Fixed node count (Fit)
 The engine's node count is fixed (equal split, CourseSplitSystem.cs:3485-3493), so `LiftTowerFitSystem` asks `Fit`:
@@ -166,6 +227,11 @@ Hysteresis: the members the line already carries win when they clear it as they 
 decimeters (our own carve, rounding) can pick an equally clear but different assignment (a 1,223 m tram flipped between two member mixes on
 every re-fit); a clear line is final. `LiftTowerEdit` holds the engine-side numbers (node elevation per member, the vanilla score /
 top-anchored placement replica, the power-line edge curve). Tests: LiftBatch LP-11..LP-15.
+
+Never worse over a built line (FIX-LIST 52): `ToWrite(asBuilt, fit, built)` is the plan the fit writes. Over a built line an unsound plan
+(`LiftTowerPlan.Sound`: every span clear and no tower over its cap) is written only when `LiftTowerPlan.WorseThan(plan, asBuilt)` finds it
+no worse on every axis: min floor margin (`WorseMarginTolM` 0.05 m), `ViolatedSpans`, towers over cap, `MaxCapExcessDeg`. Null = keep the
+line as built (LiftTowerFitSystem.md). Test: LiftBatch EI-52.
 
 ## LiftTowerEdit: the engine-side numbers of a fitted node (LP-15)
 A tower node is raised so that the vanilla placeholder ladder spawns exactly the planned member on the ground:

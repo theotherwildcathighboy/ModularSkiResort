@@ -197,7 +197,7 @@ namespace LiftBatch
             for (int s = 0; s < p.Spans.Length; s++)
                 sb.Append(s == 0 ? string.Empty : "/").Append(p.Spans[s].LengthM.ToString("F0"));
             sb.Append(" m; min floor margin ").Append(LiftTowerPlan.Sg(p.MinFloorMarginM)).Append(" m; max rope above ground ")
-              .Append(maxAbove.ToString("F1")).Append(" m; ").Append(p.Clear ? "clear" : "VIOLATED");
+              .Append(maxAbove.ToString("F1")).Append(" m; ").Append(p.Verdict);
             for (int s = 0; s < p.Spans.Length; s++)
                 if (p.Spans[s].FloorViolated || p.Spans[s].HeightViolated)
                     sb.Append(" [span ").Append(s + 1).Append(p.Spans[s].FloorViolated ? " floor " + LiftTowerPlan.Sg(p.Spans[s].MinFloorMarginM) : " height " + p.Spans[s].MaxRopeAboveM.ToString("F1")).Append(" at ").Append(p.Spans[s].MinFloorMarginAtM.ToString("F0")).Append(" m]");

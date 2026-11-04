@@ -388,7 +388,7 @@ namespace SkiResortMod.Systems
             for (int s = 0; s < Plan.Spans.Length; s++)
                 sb.Append(s == 0 ? string.Empty : "/").Append(Plan.Spans[s].LengthM.ToString("F0", CultureInfo.InvariantCulture));
             sb.Append(" m (").Append(LengthM.ToString("F0", CultureInfo.InvariantCulture)).Append(" m); min floor margin ")
-              .Append(LiftTowerPlan.Sg(Plan.MinFloorMarginM)).Append(" m; ").Append(Plan.Clear ? "clear" : "VIOLATED");
+              .Append(LiftTowerPlan.Sg(Plan.MinFloorMarginM)).Append(" m; ").Append(Plan.Verdict);
             return sb.ToString();
         }
     }
@@ -496,6 +496,22 @@ namespace SkiResortMod.Systems
             return fromLane ? best : fallback;
         }
 
+        /// <summary>The rope a GROUND end plans with (FIX-LIST 48): the open end is where a station goes (line-first, its stub course
+        /// reuses this node), so it plans with that station's own anchor (LiftTowerPlanConstants.StationEndRope), and
+        /// <paramref name="source"/> says which height won.</summary>
+        public static float GroundEndRope(LiftTowerPlanConstants c, StationDef station, float nodeY, float frontGroundY, out string source)
+        {
+            float rope = c.StationEndRope(station, nodeY, frontGroundY);
+            string role = station == null ? string.Empty : station.Role == StationRole.Base ? "base" : "top";
+            string why = station == null || !math.isfinite(station.RopeAnchorLocalY) ? "tower"
+                : math.isfinite(frontGroundY) && rope < nodeY + station.RopeAnchorLocalY - 1e-3f
+                    ? "the " + role + " station's anchor over its lot front " +
+                      LiftTowerPlanConstants.FrontDistM(station).ToString("F0", CultureInfo.InvariantCulture) + " m out"
+                : "the " + role + " station's anchor";
+            source = "ground end, node + " + (rope - nodeY).ToString("F2", CultureInfo.InvariantCulture) + " (" + why + ")";
+            return rope;
+        }
+
         private static float Lowest(IList<float3> anchors, float3 node)
         {
             float best = float.PositiveInfinity;
@@ -537,7 +553,8 @@ namespace SkiResortMod.Systems
             typeId == "fixedGrip" || typeId == "detachable" || typeId == "gondola" || typeId == "tram";
 
         /// <summary>The plan line's key: the first thing wrong (a span below the floor, an edge too steep for the engine, a span above
-        /// the max rope height), else PLAN_CLEAR. <paramref name="lengthM"/> = the line's length (sum of the spans).</summary>
+        /// the max rope height, a tower whose rope bends past its sheave train's cap: PLAN_TRAIN, FIX-LIST 55), else PLAN_CLEAR, which
+        /// is only ever the key of a Sound plan. <paramref name="lengthM"/> = the line's length (sum of the spans).</summary>
         public static string PlanKey(LiftTowerPlan plan, out float lengthM)
         {
             bool low = false, steep = false, high = false;
@@ -549,22 +566,50 @@ namespace SkiResortMod.Systems
                 high |= plan.Spans[i].HeightViolated;
                 lengthM += plan.Spans[i].LengthM;
             }
-            return low ? "PLAN_LOW" : steep ? "PLAN_STEEP" : high ? "PLAN_HIGH" : "PLAN_CLEAR";
+            return low ? "PLAN_LOW" : steep ? "PLAN_STEEP" : high ? "PLAN_HIGH" : plan.OverCapTowers > 0 ? "PLAN_TRAIN" : "PLAN_CLEAR";
         }
 
         /// <summary>The hovered tower's key, its height (the ladder member's tower top above its base, as the model stands) and how
         /// high a chair or cabin passes over the ground at the tower (rope above the base - the carrier's drop). TOWER_LOW when a span
-        /// beside it is below the floor (the span minimum is not used: at a station end the chairs are at loading height by design).</summary>
-        public static string TowerKey(LiftTowerPlan plan, int node, bool pinned, out float heightM, out float clearM)
+        /// beside it is below the floor (the span minimum is not used: at a station end the chairs are at loading height by design);
+        /// TOWER_TRAIN when its rope bends past its sheave train's cap (<paramref name="bendDeg"/> = the bend, <paramref name="capDeg"/> =
+        /// the cap, both 0 otherwise; FIX-LIST 55).</summary>
+        public static string TowerKey(LiftTowerPlan plan, int node, bool pinned, out float heightM, out float clearM, out float bendDeg,
+                                      out float capDeg)
         {
             LiftTowerPlanConstants c = plan.Constants;
             int m = plan.Nodes[node].Member;
             heightM = c.TopOf(m, plan.Nodes[node].Head);
             clearM = math.max(0f, c.RopeAboveBase(m) - c.CarrierDropM);
+            bool over = plan.IsOverCap(node);
+            bendDeg = over ? math.abs(plan.Nodes[node].DeflectionDeg) : 0f;
+            capDeg = over ? plan.Nodes[node].CapDeg : 0f;
             if (plan.Spans[node - 1].FloorViolated || plan.Spans[node].FloorViolated)
                 return "TOWER_LOW";
+            if (over)
+                return "TOWER_TRAIN";
             return pinned ? "TOWER_PINNED" : "TOWER";
         }
+
+        /// <summary>Carriers leaving a station end more than this below the ground ahead of it: the SUNK notices.</summary>
+        public const float SunkWarnM = 0.25f;
+
+        /// <summary>The sunk-end notice key, or null (FIX-LIST 55). A station end (a station's stub node, or a ground end, which plans
+        /// with the station that will stand there: GroundEndRope) whose carriers leave more than SunkWarnM below the ground
+        /// (LiftTowerPlan.EndCarrierA / B) is sunk. SUNK when a built station is sunk; SUNK_END when only a ground end is (no
+        /// station stands there yet: past a crest vanilla stands it on the lower lot front, so its rope starts low). A loose end is a
+        /// tower node and is never sunk.</summary>
+        public static string SunkKey(LiftTowerPlan plan, LiftLineEndKind kindA, LiftLineEndKind kindB)
+        {
+            bool a = SunkEnd(plan.StationA, kindA, plan.EndCarrierA), b = SunkEnd(plan.StationB, kindB, plan.EndCarrierB);
+            if ((a && kindA == LiftLineEndKind.Station) || (b && kindB == LiftLineEndKind.Station))
+                return "SUNK";
+            return a || b ? "SUNK_END" : null;
+        }
+
+        /// <summary>One end of SunkKey: a station end (not a loose end) whose carriers leave more than SunkWarnM below the ground.</summary>
+        public static bool SunkEnd(bool stationEnd, LiftLineEndKind kind, float endCarrierM) =>
+            stationEnd && kind != LiftLineEndKind.LooseEnd && endCarrierM < -SunkWarnM;
 
         /// <summary>The step hint in English for the log (the tooltip shows PromptKey's LocaleEN text).</summary>
         public static string Prompt(LiftLineStep step, string typeId, bool dragging)

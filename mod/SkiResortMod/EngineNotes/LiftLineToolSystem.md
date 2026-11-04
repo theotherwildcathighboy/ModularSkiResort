@@ -117,8 +117,13 @@ existing edges touched at an end (a Temp copy with m_Original; GenerateEdgesSyst
 was the loose end's existing edge. The plan log prints the max edge slope against the prefab's limit and any span TOO STEEP (red in the
 preview: the tower rings and, via MarkSteepSpans, the span's segments, so a tower-free station-to-station span shows it too). The tool
 plans with the line prefab's live m_MaxSlopeSteepness (NetGeometryData, `With(maxEdgeSlope:)` at the pick); PatchSpans logs each line
-prefab's live value against the planner's default. A station whose carriers leave below the
-ground (EndCarrier < -0.25 m) logs SUNK STATION on every plan and shows one tooltip notice per line.
+prefab's live value against the planner's default. A station end whose carriers leave below the
+ground (EndCarrier < -0.25 m, `LiftLineInput.SunkKey`) logs SUNK STATION on every plan and shows one standing tooltip notice: SUNK for
+a picked station, SUNK_END for a ground end (the station that will finish it would stand on the lower ground ahead: past a crest,
+FIX-LIST 55); never a loose end. A tower whose rope bends past its sheave train's cap (`LiftTowerPlan.IsOverCap`) is drawn red, the plan
+line reads PLAN_TRAIN and hovering the tower reads TOWER_TRAIN (bend and cap); the plan line is green only for a sound plan (FIX-LIST 55). End ropes (`EndRope`): a picked station reads its lowest HV rope anchor, a loose end the
+node formula, a ground end the anchor of the station that will finish it over the terrain at that station's lot front
+(`LiftLineInput.GroundEndRope`, LiftLineEdit.md "Ground ends", FIX-LIST 48).
 
 ## Carriers passable while the tool runs (2026-11-03, DECISIONS 582)
 A line drawn to an existing tower (the redo of a bulldozed middle section, an extension from a loose end) gives the touched edges,

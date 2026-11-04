@@ -264,6 +264,29 @@ namespace SkiResortMod.Systems
         /// <summary>Rope height above the tower base for ladder member <paramref name="m"/>.</summary>
         public float RopeAboveBase(int m) => Ladder[m].TopM - RopeBelowTopM;
 
+        /// <summary>The rope at an end a station will finish (FIX-LIST 48): the station's own anchor sits lower than a tower's rope. On
+        /// level ground it is node + <see cref="StationDef.RopeAnchorLocalY"/> (the stub tip is at the prefab's y 0; FG 5.84 / 5.24, DQ
+        /// 3.70, gondola 4.85, tram 16.00 against the shortest tower's 7.27 / 8.26 / 10.28 / 26.25), and vanilla stands the building on
+        /// the terrain at its lot front (StationDef.FrontLocalZ: RoadSide, ObjectToolSystem.CalculateHeight :1621-1625), so on ground
+        /// falling away from the line it sits lower still: <paramref name="frontGroundY"/> = the terrain there (NaN = not sampled). The
+        /// lowest of the tower rope, the level anchor and the anchor over the front: a station or a tower there then clears the plan.
+        /// <paramref name="station"/> null or without an anchor: the tower rope.</summary>
+        public float StationEndRope(StationDef station, float nodeY, float frontGroundY = float.NaN)
+        {
+            float rope = nodeY + RopeAboveBase(0);
+            if (station == null || !math.isfinite(station.RopeAnchorLocalY))
+                return rope;
+            rope = math.min(rope, nodeY + station.RopeAnchorLocalY);
+            if (math.isfinite(frontGroundY))
+                rope = math.min(rope, frontGroundY + station.RopeAnchorLocalY);
+            return rope;
+        }
+
+        /// <summary>From the stub tip to the lot front along the station axis (FrontLocalZ - StubTipLocalZ: FG / tram 24 m, DQ / gondola
+        /// 32 m); NaN when unknown.</summary>
+        public static float FrontDistM(StationDef station) =>
+            station == null ? float.NaN : station.FrontLocalZ - station.StubTipLocalZ;
+
         /// <summary>A copy with other rules (tests and what-if questions: floor, max rope height, spans; sagRatio replays a line logged
         /// at another rope sag).</summary>
         public LiftTowerPlanConstants With(float? floorM = null, float? maxRopeAboveGroundM = null, float? typicalSpanM = null,
@@ -518,7 +541,46 @@ namespace SkiResortMod.Systems
                 if (n.Kind == LiftTrainKind.Support) support++;
                 else if (n.Kind == LiftTrainKind.HoldDown) holdDown++;
                 else if (n.Kind == LiftTrainKind.PushPull) pushPull++;
-                if (math.abs(n.DeflectionDeg) > n.CapDeg + AngleTolDeg) overCap++;
+                if (IsOverCap(i)) overCap++;
+            }
+        }
+
+        /// <summary>Node <paramref name="i"/> is judged and its deflection is past its cap (by more than AngleTolDeg). The tram's
+        /// saddles have no cap (CapDeg = infinity), so only train lifts read true.</summary>
+        public bool IsOverCap(int i) =>
+            Nodes[i].HasAngles && math.abs(Nodes[i].DeflectionDeg) > Nodes[i].CapDeg + AngleTolDeg;
+
+        /// <summary>Towers still over their cap after the angle pass (KindCounts' overCap).</summary>
+        public int OverCapTowers
+        {
+            get
+            {
+                KindCounts(out _, out _, out _, out _, out int over);
+                return over;
+            }
+        }
+
+        /// <summary>The plan's verdict for the logs (FIX-LIST 55): "clear" only when Sound (every span clear and no tower over its
+        /// cap); "spans clear, N tower(s) OVER CAP" when only the angles fail; else "VIOLATED". Clear alone says nothing about the
+        /// angles, so no log line prints it as the plan's verdict.</summary>
+        public string Verdict
+        {
+            get
+            {
+                if (!Clear)
+                    return "VIOLATED";
+                int over = OverCapTowers;
+                return over == 0 ? "clear" : "spans clear, " + over + " tower(s) OVER CAP";
+            }
+        }
+
+        /// <summary>", but N tower(s) OVER CAP" when a tower is past its cap, else empty: for the log lines that report the spans.</summary>
+        public string OverCapNote
+        {
+            get
+            {
+                int over = OverCapTowers;
+                return over == 0 ? string.Empty : ", but " + over + " tower(s) OVER CAP";
             }
         }
 
@@ -576,7 +638,7 @@ namespace SkiResortMod.Systems
                 sb.Append(" (tight ").Append(Sg(n.TightDeg)).Append(" / heavy ").Append(Sg(n.HeavyDeg)).Append(") ").Append(LiftAlignMath.KindLetter(n.Kind));
                 if (n.Head != LiftTowerHead.Line)
                     sb.Append(' ').Append(n.Head);
-                if (math.abs(n.DeflectionDeg) > n.CapDeg + AngleTolDeg)
+                if (IsOverCap(i))
                     sb.Append(" OVER CAP ").Append(F(n.CapDeg, "F0"));
             }
             if ((n.Flags & LiftPlanNodeFlags.Pair) != 0)
@@ -598,6 +660,8 @@ namespace SkiResortMod.Systems
         /// <summary>Floor margin (rope - drop - high side - floor) at profile sample <paramref name="q"/> on span <paramref name="span"/>.</summary>
         public float MarginAt(int span, int q) =>
             RopeAt(span, SampleAlongM[q]) - Constants.CarrierDropM - SampleHighM[q] - (SampleFloorM != null ? SampleFloorM[q] : Constants.FloorM);
+        /// <summary>Every span clear (floor, max rope height, edge slope). Says nothing about the towers' angles: the plan's verdict is
+        /// Sound / Verdict.</summary>
         public bool Clear
         {
             get
@@ -630,6 +694,56 @@ namespace SkiResortMod.Systems
                 return v;
             }
         }
+
+        /// <summary>Spans violated (floor, max rope height or edge slope).</summary>
+        public int ViolatedSpans
+        {
+            get
+            {
+                int v = 0;
+                for (int i = 0; i < Spans.Length; i++)
+                    if (Spans[i].FloorViolated || Spans[i].HeightViolated || Spans[i].SlopeViolated)
+                        v++;
+                return v;
+            }
+        }
+
+        /// <summary>The worst deflection past its cap among the judged towers, deg (0 = every one within its cap).</summary>
+        public float MaxCapExcessDeg
+        {
+            get
+            {
+                float v = 0f;
+                for (int i = 0; i < Nodes.Length; i++)
+                    if (Nodes[i].HasAngles)
+                        v = math.max(v, math.abs(Nodes[i].DeflectionDeg) - Nodes[i].CapDeg);
+                return v;
+            }
+        }
+
+        /// <summary>Every span clear and no tower over its cap.</summary>
+        public bool Sound => Clear && OverCapTowers == 0;
+
+        /// <summary>Null when <paramref name="plan"/> is no worse than <paramref name="built"/> on any axis (floor margin, violated
+        /// spans, towers over their cap, the worst excess over a cap); else the axes it is worse on (FIX-LIST 52).</summary>
+        public static string WorseThan(LiftTowerPlan plan, LiftTowerPlan built)
+        {
+            var why = new List<string>(4);
+            if (plan.MinFloorMarginM < built.MinFloorMarginM - WorseMarginTolM)
+                why.Add("floor margin " + Sg(built.MinFloorMarginM) + " -> " + Sg(plan.MinFloorMarginM) + " m");
+            if (plan.ViolatedSpans > built.ViolatedSpans)
+                why.Add("violated spans " + built.ViolatedSpans + " -> " + plan.ViolatedSpans);
+            plan.KindCounts(out _, out _, out _, out _, out int overP);
+            built.KindCounts(out _, out _, out _, out _, out int overB);
+            if (overP > overB)
+                why.Add("towers over cap " + overB + " -> " + overP);
+            if (plan.MaxCapExcessDeg > built.MaxCapExcessDeg + AngleTolDeg)
+                why.Add("worst excess over a cap " + Sg(built.MaxCapExcessDeg) + " -> " + Sg(plan.MaxCapExcessDeg) + " deg");
+            return why.Count == 0 ? null : string.Join(", ", why);
+        }
+
+        /// <summary>A floor margin this much lower is the same margin (the 5 / 10 m sample grid, float noise).</summary>
+        public const float WorseMarginTolM = 0.05f;
 
         /// <summary>The "Towers [plan]" block (the "Towers [nodes]" node/span layout of LiftTowerDiagSystem). <paramref name="header"/>
         /// is the text after "Towers [plan]: " on the first line; the caller appends the planned-vs-actual numbers there.</summary>
@@ -812,6 +926,26 @@ namespace SkiResortMod.Systems
                 if (ElevationM(c, m) <= elevationM + MemberMatchM)
                     best = m;
             return best;
+        }
+
+        /// <summary>The rope height above the NODE of a tower placed as (<paramref name="member"/>, <paramref name="head"/>). The node stands at
+        /// ground + E(member, head) and the tower's pivot on the ground, so the lane anchor (pivot-local, the support member's lane for a
+        /// twin: LADDER) gives rope = ground + RopeAboveBase(member) = node y + RopeAboveBase(member) - E(member, head). A Line head
+        /// is RopeAboveBase(0) for every member; a twin sits Top(twin) - Top(member) (0.15-0.57 m) lower than that.</summary>
+        public static float RopeAboveNodeM(LiftTowerPlanConstants c, int member, LiftTowerHead head)
+        {
+            if (member < 0 || head == LiftTowerHead.Line || !c.HasTwin(member, head))
+                return c.RopeAboveBase(0);
+            return c.RopeAboveBase(member) - ElevationM(c, member, head);
+        }
+
+        /// <summary>RopeAboveNodeM of the head a node at <paramref name="elevationM"/> carries (MemberOf, the read the fit uses). The rope
+        /// height a loose end, a station stub or a path end has when no lane anchor is found (the lane-less fallback of the lift tool, the
+        /// fit and the diag).</summary>
+        public static float RopeAboveNodeM(LiftTowerPlanConstants c, float elevationM)
+        {
+            int m = MemberOf(c, elevationM, out LiftTowerHead head);
+            return RopeAboveNodeM(c, m, head);
         }
 
         /// <summary>MemberOf's match tolerance (meters of E).</summary>
@@ -1258,7 +1392,7 @@ namespace SkiResortMod.Systems
                 }
                 m_IgnoreForbidden = false;
                 if (added < 0)
-                    added = LegacySegment(i);
+                    added = LegacySpacing ? LegacySegment(i) : FallbackSegment(i);
                 i += added + 1;
             }
 
@@ -1576,6 +1710,20 @@ namespace SkiResortMod.Systems
             return true;
         }
 
+        /// <summary>The plan the fit writes over a line (FIX-LIST 52): the fit's plan, except over a BUILT line (its nodes carry the
+        /// exact elevations of a fit, so <paramref name="asBuilt"/> is the line as it stands, its own members and heads) when that plan
+        /// is not sound (a span violated or a tower over its cap) and worse than the line on any axis (LiftTowerPlan.WorseThan): then
+        /// null, nothing is written, and <paramref name="worse"/> says why. A sound plan is always written; a line the engine or the tool
+        /// just built (not <paramref name="built"/>) always takes the fit.</summary>
+        public static LiftTowerPlan ToWrite(LiftTowerPlan asBuilt, LiftTowerFit fit, bool built, out string worse)
+        {
+            worse = null;
+            if (!built || asBuilt == null || fit.Plan.Sound)
+                return fit.Plan;
+            worse = LiftTowerPlan.WorseThan(fit.Plan, asBuilt);
+            return worse == null ? fit.Plan : null;
+        }
+
         // Span evaluation
 
         private float Rope(int k, int member)
@@ -1735,6 +1883,7 @@ namespace SkiResortMod.Systems
 
         private struct MinCost
         {
+            public float Viol;      // m_Soft only: summed floor shortfall of the spans and nodes so far (0 in the strict search)
             public int Towers;      // line towers so far
             public float EndRiseM;  // height above the shortest member of each tower next to a station end (TowerWorthM trades it)
             public int Breaks;      // towers on the uphill sample of a convex crest (breakover rule): more is better
@@ -1744,6 +1893,7 @@ namespace SkiResortMod.Systems
 
             public bool Better(MinCost o, float towerWorthM)
             {
+                if (Viol != o.Viol && math.abs(Viol - o.Viol) > 1e-3f) return Viol < o.Viol;   // additive like the rest: the search stays exact
                 if (towerWorthM > 0f)
                 {
                     float x = Towers * towerWorthM + EndRiseM, y = o.Towers * towerWorthM + o.EndRiseM;
@@ -1758,6 +1908,73 @@ namespace SkiResortMod.Systems
         }
 
         private MinCost[] m_MinCost = new MinCost[0];
+
+        /// <summary>The soft search (FallbackSegment: no clear arrangement exists and the legacy phases leave none either): SearchMin
+        /// accepts a span or a node short of the floor and adds the shortfall to MinCost.Viol, which ranks first. The max rope height,
+        /// the edge slope rule, MaxSpanM and the gaps stay hard.</summary>
+        private bool m_Soft;
+
+        private interface ISearchMode { bool Soft { get; } }
+        private struct StrictSearch : ISearchMode { public bool Soft => false; }
+        private struct SoftSearch : ISearchMode { public bool Soft => true; }
+
+        /// <summary>The floor shortfall (meters, 0 when within Tol) of the span (i, ri) -> (j, rj) with the sag phase (a+b) uses.</summary>
+        private float FloorShortfall(int i, float ri, int j, float rj)
+        {
+            float d = m_S[j] - m_S[i];
+            if (d <= 0f)
+                return 0f;
+            float floorSag4 = FloorSag(d, 4f * m_C.SagRatio * d);
+            float drop = m_C.CarrierDropM, worst = 0f;
+            for (int q = i + 1; q < j; q++)
+            {
+                float t = (m_S[q] - m_S[i]) / d;
+                worst = math.max(worst, drop + m_Floor[q] + m_High[q] - (ri + (rj - ri) * t - floorSag4 * t * (1f - t)));
+            }
+            return worst > Tol ? worst : 0f;
+        }
+
+        /// <summary>The floor shortfall at a tower node (k, member): the carrier over its own high side; 0 when within Tol.</summary>
+        private float NodeShortfall(int k, int member)
+        {
+            float v = m_C.CarrierDropM + m_High[k] + m_Floor[k] - Rope(k, member);
+            return v > Tol ? v : 0f;
+        }
+
+        /// <summary>The soft search's arrival at a segment's end node: false when the rope passes the max height, else the floor
+        /// shortfall of the span in <paramref name="viol"/>.</summary>
+        private bool SoftArrive(int k, float rk, int j, float rj, out float viol)
+        {
+            SpanBounds(k, rk, j, out float lo, out float hi);
+            viol = 0f;
+            if (rj > hi + Tol)
+                return false;
+            if (rj < lo - Tol)
+                viol = FloorShortfall(k, rk, j, rj);
+            return true;
+        }
+
+        /// <summary>SpanInterval without the early exit (the soft search needs both bounds even when they cross).</summary>
+        private void SpanBounds(int i, float ri, int j, out float lo, out float hi)
+        {
+            lo = float.NegativeInfinity;
+            hi = float.PositiveInfinity;
+            float d = m_S[j] - m_S[i];
+            if (d <= 0f)
+                return;
+            float sag4 = 4f * m_C.SagRatio * d;
+            float floorSag4 = FloorSag(d, sag4);
+            float cap = m_C.MaxRopeAboveGroundM;
+            float drop = m_C.CarrierDropM;
+            for (int q = i + 1; q < j; q++)
+            {
+                float t = (m_S[q] - m_S[i]) / d;
+                float bow = t * (1f - t);
+                lo = math.max(lo, ri + (drop + m_Floor[q] + m_High[q] + floorSag4 * bow - ri) / t);
+                if (cap > 0f)
+                    hi = math.min(hi, ri + (cap + m_Centre[q] + sag4 * bow - ri) / t);
+            }
+        }
 
         private bool m_IgnoreForbidden;
 
@@ -1802,8 +2019,14 @@ namespace SkiResortMod.Systems
         /// best arrangement with at most cap towers, which the plain search is not (it keeps one state per sample and member).
         /// Working nodes between a and b (ChooseSeedMembers) must be visited, at any member.
         /// m_MinCost / m_Reached hold the search the walk back reads (state index t * (m_N + 1) * L + k * L + m).</summary>
-        private bool SearchMin(int a, int b, float worth, int cap, out MinCost end)
+        private bool SearchMin(int a, int b, float worth, int cap, out MinCost end) =>
+            m_Soft ? SearchMin<SoftSearch>(a, b, worth, cap, out end) : SearchMin<StrictSearch>(a, b, worth, cap, out end);
+
+        /// <summary>SearchMin for one mode, a struct type argument so the JIT compiles the strict search without the soft branches
+        /// (planner cost unchanged on every line that has a clear plan).</summary>
+        private bool SearchMin<TMode>(int a, int b, float worth, int cap, out MinCost end) where TMode : struct, ISearchMode
         {
+            bool soft = default(TMode).Soft;
             int i = m_K[a], j = m_K[b];
             float ri = Rope(i, m_M[a]), rj = Rope(j, m_M[b]);
             float maxSpan = m_C.MaxSpanM + 1e-3f;
@@ -1852,10 +2075,13 @@ namespace SkiResortMod.Systems
                     }
                     // To the segment's end node.
                     float dEnd = m_S[j] - m_S[k];
+                    float endViol = 0f;
                     if (k > i && stop == j && (atNode || j - k >= minGap) && dEnd <= maxSpan && SlopeOk(k, mk, j, m_M[b]) &&
-                        SpanInterval(k, rk, j, out float lo, out float hi) && rj >= lo - Tol && rj <= hi + Tol)
+                        (soft ? SoftArrive(k, rk, j, rj, out endViol)
+                                : SpanInterval(k, rk, j, out float lo, out float hi) && rj >= lo - Tol && rj <= hi + Tol))
                     {
                         MinCost c = from;
+                        c.Viol += endViol;
                         c.SumSq += dEnd * dEnd;
                         if (StationEnd(b))
                             c.EndRiseM += Rise(m);
@@ -1875,19 +2101,38 @@ namespace SkiResortMod.Systems
                         }
                         else if (k2 > j - minGap || IsForbidden(k2) || NearStation(k2))
                             continue;
-                        if (!SpanInterval(k, rk, k2, out float lo2, out float hi2))
+                        float lo2, hi2;
+                        if (soft)
+                            SpanBounds(k, rk, k2, out lo2, out hi2);
+                        else if (!SpanInterval(k, rk, k2, out lo2, out hi2))
                             continue;
                         float d = m_S[k2] - m_S[k];
                         for (int m2 = 0; m2 < L; m2++)
                         {
                             float r2 = Rope(k2, m2);
+                            float viol = 0f;
                             if (r2 < lo2 - Tol)
-                                continue;
+                            {
+                                if (!soft)
+                                    continue;
+                                viol = FloorShortfall(k, rk, k2, r2);
+                            }
                             if (r2 > hi2 + Tol)
                                 break;   // ropes ascend with the ladder
-                            if (!MemberAllowed(k2, m2) || !NodeOk(k2, m2) || !SlopeOk(k, mk, k2, m2))
-                                continue;
+                            if (!soft)
+                            {
+                                if (!MemberAllowed(k2, m2) || !NodeOk(k2, m2) || !SlopeOk(k, mk, k2, m2))
+                                    continue;
+                            }
+                            else
+                            {
+                                if (!MemberAllowed(k2, m2) || !SlopeOk(k, mk, k2, m2) ||
+                                    (m_C.MaxRopeAboveGroundM > 0f && r2 - m_Centre[k2] > m_C.MaxRopeAboveGroundM + Tol))
+                                    continue;
+                                viol += NodeShortfall(k2, m2);
+                            }
                             MinCost c = from;
+                            c.Viol += viol;
                             c.Towers += 1;
                             if (cap >= 0 && c.Towers > cap)
                                 break;
@@ -1996,6 +2241,83 @@ namespace SkiResortMod.Systems
             return added;
         }
 
+        /// <summary>Working nodes a..b as they stand are clear: every span's floor and max height with the sag, every tower node, and
+        /// (CheckEdgeSlope) every edge under the engine's own limit (MaxEdgeSlope + 0.0005, the LiftPlanSpan.SlopeViolated test).</summary>
+        private bool SegmentClear(int a, int b)
+        {
+            for (int n = a; n < b; n++)
+            {
+                int k = m_K[n], k2 = m_K[n + 1];
+                if (SpanViolation(k, Rope(k, m_M[n]), k2, Rope(k2, m_M[n + 1])) > Tol)
+                    return false;
+                if (n > a && !NodeOk(k, m_M[n]))
+                    return false;
+                float d = m_S[k2] - m_S[k], ya = NodeY(k, m_M[n]), yb = NodeY(k2, m_M[n + 1]);
+                if (CheckEdgeSlope && m_C.MaxEdgeSlope > 0f && d > 0f && math.isfinite(ya) && math.isfinite(yb) &&
+                    math.abs(yb - ya) / d >= m_C.MaxEdgeSlope + 0.0005f)
+                    return false;
+            }
+            return true;
+        }
+
+        /// <summary>The segment from working node a had no clear arrangement and LegacySegment left it violated (its <paramref
+        /// name="legacy"/> nodes after a): the soft search instead (m_Soft: the least floor shortfall, then the fewest towers, the
+        /// edge slope rule kept), so the violation stays where no tower can remove it. The legacy greedy split had put 13 towers 10 m
+        /// apart across a 450 m FG line for ground inside its end zone that no tower may stand in (planner-fallback-2026-11-04).
+        /// Where the soft search finds nothing either (the slope rule or the max height), the legacy nodes go back.</summary>
+        private int SoftInsteadOfLegacy(int a, int legacy)
+        {
+            List<int> ks = m_K.GetRange(a + 1, legacy), ms = m_M.GetRange(a + 1, legacy);
+            List<LiftPlanNodeFlags> fs = m_F.GetRange(a + 1, legacy);
+            m_K.RemoveRange(a + 1, legacy);
+            m_M.RemoveRange(a + 1, legacy);
+            m_F.RemoveRange(a + 1, legacy);
+            int extra = m_ExtraTowers;
+            m_IgnoreForbidden = true;
+            m_Soft = true;
+            int added = MinTowers(a, a + 1);
+            m_Soft = false;
+            m_IgnoreForbidden = false;
+            if (added >= 0)
+                return added;
+            m_ExtraTowers = extra;
+            m_K.InsertRange(a + 1, ks);
+            m_M.InsertRange(a + 1, ms);
+            m_F.InsertRange(a + 1, fs);
+            return legacy;
+        }
+
+        /// <summary>The segment from working node a has no clear arrangement by the exact search. (a) The anchors (exact, the floor
+        /// without the sag) with the infill (b): kept when that is clear (a tower on a narrow knoll the search refuses, LP-27), else the
+        /// soft search replaces it (SoftInsteadOfLegacy). (a) found no anchors: the soft search FIRST, the greedy split only where it
+        /// finds nothing (FIX-LIST 49). The split was computed and thrown away on every such segment (a split plus its infill is never
+        /// clear where the anchors search found none: 0 of 66 in LiftBatch and AutoGenBatch), about a fifth of a violated 2 km DQ plan.
+        /// Returns the nodes added.</summary>
+        private int FallbackSegment(int a)
+        {
+            m_UseSag = false;
+            int anchors = Anchors(a, a + 1);
+            m_UseSag = true;
+            if (anchors >= 0)
+            {
+                int added = anchors + InfillAnchors(a, anchors);
+                return SegmentClear(a, a + added + 1) ? added : SoftInsteadOfLegacy(a, added);
+            }
+            int extra = m_ExtraTowers;
+            m_IgnoreForbidden = true;
+            m_Soft = true;
+            int soft = MinTowers(a, a + 1);
+            m_Soft = false;
+            m_IgnoreForbidden = false;
+            if (soft >= 0)
+                return soft;
+            m_ExtraTowers = extra;
+            m_UseSag = false;
+            anchors = Split(a, a + 1, 0);
+            m_UseSag = true;
+            return anchors + InfillAnchors(a, anchors);
+        }
+
         /// <summary>The legacy phases for the segment from working node a to a + 1: (a) anchors (exact search, else the greedy
         /// split), then (b) infill of every anchor span. Returns the nodes added.</summary>
         private int LegacySegment(int a)
@@ -2006,7 +2328,13 @@ namespace SkiResortMod.Systems
             if (anchors < 0)
                 anchors = Split(a, a + 1, 0);   // no clear arrangement exists: the greedy split minimizes what is left
             m_UseSag = true;
-            int added = anchors;
+            return anchors + InfillAnchors(a, anchors);
+        }
+
+        /// <summary>Phase (b) on the <paramref name="anchors"/> spans after working node a. Returns the infill nodes added.</summary>
+        private int InfillAnchors(int a, int anchors)
+        {
+            int added = 0;
             int end = a + anchors + 1;
             for (int i = a; i < end; )
             {

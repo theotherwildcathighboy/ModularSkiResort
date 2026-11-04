@@ -25,6 +25,15 @@ namespace LiftBatch
         private static int Main()
         {
             CultureInfo.DefaultThreadCurrentCulture = CultureInfo.InvariantCulture;
+            // Dev shortcut: LIFTBATCH_ONLY=eishain runs the EI tests alone (seconds instead of the whole host); CI runs everything.
+            if (Environment.GetEnvironmentVariable("LIFTBATCH_ONLY") == "eishain")
+            {
+                EishainTests.Run(Check);
+                foreach (string line in EishainTests.Report)
+                    Console.WriteLine("EISH  " + line);
+                Console.WriteLine("SUMMARY  LiftBatch (EI only) checks=" + s_Checks + " failures=" + s_Failures);
+                return s_Failures;
+            }
 
             CensusStraightLift();
             CensusMiddleSectionDeletedAndRedrawn();
@@ -109,6 +118,12 @@ namespace LiftBatch
             DirectionTests.Run(Check);
             foreach (string line in DirectionTests.Report)
                 Console.WriteLine("DIR   " + line);
+            FallbackTests.Run(Check);
+            foreach (string line in FallbackTests.Report)
+                Console.WriteLine("FALLB " + line);
+            EishainTests.Run(Check);
+            foreach (string line in EishainTests.Report)
+                Console.WriteLine("EISH  " + line);
 
             Console.WriteLine(string.Format(CultureInfo.InvariantCulture,
                 "SUMMARY  LiftBatch checks={0} failures={1}", s_Checks, s_Failures));

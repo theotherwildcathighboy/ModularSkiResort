@@ -31,7 +31,7 @@ Log tag "Towers [nodes]", one block per line, <= MaxNodes nodes; "Towers [summar
 ## Plan
 After every "Towers [nodes]" block, each path of the line is re-planned by the pure `LiftTowerPlanner` on the real terrain
 (TerrainUtils.SampleHeight on TerrainSystem.GetHeightData(), TerrainUtils.cs:82 / TerrainSystem.cs:2603, the same main-thread read the
-[nodes] block uses) along the node polyline (xz), both ends taken as stations with the rope at node y + the shortest member's rope height.
+[nodes] block uses) along the node polyline (xz), both ends taken as stations with the rope at node y + the rope above the head the node carries (`RopeAboveNode`: the shortest member's rope for a Line head, lower at a twin).
 - It logs "Towers [plan]" (planned vs actual node count, per planned node the member, rope and flags, per span the lowest carrier above
   ground and the max rope height) and one "Towers [plan summary]" line.
 - It caches the planned geometry for `LiftTowerPlanOverlaySystem`, keyed by every edge and node entity of the line. Selecting a line whose

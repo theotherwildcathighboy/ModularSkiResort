@@ -1119,8 +1119,8 @@ namespace SkiResortMod.Systems
             // Hand LiftTowerDiagSystem (read-only diagnostic) this build's line edges; it queues lines whose signature is new and prints them
             // after the census has been quiet. No ECS read here.
             m_TowerDiag?.OnCensusBuilt(m_Edges);
-            // The same edges to LiftTowerFitSystem; it queues new signatures and fits them once the census is quiet
-            m_TowerFit?.OnCensusBuilt(m_Edges);
+            // The same edges and nodes to LiftTowerFitSystem; it queues new signatures (station ends included) and fits them once quiet
+            m_TowerFit?.OnCensusBuilt(m_Edges, m_Nodes);
             // The same edges to TowerNumberTileSystem; it renumbers and reconciles the tower number tiles once quiet
             m_TowerNumbers?.OnCensusBuilt(m_Edges);
             // The same edges to TrainPitchSystem; it pitches the rigged towers' trains to their rope lanes

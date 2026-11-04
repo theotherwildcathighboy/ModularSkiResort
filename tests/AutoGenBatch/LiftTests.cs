@@ -171,7 +171,9 @@ namespace AutoGenBatch
                     return float.IsNaN(h) ? a.y : h;
                 };
                 var tp = new LiftTowerPlanner { CheckEdgeSlope = true, EndNodeYA = l.Bottom.y, EndNodeYB = l.Top.y };
-                LiftTowerPlan plan = tp.Plan(s, len, l.Bottom.y + k.RopeAboveBase(0), l.Top.y + k.RopeAboveBase(0), k);
+                // the station ends at the stations' own rope anchors (StationEndRope, FIX-LIST 48), as the planner plans them
+                LiftTowerPlan plan = tp.Plan(s, len, k.StationEndRope(SkiCatalog.StationOf(l.TypeIndex, StationRole.Base), l.Bottom.y),
+                                             k.StationEndRope(SkiCatalog.StationOf(l.TypeIndex, StationRole.Top), l.Top.y), k);
                 Check(misses == 0 && plan.Clear && plan.MaxEdgeSlope <= SkiRunAutoPlanner.LiftEdgeSlopeShare * k.MaxEdgeSlope + 1e-5f, wl,
                       $"tower re-plan not clear (misses {misses}, clear {plan.Clear}, slope {plan.MaxEdgeSlope:F3} cap {k.MaxEdgeSlope})");
                 Check(plan.LineTowers == l.Towers && Math.Abs(plan.MaxEdgeSlope - l.MaxEdgeSlope) < 1e-4f, wl,
