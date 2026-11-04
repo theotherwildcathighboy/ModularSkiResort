@@ -34,9 +34,14 @@ the head held level must fail), H1 (the flange under the comm wedge), H2 (Hold g
 rule). Recorded, not raised: the posed head's bounds against the rest bounds
 (HEAD_BOUNDS; the deck ends rise past the rest top on steep poses: an owner call, see build.md).
 
-Usage (headless; scratch folders only, nothing exported):
+Usage (headless):
   blender --background --factory-startup --python-exit-code 1 --python lift_head.py -- --keys DQ10,DQ10Hold
       --out <scratch> [--preview <dir>] [--lineup] [--report <json>]
+  blender ... --python lift_head.py -- --keys all --export --letter T [--import-root <dir>] [--report <json>]
+      (the import round: each key's folder BESIDE its atlas donor, assets/import/towers/<donor letter>/<Name> (HEAD_ATLAS:
+      Q or R), the family-folder rule; skinned LOD0 / 1 / 2 with the Head bone, no PNG of its own, settings.json straight
+      at the donor's four maps (0 MB), manifest, validate_asset_folder (raises on an error). --import-root: a scratch copy
+      of assets/import for a dry run.)
 """
 import argparse
 import dataclasses
@@ -1015,10 +1020,76 @@ def run_key(key, out, preview=None, keep_ref=False):
     return rep, (t, arm, lods, tw, name, asset_dir)
 
 
+def export_key(rep, objs):
+    """--export: one key's import folder beside its atlas donor (HEAD_ATLAS, the family-folder rule): skinned LOD0 / 1 /
+    2 FBXs (every level weighted to Root / TrainFront / TrainBack / Head), settings.json on the donor's four maps
+    (cs2_asset.sibling_settings: no PNG, 0 MB), the round trip with the four bones, the manifest, validate_asset_folder
+    (raises on an error). Returns the validator summary."""
+    import cs2_validate
+    t, arm, lods, tw, name, asset_dir = objs
+    spec = tw["twin"]
+    letter, owner = HEAD_ATLAS[tw["member"]].split("/")
+    cs2_asset.clean_asset_folder(asset_dir, name)
+    cs2_asset.export_fbx_skinned(t, arm, os.path.join(asset_dir, f"{name}.fbx"))
+    for i, lod in enumerate(lods, start=1):
+        cs2_asset.export_fbx_skinned(lod, arm, os.path.join(asset_dir, f"{name}_LOD{i}.fbx"))
+    cs2_asset.sibling_settings(asset_dir, name, owner, len(lods))
+    heads = {"Root": (0.0, 0.0, 0.0)}
+    heads.update({b: (0.0, 0.0, tw["lane"]) for b in HEAD_BONES[1:]})
+    rt = cs2_skin.roundtrip(asset_dir, name, len(lods), heads, LT._check, tw["key"])
+    man = {k: v for k, v in rep.items() if k not in ("frames", "seconds")}
+    man["generator"] = f"lift_head.py --export --letter {HEAD_LETTER}"
+    man["skin"] = {
+        "rule": "DECISIONS 594 / 600: skinned to Root / TrainFront / TrainBack / Head; TrainPitchSystem turns Head to "
+                "the mean of the halves relative to the mast (clamped to HeadRelMax), the halves to head +- the "
+                "half-break",
+        "bones": {"Root": {"parent": None, "head_game": [0.0, 0.0, 0.0]},
+                  **{b: {"parent": "Root", "head_game": [0.0, tw["lane"], 0.0], "rest_rotation": [0, 0, 0, 1]}
+                     for b in HEAD_BONES[1:]}},
+        "axis": LT.SKIN_AXIS, "lane_y": tw["lane"], "roundtrip": rt,
+        "surgery": [
+            "after EVERY import, every LOD prefab: the root bone (parentId -1) m_Rotation (0, 0, 0, 1) and m_Scale "
+            "(1, 1, 1) (gate BONEROOT)",
+            "TrainFront / TrainBack / Head: m_Type 0 (None); bone names map through ProceduralBone.m_BindIndex",
+            "LOD0 / LOD1 / LOD2 FBXs are all skinned; settings.json useProceduralAnimation",
+            "twins: the comm sub-lane point moves to comm_anchor_new_y (members keep theirs)"]}
+    man["textures"] = {
+        "shared_from": f"../{owner}/{owner}", "maps": list(cs2_asset.SIBLING_MAPS), "levels": list(range(len(lods) + 1)),
+        "added_mb": 0.0,
+        "surgery": "DECISIONS 592 c / 592 k: the Surfaces carry the donor's texture GUIDs (the donor was imported in an "
+                   "earlier action, so this import copies its maps byte for byte; repoint them, drop the copies)"}
+    man["export"] = {"folder": f"assets/import/towers/{letter}/{name}",
+                     "donor_folder": f"assets/import/towers/{letter}/{owner}", "lods": list(range(len(lods) + 1))}
+    man = json.loads(json.dumps(man, default=lambda o: o.item() if hasattr(o, "item") else str(o)))
+    cs2_validate.write_manifest(asset_dir, name, man)
+    t.name, t.data.name = name + "Src", name + "Src"
+    for i, lod in enumerate(lods, start=1):
+        lod.name, lod.data.name = f"{name}LOD{i}Src", f"{name}LOD{i}Src"
+    findings, summary = cs2_validate.validate_asset_folder_ex(asset_dir, name, {
+        "kind": "tower", "lod0_cap": rep["cap_raised_to"] or rep["cap"], "lod1_ratio": 0.5,
+        "lod2_cap": int(round(spec.lod2 * 1.10)), "hero": False, "expected_lods": (1, 2), "top_y": spec.top,
+        "pier": spec.pier})
+    n_err = sum(1 for f in findings if f[0] == "ERROR")
+    n_warn = sum(1 for f in findings if f[0] == "WARN")
+    print(f"[head] validate_asset_folder {name}: {n_err} errors, {n_warn} warnings")
+    for f in findings:
+        if f[0] in ("ERROR", "WARN"):
+            print(f"[head]   {f}")
+    if n_err:
+        raise cs2_validate.AssetValidationError(name, findings)
+    return {"errors": n_err, "warnings": n_warn, "tris": summary.get("tris"), "folder": man["export"]["folder"]}
+
+
 def parse(argv):
     ap = argparse.ArgumentParser(prog="lift_head.py")
     ap.add_argument("--keys", required=True, help=f"comma list of {', '.join(HEAD_KEYS)} (or 'all', or 'none')")
-    ap.add_argument("--out", required=True, help="scratch folder (never assets/import)")
+    ap.add_argument("--out", default=None, help="scratch folder (never assets/import); not with --export")
+    ap.add_argument("--export", action="store_true",
+                    help="the import round: <import root>/towers/<donor letter>/<Name> beside the atlas donor (HEAD_ATLAS); "
+                         "needs an explicit --letter; no previews")
+    ap.add_argument("--import-root", dest="import_root", default=None,
+                    help="with --export: the import tree to write into (default assets/import; a scratch copy for a dry "
+                         "run: it must hold the donors' folders)")
     ap.add_argument("--preview", default=None, help="preview folder (raw frames under <preview>/raw)")
     ap.add_argument("--lineup", default=None, help="also the family lineup sheets <preview>/<this>_side.png / _q34.png")
     ap.add_argument("--report", default=None)
@@ -1033,20 +1104,44 @@ def main_cli():
     argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
     args = parse(argv)
     use_letter(args.letter)
-    out = os.path.abspath(args.out)
-    if os.path.normcase(out).startswith(os.path.normcase(os.path.join(LT._REPO, "assets", "import"))):
-        raise SystemExit("--out is in the shipping tree assets/import: this round exports nothing")
     keys = list(HEAD_KEYS) if args.keys == "all" else [] if args.keys == "none" else args.keys.split(",")
     bad = [k for k in keys if k not in HEAD_KEYS]
     if bad:
         raise SystemExit(f"unknown keys {bad}")
+    shipping = os.path.normcase(os.path.join(LT._REPO, "assets", "import"))
+    if args.export:
+        if not any(a == "--letter" or a.startswith("--letter=") for a in argv):
+            raise SystemExit("--export needs an explicit --letter (a new generation letter: never a deployed name)")
+        if args.out or args.preview or args.lineup or args.masttop:
+            raise SystemExit("--export writes the import folders only: no --out / --preview / --lineup / --masttop")
+        root = os.path.abspath(args.import_root or os.path.join(LT._REPO, "assets", "import"))
+        for k in keys:
+            n = head_name(headed_spec(k))
+            try:
+                cs2_asset.assert_new_asset_name(n, LT._REPO)
+            except ValueError as e:
+                raise SystemExit(str(e))
+    else:
+        if not args.out:
+            raise SystemExit("give --out <scratch dir> or --export --letter <X>")
+        if args.import_root:
+            raise SystemExit("--import-root goes with --export")
+        out = os.path.abspath(args.out)
+        if os.path.normcase(out).startswith(shipping):
+            raise SystemExit("--out is in the shipping tree assets/import: pass --export --letter <X>")
     S.set_wheels("v2")
     S.set_wheel_dress(True)
     LT.set_skinned(True)
     LT.TWIN_ATLAS.update(HEAD_ATLAS)
     reps = []
     for k in keys:
-        rep, _objs = run_key(k, out, args.preview, keep_ref=bool(args.preview) and k not in LT.TWINS)
+        if args.export:
+            member = LT.TWINS[k][0] if k in LT.TWINS else k
+            out = os.path.join(root, "towers", HEAD_ATLAS[member].split("/")[0])
+        rep, objs = run_key(k, out, args.preview, keep_ref=bool(args.preview) and k not in LT.TWINS)
+        if args.export:
+            rep["export"] = export_key(rep, objs)
+            print(f"[head] exported {rep['name']}: LOD0/1/2 {rep['tris']} -> {objs[5]}")
         reps.append(rep)
         if args.report:
             with open(args.report, "w", encoding="utf-8", newline="\n") as f:

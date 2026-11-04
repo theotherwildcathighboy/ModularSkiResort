@@ -50,7 +50,11 @@ Export/import staging for CS2 Editor assets, organized `<category>/<generation l
 - **cabins/** - `A/SkiGondolaCabin8A` and `A/SkiTramCabinA` (`lift_cabin.py`): the gondola and
   tram carriers.
 - **tramtowers/** - `A/SkiTramTower{30,45,60}A` (`tram_tower.py`): the aerial tram's lattice
-  towers, a separate category from the shared `towers/`.
+  towers, a separate category from the shared `towers/`. `C/SkiTramTower{30,45,60}D` (`tram_saddle.py --export --letter D`, the
+  tower-lean round) sit BESIDE C and share its maps (no PNG of their own).
+- **Sibling exports (towers, 2026-11-04):** the lean round's headed DQ / GD meshes `SkiLiftTower<key>T`
+  (`lift_head.py --export --letter T`) sit beside their atlas donor in `towers/Q` or `towers/R` (as the A twins do):
+  the folder letter is the donor's, the name letter the round's.
 - **numtiles/** - `A/SkiNumTile{T1,T2,T3}{Blank,N0..N9}A` (`number_tiles.py`, T123): the tower number tiles the code
   mod hangs on every line tower; per class the BlankA owns the texture set, the digits share it (import all 33 in ONE
   action); `A.manifest.json` beside the letter folder. Import note: docs/research/lifts/tower-numbers-build-2026-10-20.md §5.2.

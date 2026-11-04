@@ -329,6 +329,63 @@ def budgets(spec, tris):
     return out
 
 
+# -- export (the import round) ---------------------------------------------------------------------------------------------
+
+def export_folder(root, H):
+    """D's import folder: BESIDE C (its texture owner) in C's letter folder, <root>/tramtowers/C/SkiTramTower<H>D (the
+    family-folder rule: settings.json keys `../SkiTramTower<H>C/...`, never `../../C/...`)."""
+    return os.path.join(root, "tramtowers", SOURCE, f"SkiTramTower{H}{LETTER}")
+
+
+def export_height(H, t, arm, lods, spec, sk, rep, asset_dir):
+    """--export: skinned LOD0 / 1 / 2 FBXs (Root + the four half bones), settings.json on C's four maps
+    (cs2_asset.sibling_settings: no PNG, 0 MB; D's loops carry C's UVs), the round trip, the manifest,
+    validate_asset_folder (raises on an error). Returns the validator summary."""
+    import cs2_validate
+    name = rep["name"]
+    owner = f"SkiTramTower{H}{SOURCE}"
+    os.makedirs(asset_dir, exist_ok=True)
+    cs2_asset.clean_asset_folder(asset_dir, name)
+    cs2_asset.export_fbx_skinned(t, arm, os.path.join(asset_dir, f"{name}.fbx"))
+    for k, lod in enumerate(lods, start=1):
+        cs2_asset.export_fbx_skinned(lod, arm, os.path.join(asset_dir, f"{name}_LOD{k}.fbx"))
+    cs2_asset.sibling_settings(asset_dir, name, owner, len(lods))
+    rt = TT.skin_roundtrip(asset_dir, name, len(lods), spec)
+    man = {k: v for k, v in rep.items() if k not in ("frames", "seconds", "weights")}
+    man.update({
+        "generator": f"tram_saddle.py --export --letter {LETTER}", "family": "tram", "H": H, "letter": LETTER,
+        "skin": TT.skin_manifest_block(spec, dict(sk, roundtrip=rt)),
+        "textures": {"shared_from": f"../{owner}/{owner}", "maps": list(cs2_asset.SIBLING_MAPS),
+                     "levels": list(range(len(lods) + 1)), "added_mb": 0.0,
+                     "surgery": "the Surfaces carry C's texture GUIDs (C was imported in an earlier action, so this "
+                                "import copies its maps byte for byte; repoint them, drop the copies)"},
+        "export": {"folder": f"assets/import/tramtowers/{SOURCE}/{name}",
+                   "donor_folder": f"assets/import/tramtowers/{SOURCE}/{owner}", "lods": list(range(len(lods) + 1))},
+        "prefab": "SkiTramTower{H} keeps its name; the import round repoints its mesh to this one (the code keys the "
+                  "wide limits on the mesh letter, LiftAlignMath.WideTramSaddle)".replace("{H}", str(H))})
+    man = json.loads(json.dumps(man, default=lambda o: o.item() if hasattr(o, "item") else str(o)))
+    cs2_validate.write_manifest(asset_dir, name, man)
+    t.name, t.data.name = name + "Src", name + "Src"
+    for k, lod in enumerate(lods, start=1):
+        lod.name, lod.data.name = f"{name}LOD{k}Src", f"{name}LOD{k}Src"
+    b = TT.budget(spec)
+    raised = rep["budget"]["raised"]
+    findings, summary = cs2_validate.validate_asset_folder_ex(asset_dir, name, {
+        "kind": "hanging", "lod0_cap": raised.get("LOD0", b["lod0_cap"]), "lod1_ratio": 0.5,
+        "lod2_cap": raised.get("LOD2", b["lod2_cap"]), "hero": False, "expected_lods": tuple(range(1, len(lods) + 1)),
+        "expected_submeshes": ()})
+    n_err = sum(1 for f in findings if f[0] == "ERROR")
+    n_warn = sum(1 for f in findings if f[0] == "WARN")
+    print(f"[saddle] validate_asset_folder {name}: {n_err} errors, {n_warn} warnings")
+    for f in findings:
+        if f[0] in ("ERROR", "WARN"):
+            print(f"[saddle]   {f}")
+    if n_err:
+        raise cs2_validate.AssetValidationError(name, findings)
+    t.name, t.data.name = name, name
+    return {"errors": n_err, "warnings": n_warn, "tris": summary.get("tris"), "folder": man["export"]["folder"]}
+
+
 # -- previews --------------------------------------------------------------------------------------------------------------
 
 def rope_mat(name):
@@ -415,7 +472,7 @@ def montage(paths_grid, out_path):
 
 # -- one height ------------------------------------------------------------------------------------------------------------
 
-def run_height(H, out, preview=None, before_after=False, negative=False):
+def run_height(H, out, preview=None, before_after=False, negative=False, export_root=None):
     t0 = time.perf_counter()
     args = c_args(H)
     S.set_wheels(args.wheels)
@@ -512,6 +569,9 @@ def run_height(H, out, preview=None, before_after=False, negative=False):
     print(f"[saddle] {name}: LOD0/1/2 {tris}; G6 {rep['g6']['poses']} poses min {sk['g6']['min_clear']['m'] * 1000:.1f} mm; "
           f"planner {len(pl['poses'])} poses min {pl['min_clear']['m'] * 1000:.1f} mm; reach {sk['rope_reach']['clear_to_deg']}; "
           f"TS-1 inside C {cov_c[0]} / D {cov_d[0]} of {len(rows)}; worst offset C {cov_c[1][2]:.2f} m, D {cov_d[1][2]:.2f} m")
+    if export_root:
+        rep["export"] = export_height(H, t, arm, lods, spec, sk, rep, export_folder(export_root, H))
+        print(f"[saddle] exported {name}: LOD0/1/2 {tris} -> {export_folder(export_root, H)}")
     if preview:
         asset_dir = os.path.join(out, name)
         stage_textures(H, asset_dir, name)
@@ -580,7 +640,15 @@ def sheets(prev):
 def parse(argv):
     ap = argparse.ArgumentParser(prog="tram_saddle.py")
     ap.add_argument("--heights", default="30", help="comma list of 30, 45, 60 (or 'all')")
-    ap.add_argument("--out", default=None, help="scratch folder (never assets/import)")
+    ap.add_argument("--out", default=None, help="scratch folder (never assets/import); not with --export")
+    ap.add_argument("--export", action="store_true",
+                    help=f"the import round: <import root>/tramtowers/{SOURCE}/SkiTramTower<H>{LETTER} beside C (its "
+                         f"texture owner); needs --letter {LETTER}; no previews")
+    ap.add_argument("--letter", default=None, help=f"with --export: the mesh letter, required and = {LETTER} (the code keys "
+                    "the wide limits on it)")
+    ap.add_argument("--import-root", dest="import_root", default=None,
+                    help="with --export: the import tree to write into (default assets/import; a scratch copy for a dry "
+                         "run: it must hold tramtowers/C)")
     ap.add_argument("--preview", default=None, help="preview folder (raw frames under <preview>/raw)")
     ap.add_argument("--before-after", dest="before_after", action="store_true",
                     help="also the before (C clamped) / after (D) frames and the saddle close-ups")
@@ -597,18 +665,36 @@ def main_cli():
         sheets(os.path.abspath(args.sheets))
         print("PASS tram_saddle: sheets")
         return
-    if not args.out:
-        raise SystemExit("--out is required")
-    out = os.path.abspath(args.out)
-    if os.path.normcase(out).startswith(os.path.normcase(os.path.join(_REPO, "assets", "import"))):
-        raise SystemExit("--out is in the shipping tree assets/import: this round exports nothing")
     heights = HEIGHTS if args.heights == "all" else tuple(int(h) for h in args.heights.split(","))
+    bad = [H for H in heights if H not in HEIGHTS]
+    if bad:
+        raise SystemExit(f"unknown height {bad}")
+    root = None
+    if args.export:
+        if args.letter != LETTER:
+            raise SystemExit(f"--export needs --letter {LETTER} (the geometry this script builds; a new letter means a "
+                             f"new design in D_DESIGN)")
+        if args.out or args.preview or args.before_after:
+            raise SystemExit("--export writes the import folders only: no --out / --preview / --before-after")
+        root = os.path.abspath(args.import_root or os.path.join(_REPO, "assets", "import"))
+        for H in heights:
+            try:
+                cs2_asset.assert_new_asset_name(f"SkiTramTower{H}{LETTER}", _REPO)
+            except ValueError as e:
+                raise SystemExit(str(e))
+        out = os.path.join(root, "tramtowers", SOURCE)
+    else:
+        if not args.out:
+            raise SystemExit("give --out <scratch dir> or --export --letter D")
+        if args.import_root or args.letter:
+            raise SystemExit("--import-root / --letter go with --export")
+        out = os.path.abspath(args.out)
+        if os.path.normcase(out).startswith(os.path.normcase(os.path.join(_REPO, "assets", "import"))):
+            raise SystemExit("--out is in the shipping tree assets/import: pass --export --letter D")
     reps = []
     for H in heights:
-        if H not in HEIGHTS:
-            raise SystemExit(f"unknown height {H}")
         reps.append(run_height(H, out, os.path.abspath(args.preview) if args.preview else None,
-                               before_after=args.before_after, negative=args.negative))
+                               before_after=args.before_after, negative=args.negative, export_root=root))
         if args.report:
             with open(args.report, "w", encoding="utf-8", newline="\n") as f:
                 json.dump(reps, f, indent=1, default=lambda o: o.item() if hasattr(o, "item") else str(o))

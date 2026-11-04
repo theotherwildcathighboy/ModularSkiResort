@@ -1522,3 +1522,68 @@ def export_fbx_skinned(obj, armature, path, unit_scale=CS2_UNIT_SCALE):
                 bpy.data.armatures.remove(data)
         obj.name, obj.data.name = names[0], names[1]
         armature.name, armature.data.name = names[2], names[3]
+
+
+# -- sibling exports (an asset on another asset's texture set; DECISIONS 592 c) ----------------------------------------------
+
+SIBLING_MAPS = ("BaseColor", "ControlMask", "MaskMap", "Normal")
+
+
+def deployed_asset_names(repo):
+    """Every asset / prefab name the game has seen: the folder names under gamedata-mirror/ImportedData ('<Name> Mesh'
+    folded to <Name>) and the stems of its files (up to the first '.' or '_')."""
+    import re
+    root = os.path.join(repo, "gamedata-mirror", "ImportedData")
+    names = set()
+    for _dp, dns, fns in os.walk(root):
+        for d in dns:
+            names.add(d[:-len(" Mesh")] if d.endswith(" Mesh") else d)
+        for f in fns:
+            names.add(re.split(r"[._]", f, maxsplit=1)[0])
+    return names
+
+
+def assert_new_asset_name(name, repo):
+    """A new generation letter per import round: never export under a name the game already imported (the Editor mints
+    a new mesh CID per import; prefabs repoint by CID)."""
+    if name in deployed_asset_names(repo):
+        raise ValueError(f"{name} is already deployed (gamedata-mirror/ImportedData): pick a new generation letter")
+
+
+def sibling_settings(asset_dir, name, owner, levels, maps=SIBLING_MAPS):
+    """settings.json of an asset with no PNG of its own that shares its OWNER's LOD0 set (the owner a sibling folder:
+    the family-folder rule, PIPELINE section 4): every map key of LOD0 and of each supplied LOD points STRAIGHT at
+    `../<owner>/<owner>_<Map>.png` (no key chains through another key), LOD1..levels Skip, useProceduralAnimation (the
+    skinned towers). One set of one size for every level: the owner's LOD0 maps. Refuses when the owner's maps are
+    missing or differ in size (never mix map sizes in one texture set). Returns the path."""
+    odir = os.path.join(os.path.dirname(asset_dir), owner)
+    miss = [m for m in maps if not os.path.isfile(os.path.join(odir, f"{owner}_{m}.png"))]
+    if miss:
+        raise FileNotFoundError(f"{name}: the owner's maps {miss} are missing in {odir} (the import resolves them there)")
+    sizes = {}
+    for m in maps:
+        with open(os.path.join(odir, f"{owner}_{m}.png"), "rb") as fh:
+            head = fh.read(24)
+        sizes[m] = (int.from_bytes(head[16:20], "big"), int.from_bytes(head[20:24], "big"))
+    if len(set(sizes.values())) != 1:
+        raise ValueError(f"{name}: the owner {owner}'s maps differ in size {sizes}: never mix map sizes in one set")
+    shared = {}
+    for lod in range(levels + 1):
+        for m in maps:
+            shared[f"{name}_{m}.png" if lod == 0 else f"{name}_LOD{lod}_{m}.png"] = f"../{owner}/{owner}_{m}.png"
+    settings = {"sharedAssets": shared}
+    for lod in range(1, levels + 1):
+        settings[f"LOD{lod}"] = {"mode": "Skip"}
+    settings["useProceduralAnimation"] = True
+    path = os.path.join(asset_dir, "settings.json")
+    with open(path, "w", encoding="utf-8") as fh:
+        json.dump(settings, fh, indent=2)
+    return path
+
+
+def clean_asset_folder(asset_dir, name):
+    """Before a re-export: remove this asset's own files (`<name>*`, settings.json); never anything else."""
+    for f in os.listdir(asset_dir):
+        p = os.path.join(asset_dir, f)
+        if os.path.isfile(p) and (f.startswith(name) or f == "settings.json"):
+            os.remove(p)

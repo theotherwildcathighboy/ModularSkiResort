@@ -9,7 +9,14 @@ REL 30 / LEAN_MAX 25 for trams, so the head (lift_head letter T), the FG halves'
 about its foot (the Transform origin: the node on the ground; the position does not move), so the rope anchor moves by
 yA sin(lean) (tilted-towers spike section 1) and the foundation turns with the tower.
 
-Poses (Blender deg, net frame: x lateral, y travel, z up; a uniform pose theta raises the +y end): at a lean L the world
+Yaw (2026-11-04, the owner on the approved sheets: the crash pad faced downhill): the scenes put uphill at +y, and every
+tower is built with its uphill face at net -y (the crash pad's padded face and warning triangle, lift_tower.build_crash_pad
+/ cs2_asset.CRASHPAD: authoring +X -> net -y; the opening, the ladder and the deck ends downhill; TrainFront = net -y =
+game +z). So every tower is turned 180 deg about z (yaw(): x -> -x, y -> -y) into the scene: the padded face uphill (+y),
+TrainFront on the uphill half. pose_fn(down, up) takes the halves BY SIDE (the downhill -y half first) and names the
+bones; the ropes are built in the mesh frame (the angles negated) and turned with the tower.
+
+Poses (Blender deg, scene frame: x lateral, y travel, z up; a uniform pose theta raises the +y end): at a lean L the world
 rope pitch is min(L + REL, PITCH_CAP), PITCH_CAP at L = LEAN_MAX (the steepest pitch that lean meets; FG: 38 at 25, the
 mean 13 off the mast) (L = 0: the steepest plumb pitch, REL), the mean relative to the mast pitch - L, the
 terrain a plane through the foot rising toward +y at that pitch ("matched"), the mast turned by +L about x through the
@@ -58,7 +65,8 @@ LEAN_MAX = {"FG": 25.0, "DQ": 20.0, "GD": 20.0, "tram": TS.LEAN_MAX}
 # the mean relative to the mast once the mast leans (head first: LiftAlignMath's lean rule)
 REL = {"FG": 12.0, "DQ": LH.HEAD_RANGES["T"]["head"], "GD": LH.HEAD_RANGES["T"]["head"], "tram": TS.MEAN_REL_MAX}
 LEANS = {"FG": (0.0, 10.0, 20.0, 25.0), "DQ": (0.0, 10.0, 20.0), "GD": (0.0, 10.0, 20.0), "tram": (0.0, 10.0, 20.0, 25.0)}
-FG_MAX_HALVES = (29.0, -3.0)    # deg rel mast: the FG halves at the 38 cap, lean 25 (mean 13 +- a 16 deg half-break)
+# deg rel mast, (downhill, uphill) half: the FG at the 38 cap, lean 25 (mean 13 +- a 16 deg half-break)
+FG_MAX_HALVES = (29.0, -3.0)
 FG_REACH = (30.0, 33.0, 36.0)   # deg: the FG art's G6 (joint_grid at this theta max) tried per member (report only)
 FG_MEMBERS = ("FG8", "FG12", "FG16", "FG20")
 FG_TWINS = tuple(k for k, (m, _kind) in LT.TWINS.items() if m in FG_MEMBERS)
@@ -111,6 +119,15 @@ def rel_pitch(typ, lean):
 
 # -- towers: (obj, spec, bones, vertex bone index, pivots, pose(theta), ropes(pose), stage) ------------------------------
 
+def yaw(co):
+    """(N, 3) coordinates turned 180 deg about z (x -> -x, y -> -y): the tower's mesh frame (uphill face at net -y) into
+    the scene (uphill +y). A proper rotation: no winding flip. Every bone pivot lies on y = 0, so the pivots stay."""
+    out = np.array(co, dtype=np.float64, copy=True)
+    out[:, 0] *= -1.0
+    out[:, 1] *= -1.0
+    return out
+
+
 class Tower:
     def __init__(self, typ, key, t, table, spec, bones, part_bone, pivots, pose_fn, ropes_fn, asset_dir, name):
         self.typ, self.key, self.t, self.table, self.spec = typ, key, t, table, spec
@@ -118,7 +135,10 @@ class Tower:
         self.bones, self.pivots, self.pose_fn, self.ropes_fn = bones, pivots, pose_fn, ropes_fn
         self.asset_dir, self.name = asset_dir, name
         _names, _fb, self.vb = cs2_skin.face_bones(t, table, part_bone, list(bones))
-        self.co = cs2_skin.coords(t)
+        self.co = yaw(cs2_skin.coords(t))           # the scene's rest coordinates (yaw: the padded face uphill)
+        for b, p in pivots.items():
+            if abs(p[0]) > 1e-9:
+                raise RuntimeError(f"{name}: pivot {b} off y = 0 ({p}): yaw() would move it")
         self.top = float(self.co[:, 2].max())
         fp = cs2_skin.face_parts(t, table)
         vpart = {}
@@ -147,8 +167,8 @@ def fg_tower(key, out):
     LT.stage_textures(member, asset_dir, name)
     piv = LT.skin_pivot(spec)
 
-    def pose(th, th2=None):
-        return {"TrainFront": th, "TrainBack": th if th2 is None else th2}
+    def pose(down, up=None):        # by side: the downhill (-y) half = TrainBack, the uphill (+y) = TrainFront (yaw)
+        return {"TrainFront": down if up is None else up, "TrainBack": down}
 
     def ropes(p):
         return LT.skin_rope_runs(spec, p, run=14.0, preview=True)
@@ -189,9 +209,9 @@ def headed_tower(key, out):
     piv = LT.skin_pivot(spec)
     za = LH.comm_anchor(tw)
 
-    def pose(th, th2=None):
-        th2 = th if th2 is None else th2
-        return {"TrainFront": th, "TrainBack": th2, LH.HEAD_BONE: 0.5 * (th + th2)}
+    def pose(down, up=None):        # by side (yaw: TrainFront uphill)
+        up = down if up is None else up
+        return {"TrainFront": up, "TrainBack": down, LH.HEAD_BONE: 0.5 * (down + up)}
 
     def ropes(p):
         return LT.skin_rope_runs(spec, p, run=14.0, preview=True) + LH.comm_runs(spec, p, za, run=16.0)
@@ -219,8 +239,8 @@ def tram_tower(H, out):
     TS.stage_textures(H, asset_dir, name)
     pb = TT.skin_part_bones(t, table)
 
-    def pose(th, th2=None):
-        return TT.skin_pose(th, th if th2 is None else th2)
+    def pose(down, up=None):        # by side (yaw: TrainFront uphill)
+        return TT.skin_pose(down if up is None else up, down)
 
     def ropes(p):
         return TT.skin_rope_runs(spec, p, run=40.0, preview=True)
@@ -313,9 +333,10 @@ def posed_object(tw, pose, lean):
 def rope_objects(tw, pose, lean):
     mat = _mat("LeanRope", (0.03, 0.03, 0.03), metal=0.7, rough=0.45)
     out = []
-    for v, f in tw.ropes_fn(pose):
+    # the scene pose in the mesh frame: the 180 deg yaw turns a rotation about +x into one about -x
+    for v, f in tw.ropes_fn({b: -a for b, a in pose.items()}):
         me = bpy.data.meshes.new(f"{tw.name}Rope")
-        me.from_pydata([tuple(p) for p in leaned(np.array(v), lean)], [], f)
+        me.from_pydata([tuple(p) for p in leaned(yaw(np.array(v)), lean)], [], f)
         me.materials.append(mat)
         ob = bpy.data.objects.new(me.name, me)
         bpy.context.collection.objects.link(ob)
@@ -398,8 +419,7 @@ def close_poses(tw):
     for s in (-1.0, 1.0):
         h = s * CLOSE_HEAD
         f, b = max(-hm, min(hm, h - d)), max(-hm, min(hm, h + d))
-        out.append((f"h{'m' if s < 0 else 'p'}{int(CLOSE_HEAD)}", s * LEAN_MAX[tw.typ],
-                    {"TrainFront": f, "TrainBack": b, LH.HEAD_BONE: h}))
+        out.append((f"h{'m' if s < 0 else 'p'}{int(CLOSE_HEAD)}", s * LEAN_MAX[tw.typ], tw.pose_fn(f, b)))
     return out
 
 
