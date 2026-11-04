@@ -1,9 +1,11 @@
-// Tests for the pure stateless shuttle profile (ShuttleProfile.cs). Where-tags `shuttle/...`, SH-1..SH-11; v 10 m/s, a 0.8 m/s^2, dwell 60 s.
+// Tests for the pure stateless shuttle profile (ShuttleProfile.cs). Where-tags `shuttle/...`, SH-1..SH-12; v 10 m/s, a 0.8 m/s^2, dwell 60 s.
 // Pinned: TripTimeS (triangle below 125 m, trapezoid above), DistanceAt (continuous, monotone, C1 at the ramp ends), PeriodS, FractionA /
 // HoldFractionA legs and periodicity, cabin B = 1 - A, TimeSOf == ((double)f + ft) / 60.0 bit for bit (one game day = 262,144 frames),
 // CapacityPerHour (a -> infinity gives 2,250 at 1 km and 1,000 at 3 km), invalid inputs -> DwellBase, QuantizeLengthM (1 cm buckets).
 // SH-11, the tram's terminal reach on LiftLoopTopology: a Shuttle station owns a terminal within MaxDockRunM of a dock (rope tips
 // ~29 / 30 m out close both chains, 31 m and ~60 m stay unclosed); Loop mode and docks-less stations keep the 20 m origin radius.
+// SH-12, the station list order: LiftLoopTopology.SortedStationOrder sorts the harvest by entity (Index, then Version), so two chunk orders of one
+// station set give one signature (the TramShuttle watchdog WARN after an icon clear reordered the chunks); a real change of set still changes it.
 
 using System;
 using System.Collections.Generic;
@@ -34,6 +36,7 @@ namespace LiftBatch
             Sh9Invalid();
             Sh10Quantum();
             Sh11TerminalReach();
+            Sh12StationOrder();
             s_Check = null;
         }
 
@@ -513,6 +516,132 @@ namespace LiftBatch
                           W, "(f) " + id + " " + mode + " 25 m out: unclosed " + lf.UnclosedChainCount + " / " + (lf.Diags.Count > 0 ? lf.Diags[0].StartHow : "none"));
                 }
             }
+        }
+
+        // ---- SH-12: the station list is in entity order, so the shuttle signature does not depend on chunk order ----
+
+        /// <summary>The station-dependent part of TramShuttleSystem.LogRebuild's signature: the station count, and per pair the list
+        /// indices the pair notes print plus the base and top entities (Ent(run.Base) / Ent(run.Top)), then the topology's own notes.</summary>
+        private static string StationSignature(Rig rig, IList<int> version)
+        {
+            LiftLoopTopology t = rig.Build(LiftLoopTopology.Mode.Shuttle);
+            var sb = new System.Text.StringBuilder();
+            sb.Append(rig.Stations.Count).Append(" station(s)");
+            foreach (LiftLoopTopology.Pair p in t.Pairs)
+            {
+                sb.Append(" | stations (").Append(p.StationLo).Append(',').Append(p.StationHi).Append("): ").Append(p.Status);
+                if (p.Base >= 0 && p.Top >= 0)
+                    sb.Append(", base = station ").Append(p.Base).Append(' ').Append(rig.Stations[p.Base].OwnerIndex).Append(':').Append(version[p.Base])
+                      .Append(" -> top station ").Append(p.Top).Append(' ').Append(rig.Stations[p.Top].OwnerIndex).Append(':').Append(version[p.Top]);
+            }
+            foreach (string n in t.Notes)
+                sb.Append(" | ").Append(n);
+            return sb.ToString();
+        }
+
+        /// <summary>The harvest's sort: rig.Stations and version reordered by LiftLoopTopology.SortedStationOrder.</summary>
+        private static void SortRig(Rig rig, List<int> version)
+        {
+            var idx = new List<int>();
+            foreach (LiftLoopTopology.Station s in rig.Stations)
+                idx.Add(s.OwnerIndex);
+            var order = new List<int>();
+            LiftLoopTopology.SortedStationOrder(idx, version, order);
+            var stations = new List<LiftLoopTopology.Station>(rig.Stations);
+            var ver = new List<int>(version);
+            for (int k = 0; k < order.Count; k++)
+            {
+                rig.Stations[k] = stations[order[k]];
+                version[k] = ver[order[k]];
+            }
+        }
+
+        private static void Sh12StationOrder()
+        {
+            const string W = "shuttle/SH-12";
+
+            // (a) The order function: any shuffle of one entity set sorts to the same entity sequence; Version breaks an Index tie;
+            //     equal keys keep list order; empty and single lists are fine.
+            var idx = new List<int> { 412, 97, 412, 5, 1030, 97 };
+            var ver = new List<int> { 3, 1, 2, 9, 1, 4 };
+            var expected = new List<string> { "5:9", "97:1", "97:4", "412:2", "412:3", "1030:1" };
+            var rng = new Random(1234);
+            bool allSame = true;
+            string firstBad = null;
+            for (int round = 0; round < 200; round++)
+            {
+                var perm = new List<int> { 0, 1, 2, 3, 4, 5 };
+                for (int i = perm.Count - 1; i > 0; i--)
+                {
+                    int j = rng.Next(i + 1);
+                    int tmp = perm[i];
+                    perm[i] = perm[j];
+                    perm[j] = tmp;
+                }
+                var pi = new List<int>();
+                var pv = new List<int>();
+                foreach (int k in perm)
+                {
+                    pi.Add(idx[k]);
+                    pv.Add(ver[k]);
+                }
+                var order = new List<int>();
+                LiftLoopTopology.SortedStationOrder(pi, pv, order);
+                var got = new List<string>();
+                foreach (int o in order)
+                    got.Add(pi[o] + ":" + pv[o]);
+                if (string.Join(" ", got) != string.Join(" ", expected))
+                {
+                    allSame = false;
+                    firstBad = firstBad ?? string.Join(" ", got);
+                }
+            }
+            Check(allSame, W, "(a) 200 shuffles do not sort to one sequence: " + firstBad);
+            var dupOrder = new List<int>();
+            LiftLoopTopology.SortedStationOrder(new List<int> { 7, 7, 3 }, new List<int> { 1, 1, 1 }, dupOrder);
+            Check(string.Join(",", dupOrder) == "2,0,1", W, "(a) equal keys do not keep list order: " + string.Join(",", dupOrder));
+            var emptyOrder = new List<int> { 9 };
+            LiftLoopTopology.SortedStationOrder(new List<int>(), new List<int>(), emptyOrder);
+            Check(emptyOrder.Count == 0, W, "(a) empty list leaves a stale order");
+
+            // (b) The bug: the same two stations listed in the other chunk order read as a different shuttle set (the watchdog WARN).
+            Rig fwd = TramRig();
+            var fwdVer = new List<int> { 1, 1 };
+            Rig rev = TramRig();
+            rev.Stations.Reverse();
+            var revVer = new List<int> { 1, 1 };
+            string sigFwd = StationSignature(fwd, fwdVer), sigRev = StationSignature(rev, revVer);
+            Check(sigFwd != sigRev, W, "(b) precondition: the unsorted lists should read differently (" + sigFwd + " / " + sigRev + ")");
+            Check(sigFwd.Contains("Ok, base = station 0 100:1 -> top station 1 101:1"), W, "(b) forward signature: " + sigFwd);
+
+            // (c) Sorted by entity, both orders give one signature, byte for byte, and the same base / top entities.
+            SortRig(fwd, fwdVer);
+            SortRig(rev, revVer);
+            string sortedFwd = StationSignature(fwd, fwdVer), sortedRev = StationSignature(rev, revVer);
+            Check(sortedFwd == sortedRev, W, "(c) sorted orders differ: " + sortedFwd + " / " + sortedRev);
+            Check(sortedRev.Contains("Ok, base = station 0 100:1 -> top station 1 101:1"), W, "(c) base / top entities after the sort: " + sortedRev);
+
+            // (d) A real change of set still changes the signature: a station gone, a station added (it sorts first, so the other
+            //     stations' indices move too), a recycled entity (same Index, new Version) as the base.
+            Rig gone = TramRig();
+            gone.Stations.RemoveAt(1);
+            var goneVer = new List<int> { 1 };
+            SortRig(gone, goneVer);
+            Check(StationSignature(gone, goneVer) != sortedFwd, W, "(d) a station gone left the signature unchanged");
+
+            Rig added = TramRig();
+            var addedVer = new List<int> { 1, 1 };
+            added.Stations.Add(new LiftLoopTopology.Station { OwnerIndex = 50, Position = new float3(900f, 0f, -900f), Role = 0 });
+            addedVer.Add(1);
+            SortRig(added, addedVer);
+            string sigAdded = StationSignature(added, addedVer);
+            Check(sigAdded != sortedFwd, W, "(d) a station added left the signature unchanged");
+
+            Rig recycled = TramRig();
+            var recycledVer = new List<int> { 2, 1 };
+            SortRig(recycled, recycledVer);
+            string sigRecycled = StationSignature(recycled, recycledVer);
+            Check(sigRecycled != sortedFwd && sigRecycled.Contains("base = station 0 100:2"), W, "(d) a recycled base entity left the signature unchanged: " + sigRecycled);
         }
     }
 }

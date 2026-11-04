@@ -163,6 +163,19 @@ and stripped by CleanUpSystem (SystemOrder.cs:54) the same frame, so they never 
 Census gate: nothing is written until the census has built once this load (IsArmed && Builds > 0; Builds resets per load); after 120
 frames without a build it runs on the cable path alone (no census rows: Complete assumed, power Unknown = powered) with one WARN.
 
+### Station order and the watchdog signature
+
+The rebuild signature (LogRebuild) and the pair notes name stations by their index in `m_StationList`, and the watchdog WARNs "the shuttle set
+changed without an event" when a watchdog rebuild writes a different signature. HarvestStations used to list stations in chunk order, and
+that order moves without a census revision: the icon clear that removes IconElement from a new station (IconCommandSystem.cs:415,
+1.6.0f1) re-archetypes it and reorders the chunks, 13-17 s after a second tram was built (field test; the F1 bridge run reproduced it),
+so only the station indices differed and the run rebuilt. Fixed: HarvestStations sorts the station list (with its parallel Transform and
+StationDef lists) by entity, Index then Version (`LiftLoopTopology.SortedStationOrder`, LiftBatch SH-12), before the owner map is built.
+A real change of the set (a station built or gone, a recycled entity) still changes the signature. The sort moves no behavior: pairs and
+runs follow lane order (lanes are sorted by lane entity, LiftLaneHarvest.SortByLane), and a station index is only ever text or a lookup
+into these same lists. Same pattern elsewhere: ChairPinSystem's station scan is also in chunk order, but its rebuild signature is a count
+fingerprint with no station index (only its build notes in dumps carry them).
+
 ## Vanilla facts relied on
 
 - A building's sub-objects are re-placed only when SubObjectSystem processes that owner (Created / Updated / Deleted or a

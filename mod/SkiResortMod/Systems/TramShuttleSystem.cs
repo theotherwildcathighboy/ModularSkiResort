@@ -1139,6 +1139,12 @@ namespace SkiResortMod.Systems
                 chunks.Dispose();
             }
 
+            // Station list order = entity order (Index, then Version), not chunk order: the pair notes and the rebuild signature name
+            // stations by list index, and an icon clear (IconElement removed) reorders the chunks without a census revision, which the
+            // watchdog read as "the shuttle set changed without an event". The pairing keys on lane order, not on station order, so the
+            // sort moves no run or pairing, only the numbers in the text.
+            SortStationsByEntity();
+
             // Station ownership map for the chain walk (ChairPinSystem.cs:1359-1370 verbatim): a station's anchors may be
             // stamped with the station itself OR one of its children (sub-objects, sub-net nodes / edges).
             for (int i = 0; i < m_StationList.Count; i++)
@@ -1155,6 +1161,44 @@ namespace SkiResortMod.Systems
                 // 1.6.0), so a terminal's owner index is the LINE's edge, never a node: there is no node to map here. The station
                 // map is only ever hit when FindAnchor snapped the end to a station-owned lane; otherwise the terminal falls to
                 // the position rules (dock reach, LiftLoopTopology.ClassifyShuttleTerminal).
+            }
+        }
+
+        // SortStationsByEntity scratch (rebuild-only, grown once)
+        private readonly List<int> m_SortIndex = new List<int>();
+        private readonly List<int> m_SortVersion = new List<int>();
+        private readonly List<int> m_SortOrder = new List<int>();
+        private readonly List<Entity> m_SortEntities = new List<Entity>();
+        private readonly List<Transform> m_SortTransforms = new List<Transform>();
+        private readonly List<StationDef> m_SortDefs = new List<StationDef>();
+
+        /// <summary>Reorders the three parallel station lists by entity (LiftLoopTopology.SortedStationOrder).</summary>
+        private void SortStationsByEntity()
+        {
+            int n = m_StationList.Count;
+            if (n < 2)
+                return;
+            m_SortIndex.Clear();
+            m_SortVersion.Clear();
+            m_SortEntities.Clear();
+            m_SortTransforms.Clear();
+            m_SortDefs.Clear();
+            for (int i = 0; i < n; i++)
+            {
+                Entity e = m_StationList[i];
+                m_SortIndex.Add(e.Index);
+                m_SortVersion.Add(e.Version);
+                m_SortEntities.Add(e);
+                m_SortTransforms.Add(m_StationTransforms[i]);
+                m_SortDefs.Add(m_StationDefList[i]);
+            }
+            LiftLoopTopology.SortedStationOrder(m_SortIndex, m_SortVersion, m_SortOrder);
+            for (int k = 0; k < n; k++)
+            {
+                int from = m_SortOrder[k];
+                m_StationList[k] = m_SortEntities[from];
+                m_StationTransforms[k] = m_SortTransforms[from];
+                m_StationDefList[k] = m_SortDefs[from];
             }
         }
 
