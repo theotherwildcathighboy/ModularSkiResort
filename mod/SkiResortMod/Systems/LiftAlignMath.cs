@@ -6,6 +6,7 @@
 // so a tower between two spans sees a break-over of the chord change plus 8h.
 // Engine notes: EngineNotes/LiftAlignMath.md
 
+using System;
 using Unity.Mathematics;
 
 namespace SkiResortMod.Systems
@@ -209,6 +210,14 @@ namespace SkiResortMod.Systems
         /// zeros when neither side has a rope.</summary>
         public static bool HalfPitches(float front, int nFront, float back, int nBack, float maxPitch, out float pFront, out float pBack)
         {
+            return HalfPitches(front, nFront, back, nBack, maxPitch, math.radians(MaxHalfBreakDeg), out pFront, out pBack);
+        }
+
+        /// <summary>HalfPitches with the half-break limit <paramref name="maxHalfBreak"/> (radians) of the tower's art (TrainLimits: a
+        /// wide tram saddle clears TramHalfBreakMaxDeg).</summary>
+        public static bool HalfPitches(float front, int nFront, float back, int nBack, float maxPitch, float maxHalfBreak, out float pFront,
+            out float pBack)
+        {
             pFront = pBack = 0f;
             if (nFront == 0 && nBack == 0)
                 return false;
@@ -218,7 +227,7 @@ namespace SkiResortMod.Systems
                 back = front;
             front = math.clamp(front, -maxPitch, maxPitch);
             back = math.clamp(back, -maxPitch, maxPitch);
-            float mid = 0.5f * (front + back), half = 0.5f * (back - front), limit = math.radians(MaxHalfBreakDeg);
+            float mid = 0.5f * (front + back), half = 0.5f * (back - front), limit = maxHalfBreak;
             bool clamped = math.abs(half) > limit;
             if (clamped)
             {
@@ -237,6 +246,12 @@ namespace SkiResortMod.Systems
         /// LiftTrainLimit row (TrainWarnDeg).</summary>
         public static float TrainOverDeg(float front, int nFront, float back, int nBack, float maxPitch)
         {
+            return TrainOverDeg(front, nFront, back, nBack, maxPitch, math.radians(MaxHalfBreakDeg));
+        }
+
+        /// <summary>TrainOverDeg with the half-break limit <paramref name="maxHalfBreak"/> (radians) of the tower's art (TrainLimits).</summary>
+        public static float TrainOverDeg(float front, int nFront, float back, int nBack, float maxPitch, float maxHalfBreak)
+        {
             if (nFront == 0 && nBack == 0)
                 return 0f;
             if (nFront == 0)
@@ -244,8 +259,60 @@ namespace SkiResortMod.Systems
             else if (nBack == 0)
                 back = front;
             float pitch = math.max(math.abs(front), math.abs(back)) - maxPitch;
-            float halfBreak = 0.5f * math.abs(back - front) - math.radians(MaxHalfBreakDeg);
+            float halfBreak = 0.5f * math.abs(back - front) - maxHalfBreak;
             return math.max(0f, math.degrees(math.max(pitch, halfBreak)));
+        }
+
+        /// <summary>Tram saddle halves of art letter D or later (DECISIONS 597; docs research/art/tram-saddle-2026-11/build.md): each
+        /// half follows its rope to this many degrees. A saddle half is the end zone of a real tram saddle, whose shoe leaves the rope
+        /// tangentially however steep the span (34 Pa. Code 7.428(e)(2): the rope never reaches the groove's end), so the tram is not
+        /// held to TrainPitchLimitDeg's upright-train look. 60 is the static head's rope reach (the tram's steepest rope is 68.2 deg;
+        /// past 60 the rope meets the lifting lugs whatever the halves do). The art clears it (tram_saddle.py G6 joint grid 60 / 30).</summary>
+        public const float TramSaddlePitchLimitDeg = 60f;
+
+        /// <summary>The half-break the letter D tram saddle halves clear (V-notch faces 32 deg off the vertical, haul rollers 0.10 m
+        /// further out): 30 deg, against MaxHalfBreakDeg for every other train.</summary>
+        public const float TramHalfBreakMaxDeg = 30f;
+
+        /// <summary>The first tram tower art letter whose saddle halves clear TramSaddlePitchLimitDeg / TramHalfBreakMaxDeg.</summary>
+        public const char WideTramSaddleLetter = 'D';
+
+        /// <summary>True when <paramref name="meshName"/> (a tower mesh's RenderPrefab name, "SkiTramTower30D Mesh", "SkiTramTower45D_LOD1
+        /// Mesh") is a tram tower of art letter WideTramSaddleLetter or later: its train limits are the tram saddle's (TrainLimits). An
+        /// earlier letter, a name without one or any other mesh keeps the train limits, so this code never folds a narrow saddle past
+        /// what its art clears (the meshes arrive with the import round).</summary>
+        public static bool WideTramSaddle(string meshName)
+        {
+            const string prefix = "SkiTramTower";
+            if (meshName == null || !meshName.StartsWith(prefix, StringComparison.Ordinal))
+                return false;
+            int i = prefix.Length, digits = 0;
+            while (i < meshName.Length && meshName[i] >= '0' && meshName[i] <= '9')
+            {
+                i++;
+                digits++;
+            }
+            if (digits == 0 || i >= meshName.Length)
+                return false;
+            char letter = meshName[i];
+            bool endOfLetter = i + 1 == meshName.Length || !char.IsLetter(meshName[i + 1]);
+            return letter >= WideTramSaddleLetter && letter <= 'Z' && endOfLetter;
+        }
+
+        /// <summary>A tower's train limits, radians: a wide tram saddle (WideTramSaddle) TramSaddlePitchLimitDeg (at most the type's
+        /// steepest rope, MaxTrainPitch) and TramHalfBreakMaxDeg; every other train TrainPitchLimit and MaxHalfBreakDeg.</summary>
+        public static void TrainLimits(float slopeMax, bool wideTramSaddle, out float maxPitch, out float maxHalfBreak)
+        {
+            if (wideTramSaddle)
+            {
+                maxPitch = math.min(MaxTrainPitch(slopeMax), math.radians(TramSaddlePitchLimitDeg));
+                maxHalfBreak = math.radians(TramHalfBreakMaxDeg);
+            }
+            else
+            {
+                maxPitch = TrainPitchLimit(slopeMax);
+                maxHalfBreak = math.radians(MaxHalfBreakDeg);
+            }
         }
 
         /// <summary>The head pitch of a headed tower (DQ / GD, DECISIONS 594; spike tilted-towers-2026-11-04 option B): the whole head

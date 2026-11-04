@@ -103,6 +103,9 @@ namespace LiftBatch
             BreakoverTests.Run(Check);
             foreach (string line in BreakoverTests.Report)
                 Console.WriteLine("ANGLE " + line);
+            TramSaddleTests.Run(Check);
+            foreach (string line in TramSaddleTests.Report)
+                Console.WriteLine("SADDL " + line);
             DirectionTests.Run(Check);
             foreach (string line in DirectionTests.Report)
                 Console.WriteLine("DIR   " + line);

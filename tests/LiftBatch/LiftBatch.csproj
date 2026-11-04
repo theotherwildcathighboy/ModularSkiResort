@@ -89,6 +89,7 @@
     <Compile Include="RopePickTests.cs" />
     <!-- Breakover pairs and train kinds (phase B1): RopeAngles, the caps, the planner's pair repair, kinds with hysteresis (AL-12..14, BO, HD, CO). -->
     <Compile Include="BreakoverTests.cs" />
+    <Compile Include="TramSaddleTests.cs" />
     <!-- The same line gives the same plan from either end (planner-direction): the planner works from the lower rope and mirrors (DR). -->
     <Compile Include="DirectionTests.cs" />
   </ItemGroup>

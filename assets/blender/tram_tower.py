@@ -414,6 +414,10 @@ SKIN_TRAM = dict(
     knee_y=4.25,               # the knee braces end under the arm at the hanger posts
     bar_gap=0.11,              # haul bar halves start this far off x 0 (the bottom corners clear the 20 deg break)
     tie_x=1.10, plate=(0.14, 0.03, 0.14), plate_gap=0.010,   # haul tie lap plate (x, y, z), off the inboard web face
+    # tram saddle round (DECISIONS 597, tram_saddle.py builds letter D on these hooks; the defaults are the shipped C):
+    half_break=cs2_skin.HALF_BREAK_MAX,   # deg: the half-break G6 sweeps (cs2_skin.joint_grid brk), the manifest records
+    joint_d=None,              # m: a saddle half's depth at its V-notch end (None = SADDLE d, a straight box; D: a haunch)
+    roller_out=0.0,            # m: each half's haul rollers moved outboard along travel (D: the inner pair clears the break)
 )
 SKIN_CLEAR_MIN = 0.005         # m (cs2_skin G6, as lift_tower)
 SKIN_PIN_GAP_MAX = 0.005
@@ -2071,9 +2075,11 @@ def saddle_half_part(name, spec, y_c, sign, liner):
     xm = (xc + L2) / 2.0
     us = (-w2, -w2, w2, w2)
 
+    dj = SKIN_TRAM["joint_d"] or d          # the V-notch end's depth (D: a haunch toward the joint)
+
     def ring(x_abs, inner=False):
         T = skin_saddle_top(spec, 0.0 if inner else x_abs)
-        zs = (T, T - d, T - d, T)
+        zs = (T, T - dj, T - dj, T) if inner else (T, T - d, T - d, T)
         return [Vector((sign * (skin_notch_x(spec, z) if inner else x_abs), y_c + u, z)) for u, z in zip(us, zs)]
     rings = [ring(None, True), ring(xc), ring(xm), ring(L2)]
     if sign < 0:
@@ -2220,12 +2226,13 @@ def build_skin_haul_row(P, spec, s, tag, axle):
     travel, 0.40 (1 - cos t) up) and never into it."""
     K, R = SKIN_TRAM, ROLLER
     yh = s * TRAM["haul_y"]
-    for kk, x in enumerate(R["x"]):
+    rx = skin_roller_x()
+    for kk, x in enumerate(rx):
         sh, ln = _haul_wheel(f"haulroll_{tag}_{kk}", f"haulroll_liner_{tag}_{kk}", (x, yh, axle(x)))
         P.add(sh, cs2_sheaves.wheel_key("galv"))
         P.add(ln, "rubber")
     yb = s * (TRAM["haul_y"] - R["bar_dy"])
-    xe = max(R["x"]) + R["r"]
+    xe = max(rx) + R["r"]
     y0 = yb + s * (R["bar_w"] / 2.0 - DP1["tie_short"])
     y_web = TRAM["lane_y"] - SADDLE["w"] / 2.0
     py, pt = y_web - K["plate_gap"] - K["plate"][1] / 2.0, K["plate"][1]
@@ -2237,6 +2244,11 @@ def build_skin_haul_row(P, spec, s, tag, axle):
         P.member(f"haulroll_tie_{tag}_{ht}", [(x, y0, axle(x)), (x, s * (py - pt / 2.0 + 0.005), axle(x))],
                  R["tie_w"], hint=ZV)
         P.box(f"haulroll_tiep_{tag}_{ht}", K["plate"], (x, s * py, axle(x)))
+
+
+def skin_roller_x():
+    """The SKINNED haul rollers' travel x: ROLLER x, each moved roller_out outboard (0 = the shipped C row)."""
+    return tuple(x + math.copysign(SKIN_TRAM["roller_out"], x) for x in ROLLER["x"])
 
 
 def skin_pivots(spec):
@@ -2298,7 +2310,7 @@ def build_skin_armature(spec, name):
 
 def skin_extents(spec):
     """m from the pivot to the outer end of a saddle half / a haul half along travel."""
-    return spec.saddle_l / 2.0, max(ROLLER["x"]) + ROLLER["r"]
+    return spec.saddle_l / 2.0, max(skin_roller_x()) + ROLLER["r"]
 
 
 def preview_ropes():
@@ -2335,9 +2347,10 @@ def _skin_crown(n):
     return n.startswith("saddle_") or (n.startswith("haulroll_") and not n.startswith(("haulroll_bar", "haulroll_tie")))
 
 
-def skin_sweep(obj, table, spec, part_bone, tmax=None, gate=True, label=None):
+def skin_sweep(obj, table, spec, part_bone, tmax=None, gate=True, label=None, pairs=None):
     """G6 on the joined net-frame LOD0 (cs2_skin.sweep over cs2_skin.joint_grid(tmax), haul halves at their saddle
-    halves' pitch); gate=True raises ContractError on a failed gate after logging every pose. Returns the report (m)."""
+    halves' pitch); gate=True raises ContractError on a failed gate after logging every pose. `pairs` [(front, back)]
+    deg replaces the grid (tram_saddle.py: the planner's poses). Returns the report (m)."""
     tmax = SKIN_TRAM["theta_max"] if tmax is None else tmax
     label = label or f"tram{spec.H}"
     bones = list(SKIN_BONES)
@@ -2348,7 +2361,8 @@ def skin_sweep(obj, table, spec, part_bone, tmax=None, gate=True, label=None):
     co = cs2_skin.coords(obj)
     polys = [tuple(p.vertices) for p in obj.data.polygons]
     pivots = skin_pivots(spec)
-    poses = [skin_pose(f, b) for f, b in cs2_skin.joint_grid(tmax)]
+    grid = pairs if pairs is not None else cs2_skin.joint_grid(tmax, SKIN_TRAM["half_break"])
+    poses = [skin_pose(f, b) for f, b in grid]
     fx = np.array([co[list(p), 0].mean() for p in polys])
     wf = {}
     for bi, b in enumerate(bones[1:], start=1):
@@ -2373,7 +2387,7 @@ def skin_sweep(obj, table, spec, part_bone, tmax=None, gate=True, label=None):
     seat0 = seats(co, {})
     gaps = [g for runs in seat0.values() for _d, g in runs]
     n_tops = sum(len(r) for r in seat0.values())
-    print(f"[tram_tower] G6 [{label}] {len(poses)} poses (theta_max {tmax}, half-break <= {cs2_skin.HALF_BREAK_MAX}); "
+    print(f"[tram_tower] G6 [{label}] {len(poses)} poses (theta_max {tmax}, half-break <= {SKIN_TRAM['half_break']}); "
           f"min clearance {rep['min_clear']['m'] * 1000:.1f} mm at {rep['min_clear']['pose']} "
           f"({' / '.join(str(n) for n in rep['min_clear']['parts'] or [])}); rest seat {n_tops} crowns "
           f"{min(gaps) * 1000:.2f}..{max(gaps) * 1000:.2f} mm")
@@ -2389,7 +2403,7 @@ def skin_sweep(obj, table, spec, part_bone, tmax=None, gate=True, label=None):
         print(f"[tram_tower] ok [{label}] G6 joint sweep: {len(poses)} poses, no overlap, clearance >= "
               f"{SKIN_CLEAR_MIN * 1000:.0f} mm, every half's rope clear and seated on all {n_tops} crowns")
     rep.update({"pivots_net": {b: [0.0, p[0], p[1]] for b, p in pivots.items()}, "theta_max_deg": tmax,
-                "half_break_max_deg": cs2_skin.HALF_BREAK_MAX, "seat_rest_m": seat0, "seat_tops": n_tops,
+                "half_break_max_deg": SKIN_TRAM["half_break"], "seat_rest_m": seat0, "seat_tops": n_tops,
                 "train_parts": {b: sorted(n for n, v in part_bone.items() if v == b) for b in bones[1:]},
                 "verts": int(len(co))})
     return rep
@@ -2426,7 +2440,7 @@ def skin_views(spec):
     half-break limit, a steep crest (theta_max / theta_max - 40); the rocker pin from outboard (joint views)."""
     z0 = spec.z0
     k = 50.0 / 15.6
-    tm = SKIN_TRAM["theta_max"]
+    tm, hb = SKIN_TRAM["theta_max"], SKIN_TRAM["half_break"]
     tc = (TRAM["lane_y"], 0.0, z0 - 0.6)
 
     def side(tag, d=1.0):
@@ -2447,9 +2461,9 @@ def skin_views(spec):
                                              # family round: the whole head on the crest (the owner's crest shot)
                                              dict(name="skin_head_34_crest30", dir=(1.0, -1.1, 0.35),
                                                   target=(0.0, 0.0, z0 - 0.4), lens=35.0, dist=7.5 * 35.0 / 15.6)]),
-        ("limit40", skin_pose(20.0, -20.0), [side("limit40")]),
+        (f"limit{2 * hb:g}", skin_pose(hb, -hb), [side(f"limit{2 * hb:g}")]),
         (f"slope{tm:g}", skin_pose(tm, tm), [side(f"slope{tm:g}", 1.15), q34(f"slope{tm:g}", 1.2)]),
-        ("steep", skin_pose(tm, round(tm - 40.0, 3)), [side("steep", 1.15), joint("steep")]),
+        ("steep", skin_pose(tm, round(tm - 2.0 * hb, 3)), [side("steep", 1.15), joint("steep")]),
     ]
 
 
@@ -2542,11 +2556,12 @@ def skin_manifest_block(spec, skin):
     return {"rule": "lift alignment phase 2 round 2 (option C): the saddle halves on TrainFront / TrainBack (pivot = the "
                     "track rope anchor line), the haul halves on TrainFrontHaul / TrainBackHaul (pivot = the haul anchor "
                     "line 0.40 below, haul option b); each Front bone pitched by its rope toward game +z, each Back bone "
-                    "toward -z, about local X (+ lowers the game +z end), clamped to theta_max, half-break to 20 deg",
+                    "toward -z, about local X (+ lowers the game +z end), clamped to theta_max, half-break to "
+                    f"{SKIN_TRAM['half_break']:g} deg",
             "bones": {b: {"parent": None if b == "Root" else "Root",
                           "head_game": [0.0, 0.0, 0.0] if b == "Root" else [0.0, p[b][1], 0.0],
                           "rest_rotation": [0, 0, 0, 1]} for b in SKIN_BONES},
-            "axis": SKIN_AXIS, "theta_max_deg": SKIN_TRAM["theta_max"], "half_break_max_deg": cs2_skin.HALF_BREAK_MAX,
+            "axis": SKIN_AXIS, "theta_max_deg": SKIN_TRAM["theta_max"], "half_break_max_deg": SKIN_TRAM["half_break"],
             "design": {k: v for k, v in SKIN_TRAM.items()},
             "g6": {k: g6.get(k) for k in ("poses", "min_clear", "seat_rest_m", "seat_tops", "failed")},
             "rope_reach": skin.get("rope_reach"), "weights": skin.get("weights"), "roundtrip": skin.get("roundtrip"),

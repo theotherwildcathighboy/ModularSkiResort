@@ -10,6 +10,9 @@
 //     (LiftAlignMath.LaneEndPitch); the lanes leaving toward +z average to the front pitch, those toward -z to the back pitch
 //     (LiftAlignMath.HalfPitches: each clamped to TrainPitchLimit, the type's steepest rope but at most 30 deg; the half-break to
 //     MaxHalfBreakDeg). Kept in TrainPitch and the TrainBonePose buffer (not saved: the first census of a load recomputes every tower).
+//   Wide tram saddles (DECISIONS 597): a tower whose mesh is a tram tower of art letter D or later (LiftAlignMath.WideTramSaddle on
+//     the RenderPrefab name) takes the tram saddle's limits instead (LiftAlignMath.TrainLimits: each half to TramSaddlePitchLimitDeg
+//     60, the half-break to TramHalfBreakMaxDeg 30); the letter C meshes keep 30 / 20, so this code never folds them past their art.
 //   Train limits (hub row LiftTrainLimit, 2026-11-03): the same pass measures every line tower with anchors, rigged or not, by how far its
 //     rope asks past those limits (LiftAlignMath.TrainOverDeg on the unclamped pitches); a tower over TrainWarnDeg enters TrainOver. When
 //     that set changes the pass asks LiftCensusSystem for a coalesced build, which reads it into LiftCensus.Node.TrainOverDeg.
@@ -110,6 +113,7 @@ namespace SkiResortMod.Systems
         private string m_DirtyWhy = "load";
         private readonly List<LiftCensus.Edge> m_Edges = new List<LiftCensus.Edge>();
         private readonly Dictionary<Entity, List<RigBone>> m_Rigs = new Dictionary<Entity, List<RigBone>>();   // null: no train bone
+        private readonly HashSet<Entity> m_WideTram = new HashSet<Entity>();   // rigged prefabs with a wide tram saddle mesh (RigOf)
         private readonly HashSet<Entity> m_SeenNodes = new HashSet<Entity>();
         private readonly List<float3> m_Anchors = new List<float3>(8);
         private readonly List<Pending> m_Pending = new List<Pending>();
@@ -144,6 +148,7 @@ namespace SkiResortMod.Systems
             m_Dirty = false;
             m_Edges.Clear();
             m_Rigs.Clear();
+            m_WideTram.Clear();
             m_Passes = 0;
             m_LastNoRope = 0;
             m_Over.Clear();
@@ -223,7 +228,7 @@ namespace SkiResortMod.Systems
                     EntityManager.HasComponent<Deleted>(edge) || !EntityManager.TryGetComponent(edge, out Edge e))
                     continue;                             // a newer census build carries the replacement
                 float slopeMax = SkiCatalog.Lifts[ce.Type].Envelope.SlopeMax;
-                float maxPitch = LiftAlignMath.TrainPitchLimit(slopeMax), headMax = LiftAlignMath.MaxTrainPitch(slopeMax);
+                float headMax = LiftAlignMath.MaxTrainPitch(slopeMax);
                 for (int end = 0; end < 2; end++)
                 {
                     Entity node = end == 0 ? e.m_Start : e.m_End;
@@ -238,6 +243,8 @@ namespace SkiResortMod.Systems
                         bool roped = RopeAt(node, pr.m_Prefab, t, out float meanF, out int nF, out float meanB, out int nB);
                         List<RigBone> rig = RigOf(pr.m_Prefab);
                         int headBone = HeadOf(rig);
+                        LiftAlignMath.TrainLimits(slopeMax, rig != null && m_WideTram.Contains(pr.m_Prefab), out float maxPitch,
+                            out float maxHalfBreak);
                         float front = 0f, back = 0f, head = 0f, over = 0f;
                         bool wasClamped = false;
                         if (roped && headBone >= 0)
@@ -247,8 +254,8 @@ namespace SkiResortMod.Systems
                         }
                         else if (roped)
                         {
-                            over = LiftAlignMath.TrainOverDeg(meanF, nF, meanB, nB, maxPitch);
-                            wasClamped = LiftAlignMath.HalfPitches(meanF, nF, meanB, nB, maxPitch, out front, out back);
+                            over = LiftAlignMath.TrainOverDeg(meanF, nF, meanB, nB, maxPitch, maxHalfBreak);
+                            wasClamped = LiftAlignMath.HalfPitches(meanF, nF, meanB, nB, maxPitch, maxHalfBreak, out front, out back);
                         }
                         if (roped && over > LiftAlignMath.TrainWarnDeg)
                             m_OverNext[node] = m_OverNext.TryGetValue(node, out float o) ? math.max(o, over) : over;
@@ -322,7 +329,8 @@ namespace SkiResortMod.Systems
                 Mod.Log.Info($"Towers [trains]: pass {m_Passes} ({why}) rigged towers {towers}, posed {m_Pending.Count} (new {added}), max |pitch| " +
                              $"{maxDeg:F1} deg, max half-break {maxHalfBreakDeg:F1} deg" +
                              (headed > 0 ? $", headed {headed} (max |head| {maxHeadDeg:F1} deg)" : string.Empty) +
-                             (clamped > 0 ? $", {clamped} clamped to the {LiftAlignMath.MaxHalfBreakDeg:F0} deg half-break (rope off the inner wheels)" : string.Empty) +
+                             (clamped > 0 ? $", {clamped} clamped to their half-break limit ({LiftAlignMath.MaxHalfBreakDeg:F0} deg, wide tram " +
+                                            $"saddles {LiftAlignMath.TramHalfBreakMaxDeg:F0}: the rope leaves the inner wheels or the saddle)" : string.Empty) +
                              (noRope > 0 ? $", {noRope} without a rope lane on their anchors (level)" : string.Empty) + $"; {ms:F2} ms");
             }
             m_LastNoRope = noRope;
@@ -337,7 +345,7 @@ namespace SkiResortMod.Systems
                 foreach (float v in m_Over.Values)
                     worst = math.max(worst, v);
                 Mod.Log.Info($"Towers [trains]: {m_Over.Count} line tower(s) whose rope goes past what the train follows (a half past " +
-                             $"its pitch limit or the {2f * LiftAlignMath.MaxHalfBreakDeg:F0} deg break), worst {worst:F1} deg over" +
+                             $"its pitch limit or its half-break limit), worst {worst:F1} deg over" +
                              (m_Over.Count > 0 ? $"; nodes {string.Join(", ", OverNodes())}" : string.Empty) + " (hub: LiftTrainLimit)");
                 m_Census?.RequestBuild("train limits");
             }
@@ -449,6 +457,7 @@ namespace SkiResortMod.Systems
                 return rig;
             rig = null;
             int front = 0, back = 0, head = 0;
+            bool wide = false;
             if (EntityManager.TryGetBuffer(prefab, true, out DynamicBuffer<SubMesh> meshes))
                 for (int j = 0; j < meshes.Length; j++)
                 {
@@ -456,6 +465,7 @@ namespace SkiResortMod.Systems
                     if (!m_PrefabSystem.TryGetPrefab(mesh, out RenderPrefab render) ||
                         !EntityManager.TryGetBuffer(mesh, true, out DynamicBuffer<ProceduralBone> bones))
                         continue;
+                    wide |= LiftAlignMath.WideTramSaddle(render.name);
                     ProceduralAnimationProperties props = render.GetComponent<ProceduralAnimationProperties>();
                     if (props == null || props.m_Bones == null || props.m_Bones.Length != bones.Length)
                         continue;
@@ -488,10 +498,14 @@ namespace SkiResortMod.Systems
                     }
                 }
             m_Rigs[prefab] = rig;
+            if (rig != null && wide)
+                m_WideTram.Add(prefab);
             if (rig != null)
                 Mod.Log.Info($"Towers [trains]: {m_PrefabSystem.GetPrefabName(prefab)} has train bones ({front} front, {back} back" +
                              (head > 0 ? $", {head} head" : string.Empty) + "); its half-trains pitch with the rope" +
                              (head > 0 ? ", its head with their mean" : string.Empty) +
+                             (wide ? $" (wide tram saddle: halves to {LiftAlignMath.TramSaddlePitchLimitDeg:F0} deg, half-break " +
+                                                    $"{LiftAlignMath.TramHalfBreakMaxDeg:F0})" : string.Empty) +
                              (front == 0 || back == 0 ? " — !!! one half has no bone, that half stays level" : string.Empty));
             return rig;
         }
