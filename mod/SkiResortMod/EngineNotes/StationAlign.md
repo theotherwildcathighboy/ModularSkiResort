@@ -73,13 +73,31 @@ LiftReconnectEpisodes.cs.
 ## Reversed snap refusal (FIX-LIST 54(b), StationFacingRefusalSystem)
 
 The vanilla object tool snaps a station's stub sub-net onto a net node with two candidates, the tool's own rotation and the stub aligned
-to the edge, ranked by snap priority from the cursor distance alone (ObjectToolSystem.cs:689-700, NetIterator), so a station turned the wrong way snaps
-onto a lift line end, places and attaches: the field steep tram base at yaw 128.7, its lot front along the line toward the top, stood
-28.8 m above the predicted front. `AttachesBackward(axis, tip, end, other)` is the rule: the stub tip within `AttachTolM` (1 m) of a
-built lift-line edge's end node and that edge's other node behind the stub (`LineLeavesBackward`). StationFacingRefusalSystem applies it
-to every Temp catalog station (not Delete) against every built lift-line edge (no Owner, so not a station's own stub, not Temp), both
-node orders, and writes ErrorSeverity.Error for the station into ValidationSystem.Components' error map (PowerJoinRefusalSystem's
-mechanism and anchor: UpdateBefore Components at ModificationEnd), so the preview is red and cannot be placed; StationFacingTooltipSystem
-shows SkiResort.StationFacing.REFUSED. It refuses, never re-snaps: picking the aligned candidate would mean patching the vanilla tool.
-A station placed loose (not snapped) is never refused; the Align readout keeps its "facing away" hint. Not covered: Move It (no
-validation pass). Tests: LiftBatch EI-54b (the field yaw, turned around, 5 m off the end, 8 stations x 36 yaws x 10 bearings).
+to the edge, ranked by snap priority from the cursor distance alone (ObjectToolSystem.cs:689-700, NetIterator), so a station turned the
+wrong way snaps onto a lift line end, places and attaches: the field steep tram base at yaw 128.7, its lot front along the line toward
+the top, stood 28.8 m above the predicted front.
+
+**Either stub node lands on the end** (in-game check 2026-11-04, field/2026-11-04/plan-fixes-2/RESULTS.md). Every station's HV stub
+(SkiLiftMarker) runs `StubLengthM` (3 m) from its inner node at StubTipLocalZ + 3 to the tip (FG / tram -9 to -12, DQ / gondola -13 to
+-16; EI-48 checks the mirror). At the steep tram base vanilla offered two reversed snaps: the INNER node on the end node, which merged
+(the end node's Temp copy took the SkiLiftMarker prefab, `Temp.m_Original` the end node) and PLACED, and the tip on the node, which
+vanilla already refuses ("Invalid shape"). The first version (7e52477) tested the tip only and missed the one that places; an FG top
+preview showed the same inner merge.
+
+**The rule** (pure, LiftBatch EI-54b): `LineEnds(edges)` gives the TRUE ends of the built lift-line net, the nodes with exactly one
+lift-line edge, each with the line's next node (an interior tower node has two and is never judged; 7e52477 also refused a station on a
+tower node with the next span behind and logged it as a "line end"). `AttachesBackward(axis, tip, inner, end, next)` returns the stub
+node (Tip / Inner, the nearer) within `AttachTolM` (1 m) of the end node when the next node lies behind the stub measured from the end
+node (`LineLeavesBackward`), else None.
+
+**The system** applies it to every Temp catalog station (not Delete) against the true ends this frame's preview touches: an end node that
+some Temp node (not Delete) copies, `Temp.m_Original` == the end. Vanilla makes that copy for every existing node a preview's net
+definition connects to and hides the original (GenerateNodesSystem.cs:1226-1228, :1306); the 54(a) probe saw it on every station snap,
+merged into the stub or not. Edges: lift-line prefab, no Owner (not a station's own stub), not Temp, not Deleted. A match gets
+ErrorSeverity.Error for the station in ValidationSystem.Components' error map (PowerJoinRefusalSystem's mechanism and anchor:
+UpdateBefore Components at ModificationEnd), so the preview is red and cannot be placed; StationFacingTooltipSystem shows
+SkiResort.StationFacing.REFUSED; the INFO line names the stub node, the end node, its Temp copy and the next node. It refuses, never
+re-snaps: picking the aligned candidate would mean patching the vanilla tool. A station placed loose (no Temp copy of the end) is never
+refused; the Align readout keeps its "facing away" hint. An aligned station with its inner node on the end (the line leaving ahead
+through the stub tip) is not a facing case and is left to vanilla. Not covered: Move It (no validation pass). Tests: LiftBatch EI-54b
+(both field snaps, the aligned snap, the FG top, LineEnds, 8 stations x 36 yaws x 2 stub nodes x 10 bearings; fails on 7e52477's rule).

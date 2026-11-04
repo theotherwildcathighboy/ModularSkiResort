@@ -8,7 +8,8 @@
 //       stays clear with them. (c) The lot-front rule: ground falling away beyond the end lowers the rope.
 // EI-55 a top ground end past a crest (FIX-LIST 55): a tower over its cap never reads clear (plan key, Describe, tower key), the
 //       sunk ground end says SUNK_END; a sweep over the FB-3 lines and crest-end tops.
-// EI-54b a station snapped onto a built line end facing away from it is refused (StationAlign.AttachesBackward, FIX-LIST 54(b)).
+// EI-54b a station snapped onto a built line's END node facing away from it is refused, with its stub tip or its stub's inner node on
+//       the node (StationAlign.AttachesBackward / LineEnds, FIX-LIST 54(b)); an interior tower node is not an end.
 
 using System;
 using System.Collections.Generic;
@@ -168,10 +169,12 @@ namespace LiftBatch
 
         /// <summary>The lowest HV rope anchor of a station prefab (the lane's start; also its end when the lane joins two nodes, as
         /// LiftLineToolSystem.AddAnchors / LaneSystem.FindAnchors), the SkiLiftMarker stub's outer point and the lot depth.</summary>
-        private static bool StationMirror(string prefab, string w, out float anchorY, out float3 stubTip, out int lotDepth)
+        private static bool StationMirror(string prefab, string w, out float anchorY, out float3 stubTip, out float3 stubInner,
+                                          out int lotDepth)
         {
             anchorY = float.PositiveInfinity;
             stubTip = new float3(float.NaN);
+            stubInner = new float3(float.NaN);
             lotDepth = 0;
             JsonElement? root = MirrorJson(prefab, w);
             if (root == null)
@@ -198,7 +201,10 @@ namespace LiftBatch
             }
             foreach (JsonElement net in Rows(root.Value, "m_SubNets"))
                 if (CidName(net.GetProperty("m_NetPrefab").GetString()) == "SkiLiftMarker")
+                {
                     stubTip = P(net.GetProperty("m_BezierCurve"), "d");
+                    stubInner = P(net.GetProperty("m_BezierCurve"), "a");
+                }
             return true;
         }
 
@@ -216,7 +222,7 @@ namespace LiftBatch
                     StationDef st = SkiCatalog.StationOf(def.Index, role);
                     if (!Check(st != null, w, def.Id + " " + role + ": no catalog station"))
                         continue;
-                    if (!StationMirror(st.Prefab, w, out float anchorY, out float3 tip, out int lotDepth))
+                    if (!StationMirror(st.Prefab, w, out float anchorY, out float3 tip, out float3 inner, out int lotDepth))
                         continue;
                     rows++;
                     string who = st.Prefab + " (" + def.Id + " " + role + ")";
@@ -228,6 +234,11 @@ namespace LiftBatch
                     Check(math.abs(tip.y) <= 0.005f && math.abs(tip.z - st.StubTipLocalZ) <= 0.005f && math.abs(tip.x - st.StubTipLocalX) <= 0.005f,
                           w, who + ": the SkiLiftMarker stub tip is (" + F(tip.x) + ", " + F(tip.y) + ", " + F(tip.z) + "), the row says (" +
                           F(st.StubTipLocalX) + ", 0, " + F(st.StubTipLocalZ) + ")");
+                    // FIX-LIST 54(b): the refusal places the stub's inner node StubLengthM in from the tip (StationAlign.StubInner).
+                    Check(math.abs(inner.y) <= 0.005f && math.abs(inner.x - st.StubTipLocalX) <= 0.005f &&
+                          math.abs(inner.z - (st.StubTipLocalZ + StationAlign.StubLengthM)) <= 0.005f, w, who + ": the SkiLiftMarker stub's " +
+                          "inner node is (" + F(inner.x) + ", " + F(inner.y) + ", " + F(inner.z) + "), StationAlign.StubInner says (" +
+                          F(st.StubTipLocalX) + ", 0, " + F(st.StubTipLocalZ + StationAlign.StubLengthM) + ")");
                     float tower = c.RopeAboveBase(0);
                     Check(st.RopeAnchorLocalY < tower, w, who + ": the station anchor (" + F(st.RopeAnchorLocalY) +
                           ") is not below the shortest tower's rope (" + F(tower) + ")");
@@ -514,24 +525,62 @@ namespace LiftBatch
                          " with a tower over its cap, none reads clear; PLAN_CLEAR on " + clearKeys + ", all sound");
         }
 
-        // EI-54b: a station snapped onto a built line end facing away from it is refused (StationFacingRefusalSystem's pure rule,
-        // StationAlign.AttachesBackward). The field case: the steep tram base snapped on at yaw 128.7 with its lot front (local +Z)
-        // along the line toward the top station, so its stub (local -Z) pointed away and the line ran back through the building; it
-        // placed and attached. Turned around (yaw -51.3) it is the aligned snap. Then every catalog station at every 10 deg of yaw:
-        // a line leaving within 80 deg of the stub axis is allowed, one leaving 100 deg or more off it is refused, and a stub tip 5 m
-        // from the line end (not snapped) is never refused.
+        // EI-54b: a station snapped onto a built line's END node facing away from it is refused (StationFacingRefusalSystem's pure rule,
+        // StationAlign.AttachesBackward over StationAlign.LineEnds). Field (in-game check 2026-11-04, plan-fixes-2 RESULTS): the steep tram
+        // base end node 842295:1 at (5725.6, -5375.9), the line leaving it at bearing 128.7 toward the top. Vanilla offers two reversed
+        // snaps there: the stub's INNER node on the end node (station (5735.1, -5378.4) yaw 128.7; it PLACED and attached on 7e52477,
+        // whose rule tested the tip only) and the tip on the node ((5737.5, -5380.2) yaw 128.7; vanilla's own "Invalid shape"). Aligned:
+        // (5713.8, -5371.5) yaw -51.3, the tip on the node, must pass. The FG top preview on line 1's top end 239190:9 (3550, -4000), the
+        // line's previous node 85 m back toward the base: (3541.6, -4003.2) yaw -111.6, inner node merged, "Place" on 7e52477. Then every
+        // catalog station at every 10 deg of yaw, each stub node on the end: a line leaving within 80 deg of the stub axis is allowed,
+        // one leaving 100 deg or more off it is refused; a stub node 5 m from the end is never refused; and LineEnds: an interior tower
+        // node (two line edges) is not an end, so a reversed station on it is not judged.
         private static void Ei54b()
         {
             const string w = "eishain/EI-54b";
             StationDef tram = SkiCatalog.StationOf(SkiCatalog.LiftById("tram").Index, StationRole.Base);
-            var pos = new float3(4330f, 1452.1f, -5300f);
-            float2 front = new float2(math.sin(math.radians(128.7f)), math.cos(math.radians(128.7f)));   // the lot front, toward the top
-            bool reversed = Refused(tram, pos, 128.7f, front, 0f), turned = Refused(tram, pos, -51.3f, front, 0f);
-            bool offNode = Refused(tram, pos, 128.7f, front, 5f);
-            Check(reversed, w + " field", "the reversed steep tram base (yaw 128.7) is not refused");
-            Check(!turned, w + " field", "the tram base turned around (yaw -51.3) is refused");
-            Check(!offNode, w + " field", "a reversed station 5 m from the line end (not snapped) is refused");
+            StationDef fgTop = SkiCatalog.StationOf(0, StationRole.Top);   // the fixed-grip row (CatalogTests: index 0)
+            float2 end = new float2(5725.6f, -5375.9f);
+            float2 next = end + Bearing(128.7f) * 250f;   // toward the tram top
+            StationAlign.StubNode innerField = Snap(tram, new float2(5735.1f, -5378.4f), 128.7f, end, next);
+            StationAlign.StubNode tipField = Snap(tram, new float2(5737.5f, -5380.2f), 128.7f, end, next);
+            StationAlign.StubNode aligned = Snap(tram, new float2(5713.8f, -5371.5f), -51.3f, end, next);
+            float2 fgEnd = new float2(3550f, -4000f), fgNext = new float2(3465f, -4000f);
+            StationAlign.StubNode fgField = Snap(fgTop, new float2(3541.6f, -4003.2f), -111.6f, fgEnd, fgNext);
+            Check(innerField == StationAlign.StubNode.Inner, w + " field", "the reversed steep tram base with its stub's INNER node on the end " +
+                  "(the snap that placed on 7e52477): " + innerField + ", want Inner (refused)");
+            Check(tipField == StationAlign.StubNode.Tip, w + " field", "the reversed steep tram base with its stub tip on the end: " + tipField +
+                  ", want Tip (refused)");
+            Check(aligned == StationAlign.StubNode.None, w + " field", "the aligned tram base (yaw -51.3, tip on the end): " + aligned +
+                  ", want None (allowed)");
+            Check(fgField == StationAlign.StubNode.Inner, w + " field", "the reversed FG top with its inner node on line 1's top end: " + fgField +
+                  ", want Inner (refused)");
+            // 7e52477's rule (tip within 1 m, the next node behind the tip) on the same snap: it lets the inner-node snap through.
+            bool oldInner = OldRule(tram, new float2(5735.1f, -5378.4f), 128.7f, end, next);
+            Check(!oldInner, w + " field", "7e52477's tip-only rule refuses the inner-node snap: the model no longer shows the field miss");
+
+            // The aligned station with its inner node on the end and the line leaving ahead (not a facing case) is not refused either.
+            float2 axisA = StationAlign.Axis(quaternion.RotateY(math.radians(-51.3f)));
+            StationAlign.StubNode alignedInner = Snap(tram, new float2(5713.8f, -5371.5f) + axisA * StationAlign.StubLengthM, -51.3f, end, next);
+            Check(alignedInner == StationAlign.StubNode.None, w + " field", "the aligned tram base with its inner node on the end: " + alignedInner +
+                  ", want None");
+
+            // LineEnds: a line base end 0 - tower 1 - tower 2 - top end 3, a lone span 10-11, a degenerate 5-5.
+            var edges = new List<KeyValuePair<int, int>>
+            {
+                new KeyValuePair<int, int>(0, 1), new KeyValuePair<int, int>(1, 2), new KeyValuePair<int, int>(2, 3),
+                new KeyValuePair<int, int>(10, 11), new KeyValuePair<int, int>(5, 5),
+            };
+            Dictionary<int, int> ends = StationAlign.LineEnds(edges);
+            bool endsOk = ends.Count == 4 && ends.TryGetValue(0, out int n0) && n0 == 1 && ends.TryGetValue(3, out int n3) && n3 == 2 &&
+                          !ends.ContainsKey(1) && !ends.ContainsKey(2) && !ends.ContainsKey(5) && ends.ContainsKey(10) && ends.ContainsKey(11);
+            Check(endsOk, w + " ends", "LineEnds of 0-1-2-3 + 10-11 + a degenerate 5-5: got {" + string.Join(", ", ends) + "}");
+            // The RESULTS DQ top case (7e52477 refused it as a "line end"): the tip on an interior tower node with the next span behind.
+            // Judged alone the geometry refuses; it is not an end, so the system never passes it to AttachesBackward.
+            Check(!ends.ContainsKey(1) && !ends.ContainsKey(2), w + " ends", "an interior tower node counts as a line end");
+
             int stations = 0, allowed = 0, refused = 0, wrong = 0;
+            var pos = new float2(4330f, -5300f);
             foreach (LiftTypeDef type in SkiCatalog.Lifts)
             foreach (StationRole role in new[] { StationRole.Base, StationRole.Top })
             {
@@ -541,39 +590,61 @@ namespace LiftBatch
                 stations++;
                 for (float yaw = -180f; yaw < 180f; yaw += 10f)
                 {
-                    float2 axis = StationAlign.Axis(quaternion.RotateY(math.radians(yaw)));
-                    foreach (float off in new[] { -80f, -30f, 0f, 30f, 80f, 100f, 150f, 180f, 210f, 260f })
+                    quaternion rot = quaternion.RotateY(math.radians(yaw));
+                    float2 axis = StationAlign.Axis(rot);
+                    float3 p3 = new float3(pos.x, 0f, pos.y);
+                    foreach (bool onInner in new[] { false, true })
                     {
-                        float a = math.radians(off);
-                        float2 dir = new float2(axis.x * math.cos(a) - axis.y * math.sin(a), axis.x * math.sin(a) + axis.y * math.cos(a));
-                        bool want = math.abs(off) > 90f;
-                        bool got = Refused(def, pos, yaw, dir, 0f);
-                        if (got) refused++; else allowed++;
-                        if (got != want && wrong++ < 4)
-                            Check(false, w + " sweep", def.Prefab + " yaw " + F(yaw, "F0") + ", line " + F(off, "F0") + " deg off the stub: " +
-                                  (got ? "refused" : "allowed"));
-                        if (Refused(def, pos, yaw, dir, 5f) && wrong++ < 4)
-                            Check(false, w + " sweep", def.Prefab + " refused 5 m from the line end");
+                        float2 node = onInner ? StationAlign.StubInner(p3, rot, def.StubTipLocalZ, def.StubTipLocalX).xz
+                                              : StationAlign.StubTip(p3, rot, def.StubTipLocalZ, def.StubTipLocalX).xz;
+                        foreach (float off in new[] { -80f, -30f, 0f, 30f, 80f, 100f, 150f, 180f, 210f, 260f })
+                        {
+                            float a = math.radians(off);
+                            float2 dir = new float2(axis.x * math.cos(a) - axis.y * math.sin(a), axis.x * math.sin(a) + axis.y * math.cos(a));
+                            StationAlign.StubNode want = math.abs(off) > 90f
+                                ? (onInner ? StationAlign.StubNode.Inner : StationAlign.StubNode.Tip) : StationAlign.StubNode.None;
+                            StationAlign.StubNode got = Snap(def, pos, yaw, node, node + dir * 250f);
+                            if (got != StationAlign.StubNode.None) refused++; else allowed++;
+                            if (got != want && wrong++ < 4)
+                                Check(false, w + " sweep", def.Prefab + " yaw " + F(yaw, "F0") + ", " + (onInner ? "inner node" : "tip") +
+                                      " on the end, line " + F(off, "F0") + " deg off the stub: " + got + ", want " + want);
+                            float2 aside = node + new float2(-axis.y, axis.x) * 5f;   // 5 m to the side: neither stub node within 1 m
+                            if (Snap(def, pos, yaw, aside, aside + dir * 250f) != StationAlign.StubNode.None && wrong++ < 4)
+                                Check(false, w + " sweep", def.Prefab + " refused 5 m from the line end");
+                        }
                     }
                 }
             }
             Check(wrong == 0, w + " sweep", wrong + " wrong verdict(s)");
-            s_Report.Add("EI-54b reversed snap | steep tram base yaw 128.7 refused " + reversed + ", turned (-51.3) refused " + turned +
-                         ", 5 m off the end refused " + offNode + " | sweep " + stations + " stations x 36 yaws x 10 line bearings: " + allowed +
-                         " allowed, " + refused + " refused, " + wrong + " wrong");
+            s_Report.Add("EI-54b reversed snap | steep tram base yaw 128.7: inner node on the end " + innerField + ", tip on the end " + tipField +
+                         " (7e52477's tip-only rule on the inner snap: refused " + oldInner + "); aligned yaw -51.3 " + aligned + ", aligned inner " +
+                         alignedInner + "; FG top yaw -111.6 " + fgField + " | LineEnds: interior tower node an end " + ends.ContainsKey(2) +
+                         " | sweep " + stations + " stations x 36 yaws x 2 stub nodes x 10 line bearings: " + allowed + " allowed, " + refused +
+                         " refused, " + wrong + " wrong");
         }
 
-        /// <summary>The refusal rule for a station at <paramref name="pos"/> / <paramref name="yawDeg"/> whose stub tip is
-        /// <paramref name="gapM"/> from the end node of a built line edge leaving that node along <paramref name="lineDir"/> for 250 m;
-        /// the edge is tried in both node orders, as the system does.</summary>
-        private static bool Refused(StationDef def, float3 pos, float yawDeg, float2 lineDir, float gapM)
+        private static float2 Bearing(float deg) => new float2(math.sin(math.radians(deg)), math.cos(math.radians(deg)));
+
+        /// <summary>The refusal rule for a station at <paramref name="pos"/> (xz) / <paramref name="yawDeg"/> and a true line end at
+        /// <paramref name="endXz"/> whose line's next node is <paramref name="nextXz"/> (StationFacingRefusalSystem's call).</summary>
+        private static StationAlign.StubNode Snap(StationDef def, float2 pos, float yawDeg, float2 endXz, float2 nextXz)
+        {
+            quaternion rot = quaternion.RotateY(math.radians(yawDeg));
+            float3 p = new float3(pos.x, 0f, pos.y);
+            float2 axis = StationAlign.Axis(rot);
+            float2 tip = StationAlign.StubTip(p, rot, def.StubTipLocalZ, def.StubTipLocalX).xz;
+            float2 inner = StationAlign.StubInner(p, rot, def.StubTipLocalZ, def.StubTipLocalX).xz;
+            return StationAlign.AttachesBackward(axis, tip, inner, endXz, nextXz);
+        }
+
+        /// <summary>7e52477's rule, kept in the test to show the field miss: the stub tip within 1 m of the end and the next node behind
+        /// the tip.</summary>
+        private static bool OldRule(StationDef def, float2 pos, float yawDeg, float2 endXz, float2 nextXz)
         {
             quaternion rot = quaternion.RotateY(math.radians(yawDeg));
             float2 axis = StationAlign.Axis(rot);
-            float2 tip = StationAlign.StubTip(pos, rot, def.StubTipLocalZ, def.StubTipLocalX).xz;
-            float2 end = tip + new float2(-axis.y, axis.x) * gapM;
-            float2 other = end + math.normalize(lineDir) * 250f;
-            return StationAlign.AttachesBackward(axis, tip, end, other) || StationAlign.AttachesBackward(axis, tip, other, end);
+            float2 tip = StationAlign.StubTip(new float3(pos.x, 0f, pos.y), rot, def.StubTipLocalZ, def.StubTipLocalX).xz;
+            return math.distance(tip, endXz) <= StationAlign.AttachTolM && StationAlign.LineLeavesBackward(axis, tip, nextXz);
         }
 
         internal static string Desc(LiftTowerPlan p)

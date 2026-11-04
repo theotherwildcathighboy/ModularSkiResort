@@ -1,5 +1,6 @@
 // Pure geometry of the station alignment aid (read-only guide + readout + an "aligned" state at 0.5 m / 0.5 deg). Consumers:
-// SkiStationAlignSystem, SkiLiftTooltipSystem (readout), LiftCensus (per-row AlignKnown / AlignOffsetM / AlignYawDeg), tests/LiftBatch.
+// SkiStationAlignSystem, SkiLiftTooltipSystem (readout), LiftCensus (per-row AlignKnown / AlignOffsetM / AlignYawDeg),
+// StationFacingRefusalSystem (AttachesBackward / LineEnds, FIX-LIST 54(b)), tests/LiftBatch.
 // StubTipLocalZ aliases the pure SkiCatalog.cs, so SkiCatalog.cs is linked wherever this file is. The stub tip is per station row:
 // StubTip(position, rotation, StationDef.StubTipLocalZ) (-16 detachable / gondola, -12 fixed-grip and tram); the 2-argument overload is -12.
 // Also the pure up-lane rule of the loop cache: SideLookingUphill / UpLaneIsSecond (chain A = the cable on the RIGHT looking uphill).
@@ -177,17 +178,86 @@ namespace SkiResortMod.Systems
             return math.lengthsq(stationAxis) > 0.25f && math.dot(stationAxis, otherEndXz - stubTipXz) <= 0f;
         }
 
-        /// <summary>A station preview's stub tip this close (xz) to a built lift line's end node is snapped onto it (the vanilla snap
-        /// puts the stub tip on the node; StationFacingRefusalSystem).</summary>
+        /// <summary>Length of every station's HV stub (the SkiLiftMarker sub-net), meters: it runs from its inner node at local z
+        /// StubTipLocalZ + 3 to the tip at StubTipLocalZ, at x StubTipLocalX (all 8 station prefabs: FG / tram -9 to -12, DQ / gondola
+        /// -13 to -16; LiftBatch EI-48 checks the mirror).</summary>
+        public const float StubLengthM = 3f;
+
+        /// <summary>World position of the HV stub's INNER node (StubTipLocalZ + StubLengthM, toward the building). The vanilla snap
+        /// can put either stub node on a net node (FIX-LIST 54(b), field 2026-11-04: the reversed tram base had its inner node merged
+        /// onto the line end).</summary>
+        public static float3 StubInner(float3 position, quaternion rotation, float stubTipLocalZ, float stubTipLocalX)
+        {
+            float z = float.IsNaN(stubTipLocalZ) || float.IsInfinity(stubTipLocalZ) ? StubTipLocalZ : stubTipLocalZ;
+            return StubTip(position, rotation, z + StubLengthM, stubTipLocalX);
+        }
+
+        /// <summary>A station preview's stub node this close (xz) to a built lift line's end node sits on it (vanilla merges the node
+        /// there or stands its own node at the same spot; StationFacingRefusalSystem).</summary>
         public const float AttachTolM = 1f;
 
-        /// <summary>FIX-LIST 54(b): a station preview snapped onto the end of a built lift line edge (<paramref name="endXz"/>, within
-        /// AttachTolM of its stub tip) while that edge's other node (<paramref name="otherEndXz"/>) lies behind its stub: the line would
-        /// run back through the building. The vanilla object tool offers the snap with the tool's own rotation as well as the aligned
-        /// one, so a reversed station snaps on; StationFacingRefusalSystem refuses it.</summary>
-        public static bool AttachesBackward(float2 stationAxis, float2 stubTipXz, float2 endXz, float2 otherEndXz)
+        /// <summary>Which of the station's two stub nodes a net node sits on (StationFacingRefusalSystem).</summary>
+        public enum StubNode
         {
-            return math.distance(stubTipXz, endXz) <= AttachTolM && LineLeavesBackward(stationAxis, stubTipXz, otherEndXz);
+            None = 0,
+            Tip = 1,
+            Inner = 2,
+        }
+
+        /// <summary>The stub node within AttachTolM (xz) of <paramref name="nodeXz"/>, the nearer one when both are; None when neither
+        /// is or a position is not finite.</summary>
+        public static StubNode StubNodeOn(float2 stubTipXz, float2 stubInnerXz, float2 nodeXz)
+        {
+            float dTip = math.distance(stubTipXz, nodeXz), dInner = math.distance(stubInnerXz, nodeXz);
+            bool tip = dTip <= AttachTolM, inner = dInner <= AttachTolM;   // NaN compares false
+            if (tip && (!inner || dTip <= dInner))
+                return StubNode.Tip;
+            return inner ? StubNode.Inner : StubNode.None;
+        }
+
+        /// <summary>FIX-LIST 54(b): a station preview snapped onto the END node of a built lift line (<paramref name="endXz"/>, under
+        /// either of its stub nodes) while the line's next node (<paramref name="nextXz"/>) lies behind the stub, measured from the end
+        /// node (LineLeavesBackward): the line would run back through the building. Returns the stub node that sits on the end, None
+        /// when the station does not attach there or the line leaves ahead of the stub. The vanilla object tool offers the snap with
+        /// the tool's own rotation as well as the aligned one, and either stub node can land on the node (the field reversed tram base
+        /// had its INNER node merged onto the end and placed; the tip-on-node snap vanilla already refuses as "Invalid shape"), so a
+        /// reversed station snaps on; StationFacingRefusalSystem refuses it. The caller passes true ends only (LineEnds: one lift-line
+        /// edge at the node), so a station on an interior tower node is never judged here.</summary>
+        public static StubNode AttachesBackward(float2 stationAxis, float2 stubTipXz, float2 stubInnerXz, float2 endXz, float2 nextXz)
+        {
+            StubNode on = StubNodeOn(stubTipXz, stubInnerXz, endXz);
+            return on != StubNode.None && LineLeavesBackward(stationAxis, endXz, nextXz) ? on : StubNode.None;
+        }
+
+        /// <summary>The true ends of a lift-line net: every node with exactly one edge among <paramref name="edges"/> (start, end
+        /// pairs), mapped to the other node of that edge (the line's next node). An interior tower node (two edges) is not an end; a
+        /// degenerate edge (both nodes the same) is skipped.</summary>
+        public static Dictionary<TNode, TNode> LineEnds<TNode>(IEnumerable<KeyValuePair<TNode, TNode>> edges) where TNode : IEquatable<TNode>
+        {
+            var ends = new Dictionary<TNode, TNode>();
+            LineEnds(edges, new Dictionary<TNode, int>(), new Dictionary<TNode, TNode>(), ends);
+            return ends;
+        }
+
+        /// <summary>LineEnds into caller-owned dictionaries (cleared first; the per-frame caller reuses them).</summary>
+        public static void LineEnds<TNode>(IEnumerable<KeyValuePair<TNode, TNode>> edges, Dictionary<TNode, int> degree,
+                                           Dictionary<TNode, TNode> next, Dictionary<TNode, TNode> ends) where TNode : IEquatable<TNode>
+        {
+            degree.Clear();
+            next.Clear();
+            ends.Clear();
+            foreach (KeyValuePair<TNode, TNode> e in edges)
+            {
+                if (e.Key.Equals(e.Value))
+                    continue;
+                degree[e.Key] = degree.TryGetValue(e.Key, out int a) ? a + 1 : 1;
+                degree[e.Value] = degree.TryGetValue(e.Value, out int b) ? b + 1 : 1;
+                next[e.Key] = e.Value;
+                next[e.Value] = e.Key;
+            }
+            foreach (KeyValuePair<TNode, int> d in degree)
+                if (d.Value == 1)
+                    ends.Add(d.Key, next[d.Key]);
         }
 
         /// <summary>The readout class of one measurement (first match wins: Straight, PartnerFacingAway, FacingAway, Numbers). An invalid
