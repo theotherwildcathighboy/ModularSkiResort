@@ -332,3 +332,19 @@ is the same after a save / load; an edit renumbers only the towers after the fir
   it fires on a level spot under a 50+ deg rope, e.g. PC-8's bench: T60, lean 25, float 1.34 m.
 - Leaned spans may reach samples past their nodes (a 25 deg FG20 moves its anchor about 8 m): Build and LeanedSpanViolation judge the floor
   over the anchors' range, not only between the nodes (PC-5).
+
+### Carrier clearance (DECISIONS 600 c)
+- `LiftPlanNode.HalfDeg` (AnglesAt: `LiftAlignMath.WorldHalfDeg` on the drawn rope, plumb rope points). `LiftTowerPlanConstants.WorldHalfMaxDeg(head)`
+  (cached per head from `LiftAlignMath.WorldHalfTable`; `WorldHalfOn`, `With(worldHalfOn:)` turns it off for the before / after sweeps).
+- The angle pass (`Over`) adds `half - WorldHalfMaxDeg(kind)` to the bend and pitch terms: it plans members, not heads, so a kind stands for
+  the head it takes (HoldDown -> Hold, PushPull -> Combo, Support -> min(Line, Break)); the load cases run only when the bend or the half
+  could bind (`MinWorldHalfMaxDeg`). A tower past it gets the usual repairs (shift / member, breakover pair, longer span); a pair whose new
+  tower is past it is refused like any over-cap candidate.
+- Build judges the PLACED head: `IsOverClearance(i)`, `ClearanceTowers`; not Sound; Verdict / OverCapNote "PAST CLEARANCE"; WorseThan axis;
+  AngleText "half H PAST CLEARANCE L". Keys: the plan line PLAN_TRAIN (after PLAN_PITCH), the tower TOWER_CLEARANCE (after TOWER_PITCH;
+  DEG = HalfDeg, LIMIT = the limit, one decimal); the red tower in the overlay.
+- Bite (PC-9, all sets, the rule off vs on): 3 of 450 crossable chair lines newly warn (0.67 %), all crest-end FG g 0.30 back 20: the
+  base-station exit (station rope 1.4 m under the ground, the ground at 0.3) needs a first tower whose arriving rope is 46-51 deg. The pitch
+  cap used to fix it with a pair at 15 / 35 m whose first tower carried the 50.7 deg half; that pair is now refused and the single tower
+  stays OVER CAP and PAST CLEARANCE (these plans end with one tower fewer than the uncapped plan, so PC-3 now checks "no added tower", not "the same count"). FB-3: no tower past it
+  (steepest halves FG 40.5 / DQ 36.7 / GD 36.5 deg).

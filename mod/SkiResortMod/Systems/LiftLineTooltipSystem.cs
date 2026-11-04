@@ -81,7 +81,8 @@ namespace SkiResortMod.Systems
         /// <summary>The plan line: tower count and length, and the first thing wrong in words (the overlay shows where): a span below
         /// the floor (red), an edge too steep for the engine (red), a span above the max rope height (purple), a tower whose rope bends
         /// past its sheave train's cap (red tower, PLAN_TRAIN), a tower the rope runs through steeper than the type's pitch cap (red
-        /// tower, PLAN_PITCH), a tram tower whose rope bends past the saddle cap (red tower, PLAN_SADDLE). Green (Success) only for
+        /// tower, PLAN_PITCH), a tram tower whose rope bends past the saddle cap (red tower, PLAN_SADDLE), a tower whose rope half is
+        /// past its carrier clearance (red tower, PLAN_TRAIN; DECISIONS 600 c). Green (Success) only for
         /// PLAN_CLEAR, a Sound plan.</summary>
         internal static LocalizedString PlanText(LiftTowerPlan plan, out bool clear)
         {
@@ -103,7 +104,7 @@ namespace SkiResortMod.Systems
                                                 out float bend, out float cap);
             return LiftLineToolSystem.T(key, ("N", LiftLineToolSystem.N(t)), ("COUNT", LiftLineToolSystem.N(plan.LineTowers)),
                 ("HEIGHT", LiftLineToolSystem.N(height)), ("CLEAR", LiftLineToolSystem.N(clear)), ("DEG", LiftLineToolSystem.Deg(bend)),
-                ("CAP", LiftLineToolSystem.N(cap)));
+                ("CAP", LiftLineToolSystem.N(cap)), ("LIMIT", LiftLineToolSystem.Deg(cap)));   // LIMIT: TOWER_CLEARANCE's 41.5 / 57.5
         }
 
         private void Show(StringTooltip tip, ref LocalizedString last, LocalizedString text)

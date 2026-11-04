@@ -130,6 +130,40 @@ namespace SkiResortMod.Systems
         /// (LineCapDeg): the angle pass repairs it like a chair's, still past it = OVER CAP (PLAN_SADDLE / TOWER_SADDLE).</summary>
         public readonly float SaddleHalfCapDeg;
 
+        /// <summary>The carrier-clearance rule is on (DECISIONS 600 c; default): a tower whose steeper rope half passes
+        /// WorldHalfMaxDeg(head) in the world is repaired by the angle pass, else PAST CLEARANCE. Off = the plans as before 600 c (tests).</summary>
+        public readonly bool WorldHalfOn;
+
+        /// <summary>The carrier-clearance limit per head (index = (int)LiftTowerHead), degrees: LiftAlignMath.WorldHalfMaxDeg by TypeId
+        /// and WorldHalfKind(head); +infinity without a row or with the rule off.</summary>
+        private readonly float[] m_WorldHalfMax = new float[4];
+
+        /// <summary>The least carrier-clearance limit of any head (+infinity: none): below it the angle pass skips the load cases.</summary>
+        public readonly float MinWorldHalfMaxDeg;
+
+        /// <summary>The carrier-clearance limit of a tower with <paramref name="head"/>, degrees (+infinity = none).</summary>
+        public float WorldHalfMaxDeg(LiftTowerHead head) => m_WorldHalfMax[(int)head];
+
+        /// <summary>The limit the angle pass judges a <paramref name="kind"/> train at (it plans members, not heads): the head that kind
+        /// takes (HoldDown -> Hold, PushPull -> Combo, Support -> the stricter of Line and Break). Build judges the placed head.</summary>
+        public float WorldHalfMaxDeg(LiftTrainKind kind) =>
+            kind == LiftTrainKind.HoldDown ? m_WorldHalfMax[(int)LiftTowerHead.Hold]
+            : kind == LiftTrainKind.PushPull ? m_WorldHalfMax[(int)LiftTowerHead.Combo]
+            : math.min(m_WorldHalfMax[(int)LiftTowerHead.Line], m_WorldHalfMax[(int)LiftTowerHead.Break]);
+
+        /// <summary>The carrier-clearance table's kind of a head (LiftAlignMath.WorldHalfTable): Line = "support", else the head's name.</summary>
+        public static string WorldHalfKind(LiftTowerHead head) => head == LiftTowerHead.Line ? "support" : head.ToString();
+
+        /// <summary>The head of a tower prefab by its name: a twin's (FixedGripTwins / DetachableTwins / GondolaTwins), else Line.</summary>
+        public static LiftTowerHead HeadOfTwin(string prefabName)
+        {
+            if (prefabName != null)
+                foreach (LiftTowerTwin t in AllTwins())
+                    if (t.Name == prefabName)
+                        return t.Head;
+            return LiftTowerHead.Line;
+        }
+
         /// <summary>Set once per game load (LiftTowerFitSystem.OnGameLoadingComplete): true for a twin prefab name the game has loaded.
         /// For(def) drops the others, so a build without the twin prefabs plans the support heads only (a missing twin would leave the
         /// node raised by E with the support member spawned 0.2-0.6 m above the ground). Null = every twin (tests).</summary>
@@ -247,8 +281,15 @@ namespace SkiResortMod.Systems
                                       float sagRatio, float engineElevationCapM, float stepM = 5f, float sideHillM = 2f, float convexM = 0.5f,
                                       float stationClearM = 0f, float maxEdgeSlope = 0f, int supportWheels = 0, int holdWheels = 0,
                                       int comboWheels = 0, int breakWheels = 0, LiftTowerTwin[] twins = null, float pitchCapDeg = float.NaN,
-                                      float pitchSoftDeg = float.NaN, float saddleHalfCapDeg = float.NaN)
+                                      float pitchSoftDeg = float.NaN, float saddleHalfCapDeg = float.NaN, bool worldHalfOn = true)
         {
+            WorldHalfOn = worldHalfOn;
+            MinWorldHalfMaxDeg = float.PositiveInfinity;
+            for (int h = 0; h < m_WorldHalfMax.Length; h++)
+            {
+                m_WorldHalfMax[h] = worldHalfOn ? LiftAlignMath.WorldHalfMaxDeg(typeId, WorldHalfKind((LiftTowerHead)h)) : float.PositiveInfinity;
+                MinWorldHalfMaxDeg = math.min(MinWorldHalfMaxDeg, m_WorldHalfMax[h]);
+            }
             SaddleHalfCapDeg = !float.IsNaN(saddleHalfCapDeg) ? saddleHalfCapDeg
                 : typeId == "tram" ? LiftAlignMath.TramBendHalfCapDeg : float.PositiveInfinity;
             PitchCapDeg = float.IsNaN(pitchCapDeg) ? LiftAlignMath.PitchCapDeg(typeId) : pitchCapDeg;
@@ -308,13 +349,13 @@ namespace SkiResortMod.Systems
         public LiftTowerPlanConstants With(float? floorM = null, float? maxRopeAboveGroundM = null, float? typicalSpanM = null,
                                            float? maxSpanM = null, float? carrierDropM = null, float? maxEdgeSlope = null,
                                            float? sagRatio = null, LiftTowerTwin[] twins = null, float? pitchCapDeg = null,
-                                           float? pitchSoftDeg = null, float? saddleHalfCapDeg = null)
+                                           float? pitchSoftDeg = null, float? saddleHalfCapDeg = null, bool? worldHalfOn = null)
         {
             return new LiftTowerPlanConstants(TypeId, Ladder, RopeBelowTopM, carrierDropM ?? CarrierDropM, floorM ?? FloorM,
                 maxRopeAboveGroundM ?? MaxRopeAboveGroundM, typicalSpanM ?? TypicalSpanM, maxSpanM ?? MaxSpanM, MinSpanM, HalfWidthM,
                 sagRatio ?? SagRatio, EngineElevationCapM, StepM, SideHillM, ConvexM, StationClearM, maxEdgeSlope ?? MaxEdgeSlope,
                 SupportWheels, HoldWheels, ComboWheels, BreakWheels, twins ?? Twins, pitchCapDeg ?? PitchCapDeg, pitchSoftDeg ?? PitchSoftDeg,
-                saddleHalfCapDeg ?? SaddleHalfCapDeg);
+                saddleHalfCapDeg ?? SaddleHalfCapDeg, worldHalfOn ?? WorldHalfOn);
         }
 
         /// <summary>The station-side rule's exchange rate: one more line tower is worth this many meters of extra height (above the
@@ -508,6 +549,7 @@ namespace SkiResortMod.Systems
         public LiftTrainKind Kind;      // ClassifyTrain(tight, heavy); None without trains (tram) or angles
         public float CapDeg;            // the cap of the train the tower carries (LiftTowerPlanConstants.CapDeg(Kind, Head)); +inf without trains
         public LiftTowerHead Head;      // the placed head: Line or a twin of Member (LiftTowerPlanner.AssignHeads); Line on stations and the tram
+        public float HalfDeg;           // the steeper rope half's world pitch, degrees (LiftAlignMath.WorldHalfDeg on the drawn rope; DECISIONS 600 c)
         // Pitch and lean (DECISIONS 600), set by Build on every tower node with both neighbors' rope points (HasPitch):
         public bool HasPitch;
         public float PitchDeg;          // LiftAlignMath.ChordPitchDeg on the plumb rope points, up toward B = +
@@ -612,14 +654,36 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>"N tower(s) OVER CAP" and / or "N tower(s) TOO STEEP (pitch past P deg)", or empty.</summary>
+        /// <summary>"N tower(s) OVER CAP", "N tower(s) TOO STEEP (pitch past P deg)" and / or "N tower(s) PAST CLEARANCE (...)", or
+        /// empty.</summary>
         private string AngleFaults()
         {
-            int over = OverCapTowers, steep = TooSteepTowers;
+            int over = OverCapTowers, steep = TooSteepTowers, clearance = ClearanceTowers;
             string a = over == 0 ? string.Empty : over + " tower(s) OVER CAP";
             if (steep > 0)
                 a += (a.Length > 0 ? ", " : string.Empty) + steep + " tower(s) TOO STEEP (pitch past " + F(Constants.PitchCapDeg, "F0") + " deg)";
+            if (clearance > 0)
+                a += (a.Length > 0 ? ", " : string.Empty) + clearance + " tower(s) PAST CLEARANCE (a rope half steeper than its carrier clears)";
             return a;
+        }
+
+        /// <summary>Tower node <paramref name="i"/> is judged and its steeper rope half's world pitch (HalfDeg) is past the carrier-clearance
+        /// limit of its placed head (LiftTowerPlanConstants.WorldHalfMaxDeg, by more than AngleTolDeg; DECISIONS 600 c): the carrier,
+        /// hanging plumb, would swing into its own train or the head's deck end. The lift tool's red tower, TOWER_CLEARANCE.</summary>
+        public bool IsOverClearance(int i) =>
+            Nodes[i].HasAngles && Nodes[i].Member >= 0 && Nodes[i].HalfDeg > Constants.WorldHalfMaxDeg(Nodes[i].Head) + AngleTolDeg;
+
+        /// <summary>Towers past their carrier-clearance limit (IsOverClearance).</summary>
+        public int ClearanceTowers
+        {
+            get
+            {
+                int n = 0;
+                for (int i = 0; i < Nodes.Length; i++)
+                    if (IsOverClearance(i))
+                        n++;
+                return n;
+            }
         }
 
         /// <summary>Tower node <paramref name="i"/> has its pitch judged and the rope runs through it steeper than the type's hard pitch
@@ -731,6 +795,8 @@ namespace SkiResortMod.Systems
                     sb.Append(' ').Append(n.Head);
                 if (IsOverCap(i))
                     sb.Append(" OVER CAP ").Append(F(n.CapDeg, "F0"));
+                if (IsOverClearance(i))
+                    sb.Append(" half ").Append(F(n.HalfDeg, "F1")).Append(" PAST CLEARANCE ").Append(F(Constants.WorldHalfMaxDeg(n.Head), "F1"));
             }
             if ((n.Flags & LiftPlanNodeFlags.Pair) != 0)
                 sb.Append(" [pair]");
@@ -813,8 +879,9 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>Every span clear, no tower over its cap and none too steep (IsTooSteep).</summary>
-        public bool Sound => Clear && OverCapTowers == 0 && TooSteepTowers == 0;
+        /// <summary>Every span clear, no tower over its cap, none too steep (IsTooSteep) and none past its carrier clearance
+        /// (IsOverClearance).</summary>
+        public bool Sound => Clear && OverCapTowers == 0 && TooSteepTowers == 0 && ClearanceTowers == 0;
 
         /// <summary>Null when <paramref name="plan"/> is no worse than <paramref name="built"/> on any axis (floor margin, violated
         /// spans, towers over their cap, the worst excess over a cap); else the axes it is worse on (FIX-LIST 52).</summary>
@@ -831,6 +898,8 @@ namespace SkiResortMod.Systems
                 why.Add("towers over cap " + overB + " -> " + overP);
             if (plan.TooSteepTowers > built.TooSteepTowers)
                 why.Add("towers too steep " + built.TooSteepTowers + " -> " + plan.TooSteepTowers);
+            if (plan.ClearanceTowers > built.ClearanceTowers)
+                why.Add("towers past clearance " + built.ClearanceTowers + " -> " + plan.ClearanceTowers);
             if (plan.MaxCapExcessDeg > built.MaxCapExcessDeg + AngleTolDeg)
                 why.Add("worst excess over a cap " + Sg(built.MaxCapExcessDeg) + " -> " + Sg(plan.MaxCapExcessDeg) + " deg");
             return why.Count == 0 ? null : string.Join(", ", why);
@@ -3149,13 +3218,17 @@ namespace SkiResortMod.Systems
         {
             m_AngleWork++;
             float3 p = RopePoint(sP, rP), q = RopePoint(s, r), n = RopePoint(sN, rN);
-            d = LiftAlignMath.DeflectionDeg(p, q, n, m_C.SagRatio);
+            LiftAlignMath.RopeAngles(p, q, n, m_C.SagRatio, out float inA, out float outA);
+            d = math.degrees(inA - outA);
             float pitchOver = math.abs(LiftAlignMath.ChordPitchDeg(sP, rP, s, r, sN, rN)) - m_C.PitchCapDeg;
+            // the carrier clearance (DECISIONS 600 c): the steeper rope half's world pitch against its kind's limit
+            float half = math.degrees(math.max(math.abs(inA), math.abs(outA)));
             float ad = math.abs(d);
-            if (ad <= m_MinCap)
-                return math.max(ad - m_MinCap, pitchOver);
+            if (ad <= m_MinCap && half <= m_C.MinWorldHalfMaxDeg)
+                return math.max(math.max(ad - m_MinCap, pitchOver), half - m_C.MinWorldHalfMaxDeg);
             LiftAlignMath.LoadCaseDeflections(p, q, n, m_C.SagRatio, out float tight, out float heavy);
-            return math.max(ad - m_C.CapDeg(LiftAlignMath.ClassifyTrain(tight, heavy)), pitchOver);
+            LiftTrainKind kind = LiftAlignMath.ClassifyTrain(tight, heavy);
+            return math.max(math.max(ad - m_C.CapDeg(kind), pitchOver), half - m_C.WorldHalfMaxDeg(kind));
         }
 
         /// <summary>The rope points beside working node <paramref name="n"/>: false when it is not judged (a station end, or a line end
@@ -3640,7 +3713,9 @@ namespace SkiResortMod.Systems
             string at = (isEnd ? "end " : "p") + NoteNode(n) + " at " + NoteAt(s0) + " m (" +
                         (m0 >= 0 ? Short(m_C.Ladder[m0].Name) : "line end") + (fixedNode && !isEnd ? ", pinned / seed" : string.Empty) + "): d " +
                         LiftTowerPlan.Sg(d0) + (PitchAt(n, out float p0) ? ", pitch " + LiftTowerPlan.Sg(m_FromB ? -p0 : p0) : string.Empty) + ", " +
-                        LiftTowerPlan.F(over0, "F1") + " past its cap" + (m_C.HasTrains ? string.Empty : " (saddle bend " + LiftTowerPlan.F(2f * m_C.SaddleHalfCapDeg, "F0") + " or pitch)");
+                        LiftTowerPlan.F(over0, "F1") + " past its cap" + (m_C.HasTrains
+                            ? (math.isfinite(m_C.MinWorldHalfMaxDeg) ? " (bend, pitch or carrier clearance)" : string.Empty)
+                            : " (saddle bend " + LiftTowerPlan.F(2f * m_C.SaddleHalfCapDeg, "F0") + " or pitch)");
             LiftPlanNodeFlags pairFlags = (m_F[n] & ~LiftPlanNodeFlags.Seed & ~LiftPlanNodeFlags.Station) | LiftPlanNodeFlags.Pair;
             switch (best.Kind)
             {
@@ -3777,6 +3852,7 @@ namespace SkiResortMod.Systems
             float h = m_C.SagRatio;
             nodes[i].HasAngles = true;
             nodes[i].DeflectionDeg = LiftAlignMath.DeflectionDeg(p, q, n, h);
+            nodes[i].HalfDeg = LiftAlignMath.WorldHalfDeg(p, q, n, h);
             LiftAlignMath.LoadCaseDeflections(p, q, n, h, out nodes[i].TightDeg, out nodes[i].HeavyDeg);
             if (m_C.HasTrains)
             {

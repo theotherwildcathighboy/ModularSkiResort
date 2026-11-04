@@ -33,6 +33,11 @@
 //   Mast lean (DECISIONS 600): TowerLeanSystem leans a steep tower's mast about its foot. Every bone is local to the mast, so the pass
 //     takes the mast's pitch (LiftAlignMath.MastPitch of the tower rotation; 0 on a plumb tower) off the absolute lane-end pitches
 //     before every limit above: the train limits and the hub row are relative to the mast.
+//   Carrier clearance (DECISIONS 600 c): the carrier hangs plumb in the world, so a half whose WORLD pitch (half + mast) passes the
+//     art's limit for the tower's family and head (LiftAlignMath.WorldHalfMaxDeg: FG support / Break 41.5, GD support 55, GD Hold 45,
+//     DQ Hold 57.5; the head from the prefab name, LiftTowerPlanConstants.HeadOfTwin) is clamped to it, last (LiftAlignMath.PoseTrain:
+//     one rule for the system and LiftBatch PC-9): a built tower past it never renders the carrier through its train. Its excess joins
+//     the train limit (hub row LiftTrainLimit).
 // Never: Temp or Deleted towers (a preview stays level), towers whose prefab has no train bone (unskinned art: nothing changes), Editor.
 // Log discipline: one line per rigged tower prefab per load, one line per pass that posed a tower or changed the rope-less count (with
 // the towers whose break was clamped), a one-shot "!!!" catch.
@@ -118,6 +123,7 @@ namespace SkiResortMod.Systems
         private readonly List<LiftCensus.Edge> m_Edges = new List<LiftCensus.Edge>();
         private readonly Dictionary<Entity, List<RigBone>> m_Rigs = new Dictionary<Entity, List<RigBone>>();   // null: no train bone
         private readonly HashSet<Entity> m_WideTram = new HashSet<Entity>();   // rigged prefabs with a wide tram saddle mesh (RigOf)
+        private readonly Dictionary<Entity, float> m_WorldMax = new Dictionary<Entity, float>();   // per tower prefab: WorldMaxOf
         private readonly HashSet<Entity> m_SeenNodes = new HashSet<Entity>();
         private readonly List<float3> m_Anchors = new List<float3>(8);
         private readonly List<Pending> m_Pending = new List<Pending>();
@@ -153,6 +159,7 @@ namespace SkiResortMod.Systems
             m_Edges.Clear();
             m_Rigs.Clear();
             m_WideTram.Clear();
+            m_WorldMax.Clear();
             m_Passes = 0;
             m_LastNoRope = 0;
             m_Over.Clear();
@@ -221,8 +228,8 @@ namespace SkiResortMod.Systems
             m_SeenNodes.Clear();
             m_Pending.Clear();
             m_OverNext.Clear();
-            int towers = 0, noRope = 0, clamped = 0, headed = 0, headsPosed = 0;
-            float maxDeg = 0f, maxHalfBreakDeg = 0f, maxHeadDeg = 0f, maxLeanDeg = 0f;
+            int towers = 0, noRope = 0, clamped = 0, headed = 0, headsPosed = 0, worldHeld = 0;
+            float maxDeg = 0f, maxHalfBreakDeg = 0f, maxHeadDeg = 0f, maxLeanDeg = 0f, maxWorldDeg = 0f;
             // Read everything first; the component adds below are structural changes, which would invalidate the node buffers read here.
             for (int i = 0; i < m_Edges.Count; i++)
             {
@@ -232,6 +239,7 @@ namespace SkiResortMod.Systems
                     EntityManager.HasComponent<Deleted>(edge) || !EntityManager.TryGetComponent(edge, out Edge e))
                     continue;                             // a newer census build carries the replacement
                 float slopeMax = SkiCatalog.Lifts[ce.Type].Envelope.SlopeMax;
+                string typeId = SkiCatalog.Lifts[ce.Type].Id;
                 float headMax = LiftAlignMath.HeadRelMax;   // relative to the (leaned) mast, DECISIONS 600 (594's MaxTrainPitch went)
                 for (int end = 0; end < 2; end++)
                 {
@@ -255,16 +263,14 @@ namespace SkiResortMod.Systems
                         LiftAlignMath.TrainLimits(slopeMax, rig != null && m_WideTram.Contains(pr.m_Prefab), out float maxPitch,
                             out float maxHalfBreak);
                         float front = 0f, back = 0f, head = 0f, over = 0f;
-                        bool wasClamped = false;
-                        if (roped && headBone >= 0)
+                        bool wasClamped = false, worldClamped = false;
+                        if (roped)
+                            over = LiftAlignMath.PoseTrain(meanF, nF, meanB, nB, mast, headBone >= 0, headMax, maxPitch, maxHalfBreak,
+                                WorldMaxOf(pr.m_Prefab, typeId), out head, out front, out back, out wasClamped, out worldClamped);
+                        if (worldClamped && rig != null)
                         {
-                            over = LiftAlignMath.HeadedTrainOverDeg(meanF, nF, meanB, nB, headMax);
-                            wasClamped = LiftAlignMath.HeadedHalfPitches(meanF, nF, meanB, nB, headMax, out head, out front, out back);
-                        }
-                        else if (roped)
-                        {
-                            over = LiftAlignMath.TrainOverDeg(meanF, nF, meanB, nB, maxPitch, maxHalfBreak);
-                            wasClamped = LiftAlignMath.HalfPitches(meanF, nF, meanB, nB, maxPitch, maxHalfBreak, out front, out back);
+                            worldHeld++;
+                            maxWorldDeg = math.max(maxWorldDeg, math.degrees(math.max(math.abs(front + mast), math.abs(back + mast))));
                         }
                         if (roped && over > LiftAlignMath.TrainWarnDeg)
                             m_OverNext[node] = m_OverNext.TryGetValue(node, out float o) ? math.max(o, over) : over;
@@ -341,6 +347,8 @@ namespace SkiResortMod.Systems
                              (headed > 0 ? $", headed {headed} (max |head| {maxHeadDeg:F1} deg)" : string.Empty) +
                              (clamped > 0 ? $", {clamped} clamped to their half-break limit ({LiftAlignMath.MaxHalfBreakDeg:F0} deg, wide tram " +
                                             $"saddles {LiftAlignMath.TramHalfBreakMaxDeg:F0}: the rope leaves the inner wheels or the saddle)" : string.Empty) +
+                             (worldHeld > 0 ? $", {worldHeld} held at their carrier-clearance limit (a half at most {maxWorldDeg:F1} deg in " +
+                                              "the world: the rope leaves the train, the carrier stays clear of it)" : string.Empty) +
                              (noRope > 0 ? $", {noRope} without a rope lane on their anchors (level)" : string.Empty) + $"; {ms:F2} ms");
             }
             m_LastNoRope = noRope;
@@ -424,6 +432,19 @@ namespace SkiResortMod.Systems
             meanF = nF > 0 ? sumF / nF : 0f;
             meanB = nB > 0 ? sumB / nB : 0f;
             return true;
+        }
+
+        /// <summary>The carrier-clearance limit (radians, in the world) of a tower prefab on a <paramref name="typeId"/> line, cached per
+        /// prefab: LiftAlignMath.WorldHalfMaxDeg by the type and the prefab's head (a twin's name, LiftTowerPlanConstants.HeadOfTwin;
+        /// else the line member's "support"); +infinity without a row (the tram, DQ members, every Combo, the FG Hold).</summary>
+        private float WorldMaxOf(Entity prefab, string typeId)
+        {
+            if (m_WorldMax.TryGetValue(prefab, out float v))
+                return v;
+            LiftTowerHead head = LiftTowerPlanConstants.HeadOfTwin(m_PrefabSystem.GetPrefabName(prefab));
+            v = math.radians(LiftAlignMath.WorldHalfMaxDeg(typeId, LiftTowerPlanConstants.WorldHalfKind(head)));
+            m_WorldMax[prefab] = v;
+            return v;
         }
 
         /// <summary>The rig index of the prefab's Head bone; -1 when it has none (unheaded: FG, tram, the pre-head DQ / GD meshes).</summary>

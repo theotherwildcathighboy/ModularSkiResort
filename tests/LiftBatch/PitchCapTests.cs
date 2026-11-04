@@ -10,7 +10,8 @@
 //      the signed lean back.
 // PC-2 head relative to the mast: up to the hard cap, |pitch| - lean stays within MaxRelMeanDeg (DQ / GD head 20, FG trains 13, tram
 //      30); the headed clamp is HeadRelMax (20) on mast-relative pitches (594's DQ 42 / GD 50.2 went).
-// PC-3 the cap repair: every crest-end FG line over the cap as placed without it is under it with the cap (a shift or a member), and
+// PC-3 the cap repair: every crest-end FG line over the cap as placed without it is under it with the cap, with no added tower (a
+//      shift, a member or, since 600 c, a longer span: the station-exit pair the pitch took before passes the carrier clearance), and
 //      the TS-1 shoulders get a pair / an added tower; no repaired line warns.
 // PC-4 the warning: a line still over the cap is not Sound, its Verdict says TOO STEEP, its towers key TOWER_PITCH (unless LOW /
 //      TRAIN come first) and the plan key PLAN_PITCH when nothing else fails.
@@ -25,10 +26,19 @@
 // PC-8 the tram pedestals (600 a call c): LiftAlignMath.TramFloatM reproduces the art's foundation table (tower_lean.py: the crest
 //      dig-in and cover at lean 20 / 25, the matched-slope cover), floats only a leaned tower, never past the ceiling; every leaned
 //      tram tower in the sweep floats by it (node y = ground + E + FloatM through LiftLineEdit, the rope with it), the train lifts never.
+// PC-9 the carrier clearance (600 c): (a) the C# table (LiftAlignMath.WorldHalfTable) equals the art's ART_WORLD_HALF_MAX, parsed from
+//      assets/blender/tests/test_grip_clearance.py (until the art branch is merged the file has no table: reported, not failed; a file
+//      that judges world halves without the table fails); (b) the bite: every set planned with the rule off and on (lines that take a
+//      pair / more towers, lines past the table, lines that newly warn among the crossable ones: the go / no-go is 3 %); (c) no plan
+//      poses a half past the table: TrainPitchSystem's rule (LiftAlignMath.PoseTrain) replayed on every sweep tower keeps each half's
+//      world pitch within its head's limit, and every tower whose rope is past it is PAST CLEARANCE (TOWER_CLEARANCE unless an earlier
+//      key; the line not Sound, never PLAN_CLEAR).
 
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
+using System.Text.RegularExpressions;
 using SkiResortMod.Systems;
 using Unity.Mathematics;
 
@@ -51,6 +61,7 @@ namespace LiftBatch
             Pc3To6Sweep();
             Pc7SaddleCap();
             Pc8Pedestals();
+            Pc9Clearance();
             s_Check = null;
         }
 
@@ -156,13 +167,16 @@ namespace LiftBatch
 
         /// <summary>Plans <paramref name="l"/> with the pitch cap on or off (off: the tram saddle cap too, the plans as before 600);
         /// <paramref name="saddleHalfCapDeg"/> overrides the tram saddle cap (NaN: the type's).</summary>
-        internal static LiftTowerPlan PlanLine(Line l, bool pitchCap, float saddleHalfCapDeg = float.NaN)
+        internal static LiftTowerPlan PlanLine(Line l, bool pitchCap, float saddleHalfCapDeg = float.NaN, bool worldHalf = true)
         {
             LiftTowerPlanConstants c = LiftTowerPlanConstants.For(l.Type);
             if (!pitchCap)
-                c = c.With(pitchCapDeg: float.PositiveInfinity, pitchSoftDeg: float.PositiveInfinity, saddleHalfCapDeg: float.PositiveInfinity);
+                c = c.With(pitchCapDeg: float.PositiveInfinity, pitchSoftDeg: float.PositiveInfinity, saddleHalfCapDeg: float.PositiveInfinity,
+                           worldHalfOn: false);
             else if (!float.IsNaN(saddleHalfCapDeg))
                 c = c.With(saddleHalfCapDeg: saddleHalfCapDeg);
+            if (!worldHalf)
+                c = c.With(worldHalfOn: false);
             float ya = l.H(0f, 0f), yb = l.H(l.L, 0f);
             if (!l.Tool)
             {
@@ -373,8 +387,8 @@ namespace LiftBatch
                     {
                         crestOver++;
                         if (on.TooSteepTowers == 0) crestFixed++;
-                        Check(on.TooSteepTowers == 0 && on.LineTowers == off.LineTowers, W3 + " " + l.Label,
-                              "not repaired by a shift / member: too steep " + on.TooSteepTowers + ", towers " + off.LineTowers + " -> " + on.LineTowers);
+                        Check(on.TooSteepTowers == 0 && on.LineTowers <= off.LineTowers, W3 + " " + l.Label,
+                              "not repaired without an added tower: too steep " + on.TooSteepTowers + ", towers " + off.LineTowers + " -> " + on.LineTowers);
                     }
                 }
                 if (l.Set == "TS-1")
@@ -479,7 +493,7 @@ namespace LiftBatch
             Check(tsPairs > 0, W3, "no TS-1 line repaired by an added tower");
             Check(steepLines > 0 && keyPitch > 0, W4, "no line warns too steep (" + steepLines + ") or keys PLAN_PITCH (" + keyPitch + ")");
             Check(leanedChecked > 0 && fitChecked > 0, W5, "nothing leaned (" + leanedChecked + ") or fitted (" + fitChecked + ")");
-            s_Report.Add("PC-3 crest-end FG lines over the cap without it " + crestOver + ", repaired by a shift / member " + crestFixed +
+            s_Report.Add("PC-3 crest-end FG lines over the cap without it " + crestOver + ", repaired without an added tower " + crestFixed +
                          "; TS-1 lines repaired by an added tower " + tsPairs);
             s_Report.Add("PC-4 " + steepLines + " line(s) still too steep after the repair, " + keyPitch + " keyed PLAN_PITCH (the rest: an earlier key)");
             s_Report.Add("PC-5 leaned anchors checked " + leanedChecked + ", fits checked " + fitChecked);
@@ -686,6 +700,192 @@ namespace LiftBatch
                              F(t.FloatM, "F2") + " m (the downhill legs' dig-in; uphill pedestals show " +
                              F((LiftAlignMath.TramBaseHalfM(60f) + LiftAlignMath.TramPierHalfM) * math.sin(math.radians(t.LeanDeg)) + t.FloatM, "F2") + " m)");
             }
+        }
+
+        // ── PC-9: the carrier clearance ─────────────────────────────────────────────────────────────────────────────────────
+        /// <summary>The art's grip-clearance test (the other side of the table).</summary>
+        internal const string ArtGripTest = "assets/blender/tests/test_grip_clearance.py";
+
+        /// <summary>The rows of ART_WORLD_HALF_MAX = {("FG", "support"): 41.5, ...} in the art test's source, keyed "family/kind"; null
+        /// when the file has no such assignment.</summary>
+        internal static Dictionary<string, float> ParseArtTable(string py)
+        {
+            Match m = Regex.Match(py, @"^ART_WORLD_HALF_MAX\s*=\s*\{(?<body>[^}]*)\}", RegexOptions.Multiline);
+            if (!m.Success)
+                return null;
+            var rows = new Dictionary<string, float>();
+            foreach (Match r in Regex.Matches(m.Groups["body"].Value, @"\(\s*""(?<f>\w+)""\s*,\s*""(?<k>\w+)""\s*\)\s*:\s*(?<v>[0-9]+(?:\.[0-9]+)?)"))
+                rows[r.Groups["f"].Value + "/" + r.Groups["k"].Value] = float.Parse(r.Groups["v"].Value, CultureInfo.InvariantCulture);
+            return rows;
+        }
+
+        private static void Pc9Clearance()
+        {
+            const string W = "pitch/PC-9";
+            // (a) the table gate. LIFTBATCH_GRIP_PY points at another copy of the art test (a check before the art branch is merged).
+            var cs = new Dictionary<string, float>();
+            foreach ((string Family, string Kind, float Deg) r in LiftAlignMath.WorldHalfTable())
+                Check(cs.TryAdd(r.Family + "/" + r.Kind, r.Deg), W + " table", "a duplicate C# row " + r.Family + "/" + r.Kind);
+            string path = Environment.GetEnvironmentVariable("LIFTBATCH_GRIP_PY");
+            if (string.IsNullOrEmpty(path))
+                path = CatalogTests.RepoFile(ArtGripTest);
+            string py = path != null && File.Exists(path) ? File.ReadAllText(path) : null;
+            Dictionary<string, float> art = py == null ? null : ParseArtTable(py);
+            if (art != null)
+            {
+                bool same = art.Count == cs.Count;
+                foreach (KeyValuePair<string, float> kv in cs)
+                    same &= art.TryGetValue(kv.Key, out float v) && math.abs(v - kv.Value) < 1e-4f;
+                Check(same && art.Count > 0, W + " table", "LiftAlignMath.WorldHalfTable " + Rows(cs) + " != the art's ART_WORLD_HALF_MAX " + Rows(art));
+                s_Report.Add("PC-9 table | the C# table " + (same ? "equals" : "DIFFERS FROM") + " the art's ART_WORLD_HALF_MAX (" + Path.GetFileName(path) + "): " + Rows(cs));
+            }
+            else
+            {
+                // the art branch is not merged into this tree yet: nothing to compare. A file that already judges world halves without the
+                // table (renamed or moved) fails, so the gate cannot go quiet after the merge.
+                Check(py == null || !py.Contains("world_half"), W + " table", ArtGripTest + " judges world halves but has no ART_WORLD_HALF_MAX table");
+                s_Report.Add("PC-9 table | " + ArtGripTest + (py == null ? " not found" : " has no ART_WORLD_HALF_MAX yet (the art branch is not merged)") +
+                             ": C# table only " + Rows(cs));
+            }
+
+            // (b) the bite and (c) the pose over the sweep sets
+            List<Line> lines = Lines();
+            var rowsOut = new List<string>();
+            int crossTotal = 0, newWarnTotal = 0, posed = 0, held = 0, heldOff = 0, keyedClearance = 0, clearanceLines = 0;
+            float worstPosed = 0f, worstHeldRope = 0f, worstOffRope = 0f;
+            foreach (string set in new[] { "FB-3", "TS-1", "crest-end", "steep" })
+            foreach (string id in new[] { "fixedGrip", "detachable", "gondola" })
+            {
+                LiftTowerPlanConstants c = LiftTowerPlanConstants.For(id);
+                int n = 0, cross = 0, pastOff = 0, pastOn = 0, pairLines = 0, added = 0, fewerLines = 0, warnOff = 0, warnOn = 0, newWarn = 0, newWarnCross = 0;
+                int towersOff = 0, towersOn = 0;
+                double msOff = 0, msOn = 0;
+                float maxOff = 0f, maxOn = 0f;
+                foreach (Line l in lines)
+                {
+                    if (l.Set != set || l.Type != id)
+                        continue;
+                    n++;
+                    bool crossable = !(SteepestGround(l, c.TypicalSpanM) > c.PitchCapDeg);
+                    if (crossable) cross++;
+                    var sw = System.Diagnostics.Stopwatch.StartNew();
+                    LiftTowerPlan off = PlanLine(l, true, worldHalf: false);
+                    msOff += sw.Elapsed.TotalMilliseconds;
+                    sw.Restart();
+                    LiftTowerPlan on = PlanLine(l, true);
+                    msOn += sw.Elapsed.TotalMilliseconds;
+                    towersOff += off.LineTowers;
+                    towersOn += on.LineTowers;
+                    int po = PastTable(off, id, out float mo, out float poseOff), pn = PastTable(on, id, out float mn, out _);
+                    maxOff = math.max(maxOff, mo);
+                    maxOn = math.max(maxOn, mn);
+                    if (po > 0) pastOff++;
+                    if (pn > 0) pastOn++;
+                    if (po > 0 && poseOff > 0f) { heldOff++; worstOffRope = math.max(worstOffRope, poseOff); }
+                    if (on.LineTowers > off.LineTowers) { pairLines++; added += on.LineTowers - off.LineTowers; }
+                    else if (on.LineTowers < off.LineTowers) fewerLines++;
+                    if (!off.Sound) warnOff++;
+                    if (!on.Sound) warnOn++;
+                    if (off.Sound && !on.Sound)
+                    {
+                        newWarn++;
+                        if (crossable) newWarnCross++;
+                        if (rowsOut.Count < 200)
+                            rowsOut.Add(set + " " + l.Label + (crossable ? "" : " (ground steeper than the cap)") + ": " + on.Verdict);
+                    }
+                    Check(pn == on.ClearanceTowers, W + " " + l.Label, "towers past the table " + pn + " but PAST CLEARANCE " + on.ClearanceTowers);
+                    // (c) the pose: every tower's posed halves within the table, and the warning wired
+                    for (int i = 1; i < on.Nodes.Length - 1; i++)
+                    {
+                        LiftPlanNode t = on.Nodes[i];
+                        if (t.Member < 0 || !t.HasAngles)
+                            continue;
+                        float lim = LiftAlignMath.WorldHalfMaxDeg(id, LiftTowerPlanConstants.WorldHalfKind(t.Head));
+                        Pose(on, i, id, out float worldPosed, out bool worldClamped);
+                        posed++;
+                        if (worldClamped) { held++; worstHeldRope = math.max(worstHeldRope, t.HalfDeg); }
+                        if (math.isfinite(lim))
+                            worstPosed = math.max(worstPosed, worldPosed - lim);
+                        Check(!math.isfinite(lim) || worldPosed <= lim + 1e-3f, W + " " + l.Label + " t" + i,
+                              "posed half " + F(worldPosed, "F2") + " past the table's " + F(lim));
+                        if (!on.IsOverClearance(i))
+                            continue;
+                        string tk = LiftLineInput.TowerKey(on, i, false, out _, out _, out float deg, out float capDeg);
+                        if (tk == "TOWER_CLEARANCE") keyedClearance++;
+                        Check(tk == "TOWER_LOW" || tk == "TOWER_TRAIN" || tk == "TOWER_PITCH" || (tk == "TOWER_CLEARANCE" && deg > capDeg && capDeg == lim),
+                              W + " " + l.Label + " t" + i, "a tower past its clearance keys " + tk + " " + F(deg) + " / " + F(capDeg));
+                    }
+                    if (on.ClearanceTowers > 0)
+                    {
+                        clearanceLines++;
+                        string key = LiftLineInput.PlanKey(on, out _);
+                        Check(!on.Sound && on.OverCapNote.Contains("PAST CLEARANCE") && key != "PLAN_CLEAR" && key != "PLAN_SADDLE", W + " " + l.Label,
+                              "a line past its clearance reads " + key + " / " + on.Verdict);
+                    }
+                }
+                if (n == 0)
+                    continue;
+                crossTotal += cross;
+                newWarnTotal += newWarnCross;
+                s_Report.Add("PC-9 " + set + " " + id + " | " + n + " lines (" + cross + " crossable) | lines with a rope half past the table: off " + pastOff +
+                             ", on " + pastOn + " | lines with a pair / more towers " + pairLines + " (+" + added + " towers), with fewer towers " + fewerLines + " (" + towersOff +
+                             " -> " + towersOn + " towers) | lines warning off " + warnOff + ", on " + warnOn + ", newly " + newWarn + " (crossable " + newWarnCross + ", " +
+                             F(cross > 0 ? 100.0 * newWarnCross / cross : 0) + " %) | steepest rope half off " + F(maxOff) + ", on " + F(maxOn) +
+                             " | planner off " + F(msOff, "F0") + " ms, on " + F(msOn, "F0") + " ms (" + F(msOn / n, "F1") + " ms per line)");
+            }
+            s_Report.Add("PC-9 bite | newly warning crossable lines " + newWarnTotal + " of " + crossTotal + " (" +
+                         F(crossTotal > 0 ? 100.0 * newWarnTotal / crossTotal : 0, "F2") + " %; the go / no-go is 3 %)");
+            s_Report.Add("PC-9 pose | " + posed + " towers posed by PoseTrain, " + held + " held at their limit (steepest rope half there " + F(worstHeldRope) +
+                         "), worst posed half past its limit " + F(worstPosed, "F3") + " deg | with the rule off " + heldOff + " line(s) would pose a half " +
+                         "past the table without the clamp (worst " + F(worstOffRope) + " deg over) | towers keyed TOWER_CLEARANCE " + keyedClearance +
+                         " on " + clearanceLines + " line(s)");
+            foreach (string r in rowsOut)
+                s_Report.Add("PC-9 row | " + r);
+        }
+
+        private static string Rows(Dictionary<string, float> t)
+        {
+            var keys = new List<string>(t.Keys);
+            keys.Sort(StringComparer.Ordinal);
+            return "{" + string.Join(", ", keys.ConvertAll(k => k + " " + F(t[k]))) + "}";
+        }
+
+        /// <summary>Towers of <paramref name="p"/> whose steeper rope half is past the table for their head; the steepest half (deg) and the
+        /// most a pose without the world clamp would put a half past its limit (deg).</summary>
+        private static int PastTable(LiftTowerPlan p, string typeId, out float maxHalf, out float worstUnclamped)
+        {
+            int past = 0;
+            maxHalf = worstUnclamped = 0f;
+            for (int i = 1; i < p.Nodes.Length - 1; i++)
+            {
+                LiftPlanNode t = p.Nodes[i];
+                if (t.Member < 0 || !t.HasAngles)
+                    continue;
+                maxHalf = math.max(maxHalf, t.HalfDeg);
+                float lim = LiftAlignMath.WorldHalfMaxDeg(typeId, LiftTowerPlanConstants.WorldHalfKind(t.Head));
+                if (!(t.HalfDeg > lim + LiftTowerPlan.AngleTolDeg))
+                    continue;
+                past++;
+                Pose(p, i, typeId, out float worldPosed, out _, clamp: false);
+                worstUnclamped = math.max(worstUnclamped, worldPosed - lim);
+            }
+            return past;
+        }
+
+        /// <summary>TrainPitchSystem's pose of plan tower <paramref name="i"/> (LiftAlignMath.PoseTrain): the tower's +z along the line toward
+        /// B, the front half on the leaving rope, the back on the arriving one, the mast at SignedLean, DQ / GD headed (letter T), the limits
+        /// as the game reads them. <paramref name="worldPosed"/> = the steeper posed half's world pitch, degrees.</summary>
+        private static void Pose(LiftTowerPlan p, int i, string typeId, out float worldPosed, out bool worldClamped, bool clamp = true)
+        {
+            LiftPlanNode a = p.Nodes[i - 1], t = p.Nodes[i], b = p.Nodes[i + 1];
+            LiftAlignMath.RopeAngles(new float3(0f, a.RopeM, a.AlongM), new float3(0f, t.RopeM, t.AlongM), new float3(0f, b.RopeM, b.AlongM),
+                p.Constants.SagRatio, out float inA, out float outA);
+            float mast = LiftAlignMath.SignedLean(t.PitchDeg, t.LeanDeg);
+            LiftAlignMath.TrainLimits(SkiCatalog.LiftById(typeId).Envelope.SlopeMax, false, out float maxPitch, out float maxHalfBreak);
+            float worldMax = clamp ? math.radians(LiftAlignMath.WorldHalfMaxDeg(typeId, LiftTowerPlanConstants.WorldHalfKind(t.Head))) : float.PositiveInfinity;
+            LiftAlignMath.PoseTrain(outA - mast, 1, inA - mast, 1, mast, typeId != "fixedGrip", LiftAlignMath.HeadRelMax, maxPitch, maxHalfBreak,
+                worldMax, out _, out float front, out float back, out _, out worldClamped);
+            worldPosed = math.degrees(math.max(math.abs(front + mast), math.abs(back + mast)));
         }
 
         /// <summary>The plan's center ground at <paramref name="s"/> (linear between its samples, clamped): LiftTowerPlanner.CentreAt.</summary>

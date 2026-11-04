@@ -411,17 +411,19 @@ namespace LiftBatch
             foreach (string t in new[] { "fixedGrip", "detachable", "gondola", "tram", "any" })
                 used.Add("TYPE[" + t + "]");
             // PLAN_TRAIN / TOWER_TRAIN (a tower over its cap) and SUNK / SUNK_END (LiftLineInput.SunkKey): FIX-LIST 55; PLAN_PITCH /
-            // TOWER_PITCH (a tower past the pitch cap): DECISIONS 600; PLAN_SADDLE / TOWER_SADDLE (a tram saddle past its cap): 600 a.
+            // TOWER_PITCH (a tower past the pitch cap): DECISIONS 600; PLAN_SADDLE / TOWER_SADDLE (a tram saddle past its cap): 600 a; TOWER_CLEARANCE
+            // (a rope half past its carrier clearance; the plan line keys PLAN_TRAIN): 600 c.
             foreach (string k in new[] { "PLAN_CLEAR", "PLAN_LOW", "PLAN_STEEP", "PLAN_HIGH", "PLAN_TRAIN", "TOWER", "TOWER_PINNED", "TOWER_LOW",
-                                         "TOWER_TRAIN", "PLAN_PITCH", "TOWER_PITCH", "PLAN_SADDLE", "TOWER_SADDLE", "SUNK", "SUNK_END" })
+                                         "TOWER_TRAIN", "PLAN_PITCH", "TOWER_PITCH", "PLAN_SADDLE", "TOWER_SADDLE", "TOWER_CLEARANCE", "SUNK", "SUNK_END" })
                 used.Add(k);
             foreach (string path in codePaths)
                 foreach (Match m in new Regex("\\bT\\(\"([A-Z_]+(?:\\[[A-Za-z]+\\])?)\"").Matches(File.ReadAllText(path)))
                     used.Add(m.Groups[1].Value);
             foreach (string e in new[] { "SteepSlope", "OverlapExisting", "LongDistance", "ShortDistance", "InWater", "ExceedsCityLimits", "Other" })
                 used.Add("REFUSED[" + e + "]");
-            // DEG: the BEND notice's plan bend and TOWER_TRAIN's rope bend (LiftLineToolSystem.Deg); CAP: TOWER_TRAIN's cap.
-            var args = new HashSet<string> { "TYPE", "TOWERS", "LENGTH", "N", "COUNT", "HEIGHT", "CLEAR", "MIN", "M", "DEG", "CAP" };
+            // DEG: the BEND notice's plan bend and TOWER_TRAIN's rope bend (LiftLineToolSystem.Deg); CAP: TOWER_TRAIN's cap. LIMIT: TOWER_CLEARANCE's
+            // carrier-clearance limit (one decimal, LiftLineToolSystem.Deg).
+            var args = new HashSet<string> { "TYPE", "TOWERS", "LENGTH", "N", "COUNT", "HEIGHT", "CLEAR", "MIN", "M", "DEG", "CAP", "LIMIT" };
             int worst = 0;
             foreach (string key in used)
             {

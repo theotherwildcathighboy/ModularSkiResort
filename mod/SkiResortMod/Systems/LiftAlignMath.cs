@@ -420,6 +420,105 @@ namespace SkiResortMod.Systems
         /// TOWER_SADDLE and a red tower. The number: LiftBatch PC-7 (TS-1 coverage at 15 / 17.5 / 20).</summary>
         public const float TramBendHalfCapDeg = 20f;
 
+        // ── Carrier clearance: the rope half's world pitch (DECISIONS 600 c; art test_grip_clearance.py ART_WORLD_HALF_MAX) ─────────
+        // The carrier hangs plumb in the WORLD. Past a world pitch of the rope half it rides (the drawn rope's arriving or leaving angle
+        // at the tower) the body swings into its own sheave train or the head's deck end, whatever the mast's lean (the lean only makes
+        // such pitches reachable). The art measured the limit per family and kind (research art/tower-lean-2026-11/build.md "Pre-import
+        // checks" 1; passes to / fails from: FG support and Break 41.5 / 44, GD members 55 / 57.5, GD Hold 45 / 47.5, DQ Hold 57.5 / 60);
+        // DQ members, every Combo and the FG Hold clear the whole range. The planner repairs a tower past it like a bend (the angle pass:
+        // shift / member, breakover pair, longer span); still past it: PAST CLEARANCE, the red tower, TOWER_CLEARANCE (warn only).
+        // TrainPitchSystem never poses a half past it (PoseTrain).
+
+        /// <summary>THE carrier-clearance table, (family, kind, degrees): the steepest world pitch of a rope half at which the art's carrier
+        /// clears its train (the "passes to" column). It mirrors ART_WORLD_HALF_MAX in assets/blender/tests/test_grip_clearance.py: LiftBatch
+        /// PC-9 parses that file and fails when the two differ. Family FG / DQ / GD (WorldHalfFamily); kind "support" (the line member's
+        /// head), "Break", "Hold", "Combo". No row = no limit. A new array per call: callers cache it (LiftTowerPlanConstants,
+        /// TrainPitchSystem per prefab).</summary>
+        public static (string Family, string Kind, float Deg)[] WorldHalfTable() => new[]
+        {
+            ("FG", "support", 41.5f), ("FG", "Break", 41.5f), ("GD", "support", 55.0f), ("GD", "Hold", 45.0f), ("DQ", "Hold", 57.5f),
+        };
+
+        /// <summary>The table's family of a lift type id: FG / DQ / GD; null for the tram and unknown types (no limit).</summary>
+        public static string WorldHalfFamily(string typeId) =>
+            typeId == "fixedGrip" ? "FG" : typeId == "detachable" ? "DQ" : typeId == "gondola" ? "GD" : null;
+
+        /// <summary>The carrier-clearance limit, degrees, of a <paramref name="typeId"/> tower whose head is <paramref name="kind"/>
+        /// ("support", "Break", "Hold", "Combo"); +infinity without a row.</summary>
+        public static float WorldHalfMaxDeg(string typeId, string kind)
+        {
+            string family = WorldHalfFamily(typeId);
+            if (family != null)
+                foreach ((string Family, string Kind, float Deg) r in WorldHalfTable())
+                    if (r.Family == family && r.Kind == kind)
+                        return r.Deg;
+            return float.PositiveInfinity;
+        }
+
+        /// <summary>The steeper rope half's world pitch at a tower, degrees (&gt;= 0): max(|in|, |out|) of RopeAngles (inputs as there).</summary>
+        public static float WorldHalfDeg(float3 prev, float3 node, float3 next, float hanging)
+        {
+            RopeAngles(prev, node, next, hanging, out float a, out float b);
+            return math.degrees(math.max(math.abs(a), math.abs(b)));
+        }
+
+        /// <summary>Degrees the rope halves at a tower lie past the carrier-clearance limit <paramref name="worldMax"/> (radians) in the
+        /// world: <paramref name="front"/> / <paramref name="back"/> are the mean lane-end pitches relative to the mast (inputs as
+        /// HalfPitches), <paramref name="mast"/> the mast's pitch (MastPitch), so a half's world pitch is its pitch + mast. 0 when within,
+        /// without a rope or without a limit.</summary>
+        public static float WorldHalfOverDeg(float front, int nFront, float back, int nBack, float mast, float worldMax)
+        {
+            if ((nFront == 0 && nBack == 0) || !math.isfinite(worldMax))
+                return 0f;
+            if (nFront == 0)
+                front = back;
+            else if (nBack == 0)
+                back = front;
+            return math.max(0f, math.degrees(math.max(math.abs(front + mast), math.abs(back + mast)) - worldMax));
+        }
+
+        /// <summary>One line tower's train pose (TrainPitchSystem's whole rule; LiftBatch PC-9 replays it on the sweep plans). Inputs:
+        /// the mean lane-end pitches relative to the mast and their counts (as HalfPitches), the mast's pitch <paramref name="mast"/>
+        /// (radians), whether the mesh has a Head bone (<paramref name="headMax"/> its clamp), the unheaded train limits
+        /// (<paramref name="maxPitch"/>, <paramref name="maxHalfBreak"/>: TrainLimits) and the carrier-clearance limit
+        /// <paramref name="worldMax"/> (radians in the world; +infinity = none). The head and halves follow HeadedHalfPitches or
+        /// HalfPitches; then each half is clamped so its world pitch (half + mast) stays within worldMax (DECISIONS 600 c: the carrier
+        /// hangs plumb, a steeper half would draw it through the train). Returns the degrees the rope asks past what the train follows
+        /// (TrainOverDeg / HeadedTrainOverDeg, or the world excess when larger: the hub's LiftTrainLimit row). <paramref name="clamped"/>
+        /// = a half was clamped (either rule), <paramref name="worldClamped"/> = by the world limit.</summary>
+        public static float PoseTrain(float meanF, int nF, float meanB, int nB, float mast, bool headed, float headMax, float maxPitch,
+            float maxHalfBreak, float worldMax, out float head, out float front, out float back, out bool clamped, out bool worldClamped)
+        {
+            head = front = back = 0f;
+            clamped = worldClamped = false;
+            if (nF == 0 && nB == 0)
+                return 0f;
+            float over;
+            if (headed)
+            {
+                over = HeadedTrainOverDeg(meanF, nF, meanB, nB, headMax);
+                clamped = HeadedHalfPitches(meanF, nF, meanB, nB, headMax, out head, out front, out back);
+            }
+            else
+            {
+                over = TrainOverDeg(meanF, nF, meanB, nB, maxPitch, maxHalfBreak);
+                clamped = HalfPitches(meanF, nF, meanB, nB, maxPitch, maxHalfBreak, out front, out back);
+            }
+            if (math.isfinite(worldMax))
+            {
+                over = math.max(over, WorldHalfOverDeg(meanF, nF, meanB, nB, mast, worldMax));
+                float lo = -worldMax - mast, hi = worldMax - mast;
+                float f = math.clamp(front, lo, hi), b = math.clamp(back, lo, hi);
+                if (f != front || b != back)
+                {
+                    worldClamped = clamped = true;
+                    front = f;
+                    back = b;
+                }
+            }
+            return over;
+        }
+
         // ── Tram pedestals (DECISIONS 600 a, call c; critique SHOULD-2; art tower_lean.py foundation table) ─────────────────────
         // The tram tower stands on four concrete columns at its base corners (tram_tower.build_footings: a 1.5 m pedestal over a 12 m
         // pier, 1.4 m square, at +-B/2; B = 10 / 11 / 12 m for the 30 / 45 / 60 m tower). A lean turns them about the foot (the

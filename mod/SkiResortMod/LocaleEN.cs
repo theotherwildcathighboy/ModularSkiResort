@@ -1610,6 +1610,8 @@ namespace SkiResortMod
                 { "SkiResort.LiftTool.TOWER_LOW", "Tower {N} of {COUNT}: {HEIGHT} m tall. Chairs and cabins come too close to the ground next to it." },
                 { "SkiResort.LiftTool.TOWER_TRAIN", "Tower {N} of {COUNT}: {HEIGHT} m tall. The rope bends {DEG}° here, past the {CAP}° its wheels can follow." },
                 { "SkiResort.LiftTool.TOWER_SADDLE", "Tower {N} of {COUNT}: {HEIGHT} m tall. The rope bends {DEG}° over its saddle, past the {CAP}° a tram saddle carries." },
+                // DECISIONS 600 c: the rope leaves the tower steeper than the art's carrier clearance for its head (the chair or cabin hangs plumb and meets the train).
+                { "SkiResort.LiftTool.TOWER_CLEARANCE", "Tower {N} of {COUNT}: {HEIGHT} m tall. The rope leaves it at {DEG}°, steeper than the {LIMIT}° at which chairs and cabins clear the tower." },
                 { "SkiResort.LiftTool.TOWER_PITCH", "Tower {N} of {COUNT}: {HEIGHT} m tall. The rope runs through it at {DEG}°, steeper than {CAP}°: too steep for this lift type." },
                 // Notices: shown for a few seconds after a refused click.
                 { "SkiResort.LiftTool.NOTHING_TO_BUILD", "Nothing to build yet: click both ends of the line first." },

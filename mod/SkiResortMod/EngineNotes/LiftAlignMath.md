@@ -84,3 +84,16 @@ the grip top (F5, reverses round-2 contract D8). Every pose of a carrier uses it
   steel y, ceiling = min over the edges of terrain - pier y. B/2 = `TramBaseHalfM(top)` (5.0 / 5.5 / 6.0). Reproduces the art's foundation
   table within 3 mm (PC-8). The uphill legs buried in a steep slope are the pre-existing slope condition (the lean only reduces it): not a
   floor.
+
+## 600 c: carrier clearance (the rope half's world pitch)
+- The carrier hangs plumb in the WORLD. Past a world pitch of the rope half it rides (`WorldHalfDeg` = max(|in|, |out|) of `RopeAngles`)
+  the body swings into its own sheave train or the head's deck end, whatever the lean (art test_grip_clearance `--world-scan`, research
+  art/tower-lean-2026-11/build.md "Pre-import checks" 1). `WorldHalfTable()` is THE table (family, kind, passes-to deg): FG support 41.5,
+  FG Break 41.5, GD support 55, GD Hold 45, DQ Hold 57.5; no row (DQ members, every Combo, FG Hold, the tram) = no limit. It mirrors the
+  art's `ART_WORLD_HALF_MAX`; LiftBatch PC-9 parses that file and fails on a difference (reported only while the art branch is unmerged;
+  `LIFTBATCH_GRIP_PY=<path>` compares another copy). `WorldHalfMaxDeg(typeId, kind)` looks it up (kind "support" = the line member's head).
+- `PoseTrain(...)` is TrainPitchSystem's whole pose rule for one tower (headed or not, then the world clamp: each half to
+  [-max - mast, max - mast] relative to the mast, last). It returns the train-limit excess, now including `WorldHalfOverDeg`. PC-9 replays
+  it on every sweep tower: no posed half past the table.
+- Why it binds: at the FG cap (pitch 38, lean 25) a 16 deg half-break puts a half at 54 world; the table allows about a 3.5 deg half-break
+  there. A uniform 38 deg FG slope gives halves of 40.7 / 35.0 (in / out): inside.
