@@ -4,7 +4,8 @@
 // TopM[0]) and a straight Curve on each touched edge. Station stub, branch and owned nodes are never touched.
 // Phase (Mod.cs): UpdateAt Modification1: every consumer of the Updated tag runs later in the frame, CleanUp wipes it at frame end.
 // Triggered by LiftCensusSystem.OnCensusBuilt after a quiet period; a fixed point, with a write guard. Tool lines (LiftToolLines)
-// are fitted heights-only. Logs: silence is impossible; an exception disables the system until the next load.
+// are fitted heights-only. A BUILT line is judged at its towers' feet (node y - E), never on the ground our own cut sank under them
+// (FIX-LIST 57: a reload wrote a tram tower 1.05 m lower). Logs: silence is impossible; an exception disables the system until the next load.
 // Engine notes: EngineNotes/LiftTowerFitSystem.md
 
 using System;
@@ -296,6 +297,30 @@ namespace SkiResortMod.Systems
                 // the hysteresis input: the kind last classified this session, else the one the node's head implies (planner Previous)
                 oldKinds[i - 1] = m_Kinds.TryGetValue(path[i].Node, out LiftTrainKind k) ? k : LiftTrainKind.None;
             }
+            // Never a worse plan over a built line (FIX-LIST 52): a line whose every inner node carries a fit's exact elevation is the
+            // line as built (before = its own members and heads, read back by MemberOf); an unsound fit worse on any axis is not written.
+            bool built = Built(path, c, oldMembers, oldHeads);
+            // A built tower's ground is its foot (node y - E: the ground the fit stood it on, plus a tram tower's pedestal float), unless
+            // the ground now under it is higher (FIX-LIST 57): the line's own cut sinks the ground under its towers after the fit that
+            // placed them, so the load re-fit read the T60 of a tram 1.05 m lower than its build, judged its rope that much low and
+            // re-grounded it. The fit now judges and writes a built line at the heights it really stands at.
+            int sunk = 0;
+            float sunkMax = 0f;
+            if (built)
+            {
+                var foot = new float[n - 2];
+                for (int i = 0; i < n - 2; i++)
+                {
+                    foot[i] = pts[i + 1].y - LiftTowerEdit.ElevationM(c, oldMembers[i], oldHeads[i]);
+                    float under = foot[i] - sampler(inner[i], 0f);
+                    if (under > LiftTowerEdit.FootSunkLogM)
+                    {
+                        sunk++;
+                        sunkMax = math.max(sunkMax, under);
+                    }
+                }
+                sampler = LiftTowerEdit.BuiltFootSampler(sampler, inner, foot);
+            }
             float engineMax = netGeo.m_EdgeLengthRange.max;
             // A line the lift-line tool built (every inner node a registered tool node, LiftToolLines.Match) is a tool line: heights only
             // with the tool's members, never Moved, so a pinned node is never snapped.
@@ -344,6 +369,7 @@ namespace SkiResortMod.Systems
             // Kinds and heads with hysteresis: every plan at the line's own node positions starts from the kinds and heads it carries.
             m_Planner.PreviousKinds = oldKinds;
             m_Planner.PreviousHeads = oldHeads;
+            m_Planner.FootAlong = built ? inner : null;   // their feet hold any pedestal float already (FIX-LIST 57)
             LiftTowerPlan before;
             LiftTowerFit fit;
             try
@@ -360,6 +386,7 @@ namespace SkiResortMod.Systems
                 m_Planner.HeadsAsGiven = false;
                 m_Planner.PreviousKinds = null;
                 m_Planner.PreviousHeads = null;
+                m_Planner.FootAlong = null;
             }
             LiftTowerPlan plan = fit.Plan;
             m_Fitted++;
@@ -379,9 +406,6 @@ namespace SkiResortMod.Systems
                              "not written");
                 return;
             }
-            // Never a worse plan over a built line (FIX-LIST 52): a line whose every inner node carries a fit's exact elevation is the
-            // line as built (before = its own members and heads, read back by MemberOf); an unsound fit worse on any axis is not written.
-            bool built = Built(path, c, oldMembers, oldHeads);
             if (LiftTowerPlanner.ToWrite(before, fit, built, out string worse) == null)
             {
                 before.KindCounts(out _, out _, out _, out _, out int overB);
@@ -407,7 +431,7 @@ namespace SkiResortMod.Systems
                 float3 np = new float3(xz.x, pn.GroundM + elevation + pn.FloatM, xz.z);   // + a tram tower's pedestal float (DECISIONS 600 a)
                 bool moved = math.distance(np.xz, pts[i].xz) > MoveEpsM;
                 bool reMembered = pn.Member != oldMembers[i - 1] || pn.Head != oldHeads[i - 1];
-                bool drift = LiftTowerEdit.HeightWrite(pts[i].y, np.y);
+                bool drift = LiftTowerEdit.HeightWrite(pts[i].y, np.y, built);   // built: never lowered onto our own cut (FIX-LIST 57)
                 // The node's Elevation must be exactly (E, E) (the ladder rule, LiftTowerEdit): an engine-derived value (the tool's
                 // fresh nodes, CourseSplitSystem.CalculateElevation; a one-sided (7.93, 0)) is rewritten once.
                 bool elevOff = ElevationOff(path[i].Node, elevation);
@@ -415,7 +439,7 @@ namespace SkiResortMod.Systems
                     np.y = pts[i].y;   // only the component is off: keep the node where it stands (no carve chase)
                 Target t = new Target { Node = path[i].Node, Old = pts[i], New = np, OldMember = oldMembers[i - 1], NewMember = pn.Member,
                                         OldHead = oldHeads[i - 1], NewHead = pn.Head, Elevation = elevation,
-                                        Write = moved || reMembered || drift || elevOff };
+                                        Write = LiftTowerEdit.NodeWrite(built, moved, reMembered, pts[i].y, np.y, elevOff) };
                 if (t.Write)
                     writes++;
                 targets[i - 1] = t;
@@ -424,6 +448,8 @@ namespace SkiResortMod.Systems
             string cutNote = cutAt.Count > 0
                 ? $"; own cut: ground at {cutAt.Count} sample spot(s) taken from beside this line's own trench (T127)"
                 : string.Empty;
+            if (sunk > 0)
+                cutNote += $"; {sunk} built tower(s) stand up to {F(sunkMax, "F2")} m over the ground now under them (our own cut sank it): judged at their feet (FIX-LIST 57)";
             string clearText = plan.Clear ? "every span clear" + plan.OverCapNote   // FIX-LIST 55: never "clear" alone with a tower over its cap
                 : fit.Mode == LiftFitMode.Kept ? $"within {LiftTowerPlanner.KeepTolM:F1} m of the floor, kept as it stands" + plan.OverCapNote
                 : "VIOLATED";

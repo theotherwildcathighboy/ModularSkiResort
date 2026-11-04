@@ -271,6 +271,10 @@ A tower node is raised so that the vanilla placeholder ladder spawns exactly the
 - A node up to the "above" tolerance over its target is left alone: every write re-curves the node's edges, the carve (cut ceiling = edge y
   + m_HeightRange.min - 2) follows the curve, and on steep tram spans the cut reaches the node, so the ground under it sank 0.39 -> 0.33
   -> 0.27 m per write (ratio ~0.85). A fit that re-grounded on every 0.25 m wrote three times and hit the loop guard.
+- Over a BUILT line (FIX-LIST 57) the "above" side is gone: the fit judges a built tower at its foot (`BuiltFootSampler`, max(ground,
+  node y - E); `LiftTowerPlanner.FootAlong` keeps a tram float from counting twice) and `HeightWrite(old, target, built)` writes only a
+  node below its target. The load re-fit had re-grounded a tram T60 1.05 m lower once our cut sank the ground under it
+  (LiftTowerFitSystem.md "A built tower's ground is its foot"; LiftBatch RL-57, RL-1).
 - Twins (B2): `ElevationM(c, member, head)` = Top(twin) - TopM[0], so the twin scores 1 (spare 0) and every other member less (tops
   >= 0.1 m apart, check-lift-align LADDER); `EngineWinner(c, e, out head, out score)` scores the ladder and the twins and
   `EnginePivotAboveGround(c, member, head, e)` = 0 for the planned head (LiftBatch HD-4). `MemberOf(c, e, out head)` reads a node back:

@@ -35,6 +35,15 @@ namespace LiftBatch
                 return s_Failures;
             }
 
+            if (Environment.GetEnvironmentVariable("LIFTBATCH_ONLY") == "reload")
+            {
+                ReloadTests.Run(Check);
+                foreach (string line in ReloadTests.Report)
+                    Console.WriteLine("RELOAD " + line);
+                Console.WriteLine("SUMMARY  LiftBatch (RL only) checks=" + s_Checks + " failures=" + s_Failures);
+                return s_Failures;
+            }
+
             if (Environment.GetEnvironmentVariable("LIFTBATCH_ONLY") == "pitch")
             {
                 PitchCapTests.Run(Check);
@@ -140,6 +149,9 @@ namespace LiftBatch
             EishainTests.Run(Check);
             foreach (string line in EishainTests.Report)
                 Console.WriteLine("EISH  " + line);
+            ReloadTests.Run(Check);
+            foreach (string line in ReloadTests.Report)
+                Console.WriteLine("RELOAD " + line);
 
             Console.WriteLine(string.Format(CultureInfo.InvariantCulture,
                 "SUMMARY  LiftBatch checks={0} failures={1}", s_Checks, s_Failures));

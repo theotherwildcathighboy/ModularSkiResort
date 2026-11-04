@@ -41,6 +41,31 @@ The terrain sampler is `LiftTowerEdit.UncutSampler`. A sample at this line's own
 terrain offset, `TerrainSystem.AddSegment`) is our trench, so the plane through the uncut ground beside it stands in; otherwise towers
 stand in the trenches of a vanilla line drawn on the ground and keep round pits around them.
 
+## A built tower's ground is its foot (FIX-LIST 57)
+Our own cut sinks the ground under a line's towers AFTER the fit that placed them, and the load re-fit (every line: `m_Seen` is in
+memory only) reads the sunk ground. Field (handtest-tower-lean run 2, 717be77, `bridgeleanpad`): the tram x -1700 was fitted 0.3 s
+after its build with T60 520719 at ground 1290.82 (node 1320.82 = ground + E 30, float 0; the fit wrote Elevation only, so the key did
+not change and nothing re-fitted in session). At load the same spot read 1289.77, and EVERY tram tower of the city stood 0.3-1.0 m over
+its ground (chairs 0.0-0.3, one GD12 0.7); the high side beside the T60 read +6.4 for +11.4 (5 m lower). The fit re-grounded the T60
+1.05 m lower (past `HeightAboveTolM` 1.0), and right after that write the ground under it read 1289.49: another 0.28 m, so the ground
+there follows our own node height (the cut, never a fill: `TerrainSystem.AddSegment`, TerrainSystem.cs:1397-1516; the CPU heights are read
+back from the cascade, :3598-3646). UNVERIFIED: which curve height `AddSegment` gets for a raised power-line node (a 5 m cut 7.5 m beside
+a node 30 m over the ground does not fit a ceiling of node y + 4; it fits one near the tower's foot), and the readback latency that lets
+the build-time fit miss the cut.
+Not the 52 root (the station ends missing from the key): the plan here was sound and the same, so `ToWrite` let it through; the write
+was a pure height drift. Rule, over a BUILT line only:
+- the fit samples each built tower's center at max(ground, foot), foot = node y - E (`LiftTowerEdit.BuiltFootSampler`); the sides, the
+  span samples and the float profile keep the ground as it is (lower = more clearance);
+- the foot already holds a tram tower's pedestal float (600 b), so the planner adds none at a built tower (`LiftTowerPlanner.FootAlong`;
+  without it the bench T60 rose 0.49 m on every reload, RL-1);
+- a node with member, head and position unchanged is written only when the ground rose over its foot (`HeightWrite(old, target, built)`,
+  one-sided below); `NodeWrite` is the whole per-node decision, pure for LiftBatch.
+Log: the fit line names "N built tower(s) stand up to X m over the ground now under them (our own cut sank it): judged at their feet".
+Trade-off: a tower whose ground the player lowers stays at its height after a load, as it already did in session (terraform changes no fit
+key); the per-section redo re-grounds it. A moved or re-membered built tower keeps its old foot (it stands where the old one stood).
+Tests: LiftBatch RL-57 (the field tram replayed from the build dump: the pre-57 path writes the T60 1.05 m lower, the fit now nothing),
+RL-1 (FG / DQ / GD / tram both draw orders, leaned, a floated tram: a reload on the same ground and on ground sunk 1.05 m writes nothing).
+
 ## Station ends
 An end is a station end (approach floor, `LiftTowerPlanner.StationA/B`) by the census rule `LiftCensusSystem.IsStationNode`
 (`StationOfNode`: the node's Owner or owner's owner is a station, or, line-first, a station-owned stub edge is in its ConnectedEdge buffer),

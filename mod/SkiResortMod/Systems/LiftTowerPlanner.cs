@@ -1054,6 +1054,50 @@ namespace SkiResortMod.Systems
         public static bool HeightWrite(float oldY, float targetY) =>
             oldY < targetY - HeightBelowTolM || oldY > targetY + HeightAboveTolM;
 
+        /// <summary>HeightWrite over a BUILT line (LiftTowerFitSystem.Built: every inner node carries a fit's exact Elevation): only
+        /// below by more than HeightBelowTolM. A built tower is never lowered for ground that sank under it with its member, head and
+        /// position unchanged (FIX-LIST 57): the line's own cut lowers the ground under its towers after the fit that placed them
+        /// (TerrainSystem.AddSegment, TerrainSystem.cs:1397-1516: a cut, never a fill), the fit right after a build reads the ground
+        /// before that cut reaches the CPU heights, and the load re-fit reads it after (field: every tram tower 0.3-1.0 m over its
+        /// ground at load, one T60 1.05 m and re-written). The cut only lowers, so "above" over a built line is our own carve; a
+        /// player's terraform is not re-fitted in session either (the fit key is edges, node positions and stations), so a load now
+        /// does what the session does. With BuiltFootSampler the target of an unchanged built tower is never below its node; this
+        /// rule states it at the write.</summary>
+        public static bool HeightWrite(float oldY, float targetY, bool built) =>
+            built ? oldY < targetY - HeightBelowTolM : HeightWrite(oldY, targetY);
+
+        /// <summary>A built tower whose foot stands more than this over the ground now under it is counted in the fit's log line.</summary>
+        public const float FootSunkLogM = 0.05f;
+
+        /// <summary>A planner sample this close (m along) to a built node is that node's own sample (LiftTowerPlanner.Sample inserts
+        /// each fixed node position exactly, or uses a grid sample within 1e-3 m).</summary>
+        public const float FootAtTolM = 0.01f;
+
+        /// <summary><paramref name="ground"/> with each built tower's own center sample at its FOOT (FIX-LIST 57): max(ground, foot),
+        /// foot = node y - E (the ground the fit stood it on, plus a tram tower's pedestal float). Our own cut sinks the ground under a
+        /// built tower after the fit (field: every tram tower 0.3-1.05 m, the high side beside a T60 5 m); judged on the sunk ground,
+        /// the planner hangs the rope that much low at the tower (rope = center + the member's rope height), so a load re-fit re-grounded
+        /// a tower or re-membered a line near its floor. Only the center at the node: the sides, the span samples and a tram tower's
+        /// float profile stay the ground as it is (lower = more clearance; the float sees its own foot and comes out 0). Ground now
+        /// higher than the foot (a raise under a tower) wins, so a buried tower is still raised.</summary>
+        public static LiftTerrainSampler BuiltFootSampler(LiftTerrainSampler ground, IList<float> innerAlongM, IList<float> footY) =>
+            (s, l) =>
+            {
+                float g = ground(s, l);
+                if (l != 0f)
+                    return g;
+                for (int i = 0; i < innerAlongM.Count; i++)
+                    if (math.abs(s - innerAlongM[i]) <= FootAtTolM)
+                        return math.max(g, footY[i]);
+                return g;
+            };
+
+        /// <summary>The fit's write decision for one inner node (LiftTowerFitSystem), pure for LiftBatch (RL-57 / RL-1): a move, a new
+        /// member or head, a height off its target (<see cref="HeightWrite(float, float, bool)"/>), or an Elevation component that is
+        /// not the member's exact (E, E). Target = ground + E + a tram tower's pedestal float.</summary>
+        public static bool NodeWrite(bool built, bool moved, bool reMembered, float oldY, float targetY, bool elevationOff) =>
+            moved || reMembered || HeightWrite(oldY, targetY, built) || elevationOff;
+
         public static float ElevationM(LiftTowerPlanConstants c, int member) =>
             member <= 0 ? 0f : c.Ladder[member].TopM - c.Ladder[0].TopM;
 
@@ -1322,6 +1366,11 @@ namespace SkiResortMod.Systems
         /// fresh ground node: a tower node, full floor. Set by the caller before each Plan / Fit (the lift tool from its end kinds,
         /// LiftTowerFitSystem from the end node's Owner: a station sub-net stub).</summary>
         public bool StationA = true, StationB = true;
+
+        /// <summary>A built line's tower positions (meters along) whose ground the caller samples at the tower's FOOT
+        /// (LiftTowerEdit.BuiltFootSampler, FIX-LIST 57): that foot already holds a tram tower's pedestal float, so SetFloats adds none
+        /// there (the float would count twice and raise a built tower on every re-fit). Null = none. Set by LiftTowerFitSystem per line.</summary>
+        public IList<float> FootAlong;
 
         /// <summary>Lift-line tool: plan with the engine's edge slope rule (LiftTowerPlanConstants.MaxEdgeSlope) between the nodes as
         /// they will be built (towers at ground + E(member), the ends at EndNodeYA / EndNodeYB; NaN = unknown, that end's span is not
@@ -3925,7 +3974,7 @@ namespace SkiResortMod.Systems
             for (int i = 0; i < nodes.Length; i++)
             {
                 nodes[i].FloatM = 0f;
-                if (nodes[i].Member < 0 || !(nodes[i].LeanDeg > 0f))
+                if (nodes[i].Member < 0 || !(nodes[i].LeanDeg > 0f) || AtFoot(nodes[i].AlongM))
                     continue;
                 float foot = nodes[i].AlongM, ground = nodes[i].GroundM, down = nodes[i].PitchDeg > 0f ? -1f : 1f;
                 float f = LiftAlignMath.TramFloatM(LiftAlignMath.TramBaseHalfM(m_C.Ladder[nodes[i].Member].TopM), nodes[i].LeanDeg,
@@ -3937,6 +3986,17 @@ namespace SkiResortMod.Systems
                 any = true;
             }
             return any;
+        }
+
+        /// <summary>Is <paramref name="s"/> a built tower's position in FootAlong (within LiftTowerEdit.FootAtTolM)?</summary>
+        private bool AtFoot(float s)
+        {
+            if (FootAlong == null)
+                return false;
+            for (int i = 0; i < FootAlong.Count; i++)
+                if (math.abs(s - FootAlong[i]) <= LiftTowerEdit.FootAtTolM)
+                    return true;
+            return false;
         }
 
         /// <summary>The center ground at <paramref name="s"/> meters along, linear between the samples (clamped to the line).</summary>
