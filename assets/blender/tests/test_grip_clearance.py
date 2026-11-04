@@ -30,6 +30,12 @@ every mean; theta = SKIN_THETA_MAX for FG, the planner max SKIN_TYPE_MAX_SLOPE D
 (front + back) / 2) on the kind's side of the fold, the planner's kind rule (breakover-holddown plan 2.2): support and
 Break convex to the art fold 40 deg, Hold concave to 40, Combo +-COMBO_FOLD (its drawn |d| stays under 7.3), so the fold
 extremes of each kind are in. LOD0 carrier x LOD0 tower.
+The tower lean (lift_head letter T, DECISIONS 600 / 600 a): poses are relative to the mast; DQ / GD sweep rel_grid (head
++-20, halves +-40), FG joint_grid(30) plus joint_grid(36) as headroom (plumb); the mast leans as the code leans it (head
+first, LEAN_RULE: DQ / GD 10 / 20 at the head's limit, FG 12.5 / 25 at a mean of 12, 25 at the cap mean 13) with the
+mean's sign, and the carrier body hangs plumb in the WORLD (theta + lean off the half). Poses past ART_WORLD_HALF_MAX
+(the rope half's world pitch the art clears) are left out and printed: a contract on the code. --world-scan measures
+those limits at the cap corner; --lean-superset sweeps every lean at every mean (both report only).
 Carriers: catalog/carriers.json split rows (tr = FG, dq = DQ, gd8 = GD), meshes found under assets/import, or --carriers
 <json> (the same rows; a row's "fbx": {"grip": {"lod0": path}, "body": {"lod0": path} | "unchanged: <repo dir>"}
 names the files: a round's carriers before their import).
@@ -89,6 +95,34 @@ BONES = list(LT.SKIN_BONES)
 # limit before this round: DQ 20 / GD 17.5 deg end-raised). DQ / GD trains here are the headed builds, swept to the
 # planner max (lift_tower.SKIN_TYPE_MAX_SLOPE: DQ 42 / GD 50.2) with Head = (front + back) / 2. FG has no head.
 HEADED = ("DQ", "GD")
+# The tower lean (DECISIONS 600 / 600 a): the mast leans downhill about its foot, so a pose relative to the mast is
+# `lean` deg further from plumb in the world, and the carrier body (plumb in the world) hangs theta + lean off the half,
+# not theta. The lean has the sign of the mean (it carries part of the rope pitch); it is a pose key ("Lean"), not a
+# bone. LEAN_MAX: the code's clamp per type (FG clamp(|p| - 12, 0, 25), DQ / GD clamp(|p| - 20, 0, 20)). Swept at
+# LEAN_STEPS x LEAN_MAX on every pose with a nonzero mean, a superset of the head-first rule (it leans only once the
+# mean sits at its limit: DQ / GD head 20, FG 12..13 at the 38 cap) that also covers a proportional rule.
+LEAN = "Lean"                       # the pose key (deg, Blender sign: the sign of the mean)
+LEAN_MAX = {"FG": 25.0, "DQ": 20.0, "GD": 20.0}
+LEAN_STEPS = (0.0, 0.5, 1.0)
+# LEAN_RULE "headfirst" (the gate): the code's rule only. DQ / GD lean only at |head| = 20; FG plumb on the joint grids,
+# leaned 0 / 12.5 / 25 at a mean of FG_REL and 25 at FG_CAP_MEAN (the 38 cap - 25), halves mean -+ the kind's break.
+# "superset" (--lean-superset, report only): every nonzero mean at every lean step (any lean rule).
+LEAN_RULE = "headfirst"
+FG_REL = 12.0                       # deg: the FG lean starts here (code 6eb3138: clamp(|p| - 12, 0, 25))
+FG_CAP_MEAN = 13.0                  # deg: the FG mean rel mast at the 38 cap (38 - 25)
+# The art's world half limit per (family, kind), deg (--world-scan, 2026-11-04, 2.5 deg steps; the last passing value):
+# past it the carrier body, plumb in the world, swings into the own train (FG support / Break: sheave hubs and liners;
+# GD members: the sub-rocker) or the head's deck end (DQ / GD Hold). The clash depends on the world pitch of the rope
+# half, not on the lean. Not listed: clear over the code's whole range (DQ members, every Combo, FG Hold).
+ART_WORLD_HALF_MAX = {("FG", "support"): 41.5, ("FG", "Break"): 41.5, ("GD", "support"): 55.0, ("GD", "Hold"): 45.0,
+                      ("DQ", "Hold"): 57.5}
+SCAN_STEP = 2.5                     # deg: --world-scan lean step
+SCAN_FG_BREAK = 16.0                # deg: the FG half-break the planner reaches (DECISIONS 600: mean + up to 16)
+# FG (no head): the halves relative to the mast at the 38 cap with a 25 lean are mean 13 +- the half-break (29 / -3),
+# inside the art's 30 (SKIN_THETA_MAX); the grid is the union of joint_grid(30) and joint_grid(FG_HEADROOM): the old
+# 36 bound (a plumb FG at the cap: mean 20 + a 16 half-break), kept as headroom for pitches past the cap ("too steep" is
+# a warning, never a refusal).
+FG_HEADROOM = 36.0
 
 
 def _fail(msg):
@@ -309,8 +343,9 @@ class Carrier:
         self._cache = {}
 
     def posed(self, theta, lane_sign, rev):
-        """The carrier in the frame of a half pitched theta (the grip at rest in it, the body plumb in the world, so
-        turned -theta about the pin), on lane_sign (-1 n: as exported, +1 p: turned 180 deg about z), rev = mirrored
+        """The carrier in the frame of a half pitched theta in the WORLD (relative to the mast + the mast's lean: the
+        grip at rest in it, the body plumb in the world, so turned -theta about the pin),
+        on lane_sign (-1 n: as exported, +1 p: turned 180 deg about z), rev = mirrored
         along travel. Returns the dict of coords / tris / samples / BVHs / broad-phase grids (cached)."""
         k = (round(theta, 4), lane_sign, rev)
         if k in self._cache:
@@ -493,7 +528,9 @@ def sweep_train(tw, car, label, report=False):
         thetas = sorted({round(p.get(bname, 0.0), 4) for p in tw.poses})
         for th in thetas:
             mine = [p for p in tw.poses if abs(p.get(bname, 0.0) - th) < 1e-6]
-            hy = car.posed(th, -1.0, False)["half_y"]          # |y| extent: the same on every lane / direction
+            leans = sorted({round(p.get(LEAN, 0.0), 4) for p in mine})
+            # |y| extent: the same on every lane / direction; the widest over the leans met at this theta
+            hy = max(car.posed(th + ln, -1.0, False)["half_y"] for ln in leans)
             # far stops: the other half and the head out of reach at every pose with this theta (measured)
             reach = -9.0
             for p in mine:
@@ -508,28 +545,35 @@ def sweep_train(tw, car, label, report=False):
             d_end = max(d_end, d_far)                       # the head may reach past the own half's last wheel
             ds_far = np.arange(math.ceil(d_far / STEP) * STEP, d_end + 1e-9, STEP)
             ds_near = np.arange(0.0, min(d_far, d_end) + 1e-9, STEP)
-            configs = []
+            configs = []                                    # (pose, stops, sides, lean)
             if len(ds_far):
                 pc, keep = tw.frame(th, own, {}, with_other=False)
-                configs.append(("any", ds_far, {g: _class_side(pc, tw.tris, keep & corr, tw.part, cls)
-                                                for g, cls in (("W2", ~tw.wheel), ("W1", tw.wheel))}))
+                far = {g: _class_side(pc, tw.tris, keep & corr, tw.part, cls)
+                       for g, cls in (("W2", ~tw.wheel), ("W1", tw.wheel))}
+                for ln in leans:                            # the own half only: every lean met at this theta
+                    configs.append(("any" if not ln else f"any, lean {ln:g}", ds_far, far, ln))
             for p in mine:
                 pc, keep = tw.frame(th, own, p)
                 configs.append(({k: round(v, 2) for k, v in p.items()}, ds_near,
                                 {g: _class_side(pc, tw.tris, keep & corr, tw.part, cls)
-                                 for g, cls in (("W2", ~tw.wheel), ("W1", tw.wheel))}))
+                                 for g, cls in (("W2", ~tw.wheel), ("W1", tw.wheel))}, round(p.get(LEAN, 0.0), 4)))
             for lane_sign in (-1.0, 1.0):
                 lane_x = lane_sign * spec.gauge / 2.0
                 for rev in (False, True):
-                    cp = car.posed(th, lane_sign, rev)
                     where0 = {"half": bname, "theta": th, "lane": "n" if lane_sign < 0 else "p",
                               "travel": "rev" if rev else "fwd"}
-                    for pose, ds, sides in configs:
+                    for pose, ds, sides, ln in configs:
+                        cp = car.posed(th + ln, lane_sign, rev)     # the body plumb in the world on the leaned mast
                         for gate, side in (("W2", "full"), ("W1", "forb")):
                             sweep_stops(sides[gate], cp[side], lane_x, sgn, tw.zp, ds, stats,
                                         dict(where0, pose=pose), gate)
                         nstops += len(ds)
     w1, w2 = stats["W1"], stats["W2"]
+    world = world_half
+    # failed poses: W2 under CLEAR; W1 only at contact (a W1 distance is not a failure, an overlap is; approximate)
+    failed = set(w2["by_pose"]) | {k for k, v in w1["by_pose"].items() if v <= 1e-4}
+    fw = [world(json.loads(k)) for k in failed if k.startswith("{")]
+    pw = [world(p) for p in tw.poses if json.dumps({k: round(v, 2) for k, v in p.items()}) not in failed]
     ok = w1["overlaps"] == 0 and w2["overlaps"] == 0 and w2["min"] >= CLEAR
     row = {"train": label, "kind": tw.kind, "carrier": car.key, "poses": len(tw.poses), "stops": nstops,
            "W1_overlaps": w1["overlaps"], "W1_min_m": round(w1["min"], 4) if w1["min"] < 9 else None,
@@ -538,6 +582,12 @@ def sweep_train(tw, car, label, report=False):
            "W2_at": w2["at"], "W2_overlap_at": w2["overlap_at"], "wheel_parts": len(tw.wheel_names),
            "W1_under_clear_by_pose": w1["by_pose"] or None, "W2_under_clear_by_pose": w2["by_pose"] or None,
            "folds": sorted({round(p.get("TrainFront", 0.0) - p.get("TrainBack", 0.0), 2) for p in tw.poses}),
+           "fail_world_min": round(min(fw), 2) if fw else None, "pass_world_max": round(max(pw), 2) if pw else None,
+           "leans": sorted({round(p.get(LEAN, 0.0), 2) for p in tw.poses}),
+           "max_rel_half": round(max(max(abs(p.get("TrainFront", 0.0)), abs(p.get("TrainBack", 0.0)))
+                                     for p in tw.poses), 2),
+           "max_world_half": round(max(max(abs(p.get("TrainFront", 0.0) + p.get(LEAN, 0.0)),
+                                           abs(p.get("TrainBack", 0.0) + p.get(LEAN, 0.0))) for p in tw.poses), 2),
            "pass": bool(ok), "seconds": round(time.perf_counter() - t0, 1)}
     w2s = f"{w2['min'] * 1000:.1f} mm" if w2["min"] < 9 else f"> {PROBE * 1000:.0f} mm"
     w1s = f"{w1['min'] * 1000:.1f} mm" if w1["min"] < 9 else f"> {PROBE * 1000:.0f} mm"
@@ -563,7 +613,10 @@ def kind_poses(fam, kind, art=False):
     convex, up to the art fold 2 x 20 (field: FG towers by a low ground end reach it); Hold only where d(1.5625 h) <= -1
     deg, concave to the art fold; push-pull (Combo) between, its drawn |d| under 7.3 deg: COMBO_FOLD. DQ / GD (headed,
     DECISIONS 594): the grid to the planner max (SKIN_TYPE_MAX_SLOPE, DQ 42 / GD 50.2) with Head = (front + back) / 2;
-    at the lean letter (lift_head T) lift_head.rel_grid: the head to +-20 and each half to +-40 relative to the mast.
+    at the lean letter (lift_head T) lift_head.rel_grid: the head to +-20 and each half to +-40 relative to the mast;
+    FG at T: joint_grid(30) + joint_grid(FG_HEADROOM 36). At T every pose with a nonzero mean is also swept on a mast
+    leaned LEAN_STEPS x LEAN_MAX with the sign of the mean (pose key Lean: the carrier body hangs theta + lean off
+    the half).
     art=True: the whole G6 grid both ways (report only)."""
     headed = fam in HEADED
     tmax = LT.SKIN_TYPE_MAX_SLOPE[fam] if headed else LT.SKIN_THETA_MAX[fam]
@@ -573,17 +626,86 @@ def kind_poses(fam, kind, art=False):
         brk = COMBO_FOLD[fam] / 2.0
     else:
         brk = LT.TWIN_HALF_BREAK[kind]
-    if headed and LH.HEAD_REL_MAX is not None:
-        # the tower-lean letters (T): the head to +-head_max relative to the leaned mast, each half to +-half_max
+    lean_round = LH.HEAD_REL_MAX is not None         # the tower-lean letters (T): masts lean
+    if LEAN_RULE == "scan" and lean_round:
+        # report only: the corner the code reaches at the cap (head / mean at its cap value, the widest half at mean +
+        # the break), the lean stepped 0..LEAN_MAX: the widest half's WORLD pitch runs e .. e + LEAN_MAX
+        h = LH.head_max(fam) if headed else FG_CAP_MEAN
+        d = min(brk, SCAN_FG_BREAK) if not headed else brk
+        side = {"support": 1, "Break": 1, "Hold": -1, "Combo": -1}[kind]
+        out = []
+        for s in (-1.0, 1.0):
+            f, b = s * h + side * d, s * h - side * d   # the kind's fold side (Combo: concave)
+            for k in range(int(round(LEAN_MAX[fam] / SCAN_STEP)) + 1):
+                ln = s * k * SCAN_STEP
+                pose = {"TrainFront": round(f, 4), "TrainBack": round(b, 4)}
+                if headed:
+                    pose[LH.HEAD_BONE] = round(s * h, 4)
+                if ln:
+                    pose[LEAN] = round(ln, 4)
+                out.append(pose)
+        return out
+    fg_rule = lean_round and not headed and not art and LEAN_RULE == "headfirst"
+    if headed and lean_round:
+        # the head to +-head_max relative to the leaned mast, each half to +-half_max
         grid = LH.rel_grid(LH.head_max(fam), brk, LH.half_max(fam))
+    elif lean_round and not art:
+        # FG at the lean rule: the art's grid plus the old plumb bound as headroom (FG_HEADROOM, plumb)
+        grid = cs2_skin.joint_grid(tmax, brk)
+        grid += [p for p in cs2_skin.joint_grid(FG_HEADROOM, brk) if p not in grid]
     else:
         grid = cs2_skin.joint_grid(tmax, brk)
+    leaned_fg = []
+    if fg_rule:
+        # the means the FG rule leans at: 10 (lean 0..25 below the cap) and FG_CAP_MEAN (lean 25 at the cap), each
+        # with the kind's half-breaks; the joint grids above stay plumb (lean 0)
+        for m in (-FG_CAP_MEAN, -FG_REL, FG_REL, FG_CAP_MEAN):
+            for d in (-brk, -brk / 2.0, 0.0, brk / 2.0, brk):
+                p = (round(max(-FG_HEADROOM, min(FG_HEADROOM, m + d)), 4),
+                     round(max(-FG_HEADROOM, min(FG_HEADROOM, m - d)), 4))
+                if p not in leaned_fg:
+                    leaned_fg.append(p)
     if not art:
         side = {"support": 1, "Break": 1, "Hold": -1, "Combo": 0}[kind]
         grid = [(f, b) for f, b in grid if side == 0 or side * (f - b) >= -1e-9]
-    if headed:
-        return [{"TrainFront": f, "TrainBack": b, LH.HEAD_BONE: round((f + b) / 2.0, 4)} for f, b in grid]
-    return [{"TrainFront": f, "TrainBack": b} for f, b in grid]
+        leaned_fg = [(f, b) for f, b in leaned_fg if side == 0 or side * (f - b) >= -1e-9]
+    out = []
+
+    def leans_of(m, fg_leaned):
+        if not lean_round or abs(m) < 1e-9:
+            return [0.0]
+        if LEAN_RULE == "superset" or art:
+            steps = LEAN_STEPS
+        elif headed:                                 # head first: the mast leans once the head sits at its limit
+            steps = LEAN_STEPS if abs(m) >= LH.head_max(fam) - 1e-6 else (0.0,)
+        elif not fg_leaned:
+            steps = (0.0,)
+        else:                                        # FG: lean 0..25 at mean 10, 25 at the cap mean
+            steps = LEAN_STEPS if abs(abs(m) - FG_REL) < 1e-6 else (1.0,)
+        return sorted({round(math.copysign(s * LEAN_MAX[fam], m), 4) for s in steps})
+    for g, fg_leaned in ((grid, False), (leaned_fg, True)):
+        for f, b in g:
+            m = round((f + b) / 2.0, 4)
+            base = {"TrainFront": f, "TrainBack": b}
+            if headed:
+                base[LH.HEAD_BONE] = m
+            for ln in leans_of(m, fg_leaned):
+                pose = dict(base, **({LEAN: ln} if ln else {}))
+                if pose not in out:
+                    out.append(pose)
+    lim = ART_WORLD_HALF_MAX.get((fam, kind)) if lean_round and LEAN_RULE == "headfirst" and not art else None
+    if lim is not None:
+        keep = [p for p in out if world_half(p) <= lim + 1e-6]
+        if len(keep) < len(out):
+            print(f"[grip] {fam} {kind}: {len(out) - len(keep)} of {len(out)} poses past the art's world half limit {lim:g} "
+                  "deg left out (CODE CONTRACT: the rope half at the tower stays within it; --world-scan measures it)")
+        out = keep
+    return out
+
+
+def world_half(p):
+    """The widest half's pitch in the world (relative to the mast + the lean), deg."""
+    return max(abs(p.get("TrainFront", 0.0) + p.get(LEAN, 0.0)), abs(p.get("TrainBack", 0.0) + p.get(LEAN, 0.0)))
 
 
 def head_negative(tw, car, label):
@@ -641,7 +763,7 @@ def run_member(member, twins, carriers, rows, negative=False):
                          headed=LH.head_name(LH.headed_spec(member)) if headed else None,
                          atlas_worst_mm=arep["worst_vertex_mm"], carrier_info=car.info))
         out.append(tw)
-        if headed and not ART:
+        if headed and not ART and LEAN_RULE == "headfirst":
             head_negative(tw, car, member)
         if negative:
             bad = Carrier(fam, carriers[fam], sign, shift_x=0.12)
@@ -720,6 +842,10 @@ def parse(argv):
     ap.add_argument("--entry", action="store_true", help="also sweep ETDQ / ETGD at rest (report only)")
     ap.add_argument("--art", action="store_true",
                     help="report only: every train over its whole G6 grid, both fold directions (exits 0)")
+    ap.add_argument("--world-scan", dest="world_scan", action="store_true",
+                    help="report only: the cap corner per train, the lean stepped 0..max (the widest half's world pitch)")
+    ap.add_argument("--lean-superset", dest="lean_superset", action="store_true",
+                    help="report only: every nonzero mean swept at every lean step (exits 0)")
     ap.add_argument("--head-letter", dest="head_letter", default=LH.HEAD_LETTER,
                     help=f"the DQ / GD head range by lift_head letter (default {LH.HEAD_LETTER})")
     return ap.parse_args(argv)
@@ -731,6 +857,11 @@ def main():
     argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
     args = parse(argv)
     ART = args.art
+    global LEAN_RULE
+    if args.lean_superset:
+        LEAN_RULE = "superset"
+    if args.world_scan:
+        LEAN_RULE = "scan"
     LH.use_letter(args.head_letter)
     print(f"[grip] DQ / GD heads at letter {LH.HEAD_LETTER} (head / halves rel mast: {LH.HEAD_REL_MAX} / {LH.HALF_REL_MAX}; "
           "None = the planner max)")
@@ -771,6 +902,12 @@ def main():
         print(f"[grip] {r['train'][:20]:20s} {r['carrier']:7s} {r['poses']:5d} {r['stops']:6d} {mm(r['W2_min_m'])} "
               f"{r['W2_overlaps']:6d} {mm(r['W1_min_m'])} {r['W1_overlaps']:6d}"
               f"{'  (report only)' if r.get('report_only') else ''}")
+    if LEAN_RULE in ("superset", "scan"):
+        mode = 'lean-superset' if LEAN_RULE == 'superset' else 'world-scan'
+        print(f"[grip] REPORT (--{mode}, not the gate): {len(bad)} of {len(gated)} trains under the rule: "
+              + ", ".join(f"{r['train']} (fails from world {r['fail_world_min']}, passes to {r['pass_world_max']})"
+                         for r in bad))
+        return
     if ART:
         print(f"[grip] REPORT (--art, not the gate): {len(bad)} of {len(gated)} trains under the rule somewhere on "
               f"their whole G6 grid: {[r['train'] for r in bad]}")
@@ -782,7 +919,10 @@ def main():
           + (f"letter {LH.HEAD_LETTER}: head +-{LH.HEAD_REL_MAX:g} / halves +-{LH.HALF_REL_MAX:g} rel mast"
              if LH.HEAD_REL_MAX is not None else
              f"to the planner max (DQ {LT.SKIN_TYPE_MAX_SLOPE['DQ']:g} / GD {LT.SKIN_TYPE_MAX_SLOPE['GD']:g} deg)")
-          + f", Head = the mean ({time.perf_counter() - t0:.0f} s)")
+          + f", Head = the mean"
+          + (f"; FG halves to {FG_HEADROOM:g} rel mast; masts leaned to DQ / GD {LEAN_MAX['DQ']:g}, FG {LEAN_MAX['FG']:g} "
+             "(carrier body plumb in the world)" if LH.HEAD_REL_MAX is not None else "")
+          + f" ({time.perf_counter() - t0:.0f} s)")
 
 
 if __name__ == "__main__":

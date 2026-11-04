@@ -3,17 +3,23 @@ tower_lean.py - the tower-lean round, art half: leaned towers on sloped ground (
 
 The planner now caps the rope pitch at a tower (the mean of the two chords; FG 38, DQ 40, GD 40, tram 55) and the mast
 leans downhill to carry it, head first (the code's rule): lean = clamp(|pitch| - REL, 0, LEAN_MAX) with REL 20 / LEAN_MAX
-20 for FG, DQ, GD and REL 30 / LEAN_MAX 25 for trams, so the head (lift_head letter T), the FG halves' mean or the tram
-saddle's mean (tram_saddle letter D, its range unchanged) sits at most REL off the mast. The lean turns the whole tower
+20 for DQ, GD, REL 12 / LEAN_MAX 25 for FG (600 a, code 6eb3138: the FG has no head, so the mast is its head) and
+REL 30 / LEAN_MAX 25 for trams, so the head (lift_head letter T), the FG halves' mean or the tram saddle's mean
+(tram_saddle letter D, its range unchanged) sits at most REL off the mast below the cap (FG: 13 at the cap). The lean turns the whole tower
 about its foot (the Transform origin: the node on the ground; the position does not move), so the rope anchor moves by
 yA sin(lean) (tilted-towers spike section 1) and the foundation turns with the tower.
 
 Poses (Blender deg, net frame: x lateral, y travel, z up; a uniform pose theta raises the +y end): at a lean L the world
-rope pitch is min(L + REL, PITCH_CAP) (L = 0: the steepest plumb pitch, REL), the mean relative to the mast pitch - L, the
+rope pitch is min(L + REL, PITCH_CAP), PITCH_CAP at L = LEAN_MAX (the steepest pitch that lean meets; FG: 38 at 25, the
+mean 13 off the mast) (L = 0: the steepest plumb pitch, REL), the mean relative to the mast pitch - L, the
 terrain a plane through the foot rising toward +y at that pitch ("matched"), the mast turned by +L about x through the
 origin (the top moves toward -y: downhill). The "max" column: the steepest lean with one half at the type's widest
-relative angle (MAX_POSE: FG halves 36 / 4, the code's 34-36 past the FG art's 30; trams the TS-1 tower with the widest
-half relative to the mast).
+relative angle (FG_MAX_HALVES: at the 38 cap with a 25 lean, mean 13 +- the FG half-break 16 = 29 / -3; trams the TS-1
+tower with the widest half relative to the mast).
+
+Close frames (--close, the pre-import check of 600 a): every DQ / GD Hold / Combo key at head +-20 relative to the mast on
+a mast leaned 20 the same way, the kind's widest fold (Hold: halves head -+ 20, concave; Combo: head -+ 8), two frames
+3 m, ladder side and side-on (the grab extensions, the landing rail, the fall-arrest rail's top under the comm wedge).
 
 Foundation check (numbers, every key; no render): the Root foot parts (lift towers: `pad` + `pier`, the block continued
 to z -4; trams: the pedestals `ped_*` + open piers `pier_*` + base plates) posed at each lean on matched ground and on a
@@ -48,11 +54,11 @@ import tram_saddle as TS  # noqa: E402
 
 TYPES = ("FG", "DQ", "GD", "tram")
 PITCH_CAP = {"FG": 38.0, "DQ": 40.0, "GD": 40.0, "tram": TS.PITCH_CAP}    # LiftAlignMath.PitchCapDeg
-LEAN_MAX = {"FG": 20.0, "DQ": 20.0, "GD": 20.0, "tram": TS.LEAN_MAX}
+LEAN_MAX = {"FG": 25.0, "DQ": 20.0, "GD": 20.0, "tram": TS.LEAN_MAX}
 # the mean relative to the mast once the mast leans (head first: LiftAlignMath's lean rule)
-REL = {"FG": 20.0, "DQ": LH.HEAD_RANGES["T"]["head"], "GD": LH.HEAD_RANGES["T"]["head"], "tram": TS.MEAN_REL_MAX}
-LEANS = {"FG": (0.0, 10.0, 18.0), "DQ": (0.0, 10.0, 20.0), "GD": (0.0, 10.0, 20.0), "tram": (0.0, 10.0, 20.0, 25.0)}
-FG_MAX_HALVES = (36.0, 4.0)     # deg rel mast: the FG halves at the code's 34-36 (mean 20 + a 16 deg half-break)
+REL = {"FG": 12.0, "DQ": LH.HEAD_RANGES["T"]["head"], "GD": LH.HEAD_RANGES["T"]["head"], "tram": TS.MEAN_REL_MAX}
+LEANS = {"FG": (0.0, 10.0, 20.0, 25.0), "DQ": (0.0, 10.0, 20.0), "GD": (0.0, 10.0, 20.0), "tram": (0.0, 10.0, 20.0, 25.0)}
+FG_MAX_HALVES = (29.0, -3.0)    # deg rel mast: the FG halves at the 38 cap, lean 25 (mean 13 +- a 16 deg half-break)
 FG_REACH = (30.0, 33.0, 36.0)   # deg: the FG art's G6 (joint_grid at this theta max) tried per member (report only)
 FG_MEMBERS = ("FG8", "FG12", "FG16", "FG20")
 FG_TWINS = tuple(k for k, (m, _kind) in LT.TWINS.items() if m in FG_MEMBERS)
@@ -68,6 +74,9 @@ TERRAIN_ALBEDO = 0.30                               # = LT.SKIN_LIGHT ground_alb
 
 
 def world_pitch(typ, lean):
+    """The steepest world pitch a lean meets: REL past it, the cap at the full lean (lean = clamp(p - REL, 0, max))."""
+    if lean >= LEAN_MAX[typ] - 1e-9:
+        return PITCH_CAP[typ]
     return min(lean + REL[typ], PITCH_CAP[typ])
 
 
@@ -373,6 +382,53 @@ def tower_frames(tw, raw, hero):
     return fr
 
 
+CLOSE_HEAD = 20.0                                   # deg rel mast: the head at its T limit, both signs
+CLOSE_FOLD = {"Hold": 20.0, "Combo": 8.0}           # deg: each half off the head (concave: the kind's widest fold)
+# about 3 m from the ladder top, level with the grabs: the ladder side ("ladder") and side-on from the lateral ("side")
+CLOSE_VIEWS = {"ladder": dict(dir=(0.45, 1.0, 0.02), lens=28.0, dist=3.0),
+               "side": dict(dir=(1.0, 0.35, 0.0), lens=28.0, dist=3.0)}
+
+
+def close_poses(tw):
+    """[(tag, lean, pose)]: the head at -+CLOSE_HEAD on a mast leaned LEAN_MAX the same way, the kind's widest fold."""
+    kind = LT.TWINS[tw.key][1]
+    d = CLOSE_FOLD[kind]
+    hm = LH.HALF_REL_MAX or 40.0
+    out = []
+    for s in (-1.0, 1.0):
+        h = s * CLOSE_HEAD
+        f, b = max(-hm, min(hm, h - d)), max(-hm, min(hm, h + d))
+        out.append((f"h{'m' if s < 0 else 'p'}{int(CLOSE_HEAD)}", s * LEAN_MAX[tw.typ],
+                    {"TrainFront": f, "TrainBack": b, LH.HEAD_BONE: h}))
+    return out
+
+
+def close_frames(tw, raw):
+    """One ladder-side frame per close pose: the target is the ladder rails' top (the grab extensions), leaned with the
+    mast; CLOSE_VIEWS, the travel component on the ladder's side."""
+    rails = np.array([n.startswith("ladder_rail_") for n in tw.vpart])
+    if not rails.any():
+        raise RuntimeError(f"{tw.name}: no ladder_rail_ parts")
+    rc = tw.co[rails]
+    top = rc[rc[:, 2] >= rc[:, 2].max() - 0.05]
+    tgt0 = np.array([[float(top[:, 0].mean()), float(top[:, 1].mean()), float(top[:, 2].max()) - 0.25]])
+    side = math.copysign(1.0, float(rc[:, 1].mean()))
+    paths = []
+    for tag, lean, pose in close_poses(tw):
+        tgt = leaned(tgt0, lean)[0]
+        ob = posed_object(tw, pose, lean)
+        extras = rope_objects(tw, pose, lean)
+        views = [dict(name=f"close_{tag}_{vn}", dir=(v["dir"][0], side * v["dir"][1], v["dir"][2]), target=tuple(tgt),
+                      lens=v["lens"], dist=v["dist"], ground=False) for vn, v in CLOSE_VIEWS.items()]
+        try:
+            paths += LT.render_tower_views(ob, tw.asset_dir, tw.name, raw, views, resolution=(1000, 1000),
+                                           extras=extras, light=LT.SKIN_LIGHT)
+        finally:
+            _drop(extras + [ob])
+        print(f"[lean] {tw.name} close {tag}: lean {lean:g}, pose {pose}")
+    return paths
+
+
 def sheets(typ, frames, prev):
     out = []
     pick = lambda paths, view: next((p for p in paths if f"_view_{view}_" in os.path.basename(p)), None)  # noqa: E731
@@ -395,7 +451,22 @@ def parse(argv):
     ap.add_argument("--foundation", default=None, help="write the foundation table (every key) as JSON here")
     ap.add_argument("--preview", default=None, help="preview folder (raw frames under <preview>/raw)")
     ap.add_argument("--fg-reach", default=None, help="write the FG reach probe (FG_REACH per lineup member) as JSON here")
+    ap.add_argument("--close", default=None, help="close-frame folder: the Hold / Combo keys at head +-20 on a 20 lean, "
+                    "<close>/close_DQ.png / close_GD.png (raw frames under <close>/raw)")
     return ap.parse_args(argv)
+
+
+def close_main(args, out):
+    sheets_out = []
+    for fam in ("DQ", "GD"):
+        rows = []
+        for key in [k for k in LH.HEAD_TWINS if k.startswith(fam)]:
+            S.set_wheels("v2")
+            S.set_wheel_dress(True)
+            tw = make_tower(fam, key, out)
+            rows.append(close_frames(tw, os.path.join(args.close, "raw")))
+        sheets_out.append(LH.montage(rows, os.path.join(args.close, f"close_{fam}.png")))
+    return sheets_out
 
 
 def main_cli():
@@ -411,6 +482,11 @@ def main_cli():
     LT.TWIN_ATLAS.update(LH.HEAD_ATLAS)
     LH.use_letter("T")
     t0 = time.perf_counter()
+    if args.close:
+        for s in close_main(args, out):
+            print(f"[lean] sheet {s}")
+        print(f"PASS tower_lean --close: {time.perf_counter() - t0:.0f} s")
+        return
     table, sheets_out, reach = {}, [], {}
     for typ in types:
         keys = KEYS[typ] if args.foundation else (LINEUP[typ] if args.fg_reach and typ == "FG" else ())
