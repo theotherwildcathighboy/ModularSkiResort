@@ -18,12 +18,13 @@
 //             station hooks, the grip list). Bug class: re-drawing a bulldozed middle section was refused, OverlapExisting on the
 //             neighbor section's chairs; a section delete next to riding chairs, OverlapExisting on their grips.
 //   LADDER    the tower placeholders' members: tops unique by >= 0.1 m, a twin head's E within the line's m_ElevationRange.max, a twin's
-//             rope anchors = its support member's, membership, the twins imported together (none = pending). Bug class: two members
-//             0.05 m apart read back as each other (MemberOf) and the engine spawns either; a twin whose lanes moved lifts the rope.
+//             rope anchors = its support member's, membership, the twins imported together (none = pending), no top-level "version".
+//             Bug class: two members 0.05 m apart read back as each other (MemberOf) and the engine spawns either; a twin whose lanes
+//             moved lifts the rope; a twin copied with "version": 1 is invisible to LoadTwins (no hashless PrefabID alias).
 //
 // Usage: node tools/check-lift-align.js [--root <ImportedData dir>] [--self-test]   (default root: gamedata-mirror/ImportedData;
 //        preflight passes the game's). --self-test plants faults in the LADDER model (duplicate top, E past range, offset anchor,
-//        missing membership, partial import, unknown member) and fails unless each is caught.
+//        missing membership, partial import, versioned twin, unknown member) and fails unless each is caught.
 // Exit code = number of failures. Last line: "check-lift-align: OK ..." on success.
 
 'use strict';
@@ -260,7 +261,7 @@ function loadLadderModel() {
         const text = fs.readFileSync(f, 'utf8');
         if (!/"m_Placeholders"/.test(text)) continue;
         const name = path.basename(f, '.Prefab').replace(/_[0-9a-f]{32}$/, '');
-        prefabs[name] = { placeholders: placeholdersOf(text), anchors: anchorsOf(text) };
+        prefabs[name] = { placeholders: placeholdersOf(text), anchors: anchorsOf(text), versioned: /^ {4}"version":\s*[1-9]/m.test(text) };
     }
     const types = [];
     for (const t of LADDER_TYPES) {
@@ -315,6 +316,9 @@ function ladderRules(model) {
             const p = model.prefabs[tw.name];
             if (!p) continue;
             if (!p.placeholders.includes(t.cid)) out.push(`${P}: twin ${tw.name} is not a member of the placeholder (SpawnableObject m_Placeholders)`);
+            // LoadTwins finds a twin by PrefabID(type, name): only a version-0 prefab gets that hashless alias (PrefabBase.OnDeserialized ->
+            // MarkCurrentPrefabObsolete, PrefabBase.cs:80-111); "version": 1 (copied from an Editor-saved member) hides the twin from the planner.
+            if (p.versioned) out.push(`${P}: twin ${tw.name} has a top-level "version" >= 1: drop "version" / "m_prefabFormat" or LoadTwins misses it`);
             const ms = model.prefabs[support.name];
             if (!ms) { out.push(`${P}: twin ${tw.name}: its member ${support.name} not found`); continue; }
             compared++;
@@ -336,6 +340,13 @@ function ladderRules(model) {
 function ladderSelfTest() {
     const base = loadLadderModel();
     const clone = () => JSON.parse(JSON.stringify(base));
+    // a model with no twin imported (the root may hold them all since B2)
+    const pending = () => {
+        const m = clone();
+        for (const t of m.types)
+            for (const tw of t.twins) delete m.prefabs[tw.name];
+        return m;
+    };
     // a model with every twin imported as a faithful copy of its member (the surgery's target)
     const imported = () => {
         const m = clone();
@@ -347,15 +358,17 @@ function ladderSelfTest() {
         return m;
     };
     const cases = [
-        ['clean, pending import', clone, 0],
+        ['clean, pending import', pending, 0],
+        ['clean, the root as it is', clone, 0],
         ['clean, every twin imported', imported, 0],
         ['duplicate top (a twin 0.05 m over another member)', () => { const m = clone(); const t = m.types[1]; t.twins[0].top = t.twins[1].top + 0.05; return m; }, 1],
         ['E past m_ElevationRange.max', () => { const m = clone(); const t = m.types[1]; t.twins[2].top = t.ladder[0].top + t.elevMax + 0.5; return m; }, 1],
         ['offset anchor (5 mm)', () => { const m = imported(); const p = m.prefabs[m.types[0].twins[0].name]; p.anchors[0].pts[1] += 0.005; return m; }, 1],
         ['missing placeholder membership', () => { const m = imported(); m.prefabs[m.types[2].twins[1].name].placeholders = []; return m; }, 1],
-        ['a partial import', () => { const m = clone(); const t = m.types[0]; const s = m.prefabs[t.ladder[0].name];
+        ['a partial import', () => { const m = pending(); const t = m.types[0]; const s = m.prefabs[t.ladder[0].name];
             m.prefabs[t.twins[0].name] = { placeholders: [t.cid], anchors: s.anchors }; return m; }, 1],
-        ['an unknown member', () => { const m = clone(); m.prefabs.SkiLiftTowerDQ10Stray = { placeholders: [m.types[1].cid], anchors: [] }; return m; }, 1],
+        ['a versioned twin (no hashless PrefabID alias)', () => { const m = imported(); m.prefabs[m.types[0].twins[0].name].versioned = true; return m; }, 1],
+        ['an unknown member',() => { const m = clone(); m.prefabs.SkiLiftTowerDQ10Stray = { placeholders: [m.types[1].cid], anchors: [] }; return m; }, 1],
     ];
     let bad = 0;
     for (const [label, make, wantFail] of cases) {

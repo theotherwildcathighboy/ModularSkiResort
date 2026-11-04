@@ -3,8 +3,6 @@
     "$type": "0|Game.Prefabs.StaticObjectPrefab, Game",
     "name": "SkiLiftTowerFG8ComboA",
     "active": true,
-    "version": 1,
-    "m_prefabFormat": 0,
     "components": {
         "$id": 1,
         "$type": "1|System.Collections.Generic.List`1[[Game.Prefabs.ComponentBase, Game]], mscorlib",
