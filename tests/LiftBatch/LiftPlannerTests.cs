@@ -225,8 +225,8 @@ namespace LiftBatch
             var lanes = new Dictionary<string, float[]>
             {
                 { "fixedGrip", new[] { 7.2726f, 11.2726f, 15.2726f, 19.2726f } }, // SkiLiftTowerFG8Q/12R/16Q/20Q manifests rope_on_crown.lane_y_new
-                { "detachable", new[] { 8.2589f, 10.2589f, 12.2589f, 14.2589f, 16.2589f, 18.2589f } }, // SkiLiftTowerDQ10Q/12R/14Q..20Q, same field
-                { "gondola", new[] { 10.284f, 14.284f, 18.284f } }, // SkiLiftTowerGD12R/16Q/20Q, same field
+                { "detachable", new[] { 8.2589f, 10.2589f, 12.2589f, 14.2589f, 16.2589f, 18.2589f } }, // SkiLiftTowerDQ10Q/12R/14Q..20Q, same field (the T heads keep it)
+                { "gondola", new[] { 10.284f, 14.284f, 18.284f } }, // SkiLiftTowerGD12R/16Q/20Q, same field (the T heads keep it)
                 { "tram", new[] { 26.25f, 41.25f, 56.25f } }, // SkiTramTower30A/45A/60A manifests stubs pos y (no seat)
             };
             for (int t = 0; t < SkiCatalog.Lifts.Count; t++)

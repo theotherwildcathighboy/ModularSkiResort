@@ -90,8 +90,8 @@ the grip top (F5, reverses round-2 contract D8). Every pose of a carrier uses it
   the body swings into its own sheave train or the head's deck end, whatever the lean (art test_grip_clearance `--world-scan`, research
   art/tower-lean-2026-11/build.md "Pre-import checks" 1). `WorldHalfTable()` is THE table (family, kind, passes-to deg): FG support 41.5,
   FG Break 41.5, GD support 55, GD Hold 45, DQ Hold 57.5; no row (DQ members, every Combo, FG Hold, the tram) = no limit. It mirrors the
-  art's `ART_WORLD_HALF_MAX`; LiftBatch PC-9 parses that file and fails on a difference (reported only while the art branch is unmerged;
-  `LIFTBATCH_GRIP_PY=<path>` compares another copy). `WorldHalfMaxDeg(typeId, kind)` looks it up (kind "support" = the line member's head).
+  art's `ART_WORLD_HALF_MAX`; LiftBatch PC-9 parses that file and fails on a difference, a missing file or a missing table (the art is merged
+  and imported, 600 d; `LIFTBATCH_GRIP_PY=<path>` compares another copy). `WorldHalfMaxDeg(typeId, kind)` looks it up (kind "support" = the line member's head).
 - `PoseTrain(...)` is TrainPitchSystem's whole pose rule for one tower (headed or not, then the world clamp: each half to
   [-max - mast, max - mast] relative to the mast, last). It returns the train-limit excess, now including `WorldHalfOverDeg`. PC-9 replays
   it on every sweep tower: no posed half past the table.

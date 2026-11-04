@@ -205,25 +205,25 @@
                                 "a": {
                                     "$type": 3,
                                     "x": 0,
-                                    "y": 9.2,
+                                    "y": 9.4589,
                                     "z": 0
                                 },
                                 "b": {
                                     "$type": 3,
                                     "x": 0,
-                                    "y": 9.2,
+                                    "y": 9.4589,
                                     "z": 0
                                 },
                                 "c": {
                                     "$type": 3,
                                     "x": 0,
-                                    "y": 9.2,
+                                    "y": 9.4589,
                                     "z": 0
                                 },
                                 "d": {
                                     "$type": 3,
                                     "x": 0,
-                                    "y": 9.2,
+                                    "y": 9.4589,
                                     "z": 0
                                 }
                             },
@@ -267,7 +267,7 @@
             {
                 "$id": 14,
                 "$type": "17|Game.Prefabs.ObjectMeshInfo, Game",
-                "m_Mesh": $fstrref:"CID:a62152d77ff4bbb5a66a3a5ceb0d9fcb",
+                "m_Mesh": $fstrref:"CID:e4e1d7da6ff5adb5ee2e45080696307c",
                 "m_Position": {
                     "$type": 3,
                     "x": 0,

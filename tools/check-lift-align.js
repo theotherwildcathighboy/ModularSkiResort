@@ -18,7 +18,8 @@
 //             station hooks, the grip list). Bug class: re-drawing a bulldozed middle section was refused, OverlapExisting on the
 //             neighbor section's chairs; a section delete next to riding chairs, OverlapExisting on their grips.
 //   LADDER    the tower placeholders' members: tops unique by >= 0.1 m, a twin head's E within the line's m_ElevationRange.max, a twin's
-//             rope anchors = its support member's, membership, the twins imported together (none = pending), no top-level "version".
+//             rope anchors = its support member's, its comm wire anchor = the member's raised by the twin's head when its mesh has a
+//             Head bone (else the member's), membership, the twins imported together (none = pending), no top-level "version".
 //             Bug class: two members 0.05 m apart read back as each other (MemberOf) and the engine spawns either; a twin whose lanes
 //             moved lifts the rope; a twin copied with "version": 1 is invisible to LoadTwins (no hashless PrefabID alias).
 //
@@ -320,6 +321,8 @@ function csTable(src, field, re) {
     const end = src.indexOf('};', at);
     return [...src.slice(at, end).matchAll(re)];
 }
+// The comm wire's lane (the vanilla LV wire): not a rope, judged apart (a headed twin raises it with its head, DECISIONS 594 b).
+const COMM_LANE = '37c8abdb015384f4e8b7ce9b5b2b6c9b';
 /** Sub-lane anchors of a prefab text: [{lane, pts: [12 numbers]}], sorted. */
 function anchorsOf(text) {
     const out = [];
@@ -329,6 +332,12 @@ function anchorsOf(text) {
     }
     return out.sort((a, b) => (a.lane + a.pts.join()).localeCompare(b.lane + b.pts.join()));
 }
+/** The mesh prefab CID of an object prefab's m_Meshes[0]. */
+const meshCidOf = text => { const m = text.match(/"m_Mesh":\s*\$fstrref:"CID:([0-9a-fA-F]{32})"/); return m ? m[1].toLowerCase() : null; };
+/** True when a mesh prefab text carries a bone named Head (the DQ / GD head bone, DECISIONS 594). */
+const hasHeadBone = text => /"name":\s*"Head",\s*"position"/.test(text);
+const sameAnchor = (a, b, dy = 0) => a.lane === b.lane && a.pts.length === b.pts.length &&
+    a.pts.every((v, k) => Math.abs(v - b.pts[k] - (k % 3 === 1 ? dy : 0)) <= ANCHOR_TOL_M);
 function placeholdersOf(text) {
     const m = text.match(/"m_Placeholders":\s*\{[\s\S]*?"\$rcontent":\s*\[([\s\S]*?)\]/);
     return m ? [...m[1].matchAll(/CID:([0-9a-fA-F]{32})/g)].map(x => x[1].toLowerCase()) : [];
@@ -337,13 +346,17 @@ function placeholdersOf(text) {
 /** The model the LADDER rules run on (loaded from the root and the C# tables; --self-test plants faults in a copy). */
 function loadLadderModel() {
     const src = fs.readFileSync(path.join(systems, 'LiftTowerPlanner.cs'), 'utf8');
-    const prefabs = {};   // name -> { placeholders: [cid], anchors }
+    const prefabs = {};   // name -> { placeholders: [cid], anchors, versioned, mesh, top }
+    const headedMesh = new Set();   // CIDs of mesh prefabs with a Head bone
     for (const f of ownedPrefabs(root, true)) {
         const text = fs.readFileSync(f, 'utf8');
+        if (hasHeadBone(text) && fs.existsSync(f + '.cid')) headedMesh.add(fs.readFileSync(f + '.cid', 'utf8').trim().toLowerCase());
         if (!/"m_Placeholders"/.test(text)) continue;
         const name = path.basename(f, '.Prefab').replace(/_[0-9a-f]{32}$/, '');
-        prefabs[name] = { placeholders: placeholdersOf(text), anchors: anchorsOf(text), versioned: /^ {4}"version":\s*[1-9]/m.test(text) };
+        prefabs[name] = { placeholders: placeholdersOf(text), anchors: anchorsOf(text), versioned: /^ {4}"version":\s*[1-9]/m.test(text),
+                          mesh: meshCidOf(text) };
     }
+    for (const p of Object.values(prefabs)) p.headed = !!p.mesh && headedMesh.has(p.mesh);
     const types = [];
     for (const t of LADDER_TYPES) {
         const ladder = (csTable(src, t.ladder, /new LiftTowerMember\("([^"]+)",\s*([0-9.]+)f\)/g) || []).map(m => ({ name: m[1], top: Number(m[2]) }));
@@ -403,11 +416,18 @@ function ladderRules(model) {
             const ms = model.prefabs[support.name];
             if (!ms) { out.push(`${P}: twin ${tw.name}: its member ${support.name} not found`); continue; }
             compared++;
-            const a = p.anchors, b = ms.anchors;
+            const a = p.anchors.filter(x => x.lane !== COMM_LANE), b = ms.anchors.filter(x => x.lane !== COMM_LANE);
             let same = a.length === b.length && a.length > 0;
-            for (let i = 0; same && i < a.length; i++)
-                same = a[i].lane === b[i].lane && a[i].pts.length === b[i].pts.length && a[i].pts.every((v, k) => Math.abs(v - b[i].pts[k]) <= ANCHOR_TOL_M);
+            for (let i = 0; same && i < a.length; i++) same = sameAnchor(a[i], b[i]);
             if (!same) out.push(`${P}: twin ${tw.name} anchors (ObjectSubLanes lane + curve) differ from ${support.name}'s: the rope moves when the head changes`);
+            // The comm wire: a twin with a Head bone (DQ / GD letter T) carries it on a Root post raised with its head, so its anchor is the
+            // member's raised by the twin's top over the member's (lift_head.comm_anchor; manifest comm_anchor_new_y); a twin without
+            // one keeps the member's. Both must also stay on the member's x / z.
+            const ca = p.anchors.filter(x => x.lane === COMM_LANE), cb = ms.anchors.filter(x => x.lane === COMM_LANE);
+            const raise = p.headed ? tw.top - support.top : 0;
+            if (ca.length !== cb.length || !ca.every((x, i) => sameAnchor(x, cb[i], raise)))
+                out.push(`${P}: twin ${tw.name} comm wire anchor is not ${support.name}'s ${p.headed ? `raised by its head (+${raise.toFixed(4)} m)` : 'unchanged (no Head bone)'}` +
+                         `: the wire leaves the comm post`);
         }
         if (here.length === 0) pending += t.twins.length;
         else if (here.length < t.twins.length)
@@ -449,6 +469,10 @@ function ladderSelfTest() {
         ['a partial import', () => { const m = pending(); const t = m.types[0]; const s = m.prefabs[t.ladder[0].name];
             m.prefabs[t.twins[0].name] = { placeholders: [t.cid], anchors: s.anchors }; return m; }, 1],
         ['a versioned twin (no hashless PrefabID alias)', () => { const m = imported(); m.prefabs[m.types[0].twins[0].name].versioned = true; return m; }, 1],
+        ['a headed twin whose comm wire stayed at the member\'s', () => { const m = imported(); const t = m.types[1];
+            m.prefabs[t.twins[0].name].headed = true; return m; }, 1],
+        ['an unheaded twin whose comm wire moved (5 mm)', () => { const m = imported(); const p = m.prefabs[m.types[0].twins[0].name];
+            const c = p.anchors.find(x => x.lane === COMM_LANE); c.pts[1] += 0.005; return m; }, 1],
         ['an unknown member',() => { const m = clone(); m.prefabs.SkiLiftTowerDQ10Stray = { placeholders: [m.types[1].cid], anchors: [] }; return m; }, 1],
     ];
     let bad = 0;

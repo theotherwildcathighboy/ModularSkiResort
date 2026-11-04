@@ -27,8 +27,8 @@
 //      dig-in and cover at lean 20 / 25, the matched-slope cover), floats only a leaned tower, never past the ceiling; every leaned
 //      tram tower in the sweep floats by it (node y = ground + E + FloatM through LiftLineEdit, the rope with it), the train lifts never.
 // PC-9 the carrier clearance (600 c): (a) the C# table (LiftAlignMath.WorldHalfTable) equals the art's ART_WORLD_HALF_MAX, parsed from
-//      assets/blender/tests/test_grip_clearance.py (until the art branch is merged the file has no table: reported, not failed; a file
-//      that judges world halves without the table fails); (b) the bite: every set planned with the rule off and on (lines that take a
+//      assets/blender/tests/test_grip_clearance.py (the art is merged: a missing file or one without the table fails; LIFTBATCH_GRIP_PY
+//      compares another copy); (b) the bite: every set planned with the rule off and on (lines that take a
 //      pair / more towers, lines past the table, lines that newly warn among the crossable ones: the go / no-go is 3 %); (c) no plan
 //      poses a half past the table: TrainPitchSystem's rule (LiftAlignMath.PoseTrain) replayed on every sweep tower keeps each half's
 //      world pitch within its head's limit, and every tower whose rope is past it is PAST CLEARANCE (TOWER_CLEARANCE unless an earlier
@@ -722,7 +722,7 @@ namespace LiftBatch
         private static void Pc9Clearance()
         {
             const string W = "pitch/PC-9";
-            // (a) the table gate. LIFTBATCH_GRIP_PY points at another copy of the art test (a check before the art branch is merged).
+            // (a) the table gate. LIFTBATCH_GRIP_PY points at another copy of the art test (e.g. an art branch's, before its merge).
             var cs = new Dictionary<string, float>();
             foreach ((string Family, string Kind, float Deg) r in LiftAlignMath.WorldHalfTable())
                 Check(cs.TryAdd(r.Family + "/" + r.Kind, r.Deg), W + " table", "a duplicate C# row " + r.Family + "/" + r.Kind);
@@ -741,11 +741,11 @@ namespace LiftBatch
             }
             else
             {
-                // the art branch is not merged into this tree yet: nothing to compare. A file that already judges world halves without the
-                // table (renamed or moved) fails, so the gate cannot go quiet after the merge.
-                Check(py == null || !py.Contains("world_half"), W + " table", ArtGripTest + " judges world halves but has no ART_WORLD_HALF_MAX table");
-                s_Report.Add("PC-9 table | " + ArtGripTest + (py == null ? " not found" : " has no ART_WORLD_HALF_MAX yet (the art branch is not merged)") +
-                             ": C# table only " + Rows(cs));
+                // The art is merged (tower-lean-art 23a23a6, imported 600 d): the table must be there to compare. A missing file or a
+                // file without the table (renamed or moved) fails, so the gate cannot go quiet.
+                Check(false, W + " table", ArtGripTest + (py == null ? " not found" : " has no ART_WORLD_HALF_MAX table") +
+                      ": nothing to compare LiftAlignMath.WorldHalfTable " + Rows(cs) + " against");
+                s_Report.Add("PC-9 table | " + ArtGripTest + (py == null ? " not found" : " has no ART_WORLD_HALF_MAX") + ": C# table only " + Rows(cs));
             }
 
             // (b) the bite and (c) the pose over the sweep sets

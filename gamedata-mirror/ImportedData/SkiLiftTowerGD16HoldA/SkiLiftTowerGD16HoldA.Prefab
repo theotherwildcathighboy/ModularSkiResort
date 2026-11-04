@@ -6,7 +6,7 @@
     "components": {
         "$id": 1,
         "$type": "1|System.Collections.Generic.List`1[[Game.Prefabs.ComponentBase, Game]], mscorlib",
-        "$rlength": 7,
+        "$rlength": 6,
         "$rcontent": [
             {
                 "$id": 2,
@@ -205,25 +205,25 @@
                                 "a": {
                                     "$type": 3,
                                     "x": 0,
-                                    "y": 15.2,
+                                    "y": 15.768,
                                     "z": 0
                                 },
                                 "b": {
                                     "$type": 3,
                                     "x": 0,
-                                    "y": 15.2,
+                                    "y": 15.768,
                                     "z": 0
                                 },
                                 "c": {
                                     "$type": 3,
                                     "x": 0,
-                                    "y": 15.2,
+                                    "y": 15.768,
                                     "z": 0
                                 },
                                 "d": {
                                     "$type": 3,
                                     "x": 0,
-                                    "y": 15.2,
+                                    "y": 15.768,
                                     "z": 0
                                 }
                             },
@@ -256,55 +256,18 @@
                 },
                 "m_Probability": 100,
                 "m_RandomizationGroup": null
-            },
-            {
-                "$id": 300,
-                "$type": "16|Game.Prefabs.ObjectSubObjects, Game",
-                "name": "ObjectSubObjects",
-                "active": true,
-                "m_SubObjects": {
-                    "$id": 301,
-                    "$type": "17|Game.Prefabs.ObjectSubObjectInfo[], Game",
-                    "$rlength": 1,
-                    "$rcontent": [
-                        {
-                            "$id": 302,
-                            "$type": "18|Game.Prefabs.ObjectSubObjectInfo, Game",
-                            "m_Object": $fstrref:"CID:44320585be214d6f8f80bdf36111d281",
-                            "m_Position": {
-                                "$type": 3,
-                                "x": 0,
-                                "y": 16.544,
-                                "z": 0
-                            },
-                            "m_Rotation": {
-                                "$type": "19|Unity.Mathematics.quaternion, Unity.Mathematics",
-                                "value": {
-                                    "$type": "20|Unity.Mathematics.float4, Unity.Mathematics",
-                                    "x": 0,
-                                    "y": 0,
-                                    "z": 0,
-                                    "w": 1
-                                }
-                            },
-                            "m_ParentMesh": 0,
-                            "m_GroupIndex": 0,
-                            "m_Probability": 100
-                        }
-                    ]
-                }
             }
         ]
     },
     "m_Meshes": {
         "$id": 13,
-        "$type": "21|Game.Prefabs.ObjectMeshInfo[], Game",
+        "$type": "16|Game.Prefabs.ObjectMeshInfo[], Game",
         "$rlength": 1,
         "$rcontent": [
             {
                 "$id": 14,
-                "$type": "22|Game.Prefabs.ObjectMeshInfo, Game",
-                "m_Mesh": $fstrref:"CID:c528262b9139fdebc2b625d1082b9c22",
+                "$type": "17|Game.Prefabs.ObjectMeshInfo, Game",
+                "m_Mesh": $fstrref:"CID:02b84506bf5730189bd33f528b651c1b",
                 "m_Position": {
                     "$type": 3,
                     "x": 0,
@@ -312,9 +275,9 @@
                     "z": 0
                 },
                 "m_Rotation": {
-                    "$type": 19,
+                    "$type": "18|Unity.Mathematics.quaternion, Unity.Mathematics",
                     "value": {
-                        "$type": 20,
+                        "$type": "19|Unity.Mathematics.float4, Unity.Mathematics",
                         "x": 0,
                         "y": 0,
                         "z": 0,
