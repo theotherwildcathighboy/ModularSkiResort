@@ -79,7 +79,8 @@ namespace SkiResortMod.Systems
             LocalizedString.Id(LiftLineToolSystem.LocPrefix + "TYPE[" + (LiftLineInput.KnownType(typeId) ? typeId : "any") + "]");
 
         /// <summary>The plan line: tower count and length, and the first thing wrong in words (the overlay shows where): a span below
-        /// the floor (red), an edge too steep for the engine (red), a span above the max rope height (purple).</summary>
+        /// the floor (red), an edge too steep for the engine (red), a span above the max rope height (purple), a tower whose rope bends
+        /// past its sheave train's cap (red tower, PLAN_TRAIN). Green (Success) only for PLAN_CLEAR, a Sound plan.</summary>
         internal static LocalizedString PlanText(LiftTowerPlan plan, out bool clear)
         {
             string key = LiftLineInput.PlanKey(plan, out float length);
@@ -95,9 +96,11 @@ namespace SkiResortMod.Systems
             int t = m_Tool.HoverTower;
             if (t <= 0 || t >= plan.Nodes.Length - 1)
                 return null;
-            string key = LiftLineInput.TowerKey(plan, t, e.IsPinned(plan.Nodes[t].AlongM), out float height, out float clear);
+            string key = LiftLineInput.TowerKey(plan, t, e.IsPinned(plan.Nodes[t].AlongM), out float height, out float clear,
+                                                out float bend, out float cap);
             return LiftLineToolSystem.T(key, ("N", LiftLineToolSystem.N(t)), ("COUNT", LiftLineToolSystem.N(plan.LineTowers)),
-                ("HEIGHT", LiftLineToolSystem.N(height)), ("CLEAR", LiftLineToolSystem.N(clear)));
+                ("HEIGHT", LiftLineToolSystem.N(height)), ("CLEAR", LiftLineToolSystem.N(clear)), ("DEG", LiftLineToolSystem.Deg(bend)),
+                ("CAP", LiftLineToolSystem.N(cap)));
         }
 
         private void Show(StringTooltip tip, ref LocalizedString last, LocalizedString text)

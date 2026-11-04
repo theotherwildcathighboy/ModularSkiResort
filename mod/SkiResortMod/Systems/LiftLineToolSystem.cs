@@ -47,7 +47,6 @@ namespace SkiResortMod.Systems
         private const int TempTimeoutFrames = 30;
         private const int LooseRefreshFrames = 30;
         private const float NoticeSeconds = 5f;        // a refusal stays in the tooltip this long (real time, not frames: 240 frames read 1-2.5 s at high fps)
-        private const float SunkWarnM = 0.25f;         // carriers leaving a station more than this below the ground: SUNK STATION
         private const float CrossEndMarginM = 5f;      // another lift met this close to an end of the line is the section's own joint, no crossing
         private static readonly UnityEngine.Color StationColor = new UnityEngine.Color(0.55f, 0.8f, 1f, 0.9f);
         private static readonly UnityEngine.Color LooseColor = new UnityEngine.Color(1.0f, 0.75f, 0.15f, 0.9f);
@@ -56,7 +55,7 @@ namespace SkiResortMod.Systems
         private static readonly UnityEngine.Color[] TowerColors =
         {
             new UnityEngine.Color(0.25f, 0.85f, 0.35f, 0.9f),   // clear
-            new UnityEngine.Color(0.95f, 0.2f, 0.2f, 0.95f),    // short (a span below the floor) or an edge too steep for the engine
+            new UnityEngine.Color(0.95f, 0.2f, 0.2f, 0.95f),    // short (a span below the floor), an edge too steep for the engine, or the rope bends past the sheave train's cap
             new UnityEngine.Color(0.7f, 0.35f, 1.0f, 0.95f),    // rope too high (a span above the max rope height)
         };
         private static readonly UnityEngine.Color[] SegColors =
@@ -82,14 +81,14 @@ namespace SkiResortMod.Systems
         internal LiftTypeDef PresetType => m_Preset;
         /// <summary>The notice line of the tooltip (a LocaleEN SkiResort.LiftTool.* key), else null. A refusal shows for NoticeSeconds and wins
         /// while live; under it the STANDING notices show for as long as the plan has the condition: a station faces away, the line crosses
-        /// another lift, SUNK STATION (an end of the plan sinks the carriers), BEND (the line turns the rope by more than
+        /// another lift, SUNK / SUNK_END (a station end, or a ground end's coming station, sinks the carriers), BEND (the line turns the rope by more than
         /// LiftAlignMath.BendWarnDeg where it joins a built line at a loose end; a warning, never a refusal), then the open-ground end hint
         /// (the second end is open ground).</summary>
         internal LocalizedString? Notice =>
             m_Notice.HasValue && UnityEngine.Time.unscaledTime - m_NoticeTime < NoticeSeconds ? m_Notice
             : m_BackwardStanding ? T("BACKWARD")
             : m_CrossingStanding ? T("CROSSES")
-            : m_SunkStanding ? T("SUNK")
+            : m_SunkStanding != null ? T(m_SunkStanding)
             : m_BendStandingDeg > 0f ? T("BEND", ("DEG", Deg(m_BendStandingDeg)))
             : m_Edit != null && m_Top.Kind == LiftLineEndKind.Ground ? T("OPEN_END")
             : (LocalizedString?)null;
@@ -154,7 +153,7 @@ namespace SkiResortMod.Systems
         private bool m_BuildRequested;
         private int m_EmitFrame, m_Frame, m_Seed = 1;
         private List<LiftLineNode> m_Emitted;
-        private bool m_SunkStanding;   // the current plan has a sunk station end (WarnSunk sets it per plan, Reset clears it)
+        private string m_SunkStanding;   // SUNK / SUNK_END: the current plan has a sunk station end, else null (WarnSunk sets it per plan, Reset clears it)
         private bool m_BackwardStanding;   // a station end faces away from the line (WarnBackward sets it per plan, Reset clears it)
         private bool m_CrossingStanding;   // the current line crosses another lift (WarnCrossing sets it per plan, Reset clears it)
         private float m_BendStandingDeg;   // the plan bend over the warning angle at a loose-end joint, else 0 (WarnBend per plan, Reset clears it)
@@ -1309,16 +1308,18 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>A station end whose carriers leave below the ground (the station sits in the slope: the no-level terraform keeps
+        /// <summary>A station end (or a ground end: the station that will stand there) whose carriers leave below the ground (the station sits in the slope: the no-level terraform keeps
         /// the terrain; no prefab fix, DECISIONS 426: Move It recommended). Logged on every plan; the tooltip keeps the notice standing while the plan has it (m_SunkStanding).</summary>
         private void WarnSunk(LiftTowerPlan plan)
         {
+            // FIX-LIST 55: a ground end counts too. It plans with the station that will stand there (GroundEndRope); past a crest
+            // vanilla stands it on the lower lot front, so its carriers start below the ground ahead (SUNK_END).
             string sunk = null;
-            if (plan.StationA && m_Base.Kind == LiftLineEndKind.Station && plan.EndCarrierA < -SunkWarnM)
+            if (LiftLineInput.SunkEnd(plan.StationA, m_Base.Kind, plan.EndCarrierA))
                 sunk = $"{Describe(m_Base)} {-plan.EndCarrierA:F1} m";
-            if (plan.StationB && m_Top.Kind == LiftLineEndKind.Station && plan.EndCarrierB < -SunkWarnM)
+            if (LiftLineInput.SunkEnd(plan.StationB, m_Top.Kind, plan.EndCarrierB))
                 sunk = (sunk == null ? string.Empty : sunk + ", ") + $"{Describe(m_Top)} {-plan.EndCarrierB:F1} m";
-            m_SunkStanding = sunk != null;
+            m_SunkStanding = LiftLineInput.SunkKey(plan, m_Base.Kind, m_Top.Kind);
             if (sunk == null)
                 return;
             Mod.Log.Warn($"LiftLine [plan]: SUNK STATION — the carriers leave below the ground at {sunk} (carrier height at the stub tip vs " +
@@ -1708,6 +1709,8 @@ namespace SkiResortMod.Systems
                     else if (plan.Spans[s].HeightViolated && status == 0)
                         status = 2;
                 }
+                if (plan.IsOverCap(i))   // red: the rope bends past its sheave train's cap (FIX-LIST 55; the tooltip says so on hover)
+                    status = 1;
                 bool hover = i == m_HoverTower && !Dragging;
                 UnityEngine.Color tc = hover ? HoverColor : TowerColors[status];
                 float ring = 4f + 2f * d.Member[i] / math.max(1, d.LadderLength - 1);
@@ -1745,7 +1748,7 @@ namespace SkiResortMod.Systems
             m_DragOff = false;
             m_BuildRequested = false;
             m_Emitted = null;
-            m_SunkStanding = false;
+            m_SunkStanding = null;
             m_BackwardStanding = false;
             m_CrossingStanding = false;
             m_BendStandingDeg = 0f;

@@ -424,7 +424,7 @@ namespace SkiResortMod.Systems
             string cutNote = cutAt.Count > 0
                 ? $"; own cut: ground at {cutAt.Count} sample spot(s) taken from beside this line's own trench (T127)"
                 : string.Empty;
-            string clearText = plan.Clear ? "every span clear"
+            string clearText = plan.Clear ? "every span clear" + plan.OverCapNote   // FIX-LIST 55: never "clear" alone with a tower over its cap
                 : fit.Mode == LiftFitMode.Kept ? $"within {LiftTowerPlanner.KeepTolM:F1} m of the floor, kept as it stands"
                 : "VIOLATED";
             if (writes == 0)

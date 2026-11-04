@@ -67,8 +67,16 @@ course reuses the end node). It plans as a station end (StationA / B true, appro
 (`StationDef.FrontLocalZ`; vanilla RoadSide placement stands every building on the terrain there, ObjectToolSystem.CalculateHeight
 :1621-1625, BuildingUtils.CalculateFrontPosition :88-92), 24 m (FG, tram) / 32 m (DQ, gondola) beyond the end on the line's axis. The lower
 end gets the type's base station, the higher its top station. Before, a ground end planned node + the tower rope, 1.4-10.3 m above any
-station anchor: tram 2 planned +0.4 m and read -6.58 m once its stations stood. The SUNK STATION notice stays for picked station ends only
-(a ground end's station is not placed yet). Tests: LiftBatch EI-48.
+station anchor: tram 2 planned +0.4 m and read -6.58 m once its stations stood. Tests: LiftBatch EI-48.
+
+A ground end just past a crest plans honestly low (FIX-LIST 55): the 2 km DQ of the eishain-fixes check planned its top end at node +
+-8.68 (the lot front 32 m out stood 12.38 m below the node), so its carriers start below the ground ahead (`EndCarrierB` -12) and the
+last tower, 8 m from the end, bent the rope +103 deg with no repair possible. Nothing said so: the plan read "clear" (spans only).
+Now `LiftLineInput.SunkKey` / `SunkEnd` (pure, `SunkWarnM` 0.25 m) judge ground ends too: SUNK for a built station end, SUNK_END for
+a ground end (its station is not placed yet; past a crest it would stand on the lower front), nothing for a loose end (a tower
+node). `PlanKey` returns PLAN_TRAIN when every span clears but a tower is over its cap (PLAN_CLEAR only for a `Sound` plan),
+`TowerKey` TOWER_TRAIN for that tower (out bend / cap), and `Describe` ends with `LiftTowerPlan.Verdict` ("clear" only when sound,
+else "spans clear, N tower(s) OVER CAP" or "VIOLATED"). Tests: LiftBatch EI-55 (the field shape and an 888-plan sweep).
 
 ## JoinBendWarnDeg
 `LiftLineInput.JoinBendWarnDeg(builtFar, joint, otherEnd)`: the plan bend the drawn line makes at a loose-end joint

@@ -410,15 +410,17 @@ namespace LiftBatch
                             used.Add(LiftLineInput.PromptKey(step, type, drag, off && drag));
             foreach (string t in new[] { "fixedGrip", "detachable", "gondola", "tram", "any" })
                 used.Add("TYPE[" + t + "]");
-            foreach (string k in new[] { "PLAN_CLEAR", "PLAN_LOW", "PLAN_STEEP", "PLAN_HIGH", "TOWER", "TOWER_PINNED", "TOWER_LOW" })
+            // PLAN_TRAIN / TOWER_TRAIN (a tower over its cap) and SUNK / SUNK_END (LiftLineInput.SunkKey): FIX-LIST 55.
+            foreach (string k in new[] { "PLAN_CLEAR", "PLAN_LOW", "PLAN_STEEP", "PLAN_HIGH", "PLAN_TRAIN", "TOWER", "TOWER_PINNED", "TOWER_LOW",
+                                         "TOWER_TRAIN", "SUNK", "SUNK_END" })
                 used.Add(k);
             foreach (string path in codePaths)
                 foreach (Match m in new Regex("\\bT\\(\"([A-Z_]+(?:\\[[A-Za-z]+\\])?)\"").Matches(File.ReadAllText(path)))
                     used.Add(m.Groups[1].Value);
             foreach (string e in new[] { "SteepSlope", "OverlapExisting", "LongDistance", "ShortDistance", "InWater", "ExceedsCityLimits", "Other" })
                 used.Add("REFUSED[" + e + "]");
-            // DEG: the BEND notice's plan bend (LiftLineToolSystem.Deg).
-            var args = new HashSet<string> { "TYPE", "TOWERS", "LENGTH", "N", "COUNT", "HEIGHT", "CLEAR", "MIN", "M", "DEG" };
+            // DEG: the BEND notice's plan bend and TOWER_TRAIN's rope bend (LiftLineToolSystem.Deg); CAP: TOWER_TRAIN's cap.
+            var args = new HashSet<string> { "TYPE", "TOWERS", "LENGTH", "N", "COUNT", "HEIGHT", "CLEAR", "MIN", "M", "DEG", "CAP" };
             int worst = 0;
             foreach (string key in used)
             {
@@ -448,7 +450,7 @@ namespace LiftBatch
             LiftTowerPlan steep = gate.PlanFixed(t0, DqLength, DqRopeTop, DqRopeBase, c, new[] { 500f, 1015f }, new[] { 0, c.Ladder.Length - 1 }, null, assign: false);
             string steepKey = LiftLineInput.PlanKey(steep, out _);
             Check(steepKey == "PLAN_STEEP" || steepKey == "PLAN_LOW", W, "a DQ20 9 m from the base station reads " + steepKey);
-            string towerKey = LiftLineInput.TowerKey(clear, 1, false, out float h, out float cl);
+            string towerKey = LiftLineInput.TowerKey(clear, 1, false, out float h, out float cl, out _, out _);
             Check(math.abs(h - c.Ladder[clear.Nodes[1].Member].TopM) < 1e-3f && cl > 0f && towerKey == "TOWER", W,
                   "tower 1 of the clear DQ: " + towerKey + ", height " + h + ", clear " + cl);
             s_Report.Add("LP-31 plan / tower keys | clear field DQ " + LiftLineInput.PlanKey(clear, out _) + ", tower 1 " + towerKey + " " +

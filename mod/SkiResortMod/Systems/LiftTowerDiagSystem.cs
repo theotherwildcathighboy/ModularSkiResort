@@ -564,7 +564,8 @@ namespace SkiResortMod.Systems
                       .Append(plan.LineTowers).Append(" line tower(s) vs actual ").Append(path.Count).Append(" / ").Append(math.max(0, path.Count - 2))
                       .Append("; members {").Append(plan.MemberCounts()).Append("}; min floor margin ").Append(Sg(plan.MinFloorMarginM))
                       .Append(" m; max rope above ground ").Append(F(maxAbove, "F1")).Append(" m; ")
-                      .Append(violated == 0 ? "every span clear" : violated + " span(s) VIOLATED (no clear arrangement on this ground)");
+                      .Append(violated == 0 ? "every span clear" : violated + " span(s) VIOLATED (no clear arrangement on this ground)")
+                      .Append(plan.OverCapNote);   // FIX-LIST 55: the angles too
                     Mod.Log.Info(sb.ToString());
                 }
 

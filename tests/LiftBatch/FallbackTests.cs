@@ -167,7 +167,7 @@ namespace LiftBatch
         }
 
         // ── FB-2 / FB-3: the sweep gate ─────────────────────────────────────────────────────────────────────────────────────
-        private sealed class SweepLine
+        internal sealed class SweepLine
         {
             public string Label, Type;
             public Func<float, float, float> H;
@@ -176,7 +176,7 @@ namespace LiftBatch
             public float AboveA, AboveB;
         }
 
-        private static IEnumerable<SweepLine> SweepLines()
+        internal static IEnumerable<SweepLine> SweepLines()
         {
             // DR-1's shapes (station to station, a raised B rope), and the same lines with ground ends.
             foreach (string id in new[] { "fixedGrip", "detachable", "gondola", "tram" })

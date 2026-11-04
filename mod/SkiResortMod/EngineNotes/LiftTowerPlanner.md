@@ -199,6 +199,9 @@ docs/research/review-153b64e-2026-10-26.md F3 / F4 / F9 / F10).
   its slope and cannot cut it) it stays one span and `Build` flags it, red in the preview.
 - **Outputs.** `LiftTowerPlan.SampleFloorM` (MarginAt uses it), `StationA` / `StationB`, `EndCarrierA` / `EndCarrierB` (carrier at the end
   above the high side: negative = a sunk station; the tool warns SUNK STATION), `MaxEdgeSlope`.
+- **Verdict (FIX-LIST 55).** `Clear` is spans only (floor, max height, edge slope); `Sound` adds "no tower over its cap"
+  (`IsOverCap(i)`, `OverCapTowers`). Every plan-level text uses `Verdict` ("clear" only when sound, "spans clear, N tower(s) OVER CAP",
+  "VIOLATED") or appends `OverCapNote` to "every span clear" (the fit and diag summaries), so no log line calls an over-cap plan clear.
 
 ## Station rope anchors (FIX-LIST 48)
 A station's rope sits at its own HV rope sub-lane anchor, not at a tower's rope. Prefab-local y of the lowest anchor

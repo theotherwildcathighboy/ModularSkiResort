@@ -6,6 +6,8 @@
 //       the anchor is below the shortest tower's rope (so no type plans a station end too high again). (b) Tram 2 of the pass: planned
 //       clear (+0.4) with node + 26.25 at its ground ends and read -6.58 once the stations stood; planned with the stations' anchors it
 //       stays clear with them. (c) The lot-front rule: ground falling away beyond the end lowers the rope.
+// EI-55 a top ground end past a crest (FIX-LIST 55): a tower over its cap never reads clear (plan key, Describe, tower key), the
+//       sunk ground end says SUNK_END; a sweep over the FB-3 lines and crest-end tops.
 
 using System;
 using System.Collections.Generic;
@@ -34,6 +36,7 @@ namespace LiftBatch
             Ei48Tram2();
             Ei48Front();
             Ei49();
+            Ei55();
             s_Check = null;
         }
 
@@ -388,6 +391,127 @@ namespace LiftBatch
             }
         }
 
+        // EI-55: a top ground end just past a crest (the 2 km DQ of the eishain-fixes check, Mod.log 1693: top end rope 1801.33 =
+        // node + -8.68, the station's anchor over its lot front 32 m out; DQ12 @1965, 8 m from the end, d +103.0 OVER CAP 32, NO
+        // REPAIR; the plan line said "clear"). Here: a 1000 m DQ climbing 0.25, the crest 4 m before the top end node, the ground
+        // falling 2 m to the node and on beyond it, the lot front 12.38 m below the node (so the rope is node + -8.68 as logged). The
+        // numbers are honest (vanilla stands the station on the lower front: FIX-LIST 48); what failed is that nothing said so: on
+        // 4e0e401 this plan read PLAN_CLEAR, Describe "...; clear", and no SUNK notice (ground ends were never checked).
+        private const float Ei55Len = 1000f, Ei55Grade = 0.25f, Ei55CrestBack = 4f, Ei55Drop = 2f, Ei55FrontBelowNode = 12.38f;
+
+        private static float Ei55Ground(float x)
+        {
+            float crest = Ei55Len - Ei55CrestBack;
+            return x <= crest ? 1200f + Ei55Grade * x : 1200f + Ei55Grade * crest - Ei55Drop * (x - crest) / Ei55CrestBack;
+        }
+
+        private static void Ei55()
+        {
+            const string w = "eishain/EI-55";
+            LiftTowerPlanConstants c = LiftTowerPlanConstants.For("detachable");
+            int dq = SkiCatalog.LiftById("detachable").Index;
+            StationDef bas = SkiCatalog.StationOf(dq, StationRole.Base), top = SkiCatalog.StationOf(dq, StationRole.Top);
+            float yA = Ei55Ground(0f), yB = Ei55Ground(Ei55Len);
+            float ropeA = LiftLineInput.GroundEndRope(c, bas, yA, yA - Ei55Grade * LiftTowerPlanConstants.FrontDistM(bas), out _);
+            float ropeB = LiftLineInput.GroundEndRope(c, top, yB, yB - Ei55FrontBelowNode, out string srcB);
+            Check(math.abs(ropeB - yB + 8.68f) < 0.01f, w + " rope", "the top end plans node + " + F(ropeB - yB) + ", the log had -8.68: " + srcB);
+            var e = new LiftLineEdit(c, new float3(0f, yA, 0f), new float3(Ei55Len, yB, 0f), ropeA, ropeB, true, true);
+            LiftTowerPlan p = e.Replan(Ei55Sampler(e, false, c), Ei55Sampler(e, true, c));
+            int over = p.OverCapTowers, last = p.Nodes.Length - 2;
+            // The field shape: every span clear, the last tower right by the end and past its cap, no repair found.
+            bool shape = p.Clear && over >= 1 && last >= 1 && p.IsOverCap(last) && Ei55Len - p.Nodes[last].AlongM <= 15f &&
+                         (p.Nodes[last].Flags & LiftPlanNodeFlags.OverCap) != 0;
+            Check(shape, w + " shape", "not the field shape (spans clear, the last tower within 15 m of the end over its cap, flagged): " + Desc(p));
+            string key = LiftLineInput.PlanKey(p, out _);
+            Check(key == "PLAN_TRAIN", w + " plan key", "a tower over its cap reads " + key + ": " + Desc(p));
+            string line = e.Describe();
+            Check(!line.EndsWith("; clear", StringComparison.Ordinal) && line.Contains("OVER CAP"), w + " describe", "the plan line: " + line);
+            Check(!p.Sound && p.Verdict.Contains("OVER CAP"), w + " verdict", p.Verdict);
+            string tower = "none";
+            float bend = 0f, cap = 0f;
+            if (last >= 1)
+                tower = LiftLineInput.TowerKey(p, last, false, out _, out _, out bend, out cap);
+            Check(tower == "TOWER_TRAIN" && bend > cap, w + " tower key", "the over-cap tower reads " + tower + " (" + F(bend, "F1") + " / cap " + F(cap, "F0") + "): " + Desc(p));
+            // The end is sunk: the coming station's carriers start below the ground ahead. A ground end says SUNK_END, a built station
+            // SUNK, a loose end (a tower node) nothing.
+            string sunk = LiftLineInput.SunkKey(p, LiftLineEndKind.Ground, LiftLineEndKind.Ground);
+            Check(p.EndCarrierB < -LiftLineInput.SunkWarnM && sunk == "SUNK_END", w + " sunk", "end carrier B " + F(p.EndCarrierB) + ", key " + (sunk ?? "none"));
+            Check(LiftLineInput.SunkKey(p, LiftLineEndKind.Ground, LiftLineEndKind.Station) == "SUNK", w + " sunk station", "a built station end is not SUNK");
+            Check(!LiftLineInput.SunkEnd(p.StationB, LiftLineEndKind.LooseEnd, p.EndCarrierB), w + " sunk loose", "a loose end reads sunk");
+            s_Report.Add("EI-55 crest-end DQ " + F(Ei55Len, "F0") + " m | " + srcB + " | " + line + " | key " + key + ", last tower " + tower + " d " +
+                         F(bend, "F1") + ", end carrier B " + F(p.EndCarrierB, "F1") + " m -> " + sunk);
+            Ei55Sweep();
+        }
+
+        private static LiftTerrainSampler Ei55Sampler(LiftLineEdit e, bool fromB, LiftTowerPlanConstants c) => (s, l) =>
+        {
+            float3 q = fromB ? e.PointFromB(s, l) : e.PointAt(s, l);
+            return Ei55Ground(q.x) + 0.3f * l / c.HalfWidthM;
+        };
+
+        // EI-55 sweep: no plan anywhere reads clear with a tower over its cap. The FB-3 lines (DR-1, D192, crests and dips, field
+        // tents) with and without the twins (without: more towers stay over a cap), and crest-end DQ / FG / GD tops like the field
+        // case. For each plan: PlanKey is not PLAN_CLEAR, Describe and Verdict do not say "clear", and every over-cap tower reads
+        // TOWER_TRAIN or TOWER_LOW. Counts the over-cap plans so the sweep is known to bind.
+        private static void Ei55Sweep()
+        {
+            const string w = "eishain/EI-55 sweep";
+            int plans = 0, overPlans = 0, clearKeys = 0;
+            var lines = new List<(string Label, LiftLineEdit Edit, LiftTowerPlan Plan)>();
+            foreach (FallbackTests.SweepLine l in FallbackTests.SweepLines())
+                foreach (bool twins in new[] { true, false })
+                {
+                    LiftTowerPlanConstants c = twins ? LiftTowerPlanConstants.For(l.Type) : BreakoverTests.WithoutTwins(l.Type);
+                    float ya = l.H(0f, 0f), yb = l.H(l.L, 0f);
+                    var e = new LiftLineEdit(c, new float3(0f, ya, 0f), new float3(l.L, yb, 0f), ya + c.RopeAboveBase(0) + l.AboveA,
+                                             yb + c.RopeAboveBase(0) + l.AboveB, l.Stations, l.Stations);
+                    Func<float, float, float> h = l.H;
+                    LiftTowerPlan p = e.Replan((s, z) => { float3 q = e.PointAt(s, z); return h(q.x, q.z); },
+                                               (s, z) => { float3 q = e.PointFromB(s, z); return h(q.x, q.z); });
+                    lines.Add((l.Label + (twins ? "" : " no twins"), e, p));
+                }
+            foreach (string id in new[] { "fixedGrip", "detachable", "gondola" })
+            foreach (float len in new[] { 400f, 600f, 1000f })
+            foreach (float g in new[] { 0.20f, 0.30f })
+            foreach (float back in new[] { 4f, 8f, 12f, 20f })
+            {
+                LiftTowerPlanConstants c = LiftTowerPlanConstants.For(id);
+                int k = SkiCatalog.LiftById(id).Index;
+                StationDef bas = SkiCatalog.StationOf(k, StationRole.Base), top = SkiCatalog.StationOf(k, StationRole.Top);
+                float crest = len - back;
+                Func<float, float> h = x => x <= crest ? 1200f + g * x : 1200f + g * crest - 2f * (x - crest) / back;
+                float ya = h(0f), yb = h(len);
+                float ra = LiftLineInput.GroundEndRope(c, bas, ya, ya - g * LiftTowerPlanConstants.FrontDistM(bas), out _);
+                float rb = LiftLineInput.GroundEndRope(c, top, yb, h(len + LiftTowerPlanConstants.FrontDistM(top)), out _);
+                var e = new LiftLineEdit(c, new float3(0f, ya, 0f), new float3(len, yb, 0f), ra, rb, true, true);
+                LiftTowerPlan p = e.Replan((s, z) => { float3 q = e.PointAt(s, z); return h(q.x) + 0.3f * z / c.HalfWidthM; },
+                                           (s, z) => { float3 q = e.PointFromB(s, z); return h(q.x) + 0.3f * z / c.HalfWidthM; });
+                lines.Add(("crest-end " + id + " " + F(len, "F0") + " g " + F(g) + " back " + F(back, "F0"), e, p));
+            }
+            foreach (var (label, e, p) in lines)
+            {
+                plans++;
+                string key = LiftLineInput.PlanKey(p, out _);
+                if (key == "PLAN_CLEAR") clearKeys++;
+                Check(key != "PLAN_CLEAR" || p.Sound, w + " " + label, "PLAN_CLEAR on a plan that is not sound: " + Desc(p));
+                if (p.OverCapTowers == 0)
+                    continue;
+                overPlans++;
+                string line = e.Describe();
+                Check(!line.EndsWith("; clear", StringComparison.Ordinal) && p.Verdict != "clear", w + " " + label, "reads clear with a tower over its cap: " + line);
+                for (int i = 1; i < p.Nodes.Length - 1; i++)
+                {
+                    if (!p.IsOverCap(i))
+                        continue;
+                    string tk = LiftLineInput.TowerKey(p, i, false, out _, out _, out float bend, out float cap);
+                    Check((tk == "TOWER_TRAIN" && bend > cap) || tk == "TOWER_LOW", w + " " + label + " tower " + i, "an over-cap tower reads " + tk);
+                }
+            }
+            Check(overPlans > 0, w, "no plan had a tower over its cap: the sweep does not bind");
+            s_Report.Add("EI-55 sweep " + plans + " plans (FB-3 lines with / without twins, crest-end tops) | " + overPlans +
+                         " with a tower over its cap, none reads clear; PLAN_CLEAR on " + clearKeys + ", all sound");
+        }
+
         internal static string Desc(LiftTowerPlan p)
         {
             var parts = new List<string>();
@@ -398,7 +522,7 @@ namespace LiftBatch
             for (int i = 0; i < p.Spans.Length; i++)
                 spans.Add(F(p.Spans[i].MinFloorMarginM, "F1"));
             p.KindCounts(out _, out _, out _, out _, out int over);
-            return "[" + string.Join(", ", parts) + "] spans " + string.Join("/", spans) + " over " + over + (p.Clear ? " clear" : " VIOLATED");
+            return "[" + string.Join(", ", parts) + "] spans " + string.Join("/", spans) + " over " + over + " " + p.Verdict;
         }
     }
 }

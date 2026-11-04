@@ -1596,10 +1596,13 @@ namespace SkiResortMod
                 { "SkiResort.LiftTool.PLAN_LOW", "Towers: {TOWERS}, length {LENGTH} m. The red part hangs too close to the ground: add a tower or move one." },
                 { "SkiResort.LiftTool.PLAN_HIGH", "Towers: {TOWERS}, length {LENGTH} m. The purple part runs too high above the ground: add a tower under it." },
                 { "SkiResort.LiftTool.PLAN_STEEP", "Towers: {TOWERS}, length {LENGTH} m. The red part is too steep for this lift: move the tower beside it, or pick flatter ends." },
+                // FIX-LIST 55: every span clears, but a tower's rope bends past its sheave train's cap (the red tower).
+                { "SkiResort.LiftTool.PLAN_TRAIN", "Towers: {TOWERS}, length {LENGTH} m. The rope bends past what the red tower's wheels can follow: move it or the end. The lift still runs." },
                 // Over a tower: its height (the tower model's), and how high the chairs or cabins pass over the ground next to it.
                 { "SkiResort.LiftTool.TOWER", "Tower {N} of {COUNT}: {HEIGHT} m tall. Chairs and cabins pass {CLEAR} m above the ground at the tower. Drag to move it." },
                 { "SkiResort.LiftTool.TOWER_PINNED", "Tower {N} of {COUNT}: {HEIGHT} m tall, placed by you. Chairs and cabins pass {CLEAR} m above the ground at the tower." },
                 { "SkiResort.LiftTool.TOWER_LOW", "Tower {N} of {COUNT}: {HEIGHT} m tall. Chairs and cabins come too close to the ground next to it." },
+                { "SkiResort.LiftTool.TOWER_TRAIN", "Tower {N} of {COUNT}: {HEIGHT} m tall. The rope bends {DEG}° here, past the {CAP}° its wheels can follow." },
                 // Notices: shown for a few seconds after a refused click.
                 { "SkiResort.LiftTool.NOTHING_TO_BUILD", "Nothing to build yet: click both ends of the line first." },
                 { "SkiResort.LiftTool.NO_START", "Click next to a station's line stub, or the loose end of a lift line." },
@@ -1613,6 +1616,8 @@ namespace SkiResortMod
                 { "SkiResort.LiftTool.CLICK_ON_LINE", "Click on the line itself to add a tower there." },
                 { "SkiResort.LiftTool.END_GONE", "One end of the line is gone. Click both ends again." },
                 { "SkiResort.LiftTool.SUNK", "The station sits low in the slope, so the chairs leave it below the ground. Flatter ground or raising it with Move It helps." },
+                // FIX-LIST 55: a ground end whose coming station would stand on the lower ground in front of it (past a crest).
+                { "SkiResort.LiftTool.SUNK_END", "A station on this open end would stand on the lower ground ahead, so its chairs would leave below the ground. Flatter ground helps." },
                 { "SkiResort.LiftTool.BACKWARD", "A station on this line faces away from it, so the line runs back through the building. Turn that station around." },
                 { "SkiResort.LiftTool.CROSSES", "This line crosses another lift. Building it joins the two at the crossing and stops the other lift's chairs." },
                 // A loose-end joint that turns the line by more than LiftAlignMath.BendWarnDeg: a standing warning, never a refusal.

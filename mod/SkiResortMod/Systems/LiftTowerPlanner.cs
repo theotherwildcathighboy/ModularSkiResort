@@ -541,7 +541,46 @@ namespace SkiResortMod.Systems
                 if (n.Kind == LiftTrainKind.Support) support++;
                 else if (n.Kind == LiftTrainKind.HoldDown) holdDown++;
                 else if (n.Kind == LiftTrainKind.PushPull) pushPull++;
-                if (math.abs(n.DeflectionDeg) > n.CapDeg + AngleTolDeg) overCap++;
+                if (IsOverCap(i)) overCap++;
+            }
+        }
+
+        /// <summary>Node <paramref name="i"/> is judged and its deflection is past its cap (by more than AngleTolDeg). The tram's
+        /// saddles have no cap (CapDeg = infinity), so only train lifts read true.</summary>
+        public bool IsOverCap(int i) =>
+            Nodes[i].HasAngles && math.abs(Nodes[i].DeflectionDeg) > Nodes[i].CapDeg + AngleTolDeg;
+
+        /// <summary>Towers still over their cap after the angle pass (KindCounts' overCap).</summary>
+        public int OverCapTowers
+        {
+            get
+            {
+                KindCounts(out _, out _, out _, out _, out int over);
+                return over;
+            }
+        }
+
+        /// <summary>The plan's verdict for the logs (FIX-LIST 55): "clear" only when Sound (every span clear and no tower over its
+        /// cap); "spans clear, N tower(s) OVER CAP" when only the angles fail; else "VIOLATED". Clear alone says nothing about the
+        /// angles, so no log line prints it as the plan's verdict.</summary>
+        public string Verdict
+        {
+            get
+            {
+                if (!Clear)
+                    return "VIOLATED";
+                int over = OverCapTowers;
+                return over == 0 ? "clear" : "spans clear, " + over + " tower(s) OVER CAP";
+            }
+        }
+
+        /// <summary>", but N tower(s) OVER CAP" when a tower is past its cap, else empty: for the log lines that report the spans.</summary>
+        public string OverCapNote
+        {
+            get
+            {
+                int over = OverCapTowers;
+                return over == 0 ? string.Empty : ", but " + over + " tower(s) OVER CAP";
             }
         }
 
@@ -599,7 +638,7 @@ namespace SkiResortMod.Systems
                 sb.Append(" (tight ").Append(Sg(n.TightDeg)).Append(" / heavy ").Append(Sg(n.HeavyDeg)).Append(") ").Append(LiftAlignMath.KindLetter(n.Kind));
                 if (n.Head != LiftTowerHead.Line)
                     sb.Append(' ').Append(n.Head);
-                if (math.abs(n.DeflectionDeg) > n.CapDeg + AngleTolDeg)
+                if (IsOverCap(i))
                     sb.Append(" OVER CAP ").Append(F(n.CapDeg, "F0"));
             }
             if ((n.Flags & LiftPlanNodeFlags.Pair) != 0)
@@ -621,6 +660,8 @@ namespace SkiResortMod.Systems
         /// <summary>Floor margin (rope - drop - high side - floor) at profile sample <paramref name="q"/> on span <paramref name="span"/>.</summary>
         public float MarginAt(int span, int q) =>
             RopeAt(span, SampleAlongM[q]) - Constants.CarrierDropM - SampleHighM[q] - (SampleFloorM != null ? SampleFloorM[q] : Constants.FloorM);
+        /// <summary>Every span clear (floor, max rope height, edge slope). Says nothing about the towers' angles: the plan's verdict is
+        /// Sound / Verdict.</summary>
         public bool Clear
         {
             get
@@ -681,14 +722,7 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>Every span clear and no tower over its cap.</summary>
-        public bool Sound
-        {
-            get
-            {
-                KindCounts(out _, out _, out _, out _, out int over);
-                return Clear && over == 0;
-            }
-        }
+        public bool Sound => Clear && OverCapTowers == 0;
 
         /// <summary>Null when <paramref name="plan"/> is no worse than <paramref name="built"/> on any axis (floor margin, violated
         /// spans, towers over their cap, the worst excess over a cap); else the axes it is worse on (FIX-LIST 52).</summary>
