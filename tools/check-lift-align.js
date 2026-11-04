@@ -18,12 +18,21 @@
 //             station hooks, the grip list). Bug class: re-drawing a bulldozed middle section was refused, OverlapExisting on the
 //             neighbor section's chairs; a section delete next to riding chairs, OverlapExisting on their grips.
 //
-// Usage: node tools/check-lift-align.js [--root <ImportedData dir>]   (default: gamedata-mirror/ImportedData; preflight passes the game's)
+//   MANIFESTSHA a station manifest that was RE-FROZEN (prefab_contract.refrozen, written by assets/blender/refreeze_m_manifests.py) pins
+//             the deployed building prefab it was frozen from: prefab_contract.source_sha256 must equal the sha256 of that prefab under
+//             --root. test_fg_family_seams M1 checks the same thing but needs Blender; this finds the drift at preflight. Bug class:
+//             lift alignment phase 1 (2026-11-02) repointed the FG stations' two HV sub-lanes and the M manifests stayed frozen on the
+//             old prefab until the Blender suite failed (DECISIONS 592 q). Manifests without a "refrozen" note are import-time snapshots
+//             (the prefab as it was BEFORE that import's repoint, e.g. fixedgrip/N) and legitimately differ from the deployed file.
+//
+// Usage: node tools/check-lift-align.js [--root <ImportedData dir>] [--self-test]   (default: gamedata-mirror/ImportedData; preflight passes the game's)
 // Exit code = number of failures. Last line: "check-lift-align: OK ..." on success.
 
 'use strict';
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
+const crypto = require('crypto');
 
 const repo = path.resolve(__dirname, '..');
 const argRoot = process.argv.indexOf('--root');
@@ -32,6 +41,82 @@ const systems = path.join(repo, 'mod', 'SkiResortMod', 'Systems');
 
 const failures = [];
 const fail = (code, msg) => failures.push(`${code} ${msg}`);
+
+// ---- MANIFESTSHA (declared first: --self-test runs it on fixtures, with no tree) ---------------------------------------------------
+const REFREEZE_CMD = '"C:\\Program Files (x86)\\Steam\\steamapps\\common\\Blender\\blender.exe" --background --factory-startup ' +
+    '--python-exit-code 1 --python assets\\blender\\refreeze_m_manifests.py -- --why "<what changed in the prefab>" --write';
+function* manifestFiles(dir) {
+    if (!fs.existsSync(dir)) return;
+    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+        const p = path.join(dir, e.name);
+        if (e.isDirectory()) { if (e.name !== 'archive') yield* manifestFiles(p); }
+        else if (e.name.endsWith('.manifest.json')) yield p;
+    }
+}
+// Every manifest under importDir that carries prefab_contract.source_sha256: a re-frozen one is checked against the prefab under rootDir.
+function manifestShaCheck(importDir, rootDir) {
+    const out = { problems: [], checked: 0, snapshots: 0 };
+    for (const f of manifestFiles(importDir)) {
+        let pc;
+        try { pc = JSON.parse(fs.readFileSync(f, 'utf8')).prefab_contract; } catch (e) { continue; }
+        if (!pc || !pc.source_sha256) continue;
+        if (!pc.refrozen) { out.snapshots++; continue; }
+        const parts = String(pc.source).split(/[\\/]/);
+        const tail = parts.slice(-2).join('/');
+        const prefab = path.join(rootDir, parts[parts.length - 2], parts[parts.length - 1]);
+        const rel = path.relative(importDir, f).replace(/\\/g, '/');
+        if (!fs.existsSync(prefab)) { out.problems.push(`${rel}: its frozen prefab ${tail} is not under ${rootDir}`); continue; }
+        out.checked++;
+        const sha = crypto.createHash('sha256').update(fs.readFileSync(prefab)).digest('hex');
+        if (sha !== pc.source_sha256)
+            out.problems.push(`${rel}: frozen on ${pc.source_sha256.slice(0, 12)} but ${tail} is now ${sha.slice(0, 12)}: the prefab ` +
+                              `changed after the baseline was frozen. Re-freeze in the same round: ${REFREEZE_CMD}`);
+    }
+    return out;
+}
+// MANIFESTSHA self-test: returns the number of failed cases (a merged --self-test handler adds it to its own count).
+function manifestShaSelfTest() {
+    // Fixtures: a re-frozen manifest whose pinned sha is current / stale, an import-time snapshot (never pinned), a missing prefab.
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'lift-align-selftest-'));
+    const imp = path.join(tmp, 'import'), rt = path.join(tmp, 'ImportedData');
+    const dir = path.join(imp, 'stations', 'M', 'StM');
+    fs.mkdirSync(dir, { recursive: true });
+    fs.mkdirSync(path.join(imp, 'archive', 'old'), { recursive: true });
+    fs.mkdirSync(path.join(rt, 'SkiFoo'), { recursive: true });
+    const prefabBytes = Buffer.from('{ "name": "SkiFoo" }');
+    fs.writeFileSync(path.join(rt, 'SkiFoo', 'SkiFoo.Prefab'), prefabBytes);
+    const good = crypto.createHash('sha256').update(prefabBytes).digest('hex');
+    const stale = '0'.repeat(64);
+    const write = (d, name, pc) => fs.writeFileSync(path.join(d, name + '.manifest.json'), JSON.stringify({ name, prefab_contract: pc }));
+    const src = 'gamedata-mirror/ImportedData/SkiFoo/SkiFoo.Prefab';
+    const cases = [   // label, prefab_contract, expected problems, checked, snapshots
+        ['current sha passes', { source: src, source_sha256: good, refrozen: {} }, 0, 1, 0],
+        ['STALE sha fails', { source: src, source_sha256: stale, refrozen: {} }, 1, 1, 0],
+        ['import-time snapshot (no refrozen) is not pinned', { source: src, source_sha256: stale }, 0, 0, 1],
+        ['pinned prefab missing fails', { source: 'gamedata-mirror/ImportedData/SkiGone/SkiGone.Prefab', source_sha256: good, refrozen: {} }, 1, 0, 0],
+    ];
+    let bad = 0;
+    for (const [label, pc, wantProblems, wantChecked, wantSnap] of cases) {
+        write(dir, 'StM', pc);
+        const r = manifestShaCheck(imp, rt);
+        const ok = r.problems.length === wantProblems && r.checked === wantChecked && r.snapshots === wantSnap &&
+                   (label !== 'STALE sha fails' || (r.problems[0].includes(stale.slice(0, 12)) && r.problems[0].includes(good.slice(0, 12)) &&
+                                                   r.problems[0].includes('refreeze_m_manifests.py')));
+        if (!ok) { console.log(`self-test FAIL: ${label}: ${JSON.stringify(r)}`); bad++; }
+    }
+    // a stale manifest under archive/ is history and is never checked
+    write(dir, 'StM', { source: src, source_sha256: good, refrozen: {} });
+    write(path.join(imp, 'archive', 'old'), 'old', { source: src, source_sha256: stale, refrozen: {} });
+    if (manifestShaCheck(imp, rt).problems.length !== 0) { console.log('self-test FAIL: archive/ must be skipped'); bad++; }
+    fs.rmSync(tmp, { recursive: true, force: true });
+    console.log(`${bad ? 'FAIL' : 'PASS'}  MANIFESTSHA self-test: ${cases.length + 1} cases (a planted stale sha, a missing prefab, a snapshot, archive/)`);
+    return bad;
+}
+if (process.argv.includes('--self-test')) {
+    const bad = manifestShaSelfTest();
+    console.log(`check-lift-align --self-test: ${bad ? bad + ' case(s) FAILED' : 'OK'}`);
+    process.exit(bad ? 1 : 0);
+}
 
 // ---- PINDROP ------------------------------------------------------------------------------------------------------------------
 function stripComments(src) {
@@ -207,9 +292,16 @@ for (const [name, re, why] of passRules) {
     else if (!re.test(body)) fail('CARRIERPASS', `LiftLineToolSystem.${name} no longer ${why}: a section redo at an existing tower is refused (OverlapExisting on the neighbor's chairs)`);
 }
 
+// ---- MANIFESTSHA ----------------------------------------------------------------------------------------------------------------
+const shaRes = manifestShaCheck(path.join(repo, 'assets', 'import'), root);
+for (const m of shaRes.problems) fail('MANIFESTSHA', m);
+if (shaRes.checked === 0 && fs.existsSync(path.join(repo, 'assets', 'import', 'stations')))
+    fail('MANIFESTSHA', 'no re-frozen station manifest under assets/import: the FG M manifests (prefab_contract.refrozen) are the pinned baselines');
+
 if (failures.length) {
     for (const l of failures) console.log(l);
     process.exit(failures.length);
 }
 console.log(`check-lift-align: OK (PINDROP ${pinScanned} systems, ROPELANE ${ropeFiles} prefabs in ${groups.length} lift types, ` +
-            `BONEROOT ${skinned} skinned meshes under ${path.relative(repo, root) || root}, CARRIERPASS ${passRules.length} tool hooks)`);
+            `BONEROOT ${skinned} skinned meshes under ${path.relative(repo, root) || root}, CARRIERPASS ${passRules.length} tool hooks, ` +
+            `MANIFESTSHA ${shaRes.checked} re-frozen manifests pinned, ${shaRes.snapshots} import-time snapshots skipped)`);

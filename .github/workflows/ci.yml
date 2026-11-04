@@ -61,8 +61,10 @@ jobs:
         run: node tools/check-ui-phase-deletes.js
       - name: Run prop placer rules
         run: node tools/check-run-props.js
-      - name: Lift alignment (rope-point pin, one rope lane per lift type)
-        run: node tools/check-lift-align.js
+      - name: Lift alignment (rope-point pin, one rope lane per lift type, re-frozen manifests pin their prefab)
+        run: |
+          node tools/check-lift-align.js --self-test
+          node tools/check-lift-align.js
       - name: No main-thread access to job-written components
         run: node tools/check-main-thread-jobs.js
       - name: Game surface matches its lock (code half; no decompile in CI)
