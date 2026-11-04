@@ -17,8 +17,13 @@
 //   CARRIERPASS the lift-line tool keeps the carriers and their grips passable for its whole session (LiftLineToolSystem start / stop /
 //             station hooks, the grip list). Bug class: re-drawing a bulldozed middle section was refused, OverlapExisting on the
 //             neighbor section's chairs; a section delete next to riding chairs, OverlapExisting on their grips.
+//   LADDER    the tower placeholders' members: tops unique by >= 0.1 m, a twin head's E within the line's m_ElevationRange.max, a twin's
+//             rope anchors = its support member's, membership, the twins imported together (none = pending). Bug class: two members
+//             0.05 m apart read back as each other (MemberOf) and the engine spawns either; a twin whose lanes moved lifts the rope.
 //
-// Usage: node tools/check-lift-align.js [--root <ImportedData dir>]   (default: gamedata-mirror/ImportedData; preflight passes the game's)
+// Usage: node tools/check-lift-align.js [--root <ImportedData dir>] [--self-test]   (default root: gamedata-mirror/ImportedData;
+//        preflight passes the game's). --self-test plants faults in the LADDER model (duplicate top, E past range, offset anchor,
+//        missing membership, partial import, unknown member) and fails unless each is caught.
 // Exit code = number of failures. Last line: "check-lift-align: OK ..." on success.
 
 'use strict';
@@ -207,9 +212,170 @@ for (const [name, re, why] of passRules) {
     else if (!re.test(body)) fail('CARRIERPASS', `LiftLineToolSystem.${name} no longer ${why}: a section redo at an existing tower is refused (OverlapExisting on the neighbor's chairs)`);
 }
 
+// ---- LADDER --------------------------------------------------------------------------------------------------------------------
+// The tower placeholders' members (breakover-holddown-plan-2026-11-03 section 3.4; PIPELINE idiom "A tower head variant is a twin
+// MEMBER"). The engine picks a placeholder member by its top alone (SubObjectSystem.cs:2189-2200: spare = top - (E + spec y)), and
+// LiftTowerEdit.MemberOf reads a node's (member, head) back from its elevation at 0.05 m, so:
+//   - every member top in a placeholder is unique by >= 0.1 m (the ladder, the twins, the GD lattice towers);
+//   - a twin's E = its top - ladder[0] top stays within the line prefab's m_ElevationRange.max (beyond it a later vanilla edit is
+//     unverified);
+//   - a twin's rope anchors (ObjectSubLanes: lane prefab and curve) equal its support member's within 1 mm (the rope must not move
+//     when the head changes; FindAnchor matches by lane prefab, LaneSystem.cs:4049);
+//   - a twin is a member of its type's placeholder; the twins arrive together (none = pending import, OK; some = FAIL).
+// Tops and twins come from LiftTowerPlanner.cs (the ladder and twin tables the planner uses); members and anchors from the root.
+const LADDER_TYPES = [
+    { ladder: 'FixedGripLadder', twins: 'FixedGripTwins', placeholder: 'SkiLiftTowerPlaceholder', line: 'SkiChairliftHV' },
+    { ladder: 'DetachableLadder', twins: 'DetachableTwins', placeholder: 'SkiLiftTowerDQPlaceholder', line: 'SkiDetachableHV' },
+    // The gondola placeholder also holds the lattice towers (not planner members): tops from lift_tower.py GD_LATTICE (25 / 32 / 40).
+    { ladder: 'GondolaLadder', twins: 'GondolaTwins', placeholder: 'SkiGondolaTowerPlaceholder', line: 'SkiGondolaHV',
+      extra: { SkiGondolaLattice25: 25, SkiGondolaLattice32: 32, SkiGondolaLattice40: 40 } },
+];
+const LADDER_MIN_GAP_M = 0.1, ANCHOR_TOL_M = 0.001;
+
+function csTable(src, field, re) {
+    const at = src.indexOf(` ${field} =`);
+    if (at < 0) return null;
+    const end = src.indexOf('};', at);
+    return [...src.slice(at, end).matchAll(re)];
+}
+/** Sub-lane anchors of a prefab text: [{lane, pts: [12 numbers]}], sorted. */
+function anchorsOf(text) {
+    const out = [];
+    for (const m of text.matchAll(/"m_LanePrefab":\s*\$fstrref:"(?:CID|UnityGUID):([0-9a-fA-F]{32})"[\s\S]*?"m_BezierCurve":\s*\{([\s\S]*?)"m_NodeIndex"/g)) {
+        const pts = [...m[2].matchAll(/"[xyz]":\s*(-?[0-9.]+(?:E[-+]?[0-9]+)?)/gi)].map(x => Number(x[1]));
+        out.push({ lane: m[1].toLowerCase(), pts });
+    }
+    return out.sort((a, b) => (a.lane + a.pts.join()).localeCompare(b.lane + b.pts.join()));
+}
+function placeholdersOf(text) {
+    const m = text.match(/"m_Placeholders":\s*\{[\s\S]*?"\$rcontent":\s*\[([\s\S]*?)\]/);
+    return m ? [...m[1].matchAll(/CID:([0-9a-fA-F]{32})/g)].map(x => x[1].toLowerCase()) : [];
+}
+
+/** The model the LADDER rules run on (loaded from the root and the C# tables; --self-test plants faults in a copy). */
+function loadLadderModel() {
+    const src = fs.readFileSync(path.join(systems, 'LiftTowerPlanner.cs'), 'utf8');
+    const prefabs = {};   // name -> { placeholders: [cid], anchors }
+    for (const f of ownedPrefabs(root, true)) {
+        const text = fs.readFileSync(f, 'utf8');
+        if (!/"m_Placeholders"/.test(text)) continue;
+        const name = path.basename(f, '.Prefab').replace(/_[0-9a-f]{32}$/, '');
+        prefabs[name] = { placeholders: placeholdersOf(text), anchors: anchorsOf(text) };
+    }
+    const types = [];
+    for (const t of LADDER_TYPES) {
+        const ladder = (csTable(src, t.ladder, /new LiftTowerMember\("([^"]+)",\s*([0-9.]+)f\)/g) || []).map(m => ({ name: m[1], top: Number(m[2]) }));
+        const twins = (csTable(src, t.twins, /new LiftTowerTwin\((\d+),\s*LiftTowerHead\.(\w+),\s*"([^"]+)",\s*([0-9.]+)f\)/g) || [])
+            .map(m => ({ member: Number(m[1]), head: m[2], name: m[3], top: Number(m[4]) }));
+        const phFile = prefabFile(t.placeholder);
+        const lineFile = prefabFile(t.line);
+        const range = lineFile && fs.readFileSync(lineFile, 'utf8').match(/"m_ElevationRange":\s*\{[^}]*"max":\s*(-?[0-9.]+)/);
+        types.push({ placeholder: t.placeholder, ladderField: t.ladder, ladder, twins, extra: t.extra || {},
+                     cid: phFile ? fs.readFileSync(phFile + '.cid', 'utf8').trim().toLowerCase() : null,
+                     elevMax: range ? Number(range[1]) : NaN });
+    }
+    return { types, prefabs };
+}
+
+/** The LADDER rules on a model: returns the failure messages and a summary. */
+function ladderRules(model) {
+    const out = [];
+    let pending = 0, present = 0, compared = 0;
+    for (const t of model.types) {
+        const P = t.placeholder;
+        if (!t.cid) { out.push(`${P}: placeholder prefab not found under the root`); continue; }
+        if (!t.ladder.length) { out.push(`${P}: no ${t.ladderField} table in LiftTowerPlanner.cs`); continue; }
+        if (!Number.isFinite(t.elevMax)) out.push(`${P}: the line prefab's m_ElevationRange.max not found`);
+        const tops = new Map();   // name -> top
+        for (const m of t.ladder) tops.set(m.name, m.top);
+        for (const tw of t.twins) tops.set(tw.name, tw.top);
+        for (const [n, top] of Object.entries(t.extra)) tops.set(n, top);
+        const members = Object.keys(model.prefabs).filter(n => model.prefabs[n].placeholders.includes(t.cid));
+        for (const m of t.ladder)
+            if (!members.includes(m.name)) out.push(`${P}: ladder member ${m.name} is not a member of the placeholder`);
+        for (const n of members)
+            if (!tops.has(n)) out.push(`${P}: member ${n} has no known top (not in ${t.ladderField} / the twin table / the lattice list): ` +
+                                      'the engine picks members by top, so every member top must be known and unique');
+        // unique tops >= 0.1 m over every member the engine can see (the mirror's) and every twin the planner may write
+        const all = [...new Set([...members.filter(n => tops.has(n)), ...t.twins.map(x => x.name)])].map(n => [n, tops.get(n)])
+            .sort((a, b) => a[1] - b[1]);
+        for (let i = 1; i < all.length; i++)
+            if (all[i][1] - all[i - 1][1] < LADDER_MIN_GAP_M - 1e-6)
+                out.push(`${P}: tops of ${all[i - 1][0]} (${all[i - 1][1]}) and ${all[i][0]} (${all[i][1]}) are ${(all[i][1] - all[i - 1][1]).toFixed(3)} m apart ` +
+                         `(< ${LADDER_MIN_GAP_M}): MemberOf (0.05 m) and the engine's score cannot tell them apart`);
+        const top0 = t.ladder[0].top;
+        const here = t.twins.filter(tw => model.prefabs[tw.name]);
+        for (const tw of t.twins) {
+            const support = t.ladder[tw.member];
+            if (!support) { out.push(`${P}: twin ${tw.name} names ladder member ${tw.member}, which does not exist`); continue; }
+            const e = tw.top - top0;
+            if (Number.isFinite(t.elevMax) && e > t.elevMax + 1e-6)
+                out.push(`${P}: twin ${tw.name} E ${e.toFixed(4)} is past the line's m_ElevationRange.max ${t.elevMax}`);
+            if (!(tw.top > support.top)) out.push(`${P}: twin ${tw.name} top ${tw.top} is not above its member ${support.name} (${support.top})`);
+            const p = model.prefabs[tw.name];
+            if (!p) continue;
+            if (!p.placeholders.includes(t.cid)) out.push(`${P}: twin ${tw.name} is not a member of the placeholder (SpawnableObject m_Placeholders)`);
+            const ms = model.prefabs[support.name];
+            if (!ms) { out.push(`${P}: twin ${tw.name}: its member ${support.name} not found`); continue; }
+            compared++;
+            const a = p.anchors, b = ms.anchors;
+            let same = a.length === b.length && a.length > 0;
+            for (let i = 0; same && i < a.length; i++)
+                same = a[i].lane === b[i].lane && a[i].pts.length === b[i].pts.length && a[i].pts.every((v, k) => Math.abs(v - b[i].pts[k]) <= ANCHOR_TOL_M);
+            if (!same) out.push(`${P}: twin ${tw.name} anchors (ObjectSubLanes lane + curve) differ from ${support.name}'s: the rope moves when the head changes`);
+        }
+        if (here.length === 0) pending += t.twins.length;
+        else if (here.length < t.twins.length)
+            out.push(`${P}: ${here.length} of ${t.twins.length} twins imported (missing ${t.twins.filter(tw => !model.prefabs[tw.name]).map(x => x.name).join(', ')}): ` +
+                     'the twins arrive together');
+        present += here.length;
+    }
+    return { out, summary: `LADDER ${model.types.length} placeholders, ${present} twins present (${compared} anchor sets compared), ${pending} pending import` };
+}
+
+function ladderSelfTest() {
+    const base = loadLadderModel();
+    const clone = () => JSON.parse(JSON.stringify(base));
+    // a model with every twin imported as a faithful copy of its member (the surgery's target)
+    const imported = () => {
+        const m = clone();
+        for (const t of m.types)
+            for (const tw of t.twins) {
+                const support = m.prefabs[t.ladder[tw.member].name];
+                m.prefabs[tw.name] = { placeholders: [t.cid], anchors: JSON.parse(JSON.stringify(support ? support.anchors : [])) };
+            }
+        return m;
+    };
+    const cases = [
+        ['clean, pending import', clone, 0],
+        ['clean, every twin imported', imported, 0],
+        ['duplicate top (a twin 0.05 m over another member)', () => { const m = clone(); const t = m.types[1]; t.twins[0].top = t.twins[1].top + 0.05; return m; }, 1],
+        ['E past m_ElevationRange.max', () => { const m = clone(); const t = m.types[1]; t.twins[2].top = t.ladder[0].top + t.elevMax + 0.5; return m; }, 1],
+        ['offset anchor (5 mm)', () => { const m = imported(); const p = m.prefabs[m.types[0].twins[0].name]; p.anchors[0].pts[1] += 0.005; return m; }, 1],
+        ['missing placeholder membership', () => { const m = imported(); m.prefabs[m.types[2].twins[1].name].placeholders = []; return m; }, 1],
+        ['a partial import', () => { const m = clone(); const t = m.types[0]; const s = m.prefabs[t.ladder[0].name];
+            m.prefabs[t.twins[0].name] = { placeholders: [t.cid], anchors: s.anchors }; return m; }, 1],
+        ['an unknown member', () => { const m = clone(); m.prefabs.SkiLiftTowerDQ10Stray = { placeholders: [m.types[1].cid], anchors: [] }; return m; }, 1],
+    ];
+    let bad = 0;
+    for (const [label, make, wantFail] of cases) {
+        const r = ladderRules(make());
+        const ok = wantFail ? r.out.length >= 1 : r.out.length === 0;
+        console.log(`${ok ? 'PASS' : 'FAIL'}  LADDER self-test: ${label}: ${r.out.length} failure(s)${r.out.length ? ' (' + r.out[0] + ')' : ''}`);
+        if (!ok) bad++;
+    }
+    console.log(bad ? `check-lift-align --self-test: ${bad} case(s) FAILED` : `check-lift-align --self-test: OK (${cases.length} cases, every planted fault caught)`);
+    process.exit(bad);
+}
+
+if (process.argv.includes('--self-test'))
+    ladderSelfTest();
+const ladder = ladderRules(loadLadderModel());
+for (const m of ladder.out) fail('LADDER', m);
+
 if (failures.length) {
     for (const l of failures) console.log(l);
     process.exit(failures.length);
 }
 console.log(`check-lift-align: OK (PINDROP ${pinScanned} systems, ROPELANE ${ropeFiles} prefabs in ${groups.length} lift types, ` +
-            `BONEROOT ${skinned} skinned meshes under ${path.relative(repo, root) || root}, CARRIERPASS ${passRules.length} tool hooks)`);
+            `BONEROOT ${skinned} skinned meshes under ${path.relative(repo, root) || root}, CARRIERPASS ${passRules.length} tool hooks, ${ladder.summary})`);

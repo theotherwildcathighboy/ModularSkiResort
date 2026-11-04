@@ -890,8 +890,8 @@ namespace LiftBatch
             {
                 LiftLineNode n = nodes[i];
                 LiftPlanNode pn = plan.Nodes[i];
-                float e0 = LiftTowerEdit.ElevationM(e.C, pn.Member);
-                Check(n.Member == pn.Member && math.abs(n.Position.y - (pn.GroundM + e0)) < 1e-3f && math.abs(n.ElevationM - e0) < 1e-4f, W,
+                float e0 = LiftTowerEdit.ElevationM(e.C, pn.Member, pn.Head);   // E of the placed head (HD-6)
+                Check(n.Member == pn.Member && n.Head == pn.Head && math.abs(n.Position.y - (pn.GroundM + e0)) < 1e-3f && math.abs(n.ElevationM - e0) < 1e-4f, W,
                       where + ": node " + (i + 1) + " not at ground + E of its member");
                 e.Project(n.Position, out float lateral);
                 Check(math.abs(lateral) < 1e-3f && math.abs(n.Position.x - pn.AlongM) < 1e-3f, W, where + ": node " + (i + 1) + " off the line");

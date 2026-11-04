@@ -251,7 +251,7 @@ namespace LiftBatch
             bool ok = true;
             foreach (TowerNumberTiles.TowerPlate p in TowerNumberTiles.Plates)
                 ok &= rows.Add(p.Prefab) && p.ZPos > 0f && p.ZNeg < 0f && p.Class >= 0 && p.Class < TowerNumberTiles.Classes.Length && p.Y > 5f;
-            Check(ok && rows.Count == 18, W, "18 unique plate rows, +Z / -Z faces, valid class");
+            Check(ok && rows.Count == 18 + 13, W, "31 unique plate rows (18 measured + 13 derived twin rows), +Z / -Z faces, valid class");
             Check(TowerNumberTiles.TryPlate("SkiLiftTowerGD16", out TowerNumberTiles.TowerPlate gd) && gd.Class == 0 &&
                   !TowerNumberTiles.TryPlate("SkiLiftTerminalTowerBase", out _), W, "lookup: GD16 is T1, a hosted terminal tower has no row");
         }
@@ -284,8 +284,20 @@ namespace LiftBatch
             using JsonDocument doc = JsonDocument.Parse(File.ReadAllText(path));
             int bad = 0, seen = 0;
             string first = null;
+            int derived = 0;
             foreach (TowerNumberTiles.TowerPlate p in TowerNumberTiles.Plates)
             {
+                int twin = Array.FindIndex(TowerNumberTiles.TwinPlateRaise, r => r.Twin == p.Prefab);
+                if (twin >= 0)
+                {
+                    // a derived twin row (not measured yet): the member's measured row + the head raise, same class and faces
+                    var tr = TowerNumberTiles.TwinPlateRaise[twin];
+                    bool okT = TowerNumberTiles.TryPlate(tr.Member, out TowerNumberTiles.TowerPlate m) && m.Class == p.Class &&
+                               Math.Abs(m.Y + tr.RaiseM - p.Y) < 1e-4 && m.ZPos == p.ZPos && m.ZNeg == p.ZNeg;
+                    Check(okT, W, p.Prefab + " is not " + tr.Member + " + raise " + tr.RaiseM);
+                    derived++;
+                    continue;
+                }
                 if (!doc.RootElement.TryGetProperty(p.Prefab, out JsonElement row))
                 {
                     bad++;
@@ -308,6 +320,7 @@ namespace LiftBatch
                 }
             }
             Check(bad == 0 && seen == 18, W, bad + " plate row(s) differ from the measurement (first " + first + "), " + seen + " compared");
+            Check(derived == 13 && derived == TowerNumberTiles.TwinPlateRaise.Length, W, derived + " derived twin row(s), want 13");
         }
     }
 }

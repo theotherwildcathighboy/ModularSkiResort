@@ -35,6 +35,8 @@
 #                  Direction Both (3), Capacity == the vanilla Low-voltage Line's 800000 (DECISIONS 369 / R-1).
 #  12d. ALIGN    - tools/check-lift-align.js: carriers pose by LiftMoverMath.CarrierDrop (rope point, not grip top) and each loop
 #                  lift type's piece, towers and stations reference one own haul-rope lane (vanilla LV mesh, its type's sag).
+#                  LADDER: the tower placeholders' member tops unique by >= 0.1 m, twin E within the line's elevation range, twin
+#                  anchors = the support member's, the twins imported together.
 #  12e. GAMESURFACE - tools/game-surface-check.js: the code, prefabs and vanilla references against tools/game-surface.lock, and
 #                  the lock against the decompile of its game version when that tree is beside the repo (patch readiness).
 #  15. LODGEPARK - every lodge tier and the Welcome Sign carry Game.Prefabs.Park (tools/check-lodge-park.ps1; the stats query

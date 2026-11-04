@@ -1177,7 +1177,7 @@ namespace SkiResortMod.Systems
             for (int i = 1; i < plan.Nodes.Length - 1; i++)
             {
                 LiftPlanNode n = plan.Nodes[i];
-                sb.Append(i == 1 ? "\n  towers: " : ", ").Append(plan.Constants.Ladder[n.Member].Name.Replace("SkiLiftTower", string.Empty)
+                sb.Append(i == 1 ? "\n  towers: " : ", ").Append(plan.Constants.NameOf(n.Member, n.Head).Replace("SkiLiftTower", string.Empty)
                   .Replace("SkiTramTower", "T")).Append(" @").Append(n.AlongM.ToString("F0")).Append(edit.IsPinned(n.AlongM) ? " (pin)" : string.Empty)
                   .Append(' ').Append(plan.AngleText(i));
             }

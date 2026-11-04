@@ -49,6 +49,15 @@ extra split node the member that keeps the rope on the planned chord (`ChordMemb
 line's pinned towers stay put on a Short line, or when a line holding a tool line's pinned nodes did NOT match and is Moved. See
 `LiftLineEdit.md`.
 
+## Heads (B2 twins)
+The fit writes a tower's head through its height: E = `LiftTowerEdit.ElevationM(c, member, head)` (a twin's own top - TopM[0]), and the
+engine spawns that twin, a member of the same placeholder (LiftTowerPlanner.md "Heads"). The standing line's members and heads are read
+back by `LiftTowerEdit.MemberOf(c, E, out head)` (0.05 m match). The planner gets them as `PreviousKinds` / `PreviousHeads` (the fit's own
+earlier kinds, else the head's kind) for the kind hysteresis; the "before" plan takes the standing heads as given (`HeadsAsGiven`), so a
+line whose heads are still right is "already fitted" (LiftBatch HD-5). A head change alone re-members a tower. `LoadTwins`
+(OnGameLoadingComplete) sets `LiftTowerPlanConstants.TwinFilter` to the twin prefabs the PrefabSystem has; one "Towers [twins]" line per
+load (n of 16 loaded, a WARN naming the missing ones), and a build without them plans support heads only.
+
 ## Logs
 Silence is impossible: one ARMED line per load; per fitted line a "Towers [fit]" block (per tower: position, member, elevation, rope before
 to after; per span: length, lowest carrier over the high side, max rope above ground) plus one "Towers [fit summary]"; "already fitted" one

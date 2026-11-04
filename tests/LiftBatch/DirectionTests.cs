@@ -356,11 +356,12 @@ namespace LiftBatch
             const string W = "direction/DR-4";
             foreach (string id in new[] { "fixedGrip", "detachable", "gondola" })
             {
-                LiftTowerPlanConstants c = LiftTowerPlanConstants.For(id);
+                // FG without its twins: with the Break twin loaded its cap is 32 and this crest takes a Break head, no pair (BO-1)
+                LiftTowerPlanConstants c = id == "fixedGrip" ? BreakoverTests.WithoutTwins(id) : LiftTowerPlanConstants.For(id);
                 foreach (float extra in new[] { 0f, 2.3f })
                 {
                     // BO-1's lines (a ground break past one train's reach, inside a pair's), on and off the grid
-                    World w = id == "fixedGrip" ? new World { Label = "FG crest 0.20 -> 0.05", C = c, L = 400f + extra, H = Crest(0.20f, 200f, 0.05f, 0f) }
+                    World w = id == "fixedGrip" ? new World { Label = "FG crest 0.20 -> 0.05 (no twins)", C = c, L = 400f + extra, H = Crest(0.20f, 200f, 0.05f, 0f) }
                         : id == "detachable" ? new World { Label = "DQ crest 0.60 -> 0.05", C = c, L = 1000f + extra, H = Crest(0.60f, 500f, 0.05f, 0f) }
                         : new World { Label = "GD crest 0.90 -> 0.10", C = c, L = 1000f + extra, H = Crest(0.90f, 500f, 0.10f, 0f) };
                     w.Label += ", " + F(w.L, "F1") + " m";

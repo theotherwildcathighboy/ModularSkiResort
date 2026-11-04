@@ -27,8 +27,9 @@ namespace SkiResortMod.Systems
         public float AlongM;
         public float3 Position;   // world: stations = the stub node; towers = (x, ground + ElevationM, z)
         public float GroundM;     // center ground (towers)
-        public float ElevationM;  // E = TopM[member] - TopM[0] (towers); 0 for stations
+        public float ElevationM;  // E of the placed member (towers): Top(twin or member) - TopM[0], LiftTowerEdit.ElevationM(member, head); 0 for stations
         public int Member;        // ladder index; -1 for a station
+        public LiftTowerHead Head; // the planned head (a twin of Member, or Line)
         public LiftLineNodeKind Kind;
     }
 
@@ -365,12 +366,12 @@ namespace SkiResortMod.Systems
                     });
                     continue;
                 }
-                float e = LiftTowerEdit.ElevationM(C, pn.Member);
+                float e = LiftTowerEdit.ElevationM(C, pn.Member, pn.Head);
                 float3 p = PointAt(pn.AlongM);
                 list.Add(new LiftLineNode
                 {
                     AlongM = pn.AlongM, Position = new float3(p.x, pn.GroundM + e, p.z), GroundM = pn.GroundM, ElevationM = e,
-                    Member = pn.Member, Kind = IsPinned(pn.AlongM) ? LiftLineNodeKind.Pinned : LiftLineNodeKind.Free,
+                    Member = pn.Member, Head = pn.Head, Kind = IsPinned(pn.AlongM) ? LiftLineNodeKind.Pinned : LiftLineNodeKind.Free,
                 });
             }
             return list;
@@ -558,7 +559,7 @@ namespace SkiResortMod.Systems
         {
             LiftTowerPlanConstants c = plan.Constants;
             int m = plan.Nodes[node].Member;
-            heightM = c.Ladder[m].TopM;
+            heightM = c.TopOf(m, plan.Nodes[node].Head);
             clearM = math.max(0f, c.RopeAboveBase(m) - c.CarrierDropM);
             if (plan.Spans[node - 1].FloorViolated || plan.Spans[node].FloorViolated)
                 return "TOWER_LOW";
