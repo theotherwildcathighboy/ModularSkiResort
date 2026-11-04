@@ -20,8 +20,9 @@ The planner uses the same measure, so plan and game agree and the lean never fee
 ## Updated
 A tower leaned or set plumb in a frame where vanilla did not update it gets `Updated`, and so do its node's lift edges and its moved
 sub-objects: Objects SearchSystem (Modification5) and PreCulling (`PreCullingSystem.cs:718-723`) refresh bounds, raycast and culling
-from the Transform; LaneSystem rebuilds the edges' rope lanes on the moved anchors. **UNVERIFIED in game:** that the Updated edge added
-in this slot is enough for LaneSystem to re-anchor its ropes; that the Standing leg box follows the rotation.
+from the Transform; LaneSystem rebuilds the edges' rope lanes on the moved anchors. Verified in game (600 f): the Updated edge added
+in this slot is enough for LaneSystem to re-anchor its ropes (lane ends on the leaned anchors within 0.02 m). **UNVERIFIED:** that the
+Standing leg box follows the rotation.
 
 ## Triggers and cost
 Both end nodes of every Updated lift edge, the same nodes once more next frame (a station neighbor's rope lane is rebuilt after this
@@ -70,4 +71,6 @@ line ends, stations, junctions, Editor.
   tower TrainFront is the uphill half and both halves read nose up (PF-3). Number tiles: both plates, posed in the tower frame and carried
   with it (same local pose, no churn); the GD beacon is posed through the head in the tower frame. The planner's kind (Hold / Combo by
   convex / concave) does not depend on the yaw; the twin's deck end (-z) is now downhill as the art intends.
-- **UNVERIFIED in game:** the pad on a top-to-bottom line (FG and tram), ground-end towers, a station-to-station section, save / reload.
+- **In game (DECISIONS 600 f, bridge):** pad uphill on 64 of 64 towers (FG, DQ, GD, tram, both draw orders, ground ends, a
+  station-to-station section); rope lane ends on the turned, leaned anchors within 0.019 m (tram 0.023), no side swap; save / reload
+  keeps yaw and lean (one tram tower re-fit 1.05 m lower at load: the fit, not this system, FIX-LIST 57 candidate).

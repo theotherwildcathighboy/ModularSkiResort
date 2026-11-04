@@ -58,8 +58,8 @@ rule R17 of mod/SkiResortUI/tools/check-bundle.js compares each name and value w
     detail = `BendTenths`. The census decides the threshold (`LiftCensus.BendWarnTenths`: over `LiftAlignMath.BendWarnDeg`), so this pure
     file needs no Unity.Mathematics. Warn, never refuse: the row changes nothing else. A Mixed row never reaches it (it is Unfinished).
   - `LiftTrainLimit` (31, 2026-11-03): a lift row of state 0, 1 or 2 with `TrainTower` > 0 -> severity 1, count = `TrainTower` (the
-    tower plate number). Text "{NAME}: tower {N} bends past what its wheels can follow"; the tip states the limits (30 deg tilt, 40 deg
-    fold). Click flies to the tower (`ApplyFocusLift`, subject = `TrainNode`). Warn, never refuse.
+    tower plate number). Text "{NAME}: tower {N}'s wheels cannot follow the rope"; the tip states the limits relative to the mast (DECISIONS 600: 30 deg
+    tilt, DQ / GD 40, tram saddles 60; fold 40, trams 60). The row also counts a rope half past the carrier world-half clearance (`PoseTrain`). Click flies to the tower (`ApplyFocusLift`, subject = `TrainNode`). Warn, never refuse.
   - `LiftLowSpan` (32, 2026-11-03): a lift row of state 0, 1 or 2 with `LowSpan` -> severity 1, count / more = `LowFrom` / `LowTo`
     (tower plate numbers, 0 = a station), detail = `LowTenths` (the carriers' height above the ground in tenths, rounded down, 0 at or
     below it), pct = 1 for cabins (gondola, tram), 0 for chairs. Text "{NAME}: {CARRIERS} pass {M} m above the ground" (or "touch the

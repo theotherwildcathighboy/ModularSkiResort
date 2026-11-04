@@ -341,7 +341,7 @@ is the same after a save / load; an edit renumbers only the towers after the fir
   could bind (`MinWorldHalfMaxDeg`). A tower past it gets the usual repairs (shift / member, breakover pair, longer span); a pair whose new
   tower is past it is refused like any over-cap candidate.
 - Build judges the PLACED head: `IsOverClearance(i)`, `ClearanceTowers`; not Sound; Verdict / OverCapNote "PAST CLEARANCE"; WorseThan axis;
-  AngleText "half H PAST CLEARANCE L". Keys: the plan line PLAN_TRAIN (after PLAN_PITCH), the tower TOWER_CLEARANCE (after TOWER_PITCH;
+  AngleText "half H PAST CLEARANCE L". Keys: the plan line PLAN_CLEARANCE (after PLAN_PITCH), the tower TOWER_CLEARANCE (after TOWER_PITCH;
   DEG = HalfDeg, LIMIT = the limit, one decimal); the red tower in the overlay.
 - Bite (PC-9, all sets, the rule off vs on): 3 of 450 crossable chair lines newly warn (0.67 %), all crest-end FG g 0.30 back 20: the
   base-station exit (station rope 1.4 m under the ground, the ground at 0.3) needs a first tower whose arriving rope is 46-51 deg. The pitch

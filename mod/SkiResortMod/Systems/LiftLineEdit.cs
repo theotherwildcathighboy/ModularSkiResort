@@ -555,8 +555,8 @@ namespace SkiResortMod.Systems
         /// <summary>The plan line's key: the first thing wrong (a span below the floor, an edge too steep for the engine, a span above
         /// the max rope height, a tower whose rope bends past its sheave train's cap: PLAN_TRAIN, FIX-LIST 55, or past the tram saddle's
         /// cap: PLAN_SADDLE, DECISIONS 600 a; a tower whose rope runs through it steeper than the type's pitch cap: PLAN_PITCH,
-        /// DECISIONS 600; a tower whose rope half is past its carrier clearance: PLAN_TRAIN again, the rope asks more of the red tower's
-        /// train than it can carry, DECISIONS 600 c), else PLAN_CLEAR, which
+        /// DECISIONS 600; a tower whose rope half is past its carrier clearance: PLAN_CLEARANCE, DECISIONS 600 c; it read PLAN_TRAIN, a
+        /// bend text, until the lean docs round), else PLAN_CLEAR, which
         /// is only ever the key of a Sound plan. <paramref name="lengthM"/> = the line's length (sum of the spans).</summary>
         public static string PlanKey(LiftTowerPlan plan, out float lengthM)
         {
@@ -570,7 +570,7 @@ namespace SkiResortMod.Systems
                 lengthM += plan.Spans[i].LengthM;
             }
             return low ? "PLAN_LOW" : steep ? "PLAN_STEEP" : high ? "PLAN_HIGH" : plan.OverCapTowers > 0 ? (plan.Constants.HasTrains ? "PLAN_TRAIN" : "PLAN_SADDLE")
-                : plan.TooSteepTowers > 0 ? "PLAN_PITCH" : plan.ClearanceTowers > 0 ? "PLAN_TRAIN" : "PLAN_CLEAR";
+                : plan.TooSteepTowers > 0 ? "PLAN_PITCH" : plan.ClearanceTowers > 0 ? "PLAN_CLEARANCE" : "PLAN_CLEAR";
         }
 
         /// <summary>The hovered tower's key, its height (the ladder member's tower top above its base, as the model stands) and how
