@@ -7,22 +7,27 @@ of the two halves (TrainPitchSystem: LiftAlignMath.HeadPitch, clamped to the typ
 halves to head +- 20. The ladder, its landings, the mast and the pad stay on Root.
 
 The art this needs (all on the member's shipped atlas: 0 MB, lift_tower.twin_apply_atlas + a fitted island per new part):
-- trunnion: two Root cheeks on the lowered mast top carry two Root stub pins on the pivot line; the head's hubs sleeve
-  them (Head lugs), webs carry the hubs up to a cross-head (`gantry_trunnion_yoke`) under the gantry. DQ: the Kagelok
-  girder band (gantry_00 / the GD girders, under pivot + GIRDER_ZONE) is cut out inside |y| GIRDER_X; the hubs, webs
-  and cross-head take the girders' inner ends.
-- comm wire on the pivot line: its anchor moves from the old hanger (comm y, gone) to a Root sleeve between the cheeks
-  at (0, pivot y, 0); the import round moves the comm sub-lane point there (prefab surgery). The wire then leaves the
-  tower at its span's pitch, so everything Root under its cone is cut: the mast top (MAST_DROP), the fall-arrest rail,
-  any ladder rung inside the cone (cone_z).
+- trunnion: two Root cheeks on the mast's flange plate carry two Root stub pins on the pivot line; the head's hubs
+  sleeve them (Head lugs), webs carry the hubs up to a cross-head in two halves (`gantry_trunnion_yoke_n/p`, slotted
+  for the comm post) under the gantry. The girder band (DQ gantry_00 / the GD girders, under pivot + GIRDER_ZONE) is
+  cut out inside |y| GIRDER_X; the hubs, webs and cross-head take the girders' inner ends.
+- mast: lowered only as far as the swept head needs (_mast_top: the girders' lower edge on the members, the hubs on the
+  raised twins) and ended in a flat flange plate (`mast_flange`, SHOULD-3; the tube's cap faces go).
+- comm wire on a Root post (v2, critique MUST-1): a base bar between the cheeks, a square post up through the girder
+  slot, the shipped square clamp at comm_anchor (the members' shipped comm y: their comm sub-lane stays; the twins' +
+  their head raise). The wire's wedge from there (cone_z) clears the mast and every rung; only the fall-arrest rail's
+  top is cut where the wedge crosses the ladder plane.
 - the landings' outer lips step in to LAND_X (a 7 mm gap to the deck lip: the deck turns, the landing does not).
+- UVs (SHOULD-4): the trunnion's painted parts and the girder's cut ends take a small patch of the girder's own painted
+  face, the flange one of the mast's tube; the comm post and clamp copy the shipped namesakes' loops.
 Geometry is authored in the twin frame (x travel, y lateral, z up), gated in the net frame (x lateral, y travel).
 
 Gates here (raise on failure): T0 names, the twin contracts (tops unchanged, anchors, C9 / C18), G6 with the Head bone
 over cs2_skin.joint_grid(type max) with Head = (front + back) / 2 (head vs mast / trunnion / ladder / landing, halves vs
-head, pins, ropes AND the comm wire on the pivot line, every crown seated), the negative (the same steep poses with the
-head held level must fail), LOD budgets (5 % cap rule). Recorded, not raised: the posed head's bounds against the rest
-bounds (HEAD_BOUNDS; the deck ends rise past the rest top on steep poses: an owner call, see build.md).
+head, pins, ropes AND the comm wire from the post's clamp, every crown seated), the negative (the same steep poses with
+the head held level must fail), H1 (the flange under the comm wedge), H2 (Hold grab extensions), LOD budgets (5 % cap
+rule). Recorded, not raised: the posed head's bounds against the rest bounds
+(HEAD_BOUNDS; the deck ends rise past the rest top on steep poses: an owner call, see build.md).
 
 Usage (headless; scratch folders only, nothing exported):
   blender --background --factory-startup --python-exit-code 1 --python lift_head.py -- --keys DQ10,DQ10Hold
@@ -63,7 +68,13 @@ HEAD_PARTS = ("gantry_", "grate_deck", "kick_deck", "post_deck", "rail_deck", "e
               "platerim_", "gusset_")
 HEAD_LUGS = ("hanger_", "gantry_")      # Head parts a Root pin runs through (coaxial: the pin gap is 0 by construction)
 HEAD_PINS = ("pivot_main_", "mast_trunnion_pin_")
-MAST_DROP = {"DQ": 0.50, "GD": 0.70}    # m, mast top below the pivot: under the comm cone at the mast radius
+MAST_CLEAR = 0.012                      # m: the flange top under the swept head (G6 asks 5 mm)
+# SHOULD-3: the lowered mast ends in a flat flange plate (its cap faces go); the cheeks stand on it
+FLANGE = dict(over=0.05, t=0.05, segments=12)
+# MUST-1 (v2): the comm wire keeps a high anchor on a Root post: a base bar between the cheeks on the pivot line, a
+# square post up through the girder's center slot, the shipped square clamp (lift_tower.COMM_CLAMP) at the anchor
+POST = dict(base_w=0.06, base_t=0.04, bury=0.005)
+POST_SLOT = 0.035                       # m: the cross-head's slot half width (post half 0.02 + 15 mm)
 CENTER_X = 0.125                        # m: the trunnion's half width (cheeks inside, hubs / webs outside)
 GIRDER_X = 0.20                         # m: the girders' inner ends after the center cut (DQ ingest: through, GD 0.12)
 GIRDER_ZONE = 0.40                      # m over the pivot (+ the head raise): the girder band the center cut touches
@@ -72,7 +83,7 @@ GIRDER_ZONE = 0.40                      # m over the pivot (+ the head raise): t
 TRUNNION = dict(cheek_x=(0.075, 0.115), cheek_w=0.16, cheek_top=0.08, pin_r=0.05, hub_r=0.10, web_w=0.12,
                 yoke_z=(0.12, 0.17), yoke_w=0.16, sleeve_r=0.07, sleeve_l=0.08, arm_w=0.06, arm_t=0.04)
 LAND_X = 0.688                          # m: the landings' outer lip (deck lip at 0.695)
-COMM_START = 0.12                       # m out of the pivot: the comm runs start past the sleeve
+COMM_START = 0.12                       # m out of the anchor: the comm runs start past the clamp (half length 0.06)
 CONE_MARGIN = 0.008                     # m, vertical: >= 5 mm square to the wire at the type max (DQ 5.9, GD 5.1)
 HEAD_BOUNDS_XZ_TOL = 0.01               # m: the posed head's lateral / travel extents may pass the rest AABB by this
 GATE = True                             # debug probes build with False (the sweep reports, never raises)
@@ -82,17 +93,23 @@ def type_max(fam):
     return LT.SKIN_TYPE_MAX_SLOPE[fam]
 
 
-def cone_z(fam, zp, travel):
-    """The comm wire's underside over a point `travel` m out of the pivot, at the type's steepest pitch (the vanilla LV
-    hexagon, flats top / bottom: its bottom flat h / cos below the axis), minus CONE_MARGIN."""
+def cone_z(fam, za, travel):
+    """The comm wire's underside over a point `travel` m out of its anchor (height za), at the type's steepest pitch
+    (the vanilla LV hexagon, flats top / bottom: its bottom flat h / cos below the axis), minus CONE_MARGIN."""
     a = math.radians(type_max(fam))
-    return zp - abs(travel) * math.tan(a) - LT.LANE_ROPE["h"] / math.cos(a) - CONE_MARGIN
+    return za - abs(travel) * math.tan(a) - LT.LANE_ROPE["h"] / math.cos(a) - CONE_MARGIN
+
+
+def comm_anchor(tw):
+    """The comm wire's anchor height (twin frame z): the member's shipped comm y (the members' comm sub-lane stays put),
+    raised with the head on the twins (+ dz: the anchor keeps the member's place in the gantry window)."""
+    return round(tw["comm_old"] + tw["dz"], 6)
 
 
 def headed_spec(key):
     """The twin-shaped spec dict of a headed build: a twin key (LT.twin_spec) or a member key (kind "Member": the member
-    itself, head raise 0). comm_y is None on every spec (the old comm anchor and its hanger are gone; the wire anchors
-    on the pivot line)."""
+    itself, head raise 0). comm_y is None on every spec (the shipped hanger from the gantry beam is gone; the wire
+    anchors on head_transform's Root post at comm_anchor)."""
     if key in LT.TWINS:
         tw = LT.twin_spec(key)
     else:
@@ -128,7 +145,14 @@ def _uv_fit(obj, atlas, donor):
         area = 0.5 * abs(float(np.dot(p[:, 0], np.roll(p[:, 1], -1)) - np.dot(p[:, 1], np.roll(p[:, 0], -1))))
         if best is None or area > best[0]:
             best = (area, p[:3])
-    A, B, C = best[1]
+    _uv_into(obj, best[1], 0.25)
+    return donor
+
+
+def _uv_into(obj, tri, scale):
+    """The part's own box UVs squeezed into a patch of the atlas triangle `tri` (A, B, C): centered on its centroid,
+    `scale` of its edges."""
+    A, B, C = (np.array(c, dtype=float) for c in tri)
     cen = (A + B + C) / 3.0
     me = obj.data
     own = me.uv_layers.get("UVMap")
@@ -136,11 +160,48 @@ def _uv_fit(obj, atlas, donor):
     blo, bhi = b.min(axis=0), b.max(axis=0)
     span = np.where(bhi - blo > 1e-9, bhi - blo, 1.0)
     q = (b - blo) / span - 0.5
-    f = cen + 0.25 * (q[:, :1] * (B - A) + q[:, 1:] * (C - A))
+    f = cen + scale * (q[:, :1] * (B - A) + q[:, 1:] * (C - A))
     lay = me.uv_layers.get(LT.TWIN_UV) or me.uv_layers.new(name=LT.TWIN_UV, do_init=False)
     for li in range(len(me.loops)):
         lay.data[li].uv = tuple(f[li])
-    return donor
+
+
+PATCH_SCALE = 0.10                      # SHOULD-4: a small patch of one painted face reads as that face's one shade
+
+
+def _face_patch(obj, pick):
+    """SHOULD-4: the atlas triangle (TWIN_UV of its first three loops) of the part's largest face (3D area) among those
+    `pick(center, normal)` accepts: the girder's own painted side, the mast's own tube. None when nothing qualifies."""
+    me = obj.data
+    lay = me.uv_layers.get(LT.TWIN_UV)
+    if lay is None:
+        return None
+    best = None
+    for p in me.polygons:
+        if pick(p.center, p.normal) and (best is None or p.area > best.area):
+            best = p
+    if best is None:
+        return None
+    return tuple(tuple(lay.data[li].uv) for li in list(best.loop_indices)[:3])
+
+
+def _uv_namesake(obj, atlas):
+    """The shipped part's own UV loops when the atlas holds a namesake with the same polygon counts (the comm clamp and
+    hanger are built as the family round built them). True when copied."""
+    a = atlas.get(obj.name)
+    if a is None:
+        return False
+    cs2_asset.canonical_order(obj)
+    me = obj.data
+    if a["counts"] != [p.loop_total for p in me.polygons]:
+        return False
+    lay =me.uv_layers.get(LT.TWIN_UV) or me.uv_layers.new(name=LT.TWIN_UV, do_init=False)
+    k = 0
+    for p in me.polygons:
+        for li in p.loop_indices:
+            lay.data[li].uv = a["uv"][k]
+            k += 1
+    return True
 
 
 def _donor(atlas, *prefixes):
@@ -151,15 +212,25 @@ def _donor(atlas, *prefixes):
     raise LT.TowerContractError(f"no atlas donor among {prefixes}")
 
 
-def _fill_cut(bm, on_plane, lay):
-    """Close the open boundary a cut left (edges with both verts on the plane) and give the new faces UVs from each
-    vertex's existing loops."""
+def _fill_cut(bm, on_plane, lay, tri=None):
+    """Close the open boundary a cut left (edges with both verts on the plane) and give the new faces UVs: a PATCH_SCALE
+    patch of `tri` (SHOULD-4: the girder's own painted face) by their (x, z), else each vertex's existing loops."""
     edges = [e for e in bm.edges if e.is_boundary and all(on_plane(v.co) for v in e.verts)]
     if not edges:
         return 0
     res = bmesh.ops.holes_fill(bm, edges=edges, sides=0)
     new = res.get("faces", [])
-    if lay is not None:
+    if lay is not None and tri is not None and new:
+        A, B, C = (np.array(c, dtype=float) for c in tri)
+        cen = (A + B + C) / 3.0
+        xz = np.array([(v.co.x, v.co.z) for f in new for v in f.verts])
+        lo, hi = xz.min(axis=0), xz.max(axis=0)
+        span = np.where(hi - lo > 1e-9, hi - lo, 1.0)
+        for f in new:
+            for lp in f.loops:
+                q = (np.array((lp.vert.co.x, lp.vert.co.z)) - lo) / span - 0.5
+                lp[lay].uv = tuple(cen + PATCH_SCALE * (q[0] * (B - A) + q[1] * (C - A)))
+    elif lay is not None:
         for f in new:
             for lp in f.loops:
                 other = next((l2 for l2 in lp.vert.link_loops if l2.face not in new), None)
@@ -168,9 +239,10 @@ def _fill_cut(bm, on_plane, lay):
     return len(new)
 
 
-def _cut_center(obj, zlim):
-    """The girder band (faces wholly under zlim) cut at |y| = GIRDER_X and its middle removed, both cut faces capped:
-    the comm wire runs through the gap; the trunnion's hubs, webs and cross-head take the girders' inner ends."""
+def _cut_center(obj, zlim, tri=None):
+    """The girder band (faces wholly under zlim) cut at |y| = GIRDER_X and its middle removed, both cut faces capped
+    (UVs: a patch of `tri`): the trunnion sits in the gap and the comm post rises through it; the trunnion's hubs, webs
+    and cross-head take the girders' inner ends."""
     out = {}
 
     def fn(bm):
@@ -182,10 +254,65 @@ def _cut_center(obj, zlim):
         dead = [f for f in bm.faces if all(abs(v.co.y) <= GIRDER_X + 1e-5 and v.co.z < zlim for v in f.verts)]
         out["removed_faces"] = len(dead)
         bmesh.ops.delete(bm, geom=dead, context="FACES")
-        out["cap_faces"] = sum(_fill_cut(bm, lambda c, s=s: abs(c.y - s * GIRDER_X) < 1e-4 and c.z < zlim, lay)
+        out["cap_faces"] = sum(_fill_cut(bm, lambda c, s=s: abs(c.y - s * GIRDER_X) < 1e-4 and c.z < zlim, lay, tri)
                                for s in (-1.0, 1.0))
     LT._bm_edit(obj, fn)
     return out
+
+
+_BARY = {}
+
+
+def _bary(k):
+    """A k-step barycentric grid (k from the triangle's size: <= 2 cm steps)."""
+    if k not in _BARY:
+        g = np.linspace(0.0, 1.0, k + 1)
+        _BARY[k] = np.array([(a, b, 1.0 - a - b) for a in g for b in g if a + b <= 1.0 + 1e-9])
+    return _BARY[k]
+
+
+def _head_samples(objs, y0, y1):
+    """Points on the parts' faces (<= 2 cm apart, up to 200 steps an edge) whose lateral y is within [y0, y1]."""
+    pts = []
+    for h in objs:
+        me = h.data
+        me.calc_loop_triangles()
+        hv = np.array([tuple(v.co) for v in me.vertices])
+        for tri in me.loop_triangles:
+            c = hv[list(tri.vertices)]
+            if c[:, 1].max() < y0 or c[:, 1].min() > y1:
+                continue
+            edge = max(np.linalg.norm(c[0] - c[1]), np.linalg.norm(c[1] - c[2]), np.linalg.norm(c[2] - c[0]))
+            p = _bary(int(min(200, max(2, math.ceil(edge / 0.02))))) @ c
+            pts.append(p[(p[:, 1] >= y0) & (p[:, 1] <= y1)])
+    return np.concatenate(pts) if pts else np.zeros((0, 3))
+
+
+def head_angles(tw):
+    """The head grid's distinct |Head| angles (rad)."""
+    return sorted({abs(math.radians(p[HEAD_BONE])) for p in head_grid(tw)})
+
+
+def _mast_top(by, tw, zp, r):
+    """SHOULD-3 / MUST-1 (v2): the highest flange top under the swept head (MAST_CLEAR) inside the flange's footprint
+    (radius r about the mast axis): every Head part sampled over |y| <= r, turned about the pivot line by every head
+    angle (both signs); the trunnion (built later) adds its hubs (coaxial: zp - hub_r) and its webs' bottom corners.
+    Returns (top, floor, source)."""
+    head = [o for n, (o, _k) in by.items() if n.startswith(HEAD_PARTS)]
+    angs = head_angles(tw)
+    T = TRUNNION
+    floor = zp - max(T["hub_r"], T["web_w"] / 2.0 * math.sin(max(angs)))
+    src = "trunnion"
+    p = _head_samples(head, -r, r)
+    for a in angs:
+        for s in (-1.0, 1.0):
+            ca, sa = math.cos(s * a), math.sin(s * a)
+            x = p[:, 0] * ca - (p[:, 2] - zp) * sa
+            z = zp + p[:, 0] * sa + (p[:, 2] - zp) * ca
+            m = x * x + p[:, 1] * p[:, 1] <= r * r
+            if m.any() and float(z[m].min()) < floor:
+                floor, src = float(z[m].min()), "girder"
+    return floor - MAST_CLEAR, floor, src
 
 
 RAIL_CLEAR = 0.012                      # m: the ladder rails' tops under the swept head (G6 asks 5 mm)
@@ -200,34 +327,15 @@ def _clip_ladder_rails(by, tw, zp):
     rails = [(n, o) for n, (o, _k) in by.items() if n.startswith("ladder_rail_")]
     head = [o for n, (o, _k) in by.items() if n.startswith(HEAD_PARTS)]
     land = [v.co.z for n, (o, _k) in by.items() if n.startswith("grate_land") for v in o.data.vertices]
-    angs = sorted({abs(math.radians(p[HEAD_BONE])) for p in head_grid(tw)})
+    angs = head_angles(tw)
     out = {}
-    bcache = {}
-
-    def bary(k):                            # a k-step barycentric grid (k from the triangle's size: <= 2 cm steps)
-        if k not in bcache:
-            g = np.linspace(0.0, 1.0, k + 1)
-            bcache[k] = np.array([(a, b, 1.0 - a - b) for a in g for b in g if a + b <= 1.0 + 1e-9])
-        return bcache[k]
     for n, o in rails:
         rv = np.array([tuple(v.co) for v in o.data.vertices])
         x0, x1 = rv[:, 0].min() - RAIL_CLEAR, rv[:, 0].max() + RAIL_CLEAR
         y0, y1 = rv[:, 1].min() - RAIL_CLEAR, rv[:, 1].max() + RAIL_CLEAR
-        pts = []
-        for h in head:
-            me = h.data
-            me.calc_loop_triangles()
-            hv = np.array([tuple(v.co) for v in me.vertices])
-            for tri in me.loop_triangles:
-                c = hv[list(tri.vertices)]
-                if c[:, 1].max() < y0 or c[:, 1].min() > y1:
-                    continue
-                edge = max(np.linalg.norm(c[0] - c[1]), np.linalg.norm(c[1] - c[2]), np.linalg.norm(c[2] - c[0]))
-                p = bary(int(min(200, max(2, math.ceil(edge / 0.02))))) @ c
-                pts.append(p[(p[:, 1] >= y0) & (p[:, 1] <= y1)])
-        if not pts:
+        p = _head_samples(head, y0, y1)
+        if not len(p):
             continue
-        p = np.concatenate(pts)
         zmin = None
         for a in angs:
             for s in (-1.0, 1.0):
@@ -254,20 +362,19 @@ def head_transform(parts, tw, atlas):
     spec = tw["twin"]
     fam = spec.family
     zp = tw["lane"]
+    za = comm_anchor(tw)
     T = TRUNNION
-    rep = {"cut": {}, "rungs_removed": [], "arrest_top": None, "mast_top": None, "landing_x": LAND_X, "new": {}}
+    rep = {"cut": {}, "rungs_removed": [], "arrest_top": None, "mast_top": None, "landing_x": LAND_X, "new": {},
+           "comm_anchor": za}
     by = {o.name: (o, k) for o, k in parts}
-    # mast: lowered under the comm cone at its radius
-    zm = round(zp - MAST_DROP[fam], 6)
-    worst = cone_z(fam, zp, spec.mast_r)
-    LT._check(zm <= worst, f"[{spec.key}] H1 mast top {zm:.3f} under the comm cone at r {spec.mast_r}",
-              f"(cone {worst:.3f})")
-    LT._bm_edit(by["mast"][0], lambda bm: [setattr(v.co, "z", min(v.co.z, zm)) for v in bm.verts])
-    rep["mast_top"] = zm
-    # the head's center: DQ king post / GD girder ends
     zlim = zp + GIRDER_ZONE + tw["dz"]
-    for n in (("gantry_00",) if fam == "DQ" else ("gantry_girder_n", "gantry_girder_p")):
-        rep["cut"][n] = _cut_center(by[n][0], zlim)
+    girders = ("gantry_00",) if fam == "DQ" else ("gantry_girder_n", "gantry_girder_p")
+    # SHOULD-4: the girder's own painted side (its largest travel-facing face away from the cut) shades the joint
+    gtri = _face_patch(by[girders[0]][0], lambda c, nrm: abs(nrm.x) > 0.9 and 0.5 < abs(c.y) < 2.0 and c.z < zlim)
+    rep["girder_patch"] = gtri is not None
+    # the head's center: the girder band cut out inside |y| GIRDER_X (the trunnion sits there, the post rises through)
+    for n in girders:
+        rep["cut"][n] = _cut_center(by[n][0], zlim, gtri)
     # where the head's girders start beside the trunnion (the hubs reach them)
     gy = []
     for n, (o, _k) in by.items():
@@ -282,16 +389,37 @@ def head_transform(parts, tw, atlas):
           if GIRDER_X - 1e-3 < abs(v.co.y) < x_end + 0.05 and zp - 0.9 < v.co.z < zlim]
     web_top = max(zp + T["yoke_z"][1], (min(gz) + 0.03) if gz else zp)
     rep["web_top"] = round(web_top - zp, 4)
+    # mast: as high as the swept head allows (v1 lowered it under the comm cone), ending in a flat flange plate
+    rf = spec.mast_r + FLANGE["over"]
+    zt, floor, src = _mast_top(by, tw, zp, rf)
+    mo = by["mast"][0]
+    zt = min(zt, max(v.co.z for v in mo.data.vertices))
+    LT._check(zt <= cone_z(fam, za, rf), f"[{spec.key}] H1 flange top {zt - zp:+.3f} under the comm wedge at r {rf}",
+              f"(wedge {cone_z(fam, za, rf) - zp:+.3f} rel pivot)")
+    zc = zt - FLANGE["t"] / 2.0                       # the tube ends inside the plate; its cap faces go
+
+    def cut_mast(bm):
+        for v in bm.verts:
+            v.co.z = min(v.co.z, zc)
+        dead = [f for f in bm.faces if all(v.co.z >= zc - 1e-5 for v in f.verts)]
+        rep["mast_cap_faces"] = len(dead)
+        bmesh.ops.delete(bm, geom=dead, context="FACES")
+    LT._bm_edit(mo, cut_mast)
+    rep["mast_top"] = round(zt, 4)
+    rep["mast_top_rel"] = round(zt - zp, 4)
+    rep["mast_floor"] = (round(floor - zp, 4), src)
+    mtri = _face_patch(mo, lambda c, nrm: abs(nrm.z) < 0.2)
     # landings: the outer lips step in (the deck turns past them)
     for n, (o, _k) in by.items():
         if n.startswith("grate_land"):
             LT._bm_edit(o, lambda bm: [setattr(v.co, "y", math.copysign(LAND_X, v.co.y)) for v in bm.verts
                                        if abs(v.co.y) > LAND_X + 1e-4])
-    # ladder rungs and standoffs inside the comm wire's wedge go; the fall-arrest rail is cut to it
+    # ladder rungs and standoffs inside the comm wire's wedge go (none at the post's anchor); the fall-arrest rail is cut
+    # to the wedge where it crosses the ladder plane
     drop = []
     for n, (o, _k) in list(by.items()):
         if n.startswith(("ladder_rung_", "ladder_standoff_")):
-            if any(v.co.z > cone_z(fam, zp, v.co.x) for v in o.data.vertices):
+            if any(v.co.z > cone_z(fam, za, v.co.x) for v in o.data.vertices):
                 drop.append(n)
     for n in drop:
         o = by.pop(n)[0]
@@ -303,16 +431,21 @@ def head_transform(parts, tw, atlas):
     for n, (o, _k) in by.items():
         if n.startswith("arrest_"):
             xs = [abs(v.co.x) for v in o.data.vertices]
-            ztop = cone_z(fam, zp, max(xs))        # the far face: the wire is lowest there
-            LT._bm_edit(o, lambda bm, z=ztop: [setattr(v.co, "z", min(v.co.z, z)) for v in bm.verts])
-            rep["arrest_top"] = round(ztop, 4)
-    # the trunnion and the comm sleeve
+            top = max(v.co.z for v in o.data.vertices)
+            ztop = cone_z(fam, za, max(xs))        # the far face: the wire is lowest there
+            if ztop < top:
+                LT._bm_edit(o, lambda bm, z=ztop: [setattr(v.co, "z", min(v.co.z, z)) for v in bm.verts])
+            rep["arrest_top"] = (round(top - zp, 4), round(min(top, ztop) - zp, 4))
+    # the flange, the trunnion and the comm post
     x0, x1 = T["cheek_x"]
     new = []
+    new.append((K.add_cyl("mast_flange", rf, FLANGE["t"], (0.0, 0.0, zt - FLANGE["t"] / 2.0),
+                          segments=FLANGE["segments"], caps="both"), "paint", "mast"))
     for tag, s in (("n", -1.0), ("p", 1.0)):
-        h = zp + T["cheek_top"] - (zm - 0.02)
+        zb = zt - 0.005
+        h = zp + T["cheek_top"] - zb
         new.append((K.add_box(f"mast_cheek_{tag}", (T["cheek_w"], x1 - x0, h),
-                              (0.0, s * (x0 + x1) / 2.0, (zp + T["cheek_top"] + zm - 0.02) / 2.0)), "paint", "mast"))
+                              (0.0, s * (x0 + x1) / 2.0, zb + h / 2.0)), "paint", "gantry_"))
         pa, pb = x0, (CENTER_X + x_end) / 2.0
         new.append((K.add_cyl(f"mast_trunnion_pin_{tag}", T["pin_r"], pb - pa, (0.0, s * (pa + pb) / 2.0, zp),
                               (math.radians(90.0), 0.0, 0.0), segments=6, caps="none"), "galv", "pivot_main_"))
@@ -322,16 +455,33 @@ def head_transform(parts, tw, atlas):
         z0, z1 = zp, web_top
         new.append((K.add_box(f"gantry_trunnion_web_{tag}", (T["web_w"], x_end - CENTER_X, z1 - z0),
                               (0.0, s * (CENTER_X + x_end) / 2.0, (z0 + z1) / 2.0)), "paint", "gantry_"))
-        new.append((K.add_box(f"comm_sleeve_arm_{tag}", (T["arm_w"], x0 + 0.002 - (T["sleeve_r"] - 0.01), T["arm_t"]),
-                              (0.0, s * (x0 + 0.002 + T["sleeve_r"] - 0.01) / 2.0, zp)), "galv", "comm_"))
-    yz0, yz1 = T["yoke_z"]
-    new.append((K.add_box("gantry_trunnion_yoke", (T["yoke_w"], 2.0 * x_end, yz1 - yz0),
-                          (0.0, 0.0, zp + (yz0 + yz1) / 2.0)), "paint", "gantry_"))
-    new.append((K.add_cyl("comm_sleeve", T["sleeve_r"], T["sleeve_l"], (0.0, 0.0, zp), (0.0, math.radians(90.0), 0.0),
-                          segments=6, caps="none"), "galv", "comm_"))
+        # the cross-head in two halves: the slot between them lets the head turn past the post
+        yz0, yz1 = T["yoke_z"]
+        new.append((K.add_box(f"gantry_trunnion_yoke_{tag}", (T["yoke_w"], x_end - POST_SLOT, yz1 - yz0),
+                              (0.0, s * (POST_SLOT + x_end) / 2.0, zp + (yz0 + yz1) / 2.0)), "paint", "gantry_"))
+    # the post: a base bar between the cheeks (buried 2 mm in each), the square bar up to the shipped clamp
+    c = LT.COMM_CLAMP
+    new.append((K.add_box("comm_post_base", (POST["base_w"], 2.0 * (x0 + 0.002), POST["base_t"]), (0.0, 0.0, zp),
+                          drop=("+Y", "-Y")), "galv", "comm_"))
+    p0 = zp + POST["base_t"] / 2.0 - POST["bury"]
+    p1 = za - c["half"] + POST["bury"]
+    new.append((K.add_box("comm_hanger", (c["bar"], c["bar"], p1 - p0), (0.0, 0.0, (p0 + p1) / 2.0),
+                          drop=("+Z", "-Z")), "galv", "comm_"))
+    new.append((K.add_box("comm_clamp", (c["len"], 2.0 * c["half"], 2.0 * c["half"]), (0.0, 0.0, za),
+                          drop=("+X", "-X")), "galv", "comm_"))
+    rep["post_m"] = round(za - zp, 4)
     for o, key, dp in new:
         LT._apply_transforms([(o, key)])
-        rep["new"][o.name] = _uv_fit(o, atlas, _donor(atlas, dp, "gantry_", "mast"))
+        if key == "galv" and _uv_namesake(o, atlas):
+            rep["new"][o.name] = "namesake"
+        elif o.name == "mast_flange" and mtri is not None:
+            _uv_into(o, mtri, PATCH_SCALE)
+            rep["new"][o.name] = "mast face"
+        elif key == "paint" and gtri is not None:
+            _uv_into(o, gtri, PATCH_SCALE)
+            rep["new"][o.name] = "girder face"
+        else:
+            rep["new"][o.name] = _uv_fit(o, atlas, _donor(atlas, dp, "gantry_", "mast"))
         by[o.name] = (o, key)
     return [v for v in by.values()], rep
 
@@ -413,13 +563,14 @@ def head_grid(tw, tmax=None):
     return [{"TrainFront": f, "TrainBack": b, HEAD_BONE: round((f + b) / 2.0, 4)} for f, b in grid]
 
 
-def comm_runs(spec, pose, zp, run=None, start=COMM_START):
-    """The comm wire as the game draws it on the pivot line: per half one straight run from the sleeve outward at that
-    half's pitch (its span's rope pitch: the comm wire spans the same nodes), lateral 0, the vanilla LV hexagon."""
+def comm_runs(spec, pose, za, run=None, start=COMM_START):
+    """The comm wire as the game draws it from its anchor (0, za; the post's clamp): per half one straight run outward
+    at that half's pitch about the anchor (its span's rope pitch: the comm wire spans the same nodes), lateral 0, the
+    vanilla LV hexagon."""
     ext = LT.skin_half_extent(spec) + (LT.SKIN_ROPE_RUN if run is None else run)
     out = []
     for b, sign in (("TrainFront", cs2_skin.FRONT_SIGN_NET), ("TrainBack", -cs2_skin.FRONT_SIGN_NET)):
-        out.append(cs2_skin.rope_run(0.0, (0.0, zp), pose.get(b, 0.0), sign, ext, r=LT.LANE_ROPE["r"], start=start))
+        out.append(cs2_skin.rope_run(0.0, (0.0, za), pose.get(b, 0.0), sign, ext, r=LT.LANE_ROPE["r"], start=start))
     return out
 
 
@@ -431,6 +582,7 @@ def headed_sweep(obj, table, tw, part_bone, poses=None, label=None, gate=True):
     spec = tw["twin"]
     fam = spec.family
     zp = LT.lane_y(spec, True)
+    za = comm_anchor(tw)
     bones = list(HEAD_BONES)
     names, fb, vb = cs2_skin.face_bones(obj, table, part_bone, bones)
     co = cs2_skin.coords(obj)
@@ -472,7 +624,7 @@ def headed_sweep(obj, table, tw, part_bone, poses=None, label=None, gate=True):
             HEAD_BONE: lambda n: n.startswith(HEAD_LUGS)}
     rep = cs2_skin.sweep(co, polys, names, fb, bones, pivots, poses,
                          pins=lambda n: n.startswith(HEAD_PINS), lugs=lugs, wheels=is_wheel,
-                         ropes=lambda ang: LT.skin_rope_runs(spec, ang) + comm_runs(spec, ang, zp), seats=seats,
+                         ropes=lambda ang: LT.skin_rope_runs(spec, ang) + comm_runs(spec, ang, za), seats=seats,
                          clear_min=LT.SKIN_CLEAR_MIN, pin_gap_max=LT.SKIN_PIN_GAP_MAX, label=label or spec.key,
                          log=lambda s: None)
     rep["bounds"] = head_bounds(co, vb, bones, pivots, poses)
@@ -532,14 +684,20 @@ def pitch_for_top(co, vb, bones, pivots, step=0.5, tmax=60.0):
 
 
 def negative(t, table, tw, pb):
-    """The head held level on the steep uniform poses must fail G6 (the gate sees the head)."""
+    """The head held level on the steep uniform poses must fail G6 (the gate sees the head). Hold twins: recorded, not
+    raised. Their hold-down train reaches no head part at +-max on every key (GD Hold measured clean, v2), and v1's GD
+    Hold negative failed only on the comm wire crossing the level girder on the pivot line, which the post removed."""
     fam = tw["twin"].family
     tm = type_max(fam)
     poses = [{"TrainFront": s * tm, "TrainBack": s * tm, HEAD_BONE: 0.0} for s in (1.0, -1.0)]
     rep = headed_sweep(t, table, tw, pb, poses=poses, label=f"{tw['key']} negative (head level)", gate=False)
-    LT._check(rep["failed"] is not None, f"[{tw['key']}] G6 negative: the head held level at +-{tm} deg fails",
-              f"(min clearance {rep['min_clear']})")
-    return {"poses": len(poses), "failed": rep["failed"][:200], "min_clear": rep["min_clear"]}
+    if tw["kind"] != "Hold":
+        LT._check(rep["failed"] is not None, f"[{tw['key']}] G6 negative: the head held level at +-{tm} deg fails",
+                  f"(min clearance {rep['min_clear']})")
+    elif rep["failed"] is None:
+        print(f"[head] [{tw['key']}] G6 negative n/a: the Hold train meets no head part with the head level at "
+              f"+-{tm} deg (recorded)")
+    return {"poses": len(poses), "failed": (rep["failed"] or "")[:200] or None, "min_clear": rep["min_clear"]}
 
 
 # -- previews --------------------------------------------------------------------------------------------------------------
@@ -573,15 +731,15 @@ def _drop(objs):
             bpy.data.meshes.remove(me)
 
 
-def render_pose(t, arm, spec, pose, asset_dir, name, raw, views, comm=True, extras=()):
-    """`t` posed by `arm` at `pose` with the ropes and the comm wire at that pose; returns the frame paths."""
-    zp = LT.lane_y(spec, True)
+def render_pose(t, arm, spec, pose, asset_dir, name, raw, views, za=None, extras=()):
+    """`t` posed by `arm` at `pose` with the ropes and (anchor `za` given) the comm wire at that pose; returns the
+    frame paths."""
     pivots = {b: LT.skin_pivot(spec) for b in HEAD_BONES[1:]}
     tmp = cs2_skin.posed_copy(t, arm, pose, pivots, t.name + "Posed")
     mat = _rope_mat(name + "_HeadRope")
     runs = LT.skin_rope_runs(spec, pose, run=2.0)
-    if comm:
-        runs += comm_runs(spec, pose, zp, run=4.0)
+    if za is not None:
+        runs += comm_runs(spec, pose, za, run=4.0)
     own = _mesh_objs(runs, name + "Rope", mat)
     try:
         return LT.render_tower_views(tmp, asset_dir, name, raw, views, extras=own + list(extras), light=LT.SKIN_LIGHT)
@@ -631,23 +789,42 @@ def lineup_views(tw, a):
                  dist=(spec.gauge / 2.0 + 0.9) * k * 1.3)]
 
 
+def masttop_views(tw, tag):
+    """The ladder top / mast top close-ups (critique crops A-D): the lineup's 3/4 camera (same direction and distance,
+    4x the focal length: the crops' framing without the crop) and a ladder-side view, both framing the flange, the
+    landing, the ladder top, the post and its clamp."""
+    zp = tw["lane"]
+    spec = tw["twin"]
+    d34 = (spec.gauge / 2.0 + 0.9) * 50.0 / 15.6 * 1.3
+    return [dict(name=f"masttop_{tag}", dir=(1.0, -1.1, 0.35), target=(0.0, 0.3, zp - 0.15), lens=200.0, dist=d34),
+            dict(name=f"ladder_{tag}", dir=(0.45, 1.0, 0.18), target=(0.0, 0.3, zp + 0.15), lens=125.0, dist=9.0)]
+
+
 def key_previews(t, arm, lods, tw, asset_dir, name, raw, ref=None):
-    """Per key: the lineup frames (0 / 20 / max uniform rope pitch, side at rope height and 3/4); members also the
-    trunnion close-ups, the carrier's grip past the raised deck end, the LOD sheet and the comm wire before / after."""
+    """Per key: the lineup frames (0 / 20 / max uniform rope pitch, side at rope height and 3/4) and the mast top /
+    ladder close-ups (rest, type max); members also the trunnion close-ups, the carrier's grip past the raised deck end,
+    the LOD sheet and the comm wire before / after."""
     spec, fam = tw["twin"], tw["twin"].family
     zp = tw["lane"]
+    za = comm_anchor(tw)
+
+    def rp(*a, **k):
+        return render_pose(*a, za=za, **k)
     out = {"lineup": {}}
     for a in preview_angles(fam):
         pose = {"TrainFront": a, "TrainBack": a, HEAD_BONE: a}
-        out["lineup"][a] = render_pose(t, arm, spec, pose, asset_dir, name, raw, lineup_views(tw, a))
-    if tw["kind"] != "Member":
-        return out
+        out["lineup"][a] = rp(t, arm, spec, pose, asset_dir, name, raw, lineup_views(tw, a))
     tm = type_max(fam)
     pose = {"TrainFront": tm, "TrainBack": tm, HEAD_BONE: tm}
+    rest = {"TrainFront": 0.0, "TrainBack": 0.0, HEAD_BONE: 0.0}
+    out["masttop"] = (rp(t, arm, spec, rest, asset_dir, name, raw, masttop_views(tw, "p0"))
+                      + rp(t, arm, spec, pose, asset_dir, name, raw, masttop_views(tw, f"p{int(round(tm))}")))
+    if tw["kind"] != "Member":
+        return out
     piv = (0.0, 0.0, zp)
-    out["trunnion"] = render_pose(t, arm, spec, pose, asset_dir, name, raw, [
+    out["trunnion"] = rp(t, arm, spec, pose, asset_dir, name, raw, [
         dict(name="trunnion_34", dir=(1.0, -1.0, 0.55), target=piv, lens=50.0, dist=2.4),
-        dict(name="trunnion_end", dir=(0.0, 1.0, 0.25), target=piv, lens=50.0, dist=2.2)])
+        dict(name="trunnion_end", dir=(0.0, 1.0, 0.25), target=(0.0, 0.0, zp + 0.25), lens=50.0, dist=3.0)])
     # the carrier's grip on the n rope past the raised deck end at the steepest pitch (the 592 i clash)
     grip, _row = LT._grip_object(fam, 1.0)
     lane_x = -spec.gauge / 2.0
@@ -664,7 +841,7 @@ def key_previews(t, arm, lods, tw, asset_dir, name, raw, ref=None):
         v.co = tuple(gco[i])
     grip.data.update()
     try:
-        out["carrier"] = render_pose(t, arm, spec, pose, asset_dir, name, raw, [
+        out["carrier"] = rp(t, arm, spec, pose, asset_dir, name, raw, [
             dict(name="carrier_end", dir=(-1.0, -0.15, 0.12), target=tuple(p), lens=50.0, dist=3.2),
             dict(name="carrier_end_34", dir=(-1.0, 0.9 * sign, 0.45), target=tuple(p), lens=50.0, dist=3.8)],
             extras=(grip,))
@@ -676,12 +853,13 @@ def key_previews(t, arm, lods, tw, asset_dir, name, raw, ref=None):
                 dist=(tgt_top + 1.0) * 35.0 / 12.0)
     lv = []
     for level, ob in enumerate([t] + list(lods)):
-        lv += render_pose(ob, arm, spec, {"TrainFront": 20.0, "TrainBack": 20.0, HEAD_BONE: 20.0}, asset_dir, name,
-                          raw, [dict(view, name=f"lod{level}_p20")])
+        lv += rp(ob, arm, spec, {"TrainFront": 20.0, "TrainBack": 20.0, HEAD_BONE: 20.0}, asset_dir, name,
+                 raw, [dict(view, name=f"lod{level}_p20")])
     out["lod"] = lv
-    # the comm wire: before (the shipped member at rest, its wire level at the old anchor) / after (the pivot line)
+    # the comm wire: before (the shipped member at rest, its wire level at the old anchor) / after (the post's anchor,
+    # the type max), the v1 camera
     side = dict(name="comm_after", dir=(1.0, 0.35, -0.45), target=(0.0, 0.0, zp - 0.4), lens=35.0, dist=9.0)
-    out["comm_after"] = render_pose(t, arm, spec, pose, asset_dir, name, raw, [side])
+    out["comm_after"] = rp(t, arm, spec, pose, asset_dir, name, raw, [side])
     if ref is not None and tw["comm_old"] is not None:
         mat = _rope_mat(name + "_HeadRope")
         runs = [cs2_skin.rope_run(0.0, (0.0, tw["comm_old"]), 0.0, s, 4.0, r=LT.LANE_ROPE["r"]) for s in (1.0, -1.0)]
@@ -704,8 +882,8 @@ def key_previews(t, arm, lods, tw, asset_dir, name, raw, ref=None):
 
 def head_lod_chain(t, name, spec):
     """lod_chain_v2 + the trunnion's small parts: the pins (inside the hubs) leave at LOD1, the hubs at LOD2; the cheeks
-    and webs stay on every level (without them the LOD2 head floats 0.5 / 0.7 m over the lowered mast top; the comm sleeve
-    leaves at LOD1 with comm_, the cross-head stays with gantry_)."""
+    and webs stay on every level (without them the LOD2 head floats over the flange), so does the flange (`mast`); the
+    comm post and clamp leave at LOD1 with comm_ (as the shipped hanger did), the cross-head halves stay with gantry_."""
     l1p, l2p = LT.lod_prefixes(spec)
     l1p = tuple(l1p) + ("mast_trunnion_pin_",)
     l2p = tuple(l2p) + ("mast_trunnion_pin_", "gantry_trunnion_hub_")
@@ -713,7 +891,7 @@ def head_lod_chain(t, name, spec):
                                     tol=LT.LOD_TOL, shade_angle=LT.SHADE_ANGLE_V2, fixed=S.lod_fixed())
 
 
-TRUNNION_PREFIXES = ("mast_cheek_", "mast_trunnion_", "gantry_trunnion_", "comm_sleeve")
+TRUNNION_PREFIXES = ("mast_cheek_", "mast_trunnion_", "mast_flange", "gantry_trunnion_", "comm_")
 
 
 def run_key(key, out, preview=None, keep_ref=False):
@@ -762,7 +940,8 @@ def run_key(key, out, preview=None, keep_ref=False):
         ptris[table[q - 1]] = ptris.get(table[q - 1], 0) + int(n) - 2
     new_tris = sum(v for k, v in ptris.items() if k.startswith(TRUNNION_PREFIXES))
     rep = {"key": key, "name": name, "member": member, "kind": tw["kind"], "family": fam,
-           "pivot_y": tw["lane"], "top": spec.top, "comm_anchor_old_y": tw["comm_old"], "comm_anchor_new_y": tw["lane"],
+           "pivot_y": tw["lane"], "top": spec.top, "comm_anchor_old_y": tw["comm_old"],
+           "comm_anchor_new_y": comm_anchor(tw),
            "tris": bud["tris"], "cap": bud["cap"], "cap_raised_to": bud["cap_raised_to"], "trunnion_tris": new_tris,
            "atlas": dict(arep, exact=info["atlas_map"]["exact"], donor=info["atlas_map"]["donor"],
                          fitted=info["atlas_map"]["fitted"], textures_added_mb=0.0),
@@ -777,7 +956,8 @@ def run_key(key, out, preview=None, keep_ref=False):
            "frames": frames, "seconds": round(time.perf_counter() - t0, 1)}
     raised = f", raised to {bud['cap_raised_to']}" if bud["cap_raised_to"] else ""
     print(f"[head] done {name}: LOD0/1/2 {bud['tris']} (cap {bud['cap']}{raised}), trunnion {new_tris} tris, G6 "
-          f"{len(sk['poses'])} poses min {sk['min_clear']['m'] * 1000:.1f} mm, negative fails, bounds top over "
+          f"{len(sk['poses'])} poses min {sk['min_clear']['m'] * 1000:.1f} mm, negative {'fails' if neg['failed'] else 'n/a'}, "
+          f"bounds top over "
           f"{hb['top_over_m']:+.3f} m (head under the top to {fits_to} deg), xy over {hb['xy_over_m']:+.3f}, rungs cut "
           f"{info['head_transform']['rungs_removed']}, {rep['seconds']} s")
     return rep, (t, arm, lods, tw, name, asset_dir)
@@ -785,11 +965,13 @@ def run_key(key, out, preview=None, keep_ref=False):
 
 def parse(argv):
     ap = argparse.ArgumentParser(prog="lift_head.py")
-    ap.add_argument("--keys", required=True, help=f"comma list of {', '.join(HEAD_KEYS)} (or 'all')")
+    ap.add_argument("--keys", required=True, help=f"comma list of {', '.join(HEAD_KEYS)} (or 'all', or 'none')")
     ap.add_argument("--out", required=True, help="scratch folder (never assets/import)")
     ap.add_argument("--preview", default=None, help="preview folder (raw frames under <preview>/raw)")
     ap.add_argument("--lineup", default=None, help="also the family lineup sheets <preview>/<this>_side.png / _q34.png")
     ap.add_argument("--report", default=None)
+    ap.add_argument("--masttop", default=None, help="comma keys: the mast top / ladder sheet <preview>/masttop_ladder.png "
+                    "from their raw frames (rows: keys; columns: 3/4 rest, ladder rest, ladder type max, 3/4 type max)")
     return ap.parse_args(argv)
 
 
@@ -799,7 +981,7 @@ def main_cli():
     out = os.path.abspath(args.out)
     if os.path.normcase(out).startswith(os.path.normcase(os.path.join(LT._REPO, "assets", "import"))):
         raise SystemExit("--out is in the shipping tree assets/import: this round exports nothing")
-    keys = list(HEAD_KEYS) if args.keys == "all" else args.keys.split(",")
+    keys = list(HEAD_KEYS) if args.keys == "all" else [] if args.keys == "none" else args.keys.split(",")
     bad = [k for k in keys if k not in HEAD_KEYS]
     if bad:
         raise SystemExit(f"unknown keys {bad}")
@@ -831,6 +1013,16 @@ def main_cli():
             for tag, grid in (("trunnion_carrier", [fr["trunnion"], fr["carrier"]]), ("lod", [fr["lod"]]),
                               ("comm", [fr.get("comm_before", [None]) + fr["comm_after"]])):
                 print(f"[head] sheet {montage(grid, os.path.join(args.preview, f'{k}_{tag}.png'))}")
+    if args.preview and args.masttop:
+        grid = []
+        for k in args.masttop.split(","):
+            tw = headed_spec(k)
+            tm = int(round(type_max(tw["twin"].family)))
+            raw = os.path.join(args.preview, "raw")
+            grid.append([os.path.join(raw, f"{head_name(tw)}_view_{v}.png")
+                         for v in ("masttop_p0", "ladder_p0", f"ladder_p{tm}", f"masttop_p{tm}")])
+            grid[-1] = [p if os.path.exists(p) else None for p in grid[-1]]
+        print(f"[head] sheet {montage(grid, os.path.join(args.preview, 'masttop_ladder.png'))}")
     print(f"PASS lift_head: {len(reps)} headed builds, every gate held: "
           + ", ".join(f"{r['name']} {r['tris']}" for r in reps))
 
