@@ -41,3 +41,33 @@ line ends, stations, junctions, Editor.
   Elevation (E, E), so the engine picks the member as before and stands its pivot FloatM up (the AnchorTop placement, LiftTowerPlanner.md).
   This system keeps the Transform position, so the lean turns about the floated pivot, and `PlumbAnchor` reads the floated rope: the same
   rope points the planner's final pitch uses (Build re-runs SetLeans after the float), so plan and game still agree.
+
+## 600 e: the padded face uphill
+- **The defect:** every tower mesh carries its crash pad (padded face, warning triangle) and its TrainFront half on local +z; the ladder,
+  the pad's opening and the Hold / Combo deck end on -z (art convention, research art/tower-lean-2026-11/build.md "Yaw fix"; the tram:
+  `tram_tower.py` authors travel on +X and the ladder on -X, which `orient_for_net` maps to game +z / -z). Vanilla yaws a node tower
+  along the draw direction: `NodeAlignSystem.AlignNode` sums the edges' travel tangents (`Game.Net/NodeAlignSystem.cs:85-111`) and
+  flips the yaw to agree with that sum (`:209-212`); AlignSystem copies the node yaw to the tower. A line drawn top to bottom showed every
+  pad downhill (smoke check 2026-11-04, FG; plumb towers too).
+- **The rule:** this system turns each line tower, and each ground-end tower (one lift edge, nothing else, no Owner: never a station
+  stub), by 0 or 180 deg about vertical so +z points toward its SECTION's higher rope end (`LiftAlignMath.SectionUphill`, then
+  `PadUphillYaw`), then leans it with the pitch read along the new +z. One decision per section (a walk over the nodes with two lift edges
+  of one type, end to end, station to station), so every tower of a section faces the same way, as on a real lift, a hump included; the
+  rope height of each end is `RopePoint` (a tower's plumb anchor, a station's rope lane ends). A section whose ends differ by less than
+  `PadFlatRiseM` (1 m), or a closed loop, keeps vanilla's yaw (the node's own rotation, so a section that turns flat goes back to vanilla).
+  An edit anywhere on a section re-checks all its towers (a walk plus a few buffer reads each; an unchanged pose is skipped).
+- **Ropes do not move (decompile):** `LaneSystem.CreateEdgeLanes` gives every FindAnchor lane an edge-side position
+  (`Game.Net/LaneSystem.cs:2575-2623`), `FindAnchors(node, ...)` collects the node's sub-objects' prefab sub-lane points in world space
+  (`:2371-2418`, `:2441-2453`), groups both lists by lane prefab and, per group, keeps the nearest anchors and sorts them along the edge's
+  own lateral axis (`:2492-2560`); `FindAnchor` then snaps each lane end to its anchor's POSITION and PathNode (`:4049-4072`, `:4117-4120`).
+  Matching is by position, never by sub-lane index or tower yaw. Every rope-carrying tower prefab (32: members, twins, tram towers) has an
+  anchor set symmetric under the turn ((x, y, z) -> (-x, y, -z) per lane prefab: haul +-x at z 0, comm at x 0), and the turned, leaned
+  frame is the old one times RotateY(pi), so the anchors land on the same world points: the ropes, their sides and the comm wire are
+  unchanged. Only the PathNode index behind each point swaps (left haul = sub-lane 1 instead of 0); both edges at the tower snap to the
+  same point, so the lane chain (LiftLoopCache, PathNode equality) still joins left to left. Gate: LiftBatch PF-2 (fails on a new
+  asymmetric tower prefab).
+- **Readers:** TrainPitchSystem reads front / back and the pitches along the current +z, and `MastPitch` from the rotation: on a turned
+  tower TrainFront is the uphill half and both halves read nose up (PF-3). Number tiles: both plates, posed in the tower frame and carried
+  with it (same local pose, no churn); the GD beacon is posed through the head in the tower frame. The planner's kind (Hold / Combo by
+  convex / concave) does not depend on the yaw; the twin's deck end (-z) is now downhill as the art intends.
+- **UNVERIFIED in game:** the pad on a top-to-bottom line (FG and tram), ground-end towers, a station-to-station section, save / reload.

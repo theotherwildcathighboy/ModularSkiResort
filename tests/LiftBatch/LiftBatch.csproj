@@ -91,6 +91,8 @@
     <Compile Include="BreakoverTests.cs" />
     <Compile Include="TramSaddleTests.cs" />
     <Compile Include="PitchCapTests.cs" />
+    <!-- The padded face uphill (600 e): the section rule, the ropes stay under the turn, heads and trains on a turned tower (PF). -->
+    <Compile Include="PadFacingTests.cs" />
     <!-- The same line gives the same plan from either end (planner-direction): the planner works from the lower rope and mirrors (DR). -->
     <Compile Include="DirectionTests.cs" />
     <!-- No clear plan: the fewest towers with the least shortfall, not the legacy scatter; the twins never make a plan worse (FB). -->

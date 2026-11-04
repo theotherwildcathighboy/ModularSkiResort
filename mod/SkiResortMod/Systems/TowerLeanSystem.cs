@@ -13,10 +13,17 @@
 //     SearchSystem Modification5, PreCullingSystem.cs:718-723), and so do its node's lift edges, so LaneSystem rebuilds their ropes on
 //     the moved anchors this frame. UNVERIFIED in game: that an Updated added here (after AlignSystem, before LaneSystem) is enough for
 //     LaneSystem to re-anchor the edge's rope lanes; that the Standing leg box follows the rotation (nothing on a line collides).
+// Padded face uphill (DECISIONS 600 e): every tower mesh carries its crash pad and TrainFront half on local +z, its ladder and the Hold /
+//   Combo deck end on -z, but vanilla yaws a node tower along the draw direction (Game.Net/NodeAlignSystem.cs:85-111, :209-212). This
+//   system turns each line tower, and each ground-end tower, by 0 or 180 deg about vertical so +z points toward its section's higher rope
+//   end (LiftAlignMath.SectionUphill / PadUphillYaw; one call per section, so all its towers face the same way; a section whose ends differ
+//   by less than PadFlatRiseM keeps vanilla's yaw), then leans it. The ropes do not move: every tower's anchor set is symmetric under the
+//   turn and LaneSystem matches anchors by position (EngineNotes). An edit re-checks the whole section the edge lies on.
 // Triggers: both end nodes of every Updated lift edge, the same nodes once more on the next frame (a station neighbor's rope point is
 // read from its rope lane, which LaneSystem rebuilds after this system), and every lift node once after a load (the Transform is saved,
 // so a rule change takes effect there). Event-driven: 0 work when no lift edge is updated.
-// Never: Temp or Deleted towers (a preview stays plumb), nodes with other than two lift edges (line ends, stations), Editor.
+// Never: Temp or Deleted towers (a preview stays plumb), stations, junctions, Editor; a ground end (one lift edge, no Owner) is turned,
+// never leaned.
 // Log discipline: one line per frame that leaned or restored a tower (with the steepest lean), a one-shot "!!!" catch.
 // Mod.cs: UpdateAfter<TowerLeanSystem, Game.Objects.AlignSystem>(Modification4).
 // Engine notes: EngineNotes/TowerLeanSystem.md
@@ -56,7 +63,17 @@ namespace SkiResortMod.Systems
         private readonly HashSet<Entity> m_Touch = new HashSet<Entity>();
         private readonly List<Entity> m_LiftEdges = new List<Entity>(4);
         private readonly List<float3> m_Ends = new List<float3>(8);
-        private int m_Leaned, m_Restored;
+        private int m_Leaned, m_Restored, m_Turned;
+
+        /// <summary>A walk along one section stops after this many nodes (a guard, never reached by a real line).</summary>
+        private const int MaxSectionNodes = 4096;
+
+        private readonly Dictionary<Entity, float2> m_Uphill = new Dictionary<Entity, float2>();   // node -> its padded face's xz (0 = vanilla)
+        private readonly List<Entity> m_Seeds = new List<Entity>();
+        private readonly List<Entity> m_Section = new List<Entity>();
+        private readonly List<Entity> m_Half = new List<Entity>();
+        private readonly List<float3> m_SectionPos = new List<float3>();
+        private readonly List<float2> m_SectionUp = new List<float2>();
 
         protected override void OnCreate()
         {
@@ -110,6 +127,7 @@ namespace SkiResortMod.Systems
                 m_Nodes.UnionWith(m_Again);
                 m_Again.Clear();
                 m_Again.UnionWith(m_Fresh);
+                Sections(lines);
                 Pass(lines, why, t0);
             }
             catch (Exception e)
@@ -144,27 +162,36 @@ namespace SkiResortMod.Systems
             // Read everything first: the Updated adds below are structural changes, which would invalidate the buffers read here.
             m_Writes.Clear();
             m_Touch.Clear();
-            int leaned = 0, restored = 0;
+            int leaned = 0, restored = 0, turned = 0;
             float maxLean = 0f;
             foreach (Entity node in m_Nodes)
             {
-                if (!EntityManager.Exists(node) || EntityManager.HasComponent<Deleted>(node) || EntityManager.HasComponent<Temp>(node))
+                if (!EntityManager.Exists(node) || EntityManager.HasComponent<Deleted>(node) || EntityManager.HasComponent<Temp>(node) ||
+                    !EntityManager.TryGetComponent(node, out Node nodeData))
                     continue;
                 Entity tower = TowerOf(node);
                 if (tower == Entity.Null || !EntityManager.TryGetComponent(tower, out Transform t))
                     continue;
                 float lean = 0f, pitchAlongZ = 0f;
-                if (!LiftEdgesOf(node, lines, out string typeId))
-                    continue;   // a line end, station or junction: never ours (vanilla re-aligns a node's tower plumb on its update)
-                if (PitchAt(node, tower, t, out float pitch, out float3 prev, out float3 next))
+                bool line = LiftEdgesOf(node, lines, out string typeId);
+                if (!line && !GroundEndOf(node, lines))
+                    continue;   // a station, junction or shared end: never ours (vanilla re-aligns a node's tower plumb on its update)
+                // The padded face (+z) uphill (600 e): the section's direction, else (flat) vanilla's node yaw.
+                float2 vanilla = math.mul(nodeData.m_Rotation, new float3(0f, 0f, 1f)).xz;
+                if (!m_Uphill.TryGetValue(node, out float2 uphill) || math.lengthsq(uphill) < 1e-8f)
+                    uphill = vanilla;
+                quaternion yaw = LiftAlignMath.PadUphillYaw(YawOf(t.m_Rotation), uphill);
+                float3 forward = math.mul(yaw, new float3(0f, 0f, 1f));
+                if (line && PitchAt(node, tower, t, out float pitch, out float3 prev, out float3 next))
                 {
                     lean = LiftAlignMath.LeanDeg(typeId, pitch);
-                    float3 forward = math.mul(t.m_Rotation, new float3(0f, 0f, 1f));
                     pitchAlongZ = math.dot(forward.xz, next.xz - prev.xz) >= 0f ? pitch : -pitch;
                 }
-                quaternion target = LiftAlignMath.LeanRotation(YawOf(t.m_Rotation), pitchAlongZ, lean);
+                quaternion target = LiftAlignMath.LeanRotation(yaw, pitchAlongZ, lean);
                 if (math.abs(math.dot(target.value, t.m_Rotation.value)) >= SameRotationDot)
                     continue;
+                if (math.dot(forward.xz, vanilla) < 0f)
+                    turned++;
                 var moved = new Transform(t.m_Position, target);
                 m_Writes.Add((tower, moved));
                 CarrySubObjects(tower, t, moved);
@@ -188,10 +215,162 @@ namespace SkiResortMod.Systems
                     EntityManager.AddComponent<Updated>(e);
             m_Leaned += leaned;
             m_Restored += restored;
+            m_Turned += turned;
             double ms = (Stopwatch.GetTimestamp() - t0) * 1000.0 / Stopwatch.Frequency;
             Mod.Log.Info($"Towers [lean]: ({why}) {m_Nodes.Count} node(s) checked, {leaned} tower(s) leaned (max {maxLean:F1} deg), {restored} " +
-                         $"set plumb, {m_Writes.Count - leaned - restored} sub-object(s) carried; load totals leaned {m_Leaned}, plumb {m_Restored}; " +
-                         $"{ms:F2} ms");
+                         $"plumb, {turned} of them turned 180 to face uphill, {m_Writes.Count - leaned - restored} sub-object(s) carried; " +
+                         $"load totals leaned {m_Leaned}, plumb {m_Restored}, turned {m_Turned}; {ms:F2} ms");
+        }
+
+        /// <summary>The padded face's direction for every node of every section a node to check lies on (600 e), into m_Uphill, and every
+        /// node of those sections into m_Nodes: the section's higher end decides for all its towers, so an edit anywhere on it re-checks
+        /// them all (a few buffer reads per tower; an unchanged pose is skipped by the rotation test).</summary>
+        private void Sections(IReadOnlyDictionary<Entity, LiftTypeDef> lines)
+        {
+            m_Uphill.Clear();
+            m_Seeds.Clear();
+            m_Seeds.AddRange(m_Nodes);
+            for (int i = 0; i < m_Seeds.Count; i++)
+            {
+                Entity seed = m_Seeds[i];
+                if (m_Uphill.ContainsKey(seed) || !EntityManager.Exists(seed) || EntityManager.HasComponent<Deleted>(seed) ||
+                    EntityManager.HasComponent<Temp>(seed))
+                    continue;
+                m_Section.Clear();
+                Entity endA, edgeA, endB, edgeB;
+                if (LineEdges(seed, lines, out Entity e0, out Entity e1, out LiftTypeDef type))
+                {
+                    if (!Walk(seed, e0, type, lines, m_Half, out endA, out edgeA))
+                    {
+                        Flat(m_Half, seed);   // a loop: no ends, keep vanilla
+                        continue;
+                    }
+                    m_Section.Add(endA);
+                    for (int k = m_Half.Count - 1; k >= 0; k--)
+                        m_Section.Add(m_Half[k]);
+                    m_Section.Add(seed);
+                    Walk(seed, e1, type, lines, m_Half, out endB, out edgeB);
+                    m_Section.AddRange(m_Half);
+                    m_Section.Add(endB);
+                }
+                else if (SingleLiftEdge(seed, lines, out Entity e, out type))
+                {
+                    endA = seed;
+                    edgeA = e;
+                    m_Section.Add(seed);
+                    Walk(seed, e, type, lines, m_Half, out endB, out edgeB);
+                    m_Section.AddRange(m_Half);
+                    m_Section.Add(endB);
+                }
+                else
+                    continue;   // a junction or station with several lift edges: its sections are seeded by their own nodes
+                bool ropes = RopePoint(endA, edgeA, out float3 ra) & RopePoint(endB, edgeB, out float3 rb);
+                m_SectionPos.Clear();
+                for (int k = 0; k < m_Section.Count; k++)
+                    m_SectionPos.Add(EntityManager.TryGetComponent(m_Section[k], out Node sn) ? sn.m_Position : float3.zero);
+                LiftAlignMath.SectionUphill(m_SectionPos, ropes ? ra.y : 0f, ropes ? rb.y : 0f, m_SectionUp);
+                for (int k = 0; k < m_Section.Count; k++)
+                {
+                    m_Uphill[m_Section[k]] = m_SectionUp[k];
+                    m_Nodes.Add(m_Section[k]);
+                }
+            }
+        }
+
+        private void Flat(List<Entity> nodes, Entity seed)
+        {
+            m_Uphill[seed] = float2.zero;
+            for (int k = 0; k < nodes.Count; k++)
+            {
+                m_Uphill[nodes[k]] = float2.zero;
+                m_Nodes.Add(nodes[k]);
+            }
+        }
+
+        /// <summary>From <paramref name="from"/> along <paramref name="edge"/>: the line nodes (two lift edges of <paramref name="type"/>)
+        /// passed, in order, into <paramref name="into"/>, and the node the section ends at with the edge that reaches it. False when the
+        /// walk comes back to <paramref name="from"/> (a closed loop).</summary>
+        private bool Walk(Entity from, Entity edge, LiftTypeDef type, IReadOnlyDictionary<Entity, LiftTypeDef> lines, List<Entity> into,
+            out Entity end, out Entity endEdge)
+        {
+            into.Clear();
+            Entity cur = Far(edge, from);
+            for (int guard = 0; guard < MaxSectionNodes; guard++)
+            {
+                if (cur == from)
+                {
+                    end = endEdge = Entity.Null;
+                    return false;
+                }
+                if (!LineEdges(cur, lines, out Entity a, out Entity b, out LiftTypeDef t) || t != type)
+                    break;
+                into.Add(cur);
+                edge = a == edge ? b : a;
+                cur = Far(edge, cur);
+            }
+            end = cur;
+            endEdge = edge;
+            return true;
+        }
+
+        /// <summary>The node's two lift edges of one type (a line node), without touching m_LiftEdges.</summary>
+        private bool LineEdges(Entity node, IReadOnlyDictionary<Entity, LiftTypeDef> lines, out Entity a, out Entity b, out LiftTypeDef type)
+        {
+            a = b = Entity.Null;
+            type = null;
+            if (!EntityManager.TryGetBuffer(node, true, out DynamicBuffer<ConnectedEdge> edges))
+                return false;
+            int n = 0;
+            for (int i = 0; i < edges.Length; i++)
+            {
+                Entity edge = edges[i].m_Edge;
+                if (EntityManager.HasComponent<Deleted>(edge) || EntityManager.HasComponent<Temp>(edge) ||
+                    !EntityManager.TryGetComponent(edge, out PrefabRef pr) || !lines.TryGetValue(pr.m_Prefab, out LiftTypeDef def))
+                    continue;
+                if (type != null && def != type)
+                    return false;
+                type = def;
+                if (n == 0)
+                    a = edge;
+                else
+                    b = edge;
+                n++;
+            }
+            return n == 2;
+        }
+
+        /// <summary>True when the node has exactly one live edge and it is a lift edge (a line's ground end, a station stub's far end).</summary>
+        private bool SingleLiftEdge(Entity node, IReadOnlyDictionary<Entity, LiftTypeDef> lines, out Entity edge, out LiftTypeDef type)
+        {
+            edge = Entity.Null;
+            type = null;
+            if (!EntityManager.TryGetBuffer(node, true, out DynamicBuffer<ConnectedEdge> edges))
+                return false;
+            int live = 0;
+            for (int i = 0; i < edges.Length; i++)
+            {
+                Entity e = edges[i].m_Edge;
+                if (EntityManager.HasComponent<Deleted>(e) || EntityManager.HasComponent<Temp>(e))
+                    continue;
+                live++;
+                if (EntityManager.TryGetComponent(e, out PrefabRef pr) && lines.TryGetValue(pr.m_Prefab, out LiftTypeDef def))
+                {
+                    edge = e;
+                    type = def;
+                }
+            }
+            return live == 1 && type != null;
+        }
+
+        /// <summary>A line's ground end with its own end tower (one lift edge, nothing else, not a station's node): turned to face uphill
+        /// like the line towers, never leaned. Its edge into m_LiftEdges.</summary>
+        private bool GroundEndOf(Entity node, IReadOnlyDictionary<Entity, LiftTypeDef> lines)
+        {
+            m_LiftEdges.Clear();
+            if (EntityManager.HasComponent<Owner>(node) || !SingleLiftEdge(node, lines, out Entity edge, out _))
+                return false;
+            m_LiftEdges.Add(edge);
+            return true;
         }
 
         /// <summary>The node's lift edges into m_LiftEdges; true when there are exactly two of one lift type (a line tower; a line end,

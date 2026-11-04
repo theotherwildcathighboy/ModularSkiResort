@@ -33,6 +33,9 @@
 //   Mast lean (DECISIONS 600): TowerLeanSystem leans a steep tower's mast about its foot. Every bone is local to the mast, so the pass
 //     takes the mast's pitch (LiftAlignMath.MastPitch of the tower rotation; 0 on a plumb tower) off the absolute lane-end pitches
 //     before every limit above: the train limits and the hub row are relative to the mast.
+//   Padded face uphill (DECISIONS 600 e): TowerLeanSystem turns a tower 180 deg where vanilla's yaw put its +z (pad, TrainFront)
+//     downhill. Nothing here depends on the yaw: front / back, the pitches and MastPitch are all read along the tower's current +z, so on
+//     a turned tower TrainFront is the uphill half and both halves read nose up (LiftBatch PF-3).
 //   Carrier clearance (DECISIONS 600 c): the carrier hangs plumb in the world, so a half whose WORLD pitch (half + mast) passes the
 //     art's limit for the tower's family and head (LiftAlignMath.WorldHalfMaxDeg: FG support / Break 41.5, GD support 55, GD Hold 45,
 //     DQ Hold 57.5; the head from the prefab name, LiftTowerPlanConstants.HeadOfTwin) is clamped to it, last (LiftAlignMath.PoseTrain:

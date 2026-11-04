@@ -7,6 +7,7 @@
 // Engine notes: EngineNotes/LiftAlignMath.md
 
 using System;
+using System.Collections.Generic;
 using Unity.Mathematics;
 
 namespace SkiResortMod.Systems
@@ -223,6 +224,56 @@ namespace SkiResortMod.Systems
         /// relative to).</summary>
         public static float SignedLean(float pitchAlongZ, float leanDeg) =>
             math.radians(leanDeg) * (pitchAlongZ > 0f ? 1f : pitchAlongZ < 0f ? -1f : 0f);
+
+        // ── The padded face uphill (DECISIONS 600 e) ──────────────────────────────────────────────────────────────────────────────
+        // Every lift tower mesh has its crash pad (padded face, warning triangle) and its TrainFront half on local +z; the ladder, the pad's
+        // opening and the Hold / Combo deck ends on -z (art convention: research art/tower-lean-2026-11/build.md "Yaw fix"). Vanilla yaws a
+        // node tower along the line's draw direction (Game.Net/NodeAlignSystem.cs:85-111 sums the edges' travel tangents, :209-212 flips
+        // the yaw to agree), so a line drawn top to bottom showed every pad downhill. TowerLeanSystem turns the tower by 0 or 180 deg about
+        // vertical instead: +z toward the section's higher rope end. One decision per section (station to station, end to end), so every
+        // tower of a section faces the same way, as on a real lift; a section whose ends differ by less than PadFlatRiseM keeps vanilla's yaw.
+        // Ropes are unchanged by the turn: every tower's anchor set is symmetric under it (LiftBatch PF-2), so LaneSystem.FindAnchors,
+        // which matches by position (Game.Net/LaneSystem.cs:2492-2560, FindAnchor :4049-4072), snaps every rope lane to the same points.
+
+        /// <summary>A section whose two rope ends differ by less than this, meters, is flat: its towers keep vanilla's yaw.</summary>
+        public const float PadFlatRiseM = 1f;
+
+        /// <summary>Per node of one section, in order from its first end to its last (ends included), the unit xz direction its tower's +z
+        /// (the padded face) must point: toward the next node on the side of the higher rope end; the higher end itself points away from its
+        /// neighbor (the line falls away from it). All zero when the ends' rope heights <paramref name="firstRopeY"/> / <paramref
+        /// name="lastRopeY"/> differ by less than PadFlatRiseM (or are not finite): keep vanilla's yaw. Either draw order of the same
+        /// section gives the same world directions.</summary>
+        public static void SectionUphill(IReadOnlyList<float3> nodes, float firstRopeY, float lastRopeY, List<float2> into)
+        {
+            into.Clear();
+            int n = nodes.Count;
+            float rise = lastRopeY - firstRopeY;
+            bool flat = n < 2 || !(math.abs(rise) >= PadFlatRiseM);
+            int s = rise > 0f ? 1 : -1;
+            for (int i = 0; i < n; i++)
+            {
+                if (flat)
+                {
+                    into.Add(float2.zero);
+                    continue;
+                }
+                int j = i + s;
+                float2 d = j >= 0 && j < n ? nodes[j].xz - nodes[i].xz : nodes[i].xz - nodes[i - s].xz;
+                into.Add(math.lengthsq(d) > 1e-8f ? math.normalize(d) : float2.zero);
+            }
+        }
+
+        /// <summary>The yaw-only rotation <paramref name="yaw"/>, or the same turned 180 deg about vertical, whichever puts the tower's +z
+        /// along <paramref name="uphill"/> (xz); a zero <paramref name="uphill"/> keeps <paramref name="yaw"/>. Compose the lean after it
+        /// (LeanRotation with the rope's pitch along the new +z): the top still tips downhill, and the leaned frame of the turned tower is
+        /// the old one turned about its own y (Q x RotateY(pi)), so a symmetric anchor set lands on the same world points.</summary>
+        public static quaternion PadUphillYaw(quaternion yaw, float2 uphill)
+        {
+            float2 f = math.mul(yaw, new float3(0f, 0f, 1f)).xz;
+            if (math.lengthsq(uphill) < 1e-8f || math.dot(f, uphill) >= 0f)
+                return yaw;
+            return math.normalize(math.mul(yaw, quaternion.RotateY(math.PI)));
+        }
 
         // ── Breakover / hold-down (docs/research/breakover-holddown-plan-2026-11-03.md, section 2.2) ─────────────────────────────
 

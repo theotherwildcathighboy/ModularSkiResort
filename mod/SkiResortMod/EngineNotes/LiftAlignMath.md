@@ -97,3 +97,11 @@ the grip top (F5, reverses round-2 contract D8). Every pose of a carrier uses it
   it on every sweep tower: no posed half past the table.
 - Why it binds: at the FG cap (pitch 38, lean 25) a 16 deg half-break puts a half at 54 world; the table allows about a 3.5 deg half-break
   there. A uniform 38 deg FG slope gives halves of 40.7 / 35.0 (in / out): inside.
+
+## 600 e: the padded face uphill
+- `SectionUphill(nodes, firstRopeY, lastRopeY, into)`: per node of one section (ends included, in order), the unit xz the tower's +z must
+  point: toward the next node on the higher end's side; the higher end points away from its neighbor. All zero when the ends differ by
+  less than `PadFlatRiseM` (1 m) or are not finite (keep vanilla). Draw-order invariant (PF-1).
+- `PadUphillYaw(yaw, uphill)`: the yaw or the yaw x RotateY(pi), whichever puts +z along `uphill` (zero or perpendicular: unchanged).
+  Compose `LeanRotation` after it with the pitch along the new +z: the turned, leaned frame equals the unturned one x RotateY(pi), so a
+  symmetric anchor set keeps its world points (PF-2) and the rope rises toward +z (PF-3).

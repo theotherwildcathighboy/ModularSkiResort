@@ -128,6 +128,9 @@ namespace LiftBatch
             foreach (string line in PitchCapTests.Report)
                 if (!line.StartsWith("PC-0 row", StringComparison.Ordinal))   // the per-line rows: LIFTBATCH_ONLY=pitch
                     Console.WriteLine("PITCH " + line);
+            PadFacingTests.Run(Check);
+            foreach (string line in PadFacingTests.Report)
+                Console.WriteLine("PAD   " + line);
             DirectionTests.Run(Check);
             foreach (string line in DirectionTests.Report)
                 Console.WriteLine("DIR   " + line);
