@@ -68,10 +68,17 @@ namespace LiftBatch
             Check(p1.EndCarrierB < -3f, W, "as logged: the sunk base station (carrier " + p1.EndCarrierB.ToString("F1") + " m) not detected");
             // The planner before the pass (the full floor at the stations, no slope gate) reproduces the refused field plan: a DQ18
             // 9 m from the base station, slope 1.10. Each rule alone removes the refused edge: the approach floor (p1 above) and the gate.
-            var before = new LiftTowerPlanner { CheckEdgeSlope = false, StationA = false, StationB = false, EndNodeYA = DqTopNode, EndNodeYB = DqBaseNode };
+            // That planner worked from end A as given (the top here): AsGiven replays it. The 9 m tower needs the grid's 4 m remainder at
+            // the base, which only the top-first plan has; since planner-direction-2026-11-04 the planner works from the base (the lower
+            // rope), the remainder lies at the top, and the pre-pass rules alone stand a tower 9 m from the TOP instead (reported below).
+            var before = new LiftTowerPlanner { CheckEdgeSlope = false, StationA = false, StationB = false, EndNodeYA = DqTopNode, EndNodeYB = DqBaseNode, AsGiven = true };
             LiftTowerPlan p0 = before.Plan(t, DqLength, DqRopeTop, DqRopeBase, c);
-            var gateOnly = new LiftTowerPlanner { CheckEdgeSlope = true, StationA = false, StationB = false, EndNodeYA = DqTopNode, EndNodeYB = DqBaseNode };
+            var gateOnly = new LiftTowerPlanner { CheckEdgeSlope = true, StationA = false, StationB = false, EndNodeYA = DqTopNode, EndNodeYB = DqBaseNode, AsGiven = true };
             LiftTowerPlan pg = gateOnly.Plan(t, DqLength, DqRopeTop, DqRopeBase, c);
+            var canonical = new LiftTowerPlanner { CheckEdgeSlope = false, StationA = false, StationB = false, EndNodeYA = DqTopNode, EndNodeYB = DqBaseNode };
+            LiftTowerPlan pc = canonical.Plan(t, DqLength, DqRopeTop, DqRopeBase, c);
+            s_Report.Add("LP-26 field DQ, the pre-pass rules from the base (the planner's end since 2026-11-04) | end members " + EndMembers(pc) +
+                         ", max edge slope " + pc.MaxEdgeSlope.ToString("F2"));
             s_Report.Add("LP-26 field DQ, the planner before the pass (full floor at the stations, no gate) | the refused field plan | end members " +
                          EndMembers(p0) + ", max edge slope " + p0.MaxEdgeSlope.ToString("F2") + "; with the gate alone " + EndMembers(pg) + ", " +
                          pg.MaxEdgeSlope.ToString("F2") + (pg.Clear ? ", clear" : ", not clear (the floor: the approach floor is what clears it)"));

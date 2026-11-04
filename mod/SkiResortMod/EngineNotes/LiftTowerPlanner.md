@@ -2,11 +2,14 @@
 
 `LiftTowerPlanner` is the pure tower planner for a lift line: no ECS, no Game types, LiftBatch tests it headless (`LiftPlannerTests`). It
 runs once per edit (or once per printed diag block), so it is plain C#, not Burst; arrays are reused per planner instance. Deterministic:
-no randomness, no hash order, ties broken by the sample index. Citations are the decompile baseline 1.6.0f1.
+no randomness, no hash order, ties broken by the sample index, and the same plan whichever end the caller passes as A (Direction,
+below). Citations are the decompile baseline 1.6.0f1.
 
 ## Input
 - A terrain sampler (along-line meters from station A, lateral meters; + = right of A to B), sampled every StepM along the line at the
-  center and at +-HalfWidthM (the engine's own side samples, CourseSplitSystem.cs:3566-3573, half the net width).
+  center and at +-HalfWidthM (the engine's own side samples, CourseSplitSystem.cs:3566-3573, half the net width). Optionally a second
+  sampler from B (`terrainFromB`: meters from B, + = right of B to A) for the plans that work from B; without it the planner mirrors
+  the first (`terrain(L - s, -l)`, equal within float rounding).
 - The line length (xz) and the two station anchors' rope heights (world y of the haul rope at the stub).
 - `LiftTowerPlanConstants` for the lift type (ladder members, rope offset, carrier drop, floor, max rope height, spans, width, sag).
 - Optionally seed nodes (the output of an earlier plan), kept as anchors: re-planning a plan is a fixed point.
@@ -70,6 +73,31 @@ Fixed-grip lines put a tower just before a breakover (a convex change of slope) 
 ground becomes a Breakover: it moves one sample past the crest toward the higher ground (uphill of the crest, not onto it) with the shortest
 member that keeps both spans clear and adds no infill tower. `MinTowers` prefers the most towers on the uphill sample of a convex crest
 (`Breaks`), never at the cost of an extra tower.
+
+## Direction: the same plan from either end (planner-direction-2026-11-04)
+The phases work in one direction, and every tie and remainder resolves toward the end they start from: the sample grid starts there
+and its short last step lands at the other end (`MinGap` counts samples, so the fallback can stand a tower StepM + remainder from the
+far end), `SearchMin` keeps the first of equal-cost states, the station rule's one extra tower goes to the first segment, and the local
+passes (crest marks, phase (c), (d), `Fit`'s spare midpoints) prefer the lower index. Before 2026-11-04 that end was the player's first
+click, so the same line planned differently from each end (91 of 192 synthetic lines; the FG station pair at x -1200 in the B1 bridge
+run: 6 towers with a pair from the base, 7 without from the top). Report: docs/research/planner-direction-2026-11-04.md.
+- **Rule.** `Plan` works from the end with the lower rope (`PlansFromB`, an exact float compare); equal ropes fall back to the ends'
+  world xz (`EndKeyA` / `EndKeyB`: the smaller x, then z; the tool sets them), and with no keys to A. Working from B it mirrors the
+  seeds and `Forbidden`, swaps every per-end input (`StationA/B`, `EndNodeYA/B`, `EndOuterDistA/B`, `EndOuterRopeA/B`), plans
+  (`PlanCore`, the old body, untouched) and mirrors the plan back (`Mirrored`: nodes, spans, the profile, the per-end outputs);
+  the inputs are restored in a `finally`. A deflection reads the same from either side, so the angles are copied. The angle notes
+  are written in the caller's frame (`NoteAt` / `NoteNode`; a PAIR note names its towers in the caller's order).
+- **Exactness.** The tool's plan is bit-identical both ways: `LiftLineEdit` snaps pins to the working end's grid and passes a sampler
+  from B (`PointFromB`, the same world points as the reversed edit's `PointAt`). Without a B sampler (the fit, the diag, direct
+  callers) the planner mirrors the ground itself and the plans agree within the snap step with the same members and pairs
+  (LiftBatch DR-1).
+- **Scope.** `Fit`'s free plan goes through `Plan`, so it is canonical too; `PlanFixed` (the line's own nodes) and the kept path work
+  from A as before. `AsGiven` (internal, tests only) replays the old behavior (LP-26's pre-pass field plan, the DR sweeps' binding
+  checks).
+- **Quality and cost.** The rule picks one of the two old plans, it adds no planning pass: on 825 synthetic lines planned both ways
+  by the old planner, 714 differ, 702 of them with the same clearance, flags and tower count; 4 are better from the lower rope, 8
+  from the higher (FG / DQ only). A line whose plan from the lower rope leaves a crest flagged OverCap can lose a pair the other
+  end found (LiftBatch DR-4: FG crest 402.3 m).
 
 ## Station ends, the station-side rule and the edge slope (2026-10-26 lift pass)
 Report: docs/research/lifts/lift-pass-2026-10-26.md. Tests: LiftBatch LP-26..LP-30 (LP-30: the review fixes,

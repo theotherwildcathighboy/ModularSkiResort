@@ -1162,8 +1162,11 @@ namespace SkiResortMod.Systems
             }
             LiftLineEdit edit = m_Edit;
             LiftTerrainSampler sampler = (s, l) => TerrainUtils.SampleHeight(ref hd, edit.PointAt(s, l));
+            // The planner works from the end with the lower rope (LiftLineEdit.FromB); from B it reads this sampler, the exact ground
+            // points a line drawn from that end first reads, so the plan does not depend on which end was clicked first.
+            LiftTerrainSampler fromB = (s, l) => TerrainUtils.SampleHeight(ref hd, edit.PointFromB(s, l));
             var sw = System.Diagnostics.Stopwatch.StartNew();
-            LiftTowerPlan plan = edit.Replan(sampler);
+            LiftTowerPlan plan = edit.Replan(sampler, fromB);
             sw.Stop();
             m_Draw = LiftPlanDraw.Build(plan, s => edit.PointAt(s), _ => edit.Right);
             MarkSteepSpans(plan, edit);

@@ -1,6 +1,7 @@
 // Pure tower planner for a lift line. No ECS, no Game types: LiftBatch tests it headless (LiftPlannerTests). It runs once per edit
 // (or once per printed diag block), so it is plain C#, not Burst; arrays are reused per planner instance. Deterministic: no
-// randomness, no hash order, ties broken by the sample index.
+// randomness, no hash order, ties broken by the sample index. Plan works from the end with the lower rope (PlansFromB) and mirrors
+// the result back, so a line gives the same plan whichever end the caller passes as A (planner-direction-2026-11-04).
 // Input: a terrain sampler (along-line meters from station A, lateral meters), the line length, the two stations' rope heights,
 // LiftTowerPlanConstants for the lift type and optional seed nodes (kept as anchors, so re-planning a plan is a fixed point).
 // Phases: (a) anchors by exact shortest-path search, (b) even infill, (c) member elevation, (d) rope angles (breakover / hold-down
@@ -756,6 +757,33 @@ namespace SkiResortMod.Systems
         /// them before each Plan; the fit never does (its path ends are stations or open line ends).</summary>
         public float EndOuterDistA = float.NaN, EndOuterRopeA = float.NaN, EndOuterDistB = float.NaN, EndOuterRopeB = float.NaN;
 
+        /// <summary>World keys of the two ends (the lift tool: their xz), used only to order two ends whose ropes are exactly equal
+        /// (PlansFromB). NaN = none: such a line is planned from A.</summary>
+        public float2 EndKeyA = new float2(float.NaN), EndKeyB = new float2(float.NaN);
+
+        /// <summary>Plan works from end B: the end it works from has the lower rope (the base); equal ropes: the smaller world key
+        /// (x, then z), when both ends have one. The planner's search runs from the end it works from and every tie and grid remainder
+        /// resolves toward it (its sample grid starts there, the search keeps the first of equal arrangements, the station rule's
+        /// extra tower goes to the first station segment), so it always works from the same end of a line and mirrors the plan back:
+        /// the same line gives the same plan, mirrored, whichever end is A (planner-direction-2026-11-04). Exact comparisons: the
+        /// same two floats swap with the ends, so the answer flips exactly.</summary>
+        public static bool PlansFromB(float ropeA, float ropeB, float2 keyA, float2 keyB)
+        {
+            if (ropeA != ropeB)
+                return ropeB < ropeA;
+            if (!math.all(math.isfinite(keyA)) || !math.all(math.isfinite(keyB)))
+                return false;
+            return keyA.x != keyB.x ? keyB.x < keyA.x : keyB.y < keyA.y;
+        }
+
+        /// <summary>True while Plan works from end B: the working arrays are in B's frame (along from B), and the angle notes name the
+        /// caller's positions (NoteAt / NoteNode).</summary>
+        private bool m_FromB;
+
+        /// <summary>Test hook (LiftBatch DirectionTests): Plan works from A as given, the behavior before 2026-11-04, so the direction
+        /// sweep shows that it binds (the plans differ by direction without the rule).</summary>
+        internal bool AsGiven { get; set; }
+
         // The working node list: sample index, member (-1 station), flags. Kept sorted by sample.
         private readonly List<int> m_K = new List<int>();
         private readonly List<int> m_M = new List<int>();
@@ -763,12 +791,116 @@ namespace SkiResortMod.Systems
 
         /// <summary>Plan a line of <paramref name="lengthM"/> meters (xz) between two stations whose rope heights are given.
         /// <paramref name="seeds"/> (optional) are kept as anchors with their members, e.g. a previous plan's nodes. A seed with a
-        /// member below 0 (a tool pin: the player sets where it stands, the planner how tall) gets its member from ChooseSeedMembers.</summary>
+        /// member below 0 (a tool pin: the player sets where it stands, the planner how tall) gets its member from ChooseSeedMembers.
+        /// When PlansFromB, the plan is made from end B and mirrored back (the result is always along from A): every per-end input
+        /// goes with its end (ropes, StationA / B, EndNodeY, EndOuter, the seeds and Forbidden mirrored, the ground sampled from B).
+        /// <paramref name="terrainFromB"/> (optional) is the same ground sampled from B (along from B, lateral to the right of B to A):
+        /// the planner then reads exactly the ground points a line drawn from B first reads (the lift tool passes it); null = the
+        /// planner mirrors <paramref name="terrain"/>, the same points to float rounding.</summary>
         public LiftTowerPlan Plan(LiftTerrainSampler terrain, float lengthM, float ropeA, float ropeB, LiftTowerPlanConstants c,
-                                  IList<LiftPlanNode> seeds = null)
+                                  IList<LiftPlanNode> seeds = null, LiftTerrainSampler terrainFromB = null)
         {
             if (terrain == null || c == null || c.Ladder == null || c.Ladder.Length == 0)
                 throw new ArgumentException("LiftTowerPlanner.Plan: terrain, constants and a ladder are required");
+            if (AsGiven || !PlansFromB(ropeA, ropeB, EndKeyA, EndKeyB))
+                return PlanCore(terrain, lengthM, ropeA, ropeB, c, seeds);
+            float len = math.max(lengthM, 0.1f);
+            IList<float> forbidden = Forbidden;
+            List<LiftPlanNode> mirrored = null;
+            if (seeds != null)
+            {
+                mirrored = new List<LiftPlanNode>(seeds.Count);
+                for (int i = seeds.Count - 1; i >= 0; i--)   // reversed: B's frame keeps the caller's order along the line
+                {
+                    LiftPlanNode s = seeds[i];
+                    s.AlongM = len - s.AlongM;
+                    mirrored.Add(s);
+                }
+            }
+            if (forbidden != null)
+            {
+                var f = new float[forbidden.Count];
+                for (int i = 0; i < f.Length; i++)
+                    f[i] = len - forbidden[i];
+                Forbidden = f;
+            }
+            SwapEnds();
+            m_FromB = true;
+            try
+            {
+                LiftTerrainSampler fromB = terrainFromB ?? ((s, l) => terrain(len - s, -l));
+                return Mirrored(PlanCore(fromB, lengthM, ropeB, ropeA, c, mirrored));
+            }
+            finally
+            {
+                m_FromB = false;
+                SwapEnds();
+                Forbidden = forbidden;
+            }
+        }
+
+        /// <summary>Swaps the per-end inputs (Plan working from B).</summary>
+        private void SwapEnds()
+        {
+            (StationA, StationB) = (StationB, StationA);
+            (EndNodeYA, EndNodeYB) = (EndNodeYB, EndNodeYA);
+            (EndOuterDistA, EndOuterDistB) = (EndOuterDistB, EndOuterDistA);
+            (EndOuterRopeA, EndOuterRopeB) = (EndOuterRopeB, EndOuterRopeA);
+        }
+
+        /// <summary>A plan made from B, as seen from A: nodes, spans and the profile reversed, along = length - along (the "at" offsets
+        /// inside a span likewise), the per-end fields swapped back. Every other number is the same (a deflection reads the same either
+        /// way along the line, LiftAlignMath.DeflectionDeg).</summary>
+        private static LiftTowerPlan Mirrored(LiftTowerPlan p)
+        {
+            float len = p.LengthM;
+            int n = p.Nodes.Length;
+            var nodes = new LiftPlanNode[n];
+            for (int i = 0; i < n; i++)
+            {
+                nodes[i] = p.Nodes[n - 1 - i];
+                nodes[i].AlongM = len - nodes[i].AlongM;
+            }
+            int sc = p.Spans.Length;
+            var spans = new LiftPlanSpan[sc];
+            for (int i = 0; i < sc; i++)
+            {
+                LiftPlanSpan s = p.Spans[sc - 1 - i];
+                s.MinFloorMarginAtM = s.LengthM - s.MinFloorMarginAtM;
+                s.MaxRopeAboveAtM = s.LengthM - s.MaxRopeAboveAtM;
+                spans[i] = s;
+            }
+            int q = p.SampleAlongM.Length;
+            var along = new float[q];
+            var center = new float[q];
+            var high = new float[q];
+            var floor = new float[q];
+            for (int i = 0; i < q; i++)
+            {
+                along[i] = len - p.SampleAlongM[q - 1 - i];
+                center[i] = p.SampleCentreM[q - 1 - i];
+                high[i] = p.SampleHighM[q - 1 - i];
+                floor[i] = p.SampleFloorM[q - 1 - i];
+            }
+            return new LiftTowerPlan
+            {
+                Constants = p.Constants, LengthM = len, Nodes = nodes, Spans = spans,
+                SampleAlongM = along, SampleCentreM = center, SampleHighM = high, SampleFloorM = floor,
+                StationA = p.StationB, StationB = p.StationA, EndCarrierA = p.EndCarrierB, EndCarrierB = p.EndCarrierA,
+                AnglesMs = p.AnglesMs, AngleWork = p.AngleWork, AngleNotes = p.AngleNotes,
+            };
+        }
+
+        /// <summary>An angle note's position: meters along from the caller's A.</summary>
+        private string NoteAt(float s) => LiftTowerPlan.F(m_FromB ? m_Length - s : s, "F0");
+
+        /// <summary>An angle note's node number (1-based, from the caller's A) of working node <paramref name="n"/>.</summary>
+        private int NoteNode(int n) => m_FromB ? m_K.Count - n : n + 1;
+
+        /// <summary>Plan in the working frame (along from its A): phases (a+b), (c), (d), then the output.</summary>
+        private LiftTowerPlan PlanCore(LiftTerrainSampler terrain, float lengthM, float ropeA, float ropeB, LiftTowerPlanConstants c,
+                                       IList<LiftPlanNode> seeds)
+        {
             m_C = c;
             m_Length = math.max(lengthM, 0.1f);
             m_RopeA = ropeA;
@@ -2619,7 +2751,7 @@ namespace SkiResortMod.Systems
                 }
             }
 
-            string at = (isEnd ? "end " : "p") + (n + 1) + " at " + LiftTowerPlan.F(s0, "F0") + " m (" +
+            string at = (isEnd ? "end " : "p") + NoteNode(n) + " at " + NoteAt(s0) + " m (" +
                         (m0 >= 0 ? Short(m_C.Ladder[m0].Name) : "line end") + (fixedNode && !isEnd ? ", pinned / seed" : string.Empty) + "): d " +
                         LiftTowerPlan.Sg(d0) + ", " + LiftTowerPlan.F(over0, "F1") + " past its cap";
             LiftPlanNodeFlags pairFlags = (m_F[n] & ~LiftPlanNodeFlags.Seed & ~LiftPlanNodeFlags.Station) | LiftPlanNodeFlags.Pair;
@@ -2639,30 +2771,36 @@ namespace SkiResortMod.Systems
                             continue;
                         m_F[n] |= LiftPlanNodeFlags.Pair;
                         m_F[q] |= LiftPlanNodeFlags.Pair;
-                        with = ", the partner of the " + (IsFixed(q) ? "fixed " : string.Empty) + "tower at " + LiftTowerPlan.F(NodeS(q), "F0") + " m";
+                        with = ", the partner of the " + (IsFixed(q) ? "fixed " : string.Empty) + "tower at " + NoteAt(NodeS(q)) + " m";
                     }
-                    m_AngleNotes.Add(at + " -> " + (best.K1 == k0 ? "member " : "shifted to " + LiftTowerPlan.F(m_S[best.K1], "F0") + " m, ") +
+                    m_AngleNotes.Add(at + " -> " + (best.K1 == k0 ? "member " : "shifted to " + NoteAt(m_S[best.K1]) + " m, ") +
                                      Short(m_C.Ladder[best.M1].Name) + ", d " + LiftTowerPlan.Sg(best.D1) + with);
                     break;
                 }
                 case 2:
+                {
                     m_K[n] = best.K1;
                     m_M[n] = best.M1;
                     m_F[n] = pairFlags;
                     Insert(best.K2, best.M2, pairFlags);
                     done.Add(best.K1);
                     done.Add(best.K2);
-                    m_AngleNotes.Add(at + " -> PAIR " + LiftTowerPlan.F(m_S[best.K1], "F0") + " / " + LiftTowerPlan.F(m_S[best.K2], "F0") + " m (" +
-                                     LiftTowerPlan.F(best.GapM, "F0") + " m apart) " + Short(m_C.Ladder[best.M1].Name) + " + " +
-                                     Short(m_C.Ladder[best.M2].Name) + ", d " + LiftTowerPlan.Sg(best.D1) + " / " + LiftTowerPlan.Sg(best.D2));
+                    // the pair in the caller's order along the line (working from B, K2 comes first)
+                    bool flip = m_FromB;
+                    int ka = flip ? best.K2 : best.K1, kb = flip ? best.K1 : best.K2, ma = flip ? best.M2 : best.M1, mb = flip ? best.M1 : best.M2;
+                    float da = flip ? best.D2 : best.D1, db = flip ? best.D1 : best.D2;
+                    m_AngleNotes.Add(at + " -> PAIR " + NoteAt(m_S[ka]) + " / " + NoteAt(m_S[kb]) + " m (" +
+                                     LiftTowerPlan.F(best.GapM, "F0") + " m apart) " + Short(m_C.Ladder[ma].Name) + " + " +
+                                     Short(m_C.Ladder[mb].Name) + ", d " + LiftTowerPlan.Sg(da) + " / " + LiftTowerPlan.Sg(db));
                     break;
+                }
                 case 3:
                     if (best.M1 >= 0)
                         m_M[n] = best.M1;
                     m_F[n] |= LiftPlanNodeFlags.Pair;
                     Insert(best.K2, best.M2, LiftPlanNodeFlags.Infill | LiftPlanNodeFlags.Pair);
                     done.Add(best.K2);
-                    m_AngleNotes.Add(at + " -> PARTNER at " + LiftTowerPlan.F(m_S[best.K2], "F0") + " m (" + LiftTowerPlan.F(best.GapM, "F0") +
+                    m_AngleNotes.Add(at + " -> PARTNER at " + NoteAt(m_S[best.K2]) + " m (" + LiftTowerPlan.F(best.GapM, "F0") +
                                      " m away) " + Short(m_C.Ladder[best.M2].Name) + (best.M1 >= 0 ? ", the fixed tower " + Short(m_C.Ladder[best.M1].Name) : string.Empty) +
                                      ", d " + LiftTowerPlan.Sg(best.D1) + " / " + LiftTowerPlan.Sg(best.D2));
                     break;
@@ -2676,7 +2814,7 @@ namespace SkiResortMod.Systems
                     m_F[n] |= LiftPlanNodeFlags.Pair;
                     m_F[best.K1] = (m_F[best.K1] & ~LiftPlanNodeFlags.Seed) | LiftPlanNodeFlags.Pair;
                     done.Add(best.K2);
-                    m_AngleNotes.Add(at + " -> PULLED the tower at " + LiftTowerPlan.F(from, "F0") + " m to " + LiftTowerPlan.F(m_S[best.K2], "F0") +
+                    m_AngleNotes.Add(at + " -> PULLED the tower at " + NoteAt(from) + " m to " + NoteAt(m_S[best.K2]) +
                                      " m as its partner (" + LiftTowerPlan.F(best.GapM, "F0") + " m away) " + Short(m_C.Ladder[best.M2].Name) +
                                      (best.M1 >= 0 ? ", the fixed tower " + Short(m_C.Ladder[best.M1].Name) : string.Empty) +
                                      ", d " + LiftTowerPlan.Sg(best.D1) + " / " + LiftTowerPlan.Sg(best.D2));

@@ -9,8 +9,11 @@ rules (right-click stepping, Build, Esc).
   ("along" = meters from A in xz). Station ropes RopeA / RopeB are given (`LiftLineToolSystem`: the station's bullwheel height, else stub
   node y + the shortest member's rope).
 - Pins are positions the user fixed (click on the line = add, drag a tower = move, which pins a free tower). Pins are snapped to the
-  planner's sample grid (StepM: 5 m, tram 10 m), so a pin is a planner sample and `LiftTowerPlanner.Plan` keeps it exactly as a seed
-  (Plan: k = round(along / StepM)). A pin closer than MinSpanM to another pin is refused, and one closer than PinEndMarginM to an end:
+  planner's sample grid (StepM: 5 m, tram 10 m) counted from the end the planner works from (`FromB` = `LiftTowerPlanner.PlansFromB`:
+  the end with the lower rope, LiftTowerPlanner.md "Direction"), so a pin is a planner sample and `LiftTowerPlanner.Plan` keeps it
+  exactly as a seed, and the same world spot snaps the same whichever end the player clicked first (LiftBatch DR-3). `Replan` passes
+  the ends' world xz (`EndKeyA` / `EndKeyB`) and the tool a sampler from B (`PointFromB`, bit-exact with the reversed edit's
+  `PointAt`). A pin closer than MinSpanM to another pin is refused, and one closer than PinEndMarginM to an end:
   a loose or ground end (a tower) MinSpanM, a station end MinSpanM too except the tram, one step (10 m; the 11.4 m tower then stands 4 m
   clear of the stub tip). Field test 2 refused a tram pin 19 m from the top station five times under the old 40 m at both ends. The
   refusal names the margin (LastEndMarginM).

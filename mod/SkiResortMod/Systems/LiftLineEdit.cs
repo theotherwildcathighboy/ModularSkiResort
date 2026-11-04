@@ -1,6 +1,7 @@
 // Pure edit model of the lift-line tool. No ECS, no Game types: LiftBatch tests it headless. LiftLineToolSystem owns one
 // instance per line being drawn and turns its Emit() list into CreationDefinition + NetCourse entities.
-// Pins are snapped to the planner's sample grid (StepM) so LiftTowerPlanner.Plan keeps them as seeds; every edit re-plans.
+// Pins are snapped to the planner's sample grid (StepM, from the end it works from: FromB) so LiftTowerPlanner.Plan keeps them as
+// seeds; every edit re-plans.
 // Emit: stations first and last, each tower at (x, ground + E(member), z) with E = TopM[member] - TopM[0] (LiftTowerEdit.ElevationM),
 // so the line is born fitted. LiftToolLines registers the emitted inner nodes (in-session only, not saved) so LiftTowerFitSystem
 // recognizes a tool line (Match / MatchSplit) and fits heights only, never Moved.
@@ -68,7 +69,13 @@ namespace SkiResortMod.Systems
             LengthM = math.distance(a.xz, b.xz);
             m_Dir = LengthM > 1e-3f ? (b.xz - a.xz) / LengthM : new float2(0f, 1f);
             m_Right = new float2(m_Dir.y, -m_Dir.x);
+            FromB = LiftTowerPlanner.PlansFromB(ropeA, ropeB, a.xz, b.xz);
         }
+
+        /// <summary>The planner works from end B (LiftTowerPlanner.PlansFromB: the end with the lower rope; equal ropes, the smaller
+        /// world xz): its sample grid starts there, so pins snap to that grid (Snap) and Replan hands it the ground sampled from B
+        /// (PointFromB). The same two ends give the same answer in either order, so the plan does not depend on the click order.</summary>
+        public readonly bool FromB;
 
         public IReadOnlyList<float> Pins => m_Pins;
         public IReadOnlyList<float> Removed => m_Removed;
@@ -99,6 +106,15 @@ namespace SkiResortMod.Systems
             return new float3(p.x, 0f, p.y);
         }
 
+        /// <summary>World xz point at <paramref name="alongM"/> from B toward A plus <paramref name="lateralM"/> to the right of B -> A:
+        /// the point a line drawn from B first gets for the same numbers (bit for bit: its direction is exactly -A -> B), so a planner
+        /// working from B (FromB) samples the same ground in either click order.</summary>
+        public float3 PointFromB(float alongM, float lateralM = 0f)
+        {
+            float2 p = B.xz + (-m_Dir) * alongM + (-m_Right) * lateralM;
+            return new float3(p.x, 0f, p.y);
+        }
+
         public float3 Right => new float3(m_Right.x, 0f, m_Right.y);
 
         /// <summary>Along (clamped to the line) and lateral offset of a world point.</summary>
@@ -123,8 +139,10 @@ namespace SkiResortMod.Systems
             return onPiece >= 0f && onPiece <= 1f && along > endMarginM && along < LengthM - endMarginM;
         }
 
-        /// <summary>The planner sample grid (pins are samples, so Plan keeps them exactly).</summary>
-        public float Snap(float alongM) => math.round(alongM / C.StepM) * C.StepM;
+        /// <summary>The planner sample grid (pins are samples, so Plan keeps them exactly): every StepM from the end the planner works
+        /// from (FromB: from B, so meters along from A are LengthM - k x StepM).</summary>
+        public float Snap(float alongM) =>
+            FromB ? LengthM - math.round((LengthM - alongM) / C.StepM) * C.StepM : math.round(alongM / C.StepM) * C.StepM;
 
 
         /// <summary>A loose end joining a built line: the built neighbor's rope point beyond end A / B (xz distance from the end node,
@@ -133,9 +151,14 @@ namespace SkiResortMod.Systems
         public float OuterDistA = float.NaN, OuterRopeA = float.NaN, OuterDistB = float.NaN, OuterRopeB = float.NaN;
 
         /// <summary>Re-plan with the pins as seeds (the fewest-towers objective fills between them), then the breakover / hold-down
-        /// pairs (LiftTowerPlanner.Pairs: tool plans only; partners are Free nodes, pins never move).</summary>
-        public LiftTowerPlan Replan(LiftTerrainSampler terrain)
+        /// pairs (LiftTowerPlanner.Pairs: tool plans only; partners are Free nodes, pins never move). <paramref name="terrain"/> is
+        /// sampled from A (PointAt), <paramref name="terrainFromB"/> (optional) the same ground from B (PointFromB): the planner reads
+        /// it when it works from B (FromB), so both click orders read the same ground points; null = the planner mirrors
+        /// <paramref name="terrain"/>.</summary>
+        public LiftTowerPlan Replan(LiftTerrainSampler terrain, LiftTerrainSampler terrainFromB = null)
         {
+            m_Planner.EndKeyA = A.xz;
+            m_Planner.EndKeyB = B.xz;
             m_Planner.Pairs = true;
             m_Planner.EndOuterDistA = OuterDistA;
             m_Planner.EndOuterRopeA = OuterRopeA;
@@ -152,7 +175,7 @@ namespace SkiResortMod.Systems
             m_Planner.CheckEdgeSlope = true;
             m_Planner.EndNodeYA = A.y;
             m_Planner.EndNodeYB = B.y;
-            Plan = m_Planner.Plan(terrain, LengthM, RopeA, RopeB, C, seeds);
+            Plan = m_Planner.Plan(terrain, LengthM, RopeA, RopeB, C, seeds, terrainFromB);
             Revision++;
             return Plan;
         }
