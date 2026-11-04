@@ -1,0 +1,23 @@
+{
+  "sharedAssets": {
+    "SkiLiftTowerGD16ComboA_BaseColor.png": "../SkiLiftTowerGD16Q/SkiLiftTowerGD16Q_BaseColor.png",
+    "SkiLiftTowerGD16ComboA_ControlMask.png": "../SkiLiftTowerGD16Q/SkiLiftTowerGD16Q_ControlMask.png",
+    "SkiLiftTowerGD16ComboA_MaskMap.png": "../SkiLiftTowerGD16Q/SkiLiftTowerGD16Q_MaskMap.png",
+    "SkiLiftTowerGD16ComboA_Normal.png": "../SkiLiftTowerGD16Q/SkiLiftTowerGD16Q_Normal.png",
+    "SkiLiftTowerGD16ComboA_LOD1_BaseColor.png": "../SkiLiftTowerGD16Q/SkiLiftTowerGD16Q_BaseColor.png",
+    "SkiLiftTowerGD16ComboA_LOD1_ControlMask.png": "../SkiLiftTowerGD16Q/SkiLiftTowerGD16Q_ControlMask.png",
+    "SkiLiftTowerGD16ComboA_LOD1_MaskMap.png": "../SkiLiftTowerGD16Q/SkiLiftTowerGD16Q_MaskMap.png",
+    "SkiLiftTowerGD16ComboA_LOD1_Normal.png": "../SkiLiftTowerGD16Q/SkiLiftTowerGD16Q_Normal.png",
+    "SkiLiftTowerGD16ComboA_LOD2_BaseColor.png": "../SkiLiftTowerGD16Q/SkiLiftTowerGD16Q_BaseColor.png",
+    "SkiLiftTowerGD16ComboA_LOD2_ControlMask.png": "../SkiLiftTowerGD16Q/SkiLiftTowerGD16Q_ControlMask.png",
+    "SkiLiftTowerGD16ComboA_LOD2_MaskMap.png": "../SkiLiftTowerGD16Q/SkiLiftTowerGD16Q_MaskMap.png",
+    "SkiLiftTowerGD16ComboA_LOD2_Normal.png": "../SkiLiftTowerGD16Q/SkiLiftTowerGD16Q_Normal.png"
+  },
+  "LOD1": {
+    "mode": "Skip"
+  },
+  "LOD2": {
+    "mode": "Skip"
+  },
+  "useProceduralAnimation": true
+}

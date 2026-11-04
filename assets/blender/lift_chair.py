@@ -4175,7 +4175,15 @@ def split_proxy_parts(style, row, joint, body_top, hanger_offset=HANGER_OFFSET):
         pts[0] = (px, py, pz)
         old_stem, old_grip = by["tube_stem"][0], by["grip"][0]
         _remove_objects([old_stem, old_grip])
-        stem = K.tube_along("tube_stem", pts, PROXY_R["stem"], segments=3, caps="none", bend_rings=2)
+        # ENVELOPE: the V fillet's top ring stays below the wheels' reach. The default fillet (half the
+        # pin -> V run, 0.295 m) put that ring at rope - 0.41, so the two faces down to the V -> U chord
+        # had their upper vertices inside the reach and their lower ones inboard of x -xlim (C15's
+        # exact clip passed; the conservative vertex form did not). Capped at V's depth below the
+        # reach line minus the proxy radius (0.70 - 0.47 - 0.056 = 0.174 m), the ring sits at
+        # rope - 0.53 and only the outboard straight run is within the reach; the same 6 rings, 30 tris.
+        fil = (-TR_SPLIT_STEM["v_z"] - ENVELOPE_GATE["tr"]["z_bot"] - PROXY_R["stem"]) if ENVELOPE else None
+        stem = K.tube_along("tube_stem", pts, PROXY_R["stem"], segments=3, caps="none", bend_rings=2,
+                            fillet=fil)
         # the proxy grip box as long as the round-4 plate, as wide as the clamp box (LOD bounds stay
         # with LOD0's), as deep as _proxy_parts'
         jx = [x for x, _z in TR_SPLIT_GRIP["plate"]]

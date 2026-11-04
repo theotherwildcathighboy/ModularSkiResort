@@ -1731,6 +1731,40 @@ def z_rail(p):
     return p.z_wheel + RIM_W / 2.0 + 0.10
 
 
+# Detach rail on the O grip's running wheels (B2 v2 import prep, 2026-11-03; DQ only, letter C). lift_chair
+# --envelope (generation O) moved the dq carriage ENVELOPE_DQ["dy"] = 0.25 m OUTBOARD (away from the turn
+# center): its running wheels (r 0.080, 0.050 wide, centers at the jaw's mid-height) went from 0.102..0.152
+# inboard of the rope to 0.098..0.148 outboard, while the rail stayed on the old line (lane - 0.20, rope +
+# 0.235..0.415). The rail now runs on the wheel plane, its underside ON the wheel tops (rope + jaw_dz 0.006 +
+# half the 0.045 jaw + r 0.080 = rope + 0.1085), as wide as the wheels plus 5 mm a side; the U-turn tube
+# (4-gon, circumradius = the rail's half width) keeps the same underside and lane offset round the wheel.
+# Measured against the O grip mesh: the lever roller (0.175..0.205 out, rope + 0.093..0.157) keeps >= 0.022 from the
+# rail's outboard face, the carriage (0.225 out) 0.072, the jaw bar's top (rope + 0.051) passes 0.058 under the rail;
+# the closest grip part over every station pose is 0.027 (tests/test_carrier_station_sweep.py CS2, on the U). A rail UNDER the wheels (the real form) has no hanger route: the jaw, the rope and the bullwheel
+# rim are inboard, the C-hanger outboard. The carriage's tire conveyor moves over its friction plate (the
+# carriage center, lane + 0.30), its height unchanged (bottom rope + 0.275, 0.055 over the carriage top).
+DQ_RAIL = {"y": 0.123,          # lateral offset of the rail center line from the lane, outboard (away from the wheel)
+           "half": 0.030,       # half width (the 0.050 wheel + 0.005 a side)
+           "z0": 0.1085,        # underside above the rope = the running wheels' tops
+           "h": 0.18,           # box height (the old rail's)
+           "tyre_y": 0.30}      # tire conveyor center line, outboard of the lane (the carriage's center)
+DQ_RAIL_LEGACY = False          # True = the letter-B DQ rail, hangers and tires byte for byte (A/B, tests)
+
+
+def detach_rail(p):
+    """The detach rail's layout (station frame): rr = the rail center radius from the wheel axis (= its |y| on the
+    straights), half = half width, z0 / z1 = underside / top, zu / ru = the U-turn tube's center z / circumradius,
+    yt = the tire row's |y|, zt = the tires' center z. The gondola (and DQ_RAIL_LEGACY) keeps the pre-O layout."""
+    zt = z_rail(p) + 0.15
+    if p.gondola or DQ_RAIL_LEGACY:
+        zr = z_rail(p)
+        return dict(rr=p.lane_y - 0.20, half=0.05, z0=zr - 0.09, z1=zr + 0.09, zu=zr, ru=0.05,
+                    yt=p.lane_y + 0.25, zt=zt)
+    z0 = p.z_rope + DQ_RAIL["z0"]
+    return dict(rr=p.lane_y + DQ_RAIL["y"], half=DQ_RAIL["half"], z0=z0, z1=z0 + DQ_RAIL["h"],
+                zu=z0 + DQ_RAIL["half"], ru=DQ_RAIL["half"], yt=p.lane_y + DQ_RAIL["tyre_y"], zt=zt)
+
+
 def build_machine(p):
     X, Zw, R, Zr = p.x_wheel, p.z_wheel, p.lane_y, p.z_rope
     out = []
@@ -1757,13 +1791,14 @@ def build_machine(p):
         out.append((_cyl_pts(f"haulrope_{tag}", (p.anchor_x, s * R, anchor_z(p)), (X, s * R, Zr), ROPE_R,
                              6), "rope"))
     # detach rails: straights + a U-turn tube (MUST-CHANGE 13: kit tube_along, bend_rings 2)
-    zr, rr = z_rail(p), R - 0.20
+    L = detach_rail(p)
+    rr, hw = L["rr"], L["half"]
     for s, tag in ((-1.0, "n"), (1.0, "p")):
-        out.append((_box(f"detrail_{tag}", p.x_nose + 0.5, X, s * rr - 0.05, s * rr + 0.05,
-                         zr - 0.09, zr + 0.09), "galv"))
-    upts = [(X + rr * math.cos(math.radians(a)), rr * math.sin(math.radians(a)), zr)
+        out.append((_box(f"detrail_{tag}", p.x_nose + 0.5, X, s * rr - hw, s * rr + hw,
+                         L["z0"], L["z1"]), "galv"))
+    upts = [(X + rr * math.cos(math.radians(a)), rr * math.sin(math.radians(a)), L["zu"])
             for a in np.linspace(-90.0, 90.0, 17)]
-    out.append((cs2_kit.tube_along("detrail_u", upts, 0.05, segments=4, caps="none",
+    out.append((cs2_kit.tube_along("detrail_u", upts, L["ru"], segments=4, caps="none",
                                    bend_rings=2), "galv"))
     hx = [p.x_nose + 1.5, p.x_nose + 0.40 * (X - p.x_nose), p.x_nose + 0.70 * (X - p.x_nose),
           X - 0.30]
@@ -1771,17 +1806,17 @@ def build_machine(p):
     for s in (-1.0, 1.0):
         for x in hx:
             out.append((_box(f"railhang_{k}", x - 0.03, x + 0.03, s * rr - 0.03, s * rr + 0.03,
-                             zr + 0.09, p.z_ceil, drop=("+Z", "-Z")), "galv"))
+                             L["z1"], p.z_ceil, drop=("+Z", "-Z")), "galv"))
             k += 1
     for a in (-60.0, -20.0, 20.0, 60.0):
         cx, cy = X + rr * math.cos(math.radians(a)), rr * math.sin(math.radians(a))
         out.append((_box(f"railhang_{k}", cx - 0.03, cx + 0.03, cy - 0.03, cy + 0.03,
-                         zr + 0.05, p.z_ceil, drop=("+Z", "-Z")), "galv"))
+                         L["zu"] + L["ru"], p.z_ceil, drop=("+Z", "-Z")), "galv"))
         k += 1
     # deceleration tires in the nose zone: 6 per lane, 2 bank housings per lane
-    zt = zr + 0.15
+    zt = L["zt"]
     for s, tag in ((-1.0, "n"), (1.0, "p")):
-        yt = s * (R + 0.25)
+        yt = s * L["yt"]
         for i in range(6):
             out.append((cs2_kit.add_cyl(f"tyre_{tag}{i}", 0.20, 0.12,
                                         (p.x_nose + 0.9 + 0.55 * i, yt, zt),
@@ -4233,7 +4268,7 @@ def seed_parts(parts, p):
     (band ring, soffit U, torus) became rings whose empty bounding boxes took most of the
     square (measured: median 11 px/m, 17 % coverage at 2048)."""
     centres = {"wheelrope": ((p.x_wheel, 0.0, p.z_wheel), p.torus_r, ROPE_R),
-               "detrail_u": ((p.x_wheel, 0.0, z_rail(p)), p.lane_y - 0.20, 0.05)}
+               "detrail_u": ((p.x_wheel, 0.0, detach_rail(p)["zu"]), detach_rail(p)["rr"], detach_rail(p)["ru"])}
     rects = sign_rects(p)
     shared = sign_shared(p)
     labels = label_sheet(p)
@@ -8891,9 +8926,12 @@ def main(argv=None):
     if any(f[0] == "ERROR" for f in rep):
         raise ContractError(f"C10 name lint failed: {list(rep)}")
     if args.export:
-        out_root = os.path.join(REPO, "assets", "import", *p.folder.split("/"))
+        # the letter folder follows --letter (export round 2026-10-19: the hard-coded .../A/ took the B builds,
+        # moved by hand); p.folder keeps the family's first letter
+        folder = p.folder.rsplit("/", 1)[0].split("/") + [args.letter]
+        out_root = os.path.join(REPO, "assets", "import", *folder)
         if args.preview is None and not args.no_preview:
-            args.preview = os.path.join(REPO, "assets", "preview", *p.folder.split("/"))
+            args.preview = os.path.join(REPO, "assets", "preview", *folder)
     elif args.out:
         out_root = os.path.abspath(args.out)
     else:

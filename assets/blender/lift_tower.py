@@ -6659,7 +6659,11 @@ def _rope_objects(spec, name, pose=None):
 def parse_args_twin(argv):
     ap = argparse.ArgumentParser(prog="lift_tower.py --twin (B2 twins)")
     ap.add_argument("--twin", required=True, choices=sorted(TWINS))
-    ap.add_argument("--out", required=True, help="scratch folder; the twin's work folder = <out>/<Name>")
+    ap.add_argument("--out", default=None, help="scratch folder; the twin's work folder = <out>/<Name>")
+    ap.add_argument("--export", action="store_true",
+                    help="import folder: assets/import/towers/<member letter>/<Name>, the member's SIBLING (TWIN_ATLAS): "
+                         "skinned LOD0 / 1 / 2 FBXs, settings.json sharing the member's four maps (no PNG of its own), "
+                         "manifest, validate_asset_folder; --out is then ignored")
     ap.add_argument("--letter", default="A")
     ap.add_argument("--preview", default=None, help="preview folder (raw frames under <preview>/raw)")
     ap.add_argument("--member-frames", action="store_true", help="also render the member's lineup frames")
@@ -6674,6 +6678,74 @@ def parse_args_twin(argv):
     return ap.parse_args(argv)
 
 
+TWIN_MAPS = ("BaseColor", "ControlMask", "MaskMap", "Normal")
+
+
+def twin_settings(asset_dir, name, owner, levels):
+    """settings.json of an exported twin (DECISIONS 592c: no bake of its own, the member's set): every map key of LOD0
+    and of each supplied LOD points STRAIGHT at the member's LOD0 map in its sibling folder (`../<Owner>/<Owner>_<Map>
+    .png`: the family-folder rule, PIPELINE section 4), so no key chains through another key (cs2_asset.write_settings
+    refuses shared_from with supplied LODs: chaining is unverified in the importer); LOD1 / LOD2 Skip (ours ship);
+    useProceduralAnimation (skinned FBX), the members' last key."""
+    shared = {}
+    for lod in range(levels + 1):
+        for m in TWIN_MAPS:
+            shared[f"{name}_{m}.png" if lod == 0 else f"{name}_LOD{lod}_{m}.png"] = f"../{owner}/{owner}_{m}.png"
+    settings = {"sharedAssets": shared}
+    for lod in range(1, levels + 1):
+        settings[f"LOD{lod}"] = {"mode": "Skip"}
+    settings["useProceduralAnimation"] = True
+    path = os.path.join(asset_dir, "settings.json")
+    with open(path, "w", encoding="utf-8") as fh:
+        json.dump(settings, fh, indent=2)
+    return path
+
+
+def twin_export(t, lods, arm, tw, member, name, asset_dir, rep, info, bud, weights):
+    """--twin --export: the twin's import folder beside its member (TWIN_ATLAS): skinned LOD0 / 1 / 2 FBXs (every level
+    weighted, as the members), settings.json on the member's maps (twin_settings), the skin round trip, the manifest
+    (the twin report + skin_manifest_block + the texture note for the surgery), validate_asset_folder (0 errors)."""
+    import cs2_validate
+    spec = tw["twin"]
+    letter, owner = TWIN_ATLAS[member].split("/")
+    odir = os.path.join(os.path.dirname(asset_dir), owner)
+    miss = [m for m in TWIN_MAPS if not os.path.isfile(os.path.join(odir, f"{owner}_{m}.png"))]
+    if miss:
+        raise TowerContractError(f"{name}: the member's maps {miss} are missing in {odir}: the import resolves the twin's "
+                                 f"textures there (export the member first)")
+    cs2_asset.export_fbx_skinned(t, arm, os.path.join(asset_dir, f"{name}.fbx"))
+    for i, lod in enumerate(lods, start=1):
+        cs2_asset.export_fbx_skinned(lod, arm, os.path.join(asset_dir, f"{name}_LOD{i}.fbx"))
+    twin_settings(asset_dir, name, owner, len(lods))
+    rt = skin_roundtrip(asset_dir, name, len(lods), spec)
+    zp = lane_y(spec, True)
+    skin = dict(info["skin"], rope_points_game=[[-spec.gauge / 2.0, zp, 0.0], [spec.gauge / 2.0, zp, 0.0]],
+                half_shift_m=SKIN_HALF_SHIFT[spec.family], weights=weights, roundtrip=rt)
+    man = {k: v for k, v in rep.items() if k not in ("frames", "seconds", "skin", "grip")}
+    man["skin"] = dict(skin_manifest_block(spec, skin), twin=rep["skin"])
+    man["textures"] = {
+        "shared_from": f"../{owner}/{owner}", "maps": list(TWIN_MAPS), "levels": list(range(len(lods) + 1)),
+        "added_mb": 0.0,
+        "surgery": "DECISIONS 592c / 592k: the twin's Surfaces carry the member's texture GUIDs (the member was imported "
+                   "in an earlier action, so this import copies its maps byte for byte; repoint them, drop the copies)"}
+    man["export"] = {"folder": f"assets/import/towers/{letter}/{name}", "member_folder": f"assets/import/towers/{letter}/"
+                     f"{owner}", "lods": list(range(len(lods) + 1))}
+    man = json.loads(json.dumps(man, default=lambda o: o.item() if isinstance(o, (np.floating, np.integer)) else str(o)))
+    cs2_validate.write_manifest(asset_dir, name, man)
+    t.name, t.data.name = name + "Src", name + "Src"
+    findings = cs2_validate.validate_asset_folder(asset_dir, name, {
+        "kind": "tower", "lod0_cap": bud["cap_raised_to"] or spec.cap, "lod1_ratio": 0.5,
+        "lod2_cap": int(round(spec.lod2 * 1.10)), "hero": False, "expected_lods": (1, 2), "top_y": spec.top,
+        "pier": spec.pier})
+    n_err = sum(1 for f in findings if f[0] == "ERROR")
+    n_warn = sum(1 for f in findings if f[0] == "WARN")
+    print(f"[twin] validate_asset_folder {name}: {n_err} errors, {n_warn} warnings")
+    if n_err:
+        raise TowerContractError(f"{name}: validate_asset_folder {n_err} errors: "
+                                 f"{[f for f in findings if f[0] == 'ERROR'][:4]}")
+    return rt
+
+
 def main_twin(argv):
     import time
     t0 = time.perf_counter()
@@ -6686,9 +6758,16 @@ def main_twin(argv):
     member, kind = TWINS[args.twin]
     fam = VARIANTS[member].family
     head = TWIN_HEAD[fam]
-    out = os.path.abspath(args.out)
-    if os.path.normcase(out).startswith(os.path.normcase(os.path.join(_REPO, "assets", "import"))):
-        raise SystemExit("--twin builds never write into the shipping tree (no export this round)")
+    if args.export:
+        out = os.path.join(_REPO, "assets", "import", "towers", TWIN_ATLAS[member].split("/")[0])
+        if args.preview:
+            raise SystemExit("--twin --export writes the import folder only: render previews in a scratch build")
+    elif not args.out:
+        raise SystemExit("give --out <scratch dir> or --export")
+    else:
+        out = os.path.abspath(args.out)
+        if os.path.normcase(out).startswith(os.path.normcase(os.path.join(_REPO, "assets", "import"))):
+            raise SystemExit("--out is in the shipping tree assets/import: pass --export")
     keep_ref = bool(args.member_frames or args.grip)
     atlas, arep, ref = twin_atlas(member, head, keep_ref=keep_ref)
     print(f"[twin] atlas {arep}")
@@ -6711,7 +6790,10 @@ def main_twin(argv):
         raise TowerContractError(f"{name}: a level carries an object transform; the rig assumes none")
     arm = build_skin_armature(spec, f"{name}Rig")
     weights = {}
-    for level, ob in enumerate([t] + list(lods[:1])):          # LOD0 + LOD1 rigged; LOD2 rigid at rest
+    # previews: LOD0 + LOD1 rigged, LOD2 rigid at rest; --export: every level skinned, as the members ship (SetupLODs
+    # copies LOD0's ProceduralAnimationProperties to every LOD, skin_manifest_block "surgery")
+    rigged = [t] + list(lods if args.export else lods[:1])
+    for level, ob in enumerate(rigged):
         weights[str(level)] = skin_assign(ob, table, info["skin_part_bone"])
         cs2_asset.check_skin_weights(ob, arm)
     frames = {}
@@ -6742,7 +6824,7 @@ def main_twin(argv):
            "tris_added_by_class": added or None, "tris_added": sum(added.values()) if added else 0,
            "twin_of_prefab": MEMBER_PREFAB.get(member, f"SkiLiftTower{member}"),
            "twin_of_mesh": os.path.basename(TWIN_ATLAS[member]), "placeholder": PLACEHOLDER[fam],
-           "generator": "lift_tower.py --twin (B2 v2, uncommitted on carrier-grip @ 5f13b28)",
+           "generator": "lift_tower.py --twin (B2 v2)",
            "head": head, "head_raise_m": tw["dz"], "sheaves_per_side": spec.sheaves,
            "wheel_axle": spec.axle, "top_anchor_y": spec.top, "E_m": info["contracts_net"]["E"],
            "top_gap_m": info["contracts_net"]["top_gap"], "top_nearest": info["contracts_net"]["top_nearest"],
@@ -6758,10 +6840,15 @@ def main_twin(argv):
            "twin_transform": info["twin_transform"],
            "skin": {"weights": weights, "g6_poses": len(info["skin"]["poses"]),
                     "min_clear": info["skin"]["min_clear"], "half_break_max_deg": info["skin"]["half_break_max_deg"],
-                    "concave_only": info["skin"]["concave_only"], "lod2": "rigid at rest (all Root)"},
+                    "concave_only": info["skin"]["concave_only"],
+                    "lod2": "skinned (skin_assign)" if args.export else "rigid at rest (all Root)"},
            "contracts": {k: v for k, v in info["contracts_authoring"].items() if k in ("C18", "C20_hits")},
            "grip": grip and {k: v for k, v in grip.items() if k != "frames"},
            "frames": frames, "seconds": round(time.perf_counter() - t0, 1)}
+    if args.export:
+        twin_export(t, lods, arm, tw, member, name, asset_dir, rep, info, bud, weights)
+        print(f"[twin] exported {name}: LOD0/1/2 {bud['tris']} -> {asset_dir} ({time.perf_counter() - t0:.0f} s)")
+        return 0
     with open(os.path.join(asset_dir, f"{name}.twin.json"), "w", encoding="utf-8", newline="\n") as f:
         json.dump(rep, f, indent=1, default=lambda o: o if not isinstance(o, (np.floating, np.integer)) else o.item())
     if args.preview:
@@ -7110,7 +7197,7 @@ def _entry():
         main()
         return
     try:
-        if "--twin" in argv:            # B2 breakover / hold-down twins (previews only, no export)
+        if "--twin" in argv:            # B2 breakover / hold-down twins (previews; --export: the import folder)
             main_twin(argv)
         else:
             main_v2(argv)
