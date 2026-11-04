@@ -1029,7 +1029,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.CARRIERS[Chairs]", "chairs" },
                 { "SkiResort.Hub.CARRIERS[Cabins]", "cabins" },
                 { "SkiResort.Hub.LOW_SPAN[Stations]", "Between the stations" },
-                { "SkiResort.Hub.PROBLEM_TIP[LiftTrainLimit]", "Sheave trains tilt 30° at most and fold 40° at most. Past that the rope leaves the end wheels. The lift still runs." },
+                { "SkiResort.Hub.PROBLEM_TIP[LiftTrainLimit]", "Wheels tilt 30° beyond the tower's lean (detachables, gondolas 40°, tram saddles 60°) and fold 40° (trams 60°). Past that the rope leaves them." },
                 { "SkiResort.Hub.PROBLEM_TIP[LiftBend]", "Real lift lines turn 5° or less at a tower. Past that the rope runs off the outer wheels. The lift still runs and counts." },
                 { "SkiResort.Hub.PROBLEM_TIP[SummitLodgeNotLiftServed]", "In summer a summit lodge counts more only within 300 m of a working lift's top or 100 m of a run it serves." },
                 { "SkiResort.Hub.PROBLEM_TIP[SchoolNoGreenRun]", "The ski school adds to the score only while a green run counts." },
@@ -1347,7 +1347,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.PROBLEM[MixedLiftTypes]", "{NAME} mixes lift types" },
                 // C# HubProblemCode LiftBend: {DEG} = the bend, one decimal, rounded up; {N} = the tower number its plates show.
                 { "SkiResort.Hub.PROBLEM[LiftBend]", "{NAME}: rope turns {DEG}° at tower {N}" },
-                { "SkiResort.Hub.PROBLEM[LiftTrainLimit]", "{NAME}: tower {N} bends past what its wheels can follow" },
+                { "SkiResort.Hub.PROBLEM[LiftTrainLimit]", "{NAME}: tower {N}'s wheels cannot follow the rope" },
                 // C# HubProblemCode LiftLowSpan: a span's carriers pass under the planner's floor (LiftClearanceSystem). Shown only.
                 // {CARRIERS} = CARRIERS[Chairs] / [Cabins], {M} = meters, one decimal, rounded down; the Ground text when the carriers are at
                 // or below the ground. The tip names the span: {WHERE} = LOW_SPAN[Towers] / [Station] / [Stations].
@@ -1601,17 +1601,19 @@ namespace SkiResortMod
                 // FIX-LIST 55: every span clears, but a tower's rope bends past its sheave train's cap (the red tower).
                 { "SkiResort.LiftTool.PLAN_TRAIN", "Towers: {TOWERS}, length {LENGTH} m. The rope bends past what the red tower's wheels can follow: move it or the end. The lift still runs." },
                 // DECISIONS 600 a: every span clears, but the rope bends over a tram tower's saddle past the planner's saddle cap (the red tower).
-                { "SkiResort.LiftTool.PLAN_SADDLE", "Towers: {TOWERS}, length {LENGTH} m. The rope bends over the red tower's saddle more than a tram saddle carries. The lift still runs." },
+                { "SkiResort.LiftTool.PLAN_SADDLE", "Towers: {TOWERS}, length {LENGTH} m. The rope bends over the red tower's saddle more than tram saddles are built for. The lift still runs." },
                 // DECISIONS 600: every span clears, but the rope runs through a tower steeper than the type's pitch cap (the red tower).
-                { "SkiResort.LiftTool.PLAN_PITCH", "Towers: {TOWERS}, length {LENGTH} m. {TYPE}: the rope runs through the red tower steeper than {CAP}°, too steep for this type. The lift still runs." },
+                // DECISIONS 600 c: every span clears, but a rope half leaves a tower steeper than its chairs or cabins clear (the red tower).
+                { "SkiResort.LiftTool.PLAN_CLEARANCE", "Towers: {TOWERS}, length {LENGTH} m. The rope leaves the red tower steeper than its chairs or cabins clear. The lift still runs." },
+                { "SkiResort.LiftTool.PLAN_PITCH", "Towers: {TOWERS}, length {LENGTH} m. The rope runs through the red tower steeper than {CAP}°, too steep for this lift type. The lift still runs." },
                 // Over a tower: its height (the tower model's), and how high the chairs or cabins pass over the ground next to it.
                 { "SkiResort.LiftTool.TOWER", "Tower {N} of {COUNT}: {HEIGHT} m tall. Chairs and cabins pass {CLEAR} m above the ground at the tower. Drag to move it." },
                 { "SkiResort.LiftTool.TOWER_PINNED", "Tower {N} of {COUNT}: {HEIGHT} m tall, placed by you. Chairs and cabins pass {CLEAR} m above the ground at the tower." },
                 { "SkiResort.LiftTool.TOWER_LOW", "Tower {N} of {COUNT}: {HEIGHT} m tall. Chairs and cabins come too close to the ground next to it." },
                 { "SkiResort.LiftTool.TOWER_TRAIN", "Tower {N} of {COUNT}: {HEIGHT} m tall. The rope bends {DEG}° here, past the {CAP}° its wheels can follow." },
-                { "SkiResort.LiftTool.TOWER_SADDLE", "Tower {N} of {COUNT}: {HEIGHT} m tall. The rope bends {DEG}° over its saddle, past the {CAP}° a tram saddle carries." },
+                { "SkiResort.LiftTool.TOWER_SADDLE", "Tower {N} of {COUNT}: {HEIGHT} m tall. The rope bends {DEG}° over its saddle, past the {CAP}° tram saddles are built for." },
                 // DECISIONS 600 c: the rope leaves the tower steeper than the art's carrier clearance for its head (the chair or cabin hangs plumb and meets the train).
-                { "SkiResort.LiftTool.TOWER_CLEARANCE", "Tower {N} of {COUNT}: {HEIGHT} m tall. The rope leaves it at {DEG}°, steeper than the {LIMIT}° at which chairs and cabins clear the tower." },
+                { "SkiResort.LiftTool.TOWER_CLEARANCE", "Tower {N} of {COUNT}: {HEIGHT} m tall. The rope leaves it at {DEG}°, past the {LIMIT}° at which its chairs or cabins clear the tower." },
                 { "SkiResort.LiftTool.TOWER_PITCH", "Tower {N} of {COUNT}: {HEIGHT} m tall. The rope runs through it at {DEG}°, steeper than {CAP}°: too steep for this lift type." },
                 // Notices: shown for a few seconds after a refused click.
                 { "SkiResort.LiftTool.NOTHING_TO_BUILD", "Nothing to build yet: click both ends of the line first." },

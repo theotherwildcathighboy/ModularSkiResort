@@ -55,14 +55,15 @@ AL-12..AL-14). Engine citations are `File.cs:line` against the Game.dll decompil
 - `ChordPitchDeg(sP, rP, s, r, sN, rN)`: the mean of the two chord angles through a tower (+ rises toward +along). `PitchCapDeg` /
   `PitchSoftDeg(typeId)`: hard 38 / 40 / 40 / 55, soft 36 / 38 / 39 / 45 (FG / DQ / GD / tram), +inf for other ids.
 - **The lean rule** (`Rule`, one switch): HeadFirst = clamp(|pitch| - `LeanFreeDeg`, 0, `MaxLeanDegOf`); Proportional = |pitch| x
-  `LeanShare` up to the max. LeanFreeDeg = `HeadRelMaxDeg` 20 for FG / DQ / GD (the head, or FG's trains, follow 20 relative to
-  the mast), `TrainPitchLimitDeg` 30 for the tram (the letter C saddle). Max lean `MaxLeanDeg` 20, `TramMaxLeanDeg` 25.
+  `LeanShare` up to the max. LeanFreeDeg = `HeadRelMaxDeg` 20 for DQ / GD (the head follows 20 relative to the mast), `FgLeanFreeDeg` 12
+  for the FG (600 a, below), `TrainPitchLimitDeg` 30 for the tram (the letter C saddle). Max lean `MaxLeanDeg` 20 (DQ / GD), `FgMaxLeanDeg`
+  25, `TramMaxLeanDeg` 25.
 - `LeanedAnchor`: the mast turns about its foot, so the anchor h above it moves h sin(lean) downhill and h (1 - cos) down.
   `LeanRotation(yaw, pitchAlongZ, lean)` = yaw x RotateX(-a), a = sign(pitchAlongZ) x lean: a rope rising toward +z leans the top
   toward -z. `MastPitch(rotation)` reads the signed lean back from a Transform (0 on a plumb tower); `SignedLean` is the same number.
 - **Head relative to the mast**: TrainPitchSystem subtracts MastPitch from the absolute lane-end pitches; the headed clamp is
   `HeadRelMax` (radians(20)) on those relative pitches (594's MaxTrainPitch head limits DQ 42 / GD 50.2 went). Up to the hard cap the
-  mean relative pitch stays within LeanFreeDeg (PC-2): FG / DQ / GD 20, tram 30.
+  mean relative pitch stays within `MaxRelMeanDeg` (PC-2): FG 13, DQ / GD 20, tram 30.
 
 ## Plan bends
 - `PlanBendDeg(prev, node, next)`: the turn angle in plan, 0 = straight. The tower's train sits on the bisector, so the rope meets it

@@ -18,6 +18,8 @@ Four lift families. A line and its two stations share one type.
 | Line speed | 2.5 m/s | 5.0 m/s | 5.5 m/s | 10 m/s, 60 s dwell at each terminal |
 | Design spacing | 15 m | 30 m | 60 m | n/a (shuttle) |
 | Steepest slope | 80 % | 90 % | 120 % | 250 % |
+| Steepest rope through one tower | 38° | 40° | 40° | 55° |
+| Most a tower leans | 25° | 20° | 20° | 25° |
 | Longest span between towers (tower planner) | 90 m | 245 m | 245 m | 3,000 m |
 | Tower heights | 8, 12, 16, 20 m | 10 to 20 m, steps of 2 m | 12, 16, 20 m | 30, 45, 60 m |
 | Base station | 60,000 | 125,000 | 190,000 | 300,000 |
@@ -28,7 +30,7 @@ Four lift families. A line and its two stations share one type.
 | Share of that value in summer | 25 % | 25 % | 25 % | 100 % |
 | Serves a run if | within 150 m of the line, ≤ 15 m above the top station | Same | Same | within 300 m of the top terminal |
 
-{/* Spans and heights: LiftTowerPlanner.For (maxSpanM 90 / 245 / 245 / 1000) and its ladders; steepest slope: the line prefabs' m_MaxSlopeSteepness. */}
+{/* Spans and heights: LiftTowerPlanner.For (maxSpanM 90 / 245 / 245 / 1000) and its ladders; steepest slope: the line prefabs' m_MaxSlopeSteepness. Rope through one tower: LiftAlignMath.PitchCapDeg (warn only); lean: FgMaxLeanDeg / MaxLeanDeg / TramMaxLeanDeg. */}
 
 ## Running Cost
 

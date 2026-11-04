@@ -52,6 +52,11 @@ One input model for every lift type. The prompt at the top of the screen names w
   - **Tooltip:** span lengths and the lowest carrier height; it turns to a warning while any span is red or violet. Add or move a tower to fix it. The tool does not block building a flagged line.
 - **Planner:** fits tower heights to the terrain with few towers. Next to a station it prefers the shortest tower, and may add one tower to get shorter ones there. It plans within the steepest span the line allows. Option *Plan lift towers*, default on.
 - **Too steep:** a span steeper than the line type allows is drawn in red and the tower ring turns red. Add or move a tower, or change the route.
+- **Red tower:** the planner first moves towers, picks other heights, adds a pair or drops a tower; a tower it cannot fix turns red, and its tooltip names the reason. The line still builds and runs:
+  - *Too steep for this lift type:* the rope runs through one tower steeper than fixed-grip **38°**, detachable **40°**, gondola **40°**, aerial tram **55°**.
+  - *Past what its wheels can follow:* the rope bends at the tower more than its sheave train follows.
+  - *Past what tram saddles are built for:* the rope bends over a tram tower's saddle by more than **40°** (**20°** each side).
+  - *Past where chairs or cabins clear the tower:* the rope leaves the tower so steeply that a hanging chair or cabin would swing into the tower head.
 - **Tower numbers:** every tower shows its number, counted up the line from the base station, 1 to 200, then back to 1. All chairs show the same number.
 - **Already-lined station:** refused. Bulldoze a section first, then click its two loose ends.
 
@@ -74,6 +79,7 @@ Limits per lift type:
 - **Steepest slope:** fixed-grip **80 %**, detachable **90 %**, gondola **120 %**, aerial tram **250 %**.
 - **Longest tower span:** fixed-grip **90 m**, detachable **245 m**, gondola **245 m**, tram **3,000 m** (the length of the longest real free spans, such as Whistler's Peak 2 Peak). The planner adds towers to stay under it, and also wherever the sagging rope would come too close to the ground.
 - **Towers:** height follows terrain; concrete foundations; grounding matches vanilla power pylons on sensible lines. Heights come in steps: see [Lift Types](/reference/lifts/).
+- **Steep lines:** where the rope runs steeply through a tower, the whole tower leans downhill from its foot, as on real steep lifts: from **12°** of rope slope on a fixed-grip, **20°** on a detachable or gondola, **30°** on a tram, by at most **25°** (detachable and gondola **20°**). The head and wheels tilt with the rope on top of that. Every tower's padded side faces uphill, whichever way the line was drawn. Tram towers stand on concrete pedestals; where the ground does not fall away with the lean, a leaning tram tower stands higher on them so its steel stays clear of the ground.
 - **Canyons and cliffs:** the planner puts towers where the ground rises toward the cable and uses tall towers where they let a span reach farther, so crossings take fewer towers. Carriers stay at least **3 m** above the ground (tram **5 m**); chairlift and gondola cable stays at most **30 m** above it. If no mix of tower heights clears a span, the preview shows red or violet (see Preview above): add or move a tower, or route the line elsewhere.
 - **Stations:** sit on the slope as placed; no terrain flattening. The one exception is the aerial tram's base terminal, which levels a flat pad by design. On steep ground a station can end up partly in the hillside, so the chairs leave it below the ground; the tool then shows a notice and still builds. Raise the station with Move It, or build on flatter ground. Adjust the ground with the game's terraforming, or reposition a station with Move It.
 - **Crossing another lift:** the game joins two lift lines where they cross, and the other lift's chairs stop. The tool shows a notice and still builds. Bulldozing the new section merges the other lift back.
@@ -105,7 +111,7 @@ What stays if you skip this, measured with the mod's files moved away from a cit
 ## Known Limits
 
 - **Riders:** chairs and cabins move along the cable empty. Skier character models are not shown on screen; the guests are real in the economy.
-- **Wind:** the cable moves in the wind; the chairs do not sway with it (engine limit).
+- **Wind:** the cable and the chairs and cabins swing in the wind.
 
 ## Scoring
 
@@ -127,6 +133,7 @@ Values per type: [Attraction Formula](/reference/attraction/). Speeds, seats and
 | *Lift X is unfinished* | Line does not join a base station and a top station. |
 | *Lift X: draw the lift line* | Both stations placed, no line between them. |
 | *Lift X mixes lift types* | Line and stations differ in type. Redraw the line as the station type. |
+| *Lift X: tower N's wheels cannot follow the rope* | A tower's rope bends or pitches past what its wheels follow, relative to the tower's lean. Warning only; the lift runs and counts. |
 | *Lift X: chairs stopped* | Lift complete, still counts; carriers stopped. Cause in the mod log: [Troubleshooting](/guides/troubleshooting/). |
 
 ## Recoloring

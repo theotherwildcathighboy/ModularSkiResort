@@ -82,7 +82,7 @@ namespace SkiResortMod.Systems
         /// the floor (red), an edge too steep for the engine (red), a span above the max rope height (purple), a tower whose rope bends
         /// past its sheave train's cap (red tower, PLAN_TRAIN), a tower the rope runs through steeper than the type's pitch cap (red
         /// tower, PLAN_PITCH), a tram tower whose rope bends past the saddle cap (red tower, PLAN_SADDLE), a tower whose rope half is
-        /// past its carrier clearance (red tower, PLAN_TRAIN; DECISIONS 600 c). Green (Success) only for
+        /// past its carrier clearance (red tower, PLAN_CLEARANCE; DECISIONS 600 c). Green (Success) only for
         /// PLAN_CLEAR, a Sound plan.</summary>
         internal static LocalizedString PlanText(LiftTowerPlan plan, out bool clear)
         {

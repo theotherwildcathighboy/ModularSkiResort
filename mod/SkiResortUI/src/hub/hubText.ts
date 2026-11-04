@@ -95,13 +95,14 @@ export const HUB_LOC = {
   problemTipNoParkingNearLodge: ["SkiResort.Hub.PROBLEM_TIP[NoParkingNearLodge]", "No car spaces within 300 m of the lodge. Tourist parties drive here, and none arrive without them."],
   problemTipLodgeNotSlopeside: ["SkiResort.Hub.PROBLEM_TIP[LodgeNotSlopeside]", "Ski-day guests only go to a lodge within 800 m of this ski area's runs or lift stations."],
   problemTipMixedLiftTypes: ["SkiResort.Hub.PROBLEM_TIP[MixedLiftTypes]", "A line and its stations must be one lift type; until then the lift counts 0."],
-  /* C# HubProblemCode LiftTrainLimit (LiftAlignMath.TrainOverDeg: a half past its 30 deg pitch limit or the halves past the 40 deg break):
+  /* C# HubProblemCode LiftTrainLimit (LiftAlignMath.PoseTrain, relative to the mast since DECISIONS 600: a half past its 30 deg pitch limit
+     (headed DQ / GD: head 20 + half 20), the halves past the 40 deg break, or a rope half past the carrier world-half clearance):
      shown only, the lift is unchanged */
   /* the LiftLowSpan row's {CARRIERS} (pct 1 = cabins: gondola, tram) and its tip's {WHERE} when both ends are stations */
   carriersChairs: ["SkiResort.Hub.CARRIERS[Chairs]", "chairs"],
   carriersCabins: ["SkiResort.Hub.CARRIERS[Cabins]", "cabins"],
   lowSpanStations: ["SkiResort.Hub.LOW_SPAN[Stations]", "Between the stations"],
-  problemTipLiftTrainLimit: ["SkiResort.Hub.PROBLEM_TIP[LiftTrainLimit]", "Sheave trains tilt 30° at most and fold 40° at most. Past that the rope leaves the end wheels. The lift still runs."],
+  problemTipLiftTrainLimit: ["SkiResort.Hub.PROBLEM_TIP[LiftTrainLimit]", "Wheels tilt 30° beyond the tower's lean (detachables, gondolas 40°, tram saddles 60°) and fold 40° (trams 60°). Past that the rope leaves them."],
   /* C# HubProblemCode LiftBend (over LiftAlignMath.BendWarnDeg, 5 deg): shown only, the lift is unchanged */
   problemTipLiftBend: ["SkiResort.Hub.PROBLEM_TIP[LiftBend]", "Real lift lines turn 5° or less at a tower. Past that the rope runs off the outer wheels. The lift still runs and counts."],
   problemTipSummitLodgeNotLiftServed: ["SkiResort.Hub.PROBLEM_TIP[SummitLodgeNotLiftServed]", "In summer a summit lodge counts more only within 300 m of a working lift's top or 100 m of a run it serves."],
@@ -553,7 +554,7 @@ export const HUB_FMT = {
   /* {DEG} = the bend in tenths shown with one decimal (detail / 10), {N} = the tower number (count) */
   problemLiftBend: ["SkiResort.Hub.PROBLEM[LiftBend]", "{NAME}: rope turns {DEG}° at tower {N}"],
   /* {N} = the number of the tower whose rope goes furthest past what its sheave train follows (count) */
-  problemLiftTrainLimit: ["SkiResort.Hub.PROBLEM[LiftTrainLimit]", "{NAME}: tower {N} bends past what its wheels can follow"],
+  problemLiftTrainLimit: ["SkiResort.Hub.PROBLEM[LiftTrainLimit]", "{NAME}: tower {N}'s wheels cannot follow the rope"],
   /* {CARRIERS} = CARRIERS[Chairs] or [Cabins], {M} = their height above the ground in tenths shown with one decimal (detail / 10); the
      span is named in the tip (a 1080 band row fits about 49 characters) */
   problemLiftLowSpan: ["SkiResort.Hub.PROBLEM[LiftLowSpan]", "{NAME}: {CARRIERS} pass {M} m above the ground"],
