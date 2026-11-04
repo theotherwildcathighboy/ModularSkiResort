@@ -1,0 +1,62 @@
+{
+    "$id": 0,
+    "$type": "0|Game.Prefabs.RenderPrefab, Game",
+    "name": "SkiLiftChair6GripO Mesh",
+    "active": true,
+    "version": 1,
+    "m_prefabFormat": 0,
+    "components": {
+        "$id": 1,
+        "$type": "1|System.Collections.Generic.List`1[[Game.Prefabs.ComponentBase, Game]], mscorlib",
+        "$rlength": 1,
+        "$rcontent": [
+            {
+                "$id": 2,
+                "$type": "2|Game.Prefabs.LodProperties, Game",
+                "name": "LodProperties",
+                "active": true,
+                "m_Bias": 0,
+                "m_ShadowBias": 0,
+                "m_LodMeshes": {
+                    "$id": 3,
+                    "$type": "3|Game.Prefabs.RenderPrefab[], Game",
+                    "$rlength": 2,
+                    "$rcontent": [
+                        $fstrref:"CID:cf44b953d8b49ea91573ca6bf9cc6ee0",
+                        $fstrref:"CID:872d981386f38bcac66fa72c2213d4ce"
+                    ]
+                }
+            }
+        ]
+    },
+    "m_GeometryAsset": $fstrref:"CID:7934a8538510374230b3fc52629dff36",
+    "m_SurfaceAssets": {
+        "$id": 4,
+        "$type": "4|Colossal.IO.AssetDatabase.AssetReference`1[[Colossal.IO.AssetDatabase.SurfaceAsset, Colossal.IO.AssetDatabase, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null]][], Colossal.IO.AssetDatabase",
+        "$rlength": 1,
+        "$rcontent": [
+            $fstrref:"CID:557fc67b137c4542471f90c12e968cf2"
+        ]
+    },
+    "m_Bounds": {
+        "$type": "5|Colossal.Mathematics.Bounds3, Colossal.Mathematics",
+        "min": {
+            "$type": "6|Unity.Mathematics.float3, Unity.Mathematics",
+            "x": -0.04000002,
+            "y": 0,
+            "z": -0.34
+        },
+        "max": {
+            "$type": 6,
+            "x": 0.36499995,
+            "y": 0.2755,
+            "z": 0.34
+        }
+    },
+    "m_SurfaceArea": 0.557233751,
+    "m_IndexCount": 426,
+    "m_VertexCount": 217,
+    "m_MeshCount": 1,
+    "m_IsImpostor": false,
+    "m_ManualVTRequired": false
+}

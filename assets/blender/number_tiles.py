@@ -15,7 +15,8 @@ height numeral) is the fallback when the tiles are off or the prefabs are missin
 
 CLASSES (the shipped plates; frames and numbers MEASURED from the shipped LOD0 FBXs with --measure-plates, 2026-10-20,
 docs/research/lifts/tower-numbers-build-2026-10-20.md §1):
-    T1 tube     FG12/16/20, DQ10-20, GD12/16/20   plate 0.36 x 0.16  (lift_tower.py DP1_PLATE, plate_raster)
+    T1 tube     FG8/12/16/20, DQ10-20, GD12/16/20 and the 16 B2 head twins   plate 0.36 x 0.16  (lift_tower.py DP1_PLATE,
+                plate_raster; FG8 and the twins measured 2026-11-04 on their shipped Q / R meshes, SHIPPED_T1)
     T2 lattice  SkiGondolaLattice25/32/40          plate 0.44 x 0.20  (tram_tower.py PLATE["gondola"], plate_layout)
     T3 lattice  SkiTramTower30/45/60               plate 0.56 x 0.26  (tram_tower.py PLATE["tram"], plate_layout)
 Hosted terminal towers (ET62 / ET68 / ETDQ / ETGD) are not numbered (glyph-only plate, lift_tower.py plate_numeral).
@@ -76,6 +77,18 @@ MEASURE_SRC = {   # shipped LOD0 mesh folder per class tower (assets/import/...)
     **{t: f"towers/P/{t}P/{t}P.fbx" for t in CLASS_TOWERS["T1"] + CLASS_TOWERS["T2"]},
     **{t: f"tramtowers/B/{t}B/{t}B.fbx" for t in CLASS_TOWERS["T3"]},
 }
+# The 8 m FG member (prefab SkiLiftTowerFG2, mesh FG8Q) and the B2 head twins (DECISIONS 592), measured on the meshes their
+# prefabs ship: towers/<letter>/<mesh>/<mesh>.fbx, the twin beside its member's letter (lift_tower.py TWIN_ATLAS).
+SHIPPED_T1 = {
+    "SkiLiftTowerFG2": "towers/Q/SkiLiftTowerFG8Q/SkiLiftTowerFG8Q.fbx",
+    **{f"SkiLiftTower{k}": f"towers/{letter}/SkiLiftTower{k}/SkiLiftTower{k}.fbx" for letter, keys in (
+        ("Q", ("FG8HoldA", "FG8ComboA", "FG8BreakA", "FG16BreakA", "FG20BreakA", "DQ10HoldA", "DQ10ComboA",
+               "GD16HoldA", "GD16ComboA")),
+        ("R", ("FG12HoldA", "FG12ComboA", "FG12BreakA", "DQ12HoldA", "DQ12ComboA", "GD12HoldA", "GD12ComboA")),
+    ) for k in keys},
+}
+CLASS_TOWERS["T1"] += list(SHIPPED_T1)
+MEASURE_SRC.update(SHIPPED_T1)
 BAKED_NUMERAL = {"T1": "12", "T2": "25", "T3": "30"}   # what the preview's "before" plate shows
 
 MAX_DIGITS = 3            # numbers 1..200 (DECISIONS 358); the code wraps 201 -> 1
@@ -406,14 +419,21 @@ def preview(out_dir):
 
 
 # -- measurement (the code mod's plate table) ------------------------------------------------------------------------
-def measure_plates(import_root, out_json):
+def measure_plates(import_root, out_json, only=None):
     """Find both plate FRONT quads of every class tower in its shipped LOD0 FBX: center, normal and viewer-right in the
-    PREFAB frame (game = (-fx, fy, fz) / 100: FBX centimeters, the game negates FBX x)."""
+    PREFAB frame (game = (-fx, fy, fz) / 100: FBX centimeters, the game negates FBX x). `only`: a set of prefab names to
+    measure (the rest are skipped, e.g. when their FBX is not exported in this checkout)."""
     from mathutils import Vector
     res = {}
+    if only:
+        unknown = sorted(set(only) - set(MEASURE_SRC))
+        if unknown:
+            raise SystemExit(f"--towers: unknown tower(s) {unknown}")
     for cls, towers in CLASS_TOWERS.items():
         pw, ph = CLASSES[cls]["plate"]
         for t in towers:
+            if only and t not in only:
+                continue
             bpy.ops.wm.read_factory_settings(use_empty=True)
             bpy.ops.import_scene.fbx(filepath=os.path.join(import_root, MEASURE_SRC[t]), axis_forward="Y", axis_up="Z",
                                      global_scale=1.0)
@@ -553,12 +573,17 @@ def main():
     ap = argparse.ArgumentParser(prog="number_tiles.py")
     ap.add_argument("--preview", metavar="DIR")
     ap.add_argument("--measure-plates", metavar="OUT_JSON")
+    ap.add_argument("--towers", metavar="NAMES", help="with --measure-plates: comma-separated prefab names to measure "
+                                                     "(default all; 'shipped-t1' = the FG8 member and the B2 twins)")
     ap.add_argument("--import-root", default=os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "import"))
     ap.add_argument("--export", action="store_true")
     ap.add_argument("--out", metavar="DIR")
     a = ap.parse_args(argv)
     if a.measure_plates:
-        measure_plates(a.import_root, a.measure_plates)
+        only = None
+        if a.towers:
+            only = set(SHIPPED_T1) if a.towers == "shipped-t1" else {t.strip() for t in a.towers.split(",") if t.strip()}
+        measure_plates(a.import_root, a.measure_plates, only)
     if a.preview:
         bpy.ops.wm.read_factory_settings(use_empty=True)
         preview(a.preview)

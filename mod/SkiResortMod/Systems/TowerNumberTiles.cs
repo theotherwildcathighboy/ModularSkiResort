@@ -83,11 +83,14 @@ namespace SkiResortMod.Systems
             new TowerPlate("SkiTramTower30", 2, 29.850f, 1.6560f, -1.6560f),
             new TowerPlate("SkiTramTower45", 2, 44.850f, 1.6560f, -1.6560f),
             new TowerPlate("SkiTramTower60", 2, 59.850f, 1.6560f, -1.6560f),
-            // Twin heads (B2 art v2, LiftTowerPlanConstants twin tables): DERIVED, not measured (TwinPlateRaise): the member's row + the
-            // twin's head raise (manifest head_raise_m: DQ / GD Hold 2 seats, Combo 1 seat; FG 0, the plate stays at the mast top). The
-            // plate sits on the head (DQ / GD gantry beam, FG mast top), so it moves with the head; z is the member's. The FG8 twins get
-            // no row, as their member SkiLiftTowerFG2 has none. Measure at the import round (number_tiles.py --measure-plates) and move
-            // the rows into the measured block.
+            // The FG8 member (SkiLiftTowerFG2, its name frozen) and the B2 head twins: measured on their shipped Q / R meshes at the
+            // import (number_tiles.py --measure-plates --towers shipped-t1, 2026-11-04). The plate sits on the head (DQ / GD gantry
+            // beam, FG mast top), so a DQ / GD twin's row is its member's + the head raise (Hold 2 seats, Combo 1); FG twins keep the
+            // member's.
+            new TowerPlate("SkiLiftTowerFG2", 0, 8.000f, 0.1760f, -0.1760f),
+            new TowerPlate("SkiLiftTowerFG8HoldA", 0, 8.000f, 0.1760f, -0.1760f),
+            new TowerPlate("SkiLiftTowerFG8ComboA", 0, 8.000f, 0.1760f, -0.1760f),
+            new TowerPlate("SkiLiftTowerFG8BreakA", 0, 8.000f, 0.1760f, -0.1760f),
             new TowerPlate("SkiLiftTowerFG12HoldA", 0, 12.000f, 0.1760f, -0.1760f),
             new TowerPlate("SkiLiftTowerFG12ComboA", 0, 12.000f, 0.1760f, -0.1760f),
             new TowerPlate("SkiLiftTowerFG12BreakA", 0, 12.000f, 0.1760f, -0.1760f),
@@ -101,25 +104,6 @@ namespace SkiResortMod.Systems
             new TowerPlate("SkiLiftTowerGD12ComboA", 0, 12.143f, 0.1560f, -0.1560f),
             new TowerPlate("SkiLiftTowerGD16HoldA", 0, 16.427f, 0.1560f, -0.1560f),
             new TowerPlate("SkiLiftTowerGD16ComboA", 0, 16.143f, 0.1560f, -0.1560f),
-        };
-
-        /// <summary>The derived twin rows of Plates: twin prefab -> (member prefab, head raise m, manifest head_raise_m). TN-9 checks each
-        /// derived row against its member's measured row + the raise.</summary>
-        public static readonly (string Twin, string Member, float RaiseM)[] TwinPlateRaise =
-        {
-            ("SkiLiftTowerFG12HoldA", "SkiLiftTowerFG12", 0f),
-            ("SkiLiftTowerFG12ComboA", "SkiLiftTowerFG12", 0f),
-            ("SkiLiftTowerFG12BreakA", "SkiLiftTowerFG12", 0f),
-            ("SkiLiftTowerFG16BreakA", "SkiLiftTowerFG16", 0f),
-            ("SkiLiftTowerFG20BreakA", "SkiLiftTowerFG20", 0f),
-            ("SkiLiftTowerDQ10HoldA", "SkiLiftTowerDQ10", 0.5178f),
-            ("SkiLiftTowerDQ10ComboA", "SkiLiftTowerDQ10", 0.2589f),
-            ("SkiLiftTowerDQ12HoldA", "SkiLiftTowerDQ12", 0.5178f),
-            ("SkiLiftTowerDQ12ComboA", "SkiLiftTowerDQ12", 0.2589f),
-            ("SkiLiftTowerGD12HoldA", "SkiLiftTowerGD12", 0.568f),
-            ("SkiLiftTowerGD12ComboA", "SkiLiftTowerGD12", 0.284f),
-            ("SkiLiftTowerGD16HoldA", "SkiLiftTowerGD16", 0.568f),
-            ("SkiLiftTowerGD16ComboA", "SkiLiftTowerGD16", 0.284f),
         };
 
         /// <summary>The tile prefab name: SkiNumTile&lt;cls&gt;Blank or SkiNumTile&lt;cls&gt;N&lt;d&gt; (number_tiles.tile_name).</summary>
