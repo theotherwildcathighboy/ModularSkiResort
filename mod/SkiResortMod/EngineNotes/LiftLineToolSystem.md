@@ -118,7 +118,10 @@ was the loose end's existing edge. The plan log prints the max edge slope agains
 preview: the tower rings and, via MarkSteepSpans, the span's segments, so a tower-free station-to-station span shows it too). The tool
 plans with the line prefab's live m_MaxSlopeSteepness (NetGeometryData, `With(maxEdgeSlope:)` at the pick); PatchSpans logs each line
 prefab's live value against the planner's default. A station whose carriers leave below the
-ground (EndCarrier < -0.25 m) logs SUNK STATION on every plan and shows one tooltip notice per line.
+ground (EndCarrier < -0.25 m) logs SUNK STATION on every plan and shows one tooltip notice per line; a picked station end only, never
+a ground end (its station is not placed yet). End ropes (`EndRope`): a picked station reads its lowest HV rope anchor, a loose end the
+node formula, a ground end the anchor of the station that will finish it over the terrain at that station's lot front
+(`LiftLineInput.GroundEndRope`, LiftLineEdit.md "Ground ends", FIX-LIST 48).
 
 ## Carriers passable while the tool runs (2026-11-03, DECISIONS 582)
 A line drawn to an existing tower (the redo of a bulldozed middle section, an extension from a loose end) gives the touched edges,

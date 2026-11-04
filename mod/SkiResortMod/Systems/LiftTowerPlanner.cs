@@ -264,6 +264,29 @@ namespace SkiResortMod.Systems
         /// <summary>Rope height above the tower base for ladder member <paramref name="m"/>.</summary>
         public float RopeAboveBase(int m) => Ladder[m].TopM - RopeBelowTopM;
 
+        /// <summary>The rope at an end a station will finish (FIX-LIST 48): the station's own anchor sits lower than a tower's rope. On
+        /// level ground it is node + <see cref="StationDef.RopeAnchorLocalY"/> (the stub tip is at the prefab's y 0; FG 5.84 / 5.24, DQ
+        /// 3.70, gondola 4.85, tram 16.00 against the shortest tower's 7.27 / 8.26 / 10.28 / 26.25), and vanilla stands the building on
+        /// the terrain at its lot front (StationDef.FrontLocalZ: RoadSide, ObjectToolSystem.CalculateHeight :1621-1625), so on ground
+        /// falling away from the line it sits lower still: <paramref name="frontGroundY"/> = the terrain there (NaN = not sampled). The
+        /// lowest of the tower rope, the level anchor and the anchor over the front: a station or a tower there then clears the plan.
+        /// <paramref name="station"/> null or without an anchor: the tower rope.</summary>
+        public float StationEndRope(StationDef station, float nodeY, float frontGroundY = float.NaN)
+        {
+            float rope = nodeY + RopeAboveBase(0);
+            if (station == null || !math.isfinite(station.RopeAnchorLocalY))
+                return rope;
+            rope = math.min(rope, nodeY + station.RopeAnchorLocalY);
+            if (math.isfinite(frontGroundY))
+                rope = math.min(rope, frontGroundY + station.RopeAnchorLocalY);
+            return rope;
+        }
+
+        /// <summary>From the stub tip to the lot front along the station axis (FrontLocalZ - StubTipLocalZ: FG / tram 24 m, DQ / gondola
+        /// 32 m); NaN when unknown.</summary>
+        public static float FrontDistM(StationDef station) =>
+            station == null ? float.NaN : station.FrontLocalZ - station.StubTipLocalZ;
+
         /// <summary>A copy with other rules (tests and what-if questions: floor, max rope height, spans; sagRatio replays a line logged
         /// at another rope sag).</summary>
         public LiftTowerPlanConstants With(float? floorM = null, float? maxRopeAboveGroundM = null, float? typicalSpanM = null,

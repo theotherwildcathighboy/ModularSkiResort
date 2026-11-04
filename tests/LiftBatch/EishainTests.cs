@@ -1,9 +1,17 @@
 // The Eishain-Niedertal pass defects (docs/research/field/2026-11-04/eishain, FIX-LIST 48-52). Where-tags `eishain/EI-n`.
 // EI-52 a built line is never fitted into a worse plan (the after-load FG line of the pass, reconstructed from the dump's ground).
+// EI-48 a ground end plans with the rope of the station that finishes it. (a) The gate: every catalog station's RopeAnchorLocalY is
+//       the lowest HV rope sub-lane anchor of its mirror prefab, FrontLocalZ its lot depth x 4, its stub tip at y 0 / StubTipLocalZ, and
+//       the anchor is below the shortest tower's rope (so no type plans a station end too high again). (b) Tram 2 of the pass: planned
+//       clear (+0.4) with node + 26.25 at its ground ends and read -6.58 once the stations stood; planned with the stations' anchors it
+//       stays clear with them. (c) The lot-front rule: ground falling away beyond the end lowers the rope.
 
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
+using System.Text.Json;
+using System.Text.RegularExpressions;
 using SkiResortMod.Systems;
 using Unity.Mathematics;
 
@@ -21,6 +29,9 @@ namespace LiftBatch
             s_Check = check;
             s_Report.Clear();
             Ei52();
+            Ei48Gate();
+            Ei48Tram2();
+            Ei48Front();
             s_Check = null;
         }
 
@@ -102,6 +113,191 @@ namespace LiftBatch
             var same = new LiftTowerFit { Mode = LiftFitMode.Kept, Plan = before };
             Check(LiftTowerPlanner.ToWrite(before, same, true, out string none) == before && none == null, w,
                   "the line as built is no worse than itself; got " + none);
+        }
+
+        // ------------------------------------------------------------------ EI-48
+
+        private static readonly Dictionary<string, string> s_CidName = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        private static JsonElement? MirrorJson(string name, string w)
+        {
+            string path = CatalogTests.RepoFile("gamedata-mirror/ImportedData/" + name + "/" + name + ".Prefab");
+            if (!Check(path != null, w, name + ".Prefab not in gamedata-mirror"))
+                return null;
+            string text = Regex.Replace(File.ReadAllText(path), "\\$fstrref:(\"[^\"]*\")", "$1");
+            return JsonDocument.Parse(text).RootElement;
+        }
+
+        private static string CidName(string cidRef)
+        {
+            string cid = cidRef.Replace("CID:", string.Empty);
+            if (s_CidName.Count == 0)
+            {
+                string any = CatalogTests.RepoFile("gamedata-mirror/ImportedData/SkiTramTrackRope/SkiTramTrackRope.Prefab");
+                foreach (string dir in Directory.GetDirectories(Path.GetDirectoryName(Path.GetDirectoryName(any))))
+                {
+                    string n = Path.GetFileName(dir);
+                    string c = Path.Combine(dir, n + ".Prefab.cid");
+                    if (File.Exists(c))
+                        s_CidName[File.ReadAllText(c).Trim()] = n;
+                }
+            }
+            return s_CidName.TryGetValue(cid, out string name) ? name : cidRef;
+        }
+
+        private static IEnumerable<JsonElement> Rows(JsonElement root, string field)
+        {
+            foreach (JsonElement comp in root.GetProperty("components").GetProperty("$rcontent").EnumerateArray())
+                if (comp.TryGetProperty(field, out JsonElement list))
+                    foreach (JsonElement row in list.GetProperty("$rcontent").EnumerateArray())
+                        yield return row;
+        }
+
+        private static float3 P(JsonElement curve, string pt)
+        {
+            JsonElement e = curve.GetProperty(pt);
+            return new float3(e.GetProperty("x").GetSingle(), e.GetProperty("y").GetSingle(), e.GetProperty("z").GetSingle());
+        }
+
+        /// <summary>The lowest HV rope anchor of a station prefab (the lane's start; also its end when the lane joins two nodes, as
+        /// LiftLineToolSystem.AddAnchors / LaneSystem.FindAnchors), the SkiLiftMarker stub's outer point and the lot depth.</summary>
+        private static bool StationMirror(string prefab, string w, out float anchorY, out float3 stubTip, out int lotDepth)
+        {
+            anchorY = float.PositiveInfinity;
+            stubTip = new float3(float.NaN);
+            lotDepth = 0;
+            JsonElement? root = MirrorJson(prefab, w);
+            if (root == null)
+                return false;
+            lotDepth = root.Value.GetProperty("m_LotDepth").GetInt32();
+            foreach (JsonElement lane in Rows(root.Value, "m_SubLanes"))
+            {
+                string laneName = CidName(lane.GetProperty("m_LanePrefab").GetString());
+                string lanePath = CatalogTests.RepoFile("gamedata-mirror/ImportedData/" + laneName + "/" + laneName + ".Prefab");
+                if (lanePath == null)
+                    continue;   // not one of ours (the comm wire's vanilla lane): no rope
+                JsonElement? lp = MirrorJson(laneName, w);
+                bool hv = false;
+                foreach (JsonElement comp in lp.Value.GetProperty("components").GetProperty("$rcontent").EnumerateArray())
+                    if (comp.TryGetProperty("m_UtilityType", out JsonElement ut) && (ut.GetInt32() & 0x40) != 0)
+                        hv = true;
+                if (!hv)
+                    continue;
+                JsonElement curve = lane.GetProperty("m_BezierCurve");
+                anchorY = math.min(anchorY, P(curve, "a").y);
+                JsonElement ni = lane.GetProperty("m_NodeIndex");
+                if (ni.GetProperty("x").GetInt32() != ni.GetProperty("y").GetInt32())
+                    anchorY = math.min(anchorY, P(curve, "d").y);
+            }
+            foreach (JsonElement net in Rows(root.Value, "m_SubNets"))
+                if (CidName(net.GetProperty("m_NetPrefab").GetString()) == "SkiLiftMarker")
+                    stubTip = P(net.GetProperty("m_BezierCurve"), "d");
+            return true;
+        }
+
+        private static void Ei48Gate()
+        {
+            const string w = "eishain/EI-48";
+            int rows = 0;
+            foreach (LiftTypeDef def in SkiCatalog.Lifts)
+            {
+                LiftTowerPlanConstants c = LiftTowerPlanConstants.For(def);
+                if (c == null)
+                    continue;
+                foreach (StationRole role in new[] { StationRole.Base, StationRole.Top })
+                {
+                    StationDef st = SkiCatalog.StationOf(def.Index, role);
+                    if (!Check(st != null, w, def.Id + " " + role + ": no catalog station"))
+                        continue;
+                    if (!StationMirror(st.Prefab, w, out float anchorY, out float3 tip, out int lotDepth))
+                        continue;
+                    rows++;
+                    string who = st.Prefab + " (" + def.Id + " " + role + ")";
+                    Check(math.isfinite(anchorY), w, who + ": no HV rope sub-lane in the mirror");
+                    Check(math.abs(st.RopeAnchorLocalY - anchorY) <= 0.005f, w, who + ": RopeAnchorLocalY " + F(st.RopeAnchorLocalY) +
+                          " but the mirror's lowest HV rope anchor is y " + F(anchorY));
+                    Check(math.abs(st.FrontLocalZ - lotDepth * 4f) <= 0.005f, w, who + ": FrontLocalZ " + F(st.FrontLocalZ) +
+                          " but the mirror's m_LotDepth " + lotDepth + " puts the lot front at z " + F(lotDepth * 4f));
+                    Check(math.abs(tip.y) <= 0.005f && math.abs(tip.z - st.StubTipLocalZ) <= 0.005f && math.abs(tip.x - st.StubTipLocalX) <= 0.005f,
+                          w, who + ": the SkiLiftMarker stub tip is (" + F(tip.x) + ", " + F(tip.y) + ", " + F(tip.z) + "), the row says (" +
+                          F(st.StubTipLocalX) + ", 0, " + F(st.StubTipLocalZ) + ")");
+                    float tower = c.RopeAboveBase(0);
+                    Check(st.RopeAnchorLocalY < tower, w, who + ": the station anchor (" + F(st.RopeAnchorLocalY) +
+                          ") is not below the shortest tower's rope (" + F(tower) + ")");
+                    Check(math.abs(c.StationEndRope(st, 100f) - (100f + st.RopeAnchorLocalY)) <= 1e-3f, w,
+                          who + ": a level ground end plans node + the station anchor");
+                    s_Report.Add("EI-48 " + who + ": anchor y " + F(anchorY) + " (tower rope " + F(tower) + ", " + F(anchorY - tower) +
+                                 " m), lot front z " + F(lotDepth * 4f) + ", " + F(LiftTowerPlanConstants.FrontDistM(st), "F0") +
+                                 " m from the stub tip");
+                }
+            }
+            Check(rows == 8, w, "8 catalog stations checked against the mirror; got " + rows);
+        }
+
+        // Tram 2 (Mod.log 1790-1846): ground (5448, -5687) -> ground (4835, -6201), 800 m, nodes y 1470.12 / 1608.99 (terrain 1469.99 /
+        // 1608.86), ropes node + 26.25; plan 0 towers, lowest carrier +5.4 at 760 m (margin +0.4); the node chord clears the ground by
+        // +52.5 / +70.2 / +64.1 / +17.2 m at 20 / 40 / 60 / 80 %; high side +2.2 / +1.7 at the ends. Once both stations stood the
+        // clearance pass read -6.58 m at (4863, -6169), 42 m from the top end.
+        internal static readonly float[] Tram2Center = {
+            0f, 1469.99f, 160f, 1445.37f, 320f, 1455.47f, 480f, 1489.34f, 640f, 1564.02f, 700f, 1584.3f, 760f, 1604.6f, 800f, 1608.86f };
+        internal static readonly float[] Tram2Side = { 0f, 2.2f, 800f, 1.7f };
+
+        private static void Ei48Tram2()
+        {
+            const string w = "eishain/EI-48";
+            LiftTowerPlanConstants c = LiftTowerPlanConstants.For("tram");
+            LiftTerrainSampler t = Sampler(Tram2Center, Tram2Side, c.HalfWidthM);
+            const float yA = 1470.12f, yB = 1608.99f;
+            int tram = SkiCatalog.LiftById("tram").Index;
+            StationDef sa = SkiCatalog.StationOf(tram, StationRole.Base), sb = SkiCatalog.StationOf(tram, StationRole.Top);
+            float standA = yA + sa.RopeAnchorLocalY, standB = yB + sb.RopeAnchorLocalY;   // the stations as they stand (level)
+
+            // the field: ground ends planned at the tower rope, full floor -> 0 towers, clear; violated once the stations stand
+            var old = new LiftTowerPlanner { StationA = false, StationB = false };
+            LiftTowerPlan field = old.Plan(t, 800f, yA + c.RopeAboveBase(0), yB + c.RopeAboveBase(0), c);
+            LiftTowerPlan fieldStood = Stood(field, t, c, standA, standB);
+            s_Report.Add("EI-48 tram 2 as planned in the field: " + Desc(field) + "; with the stations standing " + Desc(fieldStood));
+            Check(field.Clear && field.LineTowers == 0 && !fieldStood.Clear, w,
+                  "the reconstruction: the field plan (node + 26.25) is clear with no tower and violated once the stations stand; got " +
+                  Desc(field) + " -> " + Desc(fieldStood));
+
+            // the fix: the tool's ground-end rope and station ends; the plan holds with the stations standing
+            float ropeA = LiftLineInput.GroundEndRope(c, sa, yA, float.NaN, out string srcA);
+            float ropeB = LiftLineInput.GroundEndRope(c, sb, yB, float.NaN, out string srcB);
+            var edit = new LiftLineEdit(c, new float3(0f, yA, 0f), new float3(0f, yB, 800f), ropeA, ropeB, true, true);
+            LiftTowerPlan plan = edit.Replan((s, l) => t(s, l), (s, l) => t(800f - s, -l));
+            LiftTowerPlan stood = Stood(plan, t, c, standA, standB);
+            s_Report.Add("EI-48 tram 2 with station-anchor ends (" + srcA + " / " + srcB + "): " + Desc(plan) +
+                         "; with the stations standing " + Desc(stood));
+            Check(math.abs(ropeA - standA) < 1e-3f && math.abs(ropeB - standB) < 1e-3f, w,
+                  "the ground ends plan with the stations' anchors; got " + F(ropeA - yA) + " / " + F(ropeB - yB) + " above the nodes");
+            Check(stood.Clear, w, "planned at the stations' anchors, tram 2 stays clear once they stand; got " + Desc(stood));
+        }
+
+        /// <summary>The plan's own towers re-evaluated with the stations standing at both ends (their ropes, approach floor).</summary>
+        private static LiftTowerPlan Stood(LiftTowerPlan plan, LiftTerrainSampler t, LiftTowerPlanConstants c, float ropeA, float ropeB)
+        {
+            var inner = new List<float>();
+            var members = new List<int>();
+            for (int i = 1; i < plan.Nodes.Length - 1; i++)
+            {
+                inner.Add(plan.Nodes[i].AlongM);
+                members.Add(plan.Nodes[i].Member);
+            }
+            var pl = new LiftTowerPlanner { StationA = true, StationB = true };
+            return pl.PlanFixed(t, plan.LengthM, ropeA, ropeB, c, inner, members, null, assign: false);
+        }
+
+        private static void Ei48Front()
+        {
+            const string w = "eishain/EI-48";
+            LiftTowerPlanConstants c = LiftTowerPlanConstants.For("detachable");
+            StationDef st = SkiCatalog.StationOf(SkiCatalog.LiftById("detachable").Index, StationRole.Base);
+            Check(math.abs(c.StationEndRope(st, 100f, 90f) - 93.70f) < 1e-3f, w,
+                  "ground falling 10 m to the lot front: the anchor over the front (93.70); got " + F(c.StationEndRope(st, 100f, 90f)));
+            Check(math.abs(c.StationEndRope(st, 100f, 110f) - 103.70f) < 1e-3f, w,
+                  "ground rising to the lot front: the level anchor (103.70); got " + F(c.StationEndRope(st, 100f, 110f)));
+            Check(math.abs(c.StationEndRope(null, 100f) - (100f + c.RopeAboveBase(0))) < 1e-3f, w, "no station row: the tower rope");
         }
 
         internal static string Desc(LiftTowerPlan p)

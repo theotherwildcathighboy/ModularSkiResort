@@ -496,6 +496,22 @@ namespace SkiResortMod.Systems
             return fromLane ? best : fallback;
         }
 
+        /// <summary>The rope a GROUND end plans with (FIX-LIST 48): the open end is where a station goes (line-first, its stub course
+        /// reuses this node), so it plans with that station's own anchor (LiftTowerPlanConstants.StationEndRope), and
+        /// <paramref name="source"/> says which height won.</summary>
+        public static float GroundEndRope(LiftTowerPlanConstants c, StationDef station, float nodeY, float frontGroundY, out string source)
+        {
+            float rope = c.StationEndRope(station, nodeY, frontGroundY);
+            string role = station == null ? string.Empty : station.Role == StationRole.Base ? "base" : "top";
+            string why = station == null || !math.isfinite(station.RopeAnchorLocalY) ? "tower"
+                : math.isfinite(frontGroundY) && rope < nodeY + station.RopeAnchorLocalY - 1e-3f
+                    ? "the " + role + " station's anchor over its lot front " +
+                      LiftTowerPlanConstants.FrontDistM(station).ToString("F0", CultureInfo.InvariantCulture) + " m out"
+                : "the " + role + " station's anchor";
+            source = "ground end, node + " + (rope - nodeY).ToString("F2", CultureInfo.InvariantCulture) + " (" + why + ")";
+            return rope;
+        }
+
         private static float Lowest(IList<float3> anchors, float3 node)
         {
             float best = float.PositiveInfinity;

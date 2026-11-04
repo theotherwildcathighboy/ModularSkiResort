@@ -780,11 +780,11 @@ namespace SkiResortMod.Systems
             // End ropes. A station end: the height the built line's rope lane will have there, read as the fit reads it
             // (LiftLineInput.StationRope: the lowest HV sub-lane anchor of the stub node's sub-objects / its station within 30 m). A loose
             // end is a tower node at ground + E(member, head), whose rope is ground + TopM[member] - RopeBelowTopM = node y +
-            // LiftTowerEdit.RopeAboveNodeM (RopeAboveBase(0) for a Line head, the twin gap lower for Hold / Combo / Break); a
-            // ground end gets the shortest member's rope on its fresh node: both keep the node formula (LiftTowerFitSystem uses it for any
-            // end without a lane).
-            float ropeA = EndRope(m_Base, a, out string srcA), ropeB = EndRope(end, b, out string srcB);
-            m_Edit = new LiftLineEdit(m_C, a, b, ropeA, ropeB, m_Base.Kind == LiftLineEndKind.Station, end.Kind == LiftLineEndKind.Station);
+            // LiftTowerEdit.RopeAboveNodeM (RopeAboveBase(0) for a Line head, the twin gap lower for Hold / Combo / Break). A ground end is
+            // where a station goes (line-first): it plans as a station end with that station's own, lower anchor (LiftLineInput.GroundEndRope,
+            // FIX-LIST 48: tram 2 of the Eishain pass planned +0.4 with node + 26.25 and read -6.58 once its stations stood).
+            float ropeA = EndRope(m_Base, a, b, out string srcA), ropeB = EndRope(end, b, a, out string srcB);
+            m_Edit = new LiftLineEdit(m_C, a, b, ropeA, ropeB, m_Base.Kind != LiftLineEndKind.LooseEnd, end.Kind != LiftLineEndKind.LooseEnd);
             // A loose end is a tower of the built line: its rope deflection is judged with the built neighbor's rope point beyond it.
             string outerA = OuterPoint(m_Base, a, out m_Edit.OuterDistA, out m_Edit.OuterRopeA);
             string outerB = OuterPoint(end, b, out m_Edit.OuterDistB, out m_Edit.OuterRopeB);
@@ -815,7 +815,7 @@ namespace SkiResortMod.Systems
                 dist = math.distance(farNode.m_Position.xz, endPos.xz);
                 bool station = EntityManager.HasComponent<Owner>(far);
                 rope = EndRope(new LineEnd { Kind = station ? LiftLineEndKind.Station : LiftLineEndKind.LooseEnd, Node = far, Pos = farNode.m_Position },
-                               farNode.m_Position, out string src);
+                               farNode.m_Position, endPos, out string src);
                 return $"; junction at {Describe(end)}: built neighbor {Fmt(far)} {dist:F0} m beyond, rope {rope:F2} ({src})";
             }
             return string.Empty;
@@ -968,10 +968,26 @@ namespace SkiResortMod.Systems
 
         private float3 NodePos(Entity node) => EntityManager.GetComponentData<Game.Net.Node>(node).m_Position;
 
-        private float EndRope(LineEnd e, float3 pos, out string source)
+        private float EndRope(LineEnd e, float3 pos, float3 other, out string source)
         {
-            // The rope above the node the end carries (a twin head sits lower than the member's RopeAboveBase(0); a ground end has no node).
-            float above = e.Kind == LiftLineEndKind.Ground ? m_C.RopeAboveBase(0) : LiftTowerDiagSystem.RopeAboveNode(EntityManager, e.Node, m_C);
+            if (e.Kind == LiftLineEndKind.Ground)
+            {
+                // The station that will finish this end: the lower end takes the base station. Its lot front lies FrontDistM beyond the
+                // end, on the line's axis (the station is aligned to the line, StationAlign).
+                StationDef st = m_Type != null ? SkiCatalog.StationOf(m_Type.Index, pos.y <= other.y ? StationRole.Base : StationRole.Top) : null;
+                float frontY = float.NaN;
+                float dist = LiftTowerPlanConstants.FrontDistM(st);
+                float2 outward = pos.xz - other.xz;
+                TerrainHeightData hd = m_TerrainSystem.GetHeightData();
+                if (math.isfinite(dist) && math.lengthsq(outward) > 1e-6f && hd.isCreated)
+                {
+                    float2 f = pos.xz + math.normalize(outward) * dist;
+                    frontY = TerrainUtils.SampleHeight(ref hd, new float3(f.x, 0f, f.y));
+                }
+                return LiftLineInput.GroundEndRope(m_C, st, pos.y, frontY, out source);
+            }
+            // The rope above the node the end carries (a twin head sits lower than the member's RopeAboveBase(0)).
+            float above = LiftTowerDiagSystem.RopeAboveNode(EntityManager, e.Node, m_C);
             float fallback = pos.y + above;
             if (e.Kind != LiftLineEndKind.Station || !EntityManager.Exists(e.Node))
             {
@@ -1298,9 +1314,9 @@ namespace SkiResortMod.Systems
         private void WarnSunk(LiftTowerPlan plan)
         {
             string sunk = null;
-            if (plan.StationA && plan.EndCarrierA < -SunkWarnM)
+            if (plan.StationA && m_Base.Kind == LiftLineEndKind.Station && plan.EndCarrierA < -SunkWarnM)
                 sunk = $"{Describe(m_Base)} {-plan.EndCarrierA:F1} m";
-            if (plan.StationB && plan.EndCarrierB < -SunkWarnM)
+            if (plan.StationB && m_Top.Kind == LiftLineEndKind.Station && plan.EndCarrierB < -SunkWarnM)
                 sunk = (sunk == null ? string.Empty : sunk + ", ") + $"{Describe(m_Top)} {-plan.EndCarrierB:F1} m";
             m_SunkStanding = sunk != null;
             if (sunk == null)

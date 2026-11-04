@@ -165,9 +165,9 @@ docs/research/review-153b64e-2026-10-26.md F3 / F4 / F9 / F10).
   the floor at a station end ramps linearly from the carrier's own height at the end (0, or negative at a sunk station) to FloorM at
   StationClearM (FG 12.2, DQ 25.6, GD 25.4, tram 40 m): `LiftTowerPlanConstants.ApproachFloor`. Before, FloorM applied from the first
   sample and forced a tall tower right at every station via the NoClearance fallback (field DQ: DQ12 @10 m and DQ18 @1,015 m). Only ends
-  the caller marks as stations get it (`StationA` / `StationB`: the tool from its end kinds, the fit from the end node's Owner, a
-  station sub-net stub; every line edge has HV rope lanes at both nodes, so a lane says nothing about a station); a loose or ground end
-  is a tower node with the full floor. The tower-free zone (`NearStation`, StationClearM) still applies at a loose or ground end;
+  the caller marks as stations get it (`StationA` / `StationB`: the tool from its end kinds, a ground end included since FIX-LIST 48;
+  the fit by the census rule `LiftCensusSystem.IsStationNode` since FIX-LIST 52; every line edge has HV rope lanes at both nodes, so a
+  lane says nothing about a station); a loose end is a tower node with the full floor. The tower-free zone (`NearStation`, StationClearM) still applies at a loose or ground end;
   only the NoClearance retry lifts it.
 - **Station-side rule.** `MinCost.EndRiseM` = the rise above the shortest member of each tower next to a station end. With
   `TowerWorthM` > 0 (FG / DQ / GD 8 m) the search minimizes towers x TowerWorthM + EndRiseM first: one more tower buys 8 m of shorter
@@ -190,6 +190,16 @@ docs/research/review-153b64e-2026-10-26.md F3 / F4 / F9 / F10).
   its slope and cannot cut it) it stays one span and `Build` flags it, red in the preview.
 - **Outputs.** `LiftTowerPlan.SampleFloorM` (MarginAt uses it), `StationA` / `StationB`, `EndCarrierA` / `EndCarrierB` (carrier at the end
   above the high side: negative = a sunk station; the tool warns SUNK STATION), `MaxEdgeSlope`.
+
+## Station rope anchors (FIX-LIST 48)
+A station's rope sits at its own HV rope sub-lane anchor, not at a tower's rope. Prefab-local y of the lowest anchor
+(`StationDef.RopeAnchorLocalY`, the stub tip at y 0), against the shortest tower's rope (`RopeAboveBase(0)`): FG base 5.84 / top 5.24
+(tower 7.27), DQ 3.70 (8.26), gondola 4.85 (10.28), tram 16.00 (26.25; the track rope, UtilityType HV; the haul rope is LV). Every
+station anchor is LOWER, by 1.4 to 10.3 m. `StationEndRope(station, nodeY, frontGroundY)` = the lowest of the tower rope, the level
+anchor and the anchor over the lot front (`StationDef.FrontLocalZ` = lot depth x 4, where vanilla stands the building): the lift tool's
+ground ends (LiftLineEdit.md) and the auto planner's station ends (`SkiRunAutoPlanner.TowerPlan`, level only) plan with it. A slope
+still moves a placed station: the Eishain FG base stood 5.1 m below its level anchor, the DQ base 26.3 m above it. Gate: LiftBatch EI-48
+compares every catalog row with the mirror's station prefab (anchor, lot depth, stub tip) and checks the anchor is below the tower rope.
 
 ## Fixed node count (Fit)
 The engine's node count is fixed (equal split, CourseSplitSystem.cs:3485-3493), so `LiftTowerFitSystem` asks `Fit`:
