@@ -116,6 +116,15 @@ samples come from the height cascade and differ a little between sessions, so th
   With .NET's default tiered PGO, LiftBatch's single-run numbers swing about 10 % either way (not a cost of the change). A soft
   segment costs more than the legacy split: on 877 random noisy lines that reach it, 9.8 ms on average (max 76) vs 3.9 ms. Lines with
   a clear plan never run it and plan bit-identically.
+- **Order (FIX-LIST 49, `FallbackSegment`).** `Anchors` first; anchors found: the infill, `SegmentClear`, and the soft search only
+  when that is not clear (as above). No anchors: the soft search FIRST and the greedy `Split` + infill only where it finds nothing.
+  The split was computed and thrown away whenever the soft search answered; a split plus infill was never clear where `Anchors`
+  found none (0 of 66 segments in LiftBatch and AutoGenBatch; the one clear legacy result, LP-27's knoll, comes from `Anchors`), and
+  every LiftBatch plan is unchanged. Cost of a VIOLATED steep DQ plan (EI-49, the Eishain 760 m site stacked, a bump the end may not
+  clear): 2,280 m 140 -> 115-118 ms, 1,520 m 81-87 -> 73-77 ms, 760 m unchanged (36-45 ms, noise). Where the rest goes (2,280 m): strict
+  search 12 ms, the station-clearance retry 12 ms, `Anchors` 41 ms (fails), soft fewest 25 ms, soft weighted 25 ms. A clear 2,280 m
+  DQ plan is 23-25 ms. In game about 5-10x (the 760 m site: 40.9 ms logged vs 4.3-8.1 ms here): ~50 ms per click on a 2 km DQ line
+  needs the exact search itself 4-5x faster (per-segment interval tables or a hull over the span constraints; not done).
 - **Quality** (the same 877 lines, soft vs the legacy plan): the legacy plan had an edge the engine refuses (SteepSlope, no slope gate)
   on 491; the soft plan fixes all 491 and adds none. Of the other 386, the soft plan has more summed span shortfall (> 0.05 m) on 11,
   each with about a third of the towers (7-8 vs 20-26: the legacy scatter bought 0.2-1.1 m). The field line with a 6 m bump 5 m from

@@ -1358,11 +1358,7 @@ namespace SkiResortMod.Systems
                 }
                 m_IgnoreForbidden = false;
                 if (added < 0)
-                {
-                    added = LegacySegment(i);
-                    if (!LegacySpacing && !SegmentClear(i, i + added + 1))
-                        added = SoftInsteadOfLegacy(i, added);
-                }
+                    added = LegacySpacing ? LegacySegment(i) : FallbackSegment(i);
                 i += added + 1;
             }
 
@@ -1879,7 +1875,7 @@ namespace SkiResortMod.Systems
 
         private MinCost[] m_MinCost = new MinCost[0];
 
-        /// <summary>The soft search (SoftInsteadOfLegacy: no clear arrangement exists and LegacySegment left the segment violated): SearchMin
+        /// <summary>The soft search (FallbackSegment: no clear arrangement exists and the legacy phases leave none either): SearchMin
         /// accepts a span or a node short of the floor and adds the shortfall to MinCost.Viol, which ranks first. The max rope height,
         /// the edge slope rule, MaxSpanM and the gaps stay hard.</summary>
         private bool m_Soft;
@@ -2257,6 +2253,37 @@ namespace SkiResortMod.Systems
             return legacy;
         }
 
+        /// <summary>The segment from working node a has no clear arrangement by the exact search. (a) The anchors (exact, the floor
+        /// without the sag) with the infill (b): kept when that is clear (a tower on a narrow knoll the search refuses, LP-27), else the
+        /// soft search replaces it (SoftInsteadOfLegacy). (a) found no anchors: the soft search FIRST, the greedy split only where it
+        /// finds nothing (FIX-LIST 49). The split was computed and thrown away on every such segment (a split plus its infill is never
+        /// clear where the anchors search found none: 0 of 66 in LiftBatch and AutoGenBatch), about a fifth of a violated 2 km DQ plan.
+        /// Returns the nodes added.</summary>
+        private int FallbackSegment(int a)
+        {
+            m_UseSag = false;
+            int anchors = Anchors(a, a + 1);
+            m_UseSag = true;
+            if (anchors >= 0)
+            {
+                int added = anchors + InfillAnchors(a, anchors);
+                return SegmentClear(a, a + added + 1) ? added : SoftInsteadOfLegacy(a, added);
+            }
+            int extra = m_ExtraTowers;
+            m_IgnoreForbidden = true;
+            m_Soft = true;
+            int soft = MinTowers(a, a + 1);
+            m_Soft = false;
+            m_IgnoreForbidden = false;
+            if (soft >= 0)
+                return soft;
+            m_ExtraTowers = extra;
+            m_UseSag = false;
+            anchors = Split(a, a + 1, 0);
+            m_UseSag = true;
+            return anchors + InfillAnchors(a, anchors);
+        }
+
         /// <summary>The legacy phases for the segment from working node a to a + 1: (a) anchors (exact search, else the greedy
         /// split), then (b) infill of every anchor span. Returns the nodes added.</summary>
         private int LegacySegment(int a)
@@ -2267,7 +2294,13 @@ namespace SkiResortMod.Systems
             if (anchors < 0)
                 anchors = Split(a, a + 1, 0);   // no clear arrangement exists: the greedy split minimizes what is left
             m_UseSag = true;
-            int added = anchors;
+            return anchors + InfillAnchors(a, anchors);
+        }
+
+        /// <summary>Phase (b) on the <paramref name="anchors"/> spans after working node a. Returns the infill nodes added.</summary>
+        private int InfillAnchors(int a, int anchors)
+        {
+            int added = 0;
             int end = a + anchors + 1;
             for (int i = a; i < end; )
             {

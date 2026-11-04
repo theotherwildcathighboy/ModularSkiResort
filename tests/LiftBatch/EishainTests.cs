@@ -1,5 +1,6 @@
 // The Eishain-Niedertal pass defects (docs/research/field/2026-11-04/eishain, FIX-LIST 48-52). Where-tags `eishain/EI-n`.
 // EI-52 a built line is never fitted into a worse plan (the after-load FG line of the pass, reconstructed from the dump's ground).
+// EI-49 planner cost on the steep DQ sites (a report: the cost lines before / after FIX-LIST 49).
 // EI-48 a ground end plans with the rope of the station that finishes it. (a) The gate: every catalog station's RopeAnchorLocalY is
 //       the lowest HV rope sub-lane anchor of its mirror prefab, FrontLocalZ its lot depth x 4, its stub tip at y 0 / StubTipLocalZ, and
 //       the anchor is below the shortest tower's rope (so no type plans a station end too high again). (b) Tram 2 of the pass: planned
@@ -32,6 +33,7 @@ namespace LiftBatch
             Ei48Gate();
             Ei48Tram2();
             Ei48Front();
+            Ei49();
             s_Check = null;
         }
 
@@ -298,6 +300,92 @@ namespace LiftBatch
             Check(math.abs(c.StationEndRope(st, 100f, 110f) - 103.70f) < 1e-3f, w,
                   "ground rising to the lot front: the level anchor (103.70); got " + F(c.StationEndRope(st, 100f, 110f)));
             Check(math.abs(c.StationEndRope(null, 100f) - (100f + c.RopeAboveBase(0))) < 1e-3f, w, "no station row: the tower rope");
+        }
+
+        // ------------------------------------------------------------------ EI-49
+
+        // The 760 m DQ line of the pass (Mod.log 854-940): node terrain + the chord clearance samples at 20 / 40 / 60 / 80 % of each built
+        // span (chord = node y line); the 801 m site shares its base and runs on 41 m down to its end at 1412.03 (plan 1420.29 - 8.26).
+        internal static readonly float[] Dq760Center = {
+            0f, 1321.47f, 45f, 1306.50f, 90f, 1291.48f, 135f, 1295.95f, 180f, 1301.13f, 225f, 1310.89f,
+            271f, 1325.79f, 317f, 1342.28f, 363f, 1361.38f, 409f, 1383.47f, 455f, 1407.86f,
+            486f, 1423.89f, 517f, 1439.12f, 548f, 1453.84f, 579f, 1468.37f, 610f, 1481.00f,
+            616f, 1482.96f, 622f, 1484.52f, 628f, 1485.88f, 634f, 1486.84f, 640f, 1487.30f,
+            652f, 1487.13f, 664f, 1485.25f, 676f, 1481.88f, 688f, 1477.40f, 700f, 1471.93f,
+            712f, 1465.73f, 724f, 1458.83f, 736f, 1451.53f, 748f, 1444.03f, 760f, 1436.66f, 801f, 1412.03f };
+        internal static readonly float[] Dq760Side = { 0f, 0.7f, 235f, 0.7f, 470f, 0.6f, 640f, 0.9f, 695f, 1.3f, 760f, 2.1f, 801f, 2.1f };
+
+        internal static double TimePlan(LiftTowerPlanner pl, LiftTerrainSampler t, float len, float ropeA, float ropeB, LiftTowerPlanConstants c,
+                                        out LiftTowerPlan plan, int reps = 3)
+        {
+            plan = null;
+            double best = double.MaxValue;
+            for (int r = 0; r < reps; r++)
+            {
+                long t0 = System.Diagnostics.Stopwatch.GetTimestamp();
+                plan = pl.Plan(t, len, ropeA, ropeB, c);
+                best = Math.Min(best, (System.Diagnostics.Stopwatch.GetTimestamp() - t0) * 1000.0 / System.Diagnostics.Stopwatch.Frequency);
+            }
+            return best;
+        }
+
+        // EI-49 (cost report, no pass / fail: the planner cost lines before / after FIX-LIST 49; plan identity is gated by the whole
+        // host): the 760 / 801 m sites with ground ends (the tool before FIX-LIST 48) and station ends; then the site stacked 1, 2 and 3
+        // times up the mountain (760 / 1,520 / 2,280 m, +115 m each) with and without a 6 / 12 m bump 5 / 15 m from the top end (no
+        // tower may stand there: the plan stays VIOLATED and runs the fallback), both end kinds; the slowest clear and VIOLATED plan per
+        // length, best of 2. In game the cost is about 10x (the 760 m site: 40.9 ms logged, about 4 ms here).
+        private static void Ei49()
+        {
+            LiftTowerPlanConstants c = LiftTowerPlanConstants.For("detachable");
+            foreach (float len in new[] { 760f, 801f })
+            {
+                LiftTerrainSampler t = Sampler(Dq760Center, Dq760Side, c.HalfWidthM);
+                float yA = 1321.53f, yB = Lerp(Dq760Center, len) + 0.26f;
+                foreach (bool station in new[] { false, true })
+                {
+                    var pl = new LiftTowerPlanner { StationA = station, StationB = station, CheckEdgeSlope = true, EndNodeYA = yA, EndNodeYB = yB, Pairs = true };
+                    float rA = station ? yA + 3.70f : yA + c.RopeAboveBase(0), rB = station ? yB + 3.70f : yB + c.RopeAboveBase(0);
+                    double ms = TimePlan(pl, t, len, rA, rB, c, out LiftTowerPlan p);
+                    s_Report.Add("EI-49 cost DQ " + F(len, "F0") + " m site, " + (station ? "station" : "ground") + " ends: " + F(ms, "F1") +
+                                 " ms; " + F(p.MinFloorMarginM) + " " + Desc(p));
+                }
+            }
+            for (int copies = 1; copies <= 3; copies++)
+            {
+                var cs = new List<float>();
+                for (int k = 0; k < copies; k++)
+                    for (int i = 0; i < Dq760Center.Length - 2; i += 2)
+                        if (k == 0 || Dq760Center[i] > 0f)
+                        {
+                            cs.Add(Dq760Center[i] + 760f * k);
+                            cs.Add(Dq760Center[i + 1] + 115.19f * k);
+                        }
+                float[] ctr = cs.ToArray();
+                float len = 760f * copies;
+                LiftTerrainSampler bt = Sampler(ctr, Dq760Side, c.HalfWidthM);
+                double clearMs = 0, violMs = 0;
+                string clearWhat = "-", violWhat = "-";
+                foreach (float bumpH in new[] { 0f, 6f, 12f })
+                    foreach (float bumpAt in new[] { 5f, 15f })
+                    {
+                        if (bumpH == 0f && bumpAt != 5f)
+                            continue;
+                        float h = bumpH, at = bumpAt, l0 = len;
+                        LiftTerrainSampler t = (s, l) => bt(s, l) + h * math.saturate(1f - math.abs(l0 - s - at) / 8f);
+                        float yA = t(0f, 0f) + 0.06f, yB = t(len, 0f) + 0.26f;
+                        foreach (bool station in new[] { false, true })
+                        {
+                            var pl = new LiftTowerPlanner { StationA = station, StationB = station, CheckEdgeSlope = true, EndNodeYA = yA, EndNodeYB = yB, Pairs = true };
+                            float rA = station ? yA + 3.70f : yA + c.RopeAboveBase(0), rB = station ? yB + 3.70f : yB + c.RopeAboveBase(0);
+                            double ms = TimePlan(pl, t, len, rA, rB, c, out LiftTowerPlan p, 2);
+                            string what = (h > 0f ? "bump " + F(h, "F0") + " m " + F(at, "F0") + " m from the top" : "no bump") + ", " +
+                                          (station ? "station" : "ground") + " ends: " + F(ms, "F1") + " ms, " + p.LineTowers + " towers " + F(p.MinFloorMarginM);
+                            if (p.Clear && ms > clearMs) { clearMs = ms; clearWhat = what; }
+                            if (!p.Clear && ms > violMs) { violMs = ms; violWhat = what; }
+                        }
+                    }
+                s_Report.Add("EI-49 cost DQ " + F(len, "F0") + " m stacked: slowest clear " + clearWhat + "; slowest VIOLATED " + violWhat);
+            }
         }
 
         internal static string Desc(LiftTowerPlan p)
