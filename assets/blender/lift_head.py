@@ -6,6 +6,11 @@ line, identity rest, as the halves): the head (gantry, deck, rails, hangers, pla
 of the two halves (TrainPitchSystem: LiftAlignMath.HeadPitch, clamped to the type's planner max, DQ 42.0 / GD 50.2), the
 halves to head +- 20. The ladder, its landings, the mast and the pad stay on Root.
 
+Letters (HEAD_RANGES, --letter): S = the 594 round (a plumb mast, the head to the planner max); T = the tower-lean round
+(default): the mast leans up to 20 deg and the planner caps the rope pitch at 40, so the head turns +-20 and each half
++-40 relative to the mast. T is S's geometry with the cut-outs sized for that range: the head's swept envelope (mast top,
+Hold grab extensions) at +-20, the comm wedge (arrest rail, H1) at 40; G6 and the grip clearance sweep rel_grid.
+
 The art this needs (all on the member's shipped atlas: 0 MB, lift_tower.twin_apply_atlas + a fitted island per new part):
 - trunnion: two Root cheeks on the mast's flange plate carry two Root stub pins on the pivot line; the head's hubs
   sleeve them (Head lugs), webs carry the hubs up to a cross-head in two halves (`gantry_trunnion_yoke_n/p`, slotted
@@ -29,9 +34,14 @@ the head held level must fail), H1 (the flange under the comm wedge), H2 (Hold g
 rule). Recorded, not raised: the posed head's bounds against the rest bounds
 (HEAD_BOUNDS; the deck ends rise past the rest top on steep poses: an owner call, see build.md).
 
-Usage (headless; scratch folders only, nothing exported):
+Usage (headless):
   blender --background --factory-startup --python-exit-code 1 --python lift_head.py -- --keys DQ10,DQ10Hold
       --out <scratch> [--preview <dir>] [--lineup] [--report <json>]
+  blender ... --python lift_head.py -- --keys all --export --letter T [--import-root <dir>] [--report <json>]
+      (the import round: each key's folder BESIDE its atlas donor, assets/import/towers/<donor letter>/<Name> (HEAD_ATLAS:
+      Q or R), the family-folder rule; skinned LOD0 / 1 / 2 with the Head bone, no PNG of its own, settings.json straight
+      at the donor's four maps (0 MB), manifest, validate_asset_folder (raises on an error). --import-root: a scratch copy
+      of assets/import for a dry run.)
 """
 import argparse
 import dataclasses
@@ -52,7 +62,15 @@ import cs2_skin  # noqa: E402
 import lift_tower as LT  # noqa: E402
 import cs2_kit as K  # noqa: E402
 
-HEAD_LETTER = "S"                       # the round's mesh letter (tower letters in use: J..R; twins A)
+HEAD_LETTER = "T"                       # the round's mesh letter (tower letters in use: J..R; twins A; S = DECISIONS 594)
+# The head's range per letter (deg, relative to the mast; None = the type's planner max, SKIN_TYPE_MAX_SLOPE):
+#   S (DECISIONS 594): a plumb mast, the head to the planner max (DQ 42 / GD 50.2), every half too.
+#   T (the tower-lean round): the mast leans up to 20 deg and the planner caps the rope pitch (the mean of the two chords)
+#     at 40 (DQ, GD), so the head turns at most +-20 relative to the mast (40 - 20) and each half at most head +- the
+#     half-break (20) = +-40 relative to the mast; the comm wire spans the same nodes, so it too stays within 40.
+HEAD_RANGES = {"S": dict(head=None, halves=None), "T": dict(head=20.0, halves=40.0)}
+HEAD_REL_MAX = HEAD_RANGES[HEAD_LETTER]["head"]
+HALF_REL_MAX = HEAD_RANGES[HEAD_LETTER]["halves"]
 HEAD_BONE = "Head"
 HEAD_BONES = ("Root", "TrainFront", "TrainBack", HEAD_BONE)
 HEAD_MEMBERS = ("DQ10", "DQ12", "DQ14", "DQ16", "DQ18", "DQ20", "GD12", "GD16", "GD20")
@@ -93,10 +111,31 @@ def type_max(fam):
     return LT.SKIN_TYPE_MAX_SLOPE[fam]
 
 
+def use_letter(letter):
+    """Switch the round's letter and with it the head's range (HEAD_RANGES)."""
+    global HEAD_LETTER, HEAD_REL_MAX, HALF_REL_MAX
+    if letter not in HEAD_RANGES:
+        raise SystemExit(f"unknown head letter {letter} (known {sorted(HEAD_RANGES)})")
+    HEAD_LETTER = letter
+    HEAD_REL_MAX = HEAD_RANGES[letter]["head"]
+    HALF_REL_MAX = HEAD_RANGES[letter]["halves"]
+
+
+def head_max(fam):
+    """The head's limit relative to the mast (deg)."""
+    return type_max(fam) if HEAD_REL_MAX is None else min(HEAD_REL_MAX, type_max(fam))
+
+
+def half_max(fam):
+    """Each half's (and the comm wire's) limit relative to the mast (deg)."""
+    return type_max(fam) if HALF_REL_MAX is None else min(HALF_REL_MAX, type_max(fam))
+
+
 def cone_z(fam, za, travel):
-    """The comm wire's underside over a point `travel` m out of its anchor (height za), at the type's steepest pitch
-    (the vanilla LV hexagon, flats top / bottom: its bottom flat h / cos below the axis), minus CONE_MARGIN."""
-    a = math.radians(type_max(fam))
+    """The comm wire's underside over a point `travel` m out of its anchor (height za), at the steepest pitch relative
+    to the mast (half_max; the vanilla LV hexagon, flats top / bottom: its bottom flat h / cos below the axis), minus
+    CONE_MARGIN."""
+    a = math.radians(half_max(fam))
     return za - abs(travel) * math.tan(a) - LT.LANE_ROPE["h"] / math.cos(a) - CONE_MARGIN
 
 
@@ -552,12 +591,27 @@ def head_part_bones(t, table, spec):
 
 # -- G6 with the head -----------------------------------------------------------------------------------------------------
 
+def rel_grid(hmax, brk, tmax):
+    """[(front, back)] deg relative to the mast (T): the head (the mean) over {-hmax, -hmax / 2, 0, hmax / 2, hmax},
+    the half-break over {-brk, -brk / 2, 0, brk / 2, brk} at each, each half clamped to +-tmax. Deterministic order."""
+    out = []
+    for m in (-hmax, -hmax / 2.0, 0.0, hmax / 2.0, hmax):
+        for d in (-brk, -brk / 2.0, 0.0, brk / 2.0, brk):
+            p = (round(max(-tmax, min(tmax, m + d)), 4), round(max(-tmax, min(tmax, m - d)), 4))
+            if p not in out:
+                out.append(p)
+    return out
+
+
 def head_grid(tw, tmax=None):
-    """[{TrainFront, TrainBack, Head}] deg: cs2_skin.joint_grid(type max) (Hold: the concave half), Head = the mean."""
+    """[{TrainFront, TrainBack, Head}] deg (Hold: the concave half), Head = the mean. S: cs2_skin.joint_grid(type max);
+    T: rel_grid(head_max, half-break, half_max), the poses a leaned mast meets."""
     fam = tw["twin"].family
-    tmax = type_max(fam) if tmax is None else tmax
     brk = LT.TWIN_HALF_BREAK.get(tw["kind"], cs2_skin.HALF_BREAK_MAX)
-    grid = cs2_skin.joint_grid(tmax, brk)
+    if HEAD_REL_MAX is None or tmax is not None:
+        grid = cs2_skin.joint_grid(type_max(fam) if tmax is None else tmax, brk)
+    else:
+        grid = rel_grid(head_max(fam), brk, half_max(fam))
     if LT.TWIN_CONCAVE_ONLY.get(tw["kind"], False):
         grid = [(f, b) for f, b in grid if f - b <= 1e-9]
     return [{"TrainFront": f, "TrainBack": b, HEAD_BONE: round((f + b) / 2.0, 4)} for f, b in grid]
@@ -636,7 +690,7 @@ def headed_sweep(obj, table, tw, part_bone, poses=None, label=None, gate=True):
         bad = str(e)
     rep["failed"] = bad
     mc = rep["min_clear"]
-    print(f"[head] G6 [{label or spec.key}] {len(poses)} poses (type max {type_max(fam)}, Head = mean): min clearance "
+    print(f"[head] G6 [{label or spec.key}] {len(poses)} poses (letter {HEAD_LETTER}: head {head_max(fam)} / halves {half_max(fam)} rel mast, Head = mean): min clearance "
           f"{mc['m'] * 1000:.1f} mm at {mc['pose']} ({' / '.join(str(n) for n in mc['parts'] or [])}); "
           f"{'FAIL ' + bad[:300] if bad else 'pass'}")
     if bad and gate:
@@ -688,7 +742,7 @@ def negative(t, table, tw, pb):
     raised. Their hold-down train reaches no head part at +-max on every key (GD Hold measured clean, v2), and v1's GD
     Hold negative failed only on the comm wire crossing the level girder on the pivot line, which the post removed."""
     fam = tw["twin"].family
-    tm = type_max(fam)
+    tm = type_max(fam)          # the planner max on every letter: at T the GD halves at +-40 with a level head still clear
     poses = [{"TrainFront": s * tm, "TrainBack": s * tm, HEAD_BONE: 0.0} for s in (1.0, -1.0)]
     rep = headed_sweep(t, table, tw, pb, poses=poses, label=f"{tw['key']} negative (head level)", gate=False)
     if tw["kind"] != "Hold":
@@ -774,6 +828,8 @@ def montage(paths_grid, out_path, gap=12):
 
 
 def preview_angles(fam):
+    if HEAD_REL_MAX is not None:
+        return (0.0, head_max(fam) / 2.0, head_max(fam))
     return (0.0, 20.0, 42.0 if fam == "DQ" else 50.0)
 
 
@@ -814,7 +870,7 @@ def key_previews(t, arm, lods, tw, asset_dir, name, raw, ref=None):
     for a in preview_angles(fam):
         pose = {"TrainFront": a, "TrainBack": a, HEAD_BONE: a}
         out["lineup"][a] = rp(t, arm, spec, pose, asset_dir, name, raw, lineup_views(tw, a))
-    tm = type_max(fam)
+    tm = head_max(fam)
     pose = {"TrainFront": tm, "TrainBack": tm, HEAD_BONE: tm}
     rest = {"TrainFront": 0.0, "TrainBack": 0.0, HEAD_BONE: 0.0}
     out["masttop"] = (rp(t, arm, spec, rest, asset_dir, name, raw, masttop_views(tw, "p0"))
@@ -946,7 +1002,8 @@ def run_key(key, out, preview=None, keep_ref=False):
            "atlas": dict(arep, exact=info["atlas_map"]["exact"], donor=info["atlas_map"]["donor"],
                          fitted=info["atlas_map"]["fitted"], textures_added_mb=0.0),
            "head_transform": info["head_transform"],
-           "g6": {"poses": len(sk["poses"]), "min_clear": sk["min_clear"], "type_max_deg": type_max(fam),
+           "g6": {"poses": len(sk["poses"]), "min_clear": sk["min_clear"], "type_max_deg": type_max(fam), "letter": HEAD_LETTER,
+                  "head_max_deg": head_max(fam), "half_max_deg": half_max(fam),
                   "worst_rope_clear_m": min(r["rope_clear_m"] for r in sk["poses"]),
                   "max_pin_gap_m": max(r["pin_gap_m"] for r in sk["poses"])},
            "negative": neg, "bounds": hb, "head_under_top_to_deg": fits_to,
@@ -963,13 +1020,81 @@ def run_key(key, out, preview=None, keep_ref=False):
     return rep, (t, arm, lods, tw, name, asset_dir)
 
 
+def export_key(rep, objs):
+    """--export: one key's import folder beside its atlas donor (HEAD_ATLAS, the family-folder rule): skinned LOD0 / 1 /
+    2 FBXs (every level weighted to Root / TrainFront / TrainBack / Head), settings.json on the donor's four maps
+    (cs2_asset.sibling_settings: no PNG, 0 MB), the round trip with the four bones, the manifest, validate_asset_folder
+    (raises on an error). Returns the validator summary."""
+    import cs2_validate
+    t, arm, lods, tw, name, asset_dir = objs
+    spec = tw["twin"]
+    letter, owner = HEAD_ATLAS[tw["member"]].split("/")
+    cs2_asset.clean_asset_folder(asset_dir, name)
+    cs2_asset.export_fbx_skinned(t, arm, os.path.join(asset_dir, f"{name}.fbx"))
+    for i, lod in enumerate(lods, start=1):
+        cs2_asset.export_fbx_skinned(lod, arm, os.path.join(asset_dir, f"{name}_LOD{i}.fbx"))
+    cs2_asset.sibling_settings(asset_dir, name, owner, len(lods))
+    heads = {"Root": (0.0, 0.0, 0.0)}
+    heads.update({b: (0.0, 0.0, tw["lane"]) for b in HEAD_BONES[1:]})
+    rt = cs2_skin.roundtrip(asset_dir, name, len(lods), heads, LT._check, tw["key"])
+    man = {k: v for k, v in rep.items() if k not in ("frames", "seconds")}
+    man["generator"] = f"lift_head.py --export --letter {HEAD_LETTER}"
+    man["skin"] = {
+        "rule": "DECISIONS 594 / 600: skinned to Root / TrainFront / TrainBack / Head; TrainPitchSystem turns Head to "
+                "the mean of the halves relative to the mast (clamped to HeadRelMax), the halves to head +- the "
+                "half-break",
+        "bones": {"Root": {"parent": None, "head_game": [0.0, 0.0, 0.0]},
+                  **{b: {"parent": "Root", "head_game": [0.0, tw["lane"], 0.0], "rest_rotation": [0, 0, 0, 1]}
+                     for b in HEAD_BONES[1:]}},
+        "axis": LT.SKIN_AXIS, "lane_y": tw["lane"], "roundtrip": rt,
+        "surgery": [
+            "after EVERY import, every LOD prefab: the root bone (parentId -1) m_Rotation (0, 0, 0, 1) and m_Scale "
+            "(1, 1, 1) (gate BONEROOT)",
+            "TrainFront / TrainBack / Head: m_Type 0 (None); bone names map through ProceduralBone.m_BindIndex",
+            "LOD0 / LOD1 / LOD2 FBXs are all skinned; settings.json useProceduralAnimation",
+            "twins: the comm sub-lane point moves to comm_anchor_new_y (members keep theirs)"]}
+    man["textures"] = {
+        "shared_from": f"../{owner}/{owner}", "maps": list(cs2_asset.SIBLING_MAPS), "levels": list(range(len(lods) + 1)),
+        "added_mb": 0.0,
+        "surgery": "DECISIONS 592 c / 592 k: the Surfaces carry the donor's texture GUIDs (the donor was imported in an "
+                   "earlier action, so this import copies its maps byte for byte; repoint them, drop the copies)"}
+    man["export"] = {"folder": f"assets/import/towers/{letter}/{name}",
+                     "donor_folder": f"assets/import/towers/{letter}/{owner}", "lods": list(range(len(lods) + 1))}
+    man = json.loads(json.dumps(man, default=lambda o: o.item() if hasattr(o, "item") else str(o)))
+    cs2_validate.write_manifest(asset_dir, name, man)
+    t.name, t.data.name = name + "Src", name + "Src"
+    for i, lod in enumerate(lods, start=1):
+        lod.name, lod.data.name = f"{name}LOD{i}Src", f"{name}LOD{i}Src"
+    findings, summary = cs2_validate.validate_asset_folder_ex(asset_dir, name, {
+        "kind": "tower", "lod0_cap": rep["cap_raised_to"] or rep["cap"], "lod1_ratio": 0.5,
+        "lod2_cap": int(round(spec.lod2 * 1.10)), "hero": False, "expected_lods": (1, 2), "top_y": spec.top,
+        "pier": spec.pier})
+    n_err = sum(1 for f in findings if f[0] == "ERROR")
+    n_warn = sum(1 for f in findings if f[0] == "WARN")
+    print(f"[head] validate_asset_folder {name}: {n_err} errors, {n_warn} warnings")
+    for f in findings:
+        if f[0] in ("ERROR", "WARN"):
+            print(f"[head]   {f}")
+    if n_err:
+        raise cs2_validate.AssetValidationError(name, findings)
+    return {"errors": n_err, "warnings": n_warn, "tris": summary.get("tris"), "folder": man["export"]["folder"]}
+
+
 def parse(argv):
     ap = argparse.ArgumentParser(prog="lift_head.py")
     ap.add_argument("--keys", required=True, help=f"comma list of {', '.join(HEAD_KEYS)} (or 'all', or 'none')")
-    ap.add_argument("--out", required=True, help="scratch folder (never assets/import)")
+    ap.add_argument("--out", default=None, help="scratch folder (never assets/import); not with --export")
+    ap.add_argument("--export", action="store_true",
+                    help="the import round: <import root>/towers/<donor letter>/<Name> beside the atlas donor (HEAD_ATLAS); "
+                         "needs an explicit --letter; no previews")
+    ap.add_argument("--import-root", dest="import_root", default=None,
+                    help="with --export: the import tree to write into (default assets/import; a scratch copy for a dry "
+                         "run: it must hold the donors' folders)")
     ap.add_argument("--preview", default=None, help="preview folder (raw frames under <preview>/raw)")
     ap.add_argument("--lineup", default=None, help="also the family lineup sheets <preview>/<this>_side.png / _q34.png")
     ap.add_argument("--report", default=None)
+    ap.add_argument("--letter", default=HEAD_LETTER, help=f"the head range by letter ({sorted(HEAD_RANGES)}; default "
+                    f"{HEAD_LETTER})")
     ap.add_argument("--masttop", default=None, help="comma keys: the mast top / ladder sheet <preview>/masttop_ladder.png "
                     "from their raw frames (rows: keys; columns: 3/4 rest, ladder rest, ladder type max, 3/4 type max)")
     return ap.parse_args(argv)
@@ -978,20 +1103,45 @@ def parse(argv):
 def main_cli():
     argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
     args = parse(argv)
-    out = os.path.abspath(args.out)
-    if os.path.normcase(out).startswith(os.path.normcase(os.path.join(LT._REPO, "assets", "import"))):
-        raise SystemExit("--out is in the shipping tree assets/import: this round exports nothing")
+    use_letter(args.letter)
     keys = list(HEAD_KEYS) if args.keys == "all" else [] if args.keys == "none" else args.keys.split(",")
     bad = [k for k in keys if k not in HEAD_KEYS]
     if bad:
         raise SystemExit(f"unknown keys {bad}")
+    shipping = os.path.normcase(os.path.join(LT._REPO, "assets", "import"))
+    if args.export:
+        if not any(a == "--letter" or a.startswith("--letter=") for a in argv):
+            raise SystemExit("--export needs an explicit --letter (a new generation letter: never a deployed name)")
+        if args.out or args.preview or args.lineup or args.masttop:
+            raise SystemExit("--export writes the import folders only: no --out / --preview / --lineup / --masttop")
+        root = os.path.abspath(args.import_root or os.path.join(LT._REPO, "assets", "import"))
+        for k in keys:
+            n = head_name(headed_spec(k))
+            try:
+                cs2_asset.assert_new_asset_name(n, LT._REPO)
+            except ValueError as e:
+                raise SystemExit(str(e))
+    else:
+        if not args.out:
+            raise SystemExit("give --out <scratch dir> or --export --letter <X>")
+        if args.import_root:
+            raise SystemExit("--import-root goes with --export")
+        out = os.path.abspath(args.out)
+        if os.path.normcase(out).startswith(shipping):
+            raise SystemExit("--out is in the shipping tree assets/import: pass --export --letter <X>")
     S.set_wheels("v2")
     S.set_wheel_dress(True)
     LT.set_skinned(True)
     LT.TWIN_ATLAS.update(HEAD_ATLAS)
     reps = []
     for k in keys:
-        rep, _objs = run_key(k, out, args.preview, keep_ref=bool(args.preview) and k not in LT.TWINS)
+        if args.export:
+            member = LT.TWINS[k][0] if k in LT.TWINS else k
+            out = os.path.join(root, "towers", HEAD_ATLAS[member].split("/")[0])
+        rep, objs = run_key(k, out, args.preview, keep_ref=bool(args.preview) and k not in LT.TWINS)
+        if args.export:
+            rep["export"] = export_key(rep, objs)
+            print(f"[head] exported {rep['name']}: LOD0/1/2 {rep['tris']} -> {objs[5]}")
         reps.append(rep)
         if args.report:
             with open(args.report, "w", encoding="utf-8", newline="\n") as f:
@@ -1017,7 +1167,7 @@ def main_cli():
         grid = []
         for k in args.masttop.split(","):
             tw = headed_spec(k)
-            tm = int(round(type_max(tw["twin"].family)))
+            tm = int(round(head_max(tw["twin"].family)))
             raw = os.path.join(args.preview, "raw")
             grid.append([os.path.join(raw, f"{head_name(tw)}_view_{v}.png")
                          for v in ("masttop_p0", "ladder_p0", f"ladder_p{tm}", f"masttop_p{tm}")])

@@ -55,6 +55,12 @@ C_LIMITS = (TT.SKIN_TRAM["theta_max"], TT.SKIN_TRAM["half_break"])     # the shi
 C_DESIGN = dict(TT.SKIN_TRAM)
 D_DESIGN = dict(theta_max=SADDLE_MAX, half_break=HALF_BREAK, notch_deg=32.0, joint_d=0.45, bar_gap=0.20,
                 roller_out=0.10, arm_dz1=-2.40)
+# The tower-lean round: the tram mast leans up to LEAN_MAX and the planner caps the rope pitch (the mean of the two
+# chords) at PITCH_CAP, so the saddle's mean stays within MEAN_REL_MAX = PITCH_CAP - LEAN_MAX (30) of the mast and each half
+# within that +- the half-break (30): one half reaches 60 relative to the mast at the cap corner (mean 55, half-break 30,
+# lean 25), so D's whole range stays needed (a letter E with C's crossbeam failed at those poses: tower-lean build.md).
+PITCH_CAP, LEAN_MAX = 55.0, 25.0           # deg: LiftAlignMath.PitchCapDeg("tram"), the tram mast's max lean
+MEAN_REL_MAX = PITCH_CAP - LEAN_MAX        # deg: the saddle's mean relative to the mast (the code must clamp it there)
 CAP_RULE = 0.05                 # a LOD0 / LOD2 overage up to 5 % raises the cap in-round (recorded); more is an owner call
 POSES = os.path.join(os.path.dirname(os.path.abspath(__file__)), "tests", "data", "tram_saddle_poses.json")
 ALIGN_CS = os.path.join(_REPO, "mod", "SkiResortMod", "Systems", "LiftAlignMath.cs")
@@ -77,6 +83,28 @@ def use(design):
     TT.SKIN_TRAM.update(C_DESIGN)
     if design == LETTER:
         TT.SKIN_TRAM.update(D_DESIGN)
+
+
+def lean_grid():
+    """[(front, back)] Blender deg relative to a leaned mast: the mean over +-MEAN_REL_MAX, the half-break over
+    +-HALF_BREAK (lift_head.rel_grid), each half clamped to SADDLE_MAX."""
+    import lift_head
+    return lift_head.rel_grid(MEAN_REL_MAX, HALF_BREAK, SADDLE_MAX)
+
+
+def lean_rows(rows, rule="min"):
+    """TS-1 rows (code deg) relative to a leaned mast: towers past PITCH_CAP drop (the planner repairs them now). rule
+    "min": the least lean that brings the mean within MEAN_REL_MAX (max(0, |mean| - 30): the worst case for the art);
+    "max": the mast takes the mean up to LEAN_MAX."""
+    out = []
+    for lab, f, b in rows:
+        m = 0.5 * (f + b)
+        if abs(m) > PITCH_CAP + 1e-9:
+            continue
+        lean = min(LEAN_MAX, max(0.0, abs(m) - MEAN_REL_MAX) if rule == "min" else abs(m))
+        lean = math.copysign(lean, m)
+        out.append((lab, f - lean, b - lean))
+    return out
 
 
 def code_limits():
@@ -301,6 +329,63 @@ def budgets(spec, tris):
     return out
 
 
+# -- export (the import round) ---------------------------------------------------------------------------------------------
+
+def export_folder(root, H):
+    """D's import folder: BESIDE C (its texture owner) in C's letter folder, <root>/tramtowers/C/SkiTramTower<H>D (the
+    family-folder rule: settings.json keys `../SkiTramTower<H>C/...`, never `../../C/...`)."""
+    return os.path.join(root, "tramtowers", SOURCE, f"SkiTramTower{H}{LETTER}")
+
+
+def export_height(H, t, arm, lods, spec, sk, rep, asset_dir):
+    """--export: skinned LOD0 / 1 / 2 FBXs (Root + the four half bones), settings.json on C's four maps
+    (cs2_asset.sibling_settings: no PNG, 0 MB; D's loops carry C's UVs), the round trip, the manifest,
+    validate_asset_folder (raises on an error). Returns the validator summary."""
+    import cs2_validate
+    name = rep["name"]
+    owner = f"SkiTramTower{H}{SOURCE}"
+    os.makedirs(asset_dir, exist_ok=True)
+    cs2_asset.clean_asset_folder(asset_dir, name)
+    cs2_asset.export_fbx_skinned(t, arm, os.path.join(asset_dir, f"{name}.fbx"))
+    for k, lod in enumerate(lods, start=1):
+        cs2_asset.export_fbx_skinned(lod, arm, os.path.join(asset_dir, f"{name}_LOD{k}.fbx"))
+    cs2_asset.sibling_settings(asset_dir, name, owner, len(lods))
+    rt = TT.skin_roundtrip(asset_dir, name, len(lods), spec)
+    man = {k: v for k, v in rep.items() if k not in ("frames", "seconds", "weights")}
+    man.update({
+        "generator": f"tram_saddle.py --export --letter {LETTER}", "family": "tram", "H": H, "letter": LETTER,
+        "skin": TT.skin_manifest_block(spec, dict(sk, roundtrip=rt)),
+        "textures": {"shared_from": f"../{owner}/{owner}", "maps": list(cs2_asset.SIBLING_MAPS),
+                     "levels": list(range(len(lods) + 1)), "added_mb": 0.0,
+                     "surgery": "the Surfaces carry C's texture GUIDs (C was imported in an earlier action, so this "
+                                "import copies its maps byte for byte; repoint them, drop the copies)"},
+        "export": {"folder": f"assets/import/tramtowers/{SOURCE}/{name}",
+                   "donor_folder": f"assets/import/tramtowers/{SOURCE}/{owner}", "lods": list(range(len(lods) + 1))},
+        "prefab": "SkiTramTower{H} keeps its name; the import round repoints its mesh to this one (the code keys the "
+                  "wide limits on the mesh letter, LiftAlignMath.WideTramSaddle)".replace("{H}", str(H))})
+    man = json.loads(json.dumps(man, default=lambda o: o.item() if hasattr(o, "item") else str(o)))
+    cs2_validate.write_manifest(asset_dir, name, man)
+    t.name, t.data.name = name + "Src", name + "Src"
+    for k, lod in enumerate(lods, start=1):
+        lod.name, lod.data.name = f"{name}LOD{k}Src", f"{name}LOD{k}Src"
+    b = TT.budget(spec)
+    raised = rep["budget"]["raised"]
+    findings, summary = cs2_validate.validate_asset_folder_ex(asset_dir, name, {
+        "kind": "hanging", "lod0_cap": raised.get("LOD0", b["lod0_cap"]), "lod1_ratio": 0.5,
+        "lod2_cap": raised.get("LOD2", b["lod2_cap"]), "hero": False, "expected_lods": tuple(range(1, len(lods) + 1)),
+        "expected_submeshes": ()})
+    n_err = sum(1 for f in findings if f[0] == "ERROR")
+    n_warn = sum(1 for f in findings if f[0] == "WARN")
+    print(f"[saddle] validate_asset_folder {name}: {n_err} errors, {n_warn} warnings")
+    for f in findings:
+        if f[0] in ("ERROR", "WARN"):
+            print(f"[saddle]   {f}")
+    if n_err:
+        raise cs2_validate.AssetValidationError(name, findings)
+    t.name, t.data.name = name, name
+    return {"errors": n_err, "warnings": n_warn, "tris": summary.get("tris"), "folder": man["export"]["folder"]}
+
+
 # -- previews --------------------------------------------------------------------------------------------------------------
 
 def rope_mat(name):
@@ -387,7 +472,7 @@ def montage(paths_grid, out_path):
 
 # -- one height ------------------------------------------------------------------------------------------------------------
 
-def run_height(H, out, preview=None, before_after=False, negative=False):
+def run_height(H, out, preview=None, before_after=False, negative=False, export_root=None):
     t0 = time.perf_counter()
     args = c_args(H)
     S.set_wheels(args.wheels)
@@ -450,6 +535,12 @@ def run_height(H, out, preview=None, before_after=False, negative=False):
         f"clear to {sk['rope_reach']['clear_to_deg']} deg (>= {SADDLE_MAX:g}), first hit {sk['rope_reach']['first_hit']}")
     pairs = blender_pairs(rows, SADDLE_MAX, HALF_BREAK)
     pl = TT.skin_sweep(t, table, spec, sk["part_bone"], pairs=pairs, label=f"tram{H}D planner")
+    # the tower-lean round: the poses relative to a leaned mast (lean grid; the TS-1 towers under the 55 deg cap, the
+    # least lean) are inside D's grid; gated all the same
+    lg = TT.skin_sweep(t, table, spec, sk["part_bone"], pairs=lean_grid(), label=f"tram{H}D lean grid")
+    lrows = lean_rows(rows)
+    lp = TT.skin_sweep(t, table, spec, sk["part_bone"], pairs=blender_pairs(lrows, SADDLE_MAX, HALF_BREAK),
+                       label=f"tram{H}D lean planner")
     lim = code_limits()
     _ok(lim == (SADDLE_MAX, HALF_BREAK), "the code's tram limits = the art's",
         f"(LiftAlignMath {lim}, art {(SADDLE_MAX, HALF_BREAK)})")
@@ -463,6 +554,12 @@ def run_height(H, out, preview=None, before_after=False, negative=False):
         "g6": {"poses": len(sk["g6"]["poses"]), "min_clear": sk["g6"]["min_clear"], "seat_tops": sk["g6"]["seat_tops"],
                "failed": sk["g6"]["failed"]},
         "g6_planner": {"poses": len(pl["poses"]), "min_clear": pl["min_clear"], "failed": pl["failed"]},
+        "g6_lean": {"grid_poses": len(lg["poses"]), "grid_min_clear": lg["min_clear"], "grid_failed": lg["failed"],
+                    "planner_towers": len(lrows), "planner_poses": len(lp["poses"]), "planner_min_clear": lp["min_clear"],
+                    "planner_failed": lp["failed"],
+                    "coverage": {r: {"C": rope_offsets(lean_rows(rows, r), *C_LIMITS, spec.saddle_l / 2.0)[0],
+                                     "D": rope_offsets(lean_rows(rows, r), SADDLE_MAX, HALF_BREAK,
+                                                       spec.saddle_l / 2.0)[0]} for r in ("min", "max")}},
         "rope_reach": sk["rope_reach"], "weights": sk["weights"],
         "coverage": {"towers": len(rows),
                      "C": {"limits": list(C_LIMITS), "inside": cov_c[0], "worst": list(cov_c[1])},
@@ -472,6 +569,9 @@ def run_height(H, out, preview=None, before_after=False, negative=False):
     print(f"[saddle] {name}: LOD0/1/2 {tris}; G6 {rep['g6']['poses']} poses min {sk['g6']['min_clear']['m'] * 1000:.1f} mm; "
           f"planner {len(pl['poses'])} poses min {pl['min_clear']['m'] * 1000:.1f} mm; reach {sk['rope_reach']['clear_to_deg']}; "
           f"TS-1 inside C {cov_c[0]} / D {cov_d[0]} of {len(rows)}; worst offset C {cov_c[1][2]:.2f} m, D {cov_d[1][2]:.2f} m")
+    if export_root:
+        rep["export"] = export_height(H, t, arm, lods, spec, sk, rep, export_folder(export_root, H))
+        print(f"[saddle] exported {name}: LOD0/1/2 {tris} -> {export_folder(export_root, H)}")
     if preview:
         asset_dir = os.path.join(out, name)
         stage_textures(H, asset_dir, name)
@@ -540,7 +640,15 @@ def sheets(prev):
 def parse(argv):
     ap = argparse.ArgumentParser(prog="tram_saddle.py")
     ap.add_argument("--heights", default="30", help="comma list of 30, 45, 60 (or 'all')")
-    ap.add_argument("--out", default=None, help="scratch folder (never assets/import)")
+    ap.add_argument("--out", default=None, help="scratch folder (never assets/import); not with --export")
+    ap.add_argument("--export", action="store_true",
+                    help=f"the import round: <import root>/tramtowers/{SOURCE}/SkiTramTower<H>{LETTER} beside C (its "
+                         f"texture owner); needs --letter {LETTER}; no previews")
+    ap.add_argument("--letter", default=None, help=f"with --export: the mesh letter, required and = {LETTER} (the code keys "
+                    "the wide limits on it)")
+    ap.add_argument("--import-root", dest="import_root", default=None,
+                    help="with --export: the import tree to write into (default assets/import; a scratch copy for a dry "
+                         "run: it must hold tramtowers/C)")
     ap.add_argument("--preview", default=None, help="preview folder (raw frames under <preview>/raw)")
     ap.add_argument("--before-after", dest="before_after", action="store_true",
                     help="also the before (C clamped) / after (D) frames and the saddle close-ups")
@@ -557,18 +665,36 @@ def main_cli():
         sheets(os.path.abspath(args.sheets))
         print("PASS tram_saddle: sheets")
         return
-    if not args.out:
-        raise SystemExit("--out is required")
-    out = os.path.abspath(args.out)
-    if os.path.normcase(out).startswith(os.path.normcase(os.path.join(_REPO, "assets", "import"))):
-        raise SystemExit("--out is in the shipping tree assets/import: this round exports nothing")
     heights = HEIGHTS if args.heights == "all" else tuple(int(h) for h in args.heights.split(","))
+    bad = [H for H in heights if H not in HEIGHTS]
+    if bad:
+        raise SystemExit(f"unknown height {bad}")
+    root = None
+    if args.export:
+        if args.letter != LETTER:
+            raise SystemExit(f"--export needs --letter {LETTER} (the geometry this script builds; a new letter means a "
+                             f"new design in D_DESIGN)")
+        if args.out or args.preview or args.before_after:
+            raise SystemExit("--export writes the import folders only: no --out / --preview / --before-after")
+        root = os.path.abspath(args.import_root or os.path.join(_REPO, "assets", "import"))
+        for H in heights:
+            try:
+                cs2_asset.assert_new_asset_name(f"SkiTramTower{H}{LETTER}", _REPO)
+            except ValueError as e:
+                raise SystemExit(str(e))
+        out = os.path.join(root, "tramtowers", SOURCE)
+    else:
+        if not args.out:
+            raise SystemExit("give --out <scratch dir> or --export --letter D")
+        if args.import_root or args.letter:
+            raise SystemExit("--import-root / --letter go with --export")
+        out = os.path.abspath(args.out)
+        if os.path.normcase(out).startswith(os.path.normcase(os.path.join(_REPO, "assets", "import"))):
+            raise SystemExit("--out is in the shipping tree assets/import: pass --export --letter D")
     reps = []
     for H in heights:
-        if H not in HEIGHTS:
-            raise SystemExit(f"unknown height {H}")
         reps.append(run_height(H, out, os.path.abspath(args.preview) if args.preview else None,
-                               before_after=args.before_after, negative=args.negative))
+                               before_after=args.before_after, negative=args.negative, export_root=root))
         if args.report:
             with open(args.report, "w", encoding="utf-8", newline="\n") as f:
                 json.dump(reps, f, indent=1, default=lambda o: o.item() if hasattr(o, "item") else str(o))
