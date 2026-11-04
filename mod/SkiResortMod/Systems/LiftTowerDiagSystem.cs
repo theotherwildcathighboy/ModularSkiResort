@@ -541,8 +541,8 @@ namespace SkiResortMod.Systems
                     float3 at = PolylineAt(pts, cum, along, lateral, out _);
                     return TerrainUtils.SampleHeight(ref terrain, at);
                 };
-                float ropeA = pts[0].y + constants.RopeAboveBase(0);
-                float ropeB = pts[pts.Length - 1].y + constants.RopeAboveBase(0);
+                float ropeA = pts[0].y + RopeAboveNode(EntityManager, path[0].Node, constants);
+                float ropeB = pts[pts.Length - 1].y + RopeAboveNode(EntityManager, path[path.Count - 1].Node, constants);
                 LiftTowerPlan plan = m_Planner.Plan(sampler, length, ropeA, ropeB, constants);
                 m_Plans++;
 
@@ -550,7 +550,7 @@ namespace SkiResortMod.Systems
                 {
                     var sb = new StringBuilder(2048);
                     plan.AppendLog(sb, pathHead + " (" + why + "; ends = the path's first / last node, rope at node y + " +
-                                       F(constants.RopeAboveBase(0), "F2") + ") vs actual " + path.Count + " node(s), " +
+                                       F(ropeA - pts[0].y, "F2") + " / " + F(ropeB - pts[pts.Length - 1].y, "F2") + ") vs actual " + path.Count + " node(s), " +
                                        math.max(0, path.Count - 2) + " line tower(s)");
                     float maxAbove = float.NegativeInfinity;
                     int violated = 0;
@@ -580,6 +580,15 @@ namespace SkiResortMod.Systems
                         m_Draws[path[i].NextEdge] = draw;
                 }
             }
+        }
+
+        /// <summary>The rope height above <paramref name="node"/> when no rope lane anchor is found: the head the node carries
+        /// (Game.Net.Elevation, read back with LiftTowerEdit.MemberOf as the fit does), so a twin head gives its member's lane height
+        /// relative to the raised node. One helper for the lift tool's EndRope, the fit's end ropes and the diag plan.</summary>
+        internal static float RopeAboveNode(EntityManager em, Entity node, LiftTowerPlanConstants c)
+        {
+            float e = em.Exists(node) && em.TryGetComponent<Game.Net.Elevation>(node, out var el) ? math.cmin(el.m_Elevation) : 0f;
+            return LiftTowerEdit.RopeAboveNodeM(c, e);
         }
 
         /// <summary>The point <paramref name="along"/> meters (xz) along the node polyline, <paramref name="lateral"/> meters to the

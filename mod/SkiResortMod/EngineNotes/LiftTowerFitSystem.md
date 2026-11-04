@@ -10,7 +10,7 @@ placeholder ladder always spawns the shortest tower. The node count stays the en
   (power-line edges are straight, NetInitializeSystem.cs:2195 StraightEdges).
 - Its height: node y = center ground + E and `Game.Net.Elevation` = (E, E), E = TopM[member] - TopM[0] (`LiftTowerEdit`). The vanilla ladder
   then scores the planned member exactly 1 (SubObjectSystem.cs:980, :2189-2199) and, top-anchored (:2464-2469, :2477-2482), stands it on
-  the ground; the rope lane rides node y + lane y (LaneSystem.cs:4112-4115). E = 0 removes the component (the engine adds it only for a
+  the ground; the rope lane rides node y + lane y (LaneSystem.cs:4112-4115) until FindAnchor swaps its end for the tower sub-lane (pivot + member lane y); an end without an anchor falls back to node y + `RopeAboveNode` (head-aware: a twin node sits lower than RopeAboveBase(0), DECISIONS 592 u). E = 0 removes the component (the engine adds it only for a
   non-zero elevation, GenerateNodesSystem.cs:1497-1499).
 - Each touched edge's Curve = `NetUtils.StraightCurve(start, end, net m_Hanging)`, the engine's own power-line curve (NetUtils.cs:178-191,
   CourseSplitSystem.cs:1702-1704), m_Length = `MathUtils.Length` (as `Curve.Deserialize` does).

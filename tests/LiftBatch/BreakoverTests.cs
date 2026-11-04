@@ -10,7 +10,8 @@
 // on constants without twins (WithoutTwins: the planner with the twin prefabs not loaded) and BO-9 shows the Break head taking the crest
 // instead. HD-1 / HD-2 the Hold / Combo head on the member (E = Top(twin) - Top0, rope unchanged); HD-3 a member without the twin ->
 // the nearest member with it, or the support head + a note; HD-4 MemberOf round trip, the engine winner over the twins and the per-load
-// twin filter; HD-5 the fit keeps the node count and the heads it carries (hysteresis); HD-6 Emit writes E of the placed head.
+// twin filter; HD-5 the fit keeps the node count and the heads it carries (hysteresis); HD-6 Emit writes E of the placed head; HD-7 a loose
+// end (or any end node) without a lane anchor has the rope the lane anchor would give, at every head (LiftTowerEdit.RopeAboveNodeM).
 
 using System;
 using System.Collections.Generic;
@@ -49,6 +50,7 @@ namespace LiftBatch
             Hd4MemberOf();
             Hd5FitNeverAdds();
             Hd6Emit();
+            Hd7LooseEndRope();
             Co1Cost();
             Table();
             s_Check = null;
@@ -849,6 +851,62 @@ namespace LiftBatch
             Check(seen.Contains(LiftTowerHead.Hold) && seen.Contains(LiftTowerHead.Combo) && seen.Contains(LiftTowerHead.Break) && seen.Contains(LiftTowerHead.Line),
                   W, "not every head emitted (" + string.Join(", ", seen) + "): " + sb);
             s_Report.Add("HD-6 Emit | every tower at ground + E(member, head), the head carried | " + sb);
+        }
+
+        // ── HD-7: the lane-less end rope equals the lane-anchor rope at every head ───────────────────────────────────────────
+        // The end node stands at ground + E(member, head), Game.Net.Elevation = (E, E). With a lane anchor the rope is the engine's own: the
+        // winner the engine spawns at E (EngineWinner, not MemberOf), its pivot (EnginePivotAboveGround) plus the support member's lane y
+        // (a twin's lanes are its member's, check-lift-align LADDER). Without one, the lift tool's EndRope, the fit's end ropes and the diag
+        // plan use node y + RopeAboveNodeM(c, E) with E read back from the node (MemberOf). Both go through LiftLineInput.StationRope.
+        private static void Hd7LooseEndRope()
+        {
+            const string W = "angles/HD-7";
+            int heads = 0, twinHeads = 0;
+            float worstOld = 0f, worstNew = 0f;
+            foreach (string id in ChairTypes)
+            {
+                LiftTowerPlanConstants c = LiftTowerPlanConstants.For(id);
+                var all = new List<(int m, LiftTowerHead h)>();
+                for (int m = 0; m < c.Ladder.Length; m++)
+                    all.Add((m, LiftTowerHead.Line));
+                foreach (LiftTowerTwin tw in c.Twins)
+                    all.Add((tw.Member, tw.Head));
+                foreach (var (m, h) in all)
+                {
+                    const float ground = 1000f;
+                    float e = LiftTowerEdit.ElevationM(c, m, h);
+                    var node = new float3(12f, ground + e, -7f);
+                    // the lane-anchor path: what the engine anchors the rope to
+                    int win = LiftTowerEdit.EngineWinner(c, e, out LiftTowerHead hw, out _);
+                    float anchorY = ground + LiftTowerEdit.EnginePivotAboveGround(c, win, hw, e) + c.RopeAboveBase(win);
+                    var anchors = new List<float3> { new float3(12f, anchorY, -7f) };
+                    float viaLane = LiftLineInput.StationRope(anchors, null, node, float.NaN, out bool fromLane);
+                    // the no-lane path: the shared fallback, reading the head back from the node's elevation
+                    float viaNode = LiftLineInput.StationRope(null, null, node, node.y + LiftTowerEdit.RopeAboveNodeM(c, e), out bool fromNode);
+                    Check(fromLane && !fromNode, W + " " + id, c.NameOf(m, h) + ": the anchor / fallback switch broke");
+                    Check(math.abs(viaNode - viaLane) < 1e-4f, W + " " + id, c.NameOf(m, h) + " (E " + F(e, "F3") + "): no-lane rope " + F(viaNode, "F4") +
+                          " vs lane rope " + F(viaLane, "F4") + " (" + F(viaNode - viaLane, "F4") + " m)");
+                    Check(math.abs(viaLane - (ground + c.RopeAboveBase(m))) < 1e-4f, W + " " + id, c.NameOf(m, h) + ": the lane rope is not ground + RopeAboveBase(member)");
+                    float old = node.y + c.RopeAboveBase(0);   // the retired fallback: the member's rope height
+                    worstOld = math.max(worstOld, math.abs(old - viaLane));
+                    worstNew = math.max(worstNew, math.abs(viaNode - viaLane));
+                    if (h != LiftTowerHead.Line)
+                    {
+                        twinHeads++;
+                        Check(math.abs(old - viaLane) >= 0.1f - 1e-4f, W + " " + id, c.NameOf(m, h) + ": the old fallback is not off at a twin, the case has no teeth");
+                    }
+                    else
+                    {
+                        Check(math.abs(old - viaLane) < 1e-4f, W + " " + id, c.NameOf(m, h) + ": a Line head moved off RopeAboveBase(0)");
+                    }
+                    heads++;
+                }
+                // ground and station-stub ends carry no head: elevation 0 is the shortest member, RopeAboveBase(0)
+                Check(LiftTowerEdit.RopeAboveNodeM(c, 0f) == c.RopeAboveBase(0), W + " " + id, "a ground node is not RopeAboveBase(0)");
+            }
+            Check(twinHeads == 16, W, twinHeads + " twin heads checked, want 16");
+            s_Report.Add("HD-7 loose-end rope | node + RopeAboveNodeM(E) equals the engine's lane anchor at every head of FG / DQ / GD | " + heads +
+                         " heads (" + twinHeads + " twins), worst gap " + F(worstNew, "F5") + " m (the retired node + RopeAboveBase(0) was off by up to " + F(worstOld, "F3") + " m)");
         }
 
         // ── HD-5: the fit never adds a tower and its Needed is unchanged ────────────────────────────────────────────────────

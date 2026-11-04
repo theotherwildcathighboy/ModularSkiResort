@@ -779,7 +779,8 @@ namespace SkiResortMod.Systems
                     "station should finish it");
             // End ropes. A station end: the height the built line's rope lane will have there, read as the fit reads it
             // (LiftLineInput.StationRope: the lowest HV sub-lane anchor of the stub node's sub-objects / its station within 30 m). A loose
-            // end is a tower node at ground + E(member), whose rope is ground + TopM[member] - RopeBelowTopM = node y + RopeAboveBase(0); a
+            // end is a tower node at ground + E(member, head), whose rope is ground + TopM[member] - RopeBelowTopM = node y +
+            // LiftTowerEdit.RopeAboveNodeM (RopeAboveBase(0) for a Line head, the twin gap lower for Hold / Combo / Break); a
             // ground end gets the shortest member's rope on its fresh node: both keep the node formula (LiftTowerFitSystem uses it for any
             // end without a lane).
             float ropeA = EndRope(m_Base, a, out string srcA), ropeB = EndRope(end, b, out string srcB);
@@ -793,8 +794,8 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>The built neighbor's rope point beyond a loose end (the far node of its one built lift-line edge): xz distance from
-        /// the end and rope y (a station stub: its rope lane anchor, as EndRope; a tower node: node y + the shortest member's rope, the
-        /// node formula). NaN for a station or ground end, or when no built edge is found. Returns a log fragment.</summary>
+        /// the end and rope y (a station stub: its rope lane anchor, as EndRope; a tower node: node y + the rope above the head it carries,
+        /// the node formula). NaN for a station or ground end, or when no built edge is found. Returns a log fragment.</summary>
         private string OuterPoint(LineEnd end, float3 endPos, out float dist, out float rope)
         {
             dist = rope = float.NaN;
@@ -969,10 +970,12 @@ namespace SkiResortMod.Systems
 
         private float EndRope(LineEnd e, float3 pos, out string source)
         {
-            float fallback = pos.y + m_C.RopeAboveBase(0);
+            // The rope above the node the end carries (a twin head sits lower than the member's RopeAboveBase(0); a ground end has no node).
+            float above = e.Kind == LiftLineEndKind.Ground ? m_C.RopeAboveBase(0) : LiftTowerDiagSystem.RopeAboveNode(EntityManager, e.Node, m_C);
+            float fallback = pos.y + above;
             if (e.Kind != LiftLineEndKind.Station || !EntityManager.Exists(e.Node))
             {
-                source = "node + " + m_C.RopeAboveBase(0).ToString("F2");
+                source = "node + " + above.ToString("F2");
                 return fallback;
             }
             var sub = new List<float3>();
@@ -984,7 +987,7 @@ namespace SkiResortMod.Systems
                 AddAnchors(owner.m_Owner, own);
             float rope = LiftLineInput.StationRope(sub, own, pos, fallback, out bool fromLane);
             source = fromLane ? $"station rope lane anchor, node + {rope - pos.y:F2}"
-                              : $"no rope lane anchor within {LiftLineInput.AnchorSearchM:F0} m: node + {m_C.RopeAboveBase(0):F2}";
+                              : $"no rope lane anchor within {LiftLineInput.AnchorSearchM:F0} m: node + {above:F2}";
             return rope;
         }
 

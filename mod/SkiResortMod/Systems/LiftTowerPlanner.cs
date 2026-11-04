@@ -814,6 +814,26 @@ namespace SkiResortMod.Systems
             return best;
         }
 
+        /// <summary>The rope height above the NODE of a tower placed as (<paramref name="member"/>, <paramref name="head"/>). The node stands at
+        /// ground + E(member, head) and the tower's pivot on the ground, so the lane anchor (pivot-local, the support member's lane for a
+        /// twin: LADDER) gives rope = ground + RopeAboveBase(member) = node y + RopeAboveBase(member) - E(member, head). A Line head
+        /// is RopeAboveBase(0) for every member; a twin sits Top(twin) - Top(member) (0.15-0.57 m) lower than that.</summary>
+        public static float RopeAboveNodeM(LiftTowerPlanConstants c, int member, LiftTowerHead head)
+        {
+            if (member < 0 || head == LiftTowerHead.Line || !c.HasTwin(member, head))
+                return c.RopeAboveBase(0);
+            return c.RopeAboveBase(member) - ElevationM(c, member, head);
+        }
+
+        /// <summary>RopeAboveNodeM of the head a node at <paramref name="elevationM"/> carries (MemberOf, the read the fit uses). The rope
+        /// height a loose end, a station stub or a path end has when no lane anchor is found (the lane-less fallback of the lift tool, the
+        /// fit and the diag).</summary>
+        public static float RopeAboveNodeM(LiftTowerPlanConstants c, float elevationM)
+        {
+            int m = MemberOf(c, elevationM, out LiftTowerHead head);
+            return RopeAboveNodeM(c, m, head);
+        }
+
         /// <summary>MemberOf's match tolerance (meters of E).</summary>
         public const float MemberMatchM = 0.05f;
 

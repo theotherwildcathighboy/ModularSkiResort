@@ -255,8 +255,10 @@ namespace SkiResortMod.Systems
             LiftTerrainSampler sampler = LiftTowerEdit.UncutSampler(raw, pts, cum, netGeo.m_Hanging, CutOffsets(path, netGeo),
                 c.HalfWidthM + LiftTowerEdit.CutFarMarginM, along => cutAt.Add((int)math.round(along)));
 
-            float ropeA = StationRope(path[0].Node, path[0].NextEdge, pts[0], pts[0].y + c.RopeAboveBase(0), out bool laneA);
-            float ropeB = StationRope(path[n - 1].Node, path[n - 2].NextEdge, pts[n - 1], pts[n - 1].y + c.RopeAboveBase(0), out bool laneB);
+            float ropeA = StationRope(path[0].Node, path[0].NextEdge, pts[0],
+                pts[0].y + LiftTowerDiagSystem.RopeAboveNode(EntityManager, path[0].Node, c), out bool laneA);
+            float ropeB = StationRope(path[n - 1].Node, path[n - 2].NextEdge, pts[n - 1],
+                pts[n - 1].y + LiftTowerDiagSystem.RopeAboveNode(EntityManager, path[n - 1].Node, c), out bool laneB);
 
             var inner = new float[n - 2];
             var oldMembers = new int[n - 2];
@@ -406,8 +408,8 @@ namespace SkiResortMod.Systems
             sb.Append("Towers [fit]: ").Append(head).Append(" — ").Append(fit.Mode).Append(": ").Append(n - 2).Append(" line tower(s), ")
               .Append(F(length, "F0")).Append(" m xz, ").Append(straight ? "straight" : "bent (" + F(offLine, "F1") + " m off the end-to-end line; heights only)")
               .Append("; engine max span ").Append(F(engineMax, "F0")).Append(" m; station ropes y ").Append(F(ropeA, "F2"))
-              .Append(laneA ? " (rope lane)" : " (node + " + F(c.RopeAboveBase(0), "F2") + ")").Append(" / ").Append(F(ropeB, "F2"))
-              .Append(laneB ? " (rope lane)" : " (node + " + F(c.RopeAboveBase(0), "F2") + ")").Append("; rules floor ").Append(F(c.FloorM, "F1"))
+              .Append(laneA ? " (rope lane)" : " (node + " + F(ropeA - pts[0].y, "F2") + ")").Append(" / ").Append(F(ropeB, "F2"))
+              .Append(laneB ? " (rope lane)" : " (node + " + F(ropeB - pts[n - 1].y, "F2") + ")").Append("; rules floor ").Append(F(c.FloorM, "F1"))
               .Append(" + drop ").Append(F(c.CarrierDropM, "F1")).Append(" over the high side (±").Append(F(c.HalfWidthM, "F1"))
               .Append(" m), max rope ").Append(c.MaxRopeAboveGroundM > 0f ? F(c.MaxRopeAboveGroundM, "F0") : "none")
               .Append(toolLine != null ? $"; TOOL LINE (lift-line tool, {toolPins} pinned): heights only with the tool's members, never moved{splitNote}" : string.Empty)

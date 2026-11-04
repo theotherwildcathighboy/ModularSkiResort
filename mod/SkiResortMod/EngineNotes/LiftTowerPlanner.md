@@ -90,6 +90,13 @@ the ones the game has not loaded, so a build without the twin prefabs plans supp
 - `HeadsAsGiven` evaluates the given heads (the fit's "before" of a line as it stands).
 - The rope at a twin is `RopeAboveBase(member)`: its lanes are the member's (manifest rope_on_crown lane_y_new = member_lane_y; the
   LADDER gate compares the prefabs' anchors). The span and slope checks use the node y of the head (`NodeY(k, node)`).
+- Rope above the NODE (`LiftTowerEdit.RopeAboveNodeM`, 2026-11-04, DECISIONS 592 u). A lane anchor is object-local (`LaneSystem.FindAnchors`:
+  `ObjectUtils.LocalToWorld(transform, sub-lane point)`, LaneSystem.cs:2371-2416), so the rope stands at the tower pivot + the member's lane y,
+  never at node y + a fixed offset: rope = ground + RopeAboveBase(member) = node y + RopeAboveBase(member) - E(member, head). A Line head is
+  RopeAboveBase(0) for every member (E(m) = Top(m) - Top(0)); a twin is lower by Top(twin) - Top(member) (0.15 to 0.57 m in the tables)
+  because its node is raised by its own, taller top. The lane-less end rope (lift tool `EndRope`, the fit's `ropeA` /
+  `ropeB` fallback, the diag plan) reads the node's Elevation, MemberOf gives (member, head) and this helper gives the offset
+  (`LiftTowerDiagSystem.RopeAboveNode` is the one entity-side reader). LiftBatch HD-7 checks it against the engine winner's anchor at all 29 heads.
 
 ### No clear plan: the soft search (planner-fallback-2026-11-04)
 Field case (B2 bridge run): a plan-only FG line with ground ends planned 16 towers, 13 of them 10 m apart, VIOLATED, where B1 had

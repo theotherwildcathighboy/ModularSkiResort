@@ -7,7 +7,7 @@ rules (right-click stepping, Build, Esc).
 ## The model
 - Two station ends A (base click) and B (top click): the stub-tip nodes' world positions; the line is the straight xz segment A to B
   ("along" = meters from A in xz). Station ropes RopeA / RopeB are given (`LiftLineToolSystem`: the station's bullwheel height, else stub
-  node y + the shortest member's rope).
+  node y + the rope above the head the node carries, `LiftTowerEdit.RopeAboveNodeM`: the shortest member's for a Line head or a ground end).
 - Pins are positions the user fixed (click on the line = add, drag a tower = move, which pins a free tower). Pins are snapped to the
   planner's sample grid (StepM: 5 m, tram 10 m) counted from the end the planner works from (`FromB` = `LiftTowerPlanner.PlansFromB`:
   the end with the lower rope, LiftTowerPlanner.md "Direction"), so a pin is a planner sample and `LiftTowerPlanner.Plan` keeps it
