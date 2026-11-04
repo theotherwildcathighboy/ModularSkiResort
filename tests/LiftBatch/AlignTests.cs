@@ -1,5 +1,5 @@
 // Lift alignment (docs: lift-alignment-2026-11-02, gates G1 / G2): LiftMoverMath.CarrierDrop and LiftAlignMath. Where-tags `align/...`,
-// AL-1..AL-10.
+// AL-1..AL-12 (AL-12: the headed DQ / GD towers, DECISIONS 594).
 // Pinned: every carrier drops by its grip top minus the jaw's rope point (F5, the rope-point pin); the plan bend is the turn angle;
 // a train on a uniform slope pitches to exactly that slope, at a bend or a sag break it takes the bisector of the arriving and leaving
 // rope, clamped; the pitch sign follows the node's facing, so the train is nose up toward the higher neighbor either way; re-running
@@ -31,6 +31,77 @@ namespace LiftBatch
             Al9LaneEnds();
             Al10Halves();
             Al11TrainOver();
+            Al12Head();
+        }
+
+        // ── AL-12: the head (DECISIONS 594): bisector clamped to the type max, halves head +- 20, train limit against the head ──────
+        private static void Al12Head()
+        {
+            const string W = "align/AL-12 head";
+            float d = math.radians(1f);
+            float dq = LiftAlignMath.MaxTrainPitch(0.9f), gd = LiftAlignMath.MaxTrainPitch(1.2f);
+            Check(math.abs(math.degrees(dq) - 41.99f) < 0.01f && math.abs(math.degrees(gd) - 50.19f) < 0.01f, W,
+                  "head limits " + F(math.degrees(dq)) + " / " + F(math.degrees(gd)) + ", not DQ 42.0 / GD 50.2");
+            // The bisector, either facing (a facing flip negates both lane-end pitches and swaps the sides: the head negates).
+            foreach (float s in new[] { 1f, -1f })
+            {
+                float f = s * 30f * d, b = s * 40f * d;
+                float hp = s > 0f ? LiftAlignMath.HeadPitch(f, 2, b, 2, dq) : LiftAlignMath.HeadPitch(b, 2, f, 2, dq);
+                Check(math.abs(hp - s * 35f * d) < 1e-6f, W + " sign " + s, "head " + F(math.degrees(hp)) + ", not the bisector " + (s * 35f));
+            }
+            // Clamped to the type max: a 46 deg mean rope on DQ holds 42; on GD it follows.
+            Check(math.abs(LiftAlignMath.HeadPitch(44f * d, 1, 48f * d, 1, dq) - dq) < 1e-6f, W, "DQ head past 42");
+            Check(math.abs(LiftAlignMath.HeadPitch(44f * d, 1, 48f * d, 1, gd) - 46f * d) < 1e-6f, W, "GD head at 46 moved");
+            // One side only: straight; no rope: level.
+            Check(math.abs(LiftAlignMath.HeadPitch(12f * d, 1, 0f, 0, dq) - 12f * d) < 1e-6f && LiftAlignMath.HeadPitch(9f, 0, 9f, 0, dq) == 0f,
+                  W, "one-sided / no rope");
+            // Halves: on a 40 deg straight slope (past the old 30 cap) both follow the rope, unclamped.
+            Check(!LiftAlignMath.HeadedHalfPitches(40f * d, 2, 40f * d, 2, dq, out float h1, out float f1, out float b1) &&
+                  math.abs(h1 - 40f * d) < 1e-6f && math.abs(f1 - 40f * d) < 1e-6f && math.abs(b1 - 40f * d) < 1e-6f, W,
+                  "40 deg slope gives head " + F(math.degrees(h1)) + " halves " + F(math.degrees(f1)) + " / " + F(math.degrees(b1)));
+            // A 50 deg break about a 35 deg mean: halves at head +- 20 (15 / 55 absolute, no 30 cap).
+            Check(LiftAlignMath.HeadedHalfPitches(10f * d, 2, 60f * d, 2, gd, out float h2, out float f2, out float b2) &&
+                  math.abs(h2 - 35f * d) < 1e-5f && math.abs(f2 - 15f * d) < 1e-5f && math.abs(b2 - 55f * d) < 1e-5f, W,
+                  "50 deg break gives " + F(math.degrees(h2)) + " / " + F(math.degrees(f2)) + " / " + F(math.degrees(b2)));
+            // Head clamped on DQ: a 50 deg straight rope -> head 42, halves 50 (within head + 20).
+            Check(!LiftAlignMath.HeadedHalfPitches(50f * d, 1, 50f * d, 1, dq, out float h3, out float f3, out float b3) &&
+                  math.abs(h3 - dq) < 1e-6f && math.abs(f3 - 50f * d) < 1e-5f && math.abs(b3 - 50f * d) < 1e-5f, W, "DQ 50 deg straight");
+            // Every half within head +- 20 over a grid, every head within the type max.
+            bool ok = true;
+            for (int fi = -70; fi <= 70; fi += 7)
+                for (int bi = -70; bi <= 70; bi += 7)
+                {
+                    LiftAlignMath.HeadedHalfPitches(fi * d, 1, bi * d, 1, dq, out float h, out float pf, out float pb);
+                    ok &= math.abs(h) <= dq + 1e-6f && math.abs(pf - h) <= 20f * d + 1e-5f && math.abs(pb - h) <= 20f * d + 1e-5f;
+                }
+            Check(ok, W, "a grid pose left the head or a half past its limit");
+            // Train limit against the head: a 40 deg straight slope is within on a headed tower (the old rule: 10 over), a 50 deg break is
+            // 5 over either way, a DQ 50 deg straight rope is within (halves +8 of the head), a DQ 70 deg straight rope is 8 over.
+            Check(LiftAlignMath.HeadedTrainOverDeg(40f * d, 2, 40f * d, 2, dq) < 1e-3f &&
+                  math.abs(LiftAlignMath.TrainOverDeg(40f * d, 2, 40f * d, 2, LiftAlignMath.TrainPitchLimit(0.9f)) - 10f) < 1e-3f, W,
+                  "40 deg slope: headed within, unheaded 10 over");
+            Check(math.abs(LiftAlignMath.HeadedTrainOverDeg(-25f * d, 2, 25f * d, 2, dq) - 5f) < 1e-3f, W, "50 deg break is 5 over");
+            Check(LiftAlignMath.HeadedTrainOverDeg(50f * d, 1, 50f * d, 1, dq) < 1e-3f, W, "DQ 50 deg straight is within");
+            Check(math.abs(LiftAlignMath.HeadedTrainOverDeg(70f * d, 1, 70f * d, 1, dq) - (70f - 20f - math.degrees(dq))) < 1e-3f, W,
+                  "DQ 70 deg straight is " + F(LiftAlignMath.HeadedTrainOverDeg(70f * d, 1, 70f * d, 1, dq)) + " over");
+            Check(LiftAlignMath.HeadedTrainOverDeg(1f, 0, 1f, 0, dq) == 0f, W, "no rope is 0");
+            // HeadPose: identity frame, a point 1.55 m above the pivot at a 30 deg head moves toward -z by 1.55 sin 30 and stays 1.55
+            // from the pivot; the head's +z end rises (TrainBoneRotation's sense); a rotated frame gives the same prefab-frame motion when
+            // the bone's x stays the prefab's x.
+            float3 pv = new float3(0f, 8.2589f, 0f);
+            LiftAlignMath.HeadPose(pv, quaternion.identity, 30f * d, pv + new float3(0f, 1.55f, 0f), quaternion.identity, out float3 p1, out quaternion r1);
+            Check(math.abs(p1.z + 1.55f * 0.5f) < 1e-5f && math.abs(math.distance(p1, pv) - 1.55f) < 1e-5f && math.abs(p1.x) < 1e-6f, W,
+                  "plate point posed at " + p1);
+            LiftAlignMath.HeadPose(pv, quaternion.identity, 30f * d, pv + new float3(0f, 0f, 1f), quaternion.identity, out float3 p2, out _);
+            Check(math.abs(p2.y - pv.y - 0.5f) < 1e-5f, W, "+z end at a +30 head did not rise by 0.5");
+            float3 nose = math.mul(r1, new float3(0f, 0f, 1f));
+            Check(math.abs(nose.y - 0.5f) < 1e-5f, W, "posed rotation does not match the bone's");
+            quaternion fr = quaternion.RotateX(math.radians(-90f));   // an FBX-style bone frame: its z is the prefab's y, its x the prefab's x
+            LiftAlignMath.HeadPose(pv, fr, 30f * d, pv + new float3(0f, 1.55f, 0f), quaternion.identity, out float3 p3, out _);
+            Check(math.distance(p3, p1) < 1e-5f, W, "a frame turned about x changed the prefab-frame pose: " + p3 + " vs " + p1);
+            LiftAlignMath.HeadPose(pv, quaternion.identity, 0f, new float3(0.3f, 9.8f, 0.15f), quaternion.identity, out float3 p4, out quaternion r4);
+            Check(math.distance(p4, new float3(0.3f, 9.8f, 0.15f)) < 1e-6f && math.abs(math.dot(r4.value, quaternion.identity.value)) > 1f - 1e-6f,
+                  W, "a level head moved a fitting");
         }
 
         private static bool Check(bool cond, string where, string msg) => s_Check(cond, where, msg);

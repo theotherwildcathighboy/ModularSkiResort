@@ -2,6 +2,10 @@
 // Per numbered tower and plate face, 1-3 one-quad tile objects cover the baked height numeral with the tower's order number. The
 // tiles are vanilla object entities: Owner = the tower, Secondary, Elevation(local y, flags 0). The baked plate is the fallback:
 // with the tile prefabs absent this system writes nothing and logs one line per load.
+// Headed towers (DECISIONS 594): when the tower carries a TrainPitch with a head (TrainPitchSystem), every tile is posed through the head
+// (LiftAlignMath.HeadPose about the Head bone's pivot), and a GD tower whose prefab no longer carries the beacon row gets the beacon
+// (TowerNumberTiles.Beacons) as one more Secondary object on the head. A head pose change re-arms the pass (OnHeadsChanged); the
+// per-owner diff then moves the tiles (delete + create, as a renumber).
 // Never: Temp or Deleted towers; towers whose prefab has no plate row (counted in the order, not tiled); Editor mode.
 // Log discipline: one ARMED / OFF line per load, one line per pass that changed anything, a one-shot "!!!" catch.
 // Mod.cs: UpdateAfter<TowerNumberTileSystem, LiftCensusSystem>(Modification4B), before Modification5 (the references system).
@@ -46,6 +50,8 @@ namespace SkiResortMod.Systems
         private bool[] m_ClassReady = new bool[0];
         private readonly Dictionary<Entity, int> m_KeyByTilePrefab = new Dictionary<Entity, int>();
         private readonly Dictionary<Entity, int> m_PlateByTowerPrefab = new Dictionary<Entity, int>();   // -1 = no plate row
+        private Entity m_Beacon;                                                                          // SkiBeaconRed, or Null
+        private readonly Dictionary<Entity, int> m_BeaconByTowerPrefab = new Dictionary<Entity, int>();  // -1 = none to write
 
         private readonly List<TowerNumberTiles.TileSpec> m_Desired = new List<TowerNumberTiles.TileSpec>();
         private readonly List<TowerNumberTiles.Slot> m_Slots = new List<TowerNumberTiles.Slot>();
@@ -82,6 +88,8 @@ namespace SkiResortMod.Systems
             m_Resolved = false;
             m_KeyByTilePrefab.Clear();
             m_PlateByTowerPrefab.Clear();
+            m_Beacon = Entity.Null;
+            m_BeaconByTowerPrefab.Clear();
             m_BuffersAdded = 0;
             m_Passes = 0;
             if (!m_Armed)
@@ -96,6 +104,15 @@ namespace SkiResortMod.Systems
             m_Edges.Clear();
             m_Edges.AddRange(edges);
             Arm("census");
+        }
+
+        /// <summary>Called by TrainPitchSystem when a pass changed the head pitch of <paramref name="towers"/> headed tower(s): the tiles on
+        /// those heads move with them.</summary>
+        internal void OnHeadsChanged(int towers)
+        {
+            if (!m_Armed || m_Disabled)
+                return;
+            Arm("head pitch, " + towers + " tower(s)");
         }
 
         private void Arm(string why)
@@ -181,6 +198,12 @@ namespace SkiResortMod.Systems
                     for (int g = TowerNumberTiles.Blank; g <= 9; g++)
                         m_KeyByTilePrefab[m_Tile[TowerNumberTiles.Key(c, g)]] = TowerNumberTiles.Key(c, g);
             }
+            if (m_PrefabSystem.TryGetPrefab(new PrefabID("StaticObjectPrefab", TowerNumberTiles.BeaconPrefab), out PrefabBase bp) &&
+                m_PrefabSystem.TryGetEntity(bp, out Entity be) && EntityManager.TryGetComponent(be, out ObjectData bod) && bod.m_Archetype.Valid)
+            {
+                m_Beacon = be;
+                m_KeyByTilePrefab[be] = TowerNumberTiles.BeaconKey;
+            }
             var ready1 = new List<string>();
             for (int c = 0; c < nc; c++)
                 if (m_ClassReady[c])
@@ -223,6 +246,25 @@ namespace SkiResortMod.Systems
                 if (string.Equals(TowerNumberTiles.Plates[i].Prefab, name, StringComparison.Ordinal))
                     idx = i;
             m_PlateByTowerPrefab[towerPrefab] = idx;
+            return idx;
+        }
+
+        /// <summary>The TowerNumberTiles.Beacons index whose beacon the code writes on this tower prefab's head; -1 when it has none, the
+        /// beacon prefab is not loaded, or the prefab still carries its ObjectSubObjects beacon row (the engine places that one).</summary>
+        private int BeaconOf(Entity towerPrefab)
+        {
+            if (m_BeaconByTowerPrefab.TryGetValue(towerPrefab, out int idx))
+                return idx;
+            idx = -1;
+            string name = m_PrefabSystem.GetPrefabName(towerPrefab);
+            for (int i = 0; i < TowerNumberTiles.Beacons.Length && m_Beacon != Entity.Null; i++)
+                if (string.Equals(TowerNumberTiles.Beacons[i].Prefab, name, StringComparison.Ordinal))
+                    idx = i;
+            if (idx >= 0 && EntityManager.TryGetBuffer(towerPrefab, true, out DynamicBuffer<Game.Prefabs.SubObject> rows))
+                for (int i = 0; i < rows.Length; i++)
+                    if (rows[i].m_Prefab == m_Beacon)
+                        idx = -1;
+            m_BeaconByTowerPrefab[towerPrefab] = idx;
             return idx;
         }
 
@@ -328,6 +370,17 @@ namespace SkiResortMod.Systems
             if (!m_ClassReady[plate.Class])
                 return 0;
             TowerNumberTiles.Desired(plate, number, m_Desired, m_Slots);
+            if (EntityManager.TryGetComponent(tower, out TrainPitch head) && head.m_Headed)
+            {
+                int bi = BeaconOf(tp.m_Prefab);
+                if (bi >= 0)
+                    m_Desired.Add(new TowerNumberTiles.TileSpec
+                    {
+                        Key = TowerNumberTiles.BeaconKey, Class = -1, Glyph = TowerNumberTiles.Blank,
+                        LocalPos = TowerNumberTiles.Beacons[bi].LocalPos, LocalRot = quaternion.identity,
+                    });
+                TowerNumberTiles.PoseThroughHead(m_Desired, head.m_HeadPivot, head.m_HeadFrame, head.m_Head);
+            }
 
             m_Existing.Clear();
             m_ExistingEntities.Clear();
@@ -340,6 +393,9 @@ namespace SkiResortMod.Systems
                     if (EntityManager.HasComponent<Deleted>(e) || !EntityManager.TryGetComponent(e, out PrefabRef ep) ||
                         !m_KeyByTilePrefab.TryGetValue(ep.m_Prefab, out int key) || !EntityManager.TryGetComponent(e, out Transform et))
                         continue;
+                    if (key == TowerNumberTiles.BeaconKey && BeaconOf(tp.m_Prefab) < 0)
+                        continue;                         // the prefab row's beacon (the engine's sub-object): never ours to diff
+
                     m_Existing.Add(new TowerNumberTiles.Existing { Key = key, LocalPos = math.mul(inv, et.m_Position - tt.m_Position) });
                     m_ExistingEntities.Add(e);
                 }
@@ -356,7 +412,7 @@ namespace SkiResortMod.Systems
             for (int i = 0; i < m_Add.Count; i++)
             {
                 TowerNumberTiles.TileSpec spec = m_Desired[m_Add[i]];
-                Entity prefab = m_Tile[spec.Key];
+                Entity prefab = spec.Key == TowerNumberTiles.BeaconKey ? m_Beacon : m_Tile[spec.Key];
                 EntityArchetype arch = EntityManager.GetComponentData<ObjectData>(prefab).m_Archetype;
                 var one = new NativeArray<Entity>(1, Allocator.Temp);   // the (archetype, array) overload: PowerBridgeSystem's idiom
                 EntityManager.CreateEntity(arch, one);

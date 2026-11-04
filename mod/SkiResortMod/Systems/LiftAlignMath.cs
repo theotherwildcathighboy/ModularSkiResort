@@ -248,6 +248,69 @@ namespace SkiResortMod.Systems
             return math.max(0f, math.degrees(math.max(pitch, halfBreak)));
         }
 
+        /// <summary>The head pitch of a headed tower (DQ / GD, DECISIONS 594; spike tilted-towers-2026-11-04 option B): the whole head
+        /// (gantry, deck, trains) turns about the trains' pivot line to the bisector of its ropes, the mean of the front and back lane-end
+        /// pitches (inputs as HalfPitches; a side without a rope takes the other's pitch), clamped to ±<paramref name="headMax"/> (the
+        /// type's steepest rope, MaxTrainPitch). 0 when neither side has a rope.</summary>
+        public static float HeadPitch(float front, int nFront, float back, int nBack, float headMax)
+        {
+            if (nFront == 0 && nBack == 0)
+                return 0f;
+            if (nFront == 0)
+                front = back;
+            else if (nBack == 0)
+                back = front;
+            return math.clamp(0.5f * (front + back), -headMax, headMax);
+        }
+
+        /// <summary>HalfPitches for a headed tower: the head at HeadPitch, each half at its rope's pitch clamped to the head ±
+        /// MaxHalfBreakDeg (no absolute TrainPitchLimit: the head carries the slope). The halves stay absolute pitches (the Head bone is
+        /// their sibling on the same pivot). True when a half was clamped; false and zeros when neither side has a rope.</summary>
+        public static bool HeadedHalfPitches(float front, int nFront, float back, int nBack, float headMax, out float head, out float pFront,
+            out float pBack)
+        {
+            head = pFront = pBack = 0f;
+            if (nFront == 0 && nBack == 0)
+                return false;
+            if (nFront == 0)
+                front = back;
+            else if (nBack == 0)
+                back = front;
+            head = HeadPitch(front, 1, back, 1, headMax);
+            float limit = math.radians(MaxHalfBreakDeg);
+            pFront = math.clamp(front, head - limit, head + limit);
+            pBack = math.clamp(back, head - limit, head + limit);
+            return pFront != front || pBack != back;
+        }
+
+        /// <summary>TrainOverDeg for a headed tower, measured against the head: degrees a half's rope pitch lies past head ±
+        /// MaxHalfBreakDeg (inputs unclamped, as HeadedHalfPitches). With the head on the bisector this is the half-break past the limit;
+        /// a mean rope past <paramref name="headMax"/> adds the head's shortfall. 0 when the train follows the rope or there is no rope.</summary>
+        public static float HeadedTrainOverDeg(float front, int nFront, float back, int nBack, float headMax)
+        {
+            if (nFront == 0 && nBack == 0)
+                return 0f;
+            if (nFront == 0)
+                front = back;
+            else if (nBack == 0)
+                back = front;
+            float head = HeadPitch(front, 1, back, 1, headMax);
+            float dev = math.max(math.abs(front - head), math.abs(back - head)) - math.radians(MaxHalfBreakDeg);
+            return math.max(0f, math.degrees(dev));
+        }
+
+        /// <summary>A fitting fixed on a headed tower's head (number tile, beacon) posed with the head: <paramref name="pivot"/> is the Head
+        /// bone's origin and <paramref name="frame"/> its rest rotation, both in the tower's prefab frame (ProceduralBone m_ObjectPosition /
+        /// m_ObjectRotation); the head turns by TrainBoneRotation(rest, <paramref name="head"/>) in its bone frame, which is
+        /// frame * RotateX(-head) * inverse(frame) in the prefab frame, about the pivot.</summary>
+        public static void HeadPose(float3 pivot, quaternion frame, float head, float3 localPos, quaternion localRot, out float3 pos,
+            out quaternion rot)
+        {
+            quaternion delta = math.mul(frame, math.mul(quaternion.RotateX(-head), math.inverse(frame)));
+            pos = pivot + math.mul(delta, localPos - pivot);
+            rot = math.normalize(math.mul(delta, localRot));
+        }
+
         /// <summary>The hub warns about a tower's train only past this many degrees over its limits (TrainOverDeg): rounding and rope
         /// sag noise at a tower right at a limit never raise the row.</summary>
         public const float TrainWarnDeg = 0.5f;

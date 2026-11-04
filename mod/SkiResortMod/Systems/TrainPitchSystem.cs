@@ -21,6 +21,11 @@
 // source (InitializeMeshJob, MeshSystem.cs:162-164, :237): sibling order is not kept, so the slot is the one whose m_BindIndex matches. The
 // Bone buffer follows the sorted slots (ProceduralSkeletonSystem.GetSkinMatrices). The Skeleton index is the prefab SubMesh index
 // (ObjectInterpolateSystem.cs:344-351).
+//   Head (DECISIONS 594, spike tilted-towers-2026-11-04 option B): a DQ / GD mesh with a bone named "Head*" (child of Root, origin on the
+//     same pivot line as the halves) is headed: the head (gantry, deck, trains' carrier) turns to LiftAlignMath.HeadPitch, the bisector
+//     of the ropes clamped to the type's steepest rope (MaxTrainPitch: DQ 42.0, GD 50.2), and the halves to the head +-
+//     MaxHalfBreakDeg (HeadedHalfPitches, no 30 deg cap); its train limit is HeadedTrainOverDeg. The halves keep absolute pitches (Head
+//     is their sibling). A pose change re-arms TowerNumberTileSystem, which poses the tiles (and the GD beacon) through the head.
 // Never: Temp or Deleted towers (a preview stays level), towers whose prefab has no train bone (unskinned art: nothing changes), Editor.
 // Log discipline: one line per rigged tower prefab per load, one line per pass that posed a tower or changed the rope-less count (with
 // the towers whose break was clamped), a one-shot "!!!" catch.
@@ -56,6 +61,10 @@ namespace SkiResortMod.Systems
         public float m_Front;           // radians, nose up along the tower's +z, of the +z half (TrainFront bones)
         public float m_Back;            // the same for the -z half (TrainBack bones)
         public bool m_Clamped;          // the half-break was over LiftAlignMath.MaxHalfBreakDeg (diagnostics)
+        public bool m_Headed;           // the mesh has a Head bone: m_Head / m_HeadPivot / m_HeadFrame are valid
+        public float m_Head;            // radians, nose up along +z, of the head (LiftAlignMath.HeadPitch)
+        public float3 m_HeadPivot;      // the Head bone's origin in the prefab frame (ProceduralBone.m_ObjectPosition)
+        public quaternion m_HeadFrame;  // its rest rotation in the prefab frame (ProceduralBone.m_ObjectRotation)
     }
 
     /// <summary>One train bone's local rotation: rest turned by its half's pitch (LiftAlignMath.TrainBoneRotation).</summary>
@@ -75,13 +84,16 @@ namespace SkiResortMod.Systems
         /// <summary>Below this change, radians, a pass leaves a tower's pose alone (no rewrite churn on re-runs).</summary>
         internal const float PitchEpsilon = 1e-4f;
 
-        internal const string FrontPrefix = "TrainFront", BackPrefix = "TrainBack";
+        internal const string FrontPrefix = "TrainFront", BackPrefix = "TrainBack", HeadPrefix = "Head";
+
+        private const int PartBack = 0, PartFront = 1, PartHead = 2;
 
         private struct RigBone
         {
-            public int SubMesh, Bone;
+            public int SubMesh, Bone, Part;
             public quaternion Rest;
-            public bool Front;
+            public float3 ObjectPosition;
+            public quaternion ObjectRotation;
         }
 
         private struct Pending
@@ -200,8 +212,8 @@ namespace SkiResortMod.Systems
             m_SeenNodes.Clear();
             m_Pending.Clear();
             m_OverNext.Clear();
-            int towers = 0, noRope = 0, clamped = 0;
-            float maxDeg = 0f, maxHalfBreakDeg = 0f;
+            int towers = 0, noRope = 0, clamped = 0, headed = 0, headsPosed = 0;
+            float maxDeg = 0f, maxHalfBreakDeg = 0f, maxHeadDeg = 0f;
             // Read everything first; the component adds below are structural changes, which would invalidate the node buffers read here.
             for (int i = 0; i < m_Edges.Count; i++)
             {
@@ -210,7 +222,8 @@ namespace SkiResortMod.Systems
                 if (ce.Type == LiftCensus.NoType || ce.Type >= SkiCatalog.Lifts.Count || !EntityManager.Exists(edge) ||
                     EntityManager.HasComponent<Deleted>(edge) || !EntityManager.TryGetComponent(edge, out Edge e))
                     continue;                             // a newer census build carries the replacement
-                float maxPitch = LiftAlignMath.TrainPitchLimit(SkiCatalog.Lifts[ce.Type].Envelope.SlopeMax);
+                float slopeMax = SkiCatalog.Lifts[ce.Type].Envelope.SlopeMax;
+                float maxPitch = LiftAlignMath.TrainPitchLimit(slopeMax), headMax = LiftAlignMath.MaxTrainPitch(slopeMax);
                 for (int end = 0; end < 2; end++)
                 {
                     Entity node = end == 0 ? e.m_Start : e.m_End;
@@ -222,14 +235,28 @@ namespace SkiResortMod.Systems
                         if (EntityManager.HasComponent<Temp>(tower) || EntityManager.HasComponent<Deleted>(tower) ||
                             !EntityManager.TryGetComponent(tower, out PrefabRef pr) || !EntityManager.TryGetComponent(tower, out Transform t))
                             continue;
-                        bool roped = PitchesAt(node, pr.m_Prefab, t, maxPitch, out float front, out float back, out bool wasClamped,
-                            out float over);
+                        bool roped = RopeAt(node, pr.m_Prefab, t, out float meanF, out int nF, out float meanB, out int nB);
+                        List<RigBone> rig = RigOf(pr.m_Prefab);
+                        int headBone = HeadOf(rig);
+                        float front = 0f, back = 0f, head = 0f, over = 0f;
+                        bool wasClamped = false;
+                        if (roped && headBone >= 0)
+                        {
+                            over = LiftAlignMath.HeadedTrainOverDeg(meanF, nF, meanB, nB, headMax);
+                            wasClamped = LiftAlignMath.HeadedHalfPitches(meanF, nF, meanB, nB, headMax, out head, out front, out back);
+                        }
+                        else if (roped)
+                        {
+                            over = LiftAlignMath.TrainOverDeg(meanF, nF, meanB, nB, maxPitch);
+                            wasClamped = LiftAlignMath.HalfPitches(meanF, nF, meanB, nB, maxPitch, out front, out back);
+                        }
                         if (roped && over > LiftAlignMath.TrainWarnDeg)
                             m_OverNext[node] = m_OverNext.TryGetValue(node, out float o) ? math.max(o, over) : over;
-                        List<RigBone> rig = RigOf(pr.m_Prefab);
                         if (rig == null)
                             continue;
                         towers++;
+                        if (headBone >= 0)
+                            headed++;
                         if (!roped)
                         {
                             noRope++;
@@ -239,10 +266,21 @@ namespace SkiResortMod.Systems
                             clamped++;
                         maxDeg = math.max(maxDeg, math.degrees(math.max(math.abs(front), math.abs(back))));
                         maxHalfBreakDeg = math.max(maxHalfBreakDeg, math.degrees(math.abs(back - front) * 0.5f));
-                        var pitch = new TrainPitch { m_Front = front, m_Back = back, m_Clamped = wasClamped };
+                        maxHeadDeg = math.max(maxHeadDeg, math.degrees(math.abs(head)));
+                        var pitch = new TrainPitch { m_Front = front, m_Back = back, m_Clamped = wasClamped, m_HeadFrame = quaternion.identity };
+                        if (headBone >= 0)
+                        {
+                            pitch.m_Headed = true;
+                            pitch.m_Head = head;
+                            pitch.m_HeadPivot = rig[headBone].ObjectPosition;
+                            pitch.m_HeadFrame = rig[headBone].ObjectRotation;
+                        }
                         bool add = !EntityManager.TryGetComponent(tower, out TrainPitch old);
-                        if (!add && math.abs(old.m_Front - front) < PitchEpsilon && math.abs(old.m_Back - back) < PitchEpsilon)
+                        if (!add && math.abs(old.m_Front - front) < PitchEpsilon && math.abs(old.m_Back - back) < PitchEpsilon &&
+                            math.abs(old.m_Head - head) < PitchEpsilon && old.m_Headed == pitch.m_Headed)
                             continue;
+                        if (pitch.m_Headed)
+                            headsPosed++;
                         m_Pending.Add(new Pending { Tower = tower, Pitch = pitch, Rig = rig, Add = add });
                     }
                 }
@@ -268,11 +306,14 @@ namespace SkiResortMod.Systems
                 foreach (RigBone b in p.Rig)
                     poses.Add(new TrainBonePose
                     {
-                        m_Rotation = LiftAlignMath.TrainBoneRotation(b.Rest, b.Front ? p.Pitch.m_Front : p.Pitch.m_Back),
+                        m_Rotation = LiftAlignMath.TrainBoneRotation(b.Rest,
+                            b.Part == PartHead ? p.Pitch.m_Head : b.Part == PartFront ? p.Pitch.m_Front : p.Pitch.m_Back),
                         m_SubMesh = b.SubMesh,
                         m_Bone = b.Bone,
                     });
             }
+            if (headsPosed > 0)
+                World.GetOrCreateSystemManaged<TowerNumberTileSystem>().OnHeadsChanged(headsPosed);
 
             // A census rebuild re-runs the pass about every 40 s; a pass that posed nothing logs only when the rope-less count changed.
             if (m_Pending.Count > 0 || noRope != m_LastNoRope)
@@ -280,6 +321,7 @@ namespace SkiResortMod.Systems
                 double ms = (Stopwatch.GetTimestamp() - t0) * 1000.0 / Stopwatch.Frequency;
                 Mod.Log.Info($"Towers [trains]: pass {m_Passes} ({why}) rigged towers {towers}, posed {m_Pending.Count} (new {added}), max |pitch| " +
                              $"{maxDeg:F1} deg, max half-break {maxHalfBreakDeg:F1} deg" +
+                             (headed > 0 ? $", headed {headed} (max |head| {maxHeadDeg:F1} deg)" : string.Empty) +
                              (clamped > 0 ? $", {clamped} clamped to the {LiftAlignMath.MaxHalfBreakDeg:F0} deg half-break (rope off the inner wheels)" : string.Empty) +
                              (noRope > 0 ? $", {noRope} without a rope lane on their anchors (level)" : string.Empty) + $"; {ms:F2} ms");
             }
@@ -325,14 +367,12 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>The half-train pitches from the rope lane ends on the tower's anchors (LiftAlignMath.HalfPitches); false when no lane end
-        /// sits on an anchor.</summary>
-        private bool PitchesAt(Entity node, Entity towerPrefab, Transform t, float maxPitch, out float front, out float back, out bool clamped,
-            out float over)
+        /// <summary>The mean lane-end pitches of the ropes on the tower's anchors leaving toward +z (front) and -z (back), with their counts
+        /// (the inputs of LiftAlignMath.HalfPitches / HeadedHalfPitches); false when no lane end sits on an anchor.</summary>
+        private bool RopeAt(Entity node, Entity towerPrefab, Transform t, out float meanF, out int nF, out float meanB, out int nB)
         {
-            front = back = 0f;
-            clamped = false;
-            over = 0f;
+            meanF = meanB = 0f;
+            nF = nB = 0;
             m_Anchors.Clear();
             if (!EntityManager.TryGetBuffer(towerPrefab, true, out DynamicBuffer<Game.Prefabs.SubLane> anchors) ||
                 !EntityManager.TryGetBuffer(node, true, out DynamicBuffer<ConnectedEdge> edges))
@@ -345,7 +385,6 @@ namespace SkiResortMod.Systems
             }
             float3 forward = math.mul(t.m_Rotation, new float3(0f, 0f, 1f));
             float sumF = 0f, sumB = 0f;
-            int nF = 0, nB = 0;
             for (int i = 0; i < edges.Length; i++)
             {
                 if (!EntityManager.TryGetBuffer(edges[i].m_Edge, true, out DynamicBuffer<SubLane> lanes))
@@ -364,10 +403,19 @@ namespace SkiResortMod.Systems
             }
             if (nF + nB == 0)
                 return false;
-            float meanF = nF > 0 ? sumF / nF : 0f, meanB = nB > 0 ? sumB / nB : 0f;
-            over = LiftAlignMath.TrainOverDeg(meanF, nF, meanB, nB, maxPitch);
-            clamped = LiftAlignMath.HalfPitches(meanF, nF, meanB, nB, maxPitch, out front, out back);
+            meanF = nF > 0 ? sumF / nF : 0f;
+            meanB = nB > 0 ? sumB / nB : 0f;
             return true;
+        }
+
+        /// <summary>The rig index of the prefab's Head bone; -1 when it has none (unheaded: FG, tram, the pre-head DQ / GD meshes).</summary>
+        private static int HeadOf(List<RigBone> rig)
+        {
+            if (rig != null)
+                for (int i = 0; i < rig.Count; i++)
+                    if (rig[i].Part == PartHead)
+                        return i;
+            return -1;
         }
 
         private static void AddEnd(float3 end, float3 inner, float3 forward, ref float sumF, ref int nF, ref float sumB, ref int nB)
@@ -400,7 +448,7 @@ namespace SkiResortMod.Systems
             if (m_Rigs.TryGetValue(prefab, out List<RigBone> rig))
                 return rig;
             rig = null;
-            int front = 0, back = 0;
+            int front = 0, back = 0, head = 0;
             if (EntityManager.TryGetBuffer(prefab, true, out DynamicBuffer<SubMesh> meshes))
                 for (int j = 0; j < meshes.Length; j++)
                 {
@@ -414,25 +462,37 @@ namespace SkiResortMod.Systems
                     for (int k = 0; k < props.m_Bones.Length; k++)
                     {
                         string name = props.m_Bones[k].name;
-                        bool isFront = name != null && name.StartsWith(FrontPrefix, StringComparison.Ordinal);
-                        if (!isFront && (name == null || !name.StartsWith(BackPrefix, StringComparison.Ordinal)))
+                        if (name == null)
+                            continue;
+                        int part = name.StartsWith(FrontPrefix, StringComparison.Ordinal) ? PartFront
+                            : name.StartsWith(BackPrefix, StringComparison.Ordinal) ? PartBack
+                            : name.StartsWith(HeadPrefix, StringComparison.Ordinal) ? PartHead : -1;
+                        if (part < 0)
                             continue;
                         for (int b = 0; b < bones.Length; b++)
                             if (bones[b].m_BindIndex == k)    // m_Bones index k -> the sorted buffer slot
                             {
-                                (rig ??= new List<RigBone>()).Add(new RigBone { SubMesh = j, Bone = b, Rest = bones[b].m_Rotation, Front = isFront });
-                                if (isFront)
+                                (rig ??= new List<RigBone>()).Add(new RigBone
+                                {
+                                    SubMesh = j, Bone = b, Part = part, Rest = bones[b].m_Rotation,
+                                    ObjectPosition = bones[b].m_ObjectPosition, ObjectRotation = bones[b].m_ObjectRotation,
+                                });
+                                if (part == PartFront)
                                     front++;
-                                else
+                                else if (part == PartBack)
                                     back++;
+                                else
+                                    head++;
                                 break;
                             }
                     }
                 }
             m_Rigs[prefab] = rig;
             if (rig != null)
-                Mod.Log.Info($"Towers [trains]: {m_PrefabSystem.GetPrefabName(prefab)} has train bones ({front} front, {back} back); its half-trains " +
-                             "pitch with the rope" + (front == 0 || back == 0 ? " — !!! one half has no bone, that half stays level" : string.Empty));
+                Mod.Log.Info($"Towers [trains]: {m_PrefabSystem.GetPrefabName(prefab)} has train bones ({front} front, {back} back" +
+                             (head > 0 ? $", {head} head" : string.Empty) + "); its half-trains pitch with the rope" +
+                             (head > 0 ? ", its head with their mean" : string.Empty) +
+                             (front == 0 || back == 0 ? " — !!! one half has no bone, that half stays level" : string.Empty));
             return rig;
         }
     }

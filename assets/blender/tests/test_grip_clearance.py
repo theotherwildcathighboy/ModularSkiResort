@@ -22,16 +22,19 @@ p (the carrier turned 180 deg about z); both travel directions (the carrier also
 either spin). Stops every STEP m from the pivot out past each half's last wheel. Distances: vertices plus edge samples
 every SAMPLE m on both sides (a reported distance overstates the true one by at most SAMPLE / 2); an overlap is a BVH
 triangle intersection (mathutils BVHTree.overlap), tested wherever a sample comes within OVERLAP_PROBE.
-Trains: every line member (SHIPPED: FG8..FG20, DQ10..DQ20, GD12..GD20) rebuilt through the shipping path and held to its
-shipped LOD0 vertex for vertex (lift_tower.twin_atlas, 0.2 mm), and every breakover / hold-down twin (lift_tower.TWINS:
-Hold, Combo, Break) built by lift_tower.build_twin. Poses (kind_poses): the G6 grid (cs2_skin.joint_grid: rest, uniform
-+-theta_max, the half-breaks at every mean) on the kind's side of the fold, the planner's kind rule (breakover-holddown
-plan 2.2): support and Break convex to the art fold 40 deg, Hold concave to 40, Combo +-COMBO_FOLD (its drawn |d| stays
-under 7.3), so the fold extremes of each kind are in. LOD0 carrier x LOD0 tower.
+Trains: FG8..FG20 rebuilt through the shipping path and held to their shipped LOD0 vertex for vertex (lift_tower.twin_atlas,
+0.2 mm), the FG twins built by lift_tower.build_twin; every DQ / GD member (DQ10..DQ20, GD12..GD20) and its Hold / Combo
+twins built headed by lift_head.build_headed (the Head round, DECISIONS 594: the head turns about the rope line with the
+mean of the halves). Poses (kind_poses): the G6 grid (cs2_skin.joint_grid: rest, uniform +-theta, the half-breaks at
+every mean; theta = SKIN_THETA_MAX for FG, the planner max SKIN_TYPE_MAX_SLOPE DQ 42 / GD 50.2 for DQ / GD with Head =
+(front + back) / 2) on the kind's side of the fold, the planner's kind rule (breakover-holddown plan 2.2): support and
+Break convex to the art fold 40 deg, Hold concave to 40, Combo +-COMBO_FOLD (its drawn |d| stays under 7.3), so the fold
+extremes of each kind are in. LOD0 carrier x LOD0 tower.
 Carriers: catalog/carriers.json split rows (tr = FG, dq = DQ, gd8 = GD), meshes found under assets/import, or --carriers
 <json> (the same rows; a row's "fbx": {"grip": {"lod0": path}, "body": {"lod0": path} | "unchanged: <repo dir>"}
 names the files: a round's carriers before their import).
-Negative (always run): the FG8 member with its carrier moved 0.12 m inboard must fail W1 and W2.
+Negatives (always run): the FG8 member with its carrier moved 0.12 m inboard must fail W1 and W2; every DQ / GD member
+with its head held level at uniform +-planner max must fail W2 (the deck end meets the carrier body).
 Report only (not gated): --entry sweeps the station-entry compression heads ETDQ / ETGD at rest; --art sweeps every
 train over its whole G6 grid both ways (the folds the code can draw, past what the planner gives the kind).
 
@@ -56,6 +59,7 @@ import cs2_sheaves as S  # noqa: E402
 import cs2_skin  # noqa: E402
 import lift_chair as LC  # noqa: E402
 import lift_tower as LT  # noqa: E402
+import lift_head as LH  # noqa: E402
 
 REPO = LT._REPO
 ENV = LC.ENVELOPE_Z                 # m, the jaw band about the rope center
@@ -79,18 +83,12 @@ SHIPPED = {"FG8": "Q/SkiLiftTowerFG8Q", "FG12": "R/SkiLiftTowerFG12R", "FG16": "
 ENTRY = {"ETDQ": "rebuild", "ETGD": "rebuild"}
 COMBO_FOLD = {"FG": 8.0, "DQ": 16.0, "GD": 16.0}    # deg, the push-pull caps (plan 2.2: FG 2S2C 8, DQ / GD 4S4C 16)
 BONES = list(LT.SKIN_BONES)
-# KNOWN LIMIT (pre-B2, on the shipped members; ticket: the tilted-towers round of the lift program). The DQ / GD head
-# (gantry, deck grate / lip / kick / posts, all Root) stays level while a half pitches with its rope; past an end-raised
-# half pitch the carrier body (the chair's raised bar 1.36 m under the rope, the cabin) rises into the deck END. The gate
-# holds DQ / GD support and Combo to HEAD_PITCH_LIMIT (end-raised: TrainFront <= -lim, TrainBack >= +lim are clamped;
-# Hold / Break / FG keep the full range) and re-measures the clash at HEAD_CLASH_AT every run: it must still clash there,
-# else the limit is stale and the gate fails (lift the limit). Acceptance of the fix: clean to the planner maximum
-# (lift_tower.SKIN_TYPE_MAX_SLOPE DQ 42 / GD 50); fallback a Head bone (gantry + deck pitched by the mean of the halves).
-HEAD_LIMIT_TICKET = "tilted towers (lift program): head pitched by the mean of the halves, clean to DQ 42 / GD 50 deg"
-# deg, the end-raised half pitch gated / the first step that overlaps (2.5 deg steps, the carrier out to 5.5 m along the
-# rope: the gd8 cabin reaches the GD deck end at d 4.0-4.2 m). Combo: the head 1 seat higher.
-HEAD_PITCH_LIMIT = {("DQ", "support"): 20.0, ("DQ", "Combo"): 20.0, ("GD", "support"): 17.5, ("GD", "Combo"): 22.5}
-HEAD_CLASH_AT = {("DQ", "support"): 22.5, ("DQ", "Combo"): 27.5, ("GD", "support"): 20.0, ("GD", "Combo"): 27.5}
+# DQ / GD: the Head round (DECISIONS 594, lift_head.py). The head (gantry, deck, rails, hangers, plates) is skinned to a
+# Head bone that TrainPitchSystem turns to the mean of the halves (clamped to the planner max), the halves to head +-20;
+# the head no longer stays level while a half pitches, so the carrier body no longer rises into the deck end (the
+# limit before this round: DQ 20 / GD 17.5 deg end-raised). DQ / GD trains here are the headed builds, swept to the
+# planner max (lift_tower.SKIN_TYPE_MAX_SLOPE: DQ 42 / GD 50.2) with Head = (front + back) / 2. FG has no head.
+HEADED = ("DQ", "GD")
 
 
 def _fail(msg):
@@ -358,10 +356,11 @@ def _side(co, tris, label_of):
 class Tower:
     """A rigged train (net frame) split for the sweep: per-face bone and part, wheel / other classes."""
 
-    def __init__(self, label, t, spec, part_bone, poses, kind):
+    def __init__(self, label, t, spec, part_bone, poses, kind, bones=None):
         table = json.loads(t.data[cs2_asset.PART_TABLE_PROP])
+        self.bones = list(bones or BONES)
         try:
-            names, fb, vb = cs2_skin.face_bones(t, table, part_bone, BONES)
+            names, fb, vb = cs2_skin.face_bones(t, table, part_bone, self.bones)
         except cs2_skin.SkinError as e:
             _fail(f"{label}: {e}")
         polys = [tuple(p.vertices) for p in t.data.polygons]
@@ -381,19 +380,24 @@ class Tower:
         self.wheel_names = sorted({n for n, w in zip(self.part, self.wheel) if w})
         self.gauge = spec.gauge
 
-    def frame(self, theta_own, own, theta_other, with_other=True):
+    def others(self, own):
+        """The moving bones other than half `own`: the other half and (DQ / GD) the Head."""
+        return [b for b in range(1, len(self.bones)) if b != own]
+
+    def frame(self, theta_own, own, pose, with_other=True):
         """Coords in the frame of half `own` (bone index) pitched theta_own: own half at rest, Root turned -theta_own,
-        the other half turned theta_other - theta_own (about the pivot). Faces of the other half dropped unless
-        with_other."""
+        every other moving bone (the other half, the Head) turned pose[bone] - theta_own (about the one pivot line; a
+        bone missing from `pose` is at 0). Faces of the other moving bones dropped unless with_other."""
         pc = self.co.copy()
-        other = 3 - own
         m = self.vb == 0
         if theta_own:
             pc[m] = cs2_skin.rotate_x(self.co[m], -theta_own, self.piv)
-        m = self.vb == other
-        if theta_other - theta_own:
-            pc[m] = cs2_skin.rotate_x(self.co[m], theta_other - theta_own, self.piv)
-        keep = np.ones(len(self.tris), dtype=bool) if with_other else self.bone != other
+        for b in self.others(own):
+            a = pose.get(self.bones[b], 0.0) - theta_own
+            m = self.vb == b
+            if a and m.any():
+                pc[m] = cs2_skin.rotate_x(self.co[m], a, self.piv)
+        keep = np.ones(len(self.tris), dtype=bool) if with_other else ~np.isin(self.bone, self.others(own))
         return pc, keep
 
 
@@ -485,32 +489,32 @@ def sweep_train(tw, car, label, report=False):
         corr |= (flo <= lx + W) & (fhi >= lx - W)
         vlat |= np.abs(tw.co[:, 0] - lx) <= W
     for own, bname, sgn in halves:
-        other = 3 - own
-        oname = BONES[other]
+        moving = np.isin(tw.vb, tw.others(own))
         thetas = sorted({round(p.get(bname, 0.0), 4) for p in tw.poses})
         for th in thetas:
             mine = [p for p in tw.poses if abs(p.get(bname, 0.0) - th) < 1e-6]
             hy = car.posed(th, -1.0, False)["half_y"]          # |y| extent: the same on every lane / direction
-            # far stops: the other half out of reach at every pose with this theta (measured, not assumed)
+            # far stops: the other half and the head out of reach at every pose with this theta (measured)
             reach = -9.0
             for p in mine:
-                pc, _k = tw.frame(th, own, p.get(oname, 0.0))
-                m = (tw.vb == other) & vlat
+                pc, _k = tw.frame(th, own, p)
+                m = moving & vlat
                 if m.any():
                     reach = max(reach, float((sgn * pc[m, 1]).max()))
             d_far = max(0.0, reach + hy + PROBE + STEP)
-            pc0, _k = tw.frame(th, own, 0.0)
-            u = sgn * pc0[vlat & (tw.vb != other), 1]
+            pc0, _k = tw.frame(th, own, {})
+            u = sgn * pc0[vlat & ~moving, 1]
             d_end = (float(u.max()) if len(u) else 0.0) + hy + PROBE + STEP
+            d_end = max(d_end, d_far)                       # the head may reach past the own half's last wheel
             ds_far = np.arange(math.ceil(d_far / STEP) * STEP, d_end + 1e-9, STEP)
             ds_near = np.arange(0.0, min(d_far, d_end) + 1e-9, STEP)
             configs = []
             if len(ds_far):
-                pc, keep = tw.frame(th, own, 0.0, with_other=False)
+                pc, keep = tw.frame(th, own, {}, with_other=False)
                 configs.append(("any", ds_far, {g: _class_side(pc, tw.tris, keep & corr, tw.part, cls)
                                                 for g, cls in (("W2", ~tw.wheel), ("W1", tw.wheel))}))
             for p in mine:
-                pc, keep = tw.frame(th, own, p.get(oname, 0.0))
+                pc, keep = tw.frame(th, own, p)
                 configs.append(({k: round(v, 2) for k, v in p.items()}, ds_near,
                                 {g: _class_side(pc, tw.tris, keep & corr, tw.part, cls)
                                  for g, cls in (("W2", ~tw.wheel), ("W1", tw.wheel))}))
@@ -557,67 +561,82 @@ def kind_poses(fam, kind, art=False):
     the half-breaks at every mean) on the kind's side of the fold. The planner gives a tower its kind from the two load
     cases (breakover-holddown-plan 2.2): support (members, Break) only where d(h / 1.4) >= +1 deg, so the drawn fold is
     convex, up to the art fold 2 x 20 (field: FG towers by a low ground end reach it); Hold only where d(1.5625 h) <= -1
-    deg, concave to the art fold; push-pull (Combo) between, its drawn |d| under 7.3 deg: COMBO_FOLD. DQ / GD support
-    and Combo: an end-raised half clamped to HEAD_PITCH_LIMIT (the KNOWN LIMIT above). art=True: the whole G6 grid
-    both ways, no clamp (report only)."""
-    tmax = LT.SKIN_THETA_MAX[fam]
-    lim = HEAD_PITCH_LIMIT.get((fam, kind)) if not art else None
+    deg, concave to the art fold; push-pull (Combo) between, its drawn |d| under 7.3 deg: COMBO_FOLD. DQ / GD (headed,
+    DECISIONS 594): the grid to the planner max (SKIN_TYPE_MAX_SLOPE, DQ 42 / GD 50.2) with Head = (front + back) / 2.
+    art=True: the whole G6 grid both ways (report only)."""
+    headed = fam in HEADED
+    tmax = LT.SKIN_TYPE_MAX_SLOPE[fam] if headed else LT.SKIN_THETA_MAX[fam]
     if kind == "support":
         grid = cs2_skin.joint_grid(tmax)
     elif kind == "Combo" and not art:
         grid = cs2_skin.joint_grid(tmax, COMBO_FOLD[fam] / 2.0)
     else:
         grid = cs2_skin.joint_grid(tmax, LT.TWIN_HALF_BREAK[kind])
-    if lim is not None:            # KNOWN LIMIT: an end-raised half (front -theta, back +theta) clamped to lim
-        grid = sorted({(max(f, -lim), min(b, lim)) for f, b in grid})
     if not art:
         side = {"support": 1, "Break": 1, "Hold": -1, "Combo": 0}[kind]
         grid = [(f, b) for f, b in grid if side == 0 or side * (f - b) >= -1e-9]
+    if headed:
+        return [{"TrainFront": f, "TrainBack": b, LH.HEAD_BONE: round((f + b) / 2.0, 4)} for f, b in grid]
     return [{"TrainFront": f, "TrainBack": b} for f, b in grid]
 
 
-def known_limit(tw, car, label, fam, kind, rows):
-    """KNOWN LIMIT re-measure (DQ / GD support, Combo): the head must still clash at HEAD_CLASH_AT (both halves end-raised
-    there in one pose); a row that clears is stale (main fails: lift the limit). Report row, never gated itself."""
-    lim, at = HEAD_PITCH_LIMIT.get((fam, kind)), HEAD_CLASH_AT.get((fam, kind))
-    if ART or lim is None:
-        return
-    row = {"train": f"{label} known limit", "kind": kind, "carrier": car.key, "known_limit": True, "report_only": True,
-           "limit_deg": lim, "clash_at_deg": at, "ticket": HEAD_LIMIT_TICKET}
-    if at is not None:
-        keep = tw.poses
-        tw.poses = [{"TrainFront": -at, "TrainBack": at}]
-        try:
-            r = sweep_train(tw, car, f"{label} at the known-limit clash {at:g} deg (report)", report=True)
-        finally:
-            tw.poses = keep
-        w2 = r["W2_overlap_at"] or []
-        row.update({k: r[k] for k in ("poses", "stops", "W1_overlaps", "W1_min_m", "W2_overlaps", "W2_min_m")},
-                   still_clashes=not r["pass"],
-                   parts=sorted({p[1] for o in w2 for p in o["pairs"]})[:6])
-    else:
-        row.update(poses=0, stops=0, W1_overlaps=0, W1_min_m=None, W2_overlaps=0, W2_min_m=None, still_clashes=None,
-                   parts=[])
-    rows.append(row)
+def head_negative(tw, car, label):
+    """The headed negative (always run on a DQ / GD member): the same train with the head held level at uniform
+    +-planner max must fail W2 (the deck end meets the carrier body: the clash the Head bone removes)."""
+    fam = tw.spec.family
+    tm = LT.SKIN_TYPE_MAX_SLOPE[fam]
+    keep = tw.poses
+    tw.poses = [{"TrainFront": s * tm, "TrainBack": s * tm, LH.HEAD_BONE: 0.0} for s in (1.0, -1.0)]
+    try:
+        r = sweep_train(tw, car, f"{label} negative: head held level at +-{tm:g} deg", report=True)
+    finally:
+        tw.poses = keep
+    if r["pass"] or not r["W2_overlaps"]:
+        _fail(f"negative: {label} with the head held level at +-{tm:g} deg passed W2 ({r})")
+    print(f"[grip] ok negative: {label} with the head held level at +-{tm:g} deg fails W2 ({r['W2_overlaps']} stops, "
+          f"{r['W2_at'] and r['W2_at']['tower']})")
+
+
+def headed_train(key, head, atlas):
+    """A DQ / GD member or twin built by lift_head (the Head round): (obj, spec, part_bone)."""
+    hw = LH.headed_spec(key)
+    t, _table, info = LH.build_headed(hw, head, atlas, LH.head_name(hw) + "G")
+    return t, hw["twin"], info["skin_part_bone"]
+
+
+def _drop(t):
+    me = t.data
+    bpy.data.objects.remove(t, do_unlink=True)
+    bpy.data.meshes.remove(me)
 
 
 def run_member(member, twins, carriers, rows, negative=False):
-    """The member (held to its shipped LOD0) and its twins, each swept with its family's carrier."""
+    """The member and its twins, each swept with its family's carrier. FG: the member held to its shipped LOD0, the twins
+    by lift_tower.build_twin. DQ / GD: the headed builds (lift_head.build_headed) for the member and every twin, and
+    the head-level negative on every member."""
     fam = LT.VARIANTS[member].family
     head = LT.TWIN_HEAD[fam]
+    headed = fam in HEADED
     atlas, arep, ref = LT.twin_atlas(member, head, keep_ref=True)
     spec = LT.skin_spec(LT.VARIANTS[member])
     sign = arep["fbx_lateral_sign"]
     table = json.loads(ref.data[cs2_asset.PART_TABLE_PROP])
     pb = LT.skin_part_bones(ref, table, spec)
     car = Carrier(fam, carriers[fam], sign)
+    bones = list(LH.HEAD_BONES) if headed else BONES
     out = []
     if member in WANT:
-        tw = Tower(member, ref, spec, pb, kind_poses(fam, "support", ART), "support")
+        if headed:
+            t, hspec, hpb = headed_train(member, head, atlas)
+            tw = Tower(member, t, hspec, hpb, kind_poses(fam, "support", ART), "support", bones)
+        else:
+            tw = Tower(member, ref, spec, pb, kind_poses(fam, "support", ART), "support")
         rows.append(dict(sweep_train(tw, car, member), member=member, shipped=SHIPPED[member],
+                         headed=LH.head_name(LH.headed_spec(member)) if headed else None,
                          atlas_worst_mm=arep["worst_vertex_mm"], carrier_info=car.info))
         out.append(tw)
-        known_limit(tw, car, member, fam, "support", rows)
+        if headed and not ART:
+            head_negative(tw, car, member)
         if negative:
             bad = Carrier(fam, carriers[fam], sign, shift_x=0.12)
             tw0 = Tower(member + " (negative)", ref, spec, pb, [{"TrainFront": 0.0, "TrainBack": 0.0}], "support")
@@ -629,16 +648,18 @@ def run_member(member, twins, carriers, rows, negative=False):
     for key in twins:
         if key not in WANT:
             continue
-        tw = LT.twin_spec(key)
-        name = cs2_asset.validate_asset_name(f"{tw['twin'].name_stem}T")
-        t, ttable, info = LT.build_twin(tw, head, atlas, name)
-        trow = Tower(key, t, tw["twin"], info["skin_part_bone"], kind_poses(fam, tw["kind"], ART), tw["kind"])
+        kind = LT.TWINS[key][1]
+        if headed and key in LH.HEAD_KEYS:
+            t, tspec, tpb = headed_train(key, head, atlas)
+        else:
+            tw = LT.twin_spec(key)
+            name = cs2_asset.validate_asset_name(f"{tw['twin'].name_stem}T")
+            t, _ttable, info = LT.build_twin(tw, head, atlas, name)
+            tspec, tpb = tw["twin"], info["skin_part_bone"]
+        trow = Tower(key, t, tspec, tpb, kind_poses(fam, kind, ART), kind, bones if headed else BONES)
         rows.append(dict(sweep_train(trow, car, key), member=member, carrier_info=car.info,
                          lods_tris0=cs2_asset.tri_count(t)))
-        known_limit(trow, car, key, fam, tw["kind"], rows)
-        me = t.data
-        bpy.data.objects.remove(t, do_unlink=True)
-        bpy.data.meshes.remove(me)
+        _drop(t)
     return out
 
 
@@ -739,31 +760,16 @@ def main():
         print(f"[grip] {r['train'][:20]:20s} {r['carrier']:7s} {r['poses']:5d} {r['stops']:6d} {mm(r['W2_min_m'])} "
               f"{r['W2_overlaps']:6d} {mm(r['W1_min_m'])} {r['W1_overlaps']:6d}"
               f"{'  (report only)' if r.get('report_only') else ''}")
-    lims = [r for r in rows if r.get("known_limit")]
-    for r in lims:
-        at = f"{r['clash_at_deg']:g}" if r["clash_at_deg"] is not None else "UNMEASURED"
-        state = {True: "still clashes there", False: "CLEARS there now: the limit is stale", None: "not re-measured"}[
-            r["still_clashes"]]
-        print(f"[grip] KNOWN LIMIT {r['train'][:-12]} ({r['kind']}): the head (Root) meets the {r['carrier']} body "
-              f"from an end-raised half pitch of {at} deg ({state}; {r['W2_overlaps']} overlap stops, "
-              f"{', '.join(r['parts']) or '-'}); gated to {r['limit_deg']:g} deg. Ticket: {r['ticket']}")
-    stale = [r["train"] for r in lims if r["still_clashes"] is False]
     if ART:
         print(f"[grip] REPORT (--art, not the gate): {len(bad)} of {len(gated)} trains under the rule somewhere on "
               f"their whole G6 grid: {[r['train'] for r in bad]}")
         return
     if bad:
         _fail(f"{len(bad)} of {len(gated)} trains fail the grip gate: {[r['train'] for r in bad]}")
-    if stale:
-        _fail(f"KNOWN LIMIT stale: {stale} clear at their HEAD_CLASH_AT; lift HEAD_PITCH_LIMIT / HEAD_CLASH_AT")
-    unmeasured = [r["train"] for r in lims if r["still_clashes"] is None]
-    if unmeasured:
-        _fail(f"KNOWN LIMIT without a measured clash angle: {unmeasured} (fill HEAD_CLASH_AT)")
     print(f"PASS test_grip_clearance: {len(gated)} trains x their kind's poses x 2 lanes x 2 travel directions, W1 (rims / "
-          f"liners touch only the jaw band +-{ENV} m) and W2 (every other part 0 overlap, >= {CLEAR} m) "
-          f"({time.perf_counter() - t0:.0f} s)" + (f"; KNOWN LIMIT: {len(lims)} DQ / GD support / Combo trains gated to an "
-                                                   f"end-raised half pitch (lines above)"
-                                                   if lims else ""))
+          f"liners touch only the jaw band +-{ENV} m) and W2 (every other part 0 overlap, >= {CLEAR} m); DQ / GD headed "
+          f"to the planner max (DQ {LT.SKIN_TYPE_MAX_SLOPE['DQ']:g} / GD {LT.SKIN_TYPE_MAX_SLOPE['GD']:g} deg, Head = "
+          f"the mean) ({time.perf_counter() - t0:.0f} s)")
 
 
 if __name__ == "__main__":

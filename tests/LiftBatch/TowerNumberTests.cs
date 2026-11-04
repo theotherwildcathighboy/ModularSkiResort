@@ -1,7 +1,8 @@
-// Headless tests for the pure tower number tile core (TowerNumberTiles.cs), cases TN-1..TN-9: wrap to 1..200, tile layout per digit
+// Headless tests for the pure tower number tile core (TowerNumberTiles.cs), cases TN-1..TN-10: wrap to 1..200, tile layout per digit
 // count, display numbers by rank (reversed when the base is last), plate geometry per face, reconcile (minimal deletes and creates),
 // renumbering after a section edit, name and plate tables, a 1,000-tower line, and the plate table against a measured JSON table
-// (measured from the shipped FBXs: a re-export that moves a plate fails here until the table follows).
+// (measured from the shipped FBXs: a re-export that moves a plate fails here until the table follows), tiles and the GD beacon posed
+// through a headed tower's head (TN-10).
 
 using System;
 using System.Collections.Generic;
@@ -30,6 +31,62 @@ namespace LiftBatch
             Tables();
             LongLine();
             PlatesMatchMeasurement();
+            HeadPosedTiles();
+        }
+
+        // TN-10: tiles and the GD beacon on a headed tower (DECISIONS 594) posed through the head about the pivot: rigid with the plate,
+        // a pose change moves every tile past the 1 cm match (delete + create), a level head is the unposed layout, beacon table = rows.
+        private static void HeadPosedTiles()
+        {
+            const string W = "TN-10 head-posed tiles";
+            Check(TowerNumberTiles.TryPlate("SkiLiftTowerDQ10", out TowerNumberTiles.TowerPlate p), W, "DQ10 plate row missing");
+            var level = new List<TowerNumberTiles.TileSpec>();
+            var posed = new List<TowerNumberTiles.TileSpec>();
+            TowerNumberTiles.Desired(p, 47, level);
+            TowerNumberTiles.Desired(p, 47, posed);
+            float3 pivot = new float3(0f, 8.2589f, 0f);
+            float head = math.radians(42f);
+            TowerNumberTiles.PoseThroughHead(posed, pivot, quaternion.identity, head);
+            bool rigid = true;
+            for (int i = 0; i < level.Count; i++)
+            {
+                rigid &= math.abs(math.distance(posed[i].LocalPos, pivot) - math.distance(level[i].LocalPos, pivot)) < 1e-4f;
+                for (int j = i + 1; j < level.Count; j++)
+                    rigid &= math.abs(math.distance(posed[i].LocalPos, posed[j].LocalPos) - math.distance(level[i].LocalPos, level[j].LocalPos)) < 1e-4f;
+                rigid &= posed[i].Key == level[i].Key && math.abs(posed[i].LocalPos.x - level[i].LocalPos.x) < 1e-5f;
+            }
+            Check(rigid && level.Count == 6, W, "posed tiles are not the level layout turned about the pivot");
+            // At 42 deg the plate (1.55 m above the pivot) moves about 1.04 m toward -z and stays above the pivot.
+            float dz = posed[0].LocalPos.z - level[0].LocalPos.z;
+            Check(dz < -1.0f && dz > -1.1f && posed[0].LocalPos.y > pivot.y, W, "plate moved " + dz + " in z at 42 deg");
+            var del = new List<int>();
+            var add = new List<int>();
+            TowerNumberTiles.Reconcile(PosedAsExisting(level), posed, del, add);
+            Check(del.Count == 6 && add.Count == 6, W, "a head pose change kept " + (6 - del.Count) + " tile(s) in place");
+            TowerNumberTiles.Reconcile(PosedAsExisting(posed), posed, del, add);
+            Check(del.Count == 0 && add.Count == 0, W, "an unchanged head churned tiles");
+            var zero = new List<TowerNumberTiles.TileSpec>();
+            TowerNumberTiles.Desired(p, 47, zero);
+            TowerNumberTiles.PoseThroughHead(zero, pivot, quaternion.identity, 0f);
+            bool same = true;
+            for (int i = 0; i < zero.Count; i++)
+                same &= math.distance(zero[i].LocalPos, level[i].LocalPos) < 1e-6f;
+            Check(same, W, "a level head moved the tiles");
+            // The beacon table: every GD member and head twin, on a plated prefab, y = the plate row's + 0.117 (beam top above the plate).
+            Check(TowerNumberTiles.Beacons.Length == 7 && TowerNumberTiles.BeaconKey == TowerNumberTiles.Classes.Length * TowerNumberTiles.GlyphsPerClass,
+                  W, "beacon table / key");
+            foreach (TowerNumberTiles.HeadBeacon b in TowerNumberTiles.Beacons)
+                Check(TowerNumberTiles.TryPlate(b.Prefab, out TowerNumberTiles.TowerPlate bp) && b.Prefab.StartsWith("SkiLiftTowerGD", StringComparison.Ordinal) &&
+                      math.abs(b.LocalPos.y - bp.Y - 0.117f) < 0.01f && b.LocalPos.x == 0f && b.LocalPos.z == 0f,
+                      W + " " + b.Prefab, "beacon y " + b.LocalPos.y + " is not on its head's beam top");
+        }
+
+        private static List<TowerNumberTiles.Existing> PosedAsExisting(List<TowerNumberTiles.TileSpec> specs)
+        {
+            var e = new List<TowerNumberTiles.Existing>();
+            foreach (TowerNumberTiles.TileSpec s in specs)
+                e.Add(new TowerNumberTiles.Existing { Key = s.Key, LocalPos = s.LocalPos });
+            return e;
         }
 
         private static void Wrap()

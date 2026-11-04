@@ -106,6 +106,66 @@ namespace SkiResortMod.Systems
             new TowerPlate("SkiLiftTowerGD16ComboA", 0, 16.143f, 0.1560f, -0.1560f),
         };
 
+        /// <summary>The GD gantry beacon (our StaticObjectPrefab, a lit prop). On a headed tower (DECISIONS 594) the tile system places it
+        /// posed through the head like the tiles, once the prefab's ObjectSubObjects row for it is gone (the head round's import surgery
+        /// drops the row; while the row exists the engine places it and the code writes nothing).</summary>
+        public const string BeaconPrefab = "SkiBeaconRed";
+
+        /// <summary>The beacon's key in the per-owner diff, after every tile key (Key(cls, glyph) &lt; Classes.Length * 11).</summary>
+        public static int BeaconKey => Classes.Length * GlyphsPerClass;
+
+        /// <summary>A beacon on a tower prefab's head: its position in the prefab frame at rest (the prefab row's m_Position, rotation
+        /// identity).</summary>
+        public readonly struct HeadBeacon
+        {
+            public readonly string Prefab;
+            public readonly float3 LocalPos;
+            public HeadBeacon(string prefab, float y)
+            {
+                Prefab = prefab;
+                LocalPos = new float3(0f, y, 0f);
+            }
+        }
+
+        // The rows of the shipped GD prefabs (gamedata-mirror, 2026-11-04): on the gantry beam top, 1.692 m above the pivot; the twins
+        // carry the head raise (Hold 2 seats, Combo 1).
+        public static readonly HeadBeacon[] Beacons =
+        {
+            new HeadBeacon("SkiLiftTowerGD12", 11.976f),
+            new HeadBeacon("SkiLiftTowerGD16", 15.976f),
+            new HeadBeacon("SkiLiftTowerGD20", 19.976f),
+            new HeadBeacon("SkiLiftTowerGD12HoldA", 12.544f),
+            new HeadBeacon("SkiLiftTowerGD12ComboA", 12.26f),
+            new HeadBeacon("SkiLiftTowerGD16HoldA", 16.544f),
+            new HeadBeacon("SkiLiftTowerGD16ComboA", 16.26f),
+        };
+
+        public static bool TryBeacon(string prefab, out HeadBeacon beacon)
+        {
+            for (int i = 0; i < Beacons.Length; i++)
+            {
+                if (string.Equals(Beacons[i].Prefab, prefab, StringComparison.Ordinal))
+                {
+                    beacon = Beacons[i];
+                    return true;
+                }
+            }
+            beacon = default;
+            return false;
+        }
+
+        /// <summary>Poses every spec of <paramref name="specs"/> through a headed tower's head (LiftAlignMath.HeadPose): the tiles and the
+        /// beacon sit on the head, which turns by <paramref name="head"/> about the Head bone's <paramref name="pivot"/>.</summary>
+        public static void PoseThroughHead(List<TileSpec> specs, float3 pivot, quaternion frame, float head)
+        {
+            for (int i = 0; i < specs.Count; i++)
+            {
+                TileSpec s = specs[i];
+                LiftAlignMath.HeadPose(pivot, frame, head, s.LocalPos, s.LocalRot, out s.LocalPos, out s.LocalRot);
+                specs[i] = s;
+            }
+        }
+
         /// <summary>The tile prefab name: SkiNumTile&lt;cls&gt;Blank or SkiNumTile&lt;cls&gt;N&lt;d&gt; (number_tiles.tile_name).</summary>
         public static string PrefabName(int cls, int glyph) =>
             "SkiNumTile" + Classes[cls].Id + (glyph == Blank ? "Blank" : "N" + glyph.ToString(System.Globalization.CultureInfo.InvariantCulture));
