@@ -125,6 +125,11 @@ namespace SkiResortMod.Systems
         /// cap; +infinity = no pitch rule (tests: the plans as before the cap).</summary>
         public readonly float PitchCapDeg, PitchSoftDeg;
 
+        /// <summary>The tram saddle cap, degrees per half (LiftAlignMath.TramBendHalfCapDeg for the tram, DECISIONS 600 a call b;
+        /// +infinity for the train lifts, whose trains have their wheel caps). A tram tower's whole bend is judged at twice this
+        /// (LineCapDeg): the angle pass repairs it like a chair's, still past it = OVER CAP (PLAN_SADDLE / TOWER_SADDLE).</summary>
+        public readonly float SaddleHalfCapDeg;
+
         /// <summary>Set once per game load (LiftTowerFitSystem.OnGameLoadingComplete): true for a twin prefab name the game has loaded.
         /// For(def) drops the others, so a build without the twin prefabs plans the support heads only (a missing twin would leave the
         /// node raised by E with the support member spawned 0.2-0.6 m above the ground). Null = every twin (tests).</summary>
@@ -188,11 +193,12 @@ namespace SkiResortMod.Systems
         /// <summary>The type has sheave trains (the chairs and the gondola; not the tram).</summary>
         public bool HasTrains => SupportWheels > 0;
 
-        /// <summary>The cap, degrees, of the line member's own <paramref name="kind"/> train (LiftAlignMath.TrainCapDeg: wheels x 4 deg,
-        /// at most the 40 deg art fold): FG 16 / 16 / 8, DQ 32 / 32 / 16, GD 40 / 32 / 16 (support / hold-down / push-pull); +infinity
-        /// without trains.</summary>
+        /// <summary>The cap, degrees of WHOLE bend (DeflectionDeg, in - out), of the line member's own <paramref name="kind"/> train
+        /// (LiftAlignMath.TrainCapDeg: wheels x 4 deg, at most the 40 deg art fold): FG 16 / 16 / 8, DQ 32 / 32 / 16, GD 40 / 32 / 16
+        /// (support / hold-down / push-pull); without trains (the tram's saddle) 2 x SaddleHalfCapDeg for every kind.</summary>
         public float LineCapDeg(LiftTrainKind kind) =>
-            LiftAlignMath.TrainCapDeg(kind == LiftTrainKind.HoldDown ? HoldWheels : kind == LiftTrainKind.PushPull ? ComboWheels : SupportWheels);
+            !HasTrains ? 2f * SaddleHalfCapDeg
+            : LiftAlignMath.TrainCapDeg(kind == LiftTrainKind.HoldDown ? HoldWheels : kind == LiftTrainKind.PushPull ? ComboWheels : SupportWheels);
 
         /// <summary>The cap the planner judges a <paramref name="kind"/> train at: LineCapDeg, except a support train on a type whose every
         /// member has a Break twin, which gets the Break train's cap (FG 8 wheels: 32; the convex tower takes the Break head instead of a
@@ -241,8 +247,10 @@ namespace SkiResortMod.Systems
                                       float sagRatio, float engineElevationCapM, float stepM = 5f, float sideHillM = 2f, float convexM = 0.5f,
                                       float stationClearM = 0f, float maxEdgeSlope = 0f, int supportWheels = 0, int holdWheels = 0,
                                       int comboWheels = 0, int breakWheels = 0, LiftTowerTwin[] twins = null, float pitchCapDeg = float.NaN,
-                                      float pitchSoftDeg = float.NaN)
+                                      float pitchSoftDeg = float.NaN, float saddleHalfCapDeg = float.NaN)
         {
+            SaddleHalfCapDeg = !float.IsNaN(saddleHalfCapDeg) ? saddleHalfCapDeg
+                : typeId == "tram" ? LiftAlignMath.TramBendHalfCapDeg : float.PositiveInfinity;
             PitchCapDeg = float.IsNaN(pitchCapDeg) ? LiftAlignMath.PitchCapDeg(typeId) : pitchCapDeg;
             PitchSoftDeg = float.IsNaN(pitchSoftDeg) ? LiftAlignMath.PitchSoftDeg(typeId) : pitchSoftDeg;
             MaxEdgeSlope = maxEdgeSlope;
@@ -300,12 +308,13 @@ namespace SkiResortMod.Systems
         public LiftTowerPlanConstants With(float? floorM = null, float? maxRopeAboveGroundM = null, float? typicalSpanM = null,
                                            float? maxSpanM = null, float? carrierDropM = null, float? maxEdgeSlope = null,
                                            float? sagRatio = null, LiftTowerTwin[] twins = null, float? pitchCapDeg = null,
-                                           float? pitchSoftDeg = null)
+                                           float? pitchSoftDeg = null, float? saddleHalfCapDeg = null)
         {
             return new LiftTowerPlanConstants(TypeId, Ladder, RopeBelowTopM, carrierDropM ?? CarrierDropM, floorM ?? FloorM,
                 maxRopeAboveGroundM ?? MaxRopeAboveGroundM, typicalSpanM ?? TypicalSpanM, maxSpanM ?? MaxSpanM, MinSpanM, HalfWidthM,
                 sagRatio ?? SagRatio, EngineElevationCapM, StepM, SideHillM, ConvexM, StationClearM, maxEdgeSlope ?? MaxEdgeSlope,
-                SupportWheels, HoldWheels, ComboWheels, BreakWheels, twins ?? Twins, pitchCapDeg ?? PitchCapDeg, pitchSoftDeg ?? PitchSoftDeg);
+                SupportWheels, HoldWheels, ComboWheels, BreakWheels, twins ?? Twins, pitchCapDeg ?? PitchCapDeg, pitchSoftDeg ?? PitchSoftDeg,
+                saddleHalfCapDeg ?? SaddleHalfCapDeg);
         }
 
         /// <summary>The station-side rule's exchange rate: one more line tower is worth this many meters of extra height (above the
@@ -505,6 +514,9 @@ namespace SkiResortMod.Systems
         public float LeanDeg;           // LiftAlignMath.LeanDeg (>= 0; the top leans downhill, toward the lower neighbor)
         public float AnchorAlongM;      // the leaned tower's rope anchor (LiftAlignMath.LeanedAnchor; = AlongM / RopeM unleaned and at stations):
         public float AnchorRopeM;       //   the spans hang from here (Build, RopeAt)
+        // Tram pedestals (DECISIONS 600 a, call c): a leaned tram tower floats its origin this far over the ground (LiftAlignMath.TramFloatM,
+        // set by Build). The node goes to ground + E + FloatM (the engine stands the member's pivot that far up), RopeM includes it.
+        public float FloatM;
     }
 
     public struct LiftPlanSpan
@@ -560,8 +572,8 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>Node <paramref name="i"/> is judged and its deflection is past its cap (by more than AngleTolDeg). The tram's
-        /// saddles have no cap (CapDeg = infinity), so only train lifts read true.</summary>
+        /// <summary>Node <paramref name="i"/> is judged and its deflection is past its cap (by more than AngleTolDeg): a train lift's
+        /// sheave train, or the tram's saddle (2 x SaddleHalfCapDeg, DECISIONS 600 a).</summary>
         public bool IsOverCap(int i) =>
             Nodes[i].HasAngles && math.abs(Nodes[i].DeflectionDeg) > Nodes[i].CapDeg + AngleTolDeg;
 
@@ -688,7 +700,8 @@ namespace SkiResortMod.Systems
                 for (int i = 0; i < Nodes.Length; i++)
                     if (Nodes[i].HasAngles && Nodes[i].BareDeg < LiftAlignMath.SaddleMinBreakDeg)
                         lift++;
-                return "saddles: worst d " + Sg(worstS) + " / " + Sg(worstH) + " deg; bare-rope breakover under " +
+                return "saddles: worst d " + Sg(worstS) + " / " + Sg(worstH) + " deg (cap " + F(2f * Constants.SaddleHalfCapDeg, "F0") +
+                       ", pair towers " + pairs + ", over cap " + over + "); bare-rope breakover under " +
                        F(LiftAlignMath.SaddleMinBreakDeg, "F2") + " deg at " + lift + " tower(s) (logged only)";
             }
             return "support " + s + ", hold-down " + h + ", push-pull " + p + "; pair towers " + pairs + ", over cap " + over +
@@ -708,6 +721,8 @@ namespace SkiResortMod.Systems
             {
                 sb.Append(" (bare ").Append(Sg(n.BareDeg)).Append(n.BareDeg < LiftAlignMath.SaddleMinBreakDeg ? ", UNDER " + F(LiftAlignMath.SaddleMinBreakDeg, "F2") : string.Empty)
                   .Append(") saddle");
+                if (IsOverCap(i))
+                    sb.Append(" OVER CAP ").Append(F(n.CapDeg, "F0"));
             }
             else
             {
@@ -2964,9 +2979,13 @@ namespace SkiResortMod.Systems
             if (d <= 0f)
                 return 0f;
             float sag4 = 4f * m_C.SagRatio * d, worst = float.NegativeInfinity;
-            for (int q = i + 1; q < j; q++)
+            // a lean can carry an anchor past its own node (downhill), so the leaned span may reach samples beyond the node range
+            int qLo = i + 1, qHi = j - 1;
+            while (qLo > 0 && m_S[qLo - 1] >= sa - 1e-3f) qLo--;
+            while (qHi < m_N && m_S[qHi + 1] <= sb + 1e-3f) qHi++;
+            for (int q = qLo; q <= qHi; q++)
             {
-                if (m_S[q] < sa - 1e-3f || m_S[q] > sb + 1e-3f)
+                if (q == i || q == j || m_S[q] < sa - 1e-3f || m_S[q] > sb + 1e-3f)
                     continue;   // under a leaned head: the tower, not the rope, overhangs there
                 float t = math.saturate((m_S[q] - sa) / d);
                 float r = ra + (rb - ra) * t - sag4 * t * (1f - t);
@@ -3395,9 +3414,9 @@ namespace SkiResortMod.Systems
                 }
             }
 
-            // (b) pair / partner / re-member (only when no single fix exists: a single adds no tower and ranks first). The tram has no
-            // bend cap, so only its pitch cap brings it here: a pair on a shoulder is the one place it takes a short span (DECISIONS 600:
-            // TS-1 shoulders, 9 lines, +11 towers; its long spans elsewhere are untouched).
+            // (b) pair / partner / re-member (only when no single fix exists: a single adds no tower and ranks first). The tram comes
+            // here for its pitch cap or its saddle cap (DECISIONS 600 / 600 a): a breakover pair on a crest or shoulder is the one place it
+            // takes a short span; its long spans elsewhere are untouched.
             if (best.Kind == 0)
             {
                 Array.Clear(leftOk, 0, leftOk.Length);
@@ -3621,7 +3640,7 @@ namespace SkiResortMod.Systems
             string at = (isEnd ? "end " : "p") + NoteNode(n) + " at " + NoteAt(s0) + " m (" +
                         (m0 >= 0 ? Short(m_C.Ladder[m0].Name) : "line end") + (fixedNode && !isEnd ? ", pinned / seed" : string.Empty) + "): d " +
                         LiftTowerPlan.Sg(d0) + (PitchAt(n, out float p0) ? ", pitch " + LiftTowerPlan.Sg(m_FromB ? -p0 : p0) : string.Empty) + ", " +
-                        LiftTowerPlan.F(over0, "F1") + " past its cap" + (m_C.HasTrains ? string.Empty : " (pitch)");
+                        LiftTowerPlan.F(over0, "F1") + " past its cap" + (m_C.HasTrains ? string.Empty : " (saddle bend " + LiftTowerPlan.F(2f * m_C.SaddleHalfCapDeg, "F0") + " or pitch)");
             LiftPlanNodeFlags pairFlags = (m_F[n] & ~LiftPlanNodeFlags.Seed & ~LiftPlanNodeFlags.Station) | LiftPlanNodeFlags.Pair;
             switch (best.Kind)
             {
@@ -3767,14 +3786,14 @@ namespace SkiResortMod.Systems
             else
             {
                 nodes[i].Kind = LiftTrainKind.None;
-                nodes[i].CapDeg = float.PositiveInfinity;
+                nodes[i].CapDeg = m_C.LineCapDeg(LiftTrainKind.None);   // the saddle cap (2 x SaddleHalfCapDeg)
                 nodes[i].BareDeg = LiftAlignMath.DeflectionDeg(p, q, n, h * LiftAlignMath.BareSagScale);
             }
         }
 
         /// <summary>Build's pitch and lean on the output nodes (DECISIONS 600): every node's anchor starts at its rope point; a tower
         /// node with both neighbors' rope points (an end: its outer point) gets its pitch (ChordPitchDeg), its lean (LiftAlignMath.LeanDeg)
-        /// and the leaned anchor (foot = the ground under it).</summary>
+        /// and the leaned anchor (foot = the ground under it, plus a tram tower's FloatM).</summary>
         private void SetLeans(LiftPlanNode[] nodes)
         {
             int last = nodes.Length - 1;
@@ -3812,9 +3831,54 @@ namespace SkiResortMod.Systems
                 float lean = LiftAlignMath.LeanDeg(m_C.TypeId, nodes[i].PitchDeg);
                 nodes[i].LeanDeg = lean;
                 if (lean > 0f)
-                    LiftAlignMath.LeanedAnchor(nodes[i].AlongM, nodes[i].GroundM, nodes[i].RopeM, nodes[i].PitchDeg, lean,
+                    LiftAlignMath.LeanedAnchor(nodes[i].AlongM, nodes[i].GroundM + nodes[i].FloatM, nodes[i].RopeM, nodes[i].PitchDeg, lean,
                         out nodes[i].AnchorAlongM, out nodes[i].AnchorRopeM);
             }
+        }
+
+        /// <summary>Tram pedestals (DECISIONS 600 a, call c; critique SHOULD-2): every leaned tram tower floats by LiftAlignMath.TramFloatM
+        /// on the line's center profile around its foot (downhill = toward the lower neighbor, where the mast leans): at least the downhill
+        /// steel's dig-in, at most the piers' cover. Its rope rises with it (RopeM). The search, the angle pass and the bend (SetAngles)
+        /// stay on the unfloated ropes (a float is a meter or so on spans of hundreds of meters); never the train lifts (their pier shows
+        /// at most 0.09 m on a crest at full lean: the art's foundation table). True when a tower floats.</summary>
+        private bool SetFloats(LiftPlanNode[] nodes)
+        {
+            if (m_C.TypeId != "tram")
+                return false;
+            bool any = false;
+            for (int i = 0; i < nodes.Length; i++)
+            {
+                nodes[i].FloatM = 0f;
+                if (nodes[i].Member < 0 || !(nodes[i].LeanDeg > 0f))
+                    continue;
+                float foot = nodes[i].AlongM, ground = nodes[i].GroundM, down = nodes[i].PitchDeg > 0f ? -1f : 1f;
+                float f = LiftAlignMath.TramFloatM(LiftAlignMath.TramBaseHalfM(m_C.Ladder[nodes[i].Member].TopM), nodes[i].LeanDeg,
+                    x => CentreAt(foot + down * x) - ground, out _, out _);
+                if (f <= 0f)
+                    continue;
+                nodes[i].FloatM = f;
+                nodes[i].RopeM += f;
+                any = true;
+            }
+            return any;
+        }
+
+        /// <summary>The center ground at <paramref name="s"/> meters along, linear between the samples (clamped to the line).</summary>
+        private float CentreAt(float s)
+        {
+            if (s <= m_S[0])
+                return m_Centre[0];
+            if (s >= m_S[m_N])
+                return m_Centre[m_N];
+            int lo = 0, hi = m_N;
+            while (hi - lo > 1)
+            {
+                int mid = (lo + hi) >> 1;
+                if (m_S[mid] <= s) lo = mid;
+                else hi = mid;
+            }
+            float d = m_S[hi] - m_S[lo];
+            return d > 1e-6f ? math.lerp(m_Centre[lo], m_Centre[hi], (s - m_S[lo]) / d) : m_Centre[lo];
         }
 
         /// <summary>The previous kind / head of output node <paramref name="i"/> (fixed-node plans with PreviousKinds), else None / Line.
@@ -3949,7 +4013,7 @@ namespace SkiResortMod.Systems
         /// <summary>The engine's node height of output node <paramref name="node"/> at sample <paramref name="k"/>: ground +
         /// E(member, head); a line end at EndNodeYA / EndNodeYB.</summary>
         private float NodeY(int k, LiftPlanNode node) =>
-            node.Member < 0 ? (k == 0 ? EndNodeYA : EndNodeYB) : m_Centre[k] + LiftTowerEdit.ElevationM(m_C, node.Member, node.Head);
+            node.Member < 0 ? (k == 0 ? EndNodeYA : EndNodeYB) : m_Centre[k] + LiftTowerEdit.ElevationM(m_C, node.Member, node.Head) + node.FloatM;
 
         /// <summary>Both edges of output node <paramref name="i"/> with (member, head) at it pass the engine's slope rule (MaxEdgeSlope +
         /// 0.0005, ValidationHelpers.cs:1462-1463: the LiftPlanSpan.SlopeViolated test); always true unless CheckEdgeSlope. The
@@ -4016,6 +4080,8 @@ namespace SkiResortMod.Systems
             SetAngles(nodes);
             AssignHeads(nodes);
             SetLeans(nodes);
+            if (SetFloats(nodes))
+                SetLeans(nodes);   // pitch, lean and anchors on the floated ropes, as the game reads them (the bend stays as judged)
             var spans = new LiftPlanSpan[count - 1];
             for (int s = 0; s < count - 1; s++)
             {
@@ -4026,7 +4092,12 @@ namespace SkiResortMod.Systems
                 float d = m_S[j] - m_S[i];
                 float sag4 = 4f * m_C.SagRatio * ds;
                 var span = new LiftPlanSpan { LengthM = d, MinFloorMarginM = float.PositiveInfinity, MaxRopeAboveM = float.NegativeInfinity };
-                for (int q = i; q <= j; q++)
+                // a lean can carry an anchor past its own node (a 25 deg FG20 moves it about 8 m downhill), so the leaned rope may hang over
+                // samples beyond the node range; the max rope height stays on the node range (the plumb chord)
+                int qLo = i, qHi = j;
+                while (qLo > 0 && m_S[qLo - 1] >= sa - 1e-3f) qLo--;
+                while (qHi < m_N && m_S[qHi + 1] <= sa + ds + 1e-3f) qHi++;
+                for (int q = qLo; q <= qHi; q++)
                 {
                     // Station ends are not judged (their rope height is given); tower ends are (the carrier passes over the node).
                     if ((q == i && nodes[s].IsStation) || (q == j && nodes[s + 1].IsStation))
@@ -4043,6 +4114,8 @@ namespace SkiResortMod.Systems
                         span.MinChairAboveGroundM = r - m_C.CarrierDropM - m_High[q];
                     }
                     // the max rope height on the plumb chord, as the search judged it (LeanedSpanViolation)
+                    if (q < i || q > j)
+                        continue;
                     float tp = d > 0f ? (m_S[q] - m_S[i]) / d : 0f;
                     float above = nodes[s].RopeM + (nodes[s + 1].RopeM - nodes[s].RopeM) * tp - 4f * m_C.SagRatio * d * tp * (1f - tp) - m_Centre[q];
                     if (above > span.MaxRopeAboveM)

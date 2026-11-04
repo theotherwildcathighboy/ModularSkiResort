@@ -318,3 +318,17 @@ DQ12 -> 12, GD20 -> 20), so a line that mixes members would read 12, 16, 20, 12,
 distance along the line from the base station, 1 at the base, dense (nodes without a tower are skipped). Computed from geometry only, so it
 is the same after a save / load; an edit renumbers only the towers after the first changed one. The tile objects themselves:
 `TowerNumberTiles.md`.
+
+### Tram saddle cap and pedestals (DECISIONS 600 a)
+- `SaddleHalfCapDeg` (tram `TramBendHalfCapDeg` 20, +inf otherwise; `With(saddleHalfCapDeg:)`). `LineCapDeg` / `CapDeg` without trains =
+  2 x it, so the angle pass, `IsOverCap`, `OverCapTowers`, Sound and the red tower treat a tram saddle like a chair train. Keys: PLAN_SADDLE /
+  TOWER_SADDLE (not TRAIN: a saddle has no wheels). PC-7 table (TS-1, 132 lines, towers 253 with no cap): cap 20: 25 lines take a
+  breakover pair (+25 towers), 30 still warn; 17.5: 14 / 48; 15: 9 / 59. A tighter cap binds more lines a pair cannot fix. FB-3 trams never
+  bind (widest half 14.1); steep set: 1 pair at 20, none warn.
+- `SetFloats` (Build, after SetLeans; then SetLeans again): every leaned tram tower gets `FloatM` = `LiftAlignMath.TramFloatM` on the center
+  profile (`CentreAt`, downhill = toward the lower neighbor); RopeM and the anchor foot rise with it; `NodeY` adds it. The search, the angle
+  pass and the bend (SetAngles) stay on the unfloated ropes. Writers: LiftLineEdit.Emit and LiftTowerFitSystem put the node at ground + E +
+  FloatM (HeightWrite's target includes it). In the sweep sets no tower needs it (the floor is 0 wherever the ground falls with the lean);
+  it fires on a level spot under a 50+ deg rope, e.g. PC-8's bench: T60, lean 25, float 1.34 m.
+- Leaned spans may reach samples past their nodes (a 25 deg FG20 moves its anchor about 8 m): Build and LeanedSpanViolation judge the floor
+  over the anchors' range, not only between the nodes (PC-5).

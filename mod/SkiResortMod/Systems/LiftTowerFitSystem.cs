@@ -404,7 +404,7 @@ namespace SkiResortMod.Systems
                 if (!straight)
                     xz = new float3(pts[i].x, 0f, pts[i].z);   // bent line: positions are kept (the fit did not move them)
                 float elevation = LiftTowerEdit.ElevationM(c, pn.Member, pn.Head);
-                float3 np = new float3(xz.x, pn.GroundM + elevation, xz.z);
+                float3 np = new float3(xz.x, pn.GroundM + elevation + pn.FloatM, xz.z);   // + a tram tower's pedestal float (DECISIONS 600 a)
                 bool moved = math.distance(np.xz, pts[i].xz) > MoveEpsM;
                 bool reMembered = pn.Member != oldMembers[i - 1] || pn.Head != oldHeads[i - 1];
                 bool drift = LiftTowerEdit.HeightWrite(pts[i].y, np.y);
@@ -529,7 +529,7 @@ namespace SkiResortMod.Systems
                 else if (kind == LiftTrainKind.HoldDown) h++;
                 else if (kind == LiftTrainKind.PushPull) p++;
                 if (pn.Head != LiftTowerHead.Line) twins++;
-                if (pn.HasAngles && c.HasTrains && math.abs(pn.DeflectionDeg) > pn.CapDeg + LiftTowerPlan.AngleTolDeg) over++;
+                if (pn.HasAngles && math.abs(pn.DeflectionDeg) > pn.CapDeg + LiftTowerPlan.AngleTolDeg) over++;   // the tram: its saddle cap (600 a)
                 if (pn.HasAngles && !c.HasTrains && pn.BareDeg < LiftAlignMath.SaddleMinBreakDeg) under++;
                 sb.Append(i == 1 ? string.Empty : ", ").Append('t').Append(i + 1).Append(' ').Append(F(pn.AlongM, "F0")).Append(" m ")
                   .Append(Short(c.NameOf(pn.Member, pn.Head))).Append(" d ").Append(Sg(pn.DeflectionDeg));
@@ -544,7 +544,7 @@ namespace SkiResortMod.Systems
                 return;
             string counts = c.HasTrains
                 ? $"support {s}, hold-down {h}, push-pull {p}, twin heads {twins} ({c.Twins.Length} twin(s) loaded for {c.TypeId}), over cap {over}"
-                : $"tram saddles: bare-rope breakover under {LiftAlignMath.SaddleMinBreakDeg:F2} deg at {under} tower(s)";
+                : $"tram saddles: over the saddle cap ({2f * c.SaddleHalfCapDeg:F0} deg bend) {over}, bare-rope breakover under {LiftAlignMath.SaddleMinBreakDeg:F2} deg at {under} tower(s)";
             Mod.Log.Info($"Towers [angles]: {head} — {changed} new or changed kind(s) / head(s); {counts}; " +
                          $"d = in - out (tight / heavy load case), S / H / P: {sb}");
             for (int i = 0; i < plan.AngleNotes.Count; i++)

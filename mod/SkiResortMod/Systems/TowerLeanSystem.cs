@@ -1,5 +1,5 @@
 // Mast lean (DECISIONS 600; spike tilted-towers-spike-2026-11-04 option A, section 1.2): a line tower whose rope pitch is past what its
-// head (or, on the tram, its saddle) follows leans its whole mast downhill about its foot, up to LiftAlignMath.MaxLeanDegOf (20 deg,
+// head (or, on the tram, its saddle) follows leans its whole mast downhill about its foot, up to LiftAlignMath.MaxLeanDegOf (DQ / GD 20 deg, FG 25,
 // tram 25). The lean is LiftAlignMath.LeanDeg (THE lean rule, one switch) of the tower's rope pitch, LiftAlignMath.ChordPitchDeg over its
 // two neighbors' plumb rope points (the planner's own measure, so plan and game agree and the lean never feeds back into itself).
 //   Where the pose comes from: SubObjectSystem (Modification2B) and AlignSystem (Modification4) re-derive a node tower's Transform as

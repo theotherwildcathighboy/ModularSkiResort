@@ -73,3 +73,14 @@ AL-12..AL-14). Engine citations are `File.cs:line` against the Game.dll decompil
 `LiftMoverMath.CarrierDrop(gripTop, gripTopAboveRopeM)` = grip top minus the jaw's rope point: the rope runs through the jaw, not over
 the grip top (F5, reverses round-2 contract D8). Every pose of a carrier uses it (ChairPinSystem pin and mover through the catalog's
 `CarrierDrops` view, the tram). Gates: LiftBatch AL-1, `tools/check-lift-align.js` PINDROP (preflight ALIGN, CI).
+
+## 600 a: FG lean rule, tram saddle cap, tram pedestals
+- `FgLeanFreeDeg` 12, `FgMaxLeanDeg` 25: the FG leans from 12 deg of pitch (the call said about 10; 10 leaves 1-2 deg leans that break
+  LP-10 / LP-30 by a 2 cm floor shortfall LeanPass cannot raise, and the result at the 38 cap is the same: mean 13 relative to the mast).
+  `MaxRelMeanDeg(type)` = max(free, cap - max lean): FG 13, DQ / GD 20, tram 30 (PC-2).
+- `TramBendHalfCapDeg` 20: the planner's tram saddle cap, per half (whole bend 40). A look rule, under D's reach (`TramHalfBreakMaxDeg` 30).
+- `TramFloatM(baseHalf, lean, groundDown, out floor, out ceiling)` = max(0, min(floor, ceiling)). Tower frame, x downhill: the steel
+  point (B/2 + 0.325, 1.466) and the four pier-bottom edges (+-(B/2 +- 0.7), -12) turned by the lean about the origin; floor = terrain -
+  steel y, ceiling = min over the edges of terrain - pier y. B/2 = `TramBaseHalfM(top)` (5.0 / 5.5 / 6.0). Reproduces the art's foundation
+  table within 3 mm (PC-8). The uphill legs buried in a steep slope are the pre-existing slope condition (the lean only reduces it): not a
+  floor.

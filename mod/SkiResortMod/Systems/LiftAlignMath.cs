@@ -146,16 +146,30 @@ namespace SkiResortMod.Systems
             return math.atan2(f.y, math.length(f.xz));
         }
 
-        /// <summary>The steepest mast lean, degrees: FG / DQ / GD 20 (sourced range 10-18 deg measured, +-40 RM), tram 25 (Sandia 18,
-        /// Loen "strongly overhanging"). A visual choice.</summary>
+        /// <summary>The steepest mast lean, degrees: DQ / GD 20 (sourced range 10-18 deg measured, +-40 RM), FG 25 (FgMaxLeanDeg), tram
+        /// 25 (Sandia 18, Loen "strongly overhanging"). A visual choice.</summary>
         public const float MaxLeanDeg = 20f, TramMaxLeanDeg = 25f;
 
-        /// <summary>The pitch the head alone follows before the mast leans, degrees: HeadRelMaxDeg for the train lifts, the tram saddle's
-        /// TrainPitchLimitDeg (the letter C halves) for the tram.</summary>
-        public static float LeanFreeDeg(string typeId) => typeId == "tram" ? TrainPitchLimitDeg : HeadRelMaxDeg;
+        /// <summary>The FG's own lean rule (DECISIONS 600 a, call d; critique SHOULD-3): the FG has no head, so its mast sets the
+        /// crossarm to the rope grade. It leans from FgLeanFreeDeg 12 deg of pitch (the call said about 10: at 10 the 1-2 deg leans of
+        /// 11-12 deg pitches left a 2 cm floor shortfall on two FG20s LeanPass cannot raise, LP-10, and a needless 4 m raise beside a
+        /// station, LP-30), up to FgMaxLeanDeg 25: at the 38 cap the trains' mean sits 13 off the mast either way and the halves (mean +
+        /// the Break twin's 16 deg half-break) at most 28, under the FG art's 30 (PC-6).</summary>
+        public const float FgLeanFreeDeg = 12f, FgMaxLeanDeg = 25f;
 
-        /// <summary>The type's MaxLeanDeg (TramMaxLeanDeg for the tram).</summary>
-        public static float MaxLeanDegOf(string typeId) => typeId == "tram" ? TramMaxLeanDeg : MaxLeanDeg;
+        /// <summary>The pitch the head alone follows before the mast leans, degrees: HeadRelMaxDeg for DQ / GD, FgLeanFreeDeg for the FG
+        /// (no head: the trains hang off the mast's crossarm), the tram saddle's TrainPitchLimitDeg (the letter C halves) for the tram.</summary>
+        public static float LeanFreeDeg(string typeId) =>
+            typeId == "tram" ? TrainPitchLimitDeg : typeId == "fixedGrip" ? FgLeanFreeDeg : HeadRelMaxDeg;
+
+        /// <summary>The type's steepest lean: MaxLeanDeg (DQ / GD), FgMaxLeanDeg (FG), TramMaxLeanDeg (tram).</summary>
+        public static float MaxLeanDegOf(string typeId) =>
+            typeId == "tram" ? TramMaxLeanDeg : typeId == "fixedGrip" ? FgMaxLeanDeg : MaxLeanDeg;
+
+        /// <summary>The largest mean rope pitch relative to the mast up to the type's hard pitch cap, degrees: max(LeanFreeDeg, cap -
+        /// max lean) (FG 13, DQ / GD 20, tram 30).</summary>
+        public static float MaxRelMeanDeg(string typeId) =>
+            math.max(LeanFreeDeg(typeId), PitchCapDeg(typeId) - MaxLeanDegOf(typeId));
 
         /// <summary>How the lean follows the pitch (THE lean rule; the owner judges the look from previews, so it is one switch).
         /// HeadFirst (default): lean = clamp(|pitch| - LeanFreeDeg, 0, max lean): a mast leans only where the head alone cannot
@@ -398,6 +412,61 @@ namespace SkiResortMod.Systems
         /// <summary>The half-break the letter D tram saddle halves clear (V-notch faces 32 deg off the vertical, haul rollers 0.10 m
         /// further out): 30 deg, against MaxHalfBreakDeg for every other train.</summary>
         public const float TramHalfBreakMaxDeg = 30f;
+
+        /// <summary>The planner's tram saddle cap, degrees per half (DECISIONS 600 a, call b; critique SHOULD-1): half the rope's bend at a
+        /// tram tower (DeflectionDeg / 2, the drawn rope) is held to this for the LOOK, not for the art's reach (D clears
+        /// TramHalfBreakMaxDeg 30): a 60 deg V on one saddle reads as a kink, a 15-20 deg half reads as a shoe. Past it the angle pass
+        /// repairs the tower like a chair's (shift / member, a breakover pair, a longer span); still past it: OVER CAP, PLAN_SADDLE /
+        /// TOWER_SADDLE and a red tower. The number: LiftBatch PC-7 (TS-1 coverage at 15 / 17.5 / 20).</summary>
+        public const float TramBendHalfCapDeg = 20f;
+
+        // ── Tram pedestals (DECISIONS 600 a, call c; critique SHOULD-2; art tower_lean.py foundation table) ─────────────────────
+        // The tram tower stands on four concrete columns at its base corners (tram_tower.build_footings: a 1.5 m pedestal over a 12 m
+        // pier, 1.4 m square, at +-B/2; B = 10 / 11 / 12 m for the 30 / 45 / 60 m tower). A lean turns them about the foot (the
+        // Transform origin), so on a level crest the downhill legs dig in and the uphill piers stand proud. The planner floats the
+        // tower (node y = ground + E + FloatM; the engine stands the member's pivot FloatM above the ground): at least the dig-in of
+        // the downhill steel (the FLOOR), at most what the piers still cover (the CEILING). Between them it stands on four unequal
+        // pedestals; the lean is never limited by the foot slope.
+
+        /// <summary>Tram pier: depth below the origin, half its width (tram_tower.PIER_TR 12.0, PW_TR 1.4).</summary>
+        public const float TramPierDepthM = 12f, TramPierHalfM = 0.7f;
+
+        /// <summary>The downhill steel's lowest point in the tower frame: TramSteelOutM past the column center (B/2) and TramSteelZM above
+        /// the origin (the leg gussets over the pedestal top). Fitted to the art's foundation check (steel_buried_m on a level crest:
+        /// 0.92 / 1.13 / 1.34 m at lean 25, 0.44 / 0.61 / 0.78 at lean 20; reproduced within 3 mm).</summary>
+        public const float TramSteelOutM = 0.325f, TramSteelZM = 1.466f;
+
+        /// <summary>Half the tram tower's base width B, meters, by its top (tram_tower.make_spec: B 10 / 11 / 12 for the 30 / 45 / 60 m
+        /// tower; linear between).</summary>
+        public static float TramBaseHalfM(float topM) => 0.5f * (10f + (topM - 30f) / 15f);
+
+        /// <summary>A tram tower's pedestal float, meters (the origin over the ground at the foot): max(0, min(FLOOR, CEILING)).
+        /// <paramref name="groundDown"/>(x) is the terrain relative to the ground at the foot, x meters along the line DOWNHILL of it (the
+        /// side the mast leans to; negative x = uphill). FLOOR = the downhill steel's depth under the terrain at float 0; CEILING = the
+        /// least depth of the four pier-bottom edges (both piers' inner and outer edge, uphill and downhill) under the terrain at float 0
+        /// (the piers never lift off). Lean 0: 0 (the plumb tower stands on its pivot as before).</summary>
+        public static float TramFloatM(float baseHalfM, float leanDeg, Func<float, float> groundDown, out float floorM, out float ceilingM)
+        {
+            floorM = 0f;
+            ceilingM = float.PositiveInfinity;
+            if (!(leanDeg > 0f) || groundDown == null)
+                return 0f;
+            float a = math.radians(leanDeg), sa = math.sin(a), ca = math.cos(a);
+            // a tower-frame point (x downhill, z up) after the lean about the origin: (x cos + z sin, -x sin + z cos)
+            float xs = baseHalfM + TramSteelOutM, zs = TramSteelZM;
+            float sx = xs * ca + zs * sa, sy = -xs * sa + zs * ca;
+            floorM = math.max(0f, groundDown(sx) - sy);
+            for (int side = -1; side <= 1; side += 2)
+            {
+                for (int edge = -1; edge <= 1; edge += 2)
+                {
+                    float x = side * (baseHalfM + edge * TramPierHalfM), z = -TramPierDepthM;
+                    float px = x * ca + z * sa, py = -x * sa + z * ca;
+                    ceilingM = math.min(ceilingM, groundDown(px) - py);
+                }
+            }
+            return math.max(0f, math.min(floorM, ceilingM));
+        }
 
         /// <summary>The first tram tower art letter whose saddle halves clear TramSaddlePitchLimitDeg / TramHalfBreakMaxDeg.</summary>
         public const char WideTramSaddleLetter = 'D';

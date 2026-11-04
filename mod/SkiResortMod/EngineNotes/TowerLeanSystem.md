@@ -33,3 +33,11 @@ line ends, stations, junctions, Editor.
 - TrainPitchSystem: `LiftAlignMath.MastPitch(t.m_Rotation)` off the absolute lane-end pitches (the bones are local to the mast).
 - TowerNumberTileSystem: tiles are placed in the tower frame (`inverse(tt.m_Rotation)`), so they follow the lean; the carry keeps
   their local pose, so a lean does not churn them.
+
+## 600 a: FG rule, tram pedestals
+- FG lean rule: clamp(|pitch| - 12, 0, 25) (`FgLeanFreeDeg`, `FgMaxLeanDeg`); DQ / GD stay 20 / 20, tram 30 / 25. Nothing changes in
+  this system: it reads `LeanDeg` per type.
+- Tram pedestals: a leaned tram tower floats its pivot `FloatM` above the ground. The planner writes the node at ground + E + FloatM with
+  Elevation (E, E), so the engine picks the member as before and stands its pivot FloatM up (the AnchorTop placement, LiftTowerPlanner.md).
+  This system keeps the Transform position, so the lean turns about the floated pivot, and `PlumbAnchor` reads the floated rope: the same
+  rope points the planner's final pitch uses (Build re-runs SetLeans after the float), so plan and game still agree.

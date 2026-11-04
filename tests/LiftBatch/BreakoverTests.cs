@@ -220,7 +220,9 @@ namespace LiftBatch
             Check(LiftTowerPlanConstants.For("detachable").WantHead(LiftTrainKind.Support, 35f) == LiftTowerHead.Line, W + " heads",
                   "DQ has no Break twin but wants one");
             LiftTowerPlanConstants tram = LiftTowerPlanConstants.For("tram");
-            Check(!tram.HasTrains && float.IsPositiveInfinity(tram.CapDeg(LiftTrainKind.Support)), W + " tram", "the tram has a train cap");
+            // the tram's saddle cap (DECISIONS 600 a): twice the half-break cap for every kind, no wheels
+            Check(!tram.HasTrains && tram.CapDeg(LiftTrainKind.Support) == 2f * LiftAlignMath.TramBendHalfCapDeg &&
+                  tram.CapDeg(LiftTrainKind.HoldDown) == tram.CapDeg(LiftTrainKind.Support), W + " tram", "the tram's saddle cap is not 2 x TramBendHalfCapDeg");
             Check(LiftTowerPlanConstants.PairMaxM == 40f && LiftTowerPlanConstants.For("detachable").PairMinM == 10f && LiftTowerPlanConstants.MaxGroup == 2,
                   W, "pair spacing 10-40 m / group 2 moved");
         }

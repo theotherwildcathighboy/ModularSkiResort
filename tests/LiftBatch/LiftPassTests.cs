@@ -411,9 +411,9 @@ namespace LiftBatch
             foreach (string t in new[] { "fixedGrip", "detachable", "gondola", "tram", "any" })
                 used.Add("TYPE[" + t + "]");
             // PLAN_TRAIN / TOWER_TRAIN (a tower over its cap) and SUNK / SUNK_END (LiftLineInput.SunkKey): FIX-LIST 55; PLAN_PITCH /
-            // TOWER_PITCH (a tower past the pitch cap): DECISIONS 600.
+            // TOWER_PITCH (a tower past the pitch cap): DECISIONS 600; PLAN_SADDLE / TOWER_SADDLE (a tram saddle past its cap): 600 a.
             foreach (string k in new[] { "PLAN_CLEAR", "PLAN_LOW", "PLAN_STEEP", "PLAN_HIGH", "PLAN_TRAIN", "TOWER", "TOWER_PINNED", "TOWER_LOW",
-                                         "TOWER_TRAIN", "PLAN_PITCH", "TOWER_PITCH", "SUNK", "SUNK_END" })
+                                         "TOWER_TRAIN", "PLAN_PITCH", "TOWER_PITCH", "PLAN_SADDLE", "TOWER_SADDLE", "SUNK", "SUNK_END" })
                 used.Add(k);
             foreach (string path in codePaths)
                 foreach (Match m in new Regex("\\bT\\(\"([A-Z_]+(?:\\[[A-Za-z]+\\])?)\"").Matches(File.ReadAllText(path)))

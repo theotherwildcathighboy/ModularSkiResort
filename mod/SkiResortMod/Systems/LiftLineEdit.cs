@@ -366,11 +366,11 @@ namespace SkiResortMod.Systems
                     });
                     continue;
                 }
-                float e = LiftTowerEdit.ElevationM(C, pn.Member, pn.Head);
+                float e = LiftTowerEdit.ElevationM(C, pn.Member, pn.Head);   // Elevation (E, E) picks the member; FloatM lifts the node (tram pedestals)
                 float3 p = PointAt(pn.AlongM);
                 list.Add(new LiftLineNode
                 {
-                    AlongM = pn.AlongM, Position = new float3(p.x, pn.GroundM + e, p.z), GroundM = pn.GroundM, ElevationM = e,
+                    AlongM = pn.AlongM, Position = new float3(p.x, pn.GroundM + e + pn.FloatM, p.z), GroundM = pn.GroundM, ElevationM = e,
                     Member = pn.Member, Head = pn.Head, Kind = IsPinned(pn.AlongM) ? LiftLineNodeKind.Pinned : LiftLineNodeKind.Free,
                 });
             }
@@ -553,8 +553,9 @@ namespace SkiResortMod.Systems
             typeId == "fixedGrip" || typeId == "detachable" || typeId == "gondola" || typeId == "tram";
 
         /// <summary>The plan line's key: the first thing wrong (a span below the floor, an edge too steep for the engine, a span above
-        /// the max rope height, a tower whose rope bends past its sheave train's cap: PLAN_TRAIN, FIX-LIST 55; a tower whose rope runs
-        /// through it steeper than the type's pitch cap: PLAN_PITCH, DECISIONS 600), else PLAN_CLEAR, which
+        /// the max rope height, a tower whose rope bends past its sheave train's cap: PLAN_TRAIN, FIX-LIST 55, or past the tram saddle's
+        /// cap: PLAN_SADDLE, DECISIONS 600 a; a tower whose rope runs through it steeper than the type's pitch cap: PLAN_PITCH,
+        /// DECISIONS 600), else PLAN_CLEAR, which
         /// is only ever the key of a Sound plan. <paramref name="lengthM"/> = the line's length (sum of the spans).</summary>
         public static string PlanKey(LiftTowerPlan plan, out float lengthM)
         {
@@ -567,7 +568,7 @@ namespace SkiResortMod.Systems
                 high |= plan.Spans[i].HeightViolated;
                 lengthM += plan.Spans[i].LengthM;
             }
-            return low ? "PLAN_LOW" : steep ? "PLAN_STEEP" : high ? "PLAN_HIGH" : plan.OverCapTowers > 0 ? "PLAN_TRAIN"
+            return low ? "PLAN_LOW" : steep ? "PLAN_STEEP" : high ? "PLAN_HIGH" : plan.OverCapTowers > 0 ? (plan.Constants.HasTrains ? "PLAN_TRAIN" : "PLAN_SADDLE")
                 : plan.TooSteepTowers > 0 ? "PLAN_PITCH" : "PLAN_CLEAR";
         }
 
@@ -575,7 +576,8 @@ namespace SkiResortMod.Systems
         /// high a chair or cabin passes over the ground at the tower (rope above the base - the carrier's drop). TOWER_LOW when a span
         /// beside it is below the floor (the span minimum is not used: at a station end the chairs are at loading height by design);
         /// TOWER_TRAIN when its rope bends past its sheave train's cap (<paramref name="bendDeg"/> = the bend, <paramref name="capDeg"/> =
-        /// the cap, both 0 otherwise; FIX-LIST 55); TOWER_PITCH when the rope runs through it steeper than the type's pitch cap (then
+        /// the cap, both 0 otherwise; FIX-LIST 55); TOWER_SADDLE for the same on a tram saddle (its cap 2 x SaddleHalfCapDeg, DECISIONS
+        /// 600 a); TOWER_PITCH when the rope runs through it steeper than the type's pitch cap (then
         /// <paramref name="bendDeg"/> = the pitch, <paramref name="capDeg"/> = LiftTowerPlanConstants.PitchCapDeg; DECISIONS 600).</summary>
         public static string TowerKey(LiftTowerPlan plan, int node, bool pinned, out float heightM, out float clearM, out float bendDeg,
                                       out float capDeg)
@@ -590,7 +592,7 @@ namespace SkiResortMod.Systems
             if (plan.Spans[node - 1].FloorViolated || plan.Spans[node].FloorViolated)
                 return "TOWER_LOW";
             if (over)
-                return "TOWER_TRAIN";
+                return c.HasTrains ? "TOWER_TRAIN" : "TOWER_SADDLE";
             if (plan.IsTooSteep(node))
             {
                 bendDeg = math.abs(plan.Nodes[node].PitchDeg);
