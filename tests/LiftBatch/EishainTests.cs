@@ -8,6 +8,7 @@
 //       stays clear with them. (c) The lot-front rule: ground falling away beyond the end lowers the rope.
 // EI-55 a top ground end past a crest (FIX-LIST 55): a tower over its cap never reads clear (plan key, Describe, tower key), the
 //       sunk ground end says SUNK_END; a sweep over the FB-3 lines and crest-end tops.
+// EI-54b a station snapped onto a built line end facing away from it is refused (StationAlign.AttachesBackward, FIX-LIST 54(b)).
 
 using System;
 using System.Collections.Generic;
@@ -37,6 +38,7 @@ namespace LiftBatch
             Ei48Front();
             Ei49();
             Ei55();
+            Ei54b();
             s_Check = null;
         }
 
@@ -510,6 +512,68 @@ namespace LiftBatch
             Check(overPlans > 0, w, "no plan had a tower over its cap: the sweep does not bind");
             s_Report.Add("EI-55 sweep " + plans + " plans (FB-3 lines with / without twins, crest-end tops) | " + overPlans +
                          " with a tower over its cap, none reads clear; PLAN_CLEAR on " + clearKeys + ", all sound");
+        }
+
+        // EI-54b: a station snapped onto a built line end facing away from it is refused (StationFacingRefusalSystem's pure rule,
+        // StationAlign.AttachesBackward). The field case: the steep tram base snapped on at yaw 128.7 with its lot front (local +Z)
+        // along the line toward the top station, so its stub (local -Z) pointed away and the line ran back through the building; it
+        // placed and attached. Turned around (yaw -51.3) it is the aligned snap. Then every catalog station at every 10 deg of yaw:
+        // a line leaving within 80 deg of the stub axis is allowed, one leaving 100 deg or more off it is refused, and a stub tip 5 m
+        // from the line end (not snapped) is never refused.
+        private static void Ei54b()
+        {
+            const string w = "eishain/EI-54b";
+            StationDef tram = SkiCatalog.StationOf(SkiCatalog.LiftById("tram").Index, StationRole.Base);
+            var pos = new float3(4330f, 1452.1f, -5300f);
+            float2 front = new float2(math.sin(math.radians(128.7f)), math.cos(math.radians(128.7f)));   // the lot front, toward the top
+            bool reversed = Refused(tram, pos, 128.7f, front, 0f), turned = Refused(tram, pos, -51.3f, front, 0f);
+            bool offNode = Refused(tram, pos, 128.7f, front, 5f);
+            Check(reversed, w + " field", "the reversed steep tram base (yaw 128.7) is not refused");
+            Check(!turned, w + " field", "the tram base turned around (yaw -51.3) is refused");
+            Check(!offNode, w + " field", "a reversed station 5 m from the line end (not snapped) is refused");
+            int stations = 0, allowed = 0, refused = 0, wrong = 0;
+            foreach (LiftTypeDef type in SkiCatalog.Lifts)
+            foreach (StationRole role in new[] { StationRole.Base, StationRole.Top })
+            {
+                StationDef def = SkiCatalog.StationOf(type.Index, role);
+                if (def == null)
+                    continue;
+                stations++;
+                for (float yaw = -180f; yaw < 180f; yaw += 10f)
+                {
+                    float2 axis = StationAlign.Axis(quaternion.RotateY(math.radians(yaw)));
+                    foreach (float off in new[] { -80f, -30f, 0f, 30f, 80f, 100f, 150f, 180f, 210f, 260f })
+                    {
+                        float a = math.radians(off);
+                        float2 dir = new float2(axis.x * math.cos(a) - axis.y * math.sin(a), axis.x * math.sin(a) + axis.y * math.cos(a));
+                        bool want = math.abs(off) > 90f;
+                        bool got = Refused(def, pos, yaw, dir, 0f);
+                        if (got) refused++; else allowed++;
+                        if (got != want && wrong++ < 4)
+                            Check(false, w + " sweep", def.Prefab + " yaw " + F(yaw, "F0") + ", line " + F(off, "F0") + " deg off the stub: " +
+                                  (got ? "refused" : "allowed"));
+                        if (Refused(def, pos, yaw, dir, 5f) && wrong++ < 4)
+                            Check(false, w + " sweep", def.Prefab + " refused 5 m from the line end");
+                    }
+                }
+            }
+            Check(wrong == 0, w + " sweep", wrong + " wrong verdict(s)");
+            s_Report.Add("EI-54b reversed snap | steep tram base yaw 128.7 refused " + reversed + ", turned (-51.3) refused " + turned +
+                         ", 5 m off the end refused " + offNode + " | sweep " + stations + " stations x 36 yaws x 10 line bearings: " + allowed +
+                         " allowed, " + refused + " refused, " + wrong + " wrong");
+        }
+
+        /// <summary>The refusal rule for a station at <paramref name="pos"/> / <paramref name="yawDeg"/> whose stub tip is
+        /// <paramref name="gapM"/> from the end node of a built line edge leaving that node along <paramref name="lineDir"/> for 250 m;
+        /// the edge is tried in both node orders, as the system does.</summary>
+        private static bool Refused(StationDef def, float3 pos, float yawDeg, float2 lineDir, float gapM)
+        {
+            quaternion rot = quaternion.RotateY(math.radians(yawDeg));
+            float2 axis = StationAlign.Axis(rot);
+            float2 tip = StationAlign.StubTip(pos, rot, def.StubTipLocalZ, def.StubTipLocalX).xz;
+            float2 end = tip + new float2(-axis.y, axis.x) * gapM;
+            float2 other = end + math.normalize(lineDir) * 250f;
+            return StationAlign.AttachesBackward(axis, tip, end, other) || StationAlign.AttachesBackward(axis, tip, other, end);
         }
 
         internal static string Desc(LiftTowerPlan p)

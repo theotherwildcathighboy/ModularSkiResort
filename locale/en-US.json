@@ -1442,6 +1442,7 @@
   "SkiResort.LiftTooltip.BULLDOZE_COUNT": "Sections removed",
   "SkiResort.LiftTooltip.BULLDOZE_LENGTH": "Length removed",
   "SkiResort.PowerJoin.REFUSED": "A power line cannot connect to a ski lift.",
+  "SkiResort.StationFacing.REFUSED": "This station faces away from the lift line, so the line would run back through the building. Turn the station around.",
   "SkiResort.LiftTool.PICK_FIRST_ANY": "Click a lift station or a loose line end to start. Click a rope to remove its section. Right click closes the tool.",
   "SkiResort.LiftTool.PICK_FIRST": "{TYPE} line: click a station, loose end or open ground to start. Click a rope to remove its section. Right click closes the tool.",
   "SkiResort.LiftTool.PICK_SECOND": "{TYPE} line: now click the other end. Right click goes back a step.",

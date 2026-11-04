@@ -177,6 +177,19 @@ namespace SkiResortMod.Systems
             return math.lengthsq(stationAxis) > 0.25f && math.dot(stationAxis, otherEndXz - stubTipXz) <= 0f;
         }
 
+        /// <summary>A station preview's stub tip this close (xz) to a built lift line's end node is snapped onto it (the vanilla snap
+        /// puts the stub tip on the node; StationFacingRefusalSystem).</summary>
+        public const float AttachTolM = 1f;
+
+        /// <summary>FIX-LIST 54(b): a station preview snapped onto the end of a built lift line edge (<paramref name="endXz"/>, within
+        /// AttachTolM of its stub tip) while that edge's other node (<paramref name="otherEndXz"/>) lies behind its stub: the line would
+        /// run back through the building. The vanilla object tool offers the snap with the tool's own rotation as well as the aligned
+        /// one, so a reversed station snaps on; StationFacingRefusalSystem refuses it.</summary>
+        public static bool AttachesBackward(float2 stationAxis, float2 stubTipXz, float2 endXz, float2 otherEndXz)
+        {
+            return math.distance(stubTipXz, endXz) <= AttachTolM && LineLeavesBackward(stationAxis, stubTipXz, otherEndXz);
+        }
+
         /// <summary>The readout class of one measurement (first match wins: Straight, PartnerFacingAway, FacingAway, Numbers). An invalid
         /// measurement (a degenerate axis) shows the numbers.</summary>
         public static Readout Classify(in Result r)

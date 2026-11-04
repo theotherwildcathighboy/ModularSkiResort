@@ -1574,6 +1574,8 @@ namespace SkiResortMod
                 { "SkiResort.LiftTooltip.BULLDOZE_LENGTH", "Length removed" },
                 // PowerJoinTooltipSystem: a vanilla high-voltage line dragged onto a lift is refused (red preview).
                 { "SkiResort.PowerJoin.REFUSED", "A power line cannot connect to a ski lift." },
+                // StationFacingTooltipSystem: a station snapped onto a lift line end facing away from it is refused (red preview).
+                { "SkiResort.StationFacing.REFUSED", "This station faces away from the lift line, so the line would run back through the building. Turn the station around." },
 
                 // --- Lift line tool ----------------------------------------------------------------------------
                 // LiftLineTooltipSystem / LiftLineToolSystem through LocalizedString.Id(key, args); the log keeps the full detail. Every

@@ -69,3 +69,17 @@ clock AND MoveGapFrames frames without a move of that station. The system writes
 when another station moves": should the census's last-moved station alternate between two stations frame by frame, a single-episode
 tracker would close and log every frame. QuietSeconds = 2 s matches `SkiStationAlignSystem.MovedWindowS` (unmeasured). The pattern of
 LiftReconnectEpisodes.cs.
+
+## Reversed snap refusal (FIX-LIST 54(b), StationFacingRefusalSystem)
+
+The vanilla object tool snaps a station's stub sub-net onto a net node with two candidates, the tool's own rotation and the stub aligned
+to the edge, ranked by snap priority from the cursor distance alone (ObjectToolSystem.cs:689-700, NetIterator), so a station turned the wrong way snaps
+onto a lift line end, places and attaches: the field steep tram base at yaw 128.7, its lot front along the line toward the top, stood
+28.8 m above the predicted front. `AttachesBackward(axis, tip, end, other)` is the rule: the stub tip within `AttachTolM` (1 m) of a
+built lift-line edge's end node and that edge's other node behind the stub (`LineLeavesBackward`). StationFacingRefusalSystem applies it
+to every Temp catalog station (not Delete) against every built lift-line edge (no Owner, so not a station's own stub, not Temp), both
+node orders, and writes ErrorSeverity.Error for the station into ValidationSystem.Components' error map (PowerJoinRefusalSystem's
+mechanism and anchor: UpdateBefore Components at ModificationEnd), so the preview is red and cannot be placed; StationFacingTooltipSystem
+shows SkiResort.StationFacing.REFUSED. It refuses, never re-snaps: picking the aligned candidate would mean patching the vanilla tool.
+A station placed loose (not snapped) is never refused; the Align readout keeps its "facing away" hint. Not covered: Move It (no
+validation pass). Tests: LiftBatch EI-54b (the field yaw, turned around, 5 m off the end, 8 stations x 36 yaws x 10 bearings).

@@ -275,6 +275,9 @@ namespace SkiResortMod
             // Components turns it into Error components (anything missing from the map loses its Error, ValidationSystem.cs:450-531).
             // An UpdateAt would sort after Components and every Error we wrote would be stripped on the next validation.
             updateSystem.UpdateBefore<PowerJoinRefusalSystem, Game.Tools.ValidationSystem.Components>(SystemUpdatePhase.ModificationEnd);
+            // A lift station snapped onto a line end facing away from it: refused (FIX-LIST 54(b)). Anchor is load-bearing for the same
+            // reason as PowerJoinRefusalSystem's: the error map must be written after ValidationSystem fills it, before Components reads it.
+            updateSystem.UpdateBefore<StationFacingRefusalSystem, Game.Tools.ValidationSystem.Components>(SystemUpdatePhase.ModificationEnd);
 
             // Slope heat-map overlay. Anchor is load-bearing: OverlayRenderSystem consumes and clears the overlay lists each frame
             // (OverlayRenderSystem.cs:781, 790), so our strips must be added BEFORE it in Rendering.
@@ -400,6 +403,8 @@ namespace SkiResortMod
 
             // Power-line join refusal line. Anchor is load-bearing like the lift tooltip's: after TempCostTooltipSystem (SystemOrder.cs:911).
             updateSystem.UpdateAfter<PowerJoinTooltipSystem, Game.UI.Tooltip.TempCostTooltipSystem>(SystemUpdatePhase.UITooltip);
+            // Reversed-station refusal line (FIX-LIST 54(b)). Anchor is load-bearing like the power-line join line's.
+            updateSystem.UpdateAfter<StationFacingTooltipSystem, Game.UI.Tooltip.TempCostTooltipSystem>(SystemUpdatePhase.UITooltip);
 
             // Closes the Electricity infoview the lift LINE tool opens. UpdateBefore ONLY (an UpdateAt as well runs it twice per frame,
             // UpdateSystem.cs:158-176) and BEFORE InfoviewsUISystem (UIUpdate) so the vanilla binding reflects our close in the same frame.
