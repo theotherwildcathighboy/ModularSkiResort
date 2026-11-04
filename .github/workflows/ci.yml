@@ -61,9 +61,9 @@ jobs:
         run: node tools/check-ui-phase-deletes.js
       - name: Run prop placer rules
         run: node tools/check-run-props.js
-      - name: Lift alignment (rope-point pin, one rope lane per lift type, tower ladders and twins)
+      - name: Lift alignment (rope-point pin, one rope lane per lift type, tower ladders and twins, re-frozen manifests pin their prefab)
         run: node tools/check-lift-align.js
-      - name: Lift alignment LADDER self-test (planted faults must fail)
+      - name: Lift alignment self-test (LADDER and MANIFESTSHA planted faults must fail)
         run: node tools/check-lift-align.js --self-test
       - name: No main-thread access to job-written components
         run: node tools/check-main-thread-jobs.js
