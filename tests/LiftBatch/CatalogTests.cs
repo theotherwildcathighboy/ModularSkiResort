@@ -1098,6 +1098,14 @@ namespace LiftBatch
                     Check(Num(r, "speed_mps", out _), W, at + "has no speed_mps (round-2-contract §10.2)");
                     // dwell_s == DwellS when present (tram 60); a Shuttle row must carry it (the mover's station stop has one source of truth).
                     NumEq(r, "dwell_s", d.DwellS, d.Mover == MoverKind.Shuttle, W, at);
+                    // the split pivots (the doc string's "CT-11 compares the two" covers them too): every row splits, each vector = CarrierPivots
+                    if (Check(r.TryGetProperty("split", out JsonElement split) && split.ValueKind == JsonValueKind.Object, W, at + "has no split object"))
+                    {
+                        VecEq(split, "grip_rope_m", d.Pivots.GripRope, W, at);
+                        VecEq(split, "grip_pin_m", d.Pivots.GripPin, W, at);
+                        VecEq(split, "body_pin_m", d.Pivots.BodyPin, W, at);
+                        Check(Str(split, "body_mesh") != null && Str(split, "grip_mesh") != null, W, at + "split names no body / grip mesh");
+                    }
                 }
                 for (int i = 0; i < SkiCatalog.Lifts.Count; i++)
                     Check(seen.Contains(SkiCatalog.Lifts[i].Id), W, "lift type '" + SkiCatalog.Lifts[i].Id + "' has no carriers.json row");
@@ -1130,6 +1138,16 @@ namespace LiftBatch
                 return;
             }
             Near(want, got, 1e-6, w, at + name + " (json) vs SkiCatalog");
+        }
+
+        /// <summary>A 3-number json array equals <paramref name="want"/> (float literals, 1e-6).</summary>
+        private static void VecEq(JsonElement r, string name, float3 want, string w, string at)
+        {
+            if (!Check(r.TryGetProperty(name, out JsonElement v) && v.ValueKind == JsonValueKind.Array && v.GetArrayLength() == 3, w,
+                       at + "split." + name + " is not a 3-number array"))
+                return;
+            for (int i = 0; i < 3; i++)
+                Near(want[i], v[i].GetDouble(), 1e-6, w, at + "split." + name + "[" + i + "] (json) vs SkiCatalog Pivots");
         }
 
         // ================================================================== CT-12

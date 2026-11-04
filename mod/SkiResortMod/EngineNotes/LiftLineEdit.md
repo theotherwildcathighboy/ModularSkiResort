@@ -28,7 +28,9 @@ rules (right-click stepping, Build, Esc).
   only spans that still exceed MaxSpanM or violate the floor, and never puts a new tower within RemovedRadiusM of a removed spot
   (`LiftTowerPlanner.Forbidden`), so a tower the span still needs lands elsewhere in it.
 - Emit: the plan's nodes in order, stations first and last, each tower at (x, ground + E(member), z) with E = TopM[member] - TopM[0]
-  (`LiftTowerEdit.ElevationM`): the node height the fit system writes, so the line is born fitted.
+  (`LiftTowerEdit.ElevationM`): the node height the fit system writes, so the line is born fitted. A tower with a twin head (B2,
+  LiftTowerPlanner.md "Heads") gets the twin's E (`ElevationM(c, member, head)`) and `LiftLineNode.Head`; its tower key height is the
+  head's top (`TopOf(member, head)`).
 
 ## Tool lines (`LiftToolLines`)
 After an Apply the tool registers the emitted inner nodes (xz, member, pinned). `LiftTowerFitSystem` asks `Match()` for every line it

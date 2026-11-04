@@ -777,11 +777,12 @@ namespace SkiResortMod.Systems
                         // stays unneeded only while ≤ 16.
                         Envelope = new LiftEnvelope(60f, 0.8f, 0.02f, 0.02f, 6f, 16f),   // net + own rope lane 0.02 (rope sag round, docs research rope-sag)
                         CloseElectricityView = FixedGrip.CloseElectricityView, LineExpected = true,
-                        // Pivots of the split meshes (lift_chair.py --split, SkiLiftChair6N + SkiLiftChair6GripN; prefab frame x lateral,
-                        // y up, z travel; round 3: the clevis centered under the jaw block, F4a cast jaws): the pin 0.1405 straight below
-                        // the rope. Rigid offset 2.1795 + 0.1955 - 0.055 = 2.32 = hang - grip top (CT-17).
+                        // Pivots of the split meshes (lift_chair.py --split --envelope, SkiLiftChair6O + SkiLiftChair6GripO; prefab frame x
+                        // lateral, y up, z travel; B2 v2 grip passage envelope: the clamp block, clevis and pins 0.20 m outboard, the jaw plate
+                        // on the rope): the pin 0.1405 below the rope and 0.20 outboard. Rigid offset (-0.2, 2.1795) + (0, 0.1955) - (-0.2, 0.055)
+                        // = (0, 2.32) = hang - grip top (CT-17).
                         GripPrefab = Names.GripFixedGrip, GripExpected = true,
-                        Pivots = new CarrierPivots(new float3(0f, 0.1955f, 0f), new float3(0f, 0.055f, 0f), new float3(0f, 2.1795f, 0f)),
+                        Pivots = new CarrierPivots(new float3(0f, 0.1955f, 0f), new float3(-0.2f, 0.055f, 0f), new float3(-0.2f, 2.1795f, 0f)),
                     },
                     new LiftTypeSpec
                     {
@@ -800,7 +801,8 @@ namespace SkiResortMod.Systems
                         CloseElectricityView = true, LineExpected = true,
                         // SkiDetachableHV and SkiLiftChairDQ4 exist game-side: line and carrier Expected, the row derived-Expected.
                         CarrierExpected = new[] { true },
-                        // Pivots of the split meshes (SkiLiftChairDQ4N + SkiLiftChairDQ4GripN): the pin 0.258 below the rope on the
+                        // Pivots of the split meshes (SkiLiftChairDQ4N + SkiLiftChairDQ4GripO, B2 v2: the O grip moved its carriage 0.25 m
+                        // outboard, pins unchanged): the pin 0.258 below the rope on the
                         // outboard C-hanger (x -0.2459, authoring -Y). Rigid offset 2.8225 + 0.3155 - 0.058 = 3.08 (CT-17).
                         GripPrefab = Names.GripDetachable, GripExpected = true,
                         Pivots = new CarrierPivots(new float3(0f, 0.3155f, 0f), new float3(-0.2459f, 0.058f, 0f), new float3(-0.2459f, 2.8225f, 0f)),
@@ -822,7 +824,8 @@ namespace SkiResortMod.Systems
                         CloseElectricityView = true, LineExpected = true,
                         // SkiGondolaHV and SkiGondolaCabin8 exist game-side: line and carrier Expected, the row derived-Expected.
                         CarrierExpected = new[] { true },
-                        // Pivots of the split meshes (lift_cabin.py --split, SkiGondolaCabin8B + SkiGondolaCabin8GripB): the pin 0.504 below
+                        // Pivots of the split meshes (lift_cabin.py --split, SkiGondolaCabin8B + SkiGondolaCabin8GripC, B2 v2: the C grip
+                        // lowered its jaw bar inboard, pins unchanged): the pin 0.504 below
                         // the rope on the outboard hanger (x -0.655). Rigid offset 3.9165 + 0.5735 - 0.07 = 4.42 (CT-17).
                         GripPrefab = Names.GripGondola, GripExpected = true,
                         Pivots = new CarrierPivots(new float3(0f, 0.5735f, 0f), new float3(-0.655f, 0.07f, 0f), new float3(-0.655f, 3.9165f, 0f)),

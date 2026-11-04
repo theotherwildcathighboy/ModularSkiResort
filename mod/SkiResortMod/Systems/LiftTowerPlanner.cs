@@ -34,6 +34,36 @@ namespace SkiResortMod.Systems
         }
     }
 
+    /// <summary>A line tower's head (breakover-holddown-plan-2026-11-03, section 3): the support member itself (Line) or one of its twins,
+    /// another member of the same placeholder with its own unique top. Hold = hold-down train over the rope, Combo = push-pull, Break =
+    /// the FG 8-wheel breakover train (art v2, docs research art/breakover-twins-2026-11/v2/build.md section 6).</summary>
+    public enum LiftTowerHead : byte
+    {
+        Line = 0,
+        Hold = 1,
+        Combo = 2,
+        Break = 3,
+    }
+
+    /// <summary>One twin member: the support member it is built on (ladder index), its head, the prefab name and its top
+    /// (ObjectGeometryData m_Size.y = the manifest's top_anchor_y). Its lanes are the support member's (manifest rope_on_crown lane_y_new =
+    /// member_lane_y), so the rope height at a twin is RopeAboveBase(Member).</summary>
+    public readonly struct LiftTowerTwin
+    {
+        public readonly int Member;
+        public readonly LiftTowerHead Head;
+        public readonly string Name;
+        public readonly float TopM;
+
+        public LiftTowerTwin(int member, LiftTowerHead head, string name, float topM)
+        {
+            Member = member;
+            Head = head;
+            Name = name;
+            TopM = topM;
+        }
+    }
+
     [Flags]
     public enum LiftPlanNodeFlags
     {
@@ -83,6 +113,59 @@ namespace SkiResortMod.Systems
         /// push-pull per side FG 2S2C, DQ / GD 4S4C). 0 = no sheave train (the tram's saddles): no cap, no pairs, no kinds.</summary>
         public readonly int SupportWheels, HoldWheels, ComboWheels;
 
+        /// <summary>Wheels per side of the Break twin's train (FG: 8, manifests sheaves_per_side; 0 = the type has no Break twin).</summary>
+        public readonly int BreakWheels;
+
+        /// <summary>The twins this type can place (the ones whose prefab is loaded, TwinFilter at For time); empty = none. Every twin's
+        /// Member is a ladder index.</summary>
+        public readonly LiftTowerTwin[] Twins;
+
+        /// <summary>Set once per game load (LiftTowerFitSystem.OnGameLoadingComplete): true for a twin prefab name the game has loaded.
+        /// For(def) drops the others, so a build without the twin prefabs plans the support heads only (a missing twin would leave the
+        /// node raised by E with the support member spawned 0.2-0.6 m above the ground). Null = every twin (tests).</summary>
+        public static Predicate<string> TwinFilter;
+
+        /// <summary>The twin of ladder member <paramref name="member"/> with <paramref name="head"/>, or -1 (Line is never a twin).</summary>
+        public int TwinIndex(int member, LiftTowerHead head)
+        {
+            if (head == LiftTowerHead.Line || Twins == null)
+                return -1;
+            for (int i = 0; i < Twins.Length; i++)
+                if (Twins[i].Member == member && Twins[i].Head == head)
+                    return i;
+            return -1;
+        }
+
+        public bool HasTwin(int member, LiftTowerHead head) => TwinIndex(member, head) >= 0;
+
+        /// <summary>The placed member's top: the twin's for a twin head, else the ladder member's.</summary>
+        public float TopOf(int member, LiftTowerHead head)
+        {
+            int t = TwinIndex(member, head);
+            return t >= 0 ? Twins[t].TopM : Ladder[member].TopM;
+        }
+
+        /// <summary>The placed member's prefab name: the twin's for a twin head, else the ladder member's.</summary>
+        public string NameOf(int member, LiftTowerHead head)
+        {
+            int t = TwinIndex(member, head);
+            return t >= 0 ? Twins[t].Name : Ladder[member].Name;
+        }
+
+        /// <summary>Every ladder member has a Break twin: the type's support trains are judged at the Break cap.</summary>
+        public bool BreakEverywhere
+        {
+            get
+            {
+                if (BreakWheels <= 0 || Twins == null)
+                    return false;
+                for (int m = 0; m < Ladder.Length; m++)
+                    if (!HasTwin(m, LiftTowerHead.Break))
+                        return false;
+                return true;
+            }
+        }
+
         /// <summary>A breakover pair's towers stand at least this far apart: the type's MinSpanM (10 m). A visual choice (no source gives
         /// a pair spacing).</summary>
         public float PairMinM => MinSpanM;
@@ -100,21 +183,66 @@ namespace SkiResortMod.Systems
         /// <summary>The type has sheave trains (the chairs and the gondola; not the tram).</summary>
         public bool HasTrains => SupportWheels > 0;
 
-        /// <summary>The cap, degrees, of this type's <paramref name="kind"/> train (LiftAlignMath.TrainCapDeg: wheels x 4 deg, at most
-        /// the 40 deg art fold): FG 16 / 16 / 8, DQ 32 / 32 / 16, GD 40 / 32 / 16 (support / hold-down / push-pull); +infinity without trains.</summary>
-        public float CapDeg(LiftTrainKind kind) =>
+        /// <summary>The cap, degrees, of the line member's own <paramref name="kind"/> train (LiftAlignMath.TrainCapDeg: wheels x 4 deg,
+        /// at most the 40 deg art fold): FG 16 / 16 / 8, DQ 32 / 32 / 16, GD 40 / 32 / 16 (support / hold-down / push-pull); +infinity
+        /// without trains.</summary>
+        public float LineCapDeg(LiftTrainKind kind) =>
             LiftAlignMath.TrainCapDeg(kind == LiftTrainKind.HoldDown ? HoldWheels : kind == LiftTrainKind.PushPull ? ComboWheels : SupportWheels);
+
+        /// <summary>The cap the planner judges a <paramref name="kind"/> train at: LineCapDeg, except a support train on a type whose every
+        /// member has a Break twin, which gets the Break train's cap (FG 8 wheels: 32; the convex tower takes the Break head instead of a
+        /// pair): FG 32 / 16 / 8 with the twins loaded, else as LineCapDeg.</summary>
+        public float CapDeg(LiftTrainKind kind) =>
+            kind != LiftTrainKind.HoldDown && kind != LiftTrainKind.PushPull && BreakEverywhere
+                ? LiftAlignMath.TrainCapDeg(BreakWheels) : LineCapDeg(kind);
+
+        /// <summary>The cap of the train a tower with <paramref name="head"/> carries for <paramref name="kind"/>: a twin's own train
+        /// (Hold, Combo, Break wheels), the line member's otherwise (LineCapDeg: a kind whose twin is missing is judged as B1 did).</summary>
+        public float CapDeg(LiftTrainKind kind, LiftTowerHead head)
+        {
+            switch (head)
+            {
+                case LiftTowerHead.Hold: return LiftAlignMath.TrainCapDeg(HoldWheels);
+                case LiftTowerHead.Combo: return LiftAlignMath.TrainCapDeg(ComboWheels);
+                case LiftTowerHead.Break: return LiftAlignMath.TrainCapDeg(BreakWheels);
+                default: return LineCapDeg(kind);
+            }
+        }
+
+        /// <summary>The head a <paramref name="kind"/> train wants at deflection <paramref name="deflectionDeg"/> (drawn rope, degrees):
+        /// HoldDown -> Hold, PushPull -> Combo, Support -> Break past the line train's cap (kept while |d| stays above that cap minus
+        /// LiftAlignMath.KindHystDeg when <paramref name="previous"/> was Break), else Line. Whether the member has that twin is the
+        /// planner's question (the fallback in LiftTowerPlanner.AssignHeads).</summary>
+        public LiftTowerHead WantHead(LiftTrainKind kind, float deflectionDeg, LiftTowerHead previous = LiftTowerHead.Line)
+        {
+            switch (kind)
+            {
+                case LiftTrainKind.HoldDown: return LiftTowerHead.Hold;
+                case LiftTrainKind.PushPull: return LiftTowerHead.Combo;
+                case LiftTrainKind.Support:
+                    if (BreakWheels <= 0)
+                        return LiftTowerHead.Line;
+                    float line = LineCapDeg(LiftTrainKind.Support), ad = math.abs(deflectionDeg);
+                    if (ad > line + LiftTowerPlan.AngleTolDeg || (previous == LiftTowerHead.Break && ad > line - LiftAlignMath.KindHystDeg))
+                        return LiftTowerHead.Break;
+                    return LiftTowerHead.Line;
+                default:
+                    return LiftTowerHead.Line;
+            }
+        }
 
         public LiftTowerPlanConstants(string typeId, LiftTowerMember[] ladder, float ropeBelowTopM, float carrierDropM, float floorM,
                                       float maxRopeAboveGroundM, float typicalSpanM, float maxSpanM, float minSpanM, float halfWidthM,
                                       float sagRatio, float engineElevationCapM, float stepM = 5f, float sideHillM = 2f, float convexM = 0.5f,
                                       float stationClearM = 0f, float maxEdgeSlope = 0f, int supportWheels = 0, int holdWheels = 0,
-                                      int comboWheels = 0)
+                                      int comboWheels = 0, int breakWheels = 0, LiftTowerTwin[] twins = null)
         {
             MaxEdgeSlope = maxEdgeSlope;
             SupportWheels = supportWheels;
             HoldWheels = holdWheels;
             ComboWheels = comboWheels;
+            BreakWheels = breakWheels;
+            Twins = twins ?? new LiftTowerTwin[0];
             TypeId = typeId;
             Ladder = ladder;
             RopeBelowTopM = ropeBelowTopM;
@@ -140,12 +268,12 @@ namespace SkiResortMod.Systems
         /// at another rope sag).</summary>
         public LiftTowerPlanConstants With(float? floorM = null, float? maxRopeAboveGroundM = null, float? typicalSpanM = null,
                                            float? maxSpanM = null, float? carrierDropM = null, float? maxEdgeSlope = null,
-                                           float? sagRatio = null)
+                                           float? sagRatio = null, LiftTowerTwin[] twins = null)
         {
             return new LiftTowerPlanConstants(TypeId, Ladder, RopeBelowTopM, carrierDropM ?? CarrierDropM, floorM ?? FloorM,
                 maxRopeAboveGroundM ?? MaxRopeAboveGroundM, typicalSpanM ?? TypicalSpanM, maxSpanM ?? MaxSpanM, MinSpanM, HalfWidthM,
                 sagRatio ?? SagRatio, EngineElevationCapM, StepM, SideHillM, ConvexM, StationClearM, maxEdgeSlope ?? MaxEdgeSlope,
-                SupportWheels, HoldWheels, ComboWheels);
+                SupportWheels, HoldWheels, ComboWheels, BreakWheels, twins ?? Twins);
         }
 
         /// <summary>The station-side rule's exchange rate: one more line tower is worth this many meters of extra height (above the
@@ -234,6 +362,61 @@ namespace SkiResortMod.Systems
             new LiftTowerMember("SkiTramTower60", 60f),
         };
 
+        // Twin members (B2 art v2, the 16 manifests docs research art/breakover-twins-2026-11/v2/manifests/*.twin.json: top_anchor_y,
+        // twin_of_prefab, placeholder; lanes = the member's). E = top - ladder[0] top: FG 0.2 / 0.35 / 0.5 (FG8), 4.2 / 4.35 / 4.5 (FG12),
+        // 8.5 (FG16 Break), 12.5 (FG20 Break); DQ 0.5178 / 0.2589 (DQ10), 2.5178 / 2.2589 (DQ12); GD 0.568 / 0.284 (GD12), 4.568 / 4.284
+        // (GD16). Every E is under the line's m_ElevationRange.max (FG 16, DQ 10, GD 28); every top is >= 0.1 m from every other member
+        // of its placeholder (check-lift-align LADDER).
+
+        public static readonly LiftTowerTwin[] FixedGripTwins =
+        {
+            new LiftTowerTwin(0, LiftTowerHead.Hold, "SkiLiftTowerFG8HoldA", 9.214f),
+            new LiftTowerTwin(0, LiftTowerHead.Combo, "SkiLiftTowerFG8ComboA", 9.364f),
+            new LiftTowerTwin(0, LiftTowerHead.Break, "SkiLiftTowerFG8BreakA", 9.514f),
+            new LiftTowerTwin(1, LiftTowerHead.Hold, "SkiLiftTowerFG12HoldA", 13.214f),
+            new LiftTowerTwin(1, LiftTowerHead.Combo, "SkiLiftTowerFG12ComboA", 13.364f),
+            new LiftTowerTwin(1, LiftTowerHead.Break, "SkiLiftTowerFG12BreakA", 13.514f),
+            new LiftTowerTwin(2, LiftTowerHead.Break, "SkiLiftTowerFG16BreakA", 17.514f),
+            new LiftTowerTwin(3, LiftTowerHead.Break, "SkiLiftTowerFG20BreakA", 21.514f),
+        };
+
+        public static readonly LiftTowerTwin[] DetachableTwins =
+        {
+            new LiftTowerTwin(0, LiftTowerHead.Hold, "SkiLiftTowerDQ10HoldA", 10.4678f),
+            new LiftTowerTwin(0, LiftTowerHead.Combo, "SkiLiftTowerDQ10ComboA", 10.2089f),
+            new LiftTowerTwin(1, LiftTowerHead.Hold, "SkiLiftTowerDQ12HoldA", 12.4678f),
+            new LiftTowerTwin(1, LiftTowerHead.Combo, "SkiLiftTowerDQ12ComboA", 12.2089f),
+        };
+
+        public static readonly LiftTowerTwin[] GondolaTwins =
+        {
+            new LiftTowerTwin(0, LiftTowerHead.Hold, "SkiLiftTowerGD12HoldA", 12.568f),
+            new LiftTowerTwin(0, LiftTowerHead.Combo, "SkiLiftTowerGD12ComboA", 12.284f),
+            new LiftTowerTwin(1, LiftTowerHead.Hold, "SkiLiftTowerGD16HoldA", 16.568f),
+            new LiftTowerTwin(1, LiftTowerHead.Combo, "SkiLiftTowerGD16ComboA", 16.284f),
+        };
+
+        /// <summary>Every twin of every type (the plate table, the LADDER gate and the per-load availability line).</summary>
+        public static IEnumerable<LiftTowerTwin> AllTwins()
+        {
+            foreach (LiftTowerTwin t in FixedGripTwins) yield return t;
+            foreach (LiftTowerTwin t in DetachableTwins) yield return t;
+            foreach (LiftTowerTwin t in GondolaTwins) yield return t;
+        }
+
+        /// <summary><paramref name="all"/> without the twins TwinFilter does not know (all of them when it is null).</summary>
+        public static LiftTowerTwin[] Available(LiftTowerTwin[] all)
+        {
+            Predicate<string> filter = TwinFilter;
+            if (filter == null)
+                return all;
+            var list = new List<LiftTowerTwin>(all.Length);
+            for (int i = 0; i < all.Length; i++)
+                if (filter(all[i].Name))
+                    list.Add(all[i]);
+            return list.ToArray();
+        }
+
         /// <summary>The constants for a catalog lift type (null for an unknown id). Drop and rope offset come from the catalog.</summary>
         public static LiftTowerPlanConstants For(LiftTypeDef def)
         {
@@ -245,15 +428,15 @@ namespace SkiResortMod.Systems
                 case "fixedGrip":
                     return new LiftTowerPlanConstants(def.Id, FixedGripLadder, FixedGripLadder[0].TopM - (def.AxleM + def.RopeSeatM), def.HangM, 3f, 30f,
                         60f, 90f, 10f, 3f, def.Envelope.LaneHanging, 16f, stationClearM: run, maxEdgeSlope: 0.8f,
-                        supportWheels: 4, holdWheels: 4, comboWheels: 2);
+                        supportWheels: 4, holdWheels: 4, comboWheels: 2, breakWheels: 8, twins: Available(FixedGripTwins));
                 case "detachable":
                     return new LiftTowerPlanConstants(def.Id, DetachableLadder, DetachableLadder[0].TopM - (def.AxleM + def.RopeSeatM), def.HangM, 3f, 30f,
                         110f, 245f, 10f, 3f, def.Envelope.LaneHanging, 10f, stationClearM: run, maxEdgeSlope: 0.9f,
-                        supportWheels: 8, holdWheels: 8, comboWheels: 4);
+                        supportWheels: 8, holdWheels: 8, comboWheels: 4, twins: Available(DetachableTwins));
                 case "gondola":
                     return new LiftTowerPlanConstants(def.Id, GondolaLadder, GondolaLadder[0].TopM - (def.AxleM + def.RopeSeatM), def.HangM, 3f, 30f,
                         110f, 245f, 10f, 4.1f, def.Envelope.LaneHanging, 28f, stationClearM: run, maxEdgeSlope: 1.2f,
-                        supportWheels: 10, holdWheels: 8, comboWheels: 4);
+                        supportWheels: 10, holdWheels: 8, comboWheels: 4, twins: Available(GondolaTwins));
                 case "tram":
                     return new LiftTowerPlanConstants(def.Id, TramLadder, TramLadder[0].TopM - (def.AxleM + def.RopeSeatM), def.HangM, 5f, 0f,
                         800f, TramMaxSpanM, 40f, 7.5f, def.Envelope.LaneHanging, 30f, 10f, stationClearM: run, maxEdgeSlope: 2.5f);   // 10 m samples: a 1-3 km line stays cheap
@@ -282,7 +465,8 @@ namespace SkiResortMod.Systems
         public float HeavyDeg;          // the heavy load case, h x LiftAlignMath.HeavySagScale
         public float BareDeg;           // the tram's bare track rope, h x LiftAlignMath.BareSagScale (trams only; 0 otherwise)
         public LiftTrainKind Kind;      // ClassifyTrain(tight, heavy); None without trains (tram) or angles
-        public float CapDeg;            // the cap of that kind's train (LiftTowerPlanConstants.CapDeg); +inf without trains
+        public float CapDeg;            // the cap of the train the tower carries (LiftTowerPlanConstants.CapDeg(Kind, Head)); +inf without trains
+        public LiftTowerHead Head;      // the placed head: Line or a twin of Member (LiftTowerPlanner.AssignHeads); Line on stations and the tram
     }
 
     public struct LiftPlanSpan
@@ -390,6 +574,8 @@ namespace SkiResortMod.Systems
             else
             {
                 sb.Append(" (tight ").Append(Sg(n.TightDeg)).Append(" / heavy ").Append(Sg(n.HeavyDeg)).Append(") ").Append(LiftAlignMath.KindLetter(n.Kind));
+                if (n.Head != LiftTowerHead.Line)
+                    sb.Append(' ').Append(n.Head);
                 if (math.abs(n.DeflectionDeg) > n.CapDeg + AngleTolDeg)
                     sb.Append(" OVER CAP ").Append(F(n.CapDeg, "F0"));
             }
@@ -461,7 +647,7 @@ namespace SkiResortMod.Systems
                 LiftPlanNode n = Nodes[i];
                 sb.Append("  p").Append(i + 1).Append(" at ").Append(F(n.AlongM, "F0")).Append(" m: ground ").Append(F(n.GroundM, "F2"))
                   .Append(", high side ").Append(Sg(n.HighSideM - n.GroundM)).Append(", low side ").Append(Sg(n.LowSideM - n.GroundM))
-                  .Append(", ").Append(n.IsStation ? "station" : "member " + c.Ladder[n.Member].Name + " (top " + F(c.Ladder[n.Member].TopM, "F2") + ")")
+                  .Append(", ").Append(n.IsStation ? "station" : "member " + c.NameOf(n.Member, n.Head) + " (top " + F(c.TopOf(n.Member, n.Head), "F2") + ")")
                   .Append(", rope y ").Append(F(n.RopeM, "F2")).Append(" (").Append(Sg(n.RopeM - n.GroundM)).Append(" above ground)")
                   .Append(" [").Append(FlagText(n.Flags)).Append("]").Append(n.HasAngles ? ", " + AngleText(i) : string.Empty).Append('\n');
                 if (i < Spans.Length)
@@ -477,7 +663,36 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>{member x count} for the summary line, shortest first.</summary>
+        /// <summary>{twin x count} of the towers that carry a twin head ("none" when every tower carries its support head).</summary>
+        public string HeadCounts()
+        {
+            var names = new List<string>();
+            var counts = new List<int>();
+            for (int i = 0; i < Nodes.Length; i++)
+            {
+                if (Nodes[i].IsStation || Nodes[i].Head == LiftTowerHead.Line)
+                    continue;
+                string name = Constants.NameOf(Nodes[i].Member, Nodes[i].Head);
+                int at = names.IndexOf(name);
+                if (at < 0)
+                {
+                    names.Add(name);
+                    counts.Add(1);
+                }
+                else
+                {
+                    counts[at]++;
+                }
+            }
+            if (names.Count == 0)
+                return "none";
+            var sb = new StringBuilder();
+            for (int i = 0; i < names.Count; i++)
+                sb.Append(i > 0 ? ", " : string.Empty).Append(names[i]).Append(" x").Append(counts[i]);
+            return sb.ToString();
+        }
+
+        /// <summary>{member x count} for the summary line, shortest first (ladder members; HeadCounts names the twins).</summary>
         public string MemberCounts()
         {
             var counts = new int[Constants.Ladder.Length];
@@ -564,10 +779,84 @@ namespace SkiResortMod.Systems
         public static float ElevationM(LiftTowerPlanConstants c, int member) =>
             member <= 0 ? 0f : c.Ladder[member].TopM - c.Ladder[0].TopM;
 
+        /// <summary>E of the placed member: Top(twin) - Top(ladder[0]) for a twin head, ElevationM(member) for Line. The node goes to
+        /// ground + E; the engine then spawns the twin (unique top, score 1) with its pivot on the ground, and the rope stays at the
+        /// member's lane height (the twin's lanes are the member's).</summary>
+        public static float ElevationM(LiftTowerPlanConstants c, int member, LiftTowerHead head)
+        {
+            if (member < 0)
+                return 0f;
+            int t = c.TwinIndex(member, head);
+            return t >= 0 ? c.Twins[t].TopM - c.Ladder[0].TopM : ElevationM(c, member);
+        }
+
+        /// <summary>The (member, head) a node at <paramref name="elevationM"/> carries: the ladder member or twin whose E matches within
+        /// MemberMatchM (tops are >= 0.1 m apart, check-lift-align LADDER, so at most one matches), else the tallest LADDER member not
+        /// above it with the Line head (a node the engine elevated by itself, e.g. one drawn above the ground).</summary>
+        public static int MemberOf(LiftTowerPlanConstants c, float elevationM, out LiftTowerHead head)
+        {
+            head = LiftTowerHead.Line;
+            for (int m = 0; m < c.Ladder.Length; m++)
+                if (math.abs(ElevationM(c, m) - elevationM) <= MemberMatchM)
+                    return m;
+            for (int t = 0; t < c.Twins.Length; t++)
+            {
+                if (math.abs(c.Twins[t].TopM - c.Ladder[0].TopM - elevationM) <= MemberMatchM)
+                {
+                    head = c.Twins[t].Head;
+                    return c.Twins[t].Member;
+                }
+            }
+            int best = 0;
+            for (int m = 0; m < c.Ladder.Length; m++)
+                if (ElevationM(c, m) <= elevationM + MemberMatchM)
+                    best = m;
+            return best;
+        }
+
+        /// <summary>MemberOf's match tolerance (meters of E).</summary>
+        public const float MemberMatchM = 0.05f;
+
+        /// <summary>The train kind a head implies (the hysteresis input when no classified kind is known, e.g. after a load): Hold ->
+        /// HoldDown, Combo -> PushPull, Break -> Support; Line -> None (a support head can carry any kind whose twin was missing).</summary>
+        public static LiftTrainKind KindOf(LiftTowerHead head) =>
+            head == LiftTowerHead.Hold ? LiftTrainKind.HoldDown : head == LiftTowerHead.Combo ? LiftTrainKind.PushPull
+            : head == LiftTowerHead.Break ? LiftTrainKind.Support : LiftTrainKind.None;
+
         /// <summary>Where the engine stands member <paramref name="member"/> at a node <paramref name="elevationM"/> above the ground:
         /// its pivot above the ground (AnchorTop, :2477-2482: node y + spec y - top; spec y = TopM[0]). 0 = on the ground.</summary>
         public static float EnginePivotAboveGround(LiftTowerPlanConstants c, int member, float elevationM) =>
             elevationM + c.Ladder[0].TopM - c.Ladder[member].TopM;
+
+        /// <summary>EnginePivotAboveGround for the placed (member, head): a twin's own top.</summary>
+        public static float EnginePivotAboveGround(LiftTowerPlanConstants c, int member, LiftTowerHead head, float elevationM) =>
+            elevationM + c.Ladder[0].TopM - c.TopOf(member, head);
+
+        /// <summary>The (member, head) the engine spawns at an owner elevation, over the ladder and the twins (the placeholder's
+        /// members as the planner knows them): highest score, ties -> -1.</summary>
+        public static int EngineWinner(LiftTowerPlanConstants c, float ownerElevationM, out LiftTowerHead head, out float score)
+        {
+            int best = EngineWinner(c, ownerElevationM, out score);
+            bool tie = best < 0;
+            head = LiftTowerHead.Line;
+            float specY = c.Ladder[0].TopM;
+            for (int t = 0; t < c.Twins.Length; t++)
+            {
+                float s = EngineScore(c.Twins[t].TopM, ownerElevationM, specY);
+                if (s > score + 1e-6f)
+                {
+                    score = s;
+                    best = c.Twins[t].Member;
+                    head = c.Twins[t].Head;
+                    tie = false;
+                }
+                else if (math.abs(s - score) <= 1e-6f)
+                {
+                    tie = true;
+                }
+            }
+            return tie ? -1 : best;
+        }
 
         /// <summary>SubObjectSystem placeholder score (Standalone pillar, :2189-2199) of a member with top <paramref name="topM"/>.</summary>
         public static float EngineScore(float topM, float ownerElevationM, float specY)
@@ -751,6 +1040,19 @@ namespace SkiResortMod.Systems
         /// (it keeps the engine's node count) and Fit.Needed is unchanged. No effect on a type without trains (the tram). Kinds and angles
         /// are set on every plan by Build.</summary>
         public bool Pairs;
+
+        /// <summary>The fit's hysteresis inputs, one per inner node of the PlanFixed / Fit call (the line's nodes as they stand): the kind
+        /// each tower had (LiftTrainKind.None = unknown) and the head it carries. Used only by the fixed-node plans at exactly those
+        /// positions (PlanFixed, Fit's Kept); Plan and Fit's Moved ignore them. Null = none (the tool's plans).</summary>
+        public IList<LiftTrainKind> PreviousKinds;
+        public IList<LiftTowerHead> PreviousHeads;
+
+        /// <summary>Evaluate the heads as given (PreviousHeads, Line where none is given) instead of choosing them: the "before" of a
+        /// line as it stands (LiftTowerFitSystem). Kinds are still classified, with hysteresis.</summary>
+        public bool HeadsAsGiven;
+
+        /// <summary>Sample index -> index into PreviousKinds / PreviousHeads for the plan being built (fixed-node plans only).</summary>
+        private readonly Dictionary<int, int> m_PrevAt = new Dictionary<int, int>();
 
         /// <summary>A non-station end that joins a built line (a loose end): the built neighbor's rope point beyond it, as the xz distance
         /// from the end node and the rope y there, so the junction tower is judged too (NaN = unknown: that end is not judged). The tool sets
@@ -1085,11 +1387,15 @@ namespace SkiResortMod.Systems
             m_K.Add(0); m_M.Add(-1); m_F.Add(LiftPlanNodeFlags.Station);
             m_K.Add(m_N); m_M.Add(-1); m_F.Add(LiftPlanNodeFlags.Station);
             var spares = fillSpares ? new List<int>() : null;
+            bool prev = PreviousKinds != null && PreviousHeads != null && PreviousKinds.Count == innerAlongM.Count &&
+                        PreviousHeads.Count == innerAlongM.Count;
             for (int i = 0; i < innerAlongM.Count; i++)
             {
                 int k = SampleIndex(innerAlongM[i]);
                 if (k <= 0 || k >= m_N || IndexOf(k) >= 0)
                     continue;
+                if (prev)
+                    m_PrevAt[k] = i;
                 int given = members != null && i < members.Count ? members[i] : 0;
                 if (spares != null && given < 0)
                     spares.Add(k);
@@ -1231,7 +1537,19 @@ namespace SkiResortMod.Systems
                     flags.Insert(best, LiftPlanNodeFlags.Infill);
                     members.Insert(best, -1);
                 }
-                fit.Moved = PlanFixedCore(terrain, lengthM, ropeA, ropeB, c, along, members, flags, false, true);
+                IList<LiftTrainKind> pk = PreviousKinds;
+                IList<LiftTowerHead> ph = PreviousHeads;
+                PreviousKinds = null;   // new positions: the line's kinds and heads do not apply
+                PreviousHeads = null;
+                try
+                {
+                    fit.Moved = PlanFixedCore(terrain, lengthM, ropeA, ropeB, c, along, members, flags, false, true);
+                }
+                finally
+                {
+                    PreviousKinds = pk;
+                    PreviousHeads = ph;
+                }
                 if (fit.Moved.Clear)
                 {
                     fit.Mode = LiftFitMode.Moved;
@@ -2216,6 +2534,7 @@ namespace SkiResortMod.Systems
             m_AngleNotes.Clear();
             m_AngleWork = 0;
             m_AnglesMs = 0;
+            m_PrevAt.Clear();
         }
 
         private bool OuterA => !StationA && math.isfinite(EndOuterDistA) && math.isfinite(EndOuterRopeA) && EndOuterDistA > 1e-3f;
@@ -2851,47 +3170,205 @@ namespace SkiResortMod.Systems
         /// <summary>Build's phase (d) numbers on the output nodes: deflection, load cases, kind and cap of every judged node.</summary>
         private void SetAngles(LiftPlanNode[] nodes)
         {
+            for (int i = 0; i < nodes.Length; i++)
+                AnglesAt(nodes, i);
+        }
+
+        /// <summary>SetAngles for one node (its kind without hysteresis, the cap of its current head; AssignHeads refines both).</summary>
+        private void AnglesAt(LiftPlanNode[] nodes, int i)
+        {
             int last = nodes.Length - 1;
-            for (int i = 0; i <= last; i++)
+            if (last < 1 || i < 0 || i > last)
+                return;
+            float sP, rP, sN, rN;
+            if (i == 0)
             {
-                if (last < 1)
-                    break;
-                float sP, rP, sN, rN;
-                if (i == 0)
+                if (!OuterA) return;
+                sP = -EndOuterDistA; rP = EndOuterRopeA;
+            }
+            else
+            {
+                sP = nodes[i - 1].AlongM; rP = nodes[i - 1].RopeM;
+            }
+            if (i == last)
+            {
+                if (!OuterB) return;
+                sN = m_Length + EndOuterDistB; rN = EndOuterRopeB;
+            }
+            else
+            {
+                sN = nodes[i + 1].AlongM; rN = nodes[i + 1].RopeM;
+            }
+            float3 p = RopePoint(sP, rP), q = RopePoint(nodes[i].AlongM, nodes[i].RopeM), n = RopePoint(sN, rN);
+            float h = m_C.SagRatio;
+            nodes[i].HasAngles = true;
+            nodes[i].DeflectionDeg = LiftAlignMath.DeflectionDeg(p, q, n, h);
+            LiftAlignMath.LoadCaseDeflections(p, q, n, h, out nodes[i].TightDeg, out nodes[i].HeavyDeg);
+            if (m_C.HasTrains)
+            {
+                nodes[i].Kind = LiftAlignMath.ClassifyTrain(nodes[i].TightDeg, nodes[i].HeavyDeg);
+                nodes[i].CapDeg = m_C.CapDeg(nodes[i].Kind, nodes[i].Head);
+            }
+            else
+            {
+                nodes[i].Kind = LiftTrainKind.None;
+                nodes[i].CapDeg = float.PositiveInfinity;
+                nodes[i].BareDeg = LiftAlignMath.DeflectionDeg(p, q, n, h * LiftAlignMath.BareSagScale);
+            }
+        }
+
+        /// <summary>The previous kind / head of output node <paramref name="i"/> (fixed-node plans with PreviousKinds), else None / Line.
+        /// An unknown kind (None, e.g. after a load) is the one the head implies (LiftTowerEdit.KindOf).</summary>
+        private void Previous(int i, out LiftTrainKind kind, out LiftTowerHead head)
+        {
+            kind = LiftTrainKind.None;
+            head = LiftTowerHead.Line;
+            if (m_PrevAt.Count == 0 || !m_PrevAt.TryGetValue(m_K[i], out int at))
+                return;
+            head = PreviousHeads[at];
+            kind = PreviousKinds[at] != LiftTrainKind.None ? PreviousKinds[at] : LiftTowerEdit.KindOf(head);
+        }
+
+        /// <summary>Node <paramref name="i"/>'s kind with hysteresis (the previous kind when known) and the head that kind wants.</summary>
+        private LiftTowerHead KindAndWant(LiftPlanNode[] nodes, int i)
+        {
+            Previous(i, out LiftTrainKind pk, out LiftTowerHead ph);
+            if (pk != LiftTrainKind.None)
+                nodes[i].Kind = LiftAlignMath.ClassifyTrain(nodes[i].TightDeg, nodes[i].HeavyDeg, pk);
+            return m_C.WantHead(nodes[i].Kind, nodes[i].DeflectionDeg, ph);
+        }
+
+        /// <summary>The heads (breakover-holddown-plan-2026-11-03 section 3, B2): every judged line tower gets the head its kind wants
+        /// (KindAndWant) when its member has that twin. A member without it: the nearest member (fewest ladder steps, then the shorter)
+        /// with that twin whose node, both spans and (CheckEdgeSlope) both edges stay clear at the twin's E, whose own kind still wants
+        /// that head and whose neighbor before it keeps its head; else the Line head stays and an angle note says why. The tram (no
+        /// trains) and a type without loaded twins are untouched. Nodes are visited from A, so the result is deterministic.</summary>
+        private void AssignHeads(LiftPlanNode[] nodes)
+        {
+            int last = nodes.Length - 1;
+            if (!m_C.HasTrains || m_C.Twins.Length == 0 || last < 2)
+                return;
+            for (int i = 1; i < last; i++)
+            {
+                if (nodes[i].Member < 0 || !nodes[i].HasAngles)
+                    continue;
+                LiftTowerHead want = KindAndWant(nodes, i);
+                int m0 = nodes[i].Member;
+                if (HeadsAsGiven)
                 {
-                    if (!OuterA) continue;
-                    sP = -EndOuterDistA; rP = EndOuterRopeA;
+                    Previous(i, out _, out LiftTowerHead given);
+                    SetHead(nodes, i, m0, given);
+                    continue;
                 }
-                else
+                int k = m_K[i], kp = m_K[i - 1], kn = m_K[i + 1];
+                bool has = m_C.HasTwin(m0, want);
+                if (want == LiftTowerHead.Line || (has && EdgesOk(nodes, i, m0, want)))
                 {
-                    sP = nodes[i - 1].AlongM; rP = nodes[i - 1].RopeM;
+                    SetHead(nodes, i, m0, want);
+                    continue;
                 }
-                if (i == last)
+                // the member has no such twin, or its twin's E would make an edge the engine refuses (a Break 15 m from a station)
+                string why = has ? "its " + HeadWord(want) + " twin makes an edge too steep" : "has no " + HeadWord(want) + " twin";
+                bool done = false;
+                int refusedNode = 0, refusedSpan = 0, refusedKind = 0;
+                for (int step = 1; step < m_C.Ladder.Length && !done; step++)
                 {
-                    if (!OuterB) continue;
-                    sN = m_Length + EndOuterDistB; rN = EndOuterRopeB;
+                    for (int sgn = -1; sgn <= 1 && !done; sgn += 2)
+                    {
+                        int m = m0 + sgn * step;
+                        if (m < 0 || m >= m_C.Ladder.Length || !m_C.HasTwin(m, want))
+                            continue;
+                        if (!MemberAllowed(k, m) || !NodeOk(k, m))
+                        {
+                            refusedNode++;
+                            continue;
+                        }
+                        m_AngleWork++;
+                        float r = Rope(k, m);
+                        if (SpanViolation(kp, nodes[i - 1].RopeM, k, r) > Tol || SpanViolation(k, r, kn, nodes[i + 1].RopeM) > Tol ||
+                            !EdgesOk(nodes, i, m, want))
+                        {
+                            refusedSpan++;
+                            continue;
+                        }
+                        LiftPlanNode saveI = nodes[i], saveP = nodes[i - 1], saveN = nodes[i + 1];
+                        nodes[i].Member = m;
+                        nodes[i].RopeM = r;
+                        AnglesAt(nodes, i - 1);
+                        AnglesAt(nodes, i);
+                        AnglesAt(nodes, i + 1);
+                        bool keeps = KindAndWant(nodes, i) == want &&
+                                     (saveP.Member < 0 || !saveP.HasAngles || HeadAfter(nodes, i - 1) == saveP.Head);
+                        if (!keeps)
+                        {
+                            refusedKind++;
+                            nodes[i] = saveI;
+                            nodes[i - 1] = saveP;
+                            nodes[i + 1] = saveN;
+                            continue;
+                        }
+                        if (saveP.Member >= 0 && saveP.HasAngles)
+                            SetHead(nodes, i - 1, saveP.Member, saveP.Head);
+                        SetHead(nodes, i, m, want);
+                        m_M[i] = m;
+                        m_AngleNotes.Add("t" + NoteNode(i) + " at " + NoteAt(m_S[k]) + " m: " + HeadWord(want) + " head, " +
+                                         Short(m_C.Ladder[m0].Name) + " " + why + " -> " + Short(m_C.NameOf(m, want)) +
+                                         " (" + (m > m0 ? "taller" : "shorter") + ", both spans clear), d " + LiftTowerPlan.Sg(nodes[i].DeflectionDeg));
+                        done = true;
+                    }
                 }
-                else
+                if (!done)
                 {
-                    sN = nodes[i + 1].AlongM; rN = nodes[i + 1].RopeM;
-                }
-                float3 p = RopePoint(sP, rP), q = RopePoint(nodes[i].AlongM, nodes[i].RopeM), n = RopePoint(sN, rN);
-                float h = m_C.SagRatio;
-                nodes[i].HasAngles = true;
-                nodes[i].DeflectionDeg = LiftAlignMath.DeflectionDeg(p, q, n, h);
-                LiftAlignMath.LoadCaseDeflections(p, q, n, h, out nodes[i].TightDeg, out nodes[i].HeavyDeg);
-                if (m_C.HasTrains)
-                {
-                    nodes[i].Kind = LiftAlignMath.ClassifyTrain(nodes[i].TightDeg, nodes[i].HeavyDeg);
-                    nodes[i].CapDeg = m_C.CapDeg(nodes[i].Kind);
-                }
-                else
-                {
-                    nodes[i].Kind = LiftTrainKind.None;
-                    nodes[i].CapDeg = float.PositiveInfinity;
-                    nodes[i].BareDeg = LiftAlignMath.DeflectionDeg(p, q, n, h * LiftAlignMath.BareSagScale);
+                    SetHead(nodes, i, m0, LiftTowerHead.Line);
+                    m_AngleNotes.Add("t" + NoteNode(i) + " at " + NoteAt(m_S[k]) + " m: wants the " + HeadWord(want) + " head, " +
+                                     Short(m_C.Ladder[m0].Name) + " " + why + " and no member with one fits (" + refusedNode + " node / max height, " + refusedSpan +
+                                     " span or edge, " + refusedKind + " kind or neighbor head refused): the support head stays, d " + LiftTowerPlan.Sg(nodes[i].DeflectionDeg) + " (cap " +
+                                     LiftTowerPlan.F(nodes[i].CapDeg, "F0") + ")");
                 }
             }
+        }
+
+        /// <summary>The head assigned node <paramref name="i"/> would now get on its member: its wanted head when the member has that
+        /// twin, else Line.</summary>
+        private LiftTowerHead HeadAfter(LiftPlanNode[] nodes, int i)
+        {
+            LiftTowerHead want = KindAndWant(nodes, i);
+            return m_C.HasTwin(nodes[i].Member, want) ? want : LiftTowerHead.Line;
+        }
+
+        private void SetHead(LiftPlanNode[] nodes, int i, int member, LiftTowerHead head)
+        {
+            nodes[i].Member = member;
+            nodes[i].Head = m_C.HasTwin(member, head) ? head : LiftTowerHead.Line;
+            nodes[i].CapDeg = m_C.CapDeg(nodes[i].Kind, nodes[i].Head);
+        }
+
+        private static string HeadWord(LiftTowerHead h) =>
+            h == LiftTowerHead.Hold ? "hold-down" : h == LiftTowerHead.Combo ? "push-pull" : h == LiftTowerHead.Break ? "breakover" : "support";
+
+        /// <summary>The engine's node height of output node <paramref name="node"/> at sample <paramref name="k"/>: ground +
+        /// E(member, head); a line end at EndNodeYA / EndNodeYB.</summary>
+        private float NodeY(int k, LiftPlanNode node) =>
+            node.Member < 0 ? (k == 0 ? EndNodeYA : EndNodeYB) : m_Centre[k] + LiftTowerEdit.ElevationM(m_C, node.Member, node.Head);
+
+        /// <summary>Both edges of output node <paramref name="i"/> with (member, head) at it pass the engine's slope rule (MaxEdgeSlope +
+        /// 0.0005, ValidationHelpers.cs:1462-1463: the LiftPlanSpan.SlopeViolated test); always true unless CheckEdgeSlope. The
+        /// neighbors stand at their own E (member, head).</summary>
+        private bool EdgesOk(LiftPlanNode[] nodes, int i, int member, LiftTowerHead head)
+        {
+            if (!CheckEdgeSlope || !(m_C.MaxEdgeSlope > 0f))
+                return true;
+            int k = m_K[i], kp = m_K[i - 1], kn = m_K[i + 1];
+            float y = m_Centre[k] + LiftTowerEdit.ElevationM(m_C, member, head);
+            return EdgeOk(m_S[k] - m_S[kp], NodeY(kp, nodes[i - 1]), y) && EdgeOk(m_S[kn] - m_S[k], y, NodeY(kn, nodes[i + 1]));
+        }
+
+        private bool EdgeOk(float d, float ya, float yb)
+        {
+            d = math.abs(d);
+            if (d <= 0f || !math.isfinite(ya) || !math.isfinite(yb))
+                return true;
+            return math.abs(yb - ya) / d < m_C.MaxEdgeSlope + 0.0005f;
         }
 
         // Working list + output
@@ -2937,6 +3414,7 @@ namespace SkiResortMod.Systems
                 };
             }
             SetAngles(nodes);
+            AssignHeads(nodes);
             var spans = new LiftPlanSpan[count - 1];
             for (int s = 0; s < count - 1; s++)
             {
@@ -2973,7 +3451,7 @@ namespace SkiResortMod.Systems
                 }
                 span.FloorViolated = span.MinFloorMarginM < -Tol;
                 span.HeightViolated = m_C.MaxRopeAboveGroundM > 0f && span.MaxRopeAboveM > m_C.MaxRopeAboveGroundM + Tol;
-                float ya = NodeY(i, m_M[s]), yb = NodeY(j, m_M[s + 1]);
+                float ya = NodeY(i, nodes[s]), yb = NodeY(j, nodes[s + 1]);
                 span.EdgeSlope = d > 0f && math.isfinite(ya) && math.isfinite(yb) ? math.abs(yb - ya) / d : 0f;
                 // The engine flags it at MaxSlopeSteepness + 0.0005 (ValidationHelpers.cs:1462-1463).
                 span.SlopeViolated = CheckEdgeSlope && m_C.MaxEdgeSlope > 0f && span.EdgeSlope >= m_C.MaxEdgeSlope + 0.0005f;

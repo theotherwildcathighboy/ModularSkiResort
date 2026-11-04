@@ -68,6 +68,27 @@ HangM stays conservative: carriers ride the rope point since F5, GripTopAboveRop
   `AppendLog` writes a "Towers [plan]" block in the "Towers [nodes]" format of `LiftTowerDiagSystem` so the two compare line by
   line, each tower with its angle text ("d +12.3 (tight +9.1 / heavy +17.0) S [pair]", "OVER CAP" when flagged).
 
+### Heads: twins as members (B2, breakover-holddown-plan-2026-11-03 section 3)
+A tower head variant is a twin MEMBER of the same placeholder with its own unique top and the support member's lanes (art v2:
+docs/research/art/breakover-twins-2026-11/v2). `LiftTowerPlanConstants.Twins` (16: FG8 / FG12 Hold, Combo, Break; FG16 / FG20 Break;
+DQ10 / DQ12 and GD12 / GD16 Hold, Combo) holds name, member, head and top; `TwinFilter` (set per load by `LiftTowerFitSystem`) drops
+the ones the game has not loaded, so a build without the twin prefabs plans support heads only.
+- Caps: `CapDeg(kind)` is the cap the planner judges with; FG support is the Break train's 32 (8 wheels) when every member has a Break
+  twin, else the line cap 16 (`LineCapDeg`). So an FG crest of 16-32 deg takes a Break head instead of a pair; the FG pair cases of B1
+  run without twins (LiftBatch BO-1..BO-6 `WithoutTwins`, BO-9 shows the Break head). Node `CapDeg` = the cap of the head it carries
+  (`CapDeg(kind, head)`).
+- Choice (`AssignHeads`, in `Build` after `SetAngles`, every plan): HoldDown -> Hold, PushPull -> Combo, Support -> Break past the line
+  cap + 0.01 (kept down to the line cap - KindHystDeg when the tower had it), else Line (`WantHead`). The kind uses the previous kind
+  as hysteresis in fixed-node plans (`PreviousKinds` / `PreviousHeads`, index = inner node; Plan and Fit's Moved ignore them; an
+  unknown kind is the one the head implies, `LiftTowerEdit.KindOf`).
+- A member without the twin, or whose twin's E would make an edge the engine refuses (CheckEdgeSlope, MaxEdgeSlope + 0.0005): the
+  nearest member (fewest ladder steps, then the shorter) with that twin whose node, both spans and both edges stay clear, whose kind
+  still wants that head and whose neighbor before it keeps its head; else the Line head and an angle note with the refusals per reason
+  (LiftBatch HD-3). It never adds or moves a tower, so `Fit.Needed` is unchanged (HD-5).
+- `HeadsAsGiven` evaluates the given heads (the fit's "before" of a line as it stands).
+- The rope at a twin is `RopeAboveBase(member)`: its lanes are the member's (manifest rope_on_crown lane_y_new = member_lane_y; the
+  LADDER gate compares the prefabs' anchors). The span and slope checks use the node y of the head (`NodeY(k, node)`).
+
 ### Breakover rule
 Fixed-grip lines put a tower just before a breakover (a convex change of slope) so the rope follows the profile. So a Shoulder on convex
 ground becomes a Breakover: it moves one sample past the crest toward the higher ground (uphill of the crest, not onto it) with the shortest
@@ -161,6 +182,11 @@ A tower node is raised so that the vanilla placeholder ladder spawns exactly the
 - A node up to the "above" tolerance over its target is left alone: every write re-curves the node's edges, the carve (cut ceiling = edge y
   + m_HeightRange.min - 2) follows the curve, and on steep tram spans the cut reaches the node, so the ground under it sank 0.39 -> 0.33
   -> 0.27 m per write (ratio ~0.85). A fit that re-grounded on every 0.25 m wrote three times and hit the loop guard.
+- Twins (B2): `ElevationM(c, member, head)` = Top(twin) - TopM[0], so the twin scores 1 (spare 0) and every other member less (tops
+  >= 0.1 m apart, check-lift-align LADDER); `EngineWinner(c, e, out head, out score)` scores the ladder and the twins and
+  `EnginePivotAboveGround(c, member, head, e)` = 0 for the planned head (LiftBatch HD-4). `MemberOf(c, e, out head)` reads a node back:
+  the ladder member or twin within 0.05 m, else the tallest ladder member not above E with the Line head. Every twin E is within the
+  line's m_ElevationRange.max (FG 12.5 <= 16, DQ 2.5178 <= 10, GD 4.568 <= 28); beyond it a later vanilla edit is unverified.
 
 ## Own cut (the trench the fit must not mistake for ground)
 A lift line is a FlattenTerrain power line: `TerrainSystem` cuts the terrain down to a ceiling of edge y + NetCompositionData.m_HeightRange.min
