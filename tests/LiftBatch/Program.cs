@@ -106,6 +106,9 @@ namespace LiftBatch
             DirectionTests.Run(Check);
             foreach (string line in DirectionTests.Report)
                 Console.WriteLine("DIR   " + line);
+            FallbackTests.Run(Check);
+            foreach (string line in FallbackTests.Report)
+                Console.WriteLine("FALLB " + line);
 
             Console.WriteLine(string.Format(CultureInfo.InvariantCulture,
                 "SUMMARY  LiftBatch checks={0} failures={1}", s_Checks, s_Failures));

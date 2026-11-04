@@ -38,7 +38,9 @@ HangM stays conservative: carriers ride the rope point since F5, GripTopAboveRop
   (which put far too many towers on a 40 m wall): fewest towers (anchors + the infill (b) will add), then fewest anchors, shortest members,
   anchors nearest the worst-intrusion sample. The floor test ignores the sag on spans (b) will split (their sub-spans sag far less) and keeps
   it on spans (b) leaves whole (FloorSag). Anchor spans <= 3 x MaxSpanM. If no clear arrangement exists, the greedy split (`Split`) minimizes
-  what is left. Flags: Shoulder (the ground pokes through the chord), Valley (max height), Breakover.
+  what is left. Flags: Shoulder (the ground pokes through the chord), Valley (max height), Breakover. In `PlanCore` this legacy path
+  only runs after the exact search failed three times (as is, removed spots allowed, the station clearance allowed); where it does not
+  leave the segment clear either, the soft search replaces it (see "No clear plan" below).
 - (b) Infill: a span between anchors gets max(ceil(len / MaxSpanM), round(len / TypicalSpanM)) sub-spans: first at the equal-spacing
   samples, else each infill node slides inside +-half a sub-span of its spot to the clear spot with the shortest member, nearest the spot.
   No sub-span exceeds MaxSpanM or 1.5 x TypicalSpanM - StepM (so a re-plan rounds it to one span: idempotence). If no arrangement is clear,
@@ -89,6 +91,35 @@ the ones the game has not loaded, so a build without the twin prefabs plans supp
 - The rope at a twin is `RopeAboveBase(member)`: its lanes are the member's (manifest rope_on_crown lane_y_new = member_lane_y; the
   LADDER gate compares the prefabs' anchors). The span and slope checks use the node y of the head (`NodeY(k, node)`).
 
+### No clear plan: the soft search (planner-fallback-2026-11-04)
+Field case (B2 bridge run): a plan-only FG line with ground ends planned 16 towers, 13 of them 10 m apart, VIOLATED, where B1 had
+planned 5 clear. Cause: ground inside a ground end's tower-free zone (`NearStation` uses StationClearM at BOTH ends, also at a ground or
+loose end) that the end's fixed rope cannot clear. Every exact search fails, `Anchors` fails, and the greedy `Split` scattered towers
+along the whole segment. Not caused by the twins: B1's code gives 17 towers on the same ground (LiftBatch FB-1). The game's terrain
+samples come from the height cascade and differ a little between sessions, so the same line planned clean in B1's run.
+- **Rule.** After `LegacySegment`, `SegmentClear` checks the result (every span's floor and max height with the sag, every tower node,
+  and with CheckEdgeSlope the engine's own edge limit MaxEdgeSlope + 0.0005). Clear: kept (LP-27's knoll keeps its legacy plan).
+  Not clear: `SoftInsteadOfLegacy` takes the legacy nodes out and runs `MinTowers` once more with `m_Soft` (removed spots allowed, the
+  station clearance kept): a span or a node short of the floor is allowed and its shortfall (m) is added to `MinCost.Viol`, which ranks
+  before every other cost (additive, so the search stays exact). Max rope height, the edge slope rule, MaxSpanM, MinGap and the
+  station clearance stay hard. Result: the least summed shortfall, then the fewest towers, as usual. Nothing found: the legacy nodes go back.
+  `Fit`'s free plan goes through `Plan`, so its count on such a line follows (no scatter count); `LegacySpacing` keeps the old path.
+- **Cost.** `SearchMin<TMode>` takes the mode as a struct type argument, so the strict search the JIT compiles has no soft branches.
+  Warm, full-opt (.NET 8, tiered compilation off): DQ 1.2 km 17.0 vs 16.9 ms, DQ 2 km 28.0-28.5 vs 27.6-27.8 ms, the same as before.
+  With .NET's default tiered PGO, LiftBatch's single-run numbers swing about 10 % either way (not a cost of the change). A soft
+  segment costs more than the legacy split: on 877 random noisy lines that reach it, 9.8 ms on average (max 76) vs 3.9 ms. Lines with
+  a clear plan never run it and plan bit-identically.
+- **Quality** (the same 877 lines, soft vs the legacy plan): the legacy plan had an edge the engine refuses (SteepSlope, no slope gate)
+  on 491; the soft plan fixes all 491 and adds none. Of the other 386, the soft plan has more summed span shortfall (> 0.05 m) on 11,
+  each with about a third of the towers (7-8 vs 20-26: the legacy scatter bought 0.2-1.1 m). The field line with a 6 m bump 5 m from
+  end B: 6 towers, only the end span short (-0.39 m, unavoidable from B's fixed rope), with and without twins (FB-1).
+- **Gate (FB-3).** Twins vs `WithoutTwins` on 408 lines (the DR-1 shapes, the 192-line direction sweep with stations or ground ends,
+  FG / DQ / GD crests and dips, the field line with bumps): never VIOLATED with twins where the line without is clear, and the tower
+  count rises at most by the extra pairs the Break cap 32 makes. FB-2: with Pairs off, the twins change only heads (a twin head may
+  take the nearest member with that twin, HD-3).
+- **JIT note.** An in-game planner cost line that includes the first exercise of a code path (the first `Repair` of a session) includes
+  its JIT: the B2 FG dip's "angles 3.58 ms" was cold (warm 0.19-0.33 ms).
+
 ### Breakover rule
 Fixed-grip lines put a tower just before a breakover (a convex change of slope) so the rope follows the profile. So a Shoulder on convex
 ground becomes a Breakover: it moves one sample past the crest toward the higher ground (uphill of the crest, not onto it) with the shortest
@@ -129,7 +160,8 @@ docs/research/review-153b64e-2026-10-26.md F3 / F4 / F9 / F10).
   sample and forced a tall tower right at every station via the NoClearance fallback (field DQ: DQ12 @10 m and DQ18 @1,015 m). Only ends
   the caller marks as stations get it (`StationA` / `StationB`: the tool from its end kinds, the fit from the end node's Owner, a
   station sub-net stub; every line edge has HV rope lanes at both nodes, so a lane says nothing about a station); a loose or ground end
-  is a tower node with the full floor.
+  is a tower node with the full floor. The tower-free zone (`NearStation`, StationClearM) still applies at a loose or ground end;
+  only the NoClearance retry lifts it.
 - **Station-side rule.** `MinCost.EndRiseM` = the rise above the shortest member of each tower next to a station end. With
   `TowerWorthM` > 0 (FG / DQ / GD 8 m) the search minimizes towers x TowerWorthM + EndRiseM first: one more tower buys 8 m of shorter
   station towers (ordinary 1,200 m DQ slope: DQ18 @105 / DQ20 @1,075 with 5 towers -> DQ10 at both ends with 6), at most ONE tower
