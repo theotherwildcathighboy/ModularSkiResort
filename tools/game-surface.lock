@@ -353,6 +353,7 @@ type Game.Prefabs.OverlayConfigurationPrefab class 71fe60614c
 type Game.Prefabs.Park class 4d139890ff
 type Game.Prefabs.ParkingFacility class 523581f269
 type Game.Prefabs.ParkingLaneData struct 76f9308a2e burst:r:SkiLodgeParkingSystem m_SlotSize:float2 m_SlotAngle:float m_SlotInterval:float m_MaxCarLength:float m_RoadTypes:RoadTypes
+type Game.Prefabs.PathwayData struct 88dc4a897d m_SpeedLimit:float m_LeisureProvider:bool
 type Game.Prefabs.PedestrianLane class d27502243a
 type Game.Prefabs.PillarData struct 94edb4b184 m_Type:PillarType m_OffsetRange:Bounds1
 type Game.Prefabs.PillarType enum d40506476d None=-1 Vertical=0 Horizontal=1 Standalone=2 Base=3
@@ -377,6 +378,8 @@ type Game.Prefabs.RenderingSettingsPrefab class fb6f521fd7
 type Game.Prefabs.ResourcePrefabs struct 1b6161dfc0 m_ResourcePrefabs:NativeArray<Entity>
 type Game.Prefabs.ResourceStack struct d1ec96bc11 m_Resource:Resource m_Amount:int
 type Game.Prefabs.ResourceSystem class 7f352064a6
+type Game.Prefabs.RoadData struct 09ac6f45d8 m_ZoneBlockPrefab:Entity m_SpeedLimit:float m_Flags:RoadFlags
+type Game.Prefabs.RoadFlags enum d8b6b0ca48 EnableZoning=1 SeparatedCarriageways=2 PreferTrafficLights=4 DefaultIsForward=8 UseHighwayRules=16 DefaultIsBackward=32 HasStreetLights=64
 type Game.Prefabs.RouteConnectionType enum 09a2d2d393 None=0 Road=1 Pedestrian=2 Track=3 Cargo=4 Air=5 Parking=6 Offroad=7
 type Game.Prefabs.ServiceBudget struct 15143e5255 m_Budget:int
 type Game.Prefabs.ServiceObject class 2600f3c72c
@@ -392,6 +395,8 @@ type Game.Prefabs.SubMeshFlags enum 1f87bd2df5 RequireSafe=1 RequireLevelCrossin
 type Game.Prefabs.SubObject struct f36c4198ee m_Prefab:Entity m_Flags:SubObjectFlags m_Position:float3 m_Rotation:quaternion m_ParentIndex:int m_GroupIndex:int m_Probability:int
 type Game.Prefabs.SubObjectFlags enum 5904d50d6d AnchorTop=1 AnchorCenter=2 RequireElevated=16 RequireOutsideConnection=32 RequireDeadEnd=64 RequireOrphan=128 OnGround=256 WaterwayCrossing=512 NotWaterwayCrossing=1024 EdgePlacement=4096 MiddlePlacement=8192 AllowCombine=16384 CoursePlacement=32768 FlipInverted=65536 StartPlacement=131072 EndPlacement=262144 MakeOwner=1048576 OnMedian=2097152 FixedPlacement=4194304 PreserveShape=8388608 EvenSpacing=16777216 SpacingOverride=33554432 OnAttachedParent=67108864
 type Game.Prefabs.SurfacePrefab class 4e79d8784d
+type Game.Prefabs.TaxiwayData struct d29fe60af9 m_SpeedLimit:float m_Flags:TaxiwayFlags
+type Game.Prefabs.TaxiwayFlags enum b940614bbc Runway=1 Airspace=2
 type Game.Prefabs.TerraformingPrefab class 0ec84dcd39
 type Game.Prefabs.TerraformingTarget enum 97f53bfe65 None=-1 Height=0 Ore=1 Oil=2 FertileLand=3 GroundWater=4 Material=5
 type Game.Prefabs.TerraformingType enum 713c261447 Shift=0 Level=1 Soften=2 Slope=3 Count=4
@@ -401,6 +406,7 @@ type Game.Prefabs.TerrainMaterialProperties class 5b73a0526f
 type Game.Prefabs.TerrainMaterialType enum d4ec964f77 None=0 Extra1=4 Extra2=5 Extra3=6 Extra4=7
 type Game.Prefabs.ToolErrorData struct 3488cdeabc m_Error:ErrorType m_Flags:ToolErrorFlags
 type Game.Prefabs.ToolErrorFlags enum 41a8ba1cb1 TemporaryOnly=1 DisableInGame=2 DisableInEditor=4
+type Game.Prefabs.TrackData struct 5aae0d20d0 m_TrackType:TrackTypes m_SpeedLimit:float
 type Game.Prefabs.TrafficConfigurationData struct 0cfa665f20 m_BottleneckNotification:Entity m_DeadEndNotification:Entity m_RoadConnectionNotification:Entity m_TrackConnectionNotification:Entity m_CarConnectionNotification:Entity m_ShipConnectionNotification:Entity m_TrainConnectionNotification:Entity m_PedestrianConnectionNotification:Entity m_BicycleConnectionNotification:Entity
 type Game.Prefabs.TransportType enum efcb4a1e1f burst:r:SkiCoachSystem None=-1 Bus=0 Train=1 Taxi=2 Tram=3 Ship=4 Post=5 Helicopter=6 Airplane=7 Subway=8 Rocket=9 Work=10 Ferry=11 Bicycle=12 Car=13 Count=14
 type Game.Prefabs.TransportVehicleSelectData struct df21f57855 m_PrefabChunks:NativeList<ArchetypeChunk> m_RequirementData:VehicleSelectRequirementData m_EntityType:EntityTypeHandle m_PublicTransportVehicleType:ComponentTypeHandle<PublicTransportVehicleData> m_CargoTransportVehicleType:ComponentTypeHandle<CargoTransportVehicleData> m_TrainType:ComponentTypeHandle<TrainData> m_TrainEngineType:ComponentTypeHandle<TrainEngineData> m_TrainCarriageType:ComponentTypeHandle<TrainCarriageData> m_MultipleUnitTrainType:ComponentTypeHandle<MultipleUnitTrainData> m_TaxiType:ComponentTypeHandle<TaxiData> m_CarType:ComponentTypeHandle<CarData> m_AircraftType:ComponentTypeHandle<AircraftData> m_AirplaneType:ComponentTypeHandle<AirplaneData> m_HelicopterType:ComponentTypeHandle<HelicopterData> m_WatercraftType:ComponentTypeHandle<WatercraftData> m_ObjectData:ComponentLookup<ObjectData> m_MovingObjectData:ComponentLookup<MovingObjectData> m_TrainObjectData:ComponentLookup<TrainObjectData> m_PublicTransportVehicleData:ComponentLookup<PublicTransportVehicleData> m_CargoTransportVehicleData:ComponentLookup<CargoTransportVehicleData> m_VehicleCarriages:BufferLookup<VehicleCarriageElement>

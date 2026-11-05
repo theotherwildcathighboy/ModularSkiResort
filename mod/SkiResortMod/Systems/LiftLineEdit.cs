@@ -159,6 +159,79 @@ namespace SkiResortMod.Systems
         /// <summary>Crossings with built lifts of another type (FIX-LIST 60 a; the tool fills them before each Replan). Null = none.</summary>
         public IList<LiftPlanCrossing> Crossings;
 
+        /// <summary>Road, track and path stretches under the line (x..y meters along from A, merged; FIX-LIST 62; the tool fills them
+        /// before each Replan): the planner keeps new towers out of them where the line has a clear plan without (LiftTowerPlanner.Keepouts).
+        /// Null = none.</summary>
+        public IList<float2> Keepouts;
+
+        /// <summary>Clearance (meters) beyond a road's half width and the tower head's half width: the stretch of a road kept tower-free.</summary>
+        public const float KeepoutClearM = 1f;
+
+        /// <summary>The stretch of this line (meters along from A, clipped to 0..LengthM) whose plan-view distance to the piece c..d is at
+        /// most <paramref name="reachM"/>: the line through the capsule around c..d (convex, so one interval: the union of the two end
+        /// circles' and the side band's intervals). false = the line passes farther.</summary>
+        public bool KeepoutOf(float2 c, float2 d, float reachM, out float2 stretch)
+        {
+            float lo = float.PositiveInfinity, hi = float.NegativeInfinity;
+            Circle(c, reachM, ref lo, ref hi);
+            Circle(d, reachM, ref lo, ref hi);
+            float len = math.distance(c, d);
+            if (len > 1e-4f)
+            {
+                float2 e = (d - c) / len;
+                float2 a0 = A.xz - c;
+                // along the piece: 0 <= dot(a0, e) + s dot(dir, e) <= len; across: |cross(e, a0) + s cross(e, dir)| <= reachM
+                float s0 = float.NegativeInfinity, s1 = float.PositiveInfinity;
+                if (Slab(math.dot(a0, e), math.dot(m_Dir, e), 0f, len, ref s0, ref s1) &&
+                    Slab(e.x * a0.y - e.y * a0.x, e.x * m_Dir.y - e.y * m_Dir.x, -reachM, reachM, ref s0, ref s1))
+                {
+                    lo = math.min(lo, s0);
+                    hi = math.max(hi, s1);
+                }
+            }
+            lo = math.max(lo, 0f);
+            hi = math.min(hi, LengthM);
+            stretch = new float2(lo, hi);
+            return lo < hi;
+        }
+
+        private void Circle(float2 q, float r, ref float lo, ref float hi)
+        {
+            float2 v = q - A.xz;
+            float t = math.dot(v, m_Dir), l = math.dot(v, m_Right);
+            if (math.abs(l) > r)
+                return;
+            float h = math.sqrt(r * r - l * l);
+            lo = math.min(lo, t - h);
+            hi = math.max(hi, t + h);
+        }
+
+        /// <summary>Narrows s0..s1 to the s where lo &lt;= v0 + s k &lt;= hi; false = none.</summary>
+        private static bool Slab(float v0, float k, float lo, float hi, ref float s0, ref float s1)
+        {
+            if (math.abs(k) < 1e-6f)
+                return v0 >= lo && v0 <= hi;
+            float a = (lo - v0) / k, b = (hi - v0) / k;
+            s0 = math.max(s0, math.min(a, b));
+            s1 = math.min(s1, math.max(a, b));
+            return s0 <= s1;
+        }
+
+        /// <summary>Sorts and merges stretches that touch or overlap (in place).</summary>
+        public static void MergeStretches(List<float2> stretches)
+        {
+            stretches.Sort((p, q) => p.x.CompareTo(q.x));
+            int w = 0;
+            for (int i = 0; i < stretches.Count; i++)
+            {
+                if (w > 0 && stretches[i].x <= stretches[w - 1].y)
+                    stretches[w - 1] = new float2(stretches[w - 1].x, math.max(stretches[w - 1].y, stretches[i].y));
+                else
+                    stretches[w++] = stretches[i];
+            }
+            stretches.RemoveRange(w, stretches.Count - w);
+        }
+
         /// <summary>The planner sample grid (pins are samples, so Plan keeps them exactly): every StepM from the end the planner works
         /// from (FromB: from B, so meters along from A are LengthM - k x StepM).</summary>
         public float Snap(float alongM) =>
@@ -196,6 +269,7 @@ namespace SkiResortMod.Systems
             m_Planner.EndNodeYA = A.y;
             m_Planner.EndNodeYB = B.y;
             m_Planner.Crossings = Crossings;   // different lift types cross with box clearance (FIX-LIST 60 a)
+            m_Planner.Keepouts = Keepouts;     // no new tower on a road, track or path where the line can do without (FIX-LIST 62)
             Plan = m_Planner.Plan(terrain, LengthM, RopeA, RopeB, C, seeds, terrainFromB);
             Revision++;
             return Plan;

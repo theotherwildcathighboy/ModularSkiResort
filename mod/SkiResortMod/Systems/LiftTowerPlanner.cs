@@ -1462,6 +1462,12 @@ namespace SkiResortMod.Systems
         public IList<float> Forbidden;
         public float ForbiddenRadiusM = 10f;
 
+        /// <summary>Lift-line tool: stretches (x..y, meters along from the caller's A) where a road, track or path runs under the line
+        /// (LiftLineEdit.KeepoutOf: within its half width plus the tower head's half width plus KeepoutClearM). Soft, like Forbidden: no
+        /// NEW tower inside one unless the line has no clear plan without it (vanilla then reads the tower on the road as Overlapping
+        /// items, and the player moves the road or a tower). Seeds (pins) are kept. Null / empty = none: the plan is bit-identical.</summary>
+        public IList<float2> Keepouts;
+
         /// <summary>The ends are stations (default: both, the planner's original assumption). A station end gets the approach floor
         /// (LiftTowerPlanConstants.ApproachFloor) and the station-side member rule (MinCost.EndRiseM, TowerWorthM); false = a loose line end or a
         /// fresh ground node: a tower node, full floor. Set by the caller before each Plan / Fit (the lift tool from its end kinds,
@@ -1740,6 +1746,7 @@ namespace SkiResortMod.Systems
                 return PlanCore(terrain, lengthM, ropeA, ropeB, c, seeds);
             float len = math.max(lengthM, 0.1f);
             IList<float> forbidden = Forbidden;
+            IList<float2> keepouts = Keepouts;
             List<LiftPlanNode> mirrored = null;
             if (seeds != null)
             {
@@ -1758,6 +1765,13 @@ namespace SkiResortMod.Systems
                     f[i] = len - forbidden[i];
                 Forbidden = f;
             }
+            if (keepouts != null)
+            {
+                var ko = new float2[keepouts.Count];
+                for (int i = 0; i < ko.Length; i++)
+                    ko[i] = new float2(len - keepouts[i].y, len - keepouts[i].x);
+                Keepouts = ko;
+            }
             SwapEnds();
             m_FromB = true;
             try
@@ -1770,6 +1784,7 @@ namespace SkiResortMod.Systems
                 m_FromB = false;
                 SwapEnds();
                 Forbidden = forbidden;
+                Keepouts = keepouts;
             }
         }
 
@@ -1873,9 +1888,9 @@ namespace SkiResortMod.Systems
             for (int i = 0; i < m_K.Count - 1; )
             {
                 int added = LegacySpacing ? -1 : MinTowers(i, i + 1);
-                if (added < 0 && !LegacySpacing && Forbidden != null && Forbidden.Count > 0)
+                if (added < 0 && !LegacySpacing && ((Forbidden != null && Forbidden.Count > 0) || (Keepouts != null && Keepouts.Count > 0)))
                 {
-                    // a removed spot yields where the line has no clear plan without a tower near it (LP-32).
+                    // a removed spot or a road stretch yields where the line has no clear plan without a tower there (LP-32, KO-1).
                     m_IgnoreForbidden = true;
                     added = MinTowers(i, i + 1);
                 }
@@ -2650,11 +2665,16 @@ namespace SkiResortMod.Systems
 
         private bool IsForbidden(int k)
         {
-            if (Forbidden == null || m_IgnoreForbidden)
+            if (m_IgnoreForbidden)
                 return false;
-            for (int f = 0; f < Forbidden.Count; f++)
-                if (math.abs(m_S[k] - Forbidden[f]) < ForbiddenRadiusM - 1e-3f)
-                    return true;
+            if (Forbidden != null)
+                for (int f = 0; f < Forbidden.Count; f++)
+                    if (math.abs(m_S[k] - Forbidden[f]) < ForbiddenRadiusM - 1e-3f)
+                        return true;
+            if (Keepouts != null)
+                for (int f = 0; f < Keepouts.Count; f++)
+                    if (m_S[k] > Keepouts[f].x + 1e-3f && m_S[k] < Keepouts[f].y - 1e-3f)
+                        return true;
             return false;
         }
         private bool[] m_UphillOfCrest = new bool[0];
@@ -4211,6 +4231,16 @@ namespace SkiResortMod.Systems
                     best = new AngleFix { Kind = 6, Towers = -1 };
                 else
                     rej.Neighbor++;
+            }
+
+            if (best.Kind == 0 && rej.Removed > 0 && !m_IgnoreForbidden && Keepouts != null && Keepouts.Count > 0)
+            {
+                // a road stretch yields where the angle has no other fix (FIX-LIST 62, KO-3); the removed spots yield with it, as in
+                // the MinTowers retry. Nothing above changed the nodes, so the search runs again from the same state.
+                m_IgnoreForbidden = true;
+                try { Repair(n, d0, over0, done); }
+                finally { m_IgnoreForbidden = false; }
+                return;
             }
 
             string at = (isEnd ? "end " : "p") + NoteNode(n) + " at " + NoteAt(s0) + " m (" +

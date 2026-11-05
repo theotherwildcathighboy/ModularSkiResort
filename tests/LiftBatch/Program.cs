@@ -44,6 +44,15 @@ namespace LiftBatch
                 return s_Failures;
             }
 
+            if (Environment.GetEnvironmentVariable("LIFTBATCH_ONLY") == "keepout")
+            {
+                KeepoutTests.Run(Check);
+                foreach (string line in KeepoutTests.Report)
+                    Console.WriteLine("ROADS " + line);
+                Console.WriteLine("SUMMARY  LiftBatch (KO only) checks=" + s_Checks + " failures=" + s_Failures);
+                return s_Failures;
+            }
+
             if (Environment.GetEnvironmentVariable("LIFTBATCH_ONLY") == "cross")
             {
                 CrossingTests.Run(Check);
@@ -150,6 +159,9 @@ namespace LiftBatch
             CrossingTests.Run(Check);
             foreach (string line in CrossingTests.Report)
                 Console.WriteLine("CROSS " + line);
+            KeepoutTests.Run(Check);
+            foreach (string line in KeepoutTests.Report)
+                Console.WriteLine("ROADS " + line);
             PadFacingTests.Run(Check);
             foreach (string line in PadFacingTests.Report)
                 Console.WriteLine("PAD   " + line);

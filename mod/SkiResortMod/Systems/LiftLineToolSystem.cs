@@ -164,6 +164,8 @@ namespace SkiResortMod.Systems
         private bool m_CrossRefused;       // a crossing with another type cannot be built: Build is refused
         private float m_CrossNeedM;        // the separation that crossing needs (CROSS_CLEARANCE's {M})
         private readonly List<LiftPlanCrossing> m_Crossings = new List<LiftPlanCrossing>();
+        // Road keep-outs (FIX-LIST 62): CollectKeepouts fills them before each plan; WarnKeepouts logs a tower the planner still put there.
+        private readonly List<float2> m_Keepouts = new List<float2>();
         private readonly HashSet<string> m_CompositionChecked = new HashSet<string>();
         private bool m_AlongStanding;   // the current line runs along another lift: Build is refused (WarnAlong sets it per plan, Reset clears it)
         private float m_BendStandingDeg;   // the plan bend over the warning angle at a loose-end joint, else 0 (WarnBend per plan, Reset clears it)
@@ -1244,6 +1246,7 @@ namespace SkiResortMod.Systems
             // points a line drawn from that end first reads, so the plan does not depend on which end was clicked first.
             LiftTerrainSampler fromB = (s, l) => TerrainUtils.SampleHeight(ref hd, edit.PointFromB(s, l));
             CollectCrossings(edit);   // the planner keeps the box clearance at each crossing with another lift type (FIX-LIST 60 a)
+            CollectKeepouts(edit);    // and new towers off the roads, tracks and paths under the line (FIX-LIST 62)
             var sw = System.Diagnostics.Stopwatch.StartNew();
             LiftTowerPlan plan = edit.Replan(sampler, fromB);
             sw.Stop();
@@ -1277,6 +1280,7 @@ namespace SkiResortMod.Systems
             WarnSunk(plan);
             WarnAlong(edit);
             WarnCrossing(plan);
+            WarnKeepouts(plan, edit);
             WarnBackward();
             WarnBend();
         }
@@ -1391,6 +1395,76 @@ namespace SkiResortMod.Systems
                 }
             }
             edit.Crossings = m_Crossings.Count > 0 ? m_Crossings.ToArray() : null;
+        }
+
+        /// <summary>The stretches of the line where a road, track, taxiway or path (prefab RoadData / TrackData / TaxiwayData /
+        /// PathwayData; not in a tunnel) comes within its half width (NetCompositionData.m_Width / 2) + the tower head's half width +
+        /// LiftLineEdit.KeepoutClearM of the line in plan view: each edge curve as four chords. A tower standing there reads Overlapping
+        /// items (vanilla object-vs-net validation; seen in the 2026-11-05 collision box pass), so the planner keeps new towers out of
+        /// them where the line has a clear plan without (soft, LiftTowerPlanner.Keepouts).</summary>
+        private void CollectKeepouts(LiftLineEdit edit)
+        {
+            m_Keepouts.Clear();
+            float head = edit.C.HalfWidthM + LiftLineEdit.KeepoutClearM;
+            using (var edges = m_LineEdgeQuery.ToEntityArray(Unity.Collections.Allocator.Temp))
+            {
+                for (int i = 0; i < edges.Length; i++)
+                {
+                    Entity prefab = EntityManager.GetComponentData<PrefabRef>(edges[i]).m_Prefab;
+                    if (!EntityManager.HasComponent<RoadData>(prefab) && !EntityManager.HasComponent<TrackData>(prefab) &&
+                        !EntityManager.HasComponent<TaxiwayData>(prefab) && !EntityManager.HasComponent<PathwayData>(prefab))
+                        continue;
+                    if (EntityManager.TryGetComponent<TaxiwayData>(prefab, out var taxi) && (taxi.m_Flags & TaxiwayFlags.Airspace) != 0)
+                        continue;   // an aircraft lane in the sky, not on the ground
+                    float half = 4f;
+                    if (EntityManager.TryGetComponent<Game.Net.Composition>(edges[i], out var comp) &&
+                        EntityManager.TryGetComponent<NetCompositionData>(comp.m_Edge, out var ncd))
+                    {
+                        if ((ncd.m_Flags.m_General & CompositionFlags.General.Tunnel) != 0)
+                            continue;
+                        half = 0.5f * ncd.m_Width;
+                    }
+                    Bezier4x3 curve = EntityManager.GetComponentData<Game.Net.Curve>(edges[i]).m_Bezier;
+                    float2 prev = curve.a.xz;
+                    for (int q = 1; q <= 4; q++)
+                    {
+                        float2 next = MathUtils.Position(curve, q * 0.25f).xz;
+                        if (edit.KeepoutOf(prev, next, half + head, out float2 stretch))
+                            m_Keepouts.Add(stretch);
+                        prev = next;
+                    }
+                }
+            }
+            LiftLineEdit.MergeStretches(m_Keepouts);
+            edit.Keepouts = m_Keepouts.Count > 0 ? m_Keepouts.ToArray() : null;
+        }
+
+        /// <summary>One line per plan with road stretches: the stretches, and a WARN for a new tower the planner still stood in one (no
+        /// clear plan without it; vanilla shows Overlapping items: move the road or the tower). Pins are the player's and not flagged.</summary>
+        private void WarnKeepouts(LiftTowerPlan plan, LiftLineEdit edit)
+        {
+            if (m_Keepouts.Count == 0)
+                return;
+            var sb = new StringBuilder("LiftLine [roads]: tower-free stretch(es) ");
+            for (int i = 0; i < m_Keepouts.Count; i++)
+                sb.Append(i == 0 ? string.Empty : ", ").Append(m_Keepouts[i].x.ToString("F0")).Append("..").Append(m_Keepouts[i].y.ToString("F0")).Append(" m");
+            int on = 0;
+            for (int n = 1; n < plan.Nodes.Length - 1; n++)
+            {
+                float s = plan.Nodes[n].AlongM;
+                if (edit.IsPinned(s))
+                    continue;
+                for (int i = 0; i < m_Keepouts.Count; i++)
+                    if (s > m_Keepouts[i].x && s < m_Keepouts[i].y)
+                    {
+                        sb.Append(on++ == 0 ? "; ON A ROAD (no clear plan without): tower @" : ", @").Append(s.ToString("F0"));
+                        break;
+                    }
+            }
+            if (on > 0)
+                Mod.Log.Warn(sb.ToString());
+            else
+                Mod.Log.Info(sb.Append("; no tower in them").ToString());
         }
 
         private LiftPlanCrossing Crossing(LiftLineEdit edit, Entity edge, LiftTypeDef def, Bezier4x3 curve, float along, float t)
