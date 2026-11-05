@@ -15,8 +15,8 @@ namespace SkiResortMod.Systems
     public sealed partial class CatTrackGradeTooltipSystem : TooltipSystemBase
     {
         private CatTrackGradeToolSystem m_Tool;
-        private StringTooltip m_Prompt, m_Notice, m_Plan, m_Guard, m_Bank;
-        private string m_LastPrompt, m_LastNotice, m_LastPlan, m_LastGuard, m_LastBank, m_LoggedPrompt;
+        private StringTooltip m_Prompt, m_Notice, m_Plan, m_Guard, m_Bank, m_Check;
+        private string m_LastPrompt, m_LastNotice, m_LastPlan, m_LastGuard, m_LastBank, m_LastCheck, m_LoggedPrompt;
         private bool m_Disabled;
 
         protected override void OnCreate()
@@ -28,6 +28,7 @@ namespace SkiResortMod.Systems
             m_Plan = new StringTooltip { path = "skiGradePlan", color = TooltipColor.Info };
             m_Guard = new StringTooltip { path = "skiGradeGuard", color = TooltipColor.Error };
             m_Bank = new StringTooltip { path = "skiGradeBank", color = TooltipColor.Warning };
+            m_Check = new StringTooltip { path = "skiGradeCheck", color = TooltipColor.Info };
             Mod.Log.Info($"{nameof(CatTrackGradeTooltipSystem)} created");
         }
 
@@ -55,6 +56,9 @@ namespace SkiResortMod.Systems
                 {
                     m_Plan.color = m_Tool.PlanOk ? TooltipColor.Success : TooltipColor.Warning;
                     Show(m_Plan, ref m_LastPlan, plan);
+                    GradeMsg check = m_Tool.CheckMsg;   // the guards of this plan are still being solved (DECISIONS 601 f)
+                    if (!check.IsEmpty)
+                        Show(m_Check, ref m_LastCheck, check);
                     GradeMsg guard = m_Tool.GuardMsg;
                     if (!guard.IsEmpty)
                         Show(m_Guard, ref m_LastGuard, guard);

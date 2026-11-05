@@ -3,7 +3,8 @@
 // emits the cat-track run (SkiRunCatTrackA, outline = the graded flat top, GradeRibbon) as an area creation definition, waits for the
 // game's Temp area and validation, then in ONE frame writes the corridor into the game's BASE heightmap (HeightmapWriter: terrain
 // the player keeps, stored in the save by the game itself) and applies the run. A refusal by the game grades nothing.
-// Skeleton is LiftLineToolSystem's (a prefab-less ToolBaseSystem, emit -> Temp -> Apply). Solve on change, not per frame.
+// Skeleton is LiftLineToolSystem's (a prefab-less ToolBaseSystem, emit -> Temp -> Apply). Solve on change, not per frame: a quick solve per edit,
+// the full one (raster, band rating, guards, outline) debounced on a worker (CatTrackGradeSolve.cs; hand-test note 20, DECISIONS 601 f).
 // Logs (silence impossible): ARMED / NOT ARMED per load; one line per activation, edit, solve, apply, undo, refusal; an exception
 // disables the tool.
 // Engine notes: EngineNotes/CatTrackGradeToolSystem.md
@@ -12,6 +13,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
+using System.Threading.Tasks;
 using Colossal.Collections;
 using Colossal.Entities;
 using Colossal.Mathematics;
@@ -23,6 +25,7 @@ using Game.Prefabs;
 using Game.Rendering;
 using Game.Simulation;
 using Game.Tools;
+using SkiResortMod.Settings;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Jobs;
@@ -40,6 +43,8 @@ namespace SkiResortMod.Systems
         private const int NoticeFrames = 240;
         private const float ProbeLengthM = 40f;
         private const int TempTimeoutFrames = 30;   // frames to wait for the run definition's Temp area (LiftLineToolSystem's value)
+        private const double DebounceMs = 150.0;   // the full solve starts this long after the last edit (DECISIONS 601 f)
+        private const int MaxSnapshotTexels = 4 * 1024 * 1024;   // 8 MB of heights; a bigger rect solves inline on the engine sampler
         private const int DeleteRingsFrames = 30;   // Delete mode re-reads the cat track outlines this often (and after each delete)
 
         /// <summary>Edit: points and preview. Emitted: the run definition is out, waiting for its Temp area and the game's validation.
@@ -72,10 +77,13 @@ namespace SkiResortMod.Systems
         internal string DeletePromptKey => GradeDeleteInput.PromptKey(m_DelHover, ArmedIndex);
         internal GradeMsg Notice => !m_Notice.IsEmpty && m_Frame - m_NoticeFrame < NoticeFrames ? m_Notice : GradeMsg.Empty;
         internal GradeMsg PlanMsg => m_Path != null ? GradeInput.PlanMsg(m_Path, m_Prof, m_Raster, m_Params) : GradeMsg.Empty;
-        internal bool PlanOk => m_Prof != null && m_Prof.Feasible && m_Guard == GradeGuardKind.None && !m_CrossingPending;
+        internal bool PlanOk => m_Prof != null && m_Prof.Feasible && m_Guard == GradeGuardKind.None;   // while Checking this is the plan so far; the guards follow
         internal GradeMsg GuardMsg => GradeGuards.Reason(m_Guard);
+        /// <summary>The raster, guards and outline of the plan on screen are still being solved (DebounceMs after the last edit, on a worker).</summary>
+        internal GradeMsg CheckMsg => m_Checking ? GradeMsg.Of("CHECKING") : GradeMsg.Empty;
         internal GradeMsg BankMsg => m_Raster != null && m_Raster.SteepBankTexels > 0 ? GradeMsg.Of("PLAN_BANK") : GradeMsg.Empty;   // the log keeps MaxBankStepM
         internal string LastPlanText { get; private set; } = "-";
+        internal string LastCostText { get; private set; } = "-";
         internal string LastApplyText { get; private set; } = "-";
 
         private OverlayRenderSystem m_Overlay;
@@ -94,20 +102,22 @@ namespace SkiResortMod.Systems
         private int m_Frame;
         private readonly GradeEdit m_Edit = new GradeEdit();
         private readonly GradeUndo m_Undo = new GradeUndo();
-        private readonly GradeObstacles m_Obstacles = new GradeObstacles();
+        private GradeObstacles m_Obstacles = new GradeObstacles();   // replaced (not cleared) by every CollectObstacles: a worker job owns the old one
         private GradeParams m_Params = new GradeParams();
         private GradePath m_Path;
         private GradeProfile m_Prof;
         private GradeRaster m_Raster;
         private float2[] m_Ring;   // the run outline of the current plan (GradeRibbon), null when it fails
         private GradeParams m_PlanParams;   // the params the plan was built with (its inside allowance, DECISIONS 420)
-        // F4: the allowance step of this plan revision (one per frame), its cached Before bands and the per-step log
-        private int m_AllowanceStep, m_AllowanceRev = -1;
-        private GradeParams m_AllowanceParams;
-        private sbyte[] m_BandsBefore;
-        private bool m_CrossingPending;
-        private readonly StringBuilder m_StepText = new StringBuilder();
-        private string m_BandText;          // the last crossed-run band comparison (log)
+        // The split solve (SolveQuick / UpdateFull): the quick plan on screen, the debounce, the worker job of the full one
+        private SolveCtx m_Ctx;
+        private bool m_Checking;
+        private long m_CheckDueTicks;
+        private Task<GradeSolveResult> m_FullTask;
+        private GradeCancel m_FullCancel;
+        private SolveCtx m_FullCtx;
+        private SnapshotProbe m_FullProbe;
+        private double m_FullSnapMs;
         private GradeGuardKind m_Guard;
         private float2 m_GuardAt;
         private bool m_Dirty, m_ApplyRequested;
@@ -392,15 +402,18 @@ namespace SkiResortMod.Systems
             else if (m_ApplyRequested)
             {
                 m_ApplyRequested = false;
-                if (m_Dirty || m_CrossingPending)
-                    Solve("before apply", settle: true);
+                if (m_Dirty)
+                    SolveQuick("before apply");
+                if (m_Checking)
+                    FinishFullNow();   // Enter never builds on a plan whose guards are still out
                 BuildFromTool();
             }
             else
                 UpdateEdit();
 
             if (m_Dirty && !Dragging)
-                Solve("edit");
+                SolveQuick("edit");
+            UpdateFull();
             Draw();
         }
 
@@ -546,18 +559,82 @@ namespace SkiResortMod.Systems
                 m_DelArmed = Entity.Null;   // gone meanwhile (the hub trash)
         }
 
-        private void Solve(string why, bool settle = false)
+        // ---------------------------------------------------------------- the solve, split (DECISIONS 601 f, hand-test note 20)
+        // Every edit runs the QUICK solve on the main thread (path, ground, rect, obstacles, profile: ~2 ms at 30 points) and shows the
+        // plan line and the overlay at once; "Checking the ground." stands in for the rest. The FULL solve (raster over the whole rect,
+        // crossed-run band rating, guards, outline: 10 to 190 ms, growing with the rect) starts DebounceMs after the last edit, on a worker,
+        // from a private copy of the heights and water (HeightSnapshot, the Resort Planner's idiom) and the obstacles; the main thread
+        // only copies the rect first and applies the result after. A newer edit cancels the job and drops its result. Enter never uses a
+        // stale plan: it waits for the job of the current revision or runs the same function inline (GradeSolver.Run), so the guards it
+        // checks are always those of the points on screen. A snapshot that cannot be taken (over MaxSnapshotTexels) or that is read
+        // outside its rect falls back to the engine's own sampler inline (the pre-split solve, a hitch, logged as such).
+
+        /// <summary>What the quick solve hands to the full one: the inputs of the plan on screen.</summary>
+        private sealed class SolveCtx
         {
-            m_Dirty = false;
-            m_BandText = null;
+            public int Revision, Points;
+            public string Why;
+            public GradeParams Params;
+            public GradeMap Map;
+            public GradePath Path;
+            public float[] Ground;
+            public int4 Rect;
+            public float Reach;
+            public GradeObstacles Obstacles;
+            public double QuickMs;
+            public long EditTicks;
+        }
+
+        /// <summary>The worker's view of the terrain: the snapshot, counting reads outside it (the result is then dropped and the solve
+        /// runs again on the engine's sampler).</summary>
+        private sealed class SnapshotProbe
+        {
+            public HeightSnapshot Snap;
+            public int Misses;
+            public float ParityM;   // largest |snapshot - TerrainUtils.SampleHeight| over a few path points, taken on the main thread
+
+            public float Sample(float3 world)
+            {
+                float h = Snap.Sample(world);
+                if (float.IsNaN(h))
+                {
+                    Misses++;
+                    return 0f;
+                }
+                return h;
+            }
+        }
+
+        private void ResetPlanFields()
+        {
             m_Path = null;
             m_Prof = null;
             m_Raster = null;
             m_Ring = null;
+            m_PlanParams = null;
             m_Guard = GradeGuardKind.None;
             m_DrawSeg.Clear();
             m_DrawColor.Clear();
             m_DrawWidth.Clear();
+        }
+
+        /// <summary>Stops the worker job of the plan on screen (its result is dropped; the job ends at its next stage boundary).</summary>
+        private void CancelFull()
+        {
+            m_FullCancel?.Request();
+            m_FullCancel = null;
+            m_FullCtx = null;
+            m_FullProbe = null;
+        }
+
+        /// <summary>The quick solve (every edit).</summary>
+        private void SolveQuick(string why)
+        {
+            m_Dirty = false;
+            CancelFull();
+            m_Ctx = null;
+            m_Checking = false;
+            ResetPlanFields();
             if (m_Edit.Count < 2)
                 return;
             var sw = System.Diagnostics.Stopwatch.StartNew();
@@ -580,135 +657,318 @@ namespace SkiResortMod.Systems
             bool tooLarge = haveRect && GradeRaster.TooLarge(rect);
             if (haveRect && !tooLarge)
                 CollectObstacles(map, rect);
-            GradeProfile prof = tooLarge || !haveRect ? GradeProfile.Solve(path, ground, p) : null;
-            double solveMs = sw.Elapsed.TotalMilliseconds;
-
-            GradeRaster raster = null;
-            GradeParams pa = p;
-            float allowance = p.InsideMaxM;
-            double rasterMs = 0, guardMs = 0;
-            if (haveRect)
-            {
-                if (tooLarge)
-                {
-                    m_Guard = GradeGuardKind.TooLarge;
-                    m_Path = path;
-                    m_Prof = prof;
-                    BuildDraw(path, prof, p);
-                    sw.Stop();
-                    LastPlanText = GradeInput.Describe(path, prof, null, p);
-                    Say($"Grade [plan] #{m_Edit.Revision} ({why}): REFUSED — the rect is {rect.z} x {rect.w} texels, over the " +
-                        $"{GradeRaster.MaxTexels} texel limit; no raster built ({sw.Elapsed.TotalMilliseconds:F2} ms)");
-                    return;
-                }
-                TerrainHeightData hdBase = hd;
-                Func<int, int, float> baseHeight = (i, j) =>
-                {
-                    float2 c = map.TexelCenter(i, j);
-                    return TerrainUtils.SampleHeight(ref hdBase, new float3(c.x, 0f, c.y));
-                };
-                // Inside crossed runs the allowance steps down (2 m, 1 m, 0.5 m, 0) until every crossed run keeps its rated band
-                // (DECISIONS 420); none keeps it = guard CrossedRunBand. No crossing: one pass. F4 (round-2 critique): ONE step per frame
-                // while editing (the plan re-solves the next frame with the next step, m_AllowanceStep), all steps at once only when Enter
-                // needs a settled plan (settle); the Before ratings are cached per plan revision (they do not depend on the allowance).
-                bool[] entered = GradeRaster.EnteredOutlines(path, m_Obstacles.Runs);
-                bool crossing = false;
-                for (int k = 0; entered != null && k < entered.Length; k++)
-                    crossing |= entered[k];
-                if (m_AllowanceRev != m_Edit.Revision || !ReferenceEquals(m_AllowanceParams, p))
-                {
-                    m_AllowanceRev = m_Edit.Revision;
-                    m_AllowanceParams = p;
-                    m_AllowanceStep = 0;
-                    m_BandsBefore = null;
-                    m_StepText.Clear();
-                }
-                float[] steps = GradeParams.InsideAllowanceSteps;
-                bool BuildAt(float a)
-                {
-                    double t0 = sw.Elapsed.TotalMilliseconds;
-                    pa = p.Clone();
-                    pa.InsideMaxM = a;
-                    prof = GradeProfile.Solve(path, ground, pa, GradeRaster.PinTolerance(path, m_Obstacles.Runs, pa));
-                    raster = GradeRaster.Build(map, rect, path, prof, pa, reach, baseHeight, m_Obstacles.Runs);
-                    if (!crossing)
-                        return true;
-                    if (m_BandsBefore == null)
-                        m_BandsBefore = RateCrossed(map, raster, entered, false);
-                    bool kept = SameBands(m_BandsBefore, RateCrossed(map, raster, entered, true), out m_BandText);
-                    m_StepText.Append(m_StepText.Length > 0 ? "; " : string.Empty)
-                              .AppendFormat(CultureInfo.InvariantCulture, "{0:F1} m {1} {2:F0} ms", a, kept ? "kept" : "changed", sw.Elapsed.TotalMilliseconds - t0);
-                    return kept;
-                }
-                float chosen;
-                m_CrossingPending = false;
-                if (settle || !crossing)
-                    chosen = GradeRaster.ChooseInsideAllowance(BuildAt);
-                else if (BuildAt(steps[m_AllowanceStep]))
-                    chosen = steps[m_AllowanceStep];
-                else if (m_AllowanceStep + 1 < steps.Length)
-                {
-                    chosen = steps[m_AllowanceStep];
-                    m_AllowanceStep++;
-                    m_CrossingPending = true;   // try the next step next frame
-                    m_Dirty = true;
-                }
-                else
-                    chosen = -1f;
-                allowance = chosen;
-                rasterMs = sw.Elapsed.TotalMilliseconds - solveMs;
-                m_Guard = CheckGuards(map, raster, out m_GuardAt);
-                if (m_Guard == GradeGuardKind.None && CrossingSteep(map, path, raster, pa, out float2 steepAt))
-                {
-                    m_Guard = GradeGuardKind.CrossingSteep;
-                    m_GuardAt = steepAt;
-                }
-                if (m_Guard == GradeGuardKind.None && chosen < 0f && !m_CrossingPending)
-                {
-                    m_Guard = GradeGuardKind.CrossedRunBand;
-                    m_GuardAt = path.Xz[path.Count / 2];
-                }
-                guardMs = sw.Elapsed.TotalMilliseconds - solveMs - rasterMs;
-            }
-            else
-                m_Guard = GradeGuardKind.OffMap;
-            // The run outline (the flat top as one ring): a ring that touches itself is a guard like the others, so Enter refuses
-            // before anything is emitted or graded.
-            double ringMs = 0;
-            if (m_Guard == GradeGuardKind.None)
-            {
-                double t0 = sw.Elapsed.TotalMilliseconds;
-                m_Ring = GradeRibbon.Build(path, 0.5f * p.TopWidthM, out GradeRibbonFail ringFail, out float2 ringAt);
-                ringMs = sw.Elapsed.TotalMilliseconds - t0;
-                if (ringFail != GradeRibbonFail.None)
-                {
-                    m_Ring = null;
-                    m_Guard = GradeGuardKind.RunShape;
-                    m_GuardAt = ringAt;
-                }
-            }
+            GradeProfile prof = tooLarge || !haveRect ? GradeProfile.Solve(path, ground, p) : GradeSolver.QuickProfile(path, ground, p, m_Obstacles.Runs);
             m_Path = path;
             m_Prof = prof;
-            m_Raster = raster;
-            m_PlanParams = pa;
             BuildDraw(path, prof, p);
+            LastPlanText = GradeInput.Describe(path, prof, null, p);
+            if (!haveRect || tooLarge)
+            {
+                m_Guard = haveRect ? GradeGuardKind.TooLarge : GradeGuardKind.OffMap;
+                sw.Stop();
+                if (tooLarge)
+                    Say($"Grade [plan] #{m_Edit.Revision} ({why}): REFUSED — the rect is {rect.z} x {rect.w} texels, over the " +
+                        $"{GradeRaster.MaxTexels} texel limit; no raster built ({sw.Elapsed.TotalMilliseconds:F2} ms)");
+                else
+                    Say($"Grade [plan] #{m_Edit.Revision} ({why}): {m_Edit.Count} point(s), {LastPlanText}; guard {m_Guard}; no raster ({sw.Elapsed.TotalMilliseconds:F2} ms)");
+                return;
+            }
             sw.Stop();
-            LastPlanText = GradeInput.Describe(path, prof, raster, p);
-            if (raster != null && (raster.InsideTexels > 0 || allowance < p.InsideMaxM || m_StepText.Length > 0))
-                Say(string.Format(CultureInfo.InvariantCulture, "Grade [crossing] #{0}: inside allowance {1} (of {2:F1} m){3}; {4}; steps: {5}",
-                    m_Edit.Revision, allowance < 0f ? "none keeps the bands" : allowance.ToString("F1", CultureInfo.InvariantCulture) + " m",
-                    p.InsideMaxM, m_CrossingPending ? ", band changed: the next step runs next frame" : string.Empty, m_BandText ?? "bands not rated",
-                    m_StepText.Length > 0 ? m_StepText.ToString() : "none"));
+            m_Ctx = new SolveCtx
+            {
+                Revision = m_Edit.Revision, Points = m_Edit.Count, Why = why, Params = p, Map = map, Path = path, Ground = ground, Rect = rect,
+                Reach = reach, Obstacles = m_Obstacles, QuickMs = sw.Elapsed.TotalMilliseconds, EditTicks = System.Diagnostics.Stopwatch.GetTimestamp(),
+            };
+            m_Checking = true;
+            m_CheckDueTicks = m_Ctx.EditTicks + (long)(DebounceMs * System.Diagnostics.Stopwatch.Frequency / 1000.0);
+        }
+
+        /// <summary>Every frame in the Edit phase: collect a finished job, start the debounced one.</summary>
+        private void UpdateFull()
+        {
+            PollFull();
+            if (!m_Checking || m_Ctx == null || m_Dirty || Dragging || m_FullTask != null)
+                return;   // one job at a time: a canceled one is still stopping
+            if (System.Diagnostics.Stopwatch.GetTimestamp() < m_CheckDueTicks)
+                return;
+            LaunchFull();
+        }
+
+        private void LaunchFull()
+        {
+            SolveCtx ctx = m_Ctx;
+            long t0 = System.Diagnostics.Stopwatch.GetTimestamp();
+            if (!TryBuildInput(ctx, snapshot: true, out GradeSolveInput input, out SnapshotProbe probe))
+            {
+                RunInline(ctx, ctx.Why + ", no snapshot", engine: true);
+                return;
+            }
+            m_FullSnapMs = MsSince(t0);
+            m_FullCancel = new GradeCancel();
+            input.Cancel = m_FullCancel;
+            m_FullCtx = ctx;
+            m_FullProbe = probe;
+            m_FullTask = Task.Run(() => GradeSolver.Run(input));
+        }
+
+        private void PollFull()
+        {
+            if (m_FullTask == null || !m_FullTask.IsCompleted)
+                return;
+            Task<GradeSolveResult> task = m_FullTask;
+            SolveCtx ctx = m_FullCtx;
+            SnapshotProbe probe = m_FullProbe;
+            m_FullTask = null;
+            m_FullCtx = null;
+            m_FullProbe = null;
+            m_FullCancel = null;
+            GradeSolveResult res = task.GetAwaiter().GetResult();   // a faulted job rethrows here: OnUpdate's catch disables the tool
+            if (ctx == null || !ReferenceEquals(ctx, m_Ctx) || res.Canceled)
+            {
+                if (SkiResortSettings.DiagnosticsOn)
+                    Mod.Log.Info($"Grade [cost] job for #{(ctx != null ? ctx.Revision : -1)} dropped (stale or canceled; the plan on screen is #{m_Edit.Revision})");
+                return;
+            }
+            if (probe.Misses > 0)
+            {
+                Mod.Log.Info($"Grade [cost] #{ctx.Revision}: the snapshot was read outside its rect {probe.Misses} time(s) — solving again on the engine's sampler");
+                RunInline(ctx, ctx.Why + ", snapshot missed", engine: true);
+                return;
+            }
+            ApplyFull(ctx, res, "worker", m_FullSnapMs, probe, MsSince(ctx.EditTicks));
+        }
+
+        /// <summary>The full solve on the main thread: Enter's path, and the fallback. The snapshot first (same function, same inputs as the
+        /// worker); the engine's sampler when it cannot be taken or was read outside (<paramref name="engine"/> skips the snapshot).</summary>
+        private void RunInline(SolveCtx ctx, string why, bool engine)
+        {
+            long t0 = System.Diagnostics.Stopwatch.GetTimestamp();
+            SnapshotProbe probe = null;
+            GradeSolveResult res = null;
+            string mode = "inline";
+            if (!engine && TryBuildInput(ctx, snapshot: true, out GradeSolveInput input, out probe))
+            {
+                double snapMs = MsSince(t0);
+                res = GradeSolver.Run(input);
+                if (probe.Misses == 0)
+                {
+                    ApplyFull(ctx, res, mode, snapMs, probe, MsSince(ctx.EditTicks), why);
+                    return;
+                }
+                Mod.Log.Info($"Grade [cost] #{ctx.Revision}: the snapshot was read outside its rect {probe.Misses} time(s) — solving again on the engine's sampler");
+            }
+            mode = "engine";
+            if (!TryBuildInput(ctx, snapshot: false, out GradeSolveInput eng, out SnapshotProbe _))
+            {
+                Say("Grade [plan]: the terrain is not ready — no full solve", GradeMsg.Of("NO_GRADING"));
+                return;
+            }
+            res = GradeSolver.Run(eng);
+            ApplyFull(ctx, res, mode, 0d, null, MsSince(ctx.EditTicks), why);
+        }
+
+        /// <summary>Enter: the plan on screen must be fully solved. The job of this revision is waited for (it is already out); else the same
+        /// solve runs inline.</summary>
+        private void FinishFullNow()
+        {
+            if (m_FullTask != null && m_FullCtx != null && ReferenceEquals(m_FullCtx, m_Ctx))
+            {
+                try { m_FullTask.Wait(); } catch (AggregateException) { /* PollFull rethrows it */ }
+                PollFull();
+            }
+            if (m_Checking && m_Ctx != null)
+                RunInline(m_Ctx, "before apply", engine: false);
+        }
+
+        private static double MsSince(long ticks) => (System.Diagnostics.Stopwatch.GetTimestamp() - ticks) * 1000.0 / System.Diagnostics.Stopwatch.Frequency;
+
+        /// <summary>The inputs of the full solve. snapshot: heights and water of the rect copied now (main thread; false = the rect plus the
+        /// crossed runs is over MaxSnapshotTexels); else the engine's own samplers, to be used on the main thread only.</summary>
+        private bool TryBuildInput(SolveCtx ctx, bool snapshot, out GradeSolveInput input, out SnapshotProbe probe)
+        {
+            probe = null;
+            input = new GradeSolveInput
+            {
+                Map = ctx.Map, Path = ctx.Path, Ground = ctx.Ground, Params = ctx.Params, Rect = ctx.Rect, Reach = ctx.Reach, Obstacles = ctx.Obstacles,
+            };
+            TerrainHeightData hd = m_TerrainSystem.GetHeightData();
+            if (!hd.isCreated)
+                return false;
+            if (!snapshot)
+            {
+                TerrainHeightData cpu = hd;
+                input.Height = w => TerrainUtils.SampleHeight(ref cpu, w);
+                input.RateOrigin = new double2(-hd.offset.x, -hd.offset.z);   // as SkiRunCatalogSystem rates (TerrainSystem.cs:2619-2620)
+                input.RateTexel = 1f / hd.scale.x;
+                WaterSurfaceData<SurfaceWater> water = m_WaterSystem.GetSurfaceData(out JobHandle wdeps);
+                wdeps.Complete();
+                if (water.depths.IsCreated)
+                {
+                    GradeMap map = ctx.Map;
+                    input.IsWet = (i, j) =>
+                    {
+                        float2 c = map.TexelCenter(i, j);
+                        return WaterUtils.SampleDepth(ref water, new float3(c.x, 0f, c.y)) > WetDepthM;
+                    };
+                }
+                return true;
+            }
+
+            // The region: the rect, and the entered crossed runs (the rater reads their terrain). SnapshotRect pads the lattice margin.
+            var corners = new List<float2>(8);
+            Bounds2 wb = HeightmapWriter.WorldBounds(ctx.Map, ctx.Rect);
+            corners.Add(wb.min);
+            corners.Add(wb.max);
+            bool[] entered = GradeRaster.EnteredOutlines(ctx.Path, ctx.Obstacles.Runs);
+            for (int k = 0; entered != null && k < entered.Length; k++)
+            {
+                if (!entered[k])
+                    continue;
+                foreach (float2 v in ctx.Obstacles.Runs[k])
+                    corners.Add(v);
+            }
+            int resX = hd.resolution.x, resZ = hd.resolution.z;
+            if (!SkiRunAutoPlanner.SnapshotRect(corners.ToArray(), resX, resZ, hd.scale, hd.offset, out int x0, out int z0, out int w, out int d) ||
+                (long)w * d > MaxSnapshotTexels)
+                return false;
+            HeightSnapshot s = HeightSnapshot.Allocate(x0, z0, w, d, resX, resZ, hd.scale, hd.offset, wet: false);
+            NativeArray<ushort> heights = hd.heights;
+            for (int l = 0; l < d; l++)
+                NativeArray<ushort>.Copy(heights, (z0 + l) * resX + x0, s.Heights, l * w, w);
+            probe = new SnapshotProbe { Snap = s };
+            // Parity against the engine's sampler at a few path points (logged in the [cost] line)
+            for (int k = 0; k < 8; k++)
+            {
+                float2 xz = ctx.Path.Xz[(int)((long)k * (ctx.Path.Count - 1) / 7)];
+                var wp = new float3(xz.x, 0f, xz.y);
+                float a = s.Sample(wp);
+                if (!float.IsNaN(a))
+                    probe.ParityM = math.max(probe.ParityM, math.abs(a - TerrainUtils.SampleHeight(ref hd, wp)));
+            }
+            input.Height = probe.Sample;
+            input.RateOrigin = s.Origin;
+            input.RateTexel = s.TexelM;
+            input.IsWet = FillWet(ctx.Map, ctx.Rect, out byte[] wet) ? (Func<int, int, bool>)((i, j) => wet[(j - ctx.Rect.y) * ctx.Rect.z + (i - ctx.Rect.x)] != 0) : null;
+            return true;
+        }
+
+        private int[] m_WetA0 = new int[0], m_WetA1 = new int[0], m_WetB0 = new int[0], m_WetB1 = new int[0];
+        private bool[] m_WetNode = new bool[0];
+
+        /// <summary>The wet layer of the rect: WaterUtils.SampleDepth over WetDepthM at each texel center, as the guard always read it, but
+        /// sampled only where one of the four water nodes the bilinear sample reads is deeper than WetDepthM less a margin (a bilinear sample
+        /// never exceeds its largest node, so every skipped texel is dry; the Resort Planner's FillWet, here per GradeMap texel). False when
+        /// there is no water layer.</summary>
+        private bool FillWet(GradeMap map, int4 rect, out byte[] wet)
+        {
+            wet = null;
+            WaterSurfaceData<SurfaceWater> water = m_WaterSystem.GetSurfaceData(out JobHandle wdeps);
+            wdeps.Complete();
+            if (!water.depths.IsCreated)
+                return false;
+            int w = rect.z, d = rect.w;
+            wet = new byte[w * d];
+            int3 res = water.resolution;
+            float3 sc = water.scale, of = water.offset;
+            if (m_WetA0.Length < w)
+            {
+                m_WetA0 = new int[w];
+                m_WetA1 = new int[w];
+            }
+            if (m_WetB0.Length < d)
+            {
+                m_WetB0 = new int[d];
+                m_WetB1 = new int[d];
+            }
+            int a0 = int.MaxValue, a1 = int.MinValue, b0 = int.MaxValue, b1 = int.MinValue;
+            for (int k = 0; k < w; k++)
+            {
+                int f = (int)math.floor((map.TexelCenter(rect.x + k, rect.y).x + of.x) * sc.x);
+                m_WetA0[k] = math.clamp(f, 0, res.x - 1);
+                m_WetA1[k] = math.clamp(f + 1, 0, res.x - 1);
+                a0 = Math.Min(a0, m_WetA0[k]);
+                a1 = Math.Max(a1, m_WetA1[k]);
+            }
+            for (int l = 0; l < d; l++)
+            {
+                int f = (int)math.floor((map.TexelCenter(rect.x, rect.y + l).y + of.z) * sc.z);
+                m_WetB0[l] = math.clamp(f, 0, res.z - 1);
+                m_WetB1[l] = math.clamp(f + 1, 0, res.z - 1);
+                b0 = Math.Min(b0, m_WetB0[l]);
+                b1 = Math.Max(b1, m_WetB1[l]);
+            }
+            int nw = a1 - a0 + 1, nd = b1 - b0 + 1;
+            if (m_WetNode.Length < nw * nd)
+                m_WetNode = new bool[nw * nd];
+            NativeArray<SurfaceWater> depths = water.depths;
+            for (int j = 0; j < nd; j++)
+                for (int i = 0; i < nw; i++)
+                    m_WetNode[j * nw + i] = WaterUtils.ToWorldSpace(ref water, depths[(b0 + j) * res.x + a0 + i].m_Depth) > WetDepthM - 0.01f;
+            for (int l = 0; l < d; l++)
+            {
+                int r0 = (m_WetB0[l] - b0) * nw - a0, r1 = (m_WetB1[l] - b0) * nw - a0;
+                for (int k = 0; k < w; k++)
+                {
+                    int i0 = m_WetA0[k], i1 = m_WetA1[k];
+                    if (!m_WetNode[r0 + i0] && !m_WetNode[r0 + i1] && !m_WetNode[r1 + i0] && !m_WetNode[r1 + i1])
+                        continue;
+                    float2 c = map.TexelCenter(rect.x + k, rect.y + l);
+                    if (WaterUtils.SampleDepth(ref water, new float3(c.x, 0f, c.y)) > WetDepthM)
+                        wet[l * w + k] = 1;
+                }
+            }
+            return true;
+        }
+
+        /// <summary>Takes a finished full solve as the plan on screen: profile, raster, guard, outline, the overlay colors, the log lines.</summary>
+        private void ApplyFull(SolveCtx ctx, GradeSolveResult res, string mode, double snapMs, SnapshotProbe probe, double latencyMs, string why = null)
+        {
+            long a0 = System.Diagnostics.Stopwatch.GetTimestamp();
+            GradePath path = ctx.Path;
+            GradeParams p = ctx.Params;
+            m_Prof = res.Prof;
+            m_Raster = res.Raster;
+            m_PlanParams = res.PlanParams;
+            m_Guard = res.Guard;
+            m_GuardAt = res.GuardAt;
+            m_Ring = res.Ring;
+            m_Checking = false;
+            m_DrawSeg.Clear();
+            m_DrawColor.Clear();
+            m_DrawWidth.Clear();
+            BuildDraw(path, res.Prof, p);
+            LastPlanText = GradeInput.Describe(path, res.Prof, res.Raster, p);
+            GradeRaster raster = res.Raster;
+            if (raster.InsideTexels > 0 || res.Allowance < p.InsideMaxM || res.StepText.Length > 0)
+                Say(string.Format(CultureInfo.InvariantCulture, "Grade [crossing] #{0}: inside allowance {1} (of {2:F1} m); {3}; steps: {4}",
+                    ctx.Revision, res.Allowance < 0f ? "none keeps the bands" : res.Allowance.ToString("F1", CultureInfo.InvariantCulture) + " m",
+                    p.InsideMaxM, res.BandText ?? "bands not rated", res.StepText.Length > 0 ? res.StepText : "none"));
+            double applyMs = MsSince(a0);
+            double mainMs = ctx.QuickMs + snapMs + applyMs;
+            string reason = why ?? ctx.Why;
             Say(string.Format(CultureInfo.InvariantCulture,
                 "Grade [plan] #{0} ({1}): {2} point(s), {3} — {4}; ends ground {5:F1} -> {6:F1}; max cut {7:F1} m, max fill {8:F1} m on the " +
                 "centerline; {9}; run outline {17}; guard {10}{11}; {12} ({13:F2} ms: solve {14:F2}, raster {15:F1}, guards {16:F1}, " +
                 "outline {18:F1})",
-                m_Edit.Revision, why, m_Edit.Count, prof.Feasible ? "feasible" : $"INFEASIBLE (shortfall {prof.ShortfallM:F0} m)",
-                LastPlanText, ground[0], ground[path.Count - 1], prof.MaxCutM, prof.MaxFillM,
-                raster != null ? raster.Describe() : "no raster", m_Guard,
+                ctx.Revision, reason, ctx.Points, res.Prof.Feasible ? "feasible" : $"INFEASIBLE (shortfall {res.Prof.ShortfallM:F0} m)",
+                LastPlanText, ctx.Ground[0], ctx.Ground[path.Count - 1], res.Prof.MaxCutM, res.Prof.MaxFillM,
+                raster.Describe(), m_Guard,
                 m_Guard != GradeGuardKind.None ? $" at ({m_GuardAt.x:F0}, {m_GuardAt.y:F0})" : string.Empty, p.Describe(),
-                sw.Elapsed.TotalMilliseconds, solveMs, rasterMs, guardMs,
-                m_Ring != null ? m_Ring.Length + " node(s)" : "none", ringMs));
+                ctx.QuickMs + snapMs + res.TotalMs, ctx.QuickMs, res.RasterMs, res.GuardMs,
+                m_Ring != null ? m_Ring.Length + " node(s)" : "none", res.RingMs));
+            LastCostText = string.Format(CultureInfo.InvariantCulture,
+                "#{0} {1}: main {2:F1} ms (quick {3:F1} + snapshot {4:F1} + apply {5:F1}), worker {6:F1} ms (raster {7:F1}, guards {8:F1}, outline {9:F1}), " +
+                "edit to result {10:F0} ms",
+                ctx.Revision, mode, mainMs, ctx.QuickMs, snapMs, applyMs, res.TotalMs, res.RasterMs, res.GuardMs, res.RingMs, latencyMs);
+            Mod.Log.Info(string.Format(CultureInfo.InvariantCulture,
+                "Grade [cost] #{0} ({1}, {2}): {3} point(s), rect {4} x {5} = {6} texels{7}; MAIN THREAD {8:F1} ms = quick {9:F1} + snapshot {10:F1} + apply {11:F1}; " +
+                "{12} {13:F1} ms = raster {14:F1} + guards {15:F1} + outline {16:F1}{17}; edit to result {18:F0} ms{19}",
+                ctx.Revision, mode, reason, ctx.Points, ctx.Rect.z, ctx.Rect.w, (long)ctx.Rect.z * ctx.Rect.w,
+                probe != null ? $", snapshot {probe.Snap.Width} x {probe.Snap.Depth}" : string.Empty,
+                mainMs + (mode == "worker" ? 0d : res.TotalMs), ctx.QuickMs, snapMs, applyMs,
+                mode == "worker" ? "WORKER" : "main-thread solve", res.TotalMs, res.RasterMs, res.GuardMs, res.RingMs,
+                res.Crossing ? $" (crossed run(s), allowance {res.Allowance:F1} m)" : string.Empty, latencyMs,
+                probe != null ? $"; snapshot vs engine height max {probe.ParityM:F3} m" : string.Empty));
         }
 
         private static List<float2> ToList(IReadOnlyList<float2> pts)
@@ -749,7 +1009,7 @@ namespace SkiResortMod.Systems
         /// track may cross (the raster keeps their ground, GradeRaster.Build keep; GradeParams.CrossBlendM).</summary>
         private void CollectObstacles(GradeMap map, int4 rect)
         {
-            m_Obstacles.Clear();
+            m_Obstacles = new GradeObstacles();
             Bounds2 area = HeightmapWriter.WorldBounds(map, rect);
 
             var found = new NativeList<Entity>(64, Allocator.Temp);
@@ -829,50 +1089,17 @@ namespace SkiResortMod.Systems
         /// (SkiRunRater, the catalog's origin and texel); -3 for an outline the path does not enter or a rating that did not finish.</summary>
         private sbyte[] RateCrossed(GradeMap map, GradeRaster r, bool[] entered, bool after)
         {
-            var bands = new sbyte[m_Obstacles.Runs.Count];
             TerrainHeightData hd = m_TerrainSystem.GetHeightData();
             TerrainHeightData cpu = hd;
-            var sampler = new GradeRaster.Sampler { Map = map, R = r, After = after, Outside = w => TerrainUtils.SampleHeight(ref cpu, w) };
-            float texel = 1f / hd.scale.x;                            // as SkiRunCatalogSystem rates (TerrainSystem.cs:2619-2620)
-            var origin = new double2(-hd.offset.x, -hd.offset.z);
-            for (int k = 0; k < bands.Length; k++)
+            var inp = new GradeSolveInput
             {
-                bands[k] = -3;
-                float2[] poly = m_Obstacles.Runs[k];
-                if (entered == null || !entered[k] || poly == null || poly.Length < 3)
-                    continue;
-                var nodes = new float3[poly.Length];
-                for (int i = 0; i < poly.Length; i++)
-                    nodes[i] = new float3(poly[i].x, sampler.Sample(new float3(poly[i].x, 0f, poly[i].y)), poly[i].y);
-                var result = new SlopeResult();
-                RateStatus st = SkiRunRater.Rate(nodes, nodes.Length, origin, ref sampler, texel, 0, new SlopeGrid(), null, result,
-                    out int _, out float _, out float _);
-                if (st == RateStatus.Rated)
-                    bands[k] = (sbyte)result.Band;
-            }
-            return bands;
+                Map = map, Obstacles = m_Obstacles, Height = w => TerrainUtils.SampleHeight(ref cpu, w),
+                RateOrigin = new double2(-hd.offset.x, -hd.offset.z), RateTexel = 1f / hd.scale.x,   // as SkiRunCatalogSystem rates (TerrainSystem.cs:2619-2620)
+            };
+            return GradeSolver.RateCrossed(inp, r, entered, after);
         }
 
-        private static bool SameBands(sbyte[] before, sbyte[] after, out string text)
-        {
-            var sb = new StringBuilder();
-            bool same = true;
-            for (int k = 0; k < before.Length; k++)
-            {
-                if (before[k] == -3 || after[k] == -3)
-                    continue;
-                sb.Append(sb.Length > 0 ? ", " : string.Empty).Append("run ").Append(k).Append(' ').Append((SlopeBand)before[k]);
-                if (before[k] != after[k])
-                {
-                    same = false;
-                    sb.Append(" -> ").Append((SlopeBand)after[k]);
-                }
-                else
-                    sb.Append(" kept");
-            }
-            text = sb.Length > 0 ? "crossed runs: " + sb : "no crossed run rated";
-            return same;
-        }
+        private static bool SameBands(sbyte[] before, sbyte[] after, out string text) => GradeSolver.SameBands(before, after, out text);
 
         /// <summary>Water on the changed texels, then GradeGuards.Check over everything CollectObstacles found.</summary>
         private GradeGuardKind CheckGuards(GradeMap map, GradeRaster r, out float2 where)
@@ -1443,12 +1670,11 @@ namespace SkiResortMod.Systems
                 m_Phase = RunPhase.Edit;
                 m_AppliedRun = Entity.Null;
             }
-            m_Path = null;
-            m_Prof = null;
-            m_Raster = null;
-            m_Ring = null;
-            m_Guard = GradeGuardKind.None;
-            m_Dirty = m_ApplyRequested = m_CrossingPending = false;
+            CancelFull();
+            m_Ctx = null;
+            m_Checking = false;
+            ResetPlanFields();
+            m_Dirty = m_ApplyRequested = false;
             m_HoverPoint = m_DragIndex = -1;
             m_DrawSeg.Clear();
             m_DrawColor.Clear();

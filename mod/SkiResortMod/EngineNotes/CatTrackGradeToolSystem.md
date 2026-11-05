@@ -31,13 +31,31 @@ Same as `LiftLineToolSystem`'s:
   the default tool cannot pick a Space area either, DefaultToolSystem.cs:796-805). The first click arms a track (red outline), a second
   click on it calls `DeleteTrack` (the hub row trash's path), a click off it disarms. Enter is refused in Delete mode.
 
-## Solve on change, not per frame
+## Solve on change, not per frame: quick on every edit, full debounced on a worker (hand-test note 20, DECISIONS 601 f)
 
-A point added / inserted / moved (on release) / undone, or a grading setting changed, marks the plan dirty. The next frame re-solves
-once: path, the rect and the obstacles (search-tree walk, lift-line edges, the other runs' outlines) FIRST, then the profile (pinned to
-the ground inside crossed runs and their fade band), the preview raster on the CPU (cascade) heights, the water depth on the changed
-texels and the crossing guards. Per frame: the raycast, the precomputed overlay lines (about one per 8 m of
-track plus ticks) and the tooltip. A cost line is logged per solve.
+A point added / inserted / moved (on release) / undone, or a grading setting changed, marks the plan dirty. The next frame runs the QUICK
+solve (`SolveQuick`, main thread, about 1 to 3 ms at 30 points): path, ground under it, the rect and the obstacles (search-tree walk,
+lift-line edges, the other runs' outlines) FIRST, then the profile at the first inside-allowance step (pinned to the ground inside
+crossed runs and their fade band), and the overlay lines. The plan line shows length / steepest part (no earthwork yet) and a second
+tooltip line says "Checking the ground." The raster, crossed-run band rating, guards, along-track crossing check and outline are the FULL
+solve (`GradeSolver.Run`, CatTrackGradeSolve.cs, pure): 10 to 190 ms in game, growing with the rect, so it never runs per edit.
+
+- Debounce: `DebounceMs` (150 ms) after the last edit, not while dragging. A newer edit cancels the job (`GradeCancel`, polled between
+  stages) and drops its result; one job at a time (a canceled one finishes first).
+- Worker input: a `HeightSnapshot` of the rect plus the entered crossed runs plus the planner's lattice margin (SkiRunAutoPlanner.SnapshotRect,
+  rows copied from `hd.heights`), the wet layer of the rect (`FillWet`: SampleDepth at the GradeMap texel centers behind the node pre-filter),
+  and a private `GradeObstacles` (CollectObstacles allocates a new one per solve, the worker fills its WetTexels). No Entities, no Unity API,
+  no log on the worker. A read outside the snapshot (`SnapshotProbe.Misses`) or a rect over `MaxSnapshotTexels` (4 M) solves again inline on
+  the engine's sampler (`TerrainUtils.SampleHeight`: the pre-split behavior, a hitch, logged as mode "engine").
+- Enter: `SolveQuick` if dirty, then `FinishFullNow` (waits for the job of this revision, else runs the same function inline), then the
+  guards checked are those of the points on screen. `ApplyCore` still re-rasters from the base-map readback and re-checks everything.
+- The inside allowance is no longer stepped one per frame (F4 is gone: the worker tries all steps); `m_CrossingPending` and the cached
+  Before ratings per frame went with it.
+- Gate: GradeBatch GR-31 (the full solve on the tool's crop equals the one-shot of before the split, the crop is never read outside itself,
+  SolveQuick may not build a raster or run the full solve).
+- Log: `Grade [plan]` and `Grade [crossing]` as before, when the full solve lands; one `Grade [cost]` line per full solve: main thread
+  ms (quick + snapshot + apply), worker ms (raster, guards, outline), edit-to-result ms, mode (worker / inline / engine), the snapshot size and
+  the snapshot-vs-engine height difference at 8 path points (should print 0.000 m). The dev tab shows the last one.
 
 ## Enter: emit the run, wait for the game, then grade + apply in one frame
 
@@ -95,12 +113,11 @@ the delete is the trash button of the cat track's hub Runs row (two clicks, RunL
 `IsCatTrack` (our prefab, live, not Temp) then RunAreaEmit.DeleteLikeBulldozer. The ground stays as graded, no refund. The tool itself raycasts
 Terrain only: a click on an existing cat track starts a new track there (branching), as before 2026-10-26.
 
-## Crossing cost (F4, round-2 critique)
+## Crossing cost (F4, round-2 critique; superseded by the split solve above)
 
-While editing, one allowance step per frame: Solve builds at the current step; a band change moves to the next step and marks the plan dirty
-(`m_CrossingPending`, PlanOk false meanwhile), so a hard crossing costs at most one raster per frame. The Before ratings are cached per plan
-revision and params object (`m_BandsBefore`). Enter settles all steps in one call (`Solve(.., settle)`). The `Grade [crossing]` line lists each
-step with its ms ("2.0 m changed 131 ms; 1.0 m kept 128 ms").
+Until 2026-11-05 the plan stepped the inside allowance one step per frame while editing (a band change marked the plan pending) and Enter
+settled all steps in one call. The worker now tries all steps in one job. The `Grade [crossing]` line still lists each step with its ms
+("2.0 m changed 131 ms; 1.0 m kept 128 ms").
 
 ## Guards (never under lifts, lots or water)
 
