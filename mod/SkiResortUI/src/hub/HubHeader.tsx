@@ -119,7 +119,7 @@ export function AreaList(): JSX.Element | null {
           const isUnlinked = r.kind === 1;
           const on = key === curKey;
           return (
-            <Button key={key} theme={{ button: cx(styles.overlayItem, on && styles.overlayItemOn) }} selected={on}
+            <Button focusKey={FOCUS_DISABLED} key={key} theme={{ button: cx(styles.overlayItem, on && styles.overlayItemOn) }} selected={on}
               onSelect={() => {
                 close();
                 if (!on) hubTriggers.selectResort(entrySign(r));

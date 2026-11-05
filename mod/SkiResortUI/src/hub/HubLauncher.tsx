@@ -8,6 +8,7 @@
  */
 import { useValue } from "cs2/api";
 import { Button, FloatingButton, Tooltip } from "cs2/ui";
+import { FOCUS_DISABLED } from "cs2/input";
 import { showHubButton$ } from "../bindings";
 import { LOC, useT } from "../l10n";
 import { toggleHub, useHubConnected, useHubOpen } from "./hubState";
@@ -25,6 +26,7 @@ export function HubLauncherSquare(): JSX.Element {
   return (
     <Tooltip tooltip={t(LOC.launcherTooltip)}>
       <Button
+        focusKey={FOCUS_DISABLED}
         variant="floating"
         src={HUB_GLYPH}
         tinted
@@ -44,6 +46,7 @@ export function HubFloatingButton(): JSX.Element | null {
   return (
     <Tooltip tooltip={t(LOC.launcherTooltip)}>
       <FloatingButton
+        focusKey={FOCUS_DISABLED}
         src={HUB_GLYPH}
         tinted
         selected={open}

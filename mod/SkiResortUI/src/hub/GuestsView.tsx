@@ -11,6 +11,7 @@
 import { useValue } from "cs2/api";
 import { Unit } from "cs2/l10n";
 import { Button } from "cs2/ui";
+import { FOCUS_DISABLED } from "cs2/input";
 import { city$, hubTriggers, lodgeParking$, resortLive$, resorts$, sameEntity, selectedResort$ } from "../bindings";
 import type { BuildItemId, CityStats, LodgeParkingRow, ResortLive } from "../bindings";
 import { useT } from "../l10n";
@@ -161,7 +162,7 @@ function LodgeParkingLines({ rows, samples, t }: { rows: readonly LodgeParkingRo
           : t(HUB_LOC.guestsTipCarSpaces);
         return (
           <Tip key={`${r.lodge.index}:${r.lodge.version}`} tip={tip}>
-            <Button theme={{ button: cx(styles.infoLine, styles.foldRow, styles.lodgeRow) }} onSelect={() => hubTriggers.focusBuilding(r.lodge)}>
+            <Button focusKey={FOCUS_DISABLED} theme={{ button: cx(styles.infoLine, styles.foldRow, styles.lodgeRow) }} onSelect={() => hubTriggers.focusBuilding(r.lodge)}>
               <div className={custom ? styles.lodgeNameLabel : styles.infoLabel}><LocText entry={HUB_FMT.guestsRowCarSpaces} args={{ NAME: name }} /></div>
               <StableWidth samples={samples.count} align="end">{countCell(r.carSpaces)}</StableWidth>
             </Button>

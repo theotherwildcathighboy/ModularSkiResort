@@ -4,7 +4,7 @@
  * line up) arms on the first click and deletes on the second (hubTriggers.deleteCatTrack); leaving the row or 4 s disarm it. The pen is a
  * sibling Button, never nested; while a row renames, the fly part is a plain div
  * with RenameField (an <input> is never inside a <button>). The state word sits in an XS StableWidth of the three translated words so the name never moves.
- * Mouse enter sends hoverRun through hubState.sendHoverRun (dedup); click -> onPick (fly part FOCUS_DISABLED, as in LiftTable: FIX-LIST 58). Number columns carry the useNumberSamples widths (no jitter).
+ * Mouse enter sends hoverRun through hubState.sendHoverRun (dedup); click -> onPick (every Button FOCUS_DISABLED, as in all of the hub: rule R15). Number columns carry the useNumberSamples widths (no jitter).
  * Memoised on the row's own RunRow / RunLive fields, lift name, focus, renaming, settings, `t`, samples, state words and the stable callbacks.
  * Width (Overpass advances): name room 167 / 201 / 224 rem at 100 / 130 / 150 % text; the ellipsis is the net, the full name is tooltip line 1.
  */
@@ -140,6 +140,7 @@ function TrashButton({ row, t, armed, setArmed }: { row: RunRow; t: Translate; a
   return (
     <Tip tip={<TipLines lines={[t(HUB_LOC.runDelete), armed ? t(HUB_LOC.runDeleteConfirm) : t(HUB_LOC.runDeleteTip)]} />}>
       <Button
+        focusKey={FOCUS_DISABLED}
         variant="icon"
         src="Media/Glyphs/Trash.svg"
         tinted
@@ -202,6 +203,7 @@ function RunLineImpl(p: RunLineProps): JSX.Element {
       {row.kind === RUN_KIND.CatTrack ? <TrashButton row={row} t={t} armed={armed} setArmed={setArmed} /> : <div className={styles.penSpacer} />}
       <Tip tip={<TipLines lines={[t(HUB_LOC.rename), t(HUB_LOC.renameTip)]} />}>
         <Button
+          focusKey={FOCUS_DISABLED}
           variant="icon"
           src="Media/Glyphs/Pen.svg"
           tinted

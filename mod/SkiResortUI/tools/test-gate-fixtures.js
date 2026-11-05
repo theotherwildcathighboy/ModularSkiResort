@@ -6,6 +6,7 @@
 *   R1   a constructed binding that is never passed to AddBinding( (drop `AddBinding(m_History);`)
 *   R2   a Write(...) of the wrong value kind (a bool written for RunRow.kind, a number)
 *   R11  an always-mounted file (hub/HubRoot.tsx) importing a panel component (StatusBlock)
+*   R15  a hub cs2/ui Button without focusKey={FOCUS_DISABLED} (the Runs view piste-map toggle)
 *   R19  a plain element (<span>) as a LocText argument through a variable (the Guests view lodge name)
 * Nothing under mod/ or src/ is edited: the faults live only in the temp copies.
 * Usage: node tools/test-gate-fixtures.js      -> `test-gate-fixtures: N fixture(s), failures=0` (exit 0)
@@ -88,6 +89,14 @@ function main() {
     edit(path.join(f4.src, "hub", "GuestsView.tsx"), "            : t(tier);", "            : <span>{t(tier)}</span>;");
     const r4 = runGate(f4.cs, f4.src);
     expect(r4.code !== 0 && /<span> is an argument of <LocText> .*rule R19/.test(r4.text), `R19 fixture did not fail with the loc-argument message (exit ${r4.code})`);
+
+    // R15 hub-wide: the baseline proves the Runs view's piste-map toggle passes WITH focusKey; this copy drops it
+    const f5 = fresh("r15");
+    edit(path.join(f5.src, "hub", "RunsView.tsx"), "<Button focusKey={FOCUS_DISABLED} theme={{ button: styles.pisteToggle }}",
+      "<Button theme={{ button: styles.pisteToggle }}");
+    const r5 = runGate(f5.cs, f5.src);
+    expect(r5.code !== 0 && /src\/hub\/RunsView\.tsx:\d+: <Button> \(cs2\/ui Button\) without focusKey=\{FOCUS_DISABLED\}.*mouse-only.*rule R15/.test(r5.text),
+      `R15 fixture did not fail with the hub-wide focusKey message (exit ${r5.code})`);
   } finally {
     try { fs.rmSync(tmp, { recursive: true, force: true }); } catch { /* temp dir: leave it */ }
   }

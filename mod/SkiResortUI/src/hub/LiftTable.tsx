@@ -5,9 +5,8 @@
  * both arrive from C#, the UI decides nothing. While renaming, the fly part is a plain div (an <input> is never inside a <button>).
  * The "billed at 25 %" reason is hubRules.liftCostReason, mapped by liftCostReducedEntry. Rise is shown signed (a negative rise is printed, not
  * unknown). Memoised on every LiftRow field it shows plus focus, renaming, `t`, the callbacks, type, seats, speedMps and typeWords.
- * The fly part passes focusKey={FOCUS_DISABLED} (FIX-LIST 58): a FOCUS_AUTO Button kept the game's key focus after its click, and its
- * "Select" action handler (active while focused: index.js@629617, InputActionConsumer @568737) then ran onPick on a later Select made
- * elsewhere, e.g. on a Build-strip tile (FOCUS_DISABLED, so it never took the focus back). Leaving the view unmounted the row and cleared it.
+ * The fly part and the pen pass focusKey={FOCUS_DISABLED} like every hub control (rule R15): the hub is mouse-only and never takes the
+ * game's key focus. (FIX-LIST 58 suspected a focused row re-firing; it was a test-helper false positive, the row itself is fine.)
  */
 import { memo } from "react";
 import { Button } from "cs2/ui";
@@ -178,6 +177,7 @@ function LiftLine2Impl({ row, partner, t, words, typeWords, focused, renaming, o
         )}
         <Tip tip={<TipLines lines={[t(HUB_LOC.rename), t(HUB_LOC.liftNameTip), t(HUB_LOC.renameTip)]} />}>
           <Button
+            focusKey={FOCUS_DISABLED}
             variant="icon"
             src="Media/Glyphs/Pen.svg"
             tinted

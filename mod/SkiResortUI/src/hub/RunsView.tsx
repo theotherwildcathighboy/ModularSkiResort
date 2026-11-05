@@ -10,6 +10,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { RefObject } from "react";
 import { useValue } from "cs2/api";
 import { Button } from "cs2/ui";
+import { FOCUS_DISABLED } from "cs2/input";
 import { NULL_ENTITY, city$, drawRun$, entityId, hubTriggers, lifts$, pisteMap$, quickRuns$, runLive$, runs$, selectedResort$ } from "../bindings";
 import type { RunRow } from "../bindings";
 import { useT } from "../l10n";
@@ -70,7 +71,7 @@ export function RunsView({ listRef }: { listRef: RefObject<HTMLDivElement> }): J
 
   const toggle = (
     <Tip tip={t(HUB_LOC.pisteMapTip)}>
-      <Button theme={{ button: styles.pisteToggle }} selected={pisteMap} onSelect={() => hubTriggers.setPisteMap(!pisteMap)}>
+      <Button focusKey={FOCUS_DISABLED} theme={{ button: styles.pisteToggle }} selected={pisteMap} onSelect={() => hubTriggers.setPisteMap(!pisteMap)}>
         <CheckBox on={pisteMap} />
         {t(HUB_LOC.pisteMap)}
       </Button>

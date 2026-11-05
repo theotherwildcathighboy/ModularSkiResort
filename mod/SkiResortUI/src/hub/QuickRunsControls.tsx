@@ -99,6 +99,7 @@ export function Act({ label, tip, on, disabled, onSelect, next }: {
   return (
     <Tip tip={tip}>
       <Button
+        focusKey={FOCUS_DISABLED}
         variant="flat"
         className={cx(styles.segButton, next && styles.segButtonNext, on && styles.buttonOn)}
         disabled={!!disabled}
@@ -196,7 +197,7 @@ function PlanRow({ on, tip, wait, onSelect, first, second }: {
 }): JSX.Element {
   return (
     <Tip tip={tip}>
-      <Button theme={{ button: cx(styles.planRow, !on && styles.planRowOff) }} disabled={wait} selected={on} onSelect={onSelect}>
+      <Button focusKey={FOCUS_DISABLED} theme={{ button: cx(styles.planRow, !on && styles.planRowOff) }} disabled={wait} selected={on} onSelect={onSelect}>
         <CheckBox on={on} />
         <div className={styles.planRowText}>
           <div>{first}</div>
@@ -344,7 +345,7 @@ export function QuickRunsRows(): JSX.Element {
   return (
     <>
       <div className={styles.quickRow}>
-        <Button variant="flat" className={cx(styles.treeToolButton, styles.buttonOn)} selected onSelect={() => hubTriggers.quickRunsToggle()}>
+        <Button focusKey={FOCUS_DISABLED} variant="flat" className={cx(styles.treeToolButton, styles.buttonOn)} selected onSelect={() => hubTriggers.quickRunsToggle()}>
           {t(HUB_LOC.quickTool)}
         </Button>
         <div className={styles.treeRowSpacer} />

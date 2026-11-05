@@ -8,6 +8,7 @@
 import type { RefObject } from "react";
 import { useValue } from "cs2/api";
 import { Button } from "cs2/ui";
+import { FOCUS_DISABLED } from "cs2/input";
 import { Unit } from "cs2/l10n";
 import { LocalizedFraction } from "../cs2shim";
 import { city$, resortLive$, resorts$, selectedResort$ } from "../bindings";
@@ -139,6 +140,7 @@ export function ViewTiles({ tilesRef }: { tilesRef: RefObject<HTMLDivElement> })
         return (
           <Tip key={v} tip={row ? tileTip(v, row, l, unlinked, city.month, t) : undefined}>
             <Button
+              focusKey={FOCUS_DISABLED}
               theme={{ button: cx(styles.tile, on && styles.tileOn) }}
               selected={on}
               onSelect={() => { if (!on) view$.update(v); }}

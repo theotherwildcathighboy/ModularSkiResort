@@ -9,6 +9,7 @@
 import type { RefObject } from "react";
 import { useValue } from "cs2/api";
 import { Button } from "cs2/ui";
+import { FOCUS_DISABLED } from "cs2/input";
 import { Unit } from "cs2/l10n";
 import { PROBLEM, city$, hubTriggers, lodgeParking$, problems$, resortLive$, resorts$, sameEntity, selectedResort$ } from "../bindings";
 import type { BuildItemId, CityStats, ProblemRow, ResortLive, ResortRow } from "../bindings";
@@ -293,7 +294,7 @@ function ProblemSlot({ b, slot, more, hidden, factors, live, t, noneLine, popOpe
   const moreCell = slot !== 2 ? null : more > 0 ? (
     <div className={styles.problemMore}>
       <Tip tip={popOpen ? undefined : <TipLines lines={[...hidden.map((h, i) => <BandText key={i} b={h} t={t} />)]} />}>
-        <Button theme={{ button: cx(styles.problemMoreButton, popOpen && styles.problemMoreOn) }}
+        <Button focusKey={FOCUS_DISABLED} theme={{ button: cx(styles.problemMoreButton, popOpen && styles.problemMoreOn) }}
           onSelect={() => problemsOpen$.update(!problemsOpen$.value)}>
           <LocText entry={HUB_FMT.problemMore} args={{ N: numArg(more, Unit.Integer) }} />
         </Button>
@@ -325,7 +326,7 @@ function ProblemSlot({ b, slot, more, hidden, factors, live, t, noneLine, popOpe
     <div className={cx(styles.problemSlotRow, styles.problemRowOn)}>
       <Tip tip={bandTip(b, factors, live, t)}>
         {click ? (
-          <Button theme={{ button: cx(styles.problemSlot, styles.problemClickable, p.severity <= 1 && styles.problemDim) }} onSelect={onSelect}>
+          <Button focusKey={FOCUS_DISABLED} theme={{ button: cx(styles.problemSlot, styles.problemClickable, p.severity <= 1 && styles.problemDim) }} onSelect={onSelect}>
             {content}
           </Button>
         ) : (
@@ -399,7 +400,7 @@ export function StatusBlock({ statusRef, problemsRef }: {
               return (
                 <Tip key={i} tip={bandTip(b, factors, l, t)}>
                   {click ? (
-                    <Button theme={{ button: cx(styles.popoverRow, b.row.severity <= 1 && styles.problemDim) }}
+                    <Button focusKey={FOCUS_DISABLED} theme={{ button: cx(styles.popoverRow, b.row.severity <= 1 && styles.problemDim) }}
                       onSelect={() => { problemsOpen$.update(false); runClick(click, b.row); }}>
                       {row}
                     </Button>
