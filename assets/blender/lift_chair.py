@@ -3248,9 +3248,10 @@ def parse_args(argv=None):
     ap.add_argument("--envelope", action="store_true",
                     help="with --split: the jaw envelope (ENVELOPE_*; default letter " + ENVELOPE_LETTER + "): no "
                          "bake, the shipped " + SPLIT_LETTER + " atlas remapped; only the changed meshes are written")
-    ap.add_argument("--thin-jaw", dest="thin_jaw", action="store_true",
-                    help="with --envelope, style tr: the thin jaw (THIN_JAW_SPEC, art-601), grip letter "
-                         + THIN_JAW_LETTER + "; the O body is unchanged and not written")
+    ap.add_argument("--thin-jaw", dest="thin_jaw", nargs="?", const=THIN_JAW_LETTER, default=None,
+                    choices=sorted(THIN_JAW_SPECS),
+                    help="with --envelope, style tr: the thin jaw (THIN_JAW_SPECS, art-601) as that grip letter "
+                         "(default " + THIN_JAW_LETTER + "); the O body is unchanged and not written")
     ap.add_argument("--remap-from", default=None,
                     help="--envelope: the shipped split letter folder (default assets/import/chairs/"
                          + SPLIT_LETTER + ")")
@@ -3277,11 +3278,13 @@ def _resolve(args):
             raise ValueError("--envelope needs --split")
         global ENVELOPE
         ENVELOPE = True
-    if getattr(args, "thin_jaw", False):
+    if getattr(args, "thin_jaw", None):
         if not ENVELOPE or st.key != "tr":
             raise ValueError("--thin-jaw needs --split --envelope --style tr")
-        global THIN_JAW
+        global THIN_JAW, THIN_JAW_LETTER, THIN_JAW_SPEC
         THIN_JAW = True
+        THIN_JAW_LETTER = args.thin_jaw
+        THIN_JAW_SPEC = THIN_JAW_SPECS[THIN_JAW_LETTER]
     letter = args.letter or (THIN_JAW_LETTER if THIN_JAW else ENVELOPE_LETTER if ENVELOPE
                              else SPLIT_LETTER if args.split else st.letter)
     name = cs2_asset.validate_asset_name(args.name or f"{st.base}{letter}")
@@ -3587,12 +3590,20 @@ ENVELOPE_ROLES = {"tr": ("body", "grip"), "dq": ("grip",)}    # the meshes the e
 # ring (inside the clamp block) shrinks along travel to THIN_JAW["outboard_half"], so in plan the jaw
 # tapers from its full length on the rope to the block's length where it enters the block: a jaw on
 # the rope and a short neck instead of a wide slab. The body is the O body, unchanged (keeps O).
+# Q (the critique pass: P's edge on the rope center leaves half the rope bare beside a fin; a fixed
+# grip is a compact clamp straddling the rope): the inboard edge stays at O's +0.040 and the whole
+# plate shortens along the rope, 0.44 m on the rope tapering to 0.24 m at the block. Every Q plate
+# vertex stays inside the O plate's volume, so Q can add no overlap O does not have.
 # --------------------------------------------------------------------------------------
-THIN_JAW = False                    # --thin-jaw (with --envelope, tr)
-THIN_JAW_LETTER = "P"
-THIN_JAW_SPEC = {"inboard_y": 0.010,      # m: the plate's inboard edge (O: 0.040; the rope's r is 0.024)
-                 "outboard_half": 0.054}  # m: the outboard ring's half length (O: 0.340): the plan width
-                                          # at the block face (y -0.155) is then the block's 0.140
+THIN_JAW = False                    # --thin-jaw [P|Q] (with --envelope, tr)
+THIN_JAW_SPECS = {
+    "P": {"inboard_y": 0.010,       # m: the plate's inboard edge (O: 0.040; the rope's r is 0.024)
+          "inboard_half": None,     # m: the inboard ring's half length (None: O's 0.340)
+          "outboard_half": 0.054},  # m: the outboard ring's half length (O: 0.340): the block's 0.140 at its face
+    "Q": {"inboard_y": 0.040, "inboard_half": 0.22, "outboard_half": 0.12},
+}
+THIN_JAW_LETTER = "Q"
+THIN_JAW_SPEC = THIN_JAW_SPECS[THIN_JAW_LETTER]
 ENVELOPE_JAW = {"tr": "gripjaw", "dq": "jaw_rope"}             # C3: the jaw beside the grip part
 #: C15 (every split mesh, every LOD): lift_tower's wheel half width + 4 cm (FG 0.065, DQ 0.05) and the
 #: wheel bottoms under the rope (FG 0.433, DQ 0.482) + margin; jaw_x = the outboard end of the jaw
@@ -3803,16 +3814,21 @@ def _thin_jaw(grip, table):
     yc = 0.5 * (min(me.vertices[i].co.y for i in in_r) + max(me.vertices[i].co.y for i in in_r))
     half = max(abs(me.vertices[i].co.y - yc) for i in in_r)
     s0 = THIN_JAW_SPEC["outboard_half"] / half
+    h1 = THIN_JAW_SPEC.get("inboard_half") or half
+    s1 = h1 / half
     x1 = THIN_JAW_SPEC["inboard_y"]
     for i in out_r:
         v = me.vertices[i].co
         v.y = yc + (v.y - yc) * s0
     for i in in_r:
-        me.vertices[i].co.x = x1
+        v = me.vertices[i].co
+        v.x = x1
+        v.y = yc + (v.y - yc) * s1
     me.update()
-    return {"inboard_x": [py1, x1], "half_length_m": [round(half, 4), THIN_JAW_SPEC["outboard_half"]],
+    return {"inboard_x": [py1, x1], "half_length_m": {"outboard": [round(half, 4), THIN_JAW_SPEC["outboard_half"]],
+                                                      "inboard": [round(half, 4), round(h1, 4)]},
             "plan_area_m2": [round(2 * half * (py1 - py0), 4),
-                             round((half + THIN_JAW_SPEC["outboard_half"]) * (x1 - py0), 4)]}
+                             round((h1 + THIN_JAW_SPEC["outboard_half"]) * (x1 - py0), 4)]}
 
 
 def _ring_after(obj, ring):
@@ -4244,6 +4260,8 @@ def split_proxy_parts(style, row, joint, body_top, hanger_offset=HANGER_OFFSET):
         # with LOD0's), as deep as _proxy_parts'
         jx = [x for x, _z in TR_SPLIT_GRIP["plate"]]
         gl, gw, gh = max(jx) - min(jx), TR_SPLIT_GRIP["box"][1], GRIP_TOP_Z + 0.070
+        if THIN_JAW:                                        # as long as the thin jaw (LOD0 bounds: Q 0.44 m)
+            gl = min(gl, 2.0 * max(THIN_JAW_SPEC.get("inboard_half") or 0.5 * gl, THIN_JAW_SPEC["outboard_half"]))
         gy = ENVELOPE_TR["block_y"] if ENVELOPE else 0.0
         if ENVELOPE:
             gw = ENVELOPE_TR["block_w"]

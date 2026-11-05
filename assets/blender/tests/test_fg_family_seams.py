@@ -391,9 +391,9 @@ def s9_code():
     try:
         t, table, _src = LT.assemble_m(LT.build_base_m(), False, "drive")
         co, tris, names, _ = LT.m_arrays(t)
-        k = [i for i, n in enumerate(names) if n.startswith(("sheave_hold_", "holdboom_", "holdhang_", "holdpost_",
-                                                              "holdtie_"))]
-        check(any(names[i].startswith("holdtie_") for i in k), "S9 nose-train base builds its holdtie_ parts")
+        k = [i for i, n in enumerate(names) if n.startswith(("sheave_hold_", "holdboom_", "holdhang_", "holdweb_",
+                                                              "holdplate_"))]
+        check(any(names[i].startswith("holdweb_") for i in k), "S9 nose-train base builds its holdweb_ parts")
         _s9_gate("Pali base nose train (art-601)", chair,
                  (co, [tuple(int(v) for v in tris[i]) for i in k], [names[i] for i in k]),
                  LT.FG_LANE, lambda x, s=spec: LT.chord_z(s, x))

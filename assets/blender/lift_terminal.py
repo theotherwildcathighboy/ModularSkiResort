@@ -1426,7 +1426,7 @@ M_DENSITY = {
     "stakewrap_": 0.8, "grate_": 0.6, "rail_catwalk": 0.6, "rail_bay": 0.6, "post_": 0.6,
     "kick_": 0.6, "ladder_": 0.6, "lrung_": 0.6, "wrung_": 0.5, "flange_": 0.8, "gusset_": 0.8,
     "stiff_": 0.8, "bolt_": 0.6, "railcap_": 0.8, "raillug_": 0.6, "wheeldisc_": 0.8,
-    "sheave_hold": 0.8, "holdboom_": 0.8, "holdhang_": 0.6, "holdpost_": 0.6, "holdtie_": 0.4, "sheave_cw": 0.8, "cwbrk_": 0.6,
+    "sheave_hold": 0.8, "holdboom_": 0.8, "holdhang_": 0.6, "holdweb_": 0.8, "holdplate_": 0.6, "sheave_cw": 0.8, "cwbrk_": 0.6,
     "exhaust": 0.6, "antenna": 0.5, "antwhip": 0.4, "winframe_": 0.6, "door_": 0.8,
     "doorlite_": 0.6, "hatch_": 0.8, "drip_": 0.5, "cabinet": 0.8, "bearingdeck_": 0.8,
     "bearing": 0.6, "colplate": 0.8, "wxmast": 0.5, "wxarm": 0.5, "wxcup": 0.5, "guy_": 0.4,
@@ -1486,9 +1486,9 @@ M_NOT_WALKABLE = (
     ("sheave_hold_", "the hold-down sheave trains (rocker tree): machinery over the rope"),
     ("holdboom_", "the hold-down boom: a steel member over the rope, no access"),
     ("holdhang_", "the hold-down boom's saddle on the portal beam: steel"),
-    # art-601 (M_NOSE_TRAIN): the king post on the boom's beam end and the tie rod to the boom's line end
-    ("holdpost_", "the hold-down boom's king post: steel, no access"),
-    ("holdtie_", "the hold-down boom's tie rod: steel, no access"),
+    # art-601 (M_NOSE_TRAIN): the boom's haunch web and its root plate on the front beam
+    ("holdweb_", "the hold-down boom's haunch web: steel, no access"),
+    ("holdplate_", "the hold-down boom's root plate on the front beam: steel"),
 )
 M_WALK = ("pad", "loaddeck", "carpet_", "grate_catwalk", "houseroof", "crest", "liftiebay")
 # FG walking ramps: (ramp part, low surface or GRADE, high surface)
@@ -1510,8 +1510,8 @@ M_CONTACTS = {
         "ropechord:wheelrope",
     "hold-down sheaves press the rope from above, hung from their boom, the boom hung from "
     "the front beam": "ropechord:sheave holdboom:sheave holdboom:holdhang beam:holdhang",
-    "art-601 nose train: the king post stands on the boom, the tie rod pinned to the post top and the boom's line end":
-        "holdboom:holdpost holdboom:holdtie holdpost:holdtie holdhang:holdpost",
+    "art-601 nose train: the haunch web welded on the boom, its root plate on the front beam round the saddle":
+        "holdboom:holdweb holdboom:holdplate holdplate:holdweb holdhang:holdplate beam:holdplate",
     "nitpick A (2026-10-13): a sheave train is ONE assembly (cs2_sheaves: hanger in its boom, main rocker, pins, sub "
     "rockers, sheave arms, wheel discs + rubber liners, axle caps), the boom's front end in its saddle on the portal "
     "beam; the counterweight wheels' discs + liners":
@@ -1580,7 +1580,7 @@ M_LOD2_DELETE = M_LOD1_DELETE + ("spoke_", "wheelhub", "wheelrope", "grate_", "l
                                  "flange_", "stiff_", "saddle_", "endmember_", "carr_",
                                  "wheelshaft", "railcap_", "hutroof", "cabinet", "beamdrum_",
                                  "badge", "scale_", "cwrope_", "cwcable_", "sheave_cw",
-                                 "wheeldisc_", "exhaust", "antenna", "holdboom_", "holdpost_", "holdtie_", "door_",
+                                 "wheeldisc_", "exhaust", "antenna", "holdboom_", "holdweb_", "holdplate_", "door_",
                                  "stake", "bearing", "colplate", "wxmast", "ropechord_",
                                  "houseroof", "signband_", "loadramp")
 
@@ -1895,13 +1895,14 @@ M_HOLD = dict(xc=-4.60, n=4, prefix="sheave_hold_", boom_w=0.15, boom_rear=-0.30
 # (ET68 at x -6.9) leaves the prefab at the import round, and the station's own hold-down train becomes the first train
 # the rope meets: it moves out along the code chord until its outer sheave's rim reaches the HV sub-lane's inboard end
 # (anchor_in; the sub-lanes and the chord are unchanged, so the line rope hands over to the modeled ropechord_ right
-# there), its box boom runs back to the same saddle on the front portal beam, trussed by a king post at its middle and
-# a tie rod to each end (everything above the rope in the lane's plane: the chairs pass under it as under the train). False = the deployed station byte for byte.
+# there), its box boom runs back to the same saddle on the front portal beam as a haunched cantilever: a web deep at the
+# beam end tapering out past the hanger, and a root plate down onto the beam (everything above the rope in the lane's
+# plane: the chairs pass under it as under the train). False = the deployed station byte for byte.
 M_NOSE_TRAIN = False
 M_NOSE = dict(rim_gap=0.02,          # m along x: the outer rim's line-side edge inboard of anchor_in
-              post_w=0.14, post_h=0.90,     # king post (box) square to the boom at its middle: width, height over it
-              tie_r=0.03, tie_segs=8,       # tie rods from the post top to both boom ends
-              tie_lug=0.10)                 # the ties' lower ends: this far in from each boom end
+              web_d=0.42,                   # the haunch web's depth over the boom at the beam end (chord frame)
+              web_tip=0.10,                 # chord a where the web runs out (just past the hanger at a 0)
+              plate_over=0.02)              # the root plate: this far past the saddle each way
 M_HOLD_MAT = {"paint": "paint1", "galv": "galv", "rubber": "rubber",   # tower key -> M key (Pali black steel)
               "wheelsteel": "wheelsteel"}                                # T62 round 2: cs2_sheaves.WHEEL_KEY
 M_CW_SHEAVE_W = 0.10
@@ -1990,7 +1991,7 @@ def build_hold_train_m(spec):
         out.append((_mbox(f"holdhang_{tag}", sx0, sx1, y - H["saddle_w"] / 2.0, y + H["saddle_w"] / 2.0,
                           bf[3] - 0.01, top), "paint1"))
         if M_NOSE_TRAIN:
-            out += _nose_stay_m(tag, y, M, u, nv, T, a1)
+            out += _nose_stay_m(tag, y, M, u, nv, T, a1, bf)
     return out
 
 
@@ -2003,28 +2004,32 @@ def _bake_loc(obj):
     obj.location = (0.0, 0.0, 0.0)
 
 
-def _nose_stay_m(tag, y, M, u, nv, T, a1):
-    """M_NOSE_TRAIN: a king-post truss on the boom: the post square to the boom at its middle, a tie rod from the
-    post top down to each boom end (chord frame -> authoring through M; the boom rises to the line, so a post at
-    the beam end with one tie would read as decoration). [(obj, M key)]."""
+def _nose_stay_m(tag, y, M, u, nv, T, a1, bf):
+    """M_NOSE_TRAIN: the boom as a haunched box cantilever (the critique pass: a hold-down train pushes the boom's tip
+    UP, so ties over the boom would carry nothing; a real station uses a deep, tapered cantilever off the portal).
+    A web on the boom's top, M_NOSE["web_d"] deep at the beam end tapering to nothing at web_tip (chord frame,
+    through M), and a root plate from the front beam's top up the web's root face (authoring, axis-aligned): the
+    boom reads bolted to the beam, not balanced on the saddle. [(obj, M key)]."""
     H, N = M_HOLD, M_NOSE
     zt = T["arm_c"] + T["arm_t"] / 2.0                    # the boom's top face (chord frame)
-    hw = N["post_w"] / 2.0
-    am = (H["boom_rear"] + a1) / 2.0
-    post = _mbox(f"holdpost_{tag}", am - hw, am + hw, y - hw, y + hw, zt - 0.02, zt + N["post_h"])
-    _bake_loc(post)
-    post.data.transform(M)
-    post.data.update()
-
-    def W(a, z):           # boom and post are baked (_bake_loc): a chord-frame point maps through M alone
-        v = M @ _V((a, y, z))
-        return (v.x, v.y, v.z)
-    top = zt + N["post_h"] - 0.05
-    out = [(post, "paint1")]
-    for end, a_end, a_post in (("l", H["boom_rear"] + N["tie_lug"], am - hw), ("b", a1 - N["tie_lug"], am + hw)):
-        out.append((_mcyl(f"holdtie_{tag}{end}", W(a_end, zt - 0.01), W(a_post, top), N["tie_r"],
-                          N["tie_segs"], "both"), "paint1"))
-    return out
+    w = H["boom_w"] / 2.0
+    ar, at, d = a1, N["web_tip"], N["web_d"]
+    bm = bmesh.new()
+    vs = [bm.verts.new(p) for p in ((ar, y - w, zt - 0.01), (ar, y + w, zt - 0.01), (ar, y + w, zt + d),
+                                    (ar, y - w, zt + d), (at, y - w, zt - 0.01), (at, y + w, zt - 0.01))]
+    for face in ((0, 3, 2, 1), (0, 4, 3), (1, 2, 5), (3, 4, 5, 2), (0, 1, 5, 4)):   # root, sides, slope, bottom (closed)
+        bm.faces.new([vs[i] for i in face])
+    bm.normal_update()
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    web = cs2_kit._new_obj(f"holdweb_{tag}", bm)
+    web.data.transform(M)
+    web.data.update()
+    root_top = M @ _V((ar, y, zt + d))
+    sx0, sx1 = H["saddle_x"]
+    pw = w + N["plate_over"]
+    plate = _mbox(f"holdplate_{tag}", sx0 - N["plate_over"], sx1 + N["plate_over"], y - pw, y + pw, bf[3] - 0.01,
+                  root_top.z)
+    return [(web, "paint1"), (plate, "paint1")]
 
 
 def hold_train_numbers_m(spec):
