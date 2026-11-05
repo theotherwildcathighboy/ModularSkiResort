@@ -1500,6 +1500,7 @@
   "SkiResort.CatTrack.PROMPT_DEL_ARMED": "Click again to delete this cat track. The ground stays graded and the fee is not refunded. Right click leaves delete mode.",
   "SkiResort.CatTrack.PLAN": "Cat track: {LENGTH} m. Steepest part: {MAX} %, limit {LIMIT} %. Digs {CUT} m³ and fills {FILL} m³.",
   "SkiResort.CatTrack.PLAN_LENGTH": "Cat track: {LENGTH} m. Steepest part: {MAX} %, limit {LIMIT} %.",
+  "SkiResort.CatTrack.CHECKING": "Checking the ground...",
   "SkiResort.CatTrack.PLAN_STEEP": "Too steep: the steepest part is {MAX} %, the limit is {LIMIT} %. Add about {SHORT} m of switchbacks.",
   "SkiResort.CatTrack.PLAN_BANK": "In places the hillside is steeper than the track's cut and fill slopes, so some banks stay steep.",
   "SkiResort.CatTrack.GUARD_TOO_LARGE": "This track covers too much ground to grade. Use a shorter track.",

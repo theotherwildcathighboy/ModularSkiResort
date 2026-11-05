@@ -27,6 +27,7 @@ namespace SkiResortMod.Systems
                 Val("Settings", () => ReadParams().Describe()),
                 Val("Points / edits to undo", () => $"{m_Edit.Count} / {m_Edit.UndoDepth}"),
                 Val("Last plan", () => LastPlanText),
+                Val("Last solve cost", () => LastCostText),
                 Val("Guard", () => m_Guard == GradeGuardKind.None ? "none" : $"{m_Guard} at ({m_GuardAt.x:F0}, {m_GuardAt.y:F0})"),
                 Val("Last grade", () => LastApplyText),
                 Val("Last heightmap write", () => m_Writer.LastLine),
