@@ -1646,6 +1646,8 @@ namespace SkiResortMod
                 { "SkiResort.LiftTool.SUNK_END", "A station on this open end would stand on the lower ground ahead, so its chairs would leave below the ground. Flatter ground helps." },
                 { "SkiResort.LiftTool.BACKWARD", "A station on this line faces away from it, so the line runs back through the building. Turn that station around." },
                 { "SkiResort.LiftTool.CROSSES", "This line crosses another lift. Building it joins the two at the crossing, and the other lift gets a tower there." },
+                // ALONG: the line runs on top of another lift (within 8 m, 10 deg, over 15 m); the game would merge them, so Build is refused (FIX-LIST 60 b)
+                { "SkiResort.LiftTool.ALONG", "This line runs along another lift. The game would merge the two lines, so it cannot be built here." },
                 // A loose-end joint that turns the line by more than LiftAlignMath.BendWarnDeg: a standing warning, never a refusal.
                 { "SkiResort.LiftTool.BEND", "The rope turns {DEG}° where this line joins the built one. Real lift lines turn 5° or less at a tower." },
                 { "SkiResort.LiftTool.OPEN_END", "This end is open ground: place a station here to finish the lift." },

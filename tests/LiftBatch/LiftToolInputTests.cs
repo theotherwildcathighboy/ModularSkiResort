@@ -32,6 +32,46 @@ namespace LiftBatch
             SplitReplayGondola();
             SplitOrdinaryLines();
             SplitChordMembers();
+            AlongRefused();
+        }
+
+        // AL-1 (FIX-LIST 60 b): a line drawn on top of a built lift is refused; beside it, across it, drawn on from its loose end, or met
+        // at an end it is not. Field case: a gondola (-2200, 3200) -> (-2200, 2700) over the FG edge (-2200, 2795) -> (-2200, 2705).
+        private static void AlongRefused()
+        {
+            const string W = "tool/AL-1";
+            const float margin = 5f;
+            float2 a = new float2(-2200f, 3200f), b = new float2(-2200f, 2700f);
+            float min = LiftLineInput.AlongMinOverlapM;
+            // the field case: collinear, the FG edge inside the line
+            float m = LiftLineInput.AlongOverlapM(a, b, new float2(-2200f, 2795f), new float2(-2200f, 2705f), margin);
+            Check(math.abs(m - 90f) < 0.01f && m > min, W, "field collinear edge: " + m.ToString("F2") + " m, want 90");
+            // the same with a 0.3 m plan offset and a 2 deg skew (the engine's x drifted, which once read as a crossing)
+            float2 c = new float2(-2199.7f, 2795f), d = c + 90f * new float2(math.sin(math.radians(2f)), -math.cos(math.radians(2f)));
+            Check(LiftLineInput.AlongOverlapM(a, b, c, d, margin) > min, W, "near-collinear, 2 deg / 0.3 m: not refused");
+            // side by side 7.9 m away: still along (carriers would meet); 8.1 m away: allowed
+            Check(LiftLineInput.AlongOverlapM(a, b, new float2(-2192.1f, 3100f), new float2(-2192.1f, 2800f), margin) > min, W,
+                  "7.9 m beside, 300 m long: not refused");
+            Check(LiftLineInput.AlongOverlapM(a, b, new float2(-2191.9f, 3100f), new float2(-2191.9f, 2800f), margin) == 0f, W,
+                  "8.1 m beside: refused");
+            // across (90 deg) and at 11 deg: no along (the crossing notice handles them)
+            Check(LiftLineInput.AlongOverlapM(a, b, new float2(-2300f, 2900f), new float2(-2100f, 2900f), margin) == 0f, W, "across: refused");
+            float2 e = new float2(-2200f, 3000f), f = e + 200f * new float2(math.sin(math.radians(11f)), -math.cos(math.radians(11f)));
+            Check(LiftLineInput.AlongOverlapM(a, b, e, f, margin) == 0f, W, "11 deg apart: refused");
+            // drawn on from a loose end: the built neighbor lies beyond the end, collinear
+            Check(LiftLineInput.AlongOverlapM(a, b, new float2(-2200f, 3290f), new float2(-2200f, 3200f), margin) == 0f, W,
+                  "continued from a loose end: refused");
+            // the built edge enters the line by 4 m only (inside the end margin) / by 14 m (under the minimum overlap)
+            Check(LiftLineInput.AlongOverlapM(a, b, new float2(-2200f, 3290f), new float2(-2200f, 3196f), margin) == 0f, W,
+                  "4 m into the end margin: not zero");
+            Check(LiftLineInput.AlongOverlapM(a, b, new float2(-2200f, 3290f), new float2(-2200f, 3181f), margin) <= min, W,
+                  "19 m in, 14 m past the margin: over the minimum");
+            // a slanted edge that enters the 8 m band only for part of its length: only that part counts
+            float part = LiftLineInput.AlongOverlapM(a, b, new float2(-2220f, 3100f), new float2(-2190f, 2900f), margin);
+            Check(part > 0f && part < 200f, W, "slanted edge, partial band: " + part.ToString("F1"));
+            // degenerate input never throws and reads 0
+            Check(LiftLineInput.AlongOverlapM(a, a, a, b, margin) == 0f && LiftLineInput.AlongOverlapM(a, b, a, a, margin) == 0f, W,
+                  "degenerate: not 0");
         }
 
         // The engine split the tool's courses (CourseSplitSystem elevation transitions). Replay of a playthrough log: the "Towers [nodes]"

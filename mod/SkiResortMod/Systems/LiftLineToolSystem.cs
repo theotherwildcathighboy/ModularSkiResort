@@ -86,6 +86,7 @@ namespace SkiResortMod.Systems
         /// (the second end is open ground).</summary>
         internal LocalizedString? Notice =>
             m_Notice.HasValue && UnityEngine.Time.unscaledTime - m_NoticeTime < NoticeSeconds ? m_Notice
+            : m_AlongStanding ? T("ALONG")
             : m_BackwardStanding ? T("BACKWARD")
             : m_CrossingStanding ? T("CROSSES")
             : m_SunkStanding != null ? T(m_SunkStanding)
@@ -156,6 +157,7 @@ namespace SkiResortMod.Systems
         private string m_SunkStanding;   // SUNK / SUNK_END: the current plan has a sunk station end, else null (WarnSunk sets it per plan, Reset clears it)
         private bool m_BackwardStanding;   // a station end faces away from the line (WarnBackward sets it per plan, Reset clears it)
         private bool m_CrossingStanding;   // the current line crosses another lift (WarnCrossing sets it per plan, Reset clears it)
+        private bool m_AlongStanding;   // the current line runs along another lift: Build is refused (WarnAlong sets it per plan, Reset clears it)
         private float m_BendStandingDeg;   // the plan bend over the warning angle at a loose-end joint, else 0 (WarnBend per plan, Reset clears it)
         // Ghost preview: the definitions of m_GhostEdit at m_GhostRevision stand (no Updated after their frame, so they generate
         // nothing more; GenerateNodesSystem.cs:2030-2041) and their Temps render as the translucent preview (BatchInstanceSystem.cs:
@@ -524,6 +526,11 @@ namespace SkiResortMod.Systems
             if (m_State != ToolState.Edit || m_Edit?.Plan == null)
             {
                 Say($"LiftLine [build]: nothing to build ({m_State}) — pick both ends first", T("NOTHING_TO_BUILD"));
+                return;
+            }
+            if (m_AlongStanding)
+            {
+                Say("LiftLine [build]: refused — the line runs along another lift (ALONG); building would merge the two", T("ALONG"));
                 return;
             }
             m_BuildRequested = true;
@@ -1215,6 +1222,7 @@ namespace SkiResortMod.Systems
                       .Append(plan.Nodes[i + 1].AlongM.ToString("F0")).Append(" m) TOO STEEP ").Append(plan.Spans[i].EdgeSlope.ToString("F2"));
             Say(sb.ToString());
             WarnSunk(plan);
+            WarnAlong(edit);
             WarnCrossing(edit);
             WarnBackward();
             WarnBend();
@@ -1273,11 +1281,37 @@ namespace SkiResortMod.Systems
 
         /// <summary>A line crossing a built lift line: the game splits the other edge at the crossing and joins the two (engine split point,
         /// field test 2026-10-31), planting a tower of the other lift there, or joins at that lift's tower when the crossing is near one.
-        /// Since the loop tracer follows a lift through a shared node, its chairs keep running (bridge test 2026-11-05, DECISIONS 601: a
-        /// DQ across a gondola span, FG / DQ across FG towers, 5 loops kept running). A tram on either side never joined (the owner's tram
+        /// Its chairs keep running only in one draw order: a DQ across a gondola span kept every loop (bridge test 2026-11-05, DECISIONS
+        /// 601 n), a gondola across a DQ or FG line stopped the split lift's loop (FIX-LIST 60 a, open). A tram on either side never joined (the owner's tram
         /// over a gondola, three lines under a tram), so it is left out: before, the tram's long spans were the first edge found and hid the
         /// real crossing. Building stays allowed: bulldozing the new section merges the other lift back. Logged on every plan; the tooltip
         /// keeps the notice standing while the plan has it.</summary>
+        /// <summary>A line drawn along a built lift (FIX-LIST 60 b, field 2026-11-05): the game merges the two, so the build replaced the
+        /// other lift's edges with this line's (a gondola over an FG line took the FG's upper span). Every lift type on both sides, the
+        /// tram included. Logged on every plan; the tooltip keeps the notice standing and RequestBuild refuses while the plan has it.</summary>
+        private void WarnAlong(LiftLineEdit edit)
+        {
+            m_AlongStanding = false;
+            using (var edges = m_LineEdgeQuery.ToEntityArray(Unity.Collections.Allocator.Temp))
+            {
+                for (int i = 0; i < edges.Length; i++)
+                {
+                    Entity prefab = EntityManager.GetComponentData<PrefabRef>(edges[i]).m_Prefab;
+                    if (!m_Catalog.LiftLineTypes.TryGetValue(prefab, out LiftTypeDef def))
+                        continue;
+                    Game.Net.Curve curve = EntityManager.GetComponentData<Game.Net.Curve>(edges[i]);
+                    float m = LiftLineInput.AlongOverlapM(edit.A.xz, edit.B.xz, curve.m_Bezier.a.xz, curve.m_Bezier.d.xz, CrossEndMarginM);
+                    if (m <= LiftLineInput.AlongMinOverlapM)
+                        continue;
+                    m_AlongStanding = true;
+                    Mod.Log.Warn($"LiftLine [plan]: ALONG — the line runs along {def.Id} edge {edges[i].Index}:{edges[i].Version} for " +
+                                 $"{m:F0} m (within {LiftLineInput.AlongMaxOffsetM:F0} m, {LiftLineInput.AlongMaxAngleDeg:F0} deg); building " +
+                                 "would merge them, so Build is refused");
+                    return;
+                }
+            }
+        }
+
         private void WarnCrossing(LiftLineEdit edit)
         {
             m_CrossingStanding = false;
@@ -1765,6 +1799,7 @@ namespace SkiResortMod.Systems
             m_SunkStanding = null;
             m_BackwardStanding = false;
             m_CrossingStanding = false;
+            m_AlongStanding = false;
             m_BendStandingDeg = 0f;
             m_LooseFrame = int.MinValue / 2;
             // A standing ghost is cleared on the next update (UpdateCore's pick branch); a built line consumed its Temps.

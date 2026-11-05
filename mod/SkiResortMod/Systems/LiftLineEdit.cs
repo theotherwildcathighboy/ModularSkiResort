@@ -476,6 +476,55 @@ namespace SkiResortMod.Systems
             return bend > LiftAlignMath.BendWarnDeg ? bend : 0f;
         }
 
+        /// <summary>A line drawn ALONG a built lift (FIX-LIST 60 b, field 2026-11-05): a gondola drawn on top of an FG line read as a
+        /// crossing and the build replaced the FG's edges with its own. Another lift's edge counts as along this line where it runs within
+        /// AlongMaxOffsetM of it (plan view) at AlongMaxAngleDeg or less, over more than AlongMinOverlapM of this line; the tool refuses
+        /// Build then. Two lines side by side that far apart would hang their carriers into each other anyway (DQ rope gauge 2.6 m + a
+        /// 1.1 m carrier half width per side).</summary>
+        public const float AlongMaxOffsetM = 8f, AlongMaxAngleDeg = 10f, AlongMinOverlapM = 15f;
+
+        /// <summary>Meters of the drawn line <paramref name="a"/> -> <paramref name="b"/> (xz) that the segment <paramref name="c"/> ->
+        /// <paramref name="d"/> runs along (FIX-LIST 60 b): the part of c-d within AlongMaxOffsetM of the line a-b, projected onto a-b
+        /// and clipped to [endMarginM, length - endMarginM] (a lift met at an end is the section's own joint: a line drawn on from a
+        /// loose end runs on past its built neighbor, never along it). 0 when the two are more than AlongMaxAngleDeg apart, or either is
+        /// shorter than 1 cm.</summary>
+        public static float AlongOverlapM(float2 a, float2 b, float2 c, float2 d, float endMarginM)
+        {
+            float len = math.distance(a, b), seg = math.distance(c, d);
+            if (len < 0.01f || seg < 0.01f)
+                return 0f;
+            float2 dir = (b - a) / len, right = new float2(dir.y, -dir.x);
+            float2 e = (d - c) / seg;
+            if (math.abs(math.dot(dir, e)) < math.cos(math.radians(AlongMaxAngleDeg)))
+                return 0f;
+            // c-d as s in [0, 1]: lateral offset and along position are linear in s
+            float oc = math.dot(c - a, right), od = math.dot(d - a, right);
+            float tc = math.dot(c - a, dir), td = math.dot(d - a, dir);
+            float s0 = 0f, s1 = 1f;
+            if (!ClipLinear(oc, od, -AlongMaxOffsetM, AlongMaxOffsetM, ref s0, ref s1))
+                return 0f;
+            float lo = math.lerp(tc, td, s0), hi = math.lerp(tc, td, s1);
+            if (lo > hi)
+                (lo, hi) = (hi, lo);
+            lo = math.max(lo, endMarginM);
+            hi = math.min(hi, len - endMarginM);
+            return math.max(0f, hi - lo);
+        }
+
+        /// <summary>Narrows [s0, s1] to where v0 + s (v1 - v0) lies in [min, max]; false when nothing is left.</summary>
+        private static bool ClipLinear(float v0, float v1, float min, float max, ref float s0, ref float s1)
+        {
+            float dv = v1 - v0;
+            if (math.abs(dv) < 1e-6f)
+                return v0 >= min && v0 <= max;
+            float sa = (min - v0) / dv, sb = (max - v0) / dv;
+            if (sa > sb)
+                (sa, sb) = (sb, sa);
+            s0 = math.max(s0, sa);
+            s1 = math.min(s1, sb);
+            return s0 <= s1;
+        }
+
         /// <summary>A rope-lane anchor this far (xz) from the end node or nearer belongs to this end (LiftTowerFitSystem.StationRope).</summary>
         public const float AnchorSearchM = 30f;
 
