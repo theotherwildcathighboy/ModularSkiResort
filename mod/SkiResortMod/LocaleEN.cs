@@ -1655,6 +1655,7 @@ namespace SkiResortMod
                 { "SkiResort.LiftTool.CROSS_TOWER", "This line crosses another lift right beside one of its towers, so it cannot be built here." },
                 { "SkiResort.LiftTool.CROSS_SHALLOW", "This line meets another lift at too flat an angle, under 20°, so it cannot be built here." },
                 { "SkiResort.LiftTool.CROSS_OWN_TOWER", "A tower of this line stands under another lift's rope, so it cannot be built here." },
+                { "SkiResort.LiftTool.CROSS_SAME_TYPE", "This line crosses a lift of its own type. The game cannot keep the two apart there, so it cannot be built here." },
                 // ALONG: the line runs on top of another lift (within 8 m, 10 deg, over 15 m); the game would merge them, so Build is refused (FIX-LIST 60 b)
                 { "SkiResort.LiftTool.ALONG", "This line runs along another lift. The game would merge the two lines, so it cannot be built here." },
                 // A loose-end joint that turns the line by more than LiftAlignMath.BendWarnDeg: a standing warning, never a refusal.

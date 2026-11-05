@@ -9,7 +9,7 @@
 //      stands in the crossed corridor. At 90 deg every case is met; a flatter one may be refused, then the plan is the one without it.
 // CX-2 refusals: too shallow, inside the drawn line's station run-out, inside the crossed line's station run-out, beside a crossed
 //      tower, unreachable (flat ground, a crossed curve 4 m up: the plan shown is the plan
-//      without the crossing), a pin in the crossed corridor; a valley with the crossed curve 22 m up is met under it (refused with the 14 m box).
+//      without the crossing), a pin in the crossed corridor, a lift of the same type (SameType, before planning); a valley with the crossed curve 22 m up is met under it (refused with the 14 m box).
 // CX-3 under: a DQ under a tram span 60 m up passes under it with its own plan (over is out of reach); a DQ across a GD valley
 //      span 35 m up clears it on the side the planner picks.
 // CX-4 direction: the same crossing drawn from either end: the same side, verdict and towers (mirrored).
@@ -179,7 +179,7 @@ namespace LiftBatch
                         LiftLineEdit refused = Edit(sh.type, sh.len, sh.g, rev);
                         empty.Crossings = new LiftPlanCrossing[0];
                         // a crossing refused before planning (too shallow) is no constraint: the plan stays as it was
-                        refused.Crossings = new[] { X("tram", 0.5f * sh.len, sh.g(0.5f * sh.len) + 5f, angleDeg: 10f) };
+                        refused.Crossings = new[] { X(sh.type == "tram" ? "gondola" : "tram", 0.5f * sh.len, sh.g(0.5f * sh.len) + 5f, angleDeg: 10f) };
                         if (pins)
                             foreach (LiftLineEdit e in new[] { plain, empty, refused })
                                 e.AddPin(0.37f * sh.len);
@@ -298,7 +298,8 @@ namespace LiftBatch
                 ("10 m from a crossed station", X("gondola", at, y, stationDist: 10f), LiftCrossRefusal.Station, g, -1f),
                 ("4 m from a crossed tower", X("gondola", at, y, towerDist: 4f), LiftCrossRefusal.Tower, g, -1f),
                 ("12 m from a crossed tower at 40 deg", X("gondola", at, y, angleDeg: 40f, towerDist: 12f), LiftCrossRefusal.Tower, g, -1f),
-                ("flat ground, crossed chord 4 m up", X("detachable", at, G + 4f), LiftCrossRefusal.Clearance, s => G, -1f),
+                ("flat ground, crossed gondola chord 4 m up", X("gondola", at, G + 4f), LiftCrossRefusal.Clearance, s => G, -1f),
+                ("a lift of the same type", X("detachable", at, y), LiftCrossRefusal.SameType, g, -1f),
                 ("a pin at the crossing", X("gondola", at, y), LiftCrossRefusal.OwnTower, g, at),
             };
             foreach (var cs in cases)
@@ -325,7 +326,7 @@ namespace LiftBatch
             // crossed height in this valley is: up to ~17 m the DQ passes over, from ~22 m under. Flat ground stays unreachable.)
             {
                 Func<float, float> flat = s => G;
-                LiftPlanCrossing low = X("detachable", at, G + 4f);
+                LiftPlanCrossing low = X("gondola", at, G + 4f);
                 LiftLineEdit plain = Edit("detachable", len, flat), e = Edit("detachable", len, flat);
                 e.Crossings = new[] { low };
                 LiftTowerPlan p0 = plain.Replan(Sampler(flat, false, len)), p1 = e.Replan(Sampler(flat, false, len));

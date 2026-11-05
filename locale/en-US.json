@@ -1494,6 +1494,7 @@
   "SkiResort.LiftTool.CROSS_TOWER": "This line crosses another lift right beside one of its towers, so it cannot be built here.",
   "SkiResort.LiftTool.CROSS_SHALLOW": "This line meets another lift at too flat an angle, under 20°, so it cannot be built here.",
   "SkiResort.LiftTool.CROSS_OWN_TOWER": "A tower of this line stands under another lift's rope, so it cannot be built here.",
+  "SkiResort.LiftTool.CROSS_SAME_TYPE": "This line crosses a lift of its own type. The game cannot keep the two apart there, so it cannot be built here.",
   "SkiResort.LiftTool.ALONG": "This line runs along another lift. The game would merge the two lines, so it cannot be built here.",
   "SkiResort.LiftTool.BEND": "The rope turns {DEG}° where this line joins the built one. Real lift lines turn 5° or less at a tower.",
   "SkiResort.LiftTool.OPEN_END": "This end is open ground: place a station here to finish the lift.",

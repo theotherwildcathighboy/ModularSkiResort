@@ -632,6 +632,7 @@ namespace SkiResortMod.Systems
         Tower,       // (c) at or right beside a tower of the crossed lift
         Shallow,     // (d) the two lines meet at less than LiftTowerPlanner.CrossMinAngleDeg
         OwnTower,    // a tower of this line (a pin) stands inside the crossed lift's corridor
+        SameType,    // the crossed lift is of this line's own type: the game splits the drawn course beside the crossing (same layer, CourseSplitSystem), so the crossing is refused
     }
 
     /// <summary>A crossing of the drawn line with a built lift of ANOTHER type (FIX-LIST 60 a). Since 12d5ff6 the two nets no longer
@@ -1582,6 +1583,8 @@ namespace SkiResortMod.Systems
         public static LiftCrossRefusal CrossRefusalBeforePlan(LiftPlanCrossing x, LiftTowerPlanConstants c, float lengthM, bool stationA,
                                                               bool stationB)
         {
+            if (x.CrossedType != null && x.CrossedType == c.TypeId)
+                return LiftCrossRefusal.SameType;
             if (!(x.AngleDeg >= CrossMinAngleDeg))
                 return LiftCrossRefusal.Shallow;
             if ((stationA && x.AlongM < c.StationClearM) || (stationB && lengthM - x.AlongM < c.StationClearM) ||

@@ -574,6 +574,7 @@ namespace SkiResortMod.Systems
                         case LiftCrossRefusal.Station: return "CROSS_STATION";
                         case LiftCrossRefusal.Tower: return "CROSS_TOWER";
                         case LiftCrossRefusal.OwnTower: return "CROSS_OWN_TOWER";
+                        case LiftCrossRefusal.SameType: return "CROSS_SAME_TYPE";
                         default: return "CROSS_CLEARANCE";
                     }
                 }

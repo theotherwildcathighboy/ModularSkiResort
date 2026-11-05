@@ -222,7 +222,7 @@ run3-crossing-proof-12d5ff6). Height ranges (collision box round, 2026-11-05; we
 Crossing rule (DECISIONS 602). CollectCrossings (each replan) sorts the drawn line's crossings with built lift edges: every crossing,
 of any type, becomes a LiftPlanCrossing for the planner. (Until the 2026-11-05 collision box round the same type joined, CROSSES;
 with the tight box CourseSplitSystem IsOver / IsUnder, :2119-2185, judge a same-type line a few meters higher as over, no join,
-while validation over the whole overlap still overlaps: "Clearance too low". Planned with the box rule, both agree.) Per crossing: along, the crossed curve's height and
+while validation over the whole overlap still overlaps: "Clearance too low". Planned over with the box rule (78e0ff5) the game still split the drawn course beside the crossing, unjoined (same layer: a CourseSplit candidate), and the fit stood a second tower there; so a same-type crossing is refused before planning, LiftCrossRefusal.SameType, CROSS_SAME_TYPE.) Per crossing: along, the crossed curve's height and
 slope at the crossing (MathUtils.Position / Tangent at t), the angle, the crossed composition's width and height range
 (NetCompositionData; logged once per type as `LiftLine [cross]`, match or MISMATCH against the constants), the distance to its
 nearest tower and station node (IsStationNode). The planner (LiftTowerPlanner.md, Crossings) passes over or under, or refuses.

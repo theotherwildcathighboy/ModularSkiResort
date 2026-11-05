@@ -1359,9 +1359,9 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>The line's crossings with built lift lines, before each plan (they depend on the two ends only). Every crossing, of
-        /// any type (the same type too since the 2026-11-05 collision box round; m_SameTypeCrossing stays false and the CROSSES join
-        /// notice is no longer shown), is planned so the two edge boxes clear each other: another type never joins (12d5ff6, one layer bit
-        /// per type), the same type does not join once its box is wholly over or under (CourseSplitSystem IsOver / IsUnder); the game
+        /// any type, goes to the planner (since the 2026-11-05 collision box round; m_SameTypeCrossing stays false and the CROSSES join
+        /// notice is no longer shown). The same type is refused before planning (LiftCrossRefusal.SameType); another type never joins
+        /// (12d5ff6, one layer bit per type) and is planned so the two edge boxes clear each other: the game
         /// validates the two edge boxes against each other (LiftPlanCrossing), so each crossing goes to the planner with the crossed edge as
         /// built: its curve height and slope at the crossing (the curve is straight in plan view, so the crossing's fraction of the edge
         /// is the curve's t), its composition's height range and width (NetCompositionData of Composition.m_Edge, checked against
@@ -1384,8 +1384,9 @@ namespace SkiResortMod.Systems
                     // The same type goes to the planner too (collision box round, 2026-11-05): CourseSplitSystem joins a crossing only
                     // while neither box is wholly over the other at the intersection (IsOver / IsUnder, CourseSplitSystem.cs:2119-2185,
                     // 2301-2312). With the tight box a same-type line a few meters higher was "over" there (no join) while the game's
-                    // validation over the whole overlap still found the boxes touching: "Clearance too low" and no join. Planned with
-                    // the box rule, both checks agree: the lines pass without a shared tower, or the crossing is refused.
+                    // validation over the whole overlap still found the boxes touching: "Clearance too low" and no join. Planned over
+                    // with the box rule, the game still split the drawn course beside the crossing (unjoined), so the planner refuses a
+                    // same-type crossing before planning (LiftCrossRefusal.SameType, CROSS_SAME_TYPE).
                     m_Crossings.Add(Crossing(edit, edges[i], def, curve.m_Bezier, along, t));
                 }
             }
@@ -1472,6 +1473,7 @@ namespace SkiResortMod.Systems
                 case LiftCrossRefusal.Station: return "inside a station's run-out of either line (the rope height is fixed there)";
                 case LiftCrossRefusal.Tower: return "at or beside a tower of the crossed lift";
                 case LiftCrossRefusal.OwnTower: return "a tower of this line stands in the crossed lift's corridor";
+                case LiftCrossRefusal.SameType: return "the crossed lift is of the same type (the game splits this line beside the crossing)";
                 default: return "no tower arrangement gives the separation (over and under tried where the crossed line is high enough)";
             }
         }
@@ -1485,6 +1487,7 @@ namespace SkiResortMod.Systems
                 case "CROSS_STATION": return T("CROSS_STATION");
                 case "CROSS_TOWER": return T("CROSS_TOWER");
                 case "CROSS_OWN_TOWER": return T("CROSS_OWN_TOWER");
+                case "CROSS_SAME_TYPE": return T("CROSS_SAME_TYPE");
                 case "CROSS_CLEARANCE": return T("CROSS_CLEARANCE", ("M", N(m_CrossNeedM)));
                 case "CROSSES_OVER": return T("CROSSES_OVER");
                 case "CROSSES_UNDER": return T("CROSSES_UNDER");
