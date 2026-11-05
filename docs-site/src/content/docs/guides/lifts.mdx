@@ -67,7 +67,7 @@ The line consists of sections. Each section is an independent edit.
 
 - **Steep or uneven ground:** draw one section at a time.
 - **Wrong section:** bulldoze or redraw that section. Remaining sections keep towers, cable and carriers.
-- **Missing section:** problem *"Lift X is missing a section"*. The lift counts **0** and is billed **a quarter** of its running cost until the line is complete. Click the problem to fly to the gap.
+- **Missing section:** problem *"Lift X: section missing"*. The lift counts **0** and is billed **a quarter** of its running cost until the line is complete. Click the problem to fly to the gap.
 
 <Aside type="tip" title="Bulldozer Warning">
 Option **Lift building aids** (default on): the bulldozer warns what a click on a lift removes.
@@ -115,7 +115,9 @@ What stays if you skip this, measured with the mod's files moved away from a cit
 ## Known Limits
 
 - **Riders:** chairs and cabins move along the cable empty. Skier character models are not shown on screen; the guests are real in the economy.
-- **Wind:** the cable and the chairs and cabins swing in the wind.
+- **Chair numbers:** towers are numbered; chairs all show the same number.
+- **Trees:** the line fells the trees along its whole corridor, also where the cable runs high above them.
+- **More:** the full list is on the [front page](/#known-limitations).
 
 ## Scoring
 
@@ -132,12 +134,15 @@ Values per type: [Attraction Formula](/reference/attraction/). Speeds, seats and
 
 | Hub line | Condition |
 |---|---|
-| *Lift X has no power* | Base station without electricity. Connect a low-voltage line. |
-| *Lift X is missing a section* | Section removed or being redrawn. |
-| *Lift X is unfinished* | Line does not join a base station and a top station. |
-| *Lift X: draw the lift line* | Both stations placed, no line between them. |
+| *Lift X: no power* | Base station without electricity. Connect a low-voltage line. |
+| *Lift X: section missing* | Section removed or being redrawn. |
+| *Lift X: unfinished* | Line does not join a base station and a top station. |
+| *Lift X: no lift line yet* | Both stations placed, no line between them. |
+| *Lift X: no top station yet* / *no base station yet* | One station placed. |
 | *Lift X mixes lift types* | Line and stations differ in type. Redraw the line as the station type. |
 | *Lift X: tower N's wheels cannot follow the rope* | A tower's rope bends or pitches past what its wheels follow, relative to the tower's lean. Warning only; the lift runs and counts. |
+| *Lift X: rope turns N° at tower N* | The line bends at a tower by more than **5°**, more than real lines do. Warning only; the lift runs and counts. |
+| *Lift X: chairs pass N m above the ground* (or *touch the ground*) | A span's carriers come closer to the ground than planned lines allow (**3 m**, tram **5 m**). Warning only. A section redrawn with the lift tool is replanned. |
 | *Lift X: chairs stopped* | Lift complete, still counts; carriers stopped. Cause in the mod log: [Troubleshooting](/guides/troubleshooting/). |
 
 ## Recoloring

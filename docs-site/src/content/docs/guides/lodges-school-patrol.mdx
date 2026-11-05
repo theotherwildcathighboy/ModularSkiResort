@@ -33,13 +33,13 @@ Guest entry point and capacity source. No lodge: attraction score **0**.
 
 Ski days send skiers to a lodge, so they need one. Any tier works if it meets the rules below. A lodge too far from the runs still counts toward attraction and still gets tourists and residents on leisure, but no ski-day guests.
 
-- **Road access:** deck side touches a road. Error state: *"Lodge is not at a road"*. Exempt: Mountain Hut and Swanky Summit Lodge (mountain sites, no road needed).
+- **Road access:** deck side touches a road. Hub line: *Lodge or school: road required*. Exempt: Mountain Hut and Swanky Summit Lodge (mountain sites, no road needed).
 - **Off-road A-Frame, Chalet or Grand:** with no road, a cat track within **25 m** of the lot whose chain of cat tracks reaches a lodge with a road or the Ski Bus Depot (same ski area) replaces city power, water, garbage and mail: no warnings and no utility fees. Its jobs move to the area's carrier (below). No guests arrive at it by road, and it has no parking count. With neither a road nor such a chain: *"Lodge is not at a road"*, the game's utility warnings and a lower sign efficiency. A broken chain keeps the lodge supplied for one game hour, so a cat track section can be redrawn.
 - **Services:** staff, power, water. Missing services lower sign efficiency, and attraction with it.
 - **Pipes:** highways and highway bridges carry no water or sewer pipes. A resort road cut off from town by them shows Water and Sewage notifications until a pipe joins the two networks. Gravel roads do carry pipes.
 - **Steep ground:** lodges and the Ski School keep the slope they stand on. On very steep ground the building sinks into the hillside, and the game can flag No Pedestrian Access there.
 - **Distance to runs:** ski-day guests only target a lodge within **800 m** of the ski area's runs or lift stations.
-- **Parking:** car spaces within **300 m** of the lodge (parking lot or street parking), counted for each lodge with a road on its own. Tourist parties drive, and none arrive at a lodge with 0 spaces. Warning state: *"No parking near the lodge"*. The hub's **Guests** view shows each lodge's count.
+- **Parking:** car spaces within **300 m** of the lodge (parking lot or street parking), counted for each lodge with a road on its own. Tourist parties from outside the city drive, and none arrive at a lodge with 0 spaces; hotel guests within **900 m** walk. Hub line: *Lodge without parking* (*No parking: Lodge X* for one). The hub's **Guests** view shows each lodge's count.
 - **Power state:** a lodge deactivated in its own info panel counts **0**.
 - **Off-season staff:** after **12 game hours** with no open run, lodges and the Ski School keep **half** their jobs (rounded up) until a run opens again. The jobs of the Mountain Hut and Swanky Summit Lodge, carried by the area's carrier, halve too. Patrol stays full. Upkeep is not reduced; deactivating a building cuts it to a tenth and stops its wages. Option *Half staff off-season*, default on.
 - **Carrier:** the jobs of buildings without staff of their own (Hut, Summit, both patrol buildings, an off-road lodge on a cat track chain) sit on the active lodge with a road nearest the Welcome Sign, else on the sign. Carried jobs take the carrier's education mix.
@@ -57,7 +57,7 @@ Residents only take ski days within the ski area's reach (**7 km** by default), 
 
 <Icon name="building-school" alt="Ski School icon" /> Teaches lessons and lifts local skiing. See [Passes and Lessons](/guides/passes-and-lessons/).
 
-- **Score:** **+12** to *Runs, lifts and Ski School* while at least one green run counts.
+- **Score:** **+12** to *Runs, lifts and school* while at least one green run counts.
 - **Demand:** locals ski **20 %** more often.
 - **Status codes:** *No ski school* (none built), *No green run* (no green run counts), *No run counts yet*, *Deactivated*. Each = score contribution 0.
 - **Terrain:** level the ground at the top of the magic-carpet area, then use the slope tool down to its base.
@@ -84,7 +84,7 @@ In testing, a depot took a hill out of reach from **0** ski-day guests to about 
 - **Guests:** arrivals count as the area's guests and pay tickets, lessons and passes as at a lodge. No lodge spend. Leisure visitors who pick the depot count and pay too.
 - **Capacity and score:** adds neither. Ski-day capacity stays set by the runs and the lodges on the hill, and the depot is in no lodge count.
 - **Coach bill:** **1,500** a month plus **300** per straight-line km to the area's nearest lodge on the hill, booked in the Finances view as *Ski bus*. A depot that cannot work bills nothing.
-- **Status codes:** *Bus depot without a road*, *Bus depot with no lodge on the hill*.
+- **Hub lines:** *Bus depot: road required*, *Bus depot: no hill lodge*.
 
 An oxblood coach with SKI BUS painted on it drives back and forth between the depot and the area's nearest lodge with a road. It carries nobody: it is what the bill looks like, and guests still make the trip themselves. With no road between the two, or no lodge with a road, no coach drives and the depot still works.
 
