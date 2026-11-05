@@ -36,8 +36,11 @@ namespace SkiResortMod.Systems
     internal static class CarrierPose
     {
         // ---- the swing constants (PLACEHOLDERS: tuned from in-game photos; step 0 measured SampleWind |w| ~ 0.31, units UNVERIFIED) ----
-        /// <summary>Lean (rad) per |w|^2 of full cross wind: drag grows with the square of the wind (0.3 x 0.31^2 = 1.65 deg).</summary>
-        public const float LeanPerWind2 = 0.3f;
+        // DECISIONS 601 (#17): the first values (lean 0.3, sway 0.05 capped at 1 deg) measured 0.26 deg median / 0.67 deg max tilt on
+        // running FG / DQ / gondola carriers while the vanilla power line beside them visibly swayed: raised to the tests' envelope
+        // (CP-14: lean under 4 deg at 0.31; MaxSway under the tram's 2 deg roll clamp; CP-9: 0.5 deg per frame at 30 fps, 3x).
+        /// <summary>Lean (rad) per |w|^2 of full cross wind: drag grows with the square of the wind (0.7 x 0.31^2 = 3.85 deg).</summary>
+        public const float LeanPerWind2 = 0.7f;
         /// <summary>The fore-aft share of the lean and the sway (the plan: fore-aft at 1/3).</summary>
         public const float ForeAftShare = 1f / 3f;
         /// <summary>The lateral reference: 8 deg of body roll about the PIN (the first convention). A chair / gondola's roll about the
@@ -49,16 +52,17 @@ namespace SkiResortMod.Systems
         public const float TramRollShare = 0.5f;
         /// <summary>Fore-aft clamp: 3 deg (about the lateral axis).</summary>
         public const float MaxForeAft = 0.05235988f;
-        /// <summary>Sway amplitude (rad) per |w| (0.05 x 0.31 = 0.9 deg), capped by MaxSway.</summary>
-        public const float SwayPerWind = 0.05f;
-        /// <summary>Sway cap: 1 deg. Bounds the sway's own rate (amplitude x omega x 0.1 s of clock per frame at 30 fps, 3x).</summary>
+        /// <summary>Sway amplitude (rad) per |w| (0.1 x 0.15 = 0.86 deg), capped by MaxSway.</summary>
+        public const float SwayPerWind = 0.1f;
+        /// <summary>Sway cap: 1 deg. Bounds the sway's own rate (amplitude x omega x 0.1 s of clock per frame at 30 fps, 3x): 1.8 deg
+        /// failed CP-9 at a mid-span wind reversal (FG 0.88 deg per frame).</summary>
         public const float MaxSway = 0.017453292f;
         /// <summary>Gravity for the pendulum frequency omega = sqrt(g / L).</summary>
         public const float Gravity = 9.81f;
         /// <summary>The pendulum length L as a share of the pin-to-body-bottom length (the center of mass sits about there).</summary>
         public const float PendulumShare = 0.7f;
         /// <summary>A wind change blends in over this many seconds of mover clock (smoothstep).</summary>
-        public const double WindBlendS = 4.0;
+        public const double WindBlendS = 8.0;   // 4 s until DECISIONS 601: the bigger lean flipped faster than CP-9 allows
         /// <summary>The ramp from a guided segment into a free run: at least this many meters ...</summary>
         public const float RampMinM = 10f;
         /// <summary>... or this many seconds of travel at the loop speed, whichever is longer (the tram's 10 m/s: 20 m).</summary>

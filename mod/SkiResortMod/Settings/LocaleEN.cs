@@ -323,19 +323,21 @@ namespace SkiResortMod.Settings
                 },
                 {
                     m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.CatTrackGradeCutRun)),
-                    "Cat track: cut slope"
+                    "Cat track: cut slope (out : down)"
                 },
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.CatTrackGradeCutRun)),
-                    "Meters out per meter down where the track cuts into the hill. Lower is steeper. Default 1.5."
+                    "How far the cut bank reaches out for each meter (foot) it drops, where the track cuts into the hill. " +
+                    "Lower is steeper. Default 1.5: 1.5 m out per 1 m down."
                 },
                 {
                     m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.CatTrackGradeFillRun)),
-                    "Cat track: fill slope"
+                    "Cat track: fill slope (out : up)"
                 },
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.CatTrackGradeFillRun)),
-                    "Meters out per meter up where the track is built up. Lower is steeper. Default 2."
+                    "How far the fill bank reaches out for each meter (foot) it rises, where the track is built up. " +
+                    "Lower is steeper. Default 2: 2 m out per 1 m up."
                 },
                 {
                     m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.CatTrackGradeConstant)),

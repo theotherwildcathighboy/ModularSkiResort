@@ -1633,7 +1633,7 @@ namespace SkiResortMod
                 // FIX-LIST 55: a ground end whose coming station would stand on the lower ground in front of it (past a crest).
                 { "SkiResort.LiftTool.SUNK_END", "A station on this open end would stand on the lower ground ahead, so its chairs would leave below the ground. Flatter ground helps." },
                 { "SkiResort.LiftTool.BACKWARD", "A station on this line faces away from it, so the line runs back through the building. Turn that station around." },
-                { "SkiResort.LiftTool.CROSSES", "This line crosses another lift. Building it joins the two at the crossing and stops the other lift's chairs." },
+                { "SkiResort.LiftTool.CROSSES", "This line crosses another lift. Building it joins the two at the crossing, and the other lift gets a tower there." },
                 // A loose-end joint that turns the line by more than LiftAlignMath.BendWarnDeg: a standing warning, never a refusal.
                 { "SkiResort.LiftTool.BEND", "The rope turns {DEG}° where this line joins the built one. Real lift lines turn 5° or less at a tower." },
                 { "SkiResort.LiftTool.OPEN_END", "This end is open ground: place a station here to finish the lift." },

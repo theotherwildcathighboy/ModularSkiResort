@@ -1271,24 +1271,30 @@ namespace SkiResortMod.Systems
         }
 
         /// <summary>A line crossing a built lift line: the game splits the other edge at the crossing and joins the two (engine split point,
-        /// field test 2026-10-31), so that lift no longer closes into a loop and its chairs stop. Building stays allowed: bulldozing the new
-        /// section merges the other lift back. Logged on every plan; the tooltip keeps the notice standing while the plan has it.</summary>
+        /// field test 2026-10-31), planting a tower of the other lift there, or joins at that lift's tower when the crossing is near one.
+        /// Since the loop tracer follows a lift through a shared node, its chairs keep running (bridge test 2026-11-05, DECISIONS 601: a
+        /// DQ across a gondola span, FG / DQ across FG towers, 5 loops kept running). A tram on either side never joined (the owner's tram
+        /// over a gondola, three lines under a tram), so it is left out: before, the tram's long spans were the first edge found and hid the
+        /// real crossing. Building stays allowed: bulldozing the new section merges the other lift back. Logged on every plan; the tooltip
+        /// keeps the notice standing while the plan has it.</summary>
         private void WarnCrossing(LiftLineEdit edit)
         {
             m_CrossingStanding = false;
+            if (m_Type != null && m_Type.Mover == MoverKind.Shuttle)
+                return;
             using (var edges = m_LineEdgeQuery.ToEntityArray(Unity.Collections.Allocator.Temp))
             {
                 for (int i = 0; i < edges.Length; i++)
                 {
                     Entity prefab = EntityManager.GetComponentData<PrefabRef>(edges[i]).m_Prefab;
-                    if (!m_Catalog.LiftLineTypes.TryGetValue(prefab, out LiftTypeDef def))
+                    if (!m_Catalog.LiftLineTypes.TryGetValue(prefab, out LiftTypeDef def) || def.Mover == MoverKind.Shuttle)
                         continue;
                     Game.Net.Curve curve = EntityManager.GetComponentData<Game.Net.Curve>(edges[i]);
                     if (!edit.Crosses(curve.m_Bezier.a.xz, curve.m_Bezier.d.xz, CrossEndMarginM))
                         continue;
                     m_CrossingStanding = true;
                     Mod.Log.Warn($"LiftLine [plan]: CROSSES — the line crosses {def.Id} edge {edges[i].Index}:{edges[i].Version}; building joins them " +
-                                 "at the crossing and that lift's chairs stop until the new section is bulldozed");
+                                 "at the crossing (a shared tower)");
                     return;
                 }
             }

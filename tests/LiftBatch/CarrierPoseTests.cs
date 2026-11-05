@@ -322,7 +322,7 @@ namespace LiftBatch
                 lastU = u;
                 prev = w;
             }
-            // smoothstep's peak slope is 1.5 / WindBlendS per second: 1.5 x |b - a| / 4 / 60 per 60 fps frame
+            // smoothstep's peak slope is 1.5 / WindBlendS per second: 1.5 x |b - a| / WindBlendS / 60 per 60 fps frame
             float bound = 1.5f * math.distance(a, b) / (float)CarrierPose.WindBlendS / 60f * 1.01f;
             Check(worst <= bound, W, "blend step " + F(worst) + " over the smoothstep bound " + F(bound));
             Check(monotone, W, "the blend goes backward");
@@ -712,7 +712,7 @@ namespace LiftBatch
             const string W = "carrier-pose/constants";
             Check(math.abs(math.degrees(CarrierPose.MaxLateral) - 8f) < 1e-3f && math.abs(math.degrees(CarrierPose.MaxForeAft) - 3f) < 1e-3f, W,
                   "the clamps are not 8 / 3 deg");
-            Check(CarrierPose.WindBlendS == 4.0, W, "the wind blend is not 4 s");
+            Check(CarrierPose.WindBlendS == 8.0, W, "the wind blend is not 8 s");
             Check(math.abs(CarrierPose.ForeAftShare - 1f / 3f) < 1e-6f, W, "the fore-aft share is not 1/3");
             Check(CarrierPose.MaxSway < CarrierPose.MaxLateral && CarrierPose.MaxSway < CarrierPose.TramMaxRoll, W, "the sway cap exceeds a roll clamp");
             Check(math.abs(math.degrees(CarrierPose.TramMaxRoll) - 2f) < 1e-3f && CarrierPose.TramRollShare == 0.5f, W,
