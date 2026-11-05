@@ -3519,6 +3519,22 @@ def _comp(frozen, type_tail):
     return None
 
 
+def hosted_row_m(kind, frozen=None):
+    """The deployed building prefab's ObjectSubObjects row naming the hosted terminal tower (matched by the tower
+    prefab's CID in gamedata-mirror), or None: the art-601 drive base has none."""
+    spec = M_SPECS[kind]
+    if frozen is None:
+        frozen = frozen_block_m(kind)[0]
+    with open(os.path.join(GAMEDATA_M, spec.tower_prefab, spec.tower_prefab + ".Prefab.cid"), "r",
+              encoding="utf-8") as fh:
+        cid = fh.read().strip()
+    subs = _comp(frozen, "ObjectSubObjects")["m_SubObjects"]["$rcontent"]
+    rows = [s for s in subs if cid in str(s.get("m_Object"))]
+    if len(rows) > 1:
+        _m_fail("M1", f"{len(rows)} hosted {spec.tower_prefab} rows in {spec.building}, expected at most 1")
+    return rows[0] if rows else None
+
+
 def m1_frozen(kind):
     """M1: the generator's datums agree with SkiCatalog.cs, carriers.json and the deployed K
     prefab; returns the manifest's prefab_contract block."""
@@ -3566,11 +3582,17 @@ def m1_frozen(kind):
     hv_stub = [n for n in nets if n["m_BezierCurve"]["a"]["x"] == 0]
     if not hv_stub or abs(hv_stub[0]["m_BezierCurve"]["d"]["z"] - tip) > 1e-6:
         bad.append(f"HV stub tip {hv_stub[0]['m_BezierCurve']['d'] if hv_stub else None} != StubTipLocalZ {tip}")
-    subs = _comp(frozen, "ObjectSubObjects")["m_SubObjects"]["$rcontent"]
-    tw = subs[0]
-    pos, rot = tw["m_Position"], tw["m_Rotation"]["value"]
-    if (pos["x"], pos["y"], pos["z"]) != (0, 0, spec.tower_x) or (rot["x"], rot["y"], rot["z"], rot["w"]) != (0, 1, 0, 0):
-        bad.append(f"hosted tower pose {pos} / {rot} != generator (0, 0, {spec.tower_x}) rot 180")
+    # the hosted tower row by its prefab's CID (it was entry 0); art-601: the drive base ships without it (the nose train,
+    # --no-hosted-tower, owner notes 5 / 11), so an absent row is the host-less base; the return (ET62) keeps its row
+    tw = hosted_row_m(kind, frozen)
+    if tw is None:
+        if kind != "drive":
+            bad.append(f"no hosted {spec.tower_prefab} row in {spec.building} (the top keeps its ET62)")
+    else:
+        pos, rot = tw["m_Position"], tw["m_Rotation"]["value"]
+        if (pos["x"], pos["y"], pos["z"]) != (0, 0, spec.tower_x) or \
+                (rot["x"], rot["y"], rot["z"], rot["w"]) != (0, 1, 0, 0):
+            bad.append(f"hosted tower pose {pos} / {rot} != generator (0, 0, {spec.tower_x}) rot 180")
     if bad:
         _m_fail("M1", "; ".join(bad))
     out = {
@@ -3584,8 +3606,9 @@ def m1_frozen(kind):
         "frozen_sha256": _hashlib.sha256(json.dumps(frozen, sort_keys=True).encode("utf-8")).hexdigest(),
         "code": {"WheelLocal_game": list(wl), "StubTipLocalZ": tip, "SkiCatalog": "SkiCatalog.cs " + nm},
         "carrier_tr": {k: tr[k] for k in ("hang_m", "grip_top_above_rope_m", "lane_x_m", "seats", "axle_m")},
-        "hosted_tower": {"prefab": spec.tower_prefab, "mesh_after_M6_M7": spec.tower,
-                         "position": [0.0, 0.0, spec.tower_x], "rotation_quat": [0.0, 1.0, 0.0, 0.0]},
+        "hosted_tower": None if tw is None else {
+            "prefab": spec.tower_prefab, "mesh_after_M6_M7": spec.tower,
+            "position": [0.0, 0.0, spec.tower_x], "rotation_quat": [0.0, 1.0, 0.0, 0.0]},
         "utility_object": None,
         "colour_slots_lod0": [[0.25, 0.26, 0.275, 1.0], [0.85, 0.25, 0.10, 1.0], [1.0, 1.0, 1.0, 1.0]],
     }

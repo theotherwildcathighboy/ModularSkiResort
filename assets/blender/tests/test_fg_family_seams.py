@@ -192,8 +192,11 @@ def code_seams():
         check(close(sp.anchor_out[1], ax) and close(sp.anchor_in[1], ax + 0.03, 1e-6),
               f"S1 {et} axle {ax} == the {kind} HV sub-lane ends {sp.anchor_out[1]} / {sp.anchor_in[1]} (+0.03)")
         rep = LT.m1_frozen(kind)      # raises on SkiCatalog / carriers / deployed-prefab drift
-        check(rep["hosted_tower"]["position"][2] == sp.tower_x, f"S1 {kind} hosted {et} at z {sp.tower_x} "
-                                                                  f"(deployed prefab, rot 180)")
+        if rep["hosted_tower"] is None:   # art-601: the drive base ships without its ET68 (the nose train holds the rope)
+            check(kind == "drive", f"S1 {kind}: no hosted {et} in the deployed prefab (art-601 nose-train base)")
+        else:
+            check(rep["hosted_tower"]["position"][2] == sp.tower_x, f"S1 {kind} hosted {et} at z {sp.tower_x} "
+                                                                      f"(deployed prefab, rot 180)")
         check(close(rep["code"]["WheelLocal_game"][1], sp.wheel[2]) and close(rep["code"]["WheelLocal_game"][2],
                                                                                sp.wheel[0]),
               f"S1 {kind} WheelLocal {rep['code']['WheelLocal_game']} == the station rope datum")
@@ -314,7 +317,11 @@ def geometry_stations(tr):
         check(over is not None and 0.45 <= over <= 0.55, f"H3 {st}: cushion over the shipped surface at the "
                                                           f"up-lane tangent in [0.45, 0.55]",
               f"({None if over is None else round(over, 4)})")
-        # S8: the hosted tower vs the station, both LODs
+        # S8: the hosted tower vs the station, both LODs (art-601: a deployed base without the hosted row has no
+        # ET68 to clear; its nose train sits where the tower stood)
+        if LT.hosted_row_m(kind) is None:
+            print(f"  S8 {st}: no hosted {tw} row in the deployed {sp.building}, skipped")
+            continue
         for sl in ("", "_LOD1"):
             sco, stris = raw_mesh(os.path.join(d, f"{st}{sl}.fbx"))
             keep = stris[~rope_faces(sco, stris, sp, rr)]

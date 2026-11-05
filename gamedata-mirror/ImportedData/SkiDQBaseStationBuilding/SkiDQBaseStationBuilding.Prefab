@@ -359,35 +359,11 @@
                 "m_SubObjects": {
                     "$id": 51,
                     "$type": "24|Game.Prefabs.ObjectSubObjectInfo[], Game",
-                    "$rlength": 22,
+                    "$rlength": 21,
                     "$rcontent": [
                         {
-                            "$id": 52,
-                            "$type": "25|Game.Prefabs.ObjectSubObjectInfo, Game",
-                            "m_Object": $fstrref:"CID:e679746c524d4935b2863977f9cd5359",
-                            "m_Position": {
-                                "$type": 11,
-                                "x": 0,
-                                "y": 0,
-                                "z": -11
-                            },
-                            "m_Rotation": {
-                                "$type": "21|Unity.Mathematics.quaternion, Unity.Mathematics",
-                                "value": {
-                                    "$type": "22|Unity.Mathematics.float4, Unity.Mathematics",
-                                    "x": 0,
-                                    "y": 1,
-                                    "z": 0,
-                                    "w": 0
-                                }
-                            },
-                            "m_ParentMesh": -1,
-                            "m_GroupIndex": 0,
-                            "m_Probability": 100
-                        },
-                        {
                             "$id": 54,
-                            "$type": 25,
+                            "$type": "25|Game.Prefabs.ObjectSubObjectInfo, Game",
                             "m_Object": $fstrref:"UnityGUID:41e3c9ba6e1d6b948a6b1bc3499a5397",
                             "m_Position": {
                                 "$type": 11,
@@ -396,9 +372,9 @@
                                 "z": 13.75
                             },
                             "m_Rotation": {
-                                "$type": 21,
+                                "$type": "21|Unity.Mathematics.quaternion, Unity.Mathematics",
                                 "value": {
-                                    "$type": 22,
+                                    "$type": "22|Unity.Mathematics.float4, Unity.Mathematics",
                                     "x": 0,
                                     "y": 0,
                                     "z": 0,
@@ -902,7 +878,7 @@
             {
                 "$id": 18,
                 "$type": "20|Game.Prefabs.ObjectMeshInfo, Game",
-                "m_Mesh": $fstrref:"CID:720eb3dd91aacf4c1688f5e087b6591c",
+                "m_Mesh": $fstrref:"CID:22947e280a584163a938d24e1b125c6f",
                 "m_Position": {
                     "$type": 11,
                     "x": 0,
