@@ -50,6 +50,19 @@ carriers stop; a lift is powered from its base station only (the top is never re
   window that 256-frame pollers may miss; that lift then reads NoPower for at least 512 frames (LiftBatch PG-2 h).
 - `ExpireStreak`, for a caller that tracks its last read frame per station: a Powered streak whose station went unread for more than
   PowerStreakStaleFrames is dropped, so a lift redrawn mid-streak waits a fresh 512.
+- **Pending: the start no longer fails open (2026-11-05, DECISIONS 601 i, owner note 7).** The game warns only on the SECOND short
+  dispatch (`kAlertCooldown` = 2, DispatchElectricitySystem.cs:208, HandleCooldown :128-143) and sets the wanted power at offset 0
+  (AdjustElectricityConsumptionSystem.cs:385-392) before the dispatch at offset 126, so a fresh unpowered station showed no warning for
+  up to ~380 sim frames and read Powered: its chairs ran a few seconds after an unpause, then stopped. The census reads the 5-argument
+  `PowerOf` (with `m_CooldownCounter`): a warning -> the 4-argument rule; Connected with fulfilled >= wanted > 0 -> Powered (a dispatch
+  with wanted 0 sets Connected too, so Connected alone is stale); a station read Powered or NoPower before -> Powered (the game's
+  cooldown absorbs one short dispatch, as before); else, with no powered history, a short dispatch (cooldown > 0) takes the half rule
+  at once and anything undispatched reads `Pending`. Pending is not powered (`IsPowered` false: the chairs and the tram wait) but shows
+  as no outage (`Power != NoPower` in the hub and the stats). `ExpirePending` fails it open after `PendingMaxFrames` (384 = 3 dispatch
+  periods): only a city whose electricity is locked (HandleCooldown never runs, :102-105) waits that long. A fresh powered lift reads
+  powered at its first judged dispatch, at most 254 sim frames after the build (about 4 s at 1x, 1.4 s at 3x; LiftBatch PG-5 models
+  the dispatch over all 128 build offsets). Logs: `Lift [power]: ... power pending`, `... powered at its first electricity dispatch
+  after N sim frame(s)`, or the fail-open line.
 
 ## Pure file
 `using System;`, `System.Collections.Generic`, `Unity.Mathematics` and EntityRef only (the test-host rule), plus SkiCatalog consts

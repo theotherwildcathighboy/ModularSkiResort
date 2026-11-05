@@ -109,6 +109,8 @@ namespace SkiResortMod.Systems
         private readonly Dictionary<Entity, uint> m_BackSince = new Dictionary<Entity, uint>();       // streak start (sim frame)
         private readonly Dictionary<Entity, uint> m_StreakReadFrame = new Dictionary<Entity, uint>(); // last read in a streak
         private readonly Dictionary<Entity, int> m_GuardRecuts = new Dictionary<Entity, int>();       // flickers this episode
+        // The pending window (LiftServedRule.ExpirePending): the sim frame of a station's first Pending read; an entry only while Pending
+        private readonly Dictionary<Entity, uint> m_PendingSince = new Dictionary<Entity, uint>();
         private Game.Simulation.SimulationSystem m_Simulation;                                      // frameIndex (SimulationSystem.cs:68)
 
         private bool m_Armed, m_Disabled, m_ErrorLogged;
@@ -275,8 +277,18 @@ namespace SkiResortMod.Systems
             // The last value read for this station feeds the rule's hysteresis (NoPower under half, back at three quarters); a first read
             // passes Unknown
             bool known = m_LastPower.TryGetValue(baseStation, out LiftPower last);
+            // With the cooldown counter: a station the first dispatch has not judged yet reads Pending (held), not Powered (601 i)
             LiftPower raw = LiftServedRule.PowerOf((byte)consumer.m_Flags, consumer.m_WantedConsumption,
-                                                   consumer.m_FulfilledConsumption, known ? last : LiftPower.Unknown);
+                                                   consumer.m_FulfilledConsumption, consumer.m_CooldownCounter,
+                                                   known ? last : LiftPower.Unknown);
+            uint pendingSince = m_PendingSince.TryGetValue(baseStation, out uint ps) ? ps : LiftServedRule.NoBackSince;
+            uint pendingNow = m_Simulation != null ? m_Simulation.frameIndex : 0u;
+            uint pendingStart = pendingSince;
+            raw = LiftServedRule.ExpirePending(raw, ref pendingSince, pendingNow, out bool pendingTimedOut);
+            if (pendingSince == LiftServedRule.NoBackSince)
+                m_PendingSince.Remove(baseStation);
+            else
+                m_PendingSince[baseStation] = pendingSince;
             LiftPower power = raw;
             int flickers = 0;
             if (known)
@@ -309,8 +321,9 @@ namespace SkiResortMod.Systems
                     m_GuardRecuts.Remove(baseStation);   // the episode ended: its count goes into the power-back line
             }
             m_LastPower[baseStation] = power;
-            if (known ? last != power : power == LiftPower.NoPower)
-                OfferPowerLine(baseStation, power, consumer, flickers);
+            if (known ? last != power : power == LiftPower.NoPower || power == LiftPower.Pending)
+                OfferPowerLine(baseStation, power, consumer, flickers, known ? last : LiftPower.Unknown,
+                               pendingTimedOut, pendingStart == LiftServedRule.NoBackSince ? 0u : unchecked(pendingNow - pendingStart));
             return power;
         }
 
@@ -365,14 +378,25 @@ namespace SkiResortMod.Systems
         /// <summary>One "Lift [power]" transition through m_PowerLog (LogWindow 10 s): Plain -> the line now; Summary -> the fold line;
         /// Fold -> counted (slot 0 = to no power, slot 1 = back). <paramref name="flickers"/> = raw NoPower reads the guard absorbed this
         /// episode (named in the power-back line when &gt; 0).</summary>
-        private void OfferPowerLine(Entity baseStation, LiftPower power, Game.Buildings.ElectricityConsumer consumer, int flickers)
+        private void OfferPowerLine(Entity baseStation, LiftPower power, Game.Buildings.ElectricityConsumer consumer, int flickers,
+                                    LiftPower last, bool pendingTimedOut, uint pendingFrames)
         {
-            bool toNoPower = power == LiftPower.NoPower;
+            bool toNoPower = power == LiftPower.NoPower || power == LiftPower.Pending;
             // The warning bracket only while a warning bit is still set
             bool warning = ((byte)consumer.m_Flags &
                             (LiftServedRule.FlagNoElectricityWarning | LiftServedRule.FlagBottleneckWarning)) != 0;
             // The lift stops, and the flicker guard is named in both lines (the effective value is the guarded one)
-            string body = toNoPower
+            string body = power == LiftPower.Pending
+                ? $"{DescribeBase(baseStation)} — power pending: no electricity dispatch has judged the station yet (wanted " +
+                  $"{consumer.m_WantedConsumption}, fulfilled {consumer.m_FulfilledConsumption}, cooldown {consumer.m_CooldownCounter}, " +
+                  $"flags {consumer.m_Flags}); the lift waits for it, at most {LiftServedRule.PendingMaxFrames} sim frames (then it runs)"
+                : last == LiftPower.Pending && power == LiftPower.Powered
+                ? (pendingTimedOut
+                    ? $"{DescribeBase(baseStation)} — no electricity dispatch judged the station in {LiftServedRule.PendingMaxFrames} sim " +
+                      $"frames (electricity locked?; wanted {consumer.m_WantedConsumption}, flags {consumer.m_Flags}); it runs (fail open)"
+                    : $"{DescribeBase(baseStation)} — powered at its first electricity dispatch after {pendingFrames} sim frame(s) " +
+                      $"(wanted {consumer.m_WantedConsumption}, fulfilled {consumer.m_FulfilledConsumption}); it runs")
+                : toNoPower
                 ? $"{DescribeBase(baseStation)} — no power: under half its power arrives (wanted {consumer.m_WantedConsumption}, " +
                   $"fulfilled {consumer.m_FulfilledConsumption}, flags {consumer.m_Flags}); the lift stops, counts 0 and serves no " +
                   $"run until three quarters arrive or the warning clears, held {LiftServedRule.PowerBackHoldFrames} frames against flicker"
@@ -708,6 +732,7 @@ namespace SkiResortMod.Systems
             m_BackSince.Clear();
             m_StreakReadFrame.Clear();
             m_GuardRecuts.Clear();
+            m_PendingSince.Clear();
             m_NoConsumerWarned.Clear();
             m_ServeLogged = false;
             m_PowerLog.Reset();

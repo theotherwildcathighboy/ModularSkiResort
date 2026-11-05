@@ -546,6 +546,7 @@ namespace SkiResortMod.Systems
                 case ToolState.Applying:
                     SetActions(false, false, false);
                     applyMode = ApplyMode.None;
+                    ReportFelled();
                     Reset("built");
                     return;
             }
@@ -1384,6 +1385,8 @@ namespace SkiResortMod.Systems
                 ecb.AddComponent(e, course);
                 ecb.AddComponent(e, default(Updated));
             }
+            // The tree corridor (601 e): the vanilla delete definition for every tree in it, with the same emission
+            int fells = EmitCorridorFells(ecb, nodes);
             if (ghost)
             {
                 m_Ghost = true;
@@ -1391,7 +1394,9 @@ namespace SkiResortMod.Systems
                 m_GhostRevision = m_Edit.Revision;
                 if (++m_GhostEmits <= 3 || m_GhostEmits % 25 == 0)
                     Mod.Log.Info($"LiftLine [ghost]: preview #{m_GhostEmits} of plan #{m_Edit.Revision}: {nodes.Count - 1} course(s), " +
-                                 $"{nodes.Count - 2} tower(s) as Temp (the game's translucent preview, error icons included)");
+                                 $"{nodes.Count - 2} tower(s) as Temp (the game's translucent preview, error icons included); " +
+                                 $"{fells} tree(s) of the {CorridorWidthM:F1} m corridor shown felled" +
+                                 (m_FellCapped > 0 ? $" ({m_FellCapped} over the cap stay)" : string.Empty));
                 return;
             }
             m_Emitted = nodes;
@@ -1399,6 +1404,9 @@ namespace SkiResortMod.Systems
             m_State = ToolState.Emitted;
             Say($"LiftLine [build]: {nodes.Count - 1} course(s) emitted for {nodes.Count - 2} tower(s), {Describe(m_Base)} -> " +
                 $"{Describe(m_Top)} — {m_Edit.Describe()}");
+            Mod.Log.Info($"LiftLine [trees]: {fells} tree(s) in the {CorridorWidthM:F1} m corridor emitted to fell with the " +
+                         $"line ({m_FellLine.Count} segment(s), {m_FellStubEdges} station stub edge(s)" +
+                         (m_FellCapped > 0 ? $", {m_FellCapped} over the cap of {LiftTreeCorridor.MaxFellPerBuild} stay" : string.Empty) + ")");
         }
 
         private bool EndAlive(LineEnd e) =>

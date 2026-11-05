@@ -110,6 +110,7 @@ namespace LiftBatch
             LoopCacheTests.Run(Check);
             ShuttleTests.Run(Check);
             PowerGateTests.Run(Check);
+            TreeCorridorTests.Run(Check);
             LoopHoldTests.Run(Check);
             ServedLinkTests.Run(Check);
             LiftPlannerTests.Run(Check);

@@ -38,6 +38,7 @@ namespace SkiResortMod.Systems
         public const string KeyFell = "SkiResort.GladeTooltip.FELL";
         public const string KeyRemove = "SkiResort.GladeTooltip.REMOVE";
         public const string KeyBlockedSpots = "SkiResort.GladeTooltip.BLOCKED_SPOTS";
+        public const string KeyCatTrack = "SkiResort.GladeTooltip.CAT_TRACK";
 
         /// <summary>Built once; index 0 = run interior, 1 = tree line.</summary>
         private static readonly LocalizedString[] TargetText =
@@ -51,7 +52,7 @@ namespace SkiResortMod.Systems
 
         // Status line (one widget, value + color swapped on change). Index constants:
         private const int StHint = 0, StUnbound = 1, StBlocked = 2, StComplete = 3, StClamped = 4,
-                          StSaturated = 5, StMoney = 6, StCompleteBlocked = 7, StCompleteFixed = 8;
+                          StSaturated = 5, StMoney = 6, StCompleteBlocked = 7, StCompleteFixed = 8, StCatTrack = 9;
 
         private static readonly LocalizedString[] StatusText =
         {
@@ -64,6 +65,7 @@ namespace SkiResortMod.Systems
             LocalizedString.Id(KeyMoney),
             LocalizedString.Id(KeyCompleteBlocked),
             LocalizedString.Id(KeyCompleteFixed),
+            LocalizedString.Id(KeyCatTrack),
         };
 
         private static readonly TooltipColor[] StatusColor =
@@ -77,6 +79,7 @@ namespace SkiResortMod.Systems
             TooltipColor.Warning,   // MONEY
             TooltipColor.Info,      // COMPLETE_BLOCKED
             TooltipColor.Info,      // COMPLETE_FIXED
+            TooltipColor.Info,      // CAT_TRACK
         };
 
         private SkiGladeToolSystem m_Tool;
@@ -252,6 +255,9 @@ namespace SkiResortMod.Systems
                     case GladeHoverKind.Unbound:
                     case GladeHoverKind.Legacy:
                         ShowStatus(StUnbound);
+                        break;
+                    case GladeHoverKind.Foreign when m_Tool.HoverOnCatTrack:
+                        ShowStatus(StCatTrack);
                         break;
                     default:
                         // Terrain / Foreign / Nothing, and the transient None / Switching / Held.
