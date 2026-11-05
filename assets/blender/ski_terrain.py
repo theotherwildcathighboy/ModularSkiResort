@@ -1,8 +1,8 @@
-# ski_terrain.py - seamless TILING terrain-material texture sets for the splatmap route
-# (research: docs/research/terrain-material-runs.md "Proposed architecture").
+# ski_terrain.py - seamless TILING texture sets for the run decals' snow and summer slots
+# (SkiRunDecalSystem binds them to the area decal shader's snow slots and the summer dress).
+# Written first for the terrain splatmap route (removed 2026-11-05, DECISIONS 607), hence the names.
 #
-# Unlike the surface/decal atlas work, these are TERRAIN textures: projected by the game's
-# terrain shader (triplanar on steeps) as an Extra-slot diffuse+normal pair, so they must
+# The decal tiles them world-XZ, so they must
 # tile seamlessly on BOTH axes. All pattern math is strictly periodic (integer-frequency
 # sines + FFT random-phase spectral noise), so the tiles are seamless by construction; a
 # roll-by-half seam check verifies it numerically and prints PASS/FAIL per texture.
@@ -12,7 +12,7 @@
 #   Summer: mower stripes, 3 light/dark band pairs per tile (6 bands, ~1.33 m each,
 #           nearest seamless fit to the ~1.5 m deck-width spec), bands run along V.
 #
-# Outputs (file contract - a parallel agent loads these EXACT names):
+# Outputs (file contract - SkiRunDecalSystem loads these EXACT names):
 #   mod/SkiResortMod/Textures/SkiTerrainSnowCorduroy_BaseColor.png   sRGB (display-encoded)
 #   mod/SkiResortMod/Textures/SkiTerrainSnowCorduroy_Normal.png      OpenGL tangent, linear
 #   mod/SkiResortMod/Textures/SkiTerrainSummerRun_BaseColor.png      sRGB (display-encoded)

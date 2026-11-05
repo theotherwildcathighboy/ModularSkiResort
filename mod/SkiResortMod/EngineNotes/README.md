@@ -116,7 +116,6 @@ Long engine and design explanations moved out of the source headers. Each note s
 - [`SkiRunPropMember.md`](SkiRunPropMember.md) -> SkiRunPropMember and SkiRunPropSettings: why placed run props carry a tag instead of Owner(run), and the save layouts
 - [`SkiRunPropSystem.md`](SkiRunPropSystem.md) -> SkiRunPropSystem: the bridge on our run surfaces, the corner stop, and the placer that walks a run's border
 - [`SkiRunRatingRules.md`](SkiRunRatingRules.md) -> SkiRunRatingRules: why the run rating cache is keyed on node x/z, how terraform re-snaps are told apart, and the queue and band rules
-- [`SkiRunSplatSystem.md`](SkiRunSplatSystem.md) -> SkiRunSplatSystem: how ski runs are painted into the terrain-material splatmap, which channel it claims and when it repaints
 - [`SkiRunSurfaceSystem.md`](SkiRunSurfaceSystem.md) -> SkiRunSurfaceSystem: why props on ski runs need Game.Objects.Surface, and why it runs right after WetnessSystem at interval 256
 - [`SkiRunTooltipSystem.md`](SkiRunTooltipSystem.md) -> SkiRunTooltipSystem: the mouse-tooltip lines shown while drawing a ski run, and the vanilla tooltip machinery they rely on
 - [`SkiRunTreeMember.md`](SkiRunTreeMember.md) -> SkiRunTreeMember: why glade trees carry a tag instead of Owner(run), and the save layout of that tag

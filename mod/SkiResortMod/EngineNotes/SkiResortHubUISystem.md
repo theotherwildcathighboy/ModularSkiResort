@@ -340,6 +340,7 @@ Appended fields and bindings by contract:
   region line and beside the mix line.
 - 22: Resort Planner v2 (A7): QuickRunsState appends `pods` / `lifts` rows and `plan` (QuickRunsPlan); `quickRunsSet` gains `lifts`, `home`,
   `pod`, `lift`. Bumped on the integration branch at the A7 merge so its gates stay green; re-bump if main takes 22 first.
+- 34: `CityStats.bookTicketsAsFees` removed (always fees; the UI never read it; DECISIONS 607).
 - 33: run types R3 (DECISIONS 578). `drawRun` {active, groomed, gunSpacingM, lightSpacingM}: the Run tile's option row, active while the
   Run tile's tool is open; trigger `setDrawRun`(key, value) with "groomed" (re-activates the area tool on the natural or groomed prefab),
   "guns", "lights"; SkiRunBindTriggerSystem seeds the sliders onto a run drawn groomed before its bind charge. The Run tile (`runGroomed`)

@@ -20,7 +20,7 @@ export const GROUP = "skiResort";
  * only when C#'s `contract` equals this; on a mismatch it shows the Build strip and the tree controls (CORE only) and
  * says why.
  */
-export const HUB_CONTRACT = 33;
+export const HUB_CONTRACT = 34;
 
 /** The `contract` value while the C# binding is absent (the fallback). Real contracts start at 1. */
 export const CONTRACT_ABSENT = 0;
@@ -867,9 +867,6 @@ export interface CityStats {
   /** The game's LeisureSystem or CitizenBehaviorSystem is switched off, so ski days do not arm
    *  this load (C# ArmVerdict.SystemOff; SkiDaySystem.TripPlannerBlocksSkiDays = SkiTripSystems.BlocksSkiDays). */
   tripPlannerBlocksSkiDays: boolean;
-  /** The Options setting Book resort income as public transportation fees: lift tickets, passes, lessons and lodge spend
-   *  then show in the game's Economy panel under public transportation fees. */
-  bookTicketsAsFees: boolean;
   /** The Options setting Season pass share, 0-100 (0 = passes off). */
   passShare: number;
   /** The calendar month of the game date, 0 = January .. 11 = December (C# SkiMoneyRules.MonthKey, the month the guest
@@ -1053,7 +1050,7 @@ export const FALLBACK = {
   city: {
     known: false, daysPerYear: 0, scaleK: 4, backcountryPct: 40, ticketPrice: 0, snowGating: true,
     snowmakingMarginC: 2, snowVisualsOff: false, tourismOverhaul: false, realisticWorkplaces: false,
-    tripPlanner: "", tripPlannerBlocksSkiDays: false, bookTicketsAsFees: true, passShare: 50, month: -1,
+    tripPlanner: "", tripPlannerBlocksSkiDays: false, passShare: 50, month: -1,
   } as CityStats,
   /** The piste map is on by default (C# owns the value). */
   pisteMap: true,

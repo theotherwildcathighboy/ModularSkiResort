@@ -102,7 +102,7 @@ type Game.City.City struct 23fe2e9631 burst:r:SkiLiftTicketSystem m_OptionMask:u
 type Game.City.CityModifier struct 34a69c9611 m_Delta:float2
 type Game.City.CityModifierType enum 03d847e00a Attractiveness=0 CrimeAccumulation=1 DisasterWarningTime=3 DisasterDamageRate=4 DiseaseProbability=5 ParkEntertainment=6 CriminalMonitorProbability=7 IndustrialAirPollution=8 IndustrialGroundPollution=9 IndustrialGarbage=10 RecoveryFailChange=11 OreResourceAmount=12 OilResourceAmount=13 UniversityInterest=14 OfficeSoftwareDemand=15 IndustrialElectronicsDemand=16 OfficeSoftwareEfficiency=17 IndustrialElectronicsEfficiency=18 TelecomCapacity=19 Entertainment=20 HighwayTrafficSafety=21 PrisonTime=22 CrimeProbability=23 CollegeGraduation=24 UniversityGraduation=25 ImportCost=26 LoanInterest=27 BuildingLevelingCost=28 ExportCost=29 TaxiStartingFee=30 IndustrialEfficiency=31 OfficeEfficiency=32 PollutionHealthAffect=33 HospitalEfficiency=34 IndustrialFishInputEfficiency=35 IndustrialFishHubEfficiency=36 CityServiceImportCost=37 CityServiceBuildingBaseUpkeepCost=38 CrimeResponseTime=39 TaxHappiness=40
 type Game.City.CityUtils class 0347fe3494
-type Game.City.PlayerMoney struct 8512188490 burst:w:SkiLiftTicketSystem m_Money:int m_Unlimited:bool
+type Game.City.PlayerMoney struct 8512188490 burst:r:SkiLiftTicketSystem m_Money:int m_Unlimited:bool
 type Game.City.PlayerResource enum 6a55404ccd burst:r:SkiLiftTicketSystem Electricity=0 Healthcare=1 BasicEducation=2 SecondaryEducation=3 HigherEducation=4 Garbage=5 Water=6 Mail=7 PublicTransport=8 FireResponse=9 Police=10 Sewage=11 Parking=12 Count=13
 type Game.City.Population struct 44f43669fb burst:r:SkiDaySystem m_Population:int m_PopulationWithMoveIn:int m_AverageHappiness:int m_AverageHealth:int
 type Game.City.StatisticType enum 9e2d610c2b Invalid=-1 Population=0 Money=1 Income=2 Expense=3 Trade=4 HouseholdWealth=5 HouseholdCount=6 ServiceWealth=7 ServiceCount=8 ServiceWorkers=9 ServiceMaxWorkers=10 ProcessingWealth=11 ProcessingCount=12 ProcessingWorkers=13 ProcessingMaxWorkers=14 Wellbeing=15 Health=16 WorkerCount=17 Unemployed=18 EducationCount=19 TouristCount=20 TouristIncome=21 LodgingUsed=22 LodgingTotal=23 DeathRate=24 CollectedMail=25 DeliveredMail=26 BirthRate=27 CitizensMovedIn=28 CitizensMovedAway=29 PassengerCountBus=30 PassengerCountSubway=31 PassengerCountTram=32 PassengerCountTrain=33 PassengerCountTaxi=34 PassengerCountAirplane=35 PassengerCountShip=36 CrimeRate=37 CityServiceWorkers=38 CityServiceMaxWorkers=39 OfficeWealth=40 OfficeCount=41 OfficeWorkers=42 OfficeMaxWorkers=43 ResidentialTaxableIncome=44 CommercialTaxableIncome=45 IndustrialTaxableIncome=46 OfficeTaxableIncome=47 CargoCountTruck=48 CargoCountTrain=49 CargoCountShip=50 CargoCountAirplane=51 SeniorWorkerInDemandPercentage=52 CrimeCount=53 EscapedArrestCount=54 AdultsCount=55 Age=56 WellbeingLevel=57 HealthLevel=58 HomelessCount=59 PassengerCountFerry=60 MovedAwayReason=61 Count=62
@@ -306,8 +306,6 @@ type Game.Prefabs.AreaInitializeSystem class 5358ea2db4
 type Game.Prefabs.AreaPrefab class 45bda7ab4c
 type Game.Prefabs.Attraction class ff41a5a3bf
 type Game.Prefabs.BoneType enum 4874dd6ad5 None=0 LookAtDirection=1 WindTurbineRotation=2 WindSpeedRotation=3 RollingTire=4 SteeringTire=5 PoweredRotation=6 TrafficBarrierDirection=7 SuspensionMovement=8 SteeringRotation=9 SuspensionRotation=10 FixedRotation=11 FixedTire=12 DebugMovement=13 VehicleConnection=14 TrainBogie=15 RollingRotation=16 PropellerRotation=17 LookAtRotation=18 LookAtAim=19 PropellerAngle=20 PantographRotation=21 SteeringSuspension=22 LengthwiseLookAtRotation=23 WorkingRotation=24 OperatingRotation=25 TimeRotation=26 LookAtMovementX=27 LookAtMovementY=28 LookAtMovementZ=29 LookAtRotationSide=30 RotationXFromMovementY=31 ScaledMovement=32 LookAtAimForward=33 ScaledRotation=34 PlaybackLayer0=35 PlaybackLayer1=36 PlaybackLayer2=37 PlaybackLayer3=38 PlaybackLayer4=39 PlaybackLayer5=40 PlaybackLayer6=41 PlaybackLayer7=42
-type Game.Prefabs.BrushData struct f7b4ef5e9c m_Archetype:EntityArchetype m_Priority:int m_Resolution:int2
-type Game.Prefabs.BrushPrefab class 4b934eb456
 type Game.Prefabs.BuildingData struct 4dc7a131fc m_LotSize:int2 m_Flags:BuildingFlags
 type Game.Prefabs.BuildingEfficiencyParameterData struct c90827afa9 m_ServiceBudgetEfficiencyFactor:AnimationCurve1 m_LowEfficiencyThreshold:float m_ElectricityPenalty:float m_ElectricityPenaltyDelay:float m_ElectricityFeeFactor:AnimationCurve1 m_WaterPenalty:float m_WaterPenaltyDelay:float m_WaterPollutionPenalty:float m_SewagePenalty:float m_SewagePenaltyDelay:float m_WaterFeeFactor:AnimationCurve1 m_GarbagePenalty:float m_NegligibleMail:int m_MailEfficiencyPenalty:float m_TelecomBaseline:float m_MissingEmployeesEfficiencyPenalty:float m_MissingEmployeesEfficiencyDelay:float m_ServiceBuildingEfficiencyGracePeriod:short m_SickEmployeesEfficiencyPenalty:float
 type Game.Prefabs.BuildingFlags enum d4f2be419a RequireRoad=1 NoRoadConnection=2 LeftAccess=4 RightAccess=8 BackAccess=16 RestrictedPedestrian=32 RestrictedCar=64 ColorizeLot=128 HasLowVoltageNode=256 HasWaterNode=512 HasSewageNode=1024 HasInsideRoom=2048 RestrictedParking=4096 RestrictedTrack=8192 CanBeOnRoad=16384 CanBeOnRoadArea=32768 RequireAccess=65536 CanBeRoadSide=131072 HasResourceNode=262144
@@ -397,13 +395,7 @@ type Game.Prefabs.SubObjectFlags enum 5904d50d6d AnchorTop=1 AnchorCenter=2 Requ
 type Game.Prefabs.SurfacePrefab class 4e79d8784d
 type Game.Prefabs.TaxiwayData struct d29fe60af9 m_SpeedLimit:float m_Flags:TaxiwayFlags
 type Game.Prefabs.TaxiwayFlags enum b940614bbc Runway=1 Airspace=2
-type Game.Prefabs.TerraformingPrefab class 0ec84dcd39
-type Game.Prefabs.TerraformingTarget enum 97f53bfe65 None=-1 Height=0 Ore=1 Oil=2 FertileLand=3 GroundWater=4 Material=5
-type Game.Prefabs.TerraformingType enum 713c261447 Shift=0 Level=1 Soften=2 Slope=3 Count=4
-type Game.Prefabs.Terrain.TerrainRenderSettingsPrefab class 986dca4c7e
 type Game.Prefabs.TerrainComposition struct cdaa4110fe m_WidthOffset:float2 m_ClipHeightOffset:float2 m_MinHeightOffset:float3 m_MaxHeightOffset:float3
-type Game.Prefabs.TerrainMaterialProperties class 5b73a0526f
-type Game.Prefabs.TerrainMaterialType enum d4ec964f77 None=0 Extra1=4 Extra2=5 Extra3=6 Extra4=7
 type Game.Prefabs.ToolErrorData struct 3488cdeabc m_Error:ErrorType m_Flags:ToolErrorFlags
 type Game.Prefabs.ToolErrorFlags enum 41a8ba1cb1 TemporaryOnly=1 DisableInGame=2 DisableInEditor=4
 type Game.Prefabs.TrackData struct 5aae0d20d0 m_TrackType:TrackTypes m_SpeedLimit:float
@@ -434,7 +426,6 @@ type Game.Rendering.BatchInstanceSystem class 7fec9048e3
 type Game.Rendering.Bone struct 8577b30561 burst:w:TrainBoneSystem m_Position:float3 m_Rotation:quaternion m_Scale:float3
 type Game.Rendering.CameraUpdateSystem class edf1128610
 type Game.Rendering.CullingInfo struct c3c14133b2 burst:w:SkiGroomerSystem m_Bounds:Bounds3 m_Radius:float m_CullingIndex:int m_Mask:BoundsMask m_MinLod:byte m_PassedCulling:byte
-type Game.Rendering.DecalLayers enum 8ec5f41944 Terrain=1 Roads=2 Buildings=4 Vehicles=8 Creatures=16 Other=32
 type Game.Rendering.EffectRangeRenderSystem class 0b2f5d0a9f
 type Game.Rendering.IGameCameraController interface cca4690afe
 type Game.Rendering.InitializeBonesSystem class b908d9cfbc
@@ -449,7 +440,6 @@ type Game.Rendering.RenderingSystem class 577547827a
 type Game.Rendering.RouteBufferSystem class 0610c4b152
 type Game.Rendering.RouteRenderSystem class 09cafeaf5a
 type Game.Rendering.Skeleton struct a66af6d7f6 burst:w:TrainBoneSystem m_BufferAllocation:NativeHeapBlock m_BoneOffset:int m_LayerOffset:int m_CurrentUpdated:bool m_HistoryUpdated:bool m_RequireHistory:bool
-type Game.Rendering.TerrainMaterialSystem class 313d4eec91
 type Game.Rendering.UndergroundPass class 2eaa51639c
 type Game.Rendering.UndergroundViewSystem class ef72630ff5
 type Game.Rendering.Viewer class 61c2e21eb0
@@ -711,7 +701,6 @@ anchor SkiRunDecalSystem after Game.Rendering.AreaBatchSystem PreCulling
 anchor SkiRunDrawFeedbackSystem before Game.Rendering.OverlayRenderSystem Rendering
 anchor SkiRunOutlineSystem before Game.Rendering.OverlayRenderSystem Rendering
 anchor SkiRunPropSystem before Game.Objects.SecondaryObjectSystem Modification4B
-anchor SkiRunSplatSystem before Game.Rendering.TerrainMaterialSystem PreCulling
 anchor SkiRunSurfaceSystem after Game.Simulation.WetnessSystem GameSimulation interval{return 256;}
 anchor SkiRunTooltipSystem after Game.UI.Tooltip.AreaToolTooltipSystem UITooltip
 anchor SkiSnowInjectionSystem after Game.Simulation.SnowSystem GameSimulation interval{return 4;}

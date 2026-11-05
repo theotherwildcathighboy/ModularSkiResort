@@ -3817,8 +3817,7 @@ namespace SkiResortMod.Systems
 
         private static bool PointInTriangle(float2 p, float2 a, float2 b, float2 c)
         {
-            // Sign test, edge-inclusive with a small tolerance (house helper, shared shape
-            // with SkiRunSplatSystem).
+            // Sign test, edge-inclusive with a small tolerance (house helper).
             const float eps = 0.01f;
             float d1 = Cross(p - a, b - a);
             float d2 = Cross(p - b, c - b);

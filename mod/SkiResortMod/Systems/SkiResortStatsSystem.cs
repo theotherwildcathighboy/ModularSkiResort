@@ -180,7 +180,6 @@ namespace SkiResortMod.Systems
         // bindings.ts TRIP_PLANNER_UNKNOWN: a system off, no known mod).
         public string TripPlanner;
         public bool TripPlannerBlocksSkiDays;   // LeisureSystem or CitizenBehaviorSystem off: ski days not armed
-        public bool BookTicketsAsFees; // resort income is booked as public transportation fees
         public int PassShare; // SeasonPassShare, clamped 0..100 (0 = passes off)
         // the calendar month 0..11 of the game date, the month the guest ledger counts as "this month" (SkiMoneyRules.MonthKey, as
         // SkiGuestCounterSystem rolls it). The UI names it through vanilla Common.MONTH:<0-11>.
@@ -192,7 +191,7 @@ namespace SkiResortMod.Systems
                    TicketPrice == o.TicketPrice && SnowGating == o.SnowGating && SnowmakingMarginC.Equals(o.SnowmakingMarginC) &&
                    SnowVisualsOff == o.SnowVisualsOff && TourismOverhaul == o.TourismOverhaul &&
                    RealisticWorkplaces == o.RealisticWorkplaces && TripPlanner == o.TripPlanner &&
-                   TripPlannerBlocksSkiDays == o.TripPlannerBlocksSkiDays && BookTicketsAsFees == o.BookTicketsAsFees &&
+                   TripPlannerBlocksSkiDays == o.TripPlannerBlocksSkiDays &&
                    PassShare == o.PassShare && Month == o.Month;
         }
 
@@ -217,7 +216,6 @@ namespace SkiResortMod.Systems
                 h = h * 31 + (RealisticWorkplaces ? 1 : 0);
                 h = h * 31 + (TripPlanner ?? "").GetHashCode();
                 h = h * 31 + (TripPlannerBlocksSkiDays ? 1 : 0);
-                h = h * 31 + (BookTicketsAsFees ? 1 : 0);
                 h = h * 31 + PassShare;
                 return h * 31 + Month;
             }
@@ -2551,7 +2549,6 @@ namespace SkiResortMod.Systems
                 TripPlanner = m_SkiDays != null ? m_SkiDays.TripPlannerLabel ?? "" : "",
                 TripPlannerBlocksSkiDays = m_SkiDays != null && m_SkiDays.TripPlannerBlocksSkiDays,
                 // the settings the ticket system reads
-                BookTicketsAsFees = SkiResortSettings.DefaultBookTicketsAsFees, // always on (DECISIONS 601)
                 PassShare = SkiMoneyRules.ClampPassShare(settings != null ? settings.SeasonPassShare : SkiMoneyRules.PassShareDefault),
                 // the ledger month key's calendar month, 0..11 (MonthOfKey is 1..12)
                 Month = SkiMoneyRules.MonthOfKey(SkiMoneyRules.MonthKey(m_TimeSystem.year, m_TimeSystem.normalizedDate)) - 1,
@@ -3226,7 +3223,6 @@ namespace SkiResortMod.Systems
                   .Append(", Realistic Workplaces ").Append(c.RealisticWorkplaces)
                   .Append(", trip planner ").Append(string.IsNullOrEmpty(c.TripPlanner) ? "game's own" : c.TripPlanner)
                   .Append(c.TripPlannerBlocksSkiDays ? " (ski days off)" : "")
-                  .Append(", resort income booked as ").Append(c.BookTicketsAsFees ? "public transportation fees" : "a direct add")
                   .Append(", season pass share ").Append(c.PassShare).Append(" %").Append('\n');
                 for (int i = 0; i < m_Resorts.Count; i++)
                 {

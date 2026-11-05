@@ -33,7 +33,7 @@ namespace SkiResortMod
         public static bool TourismOverhaulDetected { get; private set; }
 
         /// <summary>Directory containing the deployed mod DLL (and its Textures payload); null when TryGetExecutableAsset failed.
-        /// Consumed by SkiRunSplatSystem.</summary>
+        /// Consumed by SkiRunDecalSystem and LiftLineIconAsset.</summary>
         public static string ModRootPath { get; private set; }
 
         // The profile folder up to and including the account name; the name may hold spaces, so it runs to the next separator.
@@ -136,11 +136,6 @@ namespace SkiResortMod
             // Cursor aim plane: rewrites the prefab's NetGeometryData.m_DefaultSurfaceHeight.max (the NetToolSystem ray offset) once per
             // load; data only, disabled, OnGameLoadingComplete only (like SnowLineSystem).
             updateSystem.UpdateAt<CursorAimSystem>(SystemUpdatePhase.GameSimulation);
-
-            // Ski-run splat painting. PreCulling (every frame in Game AND Editor, paused included) is load-bearing: area edits ignore
-            // simulation pause and their tags die at Cleanup. Before TerrainMaterialSystem so our dabs land in the same frame's splat update.
-            updateSystem.UpdateBefore<SkiRunSplatSystem, Game.Rendering.TerrainMaterialSystem>(
-                SystemUpdatePhase.PreCulling);
 
             // Snow injection: GameSimulation is SnowSystem's phase (pause-gated, Game mode only). Anchor is load-bearing: the write must
             // land after the ping-pong flip so injected texels are _Previous for the NEXT AddSnow; inherits SnowSystem's 4-frame offset.

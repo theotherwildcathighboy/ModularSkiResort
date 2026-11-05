@@ -142,7 +142,7 @@ namespace SkiResortMod.Settings
                     "what the household has left after the lift ticket, so nothing is spent while lift tickets are off. " +
                     "0 turns it off. Default 15."
                 },
-                // Lessons and season passes. The retired BookTicketsAsFees switch (DECISIONS 601) has no rows: it is hidden.
+                // Lessons and season passes.
                 {
                     m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.LessonShare)),
                     "Lesson share"

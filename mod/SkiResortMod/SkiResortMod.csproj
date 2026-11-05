@@ -45,7 +45,7 @@
 			<Private>false</Private>
 		</Reference>
 		<!-- TextureAsset implements interfaces declared in Colossal.AssetPipeline; the
-		     compiler needs it resolvable to use TextureAsset generics (SkiRunSplatSystem). -->
+		     compiler needs it resolvable to use TextureAsset generics (SkiRunDecalSystem). -->
 		<Reference Include="Colossal.AssetPipeline">
 			<Private>false</Private>
 		</Reference>
@@ -79,7 +79,7 @@
 		<Reference Include="Unity.RenderPipelines.Core.Runtime">
 			<Private>false</Private>
 		</Reference>
-		<!-- Texture2D.LoadImage lives in the ImageConversion module (SkiRunSplatSystem
+		<!-- Texture2D.LoadImage lives in the ImageConversion module (SkiRunDecalSystem
 		     loads the run-material PNGs at runtime). -->
 		<Reference Include="UnityEngine.ImageConversionModule">
 			<Private>false</Private>
@@ -137,7 +137,7 @@
 		<None Include="$(ModTargetsFile)" Link="Properties\Mod.targets" />
 	</ItemGroup>
 
-	<!-- Run-material PNGs (SkiRunSplatSystem texture contract). Copied to $(OutDir)\Textures,
+	<!-- Run-material PNGs (SkiRunDecalSystem texture contract). Copied to $(OutDir)\Textures,
 	     which the stock DeployWIP target then mirrors into the Mods folder recursively.
 	     The folder may not exist yet while the textures are being authored — an empty glob
 	     is fine, and the system logs missing files and stays inert until they appear. -->

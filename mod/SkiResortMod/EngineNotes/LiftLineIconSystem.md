@@ -63,7 +63,7 @@ Icon commands: `Add(owner, SkiLiftLineNeeded, IconPriority.Warning)` (the vanill
 
 ## The icon prefab (LiftLineIconAsset, IconTextureCodec)
 
-A `NotificationIconPrefab` made in code (precedent: SkiRunSplatSystem's `PrefabSystem.AddPrefab`), registered in `OnGamePreload`
+A `NotificationIconPrefab` made in code (`PrefabSystem.AddPrefab`), registered in `OnGamePreload`
 so a saved icon finds its prefab when the save's prefab list is resolved. A new icon prefab entity is Created, which reruns
 NotificationIconPrefabSystem (icon indexes, NotificationIconPrefabSystem.cs:50-95) and drops the render system's texture array
 (`DisplayDataUpdated`, NotificationIconRenderSystem.cs:105-117), so a late registration is drawn.

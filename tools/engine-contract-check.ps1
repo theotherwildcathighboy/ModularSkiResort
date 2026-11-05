@@ -212,16 +212,6 @@ $rows = @(
     @('SNOW-5', 'Game.Simulation\SnowSystem.cs', 'm_LoadKernelR16G16_UNorm',
       'the snow texture format the injection writes (R16G16_UNorm; the same guard)'),
 
-    # --- run paint: SkiRunSplatSystem paints through the terrain material system ---
-    @('SPLAT-1', 'Game.Rendering\TerrainMaterialSystem.cs', 'public \w+ UserSplatmap\b',
-      'the playable-area splat map a run is painted on'),
-    @('SPLAT-2', 'Game.Rendering\TerrainMaterialSystem.cs', 'public \w+ UserSplatmapWorld\b',
-      'the world splat map a run outside the playable area reads'),
-    @('SPLAT-3', 'Game.Rendering\TerrainMaterialSystem.cs', 'public void ApplyBrush\(',
-      'the paint call: a removed brush path stops all run paint'),
-    @('SPLAT-4', 'Game.Rendering\TerrainMaterialSystem.cs', 'public Entity currentTerrainRenderSettings',
-      'the settings entity the run paint swaps in at load'),
-
     # --- terrain and leisure: cat track grading and the ski day ---
     @('TERR-1', 'Game.Simulation\TerrainSystem.cs', 'm_AsyncGPUReadback\.Request\(m_HeightmapCascade',
       'the heightmap readback that makes graded terrain visible to CPU height queries'),
@@ -303,6 +293,7 @@ $liftFiles = Get-ChildItem $sysDir -Filter *.cs -File | Where-Object { $_.Name -
 $allow = @(
     @('LiftCensusSystem.cs',   'm_EventArchetype'),
     @('LiftLineToolSystem.cs', 'ecb\.CreateEntity\(\)'),
+    @('LiftLineToolSystem.Sections.cs', 'ecb\.CreateEntity\(\)'),   # the section delete definition (CreationFlags.Delete)
     @('PowerBridgeSystem.cs',  'nodeArchetype')
 )
 foreach ($f in $liftFiles) {

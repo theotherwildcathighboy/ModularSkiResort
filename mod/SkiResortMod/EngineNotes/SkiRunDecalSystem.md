@@ -3,8 +3,7 @@
 The system upgrades the live material behind our ski-run decal surfaces at runtime: no Editor re-import, no custom shader, no shared
 asset touched. `AreaBatchSystem` clones the shared `AreaDecalShader` material once per surface prefab and names the clone
 "Area batch (<prefab name>)" (AreaBatchSystem.cs 2094-2097); everything `RenderedArea` does not expose (the shader's snow slots, the
-`_MATERIAL_AFFECTS_*` keywords, the `_Affect*` toggles) is reachable only by mutating that clone (the pattern
-`SkiRunSplatSystem.ApplyDecalVisibility` uses). Mutating our clone cannot leak to other surfaces: we never touch the shared
+`_MATERIAL_AFFECTS_*` keywords, the `_Affect*` toggles) is reachable only by mutating that clone. Mutating our clone cannot leak to other surfaces: we never touch the shared
 `m_RenderedAreaMaterial` or any other prefab's clone.
 
 ## Each load (Game and Editor)
@@ -41,5 +40,4 @@ We never assign `m_Material`, so it cannot arise here; recorded so a future esca
 PreCulling, anchored after `AreaBatchSystem` (clones build lazily on prefab Created); every frame in Game and Editor, paused included,
 so the retry countdown and the re-assert sentinel tick. Logging and the defensive contract are the ChairPinSystem pattern. A property
 write is logged only when it changes the slot (texture: not the object already bound, by `UnityEngine.Object`'s `!=`; float: a
-different value), but every write still happens and is recorded for the sentinel. `SkiRunSplatSystem.ApplyDecalVisibility` finds the
-same clones by name; this system's retry-until-found supersedes its find-once.
+different value), but every write still happens and is recorded for the sentinel. Clones are found by name, retried until found.

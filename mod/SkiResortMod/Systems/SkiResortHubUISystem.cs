@@ -42,7 +42,7 @@ namespace SkiResortMod.Systems
 
         /// <summary>The contract number (bindings.ts HUB_CONTRACT). Bump both together whenever a binding, trigger, field or meaning
         /// changes (Engine notes: Near HubContract lists what each number appended).</summary>
-        public const int HubContract = 33;
+        public const int HubContract = 34;
 
         /// <summary>The `contract` value the UI reads as "C# absent" (bindings.ts CONTRACT_ABSENT). Pushed after the one-shot "!!!"
         /// until the next load: the UI then shows its "not connected" notice instead of launchers that do nothing.</summary>
@@ -381,9 +381,7 @@ namespace SkiResortMod.Systems
                 writer.Write(value.TripPlanner ?? "");
                 writer.PropertyName("tripPlannerBlocksSkiDays");
                 writer.Write(value.TripPlannerBlocksSkiDays);
-                // The booking setting and the pass share (0 = passes off).
-                writer.PropertyName("bookTicketsAsFees");
-                writer.Write(value.BookTicketsAsFees);
+                // The pass share (0 = passes off).
                 writer.PropertyName("passShare");
                 writer.Write(Fin(value.PassShare));
                 // The calendar month 0..11 (the UI names it with vanilla Common.MONTH:<n>).
@@ -404,7 +402,7 @@ namespace SkiResortMod.Systems
                        a.SnowmakingMarginC.Equals(b.SnowmakingMarginC) && a.SnowVisualsOff == b.SnowVisualsOff &&
                        a.TourismOverhaul == b.TourismOverhaul && a.RealisticWorkplaces == b.RealisticWorkplaces &&
                        a.TripPlanner == b.TripPlanner && a.TripPlannerBlocksSkiDays == b.TripPlannerBlocksSkiDays &&
-                       a.BookTicketsAsFees == b.BookTicketsAsFees && a.PassShare == b.PassShare &&
+                       a.PassShare == b.PassShare &&
                        a.Month == b.Month;
             }
 
@@ -424,7 +422,6 @@ namespace SkiResortMod.Systems
                     h = h * 31 + (c.RealisticWorkplaces ? 1 : 0);
                     h = h * 31 + (c.TripPlanner ?? "").GetHashCode();
                     h = h * 31 + (c.TripPlannerBlocksSkiDays ? 1 : 0);
-                    h = h * 31 + (c.BookTicketsAsFees ? 1 : 0);
                     h = h * 31 + c.PassShare;
                     return h * 31 + c.Month;
                 }

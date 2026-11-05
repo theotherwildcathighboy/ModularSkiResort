@@ -470,7 +470,7 @@ namespace SkiResortMod.Systems
         }
 
 
-        /// <summary>Null-tolerant read (the SkiRunSplatSystem pattern): Mod.Settings is
+        /// <summary>Null-tolerant read: Mod.Settings is
         /// assigned before registration, so null means "not loaded" → the default (on).</summary>
         private static bool BindOnDrawEnabled()
         {

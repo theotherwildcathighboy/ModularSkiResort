@@ -15,12 +15,11 @@ without PlayerMoney charges nobody: guests go free, one WARN per load).
 
 ## Booked as public transportation fees
 
-`BookTicketsAsFees` (Options -> Balance, default on, read live): each paid lift ticket, season pass, lesson and lodge spend
+Always (the Options switch and the direct-add path were removed 2026-11-05, DECISIONS 607): each paid lift ticket, season pass, lesson and lodge spend
 enqueues one FeeEvent like the bus fare, so the income shows in the Economy panel, and its total is NOT added to PlayerMoney in
 the job: BudgetApplySystem.cs:28-60 credits the fee line (CityServiceBudgetSystem.cs:225-226) into PlayerMoney itself, so adding
 it here too would pay the city twice. The fee queue and its dependency are handled as ResidentAISystem does (:265, :277, :285;
-ServiceFeeSystem.cs:443-452), also with the setting off, so the job struct never holds a default NativeQueue. Setting off = direct
-PlayerMoney.Add, no FeeEvent.
+ServiceFeeSystem.cs:443-452). The jobs read PlayerMoney only to check the City has it (no PlayerMoney: guests booked free).
 
 Unverified in game: that the Economy panel line rises and the treasury is credited once; with Realistic Workplaces And Households
 ("RWH") loaded, which replaces BudgetApplySystem with its own copy, that fee income reaches the treasury at all (one WARN per

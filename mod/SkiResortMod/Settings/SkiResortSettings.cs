@@ -14,19 +14,6 @@ using SkiResortMod.Systems;
 
 namespace SkiResortMod.Settings
 {
-    /// <summary>Which terrain Extra material slot the splat system may claim for ski-run paint. Maps define up to four; many CO
-    /// maps fill all four, so Auto (free-only) finds nothing there. Force deliberately replaces that map material with our
-    /// snow/summer set (anywhere the map painted it shows runs' material instead).</summary>
-    public enum TerrainSlotPolicy
-    {
-        Auto,
-        ForceExtra1,
-        ForceExtra2,
-        ForceExtra3,
-        ForceExtra4,
-        Off,
-    }
-
     [FileLocation("ModsSettings/SkiResortMod/SkiResortMod")]
     [SettingsUIGroupOrder(GroupHub, GroupBalance, GroupSkiDays, GroupSnow, GroupRuns, GroupLifts, GroupKeybindings, GroupDiagnostics, GroupReset)]
     [SettingsUIShowGroupName(GroupHub, GroupBalance, GroupSkiDays, GroupSnow, GroupRuns, GroupLifts, GroupKeybindings, GroupDiagnostics, GroupReset)]
@@ -75,7 +62,6 @@ namespace SkiResortMod.Settings
         public const bool DefaultDiagnosticMeasurements = false;
         public const bool DefaultPlannerOnMainThread = false;
         public const bool DefaultAnimatedLiftCarriers = true;
-        public const bool DefaultBookTicketsAsFees = true;
         public const int DefaultSeasonPassShare = SkiMoneyRules.PassShareDefault;
         public const int DefaultSeasonPassMultiplier = SkiMoneyRules.PassMultiplierDefault;
         public const int DefaultLessonShare = SkiMoneyRules.LessonShareDefault;
@@ -142,13 +128,6 @@ namespace SkiResortMod.Settings
         [SettingsUISlider(min = 0f, max = LodgeSpendPerGuestMax, step = LodgeSpendPerGuestStep, unit = "money")]
         [SettingsUISection(SectionMain, GroupBalance)]
         public int LodgeSpendPerGuest { get; set; }
-
-        /// <summary>Retired from the Options page (2026-11-05, DECISIONS 601): resort income is ALWAYS booked as a public transportation fee
-        /// (a ServiceFeeSystem FeeEvent, like the vanilla bus fare), the only vanilla Economy-panel line it can show on without touching the
-        /// game's UI. The stored value is ignored (SkiLiftTicketSystem.ReadBookAsFees returns true); the property stays so an options file
-        /// that has it still loads, and the hub contract field bookTicketsAsFees stays true.</summary>
-        [SettingsUIHidden]
-        public bool BookTicketsAsFees { get; set; }
 
         /// <summary>The share, in percent, of resident households that buy a season pass (rolled in the pre-season sale, or at the first
         /// ski of the season for households outside it); 0 = passes off. Read live by SkiLiftTicketSystem through
@@ -240,14 +219,6 @@ namespace SkiResortMod.Settings
         [SettingsUISection(SectionMain, GroupSnow)]
         public float SnowmakingBonusCelsius { get; set; }
 
-
-        /// <summary>Slot policy for painting runs onto the terrain itself. Auto claims a free Extra slot only (many CO maps have none);
-        /// ForceExtraN sacrifices that map material (its paint under and around the runs is erased and stays erased once saved; never
-        /// claimed before the city has a run of ours); Off keeps the classic decal surfaces. Takes effect on load. Hidden from the Options
-        /// page since 2026-11-05 (DECISIONS 601): the layer gets no further work (run-rendering-synthesis Layer 3), Force is a map-paint
-        /// footgun, and Auto is zero-impact by construction; SetDefaults keeps Auto.</summary>
-        [SettingsUIHidden]
-        public TerrainSlotPolicy TerrainSnowSlot { get; set; }
 
         // Runs: read live every frame by the consuming systems, so a change takes effect at once
 
@@ -475,7 +446,6 @@ namespace SkiResortMod.Settings
             BackcountryValuePercent = DefaultBackcountryValuePercent;
             LiftTicketPrice = SkiMoneyRules.TicketPriceDefault;
             LodgeSpendPerGuest = DefaultLodgeSpendPerGuest;
-            BookTicketsAsFees = DefaultBookTicketsAsFees;
             SeasonPassShare = DefaultSeasonPassShare;
             SeasonPassMultiplier = DefaultSeasonPassMultiplier;
             LessonShare = DefaultLessonShare;
@@ -487,7 +457,6 @@ namespace SkiResortMod.Settings
             SkiDayPowderPct = DefaultSkiDayPowderPct;
             EnableSnowGating = DefaultEnableSnowGating;
             SnowmakingBonusCelsius = DefaultSnowmakingBonusCelsius;
-            TerrainSnowSlot = TerrainSlotPolicy.Auto;
             EnableBindOnDraw = true;
             ShowRunGradeWhileDrawing = true;
             ContourLinesWhileDrawingRuns = true;
