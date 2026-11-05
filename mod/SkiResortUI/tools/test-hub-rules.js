@@ -760,11 +760,11 @@ function run(srcDir) {
   const hubTuples = read(path.join("hub", "hubText.ts")).split("\n")
     .map((l) => /\["(?:SkiResort|Assets)[^"]*", "([^"]*)"\]/.exec(l)).filter(Boolean).map((m) => m[1]);
   eq("T34 no over-instructive hub text", [hubTuples.length > 500, hubTuples.filter((s) => obvious.test(s))], [true, []]);
-  // T35 (contract 28) the Runs view's prop rows: a step under the minimum reads off, a step up from off lands on the minimum at the least, the
-  // maximum holds. Range from RunPropPlacerRules (tools/check-run-props.js compares the constants); the rows act on the focused run.
+  // T35 (contract 28) the Runs view's prop rows: Fewer / More on a spacing ladder (DECISIONS 601). Range from RunPropPlacerRules (tools/check-run-props.js compares the constants); the rows act on the focused run.
   const step = R.runPropSpacingStep;
-  eq("T35.1 runPropSpacingStep", [step(0, 10), step(0, 50), step(20, 10), step(20, -10), step(20, -50), step(60, -50), step(70, -50), step(100, 50), step(190, 50), step(200, 10), step(200, -10)],
-    [20, 50, 30, 0, 0, 0, 20, 150, 200, 200, 190]);
+  // DECISIONS 601: Fewer / More walk the ladder one way; More from off lands on 50, Fewer past 200 is off, a between-rungs value steps to the next rung
+  eq("T35.1 runPropSpacingStep", [step(0, true), step(0, false), step(50, true), step(50, false), step(20, true), step(200, false), step(90, true), step(90, false), step(25, true), step(30, true)],
+    [50, 0, 40, 60, 20, 0, 80, 100, 20, 20]);
   const propRows = read(path.join("hub", "RunPropControls.tsx"));
   const runsView = read(path.join("hub", "RunsView.tsx"));
   eq("T35.2 the rows send the two triggers, read C#'s value and are drawn under the tree rows while Quick runs is closed, for the focused row",

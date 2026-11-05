@@ -517,9 +517,11 @@ namespace SkiResortMod.Systems
             return SkiMoneyRules.ClampLessonMultiplier(Mod.Settings?.LessonMultiplier ?? SkiMoneyRules.LessonMultiplierDefault);
         }
 
+        // Always true since DECISIONS 601: the Options switch is retired (the Economy panel's public transportation fees line is the only
+        // vanilla line resort income can show on), and a stored false from an older options file is ignored.
         private static bool ReadBookAsFees()
         {
-            return Mod.Settings?.BookTicketsAsFees ?? SkiResortMod.Settings.SkiResortSettings.DefaultBookTicketsAsFees;
+            return SkiResortMod.Settings.SkiResortSettings.DefaultBookTicketsAsFees;
         }
 
 

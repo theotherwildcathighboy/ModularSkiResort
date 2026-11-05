@@ -2551,7 +2551,7 @@ namespace SkiResortMod.Systems
                 TripPlanner = m_SkiDays != null ? m_SkiDays.TripPlannerLabel ?? "" : "",
                 TripPlannerBlocksSkiDays = m_SkiDays != null && m_SkiDays.TripPlannerBlocksSkiDays,
                 // the settings the ticket system reads
-                BookTicketsAsFees = settings != null ? settings.BookTicketsAsFees : SkiResortSettings.DefaultBookTicketsAsFees,
+                BookTicketsAsFees = SkiResortSettings.DefaultBookTicketsAsFees, // always on (DECISIONS 601)
                 PassShare = SkiMoneyRules.ClampPassShare(settings != null ? settings.SeasonPassShare : SkiMoneyRules.PassShareDefault),
                 // the ledger month key's calendar month, 0..11 (MonthOfKey is 1..12)
                 Month = SkiMoneyRules.MonthOfKey(SkiMoneyRules.MonthKey(m_TimeSystem.year, m_TimeSystem.normalizedDate)) - 1,

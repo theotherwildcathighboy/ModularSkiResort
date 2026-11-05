@@ -28,8 +28,8 @@ namespace SkiResortMod.Settings
     }
 
     [FileLocation("ModsSettings/SkiResortMod/SkiResortMod")]
-    [SettingsUIGroupOrder(GroupHub, GroupBalance, GroupSkiDays, GroupSnow, GroupTerrain, GroupRuns, GroupLifts, GroupKeybindings, GroupDiagnostics, GroupReset)]
-    [SettingsUIShowGroupName(GroupHub, GroupBalance, GroupSkiDays, GroupSnow, GroupTerrain, GroupRuns, GroupLifts, GroupKeybindings, GroupDiagnostics, GroupReset)]
+    [SettingsUIGroupOrder(GroupHub, GroupBalance, GroupSkiDays, GroupSnow, GroupRuns, GroupLifts, GroupKeybindings, GroupDiagnostics, GroupReset)]
+    [SettingsUIShowGroupName(GroupHub, GroupBalance, GroupSkiDays, GroupSnow, GroupRuns, GroupLifts, GroupKeybindings, GroupDiagnostics, GroupReset)]
     // One keyboard action declaration per binding (conflict warnings; see engine notes)
     [SettingsUIKeyboardAction(ActToggleGlade)]
     [SettingsUIKeyboardAction(ActGladeNextVariant)]
@@ -143,11 +143,11 @@ namespace SkiResortMod.Settings
         [SettingsUISection(SectionMain, GroupBalance)]
         public int LodgeSpendPerGuest { get; set; }
 
-        /// <summary>On = each paid lift ticket, season pass, lesson and lodge spend is booked as a public transportation fee (a
-        /// ServiceFeeSystem FeeEvent, like the vanilla bus fare), so the income shows in the Economy panel and the budget credits the
-        /// treasury; off = a direct add to the city's balance. Read live by SkiLiftTicketSystem (ReadBookAsFees; true when settings are
-        /// not loaded). Default on.</summary>
-        [SettingsUISection(SectionMain, GroupBalance)]
+        /// <summary>Retired from the Options page (2026-11-05, DECISIONS 601): resort income is ALWAYS booked as a public transportation fee
+        /// (a ServiceFeeSystem FeeEvent, like the vanilla bus fare), the only vanilla Economy-panel line it can show on without touching the
+        /// game's UI. The stored value is ignored (SkiLiftTicketSystem.ReadBookAsFees returns true); the property stays so an options file
+        /// that has it still loads, and the hub contract field bookTicketsAsFees stays true.</summary>
+        [SettingsUIHidden]
         public bool BookTicketsAsFees { get; set; }
 
         /// <summary>The share, in percent, of resident households that buy a season pass (rolled in the pre-season sale, or at the first
@@ -243,8 +243,10 @@ namespace SkiResortMod.Settings
 
         /// <summary>Slot policy for painting runs onto the terrain itself. Auto claims a free Extra slot only (many CO maps have none);
         /// ForceExtraN sacrifices that map material (its paint under and around the runs is erased and stays erased once saved; never
-        /// claimed before the city has a run of ours); Off keeps the classic decal surfaces. Takes effect on load.</summary>
-        [SettingsUISection(SectionMain, GroupTerrain)]
+        /// claimed before the city has a run of ours); Off keeps the classic decal surfaces. Takes effect on load. Hidden from the Options
+        /// page since 2026-11-05 (DECISIONS 601): the layer gets no further work (run-rendering-synthesis Layer 3), Force is a map-paint
+        /// footgun, and Auto is zero-impact by construction; SetDefaults keeps Auto.</summary>
+        [SettingsUIHidden]
         public TerrainSlotPolicy TerrainSnowSlot { get; set; }
 
         // Runs: read live every frame by the consuming systems, so a change takes effect at once

@@ -1,14 +1,14 @@
 /*
  * src/hub/RunPropControls.tsx - the Runs view's feature rows for the focused run (run types R3, DECISIONS 578): Groomed (on / off, a re-emit),
- * then how far apart its snow guns and floodlights stand. The slider rows are the tree line's (QuickRunsControls TreeRowsQuick): caption, -50,
- * -10, value, +10, +50. The run is the focused row of the list; the rows always draw, so the view does not jump when a run is picked. The values
+ * then how far apart its snow guns and floodlights stand. Each spacing row is caption, Fewer, value, More (DECISIONS 601: the old -50 / -10 /
+ * +10 / +50 read backwards, since a smaller spacing means more guns and the low end was Off). The run is the focused row of the list; the rows always draw, so the view does not jump when a run is picked. The values
  * are C#'s (RunRow.gunSpacingM / lightSpacingM: 0 = off, -1 = it carries none, a natural run): a click sends the next value and C# answers by
  * pushing the row. The sliders are the Snowmaking and Lights features (DECISIONS 577): Off = no guns, no made snow, no bill. Each tip says
  * whether turning the feature on pays its one-time step or is free again (RunRow.paidSteps). A cat track has no Groomed row.
  * Panel file: no subscription of its own; RunsView passes the row.
  */
 import { Unit } from "cs2/l10n";
-import { RUN_KIND, RUN_PAID, RUN_PROP_SPACING_MAX, RUN_PROP_SPACING_OFF, RUN_PROP_SPACING_STEP, RUN_PROP_SPACING_STEP_COARSE, hubTriggers } from "../bindings";
+import { RUN_KIND, RUN_PAID, RUN_PROP_SPACING_MIN, RUN_PROP_SPACING_OFF, hubTriggers } from "../bindings";
 import type { DrawRun, RunRow } from "../bindings";
 import { useT } from "../l10n";
 import { runPropSpacingStep } from "./hubRules";
@@ -19,22 +19,17 @@ import styles from "./hub.module.scss";
 
 function SpacingRow({ caption, tip, value, onSet }: { caption: string; tip: string; value: number; onSet: (meters: number) => void }): JSX.Element {
   const t = useT();
-  const on = value >= 0;
-  const lower = t(HUB_LOC.runPropsLower);
-  const higher = t(HUB_LOC.runPropsHigher);
-  const down = !on || value <= RUN_PROP_SPACING_OFF;
-  const up = !on || value >= RUN_PROP_SPACING_MAX;
-  const text = !on ? "–" : value <= RUN_PROP_SPACING_OFF ? t(HUB_LOC.runPropsOff) : numArg(value, Unit.Length);
+  const has = value >= 0;
+  const off = value <= RUN_PROP_SPACING_OFF;
+  const text = !has ? "–" : off ? t(HUB_LOC.runPropsOff) : numArg(value, Unit.Length);
   return (
     <div className={styles.quickRow}>
       <Caption text={caption} />
-      <Act label="–50" tip={lower} disabled={down} onSelect={() => onSet(runPropSpacingStep(value, -RUN_PROP_SPACING_STEP_COARSE))} />
-      <Act label="–10" tip={lower} next disabled={down} onSelect={() => onSet(runPropSpacingStep(value, -RUN_PROP_SPACING_STEP))} />
+      <Act label={t(HUB_LOC.runPropsFewer)} tip={t(HUB_LOC.runPropsFewerTip)} disabled={!has || off} onSelect={() => onSet(runPropSpacingStep(value, false))} />
       <Tip tip={tip}>
         <div className={styles.stepValue}>{text}</div>
       </Tip>
-      <Act label="+10" tip={higher} disabled={up} onSelect={() => onSet(runPropSpacingStep(value, RUN_PROP_SPACING_STEP))} />
-      <Act label="+50" tip={higher} next disabled={up} onSelect={() => onSet(runPropSpacingStep(value, RUN_PROP_SPACING_STEP_COARSE))} />
+      <Act label={t(HUB_LOC.runPropsMore)} tip={t(HUB_LOC.runPropsMoreTip)} disabled={!has || value === RUN_PROP_SPACING_MIN} onSelect={() => onSet(runPropSpacingStep(value, true))} />
     </div>
   );
 }

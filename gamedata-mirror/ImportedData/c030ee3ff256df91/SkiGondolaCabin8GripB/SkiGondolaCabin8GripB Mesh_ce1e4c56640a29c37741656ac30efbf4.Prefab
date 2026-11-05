@@ -8,7 +8,7 @@
     "components": {
         "$id": 1,
         "$type": "1|System.Collections.Generic.List`1[[Game.Prefabs.ComponentBase, Game]], mscorlib",
-        "$rlength": 1,
+        "$rlength": 2,
         "$rcontent": [
             {
                 "$id": 2,
@@ -26,28 +26,69 @@
                         $fstrref:"CID:a7d4c343887703d194a2d372eeb90b96"
                     ]
                 }
+            },
+            {
+                "$id": 100,
+                "$type": "4|Game.Prefabs.ColorProperties, Game",
+                "name": "ColorProperties",
+                "active": true,
+                "m_ColorVariations": {
+                    "$id": 101,
+                    "$type": "5|System.Collections.Generic.List`1[[Game.Prefabs.ColorProperties+VariationSet, Game]], mscorlib",
+                    "$rlength": 1,
+                    "$rcontent": [
+                        {
+                            "$id": 102,
+                            "$type": "6|Game.Prefabs.ColorProperties+VariationSet, Game",
+                            "m_Colors": {
+                                "$id": 103,
+                                "$type": "7|UnityEngine.Color[], UnityEngine.CoreModule",
+                                "$rlength": 3,
+                                "$rcontent": [
+                                    { "$type": "8|UnityEngine.Color, UnityEngine.CoreModule", 0.85, 0.25, 0.1, 1 },
+                                    { "$type": 8, 0.25, 0.26, 0.275, 1 },
+                                    { "$type": 8, 0.07, 0.07, 0.08, 1 }
+                                ]
+                            },
+                            "m_VariationGroup": ""
+                        }
+                    ]
+                },
+                "m_ChannelsBinding": {
+                    "$id": 110,
+                    "$type": "9|System.Collections.Generic.List`1[[Game.Prefabs.ColorProperties+ColorChannelBinding, Game]], mscorlib",
+                    "$rlength": 3,
+                    "$rcontent": [
+                        { "$id": 111, "$type": "10|Game.Prefabs.ColorProperties+ColorChannelBinding, Game", "m_ChannelId": 0, "m_CanBeModifiedByExternal": false },
+                        { "$id": 112, "$type": 10, "m_ChannelId": 1, "m_CanBeModifiedByExternal": false },
+                        { "$id": 113, "$type": 10, "m_ChannelId": 2, "m_CanBeModifiedByExternal": false }
+                    ]
+                },
+                "m_VariationRanges": { "$type": "11|Unity.Mathematics.int3, Unity.Mathematics", "x": 0, "y": 0, "z": 0 },
+                "m_AlphaRanges": { "$type": 11, "x": 0, "y": 0, "z": 0 },
+                "m_ExternalColorSource": 0
             }
         ]
     },
     "m_GeometryAsset": $fstrref:"CID:13e9dcfcde06626a8ca36d78c3f79671",
     "m_SurfaceAssets": {
         "$id": 4,
-        "$type": "4|Colossal.IO.AssetDatabase.AssetReference`1[[Colossal.IO.AssetDatabase.SurfaceAsset, Colossal.IO.AssetDatabase, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null]][], Colossal.IO.AssetDatabase",
+        "$type": "12|Colossal.IO.AssetDatabase.AssetReference`1[[Colossal.IO.AssetDatabase.SurfaceAsset, Colossal.IO.AssetDatabase, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null]][], Colossal.IO.AssetDatabase",
         "$rlength": 1,
         "$rcontent": [
             $fstrref:"CID:9a3798ae8dd51c4e351b0bf395bdf302"
         ]
     },
     "m_Bounds": {
-        "$type": "5|Colossal.Mathematics.Bounds3, Colossal.Mathematics",
+        "$type": "13|Colossal.Mathematics.Bounds3, Colossal.Mathematics",
         "min": {
-            "$type": "6|Unity.Mathematics.float3, Unity.Mathematics",
+            "$type": "14|Unity.Mathematics.float3, Unity.Mathematics",
             "x": -0.03999999,
             "y": 0,
             "z": -0.5500001
         },
         "max": {
-            "$type": 6,
+            "$type": 14,
             "x": 0.7505001,
             "y": 0.6535001,
             "z": 0.5500001

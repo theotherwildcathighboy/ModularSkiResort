@@ -92,7 +92,7 @@ export const HUB_LOC = {
   problemTipSchoolsNotLinked: ["SkiResort.Hub.PROBLEM_TIP[SchoolsNotLinked]", "More than 5 km from every Welcome Sign, so they teach nobody."],
   problemTipSkiDaysCannotReach: ["SkiResort.Hub.PROBLEM_TIP[SkiDaysCannotReach]", "Many recent ski-day guests with a car did not reach the lodge in time. Fewer are sent until more arrive."],
   problemTipSkiDaysNoGuestsNear: ["SkiResort.Hub.PROBLEM_TIP[SkiDaysNoGuestsNear]", "Ski-day guests come from homes and hotels, within the longest ski-day trip in Options. Beyond about 7 km few arrive in time."],
-  problemTipNoParkingNearLodge: ["SkiResort.Hub.PROBLEM_TIP[NoParkingNearLodge]", "No car spaces within 300 m of the lodge. Tourist parties drive here, and none arrive without them."],
+  problemTipNoParkingNearLodge: ["SkiResort.Hub.PROBLEM_TIP[NoParkingNearLodge]", "No car spaces within 300 m. Tourists from outside the city drive here and none arrive; hotel guests within 900 m walk."],
   problemTipLodgeNotSlopeside: ["SkiResort.Hub.PROBLEM_TIP[LodgeNotSlopeside]", "Ski-day guests only go to a lodge within 800 m of this ski area's runs or lift stations."],
   problemTipMixedLiftTypes: ["SkiResort.Hub.PROBLEM_TIP[MixedLiftTypes]", "A line and its stations must be one lift type; until then the lift counts 0."],
   /* C# HubProblemCode LiftTrainLimit (LiftAlignMath.PoseTrain, relative to the mast since DECISIONS 600: a half past its 30 deg pitch limit
@@ -237,10 +237,12 @@ export const HUB_LOC = {
   runPropsOn: ["SkiResort.Hub.RUN_PROPS_ON", "On"],
   runPropsGroomedTip: ["SkiResort.Hub.RUN_PROPS_GROOMED_TIP", "A groomed run counts in full and can carry snow guns and lights. Off: no upkeep, nothing drawn on the ground, natural snow only."],
   runPropsNeedsGroomed: ["SkiResort.Hub.RUN_PROPS_NEEDS_GROOMED", "Snow guns and lights need a groomed run."],
-  runPropsPaid: ["SkiResort.Hub.RUN_PROPS_PAID", "Paid once: on again is free."],
-  runPropsUnpaid: ["SkiResort.Hub.RUN_PROPS_UNPAID", "Turning it on the first time pays a one-time fee by area."],
-  runPropsLower: ["SkiResort.Hub.RUN_PROPS_LOWER", "Closer together"],
-  runPropsHigher: ["SkiResort.Hub.RUN_PROPS_HIGHER", "Farther apart"],
+  runPropsPaid: ["SkiResort.Hub.RUN_PROPS_PAID", "Its one-time fee is paid: turning it back on costs nothing."],
+  runPropsUnpaid: ["SkiResort.Hub.RUN_PROPS_UNPAID", "Turning it on for the first time charges a one-time fee based on the run's area."],
+  runPropsFewer: ["SkiResort.Hub.RUN_PROPS_FEWER", "Fewer"],
+  runPropsMore: ["SkiResort.Hub.RUN_PROPS_MORE", "More"],
+  runPropsFewerTip: ["SkiResort.Hub.RUN_PROPS_FEWER_TIP", "Farther apart. Past 200 m: off."],
+  runPropsMoreTip: ["SkiResort.Hub.RUN_PROPS_MORE_TIP", "Closer together, down to 20 m."],
   cruxPitch: ["SkiResort.Tooltip.CRUX_PITCH", "Hardest unavoidable pitch"],
   steepestPatch: ["SkiResort.Tooltip.STEEPEST_PATCH", "Steepest patch (avoidable)"],
 
@@ -391,7 +393,7 @@ export const HUB_LOC = {
   buildMonthStation: ["SkiResort.Hub.BUILD_MONTH_STATION", "The whole lift is priced by its length: both stations and the line. This station is one part."],
   buildTipReshape: ["SkiResort.Hub.BUILD_TIP_RESHAPE", "Reshaping a run later costs nothing more."],
   buildTipGroomedOff: ["SkiResort.Hub.BUILD_TIP_GROOMED_OFF", "Not groomed"],
-  buildTipStepsOnce: ["SkiResort.Hub.BUILD_TIP_STEPS_ONCE", "Each option is paid once per run: on again is free."],
+  buildTipStepsOnce: ["SkiResort.Hub.BUILD_TIP_STEPS_ONCE", "Each option charges a one-time fee per run the first time it is turned on."],
   // a building tile's draw rows (vanilla's labels, DRAW_LABEL) end with Workers; then one terrain line from the prefab's
   // BuildingTerraformOverride (buildItems.ts BUILDING_DRAW.keepsSlope)
   buildTipWorkers: ["SkiResort.Hub.BUILD_TIP_WORKERS", "Workers"],

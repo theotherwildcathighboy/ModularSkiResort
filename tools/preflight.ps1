@@ -568,6 +568,21 @@ if ($lib -and (Test-Path $lib)) {
     $fg2 = @(Get-ChildItem (Join-Path $lib "SkiLiftTowerFG2") -Filter "SkiLiftTowerFG2_*.Prefab" -File -ErrorAction SilentlyContinue)
     if ($fg2.Count -eq 0) { $rows.Add("FAIL  KEEP       c030ee3ff256df91\SkiLiftTowerFG2\SkiLiftTowerFG2_*.Prefab is missing (the 8 m FG tower family member; entry 173 'the FG2 trap')"); $failures++ }
     else { $rows.Add("OK    KEEP      SkiLiftTowerFG2 object prefab present") }
+    # CARRIERCOLOR (DECISIONS 601): every carrier body / grip mesh in catalog/carriers.json carries ColorProperties on LOD0. The grip round
+    # (590) and B2 (592 m) imported new carrier letters without it and every chair, cabin and tram rendered flat white in the owner's test.
+    $carriersPath = Join-Path $PSScriptRoot "..\catalog\carriers.json"
+    if (Test-Path $carriersPath) {
+        $cc = Get-Content $carriersPath -Raw -Encoding UTF8 | ConvertFrom-Json
+        $ccMeshes = @()
+        foreach ($p in $cc.carriers.PSObject.Properties) { if ($p.Value.split) { $ccMeshes += $p.Value.split.body_mesh; $ccMeshes += $p.Value.split.grip_mesh } }
+        $ccBad = @()
+        foreach ($m in $ccMeshes) {
+            $f = @(Get-ChildItem (Join-Path $lib $m) -Filter "$m Mesh_*.Prefab" -File -ErrorAction SilentlyContinue)
+            if ($f.Count -ne 1 -or -not (Select-String -Path $f[0].FullName -SimpleMatch "Game.Prefabs.ColorProperties" -Quiet)) { $ccBad += $m }
+        }
+        if ($ccBad.Count -gt 0) { $rows.Add("FAIL  CARRIERCOLOR LOD0 without ColorProperties (renders white): $($ccBad -join ', ')"); $failures++ }
+        else { $rows.Add("OK    CARRIERCOLOR $($ccMeshes.Count) carrier body / grip LOD0 mesh(es) carry ColorProperties") }
+    }
 }
 $rows.Add("OK    IDIOMS    $idiomRows hand-made prefab(s) scanned (HOSTED, SPAWN, WEATHER, NETNULL, PROP, ARRLEN; $arrSkipped skipped by ARRLEN: Odin Color literals)")
 

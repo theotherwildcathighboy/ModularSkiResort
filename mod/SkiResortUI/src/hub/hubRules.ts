@@ -976,11 +976,21 @@ export function schoolFlagOf(s: SchoolState): "noSchool" | "schoolNoGreen" | "sc
 }
 
 /**
- * A prop row's next value (RunPropPlacerRules.ClampSpacing has the same range): stepping down under the minimum reads off, stepping up
- * from off lands on the minimum at the least, the maximum holds. The row shows C#'s value; this only picks what to send.
+ * The spacing ladder of a prop row (DECISIONS 601): Fewer and More walk it so each click changes the count one way only. Off sits past the
+ * sparse end: More from Off lands on RUN_PROP_SPACING_FIRST, Fewer past the last rung turns the feature off. A value between rungs (a kind's
+ * default such as 90 m) steps to the next rung in the asked direction. Range = RunPropPlacerRules.ClampSpacing (20-200 m).
  */
-export function runPropSpacingStep(value: number, delta: number): number {
-  const next = value + delta;
-  if (next < RUN_PROP_SPACING_MIN) return delta < 0 ? RUN_PROP_SPACING_OFF : RUN_PROP_SPACING_MIN;
-  return Math.min(RUN_PROP_SPACING_MAX, next);
+export const RUN_PROP_SPACING_LADDER = [20, 30, 40, 50, 60, 80, 100, 130, 160, 200];
+export const RUN_PROP_SPACING_FIRST = 50;
+
+/** The value a Fewer (more = false) or More (more = true) click sends. The row shows C#'s value; this only picks what to send. */
+export function runPropSpacingStep(value: number, more: boolean): number {
+  const L = RUN_PROP_SPACING_LADDER;
+  if (value <= RUN_PROP_SPACING_OFF) return more ? RUN_PROP_SPACING_FIRST : RUN_PROP_SPACING_OFF;
+  if (more) {
+    for (let i = L.length - 1; i >= 0; i--) if (L[i] < value) return L[i];
+    return RUN_PROP_SPACING_MIN;
+  }
+  for (let i = 0; i < L.length; i++) if (L[i] > value) return Math.min(RUN_PROP_SPACING_MAX, L[i]);
+  return RUN_PROP_SPACING_OFF;
 }

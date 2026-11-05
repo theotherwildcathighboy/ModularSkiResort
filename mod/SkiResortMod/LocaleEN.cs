@@ -1018,7 +1018,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.PROBLEM_TIP[DepotNoRoad]", "A depot with no road sends nobody and bills nothing." },
                 { "SkiResort.Hub.PROBLEM_TIP[SignNoRoad]", "No active road lodge: the sign employs the Hut, Summit, patrol and cat track lodge staff. They come by road." },
                 { "SkiResort.Hub.PROBLEM_TIP[SkiDaysNoGuestsNear]", "Ski-day guests come from homes and hotels, within the longest ski-day trip in Options. Beyond about 7 km few arrive in time." },
-                { "SkiResort.Hub.PROBLEM_TIP[NoParkingNearLodge]", "No car spaces within 300 m of the lodge. Tourist parties drive here, and none arrive without them." },
+                { "SkiResort.Hub.PROBLEM_TIP[NoParkingNearLodge]", "No car spaces within 300 m. Tourists from outside the city drive here and none arrive; hotel guests within 900 m walk." },
                 { "SkiResort.Hub.PROBLEM_TIP[LodgeNotSlopeside]", "Ski-day guests only go to a lodge within 800 m of this ski area's runs or lift stations." },
                 // C# HubProblemCode MixedLiftTypes and SummitLodgeNotLiftServed (summit-served 300 m = SkiCatalog.Ladder
                 // .SummitServedRadiusM, CG-T6), SchoolNoGreenRun (the school's green run).
@@ -1131,10 +1131,12 @@ namespace SkiResortMod
                 { "SkiResort.Hub.RUN_PROPS_ON", "On" },
                 { "SkiResort.Hub.RUN_PROPS_GROOMED_TIP", "A groomed run counts in full and can carry snow guns and lights. Off: no upkeep, nothing drawn on the ground, natural snow only." },
                 { "SkiResort.Hub.RUN_PROPS_NEEDS_GROOMED", "Snow guns and lights need a groomed run." },
-                { "SkiResort.Hub.RUN_PROPS_PAID", "Paid once: on again is free." },
-                { "SkiResort.Hub.RUN_PROPS_UNPAID", "Turning it on the first time pays a one-time fee by area." },
-                { "SkiResort.Hub.RUN_PROPS_LOWER", "Closer together" },
-                { "SkiResort.Hub.RUN_PROPS_HIGHER", "Farther apart" },
+                { "SkiResort.Hub.RUN_PROPS_PAID", "Its one-time fee is paid: turning it back on costs nothing." },
+                { "SkiResort.Hub.RUN_PROPS_UNPAID", "Turning it on for the first time charges a one-time fee based on the run's area." },
+                { "SkiResort.Hub.RUN_PROPS_FEWER", "Fewer" },
+                { "SkiResort.Hub.RUN_PROPS_MORE", "More" },
+                { "SkiResort.Hub.RUN_PROPS_FEWER_TIP", "Farther apart. Past 200 m: off." },
+                { "SkiResort.Hub.RUN_PROPS_MORE_TIP", "Closer together, down to 20 m." },
                 { "SkiResort.Hub.LIFT_LINE2[SectionMissing]", "Gap in the line" },
                 { "SkiResort.Hub.LIFT_LINE2[Unfinished]", "Not joined to both stations" },
                 { "SkiResort.Hub.LIFT_LINE2[StationsPair]", "No lift line yet" },
@@ -1311,7 +1313,7 @@ namespace SkiResortMod
                 { "SkiResort.Hub.BUILD_TIP_RESHAPE", "Reshaping a run later costs nothing more." },
                 // The Run tile's step prices (R3, DECISIONS 578): Groomed off, and the snow guns and lights steps.
                 { "SkiResort.Hub.BUILD_TIP_GROOMED_OFF", "Not groomed" },
-                { "SkiResort.Hub.BUILD_TIP_STEPS_ONCE", "Each option is paid once per run: on again is free." },
+                { "SkiResort.Hub.BUILD_TIP_STEPS_ONCE", "Each option charges a one-time fee per run the first time it is turned on." },
                 // A building tile's draw rows end with Workers; its terrain line (BuildingTerraformOverride).
                 { "SkiResort.Hub.BUILD_TIP_WORKERS", "Workers" },
                 { "SkiResort.Hub.TERRAIN[Level]", "Levels the ground" },

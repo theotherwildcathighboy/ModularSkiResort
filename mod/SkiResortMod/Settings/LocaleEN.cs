@@ -37,7 +37,7 @@ namespace SkiResortMod.Settings
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.ShowHubButton)),
                     "Shows a Ski Resort button at the top left of the screen that opens the hub: " +
                     "your runs, the resort totals and every building tool in one place. The hub " +
-                    "is also always in the Universal Mod Panel. Mouse and keyboard layout only."
+                    "is also always in the Universal Mod Panel."
                 },
                 {
                     m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.OpenHubOnSignSelect)),
@@ -81,7 +81,7 @@ namespace SkiResortMod.Settings
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.SkiDayReachKm)),
                     "Nobody farther than this from a lodge, in a straight line, is sent skiing there. Fewer " +
-                    "come the farther they live. Default 7."
+                    "come the farther they live. Default 7 km (4.3 mi)."
                 },
                 {
                     m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.SkiDayPowderPct)),
@@ -125,7 +125,8 @@ namespace SkiResortMod.Settings
                 // ticket notes, not here.
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.LiftTicketPrice)),
-                    "What each guest pays on arrival, one price for every ski area. Above 40 it lowers ski days " +
+                    "What each guest pays on arrival, one price for every ski area. Resort income shows in the Economy panel under public " +
+                    "transportation fees: the game has no ski line. Above 40 it lowers ski days " +
                     "(about 90 % as many at 60, 80 % at 80, 20 % at 200); visitors the game sends on its own come " +
                     "at any price and still pay it. 0 turns lift tickets off. Default 80."
                 },
@@ -141,16 +142,7 @@ namespace SkiResortMod.Settings
                     "what the household has left after the lift ticket, so nothing is spent while lift tickets are off. " +
                     "0 turns it off. Default 15."
                 },
-                // Income booking, lessons, season passes
-                {
-                    m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.BookTicketsAsFees)),
-                    "Book resort income as public transportation fees"
-                },
-                {
-                    m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.BookTicketsAsFees)),
-                    "On: lift tickets, season passes, lessons and lodge spend are booked as public transportation fees " +
-                    "and reach your balance through the game's budget. Off: they go straight to your balance. Default on."
-                },
+                // Lessons and season passes. The retired BookTicketsAsFees switch (DECISIONS 601) has no rows: it is hidden.
                 {
                     m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.LessonShare)),
                     "Lesson share"
@@ -209,7 +201,7 @@ namespace SkiResortMod.Settings
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.EnableSnowGating)),
                     "On: a run adds to its ski area's score only while snow lies on it - open when 60 % " +
-                    "of it has 3 ft (91 cm) of snow, closed below 40 % (measured in the game's own snow, or estimated " +
+                    "of it has 91 cm (3 ft) of snow, closed below 40 % (measured in the game's own snow, or estimated " +
                     "from the climate until the first measurement). A ski area with no open run counts " +
                     "as summer sightseeing. Off: every run counts as open all year, for maps without " +
                     "winter. Runs pay upkeep only while their grooming or snow guns run, so on a warm " +
@@ -222,54 +214,9 @@ namespace SkiResortMod.Settings
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.SnowmakingBonusCelsius)),
                     "Snow guns on snowmaking runs, night runs and cat tracks work where the air on the run is at most " +
-                    "this many degrees above freezing, from 2 months before winter to 1 month after, until the run has 3 ft (91 cm) of snow. " +
-                    "Higher means a longer season and a bigger snowmaking bill. Default 3.3 (38 F)."
+                    "this many degrees above freezing, from 2 months before winter to 1 month after, until the run has 91 cm (3 ft) of snow. " +
+                    "Higher means a longer season and a bigger snowmaking bill. Default 3.3 °C (6 °F): guns run in air up to 3.3 °C (38 °F)."
                 },
-                {
-                    m_Setting.GetOptionGroupLocaleID(SkiResortSettings.GroupTerrain),
-                    "Terrain"
-                },
-                {
-                    m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.TerrainSnowSlot)),
-                    "Ski-run terrain paint slot"
-                },
-                {
-                    m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.TerrainSnowSlot)),
-                    "Ski runs paint the terrain itself using one of the map's four extra " +
-                    "material slots. Auto uses a free slot only; many maps have none, and " +
-                    "runs then fall back to flat painted surfaces. Force replaces that map " +
-                    "material with ski-run snow everywhere the map author painted it " +
-                    "(usually small areas, so check your map), and erases the map's paint of " +
-                    "that material under and around your ski runs: once the city is saved, " +
-                    "that paint stays erased, and switching the option back does not restore " +
-                    "it. Nothing is touched until the city has its first ski run. Takes " +
-                    "effect when a save loads."
-                },
-                {
-                    m_Setting.GetEnumValueLocaleID(TerrainSlotPolicy.Auto),
-                    "Auto (free slot only)"
-                },
-                {
-                    m_Setting.GetEnumValueLocaleID(TerrainSlotPolicy.ForceExtra1),
-                    "Force slot 1"
-                },
-                {
-                    m_Setting.GetEnumValueLocaleID(TerrainSlotPolicy.ForceExtra2),
-                    "Force slot 2"
-                },
-                {
-                    m_Setting.GetEnumValueLocaleID(TerrainSlotPolicy.ForceExtra3),
-                    "Force slot 3"
-                },
-                {
-                    m_Setting.GetEnumValueLocaleID(TerrainSlotPolicy.ForceExtra4),
-                    "Force slot 4"
-                },
-                {
-                    m_Setting.GetEnumValueLocaleID(TerrainSlotPolicy.Off),
-                    "Off (decal surfaces)"
-                },
-
                 // --- Runs (bind on draw + drawing feedback) ---
                 { m_Setting.GetOptionGroupLocaleID(SkiResortSettings.GroupRuns), "Runs" },
                 {
@@ -278,7 +225,7 @@ namespace SkiResortMod.Settings
                 },
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.EnableBindOnDraw)),
-                    "When enabled, a run drawn within 5 km of a Ski Area Welcome Sign joins " +
+                    "When enabled, a run drawn within 5 km (3.1 mi) of a Ski Area Welcome Sign joins " +
                     "the resort (and is charged) immediately, even while paused, and waiting " +
                     "runs join the moment a sign is placed. Disabled, runs join on the next " +
                     "periodic check, which only happens while the game is running. Default on."
@@ -328,12 +275,12 @@ namespace SkiResortMod.Settings
                 // The setting is thickness only (no corner rule, no snapping)
                 {
                     m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.RunOutlineSize)),
-                    "Run outline size"
+                    "Run outline width"
                 },
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.RunOutlineSize)),
                     "How thick the outline and corner dots are while you draw, edit or bulldoze a ski run. " +
-                    "0 keeps the game's thin outline. Default 8."
+                    "Each step adds 0.3 m (1 ft). 0 keeps the game's thin outline. Default 8: 2.4 m (8 ft)."
                 },
                 // Look only; the guns' start / stop rule is not a setting
                 {
@@ -372,7 +319,7 @@ namespace SkiResortMod.Settings
                 },
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.CatTrackWidthM)),
-                    "Width of the cat track: the flat top the tool cuts and fills, and the run built on it. Default 20 m."
+                    "Width of the cat track: the flat top the tool cuts and fills, and the run built on it. Default 20 m (66 ft)."
                 },
                 {
                     m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.CatTrackGradeCutRun)),
@@ -428,7 +375,7 @@ namespace SkiResortMod.Settings
                 {
                     m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.LiftTowerPlanner)),
                     "After you draw or change a lift line, its towers are raised and moved along the line so the chairs " +
-                    "and cabins stay at least 3 m above the ground (trams 5 m). Off: the towers stay where the game puts them. Default on."
+                    "and cabins stay at least 3 m (10 ft) above the ground (trams 5 m, 16 ft). Off: the towers stay where the game puts them. Default on."
                 },
                 {
                     m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.AnimatedLiftCarriers)),
