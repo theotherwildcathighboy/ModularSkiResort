@@ -1645,7 +1645,16 @@ namespace SkiResortMod
                 // FIX-LIST 55: a ground end whose coming station would stand on the lower ground in front of it (past a crest).
                 { "SkiResort.LiftTool.SUNK_END", "A station on this open end would stand on the lower ground ahead, so its chairs would leave below the ground. Flatter ground helps." },
                 { "SkiResort.LiftTool.BACKWARD", "A station on this line faces away from it, so the line runs back through the building. Turn that station around." },
-                { "SkiResort.LiftTool.CROSSES", "This line crosses another lift. Building it joins the two at the crossing, and the other lift gets a tower there." },
+                // CROSSES: a lift of the same type (the game joins the two). Another type passes over or under with the box clearance the
+                // game validates, or is refused with the reason (FIX-LIST 60 a; LiftLineInput.CrossKey).
+                { "SkiResort.LiftTool.CROSSES", "This line crosses a lift of the same type. Building it joins the two at the crossing, and the other lift gets a tower there." },
+                { "SkiResort.LiftTool.CROSSES_OVER", "This line passes over another lift. Its towers beside the crossing are tall enough for the clearance the game requires." },
+                { "SkiResort.LiftTool.CROSSES_UNDER", "This line passes under another lift, which runs high enough here for the clearance the game requires." },
+                { "SkiResort.LiftTool.CROSS_CLEARANCE", "This line cannot pass over or under the other lift here: the game needs {M} m between the two, and no tower arrangement gives it." },
+                { "SkiResort.LiftTool.CROSS_STATION", "This line crosses another lift too close to a station, where the rope height is fixed, so it cannot be built here." },
+                { "SkiResort.LiftTool.CROSS_TOWER", "This line crosses another lift right beside one of its towers, so it cannot be built here." },
+                { "SkiResort.LiftTool.CROSS_SHALLOW", "This line meets another lift at too flat an angle, under 20°, so it cannot be built here." },
+                { "SkiResort.LiftTool.CROSS_OWN_TOWER", "A tower of this line stands under another lift's rope, so it cannot be built here." },
                 // ALONG: the line runs on top of another lift (within 8 m, 10 deg, over 15 m); the game would merge them, so Build is refused (FIX-LIST 60 b)
                 { "SkiResort.LiftTool.ALONG", "This line runs along another lift. The game would merge the two lines, so it cannot be built here." },
                 // A loose-end joint that turns the line by more than LiftAlignMath.BendWarnDeg: a standing warning, never a refusal.

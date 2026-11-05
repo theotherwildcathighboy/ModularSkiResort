@@ -604,6 +604,7 @@ type Game.UI.CustomName struct 13807eee1a
 type Game.UI.InGame.ActionsSection class 852250b4fc
 type Game.UI.InGame.BudgetUISystem class 616937d0f0
 type Game.UI.InGame.EfficiencySection class f493d7e584
+type Game.UI.InGame.ElectricityUIUtils class 3973e7560a
 type Game.UI.InGame.EmployeesSection class a0946973ba
 type Game.UI.InGame.InfoviewsUISystem class f419dbcd6f
 type Game.UI.InGame.MilestoneUISystem class 72934ba305

@@ -213,6 +213,16 @@ RequiredLayers is PowerlineHigh alone, inside every lift's ConnectLayers). Reade
 ConnectionWarningSystem.cs:2363-2367, ElectricityUIUtils.cs:12-43, RaycastJobs.cs:562-563. Vanilla net-tool snapping uses
 CanConnect too (NetToolSystem.cs:527, 718, 1043), so it no longer snaps one type onto another's node.
 
-Open (to verify in game): net-vs-net validation is 3D (ValidationHelpers.cs:162-199): two edge sheets whose boxes (EdgeGeometry +
-the composition m_HeightRange) intersect raise OverlapExisting; only clearance boxes, NotEnoughClearance. The lift compositions'
-height range, so the vertical separation a crossing needs, is not read yet.
+Net-vs-net validation is 3D (ValidationHelpers.cs:162-199, segment-segment :3316-3370, QuadIntersect :3429): each edge is a box
+from its EdgeGeometry (the hanging curve: NetUtils.StraightCurve lowers the inner control points by d h 4/3, so the curve sits
+4 d h t (1 - t) under the node chord; h = the line prefab's m_Hanging = the rope lane SagRatio) up by the composition m_HeightRange,
+compared over the whole overlap of the two strips. An overlap refuses the build ("Clearance too low" in the field run 2026-11-05
+run3-crossing-proof-12d5ff6). Height ranges: FG / GD 6..20, DQ 5.8..20, tram 13.75..40 m (LiftTowerPlanConstants.NetHeightRange).
+
+Crossing rule (DECISIONS 602). CollectCrossings (each replan) sorts the drawn line's crossings with built lift edges: the same type
+(not tram) joins (CROSSES, as before); another type becomes a LiftPlanCrossing for the planner: along, the crossed curve's height and
+slope at the crossing (MathUtils.Position / Tangent at t), the angle, the crossed composition's width and height range
+(NetCompositionData; logged once per type as `LiftLine [cross]`, match or MISMATCH against the constants), the distance to its
+nearest tower and station node (IsStationNode). The planner (LiftTowerPlanner.md, Crossings) passes over or under, or refuses.
+WarnCrossing logs one `LiftLine [plan]: CROSS ...` line per crossing; LiftLineInput.CrossKey picks the notice: a refusal
+(CROSS_SHALLOW / STATION / TOWER / OWN_TOWER / CLEARANCE: standing notice, Enter refused, like ALONG), else CROSSES_UNDER / OVER.

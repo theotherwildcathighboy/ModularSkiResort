@@ -190,6 +190,27 @@ run: 6 towers with a pair from the base, 7 without from the top). Report: docs/r
   from the higher (FG / DQ only). A line whose plan from the lower rope leaves a crest flagged OverCap can lose a pair the other
   end found (LiftBatch DR-4: FG crest 402.3 m).
 
+## Crossings with another lift type (DECISIONS 602, FIX-LIST 60 a)
+- Input: `Crossings` (IList<LiftPlanCrossing>, the tool's CollectCrossings, along from A). Output: `LiftTowerPlan.Crossings` (same order;
+  Side, RequiredM, PlannedM, Refusal) and `CrossingsRefused`. Null / empty: `Plan` runs `PlanOnce` as before (bit-identical, CX-0).
+- The box rule (LiftLineToolSystem.md, Type layers): OVER needs the drawn curve's lowest footprint point (y - eN |slope|) at least the
+  crossed curve's highest (yC + |gC| eC) + (crossed max - drawn min) + `CrossMarginM` 0.5; UNDER the mirror, minus `MaxTwinRiseM` (a twin
+  head can lift a node after the search). `CrossReach`: eN = (wC + wN cos)/(2 sin), eC = (wN + wC cos)/(2 sin), the strips' overlap.
+- In the search: the curve at the crossing is node chord (tower node = rope - RopeAboveBase(0), `NodeOff`; ends EndNodeYA / B) minus the
+  sag 4 d h t (1 - t), piecewise linear in the far node, so `CrossBounds` turns it into an interval on the far rope inside `SpanInterval`;
+  `SpanViolation` counts the shortfall (as a floor violation, so phase (c) raises the nearer end); the soft search keeps it hard. No tower
+  in `CrossBandM` (both half widths + 2 m over sin): folded into `NearStation`, not lifted by NoClearance.
+- `Plan`: refusals known before planning (`CrossRefusalBeforePlan`: under `CrossMinAngleDeg` 20 = Shallow; within StationClearM of a
+  drawn station end or of a crossed station node = Station; closer to a crossed tower than eC + its head half width + 3 m = Tower) drop
+  out. All others OVER; then each, one at a time, UNDER where `UnderRoom` >= 0, kept when `CrossBetter` (fewer refused, Clear, fewer
+  towers, fewer ladder steps). A crossing still short is refused (Clearance) and the line replanned without it, so the preview is the
+  line as it would stand (not the soft search's row of tallest towers); likewise when the crossings are met only by a plan that is not
+  Clear while the line without them is. `BuildCrossings` judges the built nodes (heads, floats); a pin in the band = OwnTower.
+- Reach (LiftBatch CX-1): the over side has a window between the crossed curve + ~15 m and the 30 m rope cap, so an over-crossing
+  works where the crossed curve sits within a few meters of the ground (valley floors, sagging spans); a crossed curve 6+ m up on flat
+  ground is refused. Flatter angles widen the footprints: at 35-60 deg a crossed slope of 0.15 often tips a case into a refusal.
+- Unverified in game: the sag and footprint model (the CX oracle checks the planner against the same model, not against the engine).
+
 ## Station ends, the station-side rule and the edge slope (2026-10-26 lift pass)
 Report: docs/research/lifts/lift-pass-2026-10-26.md. Tests: LiftBatch LP-26..LP-30 (LP-30: the review fixes,
 docs/research/review-153b64e-2026-10-26.md F3 / F4 / F9 / F10).

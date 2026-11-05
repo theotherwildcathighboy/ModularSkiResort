@@ -321,6 +321,37 @@ namespace SkiResortMod.Systems
         /// <summary>Rope height above the tower base for ladder member <paramref name="m"/>.</summary>
         public float RopeAboveBase(int m) => Ladder[m].TopM - RopeBelowTopM;
 
+        /// <summary>The line net's composition m_HeightRange (NetCompositionData of an edge's Composition.m_Edge), meters above the
+        /// edge curve: the box the game validates a crossing with (FIX-LIST 60 a). Read in game 2026-11-05 on 12d5ff6 (field
+        /// a601-import-test, run3-crossing-proof-12d5ff6: "Clearance too low" on every crossing ghost): fixed-grip and gondola 6..20,
+        /// detachable 5.8..20, tram 13.75..40. The lift tool reads a crossed edge's own composition and logs a MISMATCH against these.</summary>
+        public static void NetHeightRange(string typeId, out float minM, out float maxM)
+        {
+            switch (typeId)
+            {
+                case "detachable": minM = 5.8f; maxM = 20f; return;
+                case "tram": minM = 13.75f; maxM = 40f; return;
+                default: minM = 6f; maxM = 20f; return;   // fixedGrip, gondola
+            }
+        }
+
+        public float NetHeightMinM { get { NetHeightRange(TypeId, out float lo, out _); return lo; } }
+        public float NetHeightMaxM { get { NetHeightRange(TypeId, out _, out float hi); return hi; } }
+
+        /// <summary>The most a twin head raises its node over the ladder member's (Top(twin) - Top(member): 0.15 to 0.57 m in the
+        /// tables, 0 without twins). The planner searches members, not heads, so an UNDER crossing keeps this much extra room.</summary>
+        public float MaxTwinRiseM
+        {
+            get
+            {
+                float r = 0f;
+                if (Twins != null)
+                    for (int i = 0; i < Twins.Length; i++)
+                        r = math.max(r, Twins[i].TopM - Ladder[Twins[i].Member].TopM);
+                return r;
+            }
+        }
+
         /// <summary>The rope at an end a station will finish (FIX-LIST 48): the station's own anchor sits lower than a tower's rope. On
         /// level ground it is node + <see cref="StationDef.RopeAnchorLocalY"/> (the stub tip is at the prefab's y 0; FG 5.84 / 5.24, DQ
         /// 3.70, gondola 4.85, tram 16.00 against the shortest tower's 7.27 / 8.26 / 10.28 / 26.25), and vanilla stands the building on
@@ -581,12 +612,72 @@ namespace SkiResortMod.Systems
         public bool SlopeViolated;      // EdgeSlope over the line prefab's MaxEdgeSlope (only when the planner checks it)
     }
 
+    /// <summary>The side a crossing passes the other lift on (FIX-LIST 60 a). None = not planned (refused before planning).</summary>
+    public enum LiftCrossSide : byte
+    {
+        None,
+        Over,
+        Under,
+    }
+
+    /// <summary>Why a crossing cannot be built (FIX-LIST 60 a); None = the plan keeps the clearance.</summary>
+    public enum LiftCrossRefusal : byte
+    {
+        None,
+        Clearance,   // (a) no member arrangement gives the separation the two edge boxes need (over or under)
+        Station,     // (b) inside a station's run-out of either line (the rope height is fixed there)
+        Tower,       // (c) at or right beside a tower of the crossed lift
+        Shallow,     // (d) the two lines meet at less than LiftTowerPlanner.CrossMinAngleDeg
+        OwnTower,    // a tower of this line (a pin) stands inside the crossed lift's corridor
+    }
+
+    /// <summary>A crossing of the drawn line with a built lift of ANOTHER type (FIX-LIST 60 a). Since 12d5ff6 the two nets no longer
+    /// join (one layer bit per type), so the game validates the two edges against each other: each edge is a box from its edge
+    /// geometry (the hanging curve, NetUtils.StraightCurve with the net's m_Hanging) up by the composition m_HeightRange, over the
+    /// whole xz overlap of the two strips (ValidationHelpers.cs:3316-3370, QuadIntersect :3429), and overlapping boxes refuse the
+    /// build ("Clearance too low", :182-408). Inputs come from LiftLineToolSystem (the crossed edge as built), outputs from the
+    /// planner's Build. Meters along are from the caller's A.</summary>
+    public struct LiftPlanCrossing
+    {
+        public float AlongM;            // along the drawn line from A (xz)
+        public float CrossedY;          // the crossed edge's curve y at the crossing (world; its edge geometry follows the curve)
+        public float CrossedSlope;      // |dy / dxz| of that curve there, along the crossed edge
+        public float AngleDeg;          // plan angle between the two lines, 0..90
+        public float CrossedWidthM;     // the crossed edge's composition m_Width
+        public float CrossedMinM, CrossedMaxM;   // the crossed edge's composition m_HeightRange
+        public float TowerDistM;        // xz from the crossing to the nearest crossed node that carries a tower (+inf: none)
+        public float StationDistM;      // xz from the crossing to the nearest crossed node that is a station's (+inf: none)
+        public float CrossedClearM;     // the crossed type's station run-out (its LiftTowerPlanConstants.StationClearM)
+        public float CrossedHeadHalfM;  // half width of the crossed type's tower head (its HalfWidthM)
+        public string CrossedType;      // the crossed lift type id (log)
+        // Build: the side planned, the separation the boxes need between the two curves at the crossing point (box clearance, the
+        // footprint's slope terms, CrossMarginM) and the plan's separation there (Over: new - crossed; Under: crossed - new; a
+        // crossing refused before planning reads Over's numbers), and the refusal (None = buildable).
+        public LiftCrossSide Side;
+        public float RequiredM, PlannedM;
+        public LiftCrossRefusal Refusal;
+    }
+
     public sealed class LiftTowerPlan
     {
         public LiftTowerPlanConstants Constants;
         public float LengthM;
         public LiftPlanNode[] Nodes;
         public LiftPlanSpan[] Spans;
+        /// <summary>Crossings with built lifts of another type (LiftTowerPlanner.Crossings), judged on this plan; empty when none.</summary>
+        public LiftPlanCrossing[] Crossings = new LiftPlanCrossing[0];
+
+        /// <summary>Crossings this plan cannot build (Refusal != None).</summary>
+        public int CrossingsRefused
+        {
+            get
+            {
+                int n = 0;
+                for (int i = 0; i < Crossings.Length; i++)
+                    n += Crossings[i].Refusal != LiftCrossRefusal.None ? 1 : 0;
+                return n;
+            }
+        }
         public float[] SampleAlongM;    // the planner's profile (copied): along, center ground, high side, per sample
         public float[] SampleCentreM;
         public float[] SampleHighM;
@@ -1444,6 +1535,71 @@ namespace SkiResortMod.Systems
         private readonly List<int> m_M = new List<int>();
         private readonly List<LiftPlanNodeFlags> m_F = new List<LiftPlanNodeFlags>();
 
+        // Crossings with built lifts of another type (FIX-LIST 60 a; LiftPlanCrossing has the engine's box rule).
+
+        /// <summary>Lift-line tool: the crossings of this line with built lifts of ANOTHER type (meters along from the caller's A).
+        /// Plan keeps each one's box clearance as a span constraint (SpanInterval / SpanViolation, so every phase keeps it) and keeps
+        /// new towers out of the crossed corridor (NearStation). Null / empty = none: the plan is bit-identical to a plan without
+        /// this field. PlanFixed and the fit ignore it.</summary>
+        public IList<LiftPlanCrossing> Crossings;
+
+        /// <summary>Safety margin on top of the box clearance (meters).</summary>
+        public const float CrossMarginM = 0.5f;
+        /// <summary>A crossing flatter than this (plan angle, degrees) is refused: the overlap of the two strips grows with
+        /// 1 / sin(angle) (at 20 deg two 6 m chair strips overlap over 34 m of each line), and so does the height the slope terms ask.</summary>
+        public const float CrossMinAngleDeg = 20f;
+        /// <summary>Clearance (meters) beyond the crossed tower's head half width and the drawn strip's reach along the crossed line:
+        /// a crossing nearer a crossed tower than that is refused (refusal (c)).</summary>
+        public const float CrossTowerClearM = 3f;
+        /// <summary>No new tower stands within the crossed strip plus this (meters, beyond both half widths, measured across the
+        /// crossed line): a tower under another lift's rope.</summary>
+        public const float CrossBandClearM = 2f;
+
+        /// <summary>Plan-view reach of the two strips' overlap at a crossing: <paramref name="alongNewM"/> along the drawn line (either
+        /// side of the crossing point) and <paramref name="alongCrossedM"/> along the crossed one. Strips of widths
+        /// <paramref name="newWidthM"/> and <paramref name="crossedWidthM"/> at <paramref name="angleDeg"/> overlap in a parallelogram
+        /// whose corners lie (wC + wN cos) / (2 sin) along the drawn line and (wN + wC cos) / (2 sin) along the crossed one.</summary>
+        public static void CrossReach(float angleDeg, float newWidthM, float crossedWidthM, out float alongNewM, out float alongCrossedM)
+        {
+            float a = math.radians(math.clamp(angleDeg, 1f, 90f));
+            float sin = math.sin(a), cos = math.abs(math.cos(a));
+            alongNewM = (crossedWidthM + newWidthM * cos) / (2f * sin);
+            alongCrossedM = (newWidthM + crossedWidthM * cos) / (2f * sin);
+        }
+
+        /// <summary>Meters along the drawn line, either side of a crossing, where no new tower stands: the crossed strip (half its
+        /// width) plus the drawn line's own half width plus CrossBandClearM, measured across the crossed line.</summary>
+        public static float CrossBandM(float angleDeg, float newWidthM, float crossedWidthM) =>
+            (0.5f * crossedWidthM + 0.5f * newWidthM + CrossBandClearM) / math.sin(math.radians(math.clamp(angleDeg, 1f, 90f)));
+
+        /// <summary>The refusals known before planning (FIX-LIST 60 a): (d) too shallow, (b) inside a station's run-out (the drawn
+        /// line's station ends: <paramref name="c"/>.StationClearM; the crossed line's stations: CrossedClearM), (c) at or beside a
+        /// crossed tower (nearer than the drawn strip's reach along the crossed line + the crossed head's half width +
+        /// CrossTowerClearM). None = the planner plans it (a refusal (a) can still follow from the plan).</summary>
+        public static LiftCrossRefusal CrossRefusalBeforePlan(LiftPlanCrossing x, LiftTowerPlanConstants c, float lengthM, bool stationA,
+                                                              bool stationB)
+        {
+            if (!(x.AngleDeg >= CrossMinAngleDeg))
+                return LiftCrossRefusal.Shallow;
+            if ((stationA && x.AlongM < c.StationClearM) || (stationB && lengthM - x.AlongM < c.StationClearM) ||
+                x.StationDistM < x.CrossedClearM)
+                return LiftCrossRefusal.Station;
+            CrossReach(x.AngleDeg, 2f * c.HalfWidthM, x.CrossedWidthM, out _, out float alongCrossed);
+            if (x.TowerDistM < alongCrossed + x.CrossedHeadHalfM + CrossTowerClearM)
+                return LiftCrossRefusal.Tower;
+            return LiftCrossRefusal.None;
+        }
+
+        /// <summary>The side per caller crossing for the plan being made (None = refused before planning, not a constraint); null
+        /// outside Plan.</summary>
+        private LiftCrossSide[] m_XSides;
+        private LiftCrossRefusal[] m_XBefore;
+        // The active crossings in the working frame (PrepareCrossings): count, along, side, crossed y, reach along the drawn line,
+        // the over / under thresholds on the drawn footprint's lowest / highest point, the tower-free band.
+        private int m_XN;
+        private float[] m_XS = new float[0], m_XEN = new float[0], m_XR = new float[0], m_XBand = new float[0];
+        private bool[] m_XOver = new bool[0];
+
         /// <summary>Plan a line of <paramref name="lengthM"/> meters (xz) between two stations whose rope heights are given.
         /// <paramref name="seeds"/> (optional) are kept as anchors with their members, e.g. a previous plan's nodes. A seed with a
         /// member below 0 (a tool pin: the player sets where it stands, the planner how tall) gets its member from ChooseSeedMembers.
@@ -1451,12 +1607,129 @@ namespace SkiResortMod.Systems
         /// goes with its end (ropes, StationA / B, EndNodeY, EndOuter, the seeds and Forbidden mirrored, the ground sampled from B).
         /// <paramref name="terrainFromB"/> (optional) is the same ground sampled from B (along from B, lateral to the right of B to A):
         /// the planner then reads exactly the ground points a line drawn from B first reads (the lift tool passes it); null = the
-        /// planner mirrors <paramref name="terrain"/>, the same points to float rounding.</summary>
+        /// planner mirrors <paramref name="terrain"/>, the same points to float rounding.
+        /// With Crossings: every crossing not refused before planning is planned OVER first; then, one at a time, UNDER where the
+        /// crossed line is high enough over the ground for this line's carriers to pass below it (UnderRoom), and the under plan is
+        /// kept when it is better (CrossBetter: fewer refused crossings, then clear spans, then fewer towers, then shorter ones).</summary>
         public LiftTowerPlan Plan(LiftTerrainSampler terrain, float lengthM, float ropeA, float ropeB, LiftTowerPlanConstants c,
                                   IList<LiftPlanNode> seeds = null, LiftTerrainSampler terrainFromB = null)
         {
             if (terrain == null || c == null || c.Ladder == null || c.Ladder.Length == 0)
                 throw new ArgumentException("LiftTowerPlanner.Plan: terrain, constants and a ladder are required");
+            if (Crossings == null || Crossings.Count == 0)
+                return PlanOnce(terrain, lengthM, ropeA, ropeB, c, seeds, terrainFromB);
+            int n = Crossings.Count;
+            var sides = new LiftCrossSide[n];
+            m_XBefore = new LiftCrossRefusal[n];
+            for (int i = 0; i < n; i++)
+            {
+                m_XBefore[i] = CrossRefusalBeforePlan(Crossings[i], c, lengthM, StationA, StationB);
+                sides[i] = m_XBefore[i] == LiftCrossRefusal.None ? LiftCrossSide.Over : LiftCrossSide.None;
+            }
+            try
+            {
+                m_XSides = sides;
+                LiftTowerPlan best = PlanOnce(terrain, lengthM, ropeA, ropeB, c, seeds, terrainFromB);
+                for (int i = 0; i < n; i++)
+                {
+                    if (sides[i] != LiftCrossSide.Over || UnderRoom(Crossings[i], c, terrain) < 0f)
+                        continue;
+                    var trial = (LiftCrossSide[])sides.Clone();
+                    trial[i] = LiftCrossSide.Under;
+                    m_XSides = trial;
+                    LiftTowerPlan p = PlanOnce(terrain, lengthM, ropeA, ropeB, c, seeds, terrainFromB);
+                    if (CrossBetter(p, best))
+                    {
+                        best = p;
+                        sides = trial;
+                    }
+                }
+                // A crossing neither side can meet is refused (Clearance). Its constraint is dropped and the line planned without
+                // it, so the preview shows the line as it would stand rather than a search's last resort (a row of the tallest
+                // towers); the refused record (side tried, separation required and reached) is the constrained plan's. The same
+                // when every crossing is met but only by a plan that is no longer clear while the line without them is: the
+                // crossings cost the line its clearance, so they are refused (Clearance) instead.
+                var refuse = new bool[n];
+                bool any = false;
+                for (int i = 0; i < n && i < best.Crossings.Length; i++)
+                    if (best.Crossings[i].Refusal == LiftCrossRefusal.Clearance)
+                        refuse[i] = any = true;
+                LiftTowerPlan relaxed = null;
+                if (any)
+                {
+                    for (int i = 0; i < n; i++)
+                        if (refuse[i])
+                            sides[i] = LiftCrossSide.None;
+                    m_XSides = sides;
+                    relaxed = PlanOnce(terrain, lengthM, ropeA, ropeB, c, seeds, terrainFromB);
+                }
+                else if (!best.Clear)
+                {
+                    m_XSides = new LiftCrossSide[n];
+                    LiftTowerPlan free = PlanOnce(terrain, lengthM, ropeA, ropeB, c, seeds, terrainFromB);
+                    if (free.Clear)
+                    {
+                        relaxed = free;
+                        for (int i = 0; i < n && i < best.Crossings.Length; i++)
+                            if (best.Crossings[i].Side != LiftCrossSide.None && best.Crossings[i].Refusal == LiftCrossRefusal.None)
+                            {
+                                best.Crossings[i].Refusal = LiftCrossRefusal.Clearance;
+                                refuse[i] = true;
+                            }
+                    }
+                }
+                if (relaxed == null)
+                    return best;
+                for (int i = 0; i < n && i < best.Crossings.Length; i++)
+                    if (refuse[i])
+                        relaxed.Crossings[i] = best.Crossings[i];
+                return relaxed;
+            }
+            finally
+            {
+                m_XSides = null;
+                m_XBefore = null;
+                m_XN = 0;
+            }
+        }
+
+        /// <summary>Room (meters) for this line's carriers under the crossed line's box at the crossing, on level rope: the highest
+        /// rope the under side allows there (the box rule, RopeAboveBase(0) over the node chord) minus the lowest rope the floor
+        /// allows (the high side + carrier drop + FloorM). Below 0 the under side cannot work, so it is not tried.</summary>
+        private float UnderRoom(LiftPlanCrossing x, LiftTowerPlanConstants c, LiftTerrainSampler terrain)
+        {
+            float s = x.AlongM, hw = c.HalfWidthM;
+            float high = terrain(s, 0f);
+            if (hw > 0f)
+                high = math.max(high, math.max(terrain(s, -hw), terrain(s, hw)));
+            CrossReach(x.AngleDeg, 2f * c.HalfWidthM, x.CrossedWidthM, out _, out float eC);
+            float top = x.CrossedY - math.abs(x.CrossedSlope) * eC - (c.NetHeightMaxM - x.CrossedMinM) - CrossMarginM - c.MaxTwinRiseM;
+            return top + c.RopeAboveBase(0) - (high + c.CarrierDropM + c.FloorM);
+        }
+
+        /// <summary>Plan <paramref name="p"/> is better than <paramref name="q"/> for the crossings: fewer refused crossings, then every
+        /// span clear, then fewer towers, then fewer ladder steps. Ties keep <paramref name="q"/> (the over side).</summary>
+        private static bool CrossBetter(LiftTowerPlan p, LiftTowerPlan q)
+        {
+            int rp = p.CrossingsRefused, rq = q.CrossingsRefused;
+            if (rp != rq) return rp < rq;
+            if (p.Clear != q.Clear) return p.Clear;
+            if (p.LineTowers != q.LineTowers) return p.LineTowers < q.LineTowers;
+            return Steps(p) < Steps(q);
+        }
+
+        private static int Steps(LiftTowerPlan p)
+        {
+            int s = 0;
+            for (int i = 0; i < p.Nodes.Length; i++)
+                s += math.max(0, p.Nodes[i].Member);
+            return s;
+        }
+
+        /// <summary>One plan (the body of Plan before the crossings): from the end with the lower rope, mirrored back.</summary>
+        private LiftTowerPlan PlanOnce(LiftTerrainSampler terrain, float lengthM, float ropeA, float ropeB, LiftTowerPlanConstants c,
+                                       IList<LiftPlanNode> seeds, LiftTerrainSampler terrainFromB)
+        {
             if (AsGiven || !PlansFromB(ropeA, ropeB, EndKeyA, EndKeyB))
                 return PlanCore(terrain, lengthM, ropeA, ropeB, c, seeds);
             float len = math.max(lengthM, 0.1f);
@@ -1545,6 +1818,7 @@ namespace SkiResortMod.Systems
                 SampleAlongM = along, SampleCentreM = center, SampleHighM = high, SampleFloorM = floor,
                 StationA = p.StationB, StationB = p.StationA, EndCarrierA = p.EndCarrierB, EndCarrierB = p.EndCarrierA,
                 AnglesMs = p.AnglesMs, AngleWork = p.AngleWork, AngleNotes = p.AngleNotes,
+                Crossings = p.Crossings,   // Build writes them in the caller's frame
             };
         }
 
@@ -1564,6 +1838,7 @@ namespace SkiResortMod.Systems
             m_RopeB = ropeB;
             ResetAngles();
             Sample(terrain);
+            PrepareCrossings();
 
             m_K.Clear(); m_M.Clear(); m_F.Clear();
             m_K.Add(0); m_M.Add(-1); m_F.Add(LiftPlanNodeFlags.Station);
@@ -1740,6 +2015,7 @@ namespace SkiResortMod.Systems
             m_RopeB = ropeB;
             ResetAngles();
             Sample(terrain, innerAlongM);
+            m_XN = 0;   // the crossings are the tool's (Plan): fixed-node plans never judge them
             m_K.Clear(); m_M.Clear(); m_F.Clear();
             m_K.Add(0); m_M.Add(-1); m_F.Add(LiftPlanNodeFlags.Station);
             m_K.Add(m_N); m_M.Add(-1); m_F.Add(LiftPlanNodeFlags.Station);
@@ -1958,6 +2234,152 @@ namespace SkiResortMod.Systems
             return m_Centre[k] + m_C.RopeAboveBase(member);
         }
 
+        // Crossings (FIX-LIST 60 a). The game's box of an edge stands on its curve: the node-to-node chord (a tower node = ground +
+        // E(member) = its rope - RopeAboveBase(0); an end node = EndNodeYA / EndNodeYB) lowered by the net's sag 4 d h t (1 - t)
+        // (NetUtils.StraightCurve; the line nets' m_Hanging equals their rope lanes', DECISIONS 587, so h = SagRatio). Over the
+        // strips' overlap (CrossReach) the curve rises and falls by its slope, so OVER asks the drawn footprint's LOWEST point
+        // (y - eN |slope|) to clear the crossed footprint's highest point + (crossed max - drawn min) + CrossMarginM, and UNDER the
+        // drawn footprint's HIGHEST point to stay under the crossed lowest - (drawn max - crossed min) - CrossMarginM - MaxTwinRiseM.
+        // Both are piecewise linear in the far node's height (concave / convex), so each is an interval on the far-end rope and joins
+        // SpanInterval's floor and max-height bounds: the exact search, phase (c), the angle pass and the lean pass all keep it.
+
+        /// <summary>The working frame's crossings (Plan's sides; none outside Plan).</summary>
+        private void PrepareCrossings()
+        {
+            m_XN = 0;
+            if (m_XSides == null || Crossings == null)
+                return;
+            int n = Crossings.Count;
+            if (m_XS.Length < n)
+            {
+                m_XS = new float[n];
+                m_XEN = new float[n];
+                m_XR = new float[n];
+                m_XBand = new float[n];
+                m_XOver = new bool[n];
+            }
+            float wN = 2f * m_C.HalfWidthM;
+            for (int i = 0; i < n && i < m_XSides.Length; i++)
+            {
+                if (m_XSides[i] == LiftCrossSide.None)
+                    continue;
+                LiftPlanCrossing x = Crossings[i];
+                CrossReach(x.AngleDeg, wN, x.CrossedWidthM, out float eN, out float eC);
+                float gC = math.abs(x.CrossedSlope);
+                bool over = m_XSides[i] == LiftCrossSide.Over;
+                m_XS[m_XN] = m_FromB ? m_Length - x.AlongM : x.AlongM;
+                m_XOver[m_XN] = over;
+                m_XEN[m_XN] = eN;
+                m_XR[m_XN] = over ? x.CrossedY + gC * eC + (x.CrossedMaxM - m_C.NetHeightMinM) + CrossMarginM
+                                  : x.CrossedY - gC * eC - (m_C.NetHeightMaxM - x.CrossedMinM) - CrossMarginM - m_C.MaxTwinRiseM;
+                m_XBand[m_XN] = CrossBandM(x.AngleDeg, wN, x.CrossedWidthM);
+                m_XN++;
+            }
+        }
+
+        /// <summary>Rope minus node height at sample <paramref name="k"/>: RopeAboveBase(0) at a tower (node = ground + E(member)), the
+        /// end's own rope minus EndNodeYA / EndNodeYB at a line end (unknown end height: as a tower).</summary>
+        private float NodeOff(int k)
+        {
+            if (k == 0 && math.isfinite(EndNodeYA))
+                return m_RopeA - EndNodeYA;
+            if (k == m_N && math.isfinite(EndNodeYB))
+                return m_RopeB - EndNodeYB;
+            return m_C.RopeAboveBase(0);
+        }
+
+        /// <summary>Sample <paramref name="k"/> is inside a crossed lift's corridor (CrossBandM): no new tower there.</summary>
+        private bool InCrossBand(int k)
+        {
+            for (int x = 0; x < m_XN; x++)
+                if (math.abs(m_S[k] - m_XS[x]) < m_XBand[x] - Tol)
+                    return true;
+            return false;
+        }
+
+        /// <summary>The worst crossing shortfall (meters, > 0 = the boxes overlap) of the span (i, ri) -> (j, rj) over the crossings
+        /// strictly inside it; -infinity when it has none. <paramref name="xs"/> / <paramref name="over"/>: that crossing.</summary>
+        private float CrossShort(int i, float ri, int j, float rj, out float xs, out bool over)
+        {
+            float worst = float.NegativeInfinity;
+            xs = 0f;
+            over = true;
+            float si = m_S[i], sj = m_S[j], d = sj - si, h = m_C.SagRatio;
+            if (d <= 0f)
+                return worst;
+            float yi = ri - NodeOff(i), delta = rj - NodeOff(j) - yi;
+            for (int x = 0; x < m_XN; x++)
+            {
+                if (!(m_XS[x] > si && m_XS[x] < sj))
+                    continue;
+                float t = (m_XS[x] - si) / d;
+                float y = yi + delta * t - 4f * d * h * t * (1f - t);
+                float foot = m_XEN[x] * math.abs(delta / d - 4f * h * (1f - 2f * t));
+                float v = m_XOver[x] ? m_XR[x] - (y - foot) : y + foot - m_XR[x];
+                if (v > worst)
+                {
+                    worst = v;
+                    xs = m_XS[x];
+                    over = m_XOver[x];
+                }
+            }
+            return worst;
+        }
+
+        /// <summary>Narrows [lo, hi], the far-end rope interval of the span from sample i (rope ri) to sample j, by every crossing inside
+        /// it; false when nothing is left.</summary>
+        private bool CrossBounds(int i, float ri, int j, ref float lo, ref float hi)
+        {
+            float si = m_S[i], sj = m_S[j], d = sj - si, h = m_C.SagRatio;
+            if (d <= 0f)
+                return true;
+            float yi = ri - NodeOff(i), offJ = NodeOff(j);
+            for (int x = 0; x < m_XN; x++)
+            {
+                if (!(m_XS[x] > si && m_XS[x] < sj))
+                    continue;
+                float t = (m_XS[x] - si) / d;
+                float a = yi - 4f * d * h * t * (1f - t), sigma = -4f * h * (1f - 2f * t);
+                // drawn curve at the crossing = a + t D, its slope D / d + sigma (D = far node y - near node y)
+                bool ok = m_XOver[x] ? ConcaveAtLeast(a, t, m_XEN[x], d, sigma, m_XR[x], out float dlo, out float dhi)
+                                     : ConcaveAtLeast(-a, -t, m_XEN[x], d, sigma, -m_XR[x], out dlo, out dhi);
+                if (!ok)
+                    return false;
+                lo = math.max(lo, yi + dlo + offJ);
+                hi = math.min(hi, yi + dhi + offJ);
+                if (lo > hi + Tol)
+                    return false;
+            }
+            return true;
+        }
+
+        /// <summary>The D with a + b D - e |D / d + sigma| >= r (e >= 0, d > 0): a concave, two-piece linear function, so an interval
+        /// [lo, hi] (either end may be infinite); false when empty.</summary>
+        private static bool ConcaveAtLeast(float a, float b, float e, float d, float sigma, float r, out float lo, out float hi)
+        {
+            float k = e / d, x0 = -sigma * d;
+            bool right = Piece(a + k * x0, b - k, r, x0, float.PositiveInfinity, out float loR, out float hiR);   // D >= x0
+            bool left = Piece(a - k * x0, b + k, r, float.NegativeInfinity, x0, out float loL, out float hiL);    // D <= x0
+            lo = left ? loL : loR;
+            hi = right ? hiR : hiL;
+            return left || right;
+        }
+
+        /// <summary>{D in [dLo, dHi] : c + p D >= r} as [lo, hi]; false when empty.</summary>
+        private static bool Piece(float c, float p, float r, float dLo, float dHi, out float lo, out float hi)
+        {
+            lo = dLo;
+            hi = dHi;
+            if (math.abs(p) < 1e-9f)
+                return c >= r;
+            float x = (r - c) / p;
+            if (p > 0f)
+                lo = math.max(lo, x);
+            else
+                hi = math.min(hi, x);
+            return lo <= hi;
+        }
+
         /// <summary>The node point itself: the carrier at a tower passes over the high side; the rope never above the cap.</summary>
         private bool NodeOk(int k, int member)
         {
@@ -2046,6 +2468,21 @@ namespace SkiResortMod.Systems
                     }
                 }
             }
+            if (m_XN > 0)
+            {
+                // A crossing short of its box clearance: an OVER shortfall is floor-like (phase (c) raises the end nearer it), an
+                // UNDER one height-like. Its sample: the one nearest the crossing.
+                float cv = CrossShort(i, ri, j, rj, out float xs, out bool xOver);
+                if (cv > 0f && cv > worst)
+                {
+                    worst = cv;
+                    floorType = xOver;
+                    worstK = xs - m_S[i] <= m_S[j] - xs ? i : j;
+                    for (int q = i + 1; q < j; q++)
+                        if (math.abs(m_S[q] - xs) < math.abs(m_S[worstK] - xs))
+                            worstK = q;
+                }
+            }
             return worstK < 0 ? 0f : worst;
         }
 
@@ -2079,7 +2516,7 @@ namespace SkiResortMod.Systems
                 if (lo > hi + Tol)
                     return false;
             }
-            return true;
+            return m_XN == 0 || CrossBounds(i, ri, j, ref lo, ref hi);
         }
 
         // (a) anchors
@@ -2174,6 +2611,8 @@ namespace SkiResortMod.Systems
             viol = 0f;
             if (rj > hi + Tol)
                 return false;
+            if (m_XN > 0 && CrossShort(k, rk, j, rj, out _, out _) > Tol)
+                return false;   // a crossing's box clearance stays hard, like the max height
             if (rj < lo - Tol)
                 viol = FloorShortfall(k, rk, j, rj);
             return true;
@@ -2352,7 +2791,8 @@ namespace SkiResortMod.Systems
                             else
                             {
                                 if (!MemberAllowed(k2, m2) || !SlopeOk(k, mk, k2, m2) ||
-                                    (m_C.MaxRopeAboveGroundM > 0f && r2 - m_Centre[k2] > m_C.MaxRopeAboveGroundM + Tol))
+                                    (m_C.MaxRopeAboveGroundM > 0f && r2 - m_Centre[k2] > m_C.MaxRopeAboveGroundM + Tol) ||
+                                    (m_XN > 0 && CrossShort(k, rk, k2, r2, out _, out _) > Tol))
                                     continue;
                                 viol += NodeShortfall(k2, m2);
                             }
@@ -2783,9 +3223,11 @@ namespace SkiResortMod.Systems
         private int MinGap() => math.max(1, (int)math.ceil(m_C.MinSpanM / m_C.StepM - 1e-4f));
 
         /// <summary>Sample k is inside a station's clearance (StationClearM from either end, in meters: the grid's last step is
-        /// short, so a sample count alone let a tower stand 8 m from a 10 m-MinSpan station).</summary>
+        /// short, so a sample count alone let a tower stand 8 m from a 10 m-MinSpan station). Also, and never lifted by the
+        /// NoClearance retry: inside a crossed lift's corridor (InCrossBand; the angle pass counts those refusals as "station").</summary>
         private bool NearStation(int k) =>
-            !m_NoClearance && (m_S[k] < m_C.StationClearM - Tol || m_Length - m_S[k] < m_C.StationClearM - Tol);
+            (m_XN > 0 && InCrossBand(k)) ||
+            (!m_NoClearance && (m_S[k] < m_C.StationClearM - Tol || m_Length - m_S[k] < m_C.StationClearM - Tol));
 
         private bool m_NoClearance;
 
@@ -4294,7 +4736,61 @@ namespace SkiResortMod.Systems
                 StationA = StationA, StationB = StationB,
                 EndCarrierA = m_RopeA - m_C.CarrierDropM - m_High[0], EndCarrierB = m_RopeB - m_C.CarrierDropM - m_High[m_N],
                 AnglesMs = m_AnglesMs, AngleWork = m_AngleWork, AngleNotes = new List<string>(m_AngleNotes),
+                Crossings = BuildCrossings(nodes),
             };
+        }
+
+        /// <summary>Every caller crossing judged on the nodes as built (heads, tram pedestal floats): the drawn edge's curve at the
+        /// crossing point, the separation the side needs there (box clearance + both footprints' slope terms + CrossMarginM) and the
+        /// plan's own; refused when a tower of this line stands in the crossed corridor (a pin: the search keeps new towers out) or
+        /// the separation is short. Along stays in the caller's frame.</summary>
+        private LiftPlanCrossing[] BuildCrossings(LiftPlanNode[] nodes)
+        {
+            if (m_XSides == null || Crossings == null || Crossings.Count == 0)
+                return new LiftPlanCrossing[0];
+            int n = Crossings.Count;
+            var result = new LiftPlanCrossing[n];
+            float wN = 2f * m_C.HalfWidthM, h = m_C.SagRatio;
+            for (int i = 0; i < n; i++)
+            {
+                LiftPlanCrossing x = Crossings[i];
+                LiftCrossSide side = i < m_XSides.Length ? m_XSides[i] : LiftCrossSide.None;
+                x.Side = side;
+                x.Refusal = m_XBefore != null && i < m_XBefore.Length ? m_XBefore[i] : LiftCrossRefusal.None;
+                float ws = m_FromB ? m_Length - x.AlongM : x.AlongM;
+                CrossReach(x.AngleDeg, wN, x.CrossedWidthM, out float eN, out float eC);
+                int s = 0;
+                while (s < nodes.Length - 2 && m_S[m_K[s + 1]] < ws)
+                    s++;
+                int k = m_K[s], k2 = m_K[s + 1];
+                float d = m_S[k2] - m_S[k];
+                float ya = BuiltNodeY(k, nodes[s]), yb = BuiltNodeY(k2, nodes[s + 1]);
+                float t = d > 0f ? math.saturate((ws - m_S[k]) / d) : 0f;
+                float y = ya + (yb - ya) * t - 4f * d * h * t * (1f - t);
+                float g = d > 0f ? (yb - ya) / d - 4f * h * (1f - 2f * t) : 0f;
+                float foot = eN * math.abs(g) + math.abs(x.CrossedSlope) * eC;
+                bool under = side == LiftCrossSide.Under;
+                x.RequiredM = (under ? m_C.NetHeightMaxM - x.CrossedMinM : x.CrossedMaxM - m_C.NetHeightMinM) + foot + CrossMarginM;
+                x.PlannedM = under ? x.CrossedY - y : y - x.CrossedY;
+                if (side != LiftCrossSide.None)
+                {
+                    float band = CrossBandM(x.AngleDeg, wN, x.CrossedWidthM);
+                    for (int q = 1; q < nodes.Length - 1 && x.Refusal == LiftCrossRefusal.None; q++)
+                        if (math.abs(m_S[m_K[q]] - ws) < band - Tol)
+                            x.Refusal = LiftCrossRefusal.OwnTower;
+                    if (x.Refusal == LiftCrossRefusal.None && x.PlannedM < x.RequiredM - Tol)
+                        x.Refusal = LiftCrossRefusal.Clearance;
+                }
+                result[i] = x;
+            }
+            return result;
+        }
+
+        /// <summary>The node's height as built (NodeY with its head and float); an end of unknown height: its rope minus NodeOff.</summary>
+        private float BuiltNodeY(int k, LiftPlanNode node)
+        {
+            float y = NodeY(k, node);
+            return math.isfinite(y) ? y : node.RopeM - NodeOff(k);
         }
     }
 }

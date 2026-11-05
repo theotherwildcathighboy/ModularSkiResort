@@ -44,6 +44,15 @@ namespace LiftBatch
                 return s_Failures;
             }
 
+            if (Environment.GetEnvironmentVariable("LIFTBATCH_ONLY") == "cross")
+            {
+                CrossingTests.Run(Check);
+                foreach (string line in CrossingTests.Report)
+                    Console.WriteLine("CROSS " + line);
+                Console.WriteLine("SUMMARY  LiftBatch (CX only) checks=" + s_Checks + " failures=" + s_Failures);
+                return s_Failures;
+            }
+
             if (Environment.GetEnvironmentVariable("LIFTBATCH_ONLY") == "pitch")
             {
                 PitchCapTests.Run(Check);
@@ -138,6 +147,9 @@ namespace LiftBatch
             foreach (string line in PitchCapTests.Report)
                 if (!line.StartsWith("PC-0 row", StringComparison.Ordinal))   // the per-line rows: LIFTBATCH_ONLY=pitch
                     Console.WriteLine("PITCH " + line);
+            CrossingTests.Run(Check);
+            foreach (string line in CrossingTests.Report)
+                Console.WriteLine("CROSS " + line);
             PadFacingTests.Run(Check);
             foreach (string line in PadFacingTests.Report)
                 Console.WriteLine("PAD   " + line);

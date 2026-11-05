@@ -126,19 +126,38 @@ namespace SkiResortMod.Systems
             return math.clamp(math.dot(d, m_Dir), 0f, LengthM);
         }
 
-        /// <summary>The line crosses the straight piece c..d, another lift's edge in plan view: the game joins the two at the crossing. A
-        /// piece met within <paramref name="endMarginM"/> of the line's ends does not count: a section drawn on from a lift meets it there.</summary>
-        public bool Crosses(float2 c, float2 d, float endMarginM)
+        /// <summary>The line crosses the straight piece c..d, another lift's edge in plan view: a lift of the same type joins this one at
+        /// the crossing, another type is crossed over or under with the box clearance (FIX-LIST 60 a). A piece met within
+        /// <paramref name="endMarginM"/> of the line's ends does not count: a section drawn on from a lift meets it there.</summary>
+        public bool Crosses(float2 c, float2 d, float endMarginM) => CrossAt(c, d, endMarginM, out _, out _);
+
+        /// <summary>Crosses, with where: <paramref name="alongM"/> along this line from A, <paramref name="onPiece"/> the fraction of
+        /// c..d (0 at c). The line nets' curves are straight in plan view (NetUtils.StraightCurve: b / c are xz lerps), so this
+        /// fraction is the crossed curve's own t.</summary>
+        public bool CrossAt(float2 c, float2 d, float endMarginM, out float alongM, out float onPiece)
         {
             float2 e = d - c;
             float denom = m_Dir.x * e.y - m_Dir.y * e.x;
+            alongM = onPiece = 0f;
             if (math.abs(denom) < 1e-5f)
                 return false;   // parallel
             float2 ac = c - A.xz;
-            float along = (ac.x * e.y - ac.y * e.x) / denom;
-            float onPiece = (ac.x * m_Dir.y - ac.y * m_Dir.x) / denom;
-            return onPiece >= 0f && onPiece <= 1f && along > endMarginM && along < LengthM - endMarginM;
+            alongM = (ac.x * e.y - ac.y * e.x) / denom;
+            onPiece = (ac.x * m_Dir.y - ac.y * m_Dir.x) / denom;
+            return onPiece >= 0f && onPiece <= 1f && alongM > endMarginM && alongM < LengthM - endMarginM;
         }
+
+        /// <summary>The plan angle (degrees, 0..90) between this line and the piece c..d.</summary>
+        public float AngleTo(float2 c, float2 d)
+        {
+            float len = math.distance(c, d);
+            if (len < 1e-4f)
+                return 0f;
+            return math.degrees(math.acos(math.saturate(math.abs(math.dot(m_Dir, (d - c) / len)))));
+        }
+
+        /// <summary>Crossings with built lifts of another type (FIX-LIST 60 a; the tool fills them before each Replan). Null = none.</summary>
+        public IList<LiftPlanCrossing> Crossings;
 
         /// <summary>The planner sample grid (pins are samples, so Plan keeps them exactly): every StepM from the end the planner works
         /// from (FromB: from B, so meters along from A are LengthM - k x StepM).</summary>
@@ -176,6 +195,7 @@ namespace SkiResortMod.Systems
             m_Planner.CheckEdgeSlope = true;
             m_Planner.EndNodeYA = A.y;
             m_Planner.EndNodeYB = B.y;
+            m_Planner.Crossings = Crossings;   // different lift types cross with box clearance (FIX-LIST 60 a)
             Plan = m_Planner.Plan(terrain, LengthM, RopeA, RopeB, C, seeds, terrainFromB);
             Revision++;
             return Plan;
@@ -523,6 +543,42 @@ namespace SkiResortMod.Systems
             s0 = math.max(s0, sa);
             s1 = math.min(s1, sb);
             return s0 <= s1;
+        }
+
+        /// <summary>The crossing notice key (FIX-LIST 60 a), or null. A crossing with another lift type the plan cannot build:
+        /// CROSS_SHALLOW / CROSS_STATION / CROSS_TOWER / CROSS_OWN_TOWER / CROSS_CLEARANCE (the first refused crossing; Build is
+        /// refused, <paramref name="refused"/> true, <paramref name="needM"/> = the separation it needs, for CROSS_CLEARANCE).
+        /// Else CROSSES_UNDER / CROSSES_OVER when the line passes another type (under first: the rarer side), else CROSSES when it
+        /// crosses a lift of its own type (<paramref name="sameType"/>: the game joins the two there, unchanged).</summary>
+        public static string CrossKey(LiftTowerPlan plan, bool sameType, out bool refused, out float needM)
+        {
+            refused = false;
+            needM = 0f;
+            LiftPlanCrossing[] xs = plan?.Crossings;
+            bool over = false, under = false;
+            if (xs != null)
+            {
+                for (int i = 0; i < xs.Length; i++)
+                {
+                    if (xs[i].Refusal == LiftCrossRefusal.None)
+                    {
+                        over |= xs[i].Side == LiftCrossSide.Over;
+                        under |= xs[i].Side == LiftCrossSide.Under;
+                        continue;
+                    }
+                    refused = true;
+                    needM = xs[i].RequiredM;
+                    switch (xs[i].Refusal)
+                    {
+                        case LiftCrossRefusal.Shallow: return "CROSS_SHALLOW";
+                        case LiftCrossRefusal.Station: return "CROSS_STATION";
+                        case LiftCrossRefusal.Tower: return "CROSS_TOWER";
+                        case LiftCrossRefusal.OwnTower: return "CROSS_OWN_TOWER";
+                        default: return "CROSS_CLEARANCE";
+                    }
+                }
+            }
+            return under ? "CROSSES_UNDER" : over ? "CROSSES_OVER" : sameType ? "CROSSES" : null;
         }
 
         /// <summary>A rope-lane anchor this far (xz) from the end node or nearer belongs to this end (LiftTowerFitSystem.StationRope).</summary>
