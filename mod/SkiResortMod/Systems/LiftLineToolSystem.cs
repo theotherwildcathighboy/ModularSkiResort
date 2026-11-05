@@ -581,7 +581,7 @@ namespace SkiResortMod.Systems
             }
             if (m_CrossRefused)
             {
-                Say($"LiftLine [build]: refused — a crossing with another lift type cannot be built ({m_CrossKey}; the plan's CROSS lines " +
+                Say($"LiftLine [build]: refused — a crossing with another lift cannot be built ({m_CrossKey}; the plan's CROSS lines " +
                     "say why)", CrossNotice());
                 return;
             }
@@ -1358,11 +1358,11 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>The line's crossings with built lift lines, before each plan (they depend on the two ends only). A lift of the SAME type
-        /// joins this one where they cross (engine split point, field test 2026-10-31; unchanged since 12d5ff6: the same layer bit still
-        /// connects): the CROSSES notice, building allowed. Trams stay out of that join notice (601 n: a tram never joined, and its long
-        /// spans hid the real crossing). A lift of ANOTHER type no longer joins (12d5ff6, one layer bit per type); the game validates the two
-        /// edge boxes against each other instead (LiftPlanCrossing), so each such crossing goes to the planner with the crossed edge as
+        /// <summary>The line's crossings with built lift lines, before each plan (they depend on the two ends only). Every crossing, of
+        /// any type (the same type too since the 2026-11-05 collision box round; m_SameTypeCrossing stays false and the CROSSES join
+        /// notice is no longer shown), is planned so the two edge boxes clear each other: another type never joins (12d5ff6, one layer bit
+        /// per type), the same type does not join once its box is wholly over or under (CourseSplitSystem IsOver / IsUnder); the game
+        /// validates the two edge boxes against each other (LiftPlanCrossing), so each crossing goes to the planner with the crossed edge as
         /// built: its curve height and slope at the crossing (the curve is straight in plan view, so the crossing's fraction of the edge
         /// is the curve's t), its composition's height range and width (NetCompositionData of Composition.m_Edge, checked against
         /// LiftTowerPlanConstants.NetHeightRange once per type and session), the plan angle and the distances to its nearest tower and
@@ -1381,15 +1381,11 @@ namespace SkiResortMod.Systems
                     Game.Net.Curve curve = EntityManager.GetComponentData<Game.Net.Curve>(edges[i]);
                     if (!edit.CrossAt(curve.m_Bezier.a.xz, curve.m_Bezier.d.xz, CrossEndMarginM, out float along, out float t))
                         continue;
-                    if (m_Type != null && def.Id == m_Type.Id)
-                    {
-                        if (def.Mover == MoverKind.Shuttle || m_SameTypeCrossing)
-                            continue;
-                        m_SameTypeCrossing = true;
-                        Mod.Log.Warn($"LiftLine [plan]: CROSSES — the line crosses {def.Id} edge {Fmt(edges[i])} of its own type at {along:F0} m; " +
-                                     "building joins them at the crossing (a shared tower)");
-                        continue;
-                    }
+                    // The same type goes to the planner too (collision box round, 2026-11-05): CourseSplitSystem joins a crossing only
+                    // while neither box is wholly over the other at the intersection (IsOver / IsUnder, CourseSplitSystem.cs:2119-2185,
+                    // 2301-2312). With the tight box a same-type line a few meters higher was "over" there (no join) while the game's
+                    // validation over the whole overlap still found the boxes touching: "Clearance too low" and no join. Planned with
+                    // the box rule, both checks agree: the lines pass without a shared tower, or the crossing is refused.
                     m_Crossings.Add(Crossing(edit, edges[i], def, curve.m_Bezier, along, t));
                 }
             }
