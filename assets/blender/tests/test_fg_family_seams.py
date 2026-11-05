@@ -386,6 +386,20 @@ def s9_code():
     _s9_gate("Pali base hold-down", chair, (co, [tuple(int(v) for v in tris[i]) for i in k], [names[i] for i in k]),
              LT.FG_LANE, lambda x, s=spec: LT.chord_z(s, x))
     LT.clear_scene()
+    # art-601: the base without its hosted end tower (M_NOSE_TRAIN): the train at the sub-lane end, its king post + tie
+    LT.M_NOSE_TRAIN = True
+    try:
+        t, table, _src = LT.assemble_m(LT.build_base_m(), False, "drive")
+        co, tris, names, _ = LT.m_arrays(t)
+        k = [i for i, n in enumerate(names) if n.startswith(("sheave_hold_", "holdboom_", "holdhang_", "holdpost_",
+                                                              "holdtie_"))]
+        check(any(names[i].startswith("holdtie_") for i in k), "S9 nose-train base builds its holdtie_ parts")
+        _s9_gate("Pali base nose train (art-601)", chair,
+                 (co, [tuple(int(v) for v in tris[i]) for i in k], [names[i] for i in k]),
+                 LT.FG_LANE, lambda x, s=spec: LT.chord_z(s, x))
+    finally:
+        LT.M_NOSE_TRAIN = False
+        LT.clear_scene()
 
 
 def main():
@@ -401,7 +415,7 @@ def main():
     print(f"PASS test_fg_family_seams: hang 2.400 / lane 1.8 / grip 0.080 agree in carriers, chair, towers, "
           f"stations, SkiCatalog and the deployed K prefabs; the live chair (split pair) sits in the seat window and the "
           f"live hosted towers clear the live stations (S8); S9 the tr grip clears every Yan tree "
-          f"(FG8-FG20, ET62 / ET68, the Pali base hold-down) on both spins - no mirror ({len(NOTES)} skipped, "
+          f"(FG8-FG20, ET62 / ET68, the Pali base hold-down and its art-601 nose train) on both spins - no mirror ({len(NOTES)} skipped, "
           f"{time.perf_counter() - t0:.1f} s)")
 
 

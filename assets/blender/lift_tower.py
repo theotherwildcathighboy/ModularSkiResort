@@ -5593,7 +5593,7 @@ def etgd_prefab_block(spec, name, info):
 # (the same geometry, vertex for vertex), its shipped LOD0 FBX's UVUnique is read onto it triangle by triangle, and each
 # twin part copies its namesake's loops BEFORE it is mirrored / moved / stretched (copies take their source's), so the
 # twin mesh maps onto the member's BaseColor / Normal / MaskMap / ControlMask as they ship.
-TWIN_MEMBERS = {"Hold": ("FG8", "FG12", "DQ10", "DQ12", "GD12", "GD16"),
+TWIN_MEMBERS = {"Hold": ("FG8", "FG12", "DQ10", "DQ12", "DQ16", "DQ20", "GD12", "GD16"),
                 "Combo": ("FG8", "FG12", "DQ10", "DQ12", "GD12", "GD16"),
                 "Break": ("FG8", "FG12", "FG16", "FG20")}
 TWINS = {f"{m}{k}": (m, k) for k, ms in TWIN_MEMBERS.items() for m in ms}
@@ -5601,7 +5601,8 @@ TWIN_SPEC_KIND = {"Hold": "compression", "Combo": "pushpull", "Break": "support"
 # the shipped member whose atlas a twin reuses (assets/import/towers/<letter>/<name>; DECISIONS 586: Q family, R pilots)
 TWIN_ATLAS = {"FG8": "Q/SkiLiftTowerFG8Q", "FG12": "R/SkiLiftTowerFG12R", "FG16": "Q/SkiLiftTowerFG16Q",
               "FG20": "Q/SkiLiftTowerFG20Q", "DQ10": "Q/SkiLiftTowerDQ10Q", "DQ12": "R/SkiLiftTowerDQ12R",
-              "GD12": "R/SkiLiftTowerGD12R", "GD16": "Q/SkiLiftTowerGD16Q"}
+              "GD12": "R/SkiLiftTowerGD12R", "GD16": "Q/SkiLiftTowerGD16Q",
+              "DQ16": "Q/SkiLiftTowerDQ16Q", "DQ20": "Q/SkiLiftTowerDQ20Q"}   # DQ16 / DQ20 Hold: art-601 (owner note 12)
 TWIN_HEAD = {"FG": "yan", "DQ": "ingest", "GD": "rebuild"}
 TWIN_GD_SHEAVES = {"atlas": 10, "twin": 8}      # shipped GD members 10 a side; Hold / Combo at the ETGD count (plan 3.3)
 # DQ / GD head raise, x crown seat. v2 (critic MUST-1, 2026-11-03): the Hold train is TRANSLATED (frame above the
@@ -5627,7 +5628,10 @@ TWIN_FG_BREAK_BEAM = 0.20               # m, the Break half beam's depth (critic
 TWIN_YOKE_LUG, TWIN_YOKE_RAMP = 0.10, 0.30
 TWIN_TONGUE_GAP = 0.010
 TWIN_TOP_GAP = 0.10                     # m, plan 3.4 gate LADDER (LiftTowerFitSystem.MemberOf matches at 0.05)
-LINE_ELEVATION_MAX = {"FG": 16.0, "DQ": 10.0, "GD": 28.0}       # m_ElevationRange.max of the line prefabs (plan 3.4)
+# m_ElevationRange.max of the line prefabs (plan 3.4). DQ 11.0 (art-601): the DQ20 Hold twin sits at E 10.5178 (top 20.4678 -
+# ladder[0] 9.95); the import round raises SkiDetachableHV m_ElevationRange.max 10 -> 11 with it (a twin E past the shipped
+# range is the plan's excluded case 4.4 b: the range is ours to raise, the engine then never sees E past it)
+LINE_ELEVATION_MAX = {"FG": 16.0, "DQ": 11.0, "GD": 28.0}
 TWIN_BREAK_CAP = 5400                   # owner 2026-11-03 (v2): the Break kind's LOD0 cap, all four FG members
 TWIN_BREAK_CAP_X = 1.15                 # the B2 first estimate (4,370), superseded by TWIN_BREAK_CAP
 TWIN_CAP_RAISE = 1.05                   # DECISIONS 585: up to 5 % over, raise in-round; beyond: stop and report

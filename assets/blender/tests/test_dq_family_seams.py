@@ -165,6 +165,19 @@ def code_seams():
     check(LT.DQ_STATION_INBOARD_MAX <= base.x_nose - 0.30 + 1e-9,
           "S6 ETDQ inboard limit keeps 0.30 m off the station nose",
           f"(limit {LT.DQ_STATION_INBOARD_MAX}, nose {base.x_nose})")
+    # S1n (art-601): the base without its hosted ETDQ (BASE_NOSE_TRAIN) keeps the anchors and the lane, drops the host and
+    # carries the top's nose train with its outer rim tip at anchor_x - 0.10 and the axle on the lane
+    LTD.BASE_NOSE_TRAIN = True
+    try:
+        nb = LTD.params_for("base", False, carrier)
+        T = LTD.nose_train_layout(nb)
+        check(not nb.hosted_tower and close(nb.anchor_x, base.anchor_x) and close(nb.z_rope, base.z_rope),
+              "S1n nose-train base: no host, anchors and lane unchanged", f"(anchor {nb.anchor_x}, lane {nb.z_rope})")
+        check(close(T["x_out"], nb.anchor_x - 0.10) and close(T["axle"], nb.z_rope) and T["x_in"] < nb.x_nose,
+              "S1n nose train: outer rim tip at anchor - 0.10, axle on the lane, inboard end outside the nose",
+              f"(x {T['x_out']}..{T['x_in']}, axle {T['axle']}, nose {nb.x_nose})")
+    finally:
+        LTD.BASE_NOSE_TRAIN = False
     return dq, tr, base, top
 
 
