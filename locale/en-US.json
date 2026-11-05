@@ -80,6 +80,8 @@
   "Options.OPTION_DESCRIPTION[SkiResortMod.SkiResortMod.Mod.SkiResortSettings.DiagnosticMeasurements]": "For field tests, off by default. Turns on extra measurements that cost a little frame time (a daily ski-day measurement pass and the Ctrl+Alt+G slope capture file). Leave it off for normal play. Default off.",
   "Options.OPTION[SkiResortMod.SkiResortMod.Mod.SkiResortSettings.PlannerOnMainThread]": "Resort Planner on the main thread",
   "Options.OPTION_DESCRIPTION[SkiResortMod.SkiResortMod.Mod.SkiResortSettings.PlannerOnMainThread]": "For field tests, off by default. The Resort Planner scans on a background thread; turn this on to scan on the game's main thread in small steps instead (slower, same result). Use it only if a scan never finishes or the log reports a scan worker error. A worker error turns the Resort Planner off until the next game load. Default off.",
+  "Options.OPTION[SkiResortMod.SkiResortMod.Mod.SkiResortSettings.CopyDiagnostics]": "Copy diagnostics",
+  "Options.OPTION_DESCRIPTION[SkiResortMod.SkiResortMod.Mod.SkiResortSettings.CopyDiagnostics]": "Copies a short report for a bug report to the clipboard: the mod and game versions, your computer, the options you changed, the code mods loaded, where the mod log is, and its latest error lines. Paste it into your report. Your Windows user name is left out.",
   "Options.GROUP[SkiResortMod.SkiResortMod.Mod.Reset]": "Reset",
   "Options.OPTION[SkiResortMod.SkiResortMod.Mod.SkiResortSettings.ResetToDefaults]": "Reset all options to defaults",
   "Options.OPTION_DESCRIPTION[SkiResortMod.SkiResortMod.Mod.SkiResortSettings.ResetToDefaults]": "Puts every Modular Ski Resort option and key binding back to its default. Asks you to confirm first.",

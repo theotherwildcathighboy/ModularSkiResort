@@ -409,6 +409,16 @@ namespace SkiResortMod.Settings
                     "game's main thread in small steps instead (slower, same result). Use it only if a scan never finishes or the " +
                     "log reports a scan worker error. A worker error turns the Resort Planner off until the next game load. Default off."
                 },
+                {
+                    m_Setting.GetOptionLabelLocaleID(nameof(SkiResortSettings.CopyDiagnostics)),
+                    "Copy diagnostics"
+                },
+                {
+                    m_Setting.GetOptionDescLocaleID(nameof(SkiResortSettings.CopyDiagnostics)),
+                    "Copies a short report for a bug report to the clipboard: the mod and game versions, your computer, the options you " +
+                    "changed, the code mods loaded, where the mod log is, and its latest error lines. Paste it into your report. " +
+                    "Your Windows user name is left out."
+                },
 
                 // --- Reset ---
                 { m_Setting.GetOptionGroupLocaleID(SkiResortSettings.GroupReset), "Reset" },

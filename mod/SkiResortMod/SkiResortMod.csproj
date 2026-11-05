@@ -84,6 +84,10 @@
 		<Reference Include="UnityEngine.ImageConversionModule">
 			<Private>false</Private>
 		</Reference>
+		<!-- GUIUtility.systemCopyBuffer (the clipboard) lives in the IMGUI module: Options > Diagnostics > Copy diagnostics. -->
+		<Reference Include="UnityEngine.IMGUIModule">
+			<Private>false</Private>
+		</Reference>
 		<Reference Include="Unity.Burst">
 			<Private>false</Private>
 		</Reference>

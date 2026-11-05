@@ -371,6 +371,15 @@ namespace SkiResortMod.Settings
         /// <summary>Null-tolerant read for the tool</summary>
         public static bool PlannerOnMainThreadOn => Mod.Settings?.PlannerOnMainThread ?? DefaultPlannerOnMainThread;
 
+        /// <summary>Copies a bug-report block to the clipboard (SkiDiagnostics: versions, machine, options changed from defaults, code mods,
+        /// the log path and its error lines). A button: nothing is stored.</summary>
+        [SettingsUIButton]
+        [SettingsUISection(SectionMain, GroupDiagnostics)]
+        public bool CopyDiagnostics
+        {
+            set { SkiDiagnostics.CopyToClipboard("options button"); }
+        }
+
         // Key bindings must stay public get+set ProxyBinding (ModSetting.cs:32-34). Defaults come from the attribute via the base
         // constructor: never assign these in SetDefaults.
 
