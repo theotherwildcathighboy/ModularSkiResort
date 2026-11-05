@@ -1331,7 +1331,7 @@ namespace SkiResortMod.Systems
             }
 
             // (d) point scan over our runs at the hit point
-            PointScan(p, hit, out Entity bound, out Entity other);
+            PointScan(p, hit, out Entity bound, out Entity other, out Entity catTrack);
             if (bound != Entity.Null)
             {
                 r.Kind = GladeHoverKind.Bound;
@@ -1370,7 +1370,15 @@ namespace SkiResortMod.Systems
                 return r;
             }
 
-            // (e) / (f); a cat track is a foreign surface with its own reason
+            // (e) / (f); a cat track is a foreign surface with its own reason. The point scan finds it: the raycast never
+            // hits an un-owned surface (RaycastJobs.cs:95, the mask note at OnCreate), so the hit there is the terrain.
+            if (catTrack != Entity.Null)
+            {
+                r.Subject = catTrack;
+                r.Kind = GladeHoverKind.Foreign;
+                r.Reason = ReasonCatTrack;
+                return r;
+            }
             r.Subject = hit;
             r.Kind = EntityManager.HasComponent<Area>(hit) ? GladeHoverKind.Foreign : GladeHoverKind.Terrain;
             if (r.Kind == GladeHoverKind.Foreign && EntityManager.TryGetComponent(hit, out PrefabRef hitPrefab) &&
@@ -1422,11 +1430,12 @@ namespace SkiResortMod.Systems
         /// <summary>Our runs containing p. bound = the planned run if it is one, else the lowest Entity.Index among bound runs; other =
         /// the raycast hit if it is an unbound run of ours, else the lowest index among them. Bounds first, triangles only for bounds
         /// hits. Timed (DUMP / dev tab).</summary>
-        private void PointScan(float2 p, Entity hit, out Entity bound, out Entity other)
+        private void PointScan(float2 p, Entity hit, out Entity bound, out Entity other, out Entity catTrack)
         {
             long t0 = System.Diagnostics.Stopwatch.GetTimestamp();
             bound = Entity.Null;
             other = Entity.Null;
+            catTrack = Entity.Null;
             bool boundIsPlanned = false;
             if (!m_RunQuery.IsEmptyIgnoreFilter)
             {
@@ -1444,7 +1453,14 @@ namespace SkiResortMod.Systems
                         for (int i = 0; i < entities.Length; i++)
                         {
                             if (!m_RunPrefabs.Contains(prefabRefs[i].m_Prefab))
+                            {
+                                // a cat track under the cursor: kept for its reason only (the lowest index wins, as for other)
+                                if (m_CatTrackPrefabs.Contains(prefabRefs[i].m_Prefab) &&
+                                    (catTrack == Entity.Null || entities[i].Index < catTrack.Index) &&
+                                    MathUtils.Intersect(geometries[i].m_Bounds.xz, p) && RunContainsPoint(entities[i], p))
+                                    catTrack = entities[i];
                                 continue;
+                            }
                             if (!MathUtils.Intersect(geometries[i].m_Bounds.xz, p))
                                 continue;
                             Entity e = entities[i];
