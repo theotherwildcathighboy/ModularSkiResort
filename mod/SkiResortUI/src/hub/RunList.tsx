@@ -4,13 +4,14 @@
  * line up) arms on the first click and deletes on the second (hubTriggers.deleteCatTrack); leaving the row or 4 s disarm it. The pen is a
  * sibling Button, never nested; while a row renames, the fly part is a plain div
  * with RenameField (an <input> is never inside a <button>). The state word sits in an XS StableWidth of the three translated words so the name never moves.
- * Mouse enter sends hoverRun through hubState.sendHoverRun (dedup); click -> onPick. Number columns carry the useNumberSamples widths (no jitter).
+ * Mouse enter sends hoverRun through hubState.sendHoverRun (dedup); click -> onPick (fly part FOCUS_DISABLED, as in LiftTable: FIX-LIST 58). Number columns carry the useNumberSamples widths (no jitter).
  * Memoised on the row's own RunRow / RunLive fields, lift name, focus, renaming, settings, `t`, samples, state words and the stable callbacks.
  * Width (Overpass advances): name room 167 / 201 / 224 rem at 100 / 130 / 150 % text; the ellipsis is the net, the full name is tooltip line 1.
  */
 import { memo, useEffect, useState } from "react";
 import type { MouseEvent } from "react";
 import { Button } from "cs2/ui";
+import { FOCUS_DISABLED } from "cs2/input";
 import { Unit } from "cs2/l10n";
 import { OPEN_STATE, RUN_GUN_WHY, RUN_KIND, hubTriggers } from "../bindings";
 import type { RunLive, RunRow } from "../bindings";
@@ -193,7 +194,7 @@ function RunLineImpl(p: RunLineProps): JSX.Element {
         <div className={styles.runFly}>{inner}</div>
       ) : (
         <Tip tip={runTip(p, name, typeName)}>
-          <Button theme={{ button: styles.runFly }} onSelect={() => onPick(row)}>
+          <Button focusKey={FOCUS_DISABLED} theme={{ button: styles.runFly }} onSelect={() => onPick(row)}>
             {inner}
           </Button>
         </Tip>

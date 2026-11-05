@@ -5,9 +5,13 @@
  * both arrive from C#, the UI decides nothing. While renaming, the fly part is a plain div (an <input> is never inside a <button>).
  * The "billed at 25 %" reason is hubRules.liftCostReason, mapped by liftCostReducedEntry. Rise is shown signed (a negative rise is printed, not
  * unknown). Memoised on every LiftRow field it shows plus focus, renaming, `t`, the callbacks, type, seats, speedMps and typeWords.
+ * The fly part passes focusKey={FOCUS_DISABLED} (FIX-LIST 58): a FOCUS_AUTO Button kept the game's key focus after its click, and its
+ * "Select" action handler (active while focused: index.js@629617, InputActionConsumer @568737) then ran onPick on a later Select made
+ * elsewhere, e.g. on a Build-strip tile (FOCUS_DISABLED, so it never took the focus back). Leaving the view unmounted the row and cleared it.
  */
 import { memo } from "react";
 import { Button } from "cs2/ui";
+import { FOCUS_DISABLED } from "cs2/input";
 import { Unit } from "cs2/l10n";
 import { LocalizedFraction } from "../cs2shim";
 import { LIFT_STATE, LIFT_STATUS, entityId } from "../bindings";
@@ -167,7 +171,7 @@ function LiftLine2Impl({ row, partner, t, words, typeWords, focused, renaming, o
           <div className={styles.liftFly}>{inner}</div>
         ) : (
           <Tip tip={liftTip(row, partner, t)}>
-            <Button theme={{ button: styles.liftFly }} onSelect={() => onPick(row)}>
+            <Button focusKey={FOCUS_DISABLED} theme={{ button: styles.liftFly }} onSelect={() => onPick(row)}>
               {inner}
             </Button>
           </Tip>
