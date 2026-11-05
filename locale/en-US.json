@@ -431,6 +431,7 @@
   "SkiResort.GladeTooltip.FELL": "Wild trees to fell",
   "SkiResort.GladeTooltip.REMOVE": "Planted trees to remove",
   "SkiResort.GladeTooltip.BLOCKED_SPOTS": "Spots blocked (roads, buildings)",
+  "SkiResort.GladeTooltip.CAT_TRACK": "Cat tracks: the Tree tool plans ski runs only; a cat track's top is cleared of trees when it is built",
   "SkiResort.Hub.TITLE": "Ski Resort",
   "SkiResort.Hub.LAUNCHER_TOOLTIP": "Ski Resorts",
   "SkiResort.Hub.NOT_CONNECTED": "The mod is not answering: its hub system is missing or failed. See SkiResortMod.Mod.log.",

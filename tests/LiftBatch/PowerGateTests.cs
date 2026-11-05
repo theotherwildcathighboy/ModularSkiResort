@@ -3,7 +3,9 @@
 // Pinned: Carries = complete && power != NoPower && !closed over all 12 rows; GuardPower, frame-stepped through a model of
 // LiftCensusSystem.ReadLiftPower, holds the last effective value over a short NoPower streak (inclusive 512-frame boundary), rides out
 // a brownout, is uint-wrap safe and fails open on the first read of a load; ExpireStreak drops a streak after a gap of more than
-// PowerStreakStaleFrames (1,024).
+// PowerStreakStaleFrames (1,024). PG-5 (DECISIONS 601 i): a frame model of the game's dispatch (wanted set at offset 0, the dispatch at
+// offset 126, the warning on the second short dispatch) through the census reader with the cooldown counter and the pending window: a
+// fresh unpowered station never reads powered, a fresh powered one runs from its first judged dispatch, a locked city fails open.
 
 using System;
 using System.Collections.Generic;
@@ -35,6 +37,7 @@ namespace LiftBatch
             Pg2iFirstRead();
             Pg3F2Composition();
             Pg4ExpireStreak();
+            Pg5FreshStation();
             s_Check = null;
         }
 
@@ -355,6 +358,146 @@ namespace LiftBatch
             Eq(500u, LiftServedRule.ExpireStreak(500u, 600u, 664u), W, "gap 64 keeps the streak");
             Eq(0xFFFFFF80u, LiftServedRule.ExpireStreak(0xFFFFFF80u, 0xFFFFFFC0u, 0x00000100u), W, "gap 320 across the wrap keeps");
             Eq(none, LiftServedRule.ExpireStreak(0xFFFFFF80u, 0xFFFFFFC0u, 0x00000500u), W, "gap 1,344 across the wrap drops");
+        }
+        /// <summary>The game's consumer over sim frames, the model of AdjustElectricityConsumptionSystem (wanted at offset 0, :385-392)
+        /// and DispatchElectricitySystem (offset 126, :222-230; fulfilled = min(supply, wanted) :106, Connected when fulfilled &gt;= wanted
+        /// with wanted &gt; 0 else when connected to a graph :115-122; HandleCooldown only when electricity is unlocked, the warning on
+        /// cooldown &gt;= kAlertCooldown 2, :128-143).</summary>
+        private sealed class GameConsumer
+        {
+            public int WantedNow, Fulfilled;
+            public short Cooldown;
+            public byte Flags;
+            public uint Built;
+            public float Supply = 1f;   // share of the wanted power the grid delivers
+            public bool Unlocked = true, OnGrid = true;
+
+            public void Step(uint frame)
+            {
+                if (frame <= Built)
+                    return;
+                if (frame % 128u == 0u)
+                    WantedNow = Wanted;
+                if (frame % 128u == 126u)
+                {
+                    Fulfilled = (int)math.floor(WantedNow * (OnGrid ? Supply : 0f));
+                    if (Unlocked)
+                    {
+                        Flags &= unchecked((byte)~(LiftServedRule.FlagNoElectricityWarning | LiftServedRule.FlagBottleneckWarning));
+                        if (Fulfilled < WantedNow)
+                        {
+                            Cooldown = (short)math.min(Cooldown + 1, 10000);
+                            if (Cooldown >= 2)
+                                Flags |= LiftServedRule.FlagNoElectricityWarning;
+                        }
+                        else
+                        {
+                            Cooldown = 0;
+                        }
+                    }
+                    bool connected = WantedNow > 0 ? Fulfilled >= WantedNow : OnGrid;
+                    Flags = connected ? (byte)(Flags | LiftServedRule.FlagConnected) : (byte)(Flags & ~LiftServedRule.FlagConnected);
+                }
+            }
+        }
+
+        /// <summary>LiftCensusSystem.ReadLiftPower with the cooldown counter and the pending window.</summary>
+        private sealed class Reader5
+        {
+            public bool Known;
+            public LiftPower Last = LiftPower.Unknown;
+            public uint BackSince = LiftServedRule.NoBackSince, PendingSince = LiftServedRule.NoBackSince;
+            public bool TimedOut;
+
+            public LiftPower Read(GameConsumer c, uint frame)
+            {
+                LiftPower raw = LiftServedRule.PowerOf(c.Flags, c.WantedNow, c.Fulfilled, c.Cooldown, Known ? Last : LiftPower.Unknown);
+                raw = LiftServedRule.ExpirePending(raw, ref PendingSince, frame, out bool t);
+                TimedOut |= t;
+                LiftPower power = Known ? LiftServedRule.GuardPower(raw, Last, ref BackSince, frame, out bool _) : raw;
+                Known = true;
+                Last = power;
+                return power;
+            }
+        }
+
+        /// <summary>Steps the consumer from the build for 1,200 frames, read every 16 frames (the hold poll's order of magnitude).
+        /// Returns the first frame after the build that reads powered (IsPowered), or uint.MaxValue.</summary>
+        private static uint FirstPowered(GameConsumer c, Reader5 r, uint built, out int poweredReads)
+        {
+            uint first = uint.MaxValue;
+            poweredReads = 0;
+            for (uint f = built; f < built + 1200u; f++)
+            {
+                c.Step(f);
+                if ((f - built) % 16u != 0u)
+                    continue;
+                if (LiftServedRule.IsPowered(r.Read(c, f)))
+                {
+                    poweredReads++;
+                    if (first == uint.MaxValue)
+                        first = f - built;
+                }
+            }
+            return first;
+        }
+
+        private static void Pg5FreshStation()
+        {
+            const string W = "power-gate/PG-5";
+            Eq(384u, LiftServedRule.PendingMaxFrames, W, "PendingMaxFrames = 3 dispatch periods");
+            Check(!LiftServedRule.IsPowered(LiftPower.Pending), W, "Pending is not powered (the chairs wait)");
+            Check(LiftServedRule.IsPowered(LiftPower.Unknown), W, "Unknown stays powered (fail open)");
+            Check(!LiftServedRule.Carries(true, LiftPower.Pending, false), W, "a Pending lift does not carry");
+            uint worstPowered = 0;
+            for (uint off = 0; off < 128u; off++)
+            {
+                uint built = 1024u + off;
+                // unpowered (no grid): never one powered read (owner note 7: it ran a few seconds, then stopped)
+                var cut = new GameConsumer { Built = built, OnGrid = false };
+                FirstPowered(cut, new Reader5(), built, out int cutReads);
+                if (!Check(cutReads == 0, W, "unpowered, built at offset " + off + ": " + cutReads + " powered read(s), want 0"))
+                    break;
+                // powered: runs from its first judged dispatch, at most 254 frames after the build (+ one 16-frame read step)
+                var fed = new GameConsumer { Built = built };
+                uint at = FirstPowered(fed, new Reader5(), built, out _);
+                worstPowered = math.max(worstPowered, at);
+                if (!Check(at <= 270u, W, "powered, built at offset " + off + ": first powered read " + at + " frames after the build, want <= 270"))
+                    break;
+                // two thirds of the power: powered from the first judged dispatch (the half rule), no warning needed
+                var part = new GameConsumer { Built = built, Supply = 0.67f };
+                Check(FirstPowered(part, new Reader5(), built, out _) <= 270u, W, "2/3 supply, built at offset " + off + ": powered by its first judged dispatch");
+                // a third of the power: never powered
+                var third = new GameConsumer { Built = built, Supply = 0.33f };
+                FirstPowered(third, new Reader5(), built, out int thirdReads);
+                Check(thirdReads == 0, W, "1/3 supply, built at offset " + off + ": " + thirdReads + " powered read(s), want 0");
+            }
+            Console.WriteLine("INFO  " + W + ": a fresh powered lift reads powered at most " + worstPowered + " sim frames after its build " +
+                              "(read every 16 frames)");
+            // electricity locked: no warning and no cooldown ever; Pending fails open after PendingMaxFrames and stays powered
+            var locked = new GameConsumer { Built = 2048u, Unlocked = false, OnGrid = false };
+            var rl = new Reader5();
+            uint lockedAt = FirstPowered(locked, rl, 2048u, out _);
+            Check(rl.TimedOut, W, "locked electricity: the pending window timed out");
+            Check(lockedAt >= LiftServedRule.PendingMaxFrames && lockedAt <= LiftServedRule.PendingMaxFrames + 16u, W,
+                  "locked electricity: powered (fail open) " + lockedAt + " frames after the build, want 384..400");
+            // a known powered station keeps the game's cooldown absorption: one short dispatch (cooldown 1, no warning) stays Powered
+            Eq(LiftPower.Powered, LiftServedRule.PowerOf(0, Wanted, 0, 1, LiftPower.Powered), W, "known powered, one short dispatch: Powered");
+            var known = new Reader5 { Known = true, Last = LiftPower.Powered };
+            Eq(LiftPower.Powered, known.Read(new GameConsumer { WantedNow = Wanted, Fulfilled = 0, Cooldown = 1 }, 5000u), W,
+               "known powered through the reader: Powered");
+            // the warning keeps the half / three-quarters rule
+            Eq(LiftPower.NoPower, LiftServedRule.PowerOf(Warn, Wanted, 0, 2, LiftPower.Unknown), W, "warning, nothing arrives: NoPower");
+            Eq(LiftPower.Powered, LiftServedRule.PowerOf(Warn, Wanted, Wanted, 2, LiftPower.Unknown), W, "warning, all arrives: Powered");
+            // Connected with wanted 0 (a dispatch before the wanted power was set) decides nothing
+            Eq(LiftPower.Pending, LiftServedRule.PowerOf(LiftServedRule.FlagConnected, 0, 0, 0, LiftPower.Unknown), W,
+               "Connected with wanted 0: Pending");
+            // the pending window across the frame counter wrap
+            uint since = LiftServedRule.NoBackSince;
+            Eq(LiftPower.Pending, LiftServedRule.ExpirePending(LiftPower.Pending, ref since, 0xFFFFFF00u, out _), W, "wrap: pending starts");
+            Eq(LiftPower.Pending, LiftServedRule.ExpirePending(LiftPower.Pending, ref since, 0x0000007Fu, out _), W, "wrap: 383 frames in");
+            Eq(LiftPower.Powered, LiftServedRule.ExpirePending(LiftPower.Pending, ref since, 0x00000080u, out bool to), W, "wrap: 384 frames in");
+            Check(to && since == LiftServedRule.NoBackSince, W, "wrap: timed out and cleared");
         }
     }
 }

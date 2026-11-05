@@ -139,6 +139,17 @@ too: without it the bridge check of the section delete (2026-11-03, F1) was refu
 against the neighbor sections' Temp copies (12 SkiLiftChair4Grip on one FG section; a SkiTramCarriage on the tram's 46 m span). Gate:
 check-lift-align CARRIERPASS (4 rules, the last one the grip list).
 
+**The window stays the whole session (2026-11-05, DECISIONS 601 e):** the redo needs it whenever Temp copies of existing towers are
+validated, and that is every ghost re-emit in Edit (the ghost stands for the whole Edit state) plus the Build; only the two pick steps
+have no Temps, and toggling prefab flags at each pick / edit change would buy nothing. Its side effect, trees not hidden by chairs
+during a tool session but hidden outside it, was half of the pop-in the owner saw (note 8); the tree corridor
+(EngineNotes/LiftTreeCorridor.md) removes the trees in the carrier sweep, so the Marker state no longer changes what a player sees.
+
+## Tree corridor (2026-11-05, DECISIONS 601 e)
+Every emission (ghost and Build) also emits the vanilla bulldoze definition for each tree in the line's corridor
+(`LiftLineToolSystem.Trees.cs`, rule `LiftTreeCorridor`): the ghost shows the cut, the Build applies it with the line, a refusal keeps
+every tree. Details and logs: EngineNotes/LiftTreeCorridor.md.
+
 ## Bend at a loose-end joint (2026-11-02, owner verdict: warn, never refuse)
 The tool's line is straight, so it can make a plan bend only where it joins a built line at a loose end. `WarnBend` (every plan): for
 each LooseEnd end, the built lift-line edge at that node (no Owner, not Temp / Deleted), its far node, the loose end and this line's

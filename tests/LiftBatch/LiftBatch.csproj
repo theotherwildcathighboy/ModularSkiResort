@@ -101,6 +101,9 @@
     <Compile Include="EishainTests.cs" />
     <!-- FIX-LIST 57: a reload writes nothing over a built line -->
     <Compile Include="ReloadTests.cs" />
+    <!-- The lift tree corridor (DECISIONS 601 e) -->
+    <Compile Include="..\..\mod\SkiResortMod\Systems\LiftTreeCorridor.cs" Link="LiftTreeCorridor.cs" />
+    <Compile Include="TreeCorridorTests.cs" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="UnityMathematics.NoDeps" Version="1.3.2" />

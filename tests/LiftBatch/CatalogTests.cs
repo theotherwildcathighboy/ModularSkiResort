@@ -1093,6 +1093,19 @@ namespace LiftBatch
                     NumEq(r, "hang_m", d.HangM, true, W, at);
                     NumEq(r, "grip_top_above_rope_m", d.GripTopAboveRopeM, true, W, at);
                     NumEq(r, "lane_x_m", d.GaugeHalfM, true, W, at);
+                    // the carrier's half width across the line (the lift tree corridor, 601 e): bench_m / 2 (chairs), max |bounds_lat_m|
+                    // (gondola), bounds_lat_half_m (tram); exactly one of them per row
+                    double halfW = double.NaN;
+                    int halfSources = 0;
+                    if (Num(r, "bench_m", out double bench)) { halfW = bench / 2.0; halfSources++; }
+                    if (r.TryGetProperty("bounds_lat_m", out JsonElement lat) && lat.ValueKind == JsonValueKind.Array && lat.GetArrayLength() == 2)
+                    {
+                        halfW = Math.Max(Math.Abs(lat[0].GetDouble()), Math.Abs(lat[1].GetDouble()));
+                        halfSources++;
+                    }
+                    if (Num(r, "bounds_lat_half_m", out double latHalf)) { halfW = latHalf; halfSources++; }
+                    if (Check(halfSources == 1, W, at + "names its width " + halfSources + " ways (bench_m, bounds_lat_m, bounds_lat_half_m: want one)"))
+                        Near(halfW, d.CarrierHalfWidthM, 1e-6, W, at + "carrier half width (json) vs SkiCatalog CarrierHalfWidthM");
                     NumEq(r, "axle_m", d.AxleM, false, W, at);
                     NumEq(r, "spacing_m", d.DesignSpacingM, false, W, at);
                     Check(Num(r, "speed_mps", out _), W, at + "has no speed_mps (round-2-contract §10.2)");
@@ -1577,7 +1590,7 @@ namespace LiftBatch
             var spec = new LiftTypeSpec
             {
                 Id = "a", LinePrefab = "TL", PiecePrefab = "TP", LineItemId = "line", CarrierPrefabs = new[] { "TC" },
-                Mover = MoverKind.Loop, SeatsPerCarrier = 1, SpeedMps = 1f, GaugeHalfM = 1f, HangM = 1f, SpacingM = faults ? 0f : 8f,
+                Mover = MoverKind.Loop, SeatsPerCarrier = 1, SpeedMps = 1f, GaugeHalfM = 1f, CarrierHalfWidthM = 0.5f, HangM = 1f, SpacingM = faults ? 0f : 8f,
                 StationCostBase = 10, StationCostTop = 5, ScoreValue = 1.0, SummerShare = 0.5, LineExpected = true,
                 DwellS = fault == TwinFault.LoopDwell ? 5f : 0f,
             };
@@ -1585,7 +1598,7 @@ namespace LiftBatch
             var shuttle = new LiftTypeSpec
             {
                 Id = "b", LinePrefab = "SL", PiecePrefab = "SP", LineItemId = "lineB", CarrierPrefabs = new[] { "SC" },
-                Mover = MoverKind.Shuttle, SeatsPerCarrier = 100, SpeedMps = 10f, GaugeHalfM = 5.5f, HangM = 10.5f, SpacingM = 0f,
+                Mover = MoverKind.Shuttle, SeatsPerCarrier = 100, SpeedMps = 10f, GaugeHalfM = 5.5f, CarrierHalfWidthM = 1.9f, HangM = 10.5f, SpacingM = 0f,
                 StationCostBase = 20, StationCostTop = 15, ScoreValue = 1.0, SummerShare = 1.0, LineExpected = true,
                 AccelMps2 = faults ? 0f : 0.8f, DwellS = fault == TwinFault.ShuttleDwellNegative ? -1f : 60f,
             };

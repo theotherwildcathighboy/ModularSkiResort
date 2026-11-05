@@ -1969,7 +1969,9 @@ namespace SkiResortMod.Systems
                     hold.PoseDirty = true;
                     hold.TagBounds = true;
                     changed = true;
-                    string why = hold.ForPower ? "no power" : "closed";
+                    string why = !hold.ForPower ? "closed"
+                        : power == LiftPower.Pending ? "power pending: the first electricity dispatch has not judged the station yet"
+                        : "no power";
                     OfferHoldLine(loop, timeS, (isNew ? "(new loop)" : "Running") + " → Held (" + why + ")" +
                                                HoldInv($" — chairs stop at phase {FrozenPlace(loop, hold.FrozenTimeS):F1} m"), 0);
                 }

@@ -123,6 +123,9 @@ namespace SkiResortMod.Systems
         public CarrierPivots Pivots;
         public MoverKind Mover;
         public int SeatsPerCarrier;
+        /// <summary>Half the carrier's width across the line, from its rope point (carriers.json: tr / dq bench_m / 2, gd8 max |bounds_lat_m|,
+        /// tram bounds_lat_half_m; LiftBatch carriers-json drift). The lift tree corridor (LiftTreeCorridor) adds it to GaugeHalfM.</summary>
+        public float CarrierHalfWidthM;
         public float SpeedMps, GaugeHalfM, HangM, GripTopAboveRopeM, AxleM, RopeSeatM, AimHeightM, SpacingM, DesignSpacingM,
                      ServeRadiusM, TopMarginM, FixedPerMonth, PerKmPerMonth;
         public int LineBuildPer8m, ElevationCostPer10m, StationCostBase, StationCostTop;
@@ -176,6 +179,7 @@ namespace SkiResortMod.Systems
         public readonly int SeatsPerCarrier;
         public readonly float SpeedMps;
         public readonly float GaugeHalfM;                      // rope lane |x|
+        public readonly float CarrierHalfWidthM;               // half the carrier's width across the line (LiftTypeSpec)
         public readonly float HangM;                           // carrier contract (carriers.json hang_m)
         public readonly float GripTopAboveRopeM;               // grip top to the jaw's rope point: the pose drops by LiftMoverMath.CarrierDrop
         public readonly float AxleM;                           // sheave axle y on the shortest tower (carriers.json axle_m)
@@ -223,6 +227,7 @@ namespace SkiResortMod.Systems
             SeatsPerCarrier = s.SeatsPerCarrier;
             SpeedMps = s.SpeedMps;
             GaugeHalfM = s.GaugeHalfM;
+            CarrierHalfWidthM = s.CarrierHalfWidthM;
             HangM = s.HangM;
             GripTopAboveRopeM = s.GripTopAboveRopeM;
             AxleM = s.AxleM;
@@ -777,6 +782,7 @@ namespace SkiResortMod.Systems
                         LineItemId = FixedGrip.BuildItemId, CarrierPrefabs = new[] { Names.CarrierFixedGrip },
                         Mover = MoverKind.Loop, SeatsPerCarrier = FixedGrip.SeatsPerCarrier, SpeedMps = FixedGrip.SpeedMps,
                         GaugeHalfM = FixedGrip.GaugeHalfM, HangM = FixedGrip.HangM, GripTopAboveRopeM = FixedGrip.GripTopAboveRopeM,
+                        CarrierHalfWidthM = 0.9f,                                       // carriers.json tr bench_m 1.8 / 2
                         AxleM = FixedGrip.AxleM, RopeSeatM = FixedGrip.RopeSeatM, AimHeightM = FixedGrip.AimHeightM, SpacingM = FixedGrip.SpacingM,
                         DesignSpacingM = FixedGrip.DesignSpacingM, ServeRule = ServeRuleKind.AlongLine,
                         ServeRadiusM = FixedGrip.ServeRadiusM, TopMarginM = FixedGrip.TopMarginM,
@@ -803,6 +809,7 @@ namespace SkiResortMod.Systems
                         LineItemId = "liftDetachable", CarrierPrefabs = new[] { Names.CarrierDetachable },
                         Mover = MoverKind.Loop, SeatsPerCarrier = 4, SpeedMps = 5.0f,     // carriers.json dq seats 4
                         GaugeHalfM = 2.6f, HangM = 3.3f, GripTopAboveRopeM = 0.22f,      // carriers.json dq
+                        CarrierHalfWidthM = 1.2f,                                       // carriers.json dq bench_m 2.4 / 2
                         AxleM = 8.0f,                                                   // SkiLiftTowerDQ10O.manifest.json axle
                         RopeSeatM = 0.2589f,                                            // SkiLiftTowerDQ*Q manifests rope_on_crown.seat (T27)
                         AimHeightM = 9.0f,                                              // SkiLiftTowerDQ10O.manifest.json catalog_handoff.AimHeightM
@@ -826,6 +833,7 @@ namespace SkiResortMod.Systems
                         LineItemId = "liftGondola", CarrierPrefabs = new[] { Names.CarrierGondola },
                         Mover = MoverKind.Loop, SeatsPerCarrier = 8, SpeedMps = 5.5f,     // carriers.json gd8
                         GaugeHalfM = 3.0f, HangM = 4.5f, GripTopAboveRopeM = 0.08f,      // carriers.json gd8 (cabin lens)
+                        CarrierHalfWidthM = 1.1f,                                       // carriers.json gd8 bounds_lat_m [-1.05, 1.1]
                         AxleM = 10.0f,
                         RopeSeatM = 0.284f,                                             // SkiLiftTowerGD*Q manifests rope_on_crown.seat (T27)
                         AimHeightM = 11.0f,                                            // axle 10 / comm 11.2
@@ -849,6 +857,7 @@ namespace SkiResortMod.Systems
                         LineItemId = "liftTram", CarrierPrefabs = new[] { Names.CarrierTram },
                         Mover = MoverKind.Shuttle, SeatsPerCarrier = 100, SpeedMps = 10.0f,  // cabins.md §8.1
                         GaugeHalfM = 5.5f,                                              // the track ropes = the HV lanes
+                        CarrierHalfWidthM = 1.9f,                                       // carriers.json tram bounds_lat_half_m
                         HangM = 10.5f, GripTopAboveRopeM = 0.5f,                        // carriers.json tram (cabin lens)
                         AxleM = 26.25f,                                                 // SkiTramTower30A.manifest.json stubs y
                         AimHeightM = 26.25f,                                            // lattice-towers §15.1
@@ -1215,6 +1224,8 @@ namespace SkiResortMod.Systems
                     problems.Add(at + " has HangM " + l.HangM);
                 if (!(l.GaugeHalfM > 0f))
                     problems.Add(at + " has GaugeHalfM " + l.GaugeHalfM);
+                if (!(l.CarrierHalfWidthM > 0f))
+                    problems.Add(at + " has CarrierHalfWidthM " + l.CarrierHalfWidthM);
                 if (l.SeatsPerCarrier <= 0)
                     problems.Add(at + " has SeatsPerCarrier " + l.SeatsPerCarrier);
                 if (!(l.SummerShare > 0.0 && l.SummerShare <= 1.0))

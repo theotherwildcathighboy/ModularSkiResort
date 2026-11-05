@@ -426,6 +426,8 @@ namespace SkiResortMod
                 { "SkiResort.GladeTooltip.FELL", "Wild trees to fell" },
                 { "SkiResort.GladeTooltip.REMOVE", "Planted trees to remove" },
                 { "SkiResort.GladeTooltip.BLOCKED_SPOTS", "Spots blocked (roads, buildings)" },
+                // CAT_TRACK: the cursor is on a cat track with no ski run under it (SkiGladeToolSystem.HoverOnCatTrack)
+                { "SkiResort.GladeTooltip.CAT_TRACK", "Cat tracks: the Tree tool plans ski runs only; a cat track's top is cleared of trees when it is built" },
 
                 // --- Ski Resort hub --------------------------------------------------------------------------
                 // The UI renders every SkiResort.Hub.* key through translate(key, englishFallback); each text below MUST equal its TS

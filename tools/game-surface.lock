@@ -478,6 +478,7 @@ type Game.Settings.SettingsUIKeyboardActionAttribute class bb4c15364d
 type Game.Settings.SettingsUIKeyboardBindingAttribute class e9c35a3a28
 type Game.Settings.SharedSettings class 2e94e2ab10
 type Game.Simulation.ActiveWaterTilesHelper class 291e255e7e
+type Game.Simulation.AdjustElectricityConsumptionSystem class 30a25f8d3a
 type Game.Simulation.AirPollutionSystem class de35b6ff99
 type Game.Simulation.AttractionSystem class a6090590f5
 type Game.Simulation.BaseDataReader class 9628e0fd31
