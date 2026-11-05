@@ -1239,7 +1239,7 @@ namespace LiftBatch
             }
             var off = new float[n - 1];
             for (int i = 0; i < off.Length; i++)
-                off[i] = 6f + LiftTowerEdit.PieceMinHeightOffsetM;
+                off[i] = 3f + LiftTowerEdit.PieceMinHeightOffsetM;
             float cutHalf = c.HalfWidthM + 2f;
             LiftTerrainSampler natural = (s, l) => p.At(s);
             LiftTerrainSampler cascade = (s, l) =>
@@ -1266,7 +1266,7 @@ namespace LiftBatch
                 {
                     LiftPlanNode nd = f.Plan.Nodes[i];
                     float sunk = natural(nd.AlongM, 0f) - nd.GroundM; // pivot = the fit's ground (top-anchored), vs the player's ground
-                    if (sunk > 6f + LiftTowerEdit.PieceMinHeightOffsetM)
+                    if (sunk > 3f + LiftTowerEdit.PieceMinHeightOffsetM)
                         pits++;
                     if (sunk > deepest)
                     {

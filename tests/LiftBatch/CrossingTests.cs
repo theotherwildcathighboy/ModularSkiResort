@@ -8,8 +8,8 @@
 //      overlap parallelogram, span by span, against the crossed plane) finds no overlap, the curve at the crossing rises, no tower
 //      stands in the crossed corridor. At 90 deg every case is met; a flatter one may be refused, then the plan is the one without it.
 // CX-2 refusals: too shallow, inside the drawn line's station run-out, inside the crossed line's station run-out, beside a crossed
-//      tower, unreachable (flat ground, a crossed curve 6 m up; a valley with the crossed curve 12 m up: the plan shown is the plan
-//      without the crossing), a pin in the crossed corridor.
+//      tower, unreachable (flat ground, a crossed curve 6 m up: the plan shown is the plan
+//      without the crossing), a pin in the crossed corridor; a valley with the crossed curve 22 m up is met under it (refused with the 14 m box).
 // CX-3 under: a DQ under a tram span 60 m up passes under it with its own plan (over is out of reach); a DQ across a GD valley
 //      span 35 m up clears it on the side the planner picks.
 // CX-4 direction: the same crossing drawn from either end: the same side, verdict and towers (mirrored).
@@ -204,11 +204,11 @@ namespace LiftBatch
             const string W = "cross/CX-1";
             // A DQ 600 m across a valley at 300 m; a gondola edge runs along the valley floor, its curve `up` over the floor. Each case
             // binds: the DQ plan without the rule overlaps the gondola's box. The over side has a window: the DQ curve at least the
-            // crossed curve + 14.7 m (+ the footprints' slope), its rope at most 30 m over the ground (MaxRopeAboveGroundM).
+            // crossed curve + 9.7 m (gondola max 12 - DQ min 2.8 + the 0.5 margin; 14.7 before the collision box round) (+ the footprints' slope), its rope at most 30 m over the ground (MaxRopeAboveGroundM).
             // At 90 deg every case must be met; at a flatter angle the footprints grow, so a case may instead be refused (Clearance),
             // and then the plan shown must be the plan without the crossing.
             const float len = 600f, at = 300f;
-            var cases = new (float depth, float width, float up)[] { (18f, 70f, 4f), (12f, 70f, 0f), (24f, 120f, 4f), (24f, 70f, 6f) };
+            var cases = new (float depth, float width, float up)[] { (18f, 70f, 9f), (12f, 70f, 5f), (24f, 120f, 9f), (24f, 70f, 11f) };   // crossed heights +5 m with the 2026-11-05 box
             int met = 0, refused = 0;
             foreach (var cs in cases)
             {
@@ -314,16 +314,32 @@ namespace LiftBatch
                              F(r.RequiredM) + " m, key " + key + (cs.want == LiftCrossRefusal.Clearance ? ", needs " + F(need, "F0") + " m" : string.Empty));
             }
             // unreachable: the plan is the one without the crossing (no row of last-resort towers), refused with the attempt's numbers
+            // (a valley with the crossed curve 12 m up was unreachable with the 14 m box; since the 2026-11-05 collision box round no
+            // crossed height in this valley is: up to ~17 m the DQ passes over, from ~22 m under. Flat ground stays unreachable.)
             {
-                LiftPlanCrossing high = X("gondola", at, g(at) + 12f);
-                LiftLineEdit plain = Edit("detachable", len, g), e = Edit("detachable", len, g);
-                e.Crossings = new[] { high };
-                LiftTowerPlan p0 = plain.Replan(Sampler(g, false, len)), p1 = e.Replan(Sampler(g, false, len));
+                Func<float, float> flat = s => G;
+                LiftPlanCrossing low = X("detachable", at, G + 6f);
+                LiftLineEdit plain = Edit("detachable", len, flat), e = Edit("detachable", len, flat);
+                e.Crossings = new[] { low };
+                LiftTowerPlan p0 = plain.Replan(Sampler(flat, false, len)), p1 = e.Replan(Sampler(flat, false, len));
                 LiftPlanCrossing r = p1.Crossings[0];
-                Check(r.Refusal == LiftCrossRefusal.Clearance && SameNodes(p0, p1), W + " valley, crossed curve 12 m up",
+                Check(r.Refusal == LiftCrossRefusal.Clearance && SameNodes(p0, p1), W + " flat ground, crossed chord 6 m up (shown plan)",
                       "refusal " + r.Refusal + "; plan " + Nodes(p1) + " vs without the crossing " + Nodes(p0));
-                s_Report.Add("CX-2 valley, crossed curve 12 m up | " + r.Refusal + ", side " + r.Side + ", planned " + F(r.PlannedM) +
+                s_Report.Add("CX-2 flat ground, crossed chord 6 m up | " + r.Refusal + ", side " + r.Side + ", planned " + F(r.PlannedM) +
                              " / required " + F(r.RequiredM) + " m; shown plan = the plan without the crossing: " + SameNodes(p0, p1));
+            }
+            // the valley with the crossed curve 22 m up: unreachable with the 14 m box, now met under it
+            {
+                LiftPlanCrossing high = X("gondola", at, g(at) + 22f);
+                LiftLineEdit e = Edit("detachable", len, g);
+                e.Crossings = new[] { high };
+                LiftTowerPlan p1 = e.Replan(Sampler(g, false, len));
+                LiftPlanCrossing r = p1.Crossings[0];
+                float o1 = Oracle(p1, e, high, false);
+                Check(r.Refusal == LiftCrossRefusal.None && r.Side == LiftCrossSide.Under && o1 >= -0.01f, W + " valley, crossed curve 22 m up",
+                      "side " + r.Side + ", " + r.Refusal + ", oracle " + F(o1, "F2") + "; plan " + Nodes(p1));
+                s_Report.Add("CX-2 valley, crossed curve 22 m up | " + r.Refusal + ", side " + r.Side + ", planned " + F(r.PlannedM) +
+                             " / required " + F(r.RequiredM) + " m, oracle " + F(o1, "F2") + ", " + Nodes(p1));
             }
             // the refusals known before planning, straight from the rule (no plan)
             LiftPlanCrossing b = X("gondola", at, y);

@@ -794,7 +794,7 @@ namespace SkiResortMod.Systems
                         // SkiChairliftHV.Prefab:292 / :288 / :293, PlaceableNet :19; SkiLiftHaulRopeB 0.03; SkiChairliftPiece.Prefab:133. Elevation max 16
                         // equals SkiChairliftHV.Prefab:19 m_ElevationRange.max (CT-12): the FG ladder grounds exactly to 16, so 0 m of margin, and FG24
                         // stays unneeded only while ≤ 16.
-                        Envelope = new LiftEnvelope(60f, 0.8f, 0.02f, 0.02f, 6f, 16f),   // net + own rope lane 0.02 (rope sag round, docs research rope-sag)
+                        Envelope = new LiftEnvelope(60f, 0.8f, 0.02f, 0.02f, 3f, 16f),   // net + own rope lane 0.02 (rope sag round, docs research rope-sag)
                         CloseElectricityView = FixedGrip.CloseElectricityView, LineExpected = true,
                         // Pivots of the split meshes (lift_chair.py --split --envelope, SkiLiftChair6O + SkiLiftChair6GripO; prefab frame x
                         // lateral, y up, z travel; B2 v2 grip passage envelope: the clamp block, clevis and pins 0.20 m outboard, the jaw plate
@@ -817,7 +817,7 @@ namespace SkiResortMod.Systems
                         ServeRule = ServeRuleKind.AlongLine, ServeRadiusM = 150f, TopMarginM = 15f,
                         FixedPerMonth = 5000f, PerKmPerMonth = 2000f, LineBuildPer8m = 120, ElevationCostPer10m = 10,
                         StationCostBase = 125000, StationCostTop = 65000, ScoreValue = 15.0, SummerShare = 0.25,
-                        Envelope = new LiftEnvelope(90f, 0.9f, 0.025f, 0.025f, 5.8f, 11f),   // max 11: DQ20 Hold E 10.52 (art-601)
+                        Envelope = new LiftEnvelope(90f, 0.9f, 0.025f, 0.025f, 2.8f, 11f),   // max 11: DQ20 Hold E 10.52 (art-601)
                         CloseElectricityView = true, LineExpected = true,
                         // SkiDetachableHV and SkiLiftChairDQ4 exist game-side: line and carrier Expected, the row derived-Expected.
                         CarrierExpected = new[] { true },
@@ -841,7 +841,7 @@ namespace SkiResortMod.Systems
                         ServeRule = ServeRuleKind.AlongLine, ServeRadiusM = 150f, TopMarginM = 15f,
                         FixedPerMonth = 8000f, PerKmPerMonth = 3000f, LineBuildPer8m = 175, ElevationCostPer10m = 15,
                         StationCostBase = 190000, StationCostTop = 110000, ScoreValue = 25.0, SummerShare = 0.25,
-                        Envelope = new LiftEnvelope(250f, 1.2f, 0.025f, 0.025f, 6f, 28f),
+                        Envelope = new LiftEnvelope(250f, 1.2f, 0.025f, 0.025f, 3f, 28f),
                         CloseElectricityView = true, LineExpected = true,
                         // SkiGondolaHV and SkiGondolaCabin8 exist game-side: line and carrier Expected, the row derived-Expected.
                         CarrierExpected = new[] { true },
@@ -865,7 +865,7 @@ namespace SkiResortMod.Systems
                         ServeRule = ServeRuleKind.TerminalsOnly, ServeRadiusM = 300f, TopMarginM = 15f,
                         FixedPerMonth = 11000f, PerKmPerMonth = 4500f, LineBuildPer8m = 270, ElevationCostPer10m = 25,
                         StationCostBase = 300000, StationCostTop = 190000, ScoreValue = 30.0, SummerShare = 1.0,
-                        Envelope = new LiftEnvelope(1000f, 2.5f, 0.04f, 0.04f, 13.75f, 30f),
+                        Envelope = new LiftEnvelope(1000f, 2.5f, 0.04f, 0.04f, 10.75f, 30f),
                         CloseElectricityView = true, LineExpected = true,
                         // SkiTramCabin and SkiTramHV exist game-side: both names Expected, the row derived-Expected.
                         CarrierExpected = new[] { true },

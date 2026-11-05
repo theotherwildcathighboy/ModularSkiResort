@@ -322,16 +322,16 @@ namespace SkiResortMod.Systems
         public float RopeAboveBase(int m) => Ladder[m].TopM - RopeBelowTopM;
 
         /// <summary>The line net's composition m_HeightRange (NetCompositionData of an edge's Composition.m_Edge), meters above the
-        /// edge curve: the box the game validates a crossing with (FIX-LIST 60 a). Read in game 2026-11-05 on 12d5ff6 (field
-        /// a601-import-test, run3-crossing-proof-12d5ff6: "Clearance too low" on every crossing ghost): fixed-grip and gondola 6..20,
-        /// detachable 5.8..20, tram 13.75..40. The lift tool reads a crossed edge's own composition and logs a MISMATCH against these.</summary>
+        /// edge curve: the box the game validates a crossing with (FIX-LIST 60 a). Shrunk 2026-11-05 (collision box round) from FG / GD 6..20,
+        /// DQ 5.8..20, tram 13.75..40 (read in game on 12d5ff6, field a601-import-test run3) to: fixed-grip and gondola 3..12, detachable
+        /// 2.8..12, tram 10.75..26.25. The lift tool reads a crossed edge's own composition and logs a MISMATCH against these.</summary>
         public static void NetHeightRange(string typeId, out float minM, out float maxM)
         {
             switch (typeId)
             {
-                case "detachable": minM = 5.8f; maxM = 20f; return;
-                case "tram": minM = 13.75f; maxM = 40f; return;
-                default: minM = 6f; maxM = 20f; return;   // fixedGrip, gondola
+                case "detachable": minM = 2.8f; maxM = 12f; return;
+                case "tram": minM = 10.75f; maxM = 26.25f; return;
+                default: minM = 3f; maxM = 12f; return;   // fixedGrip, gondola
             }
         }
 
@@ -1139,7 +1139,7 @@ namespace SkiResortMod.Systems
         public const float HeightBelowTolM = 0.25f;
 
         /// <summary>A node up to this far ABOVE its target is left alone. Every write re-curves the node's edges, the carve (cut ceiling =
-        /// edge y + m_HeightRange.min - 2, TerrainSystem.AddSegment) follows the curve, and on the steep tram spans the cut reaches the
+        /// edge y + m_HeightRange.min + m_MinHeightOffset = edge y + 4, TerrainSystem.AddSegment) follows the curve, and on the steep tram spans the cut reaches the
         /// node: the ground under it sank 0.39 -> 0.33 -> 0.27 m per write (ratio ~0.85), so a fit that re-grounds on every 0.25 m wrote
         /// three times and hit the loop guard. The write that caused the sink is ours; the tower base then stands at most this far above the
         /// carved ground.</summary>
@@ -1347,7 +1347,7 @@ namespace SkiResortMod.Systems
         }
 
         // A lift line is a FlattenTerrain power line: TerrainSystem cuts the terrain down to a ceiling of edge y + m_HeightRange.min +
-        // m_MinHeightOffset (AddSegment, TerrainSystem.cs:1397-1516; our pieces {6, 20} and -2 = edge y + 4) and never fills. The cut is
+        // m_MinHeightOffset (AddSegment, TerrainSystem.cs:1397-1516; our pieces {3, 12} and +1 = edge y + 4) and never fills. The cut is
         // live (DrawHeightAdjustments, :4727-4800) and the CPU heights the fit samples read back from the cascade (:3598-3646), so a vanilla
         // line drawn on the ground leaves a trench the fit would take for ground and stand towers in (and refill into pits around them).
         // Rule: a sample at this line's own cut ceiling (within OwnCutTolM; natural ground is never exactly there) is replaced by the plane
@@ -1360,9 +1360,9 @@ namespace SkiResortMod.Systems
         /// lots, :899). Too small = the reference is cut too and the raw sample stands (no harm); too large = the plane spans more
         /// of a cross slope's curvature.</summary>
         public const float CutFarMarginM = 8f;
-        /// <summary>NetTerrainPiece m_MinHeightOffset of all four line pieces (gamedata-mirror Ski*Piece: (-2, -2, -2)); the fit reads
+        /// <summary>NetTerrainPiece m_MinHeightOffset of all four line pieces (gamedata-mirror Ski*Piece: (1, 1, 1), raised from -2 with the collision box round so the cut stays at edge y + 4); the fit reads
         /// the edge's TerrainComposition when it has one.</summary>
-        public const float PieceMinHeightOffsetM = -2f;
+        public const float PieceMinHeightOffsetM = 1f;
 
         /// <summary>The ground at a sample: <paramref name="raw"/> unless it sits at <paramref name="ceiling"/> (our own cut), then
         /// the higher of raw and the plane through <paramref name="farLeft"/> / <paramref name="farRight"/> (sampled at ±<paramref

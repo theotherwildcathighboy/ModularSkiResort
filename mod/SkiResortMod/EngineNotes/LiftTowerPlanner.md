@@ -290,7 +290,7 @@ A tower node is raised so that the vanilla placeholder ladder spawns exactly the
 - The edge curve is the engine's own power-line curve between the two node points, `NetUtils.StraightCurve(a, d, net m_Hanging)`
   (NetUtils.cs:178-191; CourseSplitSystem.cs:1702-1704 for StrictNodes nets).
 - A node up to the "above" tolerance over its target is left alone: every write re-curves the node's edges, the carve (cut ceiling = edge y
-  + m_HeightRange.min - 2) follows the curve, and on steep tram spans the cut reaches the node, so the ground under it sank 0.39 -> 0.33
+  + m_HeightRange.min + m_MinHeightOffset = edge y + 4) follows the curve, and on steep tram spans the cut reaches the node, so the ground under it sank 0.39 -> 0.33
   -> 0.27 m per write (ratio ~0.85). A fit that re-grounded on every 0.25 m wrote three times and hit the loop guard.
 - Over a BUILT line (FIX-LIST 57) the "above" side is gone: the fit judges a built tower at its foot (`BuiltFootSampler`, max(ground,
   node y - E); `LiftTowerPlanner.FootAlong` keeps a tram float from counting twice) and `HeightWrite(old, target, built)` writes only a
@@ -306,7 +306,7 @@ A tower node is raised so that the vanilla placeholder ladder spawns exactly the
 
 ## Own cut (the trench the fit must not mistake for ground)
 A lift line is a FlattenTerrain power line: `TerrainSystem` cuts the terrain down to a ceiling of edge y + NetCompositionData.m_HeightRange.min
-+ TerrainComposition.m_MinHeightOffset (`AddSegment`, TerrainSystem.cs:1397-1516; our pieces {6, 20} and -2 = edge y + 4) and never fills. The
++ TerrainComposition.m_MinHeightOffset (`AddSegment`, TerrainSystem.cs:1397-1516; our pieces {3, 12} and +1 = edge y + 4; {6, 20} and -2 before the 2026-11-05 collision box round) and never fills. The
 cut is live: it is drawn into the height cascade from the base heightmap on every update of the area (`DrawHeightAdjustments`, :4727-4800; the
 brush path writes the base map, :3950), and the CPU heights the fit samples are read back from the cascade (:3598-3646).
 - A vanilla line drawn on the ground runs its edges up to 15 m under convex terrain, so its cut is meters deep. The fit sampled that as the

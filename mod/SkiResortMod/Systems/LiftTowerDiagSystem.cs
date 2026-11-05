@@ -400,7 +400,7 @@ namespace SkiResortMod.Systems
                 return;
             int roleA = StationRoleOf(path[0].Node), roleB = StationRoleOf(path[n - 1].Node);
             bool baseFirst = !(roleA == (int)StationRole.Top || roleB == (int)StationRole.Base);
-            float cutOff = LiftTowerEdit.PieceMinHeightOffsetM + 6f;
+            float cutOff = LiftTowerEdit.PieceMinHeightOffsetM + 3f;
             if (EntityManager.TryGetComponent<PrefabRef>(lineEdge, out var lp) && EntityManager.TryGetComponent<NetGeometryData>(lp.m_Prefab, out var ng))
                 cutOff = ng.m_DefaultHeightRange.min + LiftTowerEdit.PieceMinHeightOffsetM;
             var along = new List<float>();
