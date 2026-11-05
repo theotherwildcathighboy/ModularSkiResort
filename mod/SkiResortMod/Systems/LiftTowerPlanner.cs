@@ -322,16 +322,19 @@ namespace SkiResortMod.Systems
         public float RopeAboveBase(int m) => Ladder[m].TopM - RopeBelowTopM;
 
         /// <summary>The line net's composition m_HeightRange (NetCompositionData of an edge's Composition.m_Edge), meters above the
-        /// edge curve: the box the game validates a crossing with (FIX-LIST 60 a). Shrunk 2026-11-05 (collision box round) from FG / GD 6..20,
-        /// DQ 5.8..20, tram 13.75..40 (read in game on 12d5ff6, field a601-import-test run3) to: fixed-grip and gondola 3..12, detachable
-        /// 2.8..12, tram 10.75..26.25. The lift tool reads a crossed edge's own composition and logs a MISMATCH against these.</summary>
+        /// edge curve: the box the game validates a crossing with (FIX-LIST 60 a). Read in game on 12d5ff6 (field a601-import-test run3)
+        /// as 6..20 (DQ 5.8..20, tram 13.75..40), so two lifts needed 14 m between their node curves. Since the 2026-11-05 collision box
+        /// round it follows the hardware: from about 1 m under the carrier bottom (node + AxleM + RopeSeatM - HangM) to about 1 m over the
+        /// rope (node + AxleM + RopeSeatM), the min set so the terrain cut ceiling (min + the pieces' 0 offset) is unchanged.
+        /// The lift tool reads a crossed edge's own composition and logs a MISMATCH against these.</summary>
         public static void NetHeightRange(string typeId, out float minM, out float maxM)
         {
             switch (typeId)
             {
-                case "detachable": minM = 2.8f; maxM = 12f; return;
-                case "tram": minM = 10.75f; maxM = 26.25f; return;
-                default: minM = 3f; maxM = 12f; return;   // fixedGrip, gondola
+                case "fixedGrip": minM = 4f; maxM = 8.5f; return;
+                case "detachable": minM = 3.8f; maxM = 9.5f; return;
+                case "tram": minM = 11.75f; maxM = 27.5f; return;
+                default: minM = 4f; maxM = 11.5f; return;   // gondola
             }
         }
 
@@ -1347,7 +1350,7 @@ namespace SkiResortMod.Systems
         }
 
         // A lift line is a FlattenTerrain power line: TerrainSystem cuts the terrain down to a ceiling of edge y + m_HeightRange.min +
-        // m_MinHeightOffset (AddSegment, TerrainSystem.cs:1397-1516; our pieces {3, 12} and +1 = edge y + 4) and never fills. The cut is
+        // m_MinHeightOffset (AddSegment, TerrainSystem.cs:1397-1516; our pieces min 4 (DQ 3.8, tram 11.75) and 0 = edge y + 4) and never fills. The cut is
         // live (DrawHeightAdjustments, :4727-4800) and the CPU heights the fit samples read back from the cascade (:3598-3646), so a vanilla
         // line drawn on the ground leaves a trench the fit would take for ground and stand towers in (and refill into pits around them).
         // Rule: a sample at this line's own cut ceiling (within OwnCutTolM; natural ground is never exactly there) is replaced by the plane
@@ -1360,9 +1363,9 @@ namespace SkiResortMod.Systems
         /// lots, :899). Too small = the reference is cut too and the raw sample stands (no harm); too large = the plane spans more
         /// of a cross slope's curvature.</summary>
         public const float CutFarMarginM = 8f;
-        /// <summary>NetTerrainPiece m_MinHeightOffset of all four line pieces (gamedata-mirror Ski*Piece: (1, 1, 1), raised from -2 with the collision box round so the cut stays at edge y + 4); the fit reads
+        /// <summary>NetTerrainPiece m_MinHeightOffset of all four line pieces (gamedata-mirror Ski*Piece: (0, 0, 0): -2 under the old 6..20 box, raised with the 2026-11-05 collision box round so the cut stays at edge y + 4); the fit reads
         /// the edge's TerrainComposition when it has one.</summary>
-        public const float PieceMinHeightOffsetM = 1f;
+        public const float PieceMinHeightOffsetM = 0f;
 
         /// <summary>The ground at a sample: <paramref name="raw"/> unless it sits at <paramref name="ceiling"/> (our own cut), then
         /// the higher of raw and the plane through <paramref name="farLeft"/> / <paramref name="farRight"/> (sampled at ±<paramref

@@ -217,7 +217,7 @@ Net-vs-net validation is 3D (ValidationHelpers.cs:162-199, segment-segment :3316
 from its EdgeGeometry (the hanging curve: NetUtils.StraightCurve lowers the inner control points by d h 4/3, so the curve sits
 4 d h t (1 - t) under the node chord; h = the line prefab's m_Hanging = the rope lane SagRatio) up by the composition m_HeightRange,
 compared over the whole overlap of the two strips. An overlap refuses the build ("Clearance too low" in the field run 2026-11-05
-run3-crossing-proof-12d5ff6). Height ranges (collision box round, 2026-11-05; were FG / GD 6..20, DQ 5.8..20, tram 13.75..40): FG / GD 3..12, DQ 2.8..12, tram 10.75..26.25 m (LiftTowerPlanConstants.NetHeightRange).
+run3-crossing-proof-12d5ff6). Height ranges (collision box round, 2026-11-05; were FG / GD 6..20, DQ 5.8..20, tram 13.75..40): FG 4..8.5, DQ 3.8..9.5, GD 4..11.5, tram 11.75..27.5 m, about 1 m under the carriers to 1 m over the rope (LiftTowerPlanConstants.NetHeightRange).
 
 Crossing rule (DECISIONS 602). CollectCrossings (each replan) sorts the drawn line's crossings with built lift edges: the same type
 (not tram) joins (CROSSES, as before); another type becomes a LiftPlanCrossing for the planner: along, the crossed curve's height and

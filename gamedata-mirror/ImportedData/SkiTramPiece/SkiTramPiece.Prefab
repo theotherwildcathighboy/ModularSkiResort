@@ -95,9 +95,9 @@
                 },
                 "m_MinHeightOffset": {
                     "$type": 5,
-                    "x": 1,
-                    "y": 1,
-                    "z": 1
+                    "x": 0,
+                    "y": 0,
+                    "z": 0
                 },
                 "m_MaxHeightOffset": {
                     "$type": 5,
@@ -142,8 +142,8 @@
     "m_Length": 64,
     "m_HeightRange": {
         "$type": "11|Colossal.Mathematics.Bounds1, Colossal.Mathematics",
-        "min": 10.75,
-        "max": 26.25
+        "min": 11.75,
+        "max": 27.5
     },
     "m_WidthOffset": 0,
     "m_NodeOffset": 0.5,

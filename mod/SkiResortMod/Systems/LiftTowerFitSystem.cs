@@ -677,7 +677,7 @@ namespace SkiResortMod.Systems
 
         /// <summary>Per path span, the offset of this line's own cut ceiling above the edge curve: the edge composition's
         /// m_HeightRange.min (NetCompositionData) + its TerrainComposition m_MinHeightOffset (middle), the sum TerrainSystem.AddSegment
-        /// uses (TerrainSystem.cs:1397-1516); the prefab's default range and the pieces' +1 when the edge has no composition yet.</summary>
+        /// uses (TerrainSystem.cs:1397-1516); the prefab's default range and the pieces' 0 when the edge has no composition yet.</summary>
         private float[] CutOffsets(List<LiftTowerDiagSystem.Hop> path, NetGeometryData netGeo)
         {
             var off = new float[math.max(1, path.Count - 1)];

@@ -306,7 +306,7 @@ A tower node is raised so that the vanilla placeholder ladder spawns exactly the
 
 ## Own cut (the trench the fit must not mistake for ground)
 A lift line is a FlattenTerrain power line: `TerrainSystem` cuts the terrain down to a ceiling of edge y + NetCompositionData.m_HeightRange.min
-+ TerrainComposition.m_MinHeightOffset (`AddSegment`, TerrainSystem.cs:1397-1516; our pieces {3, 12} and +1 = edge y + 4; {6, 20} and -2 before the 2026-11-05 collision box round) and never fills. The
++ TerrainComposition.m_MinHeightOffset (`AddSegment`, TerrainSystem.cs:1397-1516; our pieces min 4 (DQ 3.8) and 0 = edge y + 4; {6, 20} and -2 before the 2026-11-05 collision box round) and never fills. The
 cut is live: it is drawn into the height cascade from the base heightmap on every update of the area (`DrawHeightAdjustments`, :4727-4800; the
 brush path writes the base map, :3950), and the CPU heights the fit samples are read back from the cascade (:3598-3646).
 - A vanilla line drawn on the ground runs its edges up to 15 m under convex terrain, so its cut is meters deep. The fit sampled that as the
