@@ -213,6 +213,7 @@ namespace SkiResortMod.Systems
             try
             {
                 PatchSpans();
+                SetTypeLayers();
                 m_Armed = true;
                 Mod.Log.Info($"LiftLine [tool]: ARMED — '{toolID}' (T125: THE lift tool, opened by the hub's line tiles): click one end " +
                              "(station stub, loose line end, or open ground once the type is known), then the other; left click on the " +
@@ -286,6 +287,42 @@ namespace SkiResortMod.Systems
             geo.m_Flags |= Game.Objects.GeometryFlags.Marker;
             EntityManager.SetComponentData(prefab, geo);
             m_CarriersMarked.Add(prefab);
+        }
+
+        /// <summary>First unused Game.Net.Layer bit for the per-type lift layers (the enum ends at NetFence 0x40000).</summary>
+        private const int TypeLayerFirstBit = 24;
+
+        /// <summary>Lifts of different types cross without joining (FIX-LIST 60 a). CourseSplitSystem.MergePositions joins a course to a net
+        /// it crosses only when NetUtils.CanConnect (CourseSplitSystem.cs:2310-2312, NetUtils.cs:499-506: one side's RequiredLayers inside
+        /// the other's ConnectLayers). Every lift line is high voltage (PowerlineHigh in both masks), so every crossing joined. Each type
+        /// gets its own bit in both masks, PowerlineHigh kept: two types no longer connect, the same type, the station stub marker and city
+        /// power lines still do (their RequiredLayers is PowerlineHigh alone). Permanent while the game runs: the vanilla tool and the
+        /// fit's edits must not join either. Readers of the masks that test only PowerlineHigh (connection warnings, the voltage UI,
+        /// raycasts) are unaffected (EngineNotes/LiftLineToolSystem.md, Type layers).</summary>
+        private void SetTypeLayers()
+        {
+            var sb = new StringBuilder();
+            for (int i = 0; i < SkiCatalog.Lifts.Count; i++)
+            {
+                LiftTypeDef def = SkiCatalog.Lifts[i];
+                Entity line = m_Catalog.LineEntity(def);
+                if (line == Entity.Null || !EntityManager.TryGetComponent<NetData>(line, out var net))
+                {
+                    sb.Append(def.Id).Append(" n/a; ");
+                    continue;
+                }
+                var bit = (Layer)(1u << (TypeLayerFirstBit + i));
+                Layer req = net.m_RequiredLayers | bit, con = net.m_ConnectLayers | bit;
+                if (req != net.m_RequiredLayers || con != net.m_ConnectLayers)
+                {
+                    net.m_RequiredLayers = req;
+                    net.m_ConnectLayers = con;
+                    EntityManager.SetComponentData(line, net);
+                }
+                sb.Append(def.Id).Append(" required 0x").Append(((uint)req).ToString("X")).Append(" connect 0x")
+                  .Append(((uint)con).ToString("X")).Append("; ");
+            }
+            Mod.Log.Info($"LiftLine [layers]: one layer bit per lift type, so different types cross without joining: {sb}");
         }
 
         /// <summary>Load: remember each lift line prefab's vanilla max edge length (see the engine notes, Span length raise).</summary>

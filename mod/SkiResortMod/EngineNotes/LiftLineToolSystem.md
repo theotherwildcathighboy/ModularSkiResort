@@ -196,3 +196,23 @@ the player sees and removes the section under the cursor:
 Silence is impossible: ARMED / patch lines per load; one line per activation, station pick, plan (towers, member mix, spans, clearance,
 pins), edit, build (courses emitted), apply (Temps, errors, registered tool line). An exception disables the tool until the next load (one
 "!!!" ERROR with the stack).
+
+## Type layers (FIX-LIST 60 a, 2026-11-05)
+
+Why two lifts joined where they crossed: CourseSplitSystem.MergePositions keeps a crossed edge as a course position, so the engine
+splits it and both lines share a node, only when `flag4 = !IsOver(...) && CanConnect(...)` (1.6.0f1 CourseSplitSystem.cs:2310-2312;
+1.6.2f1 about +40 lines). The private CanConnect ends in NetUtils.CanConnect (NetUtils.cs:499-506): one side's m_RequiredLayers
+inside the other's m_ConnectLayers. Power-line layers come from ElectricityConnection (NetInitializeSystem.cs:2414-2454): high
+voltage = PowerlineHigh in both masks, so every lift crossed every lift with a join. When CanConnect is false the crossing point is
+optional (m_CoursePos.m_Entity = Null, m_IsOptional, :2462-2477): the crossed edge is untouched, and the extra optional points are
+dropped while the merged span stays under 0.95 x m_ElevatedLength (FindBestIntersectionToRemove :3200-3216).
+
+SetTypeLayers (load, Game mode) ORs bit 24 + the SkiCatalog.Lifts index into both masks of each line prefab, PowerlineHigh kept.
+Different types fail CanConnect; the same type, the station stub marker and city high-voltage lines still connect (their
+RequiredLayers is PowerlineHigh alone, inside every lift's ConnectLayers). Readers that test only PowerlineHigh stay as they were:
+ConnectionWarningSystem.cs:2363-2367, ElectricityUIUtils.cs:12-43, RaycastJobs.cs:562-563. Vanilla net-tool snapping uses
+CanConnect too (NetToolSystem.cs:527, 718, 1043), so it no longer snaps one type onto another's node.
+
+Open (to verify in game): net-vs-net validation is 3D (ValidationHelpers.cs:162-199): two edge sheets whose boxes (EdgeGeometry +
+the composition m_HeightRange) intersect raise OverlapExisting; only clearance boxes, NotEnoughClearance. The lift compositions'
+height range, so the vertical separation a crossing needs, is not read yet.
