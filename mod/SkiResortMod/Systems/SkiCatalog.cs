@@ -817,7 +817,7 @@ namespace SkiResortMod.Systems
                         ServeRule = ServeRuleKind.AlongLine, ServeRadiusM = 150f, TopMarginM = 15f,
                         FixedPerMonth = 5000f, PerKmPerMonth = 2000f, LineBuildPer8m = 120, ElevationCostPer10m = 10,
                         StationCostBase = 125000, StationCostTop = 65000, ScoreValue = 15.0, SummerShare = 0.25,
-                        Envelope = new LiftEnvelope(90f, 0.9f, 0.025f, 0.025f, 5.8f, 10f),
+                        Envelope = new LiftEnvelope(90f, 0.9f, 0.025f, 0.025f, 5.8f, 11f),   // max 11: DQ20 Hold E 10.52 (art-601)
                         CloseElectricityView = true, LineExpected = true,
                         // SkiDetachableHV and SkiLiftChairDQ4 exist game-side: line and carrier Expected, the row derived-Expected.
                         CarrierExpected = new[] { true },

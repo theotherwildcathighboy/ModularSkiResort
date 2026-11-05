@@ -311,7 +311,15 @@ ROOF_END = 0.15
 BAND_T = 0.15
 FILLET_R = 0.35
 DECK_H = 0.30
-ROPE_R = 0.055
+ROPE_R_SHIPPED = 0.055           # the shipped stations' modeled rope
+# art-601 #10 (owner hand-test note 10, "really jarring"): the modeled station rope (ropechord_ / wheelrope, 0.11 m
+# across) read 2-3x the line's vanilla cable beside it. --thin-rope builds with THIN_ROPE_R, the 0.048 m rope the lines
+# and the chair contract use (carriers tr / dq: the grip's rope), for a new station letter; every consumer of the radius
+# (the hold trains' axle on the rope's top, the rope parts, the checks) follows the one global. The manifest records the
+# build's radius (rope_r_m) and the seams tests read it per asset. LOD caveat: vanilla cables keep a minimum screen
+# width at distance, a modeled 0.048 m rope does not (judge the far preview).
+THIN_ROPE_R = 0.024
+ROPE_R = ROPE_R_SHIPPED           # this build's radius (main: --thin-rope)
 RIM_W = 0.45
 CORRIDOR = 1.10
 LOT = (2, 4)                   # cells (16 x 32 m)
@@ -873,7 +881,7 @@ def params_for(kind, gondola, carrier):
             lowest_abs=DECK_H + load_clear,
             env=(("bench", 1.3, 2.7, 0.0, 1.60), ("hanger", 1.0, 0.90, 1.60, hang)),
             lod0_cap=12000 if base else 10000, lod1_max=5000 if base else 3600, lod2=500,
-            hosted_tower=base,
+            hosted_tower=base and not BASE_NOSE_TRAIN,
             # nitpick A (2026-10-13): the top's cabin stands on the deck (no opbase; cab_layout)
             engine_base=("deck", "rampback", "plinth_f", "plinth_r")
             + (("opbase",) if (base or TOP_CAB_LEGACY) else ()),
@@ -1868,6 +1876,12 @@ def build_machine(p):
 # (the old guideframe_ line: |y| lane - 0.60 / - 0.70; the gondola's still hangs from the portal lintel). Parts in the
 # old name space ("sheave_guide_*" = the train, LOD1 delete, C8 / G8 rope machine; "guideframe_*" = the beam, LOD2).
 NOSE_TRAIN = True              # False = the pre-2026-10-13 3-sheave guides (A-B / negatives)
+# art-601 (owner hand-test notes 5 / 11, 2026-11-05): the DQ base without its hosted ETDQ (prefab z -11). True (CLI
+# --no-hosted-tower, DQ base only): the base builds the top's nose train (build_nose_train: outer rim tip at anchor_x -
+# 0.10, the axle on the lane) and every hosted-tower branch (p.hosted_tower: the narrowed nose balcony, the gangplank
+# out between the ETDQ decks, the ETDQ keep-out, the climb-room floor, the stand-in) falls back to the top's layout.
+# The HV sub-lanes and the anchors do not move; the import round drops the prefab's hosted row. False = shipped.
+BASE_NOSE_TRAIN = False
 NOSE_TRAIN_N = 4               # sheaves per lane (2 subs on 1 main: the towers' smallest even train)
 NOSE_TRAIN_PREFIX = "sheave_guide_"
 NOSE_TRAIN_MAT = {"paint": "darksteel", "galv": "galv", "rubber": "rubber",   # tower key -> station key
@@ -2771,6 +2785,12 @@ def build_detail(p):
         # (y 0.60 .. 1.21 against the band face, R2g)
         chev = ((-2.05, -1.32), (-1.18, 0.50), (1.25, 2.05), (-4.45, -3.15), (3.15, 4.45))
         gang = (-10.05, 0.44)
+        if not p.hosted_tower:
+            # art-601 (BASE_NOSE_TRAIN): the top's balcony + gangplank (nose_access), so the top's chevron breaks and the
+            # gangplank end stripe at this nose
+            _l, g_, _d = nose_access(p)
+            chev = ((-1.68, 1.68), (-4.45, -3.15), (3.15, 4.45))
+            gang = (g_[0] + 0.15, 0.78)            # the top: (-11.85, 0.78) at nose -10
     else:
         # DT1 unload line across the -Y lane, DT2-DT4 hang slot boards facing the arrivals (-X).
         # Follow-up (fourteenth look: UNLOAD HERE was immediately followed by STAY SEATED):
@@ -4056,7 +4076,7 @@ def build_station(p):
         parts += build_gutters(p, DECK_H)
         parts += build_soffit(p)
         parts += build_machine(p)
-        if p.kind == "top":
+        if p.kind == "top" or not p.hosted_tower:      # art-601: the base without its ETDQ carries its own train
             parts += build_nose_guides(p)
         parts += build_access(p)
         parts += build_buildings(p)
@@ -6988,6 +7008,9 @@ NOSE_CONTACTS = (
     (r"haulrope_[np]", r"sheave_guide_(?:" + "|".join(NOSE_ROPE_PASS) + r")\w*",
      "F10: the drawn rope runs through the sheave centers, through the liners and the sub pins' ends"),
     (r"haulrope_[np]", r"wheelrope", "the rope tube ends inside the bullwheel's rope torus (C1 / C2)"),
+    (r"haulrope_n", r"haulrope_n", "art-601 --thin-rope: the CUT_PIECES of one haul-rope tube meet at their shared cut; on "
+     "the thin rope the touching cut faces register a few triangle pairs (one part, not a clash)"),
+    (r"haulrope_p", r"haulrope_p", "the same cut on the p lane's tube"),
     (r"guideframe_[np]", r"band_nose_c", "the guide beam's end sockets 3 cm into the nose band's edge"),
     (r"clamp_comm\d+_[lu]", r"commcable_nose", "a cable clamp closes round its cable"),
     (r"commbracket_nose", r"commcable_nose", "the cable leaves the bracket's face"),
@@ -7083,6 +7106,12 @@ def assert_nose_clash(me, table, fparts, co, p):
     finding; no nose part may sit wholly inside another part's closed volume."""
     import re as _re
     scan = nose_clash_scan(me, table, fparts, co)
+    if p.kind == "base":
+        # art-601 (BASE_NOSE_TRAIN): on the base the scan judges the new train only; the base's own comm drop, beams
+        # and rope pieces (shipped in C, never in this scan) stay with their own contracts
+        own = (NOSE_TRAIN_PREFIX, "guideframe_")
+        scan["pairs"] = {k: v for k, v in scan["pairs"].items() if k[0].startswith(own) or k[1].startswith(own)}
+        scan["contained"] = [c for c in scan["contained"] if c[0].startswith(own) or c[1].startswith(own)]
     rules = [(_re.compile(a), _re.compile(b), why) for a, b, why in NOSE_CONTACTS]
     declared, known, undeclared = {}, [], []
     for (a, b), cnt in sorted(scan["pairs"].items()):
@@ -7301,7 +7330,7 @@ def assert_contracts(t, table, p):
     res["C13"] = f"bracket center {tuple(round(v, 3) for v in want)}"
     # nitpick A (2026-10-13): ST1 the towers' sheave train at the top's nose; O1 the DQ layout round its up lane
     st_nums = or_nums = None
-    if p.kind == "top" and NOSE_TRAIN:
+    if (p.kind == "top" or not p.hosted_tower) and NOSE_TRAIN:
         r_st, st_nums = assert_nose_train(me, table, fparts, co, p)
         res.update(r_st)
         if not p.gondola and not NOSE_A4_LEGACY:
@@ -8769,6 +8798,12 @@ def parse_args(argv=None):
     ap = argparse.ArgumentParser(description="detachable / gondola terminal generator")
     ap.add_argument("--kind", default="base", choices=("base", "top", "drive", "return"))
     ap.add_argument("--gondola", action="store_true")
+    ap.add_argument("--thin-rope", action="store_true", dest="thin_rope",
+                    help="art-601 #10: the modeled station rope at THIN_ROPE_R (the lines' 0.048 m rope), a new letter; "
+                         "off = the shipped radius 0.055")
+    ap.add_argument("--no-hosted-tower", action="store_true", dest="no_hosted_tower",
+                    help="DQ base, art-601 (BASE_NOSE_TRAIN): no hosted ETDQ; the base carries the top's nose train. "
+                         "Off = the shipped station byte for byte.")
     ap.add_argument("--rope-on-crown", action="store_true", dest="rope_on_crown",
                     help="T27 preview flag (ROPE_ON_CROWN): the HV anchor where the vanilla cable rides the hosted / "
                          "nose train, the haul rope sloped to the wheel; off = the shipped station byte for byte")
@@ -8914,8 +8949,12 @@ def main(argv=None):
     args = parse_args(argv)
     global FINE_DETAIL
     FINE_DETAIL = not args.no_fine          # fine-detail step 3b: every run follows its own args
-    global ROPE_ON_CROWN
+    global ROPE_ON_CROWN, BASE_NOSE_TRAIN, ROPE_R
     ROPE_ON_CROWN = bool(args.rope_on_crown)     # T27: every run follows its own args (tests call main() in-process)
+    BASE_NOSE_TRAIN = bool(args.no_hosted_tower)
+    ROPE_R = THIN_ROPE_R if args.thin_rope else ROPE_R_SHIPPED   # every run follows its args (tests call main())
+    if BASE_NOSE_TRAIN and (args.kind != "base" or args.gondola):
+        raise SystemExit("--no-hosted-tower is DQ base only")
     import cs2_sheaves as S
     S.set_wheels(args.wheels)                    # T62: every run follows its own args, before any part is built
     carrier = load_carrier("gd8" if args.gondola else "dq", args.carriers)
@@ -9201,7 +9240,7 @@ def main(argv=None):
     stamps = dq_hook.stamps if dq_hook is not None else None
     fine_block = fine_detail_block(p, name, table, fine_nums) if FINE_DETAIL else None
     cs2_validate.write_manifest(asset_dir, name, {
-        "generator": GENERATOR, "kind": "building", "variant": p.variant,
+        "generator": GENERATOR, "kind": "building", "variant": p.variant, "rope_r_m": ROPE_R,
         "spec": "dq-terminal.md + dq-terminal-skeptic.md MUST-CHANGE 1-13 + Revision 1 "
                 "(verdicts-2026-10-11.md #3-4: front ladder, one underside ladder, gangplank, "
                 "no left-flank railings, sign band, housing windows) + Revision 1b polish "

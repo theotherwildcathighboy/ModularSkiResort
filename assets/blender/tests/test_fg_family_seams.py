@@ -192,8 +192,11 @@ def code_seams():
         check(close(sp.anchor_out[1], ax) and close(sp.anchor_in[1], ax + 0.03, 1e-6),
               f"S1 {et} axle {ax} == the {kind} HV sub-lane ends {sp.anchor_out[1]} / {sp.anchor_in[1]} (+0.03)")
         rep = LT.m1_frozen(kind)      # raises on SkiCatalog / carriers / deployed-prefab drift
-        check(rep["hosted_tower"]["position"][2] == sp.tower_x, f"S1 {kind} hosted {et} at z {sp.tower_x} "
-                                                                  f"(deployed prefab, rot 180)")
+        if rep["hosted_tower"] is None:   # art-601: the drive base ships without its ET68 (the nose train holds the rope)
+            check(kind == "drive", f"S1 {kind}: no hosted {et} in the deployed prefab (art-601 nose-train base)")
+        else:
+            check(rep["hosted_tower"]["position"][2] == sp.tower_x, f"S1 {kind} hosted {et} at z {sp.tower_x} "
+                                                                      f"(deployed prefab, rot 180)")
         check(close(rep["code"]["WheelLocal_game"][1], sp.wheel[2]) and close(rep["code"]["WheelLocal_game"][2],
                                                                                sp.wheel[0]),
               f"S1 {kind} WheelLocal {rep['code']['WheelLocal_game']} == the station rope datum")
@@ -238,12 +241,13 @@ def export_seams(tr):
                   f"H2 live {st} manifest torus {c2['torus_R']} at {c2['torus_z']}")
 
 
-def rope_faces(co, tris, spec):
-    """Faces whose every vertex lies within rope r + 5 mm of a chord line or of the torus."""
+def rope_faces(co, tris, spec, rope_r=None):
+    """Faces whose every vertex lies within rope r + 5 mm of a chord line or of the torus (rope_r: the asset's own
+    radius from its manifest, art-601 --thin-rope; default the shipped LT.M_ROPE_R)."""
     wx, _wy, wz = spec.wheel
     ax, az = spec.anchor_in
     near = np.zeros(len(co), dtype=bool)
-    rr = LT.M_ROPE_R + 0.005
+    rr = (LT.M_ROPE_R if rope_r is None else rope_r) + 0.005
     for s in (-1.0, 1.0):
         a = np.array([ax, s * LT.FG_LANE, az])
         b = np.array([wx, s * LT.FG_LANE, wz])
@@ -295,7 +299,8 @@ def geometry_stations(tr):
             print(f"  skip {st} / {tw}: not exported")
             continue
         co, tris = raw_mesh(os.path.join(d, f"{st}.fbx"))
-        rf = rope_faces(co, tris, sp)
+        rr = (live_manifest(st) or {}).get("rope_r_m")         # per asset (art-601 --thin-rope)
+        rf = rope_faces(co, tris, sp, rr)
         T = co[tris[rf]].reshape(-1, 3)
         torus = T[(np.abs(T[:, 2] - sp.wheel[2]) < 0.07) & (T[:, 0] > sp.wheel[0] + 0.5)]
         R = np.hypot(torus[:, 0] - sp.wheel[0], torus[:, 1])
@@ -312,10 +317,14 @@ def geometry_stations(tr):
         check(over is not None and 0.45 <= over <= 0.55, f"H3 {st}: cushion over the shipped surface at the "
                                                           f"up-lane tangent in [0.45, 0.55]",
               f"({None if over is None else round(over, 4)})")
-        # S8: the hosted tower vs the station, both LODs
+        # S8: the hosted tower vs the station, both LODs (art-601: a deployed base without the hosted row has no
+        # ET68 to clear; its nose train sits where the tower stood)
+        if LT.hosted_row_m(kind) is None:
+            print(f"  S8 {st}: no hosted {tw} row in the deployed {sp.building}, skipped")
+            continue
         for sl in ("", "_LOD1"):
             sco, stris = raw_mesh(os.path.join(d, f"{st}{sl}.fbx"))
-            keep = stris[~rope_faces(sco, stris, sp)]
+            keep = stris[~rope_faces(sco, stris, sp, rr)]
             sb = BVHTree.FromPolygons(sco.tolist(), keep.tolist(), all_triangles=True)
             for tl in ("", "_LOD1"):
                 tco, ttris = raw_mesh(os.path.join(td, f"{tw}{tl}.fbx"))
@@ -386,6 +395,20 @@ def s9_code():
     _s9_gate("Pali base hold-down", chair, (co, [tuple(int(v) for v in tris[i]) for i in k], [names[i] for i in k]),
              LT.FG_LANE, lambda x, s=spec: LT.chord_z(s, x))
     LT.clear_scene()
+    # art-601: the base without its hosted end tower (M_NOSE_TRAIN): the train at the sub-lane end, its king post + tie
+    LT.M_NOSE_TRAIN = True
+    try:
+        t, table, _src = LT.assemble_m(LT.build_base_m(), False, "drive")
+        co, tris, names, _ = LT.m_arrays(t)
+        k = [i for i, n in enumerate(names) if n.startswith(("sheave_hold_", "holdboom_", "holdhang_", "holdweb_",
+                                                              "holdclamp_", "holdplate_"))]
+        check(any(names[i].startswith("holdweb_") for i in k), "S9 nose-train base builds its holdweb_ parts")
+        _s9_gate("Pali base nose train (art-601)", chair,
+                 (co, [tuple(int(v) for v in tris[i]) for i in k], [names[i] for i in k]),
+                 LT.FG_LANE, lambda x, s=spec: LT.chord_z(s, x))
+    finally:
+        LT.M_NOSE_TRAIN = False
+        LT.clear_scene()
 
 
 def main():
@@ -401,7 +424,7 @@ def main():
     print(f"PASS test_fg_family_seams: hang 2.400 / lane 1.8 / grip 0.080 agree in carriers, chair, towers, "
           f"stations, SkiCatalog and the deployed K prefabs; the live chair (split pair) sits in the seat window and the "
           f"live hosted towers clear the live stations (S8); S9 the tr grip clears every Yan tree "
-          f"(FG8-FG20, ET62 / ET68, the Pali base hold-down) on both spins - no mirror ({len(NOTES)} skipped, "
+          f"(FG8-FG20, ET62 / ET68, the Pali base hold-down and its art-601 nose train) on both spins - no mirror ({len(NOTES)} skipped, "
           f"{time.perf_counter() - t0:.1f} s)")
 
 

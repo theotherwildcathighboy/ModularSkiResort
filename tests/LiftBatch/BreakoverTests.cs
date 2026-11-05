@@ -701,7 +701,8 @@ namespace LiftBatch
         private static void Hd3NoTwin()
         {
             const string W = "angles/HD-3";
-            // DQ V dips (half 150 m, g 0.18-0.34, station ropes 15 m up) with the bottom tower given as DQ14 or DQ16 (no twins): a hold-down
+            // DQ V dips (half 150 m, g 0.18-0.34, station ropes 15 m up) with the bottom tower given as DQ14 or DQ18 (no twins; DQ16 has a
+            // Hold twin since art-601, so it left the givens): a hold-down
             // tower takes the nearest member with a Hold twin that keeps both spans clear and still bends hold-down, else keeps its support
             // head with a note (the case after the sweep binds that branch for certain).
             LiftTowerPlanConstants c = LiftTowerPlanConstants.For("detachable");
@@ -711,8 +712,10 @@ namespace LiftBatch
             LiftTerrainSampler t = null;
             float rope = 0f;
             for (float g = 0.18f; g <= 0.34f + 1e-4f; g += 0.02f)
-            foreach (int given in new[] { 2, 3 })
+            foreach (int given in new[] { 2, 4 })
             {
+                if (!Check(!c.HasTwin(given, LiftTowerHead.Hold), W, c.Ladder[given].Name + " has a Hold twin: pick givens without one"))
+                    continue;
                 t = Ground(0f, 1000f + g * half, half, 1000f, 2f * half, 1000f + g * half);
                 rope = 1000f + g * half + 15f;   // stations with a high rope: the spans clear a short tower, the bottom one bends hold-down
                 LiftTowerPlan p = new LiftTowerPlanner().PlanFixed(t, 2f * half, rope, rope, c, new[] { half }, new[] { given }, null, assign: false);
@@ -739,7 +742,7 @@ namespace LiftBatch
                 }
             }
             Check(moved > 0, W, "the fallback never binds: fallback " + moved + ", support + note " + stayed);
-            s_Report.Add("HD-3 DQ V sweep, DQ14 / DQ16 given | the nearest member with a Hold twin, else the support head + a note | " + moved +
+            s_Report.Add("HD-3 DQ V sweep, DQ14 / DQ18 given | the nearest member with a Hold twin, else the support head + a note | " + moved +
                          " fallback(s), " + stayed + " kept | " + movedNote + " | " + (stayedNote ?? "-"));
             t = Ground(0f, 1000f + 0.19f * half, half, 1000f, 2f * half, 1000f + 0.19f * half);
             rope = 1000f + 0.19f * half + c.RopeAboveBase(0);
@@ -810,7 +813,7 @@ namespace LiftBatch
                 Check(none.Twins.Length == 0 && none.CapDeg(LiftTrainKind.Support) == 16f, W + " filter", "no twin loaded, still " + none.Twins.Length);
                 LiftTowerPlanConstants.TwinFilter = name => name != "SkiLiftTowerFG20BreakA";
                 LiftTowerPlanConstants part = LiftTowerPlanConstants.For("fixedGrip");
-                Check(part.Twins.Length == 7 && !part.BreakEverywhere && part.CapDeg(LiftTrainKind.Support) == 16f && part.HasTwin(0, LiftTowerHead.Break),
+                Check(part.Twins.Length == 9 && !part.BreakEverywhere && part.CapDeg(LiftTrainKind.Support) == 16f && part.HasTwin(0, LiftTowerHead.Break),
                       W + " filter", "a missing FG20 Break did not drop the Break cap");
             }
             finally
@@ -820,7 +823,7 @@ namespace LiftBatch
             int total = 0;
             foreach (LiftTowerTwin _ in LiftTowerPlanConstants.AllTwins())
                 total++;
-            Check(total == 16, W, total + " twins in the tables, want the 16 manifests");
+            Check(total == 21, W, total + " twins in the tables, want the 21 manifests (B2 16 + art-601 5)");
             s_Report.Add("HD-4 every (member, head) of FG / DQ / GD | MemberOf round trip, engine winner score 1 with the pivot on the ground, " +
                          "tops >= 0.1 m apart, off-table -> support member | " + pairs + " (member, head) pairs, " + total + " twins");
         }
@@ -912,7 +915,7 @@ namespace LiftBatch
                 // ground and station-stub ends carry no head: elevation 0 is the shortest member, RopeAboveBase(0)
                 Check(LiftTowerEdit.RopeAboveNodeM(c, 0f) == c.RopeAboveBase(0), W + " " + id, "a ground node is not RopeAboveBase(0)");
             }
-            Check(twinHeads == 16, W, twinHeads + " twin heads checked, want 16");
+            Check(twinHeads == 21, W, twinHeads + " twin heads checked, want 21 (B2 16 + art-601 5)");
             s_Report.Add("HD-7 loose-end rope | node + RopeAboveNodeM(E) equals the engine's lane anchor at every head of FG / DQ / GD | " + heads +
                          " heads (" + twinHeads + " twins), worst gap " + F(worstNew, "F5") + " m (the retired node + RopeAboveBase(0) was off by up to " + F(worstOld, "F3") + " m)");
         }

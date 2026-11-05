@@ -73,7 +73,7 @@ namespace LiftBatch
                 same &= math.distance(zero[i].LocalPos, level[i].LocalPos) < 1e-6f;
             Check(same, W, "a level head moved the tiles");
             // The beacon table: every GD member and head twin, on a plated prefab, y = the plate row's + 0.117 (beam top above the plate).
-            Check(TowerNumberTiles.Beacons.Length == 7 && TowerNumberTiles.BeaconKey == TowerNumberTiles.Classes.Length * TowerNumberTiles.GlyphsPerClass,
+            Check(TowerNumberTiles.Beacons.Length == 8 && TowerNumberTiles.BeaconKey == TowerNumberTiles.Classes.Length * TowerNumberTiles.GlyphsPerClass,
                   W, "beacon table / key");
             foreach (TowerNumberTiles.HeadBeacon b in TowerNumberTiles.Beacons)
                 Check(TowerNumberTiles.TryPlate(b.Prefab, out TowerNumberTiles.TowerPlate bp) && b.Prefab.StartsWith("SkiLiftTowerGD", StringComparison.Ordinal) &&
@@ -309,7 +309,7 @@ namespace LiftBatch
             bool ok = true;
             foreach (TowerNumberTiles.TowerPlate p in TowerNumberTiles.Plates)
                 ok &= rows.Add(p.Prefab) && p.ZPos > 0f && p.ZNeg < 0f && p.Class >= 0 && p.Class < TowerNumberTiles.Classes.Length && p.Y > 5f;
-            Check(ok && rows.Count == 18 + 1 + 16, W, rows.Count + " unique plate rows (want 35: 18 class towers + FG8 + 16 head twins), +Z / -Z faces, valid class");
+            Check(ok && rows.Count == 18 + 1 + 21, W, rows.Count + " unique plate rows (want 40: 18 class towers + FG8 + 21 head twins, art-601 +5), +Z / -Z faces, valid class");
             Check(TowerNumberTiles.TryPlate("SkiLiftTowerGD16", out TowerNumberTiles.TowerPlate gd) && gd.Class == 0 &&
                   !TowerNumberTiles.TryPlate("SkiLiftTerminalTowerBase", out _), W, "lookup: GD16 is T1, a hosted terminal tower has no row");
         }
@@ -365,8 +365,9 @@ namespace LiftBatch
                     first = first ?? p.Prefab;
                 }
             }
-            // 18 class towers + the FG8 member + 16 B2 head twins (measured at the import, 2026-11-04), every row measured
-            Check(bad == 0 && seen == 35, W, bad + " plate row(s) differ from the measurement (first " + first + "), " + seen + " compared");
+            // 18 class towers + the FG8 member + 16 B2 head twins (measured at the import, 2026-11-04) + the 5 art-601 twins (2026-11-05),
+            // every row measured
+            Check(bad == 0 && seen == 40, W, bad + " plate row(s) differ from the measurement (first " + first + "), " + seen + " compared");
         }
     }
 }

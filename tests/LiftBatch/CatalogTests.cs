@@ -435,7 +435,7 @@ namespace LiftBatch
                 Mover = MoverKind.Loop, Seats = 4, Speed = 5.0f, Gauge = 2.6f, Hang = 3.3f, Grip = 0.22f, Axle = 8.0f, Aim = 9.0f,
                 Spacing = 22.5f, Design = 30f, Rule = ServeRuleKind.AlongLine, Radius = 150f, Margin = 15f, Fixed = 5000f, PerKm = 2000f,
                 Build8 = 120, Elev10 = 10, StBase = 125000, StTop = 65000, LinePerKm = 15000, Ceiling = 4.8, Value = 15, Summer = 0.25,
-                MaxPylon = 90f, Slope = 0.9f, NetH = 0.025f, LaneH = 0.025f, HMin = 5.8f, ElevMax = 10f, Expected = true },
+                MaxPylon = 90f, Slope = 0.9f, NetH = 0.025f, LaneH = 0.025f, HMin = 5.8f, ElevMax = 11f, Expected = true },   // 11 with SkiDetachableHV (art-601: DQ20 Hold E 10.52)
             new LiftOracle { Id = "gondola", Line = "SkiGondolaHV", Piece = "SkiGondolaPiece", Item = "liftGondola", Carrier = "SkiGondolaCabin8",
                 Mover = MoverKind.Loop, Seats = 8, Speed = 5.5f, Gauge = 3.0f, Hang = 4.5f, Grip = 0.08f, Axle = 10.0f, Aim = 11.0f,
                 Spacing = 40f /* T43 2026-10-16: was 45f */, Design = 60f, Rule = ServeRuleKind.AlongLine, Radius = 150f, Margin = 15f, Fixed = 8000f, PerKm = 3000f,

@@ -33,7 +33,7 @@
             {
                 "$id": 3,
                 "$type": "3|Game.Prefabs.ObjectMeshInfo, Game",
-                "m_Mesh": $fstrref:"CID:b2cfd636ec69a01ded5d8912993e112d",
+                "m_Mesh": $fstrref:"CID:b08150ff033f48f7f240e252bc4a3c3b",
                 "m_Position": {
                     "$type": "4|Unity.Mathematics.float3, Unity.Mathematics",
                     "x": 0,

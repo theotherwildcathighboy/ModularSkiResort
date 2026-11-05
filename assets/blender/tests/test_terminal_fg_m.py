@@ -216,7 +216,8 @@ def m1_hv_lane_negatives():
     tmp = tempfile.mkdtemp(prefix="fgm-m1-neg-")
     vanilla = "UnityGUID:5d88ac45a40b30341a79535930e3b735"
     try:
-        for n in ("SkiBaseStationBuilding", "SkiTopStationBuilding", LT.FG_ROPE_LANE):
+        for n in ("SkiBaseStationBuilding", "SkiTopStationBuilding", LT.FG_ROPE_LANE,
+                  LT.M_SPECS["drive"].tower_prefab, LT.M_SPECS["return"].tower_prefab):   # + the hosted rows' CIDs
             shutil.copytree(os.path.join(real, n), os.path.join(tmp, n))
         with open(os.path.join(tmp, LT.FG_ROPE_LANE, LT.FG_ROPE_LANE + ".Prefab.cid"), encoding="utf-8") as fh:
             cid = "CID:" + fh.read().strip()
@@ -235,6 +236,14 @@ def m1_hv_lane_negatives():
                 with open(p, "wb") as fh:
                     fh.write(txt.replace(cid, vanilla, cnt).encode("utf-8"))
                 expect("M1", lambda: LT.m1_frozen(kind), f"{kind}: {label} HV sub-lane(s) back on the vanilla GUID")
+            if kind == "return":
+                # art-601: only the drive base may lose its hosted tower; the top without its ET62 row must raise M1
+                tcid = "CID:" + open(os.path.join(tmp, LT.M_SPECS[kind].tower_prefab,
+                                                  LT.M_SPECS[kind].tower_prefab + ".Prefab.cid"), encoding="utf-8").read().strip()
+                check(txt.count(tcid) == 1, f"{kind}: the temp copy hosts its ET62 once", f"({txt.count(tcid)})")
+                with open(p, "wb") as fh:
+                    fh.write(txt.replace(tcid, "CID:00000000000000000000000000000000").encode("utf-8"))
+                expect("M1", lambda: LT.m1_frozen(kind), f"{kind}: the top without its hosted ET62 row")
             with open(p, "wb") as fh:
                 fh.write(txt.encode("utf-8"))
             try:

@@ -86,6 +86,9 @@ SHIPPED_T1 = {
                "GD16HoldA", "GD16ComboA")),
         ("R", ("FG12HoldA", "FG12ComboA", "FG12BreakA", "DQ12HoldA", "DQ12ComboA", "GD12HoldA", "GD12ComboA")),
     ) for k in keys},
+    # art-601: the taller twins; the DQ / GD prefabs ship the headed mesh letter T (lift_head), FG the twin's own A
+    **{f"SkiLiftTower{k}A": f"towers/Q/SkiLiftTower{k}{m}/SkiLiftTower{k}{m}.fbx" for k, m in (
+        ("FG16Hold", "A"), ("FG16Combo", "A"), ("DQ16Hold", "T"), ("DQ20Hold", "T"), ("GD20Hold", "T"))},
 }
 CLASS_TOWERS["T1"] += list(SHIPPED_T1)
 MEASURE_SRC.update(SHIPPED_T1)

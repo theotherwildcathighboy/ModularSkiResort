@@ -279,7 +279,9 @@ A tower node is raised so that the vanilla placeholder ladder spawns exactly the
   >= 0.1 m apart, check-lift-align LADDER); `EngineWinner(c, e, out head, out score)` scores the ladder and the twins and
   `EnginePivotAboveGround(c, member, head, e)` = 0 for the planned head (LiftBatch HD-4). `MemberOf(c, e, out head)` reads a node back:
   the ladder member or twin within 0.05 m, else the tallest ladder member not above E with the Line head. Every twin E is within the
-  line's m_ElevationRange.max (FG 12.5 <= 16, DQ 2.5178 <= 10, GD 4.568 <= 28); beyond it a later vanilla edit is unverified.
+  line's m_ElevationRange.max (FG 12.5 <= 16, DQ 10.5178 <= 11, GD 8.568 <= 28; DQ raised 10 -> 11 for the DQ20 Hold twin,
+  art-601: under 10 vanilla `FixElevation` would drop the link at that node, NetToolSystem.cs:3730-3746); beyond it a later vanilla
+  edit is unverified.
 
 ## Own cut (the trench the fit must not mistake for ground)
 A lift line is a FlattenTerrain power line: `TerrainSystem` cuts the terrain down to a ceiling of edge y + NetCompositionData.m_HeightRange.min

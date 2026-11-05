@@ -447,8 +447,9 @@ namespace SkiResortMod.Systems
         // Twin members (B2 art v2, the 16 manifests docs research art/breakover-twins-2026-11/v2/manifests/*.twin.json: top_anchor_y,
         // twin_of_prefab, placeholder; lanes = the member's). E = top - ladder[0] top: FG 0.2 / 0.35 / 0.5 (FG8), 4.2 / 4.35 / 4.5 (FG12),
         // 8.5 (FG16 Break), 12.5 (FG20 Break); DQ 0.5178 / 0.2589 (DQ10), 2.5178 / 2.2589 (DQ12); GD 0.568 / 0.284 (GD12), 4.568 / 4.284
-        // (GD16). Every E is under the line's m_ElevationRange.max (FG 16, DQ 10, GD 28); every top is >= 0.1 m from every other member
-        // of its placeholder (check-lift-align LADDER).
+        // (GD16). art-601 (taller twins, assets/import/towers/Q manifests): FG16 Hold / Combo 8.2 / 8.35, DQ16 / DQ20 Hold 6.5178 /
+        // 10.5178, GD20 Hold 8.568. Every E is under the line's m_ElevationRange.max (FG 16, DQ 11 since art-601 for DQ20 Hold, GD 28);
+        // every top is >= 0.1 m from every other member of its placeholder (check-lift-align LADDER).
 
         public static readonly LiftTowerTwin[] FixedGripTwins =
         {
@@ -458,6 +459,8 @@ namespace SkiResortMod.Systems
             new LiftTowerTwin(1, LiftTowerHead.Hold, "SkiLiftTowerFG12HoldA", 13.214f),
             new LiftTowerTwin(1, LiftTowerHead.Combo, "SkiLiftTowerFG12ComboA", 13.364f),
             new LiftTowerTwin(1, LiftTowerHead.Break, "SkiLiftTowerFG12BreakA", 13.514f),
+            new LiftTowerTwin(2, LiftTowerHead.Hold, "SkiLiftTowerFG16HoldA", 17.214f),
+            new LiftTowerTwin(2, LiftTowerHead.Combo, "SkiLiftTowerFG16ComboA", 17.364f),
             new LiftTowerTwin(2, LiftTowerHead.Break, "SkiLiftTowerFG16BreakA", 17.514f),
             new LiftTowerTwin(3, LiftTowerHead.Break, "SkiLiftTowerFG20BreakA", 21.514f),
         };
@@ -468,6 +471,8 @@ namespace SkiResortMod.Systems
             new LiftTowerTwin(0, LiftTowerHead.Combo, "SkiLiftTowerDQ10ComboA", 10.2089f),
             new LiftTowerTwin(1, LiftTowerHead.Hold, "SkiLiftTowerDQ12HoldA", 12.4678f),
             new LiftTowerTwin(1, LiftTowerHead.Combo, "SkiLiftTowerDQ12ComboA", 12.2089f),
+            new LiftTowerTwin(3, LiftTowerHead.Hold, "SkiLiftTowerDQ16HoldA", 16.4678f),
+            new LiftTowerTwin(5, LiftTowerHead.Hold, "SkiLiftTowerDQ20HoldA", 20.4678f),
         };
 
         public static readonly LiftTowerTwin[] GondolaTwins =
@@ -476,6 +481,7 @@ namespace SkiResortMod.Systems
             new LiftTowerTwin(0, LiftTowerHead.Combo, "SkiLiftTowerGD12ComboA", 12.284f),
             new LiftTowerTwin(1, LiftTowerHead.Hold, "SkiLiftTowerGD16HoldA", 16.568f),
             new LiftTowerTwin(1, LiftTowerHead.Combo, "SkiLiftTowerGD16ComboA", 16.284f),
+            new LiftTowerTwin(2, LiftTowerHead.Hold, "SkiLiftTowerGD20HoldA", 20.568f),
         };
 
         /// <summary>Every twin of every type (the plate table, the LADDER gate and the per-load availability line).</summary>
@@ -513,7 +519,7 @@ namespace SkiResortMod.Systems
                         supportWheels: 4, holdWheels: 4, comboWheels: 2, breakWheels: 8, twins: Available(FixedGripTwins));
                 case "detachable":
                     return new LiftTowerPlanConstants(def.Id, DetachableLadder, DetachableLadder[0].TopM - (def.AxleM + def.RopeSeatM), def.HangM, 3f, 30f,
-                        110f, 245f, 10f, 3f, def.Envelope.LaneHanging, 10f, stationClearM: run, maxEdgeSlope: 0.9f,
+                        110f, 245f, 10f, 3f, def.Envelope.LaneHanging, 11f, stationClearM: run, maxEdgeSlope: 0.9f,   // 11: DQ20 Hold E 10.52 (art-601)
                         supportWheels: 8, holdWheels: 8, comboWheels: 4, twins: Available(DetachableTwins));
                 case "gondola":
                     return new LiftTowerPlanConstants(def.Id, GondolaLadder, GondolaLadder[0].TopM - (def.AxleM + def.RopeSeatM), def.HangM, 3f, 30f,
