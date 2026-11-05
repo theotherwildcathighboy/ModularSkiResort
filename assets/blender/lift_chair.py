@@ -3599,10 +3599,15 @@ THIN_JAW = False                    # --thin-jaw [P|Q] (with --envelope, tr)
 THIN_JAW_SPECS = {
     "P": {"inboard_y": 0.010,       # m: the plate's inboard edge (O: 0.040; the rope's r is 0.024)
           "inboard_half": None,     # m: the inboard ring's half length (None: O's 0.340)
-          "outboard_half": 0.054},  # m: the outboard ring's half length (O: 0.340): the block's 0.140 at its face
-    "Q": {"inboard_y": 0.040, "inboard_half": 0.22, "outboard_half": 0.12},
+          "outboard_half": 0.054,   # m: the outboard ring's half length (O: 0.340): the block's 0.140 at its face
+          "inboard_dz": 0.35},      # the inboard ring's height over the plate's flat underside x this: a wedge
+    "Q": {"inboard_y": 0.040, "inboard_half": 0.22, "outboard_half": 0.12, "inboard_dz": 1.0},
 }
-THIN_JAW_LETTER = "Q"
+# P is the shipping letter (owner verdict, round 2: "a thin tapered triangle of the shipped version", over the critique's
+# Q). "inboard_dz" (round 2): P's long edge on the rope read as a fin; the plate now also thins toward that edge (crown
+# 0.060 -> 0.037 over the rope top 0.024 at the edge, full at the block), so it reads as a tapered wedge. The squash is
+# toward the profile's flat underside, so every vertex stays inside the round-1 P plate: no new overlap.
+THIN_JAW_LETTER = "P"
 THIN_JAW_SPEC = THIN_JAW_SPECS[THIN_JAW_LETTER]
 ENVELOPE_JAW = {"tr": "gripjaw", "dq": "jaw_rope"}             # C3: the jaw beside the grip part
 #: C15 (every split mesh, every LOD): lift_tower's wheel half width + 4 cm (FG 0.065, DQ 0.05) and the
@@ -3817,6 +3822,9 @@ def _thin_jaw(grip, table):
     h1 = THIN_JAW_SPEC.get("inboard_half") or half
     s1 = h1 / half
     x1 = THIN_JAW_SPEC["inboard_y"]
+    k = THIN_JAW_SPEC.get("inboard_dz", 1.0)
+    zb = min(me.vertices[i].co.z for i in in_r)            # the plate's flat underside (on the rope's top)
+    zt = max(me.vertices[i].co.z for i in in_r)            # the crown (ENVELOPE_TR crown)
     for i in out_r:
         v = me.vertices[i].co
         v.y = yc + (v.y - yc) * s0
@@ -3824,9 +3832,11 @@ def _thin_jaw(grip, table):
         v = me.vertices[i].co
         v.x = x1
         v.y = yc + (v.y - yc) * s1
+        v.z = zb + (v.z - zb) * k
     me.update()
     return {"inboard_x": [py1, x1], "half_length_m": {"outboard": [round(half, 4), THIN_JAW_SPEC["outboard_half"]],
                                                       "inboard": [round(half, 4), round(h1, 4)]},
+            "inboard_edge_top_m": [round(zt, 4), round(zb + (zt - zb) * k, 4)],
             "plan_area_m2": [round(2 * half * (py1 - py0), 4),
                              round((h1 + THIN_JAW_SPEC["outboard_half"]) * (x1 - py0), 4)]}
 

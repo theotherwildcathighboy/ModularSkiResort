@@ -238,12 +238,13 @@ def export_seams(tr):
                   f"H2 live {st} manifest torus {c2['torus_R']} at {c2['torus_z']}")
 
 
-def rope_faces(co, tris, spec):
-    """Faces whose every vertex lies within rope r + 5 mm of a chord line or of the torus."""
+def rope_faces(co, tris, spec, rope_r=None):
+    """Faces whose every vertex lies within rope r + 5 mm of a chord line or of the torus (rope_r: the asset's own
+    radius from its manifest, art-601 --thin-rope; default the shipped LT.M_ROPE_R)."""
     wx, _wy, wz = spec.wheel
     ax, az = spec.anchor_in
     near = np.zeros(len(co), dtype=bool)
-    rr = LT.M_ROPE_R + 0.005
+    rr = (LT.M_ROPE_R if rope_r is None else rope_r) + 0.005
     for s in (-1.0, 1.0):
         a = np.array([ax, s * LT.FG_LANE, az])
         b = np.array([wx, s * LT.FG_LANE, wz])
@@ -295,7 +296,8 @@ def geometry_stations(tr):
             print(f"  skip {st} / {tw}: not exported")
             continue
         co, tris = raw_mesh(os.path.join(d, f"{st}.fbx"))
-        rf = rope_faces(co, tris, sp)
+        rr = (live_manifest(st) or {}).get("rope_r_m")         # per asset (art-601 --thin-rope)
+        rf = rope_faces(co, tris, sp, rr)
         T = co[tris[rf]].reshape(-1, 3)
         torus = T[(np.abs(T[:, 2] - sp.wheel[2]) < 0.07) & (T[:, 0] > sp.wheel[0] + 0.5)]
         R = np.hypot(torus[:, 0] - sp.wheel[0], torus[:, 1])
@@ -315,7 +317,7 @@ def geometry_stations(tr):
         # S8: the hosted tower vs the station, both LODs
         for sl in ("", "_LOD1"):
             sco, stris = raw_mesh(os.path.join(d, f"{st}{sl}.fbx"))
-            keep = stris[~rope_faces(sco, stris, sp)]
+            keep = stris[~rope_faces(sco, stris, sp, rr)]
             sb = BVHTree.FromPolygons(sco.tolist(), keep.tolist(), all_triangles=True)
             for tl in ("", "_LOD1"):
                 tco, ttris = raw_mesh(os.path.join(td, f"{tw}{tl}.fbx"))
@@ -392,7 +394,7 @@ def s9_code():
         t, table, _src = LT.assemble_m(LT.build_base_m(), False, "drive")
         co, tris, names, _ = LT.m_arrays(t)
         k = [i for i, n in enumerate(names) if n.startswith(("sheave_hold_", "holdboom_", "holdhang_", "holdweb_",
-                                                              "holdplate_"))]
+                                                              "holdclamp_", "holdplate_"))]
         check(any(names[i].startswith("holdweb_") for i in k), "S9 nose-train base builds its holdweb_ parts")
         _s9_gate("Pali base nose train (art-601)", chair,
                  (co, [tuple(int(v) for v in tris[i]) for i in k], [names[i] for i in k]),

@@ -311,7 +311,15 @@ ROOF_END = 0.15
 BAND_T = 0.15
 FILLET_R = 0.35
 DECK_H = 0.30
-ROPE_R = 0.055
+ROPE_R_SHIPPED = 0.055           # the shipped stations' modeled rope
+# art-601 #10 (owner hand-test note 10, "really jarring"): the modeled station rope (ropechord_ / wheelrope, 0.11 m
+# across) read 2-3x the line's vanilla cable beside it. --thin-rope builds with THIN_ROPE_R, the 0.048 m rope the lines
+# and the chair contract use (carriers tr / dq: the grip's rope), for a new station letter; every consumer of the radius
+# (the hold trains' axle on the rope's top, the rope parts, the checks) follows the one global. The manifest records the
+# build's radius (rope_r_m) and the seams tests read it per asset. LOD caveat: vanilla cables keep a minimum screen
+# width at distance, a modeled 0.048 m rope does not (judge the far preview).
+THIN_ROPE_R = 0.024
+ROPE_R = ROPE_R_SHIPPED           # this build's radius (main: --thin-rope)
 RIM_W = 0.45
 CORRIDOR = 1.10
 LOT = (2, 4)                   # cells (16 x 32 m)
@@ -7000,6 +7008,9 @@ NOSE_CONTACTS = (
     (r"haulrope_[np]", r"sheave_guide_(?:" + "|".join(NOSE_ROPE_PASS) + r")\w*",
      "F10: the drawn rope runs through the sheave centers, through the liners and the sub pins' ends"),
     (r"haulrope_[np]", r"wheelrope", "the rope tube ends inside the bullwheel's rope torus (C1 / C2)"),
+    (r"haulrope_n", r"haulrope_n", "art-601 --thin-rope: the CUT_PIECES of one haul-rope tube meet at their shared cut; on "
+     "the thin rope the touching cut faces register a few triangle pairs (one part, not a clash)"),
+    (r"haulrope_p", r"haulrope_p", "the same cut on the p lane's tube"),
     (r"guideframe_[np]", r"band_nose_c", "the guide beam's end sockets 3 cm into the nose band's edge"),
     (r"clamp_comm\d+_[lu]", r"commcable_nose", "a cable clamp closes round its cable"),
     (r"commbracket_nose", r"commcable_nose", "the cable leaves the bracket's face"),
@@ -8787,6 +8798,9 @@ def parse_args(argv=None):
     ap = argparse.ArgumentParser(description="detachable / gondola terminal generator")
     ap.add_argument("--kind", default="base", choices=("base", "top", "drive", "return"))
     ap.add_argument("--gondola", action="store_true")
+    ap.add_argument("--thin-rope", action="store_true", dest="thin_rope",
+                    help="art-601 #10: the modeled station rope at THIN_ROPE_R (the lines' 0.048 m rope), a new letter; "
+                         "off = the shipped radius 0.055")
     ap.add_argument("--no-hosted-tower", action="store_true", dest="no_hosted_tower",
                     help="DQ base, art-601 (BASE_NOSE_TRAIN): no hosted ETDQ; the base carries the top's nose train. "
                          "Off = the shipped station byte for byte.")
@@ -8935,9 +8949,10 @@ def main(argv=None):
     args = parse_args(argv)
     global FINE_DETAIL
     FINE_DETAIL = not args.no_fine          # fine-detail step 3b: every run follows its own args
-    global ROPE_ON_CROWN, BASE_NOSE_TRAIN
+    global ROPE_ON_CROWN, BASE_NOSE_TRAIN, ROPE_R
     ROPE_ON_CROWN = bool(args.rope_on_crown)     # T27: every run follows its own args (tests call main() in-process)
     BASE_NOSE_TRAIN = bool(args.no_hosted_tower)
+    ROPE_R = THIN_ROPE_R if args.thin_rope else ROPE_R_SHIPPED   # every run follows its args (tests call main())
     if BASE_NOSE_TRAIN and (args.kind != "base" or args.gondola):
         raise SystemExit("--no-hosted-tower is DQ base only")
     import cs2_sheaves as S
@@ -9225,7 +9240,7 @@ def main(argv=None):
     stamps = dq_hook.stamps if dq_hook is not None else None
     fine_block = fine_detail_block(p, name, table, fine_nums) if FINE_DETAIL else None
     cs2_validate.write_manifest(asset_dir, name, {
-        "generator": GENERATOR, "kind": "building", "variant": p.variant,
+        "generator": GENERATOR, "kind": "building", "variant": p.variant, "rope_r_m": ROPE_R,
         "spec": "dq-terminal.md + dq-terminal-skeptic.md MUST-CHANGE 1-13 + Revision 1 "
                 "(verdicts-2026-10-11.md #3-4: front ladder, one underside ladder, gangplank, "
                 "no left-flank railings, sign band, housing windows) + Revision 1b polish "

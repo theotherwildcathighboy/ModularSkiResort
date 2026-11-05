@@ -5593,8 +5593,8 @@ def etgd_prefab_block(spec, name, info):
 # (the same geometry, vertex for vertex), its shipped LOD0 FBX's UVUnique is read onto it triangle by triangle, and each
 # twin part copies its namesake's loops BEFORE it is mirrored / moved / stretched (copies take their source's), so the
 # twin mesh maps onto the member's BaseColor / Normal / MaskMap / ControlMask as they ship.
-TWIN_MEMBERS = {"Hold": ("FG8", "FG12", "DQ10", "DQ12", "DQ16", "DQ20", "GD12", "GD16"),
-                "Combo": ("FG8", "FG12", "DQ10", "DQ12", "GD12", "GD16"),
+TWIN_MEMBERS = {"Hold": ("FG8", "FG12", "FG16", "DQ10", "DQ12", "DQ16", "DQ20", "GD12", "GD16", "GD20"),
+                "Combo": ("FG8", "FG12", "FG16", "DQ10", "DQ12", "GD12", "GD16"),
                 "Break": ("FG8", "FG12", "FG16", "FG20")}
 TWINS = {f"{m}{k}": (m, k) for k, ms in TWIN_MEMBERS.items() for m in ms}
 TWIN_SPEC_KIND = {"Hold": "compression", "Combo": "pushpull", "Break": "support"}
@@ -5602,7 +5602,8 @@ TWIN_SPEC_KIND = {"Hold": "compression", "Combo": "pushpull", "Break": "support"
 TWIN_ATLAS = {"FG8": "Q/SkiLiftTowerFG8Q", "FG12": "R/SkiLiftTowerFG12R", "FG16": "Q/SkiLiftTowerFG16Q",
               "FG20": "Q/SkiLiftTowerFG20Q", "DQ10": "Q/SkiLiftTowerDQ10Q", "DQ12": "R/SkiLiftTowerDQ12R",
               "GD12": "R/SkiLiftTowerGD12R", "GD16": "Q/SkiLiftTowerGD16Q",
-              "DQ16": "Q/SkiLiftTowerDQ16Q", "DQ20": "Q/SkiLiftTowerDQ20Q"}   # DQ16 / DQ20 Hold: art-601 (owner note 12)
+              "DQ16": "Q/SkiLiftTowerDQ16Q", "DQ20": "Q/SkiLiftTowerDQ20Q",   # DQ16 / DQ20 Hold: art-601 (owner note 12)
+              "GD20": "Q/SkiLiftTowerGD20Q"}   # GD20 Hold: art-601 round 2 (with FG16 Hold / Combo on the FG16 Q atlas)
 TWIN_HEAD = {"FG": "yan", "DQ": "ingest", "GD": "rebuild"}
 TWIN_GD_SHEAVES = {"atlas": 10, "twin": 8}      # shipped GD members 10 a side; Hold / Combo at the ETGD count (plan 3.3)
 # DQ / GD head raise, x crown seat. v2 (critic MUST-1, 2026-11-03): the Hold train is TRANSLATED (frame above the

@@ -352,7 +352,8 @@ def s8_exports(base):
             print(f"  skip S8 exports LOD{lvl}: FBX missing")
             continue
         sco, spolys = _import_prefab(fs)
-        lane, ry, rr = base.lane_y, base.z_rope, LTD.ROPE_R + 0.005
+        lane, ry = base.lane_y, base.z_rope
+        rr = sb.get("rope_r_m", LTD.ROPE_R) + 0.005            # per asset (art-601 --thin-rope)
         d = np.hypot(np.abs(sco[:, 0]) - lane, sco[:, 1] - ry)
         near = (d <= rr) & (sco[:, 2] < 0.0)      # the haul ropes run anchor -> wheel; the
         names = ["haulrope" if all(near[v] for v in pl) else "station"  # wheel is at z 9.6

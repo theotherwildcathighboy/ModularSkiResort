@@ -1229,7 +1229,15 @@ UP_LANE_Y = {"drive": +1.0, "return": -1.0}
 FG_LANE = 1.8                    # carriers tr lane_x_m
 FG_HANG = 2.400                  # carriers tr hang_m (grip top = the code lane / path)
 FG_GRIP_ABOVE = 0.080            # carriers tr grip_top_above_rope_m (only the rope-point pin uses it)
-M_ROPE_R = 0.055
+M_ROPE_R_SHIPPED = 0.055         # the shipped stations' modeled rope
+# art-601 #10 (owner hand-test note 10, "really jarring"): the modeled station rope (ropechord_ / wheelrope, 0.11 m
+# across) read 2-3x the line's vanilla cable beside it. --thin-rope builds with THIN_ROPE_R, the 0.048 m rope the lines
+# and the chair contract use (carriers tr / dq: the grip's rope), for a new station letter; every consumer of the radius
+# (the hold trains' axle on the rope's top, the rope parts, the checks) follows the one global. The manifest records the
+# build's radius (rope_r_m) and the seams tests read it per asset. LOD caveat: vanilla cables keep a minimum screen
+# width at distance, a modeled 0.048 m rope does not (judge the far preview).
+THIN_ROPE_R = 0.024
+M_ROPE_R = M_ROPE_R_SHIPPED       # this build's radius (main_m: --thin-rope)
 M_TORUS_R = 1.80                 # rope torus = the code arc radius (LiftLoopCache r = lane)
 M_RIM_OUT = 1.74                 # bullwheel rim outer (A4: r 1.80 rope proud in the groove)
 CHAIR_BODY_Z = 2.10              # chair-local z below which the chair is BODY (the grip rides the rope)
@@ -1426,7 +1434,7 @@ M_DENSITY = {
     "stakewrap_": 0.8, "grate_": 0.6, "rail_catwalk": 0.6, "rail_bay": 0.6, "post_": 0.6,
     "kick_": 0.6, "ladder_": 0.6, "lrung_": 0.6, "wrung_": 0.5, "flange_": 0.8, "gusset_": 0.8,
     "stiff_": 0.8, "bolt_": 0.6, "railcap_": 0.8, "raillug_": 0.6, "wheeldisc_": 0.8,
-    "sheave_hold": 0.8, "holdboom_": 0.8, "holdhang_": 0.6, "holdweb_": 0.8, "holdplate_": 0.6, "sheave_cw": 0.8, "cwbrk_": 0.6,
+    "sheave_hold": 0.8, "holdboom_": 0.8, "holdhang_": 0.6, "holdweb_": 0.8, "holdplate_": 0.6, "holdclamp_": 0.6, "sheave_cw": 0.8, "cwbrk_": 0.6,
     "exhaust": 0.6, "antenna": 0.5, "antwhip": 0.4, "winframe_": 0.6, "door_": 0.8,
     "doorlite_": 0.6, "hatch_": 0.8, "drip_": 0.5, "cabinet": 0.8, "bearingdeck_": 0.8,
     "bearing": 0.6, "colplate": 0.8, "wxmast": 0.5, "wxarm": 0.5, "wxcup": 0.5, "guy_": 0.4,
@@ -1487,8 +1495,9 @@ M_NOT_WALKABLE = (
     ("holdboom_", "the hold-down boom: a steel member over the rope, no access"),
     ("holdhang_", "the hold-down boom's saddle on the portal beam: steel"),
     # art-601 (M_NOSE_TRAIN): the boom's haunch web and its root plate on the front beam
-    ("holdweb_", "the hold-down boom's haunch web: steel, no access"),
-    ("holdplate_", "the hold-down boom's root plate on the front beam: steel"),
+    ("holdweb_", "the hold-down boom's root gusset tab: steel, no access"),
+    ("holdplate_", "the hold-down boom's root cheek plates on the front beam: steel"),
+    ("holdclamp_", "the hold-down boom's hanger clamp and lifting tab: steel, no access"),
 )
 M_WALK = ("pad", "loaddeck", "carpet_", "grate_catwalk", "houseroof", "crest", "liftiebay")
 # FG walking ramps: (ramp part, low surface or GRADE, high surface)
@@ -1510,8 +1519,10 @@ M_CONTACTS = {
         "ropechord:wheelrope",
     "hold-down sheaves press the rope from above, hung from their boom, the boom hung from "
     "the front beam": "ropechord:sheave holdboom:sheave holdboom:holdhang beam:holdhang",
-    "art-601 nose train: the haunch web welded on the boom, its root plate on the front beam round the saddle":
-        "holdboom:holdweb holdboom:holdplate holdplate:holdweb holdhang:holdplate beam:holdplate",
+    "art-601 nose train: the slim tube boom, its hanger clamp round the train's hanger, the gusset tab on its top, the "
+    "cheek plates clamping it onto the saddle on the front beam":
+        "holdboom:holdclamp holdclamp:sheave holdboom:holdweb holdboom:holdplate holdplate:holdweb holdhang:holdplate "
+        "beam:holdplate",
     "nitpick A (2026-10-13): a sheave train is ONE assembly (cs2_sheaves: hanger in its boom, main rocker, pins, sub "
     "rockers, sheave arms, wheel discs + rubber liners, axle caps), the boom's front end in its saddle on the portal "
     "beam; the counterweight wheels' discs + liners":
@@ -1580,7 +1591,7 @@ M_LOD2_DELETE = M_LOD1_DELETE + ("spoke_", "wheelhub", "wheelrope", "grate_", "l
                                  "flange_", "stiff_", "saddle_", "endmember_", "carr_",
                                  "wheelshaft", "railcap_", "hutroof", "cabinet", "beamdrum_",
                                  "badge", "scale_", "cwrope_", "cwcable_", "sheave_cw",
-                                 "wheeldisc_", "exhaust", "antenna", "holdboom_", "holdweb_", "holdplate_", "door_",
+                                 "wheeldisc_", "exhaust", "antenna", "holdboom_", "holdweb_", "holdplate_", "holdclamp_", "door_",
                                  "stake", "bearing", "colplate", "wxmast", "ropechord_",
                                  "houseroof", "signband_", "loadramp")
 
@@ -1895,14 +1906,19 @@ M_HOLD = dict(xc=-4.60, n=4, prefix="sheave_hold_", boom_w=0.15, boom_rear=-0.30
 # (ET68 at x -6.9) leaves the prefab at the import round, and the station's own hold-down train becomes the first train
 # the rope meets: it moves out along the code chord until its outer sheave's rim reaches the HV sub-lane's inboard end
 # (anchor_in; the sub-lanes and the chord are unchanged, so the line rope hands over to the modeled ropechord_ right
-# there), its box boom runs back to the same saddle on the front portal beam as a haunched cantilever: a web deep at the
-# beam end tapering out past the hanger, and a root plate down onto the beam (everything above the rope in the lane's
-# plane: the chairs pass under it as under the train). False = the deployed station byte for byte.
+# there), its boom runs back to the same saddle on the front portal beam. Round 2 (the owner's reference photo of a real
+# FG base, "as long as they don't look too chunky or blocky"): the boom is a slim round tube (the real arm), the train's
+# hanger sits in a small clamp with a lifting tab on top, a thin gusset tab stiffens the root, and two thin cheek plates
+# clamp the tube onto the saddle (round 1's 0.15 x 0.22 box, 0.42 m haunch web and full root plate read chunky).
+# Everything sits above the rope in the lane's plane: the chairs pass under it as under the train. False = the deployed
+# station byte for byte.
 M_NOSE_TRAIN = False
 M_NOSE = dict(rim_gap=0.02,          # m along x: the outer rim's line-side edge inboard of anchor_in
-              web_d=0.42,                   # the haunch web's depth over the boom at the beam end (chord frame)
-              web_tip=0.10,                 # chord a where the web runs out (just past the hanger at a 0)
-              plate_over=0.02)              # the root plate: this far past the saddle each way
+              tube_r=0.075, tube_segs=12,   # the boom tube (round 1: a 0.15 x 0.22 box)
+              clamp=(0.10, 0.085, 0.10, 0.115),   # hanger clamp: half length, half width, below / above the tube axis
+              tab=(0.06, 0.015, 0.09),      # its lifting tab on top: half length, half thickness, height
+              web_d=0.16, web_len=0.50, web_t=0.03,   # root gusset tab on the tube's top: root depth, length, thickness
+              cheek_t=0.02, cheek_over=0.02, cheek_up=0.03)   # root cheeks: thickness, past the saddle, over the tube
 M_HOLD_MAT = {"paint": "paint1", "galv": "galv", "rubber": "rubber",   # tower key -> M key (Pali black steel)
               "wheelsteel": "wheelsteel"}                                # T62 round 2: cs2_sheaves.WHEEL_KEY
 M_CW_SHEAVE_W = 0.10
@@ -1973,16 +1989,20 @@ def build_hold_train_m(spec):
         # the boom: the crossarm's 0.22 depth, boom_w wide, along the rope from boom_rear (behind the hanger) to
         # boom_front_x (its center line), in the chord frame
         a1 = (H["boom_front_x"] - M[0][3] - nv.x * T["arm_c"]) / u.x
-        boom = _mbox(f"holdboom_{tag}", H["boom_rear"], a1, y - H["boom_w"] / 2.0, y + H["boom_w"] / 2.0,
-                     T["arm_c"] - T["arm_t"] / 2.0, T["arm_c"] + T["arm_t"] / 2.0)
-        if M_NOSE_TRAIN:
-            _bake_loc(boom)        # art-601: the box's center into its mesh first, so M maps the whole chord frame
-        boom.data.transform(M)
+        if M_NOSE_TRAIN:           # art-601 round 2: a slim tube (authoring endpoints through M: no frame offset)
+            boom = _mcyl(f"holdboom_{tag}", M @ _V((H["boom_rear"], y, T["arm_c"])), M @ _V((a1, y, T["arm_c"])),
+                         M_NOSE["tube_r"], M_NOSE["tube_segs"], "both")
+        else:
+            boom = _mbox(f"holdboom_{tag}", H["boom_rear"], a1, y - H["boom_w"] / 2.0, y + H["boom_w"] / 2.0,
+                         T["arm_c"] - T["arm_t"] / 2.0, T["arm_c"] + T["arm_t"] / 2.0)
+            boom.data.transform(M)
         boom.data.update()
         out.append((boom, "paint1"))
         # its saddle: from 1 cm inside the front beam's top up 2 cm into the boom's underside (the higher, rear end)
         sx0, sx1 = H["saddle_x"]
         zb = T["arm_c"] - T["arm_t"] / 2.0          # the boom underside in the chord frame
+        if M_NOSE_TRAIN:
+            zb = T["arm_c"] - M_NOSE["tube_r"]      # the tube's underside
 
         def under(x):
             a = (x - M[0][3] - nv.x * zb) / u.x
@@ -2004,19 +2024,38 @@ def _bake_loc(obj):
     obj.location = (0.0, 0.0, 0.0)
 
 
-def _nose_stay_m(tag, y, M, u, nv, T, a1, bf):
-    """M_NOSE_TRAIN: the boom as a haunched box cantilever (the critique pass: a hold-down train pushes the boom's tip
-    UP, so ties over the boom would carry nothing; a real station uses a deep, tapered cantilever off the portal).
-    A web on the boom's top, M_NOSE["web_d"] deep at the beam end tapering to nothing at web_tip (chord frame,
-    through M), and a root plate from the front beam's top up the web's root face (authoring, axis-aligned): the
-    boom reads bolted to the beam, not balanced on the saddle. [(obj, M key)]."""
-    H, N = M_HOLD, M_NOSE
-    zt = T["arm_c"] + T["arm_t"] / 2.0                    # the boom's top face (chord frame)
-    w = H["boom_w"] / 2.0
-    ar, at, d = a1, N["web_tip"], N["web_d"]
+def _cuboids_bm(boxes):
+    """One bmesh of axis-aligned cuboids [(x0, x1, y0, y1, z0, z1)], outward normals."""
+    from mathutils import Matrix
     bm = bmesh.new()
-    vs = [bm.verts.new(p) for p in ((ar, y - w, zt - 0.01), (ar, y + w, zt - 0.01), (ar, y + w, zt + d),
-                                    (ar, y - w, zt + d), (at, y - w, zt - 0.01), (at, y + w, zt - 0.01))]
+    for x0, x1, y0, y1, z0, z1 in boxes:
+        bmesh.ops.create_cube(bm, size=1.0, matrix=Matrix.Translation(((x0 + x1) / 2.0, (y0 + y1) / 2.0,
+                                                                       (z0 + z1) / 2.0))
+                              @ Matrix.Diagonal((x1 - x0, y1 - y0, z1 - z0, 1.0)))
+    bm.normal_update()
+    return bm
+
+
+def _nose_stay_m(tag, y, M, u, nv, T, a1, bf):
+    """M_NOSE_TRAIN round 2: the slim arm's fittings, after the owner's reference photo (a real FG base's hold-down arm:
+    a slim tube cantilever with small brackets). Chord frame through M: the hanger clamp at a 0 (around the train's
+    hanger top) with a lifting tab on top (holdclamp_), a thin gusset tab on the tube's top at the root, deep at the
+    root and running out toward the hanger (holdweb_); authoring, axis-aligned: two thin cheek plates either side of
+    the tube on the saddle, from the front beam's top to just over the tube (holdplate_). [(obj, M key)]."""
+    H, N = M_HOLD, M_NOSE
+    c, r = T["arm_c"], N["tube_r"]
+    cl, cw, cdn, cup = N["clamp"]
+    tl, tt, th = N["tab"]
+    clamp = cs2_kit._new_obj(f"holdclamp_{tag}", _cuboids_bm([
+        (-cl, cl, y - cw, y + cw, c - cdn, c + cup),
+        (-tl, tl, y - tt, y + tt, c + cup - 0.01, c + cup + th)]))
+    clamp.data.transform(M)
+    clamp.data.update()
+    zt = c + r * math.cos(math.pi / N["tube_segs"]) - 0.005     # just inside the tube's top flat
+    ar, at, d, wt = a1, a1 - N["web_len"], N["web_d"], N["web_t"] / 2.0
+    bm = bmesh.new()
+    vs = [bm.verts.new(p) for p in ((ar, y - wt, zt), (ar, y + wt, zt), (ar, y + wt, zt + d),
+                                    (ar, y - wt, zt + d), (at, y - wt, zt), (at, y + wt, zt))]
     for face in ((0, 3, 2, 1), (0, 4, 3), (1, 2, 5), (3, 4, 5, 2), (0, 1, 5, 4)):   # root, sides, slope, bottom (closed)
         bm.faces.new([vs[i] for i in face])
     bm.normal_update()
@@ -2024,12 +2063,17 @@ def _nose_stay_m(tag, y, M, u, nv, T, a1, bf):
     web = cs2_kit._new_obj(f"holdweb_{tag}", bm)
     web.data.transform(M)
     web.data.update()
-    root_top = M @ _V((ar, y, zt + d))
     sx0, sx1 = H["saddle_x"]
-    pw = w + N["plate_over"]
-    plate = _mbox(f"holdplate_{tag}", sx0 - N["plate_over"], sx1 + N["plate_over"], y - pw, y + pw, bf[3] - 0.01,
-                  root_top.z)
-    return [(web, "paint1"), (plate, "paint1")]
+    xm = 0.5 * (sx0 + sx1)
+    am = (xm - M[0][3] - nv.x * c) / u.x                        # the tube axis over the saddle's center
+    ztop = (M @ _V((am, y, c))).z + r + N["cheek_up"]
+    yi = r * math.cos(math.pi / N["tube_segs"]) - 0.002          # 2 mm into the tube's side flats: they clamp it
+    plates = []
+    for side, k in (("a", -1.0), ("b", 1.0)):
+        y0, y1 = sorted((y + k * yi, y + k * (yi + N["cheek_t"])))
+        plates.append((_mbox(f"holdplate_{tag}{side}", sx0 - N["cheek_over"], sx1 + N["cheek_over"], y0, y1,
+                             bf[3] - 0.01, ztop), "paint1"))
+    return [(clamp, "paint1"), (web, "paint1")] + plates
 
 
 def hold_train_numbers_m(spec):
@@ -4749,7 +4793,7 @@ def main_m(args):
     tension scale stamped in the hook (M11), weathering stepped to the highest budget-clean
     intensity (M13)) -> export LOD0 / `_Win` / LOD1-2 (M6 on every LOD) -> settings -> previews
     (+ the chair / tower close-ups) -> validation -> manifest -> review pack."""
-    global FINE_DETAIL_M, M_NOSE_TRAIN
+    global FINE_DETAIL_M, M_NOSE_TRAIN, M_ROPE_R
     import cs2_bake
     import cs2_liftdress as LD
     LTD = _LTD()
@@ -4762,6 +4806,7 @@ def main_m(args):
     FINE_DETAIL_M = not bool(getattr(args, "no_fine", False))     # fine-detail step 3c: every run follows its args
     kind = args.kind
     M_NOSE_TRAIN = bool(getattr(args, "no_hosted_tower", False))
+    M_ROPE_R = THIN_ROPE_R if getattr(args, "thin_rope", False) else M_ROPE_R_SHIPPED   # every run follows its args
     if M_NOSE_TRAIN and kind != "drive":
         raise SystemExit("--no-hosted-tower is drive only (the return has no hold-down train: ET62 keeps the rope)")
     spec = M_SPECS[kind]
@@ -4911,7 +4956,7 @@ def main_m(args):
     pc = contracts.pop("M1")
     fine_block = fine_detail_block_m(kind, contracts)          # fine-detail step 3c (None when off)
     cs2_validate.write_manifest(asset_dir, name, {
-        "generator": GEN_M, "kind": kind, "generation": "M",
+        "generator": GEN_M, "kind": kind, "generation": "M", "rope_r_m": M_ROPE_R,
         "spec": "design/fg-stations-m.md + fg-stations-m-skeptic.md MUST-CHANGE 1-6 (build/fg-stations-m.md)",
         "finish": "shipping" if args.finish else "blockout", "atlas_px": A, "ao_samples": ao,
         "pack_margin_px": margin, "tris": tris, "tris_win": tris_win, "parts": len(table),
@@ -4995,6 +5040,9 @@ def parse_args():
     ap.add_argument("--rope-on-crown", action="store_true", dest="rope_on_crown",
                     help="M, T27 preview flag (M_ROPE_ON_CROWN): the HV anchors on the hosted end tower's sheave "
                          "crown; M1 reports the prefab surgery. Off = the shipped station byte for byte.")
+    ap.add_argument("--thin-rope", action="store_true", dest="thin_rope",
+                    help="art-601 #10: the modeled station rope at THIN_ROPE_R (the lines' 0.048 m rope), a new letter; "
+                         "off = the shipped radius 0.055")
     ap.add_argument("--no-hosted-tower", action="store_true", dest="no_hosted_tower",
                     help="M drive, art-601 (M_NOSE_TRAIN): the base without its hosted end tower; the hold-down train "
                          "moves out to the sub-lane's inboard end and gets a king post + tie. Off = the shipped station.")
@@ -5218,7 +5266,7 @@ def main_l(args):
     # -- manifest + folder validation (L) -----------------------------------------------
     density = compose.density if compose is not None else None
     cs2_validate.write_manifest(asset_dir, name, {
-        "generator": "lift_terminal.py", "kind": args.kind, "spec": "roundL",
+        "generator": "lift_terminal.py", "kind": args.kind, "spec": "roundL", "rope_r_m": M_ROPE_R,
         "tris": tris, "parts": len(table), "atlas_px": FINISH_ATLAS if finished else ATLAS_QUAD_PX * 2,
         "finish": {"packer": f"cs2_uv.pack_unique(margin_px={PACK_MARGIN_PX})", "ao_samples": AO_SAMPLES,
                    "detail": sorted(detail_specs().keys()),
