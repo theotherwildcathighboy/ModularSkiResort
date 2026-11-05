@@ -2,6 +2,11 @@
 import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
 import { satteri } from '@astrojs/markdown-satteri';
+import { readFileSync } from 'node:fs';
+
+// Heading anchor links copy the section URL on click (src/scripts/anchor-copy.js), inlined so the
+// base path never matters.
+const anchorCopyScript = readFileSync(new URL('./src/scripts/anchor-copy.js', import.meta.url), 'utf8');
 
 // Deployed by the Pages workflow, which sets DOCS_SITE and DOCS_BASE from the repository
 // (https://<owner>.github.io + /<repo>). Locally both fall back to the root.
@@ -68,6 +73,7 @@ export default defineConfig({
       description:
         'Guides, reference, asset pipeline and timeline for Modular Ski Resort, a ski resort mod for Cities: Skylines II.',
       routeMiddleware: './src/routeMiddleware.ts',
+      head: [{ tag: 'script', content: anchorCopyScript }],
       customCss: ['./src/styles/custom.css'],
       logo: {
         light: './src/assets/resort-logo-navy.svg',
