@@ -89,6 +89,11 @@ namespace SkiResortMod.Systems
             else
             {
                 m_PendingInput = null;
+                // BeginScan polled the job before its snapshot and obstacles, which take tens of ms on a large region: a worker that
+                // finished since is collected here, so a fault is reported (Fail) instead of overwritten unseen. Its generation is
+                // already old (m_ScanGen++ above), so a clean finish is dropped as out of date and nothing pending is launched.
+                if (!PollScanJob(true))
+                    return;
                 LaunchScan(input, onMain, false);
             }
             AddScanMainMs(QuickRunsRules.MsSince(t0));
