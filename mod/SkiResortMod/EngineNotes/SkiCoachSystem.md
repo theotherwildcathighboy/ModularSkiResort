@@ -36,7 +36,9 @@ Vanilla never makes a vehicle before its path (`RandomTrafficDispatchSystem.cs:2
 
 ## Save
 
-The saver's query excludes `LivePath` (`SerializerSystem.cs:171-209`), so a probe alive at save time is not written: no save row, no cleanup. The bus itself saves like a
+The saver's query excludes `LivePath` (`SerializerSystem.cs:171-209`), so a probe alive at save time is not written: no save row. A load does not
+clear it either: `ClearSystem` destroys only entities with one of its listed components, `PrefabRef` among them (`ClearSystem.cs:23-51`), and
+a probe has none. So OnGamePreload destroys every pending probe (`Coach [probe] N pending road probe(s) destroyed before the load`). The bus itself saves like a
 vanilla dummy (it has `PrefabRef`) and is found again by `Owner` -> depot prefab. A dummy bus whose owner no longer exists is removed.
 
 ## Failure modes, all silent to the player and logged

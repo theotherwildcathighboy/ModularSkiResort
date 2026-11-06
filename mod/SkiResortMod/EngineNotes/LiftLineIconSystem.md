@@ -49,7 +49,9 @@ IconCommandSystem and the icon would show for one frame each time.
 When it runs: on the frames ConnectionWarningSystem runs (its own update query, Updated nodes / service upgrades / spawn and takeoff
 locations or a RoadConnectionUpdated event, ConnectionWarningSystem.cs:2675-2693, plus `UpdateCollectSystem.mapTilesUpdated`,
 :2721-2722), once after each Game load (a full pass: icons stored in a save), and every `PollFrames` (64) frames as a check that
-removes a vanilla icon any pass missed. A new game starts with ConnectionWarningSystem's whole-map pass (:2710-2720), but a new city
+removes a vanilla icon any pass missed. A tile purchase also gets the full pass over loose lift ends: vanilla then judges every node
+inside the new tile, Updated or not (CollectOwnersJob2, :142, scheduled at :2747-2752), and the Updated-node query alone left those
+ends showing the vanilla icon until the next poll (pre-release review 2026-11-06, finding 2). A new game starts with ConnectionWarningSystem's whole-map pass (:2710-2720), but a new city
 has no lift.
 
 What it judges:

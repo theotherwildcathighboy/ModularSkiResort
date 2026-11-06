@@ -135,6 +135,26 @@ namespace SkiResortMod.Systems
             base.OnGamePreload(purpose, mode);
             m_JobHandle.Complete();
             m_JobInFlight = false;
+            DropProbes();
+        }
+
+        /// <summary>Destroys every pending road probe before a load. A probe has no PrefabRef, so the load's ClearSystem keeps it
+        /// (ClearSystem.cs:23-51), and the slots, cleared at OnGameLoadingComplete, hold the only references: without
+        /// this, each load would leak one entity per pending probe. The same destroy as a depot that stops working mid-probe.</summary>
+        private void DropProbes()
+        {
+            int dropped = 0;
+            foreach (Slot slot in m_Slots.Values)
+            {
+                if (slot.Probe != Entity.Null && EntityManager.Exists(slot.Probe))
+                {
+                    EntityManager.DestroyEntity(slot.Probe);
+                    dropped++;
+                }
+            }
+            m_Slots.Clear();
+            if (dropped > 0)
+                Mod.Log.Info($"Coach [probe] {dropped} pending road probe(s) destroyed before the load");
         }
 
         /// <summary>TransportCarAISystem's interval (engine notes: the turnaround).</summary>

@@ -470,6 +470,7 @@ type Game.SafeCommandBufferSystem class 06f3efeef7
 type Game.SceneFlow.AsyncHelpers class b5aa18ef13
 type Game.SceneFlow.GameManager class 37b2353261
 type Game.SceneFlow.UserInterface class 1616cc85c1
+type Game.Serialization.ClearSystem class a188a4d32a
 type Game.Serialization.PrimaryPrefabReferencesSystem class ef29316faf
 type Game.Serialization.SerializerSystem class 3842646a83
 type Game.Serialization.StudentSystem class 91aeaf4c6f

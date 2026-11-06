@@ -103,6 +103,7 @@ namespace SkiResortMod.Systems
             {
                 if (index == 0)
                     MarkManaged(ManagedProbe);
+                GripResults[index] = LiftLoopSampler.Skipped;   // first: the list is ResizeUninitialized, and every return below counts it
                 JobChair chair = Chairs[index];
                 if ((uint)chair.Loop >= (uint)Loops.Length)
                 {
@@ -110,7 +111,6 @@ namespace SkiResortMod.Systems
                     return;
                 }
                 JobLoop loop = Loops[chair.Loop];
-                GripResults[index] = LiftLoopSampler.Skipped;
                 if (loop.Active == 0 || loop.SegCount <= 0 || !(loop.Length > 0.0))
                 {
                     Results[index] = LiftLoopSampler.Skipped;
