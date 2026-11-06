@@ -47,7 +47,10 @@ vanilla back to 185 within 256 frames after the writes stopped.
   so it needs no LeisureProvider).
 - Parking: `IsRoadLodge` false (no arrivals, no car-space row).
 - Stats: a merged building in an area joins its sign's lodge list (counts, the ladder through `LodgeIdentity`); its own staff, upkeep
-  and tourism stay the city's (skipped in the jobs, building cost and share sums). The area's building cost adds its monthly merge fee.
+  and tourism stay the city's (skipped in the jobs and building cost sums). The area's building cost adds its monthly merge fee.
+- Tourism share (P2.5): the area's share adds only the part the area wrote, `MergeRules.ShareTerm(P)` = P^2 / 10^4 (P from
+  `SkiResortAttractivenessSystem.TryGetMergedShare`, this recompute's write), while the provider exists; its own V^2 stays the city's.
+  Since a^2 = V^2 + P^2 within rounding (MA4), the share is P^2 / sum(a^2) (MA6, MA7).
 
 ## Money
 - Merge: `MergeRules.MergeFee` once, at once, `PlayerMoney.Subtract` (refused when the city cannot pay; unlimited money reads 2e9).

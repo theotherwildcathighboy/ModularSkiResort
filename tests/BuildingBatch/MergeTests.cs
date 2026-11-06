@@ -1,6 +1,6 @@
 // Merge an existing building into a ski area (MergeRules, LodgeIdentity). MI1-MI4 the identity regression: every catalog lodge resolves to
 // its own row, tagged or not, exactly as SkiCatalog.LodgeByPrefab; MK1-MK12 the kind classification; MS1-MS6 size gates and tier lowering;
-// MF1-MF8 cost parity; MJ1-MJ5 carried jobs; MA1-MA5 the attraction combine; MT1-MT8 states; MD1-MD3 the duplicate guard.
+// MF1-MF8 cost parity; MJ1-MJ5 carried jobs; MA1-MA7 the attraction combine and the share term; MT1-MT8 states; MD1-MD3 the duplicate guard.
 
 using System;
 using System.Collections.Generic;
@@ -104,6 +104,17 @@ namespace BuildingBatch
             double v = 185, p = 100, c = MergeRules.Combine(185, 100);
             check(Math.Abs(c * c - (v * v + p * p)) <= 2 * c + 1, "MA4", "a^2 = V^2 + P^2 within rounding: own tourism kept, the share added");
             check(MergeRules.IsOwnSlice(9, 9) && !MergeRules.IsOwnSlice(10, 9), "MA5", "V is read only on the building's own slice");
+            check(MergeRules.ShareTerm(100) == 1.0 && MergeRules.ShareTerm(0) == 0.0 && MergeRules.ShareTerm(-3) == 0.0, "MA6",
+                  "the share term is P^2 / 10^4, 0 for no write");
+            // MA7: a merged park (V 185, P 100) among two other providers (300, 50): the resort's share is P^2 / sum(a^2) of the city's
+            // providers with a = its own write, and the share term is what the write added to its term, within rounding.
+            int a = MergeRules.Combine(185, 100);
+            double sAll = (a * (double)a + 300.0 * 300.0 + 50.0 * 50.0) / 10000.0;
+            double sharePct = 100.0 * MergeRules.ShareTerm(100) / sAll;
+            double expected = 100.0 * 100.0 * 100.0 / (a * (double)a + 300.0 * 300.0 + 50.0 * 50.0);
+            double added = (a * (double)a - 185.0 * 185.0) / 10000.0;
+            check(Math.Abs(sharePct - expected) < 1e-9 && Math.Abs(added - MergeRules.ShareTerm(100)) <= (2.0 * a + 1.0) / 10000.0, "MA7",
+                  "a merged park's share = P^2 / sum(a^2) (" + sharePct.ToString("0.###") + " %); own tourism V stays the city's");
 
             // MT: states.
             check(MergeRules.StateOf(false, true, false, false, true, true) == MergeRules.State.Unknown, "MT1", "unknown before the first recompute");

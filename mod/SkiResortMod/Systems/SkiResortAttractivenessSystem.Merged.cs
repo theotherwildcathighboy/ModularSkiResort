@@ -63,6 +63,14 @@ namespace SkiResortMod.Systems
             return m_MergedViews.TryGetValue(building, out view);
         }
 
+        /// <summary>The area's share P this recompute writes into a merged building (its provider becomes round(sqrt(V^2 + P^2)));
+        /// false when the building is not merged or gets no write (not counted).</summary>
+        internal bool TryGetMergedShare(Entity building, out int share)
+        {
+            share = 0;
+            return m_MergedTier.ContainsKey(building) && m_Cur.WriteValues.TryGetValue(building, out share);
+        }
+
         /// <summary>SkiMergeSystem after a merge, an unmerge or a tier change: recompute on the next tick (or now while paused).</summary>
         internal void RequestMergedRecompute()
         {

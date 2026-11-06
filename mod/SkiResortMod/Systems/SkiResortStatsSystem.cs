@@ -1282,7 +1282,8 @@ namespace SkiResortMod.Systems
                     m_LodgeActive.Add(lodge);
             }
             // Merged buildings listed in an area join the lodge list of their sign (an Inactive one is listed, not active). Their tier
-            // counts like ours (LodgeIdentity); their own staff, upkeep and tourism stay the city's (the jobs, cost and share sums skip them).
+            // counts like ours (LodgeIdentity); their own staff, upkeep and tourism stay the city's (the jobs and cost sums skip them;
+            // the share adds only the area's write P, MergeRules.ShareTerm).
             m_MergedTierOf.Clear();
             m_Attractiveness.CopyMergedViews(m_MergedViews);
             for (int i = 0; i < m_MergedViews.Count; i++)
@@ -2154,8 +2155,19 @@ namespace SkiResortMod.Systems
                 for (int k = 0; k < m_LodgeEntities.Count; k++)
                 {
                     Entity lodge = m_LodgeEntities[k];
-                    if (!m_LodgeResort.TryGetValue(lodge, out int lr) || lr != s || m_MergedTierOf.ContainsKey(lodge))
-                        continue;   // a merged building's provider holds its own tourism too: not the area's share
+                    if (!m_LodgeResort.TryGetValue(lodge, out int lr) || lr != s)
+                        continue;
+                    if (m_MergedTierOf.ContainsKey(lodge))
+                    {
+                        // A merged building's provider is round(sqrt(V^2 + P^2)): only P, the area's write, is the resort's share;
+                        // its own V stays the city's (MergeRules.ShareTerm). Counted only while the provider exists (it is in S_all).
+                        if (m_ProviderOf.ContainsKey(lodge) && m_Attractiveness.TryGetMergedShare(lodge, out int mp) && mp > 0)
+                        {
+                            sRes += MergeRules.ShareTerm(mp);
+                            anyProvider = true;
+                        }
+                        continue;
+                    }
                     if (m_ProviderOf.TryGetValue(lodge, out int la))
                     {
                         sRes += SkiResortTourism.Term(la);

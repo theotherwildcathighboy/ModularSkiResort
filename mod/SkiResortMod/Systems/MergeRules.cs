@@ -222,6 +222,14 @@ namespace SkiResortMod.Systems
             return c >= int.MaxValue ? int.MaxValue : (int)c;
         }
 
+        /// <summary>The resort's part of a merged building's tourism term: P^2 / 10^4 (the game's a^2 / 10^4 per provider,
+        /// TourismSystem.cs:101, with a^2 = V^2 + P^2 by Combine). Its own V stays the city's. 0 for no write or a negative P.</summary>
+        public static double ShareTerm(int share)
+        {
+            double p = Math.Max(0, share);
+            return p * p / 10000.0;
+        }
+
         /// <summary>The tick's update slice is the building's own: vanilla AttractionSystem has just written its V
         /// (SimulationUtils.GetUpdateFrameWithInterval(frame, 16, 16) against UpdateFrame.m_Index, AttractionSystem.cs:236).</summary>
         public static bool IsOwnSlice(uint slice, uint ownFrame)
