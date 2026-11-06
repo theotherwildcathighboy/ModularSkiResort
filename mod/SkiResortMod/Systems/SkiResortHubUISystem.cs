@@ -391,7 +391,7 @@ namespace SkiResortMod.Systems
             }
         }
 
-        /// <summary>`city` dedup: all fifteen fields (typed Equals per field — no boxing; floats with .Equals; the
+        /// <summary>`city` dedup: all fourteen fields (typed Equals per field — no boxing; floats with .Equals; the
         /// string with ==).</summary>
         private sealed class CityStatsComparer : EqualityComparer<CityStats>
         {
